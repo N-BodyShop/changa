@@ -27,8 +27,10 @@ public:
 	unsigned int requestingPieceIndex;
 	OrientedBox<double> boundingBox;
 	unsigned int numParticlesInBucket;
+	double *softs;
 	Vector3D<double>* positions;
 	Vector3D<double>* accelerations;
+	double *potentials;
 	unsigned int numAdditionalRequests;
 	int finished;
 	
@@ -36,10 +38,14 @@ public:
 	    numParticlesInBucket(bucketSize), numAdditionalRequests(0),
 	    finished(0) {
 		if(numParticlesInBucket) {
+			softs = new double[numParticlesInBucket];
 			positions = new Vector3D<double>[numParticlesInBucket];
 			accelerations = new Vector3D<double>[numParticlesInBucket];
-		} else
+			potentials = new double[numParticlesInBucket];
+		    } else {
 			positions = accelerations = 0;
+			softs = potentials = 0;
+			}
 	}
 	
 	BucketGravityRequest(const BucketGravityRequest& req) {
@@ -50,14 +56,20 @@ public:
 		numParticlesInBucket = req.numParticlesInBucket;
 		finished = req.finished;
 		if(numParticlesInBucket) {
+			softs = new double[numParticlesInBucket];
 			positions = new Vector3D<double>[numParticlesInBucket];
 			accelerations = new Vector3D<double>[numParticlesInBucket];
+			potentials = new double[numParticlesInBucket];
 			for(unsigned int i = 0; i < numParticlesInBucket; ++i) {
+				softs[i] = req.softs[i];
 				positions[i] = req.positions[i];
 				accelerations[i] = req.accelerations[i];
+				potentials[i] = req.potentials[i];
 			}
-		} else
+		    } else {
 			positions = accelerations = 0;
+			softs = potentials = 0;
+			}
 		numAdditionalRequests = req.numAdditionalRequests;
 	}
 	
@@ -71,26 +83,36 @@ public:
 		delete[] positions;
 		delete[] accelerations;
 		if(numParticlesInBucket) {
+			softs = new double[numParticlesInBucket];
 			positions = new Vector3D<double>[numParticlesInBucket];
 			accelerations = new Vector3D<double>[numParticlesInBucket];
+			potentials = new double[numParticlesInBucket];
 			for(unsigned int i = 0; i < numParticlesInBucket; ++i) {
+				softs[i] = req.softs[i];
 				positions[i] = req.positions[i];
 				accelerations[i] = req.accelerations[i];
+				potentials[i] = req.potentials[i];
 			}
-		} else
+		    } else {
 			positions = accelerations = 0;
+			softs = potentials = 0;
+			}
 		numAdditionalRequests = req.numAdditionalRequests;
 		return *this;
 	}
 	
 	~BucketGravityRequest() {
+		delete[] softs;
 		delete[] positions;
 		delete[] accelerations;
+		delete[] potentials;
 	}
 	
 	void merge(const BucketGravityRequest& req) {
-		for(unsigned int i = 0; i < numParticlesInBucket; ++i)
-			accelerations[i] += req.accelerations[i];
+	    for(unsigned int i = 0; i < numParticlesInBucket; ++i) {
+		    accelerations[i] += req.accelerations[i];
+		    potentials[i] += req.potentials[i];
+	    }
 	}
 	
 	void pup(PUP::er &p) {
@@ -101,13 +123,17 @@ public:
 		p | numParticlesInBucket;
 		if(p.isUnpacking()) {
 			if(numParticlesInBucket) {
+				softs = new double[numParticlesInBucket];
 				positions = new Vector3D<double>[numParticlesInBucket];
 				accelerations = new Vector3D<double>[numParticlesInBucket];
+				potentials = new double[numParticlesInBucket];
 			}
 		}
 		for(unsigned int i = 0; i < numParticlesInBucket; ++i) {
+			p | softs[i];
 			p | positions[i];
 			p | accelerations[i];
+			p | potentials[i];
 		}	
 		p | numAdditionalRequests;
 	}	
@@ -118,8 +144,10 @@ public:
 	SFC::Key startingNode;
 	unsigned int identifier;
 	unsigned int requestingPieceIndex;
+	double soft;
 	Vector3D<double> position;
 	Vector3D<double> acceleration;
+	double potential;
 	unsigned int numAdditionalRequests;
 	unsigned int numCellInteractions;
 	unsigned int numParticleInteractions;
@@ -130,6 +158,7 @@ public:
 	
 	void merge(const GravityRequest& req) {
 		acceleration += req.acceleration;
+		potential += req.potential;
 		numCellInteractions += req.numCellInteractions;
 		numParticleInteractions += req.numParticleInteractions;
 		numMACChecks += req.numMACChecks;
@@ -140,8 +169,10 @@ public:
 		p | startingNode;
 		p | identifier;
 		p | requestingPieceIndex;
+		p | soft;
 		p | position;
 		p | acceleration;
+		p | potential;
 		p | numAdditionalRequests;
 		p | numCellInteractions;
 		p | numParticleInteractions;
@@ -155,9 +186,11 @@ public:
 
 	SFC::Key key;
 	double mass;
+	double soft;
 	Vector3D<double> position;
 	Vector3D<double> acceleration;
 	Vector3D<double> treeAcceleration;
+	double potential;
 	unsigned int numCellInteractions;
 	unsigned int numParticleInteractions;
 	unsigned int numMACChecks;
@@ -172,6 +205,7 @@ public:
 	
 	void update(const GravityRequest& req) {
 		treeAcceleration += req.acceleration;
+		potential += req.potential;
 		numCellInteractions += req.numCellInteractions;
 		numParticleInteractions += req.numParticleInteractions;
 		numMACChecks += req.numMACChecks;
@@ -182,6 +216,7 @@ public:
 	    {
 		p | position;
 		p | mass;
+		p | soft;
 		}
 	
 };

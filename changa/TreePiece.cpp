@@ -12,6 +12,7 @@
 #include "CacheManager.h"
 
 #include "Space.h"
+#include "gravity.h"
 
 using namespace std;
 using namespace SFC;
@@ -85,6 +86,9 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
 	xdr_destroy(&xdrs);
 	fclose(infile);
 	
+	for(u_int64_t i = 0; i < myNumParticles; ++i)
+	    myParticles[i + 1].soft = 0.0;
+
 	infile = fopen((basefilename + ".pos").c_str(), "rb");
 	if(!infile) {
 		cerr << "TreePiece " << thisIndex << ": Couldn't open positions file, aborting" << endl;
@@ -493,28 +497,122 @@ void TreePiece::calculateGravityDirect(const CkCallback& cb) {
 	
 	for(u_int64_t i = 1; i <= myNumParticles; ++i) {
 		req.identifier = i;
+		req.soft = myParticles[i].soft;
 		req.position = myParticles[i].position;
 		myParticles[i].acceleration = 0;
+		myParticles[i].potential = 0;
 		pieces.fillRequestDirect(req);
 	}
 	
 	started = true;
 }
 
+inline void
+partForce(GravityParticle *part, GravityRequest& req)
+{
+    Vector3D<double> r;
+    double rsq;
+    double twoh, a, b;
+
+    r = part->position - req.position;
+    rsq = r.lengthSquared();
+    twoh = part->soft + req.soft;
+    if(rsq != 0) {
+	SPLINE(rsq, twoh, a, b);
+	req.acceleration += part->mass * r * b;
+	req.potential -= part->mass * a;
+	}
+}
+
+inline void
+partBucketForce(GravityParticle *part, BucketGravityRequest& req)
+{
+    Vector3D<double> r;
+    double rsq;
+    double twoh, a, b;
+
+    for(unsigned int j = 0; j < req.numParticlesInBucket; ++j) {
+	r = part->position - req.positions[j];
+	rsq = r.lengthSquared();
+	twoh = part->soft + req.softs[j];
+	if(rsq != 0) {
+	    SPLINE(rsq, twoh, a, b);
+	    req.accelerations[j] += part->mass * r * b;
+	    req.potentials[j] -= part->mass * a;
+	    }
+	}
+}
+
+inline void
+nodeForce(GravityTreeNode *node, GravityRequest& req)
+{
+    Vector3D<double> r;
+    double rsq;
+    double twoh, a, b, c, d;
+    MultipoleMoments m = node->moments;
+    
+    Vector3D<double> cm(m.cm);
+
+	r = req.position - cm;
+	rsq = r.lengthSquared();
+	twoh = m.soft + req.soft;
+	if(rsq != 0) {
+	    double dir = 1.0/sqrt(rsq);
+	    SPLINEQ(dir, rsq, twoh, a, b, c, d);
+	    double qirx = m.xx*r[0] + m.xy*r[1] + m.xz*r[2];
+	    double qiry = m.xy*r[0] + m.yy*r[1] + m.yz*r[2];
+	    double qirz = m.xz*r[0] + m.yz*r[1] + m.zz*r[2];
+	    double qir = 0.5*(qirx*r[0] + qiry*r[1] + qirz*r[2]);
+	    double tr = 0.5*(m.xx + m.yy + m.zz);
+	    double qir3 = b*m.totalMass + d*qir - c*tr;
+	    req.potential -= m.totalMass * a + c*qir - b*tr;
+	    req.acceleration[0] -= qir3*r[0] - c*qirx;
+	    req.acceleration[1] -= qir3*r[1] - c*qiry;
+	    req.acceleration[2] -= qir3*r[2] - c*qirz;
+	    }
+}
+
+inline void
+nodeBucketForce(GravityTreeNode *node, BucketGravityRequest& req)
+{
+    Vector3D<double> r;
+    double rsq;
+    double twoh, a, b, c, d;
+    MultipoleMoments m = node->moments;
+    
+    Vector3D<double> cm(m.cm);
+
+    for(unsigned int j = 0; j < req.numParticlesInBucket; ++j) {
+	r = req.positions[j] - cm;
+	rsq = r.lengthSquared();
+	twoh = m.soft + req.softs[j];
+	if(rsq != 0) {
+	    double dir = 1.0/sqrt(rsq);
+	    SPLINEQ(dir, rsq, twoh, a, b, c, d);
+	    double qirx = m.xx*r[0] + m.xy*r[1] + m.xz*r[2];
+	    double qiry = m.xy*r[0] + m.yy*r[1] + m.yz*r[2];
+	    double qirz = m.xz*r[0] + m.yz*r[1] + m.zz*r[2];
+	    double qir = 0.5*(qirx*r[0] + qiry*r[1] + qirz*r[2]);
+	    double tr = 0.5*(m.xx + m.yy + m.zz);
+	    double qir3 = b*m.totalMass + d*qir - c*tr;
+	    req.potentials[j] -= m.totalMass * a + c*qir - b*tr;
+	    req.accelerations[j][0] -= qir3*r[0] - c*qirx;
+	    req.accelerations[j][1] -= qir3*r[1] - c*qiry;
+	    req.accelerations[j][2] -= qir3*r[2] - c*qirz;
+	    }
+	}
+}
+
 void TreePiece::fillRequestDirect(GravityRequest req) {
-	Vector3D<double> r;
-	double rsq;
 	for(u_int64_t i = 1; i <= myNumParticles; ++i) {
-		r = myParticles[i].position - req.position;
-		rsq = r.lengthSquared();
-		if(rsq != 0)
-			req.acceleration += myParticles[i].mass * r / rsq / sqrt(rsq);
+	    partForce(&myParticles[i], req);
 	}
 	streamingProxy[req.requestingPieceIndex].receiveGravityDirect(req);
 }
 
 void TreePiece::receiveGravityDirect(const GravityRequest& req) {
 	myParticles[req.identifier].acceleration += req.acceleration;
+	myParticles[req.identifier].potential += req.potential;
 	if(started && --myNumParticlesPending == 0) {
 		started = false;
 		contribute(0, 0, CkReduction::concat, callback);
@@ -528,6 +626,7 @@ void TreePiece::startNextParticle() {
 	req.startingNode = root->lookupKey();
 	req.requestingPieceIndex = thisIndex;
 	req.identifier = nextParticle;
+	req.soft = myParticles[nextParticle].soft;
 	req.position = myParticles[nextParticle].position;
 	myParticles[nextParticle].treeAcceleration = 0;
 	streamingProxy[thisIndex].fillRequestTree(req);
@@ -565,6 +664,7 @@ void TreePiece::fillRequestTree(GravityRequest req) {
 	//make the request ready to go in the queue
 	req.numAdditionalRequests = 1;
 	req.acceleration = 0;
+	req.potential = 0;
 	req.numCellInteractions = 0;
 	req.numParticleInteractions = 0;
 	req.numMACChecks = 0;
@@ -592,22 +692,18 @@ void TreePiece::fillRequestTree(GravityRequest req) {
 void TreePiece::walkTree(GravityTreeNode* node, GravityRequest& req) {
 	req.numMACChecks++;
 	myNumMACChecks++;
-	Vector3D<double> r = node->moments.cm / node->moments.totalMass - req.position;
+	Vector3D<double> r = node->moments.cm - req.position;
 	double rsq = r.lengthSquared();
 	double r_open = opening_geometry_factor * node->moments.radius / theta;
 	if(rsq > r_open * r_open) {
 		req.numCellInteractions++;
 		myNumCellInteractions++;
-		req.acceleration += node->moments.totalMass * r / rsq / sqrt(rsq);
-		rsq = req.acceleration.length();
+		nodeForce(node, req);
 	} else if(node->getType() == Bucket) {
 		req.numParticleInteractions += node->endParticle - node->beginParticle;
 		myNumParticleInteractions += node->endParticle - node->beginParticle;
 		for(unsigned int i = node->beginParticle; i < node->endParticle; ++i) {
-			r = myParticles[i].position - req.position;
-			rsq = r.lengthSquared();
-			if(rsq != 0)
-				req.acceleration += myParticles[i].mass * r / rsq / sqrt(rsq);
+		    partForce(&myParticles[i], req);
 		}
 	} else if(node->getType() == NonLocal) {
 		unfilledRequests[mySerialNumber].numAdditionalRequests++;
@@ -667,6 +763,7 @@ void TreePiece::startNextBucket() {
 	req.identifier = node->beginParticle;
 	req.requestingPieceIndex = thisIndex;
 	for(unsigned int i = node->beginParticle; i < node->endParticle; ++i) {
+		req.softs[i - node->beginParticle] = myParticles[i].soft;
 		req.positions[i - node->beginParticle] = myParticles[i].position;
 		req.boundingBox.grow(myParticles[i].position);
 		myParticles[i].treeAcceleration = 0;
@@ -687,7 +784,9 @@ void TreePiece::startNextBucket() {
 	req.identifier = currentBucket;
 	req.requestingPieceIndex = thisIndex;
 	for(unsigned int i = node->beginParticle; i < node->endParticle; ++i) {
+		req.softs[i - node->beginParticle] = myParticles[i].soft;
 		req.positions[i - node->beginParticle] = myParticles[i].position;
+		req.potentials[i - node->beginParticle] = 0;
 		req.boundingBox.grow(myParticles[i].position);
 		myParticles[i].treeAcceleration = 0;
 	}
@@ -706,9 +805,12 @@ void TreePiece::finishBucket(int iBucket) {
     if(req->finished && req->numAdditionalRequests == 0) {
 	myNumParticlesPending -= req->numParticlesInBucket;
 	int iStart = bucketList[iBucket]->beginParticle;
-	for(unsigned int i = 0; i < req->numParticlesInBucket; ++i)
+	for(unsigned int i = 0; i < req->numParticlesInBucket; ++i) {
 	    myParticles[iStart + i].treeAcceleration
 		+= req->accelerations[i];
+	    myParticles[iStart + i].potential
+		+= req->potentials[i];
+	    }
 	if(started && myNumParticlesPending == 0) {
 	    started = false;
 	    contribute(0, 0, CkReduction::concat, callback);
@@ -762,8 +864,10 @@ void TreePiece::fillRequestBucketTree(BucketGravityRequest req) {
 	
 	//make the request ready to go in the queue
 	req.numAdditionalRequests = 1;
-	for(unsigned int i = 0; i < req.numParticlesInBucket; ++i)
-		req.accelerations[i] = 0;
+	for(unsigned int i = 0; i < req.numParticlesInBucket; ++i) {
+	    req.accelerations[i] = 0;
+	    req.potentials[i] = 0;
+	    }
 	
 	//enter the requests into the queue
 	unfilledBucketRequests[mySerialNumber] = req;
@@ -789,26 +893,17 @@ void TreePiece::fillRequestBucketTree(BucketGravityRequest req) {
  */
 void TreePiece::walkBucketTree(GravityTreeNode* node, BucketGravityRequest& req) {
 	myNumMACChecks++;
-	Vector3D<double> cm(node->moments.cm / node->moments.totalMass);
+	Vector3D<double> cm(node->moments.cm);
 	Vector3D<double> r;
 	double rsq;
 	Sphere<double> s(cm, opening_geometry_factor * node->moments.radius / theta);
 	if(!Space::intersect(req.boundingBox, s)) {
 		myNumCellInteractions += req.numParticlesInBucket;
-		for(unsigned int i = 0; i < req.numParticlesInBucket; ++i) {
-			r = cm - req.positions[i];
-			rsq = r.lengthSquared();
-			req.accelerations[i] += node->moments.totalMass * r / rsq / sqrt(rsq);
-		}
+		nodeBucketForce(node, req);
 	} else if(node->getType() == Bucket) {
 		myNumParticleInteractions += req.numParticlesInBucket * (node->beginParticle - node->endParticle);
 		for(unsigned int i = node->beginParticle; i < node->endParticle; ++i) {
-			for(unsigned int j = 0; j < req.numParticlesInBucket; ++j) {
-				r = myParticles[i].position - req.positions[j];
-				rsq = r.lengthSquared();
-				if(rsq != 0)
-					req.accelerations[j] += myParticles[i].mass * r / rsq / sqrt(rsq);
-			}
+		    partBucketForce(&myParticles[i], req);
 		}
 	} else if(node->getType() == NonLocal) {
 		unfilledBucketRequests[mySerialNumber].numAdditionalRequests++;
@@ -832,26 +927,17 @@ void TreePiece::walkBucketTree(GravityTreeNode* node, BucketGravityRequest& req)
  */
 void TreePiece::walkBucketTree(GravityTreeNode* node, BucketGravityRequest& req) {
 	myNumMACChecks++;
-	Vector3D<double> cm(node->moments.cm / node->moments.totalMass);
+	Vector3D<double> cm(node->moments.cm);
 	Vector3D<double> r;
-	double rsq;
 	Sphere<double> s(cm, opening_geometry_factor * node->moments.radius / theta);
 	if(!Space::intersect(req.boundingBox, s)) {
 		myNumCellInteractions += req.numParticlesInBucket;
-		for(unsigned int i = 0; i < req.numParticlesInBucket; ++i) {
-			r = cm - req.positions[i];
-			rsq = r.lengthSquared();
-			req.accelerations[i] += node->moments.totalMass * r / rsq / sqrt(rsq);
-		}
+		nodeBucketForce(node, req);
+		
 	} else if(node->getType() == Bucket) {
 		myNumParticleInteractions += req.numParticlesInBucket * (node->beginParticle - node->endParticle);
 		for(unsigned int i = node->beginParticle; i < node->endParticle; ++i) {
-			for(unsigned int j = 0; j < req.numParticlesInBucket; ++j) {
-				r = myParticles[i].position - req.positions[j];
-				rsq = r.lengthSquared();
-				if(rsq != 0)
-					req.accelerations[j] += myParticles[i].mass * r / rsq / sqrt(rsq);
-			}
+		    partBucketForce(&myParticles[i], req);
 		}
 	} else if(node->getType() == NonLocal) {
 		Key lookupKey = dynamic_cast<SFCTreeNode *>(node)->lookupKey();
@@ -877,18 +963,13 @@ void partBucketForce(GravityParticle *part, BucketGravityRequest& req);
 void TreePiece::cachedWalkBucketTree(GravityTreeNode* node, BucketGravityRequest& req) {
 	myNumMACChecks++;
 	Vector3D<double> r;
-	double rsq;
-	Vector3D<double> cm(node->moments.cm / node->moments.totalMass);
+	Vector3D<double> cm(node->moments.cm);
 	Sphere<double> s(cm, opening_geometry_factor * node->moments.radius / theta);
 	assert(node->getType() != Invalid);
 	
 	if(!Space::intersect(req.boundingBox, s)) {
 		myNumCellInteractions += req.numParticlesInBucket;
-		for(unsigned int i = 0; i < req.numParticlesInBucket; ++i) {
-			r = cm - req.positions[i];
-			rsq = r.lengthSquared();
-			req.accelerations[i] += node->moments.totalMass * r / rsq / sqrt(rsq);
-		}
+		nodeBucketForce(node, req);
 	} else if(node->getType() == Bucket) {
 		myNumParticleInteractions += req.numParticlesInBucket * (node->beginParticle - node->endParticle);
 		/*
@@ -944,20 +1025,6 @@ void TreePiece::cachedWalkBucketTree(GravityTreeNode* node, BucketGravityRequest
 	}
 }
 
-inline void
-partBucketForce(GravityParticle *part, BucketGravityRequest& req)
-{
-    Vector3D<double> r;
-    double rsq;
-
-    for(unsigned int j = 0; j < req.numParticlesInBucket; ++j) {
-	r = part->position - req.positions[j];
-	rsq = r.lengthSquared();
-	if(rsq != 0)
-	    req.accelerations[j] += part->mass * r / rsq / sqrt(rsq);
-	}
-}
-
 SFCTreeNode* TreePiece::requestNode(int remoteIndex, Key lookupKey,
 				    BucketGravityRequest& req)
 {
@@ -972,6 +1039,7 @@ SFCTreeNode* TreePiece::requestNode(int remoteIndex, Key lookupKey,
 	SFCTreeNode *res=localCache->requestNode(thisIndex,remoteIndex,lookupKey,&req);
 	if(!res){
 	    	req.numAdditionalRequests++;
+		myNumProxyCalls++;
 	}	
 	return res;
     }else{	
@@ -1155,8 +1223,11 @@ void TreePiece::receiveGravityBucketTree(const BucketGravityRequest& req) {
 		if((int) request.requestingPieceIndex == thisIndex) {
 			myNumParticlesPending -= request.numParticlesInBucket;
 			//this request originated here, it's for one of my particles
-			for(unsigned int i = 0; i < request.numParticlesInBucket; ++i)
+			for(unsigned int i = 0; i < request.numParticlesInBucket; ++i) {
 				myParticles[request.identifier + i].treeAcceleration += request.accelerations[i];
+			    
+				myParticles[request.identifier + i].potential += request.potentials[i];
+			    }
 		} else {
 			streamingProxy[request.requestingPieceIndex].receiveGravityBucketTree(request);
 			myNumProxyCallsBack++;
@@ -1569,7 +1640,7 @@ void printTree(SFCTreeNode* node, ostream& os) {
 	
 	string nodeID = keyBits(node->key, node->level);
 	os << "\tnode [color=\"" << getColor(node) << "\"]\n";
-	//os << "\t\"" << nodeID << "\" [label=\"" << makeLabel(node) << "\\nCM: " << (node->moments.cm / node->moments.totalMass) << "\\nM: " << node->moments.totalMass << "\\nN_p: " << (node->endParticle - node->beginParticle) << "\\nOwners: " << node->numOwners << "\"]\n";
+	//os << "\t\"" << nodeID << "\" [label=\"" << makeLabel(node) << "\\nCM: " << (node->moments.cm) << "\\nM: " << node->moments.totalMass << "\\nN_p: " << (node->endParticle - node->beginParticle) << "\\nOwners: " << node->numOwners << "\"]\n";
 	//os << "\t\"" << nodeID << "\" [label=\"" << makeLabel(node) << "\\nLocal N: " << (node->endParticle - node->beginParticle) << "\\nOwners: " << node->numOwners << "\"]\n";
 	os << "\t\"" << nodeID << "\" [label=\"" << keyBits(node->key, node->level) << "\\n";
 	switch(node->getType()) {
