@@ -108,7 +108,11 @@ public:
 		p | remoteIndex;
 		p | key;
 		p | level;
-		}
+		p | numOwners;
+		p | boundingBox;
+		// the parent and left and right child pointers are fixed by the rebuildSFCTree
+		// method in TreePiece.cpp
+	   }
 };
 
 } //close namespace Tree

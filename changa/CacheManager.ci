@@ -3,9 +3,9 @@ module CacheManager {
 
 	group CacheManager {
 		entry CacheManager();
-		entry void recvNodes(Key key,int from,CacheNode node_array);
+		entry void recvNodes(Key key,int from,CacheNode &node);
 		entry void recvNodes(int count,Key keys[count],CacheNode nodes[count],int );
-		entry void cacheSync();
+		entry void cacheSync(unsigned int );
 		entry void recvParticles(Key key,GravityParticle part[num],int num,int from);
 	};
 	

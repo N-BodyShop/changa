@@ -1,9 +1,9 @@
 STRUCTURES_PATH = ../structures
-CXXFLAGS +=   -Wall -I$(STRUCTURES_PATH) -I../GenericTree  -g -O3 #-I../CacheManager
-LDFLAGS += -language charm++ -module commlib -tracemode projections -memory paranoid 
+CXXFLAGS +=   -Wall -I$(STRUCTURES_PATH) -I../GenericTree -g  #-I../CacheManager
+LDFLAGS += -language charm++ -module commlib -tracemode projections -module GreedyLB -module GreedyCommLB #-memory paranoid 
 LDLIBS += -lpopt $(STRUCTURES_PATH)/SFC.o
 
-CHARMC = $(HOME)/peak/src/charm/bin/charmc
+CHARMC = $(HOME)/installations/checkedout/charm/bin/charmc
 CXX = $(CHARMC)
 CC = $(CXX)
 

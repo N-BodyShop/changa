@@ -16,6 +16,7 @@ int verbosity;
 CProxy_TreePiece treeProxy;
 bool _cache;
 int _cacheLineDepth;
+int numIterations=1;
 
 Main::Main(CkArgMsg* m) {
 	verbosity = 0;
@@ -32,6 +33,7 @@ Main::Main(CkArgMsg* m) {
 		{"bucketSize", 'b', POPT_ARG_INT | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &bucketSize, 0, "the maxiumum number of particles in a bucket", "bucketSize"},
 		{"cache", 'c', POPT_ARG_NONE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &_cache, 1,"should the cache manager be used"},
 		{"cacheLineDepth",'d', POPT_ARG_INT | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT,&_cacheLineDepth,0,"The depth of the cacheLine tree to be fetched ","cache Line Depth"},
+		{"numIterations",'n', POPT_ARG_INT | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT,&numIterations,0,"Number of Iterations of the walk bucket tree algorithm ","numIterations"},
 		POPT_AUTOHELP
 		POPT_TABLEEND
 	};
@@ -106,12 +108,14 @@ void Main::nextStage() {
 	//cerr << "Trees written" << endl;
 	//CkExit();
 	/*
-	if(verbosity)
-		cerr << "Calculating gravity (direct) ..." << endl;
-	startTime = CkWallTimer();
-	pieces.calculateGravityDirect(CkCallbackResumeThread());
-	if(verbosity > 1)
-		cerr << "Main: Calculating gravity took " << (CkWallTimer() - startTime) << " seconds." << endl;
+	for(int i =0; i<numIterations; i++){
+		if(verbosity)
+			cerr << "Calculating gravity (direct) ..." << endl;
+		startTime = CkWallTimer();
+		pieces.calculateGravityDirect(CkCallbackResumeThread());
+		if(verbosity > 1)
+			cerr << "Main: Calculating gravity took " << (CkWallTimer() - startTime) << " seconds." << endl;
+	}
 	*/
 	/*
 	if(verbosity)
@@ -131,12 +135,21 @@ void Main::nextStage() {
 	*/
 	
 	// the cached walk
-	if(verbosity)
-		cerr << "Calculating gravity (tree bucket, theta = " << theta << ") ..." << endl;
-	startTime = CkWallTimer();
-	pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
-	if(verbosity > 1)
-		cerr << "Main: Calculating gravity took " << (CkWallTimer() - startTime) << " seconds." << endl;
+	for(int i =0; i<numIterations; i++){
+		if(verbosity)
+			cerr << "Calculating gravity (tree bucket, theta = " << theta << ") ..." << endl;
+		startTime = CkWallTimer();
+		pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
+		if(verbosity)
+			cerr << "Main: Calculating gravity took " << (CkWallTimer() - startTime) << " seconds." << endl;
+		startTime = CkWallTimer();
+		if(i > 2){
+			pieces.startlb(CkCallbackResumeThread());
+		}
+		if(verbosity){
+			cerr<< "Main: Load Balancing step took "<<(CkWallTimer() - startTime) << " seconds." << endl;
+		}
+	}
 	
 	/*
 	if(verbosity)
@@ -162,9 +175,9 @@ void Main::nextStage() {
 	pieces[0].outputRelativeErrors(Interval<double>(), CkCallbackResumeThread());
 	if(verbosity > 1)
 		cerr << "Main: Outputting took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	*/
-	cerr << "Done." << endl;
 	
+	cerr << "Done." << endl;
+	*/
 	CkExit();
 }
 

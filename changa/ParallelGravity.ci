@@ -54,6 +54,8 @@ mainmodule ParallelGravity {
 		entry void receiveParticles(GravityParticle part[num],int num,
 				BucketGravityRequest& req);
 		    
+		entry void startlb(CkCallback &cb);
+		entry void ResumeFromSync();
 
 		entry void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
 		entry void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, const CkCallback& cb);

@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <vector>
 #include <map>
+#include <set>
 #include "SFC.h"
 #include "GravityTreeNode.h"
 #include "charm++.h"
@@ -107,25 +108,28 @@ private:
 	int totalNodesRequested;
 	
 	int storedNodes;
+	unsigned int iterationNo;
 
 	map<MapKey,ParticleCacheEntry*> particleCacheTable;
 	int storedParticles;
 	bool proxyInitialized; //checks if the streaming proxy has been delegated or not
+	set<MapKey> outStandingRequests;
 	
-	void addNode(Key key,int from,CacheNode node);
+	void addNode(Key key,int from,CacheNode &node);
 	void processRequests(Key key,int from);
+	CacheNode *sendNodeRequest(CacheEntry *e,BucketGravityRequest *);
 
 	public:
 	CacheManager();
 	~CacheManager(){};
 
 	CacheNode *requestNode(int ,int ,Key ,BucketGravityRequest *);
-	void recvNodes(Key ,int ,CacheNode );
+	void recvNodes(Key ,int ,CacheNode &);
 	void recvNodes(int ,Key *,CacheNode *,int );
 	
 	GravityParticle *requestParticles(int ,Key ,int ,int ,int ,BucketGravityRequest *);
 	void recvParticles(Key ,GravityParticle *,int ,int);
-	void cacheSync();
+	void cacheSync(unsigned int );
 
 };
 

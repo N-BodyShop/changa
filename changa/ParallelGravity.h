@@ -7,6 +7,7 @@
 #include <string>
 #include <map>
 #include <vector>
+#include <algorithm>
 
 #include "pup_stl.h"
 #include "ComlibManager.h"
@@ -241,7 +242,7 @@ public:
 	void nextStage();
 };
 
-class TreePiece : public ArrayElement1D {
+class TreePiece : public CBase_TreePiece {
 	unsigned int numTreePieces;
 	CkCallback callback;
 	unsigned int myNumParticles;
@@ -256,6 +257,7 @@ class TreePiece : public ArrayElement1D {
 	OrientedBox<float> boundingBox;
 	FieldHeader fh;
 	bool started;
+	unsigned iterationNo;
 	//TreeStuff::TreeNode* root;
 	SFCTreeNode* root;
 	unsigned int boundaryNodesPending;
@@ -289,6 +291,8 @@ class TreePiece : public ArrayElement1D {
 	pointer to the instance of the local cache
 	*/
 	CacheManager *localCache;
+	int countIntersects;
+	int countHits;
 	
 	SFCTreeNode* lookupLeftChild(SFCTreeNode* node);
 	SFCTreeNode* lookupRightChild(SFCTreeNode* node);
@@ -303,7 +307,9 @@ class TreePiece : public ArrayElement1D {
 	void startNextBucket();
 	void doAllBuckets();
 	void copySFCTreeNode(SFCTreeNode &tmp,SFCTreeNode *node);
-	void prefixCopyNode(SFCTreeNode *node,Key *cacheKeys,SFCTreeNode *cacheNodes,int *count,int depth);
+	void prefixCopyNode(SFCTreeNode *node,Key lookupKey,Key *cacheKeys,SFCTreeNode *cacheNodes,int *count,int depth);
+	void rebuildSFCTree(SFCTreeNode *node,SFCTreeNode *parent,int *);
+	
 public:
 	
 	TreePiece(unsigned int numPieces) : numTreePieces(numPieces), pieces(thisArrayID), streamingProxy(thisArrayID), started(false), root(0) {
@@ -311,9 +317,14 @@ public:
 		if(_cache){	
 			localCache = cacheManagerProxy.ckLocalBranch();
 		}	
+		iterationNo=0;
+		usesAtSync=CmiTrue;
+		countIntersects=0;
 	}
 	
-	TreePiece(CkMigrateMessage* m) { }
+	TreePiece(CkMigrateMessage* m) { 
+		usesAtSync=CmiTrue;
+	}
 	~TreePiece() {
 		delete[] myParticles;
 		delete[] splitters;
@@ -346,6 +357,8 @@ public:
 	void fillRequestNode(int retIndex, Key lookupKey,
 			     BucketGravityRequest& req);
 	void receiveNode(SFCTreeNode node, BucketGravityRequest& req);
+	void lookupNode(Key ,SFCTreeNode *);
+
 	GravityParticle* requestParticle(int remoteIndex, int iPart,
 					 BucketGravityRequest& req);
 	void fillRequestParticle(int retIndex, int iPart,
@@ -360,7 +373,8 @@ public:
 	void receiveParticles(GravityParticle *part,int num,
 				BucketGravityRequest& req);
 			  
-	
+	void startlb(CkCallback &cb);
+	void ResumeFromSync();
 
 	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
 	void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, const CkCallback& cb);
@@ -371,4 +385,6 @@ public:
 	void pup(PUP::er& p);
 };
 
+void printTree(SFCTreeNode* node, ostream& os) ;
+bool compBucket(SFCTreeNode *ln,SFCTreeNode *rn);
 #endif //PARALLELGRAVITY_H
