@@ -723,10 +723,14 @@ void TreePiece::finishBucket(int iBucket) {
 }
 
 #endif
+#define YIELDPERIOD 30
 
 void TreePiece::doAllBuckets(){
 	for(;currentBucket <numBuckets;currentBucket++){
 		startNextBucket();
+		if(currentBucket%YIELDPERIOD == YIELDPERIOD -1 ){
+			CthYield();
+		}	
 	}
 }
 

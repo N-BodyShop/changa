@@ -1,5 +1,5 @@
 STRUCTURES_PATH = ../structures
-CXXFLAGS += -g  -Wall -I$(STRUCTURES_PATH) -I../GenericTree #-O3 #-I../CacheManager
+CXXFLAGS +=   -Wall -I$(STRUCTURES_PATH) -I../GenericTree -O3 #-I../CacheManager
 LDFLAGS += -language charm++ -module commlib -tracemode projections #-memory paranoid 
 LDLIBS += -lpopt $(STRUCTURES_PATH)/SFC.o
 

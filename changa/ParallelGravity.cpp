@@ -101,14 +101,14 @@ void Main::nextStage() {
 	//pieces.report(CkCallbackResumeThread());
 	//cerr << "Trees written" << endl;
 	//CkExit();
-	
+	/*
 	if(verbosity)
 		cerr << "Calculating gravity (direct) ..." << endl;
 	startTime = CkWallTimer();
 	pieces.calculateGravityDirect(CkCallbackResumeThread());
 	if(verbosity > 1)
 		cerr << "Main: Calculating gravity took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	
+	*/
 	/*
 	if(verbosity)
 		cerr << "Outputting accelerations ..." << endl;
@@ -151,14 +151,14 @@ void Main::nextStage() {
 	if(verbosity > 1)
 		cerr << "Main: Outputting took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	*/
-	
+	/*
 	if(verbosity)
 		cerr << "Outputting relative errors ..." << endl;
 	startTime = CkWallTimer();
 	pieces[0].outputRelativeErrors(Interval<double>(), CkCallbackResumeThread());
 	if(verbosity > 1)
 		cerr << "Main: Outputting took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	
+	*/
 	cerr << "Done." << endl;
 	
 	CkExit();
