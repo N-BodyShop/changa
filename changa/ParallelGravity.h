@@ -16,7 +16,6 @@
 #include "SFC.h"
 #include "TreeNode.h"
 #include "Interval.h"
-//#include "CacheManager.h"
 
 using namespace Tree;
 
@@ -187,9 +186,11 @@ public:
 	
 };
 
+#include "CacheManager.h"
 #include "ParallelGravity.decl.h"
 
 extern int verbosity;
+extern bool _cache;
 
 class Main : public Chare {
 	std::string basefilename;
@@ -248,6 +249,10 @@ class TreePiece : public ArrayElement1D {
 	UnfilledRequestsType unfilledRequests;
 	typedef std::map<unsigned int, BucketGravityRequest> UnfilledBucketRequestsType;
 	UnfilledBucketRequestsType unfilledBucketRequests;
+	/**
+	pointer to the instance of the local cache
+	*/
+	CacheManager *localCache;
 	
 	SFCTreeNode* lookupLeftChild(SFCTreeNode* node);
 	SFCTreeNode* lookupRightChild(SFCTreeNode* node);
@@ -259,13 +264,15 @@ class TreePiece : public ArrayElement1D {
 	void walkTree(GravityTreeNode* node, GravityRequest& req);
 	void startNextParticle();
 	void walkBucketTree(GravityTreeNode* node, BucketGravityRequest& req);
-	void cachedWalkBucketTree(GravityTreeNode* node,
-				  BucketGravityRequest& req);
 	void startNextBucket();
+	void doAllBuckets();
 public:
 	
 	TreePiece(unsigned int numPieces) : numTreePieces(numPieces), pieces(thisArrayID), streamingProxy(thisArrayID), started(false), root(0) {
 	    // ComlibDelegateProxy(&streamingProxy);
+		if(_cache){	
+			localCache = cacheManagerProxy.ckLocalBranch();
+		}	
 	}
 	
 	TreePiece(CkMigrateMessage* m) { }
@@ -307,6 +314,14 @@ public:
 				 BucketGravityRequest& req);
 	void receiveParticle(GravityParticle part, BucketGravityRequest& req);
 	void finishBucket(int iBucket);
+	void cachedWalkBucketTree(GravityTreeNode* node,
+				  BucketGravityRequest& req);
+	GravityParticle *requestParticles(Key &key,int remoteIndex,int begin,int end,BucketGravityRequest& req);
+	void fillRequestParticles(Key key,int retIndex, int begin,int end,
+				    BucketGravityRequest& req);
+	void receiveParticles(GravityParticle *part,int num,
+				BucketGravityRequest& req);
+			  
 	
 
 	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);

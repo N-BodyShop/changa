@@ -2,9 +2,11 @@
 
 mainmodule ParallelGravity {
 	
-	//extern module CacheManager;
+	extern module CacheManager;
 	
 	readonly int verbosity;
+	readonly CProxy_TreePiece treeProxy;
+	readonly bool _cache;
 	
 	mainchare Main {
 		entry Main();
@@ -46,7 +48,12 @@ mainmodule ParallelGravity {
 						BucketGravityRequest &req);
 		entry void receiveParticle(GravityParticle part,
 					   BucketGravityRequest &req);
-		
+		entry void fillRequestParticles(Key key,int retIndex, int begin,int end,
+				    BucketGravityRequest& req);
+		entry void receiveParticles(GravityParticle part[num],int num,
+				BucketGravityRequest& req);
+		    
+
 		entry void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
 		entry void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, const CkCallback& cb);
 		entry void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);

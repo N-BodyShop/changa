@@ -8,22 +8,27 @@
 #include "StreamingStrategy.h"
 
 #include "ParallelGravity.h"
+#include "CacheManager.h"
 
 using namespace std;
 
 int verbosity;
+CProxy_TreePiece treeProxy;
+bool _cache;
 
 Main::Main(CkArgMsg* m) {
 	verbosity = 0;
 	theta = 0.7;
 	numTreePieces = CkNumPes();
 	bucketSize = 12;
+	_cache = false;
 	
 	poptOption optionsTable[] = {
 		{"verbose", 'v', POPT_ARG_NONE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, 0, 1, "be verbose about what's going on", "verbosity"},
 		{"theta", 't', POPT_ARG_DOUBLE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &theta, 0, "the opening angle to particle-cell interaction", "opening angle"},
 		{"pieces", 'p', POPT_ARG_INT | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &numTreePieces, 0, "the number of TreePieces to create", "num TreePieces"},
 		{"bucketSize", 'b', POPT_ARG_INT | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &bucketSize, 0, "the maxiumum number of particles in a bucket", "bucketSize"},
+		{"cache", 'c', POPT_ARG_NONE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &_cache, 1,"should the cache manager be used"},
 		POPT_AUTOHELP
 		POPT_TABLEEND
 	};
@@ -40,6 +45,7 @@ Main::Main(CkArgMsg* m) {
 				break;
 		}
 	}
+	cerr<<"cache "<<_cache<<endl;
 	
 	if(rc < -1) {
 		cerr << "Argument error: " << poptBadOption(context, POPT_BADOPTION_NOALIAS) << " : " << poptStrerror(rc) << endl;
@@ -67,8 +73,9 @@ Main::Main(CkArgMsg* m) {
 	//StreamingStrategy* strategy = new StreamingStrategy;
 	//strategy->enableShortArrayMessagePacking();
 	//cinst.setStrategy(strategy);
-	
+	cacheManagerProxy = CProxy_CacheManager::ckNew();
     pieces = CProxy_TreePiece::ckNew(numTreePieces, numTreePieces);
+	treeProxy = pieces;
 	if(verbosity)
 		cerr << "Created " << numTreePieces << " pieces of tree" << endl;
 	
@@ -101,6 +108,7 @@ void Main::nextStage() {
 	pieces.calculateGravityDirect(CkCallbackResumeThread());
 	if(verbosity > 1)
 		cerr << "Main: Calculating gravity took " << (CkWallTimer() - startTime) << " seconds." << endl;
+	
 	/*
 	if(verbosity)
 		cerr << "Outputting accelerations ..." << endl;
@@ -118,6 +126,7 @@ void Main::nextStage() {
 		cerr << "Main: Calculating gravity took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	*/
 	
+	// the cached walk
 	if(verbosity)
 		cerr << "Calculating gravity (tree bucket, theta = " << theta << ") ..." << endl;
 	startTime = CkWallTimer();
@@ -151,11 +160,13 @@ void Main::nextStage() {
 		cerr << "Main: Outputting took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	
 	cerr << "Done." << endl;
+	
 	CkExit();
 }
 
 
 #include "ParallelGravity.def.h"
+#include "CacheManager.def.h"
 
 /*
 #define CK_TEMPLATES_ONLY

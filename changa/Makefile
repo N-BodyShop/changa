@@ -1,9 +1,9 @@
 STRUCTURES_PATH = ../structures
-CXXFLAGS += -g -O3 -Wall -I$(STRUCTURES_PATH) -I../GenericTree #-I../CacheManager
-LDFLAGS += -language charm++ -module commlib #-memory paranoid #-tracemode projections
+CXXFLAGS += -g  -Wall -I$(STRUCTURES_PATH) -I../GenericTree #-O3 #-I../CacheManager
+LDFLAGS += -language charm++ -module commlib -tracemode projections #-memory paranoid 
 LDLIBS += -lpopt $(STRUCTURES_PATH)/SFC.o
 
-CHARMC = $(HOME)/Projects/charm/bin/charmc
+CHARMC = $(HOME)/installations/checkedout/charm/bin/charmc
 CXX = $(CHARMC)
 CC = $(CXX)
 
@@ -11,11 +11,13 @@ TARGET = ParallelGravity
 VERSION = 0.1
 all: $(TARGET)
 
-$(TARGET).o: $(TARGET).decl.h
+$(TARGET).o: $(TARGET).decl.h CacheManager.decl.h
 
-$(TARGET): TreePiece.o
+$(TARGET): TreePiece.o CacheManager.o
 
-TreePiece.o ParallelGravity.o: ParallelGravity.h TreeNode.h
+CacheManager.o: CacheManager.C CacheManager.h CacheManager.decl.h
+
+TreePiece.o ParallelGravity.o: ParallelGravity.h TreeNode.h CacheManager.h
 
 %.decl.h %.def.h : %.ci
 	$(CHARMC) $<

@@ -9,6 +9,7 @@
 //#include "ComlibManager.h"
 
 #include "ParallelGravity.h"
+#include "CacheManager.h"
 
 #include "Space.h"
 
@@ -218,8 +219,13 @@ inline SFCTreeNode* TreePiece::lookupLeftChild(SFCTreeNode* node) {
 	child->setType(NonLocal);
 	tempNode.key = node->key;
 	tempNode.level = node->level + 1;
-	if(!nodeOwnership(&tempNode, &child->remoteIndex, &child->numOwners))
+	if(!nodeOwnership(&tempNode, &child->remoteIndex, &child->numOwners)){
 		cerr << "This is surprising, but may get taken care of." << endl;
+		node->leftChild=NULL;
+		nodeLookup.erase(child->lookupKey());
+		delete child;
+		return NULL;
+	}	
 	return child;
 }
 
@@ -229,8 +235,13 @@ inline SFCTreeNode* TreePiece::lookupRightChild(SFCTreeNode* node) {
 	child->setType(NonLocal);
 	tempNode.key = node->rightChildKey();
 	tempNode.level = node->level + 1;
-	if(!nodeOwnership(&tempNode, &child->remoteIndex, &child->numOwners))
+	if(!nodeOwnership(&tempNode, &child->remoteIndex, &child->numOwners)){
 		cerr << "This is surprising, but may get taken care of." << endl;
+		node->rightChild=NULL;
+		nodeLookup.erase(child->lookupKey());
+		delete child;
+		return NULL;
+	}	
 	return child;
 }
 
@@ -396,6 +407,7 @@ void TreePiece::acceptBoundaryNodeContribution(const Key lookupKey, const u_int6
 	if(nodeIter == nodeLookup.end()) {
 		cerr << "TreePiece " << thisIndex << ": Well crap, how the hell did this happen?" << endl;
 		cerr << "Key: " << keyBits(lookupKey, 63) << endl;
+		pieces[thisIndex].acceptBoundaryNodeContribution(lookupKey,numParticles,moments); 
 		cerr << "Zeroth particle: " << myParticles << endl;
 		cerr << "leftBoundary: " << leftBoundary << endl;
 		cerr << "My Left bound : " << keyBits(myParticles[0].key, 63) << endl;
@@ -684,8 +696,8 @@ void TreePiece::startNextBucket() {
 	walkBucketTree(root, bucketReqs[currentBucket]);
 	bucketReqs[currentBucket].finished = 1;
 	finishBucket(currentBucket);
-	currentBucket++;
-	startNextBucket();
+//	currentBucket++;
+//	startNextBucket();
 }
 
 void TreePiece::finishBucket(int iBucket) {
@@ -706,11 +718,17 @@ void TreePiece::finishBucket(int iBucket) {
 	    if(verbosity > 4)
 		cerr << "TreePiece " << thisIndex << ": My particles are done"
 		     << endl;
-	    }
 	}
     }
+}
 
 #endif
+
+void TreePiece::doAllBuckets(){
+	for(;currentBucket <numBuckets;currentBucket++){
+		startNextBucket();
+	}
+}
 
 void TreePiece::calculateGravityBucketTree(double t, const CkCallback& cb) {
 	callback = cb;
@@ -726,7 +744,8 @@ void TreePiece::calculateGravityBucketTree(double t, const CkCallback& cb) {
 	currentBucket = 0;
 	myNumParticlesPending = myNumParticles;
 	started = true;
-	startNextBucket();
+//	startNextBucket();
+	doAllBuckets();
 }
 
 void TreePiece::fillRequestBucketTree(BucketGravityRequest req) {
@@ -833,9 +852,9 @@ void TreePiece::walkBucketTree(GravityTreeNode* node, BucketGravityRequest& req)
 	} else if(node->getType() == NonLocal) {
 		Key lookupKey = dynamic_cast<SFCTreeNode *>(node)->lookupKey();
 		// Use cachedWalkBucketTree() as callback
-		node = requestNode(node->remoteIndex, lookupKey, req);
-		if(node) {
-		    cachedWalkBucketTree(node, req);
+		GravityTreeNode *pnode = requestNode(node->remoteIndex, lookupKey, req);
+		if(pnode) {
+		    cachedWalkBucketTree(pnode, req);
 		}
 	} else {
 		GenericTreeNode** childrenIterator = node->getChildren();
@@ -857,7 +876,8 @@ void TreePiece::cachedWalkBucketTree(GravityTreeNode* node, BucketGravityRequest
 	double rsq;
 	Vector3D<double> cm(node->moments.cm / node->moments.totalMass);
 	Sphere<double> s(cm, opening_geometry_factor * node->moments.radius / theta);
-
+	assert(node->getType() != Invalid);
+	
 	if(!Space::intersect(req.boundingBox, s)) {
 		myNumCellInteractions += req.numParticlesInBucket;
 		for(unsigned int i = 0; i < req.numParticlesInBucket; ++i) {
@@ -867,23 +887,35 @@ void TreePiece::cachedWalkBucketTree(GravityTreeNode* node, BucketGravityRequest
 		}
 	} else if(node->getType() == Bucket) {
 		myNumParticleInteractions += req.numParticlesInBucket * (node->beginParticle - node->endParticle);
-		for(unsigned int i = node->beginParticle; i < node->endParticle; ++i) {
-		    // Use particle cache here with force calculation
-		    // as callback
-		    GravityParticle* part = requestParticle(node->remoteIndex, i, req);
-		    if(part) {
-			partBucketForce(part, req);
+		/*
+		 * Sending the request for all the particles at one go, instead of one by one
+		 */
+		Key lookupKey = dynamic_cast<SFCTreeNode *>(node)->lookupKey();
+		GravityParticle *part = requestParticles(lookupKey,node->remoteIndex,node->beginParticle,node->endParticle,req);
+		if(part != NULL){
+			for(unsigned int i = node->beginParticle; i < node->endParticle; ++i) {
+			    // Use particle cache here with force calculation
+			    // as callback
+		//	    GravityParticle* part = requestParticle(node->remoteIndex, i, req);
+			   // if(part) {
+				partBucketForce(&part[i-node->beginParticle], req);
+			//	}*/
 			}
-		}
+		}	
 	} else if(node->getType() == NonLocal) {
 		Key lookupKey = dynamic_cast<SFCTreeNode *>(node)->lookupKey();
 		// Use cachedWalkBucketTree() as callback
-		node = requestNode(node->remoteIndex, lookupKey, req);
-		if(node) {
-		    cachedWalkBucketTree(node, req);
+		GravityTreeNode *pnode = requestNode(node->remoteIndex, lookupKey, req);
+		if(pnode) {
+		    cachedWalkBucketTree(pnode, req);
 		}
 	    }
 	else {
+//		assert(node->getType() != Empty);
+		if(node->getType() == Empty){
+			return;
+		}
+			
 		// Since this is in the cache, getting at the children
 		// is non-trivial.  Here I assume left and right
 		// nodes.  I'm not sure how to do this generically.
@@ -908,7 +940,7 @@ void TreePiece::cachedWalkBucketTree(GravityTreeNode* node, BucketGravityRequest
 	}
 }
 
-void
+inline void
 partBucketForce(GravityParticle *part, BucketGravityRequest& req)
 {
     Vector3D<double> r;
@@ -920,19 +952,30 @@ partBucketForce(GravityParticle *part, BucketGravityRequest& req)
 	if(rsq != 0)
 	    req.accelerations[j] += part->mass * r / rsq / sqrt(rsq);
 	}
-    }
+}
 
 SFCTreeNode* TreePiece::requestNode(int remoteIndex, Key lookupKey,
 				    BucketGravityRequest& req)
 {
 // Call proxy on remote node
     assert(remoteIndex < (int) numTreePieces);
-    assert(remoteIndex != thisIndex);
-    req.numAdditionalRequests++;
-    streamingProxy[remoteIndex].fillRequestNode(thisIndex, lookupKey, req);
-    myNumProxyCalls++;
-    
-    return NULL; // If we actually had a cache, this might return something
+ 	//in the current form it is possible   
+ //   assert(remoteIndex != thisIndex);
+    if(_cache){	
+	if(localCache == NULL){
+		localCache = cacheManagerProxy.ckLocalBranch();
+	}
+	SFCTreeNode *res=localCache->requestNode(thisIndex,remoteIndex,lookupKey,&req);
+	if(!res){
+	    	req.numAdditionalRequests++;
+	}	
+	return res;
+    }else{	
+	req.numAdditionalRequests++;
+	streamingProxy[remoteIndex].fillRequestNode(thisIndex, lookupKey, req);
+	myNumProxyCalls++;
+	return NULL; // If we actually had a cache, this might return something
+    }
 }
 
 void TreePiece::fillRequestNode(int retIndex, Key lookupKey,
@@ -941,7 +984,6 @@ void TreePiece::fillRequestNode(int retIndex, Key lookupKey,
     SFCTreeNode* node = nodeLookup[lookupKey];
     SFCTreeNode tmp;
     
-    assert(retIndex < (int) numTreePieces);
     if(node != NULL) {
     	tmp.setType(node->getType());
 	tmp.moments = node->moments;
@@ -956,13 +998,21 @@ void TreePiece::fillRequestNode(int retIndex, Key lookupKey,
 	if(tmp.getType() == Boundary || tmp.getType() == Internal
 	   || tmp.getType() == Bucket)
 	    tmp.remoteIndex = thisIndex;
-	streamingProxy[retIndex].receiveNode(tmp, req);
-	}
-    else {	// Handle NULL nodes
-	tmp.setType(Empty);
-	streamingProxy[retIndex].receiveNode(tmp, req);
+	if(_cache){
+		cacheManagerProxy[retIndex].recvNodes(lookupKey,thisIndex,tmp);
+	}else{
+		streamingProxy[retIndex].receiveNode(tmp,req);
 	}
     }
+    else {	// Handle NULL nodes
+	tmp.setType(Empty);
+	if(_cache){
+		cacheManagerProxy[retIndex].recvNodes(lookupKey,thisIndex,tmp);
+	}else{	
+		streamingProxy[retIndex].receiveNode(tmp, req);
+	}	
+    }
+}
 
 void TreePiece::receiveNode(SFCTreeNode node, BucketGravityRequest& req)
 {
@@ -974,8 +1024,13 @@ void TreePiece::receiveNode(SFCTreeNode node, BucketGravityRequest& req)
 	}
     
     finishBucket(req.identifier);
-    }
+}
 
+/*
+	This function is not used anymore. It is extremely inefficient
+	to request each particle in a node individually instead of requesting all
+	the particles in a node as done in requestParticles defined below.
+*/
 GravityParticle* TreePiece::requestParticle(int remoteIndex, int iPart,
 				    BucketGravityRequest& req)
 {
@@ -989,12 +1044,43 @@ GravityParticle* TreePiece::requestParticle(int remoteIndex, int iPart,
     return NULL; // If we actually had a cache, this might return something
 }
 
+GravityParticle *TreePiece::requestParticles(Key &key,int remoteIndex,int begin,int end,BucketGravityRequest& req){
+	if(_cache){
+		if(localCache == NULL){
+			localCache = cacheManagerProxy.ckLocalBranch();
+		}
+		GravityParticle *p = localCache->requestParticles(thisIndex,key,remoteIndex,begin,end,&req);
+		if(!p ){
+			req.numAdditionalRequests += end-begin;
+		}
+		return p;
+	}else{
+		req.numAdditionalRequests += end-begin;
+		myNumProxyCalls++;
+	
+		streamingProxy[remoteIndex].fillRequestParticles(key,thisIndex,begin,end,req);
+		return NULL;
+	}
+};
+
 void TreePiece::fillRequestParticle(int retIndex, int iPart,
 				    BucketGravityRequest& req)
 {
     assert(retIndex < (int) numTreePieces);
     streamingProxy[retIndex].receiveParticle(myParticles[iPart], req);
-    }
+}
+
+void TreePiece::fillRequestParticles(Key key,int retIndex, int begin,int end,
+				    BucketGravityRequest& req)
+{
+	if(_cache){
+		cacheManagerProxy[retIndex].recvParticles(key,&myParticles[begin],end-begin,thisIndex);
+	}else{
+		streamingProxy[retIndex].receiveParticles(&myParticles[begin], end-begin,req);
+	}	
+}
+
+
 
 void TreePiece::receiveParticle(GravityParticle part,
 				BucketGravityRequest& req)
@@ -1002,7 +1088,19 @@ void TreePiece::receiveParticle(GravityParticle part,
     bucketReqs[req.identifier].numAdditionalRequests--;
     partBucketForce(&part, bucketReqs[req.identifier]);
     finishBucket(req.identifier);
-    }
+}
+
+void TreePiece::receiveParticles(GravityParticle *part,int num,
+				BucketGravityRequest& req)
+{
+    bucketReqs[req.identifier].numAdditionalRequests -= num;
+    for(int i=0;i<num;i++){
+    	partBucketForce(&part[i], bucketReqs[req.identifier]);
+    }		
+    finishBucket(req.identifier);
+}
+
+
 
 #endif
 
