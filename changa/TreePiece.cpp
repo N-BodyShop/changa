@@ -700,6 +700,12 @@ void TreePiece::fillRequestBucketTree(BucketGravityRequest req) {
 	mySerialNumber++;
 }
 
+#ifdef SEND_VERSION
+/*
+ * "Send" version of Treewalk.
+ * When off non-local data is need the tree walk is continued on the
+ * appropriate remote node.
+ */
 void TreePiece::walkBucketTree(GravityTreeNode* node, BucketGravityRequest& req) {
 	myNumMACChecks++;
 	Vector3D<double> cm(node->moments.cm / node->moments.totalMass);
@@ -736,8 +742,14 @@ void TreePiece::walkBucketTree(GravityTreeNode* node, BucketGravityRequest& req)
 		}
 	}
 }
+#else
+
 /*
-void TreePiece::cachedWalkBucketTree(GravityTreeNode* node, BucketGravityRequest& req) {
+ * For cached version we have 2 walks: on for on processor and one
+ * that hits the cache.
+ * When remote data is needed we go to the second version.
+ */
+void TreePiece::walkBucketTree(GravityTreeNode* node, BucketGravityRequest& req) {
 	myNumMACChecks++;
 	Vector3D<double> cm(node->moments.cm / node->moments.totalMass);
 	Vector3D<double> r;
@@ -762,10 +774,11 @@ void TreePiece::cachedWalkBucketTree(GravityTreeNode* node, BucketGravityRequest
 		}
 	} else if(node->getType() == NonLocal) {
 		Key lookupKey = dynamic_cast<SFCTreeNode *>(node)->lookupKey();
-		GravityTreeNode* cachedNode = localCache->requestData(thisIndex, lookupKey, node->remoteIndex);
-		if(cachedNode) //hit the cache, keep going
-			cachedWalkBucketTree(cachedNode, req);
-		else { //missed the cache, remember this request
+		// Use cachedWalkBucketTree() as callback
+		node = localCache->requestData(thisIndex, lookupKey, node->remoteIndex);
+		if(node) {
+		    cachedWalkBucketTree(node, req);
+		} else { //missed the cache, remember this request
 			unfilledBucketRequests[mySerialNumber].numAdditionalRequests++;
 			missedRequests.insert(make_pair(lookupKey, mySerialNumber));
 		}
@@ -773,10 +786,53 @@ void TreePiece::cachedWalkBucketTree(GravityTreeNode* node, BucketGravityRequest
 		GenericTreeNode** childrenIterator = node->getChildren();
 		for(unsigned int i = 0; i < node->numChildren(); ++i) {
 			if(childrenIterator[i])
+				walkBucketTree(dynamic_cast<GravityTreeNode *>(childrenIterator[i]), req);
+		}
+	}
+}
+
+/*
+ * Cached version of Tree walk:
+ */
+void TreePiece::cachedWalkBucketTree(GravityTreeNode* node, BucketGravityRequest& req) {
+	myNumMACChecks++;
+	Vector3D<double> r;
+	double rsq;
+	Vector3D<double> cm(node->moments.cm / node->moments.totalMass);
+	Sphere<double> s(cm, opening_geometry_factor * node->moments.radius / theta);
+
+	if(!Space::intersect(req.boundingBox, s)) {
+		myNumCellInteractions += req.numParticlesInBucket;
+		for(unsigned int i = 0; i < req.numParticlesInBucket; ++i) {
+			r = cm - req.positions[i];
+			rsq = r.lengthSquared();
+			req.accelerations[i] += node->moments.totalMass * r / rsq / sqrt(rsq);
+		}
+	} else if(node->getType() == Bucket) {
+	    // Use particle cache here with force calculation as callback
+		myNumParticleInteractions += req.numParticlesInBucket * (node->beginParticle - node->endParticle);
+		for(unsigned int i = node->beginParticle; i < node->endParticle; ++i) {
+			for(unsigned int j = 0; j < req.numParticlesInBucket; ++j) {
+				r = myParticles[i].position - req.positions[j];
+				rsq = r.lengthSquared();
+				if(rsq != 0)
+					req.accelerations[j] += myParticles[i].mass * r / rsq / sqrt(rsq);
+			}
+		}
+	} else if(node->getType() == NonLocal) {
+		assert(0); // Can't happen
+		}
+	} else {
+		GenericTreeNode** childrenIterator = node->getChildren();
+		for(unsigned int i = 0; i < node->numChildren(); ++i) {
+			if(childrenIterator[i])
+		// Use cachedWalkBucketTree() as callback
 				cachedWalkBucketTree(dynamic_cast<GravityTreeNode *>(childrenIterator[i]), req);
 		}
 	}
 }
+
+#endif
 
 void TreePiece::receiveRequestedData(Key requestID, GravityTreeNode* node) {
 	typedef multimap<unsigned int, BucketGravityRequest>::iterator MI;
@@ -785,7 +841,7 @@ void TreePiece::receiveRequestedData(Key requestID, GravityTreeNode* node) {
 		cachedWalkBucketTree(node, *iter);
 	missedRequests.erase(requestID);
 }
-*/
+
 void TreePiece::receiveGravityBucketTree(const BucketGravityRequest& req) {
 	//lookup request
 	UnfilledBucketRequestsType::iterator requestIter = unfilledBucketRequests.find(req.identifier);
