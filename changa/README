@@ -26,5 +26,65 @@ get then get the data from the remote processor.  See "fillRequestNode()" for
 how to get the remote node.  After the data is returned then a callback should
 be invoked (like receiveNode()).
 
- 
+Performance notes:
 
+In PKGRAV, for (say a 4 million particle calculation on 64 processors,
+(from Fabio) see data below) each processor only sends 9000 messages,
+or .15 messages/particle.  Note that Smooth requires 3000
+messages/processor for 1119192 gas particles or .18 messages/(gas)
+particle.
+
+nActive 3706837 nTreeActive 0 nSmoothActive 0
+Domain Decomposition...
+Domain Decomposition complete, Wallclock: 4.293057 secs
+
+Building local trees...
+Tree built, Wallclock: 5.347723 secs
+
+Calculating Gravity, Step:118.000000
+Gravity Calculated, Wallclock: 180.798390 secs, MFlops:8177.1, Flop:1.48e+12
+dPartAvg:282.196731 dCellAvg:1106.547301 dSoftAvg:29.839540
+Walk CPU     Avg:  0.000000 Max:  0.000000 Min:  0.000000
+Interact CPU Avg:131.718437 Max:177.670000 Min: 97.740000
+Ewald CPU    Avg:  0.000000 Max:  0.000000 Min:  0.000000
+Particle Cache Statistics (average per processor):
+    Accesses:        331357
+    Miss Ratio:   0.0107613
+    Min Ratio:    0.0105112
+    Coll Ratio:   0.0522027
+Cell Cache Statistics (average per processor):
+    Accesses:    1.56665e+07
+    Miss Ratio:  0.000385344
+    Min Ratio:   0.000328909
+    Coll Ratio:    0.135159
+
+Building local trees...
+Tree built, Wallclock: 0.797985 secs
+
+Smoothing...
+Smooth Calculated, Wallclock: 8.179158 secs
+
+Particle Cache Statistics (average per processor):
+    Accesses:        190339
+    Miss Ratio:   0.0109001
+    Min Ratio:    0.0104688
+    Coll Ratio:   0.0586038
+Cell Cache Statistics (average per processor):
+    Accesses:        299310
+    Miss Ratio:  0.00424997
+    Min Ratio:    0.0040792
+    Coll Ratio:   0.0654829
+
+ReSmoothing...
+ReSmooth Calculated, Wallclock: 5.332389 secs
+
+Particle Cache Statistics (average per processor):
+    Accesses:        167000
+    Miss Ratio:   0.0111931
+    Min Ratio:     0.011028
+    Coll Ratio:   0.0158585
+Cell Cache Statistics (average per processor):
+    Accesses:        553805
+    Miss Ratio:  0.00237514
+    Min Ratio:   0.00220405
+    Coll Ratio:   0.0790365
