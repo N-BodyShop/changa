@@ -92,7 +92,16 @@ public:
 	}
 	void pup(PUP::er &p) 
 	    {
-		p | ((int) myType);
+		int iType;
+		
+		if(p.isUnpacking()) {
+		    p | iType;
+		    myType = (NodeType) iType;
+		    }
+		else{
+		    iType = (int) myType;
+		    p | iType;
+		    }
 		p | moments;
 		p | beginParticle;
 		p | endParticle;

@@ -265,7 +265,7 @@ class TreePiece : public ArrayElement1D {
 public:
 	
 	TreePiece(unsigned int numPieces) : numTreePieces(numPieces), pieces(thisArrayID), streamingProxy(thisArrayID), started(false), root(0) {
-		//ComlibDelegateProxy(&streamingProxy);
+	    // ComlibDelegateProxy(&streamingProxy);
 	}
 	
 	TreePiece(CkMigrateMessage* m) { }

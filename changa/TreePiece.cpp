@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <algorithm>
 #include <fstream>
+#include <assert.h>
 
 //#include "ComlibManager.h"
 
@@ -43,7 +44,7 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
 	myNumParticles = fh.numParticles / numTreePieces;
 	unsigned int excess = fh.numParticles % numTreePieces;
 	unsigned int startParticle = myNumParticles * thisIndex;
-	if(thisIndex < excess) {
+	if(thisIndex < (int) excess) {
 		myNumParticles++;
 		startParticle += thisIndex;
 	} else
@@ -178,7 +179,7 @@ void TreePiece::startTreeBuild(CkReductionMsg* m) {
 	else
 		myParticles[0].key = splitters[2 * thisIndex - 1];
 	
-	if(thisIndex == numTreePieces - 1)
+	if(thisIndex == (int) numTreePieces - 1)
 		myParticles[myNumParticles + 1].key = lastPossibleKey;
 	else
 		myParticles[myNumParticles + 1].key = splitters[2 * thisIndex + 2];
@@ -328,7 +329,7 @@ void TreePiece::buildTree(SFCTreeNode* node, GravityParticle* leftParticle, Grav
 			child = node->createLeftChild();
 			nodeLookup[child->lookupKey()] = child;
 			buildTree(child, leftParticle, splitParticle - 1);
-			if(thisIndex != numTreePieces - 1) //the right-most chare can't point any further right
+			if(thisIndex != (int) numTreePieces - 1) //the right-most chare can't point any further right
 				lookupRightChild(node);
 		} else {
 			//neither child is remote, keep going with them
@@ -357,7 +358,7 @@ void TreePiece::buildTree(SFCTreeNode* node, GravityParticle* leftParticle, Grav
 		nodeLookup[child->lookupKey()] = child;
 		buildTree(child, leftParticle, rightParticle);
 		//should the right child be remote?
-		if(rightParticle == rightBoundary && thisIndex != numTreePieces - 1)
+		if(rightParticle == rightBoundary && thisIndex != (int) numTreePieces - 1)
 			lookupRightChild(node);
 	}
 	
@@ -370,7 +371,7 @@ void TreePiece::buildTree(SFCTreeNode* node, GravityParticle* leftParticle, Grav
 	}
 	
 	// figure out if this is a boundary node
-	if((leftParticle == leftBoundary && thisIndex != 0) || (rightParticle == rightBoundary && thisIndex != numTreePieces - 1)) {
+	if((leftParticle == leftBoundary && thisIndex != 0) || (rightParticle == rightBoundary && thisIndex != (int) numTreePieces - 1)) {
 		//send my information about this node to the designated owner
 		unsigned int designatedOwner;
 		nodeOwnership(node, &designatedOwner, &node->numOwners);
@@ -378,7 +379,7 @@ void TreePiece::buildTree(SFCTreeNode* node, GravityParticle* leftParticle, Grav
 		//in boundary nodes, remoteIndex contains the total number of particles in the node, from all the co-owners
 		//endParticle - beginParticle tells you how many particles are actually on this processor
 		node->remoteIndex = node->endParticle - node->beginParticle;
-		if(designatedOwner != thisIndex) //don't send yourself your contribution
+		if((int) designatedOwner != thisIndex) //don't send yourself your contribution
 			pieces[designatedOwner].acceptBoundaryNodeContribution(node->lookupKey(), node->remoteIndex, node->moments);
 		node->setType(Boundary);
 	} else {
@@ -616,7 +617,7 @@ void TreePiece::receiveGravityTree(const GravityRequest& req) {
 	GravityRequest& request = requestIter->second;
 	request.merge(req);
 	if(--request.numAdditionalRequests == 0) {
-		if(request.requestingPieceIndex == thisIndex) {
+		if((int) request.requestingPieceIndex == thisIndex) {
 			myNumParticlesPending--;
 			//this request originated here, it's for one of my particles
 			myParticles[request.identifier].update(request);
@@ -717,10 +718,9 @@ void TreePiece::calculateGravityBucketTree(double t, const CkCallback& cb) {
 	bucketReqs = new BucketGravityRequest[numBuckets];
 	
 	currentBucket = 0;
-	startNextBucket();
-	
 	myNumParticlesPending = myNumParticles;
 	started = true;
+	startNextBucket();
 }
 
 void TreePiece::fillRequestBucketTree(BucketGravityRequest req) {
@@ -870,7 +870,12 @@ void TreePiece::cachedWalkBucketTree(GravityTreeNode* node, BucketGravityRequest
 			}
 		}
 	} else if(node->getType() == NonLocal) {
-		assert(0); // Can't happen
+		Key lookupKey = dynamic_cast<SFCTreeNode *>(node)->lookupKey();
+		// Use cachedWalkBucketTree() as callback
+		node = requestNode(node->remoteIndex, lookupKey, req);
+		if(node) {
+		    cachedWalkBucketTree(node, req);
+		}
 	    }
 	else {
 		// Since this is in the cache, getting at the children
@@ -915,6 +920,8 @@ SFCTreeNode* TreePiece::requestNode(int remoteIndex, Key lookupKey,
 				    BucketGravityRequest& req)
 {
 // Call proxy on remote node
+    assert(remoteIndex < (int) numTreePieces);
+    assert(remoteIndex != thisIndex);
     req.numAdditionalRequests++;
     streamingProxy[remoteIndex].fillRequestNode(thisIndex, lookupKey, req);
     myNumProxyCalls++;
@@ -926,12 +933,26 @@ void TreePiece::fillRequestNode(int retIndex, Key lookupKey,
 				BucketGravityRequest& req)
 {
     SFCTreeNode* node = nodeLookup[lookupKey];
+    SFCTreeNode tmp;
     
+    assert(retIndex < (int) numTreePieces);
     if(node != NULL) {
-	streamingProxy[retIndex].receiveNode(*node, req);
+    	tmp.setType(node->getType());
+	tmp.moments = node->moments;
+	tmp.beginParticle = node->beginParticle;
+	tmp.endParticle = node->endParticle;
+	tmp.remoteIndex = node->remoteIndex;
+	tmp.key = node->key;
+	tmp.level = node->level;
+	
+	assert(tmp.getType() != Invalid);
+	
+	if(tmp.getType() == Boundary || tmp.getType() == Internal
+	   || tmp.getType() == Bucket)
+	    tmp.remoteIndex = thisIndex;
+	streamingProxy[retIndex].receiveNode(tmp, req);
 	}
     else {	// Handle NULL nodes
-	SFCTreeNode tmp;
 	tmp.setType(Empty);
 	streamingProxy[retIndex].receiveNode(tmp, req);
 	}
@@ -940,16 +961,19 @@ void TreePiece::fillRequestNode(int retIndex, Key lookupKey,
 void TreePiece::receiveNode(SFCTreeNode node, BucketGravityRequest& req)
 {
     bucketReqs[req.identifier].numAdditionalRequests--;
-    if(node.getType() == Empty)	// Node was NULL
-	return;
+    assert(node.getType() != Invalid);
+    if(node.getType() != Empty)	{ // Node could be NULL
+	assert((int) node.remoteIndex != thisIndex);
+	cachedWalkBucketTree(&node, bucketReqs[req.identifier]);
+	}
     
-    cachedWalkBucketTree(&node, bucketReqs[req.identifier]);
     finishBucket(req.identifier);
     }
 
 GravityParticle* TreePiece::requestParticle(int remoteIndex, int iPart,
 				    BucketGravityRequest& req)
 {
+    assert(remoteIndex < (int) numTreePieces);
 // Call proxy on remote node
     req.numAdditionalRequests++;
     myNumProxyCalls++;
@@ -962,6 +986,7 @@ GravityParticle* TreePiece::requestParticle(int remoteIndex, int iPart,
 void TreePiece::fillRequestParticle(int retIndex, int iPart,
 				    BucketGravityRequest& req)
 {
+    assert(retIndex < (int) numTreePieces);
     streamingProxy[retIndex].receiveParticle(myParticles[iPart], req);
     }
 
@@ -988,7 +1013,7 @@ void TreePiece::receiveGravityBucketTree(const BucketGravityRequest& req) {
 		cerr << "How could this be?" << endl;
 	request.merge(req);
 	if(--request.numAdditionalRequests == 0) {
-		if(request.requestingPieceIndex == thisIndex) {
+		if((int) request.requestingPieceIndex == thisIndex) {
 			myNumParticlesPending -= request.numParticlesInBucket;
 			//this request originated here, it's for one of my particles
 			for(unsigned int i = 0; i < request.numParticlesInBucket; ++i)
@@ -1042,7 +1067,7 @@ void TreePiece::outputAccelerations(OrientedBox<double> accelerationBox, const s
 		}
 	}
 	
-	if(thisIndex == numTreePieces - 1) {
+	if(thisIndex == (int) numTreePieces - 1) {
 		if(!xdr_setpos(&xdrs, FieldHeader::sizeBytes) || !xdr_template(&xdrs, &accelerationBox.lesser_corner) || !xdr_template(&xdrs, &accelerationBox.greater_corner)) {
 			cerr << "TreePiece " << thisIndex << ": Error going back to write the acceleration bounds, aborting" << endl;
 			CkAbort("Badness");
@@ -1055,7 +1080,7 @@ void TreePiece::outputAccelerations(OrientedBox<double> accelerationBox, const s
 	xdr_destroy(&xdrs);
 	fclose(outfile);
 	
-	if(thisIndex != numTreePieces - 1)
+	if(thisIndex != (int) numTreePieces - 1)
 		pieces[thisIndex + 1].outputAccelerations(accelerationBox, suffix, cb);
 }
 
@@ -1133,7 +1158,7 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
 		}
 	}
 	
-	if(thisIndex == numTreePieces - 1) {
+	if(thisIndex == (int) numTreePieces - 1) {
 		if(verbosity > 3)
 			cerr << "MAC interval: " << macInterval << endl;
 		if(!xdr_setpos(&xdrs, FieldHeader::sizeBytes) || !xdr_template(&xdrs, &macInterval.min) || !xdr_template(&xdrs, &macInterval.max)) {
@@ -1157,7 +1182,7 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
 			CkAbort("Badness");
 		}
 	}
-	if(thisIndex == numTreePieces - 1) {
+	if(thisIndex == (int) numTreePieces - 1) {
 		if(verbosity > 3)
 			cerr << "Cell interactions interval: " << cellInterval << endl;
 		if(!xdr_setpos(&xdrs, FieldHeader::sizeBytes) || !xdr_template(&xdrs, &cellInterval.min) || !xdr_template(&xdrs, &cellInterval.max)) {
@@ -1180,7 +1205,7 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
 			CkAbort("Badness");
 		}
 	}
-	if(thisIndex == numTreePieces - 1) {
+	if(thisIndex == (int) numTreePieces - 1) {
 		if(verbosity > 3)
 			cerr << "Entry call interval: " << callsInterval << endl;
 		if(!xdr_setpos(&xdrs, FieldHeader::sizeBytes) || !xdr_template(&xdrs, &callsInterval.min) || !xdr_template(&xdrs, &callsInterval.max)) {
@@ -1203,7 +1228,7 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
 			CkAbort("Badness");
 		}
 	}
-	if(thisIndex == numTreePieces - 1) {
+	if(thisIndex == (int) numTreePieces - 1) {
 		if(verbosity > 3)
 			cerr << "Particle interactions interval: " << particleInterval << endl;
 		if(!xdr_setpos(&xdrs, FieldHeader::sizeBytes) || !xdr_template(&xdrs, &particleInterval.min) || !xdr_template(&xdrs, &particleInterval.max)) {
@@ -1217,7 +1242,7 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
 	xdr_destroy(&xdrs);
 	fclose(outfile);
 	
-	if(thisIndex != numTreePieces - 1)
+	if(thisIndex != (int) numTreePieces - 1)
 		pieces[thisIndex + 1].outputStatistics(macInterval, cellInterval, particleInterval, callsInterval, cb);
 }
 
@@ -1257,7 +1282,7 @@ void TreePiece::outputRelativeErrors(Interval<double> errorInterval, const CkCal
 		}
 	}
 	
-	if(thisIndex == numTreePieces - 1) {
+	if(thisIndex == (int) numTreePieces - 1) {
 		if(!xdr_setpos(&xdrs, FieldHeader::sizeBytes) || !xdr_template(&xdrs, &errorInterval.min) || !xdr_template(&xdrs, &errorInterval.max)) {
 			cerr << "TreePiece " << thisIndex << ": Error going back to write the error bounds, aborting" << endl;
 			CkAbort("Badness");
@@ -1272,7 +1297,7 @@ void TreePiece::outputRelativeErrors(Interval<double> errorInterval, const CkCal
 	xdr_destroy(&xdrs);
 	fclose(outfile);
 	
-	if(thisIndex != numTreePieces - 1)
+	if(thisIndex != (int) numTreePieces - 1)
 		pieces[thisIndex + 1].outputRelativeErrors(errorInterval, cb);
 }
 
