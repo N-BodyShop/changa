@@ -32,7 +32,7 @@ OBJS = $(NCHILADA_OBJS) Smooth_TreePiece.o $(TARGET).o RequestResponse.o SPH_Req
 
 
 $(TARGET): $(OBJS)
-	$(CHARMC) $(CXXFLAGS) -o $@ $(OBJS) -language charm++ -lpopt -module liveViz -ldl
+	$(CHARMC) $(CXXFLAGS) -o $@ $(OBJS) -language charm++ -lpopt
 
 $(TARGET).decl.h: $(TARGET).ci
 	$(CHARMC) $<
