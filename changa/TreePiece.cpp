@@ -186,7 +186,8 @@ void TreePiece::startTreeBuild(CkReductionMsg* m) {
 	
 	leftBoundary = myParticles;
 	rightBoundary = myParticles + myNumParticles + 1;
-	
+	if(thisIndex == 4)
+		cerr << "Piece 4 has leftBoundary: " << leftBoundary << " rightBoundary: " << rightBoundary << endl;
 	root = new SFCTreeNode;
 	root->key = firstPossibleKey;
 	root->boundingBox = boundingBox;
@@ -395,6 +396,11 @@ void TreePiece::acceptBoundaryNodeContribution(const Key lookupKey, const u_int6
 	if(nodeIter == nodeLookup.end()) {
 		cerr << "TreePiece " << thisIndex << ": Well crap, how the hell did this happen?" << endl;
 		cerr << "Key: " << keyBits(lookupKey, 63) << endl;
+		cerr << "Zeroth particle: " << myParticles << endl;
+		cerr << "leftBoundary: " << leftBoundary << endl;
+		cerr << "My Left bound : " << keyBits(myParticles[0].key, 63) << endl;
+		cerr << "My Left bound : " << keyBits(leftBoundary->key, 63) << endl;
+		cerr << "My Right bound: " << keyBits(rightBoundary->key, 63) << endl;
 		return;
 	}
 	
@@ -1399,7 +1405,8 @@ string makeLabel(SFCTreeNode* node) {
 			oss << "Invalid";
 			break;
 		case Bucket:
-			oss << "Bucket: " << (node->endParticle - node->beginParticle) << " particles";
+			//oss << "Bucket: " << (node->endParticle - node->beginParticle) << " particles";
+			oss << "Bucket";
 			break;
 		case Internal:
 			oss << "Internal";
@@ -1411,7 +1418,7 @@ string makeLabel(SFCTreeNode* node) {
 			oss << "Empty";
 			break;
 		case Boundary:
-			oss << "Boundary: Total " << node->remoteIndex;
+			oss << "Boundary: Total N " << node->remoteIndex;
 			break;
 		case Top:
 			oss << "Top";
@@ -1429,7 +1436,25 @@ void printTree(SFCTreeNode* node, ostream& os) {
 	
 	string nodeID = keyBits(node->key, node->level);
 	os << "\tnode [color=\"" << getColor(node) << "\"]\n";
-	os << "\t\"" << nodeID << "\" [label=\"" << makeLabel(node) << "\\nCM: " << (node->moments.cm / node->moments.totalMass) << "\\nM: " << node->moments.totalMass << "\\nN_p: " << (node->endParticle - node->beginParticle) << "\\nOwners: " << node->numOwners << "\"]\n";
+	//os << "\t\"" << nodeID << "\" [label=\"" << makeLabel(node) << "\\nCM: " << (node->moments.cm / node->moments.totalMass) << "\\nM: " << node->moments.totalMass << "\\nN_p: " << (node->endParticle - node->beginParticle) << "\\nOwners: " << node->numOwners << "\"]\n";
+	//os << "\t\"" << nodeID << "\" [label=\"" << makeLabel(node) << "\\nLocal N: " << (node->endParticle - node->beginParticle) << "\\nOwners: " << node->numOwners << "\"]\n";
+	os << "\t\"" << nodeID << "\" [label=\"" << keyBits(node->key, node->level) << "\\n";
+	switch(node->getType()) {
+		case Bucket:
+			os << "Bucket\\nSize: " << (node->endParticle - node->beginParticle);
+			break;
+		case Internal:
+			os << "Internal\\nLocal N under: " << (node->endParticle - node->beginParticle);
+			break;
+		case NonLocal:
+			os << "NonLocal: Chare " << node->remoteIndex << "\\nRemote N under: " << (node->endParticle - node->beginParticle) << "\\nOwners: " << node->numOwners;
+			break;
+		case Boundary:
+			os << "Boundary\\nTotal N under: " << node->remoteIndex << "\\nLocal N under: " << (node->endParticle - node->beginParticle) << "\\nOwners: " << node->numOwners;
+			break;
+	}
+	os << "\"]\n";
+	
 	if(node->parent)
 		os << "\t\"" << keyBits(node->key, node->level - 1) << "\" -> \"" << nodeID << "\";\n";
 	
@@ -1457,20 +1482,24 @@ void TreePiece::report(const CkCallback& cb) {
 	os << "digraph G" << thisIndex << " {\n";
 	os << "\tcenter = \"true\"\n";
 	os << "\tsize = \"7.5,10\"\n";
-	os << "\tratio = \"fill\"\n";
-	os << "\tfontname = \"Courier\"\n";
+	//os << "\tratio = \"fill\"\n";
+	//os << "\tfontname = \"Courier\"\n";
+	os << "\tnode [style=\"bold\"]\n";
 	os << "\tlabel = \"Piece: " << thisIndex << "\\nParticles: " 
+			<< myNumParticles << "\"\n";
+/*	os << "\tlabel = \"Piece: " << thisIndex << "\\nParticles: " 
 			<< myNumParticles << "\\nLeft Splitter: " << keyBits(myParticles[0].key, 63)
 			<< "\\nLeftmost Key: " << keyBits(myParticles[1].key, 63) 
 			<< "\\nRightmost Key: " << keyBits(myParticles[myNumParticles].key, 63) 
 			<< "\\nRight Splitter: " << keyBits(myParticles[myNumParticles + 1].key, 63) << "\";\n";
+*/
 	os << "\tfontname = \"Helvetica\"\n";
 	printTree(root, os);
 	os << "}" << endl;
 	
 	os.close();
 	
-	checkTree(root);
+	//checkTree(root);
 		
 	contribute(0, 0, CkReduction::concat, cb);
 }
