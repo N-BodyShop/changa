@@ -1,0 +1,45 @@
+//ParallelGravity.ci
+
+mainmodule ParallelGravity {
+		
+	//PUPable TreeStuff::TreeNode;
+	
+	readonly int verbosity;
+	
+	mainchare Main {
+		entry Main();
+		entry [threaded] void nextStage();
+	};
+	
+	array [1D] TreePiece {
+		entry TreePiece(unsigned int numPieces);
+		
+		entry void report(const CkCallback& cb);
+		
+		entry void load(const std::string& fn, const CkCallback& cb);
+		
+		entry void buildTree(int bucketSize, const CkCallback& cb);
+		
+		entry void collectSplitters(CkReductionMsg* m);
+		entry void startTreeBuild(CkReductionMsg* m);
+		
+		entry void acceptBoundaryNodeContribution(const SFC::Key lookupKey, const u_int64_t numParticles, const MultipoleMoments& moments);
+		entry void acceptBoundaryNode(const SFC::Key lookupKey, const u_int64_t numParticles, const MultipoleMoments& moments);
+		
+		entry void calculateGravityDirect(const CkCallback& cb);
+		entry void fillRequestDirect(GravityRequest req);
+		entry void receiveGravityDirect(const GravityRequest& req);
+		
+		entry void calculateGravityTree(double t, const CkCallback& cb);
+		entry void fillRequestTree(GravityRequest req);	
+		entry void receiveGravityTree(const GravityRequest& req);
+		
+		entry void calculateGravityBucketTree(double t, const CkCallback& cb);
+		entry void fillRequestBucketTree(BucketGravityRequest req);	
+		entry void receiveGravityBucketTree(const BucketGravityRequest& req);
+		
+		entry void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
+		entry void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, const CkCallback& cb);
+		entry void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
+	};
+};
