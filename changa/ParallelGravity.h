@@ -16,7 +16,7 @@
 #include "SFC.h"
 #include "TreeNode.h"
 #include "Interval.h"
-#include "CacheManager.h"
+//#include "CacheManager.h"
 
 using namespace Tree;
 

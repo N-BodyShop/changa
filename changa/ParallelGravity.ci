@@ -2,7 +2,7 @@
 
 mainmodule ParallelGravity {
 	
-	extern module CacheManager;
+	//extern module CacheManager;
 	
 	readonly int verbosity;
 	

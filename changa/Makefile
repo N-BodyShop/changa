@@ -1,5 +1,5 @@
 STRUCTURES_PATH = ../structures
-CXXFLAGS += -g -O3 -Wall -I$(STRUCTURES_PATH) -I../GenericTree -I../CacheManager
+CXXFLAGS += -g -O3 -Wall -I$(STRUCTURES_PATH) -I../GenericTree #-I../CacheManager
 LDFLAGS += -language charm++ -module commlib #-memory paranoid #-tracemode projections
 LDLIBS += -lpopt $(STRUCTURES_PATH)/SFC.o
 
@@ -9,7 +9,7 @@ CC = $(CXX)
 
 TARGET = ParallelGravity
 VERSION = 0.1
-all:: $(TARGET)
+all: $(TARGET)
 
 $(TARGET).o: $(TARGET).decl.h
 
@@ -20,14 +20,16 @@ TreePiece.o ParallelGravity.o: ParallelGravity.h TreeNode.h
 %.decl.h %.def.h : %.ci
 	$(CHARMC) $<
 
-docs::
+docs:
 	doxygen $(TARGET).doxygen
 
-dist::cd
+dist:
 	mkdir $(TARGET)-$(VERSION)
 	cp Makefile $(TARGET).doxygen *.h *.cpp *.ci $(TARGET)-$(VERSION)/
 	tar zcf $(TARGET)-$(VERSION).tar.gz $(TARGET)-$(VERSION)
 	rm -Rf $(TARGET)-$(VERSION)
 
-clean::
+clean:
 	rm -f core* *.o *~ $(TARGET) *.decl.h *.def.h charmrun conv-host 
+
+.PHONY: all docs dist clean
