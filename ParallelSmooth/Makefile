@@ -2,8 +2,9 @@ OPT = -Wall
 
 HOST = /host/hermes/home/gwl
 CHARMC = $(HOST)/projects/charm/bin/charmc
+STRUCTURES_PATH = $(HOST)/projects/structures
 
-INCLUDES = -I$(HOST)/projects/structures
+INCLUDES = -I$(STRUCTURES_PATH)
 CXXFLAGS = $(OPT) $(INCLUDES)
 CXX = $(CHARMC)
 
@@ -16,7 +17,7 @@ $(TARGET): Makefile
 NChilada.o: TreePiece.h Sorter.h DataManager.h Tree.h
 NChilada.o DataManager.o TreePiece.o Sorter.o: NChilada.h NChilada.decl.h Particle.h
 TreePiece.o: DataManager.h Tree.h
-NCHILADA_OBJS = NChilada.o DataManager.o TreePiece.o Sorter.o $(HOST)/projects/structures/TipsyFile.o
+NCHILADA_OBJS = NChilada.o DataManager.o TreePiece.o Sorter.o $(STRUCTURES_PATH)/TipsyFile.o
 
 NChilada.decl.h: NChilada.ci
 	$(CHARMC) $<
