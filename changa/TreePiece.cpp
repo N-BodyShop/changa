@@ -823,11 +823,27 @@ void TreePiece::cachedWalkBucketTree(GravityTreeNode* node, BucketGravityRequest
 		assert(0); // Can't happen
 		}
 	} else {
-		GenericTreeNode** childrenIterator = node->getChildren();
-		for(unsigned int i = 0; i < node->numChildren(); ++i) {
-			if(childrenIterator[i])
+		// Since this is in the cache, getting at the children
+		// is non-trivial.  Here I assume left and right
+		// nodes.  I'm not sure how to do this generically.
+		// 
+		Key lookupKey = dynamic_cast<SFCTreeNode *>(node)->leftChildLookupKey();
 		// Use cachedWalkBucketTree() as callback
-				cachedWalkBucketTree(dynamic_cast<GravityTreeNode *>(childrenIterator[i]), req);
+		node = localCache->requestData(thisIndex, lookupKey, node->remoteIndex);
+		if(node) {
+		    cachedWalkBucketTree(node, req);
+		} else { //missed the cache, remember this request
+			unfilledBucketRequests[mySerialNumber].numAdditionalRequests++;
+			missedRequests.insert(make_pair(lookupKey, mySerialNumber));
+		}
+		lookupKey = dynamic_cast<SFCTreeNode *>(node)->rightChildLookupKey();
+		// Use cachedWalkBucketTree() as callback
+		node = localCache->requestData(thisIndex, lookupKey, node->remoteIndex);
+		if(node) {
+		    cachedWalkBucketTree(node, req);
+		} else { //missed the cache, remember this request
+			unfilledBucketRequests[mySerialNumber].numAdditionalRequests++;
+			missedRequests.insert(make_pair(lookupKey, mySerialNumber));
 		}
 	}
 }
