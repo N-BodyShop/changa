@@ -1,8 +1,8 @@
 //ParallelGravity.ci
 
 mainmodule ParallelGravity {
-		
-	//PUPable TreeStuff::TreeNode;
+	
+	extern module CacheManager;
 	
 	readonly int verbosity;
 	

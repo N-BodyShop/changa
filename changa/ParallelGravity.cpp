@@ -156,3 +156,8 @@ void Main::nextStage() {
 
 
 #include "ParallelGravity.def.h"
+
+#define CK_TEMPLATES_ONLY
+#include "CacheManager.def.h"
+#undef CK_TEMPLATES_ONLY
+#include "CacheManager.def.h"
