@@ -310,7 +310,8 @@ void TreePiece::buildTree(SFCTreeNode* node, GravityParticle* leftParticle, Grav
 			node->numOwners = 1;
 			for(GravityParticle* iter = leftParticle; iter != rightParticle + 1; ++iter)
 				node->moments += *iter;
-			calculateRadiusFarthestCorner(node->moments, node->boundingBox);
+			// calculateRadiusFarthestCorner(node->moments, node->boundingBox);
+			calculateRadiusFarthestParticle(node->moments, leftParticle, rightParticle + 1);
 			bucketList.push_back(node);
 			numBuckets++;
 			return;
@@ -603,6 +604,26 @@ nodeBucketForce(GravityTreeNode *node, BucketGravityRequest& req)
 	}
 }
 
+inline
+bool TreePiece::openCriterion(GravityTreeNode *node,
+			      GravityRequest& req)
+{
+    // Note that some of this could be pre-calculated into an "opening radius"
+    Sphere<double> s(node->moments.cm,
+		     opening_geometry_factor * node->moments.radius / theta);
+    return Space::contains(s, req.position);
+}
+
+inline
+bool TreePiece::openCriterionBucket(GravityTreeNode *node,
+				    BucketGravityRequest& req)
+{
+    // Note that some of this could be pre-calculated into an "opening radius"
+    Sphere<double> s(node->moments.cm,
+		     opening_geometry_factor * node->moments.radius / theta);
+    return Space::intersect(req.boundingBox, s);
+}
+
 void TreePiece::fillRequestDirect(GravityRequest req) {
 	for(u_int64_t i = 1; i <= myNumParticles; ++i) {
 	    partForce(&myParticles[i], req);
@@ -692,10 +713,7 @@ void TreePiece::fillRequestTree(GravityRequest req) {
 void TreePiece::walkTree(GravityTreeNode* node, GravityRequest& req) {
 	req.numMACChecks++;
 	myNumMACChecks++;
-	Vector3D<double> r = node->moments.cm - req.position;
-	double rsq = r.lengthSquared();
-	double r_open = opening_geometry_factor * node->moments.radius / theta;
-	if(rsq > r_open * r_open) {
+	if(!openCriterion(node, req)) {
 		req.numCellInteractions++;
 		myNumCellInteractions++;
 		nodeForce(node, req);
@@ -934,15 +952,11 @@ void TreePiece::lookupNode(Key lookupKey,SFCTreeNode *res){
  */
 void TreePiece::walkBucketTree(GravityTreeNode* node, BucketGravityRequest& req) {
 	myNumMACChecks++;
-	Vector3D<double> cm(node->moments.cm);
-	Vector3D<double> r;
-	double rsq;
-	Sphere<double> s(cm, opening_geometry_factor * node->moments.radius / theta);
-	if(!Space::intersect(req.boundingBox, s)) {
+	if(!openCriterionBucket(node, req)) {
 		myNumCellInteractions += req.numParticlesInBucket;
 		nodeBucketForce(node, req);
 	} else if(node->getType() == Bucket) {
-		myNumParticleInteractions += req.numParticlesInBucket * (node->beginParticle - node->endParticle);
+		myNumParticleInteractions += req.numParticlesInBucket * (node->endParticle - node->beginParticle);
 		for(unsigned int i = node->beginParticle; i < node->endParticle; ++i) {
 		    partBucketForce(&myParticles[i], req);
 		}
@@ -971,17 +985,12 @@ void TreePiece::walkBucketTree(GravityTreeNode* node, BucketGravityRequest& req)
 	Vector3D<double> cm(node->moments.cm);
 	Vector3D<double> r;
 	Sphere<double> s(cm, opening_geometry_factor * node->moments.radius / theta);
-	if(!Space::intersect(req.boundingBox, s)) {
+	if(!openCriterionBucket(node, req)) {
 		countIntersects++;
 		myNumCellInteractions += req.numParticlesInBucket;
-		/*for(unsigned int i = 0; i < req.numParticlesInBucket; ++i) {
-			r = cm - req.positions[i];
-			rsq = r.lengthSquared();
-			req.accelerations[i] += node->moments.totalMass * r / rsq / sqrt(rsq);
-		}*/
 		nodeBucketForce(node, req);
 	} else if(node->getType() == Bucket) {
-		myNumParticleInteractions += req.numParticlesInBucket * (node->beginParticle - node->endParticle);
+		myNumParticleInteractions += req.numParticlesInBucket * (node->endParticle - node->beginParticle);
 		for(unsigned int i = node->beginParticle; i < node->endParticle; ++i) {
 		    partBucketForce(&myParticles[i], req);
 		}
@@ -1002,29 +1011,24 @@ void TreePiece::walkBucketTree(GravityTreeNode* node, BucketGravityRequest& req)
 	}
 }
 
-void partBucketForce(GravityParticle *part, BucketGravityRequest& req);
-
 /*
  * Cached version of Tree walk:
  */
 void TreePiece::cachedWalkBucketTree(GravityTreeNode* node, BucketGravityRequest& req) {
-//	myNumMACChecks++;
-	Vector3D<double> r;
-	Vector3D<double> cm(node->moments.cm);
-	Sphere<double> s(cm, opening_geometry_factor * node->moments.radius / theta);
+	myNumMACChecks++;
 	assert(node->getType() != Invalid);
 	
-	if(!Space::intersect(req.boundingBox, s)) {
+	if(!openCriterionBucket(node, req)) {
 		myNumCellInteractions += req.numParticlesInBucket;
 		nodeBucketForce(node, req);
 	} else if(node->getType() == Bucket) {
-	//	myNumParticleInteractions += req.numParticlesInBucket * (node->beginParticle - node->endParticle);
 		/*
 		 * Sending the request for all the particles at one go, instead of one by one
 		 */
 		Key lookupKey = dynamic_cast<SFCTreeNode *>(node)->lookupKey();
 		GravityParticle *part = requestParticles(lookupKey,node->remoteIndex,node->beginParticle,node->endParticle,req);
 		if(part != NULL){
+		    myNumParticleInteractions += req.numParticlesInBucket * (node->endParticle - node->beginParticle);
 			for(unsigned int i = node->beginParticle; i < node->endParticle; ++i) {
 				partBucketForce(&part[i-node->beginParticle], req);
 			}
@@ -1244,6 +1248,7 @@ void TreePiece::receiveParticle(GravityParticle part,
 				BucketGravityRequest& req)
 {
     bucketReqs[req.identifier].numAdditionalRequests--;
+    myNumParticleInteractions += bucketReqs[req.identifier].numParticlesInBucket;
     partBucketForce(&part, bucketReqs[req.identifier]);
     finishBucket(req.identifier);
 }
@@ -1252,6 +1257,7 @@ void TreePiece::receiveParticles(GravityParticle *part,int num,
 				BucketGravityRequest& req)
 {
     bucketReqs[req.identifier].numAdditionalRequests -= num;
+    myNumParticleInteractions += bucketReqs[req.identifier].numParticlesInBucket * num;
     for(int i=0;i<num;i++){
     	partBucketForce(&part[i], bucketReqs[req.identifier]);
     }		
@@ -1352,8 +1358,13 @@ void TreePiece::outputAccelerations(OrientedBox<double> accelerationBox, const s
 void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, const CkCallback& cb) {
 	if(verbosity > 1) {
 		cerr << "TreePiece " << thisIndex << ": Statistics\nMy number of MAC checks: " << myNumMACChecks << endl;
-		cerr << "My number of particle-cell interactions: " << myNumCellInteractions << endl;
-		cerr << "My number of particle-particle interactions: " << myNumParticleInteractions << endl;
+		cerr << "My number of particle-cell interactions: "
+		     << myNumCellInteractions << " Per particle: "
+		     << myNumCellInteractions/(double) myNumParticles << endl;
+		cerr << "My number of particle-particle interactions: "
+		     << myNumParticleInteractions << " Per Particle: "
+		     << myNumParticleInteractions/(double) myNumParticles
+		     << endl;
 	}
 	
 	if(thisIndex == 0) {

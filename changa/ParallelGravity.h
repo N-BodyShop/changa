@@ -340,6 +340,10 @@ public:
 	void acceptBoundaryNodeContribution(const SFC::Key lookupKey, const u_int64_t numParticles, const MultipoleMoments& moments);
 	void acceptBoundaryNode(const SFC::Key lookupKey, const u_int64_t numParticles, const MultipoleMoments& moments);
 
+	bool openCriterion(GravityTreeNode *node, GravityRequest& req);
+	bool openCriterionBucket(GravityTreeNode *node,
+				 BucketGravityRequest& req);
+	
 	void calculateGravityDirect(const CkCallback& cb);
 	void fillRequestDirect(GravityRequest req);
 	void receiveGravityDirect(const GravityRequest& req);
