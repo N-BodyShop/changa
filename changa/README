@@ -1,0 +1,9 @@
+Dependences
+
+CHARM (of course): edit Makefile to point at your charm version.
+
+../structures: Do a "make" there first.
+
+To run:
+
+ParallelGravity -v -v -v -v -p 2 lambs.00200_subsamp_20000

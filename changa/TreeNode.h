@@ -90,6 +90,16 @@ public:
 	inline Key rightBoundary() const {
 		return key | ((static_cast<Key>(1) << (63 - level)) - 1);
 	}
+	void pup(PUP::er &p) 
+	    {
+		p | ((int) myType);
+		p | moments;
+		p | beginParticle;
+		p | endParticle;
+		p | remoteIndex;
+		p | key;
+		p | level;
+		}
 };
 
 } //close namespace Tree

@@ -31,8 +31,11 @@ public:
 	Vector3D<double>* positions;
 	Vector3D<double>* accelerations;
 	unsigned int numAdditionalRequests;
+	int finished;
 	
-	BucketGravityRequest(unsigned int bucketSize = 0) : identifier(0), numParticlesInBucket(bucketSize), numAdditionalRequests(0) {
+	BucketGravityRequest(unsigned int bucketSize = 0) : identifier(0),
+	    numParticlesInBucket(bucketSize), numAdditionalRequests(0),
+	    finished(0) {
 		if(numParticlesInBucket) {
 			positions = new Vector3D<double>[numParticlesInBucket];
 			accelerations = new Vector3D<double>[numParticlesInBucket];
@@ -46,6 +49,7 @@ public:
 		requestingPieceIndex = req.requestingPieceIndex;
 		boundingBox = req.boundingBox;
 		numParticlesInBucket = req.numParticlesInBucket;
+		finished = req.finished;
 		if(numParticlesInBucket) {
 			positions = new Vector3D<double>[numParticlesInBucket];
 			accelerations = new Vector3D<double>[numParticlesInBucket];
@@ -64,6 +68,7 @@ public:
 		requestingPieceIndex = req.requestingPieceIndex;
 		boundingBox = req.boundingBox;
 		numParticlesInBucket = req.numParticlesInBucket;
+		finished = req.finished;
 		delete[] positions;
 		delete[] accelerations;
 		if(numParticlesInBucket) {
@@ -173,6 +178,13 @@ public:
 		numMACChecks += req.numMACChecks;
 		numEntryCalls += req.numEntryCalls;
 	}
+
+	void pup(PUP::er &p)
+	    {
+		p | position;
+		p | mass;
+		}
+	
 };
 
 #include "ParallelGravity.decl.h"
@@ -224,6 +236,7 @@ class TreePiece : public ArrayElement1D {
 	unsigned int numBuckets;
 	unsigned int currentBucket;
 	std::vector<SFCTreeNode *> bucketList;
+	BucketGravityRequest *bucketReqs;
 	
 	/** A table of the nodes in my tree, indexed by their keys.
 	 @todo XXX: Make this lookup a hash table, so we get O(1) behavior instead of O(log N).
@@ -246,6 +259,8 @@ class TreePiece : public ArrayElement1D {
 	void walkTree(GravityTreeNode* node, GravityRequest& req);
 	void startNextParticle();
 	void walkBucketTree(GravityTreeNode* node, BucketGravityRequest& req);
+	void cachedWalkBucketTree(GravityTreeNode* node,
+				  BucketGravityRequest& req);
 	void startNextBucket();
 public:
 	
@@ -281,6 +296,19 @@ public:
 	void fillRequestBucketTree(BucketGravityRequest req);	
 	void receiveGravityBucketTree(const BucketGravityRequest& req);
 	
+	SFCTreeNode* requestNode(int remoteIndex, Key lookupKey,
+				 BucketGravityRequest& req);
+	void fillRequestNode(int retIndex, Key lookupKey,
+			     BucketGravityRequest& req);
+	void receiveNode(SFCTreeNode node, BucketGravityRequest& req);
+	GravityParticle* requestParticle(int remoteIndex, int iPart,
+					 BucketGravityRequest& req);
+	void fillRequestParticle(int retIndex, int iPart,
+				 BucketGravityRequest& req);
+	void receiveParticle(GravityParticle part, BucketGravityRequest& req);
+	void finishBucket(int iBucket);
+	
+
 	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
 	void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, const CkCallback& cb);
 	void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);

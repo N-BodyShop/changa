@@ -37,6 +37,15 @@ mainmodule ParallelGravity {
 		entry void calculateGravityBucketTree(double t, const CkCallback& cb);
 		entry void fillRequestBucketTree(BucketGravityRequest req);	
 		entry void receiveGravityBucketTree(const BucketGravityRequest& req);
+
+		entry void fillRequestNode(int retIndex, Key lookupKey,
+					   BucketGravityRequest &req);
+		entry void receiveNode(SFCTreeNode node,
+					BucketGravityRequest &req);
+		entry void fillRequestParticle(int retIndex, int pi,
+						BucketGravityRequest &req);
+		entry void receiveParticle(GravityParticle part,
+					   BucketGravityRequest &req);
 		
 		entry void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
 		entry void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, const CkCallback& cb);
