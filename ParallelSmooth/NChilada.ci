@@ -2,9 +2,14 @@
 
 module NChilada {
 	
+	extern module Reductions;
+
+	PUPable TreeNode;
+	
 	readonly CkArrayID treePieceID;
 	readonly CkGroupID dataManagerID;
 	readonly int verbosity;
+	readonly Space3D<double> space;
 	
 	initcall void registerNChiladaReductions();
 	
@@ -18,8 +23,6 @@ module NChilada {
 	nodegroup DataManager {
 		entry DataManager(const CkArrayID& treePieceID);
 		
-		entry void loadParticles(const std::string& filename, const int nbodies, const CkCallback& cb);
-		
 		entry void acceptCandidateKeys(const Key keys[n], const int n, const CkCallback& cb);
 		entry void acceptFinalKeys(const Key keys[n], const int responsible[n - 1], const int bins[n - 1], const int n, const CkCallback& cb);
 		
@@ -31,11 +34,12 @@ module NChilada {
 		
 		entry void registerWithDataManager(const CkGroupID& dataManagerID, const CkCallback& cb);
 		
-		entry void receiveParticles(const FullParticle particles[n], const int n, const CkCallback& cb);
+		entry void loadParticles(const std::string& filename, const int numPieces, const CkCallback& cb);
 		entry void assignKeys(CkReductionMsg* m);
 		
 		entry void evaluateBoundaries(const CkCallback& cb);
-		entry void unshuffleParticles(const CkCallback& cb);
+		entry void unshuffleParticles(CkReductionMsg* m);
+		//entry void getParticles(const FullParticle particles[n], const int n);
 		entry void acceptSortedParticles(const FullParticle particles[n], const int n);
 		entry void shareBoundaries(CkReductionMsg* m);
 		entry void acceptBoundaryKey(const Key k);

@@ -7,6 +7,7 @@
 
 #include "pup.h"
 
+#include "Space.h"
 #include "Vector3D.h"
 #include "Sphere.h"
 #include "SPH_Kernel.h"
@@ -15,13 +16,15 @@
 
 //Declarations to include in an abstract PUP::able's body.
 //  Abstract PUP::ables do not need def or reg.
+/*
 #define PUPable_abstract(className) \
 public:\
     friend inline void operator|(PUP::er &p,className &a) {a.pup(p);}\
     friend inline void operator|(PUP::er &p,className* &a) {\
         PUP::able *pa=a;  p(&pa);  a=(className *)pa;\
     }
-
+*/
+		
 /** A base class representing a response built to answer a tree request. */
 class Response : public PUP::able {
 public:
@@ -53,8 +56,10 @@ class TreeRequest : public PUP::able {
 	static const double spline_PI = 3.14159265358979323846;
 public:
 
-	/** The ball to search in.  The radius of this sphere will be twice the smoothing radius
-	 of the particle it belongs to. */
+	/** The ball to search in.  For SPH operations the radius of this 
+	 sphere will be twice the smoothing radius of the particle it 
+	 belongs to.
+	 */
 	Sphere<double> s;
 	
 	Key startingNode;
@@ -67,10 +72,12 @@ public:
 	
 	virtual ~TreeRequest() { };
 	
-	virtual bool isResponseRequired() = 0;
-	
 	virtual void makeContribution(Response* resp, FullParticle* p, const Vector3D<double>& offset) = 0;
-
+	
+	virtual bool intersect(const Space3D<>& space, const OrientedBox<>& box) const {
+		return space.intersect(box, s);
+	}
+	
 	inline double kernelEvaluate(double r, double h) const {
 		double q = r / h;
 		if(q < 1)
@@ -89,10 +96,7 @@ public:
 
 	virtual void pup(PUP::er& p) {
 		PUP::able::pup(p);
-		p(s.origin.x);
-		p(s.origin.y);
-		p(s.origin.z);
-		p(s.radius);
+		p | s;
 		p(startingNode);
 	}
 	PUPable_abstract(TreeRequest);
@@ -109,10 +113,6 @@ public:
 
 	TreeRequestRequiringResponse(CkMigrateMessage* m) : TreeRequest(m) { }
 
-	bool isResponseRequired() {
-		return true;
-	}
-	
 	virtual Response* createResponse(int serialNumber) = 0;
 	
 	virtual void pup(PUP::er& p) {

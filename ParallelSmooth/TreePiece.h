@@ -43,8 +43,10 @@ protected:
 	/** This contains my set of particles after they have been sorted. */
 	std::vector<FullParticle> mySortedParticles;
 	
+	/// The total number of particles in the simulation
+	int totalNumParticles;
 	/// The number of particles I am responsible for.
-	int numParticles;
+	int myNumParticles;
 	/// The root of my part of the tree.
 	TreeNode* root;
 	/// The keys determined by the Sorter that separate me from my neighbors.
@@ -52,6 +54,13 @@ protected:
 	
 	FullParticle* leftBoundary;
 	FullParticle* rightBoundary;
+	
+	/// The counts of how many particles belonging to other TreePieces I currently hold
+	vector<int> myBinCounts;
+	
+	//int swapsMade;
+	//FullParticle* beginFreeParticles;
+	//FullParticle* beginOthersParticles;
 	
 	/** A table of the nodes in my tree, indexed by their keys.
 	 @todo XXX: Make this lookup a hash table, so we get O(1) behavior instead of O(log N).
@@ -87,12 +96,16 @@ public:
 	
 	// These functions are conceptually private, but are public because charm entry methods are always public
 	
-	void receiveParticles(const FullParticle* particles, const int n, const CkCallback& cb);
+	//void receiveParticles(const FullParticle* particles, const int n, const CkCallback& cb);
+	void loadParticles(const std::string& filename, const int numPieces, const CkCallback& cb);
 	void assignKeys(CkReductionMsg* m);
 	
 	void evaluateBoundaries(const CkCallback& cb);
-	void unshuffleParticles(const CkCallback& cb);
+	void unshuffleParticles(CkReductionMsg* m);
+	//void giveParticles(const int toWhom);
+	//void getParticles(const FullParticle* particles, int n);
 	void acceptSortedParticles(const FullParticle* particles, const int n);
+	
 	void shareBoundaries(CkReductionMsg* m);
 	void acceptBoundaryKey(const Key k);
 	

@@ -8,6 +8,8 @@
 
 #include <sstream>
 
+#include "pup.h"
+
 #include "OrientedBox.h"
 #include "Particle.h"
 
@@ -71,7 +73,7 @@ OrientedBox<T> cutBoxUp(const OrientedBox<T>& box, const int axis) {
  one) is the index of the chare (not neccessarily the only!) that actually 
  owns (or knows more about) the child node.
  */
-class TreeNode {
+class TreeNode : public PUP::able {
 private:
 	NodeType myType;
 
@@ -153,7 +155,14 @@ public:
 		return child;
 	}
 	
-	~TreeNode() { }
+	~TreeNode() {
+		if(myType == NonLocal)
+			delete rightChild;
+		else if(myType != Bucket) {
+			delete leftChild;
+			delete rightChild;
+		}
+	}
 	
 	NodeType getType() const { return myType; }
 	void setType(NodeType t) { myType = t; }
@@ -217,8 +226,13 @@ public:
 	inline Key rightBoundary() const {
 		return key | ((static_cast<Key>(1) << (63 - level)) - 1);
 	}
+	
+	PUPable_decl(TreeNode);
+	
+	TreeNode(CkMigrateMessage* m) : PUP::able(m), myType(Invalid), parent(0), key(0), level(0), leftChild(0), rightChild(0) { }
 	/*
-	void pup(PUP::er& p) {
+	virtual void pup(PUP::er& p) {
+		PUP::able::pup(p);
 		p(myType);
 		p(key);
 		p(level);
@@ -236,8 +250,14 @@ public:
 				p(endBucket - ???);
 			}
 		} else {
-			p | leftChild;
+			p | leftChild;				
 			p | rightChild;
+			if(p.isUnpacking()) {
+				if(leftChild)
+					leftChild->parent = this;
+				if(rightChild)
+					rightChild->parent = this;
+			}
 		}
 		
 		p(box);

@@ -10,7 +10,9 @@
 //#include "liveViz.h"
 
 #include "Particle.h"
+#include "Space.h"
 
+#include "pup_stl.h"
 #include "NChilada.decl.h"
 
 /** The verbosity level, used to control how much diagnostic information gets output.
@@ -24,11 +26,17 @@ extern CkReduction::reducerType boxGrowthReduction;
 /// My reduction that does a min/max pair (of type double)
 extern CkReduction::reducerType minmaxReduction;
 
+/// My reduction that returns one copy of the contributed CkCallback
+extern CkReduction::reducerType callbackReduction;
+
 /// The chare ID of the array of TreePieces you create.  You must set this!
 extern CkArrayID treePieceID;
 
 /// The group ID of your DataManager.  You must set this!
 extern CkGroupID dataManagerID;
+
+/// The space we're working in
+extern Space3D<double> space;
 
 /// Register the CCS handlers, this must be called in your mainchare's constructor.
 //void initializeNChiladaCcs();

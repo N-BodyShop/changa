@@ -12,52 +12,21 @@
 #include "TipsyFile.h"
 #include "Vector3D.h"
 #include "OrientedBox.h"
+#include "SFC.h"
 
 using namespace Tipsy;
-
-/** A 64-bit key identifying a position.
- This is used to keep track of particles' locations and tree nodes.
- It is generated from a space-filling curve.
- */
-typedef unsigned long long Key;
+using namespace SFC;
 
 typedef unsigned char byte;
 
 /** A Key that signals that a tree node is actually a bucket of particles. */
 const Key placeholderMask = ((Key) 1 << 63);
 
-/** The very first possible key a particle can take on. */
-const Key firstPossibleKey = static_cast<Key>(0);
-/** The very last possible key a particle can take on. */
-const Key lastPossibleKey = ~(static_cast<Key>(1) << 63);
-
 /** The base class for particles. 
  This type of particle contains only a key (made from a position).
  */
 class BareParticle {
 protected:
-	/** Given the floating point numbers for the location, construct the key. 
-	 The key uses 21 of the 23 bits for the floats of the x, y, and z coordinates
-	 of the position vector.  This process will only make sense if the position
-	 coordinates are in the range [1,2).  The matissa bits are taken, and interleaved
-	 in xyz order to form the key.  This makes the key a position on the z-ordering
-	 space-filling curve. */
-	inline Key makeKey(Vector3D<float> v) const {
-		int* ix = reinterpret_cast<int *>(&v.x);
-		int* iy = reinterpret_cast<int *>(&v.y);
-		int* iz = reinterpret_cast<int *>(&v.z);
-		Key key = 0;
-		for(int mask = (1 << 22); mask > 2; mask >>= 1) {
-			key <<= 3;
-			if(*ix & mask)
-				key += 4;
-			if(*iy & mask)
-				key += 2;
-			if(*iz & mask)
-				key += 1;
-		}
-		return key;
-	}
 
 public:
 	Key key;
@@ -147,6 +116,8 @@ public:
 		initializeExtraFields();
 	}
 
+	FullParticle(Key k) : BareParticle(k) { }
+	
 	FullParticle(const gas_particle& p) {
 		mass = p.mass;
 		position = p.pos;
@@ -188,12 +159,7 @@ public:
 		tform = p.tform;
 		initializeExtraFields();
 	}
-	
-	template<class T>
-	inline Key generateKey(const OrientedBox<T>& boundingBox) {
-		return key = makeKey((position - boundingBox.lesser_corner) / (boundingBox.greater_corner - boundingBox.lesser_corner) + Vector3D<float>(1, 1, 1));
-	}
-	
+		
 	/// Output operator, used for formatted display
 	friend std::ostream& operator<< (std::ostream& os, const FullParticle& bp) {
 		std::bitset<32> firstHalf(bp.key >> 32);

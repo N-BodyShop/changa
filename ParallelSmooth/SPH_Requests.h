@@ -16,13 +16,6 @@
 using std::vector;
 using std::priority_queue;
 
-template <typename T>
-inline void operator|(PUP::er& p, Vector3D<T>& v) {
-	p(v.x);
-	p(v.y);
-	p(v.z);
-}
-
 class BallCountResponse : public Response {
 	int count;
 	friend class BallCountRequest;
@@ -71,10 +64,11 @@ class NeighborSearchResponse : public Response {
 	//properties of the initiating particle needed for the calculation
 	const unsigned int numNeighbors;
 	//results we're building to give back to the initiating particle
-public:
 	vector<double> radii_vector;
 	priority_queue<double> radii;
 	friend class NeighborSearchRequest;
+
+public:
 	
 	NeighborSearchResponse(const int sn, const unsigned int n) : Response(sn), numNeighbors(n) { }
 	

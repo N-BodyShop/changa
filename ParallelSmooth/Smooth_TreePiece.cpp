@@ -16,10 +16,10 @@ using std::priority_queue;
 void Smooth_TreePiece::findSmoothingRadius(const int n, const CkCallback& cb) {
 	numNeighbors = n;
 	numComplete = 0;
-	totalNumPending = numParticles;
+	totalNumPending = myNumParticles;
 	callback = cb;
 	
-	if(numParticles <= numNeighbors) {
+	if(myNumParticles <= numNeighbors) {
 		cerr << thisIndex << ": Smooth_TreePiece: Fatal: I don't have enough particles to do initial radius estimate" << endl;
 		cb.send(0);
 		return;
@@ -33,18 +33,18 @@ void Smooth_TreePiece::findSmoothingRadius(const int n, const CkCallback& cb) {
 	int lowIndex;
 
 	//find the upper bound and create a request using it
-	for(int i = 1; i < numParticles + 1; ++i) {
+	for(int i = 1; i < myNumParticles + 1; ++i) {
 		if(i - numNeighbors / 2 < 1)
 			lowIndex = 1;
-		else if(i + (numNeighbors + 1) / 2 > numParticles)
-			lowIndex = numParticles - numNeighbors;
+		else if(i + (numNeighbors + 1) / 2 > myNumParticles)
+			lowIndex = myNumParticles - numNeighbors;
 		else
 			lowIndex = i - numNeighbors / 2;
 		maxr = 0;
 		for(int j = lowIndex; j < lowIndex + numNeighbors; j++) {
 			if(j == i)
 				continue;
-			r = pbc.distance(myParticles[j].position, myParticles[i].position);
+			r = space.distance(myParticles[j].position, myParticles[i].position);
 			if(maxr == 0 || r > maxr)
 				maxr = r;
 		}
@@ -61,12 +61,14 @@ void Smooth_TreePiece::findSmoothingRadius(const int n, const CkCallback& cb) {
 
 		//traverse tree, handling criterion, building self-response and sending off requests
 		localOnlyTraverse(root, req, resp);
+		/*
 		if(pbc.xPeriod && resp->radii.top() > pbc.xPeriod / 2)
 			cerr << thisIndex << ": Smooth_TreePiece: Not good, initial radius guess is larger than the x-axis period: " << maxr << endl;
 		if(pbc.yPeriod && resp->radii.top() > pbc.yPeriod / 2)
 			cerr << thisIndex << ": Smooth_TreePiece: Not good, initial radius guess is larger than the y-axis period: " << maxr << endl;
 		if(pbc.zPeriod && resp->radii.top() > pbc.zPeriod / 2)
 			cerr << thisIndex << ": Smooth_TreePiece: Not good, initial radius guess is larger than the z-axis period: " << maxr << endl;
+		*/
 		remoteOnlyTraverse(root, req, resp);
 		
 		//send yourself the response you've built
@@ -79,9 +81,9 @@ void Smooth_TreePiece::findSmoothingRadius(const int n, const CkCallback& cb) {
 void Smooth_TreePiece::performSmoothOperation(const SmoothOperation op, const CkCallback& cb) {
 	numComplete = 0;
 	callback = cb;
-	totalNumPending = numParticles;
-	TreeRequest* req;
-	for(int i = 1; i < numParticles + 1; ++i) {
+	totalNumPending = myNumParticles;
+	TreeRequest* req = 0;
+	for(int i = 1; i < myNumParticles + 1; ++i) {
 		switch(op) {
 			case Density:
 				req = new DensityRequest(myParticles[i].position, 2 * myParticles[i].smoothingRadius, thisIndex, i, myParticles[i].mass);
@@ -110,9 +112,9 @@ void Smooth_TreePiece::densityCutOperation(const SmoothOperation op, double minD
 	numComplete = 0;
 	callback = cb;
 	minDensity = pow(10.0, minDensity);
-	TreeRequest* req;
+	TreeRequest* req = 0;
 	totalNumPending = 0;
-	for(int i = 1; i < numParticles + 1; ++i) {
+	for(int i = 1; i < myNumParticles + 1; ++i) {
 		if(myParticles[i].density >= minDensity)
 			totalNumPending++;
 	}
@@ -120,7 +122,7 @@ void Smooth_TreePiece::densityCutOperation(const SmoothOperation op, double minD
 		contribute(0, 0, CkReduction::concat, callback);
 		return;
 	}
-	for(int i = 1; i < numParticles + 1; ++i) {
+	for(int i = 1; i < myNumParticles + 1; ++i) {
 		if(myParticles[i].density >= minDensity) {
 			switch(op) {
 				case Density:
@@ -166,11 +168,9 @@ void Smooth_TreePiece::handleTreeRequest(TreeRequest* req) {
 				cerr << (myReq->startingNode & (static_cast<Key>(1) << (62 - i)) ? 1 : 0);
 			cerr << endl;
 		} else { //I do have the node's parent!
-			//the requested node is null; send empty response, letting the requestor know that I don't have anything to contribute
-			if(req->isResponseRequired()) {
-				TreeRequestRequiringResponse* myReq = dynamic_cast<TreeRequestRequiringResponse *>(req);
+			//which means the requested node is null; send empty response, letting the requestor know that I don't have anything to contribute
+			if(TreeRequestRequiringResponse* myReq = dynamic_cast<TreeRequestRequiringResponse *>(req))
 				smoothTreePieces[myReq->requestingTreePiece].receiveResponse(myReq->createResponse(myReq->requestingSerialNumber));
-			}
 		}
 		delete req;
 		return;
@@ -182,9 +182,9 @@ void Smooth_TreePiece::handleTreeRequest(TreeRequest* req) {
 		smoothTreePieces[nodeIter->second->chareID].handleTreeRequest(req);
 		if(verbosity) {
 			cout << "Type of request: " << typeid(req).name() << endl;
-			if(req->isResponseRequired())
-				cout << thisIndex << ": Node " << req->startingNode << " from " << dynamic_cast<TreeRequestRequiringResponse *>(req)->requestingTreePiece << " is not really me, passing the buck to " << nodeIter->second->chareID << endl;
-			else
+			//if(resp)
+			//	cout << thisIndex << ": Node " << req->startingNode << " from " << dynamic_cast<TreeRequestRequiringResponse *>(req)->requestingTreePiece << " is not really me, passing the buck to " << nodeIter->second->chareID << endl;
+			//else
 				cout << thisIndex << ": Node " << req->startingNode << " is not really me, passing the buck to " << nodeIter->second->chareID << endl;
 		}
 		delete req;
@@ -192,8 +192,7 @@ void Smooth_TreePiece::handleTreeRequest(TreeRequest* req) {
 	}
 	
 	Response* resp = 0;
-	if(req->isResponseRequired()) {
-		TreeRequestRequiringResponse* myReq = dynamic_cast<TreeRequestRequiringResponse *>(req);
+	if(TreeRequestRequiringResponse* myReq = dynamic_cast<TreeRequestRequiringResponse *>(req)) {
 		resp = myReq->createResponse(mySerialNumber);
 		//file the pointer to Response using my serial number
 		pendingResponses.insert(make_pair(mySerialNumber, PendingResponse(*myReq, resp)));
@@ -209,7 +208,7 @@ void Smooth_TreePiece::handleTreeRequest(TreeRequest* req) {
 	//remoteOnlyTraverse(nodeIter->second, req, resp);
 
 	//send yourself the response you've built
-	if(req->isResponseRequired())
+	if(resp)
 		receiveResponse(resp);
 	
 	mySerialNumber++;
@@ -218,16 +217,17 @@ void Smooth_TreePiece::handleTreeRequest(TreeRequest* req) {
 
 /// Traverse my tree in an attempt to handle a request for calculation
 void Smooth_TreePiece::preOrderTraverse(TreeNode* node, TreeRequest* req, Response* resp) {
-	if(node->box.intersects(pbc, req->s)) {
+	if(req->intersect(space, node->box)) {
+	//if(node->box.intersects(pbc, req->s)) {
 		if(node->isBucket()) {
 			for(FullParticle* p = node->beginBucket; p != node->endBucket; ++p) {
 				//calculate offset, pass to response->receiveContribution if p is in the sphere
-				Vector3D<double> offset = pbc.offset(p->position, req->s.origin);
+				Vector3D<double> offset = space.offset(p->position, req->s.origin);
 				if(offset.length() <= req->s.radius)
 					req->makeContribution(resp, p, offset);
 			}
 		} else if(node->isNonLocal()) {
-			if(req->isResponseRequired())
+			if(resp)
 				pendingResponses[resp->serialNumber].numResponsesPending++;
 			req->startingNode = node->lookupKey();
 			smoothTreePieces[node->chareID].handleTreeRequest(req);
@@ -242,11 +242,12 @@ void Smooth_TreePiece::preOrderTraverse(TreeNode* node, TreeRequest* req, Respon
 
 /// Walk the tree, only interacting with local nodes
 void Smooth_TreePiece::localOnlyTraverse(TreeNode* node, TreeRequest* req, Response* resp) {
-	if(node->getType() != NonLocal && node->box.intersects(pbc, req->s)) {
+	//if(node->getType() != NonLocal && node->box.intersects(pbc, req->s)) {
+	if(node->getType() != NonLocal && req->intersect(space, node->box)) {
 		if(node->isBucket()) {
 			for(FullParticle* p = node->beginBucket; p != node->endBucket; ++p) {
 				//calculate offset, pass to response->receiveContribution if p is in the sphere
-				Vector3D<double> offset = pbc.offset(p->position, req->s.origin);
+				Vector3D<double> offset = space.offset(p->position, req->s.origin);
 				if(offset.length() <= req->s.radius)
 					req->makeContribution(resp, p, offset);
 			}
@@ -261,9 +262,10 @@ void Smooth_TreePiece::localOnlyTraverse(TreeNode* node, TreeRequest* req, Respo
 
 /// Walk the tree, only considering remote nodes, and sending the request to them
 void Smooth_TreePiece::remoteOnlyTraverse(TreeNode* node, TreeRequest* req, Response* resp) {
-	if(!node->isInternal() && node->box.intersects(pbc, req->s)) {
+	//if(!node->isInternal() && node->box.intersects(pbc, req->s)) {
+	if(!node->isInternal() && req->intersect(space, node->box)) {
 		if(node->getType() == NonLocal) {
-			if(req->isResponseRequired())
+			if(resp)
 				pendingResponses[resp->serialNumber].numResponsesPending++;
 			req->startingNode = node->lookupKey();
 			smoothTreePieces[node->chareID].handleTreeRequest(req);
@@ -277,17 +279,18 @@ void Smooth_TreePiece::remoteOnlyTraverse(TreeNode* node, TreeRequest* req, Resp
 }
 
 void Smooth_TreePiece::localFirstTraverse(TreeNode* node, TreeRequest* req, Response* resp) {
-	if(node->box.intersects(pbc, req->s)) {
+	//if(node->box.intersects(pbc, req->s)) {
+	if(req->intersect(space, node->box)) {
 		if(node->isBucket()) {
 			Vector3D<double> offset;
 			for(FullParticle* p = node->beginBucket; p != node->endBucket; ++p) {
 				//calculate offset, pass to response->receiveContribution if p is in the sphere
-				offset = pbc.offset(p->position, req->s.origin);
+				offset = space.offset(p->position, req->s.origin);
 				if(offset.length() <= req->s.radius)
 					req->makeContribution(resp, p, offset);
 			}
 		} else if(node->isNonLocal()) {
-			if(req->isResponseRequired())
+			if(resp)
 				pendingResponses[resp->serialNumber].numResponsesPending++;
 			req->startingNode = node->lookupKey();
 			smoothTreePieces[node->chareID].handleTreeRequest(req);
@@ -361,7 +364,7 @@ void Smooth_TreePiece::minmaxDensity(const CkCallback& cb) {
 	double minmaxDensity[2];
 	double logden;
 	minmaxDensity[0] = minmaxDensity[1] = log10(myParticles[1].density);
-	for(int i = 2; i < numParticles + 1; ++i) {
+	for(int i = 2; i < myNumParticles + 1; ++i) {
 		logden = log10(myParticles[i].density);
 		if(logden < minmaxDensity[0])
 			minmaxDensity[0] = logden;
@@ -374,7 +377,7 @@ void Smooth_TreePiece::minmaxDensity(const CkCallback& cb) {
 void Smooth_TreePiece::makeDensityHistogram(const int numDensityBins, const double minDensity, const double maxDensity, const CkCallback& cb) {
 	vector<int> densityHistogram(numDensityBins, 0);
 	int bin;
-	for(int i = 2; i < numParticles + 1; ++i) {
+	for(int i = 2; i < myNumParticles + 1; ++i) {
 		bin = static_cast<int>(floor(numDensityBins * (log10(myParticles[i].density) - minDensity) / (maxDensity - minDensity)));
 		if(bin >= numDensityBins)
 			bin = numDensityBins - 1;
@@ -403,7 +406,7 @@ void Smooth_TreePiece::saveInformation(const string& prefix, const CkCallback& c
 	//write all the radii in their respective locations
 	int location;
 	double value;
-	for(int i = 1; i < numParticles + 1; ++i) {
+	for(int i = 1; i < myNumParticles + 1; ++i) {
 		location = sizeof(int) + myParticles[i].diskOrder * sizeof(double);
 		outgroup.seekp(location);
 		outgroup.write(&(myParticles[i].smoothingRadius), sizeof(double));
@@ -411,7 +414,7 @@ void Smooth_TreePiece::saveInformation(const string& prefix, const CkCallback& c
 	outgroup.close();
 		
 	outgroup.open((prefix + ".density").c_str(), ios::in | ios::out);
-	for(int i = 1; i < numParticles + 1; ++i) {
+	for(int i = 1; i < myNumParticles + 1; ++i) {
 		location = sizeof(int) + myParticles[i].diskOrder * sizeof(double);
 		outgroup.seekp(location);
 		outgroup.write(&(myParticles[i].density), sizeof(double));
@@ -419,7 +422,7 @@ void Smooth_TreePiece::saveInformation(const string& prefix, const CkCallback& c
 	outgroup.close();
 
 	outgroup.open((prefix + ".divv").c_str(), ios::in | ios::out);
-	for(int i = 1; i < numParticles + 1; ++i) {
+	for(int i = 1; i < myNumParticles + 1; ++i) {
 		location = sizeof(int) + myParticles[i].diskOrder * sizeof(double);
 		outgroup.seekp(location);
 		outgroup.write(&(myParticles[i].divv), sizeof(double));
@@ -427,7 +430,7 @@ void Smooth_TreePiece::saveInformation(const string& prefix, const CkCallback& c
 	outgroup.close();
 
 	outgroup.open((prefix + ".curlv").c_str(), ios::in | ios::out);
-	for(int i = 1; i < numParticles + 1; ++i) {
+	for(int i = 1; i < myNumParticles + 1; ++i) {
 		location = sizeof(int) + myParticles[i].diskOrder * sizeof(Vector3D<double>);
 		outgroup.seekp(location);
 		outgroup.write(&(myParticles[i].curlv), sizeof(Vector3D<double>));
@@ -435,7 +438,7 @@ void Smooth_TreePiece::saveInformation(const string& prefix, const CkCallback& c
 	outgroup.close();
 
 	outgroup.open((prefix + ".meanv").c_str(), ios::in | ios::out);
-	for(int i = 1; i < numParticles + 1; ++i) {
+	for(int i = 1; i < myNumParticles + 1; ++i) {
 		location = sizeof(int) + myParticles[i].diskOrder * sizeof(Vector3D<double>);
 		outgroup.seekp(location);
 		outgroup.write(&(myParticles[i].meanVelocity), sizeof(Vector3D<double>));
@@ -443,7 +446,7 @@ void Smooth_TreePiece::saveInformation(const string& prefix, const CkCallback& c
 	outgroup.close();
 
 	outgroup.open((prefix + ".veldisp").c_str(), ios::in | ios::out);
-	for(int i = 1; i < numParticles + 1; ++i) {
+	for(int i = 1; i < myNumParticles + 1; ++i) {
 		location = sizeof(int) + myParticles[i].diskOrder * sizeof(double);
 		outgroup.seekp(location);
 		value = sqrt(myParticles[i].velDispSq);
@@ -452,7 +455,7 @@ void Smooth_TreePiece::saveInformation(const string& prefix, const CkCallback& c
 	outgroup.close();
 		
 	outgroup.open((prefix + ".phase").c_str(), ios::in | ios::out);
-	for(int i = 1; i < numParticles + 1; ++i) {
+	for(int i = 1; i < myNumParticles + 1; ++i) {
 		location = sizeof(int) + myParticles[i].diskOrder * sizeof(double);
 		outgroup.seekp(location);
 		value = myParticles[i].density / pow(myParticles[i].velDispSq, 1.5);
@@ -461,7 +464,7 @@ void Smooth_TreePiece::saveInformation(const string& prefix, const CkCallback& c
 	outgroup.close();
 	
 	outgroup.open((prefix + ".mach").c_str(), ios::in | ios::out);
-	for(int i = 1; i < numParticles + 1; ++i) {
+	for(int i = 1; i < myNumParticles + 1; ++i) {
 		location = sizeof(int) + myParticles[i].diskOrder * sizeof(double);
 		outgroup.seekp(location);
 		value = myParticles[i].meanVelocity.length() / sqrt(myParticles[i].velDispSq);
@@ -470,7 +473,7 @@ void Smooth_TreePiece::saveInformation(const string& prefix, const CkCallback& c
 	outgroup.close();
 	
 	outgroup.open((prefix + ".speed").c_str(), ios::in | ios::out);
-	for(int i = 1; i < numParticles + 1; ++i) {
+	for(int i = 1; i < myNumParticles + 1; ++i) {
 		location = sizeof(int) + myParticles[i].diskOrder * sizeof(double);
 		outgroup.seekp(location);
 		value = myParticles[i].meanVelocity.length();

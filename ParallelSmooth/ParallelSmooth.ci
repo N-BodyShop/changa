@@ -13,7 +13,7 @@ mainmodule ParallelSmooth {
 	};
 	
 	array [1D] Smooth_TreePiece : TreePiece {
-		entry Smooth_TreePiece(const PeriodicBoundaryConditions<double>& periodic);
+		entry Smooth_TreePiece();
 		
 		entry void findSmoothingRadius(const int n, const CkCallback& cb);
 		entry void performSmoothOperation(const SmoothOperation op, const CkCallback& cb);

@@ -38,7 +38,7 @@ class DataManager : public NodeGroup {
 protected:
 	
 	/// The filename of the tipsy file.
-	std::string datafilename;
+	//std::string datafilename;
 	
 	/// An array telling me which TreePieces are actually on my node.
 	std::vector<int> myTreePieces;
@@ -78,7 +78,7 @@ public:
 	 keys relative to the bounding box, and locally sorted.  Global sorting takes place
 	 with a Sorter.  The callback will receive a CkReductionMsg containing no data.
 	 */
-	void loadParticles(const string& filename, const int nbodies, const CkCallback& cb);
+	//void loadParticles(const string& filename, const int nbodies, const CkCallback& cb);
 	
 	/// Called by the Sorter, I ask my TreePieces to evaluate these splitter keys
 	void acceptCandidateKeys(const Key* keys, const int n, const CkCallback& cb);

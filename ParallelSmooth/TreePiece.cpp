@@ -8,8 +8,11 @@
 
 #include "pup_stl.h"
 
+#include "SFC.h"
+
 #include "TreePiece.h"
 
+#include "Reductions.h"
 #include "Tree.h"
 #include "DataManager.h"
 
@@ -32,9 +35,9 @@ TreePiece::~TreePiece() {
 }
 /*
 void TreePiece::pup(PUP::er& p) {
-	p(numBoundaries);
-	p(treePieces);
-	p(dataManager);
+	p | numBoundaries;
+	p | treePieces;
+	p | dataManager;
 	if(p.isUnpacking()) {
 		dm = dataManager.ckLocalBranch();
 		if(dm == 0)
@@ -43,20 +46,21 @@ void TreePiece::pup(PUP::er& p) {
 		//remove this TreePiece from DataManager's list
 		dm->myTreePieces.erase(find(dm->myTreePieces.begin(), dm->myTreePieces.end(), thisIndex));
 	}
-	p(boundingBox);
-	p(myPlace);
-	//p(callback);
-	p(numTreePieces);
+	p | boundingBox;
+	p | myPlace;
+	p | callback;
+	p | numTreePieces;
 	p | myParticles;
 	p | mySortedParticles;
-	p(numParticles);
-	//p(root);
-	p(leftSplitter);
-	p(rightSplitter);
+	p | myNumParticles;
+	p | root;
+	p | leftSplitter;
+	p | rightSplitter;
 	if(p.isUnpacking()) {
 		leftBoundary = myParticles.begin();
 		rightBoundary = myParticles.end() - 1;
 	}
+	p | nodeLookup;
 }
 */
 void TreePiece::registerWithDataManager(const CkGroupID& dataManagerID, const CkCallback& cb) {
@@ -73,6 +77,59 @@ void TreePiece::registerWithDataManager(const CkGroupID& dataManagerID, const Ck
 	contribute(0, 0, CkReduction::concat, cb);
 }
 
+void TreePiece::loadParticles(const std::string& filename, const int numPieces, const CkCallback& cb) {
+	callback = cb;
+	
+	TipsyReader r(filename);
+	if(!r.status()) {
+		cerr << thisIndex << ": TreePiece: Fatal: Couldn't open tipsy file!" << endl;
+		cb.send(0);
+		return;
+	}
+	
+	numTreePieces = numPieces;
+	header h = r.getHeader();
+	totalNumParticles = h.nbodies;
+	myNumParticles = totalNumParticles / numTreePieces;
+	unsigned int excess = totalNumParticles % numTreePieces;
+	unsigned int startParticle = myNumParticles * thisIndex;
+	if(thisIndex < excess) {
+		myNumParticles++;
+		startParticle += thisIndex;
+	} else
+		startParticle += excess;
+	
+	if(verbosity > 2)
+		cerr << thisIndex << ": TreePiece: Taking " << myNumParticles << " of " << totalNumParticles << " particles, starting at " << startParticle << endl;
+
+	myParticles.reserve(myNumParticles);
+	
+	if(!r.seekParticleNum(startParticle)) {
+		cerr << thisIndex << ": TreePiece: Fatal: Couldn't seek to my particles!" << endl;
+		cb.send(0);
+		return;
+	}
+	
+	gas_particle gp;
+	dark_particle dp;
+	star_particle sp;
+	for(int i = 0; i < myNumParticles; ++i) {
+		if(i + startParticle < h.nsph) {
+			r.getNextGasParticle(gp);
+			myParticles.push_back(gp);
+		} else if(i + startParticle < h.nsph + h.ndark) {
+			r.getNextDarkParticle(dp);
+			myParticles.push_back(dp);
+		} else {
+			r.getNextStarParticle(sp);
+			myParticles.push_back(sp);
+		}
+		boundingBox.grow(myParticles.back().position);
+	}
+	
+	contribute(sizeof(OrientedBox<double>), &boundingBox, growOrientedBox_double, CkCallback(CkIndex_TreePiece::assignKeys(0), treePieces));
+}
+/*
 /// Accept particles from the DataManager
 void TreePiece::receiveParticles(const FullParticle* particles, const int n, const CkCallback& cb) {
 	myParticles.resize(n);
@@ -97,44 +154,38 @@ void TreePiece::receiveParticles(const FullParticle* particles, const int n, con
 	if(verbosity >= 5)
 		cout << thisIndex << ": TreePiece: Received " << n << " particles from the DataManager" << endl;
 }
-
-template <typename T>
-void resizeBox(OrientedBox<T>& b) {
-	T max = b.greater_corner.x - b.lesser_corner.x;
-	if((b.greater_corner.y - b.lesser_corner.y) > max)
-		max = b.greater_corner.y - b.lesser_corner.y;
-	if((b.greater_corner.z - b.lesser_corner.z) > max)
-		max = b.greater_corner.z - b.lesser_corner.z;
-	T middle = (b.greater_corner.x + b.lesser_corner.x) / 2.0;
-	b.greater_corner.x = middle + max / 2.0;
-	b.lesser_corner.x = middle - max / 2.0;
-	middle = (b.greater_corner.y + b.lesser_corner.y) / 2.0;
-	b.greater_corner.y = middle + max / 2.0;
-	b.lesser_corner.y = middle - max / 2.0;
-	middle = (b.greater_corner.z + b.lesser_corner.z) / 2.0;
-	b.greater_corner.z = middle + max / 2.0;
-	b.lesser_corner.z = middle - max / 2.0;
-}
-
+*/
 
 /// After the bounding box has been found, we can assign keys to the particles
 void TreePiece::assignKeys(CkReductionMsg* m) {
-	if(m->getSize() != sizeof(boundingBox)) {
+	if(m->getSize() != sizeof(OrientedBox<double>)) {
 		cerr << thisIndex << ": TreePiece: Fatal: Wrong size reduction message received!" << endl;
 		callback.send(0);
 		delete m;
 		return;
 	}
 	
-	// XXX: We may want to round off the bounding box here!
 	boundingBox = *static_cast<OrientedBox<double> *>(m->getData());
-	resizeBox(boundingBox);
+	delete m;
+	if(thisIndex == 0 && verbosity)
+		cerr << "TreePiece: Bounding box originally: " << boundingBox << endl;
+	OrientedBox<double> unitCube(Vector3D<double>(-0.5, -0.5, -0.5), Vector3D<double>(0.5, 0.5, 0.5));
+	double diagonal = boundingBox.size().length();
+	double epsilon = max(1E-2, 1.0 / totalNumParticles);
+	if((boundingBox.lesser_corner - unitCube.lesser_corner).length() / diagonal < epsilon
+			&& (boundingBox.greater_corner - unitCube.greater_corner).length() / diagonal < epsilon) {
+		boundingBox = unitCube;
+	} else {
+		OrientedBox<float> fbox(boundingBox);
+		cubize(fbox);
+		bumpBox(fbox, HUGE_VAL);
+		boundingBox = fbox;
+	}
 	if(thisIndex == 0 && verbosity)
 		cerr << "TreePiece: Bounding box resized to: " << boundingBox << endl;
-	delete m;
 	//give particles keys, using bounding box to scale
 	for(vector<FullParticle>::iterator iter = myParticles.begin(); iter != myParticles.end(); ++iter)
-		iter->generateKey(boundingBox);
+		iter->key = generateKey(iter->position, boundingBox);
 	sort(myParticles.begin(), myParticles.end());
 	
 	contribute(0, 0, CkReduction::concat, callback);
@@ -147,7 +198,7 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 void TreePiece::evaluateBoundaries(const CkCallback& cb) {
 	int numBins = dm->boundaryKeys.size() - 1;
 	//this array will contain the number of particles I own in each bin
-	vector<int> myBinCounts(numBins, 0);
+	myBinCounts.assign(numBins, 0);
 	vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
 	vector<FullParticle>::iterator binBegin = myParticles.begin();
 	vector<FullParticle>::iterator binEnd;
@@ -170,15 +221,16 @@ void TreePiece::evaluateBoundaries(const CkCallback& cb) {
 }
 
 /// Once final splitter keys have been decided, I need to give my particles out to the TreePiece responsible for them
-void TreePiece::unshuffleParticles(const CkCallback& cb) {
-	callback = cb;
+void TreePiece::unshuffleParticles(CkReductionMsg* m) {
+	callback = *static_cast<CkCallback *>(m->getData());
 	
 	//find my responsibility
 	myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
-	numTreePieces = dm->responsibleIndex.size();
 	//assign my bounding keys
 	leftSplitter = dm->boundaryKeys[myPlace];
 	rightSplitter = dm->boundaryKeys[myPlace + 1];
+	mySortedParticles.clear();
+	mySortedParticles.reserve(dm->particleCounts[myPlace]);
 	
 	vector<Key>::iterator iter = dm->boundaryKeys.begin();
 	vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
@@ -191,8 +243,12 @@ void TreePiece::unshuffleParticles(const CkCallback& cb) {
 		//find particles between this and the last key
 		binEnd = upper_bound(binBegin, myParticles.end(), dummy);
 		//if I have any particles in this bin, send them to the responsible TreePiece
-		if((binEnd - binBegin) > 0)
-			treePieces[*responsibleIter].acceptSortedParticles(binBegin, binEnd - binBegin);
+		if((binEnd - binBegin) > 0) {
+			if(*responsibleIter == thisIndex)
+				acceptSortedParticles(binBegin, binEnd - binBegin);
+			else
+				treePieces[*responsibleIter].acceptSortedParticles(binBegin, binEnd - binBegin);
+		}
 		if(myParticles.end() <= binEnd)
 			break;
 		binBegin = binEnd;
@@ -201,6 +257,80 @@ void TreePiece::unshuffleParticles(const CkCallback& cb) {
 	myParticles.resize(dm->particleCounts[myPlace] + 2);
 }
 
+/*		
+void TreePiece::unshuffleParticles(CkReductionMsg* m) {		
+	callback = *static_cast<CkCallback *>(m->getData());
+	
+	//find my responsibility
+	myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
+	
+	//assign my bounding keys
+	leftSplitter = dm->boundaryKeys[myPlace];
+	rightSplitter = dm->boundaryKeys[myPlace + 1];
+	
+	if(numTreePieces > 1) {
+		//rotate particles until we're up front
+		FullParticle* myFirstParticle = upper_bound(myParticles.begin(), myParticles.end(), FullParticle(leftSplitter));
+		rotate(myParticles.begin(), myFirstParticle, myParticles.end());
+
+		//figure out how much extra space to make
+		int extraSpace = 2 * myNumParticles / numTreePieces;
+
+		//make space by moving everybody else over
+		FullParticle* pastLastParticle = upper_bound(myParticles.begin(), myParticles.end(), FullParticle(rightSplitter));
+		myParticles.insert(pastLastParticle, extraSpace, FullParticle());
+
+		beginFreeParticles = myParticles.begin() + myBinCounts[thisIndex];
+		beginOthersParticles = beginFreeParticles + extraSpace;
+		swapsMade = 0;
+		
+		giveParticles((thisIndex + 1) % numTreePieces);
+	} else
+		contribute(0, 0, CkReduction::concat, CkCallback(CkIndex_TreePiece::shareBoundaries(0), thisArrayID));
+}
+
+void TreePiece::giveParticles(const int toWhom) {
+	int howMany = myBinCounts[toWhom];
+	treePieces[toWhom].getParticles(beginOthersParticles, howMany);
+	beginOthersParticles += howMany;
+}
+
+void TreePiece::getParticles(const FullParticle* particles, int n) {
+	if(n > (beginOthersParticles - beginFreeParticles))
+		cerr << "Ack!  Fatal" << endl;
+	copy(particles, particles + n, beginFreeParticles);
+	beginFreeParticles += n;
+	
+	if(++swapsMade < numTreePieces - 1)
+		giveParticles((swapsMade + thisIndex) % numTreePieces);
+	else {
+		myParticles.resize(beginFreeParticles - myParticles.begin());
+		sort(myParticles.begin(), myParticles.end());
+		contribute(0, 0, CkReduction::concat, CkCallback(CkIndex_TreePiece::shareBoundaries(0), thisArrayID));
+	}
+}
+
+void TreePiece::canYouAcceptParticles(const int numParticles, const int piece) {
+	if(slopSpace - alreadyPromisedSpace < numParticles) {
+		alreadyPromisedSpace += numParticles;
+		treePieces[piece].acknowledgeParticles(true);
+	} else
+		treePieces[piece].acknowledgeParticles(false);
+}
+
+void TreePiece::acknowledgeParticles(bool possible) {
+	if(possible) {
+		treePieces[pushPiece].acceptParticles(beginSendParticle, numParticlesToSend);
+		
+		//move all unsent particles to the end
+		
+		//get beginSendParticle and numParticlesToSend off the queue
+	} else {
+		//put pushPiece and numParticlesToSend back on queue
+		//get new pushPiece
+	}
+}
+*/
 /// Accept particles from other TreePieces once the sorting has finished
 void TreePiece::acceptSortedParticles(const FullParticle* particles, const int n) {
 	copy(particles, particles + n, back_inserter(mySortedParticles));
@@ -246,8 +376,8 @@ void TreePiece::acceptBoundaryKey(const Key k) {
 		leftBoundary = myParticles.begin();
 		rightBoundary = myParticles.end() - 1;
 		//I don't own my left and right boundaries, but I need to know them
-		numParticles = myParticles.size() - 2;
-		if(numParticles != dm->particleCounts[myPlace])
+		myNumParticles = myParticles.size() - 2;
+		if(myNumParticles != dm->particleCounts[myPlace])
 			cerr << thisIndex << ": TreePiece: Screwed up particle counts!" << endl;
 		contribute(0, 0, CkReduction::concat, callback);
 	}
@@ -327,7 +457,7 @@ void TreePiece::buildTree(TreeNode* node, FullParticle* leftParticle, FullPartic
 			return;
 		}
 	} else if(node->level == 63) {
-		cerr << thisIndex << ": This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
+		cerr << thisIndex << ": TreePiece: This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
 		return;
 	}
 	
@@ -344,7 +474,7 @@ void TreePiece::buildTree(TreeNode* node, FullParticle* leftParticle, FullPartic
 		node->setType(Internal);
 	
 	if(leftBit ^ rightBit) { //a split at this level
-		//find the split by looking for where the key with the bit siwtched on could go
+		//find the split by looking for where the key with the bit switched on could go
 		FullParticle* splitParticle = lower_bound(leftParticle, rightParticle + 1, node->key | currentBitMask);
 		if(splitParticle == leftBoundary + 1) {
 			//we need to make the left child point to a remote chare
@@ -522,7 +652,7 @@ std::string keyBits(const Key k, const int numBits) {
 }
 
 /** Check that all the particles in the tree are really in their boxes.
- Because the keys are made of only the frist 21 out of 23 bits of the
+ Because the keys are made of only the first 21 out of 23 bits of the
  floating point representation, there can be particles that are outside
  their box by tiny amounts.  Whether this is bad is not yet known. */
 void checkTree(const TreeNode* node) {
@@ -632,7 +762,7 @@ void TreePiece::report(const CkCallback& cb) {
 	os << "\tcenter = \"true\"\n";
 	//os << "\tsize = \"8.5,11\"\n";
 	os << "\tlabel = \"Piece: " << thisIndex << "\\nParticles: " 
-			<< numParticles << "\\nLeft Splitter: " << keyBits(leftSplitter, 63)
+			<< myNumParticles << "\\nLeft Splitter: " << keyBits(leftSplitter, 63)
 			<< "\\nLeftmost Key: " << *(leftBoundary + 1) 
 			<< "\\nRightmost Key: " << *(rightBoundary - 1) 
 			<< "\\nRight Splitter: " << keyBits(rightSplitter, 63) << "\";\n";
@@ -694,7 +824,7 @@ void TreePiece::generateImage(liveVizRequestMsg* m) {
 	vector<byte> image(r.width * r.height, 0);
 	int x, y;
 	byte color;
-	for(int i = 1; i < numParticles + 1; ++i) {
+	for(int i = 1; i < myNumParticles + 1; ++i) {
 		x = static_cast<int>(dot(myParticles[i].position - r.corner, r.x));
 		if(x < 0 || x >= r.width)
 			continue;
@@ -715,7 +845,7 @@ void TreePiece::generateImage(liveVizRequestMsg* m) {
 
 void TreePiece::applyPerParticleFunction(const CkCallback& cb) {
 	perParticleFunction f = dm->userPerParticleFunction;
-	for(int i = 1; i < numParticles + 1; ++i)
+	for(int i = 1; i < myNumParticles + 1; ++i)
 		f(myParticles[i]);
 	contribute(0, 0, CkReduction::concat, cb);
 }

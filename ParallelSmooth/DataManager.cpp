@@ -13,7 +13,7 @@ DataManager::DataManager(const CkArrayID& treePieceID) {
 	treePieces = CProxy_TreePiece(treePieceID);
 	//interp = 0;
 }
-
+/*
 void DataManager::loadParticles(const string& filename, const int nbodies, const CkCallback& cb) {
 	//figure out how many particles this node should read in
 	int segmentSize = nbodies / CkNumPes();
@@ -72,7 +72,7 @@ void DataManager::loadParticles(const string& filename, const int nbodies, const
 			
 			myParticles[i].diskOrder = diskOrder++;
 		}
-			
+
 		treePieces[*iter].receiveParticles(myParticles, n, cb);
 	}
 	
@@ -86,7 +86,7 @@ void DataManager::loadParticles(const string& filename, const int nbodies, const
 	
 	delete[] myParticles;	
 }
-
+*/
 void DataManager::acceptCandidateKeys(const Key* keys, const int n, const CkCallback& cb) {
 	boundaryKeys.resize(n);
 	copy(keys, keys + n, boundaryKeys.begin());
@@ -102,10 +102,12 @@ void DataManager::acceptFinalKeys(const Key* keys, const int* responsible, const
 	copy(responsible, responsible + n - 1, responsibleIndex.begin());
 	particleCounts.resize(n - 1);
 	copy(bins, bins + n - 1, particleCounts.begin());
-
+	
+	contribute(sizeof(CkCallback), &cb, callbackReduction, CkCallback(CkIndex_TreePiece::unshuffleParticles(0), treePieces));
+	
 	//tell my TreePieces to move the particle data to the responsible chare
-	for(vector<int>::iterator iter = myTreePieces.begin(); iter != myTreePieces.end(); ++iter)
-		treePieces[*iter].unshuffleParticles(cb);
+	//for(vector<int>::iterator iter = myTreePieces.begin(); iter != myTreePieces.end(); ++iter)
+	//	treePieces[*iter].unshuffleParticles(cb);
 }
 /*
 void DataManager::compilePerParticleFunction(const string& code, const CkCallback& cb) {

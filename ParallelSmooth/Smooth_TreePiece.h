@@ -25,10 +25,9 @@ enum SmoothOperation {
 };
 
 #include "ParallelSmooth.decl.h"
+PUPbytes(SmoothOperation);
 
 class Smooth_TreePiece : public TreePiece {
-	/// The periodic boundary conditions for the simulation I'm in
-	PeriodicBoundaryConditions<double> pbc;
 	
 	/// The array of \c Neighbor_TreePieces I am a member of.
 	CProxy_Smooth_TreePiece smoothTreePieces;
@@ -59,7 +58,7 @@ class Smooth_TreePiece : public TreePiece {
 	
 public:
 	
-	Smooth_TreePiece(const PeriodicBoundaryConditions<double> & periodic) : pbc(periodic), smoothTreePieces(thisArrayID), mySerialNumber(0) { }
+	Smooth_TreePiece() : smoothTreePieces(thisArrayID), mySerialNumber(0) { }
 	
 	Smooth_TreePiece(CkMigrateMessage* m) { }
 	

@@ -1,5 +1,5 @@
-/** \file ParallelSmooth.cpp
- \author $Author$
+/** @file ParallelSmooth.cpp
+ @author $Author$
 $Header$
 */
 
@@ -33,9 +33,9 @@ Main::Main(CkArgMsg* m) {
 	
 	poptOption optionsTable[] = {
 		{"neighbors", 'n', POPT_ARG_INT | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &numNeighbors, 0, "number of nearest neighbors to find radius of", "num neighbors"},
-		{"xp", 'x', POPT_ARG_DOUBLE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &pbc.xPeriod, 0, "x-axis period for periodic boundary conditions", "xPeriod"},
-		{"yp", 'y', POPT_ARG_DOUBLE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &pbc.yPeriod, 0, "y-axis period for periodic boundary conditions", "yPeriod"},
-		{"zp", 'z', POPT_ARG_DOUBLE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &pbc.zPeriod, 0, "z-axis period for periodic boundary conditions", "zPeriod"},
+		{"xp", 'x', POPT_ARG_DOUBLE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &space.xPeriod, 0, "x-axis period for periodic boundary conditions", "xPeriod"},
+		{"yp", 'y', POPT_ARG_DOUBLE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &space.yPeriod, 0, "y-axis period for periodic boundary conditions", "yPeriod"},
+		{"zp", 'z', POPT_ARG_DOUBLE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &space.zPeriod, 0, "z-axis period for periodic boundary conditions", "zPeriod"},
 		{"period", 'p', POPT_ARG_DOUBLE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &allPeriod, 2, "period for periodic boundary conditions (all dimensions)", "period"},
 		{"verbose", 'v', POPT_ARG_NONE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, 0, 1, "be verbose about what's going on", "verbosity"},
 		{"output", 'o', POPT_ARG_STRING | POPT_ARGFLAG_ONEDASH, &prefix, 0, "prefix for output filenames", "string"},
@@ -56,10 +56,13 @@ Main::Main(CkArgMsg* m) {
 				verbosity++;
 				break;
 			case 2: //allPeriod sets x-, y-, and z-period
-				pbc.xPeriod = pbc.yPeriod = pbc.zPeriod = allPeriod;
+				space.xPeriod = space.yPeriod = space.zPeriod = allPeriod;
 				break;
 		}
 	}
+	
+	if(space.xPeriod > 0 || space.yPeriod > 0 || space.zPeriod > 0)
+		space.periodic = true;
 	
 	if(rc < -1) {
 		cerr << "Argument error: " << poptBadOption(context, POPT_BADOPTION_NOALIAS) << " : " << poptStrerror(rc) << endl;
@@ -80,7 +83,7 @@ Main::Main(CkArgMsg* m) {
 		
 	poptFreeContext(context);
 
-	if(pbc.xPeriod < 0 || pbc.yPeriod < 0 || pbc.zPeriod < 0) {
+	if(space.xPeriod < 0 || space.yPeriod < 0 || space.zPeriod < 0) {
 		cerr << "Periods for periodic boundary conditions must be positive!" << endl;
 		CkExit();
 		return;
@@ -117,7 +120,7 @@ Main::Main(CkArgMsg* m) {
 	
 	cout << "The full tipsy file has " << nbodies << " particles." << endl;
 	cout << "The number of nearest neighbors to look at is " << numNeighbors << endl;
-	cout << "Periodic boundary conditions: x: " << pbc.xPeriod << " y: " << pbc.yPeriod << " z: " << pbc.zPeriod << endl;
+	cout << "Periodic boundary conditions: x: " << space.xPeriod << " y: " << space.yPeriod << " z: " << space.zPeriod << endl;
 	cout << "Output files will be made with prefix \"" << outputPrefix << "\"" << endl;
 	if(verbosity)
 		cout << "Verbosity level " << verbosity << endl;
@@ -128,7 +131,7 @@ Main::Main(CkArgMsg* m) {
 	numTreePieces = CkNumPes(); //min(6 * CkNumPes(), ptf.fullHeader.nbodies / 200);
 	if(verbosity)
 		cout << "Main: Creating " << numTreePieces << " tree pieces" << endl;
-	smoothTreePieces = CProxy_Smooth_TreePiece::ckNew(pbc, numTreePieces);
+	smoothTreePieces = CProxy_Smooth_TreePiece::ckNew(numTreePieces);
 	treePieceID = smoothTreePieces;
 	
 	//create the DataManager
@@ -151,7 +154,7 @@ void Main::loadSortBuild() {
 	smoothTreePieces.registerWithDataManager(dataManager, CkCallbackResumeThread());
 	if(verbosity)
 		cout << "Main: Loading particles" << endl;
-	dataManager.loadParticles(filename, nbodies, CkCallbackResumeThread());
+	smoothTreePieces.loadParticles(filename, numTreePieces, CkCallbackResumeThread());
 	sorter = CProxy_Sorter::ckNew();
 	if(verbosity)
 		cout << "Main: Sorting particles" << endl;
@@ -291,5 +294,7 @@ void Main::doStressTest(CkReductionMsg* m) {
 
 extern void initRequestResponsePUP();
 extern void initSPHPUP();
+
+PUPbytes(PeriodicBoundaryConditions<double>);
 
 #include "ParallelSmooth.def.h"

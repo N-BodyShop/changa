@@ -29,8 +29,6 @@ class Main : public Chare {
 	double tolerance;
 	/// The filename prefix to use for output files.
 	string outputPrefix;
-	/// The periodic boundary conditions of the simulation.
-	PeriodicBoundaryConditions<double> pbc;
 	
 	/// The number of neighbors to find the radius of.
 	int numNeighbors;

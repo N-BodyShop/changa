@@ -23,8 +23,11 @@ int verbosity;
 CkArrayID treePieceID;
 CkGroupID dataManagerID;
 
+Space3D<double> space;
+
 CkReduction::reducerType boxGrowthReduction;
 CkReduction::reducerType minmaxReduction;
+CkReduction::reducerType callbackReduction;
 
 /// Combine reduction messages to grow a box
 CkReductionMsg* boxGrowth(int nMsg, CkReductionMsg** msgs) {
@@ -43,27 +46,35 @@ CkReductionMsg* boxGrowth(int nMsg, CkReductionMsg** msgs) {
 }
 
 /// Combine reduction messages to get min/max pair
+template <typename T>
 CkReductionMsg* minmax(int nMsg, CkReductionMsg** msgs) {
 	if(nMsg < 1)
 		cerr << "Small reduction message!" << endl;
 	
-	double* pminmax = static_cast<double *>(msgs[0]->getData());
-	double* msgpminmax;
+	T* pminmax = static_cast<T *>(msgs[0]->getData());
+	T* msgpminmax;
 	for(int i = 1; i < nMsg; i++) {
-		msgpminmax = static_cast<double *>(msgs[i]->getData());
+		msgpminmax = static_cast<T *>(msgs[i]->getData());
 		if(msgpminmax[0] < pminmax[0])
 			pminmax[0] = msgpminmax[0];
 		if(msgpminmax[1] > pminmax[1])
 			pminmax[1] = msgpminmax[1];
 	}
 	
-	return CkReductionMsg::buildNew(2 * sizeof(double), pminmax);
+	return CkReductionMsg::buildNew(2 * sizeof(T), pminmax);
+}
+
+/// Return a single object, given many copies of it
+template <typename T>
+CkReductionMsg* same(int nMsg, CkReductionMsg** msgs) {
+	return CkReductionMsg::buildNew(sizeof(T), static_cast<T *>(msgs[0]->getData()));
 }
 
 /// Register my reductions
 void registerNChiladaReductions() {
 	boxGrowthReduction = CkReduction::addReducer(boxGrowth);
-	minmaxReduction = CkReduction::addReducer(minmax);
+	minmaxReduction = CkReduction::addReducer(minmax<double>);
+	callbackReduction = CkReduction::addReducer(same<CkCallback>);
 }
 
 /*
