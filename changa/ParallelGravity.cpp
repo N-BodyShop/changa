@@ -3,12 +3,16 @@
  
 #include <iostream>
 
-#include <popt.h>
+//#include <popt.h>
+#include <unistd.h>
 
 #include "StreamingStrategy.h"
 
 #include "ParallelGravity.h"
 #include "CacheManager.h"
+
+extern char *optarg;
+extern int optind, opterr, optopt;
 
 using namespace std;
 
@@ -25,7 +29,7 @@ Main::Main(CkArgMsg* m) {
 	bucketSize = 12;
 	_cache = false;
 	_cacheLineDepth=1;
-
+/*
 	poptOption optionsTable[] = {
 		{"verbose", 'v', POPT_ARG_NONE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, 0, 1, "be verbose about what's going on", "verbosity"},
 		{"theta", 't', POPT_ARG_DOUBLE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &theta, 0, "the opening angle to particle-cell interaction", "opening angle"},
@@ -50,8 +54,6 @@ Main::Main(CkArgMsg* m) {
 				break;
 		}
 	}
-	cerr<<"cache "<<_cache<<endl;
-	cerr<<"cacheLineDepth "<<_cacheLineDepth<<endl;
 	
 	if(rc < -1) {
 		cerr << "Argument error: " << poptBadOption(context, POPT_BADOPTION_NOALIAS) << " : " << poptStrerror(rc) << endl;
@@ -69,8 +71,50 @@ Main::Main(CkArgMsg* m) {
 		return;
 	} else
 		basefilename = fname;
-	
 	poptFreeContext(context);
+		*/
+	
+	const char *optstring = "vt:p:b:cd:n:";
+	int c;
+	while((c=getopt(m->argc,m->argv,optstring))>0){
+		if(c == -1){
+			break;
+		}
+		switch(c){
+			case 'v':
+				verbosity++;
+				break;
+			case 't':
+				theta = atof(optarg);
+				break;
+			case 'p':
+				numTreePieces = atoi(optarg);
+				break;
+			case 'b':
+				bucketSize = atoi(optarg);
+				break;
+			case 'c':
+				_cache = true;
+				break;
+			case 'd':
+				_cacheLineDepth = atoi(optarg);
+				break;
+			case 'n':
+				numIterations = atoi(optarg);
+				break;
+		};
+	}
+	const char *fname;
+	if(optind  < m->argc){
+		fname = m->argv[optind];
+	}else{
+		cerr<<"Base file name missing\n";
+		CkExit();
+	}
+	basefilename = fname;
+	
+	cerr<<"cache "<<_cache<<endl;
+	cerr<<"cacheLineDepth "<<_cacheLineDepth<<endl;
 	
 	if(verbosity)
 		cerr << "Verbosity level " << verbosity << endl;
