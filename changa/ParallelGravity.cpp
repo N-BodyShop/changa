@@ -195,15 +195,12 @@ void Main::nextStage() {
 		}
 	}
 	
-	/*
 	if(verbosity)
 		cerr << "Outputting accelerations ..." << endl;
 	startTime = CkWallTimer();
 	pieces[0].outputAccelerations(OrientedBox<double>(), "acc2", CkCallbackResumeThread());
 	if(verbosity > 1)
 		cerr << "Main: Outputting took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	*/
-	/*
 	if(verbosity)
 		cerr << "Outputting statistics ..." << endl;
 	startTime = CkWallTimer();
@@ -211,7 +208,6 @@ void Main::nextStage() {
 	pieces[0].outputStatistics(dummy, dummy, dummy, dummy, CkCallbackResumeThread());
 	if(verbosity > 1)
 		cerr << "Main: Outputting took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	*/
 	/*
 	if(verbosity)
 		cerr << "Outputting relative errors ..." << endl;
