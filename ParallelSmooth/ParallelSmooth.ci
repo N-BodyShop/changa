@@ -1,0 +1,27 @@
+//ParallelSmooth.ci
+
+mainmodule ParallelSmooth {
+	extern module NChilada;
+	
+	mainchare Main {
+		entry Main();
+		
+		entry [threaded] void loadSortBuild();
+		entry [threaded] void doCalculations();
+	};
+	
+	array [1D] Smooth_TreePiece : TreePiece {
+		entry Smooth_TreePiece(const PeriodicBoundaryConditions<double>& periodic);
+		
+		entry void findSmoothingRadius(const int n, const CkCallback& cb);
+		entry void performSmoothOperation(const int opID, const CkCallback& cb);
+		
+		entry void handleTreeRequest(TreeRequest_Pointer req);
+		entry void receiveResponse(Response_Pointer resp);
+		
+		entry void saveInformation(const std::string& prefix, const CkCallback& cb);
+	};
+	
+	initcall void initRequestResponsePUP();
+	initcall void initSPHPUP();
+};

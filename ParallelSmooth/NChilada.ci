@@ -1,0 +1,51 @@
+//NChilada.ci
+
+module NChilada {
+	
+	readonly CkArrayID treePieceID;
+	readonly CkGroupID dataManagerID;
+	readonly int verbosity;
+	
+	initcall void registerNChiladaReductions();
+	
+	chare Sorter {
+		entry Sorter();
+		
+		entry void startSorting(const CkGroupID& dataManagerID, const int nChares, const double toler, const CkCallback& cb);	
+		entry void collectEvaluations(CkReductionMsg* m);
+	};
+	
+	nodegroup DataManager {
+		entry DataManager(const CkArrayID& treePieceID);
+		
+		entry void loadParticles(const std::string& filename, const int nbodies, const CkCallback& cb);
+		
+		entry void acceptCandidateKeys(const Key keys[n], const int n, const CkCallback& cb);
+		entry void acceptFinalKeys(const Key keys[n], const int responsible[n - 1], const int bins[n - 1], const int n, const CkCallback& cb);
+		
+		//entry void compilePerParticleFunction(const string& code, const CkCallback& cb);
+	};
+	
+	array [1D] TreePiece {
+		entry TreePiece();
+		
+		entry void registerWithDataManager(const CkGroupID& dataManagerID, const CkCallback& cb);
+		
+		entry void receiveParticles(const FullParticle particles[n], const int n, const CkCallback& cb);
+		entry void assignKeys(CkReductionMsg* m);
+		
+		entry void evaluateBoundaries(const CkCallback& cb);
+		entry void unshuffleParticles(const CkCallback& cb);
+		entry void acceptSortedParticles(const FullParticle particles[n], const int n);
+		entry void shareBoundaries(CkReductionMsg* m);
+		entry void acceptBoundaryKey(const Key k);
+		
+		entry void startTreeBuild(const CkCallback& cb);
+		
+		entry void report();
+		
+		//entry void generateImage(liveVizRequestMsg* m);
+		//entry void applyPerParticleFunction(const CkCallback& cb);
+	};
+	
+};
