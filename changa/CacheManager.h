@@ -110,6 +110,10 @@ private:
 
 	map<MapKey,ParticleCacheEntry*> particleCacheTable;
 	int storedParticles;
+	bool proxyInitialized; //checks if the streaming proxy has been delegated or not
+	
+	void addNode(Key key,int from,CacheNode node);
+	void processRequests(Key key,int from);
 
 	public:
 	CacheManager();
@@ -117,6 +121,7 @@ private:
 
 	CacheNode *requestNode(int ,int ,Key ,BucketGravityRequest *);
 	void recvNodes(Key ,int ,CacheNode );
+	void recvNodes(int ,Key *,CacheNode *,int );
 	
 	GravityParticle *requestParticles(int ,Key ,int ,int ,int ,BucketGravityRequest *);
 	void recvParticles(Key ,GravityParticle *,int ,int);

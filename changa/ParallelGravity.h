@@ -191,6 +191,7 @@ public:
 
 extern int verbosity;
 extern bool _cache;
+extern int _cacheLineDepth;
 
 class Main : public Chare {
 	std::string basefilename;
@@ -266,6 +267,8 @@ class TreePiece : public ArrayElement1D {
 	void walkBucketTree(GravityTreeNode* node, BucketGravityRequest& req);
 	void startNextBucket();
 	void doAllBuckets();
+	void copySFCTreeNode(SFCTreeNode &tmp,SFCTreeNode *node);
+	void prefixCopyNode(SFCTreeNode *node,Key *cacheKeys,SFCTreeNode *cacheNodes,int *count,int depth);
 public:
 	
 	TreePiece(unsigned int numPieces) : numTreePieces(numPieces), pieces(thisArrayID), streamingProxy(thisArrayID), started(false), root(0) {

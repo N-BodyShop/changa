@@ -7,6 +7,7 @@ mainmodule ParallelGravity {
 	readonly int verbosity;
 	readonly CProxy_TreePiece treeProxy;
 	readonly bool _cache;
+	readonly int _cacheLineDepth;
 	
 	mainchare Main {
 		entry Main();
@@ -36,7 +37,7 @@ mainmodule ParallelGravity {
 		entry void fillRequestTree(GravityRequest req);	
 		entry void receiveGravityTree(const GravityRequest& req);
 		
-		entry void calculateGravityBucketTree(double t, const CkCallback& cb);
+		entry [threaded] void calculateGravityBucketTree(double t, const CkCallback& cb);
 		entry void fillRequestBucketTree(BucketGravityRequest req);	
 		entry void receiveGravityBucketTree(const BucketGravityRequest& req);
 

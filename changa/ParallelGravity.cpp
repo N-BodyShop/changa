@@ -15,6 +15,7 @@ using namespace std;
 int verbosity;
 CProxy_TreePiece treeProxy;
 bool _cache;
+int _cacheLineDepth;
 
 Main::Main(CkArgMsg* m) {
 	verbosity = 0;
@@ -22,13 +23,15 @@ Main::Main(CkArgMsg* m) {
 	numTreePieces = CkNumPes();
 	bucketSize = 12;
 	_cache = false;
-	
+	_cacheLineDepth=1;
+
 	poptOption optionsTable[] = {
 		{"verbose", 'v', POPT_ARG_NONE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, 0, 1, "be verbose about what's going on", "verbosity"},
 		{"theta", 't', POPT_ARG_DOUBLE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &theta, 0, "the opening angle to particle-cell interaction", "opening angle"},
 		{"pieces", 'p', POPT_ARG_INT | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &numTreePieces, 0, "the number of TreePieces to create", "num TreePieces"},
 		{"bucketSize", 'b', POPT_ARG_INT | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &bucketSize, 0, "the maxiumum number of particles in a bucket", "bucketSize"},
 		{"cache", 'c', POPT_ARG_NONE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &_cache, 1,"should the cache manager be used"},
+		{"cacheLineDepth",'d', POPT_ARG_INT | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT,&_cacheLineDepth,0,"The depth of the cacheLine tree to be fetched ","cache Line Depth"},
 		POPT_AUTOHELP
 		POPT_TABLEEND
 	};
@@ -46,6 +49,7 @@ Main::Main(CkArgMsg* m) {
 		}
 	}
 	cerr<<"cache "<<_cache<<endl;
+	cerr<<"cacheLineDepth "<<_cacheLineDepth<<endl;
 	
 	if(rc < -1) {
 		cerr << "Argument error: " << poptBadOption(context, POPT_BADOPTION_NOALIAS) << " : " << poptStrerror(rc) << endl;
@@ -69,10 +73,10 @@ Main::Main(CkArgMsg* m) {
 	if(verbosity)
 		cerr << "Verbosity level " << verbosity << endl;
 	
-	//ComlibInstanceHandle cinst = CkGetComlibInstance();
-	//StreamingStrategy* strategy = new StreamingStrategy;
-	//strategy->enableShortArrayMessagePacking();
-	//cinst.setStrategy(strategy);
+	ComlibInstanceHandle cinst = CkGetComlibInstance();
+	StreamingStrategy* strategy = new StreamingStrategy(10,50);
+	cinst.setStrategy(strategy);
+
 	cacheManagerProxy = CProxy_CacheManager::ckNew();
     pieces = CProxy_TreePiece::ckNew(numTreePieces, numTreePieces);
 	treeProxy = pieces;

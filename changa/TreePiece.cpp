@@ -714,7 +714,7 @@ void TreePiece::finishBucket(int iBucket) {
 	    contribute(0, 0, CkReduction::concat, callback);
 	    cout << "TreePiece " << thisIndex << ": Made " << myNumProxyCalls
 		 << " proxy calls forward, " << myNumProxyCallsBack
-		 << " to respond" << endl;
+		 << " to respond in finishBucket" << endl;
 	    if(verbosity > 4)
 		cerr << "TreePiece " << thisIndex << ": My particles are done"
 		     << endl;
@@ -723,9 +723,9 @@ void TreePiece::finishBucket(int iBucket) {
 }
 
 #endif
-#define YIELDPERIOD 30
 
 void TreePiece::doAllBuckets(){
+	int YIELDPERIOD = numBuckets/10;
 	for(;currentBucket <numBuckets;currentBucket++){
 		startNextBucket();
 		if(currentBucket%YIELDPERIOD == YIELDPERIOD -1 ){
@@ -982,29 +982,60 @@ SFCTreeNode* TreePiece::requestNode(int remoteIndex, Key lookupKey,
     }
 }
 
-void TreePiece::fillRequestNode(int retIndex, Key lookupKey,
-				BucketGravityRequest& req)
-{
-    SFCTreeNode* node = nodeLookup[lookupKey];
-    SFCTreeNode tmp;
-    
-    if(node != NULL) {
-    	tmp.setType(node->getType());
+
+/*
+copy the data from node to tmp
+*/
+void TreePiece::copySFCTreeNode(SFCTreeNode &tmp,SFCTreeNode *node){
+	tmp.setType(node->getType());
 	tmp.moments = node->moments;
 	tmp.beginParticle = node->beginParticle;
 	tmp.endParticle = node->endParticle;
 	tmp.remoteIndex = node->remoteIndex;
 	tmp.key = node->key;
 	tmp.level = node->level;
-	
+
 	assert(tmp.getType() != Invalid);
 	
 	if(tmp.getType() == Boundary || tmp.getType() == Internal
 	   || tmp.getType() == Bucket)
 	    tmp.remoteIndex = thisIndex;
-	if(_cache){
-		cacheManagerProxy[retIndex].recvNodes(lookupKey,thisIndex,tmp);
+	
+}
+/*
+	do a prefix traversal starting at node and copy the keys and nodes into 
+	the passed arrays
+*/
+void TreePiece::prefixCopyNode(SFCTreeNode *node,Key *cacheKeys,SFCTreeNode *cacheNodes,int *count,int depth){
+	if(depth >= _cacheLineDepth || node == NULL){
+		return;
+	}
+	cacheKeys[*count] = node->lookupKey();
+	copySFCTreeNode(cacheNodes[*count],node);
+	(*count)++;
+	prefixCopyNode(nodeLookup[node->leftChildLookupKey()],cacheKeys,cacheNodes,count,depth+1);
+	prefixCopyNode(nodeLookup[node->rightChildLookupKey()],cacheKeys,cacheNodes,count,depth+1);
+}
+
+void TreePiece::fillRequestNode(int retIndex, Key lookupKey,
+				BucketGravityRequest& req)
+{
+    SFCTreeNode* node = nodeLookup[lookupKey];
+    SFCTreeNode tmp;
+    if(node != NULL) {
+    	if(_cache){
+		int number = (1<<_cacheLineDepth)-1;
+		Key *cacheKeys = new Key[number];
+		SFCTreeNode *cacheNodes = new SFCTreeNode[number];
+		int count=0;
+		prefixCopyNode(node,cacheKeys,cacheNodes,&count,0);
+	//	cacheManagerProxy[retIndex].recvNodes(lookupKey,thisIndex,tmp);
+		cacheManagerProxy[retIndex].recvNodes(count,cacheKeys,cacheNodes,thisIndex);
+		
+		delete [] cacheKeys;
+		delete [] cacheNodes;
 	}else{
+		copySFCTreeNode(tmp,node);
 		streamingProxy[retIndex].receiveNode(tmp,req);
 	}
     }
@@ -1135,7 +1166,7 @@ void TreePiece::receiveGravityBucketTree(const BucketGravityRequest& req) {
 		if(started && myNumParticlesPending == 0) {
 			started = false;
 			contribute(0, 0, CkReduction::concat, callback);
-			cout << "TreePiece " << thisIndex << ": Made " << myNumProxyCalls << " proxy calls forward, " << myNumProxyCallsBack << " to respond" << endl;
+			cout << "TreePiece " << thisIndex << ": Made " << myNumProxyCalls << " proxy calls forward, " << myNumProxyCallsBack << " to respond in receiveGravityBucketTree" << endl;
 			if(verbosity > 4)
 				cerr << "TreePiece " << thisIndex << ": My particles are done" << endl;
 		}
