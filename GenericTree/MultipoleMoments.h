@@ -24,8 +24,7 @@ public:
 	double totalMass;
 	/// The center of mass (zeroth order multipole)
 	Vector3D<double> cm;
-	//Tensor for higher order moments goes here (not yet
-	//implemented)
+	//Tensor for higher order moments goes here
 	double xx, xy, xz, yy, yz, zz;
 	
 	MultipoleMoments() : radius(0), totalMass(0) { 
@@ -166,7 +165,7 @@ inline void calculateRadiusFarthestCorner(MultipoleMoments& m, const OrientedBox
 
 /// Given the positions that make up a multipole expansion, set the distance to the farthest particle from the center of mass
 template <typename ParticleType>
-inline void calculateRadiusFarthestParticle(MultipoleMoments& m, const ParticleType* begin, const ParticleType* end) {
+inline void calculateRadiusFarthestParticle(MultipoleMoments& m, ParticleType* begin, const ParticleType* end) {
 	Vector3D<double> cm = m.cm;
 	double d;
 	m.radius = 0;
