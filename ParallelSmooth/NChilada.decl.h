@@ -421,7 +421,7 @@ void acceptSortedParticles(const FullParticle *particles, int n);
 void shareBoundaries(CkReductionMsg* impl_msg);
 void acceptBoundaryKey(const Key &k);
 void startTreeBuild(const CkCallback &cb);
-void report(void);
+void report(const CkCallback &cb);
 };
  */
  class TreePiece;
@@ -496,11 +496,11 @@ class CkIndex_TreePiece{
     static int startTreeBuild(const CkCallback &cb) { return __idx_startTreeBuild_marshall10; }
     static void _call_startTreeBuild_marshall10(void* impl_msg,TreePiece* impl_obj);
 
-/* DECLS: void report(void);
+/* DECLS: void report(const CkCallback &cb);
  */
-    static int __idx_report_void;
-    static int report(void) { return __idx_report_void; }
-    static void _call_report_void(void* impl_msg,TreePiece* impl_obj);
+    static int __idx_report_marshall11;
+    static int report(const CkCallback &cb) { return __idx_report_marshall11; }
+    static void _call_report_marshall11(void* impl_msg,TreePiece* impl_obj);
 };
 /* --------------- element proxy ------------------ */
  class CProxyElement_TreePiece : public CProxyElement_ArrayElement{
@@ -565,9 +565,9 @@ class CkIndex_TreePiece{
  */
     void startTreeBuild(const CkCallback &cb) ;
 
-/* DECLS: void report(void);
+/* DECLS: void report(const CkCallback &cb);
  */
-    void report(void) ;
+    void report(const CkCallback &cb) ;
 };
 PUPmarshall(CProxyElement_TreePiece);
 /* ---------------- collective proxy -------------- */
@@ -642,9 +642,9 @@ PUPmarshall(CProxyElement_TreePiece);
  */
     void startTreeBuild(const CkCallback &cb) ;
 
-/* DECLS: void report(void);
+/* DECLS: void report(const CkCallback &cb);
  */
-    void report(void) ;
+    void report(const CkCallback &cb) ;
 };
 PUPmarshall(CProxy_TreePiece);
 /* ---------------- section proxy -------------- */
@@ -720,9 +720,9 @@ PUPmarshall(CProxy_TreePiece);
  */
     void startTreeBuild(const CkCallback &cb) ;
 
-/* DECLS: void report(void);
+/* DECLS: void report(const CkCallback &cb);
  */
-    void report(void) ;
+    void report(const CkCallback &cb) ;
 };
 PUPmarshall(CProxySection_TreePiece);
 typedef CBaseT<ArrayElementT<CkIndex1D>,CProxy_TreePiece>  CBase_TreePiece;

@@ -42,7 +42,7 @@ module NChilada {
 		
 		entry void startTreeBuild(const CkCallback& cb);
 		
-		entry void report();
+		entry void report(const CkCallback& cb);
 		
 		//entry void generateImage(liveVizRequestMsg* m);
 		//entry void applyPerParticleFunction(const CkCallback& cb);

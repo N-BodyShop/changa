@@ -2,7 +2,9 @@
  Implementation of the parallel sort.
  \author Graeme Lufkin (gwl@u.washington.edu)
  */
- 
+
+#include <algorithm>
+
 #include "Sorter.h"
 
 using std::vector;

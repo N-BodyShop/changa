@@ -1,6 +1,6 @@
-/** \file NChilada.cpp
+/** @file NChilada.cpp
  Implementation of some basic functions of the NChilada library.
- \author Graeme Lufkin (gwl@u.washington.edu)
+ @author Graeme Lufkin (gwl@u.washington.edu)
 */
 
 #include <iostream>
@@ -24,26 +24,46 @@ CkArrayID treePieceID;
 CkGroupID dataManagerID;
 
 CkReduction::reducerType boxGrowthReduction;
+CkReduction::reducerType minmaxReduction;
 
 /// Combine reduction messages to grow a box
 CkReductionMsg* boxGrowth(int nMsg, CkReductionMsg** msgs) {
 	if(nMsg < 1)
 		cerr << "Small reduction message!" << endl;
 	
-	OrientedBox<float>* pbox = static_cast<OrientedBox<float> *>(msgs[0]->getData());
-	OrientedBox<float>* msgpbox;
+	OrientedBox<double>* pbox = static_cast<OrientedBox<double> *>(msgs[0]->getData());
+	OrientedBox<double>* msgpbox;
 	for(int i = 1; i < nMsg; i++) {
-		msgpbox = static_cast<OrientedBox<float> *>(msgs[i]->getData());
+		msgpbox = static_cast<OrientedBox<double> *>(msgs[i]->getData());
 		pbox->grow(msgpbox->lesser_corner);
 		pbox->grow(msgpbox->greater_corner);
 	}
 	
-	return CkReductionMsg::buildNew(sizeof(OrientedBox<float>), pbox);
+	return CkReductionMsg::buildNew(sizeof(OrientedBox<double>), pbox);
+}
+
+/// Combine reduction messages to get min/max pair
+CkReductionMsg* minmax(int nMsg, CkReductionMsg** msgs) {
+	if(nMsg < 1)
+		cerr << "Small reduction message!" << endl;
+	
+	double* pminmax = static_cast<double *>(msgs[0]->getData());
+	double* msgpminmax;
+	for(int i = 1; i < nMsg; i++) {
+		msgpminmax = static_cast<double *>(msgs[i]->getData());
+		if(msgpminmax[0] < pminmax[0])
+			pminmax[0] = msgpminmax[0];
+		if(msgpminmax[1] > pminmax[1])
+			pminmax[1] = msgpminmax[1];
+	}
+	
+	return CkReductionMsg::buildNew(2 * sizeof(double), pminmax);
 }
 
 /// Register my reductions
 void registerNChiladaReductions() {
 	boxGrowthReduction = CkReduction::addReducer(boxGrowth);
+	minmaxReduction = CkReduction::addReducer(minmax);
 }
 
 /*

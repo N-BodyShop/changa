@@ -1,5 +1,5 @@
-/** \file ParallelSmooth.h
- \author Graeme Lufkin (gwl@u.washington.edu)
+/** @file ParallelSmooth.h
+ @author Graeme Lufkin (gwl@u.washington.edu)
  */
  
 #ifndef PARALLELSMOOTH_H
@@ -37,12 +37,17 @@ class Main : public Chare {
 	
 	double startTime;
 	
+	int numDensityBins;
+	double minDensity, maxDensity;
+	
 public:
 	
 	Main(CkArgMsg* m);
 
 	void loadSortBuild();
 	void doCalculations();
+	void makeHistogram(CkReductionMsg* m);
+	void doStressTest(CkReductionMsg* m);
 };
 
 #endif //PARALLELSMOOTH_H

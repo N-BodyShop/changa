@@ -1,8 +1,12 @@
 /** \file ParallelSmooth.cpp
- \author Graeme Lufkin (gwl@u.washington.edu)
+ \author $Author$
+$Header$
 */
 
 #include <iostream>
+#include <fstream>
+#include <numeric>
+
 #include <popt.h>
 
 #include "pup_stl.h"
@@ -11,8 +15,8 @@
 #include "SPH_Kernel.h"
 
 #include "NChilada.h"
-#include "ParallelSmooth.h"
 #include "Smooth_TreePiece.h"
+#include "ParallelSmooth.h"
 #include "SPH_Requests.h"
 
 using std::string;
@@ -25,6 +29,7 @@ Main::Main(CkArgMsg* m) {
 	char* prefix = 0;
 	tolerance = 0.01;
 	numNeighbors = 32;
+	numDensityBins = 100;
 	
 	poptOption optionsTable[] = {
 		{"neighbors", 'n', POPT_ARG_INT | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &numNeighbors, 0, "number of nearest neighbors to find radius of", "num neighbors"},
@@ -35,11 +40,12 @@ Main::Main(CkArgMsg* m) {
 		{"verbose", 'v', POPT_ARG_NONE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, 0, 1, "be verbose about what's going on", "verbosity"},
 		{"output", 'o', POPT_ARG_STRING | POPT_ARGFLAG_ONEDASH, &prefix, 0, "prefix for output filenames", "string"},
 		{"tolerance", 't', POPT_ARG_DOUBLE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &tolerance, 0, "percent tolerance for sorting into TreePieces", "percent tolerance"},
+		{"density_bins", 'd', POPT_ARG_INT | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &numDensityBins, 0, "number of density histogram bins", "density bins"},
 		POPT_AUTOHELP
 		POPT_TABLEEND
 	};
 	
-	poptContext context = poptGetContext("Neighbors", m->argc, const_cast<const char **>(m->argv), optionsTable, 0);
+	poptContext context = poptGetContext("ParallelSmooth", m->argc, const_cast<const char **>(m->argv), optionsTable, 0);
 	
 	poptSetOtherOptionHelp(context, " [OPTION ...] filename");
 	
@@ -63,9 +69,7 @@ Main::Main(CkArgMsg* m) {
 	}
 	
 	const char* fname = poptGetArg(context);
-	
-	poptFreeContext(context);
-	
+		
 	if(fname == 0) {
 		cerr << "You must provide a filename to find groups in!" << endl;
 		poptPrintUsage(context, stderr, 0);
@@ -74,6 +78,8 @@ Main::Main(CkArgMsg* m) {
 	} else
 		filename = fname;
 		
+	poptFreeContext(context);
+
 	if(pbc.xPeriod < 0 || pbc.yPeriod < 0 || pbc.zPeriod < 0) {
 		cerr << "Periods for periodic boundary conditions must be positive!" << endl;
 		CkExit();
@@ -119,7 +125,9 @@ Main::Main(CkArgMsg* m) {
 	//initializeNChiladaCcs();
 	
 	//create an array of TreePieces (XXX: how many should we make?)
-	numTreePieces = min(CkNumPes() * 6, ptf.fullHeader.nbodies / 200);
+	numTreePieces = CkNumPes(); //min(6 * CkNumPes(), ptf.fullHeader.nbodies / 200);
+	if(verbosity)
+		cout << "Main: Creating " << numTreePieces << " tree pieces" << endl;
 	smoothTreePieces = CProxy_Smooth_TreePiece::ckNew(pbc, numTreePieces);
 	treePieceID = smoothTreePieces;
 	
@@ -139,7 +147,7 @@ Main::Main(CkArgMsg* m) {
 
 void Main::loadSortBuild() {
 	if(verbosity)
-		cout << "Main: Registering Neighbor_TreePieces" << endl;
+		cout << "Main: Registering TreePieces" << endl;
 	smoothTreePieces.registerWithDataManager(dataManager, CkCallbackResumeThread());
 	if(verbosity)
 		cout << "Main: Loading particles" << endl;
@@ -147,44 +155,101 @@ void Main::loadSortBuild() {
 	sorter = CProxy_Sorter::ckNew();
 	if(verbosity)
 		cout << "Main: Sorting particles" << endl;
-	startTime = CkTimer();
+	startTime = CkWallTimer();
 	sorter.startSorting(dataManager, numTreePieces, tolerance, CkCallbackResumeThread());
 	if(verbosity > 1)
-		cout << "Main: Sorting took " << (CkTimer() - startTime) << " seconds." << endl;
+		cout << "Main: Sorting took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	if(verbosity)
 		cout << "Main: Building trees" << endl;
-	startTime = CkTimer();
+	startTime = CkWallTimer();
 	smoothTreePieces.startTreeBuild(CkCallbackResumeThread());
 	if(verbosity > 1)
-		cout << "Main: Tree build took " << (CkTimer() - startTime) << " seconds." << endl;
+		cout << "Main: Tree build took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	CProxy_Main(thishandle).doCalculations();
 }
 
 void Main::doCalculations() {
+	
+	//smoothTreePieces.report(CkCallbackResumeThread());
+	//CkExit();
+	
 	if(verbosity)
 		cout << "Main: Starting neighbor search" << endl;
-	startTime = CkTimer();
+	startTime = CkWallTimer();
 	smoothTreePieces.findSmoothingRadius(numNeighbors, CkCallbackResumeThread());
 	if(verbosity > 1)
-		cout << "Main: Radius finding took " << (CkTimer() - startTime) << " seconds." << endl;
+		cout << "Main: Radius finding took " << (CkWallTimer() - startTime) << " seconds." << endl;
+	
 	if(verbosity)
 		cout << "Main: Starting density calculation" << endl;
-	startTime = CkTimer();
-	smoothTreePieces.performSmoothOperation(DensityOperation, CkCallbackResumeThread());
+	startTime = CkWallTimer();
+	smoothTreePieces.performSmoothOperation(Density, CkCallbackResumeThread());
 	if(verbosity > 1)
-		cout << "Main: Density calculation took " << (CkTimer() - startTime) << " seconds." << endl;
-	if(verbosity)
-		cout << "Main: Starting velocity calculations" << endl;
-	startTime = CkTimer();
-	smoothTreePieces.performSmoothOperation(VelDivCurlOperation, CkCallbackResumeThread());
+		cout << "Main: Density calculation took " << (CkWallTimer() - startTime) << " seconds." << endl;
+	startTime = CkWallTimer();
+	smoothTreePieces.minmaxDensity(CkCallback(CkIndex_Main::makeHistogram(0), thishandle));	
+}
+
+void Main::makeHistogram(CkReductionMsg* m) {
+	if(m->getSize() != 2 * sizeof(double)) {
+		cerr << "Main: Fatal: Wrong size reduction message received!" << endl;
+		delete m;
+		return;
+	}
+	
+	minDensity = static_cast<double *>(m->getData())[0];
+	maxDensity = static_cast<double *>(m->getData())[1];
+	
+	delete m;
+	
+	smoothTreePieces.makeDensityHistogram(numDensityBins, minDensity, maxDensity, CkCallback(CkIndex_Main::doStressTest(0), thishandle));
+}
+
+void Main::doStressTest(CkReductionMsg* m) {
 	if(verbosity > 1)
-		cout << "Main: Velocity div/curl/mean calculation took " << (CkTimer() - startTime) << " seconds." << endl;
+		cout << "Main: Density histogramming took " << (CkWallTimer() - startTime) << " seconds." << endl;
+	
+	if(m->getSize() != numDensityBins * sizeof(int)) {
+		cerr << "Main: Fatal: Wrong size reduction message received!" << endl;
+		delete m;
+		return;
+	}
+	
+	int* densityHistogram = static_cast<int *>(m->getData());
+	
+	cout << "Log density histogram, from " << minDensity << " to " << maxDensity << endl;
+	for(int i = 0; i < numDensityBins; ++i)
+		cout << densityHistogram[i] << " ";
+	cout << endl;
+	
+	partial_sum(densityHistogram, densityHistogram + numDensityBins, densityHistogram);	
+	
+	cout << "Main: Running smoothing regression" << endl;
+
+	ofstream logfile((string(outputPrefix) + ".dat").c_str());
+	logfile << "#numParticlesSmoothed\tTime(s)\n";
+			
+	startTime = CkWallTimer();
+	smoothTreePieces.densityCutOperation(VelocityDivCurl, minDensity, CkCallbackResumeThread());
+	logfile << nbodies << "\t" << (CkWallTimer() - startTime) << endl;
+	
+	double delta = (maxDensity - minDensity) / numDensityBins;
+	for(int i = 1; i < numDensityBins; ++i) {
+		if(densityHistogram[i] == densityHistogram[i - 1])
+			continue;
+		startTime = CkWallTimer();
+		smoothTreePieces.densityCutOperation(VelocityDivCurl, minDensity + i * delta, CkCallbackResumeThread());
+		logfile << (nbodies - densityHistogram[i - 1]) << "\t" << (CkWallTimer() - startTime) << endl;
+	}
+	logfile.close();
+	
+	/*
 	if(verbosity)
 		cout << "Main: Starting velocity dispersion calculation" << endl;
-	startTime = CkTimer();
-	smoothTreePieces.performSmoothOperation(VelDispOperation, CkCallbackResumeThread());
+	startTime = CkWallTimer();
+	smoothTreePieces.performSmoothOperation(VelocityDispersion, CkCallbackResumeThread());
 	if(verbosity > 1)
-		cout << "Main: Velocity dispersion calculation took " << (CkTimer() - startTime) << " seconds." << endl;
+		cout << "Main: Velocity dispersion calculation took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	
 	ofstream outgroup((string(outputPrefix) + ".radius").c_str());
 	outgroup.write(&nbodies, sizeof(int));
@@ -218,7 +283,10 @@ void Main::doCalculations() {
 	smoothTreePieces.saveInformation(outputPrefix, CkCallbackResumeThread());
 	
 	//cout << "Waiting for CCS control." << endl;
+	*/
 	CkExit();
+	
+	
 }
 
 extern void initRequestResponsePUP();

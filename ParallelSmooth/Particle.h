@@ -103,6 +103,18 @@ public:
 /** This particle carries fields along with it.
  */
 class FullParticle : public BareParticle {
+	void initializeExtraFields() {
+		key = 0;
+		smoothingRadius = 0;
+		density = 0;
+		velDispSq = 0;
+		neighborCount = 0;
+		colorValue = 0;
+		diskOrder = 0;
+		groupParentChare = -1;
+		groupParentParticle = 0;
+	}
+	
 public:
 		
 	double mass;
@@ -132,10 +144,7 @@ public:
 	int groupParentParticle;
 	
 	FullParticle() { 
-		key = 0;
-		groupParentChare = -1;
-		groupParentParticle = 0;
-		colorValue = 0;
+		initializeExtraFields();
 	}
 
 	FullParticle(const gas_particle& p) {
@@ -149,9 +158,7 @@ public:
 		metals = p.metals;
 		phi = p.phi;
 		tform = 0;
-		groupParentChare = -1;
-		groupParentParticle = 0;
-		colorValue = 0;
+		initializeExtraFields();
 	}
 
 	FullParticle(const dark_particle& p) {
@@ -165,9 +172,7 @@ public:
 		metals = 0;
 		phi = p.phi;
 		tform = 0;
-		groupParentChare = -1;
-		groupParentParticle = 0;
-		colorValue = 0;
+		initializeExtraFields();
 	}
 
 	FullParticle(const star_particle& p) {
@@ -181,9 +186,7 @@ public:
 		metals = p.metals;
 		phi = p.phi;
 		tform = p.tform;
-		groupParentChare = -1;
-		groupParentParticle = 0;
-		colorValue = 0;
+		initializeExtraFields();
 	}
 	
 	template<class T>

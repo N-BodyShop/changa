@@ -1,6 +1,6 @@
-/** \file SPH_Requests.cpp
+/** @file SPH_Requests.cpp
  Register the PUP routines for the SPH request/response pairs.
- \author Graeme Lufkin (gwl@u.washington.edu)
+ @author Graeme Lufkin (gwl@u.washington.edu)
  */
  
 #include "SPH_Requests.h"

@@ -7,6 +7,8 @@
 Main(CkArgMsg* impl_msg);
 threaded void loadSortBuild(void);
 threaded void doCalculations(void);
+threaded void makeHistogram(CkReductionMsg* impl_msg);
+threaded void doStressTest(CkReductionMsg* impl_msg);
 };
  */
  class Main;
@@ -34,6 +36,20 @@ class CkIndex_Main{
     static int doCalculations(void) { return __idx_doCalculations_void; }
     static void _call_doCalculations_void(void* impl_msg,Main* impl_obj);
     static void _callthr_doCalculations_void(CkThrCallArg *);
+
+/* DECLS: threaded void makeHistogram(CkReductionMsg* impl_msg);
+ */
+    static int __idx_makeHistogram_CkReductionMsg;
+    static int makeHistogram(CkReductionMsg* impl_msg) { return __idx_makeHistogram_CkReductionMsg; }
+    static void _call_makeHistogram_CkReductionMsg(void* impl_msg,Main* impl_obj);
+    static void _callthr_makeHistogram_CkReductionMsg(CkThrCallArg *);
+
+/* DECLS: threaded void doStressTest(CkReductionMsg* impl_msg);
+ */
+    static int __idx_doStressTest_CkReductionMsg;
+    static int doStressTest(CkReductionMsg* impl_msg) { return __idx_doStressTest_CkReductionMsg; }
+    static void _call_doStressTest_CkReductionMsg(void* impl_msg,Main* impl_obj);
+    static void _callthr_doStressTest_CkReductionMsg(CkThrCallArg *);
 };
 /* --------------- element proxy ------------------ */
 class CProxy_Main:public CProxy_Chare{
@@ -69,6 +85,14 @@ class CProxy_Main:public CProxy_Chare{
 /* DECLS: threaded void doCalculations(void);
  */
     void doCalculations(void);
+
+/* DECLS: threaded void makeHistogram(CkReductionMsg* impl_msg);
+ */
+    void makeHistogram(CkReductionMsg* impl_msg);
+
+/* DECLS: threaded void doStressTest(CkReductionMsg* impl_msg);
+ */
+    void doStressTest(CkReductionMsg* impl_msg);
 };
 PUPmarshall(CProxy_Main);
 typedef CBaseT<Chare,CProxy_Main>  CBase_Main;
@@ -77,10 +101,13 @@ typedef CBaseT<Chare,CProxy_Main>  CBase_Main;
 Smooth_TreePiece(CkMigrateMessage* impl_msg);
 Smooth_TreePiece(const PeriodicBoundaryConditions<double> &periodic);
 void findSmoothingRadius(int n, const CkCallback &cb);
-void performSmoothOperation(int opID, const CkCallback &cb);
+void performSmoothOperation(const SmoothOperation &op, const CkCallback &cb);
 void handleTreeRequest(const TreeRequest_Pointer &req);
 void receiveResponse(const Response_Pointer &resp);
 void saveInformation(const std::string &prefix, const CkCallback &cb);
+void minmaxDensity(const CkCallback &cb);
+void makeDensityHistogram(int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb);
+void densityCutOperation(const SmoothOperation &op, double minDensity, const CkCallback &cb);
 };
  */
  class Smooth_TreePiece;
@@ -107,10 +134,10 @@ class CkIndex_Smooth_TreePiece{
     static int findSmoothingRadius(int n, const CkCallback &cb) { return __idx_findSmoothingRadius_marshall2; }
     static void _call_findSmoothingRadius_marshall2(void* impl_msg,Smooth_TreePiece* impl_obj);
 
-/* DECLS: void performSmoothOperation(int opID, const CkCallback &cb);
+/* DECLS: void performSmoothOperation(const SmoothOperation &op, const CkCallback &cb);
  */
     static int __idx_performSmoothOperation_marshall3;
-    static int performSmoothOperation(int opID, const CkCallback &cb) { return __idx_performSmoothOperation_marshall3; }
+    static int performSmoothOperation(const SmoothOperation &op, const CkCallback &cb) { return __idx_performSmoothOperation_marshall3; }
     static void _call_performSmoothOperation_marshall3(void* impl_msg,Smooth_TreePiece* impl_obj);
 
 /* DECLS: void handleTreeRequest(const TreeRequest_Pointer &req);
@@ -130,6 +157,24 @@ class CkIndex_Smooth_TreePiece{
     static int __idx_saveInformation_marshall6;
     static int saveInformation(const std::string &prefix, const CkCallback &cb) { return __idx_saveInformation_marshall6; }
     static void _call_saveInformation_marshall6(void* impl_msg,Smooth_TreePiece* impl_obj);
+
+/* DECLS: void minmaxDensity(const CkCallback &cb);
+ */
+    static int __idx_minmaxDensity_marshall7;
+    static int minmaxDensity(const CkCallback &cb) { return __idx_minmaxDensity_marshall7; }
+    static void _call_minmaxDensity_marshall7(void* impl_msg,Smooth_TreePiece* impl_obj);
+
+/* DECLS: void makeDensityHistogram(int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb);
+ */
+    static int __idx_makeDensityHistogram_marshall8;
+    static int makeDensityHistogram(int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb) { return __idx_makeDensityHistogram_marshall8; }
+    static void _call_makeDensityHistogram_marshall8(void* impl_msg,Smooth_TreePiece* impl_obj);
+
+/* DECLS: void densityCutOperation(const SmoothOperation &op, double minDensity, const CkCallback &cb);
+ */
+    static int __idx_densityCutOperation_marshall9;
+    static int densityCutOperation(const SmoothOperation &op, double minDensity, const CkCallback &cb) { return __idx_densityCutOperation_marshall9; }
+    static void _call_densityCutOperation_marshall9(void* impl_msg,Smooth_TreePiece* impl_obj);
 };
 /* --------------- element proxy ------------------ */
  class CProxyElement_Smooth_TreePiece : public CProxyElement_TreePiece{
@@ -162,9 +207,9 @@ class CkIndex_Smooth_TreePiece{
  */
     void findSmoothingRadius(int n, const CkCallback &cb) ;
 
-/* DECLS: void performSmoothOperation(int opID, const CkCallback &cb);
+/* DECLS: void performSmoothOperation(const SmoothOperation &op, const CkCallback &cb);
  */
-    void performSmoothOperation(int opID, const CkCallback &cb) ;
+    void performSmoothOperation(const SmoothOperation &op, const CkCallback &cb) ;
 
 /* DECLS: void handleTreeRequest(const TreeRequest_Pointer &req);
  */
@@ -177,6 +222,18 @@ class CkIndex_Smooth_TreePiece{
 /* DECLS: void saveInformation(const std::string &prefix, const CkCallback &cb);
  */
     void saveInformation(const std::string &prefix, const CkCallback &cb) ;
+
+/* DECLS: void minmaxDensity(const CkCallback &cb);
+ */
+    void minmaxDensity(const CkCallback &cb) ;
+
+/* DECLS: void makeDensityHistogram(int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb);
+ */
+    void makeDensityHistogram(int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb) ;
+
+/* DECLS: void densityCutOperation(const SmoothOperation &op, double minDensity, const CkCallback &cb);
+ */
+    void densityCutOperation(const SmoothOperation &op, double minDensity, const CkCallback &cb) ;
 };
 PUPmarshall(CProxyElement_Smooth_TreePiece);
 /* ---------------- collective proxy -------------- */
@@ -219,9 +276,9 @@ PUPmarshall(CProxyElement_Smooth_TreePiece);
  */
     void findSmoothingRadius(int n, const CkCallback &cb) ;
 
-/* DECLS: void performSmoothOperation(int opID, const CkCallback &cb);
+/* DECLS: void performSmoothOperation(const SmoothOperation &op, const CkCallback &cb);
  */
-    void performSmoothOperation(int opID, const CkCallback &cb) ;
+    void performSmoothOperation(const SmoothOperation &op, const CkCallback &cb) ;
 
 /* DECLS: void handleTreeRequest(const TreeRequest_Pointer &req);
  */
@@ -234,6 +291,18 @@ PUPmarshall(CProxyElement_Smooth_TreePiece);
 /* DECLS: void saveInformation(const std::string &prefix, const CkCallback &cb);
  */
     void saveInformation(const std::string &prefix, const CkCallback &cb) ;
+
+/* DECLS: void minmaxDensity(const CkCallback &cb);
+ */
+    void minmaxDensity(const CkCallback &cb) ;
+
+/* DECLS: void makeDensityHistogram(int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb);
+ */
+    void makeDensityHistogram(int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb) ;
+
+/* DECLS: void densityCutOperation(const SmoothOperation &op, double minDensity, const CkCallback &cb);
+ */
+    void densityCutOperation(const SmoothOperation &op, double minDensity, const CkCallback &cb) ;
 };
 PUPmarshall(CProxy_Smooth_TreePiece);
 /* ---------------- section proxy -------------- */
@@ -277,9 +346,9 @@ PUPmarshall(CProxy_Smooth_TreePiece);
  */
     void findSmoothingRadius(int n, const CkCallback &cb) ;
 
-/* DECLS: void performSmoothOperation(int opID, const CkCallback &cb);
+/* DECLS: void performSmoothOperation(const SmoothOperation &op, const CkCallback &cb);
  */
-    void performSmoothOperation(int opID, const CkCallback &cb) ;
+    void performSmoothOperation(const SmoothOperation &op, const CkCallback &cb) ;
 
 /* DECLS: void handleTreeRequest(const TreeRequest_Pointer &req);
  */
@@ -292,6 +361,18 @@ PUPmarshall(CProxy_Smooth_TreePiece);
 /* DECLS: void saveInformation(const std::string &prefix, const CkCallback &cb);
  */
     void saveInformation(const std::string &prefix, const CkCallback &cb) ;
+
+/* DECLS: void minmaxDensity(const CkCallback &cb);
+ */
+    void minmaxDensity(const CkCallback &cb) ;
+
+/* DECLS: void makeDensityHistogram(int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb);
+ */
+    void makeDensityHistogram(int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb) ;
+
+/* DECLS: void densityCutOperation(const SmoothOperation &op, double minDensity, const CkCallback &cb);
+ */
+    void densityCutOperation(const SmoothOperation &op, double minDensity, const CkCallback &cb) ;
 };
 PUPmarshall(CProxySection_Smooth_TreePiece);
 typedef CBaseT<TreePiece,CProxy_Smooth_TreePiece>  CBase_Smooth_TreePiece;

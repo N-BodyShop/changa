@@ -3,6 +3,8 @@
 Main(CkArgMsg* impl_msg);
 threaded void loadSortBuild(void);
 threaded void doCalculations(void);
+threaded void makeHistogram(CkReductionMsg* impl_msg);
+threaded void doStressTest(CkReductionMsg* impl_msg);
 };
  */
 #ifndef CK_TEMPLATES_ONLY
@@ -84,6 +86,54 @@ void CkIndex_Main::_callthr_doCalculations_void(CkThrCallArg *impl_arg)
   CkFreeSysMsg(impl_msg);
   impl_obj->doCalculations();
 }
+
+/* DEFS: threaded void makeHistogram(CkReductionMsg* impl_msg);
+ */
+void CProxy_Main::makeHistogram(CkReductionMsg* impl_msg)
+{
+  ckCheck();
+  if (ckIsDelegated()) {
+    int destPE=CkChareMsgPrep(CkIndex_Main::__idx_makeHistogram_CkReductionMsg, impl_msg, &ckGetChareID());
+    if (destPE!=-1) ckDelegatedTo()->ChareSend(CkIndex_Main::__idx_makeHistogram_CkReductionMsg, impl_msg, &ckGetChareID(),destPE);
+  }
+  else CkSendMsg(CkIndex_Main::__idx_makeHistogram_CkReductionMsg, impl_msg, &ckGetChareID());
+}
+ int CkIndex_Main::__idx_makeHistogram_CkReductionMsg=0;
+void CkIndex_Main::_call_makeHistogram_CkReductionMsg(void* impl_msg,Main * impl_obj)
+{
+  CthAwaken(CthCreate((CthVoidFn)_callthr_makeHistogram_CkReductionMsg, new CkThrCallArg(impl_msg,impl_obj), 0));
+}
+void CkIndex_Main::_callthr_makeHistogram_CkReductionMsg(CkThrCallArg *impl_arg)
+{
+  void *impl_msg = impl_arg->msg;
+  Main *impl_obj = (Main *) impl_arg->obj;
+  delete impl_arg;
+  impl_obj->makeHistogram((CkReductionMsg*)impl_msg);
+}
+
+/* DEFS: threaded void doStressTest(CkReductionMsg* impl_msg);
+ */
+void CProxy_Main::doStressTest(CkReductionMsg* impl_msg)
+{
+  ckCheck();
+  if (ckIsDelegated()) {
+    int destPE=CkChareMsgPrep(CkIndex_Main::__idx_doStressTest_CkReductionMsg, impl_msg, &ckGetChareID());
+    if (destPE!=-1) ckDelegatedTo()->ChareSend(CkIndex_Main::__idx_doStressTest_CkReductionMsg, impl_msg, &ckGetChareID(),destPE);
+  }
+  else CkSendMsg(CkIndex_Main::__idx_doStressTest_CkReductionMsg, impl_msg, &ckGetChareID());
+}
+ int CkIndex_Main::__idx_doStressTest_CkReductionMsg=0;
+void CkIndex_Main::_call_doStressTest_CkReductionMsg(void* impl_msg,Main * impl_obj)
+{
+  CthAwaken(CthCreate((CthVoidFn)_callthr_doStressTest_CkReductionMsg, new CkThrCallArg(impl_msg,impl_obj), 0));
+}
+void CkIndex_Main::_callthr_doStressTest_CkReductionMsg(CkThrCallArg *impl_arg)
+{
+  void *impl_msg = impl_arg->msg;
+  Main *impl_obj = (Main *) impl_arg->obj;
+  delete impl_arg;
+  impl_obj->doStressTest((CkReductionMsg*)impl_msg);
+}
 #endif /*CK_TEMPLATES_ONLY*/
 #ifndef CK_TEMPLATES_ONLY
 void CkIndex_Main::__register(const char *s, size_t size) {
@@ -101,6 +151,14 @@ void CkIndex_Main::__register(const char *s, size_t size) {
 // REG: threaded void doCalculations(void);
   __idx_doCalculations_void = CkRegisterEp("doCalculations(void)",
      (CkCallFnPtr)_call_doCalculations_void, 0, __idx);
+
+// REG: threaded void makeHistogram(CkReductionMsg* impl_msg);
+  __idx_makeHistogram_CkReductionMsg = CkRegisterEp("makeHistogram(CkReductionMsg* impl_msg)",
+     (CkCallFnPtr)_call_makeHistogram_CkReductionMsg, CMessage_CkReductionMsg::__idx, __idx);
+
+// REG: threaded void doStressTest(CkReductionMsg* impl_msg);
+  __idx_doStressTest_CkReductionMsg = CkRegisterEp("doStressTest(CkReductionMsg* impl_msg)",
+     (CkCallFnPtr)_call_doStressTest_CkReductionMsg, CMessage_CkReductionMsg::__idx, __idx);
 }
 #endif
 
@@ -108,10 +166,13 @@ void CkIndex_Main::__register(const char *s, size_t size) {
 Smooth_TreePiece(CkMigrateMessage* impl_msg);
 Smooth_TreePiece(const PeriodicBoundaryConditions<double> &periodic);
 void findSmoothingRadius(int n, const CkCallback &cb);
-void performSmoothOperation(int opID, const CkCallback &cb);
+void performSmoothOperation(const SmoothOperation &op, const CkCallback &cb);
 void handleTreeRequest(const TreeRequest_Pointer &req);
 void receiveResponse(const Response_Pointer &resp);
 void saveInformation(const std::string &prefix, const CkCallback &cb);
+void minmaxDensity(const CkCallback &cb);
+void makeDensityHistogram(int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb);
+void densityCutOperation(const SmoothOperation &op, double minDensity, const CkCallback &cb);
 };
  */
 #ifndef CK_TEMPLATES_ONLY
@@ -170,16 +231,17 @@ void CProxyElement_Smooth_TreePiece::findSmoothingRadius(int n, const CkCallback
   ckSend(impl_amsg, CkIndex_Smooth_TreePiece::__idx_findSmoothingRadius_marshall2);
 }
 
-/* DEFS: void performSmoothOperation(int opID, const CkCallback &cb);
+/* DEFS: void performSmoothOperation(const SmoothOperation &op, const CkCallback &cb);
  */
-void CProxyElement_Smooth_TreePiece::performSmoothOperation(int opID, const CkCallback &cb) 
+void CProxyElement_Smooth_TreePiece::performSmoothOperation(const SmoothOperation &op, const CkCallback &cb) 
 {
   ckCheck();
-  //Marshall: int opID, const CkCallback &cb
+  //Marshall: const SmoothOperation &op, const CkCallback &cb
   int impl_off=0,impl_arrstart=0;
   { //Find the size of the PUP'd data
     PUP::sizer implP;
-    implP|opID;
+    //Have to cast away const-ness to get pup routine
+    implP|(SmoothOperation &)op;
     //Have to cast away const-ness to get pup routine
     implP|(CkCallback &)cb;
     impl_arrstart=CK_ALIGN(implP.size(),16);
@@ -188,7 +250,8 @@ void CProxyElement_Smooth_TreePiece::performSmoothOperation(int opID, const CkCa
   CkMarshallMsg *impl_msg=new (impl_off,0)CkMarshallMsg;
   { //Copy over the PUP'd data
     PUP::toMem implP((void *)impl_msg->msgBuf);
-    implP|opID;
+    //Have to cast away const-ness to get pup routine
+    implP|(SmoothOperation &)op;
     //Have to cast away const-ness to get pup routine
     implP|(CkCallback &)cb;
   }
@@ -275,6 +338,93 @@ void CProxyElement_Smooth_TreePiece::saveInformation(const std::string &prefix, 
   impl_amsg->array_setIfNotThere(CkArray_IfNotThere_buffer);
   ckSend(impl_amsg, CkIndex_Smooth_TreePiece::__idx_saveInformation_marshall6);
 }
+
+/* DEFS: void minmaxDensity(const CkCallback &cb);
+ */
+void CProxyElement_Smooth_TreePiece::minmaxDensity(const CkCallback &cb) 
+{
+  ckCheck();
+  //Marshall: const CkCallback &cb
+  int impl_off=0,impl_arrstart=0;
+  { //Find the size of the PUP'd data
+    PUP::sizer implP;
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+    impl_arrstart=CK_ALIGN(implP.size(),16);
+    impl_off+=impl_arrstart;
+  }
+  CkMarshallMsg *impl_msg=new (impl_off,0)CkMarshallMsg;
+  { //Copy over the PUP'd data
+    PUP::toMem implP((void *)impl_msg->msgBuf);
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+  }
+  CkArrayMessage *impl_amsg=(CkArrayMessage *)impl_msg;
+  impl_amsg->array_setIfNotThere(CkArray_IfNotThere_buffer);
+  ckSend(impl_amsg, CkIndex_Smooth_TreePiece::__idx_minmaxDensity_marshall7);
+}
+
+/* DEFS: void makeDensityHistogram(int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb);
+ */
+void CProxyElement_Smooth_TreePiece::makeDensityHistogram(int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb) 
+{
+  ckCheck();
+  //Marshall: int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb
+  int impl_off=0,impl_arrstart=0;
+  { //Find the size of the PUP'd data
+    PUP::sizer implP;
+    implP|numDensityBins;
+    implP|minDensity;
+    implP|maxDensity;
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+    impl_arrstart=CK_ALIGN(implP.size(),16);
+    impl_off+=impl_arrstart;
+  }
+  CkMarshallMsg *impl_msg=new (impl_off,0)CkMarshallMsg;
+  { //Copy over the PUP'd data
+    PUP::toMem implP((void *)impl_msg->msgBuf);
+    implP|numDensityBins;
+    implP|minDensity;
+    implP|maxDensity;
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+  }
+  CkArrayMessage *impl_amsg=(CkArrayMessage *)impl_msg;
+  impl_amsg->array_setIfNotThere(CkArray_IfNotThere_buffer);
+  ckSend(impl_amsg, CkIndex_Smooth_TreePiece::__idx_makeDensityHistogram_marshall8);
+}
+
+/* DEFS: void densityCutOperation(const SmoothOperation &op, double minDensity, const CkCallback &cb);
+ */
+void CProxyElement_Smooth_TreePiece::densityCutOperation(const SmoothOperation &op, double minDensity, const CkCallback &cb) 
+{
+  ckCheck();
+  //Marshall: const SmoothOperation &op, double minDensity, const CkCallback &cb
+  int impl_off=0,impl_arrstart=0;
+  { //Find the size of the PUP'd data
+    PUP::sizer implP;
+    //Have to cast away const-ness to get pup routine
+    implP|(SmoothOperation &)op;
+    implP|minDensity;
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+    impl_arrstart=CK_ALIGN(implP.size(),16);
+    impl_off+=impl_arrstart;
+  }
+  CkMarshallMsg *impl_msg=new (impl_off,0)CkMarshallMsg;
+  { //Copy over the PUP'd data
+    PUP::toMem implP((void *)impl_msg->msgBuf);
+    //Have to cast away const-ness to get pup routine
+    implP|(SmoothOperation &)op;
+    implP|minDensity;
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+  }
+  CkArrayMessage *impl_amsg=(CkArrayMessage *)impl_msg;
+  impl_amsg->array_setIfNotThere(CkArray_IfNotThere_buffer);
+  ckSend(impl_amsg, CkIndex_Smooth_TreePiece::__idx_densityCutOperation_marshall9);
+}
 /* DEFS: Smooth_TreePiece(CkMigrateMessage* impl_msg);
  */
  int CkIndex_Smooth_TreePiece::__idx_Smooth_TreePiece_CkMigrateMessage=0;
@@ -357,16 +507,17 @@ void CkIndex_Smooth_TreePiece::_call_findSmoothingRadius_marshall2(void* impl_ms
   delete (CkMarshallMsg *)impl_msg;
 }
 
-/* DEFS: void performSmoothOperation(int opID, const CkCallback &cb);
+/* DEFS: void performSmoothOperation(const SmoothOperation &op, const CkCallback &cb);
  */
-void CProxy_Smooth_TreePiece::performSmoothOperation(int opID, const CkCallback &cb) 
+void CProxy_Smooth_TreePiece::performSmoothOperation(const SmoothOperation &op, const CkCallback &cb) 
 {
   ckCheck();
-  //Marshall: int opID, const CkCallback &cb
+  //Marshall: const SmoothOperation &op, const CkCallback &cb
   int impl_off=0,impl_arrstart=0;
   { //Find the size of the PUP'd data
     PUP::sizer implP;
-    implP|opID;
+    //Have to cast away const-ness to get pup routine
+    implP|(SmoothOperation &)op;
     //Have to cast away const-ness to get pup routine
     implP|(CkCallback &)cb;
     impl_arrstart=CK_ALIGN(implP.size(),16);
@@ -375,7 +526,8 @@ void CProxy_Smooth_TreePiece::performSmoothOperation(int opID, const CkCallback 
   CkMarshallMsg *impl_msg=new (impl_off,0)CkMarshallMsg;
   { //Copy over the PUP'd data
     PUP::toMem implP((void *)impl_msg->msgBuf);
-    implP|opID;
+    //Have to cast away const-ness to get pup routine
+    implP|(SmoothOperation &)op;
     //Have to cast away const-ness to get pup routine
     implP|(CkCallback &)cb;
   }
@@ -386,14 +538,14 @@ void CProxy_Smooth_TreePiece::performSmoothOperation(int opID, const CkCallback 
  int CkIndex_Smooth_TreePiece::__idx_performSmoothOperation_marshall3=0;
 void CkIndex_Smooth_TreePiece::_call_performSmoothOperation_marshall3(void* impl_msg,Smooth_TreePiece * impl_obj)
 {
-  //Unmarshall pup'd fields: int opID, const CkCallback &cb
+  //Unmarshall pup'd fields: const SmoothOperation &op, const CkCallback &cb
   char *impl_buf=((CkMarshallMsg *)impl_msg)->msgBuf;
   PUP::fromMem implP(impl_buf);
-  int opID; implP|opID;
+  SmoothOperation op; implP|op;
   CkCallback cb; implP|cb;
   impl_buf+=CK_ALIGN(implP.size(),16);
   //Unmarshall arrays:
-  impl_obj->performSmoothOperation(opID, cb);
+  impl_obj->performSmoothOperation(op, cb);
   delete (CkMarshallMsg *)impl_msg;
 }
 
@@ -512,6 +664,134 @@ void CkIndex_Smooth_TreePiece::_call_saveInformation_marshall6(void* impl_msg,Sm
   impl_obj->saveInformation(prefix, cb);
   delete (CkMarshallMsg *)impl_msg;
 }
+
+/* DEFS: void minmaxDensity(const CkCallback &cb);
+ */
+void CProxy_Smooth_TreePiece::minmaxDensity(const CkCallback &cb) 
+{
+  ckCheck();
+  //Marshall: const CkCallback &cb
+  int impl_off=0,impl_arrstart=0;
+  { //Find the size of the PUP'd data
+    PUP::sizer implP;
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+    impl_arrstart=CK_ALIGN(implP.size(),16);
+    impl_off+=impl_arrstart;
+  }
+  CkMarshallMsg *impl_msg=new (impl_off,0)CkMarshallMsg;
+  { //Copy over the PUP'd data
+    PUP::toMem implP((void *)impl_msg->msgBuf);
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+  }
+  CkArrayMessage *impl_amsg=(CkArrayMessage *)impl_msg;
+  impl_amsg->array_setIfNotThere(CkArray_IfNotThere_buffer);
+  ckBroadcast(impl_amsg, CkIndex_Smooth_TreePiece::__idx_minmaxDensity_marshall7);
+}
+ int CkIndex_Smooth_TreePiece::__idx_minmaxDensity_marshall7=0;
+void CkIndex_Smooth_TreePiece::_call_minmaxDensity_marshall7(void* impl_msg,Smooth_TreePiece * impl_obj)
+{
+  //Unmarshall pup'd fields: const CkCallback &cb
+  char *impl_buf=((CkMarshallMsg *)impl_msg)->msgBuf;
+  PUP::fromMem implP(impl_buf);
+  CkCallback cb; implP|cb;
+  impl_buf+=CK_ALIGN(implP.size(),16);
+  //Unmarshall arrays:
+  impl_obj->minmaxDensity(cb);
+  delete (CkMarshallMsg *)impl_msg;
+}
+
+/* DEFS: void makeDensityHistogram(int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb);
+ */
+void CProxy_Smooth_TreePiece::makeDensityHistogram(int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb) 
+{
+  ckCheck();
+  //Marshall: int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb
+  int impl_off=0,impl_arrstart=0;
+  { //Find the size of the PUP'd data
+    PUP::sizer implP;
+    implP|numDensityBins;
+    implP|minDensity;
+    implP|maxDensity;
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+    impl_arrstart=CK_ALIGN(implP.size(),16);
+    impl_off+=impl_arrstart;
+  }
+  CkMarshallMsg *impl_msg=new (impl_off,0)CkMarshallMsg;
+  { //Copy over the PUP'd data
+    PUP::toMem implP((void *)impl_msg->msgBuf);
+    implP|numDensityBins;
+    implP|minDensity;
+    implP|maxDensity;
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+  }
+  CkArrayMessage *impl_amsg=(CkArrayMessage *)impl_msg;
+  impl_amsg->array_setIfNotThere(CkArray_IfNotThere_buffer);
+  ckBroadcast(impl_amsg, CkIndex_Smooth_TreePiece::__idx_makeDensityHistogram_marshall8);
+}
+ int CkIndex_Smooth_TreePiece::__idx_makeDensityHistogram_marshall8=0;
+void CkIndex_Smooth_TreePiece::_call_makeDensityHistogram_marshall8(void* impl_msg,Smooth_TreePiece * impl_obj)
+{
+  //Unmarshall pup'd fields: int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb
+  char *impl_buf=((CkMarshallMsg *)impl_msg)->msgBuf;
+  PUP::fromMem implP(impl_buf);
+  int numDensityBins; implP|numDensityBins;
+  double minDensity; implP|minDensity;
+  double maxDensity; implP|maxDensity;
+  CkCallback cb; implP|cb;
+  impl_buf+=CK_ALIGN(implP.size(),16);
+  //Unmarshall arrays:
+  impl_obj->makeDensityHistogram(numDensityBins, minDensity, maxDensity, cb);
+  delete (CkMarshallMsg *)impl_msg;
+}
+
+/* DEFS: void densityCutOperation(const SmoothOperation &op, double minDensity, const CkCallback &cb);
+ */
+void CProxy_Smooth_TreePiece::densityCutOperation(const SmoothOperation &op, double minDensity, const CkCallback &cb) 
+{
+  ckCheck();
+  //Marshall: const SmoothOperation &op, double minDensity, const CkCallback &cb
+  int impl_off=0,impl_arrstart=0;
+  { //Find the size of the PUP'd data
+    PUP::sizer implP;
+    //Have to cast away const-ness to get pup routine
+    implP|(SmoothOperation &)op;
+    implP|minDensity;
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+    impl_arrstart=CK_ALIGN(implP.size(),16);
+    impl_off+=impl_arrstart;
+  }
+  CkMarshallMsg *impl_msg=new (impl_off,0)CkMarshallMsg;
+  { //Copy over the PUP'd data
+    PUP::toMem implP((void *)impl_msg->msgBuf);
+    //Have to cast away const-ness to get pup routine
+    implP|(SmoothOperation &)op;
+    implP|minDensity;
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+  }
+  CkArrayMessage *impl_amsg=(CkArrayMessage *)impl_msg;
+  impl_amsg->array_setIfNotThere(CkArray_IfNotThere_buffer);
+  ckBroadcast(impl_amsg, CkIndex_Smooth_TreePiece::__idx_densityCutOperation_marshall9);
+}
+ int CkIndex_Smooth_TreePiece::__idx_densityCutOperation_marshall9=0;
+void CkIndex_Smooth_TreePiece::_call_densityCutOperation_marshall9(void* impl_msg,Smooth_TreePiece * impl_obj)
+{
+  //Unmarshall pup'd fields: const SmoothOperation &op, double minDensity, const CkCallback &cb
+  char *impl_buf=((CkMarshallMsg *)impl_msg)->msgBuf;
+  PUP::fromMem implP(impl_buf);
+  SmoothOperation op; implP|op;
+  double minDensity; implP|minDensity;
+  CkCallback cb; implP|cb;
+  impl_buf+=CK_ALIGN(implP.size(),16);
+  //Unmarshall arrays:
+  impl_obj->densityCutOperation(op, minDensity, cb);
+  delete (CkMarshallMsg *)impl_msg;
+}
 /* DEFS: Smooth_TreePiece(CkMigrateMessage* impl_msg);
  */
 
@@ -545,16 +825,17 @@ void CProxySection_Smooth_TreePiece::findSmoothingRadius(int n, const CkCallback
   ckSend(impl_amsg, CkIndex_Smooth_TreePiece::__idx_findSmoothingRadius_marshall2);
 }
 
-/* DEFS: void performSmoothOperation(int opID, const CkCallback &cb);
+/* DEFS: void performSmoothOperation(const SmoothOperation &op, const CkCallback &cb);
  */
-void CProxySection_Smooth_TreePiece::performSmoothOperation(int opID, const CkCallback &cb) 
+void CProxySection_Smooth_TreePiece::performSmoothOperation(const SmoothOperation &op, const CkCallback &cb) 
 {
   ckCheck();
-  //Marshall: int opID, const CkCallback &cb
+  //Marshall: const SmoothOperation &op, const CkCallback &cb
   int impl_off=0,impl_arrstart=0;
   { //Find the size of the PUP'd data
     PUP::sizer implP;
-    implP|opID;
+    //Have to cast away const-ness to get pup routine
+    implP|(SmoothOperation &)op;
     //Have to cast away const-ness to get pup routine
     implP|(CkCallback &)cb;
     impl_arrstart=CK_ALIGN(implP.size(),16);
@@ -563,7 +844,8 @@ void CProxySection_Smooth_TreePiece::performSmoothOperation(int opID, const CkCa
   CkMarshallMsg *impl_msg=new (impl_off,0)CkMarshallMsg;
   { //Copy over the PUP'd data
     PUP::toMem implP((void *)impl_msg->msgBuf);
-    implP|opID;
+    //Have to cast away const-ness to get pup routine
+    implP|(SmoothOperation &)op;
     //Have to cast away const-ness to get pup routine
     implP|(CkCallback &)cb;
   }
@@ -650,6 +932,93 @@ void CProxySection_Smooth_TreePiece::saveInformation(const std::string &prefix, 
   impl_amsg->array_setIfNotThere(CkArray_IfNotThere_buffer);
   ckSend(impl_amsg, CkIndex_Smooth_TreePiece::__idx_saveInformation_marshall6);
 }
+
+/* DEFS: void minmaxDensity(const CkCallback &cb);
+ */
+void CProxySection_Smooth_TreePiece::minmaxDensity(const CkCallback &cb) 
+{
+  ckCheck();
+  //Marshall: const CkCallback &cb
+  int impl_off=0,impl_arrstart=0;
+  { //Find the size of the PUP'd data
+    PUP::sizer implP;
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+    impl_arrstart=CK_ALIGN(implP.size(),16);
+    impl_off+=impl_arrstart;
+  }
+  CkMarshallMsg *impl_msg=new (impl_off,0)CkMarshallMsg;
+  { //Copy over the PUP'd data
+    PUP::toMem implP((void *)impl_msg->msgBuf);
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+  }
+  CkArrayMessage *impl_amsg=(CkArrayMessage *)impl_msg;
+  impl_amsg->array_setIfNotThere(CkArray_IfNotThere_buffer);
+  ckSend(impl_amsg, CkIndex_Smooth_TreePiece::__idx_minmaxDensity_marshall7);
+}
+
+/* DEFS: void makeDensityHistogram(int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb);
+ */
+void CProxySection_Smooth_TreePiece::makeDensityHistogram(int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb) 
+{
+  ckCheck();
+  //Marshall: int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb
+  int impl_off=0,impl_arrstart=0;
+  { //Find the size of the PUP'd data
+    PUP::sizer implP;
+    implP|numDensityBins;
+    implP|minDensity;
+    implP|maxDensity;
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+    impl_arrstart=CK_ALIGN(implP.size(),16);
+    impl_off+=impl_arrstart;
+  }
+  CkMarshallMsg *impl_msg=new (impl_off,0)CkMarshallMsg;
+  { //Copy over the PUP'd data
+    PUP::toMem implP((void *)impl_msg->msgBuf);
+    implP|numDensityBins;
+    implP|minDensity;
+    implP|maxDensity;
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+  }
+  CkArrayMessage *impl_amsg=(CkArrayMessage *)impl_msg;
+  impl_amsg->array_setIfNotThere(CkArray_IfNotThere_buffer);
+  ckSend(impl_amsg, CkIndex_Smooth_TreePiece::__idx_makeDensityHistogram_marshall8);
+}
+
+/* DEFS: void densityCutOperation(const SmoothOperation &op, double minDensity, const CkCallback &cb);
+ */
+void CProxySection_Smooth_TreePiece::densityCutOperation(const SmoothOperation &op, double minDensity, const CkCallback &cb) 
+{
+  ckCheck();
+  //Marshall: const SmoothOperation &op, double minDensity, const CkCallback &cb
+  int impl_off=0,impl_arrstart=0;
+  { //Find the size of the PUP'd data
+    PUP::sizer implP;
+    //Have to cast away const-ness to get pup routine
+    implP|(SmoothOperation &)op;
+    implP|minDensity;
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+    impl_arrstart=CK_ALIGN(implP.size(),16);
+    impl_off+=impl_arrstart;
+  }
+  CkMarshallMsg *impl_msg=new (impl_off,0)CkMarshallMsg;
+  { //Copy over the PUP'd data
+    PUP::toMem implP((void *)impl_msg->msgBuf);
+    //Have to cast away const-ness to get pup routine
+    implP|(SmoothOperation &)op;
+    implP|minDensity;
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+  }
+  CkArrayMessage *impl_amsg=(CkArrayMessage *)impl_msg;
+  impl_amsg->array_setIfNotThere(CkArray_IfNotThere_buffer);
+  ckSend(impl_amsg, CkIndex_Smooth_TreePiece::__idx_densityCutOperation_marshall9);
+}
 #endif /*CK_TEMPLATES_ONLY*/
 #ifndef CK_TEMPLATES_ONLY
 void CkIndex_Smooth_TreePiece::__register(const char *s, size_t size) {
@@ -668,8 +1037,8 @@ void CkIndex_Smooth_TreePiece::__register(const char *s, size_t size) {
   __idx_findSmoothingRadius_marshall2 = CkRegisterEp("findSmoothingRadius(int n, const CkCallback &cb)",
      (CkCallFnPtr)_call_findSmoothingRadius_marshall2, CkMarshallMsg::__idx, __idx);
 
-// REG: void performSmoothOperation(int opID, const CkCallback &cb);
-  __idx_performSmoothOperation_marshall3 = CkRegisterEp("performSmoothOperation(int opID, const CkCallback &cb)",
+// REG: void performSmoothOperation(const SmoothOperation &op, const CkCallback &cb);
+  __idx_performSmoothOperation_marshall3 = CkRegisterEp("performSmoothOperation(const SmoothOperation &op, const CkCallback &cb)",
      (CkCallFnPtr)_call_performSmoothOperation_marshall3, CkMarshallMsg::__idx, __idx);
 
 // REG: void handleTreeRequest(const TreeRequest_Pointer &req);
@@ -683,6 +1052,18 @@ void CkIndex_Smooth_TreePiece::__register(const char *s, size_t size) {
 // REG: void saveInformation(const std::string &prefix, const CkCallback &cb);
   __idx_saveInformation_marshall6 = CkRegisterEp("saveInformation(const std::string &prefix, const CkCallback &cb)",
      (CkCallFnPtr)_call_saveInformation_marshall6, CkMarshallMsg::__idx, __idx);
+
+// REG: void minmaxDensity(const CkCallback &cb);
+  __idx_minmaxDensity_marshall7 = CkRegisterEp("minmaxDensity(const CkCallback &cb)",
+     (CkCallFnPtr)_call_minmaxDensity_marshall7, CkMarshallMsg::__idx, __idx);
+
+// REG: void makeDensityHistogram(int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb);
+  __idx_makeDensityHistogram_marshall8 = CkRegisterEp("makeDensityHistogram(int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb)",
+     (CkCallFnPtr)_call_makeDensityHistogram_marshall8, CkMarshallMsg::__idx, __idx);
+
+// REG: void densityCutOperation(const SmoothOperation &op, double minDensity, const CkCallback &cb);
+  __idx_densityCutOperation_marshall9 = CkRegisterEp("densityCutOperation(const SmoothOperation &op, double minDensity, const CkCallback &cb)",
+     (CkCallFnPtr)_call_densityCutOperation_marshall9, CkMarshallMsg::__idx, __idx);
 }
 #endif
 
@@ -698,6 +1079,8 @@ void _registerParallelSmooth(void)
 Main(CkArgMsg* impl_msg);
 threaded void loadSortBuild(void);
 threaded void doCalculations(void);
+threaded void makeHistogram(CkReductionMsg* impl_msg);
+threaded void doStressTest(CkReductionMsg* impl_msg);
 };
 */
   CkIndex_Main::__register("Main", sizeof(Main));
@@ -706,10 +1089,13 @@ threaded void doCalculations(void);
 Smooth_TreePiece(CkMigrateMessage* impl_msg);
 Smooth_TreePiece(const PeriodicBoundaryConditions<double> &periodic);
 void findSmoothingRadius(int n, const CkCallback &cb);
-void performSmoothOperation(int opID, const CkCallback &cb);
+void performSmoothOperation(const SmoothOperation &op, const CkCallback &cb);
 void handleTreeRequest(const TreeRequest_Pointer &req);
 void receiveResponse(const Response_Pointer &resp);
 void saveInformation(const std::string &prefix, const CkCallback &cb);
+void minmaxDensity(const CkCallback &cb);
+void makeDensityHistogram(int numDensityBins, double minDensity, double maxDensity, const CkCallback &cb);
+void densityCutOperation(const SmoothOperation &op, double minDensity, const CkCallback &cb);
 };
 */
   CkIndex_Smooth_TreePiece::__register("Smooth_TreePiece", sizeof(Smooth_TreePiece));

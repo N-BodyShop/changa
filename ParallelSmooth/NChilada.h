@@ -1,5 +1,5 @@
-/** \file NChilada.h
- \author Graeme Lufkin (gwl@u.washington.edu)
+/** @file NChilada.h
+ @author Graeme Lufkin (gwl@u.washington.edu)
 */
 
 #ifndef NCHILADA_H
@@ -20,6 +20,9 @@ extern int verbosity;
 
 /// My reduction that grows axis-aligned boxes.
 extern CkReduction::reducerType boxGrowthReduction;
+
+/// My reduction that does a min/max pair (of type double)
+extern CkReduction::reducerType minmaxReduction;
 
 /// The chare ID of the array of TreePieces you create.  You must set this!
 extern CkArrayID treePieceID;

@@ -1,5 +1,5 @@
-/** \file TreePiece.h
- \author Graeme Lufkin (gwl@u.washington.edu)
+/** @file TreePiece.h
+ @author Graeme Lufkin (gwl@u.washington.edu)
  */
 
 #ifndef TREEPIECE_H
@@ -30,7 +30,7 @@ protected:
 	DataManager* dm;
 	
 	/// The bounding box of all the particles.
-	OrientedBox<float> boundingBox;
+	OrientedBox<double> boundingBox;
 	/// My index in the responsibility array.
 	int myPlace;
 	/// A callback to keep around for a while.
@@ -54,11 +54,13 @@ protected:
 	FullParticle* rightBoundary;
 	
 	/** A table of the nodes in my tree, indexed by their keys.
-	 \todo XXX: Make this lookup a hash table, so we get O(1) behavior instead of O(log N).
+	 @todo XXX: Make this lookup a hash table, so we get O(1) behavior instead of O(log N).
 	 */
 	std::map<Key, TreeNode *> nodeLookup;
 	
-	void buildTree(TreeNode* parent, FullParticle* leftParticle, FullParticle* rightParticle, int level);
+	TreeNode* lookupLeftChild(TreeNode* node);
+	TreeNode* lookupRightChild(TreeNode* node);
+	void buildTree(TreeNode* parent, FullParticle* leftParticle, FullParticle* rightParticle);
 
 public:
 
@@ -81,7 +83,7 @@ public:
 	
 	/** Write a graphviz graph of my piece of the tree and a tipsy box macro to a file. 
 	 */
-	void report();
+	void report(const CkCallback& cb);
 	
 	// These functions are conceptually private, but are public because charm entry methods are always public
 	
@@ -96,6 +98,9 @@ public:
 	
 	//void generateImage(liveVizRequestMsg* m);
 	//void applyPerParticleFunction(const CkCallback& cb);
+	
+	//void pup(PUP::er& p);
 };
+
 
 #endif //TREEPIECE_H

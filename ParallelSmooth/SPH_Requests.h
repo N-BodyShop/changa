@@ -1,5 +1,5 @@
-/** \file SPH_Requests.h
- \author Graeme Lufkin (gwl@u.washington.edu)
+/** @file SPH_Requests.h
+ @author Graeme Lufkin (gwl@u.washington.edu)
  */
 
 #ifndef SPH_REQUESTS_H
@@ -16,15 +16,8 @@
 using std::vector;
 using std::priority_queue;
 
-extern SPH::Kernel* kernel;
-
-const int DensityOperation = 1;
-const int VelDivCurlOperation = 2;
-const int BallCountOperation = 3;
-const int VelDispOperation = 4;
-const int UserOperation = 5;
-
-inline void operator|(PUP::er& p, Vector3D<double>& v) {
+template <typename T>
+inline void operator|(PUP::er& p, Vector3D<T>& v) {
 	p(v.x);
 	p(v.y);
 	p(v.z);
@@ -32,23 +25,21 @@ inline void operator|(PUP::er& p, Vector3D<double>& v) {
 
 class BallCountResponse : public Response {
 	int count;
+	friend class BallCountRequest;
 public:
 		
 	BallCountResponse(int serialNumber) : Response(serialNumber), count(0) { }
 	
 	BallCountResponse(CkMigrateMessage* m) : Response(m) { }
 	
-	void merge(const Response* r) {
+	virtual void merge(const Response* r) {
 		count += dynamic_cast<const BallCountResponse *>(r)->count;
 	}
-	
-	void receiveContribution(const SPH::Kernel* kernel, TreeRequest& req, FullParticle& q, const Vector3D<double>& offset) {
-		count++;
-	}
-	
+		
 	void updateInitialParticle(FullParticle& p) {
 		p.neighborCount = count;
 	}
+	
 	virtual void pup(PUP::er& p) {
 		Response::pup(p);
 		p(count);
@@ -64,8 +55,12 @@ public:
 
 	BallCountRequest(CkMigrateMessage* m) : TreeRequestRequiringResponse(m) { }
 
-	Response* createResponse(int serialNumber) {
+	virtual Response* createResponse(int serialNumber) {
 		return new BallCountResponse(serialNumber);
+	}
+	
+	virtual void makeContribution(Response* resp, FullParticle* q, const Vector3D<double>& offset) {
+		dynamic_cast<BallCountResponse *>(resp)->count++;
 	}
 	
 	PUPable_decl(BallCountRequest);
@@ -76,15 +71,16 @@ class NeighborSearchResponse : public Response {
 	//properties of the initiating particle needed for the calculation
 	const unsigned int numNeighbors;
 	//results we're building to give back to the initiating particle
+public:
 	vector<double> radii_vector;
 	priority_queue<double> radii;
-public:
+	friend class NeighborSearchRequest;
 	
 	NeighborSearchResponse(const int sn, const unsigned int n) : Response(sn), numNeighbors(n) { }
 	
 	NeighborSearchResponse(CkMigrateMessage* m) : Response(m) { }
 
-	void merge(const Response* r) {
+	virtual void merge(const Response* r) {
 		const NeighborSearchResponse* resp = dynamic_cast<const NeighborSearchResponse *>(r);
 		for(vector<double>::const_iterator iter = resp->radii_vector.begin(); iter != resp->radii_vector.end(); ++iter)
 			radii.push(*iter);
@@ -92,25 +88,15 @@ public:
 			radii.pop();
 	}
 	
-	void prepareForSending() {
+	virtual void prepareForSending() {
 		radii_vector.reserve(radii.size());
 		while(!radii.empty()) {
 			radii_vector.push_back(radii.top());
 			radii.pop();
 		}
 	}
-	
-	void receiveContribution(const SPH::Kernel* kernel, TreeRequest& req, FullParticle& q, const Vector3D<double>& offset) {
-		radii.push(offset.length());
-		//remove any extra radii
-		while(radii.size() > numNeighbors)
-			radii.pop();
-		//possibly shrink the ball
-		if(radii.size() == numNeighbors)
-			req.s.radius = radii.top();
-	}
-	
-	void updateInitialParticle(FullParticle& p) {
+		
+	virtual void updateInitialParticle(FullParticle& p) {
 		p.smoothingRadius = radii.top() / 2;
 	}
 	
@@ -130,10 +116,21 @@ public:
 
 	NeighborSearchRequest(CkMigrateMessage* m) : TreeRequestRequiringResponse(m) { }
 
-	Response* createResponse(int serialNumber) {
+	virtual Response* createResponse(int serialNumber) {
 		return new NeighborSearchResponse(serialNumber, numNeighbors);
 	}
 	
+	virtual void makeContribution(Response* resp, FullParticle* q, const Vector3D<double>& offset) {
+		NeighborSearchResponse* nsresp = dynamic_cast<NeighborSearchResponse *>(resp);
+		nsresp->radii.push(offset.length());
+		//remove any extra radii
+		while(nsresp->radii.size() > numNeighbors)
+			nsresp->radii.pop();
+		//possibly shrink the ball
+		if(nsresp->radii.size() == numNeighbors)
+			s.radius = nsresp->radii.top();
+	}
+
 	virtual void pup(PUP::er& p) {
 		TreeRequestRequiringResponse::pup(p);
 		p(numNeighbors);
@@ -142,29 +139,20 @@ public:
 };
 
 class DensityResponse : public Response {
-	//properties of the initiating particle needed for the calculation
-	const double mass;
 	//results we're building to give back to the initiating particle
 	double density;
+	friend class DensityRequest;
 public:
 	
-	DensityResponse(const int sn, const double m) : Response(sn), mass(m), density(0) { }
+	DensityResponse(const int sn) : Response(sn), density(0) { }
 	
 	DensityResponse(CkMigrateMessage* m) : Response(m) { }
 
-	void merge(const Response* r) {
+	virtual void merge(const Response* r) {
 		density += dynamic_cast<const DensityResponse *>(r)->density;
 	}
-		
-	void receiveContribution(const SPH::Kernel* kernel, TreeRequest& req, FullParticle& q, const Vector3D<double>& offset) {
-		double factor = 0.5 * kernel->evaluate(offset.length(), req.s.radius / 2);
-		//gather part
-		density += factor * q.mass;
-		//scatter part
-		q.density += factor * mass;
-	}
-	
-	void updateInitialParticle(FullParticle& p) {
+
+	virtual void updateInitialParticle(FullParticle& p) {
 		p.density += density;
 	}
 	
@@ -184,8 +172,16 @@ public:
 
 	DensityRequest(CkMigrateMessage* m) : TreeRequestRequiringResponse(m) { }
 
-	Response* createResponse(int serialNumber) {
-		return new DensityResponse(serialNumber, mass);
+	virtual Response* createResponse(int serialNumber) {
+		return new DensityResponse(serialNumber);
+	}
+	
+	virtual void makeContribution(Response* resp, FullParticle* q, const Vector3D<double>& offset) {
+		double factor = 0.5 * kernelEvaluate(offset.length(), s.radius / 2);
+		//gather part
+		dynamic_cast<DensityResponse *>(resp)->density += factor * q->mass;
+		//scatter part
+		q->density += factor * mass;		
 	}
 	
 	virtual void pup(PUP::er& p) {
@@ -196,48 +192,24 @@ public:
 };
 
 class VelDivCurlResponse : public Response {
-	//properties of the initiating particle needed for the calculation
-	const double mass;
-	const double density;
-	const Vector3D<double> velocity;
 	//results we're building to give back to the initiating particle
 	double divv;
 	Vector3D<double> curlv;
 	Vector3D<double> meanVelocity;
+	friend class VelDivCurlRequest;
 public:
 	
-	VelDivCurlResponse(const int sn, const double m, const double d, const Vector3D<double> vel) : Response(sn), mass(m), density(d), velocity(vel), divv(0), curlv(0, 0, 0), meanVelocity(0, 0, 0) { }
+	VelDivCurlResponse(const int sn) : Response(sn), divv(0), curlv(0, 0, 0), meanVelocity(0, 0, 0) { }
 	
 	VelDivCurlResponse(CkMigrateMessage* m) : Response(m) { }
 
-	void merge(const Response* r) {
+	virtual void merge(const Response* r) {
 		divv += dynamic_cast<const VelDivCurlResponse *>(r)->divv;
 		curlv += dynamic_cast<const VelDivCurlResponse *>(r)->curlv;
 		meanVelocity += dynamic_cast<const VelDivCurlResponse *>(r)->meanVelocity;
 	}
 		
-	void receiveContribution(const SPH::Kernel* kernel, TreeRequest& req, FullParticle& q, const Vector3D<double>& offset) {
-		double common = 0.5 * kernel->evaluateGradient(offset.length(), req.s.radius / 2);
-		double divfactor = common * dot(velocity - q.velocity, offset);
-		//gather part
-		divv += divfactor * q.mass / density;
-		//scatter part
-		q.divv += divfactor * mass / q.density;
-	
-		Vector3D<double> curlfactor = common * cross(velocity - q.velocity, offset);
-		//gather part
-		curlv += curlfactor * q.mass / density;
-		//scatter part
-		q.curlv += curlfactor * mass / q.density;
-	
-		double factor = 0.5 * kernel->evaluate(offset.length(), req.s.radius / 2);
-		//gather part
-		meanVelocity += factor * q.mass / q.density * q.velocity;
-		//scatter part
-		q.meanVelocity += factor * mass / density * velocity;
-	}
-	
-	void updateInitialParticle(FullParticle& p) {
+	virtual void updateInitialParticle(FullParticle& p) {
 		p.divv += divv;
 		p.curlv += curlv;
 		p.meanVelocity += meanVelocity;
@@ -263,8 +235,30 @@ public:
 
 	VelDivCurlRequest(CkMigrateMessage* m) : TreeRequestRequiringResponse(m) { }
 
-	Response* createResponse(int serialNumber) {
-		return new VelDivCurlResponse(serialNumber, mass, density, velocity);
+	virtual Response* createResponse(int serialNumber) {
+		return new VelDivCurlResponse(serialNumber);
+	}
+	
+	virtual void makeContribution(Response* resp, FullParticle* q, const Vector3D<double>& offset) {
+		VelDivCurlResponse* p = dynamic_cast<VelDivCurlResponse *>(resp);
+		double common = 0.5 * kernelEvaluateGradient(offset.length(), s.radius / 2);
+		double divfactor = common * dot(velocity - q->velocity, offset);
+		//gather part
+		p->divv += divfactor * q->mass / density;
+		//scatter part
+		q->divv += divfactor * mass / q->density;
+	
+		Vector3D<double> curlfactor = common * cross(velocity - q->velocity, offset);
+		//gather part
+		p->curlv += curlfactor * q->mass / density;
+		//scatter part
+		q->curlv += curlfactor * mass / q->density;
+	
+		double factor = 0.5 * kernelEvaluate(offset.length(), s.radius / 2);
+		//gather part
+		p->meanVelocity += factor * q->mass / q->density * q->velocity;
+		//scatter part
+		q->meanVelocity += factor * mass / density * velocity;
 	}
 	
 	virtual void pup(PUP::er& p) {
@@ -277,33 +271,20 @@ public:
 };
 
 class VelDispResponse : public Response {
-	//properties of the initiating particle needed for the calculation
-	const double mass;
-	const double density;
-	const Vector3D<double> velocity;
-	const Vector3D<double> meanVelocity;
-	const double divv;
 	//results we're building to give back to the initiating particle
 	double velDispSq;
+	friend class VelDispRequest;
 public:
 	
-	VelDispResponse(const int sn, const double m, const double d, const Vector3D<double> vel, const Vector3D<double> mVel, const double div) : Response(sn), mass(m), density(d), velocity(vel), meanVelocity(mVel), divv(div), velDispSq(0) { }
+	VelDispResponse(const int sn) : Response(sn), velDispSq(0) { }
 	
 	VelDispResponse(CkMigrateMessage* m) : Response(m) { }
 
-	void merge(const Response* r) {
+	virtual void merge(const Response* r) {
 		velDispSq += dynamic_cast<const VelDispResponse *>(r)->velDispSq;
 	}
 		
-	void receiveContribution(const SPH::Kernel* kernel, TreeRequest& req, FullParticle& q, const Vector3D<double>& offset) {	
-		double factor = 0.5 * kernel->evaluate(offset.length(), req.s.radius / 2);
-		//gather part
-		velDispSq += factor * q.mass / q.density * (q.velocity - meanVelocity - divv * offset).lengthSquared();
-		//scatter part
-		q.velDispSq += factor * mass / density * (q.velocity - meanVelocity - divv * offset).lengthSquared();
-	}
-	
-	void updateInitialParticle(FullParticle& p) {
+	virtual void updateInitialParticle(FullParticle& p) {
 		p.velDispSq += velDispSq;
 	}
 	
@@ -327,8 +308,16 @@ public:
 
 	VelDispRequest(CkMigrateMessage* m) : TreeRequestRequiringResponse(m) { }
 
-	Response* createResponse(int serialNumber) {
-		return new VelDispResponse(serialNumber, mass, density, velocity, meanVelocity, divv);
+	virtual Response* createResponse(int serialNumber) {
+		return new VelDispResponse(serialNumber);
+	}
+	
+	virtual void makeContribution(Response* resp, FullParticle* q, const Vector3D<double>& offset) {	
+		double factor = 0.5 * kernelEvaluate(offset.length(), s.radius / 2);
+		//gather part
+		dynamic_cast<VelDispResponse *>(resp)->velDispSq += factor * q->mass / q->density * (q->velocity - meanVelocity - divv * offset).lengthSquared();
+		//scatter part
+		q->velDispSq += factor * mass / density * (q->velocity - meanVelocity - divv * offset).lengthSquared();
 	}
 	
 	virtual void pup(PUP::er& p) {

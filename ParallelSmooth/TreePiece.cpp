@@ -1,10 +1,12 @@
-/** \file TreePiece.cpp
+/** @file TreePiece.cpp
+ @author Graeme Lufkin (gwl@u.washington.edu)
  */
 
 #include <sstream>
 #include <algorithm>
+#include <fstream>
 
-#include "pup_toNetwork4.h"
+#include "pup_stl.h"
 
 #include "TreePiece.h"
 
@@ -28,6 +30,35 @@ TreePiece::~TreePiece() {
 	if(root)
 		delete root;
 }
+/*
+void TreePiece::pup(PUP::er& p) {
+	p(numBoundaries);
+	p(treePieces);
+	p(dataManager);
+	if(p.isUnpacking()) {
+		dm = dataManager.ckLocalBranch();
+		if(dm == 0)
+			cerr << "Ack, unpacked and couldn't get the local DataManager" << endl;
+	} else if(p.isPacking()) {
+		//remove this TreePiece from DataManager's list
+		dm->myTreePieces.erase(find(dm->myTreePieces.begin(), dm->myTreePieces.end(), thisIndex));
+	}
+	p(boundingBox);
+	p(myPlace);
+	//p(callback);
+	p(numTreePieces);
+	p | myParticles;
+	p | mySortedParticles;
+	p(numParticles);
+	//p(root);
+	p(leftSplitter);
+	p(rightSplitter);
+	if(p.isUnpacking()) {
+		leftBoundary = myParticles.begin();
+		rightBoundary = myParticles.end() - 1;
+	}
+}
+*/
 void TreePiece::registerWithDataManager(const CkGroupID& dataManagerID, const CkCallback& cb) {
 	dataManager = CProxy_DataManager(dataManagerID);
 	dm = dataManager.ckLocalBranch();
@@ -67,9 +98,28 @@ void TreePiece::receiveParticles(const FullParticle* particles, const int n, con
 		cout << thisIndex << ": TreePiece: Received " << n << " particles from the DataManager" << endl;
 }
 
+template <typename T>
+void resizeBox(OrientedBox<T>& b) {
+	T max = b.greater_corner.x - b.lesser_corner.x;
+	if((b.greater_corner.y - b.lesser_corner.y) > max)
+		max = b.greater_corner.y - b.lesser_corner.y;
+	if((b.greater_corner.z - b.lesser_corner.z) > max)
+		max = b.greater_corner.z - b.lesser_corner.z;
+	T middle = (b.greater_corner.x + b.lesser_corner.x) / 2.0;
+	b.greater_corner.x = middle + max / 2.0;
+	b.lesser_corner.x = middle - max / 2.0;
+	middle = (b.greater_corner.y + b.lesser_corner.y) / 2.0;
+	b.greater_corner.y = middle + max / 2.0;
+	b.lesser_corner.y = middle - max / 2.0;
+	middle = (b.greater_corner.z + b.lesser_corner.z) / 2.0;
+	b.greater_corner.z = middle + max / 2.0;
+	b.lesser_corner.z = middle - max / 2.0;
+}
+
+
 /// After the bounding box has been found, we can assign keys to the particles
 void TreePiece::assignKeys(CkReductionMsg* m) {
-	if(m->getSize() != sizeof(OrientedBox<float>)) {
+	if(m->getSize() != sizeof(boundingBox)) {
 		cerr << thisIndex << ": TreePiece: Fatal: Wrong size reduction message received!" << endl;
 		callback.send(0);
 		delete m;
@@ -77,8 +127,10 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 	}
 	
 	// XXX: We may want to round off the bounding box here!
-	//boundingBox = *static_cast<OrientedBox<float> *>(m->getData());
-	boundingBox = OrientedBox<float>(Vector(-0.5, -0.5, -0.5), Vector(0.5, 0.5, 0.5));
+	boundingBox = *static_cast<OrientedBox<double> *>(m->getData());
+	resizeBox(boundingBox);
+	if(thisIndex == 0 && verbosity)
+		cerr << "TreePiece: Bounding box resized to: " << boundingBox << endl;
 	delete m;
 	//give particles keys, using bounding box to scale
 	for(vector<FullParticle>::iterator iter = myParticles.begin(); iter != myParticles.end(); ++iter)
@@ -163,7 +215,10 @@ void TreePiece::acceptSortedParticles(const FullParticle* particles, const int n
 
 /// Give the TreePieces to the left and right of me my boundary keys so we can build correct trees.
 void TreePiece::shareBoundaries(CkReductionMsg* m) {
-	if(myPlace == 0) {
+	if(numTreePieces == 1) {
+		acceptBoundaryKey(firstPossibleKey);
+		acceptBoundaryKey(lastPossibleKey);	
+	} else if(myPlace == 0) {
 		treePieces[dm->responsibleIndex[myPlace + 1]].acceptBoundaryKey(mySortedParticles.back().key);
 		acceptBoundaryKey(firstPossibleKey);
 	} else if(myPlace == numTreePieces - 1) {
@@ -191,7 +246,7 @@ void TreePiece::acceptBoundaryKey(const Key k) {
 		leftBoundary = myParticles.begin();
 		rightBoundary = myParticles.end() - 1;
 		//I don't own my left and right boundaries, but I need to know them
-		numParticles = rightBoundary - leftBoundary - 2 + 1;
+		numParticles = myParticles.size() - 2;
 		if(numParticles != dm->particleCounts[myPlace])
 			cerr << thisIndex << ": TreePiece: Screwed up particle counts!" << endl;
 		contribute(0, 0, CkReduction::concat, callback);
@@ -204,176 +259,341 @@ void TreePiece::startTreeBuild(const CkCallback& cb) {
 	mySortedParticles.clear();
 	
 	//create a root TreeNode
-	root = new TreeNode(NULL, firstPossibleKey);
+	root = new TreeNode;
+	root->key = firstPossibleKey;
+	root->box = boundingBox;
 	//store this node in my lookup table
 	nodeLookup[root->lookupKey()] = root;
 	//build it
-	buildTree(root, leftBoundary, rightBoundary, 0);
+	buildTree(root, leftBoundary, rightBoundary);
 	
 	//signify completion with a reduction
 	contribute(0, 0, CkReduction::concat, cb);
 }
 
+/// Find what chare this node's left child resides on
+inline TreeNode* TreePiece::lookupLeftChild(TreeNode* node) {
+	//find left child's boundaries
+	Key leftNodeBoundary = node->key;
+	Key rightNodeBoundary = node->key | ((static_cast<Key>(1) << (62 - node->level)) - 1);
+	//we have some extra info, because we have the immediate left key, not just the split
+	if(leftBoundary->key <= rightNodeBoundary)
+		rightNodeBoundary = leftBoundary->key;
+	//find the last place the left boundary of the node could go in the splitters array
+	vector<Key>::iterator locLeft = upper_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), leftNodeBoundary);
+	//find the first place the right boundary of the node could go in the splitters array
+	vector<Key>::iterator locRight = lower_bound(locLeft, dm->boundaryKeys.end(), rightNodeBoundary);
+	//pick the index in the middle of the region of chares that hold the node
+	// XXX : Perhaps this should be biased to close chares for deep nodes?
+	int pickedIndex = (locLeft - 1 + (locRight - locLeft) / 2) - dm->boundaryKeys.begin();
+	TreeNode* child = node->createLeftChild();
+	nodeLookup[child->lookupKey()] = child;
+	child->setType(NonLocal);
+	//get the chareID for the chosen region
+	child->chareID = dm->responsibleIndex[pickedIndex];
+	return child;
+}
+
+inline TreeNode* TreePiece::lookupRightChild(TreeNode* node) {
+	Key leftNodeBoundary = node->key | (static_cast<Key>(1) << (62 - node->level));
+	Key rightNodeBoundary = leftNodeBoundary | ((static_cast<Key>(1) << (62 - node->level)) - 1);
+	if(leftNodeBoundary <= rightBoundary->key)
+		leftNodeBoundary = rightBoundary->key;
+	vector<Key>::iterator locLeft = upper_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), leftNodeBoundary);
+	vector<Key>::iterator locRight = lower_bound(locLeft, dm->boundaryKeys.end(), rightNodeBoundary);
+	int pickedIndex = (locLeft - 1 + (locRight - locLeft) / 2) - dm->boundaryKeys.begin();
+	TreeNode* child = node->createRightChild();
+	nodeLookup[child->lookupKey()] = child;
+	child->setType(NonLocal);
+	child->chareID = dm->responsibleIndex[pickedIndex];
+	return child;
+}
+
 /** A recursive algorithm for building my tree.
- \note This function is way too complicated to explain in words alone.
+ Examines successive bits in the particles' keys, looking for splits.
+ Each bit is a level of nodes in the tree.  We keep going down until
+ we can bucket the particles.  The left and right boundaries of this
+ piece of tree will point to other pieces on other chares in the array.
  */
-void TreePiece::buildTree(TreeNode* parent, FullParticle* leftParticle, FullParticle* rightParticle, int level) {
+void TreePiece::buildTree(TreeNode* node, FullParticle* leftParticle, FullParticle* rightParticle) {
 	
 	//check if we should bucket these particles
-	if(rightParticle - leftParticle < TreeNode::maxBucketSize) {
+	if(rightParticle - leftParticle <= TreeNode::maxBucketSize) {
+		//can't bucket until we've cut at the boundary
 		if((leftParticle != leftBoundary) && (rightParticle != rightBoundary)) {
-			//cerr << "Bucketing: " << leftParticle << " : " << rightParticle << endl;
-			//cerr << "Bucket: " << ((rightParticle - leftParticle) ) << endl;
-			parent->key |= TreeNode::bucketFlag;
-			parent->beginBucket = leftParticle;
-			parent->endBucket = rightParticle + 1;
+			node->setType(Bucket);
+			node->beginBucket = leftParticle;
+			node->endBucket = rightParticle + 1;
+			return;
+		}
+	} else if(node->level == 63) {
+		cerr << thisIndex << ": This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
+		return;
+	}
+	
+	//this is the bit we are looking at
+	Key currentBitMask = static_cast<Key>(1) << (62 - node->level);
+	//we need to know the bit values at the left and right
+	Key leftBit = leftParticle->key & currentBitMask;
+	Key rightBit = rightParticle->key & currentBitMask;
+	TreeNode* child;
+	
+	if((leftParticle == leftBoundary && myPlace != 0) || (rightParticle == rightBoundary && myPlace != numTreePieces - 1))
+		node->setType(Boundary);
+	else
+		node->setType(Internal);
+	
+	if(leftBit ^ rightBit) { //a split at this level
+		//find the split by looking for where the key with the bit siwtched on could go
+		FullParticle* splitParticle = lower_bound(leftParticle, rightParticle + 1, node->key | currentBitMask);
+		if(splitParticle == leftBoundary + 1) {
+			//we need to make the left child point to a remote chare
+			if(myPlace != 0) //the left-most chare can't point any further left
+				lookupLeftChild(node);
+			child = node->createRightChild();
+			nodeLookup[child->lookupKey()] = child;
+			buildTree(child, splitParticle, rightParticle);
+		} else if(splitParticle == rightBoundary) {
+			//we need to make the right child point to a remote chare
+			child = node->createLeftChild();
+			nodeLookup[child->lookupKey()] = child;
+			buildTree(child, leftParticle, splitParticle - 1);
+			if(myPlace != numTreePieces - 1) //the right-most chare can't point any further right
+				lookupRightChild(node);
+		} else {
+			//neither child is remote, keep going with them
+			child = node->createLeftChild();
+			nodeLookup[child->lookupKey()] = child;
+			buildTree(child, leftParticle, splitParticle - 1);
+			child = node->createRightChild();
+			nodeLookup[child->lookupKey()] = child;
+			buildTree(child, splitParticle, rightParticle);
+		}
+	} else if(leftBit & rightBit) { //both ones, make a right child
+		//should the left child be remote?
+		if(leftParticle == leftBoundary && myPlace != 0)
+			lookupLeftChild(node);
+		child = node->createRightChild();
+		nodeLookup[child->lookupKey()] = child;
+		buildTree(child, leftParticle, rightParticle);
+	} else { //both zeros, make a left child
+		child = node->createLeftChild();
+		nodeLookup[child->lookupKey()] = child;
+		buildTree(child, leftParticle, rightParticle);
+		//should the right child be remote?
+		if(rightParticle == rightBoundary && myPlace != numTreePieces - 1)
+			lookupRightChild(node);
+	}
+	
+}
+
+/* //The old tree-building function
+void TreePiece::buildTree(TreeNode* node, FullParticle* leftParticle, FullParticle* rightParticle) {
+	
+	//check if we should bucket these particles
+	if(rightParticle - leftParticle <= TreeNode::maxBucketSize) {
+		//can't bucket until we've cut at the boundary
+		if((leftParticle != leftBoundary) && (rightParticle != rightBoundary)) {
+			node->setType(Bucket);
+			node->beginBucket = leftParticle;
+			node->endBucket = rightParticle + 1;
 			return;
 		}
 	}
 	
 	//this is the bit we are looking at
-	Key currentBitMask = static_cast<Key>(1) << (62 - level);
-	//we need to know the values at the boundary
+	Key currentBitMask = static_cast<Key>(1) << (62 - node->level);
+	//we need to know the bit values at the left and right
 	Key leftBit = leftParticle->key & currentBitMask;
 	Key rightBit = rightParticle->key & currentBitMask;
 	
+	node->setType(Boundary);
 	if(leftBit ^ rightBit) { //a split at this level
 		if(leftBit > rightBit)
 			cerr << thisIndex << ": How the hell did this happen?" << endl;
-		//find the index where the bit changes (currentKey is a node, we search through particles, so need to use particle bit)
-		FullParticle* splitParticle = lower_bound(leftParticle, rightParticle + 1, parent->key | currentBitMask);// | TreeNode::bucketFlag);
+		//find the index where the bit changes
+		FullParticle* splitParticle = lower_bound(leftParticle, rightParticle + 1, node->key | currentBitMask);
 		if(splitParticle - leftBoundary > 1) {
-			parent->leftChild = new TreeNode(parent, parent->key);
-			nodeLookup[parent->leftChild->lookupKey()] = parent->leftChild;
-			parent->leftChild->parent = parent;
-			buildTree(parent->leftChild, leftParticle, splitParticle - 1, level + 1);
+			node->setType(Internal);
+			TreeNode* child = node->createLeftChild();
+			nodeLookup[child->lookupKey()] = child;
+			buildTree(child, leftParticle, splitParticle - 1);
 		} else { //left child is non-local
 			//find appropriate chare Id
-			Key tail = (static_cast<Key>(1) << (62 - level)) - static_cast<Key>(1);
-			vector<Key>::iterator lowLocation = upper_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), parent->key & ~tail);
-			vector<Key>::iterator hiLocation = upper_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), parent->key | tail);
+			Key tail = (static_cast<Key>(1) << (62 - node->level)) - static_cast<Key>(1);
+			vector<Key>::iterator lowLocation = upper_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), node->key & ~tail);
+			vector<Key>::iterator hiLocation = upper_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), node->key | tail);
 			int bin = ((lowLocation - dm->boundaryKeys.begin() - 1) + (hiLocation - dm->boundaryKeys.begin() - 1)) / 2;
-			if(dm->responsibleIndex[bin] == thisIndex)
-				parent->leftChild = 0;
-			else
-				parent->chareID = -1 - dm->responsibleIndex[bin];
+			if(dm->responsibleIndex[bin] != thisIndex) {
+				TreeNode* child = node->createLeftChild();
+				child->setType(NonLocal);
+				nodeLookup[child->lookupKey()] = child;
+				child->chareID = dm->responsibleIndex[bin];
+			} else
+				node->setType(Internal);
 		}
 		if(rightBoundary > splitParticle) {
-			parent->rightChild = new TreeNode(parent, parent->key | currentBitMask);
-			nodeLookup[parent->rightChild->lookupKey()] = parent->rightChild;
-			parent->rightChild->parent = parent;
-			buildTree(parent->rightChild, splitParticle, rightParticle, level + 1);
+			node->setType(Internal);
+			TreeNode* child = node->createRightChild();
+			buildTree(child, splitParticle, rightParticle);
 		} else { //right child is non-local
 			//find appropriate chare Id
-			Key tail = (static_cast<Key>(1) << (62 - level)) - static_cast<Key>(1);
-			Key bit = (static_cast<Key>(1) << (62 - level));
-			vector<Key>::iterator lowLocation = upper_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), (parent->key | bit) & ~tail);
-			vector<Key>::iterator hiLocation = upper_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), parent->key | bit | tail);
+			Key tail = (static_cast<Key>(1) << (62 - node->level)) - static_cast<Key>(1);
+			Key bit = (static_cast<Key>(1) << (62 - node->level));
+			vector<Key>::iterator lowLocation = upper_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), (node->key | bit) & ~tail);
+			vector<Key>::iterator hiLocation = upper_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), node->key | bit | tail);
 			int bin = ((lowLocation - dm->boundaryKeys.begin() - 1) + (hiLocation - dm->boundaryKeys.begin() - 1)) / 2;
 			if(dm->responsibleIndex[bin] == thisIndex) {
-				if(((parent->key | bit | tail) < rightSplitter) || (myPlace == numTreePieces - 1))
-					parent->rightChild = 0;
-				else
-					parent->chareID = 1 + dm->responsibleIndex[bin + 1];
-			} else
-				parent->chareID = 1 + dm->responsibleIndex[bin];
+				if(((node->key | bit | tail) < rightSplitter) || (myPlace == numTreePieces - 1))
+					node->setType(Internal);
+			else {
+					TreeNode* child = node->createRightChild();
+					child->setType(NonLocal);
+					nodeLookup[child->lookupKey()] = child;
+					child->chareID = dm->responsibleIndex[bin + 1];
+				}
+			} else {
+				TreeNode* child = node->createRightChild();
+				child->setType(NonLocal);
+				nodeLookup[child->lookupKey()] = child;
+				child->chareID = dm->responsibleIndex[bin];
+			}
 		}
 	
 	} else if(leftBit & rightBit) { //both ones, make a right child
-		parent->rightChild = new TreeNode(parent, parent->key | currentBitMask);
-		nodeLookup[parent->rightChild->lookupKey()] = parent->rightChild;
-		parent->rightChild->parent = parent;
-		buildTree(parent->rightChild, leftParticle, rightParticle, level + 1);
-		if((parent->key) <= leftBoundary->key) {
-			//find appropriate chare Id
-			Key tail = (static_cast<Key>(1) << (62 - level)) - static_cast<Key>(1);
-			vector<Key>::iterator lowLocation = upper_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), parent->key & ~tail);
-			vector<Key>::iterator hiLocation = upper_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), parent->key | tail);
+		TreeNode *child = node->createRightChild();
+		nodeLookup[child->lookupKey()] = child;
+		buildTree(child, leftParticle, rightParticle);
+		if(node->key <= leftBoundary->key) {
+			//find appropriate chare ID
+			Key tail = (static_cast<Key>(1) << (62 - node->level)) - static_cast<Key>(1);
+			vector<Key>::iterator lowLocation = upper_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), node->key & ~tail);
+			vector<Key>::iterator hiLocation = upper_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), node->key | tail);
 			int bin = ((lowLocation - dm->boundaryKeys.begin() - 1) + (hiLocation - dm->boundaryKeys.begin() - 1)) / 2;
-			if(dm->responsibleIndex[bin] == thisIndex)
-				parent->leftChild = 0;
-			else
-				parent->chareID = -1 - dm->responsibleIndex[bin];
-		}
+			if(dm->responsibleIndex[bin] != thisIndex) {
+				TreeNode *child = node->createLeftChild();
+				child->setType(NonLocal);
+				nodeLookup[child->lookupKey()] = child;
+				child->chareID = dm->responsibleIndex[bin];
+			} else
+				node->setType(Internal);
+		} else
+			node->setType(Internal);
 	} else { //both zeros, make a left child
-		parent->leftChild = new TreeNode(parent, parent->key);
-		nodeLookup[parent->leftChild->lookupKey()] = parent->leftChild;
-		parent->leftChild->parent = parent;
-		buildTree(parent->leftChild, leftParticle, rightParticle, level + 1);
+		TreeNode* child = node->createLeftChild();
+		nodeLookup[child->lookupKey()] = child;
+		buildTree(child, leftParticle, rightParticle);
 		currentBitMask >>= 1;
-		if(((parent->key | currentBitMask) >> (62 - level)) >= (rightBoundary->key >> (62 - level))) {
+		if(((node->key | currentBitMask) >> (62 - node->level)) >= (rightBoundary->key >> (62 - node->level))) {
 			//find appropriate chare Id
-			Key tail = (static_cast<Key>(1) << (62 - level)) - static_cast<Key>(1);
-			Key bit = (static_cast<Key>(1) << (62 - level));
-			vector<Key>::iterator lowLocation = upper_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), (parent->key | bit) & ~tail);
-			vector<Key>::iterator hiLocation = upper_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), parent->key | bit | tail);
+			Key tail = (static_cast<Key>(1) << (62 - node->level)) - static_cast<Key>(1);
+			Key bit = (static_cast<Key>(1) << (62 - node->level));
+			vector<Key>::iterator lowLocation = upper_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), (node->key | bit) & ~tail);
+			vector<Key>::iterator hiLocation = upper_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), node->key | bit | tail);
 			int bin = ((lowLocation - dm->boundaryKeys.begin() - 1) + (hiLocation - dm->boundaryKeys.begin() - 1)) / 2;
 			if(dm->responsibleIndex[bin] == thisIndex) {
-				if(((parent->key | bit | tail) < rightSplitter) || (myPlace == numTreePieces - 1))
-					parent->rightChild = 0;
-				else
-					parent->chareID = 1 + dm->responsibleIndex[bin + 1];
-			} else
-				parent->chareID = 1 + dm->responsibleIndex[bin];
-		}
+				if(((node->key | bit | tail) < rightSplitter) || (myPlace == numTreePieces - 1))
+					node->setType(Internal);
+				else {
+					TreeNode* child = node->createRightChild();
+					child->setType(NonLocal);
+					nodeLookup[child->lookupKey()] = child;
+					child->chareID = dm->responsibleIndex[bin + 1];
+				}
+			} else {
+				TreeNode* child = node->createRightChild();
+				child->setType(NonLocal);
+				nodeLookup[child->lookupKey()] = child;
+				child->chareID = dm->responsibleIndex[bin];
+			}
+		} else
+			node->setType(Internal);
 	}
 	
 }
+*/
 
-string keyBits(const Key k, const int numBits) {
-	ostringstream oss;
+std::string keyBits(const Key k, const int numBits) {
+	std::ostringstream oss;
+	oss << "N";
 	for(int i = 0; i < numBits; i++)
 		oss << (k & (static_cast<Key>(1) << (62 - i)) ? 1 : 0);
 	return oss.str();
 }
 
-void printTree(TreeNode* root, const int level, ostream& os, int index) {
-	if(root == 0)
-		return;
-	
-	ostringstream oss;
-	oss << "\"N" << keyBits(root->key, level);
-	string idPrefix = oss.str();
-	oss << "-" << index << "\"";
-	string idRoot = oss.str();
-	oss.str("");
-	oss << "0-" << index << "\"";
-	string idLeft = idPrefix + oss.str();
-	oss.str("");
-	oss << "1-" << index << "\"";
-	string idRight = idPrefix + oss.str();
-	
-	if(root->isBucket()) {
-		os << "\t" << idRoot << " [label=\"Bucket: " << (root->endBucket - root->beginBucket) << "\"]\n";
-		root->whollyOwned = true;
-	} else if(root->chareID != 0) {
-		if(root->chareID > 0) {
-			os << "\t" << idRoot << " -> " << idLeft << ";\n";
-			printTree(root->leftChild, level + 1, os, index);
-			os << "\t" << idRoot << " -> " << idPrefix << "1-" << (root->chareID - 1) << "\" [color = \"red\"];\n";
-		} else {
-			os << "\t" << idRoot << " -> " << idPrefix << "0-" << (-root->chareID - 1) << "\" [color = \"red\"];\n";
-			os << "\t" << idRoot << " -> " << idRight << ";\n";
-			printTree(root->rightChild, level + 1, os, index);
+/** Check that all the particles in the tree are really in their boxes.
+ Because the keys are made of only the frist 21 out of 23 bits of the
+ floating point representation, there can be particles that are outside
+ their box by tiny amounts.  Whether this is bad is not yet known. */
+void checkTree(const TreeNode* node) {
+	if(node->isBucket()) {
+		for(FullParticle* iter = node->beginBucket; iter != node->endBucket; ++iter) {
+			if(!node->box.contains(iter->position))
+				cerr << "Not in the box: Box: " << node->box << " Position: " << iter->position << "\nNode key: " << keyBits(node->key, node->level) << "\nParticle key: " << keyBits(iter->key, 63) << endl;
 		}
-	} else {
-		os << "\t" << idRoot << " -> " << idLeft << ";\n";
-		if(root->leftChild != 0)
-			printTree(root->leftChild, level + 1, os, index);
-		else
-			os << "\t" << idLeft << " [label=\"None\"];\n";
-
-		os << "\t" << idRoot << " -> " << idRight << ";\n";
-		if(root->rightChild != 0)
-			printTree(root->rightChild, level + 1, os, index);
-		else
-			os << "\t" << idRight << " [label=\"None\"];\n";
-		
-		if(((root->leftChild == 0) || root->leftChild->whollyOwned) && ((root->rightChild == 0) || root->rightChild->whollyOwned))
-			root->whollyOwned = true;
+	} else if(!node->isNonLocal()) {
+		if(node->leftChild)
+			checkTree(node->leftChild);
+		if(node->rightChild)
+			checkTree(node->rightChild);
 	}
 }
 
+/// Make a label for a node
+string makeLabel(TreeNode* node) {
+	ostringstream oss;
+	oss << keyBits(node->key, node->level) << "\\n";
+	switch(node->getType()) {
+		case Invalid:
+			oss << "Invalid";
+			break;
+		case Bucket:
+			oss << "Bucket: " << (node->endBucket - node->beginBucket) << " particles";
+			break;
+		case Internal:
+			oss << "Internal";
+			break;
+		case NonLocal:
+			oss << "NonLocal: Chare " << node->chareID;
+			break;
+		case Empty:
+			oss << "Empty";
+			break;
+		case Boundary:
+			oss << "Boundary";
+			break;
+		case Top:
+			oss << "Top";
+			break;
+		default:
+			oss << "Unknown NodeType!";
+	}
+	return oss.str();
+}
+
+/// Print a graphviz version of a tree
+void printTree(TreeNode* node, ostream& os) {
+	if(node == 0)
+		return;
+	
+	string nodeID = keyBits(node->key, node->level);
+	os << "\t\"" << nodeID << "\" [label=\"" << makeLabel(node) << "\"]\n";
+	
+	if(node->isNonLocal() || node->isBucket())
+		return;
+	
+	os << "\t\"" << nodeID << "\" -> \"" << nodeID << "0\";\n";
+	os << "\t\"" << nodeID << "\" -> \"" << nodeID << "1\";\n";
+	if(node->leftChild == 0)
+		os << "\t\"" << nodeID << "0\" [label=\"None\"]\n";
+	else
+		printTree(node->leftChild, os);
+	if(node->rightChild == 0)
+		os << "\t\"" << nodeID << "1\" [label=\"None\"]\n";
+	else
+		printTree(node->rightChild, os);
+}
+/*
 void printBoxes(const TreeNode* root, const int level, ostream& os) {
 	static int boxNum = 1;
 	
@@ -400,26 +620,31 @@ void printBoxes(const TreeNode* root, const int level, ostream& os) {
 		}
 	}
 }
+*/
 
 /// Write a file containing a graphviz dot graph of my tree
-void TreePiece::report() {
+void TreePiece::report(const CkCallback& cb) {
 	ostringstream outfilename;
 	outfilename << "tree_" << thisIndex << ".dot";
 	ofstream os(outfilename.str().c_str());
 
 	os << "digraph G" << thisIndex << " {\n";
-	os << "\tcenter = \"true\"\n\tsize = \"8.5,11\"\n";
+	os << "\tcenter = \"true\"\n";
+	//os << "\tsize = \"8.5,11\"\n";
 	os << "\tlabel = \"Piece: " << thisIndex << "\\nParticles: " 
 			<< numParticles << "\\nLeft Splitter: " << keyBits(leftSplitter, 63)
 			<< "\\nLeftmost Key: " << *(leftBoundary + 1) 
 			<< "\\nRightmost Key: " << *(rightBoundary - 1) 
 			<< "\\nRight Splitter: " << keyBits(rightSplitter, 63) << "\";\n";
-	printTree(root, 0, os, thisIndex);
+	printTree(root, os);
 	os << "}" << endl;
 	
 	os.close();
 	
+	checkTree(root);
+	
 	//also write a tipsy macro file showing the boxes I own
+	/*
 	outfilename.str("");
 	outfilename << "tree_" << thisIndex << ".macro";
 	os.open(outfilename.str().c_str());
@@ -427,6 +652,9 @@ void TreePiece::report() {
 	printBoxes(root, 0, os);
 	os << "end" << endl;
 	os.close();
+	*/
+	
+	contribute(0, 0, CkReduction::concat, cb);
 }
 /*
 class ImageRequest {

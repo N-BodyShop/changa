@@ -1,4 +1,4 @@
-OPT = -Wall -g 
+OPT = -Wall
 
 HOST = /host/hermes/home/gwl
 CHARMC = $(HOST)/projects/charm/bin/charmc
@@ -15,7 +15,7 @@ $(TARGET): Makefile
 
 NChilada.o: TreePiece.h Sorter.h DataManager.h Tree.h
 NChilada.o DataManager.o TreePiece.o Sorter.o: NChilada.h NChilada.decl.h Particle.h
-TreePiece.o: DataManager.h
+TreePiece.o: DataManager.h Tree.h
 NCHILADA_OBJS = NChilada.o DataManager.o TreePiece.o Sorter.o $(HOST)/projects/structures/TipsyFile.o
 
 NChilada.decl.h: NChilada.ci

@@ -1,5 +1,5 @@
-/** \file RequestResponse.h
- \author Graeme Lufkin (gwl@u.washington.edu)
+/** @file RequestResponse.h
+ @author Graeme Lufkin (gwl@u.washington.edu)
  */
 
 #ifndef REQUESTRESPONSE_H
@@ -22,8 +22,35 @@ public:\
         PUP::able *pa=a;  p(&pa);  a=(className *)pa;\
     }
 
+/** A base class representing a response built to answer a tree request. */
+class Response : public PUP::able {
+public:
+	
+	/// The serial number used to file this response
+	int serialNumber;
+	
+	Response(int sn = 0) : serialNumber(sn) { }
+	
+	Response(CkMigrateMessage* m) : PUP::able(m) { }
+	
+	virtual ~Response() { };
+
+	virtual void merge(const Response* r) = 0;
+
+	virtual void prepareForSending() { }
+	
+	virtual void updateInitialParticle(FullParticle& p) { }
+	
+	virtual void pup(PUP::er& p) {
+		PUP::able::pup(p);
+		p(serialNumber);
+	}
+	PUPable_abstract(Response);
+};
+
 /** A base class representing a request made of the tree. */
 class TreeRequest : public PUP::able {
+	static const double spline_PI = 3.14159265358979323846;
 public:
 
 	/** The ball to search in.  The radius of this sphere will be twice the smoothing radius
@@ -42,6 +69,24 @@ public:
 	
 	virtual bool isResponseRequired() = 0;
 	
+	virtual void makeContribution(Response* resp, FullParticle* p, const Vector3D<double>& offset) = 0;
+
+	inline double kernelEvaluate(double r, double h) const {
+		double q = r / h;
+		if(q < 1)
+			return (1 - 1.5 * q * q + 0.75 * q * q * q) / spline_PI / h / h / h;
+		else
+			return 0.25 * (2 - q) * (2 - q) * (2 - q) / spline_PI / h / h / h;
+	}
+	
+	inline double kernelEvaluateGradient(double r, double h) const {
+		double q = r / h;
+		if(q < 1)
+			return (0.75 * q - 1) * 3 / spline_PI / h / h / h / h / h;
+		else
+			return (-0.25 * q - 1 / q + 1) * 3 / spline_PI / h / h / h / h / h;
+	}
+
 	virtual void pup(PUP::er& p) {
 		PUP::able::pup(p);
 		p(s.origin.x);
@@ -51,34 +96,6 @@ public:
 		p(startingNode);
 	}
 	PUPable_abstract(TreeRequest);
-};
-
-/** A base class representing a response built to answer a tree request. */
-class Response : public PUP::able {
-public:
-	
-	/// The serial number used to file this response
-	int serialNumber;
-	
-	Response(int sn = 0) : serialNumber(sn) { }
-	
-	Response(CkMigrateMessage* m) : PUP::able(m) { }
-	
-	virtual ~Response() { };
-
-	virtual void merge(const Response* r) = 0;
-
-	virtual void prepareForSending() { }
-	
-	virtual void receiveContribution(const SPH::Kernel* kernel, TreeRequest& req, FullParticle& p, const Vector3D<double>& offset) = 0;
-	
-	virtual void updateInitialParticle(FullParticle& p) { }
-	
-	virtual void pup(PUP::er& p) {
-		PUP::able::pup(p);
-		p(serialNumber);
-	}
-	PUPable_abstract(Response);
 };
 
 class TreeRequestRequiringResponse : public TreeRequest {

@@ -1,6 +1,9 @@
-/** \file Smooth_TreePiece.cpp
- \author Graeme Lufkin (gwl@u.washington.edu)
+/** @file Smooth_TreePiece.cpp
+ @author Graeme Lufkin (gwl@u.washington.edu)
 */
+
+#include <fstream>
+#include <algorithm>
 
 #include "Tree.h"
 
@@ -13,6 +16,7 @@ using std::priority_queue;
 void Smooth_TreePiece::findSmoothingRadius(const int n, const CkCallback& cb) {
 	numNeighbors = n;
 	numComplete = 0;
+	totalNumPending = numParticles;
 	callback = cb;
 	
 	if(numParticles <= numNeighbors) {
@@ -21,7 +25,8 @@ void Smooth_TreePiece::findSmoothingRadius(const int n, const CkCallback& cb) {
 		return;
 	}
 	
-	TreeRequestRequiringResponse* req;
+	NeighborSearchRequest* req;
+	NeighborSearchResponse* resp;
 	
 	double r;
 	double maxr = 0;
@@ -43,40 +48,54 @@ void Smooth_TreePiece::findSmoothingRadius(const int n, const CkCallback& cb) {
 			if(maxr == 0 || r > maxr)
 				maxr = r;
 		}
-		if(pbc.xPeriod && maxr > pbc.xPeriod / 2)
-			cerr << thisIndex << ": Smooth_TreePiece: Not good, initial radius guess is larger than the x-axis period: " << maxr << endl;
-		if(pbc.yPeriod && maxr > pbc.yPeriod / 2)
-			cerr << thisIndex << ": Smooth_TreePiece: Not good, initial radius guess is larger than the y-axis period: " << maxr << endl;
-		if(pbc.zPeriod && maxr > pbc.zPeriod / 2)
-			cerr << thisIndex << ": Smooth_TreePiece: Not good, initial radius guess is larger than the z-axis period: " << maxr << endl;
 		
 		//the original serial number is the particle number
 		req = new NeighborSearchRequest(myParticles[i].position, maxr, thisIndex, i, numNeighbors);
 		req->startingNode = root->lookupKey();
-		handleTreeRequest(req);
+		
+		resp = dynamic_cast<NeighborSearchResponse *>(req->createResponse(mySerialNumber));
+		//file the pointer to Response using my serial number
+		pendingResponses.insert(make_pair(mySerialNumber, PendingResponse(*req, resp)));
+		req->requestingSerialNumber = mySerialNumber;
+		mySerialNumber++;
+
+		//traverse tree, handling criterion, building self-response and sending off requests
+		localOnlyTraverse(root, req, resp);
+		if(pbc.xPeriod && resp->radii.top() > pbc.xPeriod / 2)
+			cerr << thisIndex << ": Smooth_TreePiece: Not good, initial radius guess is larger than the x-axis period: " << maxr << endl;
+		if(pbc.yPeriod && resp->radii.top() > pbc.yPeriod / 2)
+			cerr << thisIndex << ": Smooth_TreePiece: Not good, initial radius guess is larger than the y-axis period: " << maxr << endl;
+		if(pbc.zPeriod && resp->radii.top() > pbc.zPeriod / 2)
+			cerr << thisIndex << ": Smooth_TreePiece: Not good, initial radius guess is larger than the z-axis period: " << maxr << endl;
+		remoteOnlyTraverse(root, req, resp);
+		
+		//send yourself the response you've built
+		receiveResponse(resp);
+		
+		delete req;
 	}
 }
 
-void Smooth_TreePiece::performSmoothOperation(const int opID, const CkCallback& cb) {
+void Smooth_TreePiece::performSmoothOperation(const SmoothOperation op, const CkCallback& cb) {
 	numComplete = 0;
 	callback = cb;
-	
+	totalNumPending = numParticles;
 	TreeRequest* req;
 	for(int i = 1; i < numParticles + 1; ++i) {
-		switch(opID) {
-			case DensityOperation:
+		switch(op) {
+			case Density:
 				req = new DensityRequest(myParticles[i].position, 2 * myParticles[i].smoothingRadius, thisIndex, i, myParticles[i].mass);
 				break;
-			case VelDivCurlOperation:
+			case VelocityDivCurl:
 				req = new VelDivCurlRequest(myParticles[i].position, 2 * myParticles[i].smoothingRadius, thisIndex, i, myParticles[i].mass, myParticles[i].density, myParticles[i].velocity);
 				break;
-			case BallCountOperation:
+			case BallCount:
 				req = new BallCountRequest(myParticles[i].position, 2 * myParticles[i].smoothingRadius, thisIndex, i);
 				break;
-			case VelDispOperation:
+			case VelocityDispersion:
 				req = new VelDispRequest(myParticles[i].position, 2 * myParticles[i].smoothingRadius, thisIndex, i, myParticles[i].mass, myParticles[i].density, myParticles[i].velocity, myParticles[i].meanVelocity, myParticles[i].divv);
 				break;
-			case UserOperation:
+			case User:
 				//req = dm->createUserTreeRequest(myParticles[i], thisIndex, i);
 				break;
 			default:
@@ -84,6 +103,49 @@ void Smooth_TreePiece::performSmoothOperation(const int opID, const CkCallback& 
 		}
 		req->startingNode = root->lookupKey();
 		handleTreeRequest(req);
+	}
+}
+
+void Smooth_TreePiece::densityCutOperation(const SmoothOperation op, double minDensity, const CkCallback& cb) {
+	numComplete = 0;
+	callback = cb;
+	minDensity = pow(10.0, minDensity);
+	TreeRequest* req;
+	totalNumPending = 0;
+	for(int i = 1; i < numParticles + 1; ++i) {
+		if(myParticles[i].density >= minDensity)
+			totalNumPending++;
+	}
+	if(totalNumPending == 0) {
+		contribute(0, 0, CkReduction::concat, callback);
+		return;
+	}
+	for(int i = 1; i < numParticles + 1; ++i) {
+		if(myParticles[i].density >= minDensity) {
+			switch(op) {
+				case Density:
+					req = new DensityRequest(myParticles[i].position, 2 * myParticles[i].smoothingRadius, thisIndex, i, myParticles[i].mass);
+					break;
+				case VelocityDivCurl:
+					myParticles[i].divv = 0;
+					myParticles[i].curlv = myParticles[i].meanVelocity = Vector3D<double>(0, 0, 0);
+					req = new VelDivCurlRequest(myParticles[i].position, 2 * myParticles[i].smoothingRadius, thisIndex, i, myParticles[i].mass, myParticles[i].density, myParticles[i].velocity);
+					break;
+				case BallCount:
+					req = new BallCountRequest(myParticles[i].position, 2 * myParticles[i].smoothingRadius, thisIndex, i);
+					break;
+				case VelocityDispersion:
+					req = new VelDispRequest(myParticles[i].position, 2 * myParticles[i].smoothingRadius, thisIndex, i, myParticles[i].mass, myParticles[i].density, myParticles[i].velocity, myParticles[i].meanVelocity, myParticles[i].divv);
+					break;
+				case User:
+					//req = dm->createUserTreeRequest(myParticles[i], thisIndex, i);
+					break;
+				default:
+					cerr << "Aah!" << endl;
+			}
+			req->startingNode = root->lookupKey();
+			handleTreeRequest(req);
+		}
 	}
 }
 
@@ -96,23 +158,34 @@ void Smooth_TreePiece::handleTreeRequest(TreeRequest* req) {
 		nodeIter = nodeLookup.find(req->startingNode >> 1);
 		if(nodeIter == nodeLookup.end()) {
 			cerr << thisIndex << ": Smooth_TreePiece: Not Good: Got a request for a node I seriously don't have!" << endl;
-		} else if(nodeIter->second->chareID == 0) { //I do have the node's parent!
-			//send empty response, letting the requestor know that I don't have anything to contribute
+		} else if(nodeIter->second->getType() == NonLocal) {
+			cerr << "How does this sort of thing happen?" << endl;
+			TreeRequestRequiringResponse* myReq = dynamic_cast<TreeRequestRequiringResponse *>(req);
+			cerr << thisIndex << ": Chare " << myReq->requestingTreePiece << " thinks I have node ";
+			for(int i = 0; i < 63; i++)
+				cerr << (myReq->startingNode & (static_cast<Key>(1) << (62 - i)) ? 1 : 0);
+			cerr << endl;
+		} else { //I do have the node's parent!
+			//the requested node is null; send empty response, letting the requestor know that I don't have anything to contribute
 			if(req->isResponseRequired()) {
 				TreeRequestRequiringResponse* myReq = dynamic_cast<TreeRequestRequiringResponse *>(req);
 				smoothTreePieces[myReq->requestingTreePiece].receiveResponse(myReq->createResponse(myReq->requestingSerialNumber));
 			}
-		} else {
-			int realChare = (nodeIter->second->chareID < 0 ? -nodeIter->second->chareID - 1 : nodeIter->second->chareID - 1);
-			//pass the buck
-			if(verbosity) {
-				cout << "Type of request: " << typeid(req).name() << endl;
-				if(req->isResponseRequired())
-					cout << thisIndex << ": Node " << req->startingNode << " from " << dynamic_cast<TreeRequestRequiringResponse *>(req)->requestingTreePiece << " is not really me, passing the buck to " << realChare << endl;
-				else
-					cout << thisIndex << ": Node " << req->startingNode << " is not really me, passing the buck to " << realChare << endl;
-			}
-			smoothTreePieces[realChare].handleTreeRequest(req);
+		}
+		delete req;
+		return;
+	}
+	
+	if(nodeIter->second->getType() == NonLocal) {
+		//requested node isn't really me, although something thought so
+		//forward the request to the right piece
+		smoothTreePieces[nodeIter->second->chareID].handleTreeRequest(req);
+		if(verbosity) {
+			cout << "Type of request: " << typeid(req).name() << endl;
+			if(req->isResponseRequired())
+				cout << thisIndex << ": Node " << req->startingNode << " from " << dynamic_cast<TreeRequestRequiringResponse *>(req)->requestingTreePiece << " is not really me, passing the buck to " << nodeIter->second->chareID << endl;
+			else
+				cout << thisIndex << ": Node " << req->startingNode << " is not really me, passing the buck to " << nodeIter->second->chareID << endl;
 		}
 		delete req;
 		return;
@@ -129,16 +202,11 @@ void Smooth_TreePiece::handleTreeRequest(TreeRequest* req) {
 		myReq->requestingSerialNumber = mySerialNumber;
 	}
 	
-	//check if the sphere really intersects my node
-	if(!nodeIter->second->box.intersects(pbc, req->s)) {
-		cerr << thisIndex << ": Smooth_TreePiece: Not Good: Why did I get this request, then?" << endl;
-		delete req;
-		return;
-	}
-
 	//traverse tree, handling criterion, building self-response and sending off requests
-	//preOrderTraverse(nodeIter->second, req, resp);
-	localFirstTraverse(nodeIter->second, req, resp);
+	preOrderTraverse(nodeIter->second, req, resp);
+	//localFirstTraverse(nodeIter->second, req, resp);
+	//localOnlyTraverse(nodeIter->second, req, resp);
+	//remoteOnlyTraverse(nodeIter->second, req, resp);
 
 	//send yourself the response you've built
 	if(req->isResponseRequired())
@@ -156,34 +224,54 @@ void Smooth_TreePiece::preOrderTraverse(TreeNode* node, TreeRequest* req, Respon
 				//calculate offset, pass to response->receiveContribution if p is in the sphere
 				Vector3D<double> offset = pbc.offset(p->position, req->s.origin);
 				if(offset.length() <= req->s.radius)
-					resp->receiveContribution(kernel, *req, *p, offset);
+					req->makeContribution(resp, p, offset);
+			}
+		} else if(node->isNonLocal()) {
+			if(req->isResponseRequired())
+				pendingResponses[resp->serialNumber].numResponsesPending++;
+			req->startingNode = node->lookupKey();
+			smoothTreePieces[node->chareID].handleTreeRequest(req);
+		} else {
+			if(node->leftChild != 0) //visit left child
+				preOrderTraverse(node->leftChild, req, resp);
+			if(node->rightChild != 0) //visit right child
+				preOrderTraverse(node->rightChild, req, resp);
+		}
+	}
+}
+
+/// Walk the tree, only interacting with local nodes
+void Smooth_TreePiece::localOnlyTraverse(TreeNode* node, TreeRequest* req, Response* resp) {
+	if(node->getType() != NonLocal && node->box.intersects(pbc, req->s)) {
+		if(node->isBucket()) {
+			for(FullParticle* p = node->beginBucket; p != node->endBucket; ++p) {
+				//calculate offset, pass to response->receiveContribution if p is in the sphere
+				Vector3D<double> offset = pbc.offset(p->position, req->s.origin);
+				if(offset.length() <= req->s.radius)
+					req->makeContribution(resp, p, offset);
 			}
 		} else {
-			//visit left child
-			if(node->chareID < 0) { //left child is non-local
-				//does left child really intersect?
-				TreeNode leftChild(node, node->key);
-				if(leftChild.box.intersects(pbc, req->s)) {
-					if(req->isResponseRequired())
-						pendingResponses[resp->serialNumber].numResponsesPending++;
-					req->startingNode = node->leftChildLookupKey();
-					smoothTreePieces[-node->chareID - 1].handleTreeRequest(req);
-				}
-			} else if(node->leftChild != 0)
-				preOrderTraverse(node->leftChild, req, resp);
-			
-			//visit right child
-			if(node->chareID > 0) { //right child is non-local
-				//does right child really intersect?
-				TreeNode rightChild(node, node->rightChildKey());
-				if(rightChild.box.intersects(pbc, req->s)) {
-					if(req->isResponseRequired())
-						pendingResponses[resp->serialNumber].numResponsesPending++;
-					req->startingNode = node->rightChildLookupKey();
-					smoothTreePieces[node->chareID - 1].handleTreeRequest(req);
-				}
-			} else if(node->rightChild != 0)
-				preOrderTraverse(node->rightChild, req, resp);
+			if(node->leftChild != 0) //visit left child
+				localOnlyTraverse(node->leftChild, req, resp);
+			if(node->rightChild != 0) //visit right child
+				localOnlyTraverse(node->rightChild, req, resp);
+		}
+	}
+}
+
+/// Walk the tree, only considering remote nodes, and sending the request to them
+void Smooth_TreePiece::remoteOnlyTraverse(TreeNode* node, TreeRequest* req, Response* resp) {
+	if(!node->isInternal() && node->box.intersects(pbc, req->s)) {
+		if(node->getType() == NonLocal) {
+			if(req->isResponseRequired())
+				pendingResponses[resp->serialNumber].numResponsesPending++;
+			req->startingNode = node->lookupKey();
+			smoothTreePieces[node->chareID].handleTreeRequest(req);
+		} else {
+			if(node->leftChild != 0) //visit left child
+				remoteOnlyTraverse(node->leftChild, req, resp);
+			if(node->rightChild != 0) //visit right child
+				remoteOnlyTraverse(node->rightChild, req, resp);
 		}
 	}
 }
@@ -191,43 +279,35 @@ void Smooth_TreePiece::preOrderTraverse(TreeNode* node, TreeRequest* req, Respon
 void Smooth_TreePiece::localFirstTraverse(TreeNode* node, TreeRequest* req, Response* resp) {
 	if(node->box.intersects(pbc, req->s)) {
 		if(node->isBucket()) {
+			Vector3D<double> offset;
 			for(FullParticle* p = node->beginBucket; p != node->endBucket; ++p) {
 				//calculate offset, pass to response->receiveContribution if p is in the sphere
-				Vector3D<double> offset = pbc.offset(p->position, req->s.origin);
+				offset = pbc.offset(p->position, req->s.origin);
 				if(offset.length() <= req->s.radius)
-					resp->receiveContribution(kernel, *req, *p, offset);
+					req->makeContribution(resp, p, offset);
+			}
+		} else if(node->isNonLocal()) {
+			if(req->isResponseRequired())
+				pendingResponses[resp->serialNumber].numResponsesPending++;
+			req->startingNode = node->lookupKey();
+			smoothTreePieces[node->chareID].handleTreeRequest(req);
+		} else if(node->getType() == Boundary) {
+			if(node->leftChild == 0)
+				localFirstTraverse(node->rightChild, req, resp);
+			else if(node->rightChild == 0)
+				localFirstTraverse(node->leftChild, req, resp);
+			else if(node->leftChild->isNonLocal()) {
+				localFirstTraverse(node->rightChild, req, resp);
+				localFirstTraverse(node->leftChild, req, resp);
+			} else {
+				localFirstTraverse(node->leftChild, req, resp);
+				localFirstTraverse(node->rightChild, req, resp);
 			}
 		} else {
-			//visit left child
-			if(node->chareID < 0) { //left child is non-local
-				//visit right child first
-				if(node->rightChild != 0)
-					localFirstTraverse(node->rightChild, req, resp);
-				//then visit non-local left child
-				//does left child really intersect?
-				TreeNode leftChild(node, node->key);
-				if(leftChild.box.intersects(pbc, req->s)) {
-					if(req->isResponseRequired())
-						pendingResponses[resp->serialNumber].numResponsesPending++;
-					req->startingNode = node->leftChildLookupKey();
-					smoothTreePieces[-node->chareID - 1].handleTreeRequest(req);
-				}
-			} else {
-				if(node->leftChild != 0)
-					localFirstTraverse(node->leftChild, req, resp);
-				//visit right child
-				if(node->chareID > 0) { //right child is non-local
-					//does right child really intersect?
-					TreeNode rightChild(node, node->rightChildKey());
-					if(rightChild.box.intersects(pbc, req->s)) {
-						if(req->isResponseRequired())
-							pendingResponses[resp->serialNumber].numResponsesPending++;
-						req->startingNode = node->rightChildLookupKey();
-						smoothTreePieces[node->chareID - 1].handleTreeRequest(req);
-					}
-				} else if(node->rightChild != 0)
-					localFirstTraverse(node->rightChild, req, resp);
-			}
+			if(node->leftChild != 0) //visit left child
+				localFirstTraverse(node->leftChild, req, resp);
+			if(node->rightChild != 0) //visit right child
+				localFirstTraverse(node->rightChild, req, resp);
 		}
 	}
 }
@@ -259,7 +339,7 @@ void Smooth_TreePiece::receiveResponse(Response* resp) {
 			pending->second.resp->updateInitialParticle(myParticles[pending->second.requestingSerialNumber]);
 			
 			//New: finishingCondition?
-			if(++numComplete == numParticles) //the radii have been found for all my particles
+			if(++numComplete == totalNumPending) //the radii have been found for all my particles
 				contribute(0, 0, CkReduction::concat, callback);
 		} else {
 			//prepare, then send
@@ -274,6 +354,35 @@ void Smooth_TreePiece::receiveResponse(Response* resp) {
 	} else //decrement number of pending responses for this one
 		pending->second.numResponsesPending--;
 
+}
+
+void Smooth_TreePiece::minmaxDensity(const CkCallback& cb) {
+	callback = cb;
+	double minmaxDensity[2];
+	double logden;
+	minmaxDensity[0] = minmaxDensity[1] = log10(myParticles[1].density);
+	for(int i = 2; i < numParticles + 1; ++i) {
+		logden = log10(myParticles[i].density);
+		if(logden < minmaxDensity[0])
+			minmaxDensity[0] = logden;
+		if(logden > minmaxDensity[1])
+			minmaxDensity[1] = logden;
+	}
+	contribute(2 * sizeof(double), minmaxDensity, minmaxReduction, cb);
+}
+
+void Smooth_TreePiece::makeDensityHistogram(const int numDensityBins, const double minDensity, const double maxDensity, const CkCallback& cb) {
+	vector<int> densityHistogram(numDensityBins, 0);
+	int bin;
+	for(int i = 2; i < numParticles + 1; ++i) {
+		bin = static_cast<int>(floor(numDensityBins * (log10(myParticles[i].density) - minDensity) / (maxDensity - minDensity)));
+		if(bin >= numDensityBins)
+			bin = numDensityBins - 1;
+		else if(bin < 0)
+			bin = 0;
+		densityHistogram[bin]++;
+	}
+	contribute(densityHistogram.size() * sizeof(int), densityHistogram.begin(), CkReduction::sum_int, cb);
 }
 
 inline bool diskOrderCompare(const FullParticle& p1, const FullParticle& p2) {

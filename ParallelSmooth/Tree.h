@@ -1,16 +1,59 @@
-/** \file Tree.h
+/** @file Tree.h
  This header defines the structures used to make up trees.
- \author Graeme Lufkin (gwl@u.washington.edu)
+ @author Graeme Lufkin (gwl@u.washington.edu)
  */
 
 #ifndef TREE_H
 #define TREE_H
 
-#include <iostream>
-#include <bitset>
+#include <sstream>
 
 #include "OrientedBox.h"
 #include "Particle.h"
+
+enum NodeType {
+	Invalid,
+	Bucket,
+	Internal,
+	NonLocal,
+	Boundary,
+	Empty,
+	Top
+};
+
+template <typename T>
+OrientedBox<T> cutBoxDown(const OrientedBox<T>& box, const int axis) {
+	OrientedBox<T> newBox = box;
+	switch(axis) {
+		case 0: //cut x
+			newBox.greater_corner.x = (box.greater_corner.x + box.lesser_corner.x) / 2.0;
+			break;
+		case 1: //cut y
+			newBox.greater_corner.y = (box.greater_corner.y + box.lesser_corner.y) / 2.0;				
+			break;
+		case 2: //cut z
+			newBox.greater_corner.z = (box.greater_corner.z + box.lesser_corner.z) / 2.0;
+			break;
+	}
+	return newBox;
+}
+
+template <typename T>
+OrientedBox<T> cutBoxUp(const OrientedBox<T>& box, const int axis) {
+	OrientedBox<T> newBox = box;
+	switch(axis) {
+		case 0: //cut x
+			newBox.lesser_corner.x = (box.greater_corner.x + box.lesser_corner.x) / 2.0;
+			break;
+		case 1: //cut y
+			newBox.lesser_corner.y = (box.greater_corner.y + box.lesser_corner.y) / 2.0;				
+			break;
+		case 2: //cut z
+			newBox.lesser_corner.z = (box.greater_corner.z + box.lesser_corner.z) / 2.0;
+			break;
+	}
+	return newBox;
+}
 
 /**
  This class represents a node in the tree of particles.
@@ -30,12 +73,12 @@
  */
 class TreeNode {
 private:
-		
+	NodeType myType;
 
 public:
 	
 	/** A special key that is set when a node is really a  bucket containing particles. */
-	const static Key bucketFlag = ((Key) 1 << 63);
+	const static Key bucketFlag = (static_cast<Key>(1) << 63);
 	
 	/// The maximum number of particles in a bucket.
 	const static int maxBucketSize = 12;
@@ -43,23 +86,17 @@ public:
 	/// A pointer to the parent of this node.
 	TreeNode* parent;
 	
-	/** This contains the chare index of a non-local child.
-	 If this is negative, change the sign and subtract one to get the index
-	 of the non-local left child.  If it is positive, subtract one to get
-	 the index of the non-local right child.  If it is zero, then both children
-	 are local. */
-	int chareID;
-	
 	/// This node's key determines what region of space it contains.
 	Key key;
 	
 	/// This tells you how many bits of the key to look at.
-	int level;
+	unsigned char level;
 	
 	/// This points to a left child node or the first particle in a bucket, depending on \c bucketFlag being set
 	union {
 		TreeNode* leftChild;
-		FullParticle* beginBucket;
+		FullParticle* beginBucket; //only access if getType() == Bucket
+		unsigned int chareID; //only access if getType() == NonLocal
 	};
 	
 	/// This points to a right child node or one past the last particle in a bucket, depending on \c bucketFlag being set
@@ -69,9 +106,7 @@ public:
 	};
 	
 	/// An axis-oriented box giving the region this node represents.
-	OrientedBox<float> box;
-	/// A flag that is set if this node and all its children are owned by the same chare.
-	bool whollyOwned;
+	OrientedBox<double> box;
 	
 	/** Given a key, create a vector of floats representing a position.
 	 This is almost the inverse of the makeKey() function.  Since the key
@@ -96,36 +131,58 @@ public:
 		return v;
 	}
 		
-	TreeNode() : parent(0), chareID(0), key(0), leftChild(0), rightChild(0) { }
+	TreeNode() : myType(Invalid), parent(0), key(0), level(0), leftChild(0), rightChild(0) { }
 	
-	TreeNode(TreeNode* p, const Key k) : parent(p), chareID(0), key(k), leftChild(0), rightChild(0) {
-		// XXX: Optimization available to make bounding box from parent's box
-		if(parent == 0)
-			level = 0;
-		else
-			level = parent->level + 1;
-		
-		Vector3D<float> oneAndAHalf(1.5, 1.5, 1.5);
-		box = OrientedBox<float>(makeVector(key) - oneAndAHalf, makeVector(key | ((static_cast<Key>(1) << (63 - level)) - 1)) - oneAndAHalf);
-		
-		whollyOwned = false;
+	TreeNode* createLeftChild() {
+		TreeNode* child = new TreeNode;
+		child->parent = this;
+		child->key = key;
+		child->level = level + 1;
+		child->box = cutBoxDown(box, level % 3);
+		leftChild = child;
+		return child;
+	}
+	
+	TreeNode* createRightChild() {
+		TreeNode* child = new TreeNode;
+		child->parent = this;
+		child->key = key | (static_cast<Key>(1) << (62 - level));
+		child->level = level + 1;
+		child->box = cutBoxUp(box, level % 3);
+		rightChild = child;
+		return child;
 	}
 	
 	~TreeNode() { }
 	
+	NodeType getType() const { return myType; }
+	void setType(NodeType t) { myType = t; }
+	
 	/// Is this node really a bucket of particles?
 	inline bool isBucket() const {
-		return key & bucketFlag;
+		return myType == Bucket;
+	}
+	
+	/// Is this node non-local?
+	inline bool isNonLocal() const {
+		return myType == NonLocal;
+	}
+	
+	/// Is this node completely owned by this piece
+	inline bool isInternal() const {
+		return myType == Internal || myType == Bucket;
 	}
 	
 	/// Is this node someone's left child?
 	inline bool isLeftChild() const {
-		return (parent != 0 && parent->chareID >= 0 && parent->leftChild == this);
+		return (parent != 0 && parent->leftChild == this);
+		//return (parent != 0 && parent->chareID >= 0 && parent->leftChild == this);
 	}
 
 	/// Is this node someone's right child?
 	inline bool isRightChild() const {
-		return (parent != 0 && parent->chareID <= 0 && parent->rightChild == this);
+		return (parent != 0 && parent->rightChild == this);
+		//return (parent != 0 && parent->chareID <= 0 && parent->rightChild == this);
 	}
 	
 	/** The lookup key of this node.
@@ -151,6 +208,41 @@ public:
 		return key | (static_cast<Key>(1) << (62 - level));
 	}
 	
+	/// The first key in this node (on the left)
+	inline Key leftBoundary() const {
+		return key;
+	}
+	
+	/// The last key in this node (on the right)
+	inline Key rightBoundary() const {
+		return key | ((static_cast<Key>(1) << (63 - level)) - 1);
+	}
+	/*
+	void pup(PUP::er& p) {
+		p(myType);
+		p(key);
+		p(level);
+		
+		if(myType == NonLocal)
+			p(chareID);
+		else if(myType == Bucket) {
+			if(p.isUnpacking()) {
+				p(beginBucket);
+				p(endBucket);
+				beginBucket += ???;
+				endBucket += ???;
+			} else {
+				p(beginBucket - ???);
+				p(endBucket - ???);
+			}
+		} else {
+			p | leftChild;
+			p | rightChild;
+		}
+		
+		p(box);
+	}
+	*/
 };
 
 #endif //TREE_H

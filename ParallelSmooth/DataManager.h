@@ -1,7 +1,7 @@
-/** \file DataManager.h
+/** @file DataManager.h
  The DataManager holds data that TreePieces need access to, but not
  their own copy.
- \author Graeme Lufkin (gwl@u.washington.edu)
+ @author Graeme Lufkin (gwl@u.washington.edu)
 */
 
 #ifndef DATAMANAGER_H

@@ -306,7 +306,7 @@ void acceptSortedParticles(const FullParticle *particles, int n);
 void shareBoundaries(CkReductionMsg* impl_msg);
 void acceptBoundaryKey(const Key &k);
 void startTreeBuild(const CkCallback &cb);
-void report(void);
+void report(const CkCallback &cb);
 };
  */
 #ifndef CK_TEMPLATES_ONLY
@@ -537,15 +537,29 @@ void CProxyElement_TreePiece::startTreeBuild(const CkCallback &cb)
   ckSend(impl_amsg, CkIndex_TreePiece::__idx_startTreeBuild_marshall10);
 }
 
-/* DEFS: void report(void);
+/* DEFS: void report(const CkCallback &cb);
  */
-void CProxyElement_TreePiece::report(void) 
+void CProxyElement_TreePiece::report(const CkCallback &cb) 
 {
   ckCheck();
-  void *impl_msg = CkAllocSysMsg();
+  //Marshall: const CkCallback &cb
+  int impl_off=0,impl_arrstart=0;
+  { //Find the size of the PUP'd data
+    PUP::sizer implP;
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+    impl_arrstart=CK_ALIGN(implP.size(),16);
+    impl_off+=impl_arrstart;
+  }
+  CkMarshallMsg *impl_msg=new (impl_off,0)CkMarshallMsg;
+  { //Copy over the PUP'd data
+    PUP::toMem implP((void *)impl_msg->msgBuf);
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+  }
   CkArrayMessage *impl_amsg=(CkArrayMessage *)impl_msg;
   impl_amsg->array_setIfNotThere(CkArray_IfNotThere_buffer);
-  ckSend(impl_amsg, CkIndex_TreePiece::__idx_report_void);
+  ckSend(impl_amsg, CkIndex_TreePiece::__idx_report_marshall11);
 }
 /* DEFS: TreePiece(CkMigrateMessage* impl_msg);
  */
@@ -882,21 +896,41 @@ void CkIndex_TreePiece::_call_startTreeBuild_marshall10(void* impl_msg,TreePiece
   delete (CkMarshallMsg *)impl_msg;
 }
 
-/* DEFS: void report(void);
+/* DEFS: void report(const CkCallback &cb);
  */
-void CProxy_TreePiece::report(void) 
+void CProxy_TreePiece::report(const CkCallback &cb) 
 {
   ckCheck();
-  void *impl_msg = CkAllocSysMsg();
+  //Marshall: const CkCallback &cb
+  int impl_off=0,impl_arrstart=0;
+  { //Find the size of the PUP'd data
+    PUP::sizer implP;
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+    impl_arrstart=CK_ALIGN(implP.size(),16);
+    impl_off+=impl_arrstart;
+  }
+  CkMarshallMsg *impl_msg=new (impl_off,0)CkMarshallMsg;
+  { //Copy over the PUP'd data
+    PUP::toMem implP((void *)impl_msg->msgBuf);
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+  }
   CkArrayMessage *impl_amsg=(CkArrayMessage *)impl_msg;
   impl_amsg->array_setIfNotThere(CkArray_IfNotThere_buffer);
-  ckBroadcast(impl_amsg, CkIndex_TreePiece::__idx_report_void);
+  ckBroadcast(impl_amsg, CkIndex_TreePiece::__idx_report_marshall11);
 }
- int CkIndex_TreePiece::__idx_report_void=0;
-void CkIndex_TreePiece::_call_report_void(void* impl_msg,TreePiece * impl_obj)
+ int CkIndex_TreePiece::__idx_report_marshall11=0;
+void CkIndex_TreePiece::_call_report_marshall11(void* impl_msg,TreePiece * impl_obj)
 {
-  CkFreeSysMsg(impl_msg);
-  impl_obj->report();
+  //Unmarshall pup'd fields: const CkCallback &cb
+  char *impl_buf=((CkMarshallMsg *)impl_msg)->msgBuf;
+  PUP::fromMem implP(impl_buf);
+  CkCallback cb; implP|cb;
+  impl_buf+=CK_ALIGN(implP.size(),16);
+  //Unmarshall arrays:
+  impl_obj->report(cb);
+  delete (CkMarshallMsg *)impl_msg;
 }
 /* DEFS: TreePiece(CkMigrateMessage* impl_msg);
  */
@@ -1117,15 +1151,29 @@ void CProxySection_TreePiece::startTreeBuild(const CkCallback &cb)
   ckSend(impl_amsg, CkIndex_TreePiece::__idx_startTreeBuild_marshall10);
 }
 
-/* DEFS: void report(void);
+/* DEFS: void report(const CkCallback &cb);
  */
-void CProxySection_TreePiece::report(void) 
+void CProxySection_TreePiece::report(const CkCallback &cb) 
 {
   ckCheck();
-  void *impl_msg = CkAllocSysMsg();
+  //Marshall: const CkCallback &cb
+  int impl_off=0,impl_arrstart=0;
+  { //Find the size of the PUP'd data
+    PUP::sizer implP;
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+    impl_arrstart=CK_ALIGN(implP.size(),16);
+    impl_off+=impl_arrstart;
+  }
+  CkMarshallMsg *impl_msg=new (impl_off,0)CkMarshallMsg;
+  { //Copy over the PUP'd data
+    PUP::toMem implP((void *)impl_msg->msgBuf);
+    //Have to cast away const-ness to get pup routine
+    implP|(CkCallback &)cb;
+  }
   CkArrayMessage *impl_amsg=(CkArrayMessage *)impl_msg;
   impl_amsg->array_setIfNotThere(CkArray_IfNotThere_buffer);
-  ckSend(impl_amsg, CkIndex_TreePiece::__idx_report_void);
+  ckSend(impl_amsg, CkIndex_TreePiece::__idx_report_marshall11);
 }
 #endif /*CK_TEMPLATES_ONLY*/
 #ifndef CK_TEMPLATES_ONLY
@@ -1178,9 +1226,9 @@ void CkIndex_TreePiece::__register(const char *s, size_t size) {
   __idx_startTreeBuild_marshall10 = CkRegisterEp("startTreeBuild(const CkCallback &cb)",
      (CkCallFnPtr)_call_startTreeBuild_marshall10, CkMarshallMsg::__idx, __idx);
 
-// REG: void report(void);
-  __idx_report_void = CkRegisterEp("report(void)",
-     (CkCallFnPtr)_call_report_void, 0, __idx);
+// REG: void report(const CkCallback &cb);
+  __idx_report_marshall11 = CkRegisterEp("report(const CkCallback &cb)",
+     (CkCallFnPtr)_call_report_marshall11, CkMarshallMsg::__idx, __idx);
 }
 #endif
 
@@ -1225,7 +1273,7 @@ void acceptSortedParticles(const FullParticle *particles, int n);
 void shareBoundaries(CkReductionMsg* impl_msg);
 void acceptBoundaryKey(const Key &k);
 void startTreeBuild(const CkCallback &cb);
-void report(void);
+void report(const CkCallback &cb);
 };
 */
   CkIndex_TreePiece::__register("TreePiece", sizeof(TreePiece));
