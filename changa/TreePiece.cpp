@@ -480,7 +480,6 @@ void TreePiece::calculateGravityDirect(const CkCallback& cb) {
 	}
 	
 	started = true;
-	
 }
 
 void TreePiece::fillRequestDirect(GravityRequest req) {
@@ -737,7 +736,56 @@ void TreePiece::walkBucketTree(GravityTreeNode* node, BucketGravityRequest& req)
 		}
 	}
 }
+/*
+void TreePiece::cachedWalkBucketTree(GravityTreeNode* node, BucketGravityRequest& req) {
+	myNumMACChecks++;
+	Vector3D<double> cm(node->moments.cm / node->moments.totalMass);
+	Vector3D<double> r;
+	double rsq;
+	Sphere<double> s(cm, opening_geometry_factor * node->moments.radius / theta);
+	if(!Space::intersect(req.boundingBox, s)) {
+		myNumCellInteractions += req.numParticlesInBucket;
+		for(unsigned int i = 0; i < req.numParticlesInBucket; ++i) {
+			r = cm - req.positions[i];
+			rsq = r.lengthSquared();
+			req.accelerations[i] += node->moments.totalMass * r / rsq / sqrt(rsq);
+		}
+	} else if(node->getType() == Bucket) {
+		myNumParticleInteractions += req.numParticlesInBucket * (node->beginParticle - node->endParticle);
+		for(unsigned int i = node->beginParticle; i < node->endParticle; ++i) {
+			for(unsigned int j = 0; j < req.numParticlesInBucket; ++j) {
+				r = myParticles[i].position - req.positions[j];
+				rsq = r.lengthSquared();
+				if(rsq != 0)
+					req.accelerations[j] += myParticles[i].mass * r / rsq / sqrt(rsq);
+			}
+		}
+	} else if(node->getType() == NonLocal) {
+		Key lookupKey = dynamic_cast<SFCTreeNode *>(node)->lookupKey();
+		GravityTreeNode* cachedNode = localCache->requestData(thisIndex, lookupKey, node->remoteIndex);
+		if(cachedNode) //hit the cache, keep going
+			cachedWalkBucketTree(cachedNode, req);
+		else { //missed the cache, remember this request
+			unfilledBucketRequests[mySerialNumber].numAdditionalRequests++;
+			missedRequests.insert(make_pair(lookupKey, mySerialNumber));
+		}
+	} else {
+		GenericTreeNode** childrenIterator = node->getChildren();
+		for(unsigned int i = 0; i < node->numChildren(); ++i) {
+			if(childrenIterator[i])
+				cachedWalkBucketTree(dynamic_cast<GravityTreeNode *>(childrenIterator[i]), req);
+		}
+	}
+}
 
+void TreePiece::receiveRequestedData(Key requestID, GravityTreeNode* node) {
+	typedef multimap<unsigned int, BucketGravityRequest>::iterator MI;
+	pair<MI, MI> requests = missedRequests.equal_range(requestID);
+	for(MI iter = requests.first; iter != requests.second; ++iter)
+		cachedWalkBucketTree(node, *iter);
+	missedRequests.erase(requestID);
+}
+*/
 void TreePiece::receiveGravityBucketTree(const BucketGravityRequest& req) {
 	//lookup request
 	UnfilledBucketRequestsType::iterator requestIter = unfilledBucketRequests.find(req.identifier);
