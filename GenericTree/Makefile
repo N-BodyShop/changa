@@ -1,1 +1,1 @@
-CXXFLAGS = -O3 -g -I$(HOME)/projects/structures
+CXXFLAGS = -O3 -g -I../structures
