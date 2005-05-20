@@ -29,6 +29,7 @@ Main::Main(CkArgMsg* m) {
 	bucketSize = 12;
 	_cache = false;
 	_cacheLineDepth=1;
+	printBinaryAcc=1;
 /*
 	poptOption optionsTable[] = {
 		{"verbose", 'v', POPT_ARG_NONE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, 0, 1, "be verbose about what's going on", "verbosity"},
@@ -74,7 +75,7 @@ Main::Main(CkArgMsg* m) {
 	poptFreeContext(context);
 		*/
 	
-	const char *optstring = "vt:p:b:cd:n:";
+	const char *optstring = "vt:p:b:cd:n:z:";
 	int c;
 	while((c=getopt(m->argc,m->argv,optstring))>0){
 		if(c == -1){
@@ -102,8 +103,14 @@ Main::Main(CkArgMsg* m) {
 			case 'n':
 				numIterations = atoi(optarg);
 				break;
+			case 'z':
+				printBinaryAcc = atoi(optarg);
 		};
 	}
+
+	if(_cacheLineDepth <= 0)
+		CkAbort("Cache Line depth must be greater than 0");
+
 	const char *fname;
 	if(optind  < m->argc){
 		fname = m->argv[optind];
@@ -115,7 +122,11 @@ Main::Main(CkArgMsg* m) {
 	
 	cerr<<"cache "<<_cache<<endl;
 	cerr<<"cacheLineDepth "<<_cacheLineDepth<<endl;
-	
+	if(printBinaryAcc==1)
+		cerr<<"particle accelerations to be printed in binary format..."<<endl;
+	else
+		cerr<<"particles accelerations to be printed in ASCII format..."<<endl;
+
 	if(verbosity)
 		cerr << "Verbosity level " << verbosity << endl;
 	
@@ -124,7 +135,12 @@ Main::Main(CkArgMsg* m) {
 	cinst.setStrategy(strategy);
 
 	cacheManagerProxy = CProxy_CacheManager::ckNew();
-    pieces = CProxy_TreePiece::ckNew(numTreePieces, numTreePieces);
+
+	CProxy_BlockMap myMap=CProxy_BlockMap::ckNew(); 
+	CkArrayOptions opts(numTreePieces); 
+	opts.setMap(myMap);
+
+    pieces = CProxy_TreePiece::ckNew(numTreePieces,opts);
 	treeProxy = pieces;
 	if(verbosity)
 		cerr << "Created " << numTreePieces << " pieces of tree" << endl;
@@ -134,25 +150,28 @@ Main::Main(CkArgMsg* m) {
 
 void Main::nextStage() {
 	double startTime;
+	
+	piecedata *totaldata = new piecedata;
+	
 	if(verbosity)
 		cerr << "Loading particles ..." << endl;
 	startTime = CkWallTimer();
 	pieces.load(basefilename, CkCallbackResumeThread());
-	if(verbosity > 1)
+	if(verbosity >= 1)
 		cerr << "Main: Loading particles took " << (CkWallTimer() - startTime) << " seconds." << endl;
 
 	if(verbosity)
 		cerr << "Building trees ..." << endl;
 	startTime = CkWallTimer();
 	pieces.buildTree(bucketSize, CkCallbackResumeThread());
-	if(verbosity > 1)
+	if(verbosity >= 1)
 		cerr << "Main: Building trees took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	
 	//pieces.report(CkCallbackResumeThread());
 	//cerr << "Trees written" << endl;
 	//CkExit();
-	/*
-	for(int i =0; i<numIterations; i++){
+	
+	/*for(int i =0; i<numIterations; i++){
 		if(verbosity)
 			cerr << "Calculating gravity (direct) ..." << endl;
 		startTime = CkWallTimer();
@@ -187,37 +206,61 @@ void Main::nextStage() {
 		if(verbosity)
 			cerr << "Main: Calculating gravity took " << (CkWallTimer() - startTime) << " seconds." << endl;
 		startTime = CkWallTimer();
-		if(i > 2){
+		if(i >= 1){
 			pieces.startlb(CkCallbackResumeThread());
 		}
 		if(verbosity){
 			cerr<< "Main: Load Balancing step took "<<(CkWallTimer() - startTime) << " seconds." << endl;
 		}
+		
+		/*******************ADDED***********/
+		if(verbosity){
+			CkPrintf("Iteration # %d stats\n",i);
+			CkCallback cb(CkCallback::resumeThread);
+	
+			totaldata->setcallback(cb);
+			pieces[0].getPieceValues(totaldata);
+			totaldata = (piecedata *) cb.thread_delay();
+			cerr << "Total Statistics\n Number of MAC checks: " << totaldata->MACChecks << endl;
+			cerr << " Number of particle-cell interactions: " << totaldata->CellInteractions << endl;
+			cerr << " Number of particle-particle interactions: " << totaldata->ParticleInteractions << endl;
+			cerr << " Total mass of the tree : " << totaldata->totalmass << endl;
+			totaldata->reset();
+		}
+		//totaldata->reset();
+		/**********************************/
 	}
 	
 	if(verbosity)
 		cerr << "Outputting accelerations ..." << endl;
 	startTime = CkWallTimer();
-	pieces[0].outputAccelerations(OrientedBox<double>(), "acc2", CkCallbackResumeThread());
+	if(printBinaryAcc)
+		pieces[0].outputAccelerations(OrientedBox<double>(), "acc2", CkCallbackResumeThread());
+	else
+		pieces[0].outputAccASCII(OrientedBox<double>(), "acc2", CkCallbackResumeThread());
+	
 	if(verbosity > 1)
 		cerr << "Main: Outputting took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	if(verbosity)
 		cerr << "Outputting statistics ..." << endl;
 	startTime = CkWallTimer();
 	Interval<unsigned int> dummy;
-	pieces[0].outputStatistics(dummy, dummy, dummy, dummy, CkCallbackResumeThread());
+	
+	pieces[0].outputStatistics(dummy, dummy, dummy, dummy, totaldata->totalmass, CkCallbackResumeThread());
+
 	if(verbosity > 1)
 		cerr << "Main: Outputting took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	/*
-	if(verbosity)
+	
+	/*if(verbosity)
 		cerr << "Outputting relative errors ..." << endl;
 	startTime = CkWallTimer();
 	pieces[0].outputRelativeErrors(Interval<double>(), CkCallbackResumeThread());
 	if(verbosity > 1)
 		cerr << "Main: Outputting took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	
-	cerr << "Done." << endl;
-	*/
+	cerr << "Done." << endl;*/
+	
+	cerr << endl << "******************" << endl << endl; 
 	CkExit();
 }
 
