@@ -196,6 +196,13 @@ public:
 	unsigned int numParticleInteractions;
 	unsigned int numMACChecks;
 	unsigned int numEntryCalls;
+
+	/*********************************/
+	double intcellmass;
+	double intpartmass;
+	double extcellmass;
+	double extpartmass;
+	/********************************/
 	
 	GravityParticle(SFC::Key k = 0) : key(k), mass(0), numCellInteractions(0), numParticleInteractions(0), numMACChecks(0), numEntryCalls(0) { }
 	GravityParticle(float m, Vector3D<float> p, Vector3D<float> a) : mass(m), position(p), acceleration(a), numCellInteractions(0), numParticleInteractions(0), numMACChecks(0), numEntryCalls(0) { }
@@ -228,6 +235,27 @@ public:
 extern int verbosity;
 extern bool _cache;
 extern int _cacheLineDepth;
+/********************************************/
+class piecedata : public CMessage_piecedata {
+public:
+	int CellInteractions;
+	int ParticleInteractions;
+	int MACChecks;
+	double totalmass;
+	CkCallback cb;
+	
+	piecedata():CellInteractions(0),ParticleInteractions(0),MACChecks(0),totalmass(0.0) { }
+	void modifypiecedata(int cell,int particle,int mac,double mass){ 
+		CellInteractions += cell;
+		ParticleInteractions += particle;
+		MACChecks += mac;
+		totalmass += mass;
+	}
+	void reset(){ CellInteractions=0;ParticleInteractions=0;MACChecks=0;totalmass=0.0; }
+	void setcallback(CkCallback& cback) { cb = cback; }
+	CkCallback& getcallback() { return cb; }
+};
+/********************************************/
 
 class Main : public Chare {
 	std::string basefilename;
@@ -235,6 +263,7 @@ class Main : public Chare {
 	unsigned int numTreePieces;
 	double theta;
 	unsigned int bucketSize;
+	unsigned int printBinaryAcc;
 public:
 		
 	Main(CkArgMsg* m);
@@ -249,6 +278,11 @@ class TreePiece : public CBase_TreePiece {
 	GravityParticle* myParticles;
 	GravityParticle* leftBoundary;
 	GravityParticle* rightBoundary;
+	/***************************/
+	double piecemass;
+	int cnt;
+	int packed;
+	/*************************/
 	unsigned int numSplitters;
 	SFC::Key* splitters;
 	CProxy_TreePiece pieces;
@@ -272,8 +306,10 @@ class TreePiece : public CBase_TreePiece {
 	u_int64_t myNumProxyCalls;
 	u_int64_t myNumProxyCallsBack;
 	u_int64_t nextParticle;
+
 	unsigned int numBuckets;
 	unsigned int currentBucket;
+	int cachecellcount;
 	std::vector<SFCTreeNode *> bucketList;
 	BucketGravityRequest *bucketReqs;
 	
@@ -320,6 +356,11 @@ public:
 		iterationNo=0;
 		usesAtSync=CmiTrue;
 		countIntersects=0;
+		/****************/
+		piecemass = 0.0;
+		packed=0;
+		cnt=0;
+		/****************/
 	}
 	
 	TreePiece(CkMigrateMessage* m) { 
@@ -381,8 +422,13 @@ public:
 	void ResumeFromSync();
 
 	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
-	void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, const CkCallback& cb);
+	void outputAccASCII(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
+	void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, double totalmass, const CkCallback& cb);
 	void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
+
+/*******************ADDED*******************/
+  void getPieceValues(piecedata *totaldata);
+/*******************************************/	
 
 	void report(const CkCallback& cb);
 	

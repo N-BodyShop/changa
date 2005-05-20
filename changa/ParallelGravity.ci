@@ -8,7 +8,9 @@ mainmodule ParallelGravity {
 	readonly CProxy_TreePiece treeProxy;
 	readonly bool _cache;
 	readonly int _cacheLineDepth;
-	
+
+	message piecedata;
+
 	mainchare Main {
 		entry Main();
 		entry [threaded] void nextStage();
@@ -37,7 +39,7 @@ mainmodule ParallelGravity {
 		entry void fillRequestTree(GravityRequest req);	
 		entry void receiveGravityTree(const GravityRequest& req);
 		
-		entry [threaded] void calculateGravityBucketTree(double t, const CkCallback& cb);
+		entry void calculateGravityBucketTree(double t, const CkCallback& cb);
 		entry void fillRequestBucketTree(BucketGravityRequest req);	
 		entry void receiveGravityBucketTree(const BucketGravityRequest& req);
 
@@ -58,7 +60,9 @@ mainmodule ParallelGravity {
 		entry void ResumeFromSync();
 
 		entry void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
-		entry void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, const CkCallback& cb);
+		entry void outputAccASCII(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
+		entry void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, double totalmass, const CkCallback& cb);
 		entry void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
+		entry void getPieceValues(piecedata *totaldata);
 	};
 };
