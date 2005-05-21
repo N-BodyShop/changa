@@ -60,6 +60,7 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,Key key,
 		e = p->second;
 		assert(e->home == remoteIndex);
 		e->totalRequests++;
+
 		if(e->node != NULL){
 			e->hits++;
 			return e->node;
@@ -158,7 +159,9 @@ void CacheManager::processRequests(Key key,int from){
 	vector<BucketGravityRequest *>::iterator callreq;
 	for(caller = e->requestorVec.begin(),callreq = e->reqVec.begin();caller != e->requestorVec.end();caller++,callreq++){
 		TreePiece *p = treeProxy[*caller].ckLocal();
+		
 		p->receiveNode(*(e->node),*(*callreq));
+		//treeProxy[*caller].receiveNode(*(e->node),*(*callreq));
 	}
 	e->requestorVec.clear();
 	e->reqVec.clear();
@@ -225,6 +228,8 @@ void CacheManager::recvParticles(Key key,GravityParticle *part,int num,int from)
 	vector<BucketGravityRequest *>::iterator callreq;
 	for(caller = e->requestorVec.begin(),callreq = e->reqVec.begin();caller != e->requestorVec.end();caller++,callreq++){
 		TreePiece *p = treeProxy[*caller].ckLocal();
+		//treeProxy[*caller].receiveParticles(e->part,e->num,*(*callreq));
+
 		p->receiveParticles(e->part,e->num,*(*callreq));
 	}
 	storedParticles+=num;
