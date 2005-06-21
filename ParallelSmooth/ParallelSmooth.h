@@ -16,7 +16,7 @@
 
 class Main : public Chare {
 	/// The filename of the simulation to process.
-	string filename;
+	std::string filename;
 	/// The array of TreePieces
 	CProxy_Smooth_TreePiece smoothTreePieces;
 	CProxy_DataManager dataManager;
@@ -28,7 +28,7 @@ class Main : public Chare {
 	/// The percent tolerance used in the particle sorting.
 	double tolerance;
 	/// The filename prefix to use for output files.
-	string outputPrefix;
+	std::string outputPrefix;
 	
 	/// The number of neighbors to find the radius of.
 	int numNeighbors;

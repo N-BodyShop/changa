@@ -21,6 +21,8 @@ using std::vector;
 using std::map;
 using std::ofstream;
 
+using namespace std;
+
 TreePiece::TreePiece() {
 	dm = 0;
 	numBoundaries = 0;
@@ -217,7 +219,7 @@ void TreePiece::evaluateBoundaries(const CkCallback& cb) {
 	}
 	
 	//send my bin counts back in a reduction
-	contribute(numBins * sizeof(int), myBinCounts.begin(), CkReduction::sum_int, cb);
+	contribute(numBins * sizeof(int), &(*myBinCounts.begin()), CkReduction::sum_int, cb);
 }
 
 /// Once final splitter keys have been decided, I need to give my particles out to the TreePiece responsible for them
@@ -245,9 +247,9 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 		//if I have any particles in this bin, send them to the responsible TreePiece
 		if((binEnd - binBegin) > 0) {
 			if(*responsibleIter == thisIndex)
-				acceptSortedParticles(binBegin, binEnd - binBegin);
+				acceptSortedParticles(&(*binBegin), binEnd - binBegin);
 			else
-				treePieces[*responsibleIter].acceptSortedParticles(binBegin, binEnd - binBegin);
+				treePieces[*responsibleIter].acceptSortedParticles(&(*binBegin), binEnd - binBegin);
 		}
 		if(myParticles.end() <= binEnd)
 			break;
@@ -373,8 +375,8 @@ void TreePiece::acceptBoundaryKey(const Key k) {
 	if(++numBoundaries == 2) {
 		numBoundaries = 0;
 		copy(mySortedParticles.begin(), mySortedParticles.end(), myParticles.begin() + 1);
-		leftBoundary = myParticles.begin();
-		rightBoundary = myParticles.end() - 1;
+		leftBoundary = &(*myParticles.begin());
+		rightBoundary = &(*myParticles.end()) - 1;
 		//I don't own my left and right boundaries, but I need to know them
 		myNumParticles = myParticles.size() - 2;
 		if(myNumParticles != dm->particleCounts[myPlace])

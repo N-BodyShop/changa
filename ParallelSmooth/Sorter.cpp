@@ -11,6 +11,8 @@ using std::vector;
 using std::list;
 using std::set;
 
+using namespace std;
+
 void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares, const double toler, const CkCallback& cb) {	
 	numChares = nChares;
 	dm = CProxy_DataManager(dataManagerID);
@@ -39,7 +41,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares, con
 		cout << "Sorter: Initially have " << splitters.size() << " splitters" << endl;
 	
 	//send out the first guesses to be evaluated
-	dm.acceptCandidateKeys(splitters.begin(), splitters.size(), CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+	dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 }
 
 void Sorter::collectEvaluations(CkReductionMsg* m) {
@@ -58,7 +60,7 @@ void Sorter::collectEvaluations(CkReductionMsg* m) {
 		partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
 		
 		//send out the final splitters and responsibility table
-		dm.acceptFinalKeys(keyBoundaries.begin(), chareIDs.begin(), binCounts.begin() + 1, keyBoundaries.size(), sortingCallback);
+		dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()) + 1, keyBoundaries.size(), sortingCallback);
 		numIterations = 0;
 		sorted = false;
 		
@@ -105,9 +107,9 @@ void Sorter::collectEvaluations(CkReductionMsg* m) {
 		keyBoundaries.push_back(lastPossibleKey);
 		
 		//send out all the decided keys to get final bin counts
-		dm.acceptCandidateKeys(keyBoundaries.begin(), keyBoundaries.size(), CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+		dm.acceptCandidateKeys(&(*keyBoundaries.begin()), keyBoundaries.size(), CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 	} else //send out the new guesses to be evaluated
-		dm.acceptCandidateKeys(splitters.begin(), splitters.size(), CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+		dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 }
 
 /** Generate new guesses for splitter keys based on the histograms that came

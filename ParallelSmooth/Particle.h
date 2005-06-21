@@ -167,6 +167,32 @@ public:
 		os << firstHalf << secondHalf;
 		return os;
 	}
+	void pup(PUP::er &p)
+            {
+		p | key;
+                p | mass;
+                p | position;
+                p | velocity;
+		p | rho;
+		p | temperature;
+                p | eps;
+		p | h;
+		p | metals;
+		p | phi;
+		p | tform;
+		p | smoothingRadius;
+		p | divv;
+		p | curlv;
+		p | meanVelocity;
+		p | density;
+		p | velDispSq;
+		p | neighborCount;
+		p | colorValue;
+		p | diskOrder;
+		p | groupParentChare;
+		p | groupParentParticle;
+                }
+
 };
 
 

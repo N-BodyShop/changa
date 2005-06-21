@@ -3,6 +3,8 @@
  @author Graeme Lufkin (gwl@u.washington.edu)
  */
  
+#include <numeric>
+
 #include "SPH_Requests.h"
 
 PUPable_def(BallCountResponse);

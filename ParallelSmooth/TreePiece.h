@@ -56,7 +56,7 @@ protected:
 	FullParticle* rightBoundary;
 	
 	/// The counts of how many particles belonging to other TreePieces I currently hold
-	vector<int> myBinCounts;
+	std::vector<int> myBinCounts;
 	
 	//int swapsMade;
 	//FullParticle* beginFreeParticles;

@@ -22,6 +22,8 @@ $Header$
 using std::string;
 using std::ofstream;
 
+using namespace std;
+
 Main::Main(CkArgMsg* m) {
 	
 	double allPeriod = 0;

@@ -13,6 +13,8 @@
 using std::string;
 using std::priority_queue;
 
+using namespace std;
+
 void Smooth_TreePiece::findSmoothingRadius(const int n, const CkCallback& cb) {
 	numNeighbors = n;
 	numComplete = 0;
@@ -385,7 +387,7 @@ void Smooth_TreePiece::makeDensityHistogram(const int numDensityBins, const doub
 			bin = 0;
 		densityHistogram[bin]++;
 	}
-	contribute(densityHistogram.size() * sizeof(int), densityHistogram.begin(), CkReduction::sum_int, cb);
+	contribute(densityHistogram.size() * sizeof(int), &(*densityHistogram.begin()), CkReduction::sum_int, cb);
 }
 
 inline bool diskOrderCompare(const FullParticle& p1, const FullParticle& p2) {
@@ -409,7 +411,7 @@ void Smooth_TreePiece::saveInformation(const string& prefix, const CkCallback& c
 	for(int i = 1; i < myNumParticles + 1; ++i) {
 		location = sizeof(int) + myParticles[i].diskOrder * sizeof(double);
 		outgroup.seekp(location);
-		outgroup.write(&(myParticles[i].smoothingRadius), sizeof(double));
+		outgroup.write((const char *)&(myParticles[i].smoothingRadius), sizeof(double));
 	}
 	outgroup.close();
 		
@@ -417,7 +419,7 @@ void Smooth_TreePiece::saveInformation(const string& prefix, const CkCallback& c
 	for(int i = 1; i < myNumParticles + 1; ++i) {
 		location = sizeof(int) + myParticles[i].diskOrder * sizeof(double);
 		outgroup.seekp(location);
-		outgroup.write(&(myParticles[i].density), sizeof(double));
+		outgroup.write((const char *)&(myParticles[i].density), sizeof(double));
 	}
 	outgroup.close();
 
@@ -425,7 +427,7 @@ void Smooth_TreePiece::saveInformation(const string& prefix, const CkCallback& c
 	for(int i = 1; i < myNumParticles + 1; ++i) {
 		location = sizeof(int) + myParticles[i].diskOrder * sizeof(double);
 		outgroup.seekp(location);
-		outgroup.write(&(myParticles[i].divv), sizeof(double));
+		outgroup.write((const char *)&(myParticles[i].divv), sizeof(double));
 	}
 	outgroup.close();
 
@@ -433,7 +435,7 @@ void Smooth_TreePiece::saveInformation(const string& prefix, const CkCallback& c
 	for(int i = 1; i < myNumParticles + 1; ++i) {
 		location = sizeof(int) + myParticles[i].diskOrder * sizeof(Vector3D<double>);
 		outgroup.seekp(location);
-		outgroup.write(&(myParticles[i].curlv), sizeof(Vector3D<double>));
+		outgroup.write((const char *)&(myParticles[i].curlv), sizeof(Vector3D<double>));
 	}
 	outgroup.close();
 
@@ -441,7 +443,7 @@ void Smooth_TreePiece::saveInformation(const string& prefix, const CkCallback& c
 	for(int i = 1; i < myNumParticles + 1; ++i) {
 		location = sizeof(int) + myParticles[i].diskOrder * sizeof(Vector3D<double>);
 		outgroup.seekp(location);
-		outgroup.write(&(myParticles[i].meanVelocity), sizeof(Vector3D<double>));
+		outgroup.write((const char *)&(myParticles[i].meanVelocity), sizeof(Vector3D<double>));
 	}
 	outgroup.close();
 
@@ -450,7 +452,7 @@ void Smooth_TreePiece::saveInformation(const string& prefix, const CkCallback& c
 		location = sizeof(int) + myParticles[i].diskOrder * sizeof(double);
 		outgroup.seekp(location);
 		value = sqrt(myParticles[i].velDispSq);
-		outgroup.write(&value, sizeof(double));
+		outgroup.write((const char *)&value, sizeof(double));
 	}
 	outgroup.close();
 		
@@ -459,7 +461,7 @@ void Smooth_TreePiece::saveInformation(const string& prefix, const CkCallback& c
 		location = sizeof(int) + myParticles[i].diskOrder * sizeof(double);
 		outgroup.seekp(location);
 		value = myParticles[i].density / pow(myParticles[i].velDispSq, 1.5);
-		outgroup.write(&value, sizeof(double));
+		outgroup.write((const char *)&value, sizeof(double));
 	}
 	outgroup.close();
 	
@@ -468,7 +470,7 @@ void Smooth_TreePiece::saveInformation(const string& prefix, const CkCallback& c
 		location = sizeof(int) + myParticles[i].diskOrder * sizeof(double);
 		outgroup.seekp(location);
 		value = myParticles[i].meanVelocity.length() / sqrt(myParticles[i].velDispSq);
-		outgroup.write(&value, sizeof(double));
+		outgroup.write((const char *)&value, sizeof(double));
 	}
 	outgroup.close();
 	
@@ -477,7 +479,7 @@ void Smooth_TreePiece::saveInformation(const string& prefix, const CkCallback& c
 		location = sizeof(int) + myParticles[i].diskOrder * sizeof(double);
 		outgroup.seekp(location);
 		value = myParticles[i].meanVelocity.length();
-		outgroup.write(&value, sizeof(double));
+		outgroup.write((const char *)&value, sizeof(double));
 	}
 	outgroup.close();
 
