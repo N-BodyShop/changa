@@ -8,8 +8,10 @@ mainmodule ParallelGravity {
 	readonly CProxy_TreePiece treeProxy;
 	readonly bool _cache;
 	readonly int _cacheLineDepth;
+	readonly unsigned int _yieldPeriod;
 
 	message piecedata;
+	message dummyMsg;
 
 	mainchare Main {
 		entry Main();
@@ -21,6 +23,7 @@ mainmodule ParallelGravity {
 		
 		entry void report(const CkCallback& cb);
 		
+		entry void nextBucket(dummyMsg *m);	
 		entry void load(const std::string& fn, const CkCallback& cb);
 		
 		entry void buildTree(int bucketSize, const CkCallback& cb);
@@ -47,6 +50,8 @@ mainmodule ParallelGravity {
 					   BucketGravityRequest &req);
 		entry void receiveNode(SFCTreeNode node,
 					BucketGravityRequest &req);
+		entry [inline] void receiveNode_inline(SFCTreeNode node,
+					BucketGravityRequest &req);
 		entry void fillRequestParticle(int retIndex, int pi,
 						BucketGravityRequest &req);
 		entry void receiveParticle(GravityParticle part,
@@ -54,6 +59,8 @@ mainmodule ParallelGravity {
 		entry void fillRequestParticles(Key key,int retIndex, int begin,int end,
 				    BucketGravityRequest& req);
 		entry void receiveParticles(GravityParticle part[num],int num,
+				BucketGravityRequest& req);
+		entry [inline] void receiveParticles_inline(GravityParticle part[num],int num,
 				BucketGravityRequest& req);
 		    
 		entry void startlb(CkCallback &cb);

@@ -157,6 +157,8 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
       CkAbort("Badness");
     }
 
+    Key previous = 0;  // hold the last key generated
+    Key current;
     //read all my particles' positions and make keys
     for(u_int64_t i = 0; i < myNumParticles; ++i) {
       if(!xdr_template(&xdrs, &pos)) {
@@ -164,7 +166,12 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
 	CkAbort("Badness");
       }
       myParticles[i + 1].position = pos;
-      myParticles[i + 1].key = generateKey(pos, boundingBox);
+      current = generateKey(pos, boundingBox);
+      myParticles[i + 1].key = current;
+      if (current < previous) {
+	CkPrintf("TreePiece %d: Key not ordered! (%016llx)\n",thisIndex,current);
+      }
+      previous = current;
     }
   }
 	
@@ -181,17 +188,35 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
   maxBucketSize = bucketSize;
   callback = cb;
   Key bounds[2];
+  sort(myParticles+1, myParticles+myNumParticles+1);
   bounds[0] = myParticles[1].key;
   bounds[1] = myParticles[myNumParticles].key;
   contribute(2 * sizeof(Key), bounds, CkReduction::concat, CkCallback(CkIndex_TreePiece::collectSplitters(0), thisArrayID));
 }
+
+class KeyDouble {
+  Key first;
+  Key second;
+public:
+  inline bool operator<(const KeyDouble& k) const {
+    return first < k.first;
+  }
+};
 
 void TreePiece::collectSplitters(CkReductionMsg* m) {
   numSplitters = 2 * numTreePieces;
   splitters = new Key[numSplitters];
   Key* splits = static_cast<Key *>(m->getData());
   copy(splits, splits + numSplitters, splitters);
-  sort(splitters, splitters + numSplitters);
+  KeyDouble* splitters2 = (KeyDouble *)splitters;
+  //sort(splitters, splitters + numSplitters);
+  sort(splitters2, splitters2 + numTreePieces);
+  for (int i=1; i<numSplitters; ++i) {
+    if (splitters[i] < splitters[i-1]) {
+      //for (int j=0; j<numSplitters; ++j) CkPrintf("%d: Key %d = %016llx\n",thisIndex,j,splitters[j]);
+      CkAbort("Keys not ordered");
+    }
+  }
   contribute(0, 0, CkReduction::concat, CkCallback(CkIndex_TreePiece::startTreeBuild(0), thisArrayID));
   delete m;
   if(verbosity > 3)
@@ -886,24 +911,35 @@ void TreePiece::finishBucket(int iBucket) {
 #endif
 
 void TreePiece::doAllBuckets(){
-  /*int YIELDPERIOD;
-    if(numBuckets > 10){
-    YIELDPERIOD = numBuckets/10;
-    }else{
-    YIELDPERIOD = 2;
-    }*/
   if(thisIndex == 2){
     char fout[100];
     sprintf(fout,"tree.%d.%d",thisIndex,iterationNo);
     ofstream ofs(fout);
     printTree(root,ofs);
     ofs.close();
-  }	
-  for(;currentBucket <numBuckets;currentBucket++){
+  }
+  /*for(;currentBucket <numBuckets;currentBucket++){
     startNextBucket();
-    /*if(currentBucket%YIELDPERIOD == YIELDPERIOD -1 ){
+    if(currentBucket%YIELDPERIOD == YIELDPERIOD -1 ){
       CthYield();
-      }*/	
+      }	
+  }*/
+  dummyMsg *msg = new (32) dummyMsg;
+  *((int *)CkPriorityPtr(msg))=10*(1+thisIndex);
+  CkSetQueueing(msg,CK_QUEUEING_IFIFO);
+  msg->val=0;
+  thisProxy[thisIndex].nextBucket(msg);
+}
+
+void TreePiece::nextBucket(dummyMsg *msg){
+  int i=0;
+  while(i<_yieldPeriod && currentBucket<numBuckets){
+    startNextBucket();
+    currentBucket++;
+    i++;
+  }
+  if(currentBucket<numBuckets){
+    thisProxy[thisIndex].nextBucket(msg);
   }
 }
 
@@ -1268,6 +1304,9 @@ void TreePiece::receiveNode(SFCTreeNode node, BucketGravityRequest& req)
   finishBucket(req.identifier);
 }
 
+void TreePiece::receiveNode_inline(SFCTreeNode node, BucketGravityRequest& req){
+        receiveNode(node,req);
+}
 /*
   This function is not used anymore. It is extremely inefficient
   to request each particle in a node individually instead of requesting all
@@ -1350,6 +1389,10 @@ void TreePiece::receiveParticles(GravityParticle *part,int num,
   finishBucket(req.identifier);
 }
 
+void TreePiece::receiveParticles_inline(GravityParticle *part,int num,
+                                 BucketGravityRequest& req){
+        receiveParticles(part,num,req);
+}
 
 
 #endif
@@ -1560,7 +1603,7 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
     if(verbosity > 2)
       cerr << "TreePiece " << thisIndex << ": Writing headers for statistics files" << endl;
     fh.dimensions = 1;
-    fh.code = uint32;
+    fh.code = TypeHandling::uint32;
     FILE* outfile = fopen((basefilename + ".MACs").c_str(), "wb");
     XDR xdrs;
     xdrstdio_create(&xdrs, outfile, XDR_ENCODE);

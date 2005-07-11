@@ -158,10 +158,10 @@ void CacheManager::processRequests(Key key,int from){
 	vector<int>::iterator caller;
 	vector<BucketGravityRequest *>::iterator callreq;
 	for(caller = e->requestorVec.begin(),callreq = e->reqVec.begin();caller != e->requestorVec.end();caller++,callreq++){
-		TreePiece *p = treeProxy[*caller].ckLocal();
+		//TreePiece *p = treeProxy[*caller].ckLocal();
 		
-		p->receiveNode(*(e->node),*(*callreq));
-		//treeProxy[*caller].receiveNode(*(e->node),*(*callreq));
+		//p->receiveNode(*(e->node),*(*callreq));
+		treeProxy[*caller].receiveNode_inline(*(e->node),*(*callreq));
 	}
 	e->requestorVec.clear();
 	e->reqVec.clear();
@@ -227,10 +227,10 @@ void CacheManager::recvParticles(Key key,GravityParticle *part,int num,int from)
 	vector<int>::iterator caller;
 	vector<BucketGravityRequest *>::iterator callreq;
 	for(caller = e->requestorVec.begin(),callreq = e->reqVec.begin();caller != e->requestorVec.end();caller++,callreq++){
-		TreePiece *p = treeProxy[*caller].ckLocal();
-		//treeProxy[*caller].receiveParticles(e->part,e->num,*(*callreq));
+		//TreePiece *p = treeProxy[*caller].ckLocal();
+		treeProxy[*caller].receiveParticles_inline(e->part,e->num,*(*callreq));
 
-		p->receiveParticles(e->part,e->num,*(*callreq));
+		//p->receiveParticles(e->part,e->num,*(*callreq));
 	}
 	storedParticles+=num;
 }

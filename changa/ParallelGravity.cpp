@@ -20,6 +20,7 @@ int verbosity;
 CProxy_TreePiece treeProxy;
 bool _cache;
 int _cacheLineDepth;
+unsigned int _yieldPeriod;
 int numIterations=1;
 
 Main::Main(CkArgMsg* m) {
@@ -30,6 +31,7 @@ Main::Main(CkArgMsg* m) {
 	_cache = false;
 	_cacheLineDepth=1;
 	printBinaryAcc=1;
+	_yieldPeriod=100000000;
 /*
 	poptOption optionsTable[] = {
 		{"verbose", 'v', POPT_ARG_NONE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, 0, 1, "be verbose about what's going on", "verbosity"},
@@ -75,7 +77,7 @@ Main::Main(CkArgMsg* m) {
 	poptFreeContext(context);
 		*/
 	
-	const char *optstring = "vt:p:b:cd:n:z:";
+	const char *optstring = "vt:p:b:cd:n:z:y:";
 	int c;
 	while((c=getopt(m->argc,m->argv,optstring))>0){
 		if(c == -1){
@@ -105,9 +107,14 @@ Main::Main(CkArgMsg* m) {
 				break;
 			case 'z':
 				printBinaryAcc = atoi(optarg);
+				break;
+			case 'y':
+				_yieldPeriod = atoi(optarg);
+				break;
 		};
 	}
 
+	cerr << "yieldPeriod set to " << _yieldPeriod << endl;
 	if(_cacheLineDepth <= 0)
 		CkAbort("Cache Line depth must be greater than 0");
 
@@ -140,7 +147,7 @@ Main::Main(CkArgMsg* m) {
 	CkArrayOptions opts(numTreePieces); 
 	opts.setMap(myMap);
 
-    pieces = CProxy_TreePiece::ckNew(numTreePieces,opts);
+	pieces = CProxy_TreePiece::ckNew(numTreePieces,opts);
 	treeProxy = pieces;
 	if(verbosity)
 		cerr << "Created " << numTreePieces << " pieces of tree" << endl;
@@ -234,11 +241,11 @@ void Main::nextStage() {
 	if(verbosity)
 		cerr << "Outputting accelerations ..." << endl;
 	startTime = CkWallTimer();
-	if(printBinaryAcc)
+/*	if(printBinaryAcc)
 		pieces[0].outputAccelerations(OrientedBox<double>(), "acc2", CkCallbackResumeThread());
 	else
 		pieces[0].outputAccASCII(OrientedBox<double>(), "acc2", CkCallbackResumeThread());
-	
+*/	
 	if(verbosity > 1)
 		cerr << "Main: Outputting took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	if(verbosity)
@@ -246,7 +253,7 @@ void Main::nextStage() {
 	startTime = CkWallTimer();
 	Interval<unsigned int> dummy;
 	
-	pieces[0].outputStatistics(dummy, dummy, dummy, dummy, totaldata->totalmass, CkCallbackResumeThread());
+	//pieces[0].outputStatistics(dummy, dummy, dummy, dummy, totaldata->totalmass, CkCallbackResumeThread());
 
 	if(verbosity > 1)
 		cerr << "Main: Outputting took " << (CkWallTimer() - startTime) << " seconds." << endl;

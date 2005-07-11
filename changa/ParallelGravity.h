@@ -235,6 +235,13 @@ public:
 extern int verbosity;
 extern bool _cache;
 extern int _cacheLineDepth;
+extern unsigned int _yieldPeriod;
+
+class dummyMsg : public CMessage_dummyMsg{
+public:
+int val;
+};
+
 /********************************************/
 class piecedata : public CMessage_piecedata {
 public:
@@ -349,6 +356,7 @@ class TreePiece : public CBase_TreePiece {
 public:
 	
 	TreePiece(unsigned int numPieces) : numTreePieces(numPieces), pieces(thisArrayID), streamingProxy(thisArrayID), started(false), root(0) {
+	//CkPrintf("[%d] TreePiece created\n",thisIndex);
 	    // ComlibDelegateProxy(&streamingProxy);
 		if(_cache){	
 			localCache = cacheManagerProxy.ckLocalBranch();
@@ -402,6 +410,7 @@ public:
 	void fillRequestNode(int retIndex, Key lookupKey,
 			     BucketGravityRequest& req);
 	void receiveNode(SFCTreeNode node, BucketGravityRequest& req);
+	void receiveNode_inline(SFCTreeNode node, BucketGravityRequest& req);
 	void lookupNode(Key ,SFCTreeNode *);
 
 	GravityParticle* requestParticle(int remoteIndex, int iPart,
@@ -417,6 +426,8 @@ public:
 				    BucketGravityRequest& req);
 	void receiveParticles(GravityParticle *part,int num,
 				BucketGravityRequest& req);
+	void receiveParticles_inline(GravityParticle *part,int num,
+				BucketGravityRequest& req);
 			  
 	void startlb(CkCallback &cb);
 	void ResumeFromSync();
@@ -429,6 +440,7 @@ public:
 /*******************ADDED*******************/
   void getPieceValues(piecedata *totaldata);
 /*******************************************/	
+        void nextBucket(dummyMsg *m);
 
 	void report(const CkCallback& cb);
 	
