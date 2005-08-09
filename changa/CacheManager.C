@@ -20,15 +20,15 @@ bool operator<(MapKey lhs,MapKey rhs){
 }
 
 
-inline void CacheEntry::sendRequest(BucketGravityRequest *req){
+inline void NodeCacheEntry::sendRequest(BucketGravityRequest *req){
 	requestSent = true;
-	treeProxy[home].fillRequestNode(CkMyPe(),requestNodeID,*req);
+	treeProxy[home].fillRequestNode(new RequestNodeMsg(CkMyPe(),_cacheLineDepth,requestID,req->identifier));
 //	CpvAccess(streamingTreeProxy)[home].fillRequestNode(CkMyPe(),requestNodeID,*req);
 };
 
 inline void ParticleCacheEntry::sendRequest(BucketGravityRequest *req){
 	requestSent = true;
-	treeProxy[home].fillRequestParticles(requestNodeID,CkMyPe(),begin,end,*req);
+	treeProxy[home].fillRequestParticles(requestID,CkMyPe(),begin,end,req->identifier);
 //	CpvAccess(streamingTreeProxy)[home].fillRequestParticles(requestNodeID,CkMyPe(),begin,end,*req);
 };
 
@@ -44,7 +44,7 @@ CacheManager::CacheManager(){
 	iterationNo=0;
 }
 
-CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,Key key,BucketGravityRequest *req){
+CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,CacheKey key,BucketGravityRequest *req){
 	if(!proxyInitialized){
 		CpvInitialize(CProxy_TreePiece,streamingTreeProxy);
 		CpvAccess(streamingTreeProxy)=treeProxy;
@@ -52,11 +52,11 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,Key key,
 		proxyInitialized = true;
 	}
 
-	map<MapKey,CacheEntry *>::iterator p;
-	p = CacheTable.find(MapKey(key,remoteIndex));
-	CacheEntry *e;
+	map<MapKey,NodeCacheEntry *>::iterator p;
+	p = nodeCacheTable.find(MapKey(key,remoteIndex));
+	NodeCacheEntry *e;
 	totalNodesRequested++;
-	if(p != CacheTable.end()){
+	if(p != nodeCacheTable.end()){
 		e = p->second;
 		assert(e->home == remoteIndex);
 		e->totalRequests++;
@@ -72,11 +72,11 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,Key key,
 			}
 		}
 	}else{
-		e = new CacheEntry();
-		e->requestNodeID = key;
+		e = new NodeCacheEntry();
+		e->requestID = key;
 		e->home = remoteIndex;
 		e->totalRequests++;
-		CacheTable.insert(pair<MapKey,CacheEntry *>(MapKey(key,remoteIndex),e));
+		nodeCacheTable.insert(pair<MapKey,NodeCacheEntry *>(MapKey(key,remoteIndex),e));
 		//sendrequest to the the tree, if it is local return the node that is returned
 		if(sendNodeRequest(e,req)){
 			return e->node;
@@ -87,7 +87,9 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,Key key,
 	return NULL;
 }
 
-CacheNode *CacheManager::sendNodeRequest(CacheEntry *e,BucketGravityRequest *req){
+#include "TreeNode.h"
+
+CacheNode *CacheManager::sendNodeRequest(NodeCacheEntry *e,BucketGravityRequest *req){
 	/*
 		check if the array element to which the request is directed is local or not.
 		If it is local then just fetch it store it and return it.
@@ -96,83 +98,140 @@ CacheNode *CacheManager::sendNodeRequest(CacheEntry *e,BucketGravityRequest *req
 		if(p != NULL){
 			e->requestSent = true;
 			e->replyRecvd = true;
-			e->node = new CacheNode;
-			p->lookupNode(e->requestNodeID,e->node);
+			e->node = prototype->createNew();
+			const GenericTreeNode *nd = p->lookupNode(e->requestID);
+#ifdef COSMO_PRINT
+			if (nd==NULL) CkPrintf("Requested for node %s in %d!\n",(TreeStuff::keyBits(e->requestID,63)).c_str(),e->home);
+#endif
+			CkAssert(nd != NULL);
+			if (e->node != NULL) e->node = nd->clone();
+			if (e->node->getType() != NonLocal) e->node->remoteIndex = e->home;
 			return e->node;
 		}
 	/*
 		check if there is an outstanding request to the same array element that
 		will also fetch this node because of the cacheLineDepth
 	*/
+		/// @TODO: despite the cacheLineDepth, the node can never be fetched if it is nonLocal to the TreePiece from which it should come!
 	for(int i=0;i<_cacheLineDepth;i++){
-		Key k = e->requestNodeID >> i;
+		CacheKey k = e->requestID >> i;
 		set<MapKey>::iterator pred = outStandingRequests.find(MapKey(k,e->home));
 		if(pred != outStandingRequests.end()){
 			return NULL;
 		}
 	}
-	outStandingRequests.insert(MapKey(e->requestNodeID,e->home));
+	outStandingRequests.insert(MapKey(e->requestID,e->home));
 	e->sendRequest(req);
 	return NULL;
 }
 
 
-void CacheManager::addNode(Key key,int from,CacheNode &node){
-	map<MapKey,CacheEntry *>::iterator p;
-	p = CacheTable.find(MapKey(key,from));
-	if(p == CacheTable.end()){
-		CacheEntry *e = new CacheEntry();
-		e->requestNodeID = key;
+void CacheManager::addNodes(int from,CacheNode *node){
+	map<MapKey,NodeCacheEntry *>::iterator p;
+	p = nodeCacheTable.find(MapKey(node->getKey(),from));
+	if (p == nodeCacheTable.end()) {
+		NodeCacheEntry *e = new NodeCacheEntry();
+		e->requestID = node->getKey();
 		e->home = from;
 		e->totalRequests++;
 		e->requestSent = true;
 		e->replyRecvd=true;
-		e->node = new CacheNode;
-		memcpy(e->node,&node,sizeof(CacheNode));
-		CacheTable.insert(pair<MapKey,CacheEntry *>(MapKey(key,from),e));
+		if (node->getType() != NonLocal) node->remoteIndex = from;
+		e->node = node;
+		//memcpy(e->node,&node,sizeof(CacheNode));
+		nodeCacheTable.insert(pair<MapKey,NodeCacheEntry *>(MapKey(node->getKey(),from),e));
+		storedNodes++;
+		//return;
+	} else {
+	  NodeCacheEntry *e = p->second;
+	  if(e->replyRecvd){
+	    //CkPrintf("[%d]repeat request seen for lookupKey %d\n",CkMyPe(),node->getKey());
+		//return;
+	  } else {
+	    if (node->getType() != NonLocal) node->remoteIndex = from;
+	    e->node = node; //new CacheNode;
+	    e->replyRecvd=true;
+	    //memcpy(e->node,&node,sizeof(CacheNode));
+	    storedNodes++;
+	    //debug code
+	    if(node->getType() == Empty){
+	      //e->node->key = key;
+	    }
+	  }
+	}
+	for (unsigned int i=0; i<node->numChildren(); ++i) {
+	  if (node->getChildren(i) != NULL)
+	    addNodes(from, node->getChildren(i));
+	}
+}
+
+/*
+void CacheManager::addNode(CacheKey key,int from,CacheNode *node){
+	map<MapKey,NodeCacheEntry *>::iterator p;
+	p = nodeCacheTable.find(MapKey(key,from));
+	if(p == nodeCacheTable.end()){
+		NodeCacheEntry *e = new NodeCacheEntry();
+		e->requestID = key;
+		e->home = from;
+		e->totalRequests++;
+		e->requestSent = true;
+		e->replyRecvd=true;
+		e->node = node;
+		//memcpy(e->node,&node,sizeof(CacheNode));
+		nodeCacheTable.insert(pair<MapKey,NodeCacheEntry *>(MapKey(key,from),e));
 		storedNodes++;
 		return;
 	}
-	CacheEntry *e = p->second;
+	NodeCacheEntry *e = p->second;
 	if(e->replyRecvd){
 		//CkPrintf("[%d]repeat request seen for lookupKey %d\n",CkMyPe(),key);
 		return;
 	}
-	e->node = new CacheNode;
+	e->node = node; //new CacheNode;
 	e->replyRecvd=true;
-	memcpy(e->node,&node,sizeof(CacheNode));
+	//memcpy(e->node,&node,sizeof(CacheNode));
 	storedNodes++;
 	//debug code
 	if(node.getType() == Empty){
 		e->node->key = key;
 	}
 }
+*/
 
-void CacheManager::processRequests(Key key,int from){
-	map<MapKey,CacheEntry *>::iterator p;
-	p = CacheTable.find(MapKey(key,from));
-	assert(p != CacheTable.end());
-	CacheEntry *e = p->second;
-	assert(e->requestorVec.size() == e->reqVec.size());
+void CacheManager::processRequests(CacheNode *node,int from){
+	map<MapKey,NodeCacheEntry *>::iterator p;
+	p = nodeCacheTable.find(MapKey(node->getKey(),from));
+	CkAssert(p != nodeCacheTable.end());
+	NodeCacheEntry *e = p->second;
+	CkAssert(e->node != NULL);
+	CkAssert(e->requestorVec.size() == e->reqVec.size());
 
 	vector<int>::iterator caller;
 	vector<BucketGravityRequest *>::iterator callreq;
 	for(caller = e->requestorVec.begin(),callreq = e->reqVec.begin();caller != e->requestorVec.end();caller++,callreq++){
-		//TreePiece *p = treeProxy[*caller].ckLocal();
+		TreePiece *p = treeProxy[*caller].ckLocal();
 		
-		//p->receiveNode(*(e->node),*(*callreq));
-		treeProxy[*caller].receiveNode_inline(*(e->node),*(*callreq));
+		p->receiveNode(*(e->node),(*callreq)->identifier);
+		//treeProxy[*caller].receiveNode_inline(*(e->node),*(*callreq));
 	}
 	e->requestorVec.clear();
 	e->reqVec.clear();
+	// iterate over the children of the node
+	for (unsigned int i=0; i<node->numChildren(); ++i) {
+	  if (node->getChildren(i) != NULL)
+	    processRequests(node->getChildren(i), from);
+	}
 
 }
 
+/*
 void CacheManager::recvNodes(Key key,int from,CacheNode &node){
-	addNode(key,from,node);
+  	addNode(key,from,node);
 	outStandingRequests.erase(MapKey(key,from));
 	processRequests(key,from);
 }
+*/
+/* old version replaced by the one below!
 void CacheManager::recvNodes(int num,Key *cacheKeys,CacheNode *cacheNodes,int index){
 	for(int i=0;i<num;i++){
 		addNode(cacheKeys[i],index,cacheNodes[i]);
@@ -182,8 +241,24 @@ void CacheManager::recvNodes(int num,Key *cacheKeys,CacheNode *cacheNodes,int in
 		processRequests(cacheKeys[i],index);
 	}
 }
+*/
+void CacheManager::recvNodes(FillNodeMsg *msg){
+  GenericTreeNode *node = prototype->createNew();
+  PUP::fromMem p(msg->nodes);
+  node->pup(p);
+#ifdef COSMO_PRINT
+  CkPrintf("Cache: Reveived nodes from %d\n",msg->owner);
+#endif
+  // recursively add all nodes in the tree rooted by "node"
+  addNodes(msg->owner,node);
+  outStandingRequests.erase(MapKey(node->getKey(),msg->owner));
+  // recursively process all nodes just inserted in the cache
+  processRequests(node,msg->owner);
+}
 
-GravityParticle *CacheManager::requestParticles(int requestorIndex,Key key,int remoteIndex,int begin,int end,BucketGravityRequest *req){
+
+/// @TODO If the TreePiece is local it should get them immediately without sending a full message
+GravityParticle *CacheManager::requestParticles(int requestorIndex,CacheKey key,int remoteIndex,int begin,int end,BucketGravityRequest *req){
 	map<MapKey,ParticleCacheEntry *>::iterator p;
 	p = particleCacheTable.find(MapKey(key,remoteIndex));
 	ParticleCacheEntry *e;
@@ -200,7 +275,7 @@ GravityParticle *CacheManager::requestParticles(int requestorIndex,Key key,int r
 		}
 	}else{
 		e = new ParticleCacheEntry();
-		e->requestNodeID = key;
+		e->requestID = key;
 		e->home = remoteIndex;
 		e->begin = begin;
 		e->end=end;
@@ -213,7 +288,7 @@ GravityParticle *CacheManager::requestParticles(int requestorIndex,Key key,int r
 	return NULL;
 }
 
-void CacheManager::recvParticles(Key key,GravityParticle *part,int num,int from){
+void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int from){
 	map<MapKey,ParticleCacheEntry *>::iterator p;
 	p = particleCacheTable.find(MapKey(key,from));
 	if(p == particleCacheTable.end()){
@@ -227,24 +302,25 @@ void CacheManager::recvParticles(Key key,GravityParticle *part,int num,int from)
 	vector<int>::iterator caller;
 	vector<BucketGravityRequest *>::iterator callreq;
 	for(caller = e->requestorVec.begin(),callreq = e->reqVec.begin();caller != e->requestorVec.end();caller++,callreq++){
-		//TreePiece *p = treeProxy[*caller].ckLocal();
-		treeProxy[*caller].receiveParticles_inline(e->part,e->num,*(*callreq));
+		TreePiece *p = treeProxy[*caller].ckLocal();
 
-		//p->receiveParticles(e->part,e->num,*(*callreq));
+		p->receiveParticles(e->part,e->num,(*callreq)->identifier);
+		//treeProxy[*caller].receiveParticles_inline(e->part,e->num,*(*callreq));
 	}
 	storedParticles+=num;
 }
 
 
-void CacheManager::cacheSync(unsigned int iter){
+void CacheManager::cacheSync(unsigned int iter, GenericTreeNode *proto){
+  prototype = proto;
 	if(iter > iterationNo){
 		iterationNo = iter;
-		map<MapKey,CacheEntry *>::iterator p;
-		/*for(p = CacheTable.begin();p != CacheTable.end();p++){
+		map<MapKey,NodeCacheEntry *>::iterator p;
+		/*for(p = nodeCacheTable.begin();p != nodeCacheTable.end();p++){
 			printf("[%d] Key %llu  total number of requests %d hits %d\n",CkMyPe(),p->first.k,p->second->totalRequests,p->second->hits);
 		}*/
 		CkPrintf("[%d] Total number of requests %d storedNodes %d outStandingRequests %d iterationNo %d \n",CkMyPe(),totalNodesRequested,storedNodes,outStandingRequests.size(),iterationNo);
-		CacheTable.clear();
+		nodeCacheTable.clear();
 		particleCacheTable.clear();
 		outStandingRequests.clear();
 		totalNodesRequested=0;

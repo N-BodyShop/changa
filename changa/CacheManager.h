@@ -5,10 +5,10 @@
 #include <map>
 #include <set>
 #include "SFC.h"
-#include "GravityTreeNode.h"
+#include "GenericTreeNode.h"
 #include "charm++.h"
 
-/** CacheEntry represents the entry for a remote 
+/** NodeCacheEntry represents the entry for a remote 
 node that is requested by the chares 
 on a processor.
 It stores the index of the remote chare from 
@@ -18,14 +18,17 @@ chares that request it.***/
 
 
 using namespace std;
-using namespace Tree;
-using namespace SFC;
+//using namespace Tree;
+//using namespace SFC;
 
-typedef SFCTreeNode CacheNode;
+typedef GenericTreeNode CacheNode;
+typedef u_int64_t CacheKey;
 
-class ProtoCacheEntry{
+class FillNodeMsg;
+
+class CacheEntry{
 public:
-	Key requestNodeID; // nodeID
+	CacheKey requestID; // node or particle ID
 	int home; // index of the array element that contains this node
 	vector<int> requestorVec; // index of the array element that made the request
 	vector<BucketGravityRequest *> reqVec;  //request data structure that is different for each requestor
@@ -34,7 +37,7 @@ public:
 	bool replyRecvd;
 	int totalRequests;
 	int hits;
-	ProtoCacheEntry(){
+	CacheEntry(){
 		replyRecvd = false;
 		home = -1;
 		totalRequests=0;
@@ -44,28 +47,29 @@ public:
 
 };
 
-class CacheEntry : public ProtoCacheEntry{
+class NodeCacheEntry : public CacheEntry{
 public:
 	CacheNode *node;
 	
-	CacheEntry():ProtoCacheEntry(){
+	NodeCacheEntry():CacheEntry(){
 		node = NULL;
 	}
-	~CacheEntry(){
+	~NodeCacheEntry(){
 		delete node;
 		requestorVec.clear();
 		reqVec.clear();
 	}
+	/// 
 	void sendRequest(BucketGravityRequest *);
 };	
 
-class ParticleCacheEntry : public ProtoCacheEntry{
+class ParticleCacheEntry : public CacheEntry{
 public:
 	GravityParticle *part;
 	int num;
 	int begin;
 	int end;
-	ParticleCacheEntry():ProtoCacheEntry(){
+	ParticleCacheEntry():CacheEntry(){
 		part = NULL;
 		num=0;
 		begin=0;
@@ -81,13 +85,13 @@ public:
 
 class MapKey {
 public:
-	Key k;
+	CacheKey k;
 	int home;
 	MapKey(){
 		k=0;
 		home=0;
 	};
-	MapKey(Key _k,int _home){
+	MapKey(CacheKey _k,int _home){
 		k = _k;
 		home = _home;
 	}
@@ -99,37 +103,54 @@ private:
 	/* The Cache Table is fully associative 
 	A hashtable can be used as well.*/
 
-	map<MapKey,CacheEntry *> CacheTable;
+	map<MapKey,NodeCacheEntry *> nodeCacheTable;
 	int reqRecvd;
 	int repRecvd;
 	bool allReqSent;
 	/** counts the total number of nodes requested by all
 	the chares on that processor***/
 	int totalNodesRequested;
+	CacheNode *prototype; ///< @TODO: receive it through cacheSync
 	
 	int storedNodes;
 	unsigned int iterationNo;
 
 	map<MapKey,ParticleCacheEntry*> particleCacheTable;
 	int storedParticles;
-	bool proxyInitialized; //checks if the streaming proxy has been delegated or not
+	bool proxyInitialized; ///< checks if the streaming proxy has been delegated or not
 	set<MapKey> outStandingRequests;
 	
-	void addNode(Key key,int from,CacheNode &node);
-	void processRequests(Key key,int from);
-	CacheNode *sendNodeRequest(CacheEntry *e,BucketGravityRequest *);
+	void addNodes(int from,CacheNode *node);
+	//void addNode(CacheKey key,int from,CacheNode &node);
+	/// @brief Check all the TreePiece buckets which requested a node, and call
+	/// them back so that they can continue the treewalk.
+	void processRequests(CacheNode *node,int from);
+	/// @brief Fetches the Node from the correct TreePiece. If the TreePiece
+	/// is in the same processor fetch it directly, otherwise send a message
+	/// to the remote TreePiece::fillRequestNode
+	CacheNode *sendNodeRequest(NodeCacheEntry *e,BucketGravityRequest *);
 
 	public:
 	CacheManager();
 	~CacheManager(){};
 
-	CacheNode *requestNode(int ,int ,Key ,BucketGravityRequest *);
-	void recvNodes(Key ,int ,CacheNode &);
-	void recvNodes(int ,Key *,CacheNode *,int );
+	/** @brief Called by TreePiece to request for a particular node. It can
+	 * return the node if it is already present in the cache, or call
+	 * sendNodeRequest to get it. Returns null if the Node has to come from
+	 * remote.
+	*/
+	CacheNode *requestNode(int ,int ,CacheKey ,BucketGravityRequest *);
+	// Shortcut for the other recvNodes, this receives only one node
+	//void recvNodes(CacheKey ,int ,CacheNode &);
+	/** @brief Receive the nodes incoming from the remote
+	 * TreePiece::fillRequestNode. It imports the nodes into the cache and
+	 * process all pending requests.
+	 */
+	void recvNodes(FillNodeMsg *msg);
 	
-	GravityParticle *requestParticles(int ,Key ,int ,int ,int ,BucketGravityRequest *);
-	void recvParticles(Key ,GravityParticle *,int ,int);
-	void cacheSync(unsigned int );
+	GravityParticle *requestParticles(int ,CacheKey ,int ,int ,int ,BucketGravityRequest *);
+	void recvParticles(CacheKey ,GravityParticle *,int ,int);
+	void cacheSync(unsigned int, GenericTreeNode*);
 
 };
 

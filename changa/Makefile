@@ -1,6 +1,6 @@
 STRUCTURES_PATH = ../structures
-CXXFLAGS +=  -I$(STRUCTURES_PATH) -I../GenericTree -O3 -Wall #-I../CacheManager
-LDFLAGS += -language charm++ -module commlib -tracemode projections -module RefineLB -module RefineCommLB -module MetisLB -module GreedyLB -module GreedyCommLB -module OrbLB #-module EveryLB #-memory paranoid 
+CXXFLAGS +=  -I$(STRUCTURES_PATH) -I. -I../GenericTree -O3 -Wall #-I../CacheManager
+LDFLAGS += -language charm++ -module commlib -module RefineLB -module RefineCommLB -module MetisLB -module GreedyLB -module GreedyCommLB -module OrbLB #-tracemode projections #-module EveryLB #-memory paranoid 
 LDLIBS +=  $(STRUCTURES_PATH)/SFC.o
 
 CHARMC = ../../charm/bin/charmc $(OPTS)
@@ -19,7 +19,7 @@ CacheManager.o: CacheManager.C CacheManager.h CacheManager.decl.h\
 	../GenericTree/MultipoleMoments.h ParallelGravity.h
 
 TreePiece.o ParallelGravity.o: ParallelGravity.h TreeNode.h CacheManager.h\
-	../GenericTree/MultipoleMoments.h
+	../GenericTree/MultipoleMoments.h ../GenericTree/GenericTreeNode.h
 
 %.decl.h %.def.h : %.ci
 	$(CHARMC) $<

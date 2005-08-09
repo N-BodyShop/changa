@@ -1,6 +1,7 @@
 /** @file TreeNode.h
  This header defines the structures used to make up trees.
  @author Graeme Lufkin (gwl@u.washington.edu)
+ @date 01 Aug 2005 - Deleted the class SFCTreeNode in favor of GenericTreeNode, Filippo
  */
 
 #ifndef TREENODE_H
@@ -8,20 +9,21 @@
 
 #include <sstream>
 
-#include "pup.h"
+//#include "pup.h"
 
-#include "OrientedBox.h"
+//#include "OrientedBox.h"
 #include "SFC.h"
-#include "GravityTreeNode.h"
+//#include "GravityTreeNode.h"
 
+/*
 namespace Tree {
 
 using namespace SFC;
 
 class SFCTreeNode : public GravityTreeNode {
 protected:
-	/** The highest bit set in a 64-bit integer, used with shifts 
-	 to identify the level of a key. */
+	// The highest bit set in a 64-bit integer, used with shifts 
+	// to identify the level of a key.
 	const static Key lastBitFlag = (static_cast<Key>(1) << 63);
 
 	SFCTreeNode* populateLeftChild(SFCTreeNode* child) {
@@ -58,10 +60,9 @@ public:
 		return populateRightChild(new SFCTreeNode);
 	}
 	
-	/** The lookup key of this node.
-	 A lookup key for a node shifts the key right, leaving only a leading 1 
-	 and the \c level bits that uniquely identify this node.
-	 */
+	/// The lookup key of this node. A lookup key for a node shifts the key
+	/// right, leaving only a leading 1 and the \c level bits that uniquely
+	/// identify this node.
 	inline Key lookupKey() const {
 		return (key | lastBitFlag) >> (63 - level);
 	}
@@ -116,6 +117,7 @@ public:
 };
 
 } //close namespace Tree
+*/
 
 namespace TreeStuff {
 
@@ -123,9 +125,13 @@ using namespace SFC;
 
 inline std::string keyBits(const Key k, const int numBits) {
 	std::ostringstream oss;
-	oss << "N";
-	for(int i = 0; i < numBits; i++)
-		oss << (k & (static_cast<Key>(1) << (62 - i)) ? 1 : 0);
+	//oss << "N";
+	bool ready = false;
+	for(int i = 0; i < numBits; i++) {
+	  Key k2 = k & (static_cast<Key>(1) << (62 - i));
+	  if (ready) oss << (k2 ? 1 : 0);
+	  else if (k2 != 0) ready = true;
+	}
 	return oss.str();
 }
 

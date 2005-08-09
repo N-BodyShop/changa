@@ -22,6 +22,8 @@ bool _cache;
 int _cacheLineDepth;
 unsigned int _yieldPeriod;
 int numIterations=1;
+DomainsDec domainDecomposition;
+GenericTrees useTree;
 
 Main::Main(CkArgMsg* m) {
 	verbosity = 0;
@@ -113,6 +115,10 @@ Main::Main(CkArgMsg* m) {
 				break;
 		};
 	}
+
+	// hardcoding some parameters, later may be full options
+	domainDecomposition = SFC_dec;
+	useTree = Binary_Oct;
 
 	cerr << "yieldPeriod set to " << _yieldPeriod << endl;
 	if(_cacheLineDepth <= 0)
@@ -241,31 +247,32 @@ void Main::nextStage() {
 	if(verbosity)
 		cerr << "Outputting accelerations ..." << endl;
 	startTime = CkWallTimer();
-/*	if(printBinaryAcc)
+	if(printBinaryAcc)
 		pieces[0].outputAccelerations(OrientedBox<double>(), "acc2", CkCallbackResumeThread());
 	else
 		pieces[0].outputAccASCII(OrientedBox<double>(), "acc2", CkCallbackResumeThread());
-*/	
+
 	if(verbosity > 1)
 		cerr << "Main: Outputting took " << (CkWallTimer() - startTime) << " seconds." << endl;
+	/*
 	if(verbosity)
 		cerr << "Outputting statistics ..." << endl;
 	startTime = CkWallTimer();
 	Interval<unsigned int> dummy;
 	
-	//pieces[0].outputStatistics(dummy, dummy, dummy, dummy, totaldata->totalmass, CkCallbackResumeThread());
+	pieces[0].outputStatistics(dummy, dummy, dummy, dummy, totaldata->totalmass, CkCallbackResumeThread());
 
 	if(verbosity > 1)
 		cerr << "Main: Outputting took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	
-	/*if(verbosity)
+	if(verbosity)
 		cerr << "Outputting relative errors ..." << endl;
 	startTime = CkWallTimer();
 	pieces[0].outputRelativeErrors(Interval<double>(), CkCallbackResumeThread());
 	if(verbosity > 1)
 		cerr << "Main: Outputting took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	
-	cerr << "Done." << endl;*/
+	*/
+	cerr << "Done." << endl;
 	
 	cerr << endl << "******************" << endl << endl; 
 	CkExit();

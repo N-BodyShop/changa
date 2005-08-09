@@ -9,9 +9,15 @@ mainmodule ParallelGravity {
 	readonly bool _cache;
 	readonly int _cacheLineDepth;
 	readonly unsigned int _yieldPeriod;
+	readonly DomainsDec domainDecomposition;
+	readonly GenericTrees useTree;
 
 	message piecedata;
 	message dummyMsg;
+	message RequestNodeMsg;
+	message FillNodeMsg {
+	  char nodes[];
+	};
 
 	mainchare Main {
 		entry Main();
@@ -29,10 +35,10 @@ mainmodule ParallelGravity {
 		entry void buildTree(int bucketSize, const CkCallback& cb);
 		
 		entry void collectSplitters(CkReductionMsg* m);
-		entry void startTreeBuild(CkReductionMsg* m);
+		entry void startOctTreeBuild(CkReductionMsg* m);
 		
-		entry void acceptBoundaryNodeContribution(const SFC::Key lookupKey, const u_int64_t numParticles, const MultipoleMoments& moments);
-		entry void acceptBoundaryNode(const SFC::Key lookupKey, const u_int64_t numParticles, const MultipoleMoments& moments);
+		entry void acceptBoundaryNodeContribution(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
+		entry void acceptBoundaryNode(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
 		
 		entry void calculateGravityDirect(const CkCallback& cb);
 		entry void fillRequestDirect(GravityRequest req);
@@ -46,22 +52,23 @@ mainmodule ParallelGravity {
 		entry void fillRequestBucketTree(BucketGravityRequest req);	
 		entry void receiveGravityBucketTree(const BucketGravityRequest& req);
 
-		entry void fillRequestNode(int retIndex, Key lookupKey,
-					   BucketGravityRequest &req);
-		entry void receiveNode(SFCTreeNode node,
-					BucketGravityRequest &req);
-		entry [inline] void receiveNode_inline(SFCTreeNode node,
-					BucketGravityRequest &req);
-		entry void fillRequestParticle(int retIndex, int pi,
-						BucketGravityRequest &req);
-		entry void receiveParticle(GravityParticle part,
-					   BucketGravityRequest &req);
-		entry void fillRequestParticles(Key key,int retIndex, int begin,int end,
-				    BucketGravityRequest& req);
+		//entry void fillRequestNode(int retIndex, Tree::NodeKey lookupKey,
+		//			   BucketGravityRequest &req);
+		entry void fillRequestNode(RequestNodeMsg *msg);
+		//entry void receiveNode(GenericTreeNode node[1],
+		//		       unsigned int reqID);
+		//entry [inline] void receiveNode_inline(GenericTreeNode node[1],
+		//				       unsigned int reqID);
+		//entry void fillRequestParticle(int retIndex, int pi,
+		//				BucketGravityRequest &req);
+		//entry void receiveParticle(GravityParticle part,
+		//			   BucketGravityRequest &req);
+		entry void fillRequestParticles(SFC::Key key,int retIndex, int begin,int end,
+						unsigned int reqID);
 		entry void receiveParticles(GravityParticle part[num],int num,
-				BucketGravityRequest& req);
-		entry [inline] void receiveParticles_inline(GravityParticle part[num],int num,
-				BucketGravityRequest& req);
+					    unsigned int reqID);
+		//entry [inline] void receiveParticles_inline(GravityParticle part[num],int num,
+		//					    unsigned int reqID);
 		    
 		entry void startlb(CkCallback &cb);
 		entry void ResumeFromSync();
