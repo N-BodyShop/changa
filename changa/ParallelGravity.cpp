@@ -226,7 +226,7 @@ void Main::nextStage() {
 			cerr<< "Main: Load Balancing step took "<<(CkWallTimer() - startTime) << " seconds." << endl;
 		}
 		
-		/*******************ADDED***********/
+#if COSMO_STATS > 0
 		if(verbosity){
 			CkPrintf("Iteration # %d stats\n",i);
 			CkCallback cb(CkCallback::resumeThread);
@@ -241,7 +241,7 @@ void Main::nextStage() {
 			totaldata->reset();
 		}
 		//totaldata->reset();
-		/**********************************/
+#endif
 	}
 	
 	if(verbosity)
@@ -252,9 +252,10 @@ void Main::nextStage() {
 	else
 		pieces[0].outputAccASCII(OrientedBox<double>(), "acc2", CkCallbackResumeThread());
 
+#if COSMO_STATS > 0
 	if(verbosity > 1)
 		cerr << "Main: Outputting took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	/*
+
 	if(verbosity)
 		cerr << "Outputting statistics ..." << endl;
 	startTime = CkWallTimer();
@@ -264,7 +265,8 @@ void Main::nextStage() {
 
 	if(verbosity > 1)
 		cerr << "Main: Outputting took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	
+#endif
+	/*
 	if(verbosity)
 		cerr << "Outputting relative errors ..." << endl;
 	startTime = CkWallTimer();

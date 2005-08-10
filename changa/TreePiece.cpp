@@ -101,17 +101,17 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   if(mass == maxMass) { //all the same mass
     for(u_int64_t i = 0; i < myNumParticles; ++i){
       myParticles[i + 1].mass = mass;
-      /****AMIt****************************/
+#if COSMO_STATS > 1
       myParticles[i + 1].intcellmass = 0;
       myParticles[i + 1].intpartmass = 0;
       myParticles[i + 1].extcellmass = 0;
       myParticles[i + 1].extpartmass = 0;
-      /********************************/
+#endif
     }
-    /****AMIT**********************/	
+#if COSMO_STATS > 0
     piecemass = myNumParticles*mass;
     //cerr << "In a tree piece....mass of tree piece particles: " << piecemass << ", single particle; " << mass;
-    /*************************/
+#endif
   } else {
 
     unsigned int myPart = 0;
@@ -127,13 +127,15 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
 	  CkAbort("Badness");
 	}
 	myParticles[++myPart].mass = mass;
-	/****AMIT************************/
+#if COSMO_STATS > 1
 	myParticles[myPart].intcellmass = 0;
 	myParticles[myPart].intpartmass = 0;
 	myParticles[myPart].extcellmass = 0;
 	myParticles[myPart].extpartmass = 0;
+#endif
+#if COSMO_STATS > 0
 	piecemass += mass;
-	/****************************/
+#endif
       }
     }
     CkAssert(myPart == myNumParticles);
@@ -289,8 +291,8 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   else
     myParticles[myNumParticles + 1].key = splitters[2 * thisIndex + 2];
 	
-  leftBoundary = myParticles;
-  rightBoundary = myParticles + myNumParticles + 1;
+  //leftBoundary = myParticles;
+  //rightBoundary = myParticles + myNumParticles + 1;
 
   //cerr << "Piece " << (myParticles + 1)->key << " : " << (myParticles + myNumParticles)->key << " has leftBoundary: " << leftBoundary->key << " rightBoundary: " << rightBoundary->key << endl;
 
@@ -885,12 +887,14 @@ void TreePiece::calculateGravityTree(double t, const CkCallback& cb) {
   callback = cb;
   theta = t;
   mySerialNumber = 0;
+#if COSMO_STATS > 0
   myNumCellInteractions = 0;
   myNumParticleInteractions = 0;
   myNumMACChecks = 0;
   myNumProxyCalls = 0;
   myNumProxyCallsBack = 0;
-	
+#endif
+
   nextParticle = 1;
   startNextParticle();
 	
@@ -938,14 +942,20 @@ void TreePiece::fillRequestTree(GravityRequest req) {
 
 void TreePiece::walkTree(GenericTreeNode* node, GravityRequest& req) {
   req.numMACChecks++;
+#if COSMO_STATS > 0
   myNumMACChecks++;
+#endif
   if(!openCriterion(node, req)) {
     req.numCellInteractions++;
+#if COSMO_STATS > 0
     myNumCellInteractions++;
+#endif
     nodeForce(node, req);
   } else if(node->getType() == Bucket) {
     req.numParticleInteractions += node->lastParticle - node->firstParticle + 1;
+#if COSMO_STATS > 0
     myNumParticleInteractions += node->lastParticle - node->firstParticle + 1;
+#endif
     for(int i = node->firstParticle; i <= node->lastParticle; ++i) {
       partForce(&myParticles[i], req);
     }
@@ -954,7 +964,9 @@ void TreePiece::walkTree(GenericTreeNode* node, GravityRequest& req) {
     req.numEntryCalls++;
     req.startingNode = node->getKey();
     streamingProxy[node->remoteIndex].fillRequestTree(req);
+#if COSMO_STATS > 0
     myNumProxyCalls++;
+#endif
   } else {
     GenericTreeNode* childIterator;
     for(unsigned int i = 0; i < node->numChildren(); ++i) {
@@ -982,14 +994,18 @@ void TreePiece::receiveGravityTree(const GravityRequest& req) {
       myParticles[request.identifier].update(request);
     } else {
       streamingProxy[request.requestingPieceIndex].receiveGravityTree(request);
+#if COSMO_STATS > 0
       myNumProxyCallsBack++;
+#endif
     }
 		
     unfilledRequests.erase(requestIter);
     if(started && myNumParticlesPending == 0) {
       started = false;
       contribute(0, 0, CkReduction::concat, callback);
+#if COSMO_STATS > 0
       cout << "TreePiece " << thisIndex << ": Made " << myNumProxyCalls << " proxy calls forward, " << myNumProxyCallsBack << " to respond" << endl;
+#endif
       if(verbosity > 4)
 	cerr << "TreePiece " << thisIndex << ": My particles are done" << endl;
     }
@@ -1014,7 +1030,9 @@ void TreePiece::startNextBucket() {
     myParticles[i].treeAcceleration = 0;
   }
   streamingProxy[thisIndex].fillRequestBucketTree(req);
+#if COSMO_STATS > 0
   myNumProxyCalls++;
+#endif
 }
 #else
 void TreePiece::startNextBucket() {
@@ -1118,10 +1136,12 @@ void TreePiece::calculateGravityBucketTree(double t, const CkCallback& cb) {
   callback = cb;
   theta = t;
   mySerialNumber = 0;
+#if COSMO_STATS > 0
   myNumProxyCalls = 0;
   myNumProxyCallsBack = 0;
   myNumCellInteractions=myNumParticleInteractions=myNumMACChecks=0;
   cachecellcount=0;
+#endif
   iterationNo++;
   if(localCache == NULL){
     localCache = cacheManagerProxy.ckLocalBranch();
@@ -1135,8 +1155,10 @@ void TreePiece::calculateGravityBucketTree(double t, const CkCallback& cb) {
   currentBucket = 0;
   myNumParticlesPending = myNumParticles;
   started = true;
+#if COSMO_STATS > 0
   countIntersects=0;
   countHits=0;
+#endif
   //	startNextBucket();
   doAllBuckets();
 }
@@ -1209,12 +1231,18 @@ const GenericTreeNode *TreePiece::lookupNode(Tree::NodeKey key){
  * appropriate remote node.
  */
 void TreePiece::walkBucketTree(GravityTreeNode* node, BucketGravityRequest& req) {
+#if COSMO_STATS > 0
   myNumMACChecks++;
+#endif
   if(!openCriterionBucket(node, req)) {
+#if COSMO_STATS > 0
     myNumCellInteractions += req.numParticlesInBucket;
+#endif
     nodeBucketForce(node, req);
   } else if(node->getType() == Bucket) {
+#if COSMO_STATS > 0
     myNumParticleInteractions += req.numParticlesInBucket * (node->endParticle - node->beginParticle);
+#endif
     for(unsigned int i = node->beginParticle; i < node->endParticle; ++i) {
       partBucketForce(&myParticles[i], req);
     }
@@ -1222,7 +1250,9 @@ void TreePiece::walkBucketTree(GravityTreeNode* node, BucketGravityRequest& req)
     unfilledBucketRequests[mySerialNumber].numAdditionalRequests++;
     req.startingNode = dynamic_cast<SFCTreeNode *>(node)->lookupKey();
     streamingProxy[node->remoteIndex].fillRequestBucketTree(req);
+#if COSMO_STATS > 0
     myNumProxyCalls++;
+#endif
   } else {
     GenericTreeNode** childrenIterator = node->getChildren();
     for(unsigned int i = 0; i < node->numChildren(); ++i) {
@@ -1239,35 +1269,38 @@ void TreePiece::walkBucketTree(GravityTreeNode* node, BucketGravityRequest& req)
  * When remote data is needed we go to the second version.
  */
 void TreePiece::walkBucketTree(GenericTreeNode* node, BucketGravityRequest& req) {
+#if COSMO_STATS > 0
   myNumMACChecks++;
+#endif
   Vector3D<double> cm(node->moments.cm);
   Vector3D<double> r;
   Sphere<double> s(cm, opening_geometry_factor * node->moments.radius / theta);
   if(!openCriterionBucket(node, req)) {
+#if COSMO_STATS > 0
     countIntersects++;
     myNumCellInteractions += req.numParticlesInBucket;
-    /**********************************/
-    MultipoleMoments m = node->moments;
-		
+#endif
+#if COSMO_STATS > 1
+    MultipoleMoments m = node->moments;	
     GenericTreeNode* reqnode = bucketList[req.identifier];
-    //unsigned int numParticlesInBucket = reqnode->endParticle - reqnode->beginParticle;
-    /***************************/
     for(int i = reqnode->firstParticle; i <= reqnode->lastParticle; ++i)
       myParticles[i].intcellmass += m.totalMass;
-    /**********************************/	
+#endif
 #if COSMO_PRINT > 1
   CkPrintf("[%d] walk bucket %s -> node %s\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),keyBits(node->getKey(),63).c_str());
 #endif
     nodeBucketForce(node, req);
   } else if(node->getType() == Bucket) {
+#if COSMO_STATS > 0
     myNumParticleInteractions += req.numParticlesInBucket * (node->lastParticle - node->firstParticle + 1);
+#endif
     GenericTreeNode* reqnode = bucketList[req.identifier];
     for(int i = node->firstParticle; i <= node->lastParticle; ++i) {
-      /***************************/
+#if COSMO_STATS > 1
       for(int j = reqnode->firstParticle; j <= reqnode->lastParticle; ++j) {
 	myParticles[j].intpartmass += myParticles[i].mass;
       }
-      /****************************/
+#endif
   GenericTreeNode *reqnode = bucketList[req.identifier];
 #if COSMO_PRINT > 1
   CkPrintf("[%d] walk bucket %s -> part %016llx\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),myParticles[i].key);
@@ -1278,7 +1311,9 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, BucketGravityRequest& req)
     // Use cachedWalkBucketTree() as callback
     GenericTreeNode *pnode = requestNode(node->remoteIndex, node->getKey(), req);
     if(pnode) {
+#if COSMO_STATS > 0
       countHits++;
+#endif
       cachedWalkBucketTree(pnode, req);
     }
   } else if (node->getType() != Empty) {
@@ -1296,7 +1331,9 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, BucketGravityRequest& req)
  * Cached version of Tree walk:
  */
 void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, BucketGravityRequest& req) {
+#if COSMO_STATS > 0
   myNumMACChecks++;
+#endif
 #if COSMO_PRINT > 1
   CkPrintf("[%d] cachedWalkBucketTree called with node %s of type %s\n",thisIndex,keyBits(node->getKey(),63).c_str(),getColor(node).c_str());
 #endif
@@ -1304,12 +1341,16 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, BucketGravityRequest
   CkAssert(node->getType() != Invalid);
 	
   if(!openCriterionBucket(node, req)) {
+#if COSMO_STATS > 0
     myNumCellInteractions += req.numParticlesInBucket;
     cachecellcount+=req.numParticlesInBucket;
+#endif
+#if COSMO_STATS > 1
     MultipoleMoments m = node->moments;
     GenericTreeNode* reqnode = bucketList[req.identifier];
     for(int i = reqnode->firstParticle; i <= reqnode->lastParticle; ++i)
       myParticles[i].extcellmass += m.totalMass;
+#endif
 #if COSMO_PRINT > 1
   CkPrintf("[%d] cachedwalk bucket %s -> node %s\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),keyBits(node->getKey(),63).c_str());
 #endif
@@ -1320,16 +1361,19 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, BucketGravityRequest
      */
     GravityParticle *part = requestParticles(myParticles[node->firstParticle].key,node->remoteIndex,node->firstParticle,node->lastParticle,req);
     if(part != NULL){
+#if COSMO_STATS > 0
       myNumParticleInteractions += req.numParticlesInBucket * (node->lastParticle - node->firstParticle + 1);
+#endif
       GenericTreeNode* reqnode = bucketList[req.identifier];
 
       for(int i = node->firstParticle; i <= node->lastParticle; ++i) {
+#if COSMO_STATS > 1
 	for(int j = reqnode->firstParticle; j <= reqnode->lastParticle; ++j) {
 	  myParticles[j].extpartmass += myParticles[i].mass;
 	}
-  GenericTreeNode *reqnode = bucketList[req.identifier];
+#endif
 #if COSMO_PRINT > 1
-  CkPrintf("[%d] cachedwalk bucket %s -> part %016llx\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),part[i-node->firstParticle].key);
+	CkPrintf("[%d] cachedwalk bucket %s -> part %016llx\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),part[i-node->firstParticle].key);
 #endif
 	partBucketForce(&part[i-node->firstParticle], req);
       }
@@ -1377,7 +1421,9 @@ GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key,
     GenericTreeNode *res=localCache->requestNode(thisIndex,remoteIndex,key,&req);
     if(!res){
       req.numAdditionalRequests++;
+#if COSMO_STATS > 0
       myNumProxyCalls++;
+#endif
     }
     return res;
   }
@@ -1585,17 +1631,20 @@ void TreePiece::receiveParticles(GravityParticle *part,int num,
 				 unsigned int reqID)
 {
   bucketReqs[reqID].numAdditionalRequests -= num;
+#if COSMO_STATS > 0
   myNumParticleInteractions += bucketReqs[reqID].numParticlesInBucket * num;
+#endif
+
   GenericTreeNode* reqnode = bucketList[reqID];
 
   for(int i=0;i<num;i++){
+#if COSMO_STATS > 1
     for(int j = reqnode->firstParticle; j <= reqnode->lastParticle; ++j) {
       myParticles[j].extpartmass += part[i].mass;
     }
-    
-  GenericTreeNode *reqnode = bucketList[reqID];
+#endif
 #if COSMO_PRINT > 1
-  CkPrintf("[%d] recvPart bucket %s -> part %016llx\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),part->key);
+    CkPrintf("[%d] recvPart bucket %s -> part %016llx\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),part->key);
 #endif
     partBucketForce(&part[i], bucketReqs[reqID]);
   }		
@@ -1633,14 +1682,18 @@ void TreePiece::receiveGravityBucketTree(const BucketGravityRequest& req) {
       }
     } else {
       streamingProxy[request.requestingPieceIndex].receiveGravityBucketTree(request);
+#if COSMO_STATS > 0
       myNumProxyCallsBack++;
+#endif
     }
 		
     unfilledBucketRequests.erase(requestIter);
     if(started && myNumParticlesPending == 0) {
       started = false;
       contribute(0, 0, CkReduction::concat, callback);
+#if COSMO_STATS > 0
       cout << "TreePiece " << thisIndex << ": Made " << myNumProxyCalls << " proxy calls forward, " << myNumProxyCallsBack << " to respond in receiveGravityBucketTree" << endl;
+#endif
       if(verbosity > 4)
 	cerr << "TreePiece " << thisIndex << ": My particles are done" << endl;
     }
@@ -1777,6 +1830,8 @@ void TreePiece::outputAccASCII(OrientedBox<double> accelerationBox, const string
 /********************************************************************/
 
 void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, double totalmass, const CkCallback& cb) {
+
+#if COSMO_STATS > 0
   if(verbosity > 1) {
     cerr << "TreePiece " << thisIndex << ": Statistics\nMy number of MAC checks: " << myNumMACChecks << endl;
     cerr << "My number of particle-cell interactions: "
@@ -1788,8 +1843,11 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
 	 << myNumParticleInteractions/(double) myNumParticles
 	 << endl;
   }
-	
-/*	double calmass,prevmass;
+#endif	
+
+#if COSMO_STATS > 1
+  /*
+	double calmass,prevmass;
 
 	for(int i=1;i<=myNumParticles;i++){
 		calmass = (myParticles[i].intcellmass + myParticles[i].intpartmass + myParticles[i].extcellmass + myParticles[i].extpartmass);
@@ -1805,7 +1863,7 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
 
 	CkPrintf("TreePiece:%d everything seems ok..\n",thisIndex);
   */
-	
+
   if(thisIndex == 0) {
     macInterval.max = 0;
     macInterval.min = macInterval.max - 1;
@@ -1952,13 +2010,14 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
     }
     if(verbosity > 2)
       cerr << "TreePiece " << thisIndex << ": Wrote the particle interaction bounds" << endl;
-    cb.send();
   }		
   xdr_destroy(&xdrs);
   fclose(outfile);
+#endif
 	
   if(thisIndex != (int) numTreePieces - 1)
     pieces[thisIndex + 1].outputStatistics(macInterval, cellInterval, particleInterval, callsInterval, totalmass, cb);
+  if(thisIndex == (int) numTreePieces - 1) cb.send();
 }
 
 void TreePiece::outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb) {
@@ -2025,8 +2084,8 @@ void TreePiece::pup(PUP::er& p) {
   p | myNumParticles;
   if(p.isUnpacking()) {
     myParticles = new GravityParticle[myNumParticles + 2];
-    leftBoundary = myParticles;
-    rightBoundary = myParticles + myNumParticles + 1;
+    //leftBoundary = myParticles;
+    //rightBoundary = myParticles + myNumParticles + 1;
   }
   for(int i=0;i<myNumParticles+2;i++){
     p |myParticles[i];
@@ -2065,12 +2124,12 @@ void TreePiece::pup(PUP::er& p) {
   p | myNumParticlesPending;
   p | numBuckets;
   p | currentBucket;
-	/***************/
-	p | myNumParticleInteractions;
-	p | myNumCellInteractions;
-	p | myNumMACChecks;
-	p | piecemass;
-	/**************/
+#if COSMO_STATS > 0
+  p | myNumParticleInteractions;
+  p | myNumCellInteractions;
+  p | myNumMACChecks;
+  p | piecemass;
+#endif
   if(p.isUnpacking()){
     localCache=cacheManagerProxy.ckLocalBranch();
   }
@@ -2300,9 +2359,8 @@ void TreePiece::report(const CkCallback& cb) {
   contribute(0, 0, CkReduction::concat, cb);
 }
 
-/*********************ADDED***********************/
 void TreePiece::getPieceValues(piecedata *totaldata){
-
+#if COSMO_STATS > 0
   totaldata->modifypiecedata(myNumCellInteractions,myNumParticleInteractions,myNumMACChecks,piecemass);
   if(thisIndex != (int) numTreePieces - 1)
   	pieces[thisIndex + 1].getPieceValues(totaldata);
@@ -2310,5 +2368,5 @@ void TreePiece::getPieceValues(piecedata *totaldata){
     CkCallback& cb= totaldata->getcallback();
     cb.send(totaldata);
   }
+#endif
 }
-/*************************************************/

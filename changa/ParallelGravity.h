@@ -133,15 +133,27 @@ class TreePiece : public CBase_TreePiece {
 	/// @brief Used to inform the mainchare that the requested operation has
 	/// globally finished
 	CkCallback callback;
+	/// Total number of particles contained in this chare
 	unsigned int myNumParticles;
+	/// Array with the particles in this chare
 	GravityParticle* myParticles;
-	GravityParticle* leftBoundary;
-	GravityParticle* rightBoundary;
-	/***************************/
+	//GravityParticle* leftBoundary;
+	//GravityParticle* rightBoundary;
+
+	/// holds the total mass of the current TreePiece
 	double piecemass;
+
+	/// @if ALL
+
+	/// used to determine which coordinate we are outputting, while printing
+	/// accelerations in ASCII format
 	int cnt;
+	/// used to determine if the x, y, z coordinates should be printed
+	/// together while outputting accelerations in ASCII format
 	int packed;
-	/*************************/
+
+	/// @endif
+
 	unsigned int numSplitters;
 	SFC::Key* splitters;
 	CProxy_TreePiece pieces;
@@ -151,10 +163,11 @@ class TreePiece : public CBase_TreePiece {
 	FieldHeader fh;
 	bool started;
 	unsigned iterationNo;
-	//TreeStuff::TreeNode* root;
+	/// The root of the global tree, always local to any chare
 	GenericTreeNode* root;
+	/// Count for how many boundaries are still not received while building
+	/// the tree
 	unsigned int boundaryNodesPending;
-	//SFCTreeNode tempNode;
 	/// Opening angle
 	double theta;
 
@@ -170,11 +183,22 @@ class TreePiece : public CBase_TreePiece {
 
 	/// Number of particles which are still traversing the tree
 	u_int64_t myNumParticlesPending;
+
+	/// @if STATISTICS
+
+#if COSMO_STATS > 0
 	u_int64_t myNumCellInteractions;
 	u_int64_t myNumParticleInteractions;
 	u_int64_t myNumMACChecks;
 	u_int64_t myNumProxyCalls;
 	u_int64_t myNumProxyCallsBack;
+	/// Same as myNumCellInteractions, only restricted to cached nodes
+	int cachecellcount;
+	int countIntersects;
+	int countHits;
+#endif
+
+	/// @endif
 
 	/// @if ALL
 
@@ -187,8 +211,6 @@ class TreePiece : public CBase_TreePiece {
 	unsigned int numBuckets;
 	/// Used to start the computation for all buckets, one after the other
 	unsigned int currentBucket;
-	/// Same as myNumCellInteractions, only restricted to cached nodes
-	int cachecellcount;
 	/// List of all the node-buckets in this TreePiece
 	std::vector<GenericTreeNode *> bucketList;
 	/// @brief Used as a placeholder while traversing the tree and computing
@@ -210,8 +232,6 @@ class TreePiece : public CBase_TreePiece {
 
 	/// Pointer to the instance of the local cache
 	CacheManager *localCache;
-	int countIntersects;
-	int countHits;
 
 	/*
 	SFCTreeNode* lookupLeftChild(SFCTreeNode* node);
@@ -229,8 +249,17 @@ class TreePiece : public CBase_TreePiece {
 	/// Recursive call to build the subtree with root "node", level
 	/// specifies the level at which "node" resides inside the tree
 	void buildOctTree(GenericTreeNode* node, int level);
+	/// Compute all the moments for the nodes that are NonLocal, so that
+	/// during the tree traversal, they contain useful information to decide
+	/// whether to open or not.
 	void calculateRemoteMoments(GenericTreeNode* node);
+	/// Checks that every particle is indeed included in its bucket node
+	/// (may not be true due to truncation of the last two bits while
+	/// generating the 63 bit keys.
 	void checkTree(GenericTreeNode* node);
+	/// Given a node, check who is the first owner and the last owner of it.
+	/// It assumes that there are splitters, and that there is an ordering
+	/// of them across chares. It works for SFC ordering.
 	bool nodeOwnership(const GenericTreeNode *const node, int &firstOwner, int &lastOwner);
 	//bool nodeOwnership(SFCTreeNode* node, unsigned int* designatedOwner = 0, unsigned int* numOwners = 0, unsigned int* firstOwner = 0, unsigned int* lastOwner = 0);
 
@@ -300,7 +329,12 @@ public:
 	/// Real tree build, independent of other TreePieces; calls the recursive buildTree
 	void startOctTreeBuild(CkReductionMsg* m);
 	
+	/// Receive a contribution for the multipole computation of a boundary
+	/// node. This contribution is received only by one of the co-owners,
+	/// which will later forward the result through acceptBoundaryNode.
 	void acceptBoundaryNodeContribution(const Tree::NodeKey key, const int numParticles, const MultipoleMoments& moments);
+	/// Receive the multipole for a particular boundary node, after all
+	/// contributions by sharers have been added.
 	void acceptBoundaryNode(const Tree::NodeKey key, const int numParticles, const MultipoleMoments& moments);
 
 	/// @if ALL
@@ -310,6 +344,8 @@ public:
 
 	/// @endif
 
+	/// Decide whether the node should be opened for the force computation
+	/// of the given request.
 	bool openCriterionBucket(GenericTreeNode *node,
 				 BucketGravityRequest& req);
 
@@ -397,9 +433,9 @@ public:
 	void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, double totalmass, const CkCallback& cb);
 	void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
 
-/*******************ADDED*******************/
+	/// Collect the total statistics from the various chares
 	void getPieceValues(piecedata *totaldata);
-/*******************************************/	
+
         /** @brief Entry method used to split the processing of all the buckets
          * in small pieces. It call startNextBucket a _yieldPeriod number of
          * times, and then it returns to the scheduler after enqueuing a message

@@ -1,5 +1,10 @@
+# Flags that can be passed during compilation
+#FLAG_PRINT = -DCOSMO_PRINT=2     #enable really verbose prints
+FLAG_STATISTICS = -DCOSMO_STATS=1  # enable statistics collection
+DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS)
+
 STRUCTURES_PATH = ../structures
-CXXFLAGS +=  -I$(STRUCTURES_PATH) -I. -I../GenericTree -O3 -Wall #-I../CacheManager
+CXXFLAGS +=  -I$(STRUCTURES_PATH) -I. -I../GenericTree -O3 -Wall $(DEFINE_FLAGS)
 LDFLAGS += -language charm++ -module commlib -module RefineLB -module RefineCommLB -module MetisLB -module GreedyLB -module GreedyCommLB -module OrbLB #-tracemode projections #-module EveryLB #-memory paranoid 
 LDLIBS +=  $(STRUCTURES_PATH)/SFC.o
 
@@ -8,7 +13,7 @@ CXX = $(CHARMC)
 CC = $(CXX)
 
 TARGET = ParallelGravity
-VERSION = 0.1
+VERSION = 0.2
 all: $(TARGET)
 
 $(TARGET).o: $(TARGET).decl.h CacheManager.decl.h
