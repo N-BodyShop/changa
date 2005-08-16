@@ -304,11 +304,11 @@ public:
 		iterationNo=0;
 		usesAtSync=CmiTrue;
 		countIntersects=0;
-		/****************/
+#if COSMO_STATS > 0
 		piecemass = 0.0;
 		packed=0;
 		cnt=0;
-		/****************/
+#endif
 	}
 	
 	TreePiece(CkMigrateMessage* m) { 
