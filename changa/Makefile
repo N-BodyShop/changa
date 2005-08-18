@@ -5,7 +5,7 @@ DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS)
 
 STRUCTURES_PATH = ../structures
 CXXFLAGS +=  -I$(STRUCTURES_PATH) -I. -I../GenericTree -O3 -Wall $(DEFINE_FLAGS)
-LDFLAGS += -language charm++ -module commlib -module RefineLB -module RefineCommLB -module MetisLB -module GreedyLB -module GreedyCommLB -module OrbLB #-tracemode projections #-module EveryLB #-memory paranoid 
+LDFLAGS += -pg -language charm++ -module commlib -module RefineLB -module RefineCommLB -module MetisLB -module GreedyLB -module GreedyCommLB -module OrbLB #-tracemode projections #-module EveryLB #-memory paranoid 
 LDLIBS +=  $(STRUCTURES_PATH)/SFC.o
 
 CHARMC = ../../charm/bin/charmc $(OPTS)

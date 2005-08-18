@@ -6,8 +6,6 @@
 //#include <popt.h>
 #include <unistd.h>
 
-#include "StreamingStrategy.h"
-
 #include "ParallelGravity.h"
 #include "CacheManager.h"
 
@@ -24,6 +22,7 @@ unsigned int _yieldPeriod;
 int numIterations=1;
 DomainsDec domainDecomposition;
 GenericTrees useTree;
+CProxy_TreePiece streamingProxy;
 
 Main::Main(CkArgMsg* m) {
 	verbosity = 0;
@@ -143,10 +142,6 @@ Main::Main(CkArgMsg* m) {
 	if(verbosity)
 		cerr << "Verbosity level " << verbosity << endl;
 	
-	ComlibInstanceHandle cinst = CkGetComlibInstance();
-	StreamingStrategy* strategy = new StreamingStrategy(10,50);
-	cinst.setStrategy(strategy);
-
 	cacheManagerProxy = CProxy_CacheManager::ckNew();
 
 	CProxy_BlockMap myMap=CProxy_BlockMap::ckNew(); 
@@ -155,6 +150,11 @@ Main::Main(CkArgMsg* m) {
 
 	pieces = CProxy_TreePiece::ckNew(numTreePieces,opts);
 	treeProxy = pieces;
+	
+	streamingProxy = pieces;
+	//StreamingStrategy* strategy = new StreamingStrategy(10,50);
+	//ComlibAssociateProxy(strategy, streamingProxy);
+
 	if(verbosity)
 		cerr << "Created " << numTreePieces << " pieces of tree" << endl;
 	

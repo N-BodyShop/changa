@@ -326,7 +326,22 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
 
   // recursively build the tree
   buildOctTree(root, 0);
-  
+
+  // check all the pending requests in for RemoteMoments
+  for (MomentRequestType::iterator iter = momentRequests.begin(); iter != momentRequests.end(); iter++) {
+    GenericTreeNode *node = keyToNode(iter->first);
+    CkAssert(node != NULL);
+    if (node->getType() == Empty || node->moments.totalMass > 0) {
+      CkVec<int> *l = iter->second;
+      for (int i=0; i<l->length(); ++i) {
+	streamingProxy[(*l)[i]].receiveRemoteMoments(iter->first, node->getType(), node->particleCount, node->moments);
+	//CkPrintf("[%d] sending moments of %s to %d upon treebuild finished\n",thisIndex,keyBits(node->getKey(),63).c_str(),(*l)[i]);
+      }
+      delete l;
+      momentRequests.erase(node->getKey());
+    }
+  }
+
   /*
     char fout[100];
     sprintf(fout,"tree.%d.%d",thisIndex,iterationNo);
@@ -335,8 +350,8 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
     ofs.close();
   */
 
-  if(boundaryNodesPending == 0)
-    contribute(0, 0, CkReduction::concat, callback);
+  //if(boundaryNodesPending == 0)
+  //  contribute(0, 0, CkReduction::concat, callback);
   
   if(verbosity > 3)
     cerr << "TreePiece " << thisIndex << ": Number of buckets: " << numBuckets << endl;
@@ -474,18 +489,29 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
       bool isShared = nodeOwnership(child, first, last);
       CkAssert(!isShared);
       child->remoteIndex = first + (thisIndex & (last-first));
+      // if we have a remote child, the node is a Boundary. Thus count that we
+      // have to receive one more message for the NonLocal node
+      node->remoteIndex --;
+      // request the remote chare to fill this node with the Moments
+      streamingProxy[child->remoteIndex].requestRemoteMoments(child->getKey(), thisIndex);
+      //CkPrintf("[%d] asking for moments of %s to %d\n",thisIndex,keyBits(child->getKey(),63).c_str(),child->remoteIndex);
     } else if (child->getType() == Internal && child->lastParticle - child->firstParticle < maxBucketSize) {
       CkAssert(child->firstParticle != 0 && child->lastParticle != myNumParticles+1);
       child->makeBucket(myParticles);
       bucketList.push_back(child);
       numBuckets++;
-      node->moments += child->moments;
+      if (node->getType() != Boundary) node->moments += child->moments;
     } else if (child->getType() != Empty) {
       buildOctTree(child, level+1);
-      node->moments += child->moments;
+      // if we have a Boundary child, we will have to compute it's multipole
+      // before we can compute the multipole of the current node (and we'll do
+      // it in receiveRemoteMoments)
+      if (child->getType() == Boundary) node->remoteIndex --;
+      if (node->getType() != Boundary) node->moments += child->moments;
     }
   }
 
+  /* Old version with Boundary node collection. New version collect NonLocal
   if (node->getType() == Boundary) {
     int first, last;
     boundaryNodesPending++;
@@ -496,7 +522,8 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
     //CkPrintf("%016llx [%d] boundary node to %d for %d-%d\n",node->getKey(),thisIndex,designed,first,last);
     if (designed != thisIndex)
       pieces[designed].acceptBoundaryNodeContribution(node->getKey(), node->particleCount, node->moments);
-  } else if (node->getType() == Internal) {
+      } else */
+  if (node->getType() == Internal) {
     calculateRadiusFarthestCorner(node->moments, node->boundingBox);
   }
 }
@@ -670,12 +697,12 @@ void TreePiece::acceptBoundaryNode(const Tree::NodeKey key, const int numParticl
   node->moments = moments;	
   boundaryNodesPending--;
   if(boundaryNodesPending == 0) {
+    CkAbort("Deprecated in favor of requestRemoteMoments");
     calculateRemoteMoments(root);
     contribute(0, 0, CkReduction::concat, callback);
   }
 }
 
-/// @TODO Non GenericTreeNode function!!!
 void TreePiece::calculateRemoteMoments(GenericTreeNode* node) {
   BinaryTreeNode *bnode = (BinaryTreeNode*)node;
   if(node->getType() == NonLocal) {
@@ -690,12 +717,76 @@ void TreePiece::calculateRemoteMoments(GenericTreeNode* node) {
       node->moments = parent->moments - sibling->moments;
       calculateRadiusFarthestCorner(node->moments, node->boundingBox);
     } else {
-      node->setEmpty();
+      node->makeEmpty();
     }
   } else if(node->getType() == Boundary) {
     calculateRemoteMoments(bnode->children[0]);
     calculateRemoteMoments(bnode->children[1]);
   }
+}
+
+void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
+  GenericTreeNode *node = keyToNode(key);
+  if (node != NULL && (node->getType() == Empty || node->moments.totalMass > 0)) {
+    streamingProxy[sender].receiveRemoteMoments(key, node->getType(), node->particleCount, node->moments);
+    //CkPrintf("[%d] sending moments of %s to %d directly\n",thisIndex,keyBits(node->getKey(),63).c_str(),sender);
+  } else {
+    CkVec<int> *l = momentRequests[key];
+    if (l == NULL) {
+      l = new CkVec<int>();
+      momentRequests[key] = l;
+      //CkPrintf("[%d] Inserting new CkVec\n",thisIndex);
+    }
+    l->push_back(sender);
+    //CkPrintf("[%d] queued request from %d for %s\n",thisIndex,sender,keyBits(key,63).c_str());
+  }
+}
+
+void TreePiece::receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int numParticles, const MultipoleMoments& moments) {
+  GenericTreeNode *node = keyToNode(key);
+  CkAssert(node != NULL);
+  //CkPrintf("[%d] received moments for %s\n",thisIndex,keyBits(key,63).c_str());
+  // assign the incoming moments to the node
+  if (type == Empty) node->makeEmpty();
+  else {
+    node->particleCount = numParticles;
+    node->moments = moments;
+  }
+  // look if we can compute the moments of some ancestors, and eventually send
+  // them to a requester
+  GenericTreeNode *parent = node->parent;
+  while (parent != NULL && ++parent->remoteIndex == 0) {
+    // compute the multipole for the parent
+    //CkPrintf("[%d] computed multipole of %s\n",thisIndex,keyBits(parent->getKey(),63).c_str());
+    parent->particleCount = 0;
+    GenericTreeNode *child;
+    for (unsigned int i=0; i<parent->numChildren(); ++i) {
+      child = parent->getChildren(i);
+      parent->particleCount += child->particleCount;
+      parent->moments += child->moments;
+    }
+    calculateRadiusFarthestCorner(parent->moments, parent->boundingBox);
+    // check if someone has requested this node
+    MomentRequestType::iterator iter;
+    if ((iter = momentRequests.find(parent->getKey())) != momentRequests.end()) {
+      CkVec<int> *l = iter->second;
+      for (int i=0; i<l->length(); ++i) {
+	streamingProxy[(*l)[i]].receiveRemoteMoments(parent->getKey(), parent->getType(), parent->particleCount, parent->moments);
+	//CkPrintf("[%d] sending moments of %s to %d\n",thisIndex,keyBits(parent->getKey(),63).c_str(),(*l)[i]);
+      }
+      delete l;
+      momentRequests.erase(parent->getKey());
+    }
+    // go to the next ancestor
+    node = parent;
+    parent = node->parent;
+  }
+  if (parent == NULL) {
+    // if we are here then we are at the root, and thus we have finished to get
+    // all moments
+    //CkPrintf("[%d] contributing after building the tree\n",thisIndex);
+    contribute(0, 0, CkReduction::concat, callback);
+  }// else CkPrintf("[%d] still missing one child of %s\n",thisIndex,keyBits(parent->getKey(),63).c_str());
 }
 
 void TreePiece::calculateGravityDirect(const CkCallback& cb) {
@@ -1099,13 +1190,13 @@ void TreePiece::finishBucket(int iBucket) {
 #endif
 
 void TreePiece::doAllBuckets(){
-  //if(thisIndex == 2){
+#if COSMO_STATS > 0
     char fout[100];
     sprintf(fout,"tree.%d.%d",thisIndex,iterationNo);
     ofstream ofs(fout);
     printTree(root,ofs);
     ofs.close();
-  //}
+#endif
 
   /*for(;currentBucket <numBuckets;currentBucket++){
     startNextBucket();
@@ -2095,7 +2186,7 @@ void TreePiece::pup(PUP::er& p) {
     splitters = new Key[numSplitters];
   p(splitters, numSplitters);
   p | pieces;
-  p | streamingProxy;
+  //p | streamingProxy;
   p | basefilename;
   p | boundingBox;
   p | fh;

@@ -10,7 +10,7 @@
 #include <algorithm>
 
 #include "pup_stl.h"
-#include "ComlibManager.h"
+#include "comlib.h"
 
 #include "Vector3D.h"
 #include "tree_xdr.h"
@@ -49,6 +49,7 @@ extern int _cacheLineDepth;
 extern unsigned int _yieldPeriod;
 extern DomainsDec domainDecomposition;
 extern GenericTrees useTree;
+extern CProxy_TreePiece streamingProxy;
 
 class dummyMsg : public CMessage_dummyMsg{
 public:
@@ -157,7 +158,6 @@ class TreePiece : public CBase_TreePiece {
 	unsigned int numSplitters;
 	SFC::Key* splitters;
 	CProxy_TreePiece pieces;
-	CProxy_TreePiece streamingProxy;
 	std::string basefilename;
 	OrientedBox<float> boundingBox;
 	FieldHeader fh;
@@ -165,9 +165,15 @@ class TreePiece : public CBase_TreePiece {
 	unsigned iterationNo;
 	/// The root of the global tree, always local to any chare
 	GenericTreeNode* root;
+
 	/// Count for how many boundaries are still not received while building
 	/// the tree
 	unsigned int boundaryNodesPending;
+	typedef std::map<NodeKey, CkVec<int>* >   MomentRequestType;
+	/// Keep track of the requests for remote moments not yet satisfied.
+	/// Used only during the tree construction.
+	MomentRequestType momentRequests;
+
 	/// Opening angle
 	double theta;
 
@@ -295,7 +301,7 @@ class TreePiece : public CBase_TreePiece {
 	
 public:
 	
-	TreePiece(unsigned int numPieces) : numTreePieces(numPieces), pieces(thisArrayID), streamingProxy(thisArrayID), started(false), root(0) {
+	TreePiece(unsigned int numPieces) : numTreePieces(numPieces), pieces(thisArrayID), started(false), root(0) {
 	//CkPrintf("[%d] TreePiece created\n",thisIndex);
 	    // ComlibDelegateProxy(&streamingProxy);
 		if(_cache){	
@@ -336,6 +342,11 @@ public:
 	/// Receive the multipole for a particular boundary node, after all
 	/// contributions by sharers have been added.
 	void acceptBoundaryNode(const Tree::NodeKey key, const int numParticles, const MultipoleMoments& moments);
+	/// Request the TreePiece to send back later the moments for this node.
+	/// Since it is [inline], it should do few work. The reply sent back
+	/// cannot be [inline]
+	void requestRemoteMoments(const Tree::NodeKey key, int sender);
+	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int numParticles, const MultipoleMoments& moments);
 
 	/// @if ALL
 
