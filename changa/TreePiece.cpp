@@ -31,18 +31,18 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   XDR xdrs;
   FILE* infile = fopen((basefilename + ".mass").c_str(), "rb");
   if(!infile) {
-    cerr << "TreePiece " << thisIndex << ": Couldn't open masses file, aborting" << endl;
+    ckerr << "TreePiece " << thisIndex << ": Couldn't open masses file, aborting" << endl;
     CkAbort("Badness");
   }
   xdrstdio_create(&xdrs, infile, XDR_DECODE);
 	
   if(!xdr_template(&xdrs, &fh)) {
-    cerr << "TreePiece " << thisIndex << ": Couldn't read header from masses file, aborting" << endl;
+    ckerr << "TreePiece " << thisIndex << ": Couldn't read header from masses file, aborting" << endl;
     CkAbort("Badness");
   }
 	
   if(fh.magic != FieldHeader::MagicNumber || fh.dimensions != 1 || fh.code != float32) {
-    cerr << "TreePiece " << thisIndex << ": Masses file is corrupt or of incorrect type, aborting" << endl;
+    ckerr << "TreePiece " << thisIndex << ": Masses file is corrupt or of incorrect type, aborting" << endl;
     CkAbort("Badness");
   }
 
@@ -84,17 +84,16 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   // allocate an array for myParticles
   myParticles = new GravityParticle[myNumParticles + 2];
 
-  if(verbosity >= 1)
-    if(thisIndex == 0)
-      cerr << "Total num of particles: " << fh.numParticles << endl;
+  if(thisIndex == 0)
+    ckerr << " (" << fh.numParticles << ")";
 
   if(verbosity > 3)
-    cerr << "TreePiece " << thisIndex << ": Of " << fh.numParticles << " particles, taking " << startParticles[0] << " through " << (startParticles[0] + numParticlesChunk[0] - 1) << endl;
+    ckerr << "TreePiece " << thisIndex << ": Of " << fh.numParticles << " particles, taking " << startParticles[0] << " through " << (startParticles[0] + numParticlesChunk[0] - 1) << endl;
 
   float mass;
   float maxMass;
   if(!xdr_template(&xdrs, &mass) || !xdr_template(&xdrs, &maxMass)) {
-    cerr << "TreePiece " << thisIndex << ": Problem reading beginning of the mass file, aborting" << endl;
+    ckerr << "TreePiece " << thisIndex << ": Problem reading beginning of the mass file, aborting" << endl;
     CkAbort("Badness");
   }
   
@@ -110,20 +109,20 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
     }
 #if COSMO_STATS > 0
     piecemass = myNumParticles*mass;
-    //cerr << "In a tree piece....mass of tree piece particles: " << piecemass << ", single particle; " << mass;
+    //ckerr << "In a tree piece....mass of tree piece particles: " << piecemass << ", single particle; " << mass;
 #endif
   } else {
 
     unsigned int myPart = 0;
     for (int chunkNum = 0; numParticlesChunk[chunkNum] > 0; ++chunkNum) {
       if(!seekField(fh, &xdrs, startParticles[chunkNum])) {
-	cerr << "TreePiece " << thisIndex << ": Could not seek to my part of the mass file, aborting" << endl;
+	ckerr << "TreePiece " << thisIndex << ": Could not seek to my part of the mass file, aborting" << endl;
 	CkAbort("Badness");
       }
 
       for(unsigned int i = 0; i < numParticlesChunk[chunkNum]; ++i) {
 	if(!xdr_template(&xdrs, &mass)) {
-	  cerr << "TreePiece " << thisIndex << ": Problem reading my part of the mass file, aborting" << endl;
+	  ckerr << "TreePiece " << thisIndex << ": Problem reading my part of the mass file, aborting" << endl;
 	  CkAbort("Badness");
 	}
 	myParticles[++myPart].mass = mass;
@@ -149,31 +148,31 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
 
   infile = fopen((basefilename + ".pos").c_str(), "rb");
   if(!infile) {
-    cerr << "TreePiece " << thisIndex << ": Couldn't open positions file, aborting" << endl;
+    ckerr << "TreePiece " << thisIndex << ": Couldn't open positions file, aborting" << endl;
     CkAbort("Badness");
   }
   xdrstdio_create(&xdrs, infile, XDR_DECODE);
   
   FieldHeader posHeader;
   if(!xdr_template(&xdrs, &posHeader)) {
-    cerr << "TreePiece " << thisIndex << ": Couldn't read header from positions file, aborting" << endl;
+    ckerr << "TreePiece " << thisIndex << ": Couldn't read header from positions file, aborting" << endl;
     CkAbort("Badness");
   }
   
   if(posHeader.magic != FieldHeader::MagicNumber || posHeader.dimensions != 3 || posHeader.code != float32) {
-    cerr << "TreePiece " << thisIndex << ": Positions file is corrupt or of incorrect type, aborting" << endl;
+    ckerr << "TreePiece " << thisIndex << ": Positions file is corrupt or of incorrect type, aborting" << endl;
     CkAbort("Badness");
   }
   
   if(posHeader.time != fh.time || posHeader.numParticles != fh.numParticles) {
-    cerr << "TreePiece " << thisIndex << ": Positions file doesn't match masses file, aborting" << endl;
+    ckerr << "TreePiece " << thisIndex << ": Positions file doesn't match masses file, aborting" << endl;
     CkAbort("Badness");
   }
   
   Vector3D<float> pos;
   Vector3D<float> maxPos;
   if(!xdr_template(&xdrs, &pos) || !xdr_template(&xdrs, &maxPos)) {
-    cerr << "TreePiece " << thisIndex << ": Problem reading beginning of the positions file, aborting" << endl;
+    ckerr << "TreePiece " << thisIndex << ": Problem reading beginning of the positions file, aborting" << endl;
     CkAbort("Badness");
   }
   
@@ -192,7 +191,7 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
     unsigned int myPart = 0;
     for (int chunkNum = 0; numParticlesChunk[chunkNum] > 0; ++chunkNum) {
       if(!seekField(posHeader, &xdrs, startParticles[chunkNum])) {
-	cerr << "TreePiece " << thisIndex << ": Could not seek to my part of the positions file, aborting" << endl;
+	ckerr << "TreePiece " << thisIndex << ": Could not seek to my part of the positions file, aborting" << endl;
 	CkAbort("Badness");
       }
 
@@ -201,7 +200,7 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
       //read all my particles' positions and make keys
       for(int i = 0; i < numParticlesChunk[chunkNum]; ++i) {
 	if(!xdr_template(&xdrs, &pos)) {
-	  cerr << "TreePiece " << thisIndex << ": Problem reading my part of the positions file, aborting" << endl;
+	  ckerr << "TreePiece " << thisIndex << ": Problem reading my part of the positions file, aborting" << endl;
 	  CkAbort("Badness");
 	}
 	myParticles[++myPart].position = pos;
@@ -221,7 +220,7 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   fclose(infile);
 	
   if(verbosity > 3)
-    cerr << "TreePiece " << thisIndex << ": Read in masses and positions" << endl;
+    ckerr << "TreePiece " << thisIndex << ": Read in masses and positions" << endl;
 	
   contribute(0, 0, CkReduction::concat, cb);
 }
@@ -275,7 +274,7 @@ void TreePiece::collectSplitters(CkReductionMsg* m) {
   contribute(0, 0, CkReduction::concat, CkCallback(CkIndex_TreePiece::startOctTreeBuild(0), thisArrayID));
   delete m;
   if(verbosity > 3)
-    cerr << "TreePiece " << thisIndex << ": Collected splitters" << endl;
+    ckerr << "TreePiece " << thisIndex << ": Collected splitters" << endl;
 }
 
 void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
@@ -294,7 +293,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   //leftBoundary = myParticles;
   //rightBoundary = myParticles + myNumParticles + 1;
 
-  //cerr << "Piece " << (myParticles + 1)->key << " : " << (myParticles + myNumParticles)->key << " has leftBoundary: " << leftBoundary->key << " rightBoundary: " << rightBoundary->key << endl;
+  //ckerr << "Piece " << (myParticles + 1)->key << " : " << (myParticles + myNumParticles)->key << " has leftBoundary: " << leftBoundary->key << " rightBoundary: " << rightBoundary->key << endl;
 
   // create the root of the global tree
   switch (useTree) {
@@ -322,7 +321,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   boundaryNodesPending = 0;
 	
   if(verbosity > 3)
-    cerr << "TreePiece " << thisIndex << ": Starting tree build" << endl;
+    ckerr << "TreePiece " << thisIndex << ": Starting tree build" << endl;
 
   // recursively build the tree
   buildOctTree(root, 0);
@@ -334,7 +333,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
     if (node->getType() == Empty || node->moments.totalMass > 0) {
       CkVec<int> *l = iter->second;
       for (int i=0; i<l->length(); ++i) {
-	streamingProxy[(*l)[i]].receiveRemoteMoments(iter->first, node->getType(), node->particleCount, node->moments);
+	streamingProxy[(*l)[i]].receiveRemoteMoments(iter->first, node->getType(), node->firstParticle, node->particleCount, node->moments);
 	//CkPrintf("[%d] sending moments of %s to %d upon treebuild finished\n",thisIndex,keyBits(node->getKey(),63).c_str(),(*l)[i]);
       }
       delete l;
@@ -354,9 +353,9 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   //  contribute(0, 0, CkReduction::concat, callback);
   
   if(verbosity > 3)
-    cerr << "TreePiece " << thisIndex << ": Number of buckets: " << numBuckets << endl;
+    ckerr << "TreePiece " << thisIndex << ": Number of buckets: " << numBuckets << endl;
   if(verbosity > 3)
-    cerr << "TreePiece " << thisIndex << ": Finished tree build, resolving boundary nodes" << endl;
+    ckerr << "TreePiece " << thisIndex << ": Finished tree build, resolving boundary nodes" << endl;
 }
 
 /*
@@ -368,7 +367,7 @@ inline SFCTreeNode* TreePiece::lookupLeftChild(SFCTreeNode* node) {
   tempNode.key = node->key;
   tempNode.level = node->level + 1;
   if(!nodeOwnership(&tempNode, &child->remoteIndex, &child->numOwners)){
-    cerr << "This is surprising, but may get taken care of." << endl;
+    ckerr << "This is surprising, but may get taken care of." << endl;
     node->leftChild=NULL;
     nodeLookup.erase(child->lookupKey());
     delete child;
@@ -384,7 +383,7 @@ inline SFCTreeNode* TreePiece::lookupRightChild(SFCTreeNode* node) {
   tempNode.key = node->rightChildKey();
   tempNode.level = node->level + 1;
   if(!nodeOwnership(&tempNode, &child->remoteIndex, &child->numOwners)){
-    cerr << "This is surprising, but may get taken care of." << endl;
+    ckerr << "This is surprising, but may get taken care of." << endl;
     node->rightChild=NULL;
     nodeLookup.erase(child->lookupKey());
     delete child;
@@ -438,7 +437,7 @@ inline bool TreePiece::nodeOwnership(SFCTreeNode* node, unsigned int* designated
 	*designatedOwner = owner;
       return true;
     } else { //it falls between TreePieces
-      cerr << "Wow, I didn't think this could happen.  Live and learn." << endl;
+      ckerr << "Wow, I didn't think this could happen.  Live and learn." << endl;
       return false;
     }
   } else {
@@ -467,10 +466,10 @@ inline bool TreePiece::nodeOwnership(SFCTreeNode* node, unsigned int* designated
 void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
 
   if (level == 63) {
-    cerr << thisIndex << ": TreePiece: This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
-    cerr << "Left particle: " << (node->firstParticle) << " Right particle: " << (node->lastParticle) << endl;
-    cerr << "Left key : " << keyBits((myParticles[node->firstParticle]).key, 63) << endl;
-    cerr << "Right key: " << keyBits((myParticles[node->lastParticle]).key, 63) << endl;
+    ckerr << thisIndex << ": TreePiece: This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
+    ckerr << "Left particle: " << (node->firstParticle) << " Right particle: " << (node->lastParticle) << endl;
+    ckerr << "Left key : " << keyBits((myParticles[node->firstParticle]).key, 63).c_str() << endl;
+    ckerr << "Right key: " << keyBits((myParticles[node->lastParticle]).key, 63).c_str() << endl;
     return;
   }
 
@@ -497,11 +496,16 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
       //CkPrintf("[%d] asking for moments of %s to %d\n",thisIndex,keyBits(child->getKey(),63).c_str(),child->remoteIndex);
     } else if (child->getType() == Internal && child->lastParticle - child->firstParticle < maxBucketSize) {
       CkAssert(child->firstParticle != 0 && child->lastParticle != myNumParticles+1);
+      child->remoteIndex = thisIndex;
       child->makeBucket(myParticles);
       bucketList.push_back(child);
       numBuckets++;
       if (node->getType() != Boundary) node->moments += child->moments;
-    } else if (child->getType() != Empty) {
+    } else if (child->getType() == Empty) {
+      child->remoteIndex = thisIndex;
+    } else {
+      if (child->getType() == Internal) child->remoteIndex = thisIndex;
+      // else the index is already 0
       buildOctTree(child, level+1);
       // if we have a Boundary child, we will have to compute it's multipole
       // before we can compute the multipole of the current node (and we'll do
@@ -558,10 +562,10 @@ void TreePiece::buildTree(GenericTreeNode* node, GravityParticle* leftParticle, 
       return;
     }
   } else if(node->level == 63) {
-    cerr << thisIndex << ": TreePiece: This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
-    cerr << "Left particle: " << (leftParticle - myParticles) << " Right particle: " << (rightParticle - myParticles) << endl;
-    cerr << "Left key : " << keyBits(leftParticle->key, 63) << endl;
-    cerr << "Right key: " << keyBits(rightParticle->key, 63) << endl;
+    ckerr << thisIndex << ": TreePiece: This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
+    ckerr << "Left particle: " << (leftParticle - myParticles) << " Right particle: " << (rightParticle - myParticles) << endl;
+    ckerr << "Left key : " << keyBits(leftParticle->key, 63) << endl;
+    ckerr << "Right key: " << keyBits(rightParticle->key, 63) << endl;
     return;
   }
 	
@@ -606,10 +610,10 @@ void TreePiece::buildTree(GenericTreeNode* node, GravityParticle* leftParticle, 
     nodeLookup[child->lookupKey()] = child;
     buildTree(child, leftParticle, rightParticle);
   } else if(leftBit > rightBit) {
-    cerr << "Bits not right: " << leftBit << " vs " << rightBit << endl;
-    cerr << "Left particle: " << (leftParticle - myParticles) << " Right particle: " << (rightParticle - myParticles) << endl;
-    cerr << "Left key : " << keyBits(leftParticle->key, 63) << endl;
-    cerr << "Right key: " << keyBits(rightParticle->key, 63) << endl;
+    ckerr << "Bits not right: " << leftBit << " vs " << rightBit << endl;
+    ckerr << "Left particle: " << (leftParticle - myParticles) << " Right particle: " << (rightParticle - myParticles) << endl;
+    ckerr << "Left key : " << keyBits(leftParticle->key, 63) << endl;
+    ckerr << "Right key: " << keyBits(rightParticle->key, 63) << endl;
     return;
   } else { //both zeros, make a left child
     child = node->createLeftChild();
@@ -653,13 +657,13 @@ void TreePiece::acceptBoundaryNodeContribution(const Tree::NodeKey key, const in
   GenericTreeNode *node = keyToNode(key);
 
   if(node == NULL) {
-    //	cerr << "Key: " << keyBits(lookupKey, 63) << endl;
+    //	ckerr << "Key: " << keyBits(lookupKey, 63) << endl;
     pieces[thisIndex].acceptBoundaryNodeContribution(key,numParticles,moments); 
-    //	cerr << "Zeroth particle: " << myParticles << endl;
-    //	cerr << "leftBoundary: " << leftBoundary << endl;
-    /*cerr << "My Left bound : " << keyBits(myParticles[0].key, 63) << endl;
-      cerr << "My Left bound : " << keyBits(leftBoundary->key, 63) << endl;
-      cerr << "My Right bound: " << keyBits(rightBoundary->key, 63) << endl;*/
+    //	ckerr << "Zeroth particle: " << myParticles << endl;
+    //	ckerr << "leftBoundary: " << leftBoundary << endl;
+    /*ckerr << "My Left bound : " << keyBits(myParticles[0].key, 63) << endl;
+      ckerr << "My Left bound : " << keyBits(leftBoundary->key, 63) << endl;
+      ckerr << "My Right bound: " << keyBits(rightBoundary->key, 63) << endl;*/
     return;
   }
 
@@ -669,7 +673,7 @@ void TreePiece::acceptBoundaryNodeContribution(const Tree::NodeKey key, const in
   node->particleCount += numParticles;
   node->moments += moments;
   //decrement number of contributions and, if done, send final information to all co-owners
-  if(--node->numOwners == 0) {
+  if(--node->remoteIndex == 0) {
     calculateRadiusFarthestCorner(node->moments, node->boundingBox);
     int firstOwner, lastOwner;
     //recalculate number of owners, get co-owners
@@ -686,12 +690,12 @@ void TreePiece::acceptBoundaryNode(const Tree::NodeKey key, const int numParticl
   GenericTreeNode *node = keyToNode(key);
 
   if(node == NULL) {
-    cerr << "Well crap, how the hell did this happen, especially now? " << key << endl;
+    ckerr << "Well crap, how the hell did this happen, especially now? " << key << endl;
     return;
   }
 	
   if(node->getType() != Boundary)
-    cerr << "How does this work? " << getColor(node) << endl;
+    ckerr << "How does this work? " << getColor(node).c_str() << endl;
   //merge final information
   node->particleCount = numParticles;
   node->moments = moments;	
@@ -728,7 +732,7 @@ void TreePiece::calculateRemoteMoments(GenericTreeNode* node) {
 void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
   GenericTreeNode *node = keyToNode(key);
   if (node != NULL && (node->getType() == Empty || node->moments.totalMass > 0)) {
-    streamingProxy[sender].receiveRemoteMoments(key, node->getType(), node->particleCount, node->moments);
+    streamingProxy[sender].receiveRemoteMoments(key, node->getType(), node->firstParticle, node->particleCount, node->moments);
     //CkPrintf("[%d] sending moments of %s to %d directly\n",thisIndex,keyBits(node->getKey(),63).c_str(),sender);
   } else {
     CkVec<int> *l = momentRequests[key];
@@ -742,13 +746,18 @@ void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
   }
 }
 
-void TreePiece::receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int numParticles, const MultipoleMoments& moments) {
+void TreePiece::receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments) {
   GenericTreeNode *node = keyToNode(key);
   CkAssert(node != NULL);
   //CkPrintf("[%d] received moments for %s\n",thisIndex,keyBits(key,63).c_str());
   // assign the incoming moments to the node
   if (type == Empty) node->makeEmpty();
   else {
+    if (type == Bucket) {
+      node->setType(NonLocalBucket);
+      node->firstParticle = firstParticle;
+      node->lastParticle = firstParticle + numParticles - 1;
+    }
     node->particleCount = numParticles;
     node->moments = moments;
   }
@@ -759,6 +768,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType typ
     // compute the multipole for the parent
     //CkPrintf("[%d] computed multipole of %s\n",thisIndex,keyBits(parent->getKey(),63).c_str());
     parent->particleCount = 0;
+    parent->remoteIndex = thisIndex; // reset the reference index to ourself
     GenericTreeNode *child;
     for (unsigned int i=0; i<parent->numChildren(); ++i) {
       child = parent->getChildren(i);
@@ -771,7 +781,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType typ
     if ((iter = momentRequests.find(parent->getKey())) != momentRequests.end()) {
       CkVec<int> *l = iter->second;
       for (int i=0; i<l->length(); ++i) {
-	streamingProxy[(*l)[i]].receiveRemoteMoments(parent->getKey(), parent->getType(), parent->particleCount, parent->moments);
+	streamingProxy[(*l)[i]].receiveRemoteMoments(parent->getKey(), parent->getType(), parent->firstParticle, parent->particleCount, parent->moments);
 	//CkPrintf("[%d] sending moments of %s to %d\n",thisIndex,keyBits(parent->getKey(),63).c_str(),(*l)[i]);
       }
       delete l;
@@ -999,7 +1009,7 @@ void TreePiece::fillRequestTree(GravityRequest req) {
   //lookup starting node using startingNode key
   GenericTreeNode *node = keyToNode(req.startingNode);
   if(node == NULL) {
-    cerr << "Well crap, how the hell did this happen here?" << endl;
+    ckerr << "Well crap, how the hell did this happen here?" << endl;
     return;
   }
 	
@@ -1050,7 +1060,7 @@ void TreePiece::walkTree(GenericTreeNode* node, GravityRequest& req) {
     for(int i = node->firstParticle; i <= node->lastParticle; ++i) {
       partForce(&myParticles[i], req);
     }
-  } else if(node->getType() == NonLocal) {
+  } else if(node->getType() == NonLocal || node->getType() == NonLocalBucket) {
     unfilledRequests[mySerialNumber].numAdditionalRequests++;
     req.numEntryCalls++;
     req.startingNode = node->getKey();
@@ -1072,8 +1082,8 @@ void TreePiece::receiveGravityTree(const GravityRequest& req) {
   //lookup request
   UnfilledRequestsType::iterator requestIter = unfilledRequests.find(req.identifier);
   if(requestIter == unfilledRequests.end()) {
-    cerr << "Well crap, how the hell did this happen here and now?" << endl;
-    cerr << "TreePiece " << thisIndex << ": Got request from " << req.requestingPieceIndex << " with id " << req.identifier << endl;
+    ckerr << "Well crap, how the hell did this happen here and now?" << endl;
+    ckerr << "TreePiece " << thisIndex << ": Got request from " << req.requestingPieceIndex << " with id " << req.identifier << endl;
     return;
   }
   GravityRequest& request = requestIter->second;
@@ -1098,7 +1108,7 @@ void TreePiece::receiveGravityTree(const GravityRequest& req) {
       cout << "TreePiece " << thisIndex << ": Made " << myNumProxyCalls << " proxy calls forward, " << myNumProxyCallsBack << " to respond" << endl;
 #endif
       if(verbosity > 4)
-	cerr << "TreePiece " << thisIndex << ": My particles are done" << endl;
+	ckerr << "TreePiece " << thisIndex << ": My particles are done" << endl;
     }
   }
 }
@@ -1181,7 +1191,7 @@ void TreePiece::finishBucket(int iBucket) {
       if(verbosity)
 	CkPrintf("[%d] TreePiece %d finished with bucket %d \n",CkMyPe(),thisIndex,iBucket);
       if(verbosity > 4)
-	cerr << "TreePiece " << thisIndex << ": My particles are done"
+	ckerr << "TreePiece " << thisIndex << ": My particles are done"
 	     << endl;
     }
   }
@@ -1190,7 +1200,7 @@ void TreePiece::finishBucket(int iBucket) {
 #endif
 
 void TreePiece::doAllBuckets(){
-#if COSMO_STATS > 0
+#if COSMO_DEBUG > 0
     char fout[100];
     sprintf(fout,"tree.%d.%d",thisIndex,iterationNo);
     ofstream ofs(fout);
@@ -1257,7 +1267,7 @@ void TreePiece::calculateGravityBucketTree(double t, const CkCallback& cb) {
 void TreePiece::fillRequestBucketTree(BucketGravityRequest req) {
   GenericTreeNode *node = keyToNode(req.startingNode);
   if(node == NULL) {
-    cerr << "Well crap, how the hell did this happen here?" << endl;
+    ckerr << "Well crap, how the hell did this happen here?" << endl;
     return;
   }
 	
@@ -1315,6 +1325,10 @@ const GenericTreeNode *TreePiece::lookupNode(Tree::NodeKey key){
   */
 };
 
+const GravityParticle *TreePiece::lookupParticles(int begin) {
+  return &myParticles[begin];
+}
+
 #ifdef SEND_VERSION
 /*
  * "Send" version of Treewalk.
@@ -1337,7 +1351,7 @@ void TreePiece::walkBucketTree(GravityTreeNode* node, BucketGravityRequest& req)
     for(unsigned int i = node->beginParticle; i < node->endParticle; ++i) {
       partBucketForce(&myParticles[i], req);
     }
-  } else if(node->getType() == NonLocal) {
+  } else if(node->getType() == NonLocal || node->getType() == NonLocalBucket) {
     unfilledBucketRequests[mySerialNumber].numAdditionalRequests++;
     req.startingNode = dynamic_cast<SFCTreeNode *>(node)->lookupKey();
     streamingProxy[node->remoteIndex].fillRequestBucketTree(req);
@@ -1398,7 +1412,7 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, BucketGravityRequest& req)
 #endif
       partBucketForce(&myParticles[i], req);
     }
-  } else if(node->getType() == NonLocal) {
+  } else if(node->getType() == NonLocal || node->getType() == NonLocalBucket) {
     // Use cachedWalkBucketTree() as callback
     GenericTreeNode *pnode = requestNode(node->remoteIndex, node->getKey(), req);
     if(pnode) {
@@ -1446,11 +1460,11 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, BucketGravityRequest
   CkPrintf("[%d] cachedwalk bucket %s -> node %s\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),keyBits(node->getKey(),63).c_str());
 #endif
     nodeBucketForce(node, req);
-  } else if(node->getType() == Bucket) {
+  } else if(node->getType() == CachedBucket || node->getType() == Bucket || node->getType() == NonLocalBucket) {
     /*
      * Sending the request for all the particles at one go, instead of one by one
      */
-    GravityParticle *part = requestParticles(myParticles[node->firstParticle].key,node->remoteIndex,node->firstParticle,node->lastParticle,req);
+    GravityParticle *part = requestParticles(node->getKey(),node->remoteIndex,node->firstParticle,node->lastParticle,req);
     if(part != NULL){
 #if COSMO_STATS > 0
       myNumParticleInteractions += req.numParticlesInBucket * (node->lastParticle - node->firstParticle + 1);
@@ -1469,6 +1483,7 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, BucketGravityRequest
 	partBucketForce(&part[i-node->firstParticle], req);
       }
     }	
+    /*
   } else if(node->getType() == NonLocal) {
     // Use cachedWalkBucketTree() as callback
     GenericTreeNode *pnode = requestNode(node->remoteIndex, node->getKey(), req);
@@ -1478,18 +1493,28 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, BucketGravityRequest
 #endif
       cachedWalkBucketTree(pnode, req);
     }
-  } else if (node->getType() != Empty) {
-    // here type can be only Boundary or Internal (for the other node)
-    // Since this is in the cache, getting at the children
-    // is non-trivial.
+    */
+  } else if (node->getType() != CachedEmpty && node->getType() != Empty) {
+    // Here the type is Cached, Boundary, Internal, NonLocal, which means the
+    // node in the global tree has children (it is not a leaf), so we iterate
+    // over them. If we get a NULL node, then we missed the cache and we request
+    // it
+
+    // Warning, since the cache returns nodes with pointers to other chare
+    // elements trees, we could be actually traversing the tree of another chare
+    // in this processor.
 
     // Use cachedWalkBucketTree() as callback
     GenericTreeNode *child;
     for (unsigned int i=0; i<node->numChildren(); ++i) {
-      child = requestNode(node->remoteIndex, node->getChildKey(i), req);
+      child = node->getChildren(i); //requestNode(node->remoteIndex, node->getChildKey(i), req);
       if (child) {
 	cachedWalkBucketTree(child, req);
       } else { //missed the cache
+	child = requestNode(node->remoteIndex, node->getChildKey(i), req);
+	if (child) {
+	  cachedWalkBucketTree(child, req);
+	}
       }
     }
   }
@@ -1665,7 +1690,7 @@ GravityParticle* TreePiece::requestParticle(int remoteIndex, int iPart,
 }
 */
 
-GravityParticle *TreePiece::requestParticles(SFC::Key &key,int remoteIndex,int begin,int end,BucketGravityRequest& req){
+GravityParticle *TreePiece::requestParticles(const Tree::NodeKey &key,int remoteIndex,int begin,int end,BucketGravityRequest& req){
   if (_cache) {
     if(localCache == NULL){
       localCache = cacheManagerProxy.ckLocalBranch();
@@ -1721,6 +1746,7 @@ void TreePiece::receiveParticle(GravityParticle part,
 void TreePiece::receiveParticles(GravityParticle *part,int num,
 				 unsigned int reqID)
 {
+  CkAssert(num > 0);
   bucketReqs[reqID].numAdditionalRequests -= num;
 #if COSMO_STATS > 0
   myNumParticleInteractions += bucketReqs[reqID].numParticlesInBucket * num;
@@ -1754,13 +1780,13 @@ void TreePiece::receiveGravityBucketTree(const BucketGravityRequest& req) {
   //lookup request
   UnfilledBucketRequestsType::iterator requestIter = unfilledBucketRequests.find(req.identifier);
   if(requestIter == unfilledBucketRequests.end()) {
-    cerr << "Well crap, how the hell did this happen here and now?" << endl;
-    cerr << "TreePiece " << thisIndex << ": Got request from " << req.requestingPieceIndex << " with id " << req.identifier << endl;
+    ckerr << "Well crap, how the hell did this happen here and now?" << endl;
+    ckerr << "TreePiece " << thisIndex << ": Got request from " << req.requestingPieceIndex << " with id " << req.identifier << endl;
     return;
   }
   BucketGravityRequest& request = requestIter->second;
   if(request.numParticlesInBucket != req.numParticlesInBucket)
-    cerr << "How could this be?" << endl;
+    ckerr << "How could this be?" << endl;
   request.merge(req);
   if(--request.numAdditionalRequests == 0) {
     if((int) request.requestingPieceIndex == thisIndex) {
@@ -1786,7 +1812,7 @@ void TreePiece::receiveGravityBucketTree(const BucketGravityRequest& req) {
       cout << "TreePiece " << thisIndex << ": Made " << myNumProxyCalls << " proxy calls forward, " << myNumProxyCallsBack << " to respond in receiveGravityBucketTree" << endl;
 #endif
       if(verbosity > 4)
-	cerr << "TreePiece " << thisIndex << ": My particles are done" << endl;
+	ckerr << "TreePiece " << thisIndex << ": My particles are done" << endl;
     }
   }
 }
@@ -1794,14 +1820,14 @@ void TreePiece::receiveGravityBucketTree(const BucketGravityRequest& req) {
 void TreePiece::outputAccelerations(OrientedBox<double> accelerationBox, const string& suffix, const CkCallback& cb) {
   if(thisIndex == 0) {
     if(verbosity > 2)
-      cerr << "TreePiece " << thisIndex << ": Writing header for accelerations file" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Writing header for accelerations file" << endl;
     FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "wb");
     XDR xdrs;
     xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
     fh.code = float64;
     fh.dimensions = 3;
     if(!xdr_template(&xdrs, &fh) || !xdr_template(&xdrs, &accelerationBox.lesser_corner) || !xdr_template(&xdrs, &accelerationBox.greater_corner)) {
-      cerr << "TreePiece " << thisIndex << ": Could not write header to accelerations file, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Could not write header to accelerations file, aborting" << endl;
       CkAbort("Badness");
     }
     xdr_destroy(&xdrs);
@@ -1809,7 +1835,7 @@ void TreePiece::outputAccelerations(OrientedBox<double> accelerationBox, const s
   }
 	
   if(verbosity > 3)
-    cerr << "TreePiece " << thisIndex << ": Writing my accelerations to disk" << endl;
+    ckerr << "TreePiece " << thisIndex << ": Writing my accelerations to disk" << endl;
 	
   FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "r+b");
   fseek(outfile, 0, SEEK_END);
@@ -1819,18 +1845,18 @@ void TreePiece::outputAccelerations(OrientedBox<double> accelerationBox, const s
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
     accelerationBox.grow(myParticles[i].acceleration);
     if(!xdr_template(&xdrs, &(myParticles[i].acceleration))) {
-      cerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
       CkAbort("Badness");
     }
   }
 	
   if(thisIndex == (int) numTreePieces - 1) {
     if(!xdr_setpos(&xdrs, FieldHeader::sizeBytes) || !xdr_template(&xdrs, &accelerationBox.lesser_corner) || !xdr_template(&xdrs, &accelerationBox.greater_corner)) {
-      cerr << "TreePiece " << thisIndex << ": Error going back to write the acceleration bounds, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Error going back to write the acceleration bounds, aborting" << endl;
       CkAbort("Badness");
     }
     if(verbosity > 2)
-      cerr << "TreePiece " << thisIndex << ": Wrote the acceleration bounds" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Wrote the acceleration bounds" << endl;
     cb.send();
   }
 	
@@ -1846,7 +1872,7 @@ void TreePiece::outputAccelerations(OrientedBox<double> accelerationBox, const s
 void TreePiece::outputAccASCII(OrientedBox<double> accelerationBox, const string& suffix, const CkCallback& cb) {
   if((thisIndex==0 && packed) || (thisIndex==0 && !packed && cnt==0)) {
     if(verbosity > 2)
-      cerr << "TreePiece " << thisIndex << ": Writing header for accelerations file" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Writing header for accelerations file" << endl;
     FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "wb");
 		fprintf(outfile,"%d\n",fh.numParticles);
     fclose(outfile);
@@ -1854,14 +1880,14 @@ void TreePiece::outputAccASCII(OrientedBox<double> accelerationBox, const string
 	
 	/*if(thisIndex==0) {
     if(verbosity > 2)
-      cerr << "TreePiece " << thisIndex << ": Writing header for accelerations file" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Writing header for accelerations file" << endl;
     FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "wb");
 		fprintf(outfile,"%d\n",fh.numParticles);
     fclose(outfile);
   }*/
 
   if(verbosity > 3)
-    cerr << "TreePiece " << thisIndex << ": Writing my accelerations to disk" << endl;
+    ckerr << "TreePiece " << thisIndex << ": Writing my accelerations to disk" << endl;
 	
   FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "r+b");
   fseek(outfile, 0, SEEK_END);
@@ -1881,21 +1907,21 @@ void TreePiece::outputAccASCII(OrientedBox<double> accelerationBox, const string
 		switch(packed){
 		case 1:
     if(fprintf(outfile,"%.14g\n",acc.x) < 0) {
-      cerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
       CkAbort("Badness");
     }
   	if(fprintf(outfile,"%.14g\n",acc.y) < 0) {
-      cerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
       CkAbort("Badness");
     }
 		if(fprintf(outfile,"%.14g\n",acc.z) < 0) {
-      cerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
       CkAbort("Badness");
     }
 		break;
 		case 0:
 		if(fprintf(outfile,"%.14g\n",val) < 0) {
-      cerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
       CkAbort("Badness");
     }
 		break;
@@ -1924,12 +1950,15 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
 
 #if COSMO_STATS > 0
   if(verbosity > 1) {
-    cerr << "TreePiece " << thisIndex << ": Statistics\nMy number of MAC checks: " << myNumMACChecks << endl;
-    cerr << "My number of particle-cell interactions: "
+    ckerr << "TreePiece ";
+    ckerr << thisIndex;
+    ckerr << ": Statistics\nMy number of MAC checks: ";
+    ckerr << myNumMACChecks << endl;
+    ckerr << "My number of particle-cell interactions: "
 	 << myNumCellInteractions << " Per particle: "
 	 << myNumCellInteractions/(double) myNumParticles
 	 << "\nCache cell interactions count: " << cachecellcount << endl;
-    cerr << "My number of particle-particle interactions: "
+    ckerr << "My number of particle-particle interactions: "
 	 << myNumParticleInteractions << " Per Particle: "
 	 << myNumParticleInteractions/(double) myNumParticles
 	 << endl;
@@ -1963,7 +1992,7 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
     callsInterval = macInterval;
 		
     if(verbosity > 2)
-      cerr << "TreePiece " << thisIndex << ": Writing headers for statistics files" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Writing headers for statistics files" << endl;
     fh.dimensions = 1;
     fh.code = TypeHandling::uint32;
     FILE* outfile = fopen((basefilename + ".MACs").c_str(), "wb");
@@ -1972,7 +2001,7 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
 		
     unsigned int dummy;
     if(!xdr_template(&xdrs, &fh) || !xdr_template(&xdrs, &dummy) || !xdr_template(&xdrs, &dummy)) {
-      cerr << "TreePiece " << thisIndex << ": Could not write header to MAC file, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Could not write header to MAC file, aborting" << endl;
       CkAbort("Badness");
     }
     xdr_destroy(&xdrs);
@@ -1981,7 +2010,7 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
     outfile = fopen((basefilename + ".cellints").c_str(), "wb");
     xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
     if(!xdr_template(&xdrs, &fh) || !xdr_template(&xdrs, &dummy) || !xdr_template(&xdrs, &dummy)) {
-      cerr << "TreePiece " << thisIndex << ": Could not write header to cell-interactions file, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Could not write header to cell-interactions file, aborting" << endl;
       CkAbort("Badness");
     }
     xdr_destroy(&xdrs);
@@ -1990,7 +2019,7 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
     outfile = fopen((basefilename + ".partints").c_str(), "wb");
     xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
     if(!xdr_template(&xdrs, &fh) || !xdr_template(&xdrs, &dummy) || !xdr_template(&xdrs, &dummy)) {
-      cerr << "TreePiece " << thisIndex << ": Could not write header to particle-interactions file, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Could not write header to particle-interactions file, aborting" << endl;
       CkAbort("Badness");
     }
     xdr_destroy(&xdrs);
@@ -1999,7 +2028,7 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
     outfile = fopen((basefilename + ".calls").c_str(), "wb");
     xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
     if(!xdr_template(&xdrs, &fh) || !xdr_template(&xdrs, &dummy) || !xdr_template(&xdrs, &dummy)) {
-      cerr << "TreePiece " << thisIndex << ": Could not write header to entry-point calls file, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Could not write header to entry-point calls file, aborting" << endl;
       CkAbort("Badness");
     }
     xdr_destroy(&xdrs);
@@ -2007,7 +2036,7 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
   }
 	
   if(verbosity > 3)
-    cerr << "TreePiece " << thisIndex << ": Writing my statistics to disk" << endl;
+    ckerr << "TreePiece " << thisIndex << ": Writing my statistics to disk" << endl;
 	
   FILE* outfile = fopen((basefilename + ".MACs").c_str(), "r+b");
   fseek(outfile, 0, SEEK_END);
@@ -2017,20 +2046,20 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
     macInterval.grow(myParticles[i].numMACChecks);
     if(!xdr_template(&xdrs, &(myParticles[i].numMACChecks))) {
-      cerr << "TreePiece " << thisIndex << ": Error writing MAC checks to disk, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Error writing MAC checks to disk, aborting" << endl;
       CkAbort("Badness");
     }
   }
 	
   if(thisIndex == (int) numTreePieces - 1) {
     if(verbosity > 3)
-      cerr << "MAC interval: " << macInterval << endl;
+      ckerr << "MAC interval: " << macInterval << endl;
     if(!xdr_setpos(&xdrs, FieldHeader::sizeBytes) || !xdr_template(&xdrs, &macInterval.min) || !xdr_template(&xdrs, &macInterval.max)) {
-      cerr << "TreePiece " << thisIndex << ": Error going back to write the MAC bounds, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Error going back to write the MAC bounds, aborting" << endl;
       CkAbort("Badness");
     }
     if(verbosity > 2)
-      cerr << "TreePiece " << thisIndex << ": Wrote the MAC bounds" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Wrote the MAC bounds" << endl;
   }
 	
   xdr_destroy(&xdrs);
@@ -2042,19 +2071,19 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
     cellInterval.grow(myParticles[i].numCellInteractions);
     if(!xdr_template(&xdrs, &(myParticles[i].numCellInteractions))) {
-      cerr << "TreePiece " << thisIndex << ": Error writing cell interactions to disk, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Error writing cell interactions to disk, aborting" << endl;
       CkAbort("Badness");
     }
   }
   if(thisIndex == (int) numTreePieces - 1) {
     if(verbosity > 3)
-      cerr << "Cell interactions interval: " << cellInterval << endl;
+      ckerr << "Cell interactions interval: " << cellInterval << endl;
     if(!xdr_setpos(&xdrs, FieldHeader::sizeBytes) || !xdr_template(&xdrs, &cellInterval.min) || !xdr_template(&xdrs, &cellInterval.max)) {
-      cerr << "TreePiece " << thisIndex << ": Error going back to write the cell interaction bounds, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Error going back to write the cell interaction bounds, aborting" << endl;
       CkAbort("Badness");
     }
     if(verbosity > 2)
-      cerr << "TreePiece " << thisIndex << ": Wrote the cell interaction bounds" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Wrote the cell interaction bounds" << endl;
   }
   xdr_destroy(&xdrs);
   fclose(outfile);
@@ -2065,19 +2094,19 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
     callsInterval.grow(myParticles[i].numEntryCalls);
     if(!xdr_template(&xdrs, &(myParticles[i].numEntryCalls))) {
-      cerr << "TreePiece " << thisIndex << ": Error writing entry calls to disk, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Error writing entry calls to disk, aborting" << endl;
       CkAbort("Badness");
     }
   }
   if(thisIndex == (int) numTreePieces - 1) {
     if(verbosity > 3)
-      cerr << "Entry call interval: " << callsInterval << endl;
+      ckerr << "Entry call interval: " << callsInterval << endl;
     if(!xdr_setpos(&xdrs, FieldHeader::sizeBytes) || !xdr_template(&xdrs, &callsInterval.min) || !xdr_template(&xdrs, &callsInterval.max)) {
-      cerr << "TreePiece " << thisIndex << ": Error going back to write the entry call bounds, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Error going back to write the entry call bounds, aborting" << endl;
       CkAbort("Badness");
     }
     if(verbosity > 2)
-      cerr << "TreePiece " << thisIndex << ": Wrote the entry call bounds" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Wrote the entry call bounds" << endl;
   }
   xdr_destroy(&xdrs);
   fclose(outfile);
@@ -2088,19 +2117,19 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
     particleInterval.grow(myParticles[i].numParticleInteractions);
     if(!xdr_template(&xdrs, &(myParticles[i].numParticleInteractions))) {
-      cerr << "TreePiece " << thisIndex << ": Error writing particle interactions to disk, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Error writing particle interactions to disk, aborting" << endl;
       CkAbort("Badness");
     }
   }
   if(thisIndex == (int) numTreePieces - 1) {
     if(verbosity > 3)
-      cerr << "Particle interactions interval: " << particleInterval << endl;
+      ckerr << "Particle interactions interval: " << particleInterval << endl;
     if(!xdr_setpos(&xdrs, FieldHeader::sizeBytes) || !xdr_template(&xdrs, &particleInterval.min) || !xdr_template(&xdrs, &particleInterval.max)) {
-      cerr << "TreePiece " << thisIndex << ": Error going back to write the particle interaction bounds, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Error going back to write the particle interaction bounds, aborting" << endl;
       CkAbort("Badness");
     }
     if(verbosity > 2)
-      cerr << "TreePiece " << thisIndex << ": Wrote the particle interaction bounds" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Wrote the particle interaction bounds" << endl;
   }		
   xdr_destroy(&xdrs);
   fclose(outfile);
@@ -2114,14 +2143,14 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
 void TreePiece::outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb) {
   if(thisIndex == 0) {
     if(verbosity > 2)
-      cerr << "TreePiece " << thisIndex << ": Writing header for errors file" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Writing header for errors file" << endl;
     FILE* outfile = fopen((basefilename + ".error").c_str(), "wb");
     XDR xdrs;
     xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
     fh.code = float64;
     fh.dimensions = 1;
     if(!xdr_template(&xdrs, &fh) || !xdr_template(&xdrs, &errorInterval.min) || !xdr_template(&xdrs, &errorInterval.max)) {
-      cerr << "TreePiece " << thisIndex << ": Could not write header to errors file, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Could not write header to errors file, aborting" << endl;
       CkAbort("Badness");
     }
     xdr_destroy(&xdrs);
@@ -2129,7 +2158,7 @@ void TreePiece::outputRelativeErrors(Interval<double> errorInterval, const CkCal
   }
 	
   if(verbosity > 3)
-    cerr << "TreePiece " << thisIndex << ": Writing my errors to disk" << endl;
+    ckerr << "TreePiece " << thisIndex << ": Writing my errors to disk" << endl;
 	
   FILE* outfile = fopen((basefilename + ".error").c_str(), "r+b");
   fseek(outfile, 0, SEEK_END);
@@ -2142,19 +2171,19 @@ void TreePiece::outputRelativeErrors(Interval<double> errorInterval, const CkCal
     error = (myParticles[i].treeAcceleration - myParticles[i].acceleration).length() / myParticles[i].acceleration.length();
     errorInterval.grow(error);
     if(!xdr_template(&xdrs, &error)) {
-      cerr << "TreePiece " << thisIndex << ": Error writing errors to disk, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Error writing errors to disk, aborting" << endl;
       CkAbort("Badness");
     }
   }
 	
   if(thisIndex == (int) numTreePieces - 1) {
     if(!xdr_setpos(&xdrs, FieldHeader::sizeBytes) || !xdr_template(&xdrs, &errorInterval.min) || !xdr_template(&xdrs, &errorInterval.max)) {
-      cerr << "TreePiece " << thisIndex << ": Error going back to write the error bounds, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Error going back to write the error bounds, aborting" << endl;
       CkAbort("Badness");
     }
     if(verbosity > 2)
-      cerr << "TreePiece " << thisIndex << ": Wrote the error bounds" << endl;
-    cerr << "Error Bounds:" << errorInterval.min << ", "
+      ckerr << "TreePiece " << thisIndex << ": Wrote the error bounds" << endl;
+    ckerr << "Error Bounds:" << errorInterval.min << ", "
 	 << errorInterval.max << endl;
     cb.send();
   }
@@ -2297,10 +2326,11 @@ void TreePiece::checkTree(GenericTreeNode* node) {
   if(node->getType() == Empty) return;
   if(node->getType() == Bucket) {
     for(unsigned int iter = node->firstParticle; iter <= node->lastParticle; ++iter) {
-      if(!node->boundingBox.contains(myParticles[iter].position))
-	cerr << "Not in the box: Box: " << node->boundingBox << " Position: " << myParticles[iter].position << "\nNode key: " << keyBits(node->getKey(), 63) << "\nParticle key: " << keyBits(myParticles[iter].key, 63) << endl;
+      if(!node->boundingBox.contains(myParticles[iter].position)) {
+	ckerr << "Not in the box: Box: " << node->boundingBox << " Position: " << myParticles[iter].position << "\nNode key: " << keyBits(node->getKey(), 63).c_str() << "\nParticle key: " << keyBits(myParticles[iter].key, 63).c_str() << endl;
+      }
     }
-  } else if(node->getType() != NonLocal) {
+  } else if(node->getType() != NonLocal && node->getType() != NonLocalBucket) {
     GenericTreeNode* childIterator;
     for(unsigned int i = 0; i < node->numChildren(); ++i) {
       childIterator = node->getChildren(i);
@@ -2319,6 +2349,7 @@ string getColor(GenericTreeNode* node) {
     oss << "black";
     break;
   case NonLocal:
+  case NonLocalBucket:
     oss << "red";
     break;
   case Boundary:
@@ -2347,6 +2378,9 @@ string makeLabel(GenericTreeNode* node) {
     break;
   case NonLocal:
     oss << "NonLocal: Chare " << node->remoteIndex;
+    break;
+  case NonLocalBucket:
+    oss << "NonLocalBucket: Chare " << node->remoteIndex;
     break;
   case Empty:
     oss << "Empty";
@@ -2387,15 +2421,21 @@ void TreePiece::printTree(GenericTreeNode* node, ostream& os) {
     nodeOwnership(node, first, last);
     os << "NonLocal: Chare=" << node->remoteIndex << ", Owners=" << first << "-" << last;
     break;
+  case NonLocalBucket:
+    //os << "NonLocal: Chare=" << node->remoteIndex << "\\nRemote N under: " << (node->lastParticle - node->firstParticle + 1) << "\\nOwners: " << node->numOwners;
+    nodeOwnership(node, first, last);
+    CkAssert(first == last);
+    os << "NonLocalBucket: Chare=" << node->remoteIndex << ", Owner=" << first << ", Size=" << node->particleCount << "(" << node->firstParticle << "-" << node->lastParticle << ")";
+    break;
   case Boundary:
     nodeOwnership(node, first, last);
     os << "Boundary: Totalsize=" << node->particleCount << ", Localsize=" << (node->lastParticle - node->firstParticle) << "(" << node->firstParticle + (node->firstParticle==0?1:0) << "-" << node->lastParticle - (node->lastParticle==myNumParticles+1?1:0) << "), Owners=" << first << "-" << last;
     break;
   case Empty:
-    os << "Empty";
+    os << "Empty "<<node->remoteIndex;
     break;
   }
-  if (node->getType() == Bucket || node->getType() == Internal || node->getType() == Boundary || node->getType() == NonLocal) 
+  if (node->getType() == Bucket || node->getType() == Internal || node->getType() == Boundary || node->getType() == NonLocal || node->getType() == NonLocalBucket) 
     os << " V "<<node->moments.radius<<" "<<node->moments.soft<<" "<<node->moments.cm.x<<" "<<node->moments.cm.y<<" "<<node->moments.cm.z<<" "<<node->moments.xx<<" "<<node->moments.xy<<" "<<node->moments.xz<<" "<<node->moments.yy<<" "<<node->moments.yz<<" "<<node->moments.zz;
 
   os << "\n";
@@ -2403,7 +2443,7 @@ void TreePiece::printTree(GenericTreeNode* node, ostream& os) {
   //if(node->parent)
   //  os << "\t\"" << keyBits(node->parent->getKey(), 63) << "\" -> \"" << nodeID << "\";\n";
 	
-  if(node->getType() == NonLocal || node->getType() == Bucket || node->getType() == Empty)
+  if(node->getType() == NonLocal || node->getType() == NonLocalBucket || node->getType() == Bucket || node->getType() == Empty)
     return;
 
   GenericTreeNode* childIterator;

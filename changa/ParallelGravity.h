@@ -249,6 +249,16 @@ class TreePiece : public CBase_TreePiece {
 
  public:
 
+	/* DEBUGGING
+	void quiescence() { 
+	  CkPrintf("[%d] quiescence detected, pending %d\n",thisIndex,myNumParticlesPending);
+	  for (int i=0; i<numBuckets; ++i) {
+	    if (bucketReqs[i].numAdditionalRequests != 0)
+	      CkPrintf("[%d] requests for %d remaining %d\n",thisIndex,i,bucketReqs[i].numAdditionalRequests);
+	  }
+	}
+	END DEBUGGING */
+
 	// Recursive call to build the subtree with root "node", and SFC bounded by the two particles
 	//void buildOctTree(GenericTreeNode* node, GravityParticle* leftParticle, GravityParticle* rightParticle);
 
@@ -346,7 +356,7 @@ public:
 	/// Since it is [inline], it should do few work. The reply sent back
 	/// cannot be [inline]
 	void requestRemoteMoments(const Tree::NodeKey key, int sender);
-	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int numParticles, const MultipoleMoments& moments);
+	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments);
 
 	/// @if ALL
 
@@ -402,6 +412,8 @@ public:
 	/// @brief Find the key in the KeyTable, and copy the node over the passed pointer
 	/// @todo Could the node copy be avoided?
 	const GenericTreeNode* lookupNode(Tree::NodeKey key);
+	/// Find the particles starting at "begin", and return a pointer to it
+	const GravityParticle* lookupParticles(int begin);
 
 	/// @if ALL
 
@@ -428,8 +440,8 @@ public:
 	 */
 	void cachedWalkBucketTree(GenericTreeNode* node,
 				  BucketGravityRequest& req);
-	GravityParticle *requestParticles(SFC::Key &key,int remoteIndex,int begin,int end,BucketGravityRequest &req);
-	void fillRequestParticles(SFC::Key key,int retIndex, int begin,int end,
+	GravityParticle *requestParticles(const Tree::NodeKey &key,int remoteIndex,int begin,int end,BucketGravityRequest &req);
+	void fillRequestParticles(Tree::NodeKey key,int retIndex, int begin,int end,
 				  unsigned int reqID);
 	void receiveParticles(GravityParticle *part,int num,
 			      unsigned int reqID);

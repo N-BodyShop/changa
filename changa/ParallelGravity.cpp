@@ -119,7 +119,8 @@ Main::Main(CkArgMsg* m) {
 	domainDecomposition = SFC_dec;
 	useTree = Binary_Oct;
 
-	cerr << "yieldPeriod set to " << _yieldPeriod << endl;
+	if (verbosity) 
+	  ckerr << "yieldPeriod set to " << _yieldPeriod << endl;
 	if(_cacheLineDepth <= 0)
 		CkAbort("Cache Line depth must be greater than 0");
 
@@ -127,21 +128,22 @@ Main::Main(CkArgMsg* m) {
 	if(optind  < m->argc){
 		fname = m->argv[optind];
 	}else{
-		cerr<<"Base file name missing\n";
+		ckerr<<"Base file name missing\n";
 		CkExit();
 	}
 	basefilename = fname;
 	
-	cerr<<"cache "<<_cache<<endl;
-	cerr<<"cacheLineDepth "<<_cacheLineDepth<<endl;
-	if(printBinaryAcc==1)
-		cerr<<"particle accelerations to be printed in binary format..."<<endl;
-	else
-		cerr<<"particles accelerations to be printed in ASCII format..."<<endl;
+	if (verbosity) {
+	  ckerr<<"cache "<<_cache<<endl;
+	  ckerr<<"cacheLineDepth "<<_cacheLineDepth<<endl;
+	  if(printBinaryAcc==1)
+	    ckerr<<"particle accelerations to be printed in binary format..."<<endl;
+	  else
+	    ckerr<<"particles accelerations to be printed in ASCII format..."<<endl;
 
-	if(verbosity)
-		cerr << "Verbosity level " << verbosity << endl;
-	
+	  ckerr << "Verbosity level " << verbosity << endl;
+	}
+
 	cacheManagerProxy = CProxy_CacheManager::ckNew();
 
 	CProxy_BlockMap myMap=CProxy_BlockMap::ckNew(); 
@@ -156,7 +158,7 @@ Main::Main(CkArgMsg* m) {
 	//ComlibAssociateProxy(strategy, streamingProxy);
 
 	if(verbosity)
-		cerr << "Created " << numTreePieces << " pieces of tree" << endl;
+	  ckerr << "Created " << numTreePieces << " pieces of tree" << endl;
 	
 	CProxy_Main(thishandle).nextStage();
 }
@@ -166,19 +168,15 @@ void Main::nextStage() {
 	
 	piecedata *totaldata = new piecedata;
 	
-	if(verbosity)
-		cerr << "Loading particles ..." << endl;
+	ckerr << "Loading particles ...";
 	startTime = CkWallTimer();
 	pieces.load(basefilename, CkCallbackResumeThread());
-	if(verbosity >= 1)
-		cerr << "Main: Loading particles took " << (CkWallTimer() - startTime) << " seconds." << endl;
+	ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 
-	if(verbosity)
-		cerr << "Building trees ..." << endl;
+	ckerr << "Building trees ...";
 	startTime = CkWallTimer();
 	pieces.buildTree(bucketSize, CkCallbackResumeThread());
-	if(verbosity >= 1)
-		cerr << "Main: Building trees took " << (CkWallTimer() - startTime) << " seconds." << endl;
+	ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	
 	//pieces.report(CkCallbackResumeThread());
 	//cerr << "Trees written" << endl;
@@ -210,73 +208,67 @@ void Main::nextStage() {
 		cerr << "Main: Calculating gravity took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	*/
 	
+	// DEBUGGING
+	//CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),pieces));
+
 	// the cached walk
 	for(int i =0; i<numIterations; i++){
-		if(verbosity)
-			cerr << "Calculating gravity (tree bucket, theta = " << theta << ") ..." << endl;
-		startTime = CkWallTimer();
-		pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
-		if(verbosity)
-			cerr << "Main: Calculating gravity took " << (CkWallTimer() - startTime) << " seconds." << endl;
-		startTime = CkWallTimer();
-		if(i >= 1){
-			pieces.startlb(CkCallbackResumeThread());
-		}
-		if(verbosity){
-			cerr<< "Main: Load Balancing step took "<<(CkWallTimer() - startTime) << " seconds." << endl;
-		}
-		
+	  ckerr << "Calculating gravity (tree bucket, theta = " << theta << ") ...";
+	  startTime = CkWallTimer();
+	  pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
+	  ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
+	  if(i >= 1){
+	    startTime = CkWallTimer();
+	    pieces.startlb(CkCallbackResumeThread());
+	    ckerr<< "Load Balancing step took "<<(CkWallTimer() - startTime) << " seconds." << endl;
+	  }
+	  
 #if COSMO_STATS > 0
-		if(verbosity){
-			CkPrintf("Iteration # %d stats\n",i);
-			CkCallback cb(CkCallback::resumeThread);
-	
-			totaldata->setcallback(cb);
-			pieces[0].getPieceValues(totaldata);
-			totaldata = (piecedata *) cb.thread_delay();
-			cerr << "Total Statistics\n Number of MAC checks: " << totaldata->MACChecks << endl;
-			cerr << " Number of particle-cell interactions: " << totaldata->CellInteractions << endl;
-			cerr << " Number of particle-particle interactions: " << totaldata->ParticleInteractions << endl;
-			cerr << " Total mass of the tree : " << totaldata->totalmass << endl;
-			totaldata->reset();
-		}
-		//totaldata->reset();
+	  CkPrintf("Iteration # %d stats\n",i);
+	  CkCallback cb(CkCallback::resumeThread);
+	    
+	  totaldata->setcallback(cb);
+	  pieces[0].getPieceValues(totaldata);
+	  totaldata = (piecedata *) cb.thread_delay();
+	  ckerr << "Total statistics iteration " << i << ":\n Number of MAC checks: " << totaldata->MACChecks << endl;
+	  ckerr << " Number of particle-cell interactions: " << totaldata->CellInteractions << endl;
+	  ckerr << " Number of particle-particle interactions: " << totaldata->ParticleInteractions << endl;
+	  ckerr << " Total mass of the tree : " << totaldata->totalmass << endl;
+	  totaldata->reset();
 #endif
 	}
-	
-	if(verbosity)
-		cerr << "Outputting accelerations ..." << endl;
+
+#if COSMO_DEBUG > 1
+	ckerr << "Outputting accelerations ...";
 	startTime = CkWallTimer();
 	if(printBinaryAcc)
-		pieces[0].outputAccelerations(OrientedBox<double>(), "acc2", CkCallbackResumeThread());
+	  pieces[0].outputAccelerations(OrientedBox<double>(), "acc2", CkCallbackResumeThread());
 	else
-		pieces[0].outputAccASCII(OrientedBox<double>(), "acc2", CkCallbackResumeThread());
+	  pieces[0].outputAccASCII(OrientedBox<double>(), "acc2", CkCallbackResumeThread());
+	
+	ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
+#endif
 
 #if COSMO_STATS > 0
-	if(verbosity > 1)
-		cerr << "Main: Outputting took " << (CkWallTimer() - startTime) << " seconds." << endl;
-
-	if(verbosity)
-		cerr << "Outputting statistics ..." << endl;
+	ckerr << "Outputting statistics ...";
 	startTime = CkWallTimer();
 	Interval<unsigned int> dummy;
 	
 	pieces[0].outputStatistics(dummy, dummy, dummy, dummy, totaldata->totalmass, CkCallbackResumeThread());
 
-	if(verbosity > 1)
-		cerr << "Main: Outputting took " << (CkWallTimer() - startTime) << " seconds." << endl;
+	ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 #endif
-	/*
-	if(verbosity)
-		cerr << "Outputting relative errors ..." << endl;
+
+#if COSMO_DEBUG > 1
+	ckerr << "Outputting relative errors ...";
 	startTime = CkWallTimer();
 	pieces[0].outputRelativeErrors(Interval<double>(), CkCallbackResumeThread());
-	if(verbosity > 1)
-		cerr << "Main: Outputting took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	*/
-	cerr << "Done." << endl;
+	ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
+#endif
+
+	ckerr << "Done." << endl;
 	
-	cerr << endl << "******************" << endl << endl; 
+	ckerr << endl << "******************" << endl << endl; 
 	CkExit();
 }
 

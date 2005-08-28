@@ -15,8 +15,6 @@ It stores the index of the remote chare from
 which node is to be requested and the local
 chares that request it.***/
 
-
-
 using namespace std;
 //using namespace Tree;
 //using namespace SFC;
@@ -26,23 +24,41 @@ typedef u_int64_t CacheKey;
 
 class FillNodeMsg;
 
+#include "CacheManager.decl.h"
+
+class RequestorData {
+ public:
+  int arrayID;
+  int reqID;
+
+  RequestorData(int a, int r) {
+    arrayID = a;
+    reqID = r;
+  }
+};
+
 class CacheEntry{
 public:
 	CacheKey requestID; // node or particle ID
 	int home; // index of the array element that contains this node
-	vector<int> requestorVec; // index of the array element that made the request
-	vector<BucketGravityRequest *> reqVec;  //request data structure that is different for each requestor
+	vector<RequestorData> requestorVec;
+	//vector<int> requestorVec; // index of the array element that made the request
+	//vector<BucketGravityRequest *> reqVec;  //request data structure that is different for each requestor
 
 	bool requestSent;
 	bool replyRecvd;
+#if COSMO_STATS > 0
 	int totalRequests;
 	int hits;
+#endif
 	CacheEntry(){
 		replyRecvd = false;
+		requestSent=false;
 		home = -1;
+#if COSMO_STATS > 0
 		totalRequests=0;
 		hits=0;
-		requestSent=false;
+#endif
 	}
 
 };
@@ -57,7 +73,7 @@ public:
 	~NodeCacheEntry(){
 		delete node;
 		requestorVec.clear();
-		reqVec.clear();
+		//reqVec.clear();
 	}
 	/// 
 	void sendRequest(BucketGravityRequest *);
@@ -66,19 +82,18 @@ public:
 class ParticleCacheEntry : public CacheEntry{
 public:
 	GravityParticle *part;
-	int num;
+	//int num;
 	int begin;
 	int end;
 	ParticleCacheEntry():CacheEntry(){
 		part = NULL;
-		num=0;
 		begin=0;
 		end=0;
 	}
 	~ParticleCacheEntry(){
 		delete []part;
 		requestorVec.clear();
-		reqVec.clear();
+		//reqVec.clear();
 	}
 	void sendRequest(BucketGravityRequest *);
 };
@@ -98,37 +113,42 @@ public:
 };
 bool operator<(MapKey lhs,MapKey rhs);
 
-class CacheManager : public Group {
+class CacheManager : public CBase_CacheManager {
 private:
 	/* The Cache Table is fully associative 
 	A hashtable can be used as well.*/
 
-	map<MapKey,NodeCacheEntry *> nodeCacheTable;
+	map<CacheKey,NodeCacheEntry *> nodeCacheTable;
+#if COSMO_STATS > 0
 	int reqRecvd;
 	int repRecvd;
-	bool allReqSent;
+	//bool allReqSent;
 	/** counts the total number of nodes requested by all
 	the chares on that processor***/
 	int totalNodesRequested;
-	CacheNode *prototype; ///< @TODO: receive it through cacheSync
+#endif
+	/// used to generate new Nodes of the correct type (inheriting classes of CacheNode)
+	CacheNode *prototype;
 	
 	int storedNodes;
 	unsigned int iterationNo;
 
-	map<MapKey,ParticleCacheEntry*> particleCacheTable;
+	map<CacheKey,ParticleCacheEntry*> particleCacheTable;
 	int storedParticles;
-	bool proxyInitialized; ///< checks if the streaming proxy has been delegated or not
+	//bool proxyInitialized; // checks if the streaming proxy has been delegated or not
 	set<MapKey> outStandingRequests;
 	
+	/// Insert all nodes with root "node" coming from "from" into the nodeCacheTable.
 	void addNodes(int from,CacheNode *node);
 	//void addNode(CacheKey key,int from,CacheNode &node);
 	/// @brief Check all the TreePiece buckets which requested a node, and call
 	/// them back so that they can continue the treewalk.
-	void processRequests(CacheNode *node,int from);
+	void processRequests(CacheNode *node,int from,int depth);
 	/// @brief Fetches the Node from the correct TreePiece. If the TreePiece
 	/// is in the same processor fetch it directly, otherwise send a message
 	/// to the remote TreePiece::fillRequestNode
 	CacheNode *sendNodeRequest(NodeCacheEntry *e,BucketGravityRequest *);
+	GravityParticle *sendParticleRequest(ParticleCacheEntry *e,BucketGravityRequest *);
 
 	public:
 	CacheManager();
@@ -148,13 +168,12 @@ private:
 	 */
 	void recvNodes(FillNodeMsg *msg);
 	
-	GravityParticle *requestParticles(int ,CacheKey ,int ,int ,int ,BucketGravityRequest *);
+	GravityParticle *requestParticles(int ,const CacheKey ,int ,int ,int ,BucketGravityRequest *);
 	void recvParticles(CacheKey ,GravityParticle *,int ,int);
 	void cacheSync(unsigned int, GenericTreeNode*);
 
 };
 
-#include "CacheManager.decl.h"
 extern CProxy_CacheManager cacheManagerProxy;
 #endif
 

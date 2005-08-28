@@ -1,11 +1,12 @@
 # Flags that can be passed during compilation
-#FLAG_PRINT = -DCOSMO_PRINT=2     #enable really verbose prints
+#FLAG_PRINT = -DCOSMO_PRINT=1       #enable really verbose prints
 FLAG_STATISTICS = -DCOSMO_STATS=1  # enable statistics collection
-DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS)
+FLAG_DEBUG = -DCOSMO_DEBUG=1       # enable debugging information
+DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG)
 
 STRUCTURES_PATH = ../structures
 CXXFLAGS +=  -I$(STRUCTURES_PATH) -I. -I../GenericTree -O3 -Wall $(DEFINE_FLAGS)
-LDFLAGS += -pg -language charm++ -module commlib -module RefineLB -module RefineCommLB -module MetisLB -module GreedyLB -module GreedyCommLB -module OrbLB #-tracemode projections #-module EveryLB #-memory paranoid 
+LDFLAGS += -language charm++ -module commlib -module RefineLB -module RefineCommLB -module MetisLB -module GreedyLB -module GreedyCommLB -module OrbLB #-tracemode projections #-module EveryLB #-memory paranoid 
 LDLIBS +=  $(STRUCTURES_PATH)/SFC.o
 
 CHARMC = ../../charm/bin/charmc $(OPTS)
