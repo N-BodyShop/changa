@@ -34,7 +34,11 @@ namespace Tree {
     Boundary,
     NonLocal,
     Empty,
-    Top
+    Top,
+    NonLocalBucket,
+    Cached,
+    CachedBucket,
+    CachedEmpty
   };
 
   /// A simple counter for how many nodes are empty - statistics
@@ -59,12 +63,9 @@ namespace Tree {
     int firstParticle;
     /// An index to the last particle contained by this node, myNumParticles+1 means outside the node
     int lastParticle;
-    union {
-      /// An index to the real location of this node if this node is NonLocal
-      unsigned int remoteIndex;
-      /// A counter for Boundary nodes to wait for all contributions
-      unsigned int numOwners;
-    };
+    /// An index to the real location of this node if this node is NonLocal, if
+    /// it is Boundary or Internal or Bucket it is equal to thisIndex
+    unsigned int remoteIndex;
     /// If this node is partially local, total number of particles contained (across all chares)
     unsigned int particleCount;
 	
@@ -81,10 +82,16 @@ namespace Tree {
 
     /// return the number of children this node has
     virtual unsigned int numChildren() const = 0;
-    /// return an array containing the pointers to the children of this node
+    /// return the pointers to the specified child of this node
     virtual GenericTreeNode* getChildren(int) = 0;
-    /// return an array containing the keys for all the children
+    /// set the specified child of this node to the passed pointer
+    virtual void setChildren(int, GenericTreeNode*) = 0;
+    /// return the keys for the specified child
     virtual NodeKey getChildKey(int) = 0;
+    /// return the key for the parent
+    virtual NodeKey getParentKey() = 0;
+    /// return an integer with the number of the child reflecting the key
+    virtual int whichChild(NodeKey childkey) = 0;
 
     /// construct the children of the "this" node following the given logical
     /// criteria (Oct/Orb)
@@ -99,7 +106,7 @@ namespace Tree {
       calculateRadiusFarthestParticle(moments, &part[firstParticle], &part[lastParticle+1]);
     }
 
-    inline void setEmpty() { myType = Empty; }
+    inline void makeEmpty() { myType = Empty; }
 
     virtual GenericTreeNode *createNew() const = 0;
     virtual GenericTreeNode *clone() const = 0;
@@ -146,8 +153,8 @@ namespace Tree {
     }
 
     ~BinaryTreeNode() {
-      delete children[0];
-      delete children[1];
+      //delete children[0];
+      //delete children[1];
     }
     
     unsigned int numChildren() const {
@@ -159,9 +166,22 @@ namespace Tree {
       return children[i];
     }
     
+    void setChildren(int i, GenericTreeNode* node) {
+      CkAssert(i>=0 && i<2);
+      children[i] = (BinaryTreeNode*)node;
+    }
+    
     NodeKey getChildKey(int i) {
       CkAssert(i>=0 && i<2);
       return (key<<1) + i;
+    }
+    
+    NodeKey getParentKey() {
+      return (key>>1);
+    }
+
+    int whichChild(NodeKey child) {
+      return (child ^ (key<<1));
     }
     
     bool isLeftChild() const {
@@ -334,14 +354,14 @@ namespace Tree {
     }
     
     virtual ~OctTreeNode() {
-      delete children[0];
-      delete children[1];
-      delete children[2];
-      delete children[3];
-      delete children[4];
-      delete children[5];
-      delete children[6];
-      delete children[7];
+      //delete children[0];
+      //delete children[1];
+      //delete children[2];
+      //delete children[3];
+      //delete children[4];
+      //delete children[5];
+      //delete children[6];
+      //delete children[7];
     }
 
     virtual unsigned int numChildren() const {
@@ -353,11 +373,24 @@ namespace Tree {
       return children[i];
     }
 
+    virtual void setChildren(int i, GenericTreeNode* node) {
+      CkAssert(i>=0 && i<8);
+      children[i] = (OctTreeNode*)node;
+    }
+
     NodeKey getChildKey(int i) {
       CkAssert(i>=0 && i<8);
       return (key<<3) + i;
     }
 
+    NodeKey getParentKey() {
+      return (key>>3);
+    }
+
+    int whichChild(NodeKey child) {
+      return (child ^ (key<<3));
+    }
+    
     void makeOctChildren(GravityParticle *part, int totalPart, int level) {}
 
     void makeOrbChildren(GravityParticle *part, int totalPart, int level) {}
@@ -388,6 +421,17 @@ namespace Tree {
   };
 
 } //close namespace Tree
+
+inline void operator|(PUP::er &p,Tree::NodeType &nt) {
+  int nti;
+  if (p.isUnpacking()) {
+    p | nti;
+    nt = (Tree::NodeType)nti;
+  } else {
+    nti = (int)nt;
+    p | nti;
+  }
+}
 
 inline void operator|(PUP::er &p,Tree::GenericTrees &gt) {
   int gti;
