@@ -1,6 +1,8 @@
 #ifndef GRAVITYPARTICLE_H
 #define GRAVITYPARTICLE_H
 
+#include "SFC.h"
+
 class BucketGravityRequest {
 public:
 		

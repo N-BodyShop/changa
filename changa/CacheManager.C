@@ -111,13 +111,13 @@ CacheNode *CacheManager::sendNodeRequest(NodeCacheEntry *e,BucketGravityRequest 
   if(p != NULL){
     e->requestSent = true;
     e->replyRecvd = true;
-    e->node = prototype->createNew();
+    //e->node = prototype->createNew();
     const GenericTreeNode *nd = p->lookupNode(e->requestID);
 #ifdef COSMO_PRINT
     if (nd==NULL) CkPrintf("Requested for node %s in %d!\n",(TreeStuff::keyBits(e->requestID,63)).c_str(),e->home);
 #endif
     CkAssert(nd != NULL);
-    CkAssert(e->node != NULL);
+    CkAssert(e->node == NULL);
     e->node = nd->clone();
     switch (e->node->getType()) {
     case Bucket:

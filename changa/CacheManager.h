@@ -26,7 +26,7 @@ class FillNodeMsg;
 
 #include "CacheManager.decl.h"
 
-class RequestorData {
+class RequestorData : public CkPool<RequestorData, 128> {
  public:
   int arrayID;
   int reqID;
@@ -37,7 +37,7 @@ class RequestorData {
   }
 };
 
-class CacheEntry{
+class CacheEntry {
 public:
 	CacheKey requestID; // node or particle ID
 	int home; // index of the array element that contains this node
@@ -63,7 +63,7 @@ public:
 
 };
 
-class NodeCacheEntry : public CacheEntry{
+class NodeCacheEntry : public CacheEntry, public CkPool<NodeCacheEntry, 64> {
 public:
 	CacheNode *node;
 	
@@ -79,7 +79,7 @@ public:
 	void sendRequest(BucketGravityRequest *);
 };	
 
-class ParticleCacheEntry : public CacheEntry{
+class ParticleCacheEntry : public CacheEntry, public CkPool<ParticleCacheEntry, 64> {
 public:
 	GravityParticle *part;
 	//int num;
@@ -98,7 +98,7 @@ public:
 	void sendRequest(BucketGravityRequest *);
 };
 
-class MapKey {
+class MapKey : public CkPool<MapKey, 64> {
 public:
 	CacheKey k;
 	int home;
