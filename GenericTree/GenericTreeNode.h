@@ -8,6 +8,9 @@
 #define GENERICTREENODE_H
 
 #include "pup.h"
+#include "ckpool.h"
+
+#include <map>
 
 #include "OrientedBox.h"
 #include "MultipoleMoments.h"
@@ -136,7 +139,7 @@ namespace Tree {
   */
   typedef std::map<NodeKey, GenericTreeNode *> NodeLookupType;
 
-  class BinaryTreeNode : public GenericTreeNode {
+  class BinaryTreeNode : public GenericTreeNode, public CkPool<BinaryTreeNode, 32> {
   protected:
   public:
     BinaryTreeNode* children[2];
@@ -296,18 +299,19 @@ namespace Tree {
 
     void makeOrbChildren(GravityParticle *part, int totalPart, int level) {}
 
-    GenericTreeNode *createNew() const {
+    GenericTreeNode *createNew() const;/* {
       return new BinaryTreeNode();
-    }
+      }*/
 
-    GenericTreeNode *clone() const {
-      BinaryTreeNode *tmp = new BinaryTreeNode();
-      *tmp = *this;
-      return tmp;
-    }
+    GenericTreeNode *clone() const;/* {
+      //BinaryTreeNode *tmp = new BinaryTreeNode();
+      //*tmp = *this;
+      //return tmp;
+      return new BinaryTreeNode(*this);
+      }*/
 
     void pup(PUP::er &p) { pup(p, -1); }
-    void pup(PUP::er &p, int depth) {
+    void pup(PUP::er &p, int depth);/* {
       //CkPrintf("Pupper of BinaryTreeNode(%d) called for %s (%d)\n",depth,p.isPacking()?"Packing":p.isUnpacking()?"Unpacking":"Sizing",p.isSizing()?((PUP::sizer*)&p)->size():((PUP::mem*)&p)->size());
       GenericTreeNode::pup(p);
       int isNull;
@@ -321,7 +325,7 @@ namespace Tree {
 	  if (p.isUnpacking()) children[i]->parent = this;
 	}
       }
-    }
+      }*/
   };
   
   class OctTreeNode : public GenericTreeNode {
