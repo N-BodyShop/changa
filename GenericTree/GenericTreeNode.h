@@ -10,6 +10,7 @@
 #include "pup.h"
 #include "ckpool.h"
 
+#include <algorithm>
 #include <map>
 
 #include "OrientedBox.h"
