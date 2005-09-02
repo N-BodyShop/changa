@@ -26,7 +26,7 @@ class FillNodeMsg;
 
 #include "CacheManager.decl.h"
 
-class RequestorData : public CkPool<RequestorData, 128> {
+class RequestorData {//: public CkPool<RequestorData, 128> {
  public:
   int arrayID;
   int reqID;
@@ -72,7 +72,7 @@ public:
 	}
 	~NodeCacheEntry(){
 		delete node;
-		requestorVec.clear();
+		CkAssert(requestorVec.empty());
 		//reqVec.clear();
 	}
 	/// 
@@ -92,13 +92,13 @@ public:
 	}
 	~ParticleCacheEntry(){
 		delete []part;
-		requestorVec.clear();
+		CkAssert(requestorVec.empty());
 		//reqVec.clear();
 	}
 	void sendRequest(BucketGravityRequest *);
 };
 
-class MapKey : public CkPool<MapKey, 64> {
+class MapKey {//: public CkPool<MapKey, 64> {
 public:
 	CacheKey k;
 	int home;
@@ -129,7 +129,9 @@ private:
 #endif
 	/// used to generate new Nodes of the correct type (inheriting classes of CacheNode)
 	CacheNode *prototype;
-	
+	/// list of TreePieces registered to this branch
+	set<int> registeredChares;
+
 	int storedNodes;
 	unsigned int iterationNo;
 
@@ -170,7 +172,24 @@ private:
 	
 	GravityParticle *requestParticles(int ,const CacheKey ,int ,int ,int ,BucketGravityRequest *);
 	void recvParticles(CacheKey ,GravityParticle *,int ,int);
-	void cacheSync(unsigned int, GenericTreeNode*);
+
+	/** Invoked from the mainchare to start a new iteration. It calls the
+	    prefetcher of all the chare elements residing on this processor, and
+	    send a message to them to start the local computation. At this point
+	    it is guaranteed that all the chares have already called
+	    markPresence, since that is done in ResumeFromSync, and cacheSync is
+	    called only after a reduction from ResumeFromSync.
+	 */
+	void cacheSync(double theta, const CkCallback& cb);
+	/** Inform the CacheManager that the chare element will be resident on
+	    this processor for the next iteration. It is done after treebuild in
+	    the first iteration (when looking up localCache), and then it is
+	    maintained until migration. Since this occur only with loadbalancer,
+	    the unregistration and re-registration is done right before AtSync
+	    and after ResumeFromSync.
+	 */
+	void markPresence(int index, GenericTreeNode*, int numChunks);
+	void revokePresence(int index);
 
 };
 

@@ -256,6 +256,7 @@ class TreePiece : public CBase_TreePiece {
 	    if (bucketReqs[i].numAdditionalRequests != 0)
 	      CkPrintf("[%d] requests for %d remaining %d\n",thisIndex,i,bucketReqs[i].numAdditionalRequests);
 	  }
+	  CkExit();
 	}
 	END DEBUGGING */
 
@@ -288,9 +289,11 @@ class TreePiece : public CBase_TreePiece {
 
 	/// @endif
 
+	/// Initialize all the buckets for the tree walk
+	/// @TODO: Eliminate this redundant copy!
+	void initBuckets();
 	/** @brief Initial walk through the tree. It will continue until local
-	 * nodes are found (excluding those coming from the cache). If non-local
-	 * cached nodes are found cachedWalkBucketTree is called. When the
+	 * nodes are found (excluding those coming from the cache). When the
 	 * treewalk is finished it stops and cachedWalkBucketTree will continue
 	 * with the incoming nodes.
 	 */
@@ -312,18 +315,20 @@ class TreePiece : public CBase_TreePiece {
 public:
 	
 	TreePiece(unsigned int numPieces) : numTreePieces(numPieces), pieces(thisArrayID), started(false), root(0) {
-	//CkPrintf("[%d] TreePiece created\n",thisIndex);
-	    // ComlibDelegateProxy(&streamingProxy);
-		if(_cache){	
-		  localCache = cacheManagerProxy.ckLocalBranch();
-		}	
-		iterationNo=0;
-		usesAtSync=CmiTrue;
+	  //CkPrintf("[%d] TreePiece created\n",thisIndex);
+	  // ComlibDelegateProxy(&streamingProxy);
+	  // the lookup of localCache is done in startOctTreeBuild, when we also markPresence
+	  /*if(_cache){	
+	    localCache = cacheManagerProxy.ckLocalBranch();
+	    }*/
+	  localCache = NULL;
+	  iterationNo=0;
+	  usesAtSync=CmiTrue;
 #if COSMO_STATS > 0
-		countIntersects=0;
-		piecemass = 0.0;
-		packed=0;
-		cnt=0;
+	  countIntersects=0;
+	  piecemass = 0.0;
+	  packed=0;
+	  cnt=0;
 #endif
 	}
 	
@@ -344,6 +349,8 @@ public:
 	void collectSplitters(CkReductionMsg* m);
 	/// Real tree build, independent of other TreePieces; calls the recursive buildTree
 	void startOctTreeBuild(CkReductionMsg* m);
+
+	/// @if ALL
 	
 	/// Receive a contribution for the multipole computation of a boundary
 	/// node. This contribution is received only by one of the co-owners,
@@ -352,6 +359,9 @@ public:
 	/// Receive the multipole for a particular boundary node, after all
 	/// contributions by sharers have been added.
 	void acceptBoundaryNode(const Tree::NodeKey key, const int numParticles, const MultipoleMoments& moments);
+
+	/// @endif
+
 	/// Request the TreePiece to send back later the moments for this node.
 	/// Since it is [inline], it should do few work. The reply sent back
 	/// cannot be [inline]
@@ -391,10 +401,32 @@ public:
 	/// unused - SEND VERSION - callback where the data requested to another TreePiece will come back.
 	void receiveGravityBucketTree(const BucketGravityRequest& req);
 
-	/// @endif
-
 	/// @brief Main entry point to start gravity computation
 	void calculateGravityBucketTree(double t, const CkCallback& cb);
+
+	/// @endif
+
+	/// Entry point for the local computation: for each bucket compute the
+	/// force that its particles see due to the other particles hosted in
+	/// this TreePiece. The opening angle theta has already been passed
+	/// through "startIteration"
+	void calculateGravityLocal();
+	/// Entry point for the remote computation: for each bucket compute the
+	/// force that its particles see due to the other particles NOT hosted
+	/// by this TreePiece, and belonging to a subset of the global tree
+	/// (specified by chunkNum).
+	void calculateGravityRemote(int chunkNum);
+	/// Temporary function to recurse over all the buckets like in
+	/// walkBucketTree, only that NonLocal nodes are the only one for which
+	/// forces are computed
+	void walkBucketRemoteTree(GenericTreeNode *node, BucketGravityRequest &req);
+	/// Function called by the CacheManager to start a new iteration.
+	/// @param t the opening angle
+	/// @param cb the callback to use after all the computation has finished
+	void startIteration(double t, const CkCallback& cb);
+	/// Function called by the CacheManager to send out request for needed
+	/// remote data, so that the later computation will hit.
+	void prefetch(GenericTreeNode *node);
 
 	/// @brief Retrieve the remote node, goes through the cache if present
 	GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey,
@@ -435,8 +467,7 @@ public:
 	 * called back for every incoming node (which are those requested to the
 	 * cache during previous treewalks), and continue the treewalk from
 	 * where it had been interrupted. It will possibly made other remote
-	 * requests. It is also called tro walkBucketTree when a non-local node
-	 * is found.
+	 * requests.
 	 */
 	void cachedWalkBucketTree(GenericTreeNode* node,
 				  BucketGravityRequest& req);

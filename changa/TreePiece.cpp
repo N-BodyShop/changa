@@ -26,7 +26,7 @@ string getColor(GenericTreeNode*);
 
 void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   basefilename = fn;
-	
+  
   //read in particles
   XDR xdrs;
   FILE* infile = fopen((basefilename + ".mass").c_str(), "rb");
@@ -322,6 +322,12 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
 	
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Starting tree build" << endl;
+
+  // mark presence in the cache if we are in the first iteration (indicated by localCache==NULL)
+  if (_cache && localCache==NULL) {
+    localCache = cacheManagerProxy.ckLocalBranch();
+    localCache->markPresence(thisIndex, root, 1);
+  }
 
   // recursively build the tree
   buildOctTree(root, 0);
@@ -1113,6 +1119,7 @@ void TreePiece::receiveGravityTree(const GravityRequest& req) {
   }
 }
 
+/* --- REMOVING SEND_VERSION
 #ifdef SEND_VERSION
 void TreePiece::startNextBucket() {
   if(currentBucket >= numBuckets)
@@ -1136,10 +1143,36 @@ void TreePiece::startNextBucket() {
 #endif
 }
 #else
+*/
+
+void TreePiece::initBuckets() {
+  for (int j=0; j<numBuckets; ++j) {
+    GenericTreeNode* node = bucketList[j];
+    int numParticlesInBucket = node->particleCount;
+
+    CkAssert(numParticlesInBucket <= maxBucketSize);
+    BucketGravityRequest req(numParticlesInBucket);
+    req.startingNode = root->getKey();
+    req.identifier = j;
+    req.numAdditionalRequests = 0;
+    req.requestingPieceIndex = thisIndex;
+    for(int i = node->firstParticle; i <= node->lastParticle; ++i) {
+      req.softs[i - node->firstParticle] = myParticles[i].soft;
+      req.positions[i - node->firstParticle] = myParticles[i].position;
+      req.potentials[i - node->firstParticle] = 0;
+      req.boundingBox.grow(myParticles[i].position);
+      myParticles[i].treeAcceleration = 0;
+    }
+    req.finished = 0;
+    bucketReqs[j] = req;
+  }
+}
+
 void TreePiece::startNextBucket() {
   if(currentBucket >= numBuckets)
     return;
-	
+
+  /*	
   GenericTreeNode* node = bucketList[currentBucket];
   int numParticlesInBucket = node->particleCount;
 
@@ -1157,6 +1190,7 @@ void TreePiece::startNextBucket() {
   }
   req.finished = 0;
   bucketReqs[currentBucket] = req;
+  */
   walkBucketTree(root, bucketReqs[currentBucket]);
   bucketReqs[currentBucket].finished = 1;
   finishBucket(currentBucket);
@@ -1197,7 +1231,9 @@ void TreePiece::finishBucket(int iBucket) {
   }
 }
 
+/* --- REMOVING SEND_VERSION
 #endif
+*/
 
 void TreePiece::doAllBuckets(){
 #if COSMO_DEBUG > 0
@@ -1233,7 +1269,75 @@ void TreePiece::nextBucket(dummyMsg *msg){
   }
 }
 
+void TreePiece::calculateGravityLocal() {
+  doAllBuckets();
+}
+
+void TreePiece::calculateGravityRemote(int chunkNum) {
+  for (int i=0; i<numBuckets; ++i) {
+    //BucketGravityRequest req = bucketReqs[i];
+    walkBucketRemoteTree(root, bucketReqs[i]);
+  }
+}
+
+void TreePiece::walkBucketRemoteTree(GenericTreeNode *node, BucketGravityRequest &req) {
+  Vector3D<double> cm(node->moments.cm);
+  Vector3D<double> r;
+  Sphere<double> s(cm, opening_geometry_factor * node->moments.radius / theta);
+  if(!openCriterionBucket(node, req)) {
+    return;
+  } else if(node->getType() == Bucket || node->getType() == Internal || node->getType() == Empty) {
+    return;
+  } else if (node->getType() == NonLocal || node->getType() == NonLocalBucket) {
+    cachedWalkBucketTree(node, req);
+  } else {
+    // here the node is Boundary
+    GenericTreeNode* childIterator;
+    for(unsigned int i = 0; i < node->numChildren(); ++i) {
+      childIterator = node->getChildren(i);
+      if(childIterator)
+	walkBucketRemoteTree(childIterator, req);
+    }
+  }
+}
+
+void TreePiece::startIteration(double t, const CkCallback& cb) {
+  callback = cb;
+  theta = t;
+#if COSMO_STATS > 0
+  myNumProxyCalls = 0;
+  myNumProxyCallsBack = 0;
+  myNumCellInteractions=myNumParticleInteractions=myNumMACChecks=0;
+  cachecellcount=0;
+#endif
+  iterationNo++;
+  CkAssert(localCache != NULL);
+  if(verbosity)
+    CkPrintf("TreePiece %d: I have %d buckets\n",thisIndex,numBuckets);
+
+  bucketReqs = new BucketGravityRequest[numBuckets];
+	
+  currentBucket = 0;
+  myNumParticlesPending = myNumParticles;
+  started = true;
+#if COSMO_STATS > 0
+  countIntersects=0;
+  countHits=0;
+#endif
+
+  initBuckets();
+  prefetch(root);
+  thisProxy[thisIndex].calculateGravityLocal();
+}
+
+void TreePiece::prefetch(GenericTreeNode *node) {
+  ///@TODO: all the code that does the prefetching and the chunking
+
+  thisProxy[thisIndex].calculateGravityRemote(0);
+}
+
 void TreePiece::calculateGravityBucketTree(double t, const CkCallback& cb) {
+  CkAbort("Old method not anymore in use");
   callback = cb;
   theta = t;
   mySerialNumber = 0;
@@ -1247,7 +1351,7 @@ void TreePiece::calculateGravityBucketTree(double t, const CkCallback& cb) {
   if(localCache == NULL){
     localCache = cacheManagerProxy.ckLocalBranch();
   }
-  localCache->cacheSync(iterationNo, root);
+  //localCache->cacheSync(iterationNo, root, 0);
   if(verbosity)
     CkPrintf("TreePiece %d: I have %d buckets\n",thisIndex,numBuckets);
 	
@@ -1296,14 +1400,19 @@ void TreePiece::fillRequestBucketTree(BucketGravityRequest req) {
 
 void TreePiece::startlb(CkCallback &cb){
   callback = cb;
-	if(verbosity > 1)
-	CkPrintf("[%d] TreePiece %d calling AtSync()\n",CkMyPe(),thisIndex);
+  if(verbosity > 1)
+    CkPrintf("[%d] TreePiece %d calling AtSync()\n",CkMyPe(),thisIndex);
+  localCache->revokePresence(thisIndex);
   AtSync();
 }
 
 void TreePiece::ResumeFromSync(){
-	if(verbosity > 1)
-	CkPrintf("[%d] TreePiece %d in ResumefromSync\n",CkMyPe(),thisIndex);
+  if(verbosity > 1)
+    CkPrintf("[%d] TreePiece %d in ResumefromSync\n",CkMyPe(),thisIndex);
+  // Register to the cache manager
+  if (_cache) {
+    localCache->markPresence(thisIndex, root, 1);
+  }
   contribute(0, 0, CkReduction::concat, callback);
 }
 
@@ -1329,12 +1438,12 @@ const GravityParticle *TreePiece::lookupParticles(int begin) {
   return &myParticles[begin];
 }
 
+/* --- REMOVING SEND_VERSION
 #ifdef SEND_VERSION
-/*
- * "Send" version of Treewalk.
- * When off non-local data is need the tree walk is continued on the
- * appropriate remote node.
- */
+// "Send" version of Treewalk.
+// When off non-local data is need the tree walk is continued on the
+// appropriate remote node.
+
 void TreePiece::walkBucketTree(GravityTreeNode* node, BucketGravityRequest& req) {
 #if COSMO_STATS > 0
   myNumMACChecks++;
@@ -1367,10 +1476,11 @@ void TreePiece::walkBucketTree(GravityTreeNode* node, BucketGravityRequest& req)
   }
 }
 #else
+*/
 
 /*
  * For cached version we have 2 walks: one for on processor and one
- * that hits the cache.
+ * that hits the cache. This does the local computation
  * When remote data is needed we go to the second version.
  */
 void TreePiece::walkBucketTree(GenericTreeNode* node, BucketGravityRequest& req) {
@@ -1392,7 +1502,7 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, BucketGravityRequest& req)
       myParticles[i].intcellmass += m.totalMass;
 #endif
 #if COSMO_PRINT > 1
-  CkPrintf("[%d] walk bucket %s -> node %s\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),keyBits(node->getKey(),63).c_str());
+  CkPrintf("[%d] walk bucket %s -> node %s\n",thisIndex,keyBits(bucketList[req.identifier]->getKey(),63).c_str(),keyBits(node->getKey(),63).c_str());
 #endif
     nodeBucketForce(node, req);
   } else if(node->getType() == Bucket) {
@@ -1406,13 +1516,14 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, BucketGravityRequest& req)
 	myParticles[j].intpartmass += myParticles[i].mass;
       }
 #endif
-  GenericTreeNode *reqnode = bucketList[req.identifier];
 #if COSMO_PRINT > 1
-  CkPrintf("[%d] walk bucket %s -> part %016llx\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),myParticles[i].key);
+      CkPrintf("[%d] walk bucket %s -> part %016llx\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),myParticles[i].key);
 #endif
       partBucketForce(&myParticles[i], req);
     }
-  } else if(node->getType() == NonLocal || node->getType() == NonLocalBucket) {
+  } else if (node->getType() == NonLocal || node->getType() == NonLocalBucket) {
+    /* DISABLED: this part of the walk is triggered directly by the CacheManager and prefetching
+
     // Use cachedWalkBucketTree() as callback
     GenericTreeNode *pnode = requestNode(node->remoteIndex, node->getKey(), req);
     if(pnode) {
@@ -1421,6 +1532,7 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, BucketGravityRequest& req)
 #endif
       cachedWalkBucketTree(pnode, req);
     }
+    */
   } else if (node->getType() != Empty) {
     // here the node can be Internal or Boundary
     GenericTreeNode* childIterator;
@@ -1433,14 +1545,17 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, BucketGravityRequest& req)
 }
 
 /*
- * Cached version of Tree walk:
+ * Cached version of Tree walk. One characteristic of the tree used is that once
+ * we go into cached data, we cannot come back to internal data anymore. Thus we
+ * can safely distinguish between local computation done by walkBucketTree and
+ * remote computation done by cachedWalkBucketTree.
  */
 void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, BucketGravityRequest& req) {
 #if COSMO_STATS > 0
   myNumMACChecks++;
 #endif
 #if COSMO_PRINT > 1
-  CkPrintf("[%d] cachedWalkBucketTree called with node %s of type %s\n",thisIndex,keyBits(node->getKey(),63).c_str(),getColor(node).c_str());
+  CkPrintf("[%d] b=%d cachedWalkBucketTree called for %s with node %s of type %s (additional=%d)\n",thisIndex,req.identifier,keyBits(bucketList[req.identifier]->getKey(),63).c_str(),keyBits(node->getKey(),63).c_str(),getColor(node).c_str(),req.numAdditionalRequests);
 #endif
 		
   CkAssert(node->getType() != Invalid);
@@ -1457,7 +1572,7 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, BucketGravityRequest
       myParticles[i].extcellmass += m.totalMass;
 #endif
 #if COSMO_PRINT > 1
-  CkPrintf("[%d] cachedwalk bucket %s -> node %s\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),keyBits(node->getKey(),63).c_str());
+  CkPrintf("[%d] cachedwalk bucket %s -> node %s\n",thisIndex,keyBits(bucketList[req.identifier]->getKey(),63).c_str(),keyBits(node->getKey(),63).c_str());
 #endif
     nodeBucketForce(node, req);
   } else if(node->getType() == CachedBucket || node->getType() == Bucket || node->getType() == NonLocalBucket) {
@@ -1527,12 +1642,15 @@ GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key,
   CkAssert(remoteIndex < (int) numTreePieces);
   //in the current form it is possible   
   //   assert(remoteIndex != thisIndex);
-  if(_cache){	
+  if(_cache){
+    CkAssert(localCache != NULL);
+    /*
     if(localCache == NULL){
       localCache = cacheManagerProxy.ckLocalBranch();
     }
+    */
 #if COSMO_PRINT > 1
-    CkPrintf("[%d] requesting node %s to %d for %s\n",thisIndex,keyBits(key,63).c_str(),remoteIndex,keyBits(bucketList[req.identifier]->getKey(),63).c_str());
+    CkPrintf("[%d] b=%d requesting node %s to %d for %s (additional=%d)\n",thisIndex,req.identifier,keyBits(key,63).c_str(),remoteIndex,keyBits(bucketList[req.identifier]->getKey(),63).c_str(),req.numAdditionalRequests);
 #endif
     GenericTreeNode *res=localCache->requestNode(thisIndex,remoteIndex,key,&req);
     if(!res){
@@ -1656,6 +1774,9 @@ void TreePiece::fillRequestNode(RequestNodeMsg *msg) {
 
 void TreePiece::receiveNode(GenericTreeNode &node, unsigned int reqID)
 {
+#if COSMO_PRINT > 1
+  CkPrintf("[%d] b=%d, receiveNode, additional=%d\n",thisIndex,reqID,bucketReqs[reqID].numAdditionalRequests);
+#endif
   bucketReqs[reqID].numAdditionalRequests--;
   assert(node.getType() != Invalid);
   if(node.getType() != Empty)	{ // Node could be NULL
@@ -1692,11 +1813,17 @@ GravityParticle* TreePiece::requestParticle(int remoteIndex, int iPart,
 
 GravityParticle *TreePiece::requestParticles(const Tree::NodeKey &key,int remoteIndex,int begin,int end,BucketGravityRequest& req){
   if (_cache) {
+    CkAssert(localCache != NULL);
+    /*
     if(localCache == NULL){
       localCache = cacheManagerProxy.ckLocalBranch();
     }
+    */
     GravityParticle *p = localCache->requestParticles(thisIndex,key,remoteIndex,begin,end,&req);
     if (!p) {
+#if COSMO_PRINT > 1
+      CkPrintf("[%d] b=%d requestParticles: additional=%d\n",thisIndex,req.identifier,req.numAdditionalRequests);
+#endif
       req.numAdditionalRequests += end-begin+1;
     }
     return p;
@@ -1747,6 +1874,9 @@ void TreePiece::receiveParticles(GravityParticle *part,int num,
 				 unsigned int reqID)
 {
   CkAssert(num > 0);
+#if COSMO_PRINT > 1
+  CkPrintf("[%d] b=%d recvPart (additional=%d-%d)\n",thisIndex,reqID,bucketReqs[reqID].numAdditionalRequests,num);
+#endif
   bucketReqs[reqID].numAdditionalRequests -= num;
 #if COSMO_STATS > 0
   myNumParticleInteractions += bucketReqs[reqID].numParticlesInBucket * num;
@@ -1773,8 +1903,9 @@ void TreePiece::receiveParticles_inline(GravityParticle *part,int num,
         receiveParticles(part,num,reqID);
 }
 
-
+/* --- REMOVING SEND_VERSION
 #endif
+*/
 
 void TreePiece::receiveGravityBucketTree(const BucketGravityRequest& req) {
   //lookup request

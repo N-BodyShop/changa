@@ -215,7 +215,8 @@ void Main::nextStage() {
 	for(int i =0; i<numIterations; i++){
 	  ckerr << "Calculating gravity (tree bucket, theta = " << theta << ") ...";
 	  startTime = CkWallTimer();
-	  pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
+	  //pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
+	  cacheManagerProxy.cacheSync(theta, CkCallbackResumeThread());
 	  ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	  if(i >= 1){
 	    startTime = CkWallTimer();

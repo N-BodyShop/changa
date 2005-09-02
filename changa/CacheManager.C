@@ -428,27 +428,52 @@ void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int 
 }
 
 
-void CacheManager::cacheSync(unsigned int iter, GenericTreeNode *proto){
-  prototype = proto;
-  if(iter > iterationNo){
-    iterationNo = iter;
-    /*map<MapKey,NodeCacheEntry *>::iterator p;
-      for(p = nodeCacheTable.begin();p != nodeCacheTable.end();p++){
-      printf("[%d] Key %llu  total number of requests %d hits %d\n",CkMyPe(),p->first.k,p->second->totalRequests,p->second->hits);
-      }*/
+void CacheManager::cacheSync(double theta, const CkCallback& cb) {
+  //if(iter > iterationNo){
+  iterationNo++;
+  /*map<MapKey,NodeCacheEntry *>::iterator p;
+    for(p = nodeCacheTable.begin();p != nodeCacheTable.end();p++){
+    printf("[%d] Key %llu  total number of requests %d hits %d\n",CkMyPe(),p->first.k,p->second->totalRequests,p->second->hits);
+    }*/
 #if COSMO_STATS > 0
-    if (verbosity)
-      CkPrintf("[%d] Total number of requests %d storedNodes %d outStandingRequests %d iterationNo %d \n",CkMyPe(),totalNodesRequested,storedNodes,outStandingRequests.size(),iterationNo);
-    reqRecvd=0;
-    repRecvd=0;
-    totalNodesRequested=0;
+  if (verbosity)
+    CkPrintf("[%d] Total number of requests %d storedNodes %d outStandingRequests %d iterationNo %d \n",CkMyPe(),totalNodesRequested,storedNodes,outStandingRequests.size(),iterationNo);
+  reqRecvd=0;
+  repRecvd=0;
+  totalNodesRequested=0;
 #endif
-    nodeCacheTable.clear();
-    particleCacheTable.clear();
-    outStandingRequests.clear();
-    storedNodes=0;
-    storedParticles=0;
-		
-  }	
+  map<CacheKey,NodeCacheEntry *>::iterator pn;
+  for (pn = nodeCacheTable.begin(); pn != nodeCacheTable.end(); pn++) {
+    NodeCacheEntry *e = pn->second;
+    delete e;
+  }
+  nodeCacheTable.clear();
+  map<CacheKey,NodeCacheEntry *>::iterator pp;
+  for (pp = nodeCacheTable.begin(); pp != nodeCacheTable.end(); pp++) {
+    NodeCacheEntry *e = pp->second;
+    delete e;
+  }
+  particleCacheTable.clear();
+
+  CkAssert(outStandingRequests.empty());
+  storedNodes=0;
+  storedParticles=0;
+  //}
+  // call the gravitational computatino utility of each local chare element
+  set<int>::iterator iter;
+  for (iter = registeredChares.begin(); iter != registeredChares.end(); iter++) {
+    TreePiece *p = treeProxy[*iter].ckLocal();
+    CkAssert(p != NULL);
+    p->startIteration(theta, cb);
+  }
 }
 
+void CacheManager::markPresence(int index, GenericTreeNode *proto, int numChunks) {
+  prototype = proto;
+  registeredChares.insert(index);
+  
+}
+
+void CacheManager::revokePresence(int index) {
+  registeredChares.erase(index);
+}
