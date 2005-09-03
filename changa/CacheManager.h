@@ -115,10 +115,14 @@ bool operator<(MapKey lhs,MapKey rhs);
 
 class CacheManager : public CBase_CacheManager {
 private:
+  /// Number of chunks in which the tree is splitted
+  int numChunks;
+  int newChunks; ///<Number of chunks for the next iteration
+
 	/* The Cache Table is fully associative 
 	A hashtable can be used as well.*/
 
-	map<CacheKey,NodeCacheEntry *> nodeCacheTable;
+	map<CacheKey,NodeCacheEntry *> *nodeCacheTable;
 #if COSMO_STATS > 0
 	int reqRecvd;
 	int repRecvd;
@@ -135,21 +139,22 @@ private:
 	int storedNodes;
 	unsigned int iterationNo;
 
-	map<CacheKey,ParticleCacheEntry*> particleCacheTable;
+	map<CacheKey,ParticleCacheEntry*> *particleCacheTable;
 	int storedParticles;
 	//bool proxyInitialized; // checks if the streaming proxy has been delegated or not
-	set<MapKey> outStandingRequests;
-	
+	map<MapKey,int> outStandingRequests;
+	map<CacheKey,int> outStandingParticleRequests;
+
 	/// Insert all nodes with root "node" coming from "from" into the nodeCacheTable.
-	void addNodes(int from,CacheNode *node);
+	void addNodes(int chunk,int from,CacheNode *node);
 	//void addNode(CacheKey key,int from,CacheNode &node);
 	/// @brief Check all the TreePiece buckets which requested a node, and call
 	/// them back so that they can continue the treewalk.
-	void processRequests(CacheNode *node,int from,int depth);
+	void processRequests(int chunk,CacheNode *node,int from,int depth);
 	/// @brief Fetches the Node from the correct TreePiece. If the TreePiece
 	/// is in the same processor fetch it directly, otherwise send a message
 	/// to the remote TreePiece::fillRequestNode
-	CacheNode *sendNodeRequest(NodeCacheEntry *e,BucketGravityRequest *);
+	CacheNode *sendNodeRequest(int chunk,NodeCacheEntry *e,BucketGravityRequest *);
 	GravityParticle *sendParticleRequest(ParticleCacheEntry *e,BucketGravityRequest *);
 
 	public:
@@ -161,7 +166,7 @@ private:
 	 * sendNodeRequest to get it. Returns null if the Node has to come from
 	 * remote.
 	*/
-	CacheNode *requestNode(int ,int ,CacheKey ,BucketGravityRequest *);
+	CacheNode *requestNode(int requestorIndex, int remoteIndex, int chunk, CacheKey key, BucketGravityRequest *req);
 	// Shortcut for the other recvNodes, this receives only one node
 	//void recvNodes(CacheKey ,int ,CacheNode &);
 	/** @brief Receive the nodes incoming from the remote
@@ -170,8 +175,8 @@ private:
 	 */
 	void recvNodes(FillNodeMsg *msg);
 	
-	GravityParticle *requestParticles(int ,const CacheKey ,int ,int ,int ,BucketGravityRequest *);
-	void recvParticles(CacheKey ,GravityParticle *,int ,int);
+	GravityParticle *requestParticles(int requestorIndex, int chunk, const CacheKey key, int remoteIndex, int begin, int end, BucketGravityRequest *req);
+	void recvParticles(CacheKey key,GravityParticle *part,int num, int from);
 
 	/** Invoked from the mainchare to start a new iteration. It calls the
 	    prefetcher of all the chare elements residing on this processor, and

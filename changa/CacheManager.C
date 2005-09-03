@@ -22,13 +22,20 @@ bool operator<(MapKey lhs,MapKey rhs){
 
 inline void NodeCacheEntry::sendRequest(BucketGravityRequest *req){
   requestSent = true;
-  treeProxy[home].fillRequestNode(new RequestNodeMsg(CkMyPe(),_cacheLineDepth,requestID,req->identifier));
+  RequestNodeMsg *msg = new (8*sizeof(int)) RequestNodeMsg(CkMyPe(),_cacheLineDepth,requestID,req->identifier);
+  *(int*)CkPriorityPtr(msg) = -1100000000;
+  CkSetQueueing(msg, CK_QUEUEING_IFIFO);
+  treeProxy[home].fillRequestNode(msg);
   //	CpvAccess(streamingTreeProxy)[home].fillRequestNode(CkMyPe(),requestNodeID,*req);
 };
 
 inline void ParticleCacheEntry::sendRequest(BucketGravityRequest *req){
   requestSent = true;
-  treeProxy[home].fillRequestParticles(requestID,CkMyPe(),begin,end,req->identifier);
+  RequestParticleMsg *msg = new (8*sizeof(int)) RequestParticleMsg(CkMyPe(),begin,end,requestID,req->identifier);
+  *(int*)CkPriorityPtr(msg) = -1000000000;
+  CkSetQueueing(msg, CK_QUEUEING_IFIFO);
+  treeProxy[home].fillRequestParticles(msg);
+  //treeProxy[home].fillRequestParticles(requestID,CkMyPe(),begin,end,req->identifier);
   //	CpvAccess(streamingTreeProxy)[home].fillRequestParticles(requestNodeID,CkMyPe(),begin,end,*req);
 };
 
@@ -41,13 +48,16 @@ CacheManager::CacheManager(){
   totalNodesRequested = 0;
 #endif
 
+  numChunks = 0;
+  nodeCacheTable = NULL;
+  particleCacheTable = NULL;
   storedNodes = 0;
   storedParticles = 0;
   //proxyInitialized = false;
   iterationNo=0;
 }
 
-CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,CacheKey key,BucketGravityRequest *req){
+CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chunk,CacheKey key,BucketGravityRequest *req){
   /*
     if(!proxyInitialized){
     CpvInitialize(CProxy_TreePiece,streamingTreeProxy);
@@ -58,12 +68,12 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,CacheKey
   */
 
   map<CacheKey,NodeCacheEntry *>::iterator p;
-  p = nodeCacheTable.find(key);
+  p = nodeCacheTable[chunk].find(key);
   NodeCacheEntry *e;
 #if COSMO_STATS > 0
   totalNodesRequested++;
 #endif
-  if(p != nodeCacheTable.end()){
+  if(p != nodeCacheTable[chunk].end()){
     e = p->second;
     //assert(e->home == remoteIndex); not anymore true
 #if COSMO_STATS > 0
@@ -78,7 +88,7 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,CacheKey
     }
     if(!e->requestSent && !e->replyRecvd){
       //sendrequest to the the tree, if it is local return the node 
-      if(sendNodeRequest(e,req)){
+      if(sendNodeRequest(chunk,e,req)){
 	return e->node;
       }
     }
@@ -89,9 +99,9 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,CacheKey
 #if COSMO_STATS > 0
     e->totalRequests++;
 #endif
-    nodeCacheTable.insert(pair<CacheKey,NodeCacheEntry *>(key,e));
+    nodeCacheTable[chunk].insert(pair<CacheKey,NodeCacheEntry *>(key,e));
     //sendrequest to the the tree, if it is local return the node that is returned
-    if(sendNodeRequest(e,req)){
+    if(sendNodeRequest(chunk,e,req)){
       return e->node;
     }
   }
@@ -102,7 +112,7 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,CacheKey
 
 #include "TreeNode.h"
 
-CacheNode *CacheManager::sendNodeRequest(NodeCacheEntry *e,BucketGravityRequest *req){
+CacheNode *CacheManager::sendNodeRequest(int chunk, NodeCacheEntry *e,BucketGravityRequest *req){
   /*
     check if the array element to which the request is directed is local or not.
     If it is local then just fetch it store it and return it.
@@ -141,22 +151,22 @@ CacheNode *CacheManager::sendNodeRequest(NodeCacheEntry *e,BucketGravityRequest 
   /// @TODO: despite the cacheLineDepth, the node can never be fetched if it is nonLocal to the TreePiece from which it should come!
   for(int i=0;i<_cacheLineDepth;i++){
     CacheKey k = e->requestID >> i;
-    set<MapKey>::iterator pred = outStandingRequests.find(MapKey(k,e->home));
+    map<MapKey,int>::iterator pred = outStandingRequests.find(MapKey(k,e->home));
     if(pred != outStandingRequests.end()){
       return NULL;
     }
   }
-  outStandingRequests.insert(MapKey(e->requestID,e->home));
+  outStandingRequests[MapKey(e->requestID,e->home)] = chunk;
   e->sendRequest(req);
   return NULL;
 }
 
-void CacheManager::addNodes(int from,CacheNode *node){
+void CacheManager::addNodes(int chunk,int from,CacheNode *node){
   map<CacheKey,NodeCacheEntry *>::iterator p;
-  p = nodeCacheTable.find(node->getKey());
+  p = nodeCacheTable[chunk].find(node->getKey());
   NodeCacheEntry *e;
   CacheNode *oldnode = NULL;
-  if (p == nodeCacheTable.end()) {
+  if (p == nodeCacheTable[chunk].end()) {
     // Completely new node, never seen in the cache
     e = new NodeCacheEntry();
     e->requestID = node->getKey();
@@ -181,7 +191,7 @@ void CacheManager::addNodes(int from,CacheNode *node){
       node->setType(Cached);
     }
     //memcpy(e->node,&node,sizeof(CacheNode));
-    nodeCacheTable[node->getKey()] = e;
+    nodeCacheTable[chunk][node->getKey()] = e;
 
   } else {
     // The node placehoder is present, we substitute the node it contains with
@@ -215,14 +225,14 @@ void CacheManager::addNodes(int from,CacheNode *node){
   map<CacheKey,NodeCacheEntry *>::iterator pchild;
   for (unsigned int i=0; i<node->numChildren(); ++i) {
     CacheNode *child = node->getChildren(i);
-    if (child != NULL) addNodes(from, child);
+    if (child != NULL) addNodes(chunk,from, child);
     else {
       if (node->getType() != Empty && node->getType() != NonLocal && node->getType() != Bucket) {
 	// find a child node into the cache, using the old node if present
 	if (oldnode != NULL) child = oldnode->getChildren(i);
 	else {
-	  pchild = nodeCacheTable.find(node->getChildKey(i));
-	  if (pchild != nodeCacheTable.end() && pchild->second->node != NULL) child = pchild->second->node;
+	  pchild = nodeCacheTable[chunk].find(node->getChildKey(i));
+	  if (pchild != nodeCacheTable[chunk].end() && pchild->second->node != NULL) child = pchild->second->node;
 	  else child = NULL;
 	}
 	if (child != NULL) {
@@ -271,10 +281,10 @@ void CacheManager::addNodes(int from,CacheNode *node){
   }
 */
 
-void CacheManager::processRequests(CacheNode *node,int from,int depth){
+void CacheManager::processRequests(int chunk,CacheNode *node,int from,int depth){
   map<CacheKey,NodeCacheEntry *>::iterator p;
-  p = nodeCacheTable.find(node->getKey());
-  if (p == nodeCacheTable.end()) return; // this means the node is not stored in
+  p = nodeCacheTable[chunk].find(node->getKey());
+  if (p == nodeCacheTable[chunk].end()) return; // this means the node is not stored in
 					 // the cache, but is owned by some
 					 // chare in this processor!
   NodeCacheEntry *e = p->second;
@@ -301,7 +311,7 @@ void CacheManager::processRequests(CacheNode *node,int from,int depth){
   if (--depth <= 0) return;
   for (unsigned int i=0; i<node->numChildren(); ++i) {
     if (node->getChildren(i) != NULL)
-      processRequests(node->getChildren(i), from, depth);
+      processRequests(chunk,node->getChildren(i), from, depth);
   }
 
 }
@@ -331,26 +341,29 @@ void CacheManager::recvNodes(FillNodeMsg *msg){
 #ifdef COSMO_PRINT
   CkPrintf("Cache: Reveived nodes from %d\n",msg->owner);
 #endif
+  map<MapKey,int>::iterator pchunk = outStandingRequests.find(MapKey(newnode->getKey(),msg->owner));
+  CkAssert(pchunk != outStandingRequests.end());
+  int chunk = pchunk->second;
   // recursively add all nodes in the tree rooted by "node"
-  addNodes(msg->owner,newnode);
-  map<CacheKey,NodeCacheEntry *>::iterator e = nodeCacheTable.find(newnode->getParentKey());
-  if (e != nodeCacheTable.end() && e->second->node != NULL) {
+  addNodes(chunk,msg->owner,newnode);
+  map<CacheKey,NodeCacheEntry *>::iterator e = nodeCacheTable[chunk].find(newnode->getParentKey());
+  if (e != nodeCacheTable[chunk].end() && e->second->node != NULL) {
     newnode->parent = e->second->node;
     if (e->second->node->getType() == Cached) {
       e->second->node->setChildren(e->second->node->whichChild(newnode->getKey()), newnode);
     }
   }
-  outStandingRequests.erase(MapKey(newnode->getKey(),msg->owner));
+  outStandingRequests.erase(pchunk);
   // recursively process all nodes just inserted in the cache
-  processRequests(newnode,msg->owner,_cacheLineDepth);
+  processRequests(chunk,newnode,msg->owner,_cacheLineDepth);
 }
 
 
-GravityParticle *CacheManager::requestParticles(int requestorIndex,const CacheKey key,int remoteIndex,int begin,int end,BucketGravityRequest *req){
+GravityParticle *CacheManager::requestParticles(int requestorIndex,int chunk,const CacheKey key,int remoteIndex,int begin,int end,BucketGravityRequest *req){
   map<CacheKey,ParticleCacheEntry *>::iterator p;
-  p = particleCacheTable.find(key);
+  p = particleCacheTable[chunk].find(key);
   ParticleCacheEntry *e;
-  if(p != particleCacheTable.end()){
+  if(p != particleCacheTable[chunk].end()){
     e = p->second;
     CkAssert(e->home == remoteIndex);
     CkAssert(e->begin == begin);
@@ -378,13 +391,14 @@ GravityParticle *CacheManager::requestParticles(int requestorIndex,const CacheKe
 #if COSMO_STATS > 0
     e->totalRequests++;
 #endif
-    particleCacheTable[key] = e;
+    particleCacheTable[chunk][key] = e;
     if (sendParticleRequest(e, req)) {
       return e->part;
     }
   }
   e->requestorVec.push_back(RequestorData(requestorIndex,req->identifier));
   //e->reqVec.push_back(req);
+  outStandingParticleRequests[key] = chunk;
   return NULL;
 }
 
@@ -405,10 +419,19 @@ GravityParticle *CacheManager::sendParticleRequest(ParticleCacheEntry *e, Bucket
 
 void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int from){
   CkAssert(num>0);
-  map<CacheKey,ParticleCacheEntry *>::iterator p;
-  p = particleCacheTable.find(key);
-  if(p == particleCacheTable.end()){
+  map<CacheKey,int>::iterator pchunk = outStandingParticleRequests.find(key);
+  if(pchunk == outStandingParticleRequests.end()) {
     printf("[%d] particle data received for a node that was never asked for \n",CkMyPe());
+    return;
+  }
+  int chunk = pchunk->second;
+  CkAssert(chunk >=0 && chunk < numChunks);
+  outStandingParticleRequests.erase(key);
+
+  map<CacheKey,ParticleCacheEntry *>::iterator p;
+  p = particleCacheTable[chunk].find(key);
+  if(p == particleCacheTable[chunk].end()){
+    printf("[%d] particle data received for a node that was never asked for in this chunk\n",CkMyPe());
     return;
   }
   ParticleCacheEntry *e = p->second;
@@ -442,23 +465,33 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
   repRecvd=0;
   totalNodesRequested=0;
 #endif
-  map<CacheKey,NodeCacheEntry *>::iterator pn;
-  for (pn = nodeCacheTable.begin(); pn != nodeCacheTable.end(); pn++) {
-    NodeCacheEntry *e = pn->second;
-    delete e;
+  for (int chunk=0; chunk<numChunks; ++chunk) {
+    map<CacheKey,NodeCacheEntry *>::iterator pn;
+    for (pn = nodeCacheTable[chunk].begin(); pn != nodeCacheTable[chunk].end(); pn++) {
+      NodeCacheEntry *e = pn->second;
+      delete e;
+    }
+    nodeCacheTable[chunk].clear();
+    map<CacheKey,ParticleCacheEntry *>::iterator pp;
+    for (pp = particleCacheTable[chunk].begin(); pp != particleCacheTable[chunk].end(); pp++) {
+      ParticleCacheEntry *e = pp->second;
+      delete e;
+    }
+    particleCacheTable[chunk].clear();
   }
-  nodeCacheTable.clear();
-  map<CacheKey,NodeCacheEntry *>::iterator pp;
-  for (pp = nodeCacheTable.begin(); pp != nodeCacheTable.end(); pp++) {
-    NodeCacheEntry *e = pp->second;
-    delete e;
-  }
-  particleCacheTable.clear();
 
   CkAssert(outStandingRequests.empty());
   storedNodes=0;
   storedParticles=0;
   //}
+  if (numChunks != newChunks) {
+    delete[] nodeCacheTable;
+    delete[] particleCacheTable;
+    numChunks = newChunks;
+    nodeCacheTable = new map<CacheKey,NodeCacheEntry *>[numChunks];
+    particleCacheTable = new map<CacheKey,ParticleCacheEntry *>[numChunks];
+  }
+
   // call the gravitational computatino utility of each local chare element
   set<int>::iterator iter;
   for (iter = registeredChares.begin(); iter != registeredChares.end(); iter++) {
@@ -468,10 +501,10 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
   }
 }
 
-void CacheManager::markPresence(int index, GenericTreeNode *proto, int numChunks) {
+void CacheManager::markPresence(int index, GenericTreeNode *proto, int _numChunks) {
   prototype = proto;
   registeredChares.insert(index);
-  
+  newChunks = _numChunks;
 }
 
 void CacheManager::revokePresence(int index) {

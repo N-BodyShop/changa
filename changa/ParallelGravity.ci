@@ -16,6 +16,7 @@ mainmodule ParallelGravity {
 	message piecedata;
 	message dummyMsg;
 	message RequestNodeMsg;
+	message RequestParticleMsg;
 	message FillNodeMsg {
 	  char nodes[];
 	};
@@ -72,8 +73,9 @@ mainmodule ParallelGravity {
 		//				BucketGravityRequest &req);
 		//entry void receiveParticle(GravityParticle part,
 		//			   BucketGravityRequest &req);
-		entry void fillRequestParticles(SFC::Key key,int retIndex, int begin,int end,
-						unsigned int reqID);
+		entry void fillRequestParticles(RequestParticleMsg *msg);
+		//entry void fillRequestParticles(SFC::Key key,int retIndex, int begin,int end,
+		//				unsigned int reqID);
 		entry void receiveParticles(GravityParticle part[num],int num,
 					    unsigned int reqID);
 		//entry [inline] void receiveParticles_inline(GravityParticle part[num],int num,

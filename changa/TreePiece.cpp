@@ -1652,7 +1652,7 @@ GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key,
 #if COSMO_PRINT > 1
     CkPrintf("[%d] b=%d requesting node %s to %d for %s (additional=%d)\n",thisIndex,req.identifier,keyBits(key,63).c_str(),remoteIndex,keyBits(bucketList[req.identifier]->getKey(),63).c_str(),req.numAdditionalRequests);
 #endif
-    GenericTreeNode *res=localCache->requestNode(thisIndex,remoteIndex,key,&req);
+    GenericTreeNode *res=localCache->requestNode(thisIndex,remoteIndex,0,key,&req);
     if(!res){
       req.numAdditionalRequests++;
 #if COSMO_STATS > 0
@@ -1819,7 +1819,7 @@ GravityParticle *TreePiece::requestParticles(const Tree::NodeKey &key,int remote
       localCache = cacheManagerProxy.ckLocalBranch();
     }
     */
-    GravityParticle *p = localCache->requestParticles(thisIndex,key,remoteIndex,begin,end,&req);
+    GravityParticle *p = localCache->requestParticles(thisIndex,0,key,remoteIndex,begin,end,&req);
     if (!p) {
 #if COSMO_PRINT > 1
       CkPrintf("[%d] b=%d requestParticles: additional=%d\n",thisIndex,req.identifier,req.numAdditionalRequests);
@@ -1849,14 +1849,22 @@ void TreePiece::fillRequestParticle(int retIndex, int iPart,
 }
 */
 
-void TreePiece::fillRequestParticles(Key key,int retIndex, int begin,int end,
-				     unsigned int reqID)
-{
+/*void TreePiece::fillRequestParticles(Key key,int retIndex, int begin,int end,
+				     unsigned int reqID) {
   if(_cache){
     cacheManagerProxy[retIndex].recvParticles(key,&myParticles[begin],end-begin+1,thisIndex);
   }else{
     streamingProxy[retIndex].receiveParticles(&myParticles[begin], end-begin+1,reqID);
   }	
+}*/
+
+void TreePiece::fillRequestParticles(RequestParticleMsg *msg) {
+  if (_cache) {
+    cacheManagerProxy[msg->retIndex].recvParticles(msg->key, &myParticles[msg->begin], msg->end - msg->begin + 1, thisIndex);
+  } else {
+    streamingProxy[msg->retIndex].receiveParticles(&myParticles[msg->begin], msg->end - msg->begin + 1, msg->reqID);
+  }	
+  delete msg;
 }
 
 /*

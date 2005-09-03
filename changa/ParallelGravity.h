@@ -88,6 +88,17 @@ class RequestNodeMsg : public CMessage_RequestNodeMsg {
   RequestNodeMsg(int r, int d, Tree::NodeKey k, unsigned int req) : retIndex(r), depth(d), key(k), reqID(req) {}
 };
 
+class RequestParticleMsg : public CMessage_RequestParticleMsg {
+ public:
+  int retIndex;
+  int begin;
+  int end;
+  Tree::NodeKey key;
+  unsigned int reqID;
+
+  RequestParticleMsg(int r, int b, int e, Tree::NodeKey k, unsigned int req) : retIndex(r), begin(b), end(e), key(k), reqID(req) {}
+};
+
 class FillNodeMsg : public CMessage_FillNodeMsg {
  public:
   int owner;
@@ -472,8 +483,9 @@ public:
 	void cachedWalkBucketTree(GenericTreeNode* node,
 				  BucketGravityRequest& req);
 	GravityParticle *requestParticles(const Tree::NodeKey &key,int remoteIndex,int begin,int end,BucketGravityRequest &req);
-	void fillRequestParticles(Tree::NodeKey key,int retIndex, int begin,int end,
-				  unsigned int reqID);
+	void fillRequestParticles(RequestParticleMsg *msg);
+	//void fillRequestParticles(Tree::NodeKey key,int retIndex, int begin,int end,
+	//			  unsigned int reqID);
 	void receiveParticles(GravityParticle *part,int num,
 			      unsigned int reqID);
 	void receiveParticles_inline(GravityParticle *part,int num,

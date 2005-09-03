@@ -1,7 +1,7 @@
 # Flags that can be passed during compilation
 #FLAG_PRINT = -DCOSMO_PRINT=1       #enable really verbose prints
 FLAG_STATISTICS = -DCOSMO_STATS=1  # enable statistics collection
-#FLAG_DEBUG = -DCOSMO_DEBUG=1       # enable debugging information
+#FLAG_DEBUG = -DCOSMO_DEBUG=2       # enable debugging information
 DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG)
 
 STRUCTURES_PATH = ../structures
@@ -17,15 +17,15 @@ TARGET = ParallelGravity
 VERSION = 0.2
 all: $(TARGET)
 
-$(TARGET).o: $(TARGET).decl.h CacheManager.decl.h
+$(TARGET).o: $(TARGET).decl.h CacheManager.decl.h Makefile
 
 $(TARGET): TreePiece.o CacheManager.o
 
 CacheManager.o: CacheManager.C CacheManager.h CacheManager.decl.h\
-	../GenericTree/MultipoleMoments.h ParallelGravity.h
+	../GenericTree/MultipoleMoments.h ParallelGravity.h Makefile
 
 TreePiece.o ParallelGravity.o: ParallelGravity.h TreeNode.h CacheManager.h\
-	../GenericTree/MultipoleMoments.h ../GenericTree/GenericTreeNode.h
+	../GenericTree/MultipoleMoments.h ../GenericTree/GenericTreeNode.h Makefile
 
 %.decl.h %.def.h : %.ci
 	$(CHARMC) $<
