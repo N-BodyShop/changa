@@ -47,17 +47,20 @@ public:
 
 	bool requestSent;
 	bool replyRecvd;
-#if COSMO_STATS > 0
+#if COSMO_STATS > 1
+	/// total number of requests to this cache entry
 	int totalRequests;
-	int hits;
+	/// total number of requests that missed this entry, if the request is
+	/// to another TreePiece in the local processor we never miss
+	int misses;
 #endif
 	CacheEntry(){
 		replyRecvd = false;
 		requestSent=false;
 		home = -1;
-#if COSMO_STATS > 0
+#if COSMO_STATS > 1
 		totalRequests=0;
-		hits=0;
+		misses=0;
 #endif
 	}
 
@@ -124,12 +127,37 @@ private:
 
 	map<CacheKey,NodeCacheEntry *> *nodeCacheTable;
 #if COSMO_STATS > 0
-	int reqRecvd;
-	int repRecvd;
-	//bool allReqSent;
+	/// nodes arrived from remote processors
+	u_int64_t nodesArrived;
+	/// messages arrived from remote processors filling nodes
+	u_int64_t nodesMessages;
+	/// nodes that have arrived more than once from remote processors, they
+	/// are counted also as nodesArrived
+	u_int64_t nodesDuplicated;
+	/// nodes missed while walking the tree for computation
+	u_int64_t nodesMisses;
+	/// nodes that have been imported from local TreePieces
+	u_int64_t nodesLocal;
+	// nodes that have been prefetched, but never used during the
+	// computation (nodesDuplicated are not included in this count)
+	//u_int64_t nodesNeverUsed;
+	/// particles arrived from remote processors, this counts only the entries in the cache
+	u_int64_t particlesArrived;
+	/// particles arrived from remote processors, this counts the real
+	/// number of particles arrived
+	u_int64_t particlesTotalArrived;
+	/// particles missed while walking the tree for computation
+	u_int64_t particlesMisses;
+	/// particles that have been imported from local TreePieces
+	u_int64_t particlesLocal;
+	/// particles arrived which were never requested, basically errors
+	u_int64_t particlesError;
 	/** counts the total number of nodes requested by all
-	the chares on that processor***/
-	int totalNodesRequested;
+	the chares on the processor***/
+	u_int64_t totalNodesRequested;
+	/** counts the total number of particles requested by all
+	the chares on the processor***/
+	u_int64_t totalParticlesRequested;
 #endif
 	/// used to generate new Nodes of the correct type (inheriting classes of CacheNode)
 	CacheNode *prototype;
@@ -166,7 +194,7 @@ private:
 	 * sendNodeRequest to get it. Returns null if the Node has to come from
 	 * remote.
 	*/
-	CacheNode *requestNode(int requestorIndex, int remoteIndex, int chunk, CacheKey key, BucketGravityRequest *req);
+	CacheNode *requestNode(int requestorIndex, int remoteIndex, int chunk, CacheKey key, BucketGravityRequest *req, bool isPrefetch=false);
 	// Shortcut for the other recvNodes, this receives only one node
 	//void recvNodes(CacheKey ,int ,CacheNode &);
 	/** @brief Receive the nodes incoming from the remote
@@ -175,7 +203,7 @@ private:
 	 */
 	void recvNodes(FillNodeMsg *msg);
 	
-	GravityParticle *requestParticles(int requestorIndex, int chunk, const CacheKey key, int remoteIndex, int begin, int end, BucketGravityRequest *req);
+	GravityParticle *requestParticles(int requestorIndex, int chunk, const CacheKey key, int remoteIndex, int begin, int end, BucketGravityRequest *req, bool isPrefetch=false);
 	void recvParticles(CacheKey key,GravityParticle *part,int num, int from);
 
 	/** Invoked from the mainchare to start a new iteration. It calls the
@@ -194,7 +222,11 @@ private:
 	    and after ResumeFromSync.
 	 */
 	void markPresence(int index, GenericTreeNode*, int numChunks);
+	/// Before changing processor, chares deregister from the CacheManager
 	void revokePresence(int index);
+
+	/// Collect the statistics for the latest iteration
+	void collectStatistics(CkCallback& cb);
 
 };
 

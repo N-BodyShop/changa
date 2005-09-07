@@ -78,6 +78,72 @@ public:
 };
 /********************************************/
 
+class CacheStatistics {
+  u_int64_t nodesArrived;
+  u_int64_t nodesMessages;
+  u_int64_t nodesDuplicated;
+  u_int64_t nodesMisses;
+  u_int64_t nodesLocal;
+  u_int64_t particlesArrived;
+  u_int64_t particlesTotalArrived;
+  u_int64_t particlesMisses;
+  u_int64_t particlesLocal;
+  u_int64_t particlesError;
+  u_int64_t totalNodesRequested;
+  u_int64_t totalParticlesRequested;
+
+  CacheStatistics() : nodesArrived(0), nodesMessages(0), nodesDuplicated(0), nodesMisses(0),
+    nodesLocal(0), particlesArrived(0), particlesTotalArrived(0),
+    particlesMisses(0), particlesLocal(0), particlesError(0), totalNodesRequested(0),
+    totalParticlesRequested(0) { }
+
+ public:
+  CacheStatistics(u_int64_t na, u_int64_t nmsg, u_int64_t nd, u_int64_t nm,
+		  u_int64_t nl, u_int64_t pa, u_int64_t pta, u_int64_t pm,
+		  u_int64_t pl, u_int64_t pe, u_int64_t tnr, u_int64_t tpr) :
+    nodesArrived(na), nodesMessages(nmsg), nodesDuplicated(nd), nodesMisses(nm),
+    nodesLocal(nl), particlesArrived(pa), particlesTotalArrived(pta), particlesMisses(pm),
+    particlesLocal(pl), particlesError(pe), totalNodesRequested(tnr),
+    totalParticlesRequested(tpr) { }
+
+  void printTo(CkOStream &os) {
+    os << "Cache: " << nodesArrived << " nodes (of which " << nodesDuplicated;
+    os << " duplicated) arrived in " << nodesMessages;
+    os << " messages, " << nodesLocal << " from local TreePieces" << endl;
+    os << "Cache: " << nodesMisses << " node misses during computation" << endl;
+    os << "Cache: " << particlesTotalArrived << " particles arrived (corresponding to ";
+    os << particlesArrived << " remote nodes), " << particlesLocal << " from local TreePieces" << endl;
+    if (particlesError > 0) {
+      os << "Cache: ======>>>> ERROR: " << particlesError << " particles arrived without being requested!! <<<<======" << endl;
+    }
+    os << "Cache: " << particlesMisses << " particle misses during computation" << endl;
+    os << "Cache: local TreePieces requested " << totalNodesRequested << " nodes and ";
+    os << totalParticlesRequested << " particle buckets" << endl;
+  }
+
+  static CkReduction::reducerType sum;
+
+  static CkReductionMsg *sumFn(int nMsg, CkReductionMsg **msgs) {
+    CacheStatistics ret;
+    for (int i=0; i<nMsg; ++i) {
+      CkAssert(msgs[i]->getSize() == sizeof(CacheStatistics));
+      CacheStatistics *data = (CacheStatistics *)msgs[i]->getData();
+      ret.nodesArrived += data->nodesArrived;
+      ret.nodesMessages += data->nodesMessages;
+      ret.nodesDuplicated += data->nodesDuplicated;
+      ret.nodesMisses += data->nodesMisses;
+      ret.nodesLocal += data->nodesLocal;
+      ret.particlesArrived += data->particlesArrived;
+      ret.particlesTotalArrived += data->particlesTotalArrived;
+      ret.particlesMisses += data->particlesMisses;
+      ret.particlesLocal += data->particlesLocal;
+      ret.totalNodesRequested += data->totalNodesRequested;
+      ret.totalParticlesRequested += data->totalParticlesRequested;
+    }
+    return CkReductionMsg::buildNew(sizeof(CacheStatistics), &ret);
+  }
+};
+
 class RequestNodeMsg : public CMessage_RequestNodeMsg {
  public:
   int retIndex;

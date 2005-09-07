@@ -22,18 +22,18 @@ bool operator<(MapKey lhs,MapKey rhs){
 
 inline void NodeCacheEntry::sendRequest(BucketGravityRequest *req){
   requestSent = true;
-  RequestNodeMsg *msg = new (8*sizeof(int)) RequestNodeMsg(CkMyPe(),_cacheLineDepth,requestID,req->identifier);
-  *(int*)CkPriorityPtr(msg) = -1100000000;
-  CkSetQueueing(msg, CK_QUEUEING_IFIFO);
+  RequestNodeMsg *msg = new RequestNodeMsg(CkMyPe(),_cacheLineDepth,requestID,req->identifier);
+  //*(int*)CkPriorityPtr(msg) = -1100000000;
+  //CkSetQueueing(msg, CK_QUEUEING_IFIFO);
   treeProxy[home].fillRequestNode(msg);
   //	CpvAccess(streamingTreeProxy)[home].fillRequestNode(CkMyPe(),requestNodeID,*req);
 };
 
 inline void ParticleCacheEntry::sendRequest(BucketGravityRequest *req){
   requestSent = true;
-  RequestParticleMsg *msg = new (8*sizeof(int)) RequestParticleMsg(CkMyPe(),begin,end,requestID,req->identifier);
-  *(int*)CkPriorityPtr(msg) = -1000000000;
-  CkSetQueueing(msg, CK_QUEUEING_IFIFO);
+  RequestParticleMsg *msg = new RequestParticleMsg(CkMyPe(),begin,end,requestID,req->identifier);
+  //*(int*)CkPriorityPtr(msg) = -1000000000;
+  //CkSetQueueing(msg, CK_QUEUEING_IFIFO);
   treeProxy[home].fillRequestParticles(msg);
   //treeProxy[home].fillRequestParticles(requestID,CkMyPe(),begin,end,req->identifier);
   //	CpvAccess(streamingTreeProxy)[home].fillRequestParticles(requestNodeID,CkMyPe(),begin,end,*req);
@@ -41,13 +41,6 @@ inline void ParticleCacheEntry::sendRequest(BucketGravityRequest *req){
 
 
 CacheManager::CacheManager(){
-#if COSMO_STATS > 0
-  reqRecvd=0;
-  repRecvd=0;
-  //allReqSent = false;
-  totalNodesRequested = 0;
-#endif
-
   numChunks = 0;
   nodeCacheTable = NULL;
   particleCacheTable = NULL;
@@ -55,9 +48,22 @@ CacheManager::CacheManager(){
   storedParticles = 0;
   //proxyInitialized = false;
   iterationNo=0;
+#if COSMO_STATS > 0
+  nodesArrived = 0;
+  nodesMessages = 0;
+  nodesDuplicated = 0;
+  nodesMisses = 0;
+  nodesLocal = 0;
+  particlesArrived = 0;
+  particlesTotalArrived = 0;
+  particlesMisses = 0;
+  particlesLocal = 0;
+  totalNodesRequested = 0;
+  totalParticlesRequested = 0;
+#endif
 }
 
-CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chunk,CacheKey key,BucketGravityRequest *req){
+CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chunk,CacheKey key,BucketGravityRequest *req,bool isPrefetch){
   /*
     if(!proxyInitialized){
     CpvInitialize(CProxy_TreePiece,streamingTreeProxy);
@@ -76,14 +82,11 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chun
   if(p != nodeCacheTable[chunk].end()){
     e = p->second;
     //assert(e->home == remoteIndex); not anymore true
-#if COSMO_STATS > 0
+#if COSMO_STATS > 1
     e->totalRequests++;
 #endif
 
     if(e->node != NULL){
-#if COSMO_STATS > 0
-      e->hits++;
-#endif
       return e->node;
     }
     if(!e->requestSent && !e->replyRecvd){
@@ -96,7 +99,7 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chun
     e = new NodeCacheEntry();
     e->requestID = key;
     e->home = remoteIndex;
-#if COSMO_STATS > 0
+#if COSMO_STATS > 1
     e->totalRequests++;
 #endif
     nodeCacheTable[chunk].insert(pair<CacheKey,NodeCacheEntry *>(key,e));
@@ -107,6 +110,12 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chun
   }
   e->requestorVec.push_back(RequestorData(requestorIndex,req->identifier));
   //e->reqVec.push_back(req);
+#if COSMO_STATS > 1
+  e->misses++;
+#endif
+#if COSMO_STATS > 0
+  if (!isPrefetch) nodesMisses++;
+#endif
   return NULL;
 }
 
@@ -128,6 +137,9 @@ CacheNode *CacheManager::sendNodeRequest(int chunk, NodeCacheEntry *e,BucketGrav
 #endif
     CkAssert(nd != NULL);
     CkAssert(e->node == NULL);
+#if COSMO_STATS > 0
+    nodesLocal++;
+#endif
     e->node = nd->clone();
     switch (e->node->getType()) {
     case Bucket:
@@ -166,14 +178,14 @@ void CacheManager::addNodes(int chunk,int from,CacheNode *node){
   p = nodeCacheTable[chunk].find(node->getKey());
   NodeCacheEntry *e;
   CacheNode *oldnode = NULL;
+#if COSMO_STATS > 0
+  nodesArrived++;
+#endif
   if (p == nodeCacheTable[chunk].end()) {
     // Completely new node, never seen in the cache
     e = new NodeCacheEntry();
     e->requestID = node->getKey();
     e->home = from;
-#if COSMO_STATS > 0
-    e->totalRequests++;
-#endif
     e->requestSent = true;
     e->replyRecvd = true;
     e->node = node;
@@ -244,7 +256,12 @@ void CacheManager::addNodes(int chunk,int from,CacheNode *node){
     }
   }
   // delete the old node (replaced) or count that we have inserted a new node
-  if (oldnode != NULL) delete oldnode;
+  if (oldnode != NULL) {
+#if COSMO_STATS > 0
+    nodesDuplicated++;
+#endif
+    delete oldnode;
+  }
   else storedNodes++;
 }
 
@@ -345,6 +362,9 @@ void CacheManager::recvNodes(FillNodeMsg *msg){
   CkAssert(pchunk != outStandingRequests.end());
   int chunk = pchunk->second;
   // recursively add all nodes in the tree rooted by "node"
+#if COSMO_STATS > 0
+  nodesMessages++;
+#endif
   addNodes(chunk,msg->owner,newnode);
   map<CacheKey,NodeCacheEntry *>::iterator e = nodeCacheTable[chunk].find(newnode->getParentKey());
   if (e != nodeCacheTable[chunk].end() && e->second->node != NULL) {
@@ -359,22 +379,22 @@ void CacheManager::recvNodes(FillNodeMsg *msg){
 }
 
 
-GravityParticle *CacheManager::requestParticles(int requestorIndex,int chunk,const CacheKey key,int remoteIndex,int begin,int end,BucketGravityRequest *req){
+GravityParticle *CacheManager::requestParticles(int requestorIndex,int chunk,const CacheKey key,int remoteIndex,int begin,int end,BucketGravityRequest *req,bool isPrefetch){
   map<CacheKey,ParticleCacheEntry *>::iterator p;
   p = particleCacheTable[chunk].find(key);
   ParticleCacheEntry *e;
+#if COSMO_STATS > 0
+  totalParticlesRequested++;
+#endif
   if(p != particleCacheTable[chunk].end()){
     e = p->second;
     CkAssert(e->home == remoteIndex);
     CkAssert(e->begin == begin);
     CkAssert(e->end == end);
-#if COSMO_STATS > 0
+#if COSMO_STATS > 1
     e->totalRequests++;
 #endif
     if(e->part != NULL){
-#if COSMO_STATS > 0
-      e->hits++;
-#endif
       return e->part;
     }
     if(!e->requestSent){
@@ -388,7 +408,7 @@ GravityParticle *CacheManager::requestParticles(int requestorIndex,int chunk,con
     e->home = remoteIndex;
     e->begin = begin;
     e->end = end;
-#if COSMO_STATS > 0
+#if COSMO_STATS > 1
     e->totalRequests++;
 #endif
     particleCacheTable[chunk][key] = e;
@@ -399,6 +419,12 @@ GravityParticle *CacheManager::requestParticles(int requestorIndex,int chunk,con
   e->requestorVec.push_back(RequestorData(requestorIndex,req->identifier));
   //e->reqVec.push_back(req);
   outStandingParticleRequests[key] = chunk;
+#if COSMO_STATS > 1
+  e->misses++;
+#endif
+#if COSMO_STATS > 0
+  if (!isPrefetch) particlesMisses++;
+#endif
   return NULL;
 }
 
@@ -409,6 +435,9 @@ GravityParticle *CacheManager::sendParticleRequest(ParticleCacheEntry *e, Bucket
     e->replyRecvd = true;
     const GravityParticle *gp = p->lookupParticles(e->begin);
     CkAssert(gp != NULL);
+#if COSMO_STATS > 0
+    particlesLocal++;
+#endif
     e->part = new GravityParticle[e->end - e->begin + 1];
     memcpy(e->part, gp, (e->end - e->begin + 1)*sizeof(GravityParticle));
     return e->part;
@@ -422,6 +451,9 @@ void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int 
   map<CacheKey,int>::iterator pchunk = outStandingParticleRequests.find(key);
   if(pchunk == outStandingParticleRequests.end()) {
     printf("[%d] particle data received for a node that was never asked for \n",CkMyPe());
+#if COSMO_STATS > 0
+    particlesError++;
+#endif
     return;
   }
   int chunk = pchunk->second;
@@ -432,8 +464,15 @@ void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int 
   p = particleCacheTable[chunk].find(key);
   if(p == particleCacheTable[chunk].end()){
     printf("[%d] particle data received for a node that was never asked for in this chunk\n",CkMyPe());
+#if COSMO_STATS > 0
+    particlesError++;
+#endif
     return;
   }
+#if COSMO_STATS > 0
+  particlesArrived++;
+  particlesTotalArrived += num;
+#endif
   ParticleCacheEntry *e = p->second;
   //CkAssert(e->from == from);
   e->part = new GravityParticle[num];
@@ -447,6 +486,7 @@ void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int 
     p->receiveParticles(e->part,num,caller->reqID);
     //treeProxy[*caller].receiveParticles_inline(e->part,e->num,*(*callreq));
   }
+  e->requestorVec.clear();
   storedParticles+=num;
 }
 
@@ -461,9 +501,16 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
 #if COSMO_STATS > 0
   if (verbosity)
     CkPrintf("[%d] Total number of requests %d storedNodes %d outStandingRequests %d iterationNo %d \n",CkMyPe(),totalNodesRequested,storedNodes,outStandingRequests.size(),iterationNo);
-  reqRecvd=0;
-  repRecvd=0;
-  totalNodesRequested=0;
+  nodesArrived = 0;
+  nodesDuplicated = 0;
+  nodesMisses = 0;
+  nodesLocal = 0;
+  particlesArrived = 0;
+  particlesTotalArrived = 0;
+  particlesMisses = 0;
+  particlesLocal = 0;
+  totalNodesRequested = 0;
+  totalParticlesRequested = 0;
 #endif
   for (int chunk=0; chunk<numChunks; ++chunk) {
     map<CacheKey,NodeCacheEntry *>::iterator pn;
@@ -492,7 +539,7 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
     particleCacheTable = new map<CacheKey,ParticleCacheEntry *>[numChunks];
   }
 
-  // call the gravitational computatino utility of each local chare element
+  // call the gravitational computation utility of each local chare element
   set<int>::iterator iter;
   for (iter = registeredChares.begin(); iter != registeredChares.end(); iter++) {
     TreePiece *p = treeProxy[*iter].ckLocal();
@@ -509,4 +556,16 @@ void CacheManager::markPresence(int index, GenericTreeNode *proto, int _numChunk
 
 void CacheManager::revokePresence(int index) {
   registeredChares.erase(index);
+}
+
+void CacheManager::collectStatistics(CkCallback& cb) {
+#if COSMO_STATS > 0
+  CacheStatistics cs(nodesArrived, nodesMessages, nodesDuplicated, nodesMisses,
+		     nodesLocal, particlesArrived, particlesTotalArrived,
+		     particlesMisses, particlesLocal, particlesError,
+		     totalNodesRequested, totalParticlesRequested);
+  contribute(sizeof(CacheStatistics), &cs, CacheStatistics::sum, cb);
+#else
+  CkAbort("Invalid call, only valid if COSMO_STATS is defined");
+#endif
 }

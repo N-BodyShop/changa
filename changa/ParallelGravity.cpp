@@ -236,6 +236,12 @@ void Main::nextStage() {
 	  ckerr << " Number of particle-particle interactions: " << totaldata->ParticleInteractions << endl;
 	  ckerr << " Total mass of the tree : " << totaldata->totalmass << endl;
 	  totaldata->reset();
+
+	  // Cache Statistics
+	  CkCallback ccb(CkCallback::resumeThread);
+	  cacheManagerProxy.collectStatistics(ccb);
+	  CkReductionMsg *cs = (CkReductionMsg *) ccb.thread_delay();
+	  ((CacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
 	}
 
@@ -273,6 +279,13 @@ void Main::nextStage() {
 	CkExit();
 }
 
+CkReduction::reducerType CacheStatistics::sum;
+
+void registerCacheStatistics() {
+#if COSMO_STATS > 0
+  CacheStatistics::sum = CkReduction::addReducer(CacheStatistics::sumFn);
+#endif
+}
 
 #include "ParallelGravity.def.h"
 #include "CacheManager.def.h"
