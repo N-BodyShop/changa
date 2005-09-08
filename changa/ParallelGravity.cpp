@@ -279,9 +279,7 @@ void Main::nextStage() {
 	CkExit();
 }
 
-CkReduction::reducerType CacheStatistics::sum;
-
-void registerCacheStatistics() {
+void registerStatistics() {
 #if COSMO_STATS > 0
   CacheStatistics::sum = CkReduction::addReducer(CacheStatistics::sumFn);
 #endif

@@ -42,25 +42,25 @@ mainmodule ParallelGravity {
 		entry void collectSplitters(CkReductionMsg* m);
 		entry void startOctTreeBuild(CkReductionMsg* m);
 		
-		entry void acceptBoundaryNodeContribution(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
-		entry void acceptBoundaryNode(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
+		//entry void acceptBoundaryNodeContribution(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
+		//entry void acceptBoundaryNode(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
 		entry [inline] void requestRemoteMoments(Tree::NodeKey key, int sender);
 		entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, MultipoleMoments& moments);
 		
-		entry void calculateGravityDirect(const CkCallback& cb);
-		entry void fillRequestDirect(GravityRequest req);
-		entry void receiveGravityDirect(const GravityRequest& req);
+		//entry void calculateGravityDirect(const CkCallback& cb);
+		//entry void fillRequestDirect(GravityRequest req);
+		//entry void receiveGravityDirect(const GravityRequest& req);
 		
-		entry void calculateGravityTree(double t, const CkCallback& cb);
-		entry void fillRequestTree(GravityRequest req);	
-		entry void receiveGravityTree(const GravityRequest& req);
+		//entry void calculateGravityTree(double t, const CkCallback& cb);
+		//entry void fillRequestTree(GravityRequest req);	
+		//entry void receiveGravityTree(const GravityRequest& req);
 		
 		entry void calculateGravityLocal();
 		entry void calculateGravityRemote(int chunk);
 
-		entry void calculateGravityBucketTree(double t, const CkCallback& cb);
-		entry void fillRequestBucketTree(BucketGravityRequest req);	
-		entry void receiveGravityBucketTree(const BucketGravityRequest& req);
+		//entry void calculateGravityBucketTree(double t, const CkCallback& cb);
+		//entry void fillRequestBucketTree(BucketGravityRequest req);	
+		//entry void receiveGravityBucketTree(const BucketGravityRequest& req);
 
 		//entry void fillRequestNode(int retIndex, Tree::NodeKey lookupKey,
 		//			   BucketGravityRequest &req);
@@ -91,5 +91,5 @@ mainmodule ParallelGravity {
 		entry void getPieceValues(piecedata *totaldata);
 	};
 
-	initcall void registerCacheStatistics();
+	initproc void registerStatistics();
 };

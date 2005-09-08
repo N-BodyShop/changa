@@ -78,72 +78,6 @@ public:
 };
 /********************************************/
 
-class CacheStatistics {
-  u_int64_t nodesArrived;
-  u_int64_t nodesMessages;
-  u_int64_t nodesDuplicated;
-  u_int64_t nodesMisses;
-  u_int64_t nodesLocal;
-  u_int64_t particlesArrived;
-  u_int64_t particlesTotalArrived;
-  u_int64_t particlesMisses;
-  u_int64_t particlesLocal;
-  u_int64_t particlesError;
-  u_int64_t totalNodesRequested;
-  u_int64_t totalParticlesRequested;
-
-  CacheStatistics() : nodesArrived(0), nodesMessages(0), nodesDuplicated(0), nodesMisses(0),
-    nodesLocal(0), particlesArrived(0), particlesTotalArrived(0),
-    particlesMisses(0), particlesLocal(0), particlesError(0), totalNodesRequested(0),
-    totalParticlesRequested(0) { }
-
- public:
-  CacheStatistics(u_int64_t na, u_int64_t nmsg, u_int64_t nd, u_int64_t nm,
-		  u_int64_t nl, u_int64_t pa, u_int64_t pta, u_int64_t pm,
-		  u_int64_t pl, u_int64_t pe, u_int64_t tnr, u_int64_t tpr) :
-    nodesArrived(na), nodesMessages(nmsg), nodesDuplicated(nd), nodesMisses(nm),
-    nodesLocal(nl), particlesArrived(pa), particlesTotalArrived(pta), particlesMisses(pm),
-    particlesLocal(pl), particlesError(pe), totalNodesRequested(tnr),
-    totalParticlesRequested(tpr) { }
-
-  void printTo(CkOStream &os) {
-    os << "Cache: " << nodesArrived << " nodes (of which " << nodesDuplicated;
-    os << " duplicated) arrived in " << nodesMessages;
-    os << " messages, " << nodesLocal << " from local TreePieces" << endl;
-    os << "Cache: " << nodesMisses << " node misses during computation" << endl;
-    os << "Cache: " << particlesTotalArrived << " particles arrived (corresponding to ";
-    os << particlesArrived << " remote nodes), " << particlesLocal << " from local TreePieces" << endl;
-    if (particlesError > 0) {
-      os << "Cache: ======>>>> ERROR: " << particlesError << " particles arrived without being requested!! <<<<======" << endl;
-    }
-    os << "Cache: " << particlesMisses << " particle misses during computation" << endl;
-    os << "Cache: local TreePieces requested " << totalNodesRequested << " nodes and ";
-    os << totalParticlesRequested << " particle buckets" << endl;
-  }
-
-  static CkReduction::reducerType sum;
-
-  static CkReductionMsg *sumFn(int nMsg, CkReductionMsg **msgs) {
-    CacheStatistics ret;
-    for (int i=0; i<nMsg; ++i) {
-      CkAssert(msgs[i]->getSize() == sizeof(CacheStatistics));
-      CacheStatistics *data = (CacheStatistics *)msgs[i]->getData();
-      ret.nodesArrived += data->nodesArrived;
-      ret.nodesMessages += data->nodesMessages;
-      ret.nodesDuplicated += data->nodesDuplicated;
-      ret.nodesMisses += data->nodesMisses;
-      ret.nodesLocal += data->nodesLocal;
-      ret.particlesArrived += data->particlesArrived;
-      ret.particlesTotalArrived += data->particlesTotalArrived;
-      ret.particlesMisses += data->particlesMisses;
-      ret.particlesLocal += data->particlesLocal;
-      ret.totalNodesRequested += data->totalNodesRequested;
-      ret.totalParticlesRequested += data->totalParticlesRequested;
-    }
-    return CkReductionMsg::buildNew(sizeof(CacheStatistics), &ret);
-  }
-};
-
 class RequestNodeMsg : public CMessage_RequestNodeMsg {
  public:
   int retIndex;
@@ -172,17 +106,6 @@ class FillNodeMsg : public CMessage_FillNodeMsg {
   char *nodes;
 
   FillNodeMsg(int index) : owner(index) { }
-
-  /*
-  static FillNodeMsg::alloc(int msgnum, size_t sz, int *sizes, int pb) {
-    int offsets[2];
-    offsets[0] = ALIGN8(sz - 1); // -1 because we take out the "char nodes[1]"
-    if(sizes==0) offsets[1] = offsets[0];
-    else offsets[1] = offsets[0] + ALIGN8(sizes[0]);
-    FillNodeMsg *newmsg = (FillNodeMsg *) CkAllocMsg(msgnum, offsets[1], pb);
-    return (void *) newmsg;
-  }
-  */
 };
 
 class Main : public Chare {
@@ -215,8 +138,6 @@ class TreePiece : public CBase_TreePiece {
 	unsigned int myNumParticles;
 	/// Array with the particles in this chare
 	GravityParticle* myParticles;
-	//GravityParticle* leftBoundary;
-	//GravityParticle* rightBoundary;
 
 	/// holds the total mass of the current TreePiece
 	double piecemass;
@@ -257,13 +178,6 @@ class TreePiece : public CBase_TreePiece {
 	/// Map between Keys and TreeNodes, used to get a node from a key
 	NodeLookupType nodeLookupTable;
 
-	/// @if ALL
-
-	/// unused - SEND VERSION
-	unsigned int mySerialNumber;
-
-	/// @endif
-
 	/// Number of particles which are still traversing the tree
 	u_int64_t myNumParticlesPending;
 
@@ -283,13 +197,6 @@ class TreePiece : public CBase_TreePiece {
 
 	/// @endif
 
-	/// @if ALL
-
-	/// this was used when particles were traversing the tree (and not buckets)
-	u_int64_t nextParticle;
-
-	/// @endif
-
 	/// Size of bucketList, total number of buckets present
 	unsigned int numBuckets;
 	/// Used to start the computation for all buckets, one after the other
@@ -303,23 +210,8 @@ class TreePiece : public CBase_TreePiece {
 	/// @todo Eliminate the usage of this in the cache walk
 	BucketGravityRequest *bucketReqs;
 	
-	/// @if ALL
-
-	// all these are used only in the SEND VERSION
-	typedef std::map<unsigned int, GravityRequest> UnfilledRequestsType;
-	UnfilledRequestsType unfilledRequests;
-	typedef std::map<unsigned int, BucketGravityRequest> UnfilledBucketRequestsType;
-	UnfilledBucketRequestsType unfilledBucketRequests;
-
-	/// @endif
-
 	/// Pointer to the instance of the local cache
 	CacheManager *localCache;
-
-	/*
-	SFCTreeNode* lookupLeftChild(SFCTreeNode* node);
-	SFCTreeNode* lookupRightChild(SFCTreeNode* node);
-	*/
 
 	/// convert a key to a node using the nodeLookupTable
 	inline GenericTreeNode *keyToNode(const Tree::NodeKey);
@@ -337,34 +229,26 @@ class TreePiece : public CBase_TreePiece {
 	}
 	END DEBUGGING */
 
-	// Recursive call to build the subtree with root "node", and SFC bounded by the two particles
-	//void buildOctTree(GenericTreeNode* node, GravityParticle* leftParticle, GravityParticle* rightParticle);
 
 	/// Recursive call to build the subtree with root "node", level
 	/// specifies the level at which "node" resides inside the tree
 	void buildOctTree(GenericTreeNode* node, int level);
+
 	/// Compute all the moments for the nodes that are NonLocal, so that
 	/// during the tree traversal, they contain useful information to decide
 	/// whether to open or not.
 	void calculateRemoteMoments(GenericTreeNode* node);
+
 	/// Checks that every particle is indeed included in its bucket node
 	/// (may not be true due to truncation of the last two bits while
 	/// generating the 63 bit keys.
 	void checkTree(GenericTreeNode* node);
+
 	/// Given a node, check who is the first owner and the last owner of it.
 	/// It assumes that there are splitters, and that there is an ordering
 	/// of them across chares. It works for SFC ordering.
 	bool nodeOwnership(const GenericTreeNode *const node, int &firstOwner, int &lastOwner);
-	//bool nodeOwnership(SFCTreeNode* node, unsigned int* designatedOwner = 0, unsigned int* numOwners = 0, unsigned int* firstOwner = 0, unsigned int* lastOwner = 0);
 
-	/// @if ALL
-
-	/// unused - SEND VERSION - Recursive tree walk over a tree
-	void walkTree(GenericTreeNode* node, GravityRequest& req);
-	/// unused - SEND VERSION - Sending the next particle for computation
-	void startNextParticle();
-
-	/// @endif
 
 	/// Initialize all the buckets for the tree walk
 	/// @TODO: Eliminate this redundant copy!
@@ -383,10 +267,6 @@ class TreePiece : public CBase_TreePiece {
 	 * to trigger nextBucket which will loop over all the buckets.
 	 */
 	void doAllBuckets();
-	/// Copy one node into the position passed be "tmp" (used to fill a request)
-	//void copySFCTreeNode(SFCTreeNode &tmp,SFCTreeNode *node);
-	/// Recursive function to copy nodes into the filling request (to be returned to the requester)
-	//void prefixCopyNode(SFCTreeNode *node,Key lookupKey,Key *cacheKeys,SFCTreeNode *cacheNodes,int *count,int depth);
 	void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 	
 public:
@@ -427,80 +307,37 @@ public:
 	/// Real tree build, independent of other TreePieces; calls the recursive buildTree
 	void startOctTreeBuild(CkReductionMsg* m);
 
-	/// @if ALL
-	
-	/// Receive a contribution for the multipole computation of a boundary
-	/// node. This contribution is received only by one of the co-owners,
-	/// which will later forward the result through acceptBoundaryNode.
-	void acceptBoundaryNodeContribution(const Tree::NodeKey key, const int numParticles, const MultipoleMoments& moments);
-	/// Receive the multipole for a particular boundary node, after all
-	/// contributions by sharers have been added.
-	void acceptBoundaryNode(const Tree::NodeKey key, const int numParticles, const MultipoleMoments& moments);
-
-	/// @endif
-
 	/// Request the TreePiece to send back later the moments for this node.
-	/// Since it is [inline], it should do few work. The reply sent back
-	/// cannot be [inline]
 	void requestRemoteMoments(const Tree::NodeKey key, int sender);
 	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments);
-
-	/// @if ALL
-
-	/// unused - SEND VERSION
-	bool openCriterion(GenericTreeNode *node, GravityRequest& req);
-
-	/// @endif
 
 	/// Decide whether the node should be opened for the force computation
 	/// of the given request.
 	bool openCriterionBucket(GenericTreeNode *node,
 				 BucketGravityRequest& req);
 
-	/// @if ALL
-
-	/// unused (only for correctness check) - Used to perform n^2 (particle-particle) computation
-	void calculateGravityDirect(const CkCallback& cb);
-	/// unused (only for correctness check) - Filler for n^2 (particle-particle) computation
-	void fillRequestDirect(GravityRequest req);
-	/// unused (only for correctness check) - Receive incoming particle for computation n^2
-	void receiveGravityDirect(const GravityRequest& req);
-
-	/// unused - Treewalk one particle at a time
-	void calculateGravityTree(double t, const CkCallback& cb);
-	/// unused - Fill the request, almost identical to fillRequestBucketTree
-	void fillRequestTree(GravityRequest req);	
-	/// unused - Receive incoming data for particle tree walk
-	void receiveGravityTree(const GravityRequest& req);
-
-	/// unused - SEND VERSION - Return to the requester the data (typically the cache manager)
-	void fillRequestBucketTree(BucketGravityRequest req);
-	/// unused - SEND VERSION - callback where the data requested to another TreePiece will come back.
-	void receiveGravityBucketTree(const BucketGravityRequest& req);
-
-	/// @brief Main entry point to start gravity computation
-	void calculateGravityBucketTree(double t, const CkCallback& cb);
-
-	/// @endif
-
 	/// Entry point for the local computation: for each bucket compute the
 	/// force that its particles see due to the other particles hosted in
 	/// this TreePiece. The opening angle theta has already been passed
 	/// through "startIteration"
 	void calculateGravityLocal();
+
 	/// Entry point for the remote computation: for each bucket compute the
 	/// force that its particles see due to the other particles NOT hosted
 	/// by this TreePiece, and belonging to a subset of the global tree
 	/// (specified by chunkNum).
 	void calculateGravityRemote(int chunkNum);
+
 	/// Temporary function to recurse over all the buckets like in
 	/// walkBucketTree, only that NonLocal nodes are the only one for which
 	/// forces are computed
 	void walkBucketRemoteTree(GenericTreeNode *node, BucketGravityRequest &req);
+
 	/// Function called by the CacheManager to start a new iteration.
 	/// @param t the opening angle
 	/// @param cb the callback to use after all the computation has finished
 	void startIteration(double t, const CkCallback& cb);
+
 	/// Function called by the CacheManager to send out request for needed
 	/// remote data, so that the later computation will hit.
 	void prefetch(GenericTreeNode *node);
@@ -524,22 +361,10 @@ public:
 	/// Find the particles starting at "begin", and return a pointer to it
 	const GravityParticle* lookupParticles(int begin);
 
-	/// @if ALL
-
-	/// unused - highly inefficient version that requests one single particle
-	GravityParticle* requestParticle(int remoteIndex, int iPart,
-					 BucketGravityRequest& req);
-	/// unused - highly inefficient version that returns one single particle
-	void fillRequestParticle(int retIndex, int iPart,
-				 BucketGravityRequest& req);
-	/// unused - highly inefficient version that receives one single particle
-	void receiveParticle(GravityParticle part, BucketGravityRequest& req);
-
-	/// @endif
-
 	/// @brief Check if we have done with the treewalk on a specific bucket,
 	/// and if we have, check also if we are done with all buckets
 	inline void finishBucket(int iBucket);
+
 	/** @brief Routine which does the tree walk on non-local nodes. It is
 	 * called back for every incoming node (which are those requested to the
 	 * cache during previous treewalks), and continue the treewalk from

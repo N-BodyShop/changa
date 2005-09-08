@@ -23,8 +23,6 @@ bool operator<(MapKey lhs,MapKey rhs){
 inline void NodeCacheEntry::sendRequest(BucketGravityRequest *req){
   requestSent = true;
   RequestNodeMsg *msg = new RequestNodeMsg(CkMyPe(),_cacheLineDepth,requestID,req->identifier);
-  //*(int*)CkPriorityPtr(msg) = -1100000000;
-  //CkSetQueueing(msg, CK_QUEUEING_IFIFO);
   treeProxy[home].fillRequestNode(msg);
   //	CpvAccess(streamingTreeProxy)[home].fillRequestNode(CkMyPe(),requestNodeID,*req);
 };
@@ -32,8 +30,6 @@ inline void NodeCacheEntry::sendRequest(BucketGravityRequest *req){
 inline void ParticleCacheEntry::sendRequest(BucketGravityRequest *req){
   requestSent = true;
   RequestParticleMsg *msg = new RequestParticleMsg(CkMyPe(),begin,end,requestID,req->identifier);
-  //*(int*)CkPriorityPtr(msg) = -1000000000;
-  //CkSetQueueing(msg, CK_QUEUEING_IFIFO);
   treeProxy[home].fillRequestParticles(msg);
   //treeProxy[home].fillRequestParticles(requestID,CkMyPe(),begin,end,req->identifier);
   //	CpvAccess(streamingTreeProxy)[home].fillRequestParticles(requestNodeID,CkMyPe(),begin,end,*req);
@@ -499,8 +495,8 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
     printf("[%d] Key %llu  total number of requests %d hits %d\n",CkMyPe(),p->first.k,p->second->totalRequests,p->second->hits);
     }*/
 #if COSMO_STATS > 0
-  if (verbosity)
-    CkPrintf("[%d] Total number of requests %d storedNodes %d outStandingRequests %d iterationNo %d \n",CkMyPe(),totalNodesRequested,storedNodes,outStandingRequests.size(),iterationNo);
+  //if (verbosity)
+  //  CkPrintf("[%d] Total number of requests %d storedNodes %d outStandingRequests %d iterationNo %d \n",CkMyPe(),totalNodesRequested,storedNodes,outStandingRequests.size(),iterationNo);
   nodesArrived = 0;
   nodesDuplicated = 0;
   nodesMisses = 0;
@@ -557,6 +553,8 @@ void CacheManager::markPresence(int index, GenericTreeNode *proto, int _numChunk
 void CacheManager::revokePresence(int index) {
   registeredChares.erase(index);
 }
+
+CkReduction::reducerType CacheStatistics::sum;
 
 void CacheManager::collectStatistics(CkCallback& cb) {
 #if COSMO_STATS > 0
