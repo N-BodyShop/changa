@@ -420,9 +420,8 @@ GravityParticle *CacheManager::requestParticles(int requestorIndex,int chunk,con
       return e->part;
     }
   }
-  if (!isPrefetch) {
-    e->requestorVec.push_back(RequestorData(requestorIndex,req->identifier,isPrefetch));
-  }
+
+  e->requestorVec.push_back(RequestorData(requestorIndex,req->identifier,isPrefetch));
   //e->reqVec.push_back(req);
   outStandingParticleRequests[key] = chunk;
 #if COSMO_STATS > 1
@@ -489,8 +488,9 @@ void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int 
   for(caller = e->requestorVec.begin(); caller != e->requestorVec.end(); caller++){
     TreePiece *p = treeProxy[caller->arrayID].ckLocal();
 
-    CkAssert(!caller->isPrefetch);
-    p->receiveParticles(e->part,num,caller->reqID);
+    //CkAssert(!caller->isPrefetch);
+    if (caller->isPrefetch) p->prefetch(e->part);
+    else p->receiveParticles(e->part,num,caller->reqID);
     //treeProxy[*caller].receiveParticles_inline(e->part,e->num,*(*callreq));
   }
   e->requestorVec.clear();

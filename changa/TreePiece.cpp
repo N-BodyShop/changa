@@ -769,12 +769,14 @@ void TreePiece::startIteration(double t, const CkCallback& cb) {
 
   initBuckets();
 
-  BucketGravityRequest req(2);
-  req.positions[0] = myParticles[1].position;
-  req.boundingBox.grow(myParticles[1].position);
-  req.positions[1] = myParticles[myNumParticles].position;
-  req.boundingBox.grow(myParticles[myNumParticles].position);
-  prefetchReq = req;
+  BucketGravityRequest req0(1);
+  req0.positions[0] = myParticles[1].position;
+  req0.boundingBox.grow(myParticles[1].position);
+  prefetchReq[0] = req0;
+  BucketGravityRequest req1(1);
+  req1.positions[0] = myParticles[myNumParticles].position;
+  req1.boundingBox.grow(myParticles[myNumParticles].position);
+  prefetchReq[1] = req1;
   prefetchWaiting = 1;
   prefetch(root);
 
@@ -787,12 +789,12 @@ void TreePiece::prefetch(GenericTreeNode *node) {
 
   if (_prefetch) {
     if(node->getType() != Internal && node->getType() != Bucket &&
-       openCriterionBucket(node, prefetchReq)) {
+       (openCriterionBucket(node, prefetchReq[0]) || openCriterionBucket(node, prefetchReq[1]))) {
       if(node->getType() == CachedBucket || node->getType() == NonLocalBucket) {
 	// Sending the request for all the particles at one go, instead of one by one
-	//if (requestParticles(node->getKey(),node->remoteIndex,node->firstParticle,node->lastParticle,prefetchReq,true) == NULL) {
-	// //prefetchWaiting ++;
-	//}
+	if (requestParticles(node->getKey(),node->remoteIndex,node->firstParticle,node->lastParticle,prefetchReq[0],true) == NULL) {
+	  prefetchWaiting ++;
+	}
       } else if (node->getType() != CachedEmpty && node->getType() != Empty) {
 	// Here the type is Cached, Boundary, Internal, NonLocal, which means the
 	// node in the global tree has children (it is not a leaf), so we iterate
@@ -812,7 +814,7 @@ void TreePiece::prefetch(GenericTreeNode *node) {
 	  if (child) {
 	    prefetch(child);
 	  } else { //missed the cache
-	    child = requestNode(node->remoteIndex, node->getChildKey(i), prefetchReq, true);
+	    child = requestNode(node->remoteIndex, node->getChildKey(i), prefetchReq[0], true);
 	    if (child) { // means that node was on a local TreePiece
 	      prefetch(child);
 	    }

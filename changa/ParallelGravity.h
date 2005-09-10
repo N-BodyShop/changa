@@ -237,7 +237,7 @@ class TreePiece : public CBase_TreePiece {
 	/// Number of nodes still missing before starting the real computation
 	u_int64_t prefetchWaiting;
 	/// Placeholder for particles used for prefetching
-	BucketGravityRequest prefetchReq;
+	BucketGravityRequest prefetchReq[2];
 
 	/// number of chunks in which the tree will be chopped for prefetching
 	int numChunks;
