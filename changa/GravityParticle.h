@@ -17,7 +17,11 @@ public:
 	double *potentials;
 	unsigned int numAdditionalRequests;
 	int finished;
-	
+
+#if COSMO_DEBUG > 1
+  std::vector<u_int64_t> requestedNodes;
+#endif
+  
 	BucketGravityRequest(unsigned int bucketSize = 0) : identifier(0),
 	    numParticlesInBucket(bucketSize), numAdditionalRequests(0),
 	    finished(0) {
@@ -30,6 +34,9 @@ public:
 			positions = accelerations = 0;
 			softs = potentials = 0;
 			}
+#if COSMO_DEBUG > 1
+    requestedNodes.clear();
+#endif
 	}
 	
 	BucketGravityRequest(const BucketGravityRequest& req) {
@@ -82,6 +89,10 @@ public:
 			softs = potentials = 0;
 			}
 		numAdditionalRequests = req.numAdditionalRequests;
+#if COSMO_DEBUG > 1
+    for(int i=0;i<req.requestedNodes.size();i++)
+      requestedNodes.push_back(req.requestedNodes[i]);
+#endif
 		return *this;
 	}
 	
@@ -164,6 +175,7 @@ public:
 		p | numEntryCalls;
 	}
 };
+
 
 class GravityParticle {
 public:
