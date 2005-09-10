@@ -604,6 +604,12 @@ void TreePiece::initBuckets() {
     }
     req.finished = 0;
     bucketReqs[j] = req;
+
+#if COSMO_DEBUG > 1
+    std::set<Tree::NodeKey> *list = new std::set<Tree::NodeKey>();
+    bucketcheckList.push_back(*list);
+#endif
+
   }
 }
 
@@ -906,6 +912,10 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, BucketGravityRequest& req)
 #if COSMO_PRINT > 1
   CkPrintf("[%d] walk bucket %s -> node %s\n",thisIndex,keyBits(bucketList[req.identifier]->getKey(),63).c_str(),keyBits(node->getKey(),63).c_str());
 #endif
+#if COSMO_DEBUG > 1
+  bucketcheckList[req.identifier].insert(node->getKey());
+  combineKeys(node->getKey(),req.identifier);
+#endif
     nodeBucketForce(node, req);
   } else if(node->getType() == Bucket) {
 #if COSMO_STATS > 0
@@ -923,6 +933,10 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, BucketGravityRequest& req)
 #endif
       partBucketForce(&myParticles[i], req);
     }
+#if COSMO_DEBUG > 1
+  bucketcheckList[req.identifier].insert(node->getKey());
+  combineKeys(node->getKey(),req.identifier);
+#endif
   } else if (node->getType() == NonLocal || node->getType() == NonLocalBucket) {
     /* DISABLED: this part of the walk is triggered directly by the CacheManager and prefetching
 
@@ -975,6 +989,10 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, BucketGravityRequest
 #if COSMO_PRINT > 1
   CkPrintf("[%d] cachedwalk bucket %s -> node %s\n",thisIndex,keyBits(bucketList[req.identifier]->getKey(),63).c_str(),keyBits(node->getKey(),63).c_str());
 #endif
+#if COSMO_DEBUG > 1
+  bucketcheckList[req.identifier].insert(node->getKey());
+  combineKeys(node->getKey(),req.identifier);
+#endif
     nodeBucketForce(node, req);
   } else if(node->getType() == CachedBucket || node->getType() == Bucket || node->getType() == NonLocalBucket) {
     /*
@@ -998,7 +1016,16 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, BucketGravityRequest
 #endif
 	partBucketForce(&part[i-node->firstParticle], req);
       }
-    }	
+#if COSMO_DEBUG > 1
+  bucketcheckList[req.identifier].insert(node->getKey());
+  combineKeys(node->getKey(),req.identifier);
+#endif
+    }
+#if COSMO_DEBUG > 1
+    else{
+      bucketReqs[req.identifier].requestedNodes.push_back(node->getKey());
+    }
+#endif
     /*
   } else if(node->getType() == NonLocal) {
     // Use cachedWalkBucketTree() as callback
@@ -1114,6 +1141,10 @@ void TreePiece::receiveNode(GenericTreeNode &node, unsigned int reqID)
     assert((int) node.remoteIndex != thisIndex);
     cachedWalkBucketTree(&node, bucketReqs[reqID]);
   }else{
+#if COSMO_DEBUG > 1
+  bucketcheckList[reqID].insert(node.getKey());
+  combineKeys(node.getKey(),reqID);
+#endif
   }
     
   finishBucket(reqID);
@@ -1186,6 +1217,36 @@ void TreePiece::receiveParticles(GravityParticle *part,int num,
 #endif
     partBucketForce(&part[i], bucketReqs[reqID]);
   }		
+#if COSMO_DEBUG > 1
+
+  Key mask = Key(~0);
+  Tree::NodeKey reqNodeKey;
+  std::vector<Tree::NodeKey>::iterator iter;
+  //std::vector<Tree::NodeKey> reqNodes = bucketReqs[reqID].requestedNodes;
+
+  if(bucketReqs[reqID].requestedNodes.empty())
+    CkPrintf("Error: [%d] bucket:%d has it's list as empty",thisIndex,reqID);
+  for(iter = bucketReqs[reqID].requestedNodes.begin(); iter != bucketReqs[reqID].requestedNodes.end(); iter++){
+    mask = Key(~0);
+    reqNodeKey = (*iter);
+    const Key subMask = Key(1) << 63;
+    while(!(reqNodeKey & subMask)){
+      reqNodeKey <<= 1;
+      mask <<= 1;
+    }
+    reqNodeKey &= ~subMask;
+    mask &= ~subMask;
+    Key k = part[0].key & mask;
+    
+    if(k == reqNodeKey){
+      break;
+    }
+  }
+  CkAssert(iter!=bucketReqs[reqID].requestedNodes.end());
+  bucketcheckList[reqID].insert(*iter);
+  combineKeys(*iter,reqID);
+  bucketReqs[reqID].requestedNodes.erase(iter);
+#endif
   finishBucket(reqID);
 }
 
@@ -1193,6 +1254,49 @@ void TreePiece::receiveParticles_inline(GravityParticle *part,int num,
 					unsigned int reqID){
         receiveParticles(part,num,reqID);
 }
+
+#if COSMO_DEBUG > 1
+
+//Recursive routine to combine keys -- Written only for Binary Trees
+void TreePiece::combineKeys(Tree::NodeKey key,int bucket){
+
+  Tree::NodeKey mask = Key(1);
+  Tree::NodeKey lastBit = key & mask;
+  Tree::NodeKey sibKey;
+  
+  if(lastBit==mask){
+    sibKey = key >> 1;
+    sibKey <<= 1;
+  }
+  else{
+    sibKey = key | mask;
+  }
+
+  std::set<Tree::NodeKey>::iterator iter = (bucketcheckList[bucket]).find(sibKey);
+
+  if(iter==bucketcheckList[bucket].end())
+    return;
+  else{//Sibling key has been found in the Binary tree
+    bucketcheckList[bucket].erase(key);
+    bucketcheckList[bucket].erase(sibKey);
+    key >>= 1;
+    bucketcheckList[bucket].insert(key);
+    combineKeys(key,bucket);
+  }
+}
+
+void TreePiece::checkWalkCorrectness(){
+
+  Tree::NodeKey endKey = Key(1);
+  for(int i=0;i<numBuckets;i++){
+    if(bucketcheckList[i].size()!=1 || bucketcheckList[i].find(endKey)==bucketcheckList[i].end()){
+      CkPrintf("Error: [%d] All the nodes not traversed by bucket no. %d\n",thisIndex,i);
+      break;
+    }
+  }
+}
+#endif
+
 
 void TreePiece::outputAccelerations(OrientedBox<double> accelerationBox, const string& suffix, const CkCallback& cb) {
   if(thisIndex == 0) {
@@ -1343,6 +1447,10 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
 	  << (particleInterLocal+particleInterRemote)/(double) myNumParticles << endl;
   }
 #endif	
+
+#if COSMO_DEBUG > 1
+checkWalkCorrectness();
+#endif
 
 #if COSMO_STATS > 1
   /*
