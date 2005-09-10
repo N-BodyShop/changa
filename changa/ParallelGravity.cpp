@@ -23,6 +23,7 @@ int numIterations=1;
 DomainsDec domainDecomposition;
 GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
+bool _prefetch;
 
 Main::Main(CkArgMsg* m) {
 	verbosity = 0;
@@ -33,6 +34,7 @@ Main::Main(CkArgMsg* m) {
 	_cacheLineDepth=1;
 	printBinaryAcc=1;
 	_yieldPeriod=100000000;
+	_prefetch=false;
 /*
 	poptOption optionsTable[] = {
 		{"verbose", 'v', POPT_ARG_NONE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, 0, 1, "be verbose about what's going on", "verbosity"},
@@ -78,7 +80,7 @@ Main::Main(CkArgMsg* m) {
 	poptFreeContext(context);
 		*/
 	
-	const char *optstring = "vt:p:b:cd:n:z:y:";
+	const char *optstring = "vt:p:b:cd:n:z:y:f";
 	int c;
 	while((c=getopt(m->argc,m->argv,optstring))>0){
 		if(c == -1){
@@ -111,6 +113,9 @@ Main::Main(CkArgMsg* m) {
 				break;
 			case 'y':
 				_yieldPeriod = atoi(optarg);
+				break;
+			case 'f':
+				_prefetch = true;
 				break;
 		};
 	}
@@ -166,7 +171,7 @@ Main::Main(CkArgMsg* m) {
 void Main::nextStage() {
 	double startTime;
 	
-	piecedata *totaldata = new piecedata;
+	//piecedata *totaldata = new piecedata;
 	
 	ckerr << "Loading particles ...";
 	startTime = CkWallTimer();
@@ -209,7 +214,7 @@ void Main::nextStage() {
 	*/
 	
 	// DEBUGGING
-	//CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),pieces));
+	CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),pieces));
 
 	// the cached walk
 	for(int i =0; i<numIterations; i++){
@@ -225,9 +230,13 @@ void Main::nextStage() {
 	  }
 	  
 #if COSMO_STATS > 0
-	  CkPrintf("Iteration # %d stats\n",i);
+	  ckerr << "Total statistics iteration " << i << ":" << endl;
 	  CkCallback cb(CkCallback::resumeThread);
-	    
+	  pieces.collectStatistics(cb);
+	  CkReductionMsg *tps = (CkReductionMsg *) cb.thread_delay();
+	  ((TreePieceStatistics*)tps->getData())->printTo(ckerr);
+
+	  /*
 	  totaldata->setcallback(cb);
 	  pieces[0].getPieceValues(totaldata);
 	  totaldata = (piecedata *) cb.thread_delay();
@@ -236,6 +245,7 @@ void Main::nextStage() {
 	  ckerr << " Number of particle-particle interactions: " << totaldata->ParticleInteractions << endl;
 	  ckerr << " Total mass of the tree : " << totaldata->totalmass << endl;
 	  totaldata->reset();
+	  */
 
 	  // Cache Statistics
 	  CkCallback ccb(CkCallback::resumeThread);
@@ -261,7 +271,8 @@ void Main::nextStage() {
 	startTime = CkWallTimer();
 	Interval<unsigned int> dummy;
 	
-	pieces[0].outputStatistics(dummy, dummy, dummy, dummy, totaldata->totalmass, CkCallbackResumeThread());
+	//pieces[0].outputStatistics(dummy, dummy, dummy, dummy, totaldata->totalmass, CkCallbackResumeThread());
+	pieces[0].outputStatistics(dummy, dummy, dummy, dummy, 0, CkCallbackResumeThread());
 
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 #endif
@@ -282,6 +293,7 @@ void Main::nextStage() {
 void registerStatistics() {
 #if COSMO_STATS > 0
   CacheStatistics::sum = CkReduction::addReducer(CacheStatistics::sumFn);
+  TreePieceStatistics::sum = CkReduction::addReducer(TreePieceStatistics::sumFn);
 #endif
 }
 

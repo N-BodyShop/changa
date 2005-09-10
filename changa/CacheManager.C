@@ -22,14 +22,18 @@ bool operator<(MapKey lhs,MapKey rhs){
 
 inline void NodeCacheEntry::sendRequest(BucketGravityRequest *req){
   requestSent = true;
-  RequestNodeMsg *msg = new RequestNodeMsg(CkMyPe(),_cacheLineDepth,requestID,req->identifier);
+  RequestNodeMsg *msg = new (32) RequestNodeMsg(CkMyPe(),_cacheLineDepth,requestID,req->identifier);
+  *(int*)CkPriorityPtr(msg) = -110000000; 
+  CkSetQueueing(msg, CK_QUEUEING_IFIFO);
   treeProxy[home].fillRequestNode(msg);
   //	CpvAccess(streamingTreeProxy)[home].fillRequestNode(CkMyPe(),requestNodeID,*req);
 };
 
 inline void ParticleCacheEntry::sendRequest(BucketGravityRequest *req){
   requestSent = true;
-  RequestParticleMsg *msg = new RequestParticleMsg(CkMyPe(),begin,end,requestID,req->identifier);
+  RequestParticleMsg *msg = new (32) RequestParticleMsg(CkMyPe(),begin,end,requestID,req->identifier);
+  *(int*)CkPriorityPtr(msg) = -100000000;
+  CkSetQueueing(msg, CK_QUEUEING_IFIFO);
   treeProxy[home].fillRequestParticles(msg);
   //treeProxy[home].fillRequestParticles(requestID,CkMyPe(),begin,end,req->identifier);
   //	CpvAccess(streamingTreeProxy)[home].fillRequestParticles(requestNodeID,CkMyPe(),begin,end,*req);
@@ -104,7 +108,7 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chun
       return e->node;
     }
   }
-  e->requestorVec.push_back(RequestorData(requestorIndex,req->identifier));
+  e->requestorVec.push_back(RequestorData(requestorIndex,req->identifier,isPrefetch));
   //e->reqVec.push_back(req);
 #if COSMO_STATS > 1
   e->misses++;
@@ -314,8 +318,12 @@ void CacheManager::processRequests(int chunk,CacheNode *node,int from,int depth)
   //vector<BucketGravityRequest *>::iterator callreq;
   for(caller = e->requestorVec.begin(); caller != e->requestorVec.end(); caller++){
     TreePiece *p = treeProxy[caller->arrayID].ckLocal();
-		
-    p->receiveNode(*(e->node),caller->reqID);
+
+    if (caller->isPrefetch) p->prefetch(e->node);
+    else {
+      p->receiveNode(*(e->node),caller->reqID);
+      //ckout <<"received node for computation"<<endl;
+    }
     //treeProxy[*caller].receiveNode_inline(*(e->node),*(*callreq));
   }
   e->requestorVec.clear();
@@ -412,7 +420,9 @@ GravityParticle *CacheManager::requestParticles(int requestorIndex,int chunk,con
       return e->part;
     }
   }
-  e->requestorVec.push_back(RequestorData(requestorIndex,req->identifier));
+  if (!isPrefetch) {
+    e->requestorVec.push_back(RequestorData(requestorIndex,req->identifier,isPrefetch));
+  }
   //e->reqVec.push_back(req);
   outStandingParticleRequests[key] = chunk;
 #if COSMO_STATS > 1
@@ -479,6 +489,7 @@ void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int 
   for(caller = e->requestorVec.begin(); caller != e->requestorVec.end(); caller++){
     TreePiece *p = treeProxy[caller->arrayID].ckLocal();
 
+    CkAssert(!caller->isPrefetch);
     p->receiveParticles(e->part,num,caller->reqID);
     //treeProxy[*caller].receiveParticles_inline(e->part,e->num,*(*callreq));
   }

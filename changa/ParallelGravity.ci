@@ -12,9 +12,11 @@ mainmodule ParallelGravity {
 	readonly unsigned int _yieldPeriod;
 	readonly DomainsDec domainDecomposition;
 	readonly GenericTrees useTree;
+	readonly bool _prefetch;
 
-	message piecedata;
+	//message piecedata;
 	message dummyMsg;
+	message ComputeChunkMsg;
 	message RequestNodeMsg;
 	message RequestParticleMsg;
 	message FillNodeMsg {
@@ -30,7 +32,7 @@ mainmodule ParallelGravity {
 		entry TreePiece(unsigned int numPieces);
 
 		// DEBUGGING
-		//entry void quiescence();
+		entry void quiescence();
 
 		entry void report(const CkCallback& cb);
 		
@@ -56,7 +58,7 @@ mainmodule ParallelGravity {
 		//entry void receiveGravityTree(const GravityRequest& req);
 		
 		entry void calculateGravityLocal();
-		entry void calculateGravityRemote(int chunk);
+		entry void calculateGravityRemote(ComputeChunkMsg *msg);
 
 		//entry void calculateGravityBucketTree(double t, const CkCallback& cb);
 		//entry void fillRequestBucketTree(BucketGravityRequest req);	
@@ -88,7 +90,8 @@ mainmodule ParallelGravity {
 		entry void outputAccASCII(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
 		entry void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, double totalmass, const CkCallback& cb);
 		entry void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
-		entry void getPieceValues(piecedata *totaldata);
+		//entry void getPieceValues(piecedata *totaldata);
+		entry void collectStatistics(CkCallback &cb);
 	};
 
 	initproc void registerStatistics();

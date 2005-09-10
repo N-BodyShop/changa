@@ -55,17 +55,17 @@ class CacheStatistics {
     totalParticlesRequested(tpr) { }
 
   void printTo(CkOStream &os) {
-    os << "Cache: " << nodesArrived << " nodes (of which " << nodesDuplicated;
+    os << "  Cache: " << nodesArrived << " nodes (of which " << nodesDuplicated;
     os << " duplicated) arrived in " << nodesMessages;
     os << " messages, " << nodesLocal << " from local TreePieces" << endl;
-    os << "Cache: " << nodesMisses << " node misses during computation" << endl;
-    os << "Cache: " << particlesTotalArrived << " particles arrived (corresponding to ";
+    os << "  Cache: " << nodesMisses << " node misses during computation" << endl;
+    os << "  Cache: " << particlesTotalArrived << " particles arrived (corresponding to ";
     os << particlesArrived << " remote nodes), " << particlesLocal << " from local TreePieces" << endl;
     if (particlesError > 0) {
       os << "Cache: ======>>>> ERROR: " << particlesError << " particles arrived without being requested!! <<<<======" << endl;
     }
-    os << "Cache: " << particlesMisses << " particle misses during computation" << endl;
-    os << "Cache: local TreePieces requested " << totalNodesRequested << " nodes and ";
+    os << "  Cache: " << particlesMisses << " particle misses during computation" << endl;
+    os << "  Cache: local TreePieces requested " << totalNodesRequested << " nodes and ";
     os << totalParticlesRequested << " particle buckets" << endl;
   }
 
@@ -96,10 +96,12 @@ class RequestorData {//: public CkPool<RequestorData, 128> {
  public:
   int arrayID;
   int reqID;
+  bool isPrefetch;
 
-  RequestorData(int a, int r) {
+  RequestorData(int a, int r, bool ip) {
     arrayID = a;
     reqID = r;
+    isPrefetch = ip;
   }
 };
 
@@ -260,7 +262,7 @@ private:
 	 * sendNodeRequest to get it. Returns null if the Node has to come from
 	 * remote.
 	*/
-	CacheNode *requestNode(int requestorIndex, int remoteIndex, int chunk, CacheKey key, BucketGravityRequest *req, bool isPrefetch=false);
+	CacheNode *requestNode(int requestorIndex, int remoteIndex, int chunk, CacheKey key, BucketGravityRequest *req, bool isPrefetch);
 	// Shortcut for the other recvNodes, this receives only one node
 	//void recvNodes(CacheKey ,int ,CacheNode &);
 	/** @brief Receive the nodes incoming from the remote
@@ -269,7 +271,7 @@ private:
 	 */
 	void recvNodes(FillNodeMsg *msg);
 	
-	GravityParticle *requestParticles(int requestorIndex, int chunk, const CacheKey key, int remoteIndex, int begin, int end, BucketGravityRequest *req, bool isPrefetch=false);
+	GravityParticle *requestParticles(int requestorIndex, int chunk, const CacheKey key, int remoteIndex, int begin, int end, BucketGravityRequest *req, bool isPrefetch);
 	void recvParticles(CacheKey key,GravityParticle *part,int num, int from);
 
 	/** Invoked from the mainchare to start a new iteration. It calls the

@@ -50,13 +50,58 @@ extern unsigned int _yieldPeriod;
 extern DomainsDec domainDecomposition;
 extern GenericTrees useTree;
 extern CProxy_TreePiece streamingProxy;
+extern bool _prefetch;
 
 class dummyMsg : public CMessage_dummyMsg{
 public:
 int val;
 };
 
-/********************************************/
+class TreePieceStatistics {
+  u_int64_t nodesOpenedLocal;
+  u_int64_t nodesOpenedRemote;
+  u_int64_t nodeInterLocal;
+  u_int64_t nodeInterRemote;
+  u_int64_t particleInterLocal;
+  u_int64_t particleInterRemote;
+
+  TreePieceStatistics() : nodesOpenedLocal(0), nodesOpenedRemote(0), nodeInterLocal(0),
+    nodeInterRemote(0), particleInterLocal(0), particleInterRemote(0) { }
+
+ public:
+  TreePieceStatistics(u_int64_t nol, u_int64_t nor, u_int64_t nil, u_int64_t nir,
+		      u_int64_t pil, u_int64_t pir) :
+    nodesOpenedLocal(nol), nodesOpenedRemote(nor), nodeInterLocal(nil),
+    nodeInterRemote(nir), particleInterLocal(pil), particleInterRemote(pir) { }
+
+  void printTo(CkOStream &os) {
+    os << "  TreePiece: " << nodesOpenedLocal << " local nodes opened, ";
+    os << nodesOpenedRemote << " remote" << endl;
+    os << "  TreePiece: " << nodeInterLocal << " local particle-node interactions, ";
+    os << nodeInterRemote << " remote" << endl;
+    os << "  TreePiece: " << particleInterLocal << " local particle-particle interactions, ";
+    os << particleInterRemote << " remote" << endl;
+  }
+
+  static CkReduction::reducerType sum;
+
+  static CkReductionMsg *sumFn(int nMsg, CkReductionMsg **msgs) {
+    TreePieceStatistics ret;
+    for (int i=0; i<nMsg; ++i) {
+      CkAssert(msgs[i]->getSize() == sizeof(TreePieceStatistics));
+      TreePieceStatistics *data = (TreePieceStatistics *)msgs[i]->getData();
+      ret.nodesOpenedLocal += data->nodesOpenedLocal;
+      ret.nodesOpenedRemote += data->nodesOpenedRemote;
+      ret.nodeInterLocal += data->nodeInterLocal;
+      ret.nodeInterRemote += data->nodeInterRemote;
+      ret.particleInterLocal += data->particleInterLocal;
+      ret.particleInterRemote += data->particleInterRemote;
+    }
+    return CkReductionMsg::buildNew(sizeof(TreePieceStatistics), &ret);
+  }
+};
+
+/********************************************
 class piecedata : public CMessage_piecedata {
 public:
 	int CellInteractions;
@@ -76,7 +121,15 @@ public:
 	void setcallback(CkCallback& cback) { cb = cback; }
 	CkCallback& getcallback() { return cb; }
 };
-/********************************************/
+********************************************/
+
+class ComputeChunkMsg : public CMessage_ComputeChunkMsg {
+  ComputeChunkMsg() {} // not available
+ public:
+  int chunkNum;
+
+  ComputeChunkMsg(int i) : chunkNum(i) { }
+};
 
 class RequestNodeMsg : public CMessage_RequestNodeMsg {
  public:
@@ -181,18 +234,30 @@ class TreePiece : public CBase_TreePiece {
 	/// Number of particles which are still traversing the tree
 	u_int64_t myNumParticlesPending;
 
+	/// Number of nodes still missing before starting the real computation
+	u_int64_t prefetchWaiting;
+	/// Placeholder for particles used for prefetching
+	BucketGravityRequest prefetchReq;
+
+	/// number of chunks in which the tree will be chopped for prefetching
+	int numChunks;
+
 	/// @if STATISTICS
 
 #if COSMO_STATS > 0
-	u_int64_t myNumCellInteractions;
-	u_int64_t myNumParticleInteractions;
+	//u_int64_t myNumCellInteractions;
+	//u_int64_t myNumParticleInteractions;
 	u_int64_t myNumMACChecks;
-	u_int64_t myNumProxyCalls;
-	u_int64_t myNumProxyCallsBack;
-	/// Same as myNumCellInteractions, only restricted to cached nodes
-	int cachecellcount;
-	int countIntersects;
-	int countHits;
+	//u_int64_t myNumProxyCalls;
+	//u_int64_t myNumProxyCallsBack;
+	// Same as myNumCellInteractions, only restricted to cached nodes
+	//int cachecellcount;
+	u_int64_t nodesOpenedLocal;
+	u_int64_t nodesOpenedRemote;
+	u_int64_t nodeInterLocal;
+	u_int64_t nodeInterRemote;
+	u_int64_t particleInterLocal;
+	u_int64_t particleInterRemote;
 #endif
 
 	/// @endif
@@ -201,6 +266,9 @@ class TreePiece : public CBase_TreePiece {
 	unsigned int numBuckets;
 	/// Used to start the computation for all buckets, one after the other
 	unsigned int currentBucket;
+	/// Used to start the remote computation for a particular chunk for all
+	/// buckets, one after the other
+	unsigned int currentRemoteBucket;
 	/// List of all the node-buckets in this TreePiece
 	std::vector<GenericTreeNode *> bucketList;
 	/// @brief Used as a placeholder while traversing the tree and computing
@@ -218,7 +286,7 @@ class TreePiece : public CBase_TreePiece {
 
  public:
 
-	/* DEBUGGING
+	/* DEBUGGING */
 	void quiescence() { 
 	  CkPrintf("[%d] quiescence detected, pending %d\n",thisIndex,myNumParticlesPending);
 	  for (int i=0; i<numBuckets; ++i) {
@@ -227,7 +295,7 @@ class TreePiece : public CBase_TreePiece {
 	  }
 	  CkExit();
 	}
-	END DEBUGGING */
+	/* END DEBUGGING */
 
 
 	/// Recursive call to build the subtree with root "node", level
@@ -282,11 +350,20 @@ public:
 	  iterationNo=0;
 	  usesAtSync=CmiTrue;
 #if COSMO_STATS > 0
-	  countIntersects=0;
+	  nodesOpenedLocal = 0;
+	  nodesOpenedRemote = 0;
+	  nodeInterLocal = 0;
+	  nodeInterRemote = 0;
+	  particleInterLocal = 0;
+	  particleInterRemote = 0;
+
 	  piecemass = 0.0;
 	  packed=0;
 	  cnt=0;
 #endif
+
+	  // temporarely fixed to 1
+	  numChunks=1;
 	}
 	
 	TreePiece(CkMigrateMessage* m) { 
@@ -326,7 +403,7 @@ public:
 	/// force that its particles see due to the other particles NOT hosted
 	/// by this TreePiece, and belonging to a subset of the global tree
 	/// (specified by chunkNum).
-	void calculateGravityRemote(int chunkNum);
+	void calculateGravityRemote(ComputeChunkMsg *msg);
 
 	/// Temporary function to recurse over all the buckets like in
 	/// walkBucketTree, only that NonLocal nodes are the only one for which
@@ -341,10 +418,11 @@ public:
 	/// Function called by the CacheManager to send out request for needed
 	/// remote data, so that the later computation will hit.
 	void prefetch(GenericTreeNode *node);
+	void prefetch(GravityParticle *part);
 
 	/// @brief Retrieve the remote node, goes through the cache if present
 	GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey,
-				 BucketGravityRequest& req);
+				 BucketGravityRequest& req, bool isPrefetch=false);
 	/// @brief Receive a request for Nodes from a remote processor, copy the
 	/// data into it, and send back a message.
 	void fillRequestNode(RequestNodeMsg *msg);
@@ -373,7 +451,7 @@ public:
 	 */
 	void cachedWalkBucketTree(GenericTreeNode* node,
 				  BucketGravityRequest& req);
-	GravityParticle *requestParticles(const Tree::NodeKey &key,int remoteIndex,int begin,int end,BucketGravityRequest &req);
+	GravityParticle *requestParticles(const Tree::NodeKey &key,int remoteIndex,int begin,int end,BucketGravityRequest &req, bool isPrefetch=false);
 	void fillRequestParticles(RequestParticleMsg *msg);
 	//void fillRequestParticles(Tree::NodeKey key,int retIndex, int begin,int end,
 	//			  unsigned int reqID);
@@ -391,7 +469,8 @@ public:
 	void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
 
 	/// Collect the total statistics from the various chares
-	void getPieceValues(piecedata *totaldata);
+	void collectStatistics(CkCallback &cb);
+	//void getPieceValues(piecedata *totaldata);
 
         /** @brief Entry method used to split the processing of all the buckets
          * in small pieces. It call startNextBucket a _yieldPeriod number of
