@@ -509,6 +509,7 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
   //if (verbosity)
   //  CkPrintf("[%d] Total number of requests %d storedNodes %d outStandingRequests %d iterationNo %d \n",CkMyPe(),totalNodesRequested,storedNodes,outStandingRequests.size(),iterationNo);
   nodesArrived = 0;
+  nodesMessages = 0;
   nodesDuplicated = 0;
   nodesMisses = 0;
   nodesLocal = 0;
