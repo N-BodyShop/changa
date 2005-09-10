@@ -68,7 +68,7 @@ mainmodule ParallelGravity {
 		//			   BucketGravityRequest &req);
 		entry [expedited] void fillRequestNode(RequestNodeMsg *msg);
 		//entry void receiveNode(GenericTreeNode node[1],
-		//		       unsigned int reqID);
+		//	       unsigned int reqID);
 		//entry [inline] void receiveNode_inline(GenericTreeNode node[1],
 		//				       unsigned int reqID);
 		//entry void fillRequestParticle(int retIndex, int pi,

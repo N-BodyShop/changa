@@ -284,7 +284,19 @@ class TreePiece : public CBase_TreePiece {
 	/// convert a key to a node using the nodeLookupTable
 	inline GenericTreeNode *keyToNode(const Tree::NodeKey);
 
+#if COSMO_DEBUG > 1
+  ///A set for each bucket to check the correctness of the treewalk
+  typedef std::vector< std::set<Tree::NodeKey> > DebugList;
+  DebugList bucketcheckList;
+#endif
+  
  public:
+
+#if COSMO_DEBUG > 1
+  ///This function checks the correctness of the treewalk
+  void checkWalkCorrectness();
+  void combineKeys(Tree::NodeKey key,int bucket);
+#endif
 
 	/* DEBUGGING */
 	void quiescence() { 
