@@ -699,8 +699,10 @@ void TreePiece::nextBucket(dummyMsg *msg){
     currentBucket++;
     i++;
   }
-  if(currentBucket<numBuckets){
+  if (currentBucket<numBuckets) {
     thisProxy[thisIndex].nextBucket(msg);
+  } else {
+    delete msg;
   }
 }
 
@@ -719,7 +721,10 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
     i++;
   }
   if (currentRemoteBucket < numBuckets) thisProxy[thisIndex].calculateGravityRemote(msg);
-  else currentRemoteBucket = 0;
+  else {
+    currentRemoteBucket = 0;
+    delete msg;
+  }
 }
 
 void TreePiece::walkBucketRemoteTree(GenericTreeNode *node, BucketGravityRequest &req) {
@@ -766,7 +771,7 @@ void TreePiece::startIteration(double t, const CkCallback& cb) {
   if(verbosity)
     CkPrintf("TreePiece %d: I have %d buckets\n",thisIndex,numBuckets);
 
-  bucketReqs = new BucketGravityRequest[numBuckets];
+  if (bucketReqs==NULL) bucketReqs = new BucketGravityRequest[numBuckets];
 	
   currentBucket = 0;
   currentRemoteBucket = 0;

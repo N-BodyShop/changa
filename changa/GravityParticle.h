@@ -73,6 +73,8 @@ public:
 		finished = req.finished;
 		delete[] positions;
 		delete[] accelerations;
+		delete[] softs;
+		delete[] potentials;
 		if(numParticlesInBucket) {
 			softs = new double[numParticlesInBucket];
 			positions = new Vector3D<double>[numParticlesInBucket];

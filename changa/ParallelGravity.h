@@ -361,6 +361,7 @@ public:
 	  localCache = NULL;
 	  iterationNo=0;
 	  usesAtSync=CmiTrue;
+	  bucketReqs=NULL;
 #if COSMO_STATS > 0
 	  nodesOpenedLocal = 0;
 	  nodesOpenedRemote = 0;

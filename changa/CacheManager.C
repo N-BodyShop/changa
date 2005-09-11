@@ -370,6 +370,7 @@ void CacheManager::recvNodes(FillNodeMsg *msg){
   nodesMessages++;
 #endif
   addNodes(chunk,msg->owner,newnode);
+  delete msg;
   map<CacheKey,NodeCacheEntry *>::iterator e = nodeCacheTable[chunk].find(newnode->getParentKey());
   if (e != nodeCacheTable[chunk].end() && e->second->node != NULL) {
     newnode->parent = e->second->node;
