@@ -1,6 +1,8 @@
 #include "ParallelGravity.h"
 #include "CacheManager.h"
 
+#include "lbdb.h"
+
 CProxy_CacheManager cacheManagerProxy;
 extern CProxy_TreePiece treeProxy;
 //CpvDeclare(CProxy_TreePiece,streamingTreeProxy);
@@ -321,7 +323,11 @@ void CacheManager::processRequests(int chunk,CacheNode *node,int from,int depth)
 
     if (caller->isPrefetch) p->prefetch(e->node);
     else {
+      LDObjHandle objHandle;
+		  int objstopped = 0;
+      objHandle = p->timingBeforeCall(&objstopped);
       p->receiveNode(*(e->node),caller->reqID);
+      p->timingAfterCall(objHandle,&objstopped);
       //ckout <<"received node for computation"<<endl;
     }
     //treeProxy[*caller].receiveNode_inline(*(e->node),*(*callreq));
@@ -491,7 +497,13 @@ void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int 
 
     //CkAssert(!caller->isPrefetch);
     if (caller->isPrefetch) p->prefetch(e->part);
-    else p->receiveParticles(e->part,num,caller->reqID);
+    else {
+      LDObjHandle objHandle;
+		  int objstopped = 0;
+      objHandle = p->timingBeforeCall(&objstopped);
+      p->receiveParticles(e->part,num,caller->reqID);
+      p->timingAfterCall(objHandle,&objstopped);
+    }
     //treeProxy[*caller].receiveParticles_inline(e->part,e->num,*(*callreq));
   }
   e->requestorVec.clear();
