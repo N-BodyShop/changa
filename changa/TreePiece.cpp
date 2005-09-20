@@ -318,6 +318,10 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Starting tree build" << endl;
 
+  // set the number of chunks in which we will split the tree for remote computation
+  numChunks = root->getNumChunks(_numChunks);
+  root->getChunks(_numChunks, prefetchRoots);
+
   // mark presence in the cache if we are in the first iteration (indicated by localCache==NULL)
   if (_cache && localCache==NULL) {
     localCache = cacheManagerProxy.ckLocalBranch();
@@ -350,9 +354,9 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
 
 /// Determine who are all the owners of this node
 /// @return true if the caller is part of the owners, false otherwise
-inline bool TreePiece::nodeOwnership(const GenericTreeNode *const node, int &firstOwner, int &lastOwner) {
-  Key firstKey = Key(node->getKey());
-  Key lastKey = Key(node->getKey() + 1);
+inline bool TreePiece::nodeOwnership(const Tree::NodeKey nkey, int &firstOwner, int &lastOwner) {
+  Key firstKey = Key(nkey);
+  Key lastKey = Key(nkey + 1);
   const Key mask = Key(1) << 63;
   while (! (firstKey & mask)) {
     firstKey <<= 1;
@@ -365,8 +369,8 @@ inline bool TreePiece::nodeOwnership(const GenericTreeNode *const node, int &fir
   Key *locRight = lower_bound(locLeft, splitters + numSplitters, lastKey);
   firstOwner = (locLeft - splitters) >> 1;
   lastOwner = (locRight - splitters - 1) >> 1;
-  std::string str = keyBits(node->getKey(),63);
 #if COSMO_PRINT > 1
+  std::string str = keyBits(nkey,63);
   CkPrintf("[%d] NO: key=%s, first=%d, last=%d\n",thisIndex,str.c_str(),locLeft-splitters,locRight-splitters);
 #endif
   return (thisIndex >= firstOwner && thisIndex <= lastOwner);
@@ -399,7 +403,7 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
     if (child->getType() == NonLocal) {
       // find a remote index for the node
       int first, last;
-      bool isShared = nodeOwnership(child, first, last);
+      bool isShared = nodeOwnership(child->getKey(), first, last);
       CkAssert(!isShared);
       child->remoteIndex = first + (thisIndex & (last-first));
       // if we have a remote child, the node is a Boundary. Thus count that we
@@ -711,32 +715,104 @@ void TreePiece::calculateGravityLocal() {
 }
 
 void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
-  //CkPrintf("[%d] Starting calculating gravity remote, pending %lld (%d)\n",thisIndex,myNumParticlesPending,myNumParticles);
+  //CkPrintf("[%d] Starting calculating gravity remote for chunk %d\n",thisIndex,msg->chunkNum);
   unsigned int i=0;
+  GenericTreeNode *chunkRoot = keyToNode(prefetchRoots[msg->chunkNum]);
+  if (chunkRoot == NULL) {
+    chunkRoot = requestNode(thisIndex, prefetchRoots[msg->chunkNum], msg->chunkNum, prefetchReq[0], true);
+  }
+  CkAssert(chunkRoot != NULL);
+#if COSMO_PRINT > 0
+  CkPrintf("[%d] Computing gravity remote for chunk %d with node %016llx\n",thisIndex,msg->chunkNum,chunkRoot->getKey());
+#endif
   while (i<_yieldPeriod && currentRemoteBucket < numBuckets) {
     bucketReqs[currentRemoteBucket].numAdditionalRequests--;
-    walkBucketRemoteTree(root, bucketReqs[currentRemoteBucket]);
+    walkBucketRemoteTree(chunkRoot, msg->chunkNum, bucketReqs[currentRemoteBucket], true);
+      // being here means that the root of this chunk won't be opened: force the computation!
+      //cachedWalkBucketTree(chunkRoot, msg->chunkNum, bucketReqs[currentRemoteBucket]);
+    // }
     finishBucket(currentRemoteBucket);
     currentRemoteBucket++;
     i++;
   }
-  if (currentRemoteBucket < numBuckets) thisProxy[thisIndex].calculateGravityRemote(msg);
-  else {
+  if (currentRemoteBucket < numBuckets) {
+    thisProxy[thisIndex].calculateGravityRemote(msg);
+#if COSMO_PRINT > 0
+    CkPrintf("{%d} sending self-message chunk %d, prio %d\n",thisIndex,msg->chunkNum,*(int*)CkPriorityPtr(msg));
+#endif
+  } else {
     currentRemoteBucket = 0;
     delete msg;
+#if COSMO_PRINT > 0
+    CkPrintf("{%d} resetting message chunk %d, prio %d\n",thisIndex,msg->chunkNum,*(int*)CkPriorityPtr(msg));
+#endif
   }
 }
 
-void TreePiece::walkBucketRemoteTree(GenericTreeNode *node, BucketGravityRequest &req) {
+void TreePiece::walkBucketRemoteTree(GenericTreeNode *node, int chunk, BucketGravityRequest &req, bool isRoot) {
   Vector3D<double> cm(node->moments.cm);
   Vector3D<double> r;
   Sphere<double> s(cm, opening_geometry_factor * node->moments.radius / theta);
-  if(!openCriterionBucket(node, req)) {
+  // The order in which the following if are checked is very important for correctness
+  if(node->getType() == Bucket || node->getType() == Internal || node->getType() == Empty) {
+#if COSMO_PRINT > 0
+    CkPrintf("[%d] bucket %d: internal %llx\n",thisIndex,req.identifier,node->getKey());
+#endif
     return;
-  } else if(node->getType() == Bucket || node->getType() == Internal || node->getType() == Empty) {
-    return;
-  } else if (node->getType() == NonLocal || node->getType() == NonLocalBucket) {
-    cachedWalkBucketTree(node, req);
+  } else if(!openCriterionBucket(node, req)) {
+    if (isRoot && (node->getType() == Cached || node->getType() == CachedBucket || node->getType() == CachedEmpty)) {
+      GenericTreeNode *nd = root;
+      while (nd != NULL) {
+	// if one of the ancestors of this node is not opened, then we don't
+	// want to duplicate the computation
+	if (!openCriterionBucket(nd, req)) {
+#if COSMO_PRINT > 0
+	  CkPrintf("[%d] bucket %d: not opened %llx, found node %llx\n",thisIndex,req.identifier,node->getKey(),nd->getKey());
+#endif
+	  return;
+	}
+	int which = nd->whichChild(node->getKey());
+	GenericTreeNode *ndp = nd;
+	nd = nd->getChildren(which);
+#if COSMO_PRINT > 0
+	if (nd!=NULL) CkPrintf("[%d] search: got %llx from %llx, %d's child\n",thisIndex,nd->getKey(),ndp->getKey(),which);
+#endif
+      }
+#if COSMO_PRINT > 0
+      CkPrintf("[%d] bucket %d: not opened %llx, called cache\n",thisIndex,req.identifier,node->getKey());
+#endif
+      cachedWalkBucketTree(node, chunk, req);
+    } else {
+#if COSMO_PRINT > 0
+      CkPrintf("[%d] bucket %d: not opened %llx\n",thisIndex,req.identifier,node->getKey());
+#endif
+      return;
+    }
+  } else if (node->getType() != Boundary) {
+    // means it is some kind of NonLocal or Cached
+#if COSMO_PRINT > 0
+      CkPrintf("[%d] bucket %d: calling cached walk with %llx\n",thisIndex,req.identifier,node->getKey());
+#endif
+    if (isRoot) {
+      GenericTreeNode *nd = root;
+      while (nd != NULL && nd->getKey() != node->getKey()) {
+	// if one of the ancestors of this node is not opened, then we don't
+	// want to duplicate the computation
+	if (!openCriterionBucket(nd, req)) {
+#if COSMO_PRINT > 0
+	  CkPrintf("[%d] bucket %d: not opened %llx, found node %llx\n",thisIndex,req.identifier,node->getKey(),nd->getKey());
+#endif
+	  return;
+	}
+	int which = nd->whichChild(node->getKey());
+	GenericTreeNode *ndp = nd;
+	nd = nd->getChildren(which);
+#if COSMO_PRINT > 0
+	if (nd!=NULL) CkPrintf("[%d] search: got %llx from %llx, %d's child\n",thisIndex,nd->getKey(),ndp->getKey(),which);
+#endif
+      }
+    }
+    cachedWalkBucketTree(node, chunk, req);
   } else {
     // here the node is Boundary
 #if COSMO_STATS > 0
@@ -745,8 +821,8 @@ void TreePiece::walkBucketRemoteTree(GenericTreeNode *node, BucketGravityRequest
     GenericTreeNode* childIterator;
     for(unsigned int i = 0; i < node->numChildren(); ++i) {
       childIterator = node->getChildren(i);
-      if(childIterator)
-	walkBucketRemoteTree(childIterator, req);
+      CkAssert (childIterator != NULL);
+      walkBucketRemoteTree(childIterator, chunk, req, false);
     }
   }
 }
@@ -788,8 +864,16 @@ void TreePiece::startIteration(double t, const CkCallback& cb) {
   req1.positions[0] = myParticles[myNumParticles].position;
   req1.boundingBox.grow(myParticles[myNumParticles].position);
   prefetchReq[1] = req1;
+
   prefetchWaiting = 1;
-  prefetch(root);
+  currentPrefetch = 0;
+  int first, last;
+  GenericTreeNode *child = keyToNode(prefetchRoots[0]);
+  if (child == NULL) {
+    nodeOwnership(prefetchRoots[0], first, last);
+    child = requestNode((first+last)>>1, prefetchRoots[0], 0, prefetchReq[0], true);
+  }
+  if (child != NULL) prefetch(child);
 
   thisProxy[thisIndex].calculateGravityLocal();
 }
@@ -797,13 +881,14 @@ void TreePiece::startIteration(double t, const CkCallback& cb) {
 void TreePiece::prefetch(GenericTreeNode *node) {
   ///@TODO: all the code that does the prefetching and the chunking
   CkAssert(node->getType() != Invalid);
+  //printf("{%d-%d} prefetch %016llx in chunk %d\n",CkMyPe(),thisIndex,node->getKey(),currentPrefetch);
 
   if (_prefetch) {
     if(node->getType() != Internal && node->getType() != Bucket &&
        (openCriterionBucket(node, prefetchReq[0]) || openCriterionBucket(node, prefetchReq[1]))) {
       if(node->getType() == CachedBucket || node->getType() == NonLocalBucket) {
 	// Sending the request for all the particles at one go, instead of one by one
-	if (requestParticles(node->getKey(),node->remoteIndex,node->firstParticle,node->lastParticle,prefetchReq[0],true) == NULL) {
+	if (requestParticles(node->getKey(),currentPrefetch,node->remoteIndex,node->firstParticle,node->lastParticle,prefetchReq[0],true) == NULL) {
 	  prefetchWaiting ++;
 	}
       } else if (node->getType() != CachedEmpty && node->getType() != Empty) {
@@ -825,7 +910,7 @@ void TreePiece::prefetch(GenericTreeNode *node) {
 	  if (child) {
 	    prefetch(child);
 	  } else { //missed the cache
-	    child = requestNode(node->remoteIndex, node->getChildKey(i), prefetchReq[0], true);
+	    child = requestNode(node->remoteIndex, node->getChildKey(i), currentPrefetch, prefetchReq[0], true);
 	    if (child) { // means that node was on a local TreePiece
 	      prefetch(child);
 	    }
@@ -840,10 +925,7 @@ void TreePiece::prefetch(GenericTreeNode *node) {
 
   // this means we don't have any more nodes waiting for prefetching
   if (prefetchWaiting == 0) {
-    ComputeChunkMsg *msg = new (8*sizeof(int)) ComputeChunkMsg(0);
-    *(int*)CkPriorityPtr(msg) = numTreePieces * 0 + thisIndex + 1;
-    CkSetQueueing(msg, CK_QUEUEING_IFIFO);
-    thisProxy[thisIndex].calculateGravityRemote(msg);
+    startRemoteChunk();
   }
 }
 
@@ -853,10 +935,26 @@ void TreePiece::prefetch(GravityParticle *node) {
 
   // this means we don't have any more nodes waiting for prefetching
   if (prefetchWaiting == 0) {
-    ComputeChunkMsg *msg = new (8*sizeof(int)) ComputeChunkMsg(0);
-    *(int*)CkPriorityPtr(msg) = numTreePieces * 0 + thisIndex + 1;
-    CkSetQueueing(msg, CK_QUEUEING_IFIFO);
-    thisProxy[thisIndex].calculateGravityRemote(msg);
+    startRemoteChunk();
+  }
+}
+
+void TreePiece::startRemoteChunk() {
+  ComputeChunkMsg *msg = new (8*sizeof(int)) ComputeChunkMsg(currentPrefetch);
+  *(int*)CkPriorityPtr(msg) = numTreePieces * currentPrefetch + thisIndex + 1;
+  CkSetQueueing(msg, CK_QUEUEING_IFIFO);
+  thisProxy[thisIndex].calculateGravityRemote(msg);
+  
+  // start prefetching next chunk
+  if (++currentPrefetch < numChunks) {
+    int first, last;
+    prefetchWaiting = 1;
+    GenericTreeNode *child = keyToNode(prefetchRoots[currentPrefetch]);
+    if (child == NULL) {
+      nodeOwnership(prefetchRoots[currentPrefetch], first, last);
+      child = requestNode((first+last)>>1, prefetchRoots[currentPrefetch], currentPrefetch, prefetchReq[0], true);
+    }
+    if (child != NULL) prefetch(child);
   }
 }
 
@@ -904,6 +1002,9 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, BucketGravityRequest& req)
   Vector3D<double> cm(node->moments.cm);
   Vector3D<double> r;
   Sphere<double> s(cm, opening_geometry_factor * node->moments.radius / theta);
+#if COSMO_PRINT > 0
+  if (node->getKey() < numChunks) CkPrintf("[%d] walk: checking %016llx\n",thisIndex,node->getKey());
+#endif
   if(!openCriterionBucket(node, req)) {
 #if COSMO_STATS > 0
     nodeInterLocal += req.numParticlesInBucket;
@@ -920,6 +1021,9 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, BucketGravityRequest& req)
 #if COSMO_DEBUG > 1
   bucketcheckList[req.identifier].insert(node->getKey());
   combineKeys(node->getKey(),req.identifier);
+#endif
+#if COSMO_PRINT > 0
+  if (node->getKey() < numChunks) CkPrintf("[%d] walk: computing %016llx\n",thisIndex,node->getKey());
 #endif
     nodeBucketForce(node, req);
   } else if(node->getType() == Bucket) {
@@ -956,6 +1060,9 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, BucketGravityRequest& req)
 #if COSMO_STATS > 0
     nodesOpenedLocal++;
 #endif
+#if COSMO_PRINT > 0
+    if (node->getKey() < numChunks) CkPrintf("[%d] walk: opening %016llx\n",thisIndex,node->getKey());
+#endif
     GenericTreeNode* childIterator;
     for(unsigned int i = 0; i < node->numChildren(); ++i) {
       childIterator = node->getChildren(i);
@@ -971,7 +1078,7 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, BucketGravityRequest& req)
  * can safely distinguish between local computation done by walkBucketTree and
  * remote computation done by cachedWalkBucketTree.
  */
-void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, BucketGravityRequest& req) {
+void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, int chunk, BucketGravityRequest& req) {
 #if COSMO_STATS > 0
   myNumMACChecks++;
 #endif
@@ -1003,7 +1110,8 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, BucketGravityRequest
     /*
      * Sending the request for all the particles at one go, instead of one by one
      */
-    GravityParticle *part = requestParticles(node->getKey(),node->remoteIndex,node->firstParticle,node->lastParticle,req);
+    //printf("{%d-%d} cachewalk requests for %016llx in chunk %d\n",CkMyPe(),thisIndex,node->getKey(),chunk);
+    GravityParticle *part = requestParticles(node->getKey(),chunk,node->remoteIndex,node->firstParticle,node->lastParticle,req);
     if(part != NULL){
 #if COSMO_STATS > 0
       particleInterRemote += req.numParticlesInBucket * (node->lastParticle - node->firstParticle + 1);
@@ -1060,22 +1168,23 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, BucketGravityRequest
     for (unsigned int i=0; i<node->numChildren(); ++i) {
       child = node->getChildren(i); //requestNode(node->remoteIndex, node->getChildKey(i), req);
       if (child) {
-	cachedWalkBucketTree(child, req);
+	cachedWalkBucketTree(child, chunk, req);
       } else { //missed the cache
-	child = requestNode(node->remoteIndex, node->getChildKey(i), req);
+	child = requestNode(node->remoteIndex, node->getChildKey(i), chunk, req);
 	if (child) { // means that node was on a local TreePiece
-	  cachedWalkBucketTree(child, req);
+	  cachedWalkBucketTree(child, chunk, req);
 	}
       }
     }
   }
 }
 
-GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key,
+GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key, int chunk,
 				    BucketGravityRequest& req, bool isPrefetch)
 {
   // Call proxy on remote node
   CkAssert(remoteIndex < (int) numTreePieces);
+  CkAssert(chunk < numChunks);
   //in the current form it is possible   
   //   assert(remoteIndex != thisIndex);
   if(_cache){
@@ -1088,7 +1197,7 @@ GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key,
 #if COSMO_PRINT > 1
     CkPrintf("[%d] b=%d requesting node %s to %d for %s (additional=%d)\n",thisIndex,req.identifier,keyBits(key,63).c_str(),remoteIndex,keyBits(bucketList[req.identifier]->getKey(),63).c_str(),req.numAdditionalRequests);
 #endif
-    GenericTreeNode *res=localCache->requestNode(thisIndex,remoteIndex,0,key,&req,isPrefetch);
+    GenericTreeNode *res=localCache->requestNode(thisIndex,remoteIndex,chunk,key,&req,isPrefetch);
     if(!res){
       req.numAdditionalRequests++;
       //#if COSMO_STATS > 0
@@ -1135,7 +1244,7 @@ void TreePiece::fillRequestNode(RequestNodeMsg *msg) {
   delete msg;
 }
 
-void TreePiece::receiveNode(GenericTreeNode &node, unsigned int reqID)
+void TreePiece::receiveNode(GenericTreeNode &node, int chunk, unsigned int reqID)
 {
 #if COSMO_PRINT > 1
   CkPrintf("[%d] b=%d, receiveNode, additional=%d\n",thisIndex,reqID,bucketReqs[reqID].numAdditionalRequests);
@@ -1144,7 +1253,7 @@ void TreePiece::receiveNode(GenericTreeNode &node, unsigned int reqID)
   assert(node.getType() != Invalid);
   if(node.getType() != Empty)	{ // Node could be NULL
     assert((int) node.remoteIndex != thisIndex);
-    cachedWalkBucketTree(&node, bucketReqs[reqID]);
+    cachedWalkBucketTree(&node, chunk, bucketReqs[reqID]);
   }else{
 #if COSMO_DEBUG > 1
   bucketcheckList[reqID].insert(node.getKey());
@@ -1155,11 +1264,11 @@ void TreePiece::receiveNode(GenericTreeNode &node, unsigned int reqID)
   finishBucket(reqID);
 }
 
-void TreePiece::receiveNode_inline(GenericTreeNode &node, unsigned int reqID){
-        receiveNode(node,reqID);
+void TreePiece::receiveNode_inline(GenericTreeNode &node, int chunk, unsigned int reqID){
+        receiveNode(node,chunk,reqID);
 }
 
-GravityParticle *TreePiece::requestParticles(const Tree::NodeKey &key,int remoteIndex,int begin,int end,BucketGravityRequest& req, bool isPrefetch) {
+GravityParticle *TreePiece::requestParticles(const Tree::NodeKey &key,int chunk,int remoteIndex,int begin,int end,BucketGravityRequest& req, bool isPrefetch) {
   if (_cache) {
     CkAssert(localCache != NULL);
     /*
@@ -1167,7 +1276,7 @@ GravityParticle *TreePiece::requestParticles(const Tree::NodeKey &key,int remote
       localCache = cacheManagerProxy.ckLocalBranch();
     }
     */
-    GravityParticle *p = localCache->requestParticles(thisIndex,0,key,remoteIndex,begin,end,&req,isPrefetch);
+    GravityParticle *p = localCache->requestParticles(thisIndex,chunk,key,remoteIndex,begin,end,&req,isPrefetch);
     if (!p) {
 #if COSMO_PRINT > 1
       CkPrintf("[%d] b=%d requestParticles: additional=%d\n",thisIndex,req.identifier,req.numAdditionalRequests);
@@ -1296,6 +1405,9 @@ void TreePiece::checkWalkCorrectness(){
   for(int i=0;i<numBuckets;i++){
     if(bucketcheckList[i].size()!=1 || bucketcheckList[i].find(endKey)==bucketcheckList[i].end()){
       CkPrintf("Error: [%d] All the nodes not traversed by bucket no. %d\n",thisIndex,i);
+      for (std::set<Tree::NodeKey>::iterator iter=bucketcheckList[i].begin(); iter != bucketcheckList[i].end(); iter++) {
+	CkPrintf("       [%d] key %016llx\n",thisIndex,*iter);
+      }
       break;
     }
   }
@@ -1707,6 +1819,7 @@ void TreePiece::pup(PUP::er& p) {
   p | pieces;
   //p | streamingProxy;
   p | basefilename;
+  p | numChunks;
   p | boundingBox;
   p | fh;
   p | started;
@@ -1911,17 +2024,17 @@ void TreePiece::printTree(GenericTreeNode* node, ostream& os) {
     break;
   case NonLocal:
     //os << "NonLocal: Chare=" << node->remoteIndex << "\\nRemote N under: " << (node->lastParticle - node->firstParticle + 1) << "\\nOwners: " << node->numOwners;
-    nodeOwnership(node, first, last);
+    nodeOwnership(node->getKey(), first, last);
     os << "NonLocal: Chare=" << node->remoteIndex << ", Owners=" << first << "-" << last;
     break;
   case NonLocalBucket:
     //os << "NonLocal: Chare=" << node->remoteIndex << "\\nRemote N under: " << (node->lastParticle - node->firstParticle + 1) << "\\nOwners: " << node->numOwners;
-    nodeOwnership(node, first, last);
+    nodeOwnership(node->getKey(), first, last);
     CkAssert(first == last);
     os << "NonLocalBucket: Chare=" << node->remoteIndex << ", Owner=" << first << ", Size=" << node->particleCount << "(" << node->firstParticle << "-" << node->lastParticle << ")";
     break;
   case Boundary:
-    nodeOwnership(node, first, last);
+    nodeOwnership(node->getKey(), first, last);
     os << "Boundary: Totalsize=" << node->particleCount << ", Localsize=" << (node->lastParticle - node->firstParticle) << "(" << node->firstParticle + (node->firstParticle==0?1:0) << "-" << node->lastParticle - (node->lastParticle==myNumParticles+1?1:0) << "), Owners=" << first << "-" << last;
     break;
   case Empty:

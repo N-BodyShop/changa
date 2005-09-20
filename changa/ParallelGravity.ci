@@ -13,6 +13,7 @@ mainmodule ParallelGravity {
 	readonly DomainsDec domainDecomposition;
 	readonly GenericTrees useTree;
 	readonly bool _prefetch;
+	readonly int _numChunks;
 
 	//message piecedata;
 	message dummyMsg;

@@ -24,17 +24,19 @@ DomainsDec domainDecomposition;
 GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
 bool _prefetch;
+int _numChunks;
 
 Main::Main(CkArgMsg* m) {
 	verbosity = 0;
 	theta = 0.7;
 	numTreePieces = CkNumPes();
 	bucketSize = 12;
-	_cache = false;
+	_cache = true;
 	_cacheLineDepth=1;
 	printBinaryAcc=1;
 	_yieldPeriod=100000000;
 	_prefetch=false;
+	_numChunks = 1;
 /*
 	poptOption optionsTable[] = {
 		{"verbose", 'v', POPT_ARG_NONE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, 0, 1, "be verbose about what's going on", "verbosity"},
@@ -80,7 +82,7 @@ Main::Main(CkArgMsg* m) {
 	poptFreeContext(context);
 		*/
 	
-	const char *optstring = "vt:p:b:cd:n:z:y:f";
+	const char *optstring = "vt:p:b:c:d:n:z:y:f";
 	int c;
 	while((c=getopt(m->argc,m->argv,optstring))>0){
 		if(c == -1){
@@ -100,7 +102,7 @@ Main::Main(CkArgMsg* m) {
 				bucketSize = atoi(optarg);
 				break;
 			case 'c':
-				_cache = true;
+			        _numChunks = atoi(optarg);
 				break;
 			case 'd':
 				_cacheLineDepth = atoi(optarg);
@@ -128,6 +130,11 @@ Main::Main(CkArgMsg* m) {
 	  ckerr << "yieldPeriod set to " << _yieldPeriod << endl;
 	if(_cacheLineDepth <= 0)
 		CkAbort("Cache Line depth must be greater than 0");
+
+	if (verbosity)
+	  ckerr << "Number of chunks for remote tree walk set to " << _numChunks << endl;
+	if (_numChunks <= 0)
+	  CkAbort("Number of chunks for remote tree walk must be greater than 0");
 
 	const char *fname;
 	if(optind  < m->argc){

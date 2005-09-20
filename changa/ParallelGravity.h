@@ -51,6 +51,7 @@ extern DomainsDec domainDecomposition;
 extern GenericTrees useTree;
 extern CProxy_TreePiece streamingProxy;
 extern bool _prefetch;
+extern int _numChunks;
 
 class dummyMsg : public CMessage_dummyMsg{
 public:
@@ -236,8 +237,15 @@ class TreePiece : public CBase_TreePiece {
 
 	/// Number of nodes still missing before starting the real computation
 	u_int64_t prefetchWaiting;
+	/// Current prefetching chunk in progress
+	int currentPrefetch;
+	/// Array of keys that will be the root of the prefetching chunks
+	Tree::NodeKey *prefetchRoots;
 	/// Placeholder for particles used for prefetching
 	BucketGravityRequest prefetchReq[2];
+
+	/// Start a new remote computation upon prefetch finished
+	void startRemoteChunk();
 
 	/// number of chunks in which the tree will be chopped for prefetching
 	int numChunks;
@@ -327,7 +335,7 @@ class TreePiece : public CBase_TreePiece {
 	/// Given a node, check who is the first owner and the last owner of it.
 	/// It assumes that there are splitters, and that there is an ordering
 	/// of them across chares. It works for SFC ordering.
-	bool nodeOwnership(const GenericTreeNode *const node, int &firstOwner, int &lastOwner);
+	bool nodeOwnership(const Tree::NodeKey nkey, int &firstOwner, int &lastOwner);
 
 
 	/// Initialize all the buckets for the tree walk
@@ -375,8 +383,9 @@ public:
 	  cnt=0;
 #endif
 
-	  // temporarely fixed to 1
-	  numChunks=1;
+	  // temporarely set to -1, it will updated after the tree is built
+	  numChunks=-1;
+	  prefetchRoots = NULL;
 	}
 	
 	TreePiece(CkMigrateMessage* m) { 
@@ -421,7 +430,7 @@ public:
 	/// Temporary function to recurse over all the buckets like in
 	/// walkBucketTree, only that NonLocal nodes are the only one for which
 	/// forces are computed
-	void walkBucketRemoteTree(GenericTreeNode *node, BucketGravityRequest &req);
+	void walkBucketRemoteTree(GenericTreeNode *node, int chunk, BucketGravityRequest &req, bool isRoot);
 
 	/// Function called by the CacheManager to start a new iteration.
 	/// @param t the opening angle
@@ -434,7 +443,7 @@ public:
 	void prefetch(GravityParticle *part);
 
 	/// @brief Retrieve the remote node, goes through the cache if present
-	GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey,
+	GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk,
 				 BucketGravityRequest& req, bool isPrefetch=false);
 	/// @brief Receive a request for Nodes from a remote processor, copy the
 	/// data into it, and send back a message.
@@ -443,9 +452,9 @@ public:
 	 * request which returned NULL, and continue the treewalk of the bucket
 	 * which requested it with this new node.
 	*/
-	void receiveNode(GenericTreeNode &node, unsigned int reqID);
+	void receiveNode(GenericTreeNode &node, int chunk, unsigned int reqID);
 	/// Just and inline version of receiveNode
-	void receiveNode_inline(GenericTreeNode &node, unsigned int reqID);
+	void receiveNode_inline(GenericTreeNode &node, int chunk, unsigned int reqID);
 	/// @brief Find the key in the KeyTable, and copy the node over the passed pointer
 	/// @todo Could the node copy be avoided?
 	const GenericTreeNode* lookupNode(Tree::NodeKey key);
@@ -462,9 +471,9 @@ public:
 	 * where it had been interrupted. It will possibly made other remote
 	 * requests.
 	 */
-	void cachedWalkBucketTree(GenericTreeNode* node,
+	void cachedWalkBucketTree(GenericTreeNode* node, int chunk,
 				  BucketGravityRequest& req);
-	GravityParticle *requestParticles(const Tree::NodeKey &key,int remoteIndex,int begin,int end,BucketGravityRequest &req, bool isPrefetch=false);
+	GravityParticle *requestParticles(const Tree::NodeKey &key,int chunk,int remoteIndex,int begin,int end,BucketGravityRequest &req, bool isPrefetch=false);
 	void fillRequestParticles(RequestParticleMsg *msg);
 	//void fillRequestParticles(Tree::NodeKey key,int retIndex, int begin,int end,
 	//			  unsigned int reqID);

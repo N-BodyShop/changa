@@ -326,7 +326,7 @@ void CacheManager::processRequests(int chunk,CacheNode *node,int from,int depth)
       LDObjHandle objHandle;
 		  int objstopped = 0;
       objHandle = p->timingBeforeCall(&objstopped);
-      p->receiveNode(*(e->node),caller->reqID);
+      p->receiveNode(*(e->node), chunk, caller->reqID);
       p->timingAfterCall(objHandle,&objstopped);
       //ckout <<"received node for computation"<<endl;
     }
@@ -462,7 +462,7 @@ void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int 
   CkAssert(num>0);
   map<CacheKey,int>::iterator pchunk = outStandingParticleRequests.find(key);
   if(pchunk == outStandingParticleRequests.end()) {
-    printf("[%d] particle data received for a node that was never asked for \n",CkMyPe());
+    printf("[%d] particle data received for a node that was never asked for (%016llx))\n",CkMyPe(),key);
 #if COSMO_STATS > 0
     particlesError++;
 #endif
