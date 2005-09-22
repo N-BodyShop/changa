@@ -42,10 +42,11 @@ inline void ParticleCacheEntry::sendRequest(BucketGravityRequest *req){
 };
 
 
-CacheManager::CacheManager(){
+CacheManager::CacheManager(int size){
   numChunks = 0;
   nodeCacheTable = NULL;
   particleCacheTable = NULL;
+  chunkAck = NULL;
   storedNodes = 0;
   storedParticles = 0;
   //proxyInitialized = false;
@@ -63,6 +64,8 @@ CacheManager::CacheManager(){
   totalNodesRequested = 0;
   totalParticlesRequested = 0;
 #endif
+  maxSize = (u_int64_t)size * 1024 * 1024 / (sizeof(NodeCacheEntry) + sizeof(CacheNode));
+  if (verbosity) CkPrintf("Cache: accepting at most %llu nodes\n",maxSize);
 }
 
 CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chunk,CacheKey key,BucketGravityRequest *req,bool isPrefetch){
@@ -76,6 +79,7 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chun
   */
 
   map<CacheKey,NodeCacheEntry *>::iterator p;
+  CkAssert(chunkAck[chunk] > 0);
   p = nodeCacheTable[chunk].find(key);
   NodeCacheEntry *e;
 #if COSMO_STATS > 0
@@ -156,6 +160,7 @@ CacheNode *CacheManager::sendNodeRequest(int chunk, NodeCacheEntry *e,BucketGrav
     default:
       e->node->setType(Cached);
     }
+    storedNodes ++;
     return e->node;
   }
   /*
@@ -371,6 +376,7 @@ void CacheManager::recvNodes(FillNodeMsg *msg){
   map<MapKey,int>::iterator pchunk = outStandingRequests.find(MapKey(newnode->getKey(),msg->owner));
   CkAssert(pchunk != outStandingRequests.end());
   int chunk = pchunk->second;
+  CkAssert(chunkAck[chunk] > 0);
   // recursively add all nodes in the tree rooted by "node"
 #if COSMO_STATS > 0
   nodesMessages++;
@@ -392,6 +398,7 @@ void CacheManager::recvNodes(FillNodeMsg *msg){
 
 GravityParticle *CacheManager::requestParticles(int requestorIndex,int chunk,const CacheKey key,int remoteIndex,int begin,int end,BucketGravityRequest *req,bool isPrefetch){
   map<CacheKey,ParticleCacheEntry *>::iterator p;
+  CkAssert(chunkAck[chunk] > 0);
   p = particleCacheTable[chunk].find(key);
   ParticleCacheEntry *e;
 #if COSMO_STATS > 0
@@ -452,6 +459,7 @@ GravityParticle *CacheManager::sendParticleRequest(ParticleCacheEntry *e, Bucket
 #endif
     e->part = new GravityParticle[e->end - e->begin + 1];
     memcpy(e->part, gp, (e->end - e->begin + 1)*sizeof(GravityParticle));
+    storedParticles += (e->end - e->begin + 1);
     return e->part;
   }
   e->sendRequest(req);
@@ -470,6 +478,7 @@ void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int 
   }
   int chunk = pchunk->second;
   CkAssert(chunk >=0 && chunk < numChunks);
+  CkAssert(chunkAck[chunk] > 0);
   outStandingParticleRequests.erase(key);
 
   map<CacheKey,ParticleCacheEntry *>::iterator p;
@@ -501,7 +510,7 @@ void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int 
       LDObjHandle objHandle;
 		  int objstopped = 0;
       objHandle = p->timingBeforeCall(&objstopped);
-      p->receiveParticles(e->part,num,caller->reqID);
+      p->receiveParticles(e->part,num,chunk,caller->reqID);
       p->timingAfterCall(objHandle,&objstopped);
     }
     //treeProxy[*caller].receiveParticles_inline(e->part,e->num,*(*callreq));
@@ -532,20 +541,13 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
   particlesLocal = 0;
   totalNodesRequested = 0;
   totalParticlesRequested = 0;
+  maxNodes = 0;
+  maxParticles = 0;
 #endif
   for (int chunk=0; chunk<numChunks; ++chunk) {
-    map<CacheKey,NodeCacheEntry *>::iterator pn;
-    for (pn = nodeCacheTable[chunk].begin(); pn != nodeCacheTable[chunk].end(); pn++) {
-      NodeCacheEntry *e = pn->second;
-      delete e;
-    }
-    nodeCacheTable[chunk].clear();
-    map<CacheKey,ParticleCacheEntry *>::iterator pp;
-    for (pp = particleCacheTable[chunk].begin(); pp != particleCacheTable[chunk].end(); pp++) {
-      ParticleCacheEntry *e = pp->second;
-      delete e;
-    }
-    particleCacheTable[chunk].clear();
+    CkAssert(nodeCacheTable[chunk].empty());
+    CkAssert(particleCacheTable[chunk].empty());
+    CkAssert(chunkAck[chunk]==0);
   }
 
   CkAssert(outStandingRequests.empty());
@@ -555,9 +557,14 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
   if (numChunks != newChunks) {
     delete[] nodeCacheTable;
     delete[] particleCacheTable;
+    delete[] chunkAck;
     numChunks = newChunks;
     nodeCacheTable = new map<CacheKey,NodeCacheEntry *>[numChunks];
     particleCacheTable = new map<CacheKey,ParticleCacheEntry *>[numChunks];
+    chunkAck = new int[numChunks];
+  }
+  for (int i=0; i<numChunks; ++i) {
+    chunkAck[i] = registeredChares.size();
   }
 
   // call the gravitational computation utility of each local chare element
@@ -579,6 +586,52 @@ void CacheManager::revokePresence(int index) {
   registeredChares.erase(index);
 }
 
+void CacheManager::finishedChunk(int num) {
+  CkAssert(chunkAck[num] > 0);
+  if (--chunkAck[num] == 0) {
+    // we can safely delete the chunk from the cache
+#ifdef COSMO_PRINT
+    CkPrintf("Deleting chunk %d from processor %d\n",num,CkMyPe());
+#endif
+#if COSMO_STATS > 0
+    if (maxNodes < storedNodes) maxNodes = storedNodes;
+    if (maxParticles < storedParticles) maxParticles = storedParticles;
+    int releasedNodes=0;
+    int releasedParticles=0;
+#endif
+    //storedNodes -= nodeCacheTable[num].size();
+    //storedParticles -= particleCacheTable[num].size();
+    map<CacheKey,NodeCacheEntry *>::iterator pn;
+    for (pn = nodeCacheTable[num].begin(); pn != nodeCacheTable[num].end(); pn++) {
+      NodeCacheEntry *e = pn->second;
+      storedNodes --;
+#if COSMO_STATS > 0
+      releasedNodes++;
+#endif
+      delete e;
+    }
+    nodeCacheTable[num].clear();
+    map<CacheKey,ParticleCacheEntry *>::iterator pp;
+    for (pp = particleCacheTable[num].begin(); pp != particleCacheTable[num].end(); pp++) {
+      ParticleCacheEntry *e = pp->second;
+      storedParticles -= (e->end - e->begin + 1);
+#if COSMO_STATS > 0
+      releasedParticles += (e->end - e->begin + 1);
+#endif
+      delete e;
+    }
+    particleCacheTable[num].clear();
+    CkAssert(storedNodes >= 0);
+    CkAssert(storedParticles >= 0);
+#if COSMO_STATS > 0
+    CkPrintf(" Cache [%d]: in iteration %d chunk %d has %d nodes and %d particles\n",CkMyPe(),iterationNo,num,releasedNodes,releasedParticles);
+#endif
+#ifdef COSMO_PRINT
+    CkPrintf("%d After purging chunk %d left %d nodes and %d particles\n",CkMyPe(),num,storedNodes,storedParticles);
+#endif
+  }
+}
+
 CkReduction::reducerType CacheStatistics::sum;
 
 void CacheManager::collectStatistics(CkCallback& cb) {
@@ -586,7 +639,8 @@ void CacheManager::collectStatistics(CkCallback& cb) {
   CacheStatistics cs(nodesArrived, nodesMessages, nodesDuplicated, nodesMisses,
 		     nodesLocal, particlesArrived, particlesTotalArrived,
 		     particlesMisses, particlesLocal, particlesError,
-		     totalNodesRequested, totalParticlesRequested);
+		     totalNodesRequested, totalParticlesRequested,
+		     maxNodes, maxParticles, CkMyPe());
   contribute(sizeof(CacheStatistics), &cs, CacheStatistics::sum, cb);
 #else
   CkAbort("Invalid call, only valid if COSMO_STATS is defined");

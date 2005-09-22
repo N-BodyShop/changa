@@ -39,32 +39,36 @@ class CacheStatistics {
   u_int64_t particlesError;
   u_int64_t totalNodesRequested;
   u_int64_t totalParticlesRequested;
+  u_int64_t maxNodes;
+  u_int64_t maxParticles;
+  int index;
 
   CacheStatistics() : nodesArrived(0), nodesMessages(0), nodesDuplicated(0), nodesMisses(0),
     nodesLocal(0), particlesArrived(0), particlesTotalArrived(0),
     particlesMisses(0), particlesLocal(0), particlesError(0), totalNodesRequested(0),
-    totalParticlesRequested(0) { }
+    maxNodes(0), maxParticles(0), totalParticlesRequested(0), index(-1) { }
 
  public:
   CacheStatistics(u_int64_t na, u_int64_t nmsg, u_int64_t nd, u_int64_t nm,
 		  u_int64_t nl, u_int64_t pa, u_int64_t pta, u_int64_t pm,
-		  u_int64_t pl, u_int64_t pe, u_int64_t tnr, u_int64_t tpr) :
+		  u_int64_t pl, u_int64_t pe, u_int64_t tnr, u_int64_t tpr,
+		  u_int64_t mn, u_int64_t mp, int i) :
     nodesArrived(na), nodesMessages(nmsg), nodesDuplicated(nd), nodesMisses(nm),
     nodesLocal(nl), particlesArrived(pa), particlesTotalArrived(pta), particlesMisses(pm),
     particlesLocal(pl), particlesError(pe), totalNodesRequested(tnr),
-    totalParticlesRequested(tpr) { }
+    totalParticlesRequested(tpr), maxNodes(mn), maxParticles(mp), index(i) { }
 
   void printTo(CkOStream &os) {
     os << "  Cache: " << nodesArrived << " nodes (of which " << nodesDuplicated;
     os << " duplicated) arrived in " << nodesMessages;
     os << " messages, " << nodesLocal << " from local TreePieces" << endl;
-    os << "  Cache: " << nodesMisses << " node misses during computation" << endl;
     os << "  Cache: " << particlesTotalArrived << " particles arrived (corresponding to ";
     os << particlesArrived << " remote nodes), " << particlesLocal << " from local TreePieces" << endl;
     if (particlesError > 0) {
       os << "Cache: ======>>>> ERROR: " << particlesError << " particles arrived without being requested!! <<<<======" << endl;
     }
-    os << "  Cache: " << particlesMisses << " particle misses during computation" << endl;
+    os << "  Cache: " << nodesMisses << " nodes and " << particlesMisses << " particle misses during computation" << endl;
+    os << "  Cache: Maximum of " << maxNodes << " nodes and " << maxParticles << " particles stored at a time in processor " << index << endl;
     os << "  Cache: local TreePieces requested " << totalNodesRequested << " nodes and ";
     os << totalParticlesRequested << " particle buckets" << endl;
   }
@@ -73,6 +77,8 @@ class CacheStatistics {
 
   static CkReductionMsg *sumFn(int nMsg, CkReductionMsg **msgs) {
     CacheStatistics ret;
+    ret.maxNodes = 0;
+    ret.maxParticles = 0;
     for (int i=0; i<nMsg; ++i) {
       CkAssert(msgs[i]->getSize() == sizeof(CacheStatistics));
       CacheStatistics *data = (CacheStatistics *)msgs[i]->getData();
@@ -87,6 +93,11 @@ class CacheStatistics {
       ret.particlesLocal += data->particlesLocal;
       ret.totalNodesRequested += data->totalNodesRequested;
       ret.totalParticlesRequested += data->totalParticlesRequested;
+      if (data->maxNodes+data->maxParticles > ret.maxNodes+ret.maxParticles) {
+	ret.maxNodes = data->maxNodes;
+	ret.maxParticles = data->maxParticles;
+	ret.index = data->index;
+      }
     }
     return CkReductionMsg::buildNew(sizeof(CacheStatistics), &ret);
   }
@@ -142,8 +153,8 @@ public:
 		node = NULL;
 	}
 	~NodeCacheEntry(){
-		delete node;
 		CkAssert(requestorVec.empty());
+		delete node;
 		//reqVec.clear();
 	}
 	/// 
@@ -162,8 +173,8 @@ public:
 		end=0;
 	}
 	~ParticleCacheEntry(){
-		delete []part;
 		CkAssert(requestorVec.empty());
+		delete []part;
 		//reqVec.clear();
 	}
 	void sendRequest(BucketGravityRequest *);
@@ -226,14 +237,24 @@ private:
 	/** counts the total number of particles requested by all
 	the chares on the processor***/
 	u_int64_t totalParticlesRequested;
+	/// maximum number of nodes stored at some point in the cache
+	u_int64_t maxNodes;
+	/// maximum number of nodes stored at some point in the cache
+	u_int64_t maxParticles;
 #endif
 	/// used to generate new Nodes of the correct type (inheriting classes of CacheNode)
 	CacheNode *prototype;
 	/// list of TreePieces registered to this branch
 	set<int> registeredChares;
 
+	/// Maximum number of allowed nodes stored, after this the prefetching is suspended
+	u_int64_t maxSize;
+
 	int storedNodes;
 	unsigned int iterationNo;
+
+	/// number of acknowledgements awaited before deleting the chunk of the tree
+        int *chunkAck;
 
 	map<CacheKey,ParticleCacheEntry*> *particleCacheTable;
 	int storedParticles;
@@ -254,7 +275,7 @@ private:
 	GravityParticle *sendParticleRequest(ParticleCacheEntry *e,BucketGravityRequest *);
 
 	public:
-	CacheManager();
+	CacheManager(int size);
 	~CacheManager(){};
 
 	/** @brief Called by TreePiece to request for a particular node. It can
@@ -292,6 +313,10 @@ private:
 	void markPresence(int index, GenericTreeNode*, int numChunks);
 	/// Before changing processor, chares deregister from the CacheManager
 	void revokePresence(int index);
+
+	/// Called from the TreePieces to ackowledge that a particular chunk has
+	/// been completely used, and can be deleted
+	void finishedChunk(int num);
 
 	/// Collect the statistics for the latest iteration
 	void collectStatistics(CkCallback& cb);

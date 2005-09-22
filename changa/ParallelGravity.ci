@@ -79,7 +79,7 @@ mainmodule ParallelGravity {
 		entry [expedited] void fillRequestParticles(RequestParticleMsg *msg);
 		//entry void fillRequestParticles(SFC::Key key,int retIndex, int begin,int end,
 		//				unsigned int reqID);
-		entry void receiveParticles(GravityParticle part[num],int num,
+		entry void receiveParticles(GravityParticle part[num],int num,int chunk,
 					    unsigned int reqID);
 		//entry [inline] void receiveParticles_inline(GravityParticle part[num],int num,
 		//					    unsigned int reqID);

@@ -27,6 +27,7 @@ bool _prefetch;
 int _numChunks;
 
 Main::Main(CkArgMsg* m) {
+  int cacheSize = 100000000;
 	verbosity = 0;
 	theta = 0.7;
 	numTreePieces = CkNumPes();
@@ -82,7 +83,7 @@ Main::Main(CkArgMsg* m) {
 	poptFreeContext(context);
 		*/
 	
-	const char *optstring = "vt:p:b:c:d:n:z:y:f";
+	const char *optstring = "vt:p:b:c:d:n:z:y:fs:";
 	int c;
 	while((c=getopt(m->argc,m->argv,optstring))>0){
 		if(c == -1){
@@ -118,6 +119,9 @@ Main::Main(CkArgMsg* m) {
 				break;
 			case 'f':
 				_prefetch = true;
+				break;
+			case 's':
+				cacheSize = atoi(optarg);
 				break;
 		};
 	}
@@ -156,7 +160,7 @@ Main::Main(CkArgMsg* m) {
 	  ckerr << "Verbosity level " << verbosity << endl;
 	}
 
-	cacheManagerProxy = CProxy_CacheManager::ckNew();
+	cacheManagerProxy = CProxy_CacheManager::ckNew(cacheSize);
 
 	CProxy_BlockMap myMap=CProxy_BlockMap::ckNew(); 
 	CkArrayOptions opts(numTreePieces); 

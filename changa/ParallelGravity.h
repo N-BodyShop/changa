@@ -243,6 +243,8 @@ class TreePiece : public CBase_TreePiece {
 	Tree::NodeKey *prefetchRoots;
 	/// Placeholder for particles used for prefetching
 	BucketGravityRequest prefetchReq[2];
+	/// number of particles/buckets still remaining to compute for the chunk
+	int *remainingChunk;
 
 	/// Start a new remote computation upon prefetch finished
 	void startRemoteChunk();
@@ -477,9 +479,9 @@ public:
 	void fillRequestParticles(RequestParticleMsg *msg);
 	//void fillRequestParticles(Tree::NodeKey key,int retIndex, int begin,int end,
 	//			  unsigned int reqID);
-	void receiveParticles(GravityParticle *part,int num,
+	void receiveParticles(GravityParticle *part,int num,int chunk,
 			      unsigned int reqID);
-	void receiveParticles_inline(GravityParticle *part,int num,
+	void receiveParticles_inline(GravityParticle *part,int num,int chunk,
 				     unsigned int reqID);
 			  
 	void startlb(CkCallback &cb);
