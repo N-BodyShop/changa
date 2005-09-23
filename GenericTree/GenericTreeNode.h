@@ -78,6 +78,7 @@ namespace Tree {
     GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0) { }
 
     virtual ~GenericTreeNode() { }
+    virtual void fullyDelete() = 0;
     
     inline const NodeType getType() const { return myType; }
     inline void setType(NodeType t) { myType = t; }
@@ -101,6 +102,12 @@ namespace Tree {
     /// criteria (Oct/Orb)
     virtual void makeOctChildren(GravityParticle *part, int totalPart, int level) = 0;
     virtual void makeOrbChildren(GravityParticle *part, int totalPart, int level) = 0;
+
+    /// get the number of chunks possible for the given request
+    /// @return a number greater or iqual to th the request
+    virtual int getNumChunks(int num) = 0;
+    /// get the nodes corresponding to a particular number of chunks requested
+    virtual void getChunks(int num, NodeKey *&ret) = 0;
 
     /// transform an internal node into a bucket
     inline void makeBucket(GravityParticle *part) {
@@ -156,9 +163,11 @@ namespace Tree {
       children[1] = 0;
     }
 
-    ~BinaryTreeNode() {
-      //delete children[0];
-      //delete children[1];
+    void fullyDelete() {
+      if (children[0] != NULL) children[0]->fullyDelete();
+      delete children[0];
+      if (children[1] != NULL) children[1]->fullyDelete();
+      delete children[1];
     }
     
     unsigned int numChildren() const {
@@ -184,8 +193,20 @@ namespace Tree {
       return (key>>1);
     }
 
+    int getLevel(NodeKey k) {
+      int i = 0;
+      k >>= 1;
+      while (k!=0) {
+	k >>= 1;
+	++i;
+      }
+      return i;
+    }
+
     int whichChild(NodeKey child) {
-      return (child ^ (key<<1));
+      int thisLevel = getLevel(key);
+      int childLevel = getLevel(child);
+      return ((child >> (childLevel-thisLevel-1)) ^ (key << 1));
     }
     
     bool isLeftChild() const {
@@ -300,16 +321,36 @@ namespace Tree {
 
     void makeOrbChildren(GravityParticle *part, int totalPart, int level) {}
 
+    // implemented in the .C
     GenericTreeNode *createNew() const;/* {
       return new BinaryTreeNode();
       }*/
 
+    // implemented in the .C
     GenericTreeNode *clone() const;/* {
       //BinaryTreeNode *tmp = new BinaryTreeNode();
       //*tmp = *this;
       //return tmp;
       return new BinaryTreeNode(*this);
       }*/
+
+    int getNumChunks(int req) {
+      int i = 0;
+      int num = req;
+      while (num > 1) {
+	num >>= 1;
+	i++;
+      }
+      int ret = 1 << i;
+      if (ret != req) ret <<= 1;
+      return ret;
+    }
+
+    void getChunks(int num, NodeKey *&ret) {
+      int realChunks = getNumChunks(num);
+      if (ret==NULL) ret = new NodeKey[realChunks];
+      for (int i=0; i<realChunks; ++i) ret[i] = i + realChunks;
+    }
 
     void pup(PUP::er &p) { pup(p, -1); }
     void pup(PUP::er &p, int depth);/* {
@@ -358,15 +399,23 @@ namespace Tree {
       children[7] = 0;
     }
     
-    virtual ~OctTreeNode() {
-      //delete children[0];
-      //delete children[1];
-      //delete children[2];
-      //delete children[3];
-      //delete children[4];
-      //delete children[5];
-      //delete children[6];
-      //delete children[7];
+    void fullyDelete() {
+      if (children[0] != NULL) children[0]->fullyDelete();
+      delete children[0];
+      if (children[1] != NULL) children[1]->fullyDelete();
+      delete children[1];
+      if (children[2] != NULL) children[2]->fullyDelete();
+      delete children[2];
+      if (children[3] != NULL) children[3]->fullyDelete();
+      delete children[3];
+      if (children[4] != NULL) children[4]->fullyDelete();
+      delete children[4];
+      if (children[5] != NULL) children[5]->fullyDelete();
+      delete children[5];
+      if (children[6] != NULL) children[6]->fullyDelete();
+      delete children[6];
+      if (children[7] != NULL) children[7]->fullyDelete();
+      delete children[7];
     }
 
     virtual unsigned int numChildren() const {
@@ -408,6 +457,19 @@ namespace Tree {
       OctTreeNode *tmp = new OctTreeNode();
       *tmp = *this;
       return tmp;
+    }
+
+    int getNumChunks(int num) {
+      int i = 0;
+      while (num > 1) {
+	num >>= 3;
+	i++;
+      }
+      return 1 << (3*i);
+    }
+
+    void getChunks(int num, NodeKey *&ret) {
+      return;
     }
 
     void pup(PUP::er &p);
