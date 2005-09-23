@@ -225,7 +225,7 @@ void Main::nextStage() {
 	*/
 	
 	// DEBUGGING
-	CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),pieces));
+	//CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),pieces));
 
 	// the cached walk
 	for(int i =0; i<numIterations; i++){

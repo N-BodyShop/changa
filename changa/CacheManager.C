@@ -624,7 +624,8 @@ void CacheManager::finishedChunk(int num) {
     CkAssert(storedNodes >= 0);
     CkAssert(storedParticles >= 0);
 #if COSMO_STATS > 0
-    CkPrintf(" Cache [%d]: in iteration %d chunk %d has %d nodes and %d particles\n",CkMyPe(),iterationNo,num,releasedNodes,releasedParticles);
+    if (verbosity)
+      CkPrintf(" Cache [%d]: in iteration %d chunk %d has %d nodes and %d particles\n",CkMyPe(),iterationNo,num,releasedNodes,releasedParticles);
 #endif
 #ifdef COSMO_PRINT
     CkPrintf("%d After purging chunk %d left %d nodes and %d particles\n",CkMyPe(),num,storedNodes,storedParticles);

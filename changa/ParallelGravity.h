@@ -218,9 +218,6 @@ class TreePiece : public CBase_TreePiece {
 	/// The root of the global tree, always local to any chare
 	GenericTreeNode* root;
 
-	/// Count for how many boundaries are still not received while building
-	/// the tree
-	unsigned int boundaryNodesPending;
 	typedef std::map<NodeKey, CkVec<int>* >   MomentRequestType;
 	/// Keep track of the requests for remote moments not yet satisfied.
 	/// Used only during the tree construction.
@@ -308,8 +305,8 @@ class TreePiece : public CBase_TreePiece {
   void combineKeys(Tree::NodeKey key,int bucket);
 #endif
 
-	/* DEBUGGING */
-	void quiescence() { 
+	/* DEBUGGING
+	void quiescence() {
 	  CkPrintf("[%d] quiescence detected, pending %d\n",thisIndex,myNumParticlesPending);
 	  for (int i=0; i<numBuckets; ++i) {
 	    if (bucketReqs[i].numAdditionalRequests != 0)
@@ -317,7 +314,7 @@ class TreePiece : public CBase_TreePiece {
 	  }
 	  CkExit();
 	}
-	/* END DEBUGGING */
+	END DEBUGGING */
 
 
 	/// Recursive call to build the subtree with root "node", level
@@ -357,7 +354,8 @@ class TreePiece : public CBase_TreePiece {
 	 * to trigger nextBucket which will loop over all the buckets.
 	 */
 	void doAllBuckets();
-	void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
+	void reconstructNodeLookup(GenericTreeNode *node);
+	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 	
 public:
 	
@@ -390,12 +388,22 @@ public:
 	  prefetchRoots = NULL;
 	}
 	
-	TreePiece(CkMigrateMessage* m) { 
-		usesAtSync=CmiTrue;
+	TreePiece(CkMigrateMessage* m) {
+	  usesAtSync = CmiTrue;
+	  localCache = NULL;
+	  bucketReqs = NULL;
+	  prefetchRoots = NULL;
 	}
+
 	~TreePiece() {
-		delete[] myParticles;
-		delete[] splitters;
+	  delete[] myParticles;
+	  delete[] splitters;
+	  delete[] prefetchRoots;
+	  delete[] remainingChunk;
+	  delete[] bucketReqs;
+	  // recursively delete the entire tree
+	  root->fullyDelete();
+	  delete root;
 	}
 	
 	void load(const std::string& fn, const CkCallback& cb);
@@ -509,5 +517,5 @@ public:
 };
 
 void printTree(GenericTreeNode* node, ostream& os) ;
-bool compBucket(GenericTreeNode *ln,GenericTreeNode *rn);
+//bool compBucket(GenericTreeNode *ln,GenericTreeNode *rn);
 #endif //PARALLELGRAVITY_H

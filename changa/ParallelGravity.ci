@@ -33,7 +33,7 @@ mainmodule ParallelGravity {
 		entry TreePiece(unsigned int numPieces);
 
 		// DEBUGGING
-		entry void quiescence();
+		//entry void quiescence();
 
 		entry void report(const CkCallback& cb);
 		

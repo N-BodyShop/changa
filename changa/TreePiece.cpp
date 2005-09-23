@@ -313,8 +313,6 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   numBuckets = 0;
   bucketList.clear();
 	
-  boundaryNodesPending = 0;
-	
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Starting tree build" << endl;
 
@@ -859,7 +857,7 @@ void TreePiece::startIteration(double t, const CkCallback& cb) {
     CkPrintf("TreePiece %d: I have %d buckets\n",thisIndex,numBuckets);
 
   if (bucketReqs==NULL) bucketReqs = new BucketGravityRequest[numBuckets];
-	
+  
   currentBucket = 0;
   currentRemoteBucket = 0;
   myNumParticlesPending = myNumParticles;
@@ -1840,7 +1838,7 @@ void TreePiece::pup(PUP::er& p) {
     myParticles = new GravityParticle[myNumParticles + 2];
   }
   for(int i=0;i<myNumParticles+2;i++){
-    p |myParticles[i];
+    p | myParticles[i];
   }
   p | numSplitters;
   if(p.isUnpacking())
@@ -1849,7 +1847,6 @@ void TreePiece::pup(PUP::er& p) {
   p | pieces;
   //p | streamingProxy;
   p | basefilename;
-  p | numChunks;
   p | boundingBox;
   p | fh;
   p | started;
@@ -1866,15 +1863,19 @@ void TreePiece::pup(PUP::er& p) {
       CkAbort("We should have never reached here!");
     }
   }
+
   p | (*root);
-  if(p.isUnpacking()){
-    nodeLookupTable[root->getKey()]=root;
-  }
-  p | boundaryNodesPending;
+  //if(p.isUnpacking()){
+  //  nodeLookupTable[root->getKey()]=root;
+  //}
+
   p | theta;
-  p | myNumParticlesPending;
+  //p | myNumParticlesPending;
+  p | prefetchWaiting;
+  p | currentPrefetch;
   p | numBuckets;
   p | currentBucket;
+  p | currentRemoteBucket;
 #if COSMO_STATS > 0
   //p | myNumParticleInteractions;
   //p | myNumCellInteractions;
@@ -1888,8 +1889,18 @@ void TreePiece::pup(PUP::er& p) {
   p | piecemass;
 #endif
   if(p.isUnpacking()){
-    localCache=cacheManagerProxy.ckLocalBranch();
+    localCache = cacheManagerProxy.ckLocalBranch();
+
+    // reconstruct the data for prefetching
+    numChunks = root->getNumChunks(_numChunks);
+    remainingChunk = new int[numChunks];
+    root->getChunks(_numChunks, prefetchRoots);
+
+    // reconstruct the nodeLookupTable and the bucketList
+    reconstructNodeLookup(root);
   }
+
+  /*
   if(!(p.isUnpacking())) {
 	
     //Pack nodeLookup here
@@ -1926,8 +1937,20 @@ void TreePiece::pup(PUP::er& p) {
     if(verbosity)
 			CkPrintf("[%d] TreePiece %d bucketList size %d numBuckets %d nodelookupsize %d count %d\n",CkMyPe(),thisIndex,bucketList.size(),numBuckets,num,count);
   }
+  */
 }
 
+void TreePiece::reconstructNodeLookup(GenericTreeNode *node) {
+  nodeLookupTable[node->getKey()] = node;
+  if (node->getType() == Bucket) bucketList.push_back(node);
+  GenericTreeNode *child;
+  for (unsigned int i=0; i<node->numChildren(); ++i) {
+    child = node->getChildren(i);
+    if (child != NULL) reconstructNodeLookup(child);
+  }
+}
+
+/*
 void TreePiece::rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *count){
   if(node == NULL){
     return;
@@ -1952,7 +1975,7 @@ void TreePiece::rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int
 bool compBucket(GenericTreeNode *ln,GenericTreeNode *rn){
   return (ln->firstParticle < rn->firstParticle);
 }
-
+*/
 
 /** Check that all the particles in the tree are really in their boxes.
     Because the keys are made of only the first 21 out of 23 bits of the
