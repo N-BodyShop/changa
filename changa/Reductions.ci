@@ -1,0 +1,5 @@
+//Redutions.ci
+
+module Reductions {
+	initnode void registerReductions();
+};

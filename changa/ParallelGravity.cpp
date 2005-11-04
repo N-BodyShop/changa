@@ -6,8 +6,11 @@
 //#include <popt.h>
 #include <unistd.h>
 
+#include "Sorter.h"
 #include "ParallelGravity.h"
+#include "DataManager.h"
 #include "CacheManager.h"
+#include "TipsyFile.h"
 
 extern char *optarg;
 extern int optind, opterr, optopt;
@@ -16,6 +19,7 @@ using namespace std;
 
 int verbosity;
 CProxy_TreePiece treeProxy;
+CkReduction::reducerType callbackReduction;
 bool _cache;
 int _cacheLineDepth;
 unsigned int _yieldPeriod;
@@ -25,6 +29,9 @@ GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
 bool _prefetch;
 int _numChunks;
+
+CkGroupID dataManagerID;
+CkArrayID treePieceID;
 
 Main::Main(CkArgMsg* m) {
   int cacheSize = 100000000;
@@ -38,6 +45,8 @@ Main::Main(CkArgMsg* m) {
 	_yieldPeriod=100000000;
 	_prefetch=false;
 	_numChunks = 1;
+	dTimeStep = 0.0;
+	
 /*
 	poptOption optionsTable[] = {
 		{"verbose", 'v', POPT_ARG_NONE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, 0, 1, "be verbose about what's going on", "verbosity"},
@@ -83,7 +92,7 @@ Main::Main(CkArgMsg* m) {
 	poptFreeContext(context);
 		*/
 	
-	const char *optstring = "vt:p:b:c:d:n:z:y:fs:";
+	const char *optstring = "vt:T:p:b:c:d:n:z:y:fs:";
 	int c;
 	while((c=getopt(m->argc,m->argv,optstring))>0){
 		if(c == -1){
@@ -92,6 +101,9 @@ Main::Main(CkArgMsg* m) {
 		switch(c){
 			case 'v':
 				verbosity++;
+				break;
+			case 'T':
+				dTimeStep = atof(optarg);
 				break;
 			case 't':
 				theta = atof(optarg);
@@ -169,7 +181,12 @@ Main::Main(CkArgMsg* m) {
 	pieces = CProxy_TreePiece::ckNew(numTreePieces,opts);
 	treeProxy = pieces;
 	
+	//create the DataManager
+	dataManager = CProxy_DataManager::ckNew(pieces);
+	dataManagerID = dataManager;
+
 	streamingProxy = pieces;
+
 	//StreamingStrategy* strategy = new StreamingStrategy(10,50);
 	//ComlibAssociateProxy(strategy, streamingProxy);
 
@@ -181,14 +198,37 @@ Main::Main(CkArgMsg* m) {
 
 void Main::nextStage() {
 	double startTime;
+	double tolerance = 0.01;	// tolerance for domain decomposition
 	
 	//piecedata *totaldata = new piecedata;
 	
+	pieces.registerWithDataManager(dataManager, CkCallbackResumeThread());
 	ckerr << "Loading particles ...";
 	startTime = CkWallTimer();
 	pieces.load(basefilename, CkCallbackResumeThread());
-	ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
+	if(!(pieces[0].ckLocal()->bLoaded)) {
+	    // Try loading Tipsy format
+	    Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
+	    if(!ptf.loadedSuccessfully()) {
+		ckerr << "Couldn't load the tipsy file \""
+		      << basefilename.c_str()
+		      << "\". Maybe it's not a tipsy file?" << endl;
+		CkExit();
+		return;
+		}
+	    pieces.loadTipsy(basefilename, CkCallbackResumeThread());
+	    }
+	
+	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+	      << endl;
 
+	ckerr << "Domain decomposition ...";
+	startTime = CkWallTimer();
+	sorter = CProxy_Sorter::ckNew();
+	sorter.startSorting(dataManager, numTreePieces, tolerance,
+			    CkCallbackResumeThread());
+	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+	      << endl;
 	ckerr << "Building trees ...";
 	startTime = CkWallTimer();
 	pieces.buildTree(bucketSize, CkCallbackResumeThread());
@@ -228,17 +268,26 @@ void Main::nextStage() {
 	//CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),pieces));
 
 	// the cached walk
+	ckerr << "Calculating gravity (tree bucket, theta = " << theta << ") ...";
+	startTime = CkWallTimer();
+	//pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
+	cacheManagerProxy.cacheSync(theta, CkCallbackResumeThread());
+	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+	      << endl;
 	for(int i =0; i<numIterations; i++){
-	  ckerr << "Calculating gravity (tree bucket, theta = " << theta << ") ...";
+	  if(dTimeStep > 0.0) {
+	      pieces.kick(0.5*dTimeStep, CkCallbackResumeThread());
+	      pieces.drift(dTimeStep, CkCallbackResumeThread());
+	      sorter.startSorting(dataManager, numTreePieces, tolerance,
+				  CkCallbackResumeThread());
+	      ckerr << "Building trees ...";
+	      pieces.buildTree(bucketSize, CkCallbackResumeThread());
+	      }
+	  
 	  startTime = CkWallTimer();
-	  //pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
-	  cacheManagerProxy.cacheSync(theta, CkCallbackResumeThread());
-	  ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	  if(i >= 1){
-	    startTime = CkWallTimer();
-	    pieces.startlb(CkCallbackResumeThread());
-	    ckerr<< "Load Balancing step took "<<(CkWallTimer() - startTime) << " seconds." << endl;
-	  }
+	  pieces.startlb(CkCallbackResumeThread());
+	  ckerr<< "Load Balancing step took "<<(CkWallTimer() - startTime)
+	       << " seconds." << endl;
 	  
 #if COSMO_STATS > 0
 	  ckerr << "Total statistics iteration " << i << ":" << endl;
@@ -264,6 +313,15 @@ void Main::nextStage() {
 	  CkReductionMsg *cs = (CkReductionMsg *) ccb.thread_delay();
 	  ((CacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
+	    // the cached walk
+	  ckerr << "Calculating gravity (tree bucket, theta = " << theta << ") ...";
+	  startTime = CkWallTimer();
+	  //pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
+	  cacheManagerProxy.cacheSync(theta, CkCallbackResumeThread());
+	  ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+		<< endl;
+	  if(dTimeStep > 0.0)
+	      pieces.kick(0.5*dTimeStep, CkCallbackResumeThread());
 	}
 
 #if COSMO_DEBUG > 1

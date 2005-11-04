@@ -186,6 +186,7 @@ public:
 	double mass;
 	double soft;
 	Vector3D<double> position;
+	Vector3D<double> velocity;
 	Vector3D<double> acceleration;
 	Vector3D<double> treeAcceleration;
 	double potential;
@@ -220,6 +221,7 @@ public:
 	void pup(PUP::er &p)
 	    {
 		p | position;
+		p | velocity;
 		p | mass;
 		p | soft;
 		}

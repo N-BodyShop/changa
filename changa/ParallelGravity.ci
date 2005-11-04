@@ -3,6 +3,7 @@
 mainmodule ParallelGravity {
 	
 	extern module CacheManager;
+	extern module Reductions;
 	
 	readonly int verbosity;
 	readonly CProxy_TreePiece treeProxy;
@@ -14,6 +15,8 @@ mainmodule ParallelGravity {
 	readonly GenericTrees useTree;
 	readonly bool _prefetch;
 	readonly int _numChunks;
+	readonly CkArrayID treePieceID;
+	readonly CkGroupID dataManagerID;
 
 	//message piecedata;
 	message dummyMsg;
@@ -29,6 +32,26 @@ mainmodule ParallelGravity {
 		entry [threaded] void nextStage();
 	};
 	
+	chare Sorter {
+		entry Sorter();
+		
+		entry void startSorting(const CkGroupID& dataManagerID,
+					const int nChares, const double toler,
+					const CkCallback& cb);	
+		entry void collectEvaluations(CkReductionMsg* m);
+	};
+	
+	nodegroup DataManager {
+		entry DataManager(const CkArrayID& treePieceID);
+		
+		entry void acceptCandidateKeys(const SFC::Key keys[n],
+					       const int n,
+					       const CkCallback& cb);
+		entry void acceptFinalKeys(const SFC::Key keys[n],
+					   const int responsible[n - 1],
+					   const int bins[n - 1], const int n,
+					   const CkCallback& cb);
+	};
 	array [1D] TreePiece {
 		entry TreePiece(unsigned int numPieces);
 
@@ -38,8 +61,18 @@ mainmodule ParallelGravity {
 		entry void report(const CkCallback& cb);
 		
 		entry void nextBucket(dummyMsg *m);	
+		entry void registerWithDataManager(const CkGroupID& dataManagerID,
+				     		  const CkCallback& cb);
 		entry void load(const std::string& fn, const CkCallback& cb);
-		
+		entry void loadTipsy(const std::string& filename,
+				     const CkCallback& cb);
+		entry void assignKeys(CkReductionMsg* m);
+		entry void evaluateBoundaries(const CkCallback& cb);
+		entry void unshuffleParticles(CkReductionMsg* m);
+		entry void acceptSortedParticles(const GravityParticle particles[n],
+				   const int n);
+		entry void kick(double dDelta, const CkCallback& cb);
+		entry void drift(double dDelta, const CkCallback& cb);
 		entry void buildTree(int bucketSize, const CkCallback& cb);
 		
 		entry void collectSplitters(CkReductionMsg* m);

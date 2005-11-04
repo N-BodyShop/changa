@@ -5,11 +5,11 @@ FLAG_STATISTICS = -DCOSMO_STATS=1  # enable statistics collection
 DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG)
 
 STRUCTURES_PATH = ../structures
-CXXFLAGS +=  -I$(STRUCTURES_PATH) -I. -I../GenericTree -O3 -Wall $(DEFINE_FLAGS)
-LDFLAGS += -language charm++ -module commlib -module RefineLB -module RefineCommLB -module MetisLB -module GreedyLB -module GreedyCommLB -module OrbLB -tracemode projections #-module EveryLB #-memory paranoid 
-LDLIBS +=  $(STRUCTURES_PATH)/SFC.o ../GenericTree/GenericTreeNode.o
+CXXFLAGS +=  -g -I$(STRUCTURES_PATH) -I. -I../GenericTree $(DEFINE_FLAGS)
+LDFLAGS += -language charm++ -module commlib -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -tracemode projections #-module EveryLB #-memory paranoid 
+LDLIBS +=  $(STRUCTURES_PATH)/SFC.o ../GenericTree/GenericTreeNode.o ../structures/libTipsy.a
 
-CHARMC = ../../charm/bin/charmc $(OPTS)
+CHARMC = $(HOME)/peak/src/charm/bin/charmc $(OPTS)
 CXX = $(CHARMC)
 CC = $(CXX)
 
@@ -19,13 +19,16 @@ all: $(TARGET)
 
 $(TARGET).o: $(TARGET).decl.h CacheManager.decl.h Makefile
 
-$(TARGET): TreePiece.o CacheManager.o
+$(TARGET): TreePiece.o CacheManager.o Sorter.o DataManager.o Reductions.o
 
 CacheManager.o: CacheManager.C CacheManager.h CacheManager.decl.h\
 	../GenericTree/MultipoleMoments.h ParallelGravity.h Makefile
 
 TreePiece.o ParallelGravity.o: ParallelGravity.h TreeNode.h CacheManager.h\
+	Reductions.decl.h\
+	../structures/tree_xdr.h\
 	../GenericTree/MultipoleMoments.h ../GenericTree/GenericTreeNode.h Makefile
+Reductions.o: Reductions.h Reductions.decl.h
 
 %.decl.h %.def.h : %.ci
 	$(CHARMC) $<

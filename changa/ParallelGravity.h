@@ -50,6 +50,11 @@ extern unsigned int _yieldPeriod;
 extern DomainsDec domainDecomposition;
 extern GenericTrees useTree;
 extern CProxy_TreePiece streamingProxy;
+
+/// The group ID of your DataManager.  You must set this!
+extern CkGroupID dataManagerID;
+
+
 extern bool _prefetch;
 extern int _numChunks;
 
@@ -165,8 +170,11 @@ class FillNodeMsg : public CMessage_FillNodeMsg {
 class Main : public Chare {
 	std::string basefilename;
 	CProxy_TreePiece pieces;
+	CProxy_DataManager dataManager;
+	CProxy_Sorter sorter;
 	unsigned int numTreePieces;
-	double theta;
+	double theta;	
+	double dTimeStep;
 	unsigned int bucketSize;
 	unsigned int printBinaryAcc;
 public:
@@ -193,6 +201,9 @@ class TreePiece : public CBase_TreePiece {
 	/// Array with the particles in this chare
 	GravityParticle* myParticles;
 
+	/// Array with sorted particles for domain decomposition
+	vector<GravityParticle> mySortedParticles;
+
 	/// holds the total mass of the current TreePiece
 	double piecemass;
 
@@ -210,6 +221,20 @@ class TreePiece : public CBase_TreePiece {
 	unsigned int numSplitters;
 	SFC::Key* splitters;
 	CProxy_TreePiece pieces;
+	/// A proxy to the DataManager.
+	CProxy_DataManager dataManager;
+	/// A local pointer to my DataManager.
+	DataManager* dm;
+
+	/// The counts of how many particles belonging to other
+	/// TreePieces I currently hold
+	std::vector<int> myBinCounts;
+	/// My index in the responsibility array.
+	int myPlace;
+	/// The keys determined by the Sorter that separate me from my
+	/// neighbors.
+	SFC::Key leftSplitter, rightSplitter;
+
 	std::string basefilename;
 	OrientedBox<float> boundingBox;
 	FieldHeader fh;
@@ -299,6 +324,8 @@ class TreePiece : public CBase_TreePiece {
   
  public:
 
+	int bLoaded;		/* Are particles loaded? */
+	
 #if COSMO_DEBUG > 1
   ///This function checks the correctness of the treewalk
   void checkWalkCorrectness();
@@ -370,6 +397,7 @@ public:
 	  iterationNo=0;
 	  usesAtSync=CmiTrue;
 	  bucketReqs=NULL;
+	  myPlace = -1;
 #if COSMO_STATS > 0
 	  nodesOpenedLocal = 0;
 	  nodesOpenedRemote = 0;
@@ -406,8 +434,24 @@ public:
 	  delete root;
 	}
 	
+	// Load from mass and position files
 	void load(const std::string& fn, const CkCallback& cb);
 
+	// Load from Tispy file
+	void loadTipsy(const std::string& filename, const CkCallback& cb);
+	/** Inform the DataManager of my node that I'm here.
+	 The callback will receive a CkReductionMsg containing no data.
+	 */
+	void registerWithDataManager(const CkGroupID& dataManagerID,
+				     const CkCallback& cb);
+	// Assign keys after loading tipsy file and finding Bounding box
+	void assignKeys(CkReductionMsg* m);
+	void evaluateBoundaries(const CkCallback& cb);
+	void unshuffleParticles(CkReductionMsg* m);
+	void acceptSortedParticles(const GravityParticle* particles,
+				   const int n);
+	void kick(double dDelta, const CkCallback& cb);
+	void drift(double dDelta, const CkCallback& cb);
 	/// Charm entry point to build the tree (called by Main), calls collectSplitters
 	void buildTree(int bucketSize, const CkCallback& cb);
 

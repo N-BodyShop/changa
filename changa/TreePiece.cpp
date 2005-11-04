@@ -10,6 +10,9 @@
 
 #include "ParallelGravity.h"
 #include "CacheManager.h"
+#include "DataManager.h"
+#include "Reductions.h"
+#include "TipsyFile.h"
 
 #include "Space.h"
 #include "gravity.h"
@@ -26,24 +29,28 @@ string getColor(GenericTreeNode*);
 
 void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   basefilename = fn;
+  bLoaded = 0;
 
   //read in particles
   XDR xdrs;
   FILE* infile = fopen((basefilename + ".mass").c_str(), "rb");
   if(!infile) {
     ckerr << "TreePiece " << thisIndex << ": Couldn't open masses file, aborting" << endl;
-    CkAbort("Badness");
+    contribute(0, 0, CkReduction::concat, cb);
+    return;
   }
   xdrstdio_create(&xdrs, infile, XDR_DECODE);
 	
   if(!xdr_template(&xdrs, &fh)) {
     ckerr << "TreePiece " << thisIndex << ": Couldn't read header from masses file, aborting" << endl;
-    CkAbort("Badness");
+    contribute(0, 0, CkReduction::concat, cb);
+    return;
   }
 	
   if(fh.magic != FieldHeader::MagicNumber || fh.dimensions != 1 || fh.code != float32) {
     ckerr << "TreePiece " << thisIndex << ": Masses file is corrupt or of incorrect type, aborting" << endl;
-    CkAbort("Badness");
+    contribute(0, 0, CkReduction::concat, cb);
+    return;
   }
 
   unsigned int *startParticles;
@@ -198,7 +205,7 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
       Key previous = 0;  // hold the last key generated
       Key current;
       //read all my particles' positions and make keys
-      for(int i = 0; i < numParticlesChunk[chunkNum]; ++i) {
+      for(unsigned int i = 0; i < numParticlesChunk[chunkNum]; ++i) {
 	if(!xdr_template(&xdrs, &pos)) {
 	  ckerr << "TreePiece " << thisIndex << ": Problem reading my part of the positions file, aborting" << endl;
 	  CkAbort("Badness");
@@ -222,8 +229,238 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Read in masses and positions" << endl;
 	
+  bLoaded = 1;
   contribute(0, 0, CkReduction::concat, cb);
 }
+
+void TreePiece::loadTipsy(const std::string& filename, const CkCallback& cb) {
+	callback = cb;
+	
+	bLoaded = 0;
+	
+	Tipsy::TipsyReader r(filename);
+	if(!r.status()) {
+		cerr << thisIndex << ": TreePiece: Fatal: Couldn't open tipsy file!" << endl;
+		cb.send(0);
+		return;
+	}
+	
+	numTreePieces = numTreePieces;
+	Tipsy::header h = r.getHeader();
+	int totalNumParticles = h.nbodies;
+	myNumParticles = totalNumParticles / numTreePieces;
+	int excess = totalNumParticles % numTreePieces;
+	unsigned int startParticle = myNumParticles * thisIndex;
+	if(thisIndex < excess) {
+		myNumParticles++;
+		startParticle += thisIndex;
+	} else
+		startParticle += excess;
+	
+	if(verbosity > 2)
+		cerr << thisIndex << ": TreePiece: Taking " << myNumParticles << " of " << totalNumParticles << " particles, starting at " << startParticle << endl;
+
+	// allocate an array for myParticles
+	myParticles = new GravityParticle[myNumParticles + 2];
+	
+	if(!r.seekParticleNum(startParticle)) {
+		cerr << thisIndex << ": TreePiece: Fatal: Couldn't seek to my particles!" << endl;
+		cb.send(0);
+		return;
+	}
+	
+	Tipsy::gas_particle gp;
+	Tipsy::dark_particle dp;
+	Tipsy::star_particle sp;
+	for(unsigned int i = 0; i < myNumParticles; ++i) {
+		if(i + startParticle < (unsigned int) h.nsph) {
+			r.getNextGasParticle(gp);
+			myParticles[i+1].mass = gp.mass;
+			myParticles[i+1].position = gp.pos;
+			myParticles[i+1].velocity = gp.vel;
+			myParticles[i+1].soft = gp.hsmooth;
+		} else if(i + startParticle < (unsigned int) h.nsph + h.ndark) {
+			r.getNextDarkParticle(dp);
+			myParticles[i+1].mass = dp.mass;
+			myParticles[i+1].position = dp.pos;
+			myParticles[i+1].velocity = dp.vel;
+			myParticles[i+1].soft = dp.eps;
+		} else {
+			r.getNextStarParticle(sp);
+			myParticles[i+1].mass = sp.mass;
+			myParticles[i+1].position = sp.pos;
+			myParticles[i+1].velocity = sp.vel;
+			myParticles[i+1].soft = sp.eps;
+		}
+#if COSMO_STATS > 1
+		myParticles[i+1].intcellmass = 0;
+		myParticles[i+1].intpartmass = 0;
+		myParticles[i+1].extcellmass = 0;
+		myParticles[i+1].extpartmass = 0;
+#endif
+#if COSMO_STATS > 0
+		piecemass += myParticles[i+1].mass;
+#endif
+		boundingBox.grow(myParticles[i+1].position);
+	}
+	
+	bLoaded = 1;
+	contribute(sizeof(OrientedBox<float>), &boundingBox,
+		   growOrientedBox_float,
+		   CkCallback(CkIndex_TreePiece::assignKeys(0), pieces));
+}
+
+/// After the bounding box has been found, we can assign keys to the particles
+void TreePiece::assignKeys(CkReductionMsg* m) {
+	if(m->getSize() != sizeof(OrientedBox<float>)) {
+		cerr << thisIndex << ": TreePiece: Fatal: Wrong size reduction message received!" << endl;
+		callback.send(0);
+		delete m;
+		return;
+	}
+	
+	boundingBox = *static_cast<OrientedBox<float> *>(m->getData());
+	delete m;
+	if(thisIndex == 0 && verbosity)
+		cerr << "TreePiece: Bounding box originally: "
+		     << boundingBox << endl;
+	//give particles keys, using bounding box to scale
+	for(unsigned int i = 0; i < myNumParticles; ++i) {
+	    myParticles[i+1].key = generateKey(myParticles[i+1].position,
+					       boundingBox);
+	    }
+	
+	sort(&myParticles[1], &myParticles[myNumParticles+1]);
+	
+	contribute(0, 0, CkReduction::concat, callback);
+	
+	if(verbosity >= 5)
+		cout << thisIndex << ": TreePiece: Assigned keys to all my particles" << endl;
+}
+
+void TreePiece::registerWithDataManager(const CkGroupID& dataManagerID, const CkCallback& cb) {
+	dataManager = CProxy_DataManager(dataManagerID);
+	dm = dataManager.ckLocalBranch();
+	if(dm == 0) {
+		cerr << thisIndex << ": TreePiece: Fatal: Couldn't register with my DataManger" << endl;
+		cb.send(0);
+		return;
+	}
+	
+	dm->myTreePieces.push_back(thisIndex);
+
+	contribute(0, 0, CkReduction::concat, cb);
+}
+
+/// Determine my part of the sorting histograms by counting the number
+/// of my particles in each bin
+void TreePiece::evaluateBoundaries(const CkCallback& cb) {
+	int numBins = dm->boundaryKeys.size() - 1;
+	//this array will contain the number of particles I own in each bin
+	myBinCounts.assign(numBins, 0);
+	vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
+	GravityParticle *binBegin = &myParticles[1];
+	GravityParticle *binEnd;
+	GravityParticle dummy;
+	vector<int>::iterator binIter = myBinCounts.begin();
+	vector<Key>::iterator keyIter = dm->boundaryKeys.begin();
+	for(++keyIter; keyIter != endKeys; ++keyIter, ++binIter) {
+		dummy.key = *keyIter;
+		/// find the last place I could put this splitter key in
+		/// my array of particles
+		binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1],
+				     dummy);
+		/// this tells me the number of particles between the
+		/// last two splitter keys
+		*binIter = (binEnd - binBegin);
+		if(&myParticles[myNumParticles+1] <= binEnd)
+			break;
+		binBegin = binEnd;
+	}
+	
+	//send my bin counts back in a reduction
+	contribute(numBins * sizeof(int), &(*myBinCounts.begin()), CkReduction::sum_int, cb);
+}
+
+/// Once final splitter keys have been decided, I need to give my
+/// particles out to the TreePiece responsible for them
+
+void TreePiece::unshuffleParticles(CkReductionMsg* m) {
+	callback = *static_cast<CkCallback *>(m->getData());
+	
+	//find my responsibility
+	myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
+	//assign my bounding keys
+	leftSplitter = dm->boundaryKeys[myPlace];
+	rightSplitter = dm->boundaryKeys[myPlace + 1];
+	mySortedParticles.clear();
+	mySortedParticles.reserve(dm->particleCounts[myPlace]);
+	
+	vector<Key>::iterator iter = dm->boundaryKeys.begin();
+	vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
+	vector<int>::iterator responsibleIter = dm->responsibleIndex.begin();
+	GravityParticle *binBegin = &myParticles[1];
+	GravityParticle *binEnd;
+	GravityParticle dummy;
+	for(++iter; iter != endKeys; ++iter, ++responsibleIter) {
+		dummy.key = *iter;
+		//find particles between this and the last key
+		binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1],
+				     dummy);
+		//if I have any particles in this bin, send them to the responsible TreePiece
+		if((binEnd - binBegin) > 0) {
+		    if(*responsibleIter == thisIndex)
+			acceptSortedParticles(&(*binBegin), binEnd - binBegin);
+		    else
+			pieces[*responsibleIter].acceptSortedParticles(&(*binBegin), binEnd - binBegin);
+		}
+		if(&myParticles[myNumParticles + 1] <= binEnd)
+			break;
+		binBegin = binEnd;
+	}
+	//resize myParticles so we can fit the sorted particles and
+	//the boundary particles
+	if(dm->particleCounts[myPlace] > myNumParticles) {
+	    delete[] myParticles;
+	    myParticles = new GravityParticle[dm->particleCounts[myPlace] + 2];
+	    }
+	myNumParticles = dm->particleCounts[myPlace];
+}
+
+/// Accept particles from other TreePieces once the sorting has finished
+void TreePiece::acceptSortedParticles(const GravityParticle* particles, const int n
+) {
+        copy(particles, particles + n, back_inserter(mySortedParticles));
+        if(myPlace == -1)
+	    myPlace = find(dm->responsibleIndex.begin(),
+			   dm->responsibleIndex.end(), thisIndex)
+		- dm->responsibleIndex.begin();
+        if(dm->particleCounts[myPlace] == mySortedParticles.size()) {
+	    //I've got all my particles
+	    
+	    sort(mySortedParticles.begin(), mySortedParticles.end());
+	    copy(mySortedParticles.begin(), mySortedParticles.end(),
+		 &myParticles[1]);
+	    //signify completion with a reduction
+	    contribute(0, 0, CkReduction::concat, callback);
+        }
+}
+
+void TreePiece::kick(double dDelta, const CkCallback& cb)
+{
+    for(unsigned int i = 0; i < myNumParticles; ++i)
+	myParticles[i+1].velocity += dDelta*myParticles[i+1].treeAcceleration;
+    
+    contribute(0, 0, CkReduction::concat, cb);
+    }
+
+void TreePiece::drift(double dDelta, const CkCallback& cb)
+{
+    for(unsigned int i = 0; i < myNumParticles; ++i)
+	myParticles[i+1].position += dDelta*myParticles[i+1].velocity;
+    
+    contribute(0, 0, CkReduction::concat, cb);
+    }
 
 void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
   maxBucketSize = bucketSize;
@@ -1500,7 +1737,7 @@ void TreePiece::outputAccASCII(OrientedBox<double> accelerationBox, const string
     if(verbosity > 2)
       ckerr << "TreePiece " << thisIndex << ": Writing header for accelerations file" << endl;
     FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "wb");
-		fprintf(outfile,"%d\n",fh.numParticles);
+		fprintf(outfile,"%d\n",(int) fh.numParticles);
     fclose(outfile);
   }
 	
@@ -1837,7 +2074,7 @@ void TreePiece::pup(PUP::er& p) {
   if(p.isUnpacking()) {
     myParticles = new GravityParticle[myNumParticles + 2];
   }
-  for(int i=0;i<myNumParticles+2;i++){
+  for(unsigned int i=0;i<myNumParticles+2;i++){
     p | myParticles[i];
   }
   p | numSplitters;
