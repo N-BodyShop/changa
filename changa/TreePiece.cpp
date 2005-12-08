@@ -446,6 +446,32 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles, const in
         }
 }
 
+// Sum energies for diagnostics
+void TreePiece::calcEnergy(const CkCallback& cb)
+{
+    double dEnergy[6]; // 0 -> kinetic; 1 -> virial ; 2 -> potential
+    Vector3D<double> L;
+        
+    dEnergy[0] = 0.0;
+    dEnergy[1] = 0.0;
+    dEnergy[2] = 0.0;
+    for(unsigned int i = 0; i < myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i+1];
+	
+	dEnergy[0] += p->mass*p->velocity.lengthSquared();
+	dEnergy[1] += p->mass*dot(p->treeAcceleration, p->position);
+	dEnergy[2] += p->mass*p->potential;
+	L += p->mass*cross(p->position, p->velocity);
+	}
+    dEnergy[0] *= 0.5;
+    dEnergy[2] *= 0.5;
+    dEnergy[3] = L.x;
+    dEnergy[4] = L.y;
+    dEnergy[5] = L.z;
+    
+    contribute(6*sizeof(double), dEnergy, CkReduction::sum_double, cb);
+    }
+
 void TreePiece::kick(double dDelta, const CkCallback& cb)
 {
     for(unsigned int i = 0; i < myNumParticles; ++i)
@@ -841,6 +867,7 @@ void TreePiece::initBuckets() {
       req.potentials[i - node->firstParticle] = 0;
       req.boundingBox.grow(myParticles[i].position);
       myParticles[i].treeAcceleration = 0;
+      myParticles[i].potential = 0;
     }
     req.finished = 0;
     bucketReqs[j] = req;

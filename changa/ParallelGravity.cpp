@@ -233,47 +233,18 @@ void Main::nextStage() {
 	startTime = CkWallTimer();
 	pieces.buildTree(bucketSize, CkCallbackResumeThread());
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	
-	//pieces.report(CkCallbackResumeThread());
-	//cerr << "Trees written" << endl;
-	//CkExit();
-	
-	/*for(int i =0; i<numIterations; i++){
-		if(verbosity)
-			cerr << "Calculating gravity (direct) ..." << endl;
-		startTime = CkWallTimer();
-		pieces.calculateGravityDirect(CkCallbackResumeThread());
-		if(verbosity > 1)
-			cerr << "Main: Calculating gravity took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	}
-	*/
-	/*
-	if(verbosity)
-		cerr << "Outputting accelerations ..." << endl;
-	startTime = CkWallTimer();
-	pieces[0].outputAccelerations(OrientedBox<double>(), "acc", CkCallbackResumeThread());
-	if(verbosity > 1)
-		cerr << "Main: Outputting took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	*/
-	/*
-	if(verbosity)
-		cerr << "Calculating gravity (tree, theta = " << theta << ") ..." << endl;
-	startTime = CkWallTimer();
-	pieces.calculateGravityTree(theta, CkCallbackResumeThread());
-	if(verbosity > 1)
-		cerr << "Main: Calculating gravity took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	*/
-	
 	// DEBUGGING
 	//CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),pieces));
 
 	// the cached walk
 	ckerr << "Calculating gravity (tree bucket, theta = " << theta << ") ...";
 	startTime = CkWallTimer();
+	
 	//pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
 	cacheManagerProxy.cacheSync(theta, CkCallbackResumeThread());
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
+	calcEnergy();
 	for(int i =0; i<numIterations; i++){
 	  if(dTimeStep > 0.0) {
 	      pieces.kick(0.5*dTimeStep, CkCallbackResumeThread());
@@ -322,6 +293,7 @@ void Main::nextStage() {
 		<< endl;
 	  if(dTimeStep > 0.0)
 	      pieces.kick(0.5*dTimeStep, CkCallbackResumeThread());
+	calcEnergy();
 	}
 
 #if COSMO_DEBUG > 1
@@ -358,6 +330,18 @@ void Main::nextStage() {
 	ckerr << endl << "******************" << endl << endl; 
 	CkExit();
 }
+
+void Main::calcEnergy() 
+{
+    CkCallback ccb(CkCallback::resumeThread);
+    pieces.calcEnergy(ccb);
+    CkReductionMsg *msg = (CkReductionMsg *) ccb.thread_delay();
+    double *dEnergy = (double *) msg->getData();
+    CkPrintf("Energy: %g %g %g %g %g %g %g %g\n", dEnergy[0] + dEnergy[1],
+	     dEnergy[0]+dEnergy[2], dEnergy[0],
+	     dEnergy[1], dEnergy[2], dEnergy[3], dEnergy[4], dEnergy[5]);
+    delete msg;
+    }
 
 void registerStatistics() {
 #if COSMO_STATS > 0

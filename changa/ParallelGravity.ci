@@ -73,6 +73,7 @@ mainmodule ParallelGravity {
 				   const int n);
 		entry void kick(double dDelta, const CkCallback& cb);
 		entry void drift(double dDelta, const CkCallback& cb);
+		entry void calcEnergy(const CkCallback& cb);
 		entry void buildTree(int bucketSize, const CkCallback& cb);
 		
 		entry void collectSplitters(CkReductionMsg* m);

@@ -188,6 +188,7 @@ public:
 	 * calculateGravity and startlb for the desired number of iterations.
 	 */
 	void nextStage();
+	void calcEnergy() ;
 };
 
 class TreePiece : public CBase_TreePiece {
@@ -452,6 +453,7 @@ public:
 				   const int n);
 	void kick(double dDelta, const CkCallback& cb);
 	void drift(double dDelta, const CkCallback& cb);
+	void calcEnergy(const CkCallback& cb);
 	/// Charm entry point to build the tree (called by Main), calls collectSplitters
 	void buildTree(int bucketSize, const CkCallback& cb);
 
