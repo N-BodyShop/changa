@@ -42,6 +42,12 @@ CkReductionMsg* minmax(int nMsg, CkReductionMsg** msgs) {
 	return CkReductionMsg::buildNew(2 * sizeof(T), pminmax);
 }
 
+/// Return a single object, given many copies of it
+template <typename T>
+CkReductionMsg* same(int nMsg, CkReductionMsg** msgs) {
+	return CkReductionMsg::buildNew(sizeof(T), static_cast<T *>(msgs[0]->getData()));
+}
+
 void registerReductions() {
 	growOrientedBox_float = CkReduction::addReducer(boxGrowth<float>);
 	growOrientedBox_double = CkReduction::addReducer(boxGrowth<double>);
@@ -49,6 +55,7 @@ void registerReductions() {
 	minmax_int = CkReduction::addReducer(minmax<int>);
 	minmax_float = CkReduction::addReducer(minmax<float>);
 	minmax_double = CkReduction::addReducer(minmax<double>);
+	callbackReduction = CkReduction::addReducer(same<CkCallback>);
 }
 
 #include "Reductions.def.h"
