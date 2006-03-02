@@ -5,11 +5,12 @@ FLAG_STATISTICS = -DCOSMO_STATS=1  # enable statistics collection
 DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG)
 
 STRUCTURES_PATH = ../structures
-CXXFLAGS +=  -g -I$(STRUCTURES_PATH) -I. -I../GenericTree $(DEFINE_FLAGS)
-LDFLAGS += -language charm++ -module commlib -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -tracemode projections #-module EveryLB #-memory paranoid 
-LDLIBS +=  $(STRUCTURES_PATH)/SFC.o ../GenericTree/GenericTreeNode.o ../structures/libTipsy.a
+CXXFLAGS +=  -I$(STRUCTURES_PATH) -I. -I../GenericTree  -Wall $(DEFINE_FLAGS)
+LDFLAGS += -language charm++ -module commlib -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -tracemode summary #-tracemode projections #-module EveryLB #-memory paranoid 
+LDLIBS +=  ../GenericTree/GenericTreeNode.o ../structures/libTipsy.a
 
-CHARMC = $(HOME)/peak/src/charm/bin/charmc $(OPTS)
+#CHARMC = ~/charm/bin/charmc $(OPTS)
+CHARMC = ../../charm/bin/charmc $(OPTS)
 CXX = $(CHARMC)
 CC = $(CXX)
 
