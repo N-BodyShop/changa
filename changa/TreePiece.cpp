@@ -612,6 +612,8 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
     ckerr << "TreePiece " << thisIndex << ": Number of buckets: " << numBuckets << endl;
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Finished tree build, resolving boundary nodes" << endl;
+
+  if (numTreePieces == 1) contribute(0, 0, CkReduction::concat, callback);
 }
 
 /// Determine who are all the owners of this node
