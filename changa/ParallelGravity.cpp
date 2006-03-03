@@ -17,6 +17,7 @@ extern int optind, opterr, optopt;
 
 using namespace std;
 
+CProxy_Main mainChare;
 int verbosity;
 CProxy_TreePiece treeProxy;
 CkReduction::reducerType callbackReduction;
@@ -46,6 +47,7 @@ Main::Main(CkArgMsg* m) {
 	_prefetch=false;
 	_numChunks = 1;
 	dTimeStep = 0.0;
+	mainChare = thishandle;
 	
 /*
 	poptOption optionsTable[] = {
@@ -196,6 +198,11 @@ Main::Main(CkArgMsg* m) {
 	CProxy_Main(thishandle).nextStage();
 }
 
+void Main::niceExit() {
+  static int count = 0;
+  if (++count == numTreePieces) CkExit();
+}
+
 void Main::nextStage() {
 	double startTime;
 	double tolerance = 0.01;	// tolerance for domain decomposition
@@ -229,12 +236,12 @@ void Main::nextStage() {
 			    CkCallbackResumeThread());
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
+	// DEBUGGING
+	//CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),pieces));
 	ckerr << "Building trees ...";
 	startTime = CkWallTimer();
 	pieces.buildTree(bucketSize, CkCallbackResumeThread());
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	// DEBUGGING
-	//CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),pieces));
 
 	// the cached walk
 	ckerr << "Calculating gravity (tree bucket, theta = " << theta << ") ...";

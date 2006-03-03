@@ -43,6 +43,7 @@ inline void operator|(PUP::er &p,DomainsDec &d) {
 #include "CacheManager.h"
 #include "ParallelGravity.decl.h"
 
+extern CProxy_Main mainChare;
 extern int verbosity;
 extern bool _cache;
 extern int _cacheLineDepth;
@@ -181,6 +182,7 @@ public:
 		
 	Main(CkArgMsg* m);
 
+	void niceExit();
 	/**
 	 * Principal method which does all the coordination of the work.
 	 * It is threaded, so it suspends while waiting for the TreePieces to
@@ -333,16 +335,9 @@ class TreePiece : public CBase_TreePiece {
   void combineKeys(Tree::NodeKey key,int bucket);
 #endif
 
-	/* DEBUGGING
-	void quiescence() {
-	  CkPrintf("[%d] quiescence detected, pending %d\n",thisIndex,myNumParticlesPending);
-	  for (int i=0; i<numBuckets; ++i) {
-	    if (bucketReqs[i].numAdditionalRequests != 0)
-	      CkPrintf("[%d] requests for %d remaining %d\n",thisIndex,i,bucketReqs[i].numAdditionalRequests);
-	  }
-	  CkExit();
-	}
-	END DEBUGGING */
+  /* DEBUGGING */
+  void quiescence();
+  /*END DEBUGGING */
 
 
 	/// Recursive call to build the subtree with root "node", level

@@ -214,9 +214,9 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
 	current = generateKey(pos, boundingBox);
 	myParticles[myPart].key = current;
 	//CkPrintf("Adding key: %d = %16llx\n",myPart,current);
-	if (current < previous) {
-	  CkPrintf("TreePiece %d: Key not ordered! (%016llx)\n",thisIndex,current);
-	}
+	//if (current < previous) {
+	//  CkPrintf("TreePiece %d: Key not ordered! (%016llx)\n",thisIndex,current);
+	//}
 	previous = current;
       }
     }
@@ -230,6 +230,7 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
     ckerr << "TreePiece " << thisIndex << ": Read in masses and positions" << endl;
 	
   bLoaded = 1;
+  sort(&myParticles[1], &myParticles[myNumParticles+1]);
   contribute(0, 0, CkReduction::concat, cb);
 }
 
@@ -496,7 +497,7 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
   case Binary_Oct:
   case Oct_Oct:
     Key bounds[2];
-    sort(myParticles+1, myParticles+myNumParticles+1);
+    //sort(myParticles+1, myParticles+myNumParticles+1);
 #ifdef COSMO_PRINT
     CkPrintf("[%d] Keys: %016llx %016llx\n",thisIndex,myParticles[1].key,myParticles[myNumParticles].key);
 #endif
@@ -518,6 +519,25 @@ public:
     return first < k.first;
   }
 };
+
+void TreePiece::quiescence() {
+  /*
+  CkPrintf("[%d] quiescence, %d left\n",thisIndex,momentRequests.size());
+  for (MomentRequestType::iterator iter = momentRequests.begin(); iter != momentRequests.end(); iter++) {
+    CkVec<int> *l = iter->second;
+    for (int i=0; i<l->length(); ++i) {
+      CkPrintf("[%d] quiescence: %s to %d\n",thisIndex,keyBits(iter->first,63).c_str(),(*l)[i]);
+    }
+  }
+  CkPrintf("[%d] quiescence detected, pending %d\n",thisIndex,myNumParticlesPending);
+  for (int i=0; i<numBuckets; ++i) {
+    if (bucketReqs[i].numAdditionalRequests != 0)
+      CkPrintf("[%d] requests for %d remaining %d\n",thisIndex,i,bucketReqs[i].numAdditionalRequests);
+  }
+  */
+  CkPrintf("quiescence detected!\n");
+  mainChare.niceExit();
+}
 
 void TreePiece::collectSplitters(CkReductionMsg* m) {
   numSplitters = 2 * numTreePieces;
@@ -593,14 +613,21 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   // recursively build the tree
   buildOctTree(root, 0);
 
+  //CkPrintf("[%d] finished building local tree\n",thisIndex);
+
   // check all the pending requests in for RemoteMoments
-  for (MomentRequestType::iterator iter = momentRequests.begin(); iter != momentRequests.end(); iter++) {
-    GenericTreeNode *node = keyToNode(iter->first);
+  for (MomentRequestType::iterator iter = momentRequests.begin(); iter != momentRequests.end(); ) {
+    NodeKey nodeKey = iter->first;
+    GenericTreeNode *node = keyToNode(nodeKey);
+    CkVec<int> *l = iter->second;
+    //CkPrintf("[%d] checking moments requests for %s (%s) upon treebuild finished\n",thisIndex,keyBits(iter->first,63).c_str(),keyBits(node->getKey(),63).c_str());
     CkAssert(node != NULL);
+    // we actually need to increment the iterator before deleting the element,
+    // otherwise the iterator lose its validity!
+    iter++;
     if (node->getType() == Empty || node->moments.totalMass > 0) {
-      CkVec<int> *l = iter->second;
       for (int i=0; i<l->length(); ++i) {
-	streamingProxy[(*l)[i]].receiveRemoteMoments(iter->first, node->getType(), node->firstParticle, node->particleCount, node->moments);
+	streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(), node->firstParticle, node->particleCount, node->moments);
 	//CkPrintf("[%d] sending moments of %s to %d upon treebuild finished\n",thisIndex,keyBits(node->getKey(),63).c_str(),(*l)[i]);
       }
       delete l;
@@ -947,11 +974,11 @@ void TreePiece::finishBucket(int iBucket) {
 
 void TreePiece::doAllBuckets(){
 #if COSMO_DEBUG > 0
-    char fout[100];
-    sprintf(fout,"tree.%d.%d",thisIndex,iterationNo);
-    ofstream ofs(fout);
-    printTree(root,ofs);
-    ofs.close();
+  char fout[100];
+  sprintf(fout,"tree.%d.%d",thisIndex,iterationNo);
+  ofstream ofs(fout);
+  printTree(root,ofs);
+  ofs.close();
 #endif
 
   dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
