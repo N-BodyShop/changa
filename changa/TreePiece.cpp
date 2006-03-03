@@ -816,7 +816,7 @@ partBucketForce(GravityParticle *part, BucketGravityRequest& req)
     twoh = part->soft + req.softs[j];
     if(rsq != 0) {
       SPLINE(rsq, twoh, a, b);
-      req.accelerations[j] += part->mass * r * b;
+      req.accelerations[j] += r * (b * part->mass);
 			//myParticles[reqnode->beginParticle + j].acceleration += part->mass * r * b;
       req.potentials[j] -= part->mass * a;
     }
@@ -845,16 +845,16 @@ nodeBucketForce(GenericTreeNode *node, BucketGravityRequest& req)
     if(rsq != 0) {
       double dir = 1.0/sqrt(rsq);
       SPLINEQ(dir, rsq, twoh, a, b, c, d);
-      double qirx = m.xx*r[0] + m.xy*r[1] + m.xz*r[2];
-      double qiry = m.xy*r[0] + m.yy*r[1] + m.yz*r[2];
-      double qirz = m.xz*r[0] + m.yz*r[1] + m.zz*r[2];
-      double qir = 0.5*(qirx*r[0] + qiry*r[1] + qirz*r[2]);
+      double qirx = m.xx*r.x + m.xy*r.y + m.xz*r.z;
+      double qiry = m.xy*r.x + m.yy*r.y + m.yz*r.z;
+      double qirz = m.xz*r.x + m.yz*r.y + m.zz*r.z;
+      double qir = 0.5*(qirx*r.x + qiry*r.y + qirz*r.z);
       double tr = 0.5*(m.xx + m.yy + m.zz);
       double qir3 = b*m.totalMass + d*qir - c*tr;
       req.potentials[j] -= m.totalMass * a + c*qir - b*tr;
-      req.accelerations[j][0] -= qir3*r[0] - c*qirx;
-      req.accelerations[j][1] -= qir3*r[1] - c*qiry;
-      req.accelerations[j][2] -= qir3*r[2] - c*qirz;
+      req.accelerations[j].x -= qir3*r.x - c*qirx;
+      req.accelerations[j].x -= qir3*r.x - c*qiry;
+      req.accelerations[j].x -= qir3*r.x - c*qirz;
     
 			/******************ADDED**********************/
 			//SFCTreeNode* reqnode = bucketList[req.identifier];
