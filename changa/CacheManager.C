@@ -64,6 +64,7 @@ CacheManager::CacheManager(int size){
   totalNodesRequested = 0;
   totalParticlesRequested = 0;
 #endif
+
   maxSize = (u_int64_t)size * 1024 * 1024 / (sizeof(NodeCacheEntry) + sizeof(CacheNode));
   if (verbosity) CkPrintf("Cache: accepting at most %llu nodes\n",maxSize);
 }
@@ -77,7 +78,7 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chun
     proxyInitialized = true;
     }
   */
-
+  
   map<CacheKey,NodeCacheEntry *>::iterator p;
   CkAssert(chunkAck[chunk] > 0);
   p = nodeCacheTable[chunk].find(key);
@@ -98,7 +99,7 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chun
     if(!e->requestSent && !e->replyRecvd){
       //sendrequest to the the tree, if it is local return the node 
       if(sendNodeRequest(chunk,e,req)){
-	return e->node;
+	      return e->node;
       }
     }
   }else{
@@ -308,6 +309,7 @@ void CacheManager::addNodes(int chunk,int from,CacheNode *node){
 void CacheManager::processRequests(int chunk,CacheNode *node,int from,int depth){
   map<CacheKey,NodeCacheEntry *>::iterator p;
   p = nodeCacheTable[chunk].find(node->getKey());
+  
   if (p == nodeCacheTable[chunk].end()) return; // this means the node is not stored in
 					 // the cache, but is owned by some
 					 // chare in this processor!
@@ -325,7 +327,7 @@ void CacheManager::processRequests(int chunk,CacheNode *node,int from,int depth)
   //vector<BucketGravityRequest *>::iterator callreq;
   for(caller = e->requestorVec.begin(); caller != e->requestorVec.end(); caller++){
     TreePiece *p = treeProxy[caller->arrayID].ckLocal();
-
+    
     if (caller->isPrefetch) p->prefetch(e->node);
     else {
       LDObjHandle objHandle;
