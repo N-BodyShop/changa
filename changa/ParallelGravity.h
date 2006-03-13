@@ -62,6 +62,10 @@ extern int _numChunks;
 class dummyMsg : public CMessage_dummyMsg{
 public:
 int val;
+/*#if INTERLIST_VER > 0
+int level;
+GenericTreeNode* startNode;
+#endif*/
 };
 
 class TreePieceStatistics {
@@ -134,8 +138,17 @@ class ComputeChunkMsg : public CMessage_ComputeChunkMsg {
   ComputeChunkMsg() {} // not available
  public:
   int chunkNum;
+/*#if INTERLIST_VER > 0
+  int level;
+  GenericTreeNode *startNode;
+#endif*/
 
-  ComputeChunkMsg(int i) : chunkNum(i) { }
+  ComputeChunkMsg(int i) : chunkNum(i) { 
+  /*#if INTERLIST_VER > 0
+    level=0;
+    startNode=NULL;
+  #endif*/
+  }
 };
 
 class RequestNodeMsg : public CMessage_RequestNodeMsg {
@@ -293,6 +306,8 @@ class TreePiece : public CBase_TreePiece {
 	u_int64_t nodeInterRemote;
 	u_int64_t particleInterLocal;
 	u_int64_t particleInterRemote;
+
+  u_int64_t numOpenCriterionCalls;
 #endif
 
 	/// @endif
@@ -324,7 +339,52 @@ class TreePiece : public CBase_TreePiece {
   typedef std::vector< std::set<Tree::NodeKey> > DebugList;
   DebugList bucketcheckList;
 #endif
+
+#if INTERLIST_VER > 0
+
+  GenericTreeNode *curNodeLocal;
+  int curLevelLocal;
   
+  GenericTreeNode *curNodeRemote;
+  int curLevelRemote;
+ 
+  int nChunk;
+  
+  int myTreeLevels;
+  CkVec< CkVec<GenericTreeNode *> > cellList;
+ public:  
+  typedef struct particlesInfo{
+    GravityParticle* particles;
+    int numParticles;
+#if COSMO_DEBUG > 1
+    GenericTreeNode *nd;
+#endif
+  } PartInfo;
+ 
+  CkVec< CkVec<PartInfo> > particleList;
+  CkVec< CkVec<GenericTreeNode *> > extCheckList;
+  CkQ <GenericTreeNode *> undecidedExtList;
+  
+  CkVec< CkVec<GenericTreeNode *> > intCheckList;
+  CkQ <GenericTreeNode *> undecidedIntList;
+
+  int intPrevListIter;
+  int extPrevListIter;
+  
+	//Variables for local computation
+  CkVec< CkVec<GenericTreeNode *> > cellListLocal;
+  CkVec< CkVec<PartInfo> > particleListLocal;
+  CkVec< CkVec<GenericTreeNode *> > checkListLocal;
+  
+  CkQ <GenericTreeNode *> undecidedListLocal;
+  int prevListIterLocal;
+ 
+  int *checkBuckets;
+  bool myCheckListEmpty;
+#endif
+  
+  double tmpTime;
+  double totalTime;
  public:
 
 	int bLoaded;		/* Are particles loaded? */
@@ -369,6 +429,11 @@ class TreePiece : public CBase_TreePiece {
 	 * with the incoming nodes.
 	 */
 	void walkBucketTree(GenericTreeNode* node, BucketGravityRequest& req);
+	#if INTERLIST_VER > 0
+	void preWalkInterTree();
+	void walkInterTreeVerI(GenericTreeNode *node);
+	void walkInterTreeVerII(GenericTreeNode *node);
+	#endif
 	/** @brief Start the treewalk for the next bucket among those belonging
 	 * to me. The buckets are simply ordered in a vector.
 	 */
@@ -402,11 +467,25 @@ public:
 	  particleInterLocal = 0;
 	  particleInterRemote = 0;
 
-	  piecemass = 0.0;
+    numOpenCriterionCalls=0;
+    
+    piecemass = 0.0;
 	  packed=0;
 	  cnt=0;
 #endif
 
+#if INTERLIST_VER > 0
+    myTreeLevels=-1;
+    myCheckListEmpty=false;
+    curLevelLocal=0;
+    curNodeLocal=NULL;
+    curLevelRemote=0;
+    curNodeRemote=NULL;
+    nChunk=-1;
+#endif
+
+    tmpTime=0.0;
+    totalTime=0.0;
 	  // temporarely set to -1, it will updated after the tree is built
 	  numChunks=-1;
 	  prefetchRoots = NULL;
@@ -465,7 +544,10 @@ public:
 	/// of the given request.
 	bool openCriterionBucket(GenericTreeNode *node,
 				 BucketGravityRequest& req);
-
+#if INTERLIST_VER > 0
+	int openCriterionNode(GenericTreeNode *node,
+				 GenericTreeNode *myNode);
+#endif
 	/// Entry point for the local computation: for each bucket compute the
 	/// force that its particles see due to the other particles hosted in
 	/// this TreePiece. The opening angle theta has already been passed
@@ -483,7 +565,15 @@ public:
 	/// forces are computed
 	void walkBucketRemoteTree(GenericTreeNode *node, int chunk, BucketGravityRequest &req, bool isRoot);
 
-	/// Function called by the CacheManager to start a new iteration.
+#if INTERLIST_VER > 0
+  void preWalkRemoteInterTree(GenericTreeNode *chunkRoot, bool isRoot);
+  void walkRemoteInterTreeVerI(GenericTreeNode *node, bool isRoot);
+  void walkRemoteInterTreeVerII(GenericTreeNode *node, bool isRoot);
+  void initNodeStatus(GenericTreeNode *node);
+  void calculateForceRemoteBucket(int bucketIndex);
+#endif
+	
+  /// Function called by the CacheManager to start a new iteration.
 	/// @param t the opening angle
 	/// @param cb the callback to use after all the computation has finished
 	void startIteration(double t, const CkCallback& cb);
@@ -507,7 +597,6 @@ public:
 	/// Just and inline version of receiveNode
 	void receiveNode_inline(GenericTreeNode &node, int chunk, unsigned int reqID);
 	/// @brief Find the key in the KeyTable, and copy the node over the passed pointer
-	/// @todo Could the node copy be avoided?
 	const GenericTreeNode* lookupNode(Tree::NodeKey key);
 	/// Find the particles starting at "begin", and return a pointer to it
 	const GravityParticle* lookupParticles(int begin);
@@ -524,7 +613,15 @@ public:
 	 */
 	void cachedWalkBucketTree(GenericTreeNode* node, int chunk,
 				  BucketGravityRequest& req);
-	GravityParticle *requestParticles(const Tree::NodeKey &key,int chunk,int remoteIndex,int begin,int end,BucketGravityRequest &req, bool isPrefetch=false);
+
+#if INTERLIST_VER > 0
+  void cachedWalkInterTreeVerI(GenericTreeNode* node);
+  void cachedWalkInterTreeVerII(GenericTreeNode* node);
+	void calculateForcesNode(GenericTreeNode *node, GenericTreeNode *myNode,int level,int chunk);
+	void calculateForces(GenericTreeNode *node, GenericTreeNode *myNode,int level,int chunk);
+#endif
+  
+  GravityParticle *requestParticles(const Tree::NodeKey &key,int chunk,int remoteIndex,int begin,int end,BucketGravityRequest &req, bool isPrefetch=false);
 	void fillRequestParticles(RequestParticleMsg *msg);
 	//void fillRequestParticles(Tree::NodeKey key,int retIndex, int begin,int end,
 	//			  unsigned int reqID);
