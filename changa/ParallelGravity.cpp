@@ -252,7 +252,7 @@ void Main::nextStage() {
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 	calcEnergy();
-	for(int i =0; i<numIterations; i++){
+	for(int i =0; i<numIterations-1; i++){
 	  if(dTimeStep > 0.0) {
 	      pieces.kick(0.5*dTimeStep, CkCallbackResumeThread());
 	      pieces.drift(dTimeStep, CkCallbackResumeThread());
@@ -260,7 +260,7 @@ void Main::nextStage() {
 				  CkCallbackResumeThread());
 	      ckerr << "Building trees ...";
 	      pieces.buildTree(bucketSize, CkCallbackResumeThread());
-	      }
+    }
 	  
 	  startTime = CkWallTimer();
 	  pieces.startlb(CkCallbackResumeThread());
@@ -300,7 +300,7 @@ void Main::nextStage() {
 		<< endl;
 	  if(dTimeStep > 0.0)
 	      pieces.kick(0.5*dTimeStep, CkCallbackResumeThread());
-	calcEnergy();
+	  calcEnergy();
 	}
 
 #if COSMO_DEBUG > 1
