@@ -53,7 +53,14 @@ namespace Tree {
     NodeType myType;
     NodeKey key;
 	
-    GenericTreeNode() : myType(Invalid), key(0), parent(0), firstParticle(0), lastParticle(0), remoteIndex(0) { }
+    GenericTreeNode() : myType(Invalid), key(0), parent(0), firstParticle(0), lastParticle(0), remoteIndex(0) {
+      #if INTERLIST_VER > 0
+        visitedR=false;
+        visitedL=false;
+			  bucketListIndex=-1;
+        startBucket=-1;
+      #endif
+    }
 
   public:
 
@@ -72,10 +79,23 @@ namespace Tree {
     unsigned int remoteIndex;
     /// If this node is partially local, total number of particles contained (across all chares)
     unsigned int particleCount;
-	
+
+#if INTERLIST_VER > 0
+    bool visitedR;
+    bool visitedL;
+		int bucketListIndex;
+    int startBucket;
+#endif
     //GenericTreeNode() : myType(Invalid), key(0), parent(0), beginParticle(0), endParticle(0), remoteIndex(0) { }
 
-    GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0) { }
+    GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0) { 
+    #if INTERLIST_VER > 0
+      visitedR=false;
+      visitedL=false;
+			bucketListIndex=-1;
+      startBucket=-1;
+    #endif
+    }
 
     virtual ~GenericTreeNode() { }
     virtual void fullyDelete() = 0;
@@ -97,7 +117,10 @@ namespace Tree {
     virtual NodeKey getParentKey() = 0;
     /// return an integer with the number of the child reflecting the key
     virtual int whichChild(NodeKey childkey) = 0;
-
+#if INTERLIST_VER > 0
+    virtual bool contains(NodeKey nodekey) = 0;
+#endif
+    
     /// construct the children of the "this" node following the given logical
     /// criteria (Oct/Orb)
     virtual void makeOctChildren(GravityParticle *part, int totalPart, int level) = 0;
@@ -208,7 +231,18 @@ namespace Tree {
       int childLevel = getLevel(child);
       return ((child >> (childLevel-thisLevel-1)) ^ (key << 1));
     }
-    
+ 
+#if INTERLIST_VER > 0
+    bool contains(NodeKey node) {
+      int thisLevel = getLevel(key);
+      int nodeLevel = getLevel(node);
+      
+      if(nodeLevel<thisLevel) return false;
+      
+      return ((node>>(nodeLevel-thisLevel))==key);
+    }
+#endif
+
     bool isLeftChild() const {
       return (dynamic_cast<BinaryTreeNode *>(parent) && dynamic_cast<BinaryTreeNode *>(parent)->children[0] == this);
     }
@@ -444,6 +478,13 @@ namespace Tree {
     int whichChild(NodeKey child) {
       return (child ^ (key<<3));
     }
+   
+#if INTERLIST_VER > 0
+    bool contains(NodeKey node) {
+      
+      return true;
+    }
+#endif
     
     void makeOctChildren(GravityParticle *part, int totalPart, int level) {}
 
