@@ -1,16 +1,16 @@
 # Flags that can be passed during compilation
-#FLAG_PRINT = -DCOSMO_PRINT=1       #enable really verbose prints
-FLAG_STATISTICS = -DCOSMO_STATS=1  # enable statistics collection
-#FLAG_DEBUG = -DCOSMO_DEBUG=2       # enable debugging information
-DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG)
+#FLAG_PRINT = -DCOSMO_PRINT=0       #enable really verbose prints
+FLAG_STATISTICS = -DCOSMO_STATS=0  # enable statistics collection
+FLAG_DEBUG = -DCOSMO_DEBUG=0       # enable debugging information
+DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) -DINTERLIST_VER=2
 
 STRUCTURES_PATH = ../structures
-CXXFLAGS +=  -I$(STRUCTURES_PATH) -I. -I../GenericTree  -Wall $(DEFINE_FLAGS)
-LDFLAGS += -language charm++ -module commlib -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -tracemode summary #-tracemode projections #-module EveryLB #-memory paranoid 
+CXXFLAGS += -O3 -I$(STRUCTURES_PATH) -I. -I../GenericTree $(DEFINE_FLAGS)
+LDFLAGS += -language charm++ -module commlib -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB #-tracemode summary #-module EveryLB #-memory paranoid 
+#LDLIBS +=  $(STRUCTURES_PATH)/SFC.o ../GenericTree/GenericTreeNode.o ../structures/libTipsy.a
 LDLIBS +=  ../GenericTree/GenericTreeNode.o ../structures/libTipsy.a
 
-#CHARMC = ~/charm/bin/charmc $(OPTS)
-CHARMC = ../../charm/bin/charmc $(OPTS)
+CHARMC = $(HOME)/work/charm-ci/charm/bin/charmc $(OPTS)
 CXX = $(CHARMC)
 CC = $(CXX)
 
