@@ -1,5 +1,5 @@
-CXXFLAGS = -O3 -g -I../structures -I../ParallelGravity -I.
-CHARMC = ../../charm/bin/charmc $(OPTS)
+CXXFLAGS = -O3 -I../structures -I../ParallelGravity -I. -DINTERLIST_VER=2
+CHARMC = $(HOME)/work/charm-ci/charm/bin/charmc $(OPTS)
 CXX = $(CHARMC)
 CC = $(CXX)
 
