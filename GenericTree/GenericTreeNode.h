@@ -79,11 +79,13 @@ namespace Tree {
     unsigned int remoteIndex;
     /// If this node is partially local, total number of particles contained (across all chares)
     unsigned int particleCount;
+    /// Pointer to the first particle in this node
+    GravityParticle *particlePointer;
 
 #if INTERLIST_VER > 0
     bool visitedR;
     bool visitedL;
-		int bucketListIndex;
+    int bucketListIndex;
     int startBucket;
 #endif
     //GenericTreeNode() : myType(Invalid), key(0), parent(0), beginParticle(0), endParticle(0), remoteIndex(0) { }
@@ -351,6 +353,8 @@ namespace Tree {
       } else {
 	CkAbort("Ok, the particles should be ordered so, how the hell did we get here?!?");
       }
+      children[0]->particlePointer = &part[children[0]->firstParticle];
+      children[1]->particlePointer = &part[children[1]->firstParticle];
     }
 
     void makeOrbChildren(GravityParticle *part, int totalPart, int level) {}
