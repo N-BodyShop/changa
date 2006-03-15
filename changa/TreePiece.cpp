@@ -234,7 +234,7 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   //printing all particles
   /*for(int i=0;i<myNumParticles;i++)
     CkPrintf("%lf,%lf,%lf\n",myParticles[i].position.x,myParticles[i].position.y,myParticles[i].position.z);*/
-   sort(myParticles+1, myParticles+myNumParticles+1);
+  sort(myParticles+1, myParticles+myNumParticles+1);
   contribute(0, 0, CkReduction::concat, cb);
 }
 
@@ -654,9 +654,6 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
     }
   }
 
-  if(numTreePieces==1)
-    contribute(0, 0, CkReduction::concat, callback);
-  
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Number of buckets: " << numBuckets << endl;
   if(verbosity > 3)
