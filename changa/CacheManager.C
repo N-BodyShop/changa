@@ -99,7 +99,7 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chun
     if(!e->requestSent && !e->replyRecvd){
       //sendrequest to the the tree, if it is local return the node 
       if(sendNodeRequest(chunk,e,req)){
-	      return e->node;
+	return e->node;
       }
     }
   }else{
@@ -521,6 +521,69 @@ void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int 
   storedParticles+=num;
 }
 
+#ifdef CACHE_TREE
+GenericTreeNode *CacheManager::buildProcessorTree(int n, GenericTreeNode **gtn) {
+  //CkAssert(n > 1); // the recursion should have stopped before!
+  int pick = -1;
+  int count = 0;
+  for (int i=0; i<n; ++i) {
+    NodeType nt = gtn[i]->getType();
+    if (nt == Internal || nt == Bucket) {
+      // we can use this directly, noone else can have it other than NL
+#if COSMO_DEBUG > 0
+      (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(gtn[i]->getKey(),63)<<" using Internal node"<<endl;
+#endif
+      return gtn[i];
+    } else if (nt == Boundary) {
+      // let's count up how many boundaries we find
+      pick = i;
+      count++;
+    } else {
+      // here it can be NonLocal, NonLocalBucket or Empty. In all cases nothing to do.
+    }
+  }
+  if (count == 0) {
+    // only NonLocal (or Empty). any is good
+#if COSMO_DEBUG > 0
+    (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(gtn[0]->getKey(),63)<<" using NonLocal node"<<endl;
+#endif
+    return gtn[0];
+  } else if (count == 1) {
+    // only one single Boundary, all others are NonLocal, use this directly
+#if COSMO_DEBUG > 0
+    (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(gtn[pick]->getKey(),63)<<" using Boundary node"<<endl;
+#endif
+return gtn[pick];
+  } else {
+    // more than one boundary, need recursion
+    GenericTreeNode *newNode = gtn[pick]->clone();
+    // keep track if all the children are internal, in which case we have to
+    // change this node type too from boundary to internal
+    bool isInternal = true;
+#if COSMO_DEBUG > 0
+    (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(newNode->getKey(),63)<<" duplicating node"<<endl;
+#endif
+    nodeLookupTable[newNode->getKey()] = newNode;
+    GenericTreeNode **newgtn = new GenericTreeNode*[count];
+    for (int child=0; child<gtn[0]->numChildren(); ++child) {
+      for (int i=0, j=0; i<n; ++i) {
+	if (gtn[i]->getType() == Boundary) newgtn[j++]=gtn[i]->getChildren(child);
+      }
+      GenericTreeNode *ch = buildProcessorTree(count, newgtn);
+      newNode->setChildren(child, ch);
+      if (ch->getType() == Boundary || ch->getType() == NonLocal || ch->getType() == NonLocalBucket) isInternal = false;
+    }
+    delete[] newgtn;
+    if (isInternal) {
+      newNode->setType(Internal);
+#if COSMO_DEBUG > 0
+      (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(newNode->getKey(),63)<<" converting to Internal"<<endl;
+#endif
+    }
+    return newNode;
+  }
+}
+#endif
 
 void CacheManager::cacheSync(double theta, const CkCallback& cb) {
   //if(iter > iterationNo){
@@ -546,11 +609,43 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
   maxNodes = 0;
   maxParticles = 0;
 #endif
+
   for (int chunk=0; chunk<numChunks; ++chunk) {
     CkAssert(nodeCacheTable[chunk].empty());
     CkAssert(particleCacheTable[chunk].empty());
     CkAssert(chunkAck[chunk]==0);
   }
+
+  int i;
+  map<int,GenericTreeNode*>::iterator iter;
+#ifdef CACHE_TREE
+  // build a local tree inside the cache. This will be an exact superset of all
+  // the trees in this processor. Only the minimum number of nodes is duplicated
+#if COSMO_DEBUG > 0
+  char fout[100];
+  sprintf(fout,"cache.%d.%d",CkMyPe(),iterationNo);
+  ofs = new ofstream(fout);
+#endif
+  GenericTreeNode **gtn = new GenericTreeNode*[registeredChares.size()];
+  for (i=0, iter = registeredChares.begin(); iter != registeredChares.end(); iter++, ++i) {
+    gtn[i] = iter->second;
+#if COSMO_DEBUG > 0
+    *ofs << "registered "<<iter->first<<endl;
+#endif
+  }
+  // delete old tree
+  NodeLookupType::iterator nodeIter;
+  for (nodeIter = nodeLookupTable.begin(); nodeIter != nodeLookupTable.end(); nodeIter++) {
+    delete nodeIter->second;
+  }
+  nodeLookupTable.clear();
+  root = buildProcessorTree(registeredChares.size(), gtn);
+#if COSMO_DEBUG > 0
+  printTree(root,*ofs);
+  ofs->close();
+  delete ofs;
+#endif
+#endif
 
   CkAssert(outStandingRequests.empty());
   storedNodes=0;
@@ -565,22 +660,21 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
     particleCacheTable = new map<CacheKey,ParticleCacheEntry *>[numChunks];
     chunkAck = new int[numChunks];
   }
-  for (int i=0; i<numChunks; ++i) {
+  for (i=0; i<numChunks; ++i) {
     chunkAck[i] = registeredChares.size();
   }
 
   // call the gravitational computation utility of each local chare element
-  set<int>::iterator iter;
   for (iter = registeredChares.begin(); iter != registeredChares.end(); iter++) {
-    TreePiece *p = treeProxy[*iter].ckLocal();
+    TreePiece *p = treeProxy[iter->first].ckLocal();
     CkAssert(p != NULL);
     p->startIteration(theta, cb);
   }
 }
 
-void CacheManager::markPresence(int index, GenericTreeNode *proto, int _numChunks) {
-  prototype = proto;
-  registeredChares.insert(index);
+void CacheManager::markPresence(int index, GenericTreeNode *root, int _numChunks) {
+  prototype = root;
+  registeredChares[index] = root;
   newChunks = _numChunks;
 }
 

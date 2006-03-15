@@ -1,16 +1,17 @@
 # Flags that can be passed during compilation
-#FLAG_PRINT = -DCOSMO_PRINT=0       #enable really verbose prints
-FLAG_STATISTICS = -DCOSMO_STATS=0  # enable statistics collection
-FLAG_DEBUG = -DCOSMO_DEBUG=0       # enable debugging information
-DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) -DINTERLIST_VER=2
+#FLAG_PRINT = -DCOSMO_PRINT=1       #enable really verbose prints
+FLAG_STATISTICS = -DCOSMO_STATS=1  # enable statistics collection
+#FLAG_DEBUG = -DCOSMO_DEBUG=2       # enable debugging information
+CACHE_TREE = -DCACHE_TREE          # enable processor tree inside the cache
+#INTERLIST = -DINTERLIST_VER=2      # enable interaction lists
+DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST)
 
 STRUCTURES_PATH = ../structures
-CXXFLAGS += -O3 -I$(STRUCTURES_PATH) -I. -I../GenericTree $(DEFINE_FLAGS)
-LDFLAGS += -language charm++ -module commlib -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB #-tracemode summary #-module EveryLB #-memory paranoid 
-#LDLIBS +=  $(STRUCTURES_PATH)/SFC.o ../GenericTree/GenericTreeNode.o ../structures/libTipsy.a
+CXXFLAGS += -O3 -I$(STRUCTURES_PATH) -I. -I../GenericTree  -Wall $(DEFINE_FLAGS)
+LDFLAGS += -language charm++ -module commlib -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB #-tracemode projections #-module EveryLB #-memory paranoid
 LDLIBS +=  ../GenericTree/GenericTreeNode.o ../structures/libTipsy.a
 
-CHARMC = $(HOME)/work/charm-ci/charm/bin/charmc $(OPTS)
+CHARMC = ../../charm/bin/charmc $(OPTS)
 CXX = $(CHARMC)
 CC = $(CXX)
 

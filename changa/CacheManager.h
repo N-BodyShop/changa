@@ -5,8 +5,13 @@
 #include <map>
 #include <set>
 #include "SFC.h"
+#include "TreeNode.h"
 #include "GenericTreeNode.h"
 #include "charm++.h"
+
+#if COSMO_STATS > 0
+#include <fstream>
+#endif
 
 /** NodeCacheEntry represents the entry for a remote 
 node that is requested by the chares 
@@ -16,7 +21,7 @@ which node is to be requested and the local
 chares that request it.***/
 
 using namespace std;
-//using namespace Tree;
+using namespace TreeStuff;
 //using namespace SFC;
 
 typedef GenericTreeNode CacheNode;
@@ -197,6 +202,11 @@ bool operator<(MapKey lhs,MapKey rhs);
 
 class CacheManager : public CBase_CacheManager {
 private:
+
+  /***********************************************************************
+   * Variables definitions
+   ***********************************************************************/
+
   /// Number of chunks in which the tree is splitted
   int numChunks;
   int newChunks; ///<Number of chunks for the next iteration
@@ -242,10 +252,21 @@ private:
 	/// maximum number of nodes stored at some point in the cache
 	u_int64_t maxParticles;
 #endif
+#if COSMO_DEBUG > 0
+	ofstream *ofs;
+#endif
+
 	/// used to generate new Nodes of the correct type (inheriting classes of CacheNode)
 	CacheNode *prototype;
-	/// list of TreePieces registered to this branch
-	set<int> registeredChares;
+	/// list of TreePieces registered to this branch together with their roots
+	map<int,GenericTreeNode*> registeredChares;
+
+#ifdef CACHE_TREE
+	/// root of the super-tree hold in this processor
+	GenericTreeNode *root;
+	/// lookup table for the super-tree nodes
+	NodeLookupType nodeLookupTable;
+#endif
 
 	/// Maximum number of allowed nodes stored, after this the prefetching is suspended
 	u_int64_t maxSize;
@@ -262,6 +283,10 @@ private:
 	map<MapKey,int> outStandingRequests;
 	map<CacheKey,int> outStandingParticleRequests;
 
+	/******************************************************************
+	 * Method section
+	 ******************************************************************/
+
 	/// Insert all nodes with root "node" coming from "from" into the nodeCacheTable.
 	void addNodes(int chunk,int from,CacheNode *node);
 	//void addNode(CacheKey key,int from,CacheNode &node);
@@ -274,7 +299,16 @@ private:
 	CacheNode *sendNodeRequest(int chunk,NodeCacheEntry *e,BucketGravityRequest *);
 	GravityParticle *sendParticleRequest(ParticleCacheEntry *e,BucketGravityRequest *);
 
-	public:
+#ifdef CACHE_TREE
+	/// Construct a tree based on the roots given as input recursively. The
+	/// tree will be a superset of all the trees given. Only the mininum
+	/// number of nodes is duplicated.
+	/// @return the root of the global tree
+	GenericTreeNode *buildProcessorTree(int n, GenericTreeNode **gtn);
+#endif
+
+ public:
+
 	CacheManager(int size);
 	~CacheManager(){};
 
@@ -295,6 +329,19 @@ private:
 	GravityParticle *requestParticles(int requestorIndex, int chunk, const CacheKey key, int remoteIndex, int begin, int end, BucketGravityRequest *req, bool isPrefetch);
 	void recvParticles(CacheKey key,GravityParticle *part,int num, int from);
 
+#ifdef CACHE_TREE
+	/** Convert a key into a node in the cache internal tree (the one built
+	 *  on top of all the TreePieces in this processor
+	 */
+	inline GenericTreeNode *keyToNode(const Tree::NodeKey k) {
+	  NodeLookupType::iterator iter = nodeLookupTable.find(k);
+	  if (iter != nodeLookupTable.end()) return iter->second;
+	  else return NULL;
+	}
+	/** Return the root of the cache internal tree */
+	inline GenericTreeNode *getRoot() { return root; }
+#endif
+
 	/** Invoked from the mainchare to start a new iteration. It calls the
 	    prefetcher of all the chare elements residing on this processor, and
 	    send a message to them to start the local computation. At this point
@@ -303,6 +350,7 @@ private:
 	    called only after a reduction from ResumeFromSync.
 	 */
 	void cacheSync(double theta, const CkCallback& cb);
+
 	/** Inform the CacheManager that the chare element will be resident on
 	    this processor for the next iteration. It is done after treebuild in
 	    the first iteration (when looking up localCache), and then it is
@@ -310,7 +358,7 @@ private:
 	    the unregistration and re-registration is done right before AtSync
 	    and after ResumeFromSync.
 	 */
-	void markPresence(int index, GenericTreeNode*, int numChunks);
+	void markPresence(int index, GenericTreeNode *root, int numChunks);
 	/// Before changing processor, chares deregister from the CacheManager
 	void revokePresence(int index);
 
