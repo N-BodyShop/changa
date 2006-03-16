@@ -47,6 +47,8 @@ Main::Main(CkArgMsg* m) {
 	_prefetch=false;
 	_numChunks = 1;
 	dTimeStep = 0.0;
+	dSoft = 0.0;
+	bSetSoft = 0;
 	mainChare = thishandle;
 	
 /*
@@ -94,7 +96,7 @@ Main::Main(CkArgMsg* m) {
 	poptFreeContext(context);
 		*/
 	
-	const char *optstring = "vt:T:p:b:c:d:n:z:y:fs:";
+	const char *optstring = "vt:T:p:b:c:d:n:z:y:fs:S:";
 	int c;
 	while((c=getopt(m->argc,m->argv,optstring))>0){
 		if(c == -1){
@@ -136,6 +138,10 @@ Main::Main(CkArgMsg* m) {
 				break;
 			case 's':
 				cacheSize = atoi(optarg);
+				break;
+			case 'S':
+				dSoft = atof(optarg);
+				bSetSoft = 1;
 				break;
 		};
 	}
@@ -229,6 +235,11 @@ void Main::nextStage() {
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 
+	if(bSetSoft) {
+	    ckerr << "Set Softening...\n";
+	    pieces.setSoft(dSoft);
+	    }
+	
 	ckerr << "Domain decomposition ...";
 	startTime = CkWallTimer();
 	sorter = CProxy_Sorter::ckNew();
@@ -260,7 +271,7 @@ void Main::nextStage() {
 				  CkCallbackResumeThread());
 	      ckerr << "Building trees ...";
 	      pieces.buildTree(bucketSize, CkCallbackResumeThread());
-    }
+	      }
 	  
 	  startTime = CkWallTimer();
 	  pieces.startlb(CkCallbackResumeThread());
@@ -303,17 +314,20 @@ void Main::nextStage() {
 	  calcEnergy();
 	}
 
-#if COSMO_DEBUG > 1
-	ckerr << "Outputting accelerations ...";
-	startTime = CkWallTimer();
-	if(printBinaryAcc)
-	  pieces[0].outputAccelerations(OrientedBox<double>(), "acc2", CkCallbackResumeThread());
-	else
-	  pieces[0].outputAccASCII(OrientedBox<double>(), "acc2", CkCallbackResumeThread());
+	if(numIterations == 0) {
+	    ckerr << "Outputting accelerations ...";
+	    startTime = CkWallTimer();
+	    if(printBinaryAcc)
+		pieces[0].outputAccelerations(OrientedBox<double>(),
+					      "acc2", CkCallbackResumeThread());
+	    else
+		pieces[0].outputAccASCII("acc2", CkCallbackResumeThread());
 	
-	ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
-#endif
-
+	    pieces[0].outputIOrderASCII("iord", CkCallbackResumeThread());
+	    ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+		  << endl;
+	    }
+	
 #if COSMO_STATS > 0
 	ckerr << "Outputting statistics ...";
 	startTime = CkWallTimer();

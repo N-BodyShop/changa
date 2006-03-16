@@ -76,6 +76,7 @@ mainmodule ParallelGravity {
 		entry void kick(double dDelta, const CkCallback& cb);
 		entry void drift(double dDelta, const CkCallback& cb);
 		entry void calcEnergy(const CkCallback& cb);
+		entry void setSoft(const double dSoft);
 		entry void buildTree(int bucketSize, const CkCallback& cb);
 		
 		entry void collectSplitters(CkReductionMsg* m);
@@ -124,7 +125,8 @@ mainmodule ParallelGravity {
 		entry void ResumeFromSync();
 
 		entry void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
-		entry void outputAccASCII(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
+		entry void outputAccASCII(const std::string& suffix, const CkCallback& cb);
+		entry void outputIOrderASCII(const string& suffix, const CkCallback& cb);
 		entry void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, double totalmass, const CkCallback& cb);
 		entry void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
 		//entry void getPieceValues(piecedata *totaldata);

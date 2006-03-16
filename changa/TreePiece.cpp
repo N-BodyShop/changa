@@ -253,6 +253,7 @@ void TreePiece::loadTipsy(const std::string& filename, const CkCallback& cb) {
 	numTreePieces = numTreePieces;
 	Tipsy::header h = r.getHeader();
 	int totalNumParticles = h.nbodies;
+	fh.numParticles = totalNumParticles;
 	myNumParticles = totalNumParticles / numTreePieces;
 	int excess = totalNumParticles % numTreePieces;
 	unsigned int startParticle = myNumParticles * thisIndex;
@@ -297,6 +298,7 @@ void TreePiece::loadTipsy(const std::string& filename, const CkCallback& cb) {
 			myParticles[i+1].velocity = sp.vel;
 			myParticles[i+1].soft = sp.eps;
 		}
+		myParticles[i+1].iOrder = i + startParticle;
 #if COSMO_STATS > 1
 		myParticles[i+1].intcellmass = 0;
 		myParticles[i+1].intpartmass = 0;
@@ -494,6 +496,13 @@ void TreePiece::drift(double dDelta, const CkCallback& cb)
     contribute(0, 0, CkReduction::concat, cb);
     }
 
+void TreePiece::setSoft(const double dSoft)
+{
+  for(unsigned int i = 1; i <= myNumParticles; ++i) {
+      myParticles[i].soft = dSoft;
+      }
+    }
+
 void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
   maxBucketSize = bucketSize;
   callback = cb;
@@ -617,6 +626,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
 
   // set the number of chunks in which we will split the tree for remote computation
   numChunks = root->getNumChunks(_numChunks);
+  assert(numChunks > 0);
   remainingChunk = new int[numChunks];
   root->getChunks(_numChunks, prefetchRoots);
 
@@ -3140,7 +3150,6 @@ void TreePiece::checkWalkCorrectness(){
 }
 #endif
 
-
 void TreePiece::outputAccelerations(OrientedBox<double> accelerationBox, const string& suffix, const CkCallback& cb) {
   if(thisIndex == 0) {
     if(verbosity > 2)
@@ -3193,81 +3202,103 @@ void TreePiece::outputAccelerations(OrientedBox<double> accelerationBox, const s
 
 /****************************ADDED***********************************/
 
-void TreePiece::outputAccASCII(OrientedBox<double> accelerationBox, const string& suffix, const CkCallback& cb) {
+void TreePiece::outputAccASCII(const string& suffix, const CkCallback& cb) {
   if((thisIndex==0 && packed) || (thisIndex==0 && !packed && cnt==0)) {
     if(verbosity > 2)
       ckerr << "TreePiece " << thisIndex << ": Writing header for accelerations file" << endl;
-    FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "wb");
+    FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "w");
 		fprintf(outfile,"%d\n",(int) fh.numParticles);
     fclose(outfile);
   }
 	
-	/*if(thisIndex==0) {
-    if(verbosity > 2)
-      ckerr << "TreePiece " << thisIndex << ": Writing header for accelerations file" << endl;
-    FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "wb");
-		fprintf(outfile,"%d\n",fh.numParticles);
-    fclose(outfile);
-  }*/
-
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Writing my accelerations to disk" << endl;
 	
-  FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "r+b");
+  FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "r+");
   fseek(outfile, 0, SEEK_END);
 	
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
-    accelerationBox.grow(myParticles[i].treeAcceleration);
-		Vector3D<double> acc = (myParticles[i].treeAcceleration);
-		double val=0.0;
-		if(!packed){
-			if(cnt==0)
-				val=acc.x;
-			if(cnt==1)
-				val=acc.y;
-			if(cnt==2)
-				val=acc.z;
-		}
-		switch(packed){
-		case 1:
-    if(fprintf(outfile,"%.14g\n",acc.x) < 0) {
-      ckerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
-      CkAbort("Badness");
-    }
-  	if(fprintf(outfile,"%.14g\n",acc.y) < 0) {
-      ckerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
-      CkAbort("Badness");
-    }
-		if(fprintf(outfile,"%.14g\n",acc.z) < 0) {
-      ckerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
-      CkAbort("Badness");
-    }
-		break;
-		case 0:
-		if(fprintf(outfile,"%.14g\n",val) < 0) {
-      ckerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
-      CkAbort("Badness");
-    }
-		break;
-		}
+    Vector3D<double> acc = (myParticles[i].treeAcceleration);
+    double val=0.0;
+    if(!packed){
+	if(cnt==0)
+	    val=acc.x;
+	if(cnt==1)
+	    val=acc.y;
+	if(cnt==2)
+	    val=acc.z;
 	}
-	cnt++;
-  /*if(thisIndex==(int)numTreePieces-1) {
-    cb.send();
-  }*/
+    switch(packed){
+    case 1:
+	if(fprintf(outfile,"%.14g\n",acc.x) < 0) {
+	    ckerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
+	    CkAbort("Badness");
+	    }
+  	if(fprintf(outfile,"%.14g\n",acc.y) < 0) {
+	    ckerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
+	    CkAbort("Badness");
+	    }
+	if(fprintf(outfile,"%.14g\n",acc.z) < 0) {
+	    ckerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
+	    CkAbort("Badness");
+	    }
+	break;
+    case 0:
+	if(fprintf(outfile,"%.14g\n",val) < 0) {
+	    ckerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
+	    CkAbort("Badness");
+	    }
+	break;
+	}
+      }
+  cnt++;
 
-	if((thisIndex==(int)numTreePieces-1 && packed) || (thisIndex==(int)numTreePieces-1 && !packed && cnt==3)) {
-    cb.send();
-  }
   fclose(outfile);
+  if((thisIndex==(int)numTreePieces-1 && packed)
+     || (thisIndex==(int)numTreePieces-1 && !packed && cnt==3)) {
+      cb.send();
+      }
 	
-	if(thisIndex==(int)numTreePieces-1 && !packed && cnt<3)
-		pieces[0].outputAccASCII(accelerationBox, suffix, cb);
+  if(thisIndex==(int)numTreePieces-1 && !packed && cnt<3)
+      pieces[0].outputAccASCII(suffix, cb);
 		
   if(thisIndex!=(int)numTreePieces-1)
-    pieces[thisIndex + 1].outputAccASCII(accelerationBox, suffix, cb);
+    pieces[thisIndex + 1].outputAccASCII(suffix, cb);
 	
 }
+
+void TreePiece::outputIOrderASCII(const string& suffix, const CkCallback& cb) {
+  if(thisIndex==0) {
+    if(verbosity > 2)
+      ckerr << "TreePiece " << thisIndex << ": Writing header for iOrder file"
+	    << endl;
+    FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "w");
+    fprintf(outfile,"%d\n",(int) fh.numParticles);
+    fclose(outfile);
+  }
+	
+  if(verbosity > 3)
+    ckerr << "TreePiece " << thisIndex << ": Writing iOrder to disk" << endl;
+	
+  FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "r+");
+  fseek(outfile, 0, SEEK_END);
+  
+  for(unsigned int i = 1; i <= myNumParticles; ++i) {
+      if(fprintf(outfile,"%d\n", myParticles[i].iOrder) < 0) {
+	  ckerr << "TreePiece " << thisIndex
+		<< ": Error writing iOrder to disk, aborting" << endl;
+	  CkAbort("IO Badness");
+	  }
+      }
+  
+  fclose(outfile);
+  if(thisIndex==(int)numTreePieces-1) {
+      cb.send();
+      }
+  else
+      pieces[thisIndex + 1].outputIOrderASCII(suffix, cb);
+  }
+
 /********************************************************************/
 
 void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, double totalmass, const CkCallback& cb) {

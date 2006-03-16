@@ -189,6 +189,8 @@ class Main : public Chare {
 	unsigned int numTreePieces;
 	double theta;	
 	double dTimeStep;
+	double dSoft;
+	int bSetSoft;
 	unsigned int bucketSize;
 	unsigned int printBinaryAcc;
 public:
@@ -470,8 +472,9 @@ public:
     numOpenCriterionCalls=0;
     
     piecemass = 0.0;
-	  packed=0;
-	  cnt=0;
+    packed=0;			/* output accelerations in x,y,z
+				   packed format */
+    cnt=0;			/* Counter over x,y,z when not packed */
 #endif
 
 #if INTERLIST_VER > 0
@@ -528,6 +531,7 @@ public:
 	void kick(double dDelta, const CkCallback& cb);
 	void drift(double dDelta, const CkCallback& cb);
 	void calcEnergy(const CkCallback& cb);
+	void setSoft(const double dSoft);
 	/// Charm entry point to build the tree (called by Main), calls collectSplitters
 	void buildTree(int bucketSize, const CkCallback& cb);
 
@@ -634,7 +638,8 @@ public:
 	void ResumeFromSync();
 
 	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
-	void outputAccASCII(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
+	void outputAccASCII(const std::string& suffix, const CkCallback& cb);
+	void outputIOrderASCII(const std::string& suffix, const CkCallback& cb);
 	void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, double totalmass, const CkCallback& cb);
 	void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
 

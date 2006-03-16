@@ -3,6 +3,9 @@
 
 #include "SFC.h"
 
+// Object to bookkeep a Bucket Walk.  It has accumulators for the
+// acclerations and potentials of the particles in the bucket.
+
 class BucketGravityRequest {
 public:
 		
@@ -190,6 +193,7 @@ public:
 	Vector3D<double> acceleration;
 	Vector3D<double> treeAcceleration;
 	double potential;
+	int iOrder;		/* input order of particles */
 	unsigned int numCellInteractions;
 	unsigned int numParticleInteractions;
 	unsigned int numMACChecks;
