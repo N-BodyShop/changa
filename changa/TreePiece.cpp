@@ -2318,7 +2318,7 @@ void TreePiece::walkInterTreeVerII(GenericTreeNode *node) {
       bucketcheckList[req.identifier].insert(tmp->getKey());
       combineKeys(tmp->getKey(),req.identifier);
     #endif*/
-  	//cellListLocal[level].push_back(node);
+  	cellListLocal[level].push_back(node);
   }
  
   //Call myself if there are still nodes in previous level checklist
@@ -2684,7 +2684,7 @@ void TreePiece::cachedWalkInterTreeVerII(GenericTreeNode* node) {
   else if(nodeType == CachedEmpty || nodeType == Empty) {
     //Currently, Empty node is being pushed back just to match Filippos nodeBucketCalls
     //I'll remove it later
-    //cellList[level].push_back(node);
+    cellList[level].push_back(node);
     #if COSMO_STATS > 0
       numOpenCriterionCalls++;
     #endif
