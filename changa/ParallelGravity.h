@@ -492,6 +492,7 @@ public:
 	  // temporarely set to -1, it will updated after the tree is built
 	  numChunks=-1;
 	  prefetchRoots = NULL;
+	  remainingChunk = NULL;
 	}
 	
 	TreePiece(CkMigrateMessage* m) {
@@ -499,12 +500,13 @@ public:
 	  localCache = NULL;
 	  bucketReqs = NULL;
 	  prefetchRoots = NULL;
+	  remainingChunk = NULL;
 	}
 
 	~TreePiece() {
 	  delete[] myParticles;
 	  delete[] splitters;
-	  delete[] prefetchRoots;
+	  //delete[] prefetchRoots;
 	  delete[] remainingChunk;
 	  delete[] bucketReqs;
 	  // recursively delete the entire tree
@@ -578,9 +580,11 @@ public:
 #endif
 	
   /// Function called by the CacheManager to start a new iteration.
-	/// @param t the opening angle
-	/// @param cb the callback to use after all the computation has finished
-	void startIteration(double t, const CkCallback& cb);
+  /// @param t the opening angle
+  /// @param n the number of chunks in which the remote computation will be splitted
+  /// @param k the array of roots of the remote chunks, the size if 'n'
+  /// @param cb the callback to use after all the computation has finished
+  void startIteration(double t, int n, Tree::NodeKey *k, const CkCallback& cb);
 
 	/// Function called by the CacheManager to send out request for needed
 	/// remote data, so that the later computation will hit.

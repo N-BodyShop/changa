@@ -44,6 +44,7 @@ inline void ParticleCacheEntry::sendRequest(BucketGravityRequest *req){
 
 CacheManager::CacheManager(int size){
   numChunks = 0;
+  prefetchRoots = NULL;
   nodeCacheTable = NULL;
   particleCacheTable = NULL;
   chunkAck = NULL;
@@ -583,6 +584,38 @@ return gtn[pick];
     return newNode;
   }
 }
+
+int CacheManager::createLookupRoots(GenericTreeNode *node, Tree::NodeKey *keys) {
+  // assumes that the keys are ordered in tree depth first!
+  if (node->getKey() == *keys) {
+    // ok, found a chunk root, we can end the recursion
+    chunkRootTable[*keys] = node;
+    return 1;
+  }
+  // need to continue the recursion on the children
+  int count = 0;
+  for (int i=0; i<node->numChildren(); ++i) {
+    GenericTreeNode *child = node->getChildren(i);
+    int partial;
+    if (child != NULL) {
+      // child present, get the recursion going
+      partial = createLookupRoots(node->getChildren(i), keys);
+      keys += partial;
+    } else {
+      // the child does not exist, count the keys falling under it
+      Tree::NodeKey childKey = node->getChildKey(i);
+      for (partial=0; ; ++partial, ++keys) {
+	int k;
+	for (k=0; k<63; ++k) {
+	  if (childKey == ((*keys)>>k)) break;
+	}
+	if (k==63) break;
+      }
+    }
+    count += partial;
+  }
+  return count;
+}
 #endif
 
 void CacheManager::cacheSync(double theta, const CkCallback& cb) {
@@ -651,6 +684,19 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
   storedNodes=0;
   storedParticles=0;
   //}
+  int newChunks = numChunks;
+  if (numChunks == 0) {
+#if CACHE_TREE > 0
+    newChunks = root->getNumChunks(_numChunks);
+    root->getChunks(_numChunks, prefetchRoots);
+    int numMappedRoots = createLookupRoots(root, prefetchRoots);
+    CkAssert(numMappedRoots == newChunks);
+#else
+    newChunks = prototype->getNumChunks(_numChunks);
+    prototype->getChunks(_numChunks, prefetchRoots);
+#endif
+  }
+
   if (numChunks != newChunks) {
     delete[] nodeCacheTable;
     delete[] particleCacheTable;
@@ -668,14 +714,14 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
   for (iter = registeredChares.begin(); iter != registeredChares.end(); iter++) {
     TreePiece *p = treeProxy[iter->first].ckLocal();
     CkAssert(p != NULL);
-    p->startIteration(theta, cb);
+    p->startIteration(theta, numChunks, prefetchRoots, cb);
   }
 }
 
-void CacheManager::markPresence(int index, GenericTreeNode *root, int _numChunks) {
+void CacheManager::markPresence(int index, GenericTreeNode *root) {
   prototype = root;
   registeredChares[index] = root;
-  newChunks = _numChunks;
+  //newChunks = _numChunks;
 }
 
 void CacheManager::revokePresence(int index) {

@@ -209,7 +209,9 @@ private:
 
   /// Number of chunks in which the tree is splitted
   int numChunks;
-  int newChunks; ///<Number of chunks for the next iteration
+  //int newChunks; //<Number of chunks for the next iteration
+  /// Nodes currently used as roots for remote computation
+  Tree::NodeKey *prefetchRoots;
 
 	/* The Cache Table is fully associative 
 	A hashtable can be used as well.*/
@@ -266,6 +268,8 @@ private:
 	GenericTreeNode *root;
 	/// lookup table for the super-tree nodes
 	NodeLookupType nodeLookupTable;
+	/// Lookup table for the chunkRoots
+	NodeLookupType chunkRootTable;
 #endif
 
 	/// Maximum number of allowed nodes stored, after this the prefetching is suspended
@@ -305,6 +309,13 @@ private:
 	/// number of nodes is duplicated.
 	/// @return the root of the global tree
 	GenericTreeNode *buildProcessorTree(int n, GenericTreeNode **gtn);
+
+	/// Fill a hashtable (chunkRootTable) with an entry per chunkRoot, so
+	/// later TreePieces can look them up
+	/// @param node the current node in the recursion
+	/// @param keys the list of keys that have to be mapped
+	/// @return the number of keys mapped by the call
+	int createLookupRoots(GenericTreeNode *node, Tree::NodeKey *keys);
 #endif
 
  public:
@@ -333,8 +344,8 @@ private:
 	/** Convert a key into a node in the cache internal tree (the one built
 	 *  on top of all the TreePieces in this processor
 	 */
-	inline GenericTreeNode *keyToNode(const Tree::NodeKey k) {
-	  NodeLookupType::iterator iter = nodeLookupTable.find(k);
+	inline GenericTreeNode *chunkRootToNode(const Tree::NodeKey k) {
+	  NodeLookupType::iterator iter = chunkRootTable.find(k);
 	  if (iter != nodeLookupTable.end()) return iter->second;
 	  else return NULL;
 	}
@@ -358,7 +369,7 @@ private:
 	    the unregistration and re-registration is done right before AtSync
 	    and after ResumeFromSync.
 	 */
-	void markPresence(int index, GenericTreeNode *root, int numChunks);
+	void markPresence(int index, GenericTreeNode *root);
 	/// Before changing processor, chares deregister from the CacheManager
 	void revokePresence(int index);
 

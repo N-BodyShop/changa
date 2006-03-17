@@ -625,15 +625,17 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
     ckerr << "TreePiece " << thisIndex << ": Starting tree build" << endl;
 
   // set the number of chunks in which we will split the tree for remote computation
+  /* OLD, moved to the CacheManager and startIteration
   numChunks = root->getNumChunks(_numChunks);
   assert(numChunks > 0);
   remainingChunk = new int[numChunks];
-  root->getChunks(_numChunks, prefetchRoots);
+  root->getChunks(_numChunks, prefetchRoots;
+  */
 
   // mark presence in the cache if we are in the first iteration (indicated by localCache==NULL)
   if (_cache && localCache==NULL) {
     localCache = cacheManagerProxy.ckLocalBranch();
-    localCache->markPresence(thisIndex, root, numChunks);
+    localCache->markPresence(thisIndex, root);
   }
 
 #if INTERLIST_VER > 0
@@ -1402,7 +1404,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
   unsigned int i=0;
   // cache internal tree: start directly asking the CacheManager
 #ifdef CACHE_TREE
-  GenericTreeNode *chunkRoot = localCache->keyToNode(prefetchRoots[msg->chunkNum]);
+  GenericTreeNode *chunkRoot = localCache->chunkRootToNode(prefetchRoots[msg->chunkNum]);
 #else
   GenericTreeNode *chunkRoot = keyToNode(prefetchRoots[msg->chunkNum]);
 #endif
@@ -1890,9 +1892,17 @@ void TreePiece::walkBucketRemoteTree(GenericTreeNode *node, int chunk, BucketGra
 }
 
 
-void TreePiece::startIteration(double t, const CkCallback& cb) {
+void TreePiece::startIteration(double t, int n, Tree::NodeKey *k, const CkCallback& cb) {
   callback = cb;
   theta = t;
+  if (n != numChunks) {
+    // reallocate remaining chunk to the new size
+    delete[] remainingChunk;
+    remainingChunk = NULL;
+  }
+  numChunks = n;
+  prefetchRoots = k;
+  if (remainingChunk == NULL) remainingChunk = new int[numChunks];
 #if COSMO_STATS > 0
   //myNumProxyCalls = 0;
   //myNumProxyCallsBack = 0;
@@ -1958,7 +1968,11 @@ void TreePiece::startIteration(double t, const CkCallback& cb) {
   prefetchWaiting = 1;
   currentPrefetch = 0;
   int first, last;
+#if CACHE_TREE
+  GenericTreeNode *child = localCache->chunkRootToNode(prefetchRoots[0]);
+#else
   GenericTreeNode *child = keyToNode(prefetchRoots[0]);
+#endif
   if (child == NULL) {
     nodeOwnership(prefetchRoots[0], first, last);
     child = requestNode((first+last)>>1, prefetchRoots[0], 0, prefetchReq[0], true);
@@ -2041,7 +2055,11 @@ void TreePiece::startRemoteChunk() {
   if (++currentPrefetch < numChunks) {
     int first, last;
     prefetchWaiting = 1;
+#if CACHE_TREE
+    GenericTreeNode *child = localCache->chunkRootToNode(prefetchRoots[currentPrefetch]);
+#else
     GenericTreeNode *child = keyToNode(prefetchRoots[currentPrefetch]);
+#endif
     if (child == NULL) {
       nodeOwnership(prefetchRoots[currentPrefetch], first, last);
       child = requestNode((first+last)>>1, prefetchRoots[currentPrefetch], currentPrefetch, prefetchReq[0], true);
@@ -2063,7 +2081,7 @@ void TreePiece::ResumeFromSync(){
     CkPrintf("[%d] TreePiece %d in ResumefromSync\n",CkMyPe(),thisIndex);
   // Register to the cache manager
   if (_cache) {
-    localCache->markPresence(thisIndex, root, numChunks);
+    localCache->markPresence(thisIndex, root);
   }
   contribute(0, 0, CkReduction::concat, callback);
 }
@@ -3621,9 +3639,11 @@ void TreePiece::pup(PUP::er& p) {
     localCache = cacheManagerProxy.ckLocalBranch();
 
     // reconstruct the data for prefetching
+    /* OLD, moved to the cache and startIteration
     numChunks = root->getNumChunks(_numChunks);
     remainingChunk = new int[numChunks];
     root->getChunks(_numChunks, prefetchRoots);
+    */
 
     // reconstruct the nodeLookupTable and the bucketList
     reconstructNodeLookup(root);
