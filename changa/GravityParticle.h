@@ -95,7 +95,7 @@ public:
 			}
 		numAdditionalRequests = req.numAdditionalRequests;
 #if COSMO_DEBUG > 1
-    for(int i=0;i<req.requestedNodes.size();i++)
+    for(unsigned int i=0;i<req.requestedNodes.size();i++)
       requestedNodes.push_back(req.requestedNodes[i]);
 #endif
 		return *this;

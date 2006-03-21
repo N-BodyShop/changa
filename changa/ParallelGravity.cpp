@@ -160,7 +160,7 @@ Main::Main(CkArgMsg* m) {
 	if (_numChunks <= 0)
 	  CkAbort("Number of chunks for remote tree walk must be greater than 0");
 
-	const char *fname;
+	const char *fname = NULL;
 	if(optind  < m->argc){
 		fname = m->argv[optind];
 	}else{
@@ -205,7 +205,7 @@ Main::Main(CkArgMsg* m) {
 }
 
 void Main::niceExit() {
-  static int count = 0;
+  static unsigned int count = 0;
   if (++count == numTreePieces) CkExit();
 }
 

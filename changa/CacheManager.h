@@ -51,7 +51,7 @@ class CacheStatistics {
   CacheStatistics() : nodesArrived(0), nodesMessages(0), nodesDuplicated(0), nodesMisses(0),
     nodesLocal(0), particlesArrived(0), particlesTotalArrived(0),
     particlesMisses(0), particlesLocal(0), particlesError(0), totalNodesRequested(0),
-    maxNodes(0), maxParticles(0), totalParticlesRequested(0), index(-1) { }
+    totalParticlesRequested(0), maxNodes(0), maxParticles(0), index(-1) { }
 
  public:
   CacheStatistics(u_int64_t na, u_int64_t nmsg, u_int64_t nd, u_int64_t nm,
