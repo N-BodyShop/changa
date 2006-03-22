@@ -2130,7 +2130,11 @@ void TreePiece::preWalkInterTree(){
       else{
         GenericTreeNode *nd;
         for(int i=0;i<numChunks;i++){
+#ifdef CACHE_TREE
+          nd = localCache->chunkRootToNode(prefetchRoots[i]);
+#else
           nd = keyToNode(prefetchRoots[i]);
+#endif
           if(nd!=NULL)
             undecidedListLocal.enq(nd);
         }
@@ -2304,11 +2308,11 @@ void TreePiece::walkInterTreeVerII(GenericTreeNode *node) {
 #endif*/
     CkAssert(openValue!=-2);
  		// here the node can be Internal or Boundary or Bucket
-		//if(myNode->getType()==Bucket || openCriterionNode(node,myNode)==1){
 		if(myNode->getType()==Bucket || openValue==1){
       if(nodeType==Bucket){
   		  TreePiece::PartInfo pinfo;
-  		  pinfo.particles = &myParticles[node->firstParticle];
+  		  //pinfo.particles = &myParticles[node->firstParticle];
+  		  pinfo.particles = node->particlePointer;
 #if COSMO_DEBUG>1
         pinfo.nd=node;
 #endif
@@ -2330,13 +2334,11 @@ void TreePiece::walkInterTreeVerII(GenericTreeNode *node) {
 	}
   else if (nodeType == Empty) {
 #if COSMO_STATS > 0
-  numOpenCriterionCalls++;
+    numOpenCriterionCalls++;
 #endif
-    /*#if COSMO_DEBUG > 1
-      bucketcheckList[req.identifier].insert(tmp->getKey());
-      combineKeys(tmp->getKey(),req.identifier);
-    #endif*/
+#if COSMO_DEBUG > 1
   	cellListLocal[level].push_back(node);
+#endif
   }
  
   //Call myself if there are still nodes in previous level checklist
@@ -2596,10 +2598,15 @@ void TreePiece::cachedWalkInterTreeVerII(GenericTreeNode* node) {
 
   int openValue=-2;
   
+  // Changed for CACHE TREE
+#ifdef CACHE_TREE
+  if(nodeType == Bucket || nodeType == Internal || nodeType == Empty) {
+  }
+#else
   if(node->remoteIndex==thisIndex && (nodeType == Bucket || nodeType == Internal || nodeType == Empty)) {
   }
+#endif
   else if((openValue=openCriterionNode(node, myNode))==0) {
-    //if(!(node->getType()==NonLocal && node->parent->remoteIndex==thisIndex))
     #if COSMO_STATS > 0
       numOpenCriterionCalls++;
     #endif
@@ -2608,7 +2615,9 @@ void TreePiece::cachedWalkInterTreeVerII(GenericTreeNode* node) {
     /*
      * Sending the request for all the particles at one go, instead of one by one
      */
-    CkAssert(openValue!=-2);
+#ifdef CACHE_TREE
+    CkAssert(nodeType!=Bucket);
+#endif
   #if COSMO_STATS > 0
     numOpenCriterionCalls++;
   #endif
@@ -2630,18 +2639,20 @@ void TreePiece::cachedWalkInterTreeVerII(GenericTreeNode* node) {
 #endif
     	}
 		}
-		//else if(openCriterionNode(node,myNode)==1){
 		else if(openValue==1){
 			calculateForces(node,myNode,level,chunk);
 		}
 		else{
       extCheckList[level].push_back(node);
     }
+/*#ifdef CACHE_TREE
+  } else if(nodeType==Boundary) {
+#else
   } else if(node->remoteIndex==thisIndex && nodeType==Boundary) {
+#endif
 #if COSMO_STATS > 0
   numOpenCriterionCalls++;
 #endif
-    //if(openCriterionNode(node, myNode)==1 || myNode->getType()==Bucket){
     if(openValue==1 || myNode->getType()==Bucket){
       // here the node is Boundary
 #if COSMO_STATS > 0
@@ -2658,7 +2669,7 @@ void TreePiece::cachedWalkInterTreeVerII(GenericTreeNode* node) {
     else{
       //intListIter++;
       extCheckList[level].push_back(node);
-    }
+    }*/
   } else if (nodeType != CachedEmpty && nodeType != Empty) {
     // Here the type is Cached, Boundary, Internal, NonLocal, which means the
     // node in the global tree has children (it is not a leaf), so we iterate
@@ -2669,7 +2680,7 @@ void TreePiece::cachedWalkInterTreeVerII(GenericTreeNode* node) {
     // elements trees, we could be actually traversing the tree of another chare
     // in this processor.
 #if COSMO_STATS > 0
-  numOpenCriterionCalls++;
+    numOpenCriterionCalls++;
 #endif
 
     // Use cachedWalkBucketTree() as callback
@@ -2691,7 +2702,6 @@ void TreePiece::cachedWalkInterTreeVerII(GenericTreeNode* node) {
       	}
     	}
 		}
-		//else if(openCriterionNode(node,myNode)==1){
 		else if(openValue==1){
 			calculateForcesNode(node,myNode,level,chunk);
 		}
@@ -2702,12 +2712,14 @@ void TreePiece::cachedWalkInterTreeVerII(GenericTreeNode* node) {
   else if(nodeType == CachedEmpty || nodeType == Empty) {
     //Currently, Empty node is being pushed back just to match Filippos nodeBucketCalls
     //I'll remove it later
+#if COSMO_DEBUG > 1
     cellList[level].push_back(node);
-    #if COSMO_STATS > 0
-      numOpenCriterionCalls++;
-    #endif
+#endif
+#if COSMO_STATS > 0
+    numOpenCriterionCalls++;
+#endif
   }
-		
+
   if(myNode!=root){
     if(extPrevListIter>0 && extPrevListIter<extCheckList[level-1].length()){
       extPrevListIter++;
@@ -2728,7 +2740,7 @@ void TreePiece::cachedWalkInterTreeVerII(GenericTreeNode* node) {
 #endif
 
 #if INTERLIST_VER > 0
-void TreePiece::calculateForces(GenericTreeNode *node, GenericTreeNode *myNode,int level,int chunk){
+inline void TreePiece::calculateForces(GenericTreeNode *node, GenericTreeNode *myNode,int level,int chunk){
 
 	GenericTreeNode *tmpNode;
   int startBucket=myNode->startBucket;
@@ -2767,20 +2779,18 @@ void TreePiece::calculateForces(GenericTreeNode *node, GenericTreeNode *myNode,i
 	}
 }
 
-void TreePiece::calculateForcesNode(GenericTreeNode *node, GenericTreeNode *myNode,int level,int chunk){
+inline void TreePiece::calculateForcesNode(GenericTreeNode *node, GenericTreeNode *myNode,int level,int chunk){
 
 	GenericTreeNode *tmpNode;
   int startBucket=myNode->startBucket;
-  int tmpBucket;
-  int lastBucket;
   int k;
   
-	for(k=startBucket+1;k<numBuckets;k++){
+	/*for(k=startBucket+1;k<numBuckets;k++){
 		tmpNode = bucketList[k];
 		if(tmpNode->lastParticle>myNode->lastParticle)
 			break;
   }
-  lastBucket=k-1;
+  lastBucket=k-1;*/
   
   GenericTreeNode *child;
   for (unsigned int i=0; i<node->numChildren(); ++i) {
@@ -2796,9 +2806,12 @@ void TreePiece::calculateForcesNode(GenericTreeNode *node, GenericTreeNode *myNo
         undecidedExtList.enq(child);
 	   	} else { // we completely missed the cache, we will be called back
 				//We have to queue the requests for all the buckets, all buckets will be called back later
-	     	remainingChunk[chunk] ++;
-				for(k=startBucket+1;k<=lastBucket;k++){
-	   			child = requestNode(node->remoteIndex, node->getChildKey(i), chunk, bucketReqs[k]);
+	     	
+        remainingChunk[chunk] ++;
+				for(k=startBucket+1;k<numBuckets;k++){
+		      tmpNode = bucketList[k];
+		      if(tmpNode->lastParticle>myNode->lastParticle) break;
+          child = requestNode(node->remoteIndex, node->getChildKey(i), chunk, bucketReqs[k]);
 					CkAssert(child==NULL);
 	     	  remainingChunk[chunk] ++;
 				}
