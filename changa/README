@@ -6,7 +6,7 @@ CHARM (of course): edit Makefile to point at your charm version.
 
 To run:
 
-ParallelGravity -v -v -v -v -p 2 lambs.00200_subsamp_20000
+ParallelGravity -v 4 -p 2 -I lambs.00200_subsamp_20000
 
 The "-p" option indicates the number of "TreePieces", and therefore the number
 of Charm array elements.

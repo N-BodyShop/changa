@@ -11,6 +11,7 @@
 #include "DataManager.h"
 #include "CacheManager.h"
 #include "TipsyFile.h"
+#include "param.h"
 
 extern char *optarg;
 extern int optind, opterr, optopt;
@@ -24,7 +25,6 @@ CkReduction::reducerType callbackReduction;
 bool _cache;
 int _cacheLineDepth;
 unsigned int _yieldPeriod;
-int numIterations=1;
 DomainsDec domainDecomposition;
 GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
@@ -34,118 +34,79 @@ int _numChunks;
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
 
+void _Leader(void)
+{
+    puts("USAGE: ParallelGravity [SETTINGS | FLAGS] [SIM_FILE]");
+    puts("SIM_FILE: Configuration file of a particular simulation, which");
+    puts("          includes desired settings and relevant input and");
+    puts("          output files. Settings specified in this file override");
+    puts("          the default settings.");
+    puts("SETTINGS");
+    puts("or FLAGS: Command line settings or flags for a simulation which");
+    puts("          will override any defaults and any settings or flags");
+    puts("          specified in the SIM_FILE.");
+	}
+
+
+void _Trailer(void)
+{
+	puts("(see man page (Ha!) for more information)");
+	}
+
 Main::Main(CkArgMsg* m) {
-  int cacheSize = 100000000;
-	verbosity = 0;
-	theta = 0.7;
-	numTreePieces = CkNumPes();
-	bucketSize = 12;
 	_cache = true;
-	_cacheLineDepth=1;
-	printBinaryAcc=1;
-	_yieldPeriod=100000000;
-	_prefetch=false;
-	_numChunks = 1;
-	dTimeStep = 0.0;
-	dSoft = 0.0;
-	bSetSoft = 0;
 	mainChare = thishandle;
 	
-/*
-	poptOption optionsTable[] = {
-		{"verbose", 'v', POPT_ARG_NONE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, 0, 1, "be verbose about what's going on", "verbosity"},
-		{"theta", 't', POPT_ARG_DOUBLE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &theta, 0, "the opening angle to particle-cell interaction", "opening angle"},
-		{"pieces", 'p', POPT_ARG_INT | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &numTreePieces, 0, "the number of TreePieces to create", "num TreePieces"},
-		{"bucketSize", 'b', POPT_ARG_INT | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &bucketSize, 0, "the maxiumum number of particles in a bucket", "bucketSize"},
-		{"cache", 'c', POPT_ARG_NONE | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT, &_cache, 1,"should the cache manager be used"},
-		{"cacheLineDepth",'d', POPT_ARG_INT | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT,&_cacheLineDepth,0,"The depth of the cacheLine tree to be fetched ","cache Line Depth"},
-		{"numIterations",'n', POPT_ARG_INT | POPT_ARGFLAG_ONEDASH | POPT_ARGFLAG_SHOW_DEFAULT,&numIterations,0,"Number of Iterations of the walk bucket tree algorithm ","numIterations"},
-		POPT_AUTOHELP
-		POPT_TABLEEND
-	};
-	
-	poptContext context = poptGetContext("ParallelGravity", m->argc, const_cast<const char **>(m->argv), optionsTable, 0);
-	
-	poptSetOtherOptionHelp(context, " [OPTION ...] basefile");
-	
-	int rc;
-	while((rc = poptGetNextOpt(context)) >= 0) {
-		switch(rc) {
-			case 1: //increase verbosity
-				verbosity++;
-				break;
-		}
-	}
-	
-	if(rc < -1) {
-		cerr << "Argument error: " << poptBadOption(context, POPT_BADOPTION_NOALIAS) << " : " << poptStrerror(rc) << endl;
-		poptPrintUsage(context, stderr, 0);
-		CkExit();
-		return;
-	}
+	prmInitialize(&prm,_Leader,_Trailer);
 
-	const char* fname = poptGetArg(context);
+	param.dTimeStep = 0.0;
+	prmAddParam(prm, "dTimeStep", paramDouble, &param.dTimeStep,
+		    sizeof(double),"dT", "Base Timestep for integration");
+	param.nSteps = 1;
+	prmAddParam(prm, "nSteps", paramInt, &param.nSteps,
+		    sizeof(int),"n", "Number of Timesteps");
+	param.dSoft = 0.0;
+	prmAddParam(prm, "dSoftening", paramDouble, &param.dSoft,
+		    sizeof(double),"S", "Gravitational softening");
+	theta = 0.7;
+	prmAddParam(prm, "dTheta", paramDouble, &theta,
+		    sizeof(double),"t", "Opening angle");
+	printBinaryAcc=1;
+	prmAddParam(prm, "bPrintBinary", paramBool, &printBinaryAcc,
+		    sizeof(int),"z", "Print accelerations in Binary");
+	param.achInFile[0] = '\0';
+	prmAddParam(prm,"achInFile",paramString,param.achInFile,
+		    256, "I", "input file name (or base file name)");
 	
-	if(fname == 0) {
-		cerr << "You must provide a base filename to calculate gravity on" << endl;
-		poptPrintUsage(context, stderr, 0);
-		CkExit();
-		return;
-	} else
-		basefilename = fname;
-	poptFreeContext(context);
-		*/
+	verbosity = 0;
+	prmAddParam(prm, "iVerbosity", paramInt, &verbosity,
+		    sizeof(int),"v", "Verbosity");
+	numTreePieces = CkNumPes();
+	prmAddParam(prm, "nTreePieces", paramInt, &numTreePieces,
+		    sizeof(int),"p", "Number of TreePieces");
+	bucketSize = 12;
+	prmAddParam(prm, "nTreePieces", paramInt, &bucketSize,
+		    sizeof(int),"b", "Particles per Bucket");
+	_numChunks = 1;
+	prmAddParam(prm, "nChunks", paramInt, &_numChunks,
+		    sizeof(int),"c", "Chunks per TreePiece");
+	_yieldPeriod=100000000;
+	prmAddParam(prm, "nYield", paramInt, &_yieldPeriod,
+		    sizeof(int),"y", "Yield Period");
+	_cacheLineDepth=1;
+	prmAddParam(prm, "nCacheDepth", paramInt, &_cacheLineDepth,
+		    sizeof(double),"d", "Chunks per TreePiece");
+	_prefetch=false;
+	prmAddParam(prm, "bPrefetch", paramBool, &_prefetch,
+		    sizeof(int),"f", "Enable prefetching in the cache");
+	int cacheSize = 100000000;
+	prmAddParam(prm, "nCacheSize", paramInt, &cacheSize,
+		    sizeof(int),"s", "Size of cache");
 	
-	const char *optstring = "vt:T:p:b:c:d:n:z:y:fs:S:";
-	int c;
-	while((c=getopt(m->argc,m->argv,optstring))>0){
-		if(c == -1){
-			break;
-		}
-		switch(c){
-			case 'v':
-				verbosity++;
-				break;
-			case 'T':
-				dTimeStep = atof(optarg);
-				break;
-			case 't':
-				theta = atof(optarg);
-				break;
-			case 'p':
-				numTreePieces = atoi(optarg);
-				break;
-			case 'b':
-				bucketSize = atoi(optarg);
-				break;
-			case 'c':
-			        _numChunks = atoi(optarg);
-				break;
-			case 'd':
-				_cacheLineDepth = atoi(optarg);
-				break;
-			case 'n':
-				numIterations = atoi(optarg);
-				break;
-			case 'z':
-				printBinaryAcc = atoi(optarg);
-				break;
-			case 'y':
-				_yieldPeriod = atoi(optarg);
-				break;
-			case 'f':
-				_prefetch = true;
-				break;
-			case 's':
-				cacheSize = atoi(optarg);
-				break;
-			case 'S':
-				dSoft = atof(optarg);
-				bSetSoft = 1;
-				break;
-		};
-	}
-
+	if(!prmArgProc(prm,m->argc,m->argv)) {
+	    CkExit();
+	    }
+	
 	// hardcoding some parameters, later may be full options
 	domainDecomposition = SFC_dec;
 	useTree = Binary_Oct;
@@ -160,14 +121,12 @@ Main::Main(CkArgMsg* m) {
 	if (_numChunks <= 0)
 	  CkAbort("Number of chunks for remote tree walk must be greater than 0");
 
-	const char *fname = NULL;
-	if(optind  < m->argc){
-		fname = m->argv[optind];
+	if(param.achInFile[0]) {
+	    basefilename = param.achInFile;
 	}else{
 		ckerr<<"Base file name missing\n";
 		CkExit();
 	}
-	basefilename = fname;
 	
 	if (verbosity) {
 	  ckerr<<"cache "<<_cache<<endl;
@@ -221,6 +180,8 @@ void Main::nextStage() {
 	pieces.load(basefilename, CkCallbackResumeThread());
 	if(!(pieces[0].ckLocal()->bLoaded)) {
 	    // Try loading Tipsy format
+	    ckerr << "Trying Tipsy" << endl;
+	    
 	    Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
 	    if(!ptf.loadedSuccessfully()) {
 		ckerr << "Couldn't load the tipsy file \""
@@ -235,9 +196,9 @@ void Main::nextStage() {
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 
-	if(bSetSoft) {
+	if(prmSpecified(prm,"dSoftening")) {
 	    ckerr << "Set Softening...\n";
-	    pieces.setSoft(dSoft);
+	    pieces.setSoft(param.dSoft);
 	    }
 	
 	ckerr << "Domain decomposition ...";
@@ -263,10 +224,10 @@ void Main::nextStage() {
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 	calcEnergy();
-	for(int i =0; i<numIterations-1; i++){
-	  if(dTimeStep > 0.0) {
-	      pieces.kick(0.5*dTimeStep, CkCallbackResumeThread());
-	      pieces.drift(dTimeStep, CkCallbackResumeThread());
+	for(int i =0; i<param.nSteps-1; i++){
+	  if(param.dTimeStep > 0.0) {
+	      pieces.kick(0.5*param.dTimeStep, CkCallbackResumeThread());
+	      pieces.drift(param.dTimeStep, CkCallbackResumeThread());
 	      sorter.startSorting(dataManager, numTreePieces, tolerance,
 				  CkCallbackResumeThread());
 	      ckerr << "Building trees ...";
@@ -309,12 +270,12 @@ void Main::nextStage() {
 	  cacheManagerProxy.cacheSync(theta, CkCallbackResumeThread());
 	  ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
-	  if(dTimeStep > 0.0)
-	      pieces.kick(0.5*dTimeStep, CkCallbackResumeThread());
+	  if(param.dTimeStep > 0.0)
+	      pieces.kick(0.5*param.dTimeStep, CkCallbackResumeThread());
 	  calcEnergy();
 	}
 
-	if(numIterations == 0) {
+	if(param.nSteps == 0) {
 	    ckerr << "Outputting accelerations ...";
 	    startTime = CkWallTimer();
 	    if(printBinaryAcc)

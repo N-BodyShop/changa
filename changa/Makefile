@@ -21,7 +21,10 @@ all: $(TARGET)
 
 $(TARGET).o: $(TARGET).decl.h CacheManager.decl.h Makefile
 
-$(TARGET): TreePiece.o CacheManager.o Sorter.o DataManager.o Reductions.o
+$(TARGET): TreePiece.o CacheManager.o Sorter.o DataManager.o Reductions.o \
+	param.o
+
+ParallelGravity.o: ParallelGravity.h param.h parameters.h
 
 CacheManager.o: CacheManager.C CacheManager.h CacheManager.decl.h\
 	../GenericTree/MultipoleMoments.h ParallelGravity.h Makefile

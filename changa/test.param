@@ -1,0 +1,4 @@
+# Example Parameter file
+iVerbosity = 4
+nTreePieces = 2
+achInFile = lambs.00200_subsamp_20000

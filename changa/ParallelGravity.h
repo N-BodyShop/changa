@@ -18,6 +18,8 @@
 #include "TreeNode.h"
 #include "GenericTreeNode.h"
 #include "Interval.h"
+#include "parameters.h"
+#include "param.h"
 
 using namespace Tree;
 
@@ -193,6 +195,8 @@ class Main : public Chare {
 	int bSetSoft;
 	unsigned int bucketSize;
 	unsigned int printBinaryAcc;
+	PRM prm;		/* parameter parsing info */
+	struct parameters param; /* actual parameters */
 public:
 		
 	Main(CkArgMsg* m);
