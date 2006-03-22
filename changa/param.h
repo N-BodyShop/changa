@@ -1,7 +1,9 @@
 #ifndef PARAM_HINCLUDED
 #define PARAM_HINCLUDED
 
+#ifdef __cplusplus
 extern "C" {
+#endif
 enum TypeParam {
     paramBool = 0,
     paramInt = 1,
@@ -38,7 +40,9 @@ int prmArgProc(PRM,int,char **);
 int prmSpecified(PRM,char *);
 int prmArgSpecified(PRM,char *);
 int prmFileSpecified(PRM,char *);
+#ifdef __cplusplus
 }
+#endif
 
 #endif
 
