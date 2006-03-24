@@ -1,13 +1,13 @@
-CXXFLAGS = -O3 -I../structures -I../ParallelGravity -I. -DINTERLIST_VER=2
-CHARMC = $(HOME)/work/charm-ci/charm/bin/charmc $(OPTS)
-CXX = $(CHARMC)
-CC = $(CXX)
+# CXXFLAGS = -O3 -I../structures -I../ParallelGravity -I. -DINTERLIST_VER=2
+# CHARMC = $(HOME)/work/charm-ci/charm/bin/charmc $(OPTS)
+# CXX = $(CHARMC)
+# CC = $(CXX)
 
-TARGETS = GenericTreeNode.o
+# TARGETS = GenericTreeNode.o
 
-.PHONY: all clean
+# .PHONY: all clean
 
-all: $(TARGETS)
+# all: $(TARGETS)
 
-clean:
-	rm -f $(TARGETS)
+# clean:
+# 	rm -f $(TARGETS)
