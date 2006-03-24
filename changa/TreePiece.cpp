@@ -35,7 +35,7 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   XDR xdrs;
   FILE* infile = fopen((basefilename + ".mass").c_str(), "rb");
   if(!infile) {
-    ckerr << "TreePiece " << thisIndex << ": Couldn't open masses file, aborting" << endl;
+    if (thisIndex == 0) ckerr << "TreePiece " << thisIndex << ": Couldn't open masses file, reverting to tipsy..." << endl;
     contribute(0, 0, CkReduction::concat, cb);
     return;
   }
@@ -335,7 +335,7 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 	for(unsigned int i = 0; i < myNumParticles; ++i) {
 	    myParticles[i+1].key = generateKey(myParticles[i+1].position,
 					       boundingBox);
-	    }
+	}
 	
 	sort(&myParticles[1], &myParticles[myNumParticles+1]);
 	
@@ -686,7 +686,7 @@ inline bool TreePiece::nodeOwnership(const Tree::NodeKey nkey, int &firstOwner, 
   }
   firstKey &= ~mask;
   lastKey &= ~mask;
-  lastKey -= 1;
+  //lastKey -= 1;  BUGFIX: we need lastKey to be the first key in the right sibling/uncle
   Key *locLeft = lower_bound(splitters, splitters + numSplitters, firstKey);
   Key *locRight = lower_bound(locLeft, splitters + numSplitters, lastKey);
   firstOwner = (locLeft - splitters) >> 1;
