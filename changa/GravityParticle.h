@@ -2,6 +2,7 @@
 #define GRAVITYPARTICLE_H
 
 #include "SFC.h"
+#include <vector>
 
 // Object to bookkeep a Bucket Walk.  It has accumulators for the
 // acclerations and potentials of the particles in the bucket.
