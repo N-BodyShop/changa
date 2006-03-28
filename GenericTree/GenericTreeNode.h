@@ -128,9 +128,9 @@ namespace Tree {
     virtual void makeOctChildren(GravityParticle *part, int totalPart, int level) = 0;
     virtual void makeOrbChildren(GravityParticle *part, int totalPart, int level) = 0;
 
-    /// get the number of chunks possible for the given request
-    /// @return a number greater or iqual to th the request
-    virtual int getNumChunks(int num) = 0;
+    // get the number of chunks possible for the given request
+    // @return a number greater or iqual to th the request
+    //virtual int getNumChunks(int num) = 0;
     /// get the nodes corresponding to a particular number of chunks requested
     virtual void getChunks(int num, NodeKey *&ret) = 0;
 
@@ -372,6 +372,7 @@ namespace Tree {
       return new BinaryTreeNode(*this);
       }*/
 
+    /*
     int getNumChunks(int req) {
       int i = 0;
       int num = req;
@@ -383,11 +384,22 @@ namespace Tree {
       if (ret != req) ret <<= 1;
       return ret;
     }
+    */
 
     void getChunks(int num, NodeKey *&ret) {
-      int realChunks = getNumChunks(num);
-      if (ret==NULL) ret = new NodeKey[realChunks];
-      for (int i=0; i<realChunks; ++i) ret[i] = i + realChunks;
+      int i = 0;
+      int base = num;
+      while (base > 1) {
+	base >>= 1;
+	i++;
+      }
+      base = 1 << i;
+      // base now contains the greatest power of two less or equal to num
+      int additional = num - base;
+      if (ret==NULL) ret = new NodeKey[num];
+      for (int j=additional, k=additional*2; j<base; ++j, ++k) ret[k] = j + base;
+      base <<= 1;
+      for (int j=0; j<additional*2; ++j) ret[j] = j + base;
     }
 
     void pup(PUP::er &p) { pup(p, -1); }
@@ -504,6 +516,7 @@ namespace Tree {
       return tmp;
     }
 
+    /*
     int getNumChunks(int num) {
       int i = 0;
       while (num > 1) {
@@ -512,6 +525,7 @@ namespace Tree {
       }
       return 1 << (3*i);
     }
+    */
 
     void getChunks(int num, NodeKey *&ret) {
       return;
