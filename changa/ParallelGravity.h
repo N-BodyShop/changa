@@ -308,13 +308,12 @@ class TreePiece : public CBase_TreePiece {
 	//int cachecellcount;
 	u_int64_t nodesOpenedLocal;
 	u_int64_t nodesOpenedRemote;
-	u_int64_t nodeInterLocal;
-	u_int64_t nodeInterRemote;
-	u_int64_t particleInterLocal;
-	u_int64_t particleInterRemote;
-
-  u_int64_t numOpenCriterionCalls;
+	u_int64_t numOpenCriterionCalls;
 #endif
+	u_int64_t nodeInterLocal;
+	u_int64_t *nodeInterRemote;
+	u_int64_t particleInterLocal;
+	u_int64_t *particleInterRemote;
 
 	/// @endif
 
@@ -512,6 +511,8 @@ public:
 	  delete[] splitters;
 	  //delete[] prefetchRoots;
 	  delete[] remainingChunk;
+	  delete[] nodeInterRemote;
+	  delete[] particleInterRemote;
 	  delete[] bucketReqs;
 	  // recursively delete the entire tree
 	  root->fullyDelete();
@@ -580,7 +581,7 @@ public:
   void walkRemoteInterTreeVerI(GenericTreeNode *node, bool isRoot);
   void walkRemoteInterTreeVerII(GenericTreeNode *node, bool isRoot);
   void initNodeStatus(GenericTreeNode *node);
-  void calculateForceRemoteBucket(int bucketIndex);
+  void calculateForceRemoteBucket(int bucketIndex, int chunk);
 #endif
 	
   /// Function called by the CacheManager to start a new iteration.

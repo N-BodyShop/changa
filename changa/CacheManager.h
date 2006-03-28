@@ -272,6 +272,10 @@ private:
 	NodeLookupType chunkRootTable;
 #endif
 
+	/// weights of the chunks in which the tree is divided, the cache will
+	/// update the chunk division based on these values
+	u_int64_t *chunkWeight;
+
 	/// Maximum number of allowed nodes stored, after this the prefetching is suspended
 	u_int64_t maxSize;
 
@@ -375,7 +379,7 @@ private:
 
 	/// Called from the TreePieces to ackowledge that a particular chunk has
 	/// been completely used, and can be deleted
-	void finishedChunk(int num);
+	void finishedChunk(int num, u_int64_t weight);
 
 	/// Collect the statistics for the latest iteration
 	void collectStatistics(CkCallback& cb);

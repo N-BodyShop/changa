@@ -589,6 +589,7 @@ int CacheManager::createLookupRoots(GenericTreeNode *node, Tree::NodeKey *keys) 
   // assumes that the keys are ordered in tree depth first!
   if (node->getKey() == *keys) {
     // ok, found a chunk root, we can end the recursion
+    //CkPrintf("mapping key %s\n",keyBits(*keys,63).c_str());
     chunkRootTable[*keys] = node;
     return 1;
   }
@@ -609,8 +610,13 @@ int CacheManager::createLookupRoots(GenericTreeNode *node, Tree::NodeKey *keys) 
 	for (k=0; k<63; ++k) {
 	  if (childKey == ((*keys)>>k)) break;
 	}
-	if (k==63) break;
+	if (((*keys)|(~0 << k)) == ~0) break;
+	//if (k==63) break;
       }
+      // add the last key found to the count
+      ++partial;
+      ++keys;
+      //CkPrintf("missed keys of %s, %d\n",keyBits(childKey,63).c_str(),partial);
     }
     count += partial;
   }
@@ -684,19 +690,25 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
   storedNodes=0;
   storedParticles=0;
   //}
-  int newChunks = numChunks;
+
+  // for now the number of chunks is constant throughout the computation, it is only updated dynamically
+  //int newChunks = numChunks;
   if (numChunks == 0) {
+    numChunks = _numChunks;
 #if CACHE_TREE > 0
-    newChunks = root->getNumChunks(_numChunks);
     root->getChunks(_numChunks, prefetchRoots);
-    int numMappedRoots = createLookupRoots(root, prefetchRoots);
-    CkAssert(numMappedRoots == newChunks);
 #else
-    newChunks = prototype->getNumChunks(_numChunks);
     prototype->getChunks(_numChunks, prefetchRoots);
 #endif
+    chunkWeight = new u_int64_t[numChunks];
+    nodeCacheTable = new map<CacheKey,NodeCacheEntry *>[numChunks];
+    particleCacheTable = new map<CacheKey,ParticleCacheEntry *>[numChunks];
+    chunkAck = new int[numChunks];
   }
 
+  //for (int i=0; i<numChunks; ++i) printf("%d chunk %d: %s\n",CkMyPe(), i, keyBits(prefetchRoots[i],63).c_str());
+
+  /*
   if (numChunks != newChunks) {
     delete[] nodeCacheTable;
     delete[] particleCacheTable;
@@ -706,8 +718,20 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
     particleCacheTable = new map<CacheKey,ParticleCacheEntry *>[numChunks];
     chunkAck = new int[numChunks];
   }
+  */
+
+  // update the prefetchRoots with the collected weights
+  // @TODO
+
+#if CACHE_TREE > 0
+  chunkRootTable.clear();
+  int numMappedRoots = createLookupRoots(root, prefetchRoots);
+  CkAssert(numMappedRoots == numChunks);
+#endif
+
   for (i=0; i<numChunks; ++i) {
     chunkAck[i] = registeredChares.size();
+    chunkWeight[i] = 0;
   }
 
   // call the gravitational computation utility of each local chare element
@@ -728,10 +752,11 @@ void CacheManager::revokePresence(int index) {
   registeredChares.erase(index);
 }
 
-void CacheManager::finishedChunk(int num) {
+void CacheManager::finishedChunk(int num, u_int64_t weight) {
   CkAssert(chunkAck[num] > 0);
   if (--chunkAck[num] == 0) {
     // we can safely delete the chunk from the cache
+    chunkWeight[num] += weight;
 #ifdef COSMO_PRINT
     CkPrintf("Deleting chunk %d from processor %d\n",num,CkMyPe());
 #endif
@@ -767,7 +792,7 @@ void CacheManager::finishedChunk(int num) {
     CkAssert(storedParticles >= 0);
 #if COSMO_STATS > 0
     if (verbosity)
-      CkPrintf(" Cache [%d]: in iteration %d chunk %d has %d nodes and %d particles\n",CkMyPe(),iterationNo,num,releasedNodes,releasedParticles);
+      CkPrintf(" Cache [%d]: in iteration %d chunk %d has %d nodes and %d particles, weight %llu\n",CkMyPe(),iterationNo,num,releasedNodes,releasedParticles,weight);
 #endif
 #ifdef COSMO_PRINT
     CkPrintf("%d After purging chunk %d left %d nodes and %d particles\n",CkMyPe(),num,storedNodes,storedParticles);

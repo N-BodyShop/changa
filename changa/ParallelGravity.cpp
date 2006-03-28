@@ -174,6 +174,9 @@ void Main::nextStage() {
 	
 	//piecedata *totaldata = new piecedata;
 	
+	// DEBUGGING
+	//CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),pieces));
+
 	pieces.registerWithDataManager(dataManager, CkCallbackResumeThread());
 	ckerr << "Loading particles ...";
 	startTime = CkWallTimer();
@@ -208,8 +211,6 @@ void Main::nextStage() {
 			    CkCallbackResumeThread());
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
-	// DEBUGGING
-	//CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),pieces));
 	ckerr << "Building trees ...";
 	startTime = CkWallTimer();
 	pieces.buildTree(bucketSize, CkCallbackResumeThread());

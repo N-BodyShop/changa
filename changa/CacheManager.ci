@@ -9,7 +9,7 @@ module CacheManager {
 		entry void recvNodes(FillNodeMsg *msg);
 		entry void cacheSync(double theta, CkCallback &cb);
 		entry void recvParticles(CacheKey key,GravityParticle part[num],int num,int from);
-		entry void finishedChunk(int num);
+		entry void finishedChunk(int num, u_int64_t weight);
 		entry void collectStatistics(CkCallback &cb);
 	};
 	
