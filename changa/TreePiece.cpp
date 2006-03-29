@@ -1186,7 +1186,7 @@ void TreePiece::doAllBuckets(){
 
 #if INTERLIST_VER > 0
 	checkListLocal[0].length()=0;
-	for(int i=0;i<myTreeLevels;i++){
+	for(int i=0;i<=myTreeLevels;i++){
     cellListLocal[i].length()=0;
 		particleListLocal[i].length()=0;
 	}
@@ -1419,7 +1419,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 	if(currentRemoteBucket==0){
 	  intCheckList[0].length()=0;
 	  extCheckList[0].length()=0;
-	  for(i=0;i<myTreeLevels;i++){
+	  for(i=0;i<=myTreeLevels;i++){
 		  cellList[i].length()=0;
 		  particleList[i].length()=0;
 	  }
