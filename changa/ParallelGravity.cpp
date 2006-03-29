@@ -21,7 +21,7 @@ using namespace std;
 CProxy_Main mainChare;
 int verbosity;
 CProxy_TreePiece treeProxy;
-CkReduction::reducerType callbackReduction;
+//CkReduction::reducerType callbackReduction;
 bool _cache;
 int _cacheLineDepth;
 unsigned int _yieldPeriod;
