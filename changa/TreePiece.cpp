@@ -58,6 +58,7 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   unsigned int excess;
   switch (domainDecomposition) {
   case SFC_dec:
+  //case Oct_dec:
     numParticlesChunk = new unsigned int[2];
     startParticles = new unsigned int[1];
     numParticlesChunk[0] = fh.numParticles / numTreePieces;
@@ -2292,6 +2293,20 @@ void TreePiece::walkInterTreeVerII(GenericTreeNode *node) {
   if(nodeType == NonLocal || nodeType == NonLocalBucket) {
    /* DISABLED: this part of the walk is triggered directly by the CacheManager and prefetching
    */
+  } else if(nodeType==Empty){
+#ifdef CACHE_TREE 
+    if (thisProxy[node->remoteIndex].ckLocal()!=NULL) {
+#else
+    if (node->remoteIndex==thisIndex) {
+#endif
+#if COSMO_STATS > 0
+    numOpenCriterionCalls++;
+#endif
+#if COSMO_DEBUG > 1
+  	cellListLocal[level].push_back(node);
+#endif
+    }
+    else{}
   } else if((openValue=openCriterionNode(node, myNode))==0) {
 #if COSMO_STATS > 0
   numOpenCriterionCalls++;
@@ -2332,14 +2347,14 @@ void TreePiece::walkInterTreeVerII(GenericTreeNode *node) {
       checkListLocal[level].push_back(node);
     }
 	}
-  else if (nodeType == Empty) {
+  /*else if (nodeType == Empty) {
 #if COSMO_STATS > 0
     numOpenCriterionCalls++;
 #endif
 #if COSMO_DEBUG > 1
   	cellListLocal[level].push_back(node);
 #endif
-  }
+  }*/
  
   //Call myself if there are still nodes in previous level checklist
   //or my undecided list
@@ -2594,14 +2609,24 @@ void TreePiece::cachedWalkInterTreeVerII(GenericTreeNode* node) {
 
   int openValue=-2;
   
-  // Changed for CACHE TREE
+    // Changed for CACHE TREE
 #ifdef CACHE_TREE
-  if(nodeType == Bucket || nodeType == Internal || nodeType == Empty) {
+  if(nodeType == Bucket || nodeType == Internal || (nodeType == Empty && thisProxy[node->remoteIndex].ckLocal()!=NULL)) {
   }
 #else
   if(node->remoteIndex==thisIndex && (nodeType == Bucket || nodeType == Internal || nodeType == Empty)) {
   }
 #endif
+  else if(nodeType == CachedEmpty || nodeType == Empty) {
+    //Currently, Empty node is being pushed back just to match Filippos nodeBucketCalls
+    //I'll remove it later
+#if COSMO_DEBUG > 1
+    cellList[level].push_back(node);
+#endif
+#if COSMO_STATS > 0
+    numOpenCriterionCalls++;
+#endif
+  }
   else if((openValue=openCriterionNode(node, myNode))==0) {
     #if COSMO_STATS > 0
       numOpenCriterionCalls++;
@@ -2704,16 +2729,6 @@ void TreePiece::cachedWalkInterTreeVerII(GenericTreeNode* node) {
 		else{
       extCheckList[level].push_back(node);
     }
-  }
-  else if(nodeType == CachedEmpty || nodeType == Empty) {
-    //Currently, Empty node is being pushed back just to match Filippos nodeBucketCalls
-    //I'll remove it later
-#if COSMO_DEBUG > 1
-    cellList[level].push_back(node);
-#endif
-#if COSMO_STATS > 0
-    numOpenCriterionCalls++;
-#endif
   }
 
   if(myNode!=root){
