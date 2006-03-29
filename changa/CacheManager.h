@@ -350,7 +350,7 @@ private:
 	 */
 	inline GenericTreeNode *chunkRootToNode(const Tree::NodeKey k) {
 	  NodeLookupType::iterator iter = chunkRootTable.find(k);
-	  if (iter != nodeLookupTable.end()) return iter->second;
+	  if (iter != chunkRootTable.end()) return iter->second;
 	  else return NULL;
 	}
 	/** Return the root of the cache internal tree */
