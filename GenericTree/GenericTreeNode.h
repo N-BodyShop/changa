@@ -18,6 +18,7 @@
 
 #include "GravityParticle.h"
 
+
 namespace Tree {
 
   /** @brief This key is the identification of a node inside the global tree,
@@ -546,6 +547,134 @@ namespace Tree {
     Binary_ORB
   };
 
+  /** Added the weight balancer routine*/
+
+  class compare{ //Defines the comparison operator on the map used in balancer
+    public:
+      compare(){}
+    
+      bool operator()(NodeKey key1, NodeKey key2){
+
+      NodeKey tmp = NodeKey(1);
+      int len1=0, len2=0;
+      int cnt=1;
+  
+      while(tmp<=key1 || tmp<=key2){
+        tmp<<=1;
+        cnt++;
+        if(len1==0 && tmp>key1){
+          len1=cnt-1;
+        }
+        if(len2==0 && tmp>key2){
+          len2=cnt-1;
+        }
+      }
+  
+      if(len1==len2){
+        return key1<key2;
+      }
+      else if(len1>len2){
+        key1>>=(len1-len2);
+        return key1<key2;
+      }
+      else{
+        key2>>=(len2-len1);
+        return key1<key2;
+      }
+    }
+  };
+
+template <class T>
+inline bool weightBalance(NodeKey *nodeKeys, T* weights, int num){
+  //T can be signed or unsigned
+	
+  NodeKey curHeaviest;
+  std::map<NodeKey,T,compare>::iterator curLightest;
+	T lightestWt= ~T(0);
+	T tmpWt=0;
+	NodeKey parent,child1,child2;
+  int numBalances=0;
+  
+	//Need to construct a temporary copy of the input data to operate
+	//construct a map indexed by the nodekey
+  std::map<NodeKey,T,compare> curNodeWts;
+  std::map<NodeKey,T,compare>::iterator iter;
+  std::map<NodeKey,T,compare>::iterator iter2;
+	curNodeWts.clear();
+	for(int i=0;i<num;i++){
+		curNodeWts[nodeKeys[i]]=weights[i];
+	}
+
+	//loop here
+  while(1){
+    tmpWt=0;
+    lightestWt=~T(0);
+	  //find the heaviest Node
+	  for(iter=curNodeWts.begin();iter!=curNodeWts.end();iter++){
+		  if((*iter).second>tmpWt){
+			  tmpWt=(*iter).second;
+			  curHeaviest=(*iter).first;
+		  }
+	  }
+    if(tmpWt==0) //In case, no-one had weight > 0
+      break;
+    
+	  //find the lightest parent-- implemented only for a binary tree
+    iter=curNodeWts.begin();
+    iter2=curNodeWts.begin();
+    iter2++;
+	  for( ;iter2!=curNodeWts.end();iter++,iter2++){
+		  if((*iter).second==~T(0) || (*iter2).second==~T(0))//Ignore those which have been opened
+        continue;
+      if((*iter).first==curHeaviest || (*iter2).first==curHeaviest)
+        continue;
+      child1=(*iter).first;
+		  child2=(*(iter2)).first;
+		  child1 >>= 1;
+		  child2 >>= 1;
+		  if(child1==child2){
+			  tmpWt=(*iter).second+(*iter2).second;
+			  if(tmpWt<lightestWt || lightestWt==~T(0)){
+				  lightestWt=tmpWt;
+				  curLightest=iter;
+			  }
+      }
+	  }
+
+    //balance only if the heaviest is heavier than the lightest possible parent
+	  if((curNodeWts[curHeaviest] > lightestWt) && lightestWt!=~T(0)){
+		  numBalances++;
+      parent = (*curLightest).first >> 1;
+      iter2=curLightest; iter2++; iter2++;
+		  //Erase the children and add the lightest parent
+      curNodeWts.erase(curLightest,iter2);
+		  //curNodeWts[parent]=lightestWt;
+      curNodeWts.insert(std::pair<NodeKey,T>(parent,lightestWt));
+      child1=curHeaviest << 1;
+      child2=child1 | NodeKey(1);
+      //Erase the heaviest and add it's two children
+      curNodeWts.erase(curHeaviest);
+      curNodeWts[child1]=~T(0);
+      curNodeWts[child2]=~T(0);
+	  }
+	  else //We are done here
+		  break;
+  }
+  //end loop here
+
+  int i=0;
+  if(numBalances>0){
+    //construct new node key array before returning
+	  for(iter=curNodeWts.begin(),i=0;iter!=curNodeWts.end();i++,iter++){
+      nodeKeys[i]=(*iter).first;
+    }
+    CkAssert(i==num);
+    return true;
+  }
+  else { return false; }
+
+}
+
 } //close namespace Tree
 
 inline void operator|(PUP::er &p,Tree::NodeType &nt) {
@@ -569,5 +698,6 @@ inline void operator|(PUP::er &p,Tree::GenericTrees &gt) {
     p | gti;
   }
 }
+
 
 #endif //GENERICTREENODE_H
