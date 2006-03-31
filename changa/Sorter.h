@@ -38,7 +38,8 @@ class Sorter : public Chare {
 	int numIterations;
 	/// A flag telling if we're done yet.
 	bool sorted;
-	
+
+  NodeKey *nodeKeys;
 	/// The histogram of counts for the last round of splitter keys.
 	std::vector<int> binCounts;
 	/// The number of bins in the histogram.
@@ -72,8 +73,10 @@ public:
 	 The callback will receive a CkReductionMsg containing no data.
 	 */
 	void startSorting(const CkGroupID& dataManagerID, const int nChares, const double toler, const CkCallback& cb);
-	
+	void convertNodesToSplitters(int numChares, NodeKey* nodeKeys);
 	void collectEvaluations(CkReductionMsg* m);
+	void collectEvaluationsSFC(CkReductionMsg* m);
+	void collectEvaluationsOct(CkReductionMsg* m);
 };
 
 #endif //SORTER_H
