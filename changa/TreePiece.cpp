@@ -58,7 +58,7 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   unsigned int excess;
   switch (domainDecomposition) {
   case SFC_dec:
-  //case Oct_dec:
+  case Oct_dec:
     numParticlesChunk = new unsigned int[2];
     startParticles = new unsigned int[1];
     numParticlesChunk[0] = fh.numParticles / numTreePieces;
@@ -73,9 +73,6 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
       startParticles[0] += excess;
     }
     myNumParticles = numParticlesChunk[0];
-    break;
-  case Oct_dec:
-    CkAbort("Oct domain decomposition not yet implemented");
     break;
   case ORB_dec:
     CkAbort("ORB domain decomposition not yet implemented");
@@ -395,7 +392,7 @@ void TreePiece::evaluateBoundaries(const CkCallback& cb) {
 
 void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 	callback = *static_cast<CkCallback *>(m->getData());
-	
+
 	//find my responsibility
 	myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
 	//assign my bounding keys
