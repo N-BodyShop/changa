@@ -3665,6 +3665,10 @@ void TreePiece::pup(PUP::er& p) {
   //p | nodeInterRemote;
   //p | particleInterLocal;
   //p | particleInterRemote;
+  if (p.isUnpacking()) {
+    particleInterRemote = NULL;
+    nodeInterRemote = NULL;
+  }
 
   if(p.isUnpacking()){
     localCache = cacheManagerProxy.ckLocalBranch();
@@ -3722,6 +3726,7 @@ void TreePiece::pup(PUP::er& p) {
 
 void TreePiece::reconstructNodeLookup(GenericTreeNode *node) {
   nodeLookupTable[node->getKey()] = node;
+  node->particlePointer = &myParticles[node->firstParticle];
   if (node->getType() == Bucket) bucketList.push_back(node);
   GenericTreeNode *child;
   for (unsigned int i=0; i<node->numChildren(); ++i) {
