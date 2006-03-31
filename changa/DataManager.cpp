@@ -30,7 +30,27 @@ void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, 
 	copy(responsible, responsible + n - 1, responsibleIndex.begin());
 	particleCounts.resize(n - 1);
 	copy(bins, bins + n - 1, particleCounts.begin());
-	
+
+  if(verbosity >= 3 && CkMyPe()==0){
+    std::vector<int>::iterator iter;
+    CkPrintf("responsible:");
+    for(iter=responsibleIndex.begin();iter!=responsibleIndex.end();iter++){
+      CkPrintf("%d,",*iter);
+    }
+    CkPrintf("\n");
+    CkPrintf("Particle Counts:");
+    for(iter=particleCounts.begin();iter!=particleCounts.end();iter++){
+      CkPrintf("%d,",*iter);
+    }
+    CkPrintf("\n");
+    std::vector<SFC::Key>::iterator iter2;
+    CkPrintf("Keys:");
+    for(iter2=boundaryKeys.begin();iter2!=boundaryKeys.end();iter2++){
+      CkPrintf("%016llx,",*iter2);
+    }
+    CkPrintf("\n");
+  }
+
 	contribute(sizeof(CkCallback), &cb, callbackReduction,
 		   CkCallback(CkIndex_TreePiece::unshuffleParticles(0),
 			      treePieces));
