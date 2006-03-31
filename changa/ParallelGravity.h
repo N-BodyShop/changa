@@ -24,7 +24,7 @@
 using namespace Tree;
 
 enum DomainsDec {
-  SFC_dec,
+  SFC_dec=0,
   Oct_dec,
   ORB_dec
 };
