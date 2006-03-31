@@ -541,7 +541,11 @@ public:
 };
 
 void TreePiece::quiescence() {
-  /*
+  char fout[100];
+  sprintf(fout,"tree.%d.%d",thisIndex,iterationNo);
+  ofstream ofs(fout);
+  printTree(root,ofs);
+  ofs.close();
   CkPrintf("[%d] quiescence, %d left\n",thisIndex,momentRequests.size());
   for (MomentRequestType::iterator iter = momentRequests.begin(); iter != momentRequests.end(); iter++) {
     CkVec<int> *l = iter->second;
@@ -549,13 +553,14 @@ void TreePiece::quiescence() {
       CkPrintf("[%d] quiescence: %s to %d\n",thisIndex,keyBits(iter->first,63).c_str(),(*l)[i]);
     }
   }
+  /*
   CkPrintf("[%d] quiescence detected, pending %d\n",thisIndex,myNumParticlesPending);
   for (int i=0; i<numBuckets; ++i) {
     if (bucketReqs[i].numAdditionalRequests != 0)
       CkPrintf("[%d] requests for %d remaining %d\n",thisIndex,i,bucketReqs[i].numAdditionalRequests);
   }
-  */
   CkPrintf("quiescence detected!\n");
+  */
   mainChare.niceExit();
 }
 
@@ -687,9 +692,9 @@ inline bool TreePiece::nodeOwnership(const Tree::NodeKey nkey, int &firstOwner, 
   }
   firstKey &= ~mask;
   lastKey &= ~mask;
-  //lastKey -= 1;  BUGFIX: we need lastKey to be the first key in the right sibling/uncle
+  lastKey -= 1;
   Key *locLeft = lower_bound(splitters, splitters + numSplitters, firstKey);
-  Key *locRight = lower_bound(locLeft, splitters + numSplitters, lastKey);
+  Key *locRight = upper_bound(locLeft, splitters + numSplitters, lastKey);
   firstOwner = (locLeft - splitters) >> 1;
   lastOwner = (locRight - splitters - 1) >> 1;
 #if COSMO_PRINT > 1
