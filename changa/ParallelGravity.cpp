@@ -102,13 +102,15 @@ Main::Main(CkArgMsg* m) {
 	int cacheSize = 100000000;
 	prmAddParam(prm, "nCacheSize", paramInt, &cacheSize,
 		    sizeof(int),"s", "Size of cache");
-	
+	domainDecomposition=SFC_dec;
+	prmAddParam(prm, "nDomainDecompose", paramInt, &domainDecomposition,
+		    sizeof(int),"D", "Kind of domain decomposition of particles");
+  
 	if(!prmArgProc(prm,m->argc,m->argv)) {
 	    CkExit();
 	    }
 	
 	// hardcoding some parameters, later may be full options
-	domainDecomposition = SFC_dec;
 	useTree = Binary_Oct;
 
 	if (verbosity) 
@@ -137,6 +139,19 @@ Main::Main(CkArgMsg* m) {
 	    ckerr<<"particles accelerations to be printed in ASCII format..."<<endl;
 
 	  ckerr << "Verbosity level " << verbosity << endl;
+    switch(domainDecomposition){
+      case SFC_dec:
+        ckerr << "Domain decomposition...SFC" << endl;
+        break;
+      case Oct_dec:
+        ckerr << "Domain decomposition...Oct" << endl;
+        break;
+      case ORB_dec:
+        ckerr << "Domain decomposition...ORB" << endl;
+        break;
+      default:
+        CkAbort("None of the implemented decompositions specified");
+    }
 	}
 
 	cacheManagerProxy = CProxy_CacheManager::ckNew(cacheSize);
