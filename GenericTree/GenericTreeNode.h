@@ -611,7 +611,7 @@ inline bool weightBalance(NodeKey *nodeKeys, T* weights, int num){
     lightestWt=~T(0);
 	  //find the heaviest Node
 	  for(iter=curNodeWts.begin();iter!=curNodeWts.end();iter++){
-		  if((*iter).second>tmpWt){
+		  if((*iter).second>tmpWt && (*iter).second!=~T(0)){
 			  tmpWt=(*iter).second;
 			  curHeaviest=(*iter).first;
 		  }
