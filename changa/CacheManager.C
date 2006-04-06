@@ -704,6 +704,10 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
     nodeCacheTable = new map<CacheKey,NodeCacheEntry *>[numChunks];
     particleCacheTable = new map<CacheKey,ParticleCacheEntry *>[numChunks];
     chunkAck = new int[numChunks];
+  } else {
+    //for (int i=0; i<numChunks; ++i) CkPrintf("[%d] old roots %d: %s - %llu\n",CkMyPe(),i,keyBits(prefetchRoots[i],63).c_str(),chunkWeight[i]);
+    weightBalance(prefetchRoots, chunkWeight, numChunks);
+    //for (int i=0; i<numChunks; ++i) CkPrintf("[%d] new roots %d: %s\n",CkMyPe(),i,keyBits(prefetchRoots[i],63).c_str());
   }
 
   //for (int i=0; i<numChunks; ++i) printf("%d chunk %d: %s\n",CkMyPe(), i, keyBits(prefetchRoots[i],63).c_str());
@@ -743,12 +747,14 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
 }
 
 void CacheManager::markPresence(int index, GenericTreeNode *root) {
+  CkPrintf("[%d] recording presence of %d\n",CkMyPe(),index);
   prototype = root;
   registeredChares[index] = root;
   //newChunks = _numChunks;
 }
 
 void CacheManager::revokePresence(int index) {
+  CkPrintf("[%d] removing presence of %d\n",CkMyPe(),index);
   registeredChares.erase(index);
 }
 
@@ -792,7 +798,7 @@ void CacheManager::finishedChunk(int num, u_int64_t weight) {
     CkAssert(storedParticles >= 0);
 #if COSMO_STATS > 0
     if (verbosity)
-      CkPrintf(" Cache [%d]: in iteration %d chunk %d has %d nodes and %d particles, weight %llu\n",CkMyPe(),iterationNo,num,releasedNodes,releasedParticles,weight);
+      CkPrintf(" Cache [%d]: in iteration %d chunk %d has %d nodes and %d particles, weight %llu\n",CkMyPe(),iterationNo,num,releasedNodes,releasedParticles,chunkWeight[num]);
 #endif
 #ifdef COSMO_PRINT
     CkPrintf("%d After purging chunk %d left %d nodes and %d particles\n",CkMyPe(),num,storedNodes,storedParticles);
