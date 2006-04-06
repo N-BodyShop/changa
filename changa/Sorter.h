@@ -41,7 +41,7 @@ class Sorter : public Chare {
 
   NodeKey *nodeKeys;
 	/// The histogram of counts for the last round of splitter keys.
-	std::vector<int> binCounts;
+	std::vector<unsigned int> binCounts;
 	/// The number of bins in the histogram.
 	int numCounts;
 	/// The keys I've decided on that divide the objects evenly (within the tolerance).
