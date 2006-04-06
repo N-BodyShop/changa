@@ -51,7 +51,7 @@ mainmodule ParallelGravity {
 					       const CkCallback& cb);
 		entry void acceptFinalKeys(const SFC::Key keys[n],
 					   const int responsible[n - 1],
-					   const int bins[n - 1], const int n,
+					   unsigned int bins[n - 1], const int n,
 					   const CkCallback& cb);
 	};
 	array [1D] TreePiece {
