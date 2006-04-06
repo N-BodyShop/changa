@@ -23,7 +23,7 @@ void DataManager::acceptCandidateKeys(const SFC::Key* keys, const int n, const C
 		treePieces[*iter].evaluateBoundaries(cb);
 }
 
-void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, const int* bins, const int n, const CkCallback& cb) {
+void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb) {
 	boundaryKeys.resize(n);
 	copy(keys, keys + n, boundaryKeys.begin());
 	responsibleIndex.resize(n - 1);
