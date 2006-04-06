@@ -553,7 +553,7 @@ namespace Tree {
     public:
       compare(){}
     
-      bool operator()(NodeKey key1, NodeKey key2){
+      bool operator()(NodeKey key1, NodeKey key2) const {
 
       NodeKey tmp = NodeKey(1);
       int len1=0, len2=0;
