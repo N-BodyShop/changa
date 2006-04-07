@@ -1960,14 +1960,29 @@ void TreePiece::startIteration(double t, int n, Tree::NodeKey *k, const CkCallba
   for (int i=0; i<numChunks; ++i) remainingChunk[i] = myNumParticles;
 
   BucketGravityRequest req0(1);
-  req0.positions[0] = myParticles[1].position;
-  req0.boundingBox.grow(myParticles[1].position);
-  prefetchReq[0] = req0;
   BucketGravityRequest req1(1);
-  req1.positions[0] = myParticles[myNumParticles].position;
-  req1.boundingBox.grow(myParticles[myNumParticles].position);
-  prefetchReq[1] = req1;
-
+  switch(domainDecomposition){
+    case Oct_dec:
+      //Prefetch Roots for Oct
+      req0.positions[0] = myParticles[1].position;
+      for(int i=1;i<myNumParticles;i++)
+        req0.boundingBox.grow(myParticles[i].position);
+      prefetchReq[0] = req0;
+      req1.positions[0] = myParticles[myNumParticles].position;
+      req1.boundingBox.grow(myParticles[myNumParticles].position);
+      prefetchReq[1] = req1;
+      break;
+    default:
+      //Prefetch Roots for SFC
+      req0.positions[0] = myParticles[1].position;
+      req0.boundingBox.grow(myParticles[1].position);
+      prefetchReq[0] = req0;
+      req1.positions[0] = myParticles[myNumParticles].position;
+      req1.boundingBox.grow(myParticles[myNumParticles].position);
+      prefetchReq[1] = req1;
+      break;
+  }
+  
   prefetchWaiting = 1;
   currentPrefetch = 0;
   int first, last;
