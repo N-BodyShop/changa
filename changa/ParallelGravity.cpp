@@ -34,8 +34,7 @@ int _numChunks;
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
 
-void _Leader(void)
-{
+void _Leader(void) {
     puts("USAGE: ParallelGravity [SETTINGS | FLAGS] [SIM_FILE]");
     puts("SIM_FILE: Configuration file of a particular simulation, which");
     puts("          includes desired settings and relevant input and");
@@ -45,13 +44,12 @@ void _Leader(void)
     puts("or FLAGS: Command line settings or flags for a simulation which");
     puts("          will override any defaults and any settings or flags");
     puts("          specified in the SIM_FILE.");
-	}
+}
 
 
-void _Trailer(void)
-{
+void _Trailer(void) {
 	puts("(see man page (Ha!) for more information)");
-	}
+}
 
 Main::Main(CkArgMsg* m) {
 	_cache = true;
@@ -169,6 +167,9 @@ Main::Main(CkArgMsg* m) {
 
 	streamingProxy = pieces;
 
+	//create the Sorter
+	sorter = CProxy_Sorter::ckNew();
+
 	//StreamingStrategy* strategy = new StreamingStrategy(10,50);
 	//ComlibAssociateProxy(strategy, streamingProxy);
 
@@ -193,39 +194,37 @@ void Main::nextStage() {
 	//CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),pieces));
 
 	pieces.registerWithDataManager(dataManager, CkCallbackResumeThread());
+
+	/******** Particles Loading ********/
 	ckerr << "Loading particles ...";
 	startTime = CkWallTimer();
 	pieces.load(basefilename, CkCallbackResumeThread());
 	if(!(pieces[0].ckLocal()->bLoaded)) {
 	    // Try loading Tipsy format
-	    ckerr << "Trying Tipsy" << endl;
+	    ckerr << " trying Tipsy ..." << endl;
 	    
 	    Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
 	    if(!ptf.loadedSuccessfully()) {
-		ckerr << "Couldn't load the tipsy file \""
-		      << basefilename.c_str()
-		      << "\". Maybe it's not a tipsy file?" << endl;
-		CkExit();
-		return;
-		}
-	    pieces.loadTipsy(basefilename, CkCallbackResumeThread());
+	      ckerr << endl << "Couldn't load the tipsy file \""
+		    << basefilename.c_str()
+		    << "\". Maybe it's not a tipsy file?" << endl;
+	      CkExit();
+	      return;
 	    }
-	
+	    pieces.loadTipsy(basefilename, CkCallbackResumeThread());
+	}	
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 
 	if(prmSpecified(prm,"dSoftening")) {
 	    ckerr << "Set Softening...\n";
 	    pieces.setSoft(param.dSoft);
-	    }
+	}
 	
-	ckerr << "Domain decomposition ...";
-	startTime = CkWallTimer();
-	sorter = CProxy_Sorter::ckNew();
+	/*
 	sorter.startSorting(dataManager, numTreePieces, tolerance,
 			    CkCallbackResumeThread());
-	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
-	      << endl;
+
 	ckerr << "Building trees ...";
 	startTime = CkWallTimer();
 	pieces.buildTree(bucketSize, CkCallbackResumeThread());
@@ -240,56 +239,67 @@ void Main::nextStage() {
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 	calcEnergy();
-	for(int i =0; i<param.nSteps-1; i++){
-	  if(param.dTimeStep > 0.0) {
-	      pieces.kick(0.5*param.dTimeStep, CkCallbackResumeThread());
-	      pieces.drift(param.dTimeStep, CkCallbackResumeThread());
-	      sorter.startSorting(dataManager, numTreePieces, tolerance,
-				  CkCallbackResumeThread());
-	      ckerr << "Building trees ...";
-	      pieces.buildTree(bucketSize, CkCallbackResumeThread());
-	      }
-	  
+	*/
+
+	for(int i=0; i<param.nSteps; i++){
+	  if (i > 0) {
+	    /********* Load balancer ********/
+	    ckerr << "Load balancer ...";
+	    startTime = CkWallTimer();
+	    pieces.startlb(CkCallbackResumeThread());
+	    ckerr<< " took "<<(CkWallTimer() - startTime)
+		 << " seconds." << endl;
+	  }
+
+	  /******** Resorting of particles and Domain Decomposition ********/
+	  ckerr << "Domain decomposition ...";
 	  startTime = CkWallTimer();
-	  pieces.startlb(CkCallbackResumeThread());
-	  ckerr<< "Load Balancing step took "<<(CkWallTimer() - startTime)
-	       << " seconds." << endl;
-	  
-#if COSMO_STATS > 0
-	  ckerr << "Total statistics iteration " << i << ":" << endl;
-	  CkCallback cb(CkCallback::resumeThread);
-	  pieces.collectStatistics(cb);
-	  CkReductionMsg *tps = (CkReductionMsg *) cb.thread_delay();
-	  ((TreePieceStatistics*)tps->getData())->printTo(ckerr);
+	  sorter.startSorting(dataManager, numTreePieces, tolerance,
+			      CkCallbackResumeThread());
+	  ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+		<< endl;
 
-	  /*
-	  totaldata->setcallback(cb);
-	  pieces[0].getPieceValues(totaldata);
-	  totaldata = (piecedata *) cb.thread_delay();
-	  ckerr << "Total statistics iteration " << i << ":\n Number of MAC checks: " << totaldata->MACChecks << endl;
-	  ckerr << " Number of particle-cell interactions: " << totaldata->CellInteractions << endl;
-	  ckerr << " Number of particle-particle interactions: " << totaldata->ParticleInteractions << endl;
-	  ckerr << " Total mass of the tree : " << totaldata->totalmass << endl;
-	  totaldata->reset();
-	  */
+	  /******** Tree Build *******/
+	  ckerr << "Building trees ...";
+	  startTime = CkWallTimer();
+	  pieces.buildTree(bucketSize, CkCallbackResumeThread());
+	  ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 
-	  // Cache Statistics
-	  CkCallback ccb(CkCallback::resumeThread);
-	  cacheManagerProxy.collectStatistics(ccb);
-	  CkReductionMsg *cs = (CkReductionMsg *) ccb.thread_delay();
-	  ((CacheStatistics*)cs->getData())->printTo(ckerr);
-#endif
-	    // the cached walk
+	  /******** Force Computation ********/
 	  ckerr << "Calculating gravity (tree bucket, theta = " << theta << ") ...";
 	  startTime = CkWallTimer();
 	  //pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
 	  cacheManagerProxy.cacheSync(theta, CkCallbackResumeThread());
 	  ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
+
+#if COSMO_STATS > 0
+	  /********* TreePiece Statistics ********/
+	  ckerr << "Total statistics iteration " << i << ":" << endl;
+	  CkCallback cb(CkCallback::resumeThread);
+	  pieces.collectStatistics(cb);
+	  CkReductionMsg *tps = (CkReductionMsg *) cb.thread_delay();
+	  ((TreePieceStatistics*)tps->getData())->printTo(ckerr);
+
+	  /********* Cache Statistics ********/
+	  CkCallback ccb(CkCallback::resumeThread);
+	  cacheManagerProxy.collectStatistics(ccb);
+	  CkReductionMsg *cs = (CkReductionMsg *) ccb.thread_delay();
+	  ((CacheStatistics*)cs->getData())->printTo(ckerr);
+#endif
+
+	  /******** Update of Particle Positions and Energy Estimation *******/
 	  if(param.dTimeStep > 0.0)
 	      pieces.kick(0.5*param.dTimeStep, CkCallbackResumeThread());
 	  calcEnergy();
-	}
+	  if(param.dTimeStep > 0.0) {
+	      pieces.kick(0.5*param.dTimeStep, CkCallbackResumeThread());
+	      pieces.drift(param.dTimeStep, CkCallbackResumeThread());
+	  }
+	  
+	} // End of main computation loop
+
+	/******** Shutdown process ********/
 
 	if(param.nSteps == 0) {
 	    ckerr << "Outputting accelerations ...";
@@ -329,8 +339,7 @@ void Main::nextStage() {
 	CkExit();
 }
 
-void Main::calcEnergy() 
-{
+void Main::calcEnergy() {
     CkCallback ccb(CkCallback::resumeThread);
     pieces.calcEnergy(ccb);
     CkReductionMsg *msg = (CkReductionMsg *) ccb.thread_delay();
@@ -339,7 +348,7 @@ void Main::calcEnergy()
 	     dEnergy[0]+dEnergy[2], dEnergy[0],
 	     dEnergy[1], dEnergy[2], dEnergy[3], dEnergy[4], dEnergy[5]);
     delete msg;
-    }
+}
 
 void registerStatistics() {
 #if COSMO_STATS > 0
