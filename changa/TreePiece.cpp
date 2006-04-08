@@ -1965,7 +1965,7 @@ void TreePiece::startIteration(double t, int n, Tree::NodeKey *k, const CkCallba
     case Oct_dec:
       //Prefetch Roots for Oct
       req0.positions[0] = myParticles[1].position;
-      for(int i=1;i<myNumParticles;i++)
+      for(int i=1;i<=myNumParticles;i++)
         req0.boundingBox.grow(myParticles[i].position);
       prefetchReq[0] = req0;
       req1.positions[0] = myParticles[myNumParticles].position;
