@@ -77,19 +77,21 @@ class TreePieceStatistics {
   u_int64_t nodeInterRemote;
   u_int64_t particleInterLocal;
   u_int64_t particleInterRemote;
-
-  TreePieceStatistics() : nodesOpenedLocal(0), nodesOpenedRemote(0), nodeInterLocal(0),
-    nodeInterRemote(0), particleInterLocal(0), particleInterRemote(0) { }
+  u_int64_t openCriterionCalls;
+  
+  TreePieceStatistics() : nodesOpenedLocal(0), nodesOpenedRemote(0), openCriterionCalls(0),
+  nodeInterLocal(0), nodeInterRemote(0), particleInterLocal(0), particleInterRemote(0) { }
 
  public:
-  TreePieceStatistics(u_int64_t nol, u_int64_t nor, u_int64_t nil, u_int64_t nir,
+  TreePieceStatistics(u_int64_t nol, u_int64_t nor, u_int64_t occ, u_int64_t nil, u_int64_t nir,
 		      u_int64_t pil, u_int64_t pir) :
-    nodesOpenedLocal(nol), nodesOpenedRemote(nor), nodeInterLocal(nil),
+    nodesOpenedLocal(nol), nodesOpenedRemote(nor), openCriterionCalls(occ), nodeInterLocal(nil),
     nodeInterRemote(nir), particleInterLocal(pil), particleInterRemote(pir) { }
 
   void printTo(CkOStream &os) {
     os << "  TreePiece: " << nodesOpenedLocal << " local nodes opened, ";
     os << nodesOpenedRemote << " remote" << endl;
+    os << "  TreePiece: " << openCriterionCalls << " num of open criterion calls" << endl;
     os << "  TreePiece: " << nodeInterLocal << " local particle-node interactions, ";
     os << nodeInterRemote << " remote" << endl;
     os << "  TreePiece: " << particleInterLocal << " local particle-particle interactions, ";
@@ -105,6 +107,7 @@ class TreePieceStatistics {
       TreePieceStatistics *data = (TreePieceStatistics *)msgs[i]->getData();
       ret.nodesOpenedLocal += data->nodesOpenedLocal;
       ret.nodesOpenedRemote += data->nodesOpenedRemote;
+      ret.openCriterionCalls += data->openCriterionCalls;
       ret.nodeInterLocal += data->nodeInterLocal;
       ret.nodeInterRemote += data->nodeInterRemote;
       ret.particleInterLocal += data->particleInterLocal;
