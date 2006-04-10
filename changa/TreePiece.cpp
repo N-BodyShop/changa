@@ -4032,8 +4032,8 @@ void TreePiece::collectStatistics(CkCallback& cb) {
     nodeInterRemoteTotal += nodeInterRemote[i];
     particleInterRemoteTotal += particleInterRemote[i];
   }
-  TreePieceStatistics tps(nodesOpenedLocal, nodesOpenedRemote, nodeInterLocal,
-			  nodeInterRemoteTotal, particleInterLocal, particleInterRemoteTotal);
+  TreePieceStatistics tps(nodesOpenedLocal, nodesOpenedRemote, numOpenCriterionCalls,
+      nodeInterLocal, nodeInterRemoteTotal, particleInterLocal, particleInterRemoteTotal);
   contribute(sizeof(TreePieceStatistics), &tps, TreePieceStatistics::sum, cb);
 #else
   CkAbort("Invalid call, only valid if COSMO_STATS is defined");
