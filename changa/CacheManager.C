@@ -747,7 +747,8 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
 }
 
 void CacheManager::markPresence(int index, GenericTreeNode *root) {
-  CkPrintf("[%d] recording presence of %d\n",CkMyPe(),index);
+  if(verbosity>1)
+    CkPrintf("[%d] recording presence of %d\n",CkMyPe(),index);
   prototype = root;
   registeredChares[index] = root;
   //newChunks = _numChunks;
@@ -797,7 +798,7 @@ void CacheManager::finishedChunk(int num, u_int64_t weight) {
     CkAssert(storedNodes >= 0);
     CkAssert(storedParticles >= 0);
 #if COSMO_STATS > 0
-    if (verbosity)
+    if (verbosity>1)
       CkPrintf(" Cache [%d]: in iteration %d chunk %d has %d nodes and %d particles, weight %llu\n",CkMyPe(),iterationNo,num,releasedNodes,releasedParticles,chunkWeight[num]);
 #endif
 #ifdef COSMO_PRINT
