@@ -241,7 +241,7 @@ void Main::nextStage() {
 	calcEnergy();
 	*/
 
-	for(int i=0; i<param.nSteps; i++){
+	for(int i=0; i<=param.nSteps; i++){
 	  /******** Resorting of particles and Domain Decomposition ********/
 	  ckerr << "Domain decomposition ...";
 	  startTime = CkWallTimer();
@@ -289,10 +289,10 @@ void Main::nextStage() {
 #endif
 
 	  /******** Update of Particle Positions and Energy Estimation *******/
-	  if(param.dTimeStep > 0.0)
+	  if(param.dTimeStep > 0.0 && i > 0)
 	      pieces.kick(0.5*param.dTimeStep, CkCallbackResumeThread());
 	  calcEnergy();
-	  if(param.dTimeStep > 0.0) {
+	  if(param.dTimeStep > 0.0 && i < param.nSteps) {
 	      pieces.kick(0.5*param.dTimeStep, CkCallbackResumeThread());
 	      pieces.drift(param.dTimeStep, CkCallbackResumeThread());
 	  }
