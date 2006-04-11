@@ -1911,7 +1911,7 @@ void TreePiece::walkBucketRemoteTree(GenericTreeNode *node, int chunk, BucketGra
 void TreePiece::startIteration(double t, int n, Tree::NodeKey *k, const CkCallback& cb) {
   callback = cb;
   theta = t;
-  if (n != numChunks) {
+  if (n != numChunks && remainingChunk != NULL) {
     // reallocate remaining chunk to the new size
     delete[] remainingChunk;
     remainingChunk = NULL;

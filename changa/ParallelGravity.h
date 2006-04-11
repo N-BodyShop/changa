@@ -472,9 +472,7 @@ public:
 	  nodesOpenedLocal = 0;
 	  nodesOpenedRemote = 0;
 	  nodeInterLocal = 0;
-	  nodeInterRemote = 0;
 	  particleInterLocal = 0;
-	  particleInterRemote = 0;
 
     numOpenCriterionCalls=0;
     
@@ -483,6 +481,8 @@ public:
 				   packed format */
     cnt=0;			/* Counter over x,y,z when not packed */
 #endif
+    particleInterRemote = NULL;
+    nodeInterRemote = NULL;
 
 #if INTERLIST_VER > 0
     myTreeLevels=-1;
