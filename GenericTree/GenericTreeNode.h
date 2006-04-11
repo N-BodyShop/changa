@@ -152,11 +152,11 @@ namespace Tree {
     virtual void pup(PUP::er &p) {
       int iType;
       if(p.isUnpacking()) {
-	p | iType;
-	myType = (NodeType) iType;
+        p | iType;
+  	    myType = (NodeType) iType;
       } else {
-	iType = (int) myType;
-	p | iType;
+        iType = (int) myType;
+        p | iType;
       }
       p | key;
       p | moments;
@@ -165,6 +165,12 @@ namespace Tree {
       p | lastParticle;
       p | remoteIndex;
       p | particleCount;
+#if INTERLIST_VER > 0
+      p | bucketListIndex;
+      p | startBucket;
+      p | visitedR;
+      p | visitedL;
+#endif
     }
   };
   
@@ -589,7 +595,7 @@ inline bool weightBalance(NodeKey *nodeKeys, T* weights, int num){
   //T can be signed or unsigned
 	
   NodeKey curHeaviest;
-  std::map<NodeKey,T,compare>::iterator curLightest;
+  typename std::map<NodeKey,T,compare>::iterator curLightest;
 	T lightestWt= ~T(0);
 	T tmpWt=0;
 	NodeKey parent,child1,child2;
@@ -598,8 +604,8 @@ inline bool weightBalance(NodeKey *nodeKeys, T* weights, int num){
 	//Need to construct a temporary copy of the input data to operate
 	//construct a map indexed by the nodekey
   std::map<NodeKey,T,compare> curNodeWts;
-  std::map<NodeKey,T,compare>::iterator iter;
-  std::map<NodeKey,T,compare>::iterator iter2;
+  typename std::map<NodeKey,T,compare>::iterator iter;
+  typename std::map<NodeKey,T,compare>::iterator iter2;
 	curNodeWts.clear();
 	for(int i=0;i<num;i++){
 		curNodeWts[nodeKeys[i]]=weights[i];
