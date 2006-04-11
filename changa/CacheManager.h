@@ -384,6 +384,9 @@ private:
 	/// Collect the statistics for the latest iteration
 	void collectStatistics(CkCallback& cb);
 
+	map<int,GenericTreeNode*> *getRegisteredChares() {
+	  return &registeredChares;
+	}
 };
 
 extern CProxy_CacheManager cacheManagerProxy;

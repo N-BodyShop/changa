@@ -463,6 +463,7 @@ public:
 	    localCache = cacheManagerProxy.ckLocalBranch();
 	    }*/
 	  localCache = NULL;
+	  dm = NULL;
 	  iterationNo=0;
 	  usesAtSync=CmiTrue;
 	  bucketReqs=NULL;
@@ -518,8 +519,10 @@ public:
 	  delete[] particleInterRemote;
 	  delete[] bucketReqs;
 	  // recursively delete the entire tree
-	  root->fullyDelete();
-	  delete root;
+	  if (root != NULL) {
+	    root->fullyDelete();
+	    delete root;
+	  }
 	}
 	
 	// Load from mass and position files

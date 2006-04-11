@@ -229,6 +229,8 @@ public:
 		p | velocity;
 		p | mass;
 		p | soft;
+		p | key;
+		p | iOrder;
 		}
 	
 };

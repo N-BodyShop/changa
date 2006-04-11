@@ -10,6 +10,7 @@
 #include <vector>
 #include <map>
 #include <string>
+#include "CacheManager.h"
 
 /** The DataManager is used to store information that all TreePieces will need,
  but will not modify.  The first example is the list of splitter keys and the
@@ -17,15 +18,18 @@
  the Sorter.  The DataManager then instructs all the TreePieces on its node
  to evaluate the boundary keys.
  */
-class DataManager : public NodeGroup {
+class DataManager : public CBase_DataManager {
 	friend class TreePiece;
 	/// The array of TreePieces I hold data for.
 	CProxy_TreePiece treePieces;
+	/// A pointer to the CacheManager in the local processor
+	CacheManager *localCache;
 
 protected:
 	
-	/// An array telling me which TreePieces are actually on my node.
-	std::vector<int> myTreePieces;
+	// An array telling me which TreePieces are actually on my node.
+	// USE THE INFO IN THE CACHEMANAGER WHICH IS KEPT UPDATED
+	//std::vector<int> myTreePieces;
 	
 	/// The array of splitter keys for the sort.
 	std::vector<SFC::Key> boundaryKeys;

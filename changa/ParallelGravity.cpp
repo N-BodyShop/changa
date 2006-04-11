@@ -193,7 +193,7 @@ void Main::nextStage() {
 	// DEBUGGING
 	//CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),pieces));
 
-	pieces.registerWithDataManager(dataManager, CkCallbackResumeThread());
+	//pieces.registerWithDataManager(dataManager, CkCallbackResumeThread());
 
 	/******** Particles Loading ********/
 	ckerr << "Loading particles ...";
@@ -242,6 +242,14 @@ void Main::nextStage() {
 	*/
 
 	for(int i=0; i<param.nSteps; i++){
+	  /******** Resorting of particles and Domain Decomposition ********/
+	  ckerr << "Domain decomposition ...";
+	  startTime = CkWallTimer();
+	  sorter.startSorting(dataManager, numTreePieces, tolerance,
+			      CkCallbackResumeThread());
+	  ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+		<< endl;
+
 	  if (i > 0) {
 	    /********* Load balancer ********/
 	    ckerr << "Load balancer ...";
@@ -250,14 +258,6 @@ void Main::nextStage() {
 	    ckerr<< " took "<<(CkWallTimer() - startTime)
 		 << " seconds." << endl;
 	  }
-
-	  /******** Resorting of particles and Domain Decomposition ********/
-	  ckerr << "Domain decomposition ...";
-	  startTime = CkWallTimer();
-	  sorter.startSorting(dataManager, numTreePieces, tolerance,
-			      CkCallbackResumeThread());
-	  ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
-		<< endl;
 
 	  /******** Tree Build *******/
 	  ckerr << "Building trees ...";

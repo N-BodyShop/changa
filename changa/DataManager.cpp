@@ -13,14 +13,19 @@ using std::map;
 
 DataManager::DataManager(const CkArrayID& treePieceID) {
 	treePieces = CProxy_TreePiece(treePieceID);
+	localCache = NULL;
 	//interp = 0;
 }
 void DataManager::acceptCandidateKeys(const SFC::Key* keys, const int n, const CkCallback& cb) {
+  if (localCache == NULL) {
+    localCache = cacheManagerProxy.ckLocalBranch();
+  }
 	boundaryKeys.resize(n);
 	copy(keys, keys + n, boundaryKeys.begin());
 	//tell the TreePieces on this node to evaluate the splitter keys
-	for(vector<int>::iterator iter = myTreePieces.begin(); iter != myTreePieces.end(); ++iter)
-		treePieces[*iter].evaluateBoundaries(cb);
+	map<int,GenericTreeNode*> *myTreePieces = localCache->getRegisteredChares();
+	for(map<int,GenericTreeNode*>::iterator iter = myTreePieces->begin(); iter != myTreePieces->end(); ++iter)
+		treePieces[iter->first].evaluateBoundaries(cb);
 }
 
 void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb) {

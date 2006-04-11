@@ -28,6 +28,12 @@ int TreeStuff::maxBucketSize;
 string getColor(GenericTreeNode*);
 
 void TreePiece::load(const std::string& fn, const CkCallback& cb) {
+  // mark presence in the cache if we are in the first iteration (indicated by localCache==NULL)
+  if (_cache && localCache==NULL) {
+    localCache = cacheManagerProxy.ckLocalBranch();
+    localCache->markPresence(thisIndex, root);
+  }
+
   basefilename = fn;
   bLoaded = 0;
 
@@ -343,6 +349,7 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 		cout << thisIndex << ": TreePiece: Assigned keys to all my particles" << endl;
 }
 
+/*
 void TreePiece::registerWithDataManager(const CkGroupID& dataManagerID, const CkCallback& cb) {
 	dataManager = CProxy_DataManager(dataManagerID);
 	dm = dataManager.ckLocalBranch();
@@ -356,10 +363,14 @@ void TreePiece::registerWithDataManager(const CkGroupID& dataManagerID, const Ck
 
 	contribute(0, 0, CkReduction::concat, cb);
 }
+*/
 
 /// Determine my part of the sorting histograms by counting the number
 /// of my particles in each bin
 void TreePiece::evaluateBoundaries(const CkCallback& cb) {
+  if (dm == NULL) {
+    dm = (CProxy_DataManager(dataManagerID)).ckLocalBranch();
+  }
 	int numBins = dm->boundaryKeys.size() - 1;
 	//this array will contain the number of particles I own in each bin
 	myBinCounts.assign(numBins, 0);
@@ -448,13 +459,18 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles, const in
 	    copy(mySortedParticles.begin(), mySortedParticles.end(),
 		 &myParticles[1]);
 	    //signify completion with a reduction
+	    ckout << thisIndex <<" contributing to accept particles"<<endl;
+	    if (root != NULL) {
+	      root->fullyDelete();
+	      delete root;
+	      root = NULL;
+	    }
 	    contribute(0, 0, CkReduction::concat, callback);
         }
 }
 
 // Sum energies for diagnostics
-void TreePiece::calcEnergy(const CkCallback& cb)
-{
+void TreePiece::calcEnergy(const CkCallback& cb) {
     double dEnergy[6]; // 0 -> kinetic; 1 -> virial ; 2 -> potential
     Vector3D<double> L;
         
@@ -476,30 +492,34 @@ void TreePiece::calcEnergy(const CkCallback& cb)
     dEnergy[5] = L.z;
     
     contribute(6*sizeof(double), dEnergy, CkReduction::sum_double, cb);
-    }
+}
 
-void TreePiece::kick(double dDelta, const CkCallback& cb)
-{
+void TreePiece::kick(double dDelta, const CkCallback& cb) {
     for(unsigned int i = 0; i < myNumParticles; ++i)
 	myParticles[i+1].velocity += dDelta*myParticles[i+1].treeAcceleration;
     
     contribute(0, 0, CkReduction::concat, cb);
-    }
+}
 
-void TreePiece::drift(double dDelta, const CkCallback& cb)
-{
+void TreePiece::drift(double dDelta, const CkCallback& cb) {
+  if (root != NULL) {
+    // Delete the tree since is no longer useful
+    root->fullyDelete();
+    delete root;
+    root = NULL;
+  }
+
     for(unsigned int i = 0; i < myNumParticles; ++i)
 	myParticles[i+1].position += dDelta*myParticles[i+1].velocity;
     
     contribute(0, 0, CkReduction::concat, cb);
-    }
+}
 
-void TreePiece::setSoft(const double dSoft)
-{
+void TreePiece::setSoft(const double dSoft) {
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
       myParticles[i].soft = dSoft;
-      }
-    }
+  }
+}
 
 void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
   maxBucketSize = bucketSize;
@@ -623,7 +643,10 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   //nodeLookup[root->lookupKey()] = root;
   numBuckets = 0;
   bucketList.clear();
-	
+  
+  // Fix the root presence in the cache
+  localCache->markPresence(thisIndex, root);
+
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Starting tree build" << endl;
 
@@ -634,12 +657,6 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   remainingChunk = new int[numChunks];
   root->getChunks(_numChunks, prefetchRoots;
   */
-
-  // mark presence in the cache if we are in the first iteration (indicated by localCache==NULL)
-  if (_cache && localCache==NULL) {
-    localCache = cacheManagerProxy.ckLocalBranch();
-    localCache->markPresence(thisIndex, root);
-  }
 
 #if INTERLIST_VER > 0
   root->startBucket=0;
@@ -1982,7 +1999,7 @@ void TreePiece::startIteration(double t, int n, Tree::NodeKey *k, const CkCallba
       prefetchReq[1] = req1;
       break;
   }
-  
+
   prefetchWaiting = 1;
   currentPrefetch = 0;
   int first, last;
@@ -3617,7 +3634,6 @@ void TreePiece::outputRelativeErrors(Interval<double> errorInterval, const CkCal
 
 /// @TODO Fix pup routine to handle correctly the tree
 void TreePiece::pup(PUP::er& p) {
-  ckout << "TreePiece " << thisIndex << ": Getting PUP'd!" << endl;
   CBase_TreePiece::pup(p);
   p | numTreePieces;
   p | callback;
@@ -3652,11 +3668,6 @@ void TreePiece::pup(PUP::er& p) {
     }
   }
 
-  p | (*root);
-  //if(p.isUnpacking()){
-  //  nodeLookupTable[root->getKey()]=root;
-  //}
-
   p | theta;
   //p | myNumParticlesPending;
   p | prefetchWaiting;
@@ -3684,6 +3695,7 @@ void TreePiece::pup(PUP::er& p) {
 
   if(p.isUnpacking()){
     localCache = cacheManagerProxy.ckLocalBranch();
+    dm = NULL;
 
     // reconstruct the data for prefetching
     /* OLD, moved to the cache and startIteration
@@ -3691,10 +3703,25 @@ void TreePiece::pup(PUP::er& p) {
     remainingChunk = new int[numChunks];
     root->getChunks(_numChunks, prefetchRoots);
     */
-
-    // reconstruct the nodeLookupTable and the bucketList
-    reconstructNodeLookup(root);
   }
+
+  int notNull = (root==NULL)?0:1;
+  p | notNull;
+  if (notNull == 1) {
+    ckout <<thisIndex<<" pupping tree"<<endl;
+    p | (*root);
+    if(p.isUnpacking()){
+      //  nodeLookupTable[root->getKey()]=root;
+      //}
+
+      // reconstruct the nodeLookupTable and the bucketList
+      reconstructNodeLookup(root);
+    }
+  }
+
+  ckout << "TreePiece " << thisIndex << ": Getting PUP'd!";
+  if (p.isSizing()) ckout << " size: " << ((PUP::sizer*)&p)->size();
+  ckout << endl;
 
   /*
   if(!(p.isUnpacking())) {

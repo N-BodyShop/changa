@@ -43,7 +43,7 @@ mainmodule ParallelGravity {
 		entry void collectEvaluations(CkReductionMsg* m);
 	};
 	
-	nodegroup DataManager {
+	group DataManager {
 		entry DataManager(const CkArrayID& treePieceID);
 		
 		entry void acceptCandidateKeys(const SFC::Key keys[n],
@@ -63,8 +63,8 @@ mainmodule ParallelGravity {
 		entry void report(const CkCallback& cb);
 		
 		entry void nextBucket(dummyMsg *m);	
-		entry void registerWithDataManager(const CkGroupID& dataManagerID,
-				     		  const CkCallback& cb);
+		//entry void registerWithDataManager(const CkGroupID& dataManagerID,
+		//		     		  const CkCallback& cb);
 		entry void load(const std::string& fn, const CkCallback& cb);
 		entry void loadTipsy(const std::string& filename,
 				     const CkCallback& cb);
