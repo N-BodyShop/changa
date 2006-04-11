@@ -459,7 +459,8 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles, const in
 	    copy(mySortedParticles.begin(), mySortedParticles.end(),
 		 &myParticles[1]);
 	    //signify completion with a reduction
-	    ckout << thisIndex <<" contributing to accept particles"<<endl;
+	    if(verbosity>1)
+        ckout << thisIndex <<" contributing to accept particles"<<endl;
 	    if (root != NULL) {
 	      root->fullyDelete();
 	      delete root;
@@ -525,6 +526,9 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
   maxBucketSize = bucketSize;
   callback = cb;
 
+#if INTERLIST_VER > 0
+  myTreeLevels=-1;
+#endif
   //printing all particles
   //CkPrintf("\n\n\nbuilding tree\n\n\n\n");
   //for(int i=0;i<myNumParticles+2;i++)
@@ -1907,6 +1911,7 @@ void TreePiece::walkBucketRemoteTree(GenericTreeNode *node, int chunk, BucketGra
 void TreePiece::startIteration(double t, int n, Tree::NodeKey *k, const CkCallback& cb) {
   callback = cb;
   theta = t;
+  CkPrintf("n:%d,numChunks:%d\n",n,numChunks);
   if (n != numChunks) {
     // reallocate remaining chunk to the new size
     delete[] remainingChunk;
@@ -1928,6 +1933,7 @@ void TreePiece::startIteration(double t, int n, Tree::NodeKey *k, const CkCallba
   //cachecellcount=0;
   nodesOpenedLocal = 0;
   nodesOpenedRemote = 0;
+  numOpenCriterionCalls=0;
 #endif
   nodeInterLocal = 0;
   for (int i=0; i<numChunks; ++i) {
@@ -1946,6 +1952,15 @@ void TreePiece::startIteration(double t, int n, Tree::NodeKey *k, const CkCallba
   currentRemoteBucket = 0;
   myNumParticlesPending = myNumParticles;
   started = true;
+
+#if INTERLIST_VER > 0
+    myCheckListEmpty=false;
+    curLevelLocal=0;
+    curNodeLocal=NULL;
+    curLevelRemote=0;
+    curNodeRemote=NULL;
+    nChunk=-1;
+#endif
 
   initBuckets();
 
@@ -3681,6 +3696,7 @@ void TreePiece::pup(PUP::er& p) {
   p | myNumMACChecks;
   p | nodesOpenedLocal;
   p | nodesOpenedRemote;
+  p | numOpenCriterionCalls;
   p | piecemass;
 #endif
   // the counters do not need to be pupped!
