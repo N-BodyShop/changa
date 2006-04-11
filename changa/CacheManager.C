@@ -755,6 +755,7 @@ void CacheManager::markPresence(int index, GenericTreeNode *root) {
 }
 
 void CacheManager::revokePresence(int index) {
+  if(verbosity>1)
   CkPrintf("[%d] removing presence of %d\n",CkMyPe(),index);
   registeredChares.erase(index);
 }
