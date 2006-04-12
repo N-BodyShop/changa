@@ -372,12 +372,7 @@ namespace Tree {
       }*/
 
     // implemented in the .C
-    GenericTreeNode *clone() const;/* {
-      //BinaryTreeNode *tmp = new BinaryTreeNode();
-      //*tmp = *this;
-      //return tmp;
-      return new BinaryTreeNode(*this);
-      }*/
+    GenericTreeNode *clone() const;
 
     /*
     int getNumChunks(int req) {
