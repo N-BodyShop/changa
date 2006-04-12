@@ -9,6 +9,7 @@ struct parameters {
     int nSteps;
     double dTimeStep;
     char achInFile[256];
+    int bStaticTest;
     };
 
 #endif

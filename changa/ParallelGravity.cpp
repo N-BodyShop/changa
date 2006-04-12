@@ -75,6 +75,9 @@ Main::Main(CkArgMsg* m) {
 	param.achInFile[0] = '\0';
 	prmAddParam(prm,"achInFile",paramString,param.achInFile,
 		    256, "I", "input file name (or base file name)");
+	param.bStaticTest = 0;
+	prmAddParam(prm, "bStaticTest", paramBool, &param.bStaticTest,
+		    sizeof(int),"st", "Static test of performance");
 	
 	verbosity = 0;
 	prmAddParam(prm, "iVerbosity", paramInt, &verbosity,
@@ -221,26 +224,6 @@ void Main::nextStage() {
 	    pieces.setSoft(param.dSoft);
 	}
 	
-	/*
-	sorter.startSorting(dataManager, numTreePieces, tolerance,
-			    CkCallbackResumeThread());
-
-	ckerr << "Building trees ...";
-	startTime = CkWallTimer();
-	pieces.buildTree(bucketSize, CkCallbackResumeThread());
-	ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
-
-	// the cached walk
-	ckerr << "Calculating gravity (tree bucket, theta = " << theta << ") ...";
-	startTime = CkWallTimer();
-	
-	//pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
-	cacheManagerProxy.cacheSync(theta, CkCallbackResumeThread());
-	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
-	      << endl;
-	calcEnergy();
-	*/
-
 	for(int i=0; i<=param.nSteps; i++){
 	  /******** Resorting of particles and Domain Decomposition ********/
 	  ckerr << "Domain decomposition ...";
@@ -289,10 +272,14 @@ void Main::nextStage() {
 #endif
 
 	  /******** Update of Particle Positions and Energy Estimation *******/
-	  if(param.dTimeStep > 0.0 && i > 0)
+	  if(!param.bStaticTest && i > 0) // Closing Kick
 	      pieces.kick(0.5*param.dTimeStep, CkCallbackResumeThread());
 	  calcEnergy();
-	  if(param.dTimeStep > 0.0 && i < param.nSteps) {
+	  /*
+	   * Writing of intermediate outputs can be done here.
+	   */
+	  if(!param.bStaticTest && i < param.nSteps) { // Opening Kick
+						       // and Drift
 	      pieces.kick(0.5*param.dTimeStep, CkCallbackResumeThread());
 	      pieces.drift(param.dTimeStep, CkCallbackResumeThread());
 	  }
