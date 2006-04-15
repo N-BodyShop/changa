@@ -55,15 +55,21 @@ namespace Tree {
     NodeKey key;
 	
     GenericTreeNode() : myType(Invalid), key(0), parent(0), firstParticle(0), lastParticle(0), remoteIndex(0) {
-      #if INTERLIST_VER > 0
-        visitedR=false;
-        visitedL=false;
-			  bucketListIndex=-1;
-        startBucket=-1;
-      #endif
+#if COSMO_STATS > 0
+      used = false;
+#endif
+#if INTERLIST_VER > 0
+      visitedR=false;
+      visitedL=false;
+      bucketListIndex=-1;
+      startBucket=-1;
+#endif
     }
 
   public:
+#if COSMO_STATS > 0
+    bool used;
+#endif
 
     /// The moments for the gravity computation
     MultipoleMoments moments;
