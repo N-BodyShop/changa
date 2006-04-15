@@ -116,8 +116,8 @@ Main::Main(CkArgMsg* m) {
 
 	if (verbosity) 
 	  ckerr << "yieldPeriod set to " << _yieldPeriod << endl;
-	if(_cacheLineDepth <= 0)
-		CkAbort("Cache Line depth must be greater than 0");
+	if(_cacheLineDepth < 0)
+		CkAbort("Cache Line depth must be greater than or equal to 0");
 
 	if (verbosity)
 	  ckerr << "Number of chunks for remote tree walk set to " << _numChunks << endl;
