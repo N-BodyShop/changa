@@ -1056,6 +1056,9 @@ inline void listPartForce(CkVec<CkVec<GenericTreeNode *> >& cellList, CkVec<CkVe
 /******************/
 inline bool TreePiece::openCriterionBucket(GenericTreeNode *node,
 				    BucketGravityRequest& req) {
+#if COSMO_STATS > 0
+  node->used = true;
+#endif
   // Note that some of this could be pre-calculated into an "opening radius"
   Sphere<double> s(node->moments.cm,
 		   opening_geometry_factor * node->moments.radius / theta);
@@ -1065,6 +1068,9 @@ inline bool TreePiece::openCriterionBucket(GenericTreeNode *node,
 #if INTERLIST_VER > 0
 inline int TreePiece::openCriterionNode(GenericTreeNode *node,
 				    GenericTreeNode* myNode) {
+#if COSMO_STATS > 0
+  node->used = true;
+#endif
   // Note that some of this could be pre-calculated into an "opening radius"
   Sphere<double> s(node->moments.cm,
 		   opening_geometry_factor * node->moments.radius / theta);

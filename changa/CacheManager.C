@@ -782,6 +782,7 @@ void CacheManager::finishedChunk(int num, u_int64_t weight) {
       storedNodes --;
 #if COSMO_STATS > 0
       releasedNodes++;
+      if (e->node->used == false) nodesNotUsed++;
 #endif
       delete e;
     }
@@ -816,7 +817,7 @@ void CacheManager::collectStatistics(CkCallback& cb) {
 		     nodesLocal, particlesArrived, particlesTotalArrived,
 		     particlesMisses, particlesLocal, particlesError,
 		     totalNodesRequested, totalParticlesRequested,
-		     maxNodes, maxParticles, CkMyPe());
+		     maxNodes, maxParticles, nodesNotUsed, CkMyPe());
   contribute(sizeof(CacheStatistics), &cs, CacheStatistics::sum, cb);
 #else
   CkAbort("Invalid call, only valid if COSMO_STATS is defined");

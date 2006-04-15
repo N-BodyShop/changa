@@ -46,22 +46,23 @@ class CacheStatistics {
   u_int64_t totalParticlesRequested;
   u_int64_t maxNodes;
   u_int64_t maxParticles;
+  u_int64_t nodesNotUsed;
   int index;
 
   CacheStatistics() : nodesArrived(0), nodesMessages(0), nodesDuplicated(0), nodesMisses(0),
     nodesLocal(0), particlesArrived(0), particlesTotalArrived(0),
     particlesMisses(0), particlesLocal(0), particlesError(0), totalNodesRequested(0),
-    totalParticlesRequested(0), maxNodes(0), maxParticles(0), index(-1) { }
+    totalParticlesRequested(0), maxNodes(0), maxParticles(0), nodesNotUsed(0), index(-1) { }
 
  public:
   CacheStatistics(u_int64_t na, u_int64_t nmsg, u_int64_t nd, u_int64_t nm,
 		  u_int64_t nl, u_int64_t pa, u_int64_t pta, u_int64_t pm,
 		  u_int64_t pl, u_int64_t pe, u_int64_t tnr, u_int64_t tpr,
-		  u_int64_t mn, u_int64_t mp, int i) :
+		  u_int64_t mn, u_int64_t mp, u_int64_t nnu, int i) :
     nodesArrived(na), nodesMessages(nmsg), nodesDuplicated(nd), nodesMisses(nm),
     nodesLocal(nl), particlesArrived(pa), particlesTotalArrived(pta), particlesMisses(pm),
     particlesLocal(pl), particlesError(pe), totalNodesRequested(tnr),
-    totalParticlesRequested(tpr), maxNodes(mn), maxParticles(mp), index(i) { }
+    totalParticlesRequested(tpr), maxNodes(mn), maxParticles(mp), nodesNotUsed(nnu), index(i) { }
 
   void printTo(CkOStream &os) {
     os << "  Cache: " << nodesArrived << " nodes (of which " << nodesDuplicated;
@@ -72,7 +73,7 @@ class CacheStatistics {
     if (particlesError > 0) {
       os << "Cache: ======>>>> ERROR: " << particlesError << " particles arrived without being requested!! <<<<======" << endl;
     }
-    os << "  Cache: " << nodesMisses << " nodes and " << particlesMisses << " particle misses during computation" << endl;
+    os << "  Cache: " << nodesMisses << " nodes and " << particlesMisses << " particle misses during computation, " << nodesNotUsed << " never used" << endl;
     os << "  Cache: Maximum of " << maxNodes << " nodes and " << maxParticles << " particles stored at a time in processor " << index << endl;
     os << "  Cache: local TreePieces requested " << totalNodesRequested << " nodes and ";
     os << totalParticlesRequested << " particle buckets" << endl;
@@ -98,6 +99,7 @@ class CacheStatistics {
       ret.particlesLocal += data->particlesLocal;
       ret.totalNodesRequested += data->totalNodesRequested;
       ret.totalParticlesRequested += data->totalParticlesRequested;
+      ret.nodesNotUsed += data->nodesNotUsed;
       if (data->maxNodes+data->maxParticles > ret.maxNodes+ret.maxParticles) {
 	ret.maxNodes = data->maxNodes;
 	ret.maxParticles = data->maxParticles;
@@ -253,6 +255,8 @@ private:
 	u_int64_t maxNodes;
 	/// maximum number of nodes stored at some point in the cache
 	u_int64_t maxParticles;
+	/// nodes that have been fetched but never used in the tree walk
+	u_int64_t nodesNotUsed;
 #endif
 #if COSMO_DEBUG > 0
 	ofstream *ofs;
