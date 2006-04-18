@@ -143,16 +143,8 @@ class ComputeChunkMsg : public CMessage_ComputeChunkMsg {
   ComputeChunkMsg() {} // not available
  public:
   int chunkNum;
-/*#if INTERLIST_VER > 0
-  int level;
-  GenericTreeNode *startNode;
-#endif*/
 
   ComputeChunkMsg(int i) : chunkNum(i) { 
-  /*#if INTERLIST_VER > 0
-    level=0;
-    startNode=NULL;
-  #endif*/
   }
 };
 
@@ -389,6 +381,7 @@ class TreePiece : public CBase_TreePiece {
  
   int *checkBuckets;
   bool myCheckListEmpty;
+  bool myLocalCheckListEmpty;
 #endif
   
   double tmpTime;
@@ -487,6 +480,7 @@ public:
 #if INTERLIST_VER > 0
     myTreeLevels=-1;
     myCheckListEmpty=false;
+    myLocalCheckListEmpty=false;
     curLevelLocal=0;
     curNodeLocal=NULL;
     curLevelRemote=0;
@@ -523,6 +517,16 @@ public:
 	    root->fullyDelete();
 	    delete root;
 	  }
+
+#if INTERLIST_VER > 0
+    cellList.free();
+    particleList.free();
+    cellListLocal.free();
+    particleListLocal.free();
+    checkListLocal.free();
+    intCheckList.free();
+    extCheckList.free();
+#endif
 	}
 	
 	// Load from mass and position files
@@ -588,6 +592,7 @@ public:
   void walkRemoteInterTreeVerII(GenericTreeNode *node, bool isRoot);
   void initNodeStatus(GenericTreeNode *node);
   void calculateForceRemoteBucket(int bucketIndex, int chunk);
+  void calculateForceLocalBucket(int bucketIndex);
 #endif
 	
   /// Function called by the CacheManager to start a new iteration.
