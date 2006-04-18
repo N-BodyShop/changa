@@ -465,7 +465,7 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles, const in
 	      root->fullyDelete();
 	      delete root;
 	      root = NULL;
-	      nodeLookupTable.clear();
+        nodeLookupTable.clear();
 	    }
 	    contribute(0, 0, CkReduction::concat, callback);
         }
@@ -1119,12 +1119,16 @@ void TreePiece::initBuckets() {
     req.finished = 0;
     bucketReqs[j] = req;
 
-#if COSMO_DEBUG > 1
-    std::set<Tree::NodeKey> *list = new std::set<Tree::NodeKey>();
-    bucketcheckList.push_back(*list);
-#endif
-
+/*#if COSMO_DEBUG > 1
+    if(iterationNo==1 || listMigrated==true){
+      std::set<Tree::NodeKey> *list = new std::set<Tree::NodeKey>();
+      bucketcheckList.push_back(*list);
+    }
+#endif*/
   }
+#if COSMO_DEBUG > 1
+  bucketcheckList.resize(numBuckets);
+#endif
 }
 
 void TreePiece::startNextBucket() {
@@ -1232,7 +1236,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
 #if INTERLIST_VER > 0
   
   NodeType childType;
-  
+ 
   while (i<_yieldPeriod && currentBucket < numBuckets) {
 
     if(currentBucket==0){
@@ -1243,8 +1247,39 @@ void TreePiece::nextBucket(dummyMsg *msg){
     //Computes interaction list for this bucket
 		preWalkInterTree();
     
-		CkAssert(curNodeLocal->getType()==Bucket);
+		//CkAssert(curNodeLocal->getType()==Bucket);
+		CkAssert(checkListLocal[curLevelLocal].length()==0);
 		//Go over both the lists to calculate forces with one bucket
+    
+    if(myLocalCheckListEmpty && curNodeLocal->getType()!=Bucket){
+	
+      GenericTreeNode *tmpNode;
+  
+      int startBucket=curNodeLocal->startBucket;
+      int tmpBucket;
+      int lastBucket;
+      int k;
+  
+	    for(k=startBucket+1;k<numBuckets;k++){
+		    tmpNode = bucketList[k];
+		    if(tmpNode->lastParticle>curNodeLocal->lastParticle)
+			    break;
+      }
+      lastBucket=k-1;
+    
+      for(k=startBucket;k<=lastBucket;k++){
+        calculateForceLocalBucket(k);
+        currentBucket++;
+        i++;
+      }
+      myLocalCheckListEmpty=false;
+    }
+    else{
+		  CkAssert(curNodeLocal->getType()==Bucket);
+      calculateForceLocalBucket(curNodeLocal->bucketListIndex);
+      currentBucket++;
+      i++;
+    }
 
     /*GenericTreeNode* node = bucketList[curNodeLocal->bucketListIndex];
   
@@ -1257,38 +1292,6 @@ void TreePiece::nextBucket(dummyMsg *msg){
    
     //Right now, because of -O3 BucketForce routines perform better than partForce routine
     //So, using the following
-    int cellListIter;
-    int partListIter;
-    
-    BucketGravityRequest& req = bucketReqs[curNodeLocal->bucketListIndex];
-    for(int k=0;k<=curLevelLocal;k++){
-      nodeInterLocal += cellListLocal[k].length()*req.numParticlesInBucket;
-      for(cellListIter=0;cellListIter<cellListLocal[k].length();cellListIter++){
-        GenericTreeNode *tmp = cellListLocal[k][cellListIter];
-    #if COSMO_DEBUG > 1
-        bucketcheckList[req.identifier].insert(tmp->getKey());
-        combineKeys(tmp->getKey(),req.identifier);
-    #endif
-        nodeBucketForce(tmp, req);
-      }
-
-      PartInfo pinfo;
-      for(partListIter=0;partListIter<particleListLocal[k].length();partListIter++){
-        pinfo = particleListLocal[k][partListIter];
-    #if COSMO_DEBUG > 1
-      bucketcheckList[req.identifier].insert((pinfo.nd)->getKey());
-      combineKeys((pinfo.nd)->getKey(),req.identifier);
-    #endif
-      particleInterLocal += req.numParticlesInBucket * (pinfo.numParticles);
-  			for(int j = 0; j < pinfo.numParticles; ++j){
-   				partBucketForce(&pinfo.particles[j], req);
-        }
-      }
-    }
-
-  	bucketReqs[curNodeLocal->bucketListIndex].finished = 1;
-  	finishBucket(curNodeLocal->bucketListIndex);
-    currentBucket++;
     if(currentBucket>=numBuckets)
       break;
     
@@ -1329,7 +1332,6 @@ void TreePiece::nextBucket(dummyMsg *msg){
       }
     }
       
-    i++;
 	}
 
 #else 
@@ -1370,6 +1372,41 @@ void TreePiece::initNodeStatus(GenericTreeNode *node){
       initNodeStatus(child);
     }
   }
+}
+
+void TreePiece::calculateForceLocalBucket(int bucketIndex){
+    int cellListIter;
+    int partListIter;
+    
+    BucketGravityRequest& req = bucketReqs[bucketIndex];
+    for(int k=0;k<=curLevelLocal;k++){
+      nodeInterLocal += cellListLocal[k].length()*req.numParticlesInBucket;
+      for(cellListIter=0;cellListIter<cellListLocal[k].length();cellListIter++){
+        GenericTreeNode *tmp = cellListLocal[k][cellListIter];
+    #if COSMO_DEBUG > 1
+        bucketcheckList[req.identifier].insert(tmp->getKey());
+        combineKeys(tmp->getKey(),req.identifier);
+    #endif
+        nodeBucketForce(tmp, req);
+      }
+
+      PartInfo pinfo;
+      for(partListIter=0;partListIter<particleListLocal[k].length();partListIter++){
+        pinfo = particleListLocal[k][partListIter];
+    #if COSMO_DEBUG > 1
+      bucketcheckList[req.identifier].insert((pinfo.nd)->getKey());
+      combineKeys((pinfo.nd)->getKey(),req.identifier);
+    #endif
+      particleInterLocal += req.numParticlesInBucket * (pinfo.numParticles);
+  			for(int j = 0; j < pinfo.numParticles; ++j){
+   				partBucketForce(&pinfo.particles[j], req);
+        }
+      }
+    }
+
+    bucketReqs[bucketIndex].finished = 1;
+    finishBucket(bucketIndex);
+
 }
 
 void TreePiece::calculateForceRemoteBucket(int bucketIndex, int chunk){
@@ -1976,24 +2013,34 @@ void TreePiece::startIteration(double t, int n, Tree::NodeKey *k, const CkCallba
   myTreeLevels++;
   //myTreeLevels++;
   CkAssert(myTreeLevels>0);
-//CkPrintf("TreePiece:%d, Tree Levels:%d\n",thisIndex,myTreeLevels);
-  for(int i=0;i<=myTreeLevels;i++){
-    CkVec<GenericTreeNode *> *clist = new CkVec<GenericTreeNode *>();
-    CkVec<PartInfo> *plist = new CkVec<PartInfo>();
-    CkVec<GenericTreeNode *> *ichlist = new CkVec<GenericTreeNode *>();
-    CkVec<GenericTreeNode *> *echlist = new CkVec<GenericTreeNode *>();
-    CkVec<GenericTreeNode *> *clistl = new CkVec<GenericTreeNode *>();
-    CkVec<PartInfo> *plistl = new CkVec<PartInfo>();
-    CkVec<GenericTreeNode *> *chlistl = new CkVec<GenericTreeNode *>();
+  //if(listMigrated==true || iterationNo==1){
+    /*for(int i=0;i<=myTreeLevels;i++){
+      CkVec<GenericTreeNode *> *clist = new CkVec<GenericTreeNode *>();
+      CkVec<PartInfo> *plist = new CkVec<PartInfo>();
+      CkVec<GenericTreeNode *> *ichlist = new CkVec<GenericTreeNode *>();
+      CkVec<GenericTreeNode *> *echlist = new CkVec<GenericTreeNode *>();
+      CkVec<GenericTreeNode *> *clistl = new CkVec<GenericTreeNode *>();
+      CkVec<PartInfo> *plistl = new CkVec<PartInfo>();
+      CkVec<GenericTreeNode *> *chlistl = new CkVec<GenericTreeNode *>();
   
-    cellList.push_back(*clist);
-    particleList.push_back(*plist);
-    intCheckList.push_back(*ichlist);
-    extCheckList.push_back(*echlist);
-    cellListLocal.push_back(*clistl);
-    particleListLocal.push_back(*plistl);
-    checkListLocal.push_back(*chlistl);
-  }
+      cellList.push_back(*clist);
+      //delete clist; 
+      particleList.push_back(*plist);
+      intCheckList.push_back(*ichlist);
+      extCheckList.push_back(*echlist);
+      cellListLocal.push_back(*clistl);
+      particleListLocal.push_back(*plistl);
+      checkListLocal.push_back(*chlistl);
+    }*/
+    //listMigrated=false;
+  //}
+  cellList.resize(myTreeLevels+1);
+  particleList.resize(myTreeLevels+1);
+  intCheckList.resize(myTreeLevels+1);
+  extCheckList.resize(myTreeLevels+1);
+  cellListLocal.resize(myTreeLevels+1);
+  particleListLocal.resize(myTreeLevels+1);
+  checkListLocal.resize(myTreeLevels+1);
 #endif
   
   for (int i=0; i<numChunks; ++i) remainingChunk[i] = myNumParticles;
@@ -2181,8 +2228,11 @@ void TreePiece::preWalkInterTree(){
       prevListIterLocal=0;
       
 			if(curNodeLocal!=root){
-        node=checkListLocal[level][0];
-        prevListIterLocal=1;
+        if(checkListLocal[level].length()!=0){
+          node=checkListLocal[level][0];
+          prevListIterLocal=1;
+        }
+        else{ node=NULL; }
 			}
       else{
         GenericTreeNode *nd;
@@ -2200,14 +2250,22 @@ void TreePiece::preWalkInterTree(){
       }
     	
       //Walks the local tree for my current node
+      if(node!=NULL){
 #if INTERLIST_VER==1
-      walkInterTreeVerI(node);
+        walkInterTreeVerI(node);
 #else
-			walkInterTreeVerII(node);
+			  walkInterTreeVerII(node);
 #endif
+      }
+      else{
+        myLocalCheckListEmpty=true;
+        curNodeLocal=curNodeLocal->parent;
+        curLevelLocal--;
+        break;
+      }
+      
       CkAssert(undecidedListLocal.isEmpty());
     
-      
       //Loop breaking condition
       if(curNodeLocal->getType()==Bucket)
         break;
@@ -3229,7 +3287,7 @@ void TreePiece::combineKeys(Tree::NodeKey key,int bucket){
 void TreePiece::checkWalkCorrectness(){
 
   Tree::NodeKey endKey = Key(1);
-  CkPrintf("checking walk correctness...\n");
+  CkPrintf("[%d]checking walk correctness...\n",thisIndex);
   for(int i=0;i<numBuckets;i++){
     if(bucketcheckList[i].size()!=1 || bucketcheckList[i].find(endKey)==bucketcheckList[i].end()){
       CkPrintf("Error: [%d] All the nodes not traversed by bucket no. %d\n",thisIndex,i);
@@ -3238,6 +3296,7 @@ void TreePiece::checkWalkCorrectness(){
       }
       break;
     }
+    else { bucketcheckList[i].clear(); }
   }
 }
 #endif
