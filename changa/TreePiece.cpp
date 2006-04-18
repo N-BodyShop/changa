@@ -465,6 +465,7 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles, const in
 	      root->fullyDelete();
 	      delete root;
 	      root = NULL;
+	      nodeLookupTable.clear();
 	    }
 	    contribute(0, 0, CkReduction::concat, callback);
         }
@@ -508,6 +509,7 @@ void TreePiece::drift(double dDelta, const CkCallback& cb) {
     root->fullyDelete();
     delete root;
     root = NULL;
+    nodeLookupTable.clear();
   }
 
     for(unsigned int i = 0; i < myNumParticles; ++i)
