@@ -30,6 +30,7 @@ GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
 bool _prefetch;
 int _numChunks;
+int _randChunks;
 
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
@@ -79,7 +80,11 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "bStaticTest", paramBool, &param.bStaticTest,
 		    sizeof(int),"st", "Static test of performance");
 	
-	verbosity = 0;
+	_randChunks = 0;
+	prmAddParam(prm, "bRandChunks", paramBool, &_randChunks,
+		    sizeof(int),"rand", "Randomize the order of remote chunk computation");
+	
+  verbosity = 0;
 	prmAddParam(prm, "iVerbosity", paramInt, &verbosity,
 		    sizeof(int),"v", "Verbosity");
 	numTreePieces = CkNumPes();
@@ -119,11 +124,17 @@ Main::Main(CkArgMsg* m) {
 	if(_cacheLineDepth < 0)
 		CkAbort("Cache Line depth must be greater than or equal to 0");
 
+  if(verbosity)
+    ckerr << "Prefetching..." << (_prefetch?"ON":"OFF") << endl;
+  
 	if (verbosity)
 	  ckerr << "Number of chunks for remote tree walk set to " << _numChunks << endl;
 	if (_numChunks <= 0)
 	  CkAbort("Number of chunks for remote tree walk must be greater than 0");
 
+  if(verbosity)
+      ckerr << "Chunk Randomization..." << (_randChunks?"ON":"OFF") << endl;
+  
 	if(param.achInFile[0]) {
 	    basefilename = param.achInFile;
 	}else{

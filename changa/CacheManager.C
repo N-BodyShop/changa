@@ -708,6 +708,7 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
     //for (int i=0; i<numChunks; ++i) CkPrintf("[%d] old roots %d: %s - %llu\n",CkMyPe(),i,keyBits(prefetchRoots[i],63).c_str(),chunkWeight[i]);
     weightBalance(prefetchRoots, chunkWeight, numChunks);
     //for (int i=0; i<numChunks; ++i) CkPrintf("[%d] new roots %d: %s\n",CkMyPe(),i,keyBits(prefetchRoots[i],63).c_str());
+
   }
 
   //for (int i=0; i<numChunks; ++i) printf("%d chunk %d: %s\n",CkMyPe(), i, keyBits(prefetchRoots[i],63).c_str());
@@ -733,6 +734,18 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
   CkAssert(numMappedRoots == numChunks);
 #endif
 
+  //Ramdomize the prefetchRoots
+  if(_randChunks){
+    srand((CkMyPe()+1)*1000);
+    for (i=numChunks; i>1; --i) {
+      int r = rand();
+      int k = (((float)r) * i) / (((float)RAND_MAX) + 1);
+      NodeKey tmp = prefetchRoots[i-1];
+      prefetchRoots[i-1] = prefetchRoots[k];
+      prefetchRoots[k] = tmp;
+    }
+  }
+  
   for (i=0; i<numChunks; ++i) {
     chunkAck[i] = registeredChares.size();
     chunkWeight[i] = 0;

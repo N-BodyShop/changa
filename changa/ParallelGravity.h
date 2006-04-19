@@ -59,6 +59,7 @@ extern CkGroupID dataManagerID;
 
 
 extern bool _prefetch;
+extern int _randChunks;
 extern int _numChunks;
 
 class dummyMsg : public CMessage_dummyMsg{
