@@ -670,15 +670,18 @@ inline bool weightBalance(NodeKey *nodeKeys, T* weights, int num){
   //end loop here
 
   int i=0;
-  if(numBalances>0){
     //construct new node key array before returning
-	  for(iter=curNodeWts.begin(),i=0;iter!=curNodeWts.end();i++,iter++){
-      nodeKeys[i]=(*iter).first;
-    }
-    CkAssert(i==num);
+	for(iter=curNodeWts.begin(),i=0;iter!=curNodeWts.end();i++,iter++){
+    nodeKeys[i]=(*iter).first;
+  }
+  CkAssert(i==num);
+  
+  if(numBalances>0){
     return true;
   }
-  else { return false; }
+  else {
+    return false;
+  }
 
 }
 
