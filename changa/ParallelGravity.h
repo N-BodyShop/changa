@@ -58,7 +58,7 @@ extern CProxy_TreePiece streamingProxy;
 extern CkGroupID dataManagerID;
 
 
-extern bool _prefetch;
+extern int _prefetch;
 extern int _randChunks;
 extern int _numChunks;
 

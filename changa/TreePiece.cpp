@@ -761,13 +761,19 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
       int first, last;
       bool isShared = nodeOwnership(child->getKey(), first, last);
       CkAssert(!isShared);
-      child->remoteIndex = first + (thisIndex & (last-first));
-      // if we have a remote child, the node is a Boundary. Thus count that we
-      // have to receive one more message for the NonLocal node
-      node->remoteIndex --;
-      // request the remote chare to fill this node with the Moments
-      streamingProxy[child->remoteIndex].requestRemoteMoments(child->getKey(), thisIndex);
-      //CkPrintf("[%d] asking for moments of %s to %d\n",thisIndex,keyBits(child->getKey(),63).c_str(),child->remoteIndex);
+      if (last < first) {
+	// the node is really empty because falling between two TreePieces
+	child->setType(Empty);
+	child->remoteIndex = thisIndex;
+      } else {
+	child->remoteIndex = first + (thisIndex & (last-first));
+	// if we have a remote child, the node is a Boundary. Thus count that we
+	// have to receive one more message for the NonLocal node
+	node->remoteIndex --;
+	// request the remote chare to fill this node with the Moments
+	streamingProxy[child->remoteIndex].requestRemoteMoments(child->getKey(), thisIndex);
+	//CkPrintf("[%d] asking for moments of %s to %d\n",thisIndex,keyBits(child->getKey(),63).c_str(),child->remoteIndex);
+      }
     } else if (child->getType() == Internal && child->lastParticle - child->firstParticle < maxBucketSize) {
       CkAssert(child->firstParticle != 0 && child->lastParticle != myNumParticles+1);
       child->remoteIndex = thisIndex;

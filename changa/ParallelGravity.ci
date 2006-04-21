@@ -14,7 +14,7 @@ mainmodule ParallelGravity {
 	readonly unsigned int _yieldPeriod;
 	readonly DomainsDec domainDecomposition;
 	readonly GenericTrees useTree;
-	readonly bool _prefetch;
+	readonly int _prefetch;
 	readonly int _randChunks;
 	readonly int _numChunks;
 	readonly CkArrayID treePieceID;

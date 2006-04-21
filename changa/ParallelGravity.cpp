@@ -28,7 +28,7 @@ unsigned int _yieldPeriod;
 DomainsDec domainDecomposition;
 GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
-bool _prefetch;
+int _prefetch;
 int _numChunks;
 int _randChunks;
 
