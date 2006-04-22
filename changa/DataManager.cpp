@@ -37,21 +37,23 @@ void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, 
 	copy(bins, bins + n - 1, particleCounts.begin());
 
   if(verbosity >= 3 && CkMyPe()==0){
-    std::vector<int>::iterator iter;
-    CkPrintf("responsible:");
-    for(iter=responsibleIndex.begin();iter!=responsibleIndex.end();iter++){
-      CkPrintf("%d,",*iter);
+    std::vector<int>::iterator iter1;
+    std::vector<int>::iterator iter2;
+    CkPrintf("responsible,particleCounts:");
+    for(iter1=responsibleIndex.begin(),iter2=particleCounts.begin();iter1!=responsibleIndex.end();iter1++,iter2++){
+      CkPrintf("(%d,%d),",*iter1,*iter2);
     }
     CkPrintf("\n");
-    CkPrintf("Particle Counts:");
+    /*CkPrintf("Particle Counts:");
     for(iter=particleCounts.begin();iter!=particleCounts.end();iter++){
-      CkPrintf("%d,",*iter);
+      if(*iter==0)
+        CkPrintf("%d,",*iter);
     }
-    CkPrintf("\n");
-    std::vector<SFC::Key>::iterator iter2;
+    CkPrintf("\n");*/
+    std::vector<SFC::Key>::iterator iter3;
     CkPrintf("Keys:");
-    for(iter2=boundaryKeys.begin();iter2!=boundaryKeys.end();iter2++){
-      CkPrintf("%016llx,",*iter2);
+    for(iter3=boundaryKeys.begin();iter3!=boundaryKeys.end();iter3++){
+      CkPrintf("%016llx,",*iter3);
     }
     CkPrintf("\n");
   }
