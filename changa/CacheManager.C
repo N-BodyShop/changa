@@ -647,6 +647,7 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
   totalParticlesRequested = 0;
   maxNodes = 0;
   maxParticles = 0;
+  nodesNotUsed = 0;
 #endif
 
   for (int chunk=0; chunk<numChunks; ++chunk) {
