@@ -707,7 +707,7 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
     chunkAck = new int[numChunks];
   } else {
     //for (int i=0; i<numChunks; ++i) CkPrintf("[%d] old roots %d: %s - %llu\n",CkMyPe(),i,keyBits(prefetchRoots[i],63).c_str(),chunkWeight[i]);
-    weightBalance(prefetchRoots, chunkWeight, numChunks);
+    weightBalance(prefetchRoots, chunkWeight, numChunks,0);
     //for (int i=0; i<numChunks; ++i) CkPrintf("[%d] new roots %d: %s\n",CkMyPe(),i,keyBits(prefetchRoots[i],63).c_str());
 
   }
