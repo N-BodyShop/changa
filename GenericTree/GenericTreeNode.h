@@ -592,7 +592,7 @@ namespace Tree {
   };
 
 template <class T>
-inline bool weightBalance(NodeKey *nodeKeys, T* weights, int num){
+inline bool weightBalance(NodeKey *nodeKeys, T* weights, int num, int handleZero){
   //T can be signed or unsigned
 	
   NodeKey curHeaviest;
@@ -601,6 +601,8 @@ inline bool weightBalance(NodeKey *nodeKeys, T* weights, int num){
 	T tmpWt=0;
 	NodeKey parent,child1,child2;
   int numBalances=0;
+
+  int zeroHandled=0;
   
 	//Need to construct a temporary copy of the input data to operate
 	//construct a map indexed by the nodekey
@@ -633,6 +635,29 @@ inline bool weightBalance(NodeKey *nodeKeys, T* weights, int num){
 	  for( ;iter2!=curNodeWts.end();iter++,iter2++){
 		  if((*iter).second==~T(0) || (*iter2).second==~T(0))//Ignore those which have been opened
         continue;
+      
+      if(handleZero){
+        if((*iter).second==0 || (*iter2).second==0){
+          if((*iter).second==0){
+            curNodeWts.erase(iter);
+          }
+          if((*iter2).second==0){
+            curNodeWts.erase(iter2);
+          }
+          
+          numBalances++;
+          //Open the current heaviest and continue
+          child1=curHeaviest << 1;
+          child2=child1 | NodeKey(1);
+          //Erase the heaviest and add it's two children
+          curNodeWts.erase(curHeaviest);
+          curNodeWts[child1]=~T(0);
+          curNodeWts[child2]=~T(0);
+          zeroHandled=1;
+          break;
+        }
+      }
+      
       if((*iter).first==curHeaviest || (*iter2).first==curHeaviest)
         continue;
       child1=(*iter).first;
@@ -648,9 +673,14 @@ inline bool weightBalance(NodeKey *nodeKeys, T* weights, int num){
       }
 	  }
 
+    if(handleZero && zeroHandled){
+      zeroHandled=0;
+      continue;
+    }
+    
     //balance only if the heaviest is heavier than the lightest possible parent
 	  if((curNodeWts[curHeaviest] > lightestWt) && lightestWt!=~T(0)){
-		  numBalances++;
+      numBalances++;
       parent = (*curLightest).first >> 1;
       iter2=curLightest; iter2++; iter2++;
 		  //Erase the children and add the lightest parent
