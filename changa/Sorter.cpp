@@ -120,18 +120,20 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   
   if(verbosity>=3){
     std::vector<unsigned int>::iterator iter;
+    int i=0;
     CkPrintf("Bin Counts in collect eval:");
     for(iter=binCounts.begin();iter!=binCounts.end();iter++){
       CkPrintf("%u,",*iter);
+      i++;
     }
     CkPrintf("\n");
     CkPrintf("Nodekeys:");
-    for(int i=0;i<numChares;i++)
-      CkPrintf("%llx,",nodeKeys[i]);
+    for(int j=0;j<numChares;j++)
+      CkPrintf("%llx,",nodeKeys[j]);
     CkPrintf("\n");
   }
   
-	bool histogram=weightBalance<unsigned int>(nodeKeys,&(*binCounts.begin()),numChares);
+	bool histogram=weightBalance<unsigned int>(nodeKeys,&(*binCounts.begin()),numChares,1);
   if(verbosity>=3){
     CkPrintf("Nodekeys after:");
     for(int i=0;i<numChares;i++)
