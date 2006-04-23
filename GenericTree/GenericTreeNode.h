@@ -641,7 +641,7 @@ inline bool weightBalance(NodeKey *nodeKeys, T* weights, int num, int handleZero
           if((*iter).second==0){
             curNodeWts.erase(iter);
           }
-          if((*iter2).second==0){
+          else if((*iter2).second==0){
             curNodeWts.erase(iter2);
           }
           
@@ -704,6 +704,8 @@ inline bool weightBalance(NodeKey *nodeKeys, T* weights, int num, int handleZero
 	for(iter=curNodeWts.begin(),i=0;iter!=curNodeWts.end();i++,iter++){
     nodeKeys[i]=(*iter).first;
   }
+  if(i!=num)
+    CkPrintf("i:%d,num:%d\n",i,num);
   CkAssert(i==num);
   
   if(numBalances>0){
