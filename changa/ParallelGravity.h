@@ -48,6 +48,7 @@ inline void operator|(PUP::er &p,DomainsDec &d) {
 extern CProxy_Main mainChare;
 extern int verbosity;
 extern bool _cache;
+extern int _nocache;
 extern int _cacheLineDepth;
 extern unsigned int _yieldPeriod;
 extern DomainsDec domainDecomposition;

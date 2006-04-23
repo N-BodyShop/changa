@@ -10,6 +10,7 @@ mainmodule ParallelGravity {
 	readonly CProxy_TreePiece treeProxy;
 	readonly CProxy_TreePiece streamingProxy;
 	readonly bool _cache;
+	readonly int _nocache;
 	readonly int _cacheLineDepth;
 	readonly unsigned int _yieldPeriod;
 	readonly DomainsDec domainDecomposition;

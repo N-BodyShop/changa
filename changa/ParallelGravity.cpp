@@ -23,6 +23,7 @@ int verbosity;
 CProxy_TreePiece treeProxy;
 //CkReduction::reducerType callbackReduction;
 bool _cache;
+int _nocache;
 int _cacheLineDepth;
 unsigned int _yieldPeriod;
 DomainsDec domainDecomposition;
@@ -84,7 +85,11 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "bRandChunks", paramBool, &_randChunks,
 		    sizeof(int),"rand", "Randomize the order of remote chunk computation");
 	
-  verbosity = 0;
+	_nocache = 0;
+	prmAddParam(prm, "bNoCache", paramBool, &_nocache,
+		    sizeof(int),"nc", "Disable the CacheManager caching behaviour");
+	
+        verbosity = 0;
 	prmAddParam(prm, "iVerbosity", paramInt, &verbosity,
 		    sizeof(int),"v", "Verbosity");
 	numTreePieces = CkNumPes();
@@ -119,21 +124,21 @@ Main::Main(CkArgMsg* m) {
 	// hardcoding some parameters, later may be full options
 	useTree = Binary_Oct;
 
-	if (verbosity) 
+	//if (verbosity) 
 	  ckerr << "yieldPeriod set to " << _yieldPeriod << endl;
 	if(_cacheLineDepth < 0)
 		CkAbort("Cache Line depth must be greater than or equal to 0");
 
-  if(verbosity)
-    ckerr << "Prefetching..." << (_prefetch?"ON":"OFF") << endl;
+        //if(verbosity)
+          ckerr << "Prefetching..." << (_prefetch?"ON":"OFF") << endl;
   
-	if (verbosity)
+          //if (verbosity)
 	  ckerr << "Number of chunks for remote tree walk set to " << _numChunks << endl;
 	if (_numChunks <= 0)
 	  CkAbort("Number of chunks for remote tree walk must be greater than 0");
 
-  if(verbosity)
-      ckerr << "Chunk Randomization..." << (_randChunks?"ON":"OFF") << endl;
+        //if(verbosity)
+          ckerr << "Chunk Randomization..." << (_randChunks?"ON":"OFF") << endl;
   
 	if(param.achInFile[0]) {
 	    basefilename = param.achInFile;
@@ -141,30 +146,36 @@ Main::Main(CkArgMsg* m) {
 		ckerr<<"Base file name missing\n";
 		CkExit();
 	}
-	
-	if (verbosity) {
-	  ckerr<<"cache "<<_cache<<endl;
+
+        if (_nocache) _cacheLineDepth = 0;
+
+	//if(verbosity) {
+	  ckerr<<"cache "<<_cache << (_nocache?" (disabled)":"") <<endl;
 	  ckerr<<"cacheLineDepth "<<_cacheLineDepth<<endl;
+        //}
+	if (verbosity) {
 	  if(printBinaryAcc==1)
 	    ckerr<<"particle accelerations to be printed in binary format..."<<endl;
 	  else
 	    ckerr<<"particles accelerations to be printed in ASCII format..."<<endl;
-
+        
 	  ckerr << "Verbosity level " << verbosity << endl;
-    switch(domainDecomposition){
-      case SFC_dec:
-        ckerr << "Domain decomposition...SFC" << endl;
-        break;
-      case Oct_dec:
-        ckerr << "Domain decomposition...Oct" << endl;
-        break;
-      case ORB_dec:
-        ckerr << "Domain decomposition...ORB" << endl;
-        break;
-      default:
-        CkAbort("None of the implemented decompositions specified");
-    }
-	}
+        }
+        //if(verbosity) {
+          switch(domainDecomposition){
+          case SFC_dec:
+            ckerr << "Domain decomposition...SFC" << endl;
+            break;
+          case Oct_dec:
+            ckerr << "Domain decomposition...Oct" << endl;
+            break;
+          case ORB_dec:
+            ckerr << "Domain decomposition...ORB" << endl;
+            break;
+          default:
+            CkAbort("None of the implemented decompositions specified");
+          }
+        //}
 
 	cacheManagerProxy = CProxy_CacheManager::ckNew(cacheSize);
 

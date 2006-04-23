@@ -7,6 +7,7 @@ CProxy_CacheManager cacheManagerProxy;
 extern CProxy_TreePiece treeProxy;
 //CpvDeclare(CProxy_TreePiece,streamingTreeProxy);
 extern int _cacheLineDepth;
+extern int _nocache;
 
 bool operator<(MapKey lhs,MapKey rhs){
   if(lhs.k<rhs.k){
@@ -97,7 +98,7 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chun
     if(e->node != NULL){
       return e->node;
     }
-    if(!e->requestSent && !e->replyRecvd){
+    if((!e->requestSent && !e->replyRecvd) || _nocache){
       //sendrequest to the the tree, if it is local return the node 
       if(sendNodeRequest(chunk,e,req)){
 	return e->node;
@@ -134,48 +135,52 @@ CacheNode *CacheManager::sendNodeRequest(int chunk, NodeCacheEntry *e,BucketGrav
     check if the array element to which the request is directed is local or not.
     If it is local then just fetch it store it and return it.
   */
-  TreePiece *p = treeProxy[e->home].ckLocal();
-  if(p != NULL){
-    e->requestSent = true;
-    e->replyRecvd = true;
-    //e->node = prototype->createNew();
-    const GenericTreeNode *nd = p->lookupNode(e->requestID);
+  if (!_nocache) {
+    TreePiece *p = treeProxy[e->home].ckLocal();
+    if(p != NULL){
+      e->requestSent = true;
+      e->replyRecvd = true;
+      //e->node = prototype->createNew();
+      const GenericTreeNode *nd = p->lookupNode(e->requestID);
 #ifdef COSMO_PRINT
-    if (nd==NULL) CkPrintf("Requested for node %s in %d!\n",(TreeStuff::keyBits(e->requestID,63)).c_str(),e->home);
+      if (nd==NULL) CkPrintf("Requested for node %s in %d!\n",(TreeStuff::keyBits(e->requestID,63)).c_str(),e->home);
 #endif
-    CkAssert(nd != NULL);
-    CkAssert(e->node == NULL);
+      CkAssert(nd != NULL);
+      CkAssert(e->node == NULL);
 #if COSMO_STATS > 0
-    nodesLocal++;
+      nodesLocal++;
 #endif
-    e->node = nd->clone();
-    switch (e->node->getType()) {
-    case Bucket:
-    case NonLocalBucket:
-      e->node->setType(CachedBucket);
-      break;
-    case Empty:
-      e->node->setType(CachedEmpty);
-      break;
-    case Invalid:
-      break;
-    default:
-      e->node->setType(Cached);
+      e->node = nd->clone();
+      switch (e->node->getType()) {
+      case Bucket:
+      case NonLocalBucket:
+        e->node->setType(CachedBucket);
+        break;
+      case Empty:
+        e->node->setType(CachedEmpty);
+        break;
+      case Invalid:
+        break;
+      default:
+        e->node->setType(Cached);
+      }
+      storedNodes ++;
+      return e->node;
     }
-    storedNodes ++;
-    return e->node;
-  }
-  /*
-    check if there is an outstanding request to the same array element that
-    will also fetch this node because of the cacheLineDepth
-  */
-  /// @TODO: despite the cacheLineDepth, the node can never be fetched if it is nonLocal to the TreePiece from which it should come!
-  for(int i=0;i<_cacheLineDepth;i++){
-    CacheKey k = e->requestID >> i;
-    map<MapKey,int>::iterator pred = outStandingRequests.find(MapKey(k,e->home));
-    if(pred != outStandingRequests.end()){
-      return NULL;
+    /*
+      check if there is an outstanding request to the same array element that
+      will also fetch this node because of the cacheLineDepth
+    */
+    /// @TODO: despite the cacheLineDepth, the node can never be fetched if it is nonLocal to the TreePiece from which it should come!
+    for(int i=0;i<_cacheLineDepth;i++){
+      CacheKey k = e->requestID >> i;
+      map<MapKey,int>::iterator pred = outStandingRequests.find(MapKey(k,e->home));
+      if(pred != outStandingRequests.end()){
+	return NULL;
+      }
     }
+  } else {
+    // here _nocache is true, so we don't cache anything and we farward all requests
   }
   outStandingRequests[MapKey(e->requestID,e->home)] = chunk;
   e->sendRequest(req);
@@ -384,18 +389,42 @@ void CacheManager::recvNodes(FillNodeMsg *msg){
 #if COSMO_STATS > 0
   nodesMessages++;
 #endif
-  addNodes(chunk,msg->owner,newnode);
-  delete msg;
-  map<CacheKey,NodeCacheEntry *>::iterator e = nodeCacheTable[chunk].find(newnode->getParentKey());
-  if (e != nodeCacheTable[chunk].end() && e->second->node != NULL) {
-    newnode->parent = e->second->node;
-    if (e->second->node->getType() == Cached) {
-      e->second->node->setChildren(e->second->node->whichChild(newnode->getKey()), newnode);
+  if (!_nocache) {
+    addNodes(chunk,msg->owner,newnode);
+    delete msg;
+    map<CacheKey,NodeCacheEntry *>::iterator e = nodeCacheTable[chunk].find(newnode->getParentKey());
+    if (e != nodeCacheTable[chunk].end() && e->second->node != NULL) {
+      newnode->parent = e->second->node;
+      if (e->second->node->getType() == Cached) {
+	e->second->node->setChildren(e->second->node->whichChild(newnode->getKey()), newnode);
+      }
     }
+    outStandingRequests.erase(pchunk);
+    // recursively process all nodes just inserted in the cache
+    processRequests(chunk,newnode,msg->owner,_cacheLineDepth);
+  } else {
+    // here _nocache is true, so we don't cache anything and we forwarded all requests
+    // now deliver the incoming node only to one of the requester
+    delete msg;
+    map<CacheKey,NodeCacheEntry *>::iterator p;
+    p = nodeCacheTable[chunk].find(newnode->getKey());
+    NodeCacheEntry *e = p->second;
+    vector<RequestorData>::iterator caller = e->requestorVec.begin();
+    TreePiece *tp = treeProxy[caller->arrayID].ckLocal();
+    
+    if (caller->isPrefetch) tp->prefetch(newnode);
+    else {
+      LDObjHandle objHandle;
+      int objstopped = 0;
+      objHandle = tp->timingBeforeCall(&objstopped);
+      tp->receiveNode(*(newnode), chunk, caller->reqID);
+      tp->timingAfterCall(objHandle,&objstopped);
+      //ckout <<"received node for computation"<<endl;
+    }
+    //treeProxy[*caller].receiveNode_inline(*(e->node),*(*callreq));
+    delete newnode;
+    e->requestorVec.erase(caller);
   }
-  outStandingRequests.erase(pchunk);
-  // recursively process all nodes just inserted in the cache
-  processRequests(chunk,newnode,msg->owner,_cacheLineDepth);
 }
 
 
@@ -418,7 +447,7 @@ GravityParticle *CacheManager::requestParticles(int requestorIndex,int chunk,con
     if(e->part != NULL){
       return e->part;
     }
-    if(!e->requestSent){
+    if(!e->requestSent || _nocache){
       if (sendParticleRequest(e,req)) {
 	return e->part;
       }
@@ -451,19 +480,23 @@ GravityParticle *CacheManager::requestParticles(int requestorIndex,int chunk,con
 }
 
 GravityParticle *CacheManager::sendParticleRequest(ParticleCacheEntry *e, BucketGravityRequest *req) {
-  TreePiece *p = treeProxy[e->home].ckLocal();
-  if(p != NULL){
-    e->requestSent = true;
-    e->replyRecvd = true;
-    const GravityParticle *gp = p->lookupParticles(e->begin);
-    CkAssert(gp != NULL);
+  if (!_nocache) {
+    TreePiece *p = treeProxy[e->home].ckLocal();
+    if(p != NULL){
+      e->requestSent = true;
+      e->replyRecvd = true;
+      const GravityParticle *gp = p->lookupParticles(e->begin);
+      CkAssert(gp != NULL);
 #if COSMO_STATS > 0
-    particlesLocal++;
+      particlesLocal++;
 #endif
-    e->part = new GravityParticle[e->end - e->begin + 1];
-    memcpy(e->part, gp, (e->end - e->begin + 1)*sizeof(GravityParticle));
-    storedParticles += (e->end - e->begin + 1);
-    return e->part;
+      e->part = new GravityParticle[e->end - e->begin + 1];
+      memcpy(e->part, gp, (e->end - e->begin + 1)*sizeof(GravityParticle));
+      storedParticles += (e->end - e->begin + 1);
+      return e->part;
+    }
+  } else {
+    // here _nocache is true, so we don't cache anything and we farward all requests 
   }
   e->sendRequest(req);
   return NULL;
@@ -482,44 +515,64 @@ void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int 
   int chunk = pchunk->second;
   CkAssert(chunk >=0 && chunk < numChunks);
   CkAssert(chunkAck[chunk] > 0);
-  outStandingParticleRequests.erase(key);
 
-  map<CacheKey,ParticleCacheEntry *>::iterator p;
-  p = particleCacheTable[chunk].find(key);
-  if(p == particleCacheTable[chunk].end()){
-    printf("[%d] particle data received for a node that was never asked for in this chunk\n",CkMyPe());
-#if COSMO_STATS > 0
-    particlesError++;
-#endif
-    return;
-  }
-#if COSMO_STATS > 0
-  particlesArrived++;
-  particlesTotalArrived += num;
-#endif
-  ParticleCacheEntry *e = p->second;
-  //CkAssert(e->from == from);
-  e->part = new GravityParticle[num];
-  memcpy(e->part,part,num*sizeof(GravityParticle));
-  //e->num = num;
-  vector<RequestorData>::iterator caller;
-  //vector<BucketGravityRequest *>::iterator callreq;
-  for(caller = e->requestorVec.begin(); caller != e->requestorVec.end(); caller++){
-    TreePiece *p = treeProxy[caller->arrayID].ckLocal();
+  if (!_nocache) {
+    outStandingParticleRequests.erase(key);
 
-    //CkAssert(!caller->isPrefetch);
-    if (caller->isPrefetch) p->prefetch(e->part);
+    map<CacheKey,ParticleCacheEntry *>::iterator p;
+    p = particleCacheTable[chunk].find(key);
+    if(p == particleCacheTable[chunk].end()){
+      printf("[%d] particle data received for a node that was never asked for in this chunk\n",CkMyPe());
+#if COSMO_STATS > 0
+      particlesError++;
+#endif
+      return;
+    }
+#if COSMO_STATS > 0
+    particlesArrived++;
+    particlesTotalArrived += num;
+#endif
+    ParticleCacheEntry *e = p->second;
+    //CkAssert(e->from == from);
+    e->part = new GravityParticle[num];
+    memcpy(e->part,part,num*sizeof(GravityParticle));
+    //e->num = num;
+    vector<RequestorData>::iterator caller;
+    //vector<BucketGravityRequest *>::iterator callreq;
+    for(caller = e->requestorVec.begin(); caller != e->requestorVec.end(); caller++){
+      TreePiece *p = treeProxy[caller->arrayID].ckLocal();
+
+      //CkAssert(!caller->isPrefetch);
+      if (caller->isPrefetch) p->prefetch(e->part);
+      else {
+	LDObjHandle objHandle;
+	int objstopped = 0;
+	objHandle = p->timingBeforeCall(&objstopped);
+	p->receiveParticles(e->part,num,chunk,caller->reqID);
+	p->timingAfterCall(objHandle,&objstopped);
+      }
+      //treeProxy[*caller].receiveParticles_inline(e->part,e->num,*(*callreq));
+    }
+    e->requestorVec.clear();
+    storedParticles+=num;
+  } else {
+    // here _nocache is true, so we don't cache anything and we forwarded all requests
+    // now deliver the incoming node only to one of the requester
+    map<CacheKey,ParticleCacheEntry *>::iterator p;
+    p = particleCacheTable[chunk].find(key);
+    ParticleCacheEntry *e = p->second;
+    vector<RequestorData>::iterator caller = e->requestorVec.begin();
+    TreePiece *tp = treeProxy[caller->arrayID].ckLocal();
+    if (caller->isPrefetch) tp->prefetch(e->part);
     else {
       LDObjHandle objHandle;
-		  int objstopped = 0;
-      objHandle = p->timingBeforeCall(&objstopped);
-      p->receiveParticles(e->part,num,chunk,caller->reqID);
-      p->timingAfterCall(objHandle,&objstopped);
+      int objstopped = 0;
+      objHandle = tp->timingBeforeCall(&objstopped);
+      tp->receiveParticles(part,num,chunk,caller->reqID);
+      tp->timingAfterCall(objHandle,&objstopped);
     }
-    //treeProxy[*caller].receiveParticles_inline(e->part,e->num,*(*callreq));
+    e->requestorVec.erase(caller);
   }
-  e->requestorVec.clear();
-  storedParticles+=num;
 }
 
 #ifdef CACHE_TREE
@@ -687,6 +740,11 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
 #endif
 #endif
 
+  if (_nocache) {
+    // non default case with the cache disabled
+    outStandingRequests.clear();
+    outStandingParticleRequests.clear();
+  }
   CkAssert(outStandingRequests.empty());
   storedNodes=0;
   storedParticles=0;
@@ -796,7 +854,7 @@ void CacheManager::finishedChunk(int num, u_int64_t weight) {
       storedNodes --;
 #if COSMO_STATS > 0
       releasedNodes++;
-      if (e->node->used == false) nodesNotUsed++;
+      if (!_nocache && e->node->used == false) nodesNotUsed++;
 #endif
       delete e;
     }
@@ -811,8 +869,10 @@ void CacheManager::finishedChunk(int num, u_int64_t weight) {
       delete e;
     }
     particleCacheTable[num].clear();
-    CkAssert(storedNodes >= 0);
-    CkAssert(storedParticles >= 0);
+    if (!_nocache) {
+      CkAssert(storedNodes >= 0);
+      CkAssert(storedParticles >= 0);
+    }
 #if COSMO_STATS > 0
     if (verbosity>1)
       CkPrintf(" Cache [%d]: in iteration %d chunk %d has %d nodes and %d particles, weight %llu\n",CkMyPe(),iterationNo,num,releasedNodes,releasedParticles,chunkWeight[num]);
