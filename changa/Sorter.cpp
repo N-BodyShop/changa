@@ -48,6 +48,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
 	    rt = new BinaryTreeNode();
       nodeKeys = new NodeKey[numChares];
       rt->getChunks(numChares,nodeKeys);
+      delete rt;
       //Convert the Node Keys to the splitter keys which will be sent to histogram
       convertNodesToSplitters(numChares,nodeKeys);
 	    break;
@@ -160,6 +161,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 		dm.acceptFinalKeys(&(*splitters.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), splitters.size(), sortingCallback);
 		numIterations = 0;
 		sorted = false;
+    delete [] nodeKeys;
 		return;
   }
 }
