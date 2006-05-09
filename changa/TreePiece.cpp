@@ -569,6 +569,7 @@ void TreePiece::quiescence() {
   ofstream ofs(fout);
   printTree(root,ofs);
   ofs.close();
+  /*
   CkPrintf("[%d] quiescence, %d left\n",thisIndex,momentRequests.size());
   for (MomentRequestType::iterator iter = momentRequests.begin(); iter != momentRequests.end(); iter++) {
     CkVec<int> *l = iter->second;
@@ -576,19 +577,19 @@ void TreePiece::quiescence() {
       CkPrintf("[%d] quiescence: %s to %d\n",thisIndex,keyBits(iter->first,63).c_str(),(*l)[i]);
     }
   }
-  /*
+  */
   CkPrintf("[%d] quiescence detected, pending %d\n",thisIndex,myNumParticlesPending);
   for (int i=0; i<numBuckets; ++i) {
     if (bucketReqs[i].numAdditionalRequests != 0)
       CkPrintf("[%d] requests for %d remaining %d\n",thisIndex,i,bucketReqs[i].numAdditionalRequests);
   }
   CkPrintf("quiescence detected!\n");
-  */
   mainChare.niceExit();
 }
 
 void TreePiece::collectSplitters(CkReductionMsg* m) {
   numSplitters = 2 * numTreePieces;
+  delete[] splitters;
   splitters = new Key[numSplitters];
   Key* splits = static_cast<Key *>(m->getData());
   copy(splits, splits + numSplitters, splitters);

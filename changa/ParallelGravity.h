@@ -463,6 +463,7 @@ public:
 	  usesAtSync=CmiTrue;
 	  bucketReqs=NULL;
 	  myPlace = -1;
+          splitters = NULL;
 #if COSMO_STATS > 0
 	  nodesOpenedLocal = 0;
 	  nodesOpenedRemote = 0;
@@ -500,6 +501,7 @@ public:
 	
 	TreePiece(CkMigrateMessage* m) {
 	  usesAtSync = CmiTrue;
+          splitters = NULL;
 	  localCache = NULL;
 	  bucketReqs = NULL;
 	  prefetchRoots = NULL;
