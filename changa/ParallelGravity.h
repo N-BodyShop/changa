@@ -180,6 +180,16 @@ class FillNodeMsg : public CMessage_FillNodeMsg {
   FillNodeMsg(int index) : owner(index) { }
 };
 
+class FillParticleMsg : public CMessage_FillParticleMsg {
+ public:
+  int owner; ///< who is the owner of this bucket
+  Tree::NodeKey key; ///< the key of the bucket of which the particles are returned
+  int count; ///< the number of particles in this bucket
+  char *particles;
+
+  FillParticleMsg(int index, Tree::NodeKey k, int num) : owner(index), key(k), count(num) { }
+};
+
 class Main : public Chare {
 	std::string basefilename;
 	CProxy_TreePiece pieces;
@@ -354,16 +364,16 @@ class TreePiece : public CBase_TreePiece {
   
   int myTreeLevels;
   CkVec< CkVec<GenericTreeNode *> > cellList;
- public:  
-  typedef struct particlesInfo{
-    GravityParticle* particles;
+ public:
+  typedef struct particlesInfoR{
+    ExternalGravityParticle* particles;
     int numParticles;
 #if COSMO_DEBUG > 1
     GenericTreeNode *nd;
 #endif
-  } PartInfo;
+  } RemotePartInfo;
  
-  CkVec< CkVec<PartInfo> > particleList;
+  CkVec< CkVec<RemotePartInfo> > particleList;
   CkVec< CkVec<GenericTreeNode *> > extCheckList;
   CkQ <GenericTreeNode *> undecidedExtList;
   
@@ -373,9 +383,16 @@ class TreePiece : public CBase_TreePiece {
   int intPrevListIter;
   int extPrevListIter;
   
-	//Variables for local computation
+  typedef struct particlesInfoL{
+    GravityParticle* particles;
+    int numParticles;
+#if COSMO_DEBUG > 1
+    GenericTreeNode *nd;
+#endif
+  } LocalPartInfo;
+    //Variables for local computation
   CkVec< CkVec<GenericTreeNode *> > cellListLocal;
-  CkVec< CkVec<PartInfo> > particleListLocal;
+  CkVec< CkVec<LocalPartInfo> > particleListLocal;
   CkVec< CkVec<GenericTreeNode *> > checkListLocal;
   
   CkQ <GenericTreeNode *> undecidedListLocal;
@@ -609,7 +626,7 @@ public:
 	/// Function called by the CacheManager to send out request for needed
 	/// remote data, so that the later computation will hit.
 	void prefetch(GenericTreeNode *node);
-	void prefetch(GravityParticle *part);
+	void prefetch(ExternalGravityParticle *part);
 
 	/// @brief Retrieve the remote node, goes through the cache if present
 	GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk,
@@ -649,14 +666,14 @@ public:
 	void calculateForces(GenericTreeNode *node, GenericTreeNode *myNode,int level,int chunk);
 #endif
   
-  GravityParticle *requestParticles(const Tree::NodeKey &key,int chunk,int remoteIndex,int begin,int end,BucketGravityRequest &req, bool isPrefetch=false);
+  ExternalGravityParticle *requestParticles(const Tree::NodeKey &key,int chunk,int remoteIndex,int begin,int end,BucketGravityRequest &req, bool isPrefetch=false);
 	void fillRequestParticles(RequestParticleMsg *msg);
 	//void fillRequestParticles(Tree::NodeKey key,int retIndex, int begin,int end,
 	//			  unsigned int reqID);
-	void receiveParticles(GravityParticle *part,int num,int chunk,
-			      unsigned int reqID);
-	void receiveParticles_inline(GravityParticle *part,int num,int chunk,
-				     unsigned int reqID);
+	void receiveParticles(ExternalGravityParticle *part,int num,int chunk,
+			      unsigned int reqID, Tree::NodeKey remoteBucketID);
+	void receiveParticles_inline(ExternalGravityParticle *part,int num,int chunk,
+				     unsigned int reqID, Tree::NodeKey remoteBucketID);
 			  
 	void startlb(CkCallback &cb);
 	void ResumeFromSync();
@@ -665,7 +682,7 @@ public:
 	void outputAccASCII(const std::string& suffix, const CkCallback& cb);
 	void outputIOrderASCII(const std::string& suffix, const CkCallback& cb);
 	void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, double totalmass, const CkCallback& cb);
-	void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
+	//void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
 
 	/// Collect the total statistics from the various chares
 	void collectStatistics(CkCallback &cb);

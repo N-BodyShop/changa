@@ -28,6 +28,7 @@ typedef GenericTreeNode CacheNode;
 typedef u_int64_t CacheKey;
 
 class FillNodeMsg;
+class FillParticleMsg;
 
 #include "CacheManager.decl.h"
 
@@ -170,7 +171,7 @@ public:
 
 class ParticleCacheEntry : public CacheEntry, public CkPool<ParticleCacheEntry, 64> {
 public:
-	GravityParticle *part;
+	ExternalGravityParticle *part;
 	//int num;
 	int begin;
 	int end;
@@ -309,7 +310,7 @@ private:
 	/// is in the same processor fetch it directly, otherwise send a message
 	/// to the remote TreePiece::fillRequestNode
 	CacheNode *sendNodeRequest(int chunk,NodeCacheEntry *e,BucketGravityRequest *);
-	GravityParticle *sendParticleRequest(ParticleCacheEntry *e,BucketGravityRequest *);
+	ExternalGravityParticle *sendParticleRequest(ParticleCacheEntry *e,BucketGravityRequest *);
 
 #ifdef CACHE_TREE
 	/// Construct a tree based on the roots given as input recursively. The
@@ -345,8 +346,9 @@ private:
 	 */
 	void recvNodes(FillNodeMsg *msg);
 	
-	GravityParticle *requestParticles(int requestorIndex, int chunk, const CacheKey key, int remoteIndex, int begin, int end, BucketGravityRequest *req, bool isPrefetch);
-	void recvParticles(CacheKey key,GravityParticle *part,int num, int from);
+	ExternalGravityParticle *requestParticles(int requestorIndex, int chunk, const CacheKey key, int remoteIndex, int begin, int end, BucketGravityRequest *req, bool isPrefetch);
+	//void recvParticles(CacheKey key,GravityParticle *part,int num, int from);
+        void recvParticles(FillParticleMsg *msg);
 
 #ifdef CACHE_TREE
 	/** Convert a key into a node in the cache internal tree (the one built

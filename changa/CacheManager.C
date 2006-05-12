@@ -337,7 +337,7 @@ void CacheManager::processRequests(int chunk,CacheNode *node,int from,int depth)
     if (caller->isPrefetch) p->prefetch(e->node);
     else {
       LDObjHandle objHandle;
-		  int objstopped = 0;
+      int objstopped = 0;
       objHandle = p->timingBeforeCall(&objstopped);
       p->receiveNode(*(e->node), chunk, caller->reqID);
       p->timingAfterCall(objHandle,&objstopped);
@@ -428,7 +428,7 @@ void CacheManager::recvNodes(FillNodeMsg *msg){
 }
 
 
-GravityParticle *CacheManager::requestParticles(int requestorIndex,int chunk,const CacheKey key,int remoteIndex,int begin,int end,BucketGravityRequest *req,bool isPrefetch){
+ExternalGravityParticle *CacheManager::requestParticles(int requestorIndex,int chunk,const CacheKey key,int remoteIndex,int begin,int end,BucketGravityRequest *req,bool isPrefetch){
   map<CacheKey,ParticleCacheEntry *>::iterator p;
   CkAssert(chunkAck[chunk] > 0);
   p = particleCacheTable[chunk].find(key);
@@ -479,7 +479,7 @@ GravityParticle *CacheManager::requestParticles(int requestorIndex,int chunk,con
   return NULL;
 }
 
-GravityParticle *CacheManager::sendParticleRequest(ParticleCacheEntry *e, BucketGravityRequest *req) {
+ExternalGravityParticle *CacheManager::sendParticleRequest(ParticleCacheEntry *e, BucketGravityRequest *req) {
   if (!_nocache) {
     TreePiece *p = treeProxy[e->home].ckLocal();
     if(p != NULL){
@@ -490,8 +490,9 @@ GravityParticle *CacheManager::sendParticleRequest(ParticleCacheEntry *e, Bucket
 #if COSMO_STATS > 0
       particlesLocal++;
 #endif
-      e->part = new GravityParticle[e->end - e->begin + 1];
-      memcpy(e->part, gp, (e->end - e->begin + 1)*sizeof(GravityParticle));
+      e->part = new ExternalGravityParticle[e->end - e->begin + 1];
+      for (int i=0; i<=e->end - e->begin; ++i) e->part[i] = gp[i];
+      //memcpy(e->part, gp, (e->end - e->begin + 1)*sizeof(BasicGravityParticle));
       storedParticles += (e->end - e->begin + 1);
       return e->part;
     }
@@ -502,7 +503,11 @@ GravityParticle *CacheManager::sendParticleRequest(ParticleCacheEntry *e, Bucket
   return NULL;
 }
 
-void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int from){
+//void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int from){
+void CacheManager::recvParticles(FillParticleMsg *msg){
+  CacheKey key = msg->key;
+  int num = msg->count;
+  int from = msg->owner;
   CkAssert(num>0);
   map<CacheKey,int>::iterator pchunk = outStandingParticleRequests.find(key);
   if(pchunk == outStandingParticleRequests.end()) {
@@ -510,6 +515,7 @@ void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int 
 #if COSMO_STATS > 0
     particlesError++;
 #endif
+    delete msg;
     return;
   }
   int chunk = pchunk->second;
@@ -526,6 +532,7 @@ void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int 
 #if COSMO_STATS > 0
       particlesError++;
 #endif
+      delete msg;
       return;
     }
 #if COSMO_STATS > 0
@@ -534,8 +541,10 @@ void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int 
 #endif
     ParticleCacheEntry *e = p->second;
     //CkAssert(e->from == from);
-    e->part = new GravityParticle[num];
-    memcpy(e->part,part,num*sizeof(GravityParticle));
+    e->part = new ExternalGravityParticle[num];
+    PUP::fromMem pp(msg->particles);
+    for (int i=0; i<num; ++i) e->part[i].pup(pp);
+    //memcpy(e->part,part,num*sizeof(GravityParticle));
     //e->num = num;
     vector<RequestorData>::iterator caller;
     //vector<BucketGravityRequest *>::iterator callreq;
@@ -548,7 +557,7 @@ void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int 
 	LDObjHandle objHandle;
 	int objstopped = 0;
 	objHandle = p->timingBeforeCall(&objstopped);
-	p->receiveParticles(e->part,num,chunk,caller->reqID);
+	p->receiveParticles(e->part,num,chunk,caller->reqID,msg->key);
 	p->timingAfterCall(objHandle,&objstopped);
       }
       //treeProxy[*caller].receiveParticles_inline(e->part,e->num,*(*callreq));
@@ -568,11 +577,12 @@ void CacheManager::recvParticles(CacheKey key,GravityParticle *part,int num,int 
       LDObjHandle objHandle;
       int objstopped = 0;
       objHandle = tp->timingBeforeCall(&objstopped);
-      tp->receiveParticles(part,num,chunk,caller->reqID);
+      tp->receiveParticles(e->part,num,chunk,caller->reqID, msg->key);
       tp->timingAfterCall(objHandle,&objstopped);
     }
     e->requestorVec.erase(caller);
   }
+  delete msg;
 }
 
 #ifdef CACHE_TREE
@@ -810,6 +820,8 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
     chunkWeight[i] = 0;
   }
 
+  CmiResetMaxMemory();
+
   // call the gravitational computation utility of each local chare element
   for (iter = registeredChares.begin(); iter != registeredChares.end(); iter++) {
     TreePiece *p = treeProxy[iter->first].ckLocal();
@@ -833,6 +845,14 @@ void CacheManager::revokePresence(int index) {
 }
 
 void CacheManager::finishedChunk(int num, u_int64_t weight) {
+#if COSMO_STATS > 0
+  static int counter = 0;
+  if (++counter == registeredChares.size()*numChunks) {
+    counter = 0;
+    CkPrintf(" [%d] Max memory utilization %d\n",CkMyPe(),CmiMaxMemoryUsage());
+  }
+#endif
+
   CkAssert(chunkAck[num] > 0);
   if (--chunkAck[num] == 0) {
     // we can safely delete the chunk from the cache

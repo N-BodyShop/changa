@@ -335,12 +335,12 @@ void Main::nextStage() {
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 #endif
 
-#if COSMO_DEBUG > 1
+        /*#if COSMO_DEBUG > 1
 	ckerr << "Outputting relative errors ...";
 	startTime = CkWallTimer();
 	pieces[0].outputRelativeErrors(Interval<double>(), CkCallbackResumeThread());
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
-#endif
+        #endif*/
 
 	ckerr << "Done." << endl;
 	

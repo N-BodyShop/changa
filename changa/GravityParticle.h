@@ -22,9 +22,9 @@ public:
 	unsigned int numAdditionalRequests;
 	int finished;
 
-#if COSMO_DEBUG > 1
-  std::vector<u_int64_t> requestedNodes;
-#endif
+        /*#if COSMO_DEBUG > 1
+          std::vector<u_int64_t> requestedNodes;
+          #endif*/
   
 	BucketGravityRequest(unsigned int bucketSize = 0) : identifier(0),
 	    numParticlesInBucket(bucketSize), numAdditionalRequests(0),
@@ -38,9 +38,9 @@ public:
 			positions = accelerations = 0;
 			softs = potentials = 0;
 			}
-#if COSMO_DEBUG > 1
-    requestedNodes.clear();
-#endif
+                /*#if COSMO_DEBUG > 1
+                  requestedNodes.clear();
+                  #endif*/
 	}
 	
 	BucketGravityRequest(const BucketGravityRequest& req) {
@@ -95,10 +95,10 @@ public:
 			softs = potentials = 0;
 			}
 		numAdditionalRequests = req.numAdditionalRequests;
-#if COSMO_DEBUG > 1
-    for(unsigned int i=0;i<req.requestedNodes.size();i++)
-      requestedNodes.push_back(req.requestedNodes[i]);
-#endif
+                /*#if COSMO_DEBUG > 1
+                  for(unsigned int i=0;i<req.requestedNodes.size();i++)
+                  requestedNodes.push_back(req.requestedNodes[i]);
+                  #endif*/
 		return *this;
 	}
 	
@@ -140,6 +140,7 @@ public:
 	}	
 };
 
+/*
 class GravityRequest {
 public:
 	SFC::Key startingNode;
@@ -181,24 +182,37 @@ public:
 		p | numEntryCalls;
 	}
 };
+*/
 
+class ExternalGravityParticle {
+ public:
+  double mass;
+  double soft;
+  Vector3D<double> position;
 
-class GravityParticle {
+  void pup(PUP::er &p) {
+    p | position;
+    p | mass;
+    p | soft;
+  }
+};
+
+class GravityParticle : public ExternalGravityParticle {
 public:
 
 	SFC::Key key;
-	double mass;
-	double soft;
-	Vector3D<double> position;
+	//double mass;
+	//double soft;
+	//Vector3D<double> position;
 	Vector3D<double> velocity;
-	Vector3D<double> acceleration;
+	//Vector3D<double> acceleration;
 	Vector3D<double> treeAcceleration;
 	double potential;
 	int iOrder;		/* input order of particles */
-	unsigned int numCellInteractions;
-	unsigned int numParticleInteractions;
-	unsigned int numMACChecks;
-	unsigned int numEntryCalls;
+	//unsigned int numCellInteractions;
+	//unsigned int numParticleInteractions;
+	//unsigned int numMACChecks;
+	//unsigned int numEntryCalls;
 
 #if COSMO_STATS > 1
 	double intcellmass;
@@ -207,13 +221,21 @@ public:
 	double extpartmass;
 #endif
 	
-	GravityParticle(SFC::Key k = 0) : key(k), mass(0), numCellInteractions(0), numParticleInteractions(0), numMACChecks(0), numEntryCalls(0) { }
-	GravityParticle(float m, Vector3D<float> p, Vector3D<float> a) : mass(m), position(p), acceleration(a), numCellInteractions(0), numParticleInteractions(0), numMACChecks(0), numEntryCalls(0) { }
-	
+	GravityParticle(SFC::Key k = 0) : ExternalGravityParticle() {
+          key = k;
+        }
+
+        /*
+	GravityParticle(float m, Vector3D<float> p, Vector3D<float> a) : mass(m), position(p), acceleration(a)
+          //, numCellInteractions(0), numParticleInteractions(0), numMACChecks(0), numEntryCalls(0)
+          { }
+        */
+
 	inline bool operator<(const GravityParticle& p) const {
 		return key < p.key;
 	}
-	
+
+        /*	
 	void update(const GravityRequest& req) {
 		treeAcceleration += req.acceleration;
 		potential += req.potential;
@@ -222,17 +244,17 @@ public:
 		numMACChecks += req.numMACChecks;
 		numEntryCalls += req.numEntryCalls;
 	}
+        */
 
-	void pup(PUP::er &p)
-	    {
-		p | position;
-		p | velocity;
-		p | mass;
-		p | soft;
-		p | key;
-		p | iOrder;
-		}
-	
+	void pup(PUP::er &p) {
+          ExternalGravityParticle::pup(p);
+          p | key;
+          //p | position;
+          p | velocity;
+          //p | mass;
+          //p | soft;
+          p | iOrder;
+        }
 };
 
 #endif

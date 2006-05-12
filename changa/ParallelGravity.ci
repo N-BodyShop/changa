@@ -29,6 +29,9 @@ mainmodule ParallelGravity {
 	message FillNodeMsg {
 	  char nodes[];
 	};
+	message FillParticleMsg {
+	  char particles[];
+	};
 
 	mainchare Main {
 		entry Main();
@@ -118,8 +121,8 @@ mainmodule ParallelGravity {
 		entry [expedited] void fillRequestParticles(RequestParticleMsg *msg);
 		//entry void fillRequestParticles(SFC::Key key,int retIndex, int begin,int end,
 		//				unsigned int reqID);
-		entry void receiveParticles(GravityParticle part[num],int num,int chunk,
-					    unsigned int reqID);
+		//entry void receiveParticles(ExternalGravityParticle part[num],int num,int chunk,
+		//			    unsigned int reqID);
 		//entry [inline] void receiveParticles_inline(GravityParticle part[num],int num,
 		//					    unsigned int reqID);
 		    
@@ -130,7 +133,7 @@ mainmodule ParallelGravity {
 		entry void outputAccASCII(const std::string& suffix, const CkCallback& cb);
 		entry void outputIOrderASCII(const string& suffix, const CkCallback& cb);
 		entry void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, double totalmass, const CkCallback& cb);
-		entry void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
+		//entry void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
 		//entry void getPieceValues(piecedata *totaldata);
 		entry void collectStatistics(CkCallback &cb);
 	};
