@@ -23,18 +23,18 @@ bool operator<(MapKey lhs,MapKey rhs){
 }
 
 
-inline void NodeCacheEntry::sendRequest(BucketGravityRequest *req){
+inline void NodeCacheEntry::sendRequest(int reqID){
   requestSent = true;
-  RequestNodeMsg *msg = new (32) RequestNodeMsg(CkMyPe(),_cacheLineDepth,requestID,req->identifier);
+  RequestNodeMsg *msg = new (32) RequestNodeMsg(CkMyPe(),_cacheLineDepth,requestID,reqID);
   *(int*)CkPriorityPtr(msg) = -110000000; 
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
   treeProxy[home].fillRequestNode(msg);
   //	CpvAccess(streamingTreeProxy)[home].fillRequestNode(CkMyPe(),requestNodeID,*req);
 };
 
-inline void ParticleCacheEntry::sendRequest(BucketGravityRequest *req){
+inline void ParticleCacheEntry::sendRequest(int reqID){
   requestSent = true;
-  RequestParticleMsg *msg = new (32) RequestParticleMsg(CkMyPe(),begin,end,requestID,req->identifier);
+  RequestParticleMsg *msg = new (32) RequestParticleMsg(CkMyPe(),begin,end,requestID,reqID);
   *(int*)CkPriorityPtr(msg) = -100000000;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
   treeProxy[home].fillRequestParticles(msg);
@@ -71,7 +71,7 @@ CacheManager::CacheManager(int size){
   if (verbosity) CkPrintf("Cache: accepting at most %llu nodes\n",maxSize);
 }
 
-CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chunk,CacheKey key,BucketGravityRequest *req,bool isPrefetch){
+CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chunk,CacheKey key,int reqID,bool isPrefetch){
   /*
     if(!proxyInitialized){
     CpvInitialize(CProxy_TreePiece,streamingTreeProxy);
@@ -100,7 +100,7 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chun
     }
     if((!e->requestSent && !e->replyRecvd) || _nocache){
       //sendrequest to the the tree, if it is local return the node 
-      if(sendNodeRequest(chunk,e,req)){
+      if(sendNodeRequest(chunk,e,reqID)){
 	return e->node;
       }
     }
@@ -113,11 +113,11 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chun
 #endif
     nodeCacheTable[chunk].insert(pair<CacheKey,NodeCacheEntry *>(key,e));
     //sendrequest to the the tree, if it is local return the node that is returned
-    if(sendNodeRequest(chunk,e,req)){
+    if(sendNodeRequest(chunk,e,reqID)){
       return e->node;
     }
   }
-  e->requestorVec.push_back(RequestorData(requestorIndex,req->identifier,isPrefetch));
+  e->requestorVec.push_back(RequestorData(requestorIndex,reqID,isPrefetch));
   //e->reqVec.push_back(req);
 #if COSMO_STATS > 1
   e->misses++;
@@ -130,7 +130,7 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chun
 
 #include "TreeNode.h"
 
-CacheNode *CacheManager::sendNodeRequest(int chunk, NodeCacheEntry *e,BucketGravityRequest *req){
+CacheNode *CacheManager::sendNodeRequest(int chunk, NodeCacheEntry *e,int reqID){
   /*
     check if the array element to which the request is directed is local or not.
     If it is local then just fetch it store it and return it.
@@ -183,7 +183,7 @@ CacheNode *CacheManager::sendNodeRequest(int chunk, NodeCacheEntry *e,BucketGrav
     // here _nocache is true, so we don't cache anything and we farward all requests
   }
   outStandingRequests[MapKey(e->requestID,e->home)] = chunk;
-  e->sendRequest(req);
+  e->sendRequest(reqID);
   return NULL;
 }
 
@@ -428,7 +428,7 @@ void CacheManager::recvNodes(FillNodeMsg *msg){
 }
 
 
-ExternalGravityParticle *CacheManager::requestParticles(int requestorIndex,int chunk,const CacheKey key,int remoteIndex,int begin,int end,BucketGravityRequest *req,bool isPrefetch){
+ExternalGravityParticle *CacheManager::requestParticles(int requestorIndex,int chunk,const CacheKey key,int remoteIndex,int begin,int end,int reqID,bool isPrefetch){
   map<CacheKey,ParticleCacheEntry *>::iterator p;
   CkAssert(chunkAck[chunk] > 0);
   p = particleCacheTable[chunk].find(key);
@@ -448,7 +448,7 @@ ExternalGravityParticle *CacheManager::requestParticles(int requestorIndex,int c
       return e->part;
     }
     if(!e->requestSent || _nocache){
-      if (sendParticleRequest(e,req)) {
+      if (sendParticleRequest(e,reqID)) {
 	return e->part;
       }
     }
@@ -462,12 +462,12 @@ ExternalGravityParticle *CacheManager::requestParticles(int requestorIndex,int c
     e->totalRequests++;
 #endif
     particleCacheTable[chunk][key] = e;
-    if (sendParticleRequest(e, req)) {
+    if (sendParticleRequest(e, reqID)) {
       return e->part;
     }
   }
 
-  e->requestorVec.push_back(RequestorData(requestorIndex,req->identifier,isPrefetch));
+  e->requestorVec.push_back(RequestorData(requestorIndex,reqID,isPrefetch));
   //e->reqVec.push_back(req);
   outStandingParticleRequests[key] = chunk;
 #if COSMO_STATS > 1
@@ -479,7 +479,7 @@ ExternalGravityParticle *CacheManager::requestParticles(int requestorIndex,int c
   return NULL;
 }
 
-ExternalGravityParticle *CacheManager::sendParticleRequest(ParticleCacheEntry *e, BucketGravityRequest *req) {
+ExternalGravityParticle *CacheManager::sendParticleRequest(ParticleCacheEntry *e, int reqID) {
   if (!_nocache) {
     TreePiece *p = treeProxy[e->home].ckLocal();
     if(p != NULL){
@@ -499,7 +499,7 @@ ExternalGravityParticle *CacheManager::sendParticleRequest(ParticleCacheEntry *e
   } else {
     // here _nocache is true, so we don't cache anything and we farward all requests 
   }
-  e->sendRequest(req);
+  e->sendRequest(reqID);
   return NULL;
 }
 

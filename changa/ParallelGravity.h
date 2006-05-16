@@ -293,7 +293,8 @@ class TreePiece : public CBase_TreePiece {
 	/// Array of keys that will be the root of the prefetching chunks
 	Tree::NodeKey *prefetchRoots;
 	/// Placeholder for particles used for prefetching
-	BucketGravityRequest prefetchReq[2];
+	OrientedBox<double> *prefetchReq;
+	unsigned int numPrefetchReq;
 	/// number of particles/buckets still remaining to compute for the chunk
 	int *remainingChunk;
 
@@ -448,12 +449,12 @@ class TreePiece : public CBase_TreePiece {
 	 * treewalk is finished it stops and cachedWalkBucketTree will continue
 	 * with the incoming nodes.
 	 */
-	void walkBucketTree(GenericTreeNode* node, BucketGravityRequest& req);
-	#if INTERLIST_VER > 0
+	void walkBucketTree(GenericTreeNode* node, int reqID);
+#if INTERLIST_VER > 0
 	void preWalkInterTree();
 	void walkInterTreeVerI(GenericTreeNode *node);
 	void walkInterTreeVerII(GenericTreeNode *node);
-	#endif
+#endif
 	/** @brief Start the treewalk for the next bucket among those belonging
 	 * to me. The buckets are simply ordered in a vector.
 	 */
@@ -487,32 +488,34 @@ public:
 	  nodeInterLocal = 0;
 	  particleInterLocal = 0;
 
-    numOpenCriterionCalls=0;
+	  numOpenCriterionCalls=0;
     
-    piecemass = 0.0;
-    packed=0;			/* output accelerations in x,y,z
-				   packed format */
-    cnt=0;			/* Counter over x,y,z when not packed */
+	  piecemass = 0.0;
+	  packed=0;			/* output accelerations in x,y,z
+					   packed format */
+	  cnt=0;			/* Counter over x,y,z when not packed */
 #endif
-    particleInterRemote = NULL;
-    nodeInterRemote = NULL;
+	  particleInterRemote = NULL;
+	  nodeInterRemote = NULL;
 
 #if INTERLIST_VER > 0
-    myTreeLevels=-1;
-    myCheckListEmpty=false;
-    myLocalCheckListEmpty=false;
-    curLevelLocal=0;
-    curNodeLocal=NULL;
-    curLevelRemote=0;
-    curNodeRemote=NULL;
-    nChunk=-1;
+	  myTreeLevels=-1;
+	  myCheckListEmpty=false;
+	  myLocalCheckListEmpty=false;
+	  curLevelLocal=0;
+	  curNodeLocal=NULL;
+	  curLevelRemote=0;
+	  curNodeRemote=NULL;
+	  nChunk=-1;
 #endif
 
-    tmpTime=0.0;
-    totalTime=0.0;
+	  tmpTime=0.0;
+	  totalTime=0.0;
 	  // temporarely set to -1, it will updated after the tree is built
 	  numChunks=-1;
 	  prefetchRoots = NULL;
+	  numPrefetchReq = 0;
+	  prefetchReq = NULL;
 	  remainingChunk = NULL;
 	}
 	
@@ -533,6 +536,7 @@ public:
 	  delete[] nodeInterRemote;
 	  delete[] particleInterRemote;
 	  delete[] bucketReqs;
+	  delete[] prefetchReq;
 	  // recursively delete the entire tree
 	  if (root != NULL) {
 	    root->fullyDelete();
@@ -557,9 +561,9 @@ public:
 	void loadTipsy(const std::string& filename, const CkCallback& cb);
 	/** Inform the DataManager of my node that I'm here.
 	 The callback will receive a CkReductionMsg containing no data.
-	 */
 	void registerWithDataManager(const CkGroupID& dataManagerID,
 				     const CkCallback& cb);
+	 */
 	// Assign keys after loading tipsy file and finding Bounding box
 	void assignKeys(CkReductionMsg* m);
 	void evaluateBoundaries(const CkCallback& cb);
@@ -584,12 +588,13 @@ public:
 
 	/// Decide whether the node should be opened for the force computation
 	/// of the given request.
+	template <typename T>
 	bool openCriterionBucket(GenericTreeNode *node,
-				 BucketGravityRequest& req);
-#if INTERLIST_VER > 0
+				 OrientedBox<T>& boundingBox);
+
 	int openCriterionNode(GenericTreeNode *node,
-				 GenericTreeNode *myNode);
-#endif
+			      GenericTreeNode *myNode);
+
 	/// Entry point for the local computation: for each bucket compute the
 	/// force that its particles see due to the other particles hosted in
 	/// this TreePiece. The opening angle theta has already been passed
@@ -605,7 +610,7 @@ public:
 	/// Temporary function to recurse over all the buckets like in
 	/// walkBucketTree, only that NonLocal nodes are the only one for which
 	/// forces are computed
-	void walkBucketRemoteTree(GenericTreeNode *node, int chunk, BucketGravityRequest &req, bool isRoot);
+	void walkBucketRemoteTree(GenericTreeNode *node, int chunk, int reqID, bool isRoot);
 
 #if INTERLIST_VER > 0
   void preWalkRemoteInterTree(GenericTreeNode *chunkRoot, bool isRoot);
@@ -630,7 +635,7 @@ public:
 
 	/// @brief Retrieve the remote node, goes through the cache if present
 	GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk,
-				 BucketGravityRequest& req, bool isPrefetch=false);
+				 int reqID, bool isPrefetch=false);
 	/// @brief Receive a request for Nodes from a remote processor, copy the
 	/// data into it, and send back a message.
 	void fillRequestNode(RequestNodeMsg *msg);
@@ -656,8 +661,7 @@ public:
 	 * where it had been interrupted. It will possibly made other remote
 	 * requests.
 	 */
-	void cachedWalkBucketTree(GenericTreeNode* node, int chunk,
-				  BucketGravityRequest& req);
+	void cachedWalkBucketTree(GenericTreeNode* node, int chunk, int reqID);
 
 #if INTERLIST_VER > 0
   void cachedWalkInterTreeVerI(GenericTreeNode* node);
@@ -666,7 +670,7 @@ public:
 	void calculateForces(GenericTreeNode *node, GenericTreeNode *myNode,int level,int chunk);
 #endif
   
-  ExternalGravityParticle *requestParticles(const Tree::NodeKey &key,int chunk,int remoteIndex,int begin,int end,BucketGravityRequest &req, bool isPrefetch=false);
+  ExternalGravityParticle *requestParticles(const Tree::NodeKey &key,int chunk,int remoteIndex,int begin,int end,int reqID, bool isPrefetch=false);
 	void fillRequestParticles(RequestParticleMsg *msg);
 	//void fillRequestParticles(Tree::NodeKey key,int retIndex, int begin,int end,
 	//			  unsigned int reqID);

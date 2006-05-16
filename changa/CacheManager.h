@@ -166,7 +166,7 @@ public:
 		//reqVec.clear();
 	}
 	/// 
-	void sendRequest(BucketGravityRequest *);
+	void sendRequest(int);
 };	
 
 class ParticleCacheEntry : public CacheEntry, public CkPool<ParticleCacheEntry, 64> {
@@ -185,7 +185,7 @@ public:
 		delete []part;
 		//reqVec.clear();
 	}
-	void sendRequest(BucketGravityRequest *);
+	void sendRequest(int);
 };
 
 class MapKey {//: public CkPool<MapKey, 64> {
@@ -309,8 +309,8 @@ private:
 	/// @brief Fetches the Node from the correct TreePiece. If the TreePiece
 	/// is in the same processor fetch it directly, otherwise send a message
 	/// to the remote TreePiece::fillRequestNode
-	CacheNode *sendNodeRequest(int chunk,NodeCacheEntry *e,BucketGravityRequest *);
-	ExternalGravityParticle *sendParticleRequest(ParticleCacheEntry *e,BucketGravityRequest *);
+	CacheNode *sendNodeRequest(int chunk,NodeCacheEntry *e,int reqID);
+	ExternalGravityParticle *sendParticleRequest(ParticleCacheEntry *e,int reqID);
 
 #ifdef CACHE_TREE
 	/// Construct a tree based on the roots given as input recursively. The
@@ -337,7 +337,7 @@ private:
 	 * sendNodeRequest to get it. Returns null if the Node has to come from
 	 * remote.
 	*/
-	CacheNode *requestNode(int requestorIndex, int remoteIndex, int chunk, CacheKey key, BucketGravityRequest *req, bool isPrefetch);
+	CacheNode *requestNode(int requestorIndex, int remoteIndex, int chunk, CacheKey key, int reqID, bool isPrefetch);
 	// Shortcut for the other recvNodes, this receives only one node
 	//void recvNodes(CacheKey ,int ,CacheNode &);
 	/** @brief Receive the nodes incoming from the remote
@@ -346,7 +346,7 @@ private:
 	 */
 	void recvNodes(FillNodeMsg *msg);
 	
-	ExternalGravityParticle *requestParticles(int requestorIndex, int chunk, const CacheKey key, int remoteIndex, int begin, int end, BucketGravityRequest *req, bool isPrefetch);
+	ExternalGravityParticle *requestParticles(int requestorIndex, int chunk, const CacheKey key, int remoteIndex, int begin, int end, int reqID, bool isPrefetch);
 	//void recvParticles(CacheKey key,GravityParticle *part,int num, int from);
         void recvParticles(FillParticleMsg *msg);
 
