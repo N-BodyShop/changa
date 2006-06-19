@@ -10,14 +10,14 @@
 #include "pup.h"
 #include "ckpool.h"
 
-#include <algorithm>
 #include <map>
+#include <vector>
+#include <algorithm>
 
 #include "OrientedBox.h"
 #include "MultipoleMoments.h"
 
 #include "GravityParticle.h"
-
 
 namespace Tree {
 
@@ -133,7 +133,7 @@ namespace Tree {
     /// construct the children of the "this" node following the given logical
     /// criteria (Oct/Orb)
     virtual void makeOctChildren(GravityParticle *part, int totalPart, int level) = 0;
-    virtual void makeOrbChildren(GravityParticle *part, int totalPart, int level) = 0;
+    virtual void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle)) = 0;
 
     // get the number of chunks possible for the given request
     // @return a number greater or iqual to th the request
@@ -370,7 +370,154 @@ namespace Tree {
       children[1]->particlePointer = &part[children[1]->firstParticle];
     }
 
-    void makeOrbChildren(GravityParticle *part, int totalPart, int level) {}
+    void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle)) {
+
+      children[0] = new BinaryTreeNode();
+      children[1] = new BinaryTreeNode();
+      children[0]->parent = this;
+      children[1]->parent = this;
+      children[0]->boundingBox = boundingBox;
+      children[1]->boundingBox = boundingBox;
+
+      children[0]->key = key << 1;
+      children[1]->key = (key << 1) + 1;
+      children[0]->firstParticle = firstParticle;
+      children[1]->lastParticle = lastParticle;
+    
+      //CkPrintf("children keys:%lld,%lld\n",children[0]->key,children[1]->key);
+      if(level<rootsLevel){ //Above the TreePiece root level
+        SFC::Key tmp = 1 << (level+1);
+        tmp = children[0]->key - tmp;
+        SFC::Key tmp2 = part[0].key >> (rootsLevel-level-1);
+
+        if(level+1 != rootsLevel){
+          if(tmp==tmp2){
+            children[0]->myType = Boundary;
+            children[1]->myType = NonLocal;
+	          children[1]->firstParticle = lastParticle+1;
+	          children[0]->lastParticle = lastParticle;
+	          children[0]->particleCount = particleCount;
+          }
+          else{
+            children[0]->myType = NonLocal;
+            children[1]->myType = Boundary;
+	          children[0]->lastParticle = firstParticle-1;
+	          children[1]->firstParticle = firstParticle;
+	          children[1]->particleCount = particleCount;
+          }
+        }
+        else{
+          if(tmp==tmp2){
+            children[0]->myType = Internal;
+            children[1]->myType = NonLocal;
+	          children[1]->firstParticle = lastParticle+1;
+	          children[0]->lastParticle = lastParticle;
+	          children[0]->particleCount = particleCount;
+	          if(firstParticle==0)
+              children[0]->firstParticle = firstParticle+1;
+	          if(lastParticle==totalPart+1)
+              children[0]->lastParticle = lastParticle-1;
+          }
+          else{
+            children[0]->myType = NonLocal;
+            children[1]->myType = Internal;
+	          children[0]->lastParticle = firstParticle-1;
+	          children[1]->firstParticle = firstParticle;
+	          children[1]->particleCount = particleCount;
+	          if(firstParticle==0)
+              children[1]->firstParticle = firstParticle+1;
+	          if(lastParticle==totalPart+1)
+              children[1]->lastParticle = lastParticle-1;
+          }
+        }
+      }
+      else{ //Below the TreePiece root level
+				float len=0.0,len2=0.0;
+				char dim;
+        //double pos;
+				//int tempCount1,tempCount2;
+				//float TOLER=0.05;
+				//double curHigh,curLow;
+				
+        len=boundingBox.greater_corner.x-boundingBox.lesser_corner.x;
+        dim=0;
+        CkAssert(len>=0.0);
+        len2=boundingBox.greater_corner.y-boundingBox.lesser_corner.y;
+        CkAssert(len2>=0.0);
+        if(len2>len) { len = len2; dim=1; }
+        len2=boundingBox.greater_corner.z-boundingBox.lesser_corner.z;
+        CkAssert(len2>=0.0);
+        if(len2>len) { len = len2; dim=2; }
+        
+        //pos = boundingBox.lesser_corner[dim] + len/2;
+				//curHigh = boundingBox.greater_corner[dim];
+				//curLow = boundingBox.lesser_corner[dim];
+
+        std::sort(&part[firstParticle],&part[lastParticle+1],compFnPtr[dim]);
+
+        boundingBox.greater_corner[dim] = part[lastParticle].position[dim];
+        boundingBox.lesser_corner[dim] = part[firstParticle].position[dim];
+
+        if((lastParticle-firstParticle+1)%2==0){
+          children[0]->lastParticle = firstParticle + (lastParticle-firstParticle-1)/2;
+          children[1]->firstParticle = firstParticle + (lastParticle-firstParticle+1)/2;
+          children[0]->particleCount = (lastParticle-firstParticle+1)/2;
+          children[1]->particleCount = (lastParticle-firstParticle+1)/2;
+          //pos = part[children[0]->lastParticle].position[dim];
+        }
+        else{
+          children[0]->lastParticle = firstParticle + (lastParticle-firstParticle)/2;
+          children[1]->firstParticle = firstParticle + (lastParticle-firstParticle+2)/2;
+          children[0]->particleCount = (lastParticle-firstParticle+2)/2;
+          children[1]->particleCount = (lastParticle-firstParticle)/2;
+          //pos = part[children[0]->lastParticle].position[dim];
+        }
+        /*GravityParticle dummy;
+        GravityParticle* divStart;
+        GravityParticle* divEnd;
+        Vector3D<double> divide(0.0,0.0,0.0);
+        
+        if(firstParticle==0) { divStart = &part[1]; }
+        else { divStart = &part[firstParticle]; }
+				while(1){
+					divide[dim] = pos;
+        	dummy.position = divide;
+        	divEnd = std::upper_bound(divStart,&part[lastParticle],dummy,compFnPtr[dim]);
+        	tempCount1 = divEnd - divStart;
+        	tempCount2 = particleCount - (divEnd - divStart);
+
+					if(tempCount2*(1-TOLER)<=tempCount1 && tempCount1<=tempCount2*(1+TOLER))
+						break;
+					if(tempCount1>tempCount2){
+						curHigh = pos;
+						pos = (curHigh + curLow)/2;
+					}
+					else{
+						curLow = pos;
+						pos = (curHigh + curLow)/2;
+					}
+				}*/
+				
+	  		/*children[0]->lastParticle = divEnd - part - 1;
+	  		children[1]->firstParticle = divEnd - part;
+	  		children[0]->particleCount = tempCount1;
+	  		children[1]->particleCount = tempCount2;*/
+				children[0]->myType = Internal;
+				children[1]->myType = Internal;
+
+        children[0]->boundingBox.lesser_corner = boundingBox.lesser_corner;
+        children[0]->boundingBox.greater_corner = boundingBox.greater_corner;
+        children[0]->boundingBox.greater_corner[dim] = part[children[0]->lastParticle].position[dim];
+        
+        children[1]->boundingBox.lesser_corner = boundingBox.lesser_corner;
+        children[1]->boundingBox.lesser_corner[dim] = part[children[1]->firstParticle].position[dim];
+        children[1]->boundingBox.greater_corner = boundingBox.greater_corner;
+        
+      }
+      children[0]->particlePointer = &part[children[0]->firstParticle];
+      children[1]->particlePointer = &part[children[1]->firstParticle];
+      
+    }
 
     // implemented in the .C
     GenericTreeNode *createNew() const;/* {
@@ -512,7 +659,7 @@ namespace Tree {
     
     void makeOctChildren(GravityParticle *part, int totalPart, int level) {}
 
-    void makeOrbChildren(GravityParticle *part, int totalPart, int level) {}
+    void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle)) {}
 
     GenericTreeNode *createNew() const {
       return new OctTreeNode();
@@ -557,10 +704,10 @@ namespace Tree {
   /** Added the weight balancer routine*/
 
   class compare{ //Defines the comparison operator on the map used in balancer
-    public:
-      compare(){}
+  public:
+    compare(){}
     
-      bool operator()(NodeKey key1, NodeKey key2) const {
+    bool operator()(NodeKey key1, NodeKey key2) const {
 
       NodeKey tmp = NodeKey(1);
       int len1=0, len2=0;
@@ -591,131 +738,131 @@ namespace Tree {
     }
   };
 
-template <class T>
-inline bool weightBalance(NodeKey *nodeKeys, T* weights, int num, int handleZero){
-  //T can be signed or unsigned
+  template <class T>
+    inline bool weightBalance(NodeKey *nodeKeys, T* weights, int num, int handleZero){
+    //T can be signed or unsigned
 	
-  NodeKey curHeaviest;
-  typename std::map<NodeKey,T,compare>::iterator curLightest;
-	T lightestWt= ~T(0);
-	T tmpWt=0;
-	NodeKey parent,child1,child2;
-  int numBalances=0;
+    NodeKey curHeaviest;
+    typename std::map<NodeKey,T,compare>::iterator curLightest;
+    T lightestWt= ~T(0);
+    T tmpWt=0;
+    NodeKey parent,child1,child2;
+    int numBalances=0;
 
-  int zeroHandled=0;
+    int zeroHandled=0;
   
-	//Need to construct a temporary copy of the input data to operate
-	//construct a map indexed by the nodekey
-  std::map<NodeKey,T,compare> curNodeWts;
-  typename std::map<NodeKey,T,compare>::iterator iter;
-  typename std::map<NodeKey,T,compare>::iterator iter2;
-	curNodeWts.clear();
-	for(int i=0;i<num;i++){
-		curNodeWts[nodeKeys[i]]=weights[i];
-	}
-
-	//loop here
-  while(1){
-    tmpWt=0;
-    lightestWt=~T(0);
-	  //find the heaviest Node
-	  for(iter=curNodeWts.begin();iter!=curNodeWts.end();iter++){
-		  if((*iter).second>tmpWt && (*iter).second!=~T(0)){
-			  tmpWt=(*iter).second;
-			  curHeaviest=(*iter).first;
-		  }
-	  }
-    if(tmpWt==0) //In case, no-one had weight > 0
-      break;
-    
-	  //find the lightest parent-- implemented only for a binary tree
-    iter=curNodeWts.begin();
-    iter2=curNodeWts.begin();
-    iter2++;
-	  for( ;iter2!=curNodeWts.end();iter++,iter2++){
-		  if((*iter).second==~T(0) || (*iter2).second==~T(0))//Ignore those which have been opened
-        continue;
-      
-      if(handleZero){
-        if((*iter).second==0 || (*iter2).second==0){
-          if((*iter).second==0){
-            curNodeWts.erase(iter);
-          }
-          else if((*iter2).second==0){
-            curNodeWts.erase(iter2);
-          }
-          
-          numBalances++;
-          //Open the current heaviest and continue
-          child1=curHeaviest << 1;
-          child2=child1 | NodeKey(1);
-          //Erase the heaviest and add it's two children
-          curNodeWts.erase(curHeaviest);
-          curNodeWts[child1]=~T(0);
-          curNodeWts[child2]=~T(0);
-          zeroHandled=1;
-          break;
-        }
-      }
-      
-      if((*iter).first==curHeaviest || (*iter2).first==curHeaviest)
-        continue;
-      child1=(*iter).first;
-		  child2=(*(iter2)).first;
-		  child1 >>= 1;
-		  child2 >>= 1;
-		  if(child1==child2){
-			  tmpWt=(*iter).second+(*iter2).second;
-			  if(tmpWt<lightestWt || lightestWt==~T(0)){
-				  lightestWt=tmpWt;
-				  curLightest=iter;
-			  }
-      }
-	  }
-
-    if(handleZero && zeroHandled){
-      zeroHandled=0;
-      continue;
+    //Need to construct a temporary copy of the input data to operate
+    //construct a map indexed by the nodekey
+    std::map<NodeKey,T,compare> curNodeWts;
+    typename std::map<NodeKey,T,compare>::iterator iter;
+    typename std::map<NodeKey,T,compare>::iterator iter2;
+    curNodeWts.clear();
+    for(int i=0;i<num;i++){
+      curNodeWts[nodeKeys[i]]=weights[i];
     }
+
+    //loop here
+    while(1){
+      tmpWt=0;
+      lightestWt=~T(0);
+      //find the heaviest Node
+      for(iter=curNodeWts.begin();iter!=curNodeWts.end();iter++){
+	if((*iter).second>tmpWt && (*iter).second!=~T(0)){
+	  tmpWt=(*iter).second;
+	  curHeaviest=(*iter).first;
+	}
+      }
+      if(tmpWt==0) //In case, no-one had weight > 0
+	break;
     
-    //balance only if the heaviest is heavier than the lightest possible parent
-	  if((curNodeWts[curHeaviest] > lightestWt) && lightestWt!=~T(0)){
-      numBalances++;
-      parent = (*curLightest).first >> 1;
-      iter2=curLightest; iter2++; iter2++;
-		  //Erase the children and add the lightest parent
-      curNodeWts.erase(curLightest,iter2);
-		  //curNodeWts[parent]=lightestWt;
-      curNodeWts.insert(std::pair<NodeKey,T>(parent,lightestWt));
-      child1=curHeaviest << 1;
-      child2=child1 | NodeKey(1);
-      //Erase the heaviest and add it's two children
-      curNodeWts.erase(curHeaviest);
-      curNodeWts[child1]=~T(0);
-      curNodeWts[child2]=~T(0);
+      //find the lightest parent-- implemented only for a binary tree
+      iter=curNodeWts.begin();
+      iter2=curNodeWts.begin();
+      iter2++;
+      for( ;iter2!=curNodeWts.end();iter++,iter2++){
+	if((*iter).second==~T(0) || (*iter2).second==~T(0))//Ignore those which have been opened
+	  continue;
+      
+	if(handleZero){
+	  if((*iter).second==0 || (*iter2).second==0){
+	    if((*iter).second==0){
+	      curNodeWts.erase(iter);
+	    }
+	    else if((*iter2).second==0){
+	      curNodeWts.erase(iter2);
+	    }
+          
+	    numBalances++;
+	    //Open the current heaviest and continue
+	    child1=curHeaviest << 1;
+	    child2=child1 | NodeKey(1);
+	    //Erase the heaviest and add it's two children
+	    curNodeWts.erase(curHeaviest);
+	    curNodeWts[child1]=~T(0);
+	    curNodeWts[child2]=~T(0);
+	    zeroHandled=1;
+	    break;
 	  }
-	  else //We are done here
-		  break;
-  }
-  //end loop here
+	}
+      
+	if((*iter).first==curHeaviest || (*iter2).first==curHeaviest)
+	  continue;
+	child1=(*iter).first;
+	child2=(*(iter2)).first;
+	child1 >>= 1;
+	child2 >>= 1;
+	if(child1==child2){
+	  tmpWt=(*iter).second+(*iter2).second;
+	  if(tmpWt<lightestWt || lightestWt==~T(0)){
+	    lightestWt=tmpWt;
+	    curLightest=iter;
+	  }
+	}
+      }
 
-  int i=0;
+      if(handleZero && zeroHandled){
+	zeroHandled=0;
+	continue;
+      }
+    
+      //balance only if the heaviest is heavier than the lightest possible parent
+      if((curNodeWts[curHeaviest] > lightestWt) && lightestWt!=~T(0)){
+	numBalances++;
+	parent = (*curLightest).first >> 1;
+	iter2=curLightest; iter2++; iter2++;
+	//Erase the children and add the lightest parent
+	curNodeWts.erase(curLightest,iter2);
+	//curNodeWts[parent]=lightestWt;
+	curNodeWts.insert(std::pair<NodeKey,T>(parent,lightestWt));
+	child1=curHeaviest << 1;
+	child2=child1 | NodeKey(1);
+	//Erase the heaviest and add it's two children
+	curNodeWts.erase(curHeaviest);
+	curNodeWts[child1]=~T(0);
+	curNodeWts[child2]=~T(0);
+      }
+      else //We are done here
+	break;
+    }
+    //end loop here
+
+    int i=0;
     //construct new node key array before returning
-	for(iter=curNodeWts.begin(),i=0;iter!=curNodeWts.end();i++,iter++){
-    nodeKeys[i]=(*iter).first;
-  }
-  if(i!=num)
-    CkPrintf("i:%d,num:%d\n",i,num);
-  CkAssert(i==num);
+    for(iter=curNodeWts.begin(),i=0;iter!=curNodeWts.end();i++,iter++){
+      nodeKeys[i]=(*iter).first;
+    }
+    if(i!=num)
+      CkPrintf("i:%d,num:%d\n",i,num);
+    CkAssert(i==num);
   
-  if(numBalances>0){
-    return true;
-  }
-  else {
-    return false;
-  }
+    if(numBalances>0){
+      return true;
+    }
+    else {
+      return false;
+    }
 
-}
+  }
 
 } //close namespace Tree
 
