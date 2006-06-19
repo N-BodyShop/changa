@@ -14,6 +14,242 @@ using std::set;
 using namespace std;
 using namespace SFC;
 
+extern CProxy_TreePiece treeProxy;
+
+/***************ORB Decomposition*****************/
+void Sorter::doORBDecomposition(CkReductionMsg* m){
+
+  float len=0.0,len2=0.0;
+  char dim;
+  double pos;
+ 	
+  OrientedBox<float> box = *static_cast<OrientedBox<float> *>(m->getData());
+  delete m;
+
+  ORBData single;
+  single.boundingBox = box;
+  
+  //Find which is the longest dimension
+  len=box.greater_corner.x-box.lesser_corner.x;
+  dim=0;
+  if(len<0.0) { len = -len; }
+  len2=box.greater_corner.y-box.lesser_corner.y;
+  if(len2<0.0) { len2 = -len2; }
+  if(len2>len) { len = len2; dim=1; }
+  len2=box.greater_corner.z-box.lesser_corner.z;
+  if(len2<0.0) { len2 = -len2; }
+  if(len2>len) { len = len2; dim=2; }
+  
+  if(box.lesser_corner[dim] <= box.greater_corner[dim]){
+    pos = box.lesser_corner[dim] + len/2;
+  }
+  else{
+    pos = box.greater_corner[dim] + len/2;
+  }
+ 
+  single.curLow = box.lesser_corner[dim];
+  single.curHigh = box.greater_corner[dim];
+  single.curDivision = pos;
+  single.curDim = dim;
+  
+  orbData.clear();
+  orbData.push_back(single);
+
+	ORBSplittersMsg * splittersMsg = new (1,1) ORBSplittersMsg(1,CkCallback(CkIndex_Sorter::collectORBCounts(0), thishandle));
+	splittersMsg->pos[0] = pos;
+	splittersMsg->dim[0] = dim;
+  treeProxy.evaluateParticleCounts(splittersMsg);
+  //phaseLeader=0;
+  //lastPiece = numTreePieces-1;
+  //for(int i=0;i<numTreePieces;i++)
+    //thisProxy[i].evaluateFirstTime(pos,dim,phaseLeader);
+}
+
+void Sorter::finishPhase(CkReductionMsg *m){
+
+  float len=0.0,len2=0.0;
+  char dim;
+  double pos;
+  int i,listSize;
+  
+  delete m;
+  std::list<ORBData>::iterator iter;
+  std::list<ORBData>::iterator iter2;
+  iter = orbData.begin();
+	listSize = orbData.size();
+
+  for(int i=0;i<listSize;i++){
+    ORBData first,second;
+    first.boundingBox.lesser_corner = (*iter).boundingBox.lesser_corner;
+    first.boundingBox.greater_corner = (*iter).boundingBox.greater_corner;
+    first.boundingBox.greater_corner[(*iter).curDim] = (*iter).curDivision;
+
+    second.boundingBox.lesser_corner = (*iter).boundingBox.lesser_corner;
+    second.boundingBox.lesser_corner[(*iter).curDim] = (*iter).curDivision;
+    second.boundingBox.greater_corner = (*iter).boundingBox.greater_corner;
+
+    //Find which is the longest dimension
+    OrientedBox<float> box1 = first.boundingBox;
+    OrientedBox<float> box2 = second.boundingBox;
+
+    len=box1.greater_corner.x-box1.lesser_corner.x;
+    dim=0;
+    CkAssert(len>=0.0);
+    //if(len<0.0) { len = -len; }
+    len2=box1.greater_corner.y-box1.lesser_corner.y;
+    CkAssert(len2>=0.0);
+    //if(len2<0.0) { len2 = -len2; }
+    if(len2>len) { len = len2; dim=1; }
+    len2=box1.greater_corner.z-box1.lesser_corner.z;
+    CkAssert(len2>=0.0);
+    //if(len2<0.0) { len2 = -len2; }
+    if(len2>len) { len = len2; dim=2; }
+    pos = box1.lesser_corner[dim] + len/2;
+
+    first.curLow = box1.lesser_corner[dim];
+    first.curHigh = box1.greater_corner[dim];
+    first.curDivision = pos;
+    first.curDim = dim;
+
+    len=box2.greater_corner.x-box2.lesser_corner.x;
+    dim=0;
+    CkAssert(len>=0.0);
+    //if(len<0.0) { len = -len; }
+    len2=box2.greater_corner.y-box2.lesser_corner.y;
+    CkAssert(len2>=0.0);
+    //if(len2<0.0) { len2 = -len2; }
+    if(len2>len) { len = len2; dim=1; }
+    len2=box2.greater_corner.z-box2.lesser_corner.z;
+    CkAssert(len2>=0.0);
+    //if(len2<0.0) { len2 = -len2; }
+    if(len2>len) { len = len2; dim=2; }
+    pos = box2.lesser_corner[dim] + len/2;
+
+    second.curLow = box2.lesser_corner[dim];
+    second.curHigh = box2.greater_corner[dim];
+    second.curDivision = pos;
+    second.curDim = dim;
+
+    //Insert both the sub-divisions into the list and remove the bigger division
+    iter2 = orbData.insert(iter,first);
+    iter2 = orbData.insert(iter,second);
+    iter = orbData.erase(iter);
+  }
+ 
+	//CkPrintf("num chares:%d, partitions got:%d\n",numChares,orbData.size());
+
+  if(numChares == orbData.size()){ //Move data around
+    for(i=0;i<numChares;i++){
+      if(verbosity > 1)
+      CkPrintf("%d has %d particles\n",i,binCounts[i]);
+			//treeProxy[i].sendORBParticles(binCounts[i],sortingCallback,CkCallback(CkIndex_Sorter::sendBoundingBoxes(0), thishandle));
+			treeProxy[i].initBeforeORBSend(binCounts[i],sortingCallback,CkCallback(CkIndex_Sorter::readytoSendORB(0), thishandle));
+		}
+  }
+  else{ //Send the next phase of splitters
+    ORBSplittersMsg *splittersMsg = new (orbData.size(),orbData.size()) ORBSplittersMsg(orbData.size(),CkCallback(CkIndex_Sorter::collectORBCounts(0), thishandle));
+    for(i=0,iter=orbData.begin();iter!=orbData.end();i++,iter++){
+      splittersMsg->pos[i] = (*iter).curDivision;
+      splittersMsg->dim[i] = (*iter).curDim;
+    }
+    /*for(int i=0;i<orbData.size();i++){
+      splittersMsg->pos[i] = orbData[i].curDivision;
+      splittersMsg->dim[i] = (char) orbData[i].curDim;
+    }*/
+    treeProxy.evaluateParticleCounts(splittersMsg);
+  }
+
+}
+
+void Sorter::readytoSendORB(CkReductionMsg* m){
+  delete m;
+
+  treeProxy.sendORBParticles();
+}
+
+void Sorter::collectORBCounts(CkReductionMsg* m){
+
+  std::list<ORBData>::iterator iter;
+  int i;
+  
+  numCounts = m->getSize() / sizeof(int);
+	binCounts.resize(numCounts);
+	//binCounts[0] = 0;
+	int* startCounts = static_cast<int *>(m->getData());
+	//copy(startCounts, startCounts + numCounts, binCounts.begin() + 1);
+	copy(startCounts, startCounts + numCounts, binCounts.begin());
+	delete m;
+
+  CkAssert(numCounts == 2*orbData.size());
+  
+  ORBSplittersMsg *splittersMsg;
+  float TOLER=0.05;
+  int doneCount=0;
+  
+  for(i=0,iter=orbData.begin(); iter!=orbData.end(); i++,iter++){
+    if(binCounts[2*i+1]*(1-TOLER)<=binCounts[2*i] && binCounts[2*i]<=(1+TOLER)*binCounts[2*i+1]){
+      doneCount++;
+    }
+    else{
+      if(binCounts[2*i] > binCounts[2*i+1]){
+        (*iter).curHigh = (*iter).curDivision;
+        (*iter).curDivision = ((*iter).curLow + (*iter).curHigh)/2;
+      }
+      else{
+        (*iter).curLow = (*iter).curDivision;
+        (*iter).curDivision = ((*iter).curLow + (*iter).curHigh)/2;
+      }
+    }
+  }
+
+  
+  //Assuming that lesser corner is always smaller than greater corner
+  if(doneCount==orbData.size()){
+    splittersMsg = new (orbData.size(),orbData.size()) ORBSplittersMsg(orbData.size(),CkCallback(CkIndex_Sorter::finishPhase(0), thishandle));
+    for(i=0,iter=orbData.begin();iter!=orbData.end();i++,iter++){
+      splittersMsg->pos[i] = (*iter).curDivision;
+      splittersMsg->dim[i] = (*iter).curDim;
+    }
+    /*for(int i=0;i<orbData.size();i++){
+      splittersMsg->pos[i] = orbData[i].curDivision;
+      splittersMsg->dim[i] = (char) orbData[i].curDim;
+    }*/
+    //finalize the boundaries in all the Treepieces
+    treeProxy.finalizeBoundaries(splittersMsg);
+  }
+  else{
+    splittersMsg = new (orbData.size(),orbData.size()) ORBSplittersMsg(orbData.size(),CkCallback(CkIndex_Sorter::collectORBCounts(0), thishandle));
+    for(i=0,iter=orbData.begin();iter!=orbData.end();i++,iter++){
+      splittersMsg->pos[i] = (*iter).curDivision;
+      splittersMsg->dim[i] = (*iter).curDim;
+    }
+    /*for(int i=0;i<orbData.size();i++){
+      splittersMsg->pos[i] = orbData[i].curDivision;
+      splittersMsg->dim[i] = (char) orbData[i].curDim;
+    }*/
+    treeProxy.evaluateParticleCounts(splittersMsg);
+  }
+  
+}
+
+/*void Sorter::sendBoundingBoxes(CkReductionMsg* m){
+  delete m;
+
+  std::list<ORBData>::iterator iter;
+  int i;
+  
+  BoundingBoxes *bounding = new (numChares) BoundingBoxes();
+
+  for(i=0,iter=orbData.begin();iter!=orbData.end();iter++,i++){
+    bounding->boxes[i] = (*iter).boundingBox;
+  }
+
+  treeProxy.receiveBoundingBoxes(bounding);
+
+}*/
+
+/************************************************/
+
 void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
 			  const double toler, const CkCallback& cb) {	
 	numChares = nChares;
@@ -53,7 +289,10 @@ void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
       convertNodesToSplitters(numChares,nodeKeys);
 	    break;
     case ORB_dec:
-      CkAbort("ORB domain decomposition not yet implemented");
+      //CkAbort("ORB domain decomposition not yet implemented");
+      //treeProxy[0].getBoundingBox(curBox);
+      treeProxy.initORBPieces(CkCallback(CkIndex_Sorter::doORBDecomposition(0), thishandle));
+      //doORBDecomposition(curBox);
     break;
       default:
     CkAbort("Invalid domain decomposition requested");
@@ -63,7 +302,9 @@ void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
 		cout << "Sorter: Initially have " << splitters.size() << " splitters" << endl;
 
 	//send out the first guesses to be evaluated
-	dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+  if(domainDecomposition!=ORB_dec){
+    dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+  }
 }
 
 void Sorter::convertNodesToSplitters(int numChares, NodeKey* nodeKeys){
@@ -96,7 +337,7 @@ void Sorter::collectEvaluations(CkReductionMsg* m) {
       collectEvaluationsOct(m);
       break;
     case ORB_dec:
-      CkAbort("ORB domain decomposition not yet implemented");
+      CkAbort("ORB: We shouldn't have reached here");
     break;
       default:
     CkAbort("Invalid domain decomposition requested");

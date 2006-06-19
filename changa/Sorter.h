@@ -55,7 +55,29 @@ class Sorter : public Chare {
 	CProxy_DataManager dm;
 	/// The callback for when the sort is complete.
 	CkCallback sortingCallback;
+
+  ///Variables added for ORB decomposition
+  typedef struct DivData{
+    OrientedBox<float> boundingBox;
+    double curLow;
+    double curHigh;
+    double curDivision;
+    char curDim;
+  } ORBData;
+
+  std::list<ORBData> orbData;
+
 	
+  //double curDivision;
+  //int curDim;
+  //OrientedBox<float> curBoundingBox;
+  //int phaseLeader;
+  Compare comp;
+  //int lastPiece; //Last TreePiece overseen by the leader
+  //Used by the histogramming leader
+  //double curLow;
+  //double curHigh;
+
 	void adjustSplitters();
 	
 public:
@@ -77,6 +99,13 @@ public:
 	void collectEvaluations(CkReductionMsg* m);
 	void collectEvaluationsSFC(CkReductionMsg* m);
 	void collectEvaluationsOct(CkReductionMsg* m);
+
+  //ORB Decomposition
+  void doORBDecomposition(CkReductionMsg* m);
+  void finishPhase(CkReductionMsg *m);
+  void collectORBCounts(CkReductionMsg* m);
+  void readytoSendORB(CkReductionMsg* m);
+  //void sendBoundingBoxes(CkReductionMsg* m);
 };
 
 #endif //SORTER_H
