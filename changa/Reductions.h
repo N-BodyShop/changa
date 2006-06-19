@@ -10,3 +10,4 @@ extern CkReduction::reducerType minmax_int;
 extern CkReduction::reducerType minmax_float;
 extern CkReduction::reducerType minmax_double;
 extern CkReduction::reducerType callbackReduction;
+extern CkReduction::reducerType boxReduction;

@@ -13,6 +13,7 @@ CkReduction::reducerType minmax_float;
 CkReduction::reducerType minmax_double;
 
 CkReduction::reducerType callbackReduction;
+CkReduction::reducerType boxReduction;
 
 /// Combine reduction messages to grow a box
 template <typename T>
@@ -58,6 +59,7 @@ void registerReductions() {
 	minmax_float = CkReduction::addReducer(minmax<float>);
 	minmax_double = CkReduction::addReducer(minmax<double>);
 	callbackReduction = CkReduction::addReducer(same<CkCallback>);
+	boxReduction = CkReduction::addReducer(same<OrientedBox<float> >);
 }
 
 #include "Reductions.def.h"
