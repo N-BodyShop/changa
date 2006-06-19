@@ -4377,6 +4377,7 @@ void TreePiece::pup(PUP::er& p) {
       prefetchReq = new OrientedBox<double>[2];
       break;
     case Oct_dec:
+    case ORB_dec:
       numPrefetchReq = 1;
       prefetchReq = new OrientedBox<double>[1];
       break;
