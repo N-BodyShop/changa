@@ -67,6 +67,7 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
     numPrefetchReq = 2;
     prefetchReq = new OrientedBox<double>[2];
   case Oct_dec:
+  case ORB_dec:
     if (numPrefetchReq == 0) {
       numPrefetchReq = 1;
       prefetchReq = new OrientedBox<double>[1];
@@ -86,9 +87,8 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
     }
     myNumParticles = numParticlesChunk[0];
     break;
-  case ORB_dec:
-    CkAbort("ORB domain decomposition not yet implemented");
-    break;
+    //CkAbort("ORB domain decomposition not yet implemented");
+    //break;
   default:
     CkAbort("Invalid domain decomposition requested");
   }
@@ -195,13 +195,20 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   
   boundingBox.lesser_corner = pos;
   boundingBox.greater_corner = maxPos;
-  
+ 
+  //curBoundingBox = boundingBox;
+
   if(pos == maxPos) { //all the same position
     //XXX This would be bad!
-    Key k = generateKey(pos, boundingBox);
+    Key k;
+    if(domainDecomposition!=ORB_dec){
+      k = generateKey(pos, boundingBox);
+    }
     for(u_int64_t i = 0; i < myNumParticles; ++i) {
       myParticles[i + 1].position = pos;
-      myParticles[i + 1].key = k;
+      if(domainDecomposition!=ORB_dec){
+        myParticles[i + 1].key = k;
+      }
     }
   } else {
 
@@ -221,8 +228,10 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
 	        CkAbort("Badness");
 	      }
 	      myParticles[++myPart].position = pos;
-	      current = generateKey(pos, boundingBox);
-	      myParticles[myPart].key = current;
+        if(domainDecomposition!=ORB_dec){
+	        current = generateKey(pos, boundingBox);
+	        myParticles[myPart].key = current;
+        }
 	      //CkPrintf("Adding key: %d = %16llx\n",myPart,current);
 	      /*if (current < previous) {
 	        CkPrintf("TreePiece %d: Key not ordered! (%016llx)\n",thisIndex,current);
@@ -244,7 +253,9 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   //printing all particles
   /*for(int i=0;i<myNumParticles;i++)
     CkPrintf("%lf,%lf,%lf\n",myParticles[i].position.x,myParticles[i].position.y,myParticles[i].position.z);*/
-  sort(myParticles+1, myParticles+myNumParticles+1);
+  if(domainDecomposition!=ORB_dec){
+    sort(myParticles+1, myParticles+myNumParticles+1);
+  }
   contribute(0, 0, CkReduction::concat, cb);
 }
 
@@ -322,7 +333,7 @@ void TreePiece::loadTipsy(const std::string& filename, const CkCallback& cb) {
 	}
 	
 	bLoaded = 1;
-	contribute(sizeof(OrientedBox<float>), &boundingBox,
+  contribute(sizeof(OrientedBox<float>), &boundingBox,
 		   growOrientedBox_float,
 		   CkCallback(CkIndex_TreePiece::assignKeys(0), pieces));
 }
@@ -338,22 +349,290 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 	
 	boundingBox = *static_cast<OrientedBox<float> *>(m->getData());
 	delete m;
+  //curBoundingBox = boundingBox;
 	if(thisIndex == 0 && verbosity)
 		cerr << "TreePiece: Bounding box originally: "
 		     << boundingBox << endl;
 	//give particles keys, using bounding box to scale
-	for(unsigned int i = 0; i < myNumParticles; ++i) {
+  if(domainDecomposition!=ORB_dec){
+	  for(unsigned int i = 0; i < myNumParticles; ++i) {
 	    myParticles[i+1].key = generateKey(myParticles[i+1].position,
 					       boundingBox);
-	}
+	  }
+  }
 	
-	sort(&myParticles[1], &myParticles[myNumParticles+1]);
-	
+  if(domainDecomposition!=ORB_dec){
+	  sort(&myParticles[1], &myParticles[myNumParticles+1]);
+  }
+  
 	contribute(0, 0, CkReduction::concat, callback);
 	
 	if(verbosity >= 5)
 		cout << thisIndex << ": TreePiece: Assigned keys to all my particles" << endl;
 }
+
+/**************ORB Decomposition***************/
+
+/*void TreePiece::getBoundingBox(OrientedBox<float>& box){
+  box = boundingBox;
+}*/
+
+bool comp_dim0(GravityParticle p1, GravityParticle p2) {
+    return p1.position[0] < p2.position[0];
+}
+bool comp_dim1(GravityParticle p1, GravityParticle p2) {
+    return p1.position[1] < p2.position[1];
+}
+bool comp_dim2(GravityParticle p1, GravityParticle p2) {
+    return p1.position[2] < p2.position[2];
+}
+
+void TreePiece::initORBPieces(const CkCallback& cb){
+
+  OrientedBox<float> box = boundingBox;
+  orbBoundaries.clear();
+  orbBoundaries.push_back(myParticles+1);
+  orbBoundaries.push_back(myParticles+myNumParticles+1);
+  firstTime=true;
+
+  phase=0;
+
+  compFuncPtr[0]= &comp_dim0;
+  compFuncPtr[1]= &comp_dim1;
+  compFuncPtr[2]= &comp_dim2;
+
+	myBinCounts.clear();
+	myBinCounts.push_back(myNumParticles);
+
+  //Find out how many levels will be there before tree goes
+  //into a treepiece
+  chunkRootLevel=0;
+  unsigned int tmp = numTreePieces;
+  while(tmp){
+    tmp >>= 1;
+    chunkRootLevel++;
+  }
+  chunkRootLevel--;
+  
+  boxes = new OrientedBox<float>[chunkRootLevel+1];
+  splitDims = new char[chunkRootLevel+1];
+
+  boxes[0] = boundingBox;
+  
+  contribute(sizeof(OrientedBox<float>), &box, boxReduction, cb);
+}
+
+/*class Compare{ //Defines the comparison operator on the map used in balancer
+  int dim;
+public:
+  Compare() {}
+  Compare(int i) : dim(i) {}
+  
+  void setDim(int i){ dim = i; }
+  
+  bool operator()(GravityParticle& p1, GravityParticle& p2) const {
+    return p1.position[dim] < p2.position[dim];
+  }
+};*/
+
+void TreePiece::initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback){
+
+  callback = cb;
+  //sorterCallBack = sorterCb;
+  CkCallback nextCallback = cback;
+  myExpectedCount = myCount;
+  
+  mySortedParticles.clear();
+  mySortedParticles.reserve(myExpectedCount);
+  
+  /*if(myExpectedCount > myNumParticles){
+    delete [] myParticles;
+    myParticles = new GravityParticle[myExpectedCount + 2];
+  }
+  myNumParticles = myExpectedCount;*/
+
+  contribute(0, 0, CkReduction::concat, nextCallback);
+}
+
+//void TreePiece::sendORBParticles(unsigned int myCount, const CkCallback& cb, const CkCallback& sorterCb){
+void TreePiece::sendORBParticles(){
+
+  /*callback = cb;
+  sorterCallBack = sorterCb;
+  myExpectedCount = myCount;
+
+  std::list<GravityParticle *>::iterator iter;
+  std::list<GravityParticle *>::iterator iter2;
+
+  mySortedParticles.clear();
+  mySortedParticles.reserve(myExpectedCount);*/
+  
+  std::list<GravityParticle *>::iterator iter;
+  std::list<GravityParticle *>::iterator iter2;
+  
+  int i=0;
+  for(iter=orbBoundaries.begin();iter!=orbBoundaries.end();iter++,i++){
+		iter2=iter;
+		iter2++;
+		if(iter2==orbBoundaries.end())
+			break;
+    if(i==thisIndex){
+			//CkPrintf("[%d] send %d particles to %d\n",thisIndex,myBinCounts[i],i);
+      if(myBinCounts[i]>0)
+        acceptORBParticles(*iter,myBinCounts[i]);
+		}
+    else{
+			//CkPrintf("[%d] send %d particles to %d\n",thisIndex,myBinCounts[i],i);
+      if(myBinCounts[i]>0)
+        pieces[i].acceptORBParticles(*iter,myBinCounts[i]);
+		}
+  }
+
+  if(myExpectedCount > myNumParticles){
+    delete [] myParticles;
+    myParticles = new GravityParticle[myExpectedCount + 2];
+  }
+  myNumParticles = myExpectedCount;
+}
+
+/// Accept particles from other TreePieces once the sorting has finished
+void TreePiece::acceptORBParticles(const GravityParticle* particles, const int n) {
+     
+  copy(particles, particles + n, back_inserter(mySortedParticles));
+  
+  //CkPrintf("[%d] accepted %d particles:myexpected:%d,got:%d\n",thisIndex,n,myExpectedCount,mySortedParticles.size());
+  if(myExpectedCount == mySortedParticles.size()) {
+	  //I've got all my particles
+    //Assigning keys to particles
+    //Key k = 1 << 63;
+    //Key k = thisIndex;
+    for(int i=0;i<myExpectedCount;i++){
+      mySortedParticles[i].key = thisIndex;
+    }
+	  //sort(mySortedParticles.begin(), mySortedParticles.end());
+	  copy(mySortedParticles.begin(), mySortedParticles.end(), &myParticles[1]);
+	  //signify completion with a reduction
+	  if(verbosity>1)
+      ckout << thisIndex <<" contributing to accept particles"<<endl;
+	  if (root != NULL) {
+	    root->fullyDelete();
+	    delete root;
+	    root = NULL;
+      nodeLookupTable.clear();
+	  }
+	  contribute(0, 0, CkReduction::concat, callback);
+  }
+}
+
+void TreePiece::finalizeBoundaries(ORBSplittersMsg *splittersMsg){
+ 
+  CkCallback& cback = splittersMsg->cb;
+  
+  std::list<GravityParticle *>::iterator iter;
+  std::list<GravityParticle *>::iterator iter2;
+
+  iter = orbBoundaries.begin();
+  iter2 = orbBoundaries.begin();
+  iter2++;
+
+  phase++;
+
+  int index = thisIndex >> (chunkRootLevel-phase+1);
+
+  Key lastBit;
+  lastBit = thisIndex >> (chunkRootLevel-phase);
+  lastBit = lastBit & 0x1;
+  
+  boxes[phase] = boxes[phase-1];
+  if(lastBit){
+    boxes[phase].lesser_corner[splittersMsg->dim[index]] = splittersMsg->pos[index];
+  }
+  else{
+    boxes[phase].greater_corner[splittersMsg->dim[index]] = splittersMsg->pos[index];
+  }
+
+  splitDims[phase-1]=splittersMsg->dim[index];
+  
+  for(int i=0;i<splittersMsg->length;i++){
+    
+    int dimen=(int)splittersMsg->dim[i];
+	  //Current location of the division is stored in a variable
+    //Evaluate the number of particles in each division
+
+    GravityParticle dummy;
+    GravityParticle* divStart = *iter;
+    Vector3D<double> divide(0.0,0.0,0.0);
+    divide[dimen] = splittersMsg->pos[i];
+    dummy.position = divide;
+    GravityParticle* divEnd = upper_bound(*iter,*iter2,dummy,compFuncPtr[dimen]);
+    
+    orbBoundaries.insert(iter2,divEnd);
+    iter = iter2;
+    iter2++;
+	}
+
+  firstTime = true;
+  
+  myBinCounts.assign(2*splittersMsg->length,0);
+  copy(tempBinCounts.begin(),tempBinCounts.end(),myBinCounts.begin());
+
+  contribute(0,0,CkReduction::concat,cback);
+
+}
+
+void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg){
+
+  //myBinCounts.assign(2*splittersMsg->length,0);
+  
+  //if(firstTime){
+    //myBinCounts.assign(splittersMsg->length,0);
+    //copy(tempBinCounts.begin(),tempBinCounts.end(),myBinCounts.begin());
+  //}
+  CkCallback& cback = splittersMsg->cb;
+  
+  tempBinCounts.assign(2*splittersMsg->length,0);
+
+  std::list<GravityParticle *>::iterator iter;
+  std::list<GravityParticle *>::iterator iter2;
+
+  iter = orbBoundaries.begin();
+  iter2 = orbBoundaries.begin();
+  iter2++;
+  
+  for(int i=0;i<splittersMsg->length;i++){
+    
+    int dimen = (int)splittersMsg->dim[i];
+    if(firstTime){
+      sort(*iter,*iter2,compFuncPtr[dimen]);
+    }
+    //curDivision = pos;
+    /*if(firstTime){
+      curDivision = pos;
+      phaseLeader = leader;
+      Compare comp(dim);
+      sort(myParticles+1, myParticles+myNumParticles+1,comp);
+    }*/
+	  //Current location of the division is stored in a variable
+    //Evaluate the number of particles in each division
+
+		GravityParticle dummy;
+    GravityParticle* divStart = *iter;
+    Vector3D<double> divide(0.0,0.0,0.0);
+    divide[dimen] = splittersMsg->pos[i];
+    dummy.position = divide;
+    GravityParticle* divEnd = upper_bound(*iter,*iter2,dummy,compFuncPtr[dimen]);
+    tempBinCounts[2*i] = divEnd - divStart;
+    tempBinCounts[2*i + 1] = myBinCounts[i] - (divEnd - divStart);
+
+    iter++; iter2++;
+	}
+  
+  if(firstTime)
+    firstTime=false;
+  //thisProxy[phaseLeader].collectORBCounts(firstCnt,secondCnt);
+  contribute(2*splittersMsg->length*sizeof(int), &(*tempBinCounts.begin()), CkReduction::sum_int, cback);
+}
+/**********************************************/
 
 /*
 void TreePiece::registerWithDataManager(const CkGroupID& dataManagerID, const CkCallback& cb) {
@@ -460,7 +739,6 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles, const in
 		- dm->responsibleIndex.begin();
         if(dm->particleCounts[myPlace] == mySortedParticles.size()) {
 	    //I've got all my particles
-	    
 	    sort(mySortedParticles.begin(), mySortedParticles.end());
 	    copy(mySortedParticles.begin(), mySortedParticles.end(),
 		 &myParticles[1]);
@@ -538,7 +816,7 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
   myTreeLevels=-1;
 #endif
   //printing all particles
-  //CkPrintf("\n\n\nbuilding tree\n\n\n\n");
+  //CkPrintf("\n\n\nbuilding tree, useTree:%d\n\n\n\n",useTree);
   //for(int i=0;i<myNumParticles+2;i++)
     //CkPrintf("[%d] %016llx  %lf,%lf,%lf\n",thisIndex,myParticles[i].key,myParticles[i].position.x,myParticles[i].position.y,myParticles[i].position.z);
   // decide which logic are we using to divide the particles: Oct or ORB
@@ -555,7 +833,9 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
     contribute(2 * sizeof(Key), bounds, CkReduction::concat, CkCallback(CkIndex_TreePiece::collectSplitters(0), thisArrayID));
     break;
   case Binary_ORB:
-    CkAbort("ORB logic for tree-build not yet implemented");
+    //CkAbort("ORB logic for tree-build not yet implemented");
+    //contribute(0,0,CkReduction::concat,sorterCallBack);
+    contribute(0, 0, CkReduction::concat, CkCallback(CkIndex_TreePiece::startORBTreeBuild(0), thisArrayID));
     break;
   }
 }
@@ -615,6 +895,229 @@ void TreePiece::collectSplitters(CkReductionMsg* m) {
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Collected splitters" << endl;
 }
+
+/*****************ORB**********************/
+/*void TreePiece::receiveBoundingBoxes(BoundingBoxes *msg){
+
+  //OrientedBox<float> *boxesMsg = static_cast<OrientedBox<float>* >(msg->getData())
+  //boxes = new OrientedBox<float>[numTreePieces];
+  
+  OrientedBox<float> *boxesMsg = msg->boxes;
+  copy(boxesMsg,boxesMsg+numTreePieces,boxes);
+ 
+  contribute(0, 0, CkReduction::concat, CkCallback(CkIndex_TreePiece::startORBTreeBuild(0), thisArrayID));
+}*/
+
+void TreePiece::startORBTreeBuild(CkReductionMsg* m){
+  delete m;
+ 
+  myParticles[0].key = thisIndex;
+  myParticles[myNumParticles+1].key = thisIndex;
+
+  /*//Find out how many levels will be there before tree goes
+  //into a treepiece
+  chunkRootLevel=0;
+  unsigned int tmp = numTreePieces;
+  while(tmp){
+    tmp >>= 1;
+    chunkRootLevel++;
+  }
+  chunkRootLevel--;*/
+  compFuncPtr[0]= &comp_dim0;
+  compFuncPtr[1]= &comp_dim1;
+  compFuncPtr[2]= &comp_dim2;
+  
+  root = new BinaryTreeNode(1, numTreePieces>1?Tree::Boundary:Tree::Internal, 0, myNumParticles+1, 0);
+  
+  if (thisIndex == 0) root->firstParticle ++;
+  if (thisIndex == (int)numTreePieces-1) root->lastParticle --;
+  root->particleCount = myNumParticles;
+  nodeLookupTable[(Tree::NodeKey)1] = root;
+
+  //root->key = firstPossibleKey;
+  root->boundingBox = boundingBox;
+  //nodeLookup[root->lookupKey()] = root;
+  numBuckets = 0;
+  bucketList.clear();
+  
+  // Fix the root presence in the cache
+  localCache->markPresence(thisIndex, root);
+
+  if(verbosity > 3)
+    ckerr << "TreePiece " << thisIndex << ": Starting tree build" << endl;
+
+#if INTERLIST_VER > 0
+  root->startBucket=0;
+#endif
+  // recursively build the tree
+  buildORBTree(root, 0);
+
+  delete [] boxes;
+  delete [] splitDims;
+  //Keys to all the particles have been assigned inside buildORBTree
+  
+  //CkPrintf("[%d] finished building local tree\n",thisIndex);
+  
+  // check all the pending requests in for RemoteMoments
+  for (MomentRequestType::iterator iter = momentRequests.begin(); iter != momentRequests.end(); ) {
+    NodeKey nodeKey = iter->first;
+    GenericTreeNode *node = keyToNode(nodeKey);
+    CkVec<int> *l = iter->second;
+    //CkPrintf("[%d] checking moments requests for %s (%s) upon treebuild finished\n",thisIndex,keyBits(iter->first,63).c_str(),keyBits(node->getKey(),63).c_str());
+    CkAssert(node != NULL);
+    // we actually need to increment the iterator before deleting the element,
+    // otherwise the iterator lose its validity!
+    iter++;
+    if (node->getType() == Empty || node->moments.totalMass > 0) {
+      for (int i=0; i<l->length(); ++i) {
+	streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(), node->firstParticle, node->particleCount, node->moments);
+	//CkPrintf("[%d] sending moments of %s to %d upon treebuild finished\n",thisIndex,keyBits(node->getKey(),63).c_str(),(*l)[i]);
+      }
+      delete l;
+      momentRequests.erase(node->getKey());
+    }
+  }
+
+  if(verbosity > 3)
+    ckerr << "TreePiece " << thisIndex << ": Number of buckets: " << numBuckets << endl;
+  if(verbosity > 3)
+    ckerr << "TreePiece " << thisIndex << ": Finished tree build, resolving boundary nodes" << endl;
+
+  if (numTreePieces == 1) contribute(0, 0, CkReduction::concat, callback);
+
+}
+
+OrientedBox<float> TreePiece::constructBoundingBox(GenericTreeNode* node,int level, int numChild){
+
+  OrientedBox<float> tmpBox;
+  if(node->getType()==NonLocal){
+    if(numChild==0){
+      tmpBox = boxes[level];
+      tmpBox.greater_corner[splitDims[level]] = boxes[level+1].lesser_corner[splitDims[level]];
+    }
+    else{
+      tmpBox = boxes[level];
+      tmpBox.lesser_corner[splitDims[level]] = boxes[level+1].greater_corner[splitDims[level]];
+    }
+    return tmpBox;
+  }
+  else{
+    return boxes[level+1];
+  }
+  
+  /*SFC::Key tmp = 1 << (level+1);
+  tmp = key - tmp;
+  
+  for(int i=0;i<numTreePieces;i++){
+    if(tmp==(i>>(chunkRootLevel-level-1))){
+      tmpBox.grow(boxes[i].lesser_corner);
+      tmpBox.grow(boxes[i].greater_corner);
+    }
+  }
+  return tmpBox;*/
+}
+
+void TreePiece::buildORBTree(GenericTreeNode * node, int level){
+  
+#if INTERLIST_VER > 0
+  if(level>myTreeLevels)
+    myTreeLevels=level;
+#endif
+  //CkPrintf("[%d] in build ORB Tree, level:%d\n",thisIndex,level);
+  if (level == 63) {
+    ckerr << thisIndex << ": TreePiece(ORB): This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
+    ckerr << "Left particle: " << (node->firstParticle) << " Right particle: " << (node->lastParticle) << endl;
+    ckerr << "Left key : " << keyBits((myParticles[node->firstParticle]).key, 63).c_str() << endl;
+    ckerr << "Right key: " << keyBits((myParticles[node->lastParticle]).key, 63).c_str() << endl;
+    return;
+  }
+
+  CkAssert(node->getType() == Boundary || node->getType() == Internal);
+  
+  node->makeOrbChildren(myParticles, myNumParticles, level, chunkRootLevel, compFuncPtr);
+
+  GenericTreeNode *child;
+  for (unsigned int i=0; i<node->numChildren(); ++i) {
+    child = node->getChildren(i);
+    CkAssert(child != NULL);
+
+    if(level<chunkRootLevel){
+      child->boundingBox = constructBoundingBox(child,level,i);
+    }
+
+#if INTERLIST_VER > 0
+    child->startBucket=numBuckets;
+#endif
+    nodeLookupTable[child->getKey()] = child;
+    if (child->getType() == NonLocal) {
+      // find a remote index for the node
+      int first, last;
+      bool isShared = nodeOwnership(child->getKey(), first, last);
+      //CkPrintf("[%d] child Key:%lld, firstOwner:%d, lastOwner:%d\n",thisIndex,child->getKey(),first,last);
+      CkAssert(!isShared);
+      if (last < first) {
+	      // the node is really empty because falling between two TreePieces
+	      child->setType(Empty);
+	      child->remoteIndex = thisIndex;
+      } else {
+	      child->remoteIndex = first + (thisIndex & (last-first));
+	      // if we have a remote child, the node is a Boundary. Thus count that we
+	      // have to receive one more message for the NonLocal node
+	      node->remoteIndex --;
+	      // request the remote chare to fill this node with the Moments
+	      streamingProxy[child->remoteIndex].requestRemoteMoments(child->getKey(), thisIndex);
+	      //CkPrintf("[%d] asking for moments of %s to %d\n",thisIndex,keyBits(child->getKey(),63).c_str(),child->remoteIndex);
+      }
+    } else if (child->getType() == Internal && child->lastParticle - child->firstParticle < maxBucketSize) {
+      CkAssert(child->firstParticle != 0 && child->lastParticle != myNumParticles+1);
+      child->remoteIndex = thisIndex;
+      child->makeBucket(myParticles);
+      bucketList.push_back(child);
+
+      //Assign keys to all the particles inside the bucket
+      int num = child->lastParticle - child->firstParticle + 1;
+      int bits = 0;
+
+      while(num > (1<<bits)){ bits++; }
+
+      Key mask = 1 << (level+1);
+      mask = ~mask;
+      Key tmpKey = child->getKey() & mask;
+      tmpKey = tmpKey << bits;
+
+      for(int i=child->firstParticle;i<=child->lastParticle;i++){
+        myParticles[i].key = tmpKey;
+        tmpKey++;
+      }
+
+#if INTERLIST_VER > 0
+      child->bucketListIndex=numBuckets;
+      child->startBucket=numBuckets;
+#endif
+      numBuckets++;
+      if (node->getType() != Boundary) node->moments += child->moments;
+    } else if (child->getType() == Empty) {
+      child->remoteIndex = thisIndex;
+    } else {
+      if (child->getType() == Internal) child->remoteIndex = thisIndex;
+      // else the index is already 0
+      buildORBTree(child, level+1);
+      // if we have a Boundary child, we will have to compute it's multipole
+      // before we can compute the multipole of the current node (and we'll do
+      // it in receiveRemoteMoments)
+      if (child->getType() == Boundary) node->remoteIndex --;
+      if (node->getType() != Boundary) node->moments += child->moments;
+    }
+  }
+
+  /* The old version collected Boundary nodes, the new version collects NonLocal nodes */
+
+  if (node->getType() == Internal) {
+    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
+  }
+
+}
+/******************************************/
 
 void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   delete m;
@@ -678,7 +1181,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   buildOctTree(root, 0);
 
   //CkPrintf("[%d] finished building local tree\n",thisIndex);
-
+  
   // check all the pending requests in for RemoteMoments
   for (MomentRequestType::iterator iter = momentRequests.begin(); iter != momentRequests.end(); ) {
     NodeKey nodeKey = iter->first;
@@ -710,24 +1213,52 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
 /// Determine who are all the owners of this node
 /// @return true if the caller is part of the owners, false otherwise
 inline bool TreePiece::nodeOwnership(const Tree::NodeKey nkey, int &firstOwner, int &lastOwner) {
-  Key firstKey = Key(nkey);
-  Key lastKey = Key(nkey + 1);
-  const Key mask = Key(1) << 63;
-  while (! (firstKey & mask)) {
-    firstKey <<= 1;
-    lastKey <<= 1;
+  
+  if(useTree == Binary_ORB){ // Added for ORB Trees
+    int keyLevel=0;
+    Key tmpKey = Key(nkey);
+    while(tmpKey > 1){
+      tmpKey >>= 1;
+      keyLevel++;
+    }
+    if(keyLevel >= chunkRootLevel){
+      tmpKey = nkey >> (keyLevel-chunkRootLevel);
+      tmpKey = tmpKey - (1 << chunkRootLevel);
+      firstOwner = tmpKey;
+      lastOwner = tmpKey;
+    }
+    else{
+      tmpKey = nkey << (chunkRootLevel - keyLevel);
+      tmpKey = tmpKey - (1 << chunkRootLevel);
+      firstOwner = tmpKey;
+
+      Key mask = (1 << (chunkRootLevel - keyLevel)) - 1;
+      tmpKey = nkey << (chunkRootLevel - keyLevel);
+      tmpKey = tmpKey - (1 << chunkRootLevel);
+      tmpKey = tmpKey + mask;
+      lastOwner = tmpKey;
+    }
   }
-  firstKey &= ~mask;
-  lastKey &= ~mask;
-  lastKey -= 1;
-  Key *locLeft = lower_bound(splitters, splitters + numSplitters, firstKey);
-  Key *locRight = upper_bound(locLeft, splitters + numSplitters, lastKey);
-  firstOwner = (locLeft - splitters) >> 1;
-  lastOwner = (locRight - splitters - 1) >> 1;
+  else{
+    Key firstKey = Key(nkey);
+    Key lastKey = Key(nkey + 1);
+    const Key mask = Key(1) << 63;
+    while (! (firstKey & mask)) {
+      firstKey <<= 1;
+      lastKey <<= 1;
+    }
+    firstKey &= ~mask;
+    lastKey &= ~mask;
+    lastKey -= 1;
+    Key *locLeft = lower_bound(splitters, splitters + numSplitters, firstKey);
+    Key *locRight = upper_bound(locLeft, splitters + numSplitters, lastKey);
+    firstOwner = (locLeft - splitters) >> 1;
+    lastOwner = (locRight - splitters - 1) >> 1;
 #if COSMO_PRINT > 1
-  std::string str = keyBits(nkey,63);
-  CkPrintf("[%d] NO: key=%s, first=%d, last=%d\n",thisIndex,str.c_str(),locLeft-splitters,locRight-splitters);
+    std::string str = keyBits(nkey,63);
+    CkPrintf("[%d] NO: key=%s, first=%d, last=%d\n",thisIndex,str.c_str(),locLeft-splitters,locRight-splitters);
 #endif
+  }
   return (thisIndex >= firstOwner && thisIndex <= lastOwner);
 }
 
@@ -1067,6 +1598,21 @@ inline bool TreePiece::openCriterionBucket(GenericTreeNode *node,
   // Note that some of this could be pre-calculated into an "opening radius"
   Sphere<double> s(node->moments.cm,
 		   opening_geometry_factor * node->moments.radius / theta);
+  
+  /*bool ret = Space::intersect(boundingBox, s);
+
+  double rad = 0.866025403784*pow(node->boundingBox.volume(),0.333333);
+
+  Sphere<double> s1(node->moments.cm,
+		   opening_geometry_factor * rad / theta);
+
+  bool ret1 = Space::intersect(boundingBox, s1);
+
+  if(ret1!=ret){
+    openingDiffCount++;
+  }
+  return ret;*/
+  
   return Space::intersect(boundingBox, s);
 }
 
@@ -1199,7 +1745,7 @@ void TreePiece::finishBucket(int iBucket) {
 	   << " to respond in finishBucket" << endl;*/
 #if COSMO_STATS > 0
       if(verbosity)
-	CkPrintf("[%d] TreePiece %d finished with bucket %d , openCriterions:%ld\n",CkMyPe(),thisIndex,iBucket,numOpenCriterionCalls);
+	CkPrintf("[%d] TreePiece %d finished with bucket %d , openCriterions:%lld, openingDiffCount:%lld\n",CkMyPe(),thisIndex,iBucket,numOpenCriterionCalls,openingDiffCount);
 #else
       if(verbosity)
 	CkPrintf("[%d] TreePiece %d finished with bucket %d\n",CkMyPe(),thisIndex,iBucket);
@@ -2054,6 +2600,7 @@ void TreePiece::startIteration(double t, int n, Tree::NodeKey *k, const CkCallba
   //BucketGravityRequest req1(1);
   switch(domainDecomposition){
     case Oct_dec:
+    case ORB_dec:
       //Prefetch Roots for Oct
       prefetchReq[0].reset();
       for (int i=1; i<myNumParticles; ++i) {
@@ -3777,12 +4324,26 @@ void TreePiece::pup(PUP::er& p) {
     case Binary_Oct:
       root = new BinaryTreeNode(1, Tree::Boundary, 0, myNumParticles+1, 0);
       break;
+    case Binary_ORB:
+      root = new BinaryTreeNode(1, Tree::Boundary, 0, myNumParticles+1, 0);
+      break;
     case Oct_Oct:
       //root = new OctTreeNode(1, Tree::Boundary, 0, myNumParticles+1, 0);
       break;
     default:
       CkAbort("We should have never reached here!");
     }
+  }
+
+  //PUP components for ORB decomposition
+  p | chunkRootLevel;
+  if(p.isUnpacking()){
+    boxes = new OrientedBox<float>[chunkRootLevel+1];
+    splitDims = new char[chunkRootLevel+1];
+  }
+  for(unsigned int i=0;i<chunkRootLevel;i++){
+    p | boxes[i];
+    p | splitDims[i];
   }
 
   p | theta;
