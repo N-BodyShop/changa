@@ -180,6 +180,31 @@ class FillNodeMsg : public CMessage_FillNodeMsg {
   FillNodeMsg(int index) : owner(index) { }
 };
 
+class ORBSplittersMsg : public CMessage_ORBSplittersMsg{
+public:
+	int length;
+  double *pos;
+  char *dim;
+  CkCallback cb;
+
+  ORBSplittersMsg(int len, CkCallback callback): length (len), cb(callback) {}
+
+};
+
+class Compare{ //Defines the comparison operator on the map used in balancer
+  int dim;
+public:
+  Compare() {}
+  Compare(int i) : dim(i) {}
+  
+  void setDim(int i){ dim = i; }
+  
+  bool operator()(GravityParticle& p1, GravityParticle& p2) const {
+    return p1.position[dim] < p2.position[dim];
+  }
+};
+
+
 class FillParticleMsg : public CMessage_FillParticleMsg {
  public:
   int owner; ///< who is the owner of this bucket
@@ -304,7 +329,8 @@ class TreePiece : public CBase_TreePiece {
 	/// number of chunks in which the tree will be chopped for prefetching
 	int numChunks;
 
-	/// @if STATISTICS
+	u_int64_t openingDiffCount;
+    /// @if STATISTICS
 
 #if COSMO_STATS > 0
 	//u_int64_t myNumCellInteractions;
@@ -353,6 +379,18 @@ class TreePiece : public CBase_TreePiece {
   DebugList bucketcheckList;
 #endif
 
+  ///Variables added for ORB decomposition
+  bool firstTime;
+  std::vector<int> tempBinCounts;
+  Compare comp;
+  std::list<GravityParticle *> orbBoundaries;
+  int myExpectedCount;
+  unsigned int chunkRootLevel;
+  //CkCallback sorterCallBack;
+  OrientedBox<float>* boxes;
+  char* splitDims;
+  int phase;
+  
 #if INTERLIST_VER > 0
 
   GenericTreeNode *curNodeLocal;
@@ -365,6 +403,7 @@ class TreePiece : public CBase_TreePiece {
   
   int myTreeLevels;
   CkVec< CkVec<GenericTreeNode *> > cellList;
+ 
  public:
   typedef struct particlesInfoR{
     ExternalGravityParticle* particles;
@@ -404,6 +443,7 @@ class TreePiece : public CBase_TreePiece {
   bool myLocalCheckListEmpty;
 #endif
   
+  bool (*compFuncPtr[3])(GravityParticle,GravityParticle);
   double tmpTime;
   double totalTime;
  public:
@@ -481,7 +521,9 @@ public:
 	  usesAtSync=CmiTrue;
 	  bucketReqs=NULL;
 	  myPlace = -1;
-          splitters = NULL;
+      openingDiffCount=0;
+      chunkRootLevel=0;
+      splitters = NULL;
 #if COSMO_STATS > 0
 	  nodesOpenedLocal = 0;
 	  nodesOpenedRemote = 0;
@@ -517,6 +559,8 @@ public:
 	  numPrefetchReq = 0;
 	  prefetchReq = NULL;
 	  remainingChunk = NULL;
+    orbBoundaries.clear();
+    //tempOrbBoundaries.clear();
 	}
 	
 	TreePiece(CkMigrateMessage* m) {
@@ -526,6 +570,9 @@ public:
 	  bucketReqs = NULL;
 	  prefetchRoots = NULL;
 	  remainingChunk = NULL;
+    orbBoundaries.clear();
+      openingDiffCount=0;
+    //tempOrbBoundaries.clear();
 	}
 
 	~TreePiece() {
@@ -570,6 +617,14 @@ public:
 	void unshuffleParticles(CkReductionMsg* m);
 	void acceptSortedParticles(const GravityParticle* particles,
 				   const int n);
+  /*****ORB Decomposition*******/
+  void initORBPieces(const CkCallback& cb);
+  void initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback);
+  void sendORBParticles();
+  void acceptORBParticles(const GravityParticle* particles, const int n);
+  void finalizeBoundaries(ORBSplittersMsg *splittersMsg);
+  void evaluateParticleCounts(ORBSplittersMsg *splittersMsg);
+  /*****************************/
 	void kick(double dDelta, const CkCallback& cb);
 	void drift(double dDelta, const CkCallback& cb);
 	void calcEnergy(const CkCallback& cb);
@@ -581,6 +636,13 @@ public:
 	void collectSplitters(CkReductionMsg* m);
 	/// Real tree build, independent of other TreePieces; calls the recursive buildTree
 	void startOctTreeBuild(CkReductionMsg* m);
+
+  /********ORB Tree**********/
+  //void receiveBoundingBoxes(BoundingBoxes *msg);
+  void startORBTreeBuild(CkReductionMsg* m);
+  OrientedBox<float> constructBoundingBox(GenericTreeNode *node,int level, int numChild);
+  void buildORBTree(GenericTreeNode * node, int level);
+  /**************************/
 
 	/// Request the TreePiece to send back later the moments for this node.
 	void requestRemoteMoments(const Tree::NodeKey key, int sender);

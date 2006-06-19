@@ -33,6 +33,11 @@ mainmodule ParallelGravity {
 	  char particles[];
 	};
 
+    message ORBSplittersMsg{
+      double pos[];
+      char dim[];
+    };
+
 	mainchare Main {
 		entry Main();
 		entry [threaded] void nextStage();
@@ -46,6 +51,10 @@ mainmodule ParallelGravity {
 					const int nChares, const double toler,
 					const CkCallback& cb);	
 		entry void collectEvaluations(CkReductionMsg* m);
+		entry void collectORBCounts(CkReductionMsg* m);
+		entry void finishPhase(CkReductionMsg* m);
+		entry void doORBDecomposition(CkReductionMsg* m);
+        entry void readytoSendORB(CkReductionMsg* m);
 	};
 	
 	group DataManager {
@@ -78,6 +87,14 @@ mainmodule ParallelGravity {
 		entry void unshuffleParticles(CkReductionMsg* m);
 		entry void acceptSortedParticles(const GravityParticle particles[n],
 				   const int n);
+        //ORB
+        entry void initORBPieces(const CkCallback& cb);
+        entry void initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback);
+        entry void sendORBParticles();
+        entry void acceptORBParticles(const GravityParticle particlesi[n], const int n);
+        entry void finalizeBoundaries(ORBSplittersMsg *splittersMsg);
+        entry void evaluateParticleCounts(ORBSplittersMsg *splittersMsg);
+          
 		entry void kick(double dDelta, const CkCallback& cb);
 		entry void drift(double dDelta, const CkCallback& cb);
 		entry void calcEnergy(const CkCallback& cb);
@@ -86,7 +103,9 @@ mainmodule ParallelGravity {
 		
 		entry void collectSplitters(CkReductionMsg* m);
 		entry void startOctTreeBuild(CkReductionMsg* m);
-		
+	
+        entry void startORBTreeBuild(CkReductionMsg* m);
+            
 		//entry void acceptBoundaryNodeContribution(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
 		//entry void acceptBoundaryNode(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
 		entry [inline] void requestRemoteMoments(Tree::NodeKey key, int sender);

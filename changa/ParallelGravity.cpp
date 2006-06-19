@@ -122,7 +122,8 @@ Main::Main(CkArgMsg* m) {
 	    }
 	
 	// hardcoding some parameters, later may be full options
-	useTree = Binary_Oct;
+	if(domainDecomposition==ORB_dec){ useTree = Binary_ORB; }
+  else { useTree = Binary_Oct; }
 
 	//if (verbosity) 
 	  ckerr << "yieldPeriod set to " << _yieldPeriod << endl;
@@ -263,8 +264,8 @@ void Main::nextStage() {
 	    ckerr<< " took "<<(CkWallTimer() - startTime)
 		 << " seconds." << endl;
 	  }
-
-	  /******** Tree Build *******/
+	  
+    /******** Tree Build *******/
 	  ckerr << "Building trees ...";
 	  startTime = CkWallTimer();
 	  pieces.buildTree(bucketSize, CkCallbackResumeThread());
