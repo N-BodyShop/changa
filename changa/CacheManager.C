@@ -820,7 +820,9 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
     chunkWeight[i] = 0;
   }
 
+#if COSMO_STATS > 0
   CmiResetMaxMemory();
+#endif
 
   // call the gravitational computation utility of each local chare element
   for (iter = registeredChares.begin(); iter != registeredChares.end(); iter++) {
