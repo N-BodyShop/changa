@@ -81,14 +81,16 @@ class TreePieceStatistics {
   u_int64_t particleInterRemote;
   u_int64_t openCriterionCalls;
   
-  TreePieceStatistics() : nodesOpenedLocal(0), nodesOpenedRemote(0), openCriterionCalls(0),
-  nodeInterLocal(0), nodeInterRemote(0), particleInterLocal(0), particleInterRemote(0) { }
+  TreePieceStatistics() : nodesOpenedLocal(0), nodesOpenedRemote(0),
+      nodeInterLocal(0), nodeInterRemote(0), particleInterLocal(0),
+      particleInterRemote(0), openCriterionCalls(0) { }
 
  public:
   TreePieceStatistics(u_int64_t nol, u_int64_t nor, u_int64_t occ, u_int64_t nil, u_int64_t nir,
 		      u_int64_t pil, u_int64_t pir) :
-    nodesOpenedLocal(nol), nodesOpenedRemote(nor), openCriterionCalls(occ), nodeInterLocal(nil),
-    nodeInterRemote(nir), particleInterLocal(pil), particleInterRemote(pir) { }
+      nodesOpenedLocal(nol), nodesOpenedRemote(nor), nodeInterLocal(nil),
+      nodeInterRemote(nir), particleInterLocal(pil), particleInterRemote(pir),
+      openCriterionCalls(occ) { }
 
   void printTo(CkOStream &os) {
     os << "  TreePiece: " << nodesOpenedLocal << " local nodes opened, ";
@@ -221,8 +223,10 @@ class Main : public Chare {
 	CProxy_DataManager dataManager;
 	CProxy_Sorter sorter;
 	unsigned int numTreePieces;
+	int nTotalParticles;
 	double theta;	
 	double dTimeStep;
+	double dTime;		/* Simulation time */
 	double dSoft;
 	int bSetSoft;
 	unsigned int bucketSize;
@@ -242,6 +246,10 @@ public:
 	 */
 	void nextStage();
 	void calcEnergy() ;
+	void writeOutput(int iStep) ;
+	void setTotalParticles(int n) {
+	    nTotalParticles = n;
+	    }
 };
 
 class TreePiece : public CBase_TreePiece {
@@ -304,6 +312,8 @@ class TreePiece : public CBase_TreePiece {
 
 	/// Opening angle
 	double theta;
+	Vector3D<double> fPeriod;
+	int nReplicas;
 
 	/// Map between Keys and TreeNodes, used to get a node from a key
 	NodeLookupType nodeLookupTable;
@@ -604,8 +614,10 @@ public:
 	// Load from mass and position files
 	void load(const std::string& fn, const CkCallback& cb);
 
-	// Load from Tispy file
+	// Load from Tipsy file
 	void loadTipsy(const std::string& filename, const CkCallback& cb);
+	// Write a Tipsy file
+	void writeTipsy(const std::string& filename, const double dTime);
 	/** Inform the DataManager of my node that I'm here.
 	 The callback will receive a CkReductionMsg containing no data.
 	void registerWithDataManager(const CkGroupID& dataManagerID,

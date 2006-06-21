@@ -59,6 +59,12 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
     return;
   }
 
+  // XXX two problems here: 1. Why do we need to talk about chunks at
+  // this point?
+  // 2. There is a small memory leak with startParticles and numParticlesChunk
+  // 3. Some of this functionality should be moved into a separate
+  // function so it can also be used in loadTipsy().
+
   unsigned int *startParticles;
   unsigned int *numParticlesChunk;
   unsigned int excess;
@@ -275,14 +281,34 @@ void TreePiece::loadTipsy(const std::string& filename, const CkCallback& cb) {
 	Tipsy::header h = r.getHeader();
 	int totalNumParticles = h.nbodies;
 	fh.numParticles = totalNumParticles;
+	int excess;
+	unsigned int startParticle;
+
+	switch (domainDecomposition) {
+	case SFC_dec:
+	    numPrefetchReq = 2;
+	    prefetchReq = new OrientedBox<double>[2];
+	case Oct_dec:
+	case ORB_dec:
+	    if (numPrefetchReq == 0) {
+		numPrefetchReq = 1;
+		prefetchReq = new OrientedBox<double>[1];
+		}
 	myNumParticles = totalNumParticles / numTreePieces;
-	int excess = totalNumParticles % numTreePieces;
-	unsigned int startParticle = myNumParticles * thisIndex;
-	if(thisIndex < excess) {
-		myNumParticles++;
-		startParticle += thisIndex;
-	} else
-		startParticle += excess;
+    
+	excess = totalNumParticles % numTreePieces;
+	startParticle = myNumParticles * thisIndex;
+	if(thisIndex < (int) excess) {
+	    myNumParticles++;
+	    startParticle += thisIndex;
+	    }
+	else {
+	    startParticle += excess;
+	    }
+	break;
+	default:
+	    CkAbort("Invalid domain decomposition requested");
+	    }
 	
 	if(verbosity > 2)
 		cerr << thisIndex << ": TreePiece: Taking " << myNumParticles << " of " << totalNumParticles << " particles, starting at " << startParticle << endl;
@@ -337,6 +363,21 @@ void TreePiece::loadTipsy(const std::string& filename, const CkCallback& cb) {
 		   growOrientedBox_float,
 		   CkCallback(CkIndex_TreePiece::assignKeys(0), pieces));
 }
+
+void TreePiece::writeTipsy(const std::string& filename, const double dTime)
+{
+    std::ofstream outfile(filename.c_str());
+    if(index == 0) {
+	Tipsy::header h;
+	h.nbodies = fh.numParticles;
+	h.ndark = h.nbodies;
+	h.nstar = 0;
+	h.time = dTime;
+	h.nsph = 0;
+	outfile.write(reinterpret_cast<const char *>(&h),
+		      Tipsy::header::sizeBytes);
+	}
+    }
 
 /// After the bounding box has been found, we can assign keys to the particles
 void TreePiece::assignKeys(CkReductionMsg* m) {

@@ -66,6 +66,12 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "nSteps", paramInt, &param.nSteps,
 		    sizeof(int),"n", "Number of Timesteps");
 	param.dSoft = 0.0;
+	param.iOutInterval = 1;
+	prmAddParam(prm, "iOutInterval", paramInt, &param.iOutInterval,
+		    sizeof(int),"oi", "Output Interval");
+	param.iLogInterval = 1;
+	prmAddParam(prm, "iLogInterval", paramInt, &param.iLogInterval,
+		    sizeof(int),"n", "Log Interval");
 	prmAddParam(prm, "dSoftening", paramDouble, &param.dSoft,
 		    sizeof(double),"S", "Gravitational softening");
 	theta = 0.7;
@@ -77,6 +83,9 @@ Main::Main(CkArgMsg* m) {
 	param.achInFile[0] = '\0';
 	prmAddParam(prm,"achInFile",paramString,param.achInFile,
 		    256, "I", "input file name (or base file name)");
+	strcpy(param.achOutName,"pargrav");
+	prmAddParam(prm,"achOutName",3,param.achOutName,256,"o",
+				"output name for snapshots and logfile");
 	param.bStaticTest = 0;
 	prmAddParam(prm, "bStaticTest", paramBool, &param.bStaticTest,
 		    sizeof(int),"st", "Static test of performance");
@@ -297,10 +306,16 @@ void Main::nextStage() {
 	  /******** Update of Particle Positions and Energy Estimation *******/
 	  if(!param.bStaticTest && i > 0) // Closing Kick
 	      pieces.kick(0.5*param.dTimeStep, CkCallbackResumeThread());
-	  calcEnergy();
+	  if(i%param.iLogInterval == 0) {
+	      calcEnergy();
+	      }
 	  /*
 	   * Writing of intermediate outputs can be done here.
 	   */
+	  if(i%param.iOutInterval == 0) {
+	      writeOutput(i);
+	      }
+	  
 	  if(!param.bStaticTest && i < param.nSteps) { // Opening Kick
 						       // and Drift
 	      pieces.kick(0.5*param.dTimeStep, CkCallbackResumeThread());
@@ -359,6 +374,14 @@ void Main::calcEnergy() {
 	     dEnergy[1], dEnergy[2], dEnergy[3], dEnergy[4], dEnergy[5]);
     delete msg;
 }
+
+void Main::writeOutput(int iStep) 
+{
+    char achFile[256];
+    
+    sprintf(achFile,"%s%06i",param.achOutName,iStep);
+    pieces[0].writeTipsy(achFile, dTime);
+    }
 
 void registerStatistics() {
 #if COSMO_STATS > 0
