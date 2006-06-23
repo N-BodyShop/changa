@@ -851,7 +851,7 @@ void CacheManager::finishedChunk(int num, u_int64_t weight) {
   static int counter = 0;
   if (++counter == registeredChares.size()*numChunks) {
     counter = 0;
-    CkPrintf(" [%d] Max memory utilization %d\n",CkMyPe(),CmiMaxMemoryUsage());
+    if (verbosity) CkPrintf(" [%d] Max memory utilization %d\n",CkMyPe(),CmiMaxMemoryUsage());
   }
 #endif
 
