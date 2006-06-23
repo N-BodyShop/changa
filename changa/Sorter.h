@@ -68,6 +68,9 @@ class Sorter : public Chare {
   std::list<ORBData> orbData;
 
 	
+        /// The list of nodes that contain no particle (and therefore ignored)
+        CkVec<NodeKey> zeros;
+
   //double curDivision;
   //int curDim;
   //OrientedBox<float> curBoundingBox;
