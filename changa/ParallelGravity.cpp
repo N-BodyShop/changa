@@ -77,6 +77,16 @@ Main::Main(CkArgMsg* m) {
 	theta = 0.7;
 	prmAddParam(prm, "dTheta", paramDouble, &theta,
 		    sizeof(double),"t", "Opening angle");
+	param.bPeriodic = 0;
+	prmAddParam(prm, "bPeriodic", paramBool, &param.bPeriodic,
+		    sizeof(int),"per", "Periodic Boundaries");
+	param.nReplicas = 1;
+	prmAddParam(prm, "nReplicas", paramInt, &param.nReplicas,
+		    sizeof(int),"nrep", "Number of periodic replicas");
+	param.fPeriod = 1.0;
+	prmAddParam(prm, "fPeriod", paramDouble, &param.fPeriod,
+		    sizeof(int),"fper", "Periodic size");
+
 	printBinaryAcc=1;
 	prmAddParam(prm, "bPrintBinary", paramBool, &printBinaryAcc,
 		    sizeof(int),"z", "Print accelerations in Binary");
@@ -126,10 +136,16 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "nDomainDecompose", paramInt, &domainDecomposition,
 		    sizeof(int),"D", "Kind of domain decomposition of particles");
   
+	
 	if(!prmArgProc(prm,m->argc,m->argv)) {
 	    CkExit();
 	    }
 	
+	if(!param.bPeriodic) {
+	    param.nReplicas = 0;
+	    param.fPeriod = 1.0e38;
+	    }
+	    
 	// hardcoding some parameters, later may be full options
 	if(domainDecomposition==ORB_dec){ useTree = Binary_ORB; }
   else { useTree = Binary_Oct; }
@@ -229,6 +245,7 @@ void Main::nextStage() {
 	//CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),pieces));
 
 	//pieces.registerWithDataManager(dataManager, CkCallbackResumeThread());
+	pieces.setPeriodic(param.nReplicas, param.fPeriod);
 
 	/******** Particles Loading ********/
 	ckerr << "Loading particles ...";

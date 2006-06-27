@@ -1,7 +1,7 @@
 #ifndef PARAMETERS_HINCLUDED
 #define PARAMETERS_HINCLUDED
 
-struct parameters {
+typedef struct parameters {
     /*
     ** Parameters for ParallelGravity.
     */
@@ -10,11 +10,13 @@ struct parameters {
     double dTimeStep;
     int bPeriodic;
     int nReplicas;
+    double fPeriod;
     char achInFile[256];
     char achOutName[256];
     int bStaticTest;
     int iOutInterval;
     int iLogInterval;
-    };
+    } Parameters;
+
 
 #endif

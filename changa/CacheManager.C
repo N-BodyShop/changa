@@ -334,7 +334,7 @@ void CacheManager::processRequests(int chunk,CacheNode *node,int from,int depth)
   for(caller = e->requestorVec.begin(); caller != e->requestorVec.end(); caller++){
     TreePiece *p = treeProxy[caller->arrayID].ckLocal();
     
-    if (caller->isPrefetch) p->prefetch(e->node);
+    if (caller->isPrefetch) p->prefetch(e->node, caller->reqID);
     else {
       LDObjHandle objHandle;
       int objstopped = 0;
@@ -412,7 +412,7 @@ void CacheManager::recvNodes(FillNodeMsg *msg){
     vector<RequestorData>::iterator caller = e->requestorVec.begin();
     TreePiece *tp = treeProxy[caller->arrayID].ckLocal();
     
-    if (caller->isPrefetch) tp->prefetch(newnode);
+    if (caller->isPrefetch) tp->prefetch(newnode, caller->reqID);
     else {
       LDObjHandle objHandle;
       int objstopped = 0;

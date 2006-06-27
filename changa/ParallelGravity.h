@@ -232,7 +232,7 @@ class Main : public Chare {
 	unsigned int bucketSize;
 	unsigned int printBinaryAcc;
 	PRM prm;		/* parameter parsing info */
-	struct parameters param; /* actual parameters */
+	Parameters param; /* actual parameters */
 public:
 		
 	Main(CkArgMsg* m);
@@ -315,6 +315,9 @@ class TreePiece : public CBase_TreePiece {
 	Vector3D<double> fPeriod;
 	int nReplicas;
 
+	// Decode offset bits in requestID
+	Vector3D<double> decodeOffset(int reqID);
+	
 	/// Map between Keys and TreeNodes, used to get a node from a key
 	NodeLookupType nodeLookupTable;
 
@@ -412,23 +415,31 @@ class TreePiece : public CBase_TreePiece {
   int nChunk;
   
   int myTreeLevels;
-  CkVec< CkVec<GenericTreeNode *> > cellList;
+  typedef struct OffsetNodeStruct
+  {
+      GenericTreeNode *node;
+      Vector3D<double> offset;
+      }
+  OffsetNode;
+  
+  CkVec< CkVec<OffsetNode> > cellList;
  
  public:
   typedef struct particlesInfoR{
     ExternalGravityParticle* particles;
     int numParticles;
+    Vector3D<double> offset;
 #if COSMO_DEBUG > 1
     GenericTreeNode *nd;
 #endif
   } RemotePartInfo;
  
   CkVec< CkVec<RemotePartInfo> > particleList;
-  CkVec< CkVec<GenericTreeNode *> > extCheckList;
-  CkQ <GenericTreeNode *> undecidedExtList;
+  CkVec< CkVec<OffsetNode> > extCheckList;
+  CkQ <OffsetNode> undecidedExtList;
   
-  CkVec< CkVec<GenericTreeNode *> > intCheckList;
-  CkQ <GenericTreeNode *> undecidedIntList;
+  CkVec< CkVec<OffsetNode> > intCheckList;
+  CkQ <OffsetNode> undecidedIntList;
 
   int intPrevListIter;
   int extPrevListIter;
@@ -436,16 +447,17 @@ class TreePiece : public CBase_TreePiece {
   typedef struct particlesInfoL{
     GravityParticle* particles;
     int numParticles;
+    Vector3D<double> offset;
 #if COSMO_DEBUG > 1
     GenericTreeNode *nd;
 #endif
   } LocalPartInfo;
     //Variables for local computation
-  CkVec< CkVec<GenericTreeNode *> > cellListLocal;
+  CkVec< CkVec<OffsetNode> > cellListLocal;
   CkVec< CkVec<LocalPartInfo> > particleListLocal;
-  CkVec< CkVec<GenericTreeNode *> > checkListLocal;
+  CkVec< CkVec<OffsetNode> > checkListLocal;
   
-  CkQ <GenericTreeNode *> undecidedListLocal;
+  CkQ <OffsetNode> undecidedListLocal;
   int prevListIterLocal;
  
   int *checkBuckets;
@@ -503,7 +515,7 @@ class TreePiece : public CBase_TreePiece {
 #if INTERLIST_VER > 0
 	void preWalkInterTree();
 	void walkInterTreeVerI(GenericTreeNode *node);
-	void walkInterTreeVerII(GenericTreeNode *node);
+	void walkInterTreeVerII(OffsetNode node);
 #endif
 	/** @brief Start the treewalk for the next bucket among those belonging
 	 * to me. The buckets are simply ordered in a vector.
@@ -611,6 +623,8 @@ public:
 #endif
 	}
 	
+	void setPeriodic(int nReplicas, double fPeriod);
+	
 	// Load from mass and position files
 	void load(const std::string& fn, const CkCallback& cb);
 
@@ -664,10 +678,14 @@ public:
 	/// of the given request.
 	template <typename T>
 	bool openCriterionBucket(GenericTreeNode *node,
-				 OrientedBox<T>& boundingBox);
+				 OrientedBox<T>& boundingBox,
+				 Vector3D<double> offset // Offset of node
+				 );
 
 	int openCriterionNode(GenericTreeNode *node,
-			      GenericTreeNode *myNode);
+			      GenericTreeNode *myNode,
+			      Vector3D<double> offset // Offset of node
+			      );
 
 	/// Entry point for the local computation: for each bucket compute the
 	/// force that its particles see due to the other particles hosted in
@@ -689,7 +707,7 @@ public:
 #if INTERLIST_VER > 0
   void preWalkRemoteInterTree(GenericTreeNode *chunkRoot, bool isRoot);
   void walkRemoteInterTreeVerI(GenericTreeNode *node, bool isRoot);
-  void walkRemoteInterTreeVerII(GenericTreeNode *node, bool isRoot);
+  void walkRemoteInterTreeVerII(OffsetNode node, bool isRoot);
   void initNodeStatus(GenericTreeNode *node);
   void calculateForceRemoteBucket(int bucketIndex, int chunk);
   void calculateForceLocalBucket(int bucketIndex);
@@ -704,7 +722,7 @@ public:
 
 	/// Function called by the CacheManager to send out request for needed
 	/// remote data, so that the later computation will hit.
-	void prefetch(GenericTreeNode *node);
+	void prefetch(GenericTreeNode *node, int offsetID);
 	void prefetch(ExternalGravityParticle *part);
 
 	/// @brief Retrieve the remote node, goes through the cache if present
@@ -739,9 +757,11 @@ public:
 
 #if INTERLIST_VER > 0
   void cachedWalkInterTreeVerI(GenericTreeNode* node);
-  void cachedWalkInterTreeVerII(GenericTreeNode* node);
-	void calculateForcesNode(GenericTreeNode *node, GenericTreeNode *myNode,int level,int chunk);
-	void calculateForces(GenericTreeNode *node, GenericTreeNode *myNode,int level,int chunk);
+  void cachedWalkInterTreeVerII(OffsetNode node);
+	void calculateForcesNode(OffsetNode node, GenericTreeNode *myNode,
+				 int level,int chunk);
+	void calculateForces(OffsetNode node, GenericTreeNode *myNode,
+			     int level,int chunk);
 #endif
   
   ExternalGravityParticle *requestParticles(const Tree::NodeKey &key,int chunk,int remoteIndex,int begin,int end,int reqID, bool isPrefetch=false);
