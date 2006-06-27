@@ -2760,7 +2760,7 @@ void TreePiece::startIteration(double t, int n, Tree::NodeKey *k, const CkCallba
       break;
   }
 
-  prefetchWaiting = 1;
+  prefetchWaiting = (2*nReplicas + 1)*(2*nReplicas + 1)*(2*nReplicas + 1);
   currentPrefetch = 0;
   int first, last;
 #if CACHE_TREE
@@ -2768,20 +2768,19 @@ void TreePiece::startIteration(double t, int n, Tree::NodeKey *k, const CkCallba
 #else
   GenericTreeNode *child = keyToNode(prefetchRoots[0]);
 #endif
-  if (child == NULL) {
-    nodeOwnership(prefetchRoots[0], first, last);
-    child = requestNode((first+last)>>1, prefetchRoots[0], 0, -1, true);
-  }
-  if (child != NULL) {
-    prefetchWaiting--;
-    for(int x = -nReplicas; x <= nReplicas; x++) {
-	for(int y = -nReplicas; y <= nReplicas; y++) {
-	    for(int z = -nReplicas; z <= nReplicas; z++) {
-		prefetchWaiting++;
-		prefetch(child, encodeOffset(0, x, y, z));
-		}
-	    }
-	}
+  for(int x = -nReplicas; x <= nReplicas; x++) {
+      for(int y = -nReplicas; y <= nReplicas; y++) {
+	  for(int z = -nReplicas; z <= nReplicas; z++) {
+	      if (child == NULL) {
+		  nodeOwnership(prefetchRoots[0], first, last);
+		  child = requestNode((first+last)>>1, prefetchRoots[0], 0,
+				      encodeOffset(0, x, y, z), true);
+		  }
+	      if (child != NULL) {
+		  prefetch(child, encodeOffset(0, x, y, z));
+		  }
+	      }
+	  }
       }
 
   thisProxy[thisIndex].calculateGravityLocal();
@@ -2866,28 +2865,29 @@ void TreePiece::startRemoteChunk() {
   // start prefetching next chunk
   if (++currentPrefetch < numChunks) {
     int first, last;
-    prefetchWaiting = 1;
+    prefetchWaiting = (2*nReplicas + 1)*(2*nReplicas + 1)*(2*nReplicas + 1);
 #if CACHE_TREE
     GenericTreeNode *child = localCache->chunkRootToNode(prefetchRoots[currentPrefetch]);
 #else
     GenericTreeNode *child = keyToNode(prefetchRoots[currentPrefetch]);
 #endif
-    if (child == NULL) {
-      nodeOwnership(prefetchRoots[currentPrefetch], first, last);
-      child = requestNode((first+last)>>1, prefetchRoots[currentPrefetch], currentPrefetch, -1, true);
-    }
-    if (child != NULL) {
-	prefetchWaiting--;
-	for(int x = -nReplicas; x <= nReplicas; x++) {
-	    for(int y = -nReplicas; y <= nReplicas; y++) {
-		for(int z = -nReplicas; z <= nReplicas; z++) {
-		    prefetchWaiting++;
+    for(int x = -nReplicas; x <= nReplicas; x++) {
+	for(int y = -nReplicas; y <= nReplicas; y++) {
+	    for(int z = -nReplicas; z <= nReplicas; z++) {
+		if (child == NULL) {
+		    nodeOwnership(prefetchRoots[currentPrefetch], first, last);
+		    child = requestNode((first+last)>>1,
+					prefetchRoots[currentPrefetch],
+					currentPrefetch,
+					encodeOffset(0, x, y, z), true);
+		    }
+		if (child != NULL) {
 		    prefetch(child, encodeOffset(0, x, y, z));
 		    }
 		}
 	    }
 	}
-  }
+      }
 }
 
 void TreePiece::startlb(CkCallback &cb){
