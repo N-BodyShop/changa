@@ -29,4 +29,22 @@ void BinaryTreeNode::pup(PUP::er &p, int depth) {
   }
 };
 
+inline CkHashCode NodeKeyClass::hash() const {
+  CkHashCode ret = (key >> 32) + key;
+  return ret;
+}
+
+inline int NodeKeyClass::compare(const NodeKeyClass &ind) const {
+  if (key == ind.key) return 1;
+  else return 0;
+}
+
+int NodeKeyClass::staticCompare(const void *k1,const void *k2,size_t ){
+  return ((const NodeKeyClass*)k1)->compare(*(const NodeKeyClass*)k2);
+}
+
+CkHashCode NodeKeyClass::staticHash(const void *v,size_t){
+  return ((const NodeKeyClass*)v)->hash();
+}
+
 }

@@ -777,24 +777,6 @@ class NodeKeyClass {
   static int staticCompare(const void *a,const void *b,size_t);
 };
 
-inline CkHashCode NodeKeyClass::hash() const {
-  CkHashCode ret = (key >> 32) + key;
-  return ret;
-}
-
-inline int NodeKeyClass::compare(const NodeKeyClass &ind) const {
-  if (key == ind.key) return 1;
-  else return 0;
-}
-
-int NodeKeyClass::staticCompare(const void *k1,const void *k2,size_t ){
-  return ((const NodeKeyClass*)k1)->compare(*(const NodeKeyClass*)k2);
-}
-
-CkHashCode NodeKeyClass::staticHash(const void *v,size_t){
-  return ((const NodeKeyClass*)v)->hash();
-}
-
 template <typename T>
 inline void reorderList(NodeKey *nodeKeys, int num, CkHashtableT<NodeKeyClass,NodeJoint<T>*> &nodes) {
   // reorder the output list
@@ -831,7 +813,8 @@ inline void reorderList(NodeKey *nodeKeys, int num, CkHashtableT<NodeKeyClass,No
 template <typename T>
   inline bool weightBalance(NodeKey *nodeKeys, T* weights, int num, CkVec<NodeKey> *zeros) {
   // T can be signed or unsigned
-  
+  CkPrintf("starting weightBalance iteration\n");
+
   //std::multimap<T,NodeKey> heaviest;
   //std::multimap<T,NodeKey> joints;
   std::set<WeightKey<T> > heaviest;
@@ -848,31 +831,50 @@ template <typename T>
     //heaviest.insert(std::pair<T,NodeKey>(weights[i],nodeKeys[i]));
     heaviest.insert(WeightKey<T>(weights[i],nodeKeys[i]));
     nodes.put(nodeKeys[i]) = new NodeJoint<T>(weights[i]);
-    NodeKey sibling(nodeKeys[i] ^ 1);
-    NodeJoint<T> *siblingWeight = nodes.get(sibling);
-    if (siblingWeight != 0) {
+    NodeKey siblingKey(nodeKeys[i] ^ 1);
+    NodeJoint<T> *sibling = nodes.get(siblingKey);
+    NodeKey ownKey(nodeKeys[i]);
+    T ownWeight = weights[i];
+    while (sibling != 0) {
       //CkPrintf("Found possible junction into %llx (w=%d)\n",sibling>>1,siblingWeight->weight);
-      if (zeros != NULL && siblingWeight->weight == 0) {
-        CkPrintf("Zero found1\n");
-        zeros->push_back(sibling);
-        heaviest.erase(WeightKey<T>(weights[i],nodeKeys[i]));
-        heaviest.erase(WeightKey<T>(siblingWeight->weight,sibling));
-        siblingWeight->isLeaf = false;
-        nodes.getRef(nodeKeys[i])->isLeaf = false;
-        joints.insert(WeightKey<T>(weights[i],nodeKeys[i]));
-      } else if (zeros != NULL && weights[i] == 0) {
-        CkPrintf("Zero found2\n");
-        zeros->push_back(nodeKeys[i]);
-        heaviest.erase(WeightKey<T>(weights[i],nodeKeys[i]));
-        heaviest.erase(WeightKey<T>(siblingWeight->weight,sibling));
-        siblingWeight->isLeaf = false;
-        nodes.getRef(nodeKeys[i])->isLeaf = false;
-        joints.insert(WeightKey<T>(siblingWeight->weight,sibling));
+      if (zeros != NULL && (sibling->weight == 0 || ownWeight == 0)) {
+        if (weights[i] != 0) {
+          CkPrintf("Zero found1 %llx (%llx: %d)\n",siblingKey,ownKey,ownWeight);
+          zeros->push_back(siblingKey);
+          heaviest.erase(WeightKey<T>(ownWeight,ownKey));
+          heaviest.erase(WeightKey<T>(sibling->weight,siblingKey));
+          sibling->isLeaf = false;
+          nodes.getRef(nodeKeys[i])->isLeaf = false;
+          joints.insert(WeightKey<T>(ownWeight,ownKey));
+        } else if (siblingWeight->weight != 0) {
+          CkPrintf("Zero found2 %llx (%llx: %d)\n",ownKey,siblingKey,sibling->weight);
+          zeros->push_back(ownKey);
+          heaviest.erase(WeightKey<T>(ownWeight,ownKey));
+          heaviest.erase(WeightKey<T>(sibling->weight,siblingKey));
+          sibling->isLeaf = false;
+          nodes.getRef(nodeKeys[i])->isLeaf = false;
+          joints.insert(WeightKey<T>(sibling->weight,siblingKey));
+        } else { // both weight[i] and siblingWeight->weight are zero
+          CkPrintf("Zero found3 %llx %llx\n",ownKey,siblingKey);
+          // nothing is added to the zeros vector since the fact that both are
+          // zero implies that their parent is zero too, and therefore the
+          // parent will eventually added to this list
+          heaviest.erase(WeightKey<T>(ownWeight,ownKey));
+          heaviest.erase(WeightKey<T>(sibling->weight,siblingKey));
+          sibling->isLeaf = false;
+          nodes.getRef(nodeKeys[i])->isLeaf = false;
+          heaviest.insert(WeightKey<T>(0,siblingKey>>1));
+          nodes.put(siblingKey>>1) = new NodeJoint<T>(0);
+          // prepare for next while loop
+          ownKey = siblingKey>>1;
+          siblingKey = ownKey ^ 1;
+          sibling = nodes.get(siblingKey);
+        }
       } else {
-        joints.insert(WeightKey<T>(weights[i]+siblingWeight->weight,sibling>>1));
-        T left = (sibling&1) ? weights[i] : siblingWeight->weight;
-        T right = (sibling&1) ? siblingWeight->weight : weights[i];
-        nodes.put(sibling>>1) = new NodeJoint<T>(weights[i]+siblingWeight->weight,left,right);
+        joints.insert(WeightKey<T>(ownWeight+sibling->weight,siblingKey>>1));
+        T left = (siblingKey&1) ? ownWeight : sibling->weight;
+        T right = (siblingKey&1) ? sibling->weight : ownWeight;
+        nodes.put(siblingKey>>1) = new NodeJoint<T>(ownWeight+sibling->weight,left,right);
       }
     }
   }
@@ -883,7 +885,7 @@ template <typename T>
   bool result = false;
   //reorderList<T>(nodeKeys, num, nodes);
   while (heaviest.rbegin()->weight > joints.begin()->weight) {
-    //CkPrintf("[%d] Opening node %llx (%d), closing %llx (%d)\n",CkMyPe(),heaviest.rbegin()->key,heaviest.rbegin()->weight,joints.begin()->key,joints.begin()->weight);
+    CkPrintf("[%d] Opening node %llx (%d), closing %llx (%d)\n",CkMyPe(),heaviest.rbegin()->key,heaviest.rbegin()->weight,joints.begin()->key,joints.begin()->weight);
     // we can improve the balancing!
     result = true;
 
@@ -924,7 +926,11 @@ template <typename T>
 	CkPrintf("[%d] WeightBalance: found a node whose sibling is empty!\n",CkMyPe());
 	int ptr = 0;
 	NodeKey siblingKey = closedKey ^ 1;
-	while (zeros->operator[](ptr)!=siblingKey) ptr++;
+	while (ptr < zeros->size() && zeros->operator[](ptr)!=siblingKey) ptr++;
+        if (ptr == zeros->size()) {
+          CkPrintf("requesting for zero node %llx\n",siblingKey);
+          for (int i=0; i<zeros->size(); ++i) CkPrintf("  element %i: %llx\n",i,zeros->operator[](i));
+        }
 	CkAssert(ptr < zeros->size());
 	zeros->remove(ptr);
 
