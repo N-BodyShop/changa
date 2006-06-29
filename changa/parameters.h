@@ -11,12 +11,14 @@ typedef struct parameters {
     int bPeriodic;
     int nReplicas;
     double fPeriod;
+    int bEwald;
+    double dEwCut;
+    double dEwhCut;
     char achInFile[256];
     char achOutName[256];
     int bStaticTest;
     int iOutInterval;
     int iLogInterval;
     } Parameters;
-
 
 #endif

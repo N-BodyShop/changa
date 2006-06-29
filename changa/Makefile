@@ -1,14 +1,14 @@
 # Flags that can be passed during compilation
 #FLAG_PRINT = -DCOSMO_PRINT=1       #enable really verbose prints
-FLAG_STATISTICS = -DCOSMO_STATS=1  # enable statistics collection
-FLAG_DEBUG = -DCOSMO_DEBUG=2       # enable debugging information
+#FLAG_STATISTICS = -DCOSMO_STATS=1  # enable statistics collection
+#FLAG_DEBUG = -DCOSMO_DEBUG=2       # enable debugging information
 CACHE_TREE = -DCACHE_TREE          # enable processor tree inside the cache
-#INTERLIST = -DINTERLIST_VER=2      # enable interaction lists
+INTERLIST = -DINTERLIST_VER=2      # enable interaction lists
 DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST)
 
 STRUCTURES_PATH = ../structures
-CXXFLAGS += -O3 -I$(STRUCTURES_PATH) -I../ParallelGravity -I../GenericTree  -Wall $(DEFINE_FLAGS)
-LDFLAGS += -language charm++ -module commlib -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB #-tracemode projections #-module EveryLB #-memory paranoid
+CXXFLAGS += -g -O1 -I$(STRUCTURES_PATH) -I../ParallelGravity -I../GenericTree $(DEFINE_FLAGS)
+LDFLAGS += -g -language charm++ -module commlib -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB #-tracemode projections #-module EveryLB #-memory paranoid
 LDLIBS += ../structures/libTipsy.a
 
 CHARMC = ../../charm/bin/charmc $(OPTS)
@@ -17,9 +17,9 @@ CC = $(CXX)
 CXX_DEPEND = $(CXX) -M -MM -MG $(CXXFLAGS)
 
 OBJECTS = DataManager.o Reductions.o TreePiece.o CacheManager.o Sorter.o \
-	  param.o ../GenericTree/GenericTreeNode.o ParallelGravity.o
+	  param.o ../GenericTree/GenericTreeNode.o ParallelGravity.o Ewald.o
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp CacheManager.C \
-	param.c ../GenericTree/GenericTreeNode.C ParallelGravity.cpp
+	param.c ../GenericTree/GenericTreeNode.C ParallelGravity.cpp Ewald.C
 
 TARGET = ParallelGravity
 VERSION = 0.2

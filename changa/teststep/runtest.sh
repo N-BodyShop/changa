@@ -4,6 +4,6 @@
 # one dynamical time in the center of the cluster.
 # compare this with numbers in "pkdtest.log"
 
-charmrun +p 2 ParallelGravity -v -T 0.01 -p 2 -n 100 king_soft.bin
+../charmrun +p 2 ../ParallelGravity -v 1 -p 2 test_pg.param
 
 # pkdgrav test_pkd.param

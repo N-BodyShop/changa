@@ -1,0 +1,230 @@
+#include <assert.h>
+#include "ParallelGravity.h"
+
+void QEVAL(MultipoleMoments mom, double gam[], double dx, double dy,
+		  double dz, double &ax, double &ay, double &az, double &fPot)
+{
+    double Qmirx,Qmiry,Qmirz,Qmir,Qta;
+    Qta = 0.0;
+    Qmirx = (1.0/1.0)*(mom.xz*dz + mom.xy*dy + mom.xx*dx);
+    Qmiry = (1.0/1.0)*(mom.yz*dz + mom.xy*dx + mom.yy*dy);
+    Qmirz = (1.0/1.0)*(mom.yz*dy + mom.xz*dx + mom.zz*dz);
+    Qmir = (1.0/2.0)*(Qmirx*dx + Qmiry*dy + Qmirz*dz);
+    fPot -= gam[2]*Qmir;
+    Qta += gam[3]*Qmir;
+    ax += gam[2]*Qmirx;
+    ay += gam[2]*Qmiry;
+    az += gam[2]*Qmirz;
+    fPot -= gam[0]*mom.totalMass;
+    Qta += gam[1]*mom.totalMass;
+    ax -= dx*Qta;
+    ay -= dy*Qta;
+    az -= dz*Qta;
+}
+
+void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
+{
+	GravityParticle *p;
+	MultipoleMoments mom = root->moments;
+	double Q2;
+	double L,fEwCut2,fInner2,alpha,alpha2,alphan,k1,ka;
+	double fPot,ax,ay,az;
+	double dx,dy,dz,x,y,z,r2,dir,dir2,a;
+	double Q2mirx,Q2miry,Q2mirz,Q2mir,Qta;
+	double g0,g1,g2,g3,g4,g5;
+	double onethird = 1.0/3.0;
+	double hdotx,s,c;
+	int i,j,n,ix,iy,iz,nEwReps,bInHole,bInHolex,bInHolexy;
+	int nLoop = 0;
+
+	/*
+	 ** Set up traces of the complete multipole moments.
+	 */
+	Q2 = 0.5*(mom.xx + mom.yy + mom.zz);	
+
+	n = req->lastParticle - req->firstParticle + 1;
+	p = &myParticles[req->firstParticle];
+	nEwReps = ceil(fEwCut);
+	L = fPeriod.x;
+	fEwCut2 = fEwCut*fEwCut*L*L;
+	fInner2 = 3.0e-3*L*L;
+	nEwReps = nEwReps > nReps ? nEwReps : nReps;
+	alpha = 2.0/L;
+	alpha2 = alpha*alpha;
+	k1 = M_PI/(alpha2*L*L*L);
+	ka = 2.0*alpha/sqrt(M_PI);
+	for(j=0;j<n;++j) {
+		fPot = mom.totalMass*k1;
+		ax = 0.0;
+		ay = 0.0;
+		az = 0.0;
+		dx = p[j].position.x - mom.cm.x;
+		dy = p[j].position.y - mom.cm.y;
+		dz = p[j].position.z - mom.cm.z;
+		for (ix=-nEwReps;ix<=nEwReps;++ix) {
+			bInHolex = (ix >= -nReps && ix <= nReps);
+			x = dx + ix*L;
+			for(iy=-nEwReps;iy<=nEwReps;++iy) {
+				bInHolexy = (bInHolex && iy >= -nReps && iy <= nReps);
+				y = dy + iy*L;
+				for(iz=-nEwReps;iz<=nEwReps;++iz) {
+					bInHole = (bInHolexy && iz >= -nReps && iz <= nReps);
+					/*
+					 ** Scoring for Ewald inner stuff = (+,*)
+					 **		Visible ops 		= (104,161)
+					 **		sqrt, 1/sqrt est. 	= (6,11)
+					 **     division            = (6,11)  same as sqrt.
+					 **		exp est.			= (6,11)  same as sqrt.
+					 **		erf/erfc est.		= (12,22) twice a sqrt.	
+					 **		Total			= (128,205) = 333
+					 **     Old scoring				    = 447
+					 */
+					z = dz + iz*L;
+					r2 = x*x + y*y + z*z;
+					if (r2 > fEwCut2 && !bInHole) continue;
+					if (r2 < fInner2) {
+						/*
+						 * For small r, series expand about
+						 * the origin to avoid errors caused
+						 * by cancellation of large terms.
+						 */
+						alphan = ka;
+						r2 *= alpha2;
+						g0 = alphan*((1.0/3.0)*r2 - 1.0);
+						alphan *= 2*alpha2;
+						g1 = alphan*((1.0/5.0)*r2 - (1.0/3.0));
+						alphan *= 2*alpha2;
+						g2 = alphan*((1.0/7.0)*r2 - (1.0/5.0));
+						alphan *= 2*alpha2;
+						g3 = alphan*((1.0/9.0)*r2 - (1.0/7.0));
+						alphan *= 2*alpha2;
+						g4 = alphan*((1.0/11.0)*r2 - (1.0/9.0));
+						alphan *= 2*alpha2;
+						g5 = alphan*((1.0/13.0)*r2 - (1.0/11.0));
+						}
+					else {
+					    dir = 1/sqrt(r2);
+					    dir2 = dir*dir;
+					    a = exp(-r2*alpha2);
+					    a *= ka*dir2;
+					    if (bInHole) g0 = -erf(alpha/dir);
+					    else g0 = erfc(alpha/dir);
+					    g0 *= dir;
+					    g1 = g0*dir2 + a;
+					    alphan = 2*alpha2;
+					    g2 = 3*g1*dir2 + alphan*a;
+					    alphan *= 2*alpha2;
+					    g3 = 5*g2*dir2 + alphan*a;
+					    alphan *= 2*alpha2;
+						g4 = 7*g3*dir2 + alphan*a;
+					    alphan *= 2*alpha2;
+					    g5 = 9*g4*dir2 + alphan*a;
+					    }
+					Q2mirx = mom.xx*x + mom.xy*y + mom.xz*z;
+					Q2miry = mom.xy*x + mom.yy*y + mom.yz*z;
+					Q2mirz = mom.xz*x + mom.yz*y + mom.zz*z;
+					Q2mir = 0.5*(Q2mirx*x + Q2miry*y + Q2mirz*z);
+					Qta = g1*mom.totalMass - g2*Q2 + g3*Q2mir;
+					fPot -= g0*mom.totalMass - g1*Q2 + g2*Q2mir;
+					ax += g2*(Q2mirx) - x*Qta;
+					ay += g2*(Q2miry) - y*Qta;
+					az += g2*(Q2mirz) - z*Qta;
+					++nLoop;
+					}
+				}
+			}
+		/*
+		 ** Scoring for the h-loop (+,*)
+		 ** 	Without trig = (10,14)
+		 **	    Trig est.	 = 2*(6,11)  same as 1/sqrt scoring.
+		 **		Total        = (22,36)
+		 **					 = 58
+		 */
+		for (i=0;i<nEwhLoop;++i) {
+			hdotx = ewt[i].hx*dx + ewt[i].hy*dy + ewt[i].hz*dz;
+			c = cos(hdotx);
+			s = sin(hdotx);
+			fPot += ewt[i].hCfac*c + ewt[i].hSfac*s;
+			ax += ewt[i].hx*(ewt[i].hCfac*s - ewt[i].hSfac*c);
+			ay += ewt[i].hy*(ewt[i].hCfac*s - ewt[i].hSfac*c);
+			az += ewt[i].hz*(ewt[i].hCfac*s - ewt[i].hSfac*c);
+			}
+		p[j].potential += fPot;
+		p[j].treeAcceleration.x += ax;
+		p[j].treeAcceleration.y += ay;
+		p[j].treeAcceleration.z += az;
+	    }
+	return;
+	}
+
+// Set up table for Ewald h (Fourier space) loop
+
+void TreePiece::EwaldInit(double fhCut)
+{
+	int i,hReps,hx,hy,hz,h2;
+	double alpha,k4,L;
+	double gam[6],mfacc,mfacs;
+	double ax,ay,az;
+
+	/*
+	 ** Now setup stuff for the h-loop.
+	 */
+	hReps = ceil(fhCut);
+	L = fPeriod.x;
+	alpha = 2.0/L;
+	k4 = M_PI*M_PI/(alpha*alpha*L*L);
+	i = 0;
+	for (hx=-hReps;hx<=hReps;++hx) {
+		for (hy=-hReps;hy<=hReps;++hy) {
+			for (hz=-hReps;hz<=hReps;++hz) {
+				h2 = hx*hx + hy*hy + hz*hz;
+				if (h2 == 0) continue;
+				if (h2 > fhCut*fhCut) continue;
+				if (i == nMaxEwhLoop) {
+				    nMaxEwhLoop *= 2;
+				    ewt = (EWT *)realloc(ewt,nMaxEwhLoop*sizeof(EWT));
+				    assert(ewt != NULL);
+				    }
+				gam[0] = exp(-k4*h2)/(M_PI*h2*L);
+				gam[1] = 2*M_PI/L*gam[0];
+				gam[2] = -2*M_PI/L*gam[1];
+				gam[3] = 2*M_PI/L*gam[2];
+				gam[4] = -2*M_PI/L*gam[3];
+				gam[5] = 2*M_PI/L*gam[4];
+				gam[1] = 0.0;
+				gam[3] = 0.0;
+				gam[5] = 0.0;
+				ax = 0.0;
+				ay = 0.0;
+				az = 0.0;
+				mfacc = 0.0;
+				QEVAL(root->moments, gam, hx, hy, hz,
+				      ax, ay, az, mfacc);
+				gam[0] = exp(-k4*h2)/(M_PI*h2*L);
+				gam[1] = 2*M_PI/L*gam[0];
+				gam[2] = -2*M_PI/L*gam[1];
+				gam[3] = 2*M_PI/L*gam[2];
+				gam[4] = -2*M_PI/L*gam[3];
+				gam[5] = 2*M_PI/L*gam[4];
+				gam[0] = 0.0;
+				gam[2] = 0.0;
+				gam[4] = 0.0;
+				ax = 0.0;
+				ay = 0.0;
+				az = 0.0;
+				mfacs = 0.0;
+				QEVAL(root->moments, gam,hx,hy,hz,
+				      ax,ay,az,mfacs);
+				ewt[i].hx = 2*M_PI/L*hx;
+				ewt[i].hy = 2*M_PI/L*hy;
+				ewt[i].hz = 2*M_PI/L*hz;
+				ewt[i].hCfac = mfacc;
+				ewt[i].hSfac = mfacs;
+				++i;
+				}
+			}
+		}
+	nEwhLoop = i;
+	}
+
+

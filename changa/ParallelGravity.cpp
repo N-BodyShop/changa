@@ -85,7 +85,16 @@ Main::Main(CkArgMsg* m) {
 		    sizeof(int),"nrep", "Number of periodic replicas");
 	param.fPeriod = 1.0;
 	prmAddParam(prm, "fPeriod", paramDouble, &param.fPeriod,
-		    sizeof(int),"fper", "Periodic size");
+		    sizeof(double),"fper", "Periodic size");
+	param.bEwald = 1;
+	prmAddParam(prm,"bEwald",paramBool, &param.bEwald, sizeof(int),
+		    "ewald", "enable/disable Ewald correction = +ewald");
+	param.dEwCut = 2.6;
+	prmAddParam(prm,"dEwCut", paramDouble, &param.dEwCut, sizeof(double),
+		    "ewc", "<dEwCut> = 2.6");
+	param.dEwhCut = 2.8;
+	prmAddParam(prm,"dEwhCut", paramDouble, &param.dEwhCut, sizeof(double),
+		    "ewh", "<dEwhCut> = 2.8");
 
 	printBinaryAcc=1;
 	prmAddParam(prm, "bPrintBinary", paramBool, &printBinaryAcc,
@@ -144,6 +153,7 @@ Main::Main(CkArgMsg* m) {
 	if(!param.bPeriodic) {
 	    param.nReplicas = 0;
 	    param.fPeriod = 1.0e38;
+	    param.bEwald = 0;
 	    }
 	    
 	// hardcoding some parameters, later may be full options
@@ -245,7 +255,8 @@ void Main::nextStage() {
 	//CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),pieces));
 
 	//pieces.registerWithDataManager(dataManager, CkCallbackResumeThread());
-	pieces.setPeriodic(param.nReplicas, param.fPeriod);
+	pieces.setPeriodic(param.nReplicas, param.fPeriod, param.bEwald,
+			   param.dEwCut);
 
 	/******** Particles Loading ********/
 	ckerr << "Loading particles ...";
@@ -300,6 +311,9 @@ void Main::nextStage() {
 	  /******** Force Computation ********/
 	  ckerr << "Calculating gravity (tree bucket, theta = " << theta << ") ...";
 	  startTime = CkWallTimer();
+	  // Set up Ewald Tables
+	  if(param.bPeriodic && param.bEwald)
+	      pieces.EwaldInit(param.dEwhCut);
 	  //pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
 	  cacheManagerProxy.cacheSync(theta, CkCallbackResumeThread());
 	  ckerr << " took " << (CkWallTimer() - startTime) << " seconds."

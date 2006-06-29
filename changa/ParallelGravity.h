@@ -312,10 +312,22 @@ class TreePiece : public CBase_TreePiece {
 
 	/// Opening angle
 	double theta;
+	/// Periodic Boundary stuff
 	Vector3D<double> fPeriod;
 	int nReplicas;
-
-	// Decode offset bits in requestID
+	int bEwald;		/* Perform Ewald */
+	double fEwCut;
+/* IBM brain damage */
+#undef hz
+	typedef struct ewaldTable {
+	double hx,hy,hz;
+	    double hCfac,hSfac;
+	    } EWT;
+	EWT *ewt;
+	int nMaxEwhLoop;
+	int nEwhLoop;
+	
+	// Decode offset bits in requestID for periodic replicas
 	Vector3D<double> decodeOffset(int reqID);
 	
 	/// Map between Keys and TreeNodes, used to get a node from a key
@@ -418,7 +430,7 @@ class TreePiece : public CBase_TreePiece {
   typedef struct OffsetNodeStruct
   {
       GenericTreeNode *node;
-      Vector3D<double> offset;
+      int offsetID;
       }
   OffsetNode;
   
@@ -581,6 +593,7 @@ public:
 	  numPrefetchReq = 0;
 	  prefetchReq = NULL;
 	  remainingChunk = NULL;
+	  ewt = NULL;
     orbBoundaries.clear();
     //tempOrbBoundaries.clear();
 	}
@@ -623,7 +636,10 @@ public:
 #endif
 	}
 	
-	void setPeriodic(int nReplicas, double fPeriod);
+	void setPeriodic(int nReplicas, double fPeriod, int bEwald,
+			 double fEwCut);
+	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
+	void EwaldInit(double fhCut);
 	
 	// Load from mass and position files
 	void load(const std::string& fn, const CkCallback& cb);

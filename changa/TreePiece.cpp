@@ -27,10 +27,17 @@ int TreeStuff::maxBucketSize;
 //forward declaration
 string getColor(GenericTreeNode*);
 
-void TreePiece::setPeriodic(int nRepsPar, double fPeriodPar) 
+void TreePiece::setPeriodic(int nRepsPar, double fPeriodPar, int bEwaldPar,
+			    double fEwCutPar) 
 {
     nReplicas = nRepsPar;
     fPeriod = Vector3D<double>(fPeriodPar, fPeriodPar, fPeriodPar);
+    bEwald = bEwaldPar;
+    fEwCut  = fEwCutPar;
+    if(ewt == NULL) {
+	nMaxEwhLoop = 100;
+	ewt = (EWT *)malloc(nMaxEwhLoop*sizeof(EWT));
+	}
     }
 
 void TreePiece::load(const std::string& fn, const CkCallback& cb) {
@@ -1495,6 +1502,14 @@ int encodeOffset(int reqID, int x, int y, int z)
     return reqID | (offsetcode << 22);
     }
 
+// Add reqID to encoded offset
+int reEncodeOffset(int reqID, int offsetID)
+{
+    const int offsetmask = 0x1ff << 22;
+    
+    return reqID | (offsetmask & offsetID);
+    }
+
 inline void partBucketForce(ExternalGravityParticle *part, GenericTreeNode *req, GravityParticle *particles, Vector3D<double> offset) {
   Vector3D<double> r;
   double rsq;
@@ -1824,6 +1839,9 @@ void TreePiece::finishBucket(int iBucket) {
 #endif
 
   if(req->finished && req->numAdditionalRequests == 0) {
+      if(bEwald) {
+	  BucketEwald(node, nReplicas, fEwCut);
+	  }
     myNumParticlesPending -= node->particleCount;
 #ifdef COSMO_PRINT
     CkPrintf("[%d] Finished bucket %d, %d particles remaining\n",thisIndex,iBucket,myNumParticlesPending);
@@ -2040,7 +2058,7 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
         combineKeys(tmp->getKey(),bucketIndex);
 #endif
         nodeBucketForce(tmp.node, bucketList[bucketIndex], myParticles,
-			tmp.offset);
+			decodeOffset(tmp.offsetID));
       }
 
       LocalPartInfo pinfo;
@@ -2077,7 +2095,7 @@ void TreePiece::calculateForceRemoteBucket(int bucketIndex, int chunk){
       combineKeys(tmp.node->getKey(),bucketIndex);
 #endif
       nodeBucketForce(tmp.node, bucketList[bucketIndex], myParticles,
-		      tmp.offset);
+		      decodeOffset(tmp.offsetID));
     }
     for(partListIter=0;partListIter<particleList[k].length();partListIter++){
       RemotePartInfo pinfo = particleList[k][partListIter];
@@ -2360,13 +2378,11 @@ void TreePiece::preWalkRemoteInterTree(GenericTreeNode *chunkRoot, bool isRoot){
       }
 
       if(node.node!=NULL){
-	  if(node.node==chunkRoot) {
+	  if(curNodeRemote==root) {
 	    for(int x = -nReplicas; x <= nReplicas; x++) {
 		for(int y = -nReplicas; y <= nReplicas; y++) {
 		    for(int z = -nReplicas; z <= nReplicas; z++) {
-			Vector3D<double> offset(x*fPeriod.x, y*fPeriod.y,
-						z*fPeriod.z);
-			node.offset = offset;
+			node.offsetID = encodeOffset(0, x, y, z);
 			walkRemoteInterTreeVerII(node,true);
 			}
 		    }
@@ -2966,9 +2982,7 @@ void TreePiece::preWalkInterTree(){
 	    for(int x = -nReplicas; x <= nReplicas; x++) {
 		for(int y = -nReplicas; y <= nReplicas; y++) {
 		    for(int z = -nReplicas; z <= nReplicas; z++) {
-			Vector3D<double> offset(x*fPeriod.x, y*fPeriod.y,
-						z*fPeriod.z);
-			ond.offset = offset;
+			ond.offsetID = encodeOffset(0, x, y, z);
 			undecidedListLocal.enq(ond);
 			}
 		    }
@@ -3151,7 +3165,8 @@ void TreePiece::walkInterTreeVerII(OffsetNode node) {
 #endif
     }
     else{}
-  } else if((openValue=openCriterionNode(node.node, myNode, node.offset))==0) {
+  } else if((openValue=openCriterionNode(node.node, myNode,
+					 decodeOffset(node.offsetID)))==0) {
 #if COSMO_STATS > 0
     numOpenCriterionCalls++;
 #endif
@@ -3176,7 +3191,7 @@ void TreePiece::walkInterTreeVerII(OffsetNode node) {
         pinfo.nd=node.node;
 #endif
         pinfo.numParticles = node.node->lastParticle - node.node->firstParticle + 1;
-	pinfo.offset = node.offset;
+	pinfo.offset = decodeOffset(node.offsetID);
         particleListLocal[level].push_back(pinfo);
       }
       else{
@@ -3186,7 +3201,7 @@ void TreePiece::walkInterTreeVerII(OffsetNode node) {
           if(childIterator) {
 	      OffsetNode ond;
 	      ond.node = childIterator;
-	      ond.offset = node.offset;
+	      ond.offsetID = node.offsetID;
 	      undecidedListLocal.enq(ond);
 	      }
         }
@@ -3475,7 +3490,8 @@ void TreePiece::cachedWalkInterTreeVerII(OffsetNode node) {
     numOpenCriterionCalls++;
 #endif
   }
-  else if((openValue=openCriterionNode(node.node, myNode, node.offset))==0) {
+  else if((openValue=openCriterionNode(node.node, myNode,
+				       decodeOffset(node.offsetID)))==0) {
 #if COSMO_STATS > 0
     numOpenCriterionCalls++;
 #endif
@@ -3494,7 +3510,9 @@ void TreePiece::cachedWalkInterTreeVerII(OffsetNode node) {
       ExternalGravityParticle *part
 	  = requestParticles(node.node->getKey(), chunk,
 			     node.node->remoteIndex, node.node->firstParticle,
-			     node.node->lastParticle, myNode->bucketListIndex);
+			     node.node->lastParticle,
+			     reEncodeOffset(myNode->bucketListIndex,
+					    node.offsetID));
       //PROBLEM: how to form req in this case
       if(part != NULL){
       	TreePiece::RemotePartInfo pinfo;
@@ -3503,7 +3521,7 @@ void TreePiece::cachedWalkInterTreeVerII(OffsetNode node) {
         pinfo.nd=node;
 #endif
       	pinfo.numParticles = node.node->lastParticle - node.node->firstParticle + 1;
-	pinfo.offset = node.offset;
+	pinfo.offset = decodeOffset(node.offsetID);
       	particleList[level].push_back(pinfo);
       } else {
       	remainingChunk[chunk] += node.node->lastParticle - node.node->firstParticle + 1;
@@ -3538,7 +3556,7 @@ void TreePiece::cachedWalkInterTreeVerII(OffsetNode node) {
         CkAssert (childIterator != NULL);
 	OffsetNode child;
 	child.node = childIterator;
-	child.offset = node.offset;
+	child.offsetID = node.offsetID;
         undecidedExtList.enq(child);
       }
     }
@@ -3562,7 +3580,7 @@ void TreePiece::cachedWalkInterTreeVerII(OffsetNode node) {
     // Use cachedWalkBucketTree() as callback
     if(myNode->getType()==Bucket){
       OffsetNode child;
-      child.offset = node.offset;
+      child.offsetID = node.offsetID;
       //BucketGravityRequest& req = bucketReqs[myNode->bucketListIndex];
       for (unsigned int i=0; i<node.node->numChildren(); ++i) {
 	child.node = node.node->getChildren(i); //requestNode(node->remoteIndex, node->getChildKey(i), req);
@@ -3570,7 +3588,9 @@ void TreePiece::cachedWalkInterTreeVerII(OffsetNode node) {
           undecidedExtList.enq(child);
       	} else { //missed the cache
 	  //PROBLEM: how to construct req
-	  child.node = requestNode(node.node->remoteIndex, node.node->getChildKey(i), chunk, myNode->bucketListIndex);
+	  child.node = requestNode(node.node->remoteIndex,
+				   node.node->getChildKey(i),
+				   chunk, reEncodeOffset(myNode->bucketListIndex, node.offsetID));
 	  if (child.node) { // means that node was on a local TreePiece
             undecidedExtList.enq(child);
 	  } else { // we completely missed the cache, we will be called back
@@ -3627,7 +3647,8 @@ inline void TreePiece::calculateForces(OffsetNode node, GenericTreeNode *myNode,
   for(i=startBucket;i<=lastBucket;i++){
     ExternalGravityParticle *part
 	= requestParticles(node.node->getKey(), chunk, node.node->remoteIndex,
-			   node.node->firstParticle, node.node->lastParticle,i);
+			   node.node->firstParticle, node.node->lastParticle,
+			   reEncodeOffset(i, node.offsetID));
     if(part != NULL){
       CkAssert(test==0);
       TreePiece::RemotePartInfo pinfo;
@@ -3636,7 +3657,7 @@ inline void TreePiece::calculateForces(OffsetNode node, GenericTreeNode *myNode,
       pinfo.nd=node.node;
 #endif
       pinfo.numParticles = node.node->lastParticle - node.node->firstParticle + 1;
-      pinfo.offset = node.offset;
+      pinfo.offset = decodeOffset(node.offsetID);
       particleList[level].push_back(pinfo);
       break;
     } else {
@@ -3666,7 +3687,7 @@ inline void TreePiece::calculateForcesNode(OffsetNode node,
   lastBucket=k-1;*/
   
   OffsetNode child;
-  child.offset = node.offset;
+  child.offsetID = node.offsetID;
   for (unsigned int i=0; i<node.node->numChildren(); ++i) {
     child.node = node.node->getChildren(i); //requestNode(node->remoteIndex, node->getChildKey(i), req);
     k = startBucket;
@@ -3676,7 +3697,8 @@ inline void TreePiece::calculateForcesNode(OffsetNode node,
     } else { //missed the cache
       //PROBLEM: how to construct req
       child.node = requestNode(node.node->remoteIndex,
-			       node.node->getChildKey(i), chunk, k);
+			       node.node->getChildKey(i), chunk,
+			       reEncodeOffset(k, node.offsetID));
       if (child.node) { // means that node was on a local TreePiece
         undecidedExtList.enq(child);
       } else { // we completely missed the cache, we will be called back
@@ -3687,7 +3709,8 @@ inline void TreePiece::calculateForcesNode(OffsetNode node,
           tmpNode = bucketList[k];
           if(tmpNode->lastParticle>myNode->lastParticle) break;
           child.node = requestNode(node.node->remoteIndex,
-				   node.node->getChildKey(i), chunk, k);
+				   node.node->getChildKey(i), chunk,
+				   reEncodeOffset(k, child.offsetID));
           CkAssert(child.node==NULL);
           remainingChunk[chunk] ++;
         }
@@ -3919,7 +3942,7 @@ ExternalGravityParticle *TreePiece::requestParticles(const Tree::NodeKey &key,in
 	       bucketReqs[decodeRecID(reqID)].numAdditionalRequests);
 #endif
       if(!isPrefetch) {
-	  CkAssert(reqID > 0);
+	  CkAssert(reqID >= 0);
 	  bucketReqs[decodeReqID(reqID)].numAdditionalRequests += end-begin+1;
 	  }
     }
