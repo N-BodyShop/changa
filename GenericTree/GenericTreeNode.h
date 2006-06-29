@@ -777,6 +777,16 @@ class NodeKeyClass {
   static int staticCompare(const void *a,const void *b,size_t);
 };
 
+inline CkHashCode NodeKeyClass::hash() const {
+  CkHashCode ret = (key >> 32) + key;
+  return ret;
+}
+
+inline int NodeKeyClass::compare(const NodeKeyClass &ind) const {
+  if (key == ind.key) return 1;
+  else return 0;
+}
+
 template <typename T>
 inline void reorderList(NodeKey *nodeKeys, int num, CkHashtableT<NodeKeyClass,NodeJoint<T>*> &nodes) {
   // reorder the output list
@@ -846,7 +856,7 @@ template <typename T>
           sibling->isLeaf = false;
           nodes.getRef(nodeKeys[i])->isLeaf = false;
           joints.insert(WeightKey<T>(ownWeight,ownKey));
-        } else if (siblingWeight->weight != 0) {
+        } else if (sibling->weight != 0) {
           CkPrintf("Zero found2 %llx (%llx: %d)\n",ownKey,siblingKey,sibling->weight);
           zeros->push_back(ownKey);
           heaviest.erase(WeightKey<T>(ownWeight,ownKey));
