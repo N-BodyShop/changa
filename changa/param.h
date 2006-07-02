@@ -1,6 +1,9 @@
 #ifndef PARAM_HINCLUDED
 #define PARAM_HINCLUDED
 
+/* Header for parameter parsing module.
+ * First implemented by Joachim Stadel in PKDGRAV.
+ */
 #ifdef __cplusplus
 extern "C" {
 #endif

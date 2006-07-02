@@ -1,5 +1,7 @@
 #include <assert.h>
 #include "ParallelGravity.h"
+// Ewald summation code.
+// First implemented by Thomas Quinn and Joachim Stadel in PKDGRAV.
 
 void QEVAL(MultipoleMoments mom, double gam[], double dx, double dy,
 		  double dz, double &ax, double &ay, double &az, double &fPot)

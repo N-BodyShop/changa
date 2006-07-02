@@ -1,3 +1,7 @@
+/* 
+ * Module to parse parameter files and command line arguments.
+ * First implemented by Joachim Stadel in PKDGRAV
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
