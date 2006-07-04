@@ -58,6 +58,7 @@ Main::Main(CkArgMsg* m) {
 	mainChare = thishandle;
 	
 	prmInitialize(&prm,_Leader,_Trailer);
+	csmInitialize(&param.csm);
 
 	param.dTimeStep = 0.0;
 	prmAddParam(prm, "dTimeStep", paramDouble, &param.dTimeStep,
@@ -65,6 +66,9 @@ Main::Main(CkArgMsg* m) {
 	param.nSteps = 1;
 	prmAddParam(prm, "nSteps", paramInt, &param.nSteps,
 		    sizeof(int),"n", "Number of Timesteps");
+	param.iStartStep = 0;
+	prmAddParam(prm, "iStartStep", paramInt, &param.iStartStep,
+		    sizeof(int),"nstart", "Initial step numbering");
 	param.dSoft = 0.0;
 	param.iOutInterval = 1;
 	prmAddParam(prm, "iOutInterval", paramInt, &param.iOutInterval,
@@ -95,6 +99,32 @@ Main::Main(CkArgMsg* m) {
 	param.dEwhCut = 2.8;
 	prmAddParam(prm,"dEwhCut", paramDouble, &param.dEwhCut, sizeof(double),
 		    "ewh", "<dEwhCut> = 2.8");
+	param.csm->bComove = 0;
+	prmAddParam(prm, "bComove", paramBool, &param.csm->bComove,
+		    sizeof(int),"cm", "Comoving coordinates");
+	param.csm->dHubble0 = 0.0;
+	prmAddParam(prm,"dHubble0",paramDouble,&param.csm->dHubble0, 
+		    sizeof(double),"Hub", "<dHubble0> = 0.0");
+	param.csm->dOmega0 = 1.0;
+	prmAddParam(prm,"dOmega0",paramDouble,&param.csm->dOmega0,
+		    sizeof(double),"Om", "<dOmega0> = 1.0");
+	param.csm->dLambda = 0.0;
+	prmAddParam(prm,"dLambda",paramDouble,&param.csm->dLambda,
+		    sizeof(double),"Lambda", "<dLambda> = 0.0");
+	param.csm->dOmegaRad = 0.0;
+	prmAddParam(prm,"dOmegaRad",paramDouble,&param.csm->dOmegaRad,
+		    sizeof(double),"Omrad", "<dOmegaRad> = 0.0");
+	param.csm->dOmegab = 0.0;
+	prmAddParam(prm,"dOmegab",paramDouble,&param.csm->dOmegab,
+		    sizeof(double),"Omb", "<dOmegab> = 0.0");
+	param.csm->dQuintess = 0.0;
+	prmAddParam(prm,"dQuintess",paramDouble,&param.csm->dQuintess,
+		    sizeof(double),"Quint",
+		    "<dQuintessence (constant w = -1/2) > = 0.0");
+	param.dRedTo = 0.0;
+	prmAddParam(prm,"dRedTo",paramDouble,&param.dRedTo,sizeof(double),
+		    "zto", "specifies final redshift for the simulation");
+	
 
 	printBinaryAcc=1;
 	prmAddParam(prm, "bPrintBinary", paramBool, &printBinaryAcc,
@@ -256,7 +286,7 @@ void Main::nextStage() {
 
 	//pieces.registerWithDataManager(dataManager, CkCallbackResumeThread());
 	pieces.setPeriodic(param.nReplicas, param.fPeriod, param.bEwald,
-			   param.dEwCut);
+			   param.dEwCut, param.bPeriodic);
 
 	/******** Particles Loading ********/
 	ckerr << "Loading particles ...";
@@ -279,12 +309,121 @@ void Main::nextStage() {
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 
+	// Grab starting time.
+	if(param.csm->bComove) {
+	    if(param.csm->dHubble0 == 0.0) {
+		ckerr << "No hubble constant specified" << endl;
+		CkExit();
+		return;
+		}
+	    /* input time is expansion factor.  Convert */
+	    double dAStart = pieces[0].ckLocal()->fh.time; 
+	    double z = 1.0/dAStart - 1.0;
+	    double aTo, tTo;
+	    dTime = csmExp2Time(param.csm, dAStart);
+	    if (verbosity > 0)
+		ckout << "Input file, Time:" << dTime << "Redshift:" << z
+		      << "Expansion factor:" << dAStart << endl;
+	    if (prmSpecified(prm,"dRedTo")) {
+		if (!prmArgSpecified(prm,"nSteps") &&
+		    prmArgSpecified(prm,"dTimeStep")) {
+		    aTo = 1.0/(param.dRedTo + 1.0);
+		    tTo = csmExp2Time(param.csm,aTo);
+		    if (verbosity > 0)
+			ckout << "Simulation to Time:" << tTo << " Redshift:"
+			      << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
+			      << endl;
+		    if (tTo < dTime) {
+			ckerr << "Badly specified final redshift, check -zto parameter."
+			      << endl;
+			CkExit();
+			}
+		    param.nSteps = (int)ceil((tTo-dTime)/param.dTimeStep);
+		    }
+		else if (!prmArgSpecified(prm,"dTimeStep") &&
+			 prmArgSpecified(prm,"nSteps")) {
+		    aTo = 1.0/(param.dRedTo + 1.0);
+		    tTo = csmExp2Time(param.csm,aTo);
+		    if (verbosity > 0)
+			ckout << "Simulation to Time:" << tTo << " Redshift:"
+			      << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
+			      << endl;
+		    if (tTo < dTime) {
+			ckerr << "Badly specified final redshift, check -zto parameter."
+			      << endl;
+			CkExit();
+			}
+		    if(param.nSteps != 0)
+			param.dTimeStep =
+				(tTo-dTime)/(param.nSteps - param.iStartStep);
+		    else
+			param.dTimeStep = 0.0;
+		    }
+		else if (!prmSpecified(prm,"nSteps") &&
+			 prmFileSpecified(prm,"dTimeStep")) {
+		    aTo = 1.0/(param.dRedTo + 1.0);
+		    tTo = csmExp2Time(param.csm,aTo);
+		    if (verbosity > 0)
+			ckout << "Simulation to Time:" << tTo << " Redshift:"
+			      << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
+			      << endl;
+		    if (tTo < dTime) {
+			ckerr << "Badly specified final redshift, check -zto parameter."
+			      << endl;
+			CkExit();
+			}
+		    param.nSteps = (int)ceil((tTo-dTime)/param.dTimeStep);
+		    }
+		else if (!prmSpecified(prm,"dTimeStep") &&
+			 prmFileSpecified(prm,"nSteps")) {
+		    aTo = 1.0/(param.dRedTo + 1.0);
+		    tTo = csmExp2Time(param.csm,aTo);
+		    if (verbosity > 0)
+			ckout << "Simulation to Time:" << tTo << " Redshift:"
+			      << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
+			      << endl;
+		    if (tTo < dTime) {
+			ckerr << "Badly specified final redshift, check -zto parameter."
+			      << endl;
+			CkExit();
+			}
+		    if(param.nSteps != 0)
+			param.dTimeStep =	(tTo-dTime)/(param.nSteps
+							 - param.iStartStep);
+		    else
+			param.dTimeStep = 0.0;
+		    }
+		}
+	    else {
+		tTo = dTime + param.nSteps*param.dTimeStep;
+		aTo = csmTime2Exp(param.csm,tTo);
+		if (verbosity > 0)
+		    ckout << "Simulation to Time:" << tTo << " Redshift:"
+			  << 1.0/aTo - 1.0 << " Expansion factor:"
+			  << aTo << endl;
+		}
+	    pieces.velScale(dAStart*dAStart);
+	    }
+	else {  // not Comove
+	    dTime = pieces[0].ckLocal()->fh.time; 
+	    if(verbosity > 0)
+		ckout << "Input file, Time:" << dTime << endl;
+	    double tTo = dTime + param.nSteps*param.dTimeStep;
+	    if (verbosity > 0) {
+		ckout << "Simulation to Time:" << tTo << endl;
+		}
+	    }
+	    
 	if(prmSpecified(prm,"dSoftening")) {
 	    ckerr << "Set Softening...\n";
 	    pieces.setSoft(param.dSoft);
 	}
 	
-	for(int i=0; i<=param.nSteps; i++){
+	if(param.bPeriodic) {	// puts all particles within the boundary
+	    pieces.drift(0.0, CkCallbackResumeThread());
+	    }
+	
+	for(int i=param.iStartStep; i<=param.nSteps; i++){
 	  /******** Resorting of particles and Domain Decomposition ********/
 	  ckerr << "Domain decomposition ...";
 	  startTime = CkWallTimer();
@@ -335,8 +474,12 @@ void Main::nextStage() {
 #endif
 
 	  /******** Update of Particle Positions and Energy Estimation *******/
-	  if(!param.bStaticTest && i > 0) // Closing Kick
-	      pieces.kick(0.5*param.dTimeStep, CkCallbackResumeThread());
+	  if(!param.bStaticTest && i > param.iStartStep) { // Closing Kick
+	      double dKickFac = csmComoveKickFac(param.csm,
+						 dTime - 0.5*param.dTimeStep,
+						 0.5*param.dTimeStep);
+	      pieces.kick(dKickFac, CkCallbackResumeThread());
+	      }
 	  if(i%param.iLogInterval == 0) {
 	      calcEnergy();
 	      }
@@ -349,8 +492,12 @@ void Main::nextStage() {
 	  
 	  if(!param.bStaticTest && i < param.nSteps) { // Opening Kick
 						       // and Drift
-	      pieces.kick(0.5*param.dTimeStep, CkCallbackResumeThread());
-	      pieces.drift(param.dTimeStep, CkCallbackResumeThread());
+	      double dKickFac = csmComoveKickFac(param.csm, dTime,
+						 0.5*param.dTimeStep);
+	      pieces.kick(dKickFac, CkCallbackResumeThread());
+	      double dDriftFac = csmComoveDriftFac(param.csm, dTime,
+						   param.dTimeStep);
+	      pieces.drift(dDriftFac, CkCallbackResumeThread());
 	  }
 	  
 	} // End of main computation loop

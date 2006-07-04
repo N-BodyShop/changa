@@ -1,3 +1,6 @@
+Ewald.o: \
+ParallelGravity.h
+
 Reductions.o: \
 Reductions.cpp \
 Reductions.h \
@@ -129,6 +132,7 @@ GenericTreeNode.o: \
 ../ParallelGravity/GravityParticle.h \
 
 ParallelGravity.o: \
+cosmo.h \
 ParallelGravity.cpp \
 Sorter.h \
 ParallelGravity.h \

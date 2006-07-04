@@ -1,12 +1,15 @@
 #ifndef PARAMETERS_HINCLUDED
 #define PARAMETERS_HINCLUDED
 
+#include "cosmo.h"
+
 typedef struct parameters {
     /*
     ** Parameters for ParallelGravity.
     */
     double dSoft;
     int nSteps;
+    int iStartStep;
     double dTimeStep;
     int bPeriodic;
     int nReplicas;
@@ -14,6 +17,8 @@ typedef struct parameters {
     int bEwald;
     double dEwCut;
     double dEwhCut;
+    CSM csm;			/* cosmo parameters */
+    double dRedTo;
     char achInFile[256];
     char achOutName[256];
     int bStaticTest;

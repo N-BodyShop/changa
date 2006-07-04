@@ -28,16 +28,25 @@ int TreeStuff::maxBucketSize;
 string getColor(GenericTreeNode*);
 
 void TreePiece::setPeriodic(int nRepsPar, double fPeriodPar, int bEwaldPar,
-			    double fEwCutPar) 
+			    double fEwCutPar, int bPeriodPar) 
 {
     nReplicas = nRepsPar;
     fPeriod = Vector3D<double>(fPeriodPar, fPeriodPar, fPeriodPar);
     bEwald = bEwaldPar;
     fEwCut  = fEwCutPar;
+    bPeriodic = bPeriodPar;
     if(ewt == NULL) {
 	nMaxEwhLoop = 100;
 	ewt = (EWT *)malloc(nMaxEwhLoop*sizeof(EWT));
 	}
+    }
+
+// Scale velocities (needed to convert to canonical momenta for
+// comoving coordinates.
+void TreePiece::velScale(double dScale) 
+{
+    for(unsigned int i = 0; i < myNumParticles; ++i)
+	myParticles[i+1].velocity *= dScale;
     }
 
 void TreePiece::load(const std::string& fn, const CkCallback& cb) {
@@ -294,6 +303,7 @@ void TreePiece::loadTipsy(const std::string& filename, const CkCallback& cb) {
 	Tipsy::header h = r.getHeader();
 	int totalNumParticles = h.nbodies;
 	fh.numParticles = totalNumParticles;
+	fh.time = h.time;
 	int excess;
 	unsigned int startParticle;
 
@@ -850,10 +860,28 @@ void TreePiece::drift(double dDelta, const CkCallback& cb) {
     nodeLookupTable.clear();
   }
 
-    for(unsigned int i = 0; i < myNumParticles; ++i)
-	myParticles[i+1].position += dDelta*myParticles[i+1].velocity;
-    
-    contribute(0, 0, CkReduction::concat, cb);
+  int bInBox = 1;
+  
+  for(unsigned int i = 0; i < myNumParticles; ++i) {
+      myParticles[i+1].position += dDelta*myParticles[i+1].velocity;
+      if(bPeriodic) {
+	  for(int j = 0; j < 3; j++) {
+	      if(myParticles[i+1].position[j] >= 0.5*fPeriod[j]){
+		  myParticles[i+1].position[j] -= fPeriod[j];
+		  }
+	      if(myParticles[i+1].position[j] < -0.5*fPeriod[j]){
+		  myParticles[i+1].position[j] += fPeriod[j];
+		  }
+	      // Sanity Checks
+	      bInBox = bInBox
+		  && (myParticles[i+1].position[j] >= -0.5*fPeriod[j]);
+	      bInBox = bInBox
+		  && (myParticles[i+1].position[j] < 0.5*fPeriod[j]);
+	      }
+	  }
+      }
+      CkAssert(bInBox);
+      contribute(0, 0, CkReduction::concat, cb);
 }
 
 void TreePiece::setSoft(const double dSoft) {

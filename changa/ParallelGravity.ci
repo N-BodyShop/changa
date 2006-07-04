@@ -79,9 +79,10 @@ mainmodule ParallelGravity {
 		entry void nextBucket(dummyMsg *m);	
 		//entry void registerWithDataManager(const CkGroupID& dataManagerID,
 		//		     		  const CkCallback& cb);
-		entry void setPeriodic(int nReplicas, double fPeriod, int bEwald,
-				 double fEwCut);
+		entry void setPeriodic(int nReplicas, double fPeriod,
+				       int bEwald, double fEwCut, int bPeriodic);
 		entry void EwaldInit(double fhCut);
+		entry void velScale(double dScale);
 		entry void load(const std::string& fn, const CkCallback& cb);
 		entry void loadTipsy(const std::string& filename,
 				     const CkCallback& cb);

@@ -299,7 +299,6 @@ class TreePiece : public CBase_TreePiece {
 
 	std::string basefilename;
 	OrientedBox<float> boundingBox;
-	FieldHeader fh;
 	bool started;
 	unsigned iterationNo;
 	/// The root of the global tree, always local to any chare
@@ -313,6 +312,7 @@ class TreePiece : public CBase_TreePiece {
 	/// Opening angle
 	double theta;
 	/// Periodic Boundary stuff
+	int bPeriodic;
 	Vector3D<double> fPeriod;
 	int nReplicas;
 	int bEwald;		/* Perform Ewald */
@@ -437,6 +437,8 @@ class TreePiece : public CBase_TreePiece {
   CkVec< CkVec<OffsetNode> > cellList;
  
  public:
+  FieldHeader fh;
+
   typedef struct particlesInfoR{
     ExternalGravityParticle* particles;
     int numParticles;
@@ -637,9 +639,12 @@ public:
 	}
 	
 	void setPeriodic(int nReplicas, double fPeriod, int bEwald,
-			 double fEwCut);
+			 double fEwCut, int bPeriod);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit(double fhCut);
+	// Scale velocities (needed to convert to canonical momenta for
+	// comoving coordinates.)
+	void velScale(double dScale);
 	
 	// Load from mass and position files
 	void load(const std::string& fn, const CkCallback& cb);
