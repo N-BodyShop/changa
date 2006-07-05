@@ -371,6 +371,7 @@ namespace Tree {
       children[1]->particlePointer = &part[children[1]->firstParticle];
     }
 
+    // Constructs 2 children of this node based on ORB decomposition
     void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle)) {
 
       children[0] = new BinaryTreeNode();
@@ -386,7 +387,9 @@ namespace Tree {
       children[1]->lastParticle = lastParticle;
     
       //CkPrintf("children keys:%lld,%lld\n",children[0]->key,children[1]->key);
-      if(level<rootsLevel){ //Above the TreePiece root level
+      if(level<rootsLevel){
+        //This branch is taken for levels above the TreePiece root level
+        //TreePiece root level is the level from where onwards data is internal
         SFC::Key tmp = 1 << (level+1);
         tmp = children[0]->key - tmp;
         SFC::Key tmp2 = part[0].key >> (rootsLevel-level-1);
@@ -407,7 +410,7 @@ namespace Tree {
 	          children[1]->particleCount = particleCount;
           }
         }
-        else{
+        else{ //Special case for TreePiece root level
           if(tmp==tmp2){
             children[0]->myType = Internal;
             children[1]->myType = NonLocal;
@@ -433,12 +436,8 @@ namespace Tree {
         }
       }
       else{ //Below the TreePiece root level
-				float len=0.0,len2=0.0;
-				char dim;
-        //double pos;
-				//int tempCount1,tempCount2;
-				//float TOLER=0.05;
-				//double curHigh,curLow;
+        float len=0.0,len2=0.0;
+        char dim;
 				
         len=boundingBox.greater_corner.x-boundingBox.lesser_corner.x;
         dim=0;
@@ -450,12 +449,12 @@ namespace Tree {
         CkAssert(len2>=0.0);
         if(len2>len) { len = len2; dim=2; }
         
-        //pos = boundingBox.lesser_corner[dim] + len/2;
-				//curHigh = boundingBox.greater_corner[dim];
-				//curLow = boundingBox.lesser_corner[dim];
-
+        //Sort the particles in longest dimension
         std::sort(&part[firstParticle],&part[lastParticle+1],compFnPtr[dim]);
 
+        //Middle particle is the splitting point to get 2 children
+
+        //Compress the bounding box of this node
         boundingBox.greater_corner[dim] = part[lastParticle].position[dim];
         boundingBox.lesser_corner[dim] = part[firstParticle].position[dim];
 
@@ -464,48 +463,18 @@ namespace Tree {
           children[1]->firstParticle = firstParticle + (lastParticle-firstParticle+1)/2;
           children[0]->particleCount = (lastParticle-firstParticle+1)/2;
           children[1]->particleCount = (lastParticle-firstParticle+1)/2;
-          //pos = part[children[0]->lastParticle].position[dim];
         }
         else{
           children[0]->lastParticle = firstParticle + (lastParticle-firstParticle)/2;
           children[1]->firstParticle = firstParticle + (lastParticle-firstParticle+2)/2;
           children[0]->particleCount = (lastParticle-firstParticle+2)/2;
           children[1]->particleCount = (lastParticle-firstParticle)/2;
-          //pos = part[children[0]->lastParticle].position[dim];
         }
-        /*GravityParticle dummy;
-        GravityParticle* divStart;
-        GravityParticle* divEnd;
-        Vector3D<double> divide(0.0,0.0,0.0);
-        
-        if(firstParticle==0) { divStart = &part[1]; }
-        else { divStart = &part[firstParticle]; }
-				while(1){
-					divide[dim] = pos;
-        	dummy.position = divide;
-        	divEnd = std::upper_bound(divStart,&part[lastParticle],dummy,compFnPtr[dim]);
-        	tempCount1 = divEnd - divStart;
-        	tempCount2 = particleCount - (divEnd - divStart);
-
-					if(tempCount2*(1-TOLER)<=tempCount1 && tempCount1<=tempCount2*(1+TOLER))
-						break;
-					if(tempCount1>tempCount2){
-						curHigh = pos;
-						pos = (curHigh + curLow)/2;
-					}
-					else{
-						curLow = pos;
-						pos = (curHigh + curLow)/2;
-					}
-				}*/
 				
-	  		/*children[0]->lastParticle = divEnd - part - 1;
-	  		children[1]->firstParticle = divEnd - part;
-	  		children[0]->particleCount = tempCount1;
-	  		children[1]->particleCount = tempCount2;*/
-				children[0]->myType = Internal;
-				children[1]->myType = Internal;
-
+        children[0]->myType = Internal;
+        children[1]->myType = Internal;
+       
+        //Compress the bounding boxes of both children too
         children[0]->boundingBox.lesser_corner = boundingBox.lesser_corner;
         children[0]->boundingBox.greater_corner = boundingBox.greater_corner;
         children[0]->boundingBox.greater_corner[dim] = part[children[0]->lastParticle].position[dim];
