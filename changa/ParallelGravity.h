@@ -596,6 +596,7 @@ public:
 	  prefetchReq = NULL;
 	  remainingChunk = NULL;
 	  ewt = NULL;
+	  nMaxEwhLoop = 100;
     orbBoundaries.clear();
     //tempOrbBoundaries.clear();
 	}
@@ -626,6 +627,7 @@ public:
 	    root->fullyDelete();
 	    delete root;
 	  }
+	  if(ewt) free(ewt);
 
 #if INTERLIST_VER > 0
     cellList.free();

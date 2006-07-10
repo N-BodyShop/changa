@@ -36,7 +36,6 @@ void TreePiece::setPeriodic(int nRepsPar, double fPeriodPar, int bEwaldPar,
     fEwCut  = fEwCutPar;
     bPeriodic = bPeriodPar;
     if(ewt == NULL) {
-	nMaxEwhLoop = 100;
 	ewt = (EWT *)malloc(nMaxEwhLoop*sizeof(EWT));
 	}
     }
@@ -878,10 +877,11 @@ void TreePiece::drift(double dDelta, const CkCallback& cb) {
 	      bInBox = bInBox
 		  && (myParticles[i+1].position[j] < 0.5*fPeriod[j]);
 	      }
+	  CkAssert(bInBox);
 	  }
       }
-      CkAssert(bInBox);
-      contribute(0, 0, CkReduction::concat, cb);
+  CkAssert(bInBox);
+  contribute(0, 0, CkReduction::concat, cb);
 }
 
 void TreePiece::setSoft(const double dSoft) {
@@ -2674,8 +2674,12 @@ void TreePiece::walkBucketRemoteTree(GenericTreeNode *node, int chunk,
   }
 }
 
+// Start tree walk and gravity calculation
 
-void TreePiece::startIteration(double t, int n, Tree::NodeKey *k, const CkCallback& cb) {
+void TreePiece::startIteration(double t, // opening angle
+			       int n,  // Number of Chunks
+			       Tree::NodeKey *k,
+			       const CkCallback& cb) {
   callback = cb;
   theta = t;
   if (n != numChunks && remainingChunk != NULL) {
@@ -4595,6 +4599,14 @@ void TreePiece::pup(PUP::er& p) {
   }
 
   p | theta;
+  // Periodic variables
+  p | nReplicas;
+  p | fPeriod;
+  p | bEwald;
+  p | fEwCut;
+  p | bPeriodic;
+  p | nMaxEwhLoop;
+  
   //p | myNumParticlesPending;
   p | prefetchWaiting;
   p | currentPrefetch;
