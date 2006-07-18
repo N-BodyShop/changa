@@ -354,7 +354,7 @@ class TreePiece : public CBase_TreePiece {
 	/// number of chunks in which the tree will be chopped for prefetching
 	int numChunks;
 
-	u_int64_t openingDiffCount;
+	//u_int64_t openingDiffCount;
     /// @if STATISTICS
 
 #if COSMO_STATS > 0
@@ -405,28 +405,49 @@ class TreePiece : public CBase_TreePiece {
 #endif
 
   ///Variables added for ORB decomposition
+
+  ///Used to denote the first call to evaluateParticleCounts within each phase
   bool firstTime;
+
+  ///Temporary variable for the particle counts in each ORB box
   std::vector<int> tempBinCounts;
-  Compare comp;
+
+  ///Particles defining boundaries for ORB boxes
   std::list<GravityParticle *> orbBoundaries;
+
+  ///Expected number of particles for each TreePiece after ORB decomposition
   int myExpectedCount;
+
+  ///Level after which the local subtrees of all the TreePieces start
   unsigned int chunkRootLevel;
-  //CkCallback sorterCallBack;
+  
+  ///Keeps track of the bounding boxes and dimensions along which they are splitted, starting from
+  ///root to chunkRootLevel
   OrientedBox<float>* boxes;
   char* splitDims;
+
+  ///Phase of ORB decomposition: the number of boxes double in each phase till they are equal to the number
+  ///of TreePieces
   int phase;
   
 #if INTERLIST_VER > 0
 
+  ///Node and level in myTree where I'm at currently while walking down myTree and building interaction lists
+ 
+  ///For Local Computation
   GenericTreeNode *curNodeLocal;
   int curLevelLocal;
   
+  ///For Remote Computation
   GenericTreeNode *curNodeRemote;
   int curLevelRemote;
  
   int nChunk;
-  
+ 
+  ///Total number of levels in a TreePieces' tree
   int myTreeLevels;
+
+  ///Remote Cell interaction lists for all tree levels
   typedef struct OffsetNodeStruct
   {
       GenericTreeNode *node;
@@ -436,6 +457,7 @@ class TreePiece : public CBase_TreePiece {
   
   CkVec< CkVec<OffsetNode> > cellList;
  
+  ///Remote Particle Info structure
  public:
   FieldHeader fh;
 
@@ -448,16 +470,20 @@ class TreePiece : public CBase_TreePiece {
 #endif
   } RemotePartInfo;
  
+  ///Remote Particle interaction lists for all levels
   CkVec< CkVec<RemotePartInfo> > particleList;
-  CkVec< CkVec<OffsetNode> > extCheckList;
-  CkQ <OffsetNode> undecidedExtList;
-  
-  CkVec< CkVec<OffsetNode> > intCheckList;
-  CkQ <OffsetNode> undecidedIntList;
 
-  int intPrevListIter;
-  int extPrevListIter;
+  ///Remote Check Lists for all levels
+  CkVec< CkVec<OffsetNode> > checkList;
+  ///Queue used while processing nodes at a level. This queue becomes
+  ///empty when we finish processing nodes at a level.
+  ///Nodes processed at a level are either added to checkList to be processed at the next level,
+  ///or to the interaction lists or the children of the node are added to the end of the queue
+  CkQ <OffsetNode> undecidedList;
   
+  int prevListIter;
+  
+  ///Local Particle Info structure
   typedef struct particlesInfoL{
     GravityParticle* particles;
     int numParticles;
@@ -466,6 +492,7 @@ class TreePiece : public CBase_TreePiece {
     GenericTreeNode *nd;
 #endif
   } LocalPartInfo;
+  
     //Variables for local computation
   CkVec< CkVec<OffsetNode> > cellListLocal;
   CkVec< CkVec<LocalPartInfo> > particleListLocal;
@@ -479,6 +506,7 @@ class TreePiece : public CBase_TreePiece {
   bool myLocalCheckListEmpty;
 #endif
   
+  ///Array of comparison function pointers
   bool (*compFuncPtr[3])(GravityParticle,GravityParticle);
   double tmpTime;
   double totalTime;
@@ -528,8 +556,7 @@ class TreePiece : public CBase_TreePiece {
 	void walkBucketTree(GenericTreeNode* node, int reqID);
 #if INTERLIST_VER > 0
 	void preWalkInterTree();
-	void walkInterTreeVerI(GenericTreeNode *node);
-	void walkInterTreeVerII(OffsetNode node);
+	void walkInterTree(OffsetNode node);
 #endif
 	/** @brief Start the treewalk for the next bucket among those belonging
 	 * to me. The buckets are simply ordered in a vector.
@@ -557,9 +584,9 @@ public:
 	  usesAtSync=CmiTrue;
 	  bucketReqs=NULL;
 	  myPlace = -1;
-      openingDiffCount=0;
-      chunkRootLevel=0;
-      splitters = NULL;
+    //openingDiffCount=0;
+    chunkRootLevel=0;
+    splitters = NULL;
 #if COSMO_STATS > 0
 	  nodesOpenedLocal = 0;
 	  nodesOpenedRemote = 0;
@@ -609,7 +636,7 @@ public:
 	  prefetchRoots = NULL;
 	  remainingChunk = NULL;
     orbBoundaries.clear();
-      openingDiffCount=0;
+    //openingDiffCount=0;
     //tempOrbBoundaries.clear();
 	}
 
@@ -635,8 +662,7 @@ public:
     cellListLocal.free();
     particleListLocal.free();
     checkListLocal.free();
-    intCheckList.free();
-    extCheckList.free();
+    checkList.free();
 #endif
 	}
 	
@@ -729,8 +755,7 @@ public:
 
 #if INTERLIST_VER > 0
   void preWalkRemoteInterTree(GenericTreeNode *chunkRoot, bool isRoot);
-  void walkRemoteInterTreeVerI(GenericTreeNode *node, bool isRoot);
-  void walkRemoteInterTreeVerII(OffsetNode node, bool isRoot);
+  void walkRemoteInterTree(OffsetNode node, bool isRoot);
   void initNodeStatus(GenericTreeNode *node);
   void calculateForceRemoteBucket(int bucketIndex, int chunk);
   void calculateForceLocalBucket(int bucketIndex);
@@ -779,8 +804,7 @@ public:
 	void cachedWalkBucketTree(GenericTreeNode* node, int chunk, int reqID);
 
 #if INTERLIST_VER > 0
-  void cachedWalkInterTreeVerI(GenericTreeNode* node);
-  void cachedWalkInterTreeVerII(OffsetNode node);
+  void cachedWalkInterTree(OffsetNode node);
 	void calculateForcesNode(OffsetNode node, GenericTreeNode *myNode,
 				 int level,int chunk);
 	void calculateForces(OffsetNode node, GenericTreeNode *myNode,
