@@ -440,6 +440,8 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
   box = boundingBox;
 }*/
 
+/// Three comparison routines used in sort and upper_bound
+/// to order particles in each of three dimensions, respectively
 bool comp_dim0(GravityParticle p1, GravityParticle p2) {
     return p1.position[0] < p2.position[0];
 }
@@ -450,6 +452,7 @@ bool comp_dim2(GravityParticle p1, GravityParticle p2) {
     return p1.position[2] < p2.position[2];
 }
 
+///Initialize stuff before doing ORB decomposition
 void TreePiece::initORBPieces(const CkCallback& cb){
 
   OrientedBox<float> box = boundingBox;
@@ -460,6 +463,7 @@ void TreePiece::initORBPieces(const CkCallback& cb){
 
   phase=0;
 
+  //Initialize function pointers
   compFuncPtr[0]= &comp_dim0;
   compFuncPtr[1]= &comp_dim1;
   compFuncPtr[2]= &comp_dim2;
@@ -467,8 +471,8 @@ void TreePiece::initORBPieces(const CkCallback& cb){
 	myBinCounts.clear();
 	myBinCounts.push_back(myNumParticles);
 
-  //Find out how many levels will be there before tree goes
-  //into a treepiece
+  //Find out how many levels will be there before we go into the tree owned
+  //completely by the TreePiece
   chunkRootLevel=0;
   unsigned int tmp = numTreePieces;
   while(tmp){
@@ -1891,7 +1895,7 @@ void TreePiece::finishBucket(int iBucket) {
 	   << " to respond in finishBucket" << endl;*/
 #if COSMO_STATS > 0
       if(verbosity)
-	CkPrintf("[%d] TreePiece %d finished with bucket %d , openCriterions:%lld, openingDiffCount:%lld\n",CkMyPe(),thisIndex,iBucket,numOpenCriterionCalls,openingDiffCount);
+	CkPrintf("[%d] TreePiece %d finished with bucket %d , openCriterions:%lld\n",CkMyPe(),thisIndex,iBucket,numOpenCriterionCalls);
 #else
       if(verbosity)
 	CkPrintf("[%d] TreePiece %d finished with bucket %d\n",CkMyPe(),thisIndex,iBucket);
@@ -1942,12 +1946,13 @@ void TreePiece::nextBucket(dummyMsg *msg){
       curLevelLocal=0;
     }
     
-    //Computes interaction list for this bucket
+    //Top-level routine to compute interaction list for this bucket
+    //Starts with curNodeLocal which belongs to myTree and walks down myTree
+    //building lists at each level
     preWalkInterTree();
     
     //CkAssert(curNodeLocal->getType()==Bucket);
     CkAssert(checkListLocal[curLevelLocal].length()==0);
-    //Go over both the lists to calculate forces with one bucket
     
     if(myLocalCheckListEmpty && curNodeLocal->getType()!=Bucket){
       
@@ -1974,6 +1979,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
     }
     else{
       CkAssert(curNodeLocal->getType()==Bucket);
+      //Go over both the lists to calculate forces with one bucket
       calculateForceLocalBucket(curNodeLocal->bucketListIndex);
       currentBucket++;
       i++;
@@ -1994,6 +2000,8 @@ void TreePiece::nextBucket(dummyMsg *msg){
       break;
     
     //Calculate starting Node for next tree walk
+    //Go up myTree till we get to a parent whose all children are not done  with building lists
+    //then, take the child as the starting point for the next tree walk
     GenericTreeNode *tmpNode=curNodeLocal;
     int flag=0;
     tmpNode->visitedL=true;
@@ -2186,8 +2194,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
   //Init for each chunk
   //Possible race condition here....bfore calling calGravRemote...setting some stuff
   if(currentRemoteBucket==0){
-    intCheckList[0].length()=0;
-    extCheckList[0].length()=0;
+    checkList[0].length()=0;
     for(i=0;i<=myTreeLevels;i++){
       cellList[i].length()=0;
       particleList[i].length()=0;
@@ -2208,7 +2215,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
     
     //Everything calculates forces with buckets
     
-    CkAssert(intCheckList[curLevelRemote].length()==0 && extCheckList[curLevelRemote].length()==0);
+    CkAssert(checkList[curLevelRemote].length()==0);
     
     if(myCheckListEmpty && curNodeRemote->getType()!=Bucket){
 	
@@ -2347,56 +2354,13 @@ void TreePiece::preWalkRemoteInterTree(GenericTreeNode *chunkRoot, bool isRoot){
     while(1){
       level=curLevelRemote-1;
 
-#if INTERLIST_VER==1
-#error This Interaction list no longer works
-      intPrevListIter=0;
-      extPrevListIter=0;
-      intCheckList[curLevelRemote].length()=0;
-      extCheckList[curLevelRemote].length()=0;
+      prevListIter=0;
+      checkList[curLevelRemote].length()=0;
 
       if(curNodeRemote!=root){
-        if(intCheckList[level].length()!=0){
-          node=intCheckList[level][0];
-          intPrevListIter=1;
-        }
-        else
-          node=NULL;
-        if(extCheckList[level].length()!=0){
-          //extPrevListIter=0;
-          undecidedExtList.enq(extCheckList[level][0]);
-          extPrevListIter=1;
-        }
-			}
-      else{
-        node=chunkRoot;
-      }
-
-      if(node!=NULL || undecidedExtList.isEmpty()==0){
-        if(node!=NULL){
-          if(node==chunkRoot)
-            walkRemoteInterTreeVerI(node,true);
-          else
-            walkRemoteInterTreeVerI(node,false);
-        }
-        else
-          walkRemoteInterTreeVerI(node,false);
-      }
-      else{
-        myCheckListEmpty=true;
-        curNodeRemote = curNodeRemote->parent;
-        curLevelRemote--;
-        break;
-      }
-#endif
-#if INTERLIST_VER==2
-
-      extPrevListIter=0;
-      extCheckList[curLevelRemote].length()=0;
-
-      if(curNodeRemote!=root){
-        if(extCheckList[level].length()!=0){
-          node=extCheckList[level][0];
-          extPrevListIter=1;
+        if(checkList[level].length()!=0){
+          node=checkList[level][0];
+          prevListIter=1;
         }
         else
           node.node=NULL;
@@ -2411,13 +2375,13 @@ void TreePiece::preWalkRemoteInterTree(GenericTreeNode *chunkRoot, bool isRoot){
 		for(int y = -nReplicas; y <= nReplicas; y++) {
 		    for(int z = -nReplicas; z <= nReplicas; z++) {
 			node.offsetID = encodeOffset(0, x, y, z);
-			walkRemoteInterTreeVerII(node,true);
+			walkRemoteInterTree(node,true);
 			}
 		    }
 		}
 	      }
         else
-          walkRemoteInterTreeVerII(node,false);
+          walkRemoteInterTree(node,false);
       }
       else{
         myCheckListEmpty=true;
@@ -2425,7 +2389,7 @@ void TreePiece::preWalkRemoteInterTree(GenericTreeNode *chunkRoot, bool isRoot){
         curLevelRemote--;
         break;
       }
-#endif
+      
       //Loop breaking condition
       if(curNodeRemote->getType()==Bucket)
         break;
@@ -2461,107 +2425,11 @@ void TreePiece::preWalkRemoteInterTree(GenericTreeNode *chunkRoot, bool isRoot){
 
 #endif
 
-#if INTERLIST_VER == 1
+#if INTERLIST_VER > 0
 
-void TreePiece::walkRemoteInterTreeVerI(GenericTreeNode *node, bool isRoot) {
+void TreePiece::walkRemoteInterTree(OffsetNode node, bool isRoot) {
 
-  int chunk = nChunk;
-  GenericTreeNode* myNode = curNodeRemote;
-  int level = curLevelRemote;
-
-  int flag=0;
- 
-  if(node==NULL){
-    if(undecidedExtList.isEmpty())
-      CkAssert(false);
-    cachedWalkInterTreeVerI(undecidedExtList.deq());
-    return;
-  }
-  
-	NodeType nodeType = node->getType();
-  //}
-  // The order in which the following if are checked is very important for correctness
-  if(nodeType == Bucket || nodeType == Internal || nodeType == Empty) {
-  } else if(openCriterionNode(node, myNode)==0) {
-#if COSMO_STATS > 0
-  numOpenCriterionCalls++;
-#endif
-    if (isRoot && (nodeType == Cached || nodeType == CachedBucket || nodeType == CachedEmpty)) {
-      undecidedExtList.enq(node);
-    } else {
-    }
-  } else if (nodeType != Boundary) {
-#if COSMO_STATS > 0
-  numOpenCriterionCalls++;
-#endif
-#if COSMO_STATS > 0
-  numOpenCriterionCalls++;
-#endif
-    // means it is some kind of NonLocal or Cached
-      if(openCriterionNode(node,myNode)==1 || myNode->getType()==Bucket)
-        undecidedExtList.enq(node);
-      else
-        intCheckList[level].push_back(node);
-  } else if(openCriterionNode(node, myNode)==1 || myNode->getType()==Bucket){
-    // here the node is Boundary
-#if COSMO_STATS > 0
-  numOpenCriterionCalls++;
-#endif
-#if COSMO_STATS > 0
-  numOpenCriterionCalls++;
-#endif
-#if COSMO_STATS > 0
-    nodesOpenedRemote++;
-#endif
-		//Boundary node removed from the interaction list...we dont calculate force with boundary
-    GenericTreeNode* childIterator;
-    for(unsigned int i = 0; i < node->numChildren(); ++i) {
-      childIterator = node->getChildren(i);
-      CkAssert (childIterator != NULL);
-      undecidedIntList.enq(childIterator);
-    }
-  }
-  else{
-#if COSMO_STATS > 0
-  numOpenCriterionCalls++;
-#endif
-#if COSMO_STATS > 0
-  numOpenCriterionCalls++;
-#endif
-    intCheckList[level].push_back(node);
-  }
-	
-  if(myNode!=root){
-    if(intPrevListIter<intCheckList[level-1].length()){
-      intPrevListIter++;
-      walkRemoteInterTreeVerI(intCheckList[level-1][intPrevListIter-1],false);
-    }
-    else if(!undecidedIntList.isEmpty())
-      walkRemoteInterTreeVerI(undecidedIntList.deq(),false);
-    else{
-      if(!undecidedExtList.isEmpty()){
-        cachedWalkInterTreeVerI(undecidedExtList.deq());
-      }
-    }
-  }
-  else{
-    if(!undecidedIntList.isEmpty())
-      walkRemoteInterTreeVerI(undecidedIntList.deq(),false);
-    else{
-      if(!undecidedExtList.isEmpty()){
-        cachedWalkInterTreeVerI(undecidedExtList.deq());
-      }
-    }
-  }
-}
-
-#endif
-
-#if INTERLIST_VER==2
-
-void TreePiece::walkRemoteInterTreeVerII(OffsetNode node, bool isRoot) {
-
-  cachedWalkInterTreeVerII(node);
+  cachedWalkInterTree(node);
   
 }
 
@@ -2752,8 +2620,7 @@ void TreePiece::startIteration(double t, // opening angle
       cellList.push_back(*clist);
       //delete clist; 
       particleList.push_back(*plist);
-      intCheckList.push_back(*ichlist);
-      extCheckList.push_back(*echlist);
+      checkList.push_back(*echlist);
       cellListLocal.push_back(*clistl);
       particleListLocal.push_back(*plistl);
       checkListLocal.push_back(*chlistl);
@@ -2762,8 +2629,7 @@ void TreePiece::startIteration(double t, // opening angle
   //}
   cellList.resize(myTreeLevels+1);
   particleList.resize(myTreeLevels+1);
-  intCheckList.resize(myTreeLevels+1);
-  extCheckList.resize(myTreeLevels+1);
+  checkList.resize(myTreeLevels+1);
   cellListLocal.resize(myTreeLevels+1);
   particleListLocal.resize(myTreeLevels+1);
   checkListLocal.resize(myTreeLevels+1);
@@ -2778,7 +2644,7 @@ void TreePiece::startIteration(double t, // opening angle
     case ORB_dec:
       //Prefetch Roots for Oct
       prefetchReq[0].reset();
-      for (int i=1; i<myNumParticles; ++i) {
+      for (int i=1; i<=myNumParticles; ++i) {
 	prefetchReq[0].grow(myParticles[i].position);
       }
       /*
@@ -2978,7 +2844,8 @@ const GravityParticle *TreePiece::lookupParticles(int begin) {
 
 #if INTERLIST_VER > 0
 
-//Does interaction list computation for each bucket by calling 'walkInterTree'
+//Builds interaction lists for all levels of myTree starting from curNodeLocal to a bucket
+//Returns on reaching the bucket of myTree
 void TreePiece::preWalkInterTree(){
 
     //Start copying the checkList of previous level to the next level
@@ -2994,7 +2861,7 @@ void TreePiece::preWalkInterTree(){
       prevListIterLocal=0;
       
       if(curNodeLocal!=root){
-	if(checkListLocal[level].length()!=0){
+        if(checkListLocal[level].length()!=0){
           node=checkListLocal[level][0];
           prevListIterLocal=1;
         }
@@ -3027,11 +2894,7 @@ void TreePiece::preWalkInterTree(){
     	
       //Walks the local tree for my current node
       if(node.node!=NULL){
-#if INTERLIST_VER==1
-        walkInterTreeVerI(node);
-#else
-	walkInterTreeVerII(node);
-#endif
+        walkInterTree(node);
       }
       else{
         myLocalCheckListEmpty=true;
@@ -3048,22 +2911,22 @@ void TreePiece::preWalkInterTree(){
       
       //Finds my node on the next level which is not yet visited 
       for(int i=0;i<curNodeLocal->numChildren();i++){
-	child = curNodeLocal->getChildren(i);
+        child = curNodeLocal->getChildren(i);
       	CkAssert (child != NULL);
         childType = child->getType();
-	if(child->visitedL==false){
+        if(child->visitedL==false){
           if(childType == NonLocal || childType == Cached || childType == NonLocalBucket || childType == CachedBucket || childType==Empty || childType==CachedEmpty){
             child->visitedL=true;
           }
           else{
             flag=1;
-	    break;
+            break;
           }
         }
       }
       if(flag==1){
-	curNodeLocal=child;
-	curLevelLocal++;
+        curNodeLocal=child;
+        curLevelLocal++;
         flag=0;
       }
       else{
@@ -3076,103 +2939,10 @@ void TreePiece::preWalkInterTree(){
 }
 #endif
 
-#if INTERLIST_VER==1
+#if INTERLIST_VER > 0
 
-void TreePiece::walkInterTreeVerI(GenericTreeNode *node) {
-  
-  //Copy an element from previous level checkList only if everything hasn't been copied till now
-
-  GenericTreeNode *myNode = curNodeLocal;
-  int level=curLevelLocal;
-  NodeType nodeType = node->getType();
-  
-#if COSMO_STATS > 0
-  numOpenCriterionCalls++;
-#endif
-  if(openCriterionNode(node, myNode)==0) {
-    cellListLocal[level].push_back(node);
-  } else if(nodeType == Bucket) {
-#if COSMO_STATS > 0
-    if(myNode->getType()!=Bucket)
-      numOpenCriterionCalls++;
-#endif
-    if(myNode->getType()==Bucket || openCriterionNode(node,myNode)==1){
-      TreePiece::LocalPartInfo pinfo;
-      pinfo.particles = &myParticles[node->firstParticle];
-#if COSMO_DEBUG>1
-      pinfo.nd=node;
-#endif
-      pinfo.numParticles = node->lastParticle - node->firstParticle + 1;
-      particleListLocal[level].push_back(pinfo);
-    }
-    else{
-      checkListLocal[level].push_back(node);
-    }
-  } else if(nodeType == NonLocal || nodeType == NonLocalBucket) {
-#if COSMO_STATS > 0
-    if(myNode->getType()!=Bucket)
-      numOpenCriterionCalls++;
-#endif
-    if(myNode->getType()==Bucket || openCriterionNode(node,myNode)==1){
-    }
-    else{
-      checkListLocal[level].push_back(node);
-    }
-    
-    /* DISABLED: this part of the walk is triggered directly by the CacheManager and prefetching
-     */
-  } else if (nodeType != Empty) {
-    // here the node can be Internal or Boundary
-#if COSMO_STATS > 0
-    if(myNode->getType()!=Bucket)
-      numOpenCriterionCalls++;
-#endif
-    if(myNode->getType()==Bucket || openCriterionNode(node,myNode)==1){
-      GenericTreeNode* childIterator;
-      for(unsigned int i = 0; i < node->numChildren(); ++i) {
-        childIterator = node->getChildren(i);
-        if(childIterator)
-          undecidedListLocal.enq(childIterator);
-      }
-    }
-    else{
-      checkListLocal[level].push_back(node);
-    }
-  }
-  else if (nodeType == Empty) {
-    /*#if COSMO_DEBUG > 1
-      bucketcheckList[req.identifier].insert(tmp->getKey());
-      combineKeys(tmp->getKey(),req.identifier);
-    #endif*/
-  	//cellListLocal[level].push_back(node);
-  }
-  
-  //if(undecidedListLocal.isEmpty())
-    //return;
-
-  if(myNode!=root){
-    if(prevListIterLocal>0 && prevListIterLocal<checkListLocal[level-1].length()){
-      prevListIterLocal++;
-      walkInterTreeVerI(checkListLocal[level-1][prevListIterLocal-1]);
-    }
-    else if(!undecidedListLocal.isEmpty())
-      walkInterTreeVerI(undecidedListLocal.deq());
-    else
-      return;
-  }
-  else{
-    if(!undecidedListLocal.isEmpty())
-      walkInterTreeVerI(undecidedListLocal.deq());
-    else
-      return;
-  }
-}
-    
-#endif
-
-#if INTERLIST_VER==2
-
-void TreePiece::walkInterTreeVerII(OffsetNode node) {
+//Walk the local tree and build interaction list for curNodeLocal, which belongs to myTree
+void TreePiece::walkInterTree(OffsetNode node) {
   
   GenericTreeNode *myNode = curNodeLocal;
   int level=curLevelLocal;
@@ -3257,16 +3027,16 @@ void TreePiece::walkInterTreeVerII(OffsetNode node) {
   if(myNode!=root){
     if(prevListIterLocal>0 && prevListIterLocal<checkListLocal[level-1].length()){
       prevListIterLocal++;
-      walkInterTreeVerII(checkListLocal[level-1][prevListIterLocal-1]);
+      walkInterTree(checkListLocal[level-1][prevListIterLocal-1]);
     }
     else if(!undecidedListLocal.isEmpty())
-      walkInterTreeVerII(undecidedListLocal.deq());
+      walkInterTree(undecidedListLocal.deq());
     else
       return;
   }
   else{
     if(!undecidedListLocal.isEmpty())
-      walkInterTreeVerII(undecidedListLocal.deq());
+      walkInterTree(undecidedListLocal.deq());
     else
       return;
   }
@@ -3360,140 +3130,9 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, int reqID) {
  * remote computation done by cachedWalkBucketTree.
  */
 
-#if INTERLIST_VER==1
+#if INTERLIST_VER > 0
 
-void TreePiece::cachedWalkInterTreeVerI(GenericTreeNode* node) {
-  
-	int chunk = nChunk;
-  GenericTreeNode* myNode = curNodeRemote;
-  int level = curLevelRemote;
-
-	NodeType nodeType = node->getType();
-
-  CkAssert(nodeType != Invalid);
-
-#if COSMO_STATS > 0
-  numOpenCriterionCalls++;
-#endif
-
-  if(openCriterionNode(node, myNode)==0) {
-    if(!(nodeType==NonLocal && node->parent->remoteIndex==thisIndex))
-      cellList[level].push_back(node);
-  } else if(nodeType == CachedBucket || nodeType == Bucket || nodeType == NonLocalBucket) {
-    /*
-     * Sending the request for all the particles at one go, instead of one by one
-     */
-    if(myNode->getType()==Bucket){
-      ExternalGravityParticle *part = requestParticles(node->getKey(),chunk,node->remoteIndex,node->firstParticle,node->lastParticle,bucketReqs[myNode->bucketListIndex]);
-      //PROBLEM: how to form req in this case
-      if(part != NULL){
-      	TreePiece::RemotePartInfo pinfo;
-      	pinfo.particles = part;
-#if COSMO_DEBUG>1
-        pinfo.nd=node;
-#endif
-      	pinfo.numParticles = node->lastParticle - node->firstParticle + 1;
-      	particleList[level].push_back(pinfo);
-    	} else {
-      	remainingChunk[chunk] += node->lastParticle - node->firstParticle + 1;
-        /*#if COSMO_DEBUG > 1
-        bucketReqs[myNode->bucketListIndex].requestedNodes.push_back(node->getKey());
-        #endif*/
-    	}
-    }
-    else if(openCriterionNode(node,myNode)==1){
-      calculateForces(node,myNode,level,chunk);
-#if COSMO_STATS > 0
-      numOpenCriterionCalls++;
-#endif
-    }
-    else{
-      extCheckList[level].push_back(node);
-#if COSMO_STATS > 0
-      numOpenCriterionCalls++;
-#endif
-    }
-    /*
-  } else if(node->getType() == NonLocal) {
-    // Use cachedWalkBucketTree() as callback
-    GenericTreeNode *pnode = requestNode(node->remoteIndex, node->getKey(), req);
-    if(pnode) {
-#if COSMO_PRINT > 1
-      CkPrintf("[%d] Requested node %s to %d, got %s of type %s\n",thisIndex,keyBits(node->getKey(),63).c_str(),node->remoteIndex,keyBits(pnode->getKey(),63).c_str(),getColor(pnode).c_str());
-#endif
-      cachedWalkBucketTree(pnode, req);
-    }
-    */
-  } else if (nodeType != CachedEmpty && nodeType != Empty) {
-    // Here the type is Cached, Boundary, Internal, NonLocal, which means the
-    // node in the global tree has children (it is not a leaf), so we iterate
-    // over them. If we get a NULL node, then we missed the cache and we request
-    // it
-
-    // Warning, since the cache returns nodes with pointers to other chare
-    // elements trees, we could be actually traversing the tree of another chare
-    // in this processor.
-
-    // Use cachedWalkBucketTree() as callback
-		if(myNode->getType()==Bucket){
-    	GenericTreeNode *child;
-    	//BucketGravityRequest& req = bucketReqs[myNode->bucketListIndex];
-    	for (unsigned int i=0; i<node->numChildren(); ++i) {
-      	child = node->getChildren(i); //requestNode(node->remoteIndex, node->getChildKey(i), req);
-      	if (child) {
-          undecidedExtList.enq(child);
-      	} else { //missed the cache
-					//PROBLEM: how to construct req
-	      	child = requestNode(node->remoteIndex, node->getChildKey(i), chunk, bucketReqs[myNode->bucketListIndex]);
-	      	if (child) { // means that node was on a local TreePiece
-            undecidedExtList.enq(child);
-	      	} else { // we completely missed the cache, we will be called back
-	        	remainingChunk[chunk] ++;
-	      	}
-      	}
-    	}
-		}
-		else if(openCriterionNode(node,myNode)==1){
-			calculateForcesNode(node,myNode,level,chunk);
-      #if COSMO_STATS > 0
-        numOpenCriterionCalls++;
-      #endif
-		}
-		else{
-      extCheckList[level].push_back(node);
-    #if COSMO_STATS > 0
-      numOpenCriterionCalls++;
-    #endif
-    }
-  }
-  else if(nodeType == CachedEmpty || nodeType == Empty) {
-    //Currently, Empty node is being pushed back just to match Filippos nodeBucketCalls
-    //I'll remove it later
-    //cellList[level].push_back(node);
-  }
-  
-  if(myNode!=root){
-    if(extPrevListIter>0 && extPrevListIter<extCheckList[level-1].length()){
-      extPrevListIter++;
-      cachedWalkInterTreeVerI(extCheckList[level-1][extPrevListIter-1]);
-    }
-    else if(!undecidedExtList.isEmpty())
-      cachedWalkInterTreeVerI(undecidedExtList.deq());
-    else
-      return;
-  }
-  else{
-    if(!undecidedExtList.isEmpty())
-      cachedWalkInterTreeVerI(undecidedExtList.deq());
-    else
-      return;
-  }
-}
-#endif
-
-#if INTERLIST_VER==2
-
-void TreePiece::cachedWalkInterTreeVerII(OffsetNode node) {
+void TreePiece::cachedWalkInterTree(OffsetNode node) {
   
   int chunk = nChunk;
   GenericTreeNode* myNode = curNodeRemote;
@@ -3566,7 +3205,7 @@ void TreePiece::cachedWalkInterTreeVerII(OffsetNode node) {
       calculateForces(node,myNode,level,chunk);
     }
     else{
-      extCheckList[level].push_back(node);
+      checkList[level].push_back(node);
     }
 /*#ifdef CACHE_TREE
   } else if(nodeType==Boundary) {
@@ -3589,12 +3228,12 @@ void TreePiece::cachedWalkInterTreeVerII(OffsetNode node) {
 	OffsetNode child;
 	child.node = childIterator;
 	child.offsetID = node.offsetID;
-        undecidedExtList.enq(child);
+        undecidedList.enq(child);
       }
     }
     else{
       //intListIter++;
-      extCheckList[level].push_back(node);
+      checkList[level].push_back(node);
     }*/
   } else if (nodeType != CachedEmpty && nodeType != Empty) {
     // Here the type is Cached, Boundary, Internal, NonLocal, which means the
@@ -3617,14 +3256,14 @@ void TreePiece::cachedWalkInterTreeVerII(OffsetNode node) {
       for (unsigned int i=0; i<node.node->numChildren(); ++i) {
 	child.node = node.node->getChildren(i); //requestNode(node->remoteIndex, node->getChildKey(i), req);
       	if (child.node) {
-          undecidedExtList.enq(child);
+          undecidedList.enq(child);
       	} else { //missed the cache
 	  //PROBLEM: how to construct req
 	  child.node = requestNode(node.node->remoteIndex,
 				   node.node->getChildKey(i),
 				   chunk, reEncodeOffset(myNode->bucketListIndex, node.offsetID));
 	  if (child.node) { // means that node was on a local TreePiece
-            undecidedExtList.enq(child);
+            undecidedList.enq(child);
 	  } else { // we completely missed the cache, we will be called back
 	    remainingChunk[chunk] ++;
 	  }
@@ -3635,23 +3274,23 @@ void TreePiece::cachedWalkInterTreeVerII(OffsetNode node) {
       calculateForcesNode(node,myNode,level,chunk);
     }
     else{
-      extCheckList[level].push_back(node);
+      checkList[level].push_back(node);
     }
   }
 
   if(myNode!=root){
-    if(extPrevListIter>0 && extPrevListIter<extCheckList[level-1].length()){
-      extPrevListIter++;
-      cachedWalkInterTreeVerII(extCheckList[level-1][extPrevListIter-1]);
+    if(prevListIter>0 && prevListIter<checkList[level-1].length()){
+      prevListIter++;
+      cachedWalkInterTree(checkList[level-1][prevListIter-1]);
     }
-    else if(!undecidedExtList.isEmpty())
-      cachedWalkInterTreeVerII(undecidedExtList.deq());
+    else if(!undecidedList.isEmpty())
+      cachedWalkInterTree(undecidedList.deq());
     else
       return;
   }
   else{
-    if(!undecidedExtList.isEmpty())
-      cachedWalkInterTreeVerII(undecidedExtList.deq());
+    if(!undecidedList.isEmpty())
+      cachedWalkInterTree(undecidedList.deq());
     else
       return;
   }
@@ -3725,14 +3364,14 @@ inline void TreePiece::calculateForcesNode(OffsetNode node,
     k = startBucket;
     
     if (child.node) {
-      undecidedExtList.enq(child);
+      undecidedList.enq(child);
     } else { //missed the cache
       //PROBLEM: how to construct req
       child.node = requestNode(node.node->remoteIndex,
 			       node.node->getChildKey(i), chunk,
 			       reEncodeOffset(k, node.offsetID));
       if (child.node) { // means that node was on a local TreePiece
-        undecidedExtList.enq(child);
+        undecidedList.enq(child);
       } else { // we completely missed the cache, we will be called back
         //We have to queue the requests for all the buckets, all buckets will be called back later
         
