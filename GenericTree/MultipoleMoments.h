@@ -70,6 +70,7 @@ public:
 	MultipoleMoments& operator+=(const ParticleType& p) {
 	    double m1 = totalMass;
 		totalMass += p.mass;
+		soft = (m1*soft + p.mass*p.soft)/totalMass;
 		Vector3D<double> cm1 = cm;
 		cm = (m1*cm + p.mass * p.position)/totalMass;
 		//add higher order components here
