@@ -3,6 +3,7 @@
 // Ewald summation code.
 // First implemented by Thomas Quinn and Joachim Stadel in PKDGRAV.
 
+static
 void QEVAL(MultipoleMoments mom, double gam[], double dx, double dy,
 		  double dz, double &ax, double &ay, double &az, double &fPot)
 {
@@ -34,7 +35,6 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 	double dx,dy,dz,x,y,z,r2,dir,dir2,a;
 	double Q2mirx,Q2miry,Q2mirz,Q2mir,Qta;
 	double g0,g1,g2,g3,g4,g5;
-	double onethird = 1.0/3.0;
 	double hdotx,s,c;
 	int i,j,n,ix,iy,iz,nEwReps,bInHole,bInHolex,bInHolexy;
 	int nLoop = 0;
@@ -46,7 +46,7 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 
 	n = req->lastParticle - req->firstParticle + 1;
 	p = &myParticles[req->firstParticle];
-	nEwReps = ceil(fEwCut);
+	nEwReps = (int) ceil(fEwCut);
 	L = fPeriod.x;
 	fEwCut2 = fEwCut*fEwCut*L*L;
 	fInner2 = 3.0e-3*L*L;
@@ -171,7 +171,7 @@ void TreePiece::EwaldInit(double fhCut)
 	/*
 	 ** Now setup stuff for the h-loop.
 	 */
-	hReps = ceil(fhCut);
+	hReps = (int) ceil(fhCut);
 	L = fPeriod.x;
 	alpha = 2.0/L;
 	k4 = M_PI*M_PI/(alpha*alpha*L*L);
