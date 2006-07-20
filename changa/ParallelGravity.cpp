@@ -402,6 +402,7 @@ void Main::nextStage() {
 			  << 1.0/aTo - 1.0 << " Expansion factor:"
 			  << aTo << endl;
 		}
+	    // convert to canonical comoving coordinates.
 	    pieces.velScale(dAStart*dAStart);
 	    }
 	else {  // not Comove
@@ -498,6 +499,7 @@ void Main::nextStage() {
 	      double dDriftFac = csmComoveDriftFac(param.csm, dTime,
 						   param.dTimeStep);
 	      pieces.drift(dDriftFac, CkCallbackResumeThread());
+	      dTime += param.dTimeStep;
 	  }
 	  
 	} // End of main computation loop
@@ -556,9 +558,20 @@ void Main::calcEnergy() {
 void Main::writeOutput(int iStep) 
 {
     char achFile[256];
+    double dOutTime;
+    double dvFac;
     
-    sprintf(achFile,"%s%06i",param.achOutName,iStep);
-    pieces[0].writeTipsy(achFile, dTime);
+    sprintf(achFile,"%s.%06i",param.achOutName,iStep);
+    if(param.csm->bComove) {
+	dOutTime = csmTime2Exp(param.csm, dTime);
+	dvFac = 1.0/(dOutTime*dOutTime);
+	}
+    else {
+	dOutTime = dTime;
+	dvFac = 1.0;
+	}
+    
+    pieces.setupWrite(0, 0, achFile, dOutTime, dvFac);
     }
 
 void registerStatistics() {

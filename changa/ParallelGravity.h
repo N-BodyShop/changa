@@ -330,6 +330,10 @@ class TreePiece : public CBase_TreePiece {
 	// Decode offset bits in requestID for periodic replicas
 	Vector3D<double> decodeOffset(int reqID);
 	
+	/// Setup for writing
+	int nSetupWriteStage;
+	int nStartWrite;
+	
 	/// Map between Keys and TreeNodes, used to get a node from a key
 	NodeLookupType nodeLookupTable;
 
@@ -459,7 +463,6 @@ class TreePiece : public CBase_TreePiece {
  
   ///Remote Particle Info structure
  public:
-  FieldHeader fh;
 
   typedef struct particlesInfoR{
     ExternalGravityParticle* particles;
@@ -513,6 +516,8 @@ class TreePiece : public CBase_TreePiece {
  public:
 
 	int bLoaded;		/* Are particles loaded? */
+	FieldHeader fh;
+
 	
 #if COSMO_DEBUG > 1
   ///This function checks the correctness of the treewalk
@@ -623,6 +628,7 @@ public:
 	  prefetchReq = NULL;
 	  remainingChunk = NULL;
 	  ewt = NULL;
+	  nSetupWriteStage = -1;
 	  nMaxEwhLoop = 100;
     orbBoundaries.clear();
     //tempOrbBoundaries.clear();
@@ -680,7 +686,11 @@ public:
 	// Load from Tipsy file
 	void loadTipsy(const std::string& filename, const CkCallback& cb);
 	// Write a Tipsy file
-	void writeTipsy(const std::string& filename, const double dTime);
+	void writeTipsy(const std::string& filename, const double dTime,
+			const double dvFac);
+	void setupWrite(int iStage, int64_t iPrevOffset,
+			const std::string& filename, const double dTime,
+			const double dvFac);
 	/** Inform the DataManager of my node that I'm here.
 	 The callback will receive a CkReductionMsg containing no data.
 	void registerWithDataManager(const CkGroupID& dataManagerID,

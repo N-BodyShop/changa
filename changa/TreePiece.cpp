@@ -86,9 +86,6 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   // 3. Some of this functionality should be moved into a separate
   // function so it can also be used in loadTipsy().
 
-  unsigned int *startParticles;
-  unsigned int *numParticlesChunk;
-  unsigned int excess;
   switch (domainDecomposition) {
   case SFC_dec:
     numPrefetchReq = 2;
@@ -99,6 +96,16 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
       numPrefetchReq = 1;
       prefetchReq = new OrientedBox<double>[1];
     }
+    break;
+    //CkAbort("ORB domain decomposition not yet implemented");
+    //break;
+  default:
+      CkAbort("Invalid domain decomposition requested");
+  }
+
+  unsigned int *startParticles;
+  unsigned int *numParticlesChunk;
+  unsigned int excess;
     numParticlesChunk = new unsigned int[2];
     startParticles = new unsigned int[1];
     numParticlesChunk[0] = fh.numParticles / numTreePieces;
@@ -113,12 +120,6 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
       startParticles[0] += excess;
     }
     myNumParticles = numParticlesChunk[0];
-    break;
-    //CkAbort("ORB domain decomposition not yet implemented");
-    //break;
-  default:
-    CkAbort("Invalid domain decomposition requested");
-  }
 
   /* At this point myNumParticles contain the number of particles to be loaded
      into this processro, startParticles and numParticlesChunk are newly
@@ -316,6 +317,11 @@ void TreePiece::loadTipsy(const std::string& filename, const CkCallback& cb) {
 		numPrefetchReq = 1;
 		prefetchReq = new OrientedBox<double>[1];
 		}
+	    break;
+	default:
+	    CkAbort("Invalid domain decomposition requested");
+	    }
+
 	myNumParticles = totalNumParticles / numTreePieces;
     
 	excess = totalNumParticles % numTreePieces;
@@ -326,10 +332,6 @@ void TreePiece::loadTipsy(const std::string& filename, const CkCallback& cb) {
 	    }
 	else {
 	    startParticle += excess;
-	    }
-	break;
-	default:
-	    CkAbort("Invalid domain decomposition requested");
 	    }
 	
 	if(verbosity > 2)
@@ -386,18 +388,81 @@ void TreePiece::loadTipsy(const std::string& filename, const CkCallback& cb) {
 		   CkCallback(CkIndex_TreePiece::assignKeys(0), pieces));
 }
 
-void TreePiece::writeTipsy(const std::string& filename, const double dTime)
+// Perform Parallel Scan to establish start of parallel writes, then
+// do the writing
+void TreePiece::setupWrite(int iStage, // stage of scan
+			   int64_t iPrevOffset,
+			   const std::string& filename,
+			   const double dTime,
+			   const double dvFac)
 {
-    std::ofstream outfile(filename.c_str());
-    if(index == 0) {
-	Tipsy::header h;
-	h.nbodies = fh.numParticles;
-	h.ndark = h.nbodies;
-	h.nstar = 0;
-	h.time = dTime;
-	h.nsph = 0;
-	outfile.write(reinterpret_cast<const char *>(&h),
-		      Tipsy::header::sizeBytes);
+    if(iStage > nSetupWriteStage + 1) {
+	// requeue message
+	pieces[thisIndex].setupWrite(iStage, iPrevOffset, filename,
+					  dTime, dvFac);
+	return;
+	}
+    nSetupWriteStage++;
+    if(iStage == 0)
+	nStartWrite = 0;
+    
+    int iOffset = 1 << nSetupWriteStage;
+    nStartWrite += iPrevOffset;
+    if(thisIndex+iOffset < (int) numTreePieces) { // Scan on
+	if(verbosity > 1) {
+	    ckerr << thisIndex << ": stage " << iStage << " sending "
+		  << nStartWrite+myNumParticles << " to " << thisIndex+iOffset
+		  << endl;
+	    }
+	pieces[thisIndex+iOffset].setupWrite(iStage+1,
+					     nStartWrite+myNumParticles,
+					     filename, dTime, dvFac);
+	}
+    if(thisIndex < iOffset) { // No more messages are coming my way
+	// send out all the messages
+	for(iStage = iStage+1; (1 << iStage) + thisIndex < (int)numTreePieces;
+	    iStage++) {
+	    iOffset = 1 << iStage;
+	    if(verbosity > 1) {
+		ckerr << thisIndex << ": stage " << iStage << " sending "
+		      << nStartWrite+myNumParticles << " to "
+		      << thisIndex+iOffset << endl;
+		}
+	    pieces[thisIndex+iOffset].setupWrite(iStage+1,
+						 nStartWrite+myNumParticles,
+						 filename, dTime, dvFac);
+	    }
+	if(thisIndex == (int) numTreePieces-1)
+	    assert(nStartWrite+myNumParticles == fh.numParticles);
+	nSetupWriteStage = -1;	// reset for next time.
+	writeTipsy(filename, dTime, dvFac);
+	}
+    }
+
+void TreePiece::writeTipsy(const std::string& filename, const double dTime,
+			   const double dvFac)
+{
+    Tipsy::header h;
+    h.nbodies = fh.numParticles;
+    h.ndark = h.nbodies;
+    h.nstar = 0;
+    h.time = dTime;
+    h.nsph = 0;
+    
+    Tipsy::TipsyWriter w(filename, h);
+    
+    if(thisIndex == 0)
+	w.writeHeader();
+    w.seekParticleNum(nStartWrite);
+    for(unsigned int i = 0; i < myNumParticles; i++) {
+	Tipsy::dark_particle p;
+	p.mass = myParticles[i+1].mass;
+	p.pos = myParticles[i+1].position;
+	p.vel = myParticles[i+1].velocity*dvFac;
+	p.eps = myParticles[i+1].soft;
+	p.phi = myParticles[i+1].potential;
+
+	w.putNextDarkParticle(p);
 	}
     }
 
@@ -555,7 +620,7 @@ void TreePiece::sendORBParticles(){
 		}
   }
 
-  if(myExpectedCount > myNumParticles){
+  if(myExpectedCount > (int) myNumParticles){
     delete [] myParticles;
     myParticles = new GravityParticle[myExpectedCount + 2];
   }
@@ -789,7 +854,7 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 	}
 	//resize myParticles so we can fit the sorted particles and
 	//the boundary particles
-	if(dm->particleCounts[myPlace] > myNumParticles) {
+	if(dm->particleCounts[myPlace] > (int) myNumParticles) {
 	    delete[] myParticles;
 	    myParticles = new GravityParticle[dm->particleCounts[myPlace] + 2];
 	    }
@@ -855,6 +920,7 @@ void TreePiece::kick(double dDelta, const CkCallback& cb) {
 }
 
 void TreePiece::drift(double dDelta, const CkCallback& cb) {
+    callback = cb;		// called by assignKeys()
   if (root != NULL) {
     // Delete the tree since is no longer useful
     root->fullyDelete();
@@ -863,6 +929,7 @@ void TreePiece::drift(double dDelta, const CkCallback& cb) {
     nodeLookupTable.clear();
   }
 
+  boundingBox.reset();
   int bInBox = 1;
   
   for(unsigned int i = 0; i < myNumParticles; ++i) {
@@ -883,9 +950,12 @@ void TreePiece::drift(double dDelta, const CkCallback& cb) {
 	      }
 	  CkAssert(bInBox);
 	  }
+      boundingBox.grow(myParticles[i+1].position);
       }
   CkAssert(bInBox);
-  contribute(0, 0, CkReduction::concat, cb);
+  contribute(sizeof(OrientedBox<float>), &boundingBox,
+		   growOrientedBox_float,
+		   CkCallback(CkIndex_TreePiece::assignKeys(0), pieces));
 }
 
 void TreePiece::setSoft(const double dSoft) {
@@ -951,7 +1021,7 @@ void TreePiece::quiescence() {
   }
   */
   CkPrintf("[%d] quiescence detected, pending %d\n",thisIndex,myNumParticlesPending);
-  for (int i=0; i<numBuckets; ++i) {
+  for (unsigned int i=0; i<numBuckets; ++i) {
     if (bucketReqs[i].numAdditionalRequests != 0)
       CkPrintf("[%d] requests for %d remaining %d\n",thisIndex,i,bucketReqs[i].numAdditionalRequests);
   }
@@ -970,7 +1040,8 @@ void TreePiece::collectSplitters(CkReductionMsg* m) {
   sort(splitters2, splitters2 + numTreePieces);
   for (unsigned int i=1; i<numSplitters; ++i) {
     if (splitters[i] < splitters[i-1]) {
-      for (int j=0; j<numSplitters; ++j) CkPrintf("%d: Key %d = %016llx\n",thisIndex,j,splitters[j]);
+      for (unsigned int j=0; j<numSplitters; ++j)
+	  CkPrintf("%d: Key %d = %016llx\n",thisIndex,j,splitters[j]);
       if(thisIndex==0)
         CkAbort("Keys not ordered");
     }
@@ -1731,8 +1802,11 @@ TreePiece::openCriterionBucket(GenericTreeNode *node,
   node->used = true;
 #endif
   // Note that some of this could be pre-calculated into an "opening radius"
-  Sphere<double> s(node->moments.cm + offset,
-		   opening_geometry_factor * node->moments.radius / theta);
+  double radius = opening_geometry_factor * node->moments.radius / theta;
+  if(radius < node->moments.radius)
+      radius = node->moments.radius;
+
+  Sphere<double> s(node->moments.cm + offset, radius);
   
   /*bool ret = Space::intersect(boundingBox, s);
 
@@ -1762,8 +1836,11 @@ inline int TreePiece::openCriterionNode(GenericTreeNode *node,
   node->used = true;
 #endif
   // Note that some of this could be pre-calculated into an "opening radius"
-  Sphere<double> s(node->moments.cm + offset,
-		   opening_geometry_factor * node->moments.radius / theta);
+  double radius = opening_geometry_factor * node->moments.radius / theta;
+  if(radius < node->moments.radius)
+      radius = node->moments.radius;
+
+  Sphere<double> s(node->moments.cm + offset, radius);
 
 	if(myNode->getType()==Bucket || myNode->getType()==CachedBucket || myNode->getType()==NonLocalBucket){
   	//if(Space::intersect(myNode->boundingBox, s))
@@ -1959,7 +2036,6 @@ void TreePiece::nextBucket(dummyMsg *msg){
       GenericTreeNode *tmpNode;
   
       int startBucket=curNodeLocal->startBucket;
-      int tmpBucket;
       int lastBucket;
       int k;
   
@@ -2222,7 +2298,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       GenericTreeNode *tmpNode;
   
       int startBucket=curNodeRemote->startBucket;
-      int tmpBucket;
       int lastBucket;
       int k;
   
@@ -2644,7 +2719,7 @@ void TreePiece::startIteration(double t, // opening angle
     case ORB_dec:
       //Prefetch Roots for Oct
       prefetchReq[0].reset();
-      for (int i=1; i<=myNumParticles; ++i) {
+      for (unsigned int i=1; i<=myNumParticles; ++i) {
 	prefetchReq[0].grow(myParticles[i].position);
       }
       /*
@@ -3302,7 +3377,6 @@ inline void TreePiece::calculateForces(OffsetNode node, GenericTreeNode *myNode,
 
   GenericTreeNode *tmpNode;
   int startBucket=myNode->startBucket;
-  int tmpBucket;
   int lastBucket;
   int i;
   
