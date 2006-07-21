@@ -709,15 +709,15 @@ namespace Tree {
   };
 
 template <typename T>
-  class NodeJoint {
+  class NodeJoint : public CkPool<NodeJoint<T>, 256> {
   public:
   T weight;
   T left;
   T right;
   bool isLeaf;
 
-  NodeJoint(T w, T l, T r) : weight(w), left(l), right(r), isLeaf(false) {}
-  NodeJoint(T w) : weight(w), left(0), right(0), isLeaf(true) {}
+  NodeJoint(T w, T l, T r) : weight(w), left(l), right(r), isLeaf(false) { }
+  NodeJoint(T w) : weight(w), left(0), right(0), isLeaf(true) { }
 };
 
 template <typename T>
@@ -757,19 +757,28 @@ inline int NodeKeyClass::compare(const NodeKeyClass &ind) const {
 }
 
 template <typename T>
-inline void reorderList(NodeKey *nodeKeys, int num, CkHashtableT<NodeKeyClass,NodeJoint<T>*> &nodes) {
+inline void reorderList(NodeKey *nodeKeys, int num, CkVec<T> *zeros, CkVec<NodeKey> *openedNodes, CkHashtableT<NodeKeyClass,NodeJoint<T>*> &nodes) {
   // reorder the output list
   NodeKey current = NodeKey(1);
   NodeJoint<T> *curNode;
   int count = 0;
+  if (zeros != NULL) zeros->removeAll();
+  if (openedNodes != NULL) openedNodes->removeAll();
   while (1) {
     curNode = nodes.get(current);
     if (curNode != 0) {
       if (curNode->isLeaf || (curNode->left == 0 && curNode->right == 0)) {
-        if (curNode->isLeaf) nodeKeys[count++] = current;
+        if (curNode->isLeaf) {
+          //if (curNode->weight == 0 && zeros != NULL) zeros->push_back(count);
+          if (zeros != NULL) zeros->push_back(curNode->weight);
+          nodeKeys[count++] = current;
+        }
         else if (curNode->weight != 0) {
+          // node is not a leaf and has both children weight=0 (while not being itself zero)
+          // this means the nodes has just been opened
           nodeKeys[count++] = current << 1;
           nodeKeys[count++] = (current << 1) + 1;
+          if (openedNodes != NULL) openedNodes->push_back(current);
         }
         // terminate recursion and get the next sibling
         while (current & 1) current >>= 1;
@@ -780,7 +789,7 @@ inline void reorderList(NodeKey *nodeKeys, int num, CkHashtableT<NodeKeyClass,No
         current <<= 1;
       }
 
-      delete curNode;
+      //delete curNode;
     } else {
       // get the first child
       current <<= 1;
@@ -790,22 +799,96 @@ inline void reorderList(NodeKey *nodeKeys, int num, CkHashtableT<NodeKeyClass,No
 }
 
 template <typename T>
-  inline bool weightBalance(NodeKey *nodeKeys, T* weights, int num, CkVec<NodeKey> *zeros) {
-  // T can be signed or unsigned
-  CkPrintf("starting weightBalance iteration\n");
-
-  //std::multimap<T,NodeKey> heaviest;
-  //std::multimap<T,NodeKey> joints;
+class WeightBalanceState {
+ public:
+  int realNum; // the total number of keys dividing the domain (counting those which are zero)
   std::set<WeightKey<T> > heaviest;
   std::set<WeightKey<T> > joints;
-  CkHashtableT<NodeKeyClass,NodeJoint<T>*> nodes;
+  CkHashtableT<NodeKeyClass, NodeJoint<T>*> nodes;
 
+  ~WeightBalanceState() {
+    NodeJoint<T>::destroyAll();
+  }
+};
+
+/**
+   Function that given a list of NodeKeys and weights associated to them, it
+   tries to create a new set of keys with a better distribution of the weights.
+   It is used by both Oct domain decomposition and by the CacheManager for the
+   chunks.
+
+   When working with persistence (state!=NULL), the first time the function is
+   called it expects a complete cut of leaves of the tree. Each subsequent time,
+   it espects only the weights of the children of the nodes that have just been
+   opened (and therefore had weight zero).
+
+   @param nodeKeys array of keys coming into the function, this array will be
+   modified to get new set
+   @param weights the weights associated to each key
+   @param num the number of input keys
+   @param keysTot the size of the nodeKeys array (>=num)
+   @param desired how many keys will be present in the output
+   @param zeros output a list of indices of nodeKeys that have weight 0. Can be
+   null and ignored. If not null "desired" does not consider the keys that are
+   NULL
+   @param openedNodes a list of all the nodes that have been opened in the execution
+   @param state if not NULL the function is working in multiple subsequent calls
+   @return true if the keys have been changed, false otherwise
+*/
+template <typename T>
+  inline bool weightBalance(NodeKey *&nodeKeys, T* weights, int &num, int &keysTot, int desired, CkVec<T> *zeros=NULL, CkVec<NodeKey> *openedNodes=NULL, WeightBalanceState<T> *state=NULL) {
+  // T can be signed or unsigned
+  if (verbosity>=2) CkPrintf("starting weightBalance iteration\n");
+
+  bool keep = (state != NULL);
+  bool isReturning = (state != NULL && state->nodes.numObjects()>0);
+  int currentNum; // the number of keys that are currently non zero
+
+  //std::set<WeightKey<T> > heaviest;
+  //std::set<WeightKey<T> > joints;
+  //CkHashtableT<NodeKeyClass,NodeJoint<T>*> nodes;
+  if (state == NULL) {
+    state = new WeightBalanceState<T>();
+  }
+
+  /*
   if (zeros != NULL) {
     for (int i=0; i<zeros->size(); ++i) {
       nodes.put((*zeros)[i]) = new NodeJoint<T>(0,0,0);
     }
   }
+  */
 
+  if (isReturning) {
+    currentNum = desired;
+    for (int i=0; i<num; ++i) {
+      state->heaviest.insert(WeightKey<T>(weights[i],nodeKeys[i]));
+      state->nodes.getRef(nodeKeys[i])->weight = weights[i];
+      if (nodeKeys[i] & 1) state->nodes.getRef(nodeKeys[i]>>1)->right = weights[i];
+      else state->nodes.getRef(nodeKeys[i]>>1)->left = weights[i];
+      if (weights[i] == 0) currentNum--;
+    }
+  } else {
+    currentNum = 0;
+    state->realNum = num;
+    for (int i=0; i<num; ++i) {
+      state->heaviest.insert(WeightKey<T>(weights[i],nodeKeys[i]));
+      state->nodes.put(nodeKeys[i]) = new NodeJoint<T>(weights[i]);
+      if (weights[i] > 0 || zeros == NULL) currentNum++;
+
+      // check if we can have a joint
+      NodeKey siblingKey(nodeKeys[i] ^ 1);
+      NodeJoint<T> *sibling = state->nodes.get(siblingKey);
+      if (sibling != 0) {
+        state->joints.insert(WeightKey<T>(weights[i]+sibling->weight,siblingKey>>1));
+        T left = (siblingKey&1) ? weights[i] : sibling->weight;
+        T right = (siblingKey&1) ? sibling->weight : weights[i];
+        state->nodes.put(siblingKey>>1) = new NodeJoint<T>(weights[i]+sibling->weight,left,right);
+      }
+    }
+  }
+
+  /*
   for (int i=0; i<num; ++i) {
     //heaviest.insert(std::pair<T,NodeKey>(weights[i],nodeKeys[i]));
     heaviest.insert(WeightKey<T>(weights[i],nodeKeys[i]));
@@ -857,13 +940,81 @@ template <typename T>
       }
     }
   }
+  */
+
+
   // at this point heaviest is a sorted list of the the leaves of the tree;
   // nodes contains all the leaves too, but in a hash table;
   // joints contains all the possible conjunctions of two leaves of the tree (again sorted).
 
   bool result = false;
+  int oldNum;
   //reorderList<T>(nodeKeys, num, nodes);
-  while (heaviest.rbegin()->weight > joints.begin()->weight) {
+  while (state->heaviest.rbegin()->weight > state->joints.begin()->weight ||
+         currentNum != desired) {
+    result = true;
+    NodeKey openedKey = state->heaviest.rbegin()->key;
+    T openedWeight = state->heaviest.rbegin()->weight;
+    NodeKey closedKey = state->joints.begin()->key;
+    T closedWeight = state->joints.begin()->weight;
+
+    oldNum = currentNum;
+    if (oldNum <= desired) {
+      if (verbosity>=3) CkPrintf("[%d] Opening node %llx (%d)\n",CkMyPe(),state->heaviest.rbegin()->key,state->heaviest.rbegin()->weight);
+      NodeJoint<T> *opened = state->nodes.getRef(openedKey);
+      state->heaviest.erase(WeightKey<T>(openedWeight,openedKey));
+      opened->isLeaf = false;
+      NodeJoint<T> *child = state->nodes.get(openedKey<<1);
+      if (child) {
+        child->isLeaf = true;
+        state->heaviest.insert(WeightKey<T>(child->weight,openedKey<<1));
+      }
+      child = state->nodes.get((openedKey<<1) + 1);
+      if (child) {
+        child->isLeaf = true;
+        state->heaviest.insert(WeightKey<T>(child->weight,(openedKey<<1)+1));
+      }
+      // if both children are non-empty (or if they just don't exist), we have added a new key
+      if (zeros == NULL || (opened->left > 0 && opened->right > 0) || !child) currentNum++;
+      state->realNum++;
+
+    }
+    if (oldNum >= desired) {
+      if (verbosity>=3) CkPrintf("[%d] Closing node %llx (%d)\n",CkMyPe(),state->joints.begin()->key,state->joints.begin()->weight);
+      NodeJoint<T> *closed = state->nodes.getRef(closedKey);
+      state->joints.erase(state->joints.begin());
+      closed->isLeaf = true;
+      state->heaviest.insert(WeightKey<T>(closedWeight,closedKey));
+      NodeJoint<T> *child = state->nodes.get(closedKey<<1);
+      if (child) {
+        child->isLeaf = false;
+        state->heaviest.erase(WeightKey<T>(closed->left,closedKey<<1));
+      }
+      child = state->nodes.get((closedKey<<1)+1);
+      if (child) {
+        child->isLeaf = false;
+        state->heaviest.erase(WeightKey<T>(closed->right,(closedKey<<1)+1));
+      }
+      if (zeros == NULL || (closed->left > 0 && closed->right > 0) || !child) currentNum--;
+      state->realNum--;
+
+      // find if there is a new joint
+      NodeJoint<T> *sibling = state->nodes.get(closedKey ^ 1);
+      if (sibling != 0 && sibling->isLeaf) {
+        NodeJoint<T> *parent = state->nodes.get(closedKey>>1);
+        if (parent == 0) {
+          T left = (closedKey&1) ? sibling->weight : closedWeight;
+          T right = (closedKey&1) ? closedWeight : sibling->weight;
+          parent = new NodeJoint<T>(closedWeight+sibling->weight,left,right);
+          state->nodes.put(closedKey>>1) = parent;
+        }
+        state->joints.insert(WeightKey<T>(parent->weight,closedKey>>1));
+      }
+
+    }
+    /*
+    else { // normal case of weights unbalanced
+
     CkPrintf("[%d] Opening node %llx (%d), closing %llx (%d)\n",CkMyPe(),heaviest.rbegin()->key,heaviest.rbegin()->weight,joints.begin()->key,joints.begin()->weight);
     // we can improve the balancing!
     result = true;
@@ -938,14 +1089,24 @@ template <typename T>
 	// found a node which is empty, deal with it
 	CkPrintf("[%d] WeightBalance: found a node with an empty child!\n",CkMyPe());
       }
-    }/* else if (nodes.get(openedKey<<1) == 0) {
+    }/ * else if (nodes.get(openedKey<<1) == 0) {
       nodes.put(openedKey<<1) = NodeJoint<T>(0);
       nodes.put((openedKey<<1)+1) = NodeJoint<T>(0);
-    }*/
+    }* /
     //reorderList<T>(nodeKeys, num, nodes);
+    }
+    */
   }
 
-  reorderList<T>(nodeKeys, num, nodes);
+  num = state->realNum;
+  if (num > keysTot) {
+    delete[] nodeKeys;
+    keysTot = num+1;
+    nodeKeys = new NodeKey[keysTot];
+  }
+  reorderList<T>(nodeKeys, num, zeros, openedNodes, state->nodes);
+  if (!keep) delete state;
+  if (verbosity>=2) CkPrintf("weightBalance finished\n");
   return result;
 }
 
