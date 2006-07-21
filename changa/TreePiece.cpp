@@ -533,8 +533,8 @@ void TreePiece::initORBPieces(const CkCallback& cb){
   compFuncPtr[1]= &comp_dim1;
   compFuncPtr[2]= &comp_dim2;
 
-	myBinCounts.clear();
-	myBinCounts.push_back(myNumParticles);
+	myBinCountsORB.clear();
+	myBinCountsORB.push_back(myNumParticles);
 
   //Find out how many levels will be there before we go into the tree owned
   //completely by the TreePiece
@@ -610,13 +610,13 @@ void TreePiece::sendORBParticles(){
 			break;
     if(i==thisIndex){
 			//CkPrintf("[%d] send %d particles to %d\n",thisIndex,myBinCounts[i],i);
-      if(myBinCounts[i]>0)
-        acceptORBParticles(*iter,myBinCounts[i]);
+      if(myBinCountsORB[i]>0)
+        acceptORBParticles(*iter,myBinCountsORB[i]);
 		}
     else{
 			//CkPrintf("[%d] send %d particles to %d\n",thisIndex,myBinCounts[i],i);
-      if(myBinCounts[i]>0)
-        pieces[i].acceptORBParticles(*iter,myBinCounts[i]);
+      if(myBinCountsORB[i]>0)
+        pieces[i].acceptORBParticles(*iter,myBinCountsORB[i]);
 		}
   }
 
@@ -705,8 +705,8 @@ void TreePiece::finalizeBoundaries(ORBSplittersMsg *splittersMsg){
 
   firstTime = true;
   
-  myBinCounts.assign(2*splittersMsg->length,0);
-  copy(tempBinCounts.begin(),tempBinCounts.end(),myBinCounts.begin());
+  myBinCountsORB.assign(2*splittersMsg->length,0);
+  copy(tempBinCounts.begin(),tempBinCounts.end(),myBinCountsORB.begin());
 
   contribute(0,0,CkReduction::concat,cback);
 
@@ -754,7 +754,7 @@ void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg){
     dummy.position = divide;
     GravityParticle* divEnd = upper_bound(*iter,*iter2,dummy,compFuncPtr[dimen]);
     tempBinCounts[2*i] = divEnd - divStart;
-    tempBinCounts[2*i + 1] = myBinCounts[i] - (divEnd - divStart);
+    tempBinCounts[2*i + 1] = myBinCountsORB[i] - (divEnd - divStart);
 
     iter++; iter2++;
 	}
@@ -788,16 +788,25 @@ void TreePiece::evaluateBoundaries(const CkCallback& cb) {
   if (dm == NULL) {
     dm = (CProxy_DataManager(dataManagerID)).ckLocalBranch();
   }
+
+  double startTimer = CmiWallTimer();
+
 	int numBins = dm->boundaryKeys.size() - 1;
 	//this array will contain the number of particles I own in each bin
-	myBinCounts.assign(numBins, 0);
+	//myBinCounts.assign(numBins, 0);
+        myBinCounts.resize(numBins);
+        int *myCounts = myBinCounts.getVec();
+        bzero (myCounts, numBins*sizeof(int));
 	vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
 	GravityParticle *binBegin = &myParticles[1];
 	GravityParticle *binEnd;
 	GravityParticle dummy;
-	vector<int>::iterator binIter = myBinCounts.begin();
-	vector<Key>::iterator keyIter = dm->boundaryKeys.begin();
-	for(++keyIter; keyIter != endKeys; ++keyIter, ++binIter) {
+        //int binIter = 0;
+	//vector<int>::iterator binIter = myBinCounts.begin();
+	//vector<Key>::iterator keyIter = dm->boundaryKeys.begin();
+        vector<Key>::iterator keyIter = lower_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), binBegin->key);
+        int binIter = &(*keyIter) - &(*dm->boundaryKeys.begin()) - 1;
+	for( ; keyIter != endKeys; ++keyIter, ++binIter) {
 		dummy.key = *keyIter;
 		/// find the last place I could put this splitter key in
 		/// my array of particles
@@ -805,14 +814,21 @@ void TreePiece::evaluateBoundaries(const CkCallback& cb) {
 				     dummy);
 		/// this tells me the number of particles between the
 		/// last two splitter keys
-		*binIter = (binEnd - binBegin);
+		myCounts[binIter] = (binEnd - binBegin);
 		if(&myParticles[myNumParticles+1] <= binEnd)
 			break;
 		binBegin = binEnd;
 	}
+
+        traceUserBracketEvent(boundaryEvaluationUE, startTimer, CmiWallTimer());
+
+        if (verbosity>=4) {
+          for (int i=0;i<numBins;++i)
+            CkPrintf("[%d]: bin %d has %d particles\n",thisIndex,i,myCounts[i]);
+        }
 	
 	//send my bin counts back in a reduction
-	contribute(numBins * sizeof(int), &(*myBinCounts.begin()), CkReduction::sum_int, cb);
+	contribute(numBins * sizeof(int), myCounts, CkReduction::sum_int, cb);
 }
 
 /// Once final splitter keys have been decided, I need to give my
@@ -842,7 +858,7 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 				     dummy);
 		//if I have any particles in this bin, send them to the responsible TreePiece
 		if((binEnd - binBegin) > 0) {
-        //CkPrintf("me:%d to:%d how many:%d\n",thisIndex,*responsibleIter,(binEnd-binBegin));
+                  if (verbosity>=3) CkPrintf("me:%d to:%d how many:%d\n",thisIndex,*responsibleIter,(binEnd-binBegin));
 		    if(*responsibleIter == thisIndex)
 			acceptSortedParticles(&(*binBegin), binEnd - binBegin);
 		    else
@@ -869,6 +885,7 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles, const in
 	    myPlace = find(dm->responsibleIndex.begin(),
 			   dm->responsibleIndex.end(), thisIndex)
 		- dm->responsibleIndex.begin();
+        if (verbosity>=3) ckout << thisIndex <<" waiting for "<<dm->particleCounts[myPlace]-mySortedParticles.size()<<" particles ("<<mySortedParticles.size()<<"-"<<dm->particleCounts[myPlace]<<")"<<endl;
         if(dm->particleCounts[myPlace] == mySortedParticles.size()) {
 	    //I've got all my particles
 	    sort(mySortedParticles.begin(), mySortedParticles.end());
