@@ -29,7 +29,9 @@ class Sorter : public Chare {
 	int numKeys;
 	/// The number of chares to sort into.
 	int numChares;
-	
+	/// Total size of the keys allocated (allows a margin to increase)
+        int keysSize;
+
 	/// The percent tolerance to sort keys within.
 	double tolerance;
 	/// The number of particles on either side of a splitter that corresponds to the requested tolerance.
@@ -68,8 +70,8 @@ class Sorter : public Chare {
   std::list<ORBData> orbData;
 
 	
-        /// The list of nodes that contain no particle (and therefore ignored)
-        CkVec<NodeKey> zeros;
+        /// The weights for all the keys returned by the weightBalance routine
+        CkVec<int> zeros;
 
   //double curDivision;
   //int curDim;
@@ -85,7 +87,9 @@ class Sorter : public Chare {
 	
 public:
 	
-	Sorter() { };
+	Sorter() {
+          nodeKeys = NULL;
+        };
 
 	/** Sort the particles in an array of TreePieces using a histogram-probing method.
 	 The DataManager receives splitter keys from the Sorter, and instructs the TreePieces
@@ -98,7 +102,8 @@ public:
 	 The callback will receive a CkReductionMsg containing no data.
 	 */
 	void startSorting(const CkGroupID& dataManagerID, const int nChares, const double toler, const CkCallback& cb);
-	void convertNodesToSplitters(int numChares, NodeKey* nodeKeys);
+	void convertNodesToSplitters(int num, NodeKey* nodeKeys);
+	void convertNodesToSplittersNoZeros(int num, NodeKey* nodeKeys, CkVec<int> &zero);
 	void collectEvaluations(CkReductionMsg* m);
 	void collectEvaluationsSFC(CkReductionMsg* m);
 	void collectEvaluationsOct(CkReductionMsg* m);

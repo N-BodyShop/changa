@@ -258,7 +258,6 @@ void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
 	sorted = false;
 	sortingCallback = cb;
 	numIterations = 0;
-	numKeys = 0;
 	
 	// XXX: Optimizations available if sort has been done before!
 	//create initial evenly distributed guesses for splitter keys
@@ -272,6 +271,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
   BinaryTreeNode *rt;
   switch (domainDecomposition){
     case SFC_dec:
+	numKeys = 0;
 	    splitters.clear();
 	    splitters.reserve(3 * numChares - 1);
 	    delta = (lastPossibleKey - SFC::firstPossibleKey) / (3 * numChares - 2);
@@ -281,14 +281,19 @@ void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
 	    splitters.push_back(lastPossibleKey);
 	    break;
     case Oct_dec:
-	    rt = new BinaryTreeNode();
-      nodeKeys = new NodeKey[numChares];
-      rt->getChunks(numChares,nodeKeys);
-      delete rt;
+      if (nodeKeys == NULL) {
+        rt = new BinaryTreeNode();
+        numKeys = numChares;
+        keysSize = numChares * 1.1;
+        nodeKeys = new NodeKey[keysSize];
+        rt->getChunks(numKeys,nodeKeys);
+        delete rt;
+      }
       //Convert the Node Keys to the splitter keys which will be sent to histogram
-      convertNodesToSplitters(numChares,nodeKeys);
-	    break;
+      convertNodesToSplitters(numKeys,nodeKeys);
+      break;
     case ORB_dec:
+	numKeys = 0;
       //CkAbort("ORB domain decomposition not yet implemented");
       //treeProxy[0].getBoundingBox(curBox);
       treeProxy.initORBPieces(CkCallback(CkIndex_Sorter::doORBDecomposition(0), thishandle));
@@ -307,13 +312,13 @@ void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
   }
 }
 
-void Sorter::convertNodesToSplitters(int numChares, NodeKey* nodeKeys){
+void Sorter::convertNodesToSplitters(int num, NodeKey* nodeKeys){
   Key partKey;
 
   splitters.clear();
-  splitters.reserve(numChares + 1);
+  splitters.reserve(num + 1);
   const Key mask = Key(1) << 63;
-  for(unsigned int i=0;i<numChares;i++){
+  for(unsigned int i=0;i<num;i++){
     partKey=Key(nodeKeys[i]);
     while(!(partKey & mask)){
       partKey <<= 1;
@@ -323,7 +328,33 @@ void Sorter::convertNodesToSplitters(int numChares, NodeKey* nodeKeys){
   }
   //Sort here to make sure that splitters go sorted to histogramming
   //They might be unsorted here due to sorted or unsorted node keys
-  sort(splitters.begin(),splitters.end());
+  // FILIPPO: no, by construction they must be ordered already!
+  //sort(splitters.begin(),splitters.end());
+  splitters.push_back(lastPossibleKey);
+}
+
+void Sorter::convertNodesToSplittersNoZeros(int num, NodeKey* nodeKeys, CkVec<int> &zero){
+  Key partKey;
+
+  splitters.clear();
+  splitters.reserve(num + 1);
+  binCounts.clear();
+  binCounts.reserve(num + 1);
+  const Key mask = Key(1) << 63;
+  for(unsigned int i=0;i<num;i++){
+    if (zero[i] == 0) continue;
+    partKey=Key(nodeKeys[i]);
+    while(!(partKey & mask)){
+      partKey <<= 1;
+    }
+    partKey &= ~mask;
+    splitters.push_back(partKey);
+    binCounts.push_back(zero[i]);
+  }
+  //Sort here to make sure that splitters go sorted to histogramming
+  //They might be unsorted here due to sorted or unsorted node keys
+  // FILIPPO: no, by construction they must be ordered already!
+  //sort(splitters.begin(),splitters.end());
   splitters.push_back(lastPossibleKey);
 }
 
@@ -346,16 +377,15 @@ void Sorter::collectEvaluations(CkReductionMsg* m) {
 
 void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 
-	numIterations++;
-	numCounts = m->getSize() / sizeof(int);
-	binCounts.resize(numCounts);
-	//binCounts[0] = 0;
-	int* startCounts = static_cast<int *>(m->getData());
-	//copy(startCounts, startCounts + numCounts, binCounts.begin() + 1);
-	copy(startCounts, startCounts + numCounts, binCounts.begin());
-	delete m;
+  numIterations++;
+  numCounts = m->getSize() / sizeof(int);
+  binCounts.resize(numCounts);
+  //binCounts[0] = 0;
+  int* startCounts = static_cast<int *>(m->getData());
+  //copy(startCounts, startCounts + numCounts, binCounts.begin() + 1);
+  //copy(startCounts, startCounts + numCounts, binCounts.begin());
 
-	CkAssert(numCounts==numChares);
+  //CkAssert(numCounts==numChares);
   //call function which will balance the bin counts: define it in GenericTreeNode
   //make it a templated function
   //Pass the bincounts as well as the nodekeys
@@ -364,9 +394,9 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     std::vector<unsigned int>::iterator iter;
     int i=0;
     CkPrintf("Bin Counts in collect eval:");
-    for(iter=binCounts.begin();iter!=binCounts.end();iter++){
-      CkPrintf("%u,",*iter);
-      i++;
+    //for(iter=binCounts.begin();iter!=binCounts.end();iter++,i++){
+    for ( ; i<numCounts; i++) {
+      CkPrintf("%d,",startCounts[i]);
     }
     CkPrintf("\n");
     CkPrintf("Nodekeys:");
@@ -375,35 +405,42 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     CkPrintf("\n");
   }
   
-	bool histogram=weightBalance<unsigned int>(nodeKeys,&(*binCounts.begin()),numChares,1);
+  double startTimer = CmiWallTimer();
+  bool histogram=weightBalance<int>(nodeKeys,startCounts,numKeys,keysSize,numChares,&zeros);
+  //bool histogram=weightBalance<int>(nodeKeys,startCounts,numKeys,1);
+  traceUserBracketEvent(weightBalanceUE, startTimer, CmiWallTimer());
+
+  delete m;
+
   if(verbosity>=3){
-    CkPrintf("Nodekeys after:");
-    for(int i=0;i<numChares;i++)
+    CkPrintf("Nodekeys after (%d):",numKeys);
+    for(int i=0;i<numKeys;i++)
       CkPrintf("%llx,",nodeKeys[i]);
     CkPrintf("\n");
   }
-	if(histogram){
-    convertNodesToSplitters(numChares,nodeKeys);
+  if(histogram){
+    convertNodesToSplitters(numKeys,nodeKeys);
     dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
   }
   else{
     sorted=true;
-		if(verbosity)
-			cerr << "Sorter: Histograms balanced after " << numIterations << " iterations." << endl;
-	  //We have the splitters here because weight balancer didn't change any node keys
+    if(verbosity)
+      cerr << "Sorter: Histograms balanced after " << numIterations << " iterations." << endl;
+    //We have the splitters here because weight balancer didn't change any node keys
     //We also have the final bin counts
 		
-		//determine which TreePiece is responsible for each interval
-		vector<int> chareIDs(numChares, 1);
-		chareIDs[0] = 0;
-		partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
+    //determine which TreePiece is responsible for each interval
+    vector<int> chareIDs(numChares, 1);
+    chareIDs[0] = 0;
+    partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
 	
-		//send out the final splitters and responsibility table
-		dm.acceptFinalKeys(&(*splitters.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), splitters.size(), sortingCallback);
-		numIterations = 0;
-		sorted = false;
-    delete [] nodeKeys;
-		return;
+    //send out the final splitters and responsibility table
+    convertNodesToSplittersNoZeros(numKeys,nodeKeys,zeros);
+    dm.acceptFinalKeys(&(*splitters.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), splitters.size(), sortingCallback);
+    numIterations = 0;
+    sorted = false;
+    //delete [] nodeKeys;
+    return;
   }
 }
 
