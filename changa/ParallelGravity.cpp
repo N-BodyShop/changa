@@ -33,6 +33,9 @@ int _prefetch;
 int _numChunks;
 int _randChunks;
 
+int boundaryEvaluationUE;
+int weightBalanceUE;
+
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
 
@@ -56,6 +59,9 @@ void _Trailer(void) {
 Main::Main(CkArgMsg* m) {
 	_cache = true;
 	mainChare = thishandle;
+
+        boundaryEvaluationUE = traceRegisterUserEvent("Evaluating Boudaries");
+        weightBalanceUE = traceRegisterUserEvent("Weight Balancer");
 	
 	prmInitialize(&prm,_Leader,_Trailer);
 	csmInitialize(&param.csm);
@@ -189,6 +195,8 @@ Main::Main(CkArgMsg* m) {
 	// hardcoding some parameters, later may be full options
 	if(domainDecomposition==ORB_dec){ useTree = Binary_ORB; }
   else { useTree = Binary_Oct; }
+
+        ckerr << "Running of " << CkNumPes() << " processors with " << numTreePieces << " TreePieces" << endl;
 
 	//if (verbosity) 
 	  ckerr << "yieldPeriod set to " << _yieldPeriod << endl;

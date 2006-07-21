@@ -58,6 +58,8 @@ extern CProxy_TreePiece streamingProxy;
 /// The group ID of your DataManager.  You must set this!
 extern CkGroupID dataManagerID;
 
+extern int boundaryEvaluationUE;
+extern int weightBalanceUE;
 
 extern int _prefetch;
 extern int _randChunks;
@@ -290,7 +292,8 @@ class TreePiece : public CBase_TreePiece {
 
 	/// The counts of how many particles belonging to other
 	/// TreePieces I currently hold
-	std::vector<int> myBinCounts;
+	CkVec<int> myBinCounts;
+	std::vector<int> myBinCountsORB;
 	/// My index in the responsibility array.
 	int myPlace;
 	/// The keys determined by the Sorter that separate me from my
@@ -641,6 +644,7 @@ public:
 	  bucketReqs = NULL;
 	  prefetchRoots = NULL;
 	  remainingChunk = NULL;
+          ewt = NULL;
     orbBoundaries.clear();
     //openingDiffCount=0;
     //tempOrbBoundaries.clear();
@@ -655,6 +659,7 @@ public:
 	  delete[] particleInterRemote;
 	  delete[] bucketReqs;
 	  delete[] prefetchReq;
+          free(ewt);
 	  // recursively delete the entire tree
 	  if (root != NULL) {
 	    root->fullyDelete();

@@ -21,6 +21,9 @@ mainmodule ParallelGravity {
 	readonly CkArrayID treePieceID;
 	readonly CkGroupID dataManagerID;
 
+        readonly int boundaryEvaluationUE;
+        readonly int weightBalanceUE;
+
 	//message piecedata;
 	message dummyMsg;
 	message ComputeChunkMsg;
