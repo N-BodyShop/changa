@@ -945,6 +945,10 @@ void TreePiece::drift(double dDelta, const CkCallback& cb) {
     root = NULL;
     nodeLookupTable.clear();
   }
+  if(bucketReqs != NULL) {
+      delete[] bucketReqs;
+      bucketReqs = NULL;
+      }
 
   boundingBox.reset();
   int bInBox = 1;
