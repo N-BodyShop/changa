@@ -394,12 +394,13 @@ void TreePiece::setupWrite(int iStage, // stage of scan
 			   int64_t iPrevOffset,
 			   const std::string& filename,
 			   const double dTime,
-			   const double dvFac)
+			   const double dvFac,
+			   const CkCallback& cb)
 {
     if(iStage > nSetupWriteStage + 1) {
 	// requeue message
 	pieces[thisIndex].setupWrite(iStage, iPrevOffset, filename,
-					  dTime, dvFac);
+					  dTime, dvFac, cb);
 	return;
 	}
     nSetupWriteStage++;
@@ -416,7 +417,7 @@ void TreePiece::setupWrite(int iStage, // stage of scan
 	    }
 	pieces[thisIndex+iOffset].setupWrite(iStage+1,
 					     nStartWrite+myNumParticles,
-					     filename, dTime, dvFac);
+					     filename, dTime, dvFac, cb);
 	}
     if(thisIndex < iOffset) { // No more messages are coming my way
 	// send out all the messages
@@ -430,12 +431,13 @@ void TreePiece::setupWrite(int iStage, // stage of scan
 		}
 	    pieces[thisIndex+iOffset].setupWrite(iStage+1,
 						 nStartWrite+myNumParticles,
-						 filename, dTime, dvFac);
+						 filename, dTime, dvFac, cb);
 	    }
 	if(thisIndex == (int) numTreePieces-1)
 	    assert(nStartWrite+myNumParticles == fh.numParticles);
 	nSetupWriteStage = -1;	// reset for next time.
 	writeTipsy(filename, dTime, dvFac);
+	contribute(0, 0, CkReduction::concat, cb);
 	}
     }
 
@@ -1883,7 +1885,7 @@ inline int TreePiece::openCriterionNode(GenericTreeNode *node,
 }
 
 void TreePiece::initBuckets() {
-  for (int j=0; j<numBuckets; ++j) {
+  for (unsigned int j=0; j<numBuckets; ++j) {
     GenericTreeNode* node = bucketList[j];
     int numParticlesInBucket = node->particleCount;
 

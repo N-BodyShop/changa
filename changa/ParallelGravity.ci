@@ -91,7 +91,7 @@ mainmodule ParallelGravity {
 				     const CkCallback& cb);
 		entry void setupWrite(int iStage, int64_t iPrevOffset,
 			const std::string& filename, const double dTime,
-			const double dvFac);
+			const double dvFac, const CkCallback& cb);
 		entry void assignKeys(CkReductionMsg* m);
 		entry void evaluateBoundaries(const CkCallback& cb);
 		entry void unshuffleParticles(CkReductionMsg* m);

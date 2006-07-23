@@ -76,7 +76,7 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "iStartStep", paramInt, &param.iStartStep,
 		    sizeof(int),"nstart", "Initial step numbering");
 	param.dSoft = 0.0;
-	param.iOutInterval = 1;
+	param.iOutInterval = 10;
 	prmAddParam(prm, "iOutInterval", paramInt, &param.iOutInterval,
 		    sizeof(int),"oi", "Output Interval");
 	param.iLogInterval = 1;
@@ -160,7 +160,7 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "nTreePieces", paramInt, &numTreePieces,
 		    sizeof(int),"p", "Number of TreePieces");
 	bucketSize = 12;
-	prmAddParam(prm, "nTreePieces", paramInt, &bucketSize,
+	prmAddParam(prm, "nBucket", paramInt, &bucketSize,
 		    sizeof(int),"b", "Particles per Bucket");
 	_numChunks = 1;
 	prmAddParam(prm, "nChunks", paramInt, &_numChunks,
@@ -423,6 +423,14 @@ void Main::nextStage() {
 		}
 	    }
 	    
+	char achLogFileName[MAXPATHLEN];
+	sprintf(achLogFileName, "%s.log", param.achOutName);
+	ofstream ofsLog(achLogFileName, ios_base::trunc);
+	ofsLog << "# Starting ParallelGravity" << endl;
+	ofsLog.close();
+	
+	prmLogParam(prm, achLogFileName);
+	
 	if(prmSpecified(prm,"dSoftening")) {
 	    ckerr << "Set Softening...\n";
 	    pieces.setSoft(param.dSoft);
@@ -490,12 +498,12 @@ void Main::nextStage() {
 	      pieces.kick(dKickFac, CkCallbackResumeThread());
 	      }
 	  if(i%param.iLogInterval == 0) {
-	      calcEnergy();
+	      calcEnergy(dTime, achLogFileName);
 	      }
 	  /*
 	   * Writing of intermediate outputs can be done here.
 	   */
-	  if(i%param.iOutInterval == 0) {
+	  if(i > 0 && i%param.iOutInterval == 0) {
 	      writeOutput(i);
 	      }
 	  
@@ -552,14 +560,19 @@ void Main::nextStage() {
 	CkExit();
 }
 
-void Main::calcEnergy() {
+void Main::calcEnergy(double dTime, char *achLogFileName) {
     CkCallback ccb(CkCallback::resumeThread);
     pieces.calcEnergy(ccb);
     CkReductionMsg *msg = (CkReductionMsg *) ccb.thread_delay();
     double *dEnergy = (double *) msg->getData();
-    CkPrintf("Energy: %g %g %g %g %g %g %g %g\n", dEnergy[0] + dEnergy[1],
-	     dEnergy[0]+dEnergy[2], dEnergy[0],
+
+    FILE *fpLog = fopen(achLogFileName, "a");
+    
+    fprintf(fpLog, "%g %g %g %g %g %g %g %g %g\n", dTime,
+	    dEnergy[0] + dEnergy[1], dEnergy[0]+dEnergy[2], dEnergy[0],
 	     dEnergy[1], dEnergy[2], dEnergy[3], dEnergy[4], dEnergy[5]);
+    fclose(fpLog);
+    
     delete msg;
 }
 
@@ -579,7 +592,8 @@ void Main::writeOutput(int iStep)
 	dvFac = 1.0;
 	}
     
-    pieces.setupWrite(0, 0, achFile, dOutTime, dvFac);
+    pieces.setupWrite(0, 0, achFile, dOutTime, dvFac,
+		      CkCallbackResumeThread());
     }
 
 void registerStatistics() {

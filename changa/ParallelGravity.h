@@ -247,7 +247,7 @@ public:
 	 * calculateGravity and startlb for the desired number of iterations.
 	 */
 	void nextStage();
-	void calcEnergy() ;
+	void calcEnergy(double, char *) ;
 	void writeOutput(int iStep) ;
 	void setTotalParticles(int n) {
 	    nTotalParticles = n;
@@ -693,9 +693,10 @@ public:
 	// Write a Tipsy file
 	void writeTipsy(const std::string& filename, const double dTime,
 			const double dvFac);
+	// Find position in the file to start writing
 	void setupWrite(int iStage, int64_t iPrevOffset,
 			const std::string& filename, const double dTime,
-			const double dvFac);
+			const double dvFac, const CkCallback& cb);
 	/** Inform the DataManager of my node that I'm here.
 	 The callback will receive a CkReductionMsg containing no data.
 	void registerWithDataManager(const CkGroupID& dataManagerID,
