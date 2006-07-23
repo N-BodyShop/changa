@@ -100,6 +100,35 @@ void prmArgUsage(PRM prm)
 	if (prm->fcnTrailer) (*prm->fcnTrailer)();
 	}
 
+void prmLogParam(PRM prm, char *pszFile)
+{
+    FILE *fpLog;
+    PRM_NODE *pn;
+    
+    fpLog = fopen(pszFile,"a");
+    if(fpLog == NULL) {
+	fprintf(stderr, "prmLogParam: Can't open file %s\n", pszFile);
+	return;
+	}
+    
+    fprintf(fpLog, "# Parameters:\n");
+    pn = prm->pnHead;
+    while (pn) {
+	switch (pn->iType) {
+	case 0:
+	case 1:
+	    fprintf(fpLog, "# %s: %d\n", pn->pszName, *((int *)pn->pValue));
+	    break;
+	case 2:
+	    fprintf(fpLog, "# %s: %g\n", pn->pszName, *((double *)pn->pValue));
+	    break;
+	case 3:
+	    fprintf(fpLog, "# %s: %s\n", pn->pszName, (char *)pn->pValue);
+	    }
+	pn = pn->pnNext;
+	}
+    fclose(fpLog);
+    }
 
 int prmParseParam(PRM prm,char *pszFile)
 {
