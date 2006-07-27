@@ -289,6 +289,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
         rt->getChunks(numKeys,nodeKeys);
         delete rt;
       }
+      wbState = new WeightBalanceState<int>();
       //Convert the Node Keys to the splitter keys which will be sent to histogram
       convertNodesToSplitters(numKeys,nodeKeys);
       break;
@@ -308,7 +309,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
 
 	//send out the first guesses to be evaluated
   if(domainDecomposition!=ORB_dec){
-    dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+    dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
   }
 }
 
@@ -331,6 +332,37 @@ void Sorter::convertNodesToSplitters(int num, NodeKey* nodeKeys){
   // FILIPPO: no, by construction they must be ordered already!
   //sort(splitters.begin(),splitters.end());
   splitters.push_back(lastPossibleKey);
+}
+
+void Sorter::convertNodesToSplittersRefine(int num, NodeKey* nodeKeys){
+  Key partKey;
+  Key nextKey;
+  Key lastKey;
+
+  splitters.clear();
+  splitters.reserve(num * 4);
+  const Key mask = Key(1) << 63;
+  for(unsigned int i=0;i<num;i++){
+    partKey=Key(nodeKeys[i]<<1);
+    nextKey=partKey+1;
+    lastKey=nextKey+1;
+    while(!(partKey & mask)){
+      partKey <<= 1;
+      nextKey <<= 1;
+      lastKey <<= 1;
+    }
+    partKey &= ~mask;
+    nextKey &= ~mask;
+    lastKey &= ~mask;
+    splitters.push_back(partKey);
+    splitters.push_back(nextKey);
+    splitters.push_back(nextKey);
+    splitters.push_back(lastKey);
+  }
+  //Sort here to make sure that splitters go sorted to histogramming
+  //They might be unsorted here due to sorted or unsorted node keys
+  // FILIPPO: no, by construction they must be ordered already!
+  //sort(splitters.begin(),splitters.end());
 }
 
 void Sorter::convertNodesToSplittersNoZeros(int num, NodeKey* nodeKeys, CkVec<int> &zero){
@@ -393,7 +425,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   if(verbosity>=3){
     std::vector<unsigned int>::iterator iter;
     int i=0;
-    CkPrintf("Bin Counts in collect eval:");
+    CkPrintf("Bin Counts in collect eval (%d):",numCounts);
     //for(iter=binCounts.begin();iter!=binCounts.end();iter++,i++){
     for ( ; i<numCounts; i++) {
       CkPrintf("%d,",startCounts[i]);
@@ -403,10 +435,16 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     for(int j=0;j<numChares;j++)
       CkPrintf("%llx,",nodeKeys[j]);
     CkPrintf("\n");
+    if (nodesOpened.size() > 0) {
+      CkPrintf("Nodes opened (%d):",nodesOpened.size());
+      for (int j=0;j<nodesOpened.size();j++)
+        CkPrintf("%llx,",nodesOpened[j]);
+      CkPrintf("\n");
+    }
   }
   
   double startTimer = CmiWallTimer();
-  bool histogram=weightBalance<int>(nodeKeys,startCounts,numKeys,keysSize,numChares,&zeros);
+  bool histogram=weightBalance<int>(nodeKeys,startCounts,numKeys,keysSize,numChares,&zeros,&nodesOpened,wbState);
   //bool histogram=weightBalance<int>(nodeKeys,startCounts,numKeys,1);
   traceUserBracketEvent(weightBalanceUE, startTimer, CmiWallTimer());
 
@@ -419,8 +457,9 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     CkPrintf("\n");
   }
   if(histogram){
-    convertNodesToSplitters(numKeys,nodeKeys);
-    dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+    //convertNodesToSplitters(numKeys,nodeKeys);
+    convertNodesToSplittersRefine(nodesOpened.size(),nodesOpened.getVec());
+    dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), 1, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
   }
   else{
     sorted=true;
@@ -440,6 +479,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     numIterations = 0;
     sorted = false;
     //delete [] nodeKeys;
+    delete wbState;
     return;
   }
 }
@@ -506,9 +546,9 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 		keyBoundaries.push_back(lastPossibleKey);
 		
 		//send out all the decided keys to get final bin counts
-		dm.acceptCandidateKeys(&(*keyBoundaries.begin()), keyBoundaries.size(), CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+		dm.acceptCandidateKeys(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 	} else //send out the new guesses to be evaluated
-		dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+		dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 }
 
 /** Generate new guesses for splitter keys based on the histograms that came

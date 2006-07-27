@@ -65,6 +65,7 @@ mainmodule ParallelGravity {
 		
 		entry void acceptCandidateKeys(const SFC::Key keys[n],
 					       const int n,
+                                               int isRefine,
 					       const CkCallback& cb);
 		entry void acceptFinalKeys(const SFC::Key keys[n],
 					   const int responsible[n - 1],
@@ -93,7 +94,7 @@ mainmodule ParallelGravity {
 			const std::string& filename, const double dTime,
 			const double dvFac, const CkCallback& cb);
 		entry void assignKeys(CkReductionMsg* m);
-		entry void evaluateBoundaries(const CkCallback& cb);
+		entry void evaluateBoundaries(int isRefine, const CkCallback& cb);
 		entry void unshuffleParticles(CkReductionMsg* m);
 		entry void acceptSortedParticles(const GravityParticle particles[n],
 				   const int n);

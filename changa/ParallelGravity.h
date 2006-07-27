@@ -704,7 +704,7 @@ public:
 	 */
 	// Assign keys after loading tipsy file and finding Bounding box
 	void assignKeys(CkReductionMsg* m);
-	void evaluateBoundaries(const CkCallback& cb);
+	void evaluateBoundaries(int isRefine, const CkCallback& cb);
 	void unshuffleParticles(CkReductionMsg* m);
 	void acceptSortedParticles(const GravityParticle* particles,
 				   const int n);

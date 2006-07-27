@@ -786,14 +786,14 @@ void TreePiece::registerWithDataManager(const CkGroupID& dataManagerID, const Ck
 
 /// Determine my part of the sorting histograms by counting the number
 /// of my particles in each bin
-void TreePiece::evaluateBoundaries(const CkCallback& cb) {
+void TreePiece::evaluateBoundaries(int isRefine, const CkCallback& cb) {
   if (dm == NULL) {
     dm = (CProxy_DataManager(dataManagerID)).ckLocalBranch();
   }
 
   double startTimer = CmiWallTimer();
 
-	int numBins = dm->boundaryKeys.size() - 1;
+	int numBins = isRefine ? dm->boundaryKeys.size() / 2 : dm->boundaryKeys.size() - 1;
 	//this array will contain the number of particles I own in each bin
 	//myBinCounts.assign(numBins, 0);
         myBinCounts.resize(numBins);
@@ -807,8 +807,12 @@ void TreePiece::evaluateBoundaries(const CkCallback& cb) {
 	//vector<int>::iterator binIter = myBinCounts.begin();
 	//vector<Key>::iterator keyIter = dm->boundaryKeys.begin();
         vector<Key>::iterator keyIter = lower_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), binBegin->key);
-        int binIter = &(*keyIter) - &(*dm->boundaryKeys.begin()) - 1;
-	for( ; keyIter != endKeys; ++keyIter, ++binIter) {
+        int binIter = isRefine ?
+          (&(*keyIter) - &(*dm->boundaryKeys.begin())) / 2:
+          &(*keyIter) - &(*dm->boundaryKeys.begin()) - 1;
+        int change = 1;
+        if (isRefine && !((&(*keyIter) - &(*dm->boundaryKeys.begin())) & 1)) change = 0;
+	for( ; keyIter != endKeys; ++keyIter) {
 		dummy.key = *keyIter;
 		/// find the last place I could put this splitter key in
 		/// my array of particles
@@ -816,10 +820,14 @@ void TreePiece::evaluateBoundaries(const CkCallback& cb) {
 				     dummy);
 		/// this tells me the number of particles between the
 		/// last two splitter keys
-		myCounts[binIter] = (binEnd - binBegin);
+                if (change) {
+                  myCounts[binIter] = (binEnd - binBegin);
+                  ++binIter;
+                }
 		if(&myParticles[myNumParticles+1] <= binEnd)
 			break;
 		binBegin = binEnd;
+                if (isRefine) change ^= 1;
 	}
 
         traceUserBracketEvent(boundaryEvaluationUE, startTimer, CmiWallTimer());

@@ -16,7 +16,7 @@ DataManager::DataManager(const CkArrayID& treePieceID) {
 	localCache = NULL;
 	//interp = 0;
 }
-void DataManager::acceptCandidateKeys(const SFC::Key* keys, const int n, const CkCallback& cb) {
+void DataManager::acceptCandidateKeys(const SFC::Key* keys, const int n, int isRefine, const CkCallback& cb) {
   if (localCache == NULL) {
     localCache = cacheManagerProxy.ckLocalBranch();
   }
@@ -25,7 +25,7 @@ void DataManager::acceptCandidateKeys(const SFC::Key* keys, const int n, const C
 	//tell the TreePieces on this node to evaluate the splitter keys
 	map<int,GenericTreeNode*> *myTreePieces = localCache->getRegisteredChares();
 	for(map<int,GenericTreeNode*>::iterator iter = myTreePieces->begin(); iter != myTreePieces->end(); ++iter)
-		treePieces[iter->first].evaluateBoundaries(cb);
+		treePieces[iter->first].evaluateBoundaries(isRefine, cb);
 }
 
 void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb) {

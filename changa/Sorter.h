@@ -72,6 +72,10 @@ class Sorter : public Chare {
 	
         /// The weights for all the keys returned by the weightBalance routine
         CkVec<int> zeros;
+        /// The list of nodes opened by the last invocation of weightBalance
+        CkVec<NodeKey> nodesOpened;
+        /// The transient state used by the weightBalance routine
+        WeightBalanceState<int>* wbState;
 
   //double curDivision;
   //int curDim;
@@ -103,6 +107,7 @@ public:
 	 */
 	void startSorting(const CkGroupID& dataManagerID, const int nChares, const double toler, const CkCallback& cb);
 	void convertNodesToSplitters(int num, NodeKey* nodeKeys);
+	void convertNodesToSplittersRefine(int num, NodeKey* nodeKeys);
 	void convertNodesToSplittersNoZeros(int num, NodeKey* nodeKeys, CkVec<int> &zero);
 	void collectEvaluations(CkReductionMsg* m);
 	void collectEvaluationsSFC(CkReductionMsg* m);
