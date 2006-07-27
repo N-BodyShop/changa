@@ -35,6 +35,7 @@ int _randChunks;
 
 int boundaryEvaluationUE;
 int weightBalanceUE;
+int networkProgressUE;
 
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
@@ -62,6 +63,7 @@ Main::Main(CkArgMsg* m) {
 
         boundaryEvaluationUE = traceRegisterUserEvent("Evaluating Boudaries");
         weightBalanceUE = traceRegisterUserEvent("Weight Balancer");
+        networkProgressUE = traceRegisterUserEvent("CmiNetworkProgress");
 	
 	prmInitialize(&prm,_Leader,_Trailer);
 	csmInitialize(&param.csm);

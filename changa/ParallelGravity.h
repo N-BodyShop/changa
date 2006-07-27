@@ -60,6 +60,7 @@ extern CkGroupID dataManagerID;
 
 extern int boundaryEvaluationUE;
 extern int weightBalanceUE;
+extern int networkProgressUE;
 
 extern int _prefetch;
 extern int _randChunks;

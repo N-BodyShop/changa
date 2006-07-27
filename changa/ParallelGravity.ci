@@ -23,6 +23,7 @@ mainmodule ParallelGravity {
 
         readonly int boundaryEvaluationUE;
         readonly int weightBalanceUE;
+        readonly int networkProgressUE;
 
 	//message piecedata;
 	message dummyMsg;
