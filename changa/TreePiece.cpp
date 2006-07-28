@@ -2194,6 +2194,7 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
     //BucketGravityRequest& req = bucketReqs[bucketIndex];
     for(int k=0;k<=curLevelLocal;k++){
       nodeInterLocal += cellListLocal[k].length()*bucketList[bucketIndex]->particleCount;
+      double startTimer = CmiWallTimer();
       for(cellListIter=0;cellListIter<cellListLocal[k].length();cellListIter++){
         OffsetNode tmp = cellListLocal[k][cellListIter];
 #if COSMO_DEBUG > 1
@@ -2205,6 +2206,8 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
       }
 
       LocalPartInfo pinfo;
+      double newtTimer = CmiWallTimer();
+      traceUserBracketEvent(nodeForceUE, startTimer, newTimer);
       for(partListIter=0;partListIter<particleListLocal[k].length();partListIter++){
         pinfo = particleListLocal[k][partListIter];
 #if COSMO_DEBUG > 1
@@ -2216,6 +2219,7 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
           partBucketForce(&pinfo.particles[j], bucketList[bucketIndex], myParticles, pinfo.offset);
         }
       }
+      traceUserBracketEvent(partForceUE, newTimer, CmiWallTimer());
     }
 
     bucketReqs[bucketIndex].finished = 1;
@@ -2231,6 +2235,7 @@ void TreePiece::calculateForceRemoteBucket(int bucketIndex, int chunk){
   //BucketGravityRequest& req = bucketReqs[bucketIndex];
   for(int k=0;k<=curLevelRemote;k++){
     nodeInterRemote[chunk] += cellList[k].length()*bucketList[bucketIndex]->particleCount;
+    double startTimer = CmiWallTimer();
     for(cellListIter=0;cellListIter<cellList[k].length();cellListIter++){
       OffsetNode tmp= cellList[k][cellListIter];
 #if COSMO_DEBUG > 1
@@ -2240,6 +2245,8 @@ void TreePiece::calculateForceRemoteBucket(int bucketIndex, int chunk){
       nodeBucketForce(tmp.node, bucketList[bucketIndex], myParticles,
 		      decodeOffset(tmp.offsetID));
     }
+    double newtTimer = CmiWallTimer();
+    traceUserBracketEvent(nodeForceUE, startTimer, newTimer);
     for(partListIter=0;partListIter<particleList[k].length();partListIter++){
       RemotePartInfo pinfo = particleList[k][partListIter];
 #if COSMO_DEBUG > 1
@@ -2252,6 +2259,7 @@ void TreePiece::calculateForceRemoteBucket(int bucketIndex, int chunk){
 			myParticles, pinfo.offset);
       }
     }
+    traceUserBracketEvent(partForceUE, newTimer, CmiWallTimer());
   }
 
   bucketReqs[bucketIndex].numAdditionalRequests--;
@@ -3181,7 +3189,9 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, int reqID) {
 #if COSMO_PRINT > 0
   if (node->getKey() < numChunks) CkPrintf("[%d] walk: computing %016llx\n",thisIndex,node->getKey());
 #endif
+  double startTimer = CmiWallTimer();
     nodeBucketForce(node, reqnode, myParticles, offset);
+    traceUserBracketEvent(nodeForceUE, startTimer, CmiWallTimer());
   } else if(node->getType() == Bucket) {
     particleInterLocal += reqnode->particleCount * (node->lastParticle - node->firstParticle + 1);
     for(int i = node->firstParticle; i <= node->lastParticle; ++i) {
@@ -3196,8 +3206,10 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, int reqID) {
       CkPrintf("[%d] walk bucket %s -> part %016llx\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),node->particlePointer[i-node->firstParticle].key);
 #endif
       //partBucketForce(&myParticles[i], req);
+      double startTimer = CmiWallTimer();
       partBucketForce(&node->particlePointer[i-node->firstParticle], reqnode,
 		      myParticles, offset);
+      traceUserBracketEvent(partForceUE, startTimer, CmiWallTimer());
     }
 #if COSMO_DEBUG > 1
   bucketcheckList[reqIDlist].insert(node->getKey());
@@ -3528,7 +3540,9 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, int chunk, int reqID
   bucketcheckList[reqIDlist].insert(node->getKey());
   combineKeys(node->getKey(),reqIDlist);
 #endif
+  double startTimer = CmiWallTimer();
     nodeBucketForce(node, reqnode, myParticles, offset);
+    traceUserBracketEvent(nodeForceUE, startTimer, CmiWallTimer());
   } else if(node->getType() == CachedBucket || node->getType() == Bucket || node->getType() == NonLocalBucket) {
     /*
      * Sending the request for all the particles at one go, instead of one by one
@@ -3547,8 +3561,10 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, int chunk, int reqID
 #if COSMO_PRINT > 1
 	CkPrintf("[%d] cachedwalk bucket %s -> part %016llx\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),part[i-node->firstParticle].key);
 #endif
+        double startTimer = CmiWallTimer();
 	partBucketForce(&part[i-node->firstParticle], reqnode, myParticles,
 			offset);
+        traceUserBracketEvent(partForceUE, startTimer, CmiWallTimer());
       }
 #if COSMO_DEBUG > 1
       bucketcheckList[reqIDlist].insert(node->getKey());
@@ -3779,7 +3795,9 @@ void TreePiece::receiveParticles(ExternalGravityParticle *part,int num,int chunk
 #if COSMO_PRINT > 1
     CkPrintf("[%d] recvPart bucket %s -> part %016llx\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),part->key);
 #endif
+    double startTimer = CmiWallTimer();
     partBucketForce(&part[i], reqnode, myParticles, offset);
+    traceUserBracketEvent(partForceUE, startTimer, CmiWallTimer());
   }
 #if COSMO_DEBUG > 1
   /*

@@ -36,6 +36,8 @@ int _randChunks;
 int boundaryEvaluationUE;
 int weightBalanceUE;
 int networkProgressUE;
+int nodeForceUE;
+int partForceUE;
 
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
