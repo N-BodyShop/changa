@@ -2245,7 +2245,7 @@ void TreePiece::calculateForceRemoteBucket(int bucketIndex, int chunk){
       nodeBucketForce(tmp.node, bucketList[bucketIndex], myParticles,
 		      decodeOffset(tmp.offsetID));
     }
-    double newtTimer = CmiWallTimer();
+    double newTimer = CmiWallTimer();
     traceUserBracketEvent(nodeForceUE, startTimer, newTimer);
     for(partListIter=0;partListIter<particleList[k].length();partListIter++){
       RemotePartInfo pinfo = particleList[k][partListIter];
