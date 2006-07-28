@@ -2206,7 +2206,7 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
       }
 
       LocalPartInfo pinfo;
-      double newtTimer = CmiWallTimer();
+      double newTimer = CmiWallTimer();
       traceUserBracketEvent(nodeForceUE, startTimer, newTimer);
       for(partListIter=0;partListIter<particleListLocal[k].length();partListIter++){
         pinfo = particleListLocal[k][partListIter];
