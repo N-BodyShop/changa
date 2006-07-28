@@ -66,6 +66,8 @@ Main::Main(CkArgMsg* m) {
         boundaryEvaluationUE = traceRegisterUserEvent("Evaluating Boudaries");
         weightBalanceUE = traceRegisterUserEvent("Weight Balancer");
         networkProgressUE = traceRegisterUserEvent("CmiNetworkProgress");
+        nodeForceUE = traceRegisterUserEvent("Node interaction");
+        partForceUE = traceRegisterUserEvent("Particle interaction");
 	
 	prmInitialize(&prm,_Leader,_Trailer);
 	csmInitialize(&param.csm);
