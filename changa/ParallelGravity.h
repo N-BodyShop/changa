@@ -187,6 +187,7 @@ class FillNodeMsg : public CMessage_FillNodeMsg {
   FillNodeMsg(int index) : owner(index) { }
 };
 
+
 class ORBSplittersMsg : public CMessage_ORBSplittersMsg{
 public:
 	int length;
@@ -642,7 +643,6 @@ public:
 	
 	TreePiece(CkMigrateMessage* m) {
 	  usesAtSync = CmiTrue;
-          splitters = NULL;
 	  localCache = NULL;
 	  bucketReqs = NULL;
 	  prefetchRoots = NULL;
@@ -654,6 +654,7 @@ public:
 	}
 
 	~TreePiece() {
+	  if (verbosity>1) ckout <<"Deallocating treepiece "<<thisIndex<<endl;
 	  delete[] myParticles;
 	  delete[] splitters;
 	  //delete[] prefetchRoots;
@@ -668,7 +669,6 @@ public:
 	    root->fullyDelete();
 	    delete root;
 	  }
-	  if(ewt) free(ewt);
 
 #if INTERLIST_VER > 0
     cellList.free();
@@ -678,6 +678,7 @@ public:
     checkListLocal.free();
     checkList.free();
 #endif
+          if (verbosity>1) ckout <<"Finished deallocation of treepiece "<<thisIndex<<endl;
 	}
 	
 	void setPeriodic(int nReplicas, double fPeriod, int bEwald,
