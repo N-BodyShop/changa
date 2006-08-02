@@ -29,9 +29,12 @@ unsigned int _yieldPeriod;
 DomainsDec domainDecomposition;
 GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
+CProxy_CacheManager streamingCache;
 int _prefetch;
 int _numChunks;
 int _randChunks;
+
+ComlibInstanceHandle cinst1, cinst2;
 
 int boundaryEvaluationUE;
 int weightBalanceUE;
@@ -87,7 +90,7 @@ Main::Main(CkArgMsg* m) {
 		    sizeof(int),"oi", "Output Interval");
 	param.iLogInterval = 1;
 	prmAddParam(prm, "iLogInterval", paramInt, &param.iLogInterval,
-		    sizeof(int),"n", "Log Interval");
+		    sizeof(int),"log", "Log Interval");
 	prmAddParam(prm, "dSoftening", paramDouble, &param.dSoft,
 		    sizeof(double),"S", "Gravitational softening");
 	theta = 0.7;
@@ -271,12 +274,17 @@ Main::Main(CkArgMsg* m) {
 	dataManagerID = dataManager;
 
 	streamingProxy = pieces;
+        streamingCache = cacheManagerProxy;
 
 	//create the Sorter
 	sorter = CProxy_Sorter::ckNew();
 
-	//StreamingStrategy* strategy = new StreamingStrategy(10,50);
+	StreamingStrategy* strategy = new StreamingStrategy(10,50);
+        cinst1 = ComlibRegister(strategy);
 	//ComlibAssociateProxy(strategy, streamingProxy);
+        strategy = new StreamingStrategy(10,50);
+        cinst2 = ComlibRegister(strategy);
+        //ComlibAssociateProxy(strategy, streamingCache);
 
 	if(verbosity)
 	  ckerr << "Created " << numTreePieces << " pieces of tree" << endl;

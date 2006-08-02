@@ -9,6 +9,7 @@ mainmodule ParallelGravity {
 	readonly int verbosity;
 	readonly CProxy_TreePiece treeProxy;
 	readonly CProxy_TreePiece streamingProxy;
+	readonly CProxy_CacheManager streamingCache;
 	readonly bool _cache;
 	readonly int _nocache;
 	readonly int _cacheLineDepth;
@@ -20,6 +21,9 @@ mainmodule ParallelGravity {
 	readonly int _numChunks;
 	readonly CkArrayID treePieceID;
 	readonly CkGroupID dataManagerID;
+
+        readonly ComlibInstanceHandle cinst1;
+        readonly ComlibInstanceHandle cinst2;
 
         readonly int boundaryEvaluationUE;
         readonly int weightBalanceUE;

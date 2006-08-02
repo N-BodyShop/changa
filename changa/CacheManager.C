@@ -5,6 +5,8 @@
 
 CProxy_CacheManager cacheManagerProxy;
 extern CProxy_TreePiece treeProxy;
+extern CProxy_TreePiece streamingProxy;
+extern CProxy_CacheManager streamingCache;
 //CpvDeclare(CProxy_TreePiece,streamingTreeProxy);
 extern int _cacheLineDepth;
 extern int _nocache;
@@ -28,7 +30,7 @@ inline void NodeCacheEntry::sendRequest(int reqID){
   RequestNodeMsg *msg = new (32) RequestNodeMsg(CkMyPe(),_cacheLineDepth,requestID,reqID);
   *(int*)CkPriorityPtr(msg) = -110000000; 
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
-  treeProxy[home].fillRequestNode(msg);
+  streamingProxy[home].fillRequestNode(msg);
   //	CpvAccess(streamingTreeProxy)[home].fillRequestNode(CkMyPe(),requestNodeID,*req);
 };
 
@@ -37,7 +39,7 @@ inline void ParticleCacheEntry::sendRequest(int reqID){
   RequestParticleMsg *msg = new (32) RequestParticleMsg(CkMyPe(),begin,end,requestID,reqID);
   *(int*)CkPriorityPtr(msg) = -100000000;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
-  treeProxy[home].fillRequestParticles(msg);
+  streamingProxy[home].fillRequestParticles(msg);
   //treeProxy[home].fillRequestParticles(requestID,CkMyPe(),begin,end,req->identifier);
   //	CpvAccess(streamingTreeProxy)[home].fillRequestParticles(requestNodeID,CkMyPe(),begin,end,*req);
 };
@@ -688,6 +690,11 @@ int CacheManager::createLookupRoots(GenericTreeNode *node, Tree::NodeKey *keys) 
 #endif
 
 void CacheManager::cacheSync(double theta, const CkCallback& cb) {
+  if (iterationNo == 0) {
+    if (CkMyPe() == 0) ckerr << "Associating comlib strategies" << endl;
+    ComlibAssociateProxy(&cinst1, streamingProxy);
+    ComlibAssociateProxy(&cinst2, streamingCache);
+  }
   //if(iter > iterationNo){
   iterationNo++;
   /*map<MapKey,NodeCacheEntry *>::iterator p;

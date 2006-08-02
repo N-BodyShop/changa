@@ -55,6 +55,8 @@ extern DomainsDec domainDecomposition;
 extern GenericTrees useTree;
 extern CProxy_TreePiece streamingProxy;
 
+extern ComlibInstanceHandle cinst1, cinst2;
+
 /// The group ID of your DataManager.  You must set this!
 extern CkGroupID dataManagerID;
 
