@@ -690,11 +690,13 @@ int CacheManager::createLookupRoots(GenericTreeNode *node, Tree::NodeKey *keys) 
 #endif
 
 void CacheManager::cacheSync(double theta, const CkCallback& cb) {
+#ifdef COSMO_COMLIB
   if (iterationNo == 0) {
     if (CkMyPe() == 0) ckerr << "Associating comlib strategies" << endl;
     ComlibAssociateProxy(&cinst1, streamingProxy);
     ComlibAssociateProxy(&cinst2, streamingCache);
   }
+#endif
   //if(iter > iterationNo){
   iterationNo++;
   /*map<MapKey,NodeCacheEntry *>::iterator p;
