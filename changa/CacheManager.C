@@ -836,7 +836,9 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
 #endif
 
   // call the gravitational computation utility of each local chare element
+  if (verbosity>1) CkPrintf("[%d] calling startIteration on %d elements\n",CkMyPe(),registeredChares.size());
   for (iter = registeredChares.begin(); iter != registeredChares.end(); iter++) {
+    if (verbosity>1) CkPrintf("[%d] calling startIteration on element %d\n",CkMyPe(),iter->first);
     TreePiece *p = treeProxy[iter->first].ckLocal();
     CkAssert(p != NULL);
     p->startIteration(theta, numChunks, prefetchRoots, cb);
