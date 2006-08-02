@@ -733,30 +733,32 @@ void CacheManager::cacheSync(double theta, const CkCallback& cb) {
 #ifdef CACHE_TREE
   // build a local tree inside the cache. This will be an exact superset of all
   // the trees in this processor. Only the minimum number of nodes is duplicated
+  if (registeredChares.size() > 0) {
 #if COSMO_DEBUG > 0
-  char fout[100];
-  sprintf(fout,"cache.%d.%d",CkMyPe(),iterationNo);
-  ofs = new ofstream(fout);
+    char fout[100];
+    sprintf(fout,"cache.%d.%d",CkMyPe(),iterationNo);
+    ofs = new ofstream(fout);
 #endif
-  GenericTreeNode **gtn = new GenericTreeNode*[registeredChares.size()];
-  for (i=0, iter = registeredChares.begin(); iter != registeredChares.end(); iter++, ++i) {
-    gtn[i] = iter->second;
+    GenericTreeNode **gtn = new GenericTreeNode*[registeredChares.size()];
+    for (i=0, iter = registeredChares.begin(); iter != registeredChares.end(); iter++, ++i) {
+      gtn[i] = iter->second;
 #if COSMO_DEBUG > 0
-    *ofs << "registered "<<iter->first<<endl;
+      *ofs << "registered "<<iter->first<<endl;
+#endif
+    }
+    // delete old tree
+    NodeLookupType::iterator nodeIter;
+    for (nodeIter = nodeLookupTable.begin(); nodeIter != nodeLookupTable.end(); nodeIter++) {
+      delete nodeIter->second;
+    }
+    nodeLookupTable.clear();
+    root = buildProcessorTree(registeredChares.size(), gtn);
+#if COSMO_DEBUG > 0
+    printTree(root,*ofs);
+    ofs->close();
+    delete ofs;
 #endif
   }
-  // delete old tree
-  NodeLookupType::iterator nodeIter;
-  for (nodeIter = nodeLookupTable.begin(); nodeIter != nodeLookupTable.end(); nodeIter++) {
-    delete nodeIter->second;
-  }
-  nodeLookupTable.clear();
-  root = buildProcessorTree(registeredChares.size(), gtn);
-#if COSMO_DEBUG > 0
-  printTree(root,*ofs);
-  ofs->close();
-  delete ofs;
-#endif
 #endif
 
   if (_nocache) {
