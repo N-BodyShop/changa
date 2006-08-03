@@ -743,7 +743,7 @@ public:
 
 	/// Request the TreePiece to send back later the moments for this node.
 	void requestRemoteMoments(const Tree::NodeKey key, int sender);
-	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments);
+	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments, const OrientedBox<double>& box);
 
 	/// Decide whether the node should be opened for the force computation
 	/// of the given request.

@@ -1158,7 +1158,7 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
     iter++;
     if (node->getType() == Empty || node->moments.totalMass > 0) {
       for (int i=0; i<l->length(); ++i) {
-	streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(), node->firstParticle, node->particleCount, node->moments);
+	streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox);
 	//CkPrintf("[%d] sending moments of %s to %d upon treebuild finished\n",thisIndex,keyBits(node->getKey(),63).c_str(),(*l)[i]);
       }
       delete l;
@@ -1382,7 +1382,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
     iter++;
     if (node->getType() == Empty || node->moments.totalMass > 0) {
       for (int i=0; i<l->length(); ++i) {
-	streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(), node->firstParticle, node->particleCount, node->moments);
+	streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox);
 	//CkPrintf("[%d] sending moments of %s to %d upon treebuild finished\n",thisIndex,keyBits(node->getKey(),63).c_str(),(*l)[i]);
       }
       delete l;
@@ -1473,6 +1473,7 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
   CkAssert(node->getType() == Boundary || node->getType() == Internal);
   
   node->makeOctChildren(myParticles, myNumParticles, level);
+  node->boundingBox.reset();
 
   GenericTreeNode *child;
   for (unsigned int i=0; i<node->numChildren(); ++i) {
@@ -1510,7 +1511,10 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
       child->startBucket=numBuckets;
 #endif
       numBuckets++;
-      if (node->getType() != Boundary) node->moments += child->moments;
+      if (node->getType() != Boundary) {
+        node->moments += child->moments;
+        node->boundingBox.grow(child->boundingBox);
+      }
     } else if (child->getType() == Empty) {
       child->remoteIndex = thisIndex;
     } else {
@@ -1521,7 +1525,10 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
       // before we can compute the multipole of the current node (and we'll do
       // it in receiveRemoteMoments)
       if (child->getType() == Boundary) node->remoteIndex --;
-      if (node->getType() != Boundary) node->moments += child->moments;
+      if (node->getType() != Boundary) {
+        node->moments += child->moments;
+        node->boundingBox.grow(child->boundingBox);
+      }
     }
   }
 
@@ -1535,7 +1542,7 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
 void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
   GenericTreeNode *node = keyToNode(key);
   if (node != NULL && (node->getType() == Empty || node->moments.totalMass > 0)) {
-    streamingProxy[sender].receiveRemoteMoments(key, node->getType(), node->firstParticle, node->particleCount, node->moments);
+    streamingProxy[sender].receiveRemoteMoments(key, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox);
     //CkPrintf("[%d] sending moments of %s to %d directly\n",thisIndex,keyBits(node->getKey(),63).c_str(),sender);
   } else {
     CkVec<int> *l = momentRequests[key];
@@ -1549,7 +1556,7 @@ void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
   }
 }
 
-void TreePiece::receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments) {
+void TreePiece::receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments, const OrientedBox<double>& box) {
   GenericTreeNode *node = keyToNode(key);
   CkAssert(node != NULL);
   //CkPrintf("[%d] received moments for %s\n",thisIndex,keyBits(key,63).c_str());
@@ -1563,6 +1570,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType typ
     }
     node->particleCount = numParticles;
     node->moments = moments;
+    node->boundingBox = box;
   }
   // look if we can compute the moments of some ancestors, and eventually send
   // them to a requester
@@ -1577,6 +1585,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType typ
       child = parent->getChildren(i);
       parent->particleCount += child->particleCount;
       parent->moments += child->moments;
+      parent->boundingBox.grow(child->boundingBox);
     }
     calculateRadiusFarthestCorner(parent->moments, parent->boundingBox);
     // check if someone has requested this node
@@ -1584,7 +1593,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType typ
     if ((iter = momentRequests.find(parent->getKey())) != momentRequests.end()) {
       CkVec<int> *l = iter->second;
       for (int i=0; i<l->length(); ++i) {
-	streamingProxy[(*l)[i]].receiveRemoteMoments(parent->getKey(), parent->getType(), parent->firstParticle, parent->particleCount, parent->moments);
+	streamingProxy[(*l)[i]].receiveRemoteMoments(parent->getKey(), parent->getType(), parent->firstParticle, parent->particleCount, parent->moments, parent->boundingBox);
 	//CkPrintf("[%d] sending moments of %s to %d\n",thisIndex,keyBits(parent->getKey(),63).c_str(),(*l)[i]);
       }
       delete l;

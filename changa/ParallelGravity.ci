@@ -127,7 +127,7 @@ mainmodule ParallelGravity {
 		//entry void acceptBoundaryNodeContribution(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
 		//entry void acceptBoundaryNode(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
 		entry [inline] void requestRemoteMoments(Tree::NodeKey key, int sender);
-		entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, MultipoleMoments& moments);
+		entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, MultipoleMoments& moments, OrientedBox<double>& box);
 		
 		//entry void calculateGravityDirect(const CkCallback& cb);
 		//entry void fillRequestDirect(GravityRequest req);
