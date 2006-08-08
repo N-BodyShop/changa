@@ -275,8 +275,8 @@ public:
  * be set to 1. This bit correponds to the rung the particle belongs to. Bit 0
  * represents the fastest timestep, bit 1 the second fastest, and so on.
  */
-int getNewRung(GravityParticle *part) {
+int getNewRung(GravityParticle *part);/* {
   return 1;
-}
+  }*/
 
 #endif
