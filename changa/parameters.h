@@ -11,6 +11,7 @@ typedef struct parameters {
     int nSteps;
     int iStartStep;
     double dTimeStep;
+    double dEta;
     int bPeriodic;
     int nReplicas;
     double fPeriod;

@@ -207,11 +207,7 @@ class GravityParticle : public ExternalGravityParticle {
 public:
 
 	SFC::Key key;
-	//double mass;
-	//double soft;
-	//Vector3D<double> position;
 	Vector3D<double> velocity;
-	//Vector3D<double> acceleration;
 	Vector3D<double> treeAcceleration;
 	double potential;
 	int iOrder;		/* input order of particles */
@@ -257,10 +253,7 @@ public:
 	void pup(PUP::er &p) {
           ExternalGravityParticle::pup(p);
           p | key;
-          //p | position;
           p | velocity;
-          //p | mass;
-          //p | soft;
           p | iOrder;
           p | rung;
         }

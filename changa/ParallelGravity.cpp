@@ -84,13 +84,16 @@ Main::Main(CkArgMsg* m) {
 	param.iStartStep = 0;
 	prmAddParam(prm, "iStartStep", paramInt, &param.iStartStep,
 		    sizeof(int),"nstart", "Initial step numbering");
-	param.dSoft = 0.0;
+	param.dEta = 0.03;
+	prmAddParam(prm, "dEta", paramDouble, &param.dEta,
+		    sizeof(double),"eta", "Time integration accuracy");
 	param.iOutInterval = 10;
 	prmAddParam(prm, "iOutInterval", paramInt, &param.iOutInterval,
 		    sizeof(int),"oi", "Output Interval");
 	param.iLogInterval = 1;
 	prmAddParam(prm, "iLogInterval", paramInt, &param.iLogInterval,
 		    sizeof(int),"log", "Log Interval");
+	param.dSoft = 0.0;
 	prmAddParam(prm, "dSoftening", paramDouble, &param.dSoft,
 		    sizeof(double),"S", "Gravitational softening");
 	theta = 0.7;
@@ -297,40 +300,11 @@ void Main::niceExit() {
   if (++count == numTreePieces) CkExit();
 }
 
-void Main::nextStage() {
-	double startTime;
-	double tolerance = 0.01;	// tolerance for domain decomposition
-	
-	//piecedata *totaldata = new piecedata;
-	
-	// DEBUGGING
-	//CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),pieces));
+/// Function to determine the start time of the simulation.
+/// Modifies dTime member of main.
 
-	//pieces.registerWithDataManager(dataManager, CkCallbackResumeThread());
-	pieces.setPeriodic(param.nReplicas, param.fPeriod, param.bEwald,
-			   param.dEwCut, param.bPeriodic);
-
-	/******** Particles Loading ********/
-	ckerr << "Loading particles ...";
-	startTime = CkWallTimer();
-	pieces.load(basefilename, CkCallbackResumeThread());
-	if(!(pieces[0].ckLocal()->bLoaded)) {
-	    // Try loading Tipsy format
-	    ckerr << " trying Tipsy ..." << endl;
-	    
-	    Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
-	    if(!ptf.loadedSuccessfully()) {
-	      ckerr << endl << "Couldn't load the tipsy file \""
-		    << basefilename.c_str()
-		    << "\". Maybe it's not a tipsy file?" << endl;
-	      CkExit();
-	      return;
-	    }
-	    pieces.loadTipsy(basefilename, CkCallbackResumeThread());
-	}	
-	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
-	      << endl;
-
+void Main::getStartTime() 
+{
 	// Grab starting time.
 	if(param.csm->bComove) {
 	    if(param.csm->dHubble0 == 0.0) {
@@ -436,7 +410,99 @@ void Main::nextStage() {
 		ckout << "Simulation to Time:" << tTo << endl;
 		}
 	    }
+    }
+    
+void Main::gravity(int iStep, int iKickRung)
+{
+	double tolerance = 0.01;	// tolerance for domain decomposition
+
+	/***** Resorting of particles and Domain Decomposition *****/
+	ckerr << "Domain decomposition ...";
+	double startTime = CkWallTimer();
+	sorter.startSorting(dataManager, numTreePieces, tolerance,
+			    CkCallbackResumeThread());
+	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+	      << endl;
+
+	if (iStep > 0) {
+	    /********* Load balancer ********/
+	    ckerr << "Load balancer ...";
+	    startTime = CkWallTimer();
+	    pieces.startlb(CkCallbackResumeThread());
+	    ckerr<< " took "<<(CkWallTimer() - startTime) << " seconds."
+		 << endl;
+	    }
+
+	/******** Tree Build *******/
+	ckerr << "Building trees ...";
+	startTime = CkWallTimer();
+	pieces.buildTree(bucketSize, CkCallbackResumeThread());
+	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+	      << endl;
+
+	/******** Force Computation ********/
+	ckerr << "Calculating gravity (tree bucket, theta = " << theta
+	      << ") ...";
+	startTime = CkWallTimer();
+	// Set up Ewald Tables
+	if(param.bPeriodic && param.bEwald)
+	    pieces.EwaldInit(param.dEwhCut);
+	//pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
+	cacheManagerProxy.cacheSync(theta, CkCallbackResumeThread());
+	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+	      << endl;
+
+#if COSMO_STATS > 0
+	  /********* TreePiece Statistics ********/
+	  ckerr << "Total statistics iteration " << iStep << ":" << endl;
+	  CkCallback cb(CkCallback::resumeThread);
+	  pieces.collectStatistics(cb);
+	  CkReductionMsg *tps = (CkReductionMsg *) cb.thread_delay();
+	  ((TreePieceStatistics*)tps->getData())->printTo(ckerr);
+
+	  /********* Cache Statistics ********/
+	  CkCallback ccb(CkCallback::resumeThread);
+	  cacheManagerProxy.collectStatistics(ccb);
+	  CkReductionMsg *cs = (CkReductionMsg *) ccb.thread_delay();
+	  ((CacheStatistics*)cs->getData())->printTo(ckerr);
+#endif
+    }
+
+void Main::nextStage() {
+	double startTime;
+	
+	//piecedata *totaldata = new piecedata;
+	
+	// DEBUGGING
+	//CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),pieces));
+
+	//pieces.registerWithDataManager(dataManager, CkCallbackResumeThread());
+	pieces.setPeriodic(param.nReplicas, param.fPeriod, param.bEwald,
+			   param.dEwCut, param.bPeriodic);
+
+	/******** Particles Loading ********/
+	ckerr << "Loading particles ...";
+	startTime = CkWallTimer();
+	pieces.load(basefilename, CkCallbackResumeThread());
+	if(!(pieces[0].ckLocal()->bLoaded)) {
+	    // Try loading Tipsy format
+	    ckerr << " trying Tipsy ..." << endl;
 	    
+	    Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
+	    if(!ptf.loadedSuccessfully()) {
+	      ckerr << endl << "Couldn't load the tipsy file \""
+		    << basefilename.c_str()
+		    << "\". Maybe it's not a tipsy file?" << endl;
+	      CkExit();
+	      return;
+	    }
+	    pieces.loadTipsy(basefilename, CkCallbackResumeThread());
+	}	
+	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+	      << endl;
+	    
+	getStartTime();
+	
 	char achLogFileName[MAXPATHLEN];
 	sprintf(achLogFileName, "%s.log", param.achOutName);
 	ofstream ofsLog(achLogFileName, ios_base::trunc);
@@ -454,85 +520,70 @@ void Main::nextStage() {
 	    pieces.drift(0.0, CkCallbackResumeThread());
 	    }
 	
-	for(int i=param.iStartStep; i<=param.nSteps; i++){
-	  /******** Resorting of particles and Domain Decomposition ********/
-	  ckerr << "Domain decomposition ...";
-	  startTime = CkWallTimer();
-	  sorter.startSorting(dataManager, numTreePieces, tolerance,
-			      CkCallbackResumeThread());
-	  ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
-		<< endl;
+	int iCurrMaxRung = 0;
+	
+	for(int iStep = param.iStartStep; iStep <= param.nSteps; iStep++){
+	    for(int iSubStep = 0; iSubStep < MAXSUBSTEPS;) {
+		// determine largest timestep that needs a kick
+		int iKickRung = SubstepsToRung(iSubStep);
 
-	  if (i > 0) {
-	    /********* Load balancer ********/
-	    ckerr << "Load balancer ...";
-	    startTime = CkWallTimer();
-	    pieces.startlb(CkCallbackResumeThread());
-	    ckerr<< " took "<<(CkWallTimer() - startTime)
-		 << " seconds." << endl;
-	  }
-	  
-    /******** Tree Build *******/
-	  ckerr << "Building trees ...";
-	  startTime = CkWallTimer();
-	  pieces.buildTree(bucketSize, CkCallbackResumeThread());
-	  ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
+		if(verbosity)
+		    ckerr << "Step: " << iStep << " Substep: " << iSubStep
+			  << " Time: " << dTime
+			  << " Gravity rung " << iKickRung << " to "
+			  << iCurrMaxRung << endl;
+		gravity(iStep, iKickRung);
 
-	  /******** Force Computation ********/
-	  ckerr << "Calculating gravity (tree bucket, theta = " << theta << ") ...";
-	  startTime = CkWallTimer();
-	  // Set up Ewald Tables
-	  if(param.bPeriodic && param.bEwald)
-	      pieces.EwaldInit(param.dEwhCut);
-	  //pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
-	  cacheManagerProxy.cacheSync(theta, CkCallbackResumeThread());
-	  ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
-		<< endl;
-
-#if COSMO_STATS > 0
-	  /********* TreePiece Statistics ********/
-	  ckerr << "Total statistics iteration " << i << ":" << endl;
-	  CkCallback cb(CkCallback::resumeThread);
-	  pieces.collectStatistics(cb);
-	  CkReductionMsg *tps = (CkReductionMsg *) cb.thread_delay();
-	  ((TreePieceStatistics*)tps->getData())->printTo(ckerr);
-
-	  /********* Cache Statistics ********/
-	  CkCallback ccb(CkCallback::resumeThread);
-	  cacheManagerProxy.collectStatistics(ccb);
-	  CkReductionMsg *cs = (CkReductionMsg *) ccb.thread_delay();
-	  ((CacheStatistics*)cs->getData())->printTo(ckerr);
-#endif
-
-	  /******** Update of Particle Positions and Energy Estimation *******/
-	  if(!param.bStaticTest && i > param.iStartStep) { // Closing Kick
-	      double dKickFac = csmComoveKickFac(param.csm,
-						 dTime - 0.5*param.dTimeStep,
-						 0.5*param.dTimeStep);
-	      pieces.kick(dKickFac, CkCallbackResumeThread());
-	      }
-	  if(i%param.iLogInterval == 0) {
-	      calcEnergy(dTime, achLogFileName);
-	      }
+		if(!param.bStaticTest && iStep > param.iStartStep) {
+		    // Closing Kick
+		    double dKickFac[MAXRUNG+1];
+		    for(int iRung = iKickRung; iRung <= iCurrMaxRung; iRung++) {
+			double dTimeSub = RungToDt(param.dTimeStep, iRung);
+			dKickFac[iRung]
+			    = csmComoveKickFac(param.csm,
+					       dTime - 0.5*dTimeSub,
+					       0.5*dTimeSub);
+			}
+		    pieces.kick(iKickRung, dKickFac, CkCallbackResumeThread());
+		    }
+		
+		if(!iSubStep && iStep%param.iLogInterval == 0) {
+		    calcEnergy(dTime, achLogFileName);
+		    }
 	  /*
 	   * Writing of intermediate outputs can be done here.
 	   */
-	  if(i > 0 && i%param.iOutInterval == 0) {
-	      writeOutput(i);
-	      }
+		if(!iSubStep && iStep > 0 && iStep%param.iOutInterval == 0) {
+		    writeOutput(iStep);
+		    }
 	  
-	  if(!param.bStaticTest && i < param.nSteps) { // Opening Kick
-						       // and Drift
-	      double dKickFac = csmComoveKickFac(param.csm, dTime,
-						 0.5*param.dTimeStep);
-	      pieces.kick(dKickFac, CkCallbackResumeThread());
-	      double dDriftFac = csmComoveDriftFac(param.csm, dTime,
-						   param.dTimeStep);
-	      pieces.drift(dDriftFac, CkCallbackResumeThread());
-	      dTime += param.dTimeStep;
-	  }
-	  
-	} // End of main computation loop
+		if(!param.bStaticTest && iStep < param.nSteps) {
+		    iCurrMaxRung = adjust(iKickRung);
+		    if(!iSubStep)
+			rungStats();
+		    if(verbosity)
+			ckerr << "MaxRung: " << iCurrMaxRung << endl;
+		    assert(iCurrMaxRung <= MAXRUNG); // timesteps WAY
+						     // too short
+		    double dKickFac[MAXRUNG+1];
+		    // Opening Kick
+		    for(int iRung = iKickRung; iRung <= iCurrMaxRung; iRung++) {
+			double dTimeSub = RungToDt(param.dTimeStep, iRung);
+			dKickFac[iRung]
+			    = csmComoveKickFac(param.csm, dTime, 0.5*dTimeSub);
+			}
+		    pieces.kick(iKickRung, dKickFac, CkCallbackResumeThread());
+		    // Drift on smallest step
+		    double dTimeSub = RungToDt(param.dTimeStep, iCurrMaxRung);
+		    double dDriftFac = csmComoveDriftFac(param.csm, dTime,
+							 dTimeSub);
+		    pieces.drift(dDriftFac, CkCallbackResumeThread());
+		    dTime += dTimeSub;
+		    }
+		if(!param.bStaticTest)
+		    iSubStep += RungToSubsteps(iCurrMaxRung);
+		} // End of substep loop
+	    } // End of main computation loop
 
 	/******** Shutdown process ********/
 
@@ -582,9 +633,30 @@ void Main::calcEnergy(double dTime, char *achLogFileName) {
 
     FILE *fpLog = fopen(achLogFileName, "a");
     
-    fprintf(fpLog, "%g %g %g %g %g %g %g %g %g\n", dTime,
+    static int first = 1;
+    
+    double a = csmTime2Exp(param.csm, dTime);
+    
+    if(first) {
+	fprintf(fpLog, "# time redshift TotalEVir TotalE Kinetic Virial Potential TotalECosmo Lx Ly Lz\n");
+	first = 0;
+	dEcosmo = 0.0;
+	}
+    else {
+	if(param.csm->bComove) {
+	    dEcosmo += 0.5*(a - csmTime2Exp(param.csm, dTimeOld))
+		*(dEnergy[2] + dUOld);
+	    }
+	}
+
+    dUOld = dEnergy[2];
+    dTimeOld = dTime;
+    double z = 1.0/a - 1.0;
+    
+    fprintf(fpLog, "%g %g %g %g %g %g %g %g %g %g %g\n", dTime, z,
 	    dEnergy[0] + dEnergy[1], dEnergy[0]+dEnergy[2], dEnergy[0],
-	     dEnergy[1], dEnergy[2], dEnergy[3], dEnergy[4], dEnergy[5]);
+	    dEnergy[1], dEnergy[2], dEcosmo, dEnergy[3], dEnergy[4],
+	    dEnergy[5]);
     fclose(fpLog);
     
     delete msg;
@@ -609,6 +681,35 @@ void Main::writeOutput(int iStep)
     pieces.setupWrite(0, 0, achFile, dOutTime, dvFac,
 		      CkCallbackResumeThread());
     }
+
+int Main::adjust(int iKickRung) 
+{
+    CkCallback ccb(CkCallback::resumeThread);
+    double a = csmTime2Exp(param.csm,dTime);
+    
+    pieces.adjust(iKickRung, param.dEta, param.dTimeStep, 1.0/(a*a*a), ccb);
+
+    CkReductionMsg *msg = (CkReductionMsg *) ccb.thread_delay();
+    int iCurrMaxRung = *(int *)msg->getData();
+    delete msg;
+    return iCurrMaxRung;
+    }
+
+void Main::rungStats() 
+{
+    CkCallback ccb(CkCallback::resumeThread);
+    pieces.rungStats(ccb);
+    CkReductionMsg *msg = (CkReductionMsg *) ccb.thread_delay();
+    int *nInRung = (int *)msg->getData();
+    
+    ckout << "Rung distribution: (";
+    for(int iRung = 0; iRung <= MAXRUNG; iRung++)
+	ckout << " " << nInRung[iRung] << ",";
+    ckout << ")" << endl;
+    
+    delete msg;
+    }
+
 
 void registerStatistics() {
 #if COSMO_STATS > 0

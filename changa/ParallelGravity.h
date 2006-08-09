@@ -225,6 +225,65 @@ class FillParticleMsg : public CMessage_FillParticleMsg {
   FillParticleMsg(int index, Tree::NodeKey k, int num) : owner(index), key(k), count(num) { }
 };
 
+/*
+ * Multistepping routines
+ * 
+ * Each major timestep can have MAXSUBSTEP substeps where MAXSUBSTEP
+ * is a large power of 2 that can fit in an integer: 1 << MAXRUNG,
+ * with MAXRUNG something like 30.
+ * A given particle is on a "Rung" such that it takes 1 << Rung
+ * substeps per major timestep.  That is, it's force is updated every
+ * 1 << (MAXRUNG - Rung) substeps.
+ * 
+ * Needed routines:
+ * RungToSubsteps(): take a rung and return substeps between kicks
+ * RungKickable(): take a rung and substep and determine if the rung
+ * needs a kick.
+ * DtToRung(): take an ideal timestep, the major timestep and
+ * determine a rung.
+ */
+
+const int MAXRUNG = 30;
+const int MAXSUBSTEPS = 1 << MAXRUNG;
+
+inline int RungToSubsteps(int iRung)
+{
+    return 1 << (MAXRUNG - iRung);
+    }
+
+inline bool RungKickable(int iRung, int iSubStep)
+{
+    if(iSubStep%RungToSubsteps(iRung))
+	return false;
+    return true;
+    }
+
+inline int SubstepsToRung(int iSubStep)
+{
+    int iRung = 0;
+    while(!RungKickable(iRung, iSubStep))
+	iRung++;
+    return iRung;
+    }
+
+inline int DtToRung(double dDelta, double dTideal)
+{
+    int iSteps = (int) ceil(dDelta/dTideal);
+    
+    int iRung = 0;
+    iSteps >>= 1;
+    while(iSteps) {
+	iRung++;
+	iSteps >>= 1;
+	}
+    return iRung;
+    }
+
+inline double RungToDt(double dDelta, int iRung)
+{
+    return dDelta*RungToSubsteps(iRung)/(double) MAXSUBSTEPS;
+    }
+
 class Main : public Chare {
 	std::string basefilename;
 	CProxy_TreePiece pieces;
@@ -237,6 +296,10 @@ class Main : public Chare {
 	double dTime;		/* Simulation time */
 	double dSoft;
 	int bSetSoft;
+	double dEcosmo;		/* variables for integrating
+				   Lazer-Irvine eq. */
+	double dUOld;
+	double dTimeOld;
 	unsigned int bucketSize;
 	unsigned int printBinaryAcc;
 	PRM prm;		/* parameter parsing info */
@@ -253,7 +316,11 @@ public:
 	 * calculateGravity and startlb for the desired number of iterations.
 	 */
 	void nextStage();
+	int adjust(int iKickRung);
+	void rungStats();
+	void gravity(int iStep, int iKickRung);
 	void calcEnergy(double, char *) ;
+	void getStartTime();
 	void writeOutput(int iStep) ;
 	void setTotalParticles(int n) {
 	    nTotalParticles = n;
@@ -722,8 +789,11 @@ public:
   void finalizeBoundaries(ORBSplittersMsg *splittersMsg);
   void evaluateParticleCounts(ORBSplittersMsg *splittersMsg);
   /*****************************/
-	void kick(double dDelta, const CkCallback& cb);
-	void drift(double dDelta, const CkCallback& cb);
+  void kick(int iKickRung, double dDelta[MAXRUNG+1], const CkCallback& cb);
+  void drift(double dDelta, const CkCallback& cb);
+  void adjust(int iKickRung, double dEta, double dDelta, double dAccFac,
+	      const CkCallback& cb);
+  void rungStats(const CkCallback& cb);
 	void calcEnergy(const CkCallback& cb);
 	void setSoft(const double dSoft);
 	/// Charm entry point to build the tree (called by Main), calls collectSplitters

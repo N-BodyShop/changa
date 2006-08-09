@@ -939,12 +939,50 @@ void TreePiece::calcEnergy(const CkCallback& cb) {
     contribute(6*sizeof(double), dEnergy, CkReduction::sum_double, cb);
 }
 
-void TreePiece::kick(double dDelta, const CkCallback& cb) {
-    for(unsigned int i = 0; i < myNumParticles; ++i)
-	myParticles[i+1].velocity += dDelta*myParticles[i+1].treeAcceleration;
-    
+void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
+		     const CkCallback& cb) {
+    for(unsigned int i = 0; i < myNumParticles; ++i) {
+	int iRung = SubstepsToRung(myParticles[i+1].rung);
+	if(iRung >= iKickRung)
+	    myParticles[i+1].velocity
+		+= dDelta[iRung]*myParticles[i+1].treeAcceleration;
+	}
     contribute(0, 0, CkReduction::concat, cb);
 }
+
+void TreePiece::adjust(int iKickRung, double dEta, double dDelta, double
+		       dAccFac, const CkCallback& cb) {
+    int iCurrMaxRung = 0;
+    for(unsigned int i = 0; i < myNumParticles; ++i) {
+	int iRung = SubstepsToRung(myParticles[i+1].rung);
+	if(iRung >= iKickRung) {
+	    // Sqrt(eps/acc) timestep for now.
+	    double dTIdeal
+		= dEta*sqrt(myParticles[i+1].soft
+			    /(dAccFac*myParticles[i+1].treeAcceleration.length()));
+	    int iNewRung = DtToRung(dDelta, dTIdeal);
+	    if(iNewRung < iKickRung)
+		iNewRung = iKickRung;
+	    if(iNewRung > iCurrMaxRung)
+		iCurrMaxRung = iNewRung;
+	    myParticles[i+1].rung = RungToSubsteps(iNewRung);
+	    }
+	}
+    contribute(sizeof(int), &iCurrMaxRung, CkReduction::max_int, cb);
+    }
+
+void TreePiece::rungStats(const CkCallback& cb)
+{
+    int nInRung[MAXRUNG+1];
+    
+    for(int iRung = 0; iRung <= MAXRUNG; iRung++)
+	nInRung[iRung] = 0;
+    for(unsigned int i = 0; i < myNumParticles; ++i) {
+	int iRung = SubstepsToRung(myParticles[i+1].rung);
+	nInRung[iRung]++;
+	}
+    contribute((MAXRUNG+1)*sizeof(int), &nInRung, CkReduction::sum_int, cb);
+    }
 
 void TreePiece::drift(double dDelta, const CkCallback& cb) {
     callback = cb;		// called by assignKeys()
