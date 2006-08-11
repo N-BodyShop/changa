@@ -211,7 +211,7 @@ public:
 	Vector3D<double> treeAcceleration;
 	double potential;
 	int iOrder;		/* input order of particles */
-        int rung;  ///< mask indicating the current rung (the bit set to 1 is the rung number)
+        int rung;  ///< the current rung (greater means faster)
 	//unsigned int numCellInteractions;
 	//unsigned int numParticleInteractions;
 	//unsigned int numMACChecks;
@@ -226,7 +226,7 @@ public:
 	
 	GravityParticle(SFC::Key k = 0) : ExternalGravityParticle() {
           key = k;
-          rung = 1;
+          rung = 0;
         }
 
         /*
@@ -258,18 +258,5 @@ public:
           p | rung;
         }
 };
-
-/**
- * Given a GravityParticle, compute which rung it should belong to. The real
- * rung it will be in depends on the number here returned, plus the current step
- * we are in the simulation.
-
- * The retun has the following meaning. All bits will be 0 except one what will
- * be set to 1. This bit correponds to the rung the particle belongs to. Bit 0
- * represents the fastest timestep, bit 1 the second fastest, and so on.
- */
-int getNewRung(GravityParticle *part);/* {
-  return 1;
-  }*/
 
 #endif

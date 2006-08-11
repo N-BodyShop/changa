@@ -43,10 +43,10 @@ mainmodule ParallelGravity {
 	  char particles[];
 	};
 
-    message ORBSplittersMsg{
-      double pos[];
-      char dim[];
-    };
+        message ORBSplittersMsg{
+          double pos[];
+          char dim[];
+        };
 
 	mainchare Main {
 		entry Main();
@@ -55,16 +55,16 @@ mainmodule ParallelGravity {
 	};
 	
 	chare Sorter {
-		entry Sorter();
-		
-		entry void startSorting(const CkGroupID& dataManagerID,
-					const int nChares, const double toler,
-					const CkCallback& cb);	
-		entry void collectEvaluations(CkReductionMsg* m);
-		entry void collectORBCounts(CkReductionMsg* m);
-		entry void finishPhase(CkReductionMsg* m);
-		entry void doORBDecomposition(CkReductionMsg* m);
-        entry void readytoSendORB(CkReductionMsg* m);
+                entry Sorter();
+          
+                entry void startSorting(const CkGroupID& dataManagerID,
+                                        const int nChares, const double toler,
+                                        const CkCallback& cb);	
+                entry void collectEvaluations(CkReductionMsg* m);
+                entry void collectORBCounts(CkReductionMsg* m);
+                entry void finishPhase(CkReductionMsg* m);
+                entry void doORBDecomposition(CkReductionMsg* m);
+                entry void readytoSendORB(CkReductionMsg* m);
 	};
 	
 	group DataManager {
@@ -98,26 +98,26 @@ mainmodule ParallelGravity {
 		entry void loadTipsy(const std::string& filename,
 				     const CkCallback& cb);
 		entry void setupWrite(int iStage, int64_t iPrevOffset,
-			const std::string& filename, const double dTime,
-			const double dvFac, const CkCallback& cb);
+                                      const std::string& filename, const double dTime,
+                                      const double dvFac, const CkCallback& cb);
 		entry void assignKeys(CkReductionMsg* m);
 		entry void evaluateBoundaries(int isRefine, const CkCallback& cb);
 		entry void unshuffleParticles(CkReductionMsg* m);
 		entry void acceptSortedParticles(const GravityParticle particles[n],
 				   const int n);
-        //ORB
-        entry void initORBPieces(const CkCallback& cb);
-        entry void initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback);
-        entry void sendORBParticles();
-        entry void acceptORBParticles(const GravityParticle particlesi[n], const int n);
-        entry void finalizeBoundaries(ORBSplittersMsg *splittersMsg);
-        entry void evaluateParticleCounts(ORBSplittersMsg *splittersMsg);
-          
-	entry void kick(int iKickRung, double dDelta[MAXRUNG+1],
-			const CkCallback& cb);
-	entry void adjust(int iKickRung, double dEta, double dDelta,
-			  double dAccFac, const CkCallback& cb);
-	entry void rungStats(const CkCallback& cb);
+                //ORB
+                entry void initORBPieces(const CkCallback& cb);
+                entry void initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback);
+                entry void sendORBParticles();
+                entry void acceptORBParticles(const GravityParticle particlesi[n], const int n);
+                entry void finalizeBoundaries(ORBSplittersMsg *splittersMsg);
+                entry void evaluateParticleCounts(ORBSplittersMsg *splittersMsg);
+                
+                entry void kick(int iKickRung, double dDelta[MAXRUNG+1],
+                                const CkCallback& cb);
+                entry void adjust(int iKickRung, double dEta, double dDelta,
+                                  double dAccFac, const CkCallback& cb);
+                entry void rungStats(const CkCallback& cb);
 		entry void drift(double dDelta, const CkCallback& cb);
 		entry void calcEnergy(const CkCallback& cb);
 		entry void setSoft(const double dSoft);
@@ -126,7 +126,7 @@ mainmodule ParallelGravity {
 		entry void collectSplitters(CkReductionMsg* m);
 		entry void startOctTreeBuild(CkReductionMsg* m);
 	
-        entry void startORBTreeBuild(CkReductionMsg* m);
+                entry void startORBTreeBuild(CkReductionMsg* m);
             
 		//entry void acceptBoundaryNodeContribution(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
 		//entry void acceptBoundaryNode(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);

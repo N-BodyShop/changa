@@ -834,9 +834,12 @@ void TreePiece::evaluateBoundaries(int isRefine, const CkCallback& cb) {
 
         if (verbosity>=4) {
           for (int i=0;i<numBins;++i)
-            CkPrintf("[%d]: bin %d has %d particles\n",thisIndex,i,myCounts[i]);
+            if (myCounts[i]>0) CkPrintf("[%d]: bin %d has %d particles\n",thisIndex,i,myCounts[i]);
         }
-	
+
+	// clearing the sorted particles here for now. before it was in
+	// unshuffleParticles allowing a race condition!
+	mySortedParticles.clear();
 	//send my bin counts back in a reduction
 	contribute(numBins * sizeof(int), myCounts, CkReduction::sum_int, cb);
 }
@@ -852,7 +855,6 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 	//assign my bounding keys
 	leftSplitter = dm->boundaryKeys[myPlace];
 	rightSplitter = dm->boundaryKeys[myPlace + 1];
-	mySortedParticles.clear();
 	mySortedParticles.reserve(dm->particleCounts[myPlace]);
 	
 	vector<Key>::iterator iter = dm->boundaryKeys.begin();
@@ -939,50 +941,41 @@ void TreePiece::calcEnergy(const CkCallback& cb) {
     contribute(6*sizeof(double), dEnergy, CkReduction::sum_double, cb);
 }
 
-void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
-		     const CkCallback& cb) {
-    for(unsigned int i = 0; i < myNumParticles; ++i) {
-	int iRung = SubstepsToRung(myParticles[i+1].rung);
-	if(iRung >= iKickRung)
-	    myParticles[i+1].velocity
-		+= dDelta[iRung]*myParticles[i+1].treeAcceleration;
-	}
-    contribute(0, 0, CkReduction::concat, cb);
+void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1], const CkCallback& cb) {
+  for(unsigned int i = 1; i <= myNumParticles; ++i) {
+    if(myParticles[i].rung >= iKickRung) {
+      myParticles[i].velocity += dDelta[myParticles[i].rung]*myParticles[i].treeAcceleration;
+    }
+  }
+  contribute(0, 0, CkReduction::concat, cb);
 }
 
-void TreePiece::adjust(int iKickRung, double dEta, double dDelta, double
-		       dAccFac, const CkCallback& cb) {
-    int iCurrMaxRung = 0;
-    for(unsigned int i = 0; i < myNumParticles; ++i) {
-	int iRung = SubstepsToRung(myParticles[i+1].rung);
-	if(iRung >= iKickRung) {
-	    // Sqrt(eps/acc) timestep for now.
-	    double dTIdeal
-		= dEta*sqrt(myParticles[i+1].soft
-			    /(dAccFac*myParticles[i+1].treeAcceleration.length()));
-	    int iNewRung = DtToRung(dDelta, dTIdeal);
-	    if(iNewRung < iKickRung)
-		iNewRung = iKickRung;
-	    if(iNewRung > iCurrMaxRung)
-		iCurrMaxRung = iNewRung;
-	    myParticles[i+1].rung = RungToSubsteps(iNewRung);
-	    }
-	}
-    contribute(sizeof(int), &iCurrMaxRung, CkReduction::max_int, cb);
+void TreePiece::adjust(int iKickRung, double dEta, double dDelta,
+                       double dAccFac, const CkCallback& cb) {
+  int iCurrMaxRung = 0;
+  for(unsigned int i = 1; i <= myNumParticles; ++i) {
+    if(myParticles[i].rung >= iKickRung) {
+      // Sqrt(eps/acc) timestep for now.
+      double dTIdeal = dEta*sqrt(myParticles[i].soft
+                                 /(dAccFac*myParticles[i].treeAcceleration.length()));
+      int iNewRung = DtToRung(dDelta, dTIdeal);
+      if(iNewRung < iKickRung) iNewRung = iKickRung;
+      if(iNewRung > iCurrMaxRung) iCurrMaxRung = iNewRung;
+      myParticles[i].rung = iNewRung;
     }
+  }
+  contribute(sizeof(int), &iCurrMaxRung, CkReduction::max_int, cb);
+}
 
-void TreePiece::rungStats(const CkCallback& cb)
-{
-    int nInRung[MAXRUNG+1];
+void TreePiece::rungStats(const CkCallback& cb) {
+  int nInRung[MAXRUNG+1];
     
-    for(int iRung = 0; iRung <= MAXRUNG; iRung++)
-	nInRung[iRung] = 0;
-    for(unsigned int i = 0; i < myNumParticles; ++i) {
-	int iRung = SubstepsToRung(myParticles[i+1].rung);
-	nInRung[iRung]++;
-	}
-    contribute((MAXRUNG+1)*sizeof(int), &nInRung, CkReduction::sum_int, cb);
-    }
+  for(int iRung = 0; iRung <= MAXRUNG; iRung++) nInRung[iRung] = 0;
+  for(unsigned int i = 1; i <= myNumParticles; ++i) {
+    nInRung[myParticles[i].rung]++;
+  }
+  contribute((MAXRUNG+1)*sizeof(int), nInRung, CkReduction::sum_int, cb);
+}
 
 void TreePiece::drift(double dDelta, const CkCallback& cb) {
     callback = cb;		// called by assignKeys()
@@ -1553,6 +1546,7 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
         node->moments += child->moments;
         node->boundingBox.grow(child->boundingBox);
       }
+      if (child->rungs > node->rungs) node->rungs = child->rungs;
     } else if (child->getType() == Empty) {
       child->remoteIndex = thisIndex;
     } else {
@@ -1567,6 +1561,8 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
         node->moments += child->moments;
         node->boundingBox.grow(child->boundingBox);
       }
+      // for the rung information we can always do now since it is a local property
+      if (node->rungs > child->rungs) node->rungs = child->rungs;
     }
   }
 
@@ -1691,21 +1687,26 @@ int reEncodeOffset(int reqID, int offsetID)
     return reqID | (offsetmask & offsetID);
     }
 
-inline void partBucketForce(ExternalGravityParticle *part, GenericTreeNode *req, GravityParticle *particles, Vector3D<double> offset) {
+inline int partBucketForce(ExternalGravityParticle *part, GenericTreeNode *req, GravityParticle *particles, Vector3D<double> offset, int activeRung) {
+  int computed = 0;
   Vector3D<double> r;
   double rsq;
   double twoh, a, b;
 
   for(int j = req->firstParticle; j <= req->lastParticle; ++j) {
-    r = offset + part->position - particles[j].position;
-    rsq = r.lengthSquared();
-    twoh = part->soft + particles[j].soft;
-    if(rsq != 0) {
-      SPLINE(rsq, twoh, a, b);
-      particles[j].treeAcceleration += r * (b * part->mass);
-      particles[j].potential -= part->mass * a;
+    if (particles[j].rung >= activeRung) {
+      computed++;
+      r = offset + part->position - particles[j].position;
+      rsq = r.lengthSquared();
+      twoh = part->soft + particles[j].soft;
+      if(rsq != 0) {
+        SPLINE(rsq, twoh, a, b);
+        particles[j].treeAcceleration += r * (b * part->mass);
+        particles[j].potential -= part->mass * a;
+      }
     }
   }
+  return computed;
 }
 
 /** @TOOD change the loop so that for one particle in req all the forces are
@@ -1752,7 +1753,8 @@ inline void partBucketForce(ExternalGravityParticle *part, GenericTreeNode *req,
   }
 }*/
 
-inline void nodeBucketForce(GenericTreeNode *node, GenericTreeNode *req, GravityParticle *particles, Vector3D<double> offset) {
+inline int nodeBucketForce(GenericTreeNode *node, GenericTreeNode *req, GravityParticle *particles, Vector3D<double> offset, int activeRung) {
+  int computed = 0;
   Vector3D<double> r;
   double rsq;
   double twoh, a, b, c, d;
@@ -1763,24 +1765,28 @@ inline void nodeBucketForce(GenericTreeNode *node, GenericTreeNode *req, Gravity
 	//SFCTreeNode* reqnode = bucketList[req.identifier];
 
   for(int j = req->firstParticle; j <= req->lastParticle; ++j) {
-    r = particles[j].position - cm;
-    rsq = r.lengthSquared();
-    twoh = m.soft + particles[j].soft;
-    if(rsq != 0) {
-      double dir = 1.0/sqrt(rsq);
-      SPLINEQ(dir, rsq, twoh, a, b, c, d);
-      double qirx = m.xx*r.x + m.xy*r.y + m.xz*r.z;
-      double qiry = m.xy*r.x + m.yy*r.y + m.yz*r.z;
-      double qirz = m.xz*r.x + m.yz*r.y + m.zz*r.z;
-      double qir = 0.5*(qirx*r.x + qiry*r.y + qirz*r.z);
-      double tr = 0.5*(m.xx + m.yy + m.zz);
-      double qir3 = b*m.totalMass + d*qir - c*tr;
-      particles[j].potential -= m.totalMass * a + c*qir - b*tr;
-      particles[j].treeAcceleration.x -= qir3*r.x - c*qirx;
-      particles[j].treeAcceleration.y -= qir3*r.y - c*qiry;
-      particles[j].treeAcceleration.z -= qir3*r.z - c*qirz;
+    if (particles[j].rung >= activeRung) {
+      computed++;
+      r = particles[j].position - cm;
+      rsq = r.lengthSquared();
+      twoh = m.soft + particles[j].soft;
+      if(rsq != 0) {
+        double dir = 1.0/sqrt(rsq);
+        SPLINEQ(dir, rsq, twoh, a, b, c, d);
+        double qirx = m.xx*r.x + m.xy*r.y + m.xz*r.z;
+        double qiry = m.xy*r.x + m.yy*r.y + m.yz*r.z;
+        double qirz = m.xz*r.x + m.yz*r.y + m.zz*r.z;
+        double qir = 0.5*(qirx*r.x + qiry*r.y + qirz*r.z);
+        double tr = 0.5*(m.xx + m.yy + m.zz);
+        double qir3 = b*m.totalMass + d*qir - c*tr;
+        particles[j].potential -= m.totalMass * a + c*qir - b*tr;
+        particles[j].treeAcceleration.x -= qir3*r.x - c*qirx;
+        particles[j].treeAcceleration.y -= qir3*r.y - c*qiry;
+        particles[j].treeAcceleration.z -= qir3*r.z - c*qirz;
+      }
     }
   }
+  return computed;
 }
 
 /*******************
@@ -1951,14 +1957,16 @@ void TreePiece::initBuckets() {
     //req.numAdditionalRequests = numChunks;
     //req.requestingPieceIndex = thisIndex;
     for(int i = node->firstParticle; i <= node->lastParticle; ++i) {
-      /*
-      req.softs[i - node->firstParticle] = myParticles[i].soft;
-      req.positions[i - node->firstParticle] = myParticles[i].position;
-      req.potentials[i - node->firstParticle] = 0;
-      req.boundingBox.grow(myParticles[i].position);
-      */
-      myParticles[i].treeAcceleration = 0;
-      myParticles[i].potential = 0;
+      if (myParticles[i].rung >= activeRung) {
+        /*
+          req.softs[i - node->firstParticle] = myParticles[i].soft;
+          req.positions[i - node->firstParticle] = myParticles[i].position;
+          req.potentials[i - node->firstParticle] = 0;
+          req.boundingBox.grow(myParticles[i].position);
+        */
+        myParticles[i].treeAcceleration = 0;
+        myParticles[i].potential = 0;
+      }
     }
     bucketReqs[j].finished = 0;
     bucketReqs[j].numAdditionalRequests = numChunks;
@@ -2000,18 +2008,20 @@ void TreePiece::startNextBucket() {
   */
 
   // start the tree walk from the tree built in the cache
-  for(int x = -nReplicas; x <= nReplicas; x++) {
+  if (bucketList[currentBucket]->rungs >= activeRung) {
+    for(int x = -nReplicas; x <= nReplicas; x++) {
       for(int y = -nReplicas; y <= nReplicas; y++) {
-	  for(int z = -nReplicas; z <= nReplicas; z++) {
+        for(int z = -nReplicas; z <= nReplicas; z++) {
 #ifdef CACHE_TREE
-	      walkBucketTree(localCache->getRoot(),
-			     encodeOffset(currentBucket, x, y, z));
+          walkBucketTree(localCache->getRoot(),
+                         encodeOffset(currentBucket, x, y, z));
 #else
-	      walkBucketTree(root, encodeOffset(currentBucket, x, y, z));
+          walkBucketTree(root, encodeOffset(currentBucket, x, y, z));
 #endif
-	      }
-	  }
+        }
       }
+    }
+  }
   bucketReqs[currentBucket].finished = 1;
   finishBucket(currentBucket);
   //	currentBucket++;
@@ -2049,10 +2059,10 @@ void TreePiece::finishBucket(int iBucket) {
 	   << " proxy calls forward, " << myNumProxyCallsBack
 	   << " to respond in finishBucket" << endl;*/
 #if COSMO_STATS > 0
-      if(verbosity)
+      if(verbosity>1)
 	CkPrintf("[%d] TreePiece %d finished with bucket %d , openCriterions:%lld\n",CkMyPe(),thisIndex,iBucket,numOpenCriterionCalls);
 #else
-      if(verbosity)
+      if(verbosity>1)
 	CkPrintf("[%d] TreePiece %d finished with bucket %d\n",CkMyPe(),thisIndex,iBucket);
 #endif
       if(verbosity > 4)
@@ -2172,7 +2182,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
         CkAssert (childIterator != NULL);
         childType = childIterator->getType();
         if(childIterator->visitedL == false){
-          if(childType == NonLocal || childType == Cached || childType == NonLocalBucket || childType == CachedBucket || childType==Empty || childType==CachedEmpty){
+          if(childType == NonLocal || childType == Cached || childType == NonLocalBucket || childType == CachedBucket || childType==Empty || childType==CachedEmpty || childIterator->rungs < activeRung){
             childIterator->visitedL=true;
           }
           else{
@@ -2238,9 +2248,10 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
     int cellListIter;
     int partListIter;
     
+    if (bucketList[bucketIndex]->rungs < activeRung) return;
     //BucketGravityRequest& req = bucketReqs[bucketIndex];
     for(int k=0;k<=curLevelLocal;k++){
-      nodeInterLocal += cellListLocal[k].length()*bucketList[bucketIndex]->particleCount;
+      int computed;
       double startTimer = CmiWallTimer();
       for(cellListIter=0;cellListIter<cellListLocal[k].length();cellListIter++){
         OffsetNode tmp = cellListLocal[k][cellListIter];
@@ -2248,9 +2259,10 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
         bucketcheckList[bucketIndex].insert(tmp->getKey());
         combineKeys(tmp->getKey(),bucketIndex);
 #endif
-        nodeBucketForce(tmp.node, bucketList[bucketIndex], myParticles,
-			decodeOffset(tmp.offsetID));
+        computed = nodeBucketForce(tmp.node, bucketList[bucketIndex], myParticles,
+                                   decodeOffset(tmp.offsetID), activeRung);
       }
+      nodeInterLocal += cellListLocal[k].length() * computed;
 
       LocalPartInfo pinfo;
       double newTimer = CmiWallTimer();
@@ -2261,10 +2273,10 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
         bucketcheckList[bucketIndex].insert((pinfo.nd)->getKey());
         combineKeys((pinfo.nd)->getKey(),bucketIndex);
 #endif
-        particleInterLocal += bucketList[bucketIndex]->particleCount * (pinfo.numParticles);
         for(int j = 0; j < pinfo.numParticles; ++j){
-          partBucketForce(&pinfo.particles[j], bucketList[bucketIndex], myParticles, pinfo.offset);
+          computed = partBucketForce(&pinfo.particles[j], bucketList[bucketIndex], myParticles, pinfo.offset, activeRung);
         }
+        particleInterLocal += pinfo.numParticles * computed;
       }
       traceUserBracketEvent(partForceUE, newTimer, CmiWallTimer());
     }
@@ -2278,10 +2290,11 @@ void TreePiece::calculateForceRemoteBucket(int bucketIndex, int chunk){
     
   int cellListIter;
   int partListIter;
-  
+
+  if (bucketList[bucketIndex]->rungs < activeRung) return;
   //BucketGravityRequest& req = bucketReqs[bucketIndex];
   for(int k=0;k<=curLevelRemote;k++){
-    nodeInterRemote[chunk] += cellList[k].length()*bucketList[bucketIndex]->particleCount;
+    int computed;
     double startTimer = CmiWallTimer();
     for(cellListIter=0;cellListIter<cellList[k].length();cellListIter++){
       OffsetNode tmp= cellList[k][cellListIter];
@@ -2289,9 +2302,11 @@ void TreePiece::calculateForceRemoteBucket(int bucketIndex, int chunk){
       bucketcheckList[bucketIndex].insert(tmp.node->getKey());
       combineKeys(tmp.node->getKey(),bucketIndex);
 #endif
-      nodeBucketForce(tmp.node, bucketList[bucketIndex], myParticles,
-		      decodeOffset(tmp.offsetID));
+      computed = nodeBucketForce(tmp.node, bucketList[bucketIndex], myParticles,
+                                 decodeOffset(tmp.offsetID), activeRung);
     }
+    nodeInterRemote[chunk] += cellList[k].length() * computed;
+
     double newTimer = CmiWallTimer();
     traceUserBracketEvent(nodeForceUE, startTimer, newTimer);
     for(partListIter=0;partListIter<particleList[k].length();partListIter++){
@@ -2300,11 +2315,11 @@ void TreePiece::calculateForceRemoteBucket(int bucketIndex, int chunk){
       bucketcheckList[bucketIndex].insert((pinfo.nd)->getKey());
       combineKeys((pinfo.nd)->getKey(),bucketIndex);
 #endif
-      particleInterRemote[chunk] += bucketList[bucketIndex]->particleCount * (pinfo.numParticles);
       for(int j = 0; j < pinfo.numParticles; ++j){
-        partBucketForce(&pinfo.particles[j], bucketList[bucketIndex],
-			myParticles, pinfo.offset);
+        computed = partBucketForce(&pinfo.particles[j], bucketList[bucketIndex],
+                                   myParticles, pinfo.offset, activeRung);
       }
+      particleInterRemote[chunk] += pinfo.numParticles * computed;
     }
     traceUserBracketEvent(partForceUE, newTimer, CmiWallTimer());
   }
@@ -2433,7 +2448,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
         CkAssert (childIterator != NULL);
         childType=childIterator->getType();
         if(childIterator->visitedR == false){
-          if(childType == NonLocal || childType == Cached || childType == NonLocalBucket || childType == CachedBucket || childType==Empty || childType==CachedEmpty){
+          if(childType == NonLocal || childType == Cached || childType == NonLocalBucket || childType == CachedBucket || childType==Empty || childType==CachedEmpty || childIterator->rungs < activeRung){
             childIterator->visitedR=true;
           }
           else{
@@ -2459,15 +2474,17 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 
   while (i<_yieldPeriod && currentRemoteBucket < numBuckets) {
     bucketReqs[currentRemoteBucket].numAdditionalRequests--;
-    for(int x = -nReplicas; x <= nReplicas; x++) {
+    if (bucketList[currentRemoteBucket]->rungs >= activeRung) {
+      for(int x = -nReplicas; x <= nReplicas; x++) {
 	for(int y = -nReplicas; y <= nReplicas; y++) {
-	    for(int z = -nReplicas; z <= nReplicas; z++) {
-		walkBucketRemoteTree(chunkRoot, msg->chunkNum,
-				     encodeOffset(currentRemoteBucket,x, y, z),
-				     true);
-		}
-	    }
-	}
+          for(int z = -nReplicas; z <= nReplicas; z++) {
+            walkBucketRemoteTree(chunkRoot, msg->chunkNum,
+                                 encodeOffset(currentRemoteBucket,x, y, z),
+                                 true);
+          }
+        }
+      }
+    }
 
     finishBucket(currentRemoteBucket);
     remainingChunk[msg->chunkNum] -= bucketList[currentRemoteBucket]->particleCount;
@@ -2560,7 +2577,7 @@ void TreePiece::preWalkRemoteInterTree(GenericTreeNode *chunkRoot, bool isRoot){
       	CkAssert (child != NULL);
         childType = child->getType();
         if(child->visitedR==false){
-          if(childType == NonLocal || childType == Cached || childType == NonLocalBucket || childType == CachedBucket || childType==Empty || childType==CachedEmpty){
+          if(childType == NonLocal || childType == Cached || childType == NonLocalBucket || childType == CachedBucket || childType==Empty || childType==CachedEmpty || child->rungs < activeRung){
             child->visitedR=true;
           }
           else{
@@ -2706,11 +2723,13 @@ void TreePiece::walkBucketRemoteTree(GenericTreeNode *node, int chunk,
 // Start tree walk and gravity calculation
 
 void TreePiece::startIteration(double t, // opening angle
+                               int am, // the active mask for multistepping
 			       int n,  // Number of Chunks
 			       Tree::NodeKey *k,
 			       const CkCallback& cb) {
   callback = cb;
   theta = t;
+  activeRung = am;
   if (n != numChunks && remainingChunk != NULL) {
     // reallocate remaining chunk to the new size
     delete[] remainingChunk;
@@ -2742,7 +2761,7 @@ void TreePiece::startIteration(double t, // opening angle
   particleInterLocal = 0;
   iterationNo++;
   CkAssert(localCache != NULL);
-  if(verbosity)
+  if(verbosity>1)
     CkPrintf("TreePiece %d: I have %d buckets\n",thisIndex,numBuckets);
 
   if (bucketReqs==NULL) bucketReqs = new BucketGravityRequest[numBuckets];
@@ -2806,7 +2825,9 @@ void TreePiece::startIteration(double t, // opening angle
       //Prefetch Roots for Oct
       prefetchReq[0].reset();
       for (unsigned int i=1; i<=myNumParticles; ++i) {
-	prefetchReq[0].grow(myParticles[i].position);
+        if (myParticles[i].rung >= activeRung) {
+          prefetchReq[0].grow(myParticles[i].position);
+        }
       }
       /*
       req0.positions[0] = myParticles[1].position;
@@ -3070,13 +3091,14 @@ void TreePiece::preWalkInterTree(){
       if(curNodeLocal->getType()==Bucket)
         break;
       
-      //Finds my node on the next level which is not yet visited 
+      //Finds my node on the next level which is not yet visited
+      //This node must contain at least one particle currently active
       for(int i=0;i<curNodeLocal->numChildren();i++){
         child = curNodeLocal->getChildren(i);
       	CkAssert (child != NULL);
         childType = child->getType();
         if(child->visitedL==false){
-          if(childType == NonLocal || childType == Cached || childType == NonLocalBucket || childType == CachedBucket || childType==Empty || childType==CachedEmpty){
+          if(childType == NonLocal || childType == Cached || childType == NonLocalBucket || childType == CachedBucket || childType==Empty || childType==CachedEmpty || child->rungs < activeRung){
             child->visitedL=true;
           }
           else{
@@ -3220,32 +3242,32 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, int reqID) {
 #endif
   GenericTreeNode* reqnode = bucketList[reqIDlist];
   if(!openCriterionBucket(node, reqnode->boundingBox, offset)) {
-    nodeInterLocal += bucketList[reqIDlist]->particleCount;
 #if COSMO_STATS > 1
     MultipoleMoments m = node->moments;	
     for(int i = reqnode->firstParticle; i <= reqnode->lastParticle; ++i)
       myParticles[i].intcellmass += m.totalMass;
 #endif
 #if COSMO_PRINT > 1
-  CkPrintf("[%d] walk bucket %s -> node %s\n",thisIndex,keyBits(bucketList[reqIDlist]->getKey(),63).c_str(),keyBits(node->getKey(),63).c_str());
+    CkPrintf("[%d] walk bucket %s -> node %s\n",thisIndex,keyBits(bucketList[reqIDlist]->getKey(),63).c_str(),keyBits(node->getKey(),63).c_str());
 #endif
 #if COSMO_DEBUG > 1
-  bucketcheckList[reqIDlist].insert(node->getKey());
-  combineKeys(node->getKey(),reqIDlist);
+    bucketcheckList[reqIDlist].insert(node->getKey());
+    combineKeys(node->getKey(),reqIDlist);
 #endif
 #if COSMO_PRINT > 0
-  if (node->getKey() < numChunks) CkPrintf("[%d] walk: computing %016llx\n",thisIndex,node->getKey());
+    if (node->getKey() < numChunks) CkPrintf("[%d] walk: computing %016llx\n",thisIndex,node->getKey());
 #endif
-  double startTimer = CmiWallTimer();
-    nodeBucketForce(node, reqnode, myParticles, offset);
+    double startTimer = CmiWallTimer();
+    int computed = nodeBucketForce(node, reqnode, myParticles, offset, activeRung);
     traceUserBracketEvent(nodeForceUE, startTimer, CmiWallTimer());
+    nodeInterLocal += computed;
   } else if(node->getType() == Bucket) {
-    particleInterLocal += reqnode->particleCount * (node->lastParticle - node->firstParticle + 1);
+    int computed;
     for(int i = node->firstParticle; i <= node->lastParticle; ++i) {
 #if COSMO_STATS > 1
       for(int j = reqnode->firstParticle; j <= reqnode->lastParticle; ++j) {
-	//myParticles[j].intpartmass += myParticles[i].mass;
-	myParticles[j].intpartmass += node->particlePointer[i-node->firstParticle].mass;
+        //myParticles[j].intpartmass += myParticles[i].mass;
+        myParticles[j].intpartmass += node->particlePointer[i-node->firstParticle].mass;
       }
 #endif
 #if COSMO_PRINT > 1
@@ -3254,13 +3276,14 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, int reqID) {
 #endif
       //partBucketForce(&myParticles[i], req);
       double startTimer = CmiWallTimer();
-      partBucketForce(&node->particlePointer[i-node->firstParticle], reqnode,
-		      myParticles, offset);
+      computed = partBucketForce(&node->particlePointer[i-node->firstParticle], reqnode,
+                                 myParticles, offset, activeRung);
       traceUserBracketEvent(partForceUE, startTimer, CmiWallTimer());
     }
+    particleInterLocal += node->particleCount * computed;
 #if COSMO_DEBUG > 1
-  bucketcheckList[reqIDlist].insert(node->getKey());
-  combineKeys(node->getKey(),reqIDlist);
+    bucketcheckList[reqIDlist].insert(node->getKey());
+    combineKeys(node->getKey(),reqIDlist);
 #endif
   } else if (node->getType() == NonLocal || node->getType() == NonLocalBucket) {
     /* DISABLED: this part of the walk is triggered directly by the CacheManager and prefetching
@@ -3574,7 +3597,6 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, int chunk, int reqID
   numOpenCriterionCalls++;
 #endif
   if(!openCriterionBucket(node, reqnode->boundingBox, offset)) {
-    nodeInterRemote[chunk] += reqnode->particleCount;
 #if COSMO_STATS > 1
     MultipoleMoments m = node->moments;
     for(int i = reqnode->firstParticle; i <= reqnode->lastParticle; ++i)
@@ -3587,9 +3609,10 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, int chunk, int reqID
   bucketcheckList[reqIDlist].insert(node->getKey());
   combineKeys(node->getKey(),reqIDlist);
 #endif
-  double startTimer = CmiWallTimer();
-    nodeBucketForce(node, reqnode, myParticles, offset);
+    double startTimer = CmiWallTimer();
+    int computed = nodeBucketForce(node, reqnode, myParticles, offset, activeRung);
     traceUserBracketEvent(nodeForceUE, startTimer, CmiWallTimer());
+    nodeInterRemote[chunk] += computed;
   } else if(node->getType() == CachedBucket || node->getType() == Bucket || node->getType() == NonLocalBucket) {
     /*
      * Sending the request for all the particles at one go, instead of one by one
@@ -3597,22 +3620,22 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, int chunk, int reqID
     //printf("{%d-%d} cachewalk requests for %016llx in chunk %d\n",CkMyPe(),thisIndex,node->getKey(),chunk);
     ExternalGravityParticle *part = requestParticles(node->getKey(),chunk,node->remoteIndex,node->firstParticle,node->lastParticle,reqID);
     if(part != NULL){
-      particleInterRemote[chunk] += reqnode->particleCount * (node->lastParticle - node->firstParticle + 1);
-
+      int computed;
       for(int i = node->firstParticle; i <= node->lastParticle; ++i) {
 #if COSMO_STATS > 1
-	for(int j = reqnode->firstParticle; j <= reqnode->lastParticle; ++j) {
-	  myParticles[j].extpartmass += myParticles[i].mass;
-	}
+        for(int j = reqnode->firstParticle; j <= reqnode->lastParticle; ++j) {
+          myParticles[j].extpartmass += myParticles[i].mass;
+        }
 #endif
 #if COSMO_PRINT > 1
-	CkPrintf("[%d] cachedwalk bucket %s -> part %016llx\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),part[i-node->firstParticle].key);
+        CkPrintf("[%d] cachedwalk bucket %s -> part %016llx\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),part[i-node->firstParticle].key);
 #endif
         double startTimer = CmiWallTimer();
-	partBucketForce(&part[i-node->firstParticle], reqnode, myParticles,
-			offset);
+        computed = partBucketForce(&part[i-node->firstParticle], reqnode, myParticles,
+                                   offset, activeRung);
         traceUserBracketEvent(partForceUE, startTimer, CmiWallTimer());
       }
+      particleInterRemote[chunk] += node->particleCount * computed;
 #if COSMO_DEBUG > 1
       bucketcheckList[reqIDlist].insert(node->getKey());
       combineKeys(node->getKey(),reqIDlist);
@@ -3829,10 +3852,10 @@ void TreePiece::receiveParticles(ExternalGravityParticle *part,int num,int chunk
 #endif
   bucketReqs[reqIDlist].numAdditionalRequests -= num;
   remainingChunk[chunk] -= num;
-  particleInterRemote[chunk] += bucketList[reqIDlist]->particleCount * num;
 
   GenericTreeNode* reqnode = bucketList[reqIDlist];
 
+  int computed;
   for(int i=0;i<num;i++){
 #if COSMO_STATS > 1
     for(int j = reqnode->firstParticle; j <= reqnode->lastParticle; ++j) {
@@ -3843,9 +3866,10 @@ void TreePiece::receiveParticles(ExternalGravityParticle *part,int num,int chunk
     CkPrintf("[%d] recvPart bucket %s -> part %016llx\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),part->key);
 #endif
     double startTimer = CmiWallTimer();
-    partBucketForce(&part[i], reqnode, myParticles, offset);
+    computed = partBucketForce(&part[i], reqnode, myParticles, offset, activeRung);
     traceUserBracketEvent(partForceUE, startTimer, CmiWallTimer());
   }
+  particleInterRemote[chunk] += computed * num;
 #if COSMO_DEBUG > 1
   /*
   Key mask = Key(~0);

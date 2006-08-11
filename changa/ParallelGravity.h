@@ -228,61 +228,41 @@ class FillParticleMsg : public CMessage_FillParticleMsg {
 /*
  * Multistepping routines
  * 
- * Each major timestep can have MAXSUBSTEP substeps where MAXSUBSTEP
+ * Each major timestep can have MAXSUBSTEPS substeps where MAXSUBSTEPS
  * is a large power of 2 that can fit in an integer: 1 << MAXRUNG,
  * with MAXRUNG something like 30.
  * A given particle is on a "Rung" such that it takes 1 << Rung
  * substeps per major timestep.  That is, it's force is updated every
- * 1 << (MAXRUNG - Rung) substeps.
+ * 1 << (MAXRUNG - Rung) smallest substeps.
  * 
  * Needed routines:
- * RungToSubsteps(): take a rung and return substeps between kicks
- * RungKickable(): take a rung and substep and determine if the rung
- * needs a kick.
  * DtToRung(): take an ideal timestep, the major timestep and
  * determine a rung.
  */
 
 const int MAXRUNG = 30;
 const int MAXSUBSTEPS = 1 << MAXRUNG;
+const double MAXSUBSTEPS_INV = 1 / (double)MAXSUBSTEPS;
 
-inline int RungToSubsteps(int iRung)
-{
-    return 1 << (MAXRUNG - iRung);
-    }
+inline int RungToSubsteps(int iRung) {
+  return 1 << (MAXRUNG - iRung);
+}
 
-inline bool RungKickable(int iRung, int iSubStep)
-{
-    if(iSubStep%RungToSubsteps(iRung))
-	return false;
-    return true;
-    }
-
-inline int SubstepsToRung(int iSubStep)
-{
-    int iRung = 0;
-    while(!RungKickable(iRung, iSubStep))
-	iRung++;
-    return iRung;
-    }
-
-inline int DtToRung(double dDelta, double dTideal)
-{
-    int iSteps = (int) ceil(dDelta/dTideal);
-    
-    int iRung = 0;
+inline int DtToRung(double dDelta, double dTideal) {
+  int iSteps = (int) ceil(dDelta/dTideal);
+  
+  int iRung = 0;
+  iSteps >>= 1;
+  while(iSteps) {
+    iRung++;
     iSteps >>= 1;
-    while(iSteps) {
-	iRung++;
-	iSteps >>= 1;
-	}
-    return iRung;
-    }
+  }
+  return iRung;
+}
 
-inline double RungToDt(double dDelta, int iRung)
-{
-    return dDelta*RungToSubsteps(iRung)/(double) MAXSUBSTEPS;
-    }
+inline double RungToDt(double dDelta, int iRung) {
+  return dDelta*RungToSubsteps(iRung)*MAXSUBSTEPS_INV;
+}
 
 class Main : public Chare {
 	std::string basefilename;
@@ -316,15 +296,15 @@ public:
 	 * calculateGravity and startlb for the desired number of iterations.
 	 */
 	void nextStage();
+        void advanceBigStep(int);
 	int adjust(int iKickRung);
 	void rungStats();
-	void gravity(int iStep, int iKickRung);
 	void calcEnergy(double, char *) ;
 	void getStartTime();
 	void writeOutput(int iStep) ;
 	void setTotalParticles(int n) {
 	    nTotalParticles = n;
-	    }
+        }
 };
 
 class TreePiece : public CBase_TreePiece {
@@ -387,6 +367,9 @@ class TreePiece : public CBase_TreePiece {
 
 	/// Opening angle
 	double theta;
+        /// The current active mask for force computation in multistepping
+        int activeRung;
+
 	/// Periodic Boundary stuff
 	int bPeriodic;
 	Vector3D<double> fPeriod;
@@ -789,6 +772,7 @@ public:
   void finalizeBoundaries(ORBSplittersMsg *splittersMsg);
   void evaluateParticleCounts(ORBSplittersMsg *splittersMsg);
   /*****************************/
+
   void kick(int iKickRung, double dDelta[MAXRUNG+1], const CkCallback& cb);
   void drift(double dDelta, const CkCallback& cb);
   void adjust(int iKickRung, double dEta, double dDelta, double dAccFac,
@@ -858,7 +842,7 @@ public:
   /// @param n the number of chunks in which the remote computation will be splitted
   /// @param k the array of roots of the remote chunks, the size if 'n'
   /// @param cb the callback to use after all the computation has finished
-  void startIteration(double t, int n, Tree::NodeKey *k, const CkCallback& cb);
+  void startIteration(double t, int am, int n, Tree::NodeKey *k, const CkCallback& cb);
 
 	/// Function called by the CacheManager to send out request for needed
 	/// remote data, so that the later computation will hit.

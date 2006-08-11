@@ -370,7 +370,7 @@ private:
 	    markPresence, since that is done in ResumeFromSync, and cacheSync is
 	    called only after a reduction from ResumeFromSync.
 	 */
-	void cacheSync(double theta, const CkCallback& cb);
+	void cacheSync(double theta, int activeRung, const CkCallback& cb);
 
 	/** Inform the CacheManager that the chare element will be resident on
 	    this processor for the next iteration. It is done after treebuild in

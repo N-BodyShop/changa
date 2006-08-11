@@ -7,7 +7,7 @@ module CacheManager {
 		//entry void recvNodes(CacheKey key,int from,CacheNode &node);
 		//entry void recvNodes(int count,Key keys[count],CacheNode nodes[count],int );
 		entry void recvNodes(FillNodeMsg *msg);
-		entry void cacheSync(double theta, CkCallback &cb);
+		entry void cacheSync(double theta, int activeRung, CkCallback &cb);
 		//entry void recvParticles(CacheKey key,GravityParticle part[num],int num,int from);
                 entry void recvParticles(FillParticleMsg *msg);
                 entry void finishedChunk(int num, u_int64_t weight);
