@@ -90,6 +90,11 @@ namespace Tree {
     /// Pointer to the first particle in this node
     GravityParticle *particlePointer;
 
+    /// The greatest rung amoung the particles contained in this node (greater
+    /// means faster). This information is limited to the nodes in the current
+    /// TreePiece, and do not consider non-local data.
+    int rungs;
+
 #if INTERLIST_VER > 0
     bool visitedR;
     bool visitedL;
@@ -146,9 +151,11 @@ namespace Tree {
     inline void makeBucket(GravityParticle *part) {
       myType = Bucket;
       boundingBox.reset();
+      rungs = 0;
       for (int i = firstParticle; i <= lastParticle; ++i) {
         moments += part[i];
         boundingBox.grow(part[i].position);
+        if (part[i].rung > rungs) rungs = part[i].rung;
       }
       calculateRadiusFarthestParticle(moments, &part[firstParticle], &part[lastParticle+1]);
     }
