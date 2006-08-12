@@ -56,6 +56,7 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 	k1 = M_PI/(alpha2*L*L*L);
 	ka = 2.0*alpha/sqrt(M_PI);
 	for(j=0;j<n;++j) {
+                if (p[j].rung < activeRung) continue;
 		fPot = mom.totalMass*k1;
 		ax = 0.0;
 		ay = 0.0;

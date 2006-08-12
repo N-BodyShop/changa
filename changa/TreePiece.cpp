@@ -2021,6 +2021,10 @@ void TreePiece::startNextBucket() {
         }
       }
     }
+    // compute the ewald component of the force
+    if(bEwald) {
+      BucketEwald(node, nReplicas, fEwCut);
+    }
   }
   bucketReqs[currentBucket].finished = 1;
   finishBucket(currentBucket);
@@ -2036,9 +2040,6 @@ void TreePiece::finishBucket(int iBucket) {
 #endif
 
   if(req->finished && req->numAdditionalRequests == 0) {
-      if(bEwald) {
-	  BucketEwald(node, nReplicas, fEwCut);
-	  }
     myNumParticlesPending -= node->particleCount;
 #ifdef COSMO_PRINT
     CkPrintf("[%d] Finished bucket %d, %d particles remaining\n",thisIndex,iBucket,myNumParticlesPending);
@@ -2248,37 +2249,41 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
     int cellListIter;
     int partListIter;
     
-    if (bucketList[bucketIndex]->rungs < activeRung) return;
-    //BucketGravityRequest& req = bucketReqs[bucketIndex];
-    for(int k=0;k<=curLevelLocal;k++){
-      int computed;
-      double startTimer = CmiWallTimer();
-      for(cellListIter=0;cellListIter<cellListLocal[k].length();cellListIter++){
-        OffsetNode tmp = cellListLocal[k][cellListIter];
+    if (bucketList[bucketIndex]->rungs >= activeRung) {
+      //BucketGravityRequest& req = bucketReqs[bucketIndex];
+      for(int k=0;k<=curLevelLocal;k++){
+        int computed;
+        double startTimer = CmiWallTimer();
+        for(cellListIter=0;cellListIter<cellListLocal[k].length();cellListIter++){
+          OffsetNode tmp = cellListLocal[k][cellListIter];
 #if COSMO_DEBUG > 1
-        bucketcheckList[bucketIndex].insert(tmp->getKey());
-        combineKeys(tmp->getKey(),bucketIndex);
+          bucketcheckList[bucketIndex].insert(tmp->getKey());
+          combineKeys(tmp->getKey(),bucketIndex);
 #endif
-        computed = nodeBucketForce(tmp.node, bucketList[bucketIndex], myParticles,
-                                   decodeOffset(tmp.offsetID), activeRung);
-      }
-      nodeInterLocal += cellListLocal[k].length() * computed;
-
-      LocalPartInfo pinfo;
-      double newTimer = CmiWallTimer();
-      traceUserBracketEvent(nodeForceUE, startTimer, newTimer);
-      for(partListIter=0;partListIter<particleListLocal[k].length();partListIter++){
-        pinfo = particleListLocal[k][partListIter];
-#if COSMO_DEBUG > 1
-        bucketcheckList[bucketIndex].insert((pinfo.nd)->getKey());
-        combineKeys((pinfo.nd)->getKey(),bucketIndex);
-#endif
-        for(int j = 0; j < pinfo.numParticles; ++j){
-          computed = partBucketForce(&pinfo.particles[j], bucketList[bucketIndex], myParticles, pinfo.offset, activeRung);
+          computed = nodeBucketForce(tmp.node, bucketList[bucketIndex], myParticles,
+                                     decodeOffset(tmp.offsetID), activeRung);
         }
-        particleInterLocal += pinfo.numParticles * computed;
+        nodeInterLocal += cellListLocal[k].length() * computed;
+        
+        LocalPartInfo pinfo;
+        double newTimer = CmiWallTimer();
+        traceUserBracketEvent(nodeForceUE, startTimer, newTimer);
+        for(partListIter=0;partListIter<particleListLocal[k].length();partListIter++){
+          pinfo = particleListLocal[k][partListIter];
+#if COSMO_DEBUG > 1
+          bucketcheckList[bucketIndex].insert((pinfo.nd)->getKey());
+          combineKeys((pinfo.nd)->getKey(),bucketIndex);
+#endif
+          for(int j = 0; j < pinfo.numParticles; ++j){
+            computed = partBucketForce(&pinfo.particles[j], bucketList[bucketIndex], myParticles, pinfo.offset, activeRung);
+          }
+          particleInterLocal += pinfo.numParticles * computed;
+        }
+        traceUserBracketEvent(partForceUE, newTimer, CmiWallTimer());
       }
-      traceUserBracketEvent(partForceUE, newTimer, CmiWallTimer());
+      if(bEwald) {
+        BucketEwald(node, nReplicas, fEwCut);
+      }
     }
 
     bucketReqs[bucketIndex].finished = 1;
@@ -2291,37 +2296,38 @@ void TreePiece::calculateForceRemoteBucket(int bucketIndex, int chunk){
   int cellListIter;
   int partListIter;
 
-  if (bucketList[bucketIndex]->rungs < activeRung) return;
-  //BucketGravityRequest& req = bucketReqs[bucketIndex];
-  for(int k=0;k<=curLevelRemote;k++){
-    int computed;
-    double startTimer = CmiWallTimer();
-    for(cellListIter=0;cellListIter<cellList[k].length();cellListIter++){
-      OffsetNode tmp= cellList[k][cellListIter];
+  if (bucketList[bucketIndex]->rungs >= activeRung) {
+    //BucketGravityRequest& req = bucketReqs[bucketIndex];
+    for(int k=0;k<=curLevelRemote;k++){
+      int computed;
+      double startTimer = CmiWallTimer();
+      for(cellListIter=0;cellListIter<cellList[k].length();cellListIter++){
+        OffsetNode tmp= cellList[k][cellListIter];
 #if COSMO_DEBUG > 1
-      bucketcheckList[bucketIndex].insert(tmp.node->getKey());
-      combineKeys(tmp.node->getKey(),bucketIndex);
+        bucketcheckList[bucketIndex].insert(tmp.node->getKey());
+        combineKeys(tmp.node->getKey(),bucketIndex);
 #endif
-      computed = nodeBucketForce(tmp.node, bucketList[bucketIndex], myParticles,
-                                 decodeOffset(tmp.offsetID), activeRung);
-    }
-    nodeInterRemote[chunk] += cellList[k].length() * computed;
-
-    double newTimer = CmiWallTimer();
-    traceUserBracketEvent(nodeForceUE, startTimer, newTimer);
-    for(partListIter=0;partListIter<particleList[k].length();partListIter++){
-      RemotePartInfo pinfo = particleList[k][partListIter];
-#if COSMO_DEBUG > 1
-      bucketcheckList[bucketIndex].insert((pinfo.nd)->getKey());
-      combineKeys((pinfo.nd)->getKey(),bucketIndex);
-#endif
-      for(int j = 0; j < pinfo.numParticles; ++j){
-        computed = partBucketForce(&pinfo.particles[j], bucketList[bucketIndex],
-                                   myParticles, pinfo.offset, activeRung);
+        computed = nodeBucketForce(tmp.node, bucketList[bucketIndex], myParticles,
+                                   decodeOffset(tmp.offsetID), activeRung);
       }
-      particleInterRemote[chunk] += pinfo.numParticles * computed;
+      nodeInterRemote[chunk] += cellList[k].length() * computed;
+      
+      double newTimer = CmiWallTimer();
+      traceUserBracketEvent(nodeForceUE, startTimer, newTimer);
+      for(partListIter=0;partListIter<particleList[k].length();partListIter++){
+        RemotePartInfo pinfo = particleList[k][partListIter];
+#if COSMO_DEBUG > 1
+        bucketcheckList[bucketIndex].insert((pinfo.nd)->getKey());
+        combineKeys((pinfo.nd)->getKey(),bucketIndex);
+#endif
+        for(int j = 0; j < pinfo.numParticles; ++j){
+          computed = partBucketForce(&pinfo.particles[j], bucketList[bucketIndex],
+                                     myParticles, pinfo.offset, activeRung);
+        }
+        particleInterRemote[chunk] += pinfo.numParticles * computed;
+      }
+      traceUserBracketEvent(partForceUE, newTimer, CmiWallTimer());
     }
-    traceUserBracketEvent(partForceUE, newTimer, CmiWallTimer());
   }
 
   bucketReqs[bucketIndex].numAdditionalRequests--;
