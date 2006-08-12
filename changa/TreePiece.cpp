@@ -2049,7 +2049,7 @@ void TreePiece::startNextBucket() {
     }
     // compute the ewald component of the force
     if(bEwald) {
-      BucketEwald(node, nReplicas, fEwCut);
+      BucketEwald(bucketList[currentBucket], nReplicas, fEwCut);
     }
   }
   bucketReqs[currentBucket].finished = 1;
@@ -2310,7 +2310,7 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
 #endif
       }
       if(bEwald) {
-        BucketEwald(node, nReplicas, fEwCut);
+        BucketEwald(bucketList[bucketIndex], nReplicas, fEwCut);
       }
     }
 
