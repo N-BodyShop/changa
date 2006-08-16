@@ -732,7 +732,7 @@ public:
 	  delete[] particleInterRemote;
 	  delete[] bucketReqs;
 	  delete[] prefetchReq;
-          free(ewt);
+          delete[] ewt;
 	  // recursively delete the entire tree
 	  if (root != NULL) {
 	    root->fullyDelete();

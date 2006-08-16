@@ -36,9 +36,9 @@ void TreePiece::setPeriodic(int nRepsPar, double fPeriodPar, int bEwaldPar,
     fEwCut  = fEwCutPar;
     bPeriodic = bPeriodPar;
     if(ewt == NULL) {
-	ewt = (EWT *)malloc(nMaxEwhLoop*sizeof(EWT));
-	}
+	ewt = new EWT[nMaxEwhLoop];
     }
+}
 
 // Scale velocities (needed to convert to canonical momenta for
 // comoving coordinates.
@@ -4537,7 +4537,10 @@ void TreePiece::pup(PUP::er& p) {
   p | fEwCut;
   p | bPeriodic;
   p | nMaxEwhLoop;
-  
+  if (p.isUnpacking() && bEwald) {
+    ewt = new EWT[nMaxEwhLoop];
+  }
+
   //p | myNumParticlesPending;
   p | prefetchWaiting;
   p | currentPrefetch;
