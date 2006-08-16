@@ -501,7 +501,7 @@ void Main::advanceBigStep(int iStep) {
       ckerr << ((printingStep & MAXSUBSTEPS) ? "1" : "0");
       printingStep = (printingStep & ~MAXSUBSTEPS) << 1;
     }
-    ckerr << ":" << endl;
+    ckerr << " (rungs " << activeRung << "-" << nextMaxRung << ")" << ":" << endl;
     CkCallback cb(CkCallback::resumeThread);
     pieces.collectStatistics(cb);
     CkReductionMsg *tps = (CkReductionMsg *) cb.thread_delay();
