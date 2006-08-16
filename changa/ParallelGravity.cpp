@@ -623,10 +623,10 @@ void Main::nextStage() {
   ((CacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
   
-  for(int iStep = param.iStartStep; iStep <= param.nSteps; iStep++){
+  for(int iStep = param.iStartStep+1; iStep <= param.nSteps; iStep++){
 
     if (verbosity) ckerr << "Starting big step " << iStep << endl;
-    advanceBigStep(iStep);
+    advanceBigStep(iStep-1);
 
     if(iStep%param.iLogInterval == 0) {
       calcEnergy(dTime, achLogFileName);
