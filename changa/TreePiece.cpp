@@ -62,7 +62,7 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   XDR xdrs;
   FILE* infile = fopen((basefilename + ".mass").c_str(), "rb");
   if(!infile) {
-    if (thisIndex == 0) ckerr << "TreePiece " << thisIndex << ": Couldn't open masses file, reverting to tipsy..." << endl;
+    //if (thisIndex == 0) ckerr << "TreePiece " << thisIndex << ": Couldn't open masses file, reverting to tipsy..." << endl;
     contribute(0, 0, CkReduction::concat, cb);
     return;
   }
@@ -495,6 +495,16 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 	  sort(&myParticles[1], &myParticles[myNumParticles+1]);
   }
   
+#if COSMO_DEBUG > 1
+  char fout[100];
+  sprintf(fout,"tree.%d.%d.before",thisIndex,iterationNo);
+  ofstream ofs(fout);
+  for (int i=1; i<=myNumParticles; ++i)
+    ofs << keyBits(myParticles[i].key,63) << " " << myParticles[i].position[0] << " "
+        << myParticles[i].position[1] << " " << myParticles[i].position[2] << endl;
+  ofs.close();
+#endif
+
 	contribute(0, 0, CkReduction::concat, callback);
 	
 	if(verbosity >= 5)
@@ -841,9 +851,6 @@ void TreePiece::evaluateBoundaries(int isRefine, const CkCallback& cb) {
             if (myCounts[i]>0) CkPrintf("[%d]: bin %d has %d particles\n",thisIndex,i,myCounts[i]);
         }
 
-	// clearing the sorted particles here for now. before it was in
-	// unshuffleParticles allowing a race condition!
-	mySortedParticles.clear();
 	//send my bin counts back in a reduction
 	contribute(numBins * sizeof(int), myCounts, CkReduction::sum_int, cb);
 }
@@ -859,7 +866,6 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 	//assign my bounding keys
 	leftSplitter = dm->boundaryKeys[myPlace];
 	rightSplitter = dm->boundaryKeys[myPlace + 1];
-	mySortedParticles.reserve(dm->particleCounts[myPlace]);
 	
 	vector<Key>::iterator iter = dm->boundaryKeys.begin();
 	vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
@@ -875,49 +881,66 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 		//if I have any particles in this bin, send them to the responsible TreePiece
 		if((binEnd - binBegin) > 0) {
                   if (verbosity>=3) CkPrintf("me:%d to:%d how many:%d\n",thisIndex,*responsibleIter,(binEnd-binBegin));
-		    if(*responsibleIter == thisIndex)
-			acceptSortedParticles(&(*binBegin), binEnd - binBegin);
-		    else
-			pieces[*responsibleIter].acceptSortedParticles(&(*binBegin), binEnd - binBegin);
+                  if(*responsibleIter == thisIndex) {
+                    acceptSortedParticles(binBegin, binEnd - binBegin);
+                  } else {
+                    pieces[*responsibleIter].acceptSortedParticles(binBegin, binEnd - binBegin);
+                  }
 		}
 		if(&myParticles[myNumParticles + 1] <= binEnd)
 			break;
 		binBegin = binEnd;
 	}
+
+        incomingParticlesSelf = true;
+        acceptSortedParticles(binBegin, 0);
 	//resize myParticles so we can fit the sorted particles and
 	//the boundary particles
-	if(dm->particleCounts[myPlace] > (int) myNumParticles) {
-	    delete[] myParticles;
-	    myParticles = new GravityParticle[dm->particleCounts[myPlace] + 2];
-	    }
-	myNumParticles = dm->particleCounts[myPlace];
+	//if(dm->particleCounts[myPlace] > (int) myNumParticles) {
+	//    delete[] myParticles;
+	//    myParticles = new GravityParticle[dm->particleCounts[myPlace] + 2];
+	//    }
+	//myNumParticles = dm->particleCounts[myPlace];
 }
 
 /// Accept particles from other TreePieces once the sorting has finished
-void TreePiece::acceptSortedParticles(const GravityParticle* particles, const int n
-) {
-        copy(particles, particles + n, back_inserter(mySortedParticles));
-        if(myPlace == -1)
-	    myPlace = find(dm->responsibleIndex.begin(),
-			   dm->responsibleIndex.end(), thisIndex)
-		- dm->responsibleIndex.begin();
-        if (verbosity>=3) ckout << thisIndex <<" waiting for "<<dm->particleCounts[myPlace]-mySortedParticles.size()<<" particles ("<<mySortedParticles.size()<<"-"<<dm->particleCounts[myPlace]<<")"<<endl;
-        if(dm->particleCounts[myPlace] == mySortedParticles.size()) {
-	    //I've got all my particles
-	    sort(mySortedParticles.begin(), mySortedParticles.end());
-	    copy(mySortedParticles.begin(), mySortedParticles.end(),
-		 &myParticles[1]);
-	    //signify completion with a reduction
-	    if(verbosity>1)
-        ckout << thisIndex <<" contributing to accept particles"<<endl;
-	    if (root != NULL) {
-	      root->fullyDelete();
-	      delete root;
-	      root = NULL;
-        nodeLookupTable.clear();
-	    }
-	    contribute(0, 0, CkReduction::concat, callback);
-        }
+void TreePiece::acceptSortedParticles(const GravityParticle* particles, const int n) {
+
+  if(myPlace == -1) {
+    myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
+  }
+  
+  // allocate new particles array on first call
+  if (incomingParticles == NULL) {
+    incomingParticles = new GravityParticle[dm->particleCounts[myPlace] + 2];
+  }
+
+  memcpy(&incomingParticles[incomingParticlesArrived+1], particles, n*sizeof(GravityParticle));
+  incomingParticlesArrived += n;
+
+  if (verbosity>=3) ckout << thisIndex <<" waiting for "<<dm->particleCounts[myPlace]-incomingParticlesArrived<<" particles ("<<dm->particleCounts[myPlace]<<"-"<<incomingParticlesArrived<<")"<<(incomingParticlesSelf?" self":"")<<endl;
+
+  if(dm->particleCounts[myPlace] == incomingParticlesArrived && incomingParticlesSelf) {
+    //I've got all my particles
+    delete[] myParticles;
+    myParticles = incomingParticles;
+    incomingParticles = NULL;
+    myNumParticles = dm->particleCounts[myPlace];
+    incomingParticlesArrived = 0;
+    incomingParticlesSelf = false;
+
+    sort(myParticles+1, myParticles+myNumParticles+1);
+    //signify completion with a reduction
+    if(verbosity>1) ckout << thisIndex <<" contributing to accept particles"<<endl;
+
+    if (root != NULL) {
+      root->fullyDelete();
+      delete root;
+      root = NULL;
+      nodeLookupTable.clear();
+    }
+    contribute(0, 0, CkReduction::concat, callback);
+  }
 }
 
 // Sum energies for diagnostics
@@ -1031,6 +1054,16 @@ void TreePiece::setSoft(const double dSoft) {
 }
 
 void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
+#if COSMO_DEBUG > 1
+  char fout[100];
+  sprintf(fout,"tree.%d.%d.after",thisIndex,iterationNo);
+  ofstream ofs(fout);
+  for (int i=1; i<=myNumParticles; ++i)
+    ofs << keyBits(myParticles[i].key,63) << " " << myParticles[i].position[0] << " "
+        << myParticles[i].position[1] << " " << myParticles[i].position[2] << endl;
+  ofs.close();
+#endif
+
   maxBucketSize = bucketSize;
   callback = cb;
 

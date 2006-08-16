@@ -318,8 +318,17 @@ class TreePiece : public CBase_TreePiece {
 	/// Array with the particles in this chare
 	GravityParticle* myParticles;
 
-	/// Array with sorted particles for domain decomposition
+	/// Array with sorted particles for domain decomposition (ORB)
 	vector<GravityParticle> mySortedParticles;
+        /// Array with incoming particles for domain decomposition (without stl)
+        GravityParticle *incomingParticles;
+        /// How many particles have already arrived during domain decomposition
+        int incomingParticlesArrived;
+        /// Flag to acknowledge that the current TreePiece has already
+        /// contributed to itself, prevents that acceptSortedParticles will
+        /// change the TreePiece particles before the one belonging to someone
+        /// else have been sent out
+        bool incomingParticlesSelf;
 
 	/// holds the total mass of the current TreePiece
 	double piecemass;
@@ -689,6 +698,10 @@ public:
 	  ewt = NULL;
 	  nSetupWriteStage = -1;
 	  nMaxEwhLoop = 100;
+
+          incomingParticles = NULL;
+          incomingParticlesArrived = 0;
+          incomingParticlesSelf = false;
     orbBoundaries.clear();
     //tempOrbBoundaries.clear();
 	}
@@ -700,6 +713,10 @@ public:
 	  prefetchRoots = NULL;
 	  remainingChunk = NULL;
           ewt = NULL;
+
+          incomingParticles = NULL;
+          incomingParticlesArrived = 0;
+          incomingParticlesSelf = false;
     orbBoundaries.clear();
     //openingDiffCount=0;
     //tempOrbBoundaries.clear();
