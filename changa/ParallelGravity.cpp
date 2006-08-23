@@ -62,6 +62,8 @@ void _Trailer(void) {
 	puts("(see man page (Ha!) for more information)");
 }
 
+int killAt;
+
 Main::Main(CkArgMsg* m) {
 	_cache = true;
 	mainChare = thishandle;
@@ -84,6 +86,11 @@ Main::Main(CkArgMsg* m) {
 	param.iStartStep = 0;
 	prmAddParam(prm, "iStartStep", paramInt, &param.iStartStep,
 		    sizeof(int),"nstart", "Initial step numbering");
+
+        killAt = 0;
+        prmAddParam(prm, "killAt", paramInt, &killAt,
+		    sizeof(int),"killat", "Killing after this step");
+
 	param.dEta = 0.03;
 	prmAddParam(prm, "dEta", paramDouble, &param.dEta,
 		    sizeof(double),"eta", "Time integration accuracy");
@@ -626,7 +633,9 @@ void Main::nextStage() {
   for(int iStep = param.iStartStep+1; iStep <= param.nSteps; iStep++){
 
     if (verbosity) ckerr << "Starting big step " << iStep << endl;
+    startTime = CkWallTimer();
     advanceBigStep(iStep-1);
+    ckerr << "Big step " << iStep << " took " << (CkWallTimer() - startTime) << "seconds." <<endl;
 
     if(iStep%param.iLogInterval == 0) {
       calcEnergy(dTime, achLogFileName);
@@ -638,6 +647,8 @@ void Main::nextStage() {
       writeOutput(iStep);
     }
 	  
+    if (killAt > 0 && killAt == iStep) break;
+
   } // End of main computation loop
 
   /******** Shutdown process ********/
