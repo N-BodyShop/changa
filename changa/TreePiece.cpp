@@ -908,8 +908,10 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles, const in
 
   if(myPlace == -1) {
     myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
+    assert(myPlace < dm->responsibleIndex.size());
   }
   
+  assert(myPlace >= 0 && myPlace < dm->particleCounts.size());
   // allocate new particles array on first call
   if (incomingParticles == NULL) {
     incomingParticles = new GravityParticle[dm->particleCounts[myPlace] + 2];
@@ -4583,6 +4585,7 @@ void TreePiece::pup(PUP::er& p) {
   if(p.isUnpacking()){
     localCache = cacheManagerProxy.ckLocalBranch();
     dm = NULL;
+    myPlace = -1;
 
     // reconstruct the data for prefetching
     /* OLD, moved to the cache and startIteration
