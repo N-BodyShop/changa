@@ -4530,6 +4530,7 @@ void TreePiece::pup(PUP::er& p) {
     p | boxes[i];
     p | splitDims[i];
   }
+  p | nSetupWriteStage;
 
   p | theta;
   // Periodic variables
