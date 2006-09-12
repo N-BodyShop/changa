@@ -1,6 +1,7 @@
 /** @file ParallelGravity.cpp
  */
  
+#include <stdint.h>
 #include <iostream>
 
 //#include <popt.h>
