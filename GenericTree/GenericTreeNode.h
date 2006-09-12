@@ -849,7 +849,7 @@ class WeightBalanceState {
 template <typename T>
   inline bool weightBalance(NodeKey *&nodeKeys, T* weights, int &num, int &keysTot, int desired, CkVec<T> *zeros=NULL, CkVec<NodeKey> *openedNodes=NULL, WeightBalanceState<T> *state=NULL) {
   // T can be signed or unsigned
-  if (verbosity>=3) CkPrintf("starting weightBalance iteration\n");
+  // if (verbosity>=3) CkPrintf("starting weightBalance iteration\n");
 
   bool keep = (state != NULL);
   bool isReturning = (state != NULL && state->nodes.numObjects()>0);
@@ -989,7 +989,7 @@ template <typename T>
 
     oldNum = currentNum;
     if (oldNum <= desired) {
-      if (verbosity>=3) CkPrintf("[%d] Opening node %llx (%d)\n",CkMyPe(),state->heaviest.rbegin()->key,state->heaviest.rbegin()->weight);
+      // if (verbosity>=3) CkPrintf("[%d] Opening node %llx (%d)\n",CkMyPe(),state->heaviest.rbegin()->key,state->heaviest.rbegin()->weight);
       NodeJoint<T> *opened = state->nodes.getRef(openedKey);
       state->heaviest.erase(WeightKey<T>(openedWeight,openedKey));
       opened->isLeaf = false;
@@ -1012,7 +1012,7 @@ template <typename T>
 
     }
     if (oldNum >= desired) {
-      if (verbosity>=3) CkPrintf("[%d] Closing node %llx (%d)\n",CkMyPe(),state->joints.begin()->key,state->joints.begin()->weight);
+      // if (verbosity>=3) CkPrintf("[%d] Closing node %llx (%d)\n",CkMyPe(),state->joints.begin()->key,state->joints.begin()->weight);
       NodeJoint<T> *closed = state->nodes.getRef(closedKey);
       state->joints.erase(state->joints.begin());
       closed->isLeaf = true;
@@ -1138,7 +1138,7 @@ template <typename T>
   }
   reorderList<T>(nodeKeys, num, zeros, openedNodes, state->nodes);
   if (!keep) delete state;
-  if (verbosity>=2) CkPrintf("weightBalance finished\n");
+  // if (verbosity>=2) CkPrintf("weightBalance finished\n");
   return result;
 }
 
