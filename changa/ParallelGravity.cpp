@@ -190,7 +190,7 @@ Main::Main(CkArgMsg* m) {
 		    sizeof(int),"y", "Yield Period");
 	_cacheLineDepth=1;
 	prmAddParam(prm, "nCacheDepth", paramInt, &_cacheLineDepth,
-		    sizeof(double),"d", "Chunks per TreePiece");
+		    sizeof(int),"d", "Cache Line Depth");
 	_prefetch=false;
 	prmAddParam(prm, "bPrefetch", paramBool, &_prefetch,
 		    sizeof(int),"f", "Enable prefetching in the cache");
