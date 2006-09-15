@@ -392,7 +392,8 @@ void CacheManager::recvNodes(FillNodeMsg *msg){
   nodesMessages++;
 #endif
   if (!_nocache) {
-    addNodes(chunk,msg->owner,newnode);
+    int owner = msg->owner;
+    addNodes(chunk,owner,newnode);
     delete msg;
     map<CacheKey,NodeCacheEntry *>::iterator e = nodeCacheTable[chunk].find(newnode->getParentKey());
     if (e != nodeCacheTable[chunk].end() && e->second->node != NULL) {
@@ -403,7 +404,7 @@ void CacheManager::recvNodes(FillNodeMsg *msg){
     }
     outStandingRequests.erase(pchunk);
     // recursively process all nodes just inserted in the cache
-    processRequests(chunk,newnode,msg->owner,_cacheLineDepth);
+    processRequests(chunk,newnode,owner,_cacheLineDepth);
   } else {
     // here _nocache is true, so we don't cache anything and we forwarded all requests
     // now deliver the incoming node only to one of the requester
