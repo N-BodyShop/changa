@@ -4,8 +4,10 @@
 #include <stdint.h>
 #include <iostream>
 
-//#include <popt.h>
 #include <unistd.h>
+
+// Debug floating point problems
+// #include <fenv.h>
 
 #include "Sorter.h"
 #include "ParallelGravity.h"
@@ -68,6 +70,9 @@ int killAt;
 Main::Main(CkArgMsg* m) {
 	_cache = true;
 	mainChare = thishandle;
+
+	// Floating point exceptions.
+	// feenableexcept(FE_OVERFLOW | FE_DIVBYZERO | FE_INVALID);
 
         boundaryEvaluationUE = traceRegisterUserEvent("Evaluating Boudaries");
         weightBalanceUE = traceRegisterUserEvent("Weight Balancer");
@@ -325,8 +330,8 @@ void Main::getStartTime()
 	    double aTo, tTo;
 	    dTime = csmExp2Time(param.csm, dAStart);
 	    if (verbosity > 0)
-		ckout << "Input file, Time:" << dTime << "Redshift:" << z
-		      << "Expansion factor:" << dAStart << endl;
+		ckout << "Input file, Time:" << dTime << " Redshift:" << z
+		      << " Expansion factor:" << dAStart << endl;
 	    if (prmSpecified(prm,"dRedTo")) {
 		if (!prmArgSpecified(prm,"nSteps") &&
 		    prmArgSpecified(prm,"dTimeStep")) {
@@ -566,6 +571,7 @@ void Main::nextStage() {
       return;
     }
     pieces.loadTipsy(basefilename, CkCallbackResumeThread());
+    ckerr << pieces[0].ckLocal()->tipsyHeader << endl;
   }	
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
@@ -734,6 +740,7 @@ void Main::writeOutput(int iStep)
     char achFile[256];
     double dOutTime;
     double dvFac;
+    double startTime;
     
     sprintf(achFile,"%s.%06i",param.achOutName,iStep);
     if(param.csm->bComove) {
@@ -745,8 +752,25 @@ void Main::writeOutput(int iStep)
 	dvFac = 1.0;
 	}
     
+    if(verbosity) {
+	ckerr << "ReOrder particles ...";
+	startTime = CkWallTimer();
+	}
+    
+    pieces.reOrder(CkCallbackResumeThread());
+    if(verbosity)
+	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+	      << endl;
+    
+    if(verbosity) {
+	ckerr << "Writing output ...";
+	startTime = CkWallTimer();
+	}
     pieces.setupWrite(0, 0, achFile, dOutTime, dvFac,
 		      CkCallbackResumeThread());
+    if(verbosity)
+	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+	      << endl;
     }
 
 int Main::adjust(int iKickRung) 

@@ -1,3 +1,10 @@
+InOutput.o: \
+../structures/OrientedBox.h \
+../structures/TipsyFile.h \
+../structures/TypeSelection.h \
+Reductions.h \
+ParallelGravity.h
+
 Ewald.o: \
 ParallelGravity.h
 

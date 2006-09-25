@@ -14,6 +14,7 @@
 
 #include "Vector3D.h"
 #include "tree_xdr.h"
+#include "TipsyFile.h"
 #include "SFC.h"
 #include "TreeNode.h"
 #include "GenericTreeNode.h"
@@ -585,7 +586,7 @@ class TreePiece : public CBase_TreePiece {
 
 	int bLoaded;		/* Are particles loaded? */
 	FieldHeader fh;
-
+	Tipsy::header tipsyHeader; /* for backward compatibility */
 	
 #if COSMO_DEBUG > 1
   ///This function checks the correctness of the treewalk
@@ -657,6 +658,7 @@ public:
 	  usesAtSync=CmiTrue;
 	  bucketReqs=NULL;
 	  myPlace = -1;
+	  nSetupWriteStage = -1;
     //openingDiffCount=0;
     chunkRootLevel=0;
     splitters = NULL;
@@ -696,7 +698,6 @@ public:
 	  prefetchReq = NULL;
 	  remainingChunk = NULL;
 	  ewt = NULL;
-	  nSetupWriteStage = -1;
 	  nMaxEwhLoop = 100;
 
           incomingParticles = NULL;
@@ -758,6 +759,8 @@ public:
 	// comoving coordinates.)
 	void velScale(double dScale);
 	
+	// Parse NChilada description file
+	int parseNC(const std::string& fn);
 	// Load from mass and position files
 	void load(const std::string& fn, const CkCallback& cb);
 
@@ -770,6 +773,11 @@ public:
 	void setupWrite(int iStage, int64_t iPrevOffset,
 			const std::string& filename, const double dTime,
 			const double dvFac, const CkCallback& cb);
+	// Reorder for output
+	void reOrder(CkCallback& cb);
+	// move particles around for output
+	void ioAcceptSortedParticles(const GravityParticle* particles,
+				     const int n);
 	/** Inform the DataManager of my node that I'm here.
 	 The callback will receive a CkReductionMsg containing no data.
 	void registerWithDataManager(const CkGroupID& dataManagerID,

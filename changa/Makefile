@@ -15,13 +15,14 @@ CHARMC = ../../charm/bin/charmc $(OPTS)
 CXX = $(CHARMC)
 CC = $(CXX)
 CXX_DEPEND = $(CXX) -M -MM -MG $(CXXFLAGS)
+CFLAGS = -g -O3
 
 OBJECTS = DataManager.o Reductions.o TreePiece.o CacheManager.o Sorter.o \
 	  param.o ../GenericTree/GenericTreeNode.o ParallelGravity.o Ewald.o \
-	  cosmo.o romberg.o runge.o
+	  InOutput.o cosmo.o romberg.o runge.o
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp CacheManager.C \
 	param.c ../GenericTree/GenericTreeNode.C ParallelGravity.cpp Ewald.C \
-	cosmo.c romberg.c runge.c
+	InOutput.C cosmo.c romberg.c runge.c
 
 TARGET = ParallelGravity
 VERSION = 0.2
