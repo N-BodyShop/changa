@@ -284,7 +284,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
       if (nodeKeys == NULL) {
         rt = new BinaryTreeNode();
         numKeys = numChares;
-        keysSize = numChares * 1.1;
+        keysSize = (int) (numChares * 1.1);
         nodeKeys = new NodeKey[keysSize];
         rt->getChunks(numKeys,nodeKeys);
         delete rt;
