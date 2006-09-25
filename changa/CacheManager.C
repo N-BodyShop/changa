@@ -820,7 +820,7 @@ void CacheManager::cacheSync(double theta, int activeRung, const CkCallback& cb)
     srand((CkMyPe()+1)*1000);
     for (i=numChunks; i>1; --i) {
       int r = rand();
-      int k = (((float)r) * i) / (((float)RAND_MAX) + 1);
+      int k = (int) ((((float)r) * i) / (((float)RAND_MAX) + 1));
       NodeKey tmp = prefetchRoots[i-1];
       prefetchRoots[i-1] = prefetchRoots[k];
       prefetchRoots[k] = tmp;
