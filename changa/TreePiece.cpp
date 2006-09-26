@@ -873,6 +873,7 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
   CkAssert(node->getType() == Boundary || node->getType() == Internal);
   
   node->makeOrbChildren(myParticles, myNumParticles, level, chunkRootLevel, compFuncPtr);
+  node->rungs = 0;
 
   GenericTreeNode *child;
   for (unsigned int i=0; i<node->numChildren(); ++i) {
@@ -934,6 +935,7 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
 #endif
       numBuckets++;
       if (node->getType() != Boundary) node->moments += child->moments;
+      if (child->rungs > node->rungs) node->rungs = child->rungs;
     } else if (child->getType() == Empty) {
       child->remoteIndex = thisIndex;
     } else {
@@ -945,6 +947,7 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
       // it in receiveRemoteMoments)
       if (child->getType() == Boundary) node->remoteIndex --;
       if (node->getType() != Boundary) node->moments += child->moments;
+      if (child->rungs > node->rungs) node->rungs = child->rungs;
     }
   }
 
@@ -1124,6 +1127,7 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
   
   node->makeOctChildren(myParticles, myNumParticles, level);
   node->boundingBox.reset();
+  node->rungs = 0;
 
   GenericTreeNode *child;
   for (unsigned int i=0; i<node->numChildren(); ++i) {
@@ -1181,7 +1185,7 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
         node->boundingBox.grow(child->boundingBox);
       }
       // for the rung information we can always do now since it is a local property
-      if (node->rungs > child->rungs) node->rungs = child->rungs;
+      if (child->rungs > node->rungs) node->rungs = child->rungs;
     }
   }
 
@@ -2381,6 +2385,14 @@ void TreePiece::startIteration(double t, // opening angle
   callback = cb;
   theta = t;
   activeRung = am;
+  if(root->rungs < activeRung) { // nothing to do
+      if(verbosity >= 3) {
+	  ckerr << "TreePiece " << thisIndex << ": no actives" << endl;
+	  }
+      contribute(0, 0, CkReduction::concat, callback);
+      return;
+      }
+  
   if (n != numChunks && remainingChunk != NULL) {
     // reallocate remaining chunk to the new size
     delete[] remainingChunk;
@@ -2694,6 +2706,7 @@ void TreePiece::preWalkInterTree(){
       prevListIterLocal=0;
       
       if(curNodeLocal!=root){
+	assert(level >= 0);
         if(checkListLocal[level].length()!=0){
           node=checkListLocal[level][0];
           prevListIterLocal=1;
