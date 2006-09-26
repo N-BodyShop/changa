@@ -2385,13 +2385,6 @@ void TreePiece::startIteration(double t, // opening angle
   callback = cb;
   theta = t;
   activeRung = am;
-  if(root->rungs < activeRung) { // nothing to do
-      if(verbosity >= 3) {
-	  ckerr << "TreePiece " << thisIndex << ": no actives" << endl;
-	  }
-      contribute(0, 0, CkReduction::concat, callback);
-      return;
-      }
   
   if (n != numChunks && remainingChunk != NULL) {
     // reallocate remaining chunk to the new size
@@ -2423,6 +2416,20 @@ void TreePiece::startIteration(double t, // opening angle
   }
   particleInterLocal = 0;
   iterationNo++;
+
+#if 0
+  // @TODO we should be able to take this shortcut, but we need to
+  // make sure other data is cleaned up.  In particular chunkAck in
+  // the CacheManager needs to be cleared.  Perhaps call finishChunk()?
+  if(root->rungs < activeRung) { // nothing to do
+      if(verbosity >= 3) {
+	  ckerr << "TreePiece " << thisIndex << ": no actives" << endl;
+	  }
+      contribute(0, 0, CkReduction::concat, callback);
+      return;
+      }
+#endif
+
   CkAssert(localCache != NULL);
   if(verbosity>1)
     CkPrintf("TreePiece %d: I have %d buckets\n",thisIndex,numBuckets);
