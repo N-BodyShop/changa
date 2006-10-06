@@ -253,8 +253,8 @@ inline int DtToRung(double dDelta, double dTideal) {
   int iSteps = (int) ceil(dDelta/dTideal);
   
   int iRung = 0;
-  iSteps >>= 1;
-  while(iSteps) {
+  iSteps--;
+  while(iSteps > 0) {
     iRung++;
     iSteps >>= 1;
   }
