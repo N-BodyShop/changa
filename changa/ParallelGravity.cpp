@@ -455,6 +455,8 @@ void Main::advanceBigStep(int iStep) {
       // Advance time to end of smallest step
       dTime += dTimeSub;
     }
+
+    int lastActiveRung = activeRung;
     currentStep += RungToSubsteps(nextMaxRung);
 
     // determine largest timestep that needs a kick
@@ -481,11 +483,13 @@ void Main::advanceBigStep(int iStep) {
           << endl;
 
     /********* Load balancer ********/
-    ckerr << "Load balancer ...";
-    startTime = CkWallTimer();
-    pieces.startlb(CkCallbackResumeThread());
-    ckerr<< " took "<<(CkWallTimer() - startTime) << " seconds."
-         << endl;
+    if(lastActiveRung == 0) {
+	ckerr << "Load balancer ...";
+	startTime = CkWallTimer();
+	pieces.startlb(CkCallbackResumeThread());
+	ckerr<< " took "<<(CkWallTimer() - startTime) << " seconds."
+	     << endl;
+	}
 
     /******** Tree Build *******/
     ckerr << "Building trees ...";
