@@ -666,8 +666,10 @@ void Main::nextStage() {
     if(printBinaryAcc)
       pieces[0].outputAccelerations(OrientedBox<double>(),
                                     "acc2", CkCallbackResumeThread());
-    else
-      pieces[0].outputAccASCII("acc2", CkCallbackResumeThread());
+    else {
+	pieces.reOrder(CkCallbackResumeThread());
+	pieces[0].outputAccASCII("acc2", CkCallbackResumeThread());
+	}
 	
     pieces[0].outputIOrderASCII("iord", CkCallbackResumeThread());
     ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
