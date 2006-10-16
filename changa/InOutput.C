@@ -13,6 +13,7 @@ int TreePiece::parseNC(const std::string& fn)
 
 void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   // mark presence in the cache if we are in the first iteration (indicated by localCache==NULL)
+  LBTurnInstrumentOff();
   if (_cache && localCache==NULL) {
     localCache = cacheManagerProxy.ckLocalBranch();
     localCache->markPresence(thisIndex, root);

@@ -55,6 +55,7 @@ extern unsigned int _yieldPeriod;
 extern DomainsDec domainDecomposition;
 extern GenericTrees useTree;
 extern CProxy_TreePiece streamingProxy;
+extern unsigned int numTreePieces;
 
 extern ComlibInstanceHandle cinst1, cinst2;
 
@@ -70,6 +71,7 @@ extern int partForceUE;
 extern int _prefetch;
 extern int _randChunks;
 extern int _numChunks;
+extern unsigned int bucketSize;
 
 class dummyMsg : public CMessage_dummyMsg{
 public:
@@ -270,7 +272,6 @@ class Main : public Chare {
 	CProxy_TreePiece pieces;
 	CProxy_DataManager dataManager;
 	CProxy_Sorter sorter;
-	unsigned int numTreePieces;
 	int nTotalParticles;
 	double theta;	
 	double dTimeStep;
@@ -281,7 +282,6 @@ class Main : public Chare {
 				   Lazer-Irvine eq. */
 	double dUOld;
 	double dTimeOld;
-	unsigned int bucketSize;
 	unsigned int printBinaryAcc;
 	PRM prm;		/* parameter parsing info */
 	Parameters param; /* actual parameters */
@@ -344,6 +344,9 @@ class TreePiece : public CBase_TreePiece {
 	int packed;
 
 	/// @endif
+
+          // the index assigned by the CacheManager upon registration
+          int localIndex;
 
 	unsigned int numSplitters;
 	SFC::Key* splitters;
@@ -598,6 +601,7 @@ class TreePiece : public CBase_TreePiece {
   void quiescence();
   /*END DEBUGGING */
 
+  NodeLookupType &getNodeLookupTable() {return nodeLookupTable;}
 
 	/// Recursive call to build the subtree with root "node", level
 	/// specifies the level at which "node" resides inside the tree

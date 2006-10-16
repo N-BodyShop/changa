@@ -33,9 +33,11 @@ DomainsDec domainDecomposition;
 GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
 CProxy_CacheManager streamingCache;
+unsigned int numTreePieces;
 int _prefetch;
 int _numChunks;
 int _randChunks;
+unsigned int bucketSize;
 
 ComlibInstanceHandle cinst1, cinst2;
 

@@ -687,11 +687,13 @@ public:
 };
 
 void TreePiece::quiescence() {
+  /*
   char fout[100];
   sprintf(fout,"tree.%d.%d",thisIndex,iterationNo);
   ofstream ofs(fout);
   printTree(root,ofs);
   ofs.close();
+  */
   /*
   CkPrintf("[%d] quiescence, %d left\n",thisIndex,momentRequests.size());
   for (MomentRequestType::iterator iter = momentRequests.begin(); iter != momentRequests.end(); iter++) {
@@ -779,7 +781,7 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
   bucketList.clear();
   
   // Fix the root presence in the cache
-  localCache->markPresence(thisIndex, root);
+  localIndex = localCache->markPresence(thisIndex, root);
 
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Starting tree build" << endl;
@@ -1002,7 +1004,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   bucketList.clear();
   
   // Fix the root presence in the cache
-  localCache->markPresence(thisIndex, root);
+  localIndex = localCache->markPresence(thisIndex, root);
 
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Starting tree build" << endl;
@@ -1527,6 +1529,9 @@ TreePiece::openCriterionBucket(GenericTreeNode *node,
 			       OrientedBox<T> &boundingBox,
 			       Vector3D<double> offset // Offset of node
 			       ) {
+  // mark the node as used by this TreePiece
+  node->markUsedBy(localIndex);
+
 #if COSMO_STATS > 0
   node->used = true;
 #endif
@@ -1561,6 +1566,9 @@ TreePiece::openCriterionBucket(GenericTreeNode *node,
 inline int TreePiece::openCriterionNode(GenericTreeNode *node,
                                         GenericTreeNode *myNode,
 					Vector3D<double> offset) {
+  // mark the node as used by this TreePiece
+  node->markUsedBy(localIndex);
+
 #if COSMO_STATS > 0
   node->used = true;
 #endif
@@ -1700,7 +1708,8 @@ void TreePiece::finishBucket(int iBucket) {
     */
     if(started && myNumParticlesPending == 0) {
       started = false;
-      contribute(0, 0, CkReduction::concat, callback);
+      cacheManagerProxy[CkMyPe()].allDone();
+      //contribute(0, 0, CkReduction::concat, callback);
       /*   cout << "TreePiece " << thisIndex << ": Made " << myNumProxyCalls
 	   << " proxy calls forward, " << myNumProxyCallsBack
 	   << " to respond in finishBucket" << endl;*/
@@ -1828,7 +1837,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
         CkAssert (childIterator != NULL);
         childType = childIterator->getType();
         if(childIterator->visitedL == false){
-          if(childType == NonLocal || childType == Cached || childType == NonLocalBucket || childType == CachedBucket || childType==Empty || childType==CachedEmpty || childIterator->rungs < activeRung){
+          if(childType == NonLocal || childType == Cached || childType == NonLocalBucket || childType == CachedBucket || childType==Empty || childType==CachedEmpty ){//|| childIterator->rungs < activeRung){
             childIterator->visitedL=true;
           }
           else{
@@ -1847,8 +1856,19 @@ void TreePiece::nextBucket(dummyMsg *msg){
         break;
       }
     }
-      
-	}
+    /*
+    int nextActiveBucket = numBuckets;
+    if (tmpNode->parent != NULL) {
+      CkAssert (curLevelLocal > 0);
+      nextActiveBucket = curNodeLocal->startBucket;
+    }
+    // mark skipped (non-active) buckets as done
+    for ( ; currentBucket < nextActiveBucket; currentBucket++) {
+      bucketReqs[currentBucket].finished = 1;
+      finishBucket(currentBucket);
+    }
+    */
+  }
 
 #else 
   while(i<_yieldPeriod && currentBucket<numBuckets){
@@ -2103,7 +2123,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
         CkAssert (childIterator != NULL);
         childType=childIterator->getType();
         if(childIterator->visitedR == false){
-          if(childType == NonLocal || childType == Cached || childType == NonLocalBucket || childType == CachedBucket || childType==Empty || childType==CachedEmpty || childIterator->rungs < activeRung){
+          if(childType == NonLocal || childType == Cached || childType == NonLocalBucket || childType == CachedBucket || childType==Empty || childType==CachedEmpty ){//|| childIterator->rungs < activeRung){
             childIterator->visitedR=true;
           }
           else{
@@ -2122,7 +2142,18 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
         break;
       }
     }
-      
+    /*
+    int nextActiveBucket = numBuckets;
+    if (tmpNode->parent != NULL) {
+      CkAssert (curLevelRemote > 0);
+      nextActiveBucket = curNodeRemote->startBucket;
+    }
+    // mark skipped (non-active) buckets as done
+    for ( ; currentRemoteBucket < nextActiveBucket; currentRemoteBucket++) {
+      finishBucket(currentRemoteBucket);
+      remainingChunk[msg->chunkNum] -= bucketList[currentRemoteBucket]->particleCount;
+    }
+    */
   }
 
 #else
@@ -2200,6 +2231,11 @@ void TreePiece::preWalkRemoteInterTree(GenericTreeNode *chunkRoot, bool isRoot){
       }
       else{
         node.node=chunkRoot;
+        if (root->rungs < activeRung) {
+          root->visitedR=true;
+          myCheckListEmpty=true;
+          break;
+        }
       }
 
       if(node.node!=NULL){
@@ -2248,7 +2284,7 @@ void TreePiece::preWalkRemoteInterTree(GenericTreeNode *chunkRoot, bool isRoot){
       }
       else{
         CkPrintf("Exceptional case\n");
-        CkAssert(false);
+        CkAssert(curNodeRemote == root);
         curNodeRemote->visitedR=true;
         break;
       }
@@ -2669,7 +2705,7 @@ void TreePiece::ResumeFromSync(){
     CkPrintf("[%d] TreePiece %d in ResumefromSync\n",CkMyPe(),thisIndex);
   // Register to the cache manager
   if (_cache) {
-    localCache->markPresence(thisIndex, root);
+    localIndex = localCache->markPresence(thisIndex, root);
   }
   contribute(0, 0, CkReduction::concat, callback);
 }
@@ -2721,6 +2757,12 @@ void TreePiece::preWalkInterTree(){
         else node.node=NULL;
       }
       else{
+        if (root->rungs < activeRung) {
+          root->visitedL=true;
+          myLocalCheckListEmpty=true;
+          break;
+        }
+
         GenericTreeNode *nd;
         for(int i=0;i<numChunks;i++){
 #ifdef CACHE_TREE
@@ -2785,7 +2827,7 @@ void TreePiece::preWalkInterTree(){
       }
       else{
         CkPrintf("Exceptional case\n");
-        CkAssert(false);
+        CkAssert(curNodeLocal == root);
         curNodeLocal->visitedL=true;
         break;
       }

@@ -21,6 +21,8 @@ mainmodule ParallelGravity {
 	readonly int _numChunks;
 	readonly CkArrayID treePieceID;
 	readonly CkGroupID dataManagerID;
+        readonly unsigned int numTreePieces;
+        readonly unsigned int bucketSize;
 
         readonly ComlibInstanceHandle cinst1;
         readonly ComlibInstanceHandle cinst2;

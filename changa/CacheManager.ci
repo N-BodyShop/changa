@@ -11,6 +11,7 @@ module CacheManager {
 		//entry void recvParticles(CacheKey key,GravityParticle part[num],int num,int from);
                 entry void recvParticles(FillParticleMsg *msg);
                 entry void finishedChunk(int num, u_int64_t weight);
+                entry void allDone();
 		entry void collectStatistics(CkCallback &cb);
 	};
 	

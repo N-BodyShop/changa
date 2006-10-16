@@ -69,6 +69,8 @@ CacheManager::CacheManager(int size){
   totalParticlesRequested = 0;
 #endif
 
+  treePieceLocMgr = NULL;
+
   maxSize = (u_int64_t)size * 1024 * 1024 / (sizeof(NodeCacheEntry) + sizeof(CacheNode));
   if (verbosity) CkPrintf("Cache: accepting at most %llu nodes\n",maxSize);
 }
@@ -691,6 +693,20 @@ int CacheManager::createLookupRoots(GenericTreeNode *node, Tree::NodeKey *keys) 
 #endif
 
 void CacheManager::cacheSync(double theta, int activeRung, const CkCallback& cb) {
+  if (treePieceLocMgr == NULL) {
+    // initialize the database structures to record the object communication
+    treePieceLocMgr = treeProxy.ckLocMgr();
+    lbdb = treePieceLocMgr->getLBDB();
+    omhandle = &treePieceLocMgr->getOMHandle();
+  }
+  // sentData:
+  // - first dimension: number of local chares
+  // - second dimension: total number of chares
+  // sentData[i][j] is the data sent by j and received by i
+  sentData = new CommData[registeredChares.size()*numTreePieces];
+  bzero(sentData, registeredChares.size()*numTreePieces*sizeof(CommData));
+
+  callback = cb;
 #ifdef COSMO_COMLIB
   if (iterationNo == 0) {
     if (CkMyPe() == 0) ckerr << "Associating comlib strategies" << endl;
@@ -698,6 +714,7 @@ void CacheManager::cacheSync(double theta, int activeRung, const CkCallback& cb)
     ComlibAssociateProxy(&cinst2, streamingCache);
   }
 #endif
+  LBTurnInstrumentOn();
   //if(iter > iterationNo){
   iterationNo++;
   /*map<MapKey,NodeCacheEntry *>::iterator p;
@@ -846,19 +863,28 @@ void CacheManager::cacheSync(double theta, int activeRung, const CkCallback& cb)
   }
 }
 
-void CacheManager::markPresence(int index, GenericTreeNode *root) {
-  if(verbosity>1)
-    CkPrintf("[%d] recording presence of %d\n",CkMyPe(),index);
+int CacheManager::markPresence(int index, GenericTreeNode *root) {
   prototype = root;
   registeredChares[index] = root;
   //newChunks = _numChunks;
+  CkAssert(registeredChares.size() <= 64);
+  int returnValue = registeredChares.size()-1;
+  if (localIndicesMap.find(index) != localIndicesMap.end()) returnValue = localIndicesMap[index];
+  else localIndicesMap[index] = returnValue;
+  localIndices[returnValue] = index;
+  if(verbosity>1)
+    CkPrintf("[%d] recording presence of %d with ID %d\n",CkMyPe(),index,returnValue);
+  return returnValue;
 }
 
 void CacheManager::revokePresence(int index) {
   if(verbosity>1)
   CkPrintf("[%d] removing presence of %d\n",CkMyPe(),index);
   registeredChares.erase(index);
+  localIndicesMap.erase(index);
 }
+
+extern LDObjid idx2LDObjid(const CkArrayIndex &idx);
 
 void CacheManager::finishedChunk(int num, u_int64_t weight) {
 #if COSMO_STATS > 0
@@ -888,6 +914,16 @@ void CacheManager::finishedChunk(int num, u_int64_t weight) {
     for (pn = nodeCacheTable[num].begin(); pn != nodeCacheTable[num].end(); pn++) {
       NodeCacheEntry *e = pn->second;
       storedNodes --;
+      // check who used this node for LB communication accounting
+      int sender = e->node->remoteIndex;
+      for (int i=0; i<registeredChares.size(); ++i) {
+        if (e->node->isUsedBy(i)) {
+          sentData[i * numTreePieces + sender].nodes ++;
+          if (e->node->getType() == CachedBucket) {
+            sentData[i * numTreePieces + sender].particles += e->node->particleCount;
+          }
+        }
+      }
 #if COSMO_STATS > 0
       releasedNodes++;
       if (!_nocache && e->node->used == false) nodesNotUsed++;
@@ -916,7 +952,74 @@ void CacheManager::finishedChunk(int num, u_int64_t weight) {
 #ifdef COSMO_PRINT
     CkPrintf("%d After purging chunk %d left %d nodes and %d particles\n",CkMyPe(),num,storedNodes,storedParticles);
 #endif
+    // acknowledge allDone that another chunk has been finished
+    allDone();
   }
+}
+
+void CacheManager::allDone() {
+  static int counter = 0;
+  if (++counter == (registeredChares.size() + numChunks)) {
+    counter = 0;
+    // fix the LB knowledge of all communication
+    map<int,GenericTreeNode*>::iterator regIter;
+    for (regIter=registeredChares.begin(); regIter!=registeredChares.end(); regIter++) {
+      NodeLookupType::iterator iter;
+      TreePiece *tp = treeProxy[(*regIter).first].ckLocal();
+      int sender = (*regIter).first;
+      for (iter = tp->getNodeLookupTable().begin(); iter != tp->getNodeLookupTable().end(); iter++) {
+        GenericTreeNode *node = (*iter).second;
+        for (unsigned int i=0; i<registeredChares.size(); ++i) {
+          if (node->isUsedBy(i)) {
+            sentData[i * numTreePieces + sender].nodes ++;
+            if (node->getType() == Bucket) {
+              sentData[i * numTreePieces + sender].particles += node->particleCount;
+            }
+          }
+        }
+      }
+    }
+
+    for (int i=0; i<registeredChares.size(); ++i) {
+      int receiver = localIndices[i];
+      recordCommunication(receiver, &sentData[i * numTreePieces]);
+    }
+
+    delete[] sentData;
+    LBTurnInstrumentOff();
+    contribute(0, 0, CkReduction::concat, callback);
+  }
+}
+
+void CacheManager::recordCommunication(int receiver, CommData *data) {
+  int nodesMsg = 1 << _cacheLineDepth;
+  int particlesMsg = bucketSize / 2;
+  PUP::sizer p1;
+  ExternalGravityParticle part;
+  part.pup(p1);
+  int particleSize = p1.size() * particlesMsg;
+  PUP::sizer p2;
+  prototype->pup(p2, 0);
+  int nodeSize = p2.size() * nodesMsg;
+  //CkPrintf("nodeSize=%d, particleSize=%d\n",nodeSize,particleSize);
+
+  TreePiece *p = treeProxy[receiver].ckLocal();
+  LDObjHandle objHandle;
+  int objstopped = 0;
+  objHandle = p->timingBeforeCall(&objstopped);
+  for (int i=0; i<numTreePieces; ++i) {
+    if (verbosity > 2) CkPrintf("[%d] Communication of %d from %d: %d nodes, %d particles\n",CkMyPe(),receiver,i,data[i].nodes,data[i].particles);
+
+    CkArrayIndex1D index(i);
+    for (int j=0; j * nodesMsg < data[i].nodes; ++j) {
+      lbdb->Send(*omhandle, idx2LDObjid(index), nodeSize, treePieceLocMgr->lastKnown(index));
+    }
+    for (int j=0; j * particlesMsg < data[i].particles; ++j) {
+      lbdb->Send(*omhandle, idx2LDObjid(index), particleSize, treePieceLocMgr->lastKnown(index));
+    }
+  }
+  p->timingAfterCall(objHandle,&objstopped);
+  
 }
 
 CkReduction::reducerType CacheStatistics::sum;

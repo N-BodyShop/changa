@@ -203,6 +203,13 @@ public:
 };
 bool operator<(MapKey lhs,MapKey rhs);
 
+class CommData {
+ public:
+  int nodes;
+  int particles;
+  CommData() : nodes(0), particles(0) {}
+};
+
 class CacheManager : public CBase_CacheManager {
 private:
 
@@ -267,6 +274,14 @@ private:
 	CacheNode *prototype;
 	/// list of TreePieces registered to this branch together with their roots
 	map<int,GenericTreeNode*> registeredChares;
+	map<int,int> localIndicesMap;
+
+        CkCallback callback;
+        CkLocMgr *treePieceLocMgr;
+        LBDatabase *lbdb;
+        const LDOMHandle *omhandle;
+        int localIndices[64];
+        CommData *sentData;
 
 #ifdef CACHE_TREE
 	/// root of the super-tree hold in this processor
@@ -379,13 +394,17 @@ private:
 	    the unregistration and re-registration is done right before AtSync
 	    and after ResumeFromSync.
 	 */
-	void markPresence(int index, GenericTreeNode *root);
+	int markPresence(int index, GenericTreeNode *root);
 	/// Before changing processor, chares deregister from the CacheManager
 	void revokePresence(int index);
 
-	/// Called from the TreePieces to ackowledge that a particular chunk has
-	/// been completely used, and can be deleted
+	/// Called from the TreePieces to acknowledge that a particular chunk
+	/// has been completely used, and can be deleted
 	void finishedChunk(int num, u_int64_t weight);
+        /// Called from the TreePieces to acknowledge that they have completely
+        /// finished their computation
+        void allDone();
+        void recordCommunication(int receiver, CommData *data);
 
 	/// Collect the statistics for the latest iteration
 	void collectStatistics(CkCallback& cb);
