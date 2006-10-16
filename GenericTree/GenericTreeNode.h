@@ -54,8 +54,9 @@ namespace Tree {
   protected:
     NodeType myType;
     NodeKey key;
+    u_int64_t usedBy;
 	
-    GenericTreeNode() : myType(Invalid), key(0), parent(0), firstParticle(0), lastParticle(0), remoteIndex(0) {
+    GenericTreeNode() : myType(Invalid), key(0), parent(0), firstParticle(0), lastParticle(0), remoteIndex(0), usedBy(0) {
 #if COSMO_STATS > 0
       used = false;
 #endif
@@ -69,7 +70,7 @@ namespace Tree {
 
   public:
 #if COSMO_STATS > 0
-    bool used;
+    bool used; // FIXME: this field can now be replaced by "usedBy"
 #endif
 
     /// The moments for the gravity computation
@@ -103,7 +104,7 @@ namespace Tree {
 #endif
     //GenericTreeNode() : myType(Invalid), key(0), parent(0), beginParticle(0), endParticle(0), remoteIndex(0) { }
 
-    GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0) { 
+    GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0), usedBy(0) { 
     #if INTERLIST_VER > 0
       visitedR=false;
       visitedL=false;
@@ -136,6 +137,11 @@ namespace Tree {
     virtual bool contains(NodeKey nodekey) = 0;
 #endif
     
+    // these two functions are used to track the communication between objects:
+    // a nodes is marked usedBy when a local TreePiece has touched it
+    void markUsedBy(int index) { usedBy |= (((u_int64_t)1) << index); }
+    bool isUsedBy(int index) { return (usedBy & (((u_int64_t)1) << index)); }
+
     /// construct the children of the "this" node following the given logical
     /// criteria (Oct/Orb)
     virtual void makeOctChildren(GravityParticle *part, int totalPart, int level) = 0;
