@@ -72,6 +72,7 @@ extern int _prefetch;
 extern int _randChunks;
 extern int _numChunks;
 extern unsigned int bucketSize;
+extern int lbcomm_cutoff_msgs;
 
 class dummyMsg : public CMessage_dummyMsg{
 public:

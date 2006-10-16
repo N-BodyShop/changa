@@ -38,6 +38,7 @@ int _prefetch;
 int _numChunks;
 int _randChunks;
 unsigned int bucketSize;
+int lbcomm_cutoff_msgs;
 
 ComlibInstanceHandle cinst1, cinst2;
 
@@ -207,7 +208,10 @@ Main::Main(CkArgMsg* m) {
 	domainDecomposition=SFC_dec;
 	prmAddParam(prm, "nDomainDecompose", paramInt, &domainDecomposition,
 		    sizeof(int),"D", "Kind of domain decomposition of particles");
-  
+        lbcomm_cutoff_msgs = 1;
+	prmAddParam(prm, "lbcommCutoffMsgs", paramInt, &lbcomm_cutoff_msgs,
+		    sizeof(int),"lbcommcut", "Cutoff for communication recording");
+    
 	
 	if(!prmArgProc(prm,m->argc,m->argv)) {
 	    CkExit();

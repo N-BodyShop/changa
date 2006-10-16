@@ -997,10 +997,10 @@ void CacheManager::recordCommunication(int receiver, CommData *data) {
   PUP::sizer p1;
   ExternalGravityParticle part;
   part.pup(p1);
-  int particleSize = p1.size() * particlesMsg;
+  int particleSize = p1.size();
   PUP::sizer p2;
   prototype->pup(p2, 0);
-  int nodeSize = p2.size() * nodesMsg;
+  int nodeSize = p2.size();
   //CkPrintf("nodeSize=%d, particleSize=%d\n",nodeSize,particleSize);
 
   TreePiece *p = treeProxy[receiver].ckLocal();
@@ -1008,14 +1008,16 @@ void CacheManager::recordCommunication(int receiver, CommData *data) {
   int objstopped = 0;
   objHandle = p->timingBeforeCall(&objstopped);
   for (int i=0; i<numTreePieces; ++i) {
-    if (verbosity > 2) CkPrintf("[%d] Communication of %d from %d: %d nodes, %d particles\n",CkMyPe(),receiver,i,data[i].nodes,data[i].particles);
+    if (data[i].nodes/nodesMsg + data[i].particles/particlesMsg > lbcomm_cutoff_msgs) {
+      if (verbosity > 2) CkPrintf("[%d] Communication of %d from %d: %d nodes, %d particles\n",CkMyPe(),receiver,i,data[i].nodes,data[i].particles);
 
-    CkArrayIndex1D index(i);
-    for (int j=0; j * nodesMsg < data[i].nodes; ++j) {
-      lbdb->Send(*omhandle, idx2LDObjid(index), nodeSize, treePieceLocMgr->lastKnown(index));
-    }
-    for (int j=0; j * particlesMsg < data[i].particles; ++j) {
-      lbdb->Send(*omhandle, idx2LDObjid(index), particleSize, treePieceLocMgr->lastKnown(index));
+      CkArrayIndex1D index(i);
+      for (int j=0; j * nodesMsg < data[i].nodes; ++j) {
+        lbdb->Send(*omhandle, idx2LDObjid(index), nodeSize*nodesMsg, treePieceLocMgr->lastKnown(index));
+      }
+      for (int j=0; j * particlesMsg < data[i].particles; ++j) {
+        lbdb->Send(*omhandle, idx2LDObjid(index), particleSize*particlesMsg, treePieceLocMgr->lastKnown(index));
+      }
     }
   }
   p->timingAfterCall(objHandle,&objstopped);
