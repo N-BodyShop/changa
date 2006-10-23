@@ -128,7 +128,7 @@ ParallelGravity.decl.h \
 param.o: \
 param.c \
 
-GenericTreeNode.o: \
+../GenericTree/GenericTreeNode.o: \
 ../GenericTree/GenericTreeNode.C \
 ../GenericTree/GenericTreeNode.h \
 ../structures/OrientedBox.h \
