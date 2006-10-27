@@ -3,7 +3,7 @@
 FLAG_STATISTICS = -DCOSMO_STATS=1  # enable statistics collection
 #FLAG_DEBUG = -DCOSMO_DEBUG=2       # enable debugging information
 CACHE_TREE = -DCACHE_TREE          # enable processor tree inside the cache
-INTERLIST = -DINTERLIST_VER=2      # enable interaction lists
+#INTERLIST = -DINTERLIST_VER=2      # enable interaction lists
 DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST)
 
 STRUCTURES_PATH = ../structures
