@@ -704,7 +704,7 @@ void CacheManager::cacheSync(double theta, int activeRung, const CkCallback& cb)
   // - second dimension: total number of chares
   // sentData[i][j] is the data sent by j and received by i
   sentData = new CommData[registeredChares.size()*numTreePieces];
-  bzero(sentData, registeredChares.size()*numTreePieces*sizeof(CommData));
+  memset(sentData, 0, registeredChares.size()*numTreePieces*sizeof(CommData));
 
   callback = cb;
 #ifdef COSMO_COMLIB

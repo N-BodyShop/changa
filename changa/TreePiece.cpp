@@ -389,7 +389,7 @@ void TreePiece::evaluateBoundaries(int isRefine, const CkCallback& cb) {
 	//myBinCounts.assign(numBins, 0);
         myBinCounts.resize(numBins);
         int *myCounts = myBinCounts.getVec();
-        bzero (myCounts, numBins*sizeof(int));
+        memset(myCounts, 0, numBins*sizeof(int));
 	vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
 	GravityParticle *binBegin = &myParticles[1];
 	GravityParticle *binEnd;
