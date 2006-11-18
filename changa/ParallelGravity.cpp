@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include <unistd.h>
+#include <sys/param.h>
 
 // Debug floating point problems
 // #include <fenv.h>
