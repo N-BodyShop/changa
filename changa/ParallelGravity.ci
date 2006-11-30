@@ -88,7 +88,7 @@ mainmodule ParallelGravity {
 		// DEBUGGING
 		entry void quiescence();
 
-		entry void report(const CkCallback& cb);
+		entry void report();
 		
 		entry void nextBucket(dummyMsg *m);	
 		//entry void registerWithDataManager(const CkGroupID& dataManagerID,

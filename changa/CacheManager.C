@@ -703,8 +703,10 @@ void CacheManager::cacheSync(double theta, int activeRung, const CkCallback& cb)
   // - first dimension: number of local chares
   // - second dimension: total number of chares
   // sentData[i][j] is the data sent by j and received by i
+#if MAX_USED_BY > 0
   sentData = new CommData[registeredChares.size()*numTreePieces];
   memset(sentData, 0, registeredChares.size()*numTreePieces*sizeof(CommData));
+#endif
 
   callback = cb;
 #ifdef COSMO_COMLIB
@@ -772,7 +774,7 @@ void CacheManager::cacheSync(double theta, int activeRung, const CkCallback& cb)
     nodeLookupTable.clear();
     root = buildProcessorTree(registeredChares.size(), gtn);
 #if COSMO_DEBUG > 0
-    printTree(root,*ofs);
+    printGenericTree(root,*ofs);
     ofs->close();
     delete ofs;
 #endif
@@ -867,11 +869,14 @@ int CacheManager::markPresence(int index, GenericTreeNode *root) {
   prototype = root;
   registeredChares[index] = root;
   //newChunks = _numChunks;
-  CkAssert(registeredChares.size() <= 64);
-  int returnValue = registeredChares.size()-1;
+  int returnValue = 0;
+#if MAX_USED_BY > 0
+  CkAssert(registeredChares.size() <= 64*MAX_USED_BY);
+  returnValue = registeredChares.size()-1;
   if (localIndicesMap.find(index) != localIndicesMap.end()) returnValue = localIndicesMap[index];
   else localIndicesMap[index] = returnValue;
   localIndices[returnValue] = index;
+#endif
   if(verbosity>1)
     CkPrintf("[%d] recording presence of %d with ID %d\n",CkMyPe(),index,returnValue);
   return returnValue;
@@ -881,7 +886,9 @@ void CacheManager::revokePresence(int index) {
   if(verbosity>1)
   CkPrintf("[%d] removing presence of %d\n",CkMyPe(),index);
   registeredChares.erase(index);
+#if MAX_USED_BY > 0
   localIndicesMap.erase(index);
+#endif
 }
 
 extern LDObjid idx2LDObjid(const CkArrayIndex &idx);
@@ -914,6 +921,7 @@ void CacheManager::finishedChunk(int num, u_int64_t weight) {
     for (pn = nodeCacheTable[num].begin(); pn != nodeCacheTable[num].end(); pn++) {
       NodeCacheEntry *e = pn->second;
       storedNodes --;
+#if MAX_USED_BY > 0
       // check who used this node for LB communication accounting
       int sender = e->node->remoteIndex;
       for (int i=0; i<registeredChares.size(); ++i) {
@@ -924,6 +932,7 @@ void CacheManager::finishedChunk(int num, u_int64_t weight) {
           }
         }
       }
+#endif
 #if COSMO_STATS > 0
       releasedNodes++;
       if (!_nocache && e->node->used == false) nodesNotUsed++;
@@ -961,6 +970,7 @@ void CacheManager::allDone() {
   static int counter = 0;
   if (++counter == (registeredChares.size() + numChunks)) {
     counter = 0;
+#if MAX_USED_BY > 0
     // fix the LB knowledge of all communication
     map<int,GenericTreeNode*>::iterator regIter;
     for (regIter=registeredChares.begin(); regIter!=registeredChares.end(); regIter++) {
@@ -986,12 +996,14 @@ void CacheManager::allDone() {
     }
 
     delete[] sentData;
+#endif
     LBTurnInstrumentOff();
     contribute(0, 0, CkReduction::concat, callback);
   }
 }
 
 void CacheManager::recordCommunication(int receiver, CommData *data) {
+#if MAX_USED_BY > 0
   int nodesMsg = 1 << _cacheLineDepth;
   int particlesMsg = bucketSize / 2;
   PUP::sizer p1;
@@ -1003,11 +1015,32 @@ void CacheManager::recordCommunication(int receiver, CommData *data) {
   int nodeSize = p2.size();
   //CkPrintf("nodeSize=%d, particleSize=%d\n",nodeSize,particleSize);
 
+#if COSMO_DEBUG > 0
+  char fout[100];
+  sprintf(fout,"communication.%d.%d",receiver,iterationNo);
+  ofstream ofs(fout);
+  int x, y, z;
+#endif
+
   TreePiece *p = treeProxy[receiver].ckLocal();
   LDObjHandle objHandle;
   int objstopped = 0;
+#if COSMO_DEBUG > 0
+  GenericTreeNode *node = p->get3DIndex();
+  if (node != NULL) {
+    Key tmp(node->getKey());
+    while (! tmp & (1<<63)) tmp<<=1;
+    Vector3D<float> tmpVec = makeVector(tmp);
+    ofs << "root: " << keyBits(node->getKey(), 63) << tmpVec << endl;
+  } else {
+    ofs << "root: ? ? ? ?" << endl;
+  }
+#endif
   objHandle = p->timingBeforeCall(&objstopped);
   for (int i=0; i<numTreePieces; ++i) {
+#if COSMO_DEBUG > 0
+    ofs << nodeSize*data[i].nodes + particleSize*data[i].particles << " ";
+#endif
     if (data[i].nodes/nodesMsg + data[i].particles/particlesMsg > lbcomm_cutoff_msgs) {
       if (verbosity > 2) CkPrintf("[%d] Communication of %d from %d: %d nodes, %d particles\n",CkMyPe(),receiver,i,data[i].nodes,data[i].particles);
 
@@ -1021,7 +1054,12 @@ void CacheManager::recordCommunication(int receiver, CommData *data) {
     }
   }
   p->timingAfterCall(objHandle,&objstopped);
-  
+
+#if COSMO_DEBUG > 0
+  ofs.close();
+#endif
+
+#endif
 }
 
 CkReduction::reducerType CacheStatistics::sum;

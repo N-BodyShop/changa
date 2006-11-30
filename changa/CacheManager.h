@@ -409,6 +409,13 @@ private:
 	/// Collect the statistics for the latest iteration
 	void collectStatistics(CkCallback& cb);
 
+        void stopHPM(CkCallback& cb) {
+#ifdef HPM_COUNTER
+          hpmTerminate(1);
+#endif
+          contribute(0, 0, CkReduction::concat, cb);
+        }
+
 	map<int,GenericTreeNode*> *getRegisteredChares() {
 	  return &registeredChares;
 	}

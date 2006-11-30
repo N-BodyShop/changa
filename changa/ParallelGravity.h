@@ -22,6 +22,10 @@
 #include "parameters.h"
 #include "param.h"
 
+#ifdef HPM_COUNTER
+#include <libhpm.h>
+#endif
+
 using namespace Tree;
 
 enum DomainsDec {
@@ -603,6 +607,7 @@ class TreePiece : public CBase_TreePiece {
   /*END DEBUGGING */
 
   NodeLookupType &getNodeLookupTable() {return nodeLookupTable;}
+  GenericTreeNode *get3DIndex();
 
 	/// Recursive call to build the subtree with root "node", level
 	/// specifies the level at which "node" resides inside the tree
@@ -946,11 +951,12 @@ public:
 	 */
         void nextBucket(dummyMsg *m);
 
-	void report(const CkCallback& cb);
+	void report();
+	void printTreeViz(GenericTreeNode* node, ostream& os);	
 	void printTree(GenericTreeNode* node, ostream& os);	
 	void pup(PUP::er& p);
 };
 
-void printTree(GenericTreeNode* node, ostream& os) ;
+void printGenericTree(GenericTreeNode* node, ostream& os) ;
 //bool compBucket(GenericTreeNode *ln,GenericTreeNode *rn);
 #endif //PARALLELGRAVITY_H

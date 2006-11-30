@@ -13,6 +13,7 @@ module CacheManager {
                 entry void finishedChunk(int num, u_int64_t weight);
                 entry void allDone();
 		entry void collectStatistics(CkCallback &cb);
+                entry void stopHPM(CkCallback &cb);
 	};
 	
 };

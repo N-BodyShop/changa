@@ -707,6 +707,9 @@ void Main::nextStage() {
 
   ckerr << "Done." << endl;
 	
+#ifdef HPM_COUNTER
+  cacheManagerProxy.stopHPM(CkCallbackResumeThread());
+#endif
   ckerr << endl << "******************" << endl << endl; 
   CkExit();
 }
@@ -819,6 +822,9 @@ void registerStatistics() {
 #if COSMO_STATS > 0
   CacheStatistics::sum = CkReduction::addReducer(CacheStatistics::sumFn);
   TreePieceStatistics::sum = CkReduction::addReducer(TreePieceStatistics::sumFn);
+#endif
+#ifdef HPM_COUNTER
+  hpmInit(1,"ChaNGa");
 #endif
 }
 

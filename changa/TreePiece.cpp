@@ -712,6 +712,24 @@ void TreePiece::quiescence() {
   mainChare.niceExit();
 }
 
+GenericTreeNode *TreePiece::get3DIndex() {
+  GenericTreeNode *node = root;
+  while (node != NULL && node->getType() != Internal && node->getType() != Bucket) {
+    int next = -1;
+    GenericTreeNode *child;
+    for (int i=0; i<node->numChildren(); ++i) {
+      child = node->getChildren(i);
+      if (child->getType() == Internal || child->getType() == Boundary) {
+        if (next != -1) return NULL;
+        next = i;
+      }
+    }
+    if (next == -1) return NULL;
+    node = node->getChildren(next);
+  }
+  return node;
+}
+
 void TreePiece::collectSplitters(CkReductionMsg* m) {
   numSplitters = 2 * numTreePieces;
   delete[] splitters;
@@ -723,8 +741,8 @@ void TreePiece::collectSplitters(CkReductionMsg* m) {
   sort(splitters2, splitters2 + numTreePieces);
   for (unsigned int i=1; i<numSplitters; ++i) {
     if (splitters[i] < splitters[i-1]) {
-      for (unsigned int j=0; j<numSplitters; ++j)
-	  CkPrintf("%d: Key %d = %016llx\n",thisIndex,j,splitters[j]);
+      //for (unsigned int j=0; j<numSplitters; ++j)
+      //  CkPrintf("%d: Key %d = %016llx\n",thisIndex,j,splitters[j]);
       if(thisIndex==0)
         CkAbort("Keys not ordered");
     }
@@ -1734,6 +1752,7 @@ void TreePiece::doAllBuckets(){
   ofstream ofs(fout);
   printTree(root,ofs);
   ofs.close();
+  report();
 #endif
 
   dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
@@ -1919,6 +1938,9 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
       for(int k=0;k<=curLevelLocal;k++){
         int computed;
         double startTimer = CmiWallTimer();
+#ifdef HPM_COUNTER
+        hpmStart(1,"node force");
+#endif
         for(cellListIter=0;cellListIter<cellListLocal[k].length();cellListIter++){
           OffsetNode tmp = cellListLocal[k][cellListIter];
 #if COSMO_DEBUG > 1
@@ -1928,11 +1950,17 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
           computed = nodeBucketForce(tmp.node, bucketList[bucketIndex], myParticles,
                                      decodeOffset(tmp.offsetID), activeRung);
         }
+#ifdef HPM_COUNTER
+        hpmStop(1);
+#endif
         nodeInterLocal += cellListLocal[k].length() * computed;
         
         LocalPartInfo pinfo;
         double newTimer = CmiWallTimer();
         traceUserBracketEvent(nodeForceUE, startTimer, newTimer);
+#ifdef HPM_COUNTER
+    hpmStart(2,"particle force");
+#endif
         for(partListIter=0;partListIter<particleListLocal[k].length();partListIter++){
           pinfo = particleListLocal[k][partListIter];
 #if COSMO_DEBUG > 1
@@ -1942,6 +1970,9 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
           for(int j = 0; j < pinfo.numParticles; ++j){
             computed = partBucketForce(&pinfo.particles[j], bucketList[bucketIndex], myParticles, pinfo.offset, activeRung);
           }
+#ifdef HPM_COUNTER
+    hpmStop(2);
+#endif
           particleInterLocal += pinfo.numParticles * computed;
         }
 #ifdef COSMO_EVENTS
@@ -1968,6 +1999,9 @@ void TreePiece::calculateForceRemoteBucket(int bucketIndex, int chunk){
     for(int k=0;k<=curLevelRemote;k++){
       int computed;
       double startTimer = CmiWallTimer();
+#ifdef HPM_COUNTER
+      hpmStart(1,"node force");
+#endif
       for(cellListIter=0;cellListIter<cellList[k].length();cellListIter++){
         OffsetNode tmp= cellList[k][cellListIter];
 #if COSMO_DEBUG > 1
@@ -1977,10 +2011,16 @@ void TreePiece::calculateForceRemoteBucket(int bucketIndex, int chunk){
         computed = nodeBucketForce(tmp.node, bucketList[bucketIndex], myParticles,
                                    decodeOffset(tmp.offsetID), activeRung);
       }
+#ifdef HPM_COUNTER
+      hpmStop(1);
+#endif
       nodeInterRemote[chunk] += cellList[k].length() * computed;
       
       double newTimer = CmiWallTimer();
       traceUserBracketEvent(nodeForceUE, startTimer, newTimer);
+#ifdef HPM_COUNTER
+    hpmStart(2,"particle force");
+#endif
       for(partListIter=0;partListIter<particleList[k].length();partListIter++){
         RemotePartInfo pinfo = particleList[k][partListIter];
 #if COSMO_DEBUG > 1
@@ -1993,6 +2033,9 @@ void TreePiece::calculateForceRemoteBucket(int bucketIndex, int chunk){
         }
         particleInterRemote[chunk] += pinfo.numParticles * computed;
       }
+#ifdef HPM_COUNTER
+    hpmStop(2);
+#endif
 #ifdef COSMO_EVENTS
       traceUserBracketEvent(partForceUE, newTimer, CmiWallTimer());
 #endif
@@ -2973,7 +3016,13 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, int reqID) {
 #ifdef COSMO_EVENTS
     double startTimer = CmiWallTimer();
 #endif
+#ifdef HPM_COUNTER
+    hpmStart(1,"node force");
+#endif
     int computed = nodeBucketForce(node, reqnode, myParticles, offset, activeRung);
+#ifdef HPM_COUNTER
+    hpmStop(1);
+#endif
 #ifdef COSMO_EVENTS
     traceUserBracketEvent(nodeForceUE, startTimer, CmiWallTimer());
 #endif
@@ -2995,8 +3044,14 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, int reqID) {
 #ifdef COSMO_EVENTS
       double startTimer = CmiWallTimer();
 #endif
+#ifdef HPM_COUNTER
+    hpmStart(2,"particle force");
+#endif
       computed = partBucketForce(&node->particlePointer[i-node->firstParticle], reqnode,
                                  myParticles, offset, activeRung);
+#ifdef HPM_COUNTER
+    hpmStop(2);
+#endif
 #ifdef COSMO_EVENTS
       traceUserBracketEvent(partForceUE, startTimer, CmiWallTimer());
 #endif
@@ -3342,7 +3397,13 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, int chunk, int reqID
 #ifdef COSMO_EVENTS
     double startTimer = CmiWallTimer();
 #endif
+#ifdef HPM_COUNTER
+    hpmStart(1,"node force");
+#endif
     int computed = nodeBucketForce(node, reqnode, myParticles, offset, activeRung);
+#ifdef HPM_COUNTER
+    hpmStop(1);
+#endif
 #ifdef COSMO_EVENTS
     traceUserBracketEvent(nodeForceUE, startTimer, CmiWallTimer());
 #endif
@@ -3367,8 +3428,14 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, int chunk, int reqID
 #ifdef COSMO_EVENTS
         double startTimer = CmiWallTimer();
 #endif
+#ifdef HPM_COUNTER
+    hpmStart(2,"particle force");
+#endif
         computed = partBucketForce(&part[i-node->firstParticle], reqnode, myParticles,
                                    offset, activeRung);
+#ifdef HPM_COUNTER
+    hpmStop(2);
+#endif
 #ifdef COSMO_EVENTS
         traceUserBracketEvent(partForceUE, startTimer, CmiWallTimer());
 #endif
@@ -3606,7 +3673,13 @@ void TreePiece::receiveParticles(ExternalGravityParticle *part,int num,int chunk
 #ifdef COSMO_EVENTS
     double startTimer = CmiWallTimer();
 #endif
+#ifdef HPM_COUNTER
+    hpmStart(2,"particle force");
+#endif
     computed = partBucketForce(&part[i], reqnode, myParticles, offset, activeRung);
+#ifdef HPM_COUNTER
+    hpmStop(2);
+#endif
 #ifdef COSMO_EVENTS
     traceUserBracketEvent(partForceUE, startTimer, CmiWallTimer());
 #endif
@@ -4267,7 +4340,7 @@ string makeLabel(GenericTreeNode* node) {
   return oss.str();
 }
 
-/// Print a graphviz version of a tree
+/// Print a text version of a tree
 void TreePiece::printTree(GenericTreeNode* node, ostream& os) {
   if(node == 0)
     return;
@@ -4329,11 +4402,103 @@ void TreePiece::printTree(GenericTreeNode* node, ostream& os) {
   }
 }
 
-/// Print a graphviz version of a tree
-void printTree(GenericTreeNode* node, ostream& os) {
+/// Print a graphviz version of A tree
+void TreePiece::printTreeViz(GenericTreeNode* node, ostream& os) {
   if(node == 0)
     return;
 	
+  string nodeID = keyBits(node->getKey(), 63);
+  os << "\tnode [color=\"" << getColor(node) << "\"]\n";
+  //os << "\t\"" << nodeID << "\" [label=\"" << makeLabel(node) << "\\nCM: " << (node->moments.cm) << "\\nM: " << node->moments.totalMass << "\\nN_p: " << (node->endParticle - node->beginParticle) << "\\nOwners: " << node->numOwners << "\"]\n";
+  //os << "\t\"" << nodeID << "\" [label=\"" << makeLabel(node) << "\\nLocal N: " << (node->endParticle - node->beginParticle) << "\\nOwners: " << node->numOwners << "\"]\n";
+  os << "\t\"" << nodeID << "\" [label=\"" << keyBits(node->getKey(), 63) << "\\n";
+  int first, last;
+  switch(node->getType()) {
+  case Bucket:
+    os << "Bucket\\nSize: " << (node->lastParticle - node->firstParticle + 1);
+    break;
+  case Internal:
+    os << "Internal\\nSize: " << (node->lastParticle - node->firstParticle + 1);
+    break;
+  case NonLocal:
+    nodeOwnership(node->getKey(), first, last);
+    os << "NonLocal: Chare " << node->remoteIndex << "\\nOwners: " << (last-first+1) << "\\nRemote size: " << (node->lastParticle - node->firstParticle + 1);
+    //os << "NonLocal: Chare=" << node->remoteIndex; //<< ", Owners=" << first << "-" << last;
+    break;
+  case NonLocalBucket:
+    //os << "NonLocal: Chare=" << node->remoteIndex << "\\nRemote N under: " << (node->lastParticle - node->firstParticle + 1) << "\\nOwners: " << node->numOwners;
+    nodeOwnership(node->getKey(), first, last);
+    //CkAssert(first == last);
+    os << "NonLocalBucket: Chare " << node->remoteIndex << "\\nOwner: " << first << "\\nSize: " << node->particleCount; //<< "(" << node->firstParticle << "-" << node->lastParticle << ")";
+    break;
+  case Boundary:
+    //nodeOwnership(node->getKey(), first, last);
+    os << "Boundary\\nTotalsize: " << node->particleCount << "\\nLocalsize: " << (node->lastParticle - node->firstParticle);
+    break;
+  case Empty:
+    os << "Empty "<<node->remoteIndex;
+    break;
+  }
+  //if (node->getType() == Bucket || node->getType() == Internal || node->getType() == Boundary || node->getType() == NonLocal || node->getType() == NonLocalBucket) 
+  //  os << " V "<<node->moments.radius<<" "<<node->moments.soft<<" "<<node->moments.cm.x<<" "<<node->moments.cm.y<<" "<<node->moments.cm.z<<" "<<node->moments.xx<<" "<<node->moments.xy<<" "<<node->moments.xz<<" "<<node->moments.yy<<" "<<node->moments.yz<<" "<<node->moments.zz;
+
+  os << "\"]\n";
+	
+  if(node->parent)
+    os << "\t\"" << keyBits(node->parent->getKey(), 63) << "\" -> \"" << nodeID << "\";\n";
+	
+  if(node->getType() == NonLocal || node->getType() == NonLocalBucket || node->getType() == Bucket || node->getType() == Empty)
+    return;
+
+  GenericTreeNode* childIterator;
+  for(unsigned int i = 0; i < node->numChildren(); ++i) {
+    childIterator = node->getChildren(i);
+    if(childIterator)
+      printTreeViz(childIterator, os);
+    else {
+      os << "\tnode [color=\"green\"]\n";
+      os << "\t\"" << nodeID << i << "\" [label=\"None\"]\n";
+      os << "\t\"" << nodeID << "\" -> \"" << nodeID << i << "\";\n";
+    }
+  }
+}
+
+/// Write a file containing a graphviz dot graph of my tree
+void TreePiece::report() {
+  ostringstream outfilename;
+  outfilename << "tree." << thisIndex << "." << iterationNo << ".dot";
+  ofstream os(outfilename.str().c_str());
+
+  os << "digraph G" << thisIndex << " {\n";
+  os << "\tcenter = \"true\"\n";
+  os << "\tsize = \"7.5,10\"\n";
+  //os << "\tratio = \"fill\"\n";
+  //os << "\tfontname = \"Courier\"\n";
+  os << "\tnode [style=\"bold\"]\n";
+  os << "\tlabel = \"Piece: " << thisIndex << "\\nParticles: " 
+     << myNumParticles << "\"\n";
+  /*	os << "\tlabel = \"Piece: " << thisIndex << "\\nParticles: " 
+	<< myNumParticles << "\\nLeft Splitter: " << keyBits(myParticles[0].key, 63)
+	<< "\\nLeftmost Key: " << keyBits(myParticles[1].key, 63) 
+	<< "\\nRightmost Key: " << keyBits(myParticles[myNumParticles].key, 63) 
+	<< "\\nRight Splitter: " << keyBits(myParticles[myNumParticles + 1].key, 63) << "\";\n";
+  */
+  os << "\tfontname = \"Helvetica\"\n";
+  printTreeViz(root, os);
+  os << "}" << endl;
+	
+  os.close();
+	
+  //checkTree(root);
+		
+  //contribute(0, 0, CkReduction::concat, cb);
+}
+
+/// Print a text version of a tree
+void printGenericTree(GenericTreeNode* node, ostream& os) {
+  if(node == 0)
+    return;
+        
   string nodeID = keyBits(node->getKey(), 63);
   os << nodeID << " ";
   //os << "\tnode [color=\"" << getColor(node) << "\"]\n";
@@ -4371,10 +4536,10 @@ void printTree(GenericTreeNode* node, ostream& os) {
     os << " V "<<node->moments.radius<<" "<<node->moments.soft<<" "<<node->moments.cm.x<<" "<<node->moments.cm.y<<" "<<node->moments.cm.z<<" "<<node->moments.xx<<" "<<node->moments.xy<<" "<<node->moments.xz<<" "<<node->moments.yy<<" "<<node->moments.yz<<" "<<node->moments.zz;
 
   os << "\n";
-	
+        
   //if(node->parent)
   //  os << "\t\"" << keyBits(node->parent->getKey(), 63) << "\" -> \"" << nodeID << "\";\n";
-	
+        
   if(node->getType() == NonLocal || node->getType() == NonLocalBucket || node->getType() == Bucket || node->getType() == Empty)
     return;
 
@@ -4382,44 +4547,13 @@ void printTree(GenericTreeNode* node, ostream& os) {
   for(unsigned int i = 0; i < node->numChildren(); ++i) {
     childIterator = node->getChildren(i);
     if(childIterator)
-      printTree(childIterator, os);
+      printGenericTree(childIterator, os);
     else {
       os << "\tnode [color=\"green\"]\n";
       os << "\t\"" << nodeID << i << "\" [label=\"None\"]\n";
       os << "\t\"" << nodeID << "\" -> \"" << nodeID << i << "\";\n";
     }
   }
-}
-
-/// Write a file containing a graphviz dot graph of my tree
-void TreePiece::report(const CkCallback& cb) {
-  ostringstream outfilename;
-  outfilename << "tree_" << thisIndex << ".dot";
-  ofstream os(outfilename.str().c_str());
-
-  os << "digraph G" << thisIndex << " {\n";
-  os << "\tcenter = \"true\"\n";
-  os << "\tsize = \"7.5,10\"\n";
-  //os << "\tratio = \"fill\"\n";
-  //os << "\tfontname = \"Courier\"\n";
-  os << "\tnode [style=\"bold\"]\n";
-  os << "\tlabel = \"Piece: " << thisIndex << "\\nParticles: " 
-     << myNumParticles << "\"\n";
-  /*	os << "\tlabel = \"Piece: " << thisIndex << "\\nParticles: " 
-	<< myNumParticles << "\\nLeft Splitter: " << keyBits(myParticles[0].key, 63)
-	<< "\\nLeftmost Key: " << keyBits(myParticles[1].key, 63) 
-	<< "\\nRightmost Key: " << keyBits(myParticles[myNumParticles].key, 63) 
-	<< "\\nRight Splitter: " << keyBits(myParticles[myNumParticles + 1].key, 63) << "\";\n";
-  */
-  os << "\tfontname = \"Helvetica\"\n";
-  printTree(root, os);
-  os << "}" << endl;
-	
-  os.close();
-	
-  //checkTree(root);
-		
-  contribute(0, 0, CkReduction::concat, cb);
 }
 
 /*
