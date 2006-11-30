@@ -50,13 +50,20 @@ namespace Tree {
   /// A simple counter for how many nodes are empty - statistics
   extern int numEmptyNodes;
 
+#define MAX_USED_BY 0
+
   class GenericTreeNode {
   protected:
     NodeType myType;
     NodeKey key;
-    u_int64_t usedBy;
-	
-    GenericTreeNode() : myType(Invalid), key(0), parent(0), firstParticle(0), lastParticle(0), remoteIndex(0), usedBy(0) {
+#if MAX_USED_BY > 0
+    u_int64_t usedBy[MAX_USED_BY];
+#endif
+
+    GenericTreeNode() : myType(Invalid), key(0), parent(0), firstParticle(0), lastParticle(0), remoteIndex(0) {
+#if MAX_USED_BY > 0
+      for (int i=0; i<MAX_USED_BY; ++i) usedBy[i] = 0;
+#endif
 #if COSMO_STATS > 0
       used = false;
 #endif
@@ -104,13 +111,16 @@ namespace Tree {
 #endif
     //GenericTreeNode() : myType(Invalid), key(0), parent(0), beginParticle(0), endParticle(0), remoteIndex(0) { }
 
-    GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0), usedBy(0) { 
-    #if INTERLIST_VER > 0
+    GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0) {
+#if MAX_USED_BY > 0
+      for (int i=0; i<MAX_USED_BY; ++i) usedBy[i] = 0;
+#endif
+#if INTERLIST_VER > 0
       visitedR=false;
       visitedL=false;
-			bucketListIndex=-1;
+      bucketListIndex=-1;
       startBucket=-1;
-    #endif
+#endif
     }
 
     virtual ~GenericTreeNode() { }
@@ -139,8 +149,16 @@ namespace Tree {
     
     // these two functions are used to track the communication between objects:
     // a nodes is marked usedBy when a local TreePiece has touched it
-    void markUsedBy(int index) { usedBy |= (((u_int64_t)1) << index); }
-    bool isUsedBy(int index) { return (usedBy & (((u_int64_t)1) << index)); }
+    inline void markUsedBy(int index) {
+#if MAX_USED_BY > 0
+      usedBy[index>>6] |= (((u_int64_t)1) << (index&0x3F));
+#endif
+    }
+    inline bool isUsedBy(int index) {
+#if MAX_USED_BY > 0
+      return  (usedBy[index>>6] & (((u_int64_t)1) << (index&0x3F)));
+#endif
+    }
 
     /// construct the children of the "this" node following the given logical
     /// criteria (Oct/Orb)
