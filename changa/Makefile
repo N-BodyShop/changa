@@ -7,46 +7,31 @@ CACHE_TREE = -DCACHE_TREE          # enable processor tree inside the cache
 DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST)
 
 STRUCTURES_PATH = ../structures
-CXXFLAGS += -O3 -I$(STRUCTURES_PATH) -I../ParallelGravity -I../GenericTree  -Wall $(DEFINE_FLAGS)
-LDFLAGS += -language charm++ -module commlib -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -tracemode projections #-memory charmdebug
+CXXFLAGS += -O3 -I$(STRUCTURES_PATH) -I../ParallelGravity -Wall $(DEFINE_FLAGS)
+LDFLAGS += -language charm++ -module commlib -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB #-tracemode projections -memory charmdebug
 LDLIBS += ../structures/libTipsy.a
 
-CHARMC = ../../charm/bin/charmc $(OPTS)
+CHARMC = ../../charm/net-linux/bin/charmc $(OPTS)
 CXX = $(CHARMC)
 CC = $(CXX)
 CXX_DEPEND = $(CXX) -M -MM -MG $(CXXFLAGS)
 CFLAGS = -g -O3
 
 OBJECTS = DataManager.o Reductions.o TreePiece.o CacheManager.o Sorter.o \
-	  param.o ../GenericTree/GenericTreeNode.o ParallelGravity.o Ewald.o \
+	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
 	  InOutput.o cosmo.o romberg.o runge.o
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp CacheManager.C \
-	param.c ../GenericTree/GenericTreeNode.C ParallelGravity.cpp Ewald.C \
+	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
 	InOutput.C cosmo.c romberg.c runge.c
 
-TARGET = ParallelGravity
+TARGET = ChaNGa
 VERSION = 0.2
 all: $(TARGET)
 
 $(TARGET): $(OBJECTS)
-
-# $(TARGET).o: $(TARGET).decl.h CacheManager.decl.h Makefile
-
-# $(TARGET): TreePiece.o CacheManager.o Sorter.o DataManager.o Reductions.o \
-# 	param.o ../GenericTree/GenericTreeNode.o
+	$(CHARMC) -o $(TARGET) $(LDFLAGS) $(OBJECTS) $(LDLIBS)
 
 # ParallelGravity.o: ParallelGravity.h param.h parameters.h
-
-# CacheManager.o: CacheManager.C CacheManager.h CacheManager.decl.h\
-# 	../GenericTree/MultipoleMoments.h ParallelGravity.h Makefile
-
-# TreePiece.o ParallelGravity.o: ParallelGravity.h TreeNode.h CacheManager.h\
-# 	Reductions.decl.h\
-# 	../structures/tree_xdr.h\
-# 	../GenericTree/MultipoleMoments.h ../GenericTree/GenericTreeNode.h Makefile
-# Reductions.o: Reductions.h Reductions.decl.h
-
-# ../GenericTree/GenericTreeNode.o: ../GenericTree/GenericTreeNode.C ../GenericTree/GenericTreeNode.h Makefile
 
 %.decl.h %.def.h : %.ci
 	$(CHARMC) $<
@@ -70,7 +55,7 @@ clean:
 
 # The following line is a script usable to regenerate the dependace file,
 # without the inclusion of charm headers.
-#../../charm/bin/charmc  -M -MM -MG -O3 -I../structures -I../ParallelGravity -I../GenericTree  -Wall  -DCOSMO_STATS=1   -DCOSMO_DEBUG=2        -DCACHE_TREE            Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp CacheManager.C param.c ../GenericTree/GenericTreeNode.C ParallelGravity.cpp|while read i;do echo $i| awk -F' ' '{for (i=1;i<NF;++i) print $i" \\"}';echo;done|grep -v "charm/bin" > Makefile.dep
+#../../charm/bin/charmc  -M -MM -MG -O3 -I../structures -I../ParallelGravity -Wall  -DCOSMO_STATS=1   -DCOSMO_DEBUG=2        -DCACHE_TREE            Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp CacheManager.C param.c ../GenericTree/GenericTreeNode.C ParallelGravity.cpp|while read i;do echo $i| awk -F' ' '{for (i=1;i<NF;++i) print $i" \\"}';echo;done|grep -v "charm/bin" > Makefile.dep
 
 
 .PHONY: all docs dist clean depend
