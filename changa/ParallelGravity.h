@@ -4,6 +4,7 @@
 #ifndef PARALLELGRAVITY_H
 #define PARALLELGRAVITY_H
 
+#include "config.h"
 #include <string>
 #include <map>
 #include <vector>
