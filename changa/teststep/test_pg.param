@@ -1,0 +1,11 @@
+#
+# parameter file for leap frog.
+#
+nSteps          = 100
+dTheta          = 0.7
+dEta		= .03
+dTimeStep          = .1
+iOutInterval    = 10
+achInFile       = king_soft.bin
+achOutName      = pgtest_ms
+iLogInterval	= 1
