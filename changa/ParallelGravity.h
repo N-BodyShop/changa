@@ -280,7 +280,6 @@ class Main : public Chare {
 	CProxy_Sorter sorter;
 	int nTotalParticles;
 	double theta;	
-	double dTimeStep;
 	double dTime;		/* Simulation time */
 	double dSoft;
 	int bSetSoft;

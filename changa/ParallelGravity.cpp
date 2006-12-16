@@ -87,9 +87,12 @@ Main::Main(CkArgMsg* m) {
 	prmInitialize(&prm,_Leader,_Trailer);
 	csmInitialize(&param.csm);
 
-	param.dTimeStep = 0.0;
-	prmAddParam(prm, "dTimeStep", paramDouble, &param.dTimeStep,
-		    sizeof(double),"dT", "Base Timestep for integration");
+	param.dDelta = 0.0;
+	prmAddParam(prm, "dDelta", paramDouble, &param.dDelta,
+		    sizeof(double),"dt", "Base Timestep for integration");
+	param.iMaxRung = MAXRUNG;
+	prmAddParam(prm, "iMaxRung", paramInt, &param.iMaxRung,
+		    sizeof(int),"mrung", "Maximum timestep rung (IGNORED)");
 	param.nSteps = 1;
 	prmAddParam(prm, "nSteps", paramInt, &param.nSteps,
 		    sizeof(int),"n", "Number of Timesteps");
@@ -104,18 +107,40 @@ Main::Main(CkArgMsg* m) {
 	param.dEta = 0.03;
 	prmAddParam(prm, "dEta", paramDouble, &param.dEta,
 		    sizeof(double),"eta", "Time integration accuracy");
+	param.bCannonical = 1;
+	prmAddParam(prm, "bCannonical", paramBool, &param.bCannonical,
+		    sizeof(int),"can", "Cannonical Comoving eqns (IGNORED)");
+	param.bKDK = 1;
+	prmAddParam(prm, "bKDK", paramBool, &param.bKDK,
+		    sizeof(int),"kdk", "KDK timestepping (IGNORED)");
 	param.iOutInterval = 10;
 	prmAddParam(prm, "iOutInterval", paramInt, &param.iOutInterval,
 		    sizeof(int),"oi", "Output Interval");
 	param.iLogInterval = 1;
 	prmAddParam(prm, "iLogInterval", paramInt, &param.iLogInterval,
-		    sizeof(int),"log", "Log Interval");
+		    sizeof(int),"ol", "Log Interval");
+	param.iCheckInterval = 1;
+	prmAddParam(prm, "iCheckInterval", paramInt, &param.iCheckInterval,
+		    sizeof(int),"oc", "Checkpoint Interval (IGNORED)");
+	param.bDoDensity = 1;
+	prmAddParam(prm, "bDoDensity", paramBool, &param.bDoDensity,
+		    sizeof(int),"den", "Enable Density outputs (IGNORED)");
+	param.bDoGravity = 1;
+	prmAddParam(prm, "bDoGravity", paramBool, &param.bDoGravity,
+		    sizeof(int),"g", "Enable Gravity (IGNORED)");
 	param.dSoft = 0.0;
 	prmAddParam(prm, "dSoftening", paramDouble, &param.dSoft,
 		    sizeof(double),"S", "Gravitational softening");
 	theta = 0.7;
 	prmAddParam(prm, "dTheta", paramDouble, &theta,
-		    sizeof(double),"t", "Opening angle");
+		    sizeof(double), "theta", "Opening angle");
+	param.dTheta2 = 0.7;
+	prmAddParam(prm, "dTheta2", paramDouble, &param.dTheta2,
+		    sizeof(double),"theta2",
+		    "Opening angle after switchTheta (IGNORED)");
+	param.iOrder = 2;
+	prmAddParam(prm, "iOrder", paramInt, &param.iOrder,
+		    sizeof(int), "or", "Multipole expansion order(IGNORED)");
 	param.bPeriodic = 0;
 	prmAddParam(prm, "bPeriodic", paramBool, &param.bPeriodic,
 		    sizeof(int),"per", "Periodic Boundaries");
@@ -123,8 +148,8 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "nReplicas", paramInt, &param.nReplicas,
 		    sizeof(int),"nrep", "Number of periodic replicas");
 	param.fPeriod = 1.0;
-	prmAddParam(prm, "fPeriod", paramDouble, &param.fPeriod,
-		    sizeof(double),"fper", "Periodic size");
+	prmAddParam(prm, "dPeriod", paramDouble, &param.fPeriod,
+		    sizeof(double),"L", "Periodic size");
 	param.bEwald = 1;
 	prmAddParam(prm,"bEwald",paramBool, &param.bEwald, sizeof(int),
 		    "ewald", "enable/disable Ewald correction = +ewald");
@@ -164,12 +189,23 @@ Main::Main(CkArgMsg* m) {
 	printBinaryAcc=1;
 	prmAddParam(prm, "bPrintBinary", paramBool, &printBinaryAcc,
 		    sizeof(int),"z", "Print accelerations in Binary");
+	param.bStandard = 0;
+	prmAddParam(prm, "bStandard", paramBool, &param.bStandard,sizeof(int),
+		    "std", "output in standard TIPSY binary format (IGNORED)");
+	param.bOverwrite = 1;
+	prmAddParam(prm, "bOverwrite", paramBool, &param.bOverwrite,sizeof(int),
+		    "overwrite", "overwrite outputs (IGNORED)");
 	param.achInFile[0] = '\0';
 	prmAddParam(prm,"achInFile",paramString,param.achInFile,
 		    256, "I", "input file name (or base file name)");
 	strcpy(param.achOutName,"pargrav");
 	prmAddParam(prm,"achOutName",3,param.achOutName,256,"o",
 				"output name for snapshots and logfile");
+	param.dExtraStore = 0;
+	prmAddParam(prm,"dExtraStore",paramDouble,&param.dExtraStore,
+		    sizeof(double),
+		    NULL, "IGNORED");
+	
 	param.bStaticTest = 0;
 	prmAddParam(prm, "bStaticTest", paramBool, &param.bStaticTest,
 		    sizeof(int),"st", "Static test of performance");
@@ -218,6 +254,61 @@ Main::Main(CkArgMsg* m) {
 	    CkExit();
 	    }
 	
+	if(prmSpecified(prm, "iMaxRung")) {
+	    ckerr << "WARNING: ";
+	    ckerr << "iMaxRung parameter ignored. MaxRung is " << MAXRUNG
+		  << endl;
+	    }
+	if(prmSpecified(prm, "bKDK")) {
+	    ckerr << "WARNING: ";
+	    ckerr << "bKDK parameter ignored; KDK is always used." << endl;
+	    }
+	if(prmSpecified(prm, "bStandard")) {
+	    ckerr << "WARNING: ";
+	    ckerr << "bStandard parameter ignored; Output is always standard."
+		  << endl;
+	    }
+	if(prmSpecified(prm, "iOrder")) {
+	    ckerr << "WARNING: ";
+	    ckerr << "iOrder parameter ignored; expansion order is 2."
+		  << endl;
+	    }
+	if(prmSpecified(prm, "dTheta2")) {
+	    ckerr << "WARNING: ";
+	    ckerr << "dTheta2 parameter ignored."
+		  << endl;
+	    }
+	if(prmSpecified(prm, "iCheckInterval")) {
+	    ckerr << "WARNING: ";
+	    ckerr << "iCheckInterval parameter ignored."
+		  << endl;
+	    }
+	if(prmSpecified(prm, "dExtraStore")) {
+	    ckerr << "WARNING: ";
+	    ckerr << "dExtraStore parameter ignored."
+		  << endl;
+	    }
+	if(prmSpecified(prm, "bDoGravity")) {
+	    ckerr << "WARNING: ";
+	    ckerr << "bDoGravity parameter ignored."
+		  << endl;
+	    }
+	if(prmSpecified(prm, "bDoDensity")) {
+	    ckerr << "WARNING: ";
+	    ckerr << "bDoGravity parameter ignored."
+		  << endl;
+	    }
+	if(prmSpecified(prm, "bCannonical")) {
+	    ckerr << "WARNING: ";
+	    ckerr << "bCannonical parameter ignored."
+		  << endl;
+	    }
+	if(prmSpecified(prm, "bOverwrite")) {
+	    ckerr << "WARNING: ";
+	    ckerr << "bOverwrite parameter ignored."
+		  << endl;
+	    }
+	    
 	if(!param.bPeriodic) {
 	    param.nReplicas = 0;
 	    param.fPeriod = 1.0e38;
@@ -226,24 +317,24 @@ Main::Main(CkArgMsg* m) {
 	    
 	// hardcoding some parameters, later may be full options
 	if(domainDecomposition==ORB_dec){ useTree = Binary_ORB; }
-  else { useTree = Binary_Oct; }
+	else { useTree = Binary_Oct; }
 
         ckerr << "Running of " << CkNumPes() << " processors with " << numTreePieces << " TreePieces" << endl;
 
-	//if (verbosity) 
+	if (verbosity) 
 	  ckerr << "yieldPeriod set to " << _yieldPeriod << endl;
 	if(_cacheLineDepth < 0)
 		CkAbort("Cache Line depth must be greater than or equal to 0");
 
-        //if(verbosity)
+        if(verbosity)
           ckerr << "Prefetching..." << (_prefetch?"ON":"OFF") << endl;
   
-          //if (verbosity)
+        if (verbosity)
 	  ckerr << "Number of chunks for remote tree walk set to " << _numChunks << endl;
 	if (_numChunks <= 0)
 	  CkAbort("Number of chunks for remote tree walk must be greater than 0");
 
-        //if(verbosity)
+        if(verbosity)
           ckerr << "Chunk Randomization..." << (_randChunks?"ON":"OFF") << endl;
   
 	if(param.achInFile[0]) {
@@ -255,10 +346,10 @@ Main::Main(CkArgMsg* m) {
 
         if (_nocache) _cacheLineDepth = 0;
 
-	//if(verbosity) {
+	if(verbosity) {
 	  ckerr<<"cache "<<_cache << (_nocache?" (disabled)":"") <<endl;
 	  ckerr<<"cacheLineDepth "<<_cacheLineDepth<<endl;
-        //}
+        }
 	if (verbosity) {
 	  if(printBinaryAcc==1)
 	    ckerr<<"particle accelerations to be printed in binary format..."<<endl;
@@ -267,7 +358,7 @@ Main::Main(CkArgMsg* m) {
         
 	  ckerr << "Verbosity level " << verbosity << endl;
         }
-        //if(verbosity) {
+        if(verbosity) {
           switch(domainDecomposition){
           case SFC_dec:
             ckerr << "Domain decomposition...SFC" << endl;
@@ -281,7 +372,7 @@ Main::Main(CkArgMsg* m) {
           default:
             CkAbort("None of the implemented decompositions specified");
           }
-        //}
+        }
 
 	cacheManagerProxy = CProxy_CacheManager::ckNew(cacheSize);
 
@@ -341,7 +432,7 @@ void Main::getStartTime()
 		      << " Expansion factor:" << dAStart << endl;
 	    if (prmSpecified(prm,"dRedTo")) {
 		if (!prmArgSpecified(prm,"nSteps") &&
-		    prmArgSpecified(prm,"dTimeStep")) {
+		    prmArgSpecified(prm,"dDelta")) {
 		    aTo = 1.0/(param.dRedTo + 1.0);
 		    tTo = csmExp2Time(param.csm,aTo);
 		    if (verbosity > 0)
@@ -353,9 +444,9 @@ void Main::getStartTime()
 			      << endl;
 			CkExit();
 			}
-		    param.nSteps = (int)ceil((tTo-dTime)/param.dTimeStep);
+		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta);
 		    }
-		else if (!prmArgSpecified(prm,"dTimeStep") &&
+		else if (!prmArgSpecified(prm,"dDelta") &&
 			 prmArgSpecified(prm,"nSteps")) {
 		    aTo = 1.0/(param.dRedTo + 1.0);
 		    tTo = csmExp2Time(param.csm,aTo);
@@ -369,13 +460,13 @@ void Main::getStartTime()
 			CkExit();
 			}
 		    if(param.nSteps != 0)
-			param.dTimeStep =
+			param.dDelta =
 				(tTo-dTime)/(param.nSteps - param.iStartStep);
 		    else
-			param.dTimeStep = 0.0;
+			param.dDelta = 0.0;
 		    }
 		else if (!prmSpecified(prm,"nSteps") &&
-			 prmFileSpecified(prm,"dTimeStep")) {
+			 prmFileSpecified(prm,"dDelta")) {
 		    aTo = 1.0/(param.dRedTo + 1.0);
 		    tTo = csmExp2Time(param.csm,aTo);
 		    if (verbosity > 0)
@@ -387,9 +478,9 @@ void Main::getStartTime()
 			      << endl;
 			CkExit();
 			}
-		    param.nSteps = (int)ceil((tTo-dTime)/param.dTimeStep);
+		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta);
 		    }
-		else if (!prmSpecified(prm,"dTimeStep") &&
+		else if (!prmSpecified(prm,"dDelta") &&
 			 prmFileSpecified(prm,"nSteps")) {
 		    aTo = 1.0/(param.dRedTo + 1.0);
 		    tTo = csmExp2Time(param.csm,aTo);
@@ -403,14 +494,14 @@ void Main::getStartTime()
 			CkExit();
 			}
 		    if(param.nSteps != 0)
-			param.dTimeStep =	(tTo-dTime)/(param.nSteps
+			param.dDelta =	(tTo-dTime)/(param.nSteps
 							 - param.iStartStep);
 		    else
-			param.dTimeStep = 0.0;
+			param.dDelta = 0.0;
 		    }
 		}
 	    else {
-		tTo = dTime + param.nSteps*param.dTimeStep;
+		tTo = dTime + param.nSteps*param.dDelta;
 		aTo = csmTime2Exp(param.csm,tTo);
 		if (verbosity > 0)
 		    ckout << "Simulation to Time:" << tTo << " Redshift:"
@@ -424,7 +515,7 @@ void Main::getStartTime()
 	    dTime = pieces[0].ckLocal()->fh.time; 
 	    if(verbosity > 0)
 		ckout << "Input file, Time:" << dTime << endl;
-	    double tTo = dTime + param.nSteps*param.dTimeStep;
+	    double tTo = dTime + param.nSteps*param.dDelta;
 	    if (verbosity > 0) {
 		ckout << "Simulation to Time:" << tTo << endl;
 		}
@@ -449,13 +540,13 @@ void Main::advanceBigStep(int iStep) {
       // Opening Kick
       double dKickFac[MAXRUNG+1];
       for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
-        double dTimeSub = RungToDt(param.dTimeStep, iRung);
+        double dTimeSub = RungToDt(param.dDelta, iRung);
         dKickFac[iRung] = csmComoveKickFac(param.csm, dTime, 0.5*dTimeSub);
       }
       pieces.kick(activeRung, dKickFac, CkCallbackResumeThread());
 
       // Drift of smallest step
-      double dTimeSub = RungToDt(param.dTimeStep, nextMaxRung);
+      double dTimeSub = RungToDt(param.dDelta, nextMaxRung);
       double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
       pieces.drift(dDriftFac, CkCallbackResumeThread());
 
@@ -544,7 +635,7 @@ void Main::advanceBigStep(int iStep) {
       // Closing Kick
       double dKickFac[MAXRUNG+1];
       for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
-        double dTimeSub = RungToDt(param.dTimeStep, iRung);
+        double dTimeSub = RungToDt(param.dDelta, iRung);
         dKickFac[iRung] = csmComoveKickFac(param.csm,
                                            dTime - 0.5*dTimeSub,
                                            0.5*dTimeSub);
@@ -794,7 +885,7 @@ int Main::adjust(int iKickRung)
     CkCallback ccb(CkCallback::resumeThread);
     double a = csmTime2Exp(param.csm,dTime);
     
-    pieces.adjust(iKickRung, param.dEta, param.dTimeStep, 1.0/(a*a*a), ccb);
+    pieces.adjust(iKickRung, param.dEta, param.dDelta, 1.0/(a*a*a), ccb);
 
     CkReductionMsg *msg = (CkReductionMsg *) ccb.thread_delay();
     int iCurrMaxRung = *(int *)msg->getData();
