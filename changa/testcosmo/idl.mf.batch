@@ -1,0 +1,6 @@
+!quiet = 1
+.r rdfloat.pro
+.r mf2.pro
+mf
+exit
+

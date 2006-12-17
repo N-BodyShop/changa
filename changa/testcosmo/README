@@ -1,0 +1,33 @@
+1) YOU WILL NEED TO MODIFY THE FILE 'mf.sh' TO RUN THIS TEST
+   - Replace 'skiddir' with the path to your working version of skid
+   - Replace 'sodir' with the path to your working version of SO
+SKID and SO can be downloaded from ftp://ftp.astro.washington.edu/pub/hpcc.
+
+2) THIS TEST CALLS ON AN IDL PROGRAM TO RUN
+
+3) Type "run.sh" to run the test using ChaNGa.  The test is a
+simulation of an Omega = 0.3, Lambda = 0.7, h = 0.7 LCDM concordance
+cosmology large volume with 48^3 particles and 300 Mpc on a side.  You
+may need to add parameters or a nodelist file to run this in parallel.
+See the CHARM installation and users manual at
+http://charm.cs.uiuc.edu/manuals/html/install/manual.html.  The run
+takes an hour or two to run on a single 2004 era processor.
+
+4) After running ChaNGa and making the modifications in 1, type
+"mf.sh" at the prompt to check the results.  It runs SKID and SO on
+the results, and then calls an IDL program (mf2.pro) to compare the
+resulting mass function to the expected mass function.
+
+  - If the mass function matches that expected, a congratulatory statement is 
+    sent to the screen
+  - If the mass function varies from that expected by more than 5% at any 
+    given mass, a warning is directed to the screen.  Information on the 
+    deviating points is printed to the screen.  A plot showing the expected 
+    mass function and the produced mass function is created, called 'test.ps'.
+
+4) To remove the files produced by the test, type 'clean.sh'
+
+NOTE: The mass function that the script uses for comparison was previously 
+generated using PKDGRAV, and compared to Press-Schecter theory to be certain 
+that the simulation got reasonable results.
+
