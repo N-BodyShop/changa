@@ -9,7 +9,7 @@ AC_CONFIG_HEADER([config.h
 
 AC_ARG_VAR([CHARMC], "Charm compiler")
 # Checks for programs.
-AC_PATH_PROG([CHARMC], [charmc], [no], [$PATH:$CHARM_DIR/bin:..:../..])
+AC_PATH_PROG([CHARMC], [charmc], [no], [$PATH:$CHARM_DIR/bin:../charm/bin:../../charm/bin])
 
 if test "$CHARMC" = "no" ; then
    AC_MSG_WARN([Cannnot locate charmc])
