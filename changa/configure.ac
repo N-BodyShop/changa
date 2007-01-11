@@ -17,6 +17,15 @@ if test "$CHARMC" = "no" ; then
    exit
 fi
 
+CHARM_PATH=${CHARMC%/bin/charmc}
+CONV_CONFIG=${CHARM_PATH}/tmp/conv-config.sh
+CHARMINC=${CHARM_PATH}/include
+. ${CONV_CONFIG}
+CXX=${CMK_NATIVE_CXX}
+CC=${CMK_NATIVE_CC}
+LD=${CMK_NATIVE_LD}
+LDXX=${CMK_NATIVE_LDXX}
+
 AC_PROG_CXX($CHARMC)
 # AC_PROG_CC($CHARMC)
 
