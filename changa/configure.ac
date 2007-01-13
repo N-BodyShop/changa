@@ -21,10 +21,12 @@ CHARM_PATH=${CHARMC%/bin/charmc}
 CONV_CONFIG=${CHARM_PATH}/tmp/conv-config.sh
 CHARMINC=${CHARM_PATH}/include
 . ${CONV_CONFIG}
-CXX=${CMK_NATIVE_CXX}
-CC=${CMK_NATIVE_CC}
-LD=${CMK_NATIVE_LD}
-LDXX=${CMK_NATIVE_LDXX}
+CXX=${CMK_SEQ_CXX}
+CC=${CMK_SEQ_CC}
+LD=${CMK_SEQ_LD}
+LDXX=${CMK_SEQ_LDXX}
+CPPFLAGS="$CPPFLAGS -I.."
+LDFLAGS="$LDFLAGS -L../libs"
 
 AC_PROG_CXX($CHARMC)
 # AC_PROG_CC($CHARMC)
@@ -32,6 +34,7 @@ AC_PROG_CXX($CHARMC)
 # Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS([sys/bittypes.h endian.h limits.h malloc.h stddef.h stdint.h stdlib.h string.h sys/param.h unistd.h values.h])
+AC_CHECK_HEADER(rpc/rpc.h,,[AC_MSG_ERROR([rpc/rpc.h include file missing])])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
@@ -43,7 +46,9 @@ AC_CHECK_TYPES([u_int64_t, u_quad_t])
 # Checks for library functions.
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
-AC_CHECK_FUNCS([floor memset pow sqrt strchr xdr_hyper])
+AC_CHECK_FUNCS([floor memset pow sqrt strchr])
+AC_CHECK_LIB([xdr], [xdr_hyper])
+AC_CHECK_FUNCS([xdr_hyper])
 
 AC_CONFIG_FILES([Makefile
 		 ../structures/Makefile
