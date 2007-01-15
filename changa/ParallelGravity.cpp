@@ -210,9 +210,9 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "bStaticTest", paramBool, &param.bStaticTest,
 		    sizeof(int),"st", "Static test of performance");
 	
-	_randChunks = 0;
+	_randChunks = 1;
 	prmAddParam(prm, "bRandChunks", paramBool, &_randChunks,
-		    sizeof(int),"rand", "Randomize the order of remote chunk computation");
+		    sizeof(int),"rand", "Randomize the order of remote chunk computation (default: ON)");
 	
 	_nocache = 0;
 	prmAddParam(prm, "bNoCache", paramBool, &_nocache,
@@ -221,24 +221,24 @@ Main::Main(CkArgMsg* m) {
         verbosity = 0;
 	prmAddParam(prm, "iVerbosity", paramInt, &verbosity,
 		    sizeof(int),"v", "Verbosity");
-	numTreePieces = CkNumPes();
+	numTreePieces = 8 * CkNumPes();
 	prmAddParam(prm, "nTreePieces", paramInt, &numTreePieces,
-		    sizeof(int),"p", "Number of TreePieces");
+		    sizeof(int),"p", "Number of TreePieces (default: 8*procs)");
 	bucketSize = 12;
 	prmAddParam(prm, "nBucket", paramInt, &bucketSize,
-		    sizeof(int),"b", "Particles per Bucket");
+		    sizeof(int),"b", "Particles per Bucket (default: 12)");
 	_numChunks = 1;
 	prmAddParam(prm, "nChunks", paramInt, &_numChunks,
-		    sizeof(int),"c", "Chunks per TreePiece");
-	_yieldPeriod=100000000;
+		    sizeof(int),"c", "Chunks per TreePiece (default: 1)");
+	_yieldPeriod=5;
 	prmAddParam(prm, "nYield", paramInt, &_yieldPeriod,
-		    sizeof(int),"y", "Yield Period");
-	_cacheLineDepth=1;
+		    sizeof(int),"y", "Yield Period (default: 5)");
+	_cacheLineDepth=4;
 	prmAddParam(prm, "nCacheDepth", paramInt, &_cacheLineDepth,
-		    sizeof(int),"d", "Cache Line Depth");
-	_prefetch=false;
+		    sizeof(int),"d", "Cache Line Depth (default: 4)");
+	_prefetch=true;
 	prmAddParam(prm, "bPrefetch", paramBool, &_prefetch,
-		    sizeof(int),"f", "Enable prefetching in the cache");
+		    sizeof(int),"f", "Enable prefetching in the cache (default: ON)");
 	int cacheSize = 100000000;
 	prmAddParam(prm, "nCacheSize", paramInt, &cacheSize,
 		    sizeof(int),"s", "Size of cache");
