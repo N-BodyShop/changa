@@ -26,7 +26,7 @@ SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp CacheManager.C \
 	InOutput.C cosmo.c romberg.c runge.c
 
 TARGET = ChaNGa
-VERSION = 0.2
+VERSION = 1.0
 all: $(TARGET)
 
 $(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a
@@ -42,6 +42,13 @@ $(STRUCTURES_PATH)/libTipsy.a:
 
 docs:
 	doxygen $(TARGET).doxygen
+
+DIRS = teststep
+
+test: $(TARGET)
+	for d in $(DIRS); do \
+		(cd $$d && $(MAKE) test OPTS='$(OPTS)' || exit 1) || exit 1; \
+	done
 
 dist:
 	mkdir $(TARGET)-$(VERSION)
@@ -60,6 +67,6 @@ clean:
 #../../charm/bin/charmc  -M -MM -MG -O3 -I../structures -I../ParallelGravity -Wall  -DCOSMO_STATS=1   -DCOSMO_DEBUG=2        -DCACHE_TREE            Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp CacheManager.C param.c ../GenericTree/GenericTreeNode.C ParallelGravity.cpp|while read i;do echo $i| awk -F' ' '{for (i=1;i<NF;++i) print $i" \\"}';echo;done|grep -v "charm/bin" > Makefile.dep
 
 
-.PHONY: all docs dist clean depend
+.PHONY: all docs dist clean depend test
 
 include Makefile.dep
