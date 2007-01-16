@@ -25,7 +25,7 @@ CXX=${CMK_SEQ_CXX}
 CC=${CMK_SEQ_CC}
 LD=${CMK_SEQ_LD}
 LDXX=${CMK_SEQ_LDXX}
-CPPFLAGS="$CPPFLAGS -I.."
+CPPFLAGS="$CPPFLAGS -I.. -I/usr/include"
 LDFLAGS="$LDFLAGS -L../libs"
 
 AC_PROG_CXX($CHARMC)
@@ -33,7 +33,7 @@ AC_PROG_CXX($CHARMC)
 
 # Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS([sys/bittypes.h endian.h limits.h malloc.h stddef.h stdint.h stdlib.h string.h sys/param.h unistd.h values.h])
+AC_CHECK_HEADERS([sys/bittypes.h endian.h limits.h malloc.h stddef.h stdint.h stdlib.h string.h sys/param.h unistd.h values.h netinet/in.h])
 AC_CHECK_HEADER(rpc/rpc.h,,[AC_MSG_ERROR([rpc/rpc.h include file missing])])
 
 # Checks for typedefs, structures, and compiler characteristics.
