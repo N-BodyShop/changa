@@ -25,7 +25,7 @@ CXX=${CMK_SEQ_CXX}
 CC=${CMK_SEQ_CC}
 LD=${CMK_SEQ_LD}
 LDXX=${CMK_SEQ_LDXX}
-CPPFLAGS="$CPPFLAGS -I.. -I/usr/include"
+CPPFLAGS="$CPPFLAGS -I.."
 LDFLAGS="$LDFLAGS -L../libs"
 
 AC_PROG_CXX($CHARMC)
@@ -33,7 +33,11 @@ AC_PROG_CXX($CHARMC)
 
 # Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS([sys/bittypes.h endian.h limits.h malloc.h stddef.h stdint.h stdlib.h string.h sys/param.h unistd.h values.h netinet/in.h])
+AC_CHECK_HEADERS([sys/bittypes.h endian.h limits.h malloc.h stddef.h stdint.h stdlib.h string.h sys/param.h unistd.h values.h])
+AC_CHECK_HEADER(netinet/in.h,,[MISSING_NETINET=yes])
+if test "${MISSING_NETINET}" = "yes" ; then
+   CPPFLAGS="$CPPFLAGS -I/usr/include"
+fi
 AC_CHECK_HEADER(rpc/rpc.h,,[AC_MSG_ERROR([rpc/rpc.h include file missing])])
 
 # Checks for typedefs, structures, and compiler characteristics.
@@ -41,7 +45,7 @@ AC_HEADER_STDBOOL
 AC_C_CONST
 AC_C_INLINE
 AC_TYPE_SIZE_T
-AC_CHECK_TYPES([u_int64_t, u_quad_t])
+AC_CHECK_TYPES([u_int64_t, u_quad_t, quad])
 
 # Checks for library functions.
 AC_FUNC_MALLOC
