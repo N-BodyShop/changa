@@ -15,6 +15,7 @@ CHARMC = @CHARMC@
 
 CXX = $(CHARMC)
 CC = $(CXX)
+AR = @AR@
 CXX_DEPEND = $(CXX) -M -MM -MG $(CXXFLAGS)
 CFLAGS = -g -O3
 

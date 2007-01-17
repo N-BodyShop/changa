@@ -5,9 +5,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
+#ifdef HAVE_MALLOC_H
 #include <malloc.h>
+#endif
 #include <string.h>
-#include <malloc.h>
 #include <assert.h>
 #include <ctype.h>
 #include "param.h"

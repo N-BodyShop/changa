@@ -5,7 +5,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <limits.h>
-#include <values.h>
+#include <float.h>
 #include <assert.h>
 #include "romberg.h"
 
