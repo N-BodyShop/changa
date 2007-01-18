@@ -1381,7 +1381,6 @@ LDXX=${CMK_SEQ_LDXX}
 AR=${CMK_AR}
 
 CPPFLAGS="$CPPFLAGS -I.."
-LDFLAGS="$LDFLAGS -L../libs"
 echo "$as_me:$LINENO: checking for ../libs" >&5
 echo $ECHO_N "checking for ../libs... $ECHO_C" >&6
 if test "${ac_cv_file____libs+set}" = set; then
