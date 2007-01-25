@@ -370,7 +370,10 @@ namespace Tree {
 	  children[0]->particleCount = particleCount;
 	} else {
 	  // the splitting point is somewhere in the middle
-	  GravityParticle *splitParticle = std::lower_bound(&part[firstParticle], &part[lastParticle+1], part[lastParticle].key & ((~ (SFC::Key)0) << (62-level)));
+	  GravityParticle *splitParticle = std::lower_bound(&part[firstParticle],
+			&part[lastParticle+1],
+			(GravityParticle)(part[lastParticle].key
+					  & ((~ (SFC::Key)0) << (62-level))));
 	  children[0]->lastParticle = splitParticle - part - 1;
 	  children[1]->firstParticle = splitParticle - part;
 	  children[0]->particleCount = children[0]->lastParticle - firstParticle + 1;
