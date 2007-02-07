@@ -990,6 +990,10 @@ template <typename T>
   //reorderList<T>(nodeKeys, num, nodes);
   while (state->heaviest.rbegin()->weight > state->joints.begin()->weight ||
          currentNum != desired) {
+    if (state->joints.empty()) {
+      if (currentNum == desired) break;
+      else if (currentNum > desired) CmiAbort("weightBalance: possible joints set emply, while convergence not reached!");
+    }
     result = true;
     NodeKey openedKey = state->heaviest.rbegin()->key;
     T openedWeight = state->heaviest.rbegin()->weight;
