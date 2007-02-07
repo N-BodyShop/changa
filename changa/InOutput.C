@@ -460,7 +460,7 @@ static bool compIOrder(const GravityParticle& first,
 void TreePiece::reOrder(CkCallback& cb)
 {
     callback = cb;
-    int64_t startParticle[numTreePieces+1];
+    int64_t *startParticle = new int64_t[numTreePieces+1];
     int iPiece;
     
     //
@@ -510,6 +510,8 @@ void TreePiece::reOrder(CkCallback& cb)
 	    break;
 	binBegin = binEnd;
 	}
+
+    delete[] startParticle;
 
     // signify completion
     incomingParticlesSelf = true;
