@@ -95,12 +95,13 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
 
   // allocate an array for myParticles
   myParticles = new GravityParticle[myNumParticles + 2];
+  assert(myParticles != NULL);
 
   if(thisIndex == 0)
-    ckerr << " (" << fh.numParticles << ")";
+    ckout << " (" << fh.numParticles << ")";
 
   if(verbosity > 3)
-    ckerr << "TreePiece " << thisIndex << ": Of " << fh.numParticles << " particles, taking " << startParticles[0] << " through " << (startParticles[0] + numParticlesChunk[0] - 1) << endl;
+    ckout << "TreePiece " << thisIndex << ": Of " << fh.numParticles << " particles, taking " << startParticles[0] << " through " << (startParticles[0] + numParticlesChunk[0] - 1) << endl;
 
   float mass;
   float maxMass;

@@ -494,6 +494,7 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles, const in
   // allocate new particles array on first call
   if (incomingParticles == NULL) {
     incomingParticles = new GravityParticle[dm->particleCounts[myPlace] + 2];
+    assert(incomingParticles != NULL);
   }
 
   memcpy(&incomingParticles[incomingParticlesArrived+1], particles, n*sizeof(GravityParticle));
