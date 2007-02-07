@@ -610,6 +610,14 @@ void Sorter::adjustSplitters() {
 		//evaluate the new set of splitters
 		newSplitters.insert(firstPossibleKey);
 		newSplitters.insert(lastPossibleKey);
-		splitters.assign(newSplitters.begin(), newSplitters.end());
+		// The following statement breaks with the PGI
+		// compiler.  (version PGCC/x86 Linux/x86-64 6.1-2)
+		// The following loop is a work around.
+		// splitters.assign(newSplitters.begin(), newSplitters.end());
+		splitters.clear();
+		for(set<Key>::iterator iterNew = newSplitters.begin();
+		    iterNew != newSplitters.end(); iterNew++) {
+		    splitters.push_back(*iterNew);
+		    }
 	}
 }
