@@ -538,15 +538,23 @@ void Main::advanceBigStep(int iStep) {
       CkAssert(nextMaxRung <= MAXRUNG); // timesteps WAY too short
  
       // Opening Kick
+      if(verbosity)
+	  ckerr << "Kick Open:" << endl;
       double dKickFac[MAXRUNG+1];
       for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
         double dTimeSub = RungToDt(param.dDelta, iRung);
+	if(verbosity) {
+	    ckerr << " Rung " << iRung << ": " << 0.5*dTimeSub << endl;
+	    }
         dKickFac[iRung] = csmComoveKickFac(param.csm, dTime, 0.5*dTimeSub);
       }
       pieces.kick(activeRung, dKickFac, CkCallbackResumeThread());
 
       // Drift of smallest step
       double dTimeSub = RungToDt(param.dDelta, nextMaxRung);
+      if(verbosity)
+	  ckerr << "Drift: Rung " << nextMaxRung << " Delta " << dTimeSub
+		<< endl;
       double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
       pieces.drift(dDriftFac, CkCallbackResumeThread());
 
@@ -634,8 +642,13 @@ void Main::advanceBigStep(int iStep) {
     if(!param.bStaticTest) {
       // Closing Kick
       double dKickFac[MAXRUNG+1];
+      if(verbosity)
+	  ckerr << "Kick Close:" << endl;
       for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
         double dTimeSub = RungToDt(param.dDelta, iRung);
+	if(verbosity) {
+	    ckerr << " Rung " << iRung << ": " << 0.5*dTimeSub << endl;
+	    }
         dKickFac[iRung] = csmComoveKickFac(param.csm,
                                            dTime - 0.5*dTimeSub,
                                            0.5*dTimeSub);
