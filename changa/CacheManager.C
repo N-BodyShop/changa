@@ -717,15 +717,8 @@ void CacheManager::cacheSync(double theta, int activeRung, const CkCallback& cb)
   }
 #endif
   LBTurnInstrumentOn();
-  //if(iter > iterationNo){
   iterationNo++;
-  /*map<MapKey,NodeCacheEntry *>::iterator p;
-    for(p = nodeCacheTable.begin();p != nodeCacheTable.end();p++){
-    printf("[%d] Key %llu  total number of requests %d hits %d\n",CkMyPe(),p->first.k,p->second->totalRequests,p->second->hits);
-    }*/
 #if COSMO_STATS > 0
-  //if (verbosity)
-  //  CkPrintf("[%d] Total number of requests %d storedNodes %d outStandingRequests %d iterationNo %d \n",CkMyPe(),totalNodesRequested,storedNodes,outStandingRequests.size(),iterationNo);
   nodesArrived = 0;
   nodesMessages = 0;
   nodesDuplicated = 0;
@@ -781,6 +774,12 @@ void CacheManager::cacheSync(double theta, int activeRung, const CkCallback& cb)
   }
 #endif
 
+  if(registeredChares.size() == 0) {
+	// Nothing to do on this node; clean up
+  	allDone();
+	return;
+	}
+
   if (_nocache) {
     // non default case with the cache disabled
     outStandingRequests.clear();
@@ -789,7 +788,6 @@ void CacheManager::cacheSync(double theta, int activeRung, const CkCallback& cb)
   CkAssert(outStandingRequests.empty());
   storedNodes=0;
   storedParticles=0;
-  //}
 
   // for now the number of chunks is constant throughout the computation, it is only updated dynamically
   //int newChunks = numChunks;
@@ -810,20 +808,6 @@ void CacheManager::cacheSync(double theta, int activeRung, const CkCallback& cb)
     //for (int i=0; i<numChunks; ++i) CkPrintf("[%d] new roots %d: %s\n",CkMyPe(),i,keyBits(prefetchRoots[i],63).c_str());
 
   }
-
-  //for (int i=0; i<numChunks; ++i) printf("%d chunk %d: %s\n",CkMyPe(), i, keyBits(prefetchRoots[i],63).c_str());
-
-  /*
-  if (numChunks != newChunks) {
-    delete[] nodeCacheTable;
-    delete[] particleCacheTable;
-    delete[] chunkAck;
-    numChunks = newChunks;
-    nodeCacheTable = new map<CacheKey,NodeCacheEntry *>[numChunks];
-    particleCacheTable = new map<CacheKey,ParticleCacheEntry *>[numChunks];
-    chunkAck = new int[numChunks];
-  }
-  */
 
   // update the prefetchRoots with the collected weights
   // @TODO
@@ -856,7 +840,8 @@ void CacheManager::cacheSync(double theta, int activeRung, const CkCallback& cb)
 #endif
 
   // call the gravitational computation utility of each local chare element
-  if (verbosity>1) CkPrintf("[%d] calling startIteration on %d elements\n",CkMyPe(),registeredChares.size());
+  if (verbosity>1) CkPrintf("[%d] calling startIteration on %d elements\n",
+  			    CkMyPe(),registeredChares.size());
   for (iter = registeredChares.begin(); iter != registeredChares.end(); iter++) {
     if (verbosity>1) CkPrintf("[%d] calling startIteration on element %d\n",CkMyPe(),iter->first);
     TreePiece *p = treeProxy[iter->first].ckLocal();
