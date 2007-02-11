@@ -305,7 +305,7 @@ public:
         void advanceBigStep(int);
 	int adjust(int iKickRung);
 	void rungStats();
-	void calcEnergy(double, char *) ;
+	void calcEnergy(double, double, char *) ;
 	void getStartTime();
 	void writeOutput(int iStep) ;
 	void setTotalParticles(int n) {

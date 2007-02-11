@@ -757,10 +757,12 @@ void Main::nextStage() {
     if (verbosity) ckerr << "Starting big step " << iStep << endl;
     startTime = CkWallTimer();
     advanceBigStep(iStep-1);
-    ckerr << "Big step " << iStep << " took " << (CkWallTimer() - startTime) << "seconds." <<endl;
+    double stepTime = CkWallTimer() - startTime;
+    ckerr << "Big step " << iStep << " took " << stepTime << " seconds."
+	  << endl;
 
     if(iStep%param.iLogInterval == 0) {
-      calcEnergy(dTime, achLogFileName);
+	calcEnergy(dTime, stepTime, achLogFileName);
     }
     /*
      * Writing of intermediate outputs can be done here.
@@ -796,7 +798,6 @@ void Main::nextStage() {
   startTime = CkWallTimer();
   Interval<unsigned int> dummy;
 	
-  //pieces[0].outputStatistics(dummy, dummy, dummy, dummy, totaldata->totalmass, CkCallbackResumeThread());
   pieces[0].outputStatistics(dummy, dummy, dummy, dummy, 0, CkCallbackResumeThread());
 
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
@@ -818,7 +819,12 @@ void Main::nextStage() {
   CkExit();
 }
 
-void Main::calcEnergy(double dTime, char *achLogFileName) {
+/**
+ * Calculate various energy and momentum quantities, and output them
+ * to a log file.
+ */
+
+void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
     CkCallback ccb(CkCallback::resumeThread);
     pieces.calcEnergy(ccb);
     CkReductionMsg *msg = (CkReductionMsg *) ccb.thread_delay();
@@ -831,7 +837,7 @@ void Main::calcEnergy(double dTime, char *achLogFileName) {
     double a = csmTime2Exp(param.csm, dTime);
     
     if(first) {
-	fprintf(fpLog, "# time redshift TotalEVir TotalE Kinetic Virial Potential TotalECosmo Lx Ly Lz\n");
+	fprintf(fpLog, "# time redshift TotalEVir TotalE Kinetic Virial Potential TotalECosmo Lx Ly Lz Wallclock\n");
 	first = 0;
 	dEcosmo = 0.0;
 	}
@@ -846,10 +852,10 @@ void Main::calcEnergy(double dTime, char *achLogFileName) {
     dTimeOld = dTime;
     double z = 1.0/a - 1.0;
     
-    fprintf(fpLog, "%g %g %g %g %g %g %g %g %g %g %g\n", dTime, z,
+    fprintf(fpLog, "%g %g %g %g %g %g %g %g %g %g %g %g\n", dTime, z,
 	    dEnergy[0] + dEnergy[1], dEnergy[0]+dEnergy[2], dEnergy[0],
 	    dEnergy[1], dEnergy[2], dEcosmo, dEnergy[3], dEnergy[4],
-	    dEnergy[5]);
+	    dEnergy[5], wallTime);
     fclose(fpLog);
     
     delete msg;
