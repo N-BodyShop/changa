@@ -424,12 +424,6 @@ void TreePiece::evaluateBoundaries(int isRefine, const CkCallback& cb) {
 #ifdef COSMO_EVENTS
         traceUserBracketEvent(boundaryEvaluationUE, startTimer, CmiWallTimer());
 #endif
-
-        if (verbosity>=4) {
-          for (int i=0;i<numBins;++i)
-            if (myCounts[i]>0) CkPrintf("[%d]: bin %d has %d particles\n",thisIndex,i,myCounts[i]);
-        }
-
 	//send my bin counts back in a reduction
 	contribute(numBins * sizeof(int), myCounts, CkReduction::sum_int, cb);
 }
@@ -2512,7 +2506,8 @@ void TreePiece::startIteration(double t, // opening angle
 
   CkAssert(localCache != NULL);
   if(verbosity>1)
-    CkPrintf("TreePiece %d: I have %d buckets\n",thisIndex,numBuckets);
+    CkPrintf("Node: %d, TreePiece %d: I have %d buckets\n", CkMyNode(),
+    	     thisIndex,numBuckets);
 
   if (bucketReqs==NULL) bucketReqs = new BucketGravityRequest[numBuckets];
   
