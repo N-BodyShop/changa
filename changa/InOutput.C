@@ -57,6 +57,7 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
 
   switch (domainDecomposition) {
   case SFC_dec:
+  case SFC_peano_dec:
     numPrefetchReq = 2;
     prefetchReq = new OrientedBox<double>[2];
   case Oct_dec:
@@ -268,6 +269,7 @@ void TreePiece::loadTipsy(const std::string& filename, const CkCallback& cb) {
 
 	switch (domainDecomposition) {
 	case SFC_dec:
+        case SFC_peano_dec:
 	    numPrefetchReq = 2;
 	    prefetchReq = new OrientedBox<double>[2];
 	case Oct_dec:

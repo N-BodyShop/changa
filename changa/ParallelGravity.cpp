@@ -31,6 +31,7 @@ int _nocache;
 int _cacheLineDepth;
 unsigned int _yieldPeriod;
 DomainsDec domainDecomposition;
+int peanoKey;
 GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
 CProxy_CacheManager streamingCache;
@@ -243,6 +244,7 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "nCacheSize", paramInt, &cacheSize,
 		    sizeof(int),"s", "Size of cache");
 	domainDecomposition=SFC_dec;
+        peanoKey=0;
 	prmAddParam(prm, "nDomainDecompose", paramInt, &domainDecomposition,
 		    sizeof(int),"D", "Kind of domain decomposition of particles");
         lbcomm_cutoff_msgs = 1;
@@ -315,6 +317,8 @@ Main::Main(CkArgMsg* m) {
 	    param.bEwald = 0;
 	    }
 	    
+        if (domainDecomposition == SFC_peano_dec) peanoKey = 1;
+
 	// hardcoding some parameters, later may be full options
 	if(domainDecomposition==ORB_dec){ useTree = Binary_ORB; }
 	else { useTree = Binary_Oct; }
@@ -361,13 +365,16 @@ Main::Main(CkArgMsg* m) {
         if(verbosity) {
           switch(domainDecomposition){
           case SFC_dec:
-            ckerr << "Domain decomposition...SFC" << endl;
+            ckerr << "Domain decomposition...SFC Morton" << endl;
             break;
           case Oct_dec:
             ckerr << "Domain decomposition...Oct" << endl;
             break;
           case ORB_dec:
             ckerr << "Domain decomposition...ORB" << endl;
+            break;
+          case SFC_peano_dec:
+            ckerr << "Domain decomposition...SFC Peano-Hilbert" << endl;
             break;
           default:
             CkAbort("None of the implemented decompositions specified");

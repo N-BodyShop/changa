@@ -31,8 +31,9 @@ using namespace Tree;
 
 enum DomainsDec {
   SFC_dec=0,
-  Oct_dec,
-  ORB_dec
+  Oct_dec=1,
+  ORB_dec=2,
+  SFC_peano_dec=3
 };
 
 inline void operator|(PUP::er &p,DomainsDec &d) {
@@ -481,7 +482,7 @@ class TreePiece : public CBase_TreePiece {
 
 #if COSMO_DEBUG > 1
   ///A set for each bucket to check the correctness of the treewalk
-  typedef std::vector< std::set<Tree::NodeKey> > DebugList;
+  typedef std::vector< std::multiset<Tree::NodeKey> > DebugList;
   DebugList bucketcheckList;
 #endif
 

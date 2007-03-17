@@ -775,10 +775,10 @@ void CacheManager::cacheSync(double theta, int activeRung, const CkCallback& cb)
 #endif
 
   if(registeredChares.size() == 0) {
-	// Nothing to do on this node; clean up
-  	allDone();
-	return;
-	}
+    // Nothing to do on this node; clean up
+    for (i=0; i<numChunks; ++i) allDone();
+    return;
+  }
 
   if (_nocache) {
     // non default case with the cache disabled

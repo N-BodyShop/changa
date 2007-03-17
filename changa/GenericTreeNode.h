@@ -166,7 +166,12 @@ namespace Tree {
       calculateRadiusFarthestParticle(moments, &part[firstParticle], &part[lastParticle+1]);
     }
 
-    inline void makeEmpty() { myType = Empty; }
+    inline void makeEmpty() {
+      myType = Empty;
+      particleCount = 0;
+      moments.clear();
+      boundingBox.reset();
+    }
 
     virtual GenericTreeNode *createNew() const = 0;
     virtual GenericTreeNode *clone() const = 0;
@@ -333,10 +338,11 @@ namespace Tree {
 	    children[0]->myType = NonLocal;
 	    children[1]->myType = Boundary;
 	  } else {
-	    children[0]->myType = Empty;
+	    children[0]->makeEmpty();
 	    children[1]->myType = lastParticle==totalPart+1 ? Boundary : Internal;
 	  }
 	  children[0]->lastParticle = firstParticle-1;
+          children[0]->particleCount = 0;
 	  children[1]->firstParticle = firstParticle;
 	  children[1]->particleCount = particleCount;
 	} else {
@@ -345,10 +351,11 @@ namespace Tree {
 	    children[1]->myType = NonLocal;
 	    children[0]->myType = Boundary;
 	  } else {
-	    children[1]->myType = Empty;
+	    children[1]->makeEmpty();
 	    children[0]->myType = firstParticle==0 ? Boundary : Internal;
 	  }
 	  children[1]->firstParticle = lastParticle+1;
+          children[1]->particleCount = 0;
 	  children[0]->lastParticle = lastParticle;
 	  children[0]->particleCount = particleCount;
 	}
@@ -380,6 +387,8 @@ namespace Tree {
 	  children[1]->particleCount = lastParticle - children[1]->firstParticle + 1;
 	  children[0]->myType = children[0]->particleCount==0 ? Empty : (firstParticle==0 ? Boundary : Internal);
 	  children[1]->myType = children[1]->particleCount==0 ? Empty : (lastParticle==totalPart+1 ? Boundary : Internal);
+          if (children[0]->myType==Empty) children[0]->makeEmpty();
+          if (children[1]->myType==Empty) children[1]->makeEmpty();
 	  if (firstParticle == 0) children[0]->particleCount --;
 	  if (lastParticle == totalPart+1) children[1]->particleCount --;
 	}

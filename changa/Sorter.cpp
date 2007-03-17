@@ -271,6 +271,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
   BinaryTreeNode *rt;
   switch (domainDecomposition){
     case SFC_dec:
+    case SFC_peano_dec:
 	numKeys = 0;
 	    splitters.clear();
 	    splitters.reserve(3 * numChares - 1);
@@ -394,6 +395,7 @@ void Sorter::collectEvaluations(CkReductionMsg* m) {
 
   switch (domainDecomposition){
     case SFC_dec:
+    case SFC_peano_dec:
       collectEvaluationsSFC(m);
       break;
     case Oct_dec:

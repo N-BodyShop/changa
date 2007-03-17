@@ -911,7 +911,7 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
       CkAssert(!isShared);
       if (last < first) {
 	      // the node is really empty because falling between two TreePieces
-	      child->setType(Empty);
+              child->makeEmpty();
 	      child->remoteIndex = thisIndex;
       } else {
 	      child->remoteIndex = first + (thisIndex & (last-first));
@@ -1159,7 +1159,7 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
       CkAssert(!isShared);
       if (last < first) {
 	// the node is really empty because falling between two TreePieces
-	child->setType(Empty);
+	child->makeEmpty();
 	child->remoteIndex = thisIndex;
       } else {
 	child->remoteIndex = first + (thisIndex & (last-first));
@@ -3746,13 +3746,13 @@ void TreePiece::combineKeys(Tree::NodeKey key,int bucket){
     sibKey = key | mask;
   }
 
-  std::set<Tree::NodeKey>::iterator iter = (bucketcheckList[bucket]).find(sibKey);
+  std::multiset<Tree::NodeKey>::iterator iter = (bucketcheckList[bucket]).find(sibKey);
 
   if(iter==bucketcheckList[bucket].end())
     return;
   else{//Sibling key has been found in the Binary tree
-    bucketcheckList[bucket].erase(key);
-    bucketcheckList[bucket].erase(sibKey);
+    bucketcheckList[bucket].erase(bucketcheckList[bucket].find(key));
+    bucketcheckList[bucket].erase(iter);
     key >>= 1;
     bucketcheckList[bucket].insert(key);
     combineKeys(key,bucket);
@@ -3762,11 +3762,17 @@ void TreePiece::combineKeys(Tree::NodeKey key,int bucket){
 void TreePiece::checkWalkCorrectness(){
 
   Tree::NodeKey endKey = Key(1);
+  int count = (2*nReplicas+1) * (2*nReplicas+1) * (2*nReplicas+1);
   CkPrintf("[%d]checking walk correctness...\n",thisIndex);
   for(int i=0;i<numBuckets;i++){
-    if(bucketcheckList[i].size()!=1 || bucketcheckList[i].find(endKey)==bucketcheckList[i].end()){
+    int wrong = 0;
+    if(bucketcheckList[i].size()!=count) wrong = 1;
+    for (std::multiset<Tree::NodeKey>::iterator iter = bucketcheckList[i].begin(); iter != bucketcheckList[i].end(); iter++) {
+      if (*iter != endKey) wrong = 1;
+    }
+    if (wrong) {
       CkPrintf("Error: [%d] All the nodes not traversed by bucket no. %d\n",thisIndex,i);
-      for (std::set<Tree::NodeKey>::iterator iter=bucketcheckList[i].begin(); iter != bucketcheckList[i].end(); iter++) {
+      for (std::multiset<Tree::NodeKey>::iterator iter=bucketcheckList[i].begin(); iter != bucketcheckList[i].end(); iter++) {
 	CkPrintf("       [%d] key %016llx\n",thisIndex,*iter);
       }
       break;
@@ -3804,10 +3810,6 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
 	  << (particleInterLocal+particleInterRemoteTotal)/(double) myNumParticles << endl;
   }
 #endif	
-
-#if COSMO_DEBUG > 1
-checkWalkCorrectness();
-#endif
 
 #if COSMO_STATS > 1
   /*
@@ -4133,6 +4135,7 @@ void TreePiece::pup(PUP::er& p) {
 
     switch(domainDecomposition) {
     case SFC_dec:
+    case SFC_peano_dec:
       numPrefetchReq = 2;
       prefetchReq = new OrientedBox<double>[2];
       break;
@@ -4375,7 +4378,7 @@ void TreePiece::printTree(GenericTreeNode* node, ostream& os) {
     break;
   }
   if (node->getType() == Bucket || node->getType() == Internal || node->getType() == Boundary || node->getType() == NonLocal || node->getType() == NonLocalBucket) 
-    os << " V "<<node->moments.radius<<" "<<node->moments.soft<<" "<<node->moments.cm.x<<" "<<node->moments.cm.y<<" "<<node->moments.cm.z<<" "<<node->moments.xx<<" "<<node->moments.xy<<" "<<node->moments.xz<<" "<<node->moments.yy<<" "<<node->moments.yz<<" "<<node->moments.zz;
+    os << " V "<<node->moments.radius<<" "<<node->moments.soft<<" "<<node->moments.cm.x<<" "<<node->moments.cm.y<<" "<<node->moments.cm.z<<" "<<node->moments.xx<<" "<<node->moments.xy<<" "<<node->moments.xz<<" "<<node->moments.yy<<" "<<node->moments.yz<<" "<<node->moments.zz<<" "<<node->boundingBox;
 
   os << "\n";
 	
@@ -4569,6 +4572,10 @@ void TreePiece::getPieceValues(piecedata *totaldata){
 CkReduction::reducerType TreePieceStatistics::sum;
 
 void TreePiece::collectStatistics(CkCallback& cb) {
+#if COSMO_DEBUG > 1
+checkWalkCorrectness();
+#endif
+
 #if COSMO_STATS > 0
   u_int64_t nodeInterRemoteTotal = 0;
   u_int64_t particleInterRemoteTotal = 0;
