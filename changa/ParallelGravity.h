@@ -811,8 +811,18 @@ public:
 
   void kick(int iKickRung, double dDelta[MAXRUNG+1], const CkCallback& cb);
   void drift(double dDelta, const CkCallback& cb);
-  void adjust(int iKickRung, double dEta, double dDelta, double dAccFac,
-	      const CkCallback& cb);
+/**
+ * Adjust timesteps of active particles.
+ * @param iKickRung The rung we are on.
+ * @param bEpsAccStep Use sqrt(eps/acc) timestepping
+ * @param bGravStep Use sqrt(r^3/GM) timestepping
+ * @param dEta Factor to use in determing timestep
+ * @param dDelta Base timestep
+ * @param dAccFac Acceleration scaling for cosmology
+ * @param cb Callback function reduces currrent maximum rung
+ */
+  void adjust(int iKickRung, int bEpsAccStep, int bGravStep, double dEta,
+	      double dDelta, double dAccFac, const CkCallback& cb);
   void rungStats(const CkCallback& cb);
 	void calcEnergy(const CkCallback& cb);
 	void setSoft(const double dSoft);

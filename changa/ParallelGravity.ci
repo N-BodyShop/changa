@@ -122,8 +122,10 @@ mainmodule ParallelGravity {
                 
                 entry void kick(int iKickRung, double dDelta[MAXRUNG+1],
                                 const CkCallback& cb);
-                entry void adjust(int iKickRung, double dEta, double dDelta,
-                                  double dAccFac, const CkCallback& cb);
+		entry void adjust(int iKickRung, int bEpsAccStep,
+				int bGravStep, double dEta,
+	      			double dDelta, double dAccFac,
+				const CkCallback& cb);
                 entry void rungStats(const CkCallback& cb);
 		entry void drift(double dDelta, const CkCallback& cb);
 		entry void calcEnergy(const CkCallback& cb);

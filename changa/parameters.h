@@ -13,6 +13,8 @@ typedef struct parameters {
     int nSteps;
     int iStartStep;
     double dDelta;
+    int bEpsAccStep;
+    int bGravStep;
     double dEta;
     int iMaxRung;
     int bCannonical;

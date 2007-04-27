@@ -553,15 +553,36 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1], const CkCallback& 
   contribute(0, 0, CkReduction::concat, cb);
 }
 
-void TreePiece::adjust(int iKickRung, double dEta, double dDelta,
+/**
+ * Adjust timesteps of active particles.
+ * @param iKickRung The rung we are on.
+ * @param bEpsAccStep Use sqrt(eps/acc) timestepping
+ * @param bGravStep Use sqrt(r^3/GM) timestepping
+ * @param dEta Factor to use in determing timestep
+ * @param dDelta Base timestep
+ * @param dAccFac Acceleration scaling for cosmology
+ * @param cb Callback function reduces currrent maximum rung
+ */
+void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
+		       double dEta, double dDelta,
                        double dAccFac, const CkCallback& cb) {
   int iCurrMaxRung = 0;
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
     if(myParticles[i].rung >= iKickRung) {
       assert(myParticles[i].soft > 0.0);
-      // Sqrt(eps/acc) timestep for now.
-      double dTIdeal = dEta*sqrt(myParticles[i].soft
-                                 /(dAccFac*myParticles[i].treeAcceleration.length()));
+      double dTIdeal = dDelta;
+      if(bEpsAccStep) {
+	  double dt = dEta*sqrt(myParticles[i].soft
+				/(dAccFac*myParticles[i].treeAcceleration.length()));
+	  if(dt < dTIdeal)
+	      dTIdeal = dt;
+	  }
+      if(bGravStep) {
+	  double dt = dEta/sqrt(dAccFac*myParticles[i].dtGrav);
+	  if(dt < dTIdeal)
+	      dTIdeal = dt;
+	  }
+	  
       int iNewRung = DtToRung(dDelta, dTIdeal);
       if(iNewRung < iKickRung) iNewRung = iKickRung;
       if(iNewRung > iCurrMaxRung) iCurrMaxRung = iNewRung;
@@ -1352,57 +1373,17 @@ inline int partBucketForce(ExternalGravityParticle *part, GenericTreeNode *req, 
       twoh = part->soft + particles[j].soft;
       if(rsq != 0) {
         SPLINE(rsq, twoh, a, b);
+	double idt2 = (particles[j].mass + part->mass)*b; // (timescale)^-2
+							  // of interaction
         particles[j].treeAcceleration += r * (b * part->mass);
         particles[j].potential -= part->mass * a;
+	if(idt2 > particles[j].dtGrav)
+	    particles[j].dtGrav = idt2;
       }
     }
   }
   return computed;
 }
-
-/** @TOOD change the loop so that for one particle in req all the forces are
-    compute (i.e outside loop over req, inside loop over nodes (the loop is in
-    other functions) */
-/*inline void nodeBucketForce(GenericTreeNode *node, BucketGravityRequest& req) {
-  Vector3D<double> r;
-  double rsq;
-  double twoh, a, b, c, d;
-  MultipoleMoments m = node->moments;
-    
-  Vector3D<double> cm(m.cm);
-
-	//SFCTreeNode* reqnode = bucketList[req.identifier];
-
-  for(unsigned int j = 0; j < req.numParticlesInBucket; ++j) {
-    r = req.positions[j] - cm;
-    rsq = r.lengthSquared();
-    twoh = m.soft + req.softs[j];
-    if(rsq != 0) {
-      double dir = 1.0/sqrt(rsq);
-      SPLINEQ(dir, rsq, twoh, a, b, c, d);
-      double qirx = m.xx*r.x + m.xy*r.y + m.xz*r.z;
-      double qiry = m.xy*r.x + m.yy*r.y + m.yz*r.z;
-      double qirz = m.xz*r.x + m.yz*r.y + m.zz*r.z;
-      double qir = 0.5*(qirx*r.x + qiry*r.y + qirz*r.z);
-      double tr = 0.5*(m.xx + m.yy + m.zz);
-      double qir3 = b*m.totalMass + d*qir - c*tr;
-      req.potentials[j] -= m.totalMass * a + c*qir - b*tr;
-      req.accelerations[j][0] -= qir3*r[0] - c*qirx;
-      req.accelerations[j][1] -= qir3*r[1] - c*qiry;
-      req.accelerations[j][2] -= qir3*r[2] - c*qirz;
-  */  
-			/******************ADDED**********************/
-		/*	//SFCTreeNode* reqnode = bucketList[req.identifier];
-
-			//for(unsigned int i = reqnode->beginParticle; i < reqnode->endParticle; ++i){
-			//myParticles[reqnode->beginParticle + j].acceleration[0] -= qir3*r[0] - c*qirx;
-			//myParticles[reqnode->beginParticle + j].acceleration[1] -= qir3*r[1] - c*qiry;
-			//myParticles[reqnode->beginParticle + j].acceleration[2] -= qir3*r[2] - c*qirz;
-			//}
-
-		}
-  }
-}*/
 
 inline int nodeBucketForce(GenericTreeNode *node, GenericTreeNode *req, GravityParticle *particles, Vector3D<double> offset, int activeRung) {
   int computed = 0;
@@ -1443,95 +1424,14 @@ inline int nodeBucketForce(GenericTreeNode *node, GenericTreeNode *req, GravityP
         particles[j].treeAcceleration.x -= qir3*r.x - c*qirx;
         particles[j].treeAcceleration.y -= qir3*r.y - c*qiry;
         particles[j].treeAcceleration.z -= qir3*r.z - c*qirz;
+	double idt2 = (particles[j].mass + m.totalMass)*b;
+	if(idt2 > particles[j].dtGrav)
+	    particles[j].dtGrav = idt2;
       }
     }
   }
   return computed;
 }
-
-/*******************
-#if INTERLIST_VER > 2
-// This means always disabled!
-
-//The force calculation routine which calculates force between a particle in my current bucket and all the contents of the interaction list (both node and particle lists)
-inline void listPartForce(CkVec<CkVec<GenericTreeNode *> >& cellList, CkVec<CkVec<TreePiece::PartInfo> >& particleList, GravityParticle particle, int levels) {
-  Vector3D<double> r;
-  double rsq;
-  double twoh, a, b, c, d;
-  MultipoleMoments m;
-    
-  //double r0,r1,r2;
-  double acc0=0,acc1=0,acc2=0,pot=0;
-  
-  GenericTreeNode *node;
-  
-  int len=0;
-  
-  for(int k=0;k<=levels;k++){
-    len=cellList[k].length();
-    for(unsigned int i=0;i<len;i++){
-      node = cellList[k][i];
-    
-      m = node->moments;
-      Vector3D<double> cm(m.cm);
-    
-      r = particle.position - cm;
-      //r0=r[0]; r1=r[1]; r2=r[2];
-      rsq = r.lengthSquared();
-      twoh = m.soft + particle.soft;
-      if(rsq != 0) {
-        double dir = 1.0/sqrt(rsq);
-        SPLINEQ(dir, rsq, twoh, a, b, c, d);
-        double qirx = m.xx*r.x + m.xy*r.y + m.xz*r.z;
-        double qiry = m.xy*r.x + m.yy*r.y + m.yz*r.z;
-        double qirz = m.xz*r.x + m.yz*r.y + m.zz*r.z;
-        double qir = 0.5*(qirx*r.x + qiry*r.y + qirz*r.z);
-        double tr = 0.5*(m.xx + m.yy + m.zz);
-        double qir3 = b*m.totalMass + d*qir - c*tr;
-        pot -= m.totalMass * a + c*qir - b*tr;
-        acc0 -= qir3*r.x - c*qirx;
-        acc1 -= qir3*r.y - c*qiry;
-        acc2 -= qir3*r.z - c*qirz;
-    
-		  }
-    }
-  //}
-
-  double e, f;
-
-  
-  //for(int k=0;k<=levels;k++){
-    len=particleList[k].length();
-    for(unsigned int i=0;i<len;i++){
-    
-      TreePiece::PartInfo pinfo = particleList[k][i];
-      GravityParticle *part;
-  	  for(int j = 0; j < pinfo.numParticles; ++j){
-        part=&pinfo.particles[j];
-        r = part->position - particle.position;
-        rsq = r.lengthSquared();
-        twoh = part->soft + particle.soft;
-        if(rsq != 0) {
-          SPLINE(rsq, twoh, e, f);
-          acc0 += part->mass * r.x * f;
-          acc1 += part->mass * r.y * f;
-          acc2 += part->mass * r.z * f;
-        
-          //particle.acceleration += part->mass * r * f;
-          pot -= part->mass * e;
-        }
-      }
-    }
-  }
-  
-  particle.treeAcceleration.x+=acc0;
-  particle.treeAcceleration.y+=acc1;
-  particle.treeAcceleration.z+=acc2;
-  particle.potential+=pot;
-}
-
-#endif
-******************/
 
 // Return true if the node's opening radius intersects the
 // boundingBox, i.e. the node needs to be opened.
@@ -1632,6 +1532,7 @@ void TreePiece::initBuckets() {
         */
         myParticles[i].treeAcceleration = 0;
         myParticles[i].potential = 0;
+	myParticles[i].dtGrav = 0;
       }
     }
     bucketReqs[j].finished = 0;

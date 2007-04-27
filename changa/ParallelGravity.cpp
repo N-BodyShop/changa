@@ -105,6 +105,13 @@ Main::Main(CkArgMsg* m) {
         prmAddParam(prm, "killAt", paramInt, &killAt,
 		    sizeof(int),"killat", "Killing after this step");
 
+	param.bEpsAccStep = 1;
+	prmAddParam(prm, "bEpsAccStep", paramBool, &param.bEpsAccStep,
+		    sizeof(int),"epsacc", "Use sqrt(eps/a) timestepping");
+	param.bGravStep = 0;
+	prmAddParam(prm, "bGravStep", paramBool, &param.bGravStep,
+		    sizeof(int),"gravstep",
+		    "Use gravity interaction timestepping");
 	param.dEta = 0.03;
 	prmAddParam(prm, "dEta", paramDouble, &param.dEta,
 		    sizeof(double),"eta", "Time integration accuracy");
@@ -911,7 +918,8 @@ int Main::adjust(int iKickRung)
     CkCallback ccb(CkCallback::resumeThread);
     double a = csmTime2Exp(param.csm,dTime);
     
-    pieces.adjust(iKickRung, param.dEta, param.dDelta, 1.0/(a*a*a), ccb);
+    pieces.adjust(iKickRung, param.bEpsAccStep, param.bGravStep, param.dEta,
+		  param.dDelta, 1.0/(a*a*a), ccb);
 
     CkReductionMsg *msg = (CkReductionMsg *) ccb.thread_delay();
     int iCurrMaxRung = *(int *)msg->getData();
