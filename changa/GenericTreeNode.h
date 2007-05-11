@@ -116,10 +116,10 @@ namespace Tree {
     virtual ~GenericTreeNode() { }
     virtual void fullyDelete() = 0;
     
-    inline const NodeType getType() const { return myType; }
+    inline NodeType getType() const { return myType; }
     inline void setType(NodeType t) { myType = t; }
 
-    inline const NodeKey getKey() const { return key; }
+    inline NodeKey getKey() const { return key; }
 
     /// return the number of children this node has
     virtual unsigned int numChildren() const = 0;
