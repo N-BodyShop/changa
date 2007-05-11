@@ -98,5 +98,24 @@
 /* Define to `unsigned' if <sys/types.h> does not define. */
 #undef size_t
 
-/* Define to `uint64_t' if <sys/types.h> does not define. */
-#undef u_int64_t
+/* Define to 1 if the system has the type `u_quad_t'. */
+#undef HAVE_U_QUAD_T
+
+/* Define to 1 if the system has the type `u_int64_t'. */
+#undef HAVE_U_INT64_T
+
+/* Define to 1 if the system has the type `quad_t'. */
+#undef HAVE_QUAD_T
+
+/* Define to 1 if the system has the type `int64_t'. */
+#undef HAVE_INT64_T
+
+#if !defined(HAVE_U_INT64_T) && defined(HAVE_U_QUAD_T)
+#include <sys/types.h>
+typedef u_quad_t u_int64_t;
+#endif
+
+#if !defined(HAVE_INT64_T) && defined(HAVE_QUAD_T)
+#include <sys/types.h>
+typedef quad_t int64_t;
+#endif

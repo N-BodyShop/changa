@@ -46,7 +46,7 @@ AC_HEADER_STDBOOL
 AC_C_CONST
 AC_C_INLINE
 AC_TYPE_SIZE_T
-AC_CHECK_TYPES([u_int64_t, u_quad_t, quad])
+AC_CHECK_TYPES([u_int64_t, u_quad_t, int64_t, quad_t, quad])
 
 # Checks for library functions.
 AC_FUNC_MALLOC

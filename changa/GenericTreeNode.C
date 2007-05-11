@@ -1,3 +1,4 @@
+#include "config.h"
 #include "GenericTreeNode.h"
 
 namespace Tree {
