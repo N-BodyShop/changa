@@ -193,6 +193,12 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dRedTo",paramDouble,&param.dRedTo,sizeof(double),
 		    "zto", "specifies final redshift for the simulation");
 	
+	param.dMsolUnit = 1.0;
+	prmAddParam(prm,"dMsolUnit",paramDouble,&param.dMsolUnit,
+		    sizeof(double),"msu", "<Solar mass/system mass unit>");
+	param.dKpcUnit = 1000.0;
+	prmAddParam(prm,"dKpcUnit",paramDouble,&param.dKpcUnit,
+		    sizeof(double),"kpcu", "<Kiloparsec/system length unit>");
 
 	printBinaryAcc=1;
 	prmAddParam(prm, "bPrintBinary", paramBool, &printBinaryAcc,
@@ -211,8 +217,18 @@ Main::Main(CkArgMsg* m) {
 				"output name for snapshots and logfile");
 	param.dExtraStore = 0;
 	prmAddParam(prm,"dExtraStore",paramDouble,&param.dExtraStore,
-		    sizeof(double),
-		    NULL, "IGNORED");
+		    sizeof(double), NULL, "IGNORED");
+	
+	bDumpFrame = 0;
+	df = NULL;
+	param.dDumpFrameStep = -1.0;
+	prmAddParam(prm,"dDumpFrameStep",paramDouble, &param.dDumpFrameStep,
+		    sizeof(double), "dfi",
+		    "<number of steps between dumped frames> = -1 (disabled)");
+	param.dDumpFrameTime = -1.0;
+	prmAddParam(prm,"dDumpFrameTime",paramDouble,&param.dDumpFrameTime,
+		    sizeof(double), "dft",
+		    "<time interval between dumped frames> = -1 (disabled)");
 	
 	param.bStaticTest = 0;
 	prmAddParam(prm, "bStaticTest", paramBool, &param.bStaticTest,
@@ -324,6 +340,42 @@ Main::Main(CkArgMsg* m) {
 	    param.bEwald = 0;
 	    }
 	    
+	/* bolzman constant in cgs */
+#define KBOLTZ	1.38e-16
+	/* mass of hydrogen atom in grams */
+#define MHYDR 1.67e-24
+	/* solar mass in grams */
+#define MSOLG 1.99e33
+	/* G in cgs */
+#define GCGS 6.67e-8
+	/* kiloparsec in centimeters */
+#define KPCCM 3.085678e21
+	/* Thompson cross-section (cm^2) */
+#define SIGMAT 6.6524e-25
+	/* Speed of Light cm/s */
+#define LIGHTSPEED 2.9979e10
+
+#define SECONDSPERYEAR   31557600.
+	/*
+	 ** Convert kboltz/mhydrogen to system units, assuming that
+	 ** G == 1.
+	 */
+	if(prmSpecified(prm, "dMsolUnit") &&
+	   prmSpecified(prm, "dKpcUnit")) {
+		param.dGasConst = param.dKpcUnit*KPCCM*KBOLTZ
+			/MHYDR/GCGS/param.dMsolUnit/MSOLG;
+		/* code energy per unit mass --> erg per g */
+		param.dErgPerGmUnit = GCGS*param.dMsolUnit*MSOLG
+		    /(param.dKpcUnit*KPCCM);
+		/* code density --> g per cc */
+		param.dGmPerCcUnit = (param.dMsolUnit*MSOLG)
+		    /pow(param.dKpcUnit*KPCCM,3.0);
+		/* code time --> seconds */
+		param.dSecUnit = sqrt(1/(param.dGmPerCcUnit*GCGS));
+		/* code comoving density --> g per cc = param.dGmPerCcUnit (1+z)^3 */
+		param.dComovingGmPerCcUnit = param.dGmPerCcUnit;
+		}
+
         if (domainDecomposition == SFC_peano_dec) peanoKey = 1;
 
 	// hardcoding some parameters, later may be full options
@@ -536,6 +588,14 @@ void Main::getStartTime()
 	    }
     }
 
+// determine if we need a smaller step for dumping frames
+inline int Main::nextMaxRungIncDF(int nextMaxRung) 
+{
+    if (bDumpFrame && nextMaxRung < df->iMaxRung)
+	nextMaxRung = df->iMaxRung;
+    return nextMaxRung;
+}
+
 void Main::advanceBigStep(int iStep) {
   double tolerance = 0.01;	// tolerance for domain decomposition
   int currentStep = 0; // the current timestep within the big step
@@ -564,20 +624,40 @@ void Main::advanceBigStep(int iStep) {
       }
       pieces.kick(activeRung, dKickFac, CkCallbackResumeThread());
 
+      // Dump frame may require a smaller step
+      int driftRung = nextMaxRungIncDF(nextMaxRung);
+      int driftSteps = 1;
+      while(driftRung > nextMaxRung) {
+	  driftRung--;
+	  driftSteps >>= 1;
+	  }
+      driftRung = nextMaxRungIncDF(nextMaxRung);
+      
+      double dTimeSub = RungToDt(param.dDelta, driftRung);
       // Drift of smallest step
-      double dTimeSub = RungToDt(param.dDelta, nextMaxRung);
-      if(verbosity)
-	  ckerr << "Drift: Rung " << nextMaxRung << " Delta " << dTimeSub
-		<< endl;
-      double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
-      pieces.drift(dDriftFac, CkCallbackResumeThread());
+      for(int iSub = 0; iSub < driftSteps; iSub++) 
+	  {
+	      if(verbosity)
+		  ckerr << "Drift: Rung " << driftRung << " Delta "
+			<< dTimeSub << endl;
+	      double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
+	      pieces.drift(dDriftFac, CkCallbackResumeThread());
 
-      // Advance time to end of smallest step
-      dTime += dTimeSub;
+	      // Advance time to end of smallest step
+	      dTime += dTimeSub;
+	      currentStep += RungToSubsteps(driftRung);
+	      /* 
+	       ** Dump Frame
+	       */
+	      double dStep = iStep + ((double) currentStep)/MAXSUBSTEPS;
+	      if (param.dDumpFrameTime > 0 && dTime >= df->dTime)
+		  DumpFrame(dTime, dStep );
+	      else if(param.dDumpFrameStep > 0 && dStep >= df->dStep) 
+		  DumpFrame(dTime, dStep );
+	      }
     }
 
     int lastActiveRung = activeRung;
-    currentStep += RungToSubsteps(nextMaxRung);
 
     // determine largest timestep that needs a kick
     activeRung = 0;
@@ -766,6 +846,11 @@ void Main::nextStage() {
   ((CacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
   
+  /* 
+   ** Dump Frame Initialization
+   */
+  DumpFrameInit(dTime, 1.0*param.iStartStep, 0);
+
   for(int iStep = param.iStartStep+1; iStep <= param.nSteps; iStep++){
 
     if (verbosity) ckerr << "Starting big step " << iStep << endl;
@@ -942,6 +1027,119 @@ void Main::rungStats()
     delete msg;
     }
 
+/*
+ * Taken from PKDGRAV msrDumpFrameInit()
+ */
+int
+Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
+	char achFile[256];
+	
+	if (param.dDumpFrameStep > 0 || param.dDumpFrameTime > 0) {
+		bDumpFrame = 1;
+
+		achFile[0] = '\0';
+		sprintf(achFile,"%s.director", param.achOutName);
+		
+		dfInitialize( &df, param.dSecUnit/SECONDSPERYEAR, 
+			      dTime, param.dDumpFrameTime, dStep, 
+			      param.dDumpFrameStep, param.dDelta, 
+			      param.iMaxRung, verbosity, achFile );
+
+		/* Read in photogenic particle list */
+		if (df->bGetPhotogenic) {
+		  achFile[0] = 0;
+		  sprintf(achFile,"%s.photogenic", param.achOutName);
+
+		  CkCallback ccb(CkCallback::resumeThread);
+		  pieces.setTypeFromFile(TYPE_PHOTOGENIC, achFile, ccb);
+		  CkReductionMsg *msg = (CkReductionMsg *) ccb.thread_delay();
+		  int *nSet = (int *)msg->getData();
+		  if (verbosity)
+		      ckout << nSet[0] << " iOrder numbers read. " << nSet[1]
+			    <<" direct iOrder photogenic particles selected."
+			    << endl;
+		  delete msg;
+		}
+
+		if(!bRestart)
+			DumpFrame(dTime, dStep );
+                return 1;
+		} else { return 0; }
+	}
+
+void Main::DumpFrame(double dTime, double dStep)
+{
+	double dExp;
+
+	if (df->iDimension == DF_3D) {
+#ifdef VOXEL
+	    assert(0);		// Unimplemented
+		/* 3D Voxel Projection */
+		struct inDumpVoxel in;
+		assert(0);
+
+		dfSetupVoxel( msr->df, dTime, dStep, &in );
+
+		pstDumpVoxel(msr->pst, &in, sizeof(struct inDumpVoxel), NULL, NULL );
+		dsec1 = msrTime() - sec;
+		
+		dfFinishVoxel( msr->df, dTime, dStep, &in );
+		
+		dsec2 = msrTime() - sec;
+		
+		printf("DF Dumped Voxel %i at %g (Wallclock: Render %f tot %f secs).\n",
+			   df->nFrame-1,dTime,dsec1,dsec2);
+#endif
+		}
+	else {
+		/* 2D Projection */
+	    struct inDumpFrame in;
+		double *com;
+		CkReductionMsg *msgCOM;
+		CkReductionMsg *msgCOMbyType;
+		
+		if (df->bGetCentreOfMass) {
+		    CkCallback ccb(CkCallback::resumeThread);
+		    pieces.getCOM(ccb);
+		    msgCOM = (CkReductionMsg *) ccb.thread_delay();
+		    com = (double *)msgCOM->getData();
+		    }
+
+		if (df->bGetPhotogenic) {
+		    CkCallback ccb(CkCallback::resumeThread);
+		    int iType = TYPE_PHOTOGENIC;
+		    pieces.getCOMByType(iType, ccb);
+		    msgCOMbyType = (CkReductionMsg *) ccb.thread_delay();
+		    com = (double *)msgCOMbyType->getData();
+		  }
+
+#if (0)
+		if (df->bGetOldestStar) {
+		  pstOldestStar(msr->pst, NULL, 0, &com[0], NULL);
+		  }
+#endif
+
+		dExp = csmTime2Exp(param.csm,dTime);
+		dfSetupFrame(df, dTime, dStep, dExp, com, &in );
+
+		CkCallback ccbDF(CkCallback::resumeThread);
+		
+		pieces.DumpFrame(in, ccbDF);
+		CkReductionMsg *msgDF = (CkReductionMsg *) ccbDF.thread_delay();
+		void *Image = msgDF->getData();
+
+		dfFinishFrame(df, dTime, dStep, &in, Image );
+		
+		delete msgDF;
+
+		if (df->bGetCentreOfMass) {
+		    delete msgCOM;
+		    }
+		if (df->bGetPhotogenic) {
+		    delete msgCOMbyType;
+		    }
+		}
+	}
 
 void registerStatistics() {
 #if COSMO_STATS > 0

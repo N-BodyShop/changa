@@ -29,6 +29,16 @@ typedef struct parameters {
     int iOrder;
     CSM csm;			/* cosmo parameters */
     double dRedTo;
+    /*
+     * Units: set by dMsolUnit and dKpcUnit
+     */
+    double dMsolUnit;
+    double dKpcUnit;
+    double dGasConst;
+    double dErgPerGmUnit;
+    double dGmPerCcUnit;
+    double dSecUnit;
+    double dComovingGmPerCcUnit;
     int bStandard;
     int bOverwrite;
     char achInFile[256];
@@ -37,7 +47,9 @@ typedef struct parameters {
     int iOutInterval;
     int iCheckInterval;
     int iLogInterval;
-    double dExtraStore;
+    double dExtraStore;		/* Unused, here for PKDGRAV compatibility */
+    double dDumpFrameStep;
+    double dDumpFrameTime;
     } Parameters;
 
 #endif

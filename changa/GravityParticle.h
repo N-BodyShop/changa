@@ -45,6 +45,7 @@ public:
 	double dtGrav;
 	int iOrder;		/* input order of particles */
         int rung;  ///< the current rung (greater means faster)
+	unsigned int iType;	// Bitmask to hold particle type information
 	//unsigned int numCellInteractions;
 	//unsigned int numParticleInteractions;
 	//unsigned int numMACChecks;
@@ -74,5 +75,19 @@ public:
           p | rung;
         }
 };
+
+/* Particle Type Masks */
+
+#define TYPE_GAS               (1<<0)
+#define TYPE_DARK              (1<<1)
+#define TYPE_STAR              (1<<2)
+#define TYPE_PHOTOGENIC        (1<<3)
+
+inline int TYPETest(GravityParticle *a, unsigned int b) {
+    return a->iType & b;
+    }
+inline int TYPESet(GravityParticle *a, unsigned int b) {
+    return a->iType |= b;
+    }
 
 #endif

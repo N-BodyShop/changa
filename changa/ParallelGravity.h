@@ -22,6 +22,9 @@
 #include "Interval.h"
 #include "parameters.h"
 #include "param.h"
+#include "dumpframe.h"
+
+PUPbytes(InDumpFrame);
 
 #ifdef HPM_COUNTER
 #include <libhpm.h>
@@ -291,6 +294,11 @@ class Main : public Chare {
 	unsigned int printBinaryAcc;
 	PRM prm;		/* parameter parsing info */
 	Parameters param; /* actual parameters */
+	/*
+	 ** Tracking for frame dumping function
+	 */
+	int bDumpFrame;
+	struct DumpFrameContext *df;
 public:
 		
 	Main(CkArgMsg* m);
@@ -312,6 +320,9 @@ public:
 	void setTotalParticles(int n) {
 	    nTotalParticles = n;
         }
+	int DumpFrameInit(double dTime, double dStep, int bRestart);
+	void DumpFrame(double dTime, double dStep);
+	int nextMaxRungIncDF(int nextMaxRung);
 };
 
 class TreePiece : public CBase_TreePiece {
@@ -826,6 +837,12 @@ public:
   void rungStats(const CkCallback& cb);
 	void calcEnergy(const CkCallback& cb);
 	void setSoft(const double dSoft);
+	void SetTypeFromFileSweep(int iSetMask, char *file, 
+	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
+	void setTypeFromFile(int iSetMask, char *file, const CkCallback& cb);
+	void getCOM(const CkCallback& cb);
+	void getCOMByType(int iType, const CkCallback& cb);
+	void DumpFrame(InDumpFrame in, const CkCallback& cb) ;
 	/// Charm entry point to build the tree (called by Main), calls collectSplitters
 	void buildTree(int bucketSize, const CkCallback& cb);
 

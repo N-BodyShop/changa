@@ -651,6 +651,174 @@ void TreePiece::setSoft(const double dSoft) {
   }
 }
 
+/*
+ * Gathers information for center of mass calculation
+ * For each particle type the 0th and first mass moment is summed.
+ */
+void TreePiece::getCOM(const CkCallback& cb) {
+    int i;
+    double com[12]; // structure is m*position and mass for all
+		    // particle types;
+    for(i = 0; i < 12; i++)
+	com[i] = 0;
+    for(i = 1; i <= myNumParticles; ++i) {
+	double m = myParticles[i].mass;
+	if ( TYPETest(&(myParticles[i]), TYPE_GAS) ) {
+	    com[0] += m*myParticles[i].position[0];
+	    com[1] += m*myParticles[i].position[1];
+	    com[2] += m*myParticles[i].position[2];
+	    com[3] += m;
+	    }
+	else if ( TYPETest(&(myParticles[i]), TYPE_DARK) ) {
+	    com[4] += m*myParticles[i].position[0];
+	    com[5] += m*myParticles[i].position[1];
+	    com[6] += m*myParticles[i].position[2];
+	    com[7] += m;
+	    }
+	else if ( TYPETest(&(myParticles[i]), TYPE_STAR) ) {
+	    com[8] += m*myParticles[i].position[0];
+	    com[9] += m*myParticles[i].position[1];
+	    com[10] += m*myParticles[i].position[2];
+	    com[11] += m;
+	    }
+	}
+    contribute(12*sizeof(double), com, CkReduction::sum_double, cb);
+}
+
+/*
+ * Gathers information for center of mass calculation for one type of
+ * particle.
+ */
+void TreePiece::getCOMByType(int iType, const CkCallback& cb) {
+    int i;
+    double com[4]; // structure is m*position and mass
+
+    for(i = 0; i < 4; i++)
+	com[i] = 0;
+    for(i = 1; i <= myNumParticles; ++i) {
+	if ( TYPETest(&(myParticles[i]), iType) ) {
+	    double m = myParticles[i].mass;
+	    com[0] += m*myParticles[i].position[0];
+	    com[1] += m*myParticles[i].position[1];
+	    com[2] += m*myParticles[i].position[2];
+	    com[3] += m;
+	    }
+	}
+    contribute(4*sizeof(double), com, CkReduction::sum_double, cb);
+}
+
+struct SortStruct {
+  int iOrder;
+  int iStore;
+};
+
+int CompSortStruct(const void * a, const void * b) {
+  return ( ( ((struct SortStruct *) a)->iOrder < ((struct SortStruct *) b)->iOrder ? -1 : 1 ) );
+}
+
+void TreePiece::SetTypeFromFileSweep(int iSetMask, char *file, 
+	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet) {
+  int niOrder = 0, nSet = 0;
+  int iOrder, iOrderOld, nRet;
+  FILE *fp;
+  int iss;
+
+  fp = fopen( file, "r" );
+  assert( fp != NULL );
+
+  iss = 0;
+  iOrderOld = -1;
+  while ( (nRet=fscanf( fp, "%d\n", &iOrder )) == 1 ) {
+	niOrder++;
+	assert( iOrder > iOrderOld );
+	iOrderOld = iOrder;
+	while (ss[iss].iOrder < iOrder) {
+	  iss++;
+	  if (iss >= nss) goto DoneSS;
+	}
+	if (iOrder == ss[iss].iOrder) {
+	  TYPESet(&(myParticles[1 + ss[iss].iStore]),iSetMask);
+	  nSet++;
+	}
+  }
+ 
+DoneSS:
+  /* Finish reading file to verify consistency across processors */
+  while ( (nRet=fscanf( fp, "%d\n", &iOrder )) == 1 ) {
+	niOrder++;
+	assert( iOrder > iOrderOld );
+	iOrderOld = iOrder;
+	}
+  fclose(fp);
+
+  *pniOrder += niOrder;
+  *pnSet += nSet;
+
+  return;
+}
+
+/*
+ * Set particle type by reading in iOrders from file
+ */
+void
+TreePiece::setTypeFromFile(int iSetMask, char *file, const CkCallback& cb)
+{
+  struct SortStruct *ss;
+  int i,nss;
+
+  int niOrder = 0;
+  int nSet = 0;
+
+  nss = myNumParticles;
+  ss = (struct SortStruct *) malloc(sizeof(*ss)*nss);
+  assert( ss != NULL );
+
+  for(i=0;i<nss;++i) {
+	ss[i].iOrder = 	myParticles[i+1].iOrder;
+	ss[i].iStore = i;
+  }
+
+  qsort( ss, nss, sizeof(*ss), CompSortStruct );
+
+  SetTypeFromFileSweep(iSetMask, file, ss, nss, &niOrder, &nSet);
+
+  free( ss );
+
+  int nSetOut[2];
+  nSetOut[0] = niOrder;
+  nSetOut[1] = nSet;
+  
+  contribute(2*sizeof(int), nSetOut, CkReduction::sum_int, cb);
+}
+
+/*
+ * Render this processors portion of the image
+ */
+void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb) 
+{
+    void *bufImage = malloc( sizeof(in) + DF_NBYTEDUMPFRAME );
+    void *Image = ((char *)bufImage) + sizeof(in);
+    int nImage;
+    *((struct inDumpFrame *)bufImage) = in; //start of reduction
+					    //message is the parameters
+    
+    dfClearImage( &in, Image, &nImage);
+    GravityParticle *p = &(myParticles[1]);
+    
+    dfRenderParticlesInit( &in, TYPE_GAS, TYPE_DARK, TYPE_STAR,
+			   &p->position[0], &p->mass, &p->soft, &p->soft,
+			   &p->iType, 
+#ifdef GASOLINE 
+			   &p->fTimeForm,
+#else
+		/* N.B. This is just a place holder when we don't have stars */
+			   &p->mass,
+#endif
+			   p, sizeof(*p) );
+    dfRenderParticles( &in, Image, p, myNumParticles);
+    contribute(nImage, bufImage, dfImageReduction, cb);
+    }
+
 void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
 #if COSMO_DEBUG > 1
   char fout[100];

@@ -317,6 +317,7 @@ void TreePiece::loadTipsy(const std::string& filename, const CkCallback& cb) {
 			myParticles[i+1].position = gp.pos;
 			myParticles[i+1].velocity = gp.vel;
 			myParticles[i+1].soft = gp.hsmooth;
+			myParticles[i+1].iType = TYPE_GAS;
 		} else if(i + startParticle < (unsigned int) tipsyHeader.nsph
 			  + tipsyHeader.ndark) {
 			r.getNextDarkParticle(dp);
@@ -324,12 +325,14 @@ void TreePiece::loadTipsy(const std::string& filename, const CkCallback& cb) {
 			myParticles[i+1].position = dp.pos;
 			myParticles[i+1].velocity = dp.vel;
 			myParticles[i+1].soft = dp.eps;
+			myParticles[i+1].iType = TYPE_DARK;
 		} else {
 			r.getNextStarParticle(sp);
 			myParticles[i+1].mass = sp.mass;
 			myParticles[i+1].position = sp.pos;
 			myParticles[i+1].velocity = sp.vel;
 			myParticles[i+1].soft = sp.eps;
+			myParticles[i+1].iType = TYPE_STAR;
 		}
 		myParticles[i+1].iOrder = i + startParticle;
 #if COSMO_STATS > 1

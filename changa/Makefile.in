@@ -21,11 +21,10 @@ CFLAGS = -g -O3
 
 OBJECTS = DataManager.o Reductions.o TreePiece.o CacheManager.o Sorter.o \
 	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
-	  InOutput.o cosmo.o romberg.o runge.o
+	  InOutput.o cosmo.o romberg.o runge.o dumpframe.o dffuncs.o
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp CacheManager.C \
 	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
-	InOutput.C cosmo.c romberg.c runge.c
-
+	InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c
 TARGET = ChaNGa
 VERSION = 1.0
 all: $(TARGET)

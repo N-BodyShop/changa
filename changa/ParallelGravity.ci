@@ -130,6 +130,11 @@ mainmodule ParallelGravity {
 		entry void drift(double dDelta, const CkCallback& cb);
 		entry void calcEnergy(const CkCallback& cb);
 		entry void setSoft(const double dSoft);
+		entry void setTypeFromFile(int iSetMask, char file[256],
+		                           const CkCallback& cb);
+		entry void getCOM(const CkCallback& cb);
+		entry void getCOMByType(int iType, const CkCallback& cb);
+		entry void DumpFrame(InDumpFrame in, const CkCallback& cb) ;
 		entry void buildTree(int bucketSize, const CkCallback& cb);
 		
 		entry void collectSplitters(CkReductionMsg* m);
