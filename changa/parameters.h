@@ -41,6 +41,8 @@ typedef struct parameters {
     double dComovingGmPerCcUnit;
     int bStandard;
     int bOverwrite;
+    int bParaRead;
+    int bParaWrite;
     char achInFile[256];
     char achOutName[256];
     int bStaticTest;
