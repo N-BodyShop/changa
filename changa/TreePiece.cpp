@@ -796,7 +796,7 @@ TreePiece::setTypeFromFile(int iSetMask, char *file, const CkCallback& cb)
  */
 void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb) 
 {
-    void *bufImage = malloc( sizeof(in) + DF_NBYTEDUMPFRAME );
+    void *bufImage = malloc(sizeof(in) + in.nxPix*in.nyPix*sizeof(DFIMAGE));
     void *Image = ((char *)bufImage) + sizeof(in);
     int nImage;
     *((struct inDumpFrame *)bufImage) = in; //start of reduction
@@ -816,7 +816,8 @@ void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb)
 #endif
 			   p, sizeof(*p) );
     dfRenderParticles( &in, Image, p, myNumParticles);
-    contribute(nImage, bufImage, dfImageReduction, cb);
+    contribute(sizeof(in) + nImage, bufImage, dfImageReduction, cb);
+    free(bufImage);
     }
 
 void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {

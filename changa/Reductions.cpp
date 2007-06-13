@@ -59,17 +59,18 @@ CkReductionMsg* same(int nMsg, CkReductionMsg** msgs) {
 // Messages consist of a struct inDumpFrame header followed by the
 // image data.
 CkReductionMsg* dfImageReducer(int nMsg, CkReductionMsg** msgs) {
-    CkAssert(msgs[0]->getSize() == (sizeof(struct inDumpFrame)
-				    + DF_NBYTEDUMPFRAME));
     struct inDumpFrame *in = (struct inDumpFrame *)msgs[0]->getData();
+    int nImage1 = in->nxPix*in->nyPix*sizeof(DFIMAGE);
+    
+    CkAssert(msgs[0]->getSize() == (sizeof(struct inDumpFrame) + nImage1));
     void *ImageOut = ((char *)msgs[0]->getData()) + sizeof(struct inDumpFrame);
     
     for(int i = 1; i < nMsg; i++) {
 	void *Image2 = ((char *)msgs[i]->getData())
 	    + sizeof(struct inDumpFrame);
 	
-	int nImage1 = DF_NBYTEDUMPFRAME;
-	int nImage2 = DF_NBYTEDUMPFRAME;
+	int nImage2 =  in->nxPix*in->nyPix*sizeof(DFIMAGE);
+	CkAssert(msgs[i]->getSize() == (sizeof(struct inDumpFrame) + nImage2));
 	dfMergeImage( in, ImageOut, &nImage1, Image2, &nImage2);
 	}
     

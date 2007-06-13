@@ -203,12 +203,18 @@ Main::Main(CkArgMsg* m) {
 	printBinaryAcc=1;
 	prmAddParam(prm, "bPrintBinary", paramBool, &printBinaryAcc,
 		    sizeof(int),"z", "Print accelerations in Binary");
-	param.bStandard = 0;
+	param.bStandard = 1;
 	prmAddParam(prm, "bStandard", paramBool, &param.bStandard,sizeof(int),
 		    "std", "output in standard TIPSY binary format (IGNORED)");
 	param.bOverwrite = 1;
 	prmAddParam(prm, "bOverwrite", paramBool, &param.bOverwrite,sizeof(int),
 		    "overwrite", "overwrite outputs (IGNORED)");
+	param.bParaRead = 1;
+	prmAddParam(prm, "bParaRead", paramBool, &param.bParaRead,sizeof(int),
+		    "par", "enable/disable parallel reading of files (IGNORED)");
+	param.bParaWrite = 0;
+	prmAddParam(prm, "bParaWrite", paramBool, &param.bParaWrite,sizeof(int),
+		    "paw", "enable/disable parallel writing of files (IGNORED)");
 	param.achInFile[0] = '\0';
 	prmAddParam(prm,"achInFile",paramString,param.achInFile,
 		    256, "I", "input file name (or base file name)");
@@ -382,7 +388,7 @@ Main::Main(CkArgMsg* m) {
 	if(domainDecomposition==ORB_dec){ useTree = Binary_ORB; }
 	else { useTree = Binary_Oct; }
 
-        ckerr << "Running of " << CkNumPes() << " processors with " << numTreePieces << " TreePieces" << endl;
+        ckerr << "Running on " << CkNumPes() << " processors with " << numTreePieces << " TreePieces" << endl;
 
 	if (verbosity) 
 	  ckerr << "yieldPeriod set to " << _yieldPeriod << endl;
@@ -1059,13 +1065,14 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 			    <<" direct iOrder photogenic particles selected."
 			    << endl;
 		  delete msg;
-		}
+		  }
 
 		if(!bRestart)
-			DumpFrame(dTime, dStep );
+		    DumpFrame(dTime, dStep );
                 return 1;
-		} else { return 0; }
-	}
+		}
+	else { return 0; }
+    }
 
 void Main::DumpFrame(double dTime, double dStep)
 {
@@ -1126,7 +1133,10 @@ void Main::DumpFrame(double dTime, double dStep)
 		
 		pieces.DumpFrame(in, ccbDF);
 		CkReductionMsg *msgDF = (CkReductionMsg *) ccbDF.thread_delay();
-		void *Image = msgDF->getData();
+		// N.B. Beginning of message contains the DumpFrame
+		// parameters needed for proper merging.
+		void *Image = ((char *)msgDF->getData())
+		    + sizeof(struct inDumpFrame);
 
 		dfFinishFrame(df, dTime, dStep, &in, Image );
 		
