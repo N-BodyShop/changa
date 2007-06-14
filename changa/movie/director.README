@@ -1,0 +1,189 @@
+This directory contains example "director" and param files for making movies
+with ChaNGa.  Below is an explanation of the parameters.
+
+dDumpFrameTime       timestep of dumps
+Command line  +dft dt
+dDumpFrameStep       step number of dumps
+Command line  +dfi dstep
+
+If trying to do a single output time fly around use a very small dDumpFrameTime, e.g.:
+bDoGravity = 0   (optional)
+dDumpFrameTime = 1e-6
+Where 1e-6 is much smaller than any time scale in the simulation
+
+Frame camera parameters are interpolated using 4 points (2 either side
+of the exact frame time) if available.  Otherwise as many points as are available
+are used down to simple linear interpolation.  Not all parameters
+are amenable to interpolation.
+
+e.g. Image size is not interpolated
+
+If a parameter is not interpolated it just changes to the new value
+when the frame time equals or passes the time point.
+
+Time points for camera parameters are specified in the director file.
+Each time the keyword "time" is specific a new point is created
+and each parameter changed after than point refers to that time.
+
+You must specify a first time point before the start of the simulation
+to interpolate smoothly.
+
+.director file:
+
+GLOBAL SETTINGS
+
+dim [2|3]  
+  dimensions 
+  3 is not fully implemented yet
+  default: 2
+
+file basefilename
+  base file name for outputs    e.g basename = fabio, 
+  outputs will be something like fabio.0001.ppm, fabio.0002.ppm, ...
+  default: Frame
+  
+gas off
+gas minmass maxmass
+  Gas particle cuts
+  default: all gas
+
+dark off
+dark minmass maxmass
+  Dark particle cuts
+  default: all dark
+
+star off
+star minmass maxmass
+  Star particle cuts
+  default: all stars
+
+encode [ppm|png|rle|treezip]
+  ppm -- ppm files (DEFAULT)
+  png -- png files (-DUSE_PNG and -lpng -lz to use png library, see pkdgrav Makefile and uncomment PNG_ lines)
+
+numbering [frame|step|time] [format]
+  frame -- count frames ("%09i") (DEFAULT)
+  step  -- step numbers ("%012.6f")
+  time  -- simulation time ("%012.6f")
+  format -  c style format string
+
+FRAME_BY_FRAME SETTINGS
+
+time X
+  time for the frame parameters to apply at
+  This is simulation time
+
+target x y z
+  target point for view
+  default: 0 0 0
+
+eye rel|abs
+  rel means the eye is positioned relative to the target point (default)
+  abs means the eye is positioned in absolute coordinates
+
+eye1 x y z 
+OR
+eye x y z 
+  eye point (camera position)
+  Technically is is eye1 (but eye2 defaults to zero) so by default this sets the fully
+  camera position.
+  Saying "eye" or "eye1" is equivalent.
+  The magnitude of this vector can be renormalized to zeye1 (if non-zero)
+  The TOTAL magnitude of the eye vector (eye+eye2) is renormalized to zeye (if non-zero)
+  default: 0 0 -.5
+
+eye2 x y z
+  secondary eye vector -- added to the first eye position (eye1)
+  Can be useful for complicated camera trajectories
+  The magnitude of this vector can be renormalized to zeye2 (if non-zero)
+  The TOTAL magnitude of the eye vector (eye1+eye2) is renormalized to zeye (if non-zero)
+  default: 0 0 0
+
+up x y z
+  up direction for screen
+  default: 0 1 0
+
+size nx ny
+  size of image
+  default: 800 600
+
+zeye x
+  how far away the camera is from target
+  the eye position is just used to determine a vector direction in this case
+  applied to total camera vector (eye1+eye2)
+  default: 0 (OFF)
+
+zeye1 x
+  constraint on distance to camera
+  applied to first part of total camera vector (eye1)
+  default: 0 (OFF)
+
+zeye2 x
+  constraint on distance to camera
+  applied to second part of total camera vector (eye2)
+  default: 0 (OFF)
+
+FOV x
+  width of the viewing area in degrees (e.g. 60-90)
+  Larger fields of view tend to enhance the perspective effects
+  Fields of view larger than 120 may result in very distorted images
+  default: 90
+
+loop t0 dt
+  starts looping in time at t0 with a period dt
+  So at t0+dt it starts repeat the directions for t0
+ 
+clip znear zfar
+  Z clipping planes
+  How close or far things get to camera before they disappear
+  default: 0.01 2.0
+
+project [ortho|perspective]
+  projection method
+  default: perspective
+
+colgas r g b [scale]
+  Colour of gas particles
+  Scale is typically comparable to a particle mass 
+  default: 1.0 0.7 0.5
+
+coldark r g b [scale]
+  Colour of dark particles
+  Scale is typically comparable to a particle mass 
+  default: 0.5 1.0 0.7
+
+colstar r g b [scale]
+  Colour of dark particles
+  Scale is typically comparable to a particle mass 
+  default: 0.5 0.7 1.0
+
+colmass [scale]
+  Set scale for all particle types
+
+logscale logmin logmax
+  set scaling for colours from the projected column densities
+  converts input colors to final colours
+  default: OFF
+  
+softgassph
+  use sph softening lengths for gas projection
+  default: TRUE
+
+softgas softmul 
+  set gas softening multiplier
+  default: 1 (OFF)
+
+softdark softmul
+ set dark softening multiplier
+  default: 1 (ON)
+
+softstar softmul
+  set star softening multiplier
+  default: 1 (ON)
+
+render [point|tsc|solid|shine]
+  point -- render points (black and white) (DEFAULT)
+  tsc   -- softened points using softening radius and Triangular Shape Clound function
+  solid --
+  shine --
+

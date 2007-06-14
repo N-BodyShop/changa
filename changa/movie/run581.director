@@ -1,0 +1,25 @@
+size 650 650
+clip 0.0001 500
+render tsc
+target photogenic
+physical
+file run581
+project ortho
+softdark 0.2
+softgas 0.25
+softstar 0.1
+softgassph
+logscale 100000000000 10000000000000000
+#0000000 10000000000000000000
+#logscale 10000000000000000 1000000000000000000000000000
+#logscale 1.5 10000000000
+#logscalecoloursafe 0.5 1000
+colgas 0.65 0.9  0.75 9.e-11
+colstar 1. 0.3 0. 1e-16
+coldark 0.2 0.2 0.2 1e-17
+#coldark 1. 1. 1. 1e-18
+#dark off
+gas off
+FOV 25
+up 1 0 0 
+eye 0. 0. 0.12

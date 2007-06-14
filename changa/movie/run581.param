@@ -1,0 +1,26 @@
+bParaRead       = 0
+bParaWrite      = 0
+bPeriodic       = 0
+nSteps          = 40000
+dTheta          = 0.7
+iStartStep      = 20000
+achInFile       = run581.20000
+achOutName      = run581
+iLogInterval    = 1
+iOutInterval    = 50
+iCheckInterval  = 5
+bGravStep       = 1
+bEpsAccStep     = 0
+dEta            = .02
+#dEta            = 0.1
+iMaxRung        = 29
+dDelta          = 0.000005
+bStandard       = 1
+bDoDensity      = 0
+dExtraStore     = 0.5
+#director requirement
+dDumpFrameStep  = 5
+#iOutInterval = how often to write the output in units of the timestep
+#iMaxRung = magnitude of the timstepping division
+#dEta=tolerance parameter for timestep
+#dDelta = maximum timestep in the units chosen (G=1 always)
