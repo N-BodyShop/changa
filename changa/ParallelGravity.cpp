@@ -855,7 +855,15 @@ void Main::nextStage() {
   /* 
    ** Dump Frame Initialization
    */
-  DumpFrameInit(dTime, 1.0*param.iStartStep, 0);
+  if(DumpFrameInit(dTime, 1.0*param.iStartStep, param.iStartStep > 0)
+     && df->dDumpFrameStep > 0) {
+      /* Bring frame count up to correct place for restart. */
+      while(df->dStep + df->dDumpFrameStep < param.iStartStep) {
+	  df->dStep += df->dDumpFrameStep;
+	  df->nFrame++;
+	  }
+      }
+     
 
   for(int iStep = param.iStartStep+1; iStep <= param.nSteps; iStep++){
 
