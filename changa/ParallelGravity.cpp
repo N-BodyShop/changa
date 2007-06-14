@@ -855,7 +855,10 @@ void Main::nextStage() {
   /* 
    ** Dump Frame Initialization
    */
-  if(DumpFrameInit(dTime, 1.0*param.iStartStep, param.iStartStep > 0)
+  // Currently for restarts, we have to set iStartStep.  Once we have more
+  // complete restarts, this may be changed.
+  // if(DumpFrameInit(dTime, 1.0*param.iStartStep, param.iStartStep > 0)
+  if(DumpFrameInit(dTime, 0.0, param.iStartStep > 0)
      && df->dDumpFrameStep > 0) {
       /* Bring frame count up to correct place for restart. */
       while(df->dStep + df->dDumpFrameStep < param.iStartStep) {
