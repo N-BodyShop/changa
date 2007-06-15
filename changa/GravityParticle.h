@@ -73,6 +73,7 @@ public:
           p | velocity;
           p | iOrder;
           p | rung;
+	  p | iType;
         }
 };
 
