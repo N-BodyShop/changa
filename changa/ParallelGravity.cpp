@@ -137,8 +137,8 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "bDoGravity", paramBool, &param.bDoGravity,
 		    sizeof(int),"g", "Enable Gravity (IGNORED)");
 	param.dSoft = 0.0;
-	prmAddParam(prm, "dSoftening", paramDouble, &param.dSoft,
-		    sizeof(double),"S", "Gravitational softening");
+	prmAddParam(prm, "dSoft", paramDouble, &param.dSoft,
+		    sizeof(double),"e", "Gravitational softening");
 	theta = 0.7;
 	prmAddParam(prm, "dTheta", paramDouble, &theta,
 		    sizeof(double), "theta", "Opening angle");
