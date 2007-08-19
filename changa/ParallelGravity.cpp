@@ -801,7 +801,7 @@ void Main::nextStage() {
 	
   prmLogParam(prm, achLogFileName);
 	
-  if(prmSpecified(prm,"dSoftening")) {
+  if(prmSpecified(prm,"dSoft")) {
     ckerr << "Set Softening...\n";
     pieces.setSoft(param.dSoft);
   }
