@@ -296,10 +296,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
       break;
     case ORB_dec:
 	numKeys = 0;
-      //CkAbort("ORB domain decomposition not yet implemented");
-      //treeProxy[0].getBoundingBox(curBox);
       treeProxy.initORBPieces(CkCallback(CkIndex_Sorter::doORBDecomposition(0), thishandle));
-      //doORBDecomposition(curBox);
     break;
       default:
     CkAbort("Invalid domain decomposition requested");
