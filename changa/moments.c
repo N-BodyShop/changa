@@ -2,6 +2,32 @@
 #include <math.h>
 #include "moments.h"
 
+void momClearMomr(MOMR *mr)
+{
+	mr->m = 0.0;
+	mr->xx = 0.0;
+	mr->yy = 0.0;
+	mr->xy = 0.0;
+	mr->xz = 0.0;
+	mr->yz = 0.0;
+	mr->xxx = 0.0;
+	mr->xyy = 0.0;
+	mr->xxy = 0.0;
+	mr->yyy = 0.0;
+	mr->xxz = 0.0;
+	mr->yyz = 0.0;
+	mr->xyz = 0.0;
+	mr->xxxx = 0.0;
+	mr->xyyy = 0.0;
+	mr->xxxy = 0.0;
+	mr->yyyy = 0.0;
+	mr->xxxz = 0.0;
+	mr->yyyz = 0.0;
+	mr->xxyy = 0.0;
+	mr->xxyz = 0.0;
+	mr->xyyz = 0.0;
+    }
+
 
 /*
  ** This function adds the complete moment ma to the complete moment mc
@@ -184,7 +210,7 @@ void momSubMomc(MOMC *mc,MOMC *ma)
 
 
 /*
- ** This function subtracts the reduced moment ma from the reduced moment mc
+ ** This function subtracts the reduced moment ma from the reduced moment mr
  */
 void momSubMomr(MOMR *mr,MOMR *ma)
 {

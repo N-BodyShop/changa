@@ -7,6 +7,7 @@ ParallelGravity.h
 
 Ewald.o: \
 ../structures/SFC.h \
+moments.h \
 ParallelGravity.h
 
 Reductions.o: \
@@ -82,6 +83,7 @@ GravityParticle.h \
 ../structures/Interval.h \
 parameters.h \
 cosmo.h \
+moments.h \
 param.h \
 GravityParticle.h \
 CacheManager.h \
@@ -126,6 +128,7 @@ DataManager.h \
 Reductions.h \
 ../structures/Space.h \
 ../structures/Box.h \
+moments.h
 
 CacheManager.o: \
 CacheManager.C \
@@ -173,6 +176,7 @@ GenericTreeNode.h \
 ../structures/Vector3D.h \
 ../structures/TypeSelection.h \
 MultipoleMoments.h \
+moments.h \
 ../structures/Vector3D.h \
 GravityParticle.h \
 ../structures/SFC.h \
@@ -200,6 +204,7 @@ TreeNode.h \
 GenericTreeNode.h \
 ../structures/OrientedBox.h \
 MultipoleMoments.h \
+moments.h \
 ../structures/Vector3D.h \
 GravityParticle.h \
 ../structures/SFC.h \

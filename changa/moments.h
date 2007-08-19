@@ -1,6 +1,10 @@
 #ifndef MOMENTS_INCLUDED
 #define MOMENTS_INCLUDED
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 #ifdef QUAD
 typedef long double momFloat;
 #define sqrt(x)	sqrtl(x)
@@ -32,6 +36,7 @@ typedef struct momComplete {
 	} MOMC;
 
 
+void momClearMomr(MOMR *mr);
 void momAddMomc(MOMC *,MOMC *);
 void momAddMomr(MOMR *,MOMR *);
 void momMulAddMomc(MOMC *,momFloat,MOMC *);
@@ -50,4 +55,7 @@ void momMomr2Momc(MOMR *,MOMC *);
 void momPrintMomc(MOMC *);
 void momPrintMomr(MOMR *);
 
+#if defined(__cplusplus)
+}
+#endif
 #endif

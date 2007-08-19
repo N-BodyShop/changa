@@ -1515,6 +1515,21 @@ int reEncodeOffset(int reqID, int offsetID)
     return reqID | (offsetmask & offsetID);
     }
 
+//
+// Return true if the soften nodes overlap, i.e. the forces involve softening
+// @param node
+// @param myNode
+// @param offset Periodic offset to applied to node
+//
+inline
+int openSoftening(GenericTreeNode *node, GenericTreeNode *myNode,
+		  Vector3D<double> offset)
+{
+    Sphere<double> s(node->moments.cm + offset, node->moments.softBound);
+    Sphere<double> myS(myNode->moments.cm, myNode->moments.softBound);
+    return Space::intersect(myS, s);
+    }
+
 #ifdef CMK_VERSION_BLUEGENE
 static int forProgress = 0;
 #endif
@@ -1554,7 +1569,14 @@ inline int partBucketForce(ExternalGravityParticle *part, GenericTreeNode *req, 
   return computed;
 }
 
-inline int nodeBucketForce(GenericTreeNode *node, GenericTreeNode *req, GravityParticle *particles, Vector3D<double> offset, int activeRung) {
+inline
+int nodeBucketForce(GenericTreeNode *node, // source of force
+		    GenericTreeNode *req,  // bucket descriptor
+		    GravityParticle *particles, // particles in bucket
+		    Vector3D<double> offset,    // offset if a periodic replica
+		    int activeRung)	      	// rung (and above) at which to
+						// calculate forces
+{
   int computed = 0;
   Vector3D<double> r;
   double rsq;
@@ -1563,8 +1585,15 @@ inline int nodeBucketForce(GenericTreeNode *node, GenericTreeNode *req, GravityP
     
   Vector3D<double> cm(m.cm + offset);
 
-	//SFCTreeNode* reqnode = bucketList[req.identifier];
-
+#ifdef HEXADECAPOLE
+  if(openSoftening(node, req, offset)) {
+      ExternalGravityParticle tmpPart;
+      tmpPart.mass = m.totalMass;
+      tmpPart.soft = m.soft;
+      tmpPart.position = m.cm;
+      return partBucketForce(&tmpPart, req, particles, offset, activeRung);
+      }
+#endif
   for(int j = req->firstParticle; j <= req->lastParticle; ++j) {
     if (particles[j].rung >= activeRung) {
 #ifdef CMK_VERSION_BLUEGENE
@@ -1579,8 +1608,17 @@ inline int nodeBucketForce(GenericTreeNode *node, GenericTreeNode *req, GravityP
       computed++;
       r = particles[j].position - cm;
       rsq = r.lengthSquared();
+#ifdef HEXADECAPOLE
+      // Here we assume that the separation is larger than the softening.
+      double dir = 1.0/sqrt(rsq);
+      momEvalMomr(&m.mom, dir, -r.x, -r.y, -r.z, &particles[j].potential,
+		  &particles[j].treeAcceleration.x,
+		  &particles[j].treeAcceleration.y,
+		  &particles[j].treeAcceleration.z);
+      
+      double idt2 = (particles[j].mass + m.totalMass)*dir*dir*dir;
+#else
       twoh = m.soft + particles[j].soft;
-      if(rsq != 0) {
         double dir = 1.0/sqrt(rsq);
         SPLINEQ(dir, rsq, twoh, a, b, c, d);
         double qirx = m.xx*r.x + m.xy*r.y + m.xz*r.z;
@@ -1594,9 +1632,9 @@ inline int nodeBucketForce(GenericTreeNode *node, GenericTreeNode *req, GravityP
         particles[j].treeAcceleration.y -= qir3*r.y - c*qiry;
         particles[j].treeAcceleration.z -= qir3*r.z - c*qirz;
 	double idt2 = (particles[j].mass + m.totalMass)*b;
+#endif
 	if(idt2 > particles[j].dtGrav)
 	    particles[j].dtGrav = idt2;
-      }
     }
   }
   return computed;
@@ -1605,10 +1643,9 @@ inline int nodeBucketForce(GenericTreeNode *node, GenericTreeNode *req, GravityP
 // Return true if the node's opening radius intersects the
 // boundingBox, i.e. the node needs to be opened.
 
-template <typename T>
 inline bool
 TreePiece::openCriterionBucket(GenericTreeNode *node,
-			       OrientedBox<T> &boundingBox,
+			       GenericTreeNode *bucketNode,
 			       Vector3D<double> offset // Offset of node
 			       ) {
   // mark the node as used by this TreePiece
@@ -1624,21 +1661,22 @@ TreePiece::openCriterionBucket(GenericTreeNode *node,
 
   Sphere<double> s(node->moments.cm + offset, radius);
   
-  /*bool ret = Space::intersect(boundingBox, s);
-
-  double rad = 0.866025403784*pow(node->boundingBox.volume(),0.333333);
-
-  Sphere<double> s1(node->moments.cm,
-		   opening_geometry_factor * rad / theta);
-
-  bool ret1 = Space::intersect(boundingBox, s1);
-
-  if(ret1!=ret){
-    openingDiffCount++;
-  }
-  return ret;*/
-  
-  return Space::intersect(boundingBox, s);
+#ifdef HEXADECAPOLE
+  if(!Space::intersect(bucketNode->boundingBox, s)) {
+	  // Well separated, now check softening
+      if(!openSoftening(node, bucketNode, offset)) {
+	  return false;	// passed both tests: will be a Hex interaction
+	  }
+      else {		// Open as monopole?
+	  radius = opening_geometry_factor*node->moments.radius/thetaMono;
+	  Sphere<double> sM(node->moments.cm + offset, radius);
+	  return Space::intersect(bucketNode->boundingBox, sM);
+	  }
+      }
+  return true;
+#else
+  return Space::intersect(bucketNode->boundingBox, s);
+#endif
 }
 
 // return 1 if there is an intersection
@@ -1661,12 +1699,29 @@ inline int TreePiece::openCriterionNode(GenericTreeNode *node,
 
   Sphere<double> s(node->moments.cm + offset, radius);
 
-	if(myNode->getType()==Bucket || myNode->getType()==CachedBucket || myNode->getType()==NonLocalBucket){
-  	//if(Space::intersect(myNode->boundingBox, s))
+  if(myNode->getType()==Bucket || myNode->getType()==CachedBucket || myNode->getType()==NonLocalBucket){
   	if(Space::intersect(myNode->boundingBox, s))
+	    return 1;
+	else
+#ifdef HEXADECAPOLE
+	    {
+		// Well separated, now check softening
+		if(!openSoftening(node, myNode, offset)) {
+		    return 0;	// passed both tests: will be a Hex interaction
+		    }
+		else {		// Open as monopole?
+		    radius = opening_geometry_factor*node->moments.radius/thetaMono;
+		    Sphere<double> sM(node->moments.cm + offset, radius);
+		    if(Space::intersect(myNode->boundingBox, sM))
 			return 1;
-		else
+		    else
 			return 0;
+		    }
+		return 1;
+		}
+#else
+	return 0;
+#endif
 	}
 	else{
 		if(Space::intersect(myNode->boundingBox, s)){
@@ -1676,9 +1731,28 @@ inline int TreePiece::openCriterionNode(GenericTreeNode *node,
 				return -1;
 		}
 		else
-			return 0;
+#ifdef HEXADECAPOLE
+		    {
+			// Well separated, now check softening
+			if(!openSoftening(node, myNode, offset)) {
+			    return 0;	// passed both tests: will be a Hex interaction
+			    }
+			else {		// Open as monopole?
+			    radius = opening_geometry_factor*node->moments.radius/thetaMono;
+			    Sphere<double> sM(node->moments.cm + offset, radius);
+			    if(Space::intersect(myNode->boundingBox, sM))
+				return 1;
+			    else
+				return 0;
+			    }
+			return 1;
+			}
+#else
+		return 0;
+#endif
 	}
 }
+
 
 void TreePiece::initBuckets() {
   for (unsigned int j=0; j<numBuckets; ++j) {
@@ -2425,8 +2499,7 @@ void TreePiece::walkBucketRemoteTree(GenericTreeNode *node, int chunk,
 #endif
     return;
   }
-  else if(!openCriterionBucket(node, bucketList[reqIDlist]->boundingBox,
-			       offset)) {
+  else if(!openCriterionBucket(node, bucketList[reqIDlist], offset)) {
 #if COSMO_STATS > 0
     numOpenCriterionCalls++;
 #endif
@@ -2442,8 +2515,7 @@ void TreePiece::walkBucketRemoteTree(GenericTreeNode *node, int chunk,
 #if COSMO_STATS > 0
 	numOpenCriterionCalls++;
 #endif
-	if (!openCriterionBucket(nd, bucketList[reqIDlist]->boundingBox,
-				 offset)) {
+	if (!openCriterionBucket(nd, bucketList[reqIDlist], offset)) {
 #if COSMO_PRINT > 0
 	  CkPrintf("[%d] bucket %d: not opened %llx, found node %llx\n",thisIndex,reqIDlist,node->getKey(),nd->getKey());
 #endif
@@ -2486,8 +2558,7 @@ void TreePiece::walkBucketRemoteTree(GenericTreeNode *node, int chunk,
 #if COSMO_STATS > 0
 	numOpenCriterionCalls++;
 #endif
-	if (!openCriterionBucket(nd, bucketList[reqIDlist]->boundingBox,
-				 offset)) {
+	if (!openCriterionBucket(nd, bucketList[reqIDlist], offset)) {
 #if COSMO_PRINT > 0
 	  CkPrintf("[%d] bucket %d: not opened %llx, found node %llx\n",thisIndex,reqID,node->getKey(),nd->getKey());
 #endif
@@ -2528,6 +2599,8 @@ void TreePiece::startIteration(double t, // opening angle
 			       const CkCallback& cb) {
   callback = cb;
   theta = t;
+  thetaMono = theta*theta*theta*theta;	// Make monopole accuracy similar to
+				// hexadecapole accuracy
   activeRung = am;
   
   if (n != numChunks && remainingChunk != NULL) {
@@ -2706,7 +2779,12 @@ void TreePiece::prefetch(GenericTreeNode *node, int offsetID) {
   if (_prefetch) {
     bool needOpened = false;
     for (unsigned int i=0; i<numPrefetchReq; ++i) {
-      if (openCriterionBucket(node, prefetchReq[i], offset)) {
+	// Construct testNode for bounds check.
+	// XXX Softening is not considered in the prefetch.
+	BinaryTreeNode testNode;
+	testNode.boundingBox = prefetchReq[i];
+	testNode.moments.softBound = 0.0;
+      if (openCriterionBucket(node, &testNode, offset)) {
 	needOpened = true;
 	break;
       }
@@ -3050,6 +3128,11 @@ void TreePiece::walkInterTree(OffsetNode node) {
 #endif
 
 
+// Walk a node evalutating its force on a bucket
+//
+// @param node Node to be walked
+// @param reqID request ID which encodes bucket to be worked on and
+// a replica offset if we are using periodic boundary conditions
 void TreePiece::walkBucketTree(GenericTreeNode* node, int reqID) {
     Vector3D<double> offset = decodeOffset(reqID);
     int reqIDlist = decodeReqID(reqID);
@@ -3063,7 +3146,8 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, int reqID) {
   numOpenCriterionCalls++;
 #endif
   GenericTreeNode* reqnode = bucketList[reqIDlist];
-  if(!openCriterionBucket(node, reqnode->boundingBox, offset)) {
+  if(!openCriterionBucket(node, reqnode, offset)) {
+      // Node is well separated; evaluate the force
 #if COSMO_STATS > 1
     MultipoleMoments m = node->moments;	
     for(int i = reqnode->firstParticle; i <= reqnode->lastParticle; ++i)
@@ -3106,7 +3190,6 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, int reqID) {
       //CkPrintf("[%d] walk bucket %s -> part %016llx\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),myParticles[i].key);
       CkPrintf("[%d] walk bucket %s -> part %016llx\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),node->particlePointer[i-node->firstParticle].key);
 #endif
-      //partBucketForce(&myParticles[i], req);
 #ifdef COSMO_EVENTS
       double startTimer = CmiWallTimer();
 #endif
@@ -3447,7 +3530,7 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, int chunk, int reqID
 #if COSMO_STATS > 0
   numOpenCriterionCalls++;
 #endif
-  if(!openCriterionBucket(node, reqnode->boundingBox, offset)) {
+  if(!openCriterionBucket(node, reqnode, offset)) {
 #if COSMO_STATS > 1
     MultipoleMoments m = node->moments;
     for(int i = reqnode->firstParticle; i <= reqnode->lastParticle; ++i)
@@ -3513,21 +3596,7 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, int chunk, int reqID
 #endif
     } else {
       remainingChunk[chunk] += node->lastParticle - node->firstParticle + 1;
-      /*#if COSMO_DEBUG > 1
-      bucketReqs[req.identifier].requestedNodes.push_back(node->getKey());
-      #endif*/
     }
-    /*
-  } else if(node->getType() == NonLocal) {
-    // Use cachedWalkBucketTree() as callback
-    GenericTreeNode *pnode = requestNode(node->remoteIndex, node->getKey(), req);
-    if(pnode) {
-#if COSMO_PRINT > 1
-      CkPrintf("[%d] Requested node %s to %d, got %s of type %s\n",thisIndex,keyBits(node->getKey(),63).c_str(),node->remoteIndex,keyBits(pnode->getKey(),63).c_str(),getColor(pnode).c_str());
-#endif
-      cachedWalkBucketTree(pnode, req);
-    }
-    */
   } else if (node->getType() != CachedEmpty && node->getType() != Empty) {
     // Here the type is Cached, Boundary, Internal, NonLocal, which means the
     // node in the global tree has children (it is not a leaf), so we iterate
@@ -4168,6 +4237,7 @@ void TreePiece::pup(PUP::er& p) {
   p | nSetupWriteStage;
 
   p | theta;
+  p | thetaMono;
   // Periodic variables
   p | nReplicas;
   p | fPeriod;
@@ -4447,9 +4517,10 @@ void TreePiece::printTree(GenericTreeNode* node, ostream& os) {
     os << "Empty "<<node->remoteIndex;
     break;
   }
+#ifndef HEXADECAPOLE
   if (node->getType() == Bucket || node->getType() == Internal || node->getType() == Boundary || node->getType() == NonLocal || node->getType() == NonLocalBucket) 
     os << " V "<<node->moments.radius<<" "<<node->moments.soft<<" "<<node->moments.cm.x<<" "<<node->moments.cm.y<<" "<<node->moments.cm.z<<" "<<node->moments.xx<<" "<<node->moments.xy<<" "<<node->moments.xz<<" "<<node->moments.yy<<" "<<node->moments.yz<<" "<<node->moments.zz<<" "<<node->boundingBox;
-
+#endif
   os << "\n";
 	
   //if(node->parent)
@@ -4601,8 +4672,10 @@ void printGenericTree(GenericTreeNode* node, ostream& os) {
     os << "Empty "<<node->remoteIndex;
     break;
   }
+#ifndef HEXADECAPOLE
   if (node->getType() == Bucket || node->getType() == Internal || node->getType() == Boundary || node->getType() == NonLocal || node->getType() == NonLocalBucket) 
     os << " V "<<node->moments.radius<<" "<<node->moments.soft<<" "<<node->moments.cm.x<<" "<<node->moments.cm.y<<" "<<node->moments.cm.z<<" "<<node->moments.xx<<" "<<node->moments.xy<<" "<<node->moments.xz<<" "<<node->moments.yy<<" "<<node->moments.yz<<" "<<node->moments.zz;
+#endif
 
   os << "\n";
         

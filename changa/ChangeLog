@@ -1,0 +1,8 @@
+2007-08-19  Tom Quinn  <trq@raclette>
+
+	* MultipoleMoments.h, Ewald.C, ParallelGravity.h, TreePiece.cpp,
+	moments.c, moments.h: Implemented HEXADECAPOLE forces.  Forces seem
+	to be accurate, but it's not good enough for production because I'm
+	WAY to conservative in handling softening.
+	
+

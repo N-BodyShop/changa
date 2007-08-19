@@ -3,6 +3,49 @@
 // Ewald summation code.
 // First implemented by Thomas Quinn and Joachim Stadel in PKDGRAV.
 
+#ifdef HEXADECAPOLE
+inline
+static
+void QEVAL(MOMC mom, double gam[], double dx, double dy,
+		  double dz, double &ax, double &ay, double &az, double &fPot)
+{
+    double Qmirx,Qmiry,Qmirz,Qmir,Qta;
+    Qta = 0.0;
+    Qmirx = (1.0/6.0)*(mom.xzzz*dz*dz*dz + 3*mom.xyzz*dy*dz*dz + 3*mom.xyyz*dy*dy*dz + mom.xyyy*dy*dy*dy + 3*mom.xxzz*dx*dz*dz + 6*mom.xxyz*dx*dy*dz + 3*mom.xxyy*dx*dy*dy + 3*mom.xxxz*dx*dx*dz + 3*mom.xxxy*dx*dx*dy + mom.xxxx*dx*dx*dx);
+    Qmiry = (1.0/6.0)*(mom.yzzz*dz*dz*dz + 3*mom.xyzz*dx*dz*dz + 3*mom.xxyz*dx*dx*dz + mom.xxxy*dx*dx*dx + 3*mom.yyzz*dy*dz*dz + 6*mom.xyyz*dx*dy*dz + 3*mom.xxyy*dx*dx*dy + 3*mom.yyyz*dy*dy*dz + 3*mom.xyyy*dx*dy*dy + mom.yyyy*dy*dy*dy);
+    Qmirz = (1.0/6.0)*(mom.yyyz*dy*dy*dy + 3*mom.xyyz*dx*dy*dy + 3*mom.xxyz*dx*dx*dy + mom.xxxz*dx*dx*dx + 3*mom.yyzz*dy*dy*dz + 6*mom.xyzz*dx*dy*dz + 3*mom.xxzz*dx*dx*dz + 3*mom.yzzz*dy*dz*dz + 3*mom.xzzz*dx*dz*dz + mom.zzzz*dz*dz*dz);
+    Qmir = (1.0/4.0)*(Qmirx*dx + Qmiry*dy + Qmirz*dz);
+    fPot -= gam[4]*Qmir;
+    Qta += gam[5]*Qmir;
+    ax += gam[4]*Qmirx;
+    ay += gam[4]*Qmiry;
+    az += gam[4]*Qmirz;
+    Qmirx = (1.0/2.0)*(mom.xzz*dz*dz + 2*mom.xyz*dy*dz + mom.xyy*dy*dy + 2*mom.xxz*dx*dz + 2*mom.xxy*dx*dy + mom.xxx*dx*dx);
+    Qmiry = (1.0/2.0)*(mom.yzz*dz*dz + 2*mom.xyz*dx*dz + mom.xxy*dx*dx + 2*mom.yyz*dy*dz + 2*mom.xyy*dx*dy + mom.yyy*dy*dy);
+    Qmirz = (1.0/2.0)*(mom.yyz*dy*dy + 2*mom.xyz*dx*dy + mom.xxz*dx*dx + 2*mom.yzz*dy*dz + 2*mom.xzz*dx*dz + mom.zzz*dz*dz);
+    Qmir = (1.0/3.0)*(Qmirx*dx + Qmiry*dy + Qmirz*dz);
+    fPot -= gam[3]*Qmir;
+    Qta += gam[4]*Qmir;
+    ax += gam[3]*Qmirx;
+    ay += gam[3]*Qmiry;
+    az += gam[3]*Qmirz;
+    Qmirx = (1.0/1.0)*(mom.xz*dz + mom.xy*dy + mom.xx*dx);
+    Qmiry = (1.0/1.0)*(mom.yz*dz + mom.xy*dx + mom.yy*dy);
+    Qmirz = (1.0/1.0)*(mom.yz*dy + mom.xz*dx + mom.zz*dz);
+    Qmir = (1.0/2.0)*(Qmirx*dx + Qmiry*dy + Qmirz*dz);
+    fPot -= gam[2]*Qmir;
+    Qta += gam[3]*Qmir;
+    ax += gam[2]*Qmirx;
+    ay += gam[2]*Qmiry;
+    az += gam[2]*Qmirz;
+    fPot -= gam[0]*mom.m;
+    Qta += gam[1]*mom.m;
+    ax -= dx*Qta;
+    ay -= dy*Qta;
+    az -= dz*Qta;
+}
+#else
+inline
 static
 void QEVAL(MultipoleMoments mom, double gam[], double dx, double dy,
 		  double dz, double &ax, double &ay, double &az, double &fPot)
@@ -24,11 +67,22 @@ void QEVAL(MultipoleMoments mom, double gam[], double dx, double dy,
     ay -= dy*Qta;
     az -= dz*Qta;
 }
+#endif
 
 void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 {
 	GravityParticle *p;
+#ifdef HEXADECAPOLE
+	MOMC mom = momcRoot;
+	MultipoleMoments momQuad = root->moments;
+	double xx,xxx,xxy,xxz,yy,yyy,yyz,xyy,zz,zzz,xzz,yzz,xy,xyz,xz,yz;
+	double Q4mirx,Q4miry,Q4mirz,Q4mir,Q4x,Q4y,Q4z;
+	double Q4xx,Q4xy,Q4xz,Q4yy,Q4yz,Q4zz,Q4,Q3x,Q3y,Q3z;
+	double Q3mirx,Q3miry,Q3mirz,Q3mir;
+	const double onethird = 1.0/3.0;
+#else
 	MultipoleMoments mom = root->moments;
+#endif
 	double Q2;
 	double L,fEwCut2,fInner2,alpha,alpha2,alphan,k1,ka;
 	double fPot,ax,ay,az;
@@ -42,6 +96,18 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 	/*
 	 ** Set up traces of the complete multipole moments.
 	 */
+#ifdef HEXADECAPOLE
+        Q4xx = 0.5*(mom.xxxx + mom.xxyy + mom.xxzz);
+        Q4xy = 0.5*(mom.xxxy + mom.xyyy + mom.xyzz);
+        Q4xz = 0.5*(mom.xxxz + mom.xyyz + mom.xzzz);
+        Q4yy = 0.5*(mom.xxyy + mom.yyyy + mom.yyzz);
+        Q4yz = 0.5*(mom.xxyz + mom.yyyz + mom.yzzz);
+        Q4zz = 0.5*(mom.xxzz + mom.yyzz + mom.zzzz);
+        Q4 = 0.25*(Q4xx + Q4yy + Q4zz);
+        Q3x = 0.5*(mom.xxx + mom.xyy + mom.xzz);
+        Q3y = 0.5*(mom.xxy + mom.yyy + mom.yzz);
+        Q3z = 0.5*(mom.xxz + mom.yyz + mom.zzz);
+#endif
 	Q2 = 0.5*(mom.xx + mom.yy + mom.zz);	
 
 	n = req->lastParticle - req->firstParticle + 1;
@@ -57,13 +123,23 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 	ka = 2.0*alpha/sqrt(M_PI);
 	for(j=0;j<n;++j) {
                 if (p[j].rung < activeRung) continue;
+#ifdef HEXADECAPOLE
+		fPot = momQuad.totalMass*k1;
+#else
 		fPot = mom.totalMass*k1;
+#endif
 		ax = 0.0;
 		ay = 0.0;
 		az = 0.0;
+#ifdef HEXADECAPOLE
+		dx = p[j].position.x - momQuad.cm.x;
+		dy = p[j].position.y - momQuad.cm.y;
+		dz = p[j].position.z - momQuad.cm.z;
+#else
 		dx = p[j].position.x - mom.cm.x;
 		dy = p[j].position.y - mom.cm.y;
 		dz = p[j].position.z - mom.cm.z;
+#endif
 		for (ix=-nEwReps;ix<=nEwReps;++ix) {
 			bInHolex = (ix >= -nReps && ix <= nReps);
 			x = dx + ix*L;
@@ -123,6 +199,47 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 					    alphan *= 2*alpha2;
 					    g5 = 9*g4*dir2 + alphan*a;
 					    }
+#ifdef HEXADECAPOLE
+					xx = 0.5*x*x;
+					xxx = onethird*xx*x;
+					xxy = xx*y;
+					xxz = xx*z;
+					yy = 0.5*y*y;
+					yyy = onethird*yy*y;
+					xyy = yy*x;
+					yyz = yy*z;
+					zz = 0.5*z*z;
+					zzz = onethird*zz*z;
+					xzz = zz*x;
+					yzz = zz*y;
+					xy = x*y;
+					xyz = xy*z;
+					xz = x*z;
+					yz = y*z;
+					Q2mirx = mom.xx*x + mom.xy*y + mom.xz*z;
+					Q2miry = mom.xy*x + mom.yy*y + mom.yz*z;
+					Q2mirz = mom.xz*x + mom.yz*y + mom.zz*z;
+					Q3mirx = mom.xxx*xx + mom.xxy*xy + mom.xxz*xz + mom.xyy*yy + mom.xyz*yz + mom.xzz*zz;
+					Q3miry = mom.xxy*xx + mom.xyy*xy + mom.xyz*xz + mom.yyy*yy + mom.yyz*yz + mom.yzz*zz;
+					Q3mirz = mom.xxz*xx + mom.xyz*xy + mom.xzz*xz + mom.yyz*yy + mom.yzz*yz + mom.zzz*zz;
+					Q4mirx = mom.xxxx*xxx + mom.xxxy*xxy + mom.xxxz*xxz + mom.xxyy*xyy + mom.xxyz*xyz +
+						mom.xxzz*xzz + mom.xyyy*yyy + mom.xyyz*yyz + mom.xyzz*yzz + mom.xzzz*zzz;
+					Q4miry = mom.xxxy*xxx + mom.xxyy*xxy + mom.xxyz*xxz + mom.xyyy*xyy + mom.xyyz*xyz +
+						mom.xyzz*xzz + mom.yyyy*yyy + mom.yyyz*yyz + mom.yyzz*yzz + mom.yzzz*zzz;
+					Q4mirz = mom.xxxz*xxx + mom.xxyz*xxy + mom.xxzz*xxz + mom.xyyz*xyy + mom.xyzz*xyz +
+						mom.xzzz*xzz + mom.yyyz*yyy + mom.yyzz*yyz + mom.yzzz*yzz + mom.zzzz*zzz;
+					Q4x = Q4xx*x + Q4xy*y + Q4xz*z;
+					Q4y = Q4xy*x + Q4yy*y + Q4yz*z;
+					Q4z = Q4xz*x + Q4yz*y + Q4zz*z;
+					Q2mir = 0.5*(Q2mirx*x + Q2miry*y + Q2mirz*z) - (Q3x*x + Q3y*y + Q3z*z) + Q4;
+					Q3mir = onethird*(Q3mirx*x + Q3miry*y + Q3mirz*z) - 0.5*(Q4x*x + Q4y*y + Q4z*z);
+					Q4mir = 0.25*(Q4mirx*x + Q4miry*y + Q4mirz*z);
+					Qta = g1*mom.m - g2*Q2 + g3*Q2mir + g4*Q3mir + g5*Q4mir;
+					fPot -= g0*mom.m - g1*Q2 + g2*Q2mir + g3*Q3mir + g4*Q4mir;
+					ax += g2*(Q2mirx - Q3x) + g3*(Q3mirx - Q4x) + g4*Q4mirx - x*Qta;
+					ay += g2*(Q2miry - Q3y) + g3*(Q3miry - Q4y) + g4*Q4miry - y*Qta;
+					az += g2*(Q2mirz - Q3z) + g3*(Q3mirz - Q4z) + g4*Q4mirz - z*Qta;
+#else
 					Q2mirx = mom.xx*x + mom.xy*y + mom.xz*z;
 					Q2miry = mom.xy*x + mom.yy*y + mom.yz*z;
 					Q2mirz = mom.xz*x + mom.yz*y + mom.zz*z;
@@ -132,6 +249,7 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 					ax += g2*(Q2mirx) - x*Qta;
 					ay += g2*(Q2miry) - y*Qta;
 					az += g2*(Q2mirz) - z*Qta;
+#endif
 					++nLoop;
 					}
 				}
@@ -169,6 +287,10 @@ void TreePiece::EwaldInit(double fhCut)
 	double gam[6],mfacc,mfacs;
 	double ax,ay,az;
 
+#ifdef HEXADECAPOLE
+	/* convert to complete moments */
+	momMomr2Momc(&(root->moments.mom), &momcRoot);
+#endif
 	/*
 	 ** Now setup stuff for the h-loop.
 	 */
@@ -201,8 +323,13 @@ void TreePiece::EwaldInit(double fhCut)
 				ay = 0.0;
 				az = 0.0;
 				mfacc = 0.0;
+#ifdef HEXADECAPOLE
+				QEVAL(momcRoot, gam, hx, hy, hz,
+				      ax, ay, az, mfacc);
+#else
 				QEVAL(root->moments, gam, hx, hy, hz,
 				      ax, ay, az, mfacc);
+#endif
 				gam[0] = exp(-k4*h2)/(M_PI*h2*L);
 				gam[1] = 2*M_PI/L*gam[0];
 				gam[2] = -2*M_PI/L*gam[1];
@@ -216,8 +343,13 @@ void TreePiece::EwaldInit(double fhCut)
 				ay = 0.0;
 				az = 0.0;
 				mfacs = 0.0;
+#ifdef HEXADECAPOLE
+				QEVAL(momcRoot, gam,hx,hy,hz,
+				      ax,ay,az,mfacs);
+#else
 				QEVAL(root->moments, gam,hx,hy,hz,
 				      ax,ay,az,mfacs);
+#endif
 				ewt[i].hx = 2*M_PI/L*hx;
 				ewt[i].hy = 2*M_PI/L*hy;
 				ewt[i].hz = 2*M_PI/L*hz;

@@ -397,6 +397,8 @@ class TreePiece : public CBase_TreePiece {
 
 	/// Opening angle
 	double theta;
+	/// Opening angle - monopole
+	double thetaMono;
         /// The current active mask for force computation in multistepping
         int activeRung;
 
@@ -415,6 +417,9 @@ class TreePiece : public CBase_TreePiece {
 	EWT *ewt;
 	int nMaxEwhLoop;
 	int nEwhLoop;
+#ifdef HEXADECAPOLE
+	MOMC momcRoot;		/* complete moments of root */
+#endif
 	
 	// Decode offset bits in requestID for periodic replicas
 	Vector3D<double> decodeOffset(int reqID);
@@ -864,9 +869,8 @@ public:
 
 	/// Decide whether the node should be opened for the force computation
 	/// of the given request.
-	template <typename T>
 	bool openCriterionBucket(GenericTreeNode *node,
-				 OrientedBox<T>& boundingBox,
+				 GenericTreeNode *bucketNode,
 				 Vector3D<double> offset // Offset of node
 				 );
 
