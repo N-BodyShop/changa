@@ -1525,8 +1525,8 @@ inline
 int openSoftening(GenericTreeNode *node, GenericTreeNode *myNode,
 		  Vector3D<double> offset)
 {
-    Sphere<double> s(node->moments.cm + offset, node->moments.softBound);
-    Sphere<double> myS(myNode->moments.cm, myNode->moments.softBound);
+    Sphere<double> s(node->moments.cm + offset, 2.0*node->moments.soft);
+    Sphere<double> myS(myNode->moments.cm, 2.0*myNode->moments.soft);
     return Space::intersect(myS, s);
     }
 
@@ -2783,7 +2783,6 @@ void TreePiece::prefetch(GenericTreeNode *node, int offsetID) {
 	// XXX Softening is not considered in the prefetch.
 	BinaryTreeNode testNode;
 	testNode.boundingBox = prefetchReq[i];
-	testNode.moments.softBound = 0.0;
       if (openCriterionBucket(node, &testNode, offset)) {
 	needOpened = true;
 	break;

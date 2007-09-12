@@ -22,7 +22,6 @@ public:
 	/// A physical size for this multipole expansion, calculated by an external function using some other information
 	double radius;
 	double soft;		/* Effective softening */
-	double softBound;	/* Radius to which softening extends */
 
 	/// The total mass represented by this expansion
 	double totalMass;
@@ -37,7 +36,6 @@ public:
 	
 	MultipoleMoments() : radius(0), totalMass(0) { 
 	    soft = 0;
-	    softBound = 0;
 		cm.x = cm.y = cm.z = 0;
 		//clear higher order components here
 #ifdef HEXADECAPOLE
@@ -55,13 +53,6 @@ public:
 		if(totalMass == 0.0) {
 		    soft = 0.5*(soft + m.soft);
 		    cm = 0.5*(cm + m.cm);
-#ifdef HEXADECAPOLE
-		    Vector3D<double> dr = cm - m.cm;
-		    if(softBound >= m.softBound)
-			softBound = softBound + 0.5*dr.length();
-		    else
-			softBound = m.softBound + 0.5*dr.length();
-#endif
 		    return *this;
 		    }
 		soft = (m1*soft + m.totalMass*m.soft)/totalMass;
@@ -69,15 +60,9 @@ public:
 		cm = (m1*cm + m.totalMass*m.cm)/totalMass;
 #ifdef HEXADECAPOLE
 		Vector3D<double> dr = cm1 - cm;
-		double sMax1 = dr.length() + softBound;
 		momShiftMomr(&mom, dr.x, dr.y, dr.z);
 		MOMR mom2 = m.mom;
 		dr = m.cm - cm;
-		double sMax2 = dr.length() + m.softBound;
-		if(sMax1 > sMax2)
-		    softBound = sMax1;
-		else
-		    softBound = sMax2;
 		momShiftMomr(&mom2, dr.x, dr.y, dr.z);
 		momAddMomr(&mom, &mom2);
 #else
@@ -115,17 +100,8 @@ public:
 		// you could first determine the center of mass, then
 		// do a momMakeMomr(); momAddMomr() for each particle.
 		Vector3D<double> dr = cm1 - cm;
-		double sMax1 = dr.length() + softBound;
-		if(m1 == 0.0)	// first particle is being added.
-		    sMax1 = 0.0;
 		momShiftMomr(&mom, dr.x, dr.y, dr.z);
 		dr = p.position - cm;
-		// spline softening: extends to 2*soft
-		double sMax2 = dr.length() + 2.0*p.soft;
-		if(sMax1 > sMax2)
-		    softBound = sMax1;
-		else
-		    softBound = sMax2;
 		MOMR momPart;
 		momMakeMomr(&momPart, p.mass, dr.x, dr.y, dr.z);
 		momAddMomr(&mom, &momPart);
@@ -169,8 +145,6 @@ public:
 		dr = m.cm - newMoments.cm;
 		momShiftMomr(&mom2, dr.x, dr.y, dr.z);
 		momSubMomr(&newMoments.mom, &mom2);
-		// I don't think we can safely reduce the softening bound
-		newMoments.softBound = softBound;
 #else
 		//subtract off higher order components here
 		Vector3D<double> dr = cm - newMoments.cm;
@@ -194,7 +168,6 @@ public:
 	/// Reset this expansion to nothing
 	void clear() {
 	    soft = 0;
-	    softBound = 0;
 		radius = 0;
 		totalMass = 0;
 		cm.x = cm.y = cm.z = 0;
@@ -216,7 +189,6 @@ inline void operator|(PUP::er& p, MultipoleMoments& m) {
 	p | m.radius;
 	p | m.totalMass;
 	p | m.soft;
-	p | m.softBound;
 	p | m.cm;
 #ifdef HEXADECAPOLE
 	p((char *) &m.mom, sizeof(m.mom)); /* PUPs as bytes */
