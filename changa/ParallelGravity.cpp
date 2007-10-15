@@ -684,7 +684,7 @@ void Main::advanceBigStep(int iStep) {
     ckerr << "Domain decomposition ...";
     double startTime = CkWallTimer();
     sorter.startSorting(dataManager, numTreePieces, tolerance,
-                        CkCallbackResumeThread());
+                        CkCallbackResumeThread(), true);
     ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
 
@@ -814,7 +814,7 @@ void Main::nextStage() {
   ckerr << "Initial domain decomposition ...";
   startTime = CkWallTimer();
   sorter.startSorting(dataManager, numTreePieces, tolerance,
-                      CkCallbackResumeThread());
+                      CkCallbackResumeThread(), true);
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
   

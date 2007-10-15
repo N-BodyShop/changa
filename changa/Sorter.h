@@ -105,7 +105,7 @@ public:
 	 tree building phase.
 	 The callback will receive a CkReductionMsg containing no data.
 	 */
-	void startSorting(const CkGroupID& dataManagerID, const int nChares, const double toler, const CkCallback& cb);
+	void startSorting(const CkGroupID& dataManagerID, const int nChares, const double toler, const CkCallback& cb, bool decompose);
 	void convertNodesToSplitters(int num, NodeKey* nodeKeys);
 	void convertNodesToSplittersRefine(int num, NodeKey* nodeKeys);
 	void convertNodesToSplittersNoZeros(int num, NodeKey* nodeKeys, CkVec<int> &zero);

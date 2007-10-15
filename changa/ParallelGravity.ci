@@ -63,7 +63,7 @@ mainmodule ParallelGravity {
           
                 entry void startSorting(const CkGroupID& dataManagerID,
                                         const int nChares, const double toler,
-                                        const CkCallback& cb);	
+                                        const CkCallback& cb, bool decompose);
                 entry void collectEvaluations(CkReductionMsg* m);
                 entry void collectORBCounts(CkReductionMsg* m);
                 entry void finishPhase(CkReductionMsg* m);

@@ -251,7 +251,7 @@ void Sorter::collectORBCounts(CkReductionMsg* m){
 /************************************************/
 
 void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
-			  const double toler, const CkCallback& cb) {	
+			  const double toler, const CkCallback& cb, bool decompose) {
 	numChares = nChares;
 	dm = CProxy_DataManager(dataManagerID);
 	tolerance = toler;
@@ -259,12 +259,6 @@ void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
 	sortingCallback = cb;
 	numIterations = 0;
 	
-	// XXX: Optimizations available if sort has been done before!
-	//create initial evenly distributed guesses for splitter keys
-	keyBoundaries.clear();
-	keyBoundaries.reserve(numChares + 1);
-	keyBoundaries.push_back(firstPossibleKey);
-
   //Changed for implementing OCT decomposition
   Key delta;
   Key k;
@@ -273,14 +267,17 @@ void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
     case SFC_dec:
     case SFC_peano_dec:
 	numKeys = 0;
-	    splitters.clear();
+        //if (splitters.size() == 0) {
+          // reuse the existing splitters from the previous decomposition
+            splitters.clear();
 	    splitters.reserve(3 * numChares - 1);
 	    delta = (lastPossibleKey - SFC::firstPossibleKey) / (3 * numChares - 2);
 	    k = firstPossibleKey;
 	    for(int i = 0; i < (3 * numChares - 2); i++, k += delta)
 		    splitters.push_back(k);
 	    splitters.push_back(lastPossibleKey);
-	    break;
+            //}
+        break;
     case Oct_dec:
       if (nodeKeys == NULL) {
         rt = new BinaryTreeNode();
@@ -307,7 +304,20 @@ void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
 
 	//send out the first guesses to be evaluated
   if(domainDecomposition!=ORB_dec){
-    dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+    if (decompose) {
+
+	// XXX: Optimizations available if sort has been done before!
+	//create initial evenly distributed guesses for splitter keys
+	keyBoundaries.clear();
+	keyBoundaries.reserve(numChares + 1);
+	keyBoundaries.push_back(firstPossibleKey);
+
+      dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+    } else {
+      //send out all the decided keys to get final bin counts
+      sorted = true;
+      dm.acceptCandidateKeys(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+    }
   }
 }
 
@@ -446,7 +456,6 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   bool histogram=weightBalance<int>(nodeKeys,startCounts,numKeys,keysSize,numChares,&zeros,&nodesOpened,wbState);
   //bool histogram=weightBalance<int>(nodeKeys,startCounts,numKeys,1);
   traceUserBracketEvent(weightBalanceUE, startTimer, CmiWallTimer());
-
   delete m;
 
   if(verbosity>=3){
