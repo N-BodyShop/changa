@@ -695,7 +695,7 @@ int CacheManager::createLookupRoots(GenericTreeNode *node, Tree::NodeKey *keys) 
 #endif
 
 void CacheManager::cacheSync(double theta, int activeRung, const CkCallback& cb) {
-  CkSummary_StartPhase(iterationNo+1);
+  //CkSummary_StartPhase(iterationNo+1);
   if (treePieceLocMgr == NULL) {
     // initialize the database structures to record the object communication
     treePieceLocMgr = treeProxy.ckLocMgr();
