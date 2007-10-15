@@ -187,7 +187,9 @@ CacheNode *CacheManager::sendNodeRequest(int chunk, NodeCacheEntry *e,int reqID)
     // here _nocache is true, so we don't cache anything and we farward all requests
   }
   outStandingRequests[MapKey(e->requestID,e->home)] = chunk;
-  e->sendRequest(reqID);
+  // check if it is the case to delay the request
+  if (false || chunk > lastFinishedChunk + 4) (delayedRequests[chunk])[e] = reqID;
+  else e->sendRequest(reqID);
   return NULL;
 }
 
@@ -693,12 +695,14 @@ int CacheManager::createLookupRoots(GenericTreeNode *node, Tree::NodeKey *keys) 
 #endif
 
 void CacheManager::cacheSync(double theta, int activeRung, const CkCallback& cb) {
+  CkSummary_StartPhase(iterationNo+1);
   if (treePieceLocMgr == NULL) {
     // initialize the database structures to record the object communication
     treePieceLocMgr = treeProxy.ckLocMgr();
     lbdb = treePieceLocMgr->getLBDB();
     omhandle = &treePieceLocMgr->getOMHandle();
   }
+  lastFinishedChunk = -1;
   // sentData:
   // - first dimension: number of local chares
   // - second dimension: total number of chares
@@ -801,6 +805,7 @@ void CacheManager::cacheSync(double theta, int activeRung, const CkCallback& cb)
     chunkWeight = new u_int64_t[numChunks];
     nodeCacheTable = new map<CacheKey,NodeCacheEntry *>[numChunks];
     particleCacheTable = new map<CacheKey,ParticleCacheEntry *>[numChunks];
+    delayedRequests = new map<NodeCacheEntry*,int>[numChunks];
     chunkAck = new int[numChunks];
   } else {
     //for (int i=0; i<numChunks; ++i) CkPrintf("[%d] old roots %d: %s - %llu\n",CkMyPe(),i,keyBits(prefetchRoots[i],63).c_str(),chunkWeight[i]);
@@ -891,6 +896,21 @@ void CacheManager::finishedChunk(int num, u_int64_t weight) {
   if (--chunkAck[num] == 0) {
     // we can safely delete the chunk from the cache
     chunkWeight[num] += weight;
+    // release requests for next chunks
+    int nextReleasedChunk = num + 4;
+    int lastReleasedChunk = lastFinishedChunk + 4;
+    for (int releasing=lastReleasedChunk+1; releasing<=nextReleasedChunk && releasing<numChunks; ++releasing) {
+#ifdef COSMO_PRINT
+      CkPrintf("[%d] releasing chunk %d\n",CkMyPe(),releasing);
+#endif
+      map<NodeCacheEntry*,int> &nextdelayed = delayedRequests[releasing];
+      for (map<NodeCacheEntry*,int>::iterator iter = nextdelayed.begin(); iter != nextdelayed.end(); ++iter) {
+        // send the request out
+        (iter->first)->sendRequest(iter->second);
+      }
+      nextdelayed.clear();
+    }
+    if (num > lastFinishedChunk) lastFinishedChunk = num;
 #ifdef COSMO_PRINT
     CkPrintf("Deleting chunk %d from processor %d\n",num,CkMyPe());
 #endif

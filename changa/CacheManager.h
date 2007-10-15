@@ -302,6 +302,8 @@ private:
 	int storedNodes;
 	unsigned int iterationNo;
 
+        int lastFinishedChunk;
+
 	/// number of acknowledgements awaited before deleting the chunk of the tree
         int *chunkAck;
 
@@ -310,6 +312,7 @@ private:
 	//bool proxyInitialized; // checks if the streaming proxy has been delegated or not
 	map<MapKey,int> outStandingRequests;
 	map<CacheKey,int> outStandingParticleRequests;
+        map<NodeCacheEntry*,int> *delayedRequests;
 
 	/******************************************************************
 	 * Method section
