@@ -4,8 +4,8 @@
 #FLAG_DEBUG = -DCOSMO_DEBUG=2       # enable debugging information
 CACHE_TREE = -DCACHE_TREE          # enable processor tree inside the cache
 #INTERLIST = -DINTERLIST_VER=2      # enable interaction lists
-#-DHEXADECAPOLE			    # use hexadecapole gravity expansions
-DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST)
+#HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
+DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST) $(HEXADECAPOLE)
 
 STRUCTURES_PATH = ../structures
 CXXFLAGS += -O3 -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) @CPPFLAGS@
@@ -22,10 +22,12 @@ CFLAGS = -g -O3
 
 OBJECTS = DataManager.o Reductions.o TreePiece.o CacheManager.o Sorter.o \
 	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
-	  InOutput.o cosmo.o romberg.o runge.o dumpframe.o dffuncs.o
+	  InOutput.o cosmo.o romberg.o runge.o dumpframe.o dffuncs.o \
+	  moments.o
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp CacheManager.C \
 	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
-	InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c
+	InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c \
+	moments.c
 TARGET = ChaNGa
 VERSION = 1.0
 all: $(TARGET)
