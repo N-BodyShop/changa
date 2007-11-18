@@ -2,28 +2,32 @@ Structure:
 	   1. call CkStartCheckpoint() at intervals or when wall clock runs out.
 	   2. restart() entry will detect if we're really restarting or not
 	    by using a flag set in the Migration constructor for main and
-	    then call doSimulation() to continue.
+	    then call doSimulation() to continue.  If we are actually restarting
+	    then restart() will call initialForces() which then proceeds to
+	    doSimulation().
+	    
 	  
 
 Issues:
-Does Readonly data get automatically checkpointed?
-When does Main(CkMigrateMessage *) get called?
-Why does CacheManager need a migration constructor and a PUPer?
-Does DataManager also need this?
-What about sorter?
-What about the proxies that are stored read-only?
+Does Readonly data get automatically checkpointed? Yes!
+What about the proxies that are stored read-only?  They get automatically
+restored.
 
-[0]CkRestartMain done. sending out callback.
-------------- Processor 0 Exiting: Called CmiAbort ------------
-Reason: Error! This chare proxy has not been initialized!
-Stack Traceback:
-  [0] _ZN11CProxy_Main12doSimulationEv+0xa4  [0x80cd014]
-  [1] _ZN12CkIndex_Main18_call_restart_voidEPvP4Main+0x3a  [0x80d00aa]
-  [2] _Z15_processHandlerPvP11CkCoreState+0x12f6  [0x81504f6]
-  [3] CsdScheduleForever+0x5a  [0x81b800a]
-  [4] CsdScheduler+0x132  [0x81b89e2]
-  [5] ConverseInit+0x1190  [0x81b4d90]
-  [6] main+0x3a  [0x815260a]
-  [7] __libc_start_main+0xe0  [0xa4af70]
-  [8] __gxx_personality_v0+0x101  [0x8099721]
-CHARM++ FATAL ERROR: Error! This chare proxy has not been initialized!
+All groups and node groups need to get migration constructors since they
+automatically get dumped.
+
+There are a number of Charm++ issues/bugs.
+
+1) Mainchare and any other regular Chare (like Sorter) isn't handled well in
+this framework.  Orion has a suggested solution to fix this, but for now
+Sorter needs to be re-allocated, and a MainChare entrypoint can't be used as
+a Checkpoint restart callback.
+
+2) There are some memory initialization problems with the restart that get
+uncovered by -memory paranoid
+
+3) Groups don't get restarted completely properly.  This gets uncovered by
+the group reduction done by the CacheManager.
+
+
+

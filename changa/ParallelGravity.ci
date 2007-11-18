@@ -52,9 +52,12 @@ mainmodule ParallelGravity {
           char dim[];
         };
 
-	mainchare Main {
+	mainchare [migratable] Main {
 		entry Main();
-		entry [threaded] void nextStage();
+		entry [threaded] void setupICs();
+		entry [threaded] void initialForces();
+		entry [threaded] void doSimulation();
+		entry void restart();
 		entry void niceExit();
 	};
 	
@@ -71,7 +74,7 @@ mainmodule ParallelGravity {
                 entry void readytoSendORB(CkReductionMsg* m);
 	};
 	
-	group DataManager {
+	group [migratable] DataManager {
 		entry DataManager(const CkArrayID& treePieceID);
 		
 		entry void acceptCandidateKeys(const SFC::Key keys[n],
@@ -85,6 +88,7 @@ mainmodule ParallelGravity {
 	};
 	array [1D] TreePiece {
 		entry TreePiece(unsigned int numPieces);
+		entry void restart();
 
 		// DEBUGGING
 		entry void quiescence();

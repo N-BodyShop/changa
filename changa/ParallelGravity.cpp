@@ -75,6 +75,8 @@ int killAt;
 Main::Main(CkArgMsg* m) {
 	_cache = true;
 	mainChare = thishandle;
+	bIsRestarting = 0;
+	bChkFirst = 1;
 
 	// Floating point exceptions.
 	// feenableexcept(FE_OVERFLOW | FE_DIVBYZERO | FE_INVALID);
@@ -129,7 +131,7 @@ Main::Main(CkArgMsg* m) {
 		    sizeof(int),"ol", "Log Interval");
 	param.iCheckInterval = 1;
 	prmAddParam(prm, "iCheckInterval", paramInt, &param.iCheckInterval,
-		    sizeof(int),"oc", "Checkpoint Interval (IGNORED)");
+		    sizeof(int),"oc", "Checkpoint Interval");
 	param.bDoDensity = 1;
 	prmAddParam(prm, "bDoDensity", paramBool, &param.bDoDensity,
 		    sizeof(int),"den", "Enable Density outputs (IGNORED)");
@@ -301,17 +303,16 @@ Main::Main(CkArgMsg* m) {
 	    }
 	if(prmSpecified(prm, "iOrder")) {
 	    ckerr << "WARNING: ";
+#ifdef HEXADECAPOLE
+	    ckerr << "iOrder parameter ignored; expansion order is 4."
+#else
 	    ckerr << "iOrder parameter ignored; expansion order is 2."
+#endif
 		  << endl;
 	    }
 	if(prmSpecified(prm, "dTheta2")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "dTheta2 parameter ignored."
-		  << endl;
-	    }
-	if(prmSpecified(prm, "iCheckInterval")) {
-	    ckerr << "WARNING: ";
-	    ckerr << "iCheckInterval parameter ignored."
 		  << endl;
 	    }
 	if(prmSpecified(prm, "dExtraStore")) {
@@ -452,11 +453,11 @@ Main::Main(CkArgMsg* m) {
 	CkArrayOptions opts(numTreePieces); 
 	opts.setMap(myMap);
 
-	pieces = CProxy_TreePiece::ckNew(numTreePieces,opts);
+	CProxy_TreePiece pieces = CProxy_TreePiece::ckNew(numTreePieces,opts);
 	treeProxy = pieces;
 	
 	//create the DataManager
-	dataManager = CProxy_DataManager::ckNew(pieces);
+	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
 	dataManagerID = dataManager;
 
 	streamingProxy = pieces;
@@ -475,8 +476,16 @@ Main::Main(CkArgMsg* m) {
 	if(verbosity)
 	  ckerr << "Created " << numTreePieces << " pieces of tree" << endl;
 	
-	CProxy_Main(thishandle).nextStage();
+	CProxy_Main(thishandle).setupICs();
 }
+
+Main::Main(CkMigrateMessage* m) {
+    mainChare = thishandle;
+    bIsRestarting = 1;
+    sorter = CProxy_Sorter::ckNew();
+    CkPrintf("Main(CkMigrateMessage) called\n");
+    }
+
 
 void Main::niceExit() {
   static unsigned int count = 0;
@@ -495,7 +504,7 @@ void Main::getStartTime()
 		return;
 		}
 	    /* input time is expansion factor.  Convert */
-	    double dAStart = pieces[0].ckLocal()->fh.time; 
+	    double dAStart = treeProxy[0].ckLocal()->fh.time; 
 	    double z = 1.0/dAStart - 1.0;
 	    double aTo, tTo;
 	    dTime = csmExp2Time(param.csm, dAStart);
@@ -581,10 +590,10 @@ void Main::getStartTime()
 			  << aTo << endl;
 		}
 	    // convert to canonical comoving coordinates.
-	    pieces.velScale(dAStart*dAStart);
+	    treeProxy.velScale(dAStart*dAStart);
 	    }
 	else {  // not Comove
-	    dTime = pieces[0].ckLocal()->fh.time; 
+	    dTime = treeProxy[0].ckLocal()->fh.time; 
 	    if(verbosity > 0)
 		ckout << "Input file, Time:" << dTime << endl;
 	    double tTo = dTime + param.nSteps*param.dDelta;
@@ -628,7 +637,7 @@ void Main::advanceBigStep(int iStep) {
 	    }
         dKickFac[iRung] = csmComoveKickFac(param.csm, dTime, 0.5*dTimeSub);
       }
-      pieces.kick(activeRung, dKickFac, CkCallbackResumeThread());
+      treeProxy.kick(activeRung, dKickFac, CkCallbackResumeThread());
 
       // Dump frame may require a smaller step
       int driftRung = nextMaxRungIncDF(nextMaxRung);
@@ -647,7 +656,7 @@ void Main::advanceBigStep(int iStep) {
 		  ckerr << "Drift: Rung " << driftRung << " Delta "
 			<< dTimeSub << endl;
 	      double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
-	      pieces.drift(dDriftFac, CkCallbackResumeThread());
+	      treeProxy.drift(dDriftFac, CkCallbackResumeThread());
 
 	      // Advance time to end of smallest step
 	      dTime += dTimeSub;
@@ -683,7 +692,7 @@ void Main::advanceBigStep(int iStep) {
     /***** Resorting of particles and Domain Decomposition *****/
     ckerr << "Domain decomposition ...";
     double startTime = CkWallTimer();
-    sorter.startSorting(dataManager, numTreePieces, tolerance,
+    sorter.startSorting(dataManagerID, numTreePieces, tolerance,
                         CkCallbackResumeThread(), true);
     ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
@@ -692,7 +701,7 @@ void Main::advanceBigStep(int iStep) {
     if(lastActiveRung == 0) {
 	ckerr << "Load balancer ...";
 	startTime = CkWallTimer();
-	pieces.startlb(CkCallbackResumeThread());
+	treeProxy.startlb(CkCallbackResumeThread());
 	ckerr<< " took "<<(CkWallTimer() - startTime) << " seconds."
 	     << endl;
 	}
@@ -700,7 +709,7 @@ void Main::advanceBigStep(int iStep) {
     /******** Tree Build *******/
     ckerr << "Building trees ...";
     startTime = CkWallTimer();
-    pieces.buildTree(bucketSize, CkCallbackResumeThread());
+    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
     ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
 
@@ -710,9 +719,9 @@ void Main::advanceBigStep(int iStep) {
     startTime = CkWallTimer();
     // Set up Ewald Tables
     if(param.bPeriodic && param.bEwald)
-      pieces.EwaldInit(param.dEwhCut);
+      treeProxy.EwaldInit(param.dEwhCut);
     //pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
-    cacheManagerProxy.cacheSync(theta, activeRung, CkCallbackResumeThread());
+    streamingCache.cacheSync(theta, activeRung, CkCallbackResumeThread());
     ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
 
@@ -726,13 +735,13 @@ void Main::advanceBigStep(int iStep) {
     }
     ckerr << " (rungs " << activeRung << "-" << nextMaxRung << ")" << ":" << endl;
     CkCallback cb(CkCallback::resumeThread);
-    pieces.collectStatistics(cb);
+    treeProxy.collectStatistics(cb);
     CkReductionMsg *tps = (CkReductionMsg *) cb.thread_delay();
     ((TreePieceStatistics*)tps->getData())->printTo(ckerr);
 
     /********* Cache Statistics ********/
     CkCallback ccb(CkCallback::resumeThread);
-    cacheManagerProxy.collectStatistics(ccb);
+    streamingCache.collectStatistics(ccb);
     CkReductionMsg *cs = (CkReductionMsg *) ccb.thread_delay();
     ((CacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
@@ -753,27 +762,29 @@ void Main::advanceBigStep(int iStep) {
                                            dTime - 0.5*dTimeSub,
                                            0.5*dTimeSub);
       }
-      pieces.kick(activeRung, dKickFac, CkCallbackResumeThread());
+      treeProxy.kick(activeRung, dKickFac, CkCallbackResumeThread());
     }
 		
   }
 }
     
-void Main::nextStage() {
+// Load particles into pieces
+
+void Main::setupICs() {
   double startTime;
   double tolerance = 0.01;	// tolerance for domain decomposition
 
   // DEBUGGING
   //CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),pieces));
 
-  pieces.setPeriodic(param.nReplicas, param.fPeriod, param.bEwald,
+  treeProxy.setPeriodic(param.nReplicas, param.fPeriod, param.bEwald,
                      param.dEwCut, param.bPeriodic);
 
   /******** Particles Loading ********/
   ckerr << "Loading particles ...";
   startTime = CkWallTimer();
-  pieces.load(basefilename, CkCallbackResumeThread());
-  if(!(pieces[0].ckLocal()->bLoaded)) {
+  treeProxy.load(basefilename, CkCallbackResumeThread());
+  if(!(treeProxy[0].ckLocal()->bLoaded)) {
     // Try loading Tipsy format
     ckerr << " trying Tipsy ...";
 	    
@@ -785,8 +796,8 @@ void Main::nextStage() {
       CkExit();
       return;
     }
-    pieces.loadTipsy(basefilename, CkCallbackResumeThread());
-    ckerr << pieces[0].ckLocal()->tipsyHeader << endl;
+    treeProxy.loadTipsy(basefilename, CkCallbackResumeThread());
+    ckerr << treeProxy[0].ckLocal()->tipsyHeader << endl;
   }	
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
@@ -803,25 +814,54 @@ void Main::nextStage() {
 	
   if(prmSpecified(prm,"dSoft")) {
     ckerr << "Set Softening...\n";
-    pieces.setSoft(param.dSoft);
+    treeProxy.setSoft(param.dSoft);
   }
 	
   if(param.bPeriodic) {	// puts all particles within the boundary
-    pieces.drift(0.0, CkCallbackResumeThread());
+    treeProxy.drift(0.0, CkCallbackResumeThread());
   }
-  
   /***** Initial sorting of particles and Domain Decomposition *****/
   ckerr << "Initial domain decomposition ...";
   startTime = CkWallTimer();
-  sorter.startSorting(dataManager, numTreePieces, tolerance,
+  sorter.startSorting(dataManagerID, numTreePieces, tolerance,
                       CkCallbackResumeThread(), true);
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
   
+  initialForces();
+}
+
+// Callback to restart simulation after a checkpoint or after writing
+// a checkpoint.
+void
+Main::restart() 
+{
+    if(bIsRestarting) {
+	ckout << "Restarting at " << param.iStartStep << endl;
+	mainChare.initialForces();
+	}
+    else {
+	mainChare.doSimulation();
+	}
+    }
+
+// The restart callback needs to be an array entry, so we have a short
+// entry that simply calls the main entry.
+
+void
+TreePiece::restart() 
+{
+    mainChare.restart();
+    }
+
+void
+Main::initialForces()
+{
+  double startTime;
   /******** Tree Build *******/
   ckerr << "Building trees ...";
   startTime = CkWallTimer();
-  pieces.buildTree(bucketSize, CkCallbackResumeThread());
+  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
   
@@ -831,9 +871,9 @@ void Main::nextStage() {
   startTime = CkWallTimer();
   // Set up Ewald Tables
   if(param.bPeriodic && param.bEwald)
-    pieces.EwaldInit(param.dEwhCut);
+    treeProxy.EwaldInit(param.dEwhCut);
   //pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
-  cacheManagerProxy.cacheSync(theta, 0, CkCallbackResumeThread());
+  streamingCache.cacheSync(theta, 0, CkCallbackResumeThread());
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
   
@@ -841,13 +881,13 @@ void Main::nextStage() {
   /********* TreePiece Statistics ********/
   ckerr << "Total statistics initial iteration :" << endl;
   CkCallback cb(CkCallback::resumeThread);
-  pieces.collectStatistics(cb);
+  treeProxy.collectStatistics(cb);
   CkReductionMsg *tps = (CkReductionMsg *) cb.thread_delay();
   ((TreePieceStatistics*)tps->getData())->printTo(ckerr);
   
   /********* Cache Statistics ********/
   CkCallback ccb(CkCallback::resumeThread);
-  cacheManagerProxy.collectStatistics(ccb);
+  streamingCache.collectStatistics(ccb);
   CkReductionMsg *cs = (CkReductionMsg *) ccb.thread_delay();
   ((CacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
@@ -867,6 +907,19 @@ void Main::nextStage() {
 	  }
       }
      
+  doSimulation();
+}
+
+// Principal method which does all the coordination of the simulation
+// over timesteps.
+
+void
+Main::doSimulation()
+{
+  double startTime;
+  char achLogFileName[MAXPATHLEN];
+  sprintf(achLogFileName, "%s.log", param.achOutName);
+
 
   for(int iStep = param.iStartStep+1; iStep <= param.nSteps; iStep++){
 
@@ -887,6 +940,21 @@ void Main::nextStage() {
       writeOutput(iStep);
     }
 	  
+    if(iStep%param.iCheckInterval == 0) {
+	char achCheckFileName[MAXPATHLEN];
+	if(bChkFirst) {
+	    sprintf(achCheckFileName, "%s.chk0", param.achOutName);
+	    bChkFirst = 0;
+	    }
+	else {
+	    sprintf(achCheckFileName, "%s.chk1", param.achOutName);
+	    bChkFirst = 1;
+	    }
+	param.iStartStep = iStep; // update so that restart continues on
+	CkCallback cb(CkIndex_TreePiece::restart(), treeProxy[0]);
+	CkStartCheckpoint(achCheckFileName, cb);
+	return;
+    }
     if (killAt > 0 && killAt == iStep) break;
 
   } // End of main computation loop
@@ -897,14 +965,14 @@ void Main::nextStage() {
     ckerr << "Outputting accelerations ...";
     startTime = CkWallTimer();
     if(printBinaryAcc)
-      pieces[0].outputAccelerations(OrientedBox<double>(),
+      treeProxy[0].outputAccelerations(OrientedBox<double>(),
                                     "acc2", CkCallbackResumeThread());
     else {
-	pieces.reOrder(CkCallbackResumeThread());
-	pieces[0].outputAccASCII("acc2", CkCallbackResumeThread());
+	treeProxy.reOrder(CkCallbackResumeThread());
+	treeProxy[0].outputAccASCII("acc2", CkCallbackResumeThread());
 	}
 	
-    pieces[0].outputIOrderASCII("iord", CkCallbackResumeThread());
+    treeProxy[0].outputIOrderASCII("iord", CkCallbackResumeThread());
     ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
   }
@@ -914,7 +982,7 @@ void Main::nextStage() {
   startTime = CkWallTimer();
   Interval<unsigned int> dummy;
 	
-  pieces[0].outputStatistics(dummy, dummy, dummy, dummy, 0, CkCallbackResumeThread());
+  treeProxy[0].outputStatistics(dummy, dummy, dummy, dummy, 0, CkCallbackResumeThread());
 
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 #endif
@@ -929,7 +997,7 @@ void Main::nextStage() {
   ckerr << "Done." << endl;
 	
 #ifdef HPM_COUNTER
-  cacheManagerProxy.stopHPM(CkCallbackResumeThread());
+  streamingCache.stopHPM(CkCallbackResumeThread());
 #endif
   ckerr << endl << "******************" << endl << endl; 
   CkExit();
@@ -942,7 +1010,7 @@ void Main::nextStage() {
 
 void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
     CkCallback ccb(CkCallback::resumeThread);
-    pieces.calcEnergy(ccb);
+    treeProxy.calcEnergy(ccb);
     CkReductionMsg *msg = (CkReductionMsg *) ccb.thread_delay();
     double *dEnergy = (double *) msg->getData();
 
@@ -999,7 +1067,7 @@ void Main::writeOutput(int iStep)
 	startTime = CkWallTimer();
 	}
     
-    pieces.reOrder(CkCallbackResumeThread());
+    treeProxy.reOrder(CkCallbackResumeThread());
     if(verbosity)
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
@@ -1008,7 +1076,7 @@ void Main::writeOutput(int iStep)
 	ckerr << "Writing output ...";
 	startTime = CkWallTimer();
 	}
-    pieces.setupWrite(0, 0, achFile, dOutTime, dvFac,
+    treeProxy.setupWrite(0, 0, achFile, dOutTime, dvFac,
 		      CkCallbackResumeThread());
     if(verbosity)
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -1020,7 +1088,7 @@ int Main::adjust(int iKickRung)
     CkCallback ccb(CkCallback::resumeThread);
     double a = csmTime2Exp(param.csm,dTime);
     
-    pieces.adjust(iKickRung, param.bEpsAccStep, param.bGravStep, param.dEta,
+    treeProxy.adjust(iKickRung, param.bEpsAccStep, param.bGravStep, param.dEta,
 		  param.dDelta, 1.0/(a*a*a), ccb);
 
     CkReductionMsg *msg = (CkReductionMsg *) ccb.thread_delay();
@@ -1032,7 +1100,7 @@ int Main::adjust(int iKickRung)
 void Main::rungStats() 
 {
     CkCallback ccb(CkCallback::resumeThread);
-    pieces.rungStats(ccb);
+    treeProxy.rungStats(ccb);
     CkReductionMsg *msg = (CkReductionMsg *) ccb.thread_delay();
     int *nInRung = (int *)msg->getData();
     
@@ -1068,7 +1136,7 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 		  sprintf(achFile,"%s.photogenic", param.achOutName);
 
 		  CkCallback ccb(CkCallback::resumeThread);
-		  pieces.setTypeFromFile(TYPE_PHOTOGENIC, achFile, ccb);
+		  treeProxy.setTypeFromFile(TYPE_PHOTOGENIC, achFile, ccb);
 		  CkReductionMsg *msg = (CkReductionMsg *) ccb.thread_delay();
 		  int *nSet = (int *)msg->getData();
 		  if (verbosity)
@@ -1118,7 +1186,7 @@ void Main::DumpFrame(double dTime, double dStep)
 		
 		if (df->bGetCentreOfMass) {
 		    CkCallback ccb(CkCallback::resumeThread);
-		    pieces.getCOM(ccb);
+		    treeProxy.getCOM(ccb);
 		    msgCOM = (CkReductionMsg *) ccb.thread_delay();
 		    com = (double *)msgCOM->getData();
 		    }
@@ -1126,7 +1194,7 @@ void Main::DumpFrame(double dTime, double dStep)
 		if (df->bGetPhotogenic) {
 		    CkCallback ccb(CkCallback::resumeThread);
 		    int iType = TYPE_PHOTOGENIC;
-		    pieces.getCOMByType(iType, ccb);
+		    treeProxy.getCOMByType(iType, ccb);
 		    msgCOMbyType = (CkReductionMsg *) ccb.thread_delay();
 		    com = (double *)msgCOMbyType->getData();
 		  }
@@ -1142,7 +1210,7 @@ void Main::DumpFrame(double dTime, double dStep)
 
 		CkCallback ccbDF(CkCallback::resumeThread);
 		
-		pieces.DumpFrame(in, ccbDF);
+		treeProxy.DumpFrame(in, ccbDF);
 		CkReductionMsg *msgDF = (CkReductionMsg *) ccbDF.thread_delay();
 		// N.B. Beginning of message contains the DumpFrame
 		// parameters needed for proper merging.
@@ -1171,6 +1239,21 @@ void registerStatistics() {
   hpmInit(1,"ChaNGa");
 #endif
 }
+
+void Main::pup(PUP::er& p) 
+{
+    Chare::pup(p);
+    p | basefilename;
+    p | theta;
+    p | dTime;
+    p | dEcosmo;
+    p | dUOld;
+    p | dTimeOld;
+    p | printBinaryAcc;
+    p | param;
+    p | bDumpFrame;
+    p | bChkFirst;
+    }
 
 #include "ParallelGravity.def.h"
 #include "CacheManager.def.h"

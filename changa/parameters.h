@@ -54,4 +54,54 @@ typedef struct parameters {
     double dDumpFrameTime;
     } Parameters;
 
+inline void operator|(PUP::er &p, Parameters &param) {
+    p|param.bDoDensity;
+    p|param.bDoGravity;
+    p|param.dSoft;
+    p|param.nSteps;
+    p|param.iStartStep;
+    p|param.dDelta;
+    p|param.bEpsAccStep;
+    p|param.bGravStep;
+    p|param.dEta;
+    p|param.iMaxRung;
+    p|param.bCannonical;
+    p|param.bKDK;
+    p|param.bPeriodic;
+    p|param.nReplicas;
+    p|param.fPeriod;
+    p|param.bEwald;
+    p|param.dEwCut;
+    p|param.dEwhCut;
+    p|param.dTheta2;
+    p|param.iOrder;
+    if(p.isUnpacking())
+ 	csmInitialize(&param.csm);
+    p|*param.csm;
+    p|param.dRedTo;
+    p|param.dMsolUnit;
+    p|param.dKpcUnit;
+    p|param.dGasConst;
+    p|param.dErgPerGmUnit;
+    p|param.dGmPerCcUnit;
+    p|param.dSecUnit;
+    p|param.dComovingGmPerCcUnit;
+    p|param.bStandard;
+    p|param.bOverwrite;
+    p|param.bParaRead;
+    p|param.bParaWrite;
+    p(param.achInFile, 256);
+    p(param.achOutName, 256);
+    p|param.bStaticTest;
+    p|param.iOutInterval;
+    p|param.iCheckInterval;
+    p|param.iLogInterval;
+    p|param.dExtraStore;
+    p|param.dDumpFrameStep;
+    p|param.dDumpFrameTime;
+    }
+
+#if 0
+PUPbytes(Parameters);
+#endif
 #endif

@@ -26,7 +26,7 @@
 
 PUPbytes(InDumpFrame);
 
-#ifdef HPM_COUNTER
+#ifdef HPM_COUNTER	
 #include <libhpm.h>
 #endif
 
@@ -277,16 +277,12 @@ inline double RungToDt(double dDelta, int iRung) {
   return dDelta*RungToSubsteps(iRung)*MAXSUBSTEPS_INV;
 }
 
-class Main : public Chare {
+class Main : public CBase_Main {
 	std::string basefilename;
-	CProxy_TreePiece pieces;
-	CProxy_DataManager dataManager;
 	CProxy_Sorter sorter;
 	int nTotalParticles;
 	double theta;	
 	double dTime;		/* Simulation time */
-	double dSoft;
-	int bSetSoft;
 	double dEcosmo;		/* variables for integrating
 				   Lazer-Irvine eq. */
 	double dUOld;
@@ -299,18 +295,18 @@ class Main : public Chare {
 	 */
 	int bDumpFrame;
 	struct DumpFrameContext *df;
+	int bIsRestarting;
+	int bChkFirst;		/* alternate between 0 and 1 for checkpoint */
 public:
 		
 	Main(CkArgMsg* m);
+	Main(CkMigrateMessage *m);
 
 	void niceExit();
-	/**
-	 * Principal method which does all the coordination of the work.
-	 * It is threaded, so it suspends while waiting for the TreePieces to
-	 * perform the task. It calls TreePieces for: 1) load, 2) buildTree, 3)
-	 * calculateGravity and startlb for the desired number of iterations.
-	 */
-	void nextStage();
+	void setupICs();
+	void initialForces();
+	void doSimulation();
+	void restart();
         void advanceBigStep(int);
 	int adjust(int iKickRung);
 	void rungStats();
@@ -323,6 +319,7 @@ public:
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
 	int nextMaxRungIncDF(int nextMaxRung);
+	void pup(PUP::er& p);
 };
 
 class TreePiece : public CBase_TreePiece {
@@ -738,6 +735,7 @@ public:
 	  usesAtSync = CmiTrue;
 	  localCache = NULL;
 	  bucketReqs = NULL;
+	  numChunks=-1;
 	  prefetchRoots = NULL;
 	  remainingChunk = NULL;
           ewt = NULL;
@@ -778,6 +776,8 @@ public:
           if (verbosity>1) ckout <<"Finished deallocation of treepiece "<<thisIndex<<endl;
 	}
 	
+	void restart();
+
 	void setPeriodic(int nReplicas, double fPeriod, int bEwald,
 			 double fEwCut, int bPeriod);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);

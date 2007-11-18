@@ -2,7 +2,7 @@ module CacheManager {
 	readonly CProxy_CacheManager cacheManagerProxy;
 	extern message FillNodeMsg;
 
-	group CacheManager {
+	group [migratable] CacheManager {
 		entry CacheManager(int size);
 		//entry void recvNodes(CacheKey key,int from,CacheNode &node);
 		//entry void recvNodes(int count,Key keys[count],CacheNode nodes[count],int );

@@ -31,6 +31,17 @@ double csmGrowthFacDot(CSM csm, double dExp);
 double csmExp2Om(CSM csm, double dExp);
 #if defined(__cplusplus)
 }
+
+inline void operator|(PUP::er &p, struct csmContext &csm) {
+    p|csm.bComove;	   
+    p|csm.dHubble0;
+    p|csm.dOmega0;
+    p|csm.dLambda;
+    p|csm.dOmegaRad;
+    p|csm.dQuintess;
+    p|csm.dOmegab;
+    }
+
 #endif
      
 #endif

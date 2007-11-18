@@ -348,6 +348,7 @@ private:
  public:
 
 	CacheManager(int size);
+	CacheManager(CkMigrateMessage *);
 	~CacheManager(){};
 
 	/** @brief Called by TreePiece to request for a particular node. It can

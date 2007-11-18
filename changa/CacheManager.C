@@ -75,6 +75,34 @@ CacheManager::CacheManager(int size){
   if (verbosity) CkPrintf("Cache: accepting at most %llu nodes\n",maxSize);
 }
 
+CacheManager::CacheManager(CkMigrateMessage* m) {
+    //  ckerr << "CacheManager(CkMigrateMessage) called\n";
+  numChunks = 0;
+  prefetchRoots = NULL;
+  nodeCacheTable = NULL;
+  particleCacheTable = NULL;
+  chunkAck = NULL;
+  storedNodes = 0;
+  storedParticles = 0;
+  //proxyInitialized = false;
+  iterationNo=0;
+#if COSMO_STATS > 0
+  nodesArrived = 0;
+  nodesMessages = 0;
+  nodesDuplicated = 0;
+  nodesMisses = 0;
+  nodesLocal = 0;
+  particlesArrived = 0;
+  particlesTotalArrived = 0;
+  particlesMisses = 0;
+  particlesLocal = 0;
+  totalNodesRequested = 0;
+  totalParticlesRequested = 0;
+#endif
+
+  treePieceLocMgr = NULL;
+    }
+
 CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chunk,CacheKey key,int reqID,bool isPrefetch){
   /*
     if(!proxyInitialized){

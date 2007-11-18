@@ -16,6 +16,12 @@ DataManager::DataManager(const CkArrayID& treePieceID) {
 	localCache = NULL;
 	//interp = 0;
 }
+
+DataManager::DataManager(CkMigrateMessage *m) 
+{
+    localCache = NULL;
+    }
+
 void DataManager::acceptCandidateKeys(const SFC::Key* keys, const int n, int isRefine, const CkCallback& cb) {
   if (localCache == NULL) {
     localCache = cacheManagerProxy.ckLocalBranch();
@@ -66,3 +72,10 @@ void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, 
 	//for(vector<int>::iterator iter = myTreePieces.begin(); iter != myTreePieces.end(); ++iter)
 	//	treePieces[*iter].unshuffleParticles(cb);
 }
+
+void DataManager::pup(PUP::er& p) 
+{
+    CBase_DataManager::pup(p);
+    p | treePieces;
+    }
+

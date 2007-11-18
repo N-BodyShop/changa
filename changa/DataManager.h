@@ -43,6 +43,7 @@ protected:
 public:
 	
 	DataManager(const CkArrayID& treePieceID);
+	DataManager(CkMigrateMessage *);
 	
 	~DataManager() { }
 	
@@ -50,7 +51,7 @@ public:
 	void acceptCandidateKeys(const SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
 	/// Called by the Sorter, I save these final keys and the list of which TreePiece is responsible for which interval
 	void acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb);
-	
+	void pup(PUP::er& p);
 };
 
 #endif //DATAMANAGER_H
