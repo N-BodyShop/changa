@@ -52,6 +52,7 @@ typedef struct parameters {
     double dExtraStore;		/* Unused, here for PKDGRAV compatibility */
     double dDumpFrameStep;
     double dDumpFrameTime;
+    int iDirector;
     } Parameters;
 
 inline void operator|(PUP::er &p, Parameters &param) {
@@ -99,6 +100,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dExtraStore;
     p|param.dDumpFrameStep;
     p|param.dDumpFrameTime;
+    p|param.iDirector;
     }
 
 #if 0

@@ -294,7 +294,7 @@ class Main : public CBase_Main {
 	 ** Tracking for frame dumping function
 	 */
 	int bDumpFrame;
-	struct DumpFrameContext *df;
+	struct DumpFrameContext **df;
 	int bIsRestarting;
 	int bChkFirst;		/* alternate between 0 and 1 for checkpoint */
 public:

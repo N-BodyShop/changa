@@ -221,7 +221,7 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"achInFile",paramString,param.achInFile,
 		    256, "I", "input file name (or base file name)");
 	strcpy(param.achOutName,"pargrav");
-	prmAddParam(prm,"achOutName",3,param.achOutName,256,"o",
+	prmAddParam(prm,"achOutName",paramString,param.achOutName,256,"o",
 				"output name for snapshots and logfile");
 	param.dExtraStore = 0;
 	prmAddParam(prm,"dExtraStore",paramDouble,&param.dExtraStore,
@@ -237,6 +237,10 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dDumpFrameTime",paramDouble,&param.dDumpFrameTime,
 		    sizeof(double), "dft",
 		    "<time interval between dumped frames> = -1 (disabled)");
+	param.iDirector = 1;
+	prmAddParam(prm,"iDirector",paramInt,&param.iDirector,sizeof(int),
+		    "idr","<number of director files: 1, 2, 3> = 1");
+
 	
 	param.bStaticTest = 0;
 	prmAddParam(prm, "bStaticTest", paramBool, &param.bStaticTest,
@@ -287,6 +291,7 @@ Main::Main(CkArgMsg* m) {
 	    CkExit();
 	    }
 	
+	df = (DumpFrameContext **) malloc(param.iDirector*sizeof(*df));
 	if(prmSpecified(prm, "iMaxRung")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "iMaxRung parameter ignored. MaxRung is " << MAXRUNG
@@ -606,8 +611,8 @@ void Main::getStartTime()
 // determine if we need a smaller step for dumping frames
 inline int Main::nextMaxRungIncDF(int nextMaxRung) 
 {
-    if (bDumpFrame && nextMaxRung < df->iMaxRung)
-	nextMaxRung = df->iMaxRung;
+    if (bDumpFrame && nextMaxRung < df[0]->iMaxRung)
+	nextMaxRung = df[0]->iMaxRung;
     return nextMaxRung;
 }
 
@@ -665,9 +670,9 @@ void Main::advanceBigStep(int iStep) {
 	       ** Dump Frame
 	       */
 	      double dStep = iStep + ((double) currentStep)/MAXSUBSTEPS;
-	      if (param.dDumpFrameTime > 0 && dTime >= df->dTime)
+	      if (param.dDumpFrameTime > 0 && dTime >= df[0]->dTime)
 		  DumpFrame(dTime, dStep );
-	      else if(param.dDumpFrameStep > 0 && dStep >= df->dStep) 
+	      else if(param.dDumpFrameStep > 0 && dStep >= df[0]->dStep) 
 		  DumpFrame(dTime, dStep );
 	      }
     }
@@ -897,13 +902,22 @@ Main::initialForces()
    */
   // Currently for restarts, we have to set iStartStep.  Once we have more
   // complete restarts, this may be changed.
-  // if(DumpFrameInit(dTime, 1.0*param.iStartStep, param.iStartStep > 0)
   if(DumpFrameInit(dTime, 0.0, param.iStartStep > 0)
-     && df->dDumpFrameStep > 0) {
+     && df[0]->dDumpFrameStep > 0) {
       /* Bring frame count up to correct place for restart. */
-      while(df->dStep + df->dDumpFrameStep < param.iStartStep) {
-	  df->dStep += df->dDumpFrameStep;
-	  df->nFrame++;
+      while(df[0]->dStep + df[0]->dDumpFrameStep < param.iStartStep) {
+	  df[0]->dStep += df[0]->dDumpFrameStep;
+	  df[0]->nFrame++;
+	  }
+      // initialize the rest of the dumpframes
+
+      if (param.iDirector > 1) {
+	  int j;
+	  for(j=0; j < param.iDirector; j++) {
+	      df[j]->dStep = df[0]->dStep;
+	      df[j]->dDumpFrameStep = df[0]->dDumpFrameStep;
+	      df[j]->nFrame = df[0]->nFrame;
+	      } 
 	  }
       }
      
@@ -1121,17 +1135,24 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 	
 	if (param.dDumpFrameStep > 0 || param.dDumpFrameTime > 0) {
 		bDumpFrame = 1;
+		int i;
 
-		achFile[0] = '\0';
-		sprintf(achFile,"%s.director", param.achOutName);
-		
-		dfInitialize( &df, param.dSecUnit/SECONDSPERYEAR, 
-			      dTime, param.dDumpFrameTime, dStep, 
-			      param.dDumpFrameStep, param.dDelta, 
-			      param.iMaxRung, verbosity, achFile );
-
+		for(i = 0; i < param.iDirector; i++) {
+		    achFile[0] = '\0';
+		    if(i == 0) {
+			sprintf(achFile,"%s.director", param.achOutName);
+			}
+		    else {
+			sprintf(achFile,"%s.director%d", param.achOutName, i+1);
+			}
+		    dfInitialize( &df[i], param.dSecUnit/SECONDSPERYEAR, 
+				  dTime, param.dDumpFrameTime, dStep, 
+				  param.dDumpFrameStep, param.dDelta, 
+				  param.iMaxRung, verbosity, achFile );
+		    }
+		    
 		/* Read in photogenic particle list */
-		if (df->bGetPhotogenic) {
+		if (df[0]->bGetPhotogenic) {
 		  achFile[0] = 0;
 		  sprintf(achFile,"%s.photogenic", param.achOutName);
 
@@ -1155,9 +1176,11 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 
 void Main::DumpFrame(double dTime, double dStep)
 {
-	double dExp;
+    double dExp;
+    int i;
 
-	if (df->iDimension == DF_3D) {
+    for(i = 0; i < param.iDirector; i++) {
+	if (df[i]->iDimension == DF_3D) {
 #ifdef VOXEL
 	    assert(0);		// Unimplemented
 		/* 3D Voxel Projection */
@@ -1184,14 +1207,14 @@ void Main::DumpFrame(double dTime, double dStep)
 		CkReductionMsg *msgCOM;
 		CkReductionMsg *msgCOMbyType;
 		
-		if (df->bGetCentreOfMass) {
+		if (df[i]->bGetCentreOfMass) {
 		    CkCallback ccb(CkCallback::resumeThread);
 		    treeProxy.getCOM(ccb);
 		    msgCOM = (CkReductionMsg *) ccb.thread_delay();
 		    com = (double *)msgCOM->getData();
 		    }
 
-		if (df->bGetPhotogenic) {
+		if (df[i]->bGetPhotogenic) {
 		    CkCallback ccb(CkCallback::resumeThread);
 		    int iType = TYPE_PHOTOGENIC;
 		    treeProxy.getCOMByType(iType, ccb);
@@ -1200,13 +1223,13 @@ void Main::DumpFrame(double dTime, double dStep)
 		  }
 
 #if (0)
-		if (df->bGetOldestStar) {
+		if (df[i]->bGetOldestStar) {
 		  pstOldestStar(msr->pst, NULL, 0, &com[0], NULL);
 		  }
 #endif
 
 		dExp = csmTime2Exp(param.csm,dTime);
-		dfSetupFrame(df, dTime, dStep, dExp, com, &in );
+		dfSetupFrame(df[i], dTime, dStep, dExp, com, &in );
 
 		CkCallback ccbDF(CkCallback::resumeThread);
 		
@@ -1217,18 +1240,19 @@ void Main::DumpFrame(double dTime, double dStep)
 		void *Image = ((char *)msgDF->getData())
 		    + sizeof(struct inDumpFrame);
 
-		dfFinishFrame(df, dTime, dStep, &in, Image );
+		dfFinishFrame(df[i], dTime, dStep, &in, Image );
 		
 		delete msgDF;
 
-		if (df->bGetCentreOfMass) {
+		if (df[i]->bGetCentreOfMass) {
 		    delete msgCOM;
 		    }
-		if (df->bGetPhotogenic) {
+		if (df[i]->bGetPhotogenic) {
 		    delete msgCOMbyType;
 		    }
 		}
 	}
+    }
 
 void registerStatistics() {
 #if COSMO_STATS > 0
