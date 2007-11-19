@@ -11,8 +11,14 @@ To run the code:
 ./charmrun +p <procs> ChaNGa <param.file> [ additional options ]
 
 This will work on many machines, and either run directly the application or
-submit through the local scheduler. On some machines nevertheless the application
-will need to be submitted manually.
+submit through the local scheduler. On some machines nevertheless the
+application will need to be submitted manually.
 
 More information are available in the online wiki:
 http://librarian.phys.washington.edu/astro/index.php/Research:ChaNGa
+
+Several test simulations are included in subdirectories:
+A small cosmological simulation is included in testcosmo.
+A small globular cluster simulation is included in teststep.
+For simple performance benchmarking, arbitrary size simulations can be done
+in testdata.

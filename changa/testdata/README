@@ -1,0 +1,16 @@
+This directory contains a program to generate an arbitary size input
+file to test ChaNGa performance.  The data generated will will be a
+Poisson distribution of particles in a cubical volume, and the
+parameter file will have ChaNGa integrate this as a cosmological
+simulation.  Note that unless you are living before 1982, this volume
+is not a representation of a realistic cosmological model.
+
+Usage:
+
+The size of the data is set by the value of the "N" variable in the
+Makefile.  The dataset can be created by typing "make", which creates
+the particle data in the file "testdata.tbin".  "testdata.param" can
+then be used as an argument to ChaNGa to run a simulation based on the
+dataset.  I.e. "charmrun +p 2 ChaNGa testdata.param".  A value of
+100000 for N takes about a minute to calculate gravity on a GHz class
+processor.
