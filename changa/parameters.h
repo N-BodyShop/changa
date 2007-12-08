@@ -12,6 +12,7 @@ typedef struct parameters {
     double dSoft;
     int nSteps;
     int iStartStep;
+    int iWallRunTime;
     double dDelta;
     int bEpsAccStep;
     int bGravStep;
@@ -61,6 +62,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dSoft;
     p|param.nSteps;
     p|param.iStartStep;
+    p|param.iWallRunTime;
     p|param.dDelta;
     p|param.bEpsAccStep;
     p|param.bGravStep;

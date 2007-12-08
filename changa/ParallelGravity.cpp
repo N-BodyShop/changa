@@ -77,6 +77,7 @@ Main::Main(CkArgMsg* m) {
 	mainChare = thishandle;
 	bIsRestarting = 0;
 	bChkFirst = 1;
+	dSimStartTime = CkWallTimer();
 
 	// Floating point exceptions.
 	// feenableexcept(FE_OVERFLOW | FE_DIVBYZERO | FE_INVALID);
@@ -102,6 +103,10 @@ Main::Main(CkArgMsg* m) {
 	param.iStartStep = 0;
 	prmAddParam(prm, "iStartStep", paramInt, &param.iStartStep,
 		    sizeof(int),"nstart", "Initial step numbering");
+	param.iWallRunTime = 0;
+	prmAddParam(prm,"iWallRunTime",paramInt,&param.iWallRunTime,
+		    sizeof(int),"wall",
+		    "<Maximum Wallclock time (in minutes) to run> = 0 = infinite");
 
         killAt = 0;
         prmAddParam(prm, "killAt", paramInt, &killAt,
@@ -812,7 +817,7 @@ void Main::setupICs() {
   char achLogFileName[MAXPATHLEN];
   sprintf(achLogFileName, "%s.log", param.achOutName);
   ofstream ofsLog(achLogFileName, ios_base::trunc);
-  ofsLog << "# Starting ParallelGravity" << endl;
+  ofsLog << "# Starting ChaNGa" << endl;
   ofsLog.close();
 	
   prmLogParam(prm, achLogFileName);
@@ -836,17 +841,48 @@ void Main::setupICs() {
   initialForces();
 }
 
+int CheckForStop()
+{
+	/*
+	 ** Checks for existence of STOPFILE in run directory. If
+	 ** found, the file is removed and the return status is set
+	 ** to 1, otherwise 0. 
+	 */
+
+	FILE *fp = NULL;
+	char *achFile = "STOP";
+
+	if ((fp = fopen(achFile,"r")) != NULL) {
+		(void) printf("User interrupt detected.\n");
+		(void) fclose(fp);
+		(void) unlink(achFile);
+		return 1;
+		}
+	return 0;
+	}
+
 // Callback to restart simulation after a checkpoint or after writing
 // a checkpoint.
 void
 Main::restart() 
 {
     if(bIsRestarting) {
+	dSimStartTime = CkWallTimer();
 	ckout << "Restarting at " << param.iStartStep << endl;
+	char achLogFileName[MAXPATHLEN];
+	sprintf(achLogFileName, "%s.log", param.achOutName);
+	ofstream ofsLog(achLogFileName, ios_base::app);
+	ofsLog << "# ReStarting ChaNGa" << endl;
+	ofsLog.close();
 	mainChare.initialForces();
 	}
     else {
-	mainChare.doSimulation();
+	ofstream ofsCheck("lastcheckpoint", ios_base::trunc);
+	ofsCheck << bChkFirst << endl;
+	if(iStop)
+	    CkExit();
+	else
+	    mainChare.doSimulation();
 	}
     }
 
@@ -947,14 +983,26 @@ Main::doSimulation()
     if(iStep%param.iLogInterval == 0) {
 	calcEnergy(dTime, stepTime, achLogFileName);
     }
+    iStop = CheckForStop();
     /*
      * Writing of intermediate outputs can be done here.
      */
-    if(iStep%param.iOutInterval == 0) {
-      writeOutput(iStep);
+    if(iStep == param.nSteps || iStop || iStep%param.iOutInterval == 0) {
+	writeOutput(iStep);
     }
 	  
-    if(iStep%param.iCheckInterval == 0) {
+    if(!iStop && param.iWallRunTime > 0) {
+	if (param.iWallRunTime*60. - (CkWallTimer()-dSimStartTime)
+	    < stepTime*1.5) {
+	    ckout << "RunTime limit exceeded.  Writing checkpoint and exiting.\n";
+	    ckout << "    iWallRunTime(sec): " << param.iWallRunTime*60
+		  << " Time running: " << CkWallTimer() - dSimStartTime
+		  << " Last step: " << stepTime << endl;
+	    iStop = 1;
+	    }
+	}
+    
+    if(iStop || iStep%param.iCheckInterval == 0) {
 	char achCheckFileName[MAXPATHLEN];
 	if(bChkFirst) {
 	    sprintf(achCheckFileName, "%s.chk0", param.achOutName);
@@ -965,11 +1013,12 @@ Main::doSimulation()
 	    bChkFirst = 1;
 	    }
 	param.iStartStep = iStep; // update so that restart continues on
+	bIsRestarting = 0;
 	CkCallback cb(CkIndex_TreePiece::restart(), treeProxy[0]);
 	CkStartCheckpoint(achCheckFileName, cb);
 	return;
     }
-    if (killAt > 0 && killAt == iStep) break;
+    if (iStop || (killAt > 0 && killAt == iStep)) break;
 
   } // End of main computation loop
 
@@ -1266,7 +1315,7 @@ void registerStatistics() {
 
 void Main::pup(PUP::er& p) 
 {
-    Chare::pup(p);
+    CBase_Main::pup(p);
     p | basefilename;
     p | theta;
     p | dTime;

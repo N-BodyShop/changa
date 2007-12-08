@@ -75,7 +75,7 @@ CacheManager::CacheManager(int size){
   if (verbosity) CkPrintf("Cache: accepting at most %llu nodes\n",maxSize);
 }
 
-CacheManager::CacheManager(CkMigrateMessage* m) {
+CacheManager::CacheManager(CkMigrateMessage* m) : CBase_CacheManager(m) {
     //  ckerr << "CacheManager(CkMigrateMessage) called\n";
   numChunks = 0;
   prefetchRoots = NULL;

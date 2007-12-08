@@ -5,6 +5,7 @@ nSteps          = 100
 dTheta          = 0.7
 dDelta          = .01
 iOutInterval    = 10
+iCheckInterval    = 2
 achInFile       = king_soft.bin
 achOutName      = pkdtest
 iMaxRung        = 1

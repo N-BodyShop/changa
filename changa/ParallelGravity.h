@@ -297,6 +297,9 @@ class Main : public CBase_Main {
 	struct DumpFrameContext **df;
 	int bIsRestarting;
 	int bChkFirst;		/* alternate between 0 and 1 for checkpoint */
+	double dSimStartTime;   // Start time for entire simulation
+	int iStop;		/* indicate we're stopping the
+				   simulation early */
 public:
 		
 	Main(CkArgMsg* m);

@@ -17,8 +17,7 @@ DataManager::DataManager(const CkArrayID& treePieceID) {
 	//interp = 0;
 }
 
-DataManager::DataManager(CkMigrateMessage *m) 
-{
+DataManager::DataManager(CkMigrateMessage *m) : CBase_DataManager(m) {
     localCache = NULL;
     }
 

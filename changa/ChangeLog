@@ -1,3 +1,10 @@
+2007-12-06  Tom Quinn  <trq@raclette>
+
+	* ParallelGravity.cpp : Checkpointing seems to work now.  Also
+	added an "STOP" file option (create a file called "STOP" to stop a
+	running simulation) and a "-wall" option (specify wall clock time
+	of simulation).
+
 2007-08-19  Tom Quinn  <trq@raclette>
 
 	* MultipoleMoments.h, Ewald.C, ParallelGravity.h, TreePiece.cpp,

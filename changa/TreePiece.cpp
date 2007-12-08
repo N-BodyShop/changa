@@ -4304,7 +4304,6 @@ void TreePiece::pup(PUP::er& p) {
   int notNull = (root==NULL)?0:1;
   p | notNull;
   if (notNull == 1) {
-    ckout <<thisIndex<<" pupping tree"<<endl;
     p | (*root);
     if(p.isUnpacking()){
       //  nodeLookupTable[root->getKey()]=root;
