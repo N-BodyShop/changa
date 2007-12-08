@@ -88,7 +88,7 @@ void prmArgUsage(PRM prm)
 	pn = prm->pnHead;
 	while (pn) {
 		if (pn->pszArg && pn->pszArgUsage) {
-			if (pn->iType == 0) {
+			if (pn->iType == paramBool) {
 				printf("[+%s][-%s] %s\n",pn->pszArg,pn->pszArg,
 					   pn->pszArgUsage);
 				}
@@ -116,14 +116,14 @@ void prmLogParam(PRM prm, char *pszFile)
     pn = prm->pnHead;
     while (pn) {
 	switch (pn->iType) {
-	case 0:
-	case 1:
+	case paramBool:
+	case paramInt:
 	    fprintf(fpLog, "# %s: %d\n", pn->pszName, *((int *)pn->pValue));
 	    break;
-	case 2:
+	case paramDouble:
 	    fprintf(fpLog, "# %s: %g\n", pn->pszName, *((double *)pn->pValue));
 	    break;
-	case 3:
+	case paramString:
 	    fprintf(fpLog, "# %s: %s\n", pn->pszName, (char *)pn->pValue);
 	    }
 	pn = pn->pnNext;
@@ -186,22 +186,22 @@ int prmParseParam(PRM prm,char *pszFile)
 			if (*p == 0) goto syntax_error;
 			}
 		switch (pn->iType) {
-		case 0:
+		case paramBool:
 			assert(pn->iSize == sizeof(int));
 			ret = sscanf(p,"%d",(int *)pn->pValue);
 			if (ret != 1) goto syntax_error;
 			break;
-		case 1:
+		case paramInt:
 			assert(pn->iSize == sizeof(int));
 			ret = sscanf(p,"%d",(int *)pn->pValue);
 			if (ret != 1) goto syntax_error;
 			break;
-		case 2:
+		case paramDouble:
 			assert(pn->iSize == sizeof(double));
 			ret = sscanf(p,"%lf",(double *)pn->pValue);
 			if (ret != 1) goto syntax_error;
 			break;
- 		case 3:
+ 		case paramString:
 			/*
 			 ** Make sure there is enough space to handle the string.
 			 ** This is a CONSERVATIVE test.
@@ -273,7 +273,7 @@ int prmArgProc(PRM prm,int argc,char **argv)
 				pn = pn->pnNext;
 				}
 			if (pn) {
-				if (pn->iType == 0) {
+				if (pn->iType == paramBool) {
 					/*
 					 ** It's a boolean flag.
 					 */
@@ -308,14 +308,14 @@ int prmArgProc(PRM prm,int argc,char **argv)
 			return(0);
 			}
 		switch (pn->iType) {
-		case 0:
+		case paramBool:
 			/*
 			 ** It's a boolean.
 			 */
 			if (argv[i][0] == '-') *((int *)pn->pValue) = 0;
 			else *((int *)pn->pValue) = 1;
 			break;
-		case 1:
+		case paramInt:
 			/*
 			 ** It's an int
 			 */
@@ -334,7 +334,7 @@ int prmArgProc(PRM prm,int argc,char **argv)
 				return(0);
 				}
 			break;
-		case 2:
+		case paramDouble:
 			/*
 			 ** It's a DOUBLE
 			 */
@@ -353,7 +353,7 @@ int prmArgProc(PRM prm,int argc,char **argv)
 				return(0);
 				}
 			break;
-		case 3:
+		case paramString:
 			/*
 			 ** It's a string
 			 */
