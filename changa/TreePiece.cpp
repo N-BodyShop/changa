@@ -2896,6 +2896,15 @@ void TreePiece::ResumeFromSync(){
   contribute(0, 0, CkReduction::concat, callback);
 }
 
+void TreePiece::markPresence(const CkCallback& cb) {
+  if (_cache) {
+      if(localCache==NULL)
+	  localCache = cacheManagerProxy.ckLocalBranch();
+      localIndex = localCache->markPresence(thisIndex, root);
+      }
+  contribute(0, 0, CkReduction::concat, cb);
+}
+
 GenericTreeNode *TreePiece::keyToNode(const Tree::NodeKey k) {
   NodeLookupType::iterator iter = nodeLookupTable.find(k);
   if (iter != nodeLookupTable.end()) return iter->second;

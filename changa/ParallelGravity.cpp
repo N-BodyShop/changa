@@ -153,7 +153,11 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "dTheta2", paramDouble, &param.dTheta2,
 		    sizeof(double),"theta2",
 		    "Opening angle after switchTheta (IGNORED)");
+#ifdef HEXADECAPOLE
+	param.iOrder = 4;
+#else
 	param.iOrder = 2;
+#endif
 	prmAddParam(prm, "iOrder", paramInt, &param.iOrder,
 		    sizeof(int), "or", "Multipole expansion order(IGNORED)");
 	param.bPeriodic = 0;
@@ -782,7 +786,6 @@ void Main::advanceBigStep(int iStep) {
 
 void Main::setupICs() {
   double startTime;
-  double tolerance = 0.01;	// tolerance for domain decomposition
 
   // DEBUGGING
   //CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),pieces));
@@ -830,13 +833,6 @@ void Main::setupICs() {
   if(param.bPeriodic) {	// puts all particles within the boundary
     treeProxy.drift(0.0, CkCallbackResumeThread());
   }
-  /***** Initial sorting of particles and Domain Decomposition *****/
-  ckerr << "Initial domain decomposition ...";
-  startTime = CkWallTimer();
-  sorter.startSorting(dataManagerID, numTreePieces, tolerance,
-                      CkCallbackResumeThread(), true);
-  ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
-        << endl;
   
   initialForces();
 }
@@ -874,6 +870,7 @@ Main::restart()
 	ofstream ofsLog(achLogFileName, ios_base::app);
 	ofsLog << "# ReStarting ChaNGa" << endl;
 	ofsLog.close();
+	treeProxy.markPresence(CkCallbackResumeThread());
 	mainChare.initialForces();
 	}
     else {
@@ -899,6 +896,15 @@ void
 Main::initialForces()
 {
   double startTime;
+  double tolerance = 0.01;	// tolerance for domain decomposition
+
+  /***** Initial sorting of particles and Domain Decomposition *****/
+  ckerr << "Initial domain decomposition ...";
+  startTime = CkWallTimer();
+  sorter.startSorting(dataManagerID, numTreePieces, tolerance,
+	 	      CkCallbackResumeThread(), true);
+  ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+        << endl;
   /******** Tree Build *******/
   ckerr << "Building trees ...";
   startTime = CkWallTimer();

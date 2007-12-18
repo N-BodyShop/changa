@@ -791,6 +791,8 @@ public:
 	
 	// Parse NChilada description file
 	int parseNC(const std::string& fn);
+	// Mark presence in Cache
+	void markPresence(const CkCallback& cb);
 	// Load from mass and position files
 	void load(const std::string& fn, const CkCallback& cb);
 
