@@ -871,6 +871,7 @@ Main::restart()
 	ofsLog << "# ReStarting ChaNGa" << endl;
 	ofsLog.close();
 	treeProxy.markPresence(CkCallbackResumeThread());
+	treeProxy.drift(0.0, CkCallbackResumeThread());
 	mainChare.initialForces();
 	}
     else {
