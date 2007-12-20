@@ -300,7 +300,6 @@ Main::Main(CkArgMsg* m) {
 	    CkExit();
 	    }
 	
-	df = (DumpFrameContext **) malloc(param.iDirector*sizeof(*df));
 	if(prmSpecified(prm, "iMaxRung")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "iMaxRung parameter ignored. MaxRung is " << MAXRUNG
@@ -1193,8 +1192,10 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 		bDumpFrame = 1;
 		int i;
 
+		df = (DumpFrameContext **) malloc(param.iDirector*sizeof(*df));
 		for(i = 0; i < param.iDirector; i++) {
 		    achFile[0] = '\0';
+		    df[i] = NULL;
 		    if(i == 0) {
 			sprintf(achFile,"%s.director", param.achOutName);
 			}
