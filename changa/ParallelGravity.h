@@ -83,6 +83,9 @@ extern int _numChunks;
 extern unsigned int bucketSize;
 extern int lbcomm_cutoff_msgs;
 
+extern double theta;
+extern double thetaMono;
+
 class dummyMsg : public CMessage_dummyMsg{
 public:
 int val;
@@ -281,7 +284,7 @@ class Main : public CBase_Main {
 	std::string basefilename;
 	CProxy_Sorter sorter;
 	int nTotalParticles;
-	double theta;	
+	//double theta; -- moved to readonly	
 	double dTime;		/* Simulation time */
 	double dEcosmo;		/* variables for integrating
 				   Lazer-Irvine eq. */
@@ -396,9 +399,9 @@ class TreePiece : public CBase_TreePiece {
 	MomentRequestType momentRequests;
 
 	/// Opening angle
-	double theta;
+	//double theta; -- moved as readonly
 	/// Opening angle - monopole
-	double thetaMono;
+	//double thetaMono; -- moved as readonly
         /// The current active mask for force computation in multistepping
         int activeRung;
 
@@ -784,7 +787,7 @@ public:
 	void setPeriodic(int nReplicas, double fPeriod, int bEwald,
 			 double fEwCut, int bPeriod);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
-	void EwaldInit(double fhCut);
+	void EwaldInit(double fhCut, CkCallback &cb);
 	// Scale velocities (needed to convert to canonical momenta for
 	// comoving coordinates.)
 	void velScale(double dScale);
@@ -873,8 +876,8 @@ public:
 	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments, const OrientedBox<double>& box);
 
 	/// Decide whether the node should be opened for the force computation
-	/// of the given request.
-	bool openCriterionBucket(GenericTreeNode *node,
+	/// of the given request. --- Moved outside TreePiece class
+	/*bool openCriterionBucket(GenericTreeNode *node,
 				 GenericTreeNode *bucketNode,
 				 Vector3D<double> offset // Offset of node
 				 );
@@ -883,7 +886,8 @@ public:
 			      GenericTreeNode *myNode,
 			      Vector3D<double> offset // Offset of node
 			      );
-
+	 */
+	
 	/// Entry point for the local computation: for each bucket compute the
 	/// force that its particles see due to the other particles hosted in
 	/// this TreePiece. The opening angle theta has already been passed

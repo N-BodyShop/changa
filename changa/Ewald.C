@@ -280,7 +280,7 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 
 // Set up table for Ewald h (Fourier space) loop
 
-void TreePiece::EwaldInit(double fhCut)
+void TreePiece::EwaldInit(double fhCut, CkCallback &cb)
 {
 	int i,hReps,hx,hy,hz,h2;
 	double alpha,k4,L;
@@ -360,6 +360,7 @@ void TreePiece::EwaldInit(double fhCut)
 			}
 		}
 	nEwhLoop = i;
-	}
+        contribute(0, 0, CkReduction::concat, cb);
+}
 
 

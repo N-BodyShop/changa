@@ -722,7 +722,8 @@ int CacheManager::createLookupRoots(GenericTreeNode *node, Tree::NodeKey *keys) 
 }
 #endif
 
-void CacheManager::cacheSync(double theta, int activeRung, const CkCallback& cb) {
+void CacheManager::cacheSync(double _theta, int activeRung, const CkCallback& cb) {
+  CkAssert(theta == _theta); // assert that the readonly is equal to the value coming in
   //CkSummary_StartPhase(iterationNo+1);
   if (treePieceLocMgr == NULL) {
     // initialize the database structures to record the object communication
@@ -879,7 +880,7 @@ void CacheManager::cacheSync(double theta, int activeRung, const CkCallback& cb)
     if (verbosity>1) CkPrintf("[%d] calling startIteration on element %d\n",CkMyPe(),iter->first);
     TreePiece *p = treeProxy[iter->first].ckLocal();
     CkAssert(p != NULL);
-    p->startIteration(theta, activeRung, numChunks, prefetchRoots, cb);
+    p->startIteration(_theta, activeRung, numChunks, prefetchRoots, cb);
   }
 }
 

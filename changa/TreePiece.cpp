@@ -16,6 +16,11 @@
 #include "Space.h"
 #include "gravity.h"
 
+#ifdef CELL
+#include "spert_ppu.h"
+#include "cell_typedef.h"
+#endif
+
 using namespace std;
 using namespace SFC;
 using namespace TreeStuff;
@@ -489,6 +494,8 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles, const in
   if (incomingParticles == NULL) {
     incomingParticles = new GravityParticle[dm->particleCounts[myPlace] + 2];
     assert(incomingParticles != NULL);
+    if (verbosity)
+      ckout << "Treepiece "<<thisIndex<<": allocated "<<dm->particleCounts[myPlace]+2<<"particles"<<endl;
   }
 
   memcpy(&incomingParticles[incomingParticlesArrived+1], particles, n*sizeof(GravityParticle));
@@ -1515,244 +1522,6 @@ int reEncodeOffset(int reqID, int offsetID)
     return reqID | (offsetmask & offsetID);
     }
 
-//
-// Return true if the soften nodes overlap, i.e. the forces involve softening
-// @param node
-// @param myNode
-// @param offset Periodic offset to applied to node
-//
-inline
-int openSoftening(GenericTreeNode *node, GenericTreeNode *myNode,
-		  Vector3D<double> offset)
-{
-    Sphere<double> s(node->moments.cm + offset, 2.0*node->moments.soft);
-    Sphere<double> myS(myNode->moments.cm, 2.0*myNode->moments.soft);
-    return Space::intersect(myS, s);
-    }
-
-#ifdef CMK_VERSION_BLUEGENE
-static int forProgress = 0;
-#endif
-
-inline int partBucketForce(ExternalGravityParticle *part, GenericTreeNode *req, GravityParticle *particles, Vector3D<double> offset, int activeRung) {
-  int computed = 0;
-  Vector3D<double> r;
-  double rsq;
-  double twoh, a, b;
-
-  for(int j = req->firstParticle; j <= req->lastParticle; ++j) {
-    if (particles[j].rung >= activeRung) {
-#ifdef CMK_VERSION_BLUEGENE
-      if (++forProgress > 200) {
-        forProgress = 0;
-#ifdef COSMO_EVENTS
-        traceUserEvents(networkProgressUE);
-#endif
-        CmiNetworkProgress();
-      }
-#endif
-      computed++;
-      r = offset + part->position - particles[j].position;
-      rsq = r.lengthSquared();
-      twoh = part->soft + particles[j].soft;
-      if(rsq != 0) {
-        SPLINE(rsq, twoh, a, b);
-	double idt2 = (particles[j].mass + part->mass)*b; // (timescale)^-2
-							  // of interaction
-        particles[j].treeAcceleration += r * (b * part->mass);
-        particles[j].potential -= part->mass * a;
-	if(idt2 > particles[j].dtGrav)
-	    particles[j].dtGrav = idt2;
-      }
-    }
-  }
-  return computed;
-}
-
-inline
-int nodeBucketForce(GenericTreeNode *node, // source of force
-		    GenericTreeNode *req,  // bucket descriptor
-		    GravityParticle *particles, // particles in bucket
-		    Vector3D<double> offset,    // offset if a periodic replica
-		    int activeRung)	      	// rung (and above) at which to
-						// calculate forces
-{
-  int computed = 0;
-  Vector3D<double> r;
-  double rsq;
-  double twoh, a, b, c, d;
-  MultipoleMoments m = node->moments;
-    
-  Vector3D<double> cm(m.cm + offset);
-
-#ifdef HEXADECAPOLE
-  if(openSoftening(node, req, offset)) {
-      ExternalGravityParticle tmpPart;
-      tmpPart.mass = m.totalMass;
-      tmpPart.soft = m.soft;
-      tmpPart.position = m.cm;
-      return partBucketForce(&tmpPart, req, particles, offset, activeRung);
-      }
-#endif
-  for(int j = req->firstParticle; j <= req->lastParticle; ++j) {
-    if (particles[j].rung >= activeRung) {
-#ifdef CMK_VERSION_BLUEGENE
-      if (++forProgress > 200) {
-        forProgress = 0;
-#ifdef COSMO_EVENTS
-        traceUserEvents(networkProgressUE);
-#endif
-        CmiNetworkProgress();
-      }
-#endif
-      computed++;
-      r = particles[j].position - cm;
-      rsq = r.lengthSquared();
-#ifdef HEXADECAPOLE
-      // Here we assume that the separation is larger than the softening.
-      double dir = 1.0/sqrt(rsq);
-      momEvalMomr(&m.mom, dir, -r.x, -r.y, -r.z, &particles[j].potential,
-		  &particles[j].treeAcceleration.x,
-		  &particles[j].treeAcceleration.y,
-		  &particles[j].treeAcceleration.z);
-      
-      double idt2 = (particles[j].mass + m.totalMass)*dir*dir*dir;
-#else
-      twoh = m.soft + particles[j].soft;
-        double dir = 1.0/sqrt(rsq);
-        SPLINEQ(dir, rsq, twoh, a, b, c, d);
-        double qirx = m.xx*r.x + m.xy*r.y + m.xz*r.z;
-        double qiry = m.xy*r.x + m.yy*r.y + m.yz*r.z;
-        double qirz = m.xz*r.x + m.yz*r.y + m.zz*r.z;
-        double qir = 0.5*(qirx*r.x + qiry*r.y + qirz*r.z);
-        double tr = 0.5*(m.xx + m.yy + m.zz);
-        double qir3 = b*m.totalMass + d*qir - c*tr;
-        particles[j].potential -= m.totalMass * a + c*qir - b*tr;
-        particles[j].treeAcceleration.x -= qir3*r.x - c*qirx;
-        particles[j].treeAcceleration.y -= qir3*r.y - c*qiry;
-        particles[j].treeAcceleration.z -= qir3*r.z - c*qirz;
-	double idt2 = (particles[j].mass + m.totalMass)*b;
-#endif
-	if(idt2 > particles[j].dtGrav)
-	    particles[j].dtGrav = idt2;
-    }
-  }
-  return computed;
-}
-
-// Return true if the node's opening radius intersects the
-// boundingBox, i.e. the node needs to be opened.
-
-inline bool
-TreePiece::openCriterionBucket(GenericTreeNode *node,
-			       GenericTreeNode *bucketNode,
-			       Vector3D<double> offset // Offset of node
-			       ) {
-  // mark the node as used by this TreePiece
-  node->markUsedBy(localIndex);
-
-#if COSMO_STATS > 0
-  node->used = true;
-#endif
-  // Note that some of this could be pre-calculated into an "opening radius"
-  double radius = opening_geometry_factor * node->moments.radius / theta;
-  if(radius < node->moments.radius)
-      radius = node->moments.radius;
-
-  Sphere<double> s(node->moments.cm + offset, radius);
-  
-#ifdef HEXADECAPOLE
-  if(!Space::intersect(bucketNode->boundingBox, s)) {
-	  // Well separated, now check softening
-      if(!openSoftening(node, bucketNode, offset)) {
-	  return false;	// passed both tests: will be a Hex interaction
-	  }
-      else {		// Open as monopole?
-	  radius = opening_geometry_factor*node->moments.radius/thetaMono;
-	  Sphere<double> sM(node->moments.cm + offset, radius);
-	  return Space::intersect(bucketNode->boundingBox, sM);
-	  }
-      }
-  return true;
-#else
-  return Space::intersect(bucketNode->boundingBox, s);
-#endif
-}
-
-// return 1 if there is an intersection
-// 	  0 if no intersection
-//	  -1 if completely contained
-
-inline int TreePiece::openCriterionNode(GenericTreeNode *node,
-                                        GenericTreeNode *myNode,
-					Vector3D<double> offset) {
-  // mark the node as used by this TreePiece
-  node->markUsedBy(localIndex);
-
-#if COSMO_STATS > 0
-  node->used = true;
-#endif
-  // Note that some of this could be pre-calculated into an "opening radius"
-  double radius = opening_geometry_factor * node->moments.radius / theta;
-  if(radius < node->moments.radius)
-      radius = node->moments.radius;
-
-  Sphere<double> s(node->moments.cm + offset, radius);
-
-  if(myNode->getType()==Bucket || myNode->getType()==CachedBucket || myNode->getType()==NonLocalBucket){
-  	if(Space::intersect(myNode->boundingBox, s))
-	    return 1;
-	else
-#ifdef HEXADECAPOLE
-	    {
-		// Well separated, now check softening
-		if(!openSoftening(node, myNode, offset)) {
-		    return 0;	// passed both tests: will be a Hex interaction
-		    }
-		else {		// Open as monopole?
-		    radius = opening_geometry_factor*node->moments.radius/thetaMono;
-		    Sphere<double> sM(node->moments.cm + offset, radius);
-		    if(Space::intersect(myNode->boundingBox, sM))
-			return 1;
-		    else
-			return 0;
-		    }
-		return 1;
-		}
-#else
-	return 0;
-#endif
-	}
-	else{
-		if(Space::intersect(myNode->boundingBox, s)){
-			if(Space::contained(myNode->boundingBox,s))
-				return 1;
-			else
-				return -1;
-		}
-		else
-#ifdef HEXADECAPOLE
-		    {
-			// Well separated, now check softening
-			if(!openSoftening(node, myNode, offset)) {
-			    return 0;	// passed both tests: will be a Hex interaction
-			    }
-			else {		// Open as monopole?
-			    radius = opening_geometry_factor*node->moments.radius/thetaMono;
-			    Sphere<double> sM(node->moments.cm + offset, radius);
-			    if(Space::intersect(myNode->boundingBox, sM))
-				return 1;
-			    else
-				return 0;
-			    }
-			return 1;
-			}
-#else
-		return 0;
-#endif
-	}
-}
-
 
 void TreePiece::initBuckets() {
   for (unsigned int j=0; j<numBuckets; ++j) {
@@ -2068,14 +1837,69 @@ void TreePiece::initNodeStatus(GenericTreeNode *node){
   }
 }
 
+#ifdef CELL
+void cellSPE_callback(void *data) {
+  CellGroupRequest *cgr = (CellGroupRequest *)data;
+  cgr->tp.bucketReqs[cgr->bucket].finished = 1;
+  cgr->tp.finishBucket(cgr->bucket);
+  delete cgr->particles;
+  delete cgr;
+}
+
+void cellSPE_single(void *data) {
+  CellRequest *cr = (CellRequest *)data;
+  delete cr->roData;
+  for (int i=0; i<cr->numActiveData; ++i) {
+    // copy the forces calculated to the particle's data
+    GravityParticle *dest = cr->particles[i];
+    dest->treeAcceleration += cr->activeData[i].treeAcceleration;
+    dest->potential += cr->activeData[i].potential;
+    if (cr->activeData[i].dtGrav > dest->dtGrav) {
+      dest->dtGrav = cr->activeData[i].dtGrav;
+    }
+  }
+  delete cr->activeData;
+}
+#endif
+
 void TreePiece::calculateForceLocalBucket(int bucketIndex){
     int cellListIter;
     int partListIter;
     
     if (bucketList[bucketIndex]->rungs >= activeRung) {
+#ifdef CELL
+      CellGroupRequest *cgr = new CellGroupRequest(this, bucketIndex, partList);
+      WRGroupHandle wrh = createWRGroup(cgr, cellSPE_callback);
+      // Combine all the computation in a request to be sent to the cell SPE
+      int activePart=0, indexActivePart=0;
+      for (int k=bucketList[bucketIndex]->firstParticle; k<bucketList[bucketIndex]->lastParticle; ++k) {
+        if (myParticles[j].rung >= activeRung) activePart++;
+      }
+      int activePartDataSize = ROUNDUP_128(activePart*sizeof(CellGravityParticle));
+      CellGravityParticle *activePartData = (CellGravityParticle*)malloc_aligned(activePartDataSize,128);
+      GravityParticle **partList = new GravityParticle*[activePart];
+      for (int k=bucketList[bucketIndex]->firstParticle; k<bucketList[bucketIndex]->lastParticle; ++k) {
+        if (myParticles[j].rung >= activeRung) {
+          activePartData[indexActivePart] = myParticles[j];
+          partList[indexActivePart++] = &myParticles[j];
+        }
+      }
+      /*int numPart=0, numNodes=0;
+      for(int k=0;k<=curLevelLocal;k++) {
+        numNodes += cellListLocal[k].length();
+        for(int kk=0; kk<particleListLocal[k].length(); kk++) {
+          numPart += particleListLocal[k][kk].numParticles;
+        }
+      }*/
+      int particlesPerRequest = 16*1024 / sizeof(CellExternalGravityParticle);
+      int nodesPerRequest = 16*1024 / sizeof(CellMultipoleMoments);
+      CellExternalGravityParticle *particleData = (CellExternalGravityParticle*)malloc_aligned(16*1024);
+      CellMultipoleMoments *nodesData = (CellMultipoleMoments*)malloc_aligned(16*1024);
+      int indexNodes=0, indexPart=0;
+#endif
       //BucketGravityRequest& req = bucketReqs[bucketIndex];
       for(int k=0;k<=curLevelLocal;k++){
-        int computed;
+        int computed=0;
         double startTimer = CmiWallTimer();
 #ifdef HPM_COUNTER
         hpmStart(1,"node force");
@@ -2086,9 +1910,38 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
           bucketcheckList[bucketIndex].insert(tmp->getKey());
           combineKeys(tmp->getKey(),bucketIndex);
 #endif
+#ifdef CELL
+          nodesData[indexNodes] = tmp.node->moments;
+          nodesData[indexNodes].cm += decodeOffset(tmp.offsetID);
+          indexNodes++;
+          if (indexNodes == nodesPerRequest) {
+            // send off request
+            void *activeData = malloc_aligned(activePartDataSize,128);
+            memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
+            CellRequest *userData = new CellRequest(activeData, activePart, nodesData, partList);
+            sendWorkRequest (1, activeData, activePartDataSize, nodesData, 16*1024, NULL, 0,
+                            (void*)userData, 0, cellSPE_single, wrh);
+            nodeInterLocal += activePart * indexNodes;
+            nodesData = (CellMultipoleMoments*)malloc_aligned(16*1024);
+            indexNodes = 0;
+          }
+#else
           computed = nodeBucketForce(tmp.node, bucketList[bucketIndex], myParticles,
                                      decodeOffset(tmp.offsetID), activeRung);
+#endif
         }
+#ifdef CELL
+        if (indexNodes > 0) {
+          void *activeData = malloc_aligned(activePartDataSize,128);
+          memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
+          CellRequest *userData = new CellRequest(activeData, activePart, nodesData, partList);
+          sendWorkRequest (1, activeData, activePartDataSize, nodesData, ROUNDUP_128(indexNodes*sizeof(CellMultipoleMoments)),
+                           NULL, 0, (void*)userData, 0, cellSPE_single, wrh);
+          nodeInterLocal += activePart * indexNodes;
+        } else {
+          free(nodesData);
+        }
+#endif
 #ifdef HPM_COUNTER
         hpmStop(1);
 #endif
@@ -2107,8 +1960,38 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
           combineKeys((pinfo.nd)->getKey(),bucketIndex);
 #endif
           for(int j = 0; j < pinfo.numParticles; ++j){
+#ifdef CELL
+            partData[indexPart] = pinfo.particles[j];
+            partData[indexPart].position += pinfo.offset;
+            indexPart++;
+            if (indexPart == partPerRequest) {
+              // send off request
+              void *activeData = malloc_aligned(activePartDataSize,128);
+              memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
+              CellRequest *userData = new CellRequest(activeData, activePart, particleData, partList);
+              sendWorkRequest (2, activeData, activePartDataSize, particleData, 16*1024, NULL, 0,
+                              (void*)userData, 0, cellSPE_single, wrh);
+              particleInterLocal += activePart * indexPart;
+              particleData = (CellExternalGravityParticle*)malloc_aligned(16*1024);
+              indexPart = 0;
+            }
+#else
             computed = partBucketForce(&pinfo.particles[j], bucketList[bucketIndex], myParticles, pinfo.offset, activeRung);
+#endif
           }
+#ifdef CELL
+        if (indexPart > 0) {
+          //void *activeData = malloc_aligned(activePartDataSize,128);
+          //memcpy(activeData, activePartData, activePart*sizeof(GravityParticle));
+          CellRequest *userData = new CellRequest(activePartData, activePart, particleData, partList);
+          sendWorkRequest (2, activePartData, activePartDataSize, particleData, ROUNDUP_128(indexPart*sizeof(CellExternalGravityParticle)),
+                           NULL, 0, (void*)userData, 0, cellSPE_single, wrh);
+          particleInterLocal += activePart * indexPart;
+        } else {
+          free(activePartData);
+          free(particleData);
+        }
+#endif
 #ifdef HPM_COUNTER
     hpmStop(2);
 #endif
@@ -2118,14 +2001,19 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
         traceUserBracketEvent(partForceUE, newTimer, CmiWallTimer());
 #endif
       }
+#ifdef CELL
+      // Now all the requests have been made
+      completeWRGroup(wrh);
+#endif
       if(bEwald) {
         BucketEwald(bucketList[bucketIndex], nReplicas, fEwCut);
       }
     }
 
+#ifndef CELL
     bucketReqs[bucketIndex].finished = 1;
     finishBucket(bucketIndex);
-
+#endif
 }
 
 void TreePiece::calculateForceRemoteBucket(int bucketIndex, int chunk){
@@ -2499,7 +2387,7 @@ void TreePiece::walkBucketRemoteTree(GenericTreeNode *node, int chunk,
 #endif
     return;
   }
-  else if(!openCriterionBucket(node, bucketList[reqIDlist], offset)) {
+  else if(!openCriterionBucket(node, bucketList[reqIDlist], offset, localIndex)) {
 #if COSMO_STATS > 0
     numOpenCriterionCalls++;
 #endif
@@ -2515,7 +2403,7 @@ void TreePiece::walkBucketRemoteTree(GenericTreeNode *node, int chunk,
 #if COSMO_STATS > 0
 	numOpenCriterionCalls++;
 #endif
-	if (!openCriterionBucket(nd, bucketList[reqIDlist], offset)) {
+	if (!openCriterionBucket(nd, bucketList[reqIDlist], offset, localIndex)) {
 #if COSMO_PRINT > 0
 	  CkPrintf("[%d] bucket %d: not opened %llx, found node %llx\n",thisIndex,reqIDlist,node->getKey(),nd->getKey());
 #endif
@@ -2558,7 +2446,7 @@ void TreePiece::walkBucketRemoteTree(GenericTreeNode *node, int chunk,
 #if COSMO_STATS > 0
 	numOpenCriterionCalls++;
 #endif
-	if (!openCriterionBucket(nd, bucketList[reqIDlist], offset)) {
+	if (!openCriterionBucket(nd, bucketList[reqIDlist], offset, localIndex)) {
 #if COSMO_PRINT > 0
 	  CkPrintf("[%d] bucket %d: not opened %llx, found node %llx\n",thisIndex,reqID,node->getKey(),nd->getKey());
 #endif
@@ -2592,14 +2480,14 @@ void TreePiece::walkBucketRemoteTree(GenericTreeNode *node, int chunk,
 
 // Start tree walk and gravity calculation
 
-void TreePiece::startIteration(double t, // opening angle
+void TreePiece::startIteration(double t, // opening angle -- moved to readonly
                                int am, // the active mask for multistepping
 			       int n,  // Number of Chunks
 			       Tree::NodeKey *k,
 			       const CkCallback& cb) {
   callback = cb;
-  theta = t;
-  thetaMono = theta*theta*theta*theta;	// Make monopole accuracy similar to
+  //theta = t;
+  //thetaMono = theta*theta*theta*theta;	// Make monopole accuracy similar to
 				// hexadecapole accuracy
   activeRung = am;
   
@@ -2783,7 +2671,7 @@ void TreePiece::prefetch(GenericTreeNode *node, int offsetID) {
 	// XXX Softening is not considered in the prefetch.
 	BinaryTreeNode testNode;
 	testNode.boundingBox = prefetchReq[i];
-      if (openCriterionBucket(node, &testNode, offset)) {
+      if (openCriterionBucket(node, &testNode, offset, localIndex)) {
 	needOpened = true;
 	break;
       }
@@ -3059,7 +2947,7 @@ void TreePiece::walkInterTree(OffsetNode node) {
     }
     else{}
   } else if((openValue=openCriterionNode(node.node, myNode,
-					 decodeOffset(node.offsetID)))==0) {
+					 decodeOffset(node.offsetID), localIndex))==0) {
 #if COSMO_STATS > 0
     numOpenCriterionCalls++;
 #endif
@@ -3154,7 +3042,7 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, int reqID) {
   numOpenCriterionCalls++;
 #endif
   GenericTreeNode* reqnode = bucketList[reqIDlist];
-  if(!openCriterionBucket(node, reqnode, offset)) {
+  if(!openCriterionBucket(node, reqnode, offset, localIndex)) {
       // Node is well separated; evaluate the force
 #if COSMO_STATS > 1
     MultipoleMoments m = node->moments;	
@@ -3292,7 +3180,7 @@ void TreePiece::cachedWalkInterTree(OffsetNode node) {
 #endif
   }
   else if((openValue=openCriterionNode(node.node, myNode,
-				       decodeOffset(node.offsetID)))==0) {
+				       decodeOffset(node.offsetID), localIndex))==0) {
 #if COSMO_STATS > 0
     numOpenCriterionCalls++;
 #endif
@@ -3538,7 +3426,7 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, int chunk, int reqID
 #if COSMO_STATS > 0
   numOpenCriterionCalls++;
 #endif
-  if(!openCriterionBucket(node, reqnode, offset)) {
+  if(!openCriterionBucket(node, reqnode, offset, localIndex)) {
 #if COSMO_STATS > 1
     MultipoleMoments m = node->moments;
     for(int i = reqnode->firstParticle; i <= reqnode->lastParticle; ++i)
@@ -4244,8 +4132,8 @@ void TreePiece::pup(PUP::er& p) {
   }
   p | nSetupWriteStage;
 
-  p | theta;
-  p | thetaMono;
+  //p | theta;
+  //p | thetaMono;
   // Periodic variables
   p | nReplicas;
   p | fPeriod;

@@ -42,6 +42,9 @@ int _randChunks;
 unsigned int bucketSize;
 int lbcomm_cutoff_msgs;
 
+/* readonly */ double theta;
+/* readonly */ double thetaMono;
+
 ComlibInstanceHandle cinst1, cinst2;
 
 int boundaryEvaluationUE;
@@ -149,6 +152,7 @@ Main::Main(CkArgMsg* m) {
 	theta = 0.7;
 	prmAddParam(prm, "dTheta", paramDouble, &theta,
 		    sizeof(double), "theta", "Opening angle");
+	thetaMono = theta*theta*theta*theta;
 	param.dTheta2 = 0.7;
 	prmAddParam(prm, "dTheta2", paramDouble, &param.dTheta2,
 		    sizeof(double),"theta2",
@@ -732,7 +736,7 @@ void Main::advanceBigStep(int iStep) {
     startTime = CkWallTimer();
     // Set up Ewald Tables
     if(param.bPeriodic && param.bEwald)
-      treeProxy.EwaldInit(param.dEwhCut);
+      treeProxy.EwaldInit(param.dEwhCut, CkCallbackResumeThread());
     //pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
     streamingCache.cacheSync(theta, activeRung, CkCallbackResumeThread());
     ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -918,7 +922,7 @@ Main::initialForces()
   startTime = CkWallTimer();
   // Set up Ewald Tables
   if(param.bPeriodic && param.bEwald)
-    treeProxy.EwaldInit(param.dEwhCut);
+    treeProxy.EwaldInit(param.dEwhCut, CkCallbackResumeThread());
   //pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
   streamingCache.cacheSync(theta, 0, CkCallbackResumeThread());
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
