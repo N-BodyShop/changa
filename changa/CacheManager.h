@@ -153,7 +153,7 @@ public:
 
 };
 
-class NodeCacheEntry : public CacheEntry, public CkPool<NodeCacheEntry, 64> {
+class NodeCacheEntry : public CacheEntry {//, public CkPool<NodeCacheEntry, 64> {
 public:
 	CacheNode *node;
 	
@@ -169,7 +169,7 @@ public:
 	void sendRequest(int);
 };	
 
-class ParticleCacheEntry : public CacheEntry, public CkPool<ParticleCacheEntry, 64> {
+class ParticleCacheEntry : public CacheEntry {//, public CkPool<ParticleCacheEntry, 64> {
 public:
 	ExternalGravityParticle *part;
 	//int num;
@@ -345,6 +345,10 @@ private:
 	int createLookupRoots(GenericTreeNode *node, Tree::NodeKey *keys);
 #endif
 
+        int allDoneCounter;
+#if COSMO_STATS > 0
+        int finishedChunkCounter;
+#endif
  public:
 
 	CacheManager(int size);

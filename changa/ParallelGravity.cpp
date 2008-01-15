@@ -791,7 +791,7 @@ void Main::setupICs() {
   double startTime;
 
   // DEBUGGING
-  //CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),pieces));
+  //CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
 
   treeProxy.setPeriodic(param.nReplicas, param.fPeriod, param.bEwald,
                      param.dEwCut, param.bPeriodic);

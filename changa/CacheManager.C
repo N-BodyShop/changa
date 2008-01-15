@@ -67,7 +67,9 @@ CacheManager::CacheManager(int size){
   particlesLocal = 0;
   totalNodesRequested = 0;
   totalParticlesRequested = 0;
+  finishedChunkCounter = 0;
 #endif
+  allDoneCounter = 0;
 
   treePieceLocMgr = NULL;
 
@@ -98,7 +100,9 @@ CacheManager::CacheManager(CkMigrateMessage* m) : CBase_CacheManager(m) {
   particlesLocal = 0;
   totalNodesRequested = 0;
   totalParticlesRequested = 0;
+  finishedChunkCounter = 0;
 #endif
+  allDoneCounter = 0;
 
   treePieceLocMgr = NULL;
     }
@@ -914,9 +918,9 @@ extern LDObjid idx2LDObjid(const CkArrayIndex &idx);
 
 void CacheManager::finishedChunk(int num, u_int64_t weight) {
 #if COSMO_STATS > 0
-  static int counter = 0;
-  if (++counter == registeredChares.size()*numChunks) {
-    counter = 0;
+  //static int counter = 0;
+  if (++finishedChunkCounter == registeredChares.size()*numChunks) {
+    finishedChunkCounter = 0;
     if (verbosity) CkPrintf(" [%d] Max memory utilization %d\n",CkMyPe(),CmiMaxMemoryUsage());
   }
 #endif
@@ -1001,9 +1005,10 @@ void CacheManager::finishedChunk(int num, u_int64_t weight) {
 }
 
 void CacheManager::allDone() {
-  static int counter = 0;
-  if (++counter == (registeredChares.size() + numChunks)) {
-    counter = 0;
+  //static int counter = 0;
+  if (verbosity > 1) CkPrintf("CacheManager %d: allDone #%d of %d\n", CkMyPe(), allDoneCounter+1, registeredChares.size() + numChunks);
+  if (++allDoneCounter == (registeredChares.size() + numChunks)) {
+    allDoneCounter = 0;
 #if MAX_USED_BY > 0
     // fix the LB knowledge of all communication
     map<int,GenericTreeNode*>::iterator regIter;
