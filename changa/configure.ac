@@ -39,7 +39,7 @@ AC_CHECK_HEADER(netinet/in.h,,[MISSING_NETINET=yes])
 if test "${MISSING_NETINET}" = "yes" ; then
    CPPFLAGS="$CPPFLAGS -I/usr/include"
 fi
-AC_CHECK_HEADER(rpc/rpc.h,,[AC_MSG_ERROR([rpc/rpc.h include file missing])])
+AC_CHECK_HEADER(rpc/xdr.h,,[AC_MSG_ERROR([rpc/xdr.h include file missing])])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL

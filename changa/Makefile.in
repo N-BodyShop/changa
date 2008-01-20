@@ -10,6 +10,8 @@ DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(IN
 STRUCTURES_PATH = ../structures
 CXXFLAGS += -O3 -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) @CPPFLAGS@
 LDFLAGS += -L../libs -language charm++ -module commlib -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB #-tracemode projections -memory charmdebug
+XDR_DIR = ../rpc
+XDR_OBJS = $(XDR_DIR)/xdr.o $(XDR_DIR)/xdr_float.o $(XDR_DIR)/xdr_mem.o $(XDR_DIR)/xdr_stdio.o
 LDLIBS += ../structures/libTipsy.a @LIBS@
 
 CHARMC = @CHARMC@
