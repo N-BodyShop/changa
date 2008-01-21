@@ -983,7 +983,8 @@ Main::doSimulation()
 
 
   for(int iStep = param.iStartStep+1; iStep <= param.nSteps; iStep++){
-
+    if (killAt > 0 && killAt == iStep) break;
+    
     if (verbosity) ckerr << "Starting big step " << iStep << endl;
     startTime = CkWallTimer();
     advanceBigStep(iStep-1);
@@ -1029,7 +1030,7 @@ Main::doSimulation()
 	CkStartCheckpoint(achCheckFileName, cb);
 	return;
     }
-    if (iStop || (killAt > 0 && killAt == iStep)) break;
+    if (iStop) break;
 
   } // End of main computation loop
 
