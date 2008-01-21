@@ -637,6 +637,7 @@ void Main::advanceBigStep(int iStep) {
   while (currentStep < MAXSUBSTEPS) {
 
     if(!param.bStaticTest) {
+      CkAssert(param.dDelta != 0.0);
       // Find new rung for active particles
       nextMaxRung = adjust(activeRung);
       if(currentStep == 0) rungStats();
