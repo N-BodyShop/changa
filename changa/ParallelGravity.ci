@@ -46,6 +46,9 @@ mainmodule ParallelGravity {
 	message FillNodeMsg {
 	  char nodes[];
 	};
+	message FillBinaryNodeMsg {
+	  BinaryTreeNode nodes[];
+	};
 	message FillParticleMsg {
 	  char particles[];
 	};

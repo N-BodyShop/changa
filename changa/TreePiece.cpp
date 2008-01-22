@@ -3569,6 +3569,15 @@ void TreePiece::fillRequestNode(RequestNodeMsg *msg) {
   //GenericTreeNode tmp;
   if(node != NULL) {
     if(_cache) {
+#ifdef CACHE_BUFFER_MSGS
+      int count = ((BinaryTreeNode*)node)->countDepth(msg->depth);
+      FillBinaryNodeMsg *reply = new (count, 0) FillBinaryNodeMsg(thisIndex);
+      //reply->magic[0] = 0xd98cb23a;
+      new (reply->nodes) BinaryTreeNode[count];
+      //CkPrintf("calling packing function: starting %p, magic=%p\n",reply->nodes,reply->magic);
+      ((BinaryTreeNode*)node)->packNodes(reply->nodes, msg->depth);
+      //CkAssert(reply->magic[0] == 0xd98cb23a);
+#else
       PUP::sizer p1;
       node->pup(p1, msg->depth);
       FillNodeMsg *reply = new (p1.size(), 0) FillNodeMsg(thisIndex);
@@ -3577,6 +3586,7 @@ void TreePiece::fillRequestNode(RequestNodeMsg *msg) {
       PUP::toMem p2((void*)reply->nodes);
       node->pup(p2, msg->depth);
       //int count = node->copyTo(reply->nodes, msg->depth);
+#endif
       cacheManagerProxy[msg->retIndex].recvNodes(reply);
     }else{
       CkAbort("Non cached version not anymore supported, feel free to fix it!");

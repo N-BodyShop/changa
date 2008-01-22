@@ -29,6 +29,9 @@ typedef u_int64_t CacheKey;
 
 class FillNodeMsg;
 class FillParticleMsg;
+#ifdef CACHE_BUFFER_MSGS
+class FillBinaryNodeMsg;
+#endif
 
 #include "CacheManager.decl.h"
 
@@ -292,6 +295,10 @@ private:
 	NodeLookupType chunkRootTable;
 #endif
 
+#ifdef CACHE_BUFFER_MSGS
+	CkVec<FillBinaryNodeMsg*> *buffered_nodes;
+#endif
+	
 	/// weights of the chunks in which the tree is divided, the cache will
 	/// update the chunk division based on these values
 	u_int64_t *chunkWeight;
@@ -367,6 +374,7 @@ private:
 	 * TreePiece::fillRequestNode. It imports the nodes into the cache and
 	 * process all pending requests.
 	 */
+	void recvNodes(FillBinaryNodeMsg *msg);
 	void recvNodes(FillNodeMsg *msg);
 	
 	ExternalGravityParticle *requestParticles(int requestorIndex, int chunk, const CacheKey key, int remoteIndex, int begin, int end, int reqID, bool isPrefetch);

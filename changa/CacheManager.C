@@ -105,7 +105,7 @@ CacheManager::CacheManager(CkMigrateMessage* m) : CBase_CacheManager(m) {
   allDoneCounter = 0;
 
   treePieceLocMgr = NULL;
-    }
+}
 
 CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chunk,CacheKey key,int reqID,bool isPrefetch){
   /*
@@ -312,7 +312,9 @@ void CacheManager::addNodes(int chunk,int from,CacheNode *node){
 #if COSMO_STATS > 0
     nodesDuplicated++;
 #endif
+#ifndef CACHE_BUFFER_MSGS
     delete oldnode;
+#endif
   }
   else storedNodes++;
 }
@@ -412,10 +414,19 @@ void CacheManager::processRequests(int chunk,CacheNode *node,int from,int depth)
    }
    }
 */
+#ifdef CACHE_BUFFER_MSGS
+void CacheManager::recvNodes(FillNodeMsg *msg) {}
+void CacheManager::recvNodes(FillBinaryNodeMsg *msg){
+  GenericTreeNode *newnode = msg->nodes;
+  ((BinaryTreeNode*)newnode)->unpackNodes();
+  //CkAssert(msg->magic[0] == 0xd98cb23a);
+#else
+void CacheManager::recvNodes(FillBinaryNodeMsg *msg) {}
 void CacheManager::recvNodes(FillNodeMsg *msg){
   GenericTreeNode *newnode = prototype->createNew();
   PUP::fromMem p(msg->nodes);
   newnode->pup(p);
+#endif
 #ifdef COSMO_PRINT
   CkPrintf("Cache: Reveived nodes from %d\n",msg->owner);
 #endif
@@ -430,7 +441,11 @@ void CacheManager::recvNodes(FillNodeMsg *msg){
   if (!_nocache) {
     int owner = msg->owner;
     addNodes(chunk,owner,newnode);
+#ifdef CACHE_BUFFER_MSGS
+    buffered_nodes[chunk].push_back(msg);
+#else
     delete msg;
+#endif
     map<CacheKey,NodeCacheEntry *>::iterator e = nodeCacheTable[chunk].find(newnode->getParentKey());
     if (e != nodeCacheTable[chunk].end() && e->second->node != NULL) {
       newnode->parent = e->second->node;
@@ -444,7 +459,6 @@ void CacheManager::recvNodes(FillNodeMsg *msg){
   } else {
     // here _nocache is true, so we don't cache anything and we forwarded all requests
     // now deliver the incoming node only to one of the requester
-    delete msg;
     map<CacheKey,NodeCacheEntry *>::iterator p;
     p = nodeCacheTable[chunk].find(newnode->getKey());
     NodeCacheEntry *e = p->second;
@@ -461,7 +475,10 @@ void CacheManager::recvNodes(FillNodeMsg *msg){
       //ckout <<"received node for computation"<<endl;
     }
     //treeProxy[*caller].receiveNode_inline(*(e->node),*(*callreq));
+    delete msg;
+#ifndef CACHE_BUFFER_MSGS
     delete newnode;
+#endif
     e->requestorVec.erase(caller);
   }
 }
@@ -776,6 +793,9 @@ void CacheManager::cacheSync(double _theta, int activeRung, const CkCallback& cb
     CkAssert(nodeCacheTable[chunk].empty());
     CkAssert(particleCacheTable[chunk].empty());
     CkAssert(chunkAck[chunk]==0);
+#ifdef CACHE_BUFFER_MSGS
+    CkAssert(buffered_nodes[chunk].size() == 0);
+#endif
   }
 
   int i;
@@ -839,6 +859,9 @@ void CacheManager::cacheSync(double _theta, int activeRung, const CkCallback& cb
     nodeCacheTable = new map<CacheKey,NodeCacheEntry *>[numChunks];
     particleCacheTable = new map<CacheKey,ParticleCacheEntry *>[numChunks];
     delayedRequests = new map<NodeCacheEntry*,int>[numChunks];
+#ifdef CACHE_BUFFER_MSGS
+    buffered_nodes = new CkVec<FillBinaryNodeMsg *>[numChunks];
+#endif
     chunkAck = new int[numChunks];
   } else {
     //for (int i=0; i<numChunks; ++i) CkPrintf("[%d] old roots %d: %s - %llu\n",CkMyPe(),i,keyBits(prefetchRoots[i],63).c_str(),chunkWeight[i]);
@@ -975,8 +998,17 @@ void CacheManager::finishedChunk(int num, u_int64_t weight) {
       releasedNodes++;
       if (!_nocache && e->node->used == false) nodesNotUsed++;
 #endif
+#ifndef CACHE_BUFFER_MSGS
       delete e;
+#endif
     }
+#ifdef CACHE_BUFFER_MSGS
+    int buffered_nodes_len = buffered_nodes[num].length();
+    for (int i=0; i<buffered_nodes_len; ++i) {
+      delete buffered_nodes[num].operator[](i);
+    }
+    buffered_nodes[num].removeAll();
+#endif
     nodeCacheTable[num].clear();
     map<CacheKey,ParticleCacheEntry *>::iterator pp;
     for (pp = particleCacheTable[num].begin(); pp != particleCacheTable[num].end(); pp++) {

@@ -205,6 +205,13 @@ class FillNodeMsg : public CMessage_FillNodeMsg {
   FillNodeMsg(int index) : owner(index) { }
 };
 
+class FillBinaryNodeMsg : public CMessage_FillBinaryNodeMsg {
+public:
+  int owner;
+  BinaryTreeNode *nodes;
+  
+  FillBinaryNodeMsg(int index) : owner(index) { }
+};
 
 class ORBSplittersMsg : public CMessage_ORBSplittersMsg{
 public:

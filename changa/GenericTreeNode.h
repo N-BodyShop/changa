@@ -555,6 +555,63 @@ namespace Tree {
       for (int j=0; j<additional*2; ++j) ret[j] = j + base;
     }
 
+    int countDepth(int depth) {
+      int count = 1;
+      if (depth != 0) {
+        if (children[0] != NULL) count += children[0]->countDepth(depth-1);
+        if (children[1] != NULL) count += children[1]->countDepth(depth-1);
+      }
+      return count;
+    }
+    
+    int packNodes(BinaryTreeNode *buffer, int depth) {
+      //CkPrintf("Entering packNodes: this=%p, buffer=%p, depth=%d\n",this,buffer,depth);
+      *buffer = *this;
+      buffer->parent = NULL;
+      buffer->particlePointer = NULL;
+      int used = 1;
+      if (depth != 0) {
+        if (children[0] != NULL) {
+          buffer->children[0] = (BinaryTreeNode*)(((char*)&buffer[used]) - ((char*)buffer));
+          //CkPrintf("Entering child 0: offset %ld\n",buffer->children[0]);
+          used += children[0]->packNodes(&buffer[used], depth-1);
+        } else {
+          //CkPrintf("Excluding child 0\n");
+          buffer->children[0] = NULL;
+        }
+        if (children[1] != NULL) {
+          buffer->children[1] = (BinaryTreeNode*)(((char*)&buffer[used]) - ((char*)buffer));
+          //CkPrintf("Entering child 1: offset %ld\n",buffer->children[1]);
+          used += children[1]->packNodes(&buffer[used], depth-1);
+        } else {
+          //CkPrintf("Excluding child 1\n");
+          buffer->children[1] = NULL;
+        }
+      } else {
+        //CkPrintf("Depth reached\n");
+        buffer->children[0] = buffer->children[1] = NULL;
+      }
+      //CkAssert((long int)buffer->children[0] < 10000);
+      //CkAssert((long int)buffer->children[1] < 10000);
+      //CkPrintf("Returning used = %d\n",used);
+      return used;
+    }
+
+    void unpackNodes() {
+      if (children[0] != NULL) {
+        //CkAssert((long int)children[0] < 10000);
+        children[0] = (BinaryTreeNode*)(((long int)children[0]) + ((char*)this));
+        children[0]->parent = this;
+        children[0]->unpackNodes();
+      }
+      if (children[1] != NULL) {
+        //CkAssert((long int)children[1] < 10000);
+        children[1] = (BinaryTreeNode*)(((long int)children[1]) + ((char*)this));
+        children[1]->parent = this;
+        children[1]->unpackNodes();
+      }
+    }
+    
     void pup(PUP::er &p) { pup(p, -1); }
     void pup(PUP::er &p, int depth);/* {
       //CkPrintf("Pupper of BinaryTreeNode(%d) called for %s (%d)\n",depth,p.isPacking()?"Packing":p.isUnpacking()?"Unpacking":"Sizing",p.isSizing()?((PUP::sizer*)&p)->size():((PUP::mem*)&p)->size());
