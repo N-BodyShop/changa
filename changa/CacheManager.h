@@ -29,9 +29,7 @@ typedef u_int64_t CacheKey;
 
 class FillNodeMsg;
 class FillParticleMsg;
-#ifdef CACHE_BUFFER_MSGS
 class FillBinaryNodeMsg;
-#endif
 
 #include "CacheManager.decl.h"
 
