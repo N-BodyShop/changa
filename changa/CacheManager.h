@@ -27,6 +27,10 @@ using namespace TreeStuff;
 typedef GenericTreeNode CacheNode;
 typedef u_int64_t CacheKey;
 
+CpvExtern(int, cacheNodeRegisteredChares);
+typedef map<int,GenericTreeNode*> cacheNodeMapIntGenericTreeNode;
+CpvExtern(cacheNodeMapIntGenericTreeNode*, cacheNodeRegisteredRoots);
+
 class FillNodeMsg;
 class FillParticleMsg;
 class FillBinaryNodeMsg;
@@ -286,7 +290,7 @@ private:
 
 #ifdef CACHE_TREE
 	/// root of the super-tree hold in this processor
-	GenericTreeNode *root;
+	static GenericTreeNode *root;
 	/// lookup table for the super-tree nodes
 	NodeLookupType nodeLookupTable;
 	/// Lookup table for the chunkRoots

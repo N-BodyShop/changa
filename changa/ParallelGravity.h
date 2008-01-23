@@ -1005,6 +1005,7 @@ public:
 	void pup(PUP::er& p);
 };
 
+void initNodeLock();
 void printGenericTree(GenericTreeNode* node, ostream& os) ;
 //bool compBucket(GenericTreeNode *ln,GenericTreeNode *rn);
 #endif //PARALLELGRAVITY_H

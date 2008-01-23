@@ -17,4 +17,5 @@ module CacheManager {
                 entry void stopHPM(CkCallback &cb);
 	};
 	
+	initnode void initNodeLock();
 };

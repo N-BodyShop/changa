@@ -11,6 +11,13 @@ extern CProxy_CacheManager streamingCache;
 extern int _cacheLineDepth;
 extern int _nocache;
 
+static CmiNodeLock cacheNodeLock;
+CpvDeclare(int, cacheNodeRegisteredChares);
+typedef map<int,GenericTreeNode*> cacheNodeMapIntGenericTreeNode;
+CpvDeclare(cacheNodeMapIntGenericTreeNode*, cacheNodeRegisteredRoots);
+
+GenericTreeNode* CacheManager::root;
+
 bool operator<(MapKey lhs,MapKey rhs){
   if(lhs.k<rhs.k){
     return true;
@@ -75,6 +82,9 @@ CacheManager::CacheManager(int size){
 
   maxSize = (u_int64_t)size * 1024 * 1024 / (sizeof(NodeCacheEntry) + sizeof(CacheNode));
   if (verbosity) CkPrintf("Cache: accepting at most %llu nodes\n",maxSize);
+  
+  CpvInitialize(int, cacheNodeRegisteredChares);
+  CpvInitialize(cacheNodeMapIntGenericTreeNode*, cacheNodeRegisteredRoots);
 }
 
 CacheManager::CacheManager(CkMigrateMessage* m) : CBase_CacheManager(m) {
@@ -282,6 +292,7 @@ void CacheManager::addNodes(int chunk,int from,CacheNode *node){
     e->replyRecvd = true;
   }
 
+//#ifndef CACHE_TREE
   // recursively add the children. if a child is not present, check if it is
   // because the particular node has node (Empty, NonLocal, Bucket) or because
   // we stopped at cacheDepth. In this second case check if we have already a
@@ -316,7 +327,9 @@ void CacheManager::addNodes(int chunk,int from,CacheNode *node){
     delete oldnode;
 #endif
   }
-  else storedNodes++;
+  else
+//#endif
+    storedNodes++;
 }
 
 /*
@@ -388,12 +401,13 @@ void CacheManager::processRequests(int chunk,CacheNode *node,int from,int depth)
   e->requestorVec.clear();
   //e->reqVec.clear();
   // iterate over the children of the node
+//#ifndef CACHE_TREE
   if (--depth <= 0) return;
   for (unsigned int i=0; i<node->numChildren(); ++i) {
     if (node->getChildren(i) != NULL)
       processRequests(chunk,node->getChildren(i), from, depth);
   }
-
+//#endif
 }
 
 /*
@@ -798,37 +812,59 @@ void CacheManager::cacheSync(double _theta, int activeRung, const CkCallback& cb
 #endif
   }
 
-  int i;
+  int i,j;
   map<int,GenericTreeNode*>::iterator iter;
 #ifdef CACHE_TREE
-  // build a local tree inside the cache. This will be an exact superset of all
-  // the trees in this processor. Only the minimum number of nodes is duplicated
-  if (registeredChares.size() > 0) {
+  static int counter = 0;
+  static int volatile doneFlag;
+  int localDone = 0;
+  CpvAccess(cacheNodeRegisteredChares) = registeredChares.size();
+  CpvAccess(cacheNodeRegisteredRoots) = &registeredChares;
+  CmiLock(cacheNodeLock);
+  counter ++;
+  if (counter == CmiNodeSize(CmiMyNode())) {
+    localDone = 1;
+    // build a local tree inside the cache. This will be an exact superset of all
+    // the trees in this processor. Only the minimum number of nodes is duplicated
+    int totalChares = 0;
+    for (i=0; i<counter; ++i) totalChares += CpvAccessOther(cacheNodeRegisteredChares, i);
+    if (totalChares > 0) {
 #if COSMO_DEBUG > 0
-    char fout[100];
-    sprintf(fout,"cache.%d.%d",CkMyPe(),iterationNo);
-    ofs = new ofstream(fout);
+      char fout[100];
+      sprintf(fout,"cache.%d.%d",CkMyPe(),iterationNo);
+      ofs = new ofstream(fout);
 #endif
-    GenericTreeNode **gtn = new GenericTreeNode*[registeredChares.size()];
-    for (i=0, iter = registeredChares.begin(); iter != registeredChares.end(); iter++, ++i) {
-      gtn[i] = iter->second;
+      GenericTreeNode **gtn = new GenericTreeNode*[totalChares];
+      i = 0;
+      for (j=0; j<counter; ++j) { 
+        map<int,GenericTreeNode*>* procMap = CpvAccessOther(cacheNodeRegisteredRoots, j);
+        for (iter = procMap->begin(); iter != procMap->end(); iter++) {
+          gtn[i++] = iter->second;
 #if COSMO_DEBUG > 0
-      *ofs << "registered "<<iter->first<<endl;
+          *ofs << "registered "<<iter->first<<endl;
+#endif
+        }
+      }
+      // delete old tree
+      NodeLookupType::iterator nodeIter;
+      for (nodeIter = nodeLookupTable.begin(); nodeIter != nodeLookupTable.end(); nodeIter++) {
+        delete nodeIter->second;
+      }
+      nodeLookupTable.clear();
+      root = buildProcessorTree(totalChares, gtn);
+#if COSMO_DEBUG > 0
+      printGenericTree(root,*ofs);
+      ofs->close();
+      delete ofs;
 #endif
     }
-    // delete old tree
-    NodeLookupType::iterator nodeIter;
-    for (nodeIter = nodeLookupTable.begin(); nodeIter != nodeLookupTable.end(); nodeIter++) {
-      delete nodeIter->second;
-    }
-    nodeLookupTable.clear();
-    root = buildProcessorTree(registeredChares.size(), gtn);
-#if COSMO_DEBUG > 0
-    printGenericTree(root,*ofs);
-    ofs->close();
-    delete ofs;
-#endif
+    counter = 0;
+  } else {
+    doneFlag = 0;
   }
+  CmiUnlock(cacheNodeLock);
+  if (localDone) doneFlag = 1;
+  while (doneFlag == 0);
 #endif
 
   if(registeredChares.size() == 0) {
@@ -1146,4 +1182,8 @@ void CacheManager::collectStatistics(CkCallback& cb) {
 #else
   CkAbort("Invalid call, only valid if COSMO_STATS is defined");
 #endif
+}
+
+void initNodeLock() {
+  cacheNodeLock = CmiCreateLock();
 }
