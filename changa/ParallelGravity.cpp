@@ -736,10 +736,10 @@ void Main::advanceBigStep(int iStep) {
           << ") ...";
     startTime = CkWallTimer();
     // Set up Ewald Tables
-    if(param.bPeriodic && param.bEwald)
-      treeProxy.EwaldInit(param.dEwhCut, CkCallbackResumeThread());
+    //if(param.bPeriodic && param.bEwald)
+    //  treeProxy.EwaldInit(param.dEwhCut, CkCallbackResumeThread());
     //pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
-    streamingCache.cacheSync(theta, activeRung, CkCallbackResumeThread());
+    streamingCache.cacheSync(theta, activeRung, param.dEwhCut, CkCallbackResumeThread());
     ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
 
@@ -922,10 +922,10 @@ Main::initialForces()
         << ") ...";
   startTime = CkWallTimer();
   // Set up Ewald Tables
-  if(param.bPeriodic && param.bEwald)
-    treeProxy.EwaldInit(param.dEwhCut, CkCallbackResumeThread());
+  //if(param.bPeriodic && param.bEwald)
+  //  treeProxy.EwaldInit(param.dEwhCut, CkCallbackResumeThread());
   //pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
-  streamingCache.cacheSync(theta, 0, CkCallbackResumeThread());
+  streamingCache.cacheSync(theta, 0, param.dEwhCut, CkCallbackResumeThread());
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
   

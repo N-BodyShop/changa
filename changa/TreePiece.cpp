@@ -1524,6 +1524,7 @@ int reEncodeOffset(int reqID, int offsetID)
 
 
 void TreePiece::initBuckets() {
+  int ewaldCondition = (bEwald ? 0 : 1);
   for (unsigned int j=0; j<numBuckets; ++j) {
     GenericTreeNode* node = bucketList[j];
     int numParticlesInBucket = node->particleCount;
@@ -1547,8 +1548,8 @@ void TreePiece::initBuckets() {
 	myParticles[i].dtGrav = 0;
       }
     }
-    bucketReqs[j].finished = 0;
-    bucketReqs[j].numAdditionalRequests = numChunks;
+    bucketReqs[j].finished = ewaldCondition;
+    bucketReqs[j].numAdditionalRequests = numChunks + 1;
 
 /*#if COSMO_DEBUG > 1
     if(iterationNo==1 || listMigrated==true){
@@ -1601,11 +1602,11 @@ void TreePiece::startNextBucket() {
       }
     }
     // compute the ewald component of the force
-    if(bEwald) {
+    /*if(bEwald) {
       BucketEwald(bucketList[currentBucket], nReplicas, fEwCut);
-    }
+    }*/
   }
-  bucketReqs[currentBucket].finished = 1;
+  bucketReqs[currentBucket].numAdditionalRequests --;
   finishBucket(currentBucket);
   //	currentBucket++;
   //	startNextBucket();
@@ -1816,6 +1817,25 @@ void TreePiece::calculateGravityLocal() {
   doAllBuckets();
 }
 
+void TreePiece::calculateEwald(dummyMsg *msg) {
+  unsigned int i=0;
+  while (i<_yieldPeriod && ewaldCurrentBucket < numBuckets) {
+    BucketEwald(bucketList[ewaldCurrentBucket], nReplicas, fEwCut);
+    
+    bucketReqs[ewaldCurrentBucket].finished = 1;
+    finishBucket(ewaldCurrentBucket);
+    
+    ewaldCurrentBucket++;
+    i++;
+  }
+
+  if (ewaldCurrentBucket<numBuckets) {
+    thisProxy[thisIndex].calculateEwald(msg);
+  } else {
+    delete msg;
+  }
+}
+
 #if INTERLIST_VER > 0
 void TreePiece::initNodeStatus(GenericTreeNode *node){
       
@@ -1840,7 +1860,7 @@ void TreePiece::initNodeStatus(GenericTreeNode *node){
 #ifdef CELL
 void cellSPE_callback(void *data) {
   CellGroupRequest *cgr = (CellGroupRequest *)data;
-  cgr->tp.bucketReqs[cgr->bucket].finished = 1;
+  cgr->tp.bucketReqs[cgr->bucket].numAdditionalRequests --;
   cgr->tp.finishBucket(cgr->bucket);
   delete cgr->particles;
   delete cgr;
@@ -2005,13 +2025,13 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
       // Now all the requests have been made
       completeWRGroup(wrh);
 #endif
-      if(bEwald) {
+      /*if(bEwald) {
         BucketEwald(bucketList[bucketIndex], nReplicas, fEwCut);
-      }
+      }*/
     }
 
 #ifndef CELL
-    bucketReqs[bucketIndex].finished = 1;
+    bucketReqs[bucketIndex].numAdditionalRequests --;
     finishBucket(bucketIndex);
 #endif
 }
@@ -2484,6 +2504,7 @@ void TreePiece::startIteration(double t, // opening angle -- moved to readonly
                                int am, // the active mask for multistepping
 			       int n,  // Number of Chunks
 			       Tree::NodeKey *k,
+			       double dEwhCut,
 			       const CkCallback& cb) {
   callback = cb;
   //theta = t;
@@ -2544,6 +2565,7 @@ void TreePiece::startIteration(double t, // opening angle -- moved to readonly
   
   currentBucket = 0;
   currentRemoteBucket = 0;
+  ewaldCurrentBucket = 0;
   myNumParticlesPending = myNumParticles;
   started = true;
 
@@ -2656,6 +2678,7 @@ void TreePiece::startIteration(double t, // opening angle -- moved to readonly
       }
 
   thisProxy[thisIndex].calculateGravityLocal();
+  if (bEwald) thisProxy[thisIndex].EwaldInit(dEwhCut);
 }
 
 void TreePiece::prefetch(GenericTreeNode *node, int offsetID) {
@@ -4161,6 +4184,7 @@ void TreePiece::pup(PUP::er& p) {
   p | numBuckets;
   p | currentBucket;
   p | currentRemoteBucket;
+  p | ewaldCurrentBucket;
 #if COSMO_STATS > 0
   //p | myNumParticleInteractions;
   //p | myNumCellInteractions;

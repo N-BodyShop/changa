@@ -280,7 +280,7 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 
 // Set up table for Ewald h (Fourier space) loop
 
-void TreePiece::EwaldInit(double fhCut, CkCallback &cb)
+void TreePiece::EwaldInit(double fhCut)
 {
 	int i,hReps,hx,hy,hz,h2;
 	double alpha,k4,L;
@@ -360,7 +360,13 @@ void TreePiece::EwaldInit(double fhCut, CkCallback &cb)
 			}
 		}
 	nEwhLoop = i;
-        contribute(0, 0, CkReduction::concat, cb);
+
+	//contribute(0, 0, CkReduction::concat, cb);
+	dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
+	*((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + numTreePieces + thisIndex + 1;
+	CkSetQueueing(msg,CK_QUEUEING_IFIFO);
+	msg->val=0;
+	thisProxy[thisIndex].calculateEwald(msg);
 }
 
 

@@ -491,6 +491,8 @@ class TreePiece : public CBase_TreePiece {
 	/// Used to start the remote computation for a particular chunk for all
 	/// buckets, one after the other
 	unsigned int currentRemoteBucket;
+	/// Used to start the Ewald computation for all buckets, one after the other
+	unsigned int ewaldCurrentBucket;
 	/// List of all the node-buckets in this TreePiece
 	std::vector<GenericTreeNode *> bucketList;
 	/// @brief Used as a placeholder while traversing the tree and computing
@@ -794,7 +796,8 @@ public:
 	void setPeriodic(int nReplicas, double fPeriod, int bEwald,
 			 double fEwCut, int bPeriod);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
-	void EwaldInit(double fhCut, CkCallback &cb);
+	void EwaldInit(double fhCut);
+	void calculateEwald(dummyMsg *m);
 	// Scale velocities (needed to convert to canonical momenta for
 	// comoving coordinates.)
 	void velScale(double dScale);
@@ -925,7 +928,7 @@ public:
   /// @param n the number of chunks in which the remote computation will be splitted
   /// @param k the array of roots of the remote chunks, the size if 'n'
   /// @param cb the callback to use after all the computation has finished
-  void startIteration(double t, int am, int n, Tree::NodeKey *k, const CkCallback& cb);
+  void startIteration(double t, int am, int n, Tree::NodeKey *k, double dEwhCut, const CkCallback& cb);
 
 	/// Function called by the CacheManager to send out request for needed
 	/// remote data, so that the later computation will hit.
