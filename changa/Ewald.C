@@ -362,9 +362,13 @@ void TreePiece::EwaldInit(double fhCut)
 	nEwhLoop = i;
 
 	//contribute(0, 0, CkReduction::concat, cb);
+#ifdef CELL
+	dummyMsg *msg = new dummyMsg;
+#else
 	dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
 	*((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + numTreePieces + thisIndex + 1;
 	CkSetQueueing(msg,CK_QUEUEING_IFIFO);
+#endif
 	msg->val=0;
 	thisProxy[thisIndex].calculateEwald(msg);
 }

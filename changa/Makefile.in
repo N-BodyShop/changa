@@ -5,7 +5,8 @@
 CACHE_TREE = -DCACHE_TREE          # enable processor tree inside the cache
 #INTERLIST = -DINTERLIST_VER=2      # enable interaction lists
 #HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
-DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST) $(HEXADECAPOLE)
+#CELL = -DINTERLIST_VER=2 -DCELL -DCELL_PART -DCELL_NODE -DCELL_EWALD  # Cell processor offload
+DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST) $(HEXADECAPOLE) $(CELL)
 
 STRUCTURES_PATH = ../structures
 CXXFLAGS += -O3 -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) @CPPFLAGS@
@@ -44,6 +45,17 @@ $(STRUCTURES_PATH)/libTipsy.a:
 	$(CHARMC) $<
 
 %.o: Makefile
+
+# CELL specific
+# add "cell_lib.o to the OBJECTS variable below
+# uncomment the following lines
+#include ../../charm/tmp/Makefile.cell
+#cell_lib.o: cellSPE_code.c
+#	$(SPU_CC) -O3 -S -g -I../../charm/include cellSPE_code.c
+#	$(SPU_CC) -O3 -c -I../../charm/include -o cellSPE_code.o cellSPE_code.c
+#	$(SPU_LD) -L../../charm/lib -o cellSPE_code cellSPE_code.o $(SPERT_LIBS) -lm -lsimdmath
+#	$(PPU_EMBEDSPU) spert_main cellSPE_code cell_lib.o
+# End CELL specific
 
 docs:
 	doxygen $(TARGET).doxygen

@@ -4,6 +4,18 @@
 #ifndef PARALLELGRAVITY_H
 #define PARALLELGRAVITY_H
 
+#ifndef CELL
+#ifdef CELL_NODE
+#undef CELL_NODE
+#endif
+#ifdef CELL_PART
+#undef CELL_PART
+#endif
+#ifdef CELL_EWALD
+#undef CELL_EWALD
+#endif
+#endif
+
 #include "config.h"
 #include <string>
 #include <map>
@@ -335,6 +347,13 @@ public:
 	void pup(PUP::er& p);
 };
 
+/* IBM brain damage */
+#undef hz
+typedef struct ewaldTable {
+  double hx,hy,hz;
+  double hCfac,hSfac;
+} EWT;
+
 class TreePiece : public CBase_TreePiece {
  private:
 	unsigned int numTreePieces;
@@ -418,12 +437,6 @@ class TreePiece : public CBase_TreePiece {
 	int nReplicas;
 	int bEwald;		/* Perform Ewald */
 	double fEwCut;
-/* IBM brain damage */
-#undef hz
-	typedef struct ewaldTable {
-	double hx,hy,hz;
-	    double hCfac,hSfac;
-	    } EWT;
 	EWT *ewt;
 	int nMaxEwhLoop;
 	int nEwhLoop;
@@ -569,6 +582,10 @@ class TreePiece : public CBase_TreePiece {
  
   ///Remote Particle Info structure
  public:
+#ifdef CELL
+	friend void cellSPE_callback(void*);
+	friend void cellSPE_ewald(void*);
+#endif
 
   typedef struct particlesInfoR{
     ExternalGravityParticle* particles;

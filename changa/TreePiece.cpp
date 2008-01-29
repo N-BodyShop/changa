@@ -28,6 +28,11 @@ using namespace TypeHandling;
 
 int TreeStuff::maxBucketSize;
 
+#ifdef CELL
+int workRequestOut = 0;
+CkVec<CellComputation> ewaldMessages;
+#endif
+
 //forward declaration
 string getColor(GenericTreeNode*);
 
@@ -1680,6 +1685,21 @@ void TreePiece::doAllBuckets(){
   thisProxy[thisIndex].nextBucket(msg);
 }
 
+#ifdef CELL
+#define CELLTHREASHOLD 100
+#define CELLEWALDTHREASHOLD 30
+
+inline void cellEnableComputation() {
+  if (workRequestOut < CELLEWALDTHREASHOLD) {
+    for (int i=0; i<ewaldMessages.length(); ++i) {
+      CellComputation &comp = ewaldMessages[i];
+      comp.owner.calculateEwald(comp.msg);
+    }
+    ewaldMessages.removeAll();
+  }
+}
+#endif
+
 void TreePiece::nextBucket(dummyMsg *msg){
   unsigned int i=0;
 
@@ -1687,7 +1707,11 @@ void TreePiece::nextBucket(dummyMsg *msg){
   
   NodeType childType;
  
-  while (i<_yieldPeriod && currentBucket < numBuckets) {
+  while (i<_yieldPeriod && currentBucket < numBuckets
+#ifdef CELL
+    && workRequestOut < CELLTHREASHOLD
+#endif
+      ) {
 
     if(currentBucket==0){
       curNodeLocal=root;
@@ -1745,7 +1769,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
     //So, using the following
     if(currentBucket>=numBuckets)
       break;
-    
+
     //Calculate starting Node for next tree walk
     //Go up myTree till we get to a parent whose all children are not done  with building lists
     //then, take the child as the starting point for the next tree walk
@@ -1817,20 +1841,95 @@ void TreePiece::calculateGravityLocal() {
   doAllBuckets();
 }
 
+#ifdef CELL
+void cellSPE_ewald(void *data) {
+  CellEwaldRequest *cgr = (CellEwaldRequest *)data;
+  //CkPrintf("cellSPE_ewald %d\n", cgr->firstBucket);
+  int i;
+  free_aligned(cgr->roData);
+  int offset = (cgr->numActiveData + 3) & ~0x3;
+  for (i=0; i<cgr->numActiveData; ++i) {
+    // copy the forces calculated to the particle's data
+    GravityParticle *dest = cgr->particles[i];
+    //CkPrintf("cellSPE_single part %d: %p, %f %f %f\n",i,dest,cr->activeData[i].treeAcceleration.x,cr->activeData[i].treeAcceleration.y,cr->activeData[i].treeAcceleration.z);
+    dest->treeAcceleration.x = dest->treeAcceleration.x + cgr->woData[i+offset];
+    dest->treeAcceleration.y = dest->treeAcceleration.y + cgr->woData[i+2*offset];
+    dest->treeAcceleration.z = dest->treeAcceleration.z + cgr->woData[i+3*offset];
+    dest->potential += cgr->woData[i];
+  }
+  for (i=cgr->firstBucket; i<=cgr->lastBucket; ++i) {
+    cgr->tp->bucketReqs[i].finished = 1;
+    cgr->tp->finishBucket(i);
+  }
+  free_aligned(cgr->woData);
+  delete cgr->particles;
+  workRequestOut --;
+  delete cgr;
+  cellEnableComputation();
+}
+#endif
+
 void TreePiece::calculateEwald(dummyMsg *msg) {
   unsigned int i=0;
-  while (i<_yieldPeriod && ewaldCurrentBucket < numBuckets) {
+  while (i<_yieldPeriod && ewaldCurrentBucket < numBuckets
+#ifdef CELL
+	 && workRequestOut < CELLEWALDTHREASHOLD
+#endif
+	 ) {
+#ifdef CELL_EWALD
+    int activePart=0, indexActivePart=0;
+    for (int k=bucketList[ewaldCurrentBucket]->firstParticle; k<=bucketList[ewaldCurrentBucket]->lastParticle; ++k) {
+      if (myParticles[k].rung >= activeRung) activePart++;
+    }
+    GravityParticle **partList = new GravityParticle*[activePart];
+    int outputSize = ROUNDUP_128(4*sizeof(cellSPEtype)*(activePart+3));
+    int inputSize = ROUNDUP_128(sizeof(CellEwaldContainer)+nEwhLoop*sizeof(CellEWT)+3*sizeof(cellSPEtype)*(activePart+3));
+    cellSPEtype *output = (cellSPEtype*)malloc_aligned(outputSize, 128);
+    CellEwaldContainer *input = (CellEwaldContainer*)malloc_aligned(inputSize, 128);
+    cellSPEtype *positionX = (cellSPEtype*)(((char*)input)+sizeof(CellEwaldContainer));
+    cellSPEtype *positionY = (cellSPEtype*)(((char*)positionX)+((activePart+3)>>2)*(4*sizeof(cellSPEtype)));
+    cellSPEtype *positionZ = (cellSPEtype*)(((char*)positionY)+((activePart+3)>>2)*(4*sizeof(cellSPEtype)));
+    CellEWT *ewtIn = (CellEWT*)(((char*)positionZ)+((activePart+3)>>2)*(4*sizeof(cellSPEtype)));
+    CellEwaldRequest *cr = new CellEwaldRequest(output, activePart, input, partList, this, ewaldCurrentBucket, ewaldCurrentBucket);
+    for (int k=bucketList[ewaldCurrentBucket]->firstParticle; k<=bucketList[ewaldCurrentBucket]->lastParticle; ++k) {
+      if (myParticles[k].rung >= activeRung) {
+	positionX[indexActivePart] = myParticles[k].position.x;
+	positionY[indexActivePart] = myParticles[k].position.y;
+	positionZ[indexActivePart] = myParticles[k].position.z;
+	partList[indexActivePart++] = &myParticles[k];
+      }
+    }
+    input->rootMoments = root->moments;
+    input->fEwCut = fEwCut;
+    input->fPeriod = fPeriod.x;
+    input->numPart = activePart;
+    input->nReps = nReplicas;
+    input->nEwhLoop = nEwhLoop;
+    for (int k=0; k<nEwhLoop; ++k) {
+      ewtIn[k] = ewt[k];
+    }
+    sendWorkRequest (3, NULL, 0, input, inputSize, output, outputSize, (void*)cr, 0, cellSPE_ewald, NULL);
+    workRequestOut ++;
+#else
     BucketEwald(bucketList[ewaldCurrentBucket], nReplicas, fEwCut);
     
     bucketReqs[ewaldCurrentBucket].finished = 1;
     finishBucket(ewaldCurrentBucket);
+#endif
     
     ewaldCurrentBucket++;
     i++;
   }
 
   if (ewaldCurrentBucket<numBuckets) {
-    thisProxy[thisIndex].calculateEwald(msg);
+#ifdef CELL
+    if (workRequestOut < CELLEWALDTHREASHOLD)
+#endif
+      thisProxy[thisIndex].calculateEwald(msg);
+#ifdef CELL
+    else
+      ewaldMessages.insertAtEnd(CellComputation(thisProxy[thisIndex], msg));
+#endif
   } else {
     delete msg;
   }
@@ -1859,49 +1958,65 @@ void TreePiece::initNodeStatus(GenericTreeNode *node){
 
 #ifdef CELL
 void cellSPE_callback(void *data) {
+  //CkPrintf("cellSPE_callback\n");
   CellGroupRequest *cgr = (CellGroupRequest *)data;
-  cgr->tp.bucketReqs[cgr->bucket].numAdditionalRequests --;
-  cgr->tp.finishBucket(cgr->bucket);
+  cgr->tp->bucketReqs[cgr->bucket].numAdditionalRequests --;
+  cgr->tp->finishBucket(cgr->bucket);
   delete cgr->particles;
   delete cgr;
 }
 
 void cellSPE_single(void *data) {
   CellRequest *cr = (CellRequest *)data;
-  delete cr->roData;
+  free_aligned(cr->roData);
   for (int i=0; i<cr->numActiveData; ++i) {
     // copy the forces calculated to the particle's data
     GravityParticle *dest = cr->particles[i];
-    dest->treeAcceleration += cr->activeData[i].treeAcceleration;
+    //CkPrintf("cellSPE_single part %d: %p, %f %f %f\n",i,dest,cr->activeData[i].treeAcceleration.x,cr->activeData[i].treeAcceleration.y,cr->activeData[i].treeAcceleration.z);
+    dest->treeAcceleration = dest->treeAcceleration + cr->activeData[i].treeAcceleration;
     dest->potential += cr->activeData[i].potential;
     if (cr->activeData[i].dtGrav > dest->dtGrav) {
       dest->dtGrav = cr->activeData[i].dtGrav;
     }
   }
-  delete cr->activeData;
+  free_aligned(cr->activeData);
+  workRequestOut --;
+  delete cr;
+  cellEnableComputation();
 }
 #endif
 
+#define CELLBUFFERSIZE 16*1024
 void TreePiece::calculateForceLocalBucket(int bucketIndex){
     int cellListIter;
     int partListIter;
+
+    /*for (int i=1; i<=myNumParticles; ++i) {
+      if (myParticles[i].treeAcceleration.x != 0 ||
+	  myParticles[i].treeAcceleration.y != 0 ||
+	  myParticles[i].treeAcceleration.z != 0)
+	CkPrintf("AAARRRGGGHHH (%d)!!! Particle %d (%d) on TP %d has acc: %f %f %f\n",bucketIndex,i,myParticles[i].iOrder,thisIndex,myParticles[i].treeAcceleration.x,myParticles[i].treeAcceleration.y,myParticles[i].treeAcceleration.z);
+    }*/
     
     if (bucketList[bucketIndex]->rungs >= activeRung) {
 #ifdef CELL
-      CellGroupRequest *cgr = new CellGroupRequest(this, bucketIndex, partList);
-      WRGroupHandle wrh = createWRGroup(cgr, cellSPE_callback);
+      //enableTrace();
       // Combine all the computation in a request to be sent to the cell SPE
       int activePart=0, indexActivePart=0;
-      for (int k=bucketList[bucketIndex]->firstParticle; k<bucketList[bucketIndex]->lastParticle; ++k) {
-        if (myParticles[j].rung >= activeRung) activePart++;
+      for (int k=bucketList[bucketIndex]->firstParticle; k<=bucketList[bucketIndex]->lastParticle; ++k) {
+        if (myParticles[k].rung >= activeRung) activePart++;
       }
-      int activePartDataSize = ROUNDUP_128(activePart*sizeof(CellGravityParticle));
+      int activePartDataSize = ROUNDUP_128((activePart+3)*sizeof(CellGravityParticle));
       CellGravityParticle *activePartData = (CellGravityParticle*)malloc_aligned(activePartDataSize,128);
       GravityParticle **partList = new GravityParticle*[activePart];
-      for (int k=bucketList[bucketIndex]->firstParticle; k<bucketList[bucketIndex]->lastParticle; ++k) {
-        if (myParticles[j].rung >= activeRung) {
-          activePartData[indexActivePart] = myParticles[j];
-          partList[indexActivePart++] = &myParticles[j];
+      CellGroupRequest *cgr = new CellGroupRequest(this, bucketIndex, partList);
+      WRGroupHandle wrh = createWRGroup(cgr, cellSPE_callback);
+      for (int k=bucketList[bucketIndex]->firstParticle; k<=bucketList[bucketIndex]->lastParticle; ++k) {
+        if (myParticles[k].rung >= activeRung) {
+          activePartData[indexActivePart] = myParticles[k];
+	  //CkPrintf("[%d] particle %d: %d on bucket %d, acc: %f %f %f\n",thisIndex,k,myParticles[k].iOrder,bucketIndex,activePartData[indexActivePart].treeAcceleration.x,activePartData[indexActivePart].treeAcceleration.y,activePartData[indexActivePart].treeAcceleration.z);
+	  //CkPrintf("[%d] partList %d: particle %d (%p)\n",thisIndex,indexActivePart,k,&myParticles[k]);
+          partList[indexActivePart++] = &myParticles[k];
         }
       }
       /*int numPart=0, numNodes=0;
@@ -1911,10 +2026,12 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
           numPart += particleListLocal[k][kk].numParticles;
         }
       }*/
-      int particlesPerRequest = 16*1024 / sizeof(CellExternalGravityParticle);
-      int nodesPerRequest = 16*1024 / sizeof(CellMultipoleMoments);
-      CellExternalGravityParticle *particleData = (CellExternalGravityParticle*)malloc_aligned(16*1024);
-      CellMultipoleMoments *nodesData = (CellMultipoleMoments*)malloc_aligned(16*1024);
+      int particlesPerRequest = (CELLBUFFERSIZE - 2*sizeof(int)) / sizeof(CellExternalGravityParticle);
+      int nodesPerRequest = (CELLBUFFERSIZE - 2*sizeof(int)) / sizeof(CellMultipoleMoments);
+      CellContainer *particleContainer = (CellContainer*)malloc_aligned(CELLBUFFERSIZE,128);
+      CellExternalGravityParticle *particleData = (CellExternalGravityParticle*)&particleContainer->data;
+      CellContainer *nodesContainer = (CellContainer*)malloc_aligned(CELLBUFFERSIZE,128);
+      CellMultipoleMoments *nodesData = (CellMultipoleMoments*)&nodesContainer->data;
       int indexNodes=0, indexPart=0;
 #endif
       //BucketGravityRequest& req = bucketReqs[bucketIndex];
@@ -1930,19 +2047,25 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
           bucketcheckList[bucketIndex].insert(tmp->getKey());
           combineKeys(tmp->getKey(),bucketIndex);
 #endif
-#ifdef CELL
+#ifdef CELL_NODE
           nodesData[indexNodes] = tmp.node->moments;
-          nodesData[indexNodes].cm += decodeOffset(tmp.offsetID);
+          Vector3D<double> tmpoffsetID = decodeOffset(tmp.offsetID);
+          nodesData[indexNodes].cm += tmpoffsetID;
           indexNodes++;
           if (indexNodes == nodesPerRequest) {
             // send off request
             void *activeData = malloc_aligned(activePartDataSize,128);
             memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
-            CellRequest *userData = new CellRequest(activeData, activePart, nodesData, partList);
-            sendWorkRequest (1, activeData, activePartDataSize, nodesData, 16*1024, NULL, 0,
-                            (void*)userData, 0, cellSPE_single, wrh);
+            CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, nodesContainer, partList, this);
+	    nodesContainer->numInt = activePart;
+	    nodesContainer->numExt = indexNodes;
+	    //CkPrintf("[%d] sending request 1 %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, nodesContainer, CELLBUFFERSIZE);
+            sendWorkRequest (1, activeData, activePartDataSize, nodesContainer, CELLBUFFERSIZE, NULL, 0,
+                            (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
+	    workRequestOut ++;
             nodeInterLocal += activePart * indexNodes;
-            nodesData = (CellMultipoleMoments*)malloc_aligned(16*1024);
+	    nodesContainer = (CellContainer*)malloc_aligned(CELLBUFFERSIZE,128);
+            nodesData = (CellMultipoleMoments*)&nodesContainer->data;
             indexNodes = 0;
           }
 #else
@@ -1951,15 +2074,21 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
 #endif
         }
 #ifdef CELL
-        if (indexNodes > 0) {
+        if (indexNodes > 0 && k==curLevelLocal) {
+#ifdef CELL_NODE
           void *activeData = malloc_aligned(activePartDataSize,128);
           memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
-          CellRequest *userData = new CellRequest(activeData, activePart, nodesData, partList);
-          sendWorkRequest (1, activeData, activePartDataSize, nodesData, ROUNDUP_128(indexNodes*sizeof(CellMultipoleMoments)),
-                           NULL, 0, (void*)userData, 0, cellSPE_single, wrh);
+          CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, nodesContainer, partList, this);
+	  nodesContainer->numInt = activePart;
+	  nodesContainer->numExt = indexNodes;
+          //CkPrintf("[%d] sending request 2 %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, nodesContainer, ROUNDUP_128(indexNodes*sizeof(CellMultipoleMoments)));
+          sendWorkRequest (1, activeData, activePartDataSize, nodesContainer, ROUNDUP_128(indexNodes*sizeof(CellMultipoleMoments)+2*sizeof(int)),
+                           NULL, 0, (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
+	  workRequestOut ++;
           nodeInterLocal += activePart * indexNodes;
-        } else {
-          free(nodesData);
+#endif
+        } else if (k==curLevelLocal) {
+          free_aligned(nodesContainer);
         }
 #endif
 #ifdef HPM_COUNTER
@@ -1980,43 +2109,54 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
           combineKeys((pinfo.nd)->getKey(),bucketIndex);
 #endif
           for(int j = 0; j < pinfo.numParticles; ++j){
-#ifdef CELL
-            partData[indexPart] = pinfo.particles[j];
-            partData[indexPart].position += pinfo.offset;
+#ifdef CELL_PART
+            particleData[indexPart] = pinfo.particles[j];
+            particleData[indexPart].position += pinfo.offset;
             indexPart++;
-            if (indexPart == partPerRequest) {
+            if (indexPart == particlesPerRequest) {
               // send off request
               void *activeData = malloc_aligned(activePartDataSize,128);
               memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
-              CellRequest *userData = new CellRequest(activeData, activePart, particleData, partList);
-              sendWorkRequest (2, activeData, activePartDataSize, particleData, 16*1024, NULL, 0,
-                              (void*)userData, 0, cellSPE_single, wrh);
-              particleInterLocal += activePart * indexPart;
-              particleData = (CellExternalGravityParticle*)malloc_aligned(16*1024);
+              CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, particleContainer, partList, this);
+	      particleContainer->numInt = activePart;
+	      particleContainer->numExt = indexPart;
+              //CkPrintf("[%d] sending request 3 %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, particleContainer, CELLBUFFERSIZE);
+              sendWorkRequest (2, activeData, activePartDataSize, particleContainer, CELLBUFFERSIZE, NULL, 0,
+                              (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
+	      workRequestOut ++;
+	      particleInterLocal += activePart * indexPart;
+	      particleContainer = (CellContainer*)malloc_aligned(CELLBUFFERSIZE,128);
+              particleData = (CellExternalGravityParticle*)&particleContainer->data;
               indexPart = 0;
             }
 #else
             computed = partBucketForce(&pinfo.particles[j], bucketList[bucketIndex], myParticles, pinfo.offset, activeRung);
 #endif
           }
+          particleInterLocal += pinfo.numParticles * computed;
+        }
 #ifdef CELL
-        if (indexPart > 0) {
+        if (indexPart > 0 && k==curLevelLocal) {
+#ifdef CELL_PART
           //void *activeData = malloc_aligned(activePartDataSize,128);
           //memcpy(activeData, activePartData, activePart*sizeof(GravityParticle));
-          CellRequest *userData = new CellRequest(activePartData, activePart, particleData, partList);
-          sendWorkRequest (2, activePartData, activePartDataSize, particleData, ROUNDUP_128(indexPart*sizeof(CellExternalGravityParticle)),
-                           NULL, 0, (void*)userData, 0, cellSPE_single, wrh);
+          CellRequest *userData = new CellRequest(activePartData, activePart, particleContainer, partList, this);
+	  particleContainer->numInt = activePart;
+	  particleContainer->numExt = indexPart;
+          //CkPrintf("[%d] sending request 4 %p+%d, %p+%d (%d int %d ext)\n",thisIndex,activePartData, activePartDataSize, particleContainer, ROUNDUP_128(indexPart*sizeof(CellExternalGravityParticle)),activePart,indexPart);
+          sendWorkRequest (2, activePartData, activePartDataSize, particleContainer, ROUNDUP_128(indexPart*sizeof(CellExternalGravityParticle)+2*sizeof(int)),
+                           NULL, 0, (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
+	  workRequestOut ++;
           particleInterLocal += activePart * indexPart;
-        } else {
-          free(activePartData);
-          free(particleData);
+#endif
+        } else if (k==curLevelLocal) {
+          free_aligned(activePartData);
+          free_aligned(particleContainer);
         }
 #endif
 #ifdef HPM_COUNTER
     hpmStop(2);
 #endif
-          particleInterLocal += pinfo.numParticles * computed;
-        }
 #ifdef COSMO_EVENTS
         traceUserBracketEvent(partForceUE, newTimer, CmiWallTimer());
 #endif
@@ -2024,6 +2164,7 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
 #ifdef CELL
       // Now all the requests have been made
       completeWRGroup(wrh);
+      OffloadAPIProgress();
 #endif
       /*if(bEwald) {
         BucketEwald(bucketList[bucketIndex], nReplicas, fEwCut);
@@ -2055,8 +2196,8 @@ void TreePiece::calculateForceRemoteBucket(int bucketIndex, int chunk){
         bucketcheckList[bucketIndex].insert(tmp.node->getKey());
         combineKeys(tmp.node->getKey(),bucketIndex);
 #endif
-        computed = nodeBucketForce(tmp.node, bucketList[bucketIndex], myParticles,
-                                   decodeOffset(tmp.offsetID), activeRung);
+        //computed = nodeBucketForce(tmp.node, bucketList[bucketIndex], myParticles,
+        //                           decodeOffset(tmp.offsetID), activeRung);
       }
 #ifdef HPM_COUNTER
       hpmStop(1);
@@ -2075,8 +2216,8 @@ void TreePiece::calculateForceRemoteBucket(int bucketIndex, int chunk){
         combineKeys((pinfo.nd)->getKey(),bucketIndex);
 #endif
         for(int j = 0; j < pinfo.numParticles; ++j){
-          computed = partBucketForce(&pinfo.particles[j], bucketList[bucketIndex],
-                                     myParticles, pinfo.offset, activeRung);
+          //computed = partBucketForce(&pinfo.particles[j], bucketList[bucketIndex],
+          //                           myParticles, pinfo.offset, activeRung);
         }
         particleInterRemote[chunk] += pinfo.numParticles * computed;
       }
@@ -2511,7 +2652,14 @@ void TreePiece::startIteration(double t, // opening angle -- moved to readonly
   //thetaMono = theta*theta*theta*theta;	// Make monopole accuracy similar to
 				// hexadecapole accuracy
   activeRung = am;
-  
+  //CkPrintf("particle %d\n",findParticleWithIorder(60049));
+  /*for (int i=1; i<=myNumParticles; ++i) {
+      if (myParticles[i].treeAcceleration.x != 0 ||
+	  myParticles[i].treeAcceleration.y != 0 ||
+	  myParticles[i].treeAcceleration.z != 0)
+	CkPrintf("STARTITERATION !!! Particle %d (%d) on TP %d has acc: %f %f %f\n",i,myParticles[i].iOrder,thisIndex,myParticles[i].treeAcceleration.x,myParticles[i].treeAcceleration.y,myParticles[i].treeAcceleration.z);
+  }*/
+
   if (n != numChunks && remainingChunk != NULL) {
     // reallocate remaining chunk to the new size
     delete[] remainingChunk;
