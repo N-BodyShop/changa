@@ -128,7 +128,8 @@ DataManager.h \
 Reductions.h \
 ../structures/Space.h \
 ../structures/Box.h \
-moments.h
+moments.h \
+gravity.h
 
 CacheManager.o: \
 CacheManager.C \
