@@ -51,6 +51,11 @@ namespace Tree {
   extern int numEmptyNodes;
 
   class GenericTreeNode {
+#ifdef CHANGA_REFACTOR_WALKCHECK
+    public:
+    bool touched;
+    char by;
+#endif
   protected:
     NodeType myType;
     NodeKey key;
@@ -65,6 +70,10 @@ namespace Tree {
       visitedL=false;
       bucketListIndex=-1;
       startBucket=-1;
+#endif
+#ifdef CHANGA_REFACTOR_WALKCHECK
+      touched = false;
+      by = 'I';
 #endif
     }
 
@@ -83,7 +92,7 @@ namespace Tree {
     int firstParticle;
     /// An index to the last particle contained by this node, myNumParticles+1 means outside the node
     int lastParticle;
-    /// An index to the real location of this node if this node is NonLocal, if
+    /// An index to the *real* location of this node if this node is NonLocal, if
     /// it is Boundary or Internal or Bucket it is equal to thisIndex
     unsigned int remoteIndex;
     /// If this node is partially local, total number of particles contained (across all chares)
@@ -198,6 +207,10 @@ namespace Tree {
       p | startBucket;
       p | visitedR;
       p | visitedL;
+#endif
+#ifdef CHANGA_REFACTOR_WALKCHECK
+      p | touched;
+      p | by;
 #endif
     }
   };

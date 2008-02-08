@@ -116,12 +116,34 @@ class CacheStatistics {
   }
 };
 
+// jetley - forward declarations
+#include "State.h"
+#include "codes.h"
+
 class RequestorData {//: public CkPool<RequestorData, 128> {
  public:
   int arrayID;
   int reqID;
   bool isPrefetch;
 
+  // jetley - so that walks can be resumed
+  State *state;
+  WalkType walktype;
+  ComputeType computetype;
+  OptType opttype;
+
+  RequestorData(int a, int r, bool ip, State *s, WalkType w, ComputeType c, OptType o) {
+    arrayID = a;
+    reqID = r;
+    isPrefetch = ip;
+    
+    state = s;
+    walktype = w;
+    computetype = c;
+    opttype = o;
+
+  }
+  
   RequestorData(int a, int r, bool ip) {
     arrayID = a;
     reqID = r;
@@ -369,7 +391,7 @@ private:
 	 * sendNodeRequest to get it. Returns null if the Node has to come from
 	 * remote.
 	*/
-	CacheNode *requestNode(int requestorIndex, int remoteIndex, int chunk, CacheKey key, int reqID, bool isPrefetch);
+	CacheNode *requestNode(int requestorIndex, int remoteIndex, int chunk, CacheKey key, int reqID, bool isPrefetch, State *state, WalkType wt, ComputeType ct, OptType ot);
 	// Shortcut for the other recvNodes, this receives only one node
 	//void recvNodes(CacheKey ,int ,CacheNode &);
 	/** @brief Receive the nodes incoming from the remote

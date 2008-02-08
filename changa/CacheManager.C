@@ -117,7 +117,7 @@ CacheManager::CacheManager(CkMigrateMessage* m) : CBase_CacheManager(m) {
   treePieceLocMgr = NULL;
 }
 
-CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chunk,CacheKey key,int reqID,bool isPrefetch){
+CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chunk,CacheKey key,int reqID,bool isPrefetch, State *state, WalkType wt, ComputeType ct, OptType ot){
   /*
     if(!proxyInitialized){
     CpvInitialize(CProxy_TreePiece,streamingTreeProxy);
@@ -163,7 +163,8 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chun
       return e->node;
     }
   }
-  e->requestorVec.push_back(RequestorData(requestorIndex,reqID,isPrefetch));
+  e->requestorVec.push_back(RequestorData(requestorIndex,reqID,isPrefetch,
+                                          state, wt, ct, ot));
   //e->reqVec.push_back(req);
 #if COSMO_STATS > 1
   e->misses++;
@@ -189,7 +190,7 @@ CacheNode *CacheManager::sendNodeRequest(int chunk, NodeCacheEntry *e,int reqID)
       //e->node = prototype->createNew();
       const GenericTreeNode *nd = p->lookupNode(e->requestID);
 #ifdef COSMO_PRINT
-      if (nd==NULL) CkPrintf("Requested for node %s in %d!\n",(TreeStuff::keyBits(e->requestID,63)).c_str(),e->home);
+      if (nd==NULL) CkPrintf("jetley: Requested for node %s in %d!\n",(TreeStuff::keyBits(e->requestID,63)).c_str(),e->home);
 #endif
       CkAssert(nd != NULL);
       CkAssert(e->node == NULL);
@@ -386,7 +387,7 @@ void CacheManager::processRequests(int chunk,CacheNode *node,int from,int depth)
   //vector<BucketGravityRequest *>::iterator callreq;
   for(caller = e->requestorVec.begin(); caller != e->requestorVec.end(); caller++){
     TreePiece *p = treeProxy[caller->arrayID].ckLocal();
-    
+    /*
     if (caller->isPrefetch) p->prefetch(e->node, caller->reqID);
     else {
       LDObjHandle objHandle;
@@ -397,6 +398,15 @@ void CacheManager::processRequests(int chunk,CacheNode *node,int from,int depth)
       //ckout <<"received node for computation"<<endl;
     }
     //treeProxy[*caller].receiveNode_inline(*(e->node),*(*callreq));
+    */
+    if (caller->isPrefetch) p->receiveNodeCallback(e->node, chunk, caller->reqID, caller->state, caller->walktype, caller->computetype, caller->opttype);
+    else{
+      LDObjHandle objHandle;
+      int objstopped = 0;
+      objHandle = p->timingBeforeCall(&objstopped);
+      p->receiveNodeCallback(e->node, chunk, caller->reqID, caller->state, caller->walktype, caller->computetype, caller->opttype);
+      p->timingAfterCall(objHandle,&objstopped);
+    }
   }
   e->requestorVec.clear();
   //e->reqVec.clear();
@@ -622,11 +632,19 @@ void CacheManager::recvParticles(FillParticleMsg *msg){
       TreePiece *p = treeProxy[caller->arrayID].ckLocal();
 
       //CkAssert(!caller->isPrefetch);
+        
+        // jetley
+        // The particles have been prefetched - only the number of 
+        // outstanding prefetches for the TreePiece in question needs to 
+        // be updated now. This is done in the TreePiece::prefetch() function
       if (caller->isPrefetch) p->prefetch(e->part);
       else {
 	LDObjHandle objHandle;
 	int objstopped = 0;
 	objHandle = p->timingBeforeCall(&objstopped);
+        // jetley
+        // we can use the original 'callback' function, since no walk 
+        // has to be resumed, only a simple computation performed.
 	p->receiveParticles(e->part,num,chunk,caller->reqID,msg->key);
 	p->timingAfterCall(objHandle,&objstopped);
       }

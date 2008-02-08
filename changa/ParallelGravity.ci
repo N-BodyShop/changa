@@ -193,8 +193,12 @@ mainmodule ParallelGravity {
 		//entry [inline] void receiveParticles_inline(GravityParticle part[num],int num,
 		//					    unsigned int reqID);
 		    
-		entry void startlb(CkCallback &cb);
+                // jetley
+		entry void startlb(CkCallback &cb, int activeRung);
 		entry void ResumeFromSync();
+                //jetley
+                entry void receiveProxy(CkGroupID);
+                entry void doAtSync();
 
 		entry void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
 		entry void outputAccASCII(const std::string& suffix, const CkCallback& cb);

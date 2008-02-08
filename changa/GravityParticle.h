@@ -24,6 +24,9 @@ public:
 
 class ExternalGravityParticle {
  public:
+// FIXME - jetley
+
+	SFC::Key key;
   double mass;
   double soft;
   Vector3D<double> position;
@@ -37,8 +40,7 @@ class ExternalGravityParticle {
 
 class GravityParticle : public ExternalGravityParticle {
 public:
-
-	SFC::Key key;
+// FIXME - jetley
 	Vector3D<double> velocity;
 	Vector3D<double> treeAcceleration;
 	double potential;

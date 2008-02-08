@@ -716,13 +716,14 @@ void Main::advanceBigStep(int iStep) {
           << endl;
 
     /********* Load balancer ********/
-    if(lastActiveRung == 0) {
+    // jetley - commenting out lastActiveRung == 0 check, balance load even for fast rungs
+    //if(lastActiveRung == 0) {
 	ckerr << "Load balancer ...";
 	startTime = CkWallTimer();
-	treeProxy.startlb(CkCallbackResumeThread());
+	treeProxy.startlb(CkCallbackResumeThread(), activeRung);
 	ckerr<< " took "<<(CkWallTimer() - startTime) << " seconds."
 	     << endl;
-	}
+    //	}
 
     /******** Tree Build *******/
     ckerr << "Building trees ...";

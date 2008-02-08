@@ -65,6 +65,7 @@ inline void operator|(PUP::er &p,DomainsDec &d) {
 #include "GravityParticle.h"
 
 #include "CacheManager.h"
+#include "MetisCosmoLB.decl.h"          // jetley - needed for CkIndex_MetisCosmoLB
 #include "ParallelGravity.decl.h"
 
 extern CProxy_Main mainChare;
@@ -354,8 +355,74 @@ typedef struct ewaldTable {
   double hCfac,hSfac;
 } EWT;
 
+// jetley
+class MissRecord;
+class State;
+
 class TreePiece : public CBase_TreePiece {
- private:
+   // jetley
+ public:
+        int getIndex() {
+          return thisIndex;
+        }
+        
+        int decPrefetchWaiting() {
+          prefetchWaiting--; 
+          return prefetchWaiting;
+        }
+        
+        int incPrefetchWaiting() {
+          prefetchWaiting++;
+        }
+        
+        int addToRemainingChunk(int chunk, int howMuch){
+          remainingChunk[chunk] += howMuch; 
+          return remainingChunk[chunk];
+        }
+
+        void addToNodeInterRemote(int chunk, int howmany){
+          nodeInterRemote[chunk] += howmany;
+        }
+
+        void addToParticleInterRemote(int chunk, int howmany){
+          particleInterRemote[chunk] += howmany;
+        }
+        
+        void addToNodeInterLocal(int howmany){
+          nodeInterLocal += howmany;
+        }
+
+        void addToParticleInterLocal(int howmany){
+          particleInterLocal += howmany;
+        }
+
+        /// Start a new remote computation upon prefetch finished
+	void startRemoteChunk();
+#ifdef CHANGA_REFACTOR_WALKCHECK
+        void addToBucketChecklist(int bucketIndex, NodeKey k){
+          bucketcheckList[bucketIndex].insert(k);
+        }
+
+        int getCurrentBucket(){
+          return currentBucket;
+        }
+        int getCurrentRemoteBucket(){
+          return currentRemoteBucket;
+        }
+#endif
+
+private:        
+
+        // jetley - proxy for load balancer
+        CkGroupID proxy;
+        // jetley - whether proxy is valid or not
+        CmiBool proxyValid; 
+        // jetley - saved first internal node
+        Vector3D<float> savedCentroid;
+        CmiBool proxySet;
+        // jetley - multistep load balancing 
+        int prevLARung;
+
 	unsigned int numTreePieces;
 	/// @brief Used to inform the mainchare that the requested operation has
 	/// globally finished
@@ -444,9 +511,6 @@ class TreePiece : public CBase_TreePiece {
 	MOMC momcRoot;		/* complete moments of root */
 #endif
 	
-	// Decode offset bits in requestID for periodic replicas
-	Vector3D<double> decodeOffset(int reqID);
-	
 	/// Setup for writing
 	int nSetupWriteStage;
 	int nStartWrite;
@@ -468,9 +532,6 @@ class TreePiece : public CBase_TreePiece {
 	unsigned int numPrefetchReq;
 	/// number of particles/buckets still remaining to compute for the chunk
 	int *remainingChunk;
-
-	/// Start a new remote computation upon prefetch finished
-	void startRemoteChunk();
 
 	/// number of chunks in which the tree will be chopped for prefetching
 	int numChunks;
@@ -521,7 +582,7 @@ class TreePiece : public CBase_TreePiece {
 	/// convert a key to a node using the nodeLookupTable
 	inline GenericTreeNode *keyToNode(const Tree::NodeKey);
 
-#if COSMO_DEBUG > 1
+#if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK
   ///A set for each bucket to check the correctness of the treewalk
   typedef std::vector< std::multiset<Tree::NodeKey> > DebugList;
   DebugList bucketcheckList;
@@ -642,7 +703,7 @@ class TreePiece : public CBase_TreePiece {
 	FieldHeader fh;
 	Tipsy::header tipsyHeader; /* for backward compatibility */
 	
-#if COSMO_DEBUG > 1
+#if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK
   ///This function checks the correctness of the treewalk
   void checkWalkCorrectness();
   void combineKeys(Tree::NodeKey key,int bucket);
@@ -701,7 +762,7 @@ class TreePiece : public CBase_TreePiece {
 	
 public:
 	
-	TreePiece(unsigned int numPieces) : numTreePieces(numPieces), pieces(thisArrayID), started(false), root(0) {
+	TreePiece(unsigned int numPieces) : numTreePieces(numPieces), pieces(thisArrayID), started(false), root(0), proxyValid(false), proxySet(false), prevLARung (-1) {
 	  //CkPrintf("[%d] TreePiece created\n",thisIndex);
 	  // ComlibDelegateProxy(&streamingProxy);
 	  // the lookup of localCache is done in startOctTreeBuild, when we also markPresence
@@ -764,6 +825,10 @@ public:
 	}
 	
 	TreePiece(CkMigrateMessage* m) {
+          // jetley
+          proxyValid = false;
+          proxySet = false;
+          
 	  usesAtSync = CmiTrue;
 	  localCache = NULL;
 	  bucketReqs = NULL;
@@ -953,8 +1018,9 @@ public:
 	void prefetch(ExternalGravityParticle *part);
 
 	/// @brief Retrieve the remote node, goes through the cache if present
-	GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk,
-				 int reqID, bool isPrefetch=false);
+        GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk, int reqID, bool isPrefetch=false);
+	
+        GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk, int reqID, bool isPrefetch, State *state, WalkType wt, ComputeType ct, OptType ot);
 	/// @brief Receive a request for Nodes from a remote processor, copy the
 	/// data into it, and send back a message.
 	void fillRequestNode(RequestNodeMsg *msg);
@@ -990,7 +1056,8 @@ public:
 			     int level,int chunk);
 #endif
   
-  ExternalGravityParticle *requestParticles(const Tree::NodeKey &key,int chunk,int remoteIndex,int begin,int end,int reqID, bool isPrefetch=false);
+        ExternalGravityParticle *requestParticles(const Tree::NodeKey &key,int chunk,int remoteIndex,int begin,int end,int reqID, bool isPrefetch=false);
+        //ExternalGravityParticle *requestParticles(const Tree::NodeKey &key,int chunk,int remoteIndex,int begin,int end,int reqID, bool isPrefetch=false);
 	void fillRequestParticles(RequestParticleMsg *msg);
 	//void fillRequestParticles(Tree::NodeKey key,int retIndex, int begin,int end,
 	//			  unsigned int reqID);
@@ -999,7 +1066,8 @@ public:
 	void receiveParticles_inline(ExternalGravityParticle *part,int num,int chunk,
 				     unsigned int reqID, Tree::NodeKey remoteBucketID);
 			  
-	void startlb(CkCallback &cb);
+	//void startlb(CkCallback &cb);
+	void startlb(CkCallback &cb, int activeRung);
 	void ResumeFromSync();
 
 	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
@@ -1023,6 +1091,20 @@ public:
 	void printTreeViz(GenericTreeNode* node, ostream& os);	
 	void printTree(GenericTreeNode* node, ostream& os);	
 	void pup(PUP::er& p);
+        
+        // jetley
+        // need this in TreeWalk
+        GenericTreeNode *getRoot() {return root;}
+        // need this in Compute
+	Vector3D<double> decodeOffset(int reqID);
+        GenericTreeNode *nodeMissed(int reqID, int remoteIndex, Tree::NodeKey &key, int chunk, bool isPrefetch, State *state, WalkType wt, ComputeType ct, OptType ot);
+        
+        void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, State *state, WalkType wt, ComputeType ct, OptType ot);
+
+        void receiveProxy(CkGroupID _proxy){ proxy = _proxy; proxySet = true; /*CkPrintf("[%d : %d] received proxy\n", CkMyPe(), thisIndex);*/}
+        void doAtSync();
+        GravityParticle *getParticles(){return myParticles;}
+
 };
 
 void initNodeLock();
