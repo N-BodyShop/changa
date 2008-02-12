@@ -137,7 +137,7 @@ Main::Main(CkArgMsg* m) {
 	param.iLogInterval = 1;
 	prmAddParam(prm, "iLogInterval", paramInt, &param.iLogInterval,
 		    sizeof(int),"ol", "Log Interval");
-	param.iCheckInterval = 1;
+	param.iCheckInterval = 10;
 	prmAddParam(prm, "iCheckInterval", paramInt, &param.iCheckInterval,
 		    sizeof(int),"oc", "Checkpoint Interval");
 	param.bDoDensity = 1;
