@@ -182,7 +182,7 @@ inline int partBucketForce(ExternalGravityParticle *part, GenericTreeNode *req, 
   return computed;
 }
 
-#if defined(__SSE__) && !defined(HEXADECAPOLE)
+#if defined(BLOCKED__SSE__) && !defined(HEXADECAPOLE)
 #include <emmintrin.h>
 
 inline

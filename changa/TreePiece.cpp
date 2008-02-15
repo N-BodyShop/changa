@@ -1614,26 +1614,6 @@ void TreePiece::startNextBucket() {
   gc->init(bucketList[currentBucket], activeRung, opt);
   tw->init(gc, this);
 
-  /*	now done in initBuckets
-  GenericTreeNode* node = bucketList[currentBucket];
-  int numParticlesInBucket = node->particleCount;
-
-  CkAssert(numParticlesInBucket <= maxBucketSize);
-  BucketGravityRequest req(numParticlesInBucket);
-  req.startingNode = root->getKey();
-  req.identifier = currentBucket;
-  req.requestingPieceIndex = thisIndex;
-  for(int i = node->firstParticle; i <= node->lastParticle; ++i) {
-    req.softs[i - node->firstParticle] = myParticles[i].soft;
-    req.positions[i - node->firstParticle] = myParticles[i].position;
-    req.potentials[i - node->firstParticle] = 0;
-    req.boundingBox.grow(myParticles[i].position);
-    myParticles[i].treeAcceleration = 0;
-  }
-  req.finished = 0;
-  bucketReqs[currentBucket] = req;
-  */
-
   // start the tree walk from the tree built in the cache
   if (bucketList[currentBucket]->rungs >= activeRung) {
     for(int cr = 0; cr < numChunks; cr++){
