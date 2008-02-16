@@ -32,8 +32,10 @@ class RemoteOpt : public Opt{
     action_array[false][NonLocal] = DUMP;
     action_array[false][NonLocalBucket] = DUMP;
     
-    action_array[false][Cached] = DEFER;
-    action_array[false][CachedBucket] = DEFER;
+    // changed these two to COMPUTE from DEFER
+    action_array[false][Cached] = COMPUTE;
+    action_array[false][CachedBucket] = COMPUTE;
+
     action_array[false][CachedEmpty] = DUMP;
 
     action_array[false][Empty] = DUMP;
@@ -47,29 +49,12 @@ class RemoteOpt : public Opt{
     action_array[true][Bucket] = DUMP;
     
     // non-local data
-    // by the original code - necessary for correctness
-    /*
-    action_array[true][NonLocal] = KEEP;
-    action_array[true][NonLocalBucket] = COMPUTE;
-    action_array[true][Boundary] = COMPUTE;
-    action_array[true][Cached] = KEEP;
-    action_array[true][CachedBucket] = COMPUTE;
-    */
-
     action_array[true][NonLocal] = KEEP;
     action_array[true][NonLocalBucket] = KEEP_REMOTE_BUCKET;
     action_array[true][Boundary] = KEEP;
 
-    action_array[true][Cached] = DEFER;
-    action_array[true][CachedBucket] = DEFER;
-    /*
-    action_array[true][NonLocal] = DEFER;
-    action_array[true][NonLocalBucket] = DEFER;
-    action_array[true][Boundary] = KEEP;
-
-    action_array[true][Cached] = DEFER;
-    action_array[true][CachedBucket] = DEFER;
-    */
+    action_array[true][Cached] = KEEP;
+    action_array[true][CachedBucket] = KEEP_REMOTE_BUCKET;
 
     // in this case, ancestors of CachedEmpty nodes must be checked as well
     action_array[true][CachedEmpty] = DUMP;
@@ -93,8 +78,9 @@ class LocalOpt : public Opt{
     action_array[false][Boundary] = COMPUTE; 
     action_array[false][NonLocal] = COMPUTE; 
     action_array[false][NonLocalBucket] = COMPUTE;	
-    action_array[false][Cached] = COMPUTE;	
-    action_array[false][CachedBucket] = COMPUTE;
+    // changed these to DUMP from COMPUTE - remote does computation now
+    action_array[false][Cached] = DUMP;	
+    action_array[false][CachedBucket] = DUMP;
 
     // these nodes are no one's concern
     action_array[false][Empty] = DUMP;
@@ -111,8 +97,9 @@ class LocalOpt : public Opt{
     // remote data
     action_array[true][NonLocal] = DUMP;
     action_array[true][NonLocalBucket] = DUMP;
+    // remote opt KEEPs Cached and KEEP_REMOTE_BUCKETs CachedBucket
     action_array[true][CachedBucket] = DUMP;
-    action_array[true][Cached] = KEEP;
+    action_array[true][Cached] = DUMP;
 
     // discard
     action_array[true][Empty] = DUMP;

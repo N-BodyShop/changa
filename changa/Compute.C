@@ -36,7 +36,7 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
   // ignores state
   
   TreePiece *tp = tw->getOwnerTP();
-  // FIXME - better way to do this? is this even right?
+  // FIXME - better way to do this? 
   if(node->getType() == Empty || node->getType() == CachedEmpty){
 #ifdef CHANGA_REFACTOR_WALKCHECK
     if(node->parent->getType() != Boundary || getOptType() == Local){
@@ -169,8 +169,8 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
   else if(action == NOP || action == DUMP){
     return DUMP;
   }
-  // FIXME - can do without DEFER if local walk begins from 
-  // prefetchroots
+  // can do without DEFER if local walk begins from prefetchroots
+  /*
   else if(action == DEFER){	//ask tw to check node ancestors 
     bool unopenedAncestors = false;
     if(isRoot){       // this is the first node in this walk: must check
@@ -246,6 +246,7 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
       }// end node needs to be opened
     }// end there were no unopenedAncestors
   }// end action DEFERed
+  */
 }
 
 // Source of force is a group of particles
