@@ -166,7 +166,7 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
     }   
     return DUMP;
   }
-  else if(action == NOP || action == DUMP){
+  else if(action == DUMP || action == NOP){
     return DUMP;
   }
   // can do without DEFER if local walk begins from prefetchroots
@@ -372,4 +372,152 @@ int PrefetchCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, i
   }
 }
 
+/* List compute object
+ * requires liststate object
+ * on KEEP, descends further down tree
+ * on DUMP, dumps subtree rooted at node in question
+ * on COMPUTE, appends object to list
+ * on KEEP_LOCAL_BUCKET, appends local bucket to list
+ * on KEEP_REMOTE_BUCKET, appends remote bucket to list
+ * *
+ * */
 
+int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp){
+
+  TreePiece *tp = tw->getOwnerTP();
+  // FIXME - better way to do this? 
+  if(node->getType() == Empty || node->getType() == CachedEmpty){
+#ifdef CHANGA_REFACTOR_WALKCHECK
+    if(node->parent->getType() != Boundary || getOptType() == Local){
+      int bucketIndex = decodeReqID(reqID);
+      tp->addToBucketChecklist(bucketIndex, node->getKey());
+      tp->combineKeys(node->getKey(), bucketIndex);
+    }
+#endif
+    return DUMP;
+  }
+  // check opening criterion
+  bool open = openCriterion(tp, node, reqID);
+  if(opt == NULL){       
+    ckerr << "ListCompute reqID("<<reqID<<"), isRoot("<<isRoot<<") has NULL opt" << endl;
+    CkAbort("aborting");
+  }
+  int action = opt->action(open, node);
+  if(action == KEEP){
+    return KEEP;
+  }
+  else if(action == COMPUTE){
+    didcomp = true;
+    int computed;
+    // FIXME - add node to node compute list, update computed
+    
+    if(getOptType() == Remote){
+      tp->addToNodeInterRemote(chunk, computed);
+    }
+    else if(getOptType() == Local){
+      tp->addToNodeInterLocal(computed);
+    }
+#ifdef CHANGA_REFACTOR_WALKCHECK
+    int bucketIndex = decodeReqID(reqID);
+    tp->addToBucketChecklist(bucketIndex, node->getKey());
+    tp->combineKeys(node->getKey(), bucketIndex);
+#endif
+
+    return DUMP;
+  }
+  else if(action == KEEP_LOCAL_BUCKET){
+    didcomp = true;
+#if CHANGA_REFACTOR_DEBUG > 2
+    CkAssert(node->getType() == Bucket);
+    CkPrintf("[%d] ListCompute told to KEEP_LOCAL_BUCKET, chunk=%d, remoteIndex=%d, first=%d, last=%d, reqID=%d\n", tp->getIndex(),
+                         chunk, node->remoteIndex, 
+                         node->firstParticle, 
+                         node->lastParticle,
+                         reqID);
+#endif
+      // since this is a local bucket, we should have the particles at hand
+      GravityParticle *part = node->particlePointer;
+      CkAssert(part);
+      int computed = 0;
+      for(int i = node->firstParticle; i <= node->lastParticle; i++){
+        // FIXME - add particles to paricle list, update computed
+      }
+      if(getOptType() == Remote){
+        tp->addToParticleInterRemote(chunk, computed);
+      }
+      else if(getOptType() == Local){
+        tp->addToParticleInterLocal(computed);
+      }
+#ifdef CHANGA_REFACTOR_WALKCHECK
+      int bucketIndex = decodeReqID(reqID);
+      tp->addToBucketChecklist(bucketIndex, node->getKey());
+      tp->combineKeys(node->getKey(), bucketIndex);
+#endif
+
+      return DUMP;
+  }
+  else if(action == KEEP_REMOTE_BUCKET){
+    didcomp = true;
+  // fetch particles and compute.
+#if CHANGA_REFACTOR_DEBUG > 2
+    CkPrintf("[%d] GravityCompute told to KEEP_REMOTE_BUCKET, chunk=%d, remoteIndex=%d, first=%d, last=%d, reqID=%d\n", tp->getIndex(),
+                         chunk, node->remoteIndex, 
+                         node->firstParticle, 
+                         node->lastParticle,
+                         reqID);
+#endif
+    ExternalGravityParticle *part;
+    part = 
+        tp->requestParticles(node->getKey(), 
+                                       chunk, 
+                                       node->remoteIndex, 
+                                       node->firstParticle, 
+                                       node->lastParticle, 
+                                       reqID, false);
+    if(part){
+#if CHANGA_REFACTOR_DEBUG > 2
+      CkPrintf("Particles found in cache\n");
+#endif
+      // FIXME - add particles to particle list, update computed
+      int computed;
+      if(getOptType() == Remote){
+        tp->addToParticleInterRemote(chunk, computed);
+      }
+      else if(getOptType() == Local){
+        tp->addToParticleInterLocal(computed);
+      }
+
+    }
+    else{
+#if CHANGA_REFACTOR_DEBUG > 2
+      CkPrintf("Particles not found in cache\n");
+#endif
+      if(getOptType() == Remote){
+        tp->addToRemainingChunk(chunk, node->lastParticle-node->firstParticle+1);
+      }
+    }   
+    return DUMP;
+  }
+  else if(action == DUMP || action == NOP){
+    return DUMP;
+  }
+}
+
+bool ListCompute::openCriterion(TreePiece *ownerTP, 
+                          GenericTreeNode *node, int reqID){
+  return 
+    openCriterionBucket(node,(GenericTreeNode *)computeEntity,ownerTP->decodeOffset(reqID), ownerTP->getIndex());
+}
+
+void ListCompute::addParticlesToList(ExternalGravityParticle *parts, int n, ListState *state){
+  /*
+  RemotePartInfo pinfo;
+  pinfo.particles = parts;
+  pinfo.numParticles = n;
+  pinfo.offset = 
+  state->remoteParticleList.push_back();
+  */
+}
+
+void ListCompute::addParticlesToList(GravityParticle *, int n, ListState *state){
+}

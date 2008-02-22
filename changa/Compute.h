@@ -69,7 +69,7 @@ class GravityCompute : public Compute{
   int computeParticleForces(TreePiece *owner, GenericTreeNode *node, ExternalGravityParticle *part, int reqID);
   int computeNodeForces(TreePiece *owner, GenericTreeNode *nd, int reqID);
 
-  // book keeping notifications
+  // book keeping on notifications
   int startNodeProcessEvent(TreePiece *owner){
   }
   int finishNodeProcessEvent(TreePiece *owner){
@@ -83,9 +83,29 @@ class GravityCompute : public Compute{
 };
 
 class ListCompute : public Compute{
-  // store list in state of TreeWalk
-  public: 
+
+  public:
   ListCompute() : Compute(List){}
+  
+  int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp);
+
+  bool openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID);
+
+  void addNodeToList(GenericTreeNode *, ListState *);
+  void addParticlesToList(ExternalGravityParticle *, int n, ListState *);
+  void addParticlesToList(GravityParticle *, int n, ListState *);
+
+  // book keeping on notifications
+  int startNodeProcessEvent(TreePiece *owner){
+  }
+  int finishNodeProcessEvent(TreePiece *owner){
+  }
+  inline int nodeMissedEvent(TreePiece *owner, int chunk){
+    if(getOptType() == Remote){
+      owner->addToRemainingChunk(chunk, +1);
+    }
+  }
+  
 };
 
 class PrefetchCompute : public Compute{
@@ -95,7 +115,7 @@ class PrefetchCompute : public Compute{
   int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp);
   bool openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID);
 
-  // book keeping notifications
+  // book keeping on notifications
   inline int startNodeProcessEvent(TreePiece *owner){
     return owner->incPrefetchWaiting();
   }

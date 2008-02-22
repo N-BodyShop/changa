@@ -1,13 +1,21 @@
+#include "ParallelGravity.h"
 
-class State{
+class State {
 };
 
-class DoubleWalkState : public State{
+class DoubleWalkState : public State {
   public: 
   CkQ<Tree::NodeKey> chklist;
   CkQ<Tree::NodeKey> clist;
   CkQ<Tree::NodeKey> plist;
 };
 
-class NullState : public State{
+class NullState : public State {
+};
+
+class ListState : public State {
+  //public:
+  //OffsetNode nodeList;
+  //CkVec<LocalPartInfo> localParticleList;
+  //CkVec<RemotePartInfo> remoteParticleList;
 };

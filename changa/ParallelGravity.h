@@ -359,6 +359,33 @@ typedef struct ewaldTable {
 class MissRecord;
 class State;
 
+///Remote Cell interaction lists for all tree levels
+typedef struct OffsetNodeStruct
+{
+      GenericTreeNode *node;
+      int offsetID;
+}OffsetNode;
+  
+typedef struct particlesInfoR{
+    ExternalGravityParticle* particles;
+    int numParticles;
+    Vector3D<double> offset;
+#if COSMO_DEBUG > 1
+    GenericTreeNode *nd;
+#endif
+} RemotePartInfo;
+ 
+ ///Local Particle Info structure
+typedef struct particlesInfoL{
+    GravityParticle* particles;
+    int numParticles;
+    Vector3D<double> offset;
+#if COSMO_DEBUG > 1
+    GenericTreeNode *nd;
+#endif
+} LocalPartInfo;
+
+
 class TreePiece : public CBase_TreePiece {
    // jetley
  public:
@@ -613,8 +640,8 @@ private:
   ///Phase of ORB decomposition: the number of boxes double in each phase till they are equal to the number
   ///of TreePieces
   int phase;
-  
-#if INTERLIST_VER > 0
+ 
+ #if INTERLIST_VER > 0
 
   ///Node and level in myTree where I'm at currently while walking down myTree and building interaction lists
  
@@ -631,14 +658,6 @@ private:
   ///Total number of levels in a TreePieces' tree
   int myTreeLevels;
 
-  ///Remote Cell interaction lists for all tree levels
-  typedef struct OffsetNodeStruct
-  {
-      GenericTreeNode *node;
-      int offsetID;
-      }
-  OffsetNode;
-  
   CkVec< CkVec<OffsetNode> > cellList;
  
   ///Remote Particle Info structure
@@ -647,15 +666,6 @@ private:
 	friend void cellSPE_callback(void*);
 	friend void cellSPE_ewald(void*);
 #endif
-
-  typedef struct particlesInfoR{
-    ExternalGravityParticle* particles;
-    int numParticles;
-    Vector3D<double> offset;
-#if COSMO_DEBUG > 1
-    GenericTreeNode *nd;
-#endif
-  } RemotePartInfo;
  
   ///Remote Particle interaction lists for all levels
   CkVec< CkVec<RemotePartInfo> > particleList;
@@ -670,15 +680,6 @@ private:
   
   int prevListIter;
   
-  ///Local Particle Info structure
-  typedef struct particlesInfoL{
-    GravityParticle* particles;
-    int numParticles;
-    Vector3D<double> offset;
-#if COSMO_DEBUG > 1
-    GenericTreeNode *nd;
-#endif
-  } LocalPartInfo;
   
     //Variables for local computation
   CkVec< CkVec<OffsetNode> > cellListLocal;
