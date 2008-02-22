@@ -182,7 +182,7 @@ inline int partBucketForce(ExternalGravityParticle *part, GenericTreeNode *req, 
   return computed;
 }
 
-#if defined(BLOCKED__SSE__) && !defined(HEXADECAPOLE)
+#if defined(BLOCKED__SSE2__) && !defined(HEXADECAPOLE)
 #include <emmintrin.h>
 
 inline
@@ -301,6 +301,8 @@ int nodeBucketForce(GenericTreeNode *node, // source of force
       _mm_storeh_pd(&input[i+1]->treeAcceleration.x, accX);
       _mm_storel_pd(&input[i]->treeAcceleration.y, accY);
       _mm_storeh_pd(&input[i+1]->treeAcceleration.y, accY);
+      _mm_storel_pd(&input[i]->treeAcceleration.z, accZ);
+      _mm_storeh_pd(&input[i+1]->treeAcceleration.z, accZ);
       _mm_storel_pd(&input[i]->dtGrav, idt2);
       _mm_storeh_pd(&input[i+1]->dtGrav, idt2);
       //if(idt2 > input[i]->dtGrav)
