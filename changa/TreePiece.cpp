@@ -2911,8 +2911,6 @@ void TreePiece::startIteration(double t, // opening angle -- moved to readonly
   thisProxy[thisIndex].calculateGravityLocal();
   if (bEwald) thisProxy[thisIndex].EwaldInit(dEwhCut);
 
-  thisProxy[thisIndex].calculateGravityLocal();
-
   delete tw;
   delete c;
   delete state;
