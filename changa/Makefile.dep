@@ -43,6 +43,7 @@ State.h \
 codes.h \
 MetisCosmoLB.decl.h \
 ParallelGravity.decl.h \
+Reductions.decl.h \
 DataManager.h \
 Reductions.h \
 
@@ -85,6 +86,7 @@ MetisCosmoLB.decl.h \
 TreePiece.o: \
 TreePiece.cpp \
 ParallelGravity.h \
+gravity.h \
 config.h \
 ../structures/Vector3D.h \
 ../structures/TypeSelection.h \
@@ -470,6 +472,7 @@ TreeWalk.h \
 
 Compute.o: \
 Compute.C \
+gravity.h \
 ParallelGravity.h \
 config.h \
 ../structures/Vector3D.h \
