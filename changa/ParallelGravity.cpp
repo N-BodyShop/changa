@@ -131,6 +131,9 @@ Main::Main(CkArgMsg* m) {
 	param.bKDK = 1;
 	prmAddParam(prm, "bKDK", paramBool, &param.bKDK,
 		    sizeof(int),"kdk", "KDK timestepping (IGNORED)");
+	param.bBenchmark = 0;
+	prmAddParam(prm, "bBenchmark", paramBool, &param.bBenchmark,
+		    sizeof(int),"bench", "Benchmark only; no output or checkpoints");
 	param.iOutInterval = 10;
 	prmAddParam(prm, "iOutInterval", paramInt, &param.iOutInterval,
 		    sizeof(int),"oi", "Output Interval");
@@ -1000,7 +1003,8 @@ Main::doSimulation()
     /*
      * Writing of intermediate outputs can be done here.
      */
-    if(iStep == param.nSteps || iStop || iStep%param.iOutInterval == 0) {
+    if((param.bBenchmark == 0)
+       && (iStep == param.nSteps || iStop || iStep%param.iOutInterval == 0)) {
 	writeOutput(iStep);
     }
 	  
@@ -1015,7 +1019,8 @@ Main::doSimulation()
 	    }
 	}
     
-    if(iStop || iStep%param.iCheckInterval == 0) {
+    if((param.bBenchmark == 0)
+       && (iStop || iStep%param.iCheckInterval == 0)) {
 	char achCheckFileName[MAXPATHLEN];
 	if(bChkFirst) {
 	    sprintf(achCheckFileName, "%s.chk0", param.achOutName);

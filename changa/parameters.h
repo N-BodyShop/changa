@@ -47,6 +47,7 @@ typedef struct parameters {
     char achInFile[256];
     char achOutName[256];
     int bStaticTest;
+    int bBenchmark;
     int iOutInterval;
     int iCheckInterval;
     int iLogInterval;
@@ -96,6 +97,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p(param.achInFile, 256);
     p(param.achOutName, 256);
     p|param.bStaticTest;
+    p|param.bBenchmark;
     p|param.iOutInterval;
     p|param.iCheckInterval;
     p|param.iLogInterval;
