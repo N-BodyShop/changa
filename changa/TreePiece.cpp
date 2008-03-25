@@ -5129,4 +5129,7 @@ void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID,
       }// end if finished with chunk
     }// end if remote
   }
+  delete tw;
+  delete compute;
+  delete opt;
 }
