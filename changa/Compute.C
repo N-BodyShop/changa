@@ -4,7 +4,7 @@
 
 #include "Opt.h"
 #include "Compute.h"
-#include "TreeWalk.h"
+//#include "TreeWalk.h"
 //#include "State.h"
 #include "Space.h"
 #include "gravity.h"  // for openCriterion(..)
@@ -25,14 +25,120 @@ void Compute::init(void *buck, int ar, Opt *o){
   opt = o;
 }
 
+State *Compute::getResumeState(int bucketIdx){
+  return 0;
+}
+
+void GravityCompute::reassoc(void *ce, int ar, Opt *o){
+  computeEntity = ce; 
+  activeRung = ar;
+  opt = o;
+}
+
+/*
+void PrefetchCompute::init(void *buck, int ar, Opt *o){
+
+  // buck is actually the TreePiece this PrefetchCompute
+  // will query when it needs a prefetchRequestStruct
+  computeEntity = buck;
+  activeRung = ar;
+  opt = o;
+}
+*/
+int GravityCompute::nodeMissedEvent(TreePiece *owner, int chunk){
+  if(getOptType() == Remote){
+    owner->addToRemainingChunk(chunk, +1);
+  }
+}
+
+int PrefetchCompute::startNodeProcessEvent(TreePiece *owner){
+  return owner->incPrefetchWaiting();
+}
+
+int PrefetchCompute::finishNodeProcessEvent(TreePiece *owner){
+  int save = owner->decPrefetchWaiting();
+  if(save == 0){
+    owner->startRemoteChunk();
+  }    
+  return save;
+}
+
+int ListCompute::nodeMissedEvent(TreePiece *owner, int chunk){
+  if(getOptType() == Remote){
+    owner->addToRemainingChunk(chunk, +1);
+  }
+}
+
 bool GravityCompute::openCriterion(TreePiece *ownerTP, 
                           GenericTreeNode *node, int reqID){
   return 
     openCriterionBucket(node,(GenericTreeNode *)computeEntity,ownerTP->decodeOffset(reqID), ownerTP->getIndex());
 }
 
+extern int decodeReqID(int);
+extern int partBucketForce(ExternalGravityParticle *part, GenericTreeNode *req, GravityParticle *particles, Vector3D<double> offset, int activeRung);
+
+void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk,int reqID,State *state,TreePiece *tp){
+  //TreePiece *tp = tw->getOwnerTP();
+
+  Vector3D<double> offset = tp->decodeOffset(reqID);
+  int reqIDlist = decodeReqID(reqID);
+  CkAssert(num > 0);
+  tp->bucketReqs[reqIDlist].numAdditionalRequests -= num;
+  tp->remainingChunk[chunk] -= num;
+
+  GenericTreeNode* reqnode = tp->bucketList[reqIDlist];
+
+  int computed;
+  for(int i=0;i<num;i++){
+    
+#if COSMO_STATS > 1
+    for(int j = reqnode->firstParticle; j <= reqnode->lastParticle; ++j) {
+      tp->myParticles[j].extpartmass += part[i].mass;
+    }
+#endif
+    
+#ifdef COSMO_EVENTS
+    double startTimer = CmiWallTimer();
+#endif
+#ifdef HPM_COUNTER
+    hpmStart(2,"particle force");
+#endif
+    computed = partBucketForce(&part[i], reqnode, tp->myParticles, offset, activeRung);
+#ifdef HPM_COUNTER
+    hpmStop(2);
+#endif
+#ifdef COSMO_EVENTS
+    traceUserBracketEvent(partForceUE, startTimer, CmiWallTimer());
+#endif
+  }
+  tp->particleInterRemote[chunk] += computed * num;
+#if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK
+  tp->bucketcheckList[reqIDlist].insert(remoteBucketID);
+  tp->combineKeys(remoteBucketID,reqIDlist);
+#endif
+  tp->finishBucket(reqIDlist);
+  CkAssert(tp->remainingChunk[chunk] >= 0);
+  if (tp->remainingChunk[chunk] == 0) {
+    cacheManagerProxy[CkMyPe()].finishedChunk(chunk, tp->nodeInterRemote[chunk]+tp->particleInterRemote[chunk]);
+  }
+
+}
+
+void PrefetchCompute::recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp){
+  // when we receive missed particles, we do the same book-keeping
+  // as we did when we received a missed node.
+  finishNodeProcessEvent(tp);
+}
+
+/*
+void PrefetchCompute::walkDone(){
+  deleteComputeEntity();
+}
+*/
+
 int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw, 
-                              State *state, int chunk, int reqID, bool isRoot, bool &didcomp){
+                              State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi){
   // ignores state
   
   TreePiece *tp = tw->getOwnerTP();
@@ -65,7 +171,6 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
                     tp->decodeOffset(reqID), 
                     activeRung);
     
-    //tp->addToNodeInterRemote(chunk, computed);
     if(getOptType() == Remote){
       tp->addToNodeInterRemote(chunk, computed);
     }
@@ -132,14 +237,15 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
                          node->lastParticle,
                          reqID);
 #endif
+    Tree::NodeKey keyref = node->getKey();
     ExternalGravityParticle *part;
     part = 
-        tp->requestParticles(node->getKey(), 
+        tp->particlesMissed(keyref, 
                                        chunk, 
                                        node->remoteIndex, 
                                        node->firstParticle, 
                                        node->lastParticle, 
-                                       reqID, false);
+                                       reqID, false, awi);
     if(part){
 #if CHANGA_REFACTOR_DEBUG > 2
       CkPrintf("Particles found in cache\n");
@@ -169,98 +275,10 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
   else if(action == DUMP || action == NOP){
     return DUMP;
   }
-  // can do without DEFER if local walk begins from prefetchroots
-  /*
-  else if(action == DEFER){	//ask tw to check node ancestors 
-    bool unopenedAncestors = false;
-    if(isRoot){       // this is the first node in this walk: must check
-      unopenedAncestors = tw->ancestorCheck(node, reqID);
-    } 
-    // unopenedAncestors will be set to true here if some ancestor of node
-    // remained unopened and so, was or will be used in another computation
-    if(unopenedAncestors){
-      return DUMP;
-    }
-    else{       // no unopenedAncestors
-      if(!open){ // no need to open node
-        didcomp = true;
-        int computed = nodeBucketForce(node, 
-                        (GenericTreeNode *)computeEntity, 
-                        tp->getParticles(), 
-                        tp->decodeOffset(reqID), 
-                        activeRung);
-        if(getOptType() == Remote){
-          tp->addToNodeInterRemote(chunk, computed);
-        }
-        else if(getOptType() == Local){
-          tp->addToNodeInterLocal(computed);
-        }
-#ifdef CHANGA_REFACTOR_WALKCHECK
-        int bucketIndex = decodeReqID(reqID);
-        tp->addToBucketChecklist(bucketIndex, node->getKey());
-        tp->combineKeys(node->getKey(), bucketIndex);
-#endif
-
-        return DUMP;
-      }// end if(!open)
-      else{     // had to open node, check whether it is a bucket
-        if(node->getType()==NonLocalBucket || node->getType()==CachedBucket){
-#if CHANGA_REFACTOR_DEBUG > 2
-          CkPrintf("[%d] GravityCompute told to DEFER, chunk=%d, remoteIndex=%d, first=%d, last=%d, reqID=%d\n", tp->getIndex(),
-                         chunk, node->remoteIndex, 
-                         node->firstParticle, 
-                         node->lastParticle,
-                         reqID);
-#endif
-          ExternalGravityParticle *part = 
-                      tp->requestParticles(node->getKey(), 
-                                                         chunk, 
-                                                         node->remoteIndex, 
-                                                         node->firstParticle, 
-                                                         node->lastParticle, 
-                                                         reqID, false);
-                      didcomp = true;
-          if(part){     // particles immediately available
-            int computed = computeParticleForces(tp, node, part, reqID);
-            //tp->addToParticleInterRemote(chunk, computed);
-            if(getOptType() == Remote){
-              tp->addToParticleInterRemote(chunk, computed);
-            }
-            else if(getOptType() == Local){
-              tp->addToParticleInterLocal(computed);
-            }
-
-          }
-          else if(getOptType() == Remote){
-            tp->addToRemainingChunk(chunk, node->lastParticle-node->firstParticle+1);
-          }
-          return DUMP;
-        }// end check whether node is a bucket
-        else if(node->getType()==NonLocal || node->getType()==Cached){
-          return KEEP;
-        }// end check whether node is nonlocal or cached
-        else{   // this shouldn't happen
-          ckerr << "GravityCompute::doWork() : DEFERed node was of type "<< node->getType() << endl;
-          CkAbort("");
-        }// end error condition - wrong type of node DEFERed
-      }// end node needs to be opened
-    }// end there were no unopenedAncestors
-  }// end action DEFERed
-  */
 }
 
 // Source of force is a group of particles
 int GravityCompute::computeParticleForces(TreePiece *ownerTP, GenericTreeNode *node, ExternalGravityParticle *part, int reqID){
-  // jetley 
-  /*
-    for(int i = node->firstParticle; i <= node->lastParticle; i++){
-      if(isnan(part[i-node->firstParticle].mass)){
-        ostringstream oss;
-        oss << "part[" << i-node->firstParticle << "].mass = nan" << endl;
-        CkAbort(oss.str().data());
-      }
-    }
-    */
   int computed = 0;
   for(int i = node->firstParticle; i <= node->lastParticle; i++){
     computed += partBucketForce(
@@ -283,31 +301,16 @@ int GravityCompute::computeNodeForces(TreePiece *ownerTP, GenericTreeNode *node,
   return -1;
 }
 
-/*
-void PrefetchCompute::init(void *prs, int ar, Opt *o){
-  computeEntity = prs;
-  activeRung = ar;
-  opt = o;
-}
-*/
-
-// Called by TreeWalk when a node is requested on the Compute's behalf
-// Also called by PrefetchCompute itself when it requests the prefetch of a
-// bucket of particles
-
-/*
-void PrefetchCompute::nodeRequestSent(TreePiece *owner){
-  owner->incPrefetchWaiting();
-}
-*/
-
 bool PrefetchCompute::openCriterion(TreePiece *ownerTP, 
                           GenericTreeNode *node, int reqID){
-  PrefetchRequestStruct * prs = (PrefetchRequestStruct *)computeEntity;
+  // redundant in this case, because we already have a pointer 
+  // to the ownerTP.
+  TreePiece *tp = (TreePiece *)computeEntity;
+  PrefetchRequestStruct prs(tp->prefetchReq, tp->numPrefetchReq);
   Vector3D<double> offset = ownerTP->decodeOffset(reqID);
-  for(int i = 0; i < prs->numPrefetchReq; i++){
+  for(int i = 0; i < prs.numPrefetchReq; i++){
     BinaryTreeNode testNode;
-    testNode.boundingBox = prs->prefetchReq[i];
+    testNode.boundingBox = prs.prefetchReq[i];
     //testNode.moments.softBound = 0.0;
 
     if(openCriterionBucket(node, &testNode, offset, ownerTP->getIndex()))
@@ -316,7 +319,7 @@ bool PrefetchCompute::openCriterion(TreePiece *ownerTP,
   return false;  
 }
 
-int PrefetchCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp){
+int PrefetchCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi){
   TreePiece *tp = tw->getOwnerTP();
   // ignores state 
   if(node == NULL){
@@ -326,8 +329,6 @@ int PrefetchCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, i
   open = openCriterion(tp, node, reqID);
 
   int decision = opt->action(open, node);
-  // the local node will become a CachedNonLocal[...] from a NonLocal[...]
-  // tp->requestNode(node->remoteIndex, node->getKey(), chunk, reqID, true);
   if (decision == DUMP || decision == KEEP){
     return decision;
   }
@@ -339,13 +340,15 @@ int PrefetchCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, i
                          node->lastParticle,
                          reqID);
 #endif
+    Tree::NodeKey keyref = node->getKey();
     ExternalGravityParticle *part = 
-                      tp->requestParticles(node->getKey(), 
+                      tp->particlesMissed(keyref, 
                                                          chunk, 
                                                          node->remoteIndex, 
                                                          node->firstParticle, 
                                                          node->lastParticle, 
-                                                         reqID, true);
+                                                         reqID,
+                                                         true, awi);
     
     if(part == NULL){
       tp->incPrefetchWaiting();
@@ -382,7 +385,7 @@ int PrefetchCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, i
  * *
  * */
 
-int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp){
+int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi){
 
   TreePiece *tp = tw->getOwnerTP();
   // FIXME - better way to do this? 
@@ -466,14 +469,15 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
                          node->lastParticle,
                          reqID);
 #endif
+    Tree::NodeKey keyref = node->getKey();
     ExternalGravityParticle *part;
     part = 
-        tp->requestParticles(node->getKey(), 
+        tp->particlesMissed(keyref, 
                                        chunk, 
                                        node->remoteIndex, 
                                        node->firstParticle, 
                                        node->lastParticle, 
-                                       reqID, false);
+                                       reqID, false, awi);
     if(part){
 #if CHANGA_REFACTOR_DEBUG > 2
       CkPrintf("Particles found in cache\n");

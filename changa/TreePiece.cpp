@@ -18,7 +18,6 @@
 #include "MetisCosmoLB.h"
 // jetley - refactoring
 //#include "codes.h"
-#include "TreeWalk.h"
 #include "Opt.h"
 #include "Compute.h"
 //#include "State.h"
@@ -1606,13 +1605,20 @@ void TreePiece::startNextBucket() {
   if(currentBucket >= numBuckets)
     return;
 
+  /*
   TreeWalk *tw = new TopDownTreeWalk();
   Compute *gc = new GravityCompute();
-  State *nullstate = new NullState();
+  //State *nullstate = new NullState();
   Opt *opt = new LocalOpt();
 
-  gc->init(bucketList[currentBucket], activeRung, opt);
+  State *nullstate = gc->init(bucketList[currentBucket], activeRung, opt);
   tw->init(gc, this);
+  */
+  sTopDown->init(sGravity, this);
+  sGravity->init(bucketList[currentBucket], activeRung, sLocal);
+  State *nullstate = sGravity->getResumeState(currentBucket);
+
+  // no need to save this combination in activeWalks list (local walks never miss)
 
   // start the tree walk from the tree built in the cache
   if (bucketList[currentBucket]->rungs >= activeRung) {
@@ -1625,7 +1631,8 @@ void TreePiece::startNextBucket() {
       for(int x = -nReplicas; x <= nReplicas; x++) {
         for(int y = -nReplicas; y <= nReplicas; y++) {
           for(int z = -nReplicas; z <= nReplicas; z++) {
-            tw->walk(chunkRoot, nullstate, -1, encodeOffset(currentBucket, x,y,z));
+            // last -1 arg is the activeWalkIndex
+            sTopDown->walk(chunkRoot, nullstate, -1, encodeOffset(currentBucket, x,y,z), -1);
           }
         }
       }
@@ -1639,12 +1646,13 @@ void TreePiece::startNextBucket() {
   finishBucket(currentBucket);
   //	currentBucket++;
   //	startNextBucket();
-  delete gc;
-  delete nullstate; 
-  delete opt;
-  delete tw;
+  //delete gc;
+  //delete nullstate; 
+  //delete opt;
+  //delete tw;
 }
 
+/*inline*/
 void TreePiece::finishBucket(int iBucket) {
   BucketGravityRequest *req = &bucketReqs[iBucket];
   GenericTreeNode *node = bucketList[iBucket];
@@ -1669,6 +1677,13 @@ void TreePiece::finishBucket(int iBucket) {
     if(started && myNumParticlesPending == 0) {
       started = false;
       cacheManagerProxy[CkMyPe()].allDone();
+      /*
+      delete sTopDown;
+      delete sGravity;
+      delete sLocal;
+      delete sRemote;
+      activeWalks.free();
+      */
       //contribute(0, 0, CkReduction::concat, callback);
       /*   cout << "TreePiece " << thisIndex << ": Made " << myNumProxyCalls
 	   << " proxy calls forward, " << myNumProxyCallsBack
@@ -2290,13 +2305,9 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
   GenericTreeNode *chunkRoot = keyToNode(prefetchRoots[msg->chunkNum]);
 #endif
   
-  TreeWalk *tw = new TopDownTreeWalk();
-  Compute *c = new GravityCompute();
-  State *state = new NullState();
-  Opt *opt = new RemoteOpt();
-
+    // OK to pass bogus arguments because we don't expect to miss on this anyway (see CkAssert(chunkRoot) below.)
   if (chunkRoot == NULL) {
-    chunkRoot = requestNode(thisIndex, prefetchRoots[msg->chunkNum], msg->chunkNum, -1, true, state, TopDown, Gravity, Remote);
+    chunkRoot = requestNode(thisIndex, prefetchRoots[msg->chunkNum], msg->chunkNum, -1, -78, true);
   }
   CkAssert(chunkRoot != NULL);
 #if COSMO_PRINT > 0
@@ -2429,8 +2440,21 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       CkPrintf("Starting remote walk\n");
     }
 #endif
-    c->init((void *)bucketList[currentRemoteBucket], activeRung, opt);
+    /*
+    TreeWalk *tw = new TopDownTreeWalk();
+    Compute *c = new GravityCompute();
+    //State *state = new NullState();
+    Opt *opt = new RemoteOpt();
+
+
+    State *state = c->init((void *)bucketList[currentRemoteBucket], activeRung, opt);
     tw->init(c, this);
+    */
+    sTopDown->init(sGravity, this);
+    sGravity->init(bucketList[currentRemoteBucket], activeRung, sRemote);
+    State *state = sGravity->getResumeState(currentRemoteBucket);
+    int awi = remoteGravityAwi;
+
     bucketReqs[currentRemoteBucket].numAdditionalRequests--;
     if (bucketList[currentRemoteBucket]->rungs >= activeRung) {
       for(int x = -nReplicas; x <= nReplicas; x++) {
@@ -2444,7 +2468,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 #if CHANGA_REFACTOR_DEBUG > 1
             CkPrintf("[%d]: starting remote walk with chunk=%d, currentBucket=%d, (%d,%d,%d)\n", thisIndex, msg->chunkNum, currentRemoteBucket, x, y, z);
 #endif
-            tw->walk(chunkRoot, state, msg->chunkNum,encodeOffset(currentRemoteBucket,x, y, z));
+            sTopDown->walk(chunkRoot, state, msg->chunkNum,encodeOffset(currentRemoteBucket,x, y, z), awi);
 
           }
         }
@@ -2466,7 +2490,14 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 #endif
   } else {
     currentRemoteBucket = 0;
-    
+    //if(msg->chunkNum == numChunks){
+      // There are no more chunks to prefetch in this iteration
+      // because the computation for the last one has just completed above
+      // we can delete the savedPrefetchWalk 
+      //delete sPrefetch;
+      //delete sPref;
+    //}
+
     CkAssert(remainingChunk[msg->chunkNum] >= 0);
     if (remainingChunk[msg->chunkNum] == 0) {
       // we finished completely using this chunk, so we acknowledge the cache
@@ -2481,17 +2512,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 #endif
     delete msg;
   }
-  
-  delete tw;
-  delete c;
-  delete opt;
-  // shouldn't be doing this? CacheManager is given a copy of this
-  // pointer. Because we don't wait for walks on missed nodes to complete
-  // we will reach here before requested nodes are returned. Therefore, when
-  // receiveNodeCallback is finally called with the node in question, the
-  // CacheManager's MissRecord will have a NULL pointer. 
-  delete state;
-
 }
 
 #if INTERLIST_VER > 0
@@ -2712,13 +2732,6 @@ void TreePiece::startIteration(double t, // opening angle -- moved to readonly
   //thetaMono = theta*theta*theta*theta;	// Make monopole accuracy similar to
 				// hexadecapole accuracy
   activeRung = am;
-  //CkPrintf("particle %d\n",findParticleWithIorder(60049));
-  /*for (int i=1; i<=myNumParticles; ++i) {
-      if (myParticles[i].treeAcceleration.x != 0 ||
-	  myParticles[i].treeAcceleration.y != 0 ||
-	  myParticles[i].treeAcceleration.z != 0)
-	CkPrintf("STARTITERATION !!! Particle %d (%d) on TP %d has acc: %f %f %f\n",i,myParticles[i].iOrder,thisIndex,myParticles[i].treeAcceleration.x,myParticles[i].treeAcceleration.y,myParticles[i].treeAcceleration.z);
-  }*/
 
   if (n != numChunks && remainingChunk != NULL) {
     // reallocate remaining chunk to the new size
@@ -2874,17 +2887,25 @@ void TreePiece::startIteration(double t, // opening angle -- moved to readonly
 #if CHANGA_REFACTOR_DEBUG > 0
   CkPrintf("Beginning prefetch\n");
 #endif
-  TreeWalk *tw = new TopDownTreeWalk();
-  Compute *c = new PrefetchCompute();
-  State *state = new NullState();
-  Opt *opt = new PrefetchOpt();
 
-  PrefetchRequestStruct prs;
-  prs.prefetchReq = prefetchReq;
-  prs.numPrefetchReq = numPrefetchReq;
+  // Create objects that are reused by all buckets
+  sTopDown = new TopDownTreeWalk;
+  sGravity = new GravityCompute;
+  sLocal = new LocalOpt;
+  sRemote = new RemoteOpt;
+  sPrefetch = new PrefetchCompute;
+  sPref = new PrefetchOpt;
 
-  c->init((void *)&prs, activeRung, opt);
-  tw->init(c, this);
+  sPrefetch->init((void *)this, activeRung, sPref);
+  sTopDown->init(sPrefetch, this);
+  // junk argument (bucketidx) for getResumeState is fine because
+  // we use the default Compute impl. of the method, which returns
+  // NULL anyway.
+  State *state = sPrefetch->getResumeState(-1);
+
+  activeWalks.reserve(2);
+  prefetchAwi = addActiveWalk(sTopDown,sPrefetch,sPref);
+  remoteGravityAwi = addActiveWalk(sTopDown,sGravity,sRemote);
 
   for(int x = -nReplicas; x <= nReplicas; x++) {
       for(int y = -nReplicas; y <= nReplicas; y++) {
@@ -2892,14 +2913,14 @@ void TreePiece::startIteration(double t, // opening angle -- moved to readonly
 	      if (child == NULL) {
 		  nodeOwnership(prefetchRoots[0], first, last);
 		  child = requestNode((first+last)>>1, prefetchRoots[0], 0,
-				      encodeOffset(0, x, y, z), true, state, TopDown, Prefetch, Pref);
+				      encodeOffset(0, x, y, z), prefetchAwi, true);
 		  }
 	      if (child != NULL) {
 		  // prefetch(child, encodeOffset(0, x, y, z));
 #if CHANGA_REFACTOR_DEBUG > 1
                   CkPrintf("[%d] starting prefetch walk with currentPrefetch=%d, numPrefetchReq=%d (%d,%d,%d)\n", thisIndex, currentPrefetch,                                           numPrefetchReq, x,y,z);
 #endif
-                  tw->walk(child, state, currentPrefetch, encodeOffset(0,x,y,z));
+                  sTopDown->walk(child, state, currentPrefetch, encodeOffset(0,x,y,z), prefetchAwi);
 		  }
 	      }
 	  }
@@ -2911,10 +2932,15 @@ void TreePiece::startIteration(double t, // opening angle -- moved to readonly
   thisProxy[thisIndex].calculateGravityLocal();
   if (bEwald) thisProxy[thisIndex].EwaldInit(dEwhCut);
 
-  delete tw;
-  delete c;
-  delete state;
-  delete opt;
+  int piecesPerPe = numTreePieces/CmiNumPes();
+  if(thisIndex % piecesPerPe == 0)
+    CkPrintf("[%d]: CmiMaxMemoryUsage: %f M\n", CmiMyPe(), (float)CmiMaxMemoryUsage()/(1 << 20));
+    //CkPrintf("[%d]: CmiMaxMemoryUsage: %d\n", CmiMyPe(), CmiMaxMemoryUsage());
+
+  //delete tw;
+  //delete c;
+  //delete state;
+  //delete opt;
 
 }
 
@@ -2939,7 +2965,8 @@ void TreePiece::prefetch(GenericTreeNode *node, int offsetID) {
     if (node->getType() != Internal && node->getType() != Bucket && needOpened) {
       if(node->getType() == CachedBucket || node->getType() == NonLocalBucket) {
 	// Sending the request for all the particles at one go, instead of one by one
-	if (requestParticles(node->getKey(),currentPrefetch,node->remoteIndex,node->firstParticle,node->lastParticle,-1,true) == NULL) {
+	if (/*requestParticles(node->getKey(),currentPrefetch,node->remoteIndex,node->firstParticle,node->lastParticle,-1,true) == NULL*/ true) {
+          CkAbort("Shouldn't be in this part of the code\n");
 	  prefetchWaiting ++;
 	}
       } else if (node->getType() != CachedEmpty && node->getType() != Empty) {
@@ -2982,9 +3009,6 @@ void TreePiece::prefetch(GenericTreeNode *node, int offsetID) {
 
 void TreePiece::prefetch(ExternalGravityParticle *node) {
   prefetchWaiting --;
-  //if (prefetchWaiting==0) ckout <<"Waiting for "<<prefetchWaiting<<" more prefetches"<<endl;
-
-  // this means we don't have any more nodes waiting for prefetching
   if (prefetchWaiting == 0) {
     startRemoteChunk();
   }
@@ -3004,17 +3028,21 @@ void TreePiece::startRemoteChunk() {
   // start prefetching next chunk
   if (++currentPrefetch < numChunks) {
     int first, last;
-    TreeWalk *tw = new TopDownTreeWalk();
-    Compute *c = new PrefetchCompute();
-    Opt *opt = new PrefetchOpt();
-    State *state = new NullState();
-
-    PrefetchRequestStruct prs;
-    prs.prefetchReq = prefetchReq;
-    prs.numPrefetchReq = numPrefetchReq;
-
-    c->init((void *)&prs, activeRung, opt);
-    tw->init(c, this);
+    
+    // Nothing needs to be changed for this chunk - 
+    // the prefetchReqs and their number remains the same
+    // We only need to reassociate the tree walk with the 
+    // prefetch compute object and the prefetch object wiht 
+    // the prefetch opt object
+    sTopDown->reassoc(sPrefetch);
+    // prefetch walk isn't associated with any particular bucket
+    // but the entire treepiece
+    // this method invocation does nothing. indeed, nothing
+    // needs to be done because sPrefetch is always associated with
+    // sPref
+    sPrefetch->reassoc(0,activeRung,sPref);
+    // Prefetch computes ignore the bucket index
+    State *state = sPrefetch->getResumeState(-1);
 
     prefetchWaiting = (2*nReplicas + 1)*(2*nReplicas + 1)*(2*nReplicas + 1);
 #if CACHE_TREE
@@ -3031,7 +3059,7 @@ void TreePiece::startRemoteChunk() {
 					prefetchRoots[currentPrefetch],
 					currentPrefetch,
 					encodeOffset(0, x, y, z), true,
-                                        state, TopDown, Prefetch, Pref);
+                                        prefetchAwi);
 		}
 		if (child != NULL) {
 		    //prefetch(child, encodeOffset(0, x, y, z));
@@ -3040,17 +3068,13 @@ void TreePiece::startRemoteChunk() {
                                                                                                                     currentPrefetch, numPrefetchReq,
                                                                                                                     x,y,z);
 #endif
-                    tw->walk(child, state, currentPrefetch, encodeOffset(0,x,y,z));
+                    sTopDown->walk(child, state, currentPrefetch, encodeOffset(0,x,y,z), prefetchAwi);
 
 		}
             }
 	}
     }
 
-    delete tw;
-    delete c;
-    delete state;
-    delete opt;
   }
 }
 
@@ -3539,12 +3563,15 @@ void TreePiece::cachedWalkInterTree(OffsetNode node) {
     numOpenCriterionCalls++;
 #endif
     if(myNode->getType()==Bucket){
+      /*
       ExternalGravityParticle *part
 	  = requestParticles(node.node->getKey(), chunk,
 			     node.node->remoteIndex, node.node->firstParticle,
 			     node.node->lastParticle,
 			     reEncodeOffset(myNode->bucketListIndex,
 					    node.offsetID));
+          */
+      CkAbort("Please refrain from using the interaction list version of ChaNGa for the time being. This part of the code is being rewritten\n");
       //PROBLEM: how to form req in this case
       if(part != NULL){
       	TreePiece::RemotePartInfo pinfo;
@@ -3676,10 +3703,13 @@ inline void TreePiece::calculateForces(OffsetNode node, GenericTreeNode *myNode,
   int test=0;
   
   for(i=startBucket;i<=lastBucket;i++){
+      CkAbort("Please refrain from using the interaction list version of ChaNGa for the time being. This part of the code is being rewritten\n");
+      /*
     ExternalGravityParticle *part
 	= requestParticles(node.node->getKey(), chunk, node.node->remoteIndex,
 			   node.node->firstParticle, node.node->lastParticle,
 			   reEncodeOffset(i, node.offsetID));
+        */
     if(part != NULL){
       CkAssert(test==0);
       TreePiece::RemotePartInfo pinfo;
@@ -3801,7 +3831,9 @@ void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, int chunk, int reqID
      * Sending the request for all the particles at one go, instead of one by one
      */
     //printf("{%d-%d} cachewalk requests for %016llx in chunk %d\n",CkMyPe(),thisIndex,node->getKey(),chunk);
-    ExternalGravityParticle *part = requestParticles(node->getKey(),chunk,node->remoteIndex,node->firstParticle,node->lastParticle,reqID);
+    CkAbort("Shouldn't be in this part of the code.\n");
+    //ExternalGravityParticle *part = requestParticles(node->getKey(),chunk,node->remoteIndex,node->firstParticle,node->lastParticle,reqID);
+    ExternalGravityParticle *part;
     if(part != NULL){
       int computed;
       for(int i = node->firstParticle; i <= node->lastParticle; ++i) {
@@ -3908,7 +3940,7 @@ GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key, int 
 }
 #endif
 
-GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key, int chunk, int reqID, bool isPrefetch, State *state, WalkType wt, ComputeType ct, OptType ot) {
+GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key, int chunk, int reqID, int awi, bool isPrefetch) {
 
   CkAssert(remoteIndex < (int) numTreePieces);
   CkAssert(chunk < numChunks);
@@ -3918,25 +3950,15 @@ GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key, int 
 #if COSMO_PRINT > 1
     CkPrintf("[%d] b=%d requesting node %s to %d for %s (additional=%d)\n",thisIndex,reqID,keyBits(key,63).c_str(),remoteIndex,keyBits(bucketList[reqID]->getKey(),63).c_str(),bucketReqs[reqID].numAdditionalRequests);
 #endif
-    GenericTreeNode *res=localCache->requestNode(thisIndex,remoteIndex,chunk,key,reqID,isPrefetch, state, wt, ct, ot);
+    GenericTreeNode *res=localCache->requestNode(thisIndex,remoteIndex,chunk,key,reqID,isPrefetch,awi);
     if(!res){
 	if(!isPrefetch)
 	    bucketReqs[decodeReqID(reqID)].numAdditionalRequests++;
-      //#if COSMO_STATS > 0
-      //myNumProxyCalls++;
-      //#endif
     }
     return res;
   }
   else{	
     CkAbort("Non cached version not anymore supported, feel free to fix it!");
-    return NULL;
-    /*
-    req.numAdditionalRequests++;
-    streamingProxy[remoteIndex].fillRequestNode(thisIndex, key, req.identifier);
-    myNumProxyCalls++;
-    return NULL;
-    */
   }
 }
 
@@ -4010,15 +4032,10 @@ void TreePiece::receiveNode_inline(GenericTreeNode &node, int chunk, unsigned in
         receiveNode(node,chunk,reqID);
 }
 
-ExternalGravityParticle *TreePiece::requestParticles(const Tree::NodeKey &key,int chunk,int remoteIndex,int begin,int end,int reqID, bool isPrefetch) {
+ExternalGravityParticle *TreePiece::requestParticles(const Tree::NodeKey &key,int chunk,int remoteIndex,int begin,int end,int reqID, int awi, bool isPrefetch) {
   if (_cache) {
     CkAssert(localCache != NULL);
-    /*
-    if(localCache == NULL){
-      localCache = cacheManagerProxy.ckLocalBranch();
-    }
-    */
-    ExternalGravityParticle *p = localCache->requestParticles(thisIndex,chunk,key,remoteIndex,begin,end,reqID,isPrefetch);
+    ExternalGravityParticle *p = localCache->requestParticles(thisIndex,chunk,key,remoteIndex,begin,end,reqID,awi,isPrefetch);
     if (!p) {
 #if COSMO_PRINT > 1
       CkPrintf("[%d] b=%d requestParticles: additional=%d\n",thisIndex,
@@ -4033,14 +4050,6 @@ ExternalGravityParticle *TreePiece::requestParticles(const Tree::NodeKey &key,in
     return p;
   } else {
     CkAbort("Non cached version not anymore supported, feel free to fix it!");
-    return NULL;
-    /*
-    req.numAdditionalRequests += end-begin;
-    myNumProxyCalls++;
-	
-    streamingProxy[remoteIndex].fillRequestParticles(key,thisIndex,begin,end,req);
-    return NULL;
-    */
   }
 };
 
@@ -4094,6 +4103,7 @@ void TreePiece::receiveParticles(ExternalGravityParticle *part,int num,int chunk
     hpmStart(2,"particle force");
 #endif
     computed = partBucketForce(&part[i], reqnode, myParticles, offset, activeRung);
+    // FIXME - this would be a good place to insert a comp->particlesReceived() call, instead of the above line
 #ifdef HPM_COUNTER
     hpmStop(2);
 #endif
@@ -5025,96 +5035,42 @@ checkWalkCorrectness();
 #endif
 }
 
-GenericTreeNode *TreePiece::nodeMissed(int reqID, int remoteIndex, Tree::NodeKey &key, int chunk, bool isPrefetch, State *state, WalkType wt, ComputeType ct, OptType ot){
-  int firstowner, lastowner;
-  //nodeOwnership(key, firstowner, lastowner);
-  CkAssert(chunk < numChunks);
-  GenericTreeNode *gtn = requestNode(remoteIndex, key, chunk, reqID, isPrefetch, state, wt, ct, ot); 
+GenericTreeNode *TreePiece::nodeMissed(int reqID, int remoteIndex, Tree::NodeKey &key, int chunk, bool isPrefetch, int awi){
+  GenericTreeNode *gtn = requestNode(remoteIndex, key, chunk, reqID, awi, isPrefetch); 
   return gtn;
+}
+
+ExternalGravityParticle *TreePiece::particlesMissed(Tree::NodeKey &key, int chunk, int remoteIndex, int firstParticle, int lastParticle, int reqID, bool isPrefetch, int awi){
+  return requestParticles(key, chunk, remoteIndex,firstParticle,lastParticle,reqID, awi, isPrefetch);
 }
 
 // This is invoked when a remote node is received from the CacheManager
 // It sets up a tree walk starting at node and initiates it
-void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, State *state, WalkType wt, ComputeType ct, OptType ot){
+void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi){
   void *computeEntity;
-  int reqIDlist;
-  Vector3D<double> offset;
+  int reqIDlist = decodeReqID(reqID);
+  Vector3D<double> offset = decodeOffset(reqID);
 
-  Compute *compute;
   TreeWalk *tw;
-  Opt *opt;
+  Compute *compute;
+  Opt *o;
+  State *state;
 
-  switch(ct){
-    case Gravity: compute = new GravityCompute(); 
-                  reqIDlist = decodeReqID(reqID);
-                  offset = decodeOffset(reqID);
-                  computeEntity = (void *)bucketList[reqIDlist];
-#if CHANGA_REFACTOR_DEBUG > 2 
-                  CkPrintf("Continuing Gravity\n");
-#endif
-#ifdef CHANGA_REFACTOR_WALKCHECK
-                  if(thisIndex == CHECK_INDEX && reqIDlist == CHECK_BUCKET) CkPrintf("Continuing Gravity\n");
-#endif
-                  
-                  break;
-    case Prefetch: compute = new PrefetchCompute(); 
-                  offset = decodeOffset(reqID);
-                  PrefetchRequestStruct prs;
-                  prs.prefetchReq = prefetchReq;
-                  prs.numPrefetchReq = numPrefetchReq;
-                  computeEntity = (void *)&prs;                  
-#if CHANGA_REFACTOR_DEBUG > 2
-                  CkPrintf("continuing Prefetch\n");
-#endif
-                  break;
-    default: CkAbort("Retrieved MissRecord has invalid computetype");
-  }
+  // retrieve the activewalk record
+  ActiveWalk &a = activeWalks[awi];
+  tw = a.tw;
+  compute = a.c;
 
-  switch(wt){
-    case TopDown: tw = new TopDownTreeWalk();
-#if CHANGA_REFACTOR_DEBUG > 2
-                  CkPrintf("TopDownTreeWalk\n");
-#endif
-                  break;
-    default: CkAbort("Retrieved MissRecord has invalid walktype");
-  }
+  // reassociate objects with each other
+  tw->reassoc(compute);
+  // FIXME - this is not right - assumes that we can only have buckets for computeEntities when
+  // restarting walks. Some abstraction is missing here.
+  compute->reassoc((void *)bucketList[reqIDlist], activeRung, a.o);
+  state = compute->getResumeState(reqIDlist);
 
+  // resume walk
+  tw->walk(node, state, chunk, reqID, awi);
 
-  switch(ot){
-    case Remote: opt = new RemoteOpt(); 
-#if CHANGA_REFACTOR_DEBUG > 2
-                 CkPrintf("Remote opt\n");
-#endif
-                 break;
-    case Local: opt = new LocalOpt(); 
-#if CHANGA_REFACTOR_DEBUG > 2
-                CkPrintf("Local opt\n");
-#endif
-                break;
-    case Pref: opt = new PrefetchOpt(); 
-#if CHANGA_REFACTOR_DEBUG > 2
-                CkPrintf("Prefetch opt\n");
-#endif
-                break;
-    default: CkAbort("Retrieved MissRecord has invalid opttype");
-  }
-
-  // activeRung is a member of Compute
-  compute->init(computeEntity, activeRung, opt);
-  tw->init(compute, this);
-  // whereas chunk is a member of TreeWalk
-  tw->walk(node, state, chunk, reqID);
-
-  // book keeping
-  /*
-  if(compute->getSelfType() == Prefetch){
-    prefetchWaiting--;
-    if(prefetchWaiting == 0){
-      startRemoteChunk();
-    }
-  }
-  else 
-    */
   if(compute->getSelfType() == Gravity){
     bucketReqs[reqIDlist].numAdditionalRequests--;
     finishBucket(reqIDlist);
@@ -5132,4 +5088,42 @@ void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID,
   delete tw;
   delete compute;
   delete opt;
+}
+
+void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi){
+  TreeWalk *tw;
+  Compute *c;
+  Opt *o;
+  State *state;
+
+  int reqIDlist = decodeReqID(reqID);
+
+  // retrieve the activewalk record
+  ActiveWalk &a = activeWalks[awi];
+  tw = a.tw;
+  c = a.c;
+  // reassociate objects with each other
+  tw->reassoc(c);
+  //c->reassoc(reqIDlist, this, activeRung, a.o);
+  c->reassoc((void *)bucketList[reqIDlist], activeRung, a.o);
+  state = c->getResumeState(reqIDlist);
+  
+  c->recvdParticles(egp,num,chunk,reqID,state,this);
+}
+
+int TreePiece::addActiveWalk(TreeWalk *tw, Compute *c, Opt *o){
+  return activeWalks.push_back_v(ActiveWalk(tw,c,o));
+}
+
+void TreePiece::freeWalkObjects(){
+  activeWalks.free();
+  //sPrefetch->walkDone(); 
+
+  delete sTopDown;
+  delete sGravity;
+  delete sPrefetch;
+  delete sLocal;
+  delete sRemote;
+  delete sPref;
+
 }

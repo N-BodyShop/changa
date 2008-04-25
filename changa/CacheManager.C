@@ -117,7 +117,7 @@ CacheManager::CacheManager(CkMigrateMessage* m) : CBase_CacheManager(m) {
   treePieceLocMgr = NULL;
 }
 
-CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chunk,CacheKey key,int reqID,bool isPrefetch, State *state, WalkType wt, ComputeType ct, OptType ot){
+CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chunk,CacheKey key,int reqID,bool isPrefetch, int awi){
   /*
     if(!proxyInitialized){
     CpvInitialize(CProxy_TreePiece,streamingTreeProxy);
@@ -164,7 +164,7 @@ CacheNode *CacheManager::requestNode(int requestorIndex,int remoteIndex,int chun
     }
   }
   e->requestorVec.push_back(RequestorData(requestorIndex,reqID,isPrefetch,
-                                          state, wt, ct, ot));
+                                          awi));
   //e->reqVec.push_back(req);
 #if COSMO_STATS > 1
   e->misses++;
@@ -399,12 +399,12 @@ void CacheManager::processRequests(int chunk,CacheNode *node,int from,int depth)
     }
     //treeProxy[*caller].receiveNode_inline(*(e->node),*(*callreq));
     */
-    if (caller->isPrefetch) p->receiveNodeCallback(e->node, chunk, caller->reqID, caller->state, caller->walktype, caller->computetype, caller->opttype);
+    if (caller->isPrefetch) p->receiveNodeCallback(e->node, chunk, caller->reqID, caller->awi);
     else{
       LDObjHandle objHandle;
       int objstopped = 0;
       objHandle = p->timingBeforeCall(&objstopped);
-      p->receiveNodeCallback(e->node, chunk, caller->reqID, caller->state, caller->walktype, caller->computetype, caller->opttype);
+      p->receiveNodeCallback(e->node, chunk, caller->reqID, caller->awi);
       p->timingAfterCall(objHandle,&objstopped);
     }
   }
@@ -481,6 +481,8 @@ void CacheManager::recvNodes(FillNodeMsg *msg){
     // recursively process all nodes just inserted in the cache
     processRequests(chunk,newnode,owner,_cacheLineDepth);
   } else {
+    CkAbort("_nocache not supported any more");
+#if 0
     // here _nocache is true, so we don't cache anything and we forwarded all requests
     // now deliver the incoming node only to one of the requester
     map<CacheKey,NodeCacheEntry *>::iterator p;
@@ -504,11 +506,12 @@ void CacheManager::recvNodes(FillNodeMsg *msg){
     delete newnode;
 #endif
     e->requestorVec.erase(caller);
+#endif
   }
 }
 
 
-ExternalGravityParticle *CacheManager::requestParticles(int requestorIndex,int chunk,const CacheKey key,int remoteIndex,int begin,int end,int reqID,bool isPrefetch){
+ExternalGravityParticle *CacheManager::requestParticles(int requestorIndex,int chunk,const CacheKey key,int remoteIndex,int begin,int end,int reqID, int awi, bool isPrefetch){
   map<CacheKey,ParticleCacheEntry *>::iterator p;
   CkAssert(chunkAck[chunk] > 0);
   p = particleCacheTable[chunk].find(key);
@@ -547,7 +550,7 @@ ExternalGravityParticle *CacheManager::requestParticles(int requestorIndex,int c
     }
   }
 
-  e->requestorVec.push_back(RequestorData(requestorIndex,reqID,isPrefetch));
+  e->requestorVec.push_back(RequestorData(requestorIndex,reqID,isPrefetch,awi));
   //e->reqVec.push_back(req);
   outStandingParticleRequests[key] = chunk;
 #if COSMO_STATS > 1
@@ -636,8 +639,10 @@ void CacheManager::recvParticles(FillParticleMsg *msg){
         // jetley
         // The particles have been prefetched - only the number of 
         // outstanding prefetches for the TreePiece in question needs to 
-        // be updated now. This is done in the TreePiece::prefetch() function
-      if (caller->isPrefetch) p->prefetch(e->part);
+        // be updated now. This is done in the TreePiece::prefetch function
+
+      // instead of p->prefetch()
+      if (caller->isPrefetch) p->receiveParticlesCallback(e->part,num,chunk,caller->reqID,msg->key,caller->awi);
       else {
 	LDObjHandle objHandle;
 	int objstopped = 0;
@@ -645,14 +650,17 @@ void CacheManager::recvParticles(FillParticleMsg *msg){
         // jetley
         // we can use the original 'callback' function, since no walk 
         // has to be resumed, only a simple computation performed.
-	p->receiveParticles(e->part,num,chunk,caller->reqID,msg->key);
+
+	p->receiveParticlesCallback(e->part,num,chunk,caller->reqID,msg->key,caller->awi);
 	p->timingAfterCall(objHandle,&objstopped);
       }
-      //treeProxy[*caller].receiveParticles_inline(e->part,e->num,*(*callreq));
+      //treeProxy[*caller].receieParticles_inline(e->part,e->num,*(*callreq));
     }
     e->requestorVec.clear();
     storedParticles+=num;
   } else {
+    CkAbort("_nocache not supported any more\n");
+#if 0
     // here _nocache is true, so we don't cache anything and we forwarded all requests
     // now deliver the incoming node only to one of the requester
     map<CacheKey,ParticleCacheEntry *>::iterator p;
@@ -665,10 +673,11 @@ void CacheManager::recvParticles(FillParticleMsg *msg){
       LDObjHandle objHandle;
       int objstopped = 0;
       objHandle = tp->timingBeforeCall(&objstopped);
-      tp->receiveParticles(e->part,num,chunk,caller->reqID, msg->key);
+      tp->receieParticles(e->part,num,chunk,caller->reqID, msg->key);
       tp->timingAfterCall(objHandle,&objstopped);
     }
     e->requestorVec.erase(caller);
+#endif
   }
   delete msg;
 }

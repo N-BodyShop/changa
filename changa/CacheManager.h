@@ -117,8 +117,9 @@ class CacheStatistics {
 };
 
 // jetley - forward declarations
-#include "State.h"
 #include "codes.h"
+#include "State.h"
+#include "TreeWalk.h"
 
 class RequestorData {//: public CkPool<RequestorData, 128> {
  public:
@@ -127,21 +128,16 @@ class RequestorData {//: public CkPool<RequestorData, 128> {
   bool isPrefetch;
 
   // jetley - so that walks can be resumed
-  State *state;
-  WalkType walktype;
-  ComputeType computetype;
-  OptType opttype;
+  //State *state;
+  //TreeWalk *tw;
+  int awi;
 
-  RequestorData(int a, int r, bool ip, State *s, WalkType w, ComputeType c, OptType o) {
+  RequestorData(int a, int r, bool ip, int _awi) {
     arrayID = a;
     reqID = r;
     isPrefetch = ip;
     
-    state = s;
-    walktype = w;
-    computetype = c;
-    opttype = o;
-
+    awi = _awi;
   }
   
   RequestorData(int a, int r, bool ip) {
@@ -391,7 +387,7 @@ private:
 	 * sendNodeRequest to get it. Returns null if the Node has to come from
 	 * remote.
 	*/
-	CacheNode *requestNode(int requestorIndex, int remoteIndex, int chunk, CacheKey key, int reqID, bool isPrefetch, State *state, WalkType wt, ComputeType ct, OptType ot);
+	CacheNode *requestNode(int requestorIndex, int remoteIndex, int chunk, CacheKey key, int reqID, bool isPrefetch, int awi);
 	// Shortcut for the other recvNodes, this receives only one node
 	//void recvNodes(CacheKey ,int ,CacheNode &);
 	/** @brief Receive the nodes incoming from the remote
@@ -401,7 +397,7 @@ private:
 	void recvNodes(FillBinaryNodeMsg *msg);
 	void recvNodes(FillNodeMsg *msg);
 	
-	ExternalGravityParticle *requestParticles(int requestorIndex, int chunk, const CacheKey key, int remoteIndex, int begin, int end, int reqID, bool isPrefetch);
+	ExternalGravityParticle *requestParticles(int requestorIndex, int chunk, const CacheKey key, int remoteIndex, int begin, int end, int reqID, int awi, bool isPrefetch);
 	//void recvParticles(CacheKey key,GravityParticle *part,int num, int from);
         void recvParticles(FillParticleMsg *msg);
 

@@ -386,9 +386,26 @@ typedef struct particlesInfoL{
 } LocalPartInfo;
 
 
+class GravityCompute;
+class PrefetchCompute;
+
 class TreePiece : public CBase_TreePiece {
    // jetley
+   friend class PrefetchCompute;
+   friend class GravityCompute;
+
+   TreeWalk *sTopDown;
+   Compute *sGravity, *sPrefetch;
+   Opt *sLocal, *sRemote, *sPref;
+
+   CkVec<ActiveWalk> activeWalks;
+
+   int remoteGravityAwi;
+   int prefetchAwi;
+
  public:
+        int addActiveWalk(TreeWalk *tw, Compute *c, Opt *o);
+
         int getIndex() {
           return thisIndex;
         }
@@ -400,6 +417,7 @@ class TreePiece : public CBase_TreePiece {
         
         int incPrefetchWaiting() {
           prefetchWaiting++;
+          return prefetchWaiting;
         }
         
         int addToRemainingChunk(int chunk, int howMuch){
@@ -763,7 +781,7 @@ private:
 	
 public:
 	
-	TreePiece(unsigned int numPieces) : numTreePieces(numPieces), pieces(thisArrayID), started(false), root(0), proxyValid(false), proxySet(false), prevLARung (-1) {
+	TreePiece(unsigned int numPieces) : numTreePieces(numPieces), pieces(thisArrayID), started(false), root(0), proxyValid(false), proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0), sPrefetch(0), sLocal(0), sRemote(0), sPref(0){
 	  //CkPrintf("[%d] TreePiece created\n",thisIndex);
 	  // ComlibDelegateProxy(&streamingProxy);
 	  // the lookup of localCache is done in startOctTreeBuild, when we also markPresence
@@ -846,6 +864,10 @@ public:
     //tempOrbBoundaries.clear();
 	}
 
+        private:
+        void freeWalkObjects();
+
+        public: 
 	~TreePiece() {
 	  if (verbosity>1) ckout <<"Deallocating treepiece "<<thisIndex<<endl;
 	  delete[] myParticles;
@@ -857,6 +879,9 @@ public:
 	  delete[] bucketReqs;
 	  delete[] prefetchReq;
           delete[] ewt;
+
+          freeWalkObjects();
+
 	  // recursively delete the entire tree
 	  if (root != NULL) {
 	    root->fullyDelete();
@@ -1021,7 +1046,7 @@ public:
 	/// @brief Retrieve the remote node, goes through the cache if present
         GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk, int reqID, bool isPrefetch=false);
 	
-        GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk, int reqID, bool isPrefetch, State *state, WalkType wt, ComputeType ct, OptType ot);
+        GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk, int reqID, int awi, bool isPrefetch);
 	/// @brief Receive a request for Nodes from a remote processor, copy the
 	/// data into it, and send back a message.
 	void fillRequestNode(RequestNodeMsg *msg);
@@ -1039,7 +1064,7 @@ public:
 
 	/// @brief Check if we have done with the treewalk on a specific bucket,
 	/// and if we have, check also if we are done with all buckets
-	inline void finishBucket(int iBucket);
+	void finishBucket(int iBucket);
 
 	/** @brief Routine which does the tree walk on non-local nodes. It is
 	 * called back for every incoming node (which are those requested to the
@@ -1057,7 +1082,7 @@ public:
 			     int level,int chunk);
 #endif
   
-        ExternalGravityParticle *requestParticles(const Tree::NodeKey &key,int chunk,int remoteIndex,int begin,int end,int reqID, bool isPrefetch=false);
+        ExternalGravityParticle *requestParticles(const Tree::NodeKey &key,int chunk,int remoteIndex,int begin,int end,int reqID, int awi, bool isPrefetch=false);
         //ExternalGravityParticle *requestParticles(const Tree::NodeKey &key,int chunk,int remoteIndex,int begin,int end,int reqID, bool isPrefetch=false);
 	void fillRequestParticles(RequestParticleMsg *msg);
 	//void fillRequestParticles(Tree::NodeKey key,int retIndex, int begin,int end,
@@ -1098,9 +1123,13 @@ public:
         GenericTreeNode *getRoot() {return root;}
         // need this in Compute
 	Vector3D<double> decodeOffset(int reqID);
-        GenericTreeNode *nodeMissed(int reqID, int remoteIndex, Tree::NodeKey &key, int chunk, bool isPrefetch, State *state, WalkType wt, ComputeType ct, OptType ot);
+
+        GenericTreeNode *nodeMissed(int reqID, int remoteIndex, Tree::NodeKey &key, int chunk, bool isPrefetch, int awi);
+
+        ExternalGravityParticle *particlesMissed(Tree::NodeKey &key, int chunk, int remoteIndex, int firstParticle, int lastParticle, int reqID, bool isPrefetch, int awi);
         
-        void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, State *state, WalkType wt, ComputeType ct, OptType ot);
+        void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi);
+        void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi);
 
         void receiveProxy(CkGroupID _proxy){ proxy = _proxy; proxySet = true; /*CkPrintf("[%d : %d] received proxy\n", CkMyPe(), thisIndex);*/}
         void doAtSync();

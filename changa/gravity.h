@@ -151,7 +151,6 @@ inline int partBucketForce(ExternalGravityParticle *part, GenericTreeNode *req, 
   double rsq;
   double twoh, a, b;
 
-  //CkPrintf("partBucketForce: ext %f (%f %f %f) %f\n",part->mass,part->position.x,part->position.y,part->position.z,part->soft);
   for(int j = req->firstParticle; j <= req->lastParticle; ++j) {
     if (particles[j].rung >= activeRung) {
 #ifdef CMK_VERSION_BLUEGENE
@@ -176,7 +175,6 @@ inline int partBucketForce(ExternalGravityParticle *part, GenericTreeNode *req, 
     if(idt2 > particles[j].dtGrav)
         particles[j].dtGrav = idt2;
       }
-      //CkPrintf("partBucketForce of %d (%d): %f (%f %f %f) %f / (%f %f %f) %f %f\n",j,particles[j].iOrder,particles[j].mass,particles[j].position.x,particles[j].position.y,particles[j].position.z,particles[j].soft,particles[j].treeAcceleration.x,particles[j].treeAcceleration.y,particles[j].treeAcceleration.z,particles[j].potential,particles[j].dtGrav);
     }
   }
   return computed;

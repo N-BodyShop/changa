@@ -2,7 +2,7 @@
 
 #include "GenericTreeNode.h"
 #include "ParallelGravity.h"
-#include "TreeWalk.h"
+//include "TreeWalk.h"
 //#include "State.h"
 #include "Compute.h"
 
@@ -11,9 +11,13 @@ void TreeWalk::init(Compute *c, TreePiece *owner){
   ownerTP = owner;
 }
 
-void TopDownTreeWalk::walk(GenericTreeNode *startNode, State *state, int chunk, int reqID){
+void TreeWalk::reassoc(Compute *c){
+  comp = c;
+}
+
+void TopDownTreeWalk::walk(GenericTreeNode *startNode, State *state, int chunk, int reqID, int awi){
 #ifndef CHANGA_REFACTOR_WALKCHECK
-  dft(startNode, state, chunk, reqID, true);       // isRoot
+  dft(startNode, state, chunk, reqID, true, awi);       // isRoot
 #else
   bool doprint = false;
   if(comp->getSelfType() == Gravity && comp->getOptType() == Remote){
@@ -30,7 +34,7 @@ void TopDownTreeWalk::walk(GenericTreeNode *startNode, State *state, int chunk, 
 }
 
 #ifndef CHANGA_REFACTOR_WALKCHECK
-void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int reqID, bool isRoot){
+void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int reqID, bool isRoot, int awi){
 #else
 void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int reqID, bool isRoot, int shift, bool doprint){
 #endif
@@ -43,7 +47,7 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
   currentGlobalKey = node->getKey();
   // process this node
   bool didcomp = false;
-  ret = comp->doWork(node, this, state, chunk, reqID, isRoot, didcomp);
+  ret = comp->doWork(node, this, state, chunk, reqID, isRoot, didcomp, awi);
 
 #ifdef CHANGA_REFACTOR_WALKCHECK
   if(doprint){ 
@@ -93,7 +97,7 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
           CkPrintf("%s%ld SM\n", s.c_str(), node->getChildKey(i));
         }
 #endif
-        child = ownerTP->nodeMissed(reqID, node->remoteIndex, currentGlobalKey, chunk, comp->getSelfType() == Prefetch, state, getSelfType(), comp->getSelfType(), comp->getOptType());
+        child = ownerTP->nodeMissed(reqID, node->remoteIndex, currentGlobalKey, chunk, comp->getSelfType() == Prefetch, awi);
         if(child == NULL){     // missed in cache, skip node for now
 #if CHANGA_REFACTOR_DEBUG > 2
           CkPrintf("[%d]: child not found in cache\n", ownerTP->getIndex());
@@ -123,7 +127,7 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
       // process children recursively
       // the next can't be the first node we are processing, so isRoot = false
 #ifndef CHANGA_REFACTOR_WALKCHECK
-      dft(child, state, chunk, reqID, false);
+      dft(child, state, chunk, reqID, false, awi);
 #else
       dft(child, state, chunk, reqID, false, shift+2, doprint);
 #endif

@@ -1,7 +1,9 @@
 
 class State;
 class Compute;
+class TreePiece;
 
+/*
 class MissRecord{
   public:
   // these fields are saved when the node is missed
@@ -17,6 +19,7 @@ class MissRecord{
   MissRecord(Tree::NodeKey & _key, State *_state, int _chunk, int ar, WalkType wt, ComputeType ct, OptType ot) : key(_key), state(_state), chunk(_chunk), activeRung(ar), walktype(wt), computetype(ct), opttype(ot){}
   MissRecord() : state(NULL), chunk(-2), activeRung(-2), walktype(InvalidWalk), computetype(InvalidCompute), opttype(InvalidOpt){}
 };
+*/
 
 class TreeWalk{
   protected:
@@ -38,20 +41,23 @@ class TreeWalk{
   public: 
   // must tell compute the ownerTP so it can perform its openCriterion() test
   TreePiece *getOwnerTP(){return ownerTP;}
+  Compute *getCompute(){return comp;}
   virtual void init(Compute *c, TreePiece *owner);
+  void reassoc(Compute *c);
 
   virtual void reset() = 0; 
-  virtual void walk(GenericTreeNode *node, State *state, int chunk, int reqID) = 0;
+  virtual void walk(GenericTreeNode *node, State *state, int chunk, int reqID, int activeWalkIndex) = 0;
   // beware of using default implementation - always returns 'false'
   virtual bool ancestorCheck(GenericTreeNode *node, int reqID) {return false;};
   WalkType getSelfType() {return type;} 
+  //virtual void recvdParticles(ExternalGravityParticles *part, int num, int chunk, int reqID, State *state){}
 
 };
 
 class TopDownTreeWalk : public TreeWalk{ 
   private:
 #ifndef CHANGA_REFACTOR_WALKCHECK
-  void dft(GenericTreeNode *node, State *state, int chunk, int reqID, bool isRoot);
+  void dft(GenericTreeNode *node, State *state, int chunk, int reqID, bool isRoot, int awi);
 #else
   void dft(GenericTreeNode *node, State *state, int chunk, int reqID, bool isRoot, int shift, bool doprint);
 #endif
@@ -60,7 +66,7 @@ class TopDownTreeWalk : public TreeWalk{
   TopDownTreeWalk() : TreeWalk(TopDown) {}
 
   bool ancestorCheck(GenericTreeNode *node, int reqID);
-  void walk(GenericTreeNode *node, State *state, int chunk, int reqID);
+  void walk(GenericTreeNode *node, State *state, int chunk, int reqID, int awi);
   void reset();
 };
 
