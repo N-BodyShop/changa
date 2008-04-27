@@ -69,7 +69,8 @@ void TreePiece::velScale(double dScale)
 /// After the bounding box has been found, we can assign keys to the particles
 void TreePiece::assignKeys(CkReductionMsg* m) {
 	if(m->getSize() != sizeof(OrientedBox<float>)) {
-		cerr << thisIndex << ": TreePiece: Fatal: Wrong size reduction message received!" << endl;
+		ckerr << thisIndex << ": TreePiece: Fatal: Wrong size reduction message received!" << endl;
+		CkAssert(0);
 		callback.send(0);
 		delete m;
 		return;
@@ -77,21 +78,31 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 	
 	boundingBox = *static_cast<OrientedBox<float> *>(m->getData());
 	delete m;
-  //curBoundingBox = boundingBox;
 	if(thisIndex == 0 && verbosity)
-		cerr << "TreePiece: Bounding box originally: "
+		ckout << "TreePiece: Bounding box originally: "
 		     << boundingBox << endl;
 	//give particles keys, using bounding box to scale
-  if(domainDecomposition!=ORB_dec){
-	  for(unsigned int i = 0; i < myNumParticles; ++i) {
-	    myParticles[i+1].key = generateKey(myParticles[i+1].position,
-					       boundingBox);
-	  }
-  }
-	
-  if(domainDecomposition!=ORB_dec){
-	  sort(&myParticles[1], &myParticles[myNumParticles+1]);
-  }
+	if(domainDecomposition!=ORB_dec){
+	      // get longest axis
+	      Vector3D<float> bsize = boundingBox.size();
+	      float max = (bsize.x > bsize.y) ? bsize.x : bsize.y;
+	      max = (max > bsize.z) ? max : bsize.z;
+	      //
+	      // Make the bounding box cubical.
+	      //
+	      Vector3D<float> bcenter = boundingBox.center();
+	      bsize = Vector3D<float>(0.5*max);
+	      boundingBox = OrientedBox<float>(bcenter-bsize, bcenter+bsize);
+	      if(thisIndex == 0 && verbosity)
+		      ckout << "TreePiece: Bounding box now: "
+			   << boundingBox << endl;
+
+	      for(unsigned int i = 0; i < myNumParticles; ++i) {
+		myParticles[i+1].key = generateKey(myParticles[i+1].position,
+						   boundingBox);
+	      }
+	      sort(&myParticles[1], &myParticles[myNumParticles+1]);
+	}
   
 #if COSMO_DEBUG > 1
   char fout[100];
@@ -5053,7 +5064,6 @@ void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID,
 
   TreeWalk *tw;
   Compute *compute;
-  Opt *o;
   State *state;
 
   // retrieve the activewalk record
@@ -5087,13 +5097,11 @@ void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID,
   }
   delete tw;
   delete compute;
-  delete opt;
 }
 
 void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi){
   TreeWalk *tw;
   Compute *c;
-  Opt *o;
   State *state;
 
   int reqIDlist = decodeReqID(reqID);

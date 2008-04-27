@@ -525,6 +525,7 @@ private:
 	SFC::Key leftSplitter, rightSplitter;
 
 	std::string basefilename;
+	// Bounding box of the entire simulation
 	OrientedBox<float> boundingBox;
 	bool started;
 	unsigned iterationNo;
