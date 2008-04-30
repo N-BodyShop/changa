@@ -463,6 +463,7 @@ void TreePiece::evaluateBoundaries(int isRefine, const CkCallback& cb) {
 
 void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 	callback = *static_cast<CkCallback *>(m->getData());
+	delete m;
 
 	//find my responsibility
 	myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
