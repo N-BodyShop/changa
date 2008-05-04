@@ -5096,8 +5096,6 @@ void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID,
       }// end if finished with chunk
     }// end if remote
   }
-  delete tw;
-  delete compute;
 }
 
 void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi){
