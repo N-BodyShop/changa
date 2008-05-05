@@ -20,6 +20,7 @@ fi
 CHARM_PATH=${CHARMC%/bin/charmc}
 CONV_CONFIG=${CHARM_PATH}/tmp/conv-config.sh
 CHARMINC=${CHARM_PATH}/include
+AC_SUBST([CHARM_PATH])
 . ${CONV_CONFIG}
 CXX=${CMK_SEQ_CXX}
 CC=${CMK_SEQ_CC}

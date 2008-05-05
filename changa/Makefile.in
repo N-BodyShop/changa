@@ -9,11 +9,12 @@ CACHE_TREE = -DCACHE_TREE          # enable processor tree inside the cache
 #FLAG_REFACTOR = -DCHANGA_REFACTOR_WALKCHECK #-DCHANGA_REFACTOR_DEBUG=2	# enable refactored code debugging information
 DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST) $(HEXADECAPOLE) $(CELL) $(FLAG_REFACTOR)
 
+CHARM_PATH = @CHARM_PATH@
 STRUCTURES_PATH = ../structures
-CHARM_LDB_PATH = ../../charm/src/ck-ldb
-CHARM_UTIL_PATH = ../../charm/src/util
-CHARM_LIB_PATH = ../../charm/lib
-METIS_SRC_PATH = ../../charm/src/libs/ck-libs/parmetis/METISLib
+CHARM_LDB_PATH = $(CHARM_PATH)/src/ck-ldb
+CHARM_UTIL_PATH = $(CHARM_PATH)/src/util
+CHARM_LIB_PATH = $(CHARM_PATH)/lib
+METIS_SRC_PATH = $(CHARM_PATH)/src/libs/ck-libs/parmetis/METISLib
 
 CXXFLAGS += -O3 -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) -I.. @CPPFLAGS@
 LDFLAGS += -L. -L../libs -language charm++ -module commlib -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MetisCosmoLB #-tracemode projections -memory charmdebug
