@@ -879,6 +879,7 @@ void CacheManager::cacheSync(double _theta, int activeRung, double dEwhCut, cons
       }
       nodeLookupTable.clear();
       root = buildProcessorTree(totalChares, gtn);
+      delete[] gtn;
 #if COSMO_DEBUG > 0
       printGenericTree(root,*ofs);
       ofs->close();
