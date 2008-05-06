@@ -16,8 +16,10 @@ CHARM_UTIL_PATH = $(CHARM_PATH)/src/util
 CHARM_LIB_PATH = $(CHARM_PATH)/lib
 METIS_SRC_PATH = $(CHARM_PATH)/src/libs/ck-libs/parmetis/METISLib
 
-CXXFLAGS += -O3 -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) -I.. @CPPFLAGS@
-LDFLAGS += -L. -L../libs -language charm++ -module commlib -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MetisCosmoLB #-tracemode projections -memory charmdebug
+#OPTS = -g -memory charmdebug
+OPTS = -O3
+CXXFLAGS += $(OPTS) -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) -I.. @CPPFLAGS@
+LDFLAGS += $(OPTS) -L. -L../libs -language charm++ -module commlib -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MetisCosmoLB #-tracemode projections -memory charmdebug
 XDR_DIR = ../rpc
 XDR_OBJS = $(XDR_DIR)/xdr.o $(XDR_DIR)/xdr_float.o $(XDR_DIR)/xdr_mem.o $(XDR_DIR)/xdr_stdio.o
 LDLIBS += $(STRUCTURES_PATH)/libTipsy.a @LIBS@
@@ -28,7 +30,7 @@ CXX = $(CHARMC)
 CC = $(CXX)
 AR = @AR@
 CXX_DEPEND = $(CXX) -M -MM -MG $(CXXFLAGS)
-CFLAGS = -g -O3
+CFLAGS = $(OPTS)
 
 OBJECTS = DataManager.o Reductions.o TreePiece.o CacheManager.o Sorter.o \
 	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
