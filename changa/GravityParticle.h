@@ -21,8 +21,7 @@ class ActiveWalk {
   ActiveWalk(){}
 };
 
-// Object to bookkeep a Bucket Walk.  It has accumulators for the
-// acclerations and potentials of the particles in the bucket.
+// Object to bookkeep a Bucket Walk.
 class BucketGravityRequest {
 public:
 		
