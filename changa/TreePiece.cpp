@@ -520,8 +520,9 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles, const in
   if (incomingParticles == NULL) {
     incomingParticles = new GravityParticle[dm->particleCounts[myPlace] + 2];
     assert(incomingParticles != NULL);
-    if (verbosity)
-      ckout << "Treepiece "<<thisIndex<<": allocated "<<dm->particleCounts[myPlace]+2<<"particles"<<endl;
+    if (verbosity > 1)
+      ckout << "Treepiece "<<thisIndex<<": allocated "
+	<< dm->particleCounts[myPlace]+2 <<" particles"<<endl;
   }
 
   memcpy(&incomingParticles[incomingParticlesArrived+1], particles, n*sizeof(GravityParticle));
@@ -1580,22 +1581,18 @@ void TreePiece::initBuckets() {
     int numParticlesInBucket = node->particleCount;
 
     CkAssert(numParticlesInBucket <= maxBucketSize);
-    //BucketGravityRequest req(numParticlesInBucket);
-    //req.startingNode = root->getKey();
-    //req.identifier = j;
-    //req.numAdditionalRequests = numChunks;
-    //req.requestingPieceIndex = thisIndex;
+    
+    // TODO: active bounds may give a performance boost in the
+    // multi-timstep regime.
+    // node->boundingBox.reset();  // XXXX dangerous should have separate
+				// Active bounds
     for(int i = node->firstParticle; i <= node->lastParticle; ++i) {
       if (myParticles[i].rung >= activeRung) {
-        /*
-          req.softs[i - node->firstParticle] = myParticles[i].soft;
-          req.positions[i - node->firstParticle] = myParticles[i].position;
-          req.potentials[i - node->firstParticle] = 0;
-          req.boundingBox.grow(myParticles[i].position);
-        */
+	nActive++;
         myParticles[i].treeAcceleration = 0;
         myParticles[i].potential = 0;
 	myParticles[i].dtGrav = 0;
+	// node->boundingBox.grow(myParticles[i].position);
       }
     }
     bucketReqs[j].finished = ewaldCondition;
@@ -2774,6 +2771,7 @@ void TreePiece::startIteration(double t, // opening angle -- moved to readonly
     particleInterRemote[i] = 0;
   }
   particleInterLocal = 0;
+  nActive = 0;
   iterationNo++;
 
 #if 0
@@ -2860,30 +2858,26 @@ void TreePiece::startIteration(double t, // opening angle -- moved to readonly
           prefetchReq[0].grow(myParticles[i].position);
         }
       }
-      /*
-      req0.positions[0] = myParticles[1].position;
-      for(int i=1;i<=myNumParticles;i++)
-        req0.boundingBox.grow(myParticles[i].position);
-      prefetchReq[0] = req0;
-      req1.positions[0] = myParticles[myNumParticles].position;
-      req1.boundingBox.grow(myParticles[myNumParticles].position);
-      prefetchReq[1] = req1;
-      */
       break;
     default:
       //Prefetch Roots for SFC
       prefetchReq[0].reset();
-      prefetchReq[0].grow(myParticles[1].position);
+      for (unsigned int i=1; i<=myNumParticles; ++i) {
+	  // set to first active particle
+        if (myParticles[i].rung >= activeRung) {
+          prefetchReq[0].grow(myParticles[i].position);
+	  break;
+	}
+      }
       prefetchReq[1].reset();
-      prefetchReq[1].grow(myParticles[myNumParticles].position);
-      /*
-      req0.positions[0] = myParticles[1].position;
-      req0.boundingBox.grow(myParticles[1].position);
-      prefetchReq[0] = req0;
-      req1.positions[0] = myParticles[myNumParticles].position;
-      req1.boundingBox.grow(myParticles[myNumParticles].position);
-      prefetchReq[1] = req1;
-      */
+      for (unsigned int i=myNumParticles; i>=1; --i) {
+	  // set to last active particle
+        if (myParticles[i].rung >= activeRung) {
+	    prefetchReq[1].grow(myParticles[i].position);
+	    break;
+	}
+      }
+      
       break;
   }
 
@@ -5026,6 +5020,10 @@ void TreePiece::getPieceValues(piecedata *totaldata){
 
 CkReduction::reducerType TreePieceStatistics::sum;
 
+/*
+ * Collect treewalking statistics across all TreePieces
+ */
+
 void TreePiece::collectStatistics(CkCallback& cb) {
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK
 
@@ -5040,7 +5038,7 @@ checkWalkCorrectness();
     particleInterRemoteTotal += particleInterRemote[i];
   }
   TreePieceStatistics tps(nodesOpenedLocal, nodesOpenedRemote, numOpenCriterionCalls,
-      nodeInterLocal, nodeInterRemoteTotal, particleInterLocal, particleInterRemoteTotal);
+      nodeInterLocal, nodeInterRemoteTotal, particleInterLocal, particleInterRemoteTotal, nActive);
   contribute(sizeof(TreePieceStatistics), &tps, TreePieceStatistics::sum, cb);
 #else
   CkAbort("Invalid call, only valid if COSMO_STATS is defined");

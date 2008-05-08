@@ -116,19 +116,21 @@ class TreePieceStatistics {
   u_int64_t particleInterLocal;
   u_int64_t particleInterRemote;
   u_int64_t openCriterionCalls;
+  int nActive;
   
   TreePieceStatistics() : nodesOpenedLocal(0), nodesOpenedRemote(0),
       nodeInterLocal(0), nodeInterRemote(0), particleInterLocal(0),
-      particleInterRemote(0), openCriterionCalls(0) { }
+      particleInterRemote(0), openCriterionCalls(0), nActive(0) { }
 
  public:
   TreePieceStatistics(u_int64_t nol, u_int64_t nor, u_int64_t occ, u_int64_t nil, u_int64_t nir,
-		      u_int64_t pil, u_int64_t pir) :
+		      u_int64_t pil, u_int64_t pir, int na) :
       nodesOpenedLocal(nol), nodesOpenedRemote(nor), nodeInterLocal(nil),
       nodeInterRemote(nir), particleInterLocal(pil), particleInterRemote(pir),
-      openCriterionCalls(occ) { }
+      openCriterionCalls(occ), nActive(na) { }
 
   void printTo(CkOStream &os) {
+    os << "  TreePiece: " << nActive << " particles active." << endl;
     os << "  TreePiece: " << nodesOpenedLocal << " local nodes opened, ";
     os << nodesOpenedRemote << " remote" << endl;
     os << "  TreePiece: " << openCriterionCalls << " num of open criterion calls" << endl;
@@ -136,6 +138,11 @@ class TreePieceStatistics {
     os << nodeInterRemote << " remote" << endl;
     os << "  TreePiece: " << particleInterLocal << " local particle-particle interactions, ";
     os << particleInterRemote << " remote" << endl;
+    os << "  TreePiece: "
+       << (particleInterLocal + particleInterRemote)/(double) nActive
+       << " particles, "
+       << (nodeInterLocal + nodeInterRemote)/(double) nActive
+       << " nodes per particle" << endl;
   }
 
   static CkReduction::reducerType sum;
@@ -152,6 +159,7 @@ class TreePieceStatistics {
       ret.nodeInterRemote += data->nodeInterRemote;
       ret.particleInterLocal += data->particleInterLocal;
       ret.particleInterRemote += data->particleInterRemote;
+      ret.nActive += data->nActive;
     }
     return CkReductionMsg::buildNew(sizeof(TreePieceStatistics), &ret);
   }
@@ -601,6 +609,7 @@ private:
 	u_int64_t *nodeInterRemote;
 	u_int64_t particleInterLocal;
 	u_int64_t *particleInterRemote;
+	int nActive;		// number of particles that are active
 
 	/// @endif
 
