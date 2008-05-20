@@ -32,15 +32,15 @@ public:
 
 };
 
-class SmoothCompute : Compute 
+class SmoothCompute : public Compute 
 {
     int nSmooth;
     void (*fcnSmooth)(GravityParticle *p, int nSmooth, pqSmoothNode *nList);
-    void bucketCompare(ExternalGravityParticle *p,  // Particle to test
-				  GenericTreeNode *node, // bucket
-				  GravityParticle *particles, // local
-							      // particle data
-				  Vector3D<double> offset
+    void bucketCompare(TreePiece *tp,
+		       ExternalGravityParticle *p,  // Particle to test
+		       GenericTreeNode *node, // bucket
+		       GravityParticle *particles, // local particle data
+		       Vector3D<double> offset
 		       ) ;
     
 public:
@@ -59,10 +59,11 @@ public:
 	       int reqID,
 	       bool isRoot, 
 	       bool &didcomp, int awi);
-    NearNeighborState *getResumeState(int bucketIdx);
     int startNodeProcessEvent(TreePiece *owner){}
     int finishNodeProcessEvent(TreePiece *owner){}
     int nodeMissedEvent(TreePiece *owner, int chunk);
+    State *getResumeState(int bucketIdx);
+    void walkDone() ;
     };
 
 void Density(GravityParticle *p,int nSmooth,pqSmoothNode *nnList);
