@@ -756,15 +756,13 @@ void Main::advanceBigStep(int iStep) {
       printingStep = (printingStep & ~MAXSUBSTEPS) << 1;
     }
     ckerr << " (rungs " << activeRung << "-" << nextMaxRung << ")" << ":" << endl;
-    CkCallback cb(CkCallback::resumeThread);
-    treeProxy.collectStatistics(cb);
-    CkReductionMsg *tps = (CkReductionMsg *) cb.thread_delay();
+    CkReductionMsg *tps;
+    treeProxy.collectStatistics(CkCallbackResumeThread((void*&)tps));
     ((TreePieceStatistics*)tps->getData())->printTo(ckerr);
 
     /********* Cache Statistics ********/
-    CkCallback ccb(CkCallback::resumeThread);
-    streamingCache.collectStatistics(ccb);
-    CkReductionMsg *cs = (CkReductionMsg *) ccb.thread_delay();
+    CkReductionMsg *cs;
+    streamingCache.collectStatistics(CkCallbackResumeThread((void*&)cs));
     ((CacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
 
@@ -936,15 +934,13 @@ Main::initialForces()
 #if COSMO_STATS > 0
   /********* TreePiece Statistics ********/
   ckerr << "Total statistics initial iteration :" << endl;
-  CkCallback cb(CkCallback::resumeThread);
-  treeProxy.collectStatistics(cb);
-  CkReductionMsg *tps = (CkReductionMsg *) cb.thread_delay();
+  CkReductionMsg *tps;
+  treeProxy.collectStatistics(CkCallbackResumeThread((void*&)tps));
   ((TreePieceStatistics*)tps->getData())->printTo(ckerr);
   
   /********* Cache Statistics ********/
-  CkCallback ccb(CkCallback::resumeThread);
-  streamingCache.collectStatistics(ccb);
-  CkReductionMsg *cs = (CkReductionMsg *) ccb.thread_delay();
+  CkReductionMsg *cs;
+  streamingCache.collectStatistics(CkCallbackResumeThread((void*&)cs));
   ((CacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
   
@@ -1090,9 +1086,8 @@ Main::doSimulation()
  */
 
 void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
-    CkCallback ccb(CkCallback::resumeThread);
-    treeProxy.calcEnergy(ccb);
-    CkReductionMsg *msg = (CkReductionMsg *) ccb.thread_delay();
+    CkReductionMsg *msg;
+    treeProxy.calcEnergy(CkCallbackResumeThread((void*&)msg));
     double *dEnergy = (double *) msg->getData();
 
     FILE *fpLog = fopen(achLogFileName, "a");
@@ -1166,13 +1161,12 @@ void Main::writeOutput(int iStep)
 
 int Main::adjust(int iKickRung) 
 {
-    CkCallback ccb(CkCallback::resumeThread);
+    CkReductionMsg *msg;
     double a = csmTime2Exp(param.csm,dTime);
     
     treeProxy.adjust(iKickRung, param.bEpsAccStep, param.bGravStep, param.dEta,
-		  param.dDelta, 1.0/(a*a*a), ccb);
+		  param.dDelta, 1.0/(a*a*a), CkCallbackResumeThread((void*&)msg));
 
-    CkReductionMsg *msg = (CkReductionMsg *) ccb.thread_delay();
     int iCurrMaxRung = *(int *)msg->getData();
     delete msg;
     return iCurrMaxRung;
@@ -1180,9 +1174,8 @@ int Main::adjust(int iKickRung)
 
 void Main::rungStats() 
 {
-    CkCallback ccb(CkCallback::resumeThread);
-    treeProxy.rungStats(ccb);
-    CkReductionMsg *msg = (CkReductionMsg *) ccb.thread_delay();
+    CkReductionMsg *msg;
+    treeProxy.rungStats(CkCallbackResumeThread((void*&)msg));
     int *nInRung = (int *)msg->getData();
     
     ckout << "Rung distribution: (";
@@ -1225,9 +1218,8 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 		  achFile[0] = 0;
 		  sprintf(achFile,"%s.photogenic", param.achOutName);
 
-		  CkCallback ccb(CkCallback::resumeThread);
-		  treeProxy.setTypeFromFile(TYPE_PHOTOGENIC, achFile, ccb);
-		  CkReductionMsg *msg = (CkReductionMsg *) ccb.thread_delay();
+          CkReductionMsg *msg;
+		  treeProxy.setTypeFromFile(TYPE_PHOTOGENIC, achFile, CkCallbackResumeThread((void*&)msg));
 		  int *nSet = (int *)msg->getData();
 		  if (verbosity)
 		      ckout << nSet[0] << " iOrder numbers read. " << nSet[1]
@@ -1277,17 +1269,13 @@ void Main::DumpFrame(double dTime, double dStep)
 		CkReductionMsg *msgCOMbyType;
 		
 		if (df[i]->bGetCentreOfMass) {
-		    CkCallback ccb(CkCallback::resumeThread);
-		    treeProxy.getCOM(ccb);
-		    msgCOM = (CkReductionMsg *) ccb.thread_delay();
+		    treeProxy.getCOM(CkCallbackResumeThread((void*&)msgCOM));
 		    com = (double *)msgCOM->getData();
 		    }
 
 		if (df[i]->bGetPhotogenic) {
-		    CkCallback ccb(CkCallback::resumeThread);
 		    int iType = TYPE_PHOTOGENIC;
-		    treeProxy.getCOMByType(iType, ccb);
-		    msgCOMbyType = (CkReductionMsg *) ccb.thread_delay();
+		    treeProxy.getCOMByType(iType, CkCallbackResumeThread((void*&)msgCOMbyType));
 		    com = (double *)msgCOMbyType->getData();
 		  }
 
@@ -1300,10 +1288,8 @@ void Main::DumpFrame(double dTime, double dStep)
 		dExp = csmTime2Exp(param.csm,dTime);
 		dfSetupFrame(df[i], dTime, dStep, dExp, com, &in );
 
-		CkCallback ccbDF(CkCallback::resumeThread);
-		
-		treeProxy.DumpFrame(in, ccbDF);
-		CkReductionMsg *msgDF = (CkReductionMsg *) ccbDF.thread_delay();
+        CkReductionMsg *msgDF;
+		treeProxy.DumpFrame(in, CkCallbackResumeThread((void*&)msgDF));
 		// N.B. Beginning of message contains the DumpFrame
 		// parameters needed for proper merging.
 		void *Image = ((char *)msgDF->getData())
