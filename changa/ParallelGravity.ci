@@ -153,6 +153,8 @@ mainmodule ParallelGravity {
 		entry void startOctTreeBuild(CkReductionMsg* m);
 	
                 entry void startORBTreeBuild(CkReductionMsg* m);
+                
+        entry void startIteration(double theta, int activeRung, double dEwhCut, CkCallback &cb);
             
 		//entry void acceptBoundaryNodeContribution(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
 		//entry void acceptBoundaryNode(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);

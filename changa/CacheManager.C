@@ -54,6 +54,7 @@ inline void ParticleCacheEntry::sendRequest(int reqID){
 
 CacheManager::CacheManager(int size){
   numChunks = 0;
+  syncedChares = 0;
   prefetchRoots = NULL;
   nodeCacheTable = NULL;
   particleCacheTable = NULL;
@@ -784,8 +785,18 @@ int CacheManager::createLookupRoots(GenericTreeNode *node, Tree::NodeKey *keys) 
 }
 #endif
 
-void CacheManager::cacheSync(double _theta, int activeRung, double dEwhCut, const CkCallback& cb) {
-  CkAssert(theta == _theta); // assert that the readonly is equal to the value coming in
+//void CacheManager::cacheSync(double _theta, int activeRung, double dEwhCut, const CkCallback& cb) {
+void CacheManager::cacheSync(int &TPnumChunks, Tree::NodeKey *&TProot) {
+
+  // make sure the cache is activated only once per iteration
+  if (syncedChares > 0) {
+    TPnumChunks = numChunks;
+    TProot = prefetchRoots;
+    return;
+  }
+  syncedChares = 1;
+
+  //CkAssert(theta == _theta); // assert that the readonly is equal to the value coming in
   //CkSummary_StartPhase(iterationNo+1);
   if (treePieceLocMgr == NULL) {
     // initialize the database structures to record the object communication
@@ -803,7 +814,7 @@ void CacheManager::cacheSync(double _theta, int activeRung, double dEwhCut, cons
   memset(sentData, 0, registeredChares.size()*numTreePieces*sizeof(CommData));
 #endif
 
-  callback = cb;
+  //callback = cb;
 #ifdef COSMO_COMLIB
   if (iterationNo == 0) {
     if (CkMyPe() == 0) ckerr << "Associating comlib strategies" << endl;
@@ -964,6 +975,7 @@ void CacheManager::cacheSync(double _theta, int activeRung, double dEwhCut, cons
   CmiResetMaxMemory();
 #endif
 
+  /*
   // call the gravitational computation utility of each local chare element
   if (verbosity>1) CkPrintf("[%d] calling startIteration on %d elements\n",
   			    CkMyPe(),registeredChares.size());
@@ -973,6 +985,9 @@ void CacheManager::cacheSync(double _theta, int activeRung, double dEwhCut, cons
     CkAssert(p != NULL);
     p->startIteration(_theta, activeRung, numChunks, prefetchRoots, dEwhCut, cb);
   }
+  */
+  TPnumChunks = numChunks;
+  TProot = prefetchRoots;
 }
 
 int CacheManager::markPresence(int index, GenericTreeNode *root) {
@@ -1133,7 +1148,8 @@ void CacheManager::allDone() {
     delete[] sentData;
 #endif
     LBTurnInstrumentOff();
-    contribute(0, 0, CkReduction::concat, callback);
+    syncedChares = 0;
+    //contribute(0, 0, CkReduction::concat, callback);
   }
 }
 

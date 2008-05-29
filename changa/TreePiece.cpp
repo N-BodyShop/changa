@@ -1686,6 +1686,7 @@ void TreePiece::finishBucket(int iBucket) {
     if(started && myNumParticlesPending == 0) {
       started = false;
       cacheManagerProxy[CkMyPe()].allDone();
+      markWalkDone();
       /*
       delete sTopDown;
       delete sGravity;
@@ -2515,6 +2516,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       CkPrintf("[%d] Finished chunk %d\n",thisIndex,msg->chunkNum);
 #endif
       cacheManagerProxy[CkMyPe()].finishedChunk(msg->chunkNum, nodeInterRemote[msg->chunkNum]+particleInterRemote[msg->chunkNum]);
+      if (msg->chunkNum == numChunks-1) markWalkDone();
     }
 #if COSMO_PRINT > 0
     CkPrintf("{%d} resetting message chunk %d, prio %d\n",thisIndex,msg->chunkNum,*(int*)CkPriorityPtr(msg));
@@ -2731,31 +2733,37 @@ void TreePiece::walkBucketRemoteTree(GenericTreeNode *node, int chunk,
 
 void TreePiece::startIteration(double t, // opening angle -- moved to readonly
                                int am, // the active mask for multistepping
-			       int n,  // Number of Chunks
-			       Tree::NodeKey *k,
+			       //int n,  // Number of Chunks
+			       //Tree::NodeKey *k,
 			       double dEwhCut,
 			       const CkCallback& cb) {
 
+  CkAssert(theta == t); // assert that the readonly is equal to the value coming in
   callback = cb;
   //theta = t;
   //thetaMono = theta*theta*theta*theta;	// Make monopole accuracy similar to
 				// hexadecapole accuracy
   activeRung = am;
 
-  if (n != numChunks && remainingChunk != NULL) {
+  int oldNumChunks = numChunks;
+  cacheManagerProxy[CkMyPe()].cacheSync(numChunks, prefetchRoots);
+  //numChunks = n;
+  //prefetchRoots = k;
+
+  if (oldNumChunks != numChunks && remainingChunk != NULL) {
     // reallocate remaining chunk to the new size
     delete[] remainingChunk;
     remainingChunk = NULL;
     delete[] nodeInterRemote;
     delete[] particleInterRemote;
   }
-  numChunks = n;
-  prefetchRoots = k;
+  
   if (remainingChunk == NULL) {
     remainingChunk = new int[numChunks];
     nodeInterRemote = new u_int64_t[numChunks];
     particleInterRemote = new u_int64_t[numChunks];
   }
+
 #if COSMO_STATS > 0
   //myNumProxyCalls = 0;
   //myNumProxyCallsBack = 0;
@@ -4031,6 +4039,7 @@ void TreePiece::receiveNode(GenericTreeNode &node, int chunk, unsigned int reqID
     CkPrintf("[%d] Finished chunk %d with a node\n",thisIndex,chunk);
 #endif
     cacheManagerProxy[CkMyPe()].finishedChunk(chunk, nodeInterRemote[chunk]+particleInterRemote[chunk]);
+    if (chunk == numChunks-1) markWalkDone();
   }
 }
 
@@ -4158,6 +4167,7 @@ void TreePiece::receiveParticles(ExternalGravityParticle *part,int num,int chunk
     CkPrintf("[%d] Finished chunk %d with particle\n",thisIndex,chunk);
 #endif
     cacheManagerProxy[CkMyPe()].finishedChunk(chunk, nodeInterRemote[chunk]+particleInterRemote[chunk]);
+    if (chunk == numChunks-1) markWalkDone();
   }
 }
 
@@ -5091,6 +5101,7 @@ void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID,
       CkAssert(remainingChunk[chunk] >= 0);
       if (remainingChunk[chunk] == 0) {
         cacheManagerProxy[CkMyPe()].finishedChunk(chunk, nodeInterRemote[chunk]+particleInterRemote[chunk]);
+        if (chunk == numChunks-1) markWalkDone();
       }// end if finished with chunk
     }// end if remote
   }
@@ -5131,4 +5142,10 @@ void TreePiece::freeWalkObjects(){
   delete sRemote;
   delete sPref;
 
+}
+
+void TreePiece::markWalkDone() {
+  if (++completedActiveWalks == activeWalks.size()) {
+    contribute(0, 0, CkReduction::concat, callback);
+  }
 }

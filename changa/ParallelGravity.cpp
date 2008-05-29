@@ -743,7 +743,8 @@ void Main::advanceBigStep(int iStep) {
     //if(param.bPeriodic && param.bEwald)
     //  treeProxy.EwaldInit(param.dEwhCut, CkCallbackResumeThread());
     //pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
-    streamingCache.cacheSync(theta, activeRung, param.dEwhCut, CkCallbackResumeThread());
+    //streamingCache.cacheSync(theta, activeRung, param.dEwhCut, CkCallbackResumeThread());
+    treeProxy.startIteration(theta, activeRung, param.dEwhCut, CkCallbackResumeThread());
     ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
 
@@ -927,7 +928,8 @@ Main::initialForces()
   //if(param.bPeriodic && param.bEwald)
   //  treeProxy.EwaldInit(param.dEwhCut, CkCallbackResumeThread());
   //pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
-  streamingCache.cacheSync(theta, 0, param.dEwhCut, CkCallbackResumeThread());
+  //streamingCache.cacheSync(theta, 0, param.dEwhCut, CkCallbackResumeThread());
+  treeProxy.startIteration(theta, 0, param.dEwhCut, CkCallbackResumeThread());
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
   

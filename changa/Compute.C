@@ -121,6 +121,7 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
   CkAssert(tp->remainingChunk[chunk] >= 0);
   if (tp->remainingChunk[chunk] == 0) {
     cacheManagerProxy[CkMyPe()].finishedChunk(chunk, tp->nodeInterRemote[chunk]+tp->particleInterRemote[chunk]);
+    if (chunk == tp->numChunks-1) tp->markWalkDone();
   }
 
 }

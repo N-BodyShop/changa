@@ -298,6 +298,8 @@ private:
 	/// list of TreePieces registered to this branch together with their roots
 	map<int,GenericTreeNode*> registeredChares;
 	map<int,int> localIndicesMap;
+	/// number of chares that have checked in for the next iteration
+	int syncedChares;
 
         CkCallback callback;
         CkLocMgr *treePieceLocMgr;
@@ -421,7 +423,8 @@ private:
 	    markPresence, since that is done in ResumeFromSync, and cacheSync is
 	    called only after a reduction from ResumeFromSync.
 	 */
-	void cacheSync(double theta, int activeRung, double dEwhCut, const CkCallback& cb);
+	//void cacheSync(double theta, int activeRung, double dEwhCut, const CkCallback& cb);
+    void cacheSync(int &TPnumChunks, Tree::NodeKey *&TProot);
 
 	/** Inform the CacheManager that the chare element will be resident on
 	    this processor for the next iteration. It is done after treebuild in

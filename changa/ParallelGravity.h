@@ -407,6 +407,7 @@ class TreePiece : public CBase_TreePiece {
    Opt *sLocal, *sRemote, *sPref;
 
    CkVec<ActiveWalk> activeWalks;
+   int completedActiveWalks;
 
    int remoteGravityAwi;
    int prefetchAwi;
@@ -414,6 +415,8 @@ class TreePiece : public CBase_TreePiece {
  public:
         int addActiveWalk(TreeWalk *tw, Compute *c, Opt *o);
 
+        void markWalkDone();
+        
         int getIndex() {
           return thisIndex;
         }
@@ -1046,8 +1049,9 @@ public:
   /// @param n the number of chunks in which the remote computation will be splitted
   /// @param k the array of roots of the remote chunks, the size if 'n'
   /// @param cb the callback to use after all the computation has finished
-  void startIteration(double t, int am, int n, Tree::NodeKey *k, double dEwhCut, const CkCallback& cb);
-
+  void startIteration(double t, int am, double dEwhCut, const CkCallback& cb);
+  //void startIteration(double t, int am, int n, Tree::NodeKey *k, double dEwhCut, const CkCallback& cb);
+  
 	/// Function called by the CacheManager to send out request for needed
 	/// remote data, so that the later computation will hit.
 	void prefetch(GenericTreeNode *node, int offsetID);
