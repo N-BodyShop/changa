@@ -36,14 +36,14 @@ typedef struct prmContext {
 
 void prmInitialize(PRM *,void (*)(void),void (*)(void));
 void prmFinish(PRM);
-void prmAddParam(PRM,char *,int,void *,int,char *,char *);
+void prmAddParam(PRM,const char *,int,void *,int,const char *,const char *);
 void prmArgUsage(PRM prm);
 void prmLogParam(PRM prm, char *pszFile);
 int prmParseParam(PRM,char *);
 int prmArgProc(PRM,int,char **);
-int prmSpecified(PRM,char *);
-int prmArgSpecified(PRM,char *);
-int prmFileSpecified(PRM,char *);
+int prmSpecified(PRM,const char *);
+int prmArgSpecified(PRM,const char *);
+int prmFileSpecified(PRM,const char *);
 #ifdef __cplusplus
 }
 #endif
