@@ -853,7 +853,7 @@ int CheckForStop()
 	 */
 
 	FILE *fp = NULL;
-	char *achFile = "STOP";
+	const char *achFile = "STOP";
 
 	if ((fp = fopen(achFile,"r")) != NULL) {
 		(void) printf("User interrupt detected.\n");
@@ -877,7 +877,9 @@ Main::restart()
 	ofstream ofsLog(achLogFileName, ios_base::app);
 	ofsLog << "# ReStarting ChaNGa" << endl;
 	ofsLog.close();
+#ifndef USE_CACHE_MODULE
 	treeProxy.markPresence(CkCallbackResumeThread());
+#endif
 	treeProxy.drift(0.0, CkCallbackResumeThread());
 	mainChare.initialForces();
 	}

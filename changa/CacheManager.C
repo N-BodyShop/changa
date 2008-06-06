@@ -786,12 +786,13 @@ int CacheManager::createLookupRoots(GenericTreeNode *node, Tree::NodeKey *keys) 
 #endif
 
 //void CacheManager::cacheSync(double _theta, int activeRung, double dEwhCut, const CkCallback& cb) {
-void CacheManager::cacheSync(int &TPnumChunks, Tree::NodeKey *&TProot) {
+void CacheManager::cacheSync(int TPnumChunks, Tree::NodeKey *TProot) {
 
   // make sure the cache is activated only once per iteration
   if (syncedChares > 0) {
-    TPnumChunks = numChunks;
-    TProot = prefetchRoots;
+    CkAssert(TPnumChunks == numChunks);
+    //TPnumChunks = numChunks;
+    //TProot = prefetchRoots;
     return;
   }
   syncedChares = 1;
@@ -986,8 +987,8 @@ void CacheManager::cacheSync(int &TPnumChunks, Tree::NodeKey *&TProot) {
     p->startIteration(_theta, activeRung, numChunks, prefetchRoots, dEwhCut, cb);
   }
   */
-  TPnumChunks = numChunks;
-  TProot = prefetchRoots;
+  //TPnumChunks = numChunks;
+  //TProot = prefetchRoots;
 }
 
 int CacheManager::markPresence(int index, GenericTreeNode *root) {

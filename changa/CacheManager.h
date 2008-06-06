@@ -424,7 +424,7 @@ private:
 	    called only after a reduction from ResumeFromSync.
 	 */
 	//void cacheSync(double theta, int activeRung, double dEwhCut, const CkCallback& cb);
-    void cacheSync(int &TPnumChunks, Tree::NodeKey *&TProot);
+    void cacheSync(int TPnumChunks, Tree::NodeKey *TProot);
 
 	/** Inform the CacheManager that the chare element will be resident on
 	    this processor for the next iteration. It is done after treebuild in

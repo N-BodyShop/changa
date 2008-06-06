@@ -9,7 +9,7 @@ module CacheManager {
 		entry void recvNodes(FillBinaryNodeMsg *msg);
 		entry void recvNodes(FillNodeMsg *msg);
 		//entry void cacheSync(double theta, int activeRung, double dEwhCut, CkCallback &cb);
-		entry [local] void cacheSync(int &numChunks, Tree::NodeKey *&root);
+		entry [local] void cacheSync(int numChunks, Tree::NodeKey *root);
 		//entry void recvParticles(CacheKey key,GravityParticle part[num],int num,int from);
                 entry void recvParticles(FillParticleMsg *msg);
                 entry void finishedChunk(int num, u_int64_t weight);

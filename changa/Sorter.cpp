@@ -312,11 +312,13 @@ void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
 	keyBoundaries.reserve(numChares + 1);
 	keyBoundaries.push_back(firstPossibleKey);
 
-      dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+//      dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+	  treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
     } else {
       //send out all the decided keys to get final bin counts
       sorted = true;
-      dm.acceptCandidateKeys(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+//      dm.acceptCandidateKeys(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+      treeProxy.evaluateBoundaries(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
     }
   }
 }
@@ -467,7 +469,8 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   if(histogram){
     //convertNodesToSplitters(numKeys,nodeKeys);
     convertNodesToSplittersRefine(nodesOpened.size(),nodesOpened.getVec());
-    dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), 1, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+//    dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), 1, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+    treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 1, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
   }
   else{
     sorted=true;
@@ -554,9 +557,11 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 		keyBoundaries.push_back(lastPossibleKey);
 		
 		//send out all the decided keys to get final bin counts
-		dm.acceptCandidateKeys(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+//		dm.acceptCandidateKeys(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+        treeProxy.evaluateBoundaries(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 	} else //send out the new guesses to be evaluated
-		dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+//		dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+	    treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 }
 
 /** Generate new guesses for splitter keys based on the histograms that came

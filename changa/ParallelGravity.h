@@ -517,11 +517,11 @@ private:
           // the index assigned by the CacheManager upon registration
           int localIndex;
 
-	unsigned int numSplitters;
-	SFC::Key* splitters;
+	//unsigned int numSplitters;
+	//SFC::Key* splitters;
 	CProxy_TreePiece pieces;
 	/// A proxy to the DataManager.
-	CProxy_DataManager dataManager;
+	//CProxy_DataManager dataManager; // unused...
 	/// A local pointer to my DataManager.
 	DataManager* dm;
 
@@ -810,7 +810,7 @@ public:
 	  nSetupWriteStage = -1;
     //openingDiffCount=0;
     chunkRootLevel=0;
-    splitters = NULL;
+    //splitters = NULL;
 #if COSMO_STATS > 0
 	  nodesOpenedLocal = 0;
 	  nodesOpenedRemote = 0;
@@ -884,7 +884,7 @@ public:
 	~TreePiece() {
 	  if (verbosity>1) ckout <<"Deallocating treepiece "<<thisIndex<<endl;
 	  delete[] myParticles;
-	  delete[] splitters;
+	  //delete[] splitters;
 	  //delete[] prefetchRoots;
 	  delete[] remainingChunk;
 	  delete[] nodeInterRemote;
@@ -925,8 +925,10 @@ public:
 	
 	// Parse NChilada description file
 	int parseNC(const std::string& fn);
+#ifndef USE_CACHE_MODULE
 	// Mark presence in Cache
 	void markPresence(const CkCallback& cb);
+#endif
 	// Load from mass and position files
 	void load(const std::string& fn, const CkCallback& cb);
 
@@ -951,7 +953,7 @@ public:
 	 */
 	// Assign keys after loading tipsy file and finding Bounding box
 	void assignKeys(CkReductionMsg* m);
-	void evaluateBoundaries(int isRefine, const CkCallback& cb);
+	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
 	void unshuffleParticles(CkReductionMsg* m);
 	void acceptSortedParticles(const GravityParticle* particles,
 				   const int n);
@@ -991,7 +993,7 @@ public:
 	void buildTree(int bucketSize, const CkCallback& cb);
 
 	/// Collect the boundaries of all TreePieces, and trigger the real treebuild
-	void collectSplitters(CkReductionMsg* m);
+	//void collectSplitters(CkReductionMsg* m);
 	/// Real tree build, independent of other TreePieces; calls the recursive buildTree
 	void startOctTreeBuild(CkReductionMsg* m);
 

@@ -405,57 +405,51 @@ void TreePiece::registerWithDataManager(const CkGroupID& dataManagerID, const Ck
 
 /// Determine my part of the sorting histograms by counting the number
 /// of my particles in each bin
-void TreePiece::evaluateBoundaries(int isRefine, const CkCallback& cb) {
-  if (dm == NULL) {
-    dm = (CProxy_DataManager(dataManagerID)).ckLocalBranch();
-  }
-
+void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb) {
 #ifdef COSMO_EVENT
   double startTimer = CmiWallTimer();
 #endif
 
-	int numBins = isRefine ? dm->boundaryKeys.size() / 2 : dm->boundaryKeys.size() - 1;
-	//this array will contain the number of particles I own in each bin
-	//myBinCounts.assign(numBins, 0);
-        myBinCounts.resize(numBins);
-        int *myCounts = myBinCounts.getVec();
-        memset(myCounts, 0, numBins*sizeof(int));
-	vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
-	GravityParticle *binBegin = &myParticles[1];
-	GravityParticle *binEnd;
-	GravityParticle dummy;
-        //int binIter = 0;
-	//vector<int>::iterator binIter = myBinCounts.begin();
-	//vector<Key>::iterator keyIter = dm->boundaryKeys.begin();
-        vector<Key>::iterator keyIter = lower_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), binBegin->key);
-        int binIter = isRefine ?
-          (&(*keyIter) - &(*dm->boundaryKeys.begin())) / 2:
-          &(*keyIter) - &(*dm->boundaryKeys.begin()) - 1;
-        int change = 1;
-        if (isRefine && !((&(*keyIter) - &(*dm->boundaryKeys.begin())) & 1)) change = 0;
-	for( ; keyIter != endKeys; ++keyIter) {
-		dummy.key = *keyIter;
-		/// find the last place I could put this splitter key in
-		/// my array of particles
-		binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1],
-				     dummy);
-		/// this tells me the number of particles between the
-		/// last two splitter keys
-                if (change) {
-                  myCounts[binIter] = (binEnd - binBegin);
-                  ++binIter;
-                }
-		if(&myParticles[myNumParticles+1] <= binEnd)
-			break;
-		binBegin = binEnd;
-                if (isRefine) change ^= 1;
-	}
+  int numBins = isRefine ? n / 2 : n - 1;
+  //this array will contain the number of particles I own in each bin
+  //myBinCounts.assign(numBins, 0);
+  myBinCounts.resize(numBins);
+  int *myCounts = myBinCounts.getVec();
+  memset(myCounts, 0, numBins*sizeof(int));
+  Key* endKeys = keys+n;
+  GravityParticle *binBegin = &myParticles[1];
+  GravityParticle *binEnd;
+  GravityParticle dummy;
+  //int binIter = 0;
+  //vector<int>::iterator binIter = myBinCounts.begin();
+  //vector<Key>::iterator keyIter = dm->boundaryKeys.begin();
+  Key* keyIter = lower_bound(keys, keys+n, binBegin->key);
+  int binIter = isRefine ? (keyIter - keys) / 2: keyIter - keys - 1;
+      int change = 1;
+      if (isRefine && !((keyIter - keys) & 1)) change = 0;
+      for( ; keyIter != endKeys; ++keyIter) {
+        dummy.key = *keyIter;
+        /// find the last place I could put this splitter key in
+        /// my array of particles
+        binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1],
+            dummy);
+        /// this tells me the number of particles between the
+        /// last two splitter keys
+        if (change) {
+          myCounts[binIter] = (binEnd - binBegin);
+          ++binIter;
+        }
+        if(&myParticles[myNumParticles+1] <= binEnd)
+          break;
+        binBegin = binEnd;
+        if (isRefine) change ^= 1;
+      }
 
 #ifdef COSMO_EVENTS
-        traceUserBracketEvent(boundaryEvaluationUE, startTimer, CmiWallTimer());
+      traceUserBracketEvent(boundaryEvaluationUE, startTimer, CmiWallTimer());
 #endif
-	//send my bin counts back in a reduction
-	contribute(numBins * sizeof(int), myCounts, CkReduction::sum_int, cb);
+      //send my bin counts back in a reduction
+      contribute(numBins * sizeof(int), myCounts, CkReduction::sum_int, cb);
 }
 
 /// Once final splitter keys have been decided, I need to give my
@@ -464,6 +458,10 @@ void TreePiece::evaluateBoundaries(int isRefine, const CkCallback& cb) {
 void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 	callback = *static_cast<CkCallback *>(m->getData());
 	delete m;
+
+	if (dm == NULL) {
+	  dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+	}
 
 	//find my responsibility
 	myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
@@ -886,7 +884,8 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
 #endif
     bounds[0] = myParticles[1].key;
     bounds[1] = myParticles[myNumParticles].key;
-    contribute(2 * sizeof(Key), bounds, CkReduction::concat, CkCallback(CkIndex_TreePiece::collectSplitters(0), thisArrayID));
+//    contribute(2 * sizeof(Key), bounds, CkReduction::concat, CkCallback(CkIndex_TreePiece::collectSplitters(0), thisArrayID));
+      contribute(2 * sizeof(Key), bounds, CkReduction::concat, CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
     break;
   case Binary_ORB:
     //CkAbort("ORB logic for tree-build not yet implemented");
@@ -896,6 +895,7 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
   }
 }
 
+/*
 class KeyDouble {
   Key first;
   Key second;
@@ -904,6 +904,7 @@ public:
     return first < k.first;
   }
 };
+*/
 
 void TreePiece::quiescence() {
   /*
@@ -949,6 +950,7 @@ GenericTreeNode *TreePiece::get3DIndex() {
   return node;
 }
 
+/*
 void TreePiece::collectSplitters(CkReductionMsg* m) {
   numSplitters = 2 * numTreePieces;
   delete[] splitters;
@@ -972,6 +974,7 @@ void TreePiece::collectSplitters(CkReductionMsg* m) {
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Collected splitters" << endl;
 }
+*/
 
 /*****************ORB**********************/
 /*void TreePiece::receiveBoundingBoxes(BoundingBoxes *msg){
@@ -1017,8 +1020,10 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
   numBuckets = 0;
   bucketList.clear();
   
+#ifndef USE_CACHE_MODULE
   // Fix the root presence in the cache
   localIndex = localCache->markPresence(thisIndex, root);
+#endif
 
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Starting tree build" << endl;
@@ -1060,7 +1065,10 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Finished tree build, resolving boundary nodes" << endl;
 
-  if (numTreePieces == 1) contribute(0, 0, CkReduction::concat, callback);
+  if (numTreePieces == 1) {
+    dm->notifyPresence(root);
+    contribute(sizeof(callback), &callback, CkReduction::random, CkCallback(CkIndex_DataManager::combineLocalTrees((CkReductionMsg*)NULL), CProxy_DataManager(dataManagerID)));
+  }
 
 }
 
@@ -1210,12 +1218,12 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   if(thisIndex == 0)
     myParticles[0].key = firstPossibleKey;
   else
-    myParticles[0].key = splitters[2 * thisIndex - 1];
+    myParticles[0].key = dm->splitters[2 * thisIndex - 1];
 	
   if(thisIndex == (int) numTreePieces - 1)
     myParticles[myNumParticles + 1].key = lastPossibleKey;
   else
-    myParticles[myNumParticles + 1].key = splitters[2 * thisIndex + 2];
+    myParticles[myNumParticles + 1].key = dm->splitters[2 * thisIndex + 2];
 	
   // create the root of the global tree
   switch (useTree) {
@@ -1240,8 +1248,10 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   numBuckets = 0;
   bucketList.clear();
   
+#ifndef USE_CACHE_MODULE
   // Fix the root presence in the cache
   localIndex = localCache->markPresence(thisIndex, root);
+#endif
 
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Starting tree build" << endl;
@@ -1311,7 +1321,10 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Finished tree build, resolving boundary nodes" << endl;
 
-  if (numTreePieces == 1) contribute(0, 0, CkReduction::concat, callback);
+  if (numTreePieces == 1) {
+    dm->notifyPresence(root);
+    contribute(sizeof(callback), &callback, CkReduction::random, CkCallback(CkIndex_DataManager::combineLocalTrees((CkReductionMsg*)NULL), CProxy_DataManager(dataManagerID)));
+  }
 }
 
 /// Determine who are all the owners of this node
@@ -1354,13 +1367,13 @@ inline bool TreePiece::nodeOwnership(const Tree::NodeKey nkey, int &firstOwner, 
     firstKey &= ~mask;
     lastKey &= ~mask;
     lastKey -= 1;
-    Key *locLeft = lower_bound(splitters, splitters + numSplitters, firstKey);
-    Key *locRight = upper_bound(locLeft, splitters + numSplitters, lastKey);
-    firstOwner = (locLeft - splitters) >> 1;
-    lastOwner = (locRight - splitters - 1) >> 1;
+    Key *locLeft = lower_bound(dm->splitters, dm->splitters + dm->numSplitters, firstKey);
+    Key *locRight = upper_bound(locLeft, dm->splitters + dm->numSplitters, lastKey);
+    firstOwner = (locLeft - dm->splitters) >> 1;
+    lastOwner = (locRight - dm->splitters - 1) >> 1;
 #if COSMO_PRINT > 1
     std::string str = keyBits(nkey,63);
-    CkPrintf("[%d] NO: key=%s, first=%d, last=%d\n",thisIndex,str.c_str(),locLeft-splitters,locRight-splitters);
+    CkPrintf("[%d] NO: key=%s, first=%d, last=%d\n",thisIndex,str.c_str(),locLeft-dm->splitters,locRight-dm->splitters);
 #endif
   }
   return (thisIndex >= firstOwner && thisIndex <= lastOwner);
@@ -1527,7 +1540,8 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType typ
     // if we are here then we are at the root, and thus we have finished to get
     // all moments
     //CkPrintf("[%d] contributing after building the tree\n",thisIndex);
-    contribute(0, 0, CkReduction::concat, callback);
+    dm->notifyPresence(root);
+    contribute(sizeof(callback), &callback, CkReduction::random, CkCallback(CkIndex_DataManager::combineLocalTrees((CkReductionMsg*)NULL), CProxy_DataManager(dataManagerID)));
   }// else CkPrintf("[%d] still missing one child of %s\n",thisIndex,keyBits(parent->getKey(),63).c_str());
 }
 
@@ -2746,6 +2760,7 @@ void TreePiece::startIteration(double t, // opening angle -- moved to readonly
   activeRung = am;
 
   int oldNumChunks = numChunks;
+  dm->getChunks(numChunks, prefetchRoots);
   cacheManagerProxy[CkMyPe()].cacheSync(numChunks, prefetchRoots);
   //numChunks = n;
   //prefetchRoots = k;
@@ -3107,7 +3122,9 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   callback = cb;
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d calling AtSync()\n",CkMyPe(),thisIndex);
+#ifndef USE_CACHE_MODULE
   localCache->revokePresence(thisIndex);
+#endif
   // AtSync();
   
   if(!proxyValid || !proxySet){              // jetley
@@ -3158,13 +3175,16 @@ void TreePiece::doAtSync(){
 void TreePiece::ResumeFromSync(){
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d in ResumefromSync\n",CkMyPe(),thisIndex);
+#ifndef USE_CACHE_MODULE
   // Register to the cache manager
   if (_cache) {
     localIndex = localCache->markPresence(thisIndex, root);
   }
+#endif
   contribute(0, 0, CkReduction::concat, callback);
 }
 
+#ifndef USE_CACHE_MODULE
 void TreePiece::markPresence(const CkCallback& cb) {
   if (_cache) {
       if(localCache==NULL)
@@ -3173,6 +3193,7 @@ void TreePiece::markPresence(const CkCallback& cb) {
       }
   contribute(0, 0, CkReduction::concat, cb);
 }
+#endif
 
 GenericTreeNode *TreePiece::keyToNode(const Tree::NodeKey k) {
   NodeLookupType::iterator iter = nodeLookupTable.find(k);
@@ -4068,6 +4089,7 @@ ExternalGravityParticle *TreePiece::requestParticles(const Tree::NodeKey &key,in
   }
 };
 
+#ifndef USE_CACHE_MODULE
 void TreePiece::fillRequestParticles(RequestParticleMsg *msg) {
   if (_cache) {
     PUP::sizer p1;
@@ -4085,6 +4107,7 @@ void TreePiece::fillRequestParticles(RequestParticleMsg *msg) {
   }	
   delete msg;
 }
+#endif
 
 void TreePiece::receiveParticles(ExternalGravityParticle *part,int num,int chunk,
 				 unsigned int reqID, Tree::NodeKey remoteBucketID)
@@ -4512,10 +4535,10 @@ void TreePiece::pup(PUP::er& p) {
   for(unsigned int i=0;i<myNumParticles+2;i++){
     p | myParticles[i];
   }
-  p | numSplitters;
-  if(p.isUnpacking())
-    splitters = new Key[numSplitters];
-  p(splitters, numSplitters);
+  //p | numSplitters;
+  //if(p.isUnpacking())
+    //splitters = new Key[numSplitters];
+  //p(splitters, numSplitters);
   p | pieces;
   //p | streamingProxy;
   p | basefilename;

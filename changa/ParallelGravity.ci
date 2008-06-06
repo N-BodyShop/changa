@@ -80,17 +80,20 @@ mainmodule ParallelGravity {
                 entry void readytoSendORB(CkReductionMsg* m);
 	};
 	
-	group [migratable] DataManager {
+	nodegroup [migratable] DataManager {
 		entry DataManager(const CkArrayID& treePieceID);
 		
-		entry void acceptCandidateKeys(const SFC::Key keys[n],
-					       const int n,
-                                               int isRefine,
-					       const CkCallback& cb);
+		//entry void acceptCandidateKeys(const SFC::Key keys[n],
+		//			       const int n,
+        //                                       int isRefine,
+		//			       const CkCallback& cb);
 		entry void acceptFinalKeys(const SFC::Key keys[n],
 					   const int responsible[n - 1],
 					   unsigned int bins[n - 1], const int n,
 					   const CkCallback& cb);
+		entry void collectSplitters(CkReductionMsg* m);
+		//entry [local,exclusive] void notifyPresence(int index, Tree::GenericTreeNode *root);
+		entry void combineLocalTrees(CkReductionMsg *m);
 	};
 	array [1D] TreePiece {
 		entry TreePiece(unsigned int numPieces);
@@ -120,7 +123,7 @@ mainmodule ParallelGravity {
 		entry void ioAcceptSortedParticles(const GravityParticle particles[n],
 					     const int n);
 		entry void assignKeys(CkReductionMsg* m);
-		entry void evaluateBoundaries(int isRefine, const CkCallback& cb);
+		entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
 		entry void unshuffleParticles(CkReductionMsg* m);
 		entry void acceptSortedParticles(const GravityParticle particles[n],
                                                  const int n);
@@ -149,7 +152,7 @@ mainmodule ParallelGravity {
 		entry void DumpFrame(InDumpFrame in, const CkCallback& cb) ;
 		entry void buildTree(int bucketSize, const CkCallback& cb);
 		
-		entry void collectSplitters(CkReductionMsg* m);
+		//entry void collectSplitters(CkReductionMsg* m);
 		entry void startOctTreeBuild(CkReductionMsg* m);
 	
                 entry void startORBTreeBuild(CkReductionMsg* m);
