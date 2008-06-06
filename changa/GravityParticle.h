@@ -39,7 +39,6 @@ public:
 class ExternalGravityParticle {
  public:
 
-	SFC::Key key;
   double mass;
   double soft;
   Vector3D<double> position;
@@ -53,6 +52,7 @@ class ExternalGravityParticle {
 
 class GravityParticle : public ExternalGravityParticle {
 public:
+	SFC::Key key;
 	Vector3D<double> velocity;
 	Vector3D<double> treeAcceleration;
 	double potential;
