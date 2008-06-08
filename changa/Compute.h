@@ -149,8 +149,3 @@ class PrefetchCompute : public Compute{
   //void walkDone();
 };
 
-
-class SPHCompute : public Compute{
-  public: 
-  SPHCompute() : Compute(SPH){}
-};

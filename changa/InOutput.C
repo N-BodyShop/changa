@@ -722,3 +722,34 @@ void TreePiece::outputIOrderASCII(const string& suffix, const CkCallback& cb) {
       pieces[thisIndex + 1].outputIOrderASCII(suffix, cb);
   }
 
+void TreePiece::outputDensityASCII(const string& suffix, const CkCallback& cb) {
+  if(thisIndex==0) {
+    if(verbosity > 2)
+      ckerr << "TreePiece " << thisIndex << ": Writing header for Density file"
+	    << endl;
+    FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "w");
+    fprintf(outfile,"%d\n",(int) fh.numParticles);
+    fclose(outfile);
+  }
+	
+  if(verbosity > 3)
+    ckerr << "TreePiece " << thisIndex << ": Writing Density to disk" << endl;
+	
+  FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "r+");
+  fseek(outfile, 0, SEEK_END);
+  
+  for(unsigned int i = 1; i <= myNumParticles; ++i) {
+      if(fprintf(outfile,"%g\n", myParticles[i].fDensity) < 0) {
+	  ckerr << "TreePiece " << thisIndex
+		<< ": Error writing density to disk, aborting" << endl;
+	  CkAbort("IO Badness");
+	  }
+      }
+  
+  fclose(outfile);
+  if(thisIndex==(int)numTreePieces-1) {
+      cb.send();
+      }
+  else
+      pieces[thisIndex + 1].outputDensityASCII(suffix, cb);
+  }

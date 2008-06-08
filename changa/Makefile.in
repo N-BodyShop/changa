@@ -36,13 +36,13 @@ OBJECTS = DataManager.o Reductions.o TreePiece.o CacheManager.o Sorter.o \
 	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
 	  InOutput.o cosmo.o romberg.o runge.o dumpframe.o dffuncs.o \
 	  moments.o MetisCosmoLB.o ScaledORBMapBG.o ScaleTranMapBG.o \
-	  TreeWalk.o Compute.o 
+	  TreeWalk.o Compute.o smooth.o
 
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp CacheManager.C \
 	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
 	InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c \
 	moments.c MetisCosmoLB.C ScaledORBMapBG.C ScaleTranMapBG.C \
-	TreeWalk.C Compute.C 
+	TreeWalk.C Compute.C smooth.C
  
 
 TARGET = ChaNGa

@@ -37,6 +37,8 @@ mainmodule ParallelGravity {
 
         readonly double theta;
         readonly double thetaMono;
+
+        readonly int nSmooth;
         
 	//message piecedata;
 	message dummyMsg;
@@ -105,10 +107,12 @@ mainmodule ParallelGravity {
 		entry void report();
 		
 		entry void nextBucket(dummyMsg *m);	
+		entry void nextBucketSmooth(dummyMsg *msg);
 		//entry void registerWithDataManager(const CkGroupID& dataManagerID,
 		//		     		  const CkCallback& cb);
 		entry void setPeriodic(int nReplicas, double fPeriod,
-				       int bEwald, double fEwCut, int bPeriodic);
+				       int bEwald, double fEwCut,
+				       double fEwhCut, int bPeriodic);
 		entry void EwaldInit(double fhCut);
 		entry void calculateEwald(dummyMsg *m);
 		entry void velScale(double dScale);
@@ -157,7 +161,8 @@ mainmodule ParallelGravity {
 	
                 entry void startORBTreeBuild(CkReductionMsg* m);
                 
-        entry void startIteration(double theta, int activeRung, double dEwhCut, CkCallback &cb);
+        entry void startIteration(int activeRung, CkCallback &cb);
+        entry void startIterationSmooth(int activeRung, CkCallback &cb);
             
 		//entry void acceptBoundaryNodeContribution(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
 		//entry void acceptBoundaryNode(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
@@ -175,7 +180,8 @@ mainmodule ParallelGravity {
 		entry void calculateGravityLocal();
 		entry void calculateGravityRemote(ComputeChunkMsg *msg);
 
-		//entry void calculateGravityBucketTree(double t, const CkCallback& cb);
+		entry void calculateSmoothLocal();
+
 		//entry void fillRequestBucketTree(BucketGravityRequest req);	
 		//entry void receiveGravityBucketTree(const BucketGravityRequest& req);
 
@@ -208,6 +214,7 @@ mainmodule ParallelGravity {
 		entry void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
 		entry void outputAccASCII(const std::string& suffix, const CkCallback& cb);
 		entry void outputIOrderASCII(const string& suffix, const CkCallback& cb);
+		entry void outputDensityASCII(const string& suffix, const CkCallback& cb);
 		entry void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, double totalmass, const CkCallback& cb);
 		//entry void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
 		//entry void getPieceValues(piecedata *totaldata);

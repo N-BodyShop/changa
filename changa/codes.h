@@ -1,4 +1,7 @@
 /* values returned by compute object to tree walk object */
+#ifndef CODES_H
+#define CODES_H
+
 #define KEEP 0  // descend further down this path
 #define KEEP_REMOTE_BUCKET 6    // request particles of a remote bucket
 #define KEEP_LOCAL_BUCKET 7     // directly access particles of a local bucket
@@ -15,7 +18,9 @@
 		// be performed, based on which the compute obj. makes a decision 
            
 enum WalkType {TopDown, Double, BottomUp, BucketIterator, InvalidWalk};
-enum ComputeType {Gravity, Prefetch, List, BucketEwald, SPH, InvalidCompute};
+enum ComputeType {Gravity, Prefetch, List, BucketEwald, Smooth, ReSmooth,
+		  InvalidCompute};
+
 enum OptType {Local, Remote, Pref, InvalidOpt};
 
 
@@ -23,3 +28,5 @@ enum OptType {Local, Remote, Pref, InvalidOpt};
 #define CHECK_INDEX 1
 #define CHECK_BUCKET 16
 #endif
+
+#endif // CODES_H

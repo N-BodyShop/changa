@@ -99,6 +99,8 @@ extern int lbcomm_cutoff_msgs;
 extern double theta;
 extern double thetaMono;
 
+extern int nSmooth;
+
 class dummyMsg : public CMessage_dummyMsg{
 public:
 int val;
@@ -396,21 +398,29 @@ typedef struct particlesInfoL{
 
 class GravityCompute;
 class PrefetchCompute;
+class SmoothCompute;
 
 class TreePiece : public CBase_TreePiece {
    // jetley
    friend class PrefetchCompute;
    friend class GravityCompute;
+   friend class SmoothCompute;
 
    TreeWalk *sTopDown;
    Compute *sGravity, *sPrefetch;
+   Compute *sSmooth;
    Opt *sLocal, *sRemote, *sPref;
+   Opt *optSmooth;
+   int bSmoothing;		/* XXX This is a hack TRQ should be
+				   deleted with a proper
+				   implementation of finishBucket() */
 
    CkVec<ActiveWalk> activeWalks;
    int completedActiveWalks;
 
    int remoteGravityAwi;
    int prefetchAwi;
+   int smoothAwi;
 
  public:
         int addActiveWalk(TreeWalk *tw, Compute *c, Opt *o);
@@ -454,14 +464,14 @@ class TreePiece : public CBase_TreePiece {
 
         /// Start a new remote computation upon prefetch finished
 	void startRemoteChunk();
+        int getCurrentBucket(){
+          return currentBucket;
+        }
 #ifdef CHANGA_REFACTOR_WALKCHECK
         void addToBucketChecklist(int bucketIndex, NodeKey k){
           bucketcheckList[bucketIndex].insert(k);
         }
 
-        int getCurrentBucket(){
-          return currentBucket;
-        }
         int getCurrentRemoteBucket(){
           return currentRemoteBucket;
         }
@@ -561,6 +571,7 @@ private:
 	int nReplicas;
 	int bEwald;		/* Perform Ewald */
 	double fEwCut;
+	double dEwhCut;
 	EWT *ewt;
 	int nMaxEwhLoop;
 	int nEwhLoop;
@@ -771,6 +782,8 @@ private:
 	/// Initialize all the buckets for the tree walk
 	/// @TODO: Eliminate this redundant copy!
 	void initBuckets();
+	void initBucketsSmooth();
+	void smoothNextBucket();
 	/** @brief Initial walk through the tree. It will continue until local
 	 * nodes are found (excluding those coming from the cache). When the
 	 * treewalk is finished it stops and cachedWalkBucketTree will continue
@@ -801,6 +814,7 @@ public:
 	  /*if(_cache){	
 	    localCache = cacheManagerProxy.ckLocalBranch();
 	    }*/
+	    bSmoothing = 0;  // XXX hack to be deleted --TRQ
 	  localCache = NULL;
 	  dm = NULL;
 	  iterationNo=0;
@@ -915,7 +929,7 @@ public:
 	void restart();
 
 	void setPeriodic(int nReplicas, double fPeriod, int bEwald,
-			 double fEwCut, int bPeriod);
+			 double fEwCut, double fEwhCut, int bPeriod);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit(double fhCut);
 	void calculateEwald(dummyMsg *m);
@@ -1038,6 +1052,9 @@ public:
 	/// forces are computed
 	void walkBucketRemoteTree(GenericTreeNode *node, int chunk, int reqID, bool isRoot);
 
+	/// As above but for the Smooth operation
+	void calculateSmoothLocal();
+	void nextBucketSmooth(dummyMsg *msg);
 #if INTERLIST_VER > 0
   void preWalkRemoteInterTree(GenericTreeNode *chunkRoot, bool isRoot);
   void walkRemoteInterTree(OffsetNode node, bool isRoot);
@@ -1046,13 +1063,12 @@ public:
   void calculateForceLocalBucket(int bucketIndex);
 #endif
 	
-  /// Function called by the CacheManager to start a new iteration.
-  /// @param t the opening angle
-  /// @param n the number of chunks in which the remote computation will be splitted
-  /// @param k the array of roots of the remote chunks, the size if 'n'
+  /// Start a tree based gravity computation.
+  /// @param am the active rung for the computation
   /// @param cb the callback to use after all the computation has finished
-  void startIteration(double t, int am, double dEwhCut, const CkCallback& cb);
-  //void startIteration(double t, int am, int n, Tree::NodeKey *k, double dEwhCut, const CkCallback& cb);
+  void startIteration(int am, const CkCallback& cb);
+  /// As above, but for a smooth operation.
+  void startIterationSmooth(int am, const CkCallback& cb);
   
 	/// Function called by the CacheManager to send out request for needed
 	/// remote data, so that the later computation will hit.
@@ -1115,6 +1131,7 @@ public:
 	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
 	void outputAccASCII(const std::string& suffix, const CkCallback& cb);
 	void outputIOrderASCII(const std::string& suffix, const CkCallback& cb);
+	void outputDensityASCII(const string& suffix, const CkCallback& cb);
 	void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, double totalmass, const CkCallback& cb);
 	//void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
 
@@ -1153,6 +1170,8 @@ public:
 
 };
 
+int decodeReqID(int);
+int encodeOffset(int reqID, int x, int y, int z);
 void initNodeLock();
 void printGenericTree(GenericTreeNode* node, ostream& os) ;
 //bool compBucket(GenericTreeNode *ln,GenericTreeNode *rn);

@@ -57,6 +57,8 @@ public:
 	Vector3D<double> treeAcceleration;
 	double potential;
 	double dtGrav;
+	double fDensity;
+	double fBall;
 	int iOrder;		/* input order of particles */
         int rung;  ///< the current rung (greater means faster)
 	unsigned int iType;	// Bitmask to hold particle type information
@@ -85,6 +87,8 @@ public:
           ExternalGravityParticle::pup(p);
           p | key;
           p | velocity;
+	  p | fDensity;
+	  p | fBall;
           p | iOrder;
           p | rung;
 	  p | iType;

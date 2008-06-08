@@ -44,6 +44,7 @@ int lbcomm_cutoff_msgs;
 
 /* readonly */ double theta;
 /* readonly */ double thetaMono;
+/* readonly */ int nSmooth;
 
 ComlibInstanceHandle cinst1, cinst2;
 
@@ -145,10 +146,13 @@ Main::Main(CkArgMsg* m) {
 		    sizeof(int),"oc", "Checkpoint Interval");
 	param.bDoDensity = 1;
 	prmAddParam(prm, "bDoDensity", paramBool, &param.bDoDensity,
-		    sizeof(int),"den", "Enable Density outputs (IGNORED)");
+		    sizeof(int),"den", "Enable Density outputs");
+	nSmooth = 32;
+	prmAddParam(prm, "nSmooth", paramInt, &nSmooth,
+		    sizeof(int),"nsm", "Number of neighbors for smooth");
 	param.bDoGravity = 1;
 	prmAddParam(prm, "bDoGravity", paramBool, &param.bDoGravity,
-		    sizeof(int),"g", "Enable Gravity (IGNORED)");
+		    sizeof(int),"g", "Enable Gravity");
 	param.dSoft = 0.0;
 	prmAddParam(prm, "dSoft", paramDouble, &param.dSoft,
 		    sizeof(double),"e", "Gravitational softening");
@@ -338,16 +342,6 @@ Main::Main(CkArgMsg* m) {
 	if(prmSpecified(prm, "dExtraStore")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "dExtraStore parameter ignored."
-		  << endl;
-	    }
-	if(prmSpecified(prm, "bDoGravity")) {
-	    ckerr << "WARNING: ";
-	    ckerr << "bDoGravity parameter ignored."
-		  << endl;
-	    }
-	if(prmSpecified(prm, "bDoDensity")) {
-	    ckerr << "WARNING: ";
-	    ckerr << "bDoGravity parameter ignored."
 		  << endl;
 	    }
 	if(prmSpecified(prm, "bCannonical")) {
@@ -735,18 +729,15 @@ void Main::advanceBigStep(int iStep) {
     ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
 
-    /******** Force Computation ********/
-    ckerr << "Calculating gravity (tree bucket, theta = " << theta
-          << ") ...";
-    startTime = CkWallTimer();
-    // Set up Ewald Tables
-    //if(param.bPeriodic && param.bEwald)
-    //  treeProxy.EwaldInit(param.dEwhCut, CkCallbackResumeThread());
-    //pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
-    //streamingCache.cacheSync(theta, activeRung, param.dEwhCut, CkCallbackResumeThread());
-    treeProxy.startIteration(theta, activeRung, param.dEwhCut, CkCallbackResumeThread());
-    ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
-          << endl;
+    if(param.bDoGravity) {
+	/******** Force Computation ********/
+	ckerr << "Calculating gravity (tree bucket, theta = " << theta
+	      << ") ...";
+	startTime = CkWallTimer();
+	treeProxy.startIteration(activeRung, CkCallbackResumeThread());
+	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+	      << endl;
+    }
 
 #if COSMO_STATS > 0
     /********* TreePiece Statistics ********/
@@ -798,7 +789,7 @@ void Main::setupICs() {
   //CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
 
   treeProxy.setPeriodic(param.nReplicas, param.fPeriod, param.bEwald,
-                     param.dEwCut, param.bPeriodic);
+			param.dEwCut, param.dEwhCut, param.bPeriodic);
 
   /******** Particles Loading ********/
   ckerr << "Loading particles ...";
@@ -922,18 +913,15 @@ Main::initialForces()
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
   
-  /******** Force Computation ********/
-  ckerr << "Calculating gravity (theta = " << theta
-        << ") ...";
-  startTime = CkWallTimer();
-  // Set up Ewald Tables
-  //if(param.bPeriodic && param.bEwald)
-  //  treeProxy.EwaldInit(param.dEwhCut, CkCallbackResumeThread());
-  //pieces.calculateGravityBucketTree(theta, CkCallbackResumeThread());
-  //streamingCache.cacheSync(theta, 0, param.dEwhCut, CkCallbackResumeThread());
-  treeProxy.startIteration(theta, 0, param.dEwhCut, CkCallbackResumeThread());
-  ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
-        << endl;
+  if(param.bDoGravity) {
+      /******** Force Computation ********/
+      ckerr << "Calculating gravity (theta = " << theta
+	    << ") ...";
+      startTime = CkWallTimer();
+      treeProxy.startIteration(0, CkCallbackResumeThread());
+      ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+	    << endl;
+      }
   
 #if COSMO_STATS > 0
   /********* TreePiece Statistics ********/
@@ -1043,19 +1031,28 @@ Main::doSimulation()
   /******** Shutdown process ********/
 
   if(param.nSteps == 0) {
-    ckerr << "Outputting accelerations ...";
+      if(param.bDoDensity) {
+	  ckout << "Calculating densities ...";
+	  startTime = CkWallTimer();
+	  treeProxy.startIterationSmooth(0, CkCallbackResumeThread());
+	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+		<< endl;
+	  }
+      
+    ckout << "Outputting accelerations and densities ...";
     startTime = CkWallTimer();
     if(printBinaryAcc)
       treeProxy[0].outputAccelerations(OrientedBox<double>(),
-                                    "acc2", CkCallbackResumeThread());
+				    "acc2", CkCallbackResumeThread());
     else {
 	treeProxy.reOrder(CkCallbackResumeThread());
 	treeProxy[0].outputAccASCII("acc2", CkCallbackResumeThread());
 	}
-	
+
+    treeProxy[0].outputDensityASCII("den", CkCallbackResumeThread());
     treeProxy[0].outputIOrderASCII("iord", CkCallbackResumeThread());
-    ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
-          << endl;
+    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+	  << endl;
   }
 	
 #if COSMO_STATS > 0
@@ -1067,13 +1064,6 @@ Main::doSimulation()
 
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 #endif
-
-  /*#if COSMO_DEBUG > 1
-    ckerr << "Outputting relative errors ...";
-    startTime = CkWallTimer();
-    pieces[0].outputRelativeErrors(Interval<double>(), CkCallbackResumeThread());
-    ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
-    #endif*/
 
   ckerr << "Done." << endl;
 	

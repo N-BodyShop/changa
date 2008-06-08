@@ -45,13 +45,23 @@ CkVec<CellComputation> ewaldMessages;
 //forward declaration
 string getColor(GenericTreeNode*);
 
-void TreePiece::setPeriodic(int nRepsPar, double fPeriodPar, int bEwaldPar,
-			    double fEwCutPar, int bPeriodPar) 
+/*
+ * set periodic information in all the TreePieces
+ */
+void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
+					  // each direction
+			    double fPeriodPar, // Size of periodic box
+			    int bEwaldPar,     // Use Ewald summation
+			    double fEwCutPar,  // Cutoff on real summation
+			    double dEwhCutPar, // Cutoff on Fourier summation
+			    int bPeriodPar     // Periodic boundaries
+			    ) 
 {
     nReplicas = nRepsPar;
     fPeriod = Vector3D<double>(fPeriodPar, fPeriodPar, fPeriodPar);
     bEwald = bEwaldPar;
     fEwCut  = fEwCutPar;
+    dEwhCut = dEwhCutPar;
     bPeriodic = bPeriodPar;
     if(ewt == NULL) {
 	ewt = new EWT[nMaxEwhLoop];
@@ -1683,7 +1693,11 @@ void TreePiece::finishBucket(int iBucket) {
   CkPrintf("[%d] Is finished %d? finished=%d, %d still missing!\n",thisIndex,iBucket,req->finished,req->numAdditionalRequests);
 #endif
 
+  // XXX finished means Ewald is done.
   if(req->finished && req->numAdditionalRequests == 0) {
+      if(bSmoothing)	// XXX this is a hack TRQ
+	  sSmooth->walkDone();
+      // compute->walkDone(); XXX this is the right way to do this TRQ
     myNumParticlesPending -= node->particleCount;
 #ifdef COSMO_PRINT
     CkPrintf("[%d] Finished bucket %d, %d particles remaining\n",thisIndex,iBucket,myNumParticlesPending);
@@ -1698,6 +1712,8 @@ void TreePiece::finishBucket(int iBucket) {
     }
     */
     if(started && myNumParticlesPending == 0) {
+      if(bSmoothing)	// XXX this is a hack TRQ
+	  bSmoothing = 0;
       started = false;
       cacheManagerProxy[CkMyPe()].allDone();
       markWalkDone();
@@ -2745,18 +2761,10 @@ void TreePiece::walkBucketRemoteTree(GenericTreeNode *node, int chunk,
 
 // Start tree walk and gravity calculation
 
-void TreePiece::startIteration(double t, // opening angle -- moved to readonly
-                               int am, // the active mask for multistepping
-			       //int n,  // Number of Chunks
-			       //Tree::NodeKey *k,
-			       double dEwhCut,
+void TreePiece::startIteration(int am, // the active mask for multistepping
 			       const CkCallback& cb) {
 
-  CkAssert(theta == t); // assert that the readonly is equal to the value coming in
   callback = cb;
-  //theta = t;
-  //thetaMono = theta*theta*theta*theta;	// Make monopole accuracy similar to
-				// hexadecapole accuracy
   activeRung = am;
 
   int oldNumChunks = numChunks;
@@ -2961,16 +2969,12 @@ void TreePiece::startIteration(double t, // opening angle -- moved to readonly
   thisProxy[thisIndex].calculateGravityLocal();
   if (bEwald) thisProxy[thisIndex].EwaldInit(dEwhCut);
 
-  int piecesPerPe = numTreePieces/CmiNumPes();
-  if(thisIndex % piecesPerPe == 0)
-    CkPrintf("[%d]: CmiMaxMemoryUsage: %f M\n", CmiMyPe(), (float)CmiMaxMemoryUsage()/(1 << 20));
-    //CkPrintf("[%d]: CmiMaxMemoryUsage: %d\n", CmiMyPe(), CmiMaxMemoryUsage());
-
-  //delete tw;
-  //delete c;
-  //delete state;
-  //delete opt;
-
+  if(verbosity > 1) {
+      int piecesPerPe = numTreePieces/CmiNumPes();
+      if(thisIndex % piecesPerPe == 0)
+	CkPrintf("[%d]: CmiMaxMemoryUsage: %f M\n", CmiMyPe(),
+		 (float)CmiMaxMemoryUsage()/(1 << 20));
+      }
 }
 
 void TreePiece::prefetch(GenericTreeNode *node, int offsetID) {
@@ -3147,7 +3151,7 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
     }
     else{
       for(numActiveParticles = 0, i = 0; i < myNumParticles; i++)
-        if(myParticles[i].rung >= activeRung)
+        if(myParticles[i+1].rung >= activeRung)
           numActiveParticles++;
     }
     LDObjHandle myHandle = myRec->getLdHandle();
@@ -5099,6 +5103,8 @@ void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID,
   State *state;
 
   // retrieve the activewalk record
+  CkAssert(awi < activeWalks.size());
+  
   ActiveWalk &a = activeWalks[awi];
   tw = a.tw;
   compute = a.c;

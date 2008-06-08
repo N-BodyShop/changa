@@ -512,3 +512,10 @@ TreeWalk.h \
 ../structures/Space.h \
 ../structures/Box.h \
 
+
+smooth.o:\
+ParallelGravity.h \
+Opt.h \
+DataManager.h \
+../structures/Space.h \
+smooth.h
