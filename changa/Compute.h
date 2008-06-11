@@ -1,3 +1,9 @@
+#ifndef __COMPUTE_H__
+#define __COMPUTE_H__
+
+#include "codes.h"
+#include "State.h"
+
 /* File defines classes for objects that encapsulate computation
  * */ 
 
@@ -149,3 +155,4 @@ class PrefetchCompute : public Compute{
   //void walkDone();
 };
 
+#endif

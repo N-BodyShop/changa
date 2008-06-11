@@ -4,7 +4,7 @@
 
 #include "Opt.h"
 #include "Compute.h"
-//#include "TreeWalk.h"
+#include "TreeWalk.h"
 //#include "State.h"
 #include "Space.h"
 #include "gravity.h"  // for openCriterion(..)

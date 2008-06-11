@@ -1,3 +1,7 @@
+#ifndef __TREEWALK_H__
+#define __TREEWALK_H__
+
+#include "codes.h"
 
 class State;
 class Compute;
@@ -92,3 +96,5 @@ class BucketIteratorWalk : public TreeWalk{
   void walk(GenericTreeNode *node, State *state, int chunk, int reqID) = 0;
 }
 */
+
+#endif

@@ -1,3 +1,8 @@
+#ifndef __OPT_H__
+#define __OPT_H__
+
+#include "codes.h"
+
 #define NUM_NODE_TYPES 11
 
 class Opt{
@@ -135,3 +140,5 @@ class PrefetchOpt : public Opt{
     action_array[true][Top] = ERROR;    // not handled anywhere in the original code, so ERROR
   }
 };
+
+#endif

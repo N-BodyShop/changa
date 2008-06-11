@@ -3,7 +3,7 @@
 #include "config.h"
 #include "GenericTreeNode.h"
 #include "ParallelGravity.h"
-//include "TreeWalk.h"
+#include "TreeWalk.h"
 //#include "State.h"
 #include "Compute.h"
 

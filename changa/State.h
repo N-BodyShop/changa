@@ -1,3 +1,5 @@
+#ifndef __STATE_H__
+#define __STATE_H__
 #include "ParallelGravity.h"
 
 class State {
@@ -19,3 +21,5 @@ class ListState : public State {
   //CkVec<LocalPartInfo> localParticleList;
   //CkVec<RemotePartInfo> remoteParticleList;
 };
+
+#endif
