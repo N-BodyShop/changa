@@ -79,8 +79,8 @@ void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, 
 }
 
 class KeyDouble {
-  Key first;
-  Key second;
+  SFC::Key first;
+  SFC::Key second;
 public:
   inline bool operator<(const KeyDouble& k) const {
     return first < k.first;
@@ -93,10 +93,10 @@ void DataManager::collectSplitters(CkReductionMsg *m) {
   delete[] splitters;
   splitters = new SFC::Key[numSplitters];
   SFC::Key* splits = static_cast<SFC::Key *>(m->getData());
-  copy(splits, splits + numSplitters, splitters);
+  std::copy(splits, splits + numSplitters, splitters);
   KeyDouble* splitters2 = (KeyDouble *)splitters;
   //sort(splitters, splitters + numSplitters);
-  sort(splitters2, splitters2 + numTreePieces);
+  std::sort(splitters2, splitters2 + numTreePieces);
   for (unsigned int i=1; i<numSplitters; ++i) {
     if (splitters[i] < splitters[i-1]) {
       //for (unsigned int j=0; j<numSplitters; ++j)

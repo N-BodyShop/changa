@@ -10,7 +10,6 @@
 #include <vector>
 #include <map>
 #include <string>
-#include "CacheManager.h"
 #include "GenericTreeNode.h"
 
 /** The DataManager is used to store information that all TreePieces will need,
@@ -80,9 +79,15 @@ private:
 	Tree::GenericTreeNode *buildProcessorTree(int n, Tree::GenericTreeNode **gtn);
 	int createLookupRoots(Tree::GenericTreeNode *node, Tree::NodeKey *keys);
 public:
-	void notifyPresence(Tree::GenericTreeNode *root);
-	void combineLocalTrees(CkReductionMsg *msg);
-        void getChunks(int &num, Tree::NodeKey *&roots);
+    void notifyPresence(Tree::GenericTreeNode *root);
+    void combineLocalTrees(CkReductionMsg *msg);
+    void getChunks(int &num, Tree::NodeKey *&roots);
+    inline Tree::GenericTreeNode *chunkRootToNode(const Tree::NodeKey k) {
+      NodeLookupType::iterator iter = chunkRootTable.find(k);
+      if (iter != chunkRootTable.end()) return iter->second;
+      else return NULL;
+    }
+    inline Tree::GenericTreeNode *getRoot() { return root; }
 };
 
 #endif //DATAMANAGER_H
