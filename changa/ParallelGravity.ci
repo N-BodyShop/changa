@@ -2,14 +2,14 @@
 
 mainmodule ParallelGravity {
 	
-	extern module CacheManager;
 	extern module Reductions;
 	
 	readonly CProxy_Main mainChare;
 	readonly int verbosity;
 	readonly CProxy_TreePiece treeProxy;
 	readonly CProxy_TreePiece streamingProxy;
-	readonly CProxy_CacheManager streamingCache;
+    readonly CProxy_CkCacheManager cacheManagerProxy;
+    readonly CProxy_CkCacheManager streamingCache;
 	readonly bool _cache;
 	readonly int _nocache;
 	readonly int _cacheLineDepth;
@@ -43,17 +43,6 @@ mainmodule ParallelGravity {
 	//message piecedata;
 	message dummyMsg;
 	message ComputeChunkMsg;
-	message RequestNodeMsg;
-	message RequestParticleMsg;
-	message FillNodeMsg {
-	  char nodes[];
-	};
-	message FillBinaryNodeMsg {
-	  BinaryTreeNode nodes[];
-	};
-	message FillParticleMsg {
-	  char particles[];
-	};
 
         message ORBSplittersMsg{
           double pos[];
@@ -116,7 +105,7 @@ mainmodule ParallelGravity {
 		entry void EwaldInit(double fhCut);
 		entry void calculateEwald(dummyMsg *m);
 		entry void velScale(double dScale);
-		entry void markPresence(const CkCallback& cb);
+		//entry void markPresence(const CkCallback& cb);
 		entry void load(const std::string& fn, const CkCallback& cb);
 		entry void loadTipsy(const std::string& filename,
 				     const CkCallback& cb);
@@ -187,7 +176,8 @@ mainmodule ParallelGravity {
 
 		//entry void fillRequestNode(int retIndex, Tree::NodeKey lookupKey,
 		//			   BucketGravityRequest &req);
-		entry [expedited] void fillRequestNode(RequestNodeMsg *msg);
+		entry [expedited] void fillRequestNode(CkCacheRequestMsg *msg);
+		entry [local] void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi);
 		//entry void receiveNode(GenericTreeNode node[1],
 		//	       unsigned int reqID);
 		//entry [inline] void receiveNode_inline(GenericTreeNode node[1],
@@ -196,7 +186,8 @@ mainmodule ParallelGravity {
 		//				BucketGravityRequest &req);
 		//entry void receiveParticle(GravityParticle part,
 		//			   BucketGravityRequest &req);
-		entry [expedited] void fillRequestParticles(RequestParticleMsg *msg);
+		entry [expedited] void fillRequestParticles(CkCacheRequestMsg *msg);
+        entry [local] void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi);
 		//entry void fillRequestParticles(SFC::Key key,int retIndex, int begin,int end,
 		//				unsigned int reqID);
 		//entry void receiveParticles(ExternalGravityParticle part[num],int num,int chunk,
@@ -213,8 +204,8 @@ mainmodule ParallelGravity {
 
 		entry void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
 		entry void outputAccASCII(const std::string& suffix, const CkCallback& cb);
-		entry void outputIOrderASCII(const string& suffix, const CkCallback& cb);
-		entry void outputDensityASCII(const string& suffix, const CkCallback& cb);
+		entry void outputIOrderASCII(const std::string& suffix, const CkCallback& cb);
+		entry void outputDensityASCII(const std::string& suffix, const CkCallback& cb);
 		entry void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, double totalmass, const CkCallback& cb);
 		//entry void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
 		//entry void getPieceValues(piecedata *totaldata);

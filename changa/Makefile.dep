@@ -37,8 +37,6 @@ parameters.h \
 cosmo.h \
 param.h \
 dumpframe.h \
-CacheManager.h \
-CacheManager.decl.h \
 State.h \
 codes.h \
 MetisCosmoLB.decl.h \
@@ -77,8 +75,6 @@ parameters.h \
 cosmo.h \
 param.h \
 dumpframe.h \
-CacheManager.h \
-CacheManager.decl.h \
 State.h \
 codes.h \
 MetisCosmoLB.decl.h \
@@ -113,8 +109,6 @@ parameters.h \
 cosmo.h \
 param.h \
 dumpframe.h \
-CacheManager.h \
-CacheManager.decl.h \
 State.h \
 codes.h \
 MetisCosmoLB.decl.h \
@@ -132,42 +126,6 @@ Opt.h \
 Compute.h \
 ../structures/Space.h \
 ../structures/Box.h \
-
-CacheManager.o: \
-CacheManager.C \
-ParallelGravity.h \
-config.h \
-../structures/Vector3D.h \
-../structures/TypeSelection.h \
-../structures/tree_xdr.h \
-../structures/Vector3D.h \
-../structures/OrientedBox.h \
-../structures/Shape.h \
-../structures/xdr_template.h \
-../structures/config.h \
-../structures/TypedArray.h \
-../structures/TypeHandling.h \
-../structures/TipsyFile.h \
-../structures/TipsyParticles.h \
-../structures/TipsyReader.h \
-../structures/Sphere.h \
-../structures/SFC.h \
-TreeNode.h \
-GenericTreeNode.h \
-../structures/OrientedBox.h \
-MultipoleMoments.h \
-GravityParticle.h \
-../structures/Interval.h \
-parameters.h \
-cosmo.h \
-param.h \
-dumpframe.h \
-CacheManager.h \
-CacheManager.decl.h \
-State.h \
-codes.h \
-MetisCosmoLB.decl.h \
-ParallelGravity.decl.h \
 
 param.o: \
 param.c \
@@ -215,8 +173,6 @@ parameters.h \
 cosmo.h \
 param.h \
 dumpframe.h \
-CacheManager.h \
-CacheManager.decl.h \
 State.h \
 codes.h \
 MetisCosmoLB.decl.h \
@@ -253,8 +209,6 @@ parameters.h \
 cosmo.h \
 param.h \
 dumpframe.h \
-CacheManager.h \
-CacheManager.decl.h \
 State.h \
 codes.h \
 MetisCosmoLB.decl.h \
@@ -288,8 +242,6 @@ parameters.h \
 cosmo.h \
 param.h \
 dumpframe.h \
-CacheManager.h \
-CacheManager.decl.h \
 State.h \
 codes.h \
 MetisCosmoLB.decl.h \
@@ -350,8 +302,6 @@ parameters.h \
 cosmo.h \
 param.h \
 dumpframe.h \
-CacheManager.h \
-CacheManager.decl.h \
 State.h \
 codes.h \
 ParallelGravity.decl.h \
@@ -389,8 +339,6 @@ parameters.h \
 cosmo.h \
 param.h \
 dumpframe.h \
-CacheManager.h \
-CacheManager.decl.h \
 State.h \
 codes.h \
 MetisCosmoLB.decl.h \
@@ -427,8 +375,6 @@ parameters.h \
 cosmo.h \
 param.h \
 dumpframe.h \
-CacheManager.h \
-CacheManager.decl.h \
 State.h \
 codes.h \
 MetisCosmoLB.decl.h \
@@ -462,8 +408,6 @@ parameters.h \
 cosmo.h \
 param.h \
 dumpframe.h \
-CacheManager.h \
-CacheManager.decl.h \
 State.h \
 codes.h \
 MetisCosmoLB.decl.h \
@@ -500,8 +444,6 @@ parameters.h \
 cosmo.h \
 param.h \
 dumpframe.h \
-CacheManager.h \
-CacheManager.decl.h \
 State.h \
 codes.h \
 MetisCosmoLB.decl.h \

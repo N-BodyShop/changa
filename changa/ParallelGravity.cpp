@@ -13,7 +13,6 @@
 #include "Sorter.h"
 #include "ParallelGravity.h"
 #include "DataManager.h"
-#include "CacheManager.h"
 #include "TipsyFile.h"
 #include "param.h"
 
@@ -25,6 +24,7 @@ using namespace std;
 CProxy_Main mainChare;
 int verbosity;
 CProxy_TreePiece treeProxy;
+CProxy_CkCacheManager cacheManagerProxy;
 //CkReduction::reducerType callbackReduction;
 bool _cache;
 int _nocache;
@@ -34,7 +34,7 @@ DomainsDec domainDecomposition;
 int peanoKey;
 GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
-CProxy_CacheManager streamingCache;
+CProxy_CkCacheManager streamingCache;
 unsigned int numTreePieces;
 int _prefetch;
 int _numChunks;
@@ -461,15 +461,16 @@ Main::Main(CkArgMsg* m) {
           }
         }
 
-	cacheManagerProxy = CProxy_CacheManager::ckNew(cacheSize);
-
 	CProxy_BlockMap myMap=CProxy_BlockMap::ckNew(); 
 	CkArrayOptions opts(numTreePieces); 
 	opts.setMap(myMap);
 
 	CProxy_TreePiece pieces = CProxy_TreePiece::ckNew(numTreePieces,opts);
 	treeProxy = pieces;
-	
+
+	// create the CacheManager
+	cacheManagerProxy = CProxy_CkCacheManager::ckNew(pieces.ckLocMgr()->getGroupID(), cacheSize);
+
 	//create the DataManager
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
 	dataManagerID = dataManager;
@@ -868,9 +869,6 @@ Main::restart()
 	ofstream ofsLog(achLogFileName, ios_base::app);
 	ofsLog << "# ReStarting ChaNGa" << endl;
 	ofsLog.close();
-#ifndef USE_CACHE_MODULE
-	treeProxy.markPresence(CkCallbackResumeThread());
-#endif
 	treeProxy.drift(0.0, CkCallbackResumeThread());
 	mainChare.initialForces();
 	}
@@ -1329,7 +1327,6 @@ void Main::pup(PUP::er& p)
     }
 
 #include "ParallelGravity.def.h"
-#include "CacheManager.def.h"
 
 /*
 #define CK_TEMPLATES_ONLY

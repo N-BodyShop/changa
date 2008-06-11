@@ -1,7 +1,9 @@
 #ifndef __CACHEINTERFACE_H__
 #define __CACHEINTERFACE_H__
 
-#include "CacheManager.h"
+#include "CkCache.h"
+#include "gravity.h"
+#include "GenericTreeNode.h"
 
 /*********************************************************
  * Gravity interface: Particles
@@ -9,24 +11,40 @@
 
 class CacheParticle {
 public:
-  FillDataMsg *msg;
+  CkCacheFillMsg *msg;
   int begin;
   int end;
   ExternalGravityParticle part[1];
 };
 
-class EntryTypeParticle : public Cache::EntryType {
+class EntryTypeGravityParticle : public CkCacheEntryType {
   int offset;
 public:
-  EntryTypeParticle();
-  void * request(CkArrayIndexMax&, CacheKey);
-  void * unpack(FillDataMsg *);
-  void writeback(CkArrayIndexMax&, CacheKey, void *);
+  EntryTypeGravityParticle();
+  void * request(CkArrayIndexMax&, CkCacheKey);
+  void * unpack(CkCacheFillMsg *, int, CkArrayIndexMax &);
+  void writeback(CkArrayIndexMax&, CkCacheKey, void *);
+  int size(void *);
+  
+  static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, u_int64_t, void*, int);
 };
 
 /*********************************************************
  * Gravity interface: Nodes
  *********************************************************/
+
+class EntryTypeGravityNode : public CkCacheEntryType {
+  void *vptr;
+  void unpackSingle(CkCacheFillMsg *, Tree::BinaryTreeNode *, int, CkArrayIndexMax &, bool);
+public:
+  EntryTypeGravityNode();
+  void * request(CkArrayIndexMax&, CkCacheKey);
+  void * unpack(CkCacheFillMsg *, int, CkArrayIndexMax &);
+  void writeback(CkArrayIndexMax&, CkCacheKey, void *);
+  int size(void *);
+  
+  static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, u_int64_t, void*, int);
+};
 
 #endif
 

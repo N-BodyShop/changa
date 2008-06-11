@@ -36,6 +36,8 @@
 #include "param.h"
 #include "dumpframe.h"
 
+#include "CacheInterface.h"
+
 PUPbytes(InDumpFrame);
 
 #ifdef HPM_COUNTER	
@@ -64,7 +66,6 @@ inline void operator|(PUP::er &p,DomainsDec &d) {
 
 #include "GravityParticle.h"
 
-#include "CacheManager.h"
 #include "MetisCosmoLB.decl.h"          // jetley - needed for CkIndex_MetisCosmoLB
 #include "ParallelGravity.decl.h"
 
@@ -76,7 +77,10 @@ extern int _cacheLineDepth;
 extern unsigned int _yieldPeriod;
 extern DomainsDec domainDecomposition;
 extern GenericTrees useTree;
+extern CProxy_TreePiece treeProxy;
 extern CProxy_TreePiece streamingProxy;
+extern CProxy_CkCacheManager cacheManagerProxy;
+extern CProxy_CkCacheManager streamingCache;
 extern unsigned int numTreePieces;
 
 extern ComlibInstanceHandle cinst1, cinst2;
@@ -198,43 +202,6 @@ class ComputeChunkMsg : public CMessage_ComputeChunkMsg {
   }
 };
 
-class RequestNodeMsg : public CMessage_RequestNodeMsg {
- public:
-  int retIndex;
-  int depth;
-  Tree::NodeKey key;
-  unsigned int reqID;
-
-  RequestNodeMsg(int r, int d, Tree::NodeKey k, unsigned int req) : retIndex(r), depth(d), key(k), reqID(req) {}
-};
-
-class RequestParticleMsg : public CMessage_RequestParticleMsg {
- public:
-  int retIndex;
-  int begin;
-  int end;
-  Tree::NodeKey key;
-  unsigned int reqID;
-
-  RequestParticleMsg(int r, int b, int e, Tree::NodeKey k, unsigned int req) : retIndex(r), begin(b), end(e), key(k), reqID(req) {}
-};
-
-class FillNodeMsg : public CMessage_FillNodeMsg {
- public:
-  int owner;
-  //int count;
-  char *nodes;
-
-  FillNodeMsg(int index) : owner(index) { }
-};
-
-class FillBinaryNodeMsg : public CMessage_FillBinaryNodeMsg {
-public:
-  int owner;
-  BinaryTreeNode *nodes;
-  
-  FillBinaryNodeMsg(int index) : owner(index) { }
-};
 
 class ORBSplittersMsg : public CMessage_ORBSplittersMsg{
 public:
@@ -260,16 +227,6 @@ public:
   }
 };
 
-
-class FillParticleMsg : public CMessage_FillParticleMsg {
- public:
-  int owner; ///< who is the owner of this bucket
-  Tree::NodeKey key; ///< the key of the bucket of which the particles are returned
-  int count; ///< the number of particles in this bucket
-  char *particles;
-
-  FillParticleMsg(int index, Tree::NodeKey k, int num) : owner(index), key(k), count(num) { }
-};
 
 /*
  * Multistepping routines
@@ -499,7 +456,7 @@ private:
 	GravityParticle* myParticles;
 
 	/// Array with sorted particles for domain decomposition (ORB)
-	vector<GravityParticle> mySortedParticles;
+	std::vector<GravityParticle> mySortedParticles;
         /// Array with incoming particles for domain decomposition (without stl)
         GravityParticle *incomingParticles;
         /// How many particles have already arrived during domain decomposition
@@ -646,11 +603,15 @@ private:
 	BucketGravityRequest *bucketReqs;
 	
 	/// Pointer to the instance of the local cache
-	CacheManager *localCache;
+        //CacheManager *localCache;
 
 	/// convert a key to a node using the nodeLookupTable
 	inline GenericTreeNode *keyToNode(const Tree::NodeKey);
 
+	// Entries used for the CacheManager
+	EntryTypeGravityParticle gravityParticleEntry;
+	EntryTypeGravityNode gravityNodeEntry;
+	
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK
   ///A set for each bucket to check the correctness of the treewalk
   typedef std::vector< std::multiset<Tree::NodeKey> > DebugList;
@@ -815,7 +776,7 @@ public:
 	    localCache = cacheManagerProxy.ckLocalBranch();
 	    }*/
 	    bSmoothing = 0;  // XXX hack to be deleted --TRQ
-	  localCache = NULL;
+	  //localCache = NULL;
 	  dm = NULL;
 	  iterationNo=0;
 	  usesAtSync=CmiTrue;
@@ -876,7 +837,7 @@ public:
           proxySet = false;
           
 	  usesAtSync = CmiTrue;
-	  localCache = NULL;
+	  //localCache = NULL;
 	  bucketReqs = NULL;
 	  numChunks=-1;
 	  prefetchRoots = NULL;
@@ -939,10 +900,6 @@ public:
 	
 	// Parse NChilada description file
 	int parseNC(const std::string& fn);
-#ifndef USE_CACHE_MODULE
-	// Mark presence in Cache
-	void markPresence(const CkCallback& cb);
-#endif
 	// Load from mass and position files
 	void load(const std::string& fn, const CkCallback& cb);
 
@@ -1081,7 +1038,7 @@ public:
         GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk, int reqID, int awi, bool isPrefetch);
 	/// @brief Receive a request for Nodes from a remote processor, copy the
 	/// data into it, and send back a message.
-	void fillRequestNode(RequestNodeMsg *msg);
+	void fillRequestNode(CkCacheRequestMsg *msg);
 	/** @brief Receive the node from the cache as following a previous
 	 * request which returned NULL, and continue the treewalk of the bucket
 	 * which requested it with this new node.
@@ -1114,9 +1071,9 @@ public:
 			     int level,int chunk);
 #endif
   
-        ExternalGravityParticle *requestParticles(const Tree::NodeKey &key,int chunk,int remoteIndex,int begin,int end,int reqID, int awi, bool isPrefetch=false);
+        ExternalGravityParticle *requestParticles(Tree::NodeKey key,int chunk,int remoteIndex,int begin,int end,int reqID, int awi, bool isPrefetch=false);
         //ExternalGravityParticle *requestParticles(const Tree::NodeKey &key,int chunk,int remoteIndex,int begin,int end,int reqID, bool isPrefetch=false);
-	void fillRequestParticles(RequestParticleMsg *msg);
+	void fillRequestParticles(CkCacheRequestMsg *msg);
 	//void fillRequestParticles(Tree::NodeKey key,int retIndex, int begin,int end,
 	//			  unsigned int reqID);
 	void receiveParticles(ExternalGravityParticle *part,int num,int chunk,
@@ -1131,7 +1088,7 @@ public:
 	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
 	void outputAccASCII(const std::string& suffix, const CkCallback& cb);
 	void outputIOrderASCII(const std::string& suffix, const CkCallback& cb);
-	void outputDensityASCII(const string& suffix, const CkCallback& cb);
+	void outputDensityASCII(const std::string& suffix, const CkCallback& cb);
 	void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, double totalmass, const CkCallback& cb);
 	//void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
 
@@ -1147,8 +1104,8 @@ public:
         void nextBucket(dummyMsg *m);
 
 	void report();
-	void printTreeViz(GenericTreeNode* node, ostream& os);	
-	void printTree(GenericTreeNode* node, ostream& os);	
+	void printTreeViz(GenericTreeNode* node, std::ostream& os);	
+	void printTree(GenericTreeNode* node, std::ostream& os);	
 	void pup(PUP::er& p);
         
         // jetley
@@ -1173,6 +1130,6 @@ public:
 int decodeReqID(int);
 int encodeOffset(int reqID, int x, int y, int z);
 void initNodeLock();
-void printGenericTree(GenericTreeNode* node, ostream& os) ;
+void printGenericTree(GenericTreeNode* node, std::ostream& os) ;
 //bool compBucket(GenericTreeNode *ln,GenericTreeNode *rn);
 #endif //PARALLELGRAVITY_H

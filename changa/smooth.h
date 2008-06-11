@@ -23,9 +23,9 @@ class pqSmoothNode
 
 class NearNeighborState: public State {
 public:
-    priority_queue <pqSmoothNode> *Qs;
+    std::priority_queue <pqSmoothNode> *Qs;
     NearNeighborState(int nParts) {
-	Qs = new (priority_queue<pqSmoothNode>[nParts+2]);
+	Qs = new (std::priority_queue<pqSmoothNode>[nParts+2]);
 	}
     ~NearNeighborState() { delete Qs; }
 };

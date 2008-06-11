@@ -39,6 +39,7 @@
 #include "Opt.h"
 #include "smooth.h"
 #include "Space.h"
+#include "TreeWalk.h"
 
 State *SmoothCompute::getResumeState(int bucketIdx){
   return state;
@@ -81,7 +82,7 @@ void SmoothCompute::bucketCompare(TreePiece *ownerTP,
     NearNeighborState *state = (NearNeighborState *)getResumeState(ownerTP->getCurrentBucket());
     
     for(int j = node->firstParticle; j <= node->lastParticle; ++j) {
-	priority_queue<pqSmoothNode> *Q = &state->Qs[j];
+	std::priority_queue<pqSmoothNode> *Q = &state->Qs[j];
 	double rOld = Q->top().fKey; // Ball radius
 	Vector3D<double> dr = offset + p->position - particles[j].position;
 	
@@ -185,7 +186,7 @@ void TreePiece::startIterationSmooth(int am, // the active rung for
   // XXX I don't believe any of the Chunks are used in the smooth walk.
   int oldNumChunks = numChunks;
   dm->getChunks(numChunks, prefetchRoots);
-  cacheManagerProxy[CkMyPe()].cacheSync(numChunks, prefetchRoots);
+  //cacheManagerProxy[CkMyPe()].cacheSync(numChunks, prefetchRoots);
   if (oldNumChunks != numChunks && remainingChunk != NULL) {
     // reallocate remaining chunk to the new size
     delete[] remainingChunk;
@@ -207,7 +208,7 @@ void TreePiece::startIterationSmooth(int am, // the active rung for
   nActive = 0;
   iterationNo++;
 
-  CkAssert(localCache != NULL);
+  //CkAssert(localCache != NULL);
   if(verbosity>1)
     CkPrintf("Node: %d, TreePiece %d: I have %d buckets\n", CkMyNode(),
     	     thisIndex,numBuckets);
@@ -240,7 +241,7 @@ void TreePiece::initBucketsSmooth() {
     GenericTreeNode* node = bucketList[j];
     int numParticlesInBucket = node->particleCount;
 
-    CkAssert(numParticlesInBucket <= maxBucketSize);
+    CkAssert(numParticlesInBucket <= TreeStuff::maxBucketSize);
     
     // TODO: active bounds may give a performance boost in the
     // multi-timstep regime.
@@ -309,7 +310,7 @@ void SmoothCompute::initSmoothPrioQueue(TreePiece *tp, int iBucket)
 	  }
 	  
   for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
-      priority_queue<pqSmoothNode> *Q = &(state->Qs[j]);
+      std::priority_queue<pqSmoothNode> *Q = &(state->Qs[j]);
       //
       // Find maximum of nearest neighbors
       //
@@ -342,11 +343,7 @@ void TreePiece::smoothNextBucket() {
   // start the tree walk from the tree built in the cache
   if (bucketList[currentBucket]->rungs >= activeRung) {
     for(int cr = 0; cr < numChunks; cr++){
-#ifdef CACHE_TREE
-            GenericTreeNode *chunkRoot = localCache->chunkRootToNode(prefetchRoots[cr]);
-#else
-            GenericTreeNode *chunkRoot = keyToNode(prefetchRoots[cr]);
-#endif
+      GenericTreeNode *chunkRoot = dm->chunkRootToNode(prefetchRoots[cr]);
       for(int x = -nReplicas; x <= nReplicas; x++) {
         for(int y = -nReplicas; y <= nReplicas; y++) {
           for(int z = -nReplicas; z <= nReplicas; z++) {
@@ -365,7 +362,7 @@ void SmoothCompute::walkDone() {
   GravityParticle *part = node->particlePointer;
 
   for(int i = node->firstParticle; i <= node->lastParticle; i++) {
-      priority_queue<pqSmoothNode> *Q = &((NearNeighborState *)state)->Qs[i];
+      std::priority_queue<pqSmoothNode> *Q = &((NearNeighborState *)state)->Qs[i];
       double h = Q->top().fKey; // Ball radius
       part[i-node->firstParticle].fBall = h;
       pqSmoothNode NN[Q->size()];

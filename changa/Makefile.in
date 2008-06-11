@@ -2,7 +2,7 @@
 #FLAG_PRINT = -DCOSMO_PRINT=1       #enable really verbose prints
 #FLAG_STATISTICS = -DCOSMO_STATS=1  # enable statistics collection
 #FLAG_DEBUG = -DCOSMO_DEBUG=2       # enable debugging information
-CACHE_TREE = -DCACHE_TREE          # enable processor tree inside the cache
+#CACHE_TREE = -DCACHE_TREE          # enable processor tree inside the cache
 #INTERLIST = -DINTERLIST_VER=2      # enable interaction lists
 #HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
 #CELL = -DINTERLIST_VER=2 -DCELL -DCELL_PART -DCELL_NODE -DCELL_EWALD  # Cell processor offload
@@ -19,12 +19,12 @@ METIS_SRC_PATH = $(CHARM_PATH)/src/libs/ck-libs/parmetis/METISLib
 #OPTS = -g -memory charmdebug
 OPTS = -O3
 CXXFLAGS += $(OPTS) -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) -I.. @CPPFLAGS@
-LDFLAGS += $(OPTS) -L. -L../libs -language charm++ -module commlib -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MetisCosmoLB #-tracemode projections -memory charmdebug
+LDFLAGS += $(OPTS) -L. -L../libs -language charm++ -module CkCache -module commlib -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MetisCosmoLB #-tracemode projections -memory charmdebug
 XDR_DIR = ../rpc
 XDR_OBJS = $(XDR_DIR)/xdr.o $(XDR_DIR)/xdr_float.o $(XDR_DIR)/xdr_mem.o $(XDR_DIR)/xdr_stdio.o
 LDLIBS += $(STRUCTURES_PATH)/libTipsy.a @LIBS@
 
-CHARMC = @CHARMC@
+CHARMC = $(CHARM_PATH)/bin/charmc
 
 CXX = $(CHARMC)
 CC = $(CXX)
@@ -32,17 +32,17 @@ AR = @AR@
 CXX_DEPEND = $(CXX) -M -MM -MG $(CXXFLAGS)
 CFLAGS = $(OPTS)
 
-OBJECTS = DataManager.o Reductions.o TreePiece.o CacheManager.o Sorter.o \
+OBJECTS = DataManager.o Reductions.o TreePiece.o Sorter.o \
 	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
 	  InOutput.o cosmo.o romberg.o runge.o dumpframe.o dffuncs.o \
 	  moments.o MetisCosmoLB.o ScaledORBMapBG.o ScaleTranMapBG.o \
-	  TreeWalk.o Compute.o smooth.o
+	  TreeWalk.o Compute.o CacheInterface.o smooth.o
 
-SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp CacheManager.C \
+SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \
 	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
 	InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c \
 	moments.c MetisCosmoLB.C ScaledORBMapBG.C ScaleTranMapBG.C \
-	TreeWalk.C Compute.C smooth.C
+	TreeWalk.C Compute.C CacheInterface.C smooth.C
  
 
 TARGET = ChaNGa
