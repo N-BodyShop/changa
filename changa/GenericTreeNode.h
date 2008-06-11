@@ -577,7 +577,7 @@ namespace Tree {
       return count;
     }
     
-    int packNodes(BinaryTreeNode *buffer, int depth) {
+    int packNodes(BinaryTreeNode *buffer, int depth, int extraSpace=0) {
       //CkPrintf("Entering packNodes: this=%p, buffer=%p, depth=%d\n",this,buffer,depth);
       *buffer = *this;
       buffer->parent = NULL;
@@ -585,17 +585,19 @@ namespace Tree {
       int used = 1;
       if (depth != 0) {
         if (children[0] != NULL) {
-          buffer->children[0] = (BinaryTreeNode*)(((char*)&buffer[used]) - ((char*)buffer));
+          BinaryTreeNode *nextBuf = (BinaryTreeNode *) (((char*)buffer) + used * (sizeof(BinaryTreeNode)+extraSpace));
+          buffer->children[0] = (BinaryTreeNode*)(((char*)nextBuf) - ((char*)buffer));
           //CkPrintf("Entering child 0: offset %ld\n",buffer->children[0]);
-          used += children[0]->packNodes(&buffer[used], depth-1);
+          used += children[0]->packNodes(nextBuf, depth-1, extraSpace);
         } else {
           //CkPrintf("Excluding child 0\n");
           buffer->children[0] = NULL;
         }
         if (children[1] != NULL) {
-          buffer->children[1] = (BinaryTreeNode*)(((char*)&buffer[used]) - ((char*)buffer));
+          BinaryTreeNode *nextBuf = (BinaryTreeNode *) (((char*)buffer) + used * (sizeof(BinaryTreeNode)+extraSpace));
+          buffer->children[1] = (BinaryTreeNode*)(((char*)nextBuf) - ((char*)buffer));
           //CkPrintf("Entering child 1: offset %ld\n",buffer->children[1]);
-          used += children[1]->packNodes(&buffer[used], depth-1);
+          used += children[1]->packNodes(nextBuf, depth-1, extraSpace);
         } else {
           //CkPrintf("Excluding child 1\n");
           buffer->children[1] = NULL;
