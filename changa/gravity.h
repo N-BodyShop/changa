@@ -1,3 +1,12 @@
+#ifndef __GRAVITY_H__
+#define __GRAVITY_H__
+
+#include "TreeNode.h"
+#include "GenericTreeNode.h"
+#include "Space.h"
+
+extern double theta;
+
 /*
  ** see (A1) and (A2) of TREESPH: A UNIFICATION OF SPH WITH THE 
  ** HIERARCHICAL TREE METHOD by Lars Hernquist and Neal Katz.
@@ -133,7 +142,7 @@ void SPLINE(double r2, double twoh, double &a, double &b)
 // @param offset Periodic offset to applied to node
 //
 inline
-int openSoftening(GenericTreeNode *node, GenericTreeNode *myNode,
+int openSoftening(Tree::GenericTreeNode *node, Tree::GenericTreeNode *myNode,
           Vector3D<double> offset)
 {
     Sphere<double> s(node->moments.cm + offset, 2.0*node->moments.soft);
@@ -145,7 +154,7 @@ int openSoftening(GenericTreeNode *node, GenericTreeNode *myNode,
 static int forProgress = 0;
 #endif
 
-inline int partBucketForce(ExternalGravityParticle *part, GenericTreeNode *req, GravityParticle *particles, Vector3D<double> offset, int activeRung) {
+inline int partBucketForce(ExternalGravityParticle *part, Tree::GenericTreeNode *req, GravityParticle *particles, Vector3D<double> offset, int activeRung) {
   int computed = 0;
   Vector3D<double> r;
   double rsq;
@@ -184,8 +193,8 @@ inline int partBucketForce(ExternalGravityParticle *part, GenericTreeNode *req, 
 #include <emmintrin.h>
 
 inline
-int nodeBucketForce(GenericTreeNode *node, // source of force
-                    GenericTreeNode *req,  // bucket descriptor
+int nodeBucketForce(Tree::GenericTreeNode *node, // source of force
+                    Tree::GenericTreeNode *req,  // bucket descriptor
                     GravityParticle *particles, // particles in bucket
                     Vector3D<double> offset,    // offset if a periodic replica
                     int activeRung)         // rung (and above) at which to
@@ -311,8 +320,8 @@ int nodeBucketForce(GenericTreeNode *node, // source of force
 #else
 #ifdef COSMO_FLOAT
 inline
-int nodeBucketForce(GenericTreeNode *node, // source of force
-            GenericTreeNode *req,  // bucket descriptor
+int nodeBucketForce(Tree::GenericTreeNode *node, // source of force
+            Tree::GenericTreeNode *req,  // bucket descriptor
             GravityParticle *particles, // particles in bucket
             Vector3D<double> offset,    // offset if a periodic replica
             int activeRung)         // rung (and above) at which to
@@ -386,8 +395,8 @@ int nodeBucketForce(GenericTreeNode *node, // source of force
 }
 #else
 inline
-int nodeBucketForce(GenericTreeNode *node, // source of force
-            GenericTreeNode *req,  // bucket descriptor
+int nodeBucketForce(Tree::GenericTreeNode *node, // source of force
+            Tree::GenericTreeNode *req,  // bucket descriptor
             GravityParticle *particles, // particles in bucket
             Vector3D<double> offset,    // offset if a periodic replica
             int activeRung)         // rung (and above) at which to
@@ -464,8 +473,8 @@ int nodeBucketForce(GenericTreeNode *node, // source of force
 // boundingBox, i.e. the node needs to be opened.
 
 inline bool
-openCriterionBucket(GenericTreeNode *node,
-                   GenericTreeNode *bucketNode,
+openCriterionBucket(Tree::GenericTreeNode *node,
+                   Tree::GenericTreeNode *bucketNode,
                    Vector3D<double> offset, // Offset of node
                    int localIndex // requesting TreePiece
                    ) {
@@ -476,7 +485,7 @@ openCriterionBucket(GenericTreeNode *node,
   node->used = true;
 #endif
   // Note that some of this could be pre-calculated into an "opening radius"
-  double radius = opening_geometry_factor * node->moments.radius / theta;
+  double radius = TreeStuff::opening_geometry_factor * node->moments.radius / theta;
   if(radius < node->moments.radius)
       radius = node->moments.radius;
 
@@ -489,7 +498,7 @@ openCriterionBucket(GenericTreeNode *node,
       return false; // passed both tests: will be a Hex interaction
       }
       else {        // Open as monopole?
-      radius = opening_geometry_factor*node->moments.radius/thetaMono;
+        radius = TreeStuff::opening_geometry_factor*node->moments.radius/thetaMono;
       Sphere<double> sM(node->moments.cm + offset, radius);
       return Space::intersect(bucketNode->boundingBox, sM);
       }
@@ -504,8 +513,8 @@ openCriterionBucket(GenericTreeNode *node,
 //    0 if no intersection
 //    -1 if completely contained
 
-inline int openCriterionNode(GenericTreeNode *node,
-                    GenericTreeNode *myNode,
+inline int openCriterionNode(Tree::GenericTreeNode *node,
+                    Tree::GenericTreeNode *myNode,
                     Vector3D<double> offset,
                     int localIndex // requesting TreePiece
                     ) {
@@ -516,13 +525,13 @@ inline int openCriterionNode(GenericTreeNode *node,
   node->used = true;
 #endif
   // Note that some of this could be pre-calculated into an "opening radius"
-  double radius = opening_geometry_factor * node->moments.radius / theta;
+  double radius = TreeStuff::opening_geometry_factor * node->moments.radius / theta;
   if(radius < node->moments.radius)
       radius = node->moments.radius;
 
   Sphere<double> s(node->moments.cm + offset, radius);
 
-  if(myNode->getType()==Bucket || myNode->getType()==CachedBucket || myNode->getType()==NonLocalBucket){
+  if(myNode->getType()==Tree::Bucket || myNode->getType()==Tree::CachedBucket || myNode->getType()==Tree::NonLocalBucket){
     if(Space::intersect(myNode->boundingBox, s))
         return 1;
     else
@@ -533,7 +542,7 @@ inline int openCriterionNode(GenericTreeNode *node,
             return 0;   // passed both tests: will be a Hex interaction
             }
         else {      // Open as monopole?
-            radius = opening_geometry_factor*node->moments.radius/thetaMono;
+          radius = TreeStuff::opening_geometry_factor*node->moments.radius/thetaMono;
             Sphere<double> sM(node->moments.cm + offset, radius);
             if(Space::intersect(myNode->boundingBox, sM))
             return 1;
@@ -576,3 +585,4 @@ inline int openCriterionNode(GenericTreeNode *node,
     }
 }
 
+#endif

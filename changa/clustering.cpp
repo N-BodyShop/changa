@@ -2,7 +2,7 @@
 
 class KeySorted {
 public:
-  Key key;
+  SFC::Key key;
   int index;
   inline bool operator<(const KeySorted& k) const {
     return key < k.key;
@@ -20,7 +20,7 @@ void clustering(int n, double *weights, CkVec<TaggedVector3D> &centers, int proc
     centers[i].vec.array_form(centerArray);
     
     CkPrintf("keys[%d].index = %d\n", i, centers[i].tag);
-    keys[i].key = makeKey(centerArray);
+    keys[i].key = SFC::makeKey(centerArray);
     keys[i].index = centers[i].tag;
   }
   CkPrintf("Created SFC keys\n");
