@@ -186,7 +186,8 @@ void TreePiece::startIterationSmooth(int am, // the active rung for
   // XXX I don't believe any of the Chunks are used in the smooth walk.
   int oldNumChunks = numChunks;
   dm->getChunks(numChunks, prefetchRoots);
-  //cacheManagerProxy[CkMyPe()].cacheSync(numChunks, prefetchRoots);
+  CkArrayIndexMax idxMax = CkArrayIndex1D(thisIndex);
+  streamingCache[CkMyPe()].cacheSync(numChunks, idxMax, localIndex);
   if (oldNumChunks != numChunks && remainingChunk != NULL) {
     // reallocate remaining chunk to the new size
     delete[] remainingChunk;

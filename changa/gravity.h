@@ -6,6 +6,7 @@
 #include "Space.h"
 
 extern double theta;
+extern double thetaMono;
 
 /*
  ** see (A1) and (A2) of TREESPH: A UNIFICATION OF SPH WITH THE 
@@ -570,7 +571,7 @@ inline int openCriterionNode(Tree::GenericTreeNode *node,
                 return 0;   // passed both tests: will be a Hex interaction
                 }
             else {      // Open as monopole?
-                radius = opening_geometry_factor*node->moments.radius/thetaMono;
+                radius = TreeStuff::opening_geometry_factor*node->moments.radius/thetaMono;
                 Sphere<double> sM(node->moments.cm + offset, radius);
                 if(Space::intersect(myNode->boundingBox, sM))
                 return 1;
