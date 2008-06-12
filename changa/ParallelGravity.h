@@ -868,8 +868,6 @@ public:
 	  delete[] prefetchReq;
           delete[] ewt;
 
-          freeWalkObjects();
-
 	  // recursively delete the entire tree
 	  if (root != NULL) {
 	    root->fullyDelete();

@@ -2915,6 +2915,7 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   // NULL anyway.
   State *state = sPrefetch->getResumeState(-1);
 
+  completedActiveWalks = 0;
   activeWalks.reserve(2);
   prefetchAwi = addActiveWalk(sTopDown,sPrefetch,sPref);
   remoteGravityAwi = addActiveWalk(sTopDown,sGravity,sRemote);
@@ -3105,10 +3106,6 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
 #if COSMO_MCLB > 1 
     CkPrintf("[%d : %d] !proxyValid, calling doAtSync()\n", CkMyPe(), thisIndex);
 #endif 
-    /*
-    if(thisIndex == 0)
-      CkPrintf("don't have proxy: changing prevLARung from %d to %d\n", prevLARung, activeRung);
-      */
     prevLARung = activeRung;
     doAtSync();
   }
@@ -3141,7 +3138,7 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
 
 void TreePiece::doAtSync(){
   if(verbosity > 1)
-    CkPrintf("[%d] TreePiece %d calling AtSync()\n",CkMyPe(),thisIndex);
+      CkPrintf("[%d] TreePiece %d calling AtSync() at %g\n",CkMyPe(),thisIndex, CkWallTimer());
   AtSync();
 }
 
@@ -5079,6 +5076,7 @@ void TreePiece::freeWalkObjects(){
 
 void TreePiece::markWalkDone() {
   if (++completedActiveWalks == activeWalks.size()) {
+    freeWalkObjects(); // XXX this might be broken for smooth
     contribute(0, 0, CkReduction::concat, callback);
   }
 }
