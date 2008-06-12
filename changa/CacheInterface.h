@@ -26,7 +26,7 @@ public:
   void writeback(CkArrayIndexMax&, CkCacheKey, void *);
   int size(void *);
   
-  static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, u_int64_t, void*, int);
+  static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, CmiUInt8, void*, int);
 };
 
 /*********************************************************
@@ -43,7 +43,7 @@ public:
   void writeback(CkArrayIndexMax&, CkCacheKey, void *);
   int size(void *);
   
-  static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, u_int64_t, void*, int);
+  static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, CmiUInt8, void*, int);
 };
 
 #endif

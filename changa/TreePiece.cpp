@@ -3941,7 +3941,7 @@ GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key, int 
     //GenericTreeNode
     //*res=localCache->requestNode(thisIndex,remoteIndex,chunk,key,reqID,isPrefetch,awi);
     CProxyElement_ArrayElement thisElement(thisProxy[thisIndex]);
-    CkCacheRequestorData request(thisElement, &EntryTypeGravityNode::callback, (((u_int64_t)awi)<<32)+reqID);
+    CkCacheRequestorData request(thisElement, &EntryTypeGravityNode::callback, (((CmiUInt8)awi)<<32)+reqID);
     CkArrayIndexMax remIdx = CkArrayIndex1D(remoteIndex);
     GenericTreeNode *res = (GenericTreeNode *) streamingCache[CkMyPe()].requestData(key,remIdx,chunk,&gravityNodeEntry,request);
     if(!res){

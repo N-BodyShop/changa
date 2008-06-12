@@ -30,7 +30,7 @@ namespace Tree {
       node into the tree, all the bits at its right describe the path of this
       node into the tree, and the bits at its left are clearly 0 and unused.
    */
-  typedef u_int64_t NodeKey;
+  typedef CmiUInt8 NodeKey;
 
   /// This enumeration determines the different types of node a GenericTreeNode can be
   enum NodeType {
@@ -59,7 +59,7 @@ namespace Tree {
   protected:
     NodeType myType;
     NodeKey key;
-    u_int64_t usedBy;
+    CmiUInt8 usedBy;
 	
     GenericTreeNode() : myType(Invalid), key(0), parent(0), firstParticle(0), lastParticle(0), remoteIndex(0), usedBy(0) {
 #if COSMO_STATS > 0
@@ -148,8 +148,8 @@ namespace Tree {
     
     // these two functions are used to track the communication between objects:
     // a nodes is marked usedBy when a local TreePiece has touched it
-    void markUsedBy(int index) { usedBy |= (((u_int64_t)1) << index); }
-    bool isUsedBy(int index) { return (usedBy & (((u_int64_t)1) << index)); }
+    void markUsedBy(int index) { usedBy |= (((CmiUInt8)1) << index); }
+    bool isUsedBy(int index) { return (usedBy & (((CmiUInt8)1) << index)); }
 
     /// construct the children of the "this" node following the given logical
     /// criteria (Oct/Orb)
