@@ -3,6 +3,8 @@
 #include "ParallelGravity.h"
 
 class State {
+  public:
+  CkVec<CkVec<int> > counterArrays;
 };
 
 class DoubleWalkState : public State {

@@ -27,7 +27,7 @@ public:
     NearNeighborState(int nParts) {
 	Qs = new (std::priority_queue<pqSmoothNode>[nParts+2]);
 	}
-    ~NearNeighborState() { delete Qs; }
+    ~NearNeighborState() { delete [] Qs; }
 };
 
 class SmoothCompute : public Compute 
@@ -38,25 +38,40 @@ class SmoothCompute : public Compute
 		       ExternalGravityParticle *p,  // Particle to test
 		       GenericTreeNode *node, // bucket
 		       GravityParticle *particles, // local particle data
-		       Vector3D<double> offset
+		       Vector3D<double> offset,
+                       State *state
 		       ) ;
+    // XXX jetley - added new member. needed in getNewState() to call initsmoothprioqueue and also to get numBuckets and myNumParticles
+    // set in constructor
+    TreePiece *tp;
     
 public:
- SmoothCompute(TreePiece *tp, void (*fcn)(GravityParticle *p, int nSmooth,
+ SmoothCompute(TreePiece *_tp, void (*fcn)(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList), int nSm)
      : Compute(Smooth){
 	nSmooth = nSm;
 	fcnSmooth = fcn;
+        tp = _tp;       // needed in getNewState()
+
+        // This is now done in getNewState()
+        // We call the constructor using nSmooth, but create myNumParticles+2
+        // queues, one for each particle in TP, plus change. Then, for each
+        // bucket, we call ispq(bucket), and prime the queue corresponding to
+        // each particle in bucket with some particles.
+        /*
 	state = new NearNeighborState(tp->myNumParticles+2);
 	for (int j=0; j<tp->numBuckets; ++j) {
 	    initSmoothPrioQueue(tp, j);
 	    }
+        */
 	}
-    ~SmoothCompute() { delete state;}
+        // XXX - no state member anymore. - but where is allocated state deleted now? 
+    ~SmoothCompute() { //delete state;
+    }
 	    
-    void initSmoothPrioQueue(TreePiece *tp, int iBucket) ;
+    void initSmoothPrioQueue(int iBucket, State *state) ;
 
-    bool openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID);
+    bool openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
     
     int doWork(GenericTreeNode *node,
 	       TreeWalk *tw,
@@ -68,8 +83,15 @@ public:
     int startNodeProcessEvent(TreePiece *owner){}
     int finishNodeProcessEvent(TreePiece *owner){}
     int nodeMissedEvent(TreePiece *owner, int chunk) {}
-    State *getResumeState(int bucketIdx);
-    void walkDone() ;
+    //State *getResumeState(int bucketIdx);
+    void walkDone(State *state) ;
+
+
+    // this function is used to allocate and initialize a new state object
+    // these operations were earlier carried out in the constructor of the
+    // class.
+    State *getNewState();
+
     };
 
 void Density(GravityParticle *p,int nSmooth,pqSmoothNode *nnList);

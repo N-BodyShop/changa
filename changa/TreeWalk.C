@@ -72,12 +72,7 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
       GenericTreeNode *child = node->getChildren(i);
       currentGlobalKey = node->getChildKey(i);
 
-      comp->startNodeProcessEvent(ownerTP);
-      /*
-      if(comp->getSelfType() == Prefetch){
-        ownerTP->incPrefetchWaiting();
-      }
-      */
+      comp->startNodeProcessEvent(state);
       
       // check whether child is NULL and get from cache if necessary/possible
       if(child == NULL){       
@@ -103,12 +98,7 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
 #if CHANGA_REFACTOR_DEBUG > 2
           CkPrintf("[%d]: child not found in cache\n", ownerTP->getIndex());
 #endif
-          comp->nodeMissedEvent(ownerTP, chunk);
-          /*
-          if(comp->getSelfType() == Gravity && comp->getOptType() == Remote){
-            ownerTP->addToRemainingChunk(chunk, +1);
-          }
-          */
+          comp->nodeMissedEvent(chunk, state);
 #ifdef CHANGA_REFACTOR_WALKCHECK
           if(doprint){
             string s;
@@ -136,15 +126,7 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
     }// for each child
   }// if KEEP
   //else // don't need the node anymore, return up the tree 
-   // return;
-  comp->finishNodeProcessEvent(ownerTP);
-  /*
-  if(comp->getSelfType() == Prefetch){
-    if(ownerTP->decPrefetchWaiting() == 0){
-      ownerTP->startRemoteChunk();
-    }    
-  }
-  */
+  comp->finishNodeProcessEvent(ownerTP, state);
   return;
 }
 
@@ -160,6 +142,7 @@ void TopDownTreeWalk::reset(){
 // another reason the bucket isn't passed as an argument to this method
 // is that TopDownTreeWalk should constrain itself to work only for compute
 // objects representing buckets of particles.
+/*
 bool TopDownTreeWalk::ancestorCheck(GenericTreeNode *node, int reqID){
   GenericTreeNode *ancestor;
   CkAssert(comp != NULL);
@@ -176,6 +159,7 @@ bool TopDownTreeWalk::ancestorCheck(GenericTreeNode *node, int reqID){
   }
   return false;
 }
+*/
 
 /*
 void DoubleWalk::walk(GenericTreeNode *startNode, State *_state, int reqID){

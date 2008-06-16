@@ -367,6 +367,7 @@ class TreePiece : public CBase_TreePiece {
    Compute *sGravity, *sPrefetch;
    Compute *sSmooth;
    Opt *sLocal, *sRemote, *sPref;
+   State *sPrefetchState, *sLocalGravityState, *sRemoteGravityState, *sSmoothState;
    Opt *optSmooth;
    int bSmoothing;		/* XXX This is a hack TRQ should be
 				   deleted with a proper
@@ -380,7 +381,7 @@ class TreePiece : public CBase_TreePiece {
    int smoothAwi;
 
  public:
-        int addActiveWalk(TreeWalk *tw, Compute *c, Opt *o);
+        int addActiveWalk(TreeWalk *tw, Compute *c, Opt *o, State *s);
 
         void markWalkDone();
         

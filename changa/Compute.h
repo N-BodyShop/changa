@@ -2,6 +2,7 @@
 #define __COMPUTE_H__
 
 #include "codes.h"
+class State;
 #include "State.h"
 
 /* File defines classes for objects that encapsulate computation
@@ -9,7 +10,6 @@
 
 class TreeWalk;
 class Opt;
-class State;
 
 // this is the computeEntity for PrefetchComputes
 // it holds an array of prefetch root bounding boxes
@@ -24,13 +24,13 @@ struct PrefetchRequestStruct{
 /* Computes */
 class Compute{
   protected: 
-  State *state;
+  //State *state;
   Opt *opt;
   void *computeEntity;
   int activeRung;
   ComputeType type;
 
-  Compute(ComputeType t) : type(t), state(0){}
+  Compute(ComputeType t) : type(t) /*state(0)*/{}
 
   public: 
   void setOpt(Opt *opt);
@@ -39,7 +39,7 @@ class Compute{
   // which will have within it the checklist, clist and plist
   virtual int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi) = 0;
   virtual bool openCriterion(TreePiece *ownerTP, 
-                            GenericTreeNode *node, int reqID) = 0;
+                            GenericTreeNode *node, int reqID, State *state) = 0;
   // TreeWalk will call this when a request is sent to the CacheManager for
   // a tree node on the Compute's behalf
   // By default, nothing is done.
@@ -57,13 +57,15 @@ class Compute{
   // Compute object from the TreeWalk that certain
   // events have taken place - the Compute reacts
   // accordingly.
-  virtual int startNodeProcessEvent(TreePiece *owner) = 0;
-  virtual int finishNodeProcessEvent(TreePiece *owner) = 0;
-  virtual int nodeMissedEvent(TreePiece *owner, int chunk) = 0;
+  virtual int startNodeProcessEvent(State *state) {}
+  virtual int finishNodeProcessEvent(TreePiece *owner, State *state) {}
+  //virtual int nodeMissedEvent(TreePiece *owner, int chunk) = 0;
+  virtual int nodeMissedEvent(int chunk, State *state) {}
+  virtual int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket){}
   virtual void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp){}
 
   virtual ~Compute(){}
-  virtual void walkDone(){}
+  virtual void walkDone(State *state){}
   virtual void deleteComputeEntity(){}
   virtual void setComputeEntity(void *ce){
     computeEntity = ce;
@@ -75,6 +77,7 @@ class Compute{
   // Defaults to returning 0 for each bucket - expected behaviour in 
   // Gravity and Prefetch computes
   virtual State *getResumeState(int bucketIdx);
+  virtual State *getNewState(); 
 };
 
 class GravityCompute : public Compute{
@@ -86,18 +89,18 @@ class GravityCompute : public Compute{
   
   int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi);
 
-  bool openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID);
+  bool openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
   int computeParticleForces(TreePiece *owner, GenericTreeNode *node, ExternalGravityParticle *part, int reqID);
   int computeNodeForces(TreePiece *owner, GenericTreeNode *nd, int reqID);
 
   // book keeping on notifications
-  int startNodeProcessEvent(TreePiece *owner){}
-  int finishNodeProcessEvent(TreePiece *owner){}
-  int nodeMissedEvent(TreePiece *owner, int chunk);
+  int nodeMissedEvent(int chunk, State *state);
+  int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
   
   void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp);
 
   void reassoc(void *cE, int activeRung, Opt *o);
+  State *getNewState();
 
 };
 
@@ -108,16 +111,14 @@ class ListCompute : public Compute{
   
   int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi);
 
-  bool openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID);
+  bool openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqIDD, State *state);
 
   void addNodeToList(GenericTreeNode *, ListState *);
   void addParticlesToList(ExternalGravityParticle *, int n, ListState *);
   void addParticlesToList(GravityParticle *, int n, ListState *);
 
   // book keeping on notifications
-  int startNodeProcessEvent(TreePiece *owner){}
-  int finishNodeProcessEvent(TreePiece *owner){}
-  int nodeMissedEvent(TreePiece *owner, int chunk);
+  int nodeMissedEvent(int chunk, State *state);
 };
 
 class PrefetchCompute : public Compute{
@@ -127,32 +128,15 @@ class PrefetchCompute : public Compute{
     computeEntity = 0;
   }
   int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi);
-  bool openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID);
+  bool openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqIDD, State *state);
 
   // book-keeping on notifications
-  int startNodeProcessEvent(TreePiece *owner);
-  int finishNodeProcessEvent(TreePiece *owner);
-  int nodeMissedEvent(TreePiece *owner, int chunk){}
-
-  //void init(void *cE, int activeRung, Opt *opt);
+  int startNodeProcessEvent(State *state);
+  int finishNodeProcessEvent(TreePiece *owner, State *state);
 
   void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp);
-  void deleteComputeEntity(){
-  }
-  ~PrefetchCompute(){
-  }
-  /*
-  void deleteComputeEntity(){
-    delete (PrefetchRequestStruct *)computeEntity;
-    CkPrintf("PRS: DELETE\n");
-    computeEntity = 0;
-  }
-  ~PrefetchCompute(){
-    if(computeEntity != 0)
-      deleteComputeEntity();
-  }
-  */
-  //void walkDone();
+  
+  State *getNewState();
 };
 
 #endif

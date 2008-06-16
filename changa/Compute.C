@@ -23,10 +23,40 @@ void Compute::init(void *buck, int ar, Opt *o){
   computeEntity = buck;
   activeRung = ar;
   opt = o;
+
+ 
 }
 
 State *Compute::getResumeState(int bucketIdx){
   return 0;
+}
+
+State *Compute::getNewState(){
+  return 0;
+}
+
+State *GravityCompute::getNewState(){
+  State *s = new State();
+  if(getOptType() == Remote){
+    // 2 arrays of counters 
+    // 0. numAdditionalRequests[] - sized numBuckets, init to numChunks
+    // 1. remainingChunk[] - sized numChunks
+    s->counterArrays.reserve(2);
+  }
+  else if(getOptType() == Local){
+    // 0. local component of numAdditionalBuckets, init to 1
+    s->counterArrays.reserve(1);
+  }
+  return s;
+}
+
+State *PrefetchCompute::getNewState(){
+  State *s = new State();
+  // prefetchWaiting
+  s->counterArrays.reserve(1);
+  s->counterArrays[0].reserve(1);
+  // no per-bucket counters
+  return s;
 }
 
 void GravityCompute::reassoc(void *ce, int ar, Opt *o){
@@ -45,32 +75,37 @@ void PrefetchCompute::init(void *buck, int ar, Opt *o){
   opt = o;
 }
 */
-int GravityCompute::nodeMissedEvent(TreePiece *owner, int chunk){
+int GravityCompute::nodeMissedEvent(int chunk, State *state){
   if(getOptType() == Remote){
-    owner->addToRemainingChunk(chunk, +1);
+    //owner->addToRemainingChunk(chunk, +1);
+    state->counterArrays[1][chunk]++;
   }
 }
 
-int PrefetchCompute::startNodeProcessEvent(TreePiece *owner){
-  return owner->incPrefetchWaiting();
+int PrefetchCompute::startNodeProcessEvent(State *state){
+  //return owner->incPrefetchWaiting();
+  state->counterArrays[0][0]++;
+  return state->counterArrays[0][0];
 }
 
-int PrefetchCompute::finishNodeProcessEvent(TreePiece *owner){
-  int save = owner->decPrefetchWaiting();
+int PrefetchCompute::finishNodeProcessEvent(TreePiece *owner, State *state){
+  //int save = owner->decPrefetchWaiting();
+  int save = --state->counterArrays[0][0];
   if(save == 0){
     owner->startRemoteChunk();
   }    
   return save;
 }
 
-int ListCompute::nodeMissedEvent(TreePiece *owner, int chunk){
+int ListCompute::nodeMissedEvent(int chunk, State *state){
   if(getOptType() == Remote){
-    owner->addToRemainingChunk(chunk, +1);
+    //owner->addToRemainingChunk(chunk, +1);
+    state->counterArrays[1][chunk]++;
   }
 }
 
 bool GravityCompute::openCriterion(TreePiece *ownerTP, 
-                          GenericTreeNode *node, int reqID){
+                          GenericTreeNode *node, int reqID, State *state){
   return 
     openCriterionBucket(node,(GenericTreeNode *)computeEntity,ownerTP->decodeOffset(reqID), ownerTP->getIndex());
 }
@@ -83,8 +118,10 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
   Vector3D<double> offset = tp->decodeOffset(reqID);
   int reqIDlist = decodeReqID(reqID);
   CkAssert(num > 0);
-  tp->bucketReqs[reqIDlist].numAdditionalRequests -= num;
-  tp->remainingChunk[chunk] -= num;
+  //tp->bucketReqs[reqIDlist].numAdditionalRequests -= num;
+  state->counterArrays[0][reqIDlist] -= num;
+  //tp->remainingChunk[chunk] -= num;
+  state->counterArrays[1][chunk] -= num;
 
   GenericTreeNode* reqnode = tp->bucketList[reqIDlist];
 
@@ -117,8 +154,8 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
   tp->combineKeys(remoteBucketID,reqIDlist);
 #endif
   tp->finishBucket(reqIDlist);
-  CkAssert(tp->remainingChunk[chunk] >= 0);
-  if (tp->remainingChunk[chunk] == 0) {
+  CkAssert(state->counterArrays[1][chunk] >= 0);
+  if (state->counterArrays[1][chunk] == 0) {
     cacheManagerProxy[CkMyPe()].finishedChunk(chunk, tp->nodeInterRemote[chunk]+tp->particleInterRemote[chunk]);
     if (chunk == tp->numChunks-1) tp->markWalkDone();
   }
@@ -128,8 +165,26 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
 void PrefetchCompute::recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp){
   // when we receive missed particles, we do the same book-keeping
   // as we did when we received a missed node.
-  finishNodeProcessEvent(tp);
+  finishNodeProcessEvent(tp, state);
 }
+
+int GravityCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int reqIDlist){
+  //owner->bucketReqs[reqIDlist].numAdditionalRequests--;
+  state->counterArrays[0][reqIDlist]--;
+  owner->finishBucket(reqIDlist);
+
+  // needn't perform check, because local gravity walks never enter this function at all
+  if(getOptType() == Remote){ 
+    CkAssert(chunk >= 0); 
+    state->counterArrays[1][chunk]--;
+    CkAssert(state->counterArrays[1][chunk] >= 0);
+    if (state->counterArrays[1][chunk] == 0) {
+      streamingCache[CkMyPe()].finishedChunk(chunk, owner->nodeInterRemote[chunk]+owner->particleInterRemote[chunk]);
+      if(chunk == owner->numChunks-1) owner->markWalkDone();
+    }// end if finished with chunk
+  }// end if remote
+}
+
 
 /*
 void PrefetchCompute::walkDone(){
@@ -154,7 +209,7 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
     return DUMP;
   }
   // check opening criterion
-  bool open = openCriterion(tp, node, reqID);
+  bool open = openCriterion(tp, node, reqID, state);
   if(opt == NULL){       
     ckerr << "GravityCompute reqID("<<reqID<<"), isRoot("<<isRoot<<") has NULL opt" << endl;
     CkAbort("aborting");
@@ -267,7 +322,8 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
       CkPrintf("Particles not found in cache\n");
 #endif
       if(getOptType() == Remote){
-        tp->addToRemainingChunk(chunk, node->lastParticle-node->firstParticle+1);
+        //tp->addToRemainingChunk(chunk, node->lastParticle-node->firstParticle+1);
+        state->counterArrays[1][chunk] += node->lastParticle-node->firstParticle+1;
       }
     }   
     return DUMP;
@@ -302,7 +358,7 @@ int GravityCompute::computeNodeForces(TreePiece *ownerTP, GenericTreeNode *node,
 }
 
 bool PrefetchCompute::openCriterion(TreePiece *ownerTP, 
-                          GenericTreeNode *node, int reqID){
+                          GenericTreeNode *node, int reqID, State *state){
   // redundant in this case, because we already have a pointer 
   // to the ownerTP.
   TreePiece *tp = (TreePiece *)computeEntity;
@@ -326,7 +382,7 @@ int PrefetchCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, i
     CkAbort("PrefetchCompute::doWork() given NULL node");
   }
   bool open = false;
-  open = openCriterion(tp, node, reqID);
+  open = openCriterion(tp, node, reqID, state);
 
   int decision = opt->action(open, node);
   if (decision == DUMP || decision == KEEP){
@@ -351,7 +407,8 @@ int PrefetchCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, i
                                                          true, awi);
     
     if(part == NULL){
-      tp->incPrefetchWaiting();
+      //tp->incPrefetchWaiting();
+      state->counterArrays[0][0]++;
 #if CHANGA_REFACTOR_DEBUG > 2
       CkPrintf("[%d] Particles not found in cache\n", tp->getIndex());
 #endif
@@ -400,7 +457,7 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
     return DUMP;
   }
   // check opening criterion
-  bool open = openCriterion(tp, node, reqID);
+  bool open = openCriterion(tp, node, reqID, state);
   if(opt == NULL){       
     ckerr << "ListCompute reqID("<<reqID<<"), isRoot("<<isRoot<<") has NULL opt" << endl;
     CkAbort("aborting");
@@ -497,7 +554,8 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
       CkPrintf("Particles not found in cache\n");
 #endif
       if(getOptType() == Remote){
-        tp->addToRemainingChunk(chunk, node->lastParticle-node->firstParticle+1);
+        //tp->addToRemainingChunk(chunk, node->lastParticle-node->firstParticle+1);
+        state->counterArrays[1][chunk] += node->lastParticle-node->firstParticle+1;
       }
     }   
     return DUMP;
@@ -508,7 +566,7 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
 }
 
 bool ListCompute::openCriterion(TreePiece *ownerTP, 
-                          GenericTreeNode *node, int reqID){
+                          GenericTreeNode *node, int reqID, State *state){
   return 
     openCriterionBucket(node,(GenericTreeNode *)computeEntity,ownerTP->decodeOffset(reqID), ownerTP->getIndex());
 }

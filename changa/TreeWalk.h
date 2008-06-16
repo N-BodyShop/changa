@@ -52,7 +52,7 @@ class TreeWalk{
   virtual void reset() = 0; 
   virtual void walk(GenericTreeNode *node, State *state, int chunk, int reqID, int activeWalkIndex) = 0;
   // beware of using default implementation - always returns 'false'
-  virtual bool ancestorCheck(GenericTreeNode *node, int reqID) {return false;};
+  //virtual bool ancestorCheck(GenericTreeNode *node, int reqID) {return false;};
   WalkType getSelfType() {return type;} 
   //virtual void recvdParticles(ExternalGravityParticles *part, int num, int chunk, int reqID, State *state){}
 
@@ -69,7 +69,7 @@ class TopDownTreeWalk : public TreeWalk{
   TopDownTreeWalk(Compute *_comp, TreePiece *tp):TreeWalk(_comp,tp,TopDown){}
   TopDownTreeWalk() : TreeWalk(TopDown) {}
 
-  bool ancestorCheck(GenericTreeNode *node, int reqID);
+  //bool ancestorCheck(GenericTreeNode *node, int reqID);
   void walk(GenericTreeNode *node, State *state, int chunk, int reqID, int awi);
   void reset();
 };

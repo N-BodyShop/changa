@@ -9,15 +9,16 @@ class Compute;
 class Opt;
 class State;
 
-// Object to record an active walk. Contains pointers to TreeWalk/Compute/Opt (T/C/O) combinations
+// Object to record a type of active walk. Contains pointers to TreeWalk/Compute/Opt (T/C/O) combinations
 class ActiveWalk {
   public:
   TreeWalk *tw;
   Compute *c;
   Opt *o;
+  State *s;
   
-  ActiveWalk(TreeWalk *_tw, Compute *_c, Opt *_o) : 
-      tw(_tw), c(_c), o(_o){}
+  ActiveWalk(TreeWalk *_tw, Compute *_c, Opt *_o, State *state) : 
+      tw(_tw), c(_c), o(_o), s(state){}
   ActiveWalk(){}
 };
 
