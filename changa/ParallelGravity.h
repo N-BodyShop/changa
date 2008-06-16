@@ -838,7 +838,9 @@ public:
           proxySet = false;
           
 	  usesAtSync = CmiTrue;
+	    bSmoothing = 0;  // XXX hack to be deleted --TRQ
 	  //localCache = NULL;
+	  dm = NULL;
 	  bucketReqs = NULL;
 	  numChunks=-1;
 	  prefetchRoots = NULL;

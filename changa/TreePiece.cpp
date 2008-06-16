@@ -518,9 +518,12 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 /// Accept particles from other TreePieces once the sorting has finished
 void TreePiece::acceptSortedParticles(const GravityParticle* particles, const int n) {
 
+  if (dm == NULL) {
+      dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+  }
   if(myPlace == -1) {
     myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
-    assert(myPlace < dm->responsibleIndex.size());
+    CkAssert(myPlace < dm->responsibleIndex.size());
   }
   
   assert(myPlace >= 0 && myPlace < dm->particleCounts.size());
@@ -1217,10 +1220,9 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
 void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   delete m;
 	
-  //printing all particles
-  /*CkPrintf("\n\n\nbuilding tree\n\n\n\n");
-  for(int i=0;i<myNumParticles;i++)
-    CkPrintf("%lf,%lf,%lf\n",myParticles[i].position.x,myParticles[i].position.y,myParticles[i].position.z);*/
+  if (dm == NULL) {
+      dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+  }
 
   if(thisIndex == 0)
     myParticles[0].key = firstPossibleKey;
