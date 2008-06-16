@@ -5089,6 +5089,9 @@ void TreePiece::freeWalkObjects(){
   delete sLocal;
   delete sRemote;
   delete sPref;
+  delete sSmooth;
+  delete optSmooth;
+  // FIXME - is it safe to delete sSmoothState here?
 
   delete sPrefetchState;
   delete sRemoteGravityState;
