@@ -522,6 +522,9 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles, const in
       dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
   }
   if(myPlace == -1) {
+    if (dm == NULL) {
+      dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+    }
     myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
     CkAssert(myPlace < dm->responsibleIndex.size());
   }
