@@ -362,6 +362,7 @@ class TreePiece : public CBase_TreePiece {
    friend class PrefetchCompute;
    friend class GravityCompute;
    friend class SmoothCompute;
+   friend class NearNeighborState;
 
    TreeWalk *sTopDown;
    Compute *sGravity, *sPrefetch;
@@ -369,9 +370,6 @@ class TreePiece : public CBase_TreePiece {
    Opt *sLocal, *sRemote, *sPref;
    State *sPrefetchState, *sLocalGravityState, *sRemoteGravityState, *sSmoothState;
    Opt *optSmooth;
-   int bSmoothing;		/* XXX This is a hack TRQ should be
-				   deleted with a proper
-				   implementation of finishBucket() */
 
    CkVec<ActiveWalk> activeWalks;
    int completedActiveWalks;
@@ -776,7 +774,6 @@ public:
 	  /*if(_cache){	
 	    localCache = cacheManagerProxy.ckLocalBranch();
 	    }*/
-	    bSmoothing = 0;  // XXX hack to be deleted --TRQ
 	  //localCache = NULL;
 	  dm = NULL;
 	  iterationNo=0;
@@ -838,7 +835,6 @@ public:
           proxySet = false;
           
 	  usesAtSync = CmiTrue;
-	    bSmoothing = 0;  // XXX hack to be deleted --TRQ
 	  //localCache = NULL;
 	  dm = NULL;
 	  bucketReqs = NULL;

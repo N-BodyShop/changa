@@ -24,9 +24,12 @@ class pqSmoothNode
 class NearNeighborState: public State {
 public:
     std::priority_queue <pqSmoothNode> *Qs;
+    int nParticlesPending;
+    bool started;
     NearNeighborState(int nParts) {
 	Qs = new (std::priority_queue<pqSmoothNode>[nParts+2]);
 	}
+    void finishBucketSmooth(int iBucket, TreePiece *tp);
     ~NearNeighborState() { delete [] Qs; }
 };
 
@@ -52,20 +55,7 @@ public:
 	nSmooth = nSm;
 	fcnSmooth = fcn;
         tp = _tp;       // needed in getNewState()
-
-        // This is now done in getNewState()
-        // We call the constructor using nSmooth, but create myNumParticles+2
-        // queues, one for each particle in TP, plus change. Then, for each
-        // bucket, we call ispq(bucket), and prime the queue corresponding to
-        // each particle in bucket with some particles.
-        /*
-	state = new NearNeighborState(tp->myNumParticles+2);
-	for (int j=0; j<tp->numBuckets; ++j) {
-	    initSmoothPrioQueue(tp, j);
-	    }
-        */
 	}
-        // XXX - no state member anymore. - but where is allocated state deleted now? 
     ~SmoothCompute() { //delete state;
     }
 	    
@@ -82,10 +72,11 @@ public:
 	       bool &didcomp, int awi);
     int startNodeProcessEvent(TreePiece *owner){}
     int finishNodeProcessEvent(TreePiece *owner){}
-    int nodeMissedEvent(TreePiece *owner, int chunk) {}
-    //State *getResumeState(int bucketIdx);
+    int nodeMissedEvent(int reqID, int chunk, State *state);
+    int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
+    void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,
+			int reqID,State *state, TreePiece *tp);
     void walkDone(State *state) ;
-
 
     // this function is used to allocate and initialize a new state object
     // these operations were earlier carried out in the constructor of the

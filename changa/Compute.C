@@ -75,9 +75,9 @@ void PrefetchCompute::init(void *buck, int ar, Opt *o){
   opt = o;
 }
 */
-int GravityCompute::nodeMissedEvent(int chunk, State *state){
+int GravityCompute::nodeMissedEvent(int reqID, int chunk, State *state){
   if(getOptType() == Remote){
-    //owner->addToRemainingChunk(chunk, +1);
+    state->counterArrays[0][decodeReqID(reqID)]++;
     state->counterArrays[1][chunk]++;
   }
 }
@@ -97,7 +97,7 @@ int PrefetchCompute::finishNodeProcessEvent(TreePiece *owner, State *state){
   return save;
 }
 
-int ListCompute::nodeMissedEvent(int chunk, State *state){
+int ListCompute::nodeMissedEvent(int reqID, int chunk, State *state){
   if(getOptType() == Remote){
     //owner->addToRemainingChunk(chunk, +1);
     state->counterArrays[1][chunk]++;
@@ -322,7 +322,8 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
       CkPrintf("Particles not found in cache\n");
 #endif
       if(getOptType() == Remote){
-        //tp->addToRemainingChunk(chunk, node->lastParticle-node->firstParticle+1);
+        state->counterArrays[0][decodeReqID(reqID)]
+	    += node->lastParticle-node->firstParticle+1;
         state->counterArrays[1][chunk] += node->lastParticle-node->firstParticle+1;
       }
     }   

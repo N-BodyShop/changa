@@ -1682,12 +1682,8 @@ void TreePiece::finishBucket(int iBucket) {
           //req->numAdditionalRequests);
 #endif
 
-  //if(req->finished && req->numAdditionalRequests == 0) {
-  if(req->finished && (sRemoteGravityState->counterArrays[0][iBucket] + sLocalGravityState->counterArrays[0][iBucket]) == 0) {
   // XXX finished means Ewald is done.
-      if(bSmoothing)	// XXX this is a hack TRQ
-	  sSmooth->walkDone(sSmoothState);
-      // compute->walkDone(); XXX this is the right way to do this TRQ
+  if(req->finished && (sRemoteGravityState->counterArrays[0][iBucket] + sLocalGravityState->counterArrays[0][iBucket]) == 0) {
     myNumParticlesPending -= node->particleCount;
 #ifdef COSMO_PRINT
     CkPrintf("[%d] Finished bucket %d, %d particles remaining\n",thisIndex,iBucket,myNumParticlesPending);
@@ -1702,8 +1698,6 @@ void TreePiece::finishBucket(int iBucket) {
     }
     */
     if(started && myNumParticlesPending == 0) {
-      if(bSmoothing)	// XXX this is a hack TRQ
-	  bSmoothing = 0;
       started = false;
       markWalkDone();
       /*
@@ -3962,11 +3956,11 @@ GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key, int 
     CkCacheRequestorData request(thisElement, &EntryTypeGravityNode::callback, (((CmiUInt8)awi)<<32)+reqID);
     CkArrayIndexMax remIdx = CkArrayIndex1D(remoteIndex);
     GenericTreeNode *res = (GenericTreeNode *) streamingCache[CkMyPe()].requestData(key,remIdx,chunk,&gravityNodeEntry,request);
-    if(!res){
-	if(!isPrefetch)
+    //    if(!res){
+	    //if(!isPrefetch)
 	    //bucketReqs[decodeReqID(reqID)].numAdditionalRequests++;
-	    sRemoteGravityState->counterArrays[0][decodeReqID(reqID)]++;
-    }
+	        //sRemoteGravityState->counterArrays[0][decodeReqID(reqID)]++;
+        //}
     return res;
   }
   else{	
@@ -4026,11 +4020,10 @@ ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk
                sRemoteGravityState->counterArrays[0][decodeReqID(reqID)] + sLocalGravityState->counterArrays[0][decodeReqID(reqID)]);
 	       //bucketReqs[decodeReqID(reqID)].numAdditionalRequests);
 #endif
-      if(!isPrefetch) {
-	  CkAssert(reqID >= 0);
-	  //bucketReqs[decodeReqID(reqID)].numAdditionalRequests += end-begin+1;
-          sRemoteGravityState->counterArrays[0][decodeReqID(reqID)] += end-begin+1;
-      }
+      //      if(!isPrefetch) {
+	      //  CkAssert(reqID >= 0);
+      //          sRemoteGravityState->counterArrays[0][decodeReqID(reqID)] += end-begin+1;
+      //}
       return NULL;
     }
     return p->part;

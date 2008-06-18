@@ -41,18 +41,18 @@
 #include "smooth.h"
 #include "Space.h"
 
-/*
-State *SmoothCompute::getResumeState(int bucketIdx){
-  return state;
-}
-*/
-
 // called after constructor, so tp should be set
 State *SmoothCompute::getNewState(){
-  State *state = new NearNeighborState(tp->myNumParticles+2);
+  NearNeighborState *state = new NearNeighborState(tp->myNumParticles+2);
+  state->counterArrays.reserve(1);		   // array to keep track of
+  state->counterArrays[0].reserve(tp->numBuckets); // outstanding requests
   for (int j=0; j<tp->numBuckets; ++j) {
     initSmoothPrioQueue(j, state);
+    state->counterArrays[0][j] = 1;	// so we know that the local
+					// walk is not finished.
   }
+  state->started = true;
+  state->nParticlesPending = tp->myNumParticles;
   return state;
 }
 
@@ -91,7 +91,6 @@ void SmoothCompute::bucketCompare(TreePiece *ownerTP,
                                   State *state
 				  ) 
 {
-    //NearNeighborState *state = (NearNeighborState *)getResumeState(ownerTP->getCurrentBucket());
     NearNeighborState *nstate = (NearNeighborState *)state;
     for(int j = node->firstParticle; j <= node->lastParticle; ++j) {
 	std::priority_queue<pqSmoothNode> *Q = &nstate->Qs[j];
@@ -175,10 +174,8 @@ int SmoothCompute::doWork(GenericTreeNode *node, // Node to test
 	    }
 	else {
 	    // Missed cache; record this
-	    if(getOptType() == Remote){
-		tp->addToRemainingChunk(chunk, node->lastParticle
-					- node->firstParticle+1);
-		}
+	    state->counterArrays[0][decodeReqID(reqID)]
+		+= node->lastParticle - node->firstParticle+1;
 	    }
 	
 	return DUMP;
@@ -188,6 +185,40 @@ int SmoothCompute::doWork(GenericTreeNode *node, // Node to test
 	}
     }
 
+/*
+ * Process particles received from missed Cache request
+ */
+void SmoothCompute::recvdParticles(ExternalGravityParticle *part,
+				   int num, int chunk,int reqID, State *state,
+				   TreePiece *tp){
+
+  Vector3D<double> offset = tp->decodeOffset(reqID);
+  int reqIDlist = decodeReqID(reqID);
+  CkAssert(num > 0);
+  state->counterArrays[0][reqIDlist] -= num;
+
+  GenericTreeNode* reqnode = tp->bucketList[reqIDlist];
+
+  int computed;
+  for(int i=0;i<num;i++){
+    
+      bucketCompare(tp, &part[i], reqnode, tp->myParticles, offset, state);
+      }
+  ((NearNeighborState *)state)->finishBucketSmooth(reqIDlist, tp);
+}
+
+int SmoothCompute::nodeMissedEvent(int reqID, int chunk, State *state)
+{
+    int reqIDlist = decodeReqID(reqID);
+    state->counterArrays[0][reqIDlist]++;
+    }
+
+int SmoothCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state,
+				  int reqIDlist){
+  state->counterArrays[0][reqIDlist]--;
+  ((NearNeighborState *)state)->finishBucketSmooth(reqIDlist, owner);
+}
+
 // Start tree walk and smooth calculation
 
 void TreePiece::startIterationSmooth(int am, // the active rung for
@@ -196,7 +227,6 @@ void TreePiece::startIterationSmooth(int am, // the active rung for
 
   callback = cb;
   activeRung = am;
-  bSmoothing = 1;
 
   // XXX I don't believe any of the Chunks are used in the smooth walk.
   int oldNumChunks = numChunks;
@@ -229,12 +259,8 @@ void TreePiece::startIterationSmooth(int am, // the active rung for
     CkPrintf("Node: %d, TreePiece %d: I have %d buckets\n", CkMyNode(),
     	     thisIndex,numBuckets);
 
-  if (bucketReqs==NULL) bucketReqs = new BucketGravityRequest[numBuckets];
-  
   currentBucket = 0;
   currentRemoteBucket = 0;
-  myNumParticlesPending = myNumParticles;
-  started = true;
 
   initBucketsSmooth();
 
@@ -272,8 +298,6 @@ void TreePiece::initBucketsSmooth() {
 	// node->boundingBox.grow(myParticles[i].position);
       }
     }
-    bucketReqs[j].finished = 1; // no Ewald to perform
-    bucketReqs[j].numAdditionalRequests = 1;
   }
 }
 
@@ -357,7 +381,6 @@ void TreePiece::smoothNextBucket() {
 
   sTopDown->init(sSmooth, this);
   sSmooth->init(bucketList[currentBucket], activeRung, optSmooth);
-  //State *smoothState = sSmooth->getResumeState(currentBucket);
   State *smoothState = activeWalks[smoothAwi].s;
 
   // start the tree walk from the tree built in the cache
@@ -373,8 +396,28 @@ void TreePiece::smoothNextBucket() {
       }
     }
   }
-  bucketReqs[currentBucket].numAdditionalRequests --;
-  finishBucket(currentBucket);
+  smoothState->counterArrays[0][currentBucket]--;
+  ((NearNeighborState *)smoothState)->finishBucketSmooth(currentBucket, this);
+}
+
+void NearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
+  GenericTreeNode *node = tp->bucketList[iBucket];
+
+  if(counterArrays[0][iBucket] == 0) {
+      tp->sSmooth->walkDone(this);
+    nParticlesPending -= node->particleCount;
+    if(started && nParticlesPending == 0) {
+      started = false;
+      cacheManagerProxy[CkMyPe()].finishedChunk(0, 0);
+      tp->markWalkDone();
+      if(verbosity>1)
+	CkPrintf("[%d] TreePiece %d finished smooth with bucket %d\n",CkMyPe(),
+		 tp->thisIndex,iBucket);
+      if(verbosity > 4)
+	ckerr << "TreePiece " << tp->thisIndex << ": My particles are done"
+	     << endl;
+    }
+  }
 }
 
 void SmoothCompute::walkDone(State *state) {

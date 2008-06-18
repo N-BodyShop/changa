@@ -98,7 +98,7 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
 #if CHANGA_REFACTOR_DEBUG > 2
           CkPrintf("[%d]: child not found in cache\n", ownerTP->getIndex());
 #endif
-          comp->nodeMissedEvent(chunk, state);
+          comp->nodeMissedEvent(reqID, chunk, state);
 #ifdef CHANGA_REFACTOR_WALKCHECK
           if(doprint){
             string s;

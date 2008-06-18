@@ -60,7 +60,7 @@ class Compute{
   virtual int startNodeProcessEvent(State *state) {}
   virtual int finishNodeProcessEvent(TreePiece *owner, State *state) {}
   //virtual int nodeMissedEvent(TreePiece *owner, int chunk) = 0;
-  virtual int nodeMissedEvent(int chunk, State *state) {}
+  virtual int nodeMissedEvent(int reqID, int chunk, State *state) {}
   virtual int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket){}
   virtual void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp){}
 
@@ -94,7 +94,7 @@ class GravityCompute : public Compute{
   int computeNodeForces(TreePiece *owner, GenericTreeNode *nd, int reqID);
 
   // book keeping on notifications
-  int nodeMissedEvent(int chunk, State *state);
+  int nodeMissedEvent(int reqID, int chunk, State *state);
   int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
   
   void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp);
@@ -118,7 +118,7 @@ class ListCompute : public Compute{
   void addParticlesToList(GravityParticle *, int n, ListState *);
 
   // book keeping on notifications
-  int nodeMissedEvent(int chunk, State *state);
+  int nodeMissedEvent(int reqID, int chunk, State *state);
 };
 
 class PrefetchCompute : public Compute{
