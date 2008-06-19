@@ -173,10 +173,9 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
       }
     }
 
-    contribute(0, 0, CkReduction::random, *(CkCallback*)msg->getData());
-    delete msg;
-
   }
+  contribute(0, 0, CkReduction::random, *(CkCallback*)msg->getData());
+  delete msg;
 }
 
 Tree::GenericTreeNode *DataManager::buildProcessorTree(int n, Tree::GenericTreeNode **gtn) {
