@@ -76,6 +76,7 @@ public:
     int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
     void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,
 			int reqID,State *state, TreePiece *tp);
+    void reassoc(void *ce, int ar, Opt *o);
     void walkDone(State *state) ;
 
     // this function is used to allocate and initialize a new state object

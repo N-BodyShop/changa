@@ -5079,27 +5079,33 @@ void TreePiece::freeWalkObjects(){
   }
     
   activeWalks.free();
-  //sPrefetch->walkDone(); 
 
   delete sTopDown;
-  delete sGravity;
-  delete sPrefetch;
-  delete sLocal;
-  delete sRemote;
-  delete sPref;
-  delete sSmooth;
-  delete optSmooth;
-  // FIXME - is it safe to delete sSmoothState here?
-
-  delete sPrefetchState;
-  delete sRemoteGravityState;
-  delete sLocalGravityState;
-
+  if(sGravity) {
+      delete sGravity;
+      delete sRemote;
+      delete sRemoteGravityState;
+      delete sLocal;
+      delete sLocalGravityState;
+      sGravity = NULL;
+      }
+  if(sPrefetch) {
+      delete sPrefetch;
+      delete sPref;
+      delete sPrefetchState;
+      sPrefetch = NULL;
+      }
+  if(sSmooth) {
+      delete sSmooth;
+      delete optSmooth;
+      delete sSmoothState;
+      sSmooth = NULL;
+      }
 }
 
 void TreePiece::markWalkDone() {
   if (++completedActiveWalks == activeWalks.size()) {
-    freeWalkObjects(); // XXX this might be broken for smooth
+    freeWalkObjects();
     contribute(0, 0, CkReduction::concat, callback);
   }
 }

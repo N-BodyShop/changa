@@ -186,6 +186,15 @@ int SmoothCompute::doWork(GenericTreeNode *node, // Node to test
     }
 
 /*
+ * reassociate bucket
+ */
+void SmoothCompute::reassoc(void *ce, int ar, Opt *o){
+  computeEntity = ce; 
+  activeRung = ar;
+  opt = o;
+}
+
+/*
  * Process particles received from missed Cache request
  */
 void SmoothCompute::recvdParticles(ExternalGravityParticle *part,
@@ -273,6 +282,7 @@ void TreePiece::startIterationSmooth(int am, // the active rung for
   sSmoothState = sSmooth->getNewState();
   optSmooth = new SmoothOpt;
 
+  completedActiveWalks = 0;	// XXX Potential race with Gravity Walk
   smoothAwi = addActiveWalk(sTopDown,sSmooth,optSmooth,sSmoothState);
 
   thisProxy[thisIndex].calculateSmoothLocal();

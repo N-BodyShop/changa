@@ -766,8 +766,10 @@ private:
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 	
 public:
-	
-	TreePiece(unsigned int numPieces) : numTreePieces(numPieces), pieces(thisArrayID), started(false), root(0), proxyValid(false), proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0), sPrefetch(0), sLocal(0), sRemote(0), sPref(0){
+ TreePiece(unsigned int numPieces) : numTreePieces(numPieces),
+	    pieces(thisArrayID), started(false), root(0), proxyValid(false),
+	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
+	    sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0) {
 	  //CkPrintf("[%d] TreePiece created\n",thisIndex);
 	  // ComlibDelegateProxy(&streamingProxy);
 	  // the lookup of localCache is done in startOctTreeBuild, when we also markPresence
@@ -843,6 +845,10 @@ public:
 	  remainingChunk = NULL;
           ewt = NULL;
 
+	  sGravity = NULL;
+	  sPrefetch = NULL;
+	  sSmooth = NULL;
+	  
           incomingParticles = NULL;
           incomingParticlesArrived = 0;
           incomingParticlesSelf = false;
