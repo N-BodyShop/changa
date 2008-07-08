@@ -44,8 +44,6 @@ class SmoothCompute : public Compute
 		       Vector3D<double> offset,
                        State *state
 		       ) ;
-    // XXX jetley - added new member. needed in getNewState() to call initsmoothprioqueue and also to get numBuckets and myNumParticles
-    // set in constructor
     TreePiece *tp;
     
 public:
@@ -87,6 +85,7 @@ public:
     };
 
 void Density(GravityParticle *p,int nSmooth,pqSmoothNode *nnList);
+void DensitySym(GravityParticle *p,int nSmooth,pqSmoothNode *nnList);
 
 class SmoothOpt : public Opt{
   public:

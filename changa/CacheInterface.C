@@ -59,6 +59,64 @@ void TreePiece::fillRequestParticles(CkCacheRequestMsg *msg) {
   delete msg;
 }
 
+// Methods for "combiner" cache
+
+EntryTypeSmoothParticle::EntryTypeSmoothParticle() {
+  CkCacheFillMsg msg(0);
+  offset = ((char*)&msg.data) - ((char*)&msg);
+}
+
+void * EntryTypeSmoothParticle::request(CkArrayIndexMax& idx, CkCacheKey key) {
+  CkCacheRequestMsg *msg = new (32) CkCacheRequestMsg(key, CkMyPe());
+  *(int*)CkPriorityPtr(msg) = -100000000;
+  CkSetQueueing(msg, CK_QUEUEING_IFIFO);
+  treeProxy[*idx.data()].fillRequestParticles(msg);
+  return NULL;
+}
+
+void * EntryTypeSmoothParticle::unpack(CkCacheFillMsg *msg, int chunk, CkArrayIndexMax &from) {
+  CacheParticle *data = (CacheParticle*) msg->data;
+  data->msg = msg;
+  return (void*) data;
+}
+
+void EntryTypeSmoothParticle::writeback(CkArrayIndexMax& idx, CkCacheKey k, void *data) {
+    // Send the message back to the original TreePiece.
+    treeProxy[*idx.data()].flushSmoothParticles(((CacheParticle*)data)->msg);
+}
+
+int EntryTypeSmoothParticle::size(void * data) {
+  CacheParticle *p = (CacheParticle *) data;
+  return sizeof(CacheParticle) + (p->end - p->begin) * sizeof(ExternalGravityParticle);
+}
+
+void EntryTypeSmoothParticle::callback(CkArrayID requestorID, CkArrayIndexMax &requestorIdx, CkCacheKey key, CmiUInt8 userData, void *data, int chunk) {
+  CkArrayIndex1D idx(requestorIdx.data()[0]);
+  CProxyElement_TreePiece elem(requestorID, idx);
+  CacheParticle *cp = (CacheParticle *)data;
+  int reqID = (int)(userData & 0xFFFFFFFF);
+  int awi = userData >> 32;
+  elem.receiveParticlesCallback(cp->part, cp->end - cp->begin + 1, chunk, reqID, key, awi);
+}
+
+void combDensity(GravityParticle *p1, ExternalGravityParticle *p2)
+{
+	p1->fDensity += p2->fDensity;
+	}
+
+void TreePiece::flushSmoothParticles(CkCacheFillMsg *msg) {
+  // the key used in the cache is shifted to the left of 1, this makes
+  // a clear distinction between nodes and particles
+  const GenericTreeNode *bucket = lookupNode(msg->key >> 1);
+  
+  CacheParticle *data = (CacheParticle*)msg->data;
+  
+  for (int i=0; i<bucket->particleCount; ++i) {
+      combDensity(&myParticles[i+bucket->firstParticle], &data->part[i]);
+  }
+  
+  delete msg;
+}
 
 EntryTypeGravityNode::EntryTypeGravityNode() {
   BinaryTreeNode node;

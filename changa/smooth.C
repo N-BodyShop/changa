@@ -82,6 +82,7 @@ bool SmoothCompute::openCriterion(TreePiece *ownerTP,
  * Test a given particle against all the priority queues in the
  * bucket.
  */
+
 void SmoothCompute::bucketCompare(TreePiece *ownerTP,
 				  ExternalGravityParticle *p,  // Particle to test
 				  GenericTreeNode *node, // bucket
@@ -156,7 +157,7 @@ int SmoothCompute::doWork(GenericTreeNode *node, // Node to test
 	}
     else if(action == KEEP_REMOTE_BUCKET) {
 	ExternalGravityParticle *part;
-	part = tp->requestParticles(node->getKey(), 
+	part = tp->requestSmoothParticles(node->getKey(), 
 				    chunk, 
 				    node->remoteIndex, 
 				    node->firstParticle, 
@@ -208,9 +209,11 @@ void SmoothCompute::recvdParticles(ExternalGravityParticle *part,
 
   GenericTreeNode* reqnode = tp->bucketList[reqIDlist];
 
-  int computed;
   for(int i=0;i<num;i++){
-    
+      // XXX make the clearing a user supplied function
+      // XXX also: this will miss particles requested as part of a
+      // "cache line"  Probably should go deeper in the cache mechanism.
+      part[i].fDensity = 0.0;	// Clear cached copy
       bucketCompare(tp, &part[i], reqnode, tp->myParticles, offset, state);
       }
   ((NearNeighborState *)state)->finishBucketSmooth(reqIDlist, tp);
@@ -277,7 +280,7 @@ void TreePiece::startIterationSmooth(int am, // the active rung for
 
   // Create objects that are reused by all buckets
   sTopDown = new TopDownTreeWalk;
-  sSmooth = new SmoothCompute(this, Density, nSmooth);
+  sSmooth = new SmoothCompute(this, DensitySym, nSmooth);
   // creates and initializes nearneighborstate object
   sSmoothState = sSmooth->getNewState();
   optSmooth = new SmoothOpt;
@@ -479,9 +482,9 @@ inline double DKERNEL(double ar2)
     return adk;
     }
 /*
- * XXX Place holder from PKDGRAV
+ * Functions from PKDGRAV
  */
-void Density(GravityParticle *p,int nSmooth,pqSmoothNode *nnList)
+void Density(GravityParticle *p,int nSmooth, pqSmoothNode *nnList)
 {
 	double ih2,r2,rs,fDensity;
 	int i;
@@ -495,4 +498,23 @@ void Density(GravityParticle *p,int nSmooth,pqSmoothNode *nnList)
 		fDensity += rs*nnList[i].p->mass;
 		}
 	p->fDensity = M_1_PI*sqrt(ih2)*ih2*fDensity; 
+	}
+
+void DensitySym(GravityParticle *p,int nSmooth, pqSmoothNode *nnList)
+{
+	ExternalGravityParticle *q;
+	double fNorm,ih2,r2,rs;
+	int i;
+
+	ih2 = invH2(p);
+	fNorm = 0.5*M_1_PI*sqrt(ih2)*ih2;
+	for (i=0;i<nSmooth;++i) {
+		double fDist2 = nnList[i].fKey*nnList[i].fKey;
+		r2 = fDist2*ih2;
+		rs = KERNEL(r2);
+		rs *= fNorm;
+		q = nnList[i].p;
+		p->fDensity += rs*q->mass;
+		q->fDensity += rs*p->mass;
+		}
 	}

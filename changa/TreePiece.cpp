@@ -4032,6 +4032,25 @@ ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk
   }
 };
 
+ExternalGravityParticle *
+TreePiece::requestSmoothParticles(Tree::NodeKey key,int chunk,int remoteIndex,
+				  int begin,int end,int reqID, int awi,
+				  bool isPrefetch) {
+  if (_cache) {
+    CProxyElement_ArrayElement thisElement(thisProxy[thisIndex]);
+    CkCacheRequestorData request(thisElement, &EntryTypeSmoothParticle::callback, (((u_int64_t)awi)<<32)+reqID);
+    CkArrayIndexMax remIdx = CkArrayIndex1D(remoteIndex);
+    CkCacheKey ckey = key<<1;
+    CacheParticle *p = (CacheParticle *) streamingCache[CkMyPe()].requestData(ckey,remIdx,chunk,&smoothParticleEntry,request);
+    if (p == NULL) {
+      return NULL;
+    }
+    return p->part;
+  } else {
+    CkAbort("Non cached version not anymore supported, feel free to fix it!");
+  }
+};
+
 void TreePiece::receiveParticles(ExternalGravityParticle *part,int num,int chunk,
 				 unsigned int reqID, Tree::NodeKey remoteBucketID)
 {

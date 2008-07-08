@@ -609,6 +609,7 @@ private:
 
 	// Entries used for the CacheManager
 	EntryTypeGravityParticle gravityParticleEntry;
+	EntryTypeSmoothParticle smoothParticleEntry;
 	EntryTypeGravityNode gravityNodeEntry;
 	
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK
@@ -1075,10 +1076,12 @@ public:
 #endif
   
         ExternalGravityParticle *requestParticles(Tree::NodeKey key,int chunk,int remoteIndex,int begin,int end,int reqID, int awi, bool isPrefetch=false);
-        //ExternalGravityParticle *requestParticles(const Tree::NodeKey &key,int chunk,int remoteIndex,int begin,int end,int reqID, bool isPrefetch=false);
+	ExternalGravityParticle
+	    *requestSmoothParticles(Tree::NodeKey key, int chunk,
+				    int remoteIndex, int begin,int end,
+				    int reqID, int awi, bool isPrefetch);
 	void fillRequestParticles(CkCacheRequestMsg *msg);
-	//void fillRequestParticles(Tree::NodeKey key,int retIndex, int begin,int end,
-	//			  unsigned int reqID);
+	void flushSmoothParticles(CkCacheFillMsg *msg);
 	void receiveParticles(ExternalGravityParticle *part,int num,int chunk,
 			      unsigned int reqID, Tree::NodeKey remoteBucketID);
 	void receiveParticles_inline(ExternalGravityParticle *part,int num,int chunk,

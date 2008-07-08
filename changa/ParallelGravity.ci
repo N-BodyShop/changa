@@ -187,6 +187,7 @@ mainmodule ParallelGravity {
 		//entry void receiveParticle(GravityParticle part,
 		//			   BucketGravityRequest &req);
 		entry [expedited] void fillRequestParticles(CkCacheRequestMsg *msg);
+		entry void flushSmoothParticles(CkCacheFillMsg *msg);
         entry [local] void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi);
 		//entry void fillRequestParticles(SFC::Key key,int retIndex, int begin,int end,
 		//				unsigned int reqID);

@@ -43,11 +43,13 @@ class ExternalGravityParticle {
   double mass;
   double soft;
   Vector3D<double> position;
+  double fDensity;
 
   void pup(PUP::er &p) {
     p | position;
     p | mass;
     p | soft;
+    p | fDensity;
   }
 };
 
@@ -58,7 +60,6 @@ public:
 	Vector3D<double> treeAcceleration;
 	double potential;
 	double dtGrav;
-	double fDensity;
 	double fBall;
 	int iOrder;		/* input order of particles */
         int rung;  ///< the current rung (greater means faster)
@@ -88,7 +89,6 @@ public:
           ExternalGravityParticle::pup(p);
           p | key;
           p | velocity;
-	  p | fDensity;
 	  p | fBall;
           p | iOrder;
           p | rung;

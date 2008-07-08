@@ -29,6 +29,18 @@ public:
   static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, CmiUInt8, void*, int);
 };
 
+class EntryTypeSmoothParticle : public CkCacheEntryType {
+  int offset;
+public:
+  EntryTypeSmoothParticle();
+  void * request(CkArrayIndexMax&, CkCacheKey);
+  void * unpack(CkCacheFillMsg *, int, CkArrayIndexMax &);
+  void writeback(CkArrayIndexMax&, CkCacheKey, void *);
+  int size(void *);
+  
+  static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, CmiUInt8, void*, int);
+};
+
 /*********************************************************
  * Gravity interface: Nodes
  *********************************************************/
