@@ -469,7 +469,7 @@ Main::Main(CkArgMsg* m) {
 	treeProxy = pieces;
 
 	// create the CacheManager
-	cacheManagerProxy = CProxy_CkCacheManager::ckNew(pieces.ckLocMgr()->getGroupID(), cacheSize);
+	cacheManagerProxy = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 
 	//create the DataManager
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
