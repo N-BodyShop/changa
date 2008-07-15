@@ -24,6 +24,7 @@ public:
   void * request(CkArrayIndexMax&, CkCacheKey);
   void * unpack(CkCacheFillMsg *, int, CkArrayIndexMax &);
   void writeback(CkArrayIndexMax&, CkCacheKey, void *);
+  void free(void *);
   int size(void *);
   
   static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, CmiUInt8, void*, int);
@@ -36,6 +37,7 @@ public:
   void * request(CkArrayIndexMax&, CkCacheKey);
   void * unpack(CkCacheFillMsg *, int, CkArrayIndexMax &);
   void writeback(CkArrayIndexMax&, CkCacheKey, void *);
+  void free(void *);
   int size(void *);
   
   static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, CmiUInt8, void*, int);
@@ -53,6 +55,7 @@ public:
   void * request(CkArrayIndexMax&, CkCacheKey);
   void * unpack(CkCacheFillMsg *, int, CkArrayIndexMax &);
   void writeback(CkArrayIndexMax&, CkCacheKey, void *);
+  void free(void *);
   int size(void *);
   
   static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, CmiUInt8, void*, int);

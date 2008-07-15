@@ -20,7 +20,9 @@ void * EntryTypeGravityParticle::unpack(CkCacheFillMsg *msg, int chunk, CkArrayI
   return (void*) data;
 }
 
-void EntryTypeGravityParticle::writeback(CkArrayIndexMax& idx, CkCacheKey k, void *data) {
+void EntryTypeGravityParticle::writeback(CkArrayIndexMax& idx, CkCacheKey k, void *data) { }
+
+void EntryTypeGravityParticle::free(void *data) {
   CkFreeMsg(((CacheParticle*)data)->msg);
 }
 
@@ -81,9 +83,12 @@ void * EntryTypeSmoothParticle::unpack(CkCacheFillMsg *msg, int chunk, CkArrayIn
 }
 
 void EntryTypeSmoothParticle::writeback(CkArrayIndexMax& idx, CkCacheKey k, void *data) {
+    // Filippo: since it destroyed the data, should be moved to "free"
     // Send the message back to the original TreePiece.
     treeProxy[*idx.data()].flushSmoothParticles(((CacheParticle*)data)->msg);
 }
+
+void EntryTypeSmoothParticle::free(void *data) { }
 
 int EntryTypeSmoothParticle::size(void * data) {
   CacheParticle *p = (CacheParticle *) data;
@@ -99,10 +104,9 @@ void EntryTypeSmoothParticle::callback(CkArrayID requestorID, CkArrayIndexMax &r
   elem.receiveParticlesCallback(cp->part, cp->end - cp->begin + 1, chunk, reqID, key, awi);
 }
 
-void combDensity(GravityParticle *p1, ExternalGravityParticle *p2)
-{
-	p1->fDensity += p2->fDensity;
-	}
+void combDensity(GravityParticle *p1, ExternalGravityParticle *p2) {
+  p1->fDensity += p2->fDensity;
+}
 
 void TreePiece::flushSmoothParticles(CkCacheFillMsg *msg) {
   // the key used in the cache is shifted to the left of 1, this makes
@@ -183,7 +187,9 @@ void EntryTypeGravityNode::unpackSingle(CkCacheFillMsg *msg, Tree::BinaryTreeNod
   if (!isRoot) cacheManagerProxy[CkMyPe()].recvData(ckey, from, (EntryTypeGravityNode*)this, chunk, (void*)node);
 }
 
-void EntryTypeGravityNode::writeback(CkArrayIndexMax& idx, CkCacheKey k, void *data) {
+void EntryTypeGravityNode::writeback(CkArrayIndexMax& idx, CkCacheKey k, void *data) { }
+
+void EntryTypeGravityNode::free(void *data) {
   CkFreeMsg(*(void **)(((char*)data)-8));
 }
 
