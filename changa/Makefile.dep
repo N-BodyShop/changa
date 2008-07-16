@@ -11,6 +11,7 @@ dumpframe.h \
 DataManager.o: \
 DataManager.cpp \
 ParallelGravity.h \
+ParallelGravity.decl.h \
 config.h \
 ../structures/Vector3D.h \
 ../structures/TypeSelection.h \
@@ -49,6 +50,7 @@ Sorter.o: \
 Sorter.cpp \
 Sorter.h \
 ParallelGravity.h \
+ParallelGravity.decl.h \
 config.h \
 ../structures/Vector3D.h \
 ../structures/TypeSelection.h \
@@ -183,6 +185,7 @@ ParallelGravity.def.h \
 Ewald.o: \
 Ewald.C \
 ParallelGravity.h \
+ParallelGravity.decl.h \
 config.h \
 ../structures/Vector3D.h \
 ../structures/TypeSelection.h \
@@ -316,6 +319,7 @@ MapStructures.h \
 ../structures/Vector3D.h \
 ScaledORBMapBG.h \
 ParallelGravity.h \
+ParallelGravity.decl.h \
 config.h \
 ../structures/tree_xdr.h \
 ../structures/OrientedBox.h \
@@ -352,6 +356,7 @@ MapStructures.h \
 ../structures/Vector3D.h \
 ScaleTranMapBG.h \
 ParallelGravity.h \
+ParallelGravity.decl.h \
 config.h \
 ../structures/tree_xdr.h \
 ../structures/OrientedBox.h \
@@ -457,7 +462,11 @@ TreeWalk.h \
 
 smooth.o:\
 ParallelGravity.h \
+ParallelGravity.decl.h \
 Opt.h \
 DataManager.h \
 ../structures/Space.h \
 smooth.h
+
+CacheInterface.o:\
+ParallelGravity.decl.h
