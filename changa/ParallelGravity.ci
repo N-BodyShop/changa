@@ -102,7 +102,7 @@ mainmodule ParallelGravity {
 		entry void setPeriodic(int nReplicas, double fPeriod,
 				       int bEwald, double fEwCut,
 				       double fEwhCut, int bPeriodic);
-		entry void EwaldInit(double fhCut);
+		entry void EwaldInit();
 		entry void calculateEwald(dummyMsg *m);
 		entry void velScale(double dScale);
 		//entry void markPresence(const CkCallback& cb);

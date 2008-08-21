@@ -280,7 +280,7 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 
 // Set up table for Ewald h (Fourier space) loop
 
-void TreePiece::EwaldInit(double fhCut)
+void TreePiece::EwaldInit()
 {
 	int i,hReps,hx,hy,hz,h2;
 	double alpha,k4,L;
@@ -294,7 +294,7 @@ void TreePiece::EwaldInit(double fhCut)
 	/*
 	 ** Now setup stuff for the h-loop.
 	 */
-	hReps = (int) ceil(fhCut);
+	hReps = (int) ceil(dEwhCut);
 	L = fPeriod.x;
 	alpha = 2.0/L;
 	k4 = M_PI*M_PI/(alpha*alpha*L*L);
@@ -304,11 +304,17 @@ void TreePiece::EwaldInit(double fhCut)
 			for (hz=-hReps;hz<=hReps;++hz) {
 				h2 = hx*hx + hy*hy + hz*hz;
 				if (h2 == 0) continue;
-				if (h2 > fhCut*fhCut) continue;
+				if (h2 > dEwhCut*dEwhCut) continue;
 				if (i == nMaxEwhLoop) {
 				    nMaxEwhLoop *= 2;
-				    ewt = (EWT *)realloc(ewt,nMaxEwhLoop*sizeof(EWT));
-				    assert(ewt != NULL);
+				    /* avoid realloc() */
+				    EWT *ewtTmp = new EWT[nMaxEwhLoop];
+				    assert(ewtTmp != NULL);
+				    for(int j = 0; j < i; j++) {
+					ewtTmp[j] = ewt[j];
+					}
+				    delete[] ewt;
+				    ewt = ewtTmp;
 				    }
 				gam[0] = exp(-k4*h2)/(M_PI*h2*L);
 				gam[1] = 2*M_PI/L*gam[0];

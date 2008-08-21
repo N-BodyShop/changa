@@ -2950,7 +2950,7 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   CkPrintf("[%d]sending message to commence local gravity calculation\n", thisIndex);
 #endif
   thisProxy[thisIndex].calculateGravityLocal();
-  if (bEwald) thisProxy[thisIndex].EwaldInit(dEwhCut);
+  if (bEwald) thisProxy[thisIndex].EwaldInit();
 
   //if(verbosity > 1) {
       int piecesPerPe = numTreePieces/CmiNumPes();
@@ -4517,20 +4517,18 @@ void TreePiece::pup(PUP::er& p) {
   }
   p | nSetupWriteStage;
 
-  //p | theta;
-  //p | thetaMono;
   // Periodic variables
   p | nReplicas;
   p | fPeriod;
   p | bEwald;
   p | fEwCut;
+  p | dEwhCut;
   p | bPeriodic;
   p | nMaxEwhLoop;
   if (p.isUnpacking() && bEwald) {
     ewt = new EWT[nMaxEwhLoop];
   }
 
-  //p | myNumParticlesPending;
   p | prefetchWaiting;
   p | currentPrefetch;
   p | numBuckets;

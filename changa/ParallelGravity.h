@@ -896,7 +896,7 @@ public:
 	void setPeriodic(int nReplicas, double fPeriod, int bEwald,
 			 double fEwCut, double fEwhCut, int bPeriod);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
-	void EwaldInit(double fhCut);
+	void EwaldInit();
 	void calculateEwald(dummyMsg *m);
 	// Scale velocities (needed to convert to canonical momenta for
 	// comoving coordinates.)
