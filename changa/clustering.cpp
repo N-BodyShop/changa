@@ -19,17 +19,15 @@ void clustering(int n, double *weights, CkVec<TaggedVector3D> &centers, int proc
     float centerArray[3];
     centers[i].vec.array_form(centerArray);
     
-    CkPrintf("keys[%d].index = %d\n", i, centers[i].tag);
     keys[i].key = SFC::makeKey(centerArray);
     keys[i].index = centers[i].tag;
   }
-  CkPrintf("Created SFC keys\n");
   sort(keys, keys+n);
-  CkPrintf("Sorted SFC keys\n");
 
   // divide the keys in equal weighted segments
   double sum = 0;
   for (int i=0; i<n; ++i) sum += weights[i];
+  CkAssert(sum > 0.0);
   double increment = sum / procs;
   CkPrintf("sum: %f, increment: %f\n", sum, increment);
   double target = increment;
@@ -43,6 +41,7 @@ void clustering(int n, double *weights, CkVec<TaggedVector3D> &centers, int proc
       cluster ++;
       target += increment;
     }
+    CkAssert(to[keys[i].index] < procs);
   }
 
   peanoKey = saved_peanoKey;
