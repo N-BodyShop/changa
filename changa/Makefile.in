@@ -4,7 +4,7 @@
 #FLAG_DEBUG = -DCOSMO_DEBUG=2       # enable debugging information
 #CACHE_TREE = -DCACHE_TREE          # enable processor tree inside the cache
 #INTERLIST = -DINTERLIST_VER=2      # enable interaction lists
-#HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
+HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
 #CELL = -DINTERLIST_VER=2 -DCELL -DCELL_PART -DCELL_NODE -DCELL_EWALD  # Cell processor offload
 #FLAG_REFACTOR = -DCHANGA_REFACTOR_WALKCHECK #-DCHANGA_REFACTOR_DEBUG=2	# enable refactored code debugging information
 DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST) $(HEXADECAPOLE) $(CELL) $(FLAG_REFACTOR)
