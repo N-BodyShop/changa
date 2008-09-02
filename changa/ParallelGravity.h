@@ -66,7 +66,7 @@ inline void operator|(PUP::er &p,DomainsDec &d) {
 
 #include "GravityParticle.h"
 
-#include "MetisCosmoLB.decl.h"          // jetley - needed for CkIndex_MetisCosmoLB
+#include "MultistepLB.decl.h"          // jetley - needed for CkIndex_MultistepLB
 #include "ParallelGravity.decl.h"
 
 extern CProxy_Main mainChare;

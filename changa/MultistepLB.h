@@ -10,8 +10,12 @@
 */
 /*@{*/
 
-#ifndef _METISCOSMOLB_H_
-#define _METISCOSMOLB_H_
+#ifndef _MULTISTEPLB_H_
+#define _MULTISTEPLB_H_
+
+#define MCLBMS          // multistepping enabled
+#define MCLB_ORBSMOOTH  // orbsmooth for large steps
+#define MCLB_RR         // round robin otherwise
 
 #include "CentralLB.h"
 
@@ -19,10 +23,10 @@
 #include "ScaleTranMapBG.h"
 #include "ScaledORBMapBG.h"
 
-#include "MetisCosmoLB.decl.h"
+#include "MultistepLB.decl.h"
 
-void CreateMetisCosmoLB();
-BaseLB * AllocateMetisCosmoLB();
+void CreateMultistepLB();
+BaseLB * AllocateMultistepLB();
 
 class WeightObject{
   public:
@@ -41,7 +45,7 @@ class WeightObject{
 };
 
 
-class MetisCosmoLB : public CentralLB {
+class MultistepLB : public CentralLB {
 private:
   CmiBool firstRound; 
   CmiBool centroidsAllocated;
@@ -57,8 +61,8 @@ private:
   bool havePhaseData(int phase); 
   void printData(BaseLB::LDStats &stats, int phase, int *revObjMap);
 public:
-  MetisCosmoLB(const CkLBOptions &);
-  MetisCosmoLB(CkMigrateMessage *m):CentralLB(m) { lbname = "MetisCosmoLB"; }
+  MultistepLB(const CkLBOptions &);
+  MultistepLB(CkMigrateMessage *m):CentralLB(m) { lbname = "MultistepLB"; }
   void work(BaseLB::LDStats* stats, int count);
   void receiveCentroids(CkReductionMsg *msg);
   //ScaleTranMapBG map;
@@ -120,6 +124,6 @@ public:
   
 };
 
-#endif /* _METISCOSMOLB */
+#endif /* _MultistepLB */
 
 /*@}*/
