@@ -363,8 +363,10 @@ class TreePiece : public CBase_TreePiece {
    friend class GravityCompute;
    friend class SmoothCompute;
    friend class NearNeighborState;
+   friend class BottomUpTreeWalk;
 
    TreeWalk *sTopDown;
+   TreeWalk *sBottomUp;
    Compute *sGravity, *sPrefetch;
    Compute *sSmooth;
    Opt *sLocal, *sRemote, *sPref;
@@ -1135,6 +1137,7 @@ public:
 
 int decodeReqID(int);
 int encodeOffset(int reqID, int x, int y, int z);
+bool bIsReplica(int reqID);
 void initNodeLock();
 void printGenericTree(GenericTreeNode* node, std::ostream& os) ;
 //bool compBucket(GenericTreeNode *ln,GenericTreeNode *rn);

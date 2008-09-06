@@ -1,5 +1,6 @@
 //#include "codes.h"
 
+#include <stack>
 #include "config.h"
 #include "GenericTreeNode.h"
 #include "ParallelGravity.h"
@@ -134,7 +135,90 @@ void TopDownTreeWalk::reset(){
   return;
 }
 
+//
+// Bottom up treewalk for efficient smooth:
+// check for root (and non periodic) and do local work
+// first.  A Stack of siblings is allocated in the local frame.
+// Once the stack is processed, then all walks are done in the
+// standard "top down" way.
 
+void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
+			    int chunk, int reqID, int awi){
+    int reqIDlist = decodeReqID(reqID);
+    GenericTreeNode *reqnode = ownerTP->bucketList[reqIDlist];
+    int ret;
+    bool didcomp = false;
+    bool isRoot = false;
+    GenericTreeNode *node;
+
+    node = startNode;
+    if(bIsReplica(reqID) || node->getKey() != ownerTP->root->getKey()) {
+	// Do standard top-down walk.
+	if(node == NULL){   // something went wrong here  
+	    ckerr << "BottomUpTreeWalk recvd. null node - chunk("
+		  <<chunk<<"), reqID("<<reqID<<"), isRoot("<<isRoot<<")"
+		  << endl;
+	    CkAbort("TreeWalk");
+	    }
+	currentGlobalKey = node->getKey();
+	// process this node
+	ret = comp->doWork(node, this, state, chunk, reqID, isRoot, didcomp,
+			   awi);
+	if(ret == KEEP){      // descend further down tree
+	    for(int i = 0; i < node->numChildren(); i++){
+		GenericTreeNode *child = node->getChildren(i);
+		currentGlobalKey = node->getChildKey(i);
+
+		comp->startNodeProcessEvent(state);
+      
+		// check whether child is NULL and get from cache if
+		// necessary/possible
+		if(child == NULL){       
+		    // needed to descend, but couldn't because node
+		    // wasn't available
+		    child = ownerTP->nodeMissed(reqID, node->remoteIndex,
+						currentGlobalKey, chunk,
+						comp->getSelfType() == Prefetch,
+						awi);
+		    if(child == NULL){   // missed in cache, skip node for now
+			comp->nodeMissedEvent(reqID, chunk, state);
+			continue;
+			}
+		    } // end check NULL node
+
+		// process children recursively
+		// the next can't be the first node we are processing,
+		// so isRoot = false
+		walk(child, state, chunk, reqID, awi);
+		}// for each child
+	    }// if KEEP
+	// don't need the node anymore, return up the tree 
+	comp->finishNodeProcessEvent(ownerTP, state);
+	return;
+	}
+    std::stack<GenericTreeNode *> nodeStack;
+    while(node != reqnode) {
+	int which = node->whichChild(reqnode->getKey());
+	for(int iChild = 0; iChild < node->numChildren(); iChild++) {
+	    if(iChild != which)
+		nodeStack.push(node->getChildren(iChild));
+	    }
+	node = node->getChildren(which);
+	}
+    // work on the bucket
+    ret = comp->doWork(node, this, state, chunk, reqID, isRoot, didcomp, awi);
+    CkAssert(ret == DUMP);
+
+    while(!nodeStack.empty()) {
+	node = nodeStack.top();
+	walk(node, state, chunk, reqID, awi);
+	nodeStack.pop();
+	}
+}
+ 
+void BottomUpTreeWalk::reset(){
+  return;
+}
 // returns true if an ancestor of 'node' remained unopened in a prior tree walk and was
 // therefore used in computation - helps avoid the duplication of computations 
 // the bucket that is used in this decision belongs to 'comp' and therefore

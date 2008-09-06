@@ -1564,6 +1564,16 @@ Vector3D<double> TreePiece::decodeOffset(int reqID)
     return offset;
     }
 
+bool bIsReplica(int reqID) 
+{
+    int offsetcode = reqID >> 22;
+    int x = (offsetcode & 0x7) - 3;
+    int y = ((offsetcode >> 3) & 0x7) - 3;
+    int z = ((offsetcode >> 6) & 0x7) - 3;
+    
+    return x || y || z;
+    }
+
 int decodeReqID(int reqID) 
 {
     const int offsetmask = 0x1ff << 22;
@@ -5097,8 +5107,8 @@ void TreePiece::freeWalkObjects(){
     
   activeWalks.free();
 
-  delete sTopDown;
   if(sGravity) {
+      delete sTopDown;
       delete sGravity;
       delete sRemote;
       delete sRemoteGravityState;
@@ -5113,6 +5123,7 @@ void TreePiece::freeWalkObjects(){
       sPrefetch = NULL;
       }
   if(sSmooth) {
+      delete sBottomUp;
       delete sSmooth;
       delete optSmooth;
       delete sSmoothState;

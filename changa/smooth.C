@@ -31,7 +31,8 @@
  * the particles in order, and 2) skips the preloaded particles.
  * Another way to avoid the hash table is to start the particle
  * priority queue with a single particle that is known not to be in
- * the final list, e.g. the 33rd closest particle.
+ * the final list, e.g. the 33rd closest particle.  This is what is
+ * done below.
  */
 
 #include "ParallelGravity.h"
@@ -58,7 +59,7 @@ State *SmoothCompute::getNewState(){
 
 /*
  * Opening criterion for the smoothBucket walk.
- * Return true if we must open the bucket.
+ * Return true if we must open the node.
  */
 bool SmoothCompute::openCriterion(TreePiece *ownerTP, 
 				  GenericTreeNode *node, // Node to test
@@ -279,14 +280,15 @@ void TreePiece::startIterationSmooth(int am, // the active rung for
   for (int i=0; i<numChunks; ++i) remainingChunk[i] = myNumParticles;
 
   // Create objects that are reused by all buckets
-  sTopDown = new TopDownTreeWalk;
+  // sTopDown = new TopDownTreeWalk;
+  sBottomUp = new BottomUpTreeWalk;
   sSmooth = new SmoothCompute(this, DensitySym, nSmooth);
   // creates and initializes nearneighborstate object
   sSmoothState = sSmooth->getNewState();
   optSmooth = new SmoothOpt;
 
   completedActiveWalks = 0;	// XXX Potential race with Gravity Walk
-  smoothAwi = addActiveWalk(sTopDown,sSmooth,optSmooth,sSmoothState);
+  smoothAwi = addActiveWalk(sBottomUp,sSmooth,optSmooth,sSmoothState);
 
   thisProxy[thisIndex].calculateSmoothLocal();
 }
@@ -392,7 +394,7 @@ void TreePiece::smoothNextBucket() {
   if(currentBucket >= numBuckets)
     return;
 
-  sTopDown->init(sSmooth, this);
+  sBottomUp->init(sSmooth, this);
   sSmooth->init(bucketList[currentBucket], activeRung, optSmooth);
   State *smoothState = activeWalks[smoothAwi].s;
 
@@ -400,10 +402,14 @@ void TreePiece::smoothNextBucket() {
   if (bucketList[currentBucket]->rungs >= activeRung) {
     for(int cr = 0; cr < numChunks; cr++){
       GenericTreeNode *chunkRoot = dm->chunkRootToNode(prefetchRoots[cr]);
+      sBottomUp->walk(chunkRoot, smoothState, cr,
+		     encodeOffset(currentBucket, 0,0,0), smoothAwi);
       for(int x = -nReplicas; x <= nReplicas; x++) {
         for(int y = -nReplicas; y <= nReplicas; y++) {
           for(int z = -nReplicas; z <= nReplicas; z++) {
-            sTopDown->walk(chunkRoot, smoothState, cr, encodeOffset(currentBucket, x,y,z), smoothAwi);
+	      if(x || y || z)
+		  sBottomUp->walk(chunkRoot, smoothState, cr,
+				 encodeOffset(currentBucket, x,y,z), smoothAwi);
           }
         }
       }

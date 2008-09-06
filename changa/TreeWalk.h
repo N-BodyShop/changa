@@ -74,6 +74,15 @@ class TopDownTreeWalk : public TreeWalk{
   void reset();
 };
 
+class BottomUpTreeWalk : public TreeWalk{ 
+  public: 
+  BottomUpTreeWalk(Compute *_comp, TreePiece *tp):TreeWalk(_comp,tp,BottomUp){}
+  BottomUpTreeWalk() : TreeWalk(BottomUp) {}
+
+  void walk(GenericTreeNode *node, State *state, int chunk, int reqID, int awi);
+  void reset();
+};
+
 /*
 class DoubleWalk : public TreeWalk{
   protected:
