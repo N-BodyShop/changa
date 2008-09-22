@@ -362,11 +362,13 @@ class TreePiece : public CBase_TreePiece {
    friend class PrefetchCompute;
    friend class GravityCompute;
    friend class SmoothCompute;
+   friend class ReSmoothCompute;
    friend class NearNeighborState;
+   friend class ReNearNeighborState;
    friend class BottomUpTreeWalk;
 
    TreeWalk *sTopDown;
-   TreeWalk *sBottomUp;
+   TreeWalk *twSmooth;
    Compute *sGravity, *sPrefetch;
    Compute *sSmooth;
    Opt *sLocal, *sRemote, *sPref;
@@ -747,6 +749,7 @@ private:
 	void initBuckets();
 	void initBucketsSmooth();
 	void smoothNextBucket();
+	void reSmoothNextBucket();
 	/** @brief Initial walk through the tree. It will continue until local
 	 * nodes are found (excluding those coming from the cache). When the
 	 * treewalk is finished it stops and cachedWalkBucketTree will continue
@@ -1017,7 +1020,9 @@ public:
 
 	/// As above but for the Smooth operation
 	void calculateSmoothLocal();
+	void calculateReSmoothLocal();
 	void nextBucketSmooth(dummyMsg *msg);
+	void nextBucketReSmooth(dummyMsg *msg);
 #if INTERLIST_VER > 0
   void preWalkRemoteInterTree(GenericTreeNode *chunkRoot, bool isRoot);
   void walkRemoteInterTree(OffsetNode node, bool isRoot);
@@ -1032,6 +1037,7 @@ public:
   void startIteration(int am, const CkCallback& cb);
   /// As above, but for a smooth operation.
   void startIterationSmooth(int am, const CkCallback& cb);
+  void startIterationReSmooth(int am, const CkCallback& cb);
   
 	/// Function called by the CacheManager to send out request for needed
 	/// remote data, so that the later computation will hit.

@@ -5123,7 +5123,7 @@ void TreePiece::freeWalkObjects(){
       sPrefetch = NULL;
       }
   if(sSmooth) {
-      delete sBottomUp;
+      delete twSmooth;
       delete sSmooth;
       delete optSmooth;
       delete sSmoothState;

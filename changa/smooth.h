@@ -84,6 +84,69 @@ public:
 
     };
 
+// Object to bookkeep a Bucket ReSmooth Walk.  This could be merged
+// with the standard smooth if we changed that to using push_heap()
+// and pop_heap()
+
+class ReNearNeighborState: public State {
+public:
+    std::vector <pqSmoothNode> *Qs;
+    int nParticlesPending;
+    bool started;
+    ReNearNeighborState(int nParts) {
+	Qs = new (std::vector<pqSmoothNode>[nParts+2]);
+	}
+    void finishBucketSmooth(int iBucket, TreePiece *tp);
+    ~ReNearNeighborState() { delete [] Qs; }
+};
+
+class ReSmoothCompute : public Compute 
+{
+    void (*fcnSmooth)(GravityParticle *p, int nSmooth, pqSmoothNode *nList);
+    void bucketCompare(TreePiece *tp,
+		       ExternalGravityParticle *p,  // Particle to test
+		       GenericTreeNode *node, // bucket
+		       GravityParticle *particles, // local particle data
+		       Vector3D<double> offset,
+                       State *state
+		       ) ;
+    TreePiece *tp;
+    
+public:
+ ReSmoothCompute(TreePiece *_tp, void (*fcn)(GravityParticle *p, int nSmooth,
+			   pqSmoothNode *nList))
+     : Compute(Smooth){
+	fcnSmooth = fcn;
+        tp = _tp;       // needed in getNewState()
+	}
+    ~ReSmoothCompute() { //delete state;
+    }
+	    
+    bool openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
+    
+    int doWork(GenericTreeNode *node,
+	       TreeWalk *tw,
+	       State *state,
+	       int chunk,
+	       int reqID,
+	       bool isRoot, 
+	       bool &didcomp, int awi);
+    int startNodeProcessEvent(TreePiece *owner){}
+    int finishNodeProcessEvent(TreePiece *owner){}
+    int nodeMissedEvent(int reqID, int chunk, State *state);
+    int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
+    void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,
+			int reqID,State *state, TreePiece *tp);
+    void reassoc(void *ce, int ar, Opt *o);
+    void walkDone(State *state) ;
+
+    // this function is used to allocate and initialize a new state object
+    // these operations were earlier carried out in the constructor of the
+    // class.
+    State *getNewState();
+
+    };
+
 void Density(GravityParticle *p,int nSmooth,pqSmoothNode *nnList);
 void DensitySym(GravityParticle *p,int nSmooth,pqSmoothNode *nnList);
 

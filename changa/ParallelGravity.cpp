@@ -1035,6 +1035,11 @@ Main::doSimulation()
 	  treeProxy.startIterationSmooth(0, CkCallbackResumeThread());
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
+	  ckout << "Recalculating densities ...";
+	  startTime = CkWallTimer();
+	  treeProxy.startIterationReSmooth(0, CkCallbackResumeThread());
+	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+		<< endl;
 	  }
       
     ckout << "Outputting accelerations and densities ...";

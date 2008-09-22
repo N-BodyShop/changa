@@ -97,6 +97,7 @@ mainmodule ParallelGravity {
 		
 		entry void nextBucket(dummyMsg *m);	
 		entry void nextBucketSmooth(dummyMsg *msg);
+		entry void nextBucketReSmooth(dummyMsg *msg);
 		//entry void registerWithDataManager(const CkGroupID& dataManagerID,
 		//		     		  const CkCallback& cb);
 		entry void setPeriodic(int nReplicas, double fPeriod,
@@ -152,6 +153,7 @@ mainmodule ParallelGravity {
                 
         entry void startIteration(int activeRung, CkCallback &cb);
         entry void startIterationSmooth(int activeRung, CkCallback &cb);
+        entry void startIterationReSmooth(int activeRung, CkCallback &cb);
             
 		//entry void acceptBoundaryNodeContribution(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
 		//entry void acceptBoundaryNode(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
@@ -170,6 +172,7 @@ mainmodule ParallelGravity {
 		entry void calculateGravityRemote(ComputeChunkMsg *msg);
 
 		entry void calculateSmoothLocal();
+		entry void calculateReSmoothLocal();
 
 		//entry void fillRequestBucketTree(BucketGravityRequest req);	
 		//entry void receiveGravityBucketTree(const BucketGravityRequest& req);
