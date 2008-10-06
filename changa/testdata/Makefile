@@ -2,7 +2,7 @@
 N=100000
 
 testdata.tbin: ppartt Makefile
-	ppartt $N -.5 .5 -1 > testdata.tbin
+	./ppartt $N -.5 .5 -1 > testdata.tbin
 
 ppartt: ppartt.c tipsydefs.h
 	$(CC) -o ppartt ppartt.c -lm
