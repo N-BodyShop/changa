@@ -365,8 +365,11 @@ class TreePiece : public CBase_TreePiece {
    friend class PrefetchCompute;
    friend class GravityCompute;
    friend class SmoothCompute;
+   friend class ReSmoothCompute;
    friend class ListCompute;
    friend class NearNeighborState;
+   friend class ReNearNeighborState;
+   friend class BottomUpTreeWalk;
 
    TreeWalk *sTopDown;
 #if INTERLIST_VER > 0
@@ -376,6 +379,20 @@ class TreePiece : public CBase_TreePiece {
    State *sInterListStateLocal, *sInterListStateRemote;
    // clearable, used for resumed walks
    State *sInterListStateRemoteResume;
+
+#ifdef CUDA
+   // nodeArray
+   CkVec<CudaMultipoleMoments> nodeArray;
+   // particleArray
+   CkVec<CompactPartData> partCoreArray;
+   // node inter list
+   // FIXME - should these be multilevel or flattened?
+   CkVec<CkVec<ILCell> > ilcells;
+   // part inter list
+   CkVec<CkVec<ILPart> > ilparts;
+   // bucket markers - array is sized numBuckets+1
+   CkVec<int> bmarks;
+#endif
 
 #endif
    Compute *sGravity, *sPrefetch;
@@ -461,9 +478,7 @@ class TreePiece : public CBase_TreePiece {
 #endif
 
 #if INTERLIST_VER > 0
-        // int numBucketsBeneath(GenericTreeNode *node);
         GenericTreeNode *getStartAncestor(int current, int previous, GenericTreeNode *dflt);
-        GenericTreeNode *findContainingChunkRoot(GenericTreeNode *node);
 #endif
 	/// convert a key to a node using the nodeLookupTable
 	inline GenericTreeNode *keyToNode(const Tree::NodeKey k){
@@ -496,6 +511,9 @@ private:
 	unsigned int myNumParticles;
 	/// Array with the particles in this chare
 	GravityParticle* myParticles;
+
+	/// List of all the node-buckets in this TreePiece
+	std::vector<GenericTreeNode *> bucketList;
 
 	/// Array with sorted particles for domain decomposition (ORB)
 	std::vector<GravityParticle> mySortedParticles;
@@ -639,8 +657,6 @@ private:
 #endif
 	/// Used to start the Ewald computation for all buckets, one after the other
 	unsigned int ewaldCurrentBucket;
-	/// List of all the node-buckets in this TreePiece
-	std::vector<GenericTreeNode *> bucketList;
 	/// @brief Used as a placeholder while traversing the tree and computing
 	/// forces. This should not exist in the cache version since all its
 	/// information is duplicate from the correspondent TreeNode (in
@@ -1001,8 +1017,10 @@ public:
 	void calculateSmoothLocal();
 	void nextBucketSmooth(dummyMsg *msg);
 #if INTERLIST_VER > 0
+#if 0
   void calculateForceRemoteBucket(int bucketIndex, int chunk);
   void calculateForceLocalBucket(int bucketIndex);
+#endif
 #endif
 	
   /// Start a tree based gravity computation.

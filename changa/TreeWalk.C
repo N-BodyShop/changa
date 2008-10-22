@@ -1,12 +1,12 @@
-//#include "codes.h"
-
-#include <stack>
 #include "config.h"
 #include "GenericTreeNode.h"
 #include "ParallelGravity.h"
 #include "TreeWalk.h"
 //#include "State.h"
 #include "Compute.h"
+#include <stack>
+
+const char *typeString(NodeType type);
 
 void TreeWalk::init(Compute *c, TreePiece *owner){
   comp = c;
@@ -46,7 +46,7 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
     ckerr << "TopDownTreeWalk recvd. null node - chunk("<<chunk<<"), reqID("<<reqID<<"), isRoot("<<isRoot<<")" << endl;
     CkAbort("Abort");
   }
-  currentGlobalKey = node->getKey();
+  NodeKey globalKey = node->getKey();
   // process this node
   bool didcomp = false;
   ret = comp->doWork(node, this, state, chunk, reqID, isRoot, didcomp, awi);
@@ -71,7 +71,7 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
   if(ret == KEEP){      // descend further down tree
     for(int i = 0; i < node->numChildren(); i++){
       GenericTreeNode *child = node->getChildren(i);
-      currentGlobalKey = node->getChildKey(i);
+      globalKey = node->getChildKey(i);
 
       comp->startNodeProcessEvent(state);
       
@@ -94,12 +94,16 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
           CkPrintf("%s%ld SM\n", s.c_str(), node->getChildKey(i));
         }
 #endif
-        child = ownerTP->nodeMissed(reqID, node->remoteIndex, currentGlobalKey, chunk, comp->getSelfType() == Prefetch, awi);
+        child = ownerTP->nodeMissed(reqID, 
+                                    node->remoteIndex, 
+                                    globalKey, 
+                                    chunk, comp->getSelfType() == Prefetch, 
+                                    awi, comp->getComputeEntity());
         if(child == NULL){     // missed in cache, skip node for now
 #if CHANGA_REFACTOR_DEBUG > 2
           CkPrintf("[%d]: child not found in cache\n", ownerTP->getIndex());
 #endif
-          comp->nodeMissedEvent(reqID, chunk, state);
+          comp->nodeMissedEvent(reqID, chunk, state, ownerTP);
 #ifdef CHANGA_REFACTOR_WALKCHECK
           if(doprint){
             string s;
@@ -131,12 +135,14 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
   return;
 }
 
+extern bool bIsReplica(int reqID); 
 //
 // Bottom up treewalk for efficient smooth:
 // check for root (and non periodic) and do local work
 // first.  A Stack of siblings is allocated in the local frame.
 // Once the stack is processed, then all walks are done in the
 // standard "top down" way.
+
 
 void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
 			    int chunk, int reqID, int awi){
@@ -156,7 +162,7 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
 		  << endl;
 	    CkAbort("TreeWalk");
 	    }
-	currentGlobalKey = node->getKey();
+	NodeKey currentGlobalKey = node->getKey();
 	// process this node
 	ret = comp->doWork(node, this, state, chunk, reqID, isRoot, didcomp,
 			   awi);
@@ -175,9 +181,9 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
 		    child = ownerTP->nodeMissed(reqID, node->remoteIndex,
 						currentGlobalKey, chunk,
 						comp->getSelfType() == Prefetch,
-						awi);
+						awi, comp->getComputeEntity());
 		    if(child == NULL){   // missed in cache, skip node for now
-			comp->nodeMissedEvent(reqID, chunk, state);
+			comp->nodeMissedEvent(reqID, chunk, state, ownerTP);
 			continue;
 			}
 		    } // end check NULL node
@@ -211,7 +217,6 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
 	nodeStack.pop();
 	}
 }
- 
 /**
  * LocalTargetWalk functions. 
  */
@@ -224,11 +229,6 @@ void LocalTargetWalk::walk(GenericTreeNode *ancestor, State *state, int chunk, i
     targetKey = ownerTP->getBucket(targetBucketIndex)->getKey();
     // construct lists
     int ancestorLevel = ancestor->getLevel(ancestor->getKey());
-    /*
-    if(targetBucketIndex == TEST_BUCKET){
-      CkPrintf("here\n");
-    }
-    */
     dft(ancestor, state, chunk, targetBucketIndex, (ancestorLevel == 0), awi, ancestorLevel);
 }
 

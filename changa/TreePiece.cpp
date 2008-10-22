@@ -882,9 +882,6 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
   maxBucketSize = bucketSize;
   callback = cb;
 
-#if INTERLIST_VER > 0
-  myTreeLevels=-1;
-#endif
   //printing all particles
   //CkPrintf("\n\n\nbuilding tree, useTree:%d\n\n\n\n",useTree);
   //for(int i=0;i<myNumParticles+2;i++)
@@ -1124,10 +1121,6 @@ OrientedBox<float> TreePiece::constructBoundingBox(GenericTreeNode* node,int lev
 
 void TreePiece::buildORBTree(GenericTreeNode * node, int level){
   
-#if INTERLIST_VER > 0
-  if(level>myTreeLevels)
-    myTreeLevels=level;
-#endif
   //CkPrintf("[%d] in build ORB Tree, level:%d\n",thisIndex,level);
   if (level == 63) {
     ckerr << thisIndex << ": TreePiece(ORB): This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
@@ -1400,11 +1393,6 @@ inline bool TreePiece::nodeOwnership(const Tree::NodeKey nkey, int &firstOwner, 
 */
 void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
 
-#if INTERLIST_VER > 0
-  if(level>myTreeLevels)
-    myTreeLevels=level;
-#endif
-  
   if (level == 63) {
     ckerr << thisIndex << ": TreePiece: This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
     ckerr << "Left particle: " << (node->firstParticle) << " Right particle: " << (node->lastParticle) << endl;
@@ -1582,6 +1570,16 @@ Vector3D<double> TreePiece::decodeOffset(int reqID)
     return offset;
     }
 
+bool bIsReplica(int reqID) 
+{
+    int offsetcode = reqID >> 22;
+    int x = (offsetcode & 0x7) - 3;
+    int y = ((offsetcode >> 3) & 0x7) - 3;
+    int z = ((offsetcode >> 6) & 0x7) - 3;
+    
+    return x || y || z;
+    }
+
 int decodeReqID(int reqID) 
 {
     const int offsetmask = 0x1ff << 22;
@@ -1648,18 +1646,6 @@ void TreePiece::initBuckets() {
   bucketcheckList.resize(numBuckets);
 #endif
 }
-
-#if INTERLIST_VER > 0
-GenericTreeNode *TreePiece::findContainingChunkRoot(GenericTreeNode *node){
-  for(int i = 0; i < numChunks; i++){
-    GenericTreeNode *cr = dm->chunkRootToNode(prefetchRoots[i]);
-    if(cr->contains(node->getKey())){
-      return cr;
-    }
-  }
-  return 0;
-}
-#endif
 
 void TreePiece::startNextBucket() {
   if(currentBucket >= numBuckets)
@@ -2205,6 +2191,7 @@ void cellSPE_single(void *data) {
 }
 #endif
 
+#if 0
 #define CELLBUFFERSIZE 16*1024
 void TreePiece::calculateForceLocalBucket(int bucketIndex){
     int cellListIter;
@@ -2395,7 +2382,9 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
     finishBucket(bucketIndex);
 #endif
 }
+#endif
 
+#if 0
 void TreePiece::calculateForceRemoteBucket(int bucketIndex, int chunk){
     
   int cellListIter;
@@ -2454,6 +2443,8 @@ void TreePiece::calculateForceRemoteBucket(int bucketIndex, int chunk){
   //remainingChunk[nChunk] -= bucketList[bucketIndex]->particleCount;
 
 }
+#endif
+
 /*
 void TreePiece::calculateForceRemoteBucket(int bucketIndex){
     
@@ -2956,9 +2947,9 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
 
 #if INTERLIST_VER > 0
   //Initialize all the interaction and check lists with empty lists
-  myTreeLevels++;
   //myTreeLevels++;
-  CkAssert(myTreeLevels>0);
+  //myTreeLevels++;
+  //CkAssert(myTreeLevels>0);
     //listMigrated=false;
   //}
   /*
