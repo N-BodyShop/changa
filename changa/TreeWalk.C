@@ -131,10 +131,6 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
   return;
 }
 
-void TopDownTreeWalk::reset(){
-  return;
-}
-
 //
 // Bottom up treewalk for efficient smooth:
 // check for root (and non periodic) and do local work
@@ -216,60 +212,254 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
 	}
 }
  
-void BottomUpTreeWalk::reset(){
-  return;
-}
-// returns true if an ancestor of 'node' remained unopened in a prior tree walk and was
-// therefore used in computation - helps avoid the duplication of computations 
-// the bucket that is used in this decision belongs to 'comp' and therefore
-// needn't be passed to the function
-// another reason the bucket isn't passed as an argument to this method
-// is that TopDownTreeWalk should constrain itself to work only for compute
-// objects representing buckets of particles.
-/*
-bool TopDownTreeWalk::ancestorCheck(GenericTreeNode *node, int reqID){
-  GenericTreeNode *ancestor;
-  CkAssert(comp != NULL);
+/**
+ * LocalTargetWalk functions. 
+ */
 
-  ancestor = ownerTP->getRoot();
-  while(ancestor != NULL){
-    // comp will know what to do with this TP and ancestor
-    if(!comp->openCriterion(this->getOwnerTP(), ancestor, reqID)){
-      return true;
+// This walk interprets what is otherwise the 'reqID' argument as the targetBucketIndex
+// It can only be called from the calculateGravityRemote/startNextBucket 
+#if INTERLIST_VER > 0
+void LocalTargetWalk::walk(GenericTreeNode *ancestor, State *state, int chunk, int targetBucketIndex, int awi){
+    
+    targetKey = ownerTP->getBucket(targetBucketIndex)->getKey();
+    // construct lists
+    int ancestorLevel = ancestor->getLevel(ancestor->getKey());
+    /*
+    if(targetBucketIndex == TEST_BUCKET){
+      CkPrintf("here\n");
     }
-    int which = ancestor->whichChild(node->getKey());
-    //CkPrintf("%d: ancestorCheck - getChildren(%d)\n", ownerTP->getIndex(), which);
-    ancestor = ancestor->getChildren(which);
+    */
+    dft(ancestor, state, chunk, targetBucketIndex, (ancestorLevel == 0), awi, ancestorLevel);
+}
+
+extern int reEncodeOffset(int reqID, int offsetID);
+
+// This walk interprets what is otherwise the 'reqID' argument as the targetBucketIndex
+void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, int targetBucketIndex, bool isRoot, int awi, int level){
+
+  bool descend = false;
+  // localNode has changed, need to update computeEntity
+  comp->setComputeEntity(localNode);
+  
+  // get current level's checklist
+  DoubleWalkState *s = (DoubleWalkState *)state;
+  s->level = level;
+  CheckList &chklist = s->chklists[level];
+  UndecidedList &myUndlist = s->undlists[level];
+
+    
+  if(!isRoot)
+  {
+    // we don't clear state for this level in case 
+    // this is the local root, because its chklist
+    // will have been set just before walk was called.
+    
+    // this clears the undlist and interaction lists
+    // for the current level
+    comp->initState(s);
+
+    UndecidedList &parentUndlist = s->undlists[level-1];
+    // process parent's undecided nodes first
+    // don't modify parentundlist - sibling will need the same list
+    CkAssert(chklist.isEmpty());
+    for(int i = 0; i < parentUndlist.length(); i++) 
+    {
+      // get remote node from state
+      OffsetNode &glblNode = parentUndlist[i];
+
+      // do work
+      bool didcomp = false;
+      int reqID = reEncodeOffset(targetBucketIndex, glblNode.offsetID);
+        
+      descend = processNode(glblNode.node, s, chunk, reqID, isRoot, didcomp, awi);
+      
+#ifdef CHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
+      char arr[2] = {'K', 'D'};
+      char arrr[2] = {'N', 'Y'};
+      int tpindex = ownerTP->getIndex();
+      Vector3D<double> vec = ownerTP->decodeOffset(glblNode.offsetID);
+      CkPrintf("[%d] undecided level %d: key %ld (%1.0f,%1.0f,%1.0f) - %s, target %d, ret: %c, comp: %c\n", tpindex, level, glblNode.node->getKey(), vec.x, vec.y, vec.z, typeString(glblNode.node->getType()), targetBucketIndex, arr[!descend], arrr[didcomp]);
+#endif
+    }
   }
-  return false;
-}
-*/
+  
+  // while there are nodes to process on this level
+  while(!chklist.isEmpty())
+  {
+    // get remote node from state
+    const OffsetNode &glblNode = chklist.deq();
 
-/*
-void DoubleWalk::walk(GenericTreeNode *startNode, State *_state, int reqID){
-  // no need for state ?
-  doubleDft(reqID);
+    // do work
+    bool didcomp = false;
+    int reqID = reEncodeOffset(targetBucketIndex, glblNode.offsetID);
+    descend = processNode(glblNode.node, s, chunk, reqID, isRoot, didcomp, awi);
+#ifdef CHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
+    char arr[2] = {'K', 'D'};
+    char arrr[2] = {'N', 'Y'};
+    int tpindex = ownerTP->getIndex();
+    Vector3D<double> vec = ownerTP->decodeOffset(glblNode.offsetID);
+    CkPrintf("[%d] chklist level %d: key %ld (%1.0f,%1.0f,%1.0f) - %s, target %d, ret: %c, comp: %c\n", tpindex, level, glblNode.node->getKey(), vec.x, vec.y, vec.z, typeString(glblNode.node->getType()), targetBucketIndex, arr[!descend], arrr[didcomp]);
+#endif
+  }
+  // if the undecided list is non-empty, have to let
+  // children decide what to do with those nodes
+  // descend into localNode
+  bool myUndlistEmpty = myUndlist.length() == 0;
+  //CkAssert((myUndlistEmpty && !descend) || (!myUndlistEmpty && descend));
+
+  if(!myUndlistEmpty)
+  {
+    int which = localNode->whichChild(targetKey);
+    GenericTreeNode *child = localNode->getChildren(which);
+    CkAssert(child);
+    dft(child, s, chunk, targetBucketIndex, false, awi, level+1);
+  }
+  else{
+    // will not descend, must be lowest point on path 
+    // set lowest node in state 
+    s->lowestNode = localNode;
+  }
+  CkAssert(s->lowestNode != 0);
 }
 
-void DoubleWalk::doubleDft(GenericTreeNode *ancestor, State *state, int reqID...){
-}
-*/
+bool LocalTargetWalk::processNode(
+                   GenericTreeNode *glblNode,
+                   State *state, 
+                   int chunk, int reqID, 
+                   bool isRoot, bool &didcomp, 
+                   int awi) 
+{
 
-/*
-void BucketIterator::init(Compute *c, TreePiece *owner){
-  comp = c;
-  ownerTP = owner;
+  // assume that we won't be descending into the outer tree
+  // if we are advised otherwise by the compute, descend
+  // is set to true and the walk continued
+  bool descend= false;
+  // bucket number in reqID below does matter, because 
+  // we need to keep track of the target bucket.
+  // only the remoteWalk is supposed to request 
+  // nodes; if a local walk started requesting remote nodes, 
+  // we'd be in trouble - awi is -1 for local walks because 
+  // they are not supposed to request missing nodes
+
+  int ret = comp->doWork(glblNode, this, state, chunk, reqID, isRoot, didcomp, awi);
+  if(ret == KEEP){
+    descend = true;
+  }
+  else if(ret == DUMP){
+    // a computation was carried out, need to 
+    // 'return' 
+    descend = false;
+  }
+  return descend;
 }
 
-void BucketIterator::reset(){
-  return;
-}
+// Here, node is the global node that we missed on earlier
+// At this point, the 'source' node, i.e. the local node at which the localTargetWalk is to begin,has been 
+// set as the computeEntity for the compute. Also, the TW and compute  have been reassociated.
+// The target bucket has been obtained from reqID and set as the target of the walk.
 
-void BucketIterator::walk(GenericTreeNode *node, State *state, int chunk, int reqID){
-  iterate(node, state, chunk, reqID);
-}
+// This walk interprets what is otherwise the 'reqID' argument as the targetBucketIndex
+void LocalTargetWalk::resumeWalk(GenericTreeNode *node, State *state_, int chunk, int reqID, int activeWalkIndex){
+	DoubleWalkState *state = (DoubleWalkState *)state_;
+	
+        // initial target
+	int targetBucket = decodeReqID(reqID);
+	GenericTreeNode *source = (GenericTreeNode *)comp->getComputeEntity();
+        // first and last buckets beneath source
+        int startBucket, endBucket;
+        int prevBucket = -1;
 
+        // so that dummySource is changed if necessary, and source is left
+        // untouched.
+        GenericTreeNode *dummySource = source;
+        ownerTP->getBucketsBeneathBounds(dummySource, startBucket, endBucket);
+        int tpindex = ownerTP->getIndex();
+        
+	// clear all levels up to and including source
+        // this is so that we don't include the lists from 
+        // other resumed walks in the computation for this
+        // instance
+        // init state
+        bool localLists = state->lplists.length() > 0;
+        bool remoteLists = state->rplists.length() > 0;
+
+        int level = source->getLevel(source->getKey());
+        for(int i = 0; i <= level; i++){
+	  CheckList &chklist = state->chklists[i];
+	  while(!chklist.isEmpty()){
+	    chklist.deq();
+	  }
+          state->clists[i].length() = 0;
+          state->undlists[i].length() = 0;
+        }
+
+        if(localLists)
+          for(int i = 0; i <= level; i++){
+            state->lplists[i].length() = 0;
+          }
+
+        if(remoteLists)
+          for(int i = 0; i <= level; i++){
+            state->rplists[i].length() = 0;
+          }
+
+	// enqueue
+	OffsetNode on;
+	on.node = node;
+	on.offsetID = reqID;
+	state->chklists[level].enq(on);
+
+        int activeRung = comp->getActiveRung();
+        while(targetBucket < endBucket){
+          GenericTreeNode *targetNode = ownerTP->getBucket(targetBucket);
+          if(targetNode->rungs >= activeRung){
+            targetKey = targetNode->getKey(); 
+            GenericTreeNode *lca = ownerTP->getStartAncestor(targetBucket, prevBucket, source);
+          
+            int lcaLevel = lca->getLevel(lca->getKey());
+            dft(lca, state, chunk, targetBucket, (lcaLevel == level), activeWalkIndex, lcaLevel);
+          
+            GenericTreeNode *lowestNode = state->lowestNode;
+            // start and end buckets beneath lowest node
+            int sL, eL;
+            ownerTP->getBucketsBeneathBounds(lowestNode, sL, eL);
+
+            CkAssert(targetBucket >= sL);
+            comp->stateReady(state, ownerTP, chunk, targetBucket, eL);
+
+            prevBucket = targetBucket;
+            targetBucket = eL; 
+          }
+          else{
+            if(targetBucket != 0){
+              prevBucket = targetBucket;
+            }
+            while(ownerTP->getBucket(targetBucket)->rungs < activeRung && targetBucket < endBucket){
+              // no need to finish inactive buckets - they would already have
+              // been handled during the initial remote walk
+              targetBucket++;
+            }
+          }
+        }
+	comp->setComputeEntity(source);
 }
- 
-void BucketIterator::iterate(GenericTreeNode *node, 
-*/
+#endif
+
+const char *translations[] = {"",
+                                 "Invalid", 
+                                 "Bucket",
+                                 "Internal",
+                                 "Boundary",
+                                 "NonLocal",
+                                 "Empty",
+                                 "Top",
+                                 "NonLocalBucket",
+                                 "Cached",
+                                 "CachedBucket",
+                                 "CachedEmpty"
+                                 };
+
+const char *typeString(NodeType type){
+  CkAssert(type > 0 && type <= NUM_NODE_TYPES);
+  return translations[type];
+}

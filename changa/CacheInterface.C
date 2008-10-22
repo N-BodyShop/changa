@@ -31,13 +31,15 @@ int EntryTypeGravityParticle::size(void * data) {
   return sizeof(CacheParticle) + (p->end - p->begin) * sizeof(ExternalGravityParticle);
 }
 
-void EntryTypeGravityParticle::callback(CkArrayID requestorID, CkArrayIndexMax &requestorIdx, CkCacheKey key, CmiUInt8 userData, void *data, int chunk) {
+void EntryTypeGravityParticle::callback(CkArrayID requestorID, CkArrayIndexMax &requestorIdx, CkCacheKey key, CkCacheUserData &userData, void *data, int chunk) {
   CkArrayIndex1D idx(requestorIdx.data()[0]);
   CProxyElement_TreePiece elem(requestorID, idx);
   CacheParticle *cp = (CacheParticle *)data;
-  int reqID = (int)(userData & 0xFFFFFFFF);
-  int awi = userData >> 32;
-  elem.receiveParticlesCallback(cp->part, cp->end - cp->begin + 1, chunk, reqID, key, awi);
+  int reqID = (int)(userData.d0 & 0xFFFFFFFF);
+  int awi = userData.d0 >> 32;
+  void *source = (void *)userData.d1;
+
+  elem.receiveParticlesCallback(cp->part, cp->end - cp->begin + 1, chunk, reqID, key, awi, source);
 }
 
 
@@ -95,13 +97,15 @@ int EntryTypeSmoothParticle::size(void * data) {
   return sizeof(CacheParticle) + (p->end - p->begin) * sizeof(ExternalGravityParticle);
 }
 
-void EntryTypeSmoothParticle::callback(CkArrayID requestorID, CkArrayIndexMax &requestorIdx, CkCacheKey key, CmiUInt8 userData, void *data, int chunk) {
+void EntryTypeSmoothParticle::callback(CkArrayID requestorID, CkArrayIndexMax &requestorIdx, CkCacheKey key, CkCacheUserData &userData, void *data, int chunk) {
   CkArrayIndex1D idx(requestorIdx.data()[0]);
   CProxyElement_TreePiece elem(requestorID, idx);
   CacheParticle *cp = (CacheParticle *)data;
-  int reqID = (int)(userData & 0xFFFFFFFF);
-  int awi = userData >> 32;
-  elem.receiveParticlesCallback(cp->part, cp->end - cp->begin + 1, chunk, reqID, key, awi);
+  int reqID = (int)(userData.d0 & 0xFFFFFFFF);
+  int awi = userData.d0 >> 32;
+  void *source = (void *)userData.d1;
+
+  elem.receiveParticlesCallback(cp->part, cp->end - cp->begin + 1, chunk, reqID, key, awi, source);
 }
 
 void combDensity(GravityParticle *p1, ExternalGravityParticle *p2) {
@@ -197,12 +201,13 @@ int EntryTypeGravityNode::size(void * data) {
   return sizeof(Tree::BinaryTreeNode);
 }
 
-void EntryTypeGravityNode::callback(CkArrayID requestorID, CkArrayIndexMax &requestorIdx, CkCacheKey key, CmiUInt8 userData, void *data, int chunk) {
+void EntryTypeGravityNode::callback(CkArrayID requestorID, CkArrayIndexMax &requestorIdx, CkCacheKey key, CkCacheUserData &userData, void *data, int chunk) {
   CkArrayIndex1D idx(requestorIdx.data()[0]);
   CProxyElement_TreePiece elem(requestorID, idx);
-  int reqID = (int)(userData & 0xFFFFFFFF);
-  int awi = userData >> 32;
-  elem.receiveNodeCallback((Tree::GenericTreeNode*)data, chunk, reqID, awi);
+  int reqID = (int)(userData.d0 & 0xFFFFFFFF);
+  int awi = userData.d0 >> 32;
+  void *source = (void *)userData.d1;
+  elem.receiveNodeCallback((Tree::GenericTreeNode*)data, chunk, reqID, awi, source);
 }
 
 

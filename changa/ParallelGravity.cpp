@@ -159,6 +159,7 @@ Main::Main(CkArgMsg* m) {
 	theta = 0.7;
 	prmAddParam(prm, "dTheta", paramDouble, &theta,
 		    sizeof(double), "theta", "Opening angle");
+	thetaMono = theta*theta*theta*theta;
 	param.dTheta2 = 0.7;
 	prmAddParam(prm, "dTheta2", paramDouble, &param.dTheta2,
 		    sizeof(double),"theta2",
@@ -310,7 +311,6 @@ Main::Main(CkArgMsg* m) {
 	    CkExit();
 	    }
 	
-	thetaMono = theta*theta*theta*theta;
 	if(prmSpecified(prm, "iMaxRung")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "iMaxRung parameter ignored. MaxRung is " << MAXRUNG
@@ -1033,11 +1033,6 @@ Main::doSimulation()
 	  ckout << "Calculating densities ...";
 	  startTime = CkWallTimer();
 	  treeProxy.startIterationSmooth(0, CkCallbackResumeThread());
-	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-		<< endl;
-	  ckout << "Recalculating densities ...";
-	  startTime = CkWallTimer();
-	  treeProxy.startIterationReSmooth(0, CkCallbackResumeThread());
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
 	  }

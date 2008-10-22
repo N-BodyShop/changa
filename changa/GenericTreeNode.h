@@ -66,9 +66,7 @@ namespace Tree {
       used = false;
 #endif
 #if INTERLIST_VER > 0
-      visitedR=false;
-      visitedL=false;
-      bucketListIndex=-1;
+      numBucketsBeneath=0;
       startBucket=-1;
 #endif
 #ifdef CHANGA_REFACTOR_WALKCHECK
@@ -106,20 +104,24 @@ namespace Tree {
     int rungs;
 
 #if INTERLIST_VER > 0
-    bool visitedR;
-    bool visitedL;
-    int bucketListIndex;
+    //int bucketListIndex;
+    int numBucketsBeneath;
     int startBucket;
+#ifdef CUDA
+    // index in nodeinfo array
+    int nodeArrayIndex;
+#endif
 #endif
     //GenericTreeNode() : myType(Invalid), key(0), parent(0), beginParticle(0), endParticle(0), remoteIndex(0) { }
 
     GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0), usedBy(0) { 
-    #if INTERLIST_VER > 0
-      visitedR=false;
-      visitedL=false;
-			bucketListIndex=-1;
+#if INTERLIST_VER > 0
+      numBucketsBeneath=0;
       startBucket=-1;
-    #endif
+#ifdef CUDA
+      nodeArrayIndex = -1;
+#endif
+#endif
     }
 
     virtual ~GenericTreeNode() { }
@@ -165,6 +167,9 @@ namespace Tree {
     /// transform an internal node into a bucket
     inline void makeBucket(GravityParticle *part) {
       myType = Bucket;
+#if INTERLIST_VER > 0
+      numBucketsBeneath = 1;
+#endif
       boundingBox.reset();
       rungs = 0;
       for (int i = firstParticle; i <= lastParticle; ++i) {
@@ -178,10 +183,19 @@ namespace Tree {
     inline void makeEmpty() {
       myType = Empty;
       particleCount = 0;
+#if INTERLIST_VER > 0
+      numBucketsBeneath = 0;
+#endif
       moments.clear();
       boundingBox.reset();
     }
 
+    virtual NodeKey getLongestCommonPrefix(NodeKey k1, NodeKey k2)
+    {
+      CkAbort("getLongestCommonPrefix not implemented\n");
+    }
+    
+    virtual int getLevel(NodeKey k) = 0;
     virtual GenericTreeNode *createNew() const = 0;
     virtual GenericTreeNode *clone() const = 0;
 
@@ -203,10 +217,8 @@ namespace Tree {
       p | remoteIndex;
       p | particleCount;
 #if INTERLIST_VER > 0
-      p | bucketListIndex;
+      p | numBucketsBeneath;
       p | startBucket;
-      p | visitedR;
-      p | visitedL;
 #endif
 #ifdef CHANGA_REFACTOR_WALKCHECK
       p | touched;
@@ -275,6 +287,25 @@ namespace Tree {
       }
       return i;
     }
+    
+    NodeKey getLongestCommonPrefix(NodeKey k1, NodeKey k2){
+
+      int l1 = getLevel(k1)+1;
+      int l2 = getLevel(k2)+1;
+
+      NodeKey a1 = k1 << (64-l1);
+      NodeKey a2 = k2 << (64-l2);
+
+      NodeKey a = a1 ^ a2;
+      int i = 0;
+      while( a < 0x8000000000000000)
+      {
+        a = a << 1;
+        i++;
+      }
+      return (k1 >> (l1-i)); // or k2 >> (l2-i)
+    };
+    
 
     int whichChild(NodeKey child) {
       int thisLevel = getLevel(key);
@@ -410,6 +441,11 @@ namespace Tree {
       }
       children[0]->particlePointer = &part[children[0]->firstParticle];
       children[1]->particlePointer = &part[children[1]->firstParticle];
+#if INTERLIST_VER > 0
+      if(children[0]->myType == NonLocal) children[0]->numBucketsBeneath = 0;
+      if(children[1]->myType == NonLocal) children[1]->numBucketsBeneath = 0;
+      // empty nodes are makeEmpty()'ed, so that the numbucketsbeneath them are 0
+#endif
     }
 
     // Constructs 2 children of this node based on ORB decomposition
@@ -718,6 +754,16 @@ namespace Tree {
 
     int whichChild(NodeKey child) {
       return (child ^ (key<<3));
+    }
+    
+    int getLevel(NodeKey k) {
+      int i = 0;
+      k >>= 3;
+      while (k!=0) {
+	k >>= 3;
+	++i;
+      }
+      return i;
     }
    
 #if INTERLIST_VER > 0

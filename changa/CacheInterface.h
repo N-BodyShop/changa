@@ -27,7 +27,7 @@ public:
   void free(void *);
   int size(void *);
   
-  static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, CmiUInt8, void*, int);
+  static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, CkCacheUserData &, void*, int);
 };
 
 class EntryTypeSmoothParticle : public CkCacheEntryType {
@@ -40,7 +40,7 @@ public:
   void free(void *);
   int size(void *);
   
-  static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, CmiUInt8, void*, int);
+  static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, CkCacheUserData &, void*, int);
 };
 
 /*********************************************************
@@ -58,7 +58,7 @@ public:
   void free(void *);
   int size(void *);
   
-  static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, CmiUInt8, void*, int);
+  static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, CkCacheUserData &, void*, int);
 };
 
 #endif

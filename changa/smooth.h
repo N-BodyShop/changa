@@ -59,7 +59,7 @@ public:
 	    
     void initSmoothPrioQueue(int iBucket, State *state) ;
 
-    bool openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
+    int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
     
     int doWork(GenericTreeNode *node,
 	       TreeWalk *tw,
@@ -70,7 +70,7 @@ public:
 	       bool &didcomp, int awi);
     int startNodeProcessEvent(TreePiece *owner){}
     int finishNodeProcessEvent(TreePiece *owner){}
-    int nodeMissedEvent(int reqID, int chunk, State *state);
+    int nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);
     int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
     void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,
 			int reqID,State *state, TreePiece *tp);
@@ -80,70 +80,7 @@ public:
     // this function is used to allocate and initialize a new state object
     // these operations were earlier carried out in the constructor of the
     // class.
-    State *getNewState();
-
-    };
-
-// Object to bookkeep a Bucket ReSmooth Walk.  This could be merged
-// with the standard smooth if we changed that to using push_heap()
-// and pop_heap()
-
-class ReNearNeighborState: public State {
-public:
-    std::vector <pqSmoothNode> *Qs;
-    int nParticlesPending;
-    bool started;
-    ReNearNeighborState(int nParts) {
-	Qs = new (std::vector<pqSmoothNode>[nParts+2]);
-	}
-    void finishBucketSmooth(int iBucket, TreePiece *tp);
-    ~ReNearNeighborState() { delete [] Qs; }
-};
-
-class ReSmoothCompute : public Compute 
-{
-    void (*fcnSmooth)(GravityParticle *p, int nSmooth, pqSmoothNode *nList);
-    void bucketCompare(TreePiece *tp,
-		       ExternalGravityParticle *p,  // Particle to test
-		       GenericTreeNode *node, // bucket
-		       GravityParticle *particles, // local particle data
-		       Vector3D<double> offset,
-                       State *state
-		       ) ;
-    TreePiece *tp;
-    
-public:
- ReSmoothCompute(TreePiece *_tp, void (*fcn)(GravityParticle *p, int nSmooth,
-			   pqSmoothNode *nList))
-     : Compute(Smooth){
-	fcnSmooth = fcn;
-        tp = _tp;       // needed in getNewState()
-	}
-    ~ReSmoothCompute() { //delete state;
-    }
-	    
-    bool openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
-    
-    int doWork(GenericTreeNode *node,
-	       TreeWalk *tw,
-	       State *state,
-	       int chunk,
-	       int reqID,
-	       bool isRoot, 
-	       bool &didcomp, int awi);
-    int startNodeProcessEvent(TreePiece *owner){}
-    int finishNodeProcessEvent(TreePiece *owner){}
-    int nodeMissedEvent(int reqID, int chunk, State *state);
-    int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
-    void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,
-			int reqID,State *state, TreePiece *tp);
-    void reassoc(void *ce, int ar, Opt *o);
-    void walkDone(State *state) ;
-
-    // this function is used to allocate and initialize a new state object
-    // these operations were earlier carried out in the constructor of the
-    // class.
-    State *getNewState();
+    State *getNewState(int d1);
 
     };
 
@@ -155,37 +92,37 @@ class SmoothOpt : public Opt{
   SmoothOpt() : Opt(Local){
     // don't need to open
     // these nodes are your concern
-    action_array[false][Internal] = DUMP;
-    action_array[false][Bucket] = DUMP;
+    action_array[0][Internal] = DUMP;
+    action_array[0][Bucket] = DUMP;
 
-    action_array[false][Boundary] = DUMP; 
-    action_array[false][NonLocal] = DUMP; 
-    action_array[false][NonLocalBucket] = DUMP;	
-    action_array[false][Cached] = DUMP;	
-    action_array[false][CachedBucket] = DUMP;
+    action_array[0][Boundary] = DUMP; 
+    action_array[0][NonLocal] = DUMP; 
+    action_array[0][NonLocalBucket] = DUMP;	
+    action_array[0][Cached] = DUMP;	
+    action_array[0][CachedBucket] = DUMP;
 
-    action_array[false][Empty] = DUMP;
-    action_array[false][CachedEmpty] = DUMP;
-    action_array[false][Top] = ERROR;
-    action_array[false][Invalid] = ERROR;
+    action_array[0][Empty] = DUMP;
+    action_array[0][CachedEmpty] = DUMP;
+    action_array[0][Top] = ERROR;
+    action_array[0][Invalid] = ERROR;
     //--------------
     // need to open node
     // local data
-    action_array[true][Internal] = KEEP;
-    action_array[true][Bucket] = KEEP_LOCAL_BUCKET;
-    action_array[true][Boundary] = KEEP;
+    action_array[1][Internal] = KEEP;
+    action_array[1][Bucket] = KEEP_LOCAL_BUCKET;
+    action_array[1][Boundary] = KEEP;
 
     // remote data
-    action_array[true][NonLocal] = KEEP;
-    action_array[true][NonLocalBucket] = KEEP_REMOTE_BUCKET;
-    action_array[true][CachedBucket] = KEEP_REMOTE_BUCKET;
-    action_array[true][Cached] = KEEP;
+    action_array[1][NonLocal] = KEEP;
+    action_array[1][NonLocalBucket] = KEEP_REMOTE_BUCKET;
+    action_array[1][CachedBucket] = KEEP_REMOTE_BUCKET;
+    action_array[1][Cached] = KEEP;
 
     // discard
-    action_array[true][Empty] = DUMP;
-    action_array[true][CachedEmpty] = DUMP;
-    action_array[true][Top] = ERROR;
-    action_array[true][Invalid] = ERROR;
+    action_array[1][Empty] = DUMP;
+    action_array[1][CachedEmpty] = DUMP;
+    action_array[1][Top] = ERROR;
+    action_array[1][Invalid] = ERROR;
   }
 
 };

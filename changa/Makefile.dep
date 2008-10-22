@@ -43,7 +43,6 @@ gravity.h \
 ../structures/Box.h \
 MultistepLB.decl.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 DataManager.h \
 Reductions.h \
 

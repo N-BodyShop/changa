@@ -213,6 +213,12 @@ Tree::GenericTreeNode *DataManager::buildProcessorTree(int n, Tree::GenericTreeN
   } else {
     // more than one boundary, need recursion
     Tree::GenericTreeNode *newNode = gtn[pick]->clone();
+#if INTERLIST_VER > 0
+    newNode->particlePointer = (GravityParticle *)0;
+    newNode->firstParticle = -1;
+    newNode->lastParticle = -1;
+    newNode->startBucket = -1;
+#endif
     // keep track if all the children are internal, in which case we have to
     // change this node type too from boundary to internal
     bool isInternal = true;
