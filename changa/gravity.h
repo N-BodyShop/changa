@@ -157,6 +157,7 @@ static int forProgress = 0;
 
 inline int partBucketForce(ExternalGravityParticle *part, Tree::GenericTreeNode *req, GravityParticle *particles, Vector3D<double> offset, int activeRung) {
   int computed = 0;
+#ifndef BENCHMARK_NO_WORK
   Vector3D<double> r;
   double rsq;
   double twoh, a, b;
@@ -187,6 +188,7 @@ inline int partBucketForce(ExternalGravityParticle *part, Tree::GenericTreeNode 
       }
     }
   }
+#endif
   return computed;
 }
 
@@ -202,6 +204,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node, // source of force
 // calculate forces
 {
   int computed = 0;
+#ifndef BENCHMARK_NO_WORK
   __m128d rx, ry, rz;
   __m128d rsq;
   __m128d twoh, a, b, c, d, a1, a2, b1, b2, c1, c2, d1, d2;
@@ -316,6 +319,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node, // source of force
       //if(idt2 > input[i]->dtGrav)
       //  input[i]->dtGrav = idt2;
   }
+#endif
   return computed;
 }
 #else
@@ -506,6 +510,20 @@ openCriterionBucket(Tree::GenericTreeNode *node,
       }
   return true;
 #else
+  /*
+  float rsq = radius * radius;
+  __m128 zero = _mm_setzero_ps();
+  __m128 lesser = _mm_loadu_ps(&bucketNode->boundingBox.lesser_corner.x);
+  __m128 greater = _mm_loadu_ps(&bucketNode->boundingBox.greater_corner.x);
+  __m128 cm = _mm_loadu_ps(&node->moments.cm.x);
+  __m128 off = _mm_loadu_ps(&offset.x);
+  __m128 origin = _mm_add_ps(cm, off);
+  __m128 delta1 = _mm_max_ps(_mm_sub_ps(lesser, origin), zero);
+  __m128 delta2 = _mm_max_ps(_mm_sub_ps(origin, greater), zero);
+  __m128 dsq = _mm_add_ps(_mm_mul_ps(delta1, delta1), _mm_mul_ps(delta2, delta2));
+  float dsqf = _mm_cvtss_f32(_mm_add_ps(_mm_add_ps(dsq, _mm_shuffle_ps(dsq,dsq,1)), _mm_unpackhi_ps(dsq,dsq)));
+  return dsqf <= rsq;
+*/
   return Space::intersect(bucketNode->boundingBox, s);
 #endif
 }

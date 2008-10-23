@@ -71,6 +71,7 @@ void QEVAL(MultipoleMoments mom, double gam[], double dx, double dy,
 
 void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 {
+#ifndef BENCHMARK_NO_WORK
 	GravityParticle *p;
 #ifdef HEXADECAPOLE
 	MOMC mom = momcRoot;
@@ -276,7 +277,8 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 		p[j].treeAcceleration.z += az;
 	    }
 	return;
-	}
+#endif
+}
 
 // Set up table for Ewald h (Fourier space) loop
 

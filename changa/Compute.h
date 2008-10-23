@@ -95,9 +95,24 @@ class Compute{
 class GravityCompute : public Compute{
   // GenericTreeNode *myBucket;
   // int activeRung;
+#ifdef BENCHMARK_TIME_COMPUTE
+  double computeTimePart;
+  double computeTimeNode;
+#endif
 
   public:
-  GravityCompute() : Compute(Gravity){}
+  GravityCompute() : Compute(Gravity){
+#ifdef BENCHMARK_TIME_COMPUTE
+    computeTimePart = 0.0;
+    computeTimeNode = 0.0;
+#endif
+  }
+  ~GravityCompute() {
+#ifdef BENCHMARK_TIME_COMPUTE
+    CkPrintf("Compute time part: %f\n",computeTimePart);
+    CkPrintf("Compute time node: %f\n",computeTimeNode);
+#endif
+  }
   
   int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi);
 

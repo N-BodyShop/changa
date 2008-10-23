@@ -18,8 +18,15 @@ void TreeWalk::reassoc(Compute *c){
 }
 
 void TopDownTreeWalk::walk(GenericTreeNode *startNode, State *state, int chunk, int reqID, int awi){
+#ifdef BENCHMARK_TIME_WALK
+  double startTime = CmiWallTimer();
+#endif
 #ifndef CHANGA_REFACTOR_WALKCHECK
+#ifdef TREE_BREADTH_FIRST
+  bft(startNode, state, chunk, reqID, true, awi);       // isRoot  
+#else
   dft(startNode, state, chunk, reqID, true, awi);       // isRoot
+#endif
 #else
   bool doprint = false;
   if(comp->getSelfType() == Gravity && comp->getOptType() == Remote){
@@ -32,6 +39,9 @@ void TopDownTreeWalk::walk(GenericTreeNode *startNode, State *state, int chunk, 
     CkPrintf("Printing walk (%d: type %c)\n", ownerTP->getIndex(), comp->getOptType() == Local ? 'L' : 'R');
   }
   dft(startNode, state, chunk, reqID, true, 0, doprint);       // isRoot
+#endif
+#ifdef BENCHMARK_TIME_WALK
+  walkTime += CmiWallTimer() - startTime;
 #endif
 }
 
@@ -46,11 +56,17 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
     ckerr << "TopDownTreeWalk recvd. null node - chunk("<<chunk<<"), reqID("<<reqID<<"), isRoot("<<isRoot<<")" << endl;
     CkAbort("Abort");
   }
+#ifdef BENCHMARK_TIME_WALK
+  double start1 = CmiWallTimer();
+#endif
   NodeKey globalKey = node->getKey();
   // process this node
   bool didcomp = false;
   ret = comp->doWork(node, this, state, chunk, reqID, isRoot, didcomp, awi);
-
+#ifdef BENCHMARK_TIME_WALK
+  doWorkTime += CmiWallTimer() - start1;
+#endif
+  
 #ifdef CHANGA_REFACTOR_WALKCHECK
   if(doprint){ 
     string s;
@@ -134,6 +150,55 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
   comp->finishNodeProcessEvent(ownerTP, state);
   return;
 }
+
+void TopDownTreeWalk::bft(GenericTreeNode *node, State *state, int chunk, int reqID, bool isRoot, int awi){
+  int ret;
+  if(node == NULL){   // something went wrong here  
+    ckerr << "TopDownTreeWalk recvd. null node - chunk("<<chunk<<"), reqID("<<reqID<<"), isRoot("<<isRoot<<")" << endl;
+    CkAbort("Abort");
+  }
+
+  CkQ<GenericTreeNode*> queue(1024);
+  queue.enq(node);
+  
+  while (node = queue.deq()) {
+
+    currentGlobalKey = node->getKey();
+    // process this node
+    bool didcomp = false;
+    ret = comp->doWork(node, this, state, chunk, reqID, isRoot, didcomp, awi);
+
+    if(ret == KEEP){      // descend further down tree
+      for(int i = 0; i < node->numChildren(); i++){
+        GenericTreeNode *child = node->getChildren(i);
+        currentGlobalKey = node->getChildKey(i);
+
+        comp->startNodeProcessEvent(state);
+
+        // check whether child is NULL and get from cache if necessary/possible
+        if(child == NULL){       
+          // needed to descend, but couldn't because node wasn't available
+          child = ownerTP->nodeMissed(reqID, node->remoteIndex, currentGlobalKey, chunk, comp->getSelfType() == Prefetch, awi);
+          if(child == NULL){     // missed in cache, skip node for now
+            comp->nodeMissedEvent(reqID, chunk, state);
+            continue;
+          }
+          else{
+          }
+        }// end check NULL node
+
+        // process children recursively
+        // the next can't be the first node we are processing, so isRoot = false
+        queue.enq(child);
+
+      }// for each child
+    }// if KEEP
+    //else // don't need the node anymore, return up the tree 
+    comp->finishNodeProcessEvent(ownerTP, state);
+
+  }
+}
+
 
 extern bool bIsReplica(int reqID); 
 //

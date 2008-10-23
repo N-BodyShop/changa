@@ -238,6 +238,9 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
   GenericTreeNode* reqnode = tp->bucketList[reqIDlist];
 
   int computed;
+#ifdef BENCHMARK_TIME_COMPUTE
+  double startTime = CmiWallTimer();
+#endif
   for(int i=0;i<num;i++){
     
 #if COSMO_STATS > 1
@@ -260,6 +263,9 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
     traceUserBracketEvent(partForceUE, startTimer, CmiWallTimer());
 #endif
   }
+#ifdef BENCHMARK_TIME_COMPUTE
+  computeTimePart += CmiWallTimer() - startTime;
+#endif
   tp->particleInterRemote[chunk] += computed * num;
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK
   tp->bucketcheckList[reqIDlist].insert(remoteBucketID);
@@ -352,12 +358,17 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
   }
   else if(action == COMPUTE){
     didcomp = true;
+#ifdef BENCHMARK_TIME_COMPUTE
+    double startTime = CmiWallTimer();
+#endif
     int computed = nodeBucketForce(node, 
                     (GenericTreeNode *)computeEntity, 
                     tp->getParticles(), 
                     tp->decodeOffset(reqID), 
                     activeRung);
-    
+#ifdef BENCHMARK_TIME_COMPUTE
+    computeTimeNode += CmiWallTimer() - startTime;
+#endif
     if(getOptType() == Remote){
       tp->addToNodeInterRemote(chunk, computed);
     }
@@ -387,6 +398,9 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
       CkAssert(part);
       //ckerr << "(keep_local_bucket) particlePointer[0] - mass: " << part[0].mass << endl;
       int computed = 0;
+#ifdef BENCHMARK_TIME_COMPUTE
+      double startTime = CmiWallTimer();
+#endif
       for(int i = node->firstParticle; i <= node->lastParticle; i++){
         computed += partBucketForce(
                                   &part[i-node->firstParticle],
@@ -395,6 +409,9 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
                                   tp->decodeOffset(reqID), 
                                   activeRung);
       }
+#ifdef BENCHMARK_TIME_COMPUTE
+      computeTimePart += CmiWallTimer() - startTime;
+#endif
       // we could have done the following, because this is a KEEP_LOCAL_BUCKET
       //
       // tp->addToParticleInterLocal(computed);
@@ -468,6 +485,9 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
 // Source of force is a group of particles
 int GravityCompute::computeParticleForces(TreePiece *ownerTP, GenericTreeNode *node, ExternalGravityParticle *part, int reqID){
   int computed = 0;
+#ifdef BENCHMARK_TIME_COMPUTE
+  double startTime = CmiWallTimer();
+#endif
   for(int i = node->firstParticle; i <= node->lastParticle; i++){
     computed += partBucketForce(
                                   &part[i-node->firstParticle],
@@ -476,6 +496,9 @@ int GravityCompute::computeParticleForces(TreePiece *ownerTP, GenericTreeNode *n
                                   ownerTP->decodeOffset(reqID), 
                                   activeRung);
   }
+#ifdef BENCHMARK_TIME_COMPUTE
+  computeTimePart += CmiWallTimer() - startTime;
+#endif
 #ifdef CHANGA_REFACTOR_WALKCHECK
   int bucketIndex = decodeReqID(reqID);
   ownerTP->addToBucketChecklist(bucketIndex, node->getKey());

@@ -13,15 +13,35 @@ class TreeWalk{
   Compute *comp;
   TreePiece *ownerTP;
   WalkType type;
-    
+#ifdef BENCHMARK_TIME_WALK
+  double walkTime, keepTime, finishNodeTime, doWorkTime;
+#endif
 
   Tree::NodeKey getChildKey(int i);
 
-  TreeWalk(Compute *_comp, TreePiece *tp, WalkType _type): ownerTP(tp), comp(_comp), type(_type){}
-  TreeWalk() : comp(NULL), ownerTP(NULL), type(InvalidWalk){}
-  TreeWalk(WalkType t) : comp(NULL), ownerTP(NULL), type(t){}
-
+  TreeWalk(Compute *_comp, TreePiece *tp, WalkType _type): ownerTP(tp), comp(_comp), type(_type){
+#ifdef BENCHMARK_TIME_WALK
+    walkTime = keepTime = finishNodeTime = doWorkTime = 0.0;
+#endif
+  }
+  TreeWalk() : comp(NULL), ownerTP(NULL), type(InvalidWalk){
+#ifdef BENCHMARK_TIME_WALK
+    walkTime = keepTime = finishNodeTime = doWorkTime = 0.0;
+#endif
+  }
+  TreeWalk(WalkType t) : comp(NULL), ownerTP(NULL), type(t){
+#ifdef BENCHMARK_TIME_WALK
+    walkTime = keepTime = finishNodeTime = doWorkTime = 0.0;
+#endif
+  }
+  
   public: 
+    virtual ~TreeWalk() {
+#ifdef BENCHMARK_TIME_WALK
+      CkPrintf("walk,keep,finishNode,doWork time: %lf %lf %lf %lf\n",walkTime,keepTime,finishNodeTime,doWorkTime);
+#endif
+    }
+    
   // must tell compute the ownerTP so it can perform its openCriterion() test
   TreePiece *getOwnerTP(){return ownerTP;}
   Compute *getCompute(){return comp;}
@@ -44,6 +64,7 @@ class TopDownTreeWalk : public TreeWalk{
   private:
 #ifndef CHANGA_REFACTOR_WALKCHECK
   void dft(GenericTreeNode *node, State *state, int chunk, int reqID, bool isRoot, int awi);
+  void bft(GenericTreeNode *node, State *state, int chunk, int reqID, bool isRoot, int awi);
 #else
   void dft(GenericTreeNode *node, State *state, int chunk, int reqID, bool isRoot, int shift, bool doprint);
 #endif
