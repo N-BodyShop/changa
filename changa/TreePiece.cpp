@@ -2013,7 +2013,11 @@ void TreePiece::nextBucket(dummyMsg *msg){
 #if INTERLIST_VER > 0
   sInterListWalk->init(sInterListCompute, this);
 #endif
-  while(i<_yieldPeriod && currentBucket<numBuckets){
+  while(i<_yieldPeriod && currentBucket<numBuckets
+#ifdef CELL
+    && workRequestOut < CELLTHREASHOLD
+#endif
+  ){
     GenericTreeNode *target = bucketList[currentBucket];
     if(target->rungs >= activeRung){
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_BUCKET_START_FIN

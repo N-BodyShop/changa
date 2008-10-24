@@ -7,7 +7,7 @@
 #include "TreeWalk.h"
 //#include "State.h"
 #include "Space.h"
-#include "gravity.h" 
+#include "gravity.h"
 
 extern int decodeReqID(int reqID);
 
@@ -27,7 +27,7 @@ void Compute::init(void *buck, int ar, Opt *o){
 
 State *Compute::getNewState(int dim1, int dim2){
   State *s = new State();
-  // 2 arrays of counters 
+  // 2 arrays of counters
   // 0. numAdditionalRequests[] - sized numBuckets, init to numChunks
   // 1. remainingChunk[] - sized numChunks
   s->counterArrays[0] = new int [dim1];
@@ -62,7 +62,7 @@ void Compute::freeState(State *s){
 
 #if INTERLIST_VER > 0
 void ListCompute::freeState(State *s){
-  freeDoubleWalkState((DoubleWalkState *)s); 
+  freeDoubleWalkState((DoubleWalkState *)s);
   Compute::freeState(s);
 }
 
@@ -93,7 +93,7 @@ void ListCompute::freeDoubleWalkState(DoubleWalkState *state){
 DoubleWalkState *ListCompute::allocDoubleWalkState(){
   DoubleWalkState *s = new DoubleWalkState;
   s->level = 0;
-  s->chklists = new CheckList[INTERLIST_LEVELS]; 
+  s->chklists = new CheckList[INTERLIST_LEVELS];
   s->undlists.resize(INTERLIST_LEVELS);
   s->clists.reserve(INTERLIST_LEVELS);
 
@@ -103,7 +103,7 @@ DoubleWalkState *ListCompute::allocDoubleWalkState(){
   else if(getOptType() == Local){
     s->lplists.resize(INTERLIST_LEVELS);
   }
-  
+
   return s;
 }
 
@@ -129,7 +129,7 @@ State *ListCompute::getNewState(){
 }
 
 void ListCompute::initState(State *state){
-  
+
   DoubleWalkState *s = (DoubleWalkState *)state;
   int level = s->level;
   UndecidedList &myUndlist = s->undlists[level];
@@ -151,14 +151,14 @@ void ListCompute::initState(State *state){
 #endif
 
 void GravityCompute::reassoc(void *ce, int ar, Opt *o){
-  computeEntity = ce; 
+  computeEntity = ce;
   activeRung = ar;
   opt = o;
 }
 
 #if INTERLIST_VER > 0
 void ListCompute::reassoc(void *ce, int ar, Opt *o){
-  computeEntity = ce; 
+  computeEntity = ce;
   activeRung = ar;
   opt = o;
 }
@@ -191,7 +191,7 @@ int PrefetchCompute::finishNodeProcessEvent(TreePiece *owner, State *state){
   int save = --state->counterArrays[0][0];
   if(save == 0){
     owner->startRemoteChunk();
-  }    
+  }
   return save;
 }
 
@@ -215,9 +215,9 @@ int ListCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *
 }
 #endif
 
-int GravityCompute::openCriterion(TreePiece *ownerTP, 
+int GravityCompute::openCriterion(TreePiece *ownerTP,
                           GenericTreeNode *node, int reqID, State *state){
-  return 
+  return
     openCriterionBucket(node,(GenericTreeNode *)computeEntity,ownerTP->decodeOffset(reqID), ownerTP->getIndex());
 
 }
@@ -242,13 +242,13 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
   double startTime = CmiWallTimer();
 #endif
   for(int i=0;i<num;i++){
-    
+
 #if COSMO_STATS > 1
     for(int j = reqnode->firstParticle; j <= reqnode->lastParticle; ++j) {
       tp->myParticles[j].extpartmass += part[i].mass;
     }
 #endif
-    
+
 #ifdef COSMO_EVENTS
     double startTimer = CmiWallTimer();
 #endif
@@ -286,12 +286,12 @@ void PrefetchCompute::recvdParticles(ExternalGravityParticle *egp,int num,int ch
   finishNodeProcessEvent(tp, state);
 }
 
-int GravityCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int reqIDlist){	
-	
+int GravityCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int reqIDlist){
+
 	state->counterArrays[0][reqIDlist]--;
 	owner->finishBucket(reqIDlist);
 
-		CkAssert(chunk >= 0); 
+		CkAssert(chunk >= 0);
 		state->counterArrays[1][chunk] --;
 		CkAssert(state->counterArrays[1][chunk] >= 0);
 		if (state->counterArrays[1][chunk] == 0) {
@@ -301,13 +301,13 @@ int GravityCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, in
 }
 
 #if INTERLIST_VER > 0
-int ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int reqIDlist){	
+int ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int reqIDlist){
   int start, end;
   GenericTreeNode *source = (GenericTreeNode *)computeEntity;
-  owner->getBucketsBeneathBounds(source, start, end); 
+  owner->getBucketsBeneathBounds(source, start, end);
   owner->updateBucketState(start, end, 1, chunk, state);
 
-  CkAssert(chunk >= 0); 
+  CkAssert(chunk >= 0);
   int remainingChunk;
   remainingChunk = state->counterArrays[1][chunk];
 #ifdef CHANGA_REFACTOR_MEMCHECK
@@ -329,10 +329,10 @@ void PrefetchCompute::walkDone(){
 }
 */
 
-int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw, 
+int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
                               State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi){
   // ignores state
-  
+
   TreePiece *tp = tw->getOwnerTP();
   if(node->getType() == Empty || node->getType() == CachedEmpty){
 #ifdef CHANGA_REFACTOR_WALKCHECK
@@ -347,11 +347,11 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
   int open;
 
   open = openCriterion(tp, node, reqID, state);
-  if(opt == NULL){       
+  if(opt == NULL){
     ckerr << "GravityCompute reqID("<<reqID<<"), isRoot("<<isRoot<<") has NULL opt" << endl;
     CkAbort("aborting");
   }
-  
+
   int action = opt->action(open, node);
   if(action == KEEP){ // keep node
     return KEEP;
@@ -361,10 +361,10 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
 #ifdef BENCHMARK_TIME_COMPUTE
     double startTime = CmiWallTimer();
 #endif
-    int computed = nodeBucketForce(node, 
-                    (GenericTreeNode *)computeEntity, 
-                    tp->getParticles(), 
-                    tp->decodeOffset(reqID), 
+    int computed = nodeBucketForce(node,
+                    (GenericTreeNode *)computeEntity,
+                    tp->getParticles(),
+                    tp->decodeOffset(reqID),
                     activeRung);
 #ifdef BENCHMARK_TIME_COMPUTE
     computeTimeNode += CmiWallTimer() - startTime;
@@ -388,8 +388,8 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
 #if CHANGA_REFACTOR_DEBUG > 2
     CkAssert(node->getType() == Bucket);
     CkPrintf("[%d] GravityCompute told to KEEP_LOCAL_BUCKET, chunk=%d, remoteIndex=%d, first=%d, last=%d, reqID=%d\n", tp->getIndex(),
-                         chunk, node->remoteIndex, 
-                         node->firstParticle, 
+                         chunk, node->remoteIndex,
+                         node->firstParticle,
                          node->lastParticle,
                          reqID);
 #endif
@@ -404,9 +404,9 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
       for(int i = node->firstParticle; i <= node->lastParticle; i++){
         computed += partBucketForce(
                                   &part[i-node->firstParticle],
-                                  (GenericTreeNode *)computeEntity, 
-                                  tp->getParticles(), 
-                                  tp->decodeOffset(reqID), 
+                                  (GenericTreeNode *)computeEntity,
+                                  tp->getParticles(),
+                                  tp->decodeOffset(reqID),
                                   activeRung);
       }
 #ifdef BENCHMARK_TIME_COMPUTE
@@ -436,19 +436,19 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
   // fetch particles and compute.
 #if CHANGA_REFACTOR_DEBUG > 2
     CkPrintf("[%d] GravityCompute told to KEEP_REMOTE_BUCKET, chunk=%d, remoteIndex=%d, first=%d, last=%d, reqID=%d\n", tp->getIndex(),
-                         chunk, node->remoteIndex, 
-                         node->firstParticle, 
+                         chunk, node->remoteIndex,
+                         node->firstParticle,
                          node->lastParticle,
                          reqID);
 #endif
     Tree::NodeKey keyref = node->getKey();
     ExternalGravityParticle *part;
-    part = 
-        tp->particlesMissed(keyref, 
-                                       chunk, 
-                                       node->remoteIndex, 
-                                       node->firstParticle, 
-                                       node->lastParticle, 
+    part =
+        tp->particlesMissed(keyref,
+                                       chunk,
+                                       node->remoteIndex,
+                                       node->firstParticle,
+                                       node->lastParticle,
                                        reqID, false, awi, computeEntity);
     if(part){
 #if CHANGA_REFACTOR_DEBUG > 2
@@ -474,7 +474,7 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
         state->counterArrays[0][decodeReqID(reqID)] += 1;
         state->counterArrays[1][chunk] += 1;
       }
-    }   
+    }
     return DUMP;
   }
   else if(action == DUMP || action == NOP){
@@ -491,9 +491,9 @@ int GravityCompute::computeParticleForces(TreePiece *ownerTP, GenericTreeNode *n
   for(int i = node->firstParticle; i <= node->lastParticle; i++){
     computed += partBucketForce(
                                   &part[i-node->firstParticle],
-                                  (GenericTreeNode *)computeEntity, 
-                                  ownerTP->getParticles(), 
-                                  ownerTP->decodeOffset(reqID), 
+                                  (GenericTreeNode *)computeEntity,
+                                  ownerTP->getParticles(),
+                                  ownerTP->decodeOffset(reqID),
                                   activeRung);
   }
 #ifdef BENCHMARK_TIME_COMPUTE
@@ -507,12 +507,12 @@ int GravityCompute::computeParticleForces(TreePiece *ownerTP, GenericTreeNode *n
   return computed;
 }
 
-// Source of force is a node 
+// Source of force is a node
 int GravityCompute::computeNodeForces(TreePiece *ownerTP, GenericTreeNode *node, int reqID){
   return -1;
 }
 
-int PrefetchCompute::openCriterion(TreePiece *ownerTP, 
+int PrefetchCompute::openCriterion(TreePiece *ownerTP,
                           GenericTreeNode *node, int reqID, State *state){
   TreePiece *tp = ownerTP;
   PrefetchRequestStruct prs(tp->prefetchReq, tp->numPrefetchReq);
@@ -525,12 +525,12 @@ int PrefetchCompute::openCriterion(TreePiece *ownerTP,
     if(openCriterionBucket(node, &testNode, offset, ownerTP->getIndex()))
       return 1;
   }
-  return 0;  
+  return 0;
 }
 
 int PrefetchCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi){
   TreePiece *tp = tw->getOwnerTP();
-  // ignores state 
+  // ignores state
   if(node == NULL){
     CkAbort("PrefetchComputedoWork() given NULL node");
   }
@@ -544,21 +544,21 @@ int PrefetchCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, i
   else if(decision == KEEP_REMOTE_BUCKET){
 #if CHANGA_REFACTOR_DEBUG > 2
     CkPrintf("[%d] PrefetchCompute told to KEEP_REMOTE_BUCKET, chunk=%d, remoteIndex=%d, first=%d, last=%d, reqID=%d\n", tp->getIndex(),
-                         chunk, node->remoteIndex, 
-                         node->firstParticle, 
+                         chunk, node->remoteIndex,
+                         node->firstParticle,
                          node->lastParticle,
                          reqID);
 #endif
     Tree::NodeKey keyref = node->getKey();
-    ExternalGravityParticle *part = 
-                      tp->particlesMissed(keyref, 
-                                                         chunk, 
-                                                         node->remoteIndex, 
-                                                         node->firstParticle, 
-                                                         node->lastParticle, 
+    ExternalGravityParticle *part =
+                      tp->particlesMissed(keyref,
+                                                         chunk,
+                                                         node->remoteIndex,
+                                                         node->firstParticle,
+                                                         node->lastParticle,
                                                          reqID,
                                                          true, awi, (void *)0);
-    
+
     if(part == NULL){
       //tp->incPrefetchWaiting();
       state->counterArrays[0][0]++;
@@ -576,8 +576,8 @@ int PrefetchCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, i
   else if(decision == KEEP_LOCAL_BUCKET){
 #if CHANGA_REFACTOR_DEBUG > 2
     CkPrintf("[%d] PrefetchCompute told to KEEP_LOCAL_BUCKET, chunk=%d, remoteIndex=%d, first=%d, last=%d, reqID=%d\n", tp->getIndex(),
-                         chunk, node->remoteIndex, 
-                         node->firstParticle, 
+                         chunk, node->remoteIndex,
+                         node->firstParticle,
                          node->lastParticle,
                          reqID);
 #endif
@@ -617,12 +617,12 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
 
   open = openCriterion(tp, node, reqID, state);
   //CkPrintf("[%d] open: %d\n", tp->getIndex(), open);
-  
+
   int fakeOpen;
-  // in the interlist version, there are three possible return 
+  // in the interlist version, there are three possible return
   // values for the opencriterin function, whereas the Opt object
   // only knows about two (true, open and false, no need to open).
-  // convert -1 (ancestor fully contained) to true (open) 
+  // convert -1 (ancestor fully contained) to true (open)
   if(open == INTERSECT || open == CONTAIN){
     fakeOpen = 1;
   }
@@ -634,13 +634,13 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
   if(action == KEEP){
     if(open == CONTAIN)
     {
-      // ancestor is a node and is contained 
+      // ancestor is a node and is contained
       // only enqueue nodes if they are available
       addChildrenToCheckList(node, reqID, chunk, awi, s, chklist, tp);
-      // DUMP, because 
+      // DUMP, because
       // we've just added the children of the glbl node to the chklist,
       // so it won't be empty when dowork returns to dft
-      // if the local node needs to be opened by someone in the chklist, 
+      // if the local node needs to be opened by someone in the chklist,
       // it will be, eventually. We should return KEEP only when we have
       // added things to the undecided list,
       // i.e. when we are emptying the chklist and not adding nodes to it
@@ -649,17 +649,17 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
     }// end if contain
     else if(open == INTERSECT)
     {
-      GenericTreeNode *localNode = (GenericTreeNode *)computeEntity; 
+      GenericTreeNode *localNode = (GenericTreeNode *)computeEntity;
       if(localNode->getType() == Bucket){
         // if the local node is a bucket, we shouldn't descend further locally
-        // instead, add the children of the glblnode to its checklist 
+        // instead, add the children of the glblnode to its checklist
         addChildrenToCheckList(node, reqID, chunk, awi, s, chklist, tp);
         //Vector3D<double> vec = tp->decodeOffset(reqID);
         //CkPrintf("level %d: %d (%f, %f, %f)\n", s->level, node->getKey(), vec.x, vec.y, vec.z);
         return DUMP;
       }
       else{
-        // ancestor is a node but only intersects, 
+        // ancestor is a node but only intersects,
         // modify undecided list and send KEEP to tw:
         OffsetNode on;
         on.node = node;
@@ -675,7 +675,7 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
     // so we only need to add node to clist here
     didcomp = true;
     int computed;
-    
+
     // add to list
     /*
     Vector3D<double> v = tp->decodeOffset(reqID);
@@ -684,7 +684,7 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
                                                                    v.x, v.y, v.z);
     */
     addNodeToInt(node, reqID, s);
-    // all particles beneath this node have been 
+    // all particles beneath this node have been
     // scheduled for computation
     computed = node->lastParticle-node->firstParticle+1;
     if(getOptType() == Remote){
@@ -700,8 +700,8 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
 #if CHANGA_REFACTOR_DEBUG > 2
     CkAssert(node->getType() == Bucket);
     CkPrintf("[%d] ListCompute told to KEEP_LOCAL_BUCKET, chunk=%d, remoteIndex=%d, first=%d, last=%d, reqID=%d\n", tp->getIndex(),
-                         chunk, node->remoteIndex, 
-                         node->firstParticle, 
+                         chunk, node->remoteIndex,
+                         node->firstParticle,
                          node->lastParticle,
                          reqID);
 #endif
@@ -729,19 +729,19 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
   // fetch particles and compute.
 #if CHANGA_REFACTOR_DEBUG > 2
     CkPrintf("[%d] ListCompute told to KEEP_REMOTE_BUCKET, chunk=%d, remoteIndex=%d, first=%d, last=%d, reqID=%d\n", tp->getIndex(),
-                         chunk, node->remoteIndex, 
-                         node->firstParticle, 
+                         chunk, node->remoteIndex,
+                         node->firstParticle,
                          node->lastParticle,
                          reqID);
 #endif
     Tree::NodeKey keyref = node->getKey();
     ExternalGravityParticle *part;
-    part = 
-        tp->particlesMissed(keyref, 
-                                       chunk, 
-                                       node->remoteIndex, 
-                                       node->firstParticle, 
-                                       node->lastParticle, 
+    part =
+        tp->particlesMissed(keyref,
+                                       chunk,
+                                       node->remoteIndex,
+                                       node->firstParticle,
+                                       node->lastParticle,
                                        reqID, false, awi, computeEntity);
     if(part){
 #if CHANGA_REFACTOR_DEBUG > 2
@@ -778,7 +778,7 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
   CmiMemoryCheck();
 #endif
     	}
-    }   
+    }
     return DUMP;
   }
   else if(action == DUMP || action == NOP){
@@ -792,9 +792,9 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
   int targetBucket = decodeReqID(reqID);
   CkAssert(num > 0);
   GenericTreeNode *source = (GenericTreeNode *)computeEntity;
-  
+
   GenericTreeNode* reqnode;
-  
+
   int startBucket;
   int end;
 
@@ -823,7 +823,7 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
 #else
   addRemoteParticlesToInt(part, num, offset, state);
 #endif
-  
+
   state->lowestNode = source;
 
   stateReady(state, tp, chunk, startBucket, end);
@@ -846,9 +846,9 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
 
 
 // CUDA: using double instead of float for vector
-int ListCompute::openCriterion(TreePiece *ownerTP, 
+int ListCompute::openCriterion(TreePiece *ownerTP,
                           GenericTreeNode *node, int reqID, State *state){
-  return 
+  return
     openCriterionNode(node,(GenericTreeNode *)computeEntity, ownerTP->decodeOffset(reqID), ownerTP->getIndex());
 }
 
@@ -898,6 +898,7 @@ void ListCompute::addNodeToInt(GenericTreeNode *node, int offsetID, DoubleWalkSt
   s->clists[level].push_back(nd);
 }
 
+#define CELLBUFFERSIZE 16*1024
 void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start, int end){
   int thisIndex = tp->getIndex();
   GravityParticle *particles = tp->getParticles();
@@ -905,12 +906,47 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
   DoubleWalkState *state = (DoubleWalkState *)state_;
   GenericTreeNode *lowestNode = state->lowestNode;
   int maxlevel = lowestNode->getLevel(lowestNode->getKey());
-  
+
   bool hasRemoteLists = state->rplists.length() > 0 ? true : false;
   bool hasLocalLists = state->lplists.length() > 0 ? true : false;
 
   for(int b = start; b < end; b++){
     if(tp->bucketList[b]->rungs >= activeRung){
+#ifdef CELL
+      //enableTrace();
+      // Combine all the computation in a request to be sent to the cell SPE
+      int activePart=0, indexActivePart=0;
+      for (int k=tp->bucketList[b]->firstParticle; k<=tp->bucketList[b]->lastParticle; ++k) {
+        if (tp->myParticles[k].rung >= activeRung) activePart++;
+      }
+      int activePartDataSize = ROUNDUP_128((activePart+3)*sizeof(CellGravityParticle));
+      CellGravityParticle *activePartData = (CellGravityParticle*)malloc_aligned(activePartDataSize,128);
+      GravityParticle **partList = new GravityParticle*[activePart];
+      CellGroupRequest *cgr = new CellGroupRequest(this, b, partList);
+      WRGroupHandle wrh = createWRGroup(cgr, cellSPE_callback);
+      for (int k=tp->bucketList[b]->firstParticle; k<=tp->bucketList[b]->lastParticle; ++k) {
+        if (tp->myParticles[k].rung >= activeRung) {
+          activePartData[indexActivePart] = tp->myParticles[k];
+      //CkPrintf("[%d] particle %d: %d on bucket %d, acc: %f %f %f\n",thisIndex,k,myParticles[k].iOrder,bucketIndex,activePartData[indexActivePart].treeAcceleration.x,activePartData[indexActivePart].treeAcceleration.y,activePartData[indexActivePart].treeAcceleration.z);
+      //CkPrintf("[%d] partList %d: particle %d (%p)\n",thisIndex,indexActivePart,k,&myParticles[k]);
+          partList[indexActivePart++] = &tp->myParticles[k];
+        }
+      }
+      /*int numPart=0, numNodes=0;
+      for(int k=0;k<=curLevelLocal;k++) {
+        numNodes += cellListLocal[k].length();
+        for(int kk=0; kk<particleListLocal[k].length(); kk++) {
+          numPart += particleListLocal[k][kk].numParticles;
+        }
+      }*/
+      int particlesPerRequest = (CELLBUFFERSIZE - 2*sizeof(int)) / sizeof(CellExternalGravityParticle);
+      int nodesPerRequest = (CELLBUFFERSIZE - 2*sizeof(int)) / sizeof(CellMultipoleMoments);
+      CellContainer *particleContainer = (CellContainer*)malloc_aligned(CELLBUFFERSIZE,128);
+      CellExternalGravityParticle *particleData = (CellExternalGravityParticle*)&particleContainer->data;
+      CellContainer *nodesContainer = (CellContainer*)malloc_aligned(CELLBUFFERSIZE,128);
+      CellMultipoleMoments *nodesData = (CellMultipoleMoments*)&nodesContainer->data;
+      int indexNodes=0, indexPart=0;
+#endif
 
       for(int level = 0; level <= maxlevel; level++){
 
@@ -921,29 +957,76 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
           GenericTreeNode *node = clist[i].node;
           tp->addToBucketChecklist(b, node->getKey());
           tp->combineKeys(node->getKey(), b);
-          
-          // don't try to compute with empty nodes or 
-          if(node->getType() == Empty 
+
+          // don't try to compute with empty nodes or
+          if(node->getType() == Empty
             || node->getType() == CachedEmpty){
             continue;
           }
 #endif
-          int computed =  nodeBucketForce(clist[i].node, 
-                          tp->getBucket(b), 
-                          particles, 
+          int computed = 0;
+#ifdef CELL_NODE
+          nodesData[indexNodes] = clist[i].node->moments;
+          Vector3D<double> tmpoffsetID = decodeOffset(clist[i].offsetID);
+          nodesData[indexNodes].cm += tmpoffsetID;
+          indexNodes++;
+          if (indexNodes == nodesPerRequest) {
+            // send off request
+            void *activeData = malloc_aligned(activePartDataSize,128);
+            memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
+            CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, nodesContainer, partList, this);
+            nodesContainer->numInt = activePart;
+            nodesContainer->numExt = indexNodes;
+            //CkPrintf("[%d] sending request 1 %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, nodesContainer, CELLBUFFERSIZE);
+            sendWorkRequest (1, activeData, activePartDataSize, nodesContainer, CELLBUFFERSIZE, NULL, 0,
+                (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
+            workRequestOut ++;
+            computed += activePart * indexNodes;
+            nodesContainer = (CellContainer*)malloc_aligned(CELLBUFFERSIZE,128);
+            nodesData = (CellMultipoleMoments*)&nodesContainer->data;
+            indexNodes = 0;
+          }
+#else
+          computed =  nodeBucketForce(clist[i].node,
+                          tp->getBucket(b),
+                          particles,
                           tp->decodeOffset(clist[i].offsetID), activeRung);
+#endif
           if(getOptType() == Remote){
             tp->addToNodeInterRemote(chunk, computed);
           }
           else if(getOptType() == Local){
             tp->addToNodeInterLocal(computed);
           }
-          Vector3D<double> vec = tp->decodeOffset(clist[i].offsetID);
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
+          Vector3D<double> vec = tp->decodeOffset(clist[i].offsetID);
           CkPrintf("[%d]: bucket %d with %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex,  b, clist[i].node->getKey(), vec.x, vec.y, vec.z);
 #endif
 
         }
+#ifdef CELL
+        if (indexNodes > 0 && level==maxLevel) {
+#ifdef CELL_NODE
+          void *activeData = malloc_aligned(activePartDataSize,128);
+          memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
+          CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, nodesContainer, partList, this);
+          nodesContainer->numInt = activePart;
+          nodesContainer->numExt = indexNodes;
+          //CkPrintf("[%d] sending request 2 %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, nodesContainer, ROUNDUP_128(indexNodes*sizeof(CellMultipoleMoments)));
+          sendWorkRequest (1, activeData, activePartDataSize, nodesContainer, ROUNDUP_128(indexNodes*sizeof(CellMultipoleMoments)+2*sizeof(int)),
+              NULL, 0, (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
+          workRequestOut ++;
+          if(getOptType() == Remote){
+            tp->addToNodeInterRemote(chunk, activePart * indexNodes);
+          }
+          else if(getOptType() == Local){
+            tp->addToNodeInterLocal(activePart * indexNodes);
+          }
+#endif
+        } else if (level==maxLevel) {
+          free_aligned(nodesContainer);
+        }
+#endif
 
         // remote particles
         if(hasRemoteLists){
@@ -958,16 +1041,39 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 #endif
             // for each particle in a bunch
             for(int j = 0; j < rpi.numParticles; j++){
-	      int computed = partBucketForce(&rpi.particles[j], 
+              int computed = 0;
+#ifdef CELL_PART
+              particleData[indexPart] = rpi.particles[j];
+              particleData[indexPart].position += rpi.offset;
+              indexPart++;
+              if (indexPart == particlesPerRequest) {
+                // send off request
+                void *activeData = malloc_aligned(activePartDataSize,128);
+                memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
+                CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, particleContainer, partList, this);
+                particleContainer->numInt = activePart;
+                particleContainer->numExt = indexPart;
+                //CkPrintf("[%d] sending request 3 %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, particleContainer, CELLBUFFERSIZE);
+                sendWorkRequest (2, activeData, activePartDataSize, particleContainer, CELLBUFFERSIZE, NULL, 0,
+                    (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
+                workRequestOut ++;
+                tp->addToParticleInterRemote(chunk, activePart * indexPart);
+                particleContainer = (CellContainer*)malloc_aligned(CELLBUFFERSIZE,128);
+                particleData = (CellExternalGravityParticle*)&particleContainer->data;
+                indexPart = 0;
+              }
+#else
+            computed = partBucketForce(&rpi.particles[j],
 	                      tp->getBucket(b),
 	                      particles,
 	                      rpi.offset, activeRung);
+#endif
               if(getOptType() == Remote){// don't really have to perform this check
 	        tp->addToParticleInterRemote(chunk, computed);
               }
             }
-            Vector3D<double> &vec = rpi.offset;
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
+            Vector3D<double> &vec = rpi.offset;
             CkPrintf("[%d]: bucket %d with %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex, b, rpi.key, vec.x, vec.y, vec.z);
 #endif
           }
@@ -985,20 +1091,72 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 #endif
             // for each particle in a bunch
             for(int j = 0; j < lpi.numParticles; j++){
-	      int computed = partBucketForce(&lpi.particles[j], 
+#ifdef CELL_PART
+              particleData[indexPart] = lpi.particles[j];
+              particleData[indexPart].position += lpi.offset;
+              indexPart++;
+              if (indexPart == particlesPerRequest) {
+                // send off request
+                void *activeData = malloc_aligned(activePartDataSize,128);
+                memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
+                CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, particleContainer, partList, this);
+                particleContainer->numInt = activePart;
+                particleContainer->numExt = indexPart;
+                //CkPrintf("[%d] sending request 3 %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, particleContainer, CELLBUFFERSIZE);
+                sendWorkRequest (2, activeData, activePartDataSize, particleContainer, CELLBUFFERSIZE, NULL, 0,
+                    (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
+                workRequestOut ++;
+                tp->addToParticleInterLocal(activePart * indexPart);
+                particleContainer = (CellContainer*)malloc_aligned(CELLBUFFERSIZE,128);
+                particleData = (CellExternalGravityParticle*)&particleContainer->data;
+                indexPart = 0;
+              }
+#else
+	      int computed = partBucketForce(&lpi.particles[j],
 	                      tp->getBucket(b),
 	                      particles,
 	                      lpi.offset, activeRung);
 	      tp->addToParticleInterLocal(computed);
             }
-            Vector3D<double> &vec = lpi.offset;
+#endif
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
+            Vector3D<double> &vec = lpi.offset;
             CkPrintf("[%d]: bucket %d with %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex, b, lpi.key, vec.x, vec.y, vec.z);
 #endif
           }
         }
+#ifdef CELL
+        if (indexPart > 0 && level==maxLevel) {
+#ifdef CELL_PART
+          //void *activeData = malloc_aligned(activePartDataSize,128);
+          //memcpy(activeData, activePartData, activePart*sizeof(GravityParticle));
+          CellRequest *userData = new CellRequest(activePartData, activePart, particleContainer, partList, this);
+          particleContainer->numInt = activePart;
+          particleContainer->numExt = indexPart;
+          //CkPrintf("[%d] sending request 4 %p+%d, %p+%d (%d int %d ext)\n",thisIndex,activePartData, activePartDataSize, particleContainer, ROUNDUP_128(indexPart*sizeof(CellExternalGravityParticle)),activePart,indexPart);
+          sendWorkRequest (2, activePartData, activePartDataSize, particleContainer, ROUNDUP_128(indexPart*sizeof(CellExternalGravityParticle)+2*sizeof(int)),
+              NULL, 0, (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
+          workRequestOut ++;
+          if(getOptType() == Remote){
+            tp->addToNodeInterRemote(chunk, activePart * indexPart);
+          }
+          else if(getOptType() == Local){
+            tp->addToNodeInterLocal(activePart * indexPart);
+          }
+#endif
+        } else if (level==maxLevel) {
+          free_aligned(activePartData);
+          free_aligned(particleContainer);
+        }
+#endif
 
       }// level
+
+#ifdef CELL
+      // Now all the requests have been made
+      completeWRGroup(wrh);
+      OffloadAPIProgress();
+#endif
     }// active
     //if(b == TEST_BUCKET)
     //CkPrintf("-----------------\n");
@@ -1010,11 +1168,11 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
     CkVec<OffsetNode> &clist = state->clists[l];
 
     for(int j = 0; j < clist.length(); j++){
-      for(int b = start; b < end; b++){ 
+      for(int b = start; b < end; b++){
         if(tp->bucketList[b]->rungs >= activeRung){
-          int computed =  nodeBucketForce(clist[j].node, 
-                          tp->getBucket(b), 
-                          particles, 
+          int computed =  nodeBucketForce(clist[j].node,
+                          tp->getBucket(b),
+                          particles,
                           tp->decodeOffset(clist[j].offsetID), activeRung);
           if(getOptType() == Remote){
             tp->addToNodeInterRemote(chunk, computed);
@@ -1028,16 +1186,16 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
       }// end fo each bucket
     }// end for each item in clist
     int computed = 0;
-    // remote particles 
+    // remote particles
     if(hasRemoteLists){
 	    CkVec<RemotePartInfo> &rplist = state->rplists[l];
 	    for(int j = 0; j < rplist.length(); j++){// for each entry in this list
 	      RemotePartInfo &rpi = rplist[j];// entry
 	      for(int part = 0; part < rpi.numParticles; part++){ // for each particle in entry
 	        for(int b = start; b < end; b++){ // for each bucket
-                  
+
                   if(tp->bucketList[b]->rungs >= activeRung){
-	            computed = partBucketForce(&rpi.particles[part], 
+	            computed = partBucketForce(&rpi.particles[part],
 	                            tp->getBucket(b),
 	                            particles,
 	                            rpi.offset, activeRung);
@@ -1049,16 +1207,16 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 	      }// end for each particle in listitem
 	    }// end for each listitem in list
     }// end has remote particle lists
-    // local particles 
+    // local particles
     if(hasLocalLists){
 	    CkVec<LocalPartInfo> &lplist = state->lplists[l];
 	    for(int j = 0; j < lplist.length(); j++){// for each entry in this list
 	      LocalPartInfo &lpi = lplist[j];// entry
 	      for(int part = 0; part < lpi.numParticles; part++){ // for each particle in entry
 	        for(int b = start; b < end; b++){ // for each bucket
-                  
+
                   if(tp->bucketList[b]->rungs >= activeRung){
-	            computed = partBucketForce(&lpi.particles[part], 
+	            computed = partBucketForce(&lpi.particles[part],
 	                            tp->getBucket(b),
 	                            particles,
 	                            lpi.offset, activeRung);
@@ -1066,8 +1224,8 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
                     Vector3D<double> &vec = lpi.offset;
                     CkPrintf("%d: %d (%f, %f, %f)\n", b, lpi.nd->getKey(), vec.x, vec.y, vec.z);
                   }// end if bucket active
-	        }// end for each bucket 
-	      }// end for each particle in listitem 
+	        }// end for each bucket
+	      }// end for each particle in listitem
 	    }// end for each listitem in list
     }// end has local particle lists
   }
@@ -1085,27 +1243,27 @@ void ListCompute::addChildrenToCheckList(GenericTreeNode *node, int reqID, int c
     {
       Tree::NodeKey childKey = node->getChildKey(i);
       // child not in my tree, look in cache
-      child = tp->nodeMissed(reqID, 
-                                node->remoteIndex, 
+      child = tp->nodeMissed(reqID,
+                                node->remoteIndex,
                                 childKey,
                                 chunk,
-                                false, 
+                                false,
                                 awi, computeEntity);
       if(!child)
       {
         nodeMissedEvent(reqID, chunk, s, tp);
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
-        CkPrintf("[%d] missed child %ld (%1.0f,%1.0f,%1.0f) of %ld\n", tp->getIndex(), 
+        CkPrintf("[%d] missed child %ld (%1.0f,%1.0f,%1.0f) of %ld\n", tp->getIndex(),
                                                                 childKey,
                                                                 vec.x, vec.y, vec.z,
                                                                 node->getKey());
 #endif
         continue;
       }
-    } 
+    }
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
-    CkPrintf("[%d] enq avail child %ld (%1.0f,%1.0f,%1.0f) of %ld\n", tp->getIndex(), 
-                                                                child->getKey(), 
+    CkPrintf("[%d] enq avail child %ld (%1.0f,%1.0f,%1.0f) of %ld\n", tp->getIndex(),
+                                                                child->getKey(),
                                                                 vec.x, vec.y, vec.z,
                                                                 node->getKey());
 #endif
@@ -1120,7 +1278,7 @@ void ListCompute::addChildrenToCheckList(GenericTreeNode *node, int reqID, int c
 // to be used when debugging
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
 void printClist(DoubleWalkState *state, int level, TreePiece *tp){
-  
+
   {
     CkVec<OffsetNode> &list = state->clists[level];
     Vector3D<double> vec;
