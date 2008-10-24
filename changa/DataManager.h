@@ -43,6 +43,16 @@ protected:
 	
 	/// A list of roots of the TreePieces in this node
 	CkVec<Tree::GenericTreeNode*> registeredChares;
+#ifdef CUDA
+	CkVec<TreePiece*> registeredTreePieces;
+        int cumNumReplicatedNodes;
+        // keeps track of buckets of particles that were 
+        // received during the prefetch and which were subsequently 
+        // shipped off to the gpu
+        std::map<NodeKey, int> cachedPartsOnGpu;
+        // local particles that have been copied to the gpu
+        std::map<NodeKey, int> localPartsOnGpu;
+#endif
 	/// The root of the combined trees
 	Tree::GenericTreeNode * root;
 	/// The lookup table for nodes created by the DataManager to combine trees
@@ -52,15 +62,27 @@ protected:
 	int oldNumChunks;
 	/// Nodes currently used as roots for remote computation
 	Tree::NodeKey *chunkRoots;
-    /// Lookup table for the chunkRoots
-    Tree::NodeLookupType chunkRootTable;
+        /// Lookup table for the chunkRoots
+        Tree::NodeLookupType chunkRootTable;
+
+#ifdef CUDA
+        std::map<Tree::NodeKey, GenericTreeNode *> missedNodesOnGpu;
+        std::map<Tree::NodeKey, ExternalGravityParticle *> missedPartsOnGpu;
+#endif
 
 public:
 	
 	DataManager(const CkArrayID& treePieceID);
 	DataManager(CkMigrateMessage *);
+
+#ifdef CUDA
+        void serializeNodes(GenericTreeNode *start);
+        void donePrefetch();
+#endif
+
 private:
-    void init();
+        void init();
+
 public:
 	
 	~DataManager() { }
@@ -73,13 +95,18 @@ public:
 	void acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb);
 	void pup(PUP::er& p);
 	
+#ifdef CUDA
+        std::map<NodeKey, int> &getLocalPartsOnGpuTable(){
+          return localPartsOnGpu;
+        }
+#endif
 	// Functions used to create a tree inside the DataManager comprising
 	// all the trees in the TreePieces in the local node
 private:
 	Tree::GenericTreeNode *buildProcessorTree(int n, Tree::GenericTreeNode **gtn);
 	int createLookupRoots(Tree::GenericTreeNode *node, Tree::NodeKey *keys);
 public:
-    void notifyPresence(Tree::GenericTreeNode *root);
+    void notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp);
     void combineLocalTrees(CkReductionMsg *msg);
     void getChunks(int &num, Tree::NodeKey *&roots);
     inline Tree::GenericTreeNode *chunkRootToNode(const Tree::NodeKey k) {
