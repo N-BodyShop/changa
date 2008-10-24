@@ -23,7 +23,7 @@ void TopDownTreeWalk::walk(GenericTreeNode *startNode, State *state, int chunk, 
 #endif
 #ifndef CHANGA_REFACTOR_WALKCHECK
 #ifdef TREE_BREADTH_FIRST
-  bft(startNode, state, chunk, reqID, true, awi);       // isRoot  
+  bft(startNode, state, chunk, reqID, true, awi);       // isRoot
 #else
   dft(startNode, state, chunk, reqID, true, awi);       // isRoot
 #endif
@@ -52,7 +52,7 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
 #endif
   int ret;
   GenericTreeNode *tmp;
-  if(node == NULL){   // something went wrong here  
+  if(node == NULL){   // something went wrong here
     ckerr << "TopDownTreeWalk recvd. null node - chunk("<<chunk<<"), reqID("<<reqID<<"), isRoot("<<isRoot<<")" << endl;
     CkAbort("Abort");
   }
@@ -66,14 +66,14 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
 #ifdef BENCHMARK_TIME_WALK
   doWorkTime += CmiWallTimer() - start1;
 #endif
-  
+
 #ifdef CHANGA_REFACTOR_WALKCHECK
-  if(doprint){ 
+  if(doprint){
     string s;
-    for(int i = 0; i < shift; i++) s = s + " "; 
+    for(int i = 0; i < shift; i++) s = s + " ";
     char *arr = "KD";
     char *c = "NY";
-    if(ret == KEEP) 
+    if(ret == KEEP)
       CkPrintf("%s%ld (%c)\n", s.c_str(),node->getKey(), arr[ret]);
     else if(ret == DUMP)
       CkPrintf("%s%ld (%c,%c)\n", s.c_str(),node->getKey(), arr[ret], c[didcomp]);
@@ -90,12 +90,12 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
       globalKey = node->getChildKey(i);
 
       comp->startNodeProcessEvent(state);
-      
+
       // check whether child is NULL and get from cache if necessary/possible
-      if(child == NULL){       
+      if(child == NULL){
         // needed to descend, but couldn't because node wasn't available
 #if CHANGA_REFACTOR_DEBUG > 2
-        CkPrintf("[%d]: TopDownTreeWalk missed a child: chunk=%d, TreeWalkType=%d, ComputeType=%d, OptType=%d, isPrefetch=%d\n", 
+        CkPrintf("[%d]: TopDownTreeWalk missed a child: chunk=%d, TreeWalkType=%d, ComputeType=%d, OptType=%d, isPrefetch=%d\n",
             ownerTP->getIndex(),
             chunk,
             getSelfType(),
@@ -110,10 +110,10 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
           CkPrintf("%s%ld SM\n", s.c_str(), node->getChildKey(i));
         }
 #endif
-        child = ownerTP->nodeMissed(reqID, 
-                                    node->remoteIndex, 
-                                    globalKey, 
-                                    chunk, comp->getSelfType() == Prefetch, 
+        child = ownerTP->nodeMissed(reqID,
+                                    node->remoteIndex,
+                                    globalKey,
+                                    chunk, comp->getSelfType() == Prefetch,
                                     awi, comp->getComputeEntity());
         if(child == NULL){     // missed in cache, skip node for now
 #if CHANGA_REFACTOR_DEBUG > 2
@@ -146,24 +146,24 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
 
     }// for each child
   }// if KEEP
-  //else // don't need the node anymore, return up the tree 
+  //else // don't need the node anymore, return up the tree
   comp->finishNodeProcessEvent(ownerTP, state);
   return;
 }
 
 void TopDownTreeWalk::bft(GenericTreeNode *node, State *state, int chunk, int reqID, bool isRoot, int awi){
   int ret;
-  if(node == NULL){   // something went wrong here  
+  if(node == NULL){   // something went wrong here
     ckerr << "TopDownTreeWalk recvd. null node - chunk("<<chunk<<"), reqID("<<reqID<<"), isRoot("<<isRoot<<")" << endl;
     CkAbort("Abort");
   }
 
   CkQ<GenericTreeNode*> queue(1024);
   queue.enq(node);
-  
+
   while (node = queue.deq()) {
 
-    currentGlobalKey = node->getKey();
+    NodeKey globalKey = node->getKey();
     // process this node
     bool didcomp = false;
     ret = comp->doWork(node, this, state, chunk, reqID, isRoot, didcomp, awi);
@@ -171,16 +171,16 @@ void TopDownTreeWalk::bft(GenericTreeNode *node, State *state, int chunk, int re
     if(ret == KEEP){      // descend further down tree
       for(int i = 0; i < node->numChildren(); i++){
         GenericTreeNode *child = node->getChildren(i);
-        currentGlobalKey = node->getChildKey(i);
+        globalKey = node->getChildKey(i);
 
         comp->startNodeProcessEvent(state);
 
         // check whether child is NULL and get from cache if necessary/possible
-        if(child == NULL){       
+        if(child == NULL){
           // needed to descend, but couldn't because node wasn't available
-          child = ownerTP->nodeMissed(reqID, node->remoteIndex, currentGlobalKey, chunk, comp->getSelfType() == Prefetch, awi);
+          child = ownerTP->nodeMissed(reqID, node->remoteIndex, globalKey, chunk, comp->getSelfType() == Prefetch, awi, comp->getComputeEntity());
           if(child == NULL){     // missed in cache, skip node for now
-            comp->nodeMissedEvent(reqID, chunk, state);
+            comp->nodeMissedEvent(reqID, chunk, state, ownerTP);
             continue;
           }
           else{
@@ -193,14 +193,14 @@ void TopDownTreeWalk::bft(GenericTreeNode *node, State *state, int chunk, int re
 
       }// for each child
     }// if KEEP
-    //else // don't need the node anymore, return up the tree 
+    //else // don't need the node anymore, return up the tree
     comp->finishNodeProcessEvent(ownerTP, state);
 
   }
 }
 
 
-extern bool bIsReplica(int reqID); 
+extern bool bIsReplica(int reqID);
 //
 // Bottom up treewalk for efficient smooth:
 // check for root (and non periodic) and do local work
@@ -221,7 +221,7 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
     node = startNode;
     if(bIsReplica(reqID) || node->getKey() != ownerTP->root->getKey()) {
 	// Do standard top-down walk.
-	if(node == NULL){   // something went wrong here  
+	if(node == NULL){   // something went wrong here
 	    ckerr << "BottomUpTreeWalk recvd. null node - chunk("
 		  <<chunk<<"), reqID("<<reqID<<"), isRoot("<<isRoot<<")"
 		  << endl;
@@ -237,10 +237,10 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
 		currentGlobalKey = node->getChildKey(i);
 
 		comp->startNodeProcessEvent(state);
-      
+
 		// check whether child is NULL and get from cache if
 		// necessary/possible
-		if(child == NULL){       
+		if(child == NULL){
 		    // needed to descend, but couldn't because node
 		    // wasn't available
 		    child = ownerTP->nodeMissed(reqID, node->remoteIndex,
@@ -259,7 +259,7 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
 		walk(child, state, chunk, reqID, awi);
 		}// for each child
 	    }// if KEEP
-	// don't need the node anymore, return up the tree 
+	// don't need the node anymore, return up the tree
 	comp->finishNodeProcessEvent(ownerTP, state);
 	return;
 	}
@@ -283,14 +283,14 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
 	}
 }
 /**
- * LocalTargetWalk functions. 
+ * LocalTargetWalk functions.
  */
 
 // This walk interprets what is otherwise the 'reqID' argument as the targetBucketIndex
-// It can only be called from the calculateGravityRemote/startNextBucket 
+// It can only be called from the calculateGravityRemote/startNextBucket
 #if INTERLIST_VER > 0
 void LocalTargetWalk::walk(GenericTreeNode *ancestor, State *state, int chunk, int targetBucketIndex, int awi){
-    
+
     targetKey = ownerTP->getBucket(targetBucketIndex)->getKey();
     // construct lists
     int ancestorLevel = ancestor->getLevel(ancestor->getKey());
@@ -305,20 +305,20 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
   bool descend = false;
   // localNode has changed, need to update computeEntity
   comp->setComputeEntity(localNode);
-  
+
   // get current level's checklist
   DoubleWalkState *s = (DoubleWalkState *)state;
   s->level = level;
   CheckList &chklist = s->chklists[level];
   UndecidedList &myUndlist = s->undlists[level];
 
-    
+
   if(!isRoot)
   {
-    // we don't clear state for this level in case 
+    // we don't clear state for this level in case
     // this is the local root, because its chklist
     // will have been set just before walk was called.
-    
+
     // this clears the undlist and interaction lists
     // for the current level
     comp->initState(s);
@@ -327,7 +327,7 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
     // process parent's undecided nodes first
     // don't modify parentundlist - sibling will need the same list
     CkAssert(chklist.isEmpty());
-    for(int i = 0; i < parentUndlist.length(); i++) 
+    for(int i = 0; i < parentUndlist.length(); i++)
     {
       // get remote node from state
       OffsetNode &glblNode = parentUndlist[i];
@@ -335,9 +335,9 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
       // do work
       bool didcomp = false;
       int reqID = reEncodeOffset(targetBucketIndex, glblNode.offsetID);
-        
+
       descend = processNode(glblNode.node, s, chunk, reqID, isRoot, didcomp, awi);
-      
+
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
       char arr[2] = {'K', 'D'};
       char arrr[2] = {'N', 'Y'};
@@ -347,7 +347,7 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
 #endif
     }
   }
-  
+
   // while there are nodes to process on this level
   while(!chklist.isEmpty())
   {
@@ -380,8 +380,8 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
     dft(child, s, chunk, targetBucketIndex, false, awi, level+1);
   }
   else{
-    // will not descend, must be lowest point on path 
-    // set lowest node in state 
+    // will not descend, must be lowest point on path
+    // set lowest node in state
     s->lowestNode = localNode;
   }
   CkAssert(s->lowestNode != 0);
@@ -389,21 +389,21 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
 
 bool LocalTargetWalk::processNode(
                    GenericTreeNode *glblNode,
-                   State *state, 
-                   int chunk, int reqID, 
-                   bool isRoot, bool &didcomp, 
-                   int awi) 
+                   State *state,
+                   int chunk, int reqID,
+                   bool isRoot, bool &didcomp,
+                   int awi)
 {
 
   // assume that we won't be descending into the outer tree
   // if we are advised otherwise by the compute, descend
   // is set to true and the walk continued
   bool descend= false;
-  // bucket number in reqID below does matter, because 
+  // bucket number in reqID below does matter, because
   // we need to keep track of the target bucket.
-  // only the remoteWalk is supposed to request 
-  // nodes; if a local walk started requesting remote nodes, 
-  // we'd be in trouble - awi is -1 for local walks because 
+  // only the remoteWalk is supposed to request
+  // nodes; if a local walk started requesting remote nodes,
+  // we'd be in trouble - awi is -1 for local walks because
   // they are not supposed to request missing nodes
 
   int ret = comp->doWork(glblNode, this, state, chunk, reqID, isRoot, didcomp, awi);
@@ -411,22 +411,22 @@ bool LocalTargetWalk::processNode(
     descend = true;
   }
   else if(ret == DUMP){
-    // a computation was carried out, need to 
-    // 'return' 
+    // a computation was carried out, need to
+    // 'return'
     descend = false;
   }
   return descend;
 }
 
 // Here, node is the global node that we missed on earlier
-// At this point, the 'source' node, i.e. the local node at which the localTargetWalk is to begin,has been 
+// At this point, the 'source' node, i.e. the local node at which the localTargetWalk is to begin,has been
 // set as the computeEntity for the compute. Also, the TW and compute  have been reassociated.
 // The target bucket has been obtained from reqID and set as the target of the walk.
 
 // This walk interprets what is otherwise the 'reqID' argument as the targetBucketIndex
 void LocalTargetWalk::resumeWalk(GenericTreeNode *node, State *state_, int chunk, int reqID, int activeWalkIndex){
 	DoubleWalkState *state = (DoubleWalkState *)state_;
-	
+
         // initial target
 	int targetBucket = decodeReqID(reqID);
 	GenericTreeNode *source = (GenericTreeNode *)comp->getComputeEntity();
@@ -439,9 +439,9 @@ void LocalTargetWalk::resumeWalk(GenericTreeNode *node, State *state_, int chunk
         GenericTreeNode *dummySource = source;
         ownerTP->getBucketsBeneathBounds(dummySource, startBucket, endBucket);
         int tpindex = ownerTP->getIndex();
-        
+
 	// clear all levels up to and including source
-        // this is so that we don't include the lists from 
+        // this is so that we don't include the lists from
         // other resumed walks in the computation for this
         // instance
         // init state
@@ -478,12 +478,12 @@ void LocalTargetWalk::resumeWalk(GenericTreeNode *node, State *state_, int chunk
         while(targetBucket < endBucket){
           GenericTreeNode *targetNode = ownerTP->getBucket(targetBucket);
           if(targetNode->rungs >= activeRung){
-            targetKey = targetNode->getKey(); 
+            targetKey = targetNode->getKey();
             GenericTreeNode *lca = ownerTP->getStartAncestor(targetBucket, prevBucket, source);
-          
+
             int lcaLevel = lca->getLevel(lca->getKey());
             dft(lca, state, chunk, targetBucket, (lcaLevel == level), activeWalkIndex, lcaLevel);
-          
+
             GenericTreeNode *lowestNode = state->lowestNode;
             // start and end buckets beneath lowest node
             int sL, eL;
@@ -493,7 +493,7 @@ void LocalTargetWalk::resumeWalk(GenericTreeNode *node, State *state_, int chunk
             comp->stateReady(state, ownerTP, chunk, targetBucket, eL);
 
             prevBucket = targetBucket;
-            targetBucket = eL; 
+            targetBucket = eL;
           }
           else{
             if(targetBucket != 0){
@@ -511,7 +511,7 @@ void LocalTargetWalk::resumeWalk(GenericTreeNode *node, State *state_, int chunk
 #endif
 
 const char *translations[] = {"",
-                                 "Invalid", 
+                                 "Invalid",
                                  "Bucket",
                                  "Internal",
                                  "Boundary",
