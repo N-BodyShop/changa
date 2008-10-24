@@ -308,14 +308,12 @@ void DataManager::donePrefetch(){
   done++;
   if(done == registeredTreePieces.length()){
     done = 0;
-    //serializeNodes();
     serializeNodes(root);
     registeredTreePieces.length() = 0;
   }
 }
 
 void DataManager::serializeNodes(GenericTreeNode *node){
-//void serializeNodes(){
   CkQ<GenericTreeNode *> queue;
   queue.enq(node);
 
