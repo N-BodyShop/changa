@@ -2574,7 +2574,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 
   while (i<_yieldPeriod && currentRemoteBucket < numBuckets
 #ifdef CELL
-		&& workRequestOut < CELL_THREASHOLD
+		&& workRequestOut < CELLTHREASHOLD
 #endif
   ) {
 #ifdef CHANGA_REFACTOR_WALKCHECK
