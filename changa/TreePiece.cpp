@@ -2043,7 +2043,9 @@ void TreePiece::nextBucket(dummyMsg *msg){
       // book-keeping
       for(int j = currentBucket; j < end; j++){
         sInterListStateLocal->counterArrays[0][j]--;
+#ifndef CELL
         finishBucket(j);
+#endif
         if(bucketList[currentBucket]->rungs >= activeRung){
           numActualBuckets++;
         }
@@ -2663,8 +2665,9 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 
     for(int j = currentRemoteBucket; j < end; j++){
       sInterListStateRemote->counterArrays[0][j]--;
+#ifndef CELL
       finishBucket(j);
-      //particlesDone += ((bucketList[j]->lastParticle - bucketList[j]->firstParticle) + 1);
+#endif
       if(bucketList[j]->rungs >= activeRung){
         numActualBuckets++;
       }
@@ -3987,6 +3990,7 @@ GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key, int 
   }
 }
 
+#if 0
 void TreePiece::receiveNode(GenericTreeNode &node, int chunk, unsigned int reqID)
 {
     int reqIDlist = decodeReqID(reqID);
@@ -4020,6 +4024,7 @@ void TreePiece::receiveNode(GenericTreeNode &node, int chunk, unsigned int reqID
 void TreePiece::receiveNode_inline(GenericTreeNode &node, int chunk, unsigned int reqID){
         receiveNode(node,chunk,reqID);
 }
+#endif
 
 ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk,int remoteIndex,int begin,int end,int reqID, int awi, void *source, bool isPrefetch) {
   if (_cache) {
@@ -4101,6 +4106,7 @@ TreePiece::requestSmoothParticles(Tree::NodeKey key,int chunk,int remoteIndex,
   }
 };
 
+#if 0
 void TreePiece::receiveParticles(ExternalGravityParticle *part,int num,int chunk,
 				 unsigned int reqID, Tree::NodeKey remoteBucketID)
 {
@@ -4188,6 +4194,7 @@ void TreePiece::receiveParticles_inline(ExternalGravityParticle *part,int num,in
 					unsigned int reqID, Tree::NodeKey remoteBucketID){
         receiveParticles(part,num,chunk,reqID,remoteBucketID);
 }
+#endif
 
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
 
@@ -5235,9 +5242,11 @@ void TreePiece::markWalkDone() {
 
 #if INTERLIST_VER > 0
 void TreePiece::getBucketsBeneathBounds(GenericTreeNode *&source, int &start, int &end){
+	/*
   if(source->startBucket == -1){
     source = keyToNode(source->getKey());
   }
+  */
   start = source->startBucket;
   end = start+(source->numBucketsBeneath);
 }
@@ -5246,7 +5255,9 @@ void TreePiece::updateBucketState(int start, int end, int n, int chunk, State *s
   for(int i = start; i < end; i++){
     if(bucketList[i]->rungs >= activeRung){
        state->counterArrays[0][i] -= n;
+#ifndef CELL
        finishBucket(i);
+#endif
     }
   }
   state->counterArrays[1][chunk] -= n;
