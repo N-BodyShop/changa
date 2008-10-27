@@ -121,7 +121,12 @@ void DataManager::pup(PUP::er& p) {
     p | treePieces;
 }
 
+#ifdef CUDA
 void DataManager::notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp) {
+#else
+void DataManager::notifyPresence(Tree::GenericTreeNode *root) {
+#endif
+
   CmiLock(__nodelock);
   registeredChares.push_back(root);
 #ifdef CUDA

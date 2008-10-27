@@ -1083,7 +1083,11 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
     ckerr << "TreePiece " << thisIndex << ": Finished tree build, resolving boundary nodes" << endl;
 
   if (numTreePieces == 1) {
-    dm->notifyPresence(root);
+#ifdef CUDA
+    dm->notifyPresence(root, this);
+#else
+	dm->notifyPresence(root);
+#endif
     contribute(sizeof(callback), &callback, CkReduction::random, CkCallback(CkIndex_DataManager::combineLocalTrees((CkReductionMsg*)NULL), CProxy_DataManager(dataManagerID)));
   }
 
@@ -1331,7 +1335,11 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
 
   CmiUnlock(dm->__nodelock);
   if (numTreePieces == 1) {
-    dm->notifyPresence(root);
+#ifdef CUDA
+    dm->notifyPresence(root, this);
+#else
+	dm->notifyPresence(root);
+#endif
     contribute(sizeof(callback), &callback, CkReduction::random, CkCallback(CkIndex_DataManager::combineLocalTrees((CkReductionMsg*)NULL), CProxy_DataManager(dataManagerID)));
   }
 }
@@ -1607,8 +1615,12 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType typ
     // if we are here then we are at the root, and thus we have finished to get
     // all moments
     //CkPrintf("[%d] contributing after building the tree\n",thisIndex);
-    dm->notifyPresence(root);
-    contribute(sizeof(callback), &callback, CkReduction::random, CkCallback(CkIndex_DataManager::combineLocalTrees((CkReductionMsg*)NULL), CProxy_DataManager(dataManagerID)));
+#ifdef CUDA
+    dm->notifyPresence(root, this);
+#else
+	dm->notifyPresence(root);
+#endif
+	contribute(sizeof(callback), &callback, CkReduction::random, CkCallback(CkIndex_DataManager::combineLocalTrees((CkReductionMsg*)NULL), CProxy_DataManager(dataManagerID)));
   }// else CkPrintf("[%d] still missing one child of %s\n",thisIndex,keyBits(parent->getKey(),63).c_str());
 }
 
@@ -2560,7 +2572,11 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
   CmiMemoryCheck();
 #endif
 
-  while (i<_yieldPeriod && currentRemoteBucket < numBuckets) {
+  while (i<_yieldPeriod && currentRemoteBucket < numBuckets
+#ifdef CELL
+		&& workRequestOut < CELL_THREASHOLD
+#endif
+  ) {
 #ifdef CHANGA_REFACTOR_WALKCHECK
     if(thisIndex == CHECK_INDEX && currentRemoteBucket == CHECK_BUCKET){
       CkPrintf("Starting remote walk\n");

@@ -106,7 +106,11 @@ private:
 	Tree::GenericTreeNode *buildProcessorTree(int n, Tree::GenericTreeNode **gtn);
 	int createLookupRoots(Tree::GenericTreeNode *node, Tree::NodeKey *keys);
 public:
+#ifdef CUDA
     void notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp);
+#else
+	void notifyPresence(Tree::GenericTreeNode *root);
+#endif
     void combineLocalTrees(CkReductionMsg *msg);
     void getChunks(int &num, Tree::NodeKey *&roots);
     inline Tree::GenericTreeNode *chunkRootToNode(const Tree::NodeKey k) {
