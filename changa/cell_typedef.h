@@ -177,13 +177,16 @@ public:
  CellRequest(CellGravityParticle *ad, int num, void *ro, GravityParticle **part, TreePiece *t) : activeData(ad), roData(ro), numActiveData(num), particles(part), tp(t) {}
 };
 
+class State;
+
 class CellGroupRequest {
 public:
   TreePiece *tp;
   int bucket;
   GravityParticle **particles;
-  
-  CellGroupRequest(TreePiece *_tp, int b, GravityParticle **p) : tp(_tp), bucket(b), particles(p) {}
+  State *state;
+
+  CellGroupRequest(TreePiece *_tp, int b, GravityParticle **p, State *s) : tp(_tp), bucket(b), particles(p), state(s) {}
 };
 
 class CellEwaldRequest {

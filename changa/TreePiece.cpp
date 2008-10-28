@@ -1923,105 +1923,6 @@ inline void cellEnableComputation() {
 void TreePiece::nextBucket(dummyMsg *msg){
   unsigned int i=0;
 
-//#if INTERLIST_VER > 0
-
-  /*
-  NodeType childType;
-
-  while (i<_yieldPeriod && currentBucket < numBuckets
-#ifdef CELL
-    && workRequestOut < CELLTHREASHOLD
-#endif
-      ) {
-
-    if(currentBucket==0){
-      curNodeLocal=root;
-      curLevelLocal=0;
-    }
-
-    //Top-level routine to compute interaction list for this bucket
-    //Starts with curNodeLocal which belongs to myTree and walks down myTree
-    //building lists at each level
-    preWalkInterTree();
-
-    CkAssert(checkListLocal[curLevelLocal].length()==0);
-
-    if(myLocalCheckListEmpty && curNodeLocal->getType()!=Bucket){
-
-      GenericTreeNode *tmpNode;
-
-      int startBucket=curNodeLocal->startBucket;
-      int lastBucket;
-      int k;
-
-      for(k=startBucket+1;k<numBuckets;k++){
-        tmpNode = bucketList[k];
-        if(tmpNode->lastParticle>curNodeLocal->lastParticle)
-          break;
-      }
-      lastBucket=k-1;
-
-      for(k=startBucket;k<=lastBucket;k++){
-        calculateForceLocalBucket(k);
-        currentBucket++;
-        i++;
-      }
-      myLocalCheckListEmpty=false;
-    }
-    else{
-      CkAssert(curNodeLocal->getType()==Bucket);
-      //Go over both the lists to calculate forces with one bucket
-      calculateForceLocalBucket(curNodeLocal->bucketListIndex);
-      currentBucket++;
-      i++;
-    }
-
-    //Right now, because of -O3 BucketForce routines perform better than partForce routine
-    //So, using the following
-    if(currentBucket>=numBuckets)
-      break;
-
-    //Calculate starting Node for next tree walk
-    //Go up myTree till we get to a parent whose all children are not done  with building lists
-    //then, take the child as the starting point for the next tree walk
-    GenericTreeNode *tmpNode=curNodeLocal;
-    int flag=0;
-    tmpNode->visitedL=true;
-    while(tmpNode->parent != NULL){
-
-      cellListLocal[curLevelLocal].length()=0;
-      particleListLocal[curLevelLocal].length()=0;
-
-      tmpNode=tmpNode->parent;
-      curLevelLocal--;
-      GenericTreeNode* childIterator;
-      for(unsigned int j = 0; j < tmpNode->numChildren(); ++j) {
-        childIterator = tmpNode->getChildren(j);
-        CkAssert (childIterator != NULL);
-        childType = childIterator->getType();
-        if(childIterator->visitedL == false){
-          if(childType == NonLocal || childType == Cached || childType == NonLocalBucket || childType == CachedBucket || childType==Empty || childType==CachedEmpty ){//|| childIterator->rungs < activeRung){
-            childIterator->visitedL=true;
-          }
-          else{
-            curNodeLocal=childIterator;
-            curLevelLocal++;
-            flag=1;
-            break;
-          }
-        }
-      }
-      if(flag==0){
-        tmpNode->visitedL=true;
-      }
-      if(flag==1){
-        flag=0;
-        break;
-      }
-    }
-  }
-  */
-
 #if INTERLIST_VER > 0
   sInterListWalk->init(sInterListCompute, this);
 #endif
@@ -2054,9 +1955,9 @@ void TreePiece::nextBucket(dummyMsg *msg){
 #endif
       // book-keeping
       for(int j = currentBucket; j < end; j++){
-        sInterListStateLocal->counterArrays[0][j]--;
 #ifndef CELL
-        finishBucket(j);
+    	  sInterListStateLocal->counterArrays[0][j]--;
+    	  finishBucket(j);
 #endif
         if(bucketList[currentBucket]->rungs >= activeRung){
           numActualBuckets++;
@@ -2240,8 +2141,13 @@ void TreePiece::initNodeStatus(GenericTreeNode *node){
 void cellSPE_callback(void *data) {
   //CkPrintf("cellSPE_callback\n");
   CellGroupRequest *cgr = (CellGroupRequest *)data;
-  cgr->tp->bucketReqs[cgr->bucket].numAdditionalRequests --;
-  cgr->tp->finishBucket(cgr->bucket);
+ 
+  State *state = cgr->state;
+  int bucket = cgr->bucket;
+
+  state->counterArrays[0][bucket]--;
+  cgr->tp->finishBucket(bucket);
+
   delete cgr->particles;
   delete cgr;
 }
@@ -2680,9 +2586,9 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 #endif
 
     for(int j = currentRemoteBucket; j < end; j++){
-      sInterListStateRemote->counterArrays[0][j]--;
 #ifndef CELL
-      finishBucket(j);
+        sInterListStateRemote->counterArrays[0][j]--;
+        finishBucket(j);
 #endif
       if(bucketList[j]->rungs >= activeRung){
         numActualBuckets++;

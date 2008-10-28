@@ -922,7 +922,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
       int activePartDataSize = ROUNDUP_128((activePart+3)*sizeof(CellGravityParticle));
       CellGravityParticle *activePartData = (CellGravityParticle*)malloc_aligned(activePartDataSize,128);
       GravityParticle **partList = new GravityParticle*[activePart];
-      CellGroupRequest *cgr = new CellGroupRequest(this, b, partList);
+      CellGroupRequest *cgr = new CellGroupRequest(this, b, partList, state);
       WRGroupHandle wrh = createWRGroup(cgr, cellSPE_callback);
       for (int k=tp->bucketList[b]->firstParticle; k<=tp->bucketList[b]->lastParticle; ++k) {
         if (tp->myParticles[k].rung >= activeRung) {
