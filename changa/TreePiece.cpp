@@ -5174,14 +5174,14 @@ void TreePiece::getBucketsBeneathBounds(GenericTreeNode *&source, int &start, in
 }
 
 void TreePiece::updateBucketState(int start, int end, int n, int chunk, State *state){
+#ifndef CELL
   for(int i = start; i < end; i++){
     if(bucketList[i]->rungs >= activeRung){
        state->counterArrays[0][i] -= n;
-#ifndef CELL
        finishBucket(i);
-#endif
     }
   }
+#endif
   state->counterArrays[1][chunk] -= n;
   //addMisses(-n);
   //CkPrintf("- misses: %d\n", getMisses());
