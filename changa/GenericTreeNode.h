@@ -298,7 +298,7 @@ namespace Tree {
 
       NodeKey a = a1 ^ a2;
       int i = 0;
-      while( a < 0x8000000000000000)
+      while( a < (NodeKey(1)<<63) )
       {
         a = a << 1;
         i++;

@@ -9,6 +9,15 @@
 #include "Space.h"
 #include "gravity.h"
 
+#ifdef CELL
+#include "spert_ppu.h"
+#include "cell_typedef.h"
+
+extern void cellSPE_callback(void *data);
+extern void cellSPE_single(void *data);
+extern int workRequestOut;
+#endif
+
 extern int decodeReqID(int reqID);
 
 void Compute::setOpt(Opt *_opt){
@@ -922,13 +931,19 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
       int activePartDataSize = ROUNDUP_128((activePart+3)*sizeof(CellGravityParticle));
       CellGravityParticle *activePartData = (CellGravityParticle*)malloc_aligned(activePartDataSize,128);
       GravityParticle **partList = new GravityParticle*[activePart];
-      CellGroupRequest *cgr = new CellGroupRequest(this, b, partList, state);
+      CellGroupRequest *cgr = new CellGroupRequest(tp, b, partList, state);
       WRGroupHandle wrh = createWRGroup(cgr, cellSPE_callback);
+         /* if(getOptType() == Remote){
+            CkPrintf("Remote\n");
+          }
+          else if(getOptType() == Local){
+            CkPrintf("Local\n");
+          } */
       for (int k=tp->bucketList[b]->firstParticle; k<=tp->bucketList[b]->lastParticle; ++k) {
         if (tp->myParticles[k].rung >= activeRung) {
           activePartData[indexActivePart] = tp->myParticles[k];
-      //CkPrintf("[%d] particle %d: %d on bucket %d, acc: %f %f %f\n",thisIndex,k,myParticles[k].iOrder,bucketIndex,activePartData[indexActivePart].treeAcceleration.x,activePartData[indexActivePart].treeAcceleration.y,activePartData[indexActivePart].treeAcceleration.z);
-      //CkPrintf("[%d] partList %d: particle %d (%p)\n",thisIndex,indexActivePart,k,&myParticles[k]);
+      //CkPrintf("[%d] particle %d: %d on bucket %d, acc: %f %f %f\n",thisIndex,k,tp->myParticles[k].iOrder,b,activePartData[indexActivePart].treeAcceleration.x,activePartData[indexActivePart].treeAcceleration.y,activePartData[indexActivePart].treeAcceleration.z);
+      //CkPrintf("[%d] partList %d: particle %d (%p)\n",thisIndex,indexActivePart,k,&tp->myParticles[k]);
           partList[indexActivePart++] = &tp->myParticles[k];
         }
       }
@@ -967,14 +982,14 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
           int computed = 0;
 #ifdef CELL_NODE
           nodesData[indexNodes] = clist[i].node->moments;
-          Vector3D<double> tmpoffsetID = decodeOffset(clist[i].offsetID);
+          Vector3D<double> tmpoffsetID = tp->decodeOffset(clist[i].offsetID);
           nodesData[indexNodes].cm += tmpoffsetID;
           indexNodes++;
           if (indexNodes == nodesPerRequest) {
             // send off request
             void *activeData = malloc_aligned(activePartDataSize,128);
             memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
-            CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, nodesContainer, partList, this);
+            CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, nodesContainer, partList, tp);
             nodesContainer->numInt = activePart;
             nodesContainer->numExt = indexNodes;
             //CkPrintf("[%d] sending request 1 %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, nodesContainer, CELLBUFFERSIZE);
@@ -1005,11 +1020,11 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 
         }
 #ifdef CELL
-        if (indexNodes > 0 && level==maxLevel) {
+        if (indexNodes > 0 && level==maxlevel) {
 #ifdef CELL_NODE
           void *activeData = malloc_aligned(activePartDataSize,128);
           memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
-          CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, nodesContainer, partList, this);
+          CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, nodesContainer, partList, tp);
           nodesContainer->numInt = activePart;
           nodesContainer->numExt = indexNodes;
           //CkPrintf("[%d] sending request 2 %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, nodesContainer, ROUNDUP_128(indexNodes*sizeof(CellMultipoleMoments)));
@@ -1023,7 +1038,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
             tp->addToNodeInterLocal(activePart * indexNodes);
           }
 #endif
-        } else if (level==maxLevel) {
+        } else if (level==maxlevel) {
           free_aligned(nodesContainer);
         }
 #endif
@@ -1050,10 +1065,10 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
                 // send off request
                 void *activeData = malloc_aligned(activePartDataSize,128);
                 memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
-                CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, particleContainer, partList, this);
+                CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, particleContainer, partList, tp);
                 particleContainer->numInt = activePart;
                 particleContainer->numExt = indexPart;
-                //CkPrintf("[%d] sending request 3 %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, particleContainer, CELLBUFFERSIZE);
+                //CkPrintf("[%d] sending request 3r %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, particleContainer, CELLBUFFERSIZE);
                 sendWorkRequest (2, activeData, activePartDataSize, particleContainer, CELLBUFFERSIZE, NULL, 0,
                     (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
                 workRequestOut ++;
@@ -1099,10 +1114,10 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
                 // send off request
                 void *activeData = malloc_aligned(activePartDataSize,128);
                 memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
-                CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, particleContainer, partList, this);
+                CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, particleContainer, partList, tp);
                 particleContainer->numInt = activePart;
                 particleContainer->numExt = indexPart;
-                //CkPrintf("[%d] sending request 3 %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, particleContainer, CELLBUFFERSIZE);
+                //CkPrintf("[%d] sending request 3l %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, particleContainer, CELLBUFFERSIZE);
                 sendWorkRequest (2, activeData, activePartDataSize, particleContainer, CELLBUFFERSIZE, NULL, 0,
                     (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
                 workRequestOut ++;
@@ -1117,8 +1132,8 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 	                      particles,
 	                      lpi.offset, activeRung);
 	      tp->addToParticleInterLocal(computed);
-            }
 #endif
+            }
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
             Vector3D<double> &vec = lpi.offset;
             CkPrintf("[%d]: bucket %d with %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex, b, lpi.key, vec.x, vec.y, vec.z);
@@ -1126,11 +1141,11 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
           }
         }
 #ifdef CELL
-        if (indexPart > 0 && level==maxLevel) {
+        if (indexPart > 0 && level==maxlevel) {
 #ifdef CELL_PART
           //void *activeData = malloc_aligned(activePartDataSize,128);
           //memcpy(activeData, activePartData, activePart*sizeof(GravityParticle));
-          CellRequest *userData = new CellRequest(activePartData, activePart, particleContainer, partList, this);
+          CellRequest *userData = new CellRequest(activePartData, activePart, particleContainer, partList, tp);
           particleContainer->numInt = activePart;
           particleContainer->numExt = indexPart;
           //CkPrintf("[%d] sending request 4 %p+%d, %p+%d (%d int %d ext)\n",thisIndex,activePartData, activePartDataSize, particleContainer, ROUNDUP_128(indexPart*sizeof(CellExternalGravityParticle)),activePart,indexPart);
@@ -1144,7 +1159,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
             tp->addToNodeInterLocal(activePart * indexPart);
           }
 #endif
-        } else if (level==maxLevel) {
+        } else if (level==maxlevel) {
           free_aligned(activePartData);
           free_aligned(particleContainer);
         }
