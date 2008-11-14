@@ -6,6 +6,9 @@
 INTERLIST = -DINTERLIST_VER=2      # enable interaction lists
 HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
 #CELL = -DINTERLIST_VER=2 -DCELL -DCELL_PART -DCELL_NODE -DCELL_EWALD  # Cell processor offload
+# optional CUDA flags: 
+# -DCUDA_PRINT_POST_PREFETCH_LIST # print list of particles and nodes being sent to gpu after prefetch
+#CUDA = -DINTERLIST_VER=2 -DCUDA # GPU offload
 # refactor flags:
 # -DCHANGA_REFACTOR_WALKCHECK
 # -DCHANGA_REFACTOR_WALKCHECK_INTERLIST

@@ -1084,7 +1084,7 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
 
   if (numTreePieces == 1) {
 #ifdef CUDA
-    dm->notifyPresence(root, this);
+    dm->notifyPresence(root, this, thisIndex);
 #else
 	dm->notifyPresence(root);
 #endif
@@ -1336,7 +1336,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   CmiUnlock(dm->__nodelock);
   if (numTreePieces == 1) {
 #ifdef CUDA
-    dm->notifyPresence(root, this);
+    dm->notifyPresence(root, this, thisIndex);
 #else
 	dm->notifyPresence(root);
 #endif
@@ -1616,7 +1616,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType typ
     // all moments
     //CkPrintf("[%d] contributing after building the tree\n",thisIndex);
 #ifdef CUDA
-    dm->notifyPresence(root, this);
+    dm->notifyPresence(root, this, thisIndex);
 #else
 	dm->notifyPresence(root);
 #endif
@@ -1808,7 +1808,9 @@ void TreePiece::startNextBucket() {
       CkPrintf("here\n");
     }
     */
-
+#ifdef CUDA
+      ((DoubleWalkState *)sInterListStateLocal)->numInteractions = 0;
+#endif
     sInterListWalk->walk(lca, sInterListStateLocal, -1, currentBucket, -1);
 #ifdef CHANGA_REFACTOR_MEMCHECK
     CkPrintf("startNextBucket memcheck after walk\n");
@@ -2141,7 +2143,7 @@ void TreePiece::initNodeStatus(GenericTreeNode *node){
 void cellSPE_callback(void *data) {
   //CkPrintf("cellSPE_callback\n");
   CellGroupRequest *cgr = (CellGroupRequest *)data;
- 
+
   State *state = cgr->state;
   int bucket = cgr->bucket;
 
@@ -2562,6 +2564,9 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
                                                        currentRemoteBucket,
                                                        prevRemoteBucket);
       */
+#ifdef CUDA
+      ((DoubleWalkState *)sInterListStateRemote)->numInteractions = 0;
+#endif
       sInterListWalk->walk(lca, sInterListStateRemote, msg->chunkNum, currentRemoteBucket, interListAwi);
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("active: memcheck after walk\n");
@@ -3025,6 +3030,8 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   compute->init((void *)0, activeRung, sRemote);
   remoteWalkState = compute->getNewState(numBuckets, numChunks);
 
+
+
 #if INTERLIST_VER > 0
   // interaction list algo needs a separate state for walk resumption
   sInterListStateRemoteResume = compute->getNewState();
@@ -3032,8 +3039,6 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   // but have separate lists
   sInterListStateRemoteResume->counterArrays[0] = remoteWalkState->counterArrays[0];
   sInterListStateRemoteResume->counterArrays[1] = remoteWalkState->counterArrays[1];
-
-  DoubleWalkState *state = (DoubleWalkState *)sInterListStateRemoteResume;
 #endif
 
   // remainingChunk[]
@@ -3053,6 +3058,30 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   sInterListCompute = compute;
   sInterListStateLocal = localWalkState;
   sInterListStateRemote = remoteWalkState;
+
+  // CUDA
+#ifdef CUDA
+  {
+	  DoubleWalkState *state = (DoubleWalkState *)sInterListStateRemote;
+	  ((ListCompute *)sInterListCompute)->initCudaState(state, numBuckets, NODE_INTERACTIONS_PER_REQUEST_RNR, PART_INTERACTIONS_PER_REQUEST_RNR, false);
+	  // needed because prefetched particles will be used by the remote-no-resume walk and will not be available on the gpu
+	  // prefetched nodes, however, will always be available on the gpu and so we don't need a corresponding array of nodes
+	  state->particles = new CkVec<CompactPartData>();
+
+
+	  DoubleWalkState *lstate = (DoubleWalkState *)sInterListStateLocal;
+	  ((ListCompute *)sInterListCompute)->initCudaState(lstate, numBuckets, NODE_INTERACTIONS_PER_REQUEST_RNR, PART_INTERACTIONS_PER_REQUEST_RNR, false);
+  }
+  {
+	  DoubleWalkState *state = (DoubleWalkState *)sInterListStateRemoteResume;
+	  ((ListCompute *)sInterListCompute)->initCudaState(state, numBuckets, NODE_INTERACTIONS_PER_REQUEST_RR, PART_INTERACTIONS_PER_REQUEST_RR, true);
+
+	  // FIXME - set appropriate initial sizes here
+	  state->nodes = new CkVec<CudaMultipoleMoments>();
+	  state->particles = new CkVec<CompactPartData>();
+  }
+#endif
+
 #else
   sGravity = compute;
   sLocalGravityState = localWalkState;
@@ -3099,7 +3128,12 @@ sTopDown->walk(child, sPrefetchState, currentPrefetch, encodeOffset(0,x,y,z), pr
 #if CHANGA_REFACTOR_DEBUG > 0
   CkPrintf("[%d]sending message to commence local gravity calculation\n", thisIndex);
 #endif
+
+#ifndef CUDA
+  // only begin local computation when prefetch has been completed
   thisProxy[thisIndex].calculateGravityLocal();
+#endif
+
   if (bEwald) thisProxy[thisIndex].EwaldInit();
 
 #ifdef CHANGA_PRINT_MEMUSAGE
@@ -3188,13 +3222,26 @@ void TreePiece::prefetch(ExternalGravityParticle *node) {
 */
 
 void TreePiece::startRemoteChunk() {
+    CkPrintf("[%d] in startRemoteChunk\n", thisIndex);
+#if CHANGA_REFACTOR_DEBUG > 0
+  CkPrintf("[%d] sending message to commence remote gravity\n", thisIndex);
+#endif
+
+#ifdef CUDA
+  dm->donePrefetch();
+#else
+  continueStartRemoteChunk();
+#endif
+}
+
+void TreePiece::continueStartRemoteChunk(){
+#ifdef CUDA
+	thisProxy[thisIndex].calculateGravityLocal();
+#endif
   ComputeChunkMsg *msg = new (8*sizeof(int)) ComputeChunkMsg(currentPrefetch);
   *(int*)CkPriorityPtr(msg) = numTreePieces * currentPrefetch + thisIndex + 1;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
 
-#if CHANGA_REFACTOR_DEBUG > 0
-  CkPrintf("[%d] sending message to commence remote gravity\n", thisIndex);
-#endif
   thisProxy[thisIndex].calculateGravityRemote(msg);
 
   // start prefetching next chunk
@@ -3223,16 +3270,16 @@ void TreePiece::startRemoteChunk() {
     GenericTreeNode *child = dm->chunkRootToNode(prefetchRoots[currentPrefetch]);
 #endif
     for(int x = -nReplicas; x <= nReplicas; x++) {
-	for(int y = -nReplicas; y <= nReplicas; y++) {
-	    for(int z = -nReplicas; z <= nReplicas; z++) {
-		if (child == NULL) {
-		    nodeOwnership(prefetchRoots[currentPrefetch], first, last);
-		    child = requestNode((first+last)>>1,
-					prefetchRoots[currentPrefetch],
-					currentPrefetch,
-					encodeOffset(0, x, y, z),
-                                        prefetchAwi, (void *)0, true);
-		}
+    	for(int y = -nReplicas; y <= nReplicas; y++) {
+    		for(int z = -nReplicas; z <= nReplicas; z++) {
+    			if (child == NULL) {
+    				nodeOwnership(prefetchRoots[currentPrefetch], first, last);
+    				child = requestNode((first+last)>>1,
+    						prefetchRoots[currentPrefetch],
+    						currentPrefetch,
+    						encodeOffset(0, x, y, z),
+    						prefetchAwi, (void *)0, true);
+    			}
 		if (child != NULL) {
 		    //prefetch(child, encodeOffset(0, x, y, z));
 #if CHANGA_REFACTOR_DEBUG > 1
@@ -5140,6 +5187,30 @@ void TreePiece::freeWalkObjects(){
 
   if(sInterListCompute){
     sInterListCompute->reassoc(0,0,sRemote);
+    // CUDA
+#if CUDA
+    {
+    	/*
+    	DoubleWalkState *state = (DoubleWalkState *) sInterListStateRemote;
+    	delete [] state->cellLists;
+    	delete [] state->partLists;
+
+    	DoubleWalkState *lstate = (DoubleWalkState *) sInterListStateLocal;
+    	delete [] lstate->cellLists;
+    	delete [] lstate->partLists;
+    	 */
+    	DoubleWalkState *state = (DoubleWalkState *) sInterListStateRemote;
+    	DoubleWalkState *rstate = (DoubleWalkState *) sInterListStateRemoteResume;
+    	/*
+    	delete [] rstate->cellLists;
+    	delete [] rstate->partLists;
+    	*/
+    	delete state->particles;
+    	delete rstate->nodes;
+    	delete rstate->particles;
+    }
+#endif
+
     sInterListCompute->freeState(sInterListStateRemote);
     ((ListCompute *)sInterListCompute)->freeDoubleWalkState((DoubleWalkState*)sInterListStateRemoteResume);
     sInterListCompute->reassoc(0,0,sLocal);
@@ -5174,14 +5245,14 @@ void TreePiece::getBucketsBeneathBounds(GenericTreeNode *&source, int &start, in
 }
 
 void TreePiece::updateBucketState(int start, int end, int n, int chunk, State *state){
-#ifndef CELL
   for(int i = start; i < end; i++){
     if(bucketList[i]->rungs >= activeRung){
        state->counterArrays[0][i] -= n;
+#ifndef CELL
        finishBucket(i);
+#endif
     }
   }
-#endif
   state->counterArrays[1][chunk] -= n;
   //addMisses(-n);
   //CkPrintf("- misses: %d\n", getMisses());

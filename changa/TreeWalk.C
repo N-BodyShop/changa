@@ -427,46 +427,46 @@ bool LocalTargetWalk::processNode(
 void LocalTargetWalk::resumeWalk(GenericTreeNode *node, State *state_, int chunk, int reqID, int activeWalkIndex){
 	DoubleWalkState *state = (DoubleWalkState *)state_;
 
-        // initial target
+    // initial target
 	int targetBucket = decodeReqID(reqID);
 	GenericTreeNode *source = (GenericTreeNode *)comp->getComputeEntity();
-        // first and last buckets beneath source
-        int startBucket, endBucket;
-        int prevBucket = -1;
+	// first and last buckets beneath source
+	int startBucket, endBucket;
+	int prevBucket = -1;
 
-        // so that dummySource is changed if necessary, and source is left
-        // untouched.
-        GenericTreeNode *dummySource = source;
-        ownerTP->getBucketsBeneathBounds(dummySource, startBucket, endBucket);
-        int tpindex = ownerTP->getIndex();
+	// so that dummySource is changed if necessary, and source is left
+	// untouched.
+	GenericTreeNode *dummySource = source;
+	ownerTP->getBucketsBeneathBounds(dummySource, startBucket, endBucket);
+	int tpindex = ownerTP->getIndex();
 
 	// clear all levels up to and including source
-        // this is so that we don't include the lists from
-        // other resumed walks in the computation for this
-        // instance
-        // init state
-        bool localLists = state->lplists.length() > 0;
-        bool remoteLists = state->rplists.length() > 0;
+	// this is so that we don't include the lists from
+	// other resumed walks in the computation for this
+	// instance
+	// init state
+	bool localLists = state->lplists.length() > 0;
+	bool remoteLists = state->rplists.length() > 0;
 
-        int level = source->getLevel(source->getKey());
-        for(int i = 0; i <= level; i++){
-	  CheckList &chklist = state->chklists[i];
-	  while(!chklist.isEmpty()){
-	    chklist.deq();
-	  }
-          state->clists[i].length() = 0;
-          state->undlists[i].length() = 0;
-        }
+	int level = source->getLevel(source->getKey());
+	for(int i = 0; i <= level; i++){
+		CheckList &chklist = state->chklists[i];
+		while(!chklist.isEmpty()){
+			chklist.deq();
+		}
+		state->clists[i].length() = 0;
+		state->undlists[i].length() = 0;
+	}
 
-        if(localLists)
-          for(int i = 0; i <= level; i++){
-            state->lplists[i].length() = 0;
-          }
+	if(localLists)
+		for(int i = 0; i <= level; i++){
+			state->lplists[i].length() = 0;
+		}
 
-        if(remoteLists)
-          for(int i = 0; i <= level; i++){
-            state->rplists[i].length() = 0;
-          }
+	if(remoteLists)
+		for(int i = 0; i <= level; i++){
+			state->rplists[i].length() = 0;
+		}
 
 	// enqueue
 	OffsetNode on;
@@ -474,38 +474,41 @@ void LocalTargetWalk::resumeWalk(GenericTreeNode *node, State *state_, int chunk
 	on.offsetID = reqID;
 	state->chklists[level].enq(on);
 
-        int activeRung = comp->getActiveRung();
-        while(targetBucket < endBucket){
-          GenericTreeNode *targetNode = ownerTP->getBucket(targetBucket);
-          if(targetNode->rungs >= activeRung){
-            targetKey = targetNode->getKey();
-            GenericTreeNode *lca = ownerTP->getStartAncestor(targetBucket, prevBucket, source);
+	int activeRung = comp->getActiveRung();
+	while(targetBucket < endBucket){
+		GenericTreeNode *targetNode = ownerTP->getBucket(targetBucket);
+		if(targetNode->rungs >= activeRung){
+			targetKey = targetNode->getKey();
+			GenericTreeNode *lca = ownerTP->getStartAncestor(targetBucket, prevBucket, source);
 
-            int lcaLevel = lca->getLevel(lca->getKey());
-            dft(lca, state, chunk, targetBucket, (lcaLevel == level), activeWalkIndex, lcaLevel);
+			int lcaLevel = lca->getLevel(lca->getKey());
+#ifdef CUDA
+			state->numInteractions = 0;
+#endif
+			dft(lca, state, chunk, targetBucket, (lcaLevel == level), activeWalkIndex, lcaLevel);
 
-            GenericTreeNode *lowestNode = state->lowestNode;
-            // start and end buckets beneath lowest node
-            int sL, eL;
-            ownerTP->getBucketsBeneathBounds(lowestNode, sL, eL);
+			GenericTreeNode *lowestNode = state->lowestNode;
+			// start and end buckets beneath lowest node
+			int sL, eL;
+			ownerTP->getBucketsBeneathBounds(lowestNode, sL, eL);
 
-            CkAssert(targetBucket >= sL);
-            comp->stateReady(state, ownerTP, chunk, targetBucket, eL);
+			CkAssert(targetBucket >= sL);
+			comp->stateReady(state, ownerTP, chunk, targetBucket, eL);
 
-            prevBucket = targetBucket;
-            targetBucket = eL;
-          }
-          else{
-            if(targetBucket != 0){
-              prevBucket = targetBucket;
-            }
-            while(ownerTP->getBucket(targetBucket)->rungs < activeRung && targetBucket < endBucket){
-              // no need to finish inactive buckets - they would already have
-              // been handled during the initial remote walk
-              targetBucket++;
-            }
-          }
-        }
+			prevBucket = targetBucket;
+			targetBucket = eL;
+		}
+		else{
+			if(targetBucket != 0){
+				prevBucket = targetBucket;
+			}
+			while(ownerTP->getBucket(targetBucket)->rungs < activeRung && targetBucket < endBucket){
+				// no need to finish inactive buckets - they would already have
+				// been handled during the initial remote walk
+				targetBucket++;
+			}
+		}
+	}
 	comp->setComputeEntity(source);
 }
 #endif

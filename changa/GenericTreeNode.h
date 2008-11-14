@@ -60,7 +60,7 @@ namespace Tree {
     NodeType myType;
     NodeKey key;
     CmiUInt8 usedBy;
-	
+
     GenericTreeNode() : myType(Invalid), key(0), parent(0), firstParticle(0), lastParticle(0), remoteIndex(0), usedBy(0) {
 #if COSMO_STATS > 0
       used = false;
@@ -114,7 +114,7 @@ namespace Tree {
 #endif
     //GenericTreeNode() : myType(Invalid), key(0), parent(0), beginParticle(0), endParticle(0), remoteIndex(0) { }
 
-    GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0), usedBy(0) { 
+    GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0), usedBy(0) {
 #if INTERLIST_VER > 0
       numBucketsBeneath=0;
       startBucket=-1;
@@ -126,7 +126,7 @@ namespace Tree {
 
     virtual ~GenericTreeNode() { }
     virtual void fullyDelete() = 0;
-    
+
     inline NodeType getType() const { return myType; }
     inline void setType(NodeType t) { myType = t; }
 
@@ -147,7 +147,7 @@ namespace Tree {
 #if INTERLIST_VER > 0
     virtual bool contains(NodeKey nodekey) = 0;
 #endif
-    
+
     // these two functions are used to track the communication between objects:
     // a nodes is marked usedBy when a local TreePiece has touched it
     void markUsedBy(int index) { usedBy |= (((CmiUInt8)1) << index); }
@@ -194,7 +194,7 @@ namespace Tree {
     {
       CkAbort("getLongestCommonPrefix not implemented\n");
     }
-    
+
     virtual int getLevel(NodeKey k) = 0;
     virtual GenericTreeNode *createNew() const = 0;
     virtual GenericTreeNode *clone() const = 0;
@@ -205,6 +205,11 @@ namespace Tree {
       if(p.isUnpacking()) {
         p | iType;
   	    myType = (NodeType) iType;
+#ifdef CUDA
+  	    // so that newly shipped nodes are not mistakenly assumed
+  	    // to be present on the GPU
+  	    nodeArrayIndex = -1;
+#endif
       } else {
         iType = (int) myType;
         p | iType;
@@ -226,7 +231,7 @@ namespace Tree {
 #endif
     }
   };
-  
+
   /** A table of the nodes in my tree, indexed by their keys.
       @todo XXX: Make this lookup a hash table, so we get O(1) behavior instead of O(log N).
   */
@@ -254,26 +259,26 @@ namespace Tree {
       if (children[1] != NULL) children[1]->fullyDelete();
       delete children[1];
     }
-    
+
     unsigned int numChildren() const {
       return 2;
     }
-    
+
     GenericTreeNode* getChildren(int i) {
       CkAssert(i>=0 && i<2);
       return children[i];
     }
-    
+
     void setChildren(int i, GenericTreeNode* node) {
       CkAssert(i>=0 && i<2);
       children[i] = (BinaryTreeNode*)node;
     }
-    
+
     NodeKey getChildKey(int i) {
       CkAssert(i>=0 && i<2);
       return (key<<1) + i;
     }
-    
+
     NodeKey getParentKey() {
       return (key>>1);
     }
@@ -287,7 +292,7 @@ namespace Tree {
       }
       return i;
     }
-    
+
     NodeKey getLongestCommonPrefix(NodeKey k1, NodeKey k2){
 
       int l1 = getLevel(k1)+1;
@@ -305,21 +310,21 @@ namespace Tree {
       }
       return (k1 >> (l1-i)); // or k2 >> (l2-i)
     };
-    
+
 
     int whichChild(NodeKey child) {
       int thisLevel = getLevel(key);
       int childLevel = getLevel(child);
       return ((child >> (childLevel-thisLevel-1)) ^ (key << 1));
     }
- 
+
 #if INTERLIST_VER > 0
     bool contains(NodeKey node) {
       int thisLevel = getLevel(key);
       int nodeLevel = getLevel(node);
-      
+
       if(nodeLevel<thisLevel) return false;
-      
+
       return ((node>>(nodeLevel-thisLevel))==key);
     }
 #endif
@@ -327,11 +332,11 @@ namespace Tree {
     bool isLeftChild() const {
       return (dynamic_cast<BinaryTreeNode *>(parent) && dynamic_cast<BinaryTreeNode *>(parent)->children[0] == this);
     }
-    
+
     bool isRightChild() const {
       return (dynamic_cast<BinaryTreeNode *>(parent) && dynamic_cast<BinaryTreeNode *>(parent)->children[1] == this);
     }
-    
+
     BinaryTreeNode* getSibling() const {
       BinaryTreeNode* p = dynamic_cast<BinaryTreeNode *>(parent);
       if(p)
@@ -462,7 +467,7 @@ namespace Tree {
       children[1]->key = (key << 1) + 1;
       children[0]->firstParticle = firstParticle;
       children[1]->lastParticle = lastParticle;
-    
+
       //CkPrintf("children keys:%lld,%lld\n",children[0]->key,children[1]->key);
       if(level<rootsLevel){
         //This branch is taken for levels above the TreePiece root level
@@ -515,7 +520,7 @@ namespace Tree {
       else{ //Below the TreePiece root level
         float len=0.0,len2=0.0;
         char dim;
-				
+
         len=boundingBox.greater_corner.x-boundingBox.lesser_corner.x;
         dim=0;
         CkAssert(len>=0.0);
@@ -525,7 +530,7 @@ namespace Tree {
         len2=boundingBox.greater_corner.z-boundingBox.lesser_corner.z;
         CkAssert(len2>=0.0);
         if(len2>len) { len = len2; dim=2; }
-        
+
         //Sort the particles in longest dimension
         std::sort(&part[firstParticle],&part[lastParticle+1],compFnPtr[dim]);
 
@@ -547,23 +552,23 @@ namespace Tree {
           children[0]->particleCount = (lastParticle-firstParticle+2)/2;
           children[1]->particleCount = (lastParticle-firstParticle)/2;
         }
-				
+
         children[0]->myType = Internal;
         children[1]->myType = Internal;
-       
+
         //Compress the bounding boxes of both children too
         children[0]->boundingBox.lesser_corner = boundingBox.lesser_corner;
         children[0]->boundingBox.greater_corner = boundingBox.greater_corner;
         children[0]->boundingBox.greater_corner[dim] = part[children[0]->lastParticle].position[dim];
-        
+
         children[1]->boundingBox.lesser_corner = boundingBox.lesser_corner;
         children[1]->boundingBox.lesser_corner[dim] = part[children[1]->firstParticle].position[dim];
         children[1]->boundingBox.greater_corner = boundingBox.greater_corner;
-        
+
       }
       children[0]->particlePointer = &part[children[0]->firstParticle];
       children[1]->particlePointer = &part[children[1]->firstParticle];
-      
+
     }
 
     // implemented in the .C
@@ -612,7 +617,7 @@ namespace Tree {
       }
       return count;
     }
-    
+
     int packNodes(BinaryTreeNode *buffer, int depth, int extraSpace=0) {
       //CkPrintf("Entering packNodes: this=%p, buffer=%p, depth=%d\n",this,buffer,depth);
       *buffer = *this;
@@ -662,7 +667,7 @@ namespace Tree {
         children[1]->unpackNodes();
       }
     }
-    
+
     void pup(PUP::er &p) { pup(p, -1); }
     void pup(PUP::er &p, int depth);/* {
       //CkPrintf("Pupper of BinaryTreeNode(%d) called for %s (%d)\n",depth,p.isPacking()?"Packing":p.isUnpacking()?"Unpacking":"Sizing",p.isSizing()?((PUP::sizer*)&p)->size():((PUP::mem*)&p)->size());
@@ -680,7 +685,7 @@ namespace Tree {
       }
       }*/
   };
-  
+
   class OctTreeNode : public GenericTreeNode {
   protected:
   public:
@@ -709,7 +714,7 @@ namespace Tree {
       children[6] = 0;
       children[7] = 0;
     }
-    
+
     void fullyDelete() {
       if (children[0] != NULL) children[0]->fullyDelete();
       delete children[0];
@@ -732,7 +737,7 @@ namespace Tree {
     virtual unsigned int numChildren() const {
       return 8;
     }
-    
+
     virtual GenericTreeNode* getChildren(int i) {
       CkAssert(i>=0 && i<8);
       return children[i];
@@ -755,7 +760,7 @@ namespace Tree {
     int whichChild(NodeKey child) {
       return (child ^ (key<<3));
     }
-    
+
     int getLevel(NodeKey k) {
       int i = 0;
       k >>= 3;
@@ -765,14 +770,14 @@ namespace Tree {
       }
       return i;
     }
-   
+
 #if INTERLIST_VER > 0
     bool contains(NodeKey node) {
-      
+
       return true;
     }
 #endif
-    
+
     void makeOctChildren(GravityParticle *part, int totalPart, int level) {}
 
     void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle)) {}
@@ -822,13 +827,13 @@ namespace Tree {
   class compare{ //Defines the comparison operator on the map used in balancer
   public:
     compare(){}
-    
+
     bool operator()(NodeKey key1, NodeKey key2) const {
 
       NodeKey tmp = NodeKey(1);
       int len1=0, len2=0;
       int cnt=1;
-  
+
       while(tmp<=key1 || tmp<=key2){
         tmp<<=1;
         cnt++;
@@ -839,7 +844,7 @@ namespace Tree {
           len2=cnt-1;
         }
       }
-  
+
       if(len1==len2){
         return key1<key2;
       }
@@ -885,7 +890,7 @@ class NodeKeyClass {
  public:
   NodeKeyClass(NodeKey k) : key(k) {}
   operator NodeKey() const { return key; }
-  
+
   CkHashCode hash(void) const;
   static CkHashCode staticHash(const void *a,size_t);
   int compare(const NodeKeyClass &ind) const;
@@ -1285,7 +1290,7 @@ template <typename T>
 template <class T>
   inline bool weightBalance(NodeKey *nodeKeys, T* weights, int num, int handleZero){
   //T can be signed or unsigned
-	
+
   NodeKey curHeaviest;
   typename std::map<NodeKey,T,compare>::iterator curLightest;
   T lightestWt= ~T(0);
@@ -1294,7 +1299,7 @@ template <class T>
   int numBalances=0;
 
   int zeroHandled=0;
-  
+
     //Need to construct a temporary copy of the input data to operate
     //construct a map indexed by the nodekey
     std::map<NodeKey,T,compare> curNodeWts;
@@ -1318,7 +1323,7 @@ template <class T>
       }
       if(tmpWt==0) //In case, no-one had weight > 0
 	break;
-    
+
       //find the lightest parent-- implemented only for a binary tree
       iter=curNodeWts.begin();
       iter2=curNodeWts.begin();
@@ -1326,7 +1331,7 @@ template <class T>
       for( ;iter2!=curNodeWts.end();iter++,iter2++){
 	if((*iter).second==~T(0) || (*iter2).second==~T(0))//Ignore those which have been opened
 	  continue;
-      
+
 	if(handleZero){
 	  if((*iter).second==0 || (*iter2).second==0){
 	    if((*iter).second==0){
@@ -1335,7 +1340,7 @@ template <class T>
 	    else if((*iter2).second==0){
 	      curNodeWts.erase(iter2);
 	    }
-          
+
 	    numBalances++;
 	    //Open the current heaviest and continue
 	    child1=curHeaviest << 1;
@@ -1348,7 +1353,7 @@ template <class T>
 	    break;
 	  }
 	}
-      
+
 	if((*iter).first==curHeaviest || (*iter2).first==curHeaviest)
 	  continue;
 	child1=(*iter).first;
@@ -1368,7 +1373,7 @@ template <class T>
 	zeroHandled=0;
 	continue;
       }
-    
+
       //balance only if the heaviest is heavier than the lightest possible parent
       if((curNodeWts[curHeaviest] > lightestWt) && lightestWt!=~T(0)){
 	numBalances++;
@@ -1398,7 +1403,7 @@ template <class T>
     if(i!=num)
       CkPrintf("i:%d,num:%d\n",i,num);
     CkAssert(i==num);
-  
+
     if(numBalances>0){
       return true;
     }

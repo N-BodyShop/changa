@@ -211,6 +211,9 @@ mainmodule ParallelGravity {
 		//entry void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
 		//entry void getPieceValues(piecedata *totaldata);
 		entry void collectStatistics(CkCallback &cb);
+		
+		// jetley - cuda
+		entry void continueStartRemoteChunk();
 	};
 
 	initproc void registerStatistics();

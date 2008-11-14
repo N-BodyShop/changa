@@ -39,6 +39,10 @@
 #include "codes.h"
 #include "CacheInterface.h"
 
+#ifdef CUDA
+#include "cuda_typedef.h"
+#endif
+
 PUPbytes(InDumpFrame);
 
 #ifdef HPM_COUNTER
@@ -334,7 +338,7 @@ typedef struct particlesInfoR{
     ExternalGravityParticle* particles;
     int numParticles;
     Vector3D<double> offset;
-#ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
+#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CUDA
     NodeKey key;
 #endif
 #if COSMO_DEBUG > 1
@@ -347,7 +351,7 @@ typedef struct particlesInfoL{
     GravityParticle* particles;
     int numParticles;
     Vector3D<double> offset;
-#ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
+#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CUDA
     NodeKey key;
 #endif
 #if COSMO_DEBUG > 1
@@ -379,21 +383,6 @@ class TreePiece : public CBase_TreePiece {
    State *sInterListStateLocal, *sInterListStateRemote;
    // clearable, used for resumed walks
    State *sInterListStateRemoteResume;
-
-#ifdef CUDA
-   // nodeArray
-   CkVec<CudaMultipoleMoments> nodeArray;
-   // particleArray
-   CkVec<CompactPartData> partCoreArray;
-   // node inter list
-   // FIXME - should these be multilevel or flattened?
-   CkVec<CkVec<ILCell> > ilcells;
-   // part inter list
-   CkVec<CkVec<ILPart> > ilparts;
-   // bucket markers - array is sized numBuckets+1
-   CkVec<int> bmarks;
-#endif
-
 #endif
    Compute *sGravity, *sPrefetch;
    Compute *sSmooth;
@@ -462,6 +451,18 @@ class TreePiece : public CBase_TreePiece {
         int getCurrentRemoteBucket(){
         	return currentRemoteBucket;
         }
+
+#ifdef CUDA
+        int getNumParticles(){
+        	return myNumParticles;
+        }
+
+        int getNumBuckets(){
+        	return numBuckets;
+        }
+#endif
+
+        void continueStartRemoteChunk();
 
 #if INTERLIST_VER > 0
         void getBucketsBeneathBounds(GenericTreeNode *&node, int &start, int &end);
@@ -736,7 +737,14 @@ private:
   void quiescence();
   /*END DEBUGGING */
 
-  NodeLookupType &getNodeLookupTable() {return nodeLookupTable;}
+  NodeLookupType &getNodeLookupTable() {
+	  return nodeLookupTable;
+  }
+
+  int getNumNodes() {
+	  return nodeLookupTable.size();
+  }
+
   GenericTreeNode *get3DIndex();
 
 	/// Recursive call to build the subtree with root "node", level

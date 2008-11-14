@@ -6,7 +6,7 @@ class State;
 #include "State.h"
 
 /* File defines classes for objects that encapsulate computation
- * */ 
+ * */
 
 class TreeWalk;
 class Opt;
@@ -23,7 +23,7 @@ struct PrefetchRequestStruct{
 
 /* Computes */
 class Compute{
-  protected: 
+  protected:
   //State *state;
   Opt *opt;
   void *computeEntity;
@@ -32,14 +32,14 @@ class Compute{
 
   Compute(ComputeType t) : type(t) /*state(0)*/{}
 
-  public: 
+  public:
   void setOpt(Opt *opt);
   // should the dowork method have a state argument?
   // yes, allows listcompute object to keep modifying state
   // which will have within it the checklist, clist and plist
   virtual int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi) = 0;
   // should return int, not bool
-  virtual int openCriterion(TreePiece *ownerTP, 
+  virtual int openCriterion(TreePiece *ownerTP,
                             GenericTreeNode *node, int reqID, State *state) = 0;
 
   virtual void stateReady(State *state, TreePiece *owner, int chunk, int start, int end) {}
@@ -48,7 +48,7 @@ class Compute{
   // By default, nothing is done.
   // Objects of type PrefetchCompute also call this when they request
   // particles
-  // virtual void nodeRequestSent(TreePiece *owner) {};       
+  // virtual void nodeRequestSent(TreePiece *owner) {};
   virtual void init(void *cE, int activeRung, Opt *opt);
   virtual void reassoc(void *cE, int aR, Opt *opt){}
   ComputeType getSelfType(){ return type;}
@@ -56,7 +56,7 @@ class Compute{
   int getActiveRung() {return activeRung;}
 
   // Default impl is empty. Currently only redefined by ListCompute
-  // Initializes state. 
+  // Initializes state.
   virtual void initState(State *state){}
   // virtual functions to allow for book-keeping
   // these are essentially notifications to the
@@ -84,12 +84,12 @@ class Compute{
   // Computes are not associated with single buckets anymore
   // This function returns a pointer to the state corresponding to
   // bucket bucketIdx
-  // Defaults to returning 0 for each bucket - expected behaviour in 
+  // Defaults to returning 0 for each bucket - expected behaviour in
   // Gravity and Prefetch computes
-  virtual State *getNewState(int d1, int d2); 
-  virtual State *getNewState(int d1); 
-  virtual State *getNewState(); 
-  virtual void freeState(State *state); 
+  virtual State *getNewState(int d1, int d2);
+  virtual State *getNewState(int d1);
+  virtual State *getNewState();
+  virtual void freeState(State *state);
 };
 
 class GravityCompute : public Compute{
@@ -113,7 +113,7 @@ class GravityCompute : public Compute{
     CkPrintf("Compute time node: %f\n",computeTimeNode);
 #endif
   }
-  
+
   int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi);
 
   int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
@@ -134,7 +134,7 @@ class ListCompute : public Compute{
 
   public:
   ListCompute() : Compute(List){}
-  
+
   int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi);
 
   int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
@@ -152,27 +152,43 @@ class ListCompute : public Compute{
   State *getNewState(int d1, int d2);
   State *getNewState(int d1);
   State *getNewState();
-  void freeState(State *state); 
-  void freeDoubleWalkState(DoubleWalkState *state); 
-  private: 
+  void freeState(State *state);
+  void freeDoubleWalkState(DoubleWalkState *state);
+  private:
 
   void addChildrenToCheckList(GenericTreeNode *node, int reqID, int chunk, int awi, State *s, CheckList &chklist, TreePiece *tp);
   void addNodeToInt(GenericTreeNode *node, int offsetID, DoubleWalkState *s);
 
-#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS
+  DoubleWalkState *allocDoubleWalkState();
+
+#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CUDA
   void addRemoteParticlesToInt(ExternalGravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s, NodeKey key);
   void addLocalParticlesToInt(GravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s, NodeKey key);
 #else
   void addRemoteParticlesToInt(ExternalGravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s);
   void addLocalParticlesToInt(GravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s);
 #endif
-  DoubleWalkState *allocDoubleWalkState();
+
+#ifdef CUDA
+  void sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool lastBucketComplete);
+  void sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool lastBucketComplete);
+
+  void getBucketParameters(TreePiece *tp, int bucket, int &bucketStart, int &bucketSize, std::map<NodeKey, int>&lpref);
+  void insertBucketNode(DoubleWalkState *state, int b, int start, int size);
+  void insertBucketPart(DoubleWalkState *state, int b, int start, int size);
+
+  public:
+  void resetCudaNodeState(DoubleWalkState *state);
+  void resetCudaPartState(DoubleWalkState *state);
+  void initCudaState(DoubleWalkState *state, int numBuckets, int nodeThreshold, int partThreshold, bool resume);
+#endif
+
 };
 #endif
 
 class PrefetchCompute : public Compute{
 
-  public: 
+  public:
   PrefetchCompute() : Compute(Prefetch) {
     computeEntity = 0;
   }
