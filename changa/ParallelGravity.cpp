@@ -618,6 +618,80 @@ void Main::getStartTime()
 	    }
     }
 
+// Return true if we need to write an output
+int Main::bOutTime()
+{	
+    if (iOut < vdOutTime.size()) {
+	if (dTime >= vdOutTime[iOut]) {
+	    ++iOut;
+	    return(1);
+	    }
+	else return(0);
+	}
+    else return(0);
+    }
+
+// Read in desired output times and reshifts from a file
+//
+void Main::getOutTimes()
+{
+    FILE *fp;
+    int ret;
+    double z,a,n,t;
+    char achIn[80];
+    char achFileName[MAXPATHLEN];
+    sprintf(achFileName, "%s.red", param.achOutName);
+	
+    fp = fopen(achFileName,"r");
+    if (!fp) {
+	if (verbosity)
+	    cerr << "WARNING: Could not open redshift input file: "
+		 << basefilename + ".red" << endl;
+	return;
+	}
+    while (1) {
+	if (!fgets(achIn,80,fp))
+	    break;
+	
+	switch (achIn[0]) {
+	case 'z':
+	    ret = sscanf(&achIn[1],"%lf",&z);
+	    if (ret != 1) break;
+	    a = 1.0/(z+1.0);
+	    vdOutTime.push_back(csmExp2Time(param.csm,a));
+	    break;
+	case 'a':
+	    ret = sscanf(&achIn[1],"%lf",&a);
+	    if (ret != 1) break;
+	    vdOutTime.push_back(csmExp2Time(param.csm,a));
+	    break;
+	case 't':
+	    ret = sscanf(&achIn[1],"%lf",&t);
+	    if (ret != 1) break;
+	    vdOutTime.push_back(csmExp2Time(param.csm,t));
+	    break;
+	case 'n':
+	    ret = sscanf(&achIn[1],"%lf",&n);
+	    if (ret != 1) break;
+	    vdOutTime.push_back(csmExp2Time(param.csm,
+					    dTime + (n-0.5)*param.dDelta));
+	    break;
+	default:
+	    ret = sscanf(achIn,"%lf",&z);
+	    if (ret != 1) break;
+	    a = 1.0/(z+1.0);
+	    vdOutTime.push_back(csmExp2Time(param.csm,a));
+	    }
+	if (ret != 1)
+	    break;
+	}
+    /*
+     ** Now sort the array of output times into ascending order.
+     */
+    vdOutTime.quickSort();
+    fclose(fp);
+    }
+
 // determine if we need a smaller step for dumping frames
 inline int Main::nextMaxRungIncDF(int nextMaxRung) 
 {
@@ -640,6 +714,7 @@ void Main::advanceBigStep(int iStep) {
       nextMaxRung = adjust(activeRung);
       if(currentStep == 0) rungStats();
       if(verbosity) ckerr << "MaxRung: " << nextMaxRung << endl;
+
       CkAssert(nextMaxRung <= MAXRUNG); // timesteps WAY too short
  
       // Opening Kick
@@ -815,6 +890,10 @@ void Main::setupICs() {
         << endl;
 	    
   getStartTime();
+  if(param.nSteps > 0) getOutTimes();
+  for(iOut = 0; iOut < vdOutTime.size(); iOut++) {
+      if(dTime < vdOutTime[iOut]) break;
+      }
 	
   char achLogFileName[MAXPATHLEN];
   sprintf(achLogFileName, "%s.log", param.achOutName);
@@ -824,6 +903,25 @@ void Main::setupICs() {
 	
   prmLogParam(prm, achLogFileName);
 	
+  ofsLog.open(achLogFileName, ios_base::app);
+  if(param.csm->bComove) {
+      ofsLog << "# RedOut:";
+      if(vdOutTime.size() == 0) ofsLog << " none";
+      for(int i = 0; i < vdOutTime.size(); i++) {
+	  double z = 1.0/csmTime2Exp(param.csm, vdOutTime[i]) - 1.0;
+	  ofsLog << " " << z;
+	  }
+    }
+  else {
+      ofsLog << "# TimeOut:";
+      if(vdOutTime.size() == 0) ofsLog << " none";
+      for(int i = 0; i < vdOutTime.size(); i++) {
+	  ofsLog << " " << vdOutTime[i];
+	  }
+    }
+  ofsLog << endl;
+  ofsLog.close();
+
   if(prmSpecified(prm,"dSoft")) {
     ckerr << "Set Softening...\n";
     treeProxy.setSoft(param.dSoft);
@@ -990,7 +1088,8 @@ Main::doSimulation()
      * Writing of intermediate outputs can be done here.
      */
     if((param.bBenchmark == 0)
-       && (iStep == param.nSteps || iStop || iStep%param.iOutInterval == 0)) {
+       && (bOutTime() || iStep == param.nSteps || iStop
+	   || iStep%param.iOutInterval == 0)) {
 	writeOutput(iStep);
     }
 	  
@@ -1322,6 +1421,8 @@ void Main::pup(PUP::er& p)
     p | dTimeOld;
     p | printBinaryAcc;
     p | param;
+    p | vdOutTime;
+    p | iOut;
     p | bDumpFrame;
     p | bChkFirst;
     }

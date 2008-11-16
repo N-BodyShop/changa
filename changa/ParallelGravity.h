@@ -281,6 +281,8 @@ class Main : public CBase_Main {
 	unsigned int printBinaryAcc;
 	PRM prm;		/* parameter parsing info */
 	Parameters param; /* actual parameters */
+	CkVec<double> vdOutTime; // Desired output times
+	int iOut;
 	/*
 	 ** Tracking for frame dumping function
 	 */
@@ -306,6 +308,8 @@ public:
 	void rungStats();
 	void calcEnergy(double, double, char *) ;
 	void getStartTime();
+	void getOutTimes();
+	int bOutTime();
 	void writeOutput(int iStep) ;
 	void setTotalParticles(int n) {
 	    nTotalParticles = n;
