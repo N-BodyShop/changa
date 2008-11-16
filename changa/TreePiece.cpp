@@ -1084,7 +1084,7 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
 
   if (numTreePieces == 1) {
 #ifdef CUDA
-    dm->notifyPresence(root, this, thisIndex);
+    dm->notifyPresence(root, this, thisIndex, myParticles[0].key, myNumParticles);
 #else
 	dm->notifyPresence(root);
 #endif
@@ -1336,7 +1336,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   CmiUnlock(dm->__nodelock);
   if (numTreePieces == 1) {
 #ifdef CUDA
-    dm->notifyPresence(root, this, thisIndex);
+    dm->notifyPresence(root, this, thisIndex, myParticles[0].key, myNumParticles);
 #else
 	dm->notifyPresence(root);
 #endif
@@ -1616,7 +1616,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType typ
     // all moments
     //CkPrintf("[%d] contributing after building the tree\n",thisIndex);
 #ifdef CUDA
-    dm->notifyPresence(root, this, thisIndex);
+    dm->notifyPresence(root, this, thisIndex, myParticles[0].key, myNumParticles);
 #else
 	dm->notifyPresence(root);
 #endif

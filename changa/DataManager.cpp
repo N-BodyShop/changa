@@ -314,8 +314,7 @@ void DataManager::getChunks(int &num, Tree::NodeKey *&roots) {
 const char *typeString(NodeType type);
 
 #ifdef CUDA
-
-extern "C" void DataManagerTransfer();
+#include "HostCUDA.h"
 
 void DataManager::donePrefetch(){
 
@@ -344,7 +343,7 @@ void DataManager::serializeNodes(GenericTreeNode *node){
   CkQ<GenericTreeNode *> queue;
   queue.enq(node);
 
-  int numTreePieces = registeredTreePieceIndices.length();
+  int numTreePieces = registeredTreePieces.length();
   int numNodes = 0;
   int numParticles = 0;
   int numCachedNodes = 0;
@@ -354,7 +353,7 @@ void DataManager::serializeNodes(GenericTreeNode *node){
   std::map<CkCacheKey, CkCacheEntry*> *cache = cacheManagerProxy[CkMyPe()].getCache();
 
   for(int i = 0; i < numTreePieces; i++){
-	TreePiece *tp = registeredTreePieces[i];
+	TreePiece *tp = registeredTreePieces[i].tp;
     numNodes += tp->getNumNodes();
     numParticles += tp->getNumParticles();
     totalNumBuckets += tp->getNumBuckets();
@@ -424,7 +423,9 @@ void DataManager::serializeNodes(GenericTreeNode *node){
 
         SFC::Key particleKey = gravParts[i-start].key;
         // if the particle is the first of some registered treepiece, record this fact
-        if((TreePieceDescriptor *descriptor = findKeyInDescriptors(particleKey))){
+        TreePieceDescriptor *descriptor = 0;
+        descriptor = descriptor = findKeyInDescriptors(particleKey);
+        if(descriptor){
 			// the particleArrayStartIndex is used to update the particles of treepieces
         	// once all computation on the gpu has finished and the accelerations, velocities,
         	// potentials have been copied back.
@@ -507,9 +508,11 @@ void DataManager::serializeNodes(GenericTreeNode *node){
   int bufferID = CkMyPe();
   DataManagerTransfer(postPrefetchMoments, numNodes+numCachedNodes, postPrefetchParticles, numParticles+numCachedParticles, bufferID);
 
-  for(int i = 0; i < numParticles+numCachedParticles){
+  /*
+  for(int i = 0; i < numParticles+numCachedParticles; i++){
 	  if(postPrefetchParticles[i].)
   }
+  */
 
 }// end serializeNodes
 

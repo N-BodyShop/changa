@@ -68,7 +68,7 @@ typedef struct _CellListData{
 }CellListData;
 
 typedef struct _PartListData{
-	ILPart *partlList;
+	ILPart *partList;
 	int *partListBucketMarkers;
 	int *bucketStarts;
 	int *bucketSizes;

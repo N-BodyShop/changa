@@ -14,7 +14,7 @@
 
 #ifdef CUDA
 
-class TreePieceDescriptor{
+struct TreePieceDescriptor{
 	TreePiece *tp;
 	int index;
 	SFC::Key firstParticleKey;
@@ -23,6 +23,7 @@ class TreePieceDescriptor{
 	// treepiece start.
 	int particleArrayStartIndex;
 
+	TreePieceDescriptor(){}
 	TreePieceDescriptor(TreePiece *tp_, int index_, SFC::Key firstParticleKey_, int numParticles_){
 		tp = tp_;
 		index = index_;
@@ -108,7 +109,8 @@ public:
 	DataManager(CkMigrateMessage *);
 
 #ifdef CUDA
-        void serializeNodes(GenericTreeNode *start, CudaMultipoleMoments *&postPrefetchMoments, CompactPartData *&postPrefetchParticles);
+        //void serializeNodes(GenericTreeNode *start, CudaMultipoleMoments *&postPrefetchMoments, CompactPartData *&postPrefetchParticles);
+		void serializeNodes(GenericTreeNode *start);
         void donePrefetch();
         DataManager() : treePiecesDone(0) {}
 #endif

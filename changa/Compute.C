@@ -898,7 +898,7 @@ void ListCompute::addRemoteParticlesToInt(ExternalGravityParticle *parts, int n,
 #endif
 
 #ifdef CUDA
-  state->numInteractions++;
+  s->numInteractions++;
 #endif
 
   s->rplists[level].push_back(rpi);
@@ -920,7 +920,7 @@ void ListCompute::addLocalParticlesToInt(GravityParticle *parts, int n, Vector3D
 #endif
 
 #ifdef CUDA
-  state->numInteractions++;
+  s->numInteractions++;
 #endif
 
   s->lplists[level].push_back(lpi);
@@ -934,7 +934,7 @@ void ListCompute::addNodeToInt(GenericTreeNode *node, int offsetID, DoubleWalkSt
   nd.offsetID = offsetID;
 
   #ifdef CUDA
-  state->numInteractions++;
+  s->numInteractions++;
 #endif
 
   s->clists[level].push_back(nd);
@@ -1540,16 +1540,17 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
 
 		OptType type = getOptType();
 		if(type == Local){
-			TreePieceCellListDataTransferLocal(&data);
+			TreePieceCellListDataTransferLocal(data);
 		}
 		else if(type == Remote && !state->resume){
-			TreePieceCellListDataTransferRemote(&data);
+			TreePieceCellListDataTransferRemote(data);
 		}
 		else if(type == Remote && state->resume){
 			CudaMultipoleMoments *missedNodes = state->nodes->getVec();
+			int len = state->nodes->length();
+
 			CkAssert(missedNodes);
-			int len = missedNodes.length();
-			TreePieceCellListDataTransferRemoteResume(&data, missedNodes, len);
+			TreePieceCellListDataTransferRemoteResume(data, missedNodes, len);
 		}
 	}
 }
@@ -1594,9 +1595,9 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
 		int *bucketSizes = state->bucketSizesParts.getVec();
 		int numBucketsPlusOne = state->bucketSizesParts.length();
 
-		PartListData data;
-		data->partList = cellList;
-		data->partListBucketMarkers = cellListBucketMarkers;
+		PartListData *data = new PartListData;
+		data->partList = partList;
+		data->partListBucketMarkers = partListBucketMarkers;
 		data->bucketStarts = bucketStarts;
 		data->bucketSizes = bucketSizes;
 		data->numInteractions = numInteractions;
@@ -1609,16 +1610,19 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
 
 		OptType type = getOptType();
 		if(type == Local){
-			TreePiecePartListDataTransferLocal(&data);
+			TreePiecePartListDataTransferLocal(data);
 		}
 		else if(type == Remote && !state->resume){
-			TreePiecePartListDataTransferRemote(&data);
+			CompactPartData *missedParts = state->particles->getVec();
+			CkAssert(missedParts);
+			int len = state->particles->length();
+			TreePiecePartListDataTransferRemote(data, missedParts, len);
 		}
 		else if(type == Remote && state->resume){
 			CompactPartData *missedParts = state->particles->getVec();
 			CkAssert(missedParts);
 			int len = state->particles->length();
-			TreePiecePartListDataTransferRemoteResume(&data, missedParts, len);
+			TreePiecePartListDataTransferRemoteResume(data, missedParts, len);
 		}
 	}
 }
