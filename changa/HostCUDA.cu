@@ -63,7 +63,7 @@ void DataManagerTransfer(CudaMultipoleMoments *moments, int nMoments, CompactPar
 void TreePieceCellListDataTransferLocal(CellListData *data){
 	int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
 
-	workRequest *gravityKernel = (workRequest*) malloc(sizeof(workRequest));
+	workRequest gravityKernel;
 	dataInfo *buffer, *partCoreBuffer;
 
 	// FIXME - size properly
@@ -87,7 +87,7 @@ void TreePieceCellListDataTransferLocal(CellListData *data){
 void TreePieceCellListDataTransferRemote(CellListData *data){
 	int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
 
-	workRequest *gravityKernel = (workRequest*) malloc(sizeof(workRequest));
+	workRequest gravityKernel;
 	dataInfo *buffer, *partCoreBuffer;
 
 	// FIXME - size properly
@@ -191,7 +191,7 @@ void TreePieceCellListDataTransferBasic(CellListData *data, workRequest *gravity
 void TreePiecePartListDataTransferLocal(PartListData *data){
 	int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
 
-	workRequest *gravityKernel = (workRequest*) malloc(sizeof(workRequest));
+	workRequest gravityKernel;
 	dataInfo *buffer, *partCoreBuffer;
 
 	// FIXME - size properly
@@ -354,6 +354,7 @@ void kernelSelect(workRequest *wr) {
 	  DeleteHostMoments(wr->bufferInfo[POST_PREFETCH_MOMENTS].hostBuffer);
 	  DeleteHostParticles(wr->bufferInfo[POST_PREFETCH_PARTICLE_CORES].hostBuffer);
 	  break;
+
   case TP_GRAVITY_LOCAL:
 	  // FIXME - fix arguments
 	  if(dmTransferDone){
@@ -400,6 +401,10 @@ void kernelSelect(workRequest *wr) {
 
 	  }
 	  break;
+
+	  // FIXME - remote resume for parts and nodes
+	  // after that, set callbacks
+	  // finally, do book-keeping, remaining mindful of the lastBucketComplete flag in the state
 
   default:
     printf("error: id %d not valid\n", wr->id);

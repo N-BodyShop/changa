@@ -1105,19 +1105,19 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 				  }
 #else
 				  computed =  nodeBucketForce(clist[i].node,
-						  tp->getBucket(b),
-						  particles,
-						  tp->decodeOffset(clist[i].offsetID), activeRung);
+				  		tp->getBucket(b),
+				  		particles,
+				  		tp->decodeOffset(clist[i].offsetID), activeRung);
 #endif
-if(getOptType() == Remote){
-	tp->addToNodeInterRemote(chunk, computed);
-}
-else if(getOptType() == Local){
-	tp->addToNodeInterLocal(computed);
-}
+				  if(getOptType() == Remote){
+				  	tp->addToNodeInterRemote(chunk, computed);
+				  }
+				  else if(getOptType() == Local){
+				  	tp->addToNodeInterLocal(computed);
+				  }
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
-Vector3D<double> vec = tp->decodeOffset(clist[i].offsetID);
-CkPrintf("[%d]: bucket %d with %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex,  b, clist[i].node->getKey(), vec.x, vec.y, vec.z);
+				  Vector3D<double> vec = tp->decodeOffset(clist[i].offsetID);
+				  CkPrintf("[%d]: bucket %d with %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex,  b, clist[i].node->getKey(), vec.x, vec.y, vec.z);
 #endif
 
 			  }

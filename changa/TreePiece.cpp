@@ -3222,7 +3222,7 @@ void TreePiece::prefetch(ExternalGravityParticle *node) {
 */
 
 void TreePiece::startRemoteChunk() {
-    CkPrintf("[%d] in startRemoteChunk\n", thisIndex);
+    //CkPrintf("[%d] in startRemoteChunk\n", thisIndex);
 #if CHANGA_REFACTOR_DEBUG > 0
   CkPrintf("[%d] sending message to commence remote gravity\n", thisIndex);
 #endif
