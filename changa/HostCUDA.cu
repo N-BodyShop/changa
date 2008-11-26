@@ -491,282 +491,322 @@ __global__ void nodeGravityComputation(
 		int *bucketStarts,
 		int *bucketSizes,
 		int numBucketsPlusOne){
-  // FIXME - register usage, etc.
 
-  CudaVector3D priv_acc[THREADS_PER_BLOCK];
-  cudatype priv_pot[THREADS_PER_BLOCK];
-  CudaMultipoleMoments shared_moments[THREADS_PER_BLOCK];
-  CompactPartData shared_particle_cores[quotceil(THREADS_PER_BLOCK, MAX_THREADS_PER_GROUP)];
+  // each thread has its own storage for these
+  __shared__ CudaVector3D acc[THREADS_PER_BLOCK];
+  __shared__ cudatype pot[THREADS_PER_BLOCK];
+  __shared__ CudaMultipoleMoments m[THREADS_PER_BLOCK];
+
+  // to store a few particles in shared memory 
+  __shared__ CompactPartData cached_particle_cores[PART_CACHE_SIZE];
+  // in case PART_CACHE_SIZE < bucketSize, need this extra
+  __shared__ CompactPartData shared_particle_core;
 
 
   // each block is given a bucket to compute
   // each thread in the block computes an interaction of a particle with a node
+  // threads must iterate through the interaction lists and sync.
+  // then, block leader (first rank in each block) reduces the forces and commits 
+  // values to global memory.
   int bucket = blockIdx.x;
   int start = ilmarks[bucket];
   int end = ilmarks[bucket+1];
   int bucketSize = bucketSizes[bucket];
   int bucketStart = bucketStarts[bucket];
+  int thread = threadIdx.x;
 
   // length of cell interaction list for this bucket
-  int llen = ilmarks[bucket+1] - ilmarks[bucket];
+  int llen = end-start;
 
   CudaVector3D r;
   cudatype rsq;
   cudatype twoh, a, b, c, d;
-  CudaMultipoleMoments m;
-
-  int node, particle, group;
-  group = GROUP(thread);
-  particle = group;
-
-  int ngroups = quotceil(THREADS_PER_BLOCK,MAX_THREADS_PER_GROUP);
-  int groupSize = (group < ngroups-1 ? MAX_THREADS_PER_GROUP : THREADS_PER_BLOCK - MAX_THREADS_PER_GROUP*(ngroups-1));
 
 #ifdef __DEVICE_EMULATION__
   if(blockIdx.x == 0){
-    printf("t: %d, blen: %d, llen: %d\n", threadIdx.x, blen, llen);
-    printf("group: %d, particle: %d, ngroups: %d, groupSize: %d\n", group, particle, ngroups, groupSize);
+    //printf("t: %d, blen: %d, llen: %d\n", threadIdx.x, blen, llen);
+    //printf("group: %d, particle: %d, ngroups: %d, groupSize: %d\n", group, particle, ngroups, groupSize);
   }
 #endif
 
-  while(particle < bucketSize){
-	  node = GROUP_INDEX(thread);
 
+  for(int node = thread; node < llen; node += THREADS_PER_BLOCK){
 #ifdef __DEVICE_EMULATION__
     if(blockIdx.x == 0){
-      printf("shared_particle_cores[%d] = particleCores[%d]\n", group, bmarks[start+bucket]+particle);
+      //printf("t: %d, particle: %d, node: %d\n", threadIdx.x, particle, node);
+      //printf("shared_moments[%d] = moments[%d]\n", threadIdx.x, ils[ilmarks[bucket]+node].index);
     }
 #endif
+    // FIXME - ought to keep ilmarks[blockIdx.x] in a register
+    // all threads in a group access different mem locations
+    // however, threads accessing the same node in different
+    // groups access the same memory location
+    // therefore, there ought to be 8 accesses for every 4 groups
+    // FIXME - can this be reduced somehow?
 
-    if(node == 0){
-    	shared_particle_cores[group] = particleCores[bucketStart+particle];
-    }
+    m[thread] = moments[ils[ilmarks[bucket]+node].index];
+    int offsetID = ils[ilmarks[bucket]+node].offsetID;
 
-    priv_acc[thread].x = 0;
-    priv_acc[thread].y = 0;
-    priv_acc[thread].z = 0;
-    priv_pot[thread] = 0;
+    for(int particle = 0; particle < bucketSize; particle++){
+      
+      acc[thread].x = 0;
+      acc[thread].y = 0;
+      acc[thread].z = 0;
+      pot[thread] = 0;
+      
+      // true or false for all threads in block, so no divergence
+      if(particle < PART_CACHE_SIZE){
+        // use cached_particle_cores
+          
+        r.x = cached_particle_cores[particle].position.x -
+                        ((((offsetID >> 22) & 0x7)-3)*fperiod + m[thread].cm.x);
+        r.y = cached_particle_cores[particle].position.y -
+                        ((((offsetID >> 25) & 0x7)-3)*fperiod + m[thread].cm.y);
+        r.z = cached_particle_cores[particle].position.z -
+                        ((((offsetID >> 28) & 0x7)-3)*fperiod + m[thread].cm.z);
 
-    while(node < llen){
-#ifdef __DEVICE_EMULATION__
-      if(blockIdx.x == 0){
-        printf("t: %d, particle: %d, node: %d\n", threadIdx.x, particle, node);
+        rsq = r.x*r.x + r.y*r.y + r.z*r.z;        
+        twoh = m[thread].soft + cached_particle_cores[particle].soft;
+        if(rsq != 0){
+          cudatype dir = 1.0/sqrt(rsq);
+          // SPLINEQ(dir, rsq, twoh, a, b, c, d);
+          // expansion of function below:
+          cudatype u,dih;
+          if (rsq < twoh*twoh) {
+            dih = 2.0/twoh;
+            u = dih/dir;
+            if (u < 1.0) {
+              a = dih*(7.0/5.0 - 2.0/3.0*u*u + 3.0/10.0*u*u*u*u
+            		 - 1.0/10.0*u*u*u*u*u);
+              b = dih*dih*dih*(4.0/3.0 - 6.0/5.0*u*u + 1.0/2.0*u*u*u);
+              c = dih*dih*dih*dih*dih*(12.0/5.0 - 3.0/2.0*u);
+              d = 3.0/2.0*dih*dih*dih*dih*dih*dih*dir;
+            }
+            else {
+              a = -1.0/15.0*dir + dih*(8.0/5.0 - 4.0/3.0*u*u + u*u*u
+                          - 3.0/10.0*u*u*u*u + 1.0/30.0*u*u*u*u*u);
+              b = -1.0/15.0*dir*dir*dir + dih*dih*dih*(8.0/3.0 - 3.0*u
+                          + 6.0/5.0*u*u - 1.0/6.0*u*u*u);
+              c = -1.0/5.0*dir*dir*dir*dir*dir + 3.0*dih*dih*dih*dih*dir
+            	+ dih*dih*dih*dih*dih*(-12.0/5.0 + 1.0/2.0*u);
+              d = -dir*dir*dir*dir*dir*dir*dir
+            	+ 3.0*dih*dih*dih*dih*dir*dir*dir
+            	- 1.0/2.0*dih*dih*dih*dih*dih*dih*dir;
+            }
+          }
+          else {
+            a = dir;
+            b = a*a*a;
+            c = 3.0*b*a*a;
+            d = 5.0*c*a*a;
+          }
+     
+          cudatype qirx = m[thread].xx*r.x + m[thread].xy*r.y + m[thread].xz*r.z;
+          cudatype qiry = m[thread].xy*r.x + m[thread].yy*r.y + m[thread].yz*r.z;
+          cudatype qirz = m[thread].xz*r.x + m[thread].yz*r.y + m[thread].zz*r.z;
+          cudatype qir = 0.5*(qirx*r.x + qiry*r.y + qirz*r.z);
+          cudatype tr = 0.5*(m[thread].xx + m[thread].yy + m[thread].zz);
+          cudatype qir3 = b*m[thread].totalMass + d*qir - c*tr;
+
+          pot[thread] -= m[thread].totalMass * a + c*qir - b*tr;
+
+          acc[thread].x -= qir3*r.x - c*qirx;
+          acc[thread].y -= qir3*r.y - c*qiry;
+          acc[thread].z -= qir3*r.z - c*qirz;
       }
-#endif
-      // FIXME - ought to keep ilmarks[blockIdx.x] in a register
-      // all threads in a group access different mem locations
-      // however, threads accessing the same node in different
-      // groups access the same memory location
-      // therefore, there ought to be 8 accesses for every 4 groups
-      // FIXME - can this be reduced somehow?
-#ifdef __DEVICE_EMULATION__
-      if(blockIdx.x == 0){
-        printf("shared_moments[%d] = moments[%d]\n", threadIdx.x, ils[ilmarks[bucket]+node].index);
+      else{
+        if(thread == 0){
+          // load shared_particle_core and use
+          shared_particle_core = particleCores[bucketStart+particle];
+        }
+          
+        r.x = shared_particle_core.position.x -
+                        ((((offsetID >> 22) & 0x7)-3)*fperiod + m[thread].cm.x);
+        r.y = shared_particle_cores.position.y -
+                        ((((offsetID >> 25) & 0x7)-3)*fperiod + m[thread].cm.y);
+        r.z = shared_particle_core.position.z -
+                        ((((offsetID >> 28) & 0x7)-3)*fperiod + m[thread].cm.z);
+
+        rsq = r.x*r.x + r.y*r.y + r.z*r.z;        
+        twoh = m[thread].soft + shared_particle_core.soft;
+        if(rsq != 0){
+          cudatype dir = 1.0/sqrt(rsq);
+          // SPLINEQ(dir, rsq, twoh, a, b, c, d);
+          // expansion of function below:
+          cudatype u,dih;
+          if (rsq < twoh*twoh) {
+            dih = 2.0/twoh;
+            u = dih/dir;
+            if (u < 1.0) {
+              a = dih*(7.0/5.0 - 2.0/3.0*u*u + 3.0/10.0*u*u*u*u
+            		 - 1.0/10.0*u*u*u*u*u);
+              b = dih*dih*dih*(4.0/3.0 - 6.0/5.0*u*u + 1.0/2.0*u*u*u);
+              c = dih*dih*dih*dih*dih*(12.0/5.0 - 3.0/2.0*u);
+              d = 3.0/2.0*dih*dih*dih*dih*dih*dih*dir;
+            }
+            else {
+              a = -1.0/15.0*dir + dih*(8.0/5.0 - 4.0/3.0*u*u + u*u*u
+                          - 3.0/10.0*u*u*u*u + 1.0/30.0*u*u*u*u*u);
+              b = -1.0/15.0*dir*dir*dir + dih*dih*dih*(8.0/3.0 - 3.0*u
+                          + 6.0/5.0*u*u - 1.0/6.0*u*u*u);
+              c = -1.0/5.0*dir*dir*dir*dir*dir + 3.0*dih*dih*dih*dih*dir
+            	+ dih*dih*dih*dih*dih*(-12.0/5.0 + 1.0/2.0*u);
+              d = -dir*dir*dir*dir*dir*dir*dir
+            	+ 3.0*dih*dih*dih*dih*dir*dir*dir
+            	- 1.0/2.0*dih*dih*dih*dih*dih*dih*dir;
+            }
+          }
+          else {
+            a = dir;
+            b = a*a*a;
+            c = 3.0*b*a*a;
+            d = 5.0*c*a*a;
+          }
+     
+          cudatype qirx = m[thread].xx*r.x + m[thread].xy*r.y + m[thread].xz*r.z;
+          cudatype qiry = m[thread].xy*r.x + m[thread].yy*r.y + m[thread].yz*r.z;
+          cudatype qirz = m[thread].xz*r.x + m[thread].yz*r.y + m[thread].zz*r.z;
+          cudatype qir = 0.5*(qirx*r.x + qiry*r.y + qirz*r.z);
+          cudatype tr = 0.5*(m[thread].xx + m[thread].yy + m[thread].zz);
+          cudatype qir3 = b*m[thread].totalMass + d*qir - c*tr;
+
+          pot[thread] -= m[thread].totalMass * a + c*qir - b*tr;
+
+          acc[thread].x -= qir3*r.x - c*qirx;
+          acc[thread].y -= qir3*r.y - c*qiry;
+          acc[thread].z -= qir3*r.z - c*qirz;
+        }// end if rsq != 0
+      }// end else (particle >= PART_CACHE_SIZE)
+      
+      __syncthreads();
+      // all threads have computed their portion of the forces
+      // time to add forces up
+      
+      cudatype sum = 0.0;
+      if(thread == 0){
+        for(int i = 0; i < THREADS_PER_BLOCK; i++){
+          sum += acc[i].x;
+        }
+        particleVars[bucketStart+particle].a.x += sum;
+        
+        sum = 0;
+        for(int i = 0; i < THREADS_PER_BLOCK; i++){
+          sum += acc[i].y;
+        }
+        particleVars[bucketStart+particle].a.y += sum;
+
+        sum = 0;
+        for(int i = 0; i < THREADS_PER_BLOCK; i++){
+          sum += acc[i].z;
+        }
+        particleVars[bucketStart+particle].a.z += sum;
+        
+        sum = 0;
+        for(int i = 0; i < THREADS_PER_BLOCK; i++){
+          sum += pot[i];
+        }
+        particleVars[bucketStart+particle].potential += sum;
       }
-#endif
-
-      shared_moments[threadIdx.x] =
-                          moments[ils[ilmarks[bucket]+node].index];
-      // above analysis applies here as well. again, ilmarks[blockIdx.x]
-      // should be in a register.
-#ifdef __DEVICE_EMULATION__
-      if(blockIdx.x == 0){
-        printf("int offsetID = ils[%d].offsetID\n", ilmarks[blockIdx.x]+node);
-      }
-#endif
-      int offsetID = ils[ilmarks[bucket]+node].offsetID;
-      m = shared_moments[thread];
-
-      r.x = shared_particle_cores[group].position.x -
-                            ((((offsetID >> 22) & 0x7)-3)*fperiod + m.cm.x);
-      r.y = shared_particle_cores[group].position.y -
-                            ((((offsetID >> 25) & 0x7)-3)*fperiod + m.cm.y);
-      r.z = shared_particle_cores[group].position.z -
-                            ((((offsetID >> 28) & 0x7)-3)*fperiod + m.cm.z);
-
-      // FIXME - special functions here?
-      rsq = r.x*r.x + r.y*r.y + r.z*r.z;
-      twoh = m.soft + shared_particle_cores[group].soft;
-      if(rsq != 0){
-       cudatype dir = 1.0/sqrt(rsq);
-       // SPLINEQ(dir, rsq, twoh, a, b, c, d);
-       // expansion of function below:
-	cudatype u,dih;
-	if (rsq < twoh*twoh) {
-	  dih = 2.0/twoh;
-	  u = dih/dir;
-	  if (u < 1.0) {
-		a = dih*(7.0/5.0 - 2.0/3.0*u*u + 3.0/10.0*u*u*u*u
-				 - 1.0/10.0*u*u*u*u*u);
-		b = dih*dih*dih*(4.0/3.0 - 6.0/5.0*u*u + 1.0/2.0*u*u*u);
-	        c = dih*dih*dih*dih*dih*(12.0/5.0 - 3.0/2.0*u);
-		d = 3.0/2.0*dih*dih*dih*dih*dih*dih*dir;
-	  }
-	  else {
-		a = -1.0/15.0*dir + dih*(8.0/5.0 - 4.0/3.0*u*u + u*u*u
-		              - 3.0/10.0*u*u*u*u + 1.0/30.0*u*u*u*u*u);
-		b = -1.0/15.0*dir*dir*dir + dih*dih*dih*(8.0/3.0 - 3.0*u
-                              + 6.0/5.0*u*u - 1.0/6.0*u*u*u);
-		c = -1.0/5.0*dir*dir*dir*dir*dir + 3.0*dih*dih*dih*dih*dir
-			+ dih*dih*dih*dih*dih*(-12.0/5.0 + 1.0/2.0*u);
-		d = -dir*dir*dir*dir*dir*dir*dir
-			+ 3.0*dih*dih*dih*dih*dir*dir*dir
-				- 1.0/2.0*dih*dih*dih*dih*dih*dih*dir;
-	  }
-	}
-	else {
-		a = dir;
-		b = a*a*a;
-		c = 3.0*b*a*a;
-		d = 5.0*c*a*a;
-	}
-       cudatype qirx = m.xx*r.x + m.xy*r.y + m.xz*r.z;
-       cudatype qiry = m.xy*r.x + m.yy*r.y + m.yz*r.z;
-       cudatype qirz = m.xz*r.x + m.yz*r.y + m.zz*r.z;
-       cudatype qir = 0.5*(qirx*r.x + qiry*r.y + qirz*r.z);
-       cudatype tr = 0.5*(m.xx + m.yy + m.zz);
-       cudatype qir3 = b*m.totalMass + d*qir - c*tr;
-
-
-       priv_pot[thread] -= m.totalMass * a + c*qir - b*tr;
-
-       priv_acc[thread].x -= qir3*r.x - c*qirx;
-       priv_acc[thread].y -= qir3*r.y - c*qiry;
-       priv_acc[thread].z -= qir3*r.z - c*qirz;
-      }
-      node += groupSize;
-    }
-    // before moving on to the next particle,
-    // we must add up the accelerations due to different threads in the
-    // same group and commit them to global memory.
-    // since there are at most only MAX_THREADS_PER_GROUP-1 additions
-    // to perform, we do them serially.
-    //__syncthreads();
-    cudatype sum = 0.0;
-    for(int i = MAX_THREADS_PER_GROUP*group; i < MAX_THREADS_PER_GROUP*group + groupSize; i++){
-      sum += priv_acc[i].x;
-    }
-    sum += particleVars[bmarks[start+bucket]+particle].a.x;
-    particleVars[bmarks[start+bucket]+particle].a.x = sum;
-
-    sum = 0.0;
-    for(int i = MAX_THREADS_PER_GROUP*group; i < MAX_THREADS_PER_GROUP*group + groupSize; i++){
-      sum += priv_acc[i].y;
-    }
-    sum += particleVars[bmarks[start+bucket]+particle].a.y;
-    particleVars[bmarks[start+bucket]+particle].a.y = sum;
-
-    sum = 0.0;
-    for(int i = MAX_THREADS_PER_GROUP*group; i < MAX_THREADS_PER_GROUP*group + groupSize; i++){
-      sum += priv_acc[i].z;
-    }
-    sum += particleVars[bmarks[start+bucket]+particle].a.z;
-    particleVars[bmarks[start+bucket]+particle].a.z = sum;
-
-    sum = 0.0;
-    for(int i = MAX_THREADS_PER_GROUP*group; i < MAX_THREADS_PER_GROUP*group + groupSize; i++){
-      sum += priv_pot[i];
-    }
-    sum += particleVars[bmarks[start+bucket]+particle].potential;
-    particleVars[bmarks[start+bucket]+particle].potential = sum;
-
-    particle += ngroups;
-  }
+    }// end for each particle
+  }// end for each thread (node)
 }
 
 __global__ void particleGravityComputation(
                                    CompactPartData *particleCores,
                                    VariablePartData *particleVars,
-				   int *bmarks,
                                    ILPart *ils,
+		                   int numInteractions,
                                    int *ilmarks,
-                                   int start, int end,
+		                   int *bucketStarts,
+		                   int *bucketSizes,
+		                   int numBucketsPlusOne,
                                    int x, cudatype fperiod){
 
-  CudaVector3D priv_acc[THREADS_PER_BLOCK];
-  cudatype priv_pot[THREADS_PER_BLOCK];
-  CompactPartData shared_source_cores[THREADS_PER_BLOCK];
-  CompactPartData shared_target_cores[quotceil(THREADS_PER_BLOCK, MAX_THREADS_PER_GROUP)];
+  // shared_source_cores: interactions (source particles)
+  // shared_target_cores: bucket particles (target particles)
 
-  // size of bucket in particles
-  // add start to blockIdx.x here because bmarks is defined
-  // over entire set of buckets
-  int blen = bmarks[start+blockIdx.x+1] - bmarks[start+blockIdx.x];
+  // replace shared_source_cores with source_cores
+  // replace shared_target_cores with cached_target_cores/shared_target_core
+  // each thread has its own storage for these
+  __shared__ CudaVector3D acc[THREADS_PER_BLOCK];
+  __shared__ cudatype pot[THREADS_PER_BLOCK];
+  __shared__ CompactPartData source_cores[THREADS_PER_BLOCK];
+
+  // to store a few particles in shared memory 
+  __shared__ CompactPartData cached_target_cores[PART_CACHE_SIZE];
+  // in case PART_CACHE_SIZE < bucketSize, need this extra
+  __shared__ CompactPartData shared_target_core;
+
+
+  // each block is given a bucket to compute
+  // each thread in the block computes an interaction of a particle with a node
+  // threads must iterate through the interaction lists and sync.
+  // then, block leader (first rank in each block) reduces the forces and commits 
+  // values to global memory.
+  int bucket = blockIdx.x;
+  int start = ilmarks[bucket];
+  int end = ilmarks[bucket+1];
+  int bucketSize = bucketSizes[bucket];
+  int bucketStart = bucketStarts[bucket];
+  int thread = threadIdx.x;
 
   // length of cell interaction list for this bucket
-  // no need to do the same here because ilmarks is defined
-  // only for the current chunk of buckets
-  int llen = ilmarks[blockIdx.x+1] - ilmarks[blockIdx.x];
-#ifdef __DEVICE_EMULATION__
-#endif
+  int llen = end-start;
 
   CudaVector3D r;
   cudatype rsq;
   cudatype twoh, a, b;
 
-  int source_particle, target_particle;
-  int group;
-  target_particle = threadIdx.x/MAX_THREADS_PER_GROUP;
-  group = threadIdx.x/MAX_THREADS_PER_GROUP;
-
-  int ngroups = quotceil(THREADS_PER_BLOCK, MAX_THREADS_PER_GROUP);
-  int groupSize = (target_particle < ngroups-1 ? MAX_THREADS_PER_GROUP : THREADS_PER_BLOCK - MAX_THREADS_PER_GROUP*(ngroups-1));
-
-  while(target_particle < blen){
-    // All threads in group, and in warp, access same locations,
-    // so no use asking only one thread to do the load - all
-    // requests ought to be merged, without any SIMD divergence.
-    shared_target_cores[group] = particleCores[bmarks[start+blockIdx.x]+target_particle];
-    // FIXME - no synchronization needed here?
-    priv_acc[threadIdx.x].x = 0;
-    priv_acc[threadIdx.x].y = 0;
-    priv_acc[threadIdx.x].z = 0;
-
-    priv_pot[threadIdx.x] = 0;
-
-    source_particle = threadIdx.x%MAX_THREADS_PER_GROUP;
-    while(source_particle < llen){
 #ifdef __DEVICE_EMULATION__
+  if(blockIdx.x == 0){
+    //printf("t: %d, blen: %d, llen: %d\n", threadIdx.x, blen, llen);
+    //printf("group: %d, particle: %d, ngroups: %d, groupSize: %d\n", group, particle, ngroups, groupSize);
+  }
 #endif
-      // again, accesses to ilmarks[blockIdx.x] by every thread
-      // in block should be coalesced
-      // FIXME - ought to keep ilmarks[blockIdx.x] in a register
-      // in addition, due to different 'node' values in threads,
-      // all threads in a group access different mem locations
-      // however, threads accessing the same node in different
-      // groups access the same memory location
-      // therefore, there ought to be 8 accesses for every 4 groups
-      // FIXME - can this be reduced somehow?
-      shared_source_cores[threadIdx.x] =
-                          particleCores[ils[ilmarks[blockIdx.x]+source_particle].index];
-      // above analysis applies here as well. again, ilmarks[blockIdx.x]
-      // should be in a register.
-      int oid = ils[ilmarks[blockIdx.x]+source_particle].off;
 
-      r.x = (((oid >> 22) & 0x7)-3)*fperiod +
-            shared_source_cores[threadIdx.x].position.x -
-            shared_target_cores[group].position.x;
 
-      r.y = (((oid >> 25) & 0x7)-3)*fperiod +
-            shared_source_cores[threadIdx.x].position.y -
-            shared_target_cores[group].position.y;
+  for(int source = thread; source < llen; source += THREADS_PER_BLOCK){
+#ifdef __DEVICE_EMULATION__
+    if(blockIdx.x == 0){
+      //printf("t: %d, particle: %d, node: %d\n", threadIdx.x, particle, node);
+      //printf("shared_moments[%d] = moments[%d]\n", threadIdx.x, ils[ilmarks[bucket]+node].index);
+    }
+#endif
 
-      r.z = (((oid >> 28) & 0x7)-3)*fperiod +
-            shared_source_cores[threadIdx.x].position.z -
-            shared_target_cores[group].position.z;
+    source_cores[thread] = particleCores[ils[ilmarks[bucket]+source].index];
+    int oid = ils[ilmarks[bucket]+source].off;
 
-      // FIXME - special functions here?
-      rsq = r.x*r.x + r.y*r.y + r.z*r.z;
-      twoh = shared_source_cores[threadIdx.x].soft + shared_target_cores[group].soft;
-      if(rsq != 0){
+    for(int target = 0; target < bucketSize; target++){
+      
+      acc[thread].x = 0;
+      acc[thread].y = 0;
+      acc[thread].z = 0;
+      pot[thread] = 0;
+      
+      // true or false for all threads in block, so no divergence
+      if(target < PART_CACHE_SIZE){
+        // use cached_particle_cores
+        r.x = (((oid >> 22) & 0x7)-3)*fperiod +
+                source_cores[thread].position.x -
+                cached_target_cores[target].position.x;
 
-       //SPLINE(rsq, twoh, a, b);
-       //SPLINE(r2, twoh, a, b);
-       //expanded below:
-	cudatype r1, u,dih,dir;
-        // FIXME -  can we use rsq and twoh*twoh below instead?
-	r1 = sqrt(rsq);
-	if (r1 < (twoh)) {
+        r.y = (((oid >> 25) & 0x7)-3)*fperiod +
+                source_cores[thread].position.y -
+                cached_target_cores[target].position.y;
+
+        r.z = (((oid >> 28) & 0x7)-3)*fperiod +
+                source_cores[thread].position.z -
+                cached_target_cores[target].position.z;
+
+        rsq = r.x*r.x + r.y*r.y + r.z*r.z;
+        twoh = source_cores[thread].soft + cached_target_cores[target].soft;
+        if(rsq != 0){
+          //SPLINE(rsq, twoh, a, b);
+          //SPLINE(r2, twoh, a, b);
+          //expanded below:
+	  cudatype r1, u,dih,dir;
+	  r1 = sqrt(rsq);
+	  if (r1 < (twoh)) {
 		dih = 2.0/(twoh);
 		u = r1*dih;
 		if (u < 1.0) {
@@ -783,54 +823,107 @@ __global__ void particleGravityComputation(
                                 dih*dih*dih*(8.0/3.0 - 3.0*u +
                                 6.0/5.0*u*u - 1.0/6.0*u*u*u);
 		}
-	}
-	else {
+	  }
+	  else {
 		a = 1.0/r1;
 		b = a*a*a;
-	}
+	  }
+     
+          pot[threadIdx.x] -= source_cores[thread].mass * a;
 
-       priv_pot[threadIdx.x] -= shared_source_cores[threadIdx.x].mass * a;
-
-       priv_acc[threadIdx.x].x += r.x*b*shared_source_cores[threadIdx.x].mass;
-       priv_acc[threadIdx.x].y += r.y*b*shared_source_cores[threadIdx.x].mass;
-       priv_acc[threadIdx.x].z += r.z*b*shared_source_cores[threadIdx.x].mass;
+          acc[thread].x += r.x*b*source_cores[thread].mass;
+          acc[thread].y += r.y*b*source_cores[thread].mass;
+          acc[thread].z += r.z*b*source_cores[thread].mass;
+        }
       }
-      source_particle += groupSize;
-    }
-    // before moving on to the next particle,
-    // we must add up the accelerations due to different threads in the
-    // same group and commit them to global memory.
-    // since there are at most only MAX_THREADS_PER_GROUP-1 additions
-    // to perform, we do them serially.
-    cudatype sum = 0.0;
-    for(int i = MAX_THREADS_PER_GROUP*group; i < MAX_THREADS_PER_GROUP*group + groupSize; i++){
-      sum += priv_acc[i].x;
-    }
-    sum += particleVars[bmarks[start+blockIdx.x]+target_particle].a.x;
-    particleVars[bmarks[start+blockIdx.x]+target_particle].a.x = sum;
+      else{
+        if(thread == 0){
+          // load shared_particle_core and use
+          shared_target_core = particleCores[bucketStart+particle];
+        }
+        // use shared_target_core
+        r.x = (((oid >> 22) & 0x7)-3)*fperiod +
+                source_cores[thread].position.x -
+                shared_target_core.position.x;
 
-    sum = 0.0;
-    for(int i = MAX_THREADS_PER_GROUP*group; i < MAX_THREADS_PER_GROUP*group + groupSize; i++){
-      sum += priv_acc[i].y;
-    }
-    sum += particleVars[bmarks[start+blockIdx.x]+target_particle].a.y;
-    particleVars[bmarks[start+blockIdx.x]+target_particle].a.y = sum;
+        r.y = (((oid >> 25) & 0x7)-3)*fperiod +
+                source_cores[thread].position.y -
+                shared_target_core.position.y;
 
-    sum = 0.0;
-    for(int i = MAX_THREADS_PER_GROUP*group; i < MAX_THREADS_PER_GROUP*group + groupSize; i++){
-      sum += priv_acc[i].z;
-    }
-    sum += particleVars[bmarks[start+blockIdx.x]+target_particle].a.z;
-    particleVars[bmarks[start+blockIdx.x]+target_particle].a.z = sum;
+        r.z = (((oid >> 28) & 0x7)-3)*fperiod +
+                source_cores[thread].position.z -
+                shared_target_core.position.z;
 
-    sum = 0.0;
-    for(int i = MAX_THREADS_PER_GROUP*group; i < MAX_THREADS_PER_GROUP*group + groupSize; i++){
-      sum += priv_pot[i];
-    }
-    sum += particleVars[bmarks[start+blockIdx.x]+target_particle].potential;
-    particleVars[bmarks[start+blockIdx.x]+target_particle].potential = sum;
+        rsq = r.x*r.x + r.y*r.y + r.z*r.z;
+        twoh = source_cores[thread].soft + shared_target_core.soft;
+        if(rsq != 0){
+          //SPLINE(rsq, twoh, a, b);
+          //SPLINE(r2, twoh, a, b);
+          //expanded below:
+	  cudatype r1, u,dih,dir;
+	  r1 = sqrt(rsq);
+	  if (r1 < (twoh)) {
+		dih = 2.0/(twoh);
+		u = r1*dih;
+		if (u < 1.0) {
+			a = dih*(7.0/5.0 - 2.0/3.0*u*u + 3.0/10.0*u*u*u*u
+					 - 1.0/10.0*u*u*u*u*u);
+			b = dih*dih*dih*(4.0/3.0 - 6.0/5.0*u*u
+                                          + 1.0/2.0*u*u*u);
+		}
+		else {
+			dir = 1.0/r1;
+			a = -1.0/15.0*dir + dih*(8.0/5.0 - 4.0/3.0*u*u +
+                            u*u*u - 3.0/10.0*u*u*u*u + 1.0/30.0*u*u*u*u*u);
+			b = -1.0/15.0*dir*dir*dir +
+                                dih*dih*dih*(8.0/3.0 - 3.0*u +
+                                6.0/5.0*u*u - 1.0/6.0*u*u*u);
+		}
+	  }
+	  else {
+		a = 1.0/r1;
+		b = a*a*a;
+	  }
+     
+          pot[threadIdx.x] -= source_cores[thread].mass * a;
 
-    target_particle +=  ngroups;
-  }
+          acc[thread].x += r.x*b*source_cores[thread].mass;
+          acc[thread].y += r.y*b*source_cores[thread].mass;
+          acc[thread].z += r.z*b*source_cores[thread].mass;
+        }
+          
+      }// end else (target >= PART_CACHE_SIZE)
+      
+      __syncthreads();
+      // all threads have computed their portion of the forces
+      // time to add forces up
+      
+      cudatype sum = 0.0;
+      if(thread == 0){
+        for(int i = 0; i < THREADS_PER_BLOCK; i++){
+          sum += acc[i].x;
+        }
+        particleVars[bucketStart+particle].a.x += sum;
+        
+        sum = 0;
+        for(int i = 0; i < THREADS_PER_BLOCK; i++){
+          sum += acc[i].y;
+        }
+        particleVars[bucketStart+particle].a.y += sum;
+
+        sum = 0;
+        for(int i = 0; i < THREADS_PER_BLOCK; i++){
+          sum += acc[i].z;
+        }
+        particleVars[bucketStart+particle].a.z += sum;
+        
+        sum = 0;
+        for(int i = 0; i < THREADS_PER_BLOCK; i++){
+          sum += pot[i];
+        }
+        particleVars[bucketStart+particle].potential += sum;
+      }
+    }// end for each particle
+  }// end for each thread (node)
 }
 
