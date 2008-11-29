@@ -138,6 +138,8 @@ mainmodule ParallelGravity {
 		entry void drift(double dDelta, const CkCallback& cb);
 		entry void calcEnergy(const CkCallback& cb);
 		entry void setSoft(const double dSoft);
+		entry void physicalSoft(const double dSoftMax, const double dFac,
+		      	   		const int bSoftMaxMul);
 		entry void setTypeFromFile(int iSetMask, char file[256],
 		                           const CkCallback& cb);
 		entry void getCOM(const CkCallback& cb);

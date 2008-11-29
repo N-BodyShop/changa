@@ -64,10 +64,9 @@ public:
 	int iOrder;		/* input order of particles */
         int rung;  ///< the current rung (greater means faster)
 	unsigned int iType;	// Bitmask to hold particle type information
-	//unsigned int numCellInteractions;
-	//unsigned int numParticleInteractions;
-	//unsigned int numMACChecks;
-	//unsigned int numEntryCalls;
+#ifdef CHANGESOFT
+	double fSoft0;
+#endif
 
 #if COSMO_STATS > 1
 	double intcellmass;
@@ -93,6 +92,9 @@ public:
           p | iOrder;
           p | rung;
 	  p | iType;
+#ifdef CHANGESOFT
+	  p | fSoft0;
+#endif
         }
 };
 

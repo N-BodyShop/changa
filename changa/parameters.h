@@ -10,6 +10,10 @@ typedef struct parameters {
     int bDoDensity;
     int bDoGravity;
     double dSoft;
+    int bPhysicalSoft;		/* Use physical softening in comoving coords */
+    int bSoftMaxMul;		/* dSoftMax is a multiplier, not an
+				   absolute limit */
+    double dSoftMax;
     int nSteps;
     int iStartStep;
     int iWallRunTime;
@@ -61,6 +65,9 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.bDoDensity;
     p|param.bDoGravity;
     p|param.dSoft;
+    p|param.bPhysicalSoft;
+    p|param.bSoftMaxMul;
+    p|param.dSoftMax;
     p|param.nSteps;
     p|param.iStartStep;
     p|param.iWallRunTime;
@@ -107,7 +114,4 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.iDirector;
     }
 
-#if 0
-PUPbytes(Parameters);
-#endif
 #endif

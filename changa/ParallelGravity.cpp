@@ -156,6 +156,15 @@ Main::Main(CkArgMsg* m) {
 	param.dSoft = 0.0;
 	prmAddParam(prm, "dSoft", paramDouble, &param.dSoft,
 		    sizeof(double),"e", "Gravitational softening");
+	param.dSoftMax = 0.0;
+	prmAddParam(prm,"dSoftMax",paramDouble, &param.dSoftMax,
+		    sizeof(double),"eMax", "maximum comoving gravitational softening length (abs or multiplier)");
+	param.bPhysicalSoft = 0;
+	prmAddParam(prm,"bPhysicalSoft", paramBool, &param.bPhysicalSoft,
+		    sizeof(int),"PhysSoft", "Physical gravitational softening length -PhysSoft");
+	param.bSoftMaxMul = 1;
+	prmAddParam(prm,"bSoftMaxMul", paramBool, &param.bSoftMaxMul,
+		    sizeof(int),"SMM", "Use maximum comoving gravitational softening length as a multiplier +SMM");
 	theta = 0.7;
 	prmAddParam(prm, "dTheta", paramDouble, &theta,
 		    sizeof(double), "theta", "Opening angle");
@@ -355,6 +364,17 @@ Main::Main(CkArgMsg* m) {
 		  << endl;
 	    }
 	    
+	if (param.bPhysicalSoft) {
+	    if (param.csm->bComove) {
+		ckerr << "WARNING: bPhysicalSoft reset to 0 for non-comoving (bComove == 0)\n";
+		param.bPhysicalSoft = 0;
+		}
+#ifndef CHANGESOFT
+	    ckerr << "ERROR: You must compile with -DCHANGESOFT to use changing softening options\n";
+	    CkExit();
+#endif
+	    }
+	
 	if(!param.bPeriodic) {
 	    param.nReplicas = 0;
 	    param.fPeriod = 1.0e38;
@@ -806,6 +826,7 @@ void Main::advanceBigStep(int iStep) {
           << endl;
 
     if(param.bDoGravity) {
+	updateSoft();
 	/******** Force Computation ********/
 	ckerr << "Calculating gravity (tree bucket, theta = " << theta
 	      << ") ...";
@@ -898,7 +919,20 @@ void Main::setupICs() {
   char achLogFileName[MAXPATHLEN];
   sprintf(achLogFileName, "%s.log", param.achOutName);
   ofstream ofsLog(achLogFileName, ios_base::trunc);
-  ofsLog << "# Starting ChaNGa" << endl;
+  ofsLog << "# Starting ChaNGa version 1.08" << endl;
+#ifdef __DATE__
+#ifdef __TIME__
+  ofsLog <<"# Code compiled: " << __DATE__ << " " << __TIME__ << endl;
+#endif
+#endif
+  ofsLog << "# Preprocessor macros:";
+#ifdef CHANGESOFT
+  ofsLog << " CHANGESOFT";
+#endif
+#ifdef HEXADECAPOLE
+  ofsLog << " HEXADECAPOLE";
+#endif
+  ofsLog << endl;
   ofsLog.close();
 	
   prmLogParam(prm, achLogFileName);
@@ -1010,6 +1044,7 @@ Main::initialForces()
         << endl;
   
   if(param.bDoGravity) {
+      updateSoft();
       /******** Force Computation ********/
       ckerr << "Calculating gravity (theta = " << theta
 	    << ") ...";
@@ -1275,6 +1310,20 @@ void Main::rungStats()
     ckout << ")" << endl;
     
     delete msg;
+    }
+
+void Main::updateSoft()
+{
+#ifdef CHANGESOFT
+    if (!(param.bPhysicalSoft)) return;
+    if (param.bPhysicalSoft) {
+	 double dFac = 1./csmTime2Exp(param.csm,dTime);
+
+	 if (param.bSoftMaxMul && dFac > param.dSoftMax) dFac = param.dSoftMax;
+
+	 treeProxy.physicalSoft(param.dSoftMax, dFac, param.bSoftMaxMul);
+	}
+#endif
     }
 
 /*

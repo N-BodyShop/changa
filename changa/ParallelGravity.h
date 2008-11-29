@@ -314,6 +314,7 @@ public:
 	void setTotalParticles(int n) {
 	    nTotalParticles = n;
         }
+	void updateSoft();
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
 	int nextMaxRungIncDF(int nextMaxRung);
@@ -973,6 +974,7 @@ public:
   void rungStats(const CkCallback& cb);
 	void calcEnergy(const CkCallback& cb);
 	void setSoft(const double dSoft);
+	void physicalSoft(const double dSoftMax, const double dFac, const int bSoftMaxMul);
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
 	void setTypeFromFile(int iSetMask, char *file, const CkCallback& cb);

@@ -695,8 +695,30 @@ void TreePiece::drift(double dDelta, const CkCallback& cb) {
 
 void TreePiece::setSoft(const double dSoft) {
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
+#ifdef CHANGESOFT
+      myParticles[i].fSoft0 = dSoft;
+#endif
       myParticles[i].soft = dSoft;
   }
+}
+
+void TreePiece::physicalSoft(const double dSoftMax, const double dFac, const int bSoftMaxMul) {
+#ifdef CHANGESOFT
+    CkAssert(dFac > 0.0);
+    if (bSoftMaxMul) {		// dSoftMax is a maximum multiplier
+	for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	    myParticles[i].soft = myParticles[i].fSoft0*dFac;
+	    CkAssert(myParticles[i].soft > 0.0);
+	    }
+	}
+    else {			// dSoftMax is an absolute limit
+	CkAssert(dSoftMax > 0.0);
+	for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	    myParticles[i].soft = myParticles[i].fSoft0*dFac;
+	    if(myParticles[i].soft > dSoftMax) myParticles[i].soft = dSoftMax;
+	    }
+	}
+#endif
 }
 
 /*
@@ -1985,8 +2007,8 @@ void TreePiece::nextBucket(dummyMsg *msg){
       i++;
 #endif
     }
-#if INTERLIST_VER > 0
     else{
+#if INTERLIST_VER > 0
       // target was not active, so tree under lca has
       // not been processed. look for next active bucket
       // keep moving forward until an active bucket is reached
@@ -2006,9 +2028,16 @@ void TreePiece::nextBucket(dummyMsg *msg){
       CkPrintf("not active: nextBucket memcheck after book-keeping (prev: %d, curr: %d)\n", prevBucket, currentBucket);
       CmiMemoryCheck();
 #endif
+#else
+      while(currentBucket < numBuckets && bucketList[currentBucket]->rungs < activeRung){
+
+	sLocalGravityState->counterArrays[0][currentBucket]--;
+        finishBucket(currentBucket);
+        currentBucket++;
+      }
+#endif
       // i isn't incremented because we've skipped inactive buckets
     }// end else (target not active)
-#endif
   }// end while
 
   if (currentBucket<numBuckets) {
