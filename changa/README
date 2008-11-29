@@ -1,4 +1,5 @@
-To compile ChaNGa first compile Charm++ or get a precompiled version, then run:
+To compile ChaNGa first compile Charm++ or get a precompiled version.  Also
+build the "cache" module in charm++, then run:
 
 ./configure
 make (or gmake)
