@@ -22,6 +22,11 @@ class DoubleWalkState : public State {
   CkVec<CkVec<OffsetNode> >clists;
   CkVec<CkVec<LocalPartInfo> >lplists;
   CkVec<CkVec<RemotePartInfo> >rplists;
+   
+  // set once before the first cgr is called for a chunk
+  // the idea is to place the chunkRoot (along with replicas)
+  // on the remote comp chklist only once per chunk
+  bool placedRoots;
 
 #ifdef CUDA
   // arrays of CkVecs - interaction lists

@@ -3,12 +3,12 @@
 #FLAG_STATISTICS = -DCOSMO_STATS=1  # enable statistics collection
 #FLAG_DEBUG = -DCOSMO_DEBUG=2       # enable debugging information
 #CACHE_TREE = -DCACHE_TREE          # enable processor tree inside the cache
-#INTERLIST = -DINTERLIST_VER=2      # enable interaction lists
-#HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
+INTERLIST = -DINTERLIST_VER=2      # enable interaction lists
+HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
 #CELL = -DINTERLIST_VER=2 -DCELL -DCELL_PART -DCELL_NODE -DCELL_EWALD  # Cell processor offload
 # optional CUDA flags: 
 # -DCUDA_PRINT_POST_PREFETCH_LIST # print list of particles and nodes being sent to gpu after prefetch
-CUDA = -DINTERLIST_VER=2 -DCUDA # GPU offload
+#CUDA = -DINTERLIST_VER=2 -DCUDA # GPU offload
 # refactor flags:
 # -DCHANGA_REFACTOR_WALKCHECK
 # -DCHANGA_REFACTOR_WALKCHECK_INTERLIST
@@ -27,6 +27,12 @@ CHARM_LDB_PATH = $(CHARM_PATH)/src/ck-ldb
 CHARM_UTIL_PATH = $(CHARM_PATH)/src/util
 CHARM_LIB_PATH = $(CHARM_PATH)/lib
 METIS_SRC_PATH = $(CHARM_PATH)/src/libs/ck-libs/parmetis/METISLib
+
+NVCC = /usr/local/cuda/bin/nvcc
+NVCC_FLAGS = -c -use_fast_math -g #-deviceemu -device-debug 
+NVCC_INC = -I/usr/local/cuda/include -I/expand/home/wesolwsk/NVIDIA_CUDA_SDK/common/inc
+# add $(NVCC_LIBS) to LDLIBS when compiling for cuda
+NVCC_LIBS = -lcuda -lcudart -lGL -lGLU
 
 # add -module Orb3dLB here for load balancing during singlestepped runs
 #OPTS = -g -memory charmdebug
@@ -82,6 +88,12 @@ libmoduleMultistepLB.a: MultistepLB.o
 
 %.decl.h %.def.h : %.ci
 	$(CHARMC) $<
+
+cuda: $(TARGET) HostCUDA.o
+
+HostCUDA.o: HostCUDA.cu
+	cp $(CHARM_PATH)/src/arch/cuda/hybridAPI/wr.h . 
+	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) HostCUDA.cu
 
 %.o: Makefile
 

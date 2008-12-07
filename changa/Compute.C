@@ -328,12 +328,13 @@ int ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int r
 #endif
   CkAssert(remainingChunk >= 0);
   if (remainingChunk == 0) {
+    //CkPrintf("[%d] Finished chunk %d from nodeRecvdEvent\n",owner->getIndex(),chunk);
     streamingCache[CkMyPe()].finishedChunk(chunk, owner->nodeInterRemote[chunk]+owner->particleInterRemote[chunk]);
     if(chunk == owner->numChunks-1){
+#ifdef CUDA
     	// no more nodes/particles are going to be delivered by the cache
     	// flush the interactions remaining in the state
     	DoubleWalkState *ds = (DoubleWalkState *)state;
-#ifdef CUDA
     	CkAssert(ds->resume);
     	// at this point,
     	sendNodeInteractionsToGpu(ds, owner, true);
@@ -868,9 +869,15 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
   remainingChunk = state->counterArrays[1][chunk];
   CkAssert(remainingChunk >= 0);
   if (remainingChunk == 0) {
-    //CkPrintf("Finished chunk %d from particlerecvd\n", chunk);
+    //CkPrintf("[%d] Finished chunk %d from recvdParticles\n",tp->getIndex(),chunk);
     cacheManagerProxy[CkMyPe()].finishedChunk(chunk, tp->nodeInterRemote[chunk]+tp->particleInterRemote[chunk]);
-    if (chunk == tp->numChunks-1) tp->markWalkDone();
+    if (chunk == tp->numChunks-1){
+#ifdef CUDA
+      // FIXME - for cuda, since no more chunks or pending
+      // interactions remain, we must flush the particle lists
+#endif
+      tp->markWalkDone();
+    }
   }
 }
 
@@ -1511,6 +1518,8 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
 		CkPrintf("\n");
 		*/
 
+                // FIXME - transfers are no longer synchronous, must make copies
+
 		// As long as transfers to the GPU are synchronous, we can
 		// copy pointers to the following arrays and the correct data
 		// will be shipped over, because these arrays will not be modified
@@ -1529,6 +1538,8 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
 		data->bucketSizes = bucketSizes;
 		data->numInteractions = numInteractions;
 		data->numBucketsPlusOne = numBucketsPlusOne;
+                data->tp = tp;
+                data->cb = new CkCallback(nodeGravityDone, data);
 
 		// However, we must make a copy of the buckets array, since we require it
 		// after the (asynchronous) kernel execution has finished, and the buckets
@@ -1602,6 +1613,8 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
 		data->bucketSizes = bucketSizes;
 		data->numInteractions = numInteractions;
 		data->numBucketsPlusOne = numBucketsPlusOne;
+                data->tp = tp;
+                data->cb = new CkCallback(nodeGravityDone, data);
 
 		data->affectedBuckets = new int[numBucketsPlusOne-1];
 		memcpy(data->affectedBuckets, state->bucketsParts.getVec(), sizeof(int)*(numBucketsPlusOne-1));

@@ -65,6 +65,7 @@ typedef struct _CellListData{
 	int *affectedBuckets;
 	// was the last bucket only partially finished?
 	bool lastBucketComplete;
+        void *cb;
 }CellListData;
 
 typedef struct _PartListData{
@@ -79,6 +80,8 @@ typedef struct _PartListData{
 	int *affectedBuckets;
 	// was the last bucket completely finished?
 	bool lastBucketComplete;
+        void *cb;
+        void *tp; // tp that issued the work request
 }PartListData;
 
 // these functions must follow C linkage

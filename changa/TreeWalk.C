@@ -503,8 +503,6 @@ void LocalTargetWalk::resumeWalk(GenericTreeNode *node, State *state_, int chunk
 				prevBucket = targetBucket;
 			}
 			while(ownerTP->getBucket(targetBucket)->rungs < activeRung && targetBucket < endBucket){
-				// no need to finish inactive buckets - they would already have
-				// been handled during the initial remote walk
 				targetBucket++;
 			}
 		}
