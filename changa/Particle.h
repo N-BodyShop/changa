@@ -4,12 +4,54 @@
 #include "Vector3D.h"
 #include "SFC.h"
 
+/*
+ *  XXX this doesn't belong here.  It should be moved to a more
+ *  appropriate place.
+ */
+class TreeWalk;
+class Compute;
+class Opt;
+class State;
+
+// Object to record a type of active walk. Contains pointers to TreeWalk/Compute/Opt (T/C/O) combinations
+class ActiveWalk {
+  public:
+  TreeWalk *tw;
+  Compute *c;
+  Opt *o;
+  State *s;
+  
+  ActiveWalk(TreeWalk *_tw, Compute *_c, Opt *_o, State *state) : 
+      tw(_tw), c(_c), o(_o), s(state){}
+  ActiveWalk(){}
+};
+
+// Object to bookkeep a Bucket Walk.
+class BucketGravityRequest {
+public:
+		
+	unsigned int numAdditionalRequests;
+	int finished;
+
+	BucketGravityRequest(unsigned int bucketSize = 0) :
+	  numAdditionalRequests(0), finished(0) {
+	}
+	
+};
+
+/*
+ * XXX The above doesn't belong here
+ */
+
 #ifdef STORED_PRECISION_SINGLE
 typedef float storedType;
 #else
 typedef double storedType;
 #endif
 
+/* 
+ * class needed to send gravity information to another processor
+ */
 class ExternalGravityParticle {
  private:
   storedType _soft;
@@ -20,6 +62,11 @@ class ExternalGravityParticle {
   inline storedType& soft() {return _soft;}
   inline storedType& mass() {return _mass;}
   inline Vector3D<storedType>& position() {return _position;}
+  void pup(PUP::er &p) {
+    p | _position;
+    p | _mass;
+    p | _soft;
+  }
 };
 
 /*
@@ -30,6 +77,9 @@ class ExternalDensityParticle {
 */
 typedef ExternalGravityParticle ExternalDensityParticle;
 
+/* 
+ * class needed to send information for pressure calculation
+ */
 class ExternalPressureParticle {
  private:
   storedType _mass;
@@ -47,6 +97,9 @@ class ExternalPressureParticle {
   inline unsigned int& iType() {return _iType;}
 };
 
+/*
+ * This might be needed for a "send" version of gravity
+ */
 class GravityParticle {
  private:
   Vector3D<storedType> _treeAcceleration;
@@ -59,6 +112,9 @@ class GravityParticle {
   inline storedType& dtGrav() {return _dtGrav;}
 };
 
+/*
+ * Writeback information for symmetric Density
+ */
 class DensityParticle {
  private:
   storedType _fDensity;
@@ -69,6 +125,9 @@ class DensityParticle {
   inline unsigned int& iType() {return _iType;}
 };
 
+/*
+ * Writeback information for symmetric Pressure
+ */
 class PressureParticle {
  private:
   Vector3D<storedType> _treeAcceleration;
@@ -77,6 +136,9 @@ class PressureParticle {
   inline Vector3D<storedType>& treeAcceleration() {return _treeAcceleration;}
 };
 
+/*
+ * Base particle class
+ */
 class Particle {
  private:
   storedType _soft;
@@ -126,6 +188,9 @@ class Particle {
 };
 
 
+/*
+ * Class to send information for a "smooth + pressure" calculation
+ */
 class ExternalSmoothPressureParticle {
  private:
   storedType _PoverRho2;          /* P/rho^2 */
@@ -140,6 +205,9 @@ class ExternalSmoothPressureParticle {
   inline storedType& mumax() {return _mumax;}
 };
 
+/*
+ * Writeback for "smooth + pressure" calculation
+ */
 class SmoothPressureParticle {
  private:
   storedType _mumax;              /* sound speed like viscosity term */
@@ -154,6 +222,9 @@ class SmoothPressureParticle {
   inline Vector3D<storedType>& curlv() {return _curlv;}
 };
 
+/*
+ * "extra data" class for SPH
+ */
 class SmoothParticle {
  private:
   storedType PoverRho2;          /* P/rho^2 */

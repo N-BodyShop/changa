@@ -391,6 +391,8 @@ class TreePiece : public CBase_TreePiece {
 #endif
    Compute *sGravity, *sPrefetch;
    Compute *sSmooth;
+   /* XXX This should be in sSmooth??? */
+   void (*fcnCombine)(GravityParticle *p1, ExternalGravityParticle *p2);
    Opt *sLocal, *sRemote, *sPref;
    State *sPrefetchState, *sLocalGravityState, *sRemoteGravityState, *sSmoothState;
    Opt *optSmooth;

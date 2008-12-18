@@ -37,6 +37,7 @@ class SmoothCompute : public Compute
 {
     int nSmooth;
     void (*fcnSmooth)(GravityParticle *p, int nSmooth, pqSmoothNode *nList);
+    void (*fcnInit)(ExternalGravityParticle *p);
     void bucketCompare(TreePiece *tp,
 		       ExternalGravityParticle *p,  // Particle to test
 		       GenericTreeNode *node, // bucket
@@ -48,10 +49,14 @@ class SmoothCompute : public Compute
     
 public:
  SmoothCompute(TreePiece *_tp, void (*fcn)(GravityParticle *p, int nSmooth,
-			   pqSmoothNode *nList), int nSm)
+			   pqSmoothNode *nList),
+	       void (*_fcnInit)(ExternalGravityParticle *p),
+	       void (*_fcnCombine)(GravityParticle *p1, ExternalGravityParticle *p2),
+	       int nSm)
      : Compute(Smooth){
 	nSmooth = nSm;
 	fcnSmooth = fcn;
+	fcnInit = _fcnInit;
         tp = _tp;       // needed in getNewState()
 	}
     ~SmoothCompute() { //delete state;
@@ -86,6 +91,8 @@ public:
 
 void Density(GravityParticle *p,int nSmooth,pqSmoothNode *nnList);
 void DensitySym(GravityParticle *p,int nSmooth,pqSmoothNode *nnList);
+void initDensity(ExternalGravityParticle *p) ;
+void combDensity(GravityParticle *p1, ExternalGravityParticle *p2);
 
 class SmoothOpt : public Opt{
   public:

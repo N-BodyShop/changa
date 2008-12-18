@@ -108,10 +108,6 @@ void EntryTypeSmoothParticle::callback(CkArrayID requestorID, CkArrayIndexMax &r
   elem.receiveParticlesCallback(cp->part, cp->end - cp->begin + 1, chunk, reqID, key, awi, source);
 }
 
-void combDensity(GravityParticle *p1, ExternalGravityParticle *p2) {
-  p1->fDensity += p2->fDensity;
-}
-
 void TreePiece::flushSmoothParticles(CkCacheFillMsg *msg) {
   // the key used in the cache is shifted to the left of 1, this makes
   // a clear distinction between nodes and particles
@@ -120,7 +116,7 @@ void TreePiece::flushSmoothParticles(CkCacheFillMsg *msg) {
   CacheParticle *data = (CacheParticle*)msg->data;
   
   for (int i=0; i<bucket->particleCount; ++i) {
-      combDensity(&myParticles[i+bucket->firstParticle], &data->part[i]);
+      fcnCombine(&myParticles[i+bucket->firstParticle], &data->part[i]);
   }
   
   delete msg;

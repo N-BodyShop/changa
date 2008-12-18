@@ -214,10 +214,9 @@ void SmoothCompute::recvdParticles(ExternalGravityParticle *part,
   GenericTreeNode* reqnode = tp->bucketList[reqIDlist];
 
   for(int i=0;i<num;i++){
-      // XXX make the clearing a user supplied function
-      // XXX also: this will miss particles requested as part of a
+      // XXX this may miss particles requested as part of a
       // "cache line"  Probably should go deeper in the cache mechanism.
-      part[i].fDensity = 0.0;	// Clear cached copy
+      fcnInit(&part[i]);	// Clear cached copy
       bucketCompare(tp, &part[i], reqnode, tp->myParticles, offset, state);
       }
   ((NearNeighborState *)state)->finishBucketSmooth(reqIDlist, tp);
@@ -284,7 +283,9 @@ void TreePiece::startIterationSmooth(int am, // the active rung for
 
   // Create objects that are reused by all buckets
   sTopDown = new TopDownTreeWalk;
-  sSmooth = new SmoothCompute(this, DensitySym, nSmooth);
+  sSmooth = new SmoothCompute(this, DensitySym, initDensity, combDensity,
+			      nSmooth);
+  fcnCombine = combDensity;
   // creates and initializes nearneighborstate object
   sSmoothState = sSmooth->getNewState(numBuckets);
   optSmooth = new SmoothOpt;
@@ -503,6 +504,15 @@ void Density(GravityParticle *p,int nSmooth, pqSmoothNode *nnList)
 		}
 	p->fDensity = M_1_PI*sqrt(ih2)*ih2*fDensity; 
 	}
+
+void initDensity(ExternalGravityParticle *p) 
+{
+    p->fDensity = 0.0;
+    }
+
+void combDensity(GravityParticle *p1, ExternalGravityParticle *p2) {
+  p1->fDensity += p2->fDensity;
+}
 
 void DensitySym(GravityParticle *p,int nSmooth, pqSmoothNode *nnList)
 {
