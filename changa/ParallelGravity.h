@@ -113,6 +113,10 @@ extern int nSmooth;
 class dummyMsg : public CMessage_dummyMsg{
 public:
 int val;
+/*#if INTERLIST_VER > 0
+int level;
+GenericTreeNode* startNode;
+#endif*/
 };
 
 class TreePieceStatistics {
@@ -381,6 +385,7 @@ class TreePiece : public CBase_TreePiece {
    friend class BottomUpTreeWalk;
 
    TreeWalk *sTopDown;
+   TreeWalk *twSmooth;
 #if INTERLIST_VER > 0
    TreeWalk *sInterListWalk;
    Compute *sInterListCompute;
@@ -782,6 +787,7 @@ private:
 	void initBuckets();
 	void initBucketsSmooth();
 	void smoothNextBucket();
+	void reSmoothNextBucket();
 	/** @brief Initial walk through the tree. It will continue until local
 	 * nodes are found (excluding those coming from the cache). When the
 	 * treewalk is finished it stops and cachedWalkBucketTree will continue
@@ -1034,7 +1040,9 @@ public:
 
 	/// As above but for the Smooth operation
 	void calculateSmoothLocal();
+	void calculateReSmoothLocal();
 	void nextBucketSmooth(dummyMsg *msg);
+	void nextBucketReSmooth(dummyMsg *msg);
 #if INTERLIST_VER > 0
 #if 0
   void calculateForceRemoteBucket(int bucketIndex, int chunk);
@@ -1048,6 +1056,7 @@ public:
   void startIteration(int am, const CkCallback& cb);
   /// As above, but for a smooth operation.
   void startIterationSmooth(int am, const CkCallback& cb);
+  void startIterationReSmooth(int am, const CkCallback& cb);
 
 	/// Function called by the CacheManager to send out request for needed
 	/// remote data, so that the later computation will hit.
@@ -1156,6 +1165,7 @@ public:
 
 int decodeReqID(int);
 int encodeOffset(int reqID, int x, int y, int z);
+bool bIsReplica(int reqID);
 void initNodeLock();
 void printGenericTree(GenericTreeNode* node, std::ostream& os) ;
 //bool compBucket(GenericTreeNode *ln,GenericTreeNode *rn);

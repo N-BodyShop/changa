@@ -5224,6 +5224,7 @@ void TreePiece::freeWalkObjects(){
     sSmooth->freeState(sSmoothState);
     delete sSmooth;
     delete optSmooth;
+    delete twSmooth;
     sSmooth = 0;
   }
 #if INTERLIST_VER > 0
