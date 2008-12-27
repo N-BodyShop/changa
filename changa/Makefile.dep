@@ -49,6 +49,8 @@ Reductions.h \
 
 CacheInterface.o: \
 ParallelGravity.decl.h \
+GravityParticle.h \
+CacheInterface.h
 
 smooth.o: \
 ParallelGravity.decl.h \

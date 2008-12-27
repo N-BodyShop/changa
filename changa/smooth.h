@@ -37,7 +37,6 @@ class SmoothCompute : public Compute
 {
     int nSmooth;
     void (*fcnSmooth)(GravityParticle *p, int nSmooth, pqSmoothNode *nList);
-    void (*fcnInit)(ExternalGravityParticle *p);
     void bucketCompare(TreePiece *tp,
 		       ExternalGravityParticle *p,  // Particle to test
 		       GenericTreeNode *node, // bucket
@@ -56,7 +55,6 @@ public:
      : Compute(Smooth){
 	nSmooth = nSm;
 	fcnSmooth = fcn;
-	fcnInit = _fcnInit;
         tp = _tp;       // needed in getNewState()
 	}
     ~SmoothCompute() { //delete state;
@@ -74,11 +72,12 @@ public:
 	       bool isRoot, 
 	       bool &didcomp, int awi);
     int startNodeProcessEvent(TreePiece *owner){}
-    int finishNodeProcessEvent(TreePiece *owner){}
+    int finishNodeProcessEvent(TreePiece *owner, State *state){}
     int nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);
     int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
     void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,
-			int reqID,State *state, TreePiece *tp);
+			int reqID,State *state, TreePiece *tp,
+			Tree::NodeKey &remoteBucket);
     void reassoc(void *ce, int ar, Opt *o);
     void walkDone(State *state) ;
 
@@ -119,7 +118,10 @@ class ReSmoothCompute : public Compute
     
 public:
  ReSmoothCompute(TreePiece *_tp, void (*fcn)(GravityParticle *p, int nSmooth,
-			   pqSmoothNode *nList))
+					     pqSmoothNode *nList),
+		 void (*_fcnInit)(ExternalGravityParticle *p),
+		 void (*_fcnCombine)(GravityParticle *p1, ExternalGravityParticle *p2)
+)
      : Compute(Smooth){
 	fcnSmooth = fcn;
         tp = _tp;       // needed in getNewState()
@@ -137,11 +139,12 @@ public:
 	       bool isRoot, 
 	       bool &didcomp, int awi);
     int startNodeProcessEvent(TreePiece *owner){}
-    int finishNodeProcessEvent(TreePiece *owner){}
-    int nodeMissedEvent(int reqID, int chunk, State *state);
+    int finishNodeProcessEvent(TreePiece *owner, State *state){}
+    int nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);
     int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
     void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,
-			int reqID,State *state, TreePiece *tp);
+			int reqID,State *state, TreePiece *tp,
+			Tree::NodeKey &remoteBucket);
     void reassoc(void *ce, int ar, Opt *o);
     void walkDone(State *state) ;
 

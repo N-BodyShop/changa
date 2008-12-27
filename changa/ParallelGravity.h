@@ -404,7 +404,10 @@ class TreePiece : public CBase_TreePiece {
 
    CkVec<ActiveWalk> activeWalks;
    int completedActiveWalks;
-
+   int nCacheAccesses; // keep track of outstanding cache accesses to
+		       // know when writebacks complete.
+   int bWalkDonePending; // A walk is marked as done but cache flushes
+			 // need to complete
 #if INTERLIST_VER > 0
    //int misses;
    int interListAwi;
@@ -719,7 +722,7 @@ private:
 
  #if INTERLIST_VER > 0
 
-  int nChunk;
+  int nChunk; // XXX unused???
 
  public:
 #ifdef CELL
@@ -821,6 +824,8 @@ public:
 	  iterationNo=0;
 	  usesAtSync=CmiTrue;
 	  bucketReqs=NULL;
+	  nCacheAccesses = 0;
+	  bWalkDonePending = 0;
 	  myPlace = -1;
 	  nSetupWriteStage = -1;
     //openingDiffCount=0;
@@ -844,6 +849,8 @@ public:
 
 #if INTERLIST_VER > 0
 	  nChunk=-1;
+	  sInterListWalk = NULL;
+	  sInterListCompute = NULL;
 #endif
 
 	  tmpTime=0.0;
@@ -874,6 +881,8 @@ public:
 	  dm = NULL;
 	  bucketReqs = NULL;
 	  numChunks=-1;
+	  nCacheAccesses = 0;
+	  bWalkDonePending = 0;
 	  prefetchRoots = NULL;
 	  remainingChunk = NULL;
           ewt = NULL;
@@ -881,6 +890,10 @@ public:
 	  sGravity = NULL;
 	  sPrefetch = NULL;
 	  sSmooth = NULL;
+#if INTERLIST_VER > 0
+	  sInterListWalk = NULL;
+	  sInterListCompute = NULL;
+#endif
 
           incomingParticles = NULL;
           incomingParticlesArrived = 0;

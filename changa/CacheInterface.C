@@ -1,5 +1,7 @@
 #include "CacheInterface.h"
 #include "ParallelGravity.h"
+#include "Opt.h"
+#include "smooth.h"
 
 EntryTypeGravityParticle::EntryTypeGravityParticle() {
   CkCacheFillMsg msg(0);
@@ -58,6 +60,8 @@ void TreePiece::fillRequestParticles(CkCacheRequestMsg *msg) {
     data->part[i] = *((ExternalGravityParticle*)&myParticles[i+bucket->firstParticle]);
   }
   
+  nCacheAccesses++;
+
   cacheManagerProxy[msg->replyTo].recvData(reply);
   
   delete msg;
@@ -80,6 +84,12 @@ void * EntryTypeSmoothParticle::request(CkArrayIndexMax& idx, CkCacheKey key) {
 
 void * EntryTypeSmoothParticle::unpack(CkCacheFillMsg *msg, int chunk, CkArrayIndexMax &from) {
   CacheParticle *data = (CacheParticle*) msg->data;
+  ExternalGravityParticle *p = &(data->part[0]);
+  for(int i = 0; i < 1 + data->end - data->begin; i++) {
+      // XXX needs to be replaced with fcnInit.
+      initDensity(&(p[i]));	// Clear cached copy
+      }
+  
   data->msg = msg;
   return (void*) data;
 }
@@ -109,17 +119,19 @@ void EntryTypeSmoothParticle::callback(CkArrayID requestorID, CkArrayIndexMax &r
 }
 
 void TreePiece::flushSmoothParticles(CkCacheFillMsg *msg) {
-  // the key used in the cache is shifted to the left of 1, this makes
-  // a clear distinction between nodes and particles
-  const GenericTreeNode *bucket = lookupNode(msg->key >> 1);
   
   CacheParticle *data = (CacheParticle*)msg->data;
   
-  for (int i=0; i<bucket->particleCount; ++i) {
-      fcnCombine(&myParticles[i+bucket->firstParticle], &data->part[i]);
+  int j = 0;
+  for(int i = data->begin; i <= data->end; i++) {
+      fcnCombine(&myParticles[i], &data->part[j]);
+      j++;
   }
   
+  nCacheAccesses--;
   delete msg;
+  if(bWalkDonePending)
+	markWalkDone();
 }
 
 EntryTypeGravityNode::EntryTypeGravityNode() {

@@ -204,7 +204,7 @@ void SmoothCompute::reassoc(void *ce, int ar, Opt *o){
  */
 void SmoothCompute::recvdParticles(ExternalGravityParticle *part,
 				   int num, int chunk,int reqID, State *state,
-				   TreePiece *tp){
+				   TreePiece *tp, Tree::NodeKey &remoteBucket){
 
   Vector3D<double> offset = tp->decodeOffset(reqID);
   int reqIDlist = decodeReqID(reqID);
@@ -214,9 +214,6 @@ void SmoothCompute::recvdParticles(ExternalGravityParticle *part,
   GenericTreeNode* reqnode = tp->bucketList[reqIDlist];
 
   for(int i=0;i<num;i++){
-      // XXX this may miss particles requested as part of a
-      // "cache line"  Probably should go deeper in the cache mechanism.
-      fcnInit(&part[i]);	// Clear cached copy
       bucketCompare(tp, &part[i], reqnode, tp->myParticles, offset, state);
       }
   ((NearNeighborState *)state)->finishBucketSmooth(reqIDlist, tp);
@@ -247,6 +244,8 @@ void TreePiece::startIterationSmooth(int am, // the active rung for
   int oldNumChunks = numChunks;
   dm->getChunks(numChunks, prefetchRoots);
   CkArrayIndexMax idxMax = CkArrayIndex1D(thisIndex);
+  nCacheAccesses = 0;
+  bWalkDonePending = 0;
   streamingCache[CkMyPe()].cacheSync(numChunks, idxMax, localIndex);
   if (oldNumChunks != numChunks && remainingChunk != NULL) {
     // reallocate remaining chunk to the new size
@@ -626,7 +625,7 @@ void ReSmoothCompute::reassoc(void *ce, int ar, Opt *o){
  */
 void ReSmoothCompute::recvdParticles(ExternalGravityParticle *part,
 				   int num, int chunk,int reqID, State *state,
-				   TreePiece *tp){
+				   TreePiece *tp, Tree::NodeKey &remoteBucket){
 
   Vector3D<double> offset = tp->decodeOffset(reqID);
   int reqIDlist = decodeReqID(reqID);
@@ -636,16 +635,13 @@ void ReSmoothCompute::recvdParticles(ExternalGravityParticle *part,
   GenericTreeNode* reqnode = tp->bucketList[reqIDlist];
 
   for(int i=0;i<num;i++){
-      // XXX make the clearing a user supplied function
-      // XXX also: this will miss particles requested as part of a
-      // "cache line"  Probably should go deeper in the cache mechanism.
-      part[i].fDensity = 0.0;	// Clear cached copy
       bucketCompare(tp, &part[i], reqnode, tp->myParticles, offset, state);
       }
   ((ReNearNeighborState *)state)->finishBucketSmooth(reqIDlist, tp);
 }
 
-int ReSmoothCompute::nodeMissedEvent(int reqID, int chunk, State *state)
+int ReSmoothCompute::nodeMissedEvent(int reqID, int chunk, State *state,
+				     TreePiece *tp)
 {
     int reqIDlist = decodeReqID(reqID);
     state->counterArrays[0][reqIDlist]++;
@@ -670,6 +666,8 @@ void TreePiece::startIterationReSmooth(int am, // the active rung for
   int oldNumChunks = numChunks;
   dm->getChunks(numChunks, prefetchRoots);
   CkArrayIndexMax idxMax = CkArrayIndex1D(thisIndex);
+  nCacheAccesses = 0;
+  bWalkDonePending = 0;
   streamingCache[CkMyPe()].cacheSync(numChunks, idxMax, localIndex);
   if (oldNumChunks != numChunks && remainingChunk != NULL) {
     // reallocate remaining chunk to the new size
@@ -705,7 +703,8 @@ void TreePiece::startIterationReSmooth(int am, // the active rung for
 
   // Create objects that are reused by all buckets
   twSmooth = new TopDownTreeWalk;
-  sSmooth = new ReSmoothCompute(this, DensitySym);
+  sSmooth = new ReSmoothCompute(this, DensitySym, initDensity, combDensity);
+  fcnCombine = combDensity;
   // creates and initializes nearneighborstate object
   sSmoothState = sSmooth->getNewState(numBuckets);
   optSmooth = new SmoothOpt;

@@ -5228,7 +5228,10 @@ void TreePiece::freeWalkObjects(){
     sSmooth = 0;
   }
 #if INTERLIST_VER > 0
-  delete sInterListWalk;
+  if(sInterListWalk) {
+      delete sInterListWalk;
+      sInterListWalk = 0;
+      }
 
   if(sInterListCompute){
     sInterListCompute->reassoc(0,0,sRemote);
@@ -5270,6 +5273,12 @@ void TreePiece::freeWalkObjects(){
 }
 
 void TreePiece::markWalkDone() {
+    bWalkDonePending = 0;
+    if(sSmooth && nCacheAccesses > 0) {
+	bWalkDonePending = 1;
+	return;
+	}
+    
   if (++completedActiveWalks == activeWalks.size()) {
     //checkWalkCorrectness();
     freeWalkObjects();

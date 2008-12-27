@@ -736,7 +736,7 @@ void TreePiece::outputDensityASCII(const string& suffix, const CkCallback& cb) {
   fseek(outfile, 0, SEEK_END);
   
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
-      if(fprintf(outfile,"%g\n", myParticles[i].fDensity) < 0) {
+      if(fprintf(outfile,"%.14g\n", myParticles[i].fDensity) < 0) {
 	  ckerr << "TreePiece " << thisIndex
 		<< ": Error writing density to disk, aborting" << endl;
 	  CkAbort("IO Badness");
