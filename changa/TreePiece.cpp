@@ -3169,10 +3169,13 @@ sTopDown->walk(child, sPrefetchState, currentPrefetch, encodeOffset(0,x,y,z), pr
   CkPrintf("[%d]sending message to commence local gravity calculation\n", thisIndex);
 #endif
 
-#ifndef CUDA
-  // only begin local computation when prefetch has been completed
-  DoubleWalkState *lstate = (DoubleWalkState *)sInterListStateLocal;
-  lstate->placedRoots = false;
+#if defined CUDA
+  // ask datamanager to serialize local trees
+  // prefetch can occur concurrently with this, 
+  // though calculateGravityLocal can only come
+  // afterwards.
+  dm->serializeLocalTree();
+#else
   thisProxy[thisIndex].calculateGravityLocal();
 #endif
 
@@ -3186,6 +3189,14 @@ sTopDown->walk(child, sPrefetchState, currentPrefetch, encodeOffset(0,x,y,z), pr
 		 (float)CmiMaxMemoryUsage()/(1 << 20));
  //}
 #endif
+}
+
+void TreePiece::commenceCalculateGravityLocal(){
+#ifdef CUDA
+  DoubleWalkState *lstate = (DoubleWalkState *)sInterListStateLocal;
+  lstate->placedRoots = false;
+#endif
+  calculateGravityLocal();
 }
 
 /*
@@ -3271,9 +3282,6 @@ void TreePiece::startRemoteChunk() {
 
 #ifdef CUDA
   dm->donePrefetch();
-  DoubleWalkState *state = (DoubleWalkState *)sInterListStateLocal;
-  state->placedRoots = false;
-  thisProxy[thisIndex].calculateGravityLocal();
 #else
   continueStartRemoteChunk();
 #endif

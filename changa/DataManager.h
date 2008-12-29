@@ -72,6 +72,7 @@ protected:
 	//CkVec<int> registeredTreePieceIndices;
         int cumNumReplicatedNodes;
         int treePiecesDone;
+        int treePiecesDonePrefetch;
         // keeps track of buckets of particles that were
         // received during the prefetch and which were subsequently
         // shipped off to the gpu - FIXME
@@ -110,9 +111,14 @@ public:
 
 #ifdef CUDA
         //void serializeNodes(GenericTreeNode *start, CudaMultipoleMoments *&postPrefetchMoments, CompactPartData *&postPrefetchParticles);
-		void serializeNodes(GenericTreeNode *start);
-        void donePrefetch();
-        DataManager() : treePiecesDone(0) {}
+		//void serializeNodes(GenericTreeNode *start);
+        void donePrefetch(); // serialize remote chunk wrapper
+	void serializeLocal(GenericTreeNode *start); // local trees serialize wrapper
+
+        // actual serialization methods
+        void serializeRemoteChunk();
+        void serializeLocalTree();
+        DataManager() : treePiecesDone(0), treePiecesDonePrefetch(0) {}
 #endif
 
 private:

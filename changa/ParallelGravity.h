@@ -1039,12 +1039,14 @@ public:
 	/// this TreePiece. The opening angle theta has already been passed
 	/// through "startIteration"
 	void calculateGravityLocal();
+	void commenceCalculateGravityLocal();
 
 	/// Entry point for the remote computation: for each bucket compute the
 	/// force that its particles see due to the other particles NOT hosted
 	/// by this TreePiece, and belonging to a subset of the global tree
 	/// (specified by chunkNum).
 	void calculateGravityRemote(ComputeChunkMsg *msg);
+	//void commenceContinueStartRemoteChunk(int chunk);
 
 	/// Temporary function to recurse over all the buckets like in
 	/// walkBucketTree, only that NonLocal nodes are the only one for which
