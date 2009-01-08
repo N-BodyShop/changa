@@ -2,8 +2,8 @@
 #define _HOST_CUDA_H_
 
 
-/* Boolean defines */
 #include "cuda_typedef.h"
+/* Boolean defines */
 enum boolean {NO, YES};
 
 /* defines for Hybrid API buffer indices */
@@ -15,16 +15,16 @@ enum boolean {NO, YES};
 #define ILPART 0
 #define ILCELL 0
 
-#define NODE_INTLIST_BUCKET_MARKERS 1
+#define NODE_BUCKET_MARKERS 1
 #define NODE_BUCKET_START_MARKERS 2
 #define NODE_BUCKET_SIZES 3
 
-#define PART_INTLIST_BUCKET_MARKERS 1
+#define PART_BUCKET_MARKERS 1
 #define PART_BUCKET_START_MARKERS 2
 #define PART_BUCKET_SIZES 3
 
 #define MISSED_MOMENTS 4
-#define MISSED_PARTICLES 4
+#define MISSED_PARTS 4
 
 // node moments and particle cores
 #define DM_TRANSFER_NBUFFERS 2
@@ -60,12 +60,14 @@ typedef struct _CellListData{
 	int *bucketSizes;
 	int numInteractions;
 	int numBucketsPlusOne;
+        void *tp;
 
 	// these buckets were finished in this work request
 	int *affectedBuckets;
 	// was the last bucket only partially finished?
 	bool lastBucketComplete;
         void *cb;
+        void *state;
 }CellListData;
 
 typedef struct _PartListData{
@@ -82,6 +84,7 @@ typedef struct _PartListData{
 	bool lastBucketComplete;
         void *cb;
         void *tp; // tp that issued the work request
+        void *state;
 }PartListData;
 
 // these functions must follow C linkage
@@ -89,23 +92,18 @@ typedef struct _PartListData{
 extern "C" {
 #endif
 
-void DataManagerTransfer(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int bufferid) ;
+void DataManagerTransfer(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts) ;
 
 void TreePieceCellListDataTransferLocal(CellListData *data);
 void TreePieceCellListDataTransferRemote(CellListData *data);
 void TreePieceCellListDataTransferRemoteResume(CellListData *data, CudaMultipoleMoments *missedMoments, int numMissedMoments);
 
-void TreePieceCellListDataTransferBasic(CellListData *data, workRequest *wr);
 
 void TreePiecePartListDataTransferLocal(PartListData *data);
 // the 'missedParticles' here are actually prefetched particles
 void TreePiecePartListDataTransferRemote(PartListData *data, CompactPartData *missedParticles, int numMissedParticles);
 void TreePiecePartListDataTransferRemoteResume(PartListData *data, CompactPartData *missedParticles, int numMissedParticles);
 
-void TreePiecePartListDataTransferBasic(PartListData *data, workRequest *wr);
-
-void NoTransferEnqueueNodeBasic(workRequest *gravityKernel);
-void NoTransferEnqueuePartBasic(workRequest *gravityKernel);
 
 #ifdef __cplusplus
 }

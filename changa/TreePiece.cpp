@@ -3099,6 +3099,13 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
 
   // CUDA
 #ifdef CUDA
+  numActiveBuckets = 0;
+  for(int i = 0; i < numBuckets; i++){
+    if(bucketList[i]->rungs >= activeRung){
+      numActiveBuckets++;
+    }
+  }
+
   {
 	  DoubleWalkState *state = (DoubleWalkState *)sInterListStateRemote;
 	  ((ListCompute *)sInterListCompute)->initCudaState(state, numBuckets, NODE_INTERACTIONS_PER_REQUEST_RNR, PART_INTERACTIONS_PER_REQUEST_RNR, false);
@@ -3281,7 +3288,10 @@ void TreePiece::startRemoteChunk() {
 #endif
 
 #ifdef CUDA
-  dm->donePrefetch();
+  // dm counts until all treepieces have acknowledged prefetch completion
+  // it then flattens the tree on the processor, sends it to the device
+  // and sends messages to each of the registered treepieces to continueStartRemoteChunk()
+  dm->donePrefetch(currentPrefetch);
 #else
   continueStartRemoteChunk();
 #endif
@@ -5334,19 +5344,24 @@ void TreePiece::updateUnfinishedBucketState(int start, int end, int n, int chunk
 }
 
 #ifdef CUDA
+#include "HostCUDA.h"
+
 void nodeGravityDone(void *param, void *msg){
   CellListData *data = (CellListData *)param;
   int *affectedBuckets = data->affectedBuckets;
-  TreePiece *tp = data->tp;
+  TreePiece *tp = (TreePiece*)data->tp;
+  DoubleWalkState *state = (DoubleWalkState *)data->state;
 
   int numBucketsDone = data->numBucketsPlusOne-1;
   if(!data->lastBucketComplete){
     numBucketsDone--;
   }
-
+  
+  // FIXME - incomplete
   for(int i = 0; i < numBucketsDone; i++){
-    tp->
+
   }
+
 }
 #endif
 #endif

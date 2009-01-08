@@ -468,6 +468,16 @@ class TreePiece : public CBase_TreePiece {
         }
 
 #ifdef CUDA
+        // this variable holds the number of buckets active at
+        // the start of an iteration
+        // it is used to ascertain how many buckets still need to 
+        // be processed via the stateReady function with regard
+        // to their local and remote-no-resume walks. 
+        // if all numActiveBuckets
+        // have been processed but we still have leftover nodes/particles
+        // in the list of interations to the sent to the gpu, we flush
+        // the list
+        int numActiveBuckets; 
         int getNumParticles(){
         	return myNumParticles;
         }
@@ -851,6 +861,9 @@ public:
 	  nChunk=-1;
 	  sInterListWalk = NULL;
 	  sInterListCompute = NULL;
+#endif
+#ifdef CUDA
+          numActiveBuckets = -1;
 #endif
 
 	  tmpTime=0.0;

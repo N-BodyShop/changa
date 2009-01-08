@@ -7,28 +7,31 @@
 #include <string.h>
 #include <math.h>
 #include <float.h>
-#include "wr.h"
 // #include <cutil.h>
 
 #include "cuda_runtime.h"
+#include "CudaFunctions.h"
 
-#define BLOCK_SIZE 128
+#define BLOCK_SIZE 64
+#define PART_CACHE_SIZE 3
 
 extern workRequestQueue *wrQueue;
 extern void **devBuffers;
 extern cudaStream_t kernel_stream;
 
-__constant__ constantData[88];
+//__constant__ constantData[88];
 
-void DataManagerTransfer(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int bufferID) {
+void DataManagerTransfer(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts) {
 
-	int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
+	//int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
 
 	//workRequest *transferKernel = (workRequest*) malloc(sizeof(workRequest));
 	workRequest transferKernel;
 	dataInfo *momentBuffer, *partCoreBuffer;
 
-	transferKernel.dimGrid = dim3(numBlocks);
+        // XXX - number of blocks is a dummy value since this
+        // operation will not invoke a kernel
+	transferKernel.dimGrid = dim3(1);
 	transferKernel.dimBlock = dim3(BLOCK_SIZE);
 	transferKernel.smemSize = 0;
 
@@ -38,15 +41,15 @@ void DataManagerTransfer(CudaMultipoleMoments *moments, int nMoments, CompactPar
 	transferKernel.bufferInfo = (dataInfo *) malloc(transferKernel.nBuffers * sizeof(dataInfo));
 
 	momentBuffer = &(transferKernel.bufferInfo[POST_PREFETCH_MOMENTS]);
-	momentBuffer->bufferID = bufferID+POST_PREFETCH_MOMENTS;
+	momentBuffer->bufferID = POST_PREFETCH_MOMENTS;
 	momentBuffer->transferToDevice = YES;
 	momentBuffer->transferFromDevice = NO;
 	momentBuffer->freeBuffer = NO;
 	momentBuffer->hostBuffer = moments;
 	momentBuffer->size = (nMoments) * sizeof(CudaMultipoleMoments);
 
-	partCoreBuffer = &(topKernel.bufferInfo[POST_PREFETCH_PARTICLE_CORES]);
-	partCoreBuffer->bufferID = bufferID+POST_PREFETCH_PARTICLE_CORES;
+	partCoreBuffer = &(transferKernel.bufferInfo[POST_PREFETCH_PARTICLE_CORES]);
+	partCoreBuffer->bufferID = POST_PREFETCH_PARTICLE_CORES;
 	partCoreBuffer->transferToDevice = YES;
 	partCoreBuffer->transferFromDevice = NO;
 	partCoreBuffer->freeBuffer = NO;
@@ -55,18 +58,16 @@ void DataManagerTransfer(CudaMultipoleMoments *moments, int nMoments, CompactPar
 
 	transferKernel.callbackFn = 0;
 	transferKernel.id = DM_TRANSFER;
-	transferKernel.executing = 0;
 	enqueue(wrQueue, &transferKernel);
 
 }
 
 void TreePieceCellListDataTransferLocal(CellListData *data){
-	int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
+	int numBlocks = data->numBucketsPlusOne-1;
 
 	workRequest gravityKernel;
-	dataInfo *buffer, *partCoreBuffer;
+	//dataInfo *buffer, *partCoreBuffer;
 
-	// FIXME - size properly
 	gravityKernel.dimGrid = dim3(numBlocks);
 	gravityKernel.dimBlock = dim3(BLOCK_SIZE);
 	gravityKernel.smemSize = 0;
@@ -80,17 +81,15 @@ void TreePieceCellListDataTransferLocal(CellListData *data){
 
 	gravityKernel.callbackFn = 0;
 	gravityKernel.id = TP_GRAVITY_LOCAL;
-	gravityKernel.executing = 0;
 	enqueue(wrQueue, &gravityKernel);
 }
 
 void TreePieceCellListDataTransferRemote(CellListData *data){
-	int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
+	int numBlocks = data->numBucketsPlusOne-1;
 
 	workRequest gravityKernel;
-	dataInfo *buffer, *partCoreBuffer;
+	//dataInfo *buffer, *partCoreBuffer;
 
-	// FIXME - size properly
 	gravityKernel.dimGrid = dim3(numBlocks);
 	gravityKernel.dimBlock = dim3(BLOCK_SIZE);
 	gravityKernel.smemSize = 0;
@@ -104,18 +103,16 @@ void TreePieceCellListDataTransferRemote(CellListData *data){
 
 	gravityKernel.callbackFn = 0;
 	gravityKernel.id = TP_GRAVITY_REMOTE;
-	gravityKernel.executing = 0;
 	enqueue(wrQueue, &gravityKernel);
 }
 
 void TreePieceCellListDataTransferRemoteResume(CellListData *data, CudaMultipoleMoments *missedMoments, int numMissedMoments){
-	int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
+	int numBlocks = data->numBucketsPlusOne-1;
 
 	//workRequest *gravityKernel = (workRequest*) malloc(sizeof(workRequest));
 	workRequest gravityKernel;
-	dataInfo *buffer, *partCoreBuffer;
+	dataInfo *buffer;
 
-	// FIXME - size properly
 	gravityKernel.dimGrid = dim3(numBlocks);
 	gravityKernel.dimBlock = dim3(BLOCK_SIZE);
 	gravityKernel.smemSize = 0;
@@ -128,8 +125,7 @@ void TreePieceCellListDataTransferRemoteResume(CellListData *data, CudaMultipole
 	TreePieceCellListDataTransferBasic(data, &gravityKernel);
 
 	buffer = &(gravityKernel.bufferInfo[MISSED_MOMENTS]);
-	// FIXME - needs to be unique?
-	buffer->bufferID = bufferID+MISSED_MOMENTS;
+	buffer->bufferID = MISSED_MOMENTS;
 	buffer->transferToDevice = YES;
 	buffer->transferFromDevice = NO;
 	buffer->freeBuffer = YES;
@@ -138,63 +134,66 @@ void TreePieceCellListDataTransferRemoteResume(CellListData *data, CudaMultipole
 
 	gravityKernel.callbackFn = 0;
 	gravityKernel.id = TP_GRAVITY_REMOTE_RESUME;
-	gravityKernel.executing = 0;
 	enqueue(wrQueue, &gravityKernel);
 }
 
 void TreePieceCellListDataTransferBasic(CellListData *data, workRequest *gravityKernel){
 	dataInfo *buffer;
-	int numInteractions = data->numInteractions;
 	int numBucketsPlusOne = data->numBucketsPlusOne;
-	ILCell *cellList = data->cellList;
-	int *cellListBucketMarkers = data->partListBucketMarkers;
-	int *bucketStarts = data->bucketStarts;
-	int *bucketSizes = data->bucketSizes;
+        int numBuckets = numBucketsPlusOne-1;
+        int size;
 
 	buffer = &(gravityKernel->bufferInfo[ILCELL]);
-	// FIXME - needs to be unique?
-	buffer->bufferID = bufferID+ILCELL;
+	buffer->bufferID = ILCELL;
 	buffer->transferToDevice = YES;
 	buffer->transferFromDevice = NO;
 	buffer->freeBuffer = YES;
-	buffer->hostBuffer = cellList;
-	buffer->size = (numInteractions) * sizeof(ILCell);
+        size = (data->numInteractions) * sizeof(ILCell);
+	buffer->size = size;
+        buffer->hostBuffer = malloc(size);
+        memcpy(buffer->hostBuffer, data->cellList, size);
 
-	buffer = &(gravityKernel->bufferInfo[NODE_INTLIST_BUCKET_MARKERS]);
-	// FIXME - needs to be unique?
-	buffer->bufferID = bufferID+NODE_INTLIST_BUCKET_MARKERS;
+	buffer = &(gravityKernel->bufferInfo[NODE_BUCKET_MARKERS]);
+	buffer->bufferID = NODE_BUCKET_MARKERS;
 	buffer->transferToDevice = YES;
 	buffer->transferFromDevice = NO;
 	buffer->freeBuffer = YES;
-	buffer->hostBuffer = cellListBucketMarkers;
-	buffer->size = (numBucketsPlusOne) * sizeof(int);
+        size = (numBucketsPlusOne) * sizeof(int);
+        buffer->size = size;
+        buffer->hostBuffer = malloc(size);
+        memcpy(buffer->hostBuffer, data->cellListBucketMarkers, size);
 
-	buffer = &(gravityKernel->bufferInfo[NODE_INTLIST_BUCKET_STARTS]);
-	// FIXME - needs to be unique?
-	buffer->bufferID = bufferID+NODE_INTLIST_BUCKET_STARTS;
+	buffer = &(gravityKernel->bufferInfo[NODE_BUCKET_START_MARKERS]);
+	buffer->bufferID = NODE_BUCKET_START_MARKERS;
 	buffer->transferToDevice = YES;
 	buffer->transferFromDevice = NO;
 	buffer->freeBuffer = YES;
-	buffer->hostBuffer = bucketStarts;
-	buffer->size = (numBucketsPlusOne-1) * sizeof(int);
+	size = (numBuckets) * sizeof(int);
+        buffer->size = size;
+        buffer->hostBuffer = malloc(size);
+        memcpy(buffer->hostBuffer, data->bucketStarts, size);
 
-	buffer = &(gravityKernel->bufferInfo[NODE_INTLIST_BUCKET_SIZES]);
-	// FIXME - needs to be unique?
-	buffer->bufferID = bufferID+NODE_INTLIST_BUCKET_SIZES;
+	buffer = &(gravityKernel->bufferInfo[NODE_BUCKET_SIZES]);
+	buffer->bufferID = NODE_BUCKET_SIZES;
 	buffer->transferToDevice = YES;
 	buffer->transferFromDevice = NO;
 	buffer->freeBuffer = YES;
-	buffer->hostBuffer = bucketSizes;
-	buffer->size = (numBucketsPlusOne-1) * sizeof(int);
+        buffer->size = size;
+        buffer->hostBuffer = malloc(size);
+        memcpy(buffer->hostBuffer, data->bucketSizes, size);
+
+        // copy affectedBuckets array
+        int *save = data->affectedBuckets;
+        data->affectedBuckets = (int *) malloc(sizeof(int)*numBuckets);
+        memcpy(data->affectedBuckets, save, sizeof(int)*numBuckets);
 }
 
 void TreePiecePartListDataTransferLocal(PartListData *data){
-	int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
+	int numBlocks = data->numBucketsPlusOne-1;
 
 	workRequest gravityKernel;
-	dataInfo *buffer, *partCoreBuffer;
+	//dataInfo *buffer, *partCoreBuffer;
 
-	// FIXME - size properly
 	gravityKernel.dimGrid = dim3(numBlocks);
 	gravityKernel.dimBlock = dim3(BLOCK_SIZE);
 	gravityKernel.smemSize = 0;
@@ -204,22 +203,20 @@ void TreePiecePartListDataTransferLocal(PartListData *data){
 	/* schedule buffers for transfer to the GPU */
 	gravityKernel.bufferInfo = (dataInfo *) malloc(gravityKernel.nBuffers * sizeof(dataInfo));
 
-	TreePiecePartListDataTransferBasic(data, gravityKernel);
+	TreePiecePartListDataTransferBasic(data, &gravityKernel);
 
 	gravityKernel.callbackFn = 0;
 	gravityKernel.id = TP_PART_GRAVITY_LOCAL;
-	gravityKernel.executing = 0;
 	enqueue(wrQueue, &gravityKernel);
 }
 
 void TreePiecePartListDataTransferRemote(PartListData *data, CompactPartData *missedParts, int numMissedParts){
-	int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
+	int numBlocks = data->numBucketsPlusOne-1;
 
 	//workRequest *gravityKernel = (workRequest*) malloc(sizeof(workRequest));
 	workRequest gravityKernel;
-	dataInfo *buffer, *partCoreBuffer;
+	dataInfo *buffer;
 
-	// FIXME - size properly
 	gravityKernel.dimGrid = dim3(numBlocks);
 	gravityKernel.dimBlock = dim3(BLOCK_SIZE);
 	gravityKernel.smemSize = 0;
@@ -229,11 +226,10 @@ void TreePiecePartListDataTransferRemote(PartListData *data, CompactPartData *mi
 	/* schedule buffers for transfer to the GPU */
 	gravityKernel.bufferInfo = (dataInfo *) malloc(gravityKernel.nBuffers * sizeof(dataInfo));
 
-	TreePiecePartListDataTransferBasic(data, gravityKernel);
+	TreePiecePartListDataTransferBasic(data, &gravityKernel);
 
 	buffer = &(gravityKernel.bufferInfo[MISSED_PARTS]);
-	// FIXME - needs to be unique?
-	buffer->bufferID = bufferID+MISSED_PARTS;
+	buffer->bufferID = MISSED_PARTS;
 	buffer->transferToDevice = YES;
 	buffer->transferFromDevice = NO;
 	buffer->freeBuffer = YES;
@@ -242,18 +238,16 @@ void TreePiecePartListDataTransferRemote(PartListData *data, CompactPartData *mi
 
 	gravityKernel.callbackFn = 0;
 	gravityKernel.id = TP_PART_GRAVITY_REMOTE;
-	gravityKernel.executing = 0;
 	enqueue(wrQueue, &gravityKernel);
 }
 
 void TreePiecePartListDataTransferRemoteResume(PartListData *data, CompactPartData *missedParts, int numMissedParts){
-	int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
+	int numBlocks = data->numBucketsPlusOne-1;
 
 	//workRequest *gravityKernel = (workRequest*) malloc(sizeof(workRequest));
 	workRequest gravityKernel;
-	dataInfo *buffer, *partCoreBuffer;
+	dataInfo *buffer;
 
-	// FIXME - size properly
 	gravityKernel.dimGrid = dim3(numBlocks);
 	gravityKernel.dimBlock = dim3(BLOCK_SIZE);
 	gravityKernel.smemSize = 0;
@@ -263,11 +257,10 @@ void TreePiecePartListDataTransferRemoteResume(PartListData *data, CompactPartDa
 	/* schedule buffers for transfer to the GPU */
 	gravityKernel.bufferInfo = (dataInfo *) malloc(gravityKernel.nBuffers * sizeof(dataInfo));
 
-	TreePiecePartListDataTransferBasic(data, gravityKernel);
+	TreePiecePartListDataTransferBasic(data, &gravityKernel);
 
 	buffer = &(gravityKernel.bufferInfo[MISSED_PARTS]);
-	// FIXME - needs to be unique?
-	buffer->bufferID = bufferID+MISSED_PARTS;
+	buffer->bufferID = MISSED_PARTS;
 	buffer->transferToDevice = YES;
 	buffer->transferFromDevice = NO;
 	buffer->freeBuffer = YES;
@@ -276,7 +269,6 @@ void TreePiecePartListDataTransferRemoteResume(PartListData *data, CompactPartDa
 
 	gravityKernel.callbackFn = 0;
 	gravityKernel.id = TP_PART_GRAVITY_REMOTE_RESUME;
-	gravityKernel.executing = 0;
 	enqueue(wrQueue, &gravityKernel);
 }
 
@@ -285,46 +277,54 @@ void TreePiecePartListDataTransferBasic(PartListData *data, workRequest *gravity
 
 	int numInteractions = data->numInteractions;
 	int numBucketsPlusOne = data->numBucketsPlusOne;
-	ILPart *partList = data->partList;
-	int *partListBucketMarkers = data->partListBucketMarkers;
-	int *bucketStarts = data->bucketStarts;
-	int *bucketSizes = data->bucketSizes;
+        int numBuckets = numBucketsPlusOne-1;
+        int size;
 
 	buffer = &(gravityKernel->bufferInfo[ILPART]);
-	// FIXME - needs to be unique?
-	buffer->bufferID = bufferID+ILPART;
+	buffer->bufferID = ILPART;
 	buffer->transferToDevice = YES;
 	buffer->transferFromDevice = NO;
 	buffer->freeBuffer = YES;
-	buffer->hostBuffer = partList;
-	buffer->size = (numInteractions) * sizeof(ILPart);
+	size = (numInteractions) * sizeof(ILPart);
+        buffer->size = size;
+        buffer->hostBuffer = malloc(size);
+        memcpy(buffer->hostBuffer, data->partList, size);
 
-	buffer = &(gravityKernel->bufferInfo[PART_INTLIST_BUCKET_MARKERS]);
-	// FIXME - needs to be unique?
-	buffer->bufferID = bufferID+PART_INTLIST_BUCKET_MARKERS;
-	buffer->transferToDevice = YES;
-	buffer->transferFromDevice = NO;
-	buffer->freeBuffer = YES;
-	buffer->hostBuffer = partListBucketMarkers;
-	buffer->size = (numBucketsPlusOne) * sizeof(int);
 
-	buffer = &(gravityKernel->bufferInfo[PART_INTLIST_BUCKET_STARTS]);
-	// FIXME - needs to be unique?
-	buffer->bufferID = bufferID+PART_INTLIST_BUCKET_STARTS;
+	buffer = &(gravityKernel->bufferInfo[PART_BUCKET_MARKERS]);
+	buffer->bufferID = PART_BUCKET_MARKERS;
 	buffer->transferToDevice = YES;
 	buffer->transferFromDevice = NO;
 	buffer->freeBuffer = YES;
-	buffer->hostBuffer = bucketStarts;
-	buffer->size = (numBucketsPlusOne-1) * sizeof(int);
+	size = (numBucketsPlusOne) * sizeof(int);
+        buffer->size = size;
+        buffer->hostBuffer = malloc(size);
+        memcpy(buffer->hostBuffer, data->partListBucketMarkers, size);
 
-	buffer = &(gravityKernel->bufferInfo[PART_INTLIST_BUCKET_SIZES]);
-	// FIXME - needs to be unique?
-	buffer->bufferID = bufferID+PART_INTLIST_BUCKET_SIZES;
+	buffer = &(gravityKernel->bufferInfo[PART_BUCKET_START_MARKERS]);
+	buffer->bufferID = PART_BUCKET_START_MARKERS;
 	buffer->transferToDevice = YES;
 	buffer->transferFromDevice = NO;
 	buffer->freeBuffer = YES;
-	buffer->hostBuffer = bucketSizes;
-	buffer->size = (numBucketsPlusOne-1) * sizeof(int);
+	buffer->hostBuffer = data->bucketStarts;
+	size = (numBuckets) * sizeof(int);
+        buffer->size = size;
+        buffer->hostBuffer = malloc(size);
+        memcpy(buffer->hostBuffer, data->bucketStarts, size);
+
+	buffer = &(gravityKernel->bufferInfo[PART_BUCKET_SIZES]);
+	buffer->bufferID = PART_BUCKET_SIZES;
+	buffer->transferToDevice = YES;
+	buffer->transferFromDevice = NO;
+	buffer->freeBuffer = YES;
+        buffer->size = size;
+        buffer->hostBuffer = malloc(size);
+        memcpy(buffer->hostBuffer, data->bucketSizes, size);
+
+        // copy affectedBuckets array
+        int *save = data->affectedBuckets;
+        data->affectedBuckets = (int *)malloc(sizeof(int)*numBuckets);
+        memcpy(data->affectedBuckets, save, sizeof(int)*numBuckets);
 }
 
 /*
@@ -351,8 +351,8 @@ void kernelSelect(workRequest *wr) {
   switch (wr->id) {
   case DM_TRANSFER:
 	  dmTransferDone = YES;
-	  DeleteHostMoments(wr->bufferInfo[POST_PREFETCH_MOMENTS].hostBuffer);
-	  DeleteHostParticles(wr->bufferInfo[POST_PREFETCH_PARTICLE_CORES].hostBuffer);
+	  DeleteHostMoments((CudaMultipoleMoments *)wr->bufferInfo[POST_PREFETCH_MOMENTS].hostBuffer);
+	  DeleteHostParticles((CompactPartData *)wr->bufferInfo[POST_PREFETCH_PARTICLE_CORES].hostBuffer);
 	  break;
 
   case TP_GRAVITY_LOCAL:
@@ -425,17 +425,17 @@ void NoTransferEnqueueNodeBasic(workRequest *gravityKernel){
 	buffer->transferFromDevice = NO;
 	buffer->freeBuffer = NO;
 
-	buffer = &(newGravityKernel->bufferInfo[NODE_INTLIST_BUCKET_MARKERS]);
+	buffer = &(newGravityKernel->bufferInfo[NODE_BUCKET_MARKERS]);
 	buffer->transferToDevice = NO;
 	buffer->transferFromDevice = NO;
 	buffer->freeBuffer = NO;
 
-	buffer = &(newGravityKernel->bufferInfo[NODE_INTLIST_BUCKET_STARTS]);
+	buffer = &(newGravityKernel->bufferInfo[NODE_BUCKET_START_MARKERS]);
 	buffer->transferToDevice = NO;
 	buffer->transferFromDevice = NO;
 	buffer->freeBuffer = NO;
 
-	buffer = &(newGravityKernel->bufferInfo[NODE_INTLIST_BUCKET_SIZES]);
+	buffer = &(newGravityKernel->bufferInfo[NODE_BUCKET_SIZES]);
 	buffer->transferToDevice = NO;
 	buffer->transferFromDevice = NO;
 	buffer->freeBuffer = NO;
@@ -456,17 +456,17 @@ void NoTransferEnqueuePartBasic(workRequest *gravityKernel){
 	buffer->transferFromDevice = NO;
 	buffer->freeBuffer = NO;
 
-	buffer = &(newGravityKernel->bufferInfo[PART_INTLIST_BUCKET_MARKERS]);
+	buffer = &(newGravityKernel->bufferInfo[PART_BUCKET_MARKERS]);
 	buffer->transferToDevice = NO;
 	buffer->transferFromDevice = NO;
 	buffer->freeBuffer = NO;
 
-	buffer = &(newGravityKernel->bufferInfo[PART_INTLIST_BUCKET_STARTS]);
+	buffer = &(newGravityKernel->bufferInfo[PART_BUCKET_START_MARKERS]);
 	buffer->transferToDevice = NO;
 	buffer->transferFromDevice = NO;
 	buffer->freeBuffer = NO;
 
-	buffer = &(newGravityKernel->bufferInfo[PART_INTLIST_BUCKET_SIZES]);
+	buffer = &(newGravityKernel->bufferInfo[PART_BUCKET_SIZES]);
 	buffer->transferToDevice = NO;
 	buffer->transferFromDevice = NO;
 	buffer->freeBuffer = NO;
@@ -490,7 +490,7 @@ __global__ void nodeGravityComputation(
 		int *ilmarks,
 		int *bucketStarts,
 		int *bucketSizes,
-		int numBucketsPlusOne){
+		int numBucketsPlusOne, cudatype fperiod){
 
   // each thread has its own storage for these
   __shared__ CudaVector3D acc[THREADS_PER_BLOCK];
@@ -613,16 +613,20 @@ __global__ void nodeGravityComputation(
           acc[thread].x -= qir3*r.x - c*qirx;
           acc[thread].y -= qir3*r.y - c*qiry;
           acc[thread].z -= qir3*r.z - c*qirz;
+        }
       }
       else{
         if(thread == 0){
           // load shared_particle_core and use
           shared_particle_core = particleCores[bucketStart+particle];
+          // FIXME - where is the initial particle core load in 
+          // the previous case (particle < PART_CACHE_SIZE) ?
         }
+        __syncthreads();
           
         r.x = shared_particle_core.position.x -
                         ((((offsetID >> 22) & 0x7)-3)*fperiod + m[thread].cm.x);
-        r.y = shared_particle_cores.position.y -
+        r.y = shared_particle_core.position.y -
                         ((((offsetID >> 25) & 0x7)-3)*fperiod + m[thread].cm.y);
         r.z = shared_particle_core.position.z -
                         ((((offsetID >> 28) & 0x7)-3)*fperiod + m[thread].cm.z);
@@ -719,14 +723,8 @@ __global__ void particleGravityComputation(
                                    int *ilmarks,
 		                   int *bucketStarts,
 		                   int *bucketSizes,
-		                   int numBucketsPlusOne,
-                                   int x, cudatype fperiod){
+		                   int numBucketsPlusOne, cudatype fperiod){
 
-  // shared_source_cores: interactions (source particles)
-  // shared_target_cores: bucket particles (target particles)
-
-  // replace shared_source_cores with source_cores
-  // replace shared_target_cores with cached_target_cores/shared_target_core
   // each thread has its own storage for these
   __shared__ CudaVector3D acc[THREADS_PER_BLOCK];
   __shared__ cudatype pot[THREADS_PER_BLOCK];
@@ -839,7 +837,7 @@ __global__ void particleGravityComputation(
       else{
         if(thread == 0){
           // load shared_particle_core and use
-          shared_target_core = particleCores[bucketStart+particle];
+          shared_target_core = particleCores[bucketStart+target];
         }
         // use shared_target_core
         r.x = (((oid >> 22) & 0x7)-3)*fperiod +
@@ -903,27 +901,27 @@ __global__ void particleGravityComputation(
         for(int i = 0; i < THREADS_PER_BLOCK; i++){
           sum += acc[i].x;
         }
-        particleVars[bucketStart+particle].a.x += sum;
+        particleVars[bucketStart+target].a.x += sum;
         
         sum = 0;
         for(int i = 0; i < THREADS_PER_BLOCK; i++){
           sum += acc[i].y;
         }
-        particleVars[bucketStart+particle].a.y += sum;
+        particleVars[bucketStart+target].a.y += sum;
 
         sum = 0;
         for(int i = 0; i < THREADS_PER_BLOCK; i++){
           sum += acc[i].z;
         }
-        particleVars[bucketStart+particle].a.z += sum;
+        particleVars[bucketStart+target].a.z += sum;
         
         sum = 0;
         for(int i = 0; i < THREADS_PER_BLOCK; i++){
           sum += pot[i];
         }
-        particleVars[bucketStart+particle].potential += sum;
+        particleVars[bucketStart+target].potential += sum;
       }
-    }// end for each particle
-  }// end for each thread (node)
+    }// end for each target
+  }// end for each thread (source)
 }
 

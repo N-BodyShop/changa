@@ -72,6 +72,7 @@ protected:
 	//CkVec<int> registeredTreePieceIndices;
         int cumNumReplicatedNodes;
         int treePiecesDone;
+        int savedChunk;
         int treePiecesDonePrefetch;
         // keeps track of buckets of particles that were
         // received during the prefetch and which were subsequently
@@ -82,7 +83,7 @@ protected:
         // * or for each entry, get key, find bucket node in CM, DM or TPs and get number
         // for now, the former
 
-        // std::map<NodeKey, int> cachedPartsOnGpu;
+        std::map<NodeKey, int> cachedPartsOnGpu;
         // local particles that have been copied to the gpu
         std::map<NodeKey, int> localPartsOnGpu;
 
@@ -112,12 +113,12 @@ public:
 #ifdef CUDA
         //void serializeNodes(GenericTreeNode *start, CudaMultipoleMoments *&postPrefetchMoments, CompactPartData *&postPrefetchParticles);
 		//void serializeNodes(GenericTreeNode *start);
-        void donePrefetch(); // serialize remote chunk wrapper
-	void serializeLocal(GenericTreeNode *start); // local trees serialize wrapper
+        void donePrefetch(int chunk); // serialize remote chunk wrapper
+        void serializeLocalTree();
 
         // actual serialization methods
-        void serializeRemoteChunk();
-        void serializeLocalTree();
+        void serializeRemoteChunk(GenericTreeNode *);
+	void serializeLocal(GenericTreeNode *);
         DataManager() : treePiecesDone(0), treePiecesDonePrefetch(0) {}
 #endif
 
@@ -140,11 +141,9 @@ public:
         std::map<NodeKey, int> &getLocalPartsOnGpuTable(){
           return localPartsOnGpu;
         }
-        /*
         std::map<NodeKey, int> &getCachedPartsOnGpuTable(){
           return cachedPartsOnGpu;
         }
-        */
 #endif
 	// Functions used to create a tree inside the DataManager comprising
 	// all the trees in the TreePieces in the local node

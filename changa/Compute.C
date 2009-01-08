@@ -339,8 +339,8 @@ int ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int r
     	// at this point,
     	sendNodeInteractionsToGpu(ds, owner, true);
     	resetCudaNodeState(ds);
-    	sendPartInteractionsToGpu(ds, owner, true);
-    	resetCudaPartState(ds);
+    	//sendPartInteractionsToGpu(ds, owner, true);
+    	//resetCudaPartState(ds);
 #endif
     	owner->markWalkDone();
     }
@@ -873,8 +873,14 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
     cacheManagerProxy[CkMyPe()].finishedChunk(chunk, tp->nodeInterRemote[chunk]+tp->particleInterRemote[chunk]);
     if (chunk == tp->numChunks-1){
 #ifdef CUDA
-      // FIXME - for cuda, since no more chunks or pending
+      // FIXME - since no more chunks or pending
       // interactions remain, we must flush the particle lists
+      CkAssert(state->resume);
+      // at this point,
+      //sendNodeInteractionsToGpu(state, tp, true);
+      //resetCudaNodeState(state);
+      sendPartInteractionsToGpu(state, tp, true);
+      resetCudaPartState(state);
 #endif
       tp->markWalkDone();
     }
@@ -965,12 +971,13 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 #ifdef CUDA
   int cudaNodeThreshold = state->nodeThreshold;
   int cudaPartThreshold = state->partThreshold;
-  int tpBuckets = tp->numBuckets;
+  bool resume = state->resume;
+  int numActiveBuckets = tp->numActiveBuckets;
 
-  // for particles in buckets
+  // for local particles
   std::map<NodeKey, int> &lpref = tp->dm->getLocalPartsOnGpuTable();
-  // for other cached particles
-  //std::map<NodeKey, int> &cpref = tp->dm->getCachedPartsOnGpuTable();
+  // for cached particles
+  std::map<NodeKey, int> &cpref = tp->dm->getCachedPartsOnGpuTable();
 #endif
 
   GenericTreeNode *lowestNode = state->lowestNode;
@@ -981,6 +988,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 
 #ifdef CUDA
   CkPrintf("[%d]: stateReady(%d-%d) %s, %d\n",  tp->getIndex(), start, end, getOptType() == Remote ? "Remote" : "Local", state->resume);
+  int numInteractions = state->numInteractions;
 #endif
 
   for(int b = start; b < end; b++){
@@ -992,12 +1000,16 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 		  for (int k=tp->bucketList[b]->firstParticle; k<=tp->bucketList[b]->lastParticle; ++k) {
 			  if (tp->myParticles[k].rung >= activeRung) activePart++;
 		  }
+                  
+                  if(!resume){
+                    // another bucket has been finished in the local/rnr mode
+                    numFinLocalRNRBuckets++;
+                  }
 #endif
 
 #ifdef CUDA
 		  // bucket b is listed in this offload
 		  int bucketSize, bucketStartIndex;
-		  int numInteractions = state->numInteractions;
 
 		  GenericTreeNode *bucket = tp->bucketList[b];
 		  // get bucket parameters: size, particle start
@@ -1011,12 +1023,6 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 		  GravityParticle **partList = new GravityParticle*[activePart];
 		  CellGroupRequest *cgr = new CellGroupRequest(tp, b, partList, state);
 		  WRGroupHandle wrh = createWRGroup(cgr, cellSPE_callback);
-		  /* if(getOptType() == Remote){
-            CkPrintf("Remote\n");
-          }
-          else if(getOptType() == Local){
-            CkPrintf("Local\n");
-          } */
 		  for (int k=tp->bucketList[b]->firstParticle; k<=tp->bucketList[b]->lastParticle; ++k) {
 			  if (tp->myParticles[k].rung >= activeRung) {
 				  activePartData[indexActivePart] = tp->myParticles[k];
@@ -1174,17 +1180,15 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 					  int gpuIndex = -1;
 					  key <<= 1;
 					  std::map<NodeKey, int>::iterator p = lpref.find(key);
-					  //std::map<NodeKey, int>::iterator q = cpref.find(key);
+					  std::map<NodeKey, int>::iterator q = cpref.find(key);
 					  if(p != lpref.end()){
 						  //localPartsOnGpu = true;
 						  gpuIndex = p->second;
 					  }
-					  /*
-            if(q != cpref.end()){
-            	//cachedPartsOnGpu = true;
-            	gpuIndex = q->second;
-            }
-					   */
+                                          else if(q != cpref.end()){
+            	                                  //cachedPartsOnGpu = true;
+            	                                  gpuIndex = q->second;
+                                          }
 
 					  if(gpuIndex < 0){
 						  // couldn't find it on the gpu (must be from a missed bucket of particles)
@@ -1244,9 +1248,9 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 								  particles,
 								  rpi.offset, activeRung);
 #endif // CELL_PART
-if(getOptType() == Remote){// don't really have to perform this check
-	tp->addToParticleInterRemote(chunk, computed);
-}
+                                                  if(getOptType() == Remote){// don't really have to perform this check
+	                                                  tp->addToParticleInterRemote(chunk, computed);
+                                                  }
 					  }
 #endif // CUDA
 
@@ -1277,15 +1281,13 @@ if(getOptType() == Remote){// don't really have to perform this check
 					  int gpuIndex = -1;
 					  key <<= 1;
 					  std::map<NodeKey, int>::iterator p = lpref.find(key);
-					  //std::map<NodeKey, int>::iterator q = cpref.find(key);
+					  std::map<NodeKey, int>::iterator q = cpref.find(key);
 					  if(p != lpref.end()){
 						  gpuIndex = p->second;
 					  }
-					  /*
-            if(q != cpref.end()){
-            	gpuIndex = q->second;
-            }
-					   */
+                                          else if(q != cpref.end()){
+            	                                  gpuIndex = q->second;
+                                          }
 
 					  if(gpuIndex < 0){
 						  // couldn't find it on the gpu (must be from a missed bucket of particles)
@@ -1386,29 +1388,25 @@ if(getOptType() == Remote){// don't really have to perform this check
 		  OffloadAPIProgress();
 #endif
 	  }// active
-#ifdef CUDA
-	  // here, we have processed every level of bucket b
-	  bool resume = state->resume;
-	  // FIXME - this doesn't solve the multi-timestepping problem. stateReady is never called
-	  // for inactive buckets
-	  if(b == tp->numBuckets-1 && !resume){
-		  // either a local or remote-no-resume walk
-		  // must send out remaining node/particle interactions here.
-		  if(state->cellLists.length() > 0){
-			  sendNodeInteractionsToGpu(state, tp, numInteractions == 0);
-			  resetCudaNodeState(state);
-		  }
-		  if(state->partLists.length() > 0){
-			  sendPartInteractionsToGpu(state, tp, numInteractions == 0);
-			  resetCudaPartState(state);
-		  }
-	  }
-	  // FIXME
-	  // if this is a remote-resume walk, leftovers will be
-	  // shipped off when there are no more outstanding
-	  // missed particles/nodes
-#endif
   }// bucket
+#ifdef CUDA
+  // here, we have processed all requested buckets 
+  // now, check whether all active buckets have been processed,
+  // and if so, flush remaining lists to GPU since no more 
+  // local/rnr work will be received.
+  if(!resume && numFinLocalRNRBuckets == 2*numActiveBuckets){
+    // either a local or remote-no-resume walk
+    // must send out remaining node/particle interactions here.
+    numFinLocalRNRBuckets = 0;
+    sendNodeInteractionsToGpu(state, tp, numInteractions == 0);
+    resetCudaNodeState(state);
+    sendPartInteractionsToGpu(state, tp, numInteractions == 0);
+    resetCudaPartState(state);
+  }
+  // if this is a remote-resume walk, leftovers will be
+  // shipped off when there are no more outstanding
+  // missed particles/nodes
+#endif
 }
 
 #ifdef CUDA
@@ -1486,9 +1484,8 @@ void ListCompute::insertBucketPart(DoubleWalkState *state, int b, int start, int
 	state->partInteractionBucketMarkers.push_back(currentIntListLength-1);
 }
 
+extern "C" void nodeGravityDone(void *, void *);
 void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool lastBucketComplete){
-
-	// FIXME - use lastBucketComplete
 	// all interactions to be shipped have been recorded at this point
 	// need to cap the end of state->nodeInteractionBucketMarkers
 	int length = state->cellLists.length();
@@ -1518,12 +1515,6 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
 		CkPrintf("\n");
 		*/
 
-                // FIXME - transfers are no longer synchronous, must make copies
-
-		// As long as transfers to the GPU are synchronous, we can
-		// copy pointers to the following arrays and the correct data
-		// will be shipped over, because these arrays will not be modified
-		// again before the transfer has completed
 		ILCell *cellList = state->cellLists.getVec();
 		int *cellListBucketMarkers = state->nodeInteractionBucketMarkers.getVec();
 		int *bucketStarts = state->bucketStartMarkersNodes.getVec();
@@ -1538,16 +1529,11 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
 		data->bucketSizes = bucketSizes;
 		data->numInteractions = numInteractions;
 		data->numBucketsPlusOne = numBucketsPlusOne;
-                data->tp = tp;
+                data->tp = (void *)tp;
                 data->cb = new CkCallback(nodeGravityDone, data);
-
-		// However, we must make a copy of the buckets array, since we require it
-		// after the (asynchronous) kernel execution has finished, and the buckets
-		// array might well be modified before the callback for this work request is invoked.
-		data->affectedBuckets = new int[numBucketsPlusOne-1];
-		memcpy(data->affectedBuckets, state->bucketsNodes.getVec(), sizeof(int)*(numBucketsPlusOne-1));
-
+		data->affectedBuckets = state->bucketsNodes.getVec();
 		data->lastBucketComplete = lastBucketComplete;
+                data->state = state;
 
 		OptType type = getOptType();
 		if(type == Local){
@@ -1568,7 +1554,6 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
 
 void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool lastBucketComplete){
 
-	// FIXME - use lastBucketComplete
 	int index = tp->getIndex();
 	// all interactions to be shipped have been recorded at this point
 	// need to cap the end of state->partInteractionBucketMarkers
@@ -1615,11 +1600,9 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
 		data->numBucketsPlusOne = numBucketsPlusOne;
                 data->tp = tp;
                 data->cb = new CkCallback(nodeGravityDone, data);
-
-		data->affectedBuckets = new int[numBucketsPlusOne-1];
-		memcpy(data->affectedBuckets, state->bucketsParts.getVec(), sizeof(int)*(numBucketsPlusOne-1));
-
+		data->affectedBuckets = state->bucketsParts.getVec();
 		data->lastBucketComplete = lastBucketComplete;
+                data->state = state;
 
 		OptType type = getOptType();
 		if(type == Local){
