@@ -3326,10 +3326,7 @@ void TreePiece::continueStartRemoteChunk(){
   thisProxy[thisIndex].calculateGravityRemote(msg);
 
   // start prefetching next chunk
-  CkPrintf("[%d]: currentPrefetch:%d, numChunks: %d\n", thisIndex, currentPrefetch, numChunks);
-  currentPrefetch++;
-  CkPrintf("[%d]: currentPrefetch:%d, numChunks: %d\n", thisIndex, currentPrefetch, numChunks);
-  if (currentPrefetch < numChunks) {
+  if (++currentPrefetch < numChunks) {
     int first, last;
 
     // Nothing needs to be changed for this chunk -

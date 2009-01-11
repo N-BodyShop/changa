@@ -291,11 +291,8 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
 }
 
 void PrefetchCompute::recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket){
-  // when we receive missed particles, we do the same book-keeping
-  // as we did when we received a missed node.
-	// XXX - no book-keeping because we don't count particles missed during prefetch as missed at all (see doWork)
-	// don't need to wait for their arrival since we don't ship them to the gpu post prefetch
-        // XXX - this comment supercedes the one above. changing this scheme so that we wait for prefetched particles as well
+#ifdef CUDA
+        // wait for prefetched particles as well
         // this way, all nodes/parts not missed will be handled by RNR
         // and all those missed, by RR
         // if we didn't wait for particles
@@ -303,6 +300,7 @@ void PrefetchCompute::recvdParticles(ExternalGravityParticle *egp,int num,int ch
         // and so we'd have to have a separate array of missed particles for the RNR (in much the same way that the RR has
         // separate arrays for missed nodes and particles) 
   finishNodeProcessEvent(tp, state);
+#endif
 }
 
 int GravityCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int reqIDlist){
@@ -591,12 +589,11 @@ int PrefetchCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, i
                                                          true, awi, (void *)0);
 
     if(part == NULL){
-      //tp->incPrefetchWaiting();
-    	// XXX - not waiting for remote particle receipt, because we don't send them
-    	// to the gpu
-        // XXX - this comment supercedes the one above. waiting for particles for reasons discussed 
-        // in comments within recvdParticles
-      //state->counterArrays[0][0]++;
+#ifdef CUDA
+      // waiting for particles for reasons discussed 
+      // in comments within recvdParticles
+      state->counterArrays[0][0]++;
+#endif
 #if CHANGA_REFACTOR_DEBUG > 2
       CkPrintf("[%d] Particles not found in cache\n", tp->getIndex());
 #endif
@@ -1605,12 +1602,20 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
     CkPrintf("\n");
     */
 
+
     ILCell *cellList = state->cellLists.getVec();
     int *cellListBucketMarkers = state->nodeInteractionBucketMarkers.getVec();
     int *bucketStarts = state->bucketStartMarkersNodes.getVec();
     int *bucketSizes = state->bucketSizesNodes.getVec();
-    int numBucketsPlusOne = state->bucketSizesNodes.length();
+    int numBuckets = state->bucketSizesNodes.length();
     int numInteractions = state->cellLists.length();
+
+    int total = lastBucketComplete ? numBuckets : numBuckets-1;  
+    // offloading computation 
+    for(int i = 0; i < total; i++){
+      bucket = data->affectedBuckets[i];
+      state->counterArrays[0][bucket]++;
+    }
 
     CudaRequest *data = new CudaRequest;
     data->list = cellList;
@@ -1618,7 +1623,7 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
     data->bucketStarts = bucketStarts;
     data->bucketSizes = bucketSizes;
     data->numInteractions = numInteractions;
-    data->numBucketsPlusOne = numBucketsPlusOne;
+    data->numBucketsPlusOne = numBuckets+1;
     data->tp = (void *)tp;
     data->affectedBuckets = state->bucketsNodes.getVec();
     data->lastBucketComplete = lastBucketComplete;
@@ -1679,7 +1684,14 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
     int *partListBucketMarkers = state->partInteractionBucketMarkers.getVec();
     int *bucketStarts = state->bucketStartMarkersParts.getVec();
     int *bucketSizes = state->bucketSizesParts.getVec();
-    int numBucketsPlusOne = state->bucketSizesParts.length();
+    int numBuckets= state->bucketSizesParts.length();
+
+    int total = lastBucketComplete ? numBuckets : numBuckets-1;  
+    // offloading computation 
+    for(int i = 0; i < total; i++){
+      bucket = data->affectedBuckets[i];
+      state->counterArrays[0][bucket]++;
+    }
 
     CudaRequest *data = new CudaRequest;
     data->list = partList;
@@ -1687,7 +1699,7 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
     data->bucketStarts = bucketStarts;
     data->bucketSizes = bucketSizes;
     data->numInteractions = numInteractions;
-    data->numBucketsPlusOne = numBucketsPlusOne;
+    data->numBucketsPlusOne = numBuckets+1;
     data->tp = tp;
     data->affectedBuckets = state->bucketsParts.getVec();
     data->lastBucketComplete = lastBucketComplete;
