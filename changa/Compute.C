@@ -1006,7 +1006,6 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
       for (int k=tp->bucketList[b]->firstParticle; k<=tp->bucketList[b]->lastParticle; ++k) {
         if (tp->myParticles[k].rung >= activeRung) activePart++;
       }
-#endif
 
       int indexActivePart=0;
       int activePartDataSize = ROUNDUP_128((activePart+3)*sizeof(CellGravityParticle));
@@ -1036,6 +1035,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
       CellContainer *nodesContainer = (CellContainer*)malloc_aligned(CELLBUFFERSIZE,128);
       CellMultipoleMoments *nodesData = (CellMultipoleMoments*)&nodesContainer->data;
       int indexNodes=0, indexPart=0;
+#endif
 
       for(int level = 0; level <= maxlevel; level++){
 

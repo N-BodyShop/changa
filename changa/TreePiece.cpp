@@ -3173,23 +3173,23 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
 
 
   for(int x = -nReplicas; x <= nReplicas; x++) {
-	  for(int y = -nReplicas; y <= nReplicas; y++) {
-		  for(int z = -nReplicas; z <= nReplicas; z++) {
-			  if (child == NULL) {
-				  nodeOwnership(prefetchRoots[0], first, last);
-				  child = requestNode((first+last)>>1,
-						  prefetchRoots[0], 0,
-						  encodeOffset(0, x, y, z),
-						  prefetchAwi, (void *)0, true);
-			  }
-			  if (child != NULL) {
+    for(int y = -nReplicas; y <= nReplicas; y++) {
+      for(int z = -nReplicas; z <= nReplicas; z++) {
+        if (child == NULL) {
+          nodeOwnership(prefetchRoots[0], first, last);
+          child = requestNode((first+last)>>1,
+              prefetchRoots[0], 0,
+              encodeOffset(0, x, y, z),
+              prefetchAwi, (void *)0, true);
+        }
+        if (child != NULL) {
 #if CHANGA_REFACTOR_DEBUG > 1
-CkPrintf("[%d] starting prefetch walk with currentPrefetch=%d, numPrefetchReq=%d (%d,%d,%d)\n", thisIndex, currentPrefetch, numPrefetchReq, x,y,z);
+          CkPrintf("[%d] starting prefetch walk with currentPrefetch=%d, numPrefetchReq=%d (%d,%d,%d)\n", thisIndex, currentPrefetch, numPrefetchReq, x,y,z);
 #endif
-sTopDown->walk(child, sPrefetchState, currentPrefetch, encodeOffset(0,x,y,z), prefetchAwi);
-			  }
-		  }
-	  }
+          sTopDown->walk(child, sPrefetchState, currentPrefetch, encodeOffset(0,x,y,z), prefetchAwi);
+        }
+      }
+    }
   }
 
 #if CHANGA_REFACTOR_DEBUG > 0
@@ -3203,7 +3203,7 @@ sTopDown->walk(child, sPrefetchState, currentPrefetch, encodeOffset(0,x,y,z), pr
   // afterwards.
   dm->serializeLocalTree();
 #else
-  thisProxy[thisIndex].calculateGravityLocal();
+  thisProxy[thisIndex].commenceCalculateGravityLocal();
 #endif
 
   if (bEwald) thisProxy[thisIndex].EwaldInit();
@@ -3219,10 +3219,9 @@ sTopDown->walk(child, sPrefetchState, currentPrefetch, encodeOffset(0,x,y,z), pr
 }
 
 void TreePiece::commenceCalculateGravityLocal(){
-#ifdef CUDA
+  // must set placedRoots to false before starting local comp.
   DoubleWalkState *lstate = (DoubleWalkState *)sInterListStateLocal;
   lstate->placedRoots = false;
-#endif
   calculateGravityLocal();
 }
 
@@ -3327,7 +3326,10 @@ void TreePiece::continueStartRemoteChunk(){
   thisProxy[thisIndex].calculateGravityRemote(msg);
 
   // start prefetching next chunk
-  if (++currentPrefetch < numChunks) {
+  CkPrintf("[%d]: currentPrefetch:%d, numChunks: %d\n", thisIndex, currentPrefetch, numChunks);
+  currentPrefetch++;
+  CkPrintf("[%d]: currentPrefetch:%d, numChunks: %d\n", thisIndex, currentPrefetch, numChunks);
+  if (currentPrefetch < numChunks) {
     int first, last;
 
     // Nothing needs to be changed for this chunk -
@@ -3352,28 +3354,28 @@ void TreePiece::continueStartRemoteChunk(){
     GenericTreeNode *child = dm->chunkRootToNode(prefetchRoots[currentPrefetch]);
 #endif
     for(int x = -nReplicas; x <= nReplicas; x++) {
-    	for(int y = -nReplicas; y <= nReplicas; y++) {
-    		for(int z = -nReplicas; z <= nReplicas; z++) {
-    			if (child == NULL) {
-    				nodeOwnership(prefetchRoots[currentPrefetch], first, last);
-    				child = requestNode((first+last)>>1,
-    						prefetchRoots[currentPrefetch],
-    						currentPrefetch,
-    						encodeOffset(0, x, y, z),
-    						prefetchAwi, (void *)0, true);
-    			}
-		if (child != NULL) {
-		    //prefetch(child, encodeOffset(0, x, y, z));
+      for(int y = -nReplicas; y <= nReplicas; y++) {
+        for(int z = -nReplicas; z <= nReplicas; z++) {
+          if (child == NULL) {
+            nodeOwnership(prefetchRoots[currentPrefetch], first, last);
+            child = requestNode((first+last)>>1,
+                prefetchRoots[currentPrefetch],
+                currentPrefetch,
+                encodeOffset(0, x, y, z),
+                prefetchAwi, (void *)0, true);
+          }
+          if (child != NULL) {
+            //prefetch(child, encodeOffset(0, x, y, z));
 #if CHANGA_REFACTOR_DEBUG > 1
-                    CkPrintf("[%d] starting prefetch walk with currentPrefetch=%d, numPrefetchReq=%d (%d,%d,%d)\n", thisIndex,
-                                                                                                                    currentPrefetch, numPrefetchReq,
-                                                                                                                    x,y,z);
+            CkPrintf("[%d] starting prefetch walk with currentPrefetch=%d, numPrefetchReq=%d (%d,%d,%d)\n", thisIndex,
+                currentPrefetch, numPrefetchReq,
+                x,y,z);
 #endif
-                    sTopDown->walk(child, sPrefetchState, currentPrefetch, encodeOffset(0,x,y,z), prefetchAwi);
+            sTopDown->walk(child, sPrefetchState, currentPrefetch, encodeOffset(0,x,y,z), prefetchAwi);
 
-		}
-            }
-	}
+          }
+        }
+      }
     }
 
   }
@@ -5310,6 +5312,10 @@ void TreePiece::freeWalkObjects(){
   delete sRemote;
 }
 
+#ifdef CUDA
+extern "C" void FreeDataManagerMemory();
+#endif
+
 void TreePiece::markWalkDone() {
     bWalkDonePending = 0;
     if(sSmooth && nCacheAccesses > 0) {
@@ -5320,7 +5326,9 @@ void TreePiece::markWalkDone() {
   if (++completedActiveWalks == activeWalks.size()) {
     //checkWalkCorrectness();
     freeWalkObjects();
-    // FIXME - this would be a good place to release DM-placed particle/node memory
+#ifdef CUDA
+    FreeDataManagerMemory();
+#endif
     contribute(0, 0, CkReduction::concat, callback);
     //CkPrintf("nodeInterRemote: %ld\nnodeInterLocal: %ld\npartInterRemote: %ld\npartInterLocal: %ld\n completed walks: %d\n", nodeInterRemote[0], nodeInterLocal, particleInterRemote[0], particleInterLocal, completedActiveWalks);
   }

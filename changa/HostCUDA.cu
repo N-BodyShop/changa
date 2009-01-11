@@ -349,6 +349,42 @@ extern void DeleteHostMoments(CudaMultipoleMoments *array);
 extern void DeleteHostParticles(CompactPartData *array);
 static boolean dmTransferDone = NO;
 
+void FreeDataManagerMemory(){
+  workRequest gravityKernel;
+  dataInfo *buffer;
+
+  gravityKernel.dimGrid = dim3(1);
+  gravityKernel.dimBlock = dim3(BLOCK_SIZE);
+  gravityKernel.smemSize = 0;
+
+  gravityKernel.nBuffers = DM_TRANSFER_NBUFFERS ;
+
+  /* schedule buffers for transfer to the GPU */
+  gravityKernel.bufferInfo = (dataInfo *) malloc(DM_TRANSFER_NBUFFERS * sizeof(dataInfo));
+
+  buffer = &(gravityKernel.bufferInfo[POST_PREFETCH_MOMENTS]);
+  buffer->bufferID = POST_PREFETCH_MOMENTS;
+  buffer->transferToDevice = NO ;
+  buffer->transferFromDevice = NO;
+  buffer->freeBuffer = YES;
+  buffer->hostBuffer = 0;
+  // FIXME - need actual size?
+  buffer->size = 0 
+
+  buffer = &(gravityKernel.bufferInfo[POST_PREFETCH_PARTICLE_CORES]);
+  buffer->bufferID = POST_PREFETCH_PARTICLE_CORES;
+  buffer->transferToDevice = NO ;
+  buffer->transferFromDevice = NO;
+  buffer->freeBuffer = YES;
+  buffer->hostBuffer = 0;
+  // FIXME - need actual size?
+  buffer->size = 0 
+
+  gravityKernel.callbackFn = 0;
+  gravityKernel.id = DM_TRANSFER;
+  enqueue(wrQueue, &gravityKernel);
+}
+
 // kernel selector function
 void kernelSelect(workRequest *wr) {
 
