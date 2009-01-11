@@ -107,7 +107,6 @@ typedef struct CompactPartData{
 typedef struct VariablePartData{
   CudaVector3D a;
   cudatype potential;
-  //cudatype dtGrav;      // FIXME - needed?
 }VariablePartData;
 
 typedef struct PartData{

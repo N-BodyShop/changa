@@ -1981,9 +1981,22 @@ void TreePiece::nextBucket(dummyMsg *msg){
 #endif
       // book-keeping
       for(int j = currentBucket; j < end; j++){
-#ifndef CELL
-    	  sInterListStateLocal->counterArrays[0][j]--;
-    	  finishBucket(j);
+#if !defined CELL 
+        // for the cuda version, must decrement here
+        // since we add to numAdditionalReqs for a bucket
+        // each time a work request involving it is sent out.
+        // the per bucket, per chunk counts are balanced as follows:
+        // initialize in startiteration: +1
+        // for request sent to gpu: +1
+        // initial walk completed: -1
+        // for each request completed: -1
+        sInterListStateLocal->counterArrays[0][j]--;
+#if !defined CUDA
+        // no need to call finishbucket here, since
+        // callback for computation couldn't have been
+        // called yet.
+        finishBucket(j);
+#endif
 #endif
         if(bucketList[j]->rungs >= activeRung){
           numActualBuckets++;
@@ -2625,9 +2638,13 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 #endif
 
       for(int j = currentRemoteBucket; j < end; j++){
-#ifndef CELL
+#if !defined CELL 
+        // see comment in nextBucket for the reason why
+        // this decrement is performed for the cuda version
         sInterListStateRemote->counterArrays[0][j]--;
+#if !defined CUDA
         finishBucket(j);
+#endif
 #endif
         if(bucketList[j]->rungs >= activeRung){
           numActualBuckets++;
@@ -3097,7 +3114,10 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   sInterListStateLocal = localWalkState;
   sInterListStateRemote = remoteWalkState;
 
-  // CUDA
+  // cuda - need number of active buckets this iteration so 
+  // that we can flush accumulated interactions to gpu when
+  // we realize no more computation requests will be received
+  // (i.e. all buckets have finished their RNR/Local walks)
 #ifdef CUDA
   numActiveBuckets = 0;
   for(int i = 0; i < numBuckets; i++){
@@ -3121,7 +3141,7 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
 	  DoubleWalkState *state = (DoubleWalkState *)sInterListStateRemoteResume;
 	  ((ListCompute *)sInterListCompute)->initCudaState(state, numBuckets, NODE_INTERACTIONS_PER_REQUEST_RR, PART_INTERACTIONS_PER_REQUEST_RR, true);
 
-	  // FIXME - set appropriate initial sizes here
+	  // XXX - set appropriate initial sizes here
 	  state->nodes = new CkVec<CudaMultipoleMoments>();
 	  state->particles = new CkVec<CompactPartData>();
   }
@@ -5300,6 +5320,7 @@ void TreePiece::markWalkDone() {
   if (++completedActiveWalks == activeWalks.size()) {
     //checkWalkCorrectness();
     freeWalkObjects();
+    // FIXME - this would be a good place to release DM-placed particle/node memory
     contribute(0, 0, CkReduction::concat, callback);
     //CkPrintf("nodeInterRemote: %ld\nnodeInterLocal: %ld\npartInterRemote: %ld\npartInterLocal: %ld\n completed walks: %d\n", nodeInterRemote[0], nodeInterLocal, particleInterRemote[0], particleInterLocal, completedActiveWalks);
   }
@@ -5316,12 +5337,20 @@ void TreePiece::getBucketsBeneathBounds(GenericTreeNode *&source, int &start, in
   end = start+(source->numBucketsBeneath);
 }
 
+// called when missed data is received
 void TreePiece::updateBucketState(int start, int end, int n, int chunk, State *state){
   for(int i = start; i < end; i++){
     if(bucketList[i]->rungs >= activeRung){
-#ifndef CELL
+#if !defined CELL 
        state->counterArrays[0][i] -= n;
+#if !defined CUDA
+       // updatebucketstart is only called after we have finished
+       // with received nodes/particles (i.e. after stateReady in
+       // either case.) therefore, some work requests must already
+       // have been issued before it was invoked, so there will
+       // be a finishBucket call afterwards to ensure progress.
        finishBucket(i);
+#endif
 #endif
     }
   }
@@ -5331,6 +5360,7 @@ void TreePiece::updateBucketState(int start, int end, int n, int chunk, State *s
   //CkPrintf("- misses: %d\n", getMisses());
 }
 
+// called on a miss
 void TreePiece::updateUnfinishedBucketState(int start, int end, int n, int chunk, State *state){
   for(int i = start; i < end; i++){
     if(bucketList[i]->rungs >= activeRung){
@@ -5343,25 +5373,4 @@ void TreePiece::updateUnfinishedBucketState(int start, int end, int n, int chunk
   //CkPrintf("+ misses: %d\n", getMisses());
 }
 
-#ifdef CUDA
-#include "HostCUDA.h"
-
-void nodeGravityDone(void *param, void *msg){
-  CellListData *data = (CellListData *)param;
-  int *affectedBuckets = data->affectedBuckets;
-  TreePiece *tp = (TreePiece*)data->tp;
-  DoubleWalkState *state = (DoubleWalkState *)data->state;
-
-  int numBucketsDone = data->numBucketsPlusOne-1;
-  if(!data->lastBucketComplete){
-    numBucketsDone--;
-  }
-  
-  // FIXME - incomplete
-  for(int i = 0; i < numBucketsDone; i++){
-
-  }
-
-}
-#endif
-#endif
+#endif // INTERLIST_VER

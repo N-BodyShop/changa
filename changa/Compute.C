@@ -293,9 +293,16 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
 void PrefetchCompute::recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket){
   // when we receive missed particles, we do the same book-keeping
   // as we did when we received a missed node.
-	// FIXME - no book-keeping because we don't count particles missed during prefetch as missed at all (see doWork)
+	// XXX - no book-keeping because we don't count particles missed during prefetch as missed at all (see doWork)
 	// don't need to wait for their arrival since we don't ship them to the gpu post prefetch
-  //finishNodeProcessEvent(tp, state);
+        // XXX - this comment supercedes the one above. changing this scheme so that we wait for prefetched particles as well
+        // this way, all nodes/parts not missed will be handled by RNR
+        // and all those missed, by RR
+        // if we didn't wait for particles
+        // it could transpire that we don't miss on these particles during RNR, but they aren't present on the gpu
+        // and so we'd have to have a separate array of missed particles for the RNR (in much the same way that the RR has
+        // separate arrays for missed nodes and particles) 
+  finishNodeProcessEvent(tp, state);
 }
 
 int GravityCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int reqIDlist){
@@ -329,20 +336,18 @@ int ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int r
   CkAssert(remainingChunk >= 0);
   if (remainingChunk == 0) {
     //CkPrintf("[%d] Finished chunk %d from nodeRecvdEvent\n",owner->getIndex(),chunk);
+#ifdef CUDA
+    // no more nodes/particles are going to be delivered by the cache
+    // flush the interactions remaining in the state
+    DoubleWalkState *ds = (DoubleWalkState *)state;
+    CkAssert(ds->resume);
+    // at this point,
+    sendNodeInteractionsToGpu(ds, owner, true);
+    resetCudaNodeState(ds);
+#endif
     streamingCache[CkMyPe()].finishedChunk(chunk, owner->nodeInterRemote[chunk]+owner->particleInterRemote[chunk]);
     if(chunk == owner->numChunks-1){
-#ifdef CUDA
-    	// no more nodes/particles are going to be delivered by the cache
-    	// flush the interactions remaining in the state
-    	DoubleWalkState *ds = (DoubleWalkState *)state;
-    	CkAssert(ds->resume);
-    	// at this point,
-    	sendNodeInteractionsToGpu(ds, owner, true);
-    	resetCudaNodeState(ds);
-    	//sendPartInteractionsToGpu(ds, owner, true);
-    	//resetCudaPartState(ds);
-#endif
-    	owner->markWalkDone();
+      owner->markWalkDone();
     }
   }// end if finished with chunk
 }
@@ -587,8 +592,10 @@ int PrefetchCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, i
 
     if(part == NULL){
       //tp->incPrefetchWaiting();
-    	// FIXME - not waiting for remote particle receipt, because we don't send them
+    	// XXX - not waiting for remote particle receipt, because we don't send them
     	// to the gpu
+        // XXX - this comment supercedes the one above. waiting for particles for reasons discussed 
+        // in comments within recvdParticles
       //state->counterArrays[0][0]++;
 #if CHANGA_REFACTOR_DEBUG > 2
       CkPrintf("[%d] Particles not found in cache\n", tp->getIndex());
@@ -870,18 +877,16 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
   CkAssert(remainingChunk >= 0);
   if (remainingChunk == 0) {
     //CkPrintf("[%d] Finished chunk %d from recvdParticles\n",tp->getIndex(),chunk);
+#ifdef CUDA
+    // XXX - since no more chunks or pending
+    // interactions remain, we must flush the particle lists
+    CkAssert(state->resume);
+    // at this point,
+    sendPartInteractionsToGpu(state, tp, true);
+    resetCudaPartState(state);
+#endif
     cacheManagerProxy[CkMyPe()].finishedChunk(chunk, tp->nodeInterRemote[chunk]+tp->particleInterRemote[chunk]);
     if (chunk == tp->numChunks-1){
-#ifdef CUDA
-      // FIXME - since no more chunks or pending
-      // interactions remain, we must flush the particle lists
-      CkAssert(state->resume);
-      // at this point,
-      //sendNodeInteractionsToGpu(state, tp, true);
-      //resetCudaNodeState(state);
-      sendPartInteractionsToGpu(state, tp, true);
-      resetCudaPartState(state);
-#endif
       tp->markWalkDone();
     }
   }
@@ -991,405 +996,454 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
   int numInteractions = state->numInteractions;
 #endif
 
+#ifndef CUDA
   for(int b = start; b < end; b++){
-	  if(tp->bucketList[b]->rungs >= activeRung){
-#if defined CELL || defined CUDA
-		  //enableTrace();
-		  // Combine all the computation in a request to be sent to the cell SPE
-		  int activePart=0;
-		  for (int k=tp->bucketList[b]->firstParticle; k<=tp->bucketList[b]->lastParticle; ++k) {
-			  if (tp->myParticles[k].rung >= activeRung) activePart++;
-		  }
-                  
-                  if(!resume){
-                    // another bucket has been finished in the local/rnr mode
-                    numFinLocalRNRBuckets++;
-                  }
-#endif
-
-#ifdef CUDA
-		  // bucket b is listed in this offload
-		  int bucketSize, bucketStartIndex;
-
-		  GenericTreeNode *bucket = tp->bucketList[b];
-		  // get bucket parameters: size, particle start
-		  getBucketParameters(tp, b, bucketStartIndex, bucketSize, lpref);
-#endif
-
+    if(tp->bucketList[b]->rungs >= activeRung){
 #if defined CELL
-		  int indexActivePart=0;
-		  int activePartDataSize = ROUNDUP_128((activePart+3)*sizeof(CellGravityParticle));
-		  CellGravityParticle *activePartData = (CellGravityParticle*)malloc_aligned(activePartDataSize,128);
-		  GravityParticle **partList = new GravityParticle*[activePart];
-		  CellGroupRequest *cgr = new CellGroupRequest(tp, b, partList, state);
-		  WRGroupHandle wrh = createWRGroup(cgr, cellSPE_callback);
-		  for (int k=tp->bucketList[b]->firstParticle; k<=tp->bucketList[b]->lastParticle; ++k) {
-			  if (tp->myParticles[k].rung >= activeRung) {
-				  activePartData[indexActivePart] = tp->myParticles[k];
-				  //CkPrintf("[%d] particle %d: %d on bucket %d, acc: %f %f %f\n",thisIndex,k,tp->myParticles[k].iOrder,b,activePartData[indexActivePart].treeAcceleration.x,activePartData[indexActivePart].treeAcceleration.y,activePartData[indexActivePart].treeAcceleration.z);
-				  //CkPrintf("[%d] partList %d: particle %d (%p)\n",thisIndex,indexActivePart,k,&tp->myParticles[k]);
-				  partList[indexActivePart++] = &tp->myParticles[k];
-			  }
-		  }
-		  /*int numPart=0, numNodes=0;
-      for(int k=0;k<=curLevelLocal;k++) {
+      //enableTrace();
+      // Combine all the computation in a request to be sent to the cell SPE
+      int activePart=0;
+      for (int k=tp->bucketList[b]->firstParticle; k<=tp->bucketList[b]->lastParticle; ++k) {
+        if (tp->myParticles[k].rung >= activeRung) activePart++;
+      }
+#endif
+
+      int indexActivePart=0;
+      int activePartDataSize = ROUNDUP_128((activePart+3)*sizeof(CellGravityParticle));
+      CellGravityParticle *activePartData = (CellGravityParticle*)malloc_aligned(activePartDataSize,128);
+      GravityParticle **partList = new GravityParticle*[activePart];
+      CellGroupRequest *cgr = new CellGroupRequest(tp, b, partList, state);
+      WRGroupHandle wrh = createWRGroup(cgr, cellSPE_callback);
+      for (int k=tp->bucketList[b]->firstParticle; k<=tp->bucketList[b]->lastParticle; ++k) {
+        if (tp->myParticles[k].rung >= activeRung) {
+          activePartData[indexActivePart] = tp->myParticles[k];
+          //CkPrintf("[%d] particle %d: %d on bucket %d, acc: %f %f %f\n",thisIndex,k,tp->myParticles[k].iOrder,b,activePartData[indexActivePart].treeAcceleration.x,activePartData[indexActivePart].treeAcceleration.y,activePartData[indexActivePart].treeAcceleration.z);
+          //CkPrintf("[%d] partList %d: particle %d (%p)\n",thisIndex,indexActivePart,k,&tp->myParticles[k]);
+          partList[indexActivePart++] = &tp->myParticles[k];
+        }
+      }
+      /*int numPart=0, numNodes=0;
+        for(int k=0;k<=curLevelLocal;k++) {
         numNodes += cellListLocal[k].length();
         for(int kk=0; kk<particleListLocal[k].length(); kk++) {
-          numPart += particleListLocal[k][kk].numParticles;
+        numPart += particleListLocal[k][kk].numParticles;
         }
-      }*/
-		  int particlesPerRequest = (CELLBUFFERSIZE - 2*sizeof(int)) / sizeof(CellExternalGravityParticle);
-		  int nodesPerRequest = (CELLBUFFERSIZE - 2*sizeof(int)) / sizeof(CellMultipoleMoments);
-		  CellContainer *particleContainer = (CellContainer*)malloc_aligned(CELLBUFFERSIZE,128);
-		  CellExternalGravityParticle *particleData = (CellExternalGravityParticle*)&particleContainer->data;
-		  CellContainer *nodesContainer = (CellContainer*)malloc_aligned(CELLBUFFERSIZE,128);
-		  CellMultipoleMoments *nodesData = (CellMultipoleMoments*)&nodesContainer->data;
-		  int indexNodes=0, indexPart=0;
-#endif
+        }*/
+      int particlesPerRequest = (CELLBUFFERSIZE - 2*sizeof(int)) / sizeof(CellExternalGravityParticle);
+      int nodesPerRequest = (CELLBUFFERSIZE - 2*sizeof(int)) / sizeof(CellMultipoleMoments);
+      CellContainer *particleContainer = (CellContainer*)malloc_aligned(CELLBUFFERSIZE,128);
+      CellExternalGravityParticle *particleData = (CellExternalGravityParticle*)&particleContainer->data;
+      CellContainer *nodesContainer = (CellContainer*)malloc_aligned(CELLBUFFERSIZE,128);
+      CellMultipoleMoments *nodesData = (CellMultipoleMoments*)&nodesContainer->data;
+      int indexNodes=0, indexPart=0;
 
-		  for(int level = 0; level <= maxlevel; level++){
+      for(int level = 0; level <= maxlevel; level++){
 
-			  CkVec<OffsetNode> &clist = state->clists[level];
-			  for(int i = 0; i < clist.length(); i++){
-#ifdef CUDA
-				  numInteractions--;
-#endif
+        CkVec<OffsetNode> &clist = state->clists[level];
+        for(int i = 0; i < clist.length(); i++){
 
 #ifdef CHANGA_REFACTOR_WALKCHECK_INTERLIST
-				  GenericTreeNode *node = clist[i].node;
-				  tp->addToBucketChecklist(b, node->getKey());
-				  tp->combineKeys(node->getKey(), b);
+          GenericTreeNode *node = clist[i].node;
+          tp->addToBucketChecklist(b, node->getKey());
+          tp->combineKeys(node->getKey(), b);
 
-				  // don't try to compute with empty nodes or
-				  if(node->getType() == Empty
-						  || node->getType() == CachedEmpty){
-					  continue;
-				  }
+          // don't try to compute with empty nodes or
+          if(node->getType() == Empty
+              || node->getType() == CachedEmpty){
+            continue;
+          }
 #endif
-				  int computed = 0;
+          int computed = 0;
 #ifdef CELL_NODE
-				  nodesData[indexNodes] = clist[i].node->moments;
-				  Vector3D<double> tmpoffsetID = tp->decodeOffset(clist[i].offsetID);
-				  nodesData[indexNodes].cm += tmpoffsetID;
-				  indexNodes++;
-				  if (indexNodes == nodesPerRequest) {
-					  // send off request
-					  void *activeData = malloc_aligned(activePartDataSize,128);
-					  memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
-					  CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, nodesContainer, partList, tp);
-					  nodesContainer->numInt = activePart;
-					  nodesContainer->numExt = indexNodes;
-					  //CkPrintf("[%d] sending request 1 %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, nodesContainer, CELLBUFFERSIZE);
-					  sendWorkRequest (1, activeData, activePartDataSize, nodesContainer, CELLBUFFERSIZE, NULL, 0,
-							  (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
-					  workRequestOut ++;
-					  computed += activePart * indexNodes;
-					  nodesContainer = (CellContainer*)malloc_aligned(CELLBUFFERSIZE,128);
-					  nodesData = (CellMultipoleMoments*)&nodesContainer->data;
-					  indexNodes = 0;
-				  }
-#elif defined CUDA
-				  // check whether it is already on the gpu
-				  GenericTreeNode *node = clist[i].node;
-				  int index = node->nodeArrayIndex;
-				  if(index < 0){
-					  // index is -1, node was missed after prefetch during some walk,
-					  // and this must be a resumed walk
-					  CkAssert(state->nodes);
-					  // put node in nodes
-					  index = state->nodes->push_back_v(CudaMultipoleMoments(node->moments));
-				  }
-				  tp->addToNodeInterRemote(chunk, activePart);
-
-				  // put index in interaction list
-				  {
-					  Vector3D<double> vec = tp->decodeOffset(clist[i].offsetID);
-					  CkPrintf("[%d]: bucket %d with node %ld (%d), (%1.0f,%1.0f,%1.0f)\n", thisIndex,  b, clist[i].node->getKey(), clist[i].node->nodeArrayIndex, vec.x, vec.y, vec.z);
-				  }
-				  state->cellLists.push_back(ILCell(index, clist[i].offsetID));
-				  // insert a new bucket in the list of targets only when the following condition is met:
-				  if(state->bucketsNodes.length() == 0 || state->bucketsNodes[state->bucketsNodes.length()-1] != b){
-					  insertBucketNode(state, b, bucketStartIndex, bucketSize);
-				  }
-				  if(state->cellLists.length() >= cudaNodeThreshold){
-					  // enough node interactions to offload
-					  sendNodeInteractionsToGpu(state, tp, numInteractions == 0);
-					  resetCudaNodeState(state);
-				  }
+          nodesData[indexNodes] = clist[i].node->moments;
+          Vector3D<double> tmpoffsetID = tp->decodeOffset(clist[i].offsetID);
+          nodesData[indexNodes].cm += tmpoffsetID;
+          indexNodes++;
+          if (indexNodes == nodesPerRequest) {
+            // send off request
+            void *activeData = malloc_aligned(activePartDataSize,128);
+            memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
+            CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, nodesContainer, partList, tp);
+            nodesContainer->numInt = activePart;
+            nodesContainer->numExt = indexNodes;
+            //CkPrintf("[%d] sending request 1 %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, nodesContainer, CELLBUFFERSIZE);
+            sendWorkRequest (1, activeData, activePartDataSize, nodesContainer, CELLBUFFERSIZE, NULL, 0,
+                (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
+            workRequestOut ++;
+            computed += activePart * indexNodes;
+            nodesContainer = (CellContainer*)malloc_aligned(CELLBUFFERSIZE,128);
+            nodesData = (CellMultipoleMoments*)&nodesContainer->data;
+            indexNodes = 0;
+          }
 #else
-				  computed =  nodeBucketForce(clist[i].node,
-				  		tp->getBucket(b),
-				  		particles,
-				  		tp->decodeOffset(clist[i].offsetID), activeRung);
+          computed =  nodeBucketForce(clist[i].node,
+              tp->getBucket(b),
+              particles,
+              tp->decodeOffset(clist[i].offsetID), activeRung);
 #endif
-				  if(getOptType() == Remote){
-				  	tp->addToNodeInterRemote(chunk, computed);
-				  }
-				  else if(getOptType() == Local){
-				  	tp->addToNodeInterLocal(computed);
-				  }
+          if(getOptType() == Remote){
+            tp->addToNodeInterRemote(chunk, computed);
+          }
+          else if(getOptType() == Local){
+            tp->addToNodeInterLocal(computed);
+          }
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
-				  Vector3D<double> vec = tp->decodeOffset(clist[i].offsetID);
-				  CkPrintf("[%d]: bucket %d with %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex,  b, clist[i].node->getKey(), vec.x, vec.y, vec.z);
+          Vector3D<double> vec = tp->decodeOffset(clist[i].offsetID);
+          CkPrintf("[%d]: bucket %d with %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex,  b, clist[i].node->getKey(), vec.x, vec.y, vec.z);
 #endif
 
-			  }
+        }
 #ifdef CELL
-			  if (indexNodes > 0 && level==maxlevel) {
+        if (indexNodes > 0 && level==maxlevel) {
 #ifdef CELL_NODE
-				  void *activeData = malloc_aligned(activePartDataSize,128);
-				  memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
-				  CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, nodesContainer, partList, tp);
-				  nodesContainer->numInt = activePart;
-				  nodesContainer->numExt = indexNodes;
-				  //CkPrintf("[%d] sending request 2 %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, nodesContainer, ROUNDUP_128(indexNodes*sizeof(CellMultipoleMoments)));
-				  sendWorkRequest (1, activeData, activePartDataSize, nodesContainer, ROUNDUP_128(indexNodes*sizeof(CellMultipoleMoments)+2*sizeof(int)),
-						  NULL, 0, (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
-				  workRequestOut ++;
-				  if(getOptType() == Remote){
-					  tp->addToNodeInterRemote(chunk, activePart * indexNodes);
-				  }
-				  else if(getOptType() == Local){
-					  tp->addToNodeInterLocal(activePart * indexNodes);
-				  }
+          void *activeData = malloc_aligned(activePartDataSize,128);
+          memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
+          CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, nodesContainer, partList, tp);
+          nodesContainer->numInt = activePart;
+          nodesContainer->numExt = indexNodes;
+          //CkPrintf("[%d] sending request 2 %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, nodesContainer, ROUNDUP_128(indexNodes*sizeof(CellMultipoleMoments)));
+          sendWorkRequest (1, activeData, activePartDataSize, nodesContainer, ROUNDUP_128(indexNodes*sizeof(CellMultipoleMoments)+2*sizeof(int)),
+              NULL, 0, (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
+          workRequestOut ++;
+          if(getOptType() == Remote){
+            tp->addToNodeInterRemote(chunk, activePart * indexNodes);
+          }
+          else if(getOptType() == Local){
+            tp->addToNodeInterLocal(activePart * indexNodes);
+          }
 #endif
-			  } else if (level==maxlevel) {
-				  free_aligned(nodesContainer);
-			  }
-#endif
-
-			  // remote particles
-			  if(hasRemoteLists){
-				  CkVec<RemotePartInfo> &rpilist = state->rplists[level];
-				  // for each bunch of particles in list
-				  for(int i = 0; i < rpilist.length(); i++){
-#ifdef CUDA
-					  numInteractions--;
-#endif
-					  RemotePartInfo &rpi = rpilist[i];
-
-#if defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
-					  NodeKey key = rpi.key;
-#endif
-#ifdef CHANGA_REFACTOR_WALKCHECK_INTERLIST
-					  tp->addToBucketChecklist(b, key);
-					  tp->combineKeys(key, b);
+        } else if (level==maxlevel) {
+          free_aligned(nodesContainer);
+        }
 #endif
 
-#if defined CUDA
-					  int gpuIndex = -1;
-					  key <<= 1;
-					  std::map<NodeKey, int>::iterator p = lpref.find(key);
-					  std::map<NodeKey, int>::iterator q = cpref.find(key);
-					  if(p != lpref.end()){
-						  //localPartsOnGpu = true;
-						  gpuIndex = p->second;
-					  }
-                                          else if(q != cpref.end()){
-            	                                  //cachedPartsOnGpu = true;
-            	                                  gpuIndex = q->second;
-                                          }
+        // remote particles
+        if(hasRemoteLists){
+          CkVec<RemotePartInfo> &rpilist = state->rplists[level];
+          // for each bunch of particles in list
+          for(int i = 0; i < rpilist.length(); i++){
+            RemotePartInfo &rpi = rpilist[i];
 
-					  if(gpuIndex < 0){
-						  // couldn't find it on the gpu (must be from a missed bucket of particles)
-						  CkAssert(state->particles);
-						  gpuIndex = state->particles->length();
-						  for(int j = 0; j < rpi.numParticles; j++){
-							  state->particles->push_back(CompactPartData(rpi.particles[j]));
-						  }
-					  }
+#if defined CHANGA_REFACTOR_WALKCHECK_INTERLIST 
+            NodeKey key = rpi.key;
+            tp->addToBucketChecklist(b, key);
+            tp->combineKeys(key, b);
+#endif
 
-					  tp->addToParticleInterRemote(chunk, activePart*rpi.numParticles);
-
-					  // put bucket in interaction list
-					  Vector3D<double> off = rpi.offset;
-					  {
-						  Vector3D<double> &vec = rpi.offset;
-						  CkPrintf("[%d]: bucket %d with part %ld (%d), (%1.0f,%1.0f,%1.0f)\n", thisIndex, b, rpi.key, gpuIndex, vec.x, vec.y, vec.z);
-					  }
-					  state->partLists.push_back(ILPart(gpuIndex, encodeOffset(0, off.x, off.y, off.z), rpi.numParticles));
-					  // insert a new bucket in the list of targets only when the following condition is met:
-					  if(state->bucketsParts.length() == 0 || state->bucketsParts[state->bucketsParts.length()-1] != b){
-						  insertBucketPart(state, b, bucketStartIndex, bucketSize);
-					  }
-					  if(state->partLists.length() >= cudaPartThreshold){
-						  // enough nodes to offload
-						  sendPartInteractionsToGpu(state, tp, numInteractions == 0);
-						  resetCudaPartState(state);
-					  }
-
-#else
-					  // for each particle in a bunch
-					  for(int j = 0; j < rpi.numParticles; j++){
-						  int computed = 0;
+            // for each particle in a bunch
+            for(int j = 0; j < rpi.numParticles; j++){
+              int computed = 0;
 #ifdef CELL_PART
-						  particleData[indexPart] = rpi.particles[j];
-						  particleData[indexPart].position += rpi.offset;
-						  indexPart++;
-						  if (indexPart == particlesPerRequest) {
-							  // send off request
-							  void *activeData = malloc_aligned(activePartDataSize,128);
-							  memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
-							  CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, particleContainer, partList, tp);
-							  particleContainer->numInt = activePart;
-							  particleContainer->numExt = indexPart;
-							  //CkPrintf("[%d] sending request 3r %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, particleContainer, CELLBUFFERSIZE);
-							  sendWorkRequest (2, activeData, activePartDataSize, particleContainer, CELLBUFFERSIZE, NULL, 0,
-									  (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
-							  workRequestOut ++;
-							  tp->addToParticleInterRemote(chunk, activePart * indexPart);
-							  particleContainer = (CellContainer*)malloc_aligned(CELLBUFFERSIZE,128);
-							  particleData = (CellExternalGravityParticle*)&particleContainer->data;
-							  indexPart = 0;
-						  }
+              particleData[indexPart] = rpi.particles[j];
+              particleData[indexPart].position += rpi.offset;
+              indexPart++;
+              if (indexPart == particlesPerRequest) {
+                // send off request
+                void *activeData = malloc_aligned(activePartDataSize,128);
+                memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
+                CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, particleContainer, partList, tp);
+                particleContainer->numInt = activePart;
+                particleContainer->numExt = indexPart;
+                //CkPrintf("[%d] sending request 3r %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, particleContainer, CELLBUFFERSIZE);
+                sendWorkRequest (2, activeData, activePartDataSize, particleContainer, CELLBUFFERSIZE, NULL, 0,
+                    (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
+                workRequestOut ++;
+                tp->addToParticleInterRemote(chunk, activePart * indexPart);
+                particleContainer = (CellContainer*)malloc_aligned(CELLBUFFERSIZE,128);
+                particleData = (CellExternalGravityParticle*)&particleContainer->data;
+                indexPart = 0;
+              }
 #else
-						  computed = partBucketForce(&rpi.particles[j],
-								  tp->getBucket(b),
-								  particles,
-								  rpi.offset, activeRung);
+              computed = partBucketForce(&rpi.particles[j],
+                  tp->getBucket(b),
+                  particles,
+                  rpi.offset, activeRung);
 #endif // CELL_PART
-                                                  if(getOptType() == Remote){// don't really have to perform this check
-	                                                  tp->addToParticleInterRemote(chunk, computed);
-                                                  }
-					  }
-#endif // CUDA
+              if(getOptType() == Remote){// don't really have to perform this check
+                tp->addToParticleInterRemote(chunk, computed);
+              }
+            }
 
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
-					  Vector3D<double> &vec = rpi.offset;
-					  CkPrintf("[%d]: bucket %d with %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex, b, rpi.key, vec.x, vec.y, vec.z);
+            Vector3D<double> &vec = rpi.offset;
+            CkPrintf("[%d]: bucket %d with %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex, b, rpi.key, vec.x, vec.y, vec.z);
 #endif
-				  }
-			  }
+          }
+        }
 
-			  // local particles
-			  if(hasLocalLists){
-				  CkVec<LocalPartInfo> &lpilist = state->lplists[level];
-				  for(int i = 0; i < lpilist.length(); i++){
-#ifdef CUDA
-					  numInteractions--;
-#endif
-					  LocalPartInfo &lpi = lpilist[i];
-#if defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
-					  NodeKey key = lpi.key;
-#endif
-#if defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
-					  tp->addToBucketChecklist(b, key);
-					  tp->combineKeys(key, b);
+        // local particles
+        if(hasLocalLists){
+          CkVec<LocalPartInfo> &lpilist = state->lplists[level];
+          for(int i = 0; i < lpilist.length(); i++){
+            LocalPartInfo &lpi = lpilist[i];
+#if defined CHANGA_REFACTOR_WALKCHECK_INTERLIST 
+            NodeKey key = lpi.key;
+            tp->addToBucketChecklist(b, key);
+            tp->combineKeys(key, b);
 #endif
 
-#if defined CUDA
-					  int gpuIndex = -1;
-					  key <<= 1;
-					  std::map<NodeKey, int>::iterator p = lpref.find(key);
-					  std::map<NodeKey, int>::iterator q = cpref.find(key);
-					  if(p != lpref.end()){
-						  gpuIndex = p->second;
-					  }
-                                          else if(q != cpref.end()){
-            	                                  gpuIndex = q->second;
-                                          }
-
-					  if(gpuIndex < 0){
-						  // couldn't find it on the gpu (must be from a missed bucket of particles)
-						  CkAssert(state->particles);
-						  gpuIndex = state->particles->length();
-						  for(int j = 0; j < lpi.numParticles; j++){
-							  state->particles->push_back(CompactPartData(lpi.particles[j]));
-						  }
-					  }
-
-					  tp->addToParticleInterLocal(activePart*lpi.numParticles);
-					  // put bucket in interaction list
-					  Vector3D<double> &off = lpi.offset;
-					  {
-						  Vector3D<double> &vec = lpi.offset;
-						  CkPrintf("[%d]: bucket %d with part %ld (%d), (%1.0f,%1.0f,%1.0f)\n", thisIndex, b, lpi.key, gpuIndex, vec.x, vec.y, vec.z);
-					  }
-					  state->partLists.push_back(ILPart(gpuIndex, encodeOffset(0, off.x, off.y, off.z), lpi.numParticles));
-					  // insert a new bucket in the list of targets only when the following condition is met:
-					  if(state->bucketsParts.length() == 0 || state->bucketsParts[state->bucketsParts.length()-1] != b){
-						  insertBucketPart(state, b, bucketStartIndex, bucketSize);
-					  }
-					  if(state->partLists.length() >= cudaPartThreshold){
-						  // enough nodes to offload
-						  sendPartInteractionsToGpu(state, tp, numInteractions == 0);
-						  resetCudaPartState(state);
-					  }
-
-#else
-					  // for each particle in a bunch
-					  for(int j = 0; j < lpi.numParticles; j++){
+            // for each particle in a bunch
+            for(int j = 0; j < lpi.numParticles; j++){
 #ifdef CELL_PART
-						  particleData[indexPart] = lpi.particles[j];
-						  particleData[indexPart].position += lpi.offset;
-						  indexPart++;
-						  if (indexPart == particlesPerRequest) {
-							  // send off request
-							  void *activeData = malloc_aligned(activePartDataSize,128);
-							  memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
-							  CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, particleContainer, partList, tp);
-							  particleContainer->numInt = activePart;
-							  particleContainer->numExt = indexPart;
-							  //CkPrintf("[%d] sending request 3l %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, particleContainer, CELLBUFFERSIZE);
-							  sendWorkRequest (2, activeData, activePartDataSize, particleContainer, CELLBUFFERSIZE, NULL, 0,
-									  (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
-							  workRequestOut ++;
-							  tp->addToParticleInterLocal(activePart * indexPart);
-							  particleContainer = (CellContainer*)malloc_aligned(CELLBUFFERSIZE,128);
-							  particleData = (CellExternalGravityParticle*)&particleContainer->data;
-							  indexPart = 0;
-						  }
+              particleData[indexPart] = lpi.particles[j];
+              particleData[indexPart].position += lpi.offset;
+              indexPart++;
+              if (indexPart == particlesPerRequest) {
+                // send off request
+                void *activeData = malloc_aligned(activePartDataSize,128);
+                memcpy(activeData, activePartData, activePart*sizeof(CellGravityParticle));
+                CellRequest *userData = new CellRequest((CellGravityParticle*)activeData, activePart, particleContainer, partList, tp);
+                particleContainer->numInt = activePart;
+                particleContainer->numExt = indexPart;
+                //CkPrintf("[%d] sending request 3l %p+%d, %p+%d\n",thisIndex,activeData, activePartDataSize, particleContainer, CELLBUFFERSIZE);
+                sendWorkRequest (2, activeData, activePartDataSize, particleContainer, CELLBUFFERSIZE, NULL, 0,
+                    (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
+                workRequestOut ++;
+                tp->addToParticleInterLocal(activePart * indexPart);
+                particleContainer = (CellContainer*)malloc_aligned(CELLBUFFERSIZE,128);
+                particleData = (CellExternalGravityParticle*)&particleContainer->data;
+                indexPart = 0;
+              }
 #else
-						  int computed = partBucketForce(&lpi.particles[j],
-								  tp->getBucket(b),
-								  particles,
-								  lpi.offset, activeRung);
-						  tp->addToParticleInterLocal(computed);
+              int computed = partBucketForce(&lpi.particles[j],
+                  tp->getBucket(b),
+                  particles,
+                  lpi.offset, activeRung);
+              tp->addToParticleInterLocal(computed);
 #endif// CELL_PART
-					  }
-#endif// CUDA
+            }
 
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
-					  Vector3D<double> &vec = lpi.offset;
-					  CkPrintf("[%d]: bucket %d with %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex, b, lpi.key, vec.x, vec.y, vec.z);
+            Vector3D<double> &vec = lpi.offset;
+            CkPrintf("[%d]: bucket %d with %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex, b, lpi.key, vec.x, vec.y, vec.z);
 #endif
-				  }
-			  }
+          }
+        }
 #ifdef CELL
-			  if (indexPart > 0 && level==maxlevel) {
+        if (indexPart > 0 && level==maxlevel) {
 #ifdef CELL_PART
-				  //void *activeData = malloc_aligned(activePartDataSize,128);
-				  //memcpy(activeData, activePartData, activePart*sizeof(GravityParticle));
-				  CellRequest *userData = new CellRequest(activePartData, activePart, particleContainer, partList, tp);
-				  particleContainer->numInt = activePart;
-				  particleContainer->numExt = indexPart;
-				  //CkPrintf("[%d] sending request 4 %p+%d, %p+%d (%d int %d ext)\n",thisIndex,activePartData, activePartDataSize, particleContainer, ROUNDUP_128(indexPart*sizeof(CellExternalGravityParticle)),activePart,indexPart);
-				  sendWorkRequest (2, activePartData, activePartDataSize, particleContainer, ROUNDUP_128(indexPart*sizeof(CellExternalGravityParticle)+2*sizeof(int)),
-						  NULL, 0, (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
-				  workRequestOut ++;
-				  if(getOptType() == Remote){
-					  tp->addToNodeInterRemote(chunk, activePart * indexPart);
-				  }
-				  else if(getOptType() == Local){
-					  tp->addToNodeInterLocal(activePart * indexPart);
-				  }
+          //void *activeData = malloc_aligned(activePartDataSize,128);
+          //memcpy(activeData, activePartData, activePart*sizeof(GravityParticle));
+          CellRequest *userData = new CellRequest(activePartData, activePart, particleContainer, partList, tp);
+          particleContainer->numInt = activePart;
+          particleContainer->numExt = indexPart;
+          //CkPrintf("[%d] sending request 4 %p+%d, %p+%d (%d int %d ext)\n",thisIndex,activePartData, activePartDataSize, particleContainer, ROUNDUP_128(indexPart*sizeof(CellExternalGravityParticle)),activePart,indexPart);
+          sendWorkRequest (2, activePartData, activePartDataSize, particleContainer, ROUNDUP_128(indexPart*sizeof(CellExternalGravityParticle)+2*sizeof(int)),
+              NULL, 0, (void*)userData, WORK_REQUEST_FLAGS_BOTH_CALLBACKS, cellSPE_single, wrh);
+          workRequestOut ++;
+          if(getOptType() == Remote){
+            tp->addToNodeInterRemote(chunk, activePart * indexPart);
+          }
+          else if(getOptType() == Local){
+            tp->addToNodeInterLocal(activePart * indexPart);
+          }
 #endif
-			  } else if (level==maxlevel) {
-				  free_aligned(activePartData);
-				  free_aligned(particleContainer);
-			  }
+        } else if (level==maxlevel) {
+          free_aligned(activePartData);
+          free_aligned(particleContainer);
+        }
 #endif
 
-		  }// level
+      }// level
 
 #ifdef CELL
-		  // Now all the requests have been made
-		  completeWRGroup(wrh);
-		  OffloadAPIProgress();
+      // Now all the requests have been made
+      completeWRGroup(wrh);
+      OffloadAPIProgress();
 #endif
-	  }// active
+    }// active
   }// bucket
-#ifdef CUDA
+
+#else // else part of ifndef CUDA
+  // *********************
+  for(int b = start; b < end; b++){
+    if(tp->bucketList[b]->rungs >= activeRung){
+      
+      int activePart=0;
+      for (int k=tp->bucketList[b]->firstParticle; k<=tp->bucketList[b]->lastParticle; ++k) {
+        if (tp->myParticles[k].rung >= activeRung) activePart++;
+      }
+
+      if(!resume){
+        // another bucket has been finished in the local/rnr mode
+        numFinLocalRNRBuckets++;
+      }
+
+      int bucketSize, bucketStartIndex;
+      // get bucket parameters: size, particle start
+      getBucketParameters(tp, b, bucketStartIndex, bucketSize, lpref);
+      for(int level = 0; level <= maxlevel; level++){
+
+        CkVec<OffsetNode> &clist = state->clists[level];
+        for(int i = 0; i < clist.length(); i++){
+          numInteractions--;
+
+#ifdef CHANGA_REFACTOR_WALKCHECK_INTERLIST
+          GenericTreeNode *node = clist[i].node;
+          tp->addToBucketChecklist(b, node->getKey());
+          tp->combineKeys(node->getKey(), b);
+
+          // don't try to compute with empty nodes or
+          if(node->getType() == Empty
+              || node->getType() == CachedEmpty){
+            continue;
+          }
+#endif
+          int computed = 0;
+          // check whether it is already on the gpu
+          GenericTreeNode *node = clist[i].node;
+          int index = node->nodeArrayIndex;
+          if(index < 0){
+            // index is -1, node was missed after prefetch during some walk,
+            // and this must be a resumed walk
+            CkAssert(state->nodes);
+            // redundant check
+            CkAssert(state->resume);
+            // put node in nodes
+            index = state->nodes->push_back_v(CudaMultipoleMoments(node->moments));
+          }
+          tp->addToNodeInterRemote(chunk, activePart);
+
+          // put index in interaction list
+          {
+            Vector3D<double> vec = tp->decodeOffset(clist[i].offsetID);
+            CkPrintf("[%d]: bucket %d with node %ld (%d), (%1.0f,%1.0f,%1.0f)\n", thisIndex,  b, clist[i].node->getKey(), clist[i].node->nodeArrayIndex, vec.x, vec.y, vec.z);
+          }
+          state->cellLists.push_back(ILCell(index, clist[i].offsetID));
+          
+          // insert a new bucket in the list of targets only when the following condition is met:
+          if(state->bucketsNodes.length() == 0 || state->bucketsNodes[state->bucketsNodes.length()-1] != b){
+            insertBucketNode(state, b, bucketStartIndex, bucketSize);
+          }
+          if(state->cellLists.length() >= cudaNodeThreshold){
+            // enough node interactions to offload
+            sendNodeInteractionsToGpu(state, tp, numInteractions == 0);
+            resetCudaNodeState(state);
+          }
+          if(getOptType() == Remote){
+            tp->addToNodeInterRemote(chunk, computed);
+          }
+          else if(getOptType() == Local){
+            tp->addToNodeInterLocal(computed);
+          }
+#ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
+          Vector3D<double> vec = tp->decodeOffset(clist[i].offsetID);
+          CkPrintf("[%d]: bucket %d with %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex,  b, clist[i].node->getKey(), vec.x, vec.y, vec.z);
+#endif
+
+        }
+
+        // remote particles
+        if(hasRemoteLists){
+          CkVec<RemotePartInfo> &rpilist = state->rplists[level];
+          // for each bunch of particles in list
+          for(int i = 0; i < rpilist.length(); i++){
+            numInteractions--;
+            RemotePartInfo &rpi = rpilist[i];
+            NodeKey key = rpi.key;
+#ifdef CHANGA_REFACTOR_WALKCHECK_INTERLIST
+            tp->addToBucketChecklist(b, key);
+            tp->combineKeys(key, b);
+#endif
+
+            int gpuIndex = -1;
+            key <<= 1;
+            std::map<NodeKey, int>::iterator q = cpref.find(key);
+            else if(q != cpref.end()){
+              //cachedPartsOnGpu = true;
+              gpuIndex = q->second;
+            }
+
+            if(gpuIndex < 0){
+              // couldn't find it on the gpu (must be from a missed bucket of particles)
+              CkAssert(state->particles && state->resume);
+              gpuIndex = state->particles->length();
+              for(int j = 0; j < rpi.numParticles; j++){
+                state->particles->push_back(CompactPartData(rpi.particles[j]));
+              }
+            }
+
+            tp->addToParticleInterRemote(chunk, activePart*rpi.numParticles);
+
+            // put bucket in interaction list
+            Vector3D<double> off = rpi.offset;
+            {
+              Vector3D<double> &vec = rpi.offset;
+              CkPrintf("[%d]: bucket %d with part %ld (%d), (%1.0f,%1.0f,%1.0f)\n", thisIndex, b, rpi.key, gpuIndex, vec.x, vec.y, vec.z);
+            }
+            state->partLists.push_back(ILPart(gpuIndex, encodeOffset(0, off.x, off.y, off.z), rpi.numParticles));
+            // insert a new bucket in the list of targets only when the following condition is met:
+            if(state->bucketsParts.length() == 0 || state->bucketsParts[state->bucketsParts.length()-1] != b){
+              insertBucketPart(state, b, bucketStartIndex, bucketSize);
+            }
+            if(state->partLists.length() >= cudaPartThreshold){
+              // enough nodes to offload
+              sendPartInteractionsToGpu(state, tp, numInteractions == 0);
+              resetCudaPartState(state);
+            }
+
+#ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
+            Vector3D<double> &vec = rpi.offset;
+            CkPrintf("[%d]: bucket %d with %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex, b, rpi.key, vec.x, vec.y, vec.z);
+#endif
+          }
+        }
+
+        // local particles
+        if(hasLocalLists){
+          CkVec<LocalPartInfo> &lpilist = state->lplists[level];
+          for(int i = 0; i < lpilist.length(); i++){
+            numInteractions--;
+            LocalPartInfo &lpi = lpilist[i];
+            NodeKey key = lpi.key;
+#if defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
+            tp->addToBucketChecklist(b, key);
+            tp->combineKeys(key, b);
+#endif
+
+            int gpuIndex = -1;
+            key <<= 1;
+            std::map<NodeKey, int>::iterator p = lpref.find(key);
+            if(p != lpref.end()){
+              gpuIndex = p->second;
+            }
+            if(gpuIndex < 0){
+              // couldn't find it on the gpu (must be from a missed bucket of particles)
+              CkAssert(state->particles && state->resume);
+              gpuIndex = state->particles->length();
+              for(int j = 0; j < lpi.numParticles; j++){
+                state->particles->push_back(CompactPartData(lpi.particles[j]));
+              }
+            }
+
+            tp->addToParticleInterLocal(activePart*lpi.numParticles);
+            // put bucket in interaction list
+            Vector3D<double> &off = lpi.offset;
+            {
+              Vector3D<double> &vec = lpi.offset;
+              CkPrintf("[%d]: bucket %d with part %ld (%d), (%1.0f,%1.0f,%1.0f)\n", thisIndex, b, lpi.key, gpuIndex, vec.x, vec.y, vec.z);
+            }
+            state->partLists.push_back(ILPart(gpuIndex, encodeOffset(0, off.x, off.y, off.z), lpi.numParticles));
+            // insert a new bucket in the list of targets only when the following condition is met:
+            if(state->bucketsParts.length() == 0 || state->bucketsParts[state->bucketsParts.length()-1] != b){
+              insertBucketPart(state, b, bucketStartIndex, bucketSize);
+            }
+            if(state->partLists.length() >= cudaPartThreshold){
+              // enough nodes to offload
+              sendPartInteractionsToGpu(state, tp, numInteractions == 0);
+              resetCudaPartState(state);
+            }
+
+#ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
+            Vector3D<double> &vec = lpi.offset;
+            CkPrintf("[%d]: bucket %d with %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex, b, lpi.key, vec.x, vec.y, vec.z);
+#endif
+          }
+        }
+      }// level
+
+    }// active
+  }// bucket
   // here, we have processed all requested buckets 
   // now, check whether all active buckets have been processed,
   // and if so, flush remaining lists to GPU since no more 
@@ -1406,11 +1460,23 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
   // if this is a remote-resume walk, leftovers will be
   // shipped off when there are no more outstanding
   // missed particles/nodes
-#endif
+
+
+  // *********************
+#endif // ifndef CUDA
 }
 
 #ifdef CUDA
 #include "HostCUDA.h"
+
+
+void DeleteHostMoments(CudaMultipoleMoments *array){
+  delete [] array;
+}
+
+void DeleteHostParticles(CompactPartData *array){
+  delete [] array;
+}
 
 void ListCompute::initCudaState(DoubleWalkState *state, int numBuckets, int nodeThreshold, int partThreshold, bool resume){
 	state->nodeThreshold = nodeThreshold;
@@ -1484,143 +1550,182 @@ void ListCompute::insertBucketPart(DoubleWalkState *state, int b, int start, int
 	state->partInteractionBucketMarkers.push_back(currentIntListLength-1);
 }
 
-extern "C" void nodeGravityDone(void *, void *);
+void cudaCallback(void *param, void *msg){
+  CudaRequest *data = (CudaRequest *)param;
+  int *affectedBuckets = data->affectedBuckets;
+  TreePiece *tp = (TreePiece*)data->tp;
+  DoubleWalkState *state = (DoubleWalkState *)data->state;
+  int bucket;
+
+  int numBucketsDone = data->numBucketsPlusOne-1;
+  if(!data->lastBucketComplete){
+    numBucketsDone--;
+  }
+  
+  // bucket computations finished
+  for(int i = 0; i < numBucketsDone; i++){
+    bucket = affectedBuckets[i];
+    state->counterArrays[0][bucket]--;
+    tp->finishBucket(bucket);
+  }
+
+  // free data structures 
+  free(data->affectedBuckets);
+  delete ((CkCallback *)data->cb);
+  delete data; 
+}
+
 void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool lastBucketComplete){
-	// all interactions to be shipped have been recorded at this point
-	// need to cap the end of state->nodeInteractionBucketMarkers
-	int length = state->cellLists.length();
-	state->nodeInteractionBucketMarkers.push_back(length);
-	if(length > 0){
-		/*
-		int index = tp->getIndex();
-		CkPrintf("[%d] %d cellLists: ", index, getOptType());
-		for(int i = 0; i < state->cellLists.length(); i++){
-			Vector3D<double> v = tp->decodeOffset(state->cellLists[i].offsetID);
-			CkPrintf("%d (%1.0f,%1.0f,%1.0f), ", state->cellLists[i].index, v.x, v.y, v.z);
-		}
-		CkPrintf("\nnodeInteractionBucketMarkers: ");
-		// state->nodeInteractionBucketMarkers
-		for(int i = 0; i < state->nodeInteractionBucketMarkers.length(); i++){
-			CkPrintf("%d, ", state->nodeInteractionBucketMarkers[i]);
-		}
+  // all interactions to be shipped have been recorded at this point
+  // need to cap the end of state->nodeInteractionBucketMarkers
+  int length = state->cellLists.length();
+  state->nodeInteractionBucketMarkers.push_back(length);
+  if(length > 0){
+    /*
+       int index = tp->getIndex();
+       CkPrintf("[%d] %d cellLists: ", index, getOptType());
+       for(int i = 0; i < state->cellLists.length(); i++){
+       Vector3D<double> v = tp->decodeOffset(state->cellLists[i].offsetID);
+       CkPrintf("%d (%1.0f,%1.0f,%1.0f), ", state->cellLists[i].index, v.x, v.y, v.z);
+       }
+       CkPrintf("\nnodeInteractionBucketMarkers: ");
+    // state->nodeInteractionBucketMarkers
+    for(int i = 0; i < state->nodeInteractionBucketMarkers.length(); i++){
+    CkPrintf("%d, ", state->nodeInteractionBucketMarkers[i]);
+    }
 
-		CkPrintf("\nbucketSizes: ");
-		for(int i = 0; i < state->bucketSizesNodes.length(); i++){
-			CkPrintf("%d, ", state->bucketSizesNodes[i]);
-		}
-		CkPrintf("\nbucketStartMarkersNodes: ");
-		for(int i = 0; i < state->bucketStartMarkersNodes.length(); i++){
-			CkPrintf("%d, ", state->bucketStartMarkersNodes[i]);
-		}
-		CkPrintf("\n");
-		*/
+    CkPrintf("\nbucketSizes: ");
+    for(int i = 0; i < state->bucketSizesNodes.length(); i++){
+    CkPrintf("%d, ", state->bucketSizesNodes[i]);
+    }
+    CkPrintf("\nbucketStartMarkersNodes: ");
+    for(int i = 0; i < state->bucketStartMarkersNodes.length(); i++){
+    CkPrintf("%d, ", state->bucketStartMarkersNodes[i]);
+    }
+    CkPrintf("\n");
+    */
 
-		ILCell *cellList = state->cellLists.getVec();
-		int *cellListBucketMarkers = state->nodeInteractionBucketMarkers.getVec();
-		int *bucketStarts = state->bucketStartMarkersNodes.getVec();
-		int *bucketSizes = state->bucketSizesNodes.getVec();
-		int numBucketsPlusOne = state->bucketSizesNodes.length();
-		int numInteractions = state->cellLists.length();
+    ILCell *cellList = state->cellLists.getVec();
+    int *cellListBucketMarkers = state->nodeInteractionBucketMarkers.getVec();
+    int *bucketStarts = state->bucketStartMarkersNodes.getVec();
+    int *bucketSizes = state->bucketSizesNodes.getVec();
+    int numBucketsPlusOne = state->bucketSizesNodes.length();
+    int numInteractions = state->cellLists.length();
 
-		CellListData *data = new CellListData;
-		data->cellList = cellList;
-		data->cellListBucketMarkers = cellListBucketMarkers;
-		data->bucketStarts = bucketStarts;
-		data->bucketSizes = bucketSizes;
-		data->numInteractions = numInteractions;
-		data->numBucketsPlusOne = numBucketsPlusOne;
-                data->tp = (void *)tp;
-                data->cb = new CkCallback(nodeGravityDone, data);
-		data->affectedBuckets = state->bucketsNodes.getVec();
-		data->lastBucketComplete = lastBucketComplete;
-                data->state = state;
+    CudaRequest *data = new CudaRequest;
+    data->list = cellList;
+    data->bucketMarkers = cellListBucketMarkers;
+    data->bucketStarts = bucketStarts;
+    data->bucketSizes = bucketSizes;
+    data->numInteractions = numInteractions;
+    data->numBucketsPlusOne = numBucketsPlusOne;
+    data->tp = (void *)tp;
+    data->affectedBuckets = state->bucketsNodes.getVec();
+    data->lastBucketComplete = lastBucketComplete;
+    data->state = state;
 
-		OptType type = getOptType();
-		if(type == Local){
-			TreePieceCellListDataTransferLocal(data);
-		}
-		else if(type == Remote && !state->resume){
-			TreePieceCellListDataTransferRemote(data);
-		}
-		else if(type == Remote && state->resume){
-			CudaMultipoleMoments *missedNodes = state->nodes->getVec();
-			int len = state->nodes->length();
+    OptType type = getOptType();
+    data->cb = new CkCallback(cudaCallback, data);
+    if(type == Local){
+      TreePieceCellListDataTransferLocal(data);
+    }
+    else if(!state->resume){
+      TreePieceCellListDataTransferRemote(data);
+    }
+    else{
+      CudaMultipoleMoments *missedNodes = state->nodes->getVec();
+      int len = state->nodes->length();
+      CkAssert(missedNodes);
+      TreePieceCellListDataTransferRemoteResume(data, missedNodes, len);
+    }
 
-			CkAssert(missedNodes);
-			TreePieceCellListDataTransferRemoteResume(data, missedNodes, len);
-		}
-	}
+  }
 }
 
 void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool lastBucketComplete){
 
-	int index = tp->getIndex();
-	// all interactions to be shipped have been recorded at this point
-	// need to cap the end of state->partInteractionBucketMarkers
-	int length = state->partLists.length();
-	state->partInteractionBucketMarkers.push_back(length);
+  int index = tp->getIndex();
+  // all interactions to be shipped have been recorded at this point
+  // need to cap the end of state->partInteractionBucketMarkers
+  int length = state->partLists.length();
+  state->partInteractionBucketMarkers.push_back(length);
 
-	if(length > 0){
-		/*
-		CkPrintf("[%d] %d partLists: ", index, getOptType());
-		for(int i = 0; i < state->partLists.length(); i++){
-			Vector3D<double> v = tp->decodeOffset(state->partLists[i].off);
-			CkPrintf("%d (%1.0f,%1.0f,%1.0f), ", state->partLists[i].index, v.x, v.y, v.z);
-		}
-		CkPrintf("\npartInteractionBucketMarkers: ");
-		// state->partInteractionBucketMarkers
-		for(int i = 0; i < state->partInteractionBucketMarkers.length(); i++){
-			CkPrintf("%d, ", state->partInteractionBucketMarkers[i]);
-		}
+  if(length > 0){
+    /*
+       CkPrintf("[%d] %d partLists: ", index, getOptType());
+       for(int i = 0; i < state->partLists.length(); i++){
+       Vector3D<double> v = tp->decodeOffset(state->partLists[i].off);
+       CkPrintf("%d (%1.0f,%1.0f,%1.0f), ", state->partLists[i].index, v.x, v.y, v.z);
+       }
+       CkPrintf("\npartInteractionBucketMarkers: ");
+    // state->partInteractionBucketMarkers
+    for(int i = 0; i < state->partInteractionBucketMarkers.length(); i++){
+    CkPrintf("%d, ", state->partInteractionBucketMarkers[i]);
+    }
 
-		CkPrintf("\nbucketSizes: ");
-		for(int i = 0; i < state->bucketSizesParts.length(); i++){
-			CkPrintf("%d, ", state->bucketSizesParts[i]);
-		}
-		CkPrintf("\nbucketStartMarkersParts: ");
-		for(int i = 0; i < state->bucketStartMarkersParts.length(); i++){
-			CkPrintf("%d, ", state->bucketStartMarkersParts[i]);
-		}
-		CkPrintf("\n");
-		*/
-		ILPart *partList = state->partLists.getVec();
-		int numInteractions = state->partLists.length();
+    CkPrintf("\nbucketSizes: ");
+    for(int i = 0; i < state->bucketSizesParts.length(); i++){
+    CkPrintf("%d, ", state->bucketSizesParts[i]);
+    }
+    CkPrintf("\nbucketStartMarkersParts: ");
+    for(int i = 0; i < state->bucketStartMarkersParts.length(); i++){
+    CkPrintf("%d, ", state->bucketStartMarkersParts[i]);
+    }
+    CkPrintf("\n");
+    */
+    ILPart *partList = state->partLists.getVec();
+    int numInteractions = state->partLists.length();
 
-		int *partListBucketMarkers = state->partInteractionBucketMarkers.getVec();
-		int *bucketStarts = state->bucketStartMarkersParts.getVec();
-		int *bucketSizes = state->bucketSizesParts.getVec();
-		int numBucketsPlusOne = state->bucketSizesParts.length();
+    int *partListBucketMarkers = state->partInteractionBucketMarkers.getVec();
+    int *bucketStarts = state->bucketStartMarkersParts.getVec();
+    int *bucketSizes = state->bucketSizesParts.getVec();
+    int numBucketsPlusOne = state->bucketSizesParts.length();
 
-		PartListData *data = new PartListData;
-		data->partList = partList;
-		data->partListBucketMarkers = partListBucketMarkers;
-		data->bucketStarts = bucketStarts;
-		data->bucketSizes = bucketSizes;
-		data->numInteractions = numInteractions;
-		data->numBucketsPlusOne = numBucketsPlusOne;
-                data->tp = tp;
-                data->cb = new CkCallback(nodeGravityDone, data);
-		data->affectedBuckets = state->bucketsParts.getVec();
-		data->lastBucketComplete = lastBucketComplete;
-                data->state = state;
+    CudaRequest *data = new CudaRequest;
+    data->list = partList;
+    data->bucketMarkers = partListBucketMarkers;
+    data->bucketStarts = bucketStarts;
+    data->bucketSizes = bucketSizes;
+    data->numInteractions = numInteractions;
+    data->numBucketsPlusOne = numBucketsPlusOne;
+    data->tp = tp;
+    data->affectedBuckets = state->bucketsParts.getVec();
+    data->lastBucketComplete = lastBucketComplete;
+    data->state = state;
 
-		OptType type = getOptType();
-		if(type == Local){
-			TreePiecePartListDataTransferLocal(data);
-		}
-		else if(type == Remote && !state->resume){
-			CompactPartData *missedParts = state->particles->getVec();
-			CkAssert(missedParts);
-			int len = state->particles->length();
-			TreePiecePartListDataTransferRemote(data, missedParts, len);
-		}
-		else if(type == Remote && state->resume){
-			CompactPartData *missedParts = state->particles->getVec();
-			CkAssert(missedParts);
-			int len = state->particles->length();
-			TreePiecePartListDataTransferRemoteResume(data, missedParts, len);
-		}
-	}
+    OptType type = getOptType();
+    data->cb = new CkCallback(cudaCallback, data);
+    if(type == Local){
+      TreePiecePartListDataTransferLocal(data);
+    }
+    else if(!state->resume){
+      TreePiecePartListDataTransferRemote(data);
+    }
+    else{
+      CompactPartData *missedParts = state->particles->getVec();
+      int len = state->particles->length();
+      CkAssert(missedParts);
+      TreePiecePartListDataTransferRemoteResume(data, missedParts, len);
+    }
+    /*
+       OptType type = getOptType();
+       if(type == Local){
+       TreePiecePartListDataTransferLocal(data);
+       }
+       else if(type == Remote && !state->resume){
+       CompactPartData *missedParts = state->particles->getVec();
+       CkAssert(missedParts);
+       int len = state->particles->length();
+       TreePiecePartListDataTransferRemote(data, missedParts, len);
+       }
+       else if(type == Remote && state->resume){
+       CompactPartData *missedParts = state->particles->getVec();
+       CkAssert(missedParts);
+       int len = state->particles->length();
+       TreePiecePartListDataTransferRemoteResume(data, missedParts, len);
+       }
+       */
+  }
 }
 
 #endif
@@ -1637,28 +1742,28 @@ void ListCompute::addChildrenToCheckList(GenericTreeNode *node, int reqID, int c
       Tree::NodeKey childKey = node->getChildKey(i);
       // child not in my tree, look in cache
       child = tp->nodeMissed(reqID,
-                                node->remoteIndex,
-                                childKey,
-                                chunk,
-                                false,
-                                awi, computeEntity);
+          node->remoteIndex,
+          childKey,
+          chunk,
+          false,
+          awi, computeEntity);
       if(!child)
       {
         nodeMissedEvent(reqID, chunk, s, tp);
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
         CkPrintf("[%d] missed child %ld (%1.0f,%1.0f,%1.0f) of %ld\n", tp->getIndex(),
-                                                                childKey,
-                                                                vec.x, vec.y, vec.z,
-                                                                node->getKey());
+            childKey,
+            vec.x, vec.y, vec.z,
+            node->getKey());
 #endif
         continue;
       }
     }
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
     CkPrintf("[%d] enq avail child %ld (%1.0f,%1.0f,%1.0f) of %ld\n", tp->getIndex(),
-                                                                child->getKey(),
-                                                                vec.x, vec.y, vec.z,
-                                                                node->getKey());
+        child->getKey(),
+        vec.x, vec.y, vec.z,
+        node->getKey());
 #endif
     // child available, enqueue
     OffsetNode on;

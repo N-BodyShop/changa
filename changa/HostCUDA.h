@@ -53,9 +53,10 @@ enum kernels {DM_TRANSFER,
 						  TP_PART_GRAVITY_REMOTE_RESUME};
 
 
-typedef struct _CellListData{
-	ILCell *cellList;
-	int *cellListBucketMarkers;
+typedef struct _CudaRequest{
+        // can either be a ILCell* or an ILPart*
+	void *list;
+	int *bucketMarkers;
 	int *bucketStarts;
 	int *bucketSizes;
 	int numInteractions;
@@ -68,8 +69,9 @@ typedef struct _CellListData{
 	bool lastBucketComplete;
         void *cb;
         void *state;
-}CellListData;
+}CudaRequest;
 
+/*
 typedef struct _PartListData{
 	ILPart *partList;
 	int *partListBucketMarkers;
@@ -86,23 +88,27 @@ typedef struct _PartListData{
         void *tp; // tp that issued the work request
         void *state;
 }PartListData;
+*/
 
 // these functions must follow C linkage
-#ifdef __cplusplus
+// FIXME - also, not defined NVCC
+#if defined __cplusplus
 extern "C" {
 #endif
 
-void DataManagerTransfer(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts) ;
+void DataManagerTransferMoments(CudaMultipoleMoments *moments, int nMoments);
+void DataManagerTransferParticles(CompactPartData *compactParts, int nCompactParts);
 
-void TreePieceCellListDataTransferLocal(CellListData *data);
-void TreePieceCellListDataTransferRemote(CellListData *data);
-void TreePieceCellListDataTransferRemoteResume(CellListData *data, CudaMultipoleMoments *missedMoments, int numMissedMoments);
+void TreePieceCellListDataTransferLocal(CudaRequest *data);
+void TreePieceCellListDataTransferRemote(CudaRequest *data);
+void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleMoments *missedMoments, int numMissedMoments);
 
 
-void TreePiecePartListDataTransferLocal(PartListData *data);
+void TreePiecePartListDataTransferLocal(CudaRequest *data);
 // the 'missedParticles' here are actually prefetched particles
-void TreePiecePartListDataTransferRemote(PartListData *data, CompactPartData *missedParticles, int numMissedParticles);
-void TreePiecePartListDataTransferRemoteResume(PartListData *data, CompactPartData *missedParticles, int numMissedParticles);
+void TreePiecePartListDataTransferRemote(CudaRequest *data);
+//void TreePiecePartListDataTransferRemote(CudaRequest *data, CompactPartData *missedParticles, int numMissedParticles);
+void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartData *missedParticles, int numMissedParticles);
 
 
 #ifdef __cplusplus

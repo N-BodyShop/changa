@@ -76,7 +76,7 @@ protected:
         int treePiecesDonePrefetch;
         // keeps track of buckets of particles that were
         // received during the prefetch and which were subsequently
-        // shipped off to the gpu - FIXME
+        // shipped off to the gpu - XXX
         // not including cached particles in postfrefetch entities shipped to gpu
         // since it is hard to count their number given just the pointer to the cache entry
         // * either do not concern yourself with cached particles

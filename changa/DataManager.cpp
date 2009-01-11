@@ -600,7 +600,7 @@ void DataManager::serializeRemoteChunk(GenericTreeNode *node){
   CkVec<CudaMultipoleMoments> postPrefetchMoments;
   CkVec<CompactPartData> postPrefetchParticles;
 
-  // FIXME - better way to estimate NL, NLB, C, CB nodes/particles? 
+  // XXX - better way to estimate NL, NLB, C, CB nodes/particles? 
   // thse are just estimates, initial sizes for CkVec's
   numNodes = size;
   numParticles = size;
@@ -689,12 +689,6 @@ void DataManager::serializeRemoteChunk(GenericTreeNode *node){
   // Transfer moments and particle cores to gpu
   DataManagerTransfer(postPrefetchMoments.getVec(), numNodes, postPrefetchParticles.getVec(), numParticles);
 
-  /*
-  for(int i = 0; i < numParticles+numCachedParticles; i++){
-	  if(postPrefetchParticles[i].)
-  }
-  */
-
 }// end serializeNodes
 
 
@@ -709,7 +703,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   int totalNumBuckets = 0;
 
   for(int i = 0; i < numTreePieces; i++){
-	TreePiece *tp = registeredTreePieces[i].tp;
+    TreePiece *tp = registeredTreePieces[i].tp;
     numNodes += tp->getNumNodes();
     numParticles += tp->getNumParticles();
     totalNumBuckets += tp->getNumBuckets();
@@ -789,12 +783,5 @@ TreePieceDescriptor *DataManager::findKeyInDescriptors(SFC::Key particleKey){
 return 0;
 }
 
-void DeleteHostMoments(CudaMultipoleMoments *array){
-  delete [] array;
-}
-
-void DeleteHostParticles(CompactPartData *array){
-  delete [] array;
-}
 #endif
 
