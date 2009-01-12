@@ -349,6 +349,9 @@ extern void DeleteHostMoments(CudaMultipoleMoments *array);
 extern void DeleteHostParticles(CompactPartData *array);
 static boolean dmTransferDone = NO;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 void FreeDataManagerMemory(){
   workRequest gravityKernel;
   dataInfo *buffer;
@@ -368,8 +371,6 @@ void FreeDataManagerMemory(){
   buffer->transferFromDevice = NO;
   buffer->freeBuffer = YES;
   buffer->hostBuffer = 0;
-  // FIXME - need actual size?
-  buffer->size = 0 
 
   buffer = &(gravityKernel.bufferInfo[POST_PREFETCH_PARTICLE_CORES]);
   buffer->bufferID = POST_PREFETCH_PARTICLE_CORES;
@@ -377,13 +378,14 @@ void FreeDataManagerMemory(){
   buffer->transferFromDevice = NO;
   buffer->freeBuffer = YES;
   buffer->hostBuffer = 0;
-  // FIXME - need actual size?
-  buffer->size = 0 
 
   gravityKernel.callbackFn = 0;
   gravityKernel.id = DM_TRANSFER;
   enqueue(wrQueue, &gravityKernel);
 }
+#ifdef __cplusplus
+}
+#endif
 
 // kernel selector function
 void kernelSelect(workRequest *wr) {
@@ -582,7 +584,7 @@ __global__ void nodeGravityComputation(
 
     // get some threads to load particles into part_cache
   if(thread < PART_CACHE_SIZE){
-    cached_particle_cores[thread] = partCores[bucketStart+thread];
+    cached_particle_cores[thread] = particleCores[bucketStart+thread];
   }
   __syncthreads();
 
@@ -823,7 +825,7 @@ __global__ void particleGravityComputation(
 
   // get some threads to load particles into part_cache
   if(thread < PART_CACHE_SIZE){
-    cached_particle_cores[thread] = partCores[bucketStart+thread];
+    cached_target_cores[thread] = particleCores[bucketStart+thread];
   }
   __syncthreads();
 

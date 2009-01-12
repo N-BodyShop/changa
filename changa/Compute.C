@@ -1346,7 +1346,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
             int gpuIndex = -1;
             key <<= 1;
             std::map<NodeKey, int>::iterator q = cpref.find(key);
-            else if(q != cpref.end()){
+            if(q != cpref.end()){
               //cachedPartsOnGpu = true;
               gpuIndex = q->second;
             }
@@ -1611,13 +1611,14 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
     int numInteractions = state->cellLists.length();
 
     int total = lastBucketComplete ? numBuckets : numBuckets-1;  
+    int bucket;
+    CudaRequest *data = new CudaRequest;
     // offloading computation 
     for(int i = 0; i < total; i++){
       bucket = data->affectedBuckets[i];
       state->counterArrays[0][bucket]++;
     }
 
-    CudaRequest *data = new CudaRequest;
     data->list = cellList;
     data->bucketMarkers = cellListBucketMarkers;
     data->bucketStarts = bucketStarts;
@@ -1687,13 +1688,14 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
     int numBuckets= state->bucketSizesParts.length();
 
     int total = lastBucketComplete ? numBuckets : numBuckets-1;  
+    int bucket;
+    CudaRequest *data = new CudaRequest;
     // offloading computation 
     for(int i = 0; i < total; i++){
       bucket = data->affectedBuckets[i];
       state->counterArrays[0][bucket]++;
     }
 
-    CudaRequest *data = new CudaRequest;
     data->list = partList;
     data->bucketMarkers = partListBucketMarkers;
     data->bucketStarts = bucketStarts;

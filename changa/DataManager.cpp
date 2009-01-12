@@ -548,7 +548,6 @@ void DataManager::serializeNodes(GenericTreeNode *node){
   CkAssert(partIndex == numParticles+numCachedParticles);
 
   // Transfer moments and particle cores to gpu
-  DataManagerTransfer(postPrefetchMoments, numNodes+numCachedNodes, postPrefetchParticles, numParticles+numCachedParticles);
 
   /*
   for(int i = 0; i < numParticles+numCachedParticles; i++){

@@ -96,8 +96,7 @@ typedef struct _PartListData{
 extern "C" {
 #endif
 
-void DataManagerTransferMoments(CudaMultipoleMoments *moments, int nMoments);
-void DataManagerTransferParticles(CompactPartData *compactParts, int nCompactParts);
+void DataManagerTransfer(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts);
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data);
 void TreePieceCellListDataTransferRemote(CudaRequest *data);
