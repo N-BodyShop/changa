@@ -3219,9 +3219,11 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
 }
 
 void TreePiece::commenceCalculateGravityLocal(){
+#if INTERLIST_VER > 0 
   // must set placedRoots to false before starting local comp.
   DoubleWalkState *lstate = (DoubleWalkState *)sInterListStateLocal;
   lstate->placedRoots = false;
+#endif
   calculateGravityLocal();
 }
 
@@ -3321,8 +3323,10 @@ void TreePiece::continueStartRemoteChunk(){
   *(int*)CkPriorityPtr(msg) = numTreePieces * currentPrefetch + thisIndex + 1;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
 
+#if INTERLIST_VER > 0
   DoubleWalkState *rstate = (DoubleWalkState *)sInterListStateRemote;
   rstate->placedRoots = false;
+#endif
   thisProxy[thisIndex].calculateGravityRemote(msg);
 
   // start prefetching next chunk
