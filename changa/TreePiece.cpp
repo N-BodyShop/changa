@@ -2095,6 +2095,9 @@ void cellSPE_ewald(void *data) {
 #endif
 
 void TreePiece::calculateEwald(dummyMsg *msg) {
+#ifdef SPCUDA
+  EwaldGPU(); 
+#else
   unsigned int i=0;
   while (i<_yieldPeriod && ewaldCurrentBucket < numBuckets
 #ifdef CELL
@@ -2158,6 +2161,7 @@ void TreePiece::calculateEwald(dummyMsg *msg) {
   } else {
     delete msg;
   }
+#endif
 }
 
 #if INTERLIST_VER > 0

@@ -381,4 +381,106 @@ void TreePiece::EwaldInit()
 	thisProxy[thisIndex].calculateEwald(msg);
 }
 
+#ifdef SPCUDA
+void TreePiece::EwaldGPU() {
+
+  GravityParticleData *particleTable;
+  EwtData *ewtTable; 
+  EwaldReadOnlyData *roData; 
+  MultipoleMoments mom = root->moments;
+  
+  float L = fPeriod.x;
+  float alpha = 2.0f/L;
+
+  h_idata = (EwaldData*) malloc(sizeof(EwaldData)); 
+
+  EwaldHostMemorySetup(h_idata, myNumParticles, nEwhLoop); 
+  
+  particleTable = (GravityParticleData*) h_idata->p; 
+  ewtTable = (EwtData*) h_idata->ewt;
+  roData = (EwaldReadOnlyData*) h_idata->cachedData; 
+
+  for (int i=1; i<=myNumParticles; i++) {
+    particleTable[i].position_x = (float) myParticles[i].position.x;
+    particleTable[i].position_y = (float) myParticles[i].position.y;
+    particleTable[i].position_z = (float) myParticles[i].position.z;
+    particleTable[i].acceleration_x = 
+      (float) myParticles[i].treeAcceleration.x;
+    particleTable[i].acceleration_y = 
+      (float) myParticles[i].treeAcceleration.y;
+    particleTable[i].acceleration_z = 
+      (float) myParticles[i].treeAcceleration.z;
+    particleTable[i].potential = (float) myParticles[i].potential;
+  }  
+
+  for (int i=0; i<nEwhLoop; i++) {
+    ewtTable[i].hx = (float) ewt[i].hx; 
+    ewtTable[i].hy = (float) ewt[i].hy; 
+    ewtTable[i].hz = (float) ewt[i].hz; 
+    ewtTable[i].hCfac = (float) ewt[i].hCfac; 
+    ewtTable[i].hSfac = (float) ewt[i].hSfac; 
+  }
+
+  roData->mm.xx = (float) mom.xx; 
+  roData->mm.xy = (float) mom.xy; 
+  roData->mm.xz = (float) mom.xz; 
+  roData->mm.yy = (float) mom.yy;
+  roData->mm.yz = (float) mom.yz; 
+  roData->mm.zz = (float) mom.zz;
+  roData->mm.totalMass = (float) mom.totalMass; 
+  roData->mm.cmx = (float) mom.cm.x; 
+  roData->mm.cmy = (float) mom.cm.y; 
+  roData->mm.cmz = (float) mom.cm.z; 
+  roData->n = myNumParticles;
+  roData->fEwCut = (float) fEwCut;
+  roData->nReps = nReplicas ;
+  roData->nEwReps = (int) ceil(fEwCut);
+  roData->nEwhLoop = nEwhLoop;
+  roData->L = (float) L;
+  roData->alpha = alpha;
+  roData->alpha2 = (float) alpha*alpha;
+  roData->k1 = (float) M_PI/(alpha*alpha*L*L*L);
+  roData->ka = (float) 2.0*alpha/sqrt(M_PI);
+  roData->fEwCut2 = (float) fEwCut*fEwCut*L*L;
+  roData->fInner2 = (float) 3.0e-3*L*L;
+
+  CkCallback *cb; 
+  CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex); 
+  cb = new CkCallback(CkIndex_TreePiece::EwaldGPUComplete(), myIndex, 
+		      thisArrayID); 
+
+  EwaldHost(h_idata, (void *) cb, thisIndex); 
+}
+#endif
+
+void TreePiece::EwaldGPUComplete() {
+  /* when not using CUDA, definition is required because
+     EwaldGPUComplete is an entry method
+  */
+#ifdef SPCUDA
+  GravityParticleData *particleTable;
+  particleTable = h_idata->p; 
+
+  for (int i=1; i<=myNumParticles; i++) {
+    myParticles[i].treeAcceleration.x = 
+      particleTable[i].acceleration_x;
+    myParticles[i].treeAcceleration.y = 
+      particleTable[i].acceleration_y;
+    myParticles[i].treeAcceleration.z = 
+      particleTable[i].acceleration_z;
+    myParticles[i].potential = particleTable[i].potential;
+  }
+
+  EwaldHostMemoryFree(h_idata); 
+  free(h_idata); 
+
+  /* indicate completion of ewald */
+  
+  for (int i=0; i<numBuckets; i++) {  
+    bucketReqs[i].finished = 1; 
+    finishBucket(i); 
+  }
+#endif 
+}
+
 

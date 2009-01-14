@@ -66,8 +66,8 @@ SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \
 
 ifdef CUDA
   CXXFLAGS += $(NVCC_INC)
-  OBJECTS+= HostCUDA.o
-  SRSC+= HostCUDA.cu
+  OBJECTS+= HostCUDA.o EwaldCUDA.o
+  SRSC+= HostCUDA.cu EwaldCUDA.cu
   LDLIBS+= $(NVCC_LIBS)
 endif
 
@@ -96,8 +96,10 @@ libmoduleMultistepLB.a: MultistepLB.o
 	$(CHARMC) $<
 
 HostCUDA.o: HostCUDA.cu HostCUDA.h
-	#cp $(CHARM_PATH)/src/arch/cuda/hybridAPI/wr.h . 
 	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) HostCUDA.cu
+
+EwaldCUDA.o: EwaldCUDA.cu EwaldCUDA.h
+	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) EwaldCUDA.cu	
 
 %.o: Makefile
 
