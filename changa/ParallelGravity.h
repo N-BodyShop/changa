@@ -39,6 +39,10 @@
 #include "codes.h"
 #include "CacheInterface.h"
 
+#ifdef SPCUDA
+#include "EwaldCUDA.h"
+#endif
+
 #ifdef CUDA
 #include "cuda_typedef.h"
 #endif
@@ -748,6 +752,11 @@ private:
   double totalTime;
  public:
 
+#ifdef SPCUDA
+  void EwaldGPU(); 
+  EwaldData *h_idata;
+#endif
+  void EwaldGPUComplete();
 	int bLoaded;		/* Are particles loaded? */
 	FieldHeader fh;
 	Tipsy::header tipsyHeader; /* for backward compatibility */
