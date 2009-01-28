@@ -10,8 +10,7 @@ class pqSmoothNode
  public:
     double fKey;	// distance squared -> place in priority queue
     Vector3D<double> dx; // displacement of this particle
-    // XXX to be replaced with "ExternalSmoothParticle"
-    ExternalGravityParticle *p; // pointer to rest of particle data
+    GravityParticle *p; // pointer to rest of particle data
     
     inline bool operator<(const pqSmoothNode& n) const {
 	return fKey < n.fKey;
@@ -37,8 +36,9 @@ class SmoothCompute : public Compute
 {
     int nSmooth;
     void (*fcnSmooth)(GravityParticle *p, int nSmooth, pqSmoothNode *nList);
+    void (*fcnInit)(GravityParticle *p);
     void bucketCompare(TreePiece *tp,
-		       ExternalGravityParticle *p,  // Particle to test
+		       GravityParticle *p,  // Particle to test
 		       GenericTreeNode *node, // bucket
 		       GravityParticle *particles, // local particle data
 		       Vector3D<double> offset,
@@ -49,8 +49,8 @@ class SmoothCompute : public Compute
 public:
  SmoothCompute(TreePiece *_tp, void (*fcn)(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList),
-	       void (*_fcnInit)(ExternalGravityParticle *p),
-	       void (*_fcnCombine)(GravityParticle *p1, ExternalGravityParticle *p2),
+	       void (*_fcnInit)(GravityParticle *p),
+	       void (*_fcnCombine)(GravityParticle *p1, ExternalSmoothParticle *p2),
 	       int nSm)
      : Compute(Smooth){
 	nSmooth = nSm;
@@ -75,7 +75,7 @@ public:
     int finishNodeProcessEvent(TreePiece *owner, State *state){}
     int nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);
     int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
-    void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,
+    void recvdParticlesFull(GravityParticle *egp,int num,int chunk,
 			int reqID,State *state, TreePiece *tp,
 			Tree::NodeKey &remoteBucket);
     void reassoc(void *ce, int ar, Opt *o);
@@ -108,7 +108,7 @@ class ReSmoothCompute : public Compute
 {
     void (*fcnSmooth)(GravityParticle *p, int nSmooth, pqSmoothNode *nList);
     void bucketCompare(TreePiece *tp,
-		       ExternalGravityParticle *p,  // Particle to test
+		       GravityParticle *p,  // Particle to test
 		       GenericTreeNode *node, // bucket
 		       GravityParticle *particles, // local particle data
 		       Vector3D<double> offset,
@@ -119,8 +119,8 @@ class ReSmoothCompute : public Compute
 public:
  ReSmoothCompute(TreePiece *_tp, void (*fcn)(GravityParticle *p, int nSmooth,
 					     pqSmoothNode *nList),
-		 void (*_fcnInit)(ExternalGravityParticle *p),
-		 void (*_fcnCombine)(GravityParticle *p1, ExternalGravityParticle *p2)
+		 void (*_fcnInit)(GravityParticle *p),
+		 void (*_fcnCombine)(GravityParticle *p1, ExternalSmoothParticle *p2)
 )
      : Compute(Smooth){
 	fcnSmooth = fcn;
@@ -142,7 +142,7 @@ public:
     int finishNodeProcessEvent(TreePiece *owner, State *state){}
     int nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);
     int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
-    void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,
+    void recvdParticlesFull(GravityParticle *egp,int num,int chunk,
 			int reqID,State *state, TreePiece *tp,
 			Tree::NodeKey &remoteBucket);
     void reassoc(void *ce, int ar, Opt *o);
@@ -158,8 +158,8 @@ public:
 
 void Density(GravityParticle *p,int nSmooth,pqSmoothNode *nnList);
 void DensitySym(GravityParticle *p,int nSmooth,pqSmoothNode *nnList);
-void initDensity(ExternalGravityParticle *p) ;
-void combDensity(GravityParticle *p1, ExternalGravityParticle *p2);
+void initDensity(GravityParticle *p) ;
+void combDensity(GravityParticle *p1, ExternalSmoothParticle *p2);
 
 class SmoothOpt : public Opt{
   public:

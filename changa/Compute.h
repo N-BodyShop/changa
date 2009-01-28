@@ -69,7 +69,7 @@ class Compute{
   virtual int nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp) {}
   virtual int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket){}
   virtual void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket){}
-
+  virtual void recvdParticlesFull(GravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket){}
   virtual ~Compute(){}
   virtual void walkDone(State *state){}
   virtual void deleteComputeEntity(){}

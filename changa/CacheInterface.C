@@ -70,61 +70,108 @@ void TreePiece::fillRequestParticles(CkCacheRequestMsg *msg) {
 // Methods for "combiner" cache
 
 EntryTypeSmoothParticle::EntryTypeSmoothParticle() {
-  CkCacheFillMsg msg(0);
-  offset = ((char*)&msg.data) - ((char*)&msg);
 }
 
 void * EntryTypeSmoothParticle::request(CkArrayIndexMax& idx, CkCacheKey key) {
   CkCacheRequestMsg *msg = new (32) CkCacheRequestMsg(key, CkMyPe());
   *(int*)CkPriorityPtr(msg) = -100000000;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
-  treeProxy[*idx.data()].fillRequestParticles(msg);
+  treeProxy[*idx.data()].fillRequestSmoothParticles(msg);
   return NULL;
 }
 
 void * EntryTypeSmoothParticle::unpack(CkCacheFillMsg *msg, int chunk, CkArrayIndexMax &from) {
-  CacheParticle *data = (CacheParticle*) msg->data;
-  ExternalGravityParticle *p = &(data->part[0]);
-  for(int i = 0; i < 1 + data->end - data->begin; i++) {
-      // XXX needs to be replaced with fcnInit.
-      initDensity(&(p[i]));	// Clear cached copy
-      }
-  
-  data->msg = msg;
-  return (void*) data;
+    // incoming data
+    CacheSmoothParticle *cPartsIn = (CacheSmoothParticle*) msg->data;
+    // Cached copy
+    CacheSmoothParticle *cParts = new CacheSmoothParticle;
+    
+    cParts->begin = cPartsIn->begin;
+    cParts->end = cPartsIn->end;
+    cParts->key = msg->key;
+    int nTotal = 1 + cParts->end - cParts->begin;
+    cParts->partCached = new GravityParticle[nTotal];
+    // Expand External particles to full particles in cache
+    // XXX also need to allocate extra data.
+    for(int i = 0; i < nTotal; i++) {
+	cParts->partCached[i] = cPartsIn->partExt[i].getParticle();
+      	// XXX needs to be replaced with fcnInit.
+      	initDensity(&(cParts->partCached[i]));	// Clear cached copy
+	}
+    CkFreeMsg(msg);
+    return (void*) cParts;
 }
 
 void EntryTypeSmoothParticle::writeback(CkArrayIndexMax& idx, CkCacheKey k, void *data) {
-    // Filippo: since it destroyed the data, should be moved to "free"
     // Send the message back to the original TreePiece.
-    treeProxy[*idx.data()].flushSmoothParticles(((CacheParticle*)data)->msg);
+    CacheSmoothParticle *cPart = (CacheSmoothParticle *)data;
+    int total = sizeof(CacheSmoothParticle)
+	+ (cPart->end - cPart->begin)*sizeof(ExternalSmoothParticle);
+    CkCacheFillMsg *reply = new (total) CkCacheFillMsg(cPart->key);
+    CacheSmoothParticle *rdata = (CacheSmoothParticle*)reply->data;
+    rdata->begin = cPart->begin;
+    rdata->end = cPart->end;
+  
+    for (int i=0; i < 1 + cPart->end - cPart->begin; ++i) {
+	rdata->partExt[i] = cPart->partCached[i].getExternalSmoothParticle();
+	}
+    treeProxy[*idx.data()].flushSmoothParticles(reply);
 }
 
-void EntryTypeSmoothParticle::free(void *data) { }
+void EntryTypeSmoothParticle::free(void *data) {
+    CacheSmoothParticle *cPart = (CacheSmoothParticle *)data;
+    delete cPart->partCached;
+    delete cPart;
+}
 
 int EntryTypeSmoothParticle::size(void * data) {
-  CacheParticle *p = (CacheParticle *) data;
-  return sizeof(CacheParticle) + (p->end - p->begin) * sizeof(ExternalGravityParticle);
+    CacheSmoothParticle *cPart = (CacheSmoothParticle *)data;
+    return sizeof(CacheSmoothParticle)
+	+ (cPart->end - cPart->begin)*sizeof(ExternalSmoothParticle);
 }
 
 void EntryTypeSmoothParticle::callback(CkArrayID requestorID, CkArrayIndexMax &requestorIdx, CkCacheKey key, CkCacheUserData &userData, void *data, int chunk) {
   CkArrayIndex1D idx(requestorIdx.data()[0]);
   CProxyElement_TreePiece elem(requestorID, idx);
-  CacheParticle *cp = (CacheParticle *)data;
   int reqID = (int)(userData.d0 & 0xFFFFFFFF);
   int awi = userData.d0 >> 32;
   void *source = (void *)userData.d1;
+  CacheSmoothParticle *cPart = (CacheSmoothParticle *)data;
 
-  elem.receiveParticlesCallback(cp->part, cp->end - cp->begin + 1, chunk, reqID, key, awi, source);
+  elem.receiveParticlesFullCallback(cPart->partCached,
+				cPart->end - cPart->begin + 1, chunk, reqID,
+				key, awi, source);
+}
+
+void TreePiece::fillRequestSmoothParticles(CkCacheRequestMsg *msg) {
+  // the key used in the cache is shifted to the left of 1, this makes
+  // a clear distinction between nodes and particles
+  const GenericTreeNode *bucket = lookupNode(msg->key >> 1);
+  
+  int total = sizeof(CacheSmoothParticle) + (bucket->lastParticle - bucket->firstParticle) * sizeof(ExternalSmoothParticle);
+  CkCacheFillMsg *reply = new (total) CkCacheFillMsg(msg->key);
+  CacheSmoothParticle *data = (CacheSmoothParticle*)reply->data;
+  data->begin = bucket->firstParticle;
+  data->end = bucket->lastParticle;
+  
+  for (int i=0; i<bucket->particleCount; ++i) {
+      data->partExt[i] = myParticles[i+bucket->firstParticle].getExternalSmoothParticle();
+  }
+  
+  nCacheAccesses++;
+  
+  cacheManagerProxy[msg->replyTo].recvData(reply);
+  
+  delete msg;
 }
 
 void TreePiece::flushSmoothParticles(CkCacheFillMsg *msg) {
   
-  CacheParticle *data = (CacheParticle*)msg->data;
+  CacheSmoothParticle *data = (CacheSmoothParticle*)msg->data;
   
   int j = 0;
   for(int i = data->begin; i <= data->end; i++) {
-      fcnCombine(&myParticles[i], &data->part[j]);
+      fcnCombine(&myParticles[i], &data->partExt[j]);
       j++;
   }
   
@@ -133,6 +180,8 @@ void TreePiece::flushSmoothParticles(CkCacheFillMsg *msg) {
   if(bWalkDonePending)
 	markWalkDone();
 }
+
+// Node Cache methods
 
 EntryTypeGravityNode::EntryTypeGravityNode() {
   BinaryTreeNode node;

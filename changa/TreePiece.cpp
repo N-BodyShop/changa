@@ -4141,7 +4141,7 @@ ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk
   }
 };
 
-ExternalGravityParticle *
+GravityParticle *
 TreePiece::requestSmoothParticles(Tree::NodeKey key,int chunk,int remoteIndex,
 				  int begin,int end,int reqID, int awi, void *source,
 				  bool isPrefetch) {
@@ -4154,11 +4154,11 @@ TreePiece::requestSmoothParticles(Tree::NodeKey key,int chunk,int remoteIndex,
     CkCacheRequestorData request(thisElement, &EntryTypeSmoothParticle::callback, userData);
     CkArrayIndexMax remIdx = CkArrayIndex1D(remoteIndex);
     CkCacheKey ckey = key<<1;
-    CacheParticle *p = (CacheParticle *) streamingCache[CkMyPe()].requestData(ckey,remIdx,chunk,&smoothParticleEntry,request);
+    CacheSmoothParticle *p = (CacheSmoothParticle *) streamingCache[CkMyPe()].requestData(ckey,remIdx,chunk,&smoothParticleEntry,request);
     if (p == NULL) {
       return NULL;
     }
-    return p->part;
+    return p->partCached;
   } else {
     CkAbort("Non cached version not anymore supported, feel free to fix it!");
   }
@@ -5239,6 +5239,24 @@ void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, 
 #endif
   c->reassoc(source, activeRung, a.o);
   c->recvdParticles(egp,num,chunk,reqID,state,this, remoteBucket);
+}
+
+void TreePiece::receiveParticlesFullCallback(GravityParticle *gp, int num,
+					     int chunk, int reqID,
+					     Tree::NodeKey &remoteBucket,
+					     int awi, void *source){
+  //TreeWalk *tw;
+  Compute *c;
+  State *state;
+
+  // retrieve the activewalk record
+  ActiveWalk &a = activeWalks[awi];
+  //tw = a.tw;
+  c = a.c;
+  state = a.s;
+
+  c->reassoc(source, activeRung, a.o);
+  c->recvdParticlesFull(gp,num,chunk,reqID,state,this, remoteBucket);
 }
 
 int TreePiece::addActiveWalk(TreeWalk *tw, Compute *c, Opt *o, State *s){

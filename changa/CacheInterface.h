@@ -30,8 +30,21 @@ public:
   static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, CkCacheUserData &, void*, int);
 };
 
+/*********************************************************
+ * Smooth interface: Particles
+ *********************************************************/
+
+class CacheSmoothParticle {
+public:
+    int begin; // Beginning particle number
+    int end;	// ending Particle number
+    CkCacheKey key;
+    GravityParticle *partCached;
+  ExternalSmoothParticle partExt[1];
+};
+
 class EntryTypeSmoothParticle : public CkCacheEntryType {
-  int offset;
+    // N.B. can't have helpful attributes because of the static function.
 public:
   EntryTypeSmoothParticle();
   void * request(CkArrayIndexMax&, CkCacheKey);

@@ -401,7 +401,7 @@ class TreePiece : public CBase_TreePiece {
    Compute *sGravity, *sPrefetch;
    Compute *sSmooth;
    /* XXX This should be in sSmooth??? */
-   void (*fcnCombine)(GravityParticle *p1, ExternalGravityParticle *p2);
+   void (*fcnCombine)(GravityParticle *p1, ExternalSmoothParticle *p2);
    Opt *sLocal, *sRemote, *sPref;
    State *sPrefetchState, *sLocalGravityState, *sRemoteGravityState, *sSmoothState;
    Opt *optSmooth;
@@ -1141,11 +1141,11 @@ public:
 #endif
 
         ExternalGravityParticle *requestParticles(Tree::NodeKey key,int chunk,int remoteIndex,int begin,int end,int reqID, int awi, void *source, bool isPrefetch=false);
-	ExternalGravityParticle
-	    *requestSmoothParticles(Tree::NodeKey key, int chunk,
+	GravityParticle *requestSmoothParticles(Tree::NodeKey key, int chunk,
 				    int remoteIndex, int begin,int end,
 				    int reqID, int awi, void *source, bool isPrefetch);
 	void fillRequestParticles(CkCacheRequestMsg *msg);
+	void fillRequestSmoothParticles(CkCacheRequestMsg *msg);
 	void flushSmoothParticles(CkCacheFillMsg *msg);
 #if 0
 	void receiveParticles(ExternalGravityParticle *part,int num,int chunk,
@@ -1193,7 +1193,7 @@ public:
 
         void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source);
         void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
-
+        void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
         void receiveProxy(CkGroupID _proxy){ proxy = _proxy; proxySet = true; /*CkPrintf("[%d : %d] received proxy\n", CkMyPe(), thisIndex);*/}
         void doAtSync();
         GravityParticle *getParticles(){return myParticles;}

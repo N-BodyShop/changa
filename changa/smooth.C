@@ -88,7 +88,7 @@ int SmoothCompute::openCriterion(TreePiece *ownerTP,
  */
 
 void SmoothCompute::bucketCompare(TreePiece *ownerTP,
-				  ExternalGravityParticle *p,  // Particle to test
+				  GravityParticle *p,  // Particle to test
 				  GenericTreeNode *node, // bucket
 				  GravityParticle *particles, // local
 							      // particle data
@@ -160,7 +160,7 @@ int SmoothCompute::doWork(GenericTreeNode *node, // Node to test
 	return DUMP;
 	}
     else if(action == KEEP_REMOTE_BUCKET) {
-	ExternalGravityParticle *part;
+	GravityParticle *part;
 	part = tp->requestSmoothParticles(node->getKey(), 
 				    chunk, 
 				    node->remoteIndex, 
@@ -202,7 +202,7 @@ void SmoothCompute::reassoc(void *ce, int ar, Opt *o){
 /*
  * Process particles received from missed Cache request
  */
-void SmoothCompute::recvdParticles(ExternalGravityParticle *part,
+void SmoothCompute::recvdParticlesFull(GravityParticle *part,
 				   int num, int chunk,int reqID, State *state,
 				   TreePiece *tp, Tree::NodeKey &remoteBucket){
 
@@ -430,6 +430,9 @@ void NearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
 
   if(counterArrays[0][iBucket] == 0) {
       tp->sSmooth->walkDone(this);
+  if(verbosity>1)
+	CkPrintf("[%d] TreePiece %d finished smooth with bucket %d\n",CkMyPe(),
+		 tp->thisIndex,iBucket);
     nParticlesPending -= node->particleCount;
     if(started && nParticlesPending == 0) {
       started = false;
@@ -511,7 +514,7 @@ int ReSmoothCompute::openCriterion(TreePiece *ownerTP,
  */
 
 void ReSmoothCompute::bucketCompare(TreePiece *ownerTP,
-				  ExternalGravityParticle *p,  // Particle to test
+				  GravityParticle *p,  // Particle to test
 				  GenericTreeNode *node, // bucket
 				  GravityParticle *particles, // local
 							      // particle data
@@ -581,7 +584,7 @@ int ReSmoothCompute::doWork(GenericTreeNode *node, // Node to test
 	return DUMP;
 	}
     else if(action == KEEP_REMOTE_BUCKET) {
-	ExternalGravityParticle *part;
+	GravityParticle *part;
 	part = tp->requestSmoothParticles(node->getKey(), 
 				    chunk, 
 				    node->remoteIndex, 
@@ -623,7 +626,7 @@ void ReSmoothCompute::reassoc(void *ce, int ar, Opt *o){
 /*
  * Process particles received from missed Cache request
  */
-void ReSmoothCompute::recvdParticles(ExternalGravityParticle *part,
+void ReSmoothCompute::recvdParticlesFull(GravityParticle *part,
 				   int num, int chunk,int reqID, State *state,
 				   TreePiece *tp, Tree::NodeKey &remoteBucket){
 
@@ -778,6 +781,9 @@ void ReNearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
 
   if(counterArrays[0][iBucket] == 0) {
       tp->sSmooth->walkDone(this);
+  if(verbosity>1)
+	CkPrintf("[%d] TreePiece %d finished smooth with bucket %d\n",CkMyPe(),
+		 tp->thisIndex,iBucket);
     nParticlesPending -= node->particleCount;
     if(started && nParticlesPending == 0) {
       started = false;
@@ -856,18 +862,18 @@ void Density(GravityParticle *p,int nSmooth, pqSmoothNode *nnList)
 	p->fDensity = M_1_PI*sqrt(ih2)*ih2*fDensity; 
 	}
 
-void initDensity(ExternalGravityParticle *p) 
+void initDensity(GravityParticle *p) 
 {
     p->fDensity = 0.0;
     }
 
-void combDensity(GravityParticle *p1, ExternalGravityParticle *p2) {
-  p1->fDensity += p2->fDensity;
+void combDensity(GravityParticle *p1, ExternalSmoothParticle *p2) {
+    p1->fDensity += p2->fDensity;
 }
 
 void DensitySym(GravityParticle *p,int nSmooth, pqSmoothNode *nnList)
 {
-	ExternalGravityParticle *q;
+	GravityParticle *q;
 	double fNorm,ih2,r2,rs;
 	int i;
 

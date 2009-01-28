@@ -43,15 +43,18 @@ class ExternalGravityParticle {
   double mass;
   double soft;
   Vector3D<double> position;
-  double fDensity;
 
   void pup(PUP::er &p) {
     p | position;
     p | mass;
     p | soft;
-    p | fDensity;
   }
 };
+
+class ExternalSmoothParticle;
+
+// This class contains everything that a "dark matter" particle needs.
+// Other classes of particles require this plus an "extra data" class.
 
 class GravityParticle : public ExternalGravityParticle {
 public:
@@ -61,6 +64,7 @@ public:
 	double potential;
 	double dtGrav;
 	double fBall;
+	double fDensity;
 	int iOrder;		/* input order of particles */
         int rung;  ///< the current rung (greater means faster)
 	unsigned int iType;	// Bitmask to hold particle type information
@@ -88,6 +92,7 @@ public:
           ExternalGravityParticle::pup(p);
           p | key;
           p | velocity;
+	  p | fDensity;
 	  p | fBall;
           p | iOrder;
           p | rung;
@@ -96,7 +101,45 @@ public:
 	  p | fSoft0;
 #endif
         }
+	ExternalSmoothParticle getExternalSmoothParticle();
 };
+
+class ExternalSmoothParticle {
+ public:
+
+  double mass;
+  double fBall;
+  double fDensity;
+  Vector3D<double> position;
+
+  ExternalSmoothParticle() {}
+
+  ExternalSmoothParticle(GravityParticle *p) 
+      {
+	  mass = p->mass;
+	  fBall = p->fBall;
+	  fDensity = p->fDensity;
+	  position = p->position;
+	  }
+  
+  inline GravityParticle getParticle() { GravityParticle tmp;
+      tmp.mass = mass;
+      tmp.fBall = fBall;
+      tmp.fDensity = fDensity;
+      tmp.position = position;
+      return tmp;
+      }
+	  
+  void pup(PUP::er &p) {
+    p | position;
+    p | mass;
+    p | fBall;
+    p | fDensity;
+  }
+};
+
+inline ExternalSmoothParticle GravityParticle::getExternalSmoothParticle()
+{ return ExternalSmoothParticle(this); }
 
 /* Particle Type Masks */
 
