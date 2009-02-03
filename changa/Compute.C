@@ -104,7 +104,7 @@ DoubleWalkState *ListCompute::allocDoubleWalkState(){
   s->level = 0;
   s->chklists = new CheckList[INTERLIST_LEVELS];
   s->undlists.resize(INTERLIST_LEVELS);
-  s->clists.reserve(INTERLIST_LEVELS);
+  s->clists.resize(INTERLIST_LEVELS);
 
   if(getOptType() == Remote){
     s->rplists.resize(INTERLIST_LEVELS);
