@@ -24,6 +24,7 @@
 
 #include "Space.h"
 #include "gravity.h"
+#include "smooth.h"
 
 #ifdef CELL
 #include "spert_ppu.h"
@@ -395,23 +396,24 @@ void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg){
   //thisProxy[phaseLeader].collectORBCounts(firstCnt,secondCnt);
   contribute(2*splittersMsg->length*sizeof(int), &(*tempBinCounts.begin()), CkReduction::sum_int, cback);
 }
-/**********************************************/
 
-/*
-void TreePiece::registerWithDataManager(const CkGroupID& dataManagerID, const CkCallback& cb) {
-	dataManager = CProxy_DataManager(dataManagerID);
-	dm = dataManager.ckLocalBranch();
-	if(dm == 0) {
-		cerr << thisIndex << ": TreePiece: Fatal: Couldn't register with my DataManger" << endl;
-		cb.send(0);
-		return;
+/// Get SPH data into same order as particle data
+/// XXX incomplete, I need a back pointer from the extraData to
+/// myParticles in order to do this.
+
+void TreePiece::sortSPHData()
+{
+    // Step through all particles and swap SPH data into place
+    int iSPH = 0;
+    for(int iPart = 0; iPart < myNumParticles; iPart++) {
+	if(TYPETest(&myParticles[iPart+1], TYPE_GAS)) {
+	    extraSPHData *sphTMP
+		= (extraSPHData *)myParticles[iPart+1].extraData;
+	    }
 	}
+    
+    }
 
-	dm->myTreePieces.push_back(thisIndex);
-
-	contribute(0, 0, CkReduction::concat, cb);
-}
-*/
 
 /// Determine my part of the sorting histograms by counting the number
 /// of my particles in each bin
@@ -486,37 +488,53 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 	GravityParticle *binEnd;
 	GravityParticle dummy;
 	for(++iter; iter != endKeys; ++iter, ++responsibleIter) {
-		dummy.key = *iter;
-		//find particles between this and the last key
-		binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1],
-				     dummy);
-		//if I have any particles in this bin, send them to the responsible TreePiece
-		if((binEnd - binBegin) > 0) {
-                  if (verbosity>=3) CkPrintf("me:%d to:%d how many:%d\n",thisIndex,*responsibleIter,(binEnd-binBegin));
-                  if(*responsibleIter == thisIndex) {
-                    acceptSortedParticles(binBegin, binEnd - binBegin);
-                  } else {
-                    pieces[*responsibleIter].acceptSortedParticles(binBegin, binEnd - binBegin);
-                  }
+	    dummy.key = *iter;
+	    //find particles between this and the last key
+	    binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1],
+				 dummy);
+	    // If I have any particles in this bin, send them to
+	    // the responsible TreePiece
+	    if((binEnd - binBegin) > 0) {
+		int nGasOut = 0;
+		for(GravityParticle *pPart = binBegin; pPart < binEnd;
+		    pPart++) {
+		    if(TYPETest(pPart, TYPE_GAS))
+			nGasOut++;
+		    }
+		extraSPHData *pGasOut = new extraSPHData[nGasOut];
+		if (verbosity>=3)
+		  CkPrintf("me:%d to:%d nPart :%d, nGas:%d\n", thisIndex,
+			   *responsibleIter,(binEnd-binBegin), nGasOut);
+		int iGasOut = 0;
+		for(GravityParticle *pPart = binBegin; pPart < binEnd;
+		    pPart++) {
+		    if(TYPETest(pPart, TYPE_GAS)) {
+			pGasOut[iGasOut] = *(extraSPHData *)pPart->extraData;
+			iGasOut++;
+			}
+		    }
+		if(*responsibleIter == thisIndex) {
+		    acceptSortedParticles(binBegin, binEnd - binBegin,
+					  pGasOut, nGasOut);
+		    }
+		else {
+		    pieces[*responsibleIter].acceptSortedParticles(binBegin, binEnd - binBegin, pGasOut, nGasOut);
+		    }
+		delete pGasOut;
 		}
-		if(&myParticles[myNumParticles + 1] <= binEnd)
-			break;
-		binBegin = binEnd;
+	    if(&myParticles[myNumParticles + 1] <= binEnd)
+		    break;
+	    binBegin = binEnd;
 	}
 
         incomingParticlesSelf = true;
-        acceptSortedParticles(binBegin, 0);
-	//resize myParticles so we can fit the sorted particles and
-	//the boundary particles
-	//if(dm->particleCounts[myPlace] > (int) myNumParticles) {
-	//    delete[] myParticles;
-	//    myParticles = new GravityParticle[dm->particleCounts[myPlace] + 2];
-	//    }
-	//myNumParticles = dm->particleCounts[myPlace];
+        acceptSortedParticles(binBegin, 0, NULL, 0);
 }
 
 /// Accept particles from other TreePieces once the sorting has finished
-void TreePiece::acceptSortedParticles(const GravityParticle* particles, const int n) {
+void TreePiece::acceptSortedParticles(const GravityParticle* particles,
+				      const int n, const extraSPHData *pGas,
+				      const int nGasIn) {
 
   if (dm == NULL) {
       dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
@@ -534,37 +552,65 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles, const in
   if (incomingParticles == NULL) {
     incomingParticles = new GravityParticle[dm->particleCounts[myPlace] + 2];
     assert(incomingParticles != NULL);
+    incomingGas = new std::vector<extraSPHData>;
     if (verbosity > 1)
       ckout << "Treepiece "<<thisIndex<<": allocated "
 	<< dm->particleCounts[myPlace]+2 <<" particles"<<endl;
   }
 
-  memcpy(&incomingParticles[incomingParticlesArrived+1], particles, n*sizeof(GravityParticle));
+  memcpy(&incomingParticles[incomingParticlesArrived+1], particles,
+	 n*sizeof(GravityParticle));
   incomingParticlesArrived += n;
+  int nLastGas = incomingGas->size();
+  incomingGas->resize(nLastGas + nGasIn);
+  memcpy(&((*incomingGas)[nLastGas]), pGas, nGasIn*sizeof(extraSPHData));
 
-  if (verbosity>=3) ckout << thisIndex <<" waiting for "<<dm->particleCounts[myPlace]-incomingParticlesArrived<<" particles ("<<dm->particleCounts[myPlace]<<"-"<<incomingParticlesArrived<<")"<<(incomingParticlesSelf?" self":"")<<endl;
+  if (verbosity>=3)
+      ckout << thisIndex <<" waiting for "
+	    << dm->particleCounts[myPlace]-incomingParticlesArrived
+	    << " particles ("<<dm->particleCounts[myPlace]<<"-"
+	    << incomingParticlesArrived<<")"
+	    << (incomingParticlesSelf?" self":"")<<endl;
 
-  if(dm->particleCounts[myPlace] == incomingParticlesArrived && incomingParticlesSelf) {
-    //I've got all my particles
-    delete[] myParticles;
-    myParticles = incomingParticles;
-    incomingParticles = NULL;
-    myNumParticles = dm->particleCounts[myPlace];
-    incomingParticlesArrived = 0;
-    incomingParticlesSelf = false;
+  if(dm->particleCounts[myPlace] == incomingParticlesArrived
+     && incomingParticlesSelf) {
+      //I've got all my particles
+      delete[] myParticles;
+      myParticles = incomingParticles;
+      incomingParticles = NULL;
+      myNumParticles = dm->particleCounts[myPlace];
+      incomingParticlesArrived = 0;
+      incomingParticlesSelf = false;
+      
+      delete[] mySPHParticles;
+      mySPHParticles = new extraSPHData[incomingGas->size()];
+      memcpy(mySPHParticles, &((*incomingGas)[0]),
+	     incomingGas->size()*sizeof(extraSPHData));
+      delete incomingGas;
 
-    sort(myParticles+1, myParticles+myNumParticles+1);
-    //signify completion with a reduction
-    if(verbosity>1) ckout << thisIndex <<" contributing to accept particles"<<endl;
+      // assign gas data pointers
+      int iGas = 0;
+      for(int iPart = 0; iPart < myNumParticles; iPart++) {
+	  if(TYPETest(&myParticles[iPart+1], TYPE_GAS)) {
+	      myParticles[iPart+1].extraData
+		  = (extraSPHData *)&mySPHParticles[iGas];
+	      iGas++;
+	      }
+	  }
 
-    if (root != NULL) {
-      root->fullyDelete();
-      delete root;
-      root = NULL;
-      nodeLookupTable.clear();
-    }
-    contribute(0, 0, CkReduction::concat, callback);
-  }
+      sort(myParticles+1, myParticles+myNumParticles+1);
+      //signify completion with a reduction
+      if(verbosity>1) ckout << thisIndex <<" contributing to accept particles"
+			    <<endl;
+
+      if (root != NULL) {
+	  root->fullyDelete();
+          delete root;
+	  root = NULL;
+	  nodeLookupTable.clear();
+	  }
+      contribute(0, 0, CkReduction::concat, callback);
+      }
 }
 
 // Sum energies for diagnostics
@@ -4587,12 +4633,31 @@ void TreePiece::pup(PUP::er& p) {
 
   p | numTreePieces;
   p | callback;
+  p | nTotalParticles;
   p | myNumParticles;
+  p | nTotalSPH;
+  p | myNumSPH;
+  p | nTotalStars;
   if(p.isUnpacking()) {
     myParticles = new GravityParticle[myNumParticles + 2];
+    mySPHParticles = new extraSPHData[myNumSPH];
   }
   for(unsigned int i=0;i<myNumParticles+2;i++){
     p | myParticles[i];
+    if(TYPETest(&myParticles[i],TYPE_GAS)) {
+	int iSPH;
+	if(!p.isUnpacking()) {
+	    iSPH = (extraSPHData *)myParticles[i].extraData - mySPHParticles;
+	    p | iSPH;
+	    }
+	else {
+	    p | iSPH;
+	    myParticles[i].extraData = mySPHParticles + iSPH;
+	    }
+	}
+  }
+  for(unsigned int i=0;i<myNumSPH;i++){
+    p | mySPHParticles[i];
   }
   //p | numSplitters;
   //if(p.isUnpacking())
@@ -4602,8 +4667,6 @@ void TreePiece::pup(PUP::er& p) {
   //p | streamingProxy;
   p | basefilename;
   p | boundingBox;
-  p | tipsyHeader;
-  p | fh;
   p | started;
   p | iterationNo;
   if(p.isUnpacking()){
@@ -5340,21 +5403,32 @@ extern "C" void FreeDataManagerMemory();
 #endif
 
 void TreePiece::markWalkDone() {
+    // At this point this treepiece has completed its walk.  However,
+    // there may be outstanding requests by other pieces.  We need to
+    // wait for all walks to complete before freeing data structures.
+    
+    if (++completedActiveWalks == activeWalks.size()) {
+	CkCallback cb = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
+	contribute(0, 0, CkReduction::concat, cb);
+	}
+    }
+
+void TreePiece::finishWalk()
+{
+    // Furthermore, we need to wait for outstanding flushes to be
+    // processed for the combiner cache.
     bWalkDonePending = 0;
     if(sSmooth && nCacheAccesses > 0) {
 	bWalkDonePending = 1;
 	return;
 	}
-    
-  if (++completedActiveWalks == activeWalks.size()) {
-    //checkWalkCorrectness();
+
+    nCacheAccesses = 0; // reset for non-combiner walks.
     freeWalkObjects();
 #ifdef CUDA
     FreeDataManagerMemory();
 #endif
     contribute(0, 0, CkReduction::concat, callback);
-    //CkPrintf("nodeInterRemote: %ld\nnodeInterLocal: %ld\npartInterRemote: %ld\npartInterLocal: %ld\n completed walks: %d\n", nodeInterRemote[0], nodeInterLocal, particleInterRemote[0], particleInterLocal, completedActiveWalks);
-  }
 }
 
 #if INTERLIST_VER > 0

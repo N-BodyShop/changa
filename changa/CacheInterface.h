@@ -40,6 +40,7 @@ public:
     int end;	// ending Particle number
     CkCacheKey key;
     GravityParticle *partCached;
+    extraSPHData *extraSPHCached;
   ExternalSmoothParticle partExt[1];
 };
 

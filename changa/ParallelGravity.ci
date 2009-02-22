@@ -48,6 +48,8 @@ mainmodule ParallelGravity {
           double pos[];
           char dim[];
         };
+	
+	PUPable DensitySmoothParams;
 
 	mainchare [migratable] Main {
 		entry Main();
@@ -110,10 +112,13 @@ mainmodule ParallelGravity {
 		//entry void markPresence(const CkCallback& cb);
 		entry void load(const std::string& fn, const CkCallback& cb);
 		entry void loadTipsy(const std::string& filename,
+		      	   	     const double dTuFac,
 				     const CkCallback& cb);
 		entry void setupWrite(int iStage, int64_t iPrevOffset,
-                                      const std::string& filename, const double dTime,
-                                      const double dvFac, const CkCallback& cb);
+                                      const std::string& filename,
+				      const double dTime, const double dvFac,
+				      const double duTfac,
+				      const CkCallback& cb);
 		entry void reOrder(CkCallback& cb);
 		entry void ioAcceptSortedParticles(const GravityParticle particles[n],
 					     const int n);
@@ -121,7 +126,8 @@ mainmodule ParallelGravity {
 		entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
 		entry void unshuffleParticles(CkReductionMsg* m);
 		entry void acceptSortedParticles(const GravityParticle particles[n],
-                                                 const int n);
+				   const int n, const extraSPHData pExtra[nGas],
+				   const int nGas);
                 //ORB
                 entry void initORBPieces(const CkCallback& cb);
                 entry void initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback);
@@ -155,8 +161,11 @@ mainmodule ParallelGravity {
                 entry void startORBTreeBuild(CkReductionMsg* m);
                 
         entry void startIteration(int activeRung, CkCallback &cb);
-        entry void startIterationSmooth(int activeRung, CkCallback &cb);
-        entry void startIterationReSmooth(int activeRung, CkCallback &cb);
+        entry void startIterationSmooth(int activeRung, CkPointer<SmoothParams>,
+	      	   			CkCallback &cb);
+        entry void startIterationReSmooth(int activeRung,
+	      	   			  CkPointer<SmoothParams>,
+	      	   			  CkCallback &cb);
 
             
 		//entry void acceptBoundaryNodeContribution(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
@@ -180,6 +189,7 @@ mainmodule ParallelGravity {
 		entry void calculateSmoothLocal();
 		entry void calculateReSmoothLocal();
 
+		entry void finishWalk();
 		//entry void fillRequestBucketTree(BucketGravityRequest req);	
 		//entry void receiveGravityBucketTree(const BucketGravityRequest& req);
 

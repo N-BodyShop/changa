@@ -51,6 +51,21 @@ class ExternalGravityParticle {
   }
 };
 
+// Extra data needed for SPH
+class extraSPHData 
+{
+ private:
+    double _u;
+    double _fMetals;
+ public:
+    inline double& u() {return _u;}
+    inline double& fMetals() {return _fMetals;}
+    void pup(PUP::er &p) {
+	p | _u;
+	p | _fMetals;
+	}
+    };
+
 class ExternalSmoothParticle;
 
 // This class contains everything that a "dark matter" particle needs.
@@ -71,6 +86,7 @@ public:
 #ifdef CHANGESOFT
 	double fSoft0;
 #endif
+	void *extraData;	/* SPH or Star particle data */
 
 #if COSMO_STATS > 1
 	double intcellmass;
@@ -102,8 +118,12 @@ public:
 #endif
         }
 	ExternalSmoothParticle getExternalSmoothParticle();
+	inline double& u() { return (((extraSPHData*)extraData)->u());}
+	inline double& fMetals() { return (((extraSPHData*)extraData)->fMetals());}
 };
 
+
+// Class for cross processor data needed for smooth operations
 class ExternalSmoothParticle {
  public:
 
@@ -111,6 +131,7 @@ class ExternalSmoothParticle {
   double fBall;
   double fDensity;
   Vector3D<double> position;
+  unsigned int iType;	// Bitmask to hold particle type information
 
   ExternalSmoothParticle() {}
 
@@ -120,14 +141,15 @@ class ExternalSmoothParticle {
 	  fBall = p->fBall;
 	  fDensity = p->fDensity;
 	  position = p->position;
+	  iType = p->iType;
 	  }
   
-  inline GravityParticle getParticle() { GravityParticle tmp;
-      tmp.mass = mass;
-      tmp.fBall = fBall;
-      tmp.fDensity = fDensity;
-      tmp.position = position;
-      return tmp;
+  inline void getParticle(GravityParticle *tmp) { 
+      tmp->mass = mass;
+      tmp->fBall = fBall;
+      tmp->fDensity = fDensity;
+      tmp->position = position;
+      tmp->iType = iType;
       }
 	  
   void pup(PUP::er &p) {
@@ -135,6 +157,7 @@ class ExternalSmoothParticle {
     p | mass;
     p | fBall;
     p | fDensity;
+    p | iType;
   }
 };
 

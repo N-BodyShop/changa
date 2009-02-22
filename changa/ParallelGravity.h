@@ -76,6 +76,9 @@ inline void operator|(PUP::er &p,DomainsDec &d) {
 #include "GravityParticle.h"
 
 #include "MultistepLB.decl.h"          // jetley - needed for CkIndex_MultistepLB
+
+class SmoothParams;
+
 #include "ParallelGravity.decl.h"
 
 extern CProxy_Main mainChare;
@@ -400,8 +403,6 @@ class TreePiece : public CBase_TreePiece {
 #endif
    Compute *sGravity, *sPrefetch;
    Compute *sSmooth;
-   /* XXX This should be in sSmooth??? */
-   void (*fcnCombine)(GravityParticle *p1, ExternalSmoothParticle *p2);
    Opt *sLocal, *sRemote, *sPref;
    State *sPrefetchState, *sLocalGravityState, *sRemoteGravityState, *sSmoothState;
    Opt *optSmooth;
@@ -425,6 +426,7 @@ class TreePiece : public CBase_TreePiece {
         int addActiveWalk(TreeWalk *tw, Compute *c, Opt *o, State *s);
 
         void markWalkDone();
+	void finishWalk();
 
         int getIndex() {
           return thisIndex;
@@ -521,6 +523,9 @@ class TreePiece : public CBase_TreePiece {
           return bucketList[i];
         }
 
+	/// Time read in from input file
+	double dStartTime;
+
 private:
 
         // jetley - proxy for load balancer
@@ -537,10 +542,20 @@ private:
 	/// @brief Used to inform the mainchare that the requested operation has
 	/// globally finished
 	CkCallback callback;
+	/// Total Particles in the simulation
+	int64_t nTotalParticles;
 	/// Total number of particles contained in this chare
 	unsigned int myNumParticles;
 	/// Array with the particles in this chare
 	GravityParticle* myParticles;
+	/// Total Gas Particles
+	int64_t nTotalSPH;
+	/// Total gas in this chare
+	unsigned int myNumSPH;
+	/// Array with SPH particle data
+	extraSPHData *mySPHParticles;
+	/// Total Star Particles
+	int64_t nTotalStars;
 
 	/// List of all the node-buckets in this TreePiece
 	std::vector<GenericTreeNode *> bucketList;
@@ -556,6 +571,7 @@ private:
         /// change the TreePiece particles before the one belonging to someone
         /// else have been sent out
         bool incomingParticlesSelf;
+	std::vector<extraSPHData> *incomingGas;
 
 	/// holds the total mass of the current TreePiece
 	double piecemass;
@@ -757,9 +773,7 @@ private:
   EwaldData *h_idata;
 #endif
   void EwaldGPUComplete();
-	int bLoaded;		/* Are particles loaded? */
-	FieldHeader fh;
-	Tipsy::header tipsyHeader; /* for backward compatibility */
+  int bLoaded;		/* Are particles loaded? */
 
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
   ///This function checks the correctness of the treewalk
@@ -807,7 +821,8 @@ private:
 	/// Initialize all the buckets for the tree walk
 	/// @TODO: Eliminate this redundant copy!
 	void initBuckets();
-	void initBucketsSmooth();
+	template <class Tsmooth>
+	void initBucketsSmooth(Tsmooth tSmooth);
 	void smoothNextBucket();
 	void reSmoothNextBucket();
 	/** @brief Initial walk through the tree. It will continue until local
@@ -967,14 +982,16 @@ public:
 	void load(const std::string& fn, const CkCallback& cb);
 
 	// Load from Tipsy file
-	void loadTipsy(const std::string& filename, const CkCallback& cb);
+	void loadTipsy(const std::string& filename, const double dTuFac,
+		       const CkCallback& cb);
 	// Write a Tipsy file
 	void writeTipsy(const std::string& filename, const double dTime,
-			const double dvFac);
+			const double dvFac, const double duTfac);
 	// Find position in the file to start writing
 	void setupWrite(int iStage, int64_t iPrevOffset,
 			const std::string& filename, const double dTime,
-			const double dvFac, const CkCallback& cb);
+			const double dvFac, const double duTFac,
+			const CkCallback& cb);
 	// Reorder for output
 	void reOrder(CkCallback& cb);
 	// move particles around for output
@@ -990,7 +1007,9 @@ public:
 	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
 	void unshuffleParticles(CkReductionMsg* m);
 	void acceptSortedParticles(const GravityParticle* particles,
-				   const int n);
+				   const int n, const extraSPHData *pExtra,
+				   const int nGas);
+	void sortSPHData();
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);
   void initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback);
@@ -1092,8 +1111,8 @@ public:
   /// @param cb the callback to use after all the computation has finished
   void startIteration(int am, const CkCallback& cb);
   /// As above, but for a smooth operation.
-  void startIterationSmooth(int am, const CkCallback& cb);
-  void startIterationReSmooth(int am, const CkCallback& cb);
+  void startIterationSmooth(int am, SmoothParams *p, const CkCallback& cb);
+  void startIterationReSmooth(int am, SmoothParams *p, const CkCallback& cb);
 
 	/// Function called by the CacheManager to send out request for needed
 	/// remote data, so that the later computation will hit.

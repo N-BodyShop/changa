@@ -34,6 +34,8 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   }
   xdrstdio_create(&xdrs, infile, XDR_DECODE);
 	
+  FieldHeader fh;
+  
   if(!xdr_template(&xdrs, &fh)) {
     ckerr << "TreePiece " << thisIndex << ": Couldn't read header from masses file, aborting" << endl;
     contribute(0, 0, CkReduction::concat, cb);
@@ -244,7 +246,9 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   contribute(0, 0, CkReduction::concat, cb);
 }
 
-void TreePiece::loadTipsy(const std::string& filename, const CkCallback& cb) {
+void TreePiece::loadTipsy(const std::string& filename,
+			  const double dTuFac, // Convert Temperature
+			  const CkCallback& cb) {
 	callback = cb;
 	
 	bLoaded = 0;
@@ -252,15 +256,14 @@ void TreePiece::loadTipsy(const std::string& filename, const CkCallback& cb) {
 	Tipsy::TipsyReader r(filename);
 	if(!r.status()) {
 		cerr << thisIndex << ": TreePiece: Fatal: Couldn't open tipsy file!" << endl;
-		cb.send(0);
+		cb.send(0);	// Fire off callback
 		return;
 	}
 	
-	numTreePieces = numTreePieces;
-	tipsyHeader = r.getHeader();
-	int totalNumParticles = tipsyHeader.nbodies;
-	fh.numParticles = totalNumParticles;
-	fh.time = tipsyHeader.time;
+	Tipsy::header tipsyHeader = r.getHeader();
+	nTotalParticles = tipsyHeader.nbodies;
+	nTotalSPH = tipsyHeader.nsph;
+	dStartTime = tipsyHeader.time;
 	int excess;
 	unsigned int startParticle;
 
@@ -280,9 +283,9 @@ void TreePiece::loadTipsy(const std::string& filename, const CkCallback& cb) {
 	    CkAbort("Invalid domain decomposition requested");
 	    }
 
-	myNumParticles = totalNumParticles / numTreePieces;
+	myNumParticles = nTotalParticles / numTreePieces;
     
-	excess = totalNumParticles % numTreePieces;
+	excess = nTotalParticles % numTreePieces;
 	startParticle = myNumParticles * thisIndex;
 	if(thisIndex < (int) excess) {
 	    myNumParticles++;
@@ -293,10 +296,22 @@ void TreePiece::loadTipsy(const std::string& filename, const CkCallback& cb) {
 	    }
 	
 	if(verbosity > 2)
-		cerr << thisIndex << ": TreePiece: Taking " << myNumParticles << " of " << totalNumParticles << " particles, starting at " << startParticle << endl;
+		cerr << thisIndex << ": TreePiece: Taking " << myNumParticles
+		     << " of " << nTotalParticles
+		     << " particles, starting at " << startParticle << endl;
 
 	// allocate an array for myParticles
 	myParticles = new GravityParticle[myNumParticles + 2];
+	if(startParticle < nTotalSPH) {
+	    if(startParticle + myNumParticles <= nTotalSPH)
+		myNumSPH = myNumParticles;
+	    else
+		myNumSPH = nTotalSPH - startParticle;
+	    }
+	else {
+	    myNumSPH = 0;
+	    }
+	mySPHParticles = new extraSPHData[myNumSPH];
 	
 	if(!r.seekParticleNum(startParticle)) {
 		cerr << thisIndex << ": TreePiece: Fatal: Couldn't seek to my particles!" << endl;
@@ -307,6 +322,8 @@ void TreePiece::loadTipsy(const std::string& filename, const CkCallback& cb) {
 	Tipsy::gas_particle gp;
 	Tipsy::dark_particle dp;
 	Tipsy::star_particle sp;
+
+	int iSPH = 0;
 	for(unsigned int i = 0; i < myNumParticles; ++i) {
 		if(i + startParticle < (unsigned int) tipsyHeader.nsph) {
 			r.getNextGasParticle(gp);
@@ -315,6 +332,12 @@ void TreePiece::loadTipsy(const std::string& filename, const CkCallback& cb) {
 			myParticles[i+1].velocity = gp.vel;
 			myParticles[i+1].soft = gp.hsmooth;
 			myParticles[i+1].iType = TYPE_GAS;
+			myParticles[i+1].fDensity = gp.rho;
+			myParticles[i+1].extraData = &mySPHParticles[iSPH];
+			mySPHParticles[iSPH].fMetals() = gp.metals;
+			mySPHParticles[iSPH].u() = dTuFac*gp.temp;
+			// XXX more particle initialization needed
+			iSPH++;
 		} else if(i + startParticle < (unsigned int) tipsyHeader.nsph
 			  + tipsyHeader.ndark) {
 			r.getNextDarkParticle(dp);
@@ -357,12 +380,13 @@ void TreePiece::setupWrite(int iStage, // stage of scan
 			   const std::string& filename,
 			   const double dTime,
 			   const double dvFac,
+			   const double duTFac,
 			   const CkCallback& cb)
 {
     if(iStage > nSetupWriteStage + 1) {
 	// requeue message
 	pieces[thisIndex].setupWrite(iStage, iPrevOffset, filename,
-					  dTime, dvFac, cb);
+				     dTime, dvFac, duTFac, cb);
 	return;
 	}
     nSetupWriteStage++;
@@ -379,7 +403,8 @@ void TreePiece::setupWrite(int iStage, // stage of scan
 	    }
 	pieces[thisIndex+iOffset].setupWrite(iStage+1,
 					     nStartWrite+myNumParticles,
-					     filename, dTime, dvFac, cb);
+					     filename, dTime, dvFac, duTFac,
+					     cb);
 	}
     if(thisIndex < iOffset) { // No more messages are coming my way
 	// send out all the messages
@@ -393,20 +418,28 @@ void TreePiece::setupWrite(int iStage, // stage of scan
 		}
 	    pieces[thisIndex+iOffset].setupWrite(iStage+1,
 						 nStartWrite+myNumParticles,
-						 filename, dTime, dvFac, cb);
+						 filename, dTime, dvFac,
+						 duTFac, cb);
 	    }
 	if(thisIndex == (int) numTreePieces-1)
-	    assert(nStartWrite+myNumParticles == fh.numParticles);
+	    assert(nStartWrite+myNumParticles == nTotalParticles);
 	nSetupWriteStage = -1;	// reset for next time.
-	writeTipsy(filename, dTime, dvFac);
+	writeTipsy(filename, dTime, dvFac, duTFac);
 	contribute(0, 0, CkReduction::concat, cb);
 	}
     }
 
 void TreePiece::writeTipsy(const std::string& filename, const double dTime,
-			   const double dvFac)
+			   const double dvFac, // scale velocities
+			   const double duTFac) // convert temperature
 {
+    Tipsy::header tipsyHeader;
+
     tipsyHeader.time = dTime;
+    tipsyHeader.nbodies = nTotalParticles;
+    tipsyHeader.nsph = nTotalSPH;
+    tipsyHeader.nstar = nTotalStars;
+    tipsyHeader.ndark = nTotalParticles - (nTotalSPH + nTotalStars);
     
     Tipsy::TipsyWriter w(filename, tipsyHeader);
     
@@ -421,6 +454,9 @@ void TreePiece::writeTipsy(const std::string& filename, const double dTime,
 	    gp.vel = myParticles[i+1].velocity*dvFac;
 	    gp.hsmooth = myParticles[i+1].soft;
 	    gp.phi = myParticles[i+1].potential;
+	    gp.rho = myParticles[i+1].fDensity;
+	    gp.metals = myParticles[i+1].fMetals();
+	    gp.temp = duTFac*myParticles[i+1].u();
 
 	    w.putNextGasParticle(gp);
 	    }
@@ -470,8 +506,8 @@ void TreePiece::reOrder(CkCallback& cb)
     // @TODO: assumes no particle creation/destruction
     //
     for(iPiece = 0; iPiece < numTreePieces; iPiece++) {
-	int nOutParticles = fh.numParticles/ numTreePieces;
-	int excess = fh.numParticles % numTreePieces;
+	int nOutParticles = nTotalParticles/ numTreePieces;
+	int excess = nTotalParticles % numTreePieces;
 	startParticle[iPiece] = nOutParticles * iPiece;
 	if(iPiece < (int) excess) {
 	    startParticle[iPiece] += iPiece;
@@ -480,7 +516,7 @@ void TreePiece::reOrder(CkCallback& cb)
 	    startParticle[iPiece] += excess;
 	    }
 	}
-    startParticle[numTreePieces] = fh.numParticles; // @TODO: replace
+    startParticle[numTreePieces] = nTotalParticles; // @TODO: replace
 						    // with MaxIOrder
 						    // for particle
 						    // creation/deletion
@@ -488,7 +524,7 @@ void TreePiece::reOrder(CkCallback& cb)
     sort(myParticles+1, myParticles+myNumParticles+1, compIOrder);
 
     // Tag boundary particle to avoid overruns
-    myParticles[myNumParticles+1].iOrder = fh.numParticles;
+    myParticles[myNumParticles+1].iOrder = nTotalParticles;
     
     // Loop through sending particles to correct processor.
     GravityParticle *binBegin = &myParticles[1];
@@ -524,9 +560,9 @@ void TreePiece::reOrder(CkCallback& cb)
 void TreePiece::ioAcceptSortedParticles(const GravityParticle* particles,
 					const int n) {
 
-    int myIOParticles = fh.numParticles / numTreePieces;
+    int myIOParticles = nTotalParticles / numTreePieces;
     
-    int excess = fh.numParticles % numTreePieces;
+    int excess = nTotalParticles % numTreePieces;
     if(thisIndex < (int) excess) {
 	    myIOParticles++;
 	    }
@@ -571,6 +607,7 @@ void TreePiece::ioAcceptSortedParticles(const GravityParticle* particles,
 }
 
 void TreePiece::outputAccelerations(OrientedBox<double> accelerationBox, const string& suffix, const CkCallback& cb) {
+  FieldHeader fh;
   if(thisIndex == 0) {
     if(verbosity > 2)
       ckerr << "TreePiece " << thisIndex << ": Writing header for accelerations file" << endl;
@@ -627,7 +664,7 @@ void TreePiece::outputAccASCII(const string& suffix, const CkCallback& cb) {
     if(verbosity > 2)
       ckerr << "TreePiece " << thisIndex << ": Writing header for accelerations file" << endl;
     FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "w");
-		fprintf(outfile,"%d\n",(int) fh.numParticles);
+    fprintf(outfile,"%d\n",(int) nTotalParticles);
     fclose(outfile);
   }
 	
@@ -693,7 +730,7 @@ void TreePiece::outputIOrderASCII(const string& suffix, const CkCallback& cb) {
       ckerr << "TreePiece " << thisIndex << ": Writing header for iOrder file"
 	    << endl;
     FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "w");
-    fprintf(outfile,"%d\n",(int) fh.numParticles);
+    fprintf(outfile,"%d\n",(int) nTotalParticles);
     fclose(outfile);
   }
 	
@@ -725,7 +762,7 @@ void TreePiece::outputDensityASCII(const string& suffix, const CkCallback& cb) {
       ckerr << "TreePiece " << thisIndex << ": Writing header for Density file"
 	    << endl;
     FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "w");
-    fprintf(outfile,"%d\n",(int) fh.numParticles);
+    fprintf(outfile,"%d\n",(int) nTotalParticles);
     fclose(outfile);
   }
 	

@@ -40,6 +40,8 @@ typedef struct parameters {
     double dMsolUnit;
     double dKpcUnit;
     double dGasConst;
+    double dConstGamma;
+    double dMeanMolWeight;
     double dErgPerGmUnit;
     double dGmPerCcUnit;
     double dSecUnit;
@@ -93,6 +95,8 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dMsolUnit;
     p|param.dKpcUnit;
     p|param.dGasConst;
+    p|param.dConstGamma;
+    p|param.dMeanMolWeight;
     p|param.dErgPerGmUnit;
     p|param.dGmPerCcUnit;
     p|param.dSecUnit;

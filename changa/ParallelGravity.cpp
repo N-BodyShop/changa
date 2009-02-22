@@ -15,6 +15,7 @@
 #include "DataManager.h"
 #include "TipsyFile.h"
 #include "param.h"
+#include "smooth.h"
 
 extern char *optarg;
 extern int optind, opterr, optopt;
@@ -179,6 +180,9 @@ Main::Main(CkArgMsg* m) {
 #endif
 	prmAddParam(prm, "iOrder", paramInt, &param.iOrder,
 		    sizeof(int), "or", "Multipole expansion order(IGNORED)");
+	//
+	// Cosmology parameters
+	//
 	param.bPeriodic = 0;
 	prmAddParam(prm, "bPeriodic", paramBool, &param.bPeriodic,
 		    sizeof(int),"per", "Periodic Boundaries");
@@ -223,13 +227,29 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dRedTo",paramDouble,&param.dRedTo,sizeof(double),
 		    "zto", "specifies final redshift for the simulation");
 	
+	//
+	// Gas parameters
+	//
 	param.dMsolUnit = 1.0;
 	prmAddParam(prm,"dMsolUnit",paramDouble,&param.dMsolUnit,
 		    sizeof(double),"msu", "<Solar mass/system mass unit>");
 	param.dKpcUnit = 1000.0;
 	prmAddParam(prm,"dKpcUnit",paramDouble,&param.dKpcUnit,
 		    sizeof(double),"kpcu", "<Kiloparsec/system length unit>");
+	param.dConstGamma = 5.0/3.0;
+	prmAddParam(prm,"dConstGamma",paramDouble,&param.dConstGamma,
+		    sizeof(double),"gamma", "<Ratio of specific heats> = 5/3");
+	param.dMeanMolWeight = 1.0;
+	prmAddParam(prm,"dMeanMolWeight",paramDouble,&param.dMeanMolWeight,
+		    sizeof(double),"mmw",
+		    "<Mean molecular weight in amu> = 1.0");
+	param.dGasConst = 1.0;
+	prmAddParam(prm,"dGasConst",paramDouble,&param.dGasConst,
+		    sizeof(double),"gcnst", "<Gas Constant>");
 
+	//
+	// Output parameters
+	//
 	printBinaryAcc=1;
 	prmAddParam(prm, "bPrintBinary", paramBool, &printBinaryAcc,
 		    sizeof(int),"z", "Print accelerations in Binary");
@@ -539,7 +559,7 @@ void Main::getStartTime()
 		return;
 		}
 	    /* input time is expansion factor.  Convert */
-	    double dAStart = treeProxy[0].ckLocal()->fh.time; 
+	    double dAStart = treeProxy[0].ckLocal()->dStartTime;
 	    double z = 1.0/dAStart - 1.0;
 	    double aTo, tTo;
 	    dTime = csmExp2Time(param.csm, dAStart);
@@ -628,7 +648,7 @@ void Main::getStartTime()
 	    treeProxy.velScale(dAStart*dAStart);
 	    }
 	else {  // not Comove
-	    dTime = treeProxy[0].ckLocal()->fh.time; 
+	    dTime = treeProxy[0].ckLocal()->dStartTime; 
 	    if(verbosity > 0)
 		ckout << "Input file, Time:" << dTime << endl;
 	    double tTo = dTime + param.nSteps*param.dDelta;
@@ -904,8 +924,8 @@ void Main::setupICs() {
       CkExit();
       return;
     }
-    treeProxy.loadTipsy(basefilename, CkCallbackResumeThread());
-    ckerr << treeProxy[0].ckLocal()->tipsyHeader << endl;
+    double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
+    treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
   }	
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
@@ -1165,13 +1185,14 @@ Main::doSimulation()
   if(param.nSteps == 0) {
       if(param.bDoDensity) {
 	  ckout << "Calculating densities ...";
+	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR);
 	  startTime = CkWallTimer();
-	  treeProxy.startIterationSmooth(0, CkCallbackResumeThread());
+	  treeProxy.startIterationSmooth(0, &pDen, CkCallbackResumeThread());
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
           ckout << "Recalculating densities ...";
           startTime = CkWallTimer();
-          treeProxy.startIterationReSmooth(0, CkCallbackResumeThread());
+          treeProxy.startIterationReSmooth(0, &pDen, CkCallbackResumeThread());
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	  }
       
@@ -1282,7 +1303,8 @@ void Main::writeOutput(int iStep)
 	ckerr << "Writing output ...";
 	startTime = CkWallTimer();
 	}
-    treeProxy.setupWrite(0, 0, achFile, dOutTime, dvFac,
+    double duTFac = (param.dConstGamma-1)*param.dMeanMolWeight/param.dGasConst;
+    treeProxy.setupWrite(0, 0, achFile, dOutTime, dvFac, duTFac,
 		      CkCallbackResumeThread());
     if(verbosity)
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."

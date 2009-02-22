@@ -91,12 +91,13 @@ void * EntryTypeSmoothParticle::unpack(CkCacheFillMsg *msg, int chunk, CkArrayIn
     cParts->key = msg->key;
     int nTotal = 1 + cParts->end - cParts->begin;
     cParts->partCached = new GravityParticle[nTotal];
+    cParts->extraSPHCached = new extraSPHData[nTotal];
     // Expand External particles to full particles in cache
     // XXX also need to allocate extra data.
     for(int i = 0; i < nTotal; i++) {
-	cParts->partCached[i] = cPartsIn->partExt[i].getParticle();
-      	// XXX needs to be replaced with fcnInit.
-      	initDensity(&(cParts->partCached[i]));	// Clear cached copy
+	cParts->partCached[i].extraData = &cParts->extraSPHCached[i];
+	cPartsIn->partExt[i].getParticle(&cParts->partCached[i]);
+      	globalSmoothParams->initSmoothCache(&(cParts->partCached[i]));	// Clear cached copy
 	}
     CkFreeMsg(msg);
     return (void*) cParts;
@@ -169,16 +170,36 @@ void TreePiece::flushSmoothParticles(CkCacheFillMsg *msg) {
   
   CacheSmoothParticle *data = (CacheSmoothParticle*)msg->data;
   
+  CkAssert(nCacheAccesses > 0);
+  
+  // XXX Perhaps another level in the Compute class hierarchy would avoid this.
+  SmoothCompute *sm = dynamic_cast<SmoothCompute *>(sSmooth);
+  ReSmoothCompute *reSm = dynamic_cast<ReSmoothCompute *>(sSmooth);
+  
   int j = 0;
-  for(int i = data->begin; i <= data->end; i++) {
-      fcnCombine(&myParticles[i], &data->partExt[j]);
-      j++;
-  }
+  if(sm) {
+      for(int i = data->begin; i <= data->end; i++) {
+	  if(!TYPETest(&myParticles[i], sm->params->iType))
+	      continue;
+	  sm->params->combSmoothCache(&myParticles[i], &data->partExt[j]);
+	  j++;
+	  }
+      }
+  else if(reSm) {
+      for(int i = data->begin; i <= data->end; i++) {
+	  if(!TYPETest(&myParticles[i], reSm->params->iType))
+	      continue;
+	  reSm->params->combSmoothCache(&myParticles[i], &data->partExt[j]);
+	  j++;
+	  }
+      }
+  else
+      CkAssert(0);
   
   nCacheAccesses--;
   delete msg;
   if(bWalkDonePending)
-	markWalkDone();
+      finishWalk();
 }
 
 // Node Cache methods

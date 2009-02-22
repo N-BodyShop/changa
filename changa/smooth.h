@@ -1,3 +1,5 @@
+#ifndef __SMOOTH_H
+#define __SMOOTH_H
 /*
  * structure for the priority queue.  Also contains information for
  * smooth calculation.
@@ -32,11 +34,52 @@ public:
     ~NearNeighborState() { delete [] Qs; }
 };
 
+// We can make this a base class from which parameters for all smooth
+// types can be derived.
+class SmoothParams : public PUP::able
+{
+ public:
+    int iType;	// Particle type to smooth over
+    virtual void fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *nList) = 0;
+    virtual void initSmoothParticle(GravityParticle *p) = 0;
+    virtual void initSmoothCache(GravityParticle *p) = 0;
+    virtual void combSmoothCache(GravityParticle *p1,
+				 ExternalSmoothParticle *p2) = 0;
+    SmoothParams() {}
+    PUPable_abstract(SmoothParams);
+    SmoothParams(CkMigrateMessage *m) : PUP::able(m) {}
+    virtual void pup(PUP::er &p) {
+        PUP::able::pup(p);//Call base class
+        p|iType;
+	}
+    };
+
+// XXX so we can access the init function with the Cache unpack
+// method.
+
+SmoothParams *globalSmoothParams;
+
+class DensitySmoothParams : public SmoothParams
+{
+    virtual void fcnSmooth(GravityParticle *p, int nSmooth,
+			   pqSmoothNode *nList);
+    virtual void initSmoothParticle(GravityParticle *p);
+    virtual void initSmoothCache(GravityParticle *p);
+    virtual void combSmoothCache(GravityParticle *p1,
+				 ExternalSmoothParticle *p2);
+ public:
+    DensitySmoothParams() {}
+    DensitySmoothParams(int _iType) { iType = _iType;}
+    PUPable_decl(DensitySmoothParams);
+    DensitySmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
+    virtual void pup(PUP::er &p) {
+        SmoothParams::pup(p);//Call base class
+	}
+    };
+
 class SmoothCompute : public Compute 
 {
     int nSmooth;
-    void (*fcnSmooth)(GravityParticle *p, int nSmooth, pqSmoothNode *nList);
-    void (*fcnInit)(GravityParticle *p);
     void bucketCompare(TreePiece *tp,
 		       GravityParticle *p,  // Particle to test
 		       GenericTreeNode *node, // bucket
@@ -45,19 +88,19 @@ class SmoothCompute : public Compute
                        State *state
 		       ) ;
     TreePiece *tp;
-    
 public:
- SmoothCompute(TreePiece *_tp, void (*fcn)(GravityParticle *p, int nSmooth,
-			   pqSmoothNode *nList),
-	       void (*_fcnInit)(GravityParticle *p),
-	       void (*_fcnCombine)(GravityParticle *p1, ExternalSmoothParticle *p2),
-	       int nSm)
+    SmoothParams *params;
+    
+ SmoothCompute(TreePiece *_tp, SmoothParams *_params, int nSm)
      : Compute(Smooth){
+	params = _params;
+	// XXX Assign to global pointer: not thread safe
+	globalSmoothParams = params;
 	nSmooth = nSm;
-	fcnSmooth = fcn;
         tp = _tp;       // needed in getNewState()
 	}
     ~SmoothCompute() { //delete state;
+	delete params;
     }
 	    
     void initSmoothPrioQueue(int iBucket, State *state) ;
@@ -106,7 +149,6 @@ public:
 
 class ReSmoothCompute : public Compute 
 {
-    void (*fcnSmooth)(GravityParticle *p, int nSmooth, pqSmoothNode *nList);
     void bucketCompare(TreePiece *tp,
 		       GravityParticle *p,  // Particle to test
 		       GenericTreeNode *node, // bucket
@@ -117,16 +159,15 @@ class ReSmoothCompute : public Compute
     TreePiece *tp;
     
 public:
- ReSmoothCompute(TreePiece *_tp, void (*fcn)(GravityParticle *p, int nSmooth,
-					     pqSmoothNode *nList),
-		 void (*_fcnInit)(GravityParticle *p),
-		 void (*_fcnCombine)(GravityParticle *p1, ExternalSmoothParticle *p2)
-)
-     : Compute(Smooth){
-	fcnSmooth = fcn;
+    SmoothParams *params;
+    ReSmoothCompute(TreePiece *_tp, SmoothParams *_params) : Compute(Smooth){
+	params = _params;
+	// XXX Assign to global pointer: not thread safe
+	globalSmoothParams = params;
         tp = _tp;       // needed in getNewState()
 	}
     ~ReSmoothCompute() { //delete state;
+	delete params;
     }
 	    
     int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
@@ -155,11 +196,7 @@ public:
  
      };
  
-
-void Density(GravityParticle *p,int nSmooth,pqSmoothNode *nnList);
-void DensitySym(GravityParticle *p,int nSmooth,pqSmoothNode *nnList);
-void initDensity(GravityParticle *p) ;
-void combDensity(GravityParticle *p1, ExternalSmoothParticle *p2);
+#include "Opt.h"
 
 class SmoothOpt : public Opt{
   public:
@@ -200,3 +237,4 @@ class SmoothOpt : public Opt{
   }
 
 };
+#endif
