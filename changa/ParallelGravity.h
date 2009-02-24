@@ -847,7 +847,7 @@ public:
 	    pieces(thisArrayID), started(false), root(0), proxyValid(false),
 	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
 	    sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0) {
-	  //CkPrintf("[%d] TreePiece created\n",thisIndex);
+	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
 	  // the lookup of localCache is done in startOctTreeBuild, when we also markPresence
 	  /*if(_cache){

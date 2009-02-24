@@ -57,7 +57,7 @@ class SmoothParams : public PUP::able
 // XXX so we can access the init function with the Cache unpack
 // method.
 
-SmoothParams *globalSmoothParams;
+extern SmoothParams *globalSmoothParams;
 
 class DensitySmoothParams : public SmoothParams
 {

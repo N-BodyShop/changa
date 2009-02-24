@@ -42,6 +42,8 @@
 #include "smooth.h"
 #include "Space.h"
 
+SmoothParams *globalSmoothParams;
+
 // called after constructor, so tp should be set
 State *SmoothCompute::getNewState(int d1){
   NearNeighborState *state = new NearNeighborState(tp->myNumParticles+2);

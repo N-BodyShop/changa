@@ -397,7 +397,8 @@ void MultistepLB::printData(BaseLB::LDStats &stats, int phase, int *revObjMap){
   
   CkPrintf("---- data (%d): %d objects ----\n", phase, stats.n_objs);
   for(i = 0; i < stats.n_objs; i++){
-    CkPrintf("%d: %f\n", i, stats.objData[i].cpuTime);
+     CkPrintf("%d: %g %g\n", i, stats.objData[i].cpuTime,
+	       stats.objData[i].wallTime);
   }
   CkPrintf("---- end data (%d) ----\n", phase);
 }
