@@ -639,6 +639,7 @@ void TreePiece::calcEnergy(const CkCallback& cb) {
 }
 
 void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1], const CkCallback& cb) {
+  LBTurnInstrumentOff();
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
     if(myParticles[i].rung >= iKickRung) {
       myParticles[i].velocity += dDelta[myParticles[i].rung]*myParticles[i].treeAcceleration;
@@ -2964,6 +2965,7 @@ void TreePiece::walkBucketRemoteTree(GenericTreeNode *node, int chunk,
 
 void TreePiece::startIteration(int am, // the active mask for multistepping
 			       const CkCallback& cb) {
+  LBTurnInstrumentOn();
 
   callback = cb;
   activeRung = am;
@@ -5182,6 +5184,7 @@ CkReduction::reducerType TreePieceStatistics::sum;
  */
 
 void TreePiece::collectStatistics(CkCallback& cb) {
+  LBTurnInstrumentOff();
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
 
 checkWalkCorrectness();
