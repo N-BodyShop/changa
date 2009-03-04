@@ -200,7 +200,7 @@ void TopDownTreeWalk::bft(GenericTreeNode *node, State *state, int chunk, int re
 }
 
 
-extern bool bIsReplica(int reqID);
+bool bIsReplica(int reqID);
 //
 // Bottom up treewalk for efficient smooth:
 // check for root (and non periodic) and do local work
@@ -297,7 +297,7 @@ void LocalTargetWalk::walk(GenericTreeNode *ancestor, State *state, int chunk, i
     dft(ancestor, state, chunk, targetBucketIndex, (ancestorLevel == 0), awi, ancestorLevel);
 }
 
-extern int reEncodeOffset(int reqID, int offsetID);
+int reEncodeOffset(int reqID, int offsetID);
 
 // This walk interprets what is otherwise the 'reqID' argument as the targetBucketIndex
 void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, int targetBucketIndex, bool isRoot, int awi, int level){
@@ -482,9 +482,6 @@ void LocalTargetWalk::resumeWalk(GenericTreeNode *node, State *state_, int chunk
 			GenericTreeNode *lca = ownerTP->getStartAncestor(targetBucket, prevBucket, source);
 
 			int lcaLevel = lca->getLevel(lca->getKey());
-#ifdef CUDA
-			state->numInteractions = 0;
-#endif
 			dft(lca, state, chunk, targetBucket, (lcaLevel == level), activeWalkIndex, lcaLevel);
 
 			GenericTreeNode *lowestNode = state->lowestNode;

@@ -68,6 +68,9 @@ namespace Tree {
 #if INTERLIST_VER > 0
       numBucketsBeneath=0;
       startBucket=-1;
+#ifdef CUDA
+      nodeArrayIndex = -1;
+#endif
 #endif
 #ifdef CHANGA_REFACTOR_WALKCHECK
       touched = false;
@@ -623,6 +626,9 @@ namespace Tree {
       *buffer = *this;
       buffer->parent = NULL;
       buffer->particlePointer = NULL;
+#if INTERLIST_VER > 0 && defined CUDA
+      buffer->nodeArrayIndex = -1;
+#endif
       int used = 1;
       if (depth != 0) {
         if (children[0] != NULL) {

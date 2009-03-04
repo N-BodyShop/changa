@@ -6,14 +6,12 @@ typedef double hosttype;
 
 // FIXME - set these to appropriate values
 // remote, no-resume/local
-#define NODE_INTERACTIONS_PER_REQUEST_RNR 3
-#define PART_INTERACTIONS_PER_REQUEST_RNR 3
+#define NODE_INTERACTIONS_PER_REQUEST_RNR 30000000
+#define PART_INTERACTIONS_PER_REQUEST_RNR 30000000
 // remote, resume
-#define NODE_INTERACTIONS_PER_REQUEST_RR 3
-#define PART_INTERACTIONS_PER_REQUEST_RR 3
+#define NODE_INTERACTIONS_PER_REQUEST_RR 30000000
+#define PART_INTERACTIONS_PER_REQUEST_RR 30000000
 
-#define MAX_PARTICLES_PER_BUCKET 10
-#define THREADS_PER_BLOCK 128
 
 typedef struct CudaVector3D{
   cudatype x,y,z;
@@ -24,11 +22,17 @@ typedef struct CudaVector3D{
     z = a.z;
     return *this;
   }
+  
+  inline Vector3D<hosttype> operator+(Vector3D<hosttype> &v){
+    return Vector3D<hosttype>(x + v.x, y + v.y, z + v.z);
+  }
+
   CudaVector3D(Vector3D<hosttype> &o){
     x = o.x;
     y = o.y;
     z = o.z;
   }
+  
   CudaVector3D(){}
 #endif
 }CudaVector3D;
@@ -88,6 +92,10 @@ typedef struct CompactPartData{
   cudatype mass;
   cudatype soft;
   CudaVector3D position;
+#if defined CUDA_EMU_KERNEL_NODE_PRINTS || defined CUDA_EMU_KERNEL_PART_PRINTS
+  int tp, id;
+#endif
+
 #if __cplusplus && !defined __CUDACC__
   CompactPartData(){}
   CompactPartData(ExternalGravityParticle &egp){

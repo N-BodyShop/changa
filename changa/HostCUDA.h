@@ -3,31 +3,56 @@
 
 
 #include "cuda_typedef.h"
+#include "cuda_runtime.h"
 /* Boolean defines */
 enum boolean {NO, YES};
 
-/* defines for Hybrid API buffer indices */
+#define THREADS_PER_BLOCK 64
 
-#define POST_PREFETCH_MOMENTS        0
-#define POST_PREFETCH_PARTICLE_CORES  1
-#define PARTICLE_VARS      2
+// FIXME - find appropriate values
+#define NUM_INIT_MOMENT_INTERACTIONS_PER_BUCKET 100
+#define NUM_INIT_PARTICLE_INTERACTIONS_PER_BUCKET 100
+
+/* defines for Hybrid API buffer indices */
+#define LOCAL_MOMENTS        0
+#define LOCAL_PARTICLE_CORES  1
+#define LOCAL_PARTICLE_VARS      2
+#define REMOTE_MOMENTS 3 
+#define REMOTE_PARTICLE_CORES 4
+
+#define LOCAL_MOMENTS_IDX        0
+#define LOCAL_PARTICLE_CORES_IDX  1
+#define LOCAL_PARTICLE_VARS_IDX      2
+#define REMOTE_MOMENTS_IDX 0
+#define REMOTE_PARTICLE_CORES_IDX 1
 
 #define ILPART 0
+#define PART_BUCKET_MARKERS 1
+#define PART_BUCKET_START_MARKERS 2
+#define PART_BUCKET_SIZES 3
 #define ILCELL 0
-
 #define NODE_BUCKET_MARKERS 1
 #define NODE_BUCKET_START_MARKERS 2
 #define NODE_BUCKET_SIZES 3
 
-#define PART_BUCKET_MARKERS 1
-#define PART_BUCKET_START_MARKERS 2
-#define PART_BUCKET_SIZES 3
+#define ILPART_IDX 0
+#define PART_BUCKET_MARKERS_IDX 1
+#define PART_BUCKET_START_MARKERS_IDX 2
+#define PART_BUCKET_SIZES_IDX 3
+#define ILCELL_IDX 0
+#define NODE_BUCKET_MARKERS_IDX 1
+#define NODE_BUCKET_START_MARKERS_IDX 2
+#define NODE_BUCKET_SIZES_IDX 3
 
 #define MISSED_MOMENTS 4
 #define MISSED_PARTS 4
 
-// node moments and particle cores
-#define DM_TRANSFER_NBUFFERS 2
+#define MISSED_MOMENTS_IDX 4
+#define MISSED_PARTS_IDX 4
+
+// node moments, particle cores, particle vars
+#define DM_TRANSFER_LOCAL_NBUFFERS 3
+#define DM_TRANSFER_REMOTE_CHUNK_NBUFFERS 2
 
 // interaction list
 // list markers
@@ -44,13 +69,20 @@ enum boolean {NO, YES};
 // tp_gravity_local uses arrays of particles and nodes already allocated on the gpu
 // tp_gravity_remote uses arrays of nodes already on the gpu + particles from an array it supplies
 // tp_gravity_remote_resume uses an array each of nodes and particles it supplies
-enum kernels {DM_TRANSFER,
-						  TP_GRAVITY_LOCAL,
-						  TP_GRAVITY_REMOTE,
-						  TP_GRAVITY_REMOTE_RESUME,
-						  TP_PART_GRAVITY_LOCAL,
-						  TP_PART_GRAVITY_REMOTE,
-						  TP_PART_GRAVITY_REMOTE_RESUME};
+enum kernels {
+  DM_TRANSFER_LOCAL=0,
+  DM_TRANSFER_REMOTE_CHUNK,
+  DM_TRANSFER_BACK,
+  DM_TRANSFER_FREE_LOCAL,
+  DM_TRANSFER_FREE_REMOTE_CHUNK,
+  TP_GRAVITY_LOCAL,
+  TP_GRAVITY_REMOTE,
+  TP_GRAVITY_REMOTE_RESUME,
+  TP_PART_GRAVITY_LOCAL,
+  TP_PART_GRAVITY_REMOTE,
+  TP_PART_GRAVITY_REMOTE_RESUME//,
+  //DUMMY
+  };
 
 
 typedef struct _CudaRequest{
@@ -65,38 +97,30 @@ typedef struct _CudaRequest{
 
 	// these buckets were finished in this work request
 	int *affectedBuckets;
-	// was the last bucket only partially finished?
-	bool lastBucketComplete;
         void *cb;
         void *state;
+        // call dummy kernel and initiate freeing of remote chunk
+        // memory on GPU
+        bool callDummy;
+        cudatype fperiod;
+
+        // TODO: remove these later. is this a node or particle computation request?
+        bool node;
+        // is this a remote or local computation 
+        bool remote;
 }CudaRequest;
 
-/*
-typedef struct _PartListData{
-	ILPart *partList;
-	int *partListBucketMarkers;
-	int *bucketStarts;
-	int *bucketSizes;
-	int numBucketsPlusOne;
-	int numInteractions;
+typedef struct _ParameterStruct{
+  int numInteractions;
+  int numBucketsPlusOne;
+  int numMissedCores;
+  int numEntities;// TODO: can be removed later on
+  cudatype fperiod;
+}ParameterStruct;
 
-	// these buckets were finished in this work request
-	int *affectedBuckets;
-	// was the last bucket completely finished?
-	bool lastBucketComplete;
-        void *cb;
-        void *tp; // tp that issued the work request
-        void *state;
-}PartListData;
-*/
 
-// these functions must follow C linkage
-// FIXME - also, not defined NVCC
-#if defined __cplusplus
-extern "C" {
-#endif
-
-void DataManagerTransfer(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts);
+void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts);
+void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts);
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data);
 void TreePieceCellListDataTransferRemote(CudaRequest *data);
@@ -104,14 +128,9 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleM
 
 
 void TreePiecePartListDataTransferLocal(CudaRequest *data);
-// the 'missedParticles' here are actually prefetched particles
 void TreePiecePartListDataTransferRemote(CudaRequest *data);
-//void TreePiecePartListDataTransferRemote(CudaRequest *data, CompactPartData *missedParticles, int numMissedParticles);
 void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartData *missedParticles, int numMissedParticles);
 
-
-#ifdef __cplusplus
-}
-#endif
+void DummyKernel(void *cb);
 
 #endif

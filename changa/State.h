@@ -10,10 +10,73 @@ class State {
   int *counterArrays[2];
 };
 
+#if INTERLIST_VER > 0
 typedef CkQ<OffsetNode> CheckList;
 
 typedef CkVec<OffsetNode> UndecidedList;
 typedef CkVec<UndecidedList> UndecidedLists;
+
+#if defined CUDA
+#include "HostCUDA.h"
+#include "DataManager.h"
+
+class DoubleWalkState;
+
+template<typename T>
+class GenericList{
+  public:
+  CkVec<CkVec<T> > lists;
+  int totalNumInteractions;
+
+  GenericList() : totalNumInteractions(0) {}
+
+  void reset(){
+    // clear all bucket lists:
+    for(int i = 0; i < lists.length(); i++){
+      lists[i].length() = 0;
+    }
+    totalNumInteractions = 0;
+  }
+
+  void free(){
+    for(int i = 0; i < lists.length(); i++){
+      lists[i].free();
+    }
+    lists.free();
+    totalNumInteractions = 0;
+  }
+
+  void init(int numBuckets, int numper){
+    lists.resize(numBuckets);
+    for(int i = 0; i < numBuckets; i++){
+      lists[i].reserve(numper);
+    }
+  }
+
+  CudaRequest *serialize(TreePiece *tp);
+  void getBucketParameters(TreePiece *tp, 
+                           int bucket, 
+                           int &bucketStart, int &bucketSize, 
+                           std::map<NodeKey, int>&lpref){
+	// bucket b is listed in this offload
+	GenericTreeNode *bucketNode = tp->bucketList[bucket];
+
+	bucketSize = bucketNode->lastParticle - bucketNode->firstParticle + 1;
+	NodeKey partKey = bucketNode->getKey();
+	partKey <<= 1;
+
+	std::map<NodeKey, int>::iterator iter = lpref.find(partKey);
+	CkAssert(iter != lpref.end());
+	bucketStart = iter->second;
+	CkAssert(bucketStart >= 0);
+  }
+
+  void push_back(int b, T &ilc, DoubleWalkState *state, TreePiece *tp);
+  
+
+};
+
+#endif
 
 class DoubleWalkState : public State {
   public:
@@ -29,40 +92,25 @@ class DoubleWalkState : public State {
   bool placedRoots;
 
 #ifdef CUDA
-  // arrays of CkVecs - interaction lists
-  // fixed size
-  CkVec<ILCell> cellLists;
-  CkVec<ILPart> partLists;
-  // nodes and particles to ship to gpu (null for remote-no-resume and local)
-  // pointers to expandable arrays for remote-resume
-  CkVec<CudaMultipoleMoments> *nodes;
-  CkVec<CompactPartData> *particles;
-
-  // number of nodes/particles per request per TreePiece
   int nodeThreshold;
   int partThreshold;
 
-  // fixed size arrays. elements mark out the boundaries of interaction lists of different buckets
-  CkVec<int> nodeInteractionBucketMarkers;
-  CkVec<int> partInteractionBucketMarkers;
+  GenericList<ILCell> nodeLists;
+  GenericList<ILPart> particleLists;
 
-  // fixed size arrays. mark the beginning of bucket particles in an array on the gpu and
-  // size of each bucket
-  // nodes
-  // which buckets are involved in this offload
-  CkVec<int> bucketsNodes;
-  CkVec<int> bucketStartMarkersNodes;
-  CkVec<int> bucketSizesNodes;
-
-  // parts
-  // which buckets are involved in this offload
-  CkVec<int> bucketsParts;
-  CkVec<int> bucketStartMarkersParts;
-  CkVec<int> bucketSizesParts;
-
+  CkVec<CudaMultipoleMoments> *nodes;
+  CkVec<CompactPartData> *particles;
 
   // to tell a remote-resume state from a remote-no-resume state
   bool resume;
+
+  bool nodeOffloadReady(){
+    return nodeLists.totalNumInteractions >= nodeThreshold;
+  }
+
+  bool partOffloadReady(){
+    return particleLists.totalNumInteractions >= partThreshold;
+  }
 #endif
 
   // The lowest nodes reached on paths to each bucket
@@ -71,17 +119,93 @@ class DoubleWalkState : public State {
   // bucket computation should start
   GenericTreeNode *lowestNode;
   int level;
-#ifdef CUDA
-  int numInteractions;
-#endif
 
   DoubleWalkState() : chklists(0), lowestNode(0), level(-1)
-#ifdef CUDA
-  , numInteractions(0)
-#endif
   {}
 
 };
+
+
+#if defined CUDA
+void allocatePinnedHostMemory(void **ptr, int size);
+
+template<typename T>
+CudaRequest *GenericList<T>::serialize(TreePiece *tp){
+    // for local particles
+    std::map<NodeKey, int> &lpref = tp->dm->getLocalPartsOnGpuTable();
+
+    // get count of buckets with interactions first
+    int numFilledBuckets = 0;
+    int listpos = 0;
+    int curbucket = 0;
+
+    for(int i = 0; i < lists.length(); i++){
+      if(lists[i].length() > 0){
+        numFilledBuckets++;
+      }
+    }
+
+    // create flat lists and associated data structures
+#ifdef CUDA_USE_CUDAMALLOCHOST
+    T *flatlists;
+    int *markers, *starts, *sizes;
+
+    allocatePinnedHostMemory((void **)&flatlists, totalNumInteractions*sizeof(T));
+    allocatePinnedHostMemory((void **)&markers, (numFilledBuckets+1)*sizeof(int));
+    allocatePinnedHostMemory((void **)&starts, (numFilledBuckets)*sizeof(int));
+    allocatePinnedHostMemory((void **)&sizes, (numFilledBuckets)*sizeof(int));
+#else
+    T *flatlists = malloc(totalNumInteractions*sizeof(T));
+    int *markers = malloc((numFilledBuckets+1)*sizeof(int));
+    int *starts = malloc(numFilledBuckets*sizeof(int));
+    int *sizes = malloc(numFilledBuckets*sizeof(int));
+#endif
+    int *affectedBuckets = new int[numFilledBuckets];
+
+    // populate flat lists
+    int listslen = lists.length();
+    for(int i = 0; i < listslen; i++){
+      int listilen = lists[i].length();
+      if(listilen > 0){
+        memcpy(&flatlists[listpos], lists[i].getVec(), listilen*sizeof(T));
+        markers[curbucket] = listpos;
+        getBucketParameters(tp, i, starts[curbucket], sizes[curbucket], lpref);
+        affectedBuckets[curbucket] = i;
+        listpos += listilen;
+        curbucket++;
+      }
+    }
+    markers[numFilledBuckets] = listpos;
+    CkAssert(listpos == totalNumInteractions);
+
+    CudaRequest *request = new CudaRequest;
+    request->list = (void *)flatlists;
+    request->bucketMarkers = markers;
+    request->bucketStarts = starts;
+    request->bucketSizes = sizes;
+    request->numInteractions = totalNumInteractions;
+    request->numBucketsPlusOne = numFilledBuckets+1;
+    request->affectedBuckets = affectedBuckets;
+    request->tp = (void *)tp;
+    request->fperiod = tp->fPeriod.x;
+
+    return request;
+  }
+
+//#include <typeinfo>
+template<typename T>
+void GenericList<T>::push_back(int b, T &ilc, DoubleWalkState *state, TreePiece *tp){
+    if(lists[b].length() == 0){
+        state->counterArrays[0][b]++;
+#if COSMO_PRINT_BK > 1
+        CkPrintf("[%d] request out bucket %d numAddReq: %d,%d\n", tp->getIndex(), b, tp->sInterListStateRemote->counterArrays[0][b], tp->sInterListStateLocal->counterArrays[0][b]);
+#endif
+    }
+    lists[b].push_back(ilc);
+    totalNumInteractions++;
+  }
+#endif // CUDA
+#endif //  INTERLIST_VER 
 
 class NullState : public State {
 };

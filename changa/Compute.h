@@ -132,6 +132,7 @@ class GravityCompute : public Compute{
 #if INTERLIST_VER > 0
 class ListCompute : public Compute{
 
+/*
   // the number of buckets processed by stateReady
   // while doing their local and remote-no-resume (RNR) 
   // work.
@@ -140,9 +141,9 @@ class ListCompute : public Compute{
   // work from buckets in the treepiece, and so can
   // flush the lists of node/particle interactions to the gpu
   // if they are non-empty.
-  int numFinLocalRNRBuckets;
+  */
   public:
-  ListCompute() : Compute(List), numFinLocalRNRBuckets(0) {}
+  ListCompute() : Compute(List) {}
 
   int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi);
 
@@ -163,6 +164,12 @@ class ListCompute : public Compute{
   State *getNewState();
   void freeState(State *state);
   void freeDoubleWalkState(DoubleWalkState *state);
+
+#ifdef CUDA
+  void sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp);
+  void sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy=false);
+#endif
+
   private:
 
   void addChildrenToCheckList(GenericTreeNode *node, int reqID, int chunk, int awi, State *s, CheckList &chklist, TreePiece *tp);
@@ -179,12 +186,7 @@ class ListCompute : public Compute{
 #endif
 
 #ifdef CUDA
-  void sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool lastBucketComplete);
-  void sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool lastBucketComplete);
-
   void getBucketParameters(TreePiece *tp, int bucket, int &bucketStart, int &bucketSize, std::map<NodeKey, int>&lpref);
-  void insertBucketNode(DoubleWalkState *state, int b, int start, int size);
-  void insertBucketPart(DoubleWalkState *state, int b, int start, int size);
 
   public:
   void resetCudaNodeState(DoubleWalkState *state);

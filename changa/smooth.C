@@ -305,6 +305,9 @@ void TreePiece::startIterationSmooth(int am, // the active rung for
   completedActiveWalks = 0;	// XXX Potential race with Gravity Walk
   //smoothAwi = addActiveWalk(sTopDown,sSmooth,optSmooth,sSmoothState);
   smoothAwi = addActiveWalk(twSmooth,sSmooth,optSmooth,sSmoothState);
+#ifdef CHECK_WALK_COMPLETIONS
+  CkPrintf("[%d] addActiveWalk smooth (%d)\n", thisIndex, activeWalks.length());
+#endif
 
   thisProxy[thisIndex].calculateSmoothLocal();
 }
@@ -467,6 +470,9 @@ void NearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
     if(started && nParticlesPending == 0) {
       started = false;
       cacheManagerProxy[CkMyPe()].finishedChunk(0, 0);
+#ifdef CHECK_WALK_COMPLETIONS
+      CkPrintf("[%d] markWalkDone ReNearNeighborState\n", tp->getIndex());
+#endif
       tp->markWalkDone();
       if(verbosity>1)
 	CkPrintf("[%d] TreePiece %d finished smooth with bucket %d\n",CkMyPe(),
@@ -756,6 +762,9 @@ void TreePiece::startIterationReSmooth(int am, // the active rung for
 
   completedActiveWalks = 0;	// XXX Potential race with Gravity Walk
   smoothAwi = addActiveWalk(twSmooth,sSmooth,optSmooth,sSmoothState);
+#ifdef CHECK_WALK_COMPLETIONS
+  CkPrintf("[%d] addActiveWalk reSmooth (%d)\n", thisIndex, activeWalks.length());
+#endif
 
   thisProxy[thisIndex].calculateReSmoothLocal();
 }
@@ -830,6 +839,9 @@ void ReNearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
     if(started && nParticlesPending == 0) {
       started = false;
       cacheManagerProxy[CkMyPe()].finishedChunk(0, 0);
+#ifdef CHECK_WALK_COMPLETIONS
+      CkPrintf("[%d] markWalkDone ReNearNeighborState\n", tp->getIndex());
+#endif
       tp->markWalkDone();
       if(verbosity>1)
 	CkPrintf("[%d] TreePiece %d finished smooth with bucket %d\n",CkMyPe(),

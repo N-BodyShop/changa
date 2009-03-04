@@ -27,6 +27,13 @@ void DataManager::init() {
   root = NULL;
   oldNumChunks = 0;
   chunkRoots = NULL;
+#ifdef CUDA
+  treePiecesDone = 0;
+  treePiecesDonePrefetch = 0;
+  treePiecesDoneLocalComputation = 0;
+  treePiecesDoneRemoteChunkComputation = 0;
+  treePiecesWantParticlesBack = 0;
+#endif
 }
 
 /*
@@ -134,7 +141,9 @@ void DataManager::notifyPresence(Tree::GenericTreeNode *root) {
 #ifdef CUDA
   registeredTreePieces.push_back(TreePieceDescriptor(tp, index, firstParticleKey, numParticles));
   //registeredTreePieceIndices.push_back(index);
+#if COSMO_PRINT_BK > 1
   CkPrintf("(%d) notifyPresence called by %d, length: %d\n", CkMyPe(), index, registeredTreePieces.length());
+#endif
 #endif
   CmiUnlock(__nodelock);
 }
@@ -319,6 +328,9 @@ const char *typeString(NodeType type);
 void DataManager::serializeLocalTree(){
   CmiLock(__nodelock);
   treePiecesDone++;
+#if COSMO_PRINT_BK > 1
+  CkPrintf("(%d) serializeLocalTree treePiecesDone: %d, registered: %d\n", CkMyPe(), treePiecesDone, registeredTreePieces.length());
+#endif
   if(treePiecesDone == registeredTreePieces.length()){
     treePiecesDone = 0;
     serializeLocal(root);
@@ -326,7 +338,9 @@ void DataManager::serializeLocalTree(){
     // are properly labeled and the particles accounted for
     for(int i = 0; i < registeredTreePieces.length(); i++){
       int in = registeredTreePieces[i].index;
-      //CkPrintf("(%d) dm->%d\n", CkMyPe(), in);
+#if COSMO_PRINT_BK > 1
+      CkPrintf("(%d) dm->%d\n", CkMyPe(), in);
+#endif
       treePieces[in].commenceCalculateGravityLocal();
     }
   }
@@ -341,7 +355,7 @@ void DataManager::donePrefetch(int chunk){
   }
   CkAssert(savedChunk == chunk);
 
-  treePiecesDone++;
+  treePiecesDonePrefetch++;
   if(treePiecesDonePrefetch == registeredTreePieces.length()){
     treePiecesDonePrefetch = 0;
     serializeRemoteChunk(root);
@@ -356,216 +370,14 @@ void DataManager::donePrefetch(int chunk){
   CmiUnlock(__nodelock);
 }
 
-#if 0
-void DataManager::donePrefetch(){
-
-  CmiLock(__nodelock);
-	treePiecesDone++;
-	if(treePiecesDone == registeredTreePieces.length()){
-		treePiecesDone = 0;
-		CkPrintf("(%d) registered: %d\n", CkMyPe(), registeredTreePieces.length());
-		serializeNodes(root);
-
-		// resume each treepiece's startRemoteChunk, now that the nodes
-		// are properly labeled and the particles accounted for
-		for(int i = 0; i < registeredTreePieces.length(); i++){
-			int in = registeredTreePieces[i].index;
-			CkPrintf("(%d) dm->%d\n", CkMyPe(), in);
-			treePieces[in].continueStartRemoteChunk();
-		}
-		// don't delete list of registered treepieces yet; need the descriptors
-		// to update particle acceleration, etc. on the treepieces when callbacks
-		// received.
-		//registeredTreePieces.length() = 0;
-		//registeredTreePieceIndices.length() = 0;
-	}
-  CmiUnlock(__nodelock);
-}
-#endif
-
-#if 0
-void DataManager::serializeNodes(GenericTreeNode *node){
-  CkQ<GenericTreeNode *> queue;
-  queue.enq(node);
-
-  int numTreePieces = registeredTreePieces.length();
-  int numNodes = 0;
-  int numParticles = 0;
-  int numCachedNodes = 0;
-  int numCachedParticles = 0;
-  int totalNumBuckets = 0;
-
-  std::map<CkCacheKey, CkCacheEntry*> *cache = cacheManagerProxy[CkMyPe()].getCache();
-
-  for(int i = 0; i < numTreePieces; i++){
-	TreePiece *tp = registeredTreePieces[i].tp;
-    numNodes += tp->getNumNodes();
-    numParticles += tp->getNumParticles();
-    totalNumBuckets += tp->getNumBuckets();
-  }
-  numNodes -= cumNumReplicatedNodes;
-
-  // find out number of particles and nodes cached
-  // get them from cache - iterate and count each type
-  std::map<CkCacheKey, CkCacheEntry*>::iterator it;
-
-  for(it = cache->begin();it != cache->end(); it++){
-    CkCacheEntryType *type = it->second->type;
-
-    /*
-    if((EntryTypeGravityParticle * e = dynamic_cast<EntryTypeGravityParticle *>(type))){
-      numCachedParticles += e->;
-    }
-    else
-    */
-    if(dynamic_cast<EntryTypeGravityNode *>(type)){
-      numCachedNodes++;
-    }
-    // don't need to count smooth particles yet
-  }
-
-  CudaMultipoleMoments *postPrefetchMoments;
-  CompactPartData *postPrefetchParticles;
-
-  postPrefetchMoments = new CudaMultipoleMoments[numNodes+numCachedNodes];
-  postPrefetchParticles = new CompactPartData[numParticles+numCachedParticles];
-
-  // needed so we know how many particles there are in each bucket
-  //int *bmarks = new int[totalNumBuckets+1];
-
-  // fill up postPrefetchMoments with node moments
-  int nodeIndex = 0;
-  int partIndex = 0;
-  int bucketIndex = 0;
-
-  while(!queue.isEmpty()){
-    GenericTreeNode *node = queue.deq();
-    NodeType type = node->getType();
-
-    if(type == Empty || type == CachedEmpty){ // skip
-      continue;
-    }
-    else if(type == Bucket){ // follow pointer
-      // copy particles
-      int start = node->firstParticle;
-      int end = node->lastParticle;
-      GravityParticle *gravParts = node->particlePointer;
-      NodeKey bucketKey = node->getKey();
-
-      node->nodeArrayIndex = nodeIndex;
-      postPrefetchMoments[nodeIndex] = node->moments;
-#ifdef CUDA_PRINT_POST_PREFETCH_LIST
-    CkPrintf("node %d: %ld (%s)\n", nodeIndex, node->getKey(), typeString(type));
-#endif
-      nodeIndex++;
-      localPartsOnGpu[bucketKey << 1] = partIndex;
-      //bmarks[bucketIndex] = partIndex;
-#ifdef CUDA_PRINT_POST_PREFETCH_LIST
-      CkPrintf("local bucket %d: %ld (parts: %d-%d)\n", bucketIndex, bucketKey, partIndex, partIndex+(end-start));
-#endif
-      for(int i = start; i <= end; i++){
-        postPrefetchParticles[partIndex] = gravParts[i-start];
-
-        SFC::Key particleKey = gravParts[i-start].key;
-        // if the particle is the first of some registered treepiece, record this fact
-        TreePieceDescriptor *descriptor = 0;
-        descriptor = descriptor = findKeyInDescriptors(particleKey);
-        if(descriptor){
-			// the particleArrayStartIndex is used to update the particles of treepieces
-        	// once all computation on the gpu has finished and the accelerations, velocities,
-        	// potentials have been copied back.
-        	descriptor->particleArrayStartIndex = partIndex;
-        }
-        partIndex++;
-      }
-      bucketIndex++;
-    }
-    else if(type == CachedBucket || type == NonLocalBucket){ // request cache for particles
-      int numParticles = node->lastParticle-node->firstParticle+1;
-      // ask cache for particles:
-      NodeKey key = node->getKey();
-      node->nodeArrayIndex = nodeIndex;
-      postPrefetchMoments[nodeIndex] = node->moments;
-#ifdef CUDA_PRINT_POST_PREFETCH_LIST
-      CkPrintf("node %d: %ld (%s)\n", nodeIndex, node->getKey(), typeString(type));
-#endif
-      nodeIndex++;
-      /*
-      NodeKey partKey = key << 1;
-      ExternalGravityParticle *parts = (ExternalGravityParticle *)  cacheManagerProxy[CkMyPe()].requestDataNoFetch(partKey, 0);
-      if(parts){
-        cachedPartsOnGpu[partKey] = partIndex;
-#ifdef CUDA_PRINT_POST_PREFETCH_LIST
-        CkPrintf("cached bucket %d: %ld (parts: %d-%d)\n", bucketIndex, key, partIndex, partIndex+numParticles-1);
-#endif
-        for(int i = 0; i < numParticles; i++){
-          postPrefetchParticles[partIndex] = parts[i];
-          partIndex++;
-        }
-        bucketIndex++;
-      }
-      */
-    }
-    else if(type == NonLocal || type == Cached){
-    	NodeKey key = node->getKey();
-    	node->nodeArrayIndex = nodeIndex;
-    	postPrefetchMoments[nodeIndex] = node->moments;
-#ifdef CUDA_PRINT_POST_PREFETCH_LIST
-    	CkPrintf("node %d: %ld (%s)\n", nodeIndex, node->getKey(), typeString(type));
-#endif
-    	nodeIndex++;
-
-    	// enqueue children if available
-    	for(int i = 0; i < node->numChildren(); i++){
-    		GenericTreeNode *child = node->getChildren(i);
-    		if(child){// available to dm
-    			queue.enq(child);
-    		}
-    		else{ // look in cache
-    			NodeKey childKey = node->getChildKey(i);
-    			CkCacheEntry *cacheEntry = cacheManagerProxy[CkMyPe()].requestCacheEntryNoFetch(childKey, 0);
-    			if(cacheEntry && cacheEntry->replyRecvd){ // available in cache
-    				GenericTreeNode *child = (GenericTreeNode *)cacheEntry->data;
-    				queue.enq(child);
-    			}
-    		}
-    	}
-    }
-    else{ // Boundary or Internal
-    	node->nodeArrayIndex = nodeIndex;
-    	postPrefetchMoments[nodeIndex] = node->moments;
-#ifdef CUDA_PRINT_POST_PREFETCH_LIST
-    	CkPrintf("node %d: %ld (%s)\n", nodeIndex, node->getKey(), typeString(type));
-#endif
-    	nodeIndex++;
-    	for(int i = 0; i < node->numChildren(); i++){
-    		GenericTreeNode *child = node->getChildren(i);
-    		queue.enq(child);
-    	}
-    }
-  }// end while queue not empty
-  CkAssert(bucketIndex == totalNumBuckets);
-  CkAssert(partIndex == numParticles+numCachedParticles);
-
-  // Transfer moments and particle cores to gpu
-
-  /*
-  for(int i = 0; i < numParticles+numCachedParticles; i++){
-	  if(postPrefetchParticles[i].)
-  }
-  */
-
-}// end serializeNodes
-#endif
-
 typedef std::map<CkCacheKey, CkCacheEntry*> cacheType;
 
-#ifdef CUDA_PRINT_POST_PREFETCH_LIST 
+#ifdef CUDA_DM_PRINT_TREES 
 #define addNodeToList(nd, list, index) \
       { \
         nd->nodeArrayIndex = index; \
         list.push_back(CudaMultipoleMoments(nd->moments));\
-        CkPrintf("node %d: %ld (%s)\n", index, nd->getKey(), typeString(type));\
+        CkPrintf("(%d) node %d: %ld (%s)\n", CkMyPe(), index, nd->getKey(), typeString(type));\
         index++;\
       }
 #else
@@ -577,6 +389,7 @@ typedef std::map<CkCacheKey, CkCacheEntry*> cacheType;
       }
 #endif
 
+const char *typeString(NodeType type);
 
 void DataManager::serializeRemoteChunk(GenericTreeNode *node){
   CkQ<GenericTreeNode *> queue;
@@ -600,7 +413,7 @@ void DataManager::serializeRemoteChunk(GenericTreeNode *node){
   CkVec<CompactPartData> postPrefetchParticles;
 
   // XXX - better way to estimate NL, NLB, C, CB nodes/particles? 
-  // thse are just estimates, initial sizes for CkVec's
+  // thse are just guessed initial sizes for CkVecs
   numNodes = size;
   numParticles = size;
 
@@ -619,8 +432,12 @@ void DataManager::serializeRemoteChunk(GenericTreeNode *node){
   // fill up postPrefetchMoments with node moments
   int nodeIndex = 0;
   int partIndex = 0;
-  int bucketIndex = 0;
 
+#ifdef CUDA_DM_PRINT_TREES
+  CkPrintf("*************\n");
+  CkPrintf("[%d] DM remote chunk %d\n", CkMyPe(), chunk);
+  CkPrintf("*************\n");
+#endif
   queue.enq(node);
   while(!queue.isEmpty()){
     GenericTreeNode *node = queue.deq();
@@ -657,12 +474,15 @@ void DataManager::serializeRemoteChunk(GenericTreeNode *node){
         // mark presence and add to data to ship
         parts = (ExternalGravityParticle *)p->second->data;
         cachedPartsOnGpu[key] = partIndex;
+#ifdef CUDA_DM_PRINT_TREES
+        CkPrintf("(%d) type %s parts (key %ld) start: %d\n", CkMyPe(), 
+                                                            typeString(type), key, partIndex);
+#endif
         // put particles in array:
         for(int i = 0; i < nParticles; i++){
           postPrefetchParticles.push_back(CompactPartData(parts[i]));
           partIndex++;
         }
-        bucketIndex++;
       }
     }
     else if(type == Cached){
@@ -685,8 +505,11 @@ void DataManager::serializeRemoteChunk(GenericTreeNode *node){
     }
   }// end while queue not empty
 
+#ifdef CUDA_DM_PRINT_TREES
+  CkPrintf("*************\n");
+#endif
   // Transfer moments and particle cores to gpu
-  DataManagerTransfer(postPrefetchMoments.getVec(), numNodes, postPrefetchParticles.getVec(), numParticles);
+  DataManagerTransferRemoteChunk(postPrefetchMoments.getVec(), postPrefetchMoments.length(), postPrefetchParticles.getVec(), postPrefetchParticles.length());
 
 }// end serializeNodes
 
@@ -713,20 +536,27 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   CkVec<CompactPartData> localParticles;
 
   localMoments.reserve(numNodes);
-  localParticles.reserve(numParticles);
+  localParticles.resize(numParticles);
 
   localMoments.length() = 0;
-  localParticles.length() = 0;
 
   // fill up postPrefetchMoments with node moments
   int nodeIndex = 0;
   int partIndex = 0;
-  int bucketIndex = 0;
 
+#ifdef CUDA_DM_PRINT_TREES
+  CkPrintf("*************\n");
+  CkPrintf("[%d] DM local tree\n", CkMyPe());
+  CkPrintf("*************\n");
+#endif
   queue.enq(node);
   while(!queue.isEmpty()){
     GenericTreeNode *node = queue.deq();
     NodeType type = node->getType();
+
+#ifdef CUDA_DM_PRINT_TREES
+    //CkPrintf("Process [%d] %ld (%s)\n", CkMyPe(), node->getKey(), typeString(type));
+#endif
 
     if(type == Empty || type == CachedEmpty){ // skip
       continue;
@@ -734,23 +564,10 @@ void DataManager::serializeLocal(GenericTreeNode *node){
     else if(type == Bucket){ // Bu, follow pointer
       // copy particles
       // need both the node moments and the particles
-      int start = node->firstParticle;
-      int end = node->lastParticle;
-      GravityParticle *gravParts = node->particlePointer;
       NodeKey bucketKey = node->getKey();
 
       // nodes
       addNodeToList(node,localMoments,nodeIndex)
-      // particles
-      localPartsOnGpu[bucketKey << 1] = partIndex;
-#ifdef CUDA_PRINT_POST_PREFETCH_LIST
-      CkPrintf("local bucket %d: %ld (parts: %d-%d)\n", bucketIndex, bucketKey, partIndex, partIndex+(end-start));
-#endif
-      for(int i = start; i <= end; i++){
-        localParticles.push_back(CompactPartData(gravParts[i-start]));
-      }
-      partIndex += end-start+1;
-      bucketIndex++;
     }
     else if(type == NonLocalBucket){ // NLB
       // don't need the particles, only the moments
@@ -764,14 +581,50 @@ void DataManager::serializeLocal(GenericTreeNode *node){
       }
     }
   }// end while queue not empty
-  CkAssert(bucketIndex == totalNumBuckets);
-  CkAssert(partIndex == numParticles);
 
+  // used later, when copying particle vars back to the host
+  savedNumTotalParticles = numParticles;
+  for(int i = 0; i < registeredTreePieces.length(); i++){
+    TreePiece *tp = registeredTreePieces[i].tp;
+    int numBuckets = tp->getNumBuckets();
+    for(int j = 0; j < numBuckets; j++){
+      GenericTreeNode *bucket = tp->bucketList[j];
+      NodeKey bucketKey = bucket->getKey();
+      int start = bucket->firstParticle;
+      int end = bucket->lastParticle;
+      GravityParticle *gravParts = bucket->particlePointer;
+      localPartsOnGpu[bucketKey << 1] = partIndex;
+#ifdef CUDA_DM_PRINT_TREES
+      CkPrintf("(%d) tp %d bucket %d (key %ld) start: %d\n", CkMyPe(), 
+                                                             tp->getIndex(), 
+                                                             j,
+                                                             (bucketKey << 1),
+                                                             partIndex
+                                                             );
+#endif
+      for(int k = start; k <= end; k++){
+        localParticles[partIndex] = gravParts[k-start]; 
+#if defined CUDA_EMU_KERNEL_NODE_PRINTS || defined CUDA_EMU_KERNEL_PART_PRINTS
+        localParticles[partIndex].tp = tp->getIndex();
+        localParticles[partIndex].id = k;
+#endif
+        partIndex++;
+      }
+    }
+  }
+#ifdef CUDA_DM_PRINT_TREES
+  CkPrintf("*************\n");
+#endif
+  CkAssert(partIndex == numParticles);
+#if COSMO_PRINT_BK > 1
+  CkPrintf("(%d): DM->GPU local tree\n", CkMyPe());
+#endif
   // Transfer moments and particle cores to gpu
-  DataManagerTransfer(localMoments.getVec(), numNodes, localParticles.getVec(), numParticles);
+  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex);
 
 }// end serializeLocal
 
+#if 0
 TreePieceDescriptor *DataManager::findKeyInDescriptors(SFC::Key particleKey){
   for(int i = 0; i < registeredTreePieces.length(); i++){
     if(registeredTreePieces[i].firstParticleKey == particleKey){
@@ -781,6 +634,129 @@ TreePieceDescriptor *DataManager::findKeyInDescriptors(SFC::Key particleKey){
 
 return 0;
 }
+#endif
 
+// local nodes/particle cores
+void FreeDataManagerLocalTreeMemory();
+// remote chunk nodes/particle cores
+void FreeDataManagerRemoteChunkMemory(int );
+
+
+// local particle vars
+void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb);
+
+void DataManager::freeLocalTreeMemory(){
+  CmiLock(__nodelock);
+  treePiecesDoneLocalComputation++;
+  if(treePiecesDoneLocalComputation == registeredTreePieces.length()){
+    treePiecesDoneLocalComputation = 0; 
+    FreeDataManagerLocalTreeMemory();
+  }
+  CmiUnlock(__nodelock);
+}
+
+void DataManager::freeRemoteChunkMemory(int chunk){
+  CmiLock(__nodelock);
+  treePiecesDoneRemoteChunkComputation++;
+  if(treePiecesDoneRemoteChunkComputation == registeredTreePieces.length()){
+    treePiecesDoneRemoteChunkComputation = 0; 
+    FreeDataManagerRemoteChunkMemory(chunk);
+  }
+  CmiUnlock(__nodelock);
+}
+
+void updateParticlesCallback(void *, void *);
+
+void allocatePinnedHostMemory(void **ptr, int size);
+void freePinnedHostMemory(void *ptr);
+
+void DataManager::transferParticleVarsBack(){
+  UpdateParticlesStruct *data;
+  CmiLock(__nodelock);
+  treePiecesWantParticlesBack++;
+  if(treePiecesWantParticlesBack == registeredTreePieces.length()){
+    treePiecesWantParticlesBack = 0; 
+    VariablePartData *buf;
+#ifdef CUDA_USE_CUDAMALLOCHOST
+    allocatePinnedHostMemory((void **)&buf, savedNumTotalParticles*sizeof(VariablePartData));
+#else
+    buf = malloc(savedNumTotalParticles*sizeof(VariablePartData));
+#endif
+    data = new UpdateParticlesStruct;
+    data->cb = new CkCallback(updateParticlesCallback, data);
+    data->dm = this;
+    data->buf = buf;
+    data->size = savedNumTotalParticles;
+
+    TransferParticleVarsBack(buf, savedNumTotalParticles*sizeof(VariablePartData), data->cb);
+  }
+  CmiUnlock(__nodelock);
+}
+
+void DataManager::updateParticles(UpdateParticlesStruct *data){
+  int partIndex = 0;
+
+  CmiLock(__nodelock);
+
+  VariablePartData *deviceParticles = data->buf;
+
+#ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
+  CkPrintf("(%d) In DM::updateParticles %d tps\n", CkMyPe(), registeredTreePieces.length());
+#endif
+
+  for(int i = 0; i < registeredTreePieces.length(); i++){
+    TreePiece *tp = registeredTreePieces[i].tp;
+    int numBuckets = tp->getNumBuckets();
+    int numParticles = tp->getNumParticles();
+#ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
+    CkPrintf("(%d) tp %d numBuckets: %d, numParticles: %d\n", CkMyPe(), tp->getIndex(), 
+                                                              numBuckets, numParticles);
+#endif
+
+#ifdef CHANGA_REFACTOR_MEMCHECK 
+    CkPrintf("(%d) memcheck before updating tp %d particles\n", CkMyPe(), tp->getIndex());
+    CmiMemoryCheck();
+#endif
+
+#ifndef CUDA_NO_ACC_UPDATES
+    for(int j = 1; j <= numParticles; j++){
+      tp->myParticles[j].treeAcceleration = deviceParticles[partIndex].a + tp->myParticles[j].treeAcceleration;
+#ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
+      CkPrintf("particle %d device: (%f,%f,%f) total: (%f,%f,%f)\n",
+                j, 
+                deviceParticles[partIndex].a.x,
+                deviceParticles[partIndex].a.y,
+                deviceParticles[partIndex].a.z,
+                tp->myParticles[j].treeAcceleration.x,
+                tp->myParticles[j].treeAcceleration.y,
+                tp->myParticles[j].treeAcceleration.z);
+#endif
+      tp->myParticles[j].potential += deviceParticles[partIndex].potential;
+      partIndex++;
+    }
+
+#ifdef CHANGA_REFACTOR_MEMCHECK 
+    CkPrintf("(%d) memcheck after updating tp %d particles\n", CkMyPe(), tp->getIndex());
+    CmiMemoryCheck();
+#endif
+
+#endif// CUDA_NO_ACC_UPDATES
+  }
+  
+  registeredTreePieces.length() = 0;
+  CmiUnlock(__nodelock); 
+}
+
+void updateParticlesCallback(void *param, void *msg){  
+  UpdateParticlesStruct *data = (UpdateParticlesStruct *)param;
+  data->dm->updateParticles(data);
+#ifdef CUDA_USE_CUDAMALLOCHOST
+  freePinnedHostMemory(data->buf);
+#else
+  free(data->buf);
+#endif
+  delete (data->cb);
+  delete data;
+}
 #endif
 

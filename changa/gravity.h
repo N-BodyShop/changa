@@ -275,6 +275,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
             int activeRung)
 
 {
+
   int computed = 0;
   Vector3D<double> r;
   double rsq;

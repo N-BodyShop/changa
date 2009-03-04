@@ -33,6 +33,12 @@ struct TreePieceDescriptor{
 	}
 };
 
+struct UpdateParticlesStruct{
+  CkCallback *cb;
+  DataManager *dm;
+  VariablePartData *buf;
+  int size;
+};
 #endif
 
 /** The DataManager is used to store information that all TreePieces will need,
@@ -74,6 +80,12 @@ protected:
         int treePiecesDone;
         int savedChunk;
         int treePiecesDonePrefetch;
+        int treePiecesDoneLocalComputation;
+        // XXX - assumes that only one chunk can be on the gpu
+        // at a given time
+        int treePiecesDoneRemoteChunkComputation;
+        int treePiecesWantParticlesBack;
+        int savedNumTotalParticles;
         // keeps track of buckets of particles that were
         // received during the prefetch and which were subsequently
         // shipped off to the gpu - XXX
@@ -90,8 +102,9 @@ protected:
         //std::map<Tree::NodeKey, GenericTreeNode *> missedNodesOnGpu;
         //std::map<Tree::NodeKey, ExternalGravityParticle *> missedPartsOnGpu;
 
+#if 0
         TreePieceDescriptor *findKeyInDescriptors(SFC::Key particleKey);
-
+#endif
 #endif
 	/// The root of the combined trees
 	Tree::GenericTreeNode * root;
@@ -119,7 +132,11 @@ public:
         // actual serialization methods
         void serializeRemoteChunk(GenericTreeNode *);
 	void serializeLocal(GenericTreeNode *);
-        DataManager() : treePiecesDone(0), treePiecesDonePrefetch(0) {}
+        void freeLocalTreeMemory();
+        void freeRemoteChunkMemory(int chunk);
+        void transferParticleVarsBack();
+        void updateParticles(UpdateParticlesStruct *data);
+        DataManager(){} 
 #endif
 
 private:

@@ -4,6 +4,7 @@
 #include "codes.h"
 
 
+
 class Opt{
   protected:
   int action_array[2][NUM_NODE_TYPES+1];
@@ -113,7 +114,7 @@ class LocalOpt : public Opt{
     action_array[1][Top] = ERROR;
     action_array[1][Invalid] = ERROR;
   }
-
+  
 };
 
 class PrefetchOpt : public Opt{

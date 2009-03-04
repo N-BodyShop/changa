@@ -872,7 +872,7 @@ void Main::advanceBigStep(int iStep) {
     /********* Cache Statistics ********/
     CkReductionMsg *cs;
     streamingCache.collectStatistics(CkCallbackResumeThread((void*&)cs));
-    ((CacheStatistics*)cs->getData())->printTo(ckerr);
+    ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
 
 
@@ -1084,7 +1084,7 @@ Main::initialForces()
   /********* Cache Statistics ********/
   CkReductionMsg *cs;
   streamingCache.collectStatistics(CkCallbackResumeThread((void*&)cs));
-  ((CacheStatistics*)cs->getData())->printTo(ckerr);
+  ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
   
   /* 
@@ -1477,7 +1477,7 @@ void Main::DumpFrame(double dTime, double dStep)
 
 void registerStatistics() {
 #if COSMO_STATS > 0
-  CacheStatistics::sum = CkReduction::addReducer(CacheStatistics::sumFn);
+  CkCacheStatistics::sum = CkReduction::addReducer(CkCacheStatistics::sumFn);
   TreePieceStatistics::sum = CkReduction::addReducer(TreePieceStatistics::sumFn);
 #endif
 #ifdef HPM_COUNTER

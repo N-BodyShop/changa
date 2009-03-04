@@ -152,7 +152,7 @@ mainmodule ParallelGravity {
 		                           const CkCallback& cb);
 		entry void getCOM(const CkCallback& cb);
 		entry void getCOMByType(int iType, const CkCallback& cb);
-		entry void DumpFrame(InDumpFrame in, const CkCallback& cb) ;
+		entry void DumpFrame(InDumpFrame inn, const CkCallback& cb) ;
 		entry void buildTree(int bucketSize, const CkCallback& cb);
 		
 		//entry void collectSplitters(CkReductionMsg* m);

@@ -380,6 +380,10 @@ class GravityCompute;
 class PrefetchCompute;
 class SmoothCompute;
 
+#if INTERLIST_VER > 0 && defined CUDA
+template<typename T> class GenericList;
+#endif
+
 class TreePiece : public CBase_TreePiece {
    // jetley
    friend class PrefetchCompute;
@@ -390,14 +394,16 @@ class TreePiece : public CBase_TreePiece {
    friend class NearNeighborState;
    friend class ReNearNeighborState;
    friend class BottomUpTreeWalk;
+#if INTERLIST_VER > 0 && defined CUDA
+   friend class DataManager;
+   template<typename T> friend class GenericList;
+#endif
 
    TreeWalk *sTopDown;
    TreeWalk *twSmooth;
 #if INTERLIST_VER > 0
    TreeWalk *sInterListWalk;
    Compute *sInterListCompute;
-   // used for local and remote walks
-   State *sInterListStateLocal, *sInterListStateRemote;
    // clearable, used for resumed walks
    State *sInterListStateRemoteResume;
 #endif
@@ -423,6 +429,10 @@ class TreePiece : public CBase_TreePiece {
    int smoothAwi;
 
  public:
+#if INTERLIST_VER > 0
+   // used for local and remote walks
+   State *sInterListStateLocal, *sInterListStateRemote;
+#endif
         int addActiveWalk(TreeWalk *tw, Compute *c, Opt *o, State *s);
 
         void markWalkDone();
@@ -484,6 +494,7 @@ class TreePiece : public CBase_TreePiece {
         // in the list of interations to the sent to the gpu, we flush
         // the list
         int numActiveBuckets; 
+
         int getNumParticles(){
         	return myNumParticles;
         }
@@ -491,6 +502,9 @@ class TreePiece : public CBase_TreePiece {
         int getNumBuckets(){
         	return numBuckets;
         }
+
+        void callFreeRemoteChunkMemory(int chunk);
+
 #endif
 
         void continueStartRemoteChunk();
