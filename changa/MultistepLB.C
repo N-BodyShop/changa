@@ -34,9 +34,10 @@ void MultistepLB::receiveCentroids(CkReductionMsg *msg){
 //jetley
 CmiBool MultistepLB::QueryBalanceNow(int step){
   if(step == 0){
-    if(CkMyPe() == 0)                          // only one group member need broadcast
+    if(CkMyPe() == 0){                          // only one group member need broadcast
       CkPrintf("MultistepLB: Step 0, calling treeProxy.receiveProxy(thisgroup)\n");
       treeProxy.receiveProxy(thisgroup);        // broadcast proxy to all treepieces
+    }
     firstRound = true;
     return false; 
   }
@@ -417,6 +418,8 @@ void MultistepLB::makeActiveProcessorList(BaseLB::LDStats *stats, int numActiveO
 }
 #endif
 
+#define LARGE_PHASE_THRESHOLD 0.5
+
 void MultistepLB::work(BaseLB::LDStats* stats, int count)
 {
 #if CMK_LBDB_ON
@@ -428,12 +431,15 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
     LDObjHandle &handle = map.tpCentroids[i].handle;
     map.tpCentroids[i].tag = stats->getHash(handle.id, handle.omhandle.id);
   }
-#ifdef MCLBMS
   int phase = determinePhase(map.tpCentroids[0].activeRung);
   int prevPhase = map.tpCentroids[0].prevActiveRung;
-  double *ratios = new double[stats->n_objs];
+  float *ratios = new float[stats->n_objs];
   int numActiveObjects = 0;
   int numInactiveObjects = 0;
+
+  // to calculate ratio of active particles in phase
+  int numActiveParticles = 0;
+  int totalNumParticles;
   
   for(i = 0; i < stats->n_objs; i++)
     stats->to_proc[i] = stats->from_proc[i];
@@ -443,6 +449,9 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
   
   for(i = 0; i < stats->n_objs; i++){
     ratios[map.tpCentroids[i].tag] = map.tpCentroids[i].numActiveParticles/(float)map.tpCentroids[i].myNumParticles;
+    numActiveParticles += map.tpCentroids[i].numActiveParticles;
+    totalNumParticles += map.tpCentroids[i].myNumParticles;
+
     if(map.tpCentroids[i].numActiveParticles == 0){
       numInactiveObjects++;
       if(stats->objData[map.tpCentroids[i].tag].migratable){
@@ -499,8 +508,7 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
   delete []ratios;
 
   // let the strategy take over on this modified instrumented data and processor information
-  if(phase == 0){
-#endif  // MCLBMS
+  if((float)numActiveParticles/totalNumParticles > LARGE_PHASE_THRESHOLD){
 #ifdef MCLBMS_ORBSMOOTH
   statsData = stats;
 
@@ -509,7 +517,7 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
   // calculate total number of migratable objects
   nObjs = stats->n_migrateobjs;
 #ifdef MCLBMSV
-    CkPrintf("OrbLB: num objects: %d\n", nObjs);
+  CkPrintf("OrbLB: num objects: %d\n", nObjs);
 #endif
 
   // create computeLoad and calculate tentative computes coordinates
@@ -814,20 +822,13 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
     CkPrintf("MultistepLB finished time: %fs\n", CkWallTimer() - t);
 #endif  // MCLBMS_ORBSMOOTH
     
-#ifdef MCLBMS
   }     // end if phase == 0
-  else{
-#ifdef MCLBMS_RR
-
+  else{ // not even greedy; round-robin
     for(i = 0; i < stats->n_objs; i++){
       if(stats->objData[i].migratable == 0) continue;
       stats->to_proc[i] = i%stats->count;
     }
-#endif // MCLB_RR
   }
-#endif
-
-
 #endif //CMK_LDB_ON
 }
 

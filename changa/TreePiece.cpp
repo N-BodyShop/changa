@@ -3426,8 +3426,8 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
       numActiveParticles = myNumParticles;
     }
     else{
-      for(numActiveParticles = 0, i = 0; i < myNumParticles; i++)
-        if(myParticles[i+1].rung >= activeRung)
+      for(numActiveParticles = 0, i = 1; i <= myNumParticles; i++)
+        if(myParticles[i].rung >= activeRung)
           numActiveParticles++;
     }
     LDObjHandle myHandle = myRec->getLdHandle();
