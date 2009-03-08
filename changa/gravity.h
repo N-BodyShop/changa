@@ -4,8 +4,6 @@
 #include "TreeNode.h"
 #include "GenericTreeNode.h"
 #include "Space.h"
-#include "SSE-Double.h"
-#include "SSE-Float.h"
 
 extern double theta;
 extern double thetaMono;
@@ -339,6 +337,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
 
 
 #if defined(__SSE2__) && !defined(HEXADECAPOLE) && !defined(COSMO_FLOAT)
+#include "SSE-Double.h"
 
 inline
 int nodeBucketForce(Tree::GenericTreeNode *node,
@@ -498,6 +497,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
 }  
      
 #elif  defined(__SSE2__) && defined(COSMO_FLOAT)  && !defined(HEXADECAPOLE)
+#include "SSE-Float.h"
 inline
 int nodeBucketForce(Tree::GenericTreeNode *node,
                     Tree::GenericTreeNode *req,
@@ -682,6 +682,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
 }
 //#endif
 #elif  defined(__SSE2__) && !defined(COSMO_FLOAT) && defined(HEXADECAPOLE)
+#include "SSE-Double.h"
       
 inline
 int nodeBucketForce(Tree::GenericTreeNode *node, // source of force
@@ -907,6 +908,8 @@ int nodeBucketForce(Tree::GenericTreeNode *node, // source of force
 
 //#endif
 #elif  defined(__SSE2__) && defined(COSMO_FLOAT) && defined(HEXADECAPOLE)
+#include "SSE-Float.h"
+
 inline
 int nodeBucketForce(Tree::GenericTreeNode *node, // source of force
             Tree::GenericTreeNode *req,  // bucket descriptor
