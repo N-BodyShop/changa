@@ -1153,7 +1153,7 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
 
   if (numTreePieces == 1) {
 #ifdef CUDA
-    dm->notifyPresence(root, this, thisIndex, myParticles[0].key, myNumParticles);
+    dm->notifyPresence(root, this, thisIndex);
 #else
 	dm->notifyPresence(root);
 #endif
@@ -1405,7 +1405,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   CmiUnlock(dm->__nodelock);
   if (numTreePieces == 1) {
 #ifdef CUDA
-    dm->notifyPresence(root, this, thisIndex, myParticles[0].key, myNumParticles);
+    dm->notifyPresence(root, this, thisIndex);
 #else
 	dm->notifyPresence(root);
 #endif
@@ -1685,7 +1685,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType typ
     // all moments
     //CkPrintf("[%d] contributing after building the tree\n",thisIndex);
 #ifdef CUDA
-    dm->notifyPresence(root, this, thisIndex, myParticles[0].key, myNumParticles);
+    dm->notifyPresence(root, this, thisIndex);
 #else
 	dm->notifyPresence(root);
 #endif
@@ -1830,6 +1830,7 @@ void TreePiece::startNextBucket() {
         GenericTreeNode *chunkRoot = keyToNode(prefetchRoots[cr]);
 #else
         GenericTreeNode *chunkRoot = dm->chunkRootToNode(prefetchRoots[cr]);
+        //CkPrintf("[%d] startNextBucket cr %d: %ld\n", thisIndex, cr, chunkRoot->getKey());
 #endif
         for(int x = -nReplicas; x <= nReplicas; x++) {
           for(int y = -nReplicas; y <= nReplicas; y++) {
@@ -2653,6 +2654,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
         rstate->placedRoots = true;
 #endif
 
+        //CkPrintf("[%d] calculateGravityRemote cr %d: %ld\n", thisIndex, msg->chunkNum, chunkRoot->getKey());
         for(int x = -nReplicas; x <= nReplicas; x++) {
           for(int y = -nReplicas; y <= nReplicas; y++) {
     	    for(int z = -nReplicas; z <= nReplicas; z++) {
@@ -2720,7 +2722,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 #endif
 
 #if COSMO_PRINT_BK > 1 
-      CkPrintf("[%d] active remote bucket book-keep current: %d end: %d\n", thisIndex, currentRemoteBucket, end);
+      CkPrintf("[%d] active remote bucket book-keep current: %d end: %d chunk: %d\n", thisIndex, currentRemoteBucket, end, msg->chunkNum);
 #endif
       for(int j = currentRemoteBucket; j < end; j++){
 #if !defined CELL 
@@ -2768,7 +2770,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
         prevRemoteBucket = currentRemoteBucket;
       }
 #if COSMO_PRINT_BK > 1 
-      CkPrintf("[%d] inactive remote bucket book-keep\n", thisIndex);
+      CkPrintf("[%d] inactive remote bucket book-keep chunk: %d\n", thisIndex, msg->chunkNum);
 #endif
       while(currentRemoteBucket < numBuckets && bucketList[currentRemoteBucket]->rungs < activeRung){
         GenericTreeNode *bucket = bucketList[currentRemoteBucket];
@@ -2838,13 +2840,13 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 #endif
     CkAssert(chunkRemaining >= 0);
 #if COSMO_PRINT_BK > 1
-    CkPrintf("[%d] cgr remainingChunk: %d\n", thisIndex, chunkRemaining);
+    CkPrintf("[%d] cgr chunk: %d remainingChunk: %d\n", thisIndex, msg->chunkNum, chunkRemaining);
 #endif
     if (chunkRemaining == 0) {
       // we finished completely using this chunk, so we acknowledge the cache
       // if this is not true it means we had some hard misses
 #ifdef COSMO_PRINT_BK
-      CkPrintf("[%d] Finished chunk %d from calculateGravityRemote\n",thisIndex,msg->chunkNum);
+      CkPrintf("[%d] FINISHED CHUNK %d from calculateGravityRemote\n",thisIndex,msg->chunkNum);
 #endif
 
 #ifdef CUDA
@@ -5212,6 +5214,7 @@ void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID,
   compute->reassoc(source, activeRung, a.o);
 
   // resume walk
+  CkPrintf("[%d] RECVD NODE (%ld), resuming walk chunk %d\n", thisIndex, node->getKey(), chunk);
   tw->resumeWalk(node, state, chunk, reqID, awi);
 
   // we need source to update the counters in all buckets
@@ -5263,6 +5266,7 @@ void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, 
   }
 #endif
   c->reassoc(source, activeRung, a.o);
+  CkPrintf("[%d] RECVD PARTICLES (%ld), chunk %d\n", thisIndex, remoteBucket, chunk);
   c->recvdParticles(egp,num,chunk,reqID,state,this, remoteBucket);
 }
 
@@ -5439,7 +5443,7 @@ void TreePiece::updateBucketState(int start, int end, int n, int chunk, State *s
 // called on a miss
 void TreePiece::updateUnfinishedBucketState(int start, int end, int n, int chunk, State *state){
 #if COSMO_PRINT_BK > 1 
-  CkPrintf("[%d] data missed book-keep\n", thisIndex);
+  CkPrintf("[%d] data missed book-keep (%d)\n", thisIndex, chunk);
 #endif
   for(int i = start; i < end; i++){
     if(bucketList[i]->rungs >= activeRung){

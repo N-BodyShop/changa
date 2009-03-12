@@ -170,7 +170,8 @@ private:
 public:
 
 #ifdef CUDA
-    void notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp, int index, SFC::Key firstParticleKey, int numParticles);
+    //XXX - coercing arrayindex to int in last arg      
+    void notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp, int index);
 #else
 	void notifyPresence(Tree::GenericTreeNode *root);
 #endif

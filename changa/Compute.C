@@ -345,7 +345,7 @@ int ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int r
 #endif
   CkAssert(remainingChunk >= 0);
 #if COSMO_PRINT_BK > 1
-  CkPrintf("[%d] nodeRecvdEvent remainingChunk: %d\n", owner->getIndex(), remainingChunk);
+  CkPrintf("[%d] nodeRecvdEvent chunk: %d remainingChunk: %d\n", owner->getIndex(), chunk, remainingChunk);
 #endif
   if (remainingChunk == 0) {
     //CkPrintf("[%d] Finished chunk %d from nodeRecvdEvent\n",owner->getIndex(),chunk);
@@ -354,13 +354,13 @@ int ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int r
     // flush the interactions remaining in the state
     DoubleWalkState *ds = (DoubleWalkState *)state;
     // at this point,
-#if COSMO_PRINT_BK > 1
-    CkPrintf("[%d] CHUNK %d FINISHED from nodeRecvdEvent\n", owner->getIndex(), chunk);
-#endif
     sendNodeInteractionsToGpu(ds, owner);
     sendPartInteractionsToGpu(ds, owner);
     resetCudaNodeState(ds);
     resetCudaPartState(ds);
+#endif
+#if COSMO_PRINT_BK > 1
+    CkPrintf("[%d] FINISHED CHUNK %d from nodeRecvdEvent\n", owner->getIndex(), chunk);
 #endif
     streamingCache[CkMyPe()].finishedChunk(chunk, owner->nodeInterRemote[chunk]+owner->particleInterRemote[chunk]);
     if(chunk == owner->numChunks-1){
@@ -838,7 +838,7 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
       GenericTreeNode *source = (GenericTreeNode *)computeEntity;
       tp->getBucketsBeneathBounds(source, start, end);
 #if COSMO_PRINT_BK > 1
-      CkPrintf("[%d] missed parts %ld\n", tp->getIndex(), keyref << 1);
+      CkPrintf("[%d] missed parts %ld (chunk %d)\n", tp->getIndex(), keyref << 1, chunk);
 #endif
       tp->updateUnfinishedBucketState(start, end, 1, chunk, state);
 #ifdef CHANGA_REFACTOR_MEMCHECK
@@ -904,19 +904,19 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
 #endif
   remainingChunk = state->counterArrays[1][chunk];
 #if COSMO_PRINT_BK > 1
-  CkPrintf("[%d] recvdParticles remainingChunk: %d\n", tp->getIndex(), remainingChunk);
+  CkPrintf("[%d] recvdParticles chunk: %d remainingChunk: %d\n", tp->getIndex(), chunk, remainingChunk);
 #endif
   CkAssert(remainingChunk >= 0);
   if (remainingChunk == 0) {
     //CkPrintf("[%d] Finished chunk %d from recvdParticles\n",tp->getIndex(),chunk);
 #ifdef CUDA
-#if COSMO_PRINT_BK > 1
-    CkPrintf("[%d] CHUNK %d FINISHED from recvdParticles\n", tp->getIndex(), chunk);
-#endif
     sendNodeInteractionsToGpu(state, tp);
     sendPartInteractionsToGpu(state, tp);
     resetCudaNodeState(state);
     resetCudaPartState(state);
+#endif
+#if COSMO_PRINT_BK > 1
+    CkPrintf("[%d] FINISHED CHUNK %d from recvdParticles\n", tp->getIndex(), chunk);
 #endif
     cacheManagerProxy[CkMyPe()].finishedChunk(chunk, tp->nodeInterRemote[chunk]+tp->particleInterRemote[chunk]);
     if (chunk == tp->numChunks-1){
@@ -1753,7 +1753,7 @@ void ListCompute::addChildrenToCheckList(GenericTreeNode *node, int reqID, int c
       if(!child)
       {
 #if COSMO_PRINT_BK > 1
-        CkPrintf("[%d] missed node %ld\n", tp->getIndex(), childKey << 1);
+        CkPrintf("[%d] missed node %ld (chunk %d)\n", tp->getIndex(), childKey, chunk);
 #endif
         nodeMissedEvent(reqID, chunk, s, tp);
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE

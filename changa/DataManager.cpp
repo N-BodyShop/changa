@@ -130,7 +130,7 @@ void DataManager::pup(PUP::er& p) {
 }
 
 #ifdef CUDA
-void DataManager::notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp, int index, SFC::Key firstParticleKey, int numParticles) {
+void DataManager::notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp, int index) {
 #else
 void DataManager::notifyPresence(Tree::GenericTreeNode *root) {
 #endif
@@ -139,7 +139,7 @@ void DataManager::notifyPresence(Tree::GenericTreeNode *root) {
   registeredChares.push_back(root);
 
 #ifdef CUDA
-  registeredTreePieces.push_back(TreePieceDescriptor(tp, index, firstParticleKey, numParticles));
+  registeredTreePieces.push_back(TreePieceDescriptor(tp, index));
   //registeredTreePieceIndices.push_back(index);
 #if COSMO_PRINT_BK > 1
   CkPrintf("(%d) notifyPresence called by %d, length: %d\n", CkMyPe(), index, registeredTreePieces.length());
