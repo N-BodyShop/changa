@@ -1822,8 +1822,8 @@ void TreePiece::startNextBucket() {
   //if (target->rungs >= activeRung) {
 #if INTERLIST_VER > 0
     DoubleWalkState *lstate = (DoubleWalkState *)sInterListStateLocal;
-    if(!lstate->placedRoots){
-      lstate->placedRoots = true;
+    if(!lstate->placedRoots[0]){
+      lstate->placedRoots[0] = true;
 #endif
       for(int cr = 0; cr < numChunks; cr++){
 #ifdef DISABLE_NODE_TREE
@@ -2650,8 +2650,15 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       // need to enqueue the chunkroot replicas only once,
       // before walking the first bucket
       DoubleWalkState *rstate = (DoubleWalkState *)sInterListStateRemote;
-      if(!rstate->placedRoots){
-        rstate->placedRoots = true;
+      if(!rstate->placedRoots[msg->chunkNum]){
+        rstate->placedRoots[msg->chunkNum] = true;
+        rstate->level = 0;
+        sInterListCompute->initState(rstate);
+        
+#if COSMO_PRINT_BK > 0
+        CkPrintf("[%d] CGR: placing chunk %d root %ld replicas\n", thisIndex, msg->chunkNum, chunkRoot->getKey());
+#endif
+
 #endif
 
         //CkPrintf("[%d] calculateGravityRemote cr %d: %ld\n", thisIndex, msg->chunkNum, chunkRoot->getKey());
@@ -3233,7 +3240,7 @@ void TreePiece::commenceCalculateGravityLocal(){
 #if INTERLIST_VER > 0 
   // must set placedRoots to false before starting local comp.
   DoubleWalkState *lstate = (DoubleWalkState *)sInterListStateLocal;
-  lstate->placedRoots = false;
+  lstate->placedRoots[0] = false;
 #endif
   calculateGravityLocal();
 }
@@ -3336,7 +3343,7 @@ void TreePiece::continueStartRemoteChunk(){
 
 #if INTERLIST_VER > 0
   DoubleWalkState *rstate = (DoubleWalkState *)sInterListStateRemote;
-  rstate->placedRoots = false;
+  rstate->placedRoots[msg->chunkNum] = false;
 #endif
   thisProxy[thisIndex].calculateGravityRemote(msg);
 

@@ -89,7 +89,9 @@ class DoubleWalkState : public State {
   // set once before the first cgr is called for a chunk
   // the idea is to place the chunkRoot (along with replicas)
   // on the remote comp chklist only once per chunk
-  bool placedRoots;
+  //
+  // one for each chunk
+  bool *placedRoots;
 
 #ifdef CUDA
   int nodeThreshold;

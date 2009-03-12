@@ -102,6 +102,11 @@ void ListCompute::freeDoubleWalkState(DoubleWalkState *state){
   state->particleLists.free();
 #endif
 
+  if(state->placedRoots){
+    delete [] state->placedRoots;
+    state->placedRoots = 0;
+  }
+
 }
 
 DoubleWalkState *ListCompute::allocDoubleWalkState(){
@@ -125,6 +130,8 @@ State *ListCompute::getNewState(int d1, int d2){
   DoubleWalkState *s = allocDoubleWalkState();
   s->counterArrays[0] = new int [d1];
   s->counterArrays[1] = new int [d2];
+  // one boolean for each chunk
+  s->placedRoots = new bool [d2];
 
   return s;
 }
@@ -133,6 +140,8 @@ State *ListCompute::getNewState(int d1){
   DoubleWalkState *s = allocDoubleWalkState();
   s->counterArrays[0] = new int [d1];
   s->counterArrays[1] = 0;
+  // no concept of chunks in local computation
+  s->placedRoots = new bool [1];
   return s;
 }
 
@@ -140,6 +149,9 @@ State *ListCompute::getNewState(){
   DoubleWalkState *s = allocDoubleWalkState();
   s->counterArrays[0] = 0;
   s->counterArrays[1] = 0;
+  // this function used for remote-resume states, 
+  // no placedRoots vars required
+  s->placedRoots = 0;
   return s;
 }
 
