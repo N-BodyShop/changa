@@ -5223,7 +5223,7 @@ void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID,
   compute->reassoc(source, activeRung, a.o);
 
   // resume walk
-  CkPrintf("[%d] RECVD NODE (%ld), resuming walk chunk %d\n", thisIndex, node->getKey(), chunk);
+  //CkPrintf("[%d] RECVD NODE (%ld), resuming walk chunk %d\n", thisIndex, node->getKey(), chunk);
   tw->resumeWalk(node, state, chunk, reqID, awi);
 
   // we need source to update the counters in all buckets
@@ -5275,7 +5275,7 @@ void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, 
   }
 #endif
   c->reassoc(source, activeRung, a.o);
-  CkPrintf("[%d] RECVD PARTICLES (%ld), chunk %d\n", thisIndex, remoteBucket, chunk);
+  //CkPrintf("[%d] RECVD PARTICLES (%ld), chunk %d\n", thisIndex, remoteBucket, chunk);
   c->recvdParticles(egp,num,chunk,reqID,state,this, remoteBucket);
 }
 
