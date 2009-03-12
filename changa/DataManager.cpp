@@ -298,12 +298,12 @@ int DataManager::createLookupRoots(Tree::GenericTreeNode *node, Tree::NodeKey *k
       // the child does not exist, count the keys falling under it
       Tree::NodeKey childKey = node->getChildKey(i);
       for (partial=0; ; ++partial, ++keys) {
-    int k;
-    for (k=0; k<63; ++k) {
-      if (childKey == ((*keys)>>k)) break;
-    }
-    if (((*keys)|(~0 << k)) == ~0) break;
-    //if (k==63) break;
+        int k;
+        for (k=0; k<63; ++k) {
+          if (childKey == ((*keys)>>k)) break;
+        }
+        if (((*keys)|(~0 << k)) == ~0) break;
+        //if (k==63) break;
       }
       // add the last key found to the count
       ++partial;

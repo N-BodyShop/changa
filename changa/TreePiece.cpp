@@ -2576,6 +2576,8 @@ void TreePiece::calculateForceRemoteBucket(int bucketIndex){
 */
 #endif
 
+const char *typeString(NodeType type);
+
 void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
   unsigned int i=0;
   // cache internal tree: start directly asking the CacheManager
@@ -2656,7 +2658,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
         sInterListCompute->initState(rstate);
         
 #if COSMO_PRINT_BK > 0
-        CkPrintf("[%d] CGR: placing chunk %d root %ld replicas\n", thisIndex, msg->chunkNum, chunkRoot->getKey());
+        CkPrintf("[%d] CGR: placing chunk %d root %ld (type %s) replicas\n", thisIndex, msg->chunkNum, chunkRoot->getKey(), typeString(chunkRoot->getType()));
 #endif
 
 #endif
