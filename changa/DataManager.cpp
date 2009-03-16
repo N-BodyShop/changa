@@ -33,6 +33,8 @@ void DataManager::init() {
   treePiecesDoneLocalComputation = 0;
   treePiecesDoneRemoteChunkComputation = 0;
   treePiecesWantParticlesBack = 0;
+
+  gpuFree = true;
 #endif
 }
 
@@ -358,14 +360,28 @@ void DataManager::donePrefetch(int chunk){
   treePiecesDonePrefetch++;
   if(treePiecesDonePrefetch == registeredTreePieces.length()){
     treePiecesDonePrefetch = 0;
-    serializeRemoteChunk(root);
-    // resume each treepiece's startRemoteChunk, now that the nodes
-    // are properly labeled and the particles accounted for
-    for(int i = 0; i < registeredTreePieces.length(); i++){
-      int in = registeredTreePieces[i].index;
-      //CkPrintf("(%d) dm->%d\n", CkMyPe(), in);
-      treePieces[in].continueStartRemoteChunk();
+    PendingBuffers *buffers = serializeRemoteChunk(root);
+    if(gpuFree){
+      gpuFree = false;
+      // Transfer moments and particle cores to gpu
+      DataManagerTransferRemoteChunk(buffers->moments->getVec(), buffers->moments->length(), buffers->particles->getVec(), buffers->particles->length());
+
+      delete buffers->moments;
+      delete buffers->particles;
+      delete buffers;
+      // resume each treepiece's startRemoteChunk, now that the nodes
+      // are properly labeled and the particles accounted for
+      for(int i = 0; i < registeredTreePieces.length(); i++){
+        int in = registeredTreePieces[i].index;
+        //CkPrintf("(%d) dm->%d\n", CkMyPe(), in);
+        treePieces[in].continueStartRemoteChunk(chunk);
+      }
     }
+    else{
+      // enqueue pendingbuffers
+      pendingChunkTransferQ.enq(buffers);
+    }
+    
   }
   CmiUnlock(__nodelock);
 }
@@ -391,7 +407,7 @@ typedef std::map<CkCacheKey, CkCacheEntry*> cacheType;
 
 const char *typeString(NodeType type);
 
-void DataManager::serializeRemoteChunk(GenericTreeNode *node){
+PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
   CkQ<GenericTreeNode *> queue;
   int chunk = savedChunk;
 
@@ -409,19 +425,20 @@ void DataManager::serializeRemoteChunk(GenericTreeNode *node){
   // get them from cache - iterate and count each type
   int size = cache->size();
 
-  CkVec<CudaMultipoleMoments> postPrefetchMoments;
-  CkVec<CompactPartData> postPrefetchParticles;
+  CkVec<CudaMultipoleMoments> *postPrefetchMoments = new CkVec<CudaMultipoleMoments>;
+  CkVec<CompactPartData> *postPrefetchParticles = new CkVec<CompactPartData>;
+  PendingBuffers *pendingBuffers = new PendingBuffers;
 
   // XXX - better way to estimate NL, NLB, C, CB nodes/particles? 
   // thse are just guessed initial sizes for CkVecs
   numNodes = size;
   numParticles = size;
 
-  postPrefetchMoments.reserve(numNodes);
-  postPrefetchParticles.reserve(numParticles);
+  postPrefetchMoments->reserve(numNodes);
+  postPrefetchParticles->reserve(numParticles);
 
-  postPrefetchMoments.length() = 0;
-  postPrefetchParticles.length() = 0;
+  postPrefetchMoments->length() = 0;
+  postPrefetchParticles->length() = 0;
 
   //postPrefetchMoments = new CudaMultipoleMoments[numNodes];
   //postPrefetchParticles = new CompactPartData[numParticles];
@@ -456,11 +473,11 @@ void DataManager::serializeRemoteChunk(GenericTreeNode *node){
     else if(type == NonLocal){
       // need node moments; also, must enqueue children so that complete list of 
       // used nodes can be obtained
-      addNodeToList(node,postPrefetchMoments,nodeIndex)
+      addNodeToList(node,*postPrefetchMoments,nodeIndex)
     }
     else if(type == NonLocalBucket || type == CachedBucket){
       if(type == CachedBucket){
-        addNodeToList(node,postPrefetchMoments,nodeIndex)
+        addNodeToList(node,*postPrefetchMoments,nodeIndex)
       }
       // if this is a NonLocalBucket, don't need node itself, just its particles
       ExternalGravityParticle *parts;
@@ -480,13 +497,13 @@ void DataManager::serializeRemoteChunk(GenericTreeNode *node){
 #endif
         // put particles in array:
         for(int i = 0; i < nParticles; i++){
-          postPrefetchParticles.push_back(CompactPartData(parts[i]));
+          postPrefetchParticles->push_back(CompactPartData(parts[i]));
           partIndex++;
         }
       }
     }
     else if(type == Cached){
-      addNodeToList(node,postPrefetchMoments,nodeIndex)
+      addNodeToList(node,*postPrefetchMoments,nodeIndex)
       // put children into queue, if available
       for(int i = 0 ; i < node->numChildren(); i++){
 	GenericTreeNode *child = node->getChildren(i);
@@ -508,8 +525,12 @@ void DataManager::serializeRemoteChunk(GenericTreeNode *node){
 #ifdef CUDA_DM_PRINT_TREES
   CkPrintf("*************\n");
 #endif
-  // Transfer moments and particle cores to gpu
-  DataManagerTransferRemoteChunk(postPrefetchMoments.getVec(), postPrefetchMoments.length(), postPrefetchParticles.getVec(), postPrefetchParticles.length());
+
+  pendingBuffers->moments = postPrefetchMoments;
+  pendingBuffers->particles = postPrefetchParticles;
+  pendingBuffers->chunk = chunk;
+
+  return pendingBuffers;
 
 }// end serializeNodes
 
@@ -639,7 +660,7 @@ return 0;
 // local nodes/particle cores
 void FreeDataManagerLocalTreeMemory();
 // remote chunk nodes/particle cores
-void FreeDataManagerRemoteChunkMemory(int );
+void FreeDataManagerRemoteChunkMemory(int , void *);
 
 
 // local particle vars
@@ -660,9 +681,37 @@ void DataManager::freeRemoteChunkMemory(int chunk){
   treePiecesDoneRemoteChunkComputation++;
   if(treePiecesDoneRemoteChunkComputation == registeredTreePieces.length()){
     treePiecesDoneRemoteChunkComputation = 0; 
-    FreeDataManagerRemoteChunkMemory(chunk);
+    FreeDataManagerRemoteChunkMemory(chunk, (void *)this);
   }
   CmiUnlock(__nodelock);
+}
+
+void initiateNextChunkTransfer(void *dm_){
+  DataManager *dm = (DataManager *)dm_;
+  dm->initiateNextChunkTransfer();
+}
+
+void DataManager::initiateNextChunkTransfer(){
+  PendingBuffers *next = 0;
+  if(next = pendingChunkTransferQ.deq()){
+    // Transfer moments and particle cores to gpu
+    DataManagerTransferRemoteChunk(next->moments->getVec(), next->moments->length(), next->particles->getVec(), next->particles->length());
+
+    int chunk = next->chunk;
+    delete next->moments;
+    delete next->particles;
+    delete next;
+    // resume each treepiece's startRemoteChunk, now that the nodes
+    // are properly labeled and the particles accounted for
+    for(int i = 0; i < registeredTreePieces.length(); i++){
+      int in = registeredTreePieces[i].index;
+      //CkPrintf("(%d) dm->%d\n", CkMyPe(), in);
+      treePieces[in].continueStartRemoteChunk(chunk);
+    }
+  }
+  else{
+    gpuFree = true;
+  }
 }
 
 void updateParticlesCallback(void *, void *);

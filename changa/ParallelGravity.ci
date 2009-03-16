@@ -182,7 +182,6 @@ mainmodule ParallelGravity {
 		//entry void receiveGravityTree(const GravityRequest& req);
 		
 		entry void commenceCalculateGravityLocal();
-		//entry void commenceContinueStartRemoteChunk(int chunk);
 		entry void calculateGravityLocal();
 		entry void calculateGravityRemote(ComputeChunkMsg *msg);
 
@@ -234,7 +233,7 @@ mainmodule ParallelGravity {
 		entry void collectStatistics(CkCallback &cb);
 		
 		// jetley - cuda
-		entry void continueStartRemoteChunk();
+		entry void continueStartRemoteChunk(int chunk);
 	};
 
 	initproc void registerStatistics();

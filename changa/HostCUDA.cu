@@ -515,7 +515,13 @@ void FreeDataManagerLocalTreeMemory(){
 
 }
 
-void FreeDataManagerRemoteChunkMemory(int chunk){
+// this function begins the transfer of the next
+// pending chunk on dm, once we are assured that
+// the previous chunk's allocated memory has been
+// freed
+void initiateNextChunkTransfer(void *dm);
+
+void FreeDataManagerRemoteChunkMemory(int chunk, void *dm){
   workRequest gravityKernel;
   dataInfo *buffer;
 
@@ -546,6 +552,11 @@ void FreeDataManagerRemoteChunkMemory(int chunk){
 
   gravityKernel.callbackFn = 0;
   gravityKernel.id = DM_TRANSFER_FREE_REMOTE_CHUNK;
+
+  // save a pointer to the data manager so that
+  // the next chunk's transfer can be initiated once
+  // the memory for this chunk has been freed
+  gravityKernel.userData = dm;
   enqueue(wrQueue, &gravityKernel);
 
 }
@@ -678,6 +689,7 @@ void kernelSelect(workRequest *wr) {
       printf("DM_TRANSFER_FREE_REMOTE_CHUNK\n");
 
 #endif
+      initiateNextChunkTransfer(wr->userData);
       break;
     case DM_TRANSFER_BACK:
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE

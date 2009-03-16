@@ -3105,7 +3105,7 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   // remainingChunk[]
   for(int i = 0; i < numChunks; i++) {
     remoteWalkState->counterArrays[1][i] = numBuckets;
-    //CkPrintf("[%d] init remaining: %d\n", thisIndex, remoteWalkState->counterArrays[1][i]);
+    CkPrintf("[%d] chunk %d init remaining: %d\n", thisIndex, i, remoteWalkState->counterArrays[1][i]);
   }
 
   // numAdditionalRequests[]
@@ -3334,11 +3334,12 @@ void TreePiece::startRemoteChunk() {
   // and sends messages to each of the registered treepieces to continueStartRemoteChunk()
   dm->donePrefetch(currentPrefetch);
 #else
-  continueStartRemoteChunk();
+  continueStartRemoteChunk(currentPrefetch);
 #endif
 }
 
-void TreePiece::continueStartRemoteChunk(){
+void TreePiece::continueStartRemoteChunk(int chunk){
+  // FIXME - can value of chunk be different from currentPrefetch?
   ComputeChunkMsg *msg = new (8*sizeof(int)) ComputeChunkMsg(currentPrefetch);
   *(int*)CkPriorityPtr(msg) = numTreePieces * currentPrefetch + thisIndex + 1;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);

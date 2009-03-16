@@ -507,7 +507,7 @@ class TreePiece : public CBase_TreePiece {
 
 #endif
 
-        void continueStartRemoteChunk();
+        void continueStartRemoteChunk(int chunk);
 
 #if INTERLIST_VER > 0
         void getBucketsBeneathBounds(GenericTreeNode *&node, int &start, int &end);
@@ -1101,7 +1101,6 @@ public:
 	/// by this TreePiece, and belonging to a subset of the global tree
 	/// (specified by chunkNum).
 	void calculateGravityRemote(ComputeChunkMsg *msg);
-	//void commenceContinueStartRemoteChunk(int chunk);
 
 	/// Temporary function to recurse over all the buckets like in
 	/// walkBucketTree, only that NonLocal nodes are the only one for which

@@ -39,6 +39,19 @@ struct UpdateParticlesStruct{
   VariablePartData *buf;
   int size;
 };
+
+
+// store pointers to flattened buffers if !gpuFree 
+struct PendingBuffers {
+  CkVec<CudaMultipoleMoments> *moments;
+  CkVec<CompactPartData> *particles;
+  int chunk;
+  //CudaMultipoleMoments *moments;
+  //int nMoments;
+  //CompactPartData *particles;
+  //int nParticles;
+};
+
 #endif
 
 /** The DataManager is used to store information that all TreePieces will need,
@@ -105,6 +118,11 @@ protected:
 #if 0
         TreePieceDescriptor *findKeyInDescriptors(SFC::Key particleKey);
 #endif
+
+        // can the gpu accept a chunk of remote particles/nodes?
+        bool gpuFree;
+        // queue that stores all pending chunk transfers
+        CkQ<PendingBuffers *> pendingChunkTransferQ;
 #endif
 	/// The root of the combined trees
 	Tree::GenericTreeNode * root;
@@ -130,12 +148,13 @@ public:
         void serializeLocalTree();
 
         // actual serialization methods
-        void serializeRemoteChunk(GenericTreeNode *);
+        PendingBuffers *serializeRemoteChunk(GenericTreeNode *);
 	void serializeLocal(GenericTreeNode *);
         void freeLocalTreeMemory();
         void freeRemoteChunkMemory(int chunk);
         void transferParticleVarsBack();
         void updateParticles(UpdateParticlesStruct *data);
+        void initiateNextChunkTransfer();
         DataManager(){} 
 #endif
 
