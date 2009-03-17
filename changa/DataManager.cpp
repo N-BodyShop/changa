@@ -396,6 +396,14 @@ typedef std::map<CkCacheKey, CkCacheEntry*> cacheType;
         CkPrintf("(%d) node %d: %ld (%s)\n", CkMyPe(), index, nd->getKey(), typeString(type));\
         index++;\
       }
+#define addNodeToListPtr(nd, list, index) \
+      { \
+        nd->nodeArrayIndex = index; \
+        list->push_back(CudaMultipoleMoments(nd->moments));\
+        CkPrintf("(%d) node %d: %ld (%s)\n", CkMyPe(), index, nd->getKey(), typeString(type));\
+        index++;\
+      }
+
 #else
 #define addNodeToList(nd, list, index) \
       { \
@@ -403,7 +411,15 @@ typedef std::map<CkCacheKey, CkCacheEntry*> cacheType;
         list.push_back(CudaMultipoleMoments(nd->moments));\
         index++;\
       }
+#define addNodeToListPtr(nd, list, index) \
+      { \
+        nd->nodeArrayIndex = index; \
+        list->push_back(CudaMultipoleMoments(nd->moments));\
+        index++;\
+      }
+
 #endif
+
 
 const char *typeString(NodeType type);
 
@@ -473,11 +489,11 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
     else if(type == NonLocal){
       // need node moments; also, must enqueue children so that complete list of 
       // used nodes can be obtained
-      addNodeToList(node,*postPrefetchMoments,nodeIndex)
+      addNodeToListPtr(node,postPrefetchMoments,nodeIndex)
     }
     else if(type == NonLocalBucket || type == CachedBucket){
       if(type == CachedBucket){
-        addNodeToList(node,*postPrefetchMoments,nodeIndex)
+        addNodeToListPtr(node,postPrefetchMoments,nodeIndex)
       }
       // if this is a NonLocalBucket, don't need node itself, just its particles
       ExternalGravityParticle *parts;
@@ -503,7 +519,7 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
       }
     }
     else if(type == Cached){
-      addNodeToList(node,*postPrefetchMoments,nodeIndex)
+      addNodeToListPtr(node,postPrefetchMoments,nodeIndex)
       // put children into queue, if available
       for(int i = 0 ; i < node->numChildren(); i++){
 	GenericTreeNode *child = node->getChildren(i);

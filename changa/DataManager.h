@@ -17,19 +17,11 @@
 struct TreePieceDescriptor{
 	TreePiece *tp;
 	int index;
-	SFC::Key firstParticleKey;
-	int numParticles;
-	// index in the array of particles collected by the datamanager where the particles of this
-	// treepiece start.
-	int particleArrayStartIndex;
 
 	TreePieceDescriptor(){}
-	TreePieceDescriptor(TreePiece *tp_, int index_, SFC::Key firstParticleKey_, int numParticles_){
+	TreePieceDescriptor(TreePiece *tp_, int index_){
 		tp = tp_;
 		index = index_;
-		firstParticleKey = firstParticleKey_;
-		numParticles = numParticles_;
-		particleArrayStartIndex = -1;
 	}
 };
 
