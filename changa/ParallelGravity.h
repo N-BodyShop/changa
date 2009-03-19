@@ -778,11 +778,9 @@ private:
 	friend void cellSPE_callback(void*);
 	friend void cellSPE_ewald(void*);
 #endif
-
+#endif
   // called when a chunk has been used completely (chunkRemaining[chunk] == 0)
   void finishedChunk(int chunk);
-
-#endif
 
   ///Array of comparison function pointers
   bool (*compFuncPtr[3])(GravityParticle,GravityParticle);
