@@ -913,7 +913,7 @@ void Main::setupICs() {
   startTime = CkWallTimer();
   treeProxy.load(basefilename, CkCallbackResumeThread());
   if(!(treeProxy[0].ckLocal()->bLoaded)) {
-    // Try loading Tipsy format
+    // Try loading Tipsy format; first just grab the header.
     ckerr << " trying Tipsy ...";
 	    
     Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
@@ -951,6 +951,9 @@ void Main::setupICs() {
 #endif
 #ifdef HEXADECAPOLE
   ofsLog << " HEXADECAPOLE";
+#endif
+#ifdef INTERLIST_VER
+  ofsLog << " INTERLIST_VER:" << INTERLIST_VER;
 #endif
   ofsLog << endl;
   ofsLog.close();
