@@ -474,7 +474,7 @@ void NearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
       started = false;
       cacheManagerProxy[CkMyPe()].finishedChunk(0, 0);
 #ifdef CHECK_WALK_COMPLETIONS
-      CkPrintf("[%d] markWalkDone ReNearNeighborState\n", tp->getIndex());
+      CkPrintf("[%d] markWalkDone NearNeighborState\n", tp->getIndex());
 #endif
       tp->markWalkDone();
       if(verbosity>1)

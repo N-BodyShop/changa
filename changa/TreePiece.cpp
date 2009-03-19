@@ -5445,14 +5445,14 @@ void TreePiece::finishWalk()
   // Furthermore, we need to wait for outstanding flushes to be
   // processed for the combiner cache.
   bWalkDonePending = 0;
-#ifdef CHECK_WALK_COMPLETIONS
-  CkPrintf("[%d] inside finishWalk sSmooth: %x, nCacheAccesses: %d\n", thisIndex, sSmooth, nCacheAccesses);
-#endif
+//#ifdef CHECK_WALK_COMPLETIONS
+//  CkPrintf("[%d] inside finishWalk sSmooth: %x, nCacheAccesses: %d\n", thisIndex, sSmooth, nCacheAccesses);
+//#endif
   if(sSmooth && nCacheAccesses > 0) {
     bWalkDonePending = 1;
-#ifdef CHECK_WALK_COMPLETIONS
-    CkPrintf("[%d] inside finishWalk return\n", thisIndex);
-#endif
+//#ifdef CHECK_WALK_COMPLETIONS
+//    CkPrintf("[%d] inside finishWalk return\n", thisIndex);
+//#endif
     return;
   }
 
