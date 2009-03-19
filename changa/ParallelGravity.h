@@ -888,10 +888,10 @@ public:
 	  numOpenCriterionCalls=0;
 
 	  piecemass = 0.0;
+#endif
 	  packed=0;			/* output accelerations in x,y,z
 					   packed format */
 	  cnt=0;			/* Counter over x,y,z when not packed */
-#endif
 	  particleInterRemote = NULL;
 	  nodeInterRemote = NULL;
 
