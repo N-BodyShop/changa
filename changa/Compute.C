@@ -299,12 +299,10 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
   CkAssert(state->counterArrays[1][chunk] >= 0);
   if (state->counterArrays[1][chunk] == 0) {
     cacheManagerProxy[CkMyPe()].finishedChunk(chunk, tp->nodeInterRemote[chunk]+tp->particleInterRemote[chunk]);
-    if (chunk == tp->numChunks-1){
 #ifdef CHECK_WALK_COMPLETIONS
-      CkPrintf("[%d] markWalkDone GravityCompute::recvdParticles\n", tp->getIndex());
+    CkPrintf("[%d] finishedChunk %d GravityCompute::recvdParticles\n", tp->getIndex(), chunk);
 #endif
-      tp->markWalkDone();
-    }
+    tp->finishedChunk(chunk);
   }
 
 }
@@ -324,21 +322,19 @@ void PrefetchCompute::recvdParticles(ExternalGravityParticle *egp,int num,int ch
 
 int GravityCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int reqIDlist){
 
-	state->counterArrays[0][reqIDlist]--;
-	owner->finishBucket(reqIDlist);
+  state->counterArrays[0][reqIDlist]--;
+  owner->finishBucket(reqIDlist);
 
-		CkAssert(chunk >= 0);
-		state->counterArrays[1][chunk] --;
-		CkAssert(state->counterArrays[1][chunk] >= 0);
-		if (state->counterArrays[1][chunk] == 0) {
-			streamingCache[CkMyPe()].finishedChunk(chunk, owner->nodeInterRemote[chunk]+owner->particleInterRemote[chunk]);
-                        if(chunk == owner->numChunks-1){
+  CkAssert(chunk >= 0);
+  state->counterArrays[1][chunk] --;
+  CkAssert(state->counterArrays[1][chunk] >= 0);
+  if (state->counterArrays[1][chunk] == 0) {
+    streamingCache[CkMyPe()].finishedChunk(chunk, owner->nodeInterRemote[chunk]+owner->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
-                          CkPrintf("[%d] markWalkDone GravityCompute::nodeRecvdEvent\n", owner->getIndex());
+    CkPrintf("[%d] finishedChunk %d GravityCompute::nodeRecvdEvent\n", owner->getIndex(), chunk);
 #endif
-                          owner->markWalkDone();
-                        }
-		}// end if finished with chunk
+    owner->finishedChunk(chunk);
+  }// end if finished with chunk
 }
 
 #if INTERLIST_VER > 0
@@ -360,27 +356,43 @@ int ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int r
   CkPrintf("[%d] nodeRecvdEvent chunk: %d remainingChunk: %d\n", owner->getIndex(), chunk, remainingChunk);
 #endif
   if (remainingChunk == 0) {
-    //CkPrintf("[%d] Finished chunk %d from nodeRecvdEvent\n",owner->getIndex(),chunk);
 #ifdef CUDA
     // no more nodes/particles are going to be delivered by the cache
     // flush the interactions remaining in the state
     DoubleWalkState *ds = (DoubleWalkState *)state;
-    // at this point,
-    sendNodeInteractionsToGpu(ds, owner);
-    sendPartInteractionsToGpu(ds, owner);
-    resetCudaNodeState(ds);
-    resetCudaPartState(ds);
+    bool nodeDummy = false;
+    bool partDummy = true;
+
+    if(ds->nodeLists.totalNumInteractions > 0){
+      nodeDummy = true;
+    }
+    else if(ds->particleLists.totalNumInteractions > 0){
+      partDummy = true;
+    }
+
+    if(nodeDummy && partDummy){
+      sendNodeInteractionsToGpu(ds, owner);
+      sendPartInteractionsToGpu(ds, owner, true);
+      resetCudaNodeState(ds);
+      resetCudaPartState(ds);
+    }
+    else if(nodeDummy){
+      sendNodeInteractionsToGpu(ds, owner,true);
+      resetCudaNodeState(ds);
+    }
+    else if(partDummy){
+      sendPartInteractionsToGpu(ds, owner, true);
+      resetCudaPartState(ds);
+    }
 #endif
 #if COSMO_PRINT_BK > 1
     CkPrintf("[%d] FINISHED CHUNK %d from nodeRecvdEvent\n", owner->getIndex(), chunk);
 #endif
     streamingCache[CkMyPe()].finishedChunk(chunk, owner->nodeInterRemote[chunk]+owner->particleInterRemote[chunk]);
-    if(chunk == owner->numChunks-1){
 #ifdef CHECK_WALK_COMPLETIONS
-      CkPrintf("[%d] markWalkDone ListCompute::nodeRecvdEvent\n", owner->getIndex());
+    CkPrintf("[%d] finishedChunk %d ListCompute::nodeRecvdEvent\n", owner->getIndex(), chunk);
 #endif
-      owner->markWalkDone();
-    }
+    owner->finishedChunk(chunk);
   }// end if finished with chunk
 }
 #endif
@@ -920,23 +932,40 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
 #endif
   CkAssert(remainingChunk >= 0);
   if (remainingChunk == 0) {
-    //CkPrintf("[%d] Finished chunk %d from recvdParticles\n",tp->getIndex(),chunk);
 #ifdef CUDA
-    sendNodeInteractionsToGpu(state, tp);
-    sendPartInteractionsToGpu(state, tp);
-    resetCudaNodeState(state);
-    resetCudaPartState(state);
+    bool nodeDummy = false;
+    bool partDummy = true;
+
+    if(state->nodeLists.totalNumInteractions > 0){
+      nodeDummy = true;
+    }
+    else if(state->particleLists.totalNumInteractions > 0){
+      partDummy = true;
+    }
+
+    if(nodeDummy && partDummy){
+      sendNodeInteractionsToGpu(state, tp);
+      sendPartInteractionsToGpu(state, tp, true);
+      resetCudaNodeState(state);
+      resetCudaPartState(state);
+    }
+    else if(nodeDummy){
+      sendNodeInteractionsToGpu(state, tp,true);
+      resetCudaNodeState(state);
+    }
+    else if(partDummy){
+      sendPartInteractionsToGpu(state, tp, true);
+      resetCudaPartState(state);
+    }
 #endif
 #if COSMO_PRINT_BK > 1
     CkPrintf("[%d] FINISHED CHUNK %d from recvdParticles\n", tp->getIndex(), chunk);
 #endif
     cacheManagerProxy[CkMyPe()].finishedChunk(chunk, tp->nodeInterRemote[chunk]+tp->particleInterRemote[chunk]);
-    if (chunk == tp->numChunks-1){
 #ifdef CHECK_WALK_COMPLETIONS
-      CkPrintf("[%d] markWalkDone ListCompute::recvdParticles\n", tp->getIndex());
+    CkPrintf("[%d] finishedChunk %d ListCompute::recvdParticles\n", tp->getIndex(), chunk);
 #endif
-      tp->markWalkDone();
-    }
+    tp->finishedChunk(chunk);
   }
 }
 
@@ -1601,146 +1630,142 @@ void cudaCallback(void *param, void *msg){
 #endif
 }
 
-void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp){
+void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy){
 
   int thisIndex = tp->getIndex();
 
-  if(state->nodeLists.totalNumInteractions > 0){
 #ifdef CHANGA_REFACTOR_MEMCHECK
-    CkPrintf("memcheck before sendNodeInteractionsToGpu\n");
-    CmiMemoryCheck();
+  CkPrintf("memcheck before sendNodeInteractionsToGpu\n");
+  CmiMemoryCheck();
 #endif
 
-    CudaRequest *data = state->nodeLists.serialize(tp);
+  CudaRequest *data = state->nodeLists.serialize(tp);
 
-    data->state = (void *)state;
-    data->node = true;
-    data->remote = (getOptType() == Remote);
-    data->callDummy = false;
+  data->state = (void *)state;
+  data->node = true;
+  data->remote = (getOptType() == Remote);
+  data->callDummy = callDummy;
 
 #ifdef CUDA_PRINT_TRANSFERRED_INTERACTIONS
-    CkPrintf("*************\n");
-    CkPrintf("[%d] %d cellLists:\n", thisIndex, getOptType());
-    CkPrintf("*************\n");
-    
-    ILCell *cellLists = (ILCell *)data->list;
+  CkPrintf("*************\n");
+  CkPrintf("[%d] %d cellLists:\n", thisIndex, getOptType());
+  CkPrintf("*************\n");
 
-    for(int i = 0; i < data->numInteractions; i++){
-      Vector3D<double> v = tp->decodeOffset(cellLists[i].offsetID);
-      CkPrintf("[%d] %d (%1.0f,%1.0f,%1.0f)\n", thisIndex, cellLists[i].index, v.x, v.y, v.z);
-    }
-    CkPrintf("\nnodeInteractionBucketMarkers:\n");
-    for(int i = 0; i < data->numBucketsPlusOne; i++){
-      CkPrintf("[%d] %d\n", thisIndex, data->bucketMarkers[i]);
-    }
+  ILCell *cellLists = (ILCell *)data->list;
 
-    CkPrintf("\nbucketSizes:\n");
-    for(int i = 0; i < data->numBucketsPlusOne-1; i++){
-      CkPrintf("[%d] %d\n", thisIndex, data->bucketSizes[i]);
-    }
-    CkPrintf("\nbucketStartMarkersNodes:\n");
-    for(int i = 0; i < data->numBucketsPlusOne-1; i++){
-      CkPrintf("[%d] %d\n", thisIndex, data->bucketStarts[i]);
-    }
-    CkPrintf("*************\n");
+  for(int i = 0; i < data->numInteractions; i++){
+    Vector3D<double> v = tp->decodeOffset(cellLists[i].offsetID);
+    CkPrintf("[%d] %d (%1.0f,%1.0f,%1.0f)\n", thisIndex, cellLists[i].index, v.x, v.y, v.z);
+  }
+  CkPrintf("\nnodeInteractionBucketMarkers:\n");
+  for(int i = 0; i < data->numBucketsPlusOne; i++){
+    CkPrintf("[%d] %d\n", thisIndex, data->bucketMarkers[i]);
+  }
+
+  CkPrintf("\nbucketSizes:\n");
+  for(int i = 0; i < data->numBucketsPlusOne-1; i++){
+    CkPrintf("[%d] %d\n", thisIndex, data->bucketSizes[i]);
+  }
+  CkPrintf("\nbucketStartMarkersNodes:\n");
+  for(int i = 0; i < data->numBucketsPlusOne-1; i++){
+    CkPrintf("[%d] %d\n", thisIndex, data->bucketStarts[i]);
+  }
+  CkPrintf("*************\n");
 #endif
 
 
 
 #if COSMO_PRINT_BK > 1
-    CkPrintf("[%d] OFFLOAD (remote: %d, node: %d, resume: %d) nodeInteractions: %d, numBuckets: %d\n", thisIndex, data->remote, true, state->resume, data->numInteractions, data->numBucketsPlusOne-1);
+  CkPrintf("[%d] OFFLOAD (remote: %d, node: %d, resume: %d) nodeInteractions: %d, numBuckets: %d\n", thisIndex, data->remote, true, state->resume, data->numInteractions, data->numBucketsPlusOne-1);
 #endif
 
-    OptType type = getOptType();
-    data->cb = new CkCallback(cudaCallback, data);
-    if(type == Local){
-      TreePieceCellListDataTransferLocal(data);
-    }
-    else if(type == Remote && !state->resume){
-      TreePieceCellListDataTransferRemote(data);
-    }
-    else if(type == Remote && state->resume){
-      CudaMultipoleMoments *missedNodes = state->nodes->getVec();
-      int len = state->nodes->length();
-      CkAssert(missedNodes);
-      TreePieceCellListDataTransferRemoteResume(data, missedNodes, len);
-    }
-#ifdef CHANGA_REFACTOR_MEMCHECK
-    CkPrintf("memcheck after sendNodeInteractionsToGpu\n");
-    CmiMemoryCheck();
-#endif
+  OptType type = getOptType();
+  data->cb = new CkCallback(cudaCallback, data);
+  if(type == Local){
+    TreePieceCellListDataTransferLocal(data);
   }
+  else if(type == Remote && !state->resume){
+    TreePieceCellListDataTransferRemote(data);
+  }
+  else if(type == Remote && state->resume){
+    CudaMultipoleMoments *missedNodes = state->nodes->getVec();
+    int len = state->nodes->length();
+    CkAssert(missedNodes);
+    TreePieceCellListDataTransferRemoteResume(data, missedNodes, len);
+  }
+#ifdef CHANGA_REFACTOR_MEMCHECK
+  CkPrintf("memcheck after sendNodeInteractionsToGpu\n");
+  CmiMemoryCheck();
+#endif
 }
 
 void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy){
 
   int thisIndex = tp->getIndex();
 
-  if(state->particleLists.totalNumInteractions > 0){
 #ifdef CHANGA_REFACTOR_MEMCHECK
-    CkPrintf("memcheck before sendPartInteractionsToGpu\n");
-    CmiMemoryCheck();
+  CkPrintf("memcheck before sendPartInteractionsToGpu\n");
+  CmiMemoryCheck();
 #endif
 
-    CudaRequest *data = state->particleLists.serialize(tp);
+  CudaRequest *data = state->particleLists.serialize(tp);
 
-    data->state = (void *)state;
-    data->node = false;
-    data->remote = (getOptType() == Remote);
-    data->callDummy = callDummy;
+  data->state = (void *)state;
+  data->node = false;
+  data->remote = (getOptType() == Remote);
+  data->callDummy = callDummy;
 
 
 #ifdef CUDA_PRINT_TRANSFERRED_INTERACTIONS
-    CkPrintf("*************\n");
-    CkPrintf("[%d] partLists: ", thisIndex);
-    CkPrintf("*************\n");
+  CkPrintf("*************\n");
+  CkPrintf("[%d] partLists: ", thisIndex);
+  CkPrintf("*************\n");
 
-    ILPart *partLists = (ILPart *)data->list;
+  ILPart *partLists = (ILPart *)data->list;
 
-    for(int i = 0; i < data->numInteractions; i++){
-      Vector3D<double> v = tp->decodeOffset(partLists[i].off);
-      CkPrintf("[%d] %d (%1.0f,%1.0f,%1.0f)\n", thisIndex, partLists[i].index, v.x, v.y, v.z);
-    }
-    CkPrintf("\npartInteractionBucketMarkers:\n");
-    for(int i = 0; i < data->numBucketsPlusOne; i++){
-      CkPrintf("[%d] %d\n", thisIndex, data->bucketMarkers[i]);
-    }
+  for(int i = 0; i < data->numInteractions; i++){
+    Vector3D<double> v = tp->decodeOffset(partLists[i].off);
+    CkPrintf("[%d] %d (%1.0f,%1.0f,%1.0f)\n", thisIndex, partLists[i].index, v.x, v.y, v.z);
+  }
+  CkPrintf("\npartInteractionBucketMarkers:\n");
+  for(int i = 0; i < data->numBucketsPlusOne; i++){
+    CkPrintf("[%d] %d\n", thisIndex, data->bucketMarkers[i]);
+  }
 
-    CkPrintf("\nbucketSizes:\n");
-    for(int i = 0; i < data->numBucketsPlusOne-1; i++){
-      CkPrintf("[%d] %d\n", thisIndex, data->bucketSizes[i]);
-    }
-    CkPrintf("\nbucketStartMarkersParts:\n");
-    for(int i = 0; i < data->numBucketsPlusOne-1; i++){
-      CkPrintf("[%d] %d\n", thisIndex, data->bucketStarts[i]);
-    }
-    CkPrintf("*************\n");
+  CkPrintf("\nbucketSizes:\n");
+  for(int i = 0; i < data->numBucketsPlusOne-1; i++){
+    CkPrintf("[%d] %d\n", thisIndex, data->bucketSizes[i]);
+  }
+  CkPrintf("\nbucketStartMarkersParts:\n");
+  for(int i = 0; i < data->numBucketsPlusOne-1; i++){
+    CkPrintf("[%d] %d\n", thisIndex, data->bucketStarts[i]);
+  }
+  CkPrintf("*************\n");
 #endif
 
 
 #if COSMO_PRINT_BK > 1
-    CkPrintf("[%d] OFFLOAD (remote: %d, node: %d, resume: %d) partInteractions: %d, numBuckets: %d\n", thisIndex, data->remote, false, state->resume, data->numInteractions, data->numBucketsPlusOne-1);
+  CkPrintf("[%d] OFFLOAD (remote: %d, node: %d, resume: %d) partInteractions: %d, numBuckets: %d\n", thisIndex, data->remote, false, state->resume, data->numInteractions, data->numBucketsPlusOne-1);
 #endif
 
-    OptType type = getOptType();
-    data->cb = new CkCallback(cudaCallback, data);
-    if(type == Local){
-      TreePiecePartListDataTransferLocal(data);
-    }
-    else if(type == Remote && !state->resume){
-      TreePiecePartListDataTransferRemote(data);
-    }
-    else if(type == Remote && state->resume){
-      CompactPartData *missedParts = state->particles->getVec();
-      int len = state->particles->length();
-      CkAssert(missedParts);
-      TreePiecePartListDataTransferRemoteResume(data, missedParts, len);
-    }
-#ifdef CHANGA_REFACTOR_MEMCHECK
-    CkPrintf("memcheck after sendPartInteractionsToGpu\n");
-    CmiMemoryCheck();
-#endif
+  OptType type = getOptType();
+  data->cb = new CkCallback(cudaCallback, data);
+  if(type == Local){
+    TreePiecePartListDataTransferLocal(data);
   }
+  else if(type == Remote && !state->resume){
+    TreePiecePartListDataTransferRemote(data);
+  }
+  else if(type == Remote && state->resume){
+    CompactPartData *missedParts = state->particles->getVec();
+    int len = state->particles->length();
+    CkAssert(missedParts);
+    TreePiecePartListDataTransferRemoteResume(data, missedParts, len);
+  }
+#ifdef CHANGA_REFACTOR_MEMCHECK
+  CkPrintf("memcheck after sendPartInteractionsToGpu\n");
+  CmiMemoryCheck();
+#endif
 }
 
 #endif

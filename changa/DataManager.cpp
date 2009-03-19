@@ -142,6 +142,7 @@ void DataManager::notifyPresence(Tree::GenericTreeNode *root) {
 
 #ifdef CUDA
   registeredTreePieces.push_back(TreePieceDescriptor(tp, index));
+  gpuFree = true;
   //registeredTreePieceIndices.push_back(index);
 #if COSMO_PRINT_BK > 1
   CkPrintf("(%d) notifyPresence called by %d, length: %d\n", CkMyPe(), index, registeredTreePieces.length());
@@ -352,16 +353,18 @@ void DataManager::serializeLocalTree(){
 void DataManager::donePrefetch(int chunk){
   CmiLock(__nodelock);
 
-  if(savedChunk < 0){
-    savedChunk = chunk;
-  }
-  CkAssert(savedChunk == chunk);
+  //if(savedChunk < 0){
+  //  savedChunk = chunk;
+  //}
+  //CkAssert(savedChunk == chunk);
+  savedChunk = chunk;
 
   treePiecesDonePrefetch++;
   if(treePiecesDonePrefetch == registeredTreePieces.length()){
     treePiecesDonePrefetch = 0;
     PendingBuffers *buffers = serializeRemoteChunk(root);
     if(gpuFree){
+      CkPrintf("(%d) DM donePrefetch gpuFree, transferring\n", CkMyPe());
       gpuFree = false;
       // Transfer moments and particle cores to gpu
       DataManagerTransferRemoteChunk(buffers->moments->getVec(), buffers->moments->length(), buffers->particles->getVec(), buffers->particles->length());
@@ -373,12 +376,13 @@ void DataManager::donePrefetch(int chunk){
       // are properly labeled and the particles accounted for
       for(int i = 0; i < registeredTreePieces.length(); i++){
         int in = registeredTreePieces[i].index;
-        //CkPrintf("(%d) dm->%d\n", CkMyPe(), in);
+        CkPrintf("(%d) dm->%d chunk %d\n", CkMyPe(), in, chunk);
         treePieces[in].continueStartRemoteChunk(chunk);
       }
     }
     else{
       // enqueue pendingbuffers
+      CkPrintf("(%d) DM donePrefetch gpu not free, enqueuing\n", CkMyPe());
       pendingChunkTransferQ.enq(buffers);
     }
     
@@ -697,6 +701,7 @@ void DataManager::freeRemoteChunkMemory(int chunk){
   treePiecesDoneRemoteChunkComputation++;
   if(treePiecesDoneRemoteChunkComputation == registeredTreePieces.length()){
     treePiecesDoneRemoteChunkComputation = 0; 
+    CkPrintf("(%d) DM freeRemoteChunkMemory chunk %d called\n", CkMyPe(), chunk);
     FreeDataManagerRemoteChunkMemory(chunk, (void *)this);
   }
   CmiUnlock(__nodelock);
@@ -711,9 +716,10 @@ void DataManager::initiateNextChunkTransfer(){
   PendingBuffers *next = 0;
   if(next = pendingChunkTransferQ.deq()){
     // Transfer moments and particle cores to gpu
+    int chunk = next->chunk;
+    CkPrintf("(%d) DM initiateNextChunkTransfer chunk %d (%d moments, %d particles) called\n", CkMyPe(), chunk, next->moments->length(), next->particles->length());
     DataManagerTransferRemoteChunk(next->moments->getVec(), next->moments->length(), next->particles->getVec(), next->particles->length());
 
-    int chunk = next->chunk;
     delete next->moments;
     delete next->particles;
     delete next;
@@ -726,6 +732,7 @@ void DataManager::initiateNextChunkTransfer(){
     }
   }
   else{
+    CkPrintf("(%d) DM initiateNextChunkTransfer no chunks found, gpu is free\n", CkMyPe());
     gpuFree = true;
   }
 }

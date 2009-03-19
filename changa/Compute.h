@@ -166,7 +166,7 @@ class ListCompute : public Compute{
   void freeDoubleWalkState(DoubleWalkState *state);
 
 #ifdef CUDA
-  void sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp);
+  void sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy=false);
   void sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy=false);
 #endif
 

@@ -666,6 +666,11 @@ private:
 	/// Number of particles which are still traversing the tree
 	u_int64_t myNumParticlesPending;
 
+        /// Number of pending chenks
+        // A chunk is pending wrt a TP until that TP has finished using
+        // it completely (i.e. state->counterArrays[1][chunk] == 0)
+        int numPendingChunks;
+
 	/// Number of nodes still missing before starting the real computation
 	u_int64_t prefetchWaiting;
 	/// Current prefetching chunk in progress
@@ -773,6 +778,9 @@ private:
 	friend void cellSPE_callback(void*);
 	friend void cellSPE_ewald(void*);
 #endif
+
+  // called when a chunk has been used completely (chunkRemaining[chunk] == 0)
+  void finishedChunk(int chunk);
 
 #endif
 

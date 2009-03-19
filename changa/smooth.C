@@ -439,6 +439,9 @@ void TreePiece::smoothNextBucket() {
   if (bucketList[currentBucket]->rungs >= activeRung) {
     for(int cr = 0; cr < numChunks; cr++){
       GenericTreeNode *chunkRoot = dm->chunkRootToNode(prefetchRoots[cr]);
+      if(!chunkRoot){
+        continue;
+      }
       twSmooth->walk(chunkRoot, smoothState, cr,
 		     encodeOffset(currentBucket, 0,0,0), smoothAwi);
       for(int x = -nReplicas; x <= nReplicas; x++) {
@@ -810,6 +813,9 @@ void TreePiece::reSmoothNextBucket() {
   if (bucketList[currentBucket]->rungs >= activeRung) {
     for(int cr = 0; cr < numChunks; cr++){
       GenericTreeNode *chunkRoot = dm->chunkRootToNode(prefetchRoots[cr]);
+      if(!chunkRoot){
+        continue;
+      }
       twSmooth->walk(chunkRoot, smoothState, cr,
 		     encodeOffset(currentBucket, 0,0,0), smoothAwi);
       for(int x = -nReplicas; x <= nReplicas; x++) {

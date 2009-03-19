@@ -684,6 +684,7 @@ void kernelSelect(workRequest *wr) {
 
 #endif
       break;
+
     case DM_TRANSFER_FREE_REMOTE_CHUNK:
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
       printf("DM_TRANSFER_FREE_REMOTE_CHUNK\n");
@@ -691,6 +692,7 @@ void kernelSelect(workRequest *wr) {
 #endif
       initiateNextChunkTransfer(wr->userData);
       break;
+
     case DM_TRANSFER_BACK:
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
       printf("DM_TRANSFER_BACK: 0x%x\n", devBuffers[LOCAL_PARTICLE_VARS]);

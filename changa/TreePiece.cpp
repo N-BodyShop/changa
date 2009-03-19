@@ -698,7 +698,7 @@ void TreePiece::rungStats(const CkCallback& cb) {
 }
 
 void TreePiece::drift(double dDelta, const CkCallback& cb) {
-    callback = cb;		// called by assignKeys()
+  callback = cb;		// called by assignKeys()
   if (root != NULL) {
     // Delete the tree since is no longer useful
     root->fullyDelete();
@@ -707,37 +707,37 @@ void TreePiece::drift(double dDelta, const CkCallback& cb) {
     nodeLookupTable.clear();
   }
   if(bucketReqs != NULL) {
-      delete[] bucketReqs;
-      bucketReqs = NULL;
-      }
+    delete[] bucketReqs;
+    bucketReqs = NULL;
+  }
 
   boundingBox.reset();
   int bInBox = 1;
 
   for(unsigned int i = 0; i < myNumParticles; ++i) {
-      myParticles[i+1].position += dDelta*myParticles[i+1].velocity;
-      if(bPeriodic) {
-	  for(int j = 0; j < 3; j++) {
-	      if(myParticles[i+1].position[j] >= 0.5*fPeriod[j]){
-		  myParticles[i+1].position[j] -= fPeriod[j];
-		  }
-	      if(myParticles[i+1].position[j] < -0.5*fPeriod[j]){
-		  myParticles[i+1].position[j] += fPeriod[j];
-		  }
-	      // Sanity Checks
-	      bInBox = bInBox
-		  && (myParticles[i+1].position[j] >= -0.5*fPeriod[j]);
-	      bInBox = bInBox
-		  && (myParticles[i+1].position[j] < 0.5*fPeriod[j]);
-	      }
-	  CkAssert(bInBox);
-	  }
-      boundingBox.grow(myParticles[i+1].position);
+    myParticles[i+1].position += dDelta*myParticles[i+1].velocity;
+    if(bPeriodic) {
+      for(int j = 0; j < 3; j++) {
+        if(myParticles[i+1].position[j] >= 0.5*fPeriod[j]){
+          myParticles[i+1].position[j] -= fPeriod[j];
+        }
+        if(myParticles[i+1].position[j] < -0.5*fPeriod[j]){
+          myParticles[i+1].position[j] += fPeriod[j];
+        }
+        // Sanity Checks
+        bInBox = bInBox
+          && (myParticles[i+1].position[j] >= -0.5*fPeriod[j]);
+        bInBox = bInBox
+          && (myParticles[i+1].position[j] < 0.5*fPeriod[j]);
       }
+      CkAssert(bInBox);
+    }
+    boundingBox.grow(myParticles[i+1].position);
+  }
   CkAssert(bInBox);
   contribute(sizeof(OrientedBox<float>), &boundingBox,
-		   growOrientedBox_float,
-		   CkCallback(CkIndex_TreePiece::assignKeys(0), pieces));
+      growOrientedBox_float,
+      CkCallback(CkIndex_TreePiece::assignKeys(0), pieces));
 }
 
 void TreePiece::setSoft(const double dSoft) {
@@ -1832,20 +1832,23 @@ void TreePiece::startNextBucket() {
         GenericTreeNode *chunkRoot = dm->chunkRootToNode(prefetchRoots[cr]);
         //CkPrintf("[%d] startNextBucket cr %d: %ld\n", thisIndex, cr, chunkRoot->getKey());
 #endif
-        for(int x = -nReplicas; x <= nReplicas; x++) {
-          for(int y = -nReplicas; y <= nReplicas; y++) {
-            for(int z = -nReplicas; z <= nReplicas; z++) {
+        if(chunkRoot != 0){
+          for(int x = -nReplicas; x <= nReplicas; x++) {
+            for(int y = -nReplicas; y <= nReplicas; y++) {
+              for(int z = -nReplicas; z <= nReplicas; z++) {
 #if INTERLIST_VER > 0
-              // place chunk root on chklist of lcaLevel:
-              OffsetNode on;
-              on.node = chunkRoot;
-              // value of currentBucket doesn't matter
-              on.offsetID = encodeOffset(0, x,y,z);
-              lstate->chklists[lcaLevel].enq(on);
+                // place chunk root on chklist of lcaLevel:
+                OffsetNode on;
+                on.node = chunkRoot;
+                // value of currentBucket doesn't matter
+                on.offsetID = encodeOffset(0, x,y,z);
+                lstate->chklists[lcaLevel].enq(on);
+                //CkPrintf("[%d] SNB: placing chunkroot %d(%ld) (%d,%d,%d)\n", thisIndex, cr, chunkRoot->getKey(), x,y,z);
 #else
-              // last -1 arg is the activeWalkIndex
-              sTopDown->walk(chunkRoot, sLocalGravityState, -1, encodeOffset(currentBucket, x,y,z), -1);
+                // last -1 arg is the activeWalkIndex
+                sTopDown->walk(chunkRoot, sLocalGravityState, -1, encodeOffset(currentBucket, x,y,z), -1);
 #endif
+              }
             }
           }
         }
@@ -2133,10 +2136,14 @@ void TreePiece::nextBucket(dummyMsg *msg){
     ListCompute *lc = (ListCompute *)sInterListCompute;
 
     if(lc && ds){
-      lc->sendNodeInteractionsToGpu(ds, this);
-      lc->sendPartInteractionsToGpu(ds, this);
-      lc->resetCudaNodeState(ds);
-      lc->resetCudaPartState(ds);
+      if(ds->nodeLists.totalNumInteractions > 0){
+        lc->sendNodeInteractionsToGpu(ds, this);
+        lc->resetCudaNodeState(ds);
+      }
+      if(ds->particleLists.totalNumInteractions > 0){
+        lc->sendPartInteractionsToGpu(ds, this);
+        lc->resetCudaPartState(ds);
+      }
     }
 #endif
 
@@ -2593,7 +2600,9 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 #endif
     // OK to pass bogus arguments because we don't expect to miss on this anyway (see CkAssert(chunkRoot) below.)
   if (chunkRoot == NULL) {
-    chunkRoot = requestNode(thisIndex, prefetchRoots[msg->chunkNum], msg->chunkNum, -1, -78, (void *)0, true);
+    int first, last;
+    nodeOwnership(prefetchRoots[msg->chunkNum], first, last);
+    chunkRoot = requestNode((first+last)>>1, prefetchRoots[msg->chunkNum], msg->chunkNum, -1, -78, (void *)0, true);
   }
   CkAssert(chunkRoot != NULL);
   //CkPrintf("[%d] gravity remote for chunk %d with node %d\n",thisIndex,msg->chunkNum,chunkRoot->getKey());
@@ -2680,6 +2689,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
               on.node = chunkRoot;
               on.offsetID = encodeOffset(0, x,y,z);
               rstate->chklists[lcaLevel].enq(on);
+              //CkPrintf("[%d] CGR: placing chunkroot %d(%ld) (%d,%d,%d)\n", thisIndex, msg->chunkNum, chunkRoot->getKey(), x,y,z);
 
 #else
     	      sTopDown->walk(chunkRoot, sRemoteGravityState, msg->chunkNum,encodeOffset(currentRemoteBucket,x, y, z), remoteGravityAwi);
@@ -2832,10 +2842,14 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
     ListCompute *lc = (ListCompute *)sInterListCompute;
 
     if(lc && ds){
-      lc->sendNodeInteractionsToGpu(ds, this);
-      lc->sendPartInteractionsToGpu(ds, this, true);
-      lc->resetCudaNodeState(ds);
-      lc->resetCudaPartState(ds);
+      if(ds->nodeLists.totalNumInteractions > 0){
+        lc->sendNodeInteractionsToGpu(ds, this);
+        lc->resetCudaNodeState(ds);
+      }
+      if(ds->particleLists.totalNumInteractions > 0){
+        lc->sendPartInteractionsToGpu(ds, this);
+        lc->resetCudaPartState(ds);
+      }
     }
 
 #endif
@@ -2864,21 +2878,40 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       DoubleWalkState *ds = (DoubleWalkState *)sInterListStateRemoteResume;
       ListCompute *lc = (ListCompute *)sInterListCompute;
 
+
       if(lc && ds){
-        lc->sendNodeInteractionsToGpu(ds, this);
-        lc->sendPartInteractionsToGpu(ds, this);
-        lc->resetCudaNodeState(ds);
-        lc->resetCudaPartState(ds);
+        bool nodeDummy = false;
+        bool partDummy = true;
+
+        if(ds->nodeLists.totalNumInteractions > 0){
+          nodeDummy = true;
+        }
+        else if(ds->particleLists.totalNumInteractions > 0){
+          partDummy = true;
+        }
+
+        if(nodeDummy && partDummy){
+          lc->sendNodeInteractionsToGpu(ds, this);
+          lc->sendPartInteractionsToGpu(ds, this, true);
+          lc->resetCudaNodeState(ds);
+          lc->resetCudaPartState(ds);
+        }
+        else if(nodeDummy){
+          lc->sendNodeInteractionsToGpu(ds, this,true);
+          lc->resetCudaNodeState(ds);
+        }
+        else if(partDummy){
+          lc->sendPartInteractionsToGpu(ds, this, true);
+          lc->resetCudaPartState(ds);
+        }
       }
 #endif
 
       streamingCache[CkMyPe()].finishedChunk(msg->chunkNum, nodeInterRemote[msg->chunkNum]+particleInterRemote[msg->chunkNum]);
-      if (msg->chunkNum == numChunks-1) {
 #ifdef CHECK_WALK_COMPLETIONS
-        CkPrintf("[%d] markWalkDone TreePiece::calculateGravityRemote\n", thisIndex);
+      CkPrintf("[%d] finishedChunk TreePiece::calculateGravityRemote\n", thisIndex);
 #endif
-        markWalkDone();
-      }
+      finishedChunk(msg->chunkNum);
     }
 #if COSMO_PRINT > 0
     CkPrintf("{%d} resetting message chunk %d, prio %d\n",thisIndex,msg->chunkNum,*(int*)CkPriorityPtr(msg));
@@ -2990,6 +3023,8 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
 
   ewaldCurrentBucket = 0;
   myNumParticlesPending = numBuckets;
+  numPendingChunks = numChunks;
+
   started = true;
 
 #if INTERLIST_VER > 0
@@ -3105,7 +3140,7 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   // remainingChunk[]
   for(int i = 0; i < numChunks; i++) {
     remoteWalkState->counterArrays[1][i] = numBuckets;
-    CkPrintf("[%d] chunk %d init remaining: %d\n", thisIndex, i, remoteWalkState->counterArrays[1][i]);
+    //CkPrintf("[%d] chunk %d init remaining: %d\n", thisIndex, i, remoteWalkState->counterArrays[1][i]);
   }
 
   // numAdditionalRequests[]
@@ -3332,6 +3367,7 @@ void TreePiece::startRemoteChunk() {
   // dm counts until all treepieces have acknowledged prefetch completion
   // it then flattens the tree on the processor, sends it to the device
   // and sends messages to each of the registered treepieces to continueStartRemoteChunk()
+  CkPrintf("[%d] startRemoteChunk done currentPrefetch: %d\n", thisIndex, currentPrefetch);
   dm->donePrefetch(currentPrefetch);
 #else
   continueStartRemoteChunk(currentPrefetch);
@@ -3340,6 +3376,7 @@ void TreePiece::startRemoteChunk() {
 
 void TreePiece::continueStartRemoteChunk(int chunk){
   // FIXME - can value of chunk be different from currentPrefetch?
+  //CkPrintf("[%d] continueStartRemoteChunk chunk: %d, currentPrefetch: %d\n", thisIndex, chunk, currentPrefetch);
   ComputeChunkMsg *msg = new (8*sizeof(int)) ComputeChunkMsg(currentPrefetch);
   *(int*)CkPriorityPtr(msg) = numTreePieces * currentPrefetch + thisIndex + 1;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
@@ -5379,6 +5416,15 @@ void TreePiece::freeWalkObjects(){
   }
 }
 
+void TreePiece::finishedChunk(int chunk){
+  numPendingChunks--;
+  if(numPendingChunks == 0){
+#ifdef CHECK_WALK_COMPLETIONS
+    CkPrintf("[%d] finishedChunk %d, calling markWalkDone\n", thisIndex, chunk);
+#endif
+    markWalkDone();
+  }
+}
 
 void TreePiece::markWalkDone() {
     // At this point this treepiece has completed its walk.  However,
@@ -5386,6 +5432,9 @@ void TreePiece::markWalkDone() {
     // wait for all walks to complete before freeing data structures.
     
     if (++completedActiveWalks == activeWalks.size()) {
+#ifdef CHECK_WALK_COMPLETIONS
+        CkPrintf("[%d] inside markWalkDone, completedActiveWalks: %d, activeWalks: %d, contrib finishWalk\n", thisIndex, completedActiveWalks, activeWalks.size());
+#endif
 	CkCallback cb = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
 	contribute(0, 0, CkReduction::concat, cb);
 	}
@@ -5393,20 +5442,29 @@ void TreePiece::markWalkDone() {
 
 void TreePiece::finishWalk()
 {
-    // Furthermore, we need to wait for outstanding flushes to be
-    // processed for the combiner cache.
-    bWalkDonePending = 0;
-    if(sSmooth && nCacheAccesses > 0) {
-	bWalkDonePending = 1;
-	return;
-	}
+  // Furthermore, we need to wait for outstanding flushes to be
+  // processed for the combiner cache.
+  bWalkDonePending = 0;
+#ifdef CHECK_WALK_COMPLETIONS
+  CkPrintf("[%d] inside finishWalk sSmooth: %x, nCacheAccesses: %d\n", thisIndex, sSmooth, nCacheAccesses);
+#endif
+  if(sSmooth && nCacheAccesses > 0) {
+    bWalkDonePending = 1;
+#ifdef CHECK_WALK_COMPLETIONS
+    CkPrintf("[%d] inside finishWalk return\n", thisIndex);
+#endif
+    return;
+  }
 
-    nCacheAccesses = 0; // reset for non-combiner walks.
-    freeWalkObjects();
-//#ifdef CUDA
-//    FreeDataManagerMemory();
-//#endif
-    contribute(0, 0, CkReduction::concat, callback);
+  nCacheAccesses = 0; // reset for non-combiner walks.
+  freeWalkObjects();
+  //#ifdef CUDA
+  //    FreeDataManagerMemory();
+  //#endif
+#ifdef CHECK_WALK_COMPLETIONS
+  CkPrintf("[%d] inside finishWalk contrib callback\n", thisIndex);
+#endif
+  contribute(0, 0, CkReduction::concat, callback);
 }
 
 #if INTERLIST_VER > 0
