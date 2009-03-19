@@ -190,6 +190,10 @@ inline int partBucketForce(ExternalGravityParticle *part, Tree::GenericTreeNode 
   return computed;
 }
 
+//
+// Calculated forces on active particles in a bucket due to the
+// multipole of a TreeNode.  Return number of multipoles evaluated.
+//
 #if  !defined(__SSE2__) && defined(COSMO_FLOAT)
 inline
 int nodeBucketForce(Tree::GenericTreeNode *node, 
