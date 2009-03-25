@@ -2185,7 +2185,13 @@ void cellSPE_ewald(void *data) {
 
 void TreePiece::calculateEwald(dummyMsg *msg) {
 #ifdef SPCUDA
-  EwaldGPU(); 
+  h_idata = (EwaldData*) malloc(sizeof(EwaldData)); 
+
+  CkCallback *cb; 
+  CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex); 
+  cb = new CkCallback(CkIndex_TreePiece::EwaldGPU(), myIndex, thisArrayID); 
+
+  EwaldHostMemorySetup(h_idata, myNumParticles, nEwhLoop, (void *) cb); 
 #else
   unsigned int i=0;
   while (i<_yieldPeriod && ewaldCurrentBucket < numBuckets

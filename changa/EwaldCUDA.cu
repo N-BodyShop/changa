@@ -12,7 +12,7 @@
 #include <math.h>
 #include <float.h>
 #include "wr.h"
-// #include <cutil.h>
+#include <cutil.h>
 
 #include "cuda_runtime.h"
 
@@ -22,17 +22,33 @@
 __device__ __constant__ EwaldReadOnlyData cachedData[1];
 __device__ __constant__ EwtData ewt[sizeof(EwtData) * NEWH];  
 
-__global__ void EwaldTopKernel(GravityParticleData *particleTable/*, EwaldReadOnlyData *cachedData*/);
-__global__ void EwaldBottomKernel(GravityParticleData *particleTable, EwtData *ewt/*, EwaldReadOnlyData *cachedData*/);
+__global__ void EwaldTopKernel(GravityParticleData *particleTable);
+__global__ void EwaldBottomKernel(GravityParticleData *particleTable);
 
-void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop) {
-  
-  cudaMallocHost((void **) &(h_idata->p), 
-		 (nParticles+1) * sizeof(GravityParticleData));
-  cudaMallocHost((void **) &(h_idata->ewt),
-		 nEwhLoop * sizeof(EwtData));
-  cudaMallocHost((void **) &(h_idata->cachedData), 
-		 sizeof(EwaldReadOnlyData)); 
+extern unsigned int timerHandle; 
+
+void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop,
+			  void *cb) {
+  pinnedMemReq reqs; 
+
+  int nBuffers = 3; 
+  size_t *sizes = (size_t *)malloc(nBuffers * sizeof(size_t)); 
+  void ***hostPtrs = (void ***) malloc(nBuffers * sizeof(void **)); 
+  hostPtrs[0] = (void **) &(h_idata->p); 
+  hostPtrs[1] = (void **) &(h_idata->ewt); 
+  hostPtrs[2] = (void **) &(h_idata->cachedData); 
+  sizes[0] = (nParticles+1) * sizeof(GravityParticleData);
+  sizes[1] = nEwhLoop * sizeof(EwtData);
+  sizes[2] = sizeof(EwaldReadOnlyData);
+
+
+  reqs.sizes = sizes; 
+  reqs.hostPtrs = hostPtrs; 
+  reqs.callbackFn = cb;
+  reqs.nBuffers = nBuffers; 
+
+  pinnedMallocHost(&reqs); 
+
 }
 
 void EwaldHostMemoryFree(EwaldData *h_idata) {
@@ -49,7 +65,6 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
 
   workRequest topKernel;
   dataInfo *particleTableInfo, *cachedDataInfo, *ewtInfo;  
-  // topKernel = (workRequest*) malloc(sizeof(workRequest));
 
   topKernel.dimGrid = dim3(numBlocks); 
   topKernel.dimBlock = dim3(BLOCK_SIZE); 
@@ -82,7 +97,6 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
   enqueue(wrQueue, &topKernel); 
 
   workRequest bottomKernel; 
-  // bottomKernel = (workRequest*) malloc(sizeof(workRequest)); 
 
   bottomKernel.dimGrid = dim3(numBlocks); 
   bottomKernel.dimBlock = dim3(BLOCK_SIZE); 
@@ -123,7 +137,7 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
   enqueue(wrQueue, &bottomKernel); 
 }
 
-__global__ void EwaldTopKernel(GravityParticleData *particleTable/*, EwaldReadOnlyData *cachedData*/) {
+__global__ void EwaldTopKernel(GravityParticleData *particleTable) {
 
   GravityParticleData *p;  
   MultipoleMomentsData *mom; 
@@ -230,7 +244,7 @@ __global__ void EwaldTopKernel(GravityParticleData *particleTable/*, EwaldReadOn
 
 }
 
-__global__ void EwaldBottomKernel(GravityParticleData *particleTable/*, EwtData *ewt, __constant__ EwaldReadOnlyData *cachedData*/) {
+__global__ void EwaldBottomKernel(GravityParticleData *particleTable) {
 
   int i, id;
   float hdotx, c, s, fPot; 
@@ -287,20 +301,15 @@ void kernelSelect(workRequest *wr) {
 
   switch (wr->id) {
   case TOP_KERNEL: 
-
-    cudaMemcpyToSymbol(cachedData, wr->bufferInfo[EWALD_READ_ONLY_DATA].hostBuffer, sizeof(EwaldReadOnlyData)); 
+      cudaMemcpyToSymbol(cachedData, wr->bufferInfo[EWALD_READ_ONLY_DATA].hostBuffer, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice);
     EwaldTopKernel<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
-      ((GravityParticleData *)devBuffers[wr->bufferInfo[PARTICLE_TABLE].bufferID]
-/*, 
-										   (EwaldReadOnlyData *)devBuffers[wr->bufferInfo[EWALD_READ_ONLY_DATA].bufferID]*/);     
+      ((GravityParticleData *)devBuffers[wr->bufferInfo[PARTICLE_TABLE].bufferID]);
     break; 
   case BOTTOM_KERNEL:
-    cudaMemcpyToSymbol(ewt, wr->bufferInfo[EWALD_TABLE].hostBuffer, NEWH * sizeof(EwtData)); 
+    cudaMemcpyToSymbol(ewt, wr->bufferInfo[EWALD_TABLE].hostBuffer, NEWH * sizeof(EwtData), 0, cudaMemcpyHostToDevice);
     EwaldBottomKernel<<<wr->dimGrid, wr->dimBlock, 
       wr->smemSize, kernel_stream>>>
-      ((GravityParticleData *)devBuffers[wr->bufferInfo[PARTICLE_TABLE].bufferID]/*, 
-       (EwtData *)devBuffers[wr->bufferInfo[EWALD_TABLE].bufferID], 
-								    (EwaldReadOnlyData *)devBuffers[wr->bufferInfo[EWALD_READ_ONLY_DATA].bufferID]*/);
+      ((GravityParticleData *)devBuffers[wr->bufferInfo[PARTICLE_TABLE].bufferID]);
     break; 
   default:
     printf("error: id %d not valid\n", wr->id); 

@@ -48,7 +48,7 @@ typedef struct {
   EwaldReadOnlyData *cachedData;
 } EwaldData; 
 
-void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop); 
+void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop, void *cb); 
 void EwaldHostMemoryFree(EwaldData *h_idata); 
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex); 
 

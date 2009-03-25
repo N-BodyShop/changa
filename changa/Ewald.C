@@ -381,9 +381,13 @@ void TreePiece::EwaldInit()
 	thisProxy[thisIndex].calculateEwald(msg);
 }
 
-#ifdef SPCUDA
-void TreePiece::EwaldGPU() {
 
+void TreePiece::EwaldGPU() {
+  /* when not using CUDA, definition is required because
+     EwaldGPU is an entry method
+  */
+  
+#ifdef SPCUDA
   GravityParticleData *particleTable;
   EwtData *ewtTable; 
   EwaldReadOnlyData *roData; 
@@ -391,10 +395,6 @@ void TreePiece::EwaldGPU() {
   
   float L = fPeriod.x;
   float alpha = 2.0f/L;
-
-  h_idata = (EwaldData*) malloc(sizeof(EwaldData)); 
-
-  EwaldHostMemorySetup(h_idata, myNumParticles, nEwhLoop); 
   
   particleTable = (GravityParticleData*) h_idata->p; 
   ewtTable = (EwtData*) h_idata->ewt;
@@ -450,8 +450,10 @@ void TreePiece::EwaldGPU() {
 		      thisArrayID); 
 
   EwaldHost(h_idata, (void *) cb, thisIndex); 
-}
+
 #endif
+}
+
 
 void TreePiece::EwaldGPUComplete() {
   /* when not using CUDA, definition is required because

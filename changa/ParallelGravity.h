@@ -789,9 +789,9 @@ private:
  public:
 
 #ifdef SPCUDA
-  void EwaldGPU(); 
   EwaldData *h_idata;
 #endif
+  void EwaldGPU(); 
   void EwaldGPUComplete();
   int bLoaded;		/* Are particles loaded? */
 
