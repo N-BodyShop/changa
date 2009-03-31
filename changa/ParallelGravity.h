@@ -354,7 +354,7 @@ typedef struct particlesInfoR{
     ExternalGravityParticle* particles;
     int numParticles;
     Vector3D<double> offset;
-#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CUDA
+#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
     NodeKey key;
 #endif
 #if COSMO_DEBUG > 1
@@ -367,7 +367,7 @@ typedef struct particlesInfoL{
     GravityParticle* particles;
     int numParticles;
     Vector3D<double> offset;
-#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CUDA
+#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
     NodeKey key;
 #endif
 #if COSMO_DEBUG > 1

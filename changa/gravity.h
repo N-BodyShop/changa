@@ -1282,6 +1282,7 @@ inline int openCriterionNode(Tree::GenericTreeNode *node,
 #if COSMO_STATS > 0
   node->used = true;
 #endif
+
   // Note that some of this could be pre-calculated into an "opening radius"
   double radius = TreeStuff::opening_geometry_factor * node->moments.radius / theta;
   if(radius < node->moments.radius)

@@ -2093,9 +2093,11 @@ void TreePiece::nextBucket(dummyMsg *msg){
       // keep moving forward until an active bucket is reached
       // all (inactive) buckets encountered meanwhile are
       // finished
+      /*
       if(currentBucket != 0){
         prevBucket = currentBucket;
       }
+      */
 #if COSMO_PRINT_BK > 1 
       CkPrintf("[%d] inactive local bucket book-keep\n", thisIndex);
 #endif
@@ -2791,9 +2793,11 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       // prevRemoteBucket keeps track of last *active* bucket
       // if it is -1, the lca turns out to be chunkroot
       // otherwise, the lca is some other valid node
+      /*
       if(currentRemoteBucket != 0){
         prevRemoteBucket = currentRemoteBucket;
       }
+      */
 #if COSMO_PRINT_BK > 1 
       CkPrintf("[%d] inactive remote bucket book-keep chunk: %d\n", thisIndex, msg->chunkNum);
 #endif
@@ -4355,21 +4359,25 @@ void TreePiece::checkWalkCorrectness(){
   Tree::NodeKey endKey = Key(1);
   int count = (2*nReplicas+1) * (2*nReplicas+1) * (2*nReplicas+1);
   CkPrintf("[%d(%d)]checking walk correctness...\n",thisIndex, CkMyPe());
+  bool someWrong = false;
+
   for(int i=0;i<numBuckets;i++){
     int wrong = 0;
+    if(bucketList[i]->rungs < activeRung) continue;
     if(bucketcheckList[i].size()!=count) wrong = 1;
     for (std::multiset<Tree::NodeKey>::iterator iter = bucketcheckList[i].begin(); iter != bucketcheckList[i].end(); iter++) {
       if (*iter != endKey) wrong = 1;
     }
     if (wrong) {
+      someWrong = true;
       CkPrintf("Error: [%d] All the nodes not traversed by bucket no. %d\n",thisIndex,i);
       for (std::multiset<Tree::NodeKey>::iterator iter=bucketcheckList[i].begin(); iter != bucketcheckList[i].end(); iter++) {
 	CkPrintf("       [%d] key %ld\n",thisIndex,*iter);
       }
-      break;
     }
     else { bucketcheckList[i].clear(); }
   }
+  if(someWrong) CkExit();
 }
 #endif
 

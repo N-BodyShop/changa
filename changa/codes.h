@@ -37,5 +37,5 @@ enum OptType {Local, Remote, Pref, Double, InvalidOpt};
 #define CHECK_BUCKET 16
 #endif
 
-#define TEST_BUCKET 0
+#define TEST_BUCKET -1
 #endif // CODES_H

@@ -177,7 +177,7 @@ class ListCompute : public Compute{
 
   DoubleWalkState *allocDoubleWalkState();
 
-#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CUDA
+#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
   void addRemoteParticlesToInt(ExternalGravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s, NodeKey key);
   void addLocalParticlesToInt(GravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s, NodeKey key);
 #else

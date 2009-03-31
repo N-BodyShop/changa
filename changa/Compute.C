@@ -791,7 +791,7 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
     GravityParticle *part = node->particlePointer;
     CkAssert(part);
     int computed = node->lastParticle-node->firstParticle+1;
-#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CUDA
+#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
     NodeKey key = node->getKey();
     addLocalParticlesToInt(part, computed, offset, s, key);
 #else
@@ -835,7 +835,7 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
 #endif
       int computed = node->lastParticle-node->firstParticle+1;
 
-#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CUDA
+#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
       NodeKey key = node->getKey();
       addRemoteParticlesToInt(part, computed, offset, s, key);
 #else
@@ -908,7 +908,7 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
   // put particles in list at correct level
   // (key) here.
   state->level = level;
-#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CUDA
+#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
   NodeKey key = remoteBucket;
   addRemoteParticlesToInt(part, num, offset, state, key);
 #else
@@ -977,7 +977,7 @@ int ListCompute::openCriterion(TreePiece *ownerTP,
     openCriterionNode(node,(GenericTreeNode *)computeEntity, ownerTP->decodeOffset(reqID), ownerTP->getIndex());
 }
 
-#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CUDA
+#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
 void ListCompute::addRemoteParticlesToInt(ExternalGravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s, NodeKey key){
 #else
 void ListCompute::addRemoteParticlesToInt(ExternalGravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s){
@@ -988,14 +988,14 @@ void ListCompute::addRemoteParticlesToInt(ExternalGravityParticle *parts, int n,
   rpi.particles = parts;
   rpi.numParticles = n;
   rpi.offset = offset;
-#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CUDA
+#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
   rpi.key = key;
 #endif
 
   s->rplists[level].push_back(rpi);
 }
 
-#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CUDA
+#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST  || defined CUDA
 void ListCompute::addLocalParticlesToInt(GravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s, NodeKey key){
 #else
 void ListCompute::addLocalParticlesToInt(GravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s){
@@ -1006,7 +1006,7 @@ void ListCompute::addLocalParticlesToInt(GravityParticle *parts, int n, Vector3D
   lpi.particles = parts;
   lpi.numParticles = n;
   lpi.offset = offset;
-#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CUDA
+#if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
   lpi.key = key;
 #endif
 
