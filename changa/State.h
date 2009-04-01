@@ -157,10 +157,10 @@ CudaRequest *GenericList<T>::serialize(TreePiece *tp){
     allocatePinnedHostMemory((void **)&starts, (numFilledBuckets)*sizeof(int));
     allocatePinnedHostMemory((void **)&sizes, (numFilledBuckets)*sizeof(int));
 #else
-    T *flatlists = malloc(totalNumInteractions*sizeof(T));
-    int *markers = malloc((numFilledBuckets+1)*sizeof(int));
-    int *starts = malloc(numFilledBuckets*sizeof(int));
-    int *sizes = malloc(numFilledBuckets*sizeof(int));
+    T *flatlists = (T *) malloc(totalNumInteractions*sizeof(T));
+    int *markers = (int *) malloc((numFilledBuckets+1)*sizeof(int));
+    int *starts = (int *) malloc(numFilledBuckets*sizeof(int));
+    int *sizes = (int *) malloc(numFilledBuckets*sizeof(int));
 #endif
     int *affectedBuckets = new int[numFilledBuckets];
 

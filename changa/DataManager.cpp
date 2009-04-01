@@ -752,7 +752,7 @@ void DataManager::transferParticleVarsBack(){
 #ifdef CUDA_USE_CUDAMALLOCHOST
     allocatePinnedHostMemory((void **)&buf, savedNumTotalParticles*sizeof(VariablePartData));
 #else
-    buf = malloc(savedNumTotalParticles*sizeof(VariablePartData));
+    buf = (VariablePartData *) malloc(savedNumTotalParticles*sizeof(VariablePartData));
 #endif
     data = new UpdateParticlesStruct;
     data->cb = new CkCallback(updateParticlesCallback, data);
