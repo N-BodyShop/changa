@@ -1267,9 +1267,9 @@ openCriterionBucket(Tree::GenericTreeNode *node,
 #endif
 }
 
-// return 1 if there is an intersection
+// return -1 if there is an intersection
 //    0 if no intersection
-//    -1 if completely contained
+//    +1 if completely contained
 
 inline int openCriterionNode(Tree::GenericTreeNode *node,
                     Tree::GenericTreeNode *myNode,
