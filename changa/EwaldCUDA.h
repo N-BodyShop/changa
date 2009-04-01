@@ -1,9 +1,14 @@
 #ifndef _EWALD_CUDA_H_
 #define _EWALD_CUDA_H_ 
 
+#include "HostCUDA.h"
+
 /* Boolean defines */ 
 
-enum boolean {NO, YES};
+// enum boolean {NO, YES};
+
+//enum ewald_kernels {TOP_EWALD_KERNEL, BOTTOM_EWALD_KERNEL}; 
+
 
 /* defines for Hybrid API buffer indices */ 
 
@@ -13,8 +18,9 @@ enum boolean {NO, YES};
 
 #define BUFFERS_PER_CHARE     3
 
-
-enum kernels {TOP_KERNEL, BOTTOM_KERNEL}; 
+#define NEWH 80
+#define BLOCK_SIZE 128
+#define NUM_GRAVITY_BUFS 10
 
 typedef struct {
   float hx, hy, hz; 
@@ -51,6 +57,9 @@ typedef struct {
 void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop, void *cb); 
 void EwaldHostMemoryFree(EwaldData *h_idata); 
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex); 
+
+__global__ void EwaldTopKernel(GravityParticleData *particleTable);
+__global__ void EwaldBottomKernel(GravityParticleData *particleTable);
 
 #endif
 
