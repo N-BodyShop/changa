@@ -27,7 +27,7 @@ HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
 #
 # Uncomment definition of CUDA for make benefit CUDA version
 # Currently requires that HEXADECAPOLE be disabled 
-#CUDA = -DINTERLIST_VER=2 -DCUDA -DCUDA_USE_CUDAMALLOCHOST 
+#CUDA = -DINTERLIST_VER=2 -DCUDA -DCUDA_USE_CUDAMALLOCHOST #-DSPCUDA 
 
 # refactor flags:
 # -DCHANGA_REFACTOR_WALKCHECK
