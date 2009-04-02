@@ -35,6 +35,7 @@ HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
 # -DCHANGA_REFACTOR_INTERLIST_REALLY_VERBOSE
 # -DCHANGA_REFACTOR_MEMCHECK
 # -DCHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE -DCHANGA_REFACTOR_PRINT_INTERACTIONS
+# -DCHANGA_PRINT_INTERACTION_COUNTS
 # -DCHECK_WALK_COMPLETIONS
 #FLAG_REFACTOR =  
 
@@ -49,9 +50,10 @@ CHARM_UTIL_PATH = $(CHARM_PATH)/src/util
 CHARM_LIB_PATH = $(CHARM_PATH)/lib
 METIS_SRC_PATH = $(CHARM_PATH)/src/libs/ck-libs/parmetis/METISLib
 
+NVIDIA_CUDA_SDK = $(HOME)/NVIDIA_CUDA_SDK
 NVCC = /usr/local/cuda/bin/nvcc
 NVCC_FLAGS = -c -use_fast_math --ptxas-options=-v #-deviceemu -device-debug 
-NVCC_INC = -I/usr/local/cuda/include -I$(HOME)/NVIDIA_CUDA_SDK/common/inc -I$(CHARM_PATH)/tmp/hybridAPI
+NVCC_INC = -I/usr/local/cuda/include -I$(NVIDIA_CUDA_SDK)/common/inc -I$(CHARM_PATH)/tmp/hybridAPI
 # add $(NVCC_LIBS) to LDLIBS when compiling for cuda
 NVCC_LIBS = -lcuda -lcudart -lGL -lcutil
 
@@ -91,7 +93,7 @@ ifdef CUDA
   SRSC += HostCUDA.cu #EwaldCUDA.cu
   LDLIBS += $(NVCC_LIBS)
   NVCC_FLAGS += $(CXXFLAGS)
-  LDFLAGS += -L$(HOME)/NVIDIA_CUDA_SDK/lib
+  LDFLAGS += -L$(NVIDIA_CUDA_SDK)/lib
 endif
 
 TARGET = ChaNGa
