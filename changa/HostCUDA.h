@@ -82,9 +82,8 @@ enum kernels {
   TP_PART_GRAVITY_REMOTE,
   TP_PART_GRAVITY_REMOTE_RESUME,
   TOP_EWALD_KERNEL,
-  BOTTOM_EWALD_KERNEL//,
-  //DUMMY
-  };
+  BOTTOM_EWALD_KERNEL
+};
 
 
 typedef struct _CudaRequest{
@@ -121,7 +120,7 @@ typedef struct _ParameterStruct{
 }ParameterStruct;
 
 
-void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts);
+void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype);
 void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts);
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data);

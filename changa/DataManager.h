@@ -115,6 +115,10 @@ protected:
         bool gpuFree;
         // queue that stores all pending chunk transfers
         CkQ<PendingBuffers *> pendingChunkTransferQ;
+
+        // last remote chunk's size in moments and particles
+        int lastChunkMoments;
+        int lastChunkParticles;
 #endif
 	/// The root of the combined trees
 	Tree::GenericTreeNode * root;

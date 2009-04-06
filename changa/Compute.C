@@ -1397,7 +1397,14 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
           if(state->resume || (!state->resume && index < 0)){
             rrState = (DoubleWalkState*) tp->sInterListStateRemoteResume;
             CkAssert(rrState->nodes);
-            index = rrState->nodes->push_back_v(CudaMultipoleMoments(node->moments));
+            std::map<NodeKey,int>::iterator it = rrState->nodeMap.find(node->getKey());
+            if(it == rrState->nodeMap.end()){
+              index = rrState->nodes->push_back_v(CudaMultipoleMoments(node->moments));
+              rrState->nodeMap[node->getKey()] = index;
+            }
+            else{
+              index = it->second;
+            }
           }
           else{ // index >= 0
             rrState = state;
@@ -1449,9 +1456,17 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
           DoubleWalkState *rrState;
           if(state->resume || (!state->resume && gpuIndex < 0)){
             rrState = (DoubleWalkState*) tp->sInterListStateRemoteResume;
-            gpuIndex = rrState->particles->length();
-            for(int j = 0; j < rpi.numParticles; j++){
-              rrState->particles->push_back(CompactPartData(rpi.particles[j]));
+            CkAssert(rrState->particles);
+            std::map<NodeKey,int>::iterator it = rrState->partMap.find(key);
+            if(it == rrState->partMap.end()){
+              gpuIndex = rrState->particles->length();
+              rrState->partMap[key] = gpuIndex;
+              for(int j = 0; j < rpi.numParticles; j++){
+                rrState->particles->push_back(CompactPartData(rpi.particles[j]));
+              }
+            }
+            else{
+              gpuIndex = it->second;
             }
           }
           else{ // index >= 0
@@ -1553,6 +1568,7 @@ void ListCompute::resetCudaNodeState(DoubleWalkState *state){
   state->nodeLists.reset();
   if(state->nodes){
     state->nodes->length() = 0;
+    state->nodeMap.clear();
   }
 }
 
@@ -1560,6 +1576,7 @@ void ListCompute::resetCudaPartState(DoubleWalkState *state){
   state->particleLists.reset();
   if(state->particles){
     state->particles->length() = 0;
+    state->partMap.clear();
   }
 }
 

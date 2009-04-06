@@ -2193,6 +2193,7 @@ void TreePiece::calculateEwald(dummyMsg *msg) {
   CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex); 
   cb = new CkCallback(CkIndex_TreePiece::EwaldGPU(), myIndex, thisArrayID); 
 
+  CkPrintf("[%d] in calculateEwald, calling EwaldHostMemorySetup\n", thisIndex);
   EwaldHostMemorySetup(h_idata, myNumParticles, nEwhLoop, (void *) cb); 
 #else
   unsigned int i=0;
@@ -2613,10 +2614,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
     chunkRoot = requestNode((first+last)>>1, prefetchRoots[msg->chunkNum], msg->chunkNum, -1, -78, (void *)0, true);
   }
   CkAssert(chunkRoot != NULL);
-  //CkPrintf("[%d] gravity remote for chunk %d with node %d\n",thisIndex,msg->chunkNum,chunkRoot->getKey());
-#if COSMO_PRINT > 0
-  CkPrintf("[%d] Computing gravity remote for chunk %d with node %016llx\n",thisIndex,msg->chunkNum,chunkRoot->getKey());
-#endif
 
 #if INTERLIST_VER > 0
   sInterListWalk->init(sInterListCompute, this);
@@ -3180,25 +3177,27 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
 
   {
 	  DoubleWalkState *state = (DoubleWalkState *)sInterListStateRemote;
-	  ((ListCompute *)sInterListCompute)->initCudaState(state, numBuckets, NODE_INTERACTIONS_PER_REQUEST_RNR, PART_INTERACTIONS_PER_REQUEST_RNR, false);
+	  ((ListCompute *)sInterListCompute)->initCudaState(state, numBuckets, remoteNodesPerReq, remotePartsPerReq, false);
           // no missed nodes/particles
           state->nodes = 0;
           state->particles = 0;
 
 	  DoubleWalkState *lstate = (DoubleWalkState *)sInterListStateLocal;
-	  ((ListCompute *)sInterListCompute)->initCudaState(lstate, numBuckets, NODE_INTERACTIONS_PER_REQUEST_RNR, PART_INTERACTIONS_PER_REQUEST_RNR, false);
+	  ((ListCompute *)sInterListCompute)->initCudaState(lstate, numBuckets, localNodesPerReq, localPartsPerReq, false);
           // ditto
           lstate->nodes = 0;
           lstate->particles = 0;
   }
   {
 	  DoubleWalkState *state = (DoubleWalkState *)sInterListStateRemoteResume;
-	  ((ListCompute *)sInterListCompute)->initCudaState(state, numBuckets, NODE_INTERACTIONS_PER_REQUEST_RR, PART_INTERACTIONS_PER_REQUEST_RR, true);
+	  ((ListCompute *)sInterListCompute)->initCudaState(state, numBuckets, remoteResumeNodesPerReq, remoteResumePartsPerReq, true);
 
 	  state->nodes = new CkVec<CudaMultipoleMoments>(512);
           state->nodes->length() = 0;
 	  state->particles = new CkVec<CompactPartData>(2048);
           state->particles->length() = 0;
+          state->nodeMap.clear();
+          state->partMap.clear();
   }
 #endif
 
@@ -3377,7 +3376,7 @@ void TreePiece::startRemoteChunk() {
   // dm counts until all treepieces have acknowledged prefetch completion
   // it then flattens the tree on the processor, sends it to the device
   // and sends messages to each of the registered treepieces to continueStartRemoteChunk()
-  CkPrintf("[%d] startRemoteChunk done currentPrefetch: %d\n", thisIndex, currentPrefetch);
+  //CkPrintf("[%d] startRemoteChunk done currentPrefetch: %d\n", thisIndex, currentPrefetch);
   dm->donePrefetch(currentPrefetch);
 #else
   continueStartRemoteChunk(currentPrefetch);

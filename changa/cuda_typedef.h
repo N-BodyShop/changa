@@ -4,14 +4,19 @@
 typedef float cudatype;
 typedef double hosttype;
 
-// FIXME - set these to appropriate values
-// remote, no-resume/local
-#define NODE_INTERACTIONS_PER_REQUEST_RNR 30000000
-#define PART_INTERACTIONS_PER_REQUEST_RNR 30000000
+// set these to appropriate values (in millions)
+// local
+#define NODE_INTERACTIONS_PER_REQUEST_L 30
+#define PART_INTERACTIONS_PER_REQUEST_L 30
+// remote, no-resume
+#define NODE_INTERACTIONS_PER_REQUEST_RNR 30
+#define PART_INTERACTIONS_PER_REQUEST_RNR 30
 // remote, resume
-#define NODE_INTERACTIONS_PER_REQUEST_RR 30000000
-#define PART_INTERACTIONS_PER_REQUEST_RR 30000000
+#define NODE_INTERACTIONS_PER_REQUEST_RR 30
+#define PART_INTERACTIONS_PER_REQUEST_RR 30
 
+#define CUDA_SER_TREE 9900
+#define CUDA_SER_LIST 9901
 
 typedef struct CudaVector3D{
   cudatype x,y,z;

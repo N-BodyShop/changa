@@ -112,6 +112,14 @@ extern int _numChunks;
 extern unsigned int bucketSize;
 extern int lbcomm_cutoff_msgs;
 
+//jetley
+extern int localNodesPerReq;
+extern int remoteNodesPerReq;
+extern int remoteResumeNodesPerReq;
+extern int localPartsPerReq;
+extern int remotePartsPerReq;
+extern int remoteResumePartsPerReq;
+
 extern double theta;
 extern double thetaMono;
 

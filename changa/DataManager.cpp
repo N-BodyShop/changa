@@ -336,7 +336,10 @@ void DataManager::serializeLocalTree(){
 #endif
   if(treePiecesDone == registeredTreePieces.length()){
     treePiecesDone = 0;
+    
+    double starttime = CmiWallTimer();
     serializeLocal(root);
+    traceUserBracketEvent(CUDA_SER_TREE, starttime, CmiWallTimer());
     // resume each treepiece's startRemoteChunk, now that the nodes
     // are properly labeled and the particles accounted for
     for(int i = 0; i < registeredTreePieces.length(); i++){
@@ -362,10 +365,15 @@ void DataManager::donePrefetch(int chunk){
   treePiecesDonePrefetch++;
   if(treePiecesDonePrefetch == registeredTreePieces.length()){
     treePiecesDonePrefetch = 0;
+    double starttime = CmiWallTimer();
     PendingBuffers *buffers = serializeRemoteChunk(root);
+    traceUserBracketEvent(CUDA_SER_TREE, starttime, CmiWallTimer());
     if(gpuFree){
-      CkPrintf("(%d) DM donePrefetch gpuFree, transferring\n", CkMyPe());
+      //CkPrintf("(%d) DM donePrefetch gpuFree, transferring\n", CkMyPe());
       gpuFree = false;
+      lastChunkMoments = buffers->moments->length();
+      lastChunkParticles = buffers->particles->length();
+
       // Transfer moments and particle cores to gpu
       DataManagerTransferRemoteChunk(buffers->moments->getVec(), buffers->moments->length(), buffers->particles->getVec(), buffers->particles->length());
 
@@ -376,13 +384,13 @@ void DataManager::donePrefetch(int chunk){
       // are properly labeled and the particles accounted for
       for(int i = 0; i < registeredTreePieces.length(); i++){
         int in = registeredTreePieces[i].index;
-        CkPrintf("(%d) dm->%d chunk %d\n", CkMyPe(), in, chunk);
+        //CkPrintf("(%d) dm->%d chunk %d\n", CkMyPe(), in, chunk);
         treePieces[in].continueStartRemoteChunk(chunk);
       }
     }
     else{
       // enqueue pendingbuffers
-      CkPrintf("(%d) DM donePrefetch gpu not free, enqueuing\n", CkMyPe());
+      //CkPrintf("(%d) DM donePrefetch gpu not free, enqueuing\n", CkMyPe());
       pendingChunkTransferQ.enq(buffers);
     }
     
@@ -661,7 +669,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   CkPrintf("(%d): DM->GPU local tree\n", CkMyPe());
 #endif
   // Transfer moments and particle cores to gpu
-  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex);
+  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, CkMyPe());
 
 }// end serializeLocal
 
@@ -680,7 +688,7 @@ return 0;
 // local nodes/particle cores
 void FreeDataManagerLocalTreeMemory();
 // remote chunk nodes/particle cores
-void FreeDataManagerRemoteChunkMemory(int , void *);
+void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart);
 
 
 // local particle vars
@@ -701,8 +709,8 @@ void DataManager::freeRemoteChunkMemory(int chunk){
   treePiecesDoneRemoteChunkComputation++;
   if(treePiecesDoneRemoteChunkComputation == registeredTreePieces.length()){
     treePiecesDoneRemoteChunkComputation = 0; 
-    CkPrintf("(%d) DM freeRemoteChunkMemory chunk %d called\n", CkMyPe(), chunk);
-    FreeDataManagerRemoteChunkMemory(chunk, (void *)this);
+    //CkPrintf("(%d) DM freeRemoteChunkMemory chunk %d called\n", CkMyPe(), chunk);
+    FreeDataManagerRemoteChunkMemory(chunk, (void *)this, lastChunkMoments != 0, lastChunkParticles != 0);
   }
   CmiUnlock(__nodelock);
 }
@@ -717,7 +725,10 @@ void DataManager::initiateNextChunkTransfer(){
   if(next = pendingChunkTransferQ.deq()){
     // Transfer moments and particle cores to gpu
     int chunk = next->chunk;
-    CkPrintf("(%d) DM initiateNextChunkTransfer chunk %d (%d moments, %d particles) called\n", CkMyPe(), chunk, next->moments->length(), next->particles->length());
+    //CkPrintf("(%d) DM initiateNextChunkTransfer chunk %d (%d moments, %d particles) called\n", CkMyPe(), chunk, next->moments->length(), next->particles->length());
+    lastChunkMoments = next->moments->length();
+    lastChunkParticles = next->particles->length();
+
     DataManagerTransferRemoteChunk(next->moments->getVec(), next->moments->length(), next->particles->getVec(), next->particles->length());
 
     delete next->moments;
@@ -732,7 +743,7 @@ void DataManager::initiateNextChunkTransfer(){
     }
   }
   else{
-    CkPrintf("(%d) DM initiateNextChunkTransfer no chunks found, gpu is free\n", CkMyPe());
+    //CkPrintf("(%d) DM initiateNextChunkTransfer no chunks found, gpu is free\n", CkMyPe());
     gpuFree = true;
   }
 }

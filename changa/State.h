@@ -92,6 +92,8 @@ class DoubleWalkState : public State {
   //
   // one for each chunk
   bool *placedRoots;
+  // to tell a remote-resume state from a remote-no-resume state
+  bool resume;
 
 #ifdef CUDA
   int nodeThreshold;
@@ -103,8 +105,8 @@ class DoubleWalkState : public State {
   CkVec<CudaMultipoleMoments> *nodes;
   CkVec<CompactPartData> *particles;
 
-  // to tell a remote-resume state from a remote-no-resume state
-  bool resume;
+  std::map<NodeKey,int> nodeMap;
+  std::map<NodeKey,int> partMap;
 
   bool nodeOffloadReady(){
     return nodeLists.totalNumInteractions >= nodeThreshold;
@@ -141,6 +143,7 @@ CudaRequest *GenericList<T>::serialize(TreePiece *tp){
     int listpos = 0;
     int curbucket = 0;
 
+    double starttime = CmiWallTimer();
     for(int i = 0; i < lists.length(); i++){
       if(lists[i].length() > 0){
         numFilledBuckets++;
@@ -190,6 +193,8 @@ CudaRequest *GenericList<T>::serialize(TreePiece *tp){
     request->affectedBuckets = affectedBuckets;
     request->tp = (void *)tp;
     request->fperiod = tp->fPeriod.x;
+
+    traceUserBracketEvent(CUDA_SER_LIST, starttime, CmiWallTimer());
 
     return request;
   }

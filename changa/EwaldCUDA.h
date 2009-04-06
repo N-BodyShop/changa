@@ -3,13 +3,6 @@
 
 #include "HostCUDA.h"
 
-/* Boolean defines */ 
-
-// enum boolean {NO, YES};
-
-//enum ewald_kernels {TOP_EWALD_KERNEL, BOTTOM_EWALD_KERNEL}; 
-
-
 /* defines for Hybrid API buffer indices */ 
 
 #define PARTICLE_TABLE        0 

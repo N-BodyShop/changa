@@ -17,6 +17,11 @@
 #include "param.h"
 #include "smooth.h"
 
+#ifdef CUDA
+// for default per-list parameters
+#include "cuda_typedef.h"
+#endif
+
 extern char *optarg;
 extern int optind, opterr, optopt;
 
@@ -42,6 +47,14 @@ int _numChunks;
 int _randChunks;
 unsigned int bucketSize;
 int lbcomm_cutoff_msgs;
+
+//jetley
+int localNodesPerReq;
+int remoteNodesPerReq;
+int remoteResumeNodesPerReq;
+int localPartsPerReq;
+int remotePartsPerReq;
+int remoteResumePartsPerReq;
 
 /* readonly */ double theta;
 /* readonly */ double thetaMono;
@@ -92,6 +105,10 @@ Main::Main(CkArgMsg* m) {
         networkProgressUE = traceRegisterUserEvent("CmiNetworkProgress");
         nodeForceUE = traceRegisterUserEvent("Node interaction");
         partForceUE = traceRegisterUserEvent("Particle interaction");
+#ifdef CUDA 
+        traceRegisterUserEvent("Tree Serialization", CUDA_SER_TREE);
+        traceRegisterUserEvent("List Serialization", CUDA_SER_LIST);
+#endif
 	
 	prmInitialize(&prm,_Leader,_Trailer);
 	csmInitialize(&param.csm);
@@ -334,10 +351,45 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "lbcommCutoffMsgs", paramInt, &lbcomm_cutoff_msgs,
 		    sizeof(int),"lbcommcut", "Cutoff for communication recording");
     
-	
+          // jetley - cuda parameters
+#ifdef CUDA
+
+          double localNodesPerReqDouble;
+          double remoteNodesPerReqDouble;
+          double remoteResumeNodesPerReqDouble;
+          double localPartsPerReqDouble;
+          double remotePartsPerReqDouble;
+          double remoteResumePartsPerReqDouble;
+
+          localNodesPerReq = NODE_INTERACTIONS_PER_REQUEST_L;
+          prmAddParam(prm, "localNodesPerReq", paramDouble, &localNodesPerReqDouble,
+              sizeof(double),"localnodes", "Num. local node interactions allowed per CUDA request");
+
+          remoteNodesPerReq = NODE_INTERACTIONS_PER_REQUEST_RNR;
+          prmAddParam(prm, "remoteNodesPerReq", paramDouble, &remoteNodesPerReqDouble,
+              sizeof(double),"remotenodes", "Num. remote node interactions allowed per CUDA request");
+
+          remoteResumeNodesPerReq = NODE_INTERACTIONS_PER_REQUEST_RR;
+          prmAddParam(prm, "remoteResumeNodesPerReq", paramDouble, &remoteResumeNodesPerReqDouble,
+              sizeof(double),"remoteresumenodes", "Num. remote resume node interactions allowed per CUDA request");
+
+          localPartsPerReq = PART_INTERACTIONS_PER_REQUEST_L;
+          prmAddParam(prm, "localPartsPerReq", paramDouble, &localPartsPerReqDouble,
+              sizeof(double),"localparts", "Num. local particle interactions allowed per CUDA request");
+
+          remotePartsPerReq = PART_INTERACTIONS_PER_REQUEST_RNR;
+          prmAddParam(prm, "remotePartsPerReq", paramDouble, &remotePartsPerReqDouble,
+              sizeof(double),"remoteparts", "Num. remote particle interactions allowed per CUDA request");
+
+          remoteResumePartsPerReq = PART_INTERACTIONS_PER_REQUEST_RR;
+          prmAddParam(prm, "remoteResumePartsPerReq", paramDouble, &remoteResumePartsPerReqDouble,
+              sizeof(double),"remoteresumeparts", "Num. remote resume particle interactions allowed per CUDA request");
+
+#endif
+
 	if(!prmArgProc(prm,m->argc,m->argv)) {
 	    CkExit();
-	    }
+        }
 	
         thetaMono = theta*theta*theta*theta;
 	if(prmSpecified(prm, "iMaxRung")) {
@@ -400,6 +452,29 @@ Main::Main(CkArgMsg* m) {
 	    param.fPeriod = 1.0e38;
 	    param.bEwald = 0;
 	    }
+
+#ifdef CUDA
+          double mil = 1e6;
+          localNodesPerReq = (int) (localNodesPerReqDouble * mil);
+          remoteNodesPerReq = (int) (remoteNodesPerReqDouble * mil);
+          remoteResumeNodesPerReq = (int) (remoteResumeNodesPerReqDouble * mil);
+          localPartsPerReq = (int) (localPartsPerReqDouble * mil);
+          remotePartsPerReq = (int) (remotePartsPerReqDouble * mil);
+          remoteResumePartsPerReq = (int) (remoteResumePartsPerReqDouble * mil);
+
+          ckerr << "WARNING: ";
+          ckerr << "localNodes: " << localNodesPerReq << endl;
+          ckerr << "WARNING: ";
+          ckerr << "remoteNodes: " << remoteNodesPerReq << endl;
+          ckerr << "WARNING: ";
+          ckerr << "remoteResumeNodes: " << remoteResumeNodesPerReq << endl;
+          ckerr << "WARNING: ";
+          ckerr << "localParts: " << localPartsPerReq << endl;
+          ckerr << "WARNING: ";
+          ckerr << "remoteParts: " << remotePartsPerReq << endl;
+          ckerr << "WARNING: ";
+          ckerr << "remoteResumeParts: " << remoteResumePartsPerReq << endl;
+#endif
 	    
 	/* bolzman constant in cgs */
 #define KBOLTZ	1.38e-16
