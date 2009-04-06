@@ -1456,6 +1456,7 @@ extern unsigned int timerHandle;
 
 void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop,
     void *cb) {
+/*
   pinnedMemReq reqs; 
 
   int nBuffers = 3; 
@@ -1475,7 +1476,10 @@ void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop,
   reqs.nBuffers = nBuffers; 
 
   pinnedMallocHost(&reqs); 
-
+*/
+  cudaMallocHost((void**)&(h_idata->p), (nParticles+1) * sizeof(GravityParticleData));
+  cudaMallocHost((void**)&(h_idata->ewt), nEwhLoop * sizeof(EwtData));
+  cudaMallocHost((void**)&(h_idata->cachedData), sizeof(EwaldReadOnlyData));
 }
 
 void EwaldHostMemoryFree(EwaldData *h_idata) {

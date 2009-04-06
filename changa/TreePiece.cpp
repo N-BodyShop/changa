@@ -2195,6 +2195,7 @@ void TreePiece::calculateEwald(dummyMsg *msg) {
 
   CkPrintf("[%d] in calculateEwald, calling EwaldHostMemorySetup\n", thisIndex);
   EwaldHostMemorySetup(h_idata, myNumParticles, nEwhLoop, (void *) cb); 
+  EwaldGPU();
 #else
   unsigned int i=0;
   while (i<_yieldPeriod && ewaldCurrentBucket < numBuckets
