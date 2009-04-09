@@ -16,6 +16,7 @@
 #include "TipsyFile.h"
 #include "param.h"
 #include "smooth.h"
+#include "Sph.h"
 
 #ifdef CUDA
 // for default per-list parameters
@@ -29,6 +30,7 @@ using namespace std;
 
 CProxy_Main mainChare;
 int verbosity;
+int bVDetails;
 CProxy_TreePiece treeProxy;
 CProxy_CkCacheManager cacheManagerProxy;
 //CkReduction::reducerType callbackReduction;
@@ -209,6 +211,18 @@ Main::Main(CkArgMsg* m) {
 	param.fPeriod = 1.0;
 	prmAddParam(prm, "dPeriod", paramDouble, &param.fPeriod,
 		    sizeof(double),"L", "Periodic size");
+	param.vPeriod.x = 1.0;
+	prmAddParam(prm,"dxPeriod",paramDouble,&param.vPeriod.x,
+		    sizeof(double),"Lx",
+		    "<periodic box length in x-dimension> = 1.0");
+	param.vPeriod.y = 1.0;
+	prmAddParam(prm, "dyPeriod",paramDouble,&param.vPeriod.y,
+		    sizeof(double),"Ly",
+		    "<periodic box length in y-dimension> = 1.0");
+	param.vPeriod.z = 1.0;
+	prmAddParam(prm,"dzPeriod",paramDouble,&param.vPeriod.z,
+		    sizeof(double),"Lz",
+		    "<periodic box length in z-dimension> = 1.0");
 	param.bEwald = 1;
 	prmAddParam(prm,"bEwald",paramBool, &param.bEwald, sizeof(int),
 		    "ewald", "enable/disable Ewald correction = +ewald");
@@ -247,6 +261,14 @@ Main::Main(CkArgMsg* m) {
 	//
 	// Gas parameters
 	//
+	param.bDoGas = 1;
+	prmAddParam(prm, "bDoGas", paramBool, &param.bDoGas,
+		    sizeof(int),"gas", "Enable Gas Calculation");
+	param.bViscosityLimiter = 0;
+	prmAddParam(prm,"bViscosityLimiter",paramBool,&param.bViscosityLimiter,
+		    sizeof(int), "vlim","<Balsara Viscosity Limiter> = 0");
+	prmAddParam(prm, "bDoGas", paramBool, &param.bDoGas,
+		    sizeof(int),"gas", "Enable Gas Calculation");
 	param.dMsolUnit = 1.0;
 	prmAddParam(prm,"dMsolUnit",paramDouble,&param.dMsolUnit,
 		    sizeof(double),"msu", "<Solar mass/system mass unit>");
@@ -254,6 +276,14 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dKpcUnit",paramDouble,&param.dKpcUnit,
 		    sizeof(double),"kpcu", "<Kiloparsec/system length unit>");
 	param.dConstGamma = 5.0/3.0;
+	param.dConstAlpha = 1.0;
+	prmAddParam(prm,"dConstAlpha",paramDouble,&param.dConstAlpha,
+		    sizeof(double),"alpha",
+		    "<Alpha constant in viscosity> = 1.0");
+	param.dConstBeta = 2.0;
+	prmAddParam(prm,"dConstBeta",paramDouble,&param.dConstBeta,
+		    sizeof(double),"beta",
+		    "<Beta constant in viscosity> = 2.0");
 	prmAddParam(prm,"dConstGamma",paramDouble,&param.dConstGamma,
 		    sizeof(double),"gamma", "<Ratio of specific heats> = 5/3");
 	param.dMeanMolWeight = 1.0;
@@ -263,11 +293,25 @@ Main::Main(CkArgMsg* m) {
 	param.dGasConst = 1.0;
 	prmAddParam(prm,"dGasConst",paramDouble,&param.dGasConst,
 		    sizeof(double),"gcnst", "<Gas Constant>");
+	// SPH timestepping
+	param.bSphStep = 1;
+	prmAddParam(prm,"bSphStep",paramBool,&param.bSphStep,sizeof(int),
+		    "ss","<SPH timestepping>");
+	param.bViscosityLimitdt = 0;
+	prmAddParam(prm,"bViscosityLimitdt",paramBool,
+		    &param.bViscosityLimitdt,sizeof(int),
+		    "vlim","<Balsara Viscosity Limit dt> = 0");
+	param.dEtaCourant = 0.4;
+	prmAddParam(prm,"dEtaCourant",paramDouble,&param.dEtaCourant,
+		    sizeof(double),"etaC", "<Courant criterion> = 0.4");
+	param.dEtauDot = 0.25;
+	prmAddParam(prm,"dEtauDot",paramDouble,&param.dEtauDot,
+		    sizeof(double),"etau", "<uDot criterion> = 0.25");
 
 	//
 	// Output parameters
 	//
-	printBinaryAcc=1;
+	printBinaryAcc=0;
 	prmAddParam(prm, "bPrintBinary", paramBool, &printBinaryAcc,
 		    sizeof(int),"z", "Print accelerations in Binary");
 	param.bStandard = 1;
@@ -322,6 +366,9 @@ Main::Main(CkArgMsg* m) {
         verbosity = 0;
 	prmAddParam(prm, "iVerbosity", paramInt, &verbosity,
 		    sizeof(int),"v", "Verbosity");
+	bVDetails = 0;
+	prmAddParam(prm, "bVDetails", paramBool, &bVDetails,
+		    sizeof(int),"vdetails", "Verbosity");
 	numTreePieces = 8 * CkNumPes();
 	prmAddParam(prm, "nTreePieces", paramInt, &numTreePieces,
 		    sizeof(int),"p", "Number of TreePieces (default: 8*procs)");
@@ -391,6 +438,9 @@ Main::Main(CkArgMsg* m) {
 	    CkExit();
         }
 	
+	if(bVDetails)
+	    verbosity = 1;
+	
         thetaMono = theta*theta*theta*theta;
 	if(prmSpecified(prm, "iMaxRung")) {
 	    ckerr << "WARNING: ";
@@ -447,9 +497,48 @@ Main::Main(CkArgMsg* m) {
 #endif
 	    }
 	
+	/*
+	 ** Make sure that we have some setting for nReplicas if
+	 ** bPeriodic is set.
+	 */
+	if (param.bPeriodic && !prmSpecified(prm,"nReplicas")) {
+	    param.nReplicas = 1;
+	    }
+	/*
+	 ** Warn that we have a setting for nReplicas if bPeriodic NOT set.
+	 */
+	if (!param.bPeriodic && param.nReplicas != 0) {
+	    CkPrintf("WARNING: nReplicas set to non-zero value for non-periodic!\n");
+	    }
+	/*
+	 ** Determine the period of the box that we are using.
+	 ** Set the new d[xyz]Period parameters which are now used instead
+	 ** of a single dPeriod, but we still want to have compatibility
+	 ** with the old method of setting dPeriod.
+	 */
+	if (prmSpecified(prm,"dPeriod") && !prmSpecified(prm,"dxPeriod")) {
+	    param.vPeriod.x = param.fPeriod;
+	    }
+	if (prmSpecified(prm,"dPeriod") && !prmSpecified(prm,"dyPeriod")) {
+	    param.vPeriod.y = param.fPeriod;
+	    }
+	if (prmSpecified(prm,"dPeriod") && !prmSpecified(prm,"dzPeriod")) {
+	    param.vPeriod.z = param.fPeriod;
+	    }
+	/*
+	 ** Periodic boundary conditions can be disabled along any of the
+	 ** x,y,z axes by specifying a period of zero for the given axis.
+	 ** Internally, the period is set to infinity (Cf. pkdBucketWalk()
+	 ** and pkdDrift(); also the INTERSECT() macro in smooth.h).
+	 */
+	if (param.fPeriod  == 0) param.fPeriod  = 1.0e38;
+	if (param.vPeriod.x == 0) param.vPeriod.x = 1.0e38;
+	if (param.vPeriod.y == 0) param.vPeriod.y = 1.0e38;
+	if (param.vPeriod.z == 0) param.vPeriod.z = 1.0e38;
 	if(!param.bPeriodic) {
 	    param.nReplicas = 0;
 	    param.fPeriod = 1.0e38;
+	    param.vPeriod = Vector3D<double>(1.0e38);
 	    param.bEwald = 0;
 	    }
 
@@ -843,7 +932,8 @@ void Main::advanceBigStep(int iStep) {
 	    }
         dKickFac[iRung] = csmComoveKickFac(param.csm, dTime, 0.5*dTimeSub);
       }
-      treeProxy.kick(activeRung, dKickFac, CkCallbackResumeThread());
+      treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas,
+		     CkCallbackResumeThread());
 
       // Dump frame may require a smaller step
       int driftRung = nextMaxRungIncDF(nextMaxRung);
@@ -862,7 +952,8 @@ void Main::advanceBigStep(int iStep) {
 		  ckerr << "Drift: Rung " << driftRung << " Delta "
 			<< dTimeSub << endl;
 	      double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
-	      treeProxy.drift(dDriftFac, CkCallbackResumeThread());
+	      treeProxy.drift(dDriftFac, param.bDoGas,
+			      CkCallbackResumeThread());
 
 	      // Advance time to end of smallest step
 	      dTime += dTimeSub;
@@ -898,6 +989,7 @@ void Main::advanceBigStep(int iStep) {
     /***** Resorting of particles and Domain Decomposition *****/
     ckerr << "Domain decomposition ...";
     double startTime = CkWallTimer();
+    double tolerance = 0.01;	// tolerance for domain decomposition
     sorter.startSorting(dataManagerID, numTreePieces, tolerance,
                         CkCallbackResumeThread(), true);
     ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -930,7 +1022,10 @@ void Main::advanceBigStep(int iStep) {
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
     }
-
+    if(param.bDoGas) {
+	doSph(activeRung);
+	}
+    
 #if COSMO_STATS > 0
     /********* TreePiece Statistics ********/
     ckerr << "Total statistics iteration " << iStep << "/";
@@ -966,7 +1061,8 @@ void Main::advanceBigStep(int iStep) {
                                            dTime - 0.5*dTimeSub,
                                            0.5*dTimeSub);
       }
-      treeProxy.kick(activeRung, dKickFac, CkCallbackResumeThread());
+      treeProxy.kick(activeRung, dKickFac, 1, param.bDoGas,
+		     CkCallbackResumeThread());
     }
 		
   }
@@ -980,7 +1076,7 @@ void Main::setupICs() {
   // DEBUGGING
   //CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
 
-  treeProxy.setPeriodic(param.nReplicas, param.fPeriod, param.bEwald,
+  treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic);
 
   /******** Particles Loading ********/
@@ -1005,6 +1101,10 @@ void Main::setupICs() {
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
 	    
+  if(treeProxy[0].ckLocal()->nTotalSPH == 0 && param.bDoGas) {
+      ckerr << "WARNING: no SPH particles and bDoGas is set\n";
+      param.bDoGas = 0;
+      }
   getStartTime();
   if(param.nSteps > 0) getOutTimes();
   for(iOut = 0; iOut < vdOutTime.size(); iOut++) {
@@ -1060,7 +1160,7 @@ void Main::setupICs() {
   }
 	
   if(param.bPeriodic) {	// puts all particles within the boundary
-    treeProxy.drift(0.0, CkCallbackResumeThread());
+      treeProxy.drift(0.0, 0, CkCallbackResumeThread());
   }
   
   initialForces();
@@ -1099,7 +1199,7 @@ Main::restart()
 	ofstream ofsLog(achLogFileName, ios_base::app);
 	ofsLog << "# ReStarting ChaNGa" << endl;
 	ofsLog.close();
-	treeProxy.drift(0.0, CkCallbackResumeThread());
+	treeProxy.drift(0.0, 0, CkCallbackResumeThread());
 	mainChare.initialForces();
 	}
     else {
@@ -1150,6 +1250,10 @@ Main::initialForces()
       treeProxy.startIteration(0, CkCallbackResumeThread());
       ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
 	    << endl;
+      }
+  
+  if(param.bDoGas) {
+      initSph();
       }
   
 #if COSMO_STATS > 0
@@ -1261,33 +1365,65 @@ Main::doSimulation()
   /******** Shutdown process ********/
 
   if(param.nSteps == 0) {
+      treeProxy.reOrder(CkCallbackResumeThread());
+      writeOutput(0);
+      if(param.bDoGas) {
+	  ckout << "Outputting gas properties ...";
+	  if(printBinaryAcc)
+	      CkAssert(0);
+	  else {
+	      DenOutputParams pDenOut("gasden");
+	      treeProxy[0].outputASCII(pDenOut, CkCallbackResumeThread());
+	      PresOutputParams pPresOut("pres");
+	      treeProxy[0].outputASCII(pPresOut, CkCallbackResumeThread());
+	      HsmOutputParams pSphHOut("SphH");
+	      treeProxy[0].outputASCII(pSphHOut, CkCallbackResumeThread());
+	      DivVOutputParams pDivVOut("divv");
+	      treeProxy[0].outputASCII(pDivVOut, CkCallbackResumeThread());
+	      }
+	  }
+      ckout << "Outputting accelerations  ...";
+      if(printBinaryAcc)
+	  treeProxy[0].outputAccelerations(OrientedBox<double>(),
+					   "acc2", CkCallbackResumeThread());
+      else {
+	  AccOutputParams pAcc("acc2");
+	  treeProxy[0].outputASCII(pAcc, CkCallbackResumeThread());
+	  }
       if(param.bDoDensity) {
-	  ckout << "Calculating densities ...";
-	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR);
+	  double tolerance = 0.01;	// tolerance for domain decomposition
+	  // The following call is to get the particles in key order
+	  // before the sort.
+	  treeProxy.drift(0.0, 0, CkCallbackResumeThread());
+	  sorter.startSorting(dataManagerID, numTreePieces, tolerance,
+			      CkCallbackResumeThread(), true);
+	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+
+	  ckout << "Calculating total densities ...";
+	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	  startTime = CkWallTimer();
-	  treeProxy.startIterationSmooth(0, &pDen, CkCallbackResumeThread());
+	  treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
           ckout << "Recalculating densities ...";
           startTime = CkWallTimer();
-          treeProxy.startIterationReSmooth(0, &pDen, CkCallbackResumeThread());
+	  treeProxy.startIterationReSmooth(&pDen, CkCallbackResumeThread());
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
+          ckout << "Reodering ...";
+          startTime = CkWallTimer();
+	  treeProxy.reOrder(CkCallbackResumeThread());
+          ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
+	  ckout << "Outputting densities ...";
+	  startTime = CkWallTimer();
+	  DenOutputParams pDenOut("den");
+	  treeProxy[0].outputASCII(pDenOut, CkCallbackResumeThread());
+	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+		<< endl;
+	  ckout << "Outputting hsmooth ...";
+	  HsmOutputParams pHsmOut("hsmall");
+	  treeProxy[0].outputASCII(pHsmOut, CkCallbackResumeThread());
 	  }
-      
-    ckout << "Outputting accelerations and densities ...";
-    startTime = CkWallTimer();
-    if(printBinaryAcc)
-      treeProxy[0].outputAccelerations(OrientedBox<double>(),
-				    "acc2", CkCallbackResumeThread());
-    else {
-	treeProxy.reOrder(CkCallbackResumeThread());
-	treeProxy[0].outputAccASCII("acc2", CkCallbackResumeThread());
-	}
-
-    treeProxy[0].outputDensityASCII("den", CkCallbackResumeThread());
-    treeProxy[0].outputIOrderASCII("iord", CkCallbackResumeThread());
-    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-	  << endl;
+      treeProxy[0].outputIOrderASCII("iord", CkCallbackResumeThread());
   }
 	
 #if COSMO_STATS > 0
@@ -1394,8 +1530,11 @@ int Main::adjust(int iKickRung)
     CkReductionMsg *msg;
     double a = csmTime2Exp(param.csm,dTime);
     
-    treeProxy.adjust(iKickRung, param.bEpsAccStep, param.bGravStep, param.dEta,
-		  param.dDelta, 1.0/(a*a*a), CkCallbackResumeThread((void*&)msg));
+    treeProxy.adjust(iKickRung, param.bEpsAccStep, param.bGravStep,
+		     param.bSphStep, param.bViscosityLimitdt,
+		     param.dEta, param.dEtaCourant,
+		     param.dEtauDot, param.dDelta, 1.0/(a*a*a), a,
+		     CkCallbackResumeThread((void*&)msg));
 
     int iCurrMaxRung = *(int *)msg->getData();
     delete msg;

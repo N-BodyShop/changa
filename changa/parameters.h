@@ -27,6 +27,7 @@ typedef struct parameters {
     int bPeriodic;
     int nReplicas;
     double fPeriod;
+    Vector3D<double> vPeriod;
     int bEwald;
     double dEwCut;
     double dEwhCut;
@@ -35,17 +36,26 @@ typedef struct parameters {
     CSM csm;			/* cosmo parameters */
     double dRedTo;
     /*
+     * Gas parameters
      * Units: set by dMsolUnit and dKpcUnit
      */
+    int bDoGas;
     double dMsolUnit;
     double dKpcUnit;
     double dGasConst;
+    double dConstAlpha;
+    double dConstBeta;
     double dConstGamma;
     double dMeanMolWeight;
     double dErgPerGmUnit;
     double dGmPerCcUnit;
     double dSecUnit;
     double dComovingGmPerCcUnit;
+    int bSphStep;
+    int bViscosityLimiter;
+    int bViscosityLimitdt;
+    double dEtaCourant;
+    double dEtauDot;
     int bStandard;
     int bOverwrite;
     int bParaRead;
@@ -83,6 +93,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.bPeriodic;
     p|param.nReplicas;
     p|param.fPeriod;
+    p|param.vPeriod;
     p|param.bEwald;
     p|param.dEwCut;
     p|param.dEwhCut;
@@ -92,15 +103,23 @@ inline void operator|(PUP::er &p, Parameters &param) {
  	csmInitialize(&param.csm);
     p|*param.csm;
     p|param.dRedTo;
+    p|param.bDoGas;
+    p|param.bViscosityLimiter;
     p|param.dMsolUnit;
     p|param.dKpcUnit;
     p|param.dGasConst;
+    p|param.dConstAlpha;
+    p|param.dConstBeta;
     p|param.dConstGamma;
     p|param.dMeanMolWeight;
     p|param.dErgPerGmUnit;
     p|param.dGmPerCcUnit;
     p|param.dSecUnit;
     p|param.dComovingGmPerCcUnit;
+    p|param.bSphStep;
+    p|param.bViscosityLimitdt;
+    p|param.dEtaCourant;
+    p|param.dEtauDot;
     p|param.bStandard;
     p|param.bOverwrite;
     p|param.bParaRead;

@@ -10,7 +10,7 @@
 class pqSmoothNode
 {
  public:
-    double fKey;	// distance squared -> place in priority queue
+    double fKey;	// distance -> place in priority queue
     Vector3D<double> dx; // displacement of this particle
     GravityParticle *p; // pointer to rest of particle data
     
@@ -31,7 +31,7 @@ public:
 	Qs = new (std::priority_queue<pqSmoothNode>[nParts+2]);
 	}
     void finishBucketSmooth(int iBucket, TreePiece *tp);
-    ~NearNeighborState() { delete [] Qs; }
+    ~NearNeighborState() { ckerr << "deleting queues\n"; delete [] Qs; }
 };
 
 // We can make this a base class from which parameters for all smooth
@@ -40,6 +40,7 @@ class SmoothParams : public PUP::able
 {
  public:
     int iType;	// Particle type to smooth over
+    int activeRung;
     virtual void fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *nList) = 0;
     virtual void initSmoothParticle(GravityParticle *p) = 0;
     virtual void initSmoothCache(GravityParticle *p) = 0;
@@ -51,6 +52,7 @@ class SmoothParams : public PUP::able
     virtual void pup(PUP::er &p) {
         PUP::able::pup(p);//Call base class
         p|iType;
+        p|activeRung;
 	}
     };
 
@@ -69,7 +71,10 @@ class DensitySmoothParams : public SmoothParams
 				 ExternalSmoothParticle *p2);
  public:
     DensitySmoothParams() {}
-    DensitySmoothParams(int _iType) { iType = _iType;}
+    DensitySmoothParams(int _iType, int am) {
+	iType = _iType;
+	activeRung = am;
+	}
     PUPable_decl(DensitySmoothParams);
     DensitySmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
     virtual void pup(PUP::er &p) {
@@ -237,4 +242,34 @@ class SmoothOpt : public Opt{
   }
 
 };
+
+/* Standard M_4 Kernel */
+/* return 1/(h_smooth)^2 for a particle */
+inline
+double invH2(GravityParticle *p) 
+{
+    return 4.0/(p->fBall*p->fBall);
+    }
+
+inline double KERNEL(double ar2) 
+{
+    double ak;
+    ak = 2.0 - sqrt(ar2);
+    if (ar2 < 1.0) ak = (1.0 - 0.75*ak*ar2);
+    else ak = 0.25*ak*ak*ak;
+    return ak;
+    }
+inline double DKERNEL(double ar2) 
+{
+    double adk;
+    adk = sqrt(ar2);
+    if (ar2 < 1.0) {
+	adk = -3 + 2.25*adk;
+	}
+    else {
+	adk = -0.75*(2.0-adk)*(2.0-adk)/adk;
+	}
+    return adk;
+    }
+
 #endif

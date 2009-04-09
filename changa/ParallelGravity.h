@@ -79,6 +79,8 @@ inline void operator|(PUP::er &p,DomainsDec &d) {
 
 class SmoothParams;
 
+#include "InOutput.h"
+
 #include "ParallelGravity.decl.h"
 
 extern CProxy_Main mainChare;
@@ -334,6 +336,8 @@ public:
 	    nTotalParticles = n;
         }
 	void updateSoft();
+	void initSph();
+	void doSph(int activeRung);
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
 	int nextMaxRungIncDF(int nextMaxRung);
@@ -570,8 +574,10 @@ private:
 	unsigned int myNumParticles;
 	/// Array with the particles in this chare
 	GravityParticle* myParticles;
+ public:
 	/// Total Gas Particles
 	int64_t nTotalSPH;
+ private:
 	/// Total gas in this chare
 	unsigned int myNumSPH;
 	/// Array with SPH particle data
@@ -995,7 +1001,7 @@ public:
 
 	void restart();
 
-	void setPeriodic(int nReplicas, double fPeriod, int bEwald,
+	void setPeriodic(int nReplicas, Vector3D<double> fPeriod, int bEwald,
 			 double fEwCut, double fEwhCut, int bPeriod);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit();
@@ -1024,7 +1030,8 @@ public:
 	void reOrder(CkCallback& cb);
 	// move particles around for output
 	void ioAcceptSortedParticles(const GravityParticle* particles,
-				     const int n);
+				     const int n, const extraSPHData *pGas,
+				     const int nGasIn);
 	/** Inform the DataManager of my node that I'm here.
 	 The callback will receive a CkReductionMsg containing no data.
 	void registerWithDataManager(const CkGroupID& dataManagerID,
@@ -1047,24 +1054,36 @@ public:
   void evaluateParticleCounts(ORBSplittersMsg *splittersMsg);
   /*****************************/
 
-  void kick(int iKickRung, double dDelta[MAXRUNG+1], const CkCallback& cb);
-  void drift(double dDelta, const CkCallback& cb);
+  void kick(int iKickRung, double dDelta[MAXRUNG+1], int bClosing,
+	    int bNeedVPred, const CkCallback& cb);
+  void drift(double dDelta, int bNeedVPred, const CkCallback& cb);
 /**
  * Adjust timesteps of active particles.
  * @param iKickRung The rung we are on.
  * @param bEpsAccStep Use sqrt(eps/acc) timestepping
  * @param bGravStep Use sqrt(r^3/GM) timestepping
+ * @param bSphStep Use Courant condition
+ * @param bViscosityLimitdt Use viscosity in Courant condition
  * @param dEta Factor to use in determing timestep
+ * @param dEtaCourant Courant factor to use in determing timestep
+ * @param dEtauDot Factor to use in uDot based timestep
  * @param dDelta Base timestep
  * @param dAccFac Acceleration scaling for cosmology
+ * @param dCosmoFac Cosmo scaling for Courant
  * @param cb Callback function reduces currrent maximum rung
  */
-  void adjust(int iKickRung, int bEpsAccStep, int bGravStep, double dEta,
-	      double dDelta, double dAccFac, const CkCallback& cb);
+  void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
+	      int bSphStep, int bViscosityLimitdt,
+		       double dEta, double dEtaCourant, double dEtauDot,
+		       double dDelta, double dAccFac,
+		       double dCosmoFac, const CkCallback& cb);
   void rungStats(const CkCallback& cb);
 	void calcEnergy(const CkCallback& cb);
 	void setSoft(const double dSoft);
 	void physicalSoft(const double dSoftMax, const double dFac, const int bSoftMaxMul);
+	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
+	void getAdiabaticGasPressure(double gamma, double gammam1,
+				     const CkCallback &cb);
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
 	void setTypeFromFile(int iSetMask, char *file, const CkCallback& cb);
@@ -1138,8 +1157,8 @@ public:
   /// @param cb the callback to use after all the computation has finished
   void startIteration(int am, const CkCallback& cb);
   /// As above, but for a smooth operation.
-  void startIterationSmooth(int am, SmoothParams *p, const CkCallback& cb);
-  void startIterationReSmooth(int am, SmoothParams *p, const CkCallback& cb);
+  void startIterationSmooth(SmoothParams *p, const CkCallback& cb);
+  void startIterationReSmooth(SmoothParams *p, const CkCallback& cb);
 
 	/// Function called by the CacheManager to send out request for needed
 	/// remote data, so that the later computation will hit.
@@ -1205,9 +1224,8 @@ public:
 	void ResumeFromSync();
 
 	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
-	void outputAccASCII(const std::string& suffix, const CkCallback& cb);
+	void outputASCII(OutputParams& params, const CkCallback& cb);
 	void outputIOrderASCII(const std::string& suffix, const CkCallback& cb);
-	void outputDensityASCII(const std::string& suffix, const CkCallback& cb);
 	void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, double totalmass, const CkCallback& cb);
 	//void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
 

@@ -53,6 +53,7 @@ GravityParticle.h \
 CacheInterface.h
 
 smooth.o: \
+smooth.h \
 ParallelGravity.decl.h \
 
 Sorter.o: \
@@ -139,6 +140,7 @@ Opt.h \
 codes.h \
 Compute.h \
 State.h \
+smooth.h
 
 param.o: \
 param.c \
@@ -193,6 +195,7 @@ gravity.h \
 MultistepLB.decl.h \
 ParallelGravity.decl.h \
 DataManager.h \
+smooth.h
 
 Ewald.o: \
 Ewald.C \
@@ -405,3 +408,6 @@ codes.h \
 Compute.h \
 State.h \
 
+Sph.o: \
+ParallelGravity.h \
+smooth.h

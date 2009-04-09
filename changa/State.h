@@ -8,6 +8,7 @@
 class State {
   public:
   int *counterArrays[2];
+  virtual ~State() {}
 };
 
 #if INTERLIST_VER > 0

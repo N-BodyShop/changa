@@ -101,12 +101,13 @@ void SmoothCompute::bucketCompare(TreePiece *ownerTP,
 				  ) 
 {
     NearNeighborState *nstate = (NearNeighborState *)state;
+    Vector3D<double> rp = offset + p->position;
     for(int j = node->firstParticle; j <= node->lastParticle; ++j) {
 	if(!TYPETest(&particles[j], params->iType))
 	    continue;
 	std::priority_queue<pqSmoothNode> *Q = &nstate->Qs[j];
 	double rOld = Q->top().fKey; // Ball radius
-	Vector3D<double> dr = offset + p->position - particles[j].position;
+	Vector3D<double> dr = particles[j].position - rp;
 	
 	if(rOld*rOld > dr.lengthSquared()) {  // Perform replacement
 	    if(Q->size() == nSmooth)
@@ -245,14 +246,12 @@ int SmoothCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state,
 
 // Start tree walk and smooth calculation
 
-void TreePiece::startIterationSmooth(int am, // the active rung for
-					     // multistepping
-				     // type of smoothing and parameters
+void TreePiece::startIterationSmooth(// type of smoothing and parameters
 				     SmoothParams* params,
 				     const CkCallback& cb) {
 
   callback = cb;
-  activeRung = am;
+  activeRung = params->activeRung;
 
   // XXX I don't believe any of the Chunks are used in the smooth walk.
   int oldNumChunks = numChunks;
@@ -436,7 +435,7 @@ void TreePiece::smoothNextBucket() {
   State *smoothState = activeWalks[smoothAwi].s;
 
   // start the tree walk from the tree built in the cache
-  if (bucketList[currentBucket]->rungs >= activeRung) {
+  //  if (bucketList[currentBucket]->rungs >= activeRung) {
     for(int cr = 0; cr < numChunks; cr++){
       GenericTreeNode *chunkRoot = dm->chunkRootToNode(prefetchRoots[cr]);
       if(!chunkRoot){
@@ -456,7 +455,7 @@ void TreePiece::smoothNextBucket() {
         }
       }
     }
-  }
+    // }
   smoothState->counterArrays[0][currentBucket]--;
   ((NearNeighborState *)smoothState)->finishBucketSmooth(currentBucket, this);
 }
@@ -566,14 +565,15 @@ void ReSmoothCompute::bucketCompare(TreePiece *ownerTP,
 				  ) 
 {
     ReNearNeighborState *nstate = (ReNearNeighborState *)state;
+    Vector3D<double> rp = offset + p->position;
     for(int j = node->firstParticle; j <= node->lastParticle; ++j) {
 	if(!TYPETest(&particles[j], params->iType))
 	    continue;
 	std::vector<pqSmoothNode> *Q = &nstate->Qs[j];
 	double rOld = particles[j].fBall; // Ball radius
-	Vector3D<double> dr = offset + p->position - particles[j].position;
+	Vector3D<double> dr = particles[j].position - rp;
 	
-	if(rOld*rOld > dr.lengthSquared()) {  // Add to list
+	if(rOld*rOld >= dr.lengthSquared()) {  // Add to list
 	    pqSmoothNode pqNew;
 	    pqNew.fKey = dr.length();
 	    pqNew.dx = dr;
@@ -709,13 +709,11 @@ int ReSmoothCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state,
 
 // Start tree walk and smooth calculation
 
-void TreePiece::startIterationReSmooth(int am, // the active rung for
-					       // multistepping
-				       SmoothParams* params,
+void TreePiece::startIterationReSmooth(SmoothParams* params,
 				       const CkCallback& cb) {
 
   callback = cb;
-  activeRung = am;
+  activeRung = params->activeRung;
 
   // XXX I don't believe any of the Chunks are used in the smooth walk.
   int oldNumChunks = numChunks;
@@ -810,7 +808,7 @@ void TreePiece::reSmoothNextBucket() {
   State *smoothState = activeWalks[smoothAwi].s;
 
   // start the tree walk from the tree built in the cache
-  if (bucketList[currentBucket]->rungs >= activeRung) {
+  // if (bucketList[currentBucket]->rungs >= activeRung) {
     for(int cr = 0; cr < numChunks; cr++){
       GenericTreeNode *chunkRoot = dm->chunkRootToNode(prefetchRoots[cr]);
       if(!chunkRoot){
@@ -828,7 +826,7 @@ void TreePiece::reSmoothNextBucket() {
         }
       }
     }
-  }
+    // }
   smoothState->counterArrays[0][currentBucket]--;
   ((ReNearNeighborState *)smoothState)->finishBucketSmooth(currentBucket, this);
 }
@@ -878,33 +876,6 @@ void ReSmoothCompute::walkDone(State *state) {
       }
 }
 
-/* Standard M_4 Kernel */
-/* return 1/(h_smooth)^2 for a particle */
-double invH2(GravityParticle *p) 
-{
-    return 4.0/(p->fBall*p->fBall);
-    }
-
-inline double KERNEL(double ar2) 
-{
-    double ak;
-    ak = 2.0 - sqrt(ar2);
-    if (ar2 < 1.0) ak = (1.0 - 0.75*ak*ar2);
-    else ak = 0.25*ak*ak*ak;
-    return ak;
-    }
-inline double DKERNEL(double ar2) 
-{
-    double adk;
-    adk = sqrt(ar2);
-    if (ar2 < 1.0) {
-	adk = -3 + 2.25*adk;
-	}
-    else {
-	adk = -0.75*(2.0-adk)*(2.0-adk)/adk;
-	}
-    return adk;
-    }
 /*
  * Functions from PKDGRAV
  */

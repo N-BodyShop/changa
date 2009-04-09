@@ -51,7 +51,7 @@ string getColor(GenericTreeNode*);
  */
 void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
 					  // each direction
-			    double fPeriodPar, // Size of periodic box
+			    Vector3D<double> fPeriodPar, // Size of periodic box
 			    int bEwaldPar,     // Use Ewald summation
 			    double fEwCutPar,  // Cutoff on real summation
 			    double dEwhCutPar, // Cutoff on Fourier summation
@@ -59,7 +59,7 @@ void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
 			    )
 {
     nReplicas = nRepsPar;
-    fPeriod = Vector3D<double>(fPeriodPar, fPeriodPar, fPeriodPar);
+    fPeriod = fPeriodPar, fPeriodPar, fPeriodPar;
     bEwald = bEwaldPar;
     fEwCut  = fEwCutPar;
     dEwhCut = dEwhCutPar;
@@ -73,8 +73,12 @@ void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
 // comoving coordinates.
 void TreePiece::velScale(double dScale)
 {
-    for(unsigned int i = 0; i < myNumParticles; ++i)
-	myParticles[i+1].velocity *= dScale;
+    for(unsigned int i = 0; i < myNumParticles; ++i) 
+	{
+	    myParticles[i+1].velocity *= dScale;
+	    if(TYPETest(&myParticles[i+1], TYPE_GAS))
+		myParticles[i+1].vPred() *= dScale;
+	    }
     }
 
 /// After the bounding box has been found, we can assign keys to the particles
@@ -417,6 +421,7 @@ void TreePiece::sortSPHData()
 
 /// Determine my part of the sorting histograms by counting the number
 /// of my particles in each bin
+/// This routine assumes the particles in key order.
 void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb) {
 #ifdef COSMO_EVENT
   double startTimer = CmiWallTimer();
@@ -638,13 +643,31 @@ void TreePiece::calcEnergy(const CkCallback& cb) {
     contribute(6*sizeof(double), dEnergy, CkReduction::sum_double, cb);
 }
 
-void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1], const CkCallback& cb) {
+void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
+		     int bClosing, // Are we at the end of a timestep
+		     int bNeedVPred, // do we need to update vpred
+		     const CkCallback& cb) {
   LBTurnInstrumentOff();
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
-    if(myParticles[i].rung >= iKickRung) {
-      myParticles[i].velocity += dDelta[myParticles[i].rung]*myParticles[i].treeAcceleration;
-    }
-  }
+      GravityParticle *p = &myParticles[i];
+      if(p->rung >= iKickRung) {
+	  if(bNeedVPred && TYPETest(p, TYPE_GAS)) {
+	      if(bClosing) { // update predicted quantities to end of step
+		  p->vPred() = p->velocity
+		      + dDelta[p->rung]*p->treeAcceleration;
+		  p->u() += p->PdV()*dDelta[p->rung];
+		  p->uPred() = p->u();
+		  }
+	      else {	// predicted quantities are at the beginning
+			// of step
+		  p->vPred() = p->velocity;
+		  p->uPred() = p->u();
+		  p->u() += p->PdV()*dDelta[p->rung];
+		  }
+	      }
+	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
+	  }
+      }
   contribute(0, 0, CkReduction::concat, cb);
 }
 
@@ -653,29 +676,57 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1], const CkCallback& 
  * @param iKickRung The rung we are on.
  * @param bEpsAccStep Use sqrt(eps/acc) timestepping
  * @param bGravStep Use sqrt(r^3/GM) timestepping
+ * @param bSphStep Use Courant condition
+ * @param bViscosityLimitdt Use viscosity in Courant condition
  * @param dEta Factor to use in determing timestep
+ * @param dEtaCourant Courant factor to use in determing timestep
+ * @param dEtauDot Factor to use in uDot based timestep
  * @param dDelta Base timestep
  * @param dAccFac Acceleration scaling for cosmology
+ * @param dCosmoFac Cosmo scaling for Courant
  * @param cb Callback function reduces currrent maximum rung
  */
 void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
-		       double dEta, double dDelta,
-                       double dAccFac, const CkCallback& cb) {
+		       int bSphStep, int bViscosityLimitdt,
+		       double dEta, double dEtaCourant, double dEtauDot,
+		       double dDelta, double dAccFac,
+		       double dCosmoFac, const CkCallback& cb) {
   int iCurrMaxRung = 0;
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
-    if(myParticles[i].rung >= iKickRung) {
-      assert(myParticles[i].soft > 0.0);
+    GravityParticle *p = &myParticles[i];
+    if(p->rung >= iKickRung) {
+      CkAssert(p->soft > 0.0);
       double dTIdeal = dDelta;
       if(bEpsAccStep) {
-	  double dt = dEta*sqrt(myParticles[i].soft
-				/(dAccFac*myParticles[i].treeAcceleration.length()));
+	  double dt = dEta*sqrt(p->soft/(dAccFac*p->treeAcceleration.length()));
 	  if(dt < dTIdeal)
 	      dTIdeal = dt;
 	  }
       if(bGravStep) {
-	  double dt = dEta/sqrt(dAccFac*myParticles[i].dtGrav);
+	  double dt = dEta/sqrt(dAccFac*p->dtGrav);
 	  if(dt < dTIdeal)
 	      dTIdeal = dt;
+	  }
+      if(bSphStep && TYPETest(p, TYPE_GAS)) {
+	  double dt;
+	  double ph = sqrt(0.25*p->fBall*p->fBall);
+	  if (p->mumax() > 0.0) {
+	      if (bViscosityLimitdt) 
+		  dt = dEtaCourant*dCosmoFac*(ph /(p->c() + 0.6*(p->c() + 2*p->BalsaraSwitch()*p->mumax())));
+	      else
+		  dt = dEtaCourant*dCosmoFac*(ph/(p->c() + 0.6*(p->c() + 2*p->mumax())));
+	      }
+	  else
+	      dt = dEtaCourant*dCosmoFac*(ph/(1.6*p->c()));
+	  if(dt < dTIdeal)
+	      dTIdeal = dt;
+
+	  if (dEtauDot > 0.0 && p->PdV() < 0.0) { /* Prevent rapid adiabatic cooling */
+	      assert(p->u() > 0.0);
+	      dt = dEtauDot*p->u()/fabs(p->PdV());
+	      if (dt < dTIdeal) 
+		  dTIdeal = dt;
+	      }
 	  }
 
       int iNewRung = DtToRung(dDelta, dTIdeal);
@@ -697,7 +748,7 @@ void TreePiece::rungStats(const CkCallback& cb) {
   contribute((MAXRUNG+1)*sizeof(int), nInRung, CkReduction::sum_int, cb);
 }
 
-void TreePiece::drift(double dDelta, const CkCallback& cb) {
+void TreePiece::drift(double dDelta, int bNeedVpred, const CkCallback& cb) {
   callback = cb;		// called by assignKeys()
   if (root != NULL) {
     // Delete the tree since is no longer useful
@@ -715,25 +766,30 @@ void TreePiece::drift(double dDelta, const CkCallback& cb) {
   int bInBox = 1;
 
   for(unsigned int i = 0; i < myNumParticles; ++i) {
-    myParticles[i+1].position += dDelta*myParticles[i+1].velocity;
-    if(bPeriodic) {
-      for(int j = 0; j < 3; j++) {
-        if(myParticles[i+1].position[j] >= 0.5*fPeriod[j]){
-          myParticles[i+1].position[j] -= fPeriod[j];
-        }
-        if(myParticles[i+1].position[j] < -0.5*fPeriod[j]){
-          myParticles[i+1].position[j] += fPeriod[j];
-        }
-        // Sanity Checks
-        bInBox = bInBox
-          && (myParticles[i+1].position[j] >= -0.5*fPeriod[j]);
-        bInBox = bInBox
-          && (myParticles[i+1].position[j] < 0.5*fPeriod[j]);
+      GravityParticle *p = &myParticles[i+1];
+      p->position += dDelta*p->velocity;
+      if(bPeriodic) {
+	  for(int j = 0; j < 3; j++) {
+	      if(p->position[j] >= 0.5*fPeriod[j]){
+		  p->position[j] -= fPeriod[j];
+		  }
+	      if(p->position[j] < -0.5*fPeriod[j]){
+		  p->position[j] += fPeriod[j];
+		  }
+	      // Sanity Checks
+	      bInBox = bInBox
+		  && (p->position[j] >= -0.5*fPeriod[j]);
+	      bInBox = bInBox
+		  && (p->position[j] < 0.5*fPeriod[j]);
+	      }
+	  CkAssert(bInBox);
+	  }
+      boundingBox.grow(p->position);
+      if(bNeedVpred) {
+	  p->vPred() += dDelta*p->treeAcceleration;
+	  p->uPred() += p->PdV()*dDelta;
+	  }
       }
-      CkAssert(bInBox);
-    }
-    boundingBox.grow(myParticles[i+1].position);
-  }
   CkAssert(bInBox);
   contribute(sizeof(OrientedBox<float>), &boundingBox,
       growOrientedBox_float,

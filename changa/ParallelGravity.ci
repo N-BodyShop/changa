@@ -57,6 +57,14 @@ mainmodule ParallelGravity {
   };
 
   PUPable DensitySmoothParams;
+  PUPable DenDvDxSmoothParams;
+  PUPable PressureSmoothParams;
+
+  PUPable AccOutputParams;
+  PUPable DenOutputParams;
+  PUPable HsmOutputParams;
+  PUPable PresOutputParams;
+  PUPable DivVOutputParams;
 
   mainchare [migratable] Main {
     entry Main();
@@ -109,9 +117,8 @@ mainmodule ParallelGravity {
     entry void nextBucketReSmooth(dummyMsg *msg);
     //entry void registerWithDataManager(const CkGroupID& dataManagerID,
     //		     		  const CkCallback& cb);
-    entry void setPeriodic(int nReplicas, double fPeriod,
-        int bEwald, double fEwCut,
-        double fEwhCut, int bPeriodic);
+    entry void setPeriodic(int nReplicas, Vector3D<double> fPeriod, int bEwald,
+		 double fEwCut, double fEwhCut, int bPeriod);
     entry void EwaldInit();
     entry void calculateEwald(dummyMsg *m);
     entry void EwaldGPUComplete(); 
@@ -129,7 +136,7 @@ mainmodule ParallelGravity {
         const CkCallback& cb);
     entry void reOrder(CkCallback& cb);
     entry void ioAcceptSortedParticles(const GravityParticle particles[n],
-        const int n);
+	     const int n, const extraSPHData pGas[nGasIn], const int nGasIn);
     entry void assignKeys(CkReductionMsg* m);
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
     entry void unshuffleParticles(CkReductionMsg* m);
@@ -144,18 +151,23 @@ mainmodule ParallelGravity {
     entry void finalizeBoundaries(ORBSplittersMsg *splittersMsg);
     entry void evaluateParticleCounts(ORBSplittersMsg *splittersMsg);
 
-    entry void kick(int iKickRung, double dDelta[MAXRUNG+1],
-        const CkCallback& cb);
-    entry void adjust(int iKickRung, int bEpsAccStep,
-        int bGravStep, double dEta,
-        double dDelta, double dAccFac,
-        const CkCallback& cb);
+    entry void kick(int iKickRung, double dDelta[MAXRUNG+1], int bClosing,
+        int bNeedVPred, const CkCallback& cb);
+    entry void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
+	      int bSphStep, int bViscosityLimitdt,
+	      double dEta, double dEtaCourant, double dEtauDot,
+	      double dDelta, double dAccFac,
+	      double dCosmoFac, const CkCallback& cb);
     entry void rungStats(const CkCallback& cb);
-    entry void drift(double dDelta, const CkCallback& cb);
+    entry void drift(double dDelta, int bNeedVPred, const CkCallback& cb);
     entry void calcEnergy(const CkCallback& cb);
     entry void setSoft(const double dSoft);
     entry void physicalSoft(const double dSoftMax, const double dFac,
         const int bSoftMaxMul);
+    entry void sphViscosityLimiter(int bOn, int activeRung,
+	const CkCallback& cb);
+    entry void getAdiabaticGasPressure(double gamma, double gammam1,
+					const CkCallback &cb);
     entry void setTypeFromFile(int iSetMask, char file[256],
         const CkCallback& cb);
     entry void getCOM(const CkCallback& cb);
@@ -169,12 +181,8 @@ mainmodule ParallelGravity {
     entry void startORBTreeBuild(CkReductionMsg* m);
 
     entry void startIteration(int activeRung, CkCallback &cb);
-    entry void startIterationSmooth(int activeRung, CkPointer<SmoothParams>,
-        CkCallback &cb);
-    entry void startIterationReSmooth(int activeRung,
-        CkPointer<SmoothParams>,
-        CkCallback &cb);
-
+    entry void startIterationSmooth(CkPointer<SmoothParams>, CkCallback &cb);
+    entry void startIterationReSmooth(CkPointer<SmoothParams>, CkCallback &cb);
 
     //entry void acceptBoundaryNodeContribution(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
     //entry void acceptBoundaryNode(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
@@ -232,9 +240,8 @@ mainmodule ParallelGravity {
     entry void doAtSync();
 
     entry void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
-    entry void outputAccASCII(const std::string& suffix, const CkCallback& cb);
+    entry void outputASCII(CkReference<OutputParams>, const CkCallback& cb);
     entry void outputIOrderASCII(const std::string& suffix, const CkCallback& cb);
-    entry void outputDensityASCII(const std::string& suffix, const CkCallback& cb);
     entry void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, double totalmass, const CkCallback& cb);
     //entry void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
     //entry void getPieceValues(piecedata *totaldata);

@@ -55,11 +55,31 @@ class ExternalGravityParticle {
 class extraSPHData 
 {
  private:
-    double _u;
-    double _fMetals;
+    double _u;			/* Internal Energy */
+    double _fMetals;		/* Metalicity */
+    Vector3D<double> _vPred;	/* Predicted velocities for velocity
+				   dependent forces */
+    double _uPred;		/* Predicted internal energy */
+    double _divv;		/* Diverence of the velocity */
+    Vector3D<double> _curlv;	/* Curl of the velocity */
+    double _mumax;		/* */
+    double _PdV;
+    double _c;			/* Speed of Sound */
+    double _PoverRho2;		/* Pressure/rho^2 */
+    double _BalsaraSwitch;	/* Pressure/rho^2 */
+    
  public:
     inline double& u() {return _u;}
     inline double& fMetals() {return _fMetals;}
+    inline Vector3D<double>& vPred() {return _vPred;}
+    inline double& uPred() {return _uPred;}
+    inline double& divv() {return _divv;}
+    inline Vector3D<double>& curlv() {return _curlv;}
+    inline double& mumax() {return _mumax;}
+    inline double& PdV() {return _PdV;}
+    inline double& c() {return _c;}
+    inline double& PoverRho2() {return _PoverRho2;}
+    inline double& BalsaraSwitch() {return _BalsaraSwitch;}
     void pup(PUP::er &p) {
 	p | _u;
 	p | _fMetals;
@@ -108,6 +128,7 @@ public:
           ExternalGravityParticle::pup(p);
           p | key;
           p | velocity;
+	  p | treeAcceleration;
 	  p | fDensity;
 	  p | fBall;
           p | iOrder;
@@ -120,7 +141,29 @@ public:
 	ExternalSmoothParticle getExternalSmoothParticle();
 	inline double& u() { return (((extraSPHData*)extraData)->u());}
 	inline double& fMetals() { return (((extraSPHData*)extraData)->fMetals());}
+	inline Vector3D<double>& vPred() { return (((extraSPHData*)extraData)->vPred());}
+	inline double& uPred() { return (((extraSPHData*)extraData)->uPred());}
+	inline double& divv() { return (((extraSPHData*)extraData)->divv());}
+	inline Vector3D<double>& curlv() { return (((extraSPHData*)extraData)->curlv());}
+	inline double& mumax() { return (((extraSPHData*)extraData)->mumax());}
+	inline double& PdV() { return (((extraSPHData*)extraData)->PdV());}
+	inline double& c() { return (((extraSPHData*)extraData)->c());}
+	inline double& PoverRho2() { return (((extraSPHData*)extraData)->PoverRho2());}
+	inline double& BalsaraSwitch() { return (((extraSPHData*)extraData)->BalsaraSwitch());}
 };
+
+#define TYPE_GAS               (1<<0)
+#define TYPE_DARK              (1<<1)
+#define TYPE_STAR              (1<<2)
+#define TYPE_PHOTOGENIC        (1<<3)
+#define TYPE_NbrOfACTIVE       (1<<4)
+
+inline int TYPETest(GravityParticle *a, unsigned int b) {
+    return a->iType & b;
+    }
+inline int TYPESet(GravityParticle *a, unsigned int b) {
+    return a->iType |= b;
+    }
 
 
 // Class for cross processor data needed for smooth operations
@@ -132,6 +175,14 @@ class ExternalSmoothParticle {
   double fDensity;
   Vector3D<double> position;
   unsigned int iType;	// Bitmask to hold particle type information
+  int rung;
+  Vector3D<double> vPred;
+  Vector3D<double> treeAcceleration;
+  double mumax;
+  double PdV;
+  double c;
+  double PoverRho2;
+  double BalsaraSwitch;
 
   ExternalSmoothParticle() {}
 
@@ -142,6 +193,16 @@ class ExternalSmoothParticle {
 	  fDensity = p->fDensity;
 	  position = p->position;
 	  iType = p->iType;
+	  rung = p->rung;
+	  treeAcceleration = p->treeAcceleration;
+	  if(TYPETest(p, TYPE_GAS)) {
+	      vPred = p->vPred();
+	      mumax = p->mumax();
+	      PdV = p->PdV();
+	      c = p->c();
+	      PoverRho2 = p->PoverRho2();
+	      BalsaraSwitch = p->BalsaraSwitch();
+	      }
 	  }
   
   inline void getParticle(GravityParticle *tmp) { 
@@ -150,6 +211,15 @@ class ExternalSmoothParticle {
       tmp->fDensity = fDensity;
       tmp->position = position;
       tmp->iType = iType;
+      tmp->rung = rung;
+      tmp->treeAcceleration = treeAcceleration;
+      if(TYPETest(tmp, TYPE_GAS)) {
+	  tmp->vPred() = vPred;
+	  tmp->mumax() = mumax;
+	  tmp->PdV() = PdV;
+	  tmp->c() = c;
+	  tmp->BalsaraSwitch() = BalsaraSwitch;
+	  }
       }
 	  
   void pup(PUP::er &p) {
@@ -158,6 +228,14 @@ class ExternalSmoothParticle {
     p | fBall;
     p | fDensity;
     p | iType;
+    p | rung;
+    p | treeAcceleration;
+    p | vPred;
+    p | mumax;
+    p | PdV;
+    p | c;
+    p | PoverRho2;
+    p | BalsaraSwitch;
   }
 };
 
@@ -165,17 +243,5 @@ inline ExternalSmoothParticle GravityParticle::getExternalSmoothParticle()
 { return ExternalSmoothParticle(this); }
 
 /* Particle Type Masks */
-
-#define TYPE_GAS               (1<<0)
-#define TYPE_DARK              (1<<1)
-#define TYPE_STAR              (1<<2)
-#define TYPE_PHOTOGENIC        (1<<3)
-
-inline int TYPETest(GravityParticle *a, unsigned int b) {
-    return a->iType & b;
-    }
-inline int TYPESet(GravityParticle *a, unsigned int b) {
-    return a->iType |= b;
-    }
 
 #endif

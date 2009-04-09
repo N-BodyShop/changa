@@ -79,13 +79,13 @@ OBJECTS = DataManager.o Reductions.o TreePiece.o Sorter.o \
 	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
 	  InOutput.o cosmo.o romberg.o runge.o dumpframe.o dffuncs.o \
 	  moments.o MultistepLB.o \
-	  TreeWalk.o Compute.o CacheInterface.o smooth.o
+	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o
 
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \
 	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
 	InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c \
 	moments.c MultistepLB.C \
-	TreeWalk.C Compute.C CacheInterface.C smooth.C
+	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C
 
 ifdef CUDA
   CXXFLAGS += $(NVCC_INC)
