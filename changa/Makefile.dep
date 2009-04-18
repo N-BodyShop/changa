@@ -409,5 +409,7 @@ Compute.h \
 State.h \
 
 Sph.o: \
+Sph.C \
+ParallelGravity.decl.h \
 ParallelGravity.h \
 smooth.h
