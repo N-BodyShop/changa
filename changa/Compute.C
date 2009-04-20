@@ -1370,8 +1370,8 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
         CkVec<OffsetNode> &clist = state->clists[level];
         for(int i = 0; i < clist.length(); i++){
           //tmp--;
-#ifdef CHANGA_REFACTOR_WALKCHECK_INTERLIST
           GenericTreeNode *node = clist[i].node;
+#ifdef CHANGA_REFACTOR_WALKCHECK_INTERLIST
           tp->addToBucketChecklist(b, node->getKey());
           tp->combineKeys(node->getKey(), b);
 
@@ -1383,7 +1383,6 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 #endif
           int computed = 0;
           // check whether it is already on the gpu
-          GenericTreeNode *node = clist[i].node;
           int index = node->nodeArrayIndex;
 
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
