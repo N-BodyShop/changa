@@ -6,6 +6,10 @@
 #include "Compute.h"
 #include <stack>
 
+#ifdef CHANGA_REFACTOR_WALKCHECK
+#include <string>
+#endif
+
 const char *typeString(NodeType type);
 
 void TreeWalk::init(Compute *c, TreePiece *owner){
@@ -339,11 +343,13 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
       descend = processNode(glblNode.node, s, chunk, reqID, isRoot, didcomp, awi);
 
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
-      char arr[2] = {'K', 'D'};
-      char arrr[2] = {'N', 'Y'};
       int tpindex = ownerTP->getIndex();
-      Vector3D<double> vec = ownerTP->decodeOffset(glblNode.offsetID);
-      CkPrintf("[%d] undecided level %d: key %ld (%1.0f,%1.0f,%1.0f) - %s, target %d, ret: %c, comp: %c\n", tpindex, level, glblNode.node->getKey(), vec.x, vec.y, vec.z, typeString(glblNode.node->getType()), targetBucketIndex, arr[!descend], arrr[didcomp]);
+      if(targetBucketIndex == TEST_BUCKET && tpindex == TEST_TP){ 
+        char arr[2] = {'K', 'D'};
+        char arrr[2] = {'N', 'Y'};
+        Vector3D<double> vec = ownerTP->decodeOffset(glblNode.offsetID);
+        CkPrintf("[%d] undecided level %d: key %ld (%1.0f,%1.0f,%1.0f) - %s, target %d, ret: %c, comp: %c\n", tpindex, level, glblNode.node->getKey(), vec.x, vec.y, vec.z, typeString(glblNode.node->getType()), targetBucketIndex, arr[!descend], arrr[didcomp]);
+      }
 #endif
     }
   }
@@ -362,8 +368,10 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
     char arr[2] = {'K', 'D'};
     char arrr[2] = {'N', 'Y'};
     int tpindex = ownerTP->getIndex();
-    Vector3D<double> vec = ownerTP->decodeOffset(glblNode.offsetID);
-    CkPrintf("[%d] chklist level %d: key %ld (%1.0f,%1.0f,%1.0f) - %s, target %d, ret: %c, comp: %c\n", tpindex, level, glblNode.node->getKey(), vec.x, vec.y, vec.z, typeString(glblNode.node->getType()), targetBucketIndex, arr[!descend], arrr[didcomp]);
+    if(targetBucketIndex == TEST_BUCKET && tpindex == TEST_TP){ 
+      Vector3D<double> vec = ownerTP->decodeOffset(glblNode.offsetID);
+      CkPrintf("[%d] chklist level %d: key %ld (%1.0f,%1.0f,%1.0f) - %s, target %d, ret: %c, comp: %c\n", tpindex, level, glblNode.node->getKey(), vec.x, vec.y, vec.z, typeString(glblNode.node->getType()), targetBucketIndex, arr[!descend], arrr[didcomp]);
+    }
 #endif
   }
   // if the undecided list is non-empty, have to let

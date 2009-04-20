@@ -909,7 +909,7 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
   // (key) here.
   state->level = level;
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
-  NodeKey key = remoteBucket;
+  NodeKey key = remoteBucket >> 1;
   addRemoteParticlesToInt(part, num, offset, state, key);
 #else
   addRemoteParticlesToInt(part, num, offset, state);
@@ -1789,6 +1789,9 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
 void ListCompute::addChildrenToCheckList(GenericTreeNode *node, int reqID, int chunk, int awi, State *s, CheckList &chklist, TreePiece *tp){
 
   Vector3D<double> vec = tp->decodeOffset(reqID);
+#ifdef CHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
+  int bucket = decodeReqID(reqID);
+#endif
 
   for(int i = 0; i < node->numChildren(); i++)
   {
@@ -1810,19 +1813,23 @@ void ListCompute::addChildrenToCheckList(GenericTreeNode *node, int reqID, int c
 #endif
         nodeMissedEvent(reqID, chunk, s, tp);
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
-        CkPrintf("[%d] missed child %ld (%1.0f,%1.0f,%1.0f) of %ld\n", tp->getIndex(),
-            childKey,
-            vec.x, vec.y, vec.z,
-            node->getKey());
+        if(bucket == TEST_BUCKET && tp->getIndex() == TEST_TP){
+          CkPrintf("[%d] missed child %ld (%1.0f,%1.0f,%1.0f) of %ld\n", tp->getIndex(),
+              childKey,
+              vec.x, vec.y, vec.z,
+              node->getKey());
+        }
 #endif
         continue;
       }
     }
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
-    CkPrintf("[%d] enq avail child %ld (%1.0f,%1.0f,%1.0f) of %ld\n", tp->getIndex(),
-        child->getKey(),
-        vec.x, vec.y, vec.z,
-        node->getKey());
+    if(bucket == TEST_BUCKET && tp->getIndex() == TEST_TP){
+      CkPrintf("[%d] enq avail child %ld (%1.0f,%1.0f,%1.0f) of %ld\n", tp->getIndex(),
+          child->getKey(),
+          vec.x, vec.y, vec.z,
+          node->getKey());
+    }
 #endif
     // child available, enqueue
     OffsetNode on;

@@ -4400,9 +4400,9 @@ void TreePiece::combineKeys(Tree::NodeKey key,int bucket){
   else{//Sibling key has been found in the Binary tree
     bucketcheckList[bucket].erase(bucketcheckList[bucket].find(key));
     bucketcheckList[bucket].erase(iter);
-    if(bucket == TEST_BUCKET){
-      CkPrintf("combine(%ld, %ld)\n", key, sibKey);
-      CkPrintf("add %ld\n", key >> 1, sibKey);
+    if(bucket == TEST_BUCKET && thisIndex == TEST_TP){
+      CkPrintf("[%d] combine(%ld, %ld)\n", thisIndex, key, sibKey);
+      CkPrintf("[%d] add %ld\n", thisIndex, key >> 1, sibKey);
     }
     key >>= 1;
     bucketcheckList[bucket].insert(key);
@@ -4414,7 +4414,7 @@ void TreePiece::checkWalkCorrectness(){
 
   Tree::NodeKey endKey = Key(1);
   int count = (2*nReplicas+1) * (2*nReplicas+1) * (2*nReplicas+1);
-  CkPrintf("[%d(%d)]checking walk correctness...\n",thisIndex, CkMyPe());
+  CkPrintf("[%d] checking walk correctness...\n",thisIndex);
   bool someWrong = false;
 
   for(int i=0;i<numBuckets;i++){
@@ -4426,7 +4426,7 @@ void TreePiece::checkWalkCorrectness(){
     }
     if (wrong) {
       someWrong = true;
-      CkPrintf("Error: [%d] All the nodes not traversed by bucket no. %d\n",thisIndex,i);
+      CkPrintf("Error: [%d] Not all nodes were traversed by bucket %d\n",thisIndex,i);
       for (std::multiset<Tree::NodeKey>::iterator iter=bucketcheckList[i].begin(); iter != bucketcheckList[i].end(); iter++) {
 	CkPrintf("       [%d] key %ld\n",thisIndex,*iter);
       }

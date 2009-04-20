@@ -530,8 +530,8 @@ class TreePiece : public CBase_TreePiece {
 #if defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
         void addToBucketChecklist(int bucketIndex, NodeKey k){
           bucketcheckList[bucketIndex].insert(k);
-          if(bucketIndex == TEST_BUCKET)
-            CkPrintf("add %ld\n", k);
+          if(bucketIndex == TEST_BUCKET && thisIndex == TEST_TP)
+            CkPrintf("[%d] add %ld\n", thisIndex, k);
         }
 #endif
 
