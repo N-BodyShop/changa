@@ -70,6 +70,7 @@ namespace Tree {
       startBucket=-1;
 #ifdef CUDA
       nodeArrayIndex = -1;
+      wasNeg = true;
 #endif
 #endif
 #ifdef CHANGA_REFACTOR_WALKCHECK
@@ -113,6 +114,7 @@ namespace Tree {
 #ifdef CUDA
     // index in nodeinfo array
     int nodeArrayIndex;
+    bool wasNeg;
 #endif
 #endif
     //GenericTreeNode() : myType(Invalid), key(0), parent(0), beginParticle(0), endParticle(0), remoteIndex(0) { }
@@ -123,6 +125,7 @@ namespace Tree {
       startBucket=-1;
 #ifdef CUDA
       nodeArrayIndex = -1;
+      wasNeg = true;
 #endif
 #endif
     }
@@ -212,6 +215,7 @@ namespace Tree {
   	    // so that newly shipped nodes are not mistakenly assumed
   	    // to be present on the GPU
   	    nodeArrayIndex = -1;
+      wasNeg = true;
 #endif
       } else {
         iType = (int) myType;
@@ -628,6 +632,7 @@ namespace Tree {
       buffer->particlePointer = NULL;
 #if INTERLIST_VER > 0 && defined CUDA
       buffer->nodeArrayIndex = -1;
+      buffer->wasNeg = true;
 #endif
       int used = 1;
       if (depth != 0) {

@@ -1154,8 +1154,10 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
             tp->addToNodeInterLocal(computed);
           }
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
-          Vector3D<double> vec = tp->decodeOffset(clist[i].offsetID);
-          CkPrintf("[%d]: bucket %d with node %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex,  b, clist[i].node->getKey(), vec.x, vec.y, vec.z);
+          if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
+            Vector3D<double> vec = tp->decodeOffset(clist[i].offsetID);
+            CkPrintf("[%d]: bucket %d with node %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex,  b, clist[i].node->getKey(), vec.x, vec.y, vec.z);
+          }
 #endif
 
         }
@@ -1231,8 +1233,10 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
             }
 
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
+          if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
             Vector3D<double> &vec = rpi.offset;
             CkPrintf("[%d]: bucket %d with remote part %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex, b, rpi.key, vec.x, vec.y, vec.z);
+          }
 #endif
           }
         }
@@ -1280,8 +1284,10 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
             }
 
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
+          if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
             Vector3D<double> &vec = lpi.offset;
             CkPrintf("[%d]: bucket %d with local part %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex, b, lpi.key, vec.x, vec.y, vec.z);
+          }
 #endif
           }
         }
@@ -1387,30 +1393,60 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
           {
+
+          if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
             Vector3D<double> vec = tp->decodeOffset(clist[i].offsetID);
             CkPrintf("[%d]: remote: %d resume: %d bucket %d with node %ld (%d), (%1.0f,%1.0f,%1.0f)\n", thisIndex, getOptType() == Remote, state->resume, b, clist[i].node->getKey(), clist[i].node->nodeArrayIndex, vec.x, vec.y, vec.z);
           }
+          
 #endif
           
           DoubleWalkState *rrState;
-          if(state->resume || (!state->resume && index < 0)){
+          if(index < 0){
+            //if(state->resume) CkAssert(index < 0);
+            //CkAssert(getOptType() == Remote);
             rrState = (DoubleWalkState*) tp->sInterListStateRemoteResume;
-            CkAssert(rrState->nodes);
-            std::map<NodeKey,int>::iterator it = rrState->nodeMap.find(node->getKey());
-            if(it == rrState->nodeMap.end()){
-              index = rrState->nodes->push_back_v(CudaMultipoleMoments(node->moments));
-              rrState->nodeMap[node->getKey()] = index;
-            }
-            else{
-              index = it->second;
-            }
+            //CkAssert(rrState->nodes);
+            //std::map<NodeKey,int>::iterator it = rrState->nodeMap.find(node->getKey());
+            //if(it == rrState->nodeMap.end()){
+            index = rrState->nodes->push_back_v(CudaMultipoleMoments(node->moments));
+            node->nodeArrayIndex = index;
+            node->wasNeg = true;
+            rrState->nodeMap.push_back(node);
+            //rrState->nodeMap[node->getKey()] = index;
+            //}
+            //else{
+            //  index = it->second;
+            //}
           }
-          else{ // index >= 0
+          else if(node->wasNeg){
+            rrState = (DoubleWalkState *)tp->sInterListStateRemoteResume;
+          }
+          else{
             rrState = state;
           }
+#ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
+          if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
+            CkPrintf("[%d]: pushing node 0x%x (%f,%f,%f,%f,%f,%f)\n", thisIndex, node, node->moments.soft, node->moments.totalMass, node->moments.radius, node->moments.cm.x, node->moments.cm.y, node->moments.cm.z);
+          }
+#endif
+            //rrState->nodeMap[node->getKey()] = index;
+            //}
+            //else{
+            //  index = it->second;
+            //}
               
           // now to add the node index to the list of interactions
           CkAssert(index >= 0);
+#ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
+          {
+
+          if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
+            CkPrintf("[%d]: (-1) -> (%d)\n", thisIndex, index);
+          }
+          }
+#endif
+
           ILCell tilc(index, clist[i].offsetID);
           rrState->nodeLists.push_back(b, tilc, rrState, tp);
           if(rrState->nodeOffloadReady()){
@@ -1448,8 +1484,11 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
           }
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
           {
+
+          if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
             Vector3D<double> &vec = rpi.offset;
             CkPrintf("[%d]: remote: %d resume: %d bucket %d with remote part %ld (%d), (%1.0f,%1.0f,%1.0f)\n", thisIndex, getOptType() == Remote, state->resume, b, key, gpuIndex, vec.x, vec.y, vec.z);
+          }
           }
 #endif
           DoubleWalkState *rrState;
@@ -1513,8 +1552,10 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
             }
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
             {
+          if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
               Vector3D<double> &vec = lpi.offset;
               CkPrintf("[%d]: remote: %d resume: %d bucket %d with local part %ld (%d), (%1.0f,%1.0f,%1.0f)\n", thisIndex, getOptType() == Remote, state->resume, b, key, gpuIndex, vec.x, vec.y, vec.z);
+          }
             }
 #endif
             CkAssert(gpuIndex >= 0);
@@ -1564,10 +1605,18 @@ void ListCompute::initCudaState(DoubleWalkState *state, int numBuckets, int node
 }
 
 void ListCompute::resetCudaNodeState(DoubleWalkState *state){
+  GenericTreeNode *tmp;
   state->nodeLists.reset();
   if(state->nodes){
     state->nodes->length() = 0;
-    state->nodeMap.clear();
+    //state->nodeMap.clear();
+    int len = state->nodeMap.length();
+    for(int i = 0; i < len; i++){
+      tmp = state->nodeMap[i];
+      tmp->nodeArrayIndex = -1;
+      //tmp->wasNeg = true;
+    }
+    state->nodeMap.length() = 0;
   }
 }
 

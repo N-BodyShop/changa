@@ -404,6 +404,7 @@ typedef std::map<CkCacheKey, CkCacheEntry*> cacheType;
 #define addNodeToList(nd, list, index) \
       { \
         nd->nodeArrayIndex = index; \
+        nd->wasNeg = false; \
         list.push_back(CudaMultipoleMoments(nd->moments));\
         CkPrintf("(%d) node %d: %ld (%s)\n", CkMyPe(), index, nd->getKey(), typeString(type));\
         index++;\
@@ -411,6 +412,7 @@ typedef std::map<CkCacheKey, CkCacheEntry*> cacheType;
 #define addNodeToListPtr(nd, list, index) \
       { \
         nd->nodeArrayIndex = index; \
+        nd->wasNeg = false; \
         list->push_back(CudaMultipoleMoments(nd->moments));\
         CkPrintf("(%d) node %d: %ld (%s)\n", CkMyPe(), index, nd->getKey(), typeString(type));\
         index++;\
@@ -420,12 +422,14 @@ typedef std::map<CkCacheKey, CkCacheEntry*> cacheType;
 #define addNodeToList(nd, list, index) \
       { \
         nd->nodeArrayIndex = index; \
+        nd->wasNeg = false; \
         list.push_back(CudaMultipoleMoments(nd->moments));\
         index++;\
       }
 #define addNodeToListPtr(nd, list, index) \
       { \
         nd->nodeArrayIndex = index; \
+        nd->wasNeg = false; \
         list->push_back(CudaMultipoleMoments(nd->moments));\
         index++;\
       }

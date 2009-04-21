@@ -2249,7 +2249,7 @@ void TreePiece::calculateEwald(dummyMsg *msg) {
   CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex); 
   cb = new CkCallback(CkIndex_TreePiece::EwaldGPU(), myIndex, thisArrayID); 
 
-  CkPrintf("[%d] in calculateEwald, calling EwaldHostMemorySetup\n", thisIndex);
+  //CkPrintf("[%d] in calculateEwald, calling EwaldHostMemorySetup\n", thisIndex);
   EwaldHostMemorySetup(h_idata, myNumParticles, nEwhLoop, (void *) cb); 
   EwaldGPU();
 #else
@@ -3249,11 +3249,14 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
 	  DoubleWalkState *state = (DoubleWalkState *)sInterListStateRemoteResume;
 	  ((ListCompute *)sInterListCompute)->initCudaState(state, numBuckets, remoteResumeNodesPerReq, remoteResumePartsPerReq, true);
 
-	  state->nodes = new CkVec<CudaMultipoleMoments>(512);
+	  state->nodes = new CkVec<CudaMultipoleMoments>(100000);
           state->nodes->length() = 0;
-	  state->particles = new CkVec<CompactPartData>(2048);
+	  state->particles = new CkVec<CompactPartData>(200000);
           state->particles->length() = 0;
-          state->nodeMap.clear();
+          //state->nodeMap.clear();
+          state->nodeMap.resize(remoteResumeNodesPerReq);
+          state->nodeMap.length() = 0;
+          
           state->partMap.clear();
   }
 #endif
