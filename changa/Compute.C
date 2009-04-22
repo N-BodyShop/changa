@@ -793,7 +793,8 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
     int computed = node->lastParticle-node->firstParticle+1;
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
     NodeKey key = node->getKey();
-    addLocalParticlesToInt(part, computed, offset, s, key);
+    addLocalParticlesToInt(part, computed, offset, s, key, node);
+    //addLocalParticlesToInt(part, computed, offset, s, key);
 #else
     addLocalParticlesToInt(part, computed, offset, s);
 #endif
@@ -996,7 +997,7 @@ void ListCompute::addRemoteParticlesToInt(ExternalGravityParticle *parts, int n,
 }
 
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST  || defined CUDA
-void ListCompute::addLocalParticlesToInt(GravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s, NodeKey key){
+void ListCompute::addLocalParticlesToInt(GravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s, NodeKey key, GenericTreeNode *gtn){
 #else
 void ListCompute::addLocalParticlesToInt(GravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s){
 #endif
@@ -1008,6 +1009,7 @@ void ListCompute::addLocalParticlesToInt(GravityParticle *parts, int n, Vector3D
   lpi.offset = offset;
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
   lpi.key = key;
+  lpi.nd = gtn;
 #endif
 
   s->lplists[level].push_back(lpi);
@@ -1043,7 +1045,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
   int numActiveBuckets = tp->numActiveBuckets;
 
   // for local particles
-  std::map<NodeKey, int> &lpref = tp->dm->getLocalPartsOnGpuTable();
+  //std::map<NodeKey, int> &lpref = tp->dm->getLocalPartsOnGpuTable();
   // for cached particles
   std::map<NodeKey, int> &cpref = tp->dm->getCachedPartsOnGpuTable();
 #endif
@@ -1544,12 +1546,13 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
             tp->combineKeys(key, b);
 #endif
 
-            int gpuIndex = -1;
-            key <<= 1;
-            std::map<NodeKey, int>::iterator p = lpref.find(key);
-            if(p != lpref.end()){
-              gpuIndex = p->second;
-            }
+            int gpuIndex = lpi.nd->bucketArrayIndex;
+            //key <<= 1;
+            //std::map<NodeKey, int>::iterator p = lpref.find(key);
+            //if(p != lpref.end()){
+            //  gpuIndex = p->second;
+            //}
+            
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
             {
           if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){

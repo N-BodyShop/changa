@@ -102,7 +102,7 @@ protected:
 
         std::map<NodeKey, int> cachedPartsOnGpu;
         // local particles that have been copied to the gpu
-        std::map<NodeKey, int> localPartsOnGpu;
+        //std::map<NodeKey, int> localPartsOnGpu;
 
         //std::map<Tree::NodeKey, GenericTreeNode *> missedNodesOnGpu;
         //std::map<Tree::NodeKey, ExternalGravityParticle *> missedPartsOnGpu;
@@ -170,9 +170,11 @@ public:
 	void pup(PUP::er& p);
 
 #ifdef CUDA
+        /*
         std::map<NodeKey, int> &getLocalPartsOnGpuTable(){
           return localPartsOnGpu;
         }
+        */
         std::map<NodeKey, int> &getCachedPartsOnGpuTable(){
           return cachedPartsOnGpu;
         }

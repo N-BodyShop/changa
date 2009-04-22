@@ -57,18 +57,21 @@ class GenericList{
   CudaRequest *serialize(TreePiece *tp);
   void getBucketParameters(TreePiece *tp, 
                            int bucket, 
-                           int &bucketStart, int &bucketSize, 
-                           std::map<NodeKey, int>&lpref){
+                           int &bucketStart, int &bucketSize){
+                           //std::map<NodeKey, int>&lpref){
 	// bucket b is listed in this offload
 	GenericTreeNode *bucketNode = tp->bucketList[bucket];
 
 	bucketSize = bucketNode->lastParticle - bucketNode->firstParticle + 1;
+        bucketStart = bucketNode->bucketArrayIndex;
+        /*
 	NodeKey partKey = bucketNode->getKey();
 	partKey <<= 1;
 
 	std::map<NodeKey, int>::iterator iter = lpref.find(partKey);
 	CkAssert(iter != lpref.end());
 	bucketStart = iter->second;
+        */
 	CkAssert(bucketStart >= 0);
   }
 
@@ -142,7 +145,7 @@ void allocatePinnedHostMemory(void **ptr, int size);
 template<typename T>
 CudaRequest *GenericList<T>::serialize(TreePiece *tp){
     // for local particles
-    std::map<NodeKey, int> &lpref = tp->dm->getLocalPartsOnGpuTable();
+    //std::map<NodeKey, int> &lpref = tp->dm->getLocalPartsOnGpuTable();
 
     // get count of buckets with interactions first
     int numFilledBuckets = 0;
@@ -180,7 +183,8 @@ CudaRequest *GenericList<T>::serialize(TreePiece *tp){
       if(listilen > 0){
         memcpy(&flatlists[listpos], lists[i].getVec(), listilen*sizeof(T));
         markers[curbucket] = listpos;
-        getBucketParameters(tp, i, starts[curbucket], sizes[curbucket], lpref);
+        //getBucketParameters(tp, i, starts[curbucket], sizes[curbucket], lpref);
+        getBucketParameters(tp, i, starts[curbucket], sizes[curbucket]);
         affectedBuckets[curbucket] = i;
         listpos += listilen;
         curbucket++;

@@ -646,7 +646,8 @@ void DataManager::serializeLocal(GenericTreeNode *node){
       int start = bucket->firstParticle;
       int end = bucket->lastParticle;
       GravityParticle *gravParts = bucket->particlePointer;
-      localPartsOnGpu[bucketKey << 1] = partIndex;
+      //localPartsOnGpu[bucketKey << 1] = partIndex;
+      bucket->bucketArrayIndex = partIndex;
 #ifdef CUDA_DM_PRINT_TREES
       CkPrintf("(%d) tp %d bucket %d (key %ld) start: %d\n", CkMyPe(), 
                                                              tp->getIndex(), 

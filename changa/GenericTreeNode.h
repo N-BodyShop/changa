@@ -70,6 +70,7 @@ namespace Tree {
       startBucket=-1;
 #ifdef CUDA
       nodeArrayIndex = -1;
+      bucketArrayIndex = -1;
       wasNeg = true;
 #endif
 #endif
@@ -114,6 +115,7 @@ namespace Tree {
 #ifdef CUDA
     // index in nodeinfo array
     int nodeArrayIndex;
+    int bucketArrayIndex;
     bool wasNeg;
 #endif
 #endif
@@ -125,6 +127,7 @@ namespace Tree {
       startBucket=-1;
 #ifdef CUDA
       nodeArrayIndex = -1;
+      bucketArrayIndex = -1;
       wasNeg = true;
 #endif
 #endif
@@ -215,6 +218,7 @@ namespace Tree {
   	    // so that newly shipped nodes are not mistakenly assumed
   	    // to be present on the GPU
   	    nodeArrayIndex = -1;
+      bucketArrayIndex = -1;
       wasNeg = true;
 #endif
       } else {
@@ -632,6 +636,7 @@ namespace Tree {
       buffer->particlePointer = NULL;
 #if INTERLIST_VER > 0 && defined CUDA
       buffer->nodeArrayIndex = -1;
+      buffer->bucketArrayIndex = -1;
       buffer->wasNeg = true;
 #endif
       int used = 1;

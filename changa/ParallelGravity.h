@@ -382,7 +382,7 @@ typedef struct particlesInfoL{
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
     NodeKey key;
 #endif
-#if COSMO_DEBUG > 1
+#if COSMO_DEBUG > 1 || defined CUDA
     GenericTreeNode *nd;
 #endif
 } LocalPartInfo;
