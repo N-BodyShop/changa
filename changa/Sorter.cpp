@@ -250,9 +250,19 @@ void Sorter::collectORBCounts(CkReductionMsg* m){
 
 /************************************************/
 
-void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
+/*
+class WeighedNode {
+public:
+  Key key;
+  u_int64_t count;
+  WeighedNode children[2];
+  WeighedNode(Key k, u_int64_t c) : key(k), count(c) { }
+};
+*/
+
+void Sorter::startSorting(const CkGroupID& dataManagerID,
 			  const double toler, const CkCallback& cb, bool decompose) {
-	numChares = nChares;
+	numChares = numTreePieces;
 	dm = CProxy_DataManager(dataManagerID);
 	tolerance = toler;
 	sorted = false;
@@ -266,30 +276,44 @@ void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
   switch (domainDecomposition){
     case SFC_dec:
     case SFC_peano_dec:
-	numKeys = 0;
-        //if (splitters.size() == 0) {
+        numKeys = 0;
+        if (splitters.size() == 0) {
           // reuse the existing splitters from the previous decomposition
-            splitters.clear();
+	    splitters.clear();
 	    splitters.reserve(3 * numChares - 1);
 	    delta = (lastPossibleKey - SFC::firstPossibleKey) / (3 * numChares - 2);
 	    k = firstPossibleKey;
 	    for(int i = 0; i < (3 * numChares - 2); i++, k += delta)
 		    splitters.push_back(k);
 	    splitters.push_back(lastPossibleKey);
-            //}
+        }
         break;
     case Oct_dec:
-      if (nodeKeys == NULL) {
+      if (nodeKeys.size() == 0) {
         rt = new BinaryTreeNode();
-        numKeys = numChares;
-        keysSize = (int) (numChares * 1.1);
-        nodeKeys = new NodeKey[keysSize];
-        rt->getChunks(numKeys,nodeKeys);
+        //numKeys = numChares;
+        //keysSize = (int) (numChares * 1.1);
+        nodeKeys.reserve(numChares);
+        nodeKeys.resize(numChares>>1, 0);
+        chareIDs.resize(nodeKeys.size());
+        NodeKey *tmp = &(*nodeKeys.begin());
+        rt->getChunks(nodeKeys.size(),tmp);
         delete rt;
+        // place the unused chares in the available list
+        availableChares.reserve(numChares>>1 + 10);
+        for (int i = numChares-1; i>=nodeKeys.size(); --i) {
+          availableChares.push_back(i);
+        }
+        joinThreshold = particlesPerChare;
+        splitThreshold = joinThreshold * 1.5;
+        /*
+        numKeys = 1;
+        treeRoot = new WeighedNode(1, 1<<30);
+        */
       }
-      wbState = new WeightBalanceState<int>();
+      //wbState = new WeightBalanceState<int>();
       //Convert the Node Keys to the splitter keys which will be sent to histogram
-      convertNodesToSplitters(numKeys,nodeKeys);
+      convertNodesToSplitters();
       break;
     case ORB_dec:
 	numKeys = 0;
@@ -323,13 +347,17 @@ void Sorter::startSorting(const CkGroupID& dataManagerID, const int nChares,
   }
 }
 
-void Sorter::convertNodesToSplitters(int num, NodeKey* nodeKeys){
+/**
+ * Given "numKeys" node keys ("nodeKeys"), convert these keys into splitters.
+ */
+void Sorter::convertNodesToSplitters(){
   Key partKey;
 
   splitters.clear();
-  splitters.reserve(num + 1);
+  splitters.reserve(nodeKeys.size() + 1);
+  binCounts.reserve(nodeKeys.size());
   const Key mask = Key(1) << 63;
-  for(unsigned int i=0;i<num;i++){
+  for(unsigned int i=0;i<nodeKeys.size();i++){
     partKey=Key(nodeKeys[i]);
     while(!(partKey & mask)){
       partKey <<= 1;
@@ -344,7 +372,59 @@ void Sorter::convertNodesToSplitters(int num, NodeKey* nodeKeys){
   splitters.push_back(lastPossibleKey);
 }
 
-void Sorter::convertNodesToSplittersRefine(int num, NodeKey* nodeKeys){
+/**
+ * Given "num" node keys, create splitters for these selected nodekeys to 
+ * refine the information within those nodes: each node is divided
+ * "level" times. Returns a newly allocated Key array containing the
+ * splitters key for the histogramming phase.
+ */
+Key * Sorter::convertNodesToSplittersRefine(int num, NodeKey* keys){
+  Key partKey;
+
+  Key *result = new Key[num * ((2<<refineLevel)+1)];
+  int64_t levelMask = int64_t(1) << 63;
+  levelMask >>= refineLevel;
+  int idx = 0;
+  const Key mask = Key(1) << 63;
+  for(unsigned int i=0;i<num;i++){
+    CkAssert(! (partKey & levelMask));
+    partKey=Key(keys[i]<<refineLevel);
+    int shift = 0;
+    // find how much we need to shift each key (depend on the tree level of the key)
+    while (!(partKey<<shift & mask)) {
+      ++shift;
+    }
+    partKey &= ~mask >> shift;
+    for (int j=0; j<=(1<<refineLevel); ++j) {
+      result[idx++] = (partKey+j) << shift;
+    }
+    /*    
+    nextKey=partKey+1;
+    lastKey=nextKey+1;
+    while(!(partKey & mask)){
+      partKey <<= 1;
+      nextKey <<= 1;
+      lastKey <<= 1;
+    }
+    partKey &= ~mask;
+    nextKey &= ~mask;
+    lastKey &= ~mask;
+    CkAbort("To FIX");
+    splitters.push_back(partKey);
+    splitters.push_back(nextKey);
+    splitters.push_back(nextKey);
+    splitters.push_back(lastKey);
+    */
+  }
+  //Sort here to make sure that splitters go sorted to histogramming
+  //They might be unsorted here due to sorted or unsorted node keys
+  // FILIPPO: no, by construction they must be ordered already!
+  //sort(splitters.begin(),splitters.end());
+  return result;
+}
+
+/*
+void Sorter::convertNodesToSplittersRefine(int num, NodeKey* keys){
   Key partKey;
   Key nextKey;
   Key lastKey;
@@ -353,7 +433,7 @@ void Sorter::convertNodesToSplittersRefine(int num, NodeKey* nodeKeys){
   splitters.reserve(num * 4);
   const Key mask = Key(1) << 63;
   for(unsigned int i=0;i<num;i++){
-    partKey=Key(nodeKeys[i]<<1);
+    partKey=Key(keys[i]<<1);
     nextKey=partKey+1;
     lastKey=nextKey+1;
     while(!(partKey & mask)){
@@ -399,6 +479,7 @@ void Sorter::convertNodesToSplittersNoZeros(int num, NodeKey* nodeKeys, CkVec<in
   //sort(splitters.begin(),splitters.end());
   splitters.push_back(lastPossibleKey);
 }
+*/
 
 void Sorter::collectEvaluations(CkReductionMsg* m) {
 
@@ -422,7 +503,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 
   numIterations++;
   numCounts = m->getSize() / sizeof(int);
-  binCounts.resize(numCounts);
+  //binCounts.resize(numCounts);
   //binCounts[0] = 0;
   int* startCounts = static_cast<int *>(m->getData());
   //copy(startCounts, startCounts + numCounts, binCounts.begin() + 1);
@@ -432,6 +513,12 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   //call function which will balance the bin counts: define it in GenericTreeNode
   //make it a templated function
   //Pass the bincounts as well as the nodekeys
+  
+  if (joinThreshold == 0) {
+    int total_particles = std::accumulate(startCounts, startCounts+numCounts, 0);
+    joinThreshold = total_particles / (numTreePieces>>1);
+    splitThreshold = joinThreshold * 1.5;
+  }
   
   if(verbosity>=3){
     std::vector<unsigned int>::iterator iter;
@@ -455,22 +542,25 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   }
   
   double startTimer = CmiWallTimer();
-  bool histogram=weightBalance<int>(nodeKeys,startCounts,numKeys,keysSize,numChares,&zeros,&nodesOpened,wbState);
-  //bool histogram=weightBalance<int>(nodeKeys,startCounts,numKeys,1);
+  //bool histogram=weightBalance<int>(nodeKeys,startCounts,numKeys,keysSize,numChares,&zeros,&nodesOpened,wbState);
+  bool histogram = refineOctSplitting(numCounts, startCounts);
   traceUserBracketEvent(weightBalanceUE, startTimer, CmiWallTimer());
   delete m;
 
   if(verbosity>=3){
-    CkPrintf("Nodekeys after (%d):",numKeys);
-    for(int i=0;i<numKeys;i++)
+    CkPrintf("Nodekeys after (%d):",nodeKeys.size());
+    for(int i=0;i<nodeKeys.size();i++)
       CkPrintf("%llx,",nodeKeys[i]);
     CkPrintf("\n");
   }
   if(histogram){
     //convertNodesToSplitters(numKeys,nodeKeys);
-    convertNodesToSplittersRefine(nodesOpened.size(),nodesOpened.getVec());
+    refineLevel = 2;
+    int arraySize = (1<<refineLevel)+1;
+    Key *array = convertNodesToSplittersRefine(nodesOpened.size(),nodesOpened.getVec());
 //    dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), 1, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-    treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 1, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+    treeProxy.evaluateBoundaries(array, nodesOpened.size()*arraySize, 1<<refineLevel, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+    delete[] array;
   }
   else{
     sorted=true;
@@ -480,19 +570,116 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     //We also have the final bin counts
 		
     //determine which TreePiece is responsible for each interval
-    vector<int> chareIDs(numChares, 1);
-    chareIDs[0] = 0;
-    partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
+    //vector<int> chareIDs(numChares, 1);
+    //chareIDs[0] = 0;
+    //partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
 	
     //send out the final splitters and responsibility table
-    convertNodesToSplittersNoZeros(numKeys,nodeKeys,zeros);
+    //convertNodesToSplittersNoZeros(numKeys,nodeKeys,zeros);
+    //convertNodesToSplitters(); // Filippo: not needed anymore since splitters is kept in sync with
+                                 // the other arrays by the function refileOctSplitting.
     dm.acceptFinalKeys(&(*splitters.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), splitters.size(), sortingCallback);
     numIterations = 0;
     sorted = false;
     //delete [] nodeKeys;
-    delete wbState;
+    //delete wbState;
     return;
   }
+}
+
+/**
+ * This function uses nodeKeys as tree holding the current status of
+ * the decomposition. It modifies it to decide when it is time to join two nodes,
+ * or to split a node (meaning a TreePiece holding that part of the tree rooted
+ * at "node").
+ * As a consequence of this modification, "splitters" "chareIDs" and "binCounts"
+ * are updated accordingly to reflect the changes. If some node requires extra
+ * refinement, "nodesOpened" will be changed to reflect this request for more data.
+ * Returns true if more refinement is requested.
+ */
+bool Sorter::refineOctSplitting(int n, int *count) {
+  int i, idx;
+  if (nodesOpened.size() == 0) {
+    // This means that we are not refining the counts, but we got a brand new histogramming
+    CkAssert(n == nodeKeys.size());
+    binCounts.resize(n);
+    copy(count, count+n, binCounts.begin());
+    // Walk the keys and assign the new counts, while walking also decide if some nodes
+    // are to be opened further or joined together
+    for (i=0, idx=0; i<n; ++i, ++idx) {
+      // Check if the node has too many particles and needs to be split
+      if (binCounts[idx] > splitThreshold) {
+        nodesOpened.push_back(nodeKeys[idx]);
+      }
+      // Check if two nodes can be joined together
+      while (idx>0 && (count[idx-1]+count[idx] < joinThreshold) && (nodeKeys[idx-1]>>1 == nodeKeys[idx]>>1)) {
+        // Join and repeat the check recursively
+        nodeKeys[idx-1] >>= 1;
+        nodeKeys.erase(nodeKeys.begin()+idx);
+        splitters.erase(splitters.begin()+idx);
+        binCounts[idx-1] += binCounts[idx];
+        binCounts.erase(binCounts.begin()+idx);
+        availableChares.push_back(chareIDs[idx]);
+        chareIDs.erase(chareIDs.begin()+idx);
+        --idx;
+      }
+    }
+  } else {
+    CkVec<NodeKey> tmpOpened;
+    int64_t levelMask = int64_t(1) << 63;
+    levelMask >>= refineLevel;
+    const Key mask = Key(1) << 63;
+    for (int i=0; i<nodesOpened.size(); ++i) {
+      NodeKey key = nodesOpened[i];
+      int index = std::find(nodeKeys.begin(), nodeKeys.end(), key) - nodeKeys.begin();
+
+      CkAssert(! (key & levelMask));
+      key <<= refineLevel;
+      int shift = 0;
+      // find how much we need to shift each key (depend on the tree level of the key)
+      while (!(key<<shift & mask)) {
+        ++shift;
+      }
+
+      // Add all the nodes we just requested for histogram
+      nodeKeys[index] <<= refineLevel;
+      nodeKeys.insert(nodeKeys.begin()+index+1, (1<<refineLevel)-1, key);
+      splitters.insert(splitters.begin()+index+1, (1<<refineLevel)-1, key&(~mask >> shift));
+      for (int j=1; j<(1<<refineLevel); ++j) {
+        nodeKeys[index+j] += j;
+        splitters[index+j] = (splitters[index+j] + j) << shift;
+      }
+      binCounts[index] = count[i*(1<<refineLevel)];
+      binCounts.insert(binCounts.begin()+index+1, &count[i*(1<<refineLevel)+1], &count[(i+1)*(1<<refineLevel)]);
+      CkAssert(availableChares.size()+1 >= 1<<refineLevel);
+      chareIDs.insert(chareIDs.begin()+index+1, availableChares.end()-(1<<refineLevel), availableChares.end());
+      availableChares.erase(availableChares.end()-(1<<refineLevel), availableChares.end());
+      
+      // Trim down what we over-opened just above
+      for (int j=1, idx=1; j<(1<<refineLevel); ++j, ++idx) {
+        if (binCounts[idx] > splitThreshold) {
+          tmpOpened.push_back(nodeKeys[idx]);
+        }
+        while (idx>0 && (binCounts[index+idx-1]+binCounts[index+idx] <= splitThreshold) && (nodeKeys[index+idx-1]>>1 == nodeKeys[index+idx]>>1)) {
+          // Join and repeat the check recursively
+          nodeKeys[index+idx-1] >>= 1;
+          nodeKeys.erase(nodeKeys.begin()+index+idx);
+          splitters.erase(splitters.begin()+index+idx);
+          binCounts[index+idx-1] += binCounts[index+idx];
+          binCounts.erase(binCounts.begin()+index+idx);
+          availableChares.push_back(chareIDs[index+idx]);
+          chareIDs.erase(chareIDs.begin()+index+idx);
+          --idx;
+        }
+      }
+    }
+    // Copy the new list of nodes to be opened to nodesOpened
+    nodesOpened.removeAll();
+    for (int i=0; i<tmpOpened.size(); ++i) {
+      nodesOpened.push_back(tmpOpened[i]);
+    }
+  }
+  return nodesOpened.size() > 0;
 }
 
 void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
@@ -506,9 +693,9 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	
 	if(sorted) { //true after the final keys have been binned
 		//determine which TreePiece is responsible for each interval
-		vector<int> chareIDs(numChares, 1);
-		chareIDs[0] = 0;
-		partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
+		//vector<int> chareIDs(numChares, 1);
+		//chareIDs[0] = 0;
+		//partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
 		
 		//send out the final splitters and responsibility table
 		dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()) + 1, keyBoundaries.size(), sortingCallback);

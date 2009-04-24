@@ -44,6 +44,7 @@ GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
 CProxy_CkCacheManager streamingCache;
 unsigned int numTreePieces;
+unsigned int particlesPerChare;
 int _prefetch;
 int _numChunks;
 int _randChunks;
@@ -372,6 +373,9 @@ Main::Main(CkArgMsg* m) {
 	numTreePieces = 8 * CkNumPes();
 	prmAddParam(prm, "nTreePieces", paramInt, &numTreePieces,
 		    sizeof(int),"p", "Number of TreePieces (default: 8*procs)");
+	particlesPerChare = 0;
+	prmAddParam(prm, "nPartPerChare", paramInt, &particlesPerChare,
+            sizeof(int),"ppc", "Average number of particles per TreePiece");
 	bucketSize = 12;
 	prmAddParam(prm, "nBucket", paramInt, &bucketSize,
 		    sizeof(int),"b", "Particles per Bucket (default: 12)");
@@ -669,7 +673,7 @@ Main::Main(CkArgMsg* m) {
 	CkArrayOptions opts(numTreePieces); 
 	opts.setMap(myMap);
 
-	CProxy_TreePiece pieces = CProxy_TreePiece::ckNew(numTreePieces,opts);
+	CProxy_TreePiece pieces = CProxy_TreePiece::ckNew(opts);
 	treeProxy = pieces;
 
 	// create the CacheManager
@@ -990,7 +994,7 @@ void Main::advanceBigStep(int iStep) {
     ckerr << "Domain decomposition ...";
     double startTime = CkWallTimer();
     double tolerance = 0.01;	// tolerance for domain decomposition
-    sorter.startSorting(dataManagerID, numTreePieces, tolerance,
+    sorter.startSorting(dataManagerID, tolerance,
                         CkCallbackResumeThread(), true);
     ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
@@ -1230,7 +1234,7 @@ Main::initialForces()
   /***** Initial sorting of particles and Domain Decomposition *****/
   ckerr << "Initial domain decomposition ...";
   startTime = CkWallTimer();
-  sorter.startSorting(dataManagerID, numTreePieces, tolerance,
+  sorter.startSorting(dataManagerID, tolerance,
 	 	      CkCallbackResumeThread(), true);
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
@@ -1395,7 +1399,7 @@ Main::doSimulation()
 	  // The following call is to get the particles in key order
 	  // before the sort.
 	  treeProxy.drift(0.0, 0, CkCallbackResumeThread());
-	  sorter.startSorting(dataManagerID, numTreePieces, tolerance,
+	  sorter.startSorting(dataManagerID, tolerance,
 			      CkCallbackResumeThread(), true);
 	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 

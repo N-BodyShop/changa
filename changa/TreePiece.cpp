@@ -420,14 +420,16 @@ void TreePiece::sortSPHData()
 
 
 /// Determine my part of the sorting histograms by counting the number
-/// of my particles in each bin
+/// of my particles in each bin.
 /// This routine assumes the particles in key order.
-void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb) {
+/// The parameter skipEvery means that every "skipEvery" bins counted, one
+/// must be skipped.
+void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, const CkCallback& cb) {
 #ifdef COSMO_EVENT
   double startTimer = CmiWallTimer();
 #endif
 
-  int numBins = isRefine ? n / 2 : n - 1;
+  int numBins = skipEvery ? n - (n-1)/(skipEvery+1) - 1 : n - 1;
   //this array will contain the number of particles I own in each bin
   //myBinCounts.assign(numBins, 0);
   myBinCounts.resize(numBins);
@@ -441,32 +443,38 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, co
   //vector<int>::iterator binIter = myBinCounts.begin();
   //vector<Key>::iterator keyIter = dm->boundaryKeys.begin();
   Key* keyIter = lower_bound(keys, keys+n, binBegin->key);
-  int binIter = isRefine ? (keyIter - keys) / 2: keyIter - keys - 1;
-      int change = 1;
-      if (isRefine && !((keyIter - keys) & 1)) change = 0;
-      for( ; keyIter != endKeys; ++keyIter) {
-        dummy.key = *keyIter;
-        /// find the last place I could put this splitter key in
-        /// my array of particles
-        binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1],
-            dummy);
-        /// this tells me the number of particles between the
-        /// last two splitter keys
-        if (change) {
-          myCounts[binIter] = (binEnd - binBegin);
-          ++binIter;
-        }
-        if(&myParticles[myNumParticles+1] <= binEnd)
-          break;
-        binBegin = binEnd;
-        if (isRefine) change ^= 1;
-      }
+  int binIter = skipEvery ? (keyIter-keys) - (keyIter-keys-1) / (skipEvery+1) - 1: keyIter - keys - 1;
+  int skip = skipEvery ? skipEvery - (keyIter-keys-1) % (skipEvery+1) : -1;
+  if (binIter == -1) {
+    dummy.key = keys[0];
+    binBegin = upper_bound(binBegin, &myParticles[myNumParticles+1], dummy);
+    keyIter++;
+    binIter++;
+    skip = skipEvery ? skipEvery : -1;
+  }
+  for( ; keyIter != endKeys; ++keyIter) {
+    dummy.key = *keyIter;
+    /// find the last place I could put this splitter key in
+    /// my array of particles
+    binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1], dummy);
+    /// this tells me the number of particles between the
+    /// last two splitter keys
+    if (skip != 0) {
+      myCounts[binIter] = (binEnd - binBegin);
+      ++binIter;
+      --skip;
+    } else {
+      skip = skipEvery;
+    }
+    if(&myParticles[myNumParticles+1] <= binEnd) break;
+    binBegin = binEnd;
+  }
 
 #ifdef COSMO_EVENTS
-      traceUserBracketEvent(boundaryEvaluationUE, startTimer, CmiWallTimer());
+  traceUserBracketEvent(boundaryEvaluationUE, startTimer, CmiWallTimer());
 #endif
-      //send my bin counts back in a reduction
-      contribute(numBins * sizeof(int), myCounts, CkReduction::sum_int, cb);
+  //send my bin counts back in a reduction
+  contribute(numBins * sizeof(int), myCounts, CkReduction::sum_int, cb);
 }
 
 /// Once final splitter keys have been decided, I need to give my
@@ -482,10 +490,14 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 
 	//find my responsibility
 	myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
-	//assign my bounding keys
-	leftSplitter = dm->boundaryKeys[myPlace];
-	rightSplitter = dm->boundaryKeys[myPlace + 1];
-
+	if (myPlace == dm->responsibleIndex.size()) {
+	  myPlace = -2;
+	} else {
+	  //assign my bounding keys
+	  leftSplitter = dm->boundaryKeys[myPlace];
+	  rightSplitter = dm->boundaryKeys[myPlace + 1];
+	}
+	
 	vector<Key>::iterator iter = dm->boundaryKeys.begin();
 	vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
 	vector<int>::iterator responsibleIter = dm->responsibleIndex.begin();
@@ -519,6 +531,7 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 			}
 		    }
 		if(*responsibleIter == thisIndex) {
+            if (verbosity > 1) CkPrintf("TreePiece %d: keeping %d / %d particles: %d\n", thisIndex, binEnd-binBegin, myNumParticles, (binEnd-binBegin)*10000/myNumParticles);
 		    acceptSortedParticles(binBegin, binEnd - binBegin,
 					  pGasOut, nGasOut);
 		    }
@@ -552,7 +565,24 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles,
     CkAssert(myPlace < dm->responsibleIndex.size());
   }
 
-  assert(myPlace >= 0 && myPlace < dm->particleCounts.size());
+  // The following assert does not work anymore when TreePieces can have 0 particles assigned
+  //assert(myPlace >= 0 && myPlace < dm->particleCounts.size());
+  if (myPlace == -2) {
+    // Special case where no particle is assigned to this TreePiece
+    myNumParticles = 0;
+    incomingParticlesSelf = false;
+    if(verbosity>1) ckout << thisIndex <<" no particles assigned"<<endl;
+
+    if (root != NULL) {
+      root->fullyDelete();
+      delete root;
+      root = NULL;
+      nodeLookupTable.clear();
+    }
+    contribute(0, 0, CkReduction::concat, callback);
+    return;
+  }
+  
   // allocate new particles array on first call
   if (incomingParticles == NULL) {
     incomingParticles = new GravityParticle[dm->particleCounts[myPlace] + 2];
@@ -609,13 +639,13 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles,
 			    <<endl;
 
       if (root != NULL) {
-	  root->fullyDelete();
-          delete root;
-	  root = NULL;
-	  nodeLookupTable.clear();
-	  }
-      contribute(0, 0, CkReduction::concat, callback);
+        root->fullyDelete();
+        delete root;
+        root = NULL;
+        nodeLookupTable.clear();
       }
+      contribute(0, 0, CkReduction::concat, callback);
+  }
 }
 
 // Sum energies for diagnostics
@@ -1016,16 +1046,22 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
   case Binary_Oct:
   case Oct_Oct:
     Key bounds[2];
-    //sort(myParticles+1, myParticles+myNumParticles+1);
+    if (myNumParticles > 0) {
+      //sort(myParticles+1, myParticles+myNumParticles+1);
 #ifdef COSMO_PRINT
-    CkPrintf("[%d] Keys: %016llx %016llx\n",thisIndex,myParticles[1].key,myParticles[myNumParticles].key);
+      CkPrintf("[%d] Keys: %016llx %016llx\n",thisIndex,myParticles[1].key,myParticles[myNumParticles].key);
 #endif
-    bounds[0] = myParticles[1].key;
-    bounds[1] = myParticles[myNumParticles].key;
-//    contribute(2 * sizeof(Key), bounds, CkReduction::concat, CkCallback(CkIndex_TreePiece::collectSplitters(0), thisArrayID));
+      bounds[0] = myParticles[1].key;
+      bounds[1] = myParticles[myNumParticles].key;
+      //    contribute(2 * sizeof(Key), bounds, CkReduction::concat, CkCallback(CkIndex_TreePiece::collectSplitters(0), thisArrayID));
       contribute(2 * sizeof(Key), bounds, CkReduction::concat, CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
+    } else {
+      // No particles assigned to this TreePiece
+      contribute(0, bounds, CkReduction::concat, CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
+    }
     break;
   case Binary_ORB:
+    // WARNING: ORB trees do not allow TreePieces to have 0 particles!
     //CkAbort("ORB logic for tree-build not yet implemented");
     //contribute(0,0,CkReduction::concat,sorterCallBack);
     contribute(0, 0, CkReduction::concat, CkCallback(CkIndex_TreePiece::startORBTreeBuild(0), thisArrayID));
@@ -1288,7 +1324,7 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
               child->makeEmpty();
 	      child->remoteIndex = thisIndex;
       } else {
-	      child->remoteIndex = first + (thisIndex & (last-first));
+	      child->remoteIndex = dm->responsibleIndex[first + (thisIndex & (last-first))];
 	      // if we have a remote child, the node is a Boundary. Thus count that we
 	      // have to receive one more message for the NonLocal node
 	      node->remoteIndex --;
@@ -1355,17 +1391,25 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   if (dm == NULL) {
       dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
   }
-  CmiLock(dm->__nodelock);
+  
+  if (myNumParticles == 0) {
+    // No particle assigned to this TreePiece
+    if (verbosity > 3)
+      ckerr << "TreePiece " << thisIndex << ": No particles, finished tree build" << endl;
+    contribute(sizeof(callback), &callback, CkReduction::random, CkCallback(CkIndex_DataManager::combineLocalTrees((CkReductionMsg*)NULL), CProxy_DataManager(dataManagerID)));
+    return;
+  }
+  //CmiLock(dm->__nodelock);
 
-  if(thisIndex == 0)
+  if(myPlace == 0)
     myParticles[0].key = firstPossibleKey;
   else
-    myParticles[0].key = dm->splitters[2 * thisIndex - 1];
+    myParticles[0].key = dm->splitters[2 * myPlace - 1];
 
-  if(thisIndex == (int) numTreePieces - 1)
+  if(myPlace == dm->responsibleIndex.size() - 1)
     myParticles[myNumParticles + 1].key = lastPossibleKey;
   else
-    myParticles[myNumParticles + 1].key = dm->splitters[2 * thisIndex + 2];
+    myParticles[myNumParticles + 1].key = dm->splitters[2 * myPlace + 2];
 
   // create the root of the global tree
   switch (useTree) {
@@ -1379,8 +1423,8 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
     CkAbort("We should have never reached here!");
   }
 
-  if (thisIndex == 0) root->firstParticle ++;
-  if (thisIndex == (int)numTreePieces-1) root->lastParticle --;
+  if (myPlace == 0) root->firstParticle ++;
+  if (myPlace == dm->responsibleIndex.size()-1) root->lastParticle --;
   root->particleCount = myNumParticles;
   nodeLookupTable[(Tree::NodeKey)1] = root;
 
@@ -1458,7 +1502,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Finished tree build, resolving boundary nodes" << endl;
 
-  CmiUnlock(dm->__nodelock);
+  //CmiUnlock(dm->__nodelock);
   if (numTreePieces == 1) {
 #ifdef CUDA
     dm->notifyPresence(root, this, thisIndex);
@@ -1518,7 +1562,7 @@ inline bool TreePiece::nodeOwnership(const Tree::NodeKey nkey, int &firstOwner, 
     CkPrintf("[%d] NO: key=%s, first=%d, last=%d\n",thisIndex,str.c_str(),locLeft-dm->splitters,locRight-dm->splitters);
 #endif
   }
-  return (thisIndex >= firstOwner && thisIndex <= lastOwner);
+  return (myPlace >= firstOwner && myPlace <= lastOwner);
 }
 
 /** A recursive algorithm for building my tree.
@@ -1581,7 +1625,7 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
 	child->makeEmpty();
 	child->remoteIndex = thisIndex;
       } else {
-	child->remoteIndex = first + (thisIndex & (last-first));
+	child->remoteIndex = dm->responsibleIndex[first + (thisIndex & (last-first))];
 	// if we have a remote child, the node is a Boundary. Thus count that we
 	// have to receive one more message for the NonLocal node
 	node->remoteIndex --;
@@ -2668,7 +2712,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
   if (chunkRoot == NULL) {
     int first, last;
     nodeOwnership(prefetchRoots[msg->chunkNum], first, last);
-    chunkRoot = requestNode((first+last)>>1, prefetchRoots[msg->chunkNum], msg->chunkNum, -1, -78, (void *)0, true);
+    chunkRoot = requestNode(dm->responsibleIndex[(first+last)>>1], prefetchRoots[msg->chunkNum], msg->chunkNum, -1, -78, (void *)0, true);
   }
   CkAssert(chunkRoot != NULL);
 
@@ -3018,6 +3062,7 @@ GenericTreeNode *TreePiece::getStartAncestor(int current, int previous, GenericT
 void TreePiece::startIteration(int am, // the active mask for multistepping
 			       const CkCallback& cb) {
   LBTurnInstrumentOn();
+  iterationNo++;
 
   callback = cb;
   activeRung = am;
@@ -3025,10 +3070,20 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   int oldNumChunks = numChunks;
   dm->getChunks(numChunks, prefetchRoots);
   CkArrayIndexMax idxMax = CkArrayIndex1D(thisIndex);
+  // The following if is necessary to make nodes containing only TreePieces
+  // without particles to get stuck and crash...
+  if (numChunks == 0 && myNumParticles == 0) numChunks = 1;
   streamingCache[CkMyPe()].cacheSync(numChunks, idxMax, localIndex);
   //numChunks = n;
   //prefetchRoots = k;
 
+  if (myNumParticles == 0) {
+    // No particles assigned to this TreePiece
+    for (int i=0; i< numChunks; ++i) streamingCache[CkMyPe()].finishedChunk(i, 0);
+    contribute(0, 0, CkReduction::concat, callback);
+    return;
+  }
+  
   if (oldNumChunks != numChunks && remainingChunk != NULL) {
     // reallocate remaining chunk to the new size
     delete[] remainingChunk;
@@ -3058,7 +3113,6 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   }
   particleInterLocal = 0;
   nActive = 0;
-  iterationNo++;
 
   //misses = myNumParticles;
   //particleMisses = 0;
@@ -3301,7 +3355,7 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
       for(int z = -nReplicas; z <= nReplicas; z++) {
         if (child == NULL) {
           nodeOwnership(prefetchRoots[0], first, last);
-          child = requestNode((first+last)>>1,
+          child = requestNode(dm->responsibleIndex[(first+last)>>1],
               prefetchRoots[0], 0,
               encodeOffset(0, x, y, z),
               prefetchAwi, (void *)0, true);
@@ -3486,7 +3540,7 @@ void TreePiece::continueStartRemoteChunk(int chunk){
         for(int z = -nReplicas; z <= nReplicas; z++) {
           if (child == NULL) {
             nodeOwnership(prefetchRoots[currentPrefetch], first, last);
-            child = requestNode((first+last)>>1,
+            child = requestNode(dm->responsibleIndex[(first+last)>>1],
                 prefetchRoots[currentPrefetch],
                 currentPrefetch,
                 encodeOffset(0, x, y, z),
@@ -4714,7 +4768,7 @@ void TreePiece::pup(PUP::er& p) {
   p | savedCentroid;
   p | prevLARung;
 
-  p | numTreePieces;
+  //p | numTreePieces;
   p | callback;
   p | nTotalParticles;
   p | myNumParticles;
@@ -4836,10 +4890,11 @@ void TreePiece::pup(PUP::er& p) {
     }
   }
 
+  p | myPlace;
+
   if(p.isUnpacking()){
     //localCache = cacheManagerProxy.ckLocalBranch();
     dm = NULL;
-    myPlace = -1;
 
     // reconstruct the data for prefetching
     /* OLD, moved to the cache and startIteration

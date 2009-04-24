@@ -29,8 +29,14 @@ class Sorter : public Chare {
 	int numKeys;
 	/// The number of chares to sort into.
 	int numChares;
-	/// Total size of the keys allocated (allows a margin to increase)
-        int keysSize;
+	// The number of chares currently with assigned data.
+	//int numUsedChares;
+	/// The indexes of the chares that are responsible for each segment of data.
+	std::vector<int> chareIDs;
+	/// A list of chare elements to which nothing is assigned
+	std::vector<int> availableChares;
+	// Total size of the keys allocated (allows a margin to increase)
+	//int keysSize;
 
 	/// The percent tolerance to sort keys within.
 	double tolerance;
@@ -41,7 +47,7 @@ class Sorter : public Chare {
 	/// A flag telling if we're done yet.
 	bool sorted;
 
-  NodeKey *nodeKeys;
+	std::vector<NodeKey> nodeKeys;
 	/// The histogram of counts for the last round of splitter keys.
 	std::vector<unsigned int> binCounts;
 	/// The number of bins in the histogram.
@@ -58,6 +64,11 @@ class Sorter : public Chare {
 	/// The callback for when the sort is complete.
 	CkCallback sortingCallback;
 
+	/// Variables to decide when to split or join a TreePiece in the Oct decomposition
+	int joinThreshold, splitThreshold;
+	/// Specify what is the level of refinement of nodes sent out for histogramming
+	int refineLevel;
+	
   ///Variables added for ORB decomposition
   typedef struct DivData{
     OrientedBox<float> boundingBox;
@@ -88,12 +99,17 @@ class Sorter : public Chare {
   //double curHigh;
 
 	void adjustSplitters();
+	bool refineOctSplitting(int n, int *count);
 	
 public:
 	
 	Sorter() {
-          nodeKeys = NULL;
-        };
+          //nodeKeys = NULL;
+          chareIDs.resize(numTreePieces, 1);
+          chareIDs[0] = 0;
+          partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
+          //numUsedChares = numTreePieces;
+	};
 
 	/** Sort the particles in an array of TreePieces using a histogram-probing method.
 	 The DataManager receives splitter keys from the Sorter, and instructs the TreePieces
@@ -105,10 +121,10 @@ public:
 	 tree building phase.
 	 The callback will receive a CkReductionMsg containing no data.
 	 */
-	void startSorting(const CkGroupID& dataManagerID, const int nChares, const double toler, const CkCallback& cb, bool decompose);
-	void convertNodesToSplitters(int num, NodeKey* nodeKeys);
-	void convertNodesToSplittersRefine(int num, NodeKey* nodeKeys);
-	void convertNodesToSplittersNoZeros(int num, NodeKey* nodeKeys, CkVec<int> &zero);
+	void startSorting(const CkGroupID& dataManagerID, const double toler, const CkCallback& cb, bool decompose);
+	void convertNodesToSplitters();
+	SFC::Key * convertNodesToSplittersRefine(int num, NodeKey* keys);
+	//void convertNodesToSplittersNoZeros(int num, NodeKey* nodeKeys, CkVec<int> &zero);
 	void collectEvaluations(CkReductionMsg* m);
 	void collectEvaluationsSFC(CkReductionMsg* m);
 	void collectEvaluationsOct(CkReductionMsg* m);

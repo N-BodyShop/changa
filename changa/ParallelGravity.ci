@@ -23,6 +23,7 @@ mainmodule ParallelGravity {
   readonly CkArrayID treePieceID;
   readonly CkGroupID dataManagerID;
   readonly unsigned int numTreePieces;
+  readonly unsigned int particlesPerChare;
   readonly unsigned int bucketSize;
   readonly int lbcomm_cutoff_msgs;
   // jetley
@@ -79,7 +80,7 @@ mainmodule ParallelGravity {
     entry Sorter();
 
     entry void startSorting(const CkGroupID& dataManagerID,
-        const int nChares, const double toler,
+        const double toler,
         const CkCallback& cb, bool decompose);
     entry void collectEvaluations(CkReductionMsg* m);
     entry void collectORBCounts(CkReductionMsg* m);
@@ -104,7 +105,7 @@ mainmodule ParallelGravity {
     entry void combineLocalTrees(CkReductionMsg *m);
   };
   array [1D] TreePiece {
-    entry TreePiece(unsigned int numPieces);
+    entry TreePiece();
     entry void restart();
 
     // DEBUGGING

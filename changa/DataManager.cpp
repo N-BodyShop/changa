@@ -102,6 +102,7 @@ public:
 
 void DataManager::collectSplitters(CkReductionMsg *m) {
   numSplitters = m->getSize() / sizeof(SFC::Key);
+  CkAssert(! (numSplitters&1)); // must be even
 //  numSplitters = 2 * numTreePieces;
   delete[] splitters;
   splitters = new SFC::Key[numSplitters];
@@ -109,7 +110,7 @@ void DataManager::collectSplitters(CkReductionMsg *m) {
   std::copy(splits, splits + numSplitters, splitters);
   KeyDouble* splitters2 = (KeyDouble *)splitters;
   //sort(splitters, splitters + numSplitters);
-  std::sort(splitters2, splitters2 + numTreePieces);
+  std::sort(splitters2, splitters2 + (numSplitters>>1));
   for (unsigned int i=1; i<numSplitters; ++i) {
     if (splitters[i] < splitters[i-1]) {
       //for (unsigned int j=0; j<numSplitters; ++j)

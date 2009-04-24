@@ -260,6 +260,14 @@ void TreePiece::startIterationSmooth(// type of smoothing and parameters
   nCacheAccesses = 0;
   bWalkDonePending = 0;
   streamingCache[CkMyPe()].cacheSync(numChunks, idxMax, localIndex);
+  
+  if (myNumParticles == 0) {
+    // No particles assigned to this TreePiece
+    for (int i=0; i< numChunks; ++i) streamingCache[CkMyPe()].finishedChunk(i, 0);
+    contribute(0, 0, CkReduction::concat, callback);
+    return;
+  }
+  
   if (oldNumChunks != numChunks && remainingChunk != NULL) {
     // reallocate remaining chunk to the new size
     delete[] remainingChunk;
@@ -721,6 +729,14 @@ void TreePiece::startIterationReSmooth(SmoothParams* params,
   CkArrayIndexMax idxMax = CkArrayIndex1D(thisIndex);
   bWalkDonePending = 0;
   streamingCache[CkMyPe()].cacheSync(numChunks, idxMax, localIndex);
+
+  if (myNumParticles == 0) {
+    // No particles assigned to this TreePiece
+    for (int i=0; i< numChunks; ++i) streamingCache[CkMyPe()].finishedChunk(i, 0);
+    contribute(0, 0, CkReduction::concat, callback);
+    return;
+  }
+
   if (oldNumChunks != numChunks && remainingChunk != NULL) {
     // reallocate remaining chunk to the new size
     delete[] remainingChunk;

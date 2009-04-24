@@ -96,6 +96,7 @@ extern CProxy_TreePiece streamingProxy;
 extern CProxy_CkCacheManager cacheManagerProxy;
 extern CProxy_CkCacheManager streamingCache;
 extern unsigned int numTreePieces;
+extern unsigned int particlesPerChare;
 
 extern ComlibInstanceHandle cinst1, cinst2;
 
@@ -564,7 +565,6 @@ private:
         // jetley - multistep load balancing
         int prevLARung;
 
-	unsigned int numTreePieces;
 	/// @brief Used to inform the mainchare that the requested operation has
 	/// globally finished
 	CkCallback callback;
@@ -877,8 +877,7 @@ private:
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 
 public:
- TreePiece(unsigned int numPieces) : numTreePieces(numPieces),
-	    pieces(thisArrayID), started(false), root(0), proxyValid(false),
+ TreePiece() : pieces(thisArrayID), started(false), root(0), proxyValid(false),
 	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
 	    sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0) {
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
@@ -958,6 +957,7 @@ public:
 	  remainingChunk = NULL;
           ewt = NULL;
 
+      sTopDown = 0;
 	  sGravity = NULL;
 	  sPrefetch = NULL;
 	  sSmooth = NULL;
