@@ -26,8 +26,7 @@ CkReductionMsg* boxGrowth(int nMsg, CkReductionMsg** msgs) {
 	OrientedBox<T>* msgpbox;
 	for(int i = 1; i < nMsg; i++) {
 		msgpbox = static_cast<OrientedBox<T> *>(msgs[i]->getData());
-		pbox->grow(msgpbox->lesser_corner);
-		pbox->grow(msgpbox->greater_corner);
+		pbox->grow(*msgpbox);
 	}
 	
 	return CkReductionMsg::buildNew(sizeof(OrientedBox<T>), pbox);
