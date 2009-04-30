@@ -1394,6 +1394,12 @@ Main::doSimulation()
 	  AccOutputParams pAcc("acc2");
 	  treeProxy[0].outputASCII(pAcc, CkCallbackResumeThread());
 	  }
+#ifdef NEED_DT
+      ckout << "Outputting dt ...";
+      adjust(0);
+      DtOutputParams pDt("dt");
+      treeProxy[0].outputASCII(pDt, CkCallbackResumeThread());
+#endif
       if(param.bDoDensity) {
 	  double tolerance = 0.01;	// tolerance for domain decomposition
 	  // The following call is to get the particles in key order

@@ -763,6 +763,9 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
       if(iNewRung < iKickRung) iNewRung = iKickRung;
       if(iNewRung > iCurrMaxRung) iCurrMaxRung = iNewRung;
       myParticles[i].rung = iNewRung;
+#ifdef NEED_DT
+      myParticles[i].dt = dTIdeal;
+#endif
     }
   }
   contribute(sizeof(int), &iCurrMaxRung, CkReduction::max_int, cb);

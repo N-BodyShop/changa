@@ -105,4 +105,26 @@ class DivVOutputParams : public OutputParams
         OutputParams::pup(p);//Call base class
 	}
     };
+
+class DtOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p)
+    {
+#ifdef NEED_DT
+	return p->dt;
+#else
+	return 0.0;
+#endif
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    DtOutputParams() {}
+    DtOutputParams(std::string _suffix) { bVector = 0; suffix = _suffix;}
+    PUPable_decl(DtOutputParams);
+    DtOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
 #endif

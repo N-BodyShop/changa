@@ -106,6 +106,9 @@ public:
 #ifdef CHANGESOFT
 	double fSoft0;
 #endif
+#ifdef NEED_DT
+	double dt;
+#endif
 	void *extraData;	/* SPH or Star particle data */
 
 #if COSMO_STATS > 1
@@ -136,6 +139,9 @@ public:
 	  p | iType;
 #ifdef CHANGESOFT
 	  p | fSoft0;
+#endif
+#ifdef NEED_DT
+	  p | dt;
 #endif
         }
 	ExternalSmoothParticle getExternalSmoothParticle();
