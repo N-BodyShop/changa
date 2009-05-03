@@ -224,6 +224,7 @@ class ExternalSmoothParticle {
 	  tmp->mumax() = mumax;
 	  tmp->PdV() = PdV;
 	  tmp->c() = c;
+	  tmp->PoverRho2() = PoverRho2;
 	  tmp->BalsaraSwitch() = BalsaraSwitch;
 	  }
       }
