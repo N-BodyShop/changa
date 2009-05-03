@@ -1055,8 +1055,10 @@ public:
   /*****************************/
 
   void kick(int iKickRung, double dDelta[MAXRUNG+1], int bClosing,
-	    int bNeedVPred, const CkCallback& cb);
-  void drift(double dDelta, int bNeedVPred, const CkCallback& cb);
+	    int bNeedVPred, double duDelta[MAXRUNG+1], const CkCallback& cb);
+  void drift(double dDelta, int bNeedVPred, double duDelta,
+	     const CkCallback& cb);
+  void initAccel(int iKickRung, const CkCallback& cb);
 /**
  * Adjust timesteps of active particles.
  * @param iKickRung The rung we are on.

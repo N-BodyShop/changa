@@ -31,7 +31,7 @@ public:
 	Qs = new (std::priority_queue<pqSmoothNode>[nParts+2]);
 	}
     void finishBucketSmooth(int iBucket, TreePiece *tp);
-    ~NearNeighborState() { ckerr << "deleting queues\n"; delete [] Qs; }
+    ~NearNeighborState() { delete [] Qs; }
 };
 
 // We can make this a base class from which parameters for all smooth

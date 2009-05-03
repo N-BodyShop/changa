@@ -676,6 +676,7 @@ void TreePiece::calcEnergy(const CkCallback& cb) {
 void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		     int bClosing, // Are we at the end of a timestep
 		     int bNeedVPred, // do we need to update vpred
+		     double duDelta[MAXRUNG+1], // dts for energy
 		     const CkCallback& cb) {
   LBTurnInstrumentOff();
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
@@ -685,14 +686,14 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 	      if(bClosing) { // update predicted quantities to end of step
 		  p->vPred() = p->velocity
 		      + dDelta[p->rung]*p->treeAcceleration;
-		  p->u() += p->PdV()*dDelta[p->rung];
+		  p->u() += p->PdV()*duDelta[p->rung];
 		  p->uPred() = p->u();
 		  }
 	      else {	// predicted quantities are at the beginning
 			// of step
 		  p->vPred() = p->velocity;
 		  p->uPred() = p->u();
-		  p->u() += p->PdV()*dDelta[p->rung];
+		  p->u() += p->PdV()*duDelta[p->rung];
 		  }
 	      }
 	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
@@ -700,6 +701,18 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
       }
   contribute(0, 0, CkReduction::concat, cb);
 }
+
+void TreePiece::initAccel(int iKickRung, const CkCallback& cb) 
+{
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	if(myParticles[i].rung >= iKickRung) {
+	    myParticles[i].treeAcceleration = 0;
+	    myParticles[i].potential = 0;
+	    myParticles[i].dtGrav = 0;
+	    }
+	}
+    contribute(0, 0, CkReduction::concat, cb);
+    }
 
 /**
  * Adjust timesteps of active particles.
@@ -781,7 +794,11 @@ void TreePiece::rungStats(const CkCallback& cb) {
   contribute((MAXRUNG+1)*sizeof(int), nInRung, CkReduction::sum_int, cb);
 }
 
-void TreePiece::drift(double dDelta, int bNeedVpred, const CkCallback& cb) {
+void TreePiece::drift(double dDelta,  // time step in v containing
+				      // cosmo scaling
+		      int bNeedVpred,
+		      double duDelta, // time step for internal energy
+		      const CkCallback& cb) {
   callback = cb;		// called by assignKeys()
   if (root != NULL) {
     // Delete the tree since is no longer useful
@@ -820,7 +837,7 @@ void TreePiece::drift(double dDelta, int bNeedVpred, const CkCallback& cb) {
       boundingBox.grow(p->position);
       if(bNeedVpred) {
 	  p->vPred() += dDelta*p->treeAcceleration;
-	  p->uPred() += p->PdV()*dDelta;
+	  p->uPred() += p->PdV()*duDelta;
 	  }
       }
   CkAssert(bInBox);

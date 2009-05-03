@@ -134,7 +134,7 @@ TreePiece::sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb)
 	    if(TYPETest(p, TYPE_GAS) && p->rung >= activeRung) {
 		if (p->divv() != 0.0) {         	 
 		    p->BalsaraSwitch() = fabs(p->divv())/
-			(fabs(p->divv()) + p->curlv().lengthSquared());
+			(fabs(p->divv()) + sqrt(p->curlv().lengthSquared()));
 		    }
 		else { 
 		    p->BalsaraSwitch() = 0.0;

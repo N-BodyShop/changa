@@ -929,14 +929,16 @@ void Main::advanceBigStep(int iStep) {
       if(verbosity)
 	  ckerr << "Kick Open:" << endl;
       double dKickFac[MAXRUNG+1];
+      double duKick[MAXRUNG+1];
       for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
         double dTimeSub = RungToDt(param.dDelta, iRung);
 	if(verbosity) {
 	    ckerr << " Rung " << iRung << ": " << 0.5*dTimeSub << endl;
 	    }
+        duKick[iRung] = 0.5*dTimeSub;
         dKickFac[iRung] = csmComoveKickFac(param.csm, dTime, 0.5*dTimeSub);
       }
-      treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas,
+      treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas, duKick,
 		     CkCallbackResumeThread());
 
       // Dump frame may require a smaller step
@@ -956,7 +958,7 @@ void Main::advanceBigStep(int iStep) {
 		  ckerr << "Drift: Rung " << driftRung << " Delta "
 			<< dTimeSub << endl;
 	      double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
-	      treeProxy.drift(dDriftFac, param.bDoGas,
+	      treeProxy.drift(dDriftFac, param.bDoGas, dTimeSub,
 			      CkCallbackResumeThread());
 
 	      // Advance time to end of smallest step
@@ -1026,6 +1028,9 @@ void Main::advanceBigStep(int iStep) {
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
     }
+    else {
+	treeProxy.initAccel(activeRung, CkCallbackResumeThread());
+	}
     if(param.bDoGas) {
 	doSph(activeRung);
 	}
@@ -1054,6 +1059,7 @@ void Main::advanceBigStep(int iStep) {
     if(!param.bStaticTest) {
       // Closing Kick
       double dKickFac[MAXRUNG+1];
+      double duKick[MAXRUNG+1];
       if(verbosity)
 	  ckerr << "Kick Close:" << endl;
       for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
@@ -1061,11 +1067,12 @@ void Main::advanceBigStep(int iStep) {
 	if(verbosity) {
 	    ckerr << " Rung " << iRung << ": " << 0.5*dTimeSub << endl;
 	    }
+        duKick[iRung] = 0.5*dTimeSub;
         dKickFac[iRung] = csmComoveKickFac(param.csm,
                                            dTime - 0.5*dTimeSub,
                                            0.5*dTimeSub);
       }
-      treeProxy.kick(activeRung, dKickFac, 1, param.bDoGas,
+      treeProxy.kick(activeRung, dKickFac, 1, param.bDoGas, duKick,
 		     CkCallbackResumeThread());
     }
 		
@@ -1164,7 +1171,7 @@ void Main::setupICs() {
   }
 	
   if(param.bPeriodic) {	// puts all particles within the boundary
-      treeProxy.drift(0.0, 0, CkCallbackResumeThread());
+      treeProxy.drift(0.0, 0, 0.0, CkCallbackResumeThread());
   }
   
   initialForces();
@@ -1203,7 +1210,7 @@ Main::restart()
 	ofstream ofsLog(achLogFileName, ios_base::app);
 	ofsLog << "# ReStarting ChaNGa" << endl;
 	ofsLog.close();
-	treeProxy.drift(0.0, 0, CkCallbackResumeThread());
+	treeProxy.drift(0.0, 0, 0.0, CkCallbackResumeThread());
 	mainChare.initialForces();
 	}
     else {
@@ -1255,7 +1262,9 @@ Main::initialForces()
       ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
 	    << endl;
       }
-  
+  else {
+      treeProxy.initAccel(0, CkCallbackResumeThread());
+      }
   if(param.bDoGas) {
       initSph();
       }
@@ -1384,6 +1393,12 @@ Main::doSimulation()
 	      treeProxy[0].outputASCII(pSphHOut, CkCallbackResumeThread());
 	      DivVOutputParams pDivVOut("divv");
 	      treeProxy[0].outputASCII(pDivVOut, CkCallbackResumeThread());
+	      PDVOutputParams pPDVOut("PdV");
+	      treeProxy[0].outputASCII(pPDVOut, CkCallbackResumeThread());
+	      MuMaxOutputParams pMuMaxOut("mumax");
+	      treeProxy[0].outputASCII(pMuMaxOut, CkCallbackResumeThread());
+	      BSwOutputParams pBSwOut("BSw");
+	      treeProxy[0].outputASCII(pBSwOut, CkCallbackResumeThread());
 	      }
 	  }
       ckout << "Outputting accelerations  ...";
@@ -1404,7 +1419,7 @@ Main::doSimulation()
 	  double tolerance = 0.01;	// tolerance for domain decomposition
 	  // The following call is to get the particles in key order
 	  // before the sort.
-	  treeProxy.drift(0.0, 0, CkCallbackResumeThread());
+	  treeProxy.drift(0.0, 0, 0.0, CkCallbackResumeThread());
 	  sorter.startSorting(dataManagerID, tolerance,
 			      CkCallbackResumeThread(), true);
 	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());

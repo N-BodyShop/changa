@@ -520,16 +520,23 @@ void SmoothCompute::walkDone(State *state) {
 // From here down are "ReSmooth" methods.
 
 // called after constructor, so tp should be set
-State *ReSmoothCompute::getNewState(int d1){
+State *ReSmoothCompute::getNewState(int nBucket){
   ReNearNeighborState *state = new ReNearNeighborState(tp->myNumParticles+2);
   //state->counterArrays.reserve(1);		   // array to keep track of
-  state->counterArrays[0] = new int [d1];
+  state->counterArrays[0] = new int [nBucket];
   state->counterArrays[1] = 0;
   //state->counterArrays[0].reserve(tp->numBuckets); // outstanding requests
-  for (int j = 0; j < d1; ++j) {
+  for (int j = 0; j < nBucket; ++j) {
     state->counterArrays[0][j] = 1;	// so we know that the local
 					// walk is not finished.
-  }
+    GenericTreeNode *myNode = tp->bucketList[j];
+    for(int k = myNode->firstParticle; k <= myNode->lastParticle; ++k) {
+      if(!TYPETest(&tp->myParticles[k], params->iType))
+	  continue;
+      std::vector<pqSmoothNode> *Q = &(state->Qs[k]);
+      Q->reserve(nSmooth);
+      }
+    }
   state->started = true;
   state->nParticlesPending = tp->myNumParticles;
   return state;

@@ -106,6 +106,69 @@ class DivVOutputParams : public OutputParams
 	}
     };
 
+class PDVOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p)
+    {
+	if (TYPETest(p, TYPE_GAS))
+	    return p->PdV();
+	else
+	    return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    PDVOutputParams() {}
+    PDVOutputParams(std::string _suffix) { bVector = 0; suffix = _suffix;}
+    PUPable_decl(PDVOutputParams);
+    PDVOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class MuMaxOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p)
+    {
+	if (TYPETest(p, TYPE_GAS))
+	    return p->mumax();
+	else
+	    return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    MuMaxOutputParams() {}
+    MuMaxOutputParams(std::string _suffix) { bVector = 0; suffix = _suffix;}
+    PUPable_decl(MuMaxOutputParams);
+    MuMaxOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class BSwOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p)
+    {
+	if (TYPETest(p, TYPE_GAS))
+	    return p->BalsaraSwitch();
+	else
+	    return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    BSwOutputParams() {}
+    BSwOutputParams(std::string _suffix) { bVector = 0; suffix = _suffix;}
+    PUPable_decl(BSwOutputParams);
+    BSwOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
 class DtOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
