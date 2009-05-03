@@ -144,7 +144,8 @@ project [ortho|perspective]
 
 colgas r g b [scale]
   Colour of gas particles
-  Scale is typically comparable to a particle mass 
+  Scale is typically comparable to a particle mass; smaller means brighter
+	colours.
   default: 1.0 0.7 0.5
 
 coldark r g b [scale]
@@ -153,7 +154,7 @@ coldark r g b [scale]
   default: 0.5 1.0 0.7
 
 colstar r g b [scale]
-  Colour of dark particles
+  Colour of star particles
   Scale is typically comparable to a particle mass 
   default: 0.5 0.7 1.0
 
