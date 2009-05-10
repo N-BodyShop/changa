@@ -1,0 +1,13 @@
+This is a simple test of SPH done by running a shock tube and comparing
+the results with a previous SPH calculation.
+
+Running "make test" should 1) run ChaNGa on a test simulation and 2) run
+a simple analysis to produce the pressure versus position in the shock tube.
+
+Files in this directory include:
+
+pressplot.c: a simple analysis program
+tipsydefs.h: header for the above program
+shocktube.std: Initial conditions for the shock tube.
+shocktube.param: Parameter file for the shock tube simulation.
+press_gasoline.out: benchmark output from Gasoline for comparison.
