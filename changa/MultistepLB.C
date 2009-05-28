@@ -384,7 +384,7 @@ void MultistepLB::mergeInstrumentedData(int phase, BaseLB::LDStats *stats){
   savedPhaseStats[whichPos].n_objs=  stats->n_objs;
   savedPhaseStats[whichPos].n_migrateobjs = stats->n_migrateobjs;
 #ifdef MCLBMSV
-  printData(savedPhaseStats[whichPos], phase, NULL);
+  //printData(savedPhaseStats[whichPos], phase, NULL);
 #endif
 }
 
@@ -418,7 +418,7 @@ void MultistepLB::makeActiveProcessorList(BaseLB::LDStats *stats, int numActiveO
 }
 #endif
 
-#define LARGE_PHASE_THRESHOLD 0.5
+#define LARGE_PHASE_THRESHOLD 0.1
 
 void MultistepLB::work(BaseLB::LDStats* stats, int count)
 {
@@ -434,6 +434,9 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
   int phase = determinePhase(map.tpCentroids[0].activeRung);
   int prevPhase = map.tpCentroids[0].prevActiveRung;
   float *ratios = new float[stats->n_objs];
+  // save pointers to centroids of treepieces
+  Vector3D<float> **pCentroids = new Vector3D<float> *[stats->n_objs];
+
   int numActiveObjects = 0;
   int numInactiveObjects = 0;
 
@@ -441,8 +444,9 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
   int numActiveParticles = 0;
   int totalNumParticles;
   
-  for(i = 0; i < stats->n_objs; i++)
+  for(i = 0; i < stats->n_objs; i++){
     stats->to_proc[i] = stats->from_proc[i];
+  }
   // update phase data 
   CkPrintf("merging previous phase %d data; current phase: %d\n", prevPhase, phase);
   mergeInstrumentedData(prevPhase, stats); 
@@ -451,6 +455,7 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
     ratios[map.tpCentroids[i].tag] = map.tpCentroids[i].numActiveParticles/(float)map.tpCentroids[i].myNumParticles;
     numActiveParticles += map.tpCentroids[i].numActiveParticles;
     totalNumParticles += map.tpCentroids[i].myNumParticles;
+    pCentroids[i] = &map.tpCentroids[i].vec;
 
     if(map.tpCentroids[i].numActiveParticles == 0){
       numInactiveObjects++;
@@ -499,7 +504,7 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
   }
   // select processors
 #ifdef MCLBMSV
-  printData(*stats, phase, NULL);
+  //printData(*stats, phase, NULL);
   CkPrintf("making active processor list\n");
 #endif
   makeActiveProcessorList(stats, numActiveObjects);
@@ -534,9 +539,15 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
     CkPrintf("OrbLB: considering object %d\n", i);
 #endif
     computeLoad[objIdx].id = i;
+    /*
     computeLoad[objIdx].v[XDIR] = odata.objID().id[0];
     computeLoad[objIdx].v[YDIR] = odata.objID().id[1];
     computeLoad[objIdx].v[ZDIR] = odata.objID().id[2];
+    */
+    Vector3D<float> *pvec = pCentroids[i];
+    computeLoad[objIdx].v[XDIR] = pvec->x;
+    computeLoad[objIdx].v[YDIR] = pvec->y;
+    computeLoad[objIdx].v[ZDIR] = pvec->z;
     computeLoad[objIdx].load = _lb_args.useCpuTime()?odata.cpuTime:odata.wallTime;
     computeLoad[objIdx].refno = 0;
     computeLoad[objIdx].partition = NULL;
