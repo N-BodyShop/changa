@@ -122,6 +122,7 @@ void EntryTypeSmoothParticle::writeback(CkArrayIndexMax& idx, CkCacheKey k, void
 void EntryTypeSmoothParticle::free(void *data) {
     CacheSmoothParticle *cPart = (CacheSmoothParticle *)data;
     delete cPart->partCached;
+    delete cPart->extraSPHCached;
     delete cPart;
 }
 
