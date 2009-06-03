@@ -92,6 +92,7 @@ void _Trailer(void) {
 }
 
 int killAt;
+int cacheSize;
 
 Main::Main(CkArgMsg* m) {
 	_cache = true;
@@ -262,21 +263,18 @@ Main::Main(CkArgMsg* m) {
 	//
 	// Gas parameters
 	//
-	param.bDoGas = 1;
+	param.bDoGas = 0;
 	prmAddParam(prm, "bDoGas", paramBool, &param.bDoGas,
 		    sizeof(int),"gas", "Enable Gas Calculation");
 	param.bViscosityLimiter = 0;
 	prmAddParam(prm,"bViscosityLimiter",paramBool,&param.bViscosityLimiter,
 		    sizeof(int), "vlim","<Balsara Viscosity Limiter> = 0");
-	prmAddParam(prm, "bDoGas", paramBool, &param.bDoGas,
-		    sizeof(int),"gas", "Enable Gas Calculation");
 	param.dMsolUnit = 1.0;
 	prmAddParam(prm,"dMsolUnit",paramDouble,&param.dMsolUnit,
 		    sizeof(double),"msu", "<Solar mass/system mass unit>");
 	param.dKpcUnit = 1000.0;
 	prmAddParam(prm,"dKpcUnit",paramDouble,&param.dKpcUnit,
 		    sizeof(double),"kpcu", "<Kiloparsec/system length unit>");
-	param.dConstGamma = 5.0/3.0;
 	param.dConstAlpha = 1.0;
 	prmAddParam(prm,"dConstAlpha",paramDouble,&param.dConstAlpha,
 		    sizeof(double),"alpha",
@@ -285,6 +283,7 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dConstBeta",paramDouble,&param.dConstBeta,
 		    sizeof(double),"beta",
 		    "<Beta constant in viscosity> = 2.0");
+	param.dConstGamma = 5.0/3.0;
 	prmAddParam(prm,"dConstGamma",paramDouble,&param.dConstGamma,
 		    sizeof(double),"gamma", "<Ratio of specific heats> = 5/3");
 	param.dMeanMolWeight = 1.0;
@@ -391,7 +390,7 @@ Main::Main(CkArgMsg* m) {
 	_prefetch=true;
 	prmAddParam(prm, "bPrefetch", paramBool, &_prefetch,
 		    sizeof(int),"f", "Enable prefetching in the cache (default: ON)");
-	int cacheSize = 100000000;
+	cacheSize = 100000000;
 	prmAddParam(prm, "nCacheSize", paramInt, &cacheSize,
 		    sizeof(int),"s", "Size of cache");
 	domainDecomposition=SFC_dec;
