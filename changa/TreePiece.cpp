@@ -518,7 +518,9 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 		    if(TYPETest(pPart, TYPE_GAS))
 			nGasOut++;
 		    }
-		extraSPHData *pGasOut = new extraSPHData[nGasOut];
+		extraSPHData *pGasOut = NULL;
+		if(nGasOut > 0)
+		    pGasOut = new extraSPHData[nGasOut];
 		if (verbosity>=3)
 		  CkPrintf("me:%d to:%d nPart :%d, nGas:%d\n", thisIndex,
 			   *responsibleIter,(binEnd-binBegin), nGasOut);
@@ -538,7 +540,8 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 		else {
 		    pieces[*responsibleIter].acceptSortedParticles(binBegin, binEnd - binBegin, pGasOut, nGasOut);
 		    }
-		delete pGasOut;
+		if(nGasOut > 0)
+		    delete pGasOut;
 		}
 	    if(&myParticles[myNumParticles + 1] <= binEnd)
 		    break;
@@ -4516,7 +4519,7 @@ void TreePiece::checkWalkCorrectness(){
 
 /********************************************************************/
 
-void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, double totalmass, const CkCallback& cb) {
+void TreePiece::outputStatistics(const CkCallback& cb) {
 
 #if COSMO_STATS > 0
   if(verbosity > 1) {
@@ -4543,239 +4546,10 @@ void TreePiece::outputStatistics(Interval<unsigned int> macInterval, Interval<un
   }
 #endif
 
-#if COSMO_STATS > 1
-  /*
-	double calmass,prevmass;
-
-	for(int i=1;i<=myNumParticles;i++){
-		calmass = (myParticles[i].intcellmass + myParticles[i].intpartmass + myParticles[i].extcellmass + myParticles[i].extpartmass);
-		if(i>1)
-			prevmass = (myParticles[i-1].intcellmass + myParticles[i-1].intpartmass + myParticles[i-1].extcellmass + myParticles[i-1].extpartmass);
-		//CkPrintf("treepiece:%d ,mass:%lf, totalmass:%lf\n",thisIndex,calmass,totalmass);
-		if(i>1)
-			if(calmass != prevmass)
-				CkPrintf("Tree piece:%d -- particles %d and %d differ in calculated total mass\n",thisIndex,i-1,i);
-		if(calmass != totalmass)
-				CkPrintf("Tree piece:%d -- particle %d differs from total mass\n",thisIndex,i);
-	}
-
-	CkPrintf("TreePiece:%d everything seems ok..\n",thisIndex);
-  */
-
-  /*
-  if(thisIndex == 0) {
-    macInterval.max = 0;
-    macInterval.min = macInterval.max - 1;
-    cellInterval = macInterval;
-    particleInterval = macInterval;
-    callsInterval = macInterval;
-
-    if(verbosity > 2)
-      ckerr << "TreePiece " << thisIndex << ": Writing headers for statistics files" << endl;
-    fh.dimensions = 1;
-    fh.code = TypeHandling::uint32;
-    FILE* outfile = fopen((basefilename + ".MACs").c_str(), "wb");
-    XDR xdrs;
-    xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-
-    unsigned int dummy;
-    if(!xdr_template(&xdrs, &fh) || !xdr_template(&xdrs, &dummy) || !xdr_template(&xdrs, &dummy)) {
-      ckerr << "TreePiece " << thisIndex << ": Could not write header to MAC file, aborting" << endl;
-      CkAbort("Badness");
-    }
-    xdr_destroy(&xdrs);
-    fclose(outfile);
-
-    outfile = fopen((basefilename + ".cellints").c_str(), "wb");
-    xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-    if(!xdr_template(&xdrs, &fh) || !xdr_template(&xdrs, &dummy) || !xdr_template(&xdrs, &dummy)) {
-      ckerr << "TreePiece " << thisIndex << ": Could not write header to cell-interactions file, aborting" << endl;
-      CkAbort("Badness");
-    }
-    xdr_destroy(&xdrs);
-    fclose(outfile);
-
-    outfile = fopen((basefilename + ".partints").c_str(), "wb");
-    xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-    if(!xdr_template(&xdrs, &fh) || !xdr_template(&xdrs, &dummy) || !xdr_template(&xdrs, &dummy)) {
-      ckerr << "TreePiece " << thisIndex << ": Could not write header to particle-interactions file, aborting" << endl;
-      CkAbort("Badness");
-    }
-    xdr_destroy(&xdrs);
-    fclose(outfile);
-
-    outfile = fopen((basefilename + ".calls").c_str(), "wb");
-    xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-    if(!xdr_template(&xdrs, &fh) || !xdr_template(&xdrs, &dummy) || !xdr_template(&xdrs, &dummy)) {
-      ckerr << "TreePiece " << thisIndex << ": Could not write header to entry-point calls file, aborting" << endl;
-      CkAbort("Badness");
-    }
-    xdr_destroy(&xdrs);
-    fclose(outfile);
-  }
-
-  if(verbosity > 3)
-    ckerr << "TreePiece " << thisIndex << ": Writing my statistics to disk" << endl;
-
-  FILE* outfile = fopen((basefilename + ".MACs").c_str(), "r+b");
-  fseek(outfile, 0, SEEK_END);
-  XDR xdrs;
-  xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-
-  for(unsigned int i = 1; i <= myNumParticles; ++i) {
-    macInterval.grow(myParticles[i].numMACChecks);
-    if(!xdr_template(&xdrs, &(myParticles[i].numMACChecks))) {
-      ckerr << "TreePiece " << thisIndex << ": Error writing MAC checks to disk, aborting" << endl;
-      CkAbort("Badness");
-    }
-  }
-
-  if(thisIndex == (int) numTreePieces - 1) {
-    if(verbosity > 3)
-      ckerr << "MAC interval: " << macInterval << endl;
-    if(!xdr_setpos(&xdrs, FieldHeader::sizeBytes) || !xdr_template(&xdrs, &macInterval.min) || !xdr_template(&xdrs, &macInterval.max)) {
-      ckerr << "TreePiece " << thisIndex << ": Error going back to write the MAC bounds, aborting" << endl;
-      CkAbort("Badness");
-    }
-    if(verbosity > 2)
-      ckerr << "TreePiece " << thisIndex << ": Wrote the MAC bounds" << endl;
-  }
-
-  xdr_destroy(&xdrs);
-  fclose(outfile);
-
-  outfile = fopen((basefilename + ".cellints").c_str(), "r+b");
-  fseek(outfile, 0, SEEK_END);
-  xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-  for(unsigned int i = 1; i <= myNumParticles; ++i) {
-    cellInterval.grow(myParticles[i].numCellInteractions);
-    if(!xdr_template(&xdrs, &(myParticles[i].numCellInteractions))) {
-      ckerr << "TreePiece " << thisIndex << ": Error writing cell interactions to disk, aborting" << endl;
-      CkAbort("Badness");
-    }
-  }
-  if(thisIndex == (int) numTreePieces - 1) {
-    if(verbosity > 3)
-      ckerr << "Cell interactions interval: " << cellInterval << endl;
-    if(!xdr_setpos(&xdrs, FieldHeader::sizeBytes) || !xdr_template(&xdrs, &cellInterval.min) || !xdr_template(&xdrs, &cellInterval.max)) {
-      ckerr << "TreePiece " << thisIndex << ": Error going back to write the cell interaction bounds, aborting" << endl;
-      CkAbort("Badness");
-    }
-    if(verbosity > 2)
-      ckerr << "TreePiece " << thisIndex << ": Wrote the cell interaction bounds" << endl;
-  }
-  xdr_destroy(&xdrs);
-  fclose(outfile);
-
-  outfile = fopen((basefilename + ".calls").c_str(), "r+b");
-  fseek(outfile, 0, SEEK_END);
-  xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-  for(unsigned int i = 1; i <= myNumParticles; ++i) {
-    callsInterval.grow(myParticles[i].numEntryCalls);
-    if(!xdr_template(&xdrs, &(myParticles[i].numEntryCalls))) {
-      ckerr << "TreePiece " << thisIndex << ": Error writing entry calls to disk, aborting" << endl;
-      CkAbort("Badness");
-    }
-  }
-  if(thisIndex == (int) numTreePieces - 1) {
-    if(verbosity > 3)
-      ckerr << "Entry call interval: " << callsInterval << endl;
-    if(!xdr_setpos(&xdrs, FieldHeader::sizeBytes) || !xdr_template(&xdrs, &callsInterval.min) || !xdr_template(&xdrs, &callsInterval.max)) {
-      ckerr << "TreePiece " << thisIndex << ": Error going back to write the entry call bounds, aborting" << endl;
-      CkAbort("Badness");
-    }
-    if(verbosity > 2)
-      ckerr << "TreePiece " << thisIndex << ": Wrote the entry call bounds" << endl;
-  }
-  xdr_destroy(&xdrs);
-  fclose(outfile);
-
-  outfile = fopen((basefilename + ".partints").c_str(), "r+b");
-  fseek(outfile, 0, SEEK_END);
-  xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-  for(unsigned int i = 1; i <= myNumParticles; ++i) {
-    particleInterval.grow(myParticles[i].numParticleInteractions);
-    if(!xdr_template(&xdrs, &(myParticles[i].numParticleInteractions))) {
-      ckerr << "TreePiece " << thisIndex << ": Error writing particle interactions to disk, aborting" << endl;
-      CkAbort("Badness");
-    }
-  }
-  if(thisIndex == (int) numTreePieces - 1) {
-    if(verbosity > 3)
-      ckerr << "Particle interactions interval: " << particleInterval << endl;
-    if(!xdr_setpos(&xdrs, FieldHeader::sizeBytes) || !xdr_template(&xdrs, &particleInterval.min) || !xdr_template(&xdrs, &particleInterval.max)) {
-      ckerr << "TreePiece " << thisIndex << ": Error going back to write the particle interaction bounds, aborting" << endl;
-      CkAbort("Badness");
-    }
-    if(verbosity > 2)
-      ckerr << "TreePiece " << thisIndex << ": Wrote the particle interaction bounds" << endl;
-  }
-  xdr_destroy(&xdrs);
-  fclose(outfile);
-  */
-#endif
-
   if(thisIndex != (int) numTreePieces - 1)
-    pieces[thisIndex + 1].outputStatistics(macInterval, cellInterval, particleInterval, callsInterval, totalmass, cb);
+    pieces[thisIndex + 1].outputStatistics(cb);
   if(thisIndex == (int) numTreePieces - 1) cb.send();
 }
-
-/*
-void TreePiece::outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb) {
-  if(thisIndex == 0) {
-    if(verbosity > 2)
-      ckerr << "TreePiece " << thisIndex << ": Writing header for errors file" << endl;
-    FILE* outfile = fopen((basefilename + ".error").c_str(), "wb");
-    XDR xdrs;
-    xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-    fh.code = float64;
-    fh.dimensions = 1;
-    if(!xdr_template(&xdrs, &fh) || !xdr_template(&xdrs, &errorInterval.min) || !xdr_template(&xdrs, &errorInterval.max)) {
-      ckerr << "TreePiece " << thisIndex << ": Could not write header to errors file, aborting" << endl;
-      CkAbort("Badness");
-    }
-    xdr_destroy(&xdrs);
-    fclose(outfile);
-  }
-
-  if(verbosity > 3)
-    ckerr << "TreePiece " << thisIndex << ": Writing my errors to disk" << endl;
-
-  FILE* outfile = fopen((basefilename + ".error").c_str(), "r+b");
-  fseek(outfile, 0, SEEK_END);
-  XDR xdrs;
-  xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-
-  double error;
-
-  for(unsigned int i = 1; i <= myNumParticles; ++i) {
-    error = (myParticles[i].treeAcceleration - myParticles[i].acceleration).length() / myParticles[i].acceleration.length();
-    errorInterval.grow(error);
-    if(!xdr_template(&xdrs, &error)) {
-      ckerr << "TreePiece " << thisIndex << ": Error writing errors to disk, aborting" << endl;
-      CkAbort("Badness");
-    }
-  }
-
-  if(thisIndex == (int) numTreePieces - 1) {
-    if(!xdr_setpos(&xdrs, FieldHeader::sizeBytes) || !xdr_template(&xdrs, &errorInterval.min) || !xdr_template(&xdrs, &errorInterval.max)) {
-      ckerr << "TreePiece " << thisIndex << ": Error going back to write the error bounds, aborting" << endl;
-      CkAbort("Badness");
-    }
-    if(verbosity > 2)
-      ckerr << "TreePiece " << thisIndex << ": Wrote the error bounds" << endl;
-    ckerr << "Error Bounds:" << errorInterval.min << ", "
-	 << errorInterval.max << endl;
-    cb.send();
-  }
-
-  xdr_destroy(&xdrs);
-  fclose(outfile);
-
-  if(thisIndex != (int) numTreePieces - 1)
-    pieces[thisIndex + 1].outputRelativeErrors(errorInterval, cb);
-}
-*/
 
 /// @TODO Fix pup routine to handle correctly the tree
 void TreePiece::pup(PUP::er& p) {

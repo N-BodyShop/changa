@@ -249,8 +249,7 @@ mainmodule ParallelGravity {
     entry void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
     entry void outputASCII(CkReference<OutputParams>, const CkCallback& cb);
     entry void outputIOrderASCII(const std::string& suffix, const CkCallback& cb);
-    entry void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, double totalmass, const CkCallback& cb);
-    //entry void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
+    entry void outputStatistics(const CkCallback& cb);
     //entry void getPieceValues(piecedata *totaldata);
     entry void collectStatistics(CkCallback &cb);
 

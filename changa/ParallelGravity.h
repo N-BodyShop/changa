@@ -1228,8 +1228,7 @@ public:
 	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
 	void outputASCII(OutputParams& params, const CkCallback& cb);
 	void outputIOrderASCII(const std::string& suffix, const CkCallback& cb);
-	void outputStatistics(Interval<unsigned int> macInterval, Interval<unsigned int> cellInterval, Interval<unsigned int> particleInterval, Interval<unsigned int> callsInterval, double totalmass, const CkCallback& cb);
-	//void outputRelativeErrors(Interval<double> errorInterval, const CkCallback& cb);
+	void outputStatistics(const CkCallback& cb);
 
 	/// Collect the total statistics from the various chares
 	void collectStatistics(CkCallback &cb);
