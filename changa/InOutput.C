@@ -540,17 +540,20 @@ void TreePiece::reOrder(CkCallback& cb)
 		if(TYPETest(pPart, TYPE_GAS))
 		    nGasOut++;
 		}
-	    extraSPHData *pGasOut = new extraSPHData[nGasOut];
+	    extraSPHData *pGasOut = NULL;
+	    if(nGasOut > 0) {
+		pGasOut = new extraSPHData[nGasOut];
+		int iGasOut = 0;
+		for(GravityParticle *pPart = binBegin; pPart < binEnd; pPart++) {
+		    if(TYPETest(pPart, TYPE_GAS)) {
+			pGasOut[iGasOut] = *(extraSPHData *)pPart->extraData;
+			iGasOut++;
+			}
+		    }
+		}
 	    if (verbosity>=3)
 		CkPrintf("me:%d to:%d how many:%d\n",thisIndex, iPiece,
 			 (binEnd-binBegin));
-	    int iGasOut = 0;
-	    for(GravityParticle *pPart = binBegin; pPart < binEnd; pPart++) {
-		if(TYPETest(pPart, TYPE_GAS)) {
-		    pGasOut[iGasOut] = *(extraSPHData *)pPart->extraData;
-		    iGasOut++;
-		    }
-		}
 	    if(iPiece == thisIndex) {
 		ioAcceptSortedParticles(binBegin, binEnd - binBegin, pGasOut,
 					nGasOut);
@@ -559,7 +562,8 @@ void TreePiece::reOrder(CkCallback& cb)
 		pieces[iPiece].ioAcceptSortedParticles(binBegin,
 				       binEnd - binBegin, pGasOut, nGasOut);
 		}
-	    delete pGasOut;
+	    if(nGasOut > 0)
+		delete pGasOut;
 	    }
 	if(&myParticles[myNumParticles + 1] <= binEnd)
 	    break;
