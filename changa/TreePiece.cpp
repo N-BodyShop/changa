@@ -5367,18 +5367,12 @@ void TreePiece::finishWalk()
   // Furthermore, we need to wait for outstanding flushes to be
   // processed for the combiner cache.
   bWalkDonePending = 0;
-//#ifdef CHECK_WALK_COMPLETIONS
-//  CkPrintf("[%d] inside finishWalk sSmooth: %x, nCacheAccesses: %d\n", thisIndex, sSmooth, nCacheAccesses);
-//#endif
   if(sSmooth && nCacheAccesses > 0) {
     bWalkDonePending = 1;
-//#ifdef CHECK_WALK_COMPLETIONS
-//    CkPrintf("[%d] inside finishWalk return\n", thisIndex);
-//#endif
     return;
   }
 
-  nCacheAccesses = 0; // reset for non-combiner walks.
+  nCacheAccesses = 0; // reset for next walk.
   freeWalkObjects();
   //#ifdef CUDA
   //    FreeDataManagerMemory();

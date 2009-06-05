@@ -257,7 +257,6 @@ void TreePiece::startIterationSmooth(// type of smoothing and parameters
   int oldNumChunks = numChunks;
   dm->getChunks(numChunks, prefetchRoots);
   CkArrayIndexMax idxMax = CkArrayIndex1D(thisIndex);
-  nCacheAccesses = 0;
   bWalkDonePending = 0;
   streamingCache[CkMyPe()].cacheSync(numChunks, idxMax, localIndex);
   
