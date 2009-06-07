@@ -731,8 +731,8 @@ private:
 	/// buckets, one after the other
 	unsigned int currentRemoteBucket;
 #if INTERLIST_VER > 0
-	unsigned int prevRemoteBucket;
-	unsigned int prevBucket;
+	int prevRemoteBucket;
+	int prevBucket;
 #endif
 	/// Used to start the Ewald computation for all buckets, one after the other
 	unsigned int ewaldCurrentBucket;
