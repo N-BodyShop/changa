@@ -7,6 +7,8 @@
 #include <queue>
 #include "Compute.h"
 
+#define NUM_NEAREST_NEIGHBORS 32
+
 class pqSmoothNode
 {
  public:
@@ -24,14 +26,29 @@ class pqSmoothNode
 
 class NearNeighborState: public State {
 public:
-    std::priority_queue <pqSmoothNode> *Qs;
+    pqSmoothNode **Qs; 
+    int *heap_sizes; 
     int nParticlesPending;
+    int mynParts; 
     bool started;
     NearNeighborState(int nParts) {
-	Qs = new (std::priority_queue<pqSmoothNode>[nParts+2]);
-	}
+        Qs = new pqSmoothNode*[nParts+2];
+	heap_sizes = new int[nParts+2]; 
+	for (int i=0; i<nParts+2; i++) {
+	    Qs[i] = new pqSmoothNode[NUM_NEAREST_NEIGHBORS]; 
+	    } 
+	bzero(heap_sizes, (nParts+2) * sizeof(int)); 
+	mynParts = nParts; 
+        }
+
     void finishBucketSmooth(int iBucket, TreePiece *tp);
-    ~NearNeighborState() { delete [] Qs; }
+    ~NearNeighborState() {
+        for (int i=0; i<mynParts+2; i++) {
+	    delete [] Qs[i]; 
+        }
+	delete [] Qs; 
+	delete [] heap_sizes; 
+        }
 };
 
 // We can make this a base class from which parameters for all smooth
@@ -142,14 +159,28 @@ public:
 
 class ReNearNeighborState: public State {
 public:
-    std::vector <pqSmoothNode> *Qs;
+    pqSmoothNode **Qs; 
+    int *heap_sizes;
     int nParticlesPending;
     bool started;
+    int mynParts; 
     ReNearNeighborState(int nParts) {
-	Qs = new (std::vector<pqSmoothNode>[nParts+2]);
-	}
+        Qs = new pqSmoothNode*[nParts+2];
+	heap_sizes = new int[nParts+2];
+	for (int i=0; i<nParts+2; i++) {
+	    Qs[i] = new pqSmoothNode[NUM_NEAREST_NEIGHBORS]; 
+	    } 
+	bzero(heap_sizes, nParts * sizeof(int)); 
+	mynParts = nParts; 
+        }
     void finishBucketSmooth(int iBucket, TreePiece *tp);
-    ~ReNearNeighborState() { delete [] Qs; }
+    ~ReNearNeighborState() { 
+        for (int i=0; i<mynParts+2; i++) {
+	    delete [] Qs[i]; 
+        }
+	delete [] Qs; 
+	delete [] heap_sizes; 
+        }
 };
 
 class ReSmoothCompute : public Compute 

@@ -42,6 +42,7 @@
 #include "smooth.h"
 #include "Space.h"
 
+
 SmoothParams *globalSmoothParams;
 
 // called after constructor, so tp should be set
@@ -77,7 +78,7 @@ int SmoothCompute::openCriterion(TreePiece *ownerTP,
     for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
 	if(!TYPETest(&particles[j], params->iType))
 	    continue;
-	double r = nstate->Qs[j].top().fKey; // Ball radius
+	double r = nstate->Qs[j][0].fKey; // Ball radius
 	Sphere<double> s(particles[j].position - offset, r);
 	if(Space::intersect(node->boundingBox, s)) {
 	   return 1;
@@ -105,18 +106,21 @@ void SmoothCompute::bucketCompare(TreePiece *ownerTP,
     for(int j = node->firstParticle; j <= node->lastParticle; ++j) {
 	if(!TYPETest(&particles[j], params->iType))
 	    continue;
-	std::priority_queue<pqSmoothNode> *Q = &nstate->Qs[j];
-	double rOld = Q->top().fKey; // Ball radius
+	pqSmoothNode *Q = nstate->Qs[j];
+	double rOld = Q[0].fKey; // Ball radius
 	Vector3D<double> dr = particles[j].position - rp;
 	
 	if(rOld*rOld > dr.lengthSquared()) {  // Perform replacement
-	    if(Q->size() == nSmooth)
-		Q->pop();	// pop if list is full
-	    pqSmoothNode pqNew;
-	    pqNew.fKey = dr.length();
-	    pqNew.dx = dr;
-	    pqNew.p = p;
-	    Q->push(pqNew);
+	    if(nstate->heap_sizes[j] == nSmooth) {
+	        std::pop_heap(Q + 0, Q + nSmooth);
+	        nstate->heap_sizes[j]--;	// pop if list is full
+	        }
+	    int end = nstate->heap_sizes[j];
+	    Q[end].fKey = dr.length();
+	    Q[end].dx = dr;
+	    Q[end].p = p;
+	    std::push_heap(Q + 0, Q + end + 1); 
+	    nstate->heap_sizes[j]++;
 	    }
 	}
     }
@@ -408,7 +412,7 @@ void SmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
   for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
       if(!TYPETest(&tp->myParticles[j], params->iType))
 	  continue;
-      std::priority_queue<pqSmoothNode> *Q = &(nstate->Qs[j]);
+      pqSmoothNode *Q = nstate->Qs[j]; 
       //
       // Find maximum of nearest neighbors
       //
@@ -425,10 +429,11 @@ void SmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 		  drMax2 = dr.lengthSquared();
 		  }
 	      }
-      pqSmoothNode pqNew;
-      pqNew.fKey = sqrt(drMax2);
-      pqNew.p = NULL;  // Make sure this never used
-      Q->push(pqNew);
+      int end = nstate->heap_sizes[j];
+      Q[end].fKey = sqrt(drMax2);
+      Q[end].p = NULL; 
+      std::push_heap(Q + 0, Q + end + 1); 
+      nstate->heap_sizes[j]++; 
       }
     }
 
@@ -500,17 +505,12 @@ void SmoothCompute::walkDone(State *state) {
   for(int i = node->firstParticle; i <= node->lastParticle; i++) {
       if(!TYPETest(&part[i-node->firstParticle], params->iType))
 	  continue;
-      std::priority_queue<pqSmoothNode> *Q = &((NearNeighborState *)state)->Qs[i];
-      double h = Q->top().fKey; // Ball radius
+      NearNeighborState *nstate = (NearNeighborState *)state;
+      pqSmoothNode *Q = nstate->Qs[i];
+      double h = Q[0].fKey; // Ball radius
       part[i-node->firstParticle].fBall = h;
-      pqSmoothNode NN[Q->size()];
-      int nCnt = 0;
-      while (!Q->empty()) {
-	  NN[nCnt] = Q->top();
-	  Q->pop();
-	  nCnt++;
-	  }
-      params->fcnSmooth(&part[i-node->firstParticle], nCnt, NN);
+      int nCnt = nstate->heap_sizes[i];
+      params->fcnSmooth(&part[i-node->firstParticle], nCnt, Q);
       }
       // XXX jetley - the nearneighborstate allocated for this compute
       // may be deleted after this function is called. 
@@ -528,13 +528,6 @@ State *ReSmoothCompute::getNewState(int nBucket){
   for (int j = 0; j < nBucket; ++j) {
     state->counterArrays[0][j] = 1;	// so we know that the local
 					// walk is not finished.
-    GenericTreeNode *myNode = tp->bucketList[j];
-    for(int k = myNode->firstParticle; k <= myNode->lastParticle; ++k) {
-      if(!TYPETest(&tp->myParticles[k], params->iType))
-	  continue;
-      std::vector<pqSmoothNode> *Q = &(state->Qs[k]);
-      Q->reserve(nSmooth);
-      }
     }
   state->started = true;
   state->nParticlesPending = tp->myNumParticles;
@@ -583,16 +576,17 @@ void ReSmoothCompute::bucketCompare(TreePiece *ownerTP,
     for(int j = node->firstParticle; j <= node->lastParticle; ++j) {
 	if(!TYPETest(&particles[j], params->iType))
 	    continue;
-	std::vector<pqSmoothNode> *Q = &nstate->Qs[j];
+	pqSmoothNode *Q = nstate->Qs[j]; 
 	double rOld = particles[j].fBall; // Ball radius
 	Vector3D<double> dr = particles[j].position - rp;
 	
 	if(rOld*rOld >= dr.lengthSquared()) {  // Add to list
-	    pqSmoothNode pqNew;
-	    pqNew.fKey = dr.length();
-	    pqNew.dx = dr;
-	    pqNew.p = p;
-	    Q->push_back(pqNew);
+	    int end = nstate->heap_sizes[j];
+	    Q[end].fKey = dr.length();
+	    Q[end].dx = dr;
+	    Q[end].p = p; 
+	    std::push_heap(Q + 0, Q + end + 1); 
+	    nstate->heap_sizes[j]++; 
 	    }
 	}
     }
@@ -886,15 +880,11 @@ void ReSmoothCompute::walkDone(State *state) {
   for(int i = node->firstParticle; i <= node->lastParticle; i++) {
       if(!TYPETest(&part[i-node->firstParticle], params->iType))
 	  continue;
-      std::vector<pqSmoothNode> *Q = &((ReNearNeighborState *)state)->Qs[i];
-      pqSmoothNode NN[Q->size()];
-      int nCnt = Q->size();
-      int j;
-      for(j = 0; j < nCnt; j++) {
-	  NN[j] = Q->operator[](j);
-	  }
-      params->fcnSmooth(&part[i-node->firstParticle], nCnt, NN);
-      Q->clear();
+      ReNearNeighborState *nstate = (ReNearNeighborState *) state;
+      pqSmoothNode *Q = nstate->Qs[i];
+      int nCnt = nstate->heap_sizes[i]; 
+      params->fcnSmooth(&part[i-node->firstParticle], nCnt, Q);      
+      nstate->heap_sizes[i] = 0; 
       }
 }
 
