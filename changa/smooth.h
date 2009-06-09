@@ -159,28 +159,14 @@ public:
 
 class ReNearNeighborState: public State {
 public:
-    pqSmoothNode **Qs; 
-    int *heap_sizes;
+    std::vector <pqSmoothNode> *Qs;
     int nParticlesPending;
     bool started;
-    int mynParts; 
     ReNearNeighborState(int nParts) {
-        Qs = new pqSmoothNode*[nParts+2];
-	heap_sizes = new int[nParts+2];
-	for (int i=0; i<nParts+2; i++) {
-	    Qs[i] = new pqSmoothNode[NUM_NEAREST_NEIGHBORS]; 
-	    } 
-	bzero(heap_sizes, nParts * sizeof(int)); 
-	mynParts = nParts; 
-        }
+	Qs = new (std::vector<pqSmoothNode>[nParts+2]);
+	}
     void finishBucketSmooth(int iBucket, TreePiece *tp);
-    ~ReNearNeighborState() { 
-        for (int i=0; i<mynParts+2; i++) {
-	    delete [] Qs[i]; 
-        }
-	delete [] Qs; 
-	delete [] heap_sizes; 
-        }
+    ~ReNearNeighborState() { delete [] Qs; }
 };
 
 class ReSmoothCompute : public Compute 
