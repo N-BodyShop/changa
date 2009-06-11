@@ -402,6 +402,7 @@ class TreePiece : public CBase_TreePiece {
    friend class PrefetchCompute;
    friend class GravityCompute;
    friend class SmoothCompute;
+   friend class KNearestSmoothCompute;
    friend class ReSmoothCompute;
    friend class ListCompute;
    friend class NearNeighborState;
@@ -859,6 +860,7 @@ private:
 	void initBucketsSmooth(Tsmooth tSmooth);
 	void smoothNextBucket();
 	void reSmoothNextBucket();
+	void smoothBucketComputation();
 	/** @brief Initial walk through the tree. It will continue until local
 	 * nodes are found (excluding those coming from the cache). When the
 	 * treewalk is finished it stops and cachedWalkBucketTree will continue
@@ -1159,6 +1161,7 @@ public:
   /// @param cb the callback to use after all the computation has finished
   void startIteration(int am, const CkCallback& cb);
   /// As above, but for a smooth operation.
+  void setupSmooth();
   void startIterationSmooth(SmoothParams *p, const CkCallback& cb);
   void startIterationReSmooth(SmoothParams *p, const CkCallback& cb);
 

@@ -99,36 +99,33 @@ class DensitySmoothParams : public SmoothParams
 	}
     };
 
-class SmoothCompute : public Compute 
+class SmoothCompute : public Compute
 {
-    int nSmooth;
-    void bucketCompare(TreePiece *tp,
-		       GravityParticle *p,  // Particle to test
-		       GenericTreeNode *node, // bucket
-		       GravityParticle *particles, // local particle data
-		       Vector3D<double> offset,
-                       State *state
-		       ) ;
+ protected:
     TreePiece *tp;
-public:
+
+ public:
     SmoothParams *params;
-    
- SmoothCompute(TreePiece *_tp, SmoothParams *_params, int nSm)
-     : Compute(Smooth){
+
+    SmoothCompute(TreePiece *_tp, SmoothParams *_params) : Compute(Smooth){
 	params = _params;
 	// XXX Assign to global pointer: not thread safe
 	globalSmoothParams = params;
-	nSmooth = nSm;
         tp = _tp;       // needed in getNewState()
 	}
     ~SmoothCompute() { //delete state;
-	delete params;
+      // delete params;
     }
-	    
-    void initSmoothPrioQueue(int iBucket, State *state) ;
 
-    int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
-    
+    virtual 
+      void bucketCompare(TreePiece *tp,
+			 GravityParticle *p,  // Particle to test
+			 GenericTreeNode *node, // bucket
+			 GravityParticle *particles, // local particle data
+			 Vector3D<double> offset,
+			 State *state
+			 ) = 0;
+
     int doWork(GenericTreeNode *node,
 	       TreeWalk *tw,
 	       State *state,
@@ -136,14 +133,42 @@ public:
 	       int reqID,
 	       bool isRoot, 
 	       bool &didcomp, int awi);
+    void reassoc(void *ce, int ar, Opt *o);    
+    int nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);
+    
+
+
+};
+
+class KNearestSmoothCompute : public SmoothCompute 
+{
+    int nSmooth;
+public:
+    
+     KNearestSmoothCompute(TreePiece *_tp, SmoothParams *_params, int nSm)
+       : SmoothCompute(_tp, _params){
+         nSmooth = nSm;
+         }
+    ~KNearestSmoothCompute() { //delete state;
+	delete params;
+    }
+
+    void bucketCompare(TreePiece *tp,
+		       GravityParticle *p,  // Particle to test
+		       GenericTreeNode *node, // bucket
+		       GravityParticle *particles, // local particle data
+		       Vector3D<double> offset,
+                       State *state
+		       ) ;
+	    
+    void initSmoothPrioQueue(int iBucket, State *state) ;
+    int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
     int startNodeProcessEvent(TreePiece *owner){}
     int finishNodeProcessEvent(TreePiece *owner, State *state){}
-    int nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);
     int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
     void recvdParticlesFull(GravityParticle *egp,int num,int chunk,
 			int reqID,State *state, TreePiece *tp,
 			Tree::NodeKey &remoteBucket);
-    void reassoc(void *ce, int ar, Opt *o);
     void walkDone(State *state) ;
 
     // this function is used to allocate and initialize a new state object
@@ -169,8 +194,16 @@ public:
     ~ReNearNeighborState() { delete [] Qs; }
 };
 
-class ReSmoothCompute : public Compute 
+class ReSmoothCompute : public SmoothCompute 
 {
+    
+public:
+    ReSmoothCompute(TreePiece *_tp, SmoothParams *_params) : SmoothCompute(_tp, _params){}
+
+    ~ReSmoothCompute() { //delete state;
+	delete params;
+    }
+
     void bucketCompare(TreePiece *tp,
 		       GravityParticle *p,  // Particle to test
 		       GenericTreeNode *node, // bucket
@@ -178,37 +211,14 @@ class ReSmoothCompute : public Compute
 		       Vector3D<double> offset,
                        State *state
 		       ) ;
-    TreePiece *tp;
-    
-public:
-    SmoothParams *params;
-    ReSmoothCompute(TreePiece *_tp, SmoothParams *_params) : Compute(Smooth){
-	params = _params;
-	// XXX Assign to global pointer: not thread safe
-	globalSmoothParams = params;
-        tp = _tp;       // needed in getNewState()
-	}
-    ~ReSmoothCompute() { //delete state;
-	delete params;
-    }
 	    
     int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
-    
-    int doWork(GenericTreeNode *node,
-	       TreeWalk *tw,
-	       State *state,
-	       int chunk,
-	       int reqID,
-	       bool isRoot, 
-	       bool &didcomp, int awi);
     int startNodeProcessEvent(TreePiece *owner){}
     int finishNodeProcessEvent(TreePiece *owner, State *state){}
-    int nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);
     int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
     void recvdParticlesFull(GravityParticle *egp,int num,int chunk,
 			int reqID,State *state, TreePiece *tp,
 			Tree::NodeKey &remoteBucket);
-    void reassoc(void *ce, int ar, Opt *o);
     void walkDone(State *state) ;
 
     // this function is used to allocate and initialize a new state object

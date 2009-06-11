@@ -174,7 +174,7 @@ void TreePiece::flushSmoothParticles(CkCacheFillMsg *msg) {
   CkAssert(nCacheAccesses > 0);
   
   // XXX Perhaps another level in the Compute class hierarchy would avoid this.
-  SmoothCompute *sm = dynamic_cast<SmoothCompute *>(sSmooth);
+  KNearestSmoothCompute *sm = dynamic_cast<KNearestSmoothCompute *>(sSmooth);
   ReSmoothCompute *reSm = dynamic_cast<ReSmoothCompute *>(sSmooth);
   
   int j = 0;
