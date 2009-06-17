@@ -612,7 +612,7 @@ bool Sorter::refineOctSplitting(int n, int *count) {
         nodesOpened.push_back(nodeKeys[idx]);
       }
       // Check if two nodes can be joined together
-      while (idx>0 && (count[idx-1]+count[idx] < joinThreshold) && (nodeKeys[idx-1]>>1 == nodeKeys[idx]>>1)) {
+      while (idx>0 && (binCounts[idx-1]+binCounts[idx] < joinThreshold) && (nodeKeys[idx-1]>>1 == nodeKeys[idx]>>1)) {
         // Join and repeat the check recursively
         nodeKeys[idx-1] >>= 1;
         nodeKeys.erase(nodeKeys.begin()+idx);
