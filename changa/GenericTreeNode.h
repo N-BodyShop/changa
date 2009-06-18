@@ -202,6 +202,7 @@ namespace Tree {
     virtual NodeKey getLongestCommonPrefix(NodeKey k1, NodeKey k2)
     {
       CkAbort("getLongestCommonPrefix not implemented\n");
+      return 0;
     }
 
     virtual int getLevel(NodeKey k) = 0;
