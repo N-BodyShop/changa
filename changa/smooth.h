@@ -7,8 +7,6 @@
 #include <queue>
 #include "Compute.h"
 
-#define NUM_NEAREST_NEIGHBORS 32
-
 class pqSmoothNode
 {
  public:
@@ -31,11 +29,11 @@ public:
     int nParticlesPending;
     int mynParts; 
     bool started;
-    NearNeighborState(int nParts) {
+    NearNeighborState(int nParts, int nSmooth) {
         Qs = new pqSmoothNode*[nParts+2];
 	heap_sizes = new int[nParts+2]; 
 	for (int i=0; i<nParts+2; i++) {
-	    Qs[i] = new pqSmoothNode[NUM_NEAREST_NEIGHBORS]; 
+	    Qs[i] = new pqSmoothNode[nSmooth]; 
 	    } 
 	bzero(heap_sizes, (nParts+2) * sizeof(int)); 
 	mynParts = nParts; 

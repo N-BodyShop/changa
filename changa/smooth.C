@@ -142,7 +142,7 @@ int SmoothCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePiece
 
 // called after constructor, so tp should be set
 State *KNearestSmoothCompute::getNewState(int d1){
-  NearNeighborState *state = new NearNeighborState(tp->myNumParticles+2);
+  NearNeighborState *state = new NearNeighborState(tp->myNumParticles+2, nSmooth);
   //state->counterArrays.reserve(1);		   // array to keep track of
   state->counterArrays[0] = new int [d1];
   state->counterArrays[1] = 0;
