@@ -186,7 +186,7 @@ public:
     int nParticlesPending;
     bool started;
     ReNearNeighborState(int nParts) {
-	Qs = new (std::vector<pqSmoothNode>[nParts+2]);
+	Qs = new std::vector<pqSmoothNode>[nParts+2];
 	}
     void finishBucketSmooth(int iBucket, TreePiece *tp);
     ~ReNearNeighborState() { delete [] Qs; }

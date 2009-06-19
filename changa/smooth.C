@@ -727,12 +727,8 @@ void ReSmoothCompute::walkDone(State *state) {
       if(!TYPETest(&part[i-node->firstParticle], params->iType))
 	  continue;
       std::vector<pqSmoothNode> *Q = &((ReNearNeighborState *)state)->Qs[i];
-      pqSmoothNode NN[Q->size()];
+      pqSmoothNode *NN = &((*Q)[0]);
       int nCnt = Q->size();
-      int j;
-      for(j = 0; j < nCnt; j++) {
-	  NN[j] = Q->operator[](j);
-	  }
       params->fcnSmooth(&part[i-node->firstParticle], nCnt, NN);
       Q->clear();
       }
