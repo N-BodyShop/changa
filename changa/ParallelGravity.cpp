@@ -266,9 +266,34 @@ Main::Main(CkArgMsg* m) {
 	param.bDoGas = 0;
 	prmAddParam(prm, "bDoGas", paramBool, &param.bDoGas,
 		    sizeof(int),"gas", "Enable Gas Calculation");
-	param.bViscosityLimiter = 0;
+	param.bFastGas = 0;
+	prmAddParam(prm, "bFastGas", paramBool, &param.bFastGas,
+		    sizeof(int),"Fgas", "Fast Gas Method");
+	param.dFracFastGas = 0.0;
+	prmAddParam(prm,"dFracFastGas",paramDouble,&param.dFracFastGas,
+		    sizeof(double),"ffg",
+		    "<Fraction of Active Particles for Fast Gas>");
+	param.dhMinOverSoft = 0.0;
+	prmAddParam(prm,"dhMinOverSoft",paramDouble,&param.dhMinOverSoft,
+		    sizeof(double),"hmin",
+		    "<Minimum h as a fraction of Softening> = 0.0");
+	param.bViscosityLimiter = 1;
 	prmAddParam(prm,"bViscosityLimiter",paramBool,&param.bViscosityLimiter,
-		    sizeof(int), "vlim","<Balsara Viscosity Limiter> = 0");
+		    sizeof(int), "vlim","<Viscosity Limiter> = 1");
+	param.iViscosityLimiter = 1;
+	prmAddParam(prm,"iViscosityLimiter",paramInt,&param.iViscosityLimiter,
+		    sizeof(int), "ivlim","<Viscosity Limiter Type> = 1");
+	param.bGeometric = 0;
+	prmAddParam(prm,"bGeometric",paramBool,&param.bGeometric,sizeof(int),
+		    "geo","geometric/arithmetic mean to calc Grad(P/rho) = +geo");
+	param.bGasAdiabatic = 1;
+	prmAddParam(prm,"bGasAdiabatic",paramBool,&param.bGasAdiabatic,
+		    sizeof(int),"GasAdiabatic",
+		    "<Gas is Adiabatic> = +GasAdiabatic");
+	param.bGasIsothermal = 0;
+	prmAddParam(prm,"bGasIsothermal",paramBool,&param.bGasIsothermal,
+		    sizeof(int),"GasIsothermal",
+		    "<Gas is Isothermal> = -GasIsothermal");
 	param.dMsolUnit = 1.0;
 	prmAddParam(prm,"dMsolUnit",paramDouble,&param.dMsolUnit,
 		    sizeof(double),"msu", "<Solar mass/system mass unit>");
@@ -293,6 +318,9 @@ Main::Main(CkArgMsg* m) {
 	param.dGasConst = 1.0;
 	prmAddParam(prm,"dGasConst",paramDouble,&param.dGasConst,
 		    sizeof(double),"gcnst", "<Gas Constant>");
+	param.bBulkViscosity = 0;
+	prmAddParam(prm,"bBulkViscosity",paramBool,&param.bBulkViscosity,
+		    sizeof(int), "bulk","<Bulk Viscosity> = 0");
 	// SPH timestepping
 	param.bSphStep = 1;
 	prmAddParam(prm,"bSphStep",paramBool,&param.bSphStep,sizeof(int),
@@ -480,7 +508,7 @@ Main::Main(CkArgMsg* m) {
 	    }
 	if(prmSpecified(prm, "bCannonical")) {
 	    ckerr << "WARNING: ";
-	    ckerr << "bCannonical parameter ignored."
+	    ckerr << "bCannonical parameter ignored; integration is always cannonical"
 		  << endl;
 	    }
 	if(prmSpecified(prm, "bOverwrite")) {
@@ -568,6 +596,37 @@ Main::Main(CkArgMsg* m) {
           ckerr << "remoteResumeParts: " << remoteResumePartsPerReq << endl;
 #endif
 	    
+	if(prmSpecified(prm, "bGeometric")) {
+	    ckerr << "WARNING: ";
+	    ckerr << "bGeometric parameter ignored." << endl;
+	    }
+	if(prmSpecified(prm, "bFastGas")) {
+	    ckerr << "WARNING: ";
+	    ckerr << "bFastGas parameter ignored." << endl;
+	    }
+	if(prmSpecified(prm, "dFracFastGas")) {
+	    ckerr << "WARNING: ";
+	    ckerr << "dFracFastGas parameter ignored." << endl;
+	    }
+	if(prmSpecified(prm, "dhMinOverSoft")) {
+	    ckerr << "WARNING: ";
+	    ckerr << "dhMinOverSoft parameter ignored." << endl;
+	    }
+	if (prmSpecified(prm,"bViscosityLimiter")) {
+	    if (!param.bViscosityLimiter) param.iViscosityLimiter=0;
+	    }
+
+	if(param.bGasAdiabatic && param.bGasIsothermal) {
+	    ckerr << "WARNING: ";
+	    ckerr << "Both adiabatic and isothermal set.";
+	    ckerr << "Defaulting to Adiabatic.";
+	    ckerr << endl;
+	    param.bGasIsothermal = 0;
+	    }
+	if(prmSpecified(prm, "bBulkViscosity")) {
+	    ckerr << "WARNING: ";
+	    ckerr << "bBulkViscosity parameter ignored." << endl;
+	    }
 	/* bolzman constant in cgs */
 #define KBOLTZ	1.38e-16
 	/* mass of hydrogen atom in grams */

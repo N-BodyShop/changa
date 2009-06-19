@@ -30,7 +30,7 @@ Main::doSph(int activeRung)
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	  << endl;
 
-    treeProxy.sphViscosityLimiter(param.bViscosityLimiter, activeRung,
+    treeProxy.sphViscosityLimiter(param.iViscosityLimiter, activeRung,
 			CkCallbackResumeThread());
     treeProxy.getAdiabaticGasPressure(param.dConstGamma, param.dConstGamma-1,
 				      CkCallbackResumeThread());

@@ -40,6 +40,11 @@ typedef struct parameters {
      * Units: set by dMsolUnit and dKpcUnit
      */
     int bDoGas;
+    int bGeometric;
+    int bBulkViscosity;
+    int bGasAdiabatic;
+    int bGasIsothermal;
+    double dhMinOverSoft;
     double dMsolUnit;
     double dKpcUnit;
     double dGasConst;
@@ -52,7 +57,10 @@ typedef struct parameters {
     double dSecUnit;
     double dComovingGmPerCcUnit;
     int bSphStep;
+    int bFastGas;
+    double dFracFastGas;
     int bViscosityLimiter;
+    int iViscosityLimiter;
     int bViscosityLimitdt;
     double dEtaCourant;
     double dEtauDot;
@@ -104,7 +112,15 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|*param.csm;
     p|param.dRedTo;
     p|param.bDoGas;
+    p|param.bGeometric;
+    p|param.bBulkViscosity;
+    p|param.bGasAdiabatic;
+    p|param.bGasIsothermal;
+    p|param.bFastGas;
+    p|param.dFracFastGas;
     p|param.bViscosityLimiter;
+    p|param.iViscosityLimiter;
+    p|param.dhMinOverSoft;
     p|param.dMsolUnit;
     p|param.dKpcUnit;
     p|param.dGasConst;
