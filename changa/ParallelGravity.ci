@@ -134,7 +134,7 @@ mainmodule ParallelGravity {
     entry void loadTipsy(const std::string& filename,
         const double dTuFac,
         const CkCallback& cb);
-    entry void setupWrite(int iStage, int64_t iPrevOffset,
+    entry void setupWrite(int iStage, u_int64_t iPrevOffset,
         const std::string& filename,
         const double dTime, const double dvFac,
         const double duTfac,

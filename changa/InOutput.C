@@ -378,7 +378,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 // Perform Parallel Scan to establish start of parallel writes, then
 // do the writing
 void TreePiece::setupWrite(int iStage, // stage of scan
-			   int64_t iPrevOffset,
+			   u_int64_t iPrevOffset,
 			   const std::string& filename,
 			   const double dTime,
 			   const double dvFac,

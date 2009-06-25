@@ -673,7 +673,8 @@ private:
 
 	/// Setup for writing
 	int nSetupWriteStage;
-	int nStartWrite;
+	int64_t nStartWrite;	// Particle number at which this piece starts
+				// to write file.
 
 	/// Map between Keys and TreeNodes, used to get a node from a key
 	NodeLookupType nodeLookupTable;
@@ -1024,7 +1025,7 @@ public:
 	void writeTipsy(const std::string& filename, const double dTime,
 			const double dvFac, const double duTfac);
 	// Find position in the file to start writing
-	void setupWrite(int iStage, int64_t iPrevOffset,
+	void setupWrite(int iStage, u_int64_t iPrevOffset,
 			const std::string& filename, const double dTime,
 			const double dvFac, const double duTFac,
 			const CkCallback& cb);
