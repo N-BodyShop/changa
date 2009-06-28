@@ -63,8 +63,8 @@ void DenDvDxSmoothParams::combSmoothCache(GravityParticle *p1,
 void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 				    pqSmoothNode *nnList)
 {
-	double ih2,r2,rs,rs1,fDensity,qMass,iden,fNorm,fNorm1,vFac,S;
-	double dvxdx , dvxdy , dvxdz, dvydx , dvydy , dvydz, dvzdx , dvzdy , dvzdz;
+	double ih2,r2,rs,rs1,fDensity,fNorm,fNorm1,vFac;
+	double dvxdx, dvxdy, dvxdz, dvydx, dvydy, dvydz, dvzdx, dvzdy, dvzdz;
 	double dvx,dvy,dvz,dx,dy,dz,trace;
 	GravityParticle *q;
 	int i;
