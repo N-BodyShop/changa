@@ -632,7 +632,8 @@ namespace Tree {
 
     int packNodes(BinaryTreeNode *buffer, int depth, int extraSpace=0) {
       //CkPrintf("Entering packNodes: this=%p, buffer=%p, depth=%d\n",this,buffer,depth);
-      *buffer = *this;
+      //*buffer = *this;
+      memcpy(buffer, this, sizeof(*this));
       buffer->parent = NULL;
       buffer->particlePointer = NULL;
 #if INTERLIST_VER > 0 && defined CUDA
