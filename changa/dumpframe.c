@@ -130,7 +130,7 @@ void dfFreeImage( void *Image ) {
 							  c[2] = a[0]*b[1] - a[1]*b[0]; \
 						  }
 
-void dfProjection( struct inDumpFrame *in, struct dfFrameSetup *fs ) {
+void dfProjection( struct inDumpFrame *in, struct dfFrameSetup *fs, int nxPix, int nyPix) {
 	double width,height;
 	double vec[3];
 	/*double norm[3]; -- not used: DCR 12/19/02*/
@@ -138,8 +138,16 @@ void dfProjection( struct inDumpFrame *in, struct dfFrameSetup *fs ) {
 	in->r[0] = fs->target[0];
 	in->r[1] = fs->target[1];
 	in->r[2] = fs->target[2];
-	in->nxPix = fs->nxPix;
-	in->nyPix = fs->nyPix;
+
+	if ((nxPix == 0) && (nyPix == 0)) {
+	  in->nxPix = fs->nxPix;
+	  in->nyPix = fs->nyPix;
+	}
+	else {
+	  in->nxPix = nxPix;
+	  in->nyPix = nyPix;
+	}
+
 	in->bExpansion = fs->bExpansion;
 	in->bPeriodic = fs->bPeriodic;
 	in->iProject = fs->iProject;
@@ -800,7 +808,7 @@ void dfParseCameraDirections( struct DumpFrameContext *df, char * filename ) {
 	fclose(fp);
 	}
 
-void dfSetupFrame( struct DumpFrameContext *df, double dTime, double dStep, double dExp, double *com, struct inDumpFrame *vin ) {
+void dfSetupFrame( struct DumpFrameContext *df, double dTime, double dStep, double dExp, double *com, struct inDumpFrame *vin, int nxPix, int nyPix ) {
 	struct dfFrameSetup fs;
 
 	int ifs = df->iFrameSetup;
@@ -917,8 +925,9 @@ void dfSetupFrame( struct DumpFrameContext *df, double dTime, double dStep, doub
 	  }
 	  break;
 	}
-
-    dfProjection( vin, &fs ); 
+	
+	dfProjection( vin, &fs, nxPix, nyPix ); 
+    
     }
 
 
@@ -1640,32 +1649,20 @@ void dfMergeImage( struct inDumpFrame *in, void *vImage1, int *nImage1, void *vI
 		}
 	}
 
-void dfFinishFrame( struct DumpFrameContext *df, double dTime, double dStep, struct inDumpFrame *in, void  *vImage ) {
+void dfFinishFrame( struct DumpFrameContext *df, double dTime, double dStep, struct inDumpFrame *in, void  *vImage, int liveViz, unsigned char **outgray) {
 	DFIMAGE *Image = vImage;
 	char fileout[160];
 	FILE *fp;
 	int i;
 	int iMax;
-	unsigned char *gray,*g;
+	unsigned char *g;
+	unsigned char *gray;
 	/*char number[40]; -- not used: DCR 12/19/02*/
 
-	switch( df->iNumbering ) {
-	case DF_NUMBERING_FRAME:
-		sprintf(fileout, df->FileName, df->nFrame );
-		break;
-	case DF_NUMBERING_STEP:
-		sprintf(fileout, df->FileName, dStep );
-		break;
-	case DF_NUMBERING_TIME:
-		sprintf(fileout, df->FileName, dTime );
-		break;
-		}
-
-	df->nFrame++; /* NB: need to sort out something for restarts */
-	
 	iMax = in->nxPix*in->nyPix;
 	gray = (unsigned char *) malloc(sizeof(unsigned char)*3*iMax);
 	assert( gray != NULL );
+	*outgray = gray;
 
 	if (in->iRender == DF_RENDER_POINT) {
 		for (i=0,g=gray;i<iMax;i++) {
@@ -1750,11 +1747,26 @@ void dfFinishFrame( struct DumpFrameContext *df, double dTime, double dStep, str
 				g++;
 				}
 			}
-		}
-	fp = fopen(fileout,"w");
-	assert(fp!=NULL);
+	}
 
-	if (df->iEncode == DF_ENCODE_PPM) {
+	if(!liveViz) {
+	  switch( df->iNumbering ) {
+	  case DF_NUMBERING_FRAME:
+	    sprintf(fileout, df->FileName, df->nFrame );
+	    break;
+	  case DF_NUMBERING_STEP:
+	    sprintf(fileout, df->FileName, dStep );
+	    break;
+	  case DF_NUMBERING_TIME:
+	    sprintf(fileout, df->FileName, dTime );
+	    break;
+	  }
+
+	df->nFrame++; /* NB: need to sort out something for restarts */
+	  fp = fopen(fileout,"w");
+	  assert(fp!=NULL);
+
+	  if (df->iEncode == DF_ENCODE_PPM) {
 		fprintf(fp,"P6\n#T=%20.10f\n%5i %5i\n255\n",dTime,in->nxPix,in->nyPix);
 		fwrite( gray, 3*iMax, sizeof(char), fp);
 		}
@@ -1795,16 +1807,16 @@ void dfFinishFrame( struct DumpFrameContext *df, double dTime, double dStep, str
 
 		writepng_cleanup(&wpng_info);
 #endif
-		}
+	}
 
-	free( gray );
 	fclose(fp);
 
-    if (df->dDumpFrameTime > 0 && dTime >= df->dTime)
-        df->dTime = df->dTime + df->dDumpFrameTime;
-
+	if (df->dDumpFrameTime > 0 && dTime >= df->dTime)
+	  df->dTime = df->dTime + df->dDumpFrameTime;
+	
 	if (df->dDumpFrameStep > 0 && dStep >= df->dStep) 
-        df->dStep = df->dStep + df->dDumpFrameStep;
-
+	  df->dStep = df->dStep + df->dDumpFrameStep;
+	
+	free(gray);
 	}
-  
+}

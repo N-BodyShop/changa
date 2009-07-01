@@ -35,6 +35,7 @@
 #include "parameters.h"
 #include "param.h"
 #include "dumpframe.h"
+#include "liveViz.h"
 
 #include "codes.h"
 #include "CacheInterface.h"
@@ -92,6 +93,7 @@ extern unsigned int _yieldPeriod;
 extern DomainsDec domainDecomposition;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
+extern CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 extern CProxy_TreePiece streamingProxy;
 extern CProxy_CkCacheManager cacheManagerProxy;
 extern CProxy_CkCacheManager streamingCache;
@@ -343,6 +345,7 @@ public:
 	void DumpFrame(double dTime, double dStep);
 	int nextMaxRungIncDF(int nextMaxRung);
 	void pup(PUP::er& p);
+	void liveVizImagePrep(liveVizRequestMsg *msg);
 };
 
 /* IBM brain damage */
@@ -554,7 +557,9 @@ class TreePiece : public CBase_TreePiece {
 	/// Time read in from input file
 	double dStartTime;
 
-private:
+private:        
+	// liveViz 
+	liveVizRequestMsg * savedLiveVizMsg;
 
         // jetley - proxy for load balancer
         CkGroupID proxy;
@@ -1092,9 +1097,11 @@ public:
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
 	void setTypeFromFile(int iSetMask, char *file, const CkCallback& cb);
-	void getCOM(const CkCallback& cb);
-	void getCOMByType(int iType, const CkCallback& cb);
-	void DumpFrame(InDumpFrame in, const CkCallback& cb) ;
+	void getCOM(const CkCallback& cb, int bLiveViz);
+	void getCOMByType(int iType, const CkCallback& cb, int bLiveViz);
+	void DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump) ;
+	void liveVizDumpFrameInit(liveVizRequestMsg *msg);
+
 	/// Charm entry point to build the tree (called by Main), calls collectSplitters
 	void buildTree(int bucketSize, const CkCallback& cb);
 
@@ -1268,6 +1275,12 @@ public:
         GravityParticle *getParticles(){return myParticles;}
 
 };
+
+class LvArray : public CBase_LvArray {
+ public:
+    LvArray() {}
+    LvArray(CkMigrateMessage* m) {}
+    } ;
 
 int decodeReqID(int);
 int encodeOffset(int reqID, int x, int y, int z);

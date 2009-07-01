@@ -881,7 +881,7 @@ void TreePiece::physicalSoft(const double dSoftMax, const double dFac, const int
  * Gathers information for center of mass calculation
  * For each particle type the 0th and first mass moment is summed.
  */
-void TreePiece::getCOM(const CkCallback& cb) {
+void TreePiece::getCOM(const CkCallback& cb, int bLiveViz) {
     int i;
     double com[12]; // structure is m*position and mass for all
 		    // particle types;
@@ -908,14 +908,18 @@ void TreePiece::getCOM(const CkCallback& cb) {
 	    com[11] += m;
 	    }
 	}
-    contribute(12*sizeof(double), com, CkReduction::sum_double, cb);
+    if(bLiveViz)		// Use LiveViz array
+	lvProxy[thisIndex].ckLocal()->contribute(12*sizeof(double), com,
+						 CkReduction::sum_double, cb);
+    else
+	contribute(12*sizeof(double), com, CkReduction::sum_double, cb);
 }
 
 /*
  * Gathers information for center of mass calculation for one type of
  * particle.
  */
-void TreePiece::getCOMByType(int iType, const CkCallback& cb) {
+void TreePiece::getCOMByType(int iType, const CkCallback& cb, int bLiveViz) {
     int i;
     double com[4]; // structure is m*position and mass
 
@@ -930,7 +934,11 @@ void TreePiece::getCOMByType(int iType, const CkCallback& cb) {
 	    com[3] += m;
 	    }
 	}
-    contribute(4*sizeof(double), com, CkReduction::sum_double, cb);
+    if(bLiveViz)		// Use LiveViz array
+	lvProxy[thisIndex].ckLocal()->contribute(4*sizeof(double), com,
+						  CkReduction::sum_double, cb);
+    else
+	contribute(4*sizeof(double), com, CkReduction::sum_double, cb);
 }
 
 struct SortStruct {
@@ -1020,8 +1028,10 @@ TreePiece::setTypeFromFile(int iSetMask, char *file, const CkCallback& cb)
 /*
  * Render this processors portion of the image
  */
-void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb)
+void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump) 
 {
+  if(liveVizDump && (savedLiveVizMsg == NULL)) DumpFrame(in, NULL,liveVizDump);
+
     void *bufImage = malloc(sizeof(in) + in.nxPix*in.nyPix*sizeof(DFIMAGE));
     void *Image = ((char *)bufImage) + sizeof(in);
     int nImage;
@@ -1042,7 +1052,29 @@ void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb)
 #endif
 			   p, sizeof(*p) );
     dfRenderParticles( &in, Image, p, myNumParticles);
-    contribute(sizeof(in) + nImage, bufImage, dfImageReduction, cb);
+    
+    if(!liveVizDump) 
+      contribute(sizeof(in) + nImage, bufImage, dfImageReduction, cb);
+    else
+      {
+	// this is the RGB 3-byte/pixel image created from floating point image
+	// data in dfFinishFrame - here we just create the pointer to pass in
+	unsigned char *gray;
+	
+
+	dfFinishFrame(NULL, 0, 0, &in, Image, true, &gray);
+
+	// final image assembly for liveViz before shipping the image
+	// to the client.
+	// This calls a reduction which may conflict with a TreePiece
+	// reduction.   Hence we use a shadow array "lvProxy" to avoid
+	// this conflict.
+	liveVizDeposit(savedLiveVizMsg, 0, 0, in.nxPix, in.nyPix, gray,
+		       lvProxy[thisIndex].ckLocal(), sum_image_data);
+
+	savedLiveVizMsg = NULL;
+	free(gray);
+      }
     free(bufImage);
     }
 
@@ -5443,5 +5475,19 @@ void TreePiece::updateUnfinishedBucketState(int start, int end, int n, int chunk
   //addMisses(n);
   //CkPrintf("+ misses: %d\n", getMisses());
 }
-
 #endif // INTERLIST_VER
+
+
+/* create this chare's portion of the image
+   We're lazy, so use the existing DumpFrame framework
+*/
+ void TreePiece::liveVizDumpFrameInit(liveVizRequestMsg *msg) 
+ {
+   
+   savedLiveVizMsg = msg;
+   
+   if(thisIndex == 0) {
+        ckerr << "Calling liveViz setup on main chare" << endl;
+	mainChare.liveVizImagePrep(msg);
+   }
+ }

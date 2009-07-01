@@ -31,7 +31,8 @@ using namespace std;
 CProxy_Main mainChare;
 int verbosity;
 int bVDetails;
-CProxy_TreePiece treeProxy;
+CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
+CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 CProxy_CkCacheManager cacheManagerProxy;
 //CkReduction::reducerType callbackReduction;
 bool _cache;
@@ -377,6 +378,10 @@ Main::Main(CkArgMsg* m) {
 	param.iDirector = 1;
 	prmAddParam(prm,"iDirector",paramInt,&param.iDirector,sizeof(int),
 		    "idr","<number of director files: 1, 2, 3> = 1");
+
+	param.bLiveViz = 0;
+	prmAddParam(prm, "bLiveViz", paramInt,&param.bLiveViz, sizeof(int),
+		    "liveviz", "enable real-time simulation render support (disabled)");
 
 	
 	param.bStaticTest = 0;
@@ -734,6 +739,9 @@ Main::Main(CkArgMsg* m) {
 	CProxy_TreePiece pieces = CProxy_TreePiece::ckNew(opts);
 	treeProxy = pieces;
 
+	opts.bindTo(treeProxy);
+	lvProxy = CProxy_LvArray::ckNew(opts);
+	
 	// create the CacheManager
 	cacheManagerProxy = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 
@@ -1364,6 +1372,20 @@ Main::initialForces()
 	  }
       }
      
+
+  if (param.bLiveViz > 0) {
+    ckout << "Initializing liveViz module..." << endl;
+
+  /* Initialize the liveViz module */
+
+    liveVizConfig lvConfig(true,true);
+    
+    int funcIndex = CkIndex_TreePiece::liveVizDumpFrameInit(NULL);
+    CkCallback* lvcb = new CkCallback(funcIndex, treeProxy);
+
+    liveVizInit(lvConfig, treeProxy, *lvcb);
+  }
+
   doSimulation();
 }
 
@@ -1735,13 +1757,13 @@ void Main::DumpFrame(double dTime, double dStep)
 		CkReductionMsg *msgCOMbyType;
 		
 		if (df[i]->bGetCentreOfMass) {
-		    treeProxy.getCOM(CkCallbackResumeThread((void*&)msgCOM));
+		    treeProxy.getCOM(CkCallbackResumeThread((void*&)msgCOM), 0);
 		    com = (double *)msgCOM->getData();
 		    }
 
 		if (df[i]->bGetPhotogenic) {
 		    int iType = TYPE_PHOTOGENIC;
-		    treeProxy.getCOMByType(iType, CkCallbackResumeThread((void*&)msgCOMbyType));
+		    treeProxy.getCOMByType(iType, CkCallbackResumeThread((void*&)msgCOMbyType), 0);
 		    com = (double *)msgCOMbyType->getData();
 		  }
 
@@ -1752,16 +1774,18 @@ void Main::DumpFrame(double dTime, double dStep)
 #endif
 
 		dExp = csmTime2Exp(param.csm,dTime);
-		dfSetupFrame(df[i], dTime, dStep, dExp, com, &in );
+		dfSetupFrame(df[i], dTime, dStep, dExp, com, &in, 0, 0 );
 
         CkReductionMsg *msgDF;
-		treeProxy.DumpFrame(in, CkCallbackResumeThread((void*&)msgDF));
+	treeProxy.DumpFrame(in, CkCallbackResumeThread((void*&)msgDF), false);
 		// N.B. Beginning of message contains the DumpFrame
 		// parameters needed for proper merging.
 		void *Image = ((char *)msgDF->getData())
 		    + sizeof(struct inDumpFrame);
 
-		dfFinishFrame(df[i], dTime, dStep, &in, Image );
+		unsigned char *gray;
+
+		dfFinishFrame(df[i], dTime, dStep, &in, Image, false, &gray);
 		
 		delete msgDF;
 
@@ -1801,6 +1825,54 @@ void Main::pup(PUP::er& p)
     p | bDumpFrame;
     p | bChkFirst;
     }
+
+
+void Main::liveVizImagePrep(liveVizRequestMsg *msg) 
+{
+  double dExp;
+  int i;
+
+  struct inDumpFrame in;
+  double *com;
+  CkReductionMsg *msgCOM;
+  CkReductionMsg *msgCOMbyType;
+  struct DumpFrameContext df_temp;
+
+  // only do the first Director 
+
+  df_temp = *df[0];  
+
+  if (df_temp.bGetCentreOfMass) {
+      treeProxy.getCOM(CkCallbackResumeThread((void*&)msgCOM), 1);
+      com = (double *)msgCOM->getData();
+      }
+
+  if (df_temp.bGetPhotogenic) {
+      int iType = TYPE_PHOTOGENIC;
+      treeProxy.getCOMByType(iType,
+			     CkCallbackResumeThread((void*&)msgCOMbyType), 1);
+      com = (double *)msgCOMbyType->getData();
+      }
+
+#if (0)
+		if (df_temp.bGetOldestStar) {
+		  pstOldestStar(msr->pst, NULL, 0, &com[0], NULL);
+		  }
+#endif
+
+		dExp = csmTime2Exp(param.csm,dTime);
+		dfSetupFrame(&df_temp, dTime, 0.0, dExp, com, &in, 
+			     msg->req.wid, msg->req.ht );
+
+			
+
+		treeProxy.DumpFrame(in, NULL, true);
+  if (df_temp.bGetCentreOfMass)
+      delete msgCOM;
+  if (df_temp.bGetPhotogenic)
+      delete msgCOMbyType;
+  
+}
 
 #include "ParallelGravity.def.h"
 

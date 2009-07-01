@@ -7,6 +7,7 @@ mainmodule ParallelGravity {
   readonly CProxy_Main mainChare;
   readonly int verbosity;
   readonly CProxy_TreePiece treeProxy;
+  readonly CProxy_LvArray lvProxy;
   readonly CProxy_TreePiece streamingProxy;
   readonly CProxy_CkCacheManager cacheManagerProxy;
   readonly CProxy_CkCacheManager streamingCache;
@@ -78,6 +79,7 @@ mainmodule ParallelGravity {
     entry [threaded] void doSimulation();
     entry void restart();
     entry void niceExit();
+    entry void liveVizImagePrep(liveVizRequestMsg *msg);
   };
 
   chare Sorter {
@@ -177,9 +179,10 @@ mainmodule ParallelGravity {
 					const CkCallback &cb);
     entry void setTypeFromFile(int iSetMask, char file[256],
         const CkCallback& cb);
-    entry void getCOM(const CkCallback& cb);
-    entry void getCOMByType(int iType, const CkCallback& cb);
-    entry void DumpFrame(InDumpFrame inn, const CkCallback& cb) ;
+    entry void getCOM(const CkCallback& cb, int bLiveViz);
+    entry void getCOMByType(int iType, const CkCallback& cb, int bLiveViz);
+    entry void DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump) ;
+    entry void liveVizDumpFrameInit(liveVizRequestMsg * msg);
     entry void buildTree(int bucketSize, const CkCallback& cb);
 
     //entry void collectSplitters(CkReductionMsg* m);
@@ -255,6 +258,10 @@ mainmodule ParallelGravity {
 
     // jetley - cuda
     entry void continueStartRemoteChunk(int chunk);
+  };
+
+  array [1D] LvArray {
+      entry LvArray();
   };
 
   initproc void registerStatistics();

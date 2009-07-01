@@ -231,7 +231,7 @@ void dfParseOptions( struct DumpFrameContext *df, char * filename );
 
 void dfParseCameraDirections( struct DumpFrameContext *df, char * filename );
 
-void dfSetupFrame( struct DumpFrameContext *df, double dTime, double dStep, double dExp, double *com, struct inDumpFrame *in );
+void dfSetupFrame( struct DumpFrameContext *df, double dTime, double dStep, double dExp, double *com, struct inDumpFrame *in, int nxPix, int nyPix);
 
 void dfMergeImage( struct inDumpFrame *in, void *Image1, int *nImage1, void *Image2, int *nImage2 );
 void dfClearImage( struct inDumpFrame *in, void *Image, int *nImage );
@@ -257,7 +257,7 @@ void dfRenderImage( PKD pkd, struct inDumpFrame *in, void *vImage );
 void dfRenderImageOld( PKD pkd, struct inDumpFrame *in, void *Image );
 #endif
 
-void dfFinishFrame( struct DumpFrameContext *df, double dTime, double dStep, struct inDumpFrame *in, void *Image );
+void dfFinishFrame( struct DumpFrameContext *df, double dTime, double dStep, struct inDumpFrame *in, void *Image, int liveViz, unsigned char **outgray);
 
 /* Interpolation Functions */
 
