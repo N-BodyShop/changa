@@ -8,7 +8,7 @@ achInFile       = run581.20000
 achOutName      = run581
 iLogInterval    = 1
 iOutInterval    = 50
-iCheckInterval  = 5
+iCheckInterval  = 50
 bGravStep       = 1
 bEpsAccStep     = 0
 dEta            = .02
@@ -24,3 +24,4 @@ dDumpFrameStep  = 5
 #iMaxRung = magnitude of the timstepping division
 #dEta=tolerance parameter for timestep
 #dDelta = maximum timestep in the units chosen (G=1 always)
+bLiveViz = 1
