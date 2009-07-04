@@ -212,7 +212,7 @@ Main::Main(CkArgMsg* m) {
 	param.bPeriodic = 0;
 	prmAddParam(prm, "bPeriodic", paramBool, &param.bPeriodic,
 		    sizeof(int),"per", "Periodic Boundaries");
-	param.nReplicas = 1;
+	param.nReplicas = 0;
 	prmAddParam(prm, "nReplicas", paramInt, &param.nReplicas,
 		    sizeof(int),"nrep", "Number of periodic replicas");
 	param.fPeriod = 1.0;
