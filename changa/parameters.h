@@ -31,7 +31,9 @@ typedef struct parameters {
     int bEwald;
     double dEwCut;
     double dEwhCut;
+    double dTheta;
     double dTheta2;
+    double daSwitchTheta;
     int iOrder;
     CSM csm;			/* cosmo parameters */
     double dRedTo;
@@ -106,7 +108,9 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.bEwald;
     p|param.dEwCut;
     p|param.dEwhCut;
+    p|param.dTheta;
     p|param.dTheta2;
+    p|param.daSwitchTheta;
     p|param.iOrder;
     if(p.isUnpacking())
  	csmInitialize(&param.csm);

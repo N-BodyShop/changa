@@ -1166,8 +1166,9 @@ public:
 
   /// Start a tree based gravity computation.
   /// @param am the active rung for the computation
+  /// @param theta the opening angle
   /// @param cb the callback to use after all the computation has finished
-  void startIteration(int am, const CkCallback& cb);
+  void startIteration(int am, double myTheta, const CkCallback& cb);
   /// As above, but for a smooth operation.
   void setupSmooth();
   void startIterationSmooth(SmoothParams *p, const CkCallback& cb);

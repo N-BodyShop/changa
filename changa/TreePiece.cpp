@@ -3115,12 +3115,15 @@ GenericTreeNode *TreePiece::getStartAncestor(int current, int previous, GenericT
 // Start tree walk and gravity calculation
 
 void TreePiece::startIteration(int am, // the active mask for multistepping
+			       double myTheta, // opening criterion
 			       const CkCallback& cb) {
   LBTurnInstrumentOn();
   iterationNo++;
 
   callback = cb;
   activeRung = am;
+  theta = myTheta;
+  thetaMono = theta*theta*theta*theta;
 
   int oldNumChunks = numChunks;
   dm->getChunks(numChunks, prefetchRoots);

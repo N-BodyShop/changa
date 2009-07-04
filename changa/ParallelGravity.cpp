@@ -60,8 +60,8 @@ int localPartsPerReq;
 int remotePartsPerReq;
 int remoteResumePartsPerReq;
 
-/* readonly */ double theta;
-/* readonly */ double thetaMono;
+double theta;
+double thetaMono;
 /* readonly */ int nSmooth;
 
 ComlibInstanceHandle cinst1, cinst2;
@@ -188,13 +188,17 @@ Main::Main(CkArgMsg* m) {
 	param.bSoftMaxMul = 1;
 	prmAddParam(prm,"bSoftMaxMul", paramBool, &param.bSoftMaxMul,
 		    sizeof(int),"SMM", "Use maximum comoving gravitational softening length as a multiplier +SMM");
-	theta = 0.7;
-	prmAddParam(prm, "dTheta", paramDouble, &theta,
+	param.dTheta = 0.7;
+	prmAddParam(prm, "dTheta", paramDouble, &param.dTheta,
 		    sizeof(double), "theta", "Opening angle");
 	param.dTheta2 = 0.7;
 	prmAddParam(prm, "dTheta2", paramDouble, &param.dTheta2,
 		    sizeof(double),"theta2",
-		    "Opening angle after switchTheta (IGNORED)");
+		    "Opening angle after switchTheta");
+	param.daSwitchTheta = 1./3.;
+	prmAddParam(prm,"daSwitchTheta",paramDouble,&param.daSwitchTheta,
+		    sizeof(double),"aSwitchTheta",
+		    "<a to switch theta at> = 1./3.");
 #ifdef HEXADECAPOLE
 	param.iOrder = 4;
 #else
@@ -477,7 +481,6 @@ Main::Main(CkArgMsg* m) {
 	if(bVDetails)
 	    verbosity = 1;
 	
-        thetaMono = theta*theta*theta*theta;
 	if(prmSpecified(prm, "iMaxRung")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "iMaxRung parameter ignored. MaxRung is " << MAXRUNG
@@ -501,11 +504,11 @@ Main::Main(CkArgMsg* m) {
 #endif
 		  << endl;
 	    }
-	if(prmSpecified(prm, "dTheta2")) {
-	    ckerr << "WARNING: ";
-	    ckerr << "dTheta2 parameter ignored."
-		  << endl;
+	if(!prmSpecified(prm, "dTheta2")) {
+	    param.dTheta2 = param.dTheta;
 	    }
+	theta = param.dTheta;
+        thetaMono = theta*theta*theta*theta;
 	if(prmSpecified(prm, "dExtraStore")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "dExtraStore parameter ignored."
@@ -1086,11 +1089,15 @@ void Main::advanceBigStep(int iStep) {
 
     if(param.bDoGravity) {
 	updateSoft();
+	if(param.csm->bComove) {
+	    double a = csmTime2Exp(param.csm,dTime);
+	    if (a >= param.daSwitchTheta) theta = param.dTheta2; 
+	    }
 	/******** Force Computation ********/
 	ckerr << "Calculating gravity (tree bucket, theta = " << theta
 	      << ") ...";
 	startTime = CkWallTimer();
-	treeProxy.startIteration(activeRung, CkCallbackResumeThread());
+	treeProxy.startIteration(activeRung, theta, CkCallbackResumeThread());
 	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
     }
@@ -1320,11 +1327,15 @@ Main::initialForces()
   
   if(param.bDoGravity) {
       updateSoft();
+      if(param.csm->bComove) {
+	  double a = csmTime2Exp(param.csm,dTime);
+	  if (a >= param.daSwitchTheta) theta = param.dTheta2; 
+	  }
       /******** Force Computation ********/
       ckerr << "Calculating gravity (theta = " << theta
 	    << ") ...";
       startTime = CkWallTimer();
-      treeProxy.startIteration(0, CkCallbackResumeThread());
+      treeProxy.startIteration(0, theta, CkCallbackResumeThread());
       ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
 	    << endl;
       }
