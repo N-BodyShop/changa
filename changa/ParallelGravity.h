@@ -1063,8 +1063,9 @@ public:
   /*****************************/
 
   void kick(int iKickRung, double dDelta[MAXRUNG+1], int bClosing,
-	    int bNeedVPred, double duDelta[MAXRUNG+1], const CkCallback& cb);
-  void drift(double dDelta, int bNeedVPred, double duDelta,
+	    int bNeedVPred, int bGasIsothermal, double duDelta[MAXRUNG+1],
+	    const CkCallback& cb);
+  void drift(double dDelta, int bNeedVPred, int bGasIsothermal, double duDelta,
 	     const CkCallback& cb);
   void initAccel(int iKickRung, const CkCallback& cb);
 /**

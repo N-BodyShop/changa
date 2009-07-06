@@ -679,6 +679,7 @@ void TreePiece::calcEnergy(const CkCallback& cb) {
 void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		     int bClosing, // Are we at the end of a timestep
 		     int bNeedVPred, // do we need to update vpred
+		     int bGasIsothermal, // Isothermal EOS
 		     double duDelta[MAXRUNG+1], // dts for energy
 		     const CkCallback& cb) {
   LBTurnInstrumentOff();
@@ -689,14 +690,18 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 	      if(bClosing) { // update predicted quantities to end of step
 		  p->vPred() = p->velocity
 		      + dDelta[p->rung]*p->treeAcceleration;
-		  p->u() += p->PdV()*duDelta[p->rung];
-		  p->uPred() = p->u();
+		  if(!bGasIsothermal) {
+		      p->u() += p->PdV()*duDelta[p->rung];
+		      p->uPred() = p->u();
+		      }
 		  }
 	      else {	// predicted quantities are at the beginning
 			// of step
 		  p->vPred() = p->velocity;
-		  p->uPred() = p->u();
-		  p->u() += p->PdV()*duDelta[p->rung];
+		  if(!bGasIsothermal) {
+		      p->uPred() = p->u();
+		      p->u() += p->PdV()*duDelta[p->rung];
+		      }
 		  }
 	      }
 	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
@@ -800,6 +805,7 @@ void TreePiece::rungStats(const CkCallback& cb) {
 void TreePiece::drift(double dDelta,  // time step in v containing
 				      // cosmo scaling
 		      int bNeedVpred,
+		      int bGasIsothermal, // Isothermal EOS
 		      double duDelta, // time step for internal energy
 		      const CkCallback& cb) {
   callback = cb;		// called by assignKeys()
@@ -838,9 +844,11 @@ void TreePiece::drift(double dDelta,  // time step in v containing
 	  CkAssert(bInBox);
 	  }
       boundingBox.grow(p->position);
-      if(bNeedVpred) {
+      if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
 	  p->vPred() += dDelta*p->treeAcceleration;
-	  p->uPred() += p->PdV()*duDelta;
+	  if(!bGasIsothermal) {
+	      p->uPred() += p->PdV()*duDelta;
+	      }
 	  }
       }
   CkAssert(bInBox);

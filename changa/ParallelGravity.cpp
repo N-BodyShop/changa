@@ -291,7 +291,7 @@ Main::Main(CkArgMsg* m) {
 	param.bGeometric = 0;
 	prmAddParam(prm,"bGeometric",paramBool,&param.bGeometric,sizeof(int),
 		    "geo","geometric/arithmetic mean to calc Grad(P/rho) = +geo");
-	param.bGasAdiabatic = 1;
+	param.bGasAdiabatic = 0;
 	prmAddParam(prm,"bGasAdiabatic",paramBool,&param.bGasAdiabatic,
 		    sizeof(int),"GasAdiabatic",
 		    "<Gas is Adiabatic> = +GasAdiabatic");
@@ -629,6 +629,7 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "Both adiabatic and isothermal set.";
 	    ckerr << "Defaulting to Adiabatic.";
 	    ckerr << endl;
+	    param.bGasAdiabatic = 1;
 	    param.bGasIsothermal = 0;
 	    }
 	if(prmSpecified(prm, "bBulkViscosity")) {
@@ -709,11 +710,6 @@ Main::Main(CkArgMsg* m) {
 	  ckerr<<"cacheLineDepth "<<_cacheLineDepth<<endl;
         }
 	if (verbosity) {
-	  if(printBinaryAcc==1)
-	    ckerr<<"particle accelerations to be printed in binary format..."<<endl;
-	  else
-	    ckerr<<"particles accelerations to be printed in ASCII format..."<<endl;
-        
 	  ckerr << "Verbosity level " << verbosity << endl;
         }
         if(verbosity) {
@@ -1007,8 +1003,8 @@ void Main::advanceBigStep(int iStep) {
         duKick[iRung] = 0.5*dTimeSub;
         dKickFac[iRung] = csmComoveKickFac(param.csm, dTime, 0.5*dTimeSub);
       }
-      treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas, duKick,
-		     CkCallbackResumeThread());
+      treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas,
+		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
 
       // Dump frame may require a smaller step
       int driftRung = nextMaxRungIncDF(nextMaxRung);
@@ -1027,8 +1023,8 @@ void Main::advanceBigStep(int iStep) {
 		  ckerr << "Drift: Rung " << driftRung << " Delta "
 			<< dTimeSub << endl;
 	      double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
-	      treeProxy.drift(dDriftFac, param.bDoGas, dTimeSub,
-			      CkCallbackResumeThread());
+	      treeProxy.drift(dDriftFac, param.bDoGas, param.bGasIsothermal,
+			      dTimeSub, CkCallbackResumeThread());
 
 	      // Advance time to end of smallest step
 	      dTime += dTimeSub;
@@ -1056,6 +1052,7 @@ void Main::advanceBigStep(int iStep) {
 
     if(verbosity)
       ckerr << "Step: " << iStep << " Substep: " << currentStep
+	    << " ( " << ((double) currentStep)/MAXSUBSTEPS << " )"
             << " Time: " << dTime
             << " Gravity rung " << activeRung << " to "
             << nextMaxRung << endl;
@@ -1145,8 +1142,8 @@ void Main::advanceBigStep(int iStep) {
                                            dTime - 0.5*dTimeSub,
                                            0.5*dTimeSub);
       }
-      treeProxy.kick(activeRung, dKickFac, 1, param.bDoGas, duKick,
-		     CkCallbackResumeThread());
+      treeProxy.kick(activeRung, dKickFac, 1, param.bDoGas,
+		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
     }
 		
   }
@@ -1244,7 +1241,7 @@ void Main::setupICs() {
   }
 	
   if(param.bPeriodic) {	// puts all particles within the boundary
-      treeProxy.drift(0.0, 0, 0.0, CkCallbackResumeThread());
+      treeProxy.drift(0.0, 0, 0, 0.0, CkCallbackResumeThread());
   }
   
   initialForces();
@@ -1283,7 +1280,7 @@ Main::restart()
 	ofstream ofsLog(achLogFileName, ios_base::app);
 	ofsLog << "# ReStarting ChaNGa" << endl;
 	ofsLog.close();
-	treeProxy.drift(0.0, 0, 0.0, CkCallbackResumeThread());
+	treeProxy.drift(0.0, 0, 0, 0.0, CkCallbackResumeThread());
 	mainChare.initialForces();
 	}
     else {
@@ -1432,6 +1429,33 @@ Main::doSimulation()
        && (bOutTime() || iStep == param.nSteps || iStop
 	   || iStep%param.iOutInterval == 0)) {
 	writeOutput(iStep);
+	if(param.bDoDensity) {
+	    double tolerance = 0.01;	// tolerance for domain decomposition
+	    // The following call is to get the particles in key order
+	    // before the sort.
+	    treeProxy.drift(0.0, 0, 0, 0.0, CkCallbackResumeThread());
+	    sorter.startSorting(dataManagerID, tolerance,
+				CkCallbackResumeThread(), true);
+	    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+
+	    ckout << "Calculating total densities ...";
+	    DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
+	    startTime = CkWallTimer();
+	    treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+		  << endl;
+	    ckout << "Reodering ...";
+	    startTime = CkWallTimer();
+	    treeProxy.reOrder(CkCallbackResumeThread());
+	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+		  << endl;
+	    ckout << "Outputting densities ...";
+	    startTime = CkWallTimer();
+	    DenOutputParams pDenOut("den");
+	    treeProxy[0].outputASCII(pDenOut, CkCallbackResumeThread());
+	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+		  << endl;
+	    }
     }
 	  
     if(!iStop && param.iWallRunTime > 0) {
@@ -1510,7 +1534,7 @@ Main::doSimulation()
 	  double tolerance = 0.01;	// tolerance for domain decomposition
 	  // The following call is to get the particles in key order
 	  // before the sort.
-	  treeProxy.drift(0.0, 0, 0.0, CkCallbackResumeThread());
+	  treeProxy.drift(0.0, 0, 0, 0.0, CkCallbackResumeThread());
 	  sorter.startSorting(dataManagerID, tolerance,
 			      CkCallbackResumeThread(), true);
 	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
