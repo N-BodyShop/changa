@@ -161,8 +161,8 @@ public:
 	    
     void initSmoothPrioQueue(int iBucket, State *state) ;
     int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
-    int startNodeProcessEvent(TreePiece *owner){}
-    int finishNodeProcessEvent(TreePiece *owner, State *state){}
+    int startNodeProcessEvent(TreePiece *owner){ return 0; }
+    int finishNodeProcessEvent(TreePiece *owner, State *state){ return 0; }
     int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
     void recvdParticlesFull(GravityParticle *egp,int num,int chunk,
 			int reqID,State *state, TreePiece *tp,
@@ -211,8 +211,8 @@ public:
 		       ) ;
 	    
     int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
-    int startNodeProcessEvent(TreePiece *owner){}
-    int finishNodeProcessEvent(TreePiece *owner, State *state){}
+    int startNodeProcessEvent(TreePiece *owner){ return 0; }
+    int finishNodeProcessEvent(TreePiece *owner, State *state){ return 0; }
     int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
     void recvdParticlesFull(GravityParticle *egp,int num,int chunk,
 			int reqID,State *state, TreePiece *tp,

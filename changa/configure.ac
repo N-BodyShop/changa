@@ -40,8 +40,23 @@ AC_CHECK_HEADER(netinet/in.h,,[MISSING_NETINET=yes])
 if test "${MISSING_NETINET}" = "yes" ; then
    CPPFLAGS="$CPPFLAGS -I/usr/include"
 fi
-AC_CHECK_HEADER(rpc/xdr.h,,[AC_MSG_ERROR([rpc/xdr.h include file missing])])
 
+AC_CHECK_HEADER(rpc/xdr.h,,[MISSING_XDR=yes])
+AC_SEARCH_LIBS([xdr_float], [xdr],,[MISSING_XDR=yes])
+if test "${MISSING_XDR}" = "yes" ; then
+   echo "XDR missing, attempting to use xdr with package"
+   if test -d ../xdr ; then
+   	ln -s $PWD/../xdr ../rpc
+   else
+	echo "Try downloading the xdr package and place it in the parent directory."
+	echo "And do a make in ../xdr"
+	exit
+   fi
+   CPPFLAGS="$CPPFLAGS -I.."
+   LDFLAGS="$LDFLAGS -L../xdr"
+fi
+
+ 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
 AC_C_CONST

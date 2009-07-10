@@ -1038,8 +1038,6 @@ TreePiece::setTypeFromFile(int iSetMask, char *file, const CkCallback& cb)
  */
 void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump) 
 {
-  if(liveVizDump && (savedLiveVizMsg == NULL)) DumpFrame(in, NULL,liveVizDump);
-
     void *bufImage = malloc(sizeof(in) + in.nxPix*in.nyPix*sizeof(DFIMAGE));
     void *Image = ((char *)bufImage) + sizeof(in);
     int nImage;

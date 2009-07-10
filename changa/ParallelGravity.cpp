@@ -1890,18 +1890,17 @@ void Main::liveVizImagePrep(liveVizRequestMsg *msg)
       }
 
 #if (0)
-		if (df_temp.bGetOldestStar) {
-		  pstOldestStar(msr->pst, NULL, 0, &com[0], NULL);
-		  }
+    if (df_temp.bGetOldestStar) {
+ 	 pstOldestStar(msr->pst, NULL, 0, &com[0], NULL);
+    }
 #endif
 
-		dExp = csmTime2Exp(param.csm,dTime);
-		dfSetupFrame(&df_temp, dTime, 0.0, dExp, com, &in, 
-			     msg->req.wid, msg->req.ht );
+  dExp = csmTime2Exp(param.csm,dTime);
+  dfSetupFrame(&df_temp, dTime, 0.0, dExp, com, &in, 
+		     msg->req.wid, msg->req.ht );
+  CkCallback cb(CkCallback::ignore);
+  treeProxy.DumpFrame(in, cb, true);
 
-			
-
-		treeProxy.DumpFrame(in, NULL, true);
   if (df_temp.bGetCentreOfMass)
       delete msgCOM;
   if (df_temp.bGetPhotogenic)
