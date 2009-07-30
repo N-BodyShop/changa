@@ -764,6 +764,7 @@ void momReduceMomc(MOMC *mc,MOMR *mr)
 	}
 
 
+
 /*
  ** This is a new fast version of QEVAL which evaluates
  ** the interaction due to the reduced moment 'm'.
@@ -772,7 +773,7 @@ void momReduceMomc(MOMC *mc,MOMR *mr)
  **
  ** OpCount = (*,+) = (103,72) = 175 - 8 = 167
  */
-void momEvalMomr(MOMR *m,momFloat dir,momFloat x,momFloat y,momFloat z,
+void momEvalMomr(MOMR *m,momFloat dir0,momFloat x,momFloat y,momFloat z,
 				 momFloat *fPot,momFloat *ax,momFloat *ay,momFloat *az)
 {
 	const momFloat onethird = 1.0/3.0;
@@ -780,7 +781,7 @@ void momEvalMomr(MOMR *m,momFloat dir,momFloat x,momFloat y,momFloat z,
 	momFloat xxx,xxy,xxz,xyy,yyy,yyz,xyz;
 	momFloat tx,ty,tz,dir2,g2,g3,g4;
 
-	dir = -dir;
+	momFloat dir = -dir0;
 	dir2 = dir*dir;
 	g2 = 3*dir*dir2*dir2;
 	g3 = -5*g2*dir2;
@@ -825,7 +826,6 @@ void momEvalMomr(MOMR *m,momFloat dir,momFloat x,momFloat y,momFloat z,
 	*ay += xy + xxy + ty + y*dir2;
 	*az += xz + xxz + tz + z*dir2;
 	}
-
 
 void momMomr2Momc(MOMR *ma,MOMC *mc)
 {

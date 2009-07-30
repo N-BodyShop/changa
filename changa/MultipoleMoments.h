@@ -16,6 +16,75 @@
 #include "moments.h"
 #endif
 
+#include "SSEdefs.h"
+
+#if defined(__SSE2__) && defined(HEXADECAPOLE) 
+/*
+ ** This is a new fast version of QEVAL which evaluates
+ ** the interaction due to the reduced moment 'm'.
+ ** This version is nearly two times as fast as a naive
+ ** implementation.
+ **
+ ** OpCount = (*,+) = (103,72) = 175 - 8 = 167
+ */
+inline 
+void momEvalMomr(MOMR *m,SSEcosmoType dir0,SSEcosmoType x,SSEcosmoType y,
+		 SSEcosmoType z,SSEcosmoType *fPot,SSEcosmoType *ax,
+		 SSEcosmoType *ay,SSEcosmoType *az)
+{
+	const SSEcosmoType onethird = 1.0/3.0;
+	SSEcosmoType xx,xy,xz,yy,yz,zz;
+	SSEcosmoType xxx,xxy,xxz,xyy,yyy,yyz,xyz;
+	SSEcosmoType tx,ty,tz,dir2,g2,g3,g4;
+	SSEcosmoType dir;
+
+	dir = -dir0;
+	dir2 = dir*dir;
+	g2 = 3*dir*dir2*dir2;
+	g3 = -5*g2*dir2;
+	g4 = -7*g3*dir2;
+	/*
+	 ** Calculate the funky distance terms.
+	 */
+	xx = 0.5*x*x;
+	xy = x*y;
+	xz = x*z;
+	yy = 0.5*y*y;
+	yz = y*z;
+	zz = 0.5*z*z;
+	xxx = x*(onethird*xx - zz);
+	xxz = z*(xx - onethird*zz);
+	yyy = y*(onethird*yy - zz);
+	yyz = z*(yy - onethird*zz);
+	xx -= zz;
+	yy -= zz;
+	xxy = y*xx;
+	xyy = x*yy;
+	xyz = xy*z;
+	/*
+	 ** Now calculate the interaction up to Hexadecapole order.
+	 */
+	tx = g4*(m->xxxx*xxx + m->xyyy*yyy + m->xxxy*xxy + m->xxxz*xxz + m->xxyy*xyy + m->xxyz*xyz + m->xyyz*yyz);
+	ty = g4*(m->xyyy*xyy + m->xxxy*xxx + m->yyyy*yyy + m->yyyz*yyz + m->xxyy*xxy + m->xxyz*xxz + m->xyyz*xyz);
+	tz = g4*(-m->xxxx*xxz - (m->xyyy + m->xxxy)*xyz - m->yyyy*yyz + m->xxxz*xxx + m->yyyz*yyy - m->xxyy*(xxz + yyz) + m->xxyz*xxy + m->xyyz*xyy);
+	g4 = 0.25*(tx*x + ty*y + tz*z);
+	xxx = g3*(m->xxx*xx + m->xyy*yy + m->xxy*xy + m->xxz*xz + m->xyz*yz);
+	xxy = g3*(m->xyy*xy + m->xxy*xx + m->yyy*yy + m->yyz*yz + m->xyz*xz);
+	xxz = g3*(-(m->xxx + m->xyy)*xz - (m->xxy + m->yyy)*yz + m->xxz*xx + m->yyz*yy + m->xyz*xy);
+	g3 = onethird*(xxx*x + xxy*y + xxz*z);
+	xx = g2*(m->xx*x + m->xy*y + m->xz*z);
+	xy = g2*(m->yy*y + m->xy*x + m->yz*z);
+	xz = g2*(-(m->xx + m->yy)*z + m->xz*x + m->yz*y);
+	g2 = 0.5*(xx*x + xy*y + xz*z);
+	dir *= m->m;
+	dir2 *= -(dir + 5*g2 + 7*g3 + 9*g4);
+	*fPot += dir + g2 + g3 + g4;
+	*ax += xx + xxx + tx + x*dir2;
+	*ay += xy + xxy + ty + y*dir2;
+	*az += xz + xxz + tz + z*dir2;
+	}
+#endif
+
 /// A representation of a multipole expansion.
 class MultipoleMoments {
 public:
