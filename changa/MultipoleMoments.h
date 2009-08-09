@@ -40,9 +40,9 @@ void momEvalMomr(MOMR *m,SSEcosmoType dir0,SSEcosmoType x,SSEcosmoType y,
 
 	dir = -dir0;
 	dir2 = dir*dir;
-	g2 = 3*dir*dir2*dir2;
-	g3 = -5*g2*dir2;
-	g4 = -7*g3*dir2;
+	g2 = 3.0*dir*dir2*dir2;
+	g3 = -5.0*g2*dir2;
+	g4 = -7.0*g3*dir2;
 	/*
 	 ** Calculate the funky distance terms.
 	 */
@@ -77,7 +77,7 @@ void momEvalMomr(MOMR *m,SSEcosmoType dir0,SSEcosmoType x,SSEcosmoType y,
 	xz = g2*(-(m->xx + m->yy)*z + m->xz*x + m->yz*y);
 	g2 = 0.5*(xx*x + xy*y + xz*z);
 	dir *= m->m;
-	dir2 *= -(dir + 5*g2 + 7*g3 + 9*g4);
+	dir2 *= -(dir + 5.0*g2 + 7.0*g3 + 9.0*g4);
 	*fPot += dir + g2 + g3 + g4;
 	*ax += xx + xxx + tx + x*dir2;
 	*ay += xy + xxy + ty + y*dir2;

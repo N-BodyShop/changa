@@ -327,9 +327,14 @@ inline int partBucketForce(ExternalGravityParticle *part,
     r = -packedPos + offset + part->position; 
     rsq = r.lengthSquared();
     twoh = part->soft + packedSoft; 
-    int select = movemask(rsq > 0); 
-    if(select) {
+    SSEcosmoType select = rsq > COSMO_CONST(0.0); 
+    int compare = movemask(select); 
+    if(compare) {
       SPLINE(rsq, twoh, a, b);
+      if ((~compare) & cosmoMask) {
+	a = select & a; 
+	b = select & b; 
+      }
       SSEcosmoType SSELoad(packedMass, activeParticles[i, ]->mass);  
       SSEcosmoType SSELoad(packedDtGrav, activeParticles[i, ]->dtGrav);
       Vector3D<SSEcosmoType> 
