@@ -507,7 +507,7 @@ void LocalTargetWalk::resumeWalk(GenericTreeNode *node, State *state_, int chunk
 			if(targetBucket != 0){
 				prevBucket = targetBucket;
 			}
-			while(ownerTP->getBucket(targetBucket)->rungs < activeRung && targetBucket < endBucket){
+			while(targetBucket < endBucket && ownerTP->getBucket(targetBucket)->rungs < activeRung){
 				targetBucket++;
 			}
 		}
