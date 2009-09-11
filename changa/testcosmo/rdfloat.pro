@@ -83,7 +83,7 @@ pro rdfloat,name,v1,v2,v3,v4,v5,v6,v7,v8,v9,v10,v11,v12,v13,v14,v15,v16,v17, $
    if skipline GT 0 then $
         for i=0L,skipline-1 do readf, lun, temp
    readf,lun,temp
-   colval = str_sep( strtrim( strcompress(temp),2),' ')
+   colval = strsplit( strtrim( strcompress(temp),2),' ')
    ncol = N_elements(colval)
 
 ;Create big output array and read entire file into the array
