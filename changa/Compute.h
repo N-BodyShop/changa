@@ -33,6 +33,7 @@ class Compute{
   Compute(ComputeType t) : type(t) /*state(0)*/{}
 
   public:
+  int nActive;  // accumulate total number of active particles.
   void setOpt(Opt *opt);
   // should the dowork method have a state argument?
   // yes, allows listcompute object to keep modifying state

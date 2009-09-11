@@ -30,11 +30,9 @@ class ActiveWalk {
 class BucketGravityRequest {
 public:
 		
-	unsigned int numAdditionalRequests;
 	int finished;
 
-	BucketGravityRequest(unsigned int bucketSize = 0) :
-	  numAdditionalRequests(0), finished(0) {
+	BucketGravityRequest(unsigned int bucketSize = 0) : finished(0) {
 	}
 	
 };

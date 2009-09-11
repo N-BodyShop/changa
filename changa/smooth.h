@@ -29,6 +29,7 @@ public:
     int nParticlesPending;
     int mynParts; 
     bool started;
+    
     NearNeighborState(int nParts, int nSmooth) {
         Qs = new pqSmoothNode*[nParts+2];
 	heap_sizes = new int[nParts+2]; 

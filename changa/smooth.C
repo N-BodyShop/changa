@@ -59,9 +59,6 @@ int SmoothCompute::doWork(GenericTreeNode *node, // Node to test
 			  bool isRoot, 
 			  bool &didcomp, int awi)
 {
-    // jetley - no need for this, tp was set in constructor
-    //TreePiece *tp = tw->getOwnerTP();
-    
     // so that we have a quick return in case of empty nodes
     if(node->getType() == Empty || node->getType() == CachedEmpty){
 	return DUMP;
@@ -141,20 +138,21 @@ int SmoothCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePiece
     }
 
 // called after constructor, so tp should be set
-State *KNearestSmoothCompute::getNewState(int d1){
+State *KNearestSmoothCompute::getNewState(int nBuckets){
   NearNeighborState *state = new NearNeighborState(tp->myNumParticles+2, nSmooth);
-  //state->counterArrays.reserve(1);		   // array to keep track of
-  state->counterArrays[0] = new int [d1];
+  // array to keep track of outstanding requests
+  state->counterArrays[0] = new int [nBuckets];
   state->counterArrays[1] = 0;
-  //state->counterArrays[0].reserve(tp->numBuckets); // outstanding requests
-  //for (int j=0; j<tp->numBuckets; ++j) {
-  for(int j = 0; j < d1; ++j){
+
+  for(int j = 0; j < nBuckets; ++j){
     initSmoothPrioQueue(j, state);
     state->counterArrays[0][j] = 1;	// so we know that the local
 					// walk is not finished.
   }
   state->started = true;
   state->nParticlesPending = tp->myNumParticles;
+  state->currentBucket = 0;
+  state->bWalkDonePending = 0;
   return state;
 }
 
@@ -255,14 +253,19 @@ void TreePiece::setupSmooth() {
   int oldNumChunks = numChunks;
   dm->getChunks(numChunks, prefetchRoots);
   CkArrayIndexMax idxMax = CkArrayIndex1D(thisIndex);
-  bWalkDonePending = 0;
-  streamingCache[CkMyPe()].cacheSync(numChunks, idxMax, localIndex);
+  if (numChunks == 0 && myNumParticles == 0) numChunks = 1;
+  cacheSmoothPart[CkMyPe()].cacheSync(numChunks, idxMax, localIndex);
+  cacheNode[CkMyPe()].cacheSync(numChunks, idxMax, localIndex);
   
+  // The following if is necessary to prevent nodes containing only TreePieces
+  // without particles from getting stuck and crashing.
   if (myNumParticles == 0) {
     // No particles assigned to this TreePiece
-    for (int i=0; i< numChunks; ++i) streamingCache[CkMyPe()].finishedChunk(i, 0);
-    contribute(0, 0, CkReduction::concat, callback);
-    return;
+      for (int i=0; i< numChunks; ++i) {
+	  cacheNode[CkMyPe()].finishedChunk(i, 0);
+	  cacheSmoothPart[CkMyPe()].finishedChunk(i, 0);
+	  }
+      return;
   }
   
   if (oldNumChunks != numChunks && remainingChunk != NULL) {
@@ -283,16 +286,11 @@ void TreePiece::setupSmooth() {
     particleInterRemote[i] = 0;
   }
   particleInterLocal = 0;
-  nActive = 0;
   iterationNo++;
 
-  //CkAssert(localCache != NULL);
   if(verbosity>1)
     CkPrintf("Node: %d, TreePiece %d: I have %d buckets\n", CkMyNode(),
     	     thisIndex,numBuckets);
-
-  currentBucket = 0;
-  currentRemoteBucket = 0;
 
 }
 
@@ -302,10 +300,12 @@ void TreePiece::startIterationSmooth(// type of smoothing and parameters
 				     SmoothParams* params,
 				     const CkCallback& cb) {
 
-  callback = cb;
+  cbSmooth = cb;
   activeRung = params->activeRung;
 
   setupSmooth();
+  if (myNumParticles == 0)
+      return;
 
   for (int i=0; i<numChunks; ++i) remainingChunk[i] = myNumParticles;
 
@@ -319,9 +319,7 @@ void TreePiece::startIterationSmooth(// type of smoothing and parameters
   sSmoothState = sSmooth->getNewState(numBuckets);
   optSmooth = new SmoothOpt;
 
-  completedActiveWalks = 0;	// XXX Potential race with Gravity Walk
-  //smoothAwi = addActiveWalk(sTopDown,sSmooth,optSmooth,sSmoothState);
-  smoothAwi = addActiveWalk(twSmooth,sSmooth,optSmooth,sSmoothState);
+  addActiveWalk(smoothAwi, twSmooth,sSmooth,optSmooth,sSmoothState);
 #ifdef CHECK_WALK_COMPLETIONS
   CkPrintf("[%d] addActiveWalk smooth (%d)\n", thisIndex, activeWalks.length());
 #endif
@@ -334,6 +332,7 @@ void TreePiece::startIterationSmooth(// type of smoothing and parameters
 
 template <class Tsmooth>
 void TreePiece::initBucketsSmooth(Tsmooth tSmooth) {
+  tSmooth->nActive = 0;
   for (unsigned int j=0; j<numBuckets; ++j) {
     GenericTreeNode* node = bucketList[j];
     int numParticlesInBucket = node->particleCount;
@@ -347,7 +346,7 @@ void TreePiece::initBucketsSmooth(Tsmooth tSmooth) {
     for(int i = node->firstParticle; i <= node->lastParticle; ++i) {
 	if (myParticles[i].rung >= activeRung
 	    && TYPETest(&myParticles[i], tSmooth->params->iType)) {
-	    nActive++;
+	    tSmooth->nActive++;
 	    tSmooth->params->initSmoothParticle(&myParticles[i]);
 	    // node->boundingBox.grow(myParticles[i].position);
       }
@@ -371,9 +370,12 @@ void TreePiece::calculateSmoothLocal() {
 void TreePiece::nextBucketSmooth(dummyMsg *msg){
   unsigned int i=0;
 
+  int currentBucket = sSmoothState->currentBucket;
+  
   while(i<_yieldPeriod && currentBucket<numBuckets){
     smoothNextBucket();
     currentBucket++;
+    sSmoothState->currentBucket++;
     i++;
   }
 
@@ -446,8 +448,8 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 
 void TreePiece::smoothBucketComputation() {
   twSmooth->init(sSmooth, this);
+  int currentBucket = sSmoothState->currentBucket;
   sSmooth->init(bucketList[currentBucket], activeRung, optSmooth);
-  State *smoothState = activeWalks[smoothAwi].s;
 
   // start the tree walk from the tree built in the cache
   //  if (bucketList[currentBucket]->rungs >= activeRung) {
@@ -456,27 +458,27 @@ void TreePiece::smoothBucketComputation() {
       if(!chunkRoot){
         continue;
       }
-      twSmooth->walk(chunkRoot, smoothState, cr,
+      twSmooth->walk(chunkRoot, sSmoothState, cr,
 		     encodeOffset(currentBucket, 0,0,0), smoothAwi);
       for(int x = -nReplicas; x <= nReplicas; x++) {
         for(int y = -nReplicas; y <= nReplicas; y++) {
           for(int z = -nReplicas; z <= nReplicas; z++) {
 	      if(x || y || z)
-		  twSmooth->walk(chunkRoot, smoothState, cr,
+		  twSmooth->walk(chunkRoot, sSmoothState, cr,
 				 encodeOffset(currentBucket, x,y,z), smoothAwi);
           }
         }
       }
     }
-  smoothState->counterArrays[0][currentBucket]--;
+  sSmoothState->counterArrays[0][currentBucket]--;
 } 
 
 void TreePiece::smoothNextBucket() {
+  int currentBucket = sSmoothState->currentBucket;
   if(currentBucket >= numBuckets)
     return;
-  State *smoothState = activeWalks[smoothAwi].s;
   smoothBucketComputation();
-  ((NearNeighborState *)smoothState)->finishBucketSmooth(currentBucket, this);
+  ((NearNeighborState *)sSmoothState)->finishBucketSmooth(currentBucket, this);
 }
 
 void NearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
@@ -490,11 +492,12 @@ void NearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
     nParticlesPending -= node->particleCount;
     if(started && nParticlesPending == 0) {
       started = false;
-      cacheManagerProxy[CkMyPe()].finishedChunk(0, 0);
+      cacheNode[CkMyPe()].finishedChunk(0, 0);
+      cacheSmoothPart[CkMyPe()].finishedChunk(0, 0);
 #ifdef CHECK_WALK_COMPLETIONS
       CkPrintf("[%d] markWalkDone NearNeighborState\n", tp->getIndex());
 #endif
-      tp->markWalkDone();
+      tp->markSmoothWalkDone();
       if(verbosity>1)
 	CkPrintf("[%d] TreePiece %d finished smooth with bucket %d\n",CkMyPe(),
 		 tp->thisIndex,iBucket);
@@ -503,6 +506,38 @@ void NearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
 	     << endl;
     }
   }
+}
+
+void TreePiece::markSmoothWalkDone() 
+{
+	CkCallback cb = CkCallback(CkIndex_TreePiece::finishSmoothWalk(),
+				   pieces);
+	// Use shadow array to avoid reduction conflict
+	smoothProxy[thisIndex].ckLocal()->contribute(0, 0,
+						     CkReduction::concat, cb);
+    }
+
+void TreePiece::finishSmoothWalk()
+{
+  // Furthermore, we need to wait for outstanding flushes to be
+  // processed for the combiner cache.
+  if(sSmooth && nCacheAccesses > 0) {
+    sSmoothState->bWalkDonePending = 1;
+    return;
+  }
+
+  nCacheAccesses = 0; // reset for next walk.
+
+  sSmooth->freeState(sSmoothState);
+  delete sSmooth;
+  delete optSmooth;
+  delete twSmooth;
+  sSmooth = 0;
+#ifdef CHECK_WALK_COMPLETIONS
+  CkPrintf("[%d] inside finishSmoothWalk contrib callback\n", thisIndex);
+#endif
+  smoothProxy[thisIndex].ckLocal()->contribute(0, 0, CkReduction::concat,
+					       cbSmooth);
 }
 
 void KNearestSmoothCompute::walkDone(State *state) {
@@ -538,6 +573,8 @@ State *ReSmoothCompute::getNewState(int nBucket){
     }
   state->started = true;
   state->nParticlesPending = tp->myNumParticles;
+  state->currentBucket = 0;
+  state->bWalkDonePending = 0;
   return state;
 }
 
@@ -630,7 +667,7 @@ int ReSmoothCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state,
 void TreePiece::startIterationReSmooth(SmoothParams* params,
 				       const CkCallback& cb) {
 
-  callback = cb;
+  cbSmooth = cb;
   activeRung = params->activeRung;
 
   setupSmooth();
@@ -647,8 +684,7 @@ void TreePiece::startIterationReSmooth(SmoothParams* params,
   sSmoothState = sSmooth->getNewState(numBuckets);
   optSmooth = new SmoothOpt;
 
-  completedActiveWalks = 0;	// XXX Potential race with Gravity Walk
-  smoothAwi = addActiveWalk(twSmooth,sSmooth,optSmooth,sSmoothState);
+  addActiveWalk(smoothAwi, twSmooth,sSmooth,optSmooth,sSmoothState);
 #ifdef CHECK_WALK_COMPLETIONS
   CkPrintf("[%d] addActiveWalk reSmooth (%d)\n", thisIndex, activeWalks.length());
 #endif
@@ -671,10 +707,12 @@ void TreePiece::calculateReSmoothLocal() {
 //
 void TreePiece::nextBucketReSmooth(dummyMsg *msg){
   unsigned int i=0;
-
+  int currentBucket = sSmoothState->currentBucket;
+  
   while(i<_yieldPeriod && currentBucket<numBuckets){
     reSmoothNextBucket();
     currentBucket++;
+    sSmoothState->currentBucket++;
     i++;
   }
 
@@ -686,11 +724,11 @@ void TreePiece::nextBucketReSmooth(dummyMsg *msg){
 }
 
 void TreePiece::reSmoothNextBucket() {
+  int currentBucket = sSmoothState->currentBucket;
   if(currentBucket >= numBuckets)
     return;
-  State *smoothState = activeWalks[smoothAwi].s;
   smoothBucketComputation();
-  ((ReNearNeighborState *)smoothState)->finishBucketSmooth(currentBucket, this);
+  ((ReNearNeighborState *)sSmoothState)->finishBucketSmooth(currentBucket, this);
 }
 
 void ReNearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
@@ -704,11 +742,12 @@ void ReNearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
     nParticlesPending -= node->particleCount;
     if(started && nParticlesPending == 0) {
       started = false;
-      cacheManagerProxy[CkMyPe()].finishedChunk(0, 0);
+      cacheNode[CkMyPe()].finishedChunk(0, 0);
+      cacheSmoothPart[CkMyPe()].finishedChunk(0, 0);
 #ifdef CHECK_WALK_COMPLETIONS
       CkPrintf("[%d] markWalkDone ReNearNeighborState\n", tp->getIndex());
 #endif
-      tp->markWalkDone();
+      tp->markSmoothWalkDone();
       if(verbosity>1)
 	CkPrintf("[%d] TreePiece %d finished smooth with bucket %d\n",CkMyPe(),
 		 tp->thisIndex,iBucket);

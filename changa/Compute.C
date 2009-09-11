@@ -41,7 +41,8 @@ State *Compute::getNewState(int dim1, int dim2){
   // 1. remainingChunk[] - sized numChunks
   s->counterArrays[0] = new int [dim1];
   s->counterArrays[1] = new int [dim2];
-
+  s->currentBucket = 0;
+  s->bWalkDonePending = 0;
   return s;
 }
 
@@ -50,6 +51,8 @@ State *Compute::getNewState(int dim1){
   State *s = new State();
   s->counterArrays[0] = new int [dim1];
   s->counterArrays[1] = 0;
+  s->currentBucket = 0;
+  s->bWalkDonePending = 0;
   return s;
 }
 
@@ -132,6 +135,8 @@ State *ListCompute::getNewState(int d1, int d2){
   s->counterArrays[1] = new int [d2];
   // one boolean for each chunk
   s->placedRoots = new bool [d2];
+  s->currentBucket = 0;
+  s->bWalkDonePending = 0;
 
   return s;
 }
@@ -142,6 +147,8 @@ State *ListCompute::getNewState(int d1){
   s->counterArrays[1] = 0;
   // no concept of chunks in local computation
   s->placedRoots = new bool [1];
+  s->currentBucket = 0;
+  s->bWalkDonePending = 0;
   return s;
 }
 
@@ -152,6 +159,8 @@ State *ListCompute::getNewState(){
   // this function used for remote-resume states, 
   // no placedRoots vars required
   s->placedRoots = 0;
+  s->currentBucket = 0;
+  s->bWalkDonePending = 0;
   return s;
 }
 
@@ -254,9 +263,7 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
   Vector3D<double> offset = tp->decodeOffset(reqID);
   int reqIDlist = decodeReqID(reqID);
   CkAssert(num > 0);
-  //tp->bucketReqs[reqIDlist].numAdditionalRequests -= num;
   state->counterArrays[0][reqIDlist] -= 1;
-  //tp->remainingChunk[chunk] -= num;
   state->counterArrays[1][chunk] -= 1;
 
   GenericTreeNode* reqnode = tp->bucketList[reqIDlist];
@@ -298,7 +305,8 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
   tp->finishBucket(reqIDlist);
   CkAssert(state->counterArrays[1][chunk] >= 0);
   if (state->counterArrays[1][chunk] == 0) {
-    cacheManagerProxy[CkMyPe()].finishedChunk(chunk, tp->nodeInterRemote[chunk]+tp->particleInterRemote[chunk]);
+    cacheNode[CkMyPe()].finishedChunk(chunk, tp->nodeInterRemote[chunk]);
+    cacheGravPart[CkMyPe()].finishedChunk(chunk, tp->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d GravityCompute::recvdParticles\n", tp->getIndex(), chunk);
 #endif
@@ -329,7 +337,8 @@ int GravityCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, in
   state->counterArrays[1][chunk] --;
   CkAssert(state->counterArrays[1][chunk] >= 0);
   if (state->counterArrays[1][chunk] == 0) {
-    streamingCache[CkMyPe()].finishedChunk(chunk, owner->nodeInterRemote[chunk]+owner->particleInterRemote[chunk]);
+    cacheNode[CkMyPe()].finishedChunk(chunk, owner->nodeInterRemote[chunk]);
+    cacheGravPart[CkMyPe()].finishedChunk(chunk, owner->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d GravityCompute::nodeRecvdEvent\n", owner->getIndex(), chunk);
 #endif
@@ -388,7 +397,8 @@ int ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int r
 #if COSMO_PRINT_BK > 1
     CkPrintf("[%d] FINISHED CHUNK %d from nodeRecvdEvent\n", owner->getIndex(), chunk);
 #endif
-    streamingCache[CkMyPe()].finishedChunk(chunk, owner->nodeInterRemote[chunk]+owner->particleInterRemote[chunk]);
+    cacheNode[CkMyPe()].finishedChunk(chunk, owner->nodeInterRemote[chunk]);
+    cacheGravPart[CkMyPe()].finishedChunk(chunk, owner->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d ListCompute::nodeRecvdEvent\n", owner->getIndex(), chunk);
 #endif
@@ -962,7 +972,8 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
 #if COSMO_PRINT_BK > 1
     CkPrintf("[%d] FINISHED CHUNK %d from recvdParticles\n", tp->getIndex(), chunk);
 #endif
-    cacheManagerProxy[CkMyPe()].finishedChunk(chunk, tp->nodeInterRemote[chunk]+tp->particleInterRemote[chunk]);
+    cacheNode[CkMyPe()].finishedChunk(chunk, tp->nodeInterRemote[chunk]);
+    cacheGravPart[CkMyPe()].finishedChunk(chunk, tp->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d ListCompute::recvdParticles\n", tp->getIndex(), chunk);
 #endif

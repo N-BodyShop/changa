@@ -38,20 +38,6 @@ void DataManager::init() {
 #endif
 }
 
-/*
-void DataManager::acceptCandidateKeys(const SFC::Key* keys, const int n, int isRefine, const CkCallback& cb) {
-  if (localCache == NULL) {
-    localCache = cacheManagerProxy.ckLocalBranch();
-  }
-	boundaryKeys.resize(n);
-	copy(keys, keys + n, boundaryKeys.begin());
-	//tell the TreePieces on this node to evaluate the splitter keys
-	map<int,GenericTreeNode*> *myTreePieces = localCache->getRegisteredChares();
-	for(map<int,GenericTreeNode*>::iterator iter = myTreePieces->begin(); iter != myTreePieces->end(); ++iter)
-		treePieces[iter->first].evaluateBoundaries(isRefine, cb);
-}
-*/
-
 void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb) {
 	boundaryKeys.resize(n);
 	copy(keys, keys + n, boundaryKeys.begin());
@@ -451,12 +437,13 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
   int numCachedParticles = 0;
   int totalNumBuckets = 0;
 
-  cacheType *wholecache = cacheManagerProxy[CkMyPe()].getCache();
-  cacheType *cache = &wholecache[chunk];
+  cacheType *wholeNodeCache = cacheNode[CkMyPe()].getCache();
+  cacheType *ctNode = &wholeNodeCache[chunk];
+  cacheType *wholePartCache = cacheGravPart[CkMyPe()].getCache();
+  cacheType *ctPart = &wholePartCache[chunk];
 
   // find out number of particles and nodes cached
   // get them from cache - iterate and count each type
-  int size = cache->size();
 
   CkVec<CudaMultipoleMoments> *postPrefetchMoments = new CkVec<CudaMultipoleMoments>;
   CkVec<CompactPartData> *postPrefetchParticles = new CkVec<CompactPartData>;
@@ -464,8 +451,8 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
 
   // XXX - better way to estimate NL, NLB, C, CB nodes/particles? 
   // thse are just guessed initial sizes for CkVecs
-  numNodes = size;
-  numParticles = size;
+  numNodes = ctNode->size();
+  numParticles = ctPart->size();
 
   postPrefetchMoments->reserve(numNodes);
   postPrefetchParticles->reserve(numParticles);
@@ -518,8 +505,8 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
       NodeKey key = node->getKey();
       key <<= 1;
 
-      cacheType::iterator p = cache->find(key);
-      if (p != cache->end() && p->second->replyRecvd) {
+      cacheType::iterator p = ctPart->find(key);
+      if (p != ctPart->end() && p->second->replyRecvd) {
         // found particles
         // mark presence and add to data to ship
         parts = (ExternalGravityParticle *)p->second->data;
@@ -545,8 +532,8 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
         }
         else{ // look in cache
     	  NodeKey childKey = node->getChildKey(i);
-          cacheType::iterator p = cache->find(childKey);
-          if (p != cache->end() && p->second->replyRecvd) {
+          cacheType::iterator p = ctNode->find(childKey);
+          if (p != ctNode->end() && p->second->replyRecvd) {
             // found node, enqueue
     	    queue.enq((GenericTreeNode *)p->second->data);
     	  }

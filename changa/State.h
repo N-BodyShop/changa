@@ -7,8 +7,10 @@
 // states
 class State {
   public:
-  int *counterArrays[2];
-  virtual ~State() {}
+    int bWalkDonePending; // needed for combiner cache flushes
+    int currentBucket;  // The bucket we have started to walk.
+    int *counterArrays[2];
+    virtual ~State() {}
 };
 
 #if INTERLIST_VER > 0

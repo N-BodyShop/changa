@@ -94,11 +94,14 @@ extern DomainsDec domainDecomposition;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
 extern CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
+extern CProxy_LvArray smoothProxy;  // Proxy for smooth reduction
 extern CProxy_TreePiece streamingProxy;
-extern CProxy_CkCacheManager cacheManagerProxy;
-extern CProxy_CkCacheManager streamingCache;
 extern unsigned int numTreePieces;
 extern unsigned int particlesPerChare;
+
+extern CProxy_CkCacheManager cacheGravPart;
+extern CProxy_CkCacheManager cacheSmoothPart;
+extern CProxy_CkCacheManager cacheNode;
 
 extern ComlibInstanceHandle cinst1, cinst2;
 
@@ -317,6 +320,9 @@ class Main : public CBase_Main {
 	double dSimStartTime;   // Start time for entire simulation
 	int iStop;		/* indicate we're stopping the
 				   simulation early */
+	int iPhase;
+	int nPhases;		/* number of walks that a node cache
+				   will service */
 public:
 
 	Main(CkArgMsg* m);
@@ -431,29 +437,23 @@ class TreePiece : public CBase_TreePiece {
    Opt *optSmooth;
 
    CkVec<ActiveWalk> activeWalks;
-   int completedActiveWalks;
+   int completedActiveWalks; // XXX this should be part of the gravity
+			     // walk state.
    int nCacheAccesses; // keep track of outstanding cache accesses to
-		       // know when writebacks complete.
-   int bWalkDonePending; // A walk is marked as done but cache flushes
-			 // need to complete
-#if INTERLIST_VER > 0
-   //int misses;
-   int interListAwi;
-#endif
-   int remoteGravityAwi;
-
-   int prefetchAwi;
-   int smoothAwi;
+		       // know when writebacks complete.  XXX this
+		       // should be part of the smooth state
 
  public:
 #if INTERLIST_VER > 0
    // used for local and remote walks
    State *sInterListStateLocal, *sInterListStateRemote;
 #endif
-        int addActiveWalk(TreeWalk *tw, Compute *c, Opt *o, State *s);
+   void addActiveWalk(int iAwi, TreeWalk *tw, Compute *c, Opt *o, State *s);
 
         void markWalkDone();
 	void finishWalk();
+        void markSmoothWalkDone();
+	void finishSmoothWalk();
 
         int getIndex() {
           return thisIndex;
@@ -492,9 +492,6 @@ class TreePiece : public CBase_TreePiece {
 
         /// Start a new remote computation upon prefetch finished
         void startRemoteChunk();
-        int getCurrentBucket(){
-        	return currentBucket;
-        }
 
         int getCurrentRemoteBucket(){
         	return currentRemoteBucket;
@@ -574,6 +571,8 @@ private:
 	/// @brief Used to inform the mainchare that the requested operation has
 	/// globally finished
 	CkCallback callback;
+	/// smooth globally finished
+	CkCallback cbSmooth;
 	/// Total Particles in the simulation
 	int64_t nTotalParticles;
 	/// Total number of particles contained in this chare
@@ -645,7 +644,6 @@ private:
 	std::string basefilename;
 	// Bounding box of the entire simulation
 	OrientedBox<float> boundingBox;
-	bool started;
 	unsigned iterationNo;
 	/// The root of the global tree, always local to any chare
 	GenericTreeNode* root;
@@ -732,8 +730,6 @@ private:
 
 	/// Size of bucketList, total number of buckets present
 	unsigned int numBuckets;
-	/// Used to start the computation for all buckets, one after the other
-	unsigned int currentBucket;
 	/// Used to start the remote computation for a particular chunk for all
 	/// buckets, one after the other
 	unsigned int currentRemoteBucket;
@@ -885,22 +881,17 @@ private:
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 
 public:
- TreePiece() : pieces(thisArrayID), started(false), root(0), proxyValid(false),
+ TreePiece() : pieces(thisArrayID), root(0), proxyValid(false),
 	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
 	    sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0) {
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
-	  // the lookup of localCache is done in startOctTreeBuild, when we also markPresence
-	  /*if(_cache){
-	    localCache = cacheManagerProxy.ckLocalBranch();
-	    }*/
-	  //localCache = NULL;
 	  dm = NULL;
 	  iterationNo=0;
 	  usesAtSync=CmiTrue;
 	  bucketReqs=NULL;
 	  nCacheAccesses = 0;
-	  bWalkDonePending = 0;
+	  completedActiveWalks = 0;
 	  myPlace = -1;
 	  nSetupWriteStage = -1;
     //openingDiffCount=0;
@@ -960,7 +951,7 @@ public:
 	  bucketReqs = NULL;
 	  numChunks=-1;
 	  nCacheAccesses = 0;
-	  bWalkDonePending = 0;
+	  completedActiveWalks = 0;
 	  prefetchRoots = NULL;
 	  remainingChunk = NULL;
           ewt = NULL;
@@ -1175,6 +1166,7 @@ public:
   void startIterationSmooth(SmoothParams *p, const CkCallback& cb);
   void startIterationReSmooth(SmoothParams *p, const CkCallback& cb);
 
+  void finishNodeCache(int iPhases);
 	/// Function called by the CacheManager to send out request for needed
 	/// remote data, so that the later computation will hit.
 	void prefetch(GenericTreeNode *node, int offsetID);

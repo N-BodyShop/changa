@@ -33,8 +33,10 @@ int verbosity;
 int bVDetails;
 CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
 CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
-CProxy_CkCacheManager cacheManagerProxy;
-//CkReduction::reducerType callbackReduction;
+CProxy_LvArray smoothProxy; // Proxy for smooth reductions
+CProxy_CkCacheManager cacheGravPart;
+CProxy_CkCacheManager cacheSmoothPart;
+CProxy_CkCacheManager cacheNode;
 bool _cache;
 int _nocache;
 int _cacheLineDepth;
@@ -43,7 +45,6 @@ DomainsDec domainDecomposition;
 int peanoKey;
 GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
-CProxy_CkCacheManager streamingCache;
 unsigned int numTreePieces;
 unsigned int particlesPerChare;
 int _prefetch;
@@ -437,6 +438,9 @@ Main::Main(CkArgMsg* m) {
         lbcomm_cutoff_msgs = 1;
 	prmAddParam(prm, "lbcommCutoffMsgs", paramInt, &lbcomm_cutoff_msgs,
 		    sizeof(int),"lbcommcut", "Cutoff for communication recording");
+	param.bConcurrentSph = 0;
+	prmAddParam(prm, "bConcurrentSph", paramBool, &param.bConcurrentSph,
+		    sizeof(int),"consph", "Enable SPH running concurrently with Gravity");
     
           // jetley - cuda parameters
 #ifdef CUDA
@@ -740,26 +744,35 @@ Main::Main(CkArgMsg* m) {
 
 	opts.bindTo(treeProxy);
 	lvProxy = CProxy_LvArray::ckNew(opts);
+	// Create an array for the smooth reductions
+	smoothProxy = CProxy_LvArray::ckNew(opts);
 	
-	// create the CacheManager
-	cacheManagerProxy = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+	// create CacheManagers
+	// Gravity particles
+	cacheGravPart = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+	// Smooth particles
+	cacheSmoothPart = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+	// Nodes: we need the right number of phases to keep the
+	// nodes.
+	nPhases = 0;
+	if(param.bDoGravity) nPhases++;
+	if(param.bDoGas) nPhases += 2;
+	else if(param.bDoDensity) nPhases++;
+	CkGroupID *gids = new CkGroupID[nPhases];
+	int i;
+	for(i = 0; i < nPhases; i++)
+	    gids[i] = pieces.ckLocMgr()->getGroupID();
+	cacheNode = CProxy_CkCacheManager::ckNew(cacheSize, nPhases, gids);
+	delete gids;
 
 	//create the DataManager
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
 	dataManagerID = dataManager;
 
 	streamingProxy = pieces;
-        streamingCache = cacheManagerProxy;
 
 	//create the Sorter
 	sorter = CProxy_Sorter::ckNew();
-
-	StreamingStrategy* strategy = new StreamingStrategy(10,50);
-        cinst1 = ComlibRegister(strategy);
-	//ComlibAssociateProxy(strategy, streamingProxy);
-        strategy = new StreamingStrategy(10,50);
-        cinst2 = ComlibRegister(strategy);
-        //ComlibAssociateProxy(strategy, streamingCache);
 
 	if(verbosity)
 	  ckerr << "Created " << numTreePieces << " pieces of tree" << endl;
@@ -1081,8 +1094,11 @@ void Main::advanceBigStep(int iStep) {
     ckerr << "Building trees ...";
     startTime = CkWallTimer();
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+    int iPhase = 0;
     ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
+
+    CkCallback cbGravity(CkCallback::resumeThread);
 
     if(param.bDoGravity) {
 	updateSoft();
@@ -1094,15 +1110,29 @@ void Main::advanceBigStep(int iStep) {
 	ckerr << "Calculating gravity (tree bucket, theta = " << theta
 	      << ") ...";
 	startTime = CkWallTimer();
-	treeProxy.startIteration(activeRung, theta, CkCallbackResumeThread());
-	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
-	      << endl;
+	if(param.bConcurrentSph) {
+	    ckerr << endl;
+	    treeProxy.startIteration(activeRung, theta, cbGravity);
+	    }
+	else {
+	    treeProxy.startIteration(activeRung, theta,
+				     CkCallbackResumeThread());
+	    ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+		  << endl;
+	    }
+	iPhase++;
     }
     else {
 	treeProxy.initAccel(activeRung, CkCallbackResumeThread());
 	}
     if(param.bDoGas) {
 	doSph(activeRung);
+	}
+    
+    if(param.bConcurrentSph && param.bDoGravity) {
+	CkFreeMsg(cbGravity.thread_delay());
+	ckerr << "Calculating gravity and SPH took "
+	      << (CkWallTimer() - startTime) << " seconds." << endl;
 	}
     
 #if COSMO_STATS > 0
@@ -1120,11 +1150,18 @@ void Main::advanceBigStep(int iStep) {
 
     /********* Cache Statistics ********/
     CkReductionMsg *cs;
-    streamingCache.collectStatistics(CkCallbackResumeThread((void*&)cs));
+    cacheNode.collectStatistics(CkCallbackResumeThread((void*&)cs));
+    ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
+    cacheGravPart.collectStatistics(CkCallbackResumeThread((void*&)cs));
+    ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
+    cacheSmoothPart.collectStatistics(CkCallbackResumeThread((void*&)cs));
     ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
 
-
+    //    CkAssert(iPhase <= nPhases);
+    
+    // if(param.bConcurrentSph && iPhase < nPhases)
+    // treeProxy.finishNodeCache(nPhases-iPhase);
 
     if(!param.bStaticTest) {
       // Closing Kick
@@ -1321,7 +1358,10 @@ Main::initialForces()
   treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
+  iPhase = 0;
   
+  CkCallback cbGravity(CkCallback::resumeThread);  // needed below to wait for gravity
+
   if(param.bDoGravity) {
       updateSoft();
       if(param.csm->bComove) {
@@ -1332,9 +1372,15 @@ Main::initialForces()
       ckerr << "Calculating gravity (theta = " << theta
 	    << ") ...";
       startTime = CkWallTimer();
-      treeProxy.startIteration(0, theta, CkCallbackResumeThread());
-      ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
-	    << endl;
+      if(param.bConcurrentSph) {
+	  treeProxy.startIteration(0, theta, cbGravity);
+	  }
+      else {
+	  treeProxy.startIteration(0, theta, CkCallbackResumeThread());
+	  ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+		<< endl;
+	  }
+      iPhase++;
       }
   else {
       treeProxy.initAccel(0, CkCallbackResumeThread());
@@ -1343,6 +1389,15 @@ Main::initialForces()
       initSph();
       }
   
+  if(param.bConcurrentSph && param.bDoGravity) {
+      CkFreeMsg(cbGravity.thread_delay());
+	ckerr << "Calculating gravity and SPH took "
+	      << (CkWallTimer() - startTime) << " seconds." << endl;
+      }
+  
+  // if(param.bConcurrentSph && iPhase < nPhases)
+  //     treeProxy.finishNodeCache(nPhases-iPhase);
+
 #if COSMO_STATS > 0
   /********* TreePiece Statistics ********/
   ckerr << "Total statistics initial iteration :" << endl;
@@ -1352,7 +1407,11 @@ Main::initialForces()
   
   /********* Cache Statistics ********/
   CkReductionMsg *cs;
-  streamingCache.collectStatistics(CkCallbackResumeThread((void*&)cs));
+  cacheNode.collectStatistics(CkCallbackResumeThread((void*&)cs));
+  ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
+  cacheGravPart.collectStatistics(CkCallbackResumeThread((void*&)cs));
+  ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
+  cacheSmoothPart.collectStatistics(CkCallbackResumeThread((void*&)cs));
   ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
   
@@ -1438,10 +1497,14 @@ Main::doSimulation()
 				CkCallbackResumeThread(), true);
 	    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 
+	    iPhase = 0;
 	    ckout << "Calculating total densities ...";
 	    DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	    startTime = CkWallTimer();
 	    treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+	    iPhase++;
+	    // if(param.bConcurrentSph && iPhase < nPhases)
+	// 	treeProxy.finishNodeCache(nPhases-iPhase);
 	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		  << endl;
 	    ckout << "Reodering ...";
@@ -1493,7 +1556,42 @@ Main::doSimulation()
   /******** Shutdown process ********/
 
   if(param.nSteps == 0) {
-      treeProxy.reOrder(CkCallbackResumeThread());
+      if((!param.bDoGas) && param.bDoDensity) {
+	  // If gas isn't being calculated, we can do the total
+	  // densities before we start the output.
+	  ckout << "Calculating total densities ...";
+	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
+	  startTime = CkWallTimer();
+	  treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+		<< endl;
+#if 0
+	  // For testing concurrent Sph, we don't want to do the
+	  // resmooth.
+
+          ckout << "Recalculating densities ...";
+          startTime = CkWallTimer();
+	  treeProxy.startIterationReSmooth(&pDen, CkCallbackResumeThread());
+          ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
+#endif
+          ckout << "Reodering ...";
+          startTime = CkWallTimer();
+	  treeProxy.reOrder(CkCallbackResumeThread());
+          ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
+	  ckout << "Outputting densities ...";
+	  startTime = CkWallTimer();
+	  DenOutputParams pDenOut("den");
+	  treeProxy[0].outputASCII(pDenOut, CkCallbackResumeThread());
+	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+		<< endl;
+	  ckout << "Outputting hsmooth ...";
+	  HsmOutputParams pHsmOut("hsmall");
+	  treeProxy[0].outputASCII(pHsmOut, CkCallbackResumeThread());
+	  }
+      else {
+	  treeProxy.reOrder(CkCallbackResumeThread());
+	  }
+
       writeOutput(0);
       if(param.bDoGas) {
 	  ckout << "Outputting gas properties ...";
@@ -1530,7 +1628,7 @@ Main::doSimulation()
       DtOutputParams pDt("dt");
       treeProxy[0].outputASCII(pDt, CkCallbackResumeThread());
 #endif
-      if(param.bDoDensity) {
+      if(param.bDoGas && param.bDoDensity) {
 	  double tolerance = 0.01;	// tolerance for domain decomposition
 	  // The following call is to get the particles in key order
 	  // before the sort.
@@ -1538,17 +1636,22 @@ Main::doSimulation()
 	  sorter.startSorting(dataManagerID, tolerance,
 			      CkCallbackResumeThread(), true);
 	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-
+	  iPhase = 0;
+	  
 	  ckout << "Calculating total densities ...";
 	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	  startTime = CkWallTimer();
 	  treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+	  iPhase++;
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
           ckout << "Recalculating densities ...";
           startTime = CkWallTimer();
 	  treeProxy.startIterationReSmooth(&pDen, CkCallbackResumeThread());
+	  iPhase++;
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
+	  // if(param.bConcurrentSph && iPhase < nPhases)
+	  //     treeProxy.finishNodeCache(nPhases-iPhase);
           ckout << "Reodering ...";
           startTime = CkWallTimer();
 	  treeProxy.reOrder(CkCallbackResumeThread());
@@ -1579,7 +1682,9 @@ Main::doSimulation()
   ckerr << "Done." << endl;
 	
 #ifdef HPM_COUNTER
-  streamingCache.stopHPM(CkCallbackResumeThread());
+  cacheNode.stopHPM(CkCallbackResumeThread());
+  cacheGravPart.stopHPM(CkCallbackResumeThread());
+  cacheSmoothPart.stopHPM(CkCallbackResumeThread());
 #endif
   ckerr << endl << "******************" << endl << endl; 
   CkExit();

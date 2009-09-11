@@ -9,6 +9,15 @@ class Compute;
 class Opt;
 class State;
 
+// distingish between the walks that could be running.
+
+enum WalkIndices {
+    prefetchAwi = 0,
+    interListAwi = 1,
+    remoteGravityAwi = 2,
+    smoothAwi = 3
+};
+    
 // Object to record a type of active walk. Contains pointers to TreeWalk/Compute/Opt (T/C/O) combinations
 class ActiveWalk {
   public:
@@ -26,11 +35,9 @@ class ActiveWalk {
 class BucketGravityRequest {
 public:
 		
-	unsigned int numAdditionalRequests;
 	int finished;
 
-	BucketGravityRequest(unsigned int bucketSize = 0) :
-	  numAdditionalRequests(0), finished(0) {
+	BucketGravityRequest(unsigned int bucketSize = 0) : finished(0) {
 	}
 	
 };

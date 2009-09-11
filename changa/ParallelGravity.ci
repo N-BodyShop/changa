@@ -8,9 +8,11 @@ mainmodule ParallelGravity {
   readonly int verbosity;
   readonly CProxy_TreePiece treeProxy;
   readonly CProxy_LvArray lvProxy;
+  readonly CProxy_LvArray smoothProxy;
   readonly CProxy_TreePiece streamingProxy;
-  readonly CProxy_CkCacheManager cacheManagerProxy;
-  readonly CProxy_CkCacheManager streamingCache;
+  readonly CProxy_CkCacheManager cacheNode;
+  readonly CProxy_CkCacheManager cacheGravPart;
+  readonly CProxy_CkCacheManager cacheSmoothPart;
   readonly bool _cache;
   readonly int _nocache;
   readonly int _cacheLineDepth;
@@ -191,9 +193,8 @@ mainmodule ParallelGravity {
     entry void startIteration(int activeRung, double myTheta, CkCallback &cb);
     entry void startIterationSmooth(CkPointer<SmoothParams>, CkCallback &cb);
     entry void startIterationReSmooth(CkPointer<SmoothParams>, CkCallback &cb);
+    entry void finishNodeCache(int iPhases);
 
-    //entry void acceptBoundaryNodeContribution(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
-    //entry void acceptBoundaryNode(Tree::NodeKey key, int numParticles, MultipoleMoments& moments);
     entry [inline] void requestRemoteMoments(Tree::NodeKey key, int sender);
     entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, MultipoleMoments& moments, OrientedBox<double>& box);
 
@@ -213,6 +214,7 @@ mainmodule ParallelGravity {
     entry void calculateReSmoothLocal();
 
     entry void finishWalk();
+    entry void finishSmoothWalk();
     //entry void fillRequestBucketTree(BucketGravityRequest req);	
     //entry void receiveGravityBucketTree(const BucketGravityRequest& req);
 

@@ -60,9 +60,7 @@ void TreePiece::fillRequestParticles(CkCacheRequestMsg *msg) {
     data->part[i] = *((ExternalGravityParticle*)&myParticles[i+bucket->firstParticle]);
   }
   
-  nCacheAccesses++;
-
-  cacheManagerProxy[msg->replyTo].recvData(reply);
+  cacheGravPart[msg->replyTo].recvData(reply);
   
   delete msg;
 }
@@ -162,7 +160,7 @@ void TreePiece::fillRequestSmoothParticles(CkCacheRequestMsg *msg) {
   
   nCacheAccesses++;
   
-  cacheManagerProxy[msg->replyTo].recvData(reply);
+  cacheSmoothPart[msg->replyTo].recvData(reply);
   
   delete msg;
 }
@@ -170,37 +168,24 @@ void TreePiece::fillRequestSmoothParticles(CkCacheRequestMsg *msg) {
 void TreePiece::flushSmoothParticles(CkCacheFillMsg *msg) {
   
   CacheSmoothParticle *data = (CacheSmoothParticle*)msg->data;
+  SmoothCompute *sc = dynamic_cast<SmoothCompute *>(sSmooth);
   
+  CkAssert(sc != NULL);
   CkAssert(nCacheAccesses > 0);
   
-  // XXX Perhaps another level in the Compute class hierarchy would avoid this.
-  KNearestSmoothCompute *sm = dynamic_cast<KNearestSmoothCompute *>(sSmooth);
-  ReSmoothCompute *reSm = dynamic_cast<ReSmoothCompute *>(sSmooth);
-  
   int j = 0;
-  if(sm) {
-      for(int i = data->begin; i <= data->end; i++) {
-	  if(!TYPETest(&myParticles[i], sm->params->iType))
-	      continue;
-	  sm->params->combSmoothCache(&myParticles[i], &data->partExt[j]);
-	  j++;
-	  }
+  for(int i = data->begin; i <= data->end; i++) {
+      if(!TYPETest(&myParticles[i], sc->params->iType))
+	  continue;
+      sc->params->combSmoothCache(&myParticles[i], &data->partExt[j]);
+      j++;
       }
-  else if(reSm) {
-      for(int i = data->begin; i <= data->end; i++) {
-	  if(!TYPETest(&myParticles[i], reSm->params->iType))
-	      continue;
-	  reSm->params->combSmoothCache(&myParticles[i], &data->partExt[j]);
-	  j++;
-	  }
-      }
-  else
-      CkAssert(0);
   
   nCacheAccesses--;
   delete msg;
-  if(bWalkDonePending)
-      finishWalk();
+
+  if(sSmoothState->bWalkDonePending)
+      finishSmoothWalk();
 }
 
 // Node Cache methods
@@ -228,7 +213,7 @@ void * EntryTypeGravityNode::unpack(CkCacheFillMsg *msg, int chunk, CkArrayIndex
   
   // link node to its parent if present in the cache
   CkCacheKey ckey(node->getParentKey());
-  Tree::BinaryTreeNode *parent = (Tree::BinaryTreeNode *) cacheManagerProxy[CkMyPe()].requestDataNoFetch(ckey, chunk);
+  Tree::BinaryTreeNode *parent = (Tree::BinaryTreeNode *) cacheNode[CkMyPe()].requestDataNoFetch(ckey, chunk);
   if (parent != NULL) {
     node->parent = parent;
     parent->setChildren(parent->whichChild(node->getKey()), node);
@@ -246,7 +231,7 @@ void EntryTypeGravityNode::unpackSingle(CkCacheFillMsg *msg, Tree::BinaryTreeNod
       unpackSingle(msg, node->children[i], chunk, from, false);
     } else {
       CkCacheKey ckey = node->getChildKey(i);
-      Tree::BinaryTreeNode *child = (Tree::BinaryTreeNode *) cacheManagerProxy[CkMyPe()].requestDataNoFetch(ckey, chunk);
+      Tree::BinaryTreeNode *child = (Tree::BinaryTreeNode *) cacheNode[CkMyPe()].requestDataNoFetch(ckey, chunk);
       if (child != NULL) {
         child->parent = node;
         node->setChildren(node->whichChild(child->getKey()), child);
@@ -267,7 +252,7 @@ void EntryTypeGravityNode::unpackSingle(CkCacheFillMsg *msg, Tree::BinaryTreeNod
     node->setType(Tree::Cached);
   }
   CkCacheKey ckey(node->getKey());
-  if (!isRoot) cacheManagerProxy[CkMyPe()].recvData(ckey, from, (EntryTypeGravityNode*)this, chunk, (void*)node);
+  if (!isRoot) cacheNode[CkMyPe()].recvData(ckey, from, (EntryTypeGravityNode*)this, chunk, (void*)node);
 }
 
 void EntryTypeGravityNode::writeback(CkArrayIndexMax& idx, CkCacheKey k, void *data) { }
@@ -314,7 +299,7 @@ void TreePiece::fillRequestNode(CkCacheRequestMsg *msg) {
       node->pup(p2, msg->depth);
       //int count = node->copyTo(reply->nodes, msg->depth);
 #endif
-      cacheManagerProxy[msg->replyTo].recvData(reply);
+      cacheNode[msg->replyTo].recvData(reply);
     } else {
       CkAbort("Non cached version not anymore supported, feel free to fix it!");
       //copySFCTreeNode(tmp,node);

@@ -6,14 +6,6 @@
 void
 Main::initSph() 
 {
-    // Assume Tree is built
-    ckout << "Calculating densities ...";
-    DensitySmoothParams pDen(TYPE_GAS, 0);
-    double startTime = CkWallTimer();
-    treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
-    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-	  << endl;
-    
     if(param.bDoGas) {
 	if(verbosity) CkPrintf("Initializing SPH forces\n");
 	doSph(0);
@@ -27,6 +19,7 @@ Main::doSph(int activeRung)
     DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime);
     double startTime = CkWallTimer();
     treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+    iPhase++;
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	  << endl;
 
@@ -39,8 +32,8 @@ Main::doSph(int activeRung)
     PressureSmoothParams pPressure(TYPE_GAS, activeRung, param.csm, dTime,
 				   param.dConstAlpha, param.dConstBeta);
     startTime = CkWallTimer();
-    treeProxy.startIterationReSmooth(&pPressure,
-				     CkCallbackResumeThread());
+    treeProxy.startIterationReSmooth(&pPressure, CkCallbackResumeThread());
+    iPhase++;
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	  << endl;
     }
