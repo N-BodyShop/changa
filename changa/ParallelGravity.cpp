@@ -1158,10 +1158,10 @@ void Main::advanceBigStep(int iStep) {
     ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
 
-    //    CkAssert(iPhase <= nPhases);
+    CkAssert(iPhase <= nPhases);
     
-    // if(param.bConcurrentSph && iPhase < nPhases)
-    // treeProxy.finishNodeCache(nPhases-iPhase);
+    if(iPhase < nPhases)
+	treeProxy.finishNodeCache(nPhases-iPhase);
 
     if(!param.bStaticTest) {
       // Closing Kick
@@ -1395,8 +1395,8 @@ Main::initialForces()
 	      << (CkWallTimer() - startTime) << " seconds." << endl;
       }
   
-  // if(param.bConcurrentSph && iPhase < nPhases)
-  //     treeProxy.finishNodeCache(nPhases-iPhase);
+  if(iPhase < nPhases)
+       treeProxy.finishNodeCache(nPhases-iPhase);
 
 #if COSMO_STATS > 0
   /********* TreePiece Statistics ********/
