@@ -1,0 +1,11 @@
+This directory contains a test of the collapse of a self-gravitation
+adiabatic sphere of gas.  As the gas collapses, a spherical accretion
+shock forms and grows.
+
+This test investigates whether gravity and gas dynamics are both working
+properly.  Type "make test" to perform the test.   This runs a
+simulation and uses "tipsy" to get a spherically averaged profile of gas
+quantities on the final step.  Hence tipsy needs to be installed to
+complete this test.  A comparison from gasoline in in "gas.prof".
+"prof.py" is a matplotlib python script which will graphically compare
+the results.

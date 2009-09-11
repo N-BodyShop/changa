@@ -1,0 +1,9 @@
+openb adiabtophat_glass_28768_Std.000030
+loads 0
+loadall
+setsphere 1 0 0 0 1.0
+y
+setsphere 2 0 0 0 .02
+profile 1 2 gas sphere log 30 cha.prof .01
+1 1 .76
+uniform 0 0
