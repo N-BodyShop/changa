@@ -20,6 +20,7 @@ bDoDensity      = 0
 dExtraStore     = 0.5
 #director requirement
 dDumpFrameStep  = 5
+iDirector	= 1
 #iOutInterval = how often to write the output in units of the timestep
 #iMaxRung = magnitude of the timstepping division
 #dEta=tolerance parameter for timestep
