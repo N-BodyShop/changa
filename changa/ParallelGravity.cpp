@@ -1094,7 +1094,7 @@ void Main::advanceBigStep(int iStep) {
     ckerr << "Building trees ...";
     startTime = CkWallTimer();
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-    int iPhase = 0;
+    iPhase = 0;
     ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
 
