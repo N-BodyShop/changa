@@ -30,7 +30,7 @@ dRombergO(void *CTX,double (*func)(void *, double),double a,double b,
     
     tll = DBL_MAX;
 
-    while((fabs((tllnew-tll)/tllnew) > eps) && (n < MAXLEV)) {
+    while((n == 1) || ((fabs((tllnew-tll)/tllnew) > eps) && (n < MAXLEV))) {
 		/*
 		 * midpoint rule.
 		 */
@@ -86,7 +86,7 @@ dRombergC(void *CTX,double (*func)(void *, double),double a,double b,
     
     tll = DBL_MAX;
 
-    while((fabs((tllnew-tll)/tllnew) > eps) && (n < MAXLEV)) {
+    while((n == 1) || ((fabs((tllnew-tll)/tllnew) > eps) && (n < MAXLEV))) {
 		/*
 		 * midpoint rule.
 		 */
