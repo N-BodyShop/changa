@@ -193,7 +193,7 @@ mainmodule ParallelGravity {
     entry void startIteration(int activeRung, double myTheta, CkCallback &cb);
     entry void startIterationSmooth(CkPointer<SmoothParams>, CkCallback &cb);
     entry void startIterationReSmooth(CkPointer<SmoothParams>, CkCallback &cb);
-    entry void finishNodeCache(int iPhases);
+    entry void finishNodeCache(int iPhases, CkCallback &cb);
 
     entry [inline] void requestRemoteMoments(Tree::NodeKey key, int sender);
     entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, MultipoleMoments& moments, OrientedBox<double>& box);

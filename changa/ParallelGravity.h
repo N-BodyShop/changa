@@ -1166,7 +1166,7 @@ public:
   void startIterationSmooth(SmoothParams *p, const CkCallback& cb);
   void startIterationReSmooth(SmoothParams *p, const CkCallback& cb);
 
-  void finishNodeCache(int iPhases);
+  void finishNodeCache(int iPhases, const CkCallback& cb);
 	/// Function called by the CacheManager to send out request for needed
 	/// remote data, so that the later computation will hit.
 	void prefetch(GenericTreeNode *node, int offsetID);

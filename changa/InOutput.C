@@ -450,7 +450,7 @@ void TreePiece::writeTipsy(const std::string& filename, const double dTime,
 	w.writeHeader();
     w.seekParticleNum(nStartWrite);
     for(unsigned int i = 0; i < myNumParticles; i++) {
-	if(myParticles[i+1].iOrder < (unsigned int) tipsyHeader.nsph) {
+	if(myParticles[i+1].iOrder < tipsyHeader.nsph) {
 	    Tipsy::gas_particle gp;
 	    gp.mass = myParticles[i+1].mass;
 	    gp.pos = myParticles[i+1].position;
@@ -463,7 +463,7 @@ void TreePiece::writeTipsy(const std::string& filename, const double dTime,
 
 	    w.putNextGasParticle(gp);
 	    }
-	else if(myParticles[i+1].iOrder < (unsigned int) tipsyHeader.nsph
+	else if(myParticles[i+1].iOrder < tipsyHeader.nsph
 		      + tipsyHeader.ndark) {
 	    Tipsy::dark_particle dp;
 	    dp.mass = myParticles[i+1].mass;
@@ -703,16 +703,16 @@ void TreePiece::outputAccelerations(OrientedBox<double> accelerationBox, const s
 void TreePiece::outputASCII(OutputParams& params, const CkCallback& cb) {
   if((thisIndex==0 && packed) || (thisIndex==0 && !packed && cnt==0)) {
     if(verbosity > 2)
-      ckerr << "TreePiece " << thisIndex << ": Writing header for accelerations file" << endl;
-    FILE* outfile = fopen((basefilename + "." + params.suffix).c_str(), "w");
+      ckout << "TreePiece " << thisIndex << ": Writing header for output file" << endl;
+    FILE* outfile = fopen(params.fileName.c_str(), "w");
     fprintf(outfile,"%d\n",(int) nTotalParticles);
     fclose(outfile);
   }
 	
   if(verbosity > 3)
-    ckerr << "TreePiece " << thisIndex << ": Writing my accelerations to disk" << endl;
+    ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
 	
-  FILE* outfile = fopen((basefilename + "." + params.suffix).c_str(), "r+");
+  FILE* outfile = fopen(params.fileName.c_str(), "r+");
   fseek(outfile, 0, SEEK_END);
 	
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
@@ -772,12 +772,12 @@ void TreePiece::outputASCII(OutputParams& params, const CkCallback& cb) {
   pieces[0].outputASCII(params, cb);
 }
 
-void TreePiece::outputIOrderASCII(const string& suffix, const CkCallback& cb) {
+void TreePiece::outputIOrderASCII(const string& fileName, const CkCallback& cb) {
   if(thisIndex==0) {
     if(verbosity > 2)
       ckerr << "TreePiece " << thisIndex << ": Writing header for iOrder file"
 	    << endl;
-    FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "w");
+    FILE* outfile = fopen(fileName.c_str(), "w");
     fprintf(outfile,"%d\n",(int) nTotalParticles);
     fclose(outfile);
   }
@@ -785,7 +785,7 @@ void TreePiece::outputIOrderASCII(const string& suffix, const CkCallback& cb) {
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Writing iOrder to disk" << endl;
 	
-  FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "r+");
+  FILE* outfile = fopen(fileName.c_str(), "r+");
   fseek(outfile, 0, SEEK_END);
   
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
@@ -801,5 +801,5 @@ void TreePiece::outputIOrderASCII(const string& suffix, const CkCallback& cb) {
       cb.send();
       }
   else
-      pieces[thisIndex + 1].outputIOrderASCII(suffix, cb);
+      pieces[thisIndex + 1].outputIOrderASCII(fileName, cb);
   }

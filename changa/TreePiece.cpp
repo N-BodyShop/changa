@@ -3071,7 +3071,7 @@ GenericTreeNode *TreePiece::getStartAncestor(int current, int previous, GenericT
 
 // We are done with the node Cache
 
-void TreePiece::finishNodeCache(int iPhases)
+void TreePiece::finishNodeCache(int iPhases, const CkCallback& cb)
 {
     int i;
     for (i = 0; i < iPhases; i++) {
@@ -3080,6 +3080,7 @@ void TreePiece::finishNodeCache(int iPhases)
 	    cacheNode[CkMyPe()].finishedChunk(j, 0);
 	    }
 	}
+    contribute(0, 0, CkReduction::concat, cb);
     }
 
 // Start tree walk and gravity calculation

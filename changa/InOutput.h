@@ -7,14 +7,14 @@ class OutputParams : public PUP::able
     virtual double dValue(GravityParticle *p) = 0;
     virtual Vector3D<double> vValue(GravityParticle *p) = 0;
     int bVector;	// Is a vector, as opposed to a scalar
-    std::string suffix;	// suffix of output file
+    std::string fileName;	// output file
 
     OutputParams() {}
     PUPable_abstract(OutputParams);
     OutputParams(CkMigrateMessage *m) : PUP::able(m) {}
     virtual void pup(PUP::er &p) {
         PUP::able::pup(p);//Call base class
-        p|suffix;
+        p|fileName;
         p|bVector;
 	}
     };
@@ -26,7 +26,7 @@ class AccOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 				{return p->treeAcceleration;}
     AccOutputParams() {}
-    AccOutputParams(std::string _suffix) { bVector = 1; suffix = _suffix;}
+    AccOutputParams(std::string _fileName) { bVector = 1; fileName = _fileName;}
     PUPable_decl(AccOutputParams);
     AccOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -41,7 +41,7 @@ class DenOutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
  public:
     DenOutputParams() {}
-    DenOutputParams(std::string _suffix) { bVector = 0; suffix = _suffix;}
+    DenOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
     PUPable_decl(DenOutputParams);
     DenOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -56,7 +56,7 @@ class HsmOutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
  public:
     HsmOutputParams() {}
-    HsmOutputParams(std::string _suffix) { bVector = 0; suffix = _suffix;}
+    HsmOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
     PUPable_decl(HsmOutputParams);
     HsmOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -77,7 +77,7 @@ class PresOutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
  public:
     PresOutputParams() {}
-    PresOutputParams(std::string _suffix) { bVector = 0; suffix = _suffix;}
+    PresOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
     PUPable_decl(PresOutputParams);
     PresOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -98,7 +98,7 @@ class DivVOutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
  public:
     DivVOutputParams() {}
-    DivVOutputParams(std::string _suffix) { bVector = 0; suffix = _suffix;}
+    DivVOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
     PUPable_decl(DivVOutputParams);
     DivVOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -119,7 +119,7 @@ class PDVOutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
  public:
     PDVOutputParams() {}
-    PDVOutputParams(std::string _suffix) { bVector = 0; suffix = _suffix;}
+    PDVOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
     PUPable_decl(PDVOutputParams);
     PDVOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -140,7 +140,7 @@ class MuMaxOutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
  public:
     MuMaxOutputParams() {}
-    MuMaxOutputParams(std::string _suffix) { bVector = 0; suffix = _suffix;}
+    MuMaxOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
     PUPable_decl(MuMaxOutputParams);
     MuMaxOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -161,7 +161,7 @@ class BSwOutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
  public:
     BSwOutputParams() {}
-    BSwOutputParams(std::string _suffix) { bVector = 0; suffix = _suffix;}
+    BSwOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
     PUPable_decl(BSwOutputParams);
     BSwOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -183,7 +183,7 @@ class DtOutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
  public:
     DtOutputParams() {}
-    DtOutputParams(std::string _suffix) { bVector = 0; suffix = _suffix;}
+    DtOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
     PUPable_decl(DtOutputParams);
     DtOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {

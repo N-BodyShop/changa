@@ -987,7 +987,6 @@ inline int Main::nextMaxRungIncDF(int nextMaxRung)
 }
 
 void Main::advanceBigStep(int iStep) {
-  double tolerance = 0.01;	// tolerance for domain decomposition
   int currentStep = 0; // the current timestep within the big step
   int activeRung = 0;  // the minimum rung that is active
   int nextMaxRung = 0; // the rung that determines the smallest time for advancing
@@ -1161,7 +1160,7 @@ void Main::advanceBigStep(int iStep) {
     CkAssert(iPhase <= nPhases);
     
     if(iPhase < nPhases)
-	treeProxy.finishNodeCache(nPhases-iPhase);
+	treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
 
     if(!param.bStaticTest) {
       // Closing Kick
@@ -1396,7 +1395,7 @@ Main::initialForces()
       }
   
   if(iPhase < nPhases)
-       treeProxy.finishNodeCache(nPhases-iPhase);
+      treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
 
 #if COSMO_STATS > 0
   /********* TreePiece Statistics ********/
@@ -1488,37 +1487,6 @@ Main::doSimulation()
        && (bOutTime() || iStep == param.nSteps || iStop
 	   || iStep%param.iOutInterval == 0)) {
 	writeOutput(iStep);
-	if(param.bDoDensity) {
-	    double tolerance = 0.01;	// tolerance for domain decomposition
-	    // The following call is to get the particles in key order
-	    // before the sort.
-	    treeProxy.drift(0.0, 0, 0, 0.0, CkCallbackResumeThread());
-	    sorter.startSorting(dataManagerID, tolerance,
-				CkCallbackResumeThread(), true);
-	    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-
-	    iPhase = 0;
-	    ckout << "Calculating total densities ...";
-	    DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
-	    startTime = CkWallTimer();
-	    treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
-	    iPhase++;
-	    // if(param.bConcurrentSph && iPhase < nPhases)
-	// 	treeProxy.finishNodeCache(nPhases-iPhase);
-	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-		  << endl;
-	    ckout << "Reodering ...";
-	    startTime = CkWallTimer();
-	    treeProxy.reOrder(CkCallbackResumeThread());
-	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-		  << endl;
-	    ckout << "Outputting densities ...";
-	    startTime = CkWallTimer();
-	    DenOutputParams pDenOut("den");
-	    treeProxy[0].outputASCII(pDenOut, CkCallbackResumeThread());
-	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-		  << endl;
-	    }
     }
 	  
     if(!iStop && param.iWallRunTime > 0) {
@@ -1556,6 +1524,9 @@ Main::doSimulation()
   /******** Shutdown process ********/
 
   if(param.nSteps == 0) {
+      char achFile[256];
+    
+      sprintf(achFile,"%s.%06i",param.achOutName,0);
       if((!param.bDoGas) && param.bDoDensity) {
 	  // If gas isn't being calculated, we can do the total
 	  // densities before we start the output.
@@ -1580,12 +1551,12 @@ Main::doSimulation()
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	  ckout << "Outputting densities ...";
 	  startTime = CkWallTimer();
-	  DenOutputParams pDenOut("den");
+	  DenOutputParams pDenOut(string(achFile) + ".den");
 	  treeProxy[0].outputASCII(pDenOut, CkCallbackResumeThread());
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
 	  ckout << "Outputting hsmooth ...";
-	  HsmOutputParams pHsmOut("hsmall");
+	  HsmOutputParams pHsmOut(string(achFile) + ".hsmall");
 	  treeProxy[0].outputASCII(pHsmOut, CkCallbackResumeThread());
 	  }
       else {
@@ -1598,19 +1569,19 @@ Main::doSimulation()
 	  if(printBinaryAcc)
 	      CkAssert(0);
 	  else {
-	      DenOutputParams pDenOut("gasden");
+	      DenOutputParams pDenOut(string(achFile) + ".gasden");
 	      treeProxy[0].outputASCII(pDenOut, CkCallbackResumeThread());
-	      PresOutputParams pPresOut("pres");
+	      PresOutputParams pPresOut(string(achFile) + ".pres");
 	      treeProxy[0].outputASCII(pPresOut, CkCallbackResumeThread());
-	      HsmOutputParams pSphHOut("SphH");
+	      HsmOutputParams pSphHOut(string(achFile) + ".SphH");
 	      treeProxy[0].outputASCII(pSphHOut, CkCallbackResumeThread());
-	      DivVOutputParams pDivVOut("divv");
+	      DivVOutputParams pDivVOut(string(achFile) + ".divv");
 	      treeProxy[0].outputASCII(pDivVOut, CkCallbackResumeThread());
-	      PDVOutputParams pPDVOut("PdV");
+	      PDVOutputParams pPDVOut(string(achFile) + ".PdV");
 	      treeProxy[0].outputASCII(pPDVOut, CkCallbackResumeThread());
-	      MuMaxOutputParams pMuMaxOut("mumax");
+	      MuMaxOutputParams pMuMaxOut(string(achFile) + ".mumax");
 	      treeProxy[0].outputASCII(pMuMaxOut, CkCallbackResumeThread());
-	      BSwOutputParams pBSwOut("BSw");
+	      BSwOutputParams pBSwOut(string(achFile) + ".BSw");
 	      treeProxy[0].outputASCII(pBSwOut, CkCallbackResumeThread());
 	      }
 	  }
@@ -1619,13 +1590,13 @@ Main::doSimulation()
 	  treeProxy[0].outputAccelerations(OrientedBox<double>(),
 					   "acc2", CkCallbackResumeThread());
       else {
-	  AccOutputParams pAcc("acc2");
+	  AccOutputParams pAcc(string(achFile) + ".acc2");
 	  treeProxy[0].outputASCII(pAcc, CkCallbackResumeThread());
 	  }
 #ifdef NEED_DT
       ckout << "Outputting dt ...";
       adjust(0);
-      DtOutputParams pDt("dt");
+      DtOutputParams pDt(string(achFile) + ".dt");
       treeProxy[0].outputASCII(pDt, CkCallbackResumeThread());
 #endif
       if(param.bDoGas && param.bDoDensity) {
@@ -1658,15 +1629,16 @@ Main::doSimulation()
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	  ckout << "Outputting densities ...";
 	  startTime = CkWallTimer();
-	  DenOutputParams pDenOut("den");
+	  DenOutputParams pDenOut(string(achFile) + ".den");
 	  treeProxy[0].outputASCII(pDenOut, CkCallbackResumeThread());
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
 	  ckout << "Outputting hsmooth ...";
-	  HsmOutputParams pHsmOut("hsmall");
+	  HsmOutputParams pHsmOut(string(achFile) + ".hsmall");
 	  treeProxy[0].outputASCII(pHsmOut, CkCallbackResumeThread());
 	  }
-      treeProxy[0].outputIOrderASCII("iord", CkCallbackResumeThread());
+      treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
+				     CkCallbackResumeThread());
   }
 	
 #if COSMO_STATS > 0
@@ -1736,7 +1708,7 @@ void Main::writeOutput(int iStep)
     char achFile[256];
     double dOutTime;
     double dvFac;
-    double startTime;
+    double startTime = 0.0;
     
     sprintf(achFile,"%s.%06i",param.achOutName,iStep);
     if(param.csm->bComove) {
@@ -1749,25 +1721,56 @@ void Main::writeOutput(int iStep)
 	}
     
     if(verbosity) {
-	ckerr << "ReOrder particles ...";
+	ckout << "ReOrder particles ...";
 	startTime = CkWallTimer();
 	}
     
     treeProxy.reOrder(CkCallbackResumeThread());
     if(verbosity)
-	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
     
     if(verbosity) {
-	ckerr << "Writing output ...";
+	ckout << "Writing output ...";
 	startTime = CkWallTimer();
 	}
     double duTFac = (param.dConstGamma-1)*param.dMeanMolWeight/param.dGasConst;
     treeProxy.setupWrite(0, 0, achFile, dOutTime, dvFac, duTFac,
 		      CkCallbackResumeThread());
     if(verbosity)
-	ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
+    if(param.nSteps != 0 && param.bDoDensity) {
+	double tolerance = 0.01;	// tolerance for domain decomposition
+	// The following call is to get the particles in key order
+	// before the sort.
+	treeProxy.drift(0.0, 0, 0, 0.0, CkCallbackResumeThread());
+	sorter.startSorting(dataManagerID, tolerance,
+			    CkCallbackResumeThread(), true);
+	treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+
+	iPhase = 0;
+	ckout << "Calculating total densities ...";
+	DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
+	startTime = CkWallTimer();
+	treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+	iPhase++;
+	if(param.bConcurrentSph && iPhase < nPhases)
+	    treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
+	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+	      << endl;
+	ckout << "Reodering ...";
+	startTime = CkWallTimer();
+	treeProxy.reOrder(CkCallbackResumeThread());
+	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+	      << endl;
+	ckout << "Outputting densities ...";
+	startTime = CkWallTimer();
+	DenOutputParams pDenOut(string(achFile) + ".den");
+	treeProxy[0].outputASCII(pDenOut, CkCallbackResumeThread());
+	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+	      << endl;
+	}
     }
 
 int Main::adjust(int iKickRung) 
@@ -1970,7 +1973,6 @@ void Main::pup(PUP::er& p)
 void Main::liveVizImagePrep(liveVizRequestMsg *msg) 
 {
   double dExp;
-  int i;
 
   struct inDumpFrame in;
   double *com;
