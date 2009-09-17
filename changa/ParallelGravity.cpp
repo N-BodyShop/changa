@@ -1621,7 +1621,7 @@ Main::doSimulation()
 	  treeProxy.startIterationReSmooth(&pDen, CkCallbackResumeThread());
 	  iPhase++;
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	  // if(param.bConcurrentSph && iPhase < nPhases)
+	  // if(iPhase < nPhases)
 	  //     treeProxy.finishNodeCache(nPhases-iPhase);
           ckout << "Reodering ...";
           startTime = CkWallTimer();
@@ -1755,7 +1755,7 @@ void Main::writeOutput(int iStep)
 	startTime = CkWallTimer();
 	treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
 	iPhase++;
-	if(param.bConcurrentSph && iPhase < nPhases)
+	if(iPhase < nPhases)
 	    treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
@@ -1895,7 +1895,7 @@ void Main::DumpFrame(double dTime, double dStep)
 	else {
 		/* 2D Projection */
 	    struct inDumpFrame in;
-		double *com;
+		double *com = NULL;
 		CkReductionMsg *msgCOM;
 		CkReductionMsg *msgCOMbyType;
 		
@@ -1975,7 +1975,7 @@ void Main::liveVizImagePrep(liveVizRequestMsg *msg)
   double dExp;
 
   struct inDumpFrame in;
-  double *com;
+  double *com = NULL;
   CkReductionMsg *msgCOM;
   CkReductionMsg *msgCOMbyType;
   struct DumpFrameContext df_temp;
