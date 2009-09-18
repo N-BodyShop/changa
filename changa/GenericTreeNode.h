@@ -630,6 +630,8 @@ namespace Tree {
       return count;
     }
 
+    // extraSpace is used by the CacheInterface to store a pointer to
+    // the message so it can be freed when we are finished.
     int packNodes(BinaryTreeNode *buffer, int depth, int extraSpace=0) {
       //CkPrintf("Entering packNodes: this=%p, buffer=%p, depth=%d\n",this,buffer,depth);
       //*buffer = *this;

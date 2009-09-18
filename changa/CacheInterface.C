@@ -223,8 +223,18 @@ void * EntryTypeGravityNode::unpack(CkCacheFillMsg *msg, int chunk, CkArrayIndex
 }
 
 void EntryTypeGravityNode::unpackSingle(CkCacheFillMsg *msg, Tree::BinaryTreeNode *node, int chunk, CkArrayIndexMax &from, bool isRoot) {
+
+  // Store pointer to message in front of node storage so it can be
+  // freed when we are done.  See free() method below.
+
   *(CkCacheFillMsg **) (((char*)node)-8) = msg;
+
+  // Overwrite virtual pointer table.  Something like this will be
+  // needed for heterogeneous architectures.  Commented out for now
+  // since it breaks on the PGI compiler.
+
   memcpy(node, &vptr, sizeof(void*));
+
   if (!isRoot) CmiReference(UsrToEnv(msg));
   for (int i=0; i < 2; ++i) {
     if (node->children[i] != NULL) {
@@ -258,6 +268,7 @@ void EntryTypeGravityNode::unpackSingle(CkCacheFillMsg *msg, Tree::BinaryTreeNod
 void EntryTypeGravityNode::writeback(CkArrayIndexMax& idx, CkCacheKey k, void *data) { }
 
 void EntryTypeGravityNode::free(void *data) {
+    // msg pointer is stored in front of the node data.
   CkFreeMsg(*(void **)(((char*)data)-8));
 }
 
@@ -283,6 +294,9 @@ void TreePiece::fillRequestNode(CkCacheRequestMsg *msg) {
 #if 1 || defined CACHE_BUFFER_MSGS
       int count = ((Tree::BinaryTreeNode*)node)->countDepth(_cacheLineDepth);
       //FillBinaryNodeMsg *reply = new (count, 0) FillBinaryNodeMsg(thisIndex);
+      // 8 extra bytes are allocated to store the msg pointer at the
+      // beginning of the buffer.  See the free() and the
+      // unpackSingle() method above.
       CkCacheFillMsg *reply = new (count * (sizeof(Tree::BinaryTreeNode)+8)) CkCacheFillMsg(msg->key);
       //reply->magic[0] = 0xd98cb23a;
       //new (reply->data) BinaryTreeNode[count];
