@@ -4650,9 +4650,11 @@ void TreePiece::pup(PUP::er& p) {
   }
 
   if (verbosity) {
-    ckout << "TreePiece " << thisIndex << ": Getting PUP'd!";
-    if (p.isSizing()) ckout << " size: " << ((PUP::sizer*)&p)->size();
-    ckout << endl;
+    if (p.isSizing()) {
+      ckout << "TreePiece " << thisIndex << ": Getting PUP'd!";
+      ckout << " size: " << ((PUP::sizer*)&p)->size();
+      ckout << endl;
+      }
   }
 
   /*
