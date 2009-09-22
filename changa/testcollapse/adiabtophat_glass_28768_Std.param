@@ -25,7 +25,7 @@ bStandard	= 1
 bDoGravity      = 1
 bDoGas          = 1
 bFastGas        = 1
-dFracFastGas    = 1
+dFracFastGas    = 0.3
 # dFracNoDomainDecomp = 0.001
 bComove         = 0
 bCannonical     = 1
@@ -44,11 +44,3 @@ bVDetails       = 2
 bBulkViscosity  = 0
 bDoDensity      = 0
 dhMinOverSoft   = 0.25
-
-
-
-
-
-
-
-
