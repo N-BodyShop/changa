@@ -15,32 +15,115 @@ Main::initSph()
 void
 Main::doSph(int activeRung) 
 {
-    ckout << "Calculating densities/divv ...";
-    DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime);
-    double startTime = CkWallTimer();
-    treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
-    iPhase++;
-    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-	  << endl;
+    if (param.bFastGas && nActiveSPH < nTotalSPH*param.dFracFastGas) {
+	ckout << "Calculating densities/divv on Actives ...";
+	// This also marks neighbors of actives
+	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 1);
+	double startTime = CkWallTimer();
+	treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+	iPhase++;
+	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+	      << endl;
 
+	ckout << "Marking Neighbors ...";
+	// This marks particles with actives as neighbors
+	MarkSmoothParams pMark(TYPE_GAS, activeRung);
+	startTime = CkWallTimer();
+	treeProxy.startIterationMarkSmooth(&pMark, CkCallbackResumeThread());
+	iPhase++;
+	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+	      << endl;
+	
+	ckout << "Density of Neighbors ...";
+	// This does neighbors (but not actives),  It also does no
+	// additional marking
+	DenDvDxNeighborSmParams pDenN(TYPE_GAS, activeRung, param.csm, dTime);
+	startTime = CkWallTimer();
+	treeProxy.startIterationSmooth(&pDenN, CkCallbackResumeThread());
+	iPhase++;
+	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+	      << endl;
+	}
+    else {
+	ckout << "Calculating densities/divv ...";
+	// The following smooths all GAS, and also marks neighbors of
+	// actives, and those who have actives as neighbors.
+	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 0);
+	double startTime = CkWallTimer();
+	treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+	iPhase++;
+	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+	      << endl;
+
+	}
     treeProxy.sphViscosityLimiter(param.iViscosityLimiter, activeRung,
 			CkCallbackResumeThread());
-    treeProxy.getAdiabaticGasPressure(param.dConstGamma, param.dConstGamma-1,
+    treeProxy.getAdiabaticGasPressure(param.dConstGamma,
+				      param.dConstGamma-1,
 				      CkCallbackResumeThread());
 
     ckout << "Calculating pressure gradients ...";
     PressureSmoothParams pPressure(TYPE_GAS, activeRung, param.csm, dTime,
 				   param.dConstAlpha, param.dConstBeta);
-    startTime = CkWallTimer();
+    double startTime = CkWallTimer();
     treeProxy.startIterationReSmooth(&pPressure, CkCallbackResumeThread());
     iPhase++;
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	  << endl;
+    
+    treeProxy.ballMax(activeRung, 1.0+param.ddHonHLimit,
+		      CkCallbackResumeThread());
+    }
+
+/* Set a maximum ball for inverse Nearest Neighbor searching */
+void TreePiece::ballMax(int activeRung, double dhFac, const CkCallback& cb)
+{
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	if (TYPETest(&myParticles[i], TYPE_GAS)
+	    && myParticles[i].rung >= activeRung) {
+	    myParticles[i].fBallMax() = myParticles[i].fBall*dhFac;
+	    }
+	}
+    contribute(0, 0, CkReduction::concat, cb);
+    }
+    
+int DenDvDxSmoothParams::isSmoothActive(GravityParticle *p) 
+{
+    if(bActiveOnly && p->rung < activeRung)
+	return 0;		// not active
+
+    return (TYPETest(p, iType));
+    }
+
+// Non-active neighbors of Actives
+int DenDvDxNeighborSmParams::isSmoothActive(GravityParticle *p) 
+{
+    if(p->rung < activeRung && TYPETest(p, iType)
+       && TYPETest(p, TYPE_NbrOfACTIVE))
+	return 1;
+
+    return 0;
+    }
+
+// Only do actives
+
+int MarkSmoothParams::isSmoothActive(GravityParticle *p) 
+{
+    if(p->rung < activeRung)
+	return 0;		// not active
+
+    return (TYPETest(p, iType));
     }
 
 void DenDvDxSmoothParams::initSmoothParticle(GravityParticle *p)
 {
-	}
+    TYPEReset(p, TYPE_NbrOfACTIVE);
+    }
+
+void DenDvDxSmoothParams::initTreeParticle(GravityParticle *p)
+{
+    TYPEReset(p, TYPE_NbrOfACTIVE);
+    }
 
 void DenDvDxSmoothParams::initSmoothCache(GravityParticle *p)
 {
@@ -113,6 +196,60 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	p->curlv().z = fNorm1*(dvydx - dvxdy);
 	}
 
+/* As above, but no marking */
+void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
+				    pqSmoothNode *nnList)
+{
+	double ih2,r2,rs,rs1,fDensity,fNorm,fNorm1,vFac;
+	double dvxdx, dvxdy, dvxdz, dvydx, dvydy, dvydz, dvzdx, dvzdy, dvzdz;
+	double dvx,dvy,dvz,dx,dy,dz,trace;
+	GravityParticle *q;
+	int i;
+	unsigned int qiActive;
+
+	ih2 = invH2(p);
+	vFac = 1./(a*a); /* converts v to xdot */
+	fNorm = M_1_PI*ih2*sqrt(ih2);
+	fNorm1 = fNorm*ih2;	
+	fDensity = 0.0;
+	dvxdx = 0; dvxdy = 0; dvxdz= 0;
+	dvydx = 0; dvydy = 0; dvydz= 0;
+	dvzdx = 0; dvzdy = 0; dvzdz= 0;
+
+	for (i=0;i<nSmooth;++i) {
+		double fDist2 = nnList[i].fKey*nnList[i].fKey;
+		r2 = fDist2*ih2;
+		q = nnList[i].p;
+		rs = KERNEL(r2);
+		fDensity += rs*q->mass;
+		rs1 = DKERNEL(r2);
+		rs1 *= q->mass;
+		dx = nnList[i].dx.x;
+		dy = nnList[i].dx.y;
+		dz = nnList[i].dx.z;
+		dvx = (-p->vPred().x + q->vPred().x)*vFac - dx*H; /* NB: dx = px - qx */
+		dvy = (-p->vPred().y + q->vPred().y)*vFac - dy*H;
+		dvz = (-p->vPred().z + q->vPred().z)*vFac - dz*H;
+		dvxdx += dvx*dx*rs1;
+		dvxdy += dvx*dy*rs1;
+		dvxdz += dvx*dz*rs1;
+		dvydx += dvy*dx*rs1;
+		dvydy += dvy*dy*rs1;
+		dvydz += dvy*dz*rs1;
+		dvzdx += dvz*dx*rs1;
+		dvzdy += dvz*dy*rs1;
+		dvzdz += dvz*dz*rs1;
+		}
+		
+	p->fDensity = fNorm*fDensity; 
+	fNorm1 /= p->fDensity;
+	trace = dvxdx+dvydy+dvzdz;
+	p->divv() =  fNorm1*trace; /* physical */
+	p->curlv().x = fNorm1*(dvzdy - dvydz); 
+	p->curlv().y = fNorm1*(dvxdz - dvzdx);
+	p->curlv().z = fNorm1*(dvydx - dvxdy);
+	}
+
 void 
 TreePiece::sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb)
 {
@@ -163,6 +300,11 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1,
 	    }
 	}
     contribute(0, 0, CkReduction::concat, cb);
+    }
+
+int PressureSmoothParams::isSmoothActive(GravityParticle *p) 
+{
+    return (TYPETest(p, TYPE_NbrOfACTIVE));
     }
 
 /* Original Particle */

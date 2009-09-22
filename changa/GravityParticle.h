@@ -74,6 +74,7 @@ class extraSPHData
     double _c;			/* Speed of Sound */
     double _PoverRho2;		/* Pressure/rho^2 */
     double _BalsaraSwitch;	/* Pressure/rho^2 */
+    double _fBallMax;		/* Radius for inverse neighbor finding */
     
  public:
     inline double& u() {return _u;}
@@ -87,9 +88,20 @@ class extraSPHData
     inline double& c() {return _c;}
     inline double& PoverRho2() {return _PoverRho2;}
     inline double& BalsaraSwitch() {return _BalsaraSwitch;}
+    inline double& fBallMax() {return _fBallMax;}
     void pup(PUP::er &p) {
 	p | _u;
 	p | _fMetals;
+	p | _vPred;
+	p | _uPred;
+	p | _divv;
+	p | _curlv;
+	p | _mumax;
+	p | _PdV;
+	p |  _c;
+	p | _PoverRho2;
+	p | _BalsaraSwitch;
+	p | _fBallMax;
 	}
     };
 
@@ -163,6 +175,7 @@ public:
 	inline double& c() { return (((extraSPHData*)extraData)->c());}
 	inline double& PoverRho2() { return (((extraSPHData*)extraData)->PoverRho2());}
 	inline double& BalsaraSwitch() { return (((extraSPHData*)extraData)->BalsaraSwitch());}
+	inline double& fBallMax() { return (((extraSPHData*)extraData)->fBallMax());}
 };
 
 #define TYPE_GAS               (1<<0)
@@ -176,6 +189,9 @@ inline int TYPETest(GravityParticle *a, unsigned int b) {
     }
 inline int TYPESet(GravityParticle *a, unsigned int b) {
     return a->iType |= b;
+    }
+inline int TYPEReset(GravityParticle *a, unsigned int b) {
+    return a->iType &= (~b);
     }
 
 

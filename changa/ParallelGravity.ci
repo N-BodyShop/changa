@@ -59,6 +59,8 @@ mainmodule ParallelGravity {
 
   PUPable DensitySmoothParams;
   PUPable DenDvDxSmoothParams;
+  PUPable DenDvDxNeighborSmParams;
+  PUPable MarkSmoothParams;
   PUPable PressureSmoothParams;
 
   PUPable AccOutputParams;
@@ -121,6 +123,7 @@ mainmodule ParallelGravity {
     entry void nextBucket(dummyMsg *m);	
     entry void nextBucketSmooth(dummyMsg *msg);
     entry void nextBucketReSmooth(dummyMsg *msg);
+    entry void nextBucketMarkSmooth(dummyMsg *msg);
     //entry void registerWithDataManager(const CkGroupID& dataManagerID,
     //		     		  const CkCallback& cb);
     entry void setPeriodic(int nReplicas, Vector3D<double> fPeriod, int bEwald,
@@ -167,12 +170,14 @@ mainmodule ParallelGravity {
 	      double dDelta, double dAccFac,
 	      double dCosmoFac, const CkCallback& cb);
     entry void rungStats(const CkCallback& cb);
+    entry void countActive(int activeRung, const CkCallback& cb);
     entry void drift(double dDelta, int bNeedVPred, int bGasIsoThermal,
 		     double duDelta, const CkCallback& cb);
     entry void calcEnergy(const CkCallback& cb);
     entry void setSoft(const double dSoft);
     entry void physicalSoft(const double dSoftMax, const double dFac,
         const int bSoftMaxMul);
+    entry void ballMax(int activeRung, double dFac, const CkCallback& cb);
     entry void sphViscosityLimiter(int bOn, int activeRung,
 	const CkCallback& cb);
     entry void getAdiabaticGasPressure(double gamma, double gammam1,
@@ -193,10 +198,11 @@ mainmodule ParallelGravity {
     entry void startIteration(int activeRung, double myTheta, CkCallback &cb);
     entry void startIterationSmooth(CkPointer<SmoothParams>, CkCallback &cb);
     entry void startIterationReSmooth(CkPointer<SmoothParams>, CkCallback &cb);
+    entry void startIterationMarkSmooth(CkPointer<SmoothParams>, CkCallback &cb);
     entry void finishNodeCache(int iPhases, CkCallback &cb);
 
     entry [inline] void requestRemoteMoments(Tree::NodeKey key, int sender);
-    entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, MultipoleMoments& moments, OrientedBox<double>& box);
+    entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, MultipoleMoments& moments, OrientedBox<double>& box, OrientedBox<double>& boxBall);
 
     //entry void calculateGravityDirect(const CkCallback& cb);
     //entry void fillRequestDirect(GravityRequest req);
@@ -212,6 +218,7 @@ mainmodule ParallelGravity {
 
     entry void calculateSmoothLocal();
     entry void calculateReSmoothLocal();
+    entry void calculateMarkSmoothLocal();
 
     entry void finishWalk();
     entry void finishSmoothWalk();

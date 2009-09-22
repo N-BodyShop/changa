@@ -55,11 +55,19 @@ public:
 class SmoothParams : public PUP::able
 {
  public:
-    int iType;	// Particle type to smooth over
+    int iType;	// Particle type to smooth over;  "TreeActive"
     int activeRung;
+    // Function to apply to smooth particle and neighbors
     virtual void fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *nList) = 0;
+    // Particle is doing a neighbor search
+    virtual int isSmoothActive(GravityParticle *p) = 0;
+    // initialize particles to be smoothed
     virtual void initSmoothParticle(GravityParticle *p) = 0;
+    // initialize particles in tree but not smoothed
+    virtual void initTreeParticle(GravityParticle *p) = 0;
+    // initialize particles as they come into the cache
     virtual void initSmoothCache(GravityParticle *p) = 0;
+    // combine cache copy with home particle
     virtual void combSmoothCache(GravityParticle *p1,
 				 ExternalSmoothParticle *p2) = 0;
     SmoothParams() {}
@@ -81,7 +89,9 @@ class DensitySmoothParams : public SmoothParams
 {
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
+    virtual int isSmoothActive(GravityParticle *p);
     virtual void initSmoothParticle(GravityParticle *p);
+    virtual void initTreeParticle(GravityParticle *p) {}
     virtual void initSmoothCache(GravityParticle *p);
     virtual void combSmoothCache(GravityParticle *p1,
 				 ExternalSmoothParticle *p2);
@@ -226,7 +236,51 @@ public:
     State *getNewState(int d1);
  
      };
- 
+
+class MarkSmoothCompute : public SmoothCompute 
+{
+    
+public:
+    MarkSmoothCompute(TreePiece *_tp, SmoothParams *_params) : SmoothCompute(_tp, _params){}
+
+    ~MarkSmoothCompute() { //delete state;
+	delete params;
+    }
+
+    void bucketCompare(TreePiece *tp,
+		       GravityParticle *p,  // Particle to test
+		       GenericTreeNode *node, // bucket
+		       GravityParticle *particles, // local particle data
+		       Vector3D<double> offset,
+                       State *state
+		       ) ;
+	    
+    int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
+    int startNodeProcessEvent(TreePiece *owner){ return 0; }
+    int finishNodeProcessEvent(TreePiece *owner, State *state){ return 0; }
+    int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
+    void recvdParticlesFull(GravityParticle *egp,int num,int chunk,
+			int reqID,State *state, TreePiece *tp,
+			Tree::NodeKey &remoteBucket);
+    void walkDone(State *state) ;
+
+    // this function is used to allocate and initialize a new state object
+    // these operations were earlier carried out in the constructor of the
+    // class.
+    State *getNewState(int d1);
+     };
+
+// Object to bookkeep a Bucket MarkSmooth Walk.
+
+class MarkNeighborState: public State {
+public:
+    int nParticlesPending;
+    bool started;
+    MarkNeighborState(int nParts) {}
+    void finishBucketSmooth(int iBucket, TreePiece *tp);
+    ~MarkNeighborState() {}
+};
+
 #include "Opt.h"
 
 class SmoothOpt : public Opt{

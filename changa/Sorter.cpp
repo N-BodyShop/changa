@@ -305,7 +305,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
           availableChares.push_back(i);
         }
         joinThreshold = particlesPerChare;
-        splitThreshold = joinThreshold * 1.5;
+       splitThreshold = joinThreshold * 1.5;
         /*
         numKeys = 1;
         treeRoot = new WeighedNode(1, 1<<30);

@@ -306,6 +306,9 @@ Main::Main(CkArgMsg* m) {
 	param.dKpcUnit = 1000.0;
 	prmAddParam(prm,"dKpcUnit",paramDouble,&param.dKpcUnit,
 		    sizeof(double),"kpcu", "<Kiloparsec/system length unit>");
+	param.ddHonHLimit = 0.1;
+	prmAddParam(prm,"ddHonHLimit",paramDouble,&param.ddHonHLimit,
+		    sizeof(double),"dhonh", "<|dH|/H Limiter> = 0.1");
 	param.dConstAlpha = 1.0;
 	prmAddParam(prm,"dConstAlpha",paramDouble,&param.dConstAlpha,
 		    sizeof(double),"alpha",
@@ -612,14 +615,6 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bGeometric parameter ignored." << endl;
 	    }
-	if(prmSpecified(prm, "bFastGas")) {
-	    ckerr << "WARNING: ";
-	    ckerr << "bFastGas parameter ignored." << endl;
-	    }
-	if(prmSpecified(prm, "dFracFastGas")) {
-	    ckerr << "WARNING: ";
-	    ckerr << "dFracFastGas parameter ignored." << endl;
-	    }
 	if(prmSpecified(prm, "dhMinOverSoft")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "dhMinOverSoft parameter ignored." << endl;
@@ -756,7 +751,11 @@ Main::Main(CkArgMsg* m) {
 	// nodes.
 	nPhases = 0;
 	if(param.bDoGravity) nPhases++;
-	if(param.bDoGas) nPhases += 2;
+	if(param.bDoGas) {
+	    nPhases += 2;
+	    if(param.bFastGas)
+		nPhases += 2;
+	    }
 	else if(param.bDoDensity) nPhases++;
 	CkGroupID *gids = new CkGroupID[nPhases];
 	int i;
@@ -1070,6 +1069,8 @@ void Main::advanceBigStep(int iStep) {
             << nextMaxRung << endl;
 
 
+    countActive(activeRung);
+    
     /***** Resorting of particles and Domain Decomposition *****/
     ckerr << "Domain decomposition ...";
     double startTime = CkWallTimer();
@@ -1197,12 +1198,12 @@ void Main::setupICs() {
 			param.dEwCut, param.dEwhCut, param.bPeriodic);
 
   /******** Particles Loading ********/
-  ckerr << "Loading particles ...";
+  ckout << "Loading particles ...";
   startTime = CkWallTimer();
   treeProxy.load(basefilename, CkCallbackResumeThread());
   if(!(treeProxy[0].ckLocal()->bLoaded)) {
     // Try loading Tipsy format; first just grab the header.
-    ckerr << " trying Tipsy ...";
+    ckout << " trying Tipsy ...";
 	    
     Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
     if(!ptf.loadedSuccessfully()) {
@@ -1215,10 +1216,16 @@ void Main::setupICs() {
     double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
     treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
   }	
-  ckerr << " took " << (CkWallTimer() - startTime) << " seconds."
+  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
 	    
-  if(treeProxy[0].ckLocal()->nTotalSPH == 0 && param.bDoGas) {
+  nTotalParticles = treeProxy[0].ckLocal()->nTotalParticles;
+  nTotalSPH = treeProxy[0].ckLocal()->nTotalSPH;
+  nActiveGrav = nTotalParticles;
+  nActiveSPH = nTotalSPH;
+  ckout << "N: " << nTotalParticles << endl;
+  
+  if(nTotalSPH == 0 && param.bDoGas) {
       ckerr << "WARNING: no SPH particles and bDoGas is set\n";
       param.bDoGas = 0;
       }
@@ -1803,6 +1810,21 @@ void Main::rungStats()
     delete msg;
     }
 
+void Main::countActive(int activeRung) 
+{
+    CkReductionMsg *msg;
+    treeProxy.countActive(activeRung, CkCallbackResumeThread((void*&)msg));
+    int *nActive = (int *)msg->getData();
+    
+    nActiveGrav = nActive[0];
+    nActiveSPH = nActive[1];
+    
+    ckout << "Gravity Active: " << nActive[0]
+	  << ", Gas Active: " << nActive[1] << endl ;
+    
+    delete msg;
+    }
+
 void Main::updateSoft()
 {
 #ifdef CHANGESOFT
@@ -1956,6 +1978,8 @@ void Main::pup(PUP::er& p)
 {
     CBase_Main::pup(p);
     p | basefilename;
+    p | nTotalParticles;
+    p | nTotalSPH;
     p | theta;
     p | dTime;
     p | dEcosmo;

@@ -50,6 +50,7 @@ typedef struct parameters {
     double dhMinOverSoft;
     double dMsolUnit;
     double dKpcUnit;
+    double ddHonHLimit;
     double dGasConst;
     double dConstAlpha;
     double dConstBeta;
@@ -130,6 +131,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dhMinOverSoft;
     p|param.dMsolUnit;
     p|param.dKpcUnit;
+    p|param.ddHonHLimit;
     p|param.dGasConst;
     p|param.dConstAlpha;
     p|param.dConstBeta;

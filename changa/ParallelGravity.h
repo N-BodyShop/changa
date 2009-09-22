@@ -299,6 +299,7 @@ class Main : public CBase_Main {
 	std::string basefilename;
 	CProxy_Sorter sorter;
 	int nTotalParticles;
+	int nTotalSPH;
 	//double theta; -- moved to readonly
 	double dTime;		/* Simulation time */
 	double dEcosmo;		/* variables for integrating
@@ -323,6 +324,8 @@ class Main : public CBase_Main {
 	int iPhase;
 	int nPhases;		/* number of walks that a node cache
 				   will service */
+	int nActiveGrav;
+	int nActiveSPH;
 public:
 
 	Main(CkArgMsg* m);
@@ -336,6 +339,7 @@ public:
         void advanceBigStep(int);
 	int adjust(int iKickRung);
 	void rungStats();
+	void countActive(int activeRung);
 	void calcEnergy(double, double, char *) ;
 	void getStartTime();
 	void getOutTimes();
@@ -413,9 +417,11 @@ class TreePiece : public CBase_TreePiece {
    friend class SmoothCompute;
    friend class KNearestSmoothCompute;
    friend class ReSmoothCompute;
+   friend class MarkSmoothCompute;
    friend class ListCompute;
    friend class NearNeighborState;
    friend class ReNearNeighborState;
+   friend class MarkNeighborState;
    friend class BottomUpTreeWalk;
 #if INTERLIST_VER > 0 && defined CUDA
    friend class DataManager;
@@ -573,13 +579,13 @@ private:
 	CkCallback callback;
 	/// smooth globally finished
 	CkCallback cbSmooth;
-	/// Total Particles in the simulation
-	int64_t nTotalParticles;
 	/// Total number of particles contained in this chare
 	unsigned int myNumParticles;
 	/// Array with the particles in this chare
 	GravityParticle* myParticles;
  public:
+	/// Total Particles in the simulation
+	int64_t nTotalParticles;
 	/// Total Gas Particles
 	int64_t nTotalSPH;
  private:
@@ -862,6 +868,7 @@ private:
 	void initBucketsSmooth(Tsmooth tSmooth);
 	void smoothNextBucket();
 	void reSmoothNextBucket();
+	void markSmoothNextBucket();
 	void smoothBucketComputation();
 	/** @brief Initial walk through the tree. It will continue until local
 	 * nodes are found (excluding those coming from the cache). When the
@@ -1080,9 +1087,11 @@ public:
 		       double dDelta, double dAccFac,
 		       double dCosmoFac, const CkCallback& cb);
   void rungStats(const CkCallback& cb);
+  void countActive(int activeRung, const CkCallback& cb);
 	void calcEnergy(const CkCallback& cb);
 	void setSoft(const double dSoft);
 	void physicalSoft(const double dSoftMax, const double dFac, const int bSoftMaxMul);
+	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
 	void getAdiabaticGasPressure(double gamma, double gammam1,
 				     const CkCallback &cb);
@@ -1111,7 +1120,7 @@ public:
 
 	/// Request the TreePiece to send back later the moments for this node.
 	void requestRemoteMoments(const Tree::NodeKey key, int sender);
-	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments, const OrientedBox<double>& box);
+	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments, const OrientedBox<double>& box, const OrientedBox<double>& boxBall);
 
 	/// Decide whether the node should be opened for the force computation
 	/// of the given request. --- Moved outside TreePiece class
@@ -1147,8 +1156,10 @@ public:
 	/// As above but for the Smooth operation
 	void calculateSmoothLocal();
 	void calculateReSmoothLocal();
+	void calculateMarkSmoothLocal();
 	void nextBucketSmooth(dummyMsg *msg);
 	void nextBucketReSmooth(dummyMsg *msg);
+	void nextBucketMarkSmooth(dummyMsg *msg);
 #if INTERLIST_VER > 0
 #if 0
   void calculateForceRemoteBucket(int bucketIndex, int chunk);
@@ -1165,6 +1176,7 @@ public:
   void setupSmooth();
   void startIterationSmooth(SmoothParams *p, const CkCallback& cb);
   void startIterationReSmooth(SmoothParams *p, const CkCallback& cb);
+  void startIterationMarkSmooth(SmoothParams *p, const CkCallback& cb);
 
   void finishNodeCache(int iPhases, const CkCallback& cb);
 	/// Function called by the CacheManager to send out request for needed
