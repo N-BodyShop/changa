@@ -143,7 +143,47 @@ void EntryTypeSmoothParticle::callback(CkArrayID requestorID, CkArrayIndexMax &r
 				key, awi, source);
 }
 
+// satisfy buffered requests
+
+void TreePiece::processReqSmoothParticles() {
+    for(SmPartRequestType::iterator iter = smPartRequests.begin();
+	iter != smPartRequests.end();) {
+	CkCacheKey bucketKey = iter->first;
+	const GenericTreeNode *bucket = lookupNode(bucketKey >> 1);
+	int total = sizeof(CacheSmoothParticle) + (bucket->lastParticle - bucket->firstParticle) * sizeof(ExternalSmoothParticle);
+	CkVec<int> *vRec = iter->second;
+	iter++;
+	for(int i = 0; i < vRec->length(); ++i) {
+	    CkCacheFillMsg *reply = new (total) CkCacheFillMsg(bucketKey);
+	    CacheSmoothParticle *data = (CacheSmoothParticle*)reply->data;
+	    data->begin = bucket->firstParticle;
+	    data->end = bucket->lastParticle;
+  
+	    for (int ip=0; ip<bucket->particleCount; ++ip) {
+		data->partExt[ip] = myParticles[ip+bucket->firstParticle].getExternalSmoothParticle();
+		}
+	    nCacheAccesses++;
+	    cacheSmoothPart[(*vRec)[i]].recvData(reply);
+	    }
+	smPartRequests.erase(bucketKey);
+	}
+    }
+
 void TreePiece::fillRequestSmoothParticles(CkCacheRequestMsg *msg) {
+    // buffer request if we are not ready for it.
+    if(sSmooth == NULL) {
+	CkVec<int> *vReq = smPartRequests[msg->key];
+	if(vReq == NULL) {
+	    vReq = new CkVec<int>();
+	    smPartRequests[msg->key] = vReq;
+	    }
+	vReq->push_back(msg->replyTo);
+	delete msg;
+	return;
+	}
+
+  CkAssert(msg->replyTo != CkMyPe());
+  
   // the key used in the cache is shifted to the left of 1, this makes
   // a clear distinction between nodes and particles
   const GenericTreeNode *bucket = lookupNode(msg->key >> 1);

@@ -320,6 +320,7 @@ void TreePiece::startIterationSmooth(// type of smoothing and parameters
   // creates and initializes nearneighborstate object
   sSmoothState = sSmooth->getNewState(numBuckets);
   optSmooth = new SmoothOpt;
+  processReqSmoothParticles();
 
   addActiveWalk(smoothAwi, twSmooth,sSmooth,optSmooth,sSmoothState);
 #ifdef CHECK_WALK_COMPLETIONS
@@ -687,6 +688,7 @@ void TreePiece::startIterationReSmooth(SmoothParams* params,
   // creates and initializes nearneighborstate object
   sSmoothState = sSmooth->getNewState(numBuckets);
   optSmooth = new SmoothOpt;
+  processReqSmoothParticles();
 
   addActiveWalk(smoothAwi, twSmooth,sSmooth,optSmooth,sSmoothState);
 #ifdef CHECK_WALK_COMPLETIONS
@@ -891,6 +893,7 @@ void TreePiece::startIterationMarkSmooth(SmoothParams* params,
   // creates and initializes nearneighborstate object
   sSmoothState = sSmooth->getNewState(numBuckets);
   optSmooth = new SmoothOpt;
+  processReqSmoothParticles();
 
   addActiveWalk(smoothAwi, twSmooth,sSmooth,optSmooth,sSmoothState);
 #ifdef CHECK_WALK_COMPLETIONS

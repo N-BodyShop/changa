@@ -441,6 +441,9 @@ class TreePiece : public CBase_TreePiece {
    Opt *sLocal, *sRemote, *sPref;
    State *sPrefetchState, *sLocalGravityState, *sRemoteGravityState, *sSmoothState;
    Opt *optSmooth;
+   typedef std::map<CkCacheKey, CkVec<int>* > SmPartRequestType;
+   // buffer of requests for smoothParticles.
+   SmPartRequestType smPartRequests;
 
    CkVec<ActiveWalk> activeWalks;
    int completedActiveWalks; // XXX this should be part of the gravity
@@ -1231,12 +1234,7 @@ public:
 	void fillRequestParticles(CkCacheRequestMsg *msg);
 	void fillRequestSmoothParticles(CkCacheRequestMsg *msg);
 	void flushSmoothParticles(CkCacheFillMsg *msg);
-#if 0
-	void receiveParticles(ExternalGravityParticle *part,int num,int chunk,
-			      unsigned int reqID, Tree::NodeKey remoteBucketID);
-	void receiveParticles_inline(ExternalGravityParticle *part,int num,int chunk,
-				     unsigned int reqID, Tree::NodeKey remoteBucketID);
-#endif
+	void processReqSmoothParticles();
 
 	//void startlb(CkCallback &cb);
 	void startlb(CkCallback &cb, int activeRung);
