@@ -172,7 +172,7 @@ public:
 	    
     void initSmoothPrioQueue(int iBucket, State *state) ;
     int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
-    int startNodeProcessEvent(TreePiece *owner){ return 0; }
+    int startNodeProcessEvent(State *state){ return 0; }
     int finishNodeProcessEvent(TreePiece *owner, State *state){ return 0; }
     int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
     void recvdParticlesFull(GravityParticle *egp,int num,int chunk,
@@ -184,7 +184,9 @@ public:
     // these operations were earlier carried out in the constructor of the
     // class.
     State *getNewState(int d1);
-
+    // Unused.
+    State *getNewState(int d1, int d2) {return 0;}
+    State *getNewState() {return 0;}
     };
 
 // Object to bookkeep a Bucket ReSmooth Walk.  This could be merged
@@ -222,7 +224,7 @@ public:
 		       ) ;
 	    
     int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
-    int startNodeProcessEvent(TreePiece *owner){ return 0; }
+    int startNodeProcessEvent(State *state){ return 0; }
     int finishNodeProcessEvent(TreePiece *owner, State *state){ return 0; }
     int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
     void recvdParticlesFull(GravityParticle *egp,int num,int chunk,
@@ -234,8 +236,9 @@ public:
     // these operations were earlier carried out in the constructor of the
     // class.
     State *getNewState(int d1);
- 
-     };
+    State *getNewState(int d1, int d2) {return 0;}
+    State *getNewState() {return 0;}
+    };
 
 class MarkSmoothCompute : public SmoothCompute 
 {
@@ -256,7 +259,7 @@ public:
 		       ) ;
 	    
     int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
-    int startNodeProcessEvent(TreePiece *owner){ return 0; }
+    int startNodeProcessEvent(State *state){ return 0; }
     int finishNodeProcessEvent(TreePiece *owner, State *state){ return 0; }
     int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
     void recvdParticlesFull(GravityParticle *egp,int num,int chunk,
@@ -267,8 +270,10 @@ public:
     // this function is used to allocate and initialize a new state object
     // these operations were earlier carried out in the constructor of the
     // class.
+    State *getNewState(int d1, int d2) {return 0;}
     State *getNewState(int d1);
-     };
+    State *getNewState() {return 0;}
+    };
 
 // Object to bookkeep a Bucket MarkSmooth Walk.
 
