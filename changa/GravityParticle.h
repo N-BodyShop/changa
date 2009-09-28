@@ -212,6 +212,7 @@ class ExternalSmoothParticle {
   double c;
   double PoverRho2;
   double BalsaraSwitch;
+  double fBallMax;
 
   ExternalSmoothParticle() {}
 
@@ -231,6 +232,7 @@ class ExternalSmoothParticle {
 	      c = p->c();
 	      PoverRho2 = p->PoverRho2();
 	      BalsaraSwitch = p->BalsaraSwitch();
+	      fBallMax = p->fBallMax();
 	      }
 	  }
   
@@ -249,6 +251,7 @@ class ExternalSmoothParticle {
 	  tmp->c() = c;
 	  tmp->PoverRho2() = PoverRho2;
 	  tmp->BalsaraSwitch() = BalsaraSwitch;
+	  tmp->fBallMax() = fBallMax;
 	  }
       }
 	  
@@ -266,6 +269,7 @@ class ExternalSmoothParticle {
     p | c;
     p | PoverRho2;
     p | BalsaraSwitch;
+    p | fBallMax;
   }
 };
 
