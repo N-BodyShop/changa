@@ -990,6 +990,7 @@ public:
 	~TreePiece() {
 	  if (verbosity>1) ckout <<"Deallocating treepiece "<<thisIndex<<endl;
 	  delete[] myParticles;
+	  delete[] mySPHParticles;
 	  //delete[] splitters;
 	  //delete[] prefetchRoots;
 	  delete[] remainingChunk;

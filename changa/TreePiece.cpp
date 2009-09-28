@@ -617,9 +617,10 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles,
       incomingParticlesSelf = false;
       
       delete[] mySPHParticles;
-      mySPHParticles = new extraSPHData[incomingGas->size()];
+      myNumSPH = incomingGas->size();
+      mySPHParticles = new extraSPHData[myNumSPH];
       memcpy(mySPHParticles, &((*incomingGas)[0]),
-	     incomingGas->size()*sizeof(extraSPHData));
+	     myNumSPH*sizeof(extraSPHData));
       delete incomingGas;
 
       // assign gas data pointers
@@ -699,6 +700,8 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		      p->u() += p->PdV()*duDelta[p->rung];
 		      }
 		  }
+	      CkAssert(p->u() > 0.0);
+	      CkAssert(p->uPred() > 0.0);
 	      }
 	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
 	  }
@@ -4560,6 +4563,7 @@ void TreePiece::pup(PUP::er& p) {
 	else {
 	    p | iSPH;
 	    myParticles[i].extraData = mySPHParticles + iSPH;
+	    CkAssert(iSPH < myNumSPH);
 	    }
 	}
   }
