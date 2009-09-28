@@ -151,19 +151,26 @@ void TreePiece::processReqSmoothParticles() {
 	CkCacheKey bucketKey = iter->first;
 	const GenericTreeNode *bucket = lookupNode(bucketKey >> 1);
 	int total = sizeof(CacheSmoothParticle) + (bucket->lastParticle - bucket->firstParticle) * sizeof(ExternalSmoothParticle);
+
 	CkVec<int> *vRec = iter->second;
+
 	iter++;
+	CkCacheFillMsg *reply = new (total) CkCacheFillMsg(bucketKey);
+	CacheSmoothParticle *data = (CacheSmoothParticle*)reply->data;
+	data->begin = bucket->firstParticle;
+	data->end = bucket->lastParticle;
+	for (int ip=0; ip<bucket->particleCount; ++ip) {
+	    data->partExt[ip] = myParticles[ip+bucket->firstParticle].getExternalSmoothParticle();
+	    }
+
 	for(int i = 0; i < vRec->length(); ++i) {
-	    CkCacheFillMsg *reply = new (total) CkCacheFillMsg(bucketKey);
-	    CacheSmoothParticle *data = (CacheSmoothParticle*)reply->data;
-	    data->begin = bucket->firstParticle;
-	    data->end = bucket->lastParticle;
-  
-	    for (int ip=0; ip<bucket->particleCount; ++ip) {
-		data->partExt[ip] = myParticles[ip+bucket->firstParticle].getExternalSmoothParticle();
-		}
 	    nCacheAccesses++;
-	    cacheSmoothPart[(*vRec)[i]].recvData(reply);
+	    if(i < vRec->length() - 1) {
+		CkCacheFillMsg *replyCopy = (CkCacheFillMsg *) CkCopyMsg((void **) &reply);
+		cacheSmoothPart[(*vRec)[i]].recvData(replyCopy);
+		}
+	    else
+		cacheSmoothPart[(*vRec)[i]].recvData(reply);
 	    }
 	smPartRequests.erase(bucketKey);
 	}
