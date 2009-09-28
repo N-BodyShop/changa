@@ -931,7 +931,7 @@ void Main::getOutTimes()
     if (!fp) {
 	if (verbosity)
 	    cerr << "WARNING: Could not open redshift input file: "
-		 << basefilename + ".red" << endl;
+		 << achFileName << endl;
 	return;
 	}
     while (1) {
