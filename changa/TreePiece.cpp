@@ -4552,12 +4552,13 @@ void TreePiece::pup(PUP::er& p) {
     myParticles = new GravityParticle[myNumParticles + 2];
     mySPHParticles = new extraSPHData[myNumSPH];
   }
-  for(unsigned int i=0;i<myNumParticles+2;i++){
+  for(unsigned int i=1;i<=myNumParticles;i++){
     p | myParticles[i];
     if(TYPETest(&myParticles[i],TYPE_GAS)) {
 	int iSPH;
 	if(!p.isUnpacking()) {
 	    iSPH = (extraSPHData *)myParticles[i].extraData - mySPHParticles;
+	    CkAssert(iSPH < myNumSPH);
 	    p | iSPH;
 	    }
 	else {
