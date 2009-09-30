@@ -426,7 +426,7 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
   for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
       if(!params->isSmoothActive(&tp->myParticles[j]))
 	  continue;
-      pqSmoothNode *Q = nstate->Qs[j]; 
+      pqSmoothNode *Q = nstate->Qs[j] = new pqSmoothNode[nSmooth];
       //
       // Find maximum of nearest neighbors
       //
