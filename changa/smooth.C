@@ -306,9 +306,11 @@ void TreePiece::startIterationSmooth(// type of smoothing and parameters
   activeRung = params->activeRung;
 
   setupSmooth();
-  if (myNumParticles == 0)
+  if (myNumParticles == 0) {
+      markSmoothWalkDone();
       return;
-
+      }
+  
   for (int i=0; i<numChunks; ++i) remainingChunk[i] = myNumParticles;
 
   // Create objects that are reused by all buckets
@@ -530,11 +532,13 @@ void TreePiece::finishSmoothWalk()
 
   nCacheAccesses = 0; // reset for next walk.
 
-  sSmooth->freeState(sSmoothState);
-  delete sSmooth;
-  delete optSmooth;
-  delete twSmooth;
-  sSmooth = 0;
+  if(myNumParticles != 0) {
+      sSmooth->freeState(sSmoothState);
+      delete sSmooth;
+      delete optSmooth;
+      delete twSmooth;
+      sSmooth = 0;
+      }
 #ifdef CHECK_WALK_COMPLETIONS
   CkPrintf("[%d] inside finishSmoothWalk contrib callback\n", thisIndex);
 #endif
@@ -673,6 +677,10 @@ void TreePiece::startIterationReSmooth(SmoothParams* params,
   activeRung = params->activeRung;
 
   setupSmooth();
+  if (myNumParticles == 0) {
+      markSmoothWalkDone();
+      return;
+      }
 
   for (int i=0; i<numChunks; ++i) remainingChunk[i] = myNumParticles;
 
@@ -878,6 +886,10 @@ void TreePiece::startIterationMarkSmooth(SmoothParams* params,
   activeRung = params->activeRung;
 
   setupSmooth();
+  if (myNumParticles == 0) {
+      markSmoothWalkDone();
+      return;
+      }
 
   for (int i=0; i<numChunks; ++i) remainingChunk[i] = myNumParticles;
 
