@@ -3,6 +3,7 @@
 #include "OrientedBox.h"
 #include "Reductions.h"
 #include "InOutput.h"
+#include <errno.h>
 
 using namespace TypeHandling;
 using namespace SFC;
@@ -705,6 +706,7 @@ void TreePiece::outputASCII(OutputParams& params, const CkCallback& cb) {
     if(verbosity > 2)
       ckout << "TreePiece " << thisIndex << ": Writing header for output file" << endl;
     FILE* outfile = fopen(params.fileName.c_str(), "w");
+    CkAssert(outfile != NULL);
     fprintf(outfile,"%d\n",(int) nTotalParticles);
     fclose(outfile);
   }
@@ -713,8 +715,12 @@ void TreePiece::outputASCII(OutputParams& params, const CkCallback& cb) {
     ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
 	
   FILE* outfile = fopen(params.fileName.c_str(), "r+");
-  fseek(outfile, 0, SEEK_END);
-	
+  if(outfile == NULL)
+	ckerr << "Treepiece " << thisIndex << " failed to open "
+	      << params.fileName.c_str() << " : " << errno << endl;
+  CkAssert(outfile != NULL);
+  int result = fseek(outfile, 0L, SEEK_END);
+  CkAssert(result == 0);
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
       Vector3D<double> vOut;
       double dOut;
@@ -734,21 +740,21 @@ void TreePiece::outputASCII(OutputParams& params, const CkCallback& cb) {
 
       if(params.bVector && packed){
 	  if(fprintf(outfile,"%.14g\n",vOut.x) < 0) {
-	      ckerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
+	      ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 		CkAbort("Badness");
 		}
 	  if(fprintf(outfile,"%.14g\n",vOut.y) < 0) {
-	      ckerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
+	      ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 	      CkAbort("Badness");
 	      }
 	  if(fprintf(outfile,"%.14g\n",vOut.z) < 0) {
-	      ckerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
+	      ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 	      CkAbort("Badness");
 	      }
 	  }
       else {
 	  if(fprintf(outfile,"%.14g\n",dOut) < 0) {
-	      ckerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
+	      ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 	      CkAbort("Badness");
 	      }
 	  }
@@ -757,7 +763,8 @@ void TreePiece::outputASCII(OutputParams& params, const CkCallback& cb) {
   if(cnt == 3 || !params.bVector)
       cnt = 0;
   
-  fclose(outfile);
+  result = fclose(outfile);
+  CkAssert(result == 0);
 
   if(thisIndex!=(int)numTreePieces-1) {
       pieces[thisIndex + 1].outputASCII(params, cb);
