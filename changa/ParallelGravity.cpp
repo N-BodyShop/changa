@@ -1997,6 +1997,7 @@ void Main::pup(PUP::er& p)
     p | iOut;
     p | bDumpFrame;
     p | bChkFirst;
+    p | nPhases;
     }
 
 
