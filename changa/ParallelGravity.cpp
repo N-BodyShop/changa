@@ -1403,6 +1403,11 @@ Main::initialForces()
   if(iPhase < nPhases)
       treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
 
+  // Initial Log entry
+  char achLogFileName[MAXPATHLEN];
+  sprintf(achLogFileName, "%s.log", param.achOutName);
+  calcEnergy(dTime, CkWallTimer() - startTime, achLogFileName);
+
 #if COSMO_STATS > 0
   /********* TreePiece Statistics ********/
   ckerr << "Total statistics initial iteration :" << endl;
