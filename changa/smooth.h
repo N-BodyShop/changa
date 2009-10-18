@@ -173,7 +173,7 @@ public:
     int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
     int startNodeProcessEvent(State *state){ return 0; }
     int finishNodeProcessEvent(TreePiece *owner, State *state){ return 0; }
-    int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
+    void nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
     void recvdParticlesFull(GravityParticle *egp,int num,int chunk,
 			int reqID,State *state, TreePiece *tp,
 			Tree::NodeKey &remoteBucket);
@@ -225,7 +225,7 @@ public:
     int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
     int startNodeProcessEvent(State *state){ return 0; }
     int finishNodeProcessEvent(TreePiece *owner, State *state){ return 0; }
-    int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
+    void nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
     void recvdParticlesFull(GravityParticle *egp,int num,int chunk,
 			int reqID,State *state, TreePiece *tp,
 			Tree::NodeKey &remoteBucket);
@@ -260,7 +260,7 @@ public:
     int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
     int startNodeProcessEvent(State *state){ return 0; }
     int finishNodeProcessEvent(TreePiece *owner, State *state){ return 0; }
-    int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
+    void nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
     void recvdParticlesFull(GravityParticle *egp,int num,int chunk,
 			int reqID,State *state, TreePiece *tp,
 			Tree::NodeKey &remoteBucket);

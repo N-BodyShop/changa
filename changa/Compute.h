@@ -68,7 +68,7 @@ class Compute{
   virtual int finishNodeProcessEvent(TreePiece *owner, State *state) {}
   //virtual int nodeMissedEvent(TreePiece *owner, int chunk) = 0;
   virtual int nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp) {}
-  virtual int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket){}
+  virtual void nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket){}
   virtual void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket){}
   virtual void recvdParticlesFull(GravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket){}
   virtual ~Compute(){}
@@ -123,7 +123,7 @@ class GravityCompute : public Compute{
 
   // book keeping on notifications
   int nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);
-  int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
+  void nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
   void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket);
 
   void reassoc(void *cE, int activeRung, Opt *o);
@@ -152,7 +152,7 @@ class ListCompute : public Compute{
 
   // book keeping on notifications
   int nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);
-  int nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
+  void nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
   void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket);
 
   void initState(State *state);

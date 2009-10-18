@@ -328,7 +328,7 @@ void PrefetchCompute::recvdParticles(ExternalGravityParticle *egp,int num,int ch
 #endif
 }
 
-int GravityCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int reqIDlist){
+void GravityCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int reqIDlist){
 
   state->counterArrays[0][reqIDlist]--;
   owner->finishBucket(reqIDlist);
@@ -347,7 +347,7 @@ int GravityCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, in
 }
 
 #if INTERLIST_VER > 0
-int ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int reqIDlist){
+void ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int reqIDlist){
   int start, end;
   GenericTreeNode *source = (GenericTreeNode *)computeEntity;
   owner->getBucketsBeneathBounds(source, start, end);

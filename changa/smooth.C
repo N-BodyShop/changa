@@ -243,7 +243,7 @@ void KNearestSmoothCompute::recvdParticlesFull(GravityParticle *part,
   ((NearNeighborState *)state)->finishBucketSmooth(reqIDlist, tp);
 }
 
-int KNearestSmoothCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state,
+void KNearestSmoothCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state,
 				  int reqIDlist){
   state->counterArrays[0][reqIDlist]--;
   ((NearNeighborState *)state)->finishBucketSmooth(reqIDlist, owner);
@@ -662,7 +662,7 @@ void ReSmoothCompute::recvdParticlesFull(GravityParticle *part,
   ((ReNearNeighborState *)state)->finishBucketSmooth(reqIDlist, tp);
 }
 
-int ReSmoothCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state,
+void ReSmoothCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state,
 				  int reqIDlist){
   state->counterArrays[0][reqIDlist]--;
   ((ReNearNeighborState *)state)->finishBucketSmooth(reqIDlist, owner);
@@ -871,7 +871,7 @@ void MarkSmoothCompute::recvdParticlesFull(GravityParticle *part,
   ((MarkNeighborState *)state)->finishBucketSmooth(reqIDlist, tp);
 }
 
-int MarkSmoothCompute::nodeRecvdEvent(TreePiece *owner, int chunk,
+void MarkSmoothCompute::nodeRecvdEvent(TreePiece *owner, int chunk,
 				      State *state, int reqIDlist){
   state->counterArrays[0][reqIDlist]--;
   ((MarkNeighborState *)state)->finishBucketSmooth(reqIDlist, owner);
