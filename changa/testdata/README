@@ -14,3 +14,7 @@ then be used as an argument to ChaNGa to run a simulation based on the
 dataset.  I.e. "charmrun +p 2 ChaNGa testdata.param".  A value of
 100000 for N takes about a minute to calculate gravity on a GHz class
 processor.
+
+For testing SPH, 'pgaspart' produces a similar cube of gas.  Again,
+unless you are living before 1980, this would not be a reasonable
+cosmology.
