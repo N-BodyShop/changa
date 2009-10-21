@@ -7,3 +7,6 @@ testdata.tbin: ppartt Makefile
 ppartt: ppartt.c tipsydefs.h
 	$(CC) -o ppartt ppartt.c -lm
 
+pgaspart: pgaspart.c tipsydefs.h
+	$(CC) -o pgaspart pgaspart.c -lm
+
