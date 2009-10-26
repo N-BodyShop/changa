@@ -77,15 +77,15 @@ CkGroupID dataManagerID;
 CkArrayID treePieceID;
 
 void _Leader(void) {
-    puts("USAGE: ParallelGravity [SETTINGS | FLAGS] [SIM_FILE]");
-    puts("SIM_FILE: Configuration file of a particular simulation, which");
+    puts("USAGE: ChaNGa [SETTINGS | FLAGS] [PARAM_FILE]");
+    puts("PARAM_FILE: Configuration file of a particular simulation, which");
     puts("          includes desired settings and relevant input and");
     puts("          output files. Settings specified in this file override");
     puts("          the default settings.");
     puts("SETTINGS");
     puts("or FLAGS: Command line settings or flags for a simulation which");
     puts("          will override any defaults and any settings or flags");
-    puts("          specified in the SIM_FILE.");
+    puts("          specified in the PARAM_FILE.");
 }
 
 
