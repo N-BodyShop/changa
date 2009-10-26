@@ -1,5 +1,5 @@
 To compile ChaNGa first compile Charm++ or get a precompiled version.  Also
-build the "cache" module in charm++, then run:
+build the "cache" module and the "liveViz" module in charm++, then run:
 
 ./configure
 make (or gmake)
@@ -11,8 +11,8 @@ To run the code:
 
 ./charmrun +p <procs> ChaNGa <param.file> [ additional options ]
 
-This will work on many machines, and either run directly the application or
-submit through the local scheduler. On some machines nevertheless the
+This will work on many machines, and can either be run directly or be
+submitted through the local scheduler.  However, on some machines the
 application will need to be submitted manually.
 
 More information are available in the online wiki:
@@ -23,3 +23,5 @@ A small cosmological simulation is included in testcosmo.
 A small globular cluster simulation is included in teststep.
 For simple performance benchmarking, arbitrary size simulations can be done
 in testdata.
+An example simulation that generates movie frames is included in movie.
+
