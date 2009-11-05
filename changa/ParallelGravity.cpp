@@ -1692,16 +1692,18 @@ void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
 
     FILE *fpLog = fopen(achLogFileName, "a");
     
-    static int first = 1;
-    
     double a = csmTime2Exp(param.csm, dTime);
     
-    if(first) {
+    if(!bIsRestarting) {
 	fprintf(fpLog, "# time redshift TotalEVir TotalE Kinetic Virial Potential TotalECosmo Lx Ly Lz Wallclock\n");
-	first = 0;
 	dEcosmo = 0.0;
 	}
     else {
+	/*
+	 * Estimate integral (\dot a*U*dt) over the interval.
+	 * Note that this is equal to integral (W*da) and the latter
+	 * is more accurate when a is changing rapidly.
+	 */
 	if(param.csm->bComove) {
 	    dEcosmo += 0.5*(a - csmTime2Exp(param.csm, dTimeOld))
 		*(dEnergy[2] + dUOld);
@@ -1709,6 +1711,7 @@ void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
 	}
 
     dUOld = dEnergy[2];
+    dEnergy[2] *= a;
     dTimeOld = dTime;
     double z = 1.0/a - 1.0;
     
