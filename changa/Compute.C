@@ -209,30 +209,29 @@ void PrefetchCompute::init(void *buck, int ar, Opt *o){
   opt = o;
 }
 */
-int GravityCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp){
+void GravityCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp){
   if(getOptType() == Remote){
     state->counterArrays[0][decodeReqID(reqID)]++;
     state->counterArrays[1][chunk]++;
   }
 }
 
-int PrefetchCompute::startNodeProcessEvent(State *state){
+void PrefetchCompute::startNodeProcessEvent(State *state){
   //return owner->incPrefetchWaiting();
   state->counterArrays[0][0]++;
-  return state->counterArrays[0][0];
+  //return state->counterArrays[0][0];
 }
 
-int PrefetchCompute::finishNodeProcessEvent(TreePiece *owner, State *state){
+void PrefetchCompute::finishNodeProcessEvent(TreePiece *owner, State *state){
   //int save = owner->decPrefetchWaiting();
   int save = --state->counterArrays[0][0];
   if(save == 0){
     owner->startRemoteChunk();
   }
-  return save;
 }
 
 #if INTERLIST_VER > 0
-int ListCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp){
+void ListCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp){
   CkAssert(getOptType() == Remote);
 #ifdef CHANGA_REFACTOR_MEMCHECK
   CkPrintf("memcheck before nodemissed\n");

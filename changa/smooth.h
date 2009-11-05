@@ -142,7 +142,7 @@ class SmoothCompute : public Compute
 	       bool isRoot, 
 	       bool &didcomp, int awi);
     void reassoc(void *ce, int ar, Opt *o);    
-    int nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);
+    void nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);
     
 
 
@@ -171,8 +171,8 @@ public:
 	    
     void initSmoothPrioQueue(int iBucket, State *state) ;
     int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
-    int startNodeProcessEvent(State *state){ return 0; }
-    int finishNodeProcessEvent(TreePiece *owner, State *state){ return 0; }
+    void startNodeProcessEvent(State *state){ }
+    void finishNodeProcessEvent(TreePiece *owner, State *state){ }
     void nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
     void recvdParticlesFull(GravityParticle *egp,int num,int chunk,
 			int reqID,State *state, TreePiece *tp,
@@ -223,8 +223,8 @@ public:
 		       ) ;
 	    
     int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
-    int startNodeProcessEvent(State *state){ return 0; }
-    int finishNodeProcessEvent(TreePiece *owner, State *state){ return 0; }
+    void startNodeProcessEvent(State *state){ }
+    void finishNodeProcessEvent(TreePiece *owner, State *state){ }
     void nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
     void recvdParticlesFull(GravityParticle *egp,int num,int chunk,
 			int reqID,State *state, TreePiece *tp,
@@ -258,8 +258,8 @@ public:
 		       ) ;
 	    
     int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
-    int startNodeProcessEvent(State *state){ return 0; }
-    int finishNodeProcessEvent(TreePiece *owner, State *state){ return 0; }
+    void startNodeProcessEvent(State *state){ }
+    void finishNodeProcessEvent(TreePiece *owner, State *state){ }
     void nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
     void recvdParticlesFull(GravityParticle *egp,int num,int chunk,
 			int reqID,State *state, TreePiece *tp,

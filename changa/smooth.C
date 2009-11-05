@@ -133,7 +133,7 @@ void SmoothCompute::reassoc(void *ce, int ar, Opt *o){
   opt = o;
 }
 
-int SmoothCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp)
+void SmoothCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp)
 {
     int reqIDlist = decodeReqID(reqID);
     state->counterArrays[0][reqIDlist]++;

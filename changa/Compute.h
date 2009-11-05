@@ -64,10 +64,9 @@ class Compute{
   // Compute object from the TreeWalk that certain
   // events have taken place - the Compute reacts
   // accordingly.
-  virtual int startNodeProcessEvent(State *state) {}
-  virtual int finishNodeProcessEvent(TreePiece *owner, State *state) {}
-  //virtual int nodeMissedEvent(TreePiece *owner, int chunk) = 0;
-  virtual int nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp) {}
+  virtual void startNodeProcessEvent(State *state) {}
+  virtual void finishNodeProcessEvent(TreePiece *owner, State *state) {}
+  virtual void nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp) {}
   virtual void nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket){}
   virtual void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket){}
   virtual void recvdParticlesFull(GravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket){}
@@ -122,7 +121,7 @@ class GravityCompute : public Compute{
   int computeNodeForces(TreePiece *owner, GenericTreeNode *nd, int reqID);
 
   // book keeping on notifications
-  int nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);
+  void nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);
   void nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
   void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket);
 
@@ -151,7 +150,7 @@ class ListCompute : public Compute{
   int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
 
   // book keeping on notifications
-  int nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);
+  void nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);
   void nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
   void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket);
 
@@ -208,8 +207,8 @@ class PrefetchCompute : public Compute{
   int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqIDD, State *state);
 
   // book-keeping on notifications
-  int startNodeProcessEvent(State *state);
-  int finishNodeProcessEvent(TreePiece *owner, State *state);
+  void startNodeProcessEvent(State *state);
+  void finishNodeProcessEvent(TreePiece *owner, State *state);
 
   void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket);
 };
