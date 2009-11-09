@@ -270,15 +270,17 @@ void TreePiece::setupSmooth() {
       return;
   }
   
-  if (oldNumChunks != numChunks && remainingChunk != NULL) {
+  
+#if 0
+  if (oldNumChunks != numChunks && remaining Chunk != NULL) {
     // reallocate remaining chunk to the new size
-    delete[] remainingChunk;
-    remainingChunk = NULL;
+    delete[] remaining Chunk;
+    remaining Chunk = NULL;
     delete[] nodeInterRemote;
     delete[] particleInterRemote;
   }
-  if (remainingChunk == NULL) {
-    remainingChunk = new int[numChunks];
+  if (remaining Chunk == NULL) {
+    remaining Chunk = new int[numChunks];
     nodeInterRemote = new u_int64_t[numChunks];
     particleInterRemote = new u_int64_t[numChunks];
   }
@@ -293,6 +295,7 @@ void TreePiece::setupSmooth() {
   if(verbosity>1)
     CkPrintf("Node: %d, TreePiece %d: I have %d buckets\n", CkMyNode(),
     	     thisIndex,numBuckets);
+#endif
 
 }
 
@@ -311,7 +314,7 @@ void TreePiece::startIterationSmooth(// type of smoothing and parameters
       return;
       }
   
-  for (int i=0; i<numChunks; ++i) remainingChunk[i] = myNumParticles;
+  //for (int i=0; i<numChunks; ++i) remaining Chunk[i] = myNumParticles;
 
   // Create objects that are reused by all buckets
   twSmooth = new BottomUpTreeWalk;
@@ -682,7 +685,7 @@ void TreePiece::startIterationReSmooth(SmoothParams* params,
       return;
       }
 
-  for (int i=0; i<numChunks; ++i) remainingChunk[i] = myNumParticles;
+  //for (int i=0; i<numChunks; ++i) remaining Chunk[i] = myNumParticles;
 
   // Create objects that are reused by all buckets
   twSmooth = new TopDownTreeWalk;
@@ -891,7 +894,7 @@ void TreePiece::startIterationMarkSmooth(SmoothParams* params,
       return;
       }
 
-  for (int i=0; i<numChunks; ++i) remainingChunk[i] = myNumParticles;
+  //for (int i=0; i<numChunks; ++i) remaining Chunk[i] = myNumParticles;
 
   // Create objects that are reused by all buckets
   twSmooth = new TopDownTreeWalk;

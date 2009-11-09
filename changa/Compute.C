@@ -38,11 +38,14 @@ State *Compute::getNewState(int dim1, int dim2){
   State *s = new State();
   // 2 arrays of counters
   // 0. numAdditionalRequests[] - sized numBuckets, init to numChunks
-  // 1. remainingChunk[] - sized numChunks
+  // 1. remaining Chunk[] - sized numChunks
   s->counterArrays[0] = new int [dim1];
   s->counterArrays[1] = new int [dim2];
   s->currentBucket = 0;
   s->bWalkDonePending = 0;
+  
+  // this variable shouldn't be used at all in the remote walk
+  s->myNumParticlesPending = -1;
   return s;
 }
 
@@ -53,6 +56,12 @@ State *Compute::getNewState(int dim1){
   s->counterArrays[1] = 0;
   s->currentBucket = 0;
   s->bWalkDonePending = 0;
+
+  // this is used by local walks 
+  // not prefetch ones, even though
+  // prefetch computes use this version
+  // of gtNewState
+  s->myNumParticlesPending = dim1;
   return s;
 }
 
@@ -138,6 +147,7 @@ State *ListCompute::getNewState(int d1, int d2){
   s->currentBucket = 0;
   s->bWalkDonePending = 0;
 
+  s->myNumParticlesPending = -1;
   return s;
 }
 
@@ -149,6 +159,8 @@ State *ListCompute::getNewState(int d1){
   s->placedRoots = new bool [1];
   s->currentBucket = 0;
   s->bWalkDonePending = 0;
+
+  s->myNumParticlesPending = d1;
   return s;
 }
 
@@ -161,6 +173,8 @@ State *ListCompute::getNewState(){
   s->placedRoots = 0;
   s->currentBucket = 0;
   s->bWalkDonePending = 0;
+
+  s->myNumParticlesPending = -1;
   return s;
 }
 
@@ -1668,7 +1682,7 @@ void cudaCallback(void *param, void *msg){
     bucket = affectedBuckets[i];
     state->counterArrays[0][bucket]--;
 #if COSMO_PRINT_BK > 1
-    CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", tp->getIndex(), bucket, tp->sInterListStateRemote->counterArrays[0][bucket], tp->sInterListStateLocal->counterArrays[0][bucket]);
+    CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", tp->getIndex(), bucket, tp->sRemoteGravityState->counterArrays[0][bucket], tp->sLocalGravityState->counterArrays[0][bucket]);
 #endif
     //CkPrintf("[%d] bucket %d numAddReq: %d\n", tp->getIndex(), bucket, state->counterArrays[0][bucket]);
     tp->finishBucket(bucket);

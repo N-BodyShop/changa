@@ -34,10 +34,12 @@ void TopDownTreeWalk::walk(GenericTreeNode *startNode, State *state, int chunk, 
 #else
   bool doprint = false;
   if(comp->getSelfType() == Gravity && comp->getOptType() == Remote){
-    doprint = (ownerTP->getCurrentRemoteBucket() == CHECK_BUCKET && ownerTP->getIndex() == CHECK_INDEX);
+    // FIXME - TP::getCurrentRemote Bucket method is no more
+    doprint = (ownerTP->/*getCurrentRemote Bucket()*/ == CHECK_BUCKET && ownerTP->getIndex() == CHECK_INDEX);
   }
   else if(comp->getSelfType() == Gravity && comp->getOptType() == Local){
-    doprint = (ownerTP->getCurrentBucket() == CHECK_BUCKET && ownerTP->getIndex() == CHECK_INDEX);
+    // FIXME - TP::getCurrent Bucket method is no more
+    doprint = (ownerTP->/*getCurrent Bucket()*/ == CHECK_BUCKET && ownerTP->getIndex() == CHECK_INDEX);
   }
   if(doprint){
     CkPrintf("Printing walk (%d: type %c)\n", ownerTP->getIndex(), comp->getOptType() == Local ? 'L' : 'R');

@@ -432,15 +432,17 @@ class TreePiece : public CBase_TreePiece {
    TreeWalk *twSmooth;
 #if INTERLIST_VER > 0
    TreeWalk *sInterListWalk;
-   Compute *sInterListCompute;
    // clearable, used for resumed walks
    State *sInterListStateRemoteResume;
 #endif
    Compute *sGravity, *sPrefetch;
    Compute *sSmooth;
+   
    Opt *sLocal, *sRemote, *sPref;
-   State *sPrefetchState, *sLocalGravityState, *sRemoteGravityState, *sSmoothState;
    Opt *optSmooth;
+
+   State *sPrefetchState;
+   State *sLocalGravityState, *sRemoteGravityState, *sSmoothState;
    typedef std::map<CkCacheKey, CkVec<int>* > SmPartRequestType;
    // buffer of requests for smoothParticles.
    SmPartRequestType smPartRequests;
@@ -455,7 +457,7 @@ class TreePiece : public CBase_TreePiece {
  public:
 #if INTERLIST_VER > 0
    // used for local and remote walks
-   State *sInterListStateLocal, *sInterListStateRemote;
+   //State *sInterListStateLocal, *sInterListStateRemote;
 #endif
    void addActiveWalk(int iAwi, TreeWalk *tw, Compute *c, Opt *o, State *s);
 
@@ -468,6 +470,7 @@ class TreePiece : public CBase_TreePiece {
           return thisIndex;
         }
 
+        /*
         int decPrefetchWaiting() {
           prefetchWaiting--;
           return prefetchWaiting;
@@ -477,11 +480,14 @@ class TreePiece : public CBase_TreePiece {
           prefetchWaiting++;
           return prefetchWaiting;
         }
+        */
 
-        int addToRemainingChunk(int chunk, int howMuch){
-          remainingChunk[chunk] += howMuch;
-          return remainingChunk[chunk];
+        /*
+        int addToremaining Chunk(int chunk, int howMuch){
+          remaining Chunk[chunk] += howMuch;
+          return remaining Chunk[chunk];
         }
+        */
 
         void addToNodeInterRemote(int chunk, int howmany){
           nodeInterRemote[chunk] += howmany;
@@ -502,9 +508,11 @@ class TreePiece : public CBase_TreePiece {
         /// Start a new remote computation upon prefetch finished
         void startRemoteChunk();
 
-        int getCurrentRemoteBucket(){
-        	return currentRemoteBucket;
+        /*
+        int getCurrentRemote Bucket(){
+        	return currentRemote Bucket;
         }
+        */
 
 #ifdef CUDA
         // this variable holds the number of buckets active at
@@ -692,24 +700,24 @@ private:
 	NodeLookupType nodeLookupTable;
 
 	/// Number of particles which are still traversing the tree
-	u_int64_t myNumParticlesPending;
+	//u_int64_t myNumParticlesPending;
 
         /// Number of pending chenks
         // A chunk is pending wrt a TP until that TP has finished using
         // it completely (i.e. state->counterArrays[1][chunk] == 0)
-        int numPendingChunks;
+        //int numPendingChunks;
 
 	/// Number of nodes still missing before starting the real computation
-	u_int64_t prefetchWaiting;
+	//u_int64_t prefetchWaiting;
 	/// Current prefetching chunk in progress
-	int currentPrefetch;
+        //int currentPrefetch;
 	/// Array of keys that will be the root of the prefetching chunks
 	Tree::NodeKey *prefetchRoots;
 	/// Placeholder for particles used for prefetching
 	OrientedBox<double> *prefetchReq;
 	unsigned int numPrefetchReq;
 	/// number of particles/buckets still remaining to compute for the chunk
-	int *remainingChunk;
+	//int *remaining Chunk;
 
 	/// number of chunks in which the tree will be chopped for prefetching
 	int numChunks;
@@ -741,7 +749,7 @@ private:
 	unsigned int numBuckets;
 	/// Used to start the remote computation for a particular chunk for all
 	/// buckets, one after the other
-	unsigned int currentRemoteBucket;
+	//unsigned int currentRemote Bucket;
 #if INTERLIST_VER > 0
 	int prevRemoteBucket;
 	int prevBucket;
@@ -797,7 +805,6 @@ private:
 
  #if INTERLIST_VER > 0
 
-  int nChunk; // XXX unused???
 
  public:
 #ifdef CELL
@@ -924,9 +931,7 @@ public:
 	  nodeInterRemote = NULL;
 
 #if INTERLIST_VER > 0
-	  nChunk=-1;
 	  sInterListWalk = NULL;
-	  sInterListCompute = NULL;
 #endif
 #ifdef CUDA
           numActiveBuckets = -1;
@@ -939,7 +944,7 @@ public:
 	  prefetchRoots = NULL;
 	  numPrefetchReq = 0;
 	  prefetchReq = NULL;
-	  remainingChunk = NULL;
+	  //remaining Chunk = NULL;
 	  ewt = NULL;
 	  nMaxEwhLoop = 100;
 
@@ -963,7 +968,7 @@ public:
 	  nCacheAccesses = 0;
 	  completedActiveWalks = 0;
 	  prefetchRoots = NULL;
-	  remainingChunk = NULL;
+	  //remaining Chunk = NULL;
           ewt = NULL;
 
       sTopDown = 0;
@@ -972,7 +977,6 @@ public:
 	  sSmooth = NULL;
 #if INTERLIST_VER > 0
 	  sInterListWalk = NULL;
-	  sInterListCompute = NULL;
 #endif
 
           incomingParticles = NULL;
@@ -993,7 +997,7 @@ public:
 	  delete[] mySPHParticles;
 	  //delete[] splitters;
 	  //delete[] prefetchRoots;
-	  delete[] remainingChunk;
+	  //delete[] remaining Chunk;
 	  delete[] nodeInterRemote;
 	  delete[] particleInterRemote;
 	  delete[] bucketReqs;

@@ -8,7 +8,24 @@
 class State {
   public:
     int bWalkDonePending; // needed for combiner cache flushes
+    // this variable is used instead of TreePiece::currentPrefetch
+    // in the prefetch walk
     int currentBucket;  // The bucket we have started to walk.
+
+    // shifted variable into state. there is an issue of redundancy 
+    // here, though. in addition to local state, remote and remote-resume
+    // state also have this variable but have no use for it, since only
+    // a single copy is required.
+    // could have made this the third element in the array below
+    int myNumParticlesPending;
+
+    // again, redundant variables, since only remote-no-resume
+    // walks use this variable to see how many chunks have 
+    // been used
+    int numPendingChunks;
+
+    // posn 0: bucket requests
+    // posn 1: chunk requests
     int *counterArrays[2];
     virtual ~State() {}
 };
@@ -217,7 +234,7 @@ void GenericList<T>::push_back(int b, T &ilc, DoubleWalkState *state, TreePiece 
     if(lists[b].length() == 0){
         state->counterArrays[0][b]++;
 #if COSMO_PRINT_BK > 1
-        CkPrintf("[%d] request out bucket %d numAddReq: %d,%d\n", tp->getIndex(), b, tp->sInterListStateRemote->counterArrays[0][b], tp->sInterListStateLocal->counterArrays[0][b]);
+        CkPrintf("[%d] request out bucket %d numAddReq: %d,%d\n", tp->getIndex(), b, tp->sRemoteGravityState->counterArrays[0][b], tp->sLocalGravityState->counterArrays[0][b]);
 #endif
     }
     lists[b].push_back(ilc);
