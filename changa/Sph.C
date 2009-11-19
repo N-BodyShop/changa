@@ -1,3 +1,10 @@
+/*
+ * Routines to implement SPH.
+ * Main author: James Wadsley, as first implemented in GASOLINE.
+ * See Wadsley, J.~W., Stadel, J., Quinn, T.\ 2004.\ Gasoline: a flexible,
+ * parallel implementation of TreeSPH.\ New Astronomy 9, 137-158.
+ */
+
 #include "ParallelGravity.h"
 #include "smooth.h"
 #include "Sph.h"
