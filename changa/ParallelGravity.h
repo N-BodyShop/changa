@@ -60,7 +60,9 @@ enum DomainsDec {
   SFC_dec=0,
   Oct_dec=1,
   ORB_dec=2,
-  SFC_peano_dec=3
+  SFC_peano_dec=3,
+  SFC_peano_dec_3D=4,
+  SFC_peano_dec_2D=5
 };
 
 inline void operator|(PUP::er &p,DomainsDec &d) {
@@ -402,9 +404,8 @@ typedef struct particlesInfoL{
 } LocalPartInfo;
 
 
-class GravityCompute;
-class PrefetchCompute;
 class SmoothCompute;
+#include "Compute.h"
 
 #if INTERLIST_VER > 0 && defined CUDA
 template<typename T> class GenericList;

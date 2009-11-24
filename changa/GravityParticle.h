@@ -4,33 +4,6 @@
 #include "SFC.h"
 #include <vector>
 
-class TreeWalk;
-class Compute;
-class Opt;
-class State;
-
-// distingish between the walks that could be running.
-
-enum WalkIndices {
-    prefetchAwi = 0,
-    interListAwi = 1,
-    remoteGravityAwi = 2,
-    smoothAwi = 3
-};
-    
-// Object to record a type of active walk. Contains pointers to TreeWalk/Compute/Opt (T/C/O) combinations
-class ActiveWalk {
-  public:
-  TreeWalk *tw;
-  Compute *c;
-  Opt *o;
-  State *s;
-  
-  ActiveWalk(TreeWalk *_tw, Compute *_c, Opt *_o, State *state) : 
-      tw(_tw), c(_c), o(_o), s(state){}
-  ActiveWalk(){}
-};
-
 // Object to bookkeep a Bucket Walk.
 class BucketGravityRequest {
 public:
