@@ -243,8 +243,9 @@ void SPLINE(SSEcosmoType r2, SSEcosmoType twoh,
 #endif
 
 //
-// Return true if the soften nodes overlap, i.e. the forces involve softening
-// @param node
+// Return true if the soften nodes overlap, or if the source node's
+// softening overlaps the bounding box; i.e. the forces involve softening
+// @param node Node to test
 // @param myNode
 // @param offset Periodic offset applied to node
 //
@@ -254,7 +255,9 @@ int openSoftening(Tree::GenericTreeNode *node, Tree::GenericTreeNode *myNode,
 {
   Sphere<cosmoType> s(node->moments.cm + offset, 2.0*node->moments.soft);
   Sphere<cosmoType> myS(myNode->moments.cm, 2.0*myNode->moments.soft);
-  return Space::intersect(myS, s);
+  if(Space::intersect(myS, s))
+      return true;
+  return Space::intersect(myNode->boundingBox, s);
 }
 
 #ifdef CMK_VERSION_BLUEGENE
@@ -603,7 +606,7 @@ openCriterionBucket(Tree::GenericTreeNode *node,
   if(!Space::intersect(bucketNode->boundingBox, s)) {
       // Well separated, now check softening
       if(!openSoftening(node, bucketNode, offset)) {
-      return false; // passed both tests: will be a Hex interaction
+	  return false; // passed both tests: will be a Hex interaction
       }
       else {        // Open as monopole?
         radius = TreeStuff::opening_geometry_factor*node->moments.radius/thetaMono;
