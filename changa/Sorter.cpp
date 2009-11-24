@@ -276,6 +276,8 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
   switch (domainDecomposition){
     case SFC_dec:
     case SFC_peano_dec:
+    case SFC_peano_dec_3D:
+    case SFC_peano_dec_2D:
         numKeys = 0;
         if (splitters.size() == 0) {
           // reuse the existing splitters from the previous decomposition
@@ -486,6 +488,8 @@ void Sorter::collectEvaluations(CkReductionMsg* m) {
   switch (domainDecomposition){
     case SFC_dec:
     case SFC_peano_dec:
+    case SFC_peano_dec_3D:
+    case SFC_peano_dec_2D:
       collectEvaluationsSFC(m);
       break;
     case Oct_dec:

@@ -2224,19 +2224,22 @@ void TreePiece::nextBucket(dummyMsg *msg){
       CkPrintf("active: nextBucket memcheck after book-keeping (prev: %d, curr: %d, i: %d)\n", prevBucket, currentBucket, i);
       CmiMemoryCheck();
 #endif
-
       // current target is active, so it will be
       // ok to mark it as prev active target for next
       // time
       prevBucket = currentBucket;
-      currentBucket = sLocalGravityState->currentBucket = end;
+      currentBucket = end;
+      if(end < numBuckets) // finishBucket() could clean up state if
+			   // we are at the end
+	  sLocalGravityState->currentBucket = end;
       i += numActualBuckets;
 #else
       sLocalGravityState->counterArrays[0][currentBucket]--;
       finishBucket(currentBucket);
 
       currentBucket++;
-      sLocalGravityState->currentBucket++;
+      if(currentBucket < numBuckets) // state could be deleted in this case.
+	  sLocalGravityState->currentBucket++;
       i++;
 #endif
     }
@@ -2259,7 +2262,9 @@ void TreePiece::nextBucket(dummyMsg *msg){
 #endif
         finishBucket(currentBucket);
         currentBucket++;
-        sLocalGravityState->currentBucket++;
+	if(currentBucket < numBuckets) // state could be deleted in
+				       // this case.
+	    sLocalGravityState->currentBucket++;
       }
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("not active: nextBucket memcheck after book-keeping (prev: %d, curr: %d)\n", prevBucket, currentBucket);
@@ -2271,7 +2276,9 @@ void TreePiece::nextBucket(dummyMsg *msg){
 	sLocalGravityState->counterArrays[0][currentBucket]--;
         finishBucket(currentBucket);
         currentBucket++;
-	sLocalGravityState->currentBucket++;
+	if(currentBucket < numBuckets) // state could be deleted in
+				       // this case.
+	    sLocalGravityState->currentBucket++;
       }
 #endif
       // i isn't incremented because we've skipped inactive buckets
@@ -3369,7 +3376,7 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
 
   //CkPrintf("%d replicas\n", nReplicas);
 
-  activeWalks.reserve(4);
+  activeWalks.reserve(maxAwi);
   addActiveWalk(prefetchAwi, sTopDown,sPrefetch,sPref,sPrefetchState);
 #ifdef CHECK_WALK_COMPLETIONS
   CkPrintf("[%d] addActiveWalk prefetch (%d)\n", thisIndex, activeWalks.length());
@@ -4245,6 +4252,7 @@ GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key, int 
   else{
     CkAbort("Non cached version not anymore supported, feel free to fix it!");
   }
+  return NULL;
 }
 
 #if 0
@@ -4326,7 +4334,8 @@ ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk
   } else {
     CkAbort("Non cached version not anymore supported, feel free to fix it!");
   }
-};
+  return NULL;
+}
 
 GravityParticle *
 TreePiece::requestSmoothParticles(Tree::NodeKey key,int chunk,int remoteIndex,
@@ -4349,7 +4358,8 @@ TreePiece::requestSmoothParticles(Tree::NodeKey key,int chunk,int remoteIndex,
   } else {
     CkAbort("Non cached version not anymore supported, feel free to fix it!");
   }
-};
+  return NULL;
+}
 
 #if 0
 void TreePiece::receiveParticles(ExternalGravityParticle *part,int num,int chunk,
@@ -4621,6 +4631,8 @@ void TreePiece::pup(PUP::er& p) {
     switch(domainDecomposition) {
     case SFC_dec:
     case SFC_peano_dec:
+    case SFC_peano_dec_3D:
+    case SFC_peano_dec_2D:
       numPrefetchReq = 2;
       prefetchReq = new OrientedBox<double>[2];
       break;
@@ -5001,7 +5013,7 @@ void printGenericTree(GenericTreeNode* node, ostream& os) {
     //os << "NonLocal: Chare=" << node->remoteIndex << "\\nRemote N under: " << (node->lastParticle - node->firstParticle + 1) << "\\nOwners: " << node->numOwners;
     //nodeOwnership(node->getKey(), first, last);
     //CkAssert(first == last);
-    os << "NonLocalBucket: Chare=" << node->remoteIndex << ", Owner=" << first << ", Size=" << node->particleCount; //<< "(" << node->firstParticle << "-" << node->lastParticle << ")";
+    os << "NonLocalBucket: Chare=" << node->remoteIndex << ", Size=" << node->particleCount; //<< "(" << node->firstParticle << "-" << node->lastParticle << ")";
     break;
   case Boundary:
     //nodeOwnership(node->getKey(), first, last);
@@ -5149,6 +5161,8 @@ void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, 
   Compute *c;
   State *state;
 
+  CkAssert(awi < maxAwi);
+  
   // retrieve the activewalk record
   ActiveWalk &a = activeWalks[awi];
   //tw = a.tw;
@@ -5178,6 +5192,23 @@ void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, 
       }
   }
 #endif
+  // Some sanity checks
+  if(awi == interListAwi) {
+      ListCompute *lc = dynamic_cast<ListCompute *>(c);
+      CkAssert(lc != NULL);
+      }
+  else if(awi == remoteGravityAwi) {
+      GravityCompute *gc = dynamic_cast<GravityCompute *>(c);
+      CkAssert(gc != NULL);
+      }
+  else if(awi == prefetchAwi) {
+      PrefetchCompute *pc = dynamic_cast<PrefetchCompute *>(c);
+      CkAssert(pc != NULL);
+      }
+  else {
+      CkAssert(0);
+      }
+  
   c->reassoc(source, activeRung, a.o);
   //CkPrintf("[%d] RECVD PARTICLES (%ld), chunk %d\n", thisIndex, remoteBucket, chunk);
   c->recvdParticles(egp,num,chunk,reqID,state,this, remoteBucket);
@@ -5215,10 +5246,6 @@ void TreePiece::freeWalkObjects(){
     delete sTopDown;
     sTopDown = NULL;
   }
-
-#ifdef CHECK_WALK_COMPLETIONS
-  CkPrintf("[%d] freeing walk objects\n", thisIndex);
-#endif
 
 #if INTERLIST_VER > 0
 
@@ -5291,13 +5318,15 @@ void TreePiece::markWalkDone() {
 #ifdef CHECK_WALK_COMPLETIONS
         CkPrintf("[%d] inside markWalkDone, completedActiveWalks: %d, activeWalks: %d, contrib finishWalk\n", thisIndex, completedActiveWalks, activeWalks.size());
 #endif
-	CkCallback cb = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
-	contribute(0, 0, CkReduction::concat, cb);
+	finishWalk();
+	// CkCallback cb = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
+	// contribute(0, 0, CkReduction::concat, cb);
 	}
     }
 
 void TreePiece::finishWalk()
 {
+  
   completedActiveWalks = 0;
   freeWalkObjects();
   //#ifdef CUDA

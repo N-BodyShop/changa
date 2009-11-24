@@ -122,6 +122,8 @@ int SmoothCompute::doWork(GenericTreeNode *node, // Node to test
     else if(action == DUMP) {
 	return DUMP;
 	}
+    CkAbort("SmoothCompute: bad walk");
+    return -1;
     }
 
 /*
@@ -327,6 +329,7 @@ void TreePiece::startIterationSmooth(// type of smoothing and parameters
   optSmooth = new SmoothOpt;
   processReqSmoothParticles();
 
+  activeWalks.reserve(maxAwi);
   addActiveWalk(smoothAwi, twSmooth,sSmooth,optSmooth,sSmoothState);
 #ifdef CHECK_WALK_COMPLETIONS
   CkPrintf("[%d] addActiveWalk smooth (%d)\n", thisIndex, activeWalks.length());
@@ -572,10 +575,9 @@ void KNearestSmoothCompute::walkDone(State *state) {
 // called after constructor, so tp should be set
 State *ReSmoothCompute::getNewState(int nBucket){
   ReNearNeighborState *state = new ReNearNeighborState(tp->myNumParticles+2);
-  //state->counterArrays.reserve(1);		   // array to keep track of
+  // array to keep track of outstanding requests
   state->counterArrays[0] = new int [nBucket];
   state->counterArrays[1] = 0;
-  //state->counterArrays[0].reserve(tp->numBuckets); // outstanding requests
   for (int j = 0; j < nBucket; ++j) {
     state->counterArrays[0][j] = 1;	// so we know that the local
 					// walk is not finished.
@@ -698,6 +700,7 @@ void TreePiece::startIterationReSmooth(SmoothParams* params,
   optSmooth = new SmoothOpt;
   processReqSmoothParticles();
 
+  activeWalks.reserve(maxAwi);
   addActiveWalk(smoothAwi, twSmooth,sSmooth,optSmooth,sSmoothState);
 #ifdef CHECK_WALK_COMPLETIONS
   CkPrintf("[%d] addActiveWalk reSmooth (%d)\n", thisIndex, activeWalks.length());

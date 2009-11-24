@@ -672,6 +672,8 @@ Main::Main(CkArgMsg* m) {
 		}
 
         if (domainDecomposition == SFC_peano_dec) peanoKey = 1;
+        if (domainDecomposition == SFC_peano_dec_2D) peanoKey = 2;
+        if (domainDecomposition == SFC_peano_dec_3D) peanoKey = 3;
 
 	// hardcoding some parameters, later may be full options
 	if(domainDecomposition==ORB_dec){ useTree = Binary_ORB; }
@@ -724,6 +726,12 @@ Main::Main(CkArgMsg* m) {
             break;
           case SFC_peano_dec:
             ckerr << "Domain decomposition...SFC Peano-Hilbert" << endl;
+            break;
+          case SFC_peano_dec_3D:
+            ckerr << "Domain decomposition... new SFC Peano-Hilbert" << endl;
+            break;
+          case SFC_peano_dec_2D:
+            ckerr << "Domain decomposition... 2D SFC Peano-Hilbert" << endl;
             break;
           default:
             CkAbort("None of the implemented decompositions specified");
@@ -1689,14 +1697,16 @@ void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
     CkReductionMsg *msg;
     treeProxy.calcEnergy(CkCallbackResumeThread((void*&)msg));
     double *dEnergy = (double *) msg->getData();
+    static int first = 1;
 
     FILE *fpLog = fopen(achLogFileName, "a");
     
     double a = csmTime2Exp(param.csm, dTime);
     
-    if(!bIsRestarting) {
+    if(first && !bIsRestarting) {
 	fprintf(fpLog, "# time redshift TotalEVir TotalE Kinetic Virial Potential TotalECosmo Lx Ly Lz Wallclock\n");
 	dEcosmo = 0.0;
+	first = 0;
 	}
     else {
 	/*
