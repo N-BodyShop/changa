@@ -578,6 +578,8 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
   else if(action == DUMP || action == NOP){
     return DUMP;
   }
+  CkAbort("bad walk state");
+  return -1;
 }
 
 // Source of force is a group of particles
@@ -684,6 +686,8 @@ int PrefetchCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, i
 #endif
     CkAbort("PrefetchOpt told PrefetchCompute to KEEP_LOCAL_BUCKET. This shouldn't happen.\n");
   }
+  CkAbort("PrefetchCompute: bad option");
+  return -1;
 }
 
 #if INTERLIST_VER > 0
@@ -899,6 +903,8 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
   else if(action == DUMP || action == NOP){
     return DUMP;
   }
+  CkAbort("ListCompute: bad walk state");
+  return -1;
 }
 
 void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk,int reqID,State *state_,TreePiece *tp, Tree::NodeKey &remoteBucket){
