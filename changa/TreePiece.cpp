@@ -1240,6 +1240,10 @@ void TreePiece::collectSplitters(CkReductionMsg* m) {
 void TreePiece::startORBTreeBuild(CkReductionMsg* m){
   delete m;
 
+  if (dm == NULL) {
+      dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+      }
+
   myParticles[0].key = thisIndex;
   myParticles[myNumParticles+1].key = thisIndex;
 
@@ -5194,8 +5198,12 @@ void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, 
 #endif
   // Some sanity checks
   if(awi == interListAwi) {
+#if INTERLIST_VER > 0
       ListCompute *lc = dynamic_cast<ListCompute *>(c);
       CkAssert(lc != NULL);
+#else
+      CkAbort("Using ListCompute in non-list version\n");
+#endif
       }
   else if(awi == remoteGravityAwi) {
       GravityCompute *gc = dynamic_cast<GravityCompute *>(c);
