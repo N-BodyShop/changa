@@ -298,6 +298,7 @@ inline double RungToDt(double dDelta, int iRung) {
 }
 
 class Main : public CBase_Main {
+	CkArgMsg *args;
 	std::string basefilename;
 	CProxy_Sorter sorter;
 	int nTotalParticles;

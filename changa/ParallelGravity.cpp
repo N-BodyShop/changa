@@ -97,6 +97,7 @@ int killAt;
 int cacheSize;
 
 Main::Main(CkArgMsg* m) {
+	args = m;
 	_cache = true;
 	mainChare = thishandle;
 	bIsRestarting = 0;
@@ -1275,6 +1276,10 @@ void Main::setupICs() {
   sprintf(achLogFileName, "%s.log", param.achOutName);
   ofstream ofsLog(achLogFileName, ios_base::trunc);
   ofsLog << "# Starting ChaNGa version 1.08" << endl;
+  ofsLog << "#";		// Output command line
+  for (int i = 0; i < args->argc; i++)
+      ofsLog << " " << args->argv[i];
+  ofsLog << endl;
 #ifdef __DATE__
 #ifdef __TIME__
   ofsLog <<"# Code compiled: " << __DATE__ << " " << __TIME__ << endl;
