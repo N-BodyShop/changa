@@ -1280,6 +1280,7 @@ void Main::setupICs() {
   for (int i = 0; i < args->argc; i++)
       ofsLog << " " << args->argv[i];
   ofsLog << endl;
+  ofsLog << "# Running on " << CkNumPes() << " processors" << endl;
 #ifdef __DATE__
 #ifdef __TIME__
   ofsLog <<"# Code compiled: " << __DATE__ << " " << __TIME__ << endl;
