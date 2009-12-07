@@ -819,9 +819,11 @@ void TreePiece::countActive(int activeRung, const CkCallback& cb) {
 
 void TreePiece::drift(double dDelta,  // time step in v containing
 				      // cosmo scaling
-		      int bNeedVpred,
+		      int bNeedVpred, // Update predicted velocities
 		      int bGasIsothermal, // Isothermal EOS
 		      double duDelta, // time step for internal energy
+		      int nGrowMass,  // GrowMass particles are locked
+				      // in place
 		      const CkCallback& cb) {
   callback = cb;		// called by assignKeys()
   if (root != NULL) {
@@ -841,7 +843,8 @@ void TreePiece::drift(double dDelta,  // time step in v containing
 
   for(unsigned int i = 0; i < myNumParticles; ++i) {
       GravityParticle *p = &myParticles[i+1];
-      p->position += dDelta*p->velocity;
+      if (p->iOrder >= nGrowMass)
+	  p->position += dDelta*p->velocity;
       if(bPeriodic) {
 	  for(int j = 0; j < 3; j++) {
 	      if(p->position[j] >= 0.5*fPeriod[j]){
@@ -881,7 +884,8 @@ void TreePiece::setSoft(const double dSoft) {
   }
 }
 
-void TreePiece::physicalSoft(const double dSoftMax, const double dFac, const int bSoftMaxMul) {
+void TreePiece::physicalSoft(const double dSoftMax, const double dFac,
+			     const int bSoftMaxMul, const CkCallback& cb) {
 #ifdef CHANGESOFT
     CkAssert(dFac > 0.0);
     if (bSoftMaxMul) {		// dSoftMax is a maximum multiplier
@@ -898,7 +902,17 @@ void TreePiece::physicalSoft(const double dSoftMax, const double dFac, const int
 	    }
 	}
 #endif
+    contribute(0, 0, CkReduction::concat, cb);
 }
+
+void TreePiece::growMass(int nGrowMass, double dDeltaM, const CkCallback& cb)
+{
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	if(myParticles[i].iOrder < nGrowMass)
+	    myParticles[i].mass += dDeltaM;
+	}
+    contribute(0, 0, CkReduction::concat, cb);
+    }
 
 /*
  * Gathers information for center of mass calculation

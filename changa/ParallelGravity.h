@@ -351,6 +351,7 @@ public:
 	    nTotalParticles = n;
         }
 	void updateSoft();
+	void growMass(double dTime, double dDelta);
 	void initSph();
 	void doSph(int activeRung);
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
@@ -1073,7 +1074,7 @@ public:
 	    int bNeedVPred, int bGasIsothermal, double duDelta[MAXRUNG+1],
 	    const CkCallback& cb);
   void drift(double dDelta, int bNeedVPred, int bGasIsothermal, double duDelta,
-	     const CkCallback& cb);
+	     int nGrowMass, const CkCallback& cb);
   void initAccel(int iKickRung, const CkCallback& cb);
 /**
  * Adjust timesteps of active particles.
@@ -1099,7 +1100,9 @@ public:
   void countActive(int activeRung, const CkCallback& cb);
 	void calcEnergy(const CkCallback& cb);
 	void setSoft(const double dSoft);
-	void physicalSoft(const double dSoftMax, const double dFac, const int bSoftMaxMul);
+	void physicalSoft(const double dSoftMax, const double dFac,
+			  const int bSoftMaxMul, const CkCallback& cb);
+	void growMass(int nGrowMass, double dDeltaM, const CkCallback& cb);
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
 	void getAdiabaticGasPressure(double gamma, double gammam1,

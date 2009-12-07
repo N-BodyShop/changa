@@ -39,6 +39,14 @@ typedef struct parameters {
     CSM csm;			/* cosmo parameters */
     double dRedTo;
     /*
+     * GrowMass parameters
+     */
+    int bDynGrowMass;
+    int nGrowMass;
+    double dGrowDeltaM;
+    double dGrowStartT;
+    double dGrowEndT;
+    /*
      * Gas parameters
      * Units: set by dMsolUnit and dKpcUnit
      */
@@ -119,6 +127,11 @@ inline void operator|(PUP::er &p, Parameters &param) {
  	csmInitialize(&param.csm);
     p|*param.csm;
     p|param.dRedTo;
+    p|param.bDynGrowMass;
+    p|param.nGrowMass;
+    p|param.dGrowDeltaM;
+    p|param.dGrowStartT;
+    p|param.dGrowEndT;
     p|param.bDoGas;
     p|param.bGeometric;
     p|param.bBulkViscosity;

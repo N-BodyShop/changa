@@ -267,6 +267,27 @@ Main::Main(CkArgMsg* m) {
 		    "zto", "specifies final redshift for the simulation");
 	
 	//
+	// Parameters for GrowMass: slowly growing mass of particles.
+	//
+	param.bDynGrowMass = 1;
+	prmAddParam(prm,"bDynGrowMass",paramBool,&param.bDynGrowMass,
+		    sizeof(int),"gmd","<dynamic growmass particles>");
+	param.nGrowMass = 0;
+	prmAddParam(prm,"nGrowMass",paramInt,&param.nGrowMass,sizeof(int),
+		    "gmn","<number of particles to increase mass> = 0");
+	param.dGrowDeltaM = 0.0;
+	prmAddParam(prm,"dGrowDeltaM",paramDouble,&param.dGrowDeltaM,
+		    sizeof(double),"gmdm",
+		    "<Total growth in mass/particle> = 0.0");
+	param.dGrowStartT = 0.0;
+	prmAddParam(prm,"dGrowStartT",paramDouble,&param.dGrowStartT,
+		    sizeof(double),"gmst",
+		    "<Start time for growing mass> = 0.0");
+	param.dGrowEndT = 1.0;
+	prmAddParam(prm,"dGrowEndT",paramDouble,&param.dGrowEndT,
+		    sizeof(double),"gmet","<End time for growing mass> = 1.0");
+
+	//
 	// Gas parameters
 	//
 	param.bDoGas = 0;
@@ -1040,9 +1061,17 @@ void Main::advanceBigStep(int iStep) {
 	      if(verbosity)
 		  ckout << "Drift: Rung " << driftRung << " Delta "
 			<< dTimeSub << endl;
+
+	      // Only effective if growmass parameters have been set.
+	      growMass(dTime, dTimeSub);
+	      // Are the GrowMass particles locked in place?
+	      int nGrowMassDrift = param.nGrowMass;
+	      if(param.bDynGrowMass) nGrowMassDrift = 0;
+	      
 	      double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
 	      treeProxy.drift(dDriftFac, param.bDoGas, param.bGasIsothermal,
-			      dTimeSub, CkCallbackResumeThread());
+			      dTimeSub, nGrowMassDrift,
+			      CkCallbackResumeThread());
 
 	      // Advance time to end of smallest step
 	      dTime += dTimeSub;
@@ -1291,7 +1320,7 @@ void Main::setupICs() {
   }
 	
   if(param.bPeriodic) {	// puts all particles within the boundary
-      treeProxy.drift(0.0, 0, 0, 0.0, CkCallbackResumeThread());
+      treeProxy.drift(0.0, 0, 0, 0.0, 0, CkCallbackResumeThread());
   }
   
   initialForces();
@@ -1330,7 +1359,7 @@ Main::restart()
 	ofstream ofsLog(achLogFileName, ios_base::app);
 	ofsLog << "# ReStarting ChaNGa" << endl;
 	ofsLog.close();
-	treeProxy.drift(0.0, 0, 0, 0.0, CkCallbackResumeThread());
+	treeProxy.drift(0.0, 0, 0, 0.0, 0, CkCallbackResumeThread());
 	mainChare.initialForces();
 	}
     else {
@@ -1628,7 +1657,7 @@ Main::doSimulation()
 	  double tolerance = 0.01;	// tolerance for domain decomposition
 	  // The following call is to get the particles in key order
 	  // before the sort.
-	  treeProxy.drift(0.0, 0, 0, 0.0, CkCallbackResumeThread());
+	  treeProxy.drift(0.0, 0, 0, 0.0, 0, CkCallbackResumeThread());
 	  sorter.startSorting(dataManagerID, tolerance,
 			      CkCallbackResumeThread(), true);
 	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
@@ -1775,7 +1804,7 @@ void Main::writeOutput(int iStep)
 	double tolerance = 0.01;	// tolerance for domain decomposition
 	// The following call is to get the particles in key order
 	// before the sort.
-	treeProxy.drift(0.0, 0, 0, 0.0, CkCallbackResumeThread());
+	treeProxy.drift(0.0, 0, 0, 0.0, 0, CkCallbackResumeThread());
 	sorter.startSorting(dataManagerID, tolerance,
 			    CkCallbackResumeThread(), true);
 	treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
@@ -1858,9 +1887,23 @@ void Main::updateSoft()
 
 	 if (param.bSoftMaxMul && dFac > param.dSoftMax) dFac = param.dSoftMax;
 
-	 treeProxy.physicalSoft(param.dSoftMax, dFac, param.bSoftMaxMul);
+	 treeProxy.physicalSoft(param.dSoftMax, dFac, param.bSoftMaxMul,
+				CkCallbackResumeThread());
 	}
 #endif
+    }
+
+//
+// Slowly increase mass of a subset of particles.
+//
+void Main::growMass(double dTime, double dDelta)
+{
+    if (param.nGrowMass > 0 && dTime > param.dGrowStartT
+	&& dTime <= param.dGrowEndT) {
+	double dDeltaM = param.dGrowDeltaM*dDelta
+			    /(param.dGrowEndT - param.dGrowStartT);
+	treeProxy.growMass(param.nGrowMass, dDeltaM, CkCallbackResumeThread());
+	}
     }
 
 /*
