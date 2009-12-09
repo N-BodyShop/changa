@@ -499,6 +499,7 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
 #ifdef MCLBMSV
     CkPrintf("phase %d data unavailable\n", phase);
 #endif
+    delete[] pCentroids;
     delete[] ratios;
     return;
   }
@@ -840,6 +841,7 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
       stats->to_proc[i] = i%stats->count;
     }
   }
+  delete[] pCentroids;
 #endif //CMK_LDB_ON
 }
 

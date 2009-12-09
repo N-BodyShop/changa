@@ -5295,7 +5295,11 @@ void TreePiece::freeWalkObjects(){
 
 #if INTERLIST_VER > 0
     // remote-resume state
-    ((ListCompute *)sGravity)->freeDoubleWalkState((DoubleWalkState*)sInterListStateRemoteResume);
+    // overwrite copies of counters shared with sRemoteGravityState to
+    // avoid double deletion.  See startIteration()
+    sInterListStateRemoteResume->counterArrays[0] = NULL;
+    sInterListStateRemoteResume->counterArrays[1] = NULL;
+    sGravity->freeState(sInterListStateRemoteResume);
     sInterListStateRemoteResume = NULL;
 #endif
 
