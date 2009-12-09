@@ -3150,6 +3150,7 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
 	  cacheGravPart[CkMyPe()].finishedChunk(i, 0);
 	  }
     contribute(0, 0, CkReduction::concat, callback);
+    numChunks = -1; //numchunks needs to get reset next iteration incase particles move into this treepiece
     return;
   }
   

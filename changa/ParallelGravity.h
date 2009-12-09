@@ -985,6 +985,10 @@ public:
           incomingParticles = NULL;
           incomingParticlesArrived = 0;
           incomingParticlesSelf = false;
+
+	  nodeInterRemote = NULL;
+          particleInterRemote = NULL;
+
     orbBoundaries.clear();
     //openingDiffCount=0;
     //tempOrbBoundaries.clear();

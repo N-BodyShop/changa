@@ -759,10 +759,15 @@ Main::Main(CkArgMsg* m) {
             CkAbort("None of the implemented decompositions specified");
           }
         }
-
-	CProxy_BlockMap myMap=CProxy_BlockMap::ckNew(); 
+	
 	CkArrayOptions opts(numTreePieces); 
-	opts.setMap(myMap);
+	if (domainDecomposition == Oct_dec) {
+	  CProxy_RRMap myMap=CProxy_RRMap::ckNew(); 
+	  opts.setMap(myMap);
+	} else {
+	  CProxy_BlockMap myMap=CProxy_BlockMap::ckNew(); 
+	  opts.setMap(myMap);
+	}
 
 	CProxy_TreePiece pieces = CProxy_TreePiece::ckNew(opts);
 	treeProxy = pieces;
