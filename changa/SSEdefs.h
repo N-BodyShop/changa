@@ -16,23 +16,27 @@ typedef double cosmoType;
 #define SSE_VECTOR_WIDTH 4
 #define FORCE_INPUT_LIST_PAD 3
 typedef SSEFloat SSEcosmoType; 
-#define SSELoad(where, p1, p2) where(p1 p2, p1 +1 p2, p1 +2 p2, p1 +3 p2)
-#define SSEStore(what, p1, p2) { \
+#define SSELoad(where, arr, idx, field) where(arr[idx]field, arr[idx+1]field, arr[idx+2]field, arr[idx+3]field)
+#define SSEStore(what, arr, idx, field) { \
   float p[4]; \
   storeu(p, what); \
-  p1 p2 = p[0]; \
-  p1 +1 p2 = p[1]; \
-  p1 +2 p2 = p[2]; \
-  p1 +3 p2 = p[3]; \
+  arr[idx]field = p[0]; \
+  arr[idx+1]field = p[1]; \
+  arr[idx+2]field = p[2]; \
+  arr[idx+3]field = p[3]; \
 }
+ 
 enum { cosmoMask=0x7 };
 #elif defined(__SSE2__) && !defined(COSMO_FLOAT)
 #include "SSE-Double.h"
 #define SSE_VECTOR_WIDTH 2
 #define FORCE_INPUT_LIST_PAD 1
 typedef SSEDouble SSEcosmoType; 
-#define SSELoad(where, p1, p2) where(p1 p2, p1 +1 p2)
-#define SSEStore(what, p1, p2) storel(&p1 p2, what); storeh(&p1 +1 p2, what)
+#define SSELoad(where, arr, idx, field) where(arr[idx]field, arr[idx+1]field)
+#define SSEStore(what, arr, idx, field) { \
+  storel(&arr[idx]field, what); \
+  storeh(&arr[idx+1]field, what); \
+} 
 enum { cosmoMask=0x3 };
 #endif
 

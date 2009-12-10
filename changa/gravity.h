@@ -322,10 +322,10 @@ inline int partBucketForce(ExternalGravityParticle *part,
     }
 #endif
     Vector3D<SSEcosmoType> 
-      packedPos(SSELoad(SSEcosmoType, activeParticles[i, ]->position.x),
-		SSELoad(SSEcosmoType, activeParticles[i, ]->position.y),
-		SSELoad(SSEcosmoType, activeParticles[i, ]->position.z)); 
-    SSELoad(SSEcosmoType packedSoft, activeParticles[i, ]->soft); 
+      packedPos(SSELoad(SSEcosmoType, activeParticles, i, ->position.x),
+		SSELoad(SSEcosmoType, activeParticles, i, ->position.y),
+		SSELoad(SSEcosmoType, activeParticles, i, ->position.z)); 
+    SSELoad(SSEcosmoType packedSoft, activeParticles, i, ->soft); 
 
     r = -packedPos + offset + part->position; 
     rsq = r.lengthSquared();
@@ -338,25 +338,25 @@ inline int partBucketForce(ExternalGravityParticle *part,
 	a = select & a; 
 	b = select & b; 
       }
-      SSEcosmoType SSELoad(packedMass, activeParticles[i, ]->mass);  
-      SSEcosmoType SSELoad(packedDtGrav, activeParticles[i, ]->dtGrav);
+      SSEcosmoType SSELoad(packedMass, activeParticles, i, ->mass);  
+      SSEcosmoType SSELoad(packedDtGrav, activeParticles, i, ->dtGrav);
       Vector3D<SSEcosmoType> 
 	packedAcc(SSELoad(SSEcosmoType, 
-			  activeParticles[i, ]->treeAcceleration.x),
+			  activeParticles, i, ->treeAcceleration.x),
 		  SSELoad(SSEcosmoType, 
-			  activeParticles[i, ]->treeAcceleration.y),
+			  activeParticles, i, ->treeAcceleration.y),
 		  SSELoad(SSEcosmoType, 
-			  activeParticles[i, ]->treeAcceleration.z)); 
-      SSEcosmoType SSELoad(packedPotential, activeParticles[i, ]->potential); 
+			  activeParticles, i, ->treeAcceleration.z)); 
+      SSEcosmoType SSELoad(packedPotential, activeParticles, i, ->potential); 
       SSEcosmoType idt2 = (packedMass + part->mass) * b;       
       idt2 = max(idt2, packedDtGrav); 
       packedAcc += r * (b * part->mass);
       packedPotential -= part->mass * a; 
-      SSEStore(packedAcc.x, activeParticles[i, ]->treeAcceleration.x);
-      SSEStore(packedAcc.y, activeParticles[i, ]->treeAcceleration.y);
-      SSEStore(packedAcc.z, activeParticles[i, ]->treeAcceleration.z);
-      SSEStore(packedPotential, activeParticles[i, ]->potential);
-      SSEStore(idt2, activeParticles[i, ]->dtGrav); 
+      SSEStore(packedAcc.x, activeParticles, i, ->treeAcceleration.x);
+      SSEStore(packedAcc.y, activeParticles, i, ->treeAcceleration.y);
+      SSEStore(packedAcc.z, activeParticles, i, ->treeAcceleration.z);
+      SSEStore(packedPotential, activeParticles, i, ->potential);
+      SSEStore(idt2, activeParticles, i, ->dtGrav); 
     }
   }
   return nActiveParts;
@@ -525,22 +525,22 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
     }
 #endif
     Vector3D<SSEcosmoType> 
-      packedPos(SSELoad(SSEcosmoType, activeParticles[i, ]->position.x),
-		SSELoad(SSEcosmoType, activeParticles[i, ]->position.y),
-		SSELoad(SSEcosmoType, activeParticles[i, ]->position.z)); 
+      packedPos(SSELoad(SSEcosmoType, activeParticles, i, ->position.x),
+		SSELoad(SSEcosmoType, activeParticles, i, ->position.y),
+		SSELoad(SSEcosmoType, activeParticles, i, ->position.z)); 
     r = packedPos - cm; 
     rsq = r.lengthSquared();
     SSEcosmoType dir = COSMO_CONST(1.0)/sqrt(rsq);
     Vector3D<SSEcosmoType> 
       packedAcc(SSELoad(SSEcosmoType, 
-			activeParticles[i, ]->treeAcceleration.x),
+			activeParticles, i, ->treeAcceleration.x),
 		SSELoad(SSEcosmoType, 
-			activeParticles[i, ]->treeAcceleration.y),
+			activeParticles, i, ->treeAcceleration.y),
 		SSELoad(SSEcosmoType, 
-			activeParticles[i, ]->treeAcceleration.z)); 
-    SSEcosmoType SSELoad(packedPotential, activeParticles[i, ]->potential); 
-    SSEcosmoType SSELoad(packedMass, activeParticles[i, ]->mass);  
-    SSEcosmoType SSELoad(packedDtGrav, activeParticles[i, ]->dtGrav);
+			activeParticles, i, ->treeAcceleration.z)); 
+    SSEcosmoType SSELoad(packedPotential, activeParticles, i, ->potential); 
+    SSEcosmoType SSELoad(packedMass, activeParticles, i, ->mass);  
+    SSEcosmoType SSELoad(packedDtGrav, activeParticles, i, ->dtGrav);
 #ifdef HEXADECAPOLE
     momEvalMomr(&m.mom, dir, -r.x, -r.y, -r.z, &packedPotential,
 		&packedAcc.x,
@@ -548,7 +548,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
 		&packedAcc.z);
     SSEcosmoType idt2 = (packedMass + m.totalMass)*dir*dir*dir;
 #else
-    SSELoad(SSEcosmoType packedSoft, activeParticles[i, ]->soft); 
+    SSELoad(SSEcosmoType packedSoft, activeParticles, i, ->soft); 
     twoh = CONVERT_TO_COSMO_TYPE m.soft + packedSoft;
     SPLINEQ(dir, rsq, twoh, a, b, c, d);
     SSEcosmoType qirx = CONVERT_TO_COSMO_TYPE m.xx*r.x 
@@ -569,12 +569,12 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
     packedAcc.z -= qir3*r.z - c*qirz;
     SSEcosmoType idt2 = (packedMass + CONVERT_TO_COSMO_TYPE m.totalMass)*b;
 #endif
-    SSEStore(packedAcc.x, activeParticles[i, ]->treeAcceleration.x);
-    SSEStore(packedAcc.y, activeParticles[i, ]->treeAcceleration.y);
-    SSEStore(packedAcc.z, activeParticles[i, ]->treeAcceleration.z);
-    SSEStore(packedPotential, activeParticles[i, ]->potential);
+    SSEStore(packedAcc.x, activeParticles, i, ->treeAcceleration.x);
+    SSEStore(packedAcc.y, activeParticles, i, ->treeAcceleration.y);
+    SSEStore(packedAcc.z, activeParticles, i, ->treeAcceleration.z);
+    SSEStore(packedPotential, activeParticles, i, ->potential);
     idt2 = max(idt2, packedDtGrav);   
-    SSEStore(idt2, activeParticles[i, ]->dtGrav); 
+    SSEStore(idt2, activeParticles, i, ->dtGrav); 
   }
   return nActiveParts;
 }
