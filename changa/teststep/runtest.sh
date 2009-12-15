@@ -1,6 +1,5 @@
 # simple test of integrator
-# check for lines with "Energy" in the output
-# run ChaNGa for 100 timesteps of .01.  This is roughly
+# run ChaNGa for 10 timesteps of .1.  This is roughly
 # one dynamical time in the center of the cluster.
 # compare this with numbers in "pkdtest.log"
 

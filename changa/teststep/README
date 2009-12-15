@@ -11,3 +11,4 @@ should be conserved to 4 decimal places.  The comparision is made
 against "pkdtest.log" which was produced by PKDGRAV using the same
 initial conditions and the test_pkd.param parameter file.
 
+"make test" will run the test.
