@@ -50,16 +50,16 @@ badmass = x(bad)
 badn = y(bad)
 pred = logn(bad)
 print, 'At a value of Log(mass) = ', badmass, ' this simulation has Log (n) = ', badn, ' but expect Log(n) = ', pred
+endif
 set_plot, 'ps'
 device, filename='test.ps', /color
 plot, x, y, xtitle = 'Log Mass (M_sun)', ytitle = 'Log (N/Vol) (Mpc^-3)' 
 oplot, logm, logn, linestyle=2 
-legend, ['Expected', 'Simulated'], linestyle=[1,2], /right
+legend, ['Expected', 'Simulated'], linestyle=[1,2]
 device, /close
 print, 'See plot test.ps for visual comparison'
 
 set_plot, 'x'
-endif
 
 end
 
