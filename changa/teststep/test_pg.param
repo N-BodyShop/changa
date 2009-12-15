@@ -1,7 +1,7 @@
 #
 # parameter file for leap frog.
 #
-nSteps          = 100
+nSteps          = 10
 dTheta          = 0.7
 dEta		= .03
 dDelta          = .1

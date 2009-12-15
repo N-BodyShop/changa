@@ -1,16 +1,13 @@
 #
 # parameter file for leap frog.
 #
-nSteps          = 100
+nSteps          = 10
 dTheta          = 0.7
-dDelta          = .01
+dEta		= .03
+dDelta          = .1
 iOutInterval    = 10
-iCheckInterval    = 2
 achInFile       = king_soft.bin
 achOutName      = pkdtest
 iMaxRung        = 20
-dEta		= 0.03
-bKDK            = 1
 bStandard	= 1
-iOrder		= 2
 iLogInterval	= 1

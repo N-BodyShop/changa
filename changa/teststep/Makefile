@@ -1,2 +1,11 @@
-test:
-	../charmrun +p 2 ../ChaNGa -v 1 -p 4 -killat 5 test_pg.param
+test: pgtest_ms.log
+	@echo -n 'energy should be: '
+	@tail -1 pkdtest.log | awk '{print $$3;}'
+	@echo -n 'energy is: '
+	@tail -1 pgtest_ms.log | awk '{print $$4;}'
+	
+pgtest_ms.log:
+	../charmrun +p 2 ../ChaNGa test_pg.param
+	
+clean:
+	rm -rf *.chk? pgtest_ms.log pgtest_ms.000*
