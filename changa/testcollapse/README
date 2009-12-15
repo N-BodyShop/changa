@@ -1,6 +1,7 @@
 This directory contains a test of the collapse of a self-gravitation
 adiabatic sphere of gas.  As the gas collapses, a spherical accretion
-shock forms and grows.
+shock forms and grows. This test takes about 7 minutes on a 2007 era
+dual core processor.
 
 This test investigates whether gravity and gas dynamics are both working
 properly.  Type "make test" to perform the test.   This runs a
