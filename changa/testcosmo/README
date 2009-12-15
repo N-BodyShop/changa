@@ -1,7 +1,7 @@
 1) YOU WILL NEED TO MODIFY THE FILE 'mf.sh' TO RUN THIS TEST
    - Replace 'skiddir' with the path to your working version of skid
    - Replace 'sodir' with the path to your working version of SO
-SKID and SO can be downloaded from ftp://ftp.astro.washington.edu/pub/hpcc.
+SKID and SO can be downloaded from ftp://ftp-hpcc.astro.washington.edu/pub/hpcc.
 
 2) THIS TEST CALLS ON AN IDL PROGRAM TO RUN
 
@@ -11,7 +11,7 @@ cosmology large volume with 48^3 particles and 300 Mpc on a side.  You
 may need to add parameters or a nodelist file to run this in parallel.
 See the CHARM installation and users manual at
 http://charm.cs.uiuc.edu/manuals/html/install/manual.html.  The run
-takes an hour or two to run on a single 2004 era processor.
+takes 15 minutes to run on a 2007 era dual core processor.
 
 4) After running ChaNGa and making the modifications in 1, type
 "mf.sh" at the prompt to check the results.  It runs SKID and SO on
