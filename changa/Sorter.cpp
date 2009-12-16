@@ -525,10 +525,8 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   }
   
   if(verbosity>=3){
-    std::vector<unsigned int>::iterator iter;
     int i=0;
     CkPrintf("Bin Counts in collect eval (%d):",numCounts);
-    //for(iter=binCounts.begin();iter!=binCounts.end();iter++,i++){
     for ( ; i<numCounts; i++) {
       CkPrintf("%d,",startCounts[i]);
     }

@@ -212,7 +212,6 @@ void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	double dvx,dvy,dvz,dx,dy,dz,trace;
 	GravityParticle *q;
 	int i;
-	unsigned int qiActive;
 
 	ih2 = invH2(p);
 	vFac = 1./(a*a); /* converts v to xdot */

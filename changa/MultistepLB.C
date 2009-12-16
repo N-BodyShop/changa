@@ -394,7 +394,7 @@ bool MultistepLB::havePhaseData(int phase){
 }
 
 void MultistepLB::printData(BaseLB::LDStats &stats, int phase, int *revObjMap){
-  int i,j;
+  int i;
   
   CkPrintf("---- data (%d): %d objects ----\n", phase, stats.n_objs);
   for(i = 0; i < stats.n_objs; i++){
@@ -405,7 +405,6 @@ void MultistepLB::printData(BaseLB::LDStats &stats, int phase, int *revObjMap){
 }
 
 void MultistepLB::makeActiveProcessorList(BaseLB::LDStats *stats, int numActiveObjs){
-  int i;
   int objsPerProc = 8;
   int expandFactor = 4;
   int procsNeeded;
@@ -424,7 +423,7 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
 {
 #if CMK_LBDB_ON
   // find active objects - mark the inactive ones as non-migratable
-  int i,j;
+  int i;
   
   stats->makeCommHash();
   for(i = 0; i < stats->n_objs; i++){

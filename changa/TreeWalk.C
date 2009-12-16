@@ -57,7 +57,6 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
 void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int reqID, bool isRoot, int shift, bool doprint){
 #endif
   int ret;
-  GenericTreeNode *tmp;
   if(node == NULL){   // something went wrong here
     ckerr << "TopDownTreeWalk recvd. null node - chunk("<<chunk<<"), reqID("<<reqID<<"), isRoot("<<isRoot<<")" << endl;
     CkAbort("Abort");
