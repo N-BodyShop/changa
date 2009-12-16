@@ -1065,7 +1065,6 @@ public:
 	void acceptSortedParticles(const GravityParticle* particles,
 				   const int n, const extraSPHData *pExtra,
 				   const int nGas);
-	void sortSPHData();
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);
   void initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback);

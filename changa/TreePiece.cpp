@@ -397,24 +397,6 @@ void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg){
   contribute(2*splittersMsg->length*sizeof(int), &(*tempBinCounts.begin()), CkReduction::sum_int, cback);
 }
 
-/// Get SPH data into same order as particle data
-/// XXX incomplete, I need a back pointer from the extraData to
-/// myParticles in order to do this.
-
-void TreePiece::sortSPHData()
-{
-    // Step through all particles and swap SPH data into place
-    int iSPH = 0;
-    for(int iPart = 0; iPart < myNumParticles; iPart++) {
-	if(TYPETest(&myParticles[iPart+1], TYPE_GAS)) {
-	    extraSPHData *sphTMP
-		= (extraSPHData *)myParticles[iPart+1].extraData;
-	    }
-	}
-    
-    }
-
-
 /// Determine my part of the sorting histograms by counting the number
 /// of my particles in each bin.
 /// This routine assumes the particles in key order.
@@ -5011,11 +4993,6 @@ void printGenericTree(GenericTreeNode* node, ostream& os) {
 
   string nodeID = keyBits(node->getKey(), 63);
   os << nodeID << " ";
-  //os << "\tnode [color=\"" << getColor(node) << "\"]\n";
-  //os << "\t\"" << nodeID << "\" [label=\"" << makeLabel(node) << "\\nCM: " << (node->moments.cm) << "\\nM: " << node->moments.totalMass << "\\nN_p: " << (node->endParticle - node->beginParticle) << "\\nOwners: " << node->numOwners << "\"]\n";
-  //os << "\t\"" << nodeID << "\" [label=\"" << makeLabel(node) << "\\nLocal N: " << (node->endParticle - node->beginParticle) << "\\nOwners: " << node->numOwners << "\"]\n";
-  //os << "\t\"" << nodeID << "\" [label=\"" << keyBits(node->getKey(), 63) << "\\n";
-  int first, last;
   switch(node->getType()) {
   case Bucket:
     os << "Bucket: Size=" << (node->lastParticle - node->firstParticle + 1) << "(" << node->firstParticle << "-" << node->lastParticle << ")";
@@ -5024,18 +5001,12 @@ void printGenericTree(GenericTreeNode* node, ostream& os) {
     os << "Internal: Size=" << (node->lastParticle - node->firstParticle + 1) << "(" << node->firstParticle << "-" << node->lastParticle << ")";
     break;
   case NonLocal:
-    //os << "NonLocal: Chare=" << node->remoteIndex << "\\nRemote N under: " << (node->lastParticle - node->firstParticle + 1) << "\\nOwners: " << node->numOwners;
-    //nodeOwnership(node->getKey(), first, last);
     os << "NonLocal: Chare=" << node->remoteIndex; //<< ", Owners=" << first << "-" << last;
     break;
   case NonLocalBucket:
-    //os << "NonLocal: Chare=" << node->remoteIndex << "\\nRemote N under: " << (node->lastParticle - node->firstParticle + 1) << "\\nOwners: " << node->numOwners;
-    //nodeOwnership(node->getKey(), first, last);
-    //CkAssert(first == last);
     os << "NonLocalBucket: Chare=" << node->remoteIndex << ", Size=" << node->particleCount; //<< "(" << node->firstParticle << "-" << node->lastParticle << ")";
     break;
   case Boundary:
-    //nodeOwnership(node->getKey(), first, last);
     os << "Boundary: Totalsize=" << node->particleCount << ", Localsize=" << (node->lastParticle - node->firstParticle) << "(" << node->firstParticle << "-" << node->lastParticle;
     break;
   case Empty:
