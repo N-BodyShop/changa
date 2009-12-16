@@ -2,6 +2,7 @@
 #define __CACHEINTERFACE_H__
 
 #include "CkCache.h"
+#include "config.h"
 #include "gravity.h"
 #include "GenericTreeNode.h"
 
