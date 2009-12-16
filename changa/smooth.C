@@ -254,7 +254,6 @@ void KNearestSmoothCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *s
 void TreePiece::setupSmooth() {
 
   // XXX I don't believe any of the Chunks are used in the smooth walk.
-  int oldNumChunks = numChunks;
   dm->getChunks(numChunks, prefetchRoots);
   CkArrayIndexMax idxMax = CkArrayIndex1D(thisIndex);
   if (numChunks == 0 && myNumParticles == 0) numChunks = 1;
@@ -272,33 +271,6 @@ void TreePiece::setupSmooth() {
       return;
   }
   
-  
-#if 0
-  if (oldNumChunks != numChunks && remaining Chunk != NULL) {
-    // reallocate remaining chunk to the new size
-    delete[] remaining Chunk;
-    remaining Chunk = NULL;
-    delete[] nodeInterRemote;
-    delete[] particleInterRemote;
-  }
-  if (remaining Chunk == NULL) {
-    remaining Chunk = new int[numChunks];
-    nodeInterRemote = new u_int64_t[numChunks];
-    particleInterRemote = new u_int64_t[numChunks];
-  }
-  nodeInterLocal = 0;
-  for (int i=0; i<numChunks; ++i) {
-    nodeInterRemote[i] = 0;
-    particleInterRemote[i] = 0;
-  }
-  particleInterLocal = 0;
-  iterationNo++;
-
-  if(verbosity>1)
-    CkPrintf("Node: %d, TreePiece %d: I have %d buckets\n", CkMyNode(),
-    	     thisIndex,numBuckets);
-#endif
-
 }
 
 // Start tree walk and smooth calculation
@@ -439,7 +411,6 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
       // Find maximum of nearest neighbors
       //
       double drMax2 = 0.0;
-      int kMax = 0;
       for(int k = firstQueue; k < lastQueue; k++) 
 	  {
 	      if(!TYPETest(&tp->myParticles[k], params->iType))
@@ -447,7 +418,6 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 	      Vector3D<double> dr = tp->myParticles[k].position
 		  - tp->myParticles[j].position;
 	      if(dr.lengthSquared() > drMax2) {
-		  kMax = k;
 		  drMax2 = dr.lengthSquared();
 		  }
 	      }
