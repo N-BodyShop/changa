@@ -657,11 +657,10 @@ inline int openCriterionNode(Tree::GenericTreeNode *node,
           radius = TreeStuff::opening_geometry_factor*node->moments.radius/thetaMono;
             Sphere<double> sM(node->moments.cm + offset, radius);
             if(Space::intersect(myNode->boundingBox, sM))
-            return 1;
+                return 1;
             else
-            return 0;
+                return 0;
             }
-        return 1;
         }
 #else
     return 0;
@@ -685,11 +684,10 @@ inline int openCriterionNode(Tree::GenericTreeNode *node,
                 radius = TreeStuff::opening_geometry_factor*node->moments.radius/thetaMono;
                 Sphere<double> sM(node->moments.cm + offset, radius);
                 if(Space::intersect(myNode->boundingBox, sM))
-                return 1;
+                    return 1;
                 else
-                return 0;
+                    return 0;
                 }
-            return 1;
             }
 #else
         return 0;
