@@ -1093,7 +1093,7 @@ void Main::advanceBigStep(int iStep) {
 	      }
     }
 
-    int lastActiveRung = activeRung;
+    // int lastActiveRung = activeRung;
 
     // determine largest timestep that needs a kick
     activeRung = 0;
