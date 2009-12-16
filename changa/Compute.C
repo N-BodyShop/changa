@@ -914,8 +914,6 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
   CkAssert(num > 0);
   GenericTreeNode *source = (GenericTreeNode *)computeEntity;
 
-  GenericTreeNode* reqnode;
-
   int startBucket;
   int end;
 
