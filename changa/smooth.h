@@ -6,6 +6,7 @@
  */
 #include <queue>
 #include "Compute.h"
+#include "State.h"
 
 class pqSmoothNode
 {

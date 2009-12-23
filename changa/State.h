@@ -31,11 +31,6 @@ class State {
 };
 
 #if INTERLIST_VER > 0
-typedef CkQ<OffsetNode> CheckList;
-
-typedef CkVec<OffsetNode> UndecidedList;
-typedef CkVec<UndecidedList> UndecidedLists;
-
 #if defined CUDA
 #include "HostCUDA.h"
 #include "DataManager.h"

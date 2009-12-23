@@ -380,6 +380,12 @@ typedef struct OffsetNodeStruct
       int offsetID;
 }OffsetNode;
 
+#if INTERLIST_VER > 0
+typedef CkQ<OffsetNode> CheckList;
+typedef CkVec<OffsetNode> UndecidedList;
+typedef CkVec<UndecidedList> UndecidedLists;
+#endif
+
 typedef struct particlesInfoR{
     ExternalGravityParticle* particles;
     int numParticles;

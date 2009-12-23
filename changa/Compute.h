@@ -2,8 +2,9 @@
 #define __COMPUTE_H__
 
 #include "codes.h"
+#include "ParallelGravity.h"
 class State;
-#include "State.h"
+class DoubleWalkState;
 
 /* File defines classes for objects that encapsulate computation
  * */
