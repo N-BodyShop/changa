@@ -624,7 +624,8 @@ void TreePiece::ioAcceptSortedParticles(const GravityParticle* particles,
     incomingParticlesSelf = false;
 
     delete[] mySPHParticles;
-    mySPHParticles = new extraSPHData[incomingGas->size()];
+    myNumSPH = incomingGas->size();
+    mySPHParticles = new extraSPHData[myNumSPH];
     memcpy(mySPHParticles, &((*incomingGas)[0]),
 	   incomingGas->size()*sizeof(extraSPHData));
     delete incomingGas;
