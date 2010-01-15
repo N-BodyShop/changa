@@ -329,7 +329,7 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
 }
 
 void PrefetchCompute::recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket){
-#ifdef CUDA
+//#ifdef CUDA
         // wait for prefetched particles as well
         // this way, all nodes/parts not missed will be handled by RNR
         // and all those missed, by RR
@@ -338,7 +338,7 @@ void PrefetchCompute::recvdParticles(ExternalGravityParticle *egp,int num,int ch
         // and so we'd have to have a separate array of missed particles for the RNR (in much the same way that the RR has
         // separate arrays for missed nodes and particles) 
   finishNodeProcessEvent(tp, state);
-#endif
+//#endif
 }
 
 void GravityCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int reqIDlist){
@@ -660,11 +660,11 @@ int PrefetchCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, i
                                                          true, awi, (void *)0);
 
     if(part == NULL){
-#ifdef CUDA
+//#ifdef CUDA
       // waiting for particles for reasons discussed 
       // in comments within recvdParticles
       state->counterArrays[0][0]++;
-#endif
+//#endif
 #if CHANGA_REFACTOR_DEBUG > 2
       CkPrintf("[%d] Particles not found in cache\n", tp->getIndex());
 #endif
