@@ -63,7 +63,8 @@ public:
  *********************************************************/
 
 class EntryTypeGravityNode : public CkCacheEntryType {
-  void *vptr;
+  void *vptr; // For saving a copy of the virtual function table.
+	      // It's use will be compiler dependent.
   void unpackSingle(CkCacheFillMsg *, Tree::BinaryTreeNode *, int, CkArrayIndexMax &, bool);
 public:
   EntryTypeGravityNode();

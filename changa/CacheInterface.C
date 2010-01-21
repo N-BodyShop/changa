@@ -52,7 +52,9 @@ void TreePiece::fillRequestParticles(CkCacheRequestMsg *msg) {
   
   int total = sizeof(CacheParticle) + (bucket->lastParticle - bucket->firstParticle) * sizeof(ExternalGravityParticle);
   CkCacheFillMsg *reply = new (total) CkCacheFillMsg(msg->key);
+  CkAssert(reply != NULL);
   CacheParticle *data = (CacheParticle*)reply->data;
+  CkAssert(data != NULL);
   data->begin = bucket->firstParticle;
   data->end = bucket->lastParticle;
   
@@ -239,6 +241,9 @@ void TreePiece::flushSmoothParticles(CkCacheFillMsg *msg) {
 
 EntryTypeGravityNode::EntryTypeGravityNode() {
   BinaryTreeNode node;
+  // save the virtual function table.
+  // Note that this is compiler dependent; also note that it is unused
+  // at the moment -- see unpackSingle() below.
   memcpy(&vptr, &node, sizeof(void*));
 }
 
@@ -280,7 +285,7 @@ void EntryTypeGravityNode::unpackSingle(CkCacheFillMsg *msg, Tree::BinaryTreeNod
   // needed for heterogeneous architectures.  Commented out for now
   // since it breaks on the PGI compiler.
 
-  memcpy(node, &vptr, sizeof(void*));
+  // memcpy(node, &vptr, sizeof(void*));
 
   if (!isRoot) CmiReference(UsrToEnv(msg));
   for (int i=0; i < 2; ++i) {
