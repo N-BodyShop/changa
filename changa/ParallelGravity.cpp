@@ -1040,6 +1040,9 @@ void Main::advanceBigStep(int iStep) {
 	  ckout << "Kick Open:" << endl;
       double dKickFac[MAXRUNG+1];
       double duKick[MAXRUNG+1];
+      for (int iRung=0; iRung<=MAXRUNG+1; iRung++) {
+        duKick[iRung]=dKickFac[iRung]=0;
+      }
       for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
         double dTimeSub = RungToDt(param.dDelta, iRung);
 	if(verbosity) {
@@ -1209,6 +1212,9 @@ void Main::advanceBigStep(int iStep) {
       // Closing Kick
       double dKickFac[MAXRUNG+1];
       double duKick[MAXRUNG+1];
+      for (int iRung=0; iRung<=MAXRUNG+1; iRung++) {
+        duKick[iRung]=dKickFac[iRung]=0;
+      }
       if(verbosity)
 	  ckout << "Kick Close:" << endl;
       for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
