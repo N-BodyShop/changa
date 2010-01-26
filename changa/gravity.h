@@ -70,11 +70,10 @@ void SPLINEQ(SSEcosmoType invr, SSEcosmoType r2, SSEcosmoType twoh,
 	     SSEcosmoType& a, SSEcosmoType& b, 
 	     SSEcosmoType& c, SSEcosmoType& d)
 {
-  SSEcosmoType u, dih, dir;
+  SSEcosmoType dir;
   dir = invr; 
   SSEcosmoType select0 = r2 < twoh * twoh;
   int compare0 = movemask(select0);
-  SSEcosmoType a0,b0,c0,d0,a1,b1,c1,d1,a2,b2,c2,d2;
   // make common case fast, at the cost of some redundant code
   //   in the infrequent case
   if (!compare0) {
@@ -84,9 +83,9 @@ void SPLINEQ(SSEcosmoType invr, SSEcosmoType r2, SSEcosmoType twoh,
     d = COSMO_CONST(5.0)*c*a*a;
   }
   else {
-    SSEcosmoType u, dih, dir; 
-    SSEcosmoType a0, b0, a1, b1, a2, b2;
+    SSEcosmoType u, dih; 
     SSEcosmoType select1; 
+    SSEcosmoType a0,b0,c0,d0,a1,b1,c1,d1,a2,b2,c2,d2;
     int compare1; 
 
     dih = COSMO_CONST(2.0)/twoh;
@@ -481,8 +480,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
 {
   Vector3D<SSEcosmoType> r; 
   SSEcosmoType rsq;
-  SSEcosmoType twoh, a1, b1, a2, b2, a3, b3, c1, d1;
-  SSEcosmoType dih, u; 
+  SSEcosmoType twoh;
   SSEcosmoType a,b,c,d;
   MultipoleMoments m = node->moments;
   Vector3D<cosmoType> cm(m.cm + offset);
