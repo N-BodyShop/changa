@@ -158,18 +158,35 @@ double csmTime2Exp(CSM csm,double dTime)
 	else {
 	    double dExpOld = 0.0;
 	    double dExpNew = dTime*dHubble0;
+	    double dDeltaOld = dExpNew;	/* old change in interval */
+	    double dUpper = 1.0e38; /* bounds on root */
+	    double dLower = 0.0;
+	    
 	    int it = 0;
 	    
 	    /*
 	     * Root find with Newton's method.
 	     */
 	    do {
+		double dExpNext;
 	    	double f = dTime - csmExp2Time(csm, dExpNew);
 		double fprime = 1.0/(dExpNew*csmExp2Hub(csm, dExpNew));
+		
+		if(f*fprime > 0)
+		    dLower = dExpNew;
+		else 
+		    dUpper = dExpNew;
+		
 		dExpOld = dExpNew;
-		dExpNew += f/fprime;
+		dDeltaOld = f/fprime;
+		dExpNext = dExpNew + dDeltaOld;
+		/* check if bracketed */
+		if((dExpNext > dLower) && (dExpNext < dUpper))
+		    dExpNew = dExpNext;
+		else
+		    dExpNew = 0.5*(dUpper + dLower);
 		it++;
-		assert(it < 20);
+		assert(it < 40);
 		}
 	    while (fabs(dExpNew - dExpOld)/dExpNew > EPSCOSMO);
 	    return dExpNew;
