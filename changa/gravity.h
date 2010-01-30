@@ -93,9 +93,9 @@ void SPLINEQ(SSEcosmoType invr, SSEcosmoType r2, SSEcosmoType twoh,
 
     if ((~compare0) & cosmoMask) {
       a0 = dir;
-      b0 = a*a*a;
-      c0 = COSMO_CONST(3.0)*b*a*a;
-      d0 = COSMO_CONST(5.0)*c*a*a;
+      b0 = a0*a0*a0;
+      c0 = COSMO_CONST(3.0)*b0*a0*a0;
+      d0 = COSMO_CONST(5.0)*c0*a0*a0;
     }
 
     select1 = u < COSMO_CONST(1.0);
