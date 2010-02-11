@@ -73,19 +73,26 @@ class GenericList{
                            int bucket, 
                            int &bucketStart, int &bucketSize){
                            //std::map<NodeKey, int>&lpref){
-	// bucket b is listed in this offload
+	// bucket is listed in this offload
 	GenericTreeNode *bucketNode = tp->bucketList[bucket];
 
 	bucketSize = bucketNode->lastParticle - bucketNode->firstParticle + 1;
         bucketStart = bucketNode->bucketArrayIndex;
-        /*
-	NodeKey partKey = bucketNode->getKey();
-	partKey <<= 1;
+	CkAssert(bucketStart >= 0);
+  }
 
-	std::map<NodeKey, int>::iterator iter = lpref.find(partKey);
-	CkAssert(iter != lpref.end());
-	bucketStart = iter->second;
-        */
+  void getActiveBucketParameters(TreePiece *tp, 
+                           int bucket, 
+                           int &bucketStart, int &bucketSize){
+                           //std::map<NodeKey, int>&lpref){
+	// bucket is listed in this offload
+	GenericTreeNode *bucketNode = tp->bucketList[bucket];
+        BucketActiveInfo *binfo = &(tp->bucketActiveInfo[bucket]);
+
+	//bucketSize = bucketNode->lastParticle - bucketNode->firstParticle + 1;
+        //bucketStart = bucketNode->bucketArrayIndex;
+        bucketSize = tp->bucketActiveInfo[bucket].size;
+        bucketStart = tp->bucketActiveInfo[bucket].start;
 	CkAssert(bucketStart >= 0);
   }
 
@@ -123,6 +130,21 @@ class DoubleWalkState : public State {
   CkVec<CudaMultipoleMoments> *nodes;
   CkVec<CompactPartData> *particles;
 
+  // during 'small' rungs, buckets are marked when
+  // they are included for computation in the request's
+  // aux. particle array. these markings should be
+  // cleared before the assembly of the next request is
+  // begun. for this purpose, we keep track of buckets
+  // marked during the construction of a request.
+  //
+  // NB: for large rungs, we don't mark buckets while 
+  // compiling requests. for such rungs, since all
+  // particles are shipped at the beginning of the iteration,
+  // we have them marked at that time. since all particles,
+  // are available on the gpu for these rungs, we do not clear 
+  // the markings when requests are sent out.
+  CkVec<GenericTreeNode *> markedBuckets;
+
   // TODO : this switch from map to ckvec means that we cannot 
   // use multiple treepieces per processor, since they will all
   // be writing to the nodeArrayIndex field of the CacheManager's nodes.
@@ -158,9 +180,6 @@ void allocatePinnedHostMemory(void **ptr, int size);
 
 template<typename T>
 CudaRequest *GenericList<T>::serialize(TreePiece *tp){
-    // for local particles
-    //std::map<NodeKey, int> &lpref = tp->dm->getLocalPartsOnGpuTable();
-
     // get count of buckets with interactions first
     int numFilledBuckets = 0;
     int listpos = 0;
@@ -174,38 +193,59 @@ CudaRequest *GenericList<T>::serialize(TreePiece *tp){
     }
 
     // create flat lists and associated data structures
+    // allocate memory and flatten lists only if there
+    // are interactions to transfer. 
+    T *flatlists = NULL;
+    int *markers = NULL;
+    int *starts = NULL;
+    int *sizes = NULL;
+    int *affectedBuckets = NULL;
+
+    if(totalNumInteractions > 0){
 #ifdef CUDA_USE_CUDAMALLOCHOST
-    T *flatlists;
-    int *markers, *starts, *sizes;
-
-    allocatePinnedHostMemory((void **)&flatlists, totalNumInteractions*sizeof(T));
-    allocatePinnedHostMemory((void **)&markers, (numFilledBuckets+1)*sizeof(int));
-    allocatePinnedHostMemory((void **)&starts, (numFilledBuckets)*sizeof(int));
-    allocatePinnedHostMemory((void **)&sizes, (numFilledBuckets)*sizeof(int));
+      allocatePinnedHostMemory((void **)&flatlists, totalNumInteractions*sizeof(T));
+      allocatePinnedHostMemory((void **)&markers, (numFilledBuckets+1)*sizeof(int));
+      allocatePinnedHostMemory((void **)&starts, (numFilledBuckets)*sizeof(int));
+      allocatePinnedHostMemory((void **)&sizes, (numFilledBuckets)*sizeof(int));
 #else
-    T *flatlists = (T *) malloc(totalNumInteractions*sizeof(T));
-    int *markers = (int *) malloc((numFilledBuckets+1)*sizeof(int));
-    int *starts = (int *) malloc(numFilledBuckets*sizeof(int));
-    int *sizes = (int *) malloc(numFilledBuckets*sizeof(int));
+      flatlists = (T *) malloc(totalNumInteractions*sizeof(T));
+      markers = (int *) malloc((numFilledBuckets+1)*sizeof(int));
+      starts = (int *) malloc(numFilledBuckets*sizeof(int));
+      sizes = (int *) malloc(numFilledBuckets*sizeof(int));
 #endif
-    int *affectedBuckets = new int[numFilledBuckets];
+      affectedBuckets = new int[numFilledBuckets];
 
-    // populate flat lists
-    int listslen = lists.length();
-    for(int i = 0; i < listslen; i++){
-      int listilen = lists[i].length();
-      if(listilen > 0){
-        memcpy(&flatlists[listpos], lists[i].getVec(), listilen*sizeof(T));
-        markers[curbucket] = listpos;
-        //getBucketParameters(tp, i, starts[curbucket], sizes[curbucket], lpref);
-        getBucketParameters(tp, i, starts[curbucket], sizes[curbucket]);
-        affectedBuckets[curbucket] = i;
-        listpos += listilen;
-        curbucket++;
+      // populate flat lists
+      int listslen = lists.length();
+      if(tp->largePhase()){
+        for(int i = 0; i < listslen; i++){
+          int listilen = lists[i].length();
+          if(listilen > 0){
+            memcpy(&flatlists[listpos], lists[i].getVec(), listilen*sizeof(T));
+            markers[curbucket] = listpos;
+            getBucketParameters(tp, i, starts[curbucket], sizes[curbucket]);
+            affectedBuckets[curbucket] = i;
+            listpos += listilen;
+            curbucket++;
+          }
+        }
       }
+      else{
+        for(int i = 0; i < listslen; i++){
+          int listilen = lists[i].length();
+          if(listilen > 0){
+            memcpy(&flatlists[listpos], lists[i].getVec(), listilen*sizeof(T));
+            markers[curbucket] = listpos;
+            getActiveBucketParameters(tp, i, starts[curbucket], sizes[curbucket]);
+            affectedBuckets[curbucket] = i;
+            listpos += listilen;
+            curbucket++;
+          }
+        }
+      }
+      markers[numFilledBuckets] = listpos;
+      CkAssert(listpos == totalNumInteractions);
     }
-    markers[numFilledBuckets] = listpos;
-    CkAssert(listpos == totalNumInteractions);
 
     CudaRequest *request = new CudaRequest;
     request->list = (void *)flatlists;

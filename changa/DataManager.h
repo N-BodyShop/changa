@@ -91,6 +91,7 @@ protected:
         int treePiecesDoneRemoteChunkComputation;
         int treePiecesWantParticlesBack;
         int savedNumTotalParticles;
+        int savedNumTotalNodes;
         // keeps track of buckets of particles that were
         // received during the prefetch and which were subsequently
         // shipped off to the gpu - XXX

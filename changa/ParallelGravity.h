@@ -130,6 +130,8 @@ extern int localPartsPerReq;
 extern int remotePartsPerReq;
 extern int remoteResumePartsPerReq;
 
+extern double largePhaseThreshold;
+
 extern double theta;
 extern double thetaMono;
 
@@ -412,6 +414,13 @@ typedef struct particlesInfoL{
 } LocalPartInfo;
 
 
+#ifdef CUDA
+struct BucketActiveInfo{
+  int start;
+  int size;
+};
+#endif
+
 class SmoothCompute;
 #include "Compute.h"
 
@@ -464,9 +473,9 @@ class TreePiece : public CBase_TreePiece {
 		       // should be part of the smooth state
 
  public:
-#if INTERLIST_VER > 0
-   // used for local and remote walks
-   //State *sInterListStateLocal, *sInterListStateRemote;
+#if COSMO_PRINT_BK > 1
+  State *getSRemoteGravityState(){ return sRemoteGravityState; }
+  State *getSLocalGravityState(){ return sLocalGravityState; }
 #endif
    void addActiveWalk(int iAwi, TreeWalk *tw, Compute *c, Opt *o, State *s);
 
@@ -534,6 +543,9 @@ class TreePiece : public CBase_TreePiece {
         // in the list of interations to the sent to the gpu, we flush
         // the list
         int numActiveBuckets; 
+        int myNumActiveParticles;
+        BucketActiveInfo *bucketActiveInfo;
+
 
         int getNumParticles(){
         	return myNumParticles;
@@ -545,9 +557,102 @@ class TreePiece : public CBase_TreePiece {
 
         void callFreeRemoteChunkMemory(int chunk);
 
+        int getActiveRung(){ return activeRung; }
+        // returns either all particles or only active particles,
+        // depending on fraction of active particles to their
+        // total count.
+        int getDMNumParticles(){
+          if(largePhase()){
+            return myNumParticles;
+          }
+          else{
+            return myNumActiveParticles; 
+          }
+        }
+
+        int getNumActiveParticles(){
+          return myNumActiveParticles;
+        }
+
+        void calculateNumActiveParticles(){ 
+          myNumActiveParticles = 0;
+          for(int i = 1; i <= myNumParticles; i++){
+            if(myParticles[i].rung >= activeRung){
+              myNumActiveParticles++;
+            }
+          }
+        }
+
+        bool largePhase(){
+          return (1.0*myNumActiveParticles/myNumParticles) >= largePhaseThreshold;
+        }
+
+        void getDMParticles(CompactPartData *fillArray, int &fillIndex){
+          if(largePhase()){
+            for(int b = 0; b < numBuckets; b++){
+              GenericTreeNode *bucket = bucketList[b];
+              int buckstart = bucket->firstParticle;
+              int buckend = bucket->lastParticle;
+              GravityParticle *buckparts = bucket->particlePointer;
+              bucket->bucketArrayIndex = fillIndex;
+              for(int i = buckstart; i <= buckend; i++){
+                fillArray[fillIndex] = buckparts[i-buckstart];
+#if defined CUDA_EMU_KERNEL_NODE_PRINTS || defined CUDA_EMU_KERNEL_PART_PRINTS
+                fillArray[fillIndex].tp = thisIndex;
+                fillArray[fillIndex].id = i;
+#endif
+                fillIndex++;
+              }
+            }
+          }
+          else{
+            for(int b = 0; b < numBuckets; b++){
+              GenericTreeNode *bucket = bucketList[b];
+              if(bucket->rungs < activeRung){
+                continue;
+              }
+              BucketActiveInfo *binfo = &(bucketActiveInfo[b]);
+              
+              int buckstart = bucket->firstParticle;
+              int buckend = bucket->lastParticle;
+              GravityParticle *buckparts = bucket->particlePointer;
+
+              binfo->start = fillIndex;
+              for(int i = buckstart; i <= buckend; i++){
+                if(buckparts[i-buckstart].rung >= activeRung){
+                  fillArray[fillIndex] = buckparts[i-buckstart];
+#if defined CUDA_EMU_KERNEL_NODE_PRINTS || defined CUDA_EMU_KERNEL_PART_PRINTS
+                  fillArray[fillIndex].tp = thisIndex;
+                  fillArray[fillIndex].id = i;
+#endif
+                  fillIndex++;
+                }
+              }
+              binfo->size = fillIndex-binfo->start;
+            }
+          }
+        }
+
+        bool isActive(int partNum){
+          return myParticles[partNum].rung >= activeRung;
+        }
+
+        void clearMarkedBuckets(CkVec<GenericTreeNode *> &markedBuckets);
+        void clearMarkedBucketsAll();
+
+#ifdef CUDA_STATS
+        long long localNodeInteractions;
+        long long localPartInteractions;
+        long long remoteNodeInteractions;
+        long long remotePartInteractions;
+        long long remoteResumeNodeInteractions;
+        long long remoteResumePartInteractions;
+#endif
+
 #endif
 
         void continueStartRemoteChunk(int chunk);
+        void continueWrapUp();
 
 #if INTERLIST_VER > 0
         void getBucketsBeneathBounds(GenericTreeNode *&node, int &start, int &end);
@@ -944,6 +1049,14 @@ public:
 #endif
 #ifdef CUDA
           numActiveBuckets = -1;
+#ifdef CUDA_STATS
+          localNodeInteractions = 0;
+          localPartInteractions = 0;
+          remoteNodeInteractions = 0;
+          remotePartInteractions = 0;
+          remoteResumeNodeInteractions = 0;
+          remoteResumePartInteractions = 0;
+#endif
 #endif
 
 	  tmpTime=0.0;

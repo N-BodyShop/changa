@@ -28,6 +28,14 @@ __device__ __constant__ EwtData ewt[sizeof(EwtData) * NEWH];
 //
 
 void allocatePinnedHostMemory(void **ptr, int size){
+  if(size <= 0){
+    *((char **)ptr) = NULL;
+#ifdef CUDA_PRINT_ERRORS
+    printf("allocatePinnedHostMemory: 0 size!\n");
+#endif
+    exit(-1);
+    return;
+  }
   cudaMallocHost(ptr, size);
 #ifdef CUDA_PRINT_ERRORS
   printf("allocatePinnedHostMemory: %s size: %d\n", cudaGetErrorString( cudaGetLastError() ), size);
@@ -35,6 +43,13 @@ void allocatePinnedHostMemory(void **ptr, int size){
 }
 
 void freePinnedHostMemory(void *ptr){
+  if(ptr == NULL){
+#ifdef CUDA_PRINT_ERRORS
+    printf("freePinnedHostMemory: NULL ptr!\n");
+#endif
+    exit(-1);
+    return;
+  }
   cudaFreeHost(ptr);
 #ifdef CUDA_PRINT_ERRORS
   printf("freePinnedHostMemory: %s\n", cudaGetErrorString( cudaGetLastError() ));
@@ -59,23 +74,25 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
 
 	buf = &(transferKernel.bufferInfo[LOCAL_MOMENTS_IDX]);
 	buf->bufferID = LOCAL_MOMENTS;
-	buf->transferToDevice = YES;
-	buf->transferFromDevice = NO;
 	buf->freeBuffer = NO;
         size = (nMoments) * sizeof(CudaMultipoleMoments);
 	buf->size = size;
+	buf->transferToDevice = size > 0 ? YES : NO;
+	buf->transferFromDevice = NO;
 
-        double mill = 1e6;
+        //double mill = 1e6;
         //printf("(%d) DM local moments: %f mbytes\n", mype, 1.0*size/mill);
 
 #ifdef CUDA_PRINT_ERRORS
         printf("(%d) DMLocal 0000: %s\n", mype, cudaGetErrorString( cudaGetLastError() ));
 #endif
+        if(size > 0){
 #ifdef CUDA_USE_CUDAMALLOCHOST
-        cudaMallocHost(&buf->hostBuffer, size);
+          cudaMallocHost(&buf->hostBuffer, size);
 #else
-        buf->hostBuffer = malloc(size);
+          buf->hostBuffer = malloc(size);
 #endif
+        }
 
 #ifdef CUDA_PRINT_ERRORS
         printf("(%d) DMLocal 0: %s hostBuf: 0x%x, size: %d\n", mype, cudaGetErrorString( cudaGetLastError() ), buf->hostBuffer, size );
@@ -84,50 +101,55 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
 
 	buf = &(transferKernel.bufferInfo[LOCAL_PARTICLE_CORES_IDX]);
 	buf->bufferID = LOCAL_PARTICLE_CORES;
-	buf->transferToDevice = YES;
-	buf->transferFromDevice = NO;
 	buf->freeBuffer = NO;
         size = (nCompactParts)*sizeof(CompactPartData);
         buf->size = size;
+	buf->transferToDevice = size > 0 ? YES : NO;
+	buf->transferFromDevice = NO;
 
+        if(size > 0){
 #ifdef CUDA_USE_CUDAMALLOCHOST
-        cudaMallocHost(&buf->hostBuffer, size);
+          cudaMallocHost(&buf->hostBuffer, size);
 #else
-        buf->hostBuffer = malloc(size);
+          buf->hostBuffer = malloc(size);
 #endif
 #ifdef CUDA_PRINT_ERRORS
-        printf("(%d) DMLocal 1: %s\n", mype, cudaGetErrorString( cudaGetLastError() ) );
+          printf("(%d) DMLocal 1: %s\n", mype, cudaGetErrorString( cudaGetLastError() ) );
 #endif
-        memcpy(buf->hostBuffer, compactParts, size);
+          memcpy(buf->hostBuffer, compactParts, size);
+        }
 
         VariablePartData *zeroArray;
 
 	buf = &(transferKernel.bufferInfo[LOCAL_PARTICLE_VARS_IDX]);
 	buf->bufferID = LOCAL_PARTICLE_VARS;
-	buf->transferToDevice = YES;
-	buf->transferFromDevice = NO;
 	buf->freeBuffer = NO;
         size = (nCompactParts)*sizeof(VariablePartData);
 	buf->size = size;
+	buf->transferToDevice = size > 0 ? YES : NO;
+	buf->transferFromDevice = NO;
 
+        if(size > 0){
 #ifdef CUDA_USE_CUDAMALLOCHOST
-        cudaMallocHost(&buf->hostBuffer, size);
+          cudaMallocHost(&buf->hostBuffer, size);
 #else
-        buf->hostBuffer = malloc(size);
+          buf->hostBuffer = malloc(size);
 #endif
 #ifdef CUDA_PRINT_ERRORS
-        printf("(%d) DMLocal 2: %s\n", mype, cudaGetErrorString( cudaGetLastError() ));
+          printf("(%d) DMLocal 2: %s\n", mype, cudaGetErrorString( cudaGetLastError() ));
 #endif
-        zeroArray = (VariablePartData *) buf->hostBuffer;
-        for(int i = 0; i < nCompactParts; i++){
-          zeroArray[i].a.x = 0.0;
-          zeroArray[i].a.y = 0.0;
-          zeroArray[i].a.z = 0.0;
-          zeroArray[i].potential = 0.0;
+          zeroArray = (VariablePartData *) buf->hostBuffer;
+          for(int i = 0; i < nCompactParts; i++){
+            zeroArray[i].a.x = 0.0;
+            zeroArray[i].a.y = 0.0;
+            zeroArray[i].a.z = 0.0;
+            zeroArray[i].potential = 0.0;
+          }
         }
 
 	transferKernel.callbackFn = 0;
 	transferKernel.id = DM_TRANSFER_LOCAL;
+        printf("DM LOCAL TREE\n");
 	enqueue(wrQueue, &transferKernel);
 
 }
@@ -153,7 +175,9 @@ void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments,
   buf->freeBuffer = NO;
   size = (nMoments) * sizeof(CudaMultipoleMoments);
   buf->size = size;
-  double mill = 1e6;
+  buf->transferToDevice = (size > 0 ? YES : NO);
+  
+  //double mill = 1e6;
   //printf("DM remote moments: %f mbytes\n", 1.0*size/mill);
   
   if(size > 0){
@@ -167,7 +191,7 @@ void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments,
 #endif
     memcpy(buf->hostBuffer, moments, size);
   }
-  buf->transferToDevice = (size > 0 ? YES : NO);
+  printf("DM REMOTE CHUNK node size: %d\n", size);
 
   buf = &(transferKernel.bufferInfo[REMOTE_PARTICLE_CORES_IDX]);
   buf->bufferID = REMOTE_PARTICLE_CORES;
@@ -175,6 +199,7 @@ void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments,
   buf->freeBuffer = NO;
   size = (nCompactParts)*sizeof(CompactPartData);  
   buf->size = size;
+  buf->transferToDevice = (size > 0 ? YES : NO);
   //printf("DM remote cores: %f mbytes\n", 1.0*size/mill);
 
   if(size > 0){
@@ -188,7 +213,7 @@ void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments,
 #endif
     memcpy(buf->hostBuffer, compactParts, size);
   }
-  buf->transferToDevice = (size > 0 ? YES : NO);
+  printf("DM REMOTE CHUNK particle size: %d\n", size);
 
   transferKernel.callbackFn = 0;
   transferKernel.id = DM_TRANSFER_REMOTE_CHUNK;
@@ -202,6 +227,7 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 
 	workRequest gravityKernel;
 	//dataInfo *buffer, *partCoreBuffer;
+        //ParameterStruct *pmtr;
 
 	gravityKernel.dimGrid = dim3(numBlocks);
 	gravityKernel.dimBlock = dim3(BLOCK_SIZE_GRAV);
@@ -216,6 +242,7 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 
 	gravityKernel.callbackFn = data->cb;
 	gravityKernel.id = TP_GRAVITY_LOCAL;
+        printf("TRANSFER LOCAL CELL\n");
 	enqueue(wrQueue, &gravityKernel);
 }
 
@@ -238,6 +265,7 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
 
 	gravityKernel.callbackFn = data->cb;
 	gravityKernel.id = TP_GRAVITY_REMOTE;
+        printf("TRANSFER REMOTE CELL\n");
 	enqueue(wrQueue, &gravityKernel);
 }
 
@@ -247,6 +275,7 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleM
 
   workRequest gravityKernel;
   dataInfo *buffer;
+  bool transfer;
 
   gravityKernel.dimGrid = dim3(numBlocks);
   gravityKernel.dimBlock = dim3(BLOCK_SIZE_GRAV);
@@ -258,16 +287,17 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleM
   gravityKernel.bufferInfo = (dataInfo *) malloc(gravityKernel.nBuffers * sizeof(dataInfo));
 
   TreePieceCellListDataTransferBasic(data, &gravityKernel);
+  transfer = gravityKernel.bufferInfo[ILCELL_IDX].transferToDevice == YES;
 
   buffer = &(gravityKernel.bufferInfo[MISSED_MOMENTS_IDX]);
   buffer->bufferID = -1;
-  buffer->transferToDevice = YES;
-  buffer->transferFromDevice = NO;
-  buffer->freeBuffer = YES;
   size = (numMissedMoments) * sizeof(CudaMultipoleMoments);
   buffer->size = size;
+  buffer->transferToDevice = transfer ? YES : NO;
+  buffer->freeBuffer = transfer ? YES : NO;
+  buffer->transferFromDevice = NO;
 
-  if(size > 0){
+  if(transfer){
 #ifdef CUDA_USE_CUDAMALLOCHOST
     cudaMallocHost(&buffer->hostBuffer, size);
 #else
@@ -284,6 +314,7 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleM
 
   gravityKernel.callbackFn = data->cb;
   gravityKernel.id = TP_GRAVITY_REMOTE_RESUME;
+        printf("TRANSFER REMOTE RESUME CELL\n");
   enqueue(wrQueue, &gravityKernel);
 }
 
@@ -292,47 +323,102 @@ void TreePieceCellListDataTransferBasic(CudaRequest *data, workRequest *gravityK
 	int numBucketsPlusOne = data->numBucketsPlusOne;
         int numBuckets = numBucketsPlusOne-1;
         int size;
+        bool transfer;
 
 	buffer = &(gravityKernel->bufferInfo[ILCELL_IDX]);
 	buffer->bufferID = -1;
-	buffer->transferToDevice = YES;
-	buffer->transferFromDevice = NO;
-	buffer->freeBuffer = YES;
         size = (data->numInteractions) * sizeof(ILCell);
 	buffer->size = size;
+
+        transfer = size > 0;
+
+	buffer->transferToDevice = transfer ? YES : NO;
+	buffer->freeBuffer = transfer ? YES : NO;
+	buffer->transferFromDevice = NO;
         buffer->hostBuffer = data->list;
 
 	buffer = &(gravityKernel->bufferInfo[NODE_BUCKET_MARKERS_IDX]);
 	buffer->bufferID = -1;
-	buffer->transferToDevice = YES;
-	buffer->transferFromDevice = NO;
-	buffer->freeBuffer = YES;
         size = (numBucketsPlusOne) * sizeof(int);
-        buffer->size = size;
+        buffer->size = transfer ? size : 0;
+	buffer->transferToDevice = transfer ? YES : NO;
+	buffer->freeBuffer = transfer ? YES : NO;
+	buffer->transferFromDevice = NO;
         buffer->hostBuffer = data->bucketMarkers;
 
 	buffer = &(gravityKernel->bufferInfo[NODE_BUCKET_START_MARKERS_IDX]);
 	buffer->bufferID = -1;
-	buffer->transferToDevice = YES;
-	buffer->transferFromDevice = NO;
-	buffer->freeBuffer = YES;
 	size = (numBuckets) * sizeof(int);
         buffer->size = size;
+	buffer->transferToDevice = transfer ? YES : NO;
+	buffer->freeBuffer = transfer ? YES : NO;
+	buffer->transferFromDevice = NO;
         buffer->hostBuffer = data->bucketStarts;
 
 	buffer = &(gravityKernel->bufferInfo[NODE_BUCKET_SIZES_IDX]);
 	buffer->bufferID = -1;
-	buffer->transferToDevice = YES;
-	buffer->transferFromDevice = NO;
-	buffer->freeBuffer = YES;
         buffer->size = size;
+	buffer->transferToDevice = transfer ? YES : NO;
+	buffer->freeBuffer = transfer ? YES : NO;
+	buffer->transferFromDevice = NO;
         buffer->hostBuffer = data->bucketSizes;
 
         ParameterStruct *ptr = (ParameterStruct *)malloc(sizeof(ParameterStruct));
         ptr->numInteractions = data->numInteractions;
         ptr->numBucketsPlusOne = numBucketsPlusOne;
         ptr->fperiod = data->fperiod;
+
         gravityKernel->userData = ptr;
+}
+
+void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPartData *particles, int len){
+	int numBlocks = data->numBucketsPlusOne-1;
+
+	workRequest gravityKernel;
+        dataInfo *buffer;
+        int size;
+        ParameterStruct *ptr;
+        bool transfer;
+
+	gravityKernel.dimGrid = dim3(numBlocks);
+	gravityKernel.dimBlock = dim3(BLOCK_SIZE_GRAV);
+	gravityKernel.smemSize = 0;
+
+	gravityKernel.nBuffers = TP_GRAVITY_LOCAL_NBUFFERS_SMALLPHASE;
+
+	/* schedule buffers for transfer to the GPU */
+	gravityKernel.bufferInfo = (dataInfo *) malloc(gravityKernel.nBuffers * sizeof(dataInfo));
+
+	TreePiecePartListDataTransferBasic(data, &gravityKernel);
+        transfer = gravityKernel.bufferInfo[ILPART_IDX].transferToDevice == YES;
+
+	buffer = &(gravityKernel.bufferInfo[MISSED_PARTS_IDX]);
+	buffer->bufferID = -1;
+        size = (len) * sizeof(CompactPartData);
+        buffer->size = size;
+	buffer->transferToDevice = transfer ? YES : NO;
+	buffer->freeBuffer = transfer ? YES : NO;
+	buffer->transferFromDevice = NO;
+
+        if(transfer){
+#ifdef CUDA_USE_CUDAMALLOCHOST
+          cudaMallocHost(&buffer->hostBuffer, size);
+#else
+          buffer->hostBuffer = malloc(size);
+#endif
+#ifdef CUDA_PRINT_ERRORS
+          printf("TPPartSmallPhase 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
+#endif
+          memcpy(buffer->hostBuffer, particles, size);
+        }
+
+        ptr = (ParameterStruct *)gravityKernel.userData;
+        ptr->numMissedCores = len;
+
+	gravityKernel.callbackFn = data->cb;
+	gravityKernel.id = TP_PART_GRAVITY_LOCAL_SMALLPHASE;
+        printf("TRANSFER LOCAL SMALLPHASE PART\n");
+	enqueue(wrQueue, &gravityKernel);
 }
 
 void TreePiecePartListDataTransferLocal(CudaRequest *data){
@@ -354,6 +440,7 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
 
 	gravityKernel.callbackFn = data->cb;
 	gravityKernel.id = TP_PART_GRAVITY_LOCAL;
+        printf("TRANSFER LOCAL LARGEPHASE PART\n");
 	enqueue(wrQueue, &gravityKernel);
 }
 
@@ -374,6 +461,7 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
 
 	gravityKernel.callbackFn = data->cb;
 	gravityKernel.id = TP_PART_GRAVITY_REMOTE;
+        printf("TRANSFER REMOTE PART\n");
 	enqueue(wrQueue, &gravityKernel);
 }
 
@@ -381,6 +469,7 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartDat
 	int numBlocks = data->numBucketsPlusOne-1;
         int size;
         ParameterStruct *ptr;
+        bool transfer;
 
 	workRequest gravityKernel;
         dataInfo *buffer;
@@ -395,16 +484,17 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartDat
 	gravityKernel.bufferInfo = (dataInfo *) malloc(gravityKernel.nBuffers * sizeof(dataInfo));
 
 	TreePiecePartListDataTransferBasic(data, &gravityKernel);
+        transfer = gravityKernel.bufferInfo[ILPART_IDX].transferToDevice == YES;
 
 	buffer = &(gravityKernel.bufferInfo[MISSED_PARTS_IDX]);
 	buffer->bufferID = -1;
-	buffer->transferToDevice = YES;
-	buffer->transferFromDevice = NO;
-	buffer->freeBuffer = YES;
         size = (numMissedParts) * sizeof(CompactPartData);
         buffer->size = size;
+	buffer->transferToDevice = transfer ? YES : NO;
+	buffer->freeBuffer = transfer ? YES : NO;
+	buffer->transferFromDevice = NO;
 
-        if(size > 0){
+        if(transfer){
 #ifdef CUDA_USE_CUDAMALLOCHOST
           cudaMallocHost(&buffer->hostBuffer, size);
 #else
@@ -421,6 +511,7 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartDat
 
 	gravityKernel.callbackFn = data->cb;
 	gravityKernel.id = TP_PART_GRAVITY_REMOTE_RESUME;
+        printf("TRANSFER REMOTE RESUME PART\n");
 	enqueue(wrQueue, &gravityKernel);
 }
 
@@ -431,41 +522,46 @@ void TreePiecePartListDataTransferBasic(CudaRequest *data, workRequest *gravityK
 	int numBucketsPlusOne = data->numBucketsPlusOne;
         int numBuckets = numBucketsPlusOne-1;
         int size;
+        bool transfer;
 
 	buffer = &(gravityKernel->bufferInfo[ILPART_IDX]);
 	buffer->bufferID = -1;
-	buffer->transferToDevice = YES;
-	buffer->transferFromDevice = NO;
-	buffer->freeBuffer = YES;
 	size = (numInteractions) * sizeof(ILPart);
         buffer->size = size;
+
+        transfer = size > 0;
+
+	buffer->transferToDevice = transfer ? YES : NO;
+	buffer->freeBuffer = transfer ? YES : NO;
+	buffer->transferFromDevice = NO;
+
         buffer->hostBuffer = data->list;
 
 	buffer = &(gravityKernel->bufferInfo[PART_BUCKET_MARKERS_IDX]);
 	buffer->bufferID = -1;
-	buffer->transferToDevice = YES;
-	buffer->transferFromDevice = NO;
-	buffer->freeBuffer = YES;
 	size = (numBucketsPlusOne) * sizeof(int);
-        buffer->size = size;
+        buffer->size = transfer ? size : 0;
+	buffer->transferToDevice = transfer ? YES : NO;
+	buffer->freeBuffer = transfer ? YES : NO;
+	buffer->transferFromDevice = NO;
         buffer->hostBuffer = data->bucketMarkers;
 
 	buffer = &(gravityKernel->bufferInfo[PART_BUCKET_START_MARKERS_IDX]);
 	buffer->bufferID = -1;
-	buffer->transferToDevice = YES;
-	buffer->transferFromDevice = NO;
-	buffer->freeBuffer = YES;
 	buffer->hostBuffer = data->bucketStarts;
 	size = (numBuckets) * sizeof(int);
         buffer->size = size;
+	buffer->transferToDevice = transfer ? YES : NO;
+	buffer->freeBuffer = transfer ? YES : NO;
+	buffer->transferFromDevice = NO;
         buffer->hostBuffer = data->bucketStarts;
 
 	buffer = &(gravityKernel->bufferInfo[PART_BUCKET_SIZES_IDX]);
 	buffer->bufferID = -1;
-	buffer->transferToDevice = YES;
-	buffer->transferFromDevice = NO;
-	buffer->freeBuffer = YES;
         buffer->size = size;
+	buffer->transferToDevice = transfer ? YES : NO;
+	buffer->freeBuffer = transfer ? YES : NO;
+	buffer->transferFromDevice = NO;
         buffer->hostBuffer = data->bucketSizes;
         
         ParameterStruct *ptr = (ParameterStruct *)malloc(sizeof(ParameterStruct));
@@ -491,7 +587,7 @@ TP_PART_GRAVITY_REMOTE_RESUME
 
  */
 
-void FreeDataManagerLocalTreeMemory(){
+void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart){
   workRequest gravityKernel;
   dataInfo *buffer;
 
@@ -508,7 +604,7 @@ void FreeDataManagerLocalTreeMemory(){
   buffer->bufferID = LOCAL_MOMENTS;
   buffer->transferToDevice = NO ;
   buffer->transferFromDevice = NO;
-  buffer->freeBuffer = YES;
+  buffer->freeBuffer = freemom ? YES : NO;
   buffer->hostBuffer = 0;
   buffer->size = 0;
 
@@ -516,12 +612,13 @@ void FreeDataManagerLocalTreeMemory(){
   buffer->bufferID = LOCAL_PARTICLE_CORES;
   buffer->transferToDevice = NO ;
   buffer->transferFromDevice = NO;
-  buffer->freeBuffer = YES;
+  buffer->freeBuffer = freepart ? YES : NO;
   buffer->hostBuffer = 0;
   buffer->size = 0;
 
   gravityKernel.callbackFn = 0;
   gravityKernel.id = DM_TRANSFER_FREE_LOCAL;
+  //printf("DM TRANSFER FREE LOCAL\n");
   enqueue(wrQueue, &gravityKernel);
 
 }
@@ -550,12 +647,14 @@ void FreeDataManagerRemoteChunkMemory(int chunk, void *dm, bool freemom, bool fr
   buffer->transferToDevice = NO ;
   buffer->transferFromDevice = NO;
   buffer->freeBuffer = (freemom ? YES : NO);
+  buffer->size = 0;
 
   buffer = &(gravityKernel.bufferInfo[REMOTE_PARTICLE_CORES_IDX]);
   buffer->bufferID = REMOTE_PARTICLE_CORES;
   buffer->transferToDevice = NO ;
   buffer->transferFromDevice = NO;
   buffer->freeBuffer = (freepart ? YES : NO);
+  buffer->size = 0;
 
   gravityKernel.callbackFn = 0;
   gravityKernel.id = DM_TRANSFER_FREE_REMOTE_CHUNK;
@@ -564,6 +663,7 @@ void FreeDataManagerRemoteChunkMemory(int chunk, void *dm, bool freemom, bool fr
   // the next chunk's transfer can be initiated once
   // the memory for this chunk has been freed
   gravityKernel.userData = dm;
+  //printf("DM TRANSFER FREE REMOTE CHUNK\n");
   enqueue(wrQueue, &gravityKernel);
 
 }
@@ -587,13 +687,14 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb){
   buffer = &(gravityKernel.bufferInfo[0]);
   buffer->bufferID = LOCAL_PARTICLE_VARS;
   buffer->transferToDevice = NO ;
-  buffer->transferFromDevice = YES;
-  buffer->freeBuffer = YES;
   buffer->hostBuffer = hostBuffer;
   buffer->size = size;
+  buffer->transferFromDevice = size > 0 ? YES : NO;
+  buffer->freeBuffer = size > 0 ? YES : NO;
 
   gravityKernel.callbackFn = cb;
   gravityKernel.id = DM_TRANSFER_BACK;
+  printf("DM TRANSFER BACK\n");
   enqueue(wrQueue, &gravityKernel);
 }
 
@@ -619,42 +720,52 @@ void DummyKernel(void *cb){
 void kernelSelect(workRequest *wr) {
 
   ParameterStruct *ptr;
-  int size;
   switch (wr->id) {
 
     case DM_TRANSFER_LOCAL:
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-      printf("DM_TRANSFER_LOCAL\n");
+      printf("DM_TRANSFER_LOCAL KERNELSELECT\n");
       printf("mom: 0x%x\n", devBuffers[LOCAL_MOMENTS]);
       printf("cores: 0x%x\n", devBuffers[LOCAL_PARTICLE_CORES]);
       printf("vars: 0x%x\n", devBuffers[LOCAL_PARTICLE_VARS]);
 #endif
 #ifdef CUDA_USE_CUDAMALLOCHOST
-      cudaFreeHost(wr->bufferInfo[LOCAL_MOMENTS_IDX].hostBuffer);
+      if(wr->bufferInfo[LOCAL_MOMENTS_IDX].transferToDevice == YES){
+        cudaFreeHost(wr->bufferInfo[LOCAL_MOMENTS_IDX].hostBuffer);
+      }
 #ifdef CUDA_PRINT_ERRORS
       printf("DM_TRANSFER_LOCAL 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
-      cudaFreeHost(wr->bufferInfo[LOCAL_PARTICLE_CORES_IDX].hostBuffer);
+      if(wr->bufferInfo[LOCAL_PARTICLE_CORES_IDX].transferToDevice == YES){
+        cudaFreeHost(wr->bufferInfo[LOCAL_PARTICLE_CORES_IDX].hostBuffer);
+      }
 #ifdef CUDA_PRINT_ERRORS
       printf("DM_TRANSFER_LOCAL 1: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
-      cudaFreeHost(wr->bufferInfo[LOCAL_PARTICLE_VARS_IDX].hostBuffer);
+      if(wr->bufferInfo[LOCAL_PARTICLE_VARS_IDX].transferToDevice == YES){
+        cudaFreeHost(wr->bufferInfo[LOCAL_PARTICLE_VARS_IDX].hostBuffer);
+      }
 #ifdef CUDA_PRINT_ERRORS
       printf("DM_TRANSFER_LOCAL 2: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
 #else
-      free(wr->bufferInfo[LOCAL_MOMENTS_IDX].hostBuffer);
-      free(wr->bufferInfo[LOCAL_PARTICLE_CORES_IDX].hostBuffer);
-      free(wr->bufferInfo[LOCAL_PARTICLE_VARS_IDX].hostBuffer);
+      if(wr->bufferInfo[LOCAL_MOMENTS_IDX].transferToDevice == YES){
+        free(wr->bufferInfo[LOCAL_MOMENTS_IDX].hostBuffer);
+      }
+      if(wr->bufferInfo[LOCAL_PARTICLE_CORES_IDX].transferToDevice == YES){
+        free(wr->bufferInfo[LOCAL_PARTICLE_CORES_IDX].hostBuffer);
+      }
+      if(wr->bufferInfo[LOCAL_PARTICLE_VARS_IDX].transferToDevice == YES){
+        free(wr->bufferInfo[LOCAL_PARTICLE_VARS_IDX].hostBuffer);
+      }
 #endif
       break;
 
     case DM_TRANSFER_REMOTE_CHUNK:
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-      printf("DM_TRANSFER_REMOTE_CHUNK\n");
+      printf("DM_TRANSFER_REMOTE_CHUNK, %d KERNELSELECT\n", wr->bufferInfo[REMOTE_MOMENTS_IDX].transferToDevice == YES);
 #endif
-      size = wr->bufferInfo[REMOTE_MOMENTS_IDX].size;
-      if(size > 0){
+      if(wr->bufferInfo[REMOTE_MOMENTS_IDX].transferToDevice == YES){
 #ifdef CUDA_USE_CUDAMALLOCHOST
         cudaFreeHost(wr->bufferInfo[REMOTE_MOMENTS_IDX].hostBuffer);
 #ifdef CUDA_PRINT_ERRORS
@@ -665,8 +776,7 @@ void kernelSelect(workRequest *wr) {
 #endif
       }
 
-      size = wr->bufferInfo[REMOTE_PARTICLE_CORES_IDX].size;
-      if(size > 0){
+      if(wr->bufferInfo[REMOTE_PARTICLE_CORES_IDX].transferToDevice == YES){
 #ifdef CUDA_USE_CUDAMALLOCHOST
         cudaFreeHost(wr->bufferInfo[REMOTE_PARTICLE_CORES_IDX].hostBuffer);
 #ifdef CUDA_PRINT_ERRORS
@@ -680,7 +790,7 @@ void kernelSelect(workRequest *wr) {
 
     case DM_TRANSFER_FREE_LOCAL:
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-      printf("DM_TRANSFER_FREE_LOCAL\n");
+      printf("DM_TRANSFER_FREE_LOCAL KERNELSELECT\n");
       printf("buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nlocal_moments: (0x%x)\n", 
           devBuffers[LOCAL_PARTICLE_CORES],
           devBuffers[LOCAL_PARTICLE_VARS],
@@ -692,7 +802,7 @@ void kernelSelect(workRequest *wr) {
 
     case DM_TRANSFER_FREE_REMOTE_CHUNK:
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-      printf("DM_TRANSFER_FREE_REMOTE_CHUNK\n");
+      printf("DM_TRANSFER_FREE_REMOTE_CHUNK KERNELSELECT\n");
 
 #endif
       initiateNextChunkTransfer(wr->userData);
@@ -700,22 +810,14 @@ void kernelSelect(workRequest *wr) {
 
     case DM_TRANSFER_BACK:
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-      printf("DM_TRANSFER_BACK: 0x%x\n", devBuffers[LOCAL_PARTICLE_VARS]);
+      printf("DM_TRANSFER_BACK: 0x%x KERNELSELECT\n", devBuffers[LOCAL_PARTICLE_VARS]);
 #endif
       break;
-
-      /*
-         case DUMMY: 
-#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-printf("DUMMY\n");
-#endif
-break;
-       */
 
     case TP_GRAVITY_LOCAL:
       ptr = (ParameterStruct *)wr->userData;
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-      printf("TP_GRAVITY_LOCAL buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nlocal_moments: (0x%x)\nil_cell: %d (0x%x)\n", 
+      printf("TP_GRAVITY_LOCAL KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nlocal_moments: (0x%x)\nil_cell: %d (0x%x)\n", 
           devBuffers[LOCAL_PARTICLE_CORES],
           devBuffers[LOCAL_PARTICLE_VARS],
           devBuffers[LOCAL_MOMENTS],
@@ -723,88 +825,140 @@ break;
           devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID]
           );
 #endif
+      if(wr->bufferInfo[ILCELL_IDX].transferToDevice == YES){
 #ifndef CUDA_NO_KERNELS
-      nodeGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
-        (
-         (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-         (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-         (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
-         (ILCell *)devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID],
-         ptr->numInteractions,
-         (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
-         (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
-         (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
-         ptr->numBucketsPlusOne,
-         ptr->fperiod,
-         0,
-         ptr->numEntities
-        );
+        nodeGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
+          (
+           (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
+           (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
+           (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
+           (ILCell *)devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID],
+           ptr->numInteractions,
+           (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
+           (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
+           (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
+           ptr->numBucketsPlusOne,
+           ptr->fperiod,
+           0,
+           ptr->numEntities
+          );
 #endif
 
 #ifdef CUDA_USE_CUDAMALLOCHOST
-      cudaFreeHost((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
-      cudaFreeHost((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
-      cudaFreeHost((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
-      cudaFreeHost((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
+        cudaFreeHost((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
 #ifdef CUDA_PRINT_ERRORS
-      printf("TP_GRAVITY_LOCAL 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
+        printf("TP_GRAVITY_LOCAL 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
 #else
-      free((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
-      free((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
-      free((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
-      free((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
+        free((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
 #endif
+      }
       free((ParameterStruct *)ptr);
       break;
 
-    case TP_PART_GRAVITY_LOCAL:
+    case TP_PART_GRAVITY_LOCAL_SMALLPHASE:
       ptr = (ParameterStruct *)wr->userData;
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-      printf("TP_PART_GRAVITY_LOCAL buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: %d (0x%x)\n", 
+      printf("TP_PART_GRAVITY_LOCAL_SMALLPHASE KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: %d (0x%x)\n", 
           devBuffers[LOCAL_PARTICLE_CORES],
           devBuffers[LOCAL_PARTICLE_VARS],
           wr->bufferInfo[ILPART_IDX].bufferID,
           devBuffers[wr->bufferInfo[ILPART_IDX].bufferID]
           );
 #endif
+      if(wr->bufferInfo[ILPART_IDX].transferToDevice == YES){
 #ifndef CUDA_NO_KERNELS
-      particleGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
-        (
-         (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-         (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-         (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-         (ILPart *)devBuffers[wr->bufferInfo[ILPART_IDX].bufferID],
-         ptr->numInteractions,
-         (int *)devBuffers[wr->bufferInfo[PART_BUCKET_MARKERS_IDX].bufferID],
-         (int *)devBuffers[wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].bufferID],
-         (int *)devBuffers[wr->bufferInfo[PART_BUCKET_SIZES_IDX].bufferID],
-         ptr->numBucketsPlusOne,
-         ptr->fperiod,0 
-        );
+        particleGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
+          (
+           (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
+           (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
+           (CompactPartData *)devBuffers[wr->bufferInfo[MISSED_PARTS_IDX].bufferID],
+           (ILPart *)devBuffers[wr->bufferInfo[ILPART_IDX].bufferID],
+           ptr->numMissedCores,
+           (int *)devBuffers[wr->bufferInfo[PART_BUCKET_MARKERS_IDX].bufferID],
+           (int *)devBuffers[wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].bufferID],
+           (int *)devBuffers[wr->bufferInfo[PART_BUCKET_SIZES_IDX].bufferID],
+           ptr->numBucketsPlusOne,
+           ptr->fperiod,3 
+          );
 #endif
 
 #ifdef CUDA_USE_CUDAMALLOCHOST
-      cudaFreeHost((ILPart *)wr->bufferInfo[ILPART_IDX].hostBuffer);
-      cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
-      cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
-      cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
+        cudaFreeHost((CompactPartData *)wr->bufferInfo[MISSED_PARTS_IDX].hostBuffer);
+        cudaFreeHost((ILPart *)wr->bufferInfo[ILPART_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
 #ifdef CUDA_PRINT_ERRORS
-      printf("TP_PART_GRAVITY_LOCAL 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
+        printf("TP_PART_GRAVITY_LOCAL_SMALLPHASE 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
 #else
-      free((ILPart *)wr->bufferInfo[ILPART_IDX].hostBuffer);
-      free((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
-      free((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
-      free((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
+        free((CompactPartData *)wr->bufferInfo[MISSED_PARTS_IDX].hostBuffer);
+        free((ILPart *)wr->bufferInfo[ILPART_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
 #endif
+      }
+      free((ParameterStruct *)ptr);
+      break;
+
+
+    case TP_PART_GRAVITY_LOCAL:
+      ptr = (ParameterStruct *)wr->userData;
+#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
+      printf("TP_PART_GRAVITY_LOCAL KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: %d (0x%x)\n", 
+          devBuffers[LOCAL_PARTICLE_CORES],
+          devBuffers[LOCAL_PARTICLE_VARS],
+          wr->bufferInfo[ILPART_IDX].bufferID,
+          devBuffers[wr->bufferInfo[ILPART_IDX].bufferID]
+          );
+#endif
+      if(wr->bufferInfo[ILPART_IDX].transferToDevice == YES){
+#ifndef CUDA_NO_KERNELS
+        particleGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
+          (
+           (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
+           (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
+           (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
+           (ILPart *)devBuffers[wr->bufferInfo[ILPART_IDX].bufferID],
+           ptr->numInteractions,
+           (int *)devBuffers[wr->bufferInfo[PART_BUCKET_MARKERS_IDX].bufferID],
+           (int *)devBuffers[wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].bufferID],
+           (int *)devBuffers[wr->bufferInfo[PART_BUCKET_SIZES_IDX].bufferID],
+           ptr->numBucketsPlusOne,
+           ptr->fperiod,0 
+          );
+#endif
+
+#ifdef CUDA_USE_CUDAMALLOCHOST
+        cudaFreeHost((ILPart *)wr->bufferInfo[ILPART_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
+#ifdef CUDA_PRINT_ERRORS
+        printf("TP_PART_GRAVITY_LOCAL 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
+#endif
+#else
+        free((ILPart *)wr->bufferInfo[ILPART_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
+#endif
+      }
       free((ParameterStruct *)ptr);
       break;
 
     case TP_GRAVITY_REMOTE:
       ptr = (ParameterStruct *)wr->userData;
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-      printf("TP_GRAVITY_REMOTE buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nremote_moments: (0x%x)\nil_cell: %d (0x%x)\n", 
+      printf("TP_GRAVITY_REMOTE KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nremote_moments: (0x%x)\nil_cell: %d (0x%x)\n", 
           devBuffers[LOCAL_PARTICLE_CORES],
           devBuffers[LOCAL_PARTICLE_VARS],
           devBuffers[REMOTE_MOMENTS],
@@ -812,88 +966,92 @@ break;
           devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID]
           );
 #endif
+      if(wr->bufferInfo[ILCELL_IDX].transferToDevice == YES){
 #ifndef CUDA_NO_KERNELS
-      nodeGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
-        (
-         (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-         (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-         (CudaMultipoleMoments *)devBuffers[REMOTE_MOMENTS],
-         (ILCell *)devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID],
-         ptr->numInteractions,
-         (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
-         (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
-         (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
-         ptr->numBucketsPlusOne,
-         ptr->fperiod,
-         1,
-         ptr->numEntities
-        );
+        nodeGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
+          (
+           (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
+           (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
+           (CudaMultipoleMoments *)devBuffers[REMOTE_MOMENTS],
+           (ILCell *)devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID],
+           ptr->numInteractions,
+           (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
+           (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
+           (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
+           ptr->numBucketsPlusOne,
+           ptr->fperiod,
+           1,
+           ptr->numEntities
+          );
 #endif
 
 #ifdef CUDA_USE_CUDAMALLOCHOST
-      cudaFreeHost((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
-      cudaFreeHost((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
-      cudaFreeHost((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
-      cudaFreeHost((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
+        cudaFreeHost((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
 #ifdef CUDA_PRINT_ERRORS
-      printf("TP_GRAVITY_REMOTE 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
+        printf("TP_GRAVITY_REMOTE 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
 #else
-      free((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
-      free((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
-      free((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
-      free((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
+        free((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
 #endif
+      }
       free((ParameterStruct *)ptr);
       break;
 
     case TP_PART_GRAVITY_REMOTE:
       ptr = (ParameterStruct *)wr->userData;
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-      printf("TP_PART_GRAVITY_REMOTE buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: %d (0x%x)\n", 
+      printf("TP_PART_GRAVITY_REMOTE KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: %d (0x%x)\n", 
           devBuffers[LOCAL_PARTICLE_CORES],
           devBuffers[LOCAL_PARTICLE_VARS],
           wr->bufferInfo[ILPART_IDX].bufferID,
           devBuffers[wr->bufferInfo[ILPART_IDX].bufferID]
           );
 #endif
+      if(wr->bufferInfo[ILPART_IDX].transferToDevice == YES){
 #ifndef CUDA_NO_KERNELS
-      particleGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
-        (
-         (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-         (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-         (CompactPartData *)devBuffers[REMOTE_PARTICLE_CORES],
-         (ILPart *)devBuffers[wr->bufferInfo[ILPART_IDX].bufferID],
-         ptr->numInteractions,
-         (int *)devBuffers[wr->bufferInfo[PART_BUCKET_MARKERS_IDX].bufferID],
-         (int *)devBuffers[wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].bufferID],
-         (int *)devBuffers[wr->bufferInfo[PART_BUCKET_SIZES_IDX].bufferID],
-         ptr->numBucketsPlusOne,
-         ptr->fperiod,1
-        );
+        particleGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
+          (
+           (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
+           (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
+           (CompactPartData *)devBuffers[REMOTE_PARTICLE_CORES],
+           (ILPart *)devBuffers[wr->bufferInfo[ILPART_IDX].bufferID],
+           ptr->numInteractions,
+           (int *)devBuffers[wr->bufferInfo[PART_BUCKET_MARKERS_IDX].bufferID],
+           (int *)devBuffers[wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].bufferID],
+           (int *)devBuffers[wr->bufferInfo[PART_BUCKET_SIZES_IDX].bufferID],
+           ptr->numBucketsPlusOne,
+           ptr->fperiod,1
+          );
 #endif
 
 #ifdef CUDA_USE_CUDAMALLOCHOST
-      cudaFreeHost((ILPart *)wr->bufferInfo[ILPART_IDX].hostBuffer);
-      cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
-      cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
-      cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
+        cudaFreeHost((ILPart *)wr->bufferInfo[ILPART_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
 #ifdef CUDA_PRINT_ERRORS
-      printf("TP_PART_GRAVITY_REMOTE 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
+        printf("TP_PART_GRAVITY_REMOTE 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
 #else
-      free((ILPart *)wr->bufferInfo[ILPART_IDX].hostBuffer);
-      free((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
-      free((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
-      free((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
+        free((ILPart *)wr->bufferInfo[ILPART_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
 #endif
+      }
       free((ParameterStruct *)ptr);
       break;
 
     case TP_GRAVITY_REMOTE_RESUME:
       ptr = (ParameterStruct *)wr->userData;
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-      printf("TP_GRAVITY_REMOTE_RESUME buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nmissed_moments: %d (0x%x)\nil_cell: %d (0x%x)\n", 
+      printf("TP_GRAVITY_REMOTE_RESUME KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nmissed_moments: %d (0x%x)\nil_cell: %d (0x%x)\n", 
           devBuffers[LOCAL_PARTICLE_CORES],
           devBuffers[LOCAL_PARTICLE_VARS],
           wr->bufferInfo[MISSED_MOMENTS_IDX].bufferID,
@@ -902,47 +1060,49 @@ break;
           devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID]
           );
 #endif
+      if(wr->bufferInfo[ILCELL_IDX].transferToDevice == YES){
 #ifndef CUDA_NO_KERNELS
-      nodeGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
-        (
-         (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-         (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-         (CudaMultipoleMoments *)devBuffers[wr->bufferInfo[MISSED_MOMENTS_IDX].bufferID],
-         (ILCell *)devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID],
-         ptr->numInteractions,
-         (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
-         (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
-         (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
-         ptr->numBucketsPlusOne,
-         ptr->fperiod,
-         2,
-         ptr->numEntities
-        );
+        nodeGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
+          (
+           (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
+           (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
+           (CudaMultipoleMoments *)devBuffers[wr->bufferInfo[MISSED_MOMENTS_IDX].bufferID],
+           (ILCell *)devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID],
+           ptr->numInteractions,
+           (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
+           (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
+           (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
+           ptr->numBucketsPlusOne,
+           ptr->fperiod,
+           2,
+           ptr->numEntities
+          );
 #endif
 
 #ifdef CUDA_USE_CUDAMALLOCHOST
-      cudaFreeHost((CudaMultipoleMoments *)wr->bufferInfo[MISSED_MOMENTS_IDX].hostBuffer);
-      cudaFreeHost((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
-      cudaFreeHost((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
-      cudaFreeHost((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
-      cudaFreeHost((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
+        cudaFreeHost((CudaMultipoleMoments *)wr->bufferInfo[MISSED_MOMENTS_IDX].hostBuffer);
+        cudaFreeHost((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
 #ifdef CUDA_PRINT_ERRORS
-      printf("TP_GRAVITY_REMOTE_RESUME 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
+        printf("TP_GRAVITY_REMOTE_RESUME 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
 #else
-      free((CudaMultipoleMoments *)wr->bufferInfo[MISSED_MOMENTS_IDX].hostBuffer);
-      free((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
-      free((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
-      free((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
-      free((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
+        free((CudaMultipoleMoments *)wr->bufferInfo[MISSED_MOMENTS_IDX].hostBuffer);
+        free((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
 #endif
+      }
       free((ParameterStruct *)ptr);
       break;
 
     case TP_PART_GRAVITY_REMOTE_RESUME:
       ptr = (ParameterStruct *)wr->userData;
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-      printf("TP_PART_GRAVITY_REMOTE_RESUME buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nmissed_parts: %d (0x%x)\nil_cell: %d (0x%x)\n", 
+      printf("TP_PART_GRAVITY_REMOTE_RESUME KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nmissed_parts: %d (0x%x)\nil_cell: %d (0x%x)\n", 
           devBuffers[LOCAL_PARTICLE_CORES],
           devBuffers[LOCAL_PARTICLE_VARS],
           wr->bufferInfo[MISSED_PARTS_IDX].bufferID,
@@ -951,38 +1111,40 @@ break;
           devBuffers[wr->bufferInfo[ILPART_IDX].bufferID]
           );
 #endif
+      if(wr->bufferInfo[ILPART_IDX].transferToDevice == YES){
 #ifndef CUDA_NO_KERNELS
-      particleGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
-        (
-         (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-         (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-         (CompactPartData *)devBuffers[wr->bufferInfo[MISSED_PARTS_IDX].bufferID],
-         (ILPart *)devBuffers[wr->bufferInfo[ILPART_IDX].bufferID],
-         ptr->numMissedCores,
-         (int *)devBuffers[wr->bufferInfo[PART_BUCKET_MARKERS_IDX].bufferID],
-         (int *)devBuffers[wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].bufferID],
-         (int *)devBuffers[wr->bufferInfo[PART_BUCKET_SIZES_IDX].bufferID],
-         ptr->numBucketsPlusOne,
-         ptr->fperiod,2
-        );
+        particleGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
+          (
+           (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
+           (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
+           (CompactPartData *)devBuffers[wr->bufferInfo[MISSED_PARTS_IDX].bufferID],
+           (ILPart *)devBuffers[wr->bufferInfo[ILPART_IDX].bufferID],
+           ptr->numMissedCores,
+           (int *)devBuffers[wr->bufferInfo[PART_BUCKET_MARKERS_IDX].bufferID],
+           (int *)devBuffers[wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].bufferID],
+           (int *)devBuffers[wr->bufferInfo[PART_BUCKET_SIZES_IDX].bufferID],
+           ptr->numBucketsPlusOne,
+           ptr->fperiod,2
+          );
 #endif
 
 #ifdef CUDA_USE_CUDAMALLOCHOST
-      cudaFreeHost((CompactPartData *)wr->bufferInfo[MISSED_PARTS_IDX].hostBuffer);
-      cudaFreeHost((ILPart *)wr->bufferInfo[ILPART_IDX].hostBuffer);
-      cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
-      cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
-      cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
+        cudaFreeHost((CompactPartData *)wr->bufferInfo[MISSED_PARTS_IDX].hostBuffer);
+        cudaFreeHost((ILPart *)wr->bufferInfo[ILPART_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
+        cudaFreeHost((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
 #ifdef CUDA_PRINT_ERRORS
-      printf("TP_PART_GRAVITY_REMOTE_RESUME 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
+        printf("TP_PART_GRAVITY_REMOTE_RESUME 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
 #else
-      free((CompactPartData *)wr->bufferInfo[MISSED_PARTS_IDX].hostBuffer);
-      free((ILPart *)wr->bufferInfo[ILPART_IDX].hostBuffer);
-      free((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
-      free((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
-      free((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
+        free((CompactPartData *)wr->bufferInfo[MISSED_PARTS_IDX].hostBuffer);
+        free((ILPart *)wr->bufferInfo[ILPART_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
+        free((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
 #endif
+      }
       free((ParameterStruct *)ptr);
       break;
 

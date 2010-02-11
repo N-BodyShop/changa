@@ -59,12 +59,15 @@ enum boolean {NO, YES};
 // bucket starts
 // bucket sizes
 #define TP_GRAVITY_LOCAL_NBUFFERS 4
+#define TP_GRAVITY_LOCAL_NBUFFERS_SMALLPHASE 5
 
 #define TP_NODE_GRAVITY_REMOTE_NBUFFERS 4
 #define TP_PART_GRAVITY_REMOTE_NBUFFERS 5
 
 #define TP_NODE_GRAVITY_REMOTE_RESUME_NBUFFERS 5
 #define TP_PART_GRAVITY_REMOTE_RESUME_NBUFFERS 5
+
+#define MAX_NBUFFERS 5
 
 // tp_gravity_local uses arrays of particles and nodes already allocated on the gpu
 // tp_gravity_remote uses arrays of nodes already on the gpu + particles from an array it supplies
@@ -79,6 +82,7 @@ enum kernels {
   TP_GRAVITY_REMOTE,
   TP_GRAVITY_REMOTE_RESUME,
   TP_PART_GRAVITY_LOCAL,
+  TP_PART_GRAVITY_LOCAL_SMALLPHASE,
   TP_PART_GRAVITY_REMOTE,
   TP_PART_GRAVITY_REMOTE_RESUME,
   TOP_EWALD_KERNEL,
@@ -119,7 +123,6 @@ typedef struct _ParameterStruct{
   cudatype fperiod;
 }ParameterStruct;
 
-
 void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype);
 void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts);
 
@@ -129,6 +132,7 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleM
 
 
 void TreePiecePartListDataTransferLocal(CudaRequest *data);
+void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPartData *parts, int len);
 void TreePiecePartListDataTransferRemote(CudaRequest *data);
 void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartData *missedParticles, int numMissedParticles);
 

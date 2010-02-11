@@ -36,6 +36,7 @@ mainmodule ParallelGravity {
   readonly int localPartsPerReq;
   readonly int remotePartsPerReq;
   readonly int remoteResumePartsPerReq;
+  readonly double largePhaseThreshold;
 
   readonly ComlibInstanceHandle cinst1;
   readonly ComlibInstanceHandle cinst2;
@@ -266,6 +267,7 @@ mainmodule ParallelGravity {
 
     // jetley - cuda
     entry void continueStartRemoteChunk(int chunk);
+    entry void continueWrapUp();
   };
 
   array [1D] LvArray {

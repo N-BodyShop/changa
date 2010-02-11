@@ -356,13 +356,13 @@ void DataManager::donePrefetch(int chunk){
     PendingBuffers *buffers = serializeRemoteChunk(root);
     traceUserBracketEvent(CUDA_SER_TREE, starttime, CmiWallTimer());
     if(gpuFree){
-      //CkPrintf("(%d) DM donePrefetch gpuFree, transferring\n", CkMyPe());
       gpuFree = false;
       lastChunkMoments = buffers->moments->length();
       lastChunkParticles = buffers->particles->length();
+      //CkPrintf("(%d) DM donePrefetch gpuFree, transferring 0x%x (%d); 0x%x (%d) \n", CkMyPe(), buffers->moments->getVec(), lastChunkMoments, buffers->particles->getVec(), lastChunkParticles);
 
       // Transfer moments and particle cores to gpu
-      DataManagerTransferRemoteChunk(buffers->moments->getVec(), buffers->moments->length(), buffers->particles->getVec(), buffers->particles->length());
+      DataManagerTransferRemoteChunk(buffers->moments->getVec(), lastChunkMoments, buffers->particles->getVec(), lastChunkParticles);
 
       delete buffers->moments;
       delete buffers->particles;
@@ -563,13 +563,11 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   int numParticles = 0;
   int numCachedNodes = 0;
   int numCachedParticles = 0;
-  int totalNumBuckets = 0;
 
   for(int i = 0; i < numTreePieces; i++){
     TreePiece *tp = registeredTreePieces[i].tp;
     numNodes += tp->getNumNodes();
-    numParticles += tp->getNumParticles();
-    totalNumBuckets += tp->getNumBuckets();
+    numParticles += tp->getDMNumParticles();
   }
   numNodes -= cumNumReplicatedNodes;
 
@@ -625,34 +623,11 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 
   // used later, when copying particle vars back to the host
   savedNumTotalParticles = numParticles;
+  savedNumTotalNodes = localMoments.length();
+
   for(int i = 0; i < registeredTreePieces.length(); i++){
     TreePiece *tp = registeredTreePieces[i].tp;
-    int numBuckets = tp->getNumBuckets();
-    for(int j = 0; j < numBuckets; j++){
-      GenericTreeNode *bucket = tp->bucketList[j];
-      NodeKey bucketKey = bucket->getKey();
-      int start = bucket->firstParticle;
-      int end = bucket->lastParticle;
-      GravityParticle *gravParts = bucket->particlePointer;
-      //localPartsOnGpu[bucketKey << 1] = partIndex;
-      bucket->bucketArrayIndex = partIndex;
-#ifdef CUDA_DM_PRINT_TREES
-      CkPrintf("(%d) tp %d bucket %d (key %ld) start: %d\n", CkMyPe(), 
-                                                             tp->getIndex(), 
-                                                             j,
-                                                             (bucketKey << 1),
-                                                             partIndex
-                                                             );
-#endif
-      for(int k = start; k <= end; k++){
-        localParticles[partIndex] = gravParts[k-start]; 
-#if defined CUDA_EMU_KERNEL_NODE_PRINTS || defined CUDA_EMU_KERNEL_PART_PRINTS
-        localParticles[partIndex].tp = tp->getIndex();
-        localParticles[partIndex].id = k;
-#endif
-        partIndex++;
-      }
-    }
+    tp->getDMParticles(localParticles.getVec(), partIndex);
   }
 #ifdef CUDA_DM_PRINT_TREES
   CkPrintf("*************\n");
@@ -679,7 +654,7 @@ return 0;
 #endif
 
 // local nodes/particle cores
-void FreeDataManagerLocalTreeMemory();
+void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart);
 // remote chunk nodes/particle cores
 void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart);
 
@@ -692,7 +667,7 @@ void DataManager::freeLocalTreeMemory(){
   treePiecesDoneLocalComputation++;
   if(treePiecesDoneLocalComputation == registeredTreePieces.length()){
     treePiecesDoneLocalComputation = 0; 
-    FreeDataManagerLocalTreeMemory();
+    FreeDataManagerLocalTreeMemory(savedNumTotalNodes > 0, savedNumTotalParticles > 0);
   }
   CmiUnlock(__nodelock);
 }
@@ -722,6 +697,7 @@ void DataManager::initiateNextChunkTransfer(){
     lastChunkMoments = next->moments->length();
     lastChunkParticles = next->particles->length();
 
+    CkPrintf("(%d) DM initiateNextChunkTransfer chunk %d, 0x%x (%d); 0x%x (%d) \n", CkMyPe(), next->moments->getVec(), lastChunkMoments, next->particles->getVec(), lastChunkParticles);
     DataManagerTransferRemoteChunk(next->moments->getVec(), next->moments->length(), next->particles->getVec(), next->particles->length());
 
     delete next->moments;
@@ -753,11 +729,15 @@ void DataManager::transferParticleVarsBack(){
   if(treePiecesWantParticlesBack == registeredTreePieces.length()){
     treePiecesWantParticlesBack = 0; 
     VariablePartData *buf;
+    
+    if(savedNumTotalParticles > 0){
 #ifdef CUDA_USE_CUDAMALLOCHOST
-    allocatePinnedHostMemory((void **)&buf, savedNumTotalParticles*sizeof(VariablePartData));
+      allocatePinnedHostMemory((void **)&buf, savedNumTotalParticles*sizeof(VariablePartData));
 #else
-    buf = (VariablePartData *) malloc(savedNumTotalParticles*sizeof(VariablePartData));
+      buf = (VariablePartData *) malloc(savedNumTotalParticles*sizeof(VariablePartData));
 #endif
+    }
+
     data = new UpdateParticlesStruct;
     data->cb = new CkCallback(updateParticlesCallback, data);
     data->dm = this;
@@ -782,33 +762,56 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
 
   for(int i = 0; i < registeredTreePieces.length(); i++){
     TreePiece *tp = registeredTreePieces[i].tp;
-    int numBuckets = tp->getNumBuckets();
     int numParticles = tp->getNumParticles();
 #ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
-    CkPrintf("(%d) tp %d numBuckets: %d, numParticles: %d\n", CkMyPe(), tp->getIndex(), 
-                                                              numBuckets, numParticles);
+    CkPrintf("(%d) tp %d, numParticles: %d\n", CkMyPe(), tp->getIndex(), numParticles);
 #endif
-
 #ifdef CHANGA_REFACTOR_MEMCHECK 
     CkPrintf("(%d) memcheck before updating tp %d particles\n", CkMyPe(), tp->getIndex());
     CmiMemoryCheck();
 #endif
 
+    if(tp->largePhase()){
+      for(int j = 1; j <= numParticles; j++){
+        if(tp->isActive(j)){
 #ifndef CUDA_NO_ACC_UPDATES
-    for(int j = 1; j <= numParticles; j++){
-      tp->myParticles[j].treeAcceleration = deviceParticles[partIndex].a + tp->myParticles[j].treeAcceleration;
-#ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
-      CkPrintf("particle %d device: (%f,%f,%f) total: (%f,%f,%f)\n",
-                j, 
-                deviceParticles[partIndex].a.x,
-                deviceParticles[partIndex].a.y,
-                deviceParticles[partIndex].a.z,
-                tp->myParticles[j].treeAcceleration.x,
-                tp->myParticles[j].treeAcceleration.y,
-                tp->myParticles[j].treeAcceleration.z);
+          tp->myParticles[j].treeAcceleration = deviceParticles[partIndex].a + tp->myParticles[j].treeAcceleration;
+          tp->myParticles[j].potential += deviceParticles[partIndex].potential;
 #endif
-      tp->myParticles[j].potential += deviceParticles[partIndex].potential;
-      partIndex++;
+#ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
+          CkPrintf("particle %d device: (%f,%f,%f) total: (%f,%f,%f)\n",
+              j, 
+              deviceParticles[partIndex].a.x,
+              deviceParticles[partIndex].a.y,
+              deviceParticles[partIndex].a.z,
+              tp->myParticles[j].treeAcceleration.x,
+              tp->myParticles[j].treeAcceleration.y,
+              tp->myParticles[j].treeAcceleration.z);
+#endif
+          partIndex++;
+        }
+      }
+    }
+    else{
+      for(int j = 1; j <= numParticles; j++){
+        if(tp->isActive(j)){
+#ifndef CUDA_NO_ACC_UPDATES
+          tp->myParticles[j].treeAcceleration = deviceParticles[partIndex].a + tp->myParticles[j].treeAcceleration;
+          tp->myParticles[j].potential += deviceParticles[partIndex].potential;
+#endif
+#ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
+          CkPrintf("particle %d device: (%f,%f,%f) total: (%f,%f,%f)\n",
+              j, 
+              deviceParticles[partIndex].a.x,
+              deviceParticles[partIndex].a.y,
+              deviceParticles[partIndex].a.z,
+              tp->myParticles[j].treeAcceleration.x,
+              tp->myParticles[j].treeAcceleration.y,
+              tp->myParticles[j].treeAcceleration.z);
+#endif
+          partIndex++;
+        }     
+      }
     }
 
 #ifdef CHANGA_REFACTOR_MEMCHECK 
@@ -816,7 +819,9 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
     CmiMemoryCheck();
 #endif
 
-#endif// CUDA_NO_ACC_UPDATES
+    // tell treepiece to go ahead with 
+    // iteration wrap-up
+    treePieces[registeredTreePieces[i].index].continueWrapUp();
   }
   
   registeredTreePieces.length() = 0;

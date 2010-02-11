@@ -1988,7 +1988,6 @@ void TreePiece::startNextBucket() {
   // set opt
   sGravity->init(lca, activeRung, sLocal);
   // must set lowest node here
-  //((DoubleWalkState *)sInterListStateLocal)->lowestNode[currentBucket] = lca;
 #ifdef CHANGA_REFACTOR_MEMCHECK
   CkPrintf("startNextBucket memcheck after init\n");
   CmiMemoryCheck();
@@ -2092,25 +2091,45 @@ void TreePiece::finishBucket(int iBucket) {
 #endif
 
     if(sLocalGravityState->myNumParticlesPending == 0) {
-#if INTERLIST_VER > 0 && defined CUDA
-      dm->transferParticleVarsBack();
-      dm->freeLocalTreeMemory();
-#endif
-#ifdef CHECK_WALK_COMPLETIONS
-      CkPrintf("[%d] markWalkDone TreePiece::finishBucket\n", thisIndex);
-#endif
-      markWalkDone();
+      if(verbosity>1){
 #if COSMO_STATS > 0
-      if(verbosity>1)
         CkPrintf("[%d] TreePiece %d finished with bucket %d , openCriterions:%lld\n",CkMyPe(),thisIndex,iBucket,numOpenCriterionCalls);
 #else
-      if(verbosity>1)
         CkPrintf("[%d] TreePiece %d finished with bucket %d\n",CkMyPe(),thisIndex,iBucket);
+      }
 #endif
-      if(verbosity > 4)
-        ckerr << "TreePiece " << thisIndex << ": My particles are done"
-          << endl;
+
+#if defined CUDA
+      // in cuda version, must wait till particle accels.
+      // are copied back from gpu; can markwalkdone only
+      // after this, otherwise there is a race condition
+      // between the start of the next iteration, wherein
+      // the treepiece registers itself afresh with the 
+      // data manager. if during this time the particles
+      // haven't been copied (and updateParticles hasn't
+      // been called), the registeredTreePieces list will
+      // not be reset, so that the data manager gets 
+      // confused.
+      dm->transferParticleVarsBack();
+      dm->freeLocalTreeMemory();
+#else
+      // move on to markwalkdone in non-cuda version
+      continueWrapUp();
+#endif
     }
+  }
+}
+
+void TreePiece::continueWrapUp(){
+#ifdef CHECK_WALK_COMPLETIONS
+  CkPrintf("[%d] markWalkDone TreePiece::continueWrapUp\n", thisIndex);
+#endif
+
+  markWalkDone();
+
+  if(verbosity > 4){
+    ckerr << "TreePiece " << thisIndex << ": My particles are done"
+      << endl;
   }
 }
 
@@ -3324,6 +3343,7 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   // (i.e. all buckets have finished their RNR/Local walks)
 #ifdef CUDA
   numActiveBuckets = 0;
+  calculateNumActiveParticles();
   for(int i = 0; i < numBuckets; i++){
     if(bucketList[i]->rungs >= activeRung){
       numActiveBuckets++;
@@ -3334,14 +3354,34 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
 	  DoubleWalkState *state = (DoubleWalkState *)sRemoteGravityState;
 	  ((ListCompute *)sGravity)->initCudaState(state, numBuckets, remoteNodesPerReq, remotePartsPerReq, false);
           // no missed nodes/particles
-          state->nodes = 0;
-          state->particles = 0;
+          state->nodes = NULL;
+          state->particles = NULL;
 
 	  DoubleWalkState *lstate = (DoubleWalkState *)sLocalGravityState;
 	  ((ListCompute *)sGravity)->initCudaState(lstate, numBuckets, localNodesPerReq, localPartsPerReq, false);
           // ditto
-          lstate->nodes = 0;
-          lstate->particles = 0;
+          lstate->nodes = NULL;
+          // allocate space for local particles 
+          // if this is a small phase; we do not transfer
+          // all particles owned by this processor in small
+          // phases and so refer to particles inside an 
+          // auxiliary array shipped with computation requests.
+          // this auxiliary array is 'particles', below:
+          if(largePhase()){
+            lstate->particles = NULL;
+          }     
+          else{
+            // allocate an amount of space that 
+            // depends on the rung
+            lstate->particles = new CkVec<CompactPartData>(AVG_SOURCE_PARTICLES_PER_ACTIVE*myNumActiveParticles);
+            lstate->particles->length() = 0;
+            // need to allocate memory for data structure that stores bucket
+            // active info (where in the gpu's target particle memory this
+            // bucket starts, and its size; strictly speaking, we don't need
+            // the size attribute.)
+            // XXX - no need to allocate/delete every iteration
+            bucketActiveInfo = new BucketActiveInfo[numBuckets];
+          }
   }
   {
 	  DoubleWalkState *state = (DoubleWalkState *)sInterListStateRemoteResume;
@@ -3358,6 +3398,16 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
           state->partMap.clear();
   }
 #endif
+
+#if CUDA_STATS
+  localNodeInteractions = 0;
+  localPartInteractions = 0;
+  remoteNodeInteractions = 0;
+  remotePartInteractions = 0;
+  remoteResumeNodeInteractions = 0;
+  remoteResumePartInteractions = 0;
+#endif
+
 
 #endif
 
@@ -5252,13 +5302,18 @@ void TreePiece::freeWalkObjects(){
   if(sGravity){
       sGravity->reassoc(0,0,sRemote);
 #if INTERLIST_VER > 0 && defined CUDA
-    {
-      DoubleWalkState *state = (DoubleWalkState *) sRemoteGravityState;
-      DoubleWalkState *rstate = (DoubleWalkState *) sInterListStateRemoteResume;
-      delete state->particles;
-      delete rstate->nodes;
-      delete rstate->particles;
-    }
+      {
+        DoubleWalkState *state = (DoubleWalkState *) sRemoteGravityState;
+        DoubleWalkState *rstate = (DoubleWalkState *) sInterListStateRemoteResume;
+        delete state->particles;
+        delete rstate->nodes;
+        delete rstate->particles;
+        if(!largePhase()){
+          DoubleWalkState *lstate = (DoubleWalkState *) sLocalGravityState;
+          delete lstate->particles;
+          delete [] bucketActiveInfo;
+        }
+      }
 #endif
     // remote-no-resume state
     sGravity->freeState(sRemoteGravityState);
@@ -5333,6 +5388,16 @@ void TreePiece::finishWalk()
 #ifdef CHECK_WALK_COMPLETIONS
   CkPrintf("[%d] inside finishWalk contrib callback\n", thisIndex);
 #endif
+
+#ifdef CUDA_STATS
+  CkPrintf("[%d] CUDA_STATS localnode: %ld\n", thisIndex, localNodeInteractions);
+  CkPrintf("[%d] CUDA_STATS remotenode: %ld\n", thisIndex, remoteNodeInteractions);
+  CkPrintf("[%d] CUDA_STATS remoteresumenode: %ld\n", thisIndex, remoteResumeNodeInteractions);
+  CkPrintf("[%d] CUDA_STATS localpart: %ld\n", thisIndex, localPartInteractions);
+  CkPrintf("[%d] CUDA_STATS remotepart: %ld\n", thisIndex, remotePartInteractions);
+  CkPrintf("[%d] CUDA_STATS remoteresumepart: %ld\n", thisIndex, remoteResumePartInteractions);
+#endif
+
   contribute(0, 0, CkReduction::concat, callback);
 }
 
@@ -5412,3 +5477,18 @@ void TreePiece::updateUnfinishedBucketState(int start, int end, int n, int chunk
 	mainChare.liveVizImagePrep(msg);
    }
  }
+
+#ifdef CUDA
+void TreePiece::clearMarkedBuckets(CkVec<GenericTreeNode *> &markedBuckets){
+  int len = markedBuckets.length();
+  for(int i = 0; i < len; i++){
+    markedBuckets[i]->bucketArrayIndex = -1;
+  }
+}
+
+void TreePiece::clearMarkedBucketsAll(){
+  for(int i = 0; i < numBuckets; i++){
+    bucketList[i]->bucketArrayIndex = -1;
+  }
+}
+#endif

@@ -61,6 +61,10 @@ int localPartsPerReq;
 int remotePartsPerReq;
 int remoteResumePartsPerReq;
 
+// multi-stepping particle transfer strategy 
+// switch threshold
+double largePhaseThreshold;
+
 double theta;
 double thetaMono;
 /* readonly */ int nSmooth;
@@ -477,29 +481,47 @@ Main::Main(CkArgMsg* m) {
           double remotePartsPerReqDouble;
           double remoteResumePartsPerReqDouble;
 
-          localNodesPerReq = NODE_INTERACTIONS_PER_REQUEST_L;
-          prmAddParam(prm, "localNodesPerReq", paramDouble, &localNodesPerReqDouble,
-              sizeof(double),"localnodes", "Num. local node interactions allowed per CUDA request");
+          localNodesPerReqDouble = NODE_INTERACTIONS_PER_REQUEST_L;
+          if(prmSpecified(prm, "localNodesPerReq")){
+            prmAddParam(prm, "localNodesPerReq", paramDouble, &localNodesPerReqDouble,
+                sizeof(double),"localnodes", "Num. local node interactions allowed per CUDA request");
+          }
 
-          remoteNodesPerReq = NODE_INTERACTIONS_PER_REQUEST_RNR;
-          prmAddParam(prm, "remoteNodesPerReq", paramDouble, &remoteNodesPerReqDouble,
-              sizeof(double),"remotenodes", "Num. remote node interactions allowed per CUDA request");
+          remoteNodesPerReqDouble = NODE_INTERACTIONS_PER_REQUEST_RNR;
+          if(prmSpecified(prm, "remoteNodesPerReq")){
+            prmAddParam(prm, "remoteNodesPerReq", paramDouble, &remoteNodesPerReqDouble,
+                sizeof(double),"remotenodes", "Num. remote node interactions allowed per CUDA request");
+          }
 
-          remoteResumeNodesPerReq = NODE_INTERACTIONS_PER_REQUEST_RR;
-          prmAddParam(prm, "remoteResumeNodesPerReq", paramDouble, &remoteResumeNodesPerReqDouble,
-              sizeof(double),"remoteresumenodes", "Num. remote resume node interactions allowed per CUDA request");
+          remoteResumeNodesPerReqDouble = NODE_INTERACTIONS_PER_REQUEST_RR;
+          if(prmSpecified(prm, "remoteResumeNodesPerReq")){
+            prmAddParam(prm, "remoteResumeNodesPerReq", paramDouble, &remoteResumeNodesPerReqDouble,
+                sizeof(double),"remoteresumenodes", "Num. remote resume node interactions allowed per CUDA request");
+          }
 
-          localPartsPerReq = PART_INTERACTIONS_PER_REQUEST_L;
-          prmAddParam(prm, "localPartsPerReq", paramDouble, &localPartsPerReqDouble,
-              sizeof(double),"localparts", "Num. local particle interactions allowed per CUDA request");
+          localPartsPerReqDouble = PART_INTERACTIONS_PER_REQUEST_L;
+          if(prmSpecified(prm, "localPartsPerReq")){
+            prmAddParam(prm, "localPartsPerReq", paramDouble, &localPartsPerReqDouble,
+                sizeof(double),"localparts", "Num. local particle interactions allowed per CUDA request");
+          }
 
-          remotePartsPerReq = PART_INTERACTIONS_PER_REQUEST_RNR;
-          prmAddParam(prm, "remotePartsPerReq", paramDouble, &remotePartsPerReqDouble,
-              sizeof(double),"remoteparts", "Num. remote particle interactions allowed per CUDA request");
+          remotePartsPerReqDouble = PART_INTERACTIONS_PER_REQUEST_RNR;
+          if(prmSpecified(prm, "remotePartsPerReq")){
+            prmAddParam(prm, "remotePartsPerReq", paramDouble, &remotePartsPerReqDouble,
+                sizeof(double),"remoteparts", "Num. remote particle interactions allowed per CUDA request");
+          }
 
-          remoteResumePartsPerReq = PART_INTERACTIONS_PER_REQUEST_RR;
+          remoteResumePartsPerReqDouble = PART_INTERACTIONS_PER_REQUEST_RR;
+          if(prmSpecified(prm, "remoteResumePartsPerReq")){
           prmAddParam(prm, "remoteResumePartsPerReq", paramDouble, &remoteResumePartsPerReqDouble,
               sizeof(double),"remoteresumeparts", "Num. remote resume particle interactions allowed per CUDA request");
+          }
+
+          largePhaseThreshold = TP_LARGE_PHASE_THRESHOLD_DEFAULT;
+          if(prmSpecified(prm, "largePhaseThreshold")){
+          prmAddParam(prm, "largePhaseThreshold", paramDouble, &largePhaseThreshold,
+              sizeof(double),"largephasethresh", "Ratio of active to total particles at which all particles (not just active ones) are sent to gpu in the target buffer (No source particles are sent.)");
+          }
 
 #endif
 
@@ -619,18 +641,18 @@ Main::Main(CkArgMsg* m) {
           remotePartsPerReq = (int) (remotePartsPerReqDouble * mil);
           remoteResumePartsPerReq = (int) (remoteResumePartsPerReqDouble * mil);
 
-          ckerr << "WARNING: ";
-          ckerr << "localNodes: " << localNodesPerReq << endl;
-          ckerr << "WARNING: ";
-          ckerr << "remoteNodes: " << remoteNodesPerReq << endl;
-          ckerr << "WARNING: ";
-          ckerr << "remoteResumeNodes: " << remoteResumeNodesPerReq << endl;
-          ckerr << "WARNING: ";
-          ckerr << "localParts: " << localPartsPerReq << endl;
-          ckerr << "WARNING: ";
-          ckerr << "remoteParts: " << remotePartsPerReq << endl;
-          ckerr << "WARNING: ";
-          ckerr << "remoteResumeParts: " << remoteResumePartsPerReq << endl;
+          ckout << "INFO: ";
+          ckout << "localNodes: " << localNodesPerReq << endl;
+          ckout << "INFO: ";
+          ckout << "remoteNodes: " << remoteNodesPerReq << endl;
+          ckout << "INFO: ";
+          ckout << "remoteResumeNodes: " << remoteResumeNodesPerReq << endl;
+          ckout << "INFO: ";
+          ckout << "localParts: " << localPartsPerReq << endl;
+          ckout << "INFO: ";
+          ckout << "remoteParts: " << remotePartsPerReq << endl;
+          ckout << "INFO: ";
+          ckout << "remoteResumeParts: " << remoteResumePartsPerReq << endl;
 #endif
 	    
 	if(prmSpecified(prm, "bGeometric")) {
