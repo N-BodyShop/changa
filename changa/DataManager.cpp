@@ -174,6 +174,10 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
       root->getChunks(_numChunks, chunkRoots);
     } else {
       // TODO: update the chunks roots accordingly to some criteria
+
+      // For now, simply riorder the keys if we have randomization on
+      // (otherwise createLookupRoots fails if they are not sorted)
+      root->getChunks(_numChunks, chunkRoots);
     }
     int numMappedRoots = createLookupRoots(root, chunkRoots);
     CkAssert(numMappedRoots = _numChunks);
