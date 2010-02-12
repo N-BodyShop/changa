@@ -4573,7 +4573,6 @@ void TreePiece::pup(PUP::er& p) {
   p | savedCentroid;
   p | prevLARung;
 
-  //p | numTreePieces;
   p | callback;
   p | nTotalParticles;
   p | myNumParticles;
@@ -4603,12 +4602,7 @@ void TreePiece::pup(PUP::er& p) {
   for(unsigned int i=0;i<myNumSPH;i++){
     p | mySPHParticles[i];
   }
-  //p | numSplitters;
-  //if(p.isUnpacking())
-    //splitters = new Key[numSplitters];
-  //p(splitters, numSplitters);
   p | pieces;
-  //p | streamingProxy;
   p | basefilename;
   p | boundingBox;
   p | iterationNo;
@@ -4652,10 +4646,7 @@ void TreePiece::pup(PUP::er& p) {
     ewt = new EWT[nMaxEwhLoop];
   }
 
-  //p | prefetchWaiting;
-  // p | current prefetch;
   p | numBuckets;
-  //p | currentRemote Bucket;
 #if INTERLIST_VER > 0
   p | prevBucket;
   p | prevRemoteBucket;
@@ -4670,11 +4661,6 @@ void TreePiece::pup(PUP::er& p) {
   p | numOpenCriterionCalls;
   p | piecemass;
 #endif
-  // the counters do not need to be pupped!
-  //p | nodeInterLocal;
-  //p | nodeInterRemote;
-  //p | particleInterLocal;
-  //p | particleInterRemote;
   if (p.isUnpacking()) {
     particleInterRemote = NULL;
     nodeInterRemote = NULL;
@@ -4708,9 +4694,6 @@ void TreePiece::pup(PUP::er& p) {
   if (notNull == 1) {
     p | (*root);
     if(p.isUnpacking()){
-      //  nodeLookupTable[root->getKey()]=root;
-      //}
-
       // reconstruct the nodeLookupTable and the bucketList
       reconstructNodeLookup(root);
     }
@@ -4723,45 +4706,6 @@ void TreePiece::pup(PUP::er& p) {
       ckout << endl;
       }
   }
-
-  /*
-  if(!(p.isUnpacking())) {
-
-    //Pack nodeLookup here
-    int num=0;
-    for (NodeLookupType::iterator iter=nodeLookupTable.begin();iter!=nodeLookupTable.end();iter++){
-      if(iter->second != root && iter->second != NULL){
-	num++;
-      }
-    }
-    p(num);
-    for (NodeLookupType::iterator iter=nodeLookupTable.begin();iter!=nodeLookupTable.end();iter++){
-      if(iter->second != root && iter->second != NULL){
-	Key k = iter->first;
-	p | k;
-	p | (*(iter->second));
-      }
-    }
-  }else{
-    int num;
-    p(num);
-    for(int i=0;i<num;i++){
-      Key k;
-      GenericTreeNode *n = root->createNew();
-      p | k;
-      p | *n;
-      nodeLookupTable[k] = n;
-      if(n->getType() == Bucket){
-	bucketList.push_back(n);
-      }
-    }
-    int count=0;
-    rebuildSFCTree(root,NULL,&count);
-    sort(bucketList.begin(),bucketList.end(),compBucket);
-    if(verbosity)
-			CkPrintf("[%d] TreePiece %d bucketList size %d numBuckets %d nodelookupsize %d count %d\n",CkMyPe(),thisIndex,bucketList.size(),numBuckets,num,count);
-  }
-  */
 }
 
 void TreePiece::reconstructNodeLookup(GenericTreeNode *node) {
