@@ -116,9 +116,16 @@ Main::Main(CkArgMsg* m) {
         networkProgressUE = traceRegisterUserEvent("CmiNetworkProgress");
         nodeForceUE = traceRegisterUserEvent("Node interaction");
         partForceUE = traceRegisterUserEvent("Particle interaction");
-#ifdef CUDA 
+#ifdef CUDA_STATS 
         traceRegisterUserEvent("Tree Serialization", CUDA_SER_TREE);
         traceRegisterUserEvent("List Serialization", CUDA_SER_LIST);
+
+        traceRegisterUserEvent("Local Node", CUDA_LOCAL_NODE_KERNEL);
+        traceRegisterUserEvent("Remote Node", CUDA_REMOTE_NODE_KERNEL);
+        traceRegisterUserEvent("Remote Resume Node", CUDA_REMOTE_RESUME_NODE_KERNEL);
+        traceRegisterUserEvent("Local Particle", CUDA_LOCAL_PART_KERNEL);
+        traceRegisterUserEvent("Remote Particle", CUDA_REMOTE_PART_KERNEL);
+        traceRegisterUserEvent("Remote Resume Particle", CUDA_REMOTE_RESUME_PART_KERNEL);
 #endif
 	
 	prmInitialize(&prm,_Leader,_Trailer);

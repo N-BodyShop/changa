@@ -328,9 +328,13 @@ void DataManager::serializeLocalTree(){
   if(treePiecesDone == registeredTreePieces.length()){
     treePiecesDone = 0;
     
+#ifdef CUDA_STATS
     double starttime = CmiWallTimer();
+#endif
     serializeLocal(root);
+#ifdef CUDA_STATS
     traceUserBracketEvent(CUDA_SER_TREE, starttime, CmiWallTimer());
+#endif
     // resume each treepiece's startRemoteChunk, now that the nodes
     // are properly labeled and the particles accounted for
     for(int i = 0; i < registeredTreePieces.length(); i++){
@@ -356,9 +360,13 @@ void DataManager::donePrefetch(int chunk){
   treePiecesDonePrefetch++;
   if(treePiecesDonePrefetch == registeredTreePieces.length()){
     treePiecesDonePrefetch = 0;
+#ifdef CUDA_STATS
     double starttime = CmiWallTimer();
+#endif
     PendingBuffers *buffers = serializeRemoteChunk(root);
+#ifdef CUDA_STATS
     traceUserBracketEvent(CUDA_SER_TREE, starttime, CmiWallTimer());
+#endif
     if(gpuFree){
       gpuFree = false;
       lastChunkMoments = buffers->moments->length();
