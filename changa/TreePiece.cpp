@@ -5334,12 +5334,12 @@ void TreePiece::finishWalk()
 #endif
 
 #ifdef CUDA_STATS
-  CkPrintf("[%d] CUDA_STATS localnode: %ld\n", thisIndex, localNodeInteractions);
-  CkPrintf("[%d] CUDA_STATS remotenode: %ld\n", thisIndex, remoteNodeInteractions);
-  CkPrintf("[%d] CUDA_STATS remoteresumenode: %ld\n", thisIndex, remoteResumeNodeInteractions);
-  CkPrintf("[%d] CUDA_STATS localpart: %ld\n", thisIndex, localPartInteractions);
-  CkPrintf("[%d] CUDA_STATS remotepart: %ld\n", thisIndex, remotePartInteractions);
-  CkPrintf("[%d] CUDA_STATS remoteresumepart: %ld\n", thisIndex, remoteResumePartInteractions);
+  CkPrintf("[%d] (%d) CUDA_STATS localnode: %ld\n", thisIndex, activeRung, localNodeInteractions);
+  CkPrintf("[%d] (%d) CUDA_STATS remotenode: %ld\n", thisIndex, activeRung, remoteNodeInteractions);
+  CkPrintf("[%d] (%d) CUDA_STATS remoteresumenode: %ld\n", thisIndex, activeRung, remoteResumeNodeInteractions);
+  CkPrintf("[%d] (%d) CUDA_STATS localpart: %ld\n", thisIndex, activeRung, localPartInteractions);
+  CkPrintf("[%d] (%d) CUDA_STATS remotepart: %ld\n", thisIndex, activeRung, remotePartInteractions);
+  CkPrintf("[%d] (%d) CUDA_STATS remoteresumepart: %ld\n", thisIndex, activeRung, remoteResumePartInteractions);
 #endif
 
   contribute(0, 0, CkReduction::concat, callback);

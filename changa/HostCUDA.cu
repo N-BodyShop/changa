@@ -27,9 +27,7 @@ __device__ __constant__ EwtData ewt[sizeof(EwtData) * NEWH];
 //__constant__ constantData[88];
 //
 //
-#ifdef CUDA_STATS
-#define KERNEL_INVOCATION 8803
-extern "C" int traceRegisterUserEvent(const char*x, int e);
+#ifdef CUDA_TRACE
 extern "C" void traceUserBracketEvent(int e, double beginT, double endT);
 extern "C" double CmiWallTimer();
 #endif
@@ -157,7 +155,9 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
 
 	transferKernel.callbackFn = 0;
 	transferKernel.id = DM_TRANSFER_LOCAL;
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("DM LOCAL TREE\n");
+#endif
 	enqueue(wrQueue, &transferKernel);
 
 }
@@ -199,7 +199,9 @@ void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments,
 #endif
     memcpy(buf->hostBuffer, moments, size);
   }
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("DM REMOTE CHUNK node size: %d\n", size);
+#endif
 
   buf = &(transferKernel.bufferInfo[REMOTE_PARTICLE_CORES_IDX]);
   buf->bufferID = REMOTE_PARTICLE_CORES;
@@ -221,7 +223,9 @@ void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments,
 #endif
     memcpy(buf->hostBuffer, compactParts, size);
   }
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("DM REMOTE CHUNK particle size: %d\n", size);
+#endif
 
   transferKernel.callbackFn = 0;
   transferKernel.id = DM_TRANSFER_REMOTE_CHUNK;
@@ -250,7 +254,9 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 
 	gravityKernel.callbackFn = data->cb;
 	gravityKernel.id = TP_GRAVITY_LOCAL;
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("TRANSFER LOCAL CELL\n");
+#endif
 	enqueue(wrQueue, &gravityKernel);
 }
 
@@ -273,7 +279,9 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
 
 	gravityKernel.callbackFn = data->cb;
 	gravityKernel.id = TP_GRAVITY_REMOTE;
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("TRANSFER REMOTE CELL\n");
+#endif
 	enqueue(wrQueue, &gravityKernel);
 }
 
@@ -322,7 +330,9 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleM
 
   gravityKernel.callbackFn = data->cb;
   gravityKernel.id = TP_GRAVITY_REMOTE_RESUME;
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("TRANSFER REMOTE RESUME CELL\n");
+#endif
   enqueue(wrQueue, &gravityKernel);
 }
 
@@ -425,7 +435,9 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 
 	gravityKernel.callbackFn = data->cb;
 	gravityKernel.id = TP_PART_GRAVITY_LOCAL_SMALLPHASE;
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("TRANSFER LOCAL SMALLPHASE PART\n");
+#endif
 	enqueue(wrQueue, &gravityKernel);
 }
 
@@ -448,7 +460,9 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
 
 	gravityKernel.callbackFn = data->cb;
 	gravityKernel.id = TP_PART_GRAVITY_LOCAL;
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("TRANSFER LOCAL LARGEPHASE PART\n");
+#endif
 	enqueue(wrQueue, &gravityKernel);
 }
 
@@ -469,7 +483,9 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
 
 	gravityKernel.callbackFn = data->cb;
 	gravityKernel.id = TP_PART_GRAVITY_REMOTE;
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("TRANSFER REMOTE PART\n");
+#endif
 	enqueue(wrQueue, &gravityKernel);
 }
 
@@ -519,7 +535,9 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartDat
 
 	gravityKernel.callbackFn = data->cb;
 	gravityKernel.id = TP_PART_GRAVITY_REMOTE_RESUME;
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("TRANSFER REMOTE RESUME PART\n");
+#endif
 	enqueue(wrQueue, &gravityKernel);
 }
 
@@ -702,7 +720,9 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb){
 
   gravityKernel.callbackFn = cb;
   gravityKernel.id = DM_TRANSFER_BACK;
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("DM TRANSFER BACK\n");
+#endif
   enqueue(wrQueue, &gravityKernel);
 }
 
@@ -727,7 +747,7 @@ void DummyKernel(void *cb){
 // kernel selector function
 void kernelSelect(workRequest *wr) {
 
-#ifdef CUDA_STATS
+#ifdef CUDA_TRACE
   double st;
 #endif
   ParameterStruct *ptr;
@@ -855,7 +875,7 @@ void kernelSelect(workRequest *wr) {
           );
 #endif
 
-#ifdef CUDA_STATS
+#ifdef CUDA_TRACE
     st = CmiWallTimer();
 #endif
 #ifdef CUDA_USE_CUDAMALLOCHOST
@@ -872,7 +892,7 @@ void kernelSelect(workRequest *wr) {
         free((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
         free((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
 #endif
-#ifdef CUDA_STATS
+#ifdef CUDA_TRACE
       traceUserBracketEvent(CUDA_LOCAL_NODE_KERNEL, st, CmiWallTimer()); 
 #endif
       }
@@ -908,7 +928,7 @@ void kernelSelect(workRequest *wr) {
           );
 #endif
 
-#ifdef CUDA_STATS
+#ifdef CUDA_TRACE
     st = CmiWallTimer();
 #endif
 #ifdef CUDA_USE_CUDAMALLOCHOST
@@ -927,7 +947,7 @@ void kernelSelect(workRequest *wr) {
         free((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
         free((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
 #endif
-#ifdef CUDA_STATS
+#ifdef CUDA_TRACE
       traceUserBracketEvent(CUDA_LOCAL_PART_KERNEL, st, CmiWallTimer()); 
 #endif
       }
@@ -964,7 +984,7 @@ void kernelSelect(workRequest *wr) {
           );
 #endif
 
-#ifdef CUDA_STATS
+#ifdef CUDA_TRACE
     st = CmiWallTimer();
 #endif
 #ifdef CUDA_USE_CUDAMALLOCHOST
@@ -981,7 +1001,7 @@ void kernelSelect(workRequest *wr) {
         free((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
         free((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
 #endif
-#ifdef CUDA_STATS
+#ifdef CUDA_TRACE
       traceUserBracketEvent(CUDA_LOCAL_PART_KERNEL, st, CmiWallTimer()); 
 #endif
       }
@@ -1020,7 +1040,7 @@ void kernelSelect(workRequest *wr) {
           );
 #endif
 
-#ifdef CUDA_STATS
+#ifdef CUDA_TRACE
     st = CmiWallTimer();
 #endif
 #ifdef CUDA_USE_CUDAMALLOCHOST
@@ -1037,7 +1057,7 @@ void kernelSelect(workRequest *wr) {
         free((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
         free((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
 #endif
-#ifdef CUDA_STATS
+#ifdef CUDA_TRACE
       traceUserBracketEvent(CUDA_REMOTE_NODE_KERNEL, st, CmiWallTimer()); 
 #endif
       }
@@ -1073,7 +1093,7 @@ void kernelSelect(workRequest *wr) {
           );
 #endif
 
-#ifdef CUDA_STATS
+#ifdef CUDA_TRACE
     st = CmiWallTimer();
 #endif
 #ifdef CUDA_USE_CUDAMALLOCHOST
@@ -1090,7 +1110,7 @@ void kernelSelect(workRequest *wr) {
         free((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
         free((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
 #endif
-#ifdef CUDA_STATS
+#ifdef CUDA_TRACE
       traceUserBracketEvent(CUDA_REMOTE_PART_KERNEL, st, CmiWallTimer()); 
 #endif
       }
@@ -1130,7 +1150,7 @@ void kernelSelect(workRequest *wr) {
           );
 #endif
 
-#ifdef CUDA_STATS
+#ifdef CUDA_TRACE
     st = CmiWallTimer();
 #endif
 #ifdef CUDA_USE_CUDAMALLOCHOST
@@ -1149,7 +1169,7 @@ void kernelSelect(workRequest *wr) {
         free((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
         free((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
 #endif
-#ifdef CUDA_STATS
+#ifdef CUDA_TRACE
       traceUserBracketEvent(CUDA_REMOTE_RESUME_NODE_KERNEL, st, CmiWallTimer()); 
 #endif
       }
@@ -1187,7 +1207,7 @@ void kernelSelect(workRequest *wr) {
           );
 #endif
 
-#ifdef CUDA_STATS
+#ifdef CUDA_TRACE
     st = CmiWallTimer();
 #endif
 #ifdef CUDA_USE_CUDAMALLOCHOST
@@ -1206,7 +1226,7 @@ void kernelSelect(workRequest *wr) {
         free((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
         free((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
 #endif
-#ifdef CUDA_STATS
+#ifdef CUDA_TRACE
       traceUserBracketEvent(CUDA_REMOTE_RESUME_PART_KERNEL, st, CmiWallTimer()); 
 #endif
       }
@@ -1754,7 +1774,9 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
   topKernel.callbackFn = NULL;
   topKernel.id = TOP_EWALD_KERNEL; 
   enqueue(wrQueue, &topKernel); 
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("[%d] in EwaldHost, enqueued TopKernel\n", myIndex);
+#endif
 
   workRequest bottomKernel; 
 
@@ -1795,7 +1817,9 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
   bottomKernel.id = BOTTOM_EWALD_KERNEL; 
 
   enqueue(wrQueue, &bottomKernel); 
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("[%d] in EwaldHost, enqueued BotKernel\n", myIndex);
+#endif
 }
 
 __global__ void EwaldTopKernel(GravityParticleData *particleTable) {

@@ -185,7 +185,7 @@ CudaRequest *GenericList<T>::serialize(TreePiece *tp){
     int listpos = 0;
     int curbucket = 0;
 
-#ifdef CUDA_STATS
+#ifdef CUDA_TRACE
     double starttime = CmiWallTimer();
 #endif
     for(int i = 0; i < lists.length(); i++){
@@ -260,7 +260,7 @@ CudaRequest *GenericList<T>::serialize(TreePiece *tp){
     request->tp = (void *)tp;
     request->fperiod = tp->fPeriod.x;
 
-#ifdef CUDA_STATS
+#ifdef CUDA_TRACE
     traceUserBracketEvent(CUDA_SER_LIST, starttime, CmiWallTimer());
 #endif
 

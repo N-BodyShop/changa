@@ -23,7 +23,11 @@ HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
 # -DCUDA_EMU_KERNEL_PART_PRINTS
 # -DCUDA_EMU_KERNEL_NODE_PRINTS
 #
-# -DCUDA_PRINT_ERRORS
+# -DCUDA_PRINT_ERRORS: prints error status after CUDA calls
+# -DCUDA_STATS: prints num. interactions of various types for each rung
+# -DCUDA_TRACE: traces cudaFreeHost times with kernelSelect
+# -DCUDA_VERBOSE_KERNEL_ENQUEUE: prints messages when enqueuing kernels
+
 #
 # Uncomment definition of CUDA for make benefit CUDA version
 # Currently requires that HEXADECAPOLE be disabled 
