@@ -578,6 +578,8 @@ void momShiftMomr(MOMR *m,momFloat x,momFloat y,momFloat z)
  **
  ** Op Count (*,+) = (159,173) = 332
  */
+/* IBM brain damage */
+#undef hz
 double momShiftLocr(LOCR *l,momFloat x,momFloat y,momFloat z) {
     const momFloat onethird = 1.0/3.0;
     momFloat hx,hy,hz,tx,ty,tz;
