@@ -489,46 +489,46 @@ Main::Main(CkArgMsg* m) {
           double remoteResumePartsPerReqDouble;
 
           localNodesPerReqDouble = NODE_INTERACTIONS_PER_REQUEST_L;
-          if(prmSpecified(prm, "localNodesPerReq")){
+          //if(prmSpecified(prm, "localNodesPerReq")){
             prmAddParam(prm, "localNodesPerReq", paramDouble, &localNodesPerReqDouble,
                 sizeof(double),"localnodes", "Num. local node interactions allowed per CUDA request");
-          }
+          //}
 
           remoteNodesPerReqDouble = NODE_INTERACTIONS_PER_REQUEST_RNR;
-          if(prmSpecified(prm, "remoteNodesPerReq")){
+          //if(prmSpecified(prm, "remoteNodesPerReq")){
             prmAddParam(prm, "remoteNodesPerReq", paramDouble, &remoteNodesPerReqDouble,
                 sizeof(double),"remotenodes", "Num. remote node interactions allowed per CUDA request");
-          }
+          //}
 
           remoteResumeNodesPerReqDouble = NODE_INTERACTIONS_PER_REQUEST_RR;
-          if(prmSpecified(prm, "remoteResumeNodesPerReq")){
+          //if(prmSpecified(prm, "remoteResumeNodesPerReq")){
             prmAddParam(prm, "remoteResumeNodesPerReq", paramDouble, &remoteResumeNodesPerReqDouble,
                 sizeof(double),"remoteresumenodes", "Num. remote resume node interactions allowed per CUDA request");
-          }
+          //}
 
           localPartsPerReqDouble = PART_INTERACTIONS_PER_REQUEST_L;
-          if(prmSpecified(prm, "localPartsPerReq")){
+          //if(prmSpecified(prm, "localPartsPerReq")){
             prmAddParam(prm, "localPartsPerReq", paramDouble, &localPartsPerReqDouble,
                 sizeof(double),"localparts", "Num. local particle interactions allowed per CUDA request");
-          }
+          //}
 
           remotePartsPerReqDouble = PART_INTERACTIONS_PER_REQUEST_RNR;
-          if(prmSpecified(prm, "remotePartsPerReq")){
+          //if(prmSpecified(prm, "remotePartsPerReq")){
             prmAddParam(prm, "remotePartsPerReq", paramDouble, &remotePartsPerReqDouble,
                 sizeof(double),"remoteparts", "Num. remote particle interactions allowed per CUDA request");
-          }
+          //}
 
           remoteResumePartsPerReqDouble = PART_INTERACTIONS_PER_REQUEST_RR;
-          if(prmSpecified(prm, "remoteResumePartsPerReq")){
+          //if(prmSpecified(prm, "remoteResumePartsPerReq")){
           prmAddParam(prm, "remoteResumePartsPerReq", paramDouble, &remoteResumePartsPerReqDouble,
               sizeof(double),"remoteresumeparts", "Num. remote resume particle interactions allowed per CUDA request");
-          }
+          //}
 
           largePhaseThreshold = TP_LARGE_PHASE_THRESHOLD_DEFAULT;
-          if(prmSpecified(prm, "largePhaseThreshold")){
+          //if(prmSpecified(prm, "largePhaseThreshold")){
           prmAddParam(prm, "largePhaseThreshold", paramDouble, &largePhaseThreshold,
               sizeof(double),"largephasethresh", "Ratio of active to total particles at which all particles (not just active ones) are sent to gpu in the target buffer (No source particles are sent.)");
-          }
+          //}
 
 #endif
 

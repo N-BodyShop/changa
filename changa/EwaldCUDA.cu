@@ -52,9 +52,15 @@ void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop,
 }
 
 void EwaldHostMemoryFree(EwaldData *h_idata) {
+#ifdef CUDA_MEMPOOL
+  hapi_poolFree(h_idata->p); 
+  hapi_poolFree(h_idata->ewt); 
+  hapi_poolFree(h_idata->cachedData); 
+#else
   cudaFreeHost(h_idata->p); 
   cudaFreeHost(h_idata->ewt); 
   cudaFreeHost(h_idata->cachedData); 
+#endif
 }
 
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {

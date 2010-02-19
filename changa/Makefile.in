@@ -11,27 +11,33 @@ HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
 #CELL = -DINTERLIST_VER=2 -DCELL -DCELL_PART -DCELL_NODE -DCELL_EWALD  # Cell processor offload
 
 # optional CUDA flags: 
-#
-# -DCUDA_NOTIFY_DATA_TRANSFER_DONE
+# memory:
 # -DCUDA_USE_CUDAMALLOCHOST
+# -DCUDA_MEMPOOL
+#
+# verbosity, debugging:
 # -DCUDA_DM_PRINT_TREES
-# -DCUDA_NO_KERNELS
 # -DCUDA_PRINT_TRANSFERRED_INTERACTIONS
 # -DCUDA_PRINT_TRANSFER_BACK_PARTICLES
+# -DCUDA_NOTIFY_DATA_TRANSFER_DONE
+# -DCUDA_VERBOSE_KERNEL_ENQUEUE
+# -DCUDA_NO_KERNELS
 # -DCUDA_NO_ACC_UPDATES
 #
+# emulation mode:
 # -DCUDA_EMU_KERNEL_PART_PRINTS
 # -DCUDA_EMU_KERNEL_NODE_PRINTS
 #
-# -DCUDA_PRINT_ERRORS: prints error status after CUDA calls
-# -DCUDA_STATS: prints num. interactions of various types for each rung
-# -DCUDA_TRACE: traces cudaFreeHost times with kernelSelect
-# -DCUDA_VERBOSE_KERNEL_ENQUEUE: prints messages when enqueuing kernels
-
+# print errors returned by CUDA calls:
+# -DCUDA_PRINT_ERRORS
+#
+# for performance monitoring via projections/stats
+# -DCUDA_STATS
+# -DCUDA_TRACE
 #
 # Uncomment definition of CUDA for make benefit CUDA version
 # Currently requires that HEXADECAPOLE be disabled 
-#CUDA = -DINTERLIST_VER=2 -DCUDA -DCUDA_USE_CUDAMALLOCHOST #-DSPCUDA 
+# CUDA = -DINTERLIST_VER=2 -DCUDA_STATS -DCUDA -DCUDA_USE_CUDAMALLOCHOST -DSPCUDA #-DCUDA_MEMPOOL 
 
 # useful refactor flag combinations:
 # -DCHANGA_REFACTOR_WALKCHECK
