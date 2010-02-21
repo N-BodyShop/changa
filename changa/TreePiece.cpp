@@ -1667,6 +1667,7 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
     ckerr << "Left particle: " << (node->firstParticle) << " Right particle: " << (node->lastParticle) << endl;
     ckerr << "Left key : " << keyBits((myParticles[node->firstParticle]).key, 63).c_str() << endl;
     ckerr << "Right key: " << keyBits((myParticles[node->lastParticle]).key, 63).c_str() << endl;
+    CkAbort("Tree is too deep!");
     return;
   }
 
