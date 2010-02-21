@@ -321,10 +321,9 @@ void TreePiece::loadTipsy(const std::string& filename,
 	mySPHParticles = new extraSPHData[myNumSPH];
 	
 	if(!r.seekParticleNum(startParticle)) {
-		cerr << thisIndex << ": TreePiece: Fatal: Couldn't seek to my particles!" << endl;
-		cb.send(0);
+		CkAbort("Couldn't seek to my particles!");
 		return;
-	}
+		}
 	
 	Tipsy::gas_particle gp;
 	Tipsy::dark_particle dp;
@@ -333,7 +332,9 @@ void TreePiece::loadTipsy(const std::string& filename,
 	int iSPH = 0;
 	for(unsigned int i = 0; i < myNumParticles; ++i) {
 		if(i + startParticle < (unsigned int) tipsyHeader.nsph) {
-			r.getNextGasParticle(gp);
+			if(!r.getNextGasParticle(gp)) {
+			    CkAbort("failed to read gas particle!");
+			    }
 			myParticles[i+1].mass = gp.mass;
 			myParticles[i+1].position = gp.pos;
 			myParticles[i+1].velocity = gp.vel;
@@ -348,14 +349,18 @@ void TreePiece::loadTipsy(const std::string& filename,
 			iSPH++;
 		} else if(i + startParticle < (unsigned int) tipsyHeader.nsph
 			  + tipsyHeader.ndark) {
-			r.getNextDarkParticle(dp);
+			if(!r.getNextDarkParticle(dp)) {
+			    CkAbort("failed to read dark particle!");
+			    }
 			myParticles[i+1].mass = dp.mass;
 			myParticles[i+1].position = dp.pos;
 			myParticles[i+1].velocity = dp.vel;
 			myParticles[i+1].soft = dp.eps;
 			myParticles[i+1].iType = TYPE_DARK;
 		} else {
-			r.getNextStarParticle(sp);
+			if(!r.getNextStarParticle(sp)) {
+			    CkAbort("failed to read star particle!");
+			    }
 			myParticles[i+1].mass = sp.mass;
 			myParticles[i+1].position = sp.pos;
 			myParticles[i+1].velocity = sp.vel;
