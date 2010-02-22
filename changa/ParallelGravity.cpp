@@ -94,7 +94,7 @@ void _Leader(void) {
 
 
 void _Trailer(void) {
-	puts("(see man page (Ha!) for more information)");
+	puts("(see the web page at\nhttp://librarian.phys.washington.edu/astro/index.php/Research:ChaNGa\nfor more information)");
 }
 
 int killAt;
@@ -150,7 +150,7 @@ Main::Main(CkArgMsg* m) {
 
         killAt = 0;
         prmAddParam(prm, "killAt", paramInt, &killAt,
-		    sizeof(int),"killat", "Killing after this step");
+		    sizeof(int),"killat", "Stop the simulation after this step");
 
 	param.bEpsAccStep = 1;
 	prmAddParam(prm, "bEpsAccStep", paramBool, &param.bEpsAccStep,
@@ -197,7 +197,7 @@ Main::Main(CkArgMsg* m) {
 		    sizeof(double),"eMax", "maximum comoving gravitational softening length (abs or multiplier)");
 	param.bPhysicalSoft = 0;
 	prmAddParam(prm,"bPhysicalSoft", paramBool, &param.bPhysicalSoft,
-		    sizeof(int),"PhysSoft", "Physical gravitational softening length -PhysSoft");
+		    sizeof(int),"PhysSoft", "Physical gravitational softening length");
 	param.bSoftMaxMul = 1;
 	prmAddParam(prm,"bSoftMaxMul", paramBool, &param.bSoftMaxMul,
 		    sizeof(int),"SMM", "Use maximum comoving gravitational softening length as a multiplier +SMM");
@@ -434,8 +434,8 @@ Main::Main(CkArgMsg* m) {
 		    sizeof(int),"rand", "Randomize the order of remote chunk computation (default: ON)");
 	
 	_nocache = 0;
-	prmAddParam(prm, "bNoCache", paramBool, &_nocache,
-		    sizeof(int),"nc", "Disable the CacheManager caching behaviour");
+	// prmAddParam(prm, "bNoCache", paramBool, &_nocache,
+	//	    sizeof(int),"nc", "Disable the CacheManager caching behaviour");
 	
         verbosity = 0;
 	prmAddParam(prm, "iVerbosity", paramInt, &verbosity,
@@ -466,7 +466,7 @@ Main::Main(CkArgMsg* m) {
 		    sizeof(int),"f", "Enable prefetching in the cache (default: ON)");
 	cacheSize = 100000000;
 	prmAddParam(prm, "nCacheSize", paramInt, &cacheSize,
-		    sizeof(int),"s", "Size of cache");
+		    sizeof(int),"s", "Size of cache (IGNORED)");
 	domainDecomposition=SFC_dec;
         peanoKey=0;
 	prmAddParam(prm, "nDomainDecompose", paramInt, &domainDecomposition,
@@ -489,46 +489,32 @@ Main::Main(CkArgMsg* m) {
           double remoteResumePartsPerReqDouble;
 
           localNodesPerReqDouble = NODE_INTERACTIONS_PER_REQUEST_L;
-          //if(prmSpecified(prm, "localNodesPerReq")){
-            prmAddParam(prm, "localNodesPerReq", paramDouble, &localNodesPerReqDouble,
+	  prmAddParam(prm, "localNodesPerReq", paramDouble, &localNodesPerReqDouble,
                 sizeof(double),"localnodes", "Num. local node interactions allowed per CUDA request");
-          //}
 
           remoteNodesPerReqDouble = NODE_INTERACTIONS_PER_REQUEST_RNR;
-          //if(prmSpecified(prm, "remoteNodesPerReq")){
-            prmAddParam(prm, "remoteNodesPerReq", paramDouble, &remoteNodesPerReqDouble,
+	  prmAddParam(prm, "remoteNodesPerReq", paramDouble, &remoteNodesPerReqDouble,
                 sizeof(double),"remotenodes", "Num. remote node interactions allowed per CUDA request");
-          //}
 
           remoteResumeNodesPerReqDouble = NODE_INTERACTIONS_PER_REQUEST_RR;
-          //if(prmSpecified(prm, "remoteResumeNodesPerReq")){
-            prmAddParam(prm, "remoteResumeNodesPerReq", paramDouble, &remoteResumeNodesPerReqDouble,
+	  prmAddParam(prm, "remoteResumeNodesPerReq", paramDouble, &remoteResumeNodesPerReqDouble,
                 sizeof(double),"remoteresumenodes", "Num. remote resume node interactions allowed per CUDA request");
-          //}
 
           localPartsPerReqDouble = PART_INTERACTIONS_PER_REQUEST_L;
-          //if(prmSpecified(prm, "localPartsPerReq")){
             prmAddParam(prm, "localPartsPerReq", paramDouble, &localPartsPerReqDouble,
                 sizeof(double),"localparts", "Num. local particle interactions allowed per CUDA request");
-          //}
 
           remotePartsPerReqDouble = PART_INTERACTIONS_PER_REQUEST_RNR;
-          //if(prmSpecified(prm, "remotePartsPerReq")){
             prmAddParam(prm, "remotePartsPerReq", paramDouble, &remotePartsPerReqDouble,
                 sizeof(double),"remoteparts", "Num. remote particle interactions allowed per CUDA request");
-          //}
 
           remoteResumePartsPerReqDouble = PART_INTERACTIONS_PER_REQUEST_RR;
-          //if(prmSpecified(prm, "remoteResumePartsPerReq")){
           prmAddParam(prm, "remoteResumePartsPerReq", paramDouble, &remoteResumePartsPerReqDouble,
               sizeof(double),"remoteresumeparts", "Num. remote resume particle interactions allowed per CUDA request");
-          //}
 
           largePhaseThreshold = TP_LARGE_PHASE_THRESHOLD_DEFAULT;
-          //if(prmSpecified(prm, "largePhaseThreshold")){
           prmAddParam(prm, "largePhaseThreshold", paramDouble, &largePhaseThreshold,
               sizeof(double),"largephasethresh", "Ratio of active to total particles at which all particles (not just active ones) are sent to gpu in the target buffer (No source particles are sent.)");
-          //}
 
 #endif
 
@@ -727,7 +713,10 @@ Main::Main(CkArgMsg* m) {
         if (domainDecomposition == SFC_peano_dec_3D) peanoKey = 3;
 
 	// hardcoding some parameters, later may be full options
-	if(domainDecomposition==ORB_dec){ useTree = Binary_ORB; }
+	if(domainDecomposition==ORB_dec){
+	    useTree = Binary_ORB;
+	    CkAbort("ORB decomposition known to be bad and not implemented");
+	    }
 	else { useTree = Binary_Oct; }
 
         ckerr << "Running on " << CkNumPes() << " processors with " << numTreePieces << " TreePieces" << endl;
@@ -1315,7 +1304,7 @@ void Main::setupICs() {
   char achLogFileName[MAXPATHLEN];
   sprintf(achLogFileName, "%s.log", param.achOutName);
   ofstream ofsLog(achLogFileName, ios_base::trunc);
-  ofsLog << "# Starting ChaNGa version 1.08" << endl;
+  ofsLog << "# Starting ChaNGa version 2.00" << endl;
   ofsLog << "#";		// Output command line
   for (int i = 0; i < args->argc; i++)
       ofsLog << " " << args->argv[i];
