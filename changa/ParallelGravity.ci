@@ -13,6 +13,7 @@ mainmodule ParallelGravity {
   readonly CProxy_CkCacheManager cacheNode;
   readonly CProxy_CkCacheManager cacheGravPart;
   readonly CProxy_CkCacheManager cacheSmoothPart;
+  readonly CProxy_DataManager dMProxy;
   readonly bool _cache;
   readonly int _nocache;
   readonly int _cacheLineDepth;
@@ -111,6 +112,7 @@ mainmodule ParallelGravity {
     entry void collectSplitters(CkReductionMsg* m);
     //entry [local,exclusive] void notifyPresence(int index, Tree::GenericTreeNode *root);
     entry void combineLocalTrees(CkReductionMsg *m);
+    entry void clearInstrument(CkCallback &cb);
   };
   array [1D] TreePiece {
     entry TreePiece();

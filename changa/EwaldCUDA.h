@@ -49,7 +49,11 @@ typedef struct {
 
 void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop, void *cb); 
 void EwaldHostMemoryFree(EwaldData *h_idata); 
+#ifdef CUDA_INSTRUMENT_WRS
+void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase); 
+#else
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex); 
+#endif
 
 __global__ void EwaldTopKernel(GravityParticleData *particleTable);
 __global__ void EwaldBottomKernel(GravityParticleData *particleTable);

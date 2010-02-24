@@ -154,8 +154,9 @@ public:
         void updateParticles(UpdateParticlesStruct *data);
         void initiateNextChunkTransfer();
 #ifdef CUDA_INSTRUMENT_WRS
-        void initInstrumentation();
+        int initInstrumentation();
 #endif
+        void clearInstrument(CkCallback &cb);
         DataManager(){} 
 #endif
 

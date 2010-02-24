@@ -835,21 +835,26 @@ void TreePiece::drift(double dDelta,  // time step in v containing
       if (p->iOrder >= nGrowMass)
 	  p->position += dDelta*p->velocity;
       if(bPeriodic) {
-	  for(int j = 0; j < 3; j++) {
-	      if(p->position[j] >= 0.5*fPeriod[j]){
-		  p->position[j] -= fPeriod[j];
-		  }
-	      if(p->position[j] < -0.5*fPeriod[j]){
-		  p->position[j] += fPeriod[j];
-		  }
-	      // Sanity Checks
-	      bInBox = bInBox
-		  && (p->position[j] >= -0.5*fPeriod[j]);
-	      bInBox = bInBox
-		  && (p->position[j] < 0.5*fPeriod[j]);
-	      }
-	  CkAssert(bInBox);
-	  }
+        for(int j = 0; j < 3; j++) {
+          if(p->position[j] >= 0.5*fPeriod[j]){
+            p->position[j] -= fPeriod[j];
+          }
+          if(p->position[j] < -0.5*fPeriod[j]){
+            p->position[j] += fPeriod[j];
+          }
+
+          bool a = (p->position[j] >= -0.5*fPeriod[j]);
+          bool b = (p->position[j] < 0.5*fPeriod[j]);
+
+          //CkPrintf("[%d] particle %d test %d: %d,%d\n", thisIndex, i, j, a, b);
+          // Sanity Checks
+          bInBox = bInBox
+            && (p->position[j] >= -0.5*fPeriod[j]);
+          bInBox = bInBox
+            && (p->position[j] < 0.5*fPeriod[j]);
+        }
+        CkAssert(bInBox);
+      }
       boundingBox.grow(p->position);
       if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
 	  p->vPred() += dDelta*p->treeAcceleration;
@@ -3352,7 +3357,7 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
 #ifdef CUDA
 
 #ifdef CUDA_INSTRUMENT_WRS
-  dm->initInstrumentation();
+  instrumentId = dm->initInstrumentation();
 #endif
 
   numActiveBuckets = 0;
@@ -5346,53 +5351,65 @@ void TreePiece::finishWalk()
   CkPrintf("[%d] inside finishWalk contrib callback\n", thisIndex);
 #endif
 
-#ifdef CUDA_STATS
-
 #ifdef CUDA_INSTRUMENT_WRS
-  RequestTimeInfo &rti1 = hapi_queryInstrument(thisIndex, DM_TRANSFER_LOCAL, activeRung);
-  RequestTimeInfo &rti2 = hapi_queryInstrument(thisIndex, DM_TRANSFER_REMOTE_CHUNK, activeRung);
-  RequestTimeInfo &rti3 = hapi_queryInstrument(thisIndex, DM_TRANSFER_BACK, activeRung);
-  RequestTimeInfo &rti4 = hapi_queryInstrument(thisIndex, DM_TRANSFER_FREE_LOCAL, activeRung);
-  RequestTimeInfo &rti5 = hapi_queryInstrument(thisIndex, DM_TRANSFER_FREE_REMOTE_CHUNK, activeRung);
+  RequestTimeInfo *rti1 = hapi_queryInstrument(instrumentId, DM_TRANSFER_LOCAL, activeRung);
+  RequestTimeInfo *rti2 = hapi_queryInstrument(instrumentId, DM_TRANSFER_REMOTE_CHUNK, activeRung);
+  RequestTimeInfo *rti3 = hapi_queryInstrument(instrumentId, DM_TRANSFER_BACK, activeRung);
+  RequestTimeInfo *rti4 = hapi_queryInstrument(instrumentId, DM_TRANSFER_FREE_LOCAL, activeRung);
+  RequestTimeInfo *rti5 = hapi_queryInstrument(instrumentId, DM_TRANSFER_FREE_REMOTE_CHUNK, activeRung);
   
-  RequestTimeInfo &rti6 = hapi_queryInstrument(thisIndex, TP_GRAVITY_LOCAL, activeRung);
-  RequestTimeInfo &rti7 = hapi_queryInstrument(thisIndex, TP_GRAVITY_REMOTE, activeRung);
-  RequestTimeInfo &rti8 = hapi_queryInstrument(thisIndex, TP_GRAVITY_REMOTE_RESUME, activeRung);
+  RequestTimeInfo *rti6 = hapi_queryInstrument(instrumentId, TP_GRAVITY_LOCAL, activeRung);
+  RequestTimeInfo *rti7 = hapi_queryInstrument(instrumentId, TP_GRAVITY_REMOTE, activeRung);
+  RequestTimeInfo *rti8 = hapi_queryInstrument(instrumentId, TP_GRAVITY_REMOTE_RESUME, activeRung);
   
-  RequestTimeInfo &rti9 = hapi_queryInstrument(thisIndex,TP_PART_GRAVITY_LOCAL_SMALLPHASE, activeRung);
-  RequestTimeInfo &rti10 = hapi_queryInstrument(thisIndex, TP_PART_GRAVITY_LOCAL, activeRung);
-  RequestTimeInfo &rti11 = hapi_queryInstrument(thisIndex, TP_PART_GRAVITY_REMOTE, activeRung);
-  RequestTimeInfo &rti12 = hapi_queryInstrument(thisIndex, TP_PART_GRAVITY_REMOTE_RESUME, activeRung);
+  RequestTimeInfo *rti9 = hapi_queryInstrument(instrumentId,TP_PART_GRAVITY_LOCAL_SMALLPHASE, activeRung);
+  RequestTimeInfo *rti10 = hapi_queryInstrument(instrumentId, TP_PART_GRAVITY_LOCAL, activeRung);
+  RequestTimeInfo *rti11 = hapi_queryInstrument(instrumentId, TP_PART_GRAVITY_REMOTE, activeRung);
+  RequestTimeInfo *rti12 = hapi_queryInstrument(instrumentId, TP_PART_GRAVITY_REMOTE_RESUME, activeRung);
 
-  RequestTimeInfo &rti13 = hapi_queryInstrument(thisIndex, TOP_EWALD_KERNEL, activeRung);
-  RequestTimeInfo &rti14 = hapi_queryInstrument(thisIndex, BOTTOM_EWALD_KERNEL, activeRung);
+  RequestTimeInfo *rti13 = hapi_queryInstrument(instrumentId, TOP_EWALD_KERNEL, activeRung);
+  RequestTimeInfo *rti14 = hapi_queryInstrument(instrumentId, BOTTOM_EWALD_KERNEL, activeRung);
 
-  CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS localnode: (%f,%f,%f)\n", thisIndex, activeRung, 
-                                                                    rti6.transferTime/rti6.n,
-                                                                    rti6.kernelTime/rti6.n,
-                                                                    rti6.cleanupTime/rti6.n);
-  CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remotenode: (%f,%f,%f)\n", thisIndex, activeRung, 
-                                                                    rti7.transferTime/rti7.n,
-                                                                    rti7.kernelTime/rti7.n,
-                                                                    rti7.cleanupTime/rti7.n);
-  CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remoteresumenode: (%f,%f,%f)\n", thisIndex, activeRung, 
-                                                                    rti8.transferTime/rti8.n,
-                                                                    rti8.kernelTime/rti8.n,
-                                                                    rti8.cleanupTime/rti8.n);
-  CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS localpart: (%f,%f,%f)\n", thisIndex, activeRung, 
-                                                                    rti10.transferTime/rti10.n,
-                                                                    rti10.kernelTime/rti10.n,
-                                                                    rti10.cleanupTime/rti10.n);
-  CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remotepart: (%f,%f,%f)\n", thisIndex, activeRung, 
-                                                                    rti11.transferTime/rti11.n,
-                                                                    rti11.kernelTime/rti11.n,
-                                                                    rti11.cleanupTime/rti11.n);
-  CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remoteresumepart: (%f,%f,%f)\n", thisIndex, activeRung, 
-                                                                    rti12.transferTime/rti12.n,
-                                                                    rti12.kernelTime/rti12.n,
-                                                                    rti12.cleanupTime/rti12.n);
+  if(rti6 != NULL){
+    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS localnode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+        rti6->transferTime/rti6->n,
+        rti6->kernelTime/rti6->n,
+        rti6->cleanupTime/rti6->n, rti6->n);
+  }
+  if(rti7 != NULL){
+    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remotenode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+        rti7->transferTime/rti7->n,
+        rti7->kernelTime/rti7->n,
+        rti7->cleanupTime/rti7->n, rti7->n);
+  }
+  if(rti8 != NULL){
+    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remoteresumenode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+        rti8->transferTime/rti8->n,
+        rti8->kernelTime/rti8->n,
+        rti8->cleanupTime/rti8->n, rti8->n);
+  }
+
+  if(rti10 != NULL){
+    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS localpart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+        rti10->transferTime/rti10->n,
+        rti10->kernelTime/rti10->n,
+        rti10->cleanupTime/rti10->n, rti10->n);
+  }
+  if(rti11 != NULL){
+    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remotepart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+        rti11->transferTime/rti11->n,
+        rti11->kernelTime/rti11->n,
+        rti11->cleanupTime/rti11->n, rti11->n);
+  }
+  if(rti12 != NULL){
+    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remoteresumepart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+        rti12->transferTime/rti12->n,
+        rti12->kernelTime/rti12->n,
+        rti12->cleanupTime/rti12->n, rti12->n);
+  }
 
 #endif
+#ifdef CUDA_STATS
   CkPrintf("[%d] (%d) CUDA_STATS localnode: %ld\n", thisIndex, activeRung, localNodeInteractions);
   CkPrintf("[%d] (%d) CUDA_STATS remotenode: %ld\n", thisIndex, activeRung, remoteNodeInteractions);
   CkPrintf("[%d] (%d) CUDA_STATS remoteresumenode: %ld\n", thisIndex, activeRung, remoteResumeNodeInteractions);

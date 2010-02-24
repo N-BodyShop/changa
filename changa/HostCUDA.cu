@@ -40,9 +40,6 @@ extern "C" void traceUserBracketEvent(int e, double beginT, double endT);
 extern "C" double CmiWallTimer();
 #endif
 
-#ifdef CUDA_INSTRUMENT_WRS
-// FIXME - add code to set chare index, comp type and comp phase for WR
-#endif
 
 void allocatePinnedHostMemory(void **ptr, int size){
   if(size <= 0){
@@ -1951,7 +1948,11 @@ void EwaldHostMemoryFree(EwaldData *h_idata) {
 #endif
 }
 
+#ifdef CUDA_INSTRUMENT_WRS
+void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase) {
+#else
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
+#endif
 
   int n = h_idata->cachedData->n;
   int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
@@ -1988,12 +1989,12 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
 
   topKernel.callbackFn = NULL;
   topKernel.id = TOP_EWALD_KERNEL; 
-  enqueue(wrQueue, &topKernel); 
 #ifdef CUDA_INSTRUMENT_WRS
   topKernel.chareIndex = myIndex;
   topKernel.compType = topKernel.id;
-  topKernel.compPhase = 0; 
+  topKernel.compPhase = phase; 
 #endif
+  enqueue(wrQueue, &topKernel); 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("[%d] in EwaldHost, enqueued TopKernel\n", myIndex);
 #endif
@@ -2038,7 +2039,7 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
 #ifdef CUDA_INSTRUMENT_WRS
   bottomKernel.chareIndex = myIndex;
   bottomKernel.compType = bottomKernel.id;
-  bottomKernel.compPhase = 0; 
+  bottomKernel.compPhase = phase; 
 #endif
   enqueue(wrQueue, &bottomKernel); 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE

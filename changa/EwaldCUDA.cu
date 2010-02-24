@@ -100,7 +100,15 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
 
   topKernel.callbackFn = NULL;
   topKernel.id = TOP_KERNEL; 
+#ifdef CUDA_INSTRUMENT_WRS
+  topKernel.chareIndex = myIndex;
+  topKernel.compType = topKernel.id;
+  topKernel.compPhase = 0; 
+#endif
   enqueue(wrQueue, &topKernel); 
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
+  printf("[%d] in EwaldCUDA:EwaldHost, enqueued TopKernel\n", myIndex);
+#endif
 
   workRequest bottomKernel; 
 
@@ -139,8 +147,15 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
 
   bottomKernel.callbackFn = cb;
   bottomKernel.id = BOTTOM_KERNEL; 
-
+#ifdef CUDA_INSTRUMENT_WRS
+  bottomKernel.chareIndex = myIndex;
+  bottomKernel.compType = bottomKernel.id;
+  bottomKernel.compPhase = 0; 
+#endif
   enqueue(wrQueue, &bottomKernel); 
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
+  printf("[%d] in EwaldCUDA:EwaldHost, enqueued BotKernel\n", myIndex);
+#endif
 }
 
 __global__ void EwaldTopKernel(GravityParticleData *particleTable) {

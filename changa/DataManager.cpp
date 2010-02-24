@@ -140,7 +140,7 @@ void DataManager::notifyPresence(Tree::GenericTreeNode *root) {
 
 #ifdef CUDA
   registeredTreePieces.push_back(TreePieceDescriptor(tp, index));
-  gpuFree = true;
+  //gpuFree = true;
   //registeredTreePieceIndices.push_back(index);
 #if COSMO_PRINT_BK > 1
   CkPrintf("(%d) notifyPresence called by %d, length: %d\n", CkMyPe(), index, registeredTreePieces.length());
@@ -206,6 +206,9 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
     }
 
   }
+#ifdef CUDA
+  gpuFree = true;
+#endif
   contribute(0, 0, CkReduction::random, *(CkCallback*)msg->getData());
   delete msg;
 }
@@ -331,13 +334,17 @@ const char *typeString(NodeType type);
 #include "HostCUDA.h"
 
 #ifdef CUDA_INSTRUMENT_WRS
-void DataManager::initInstrumentation(){
+int DataManager::initInstrumentation(){
+  CmiLock(__nodelock);
+  int saved = treePiecesDoneInitInstrumentation;
   treePiecesDoneInitInstrumentation++;
   if(treePiecesDoneInitInstrumentation == registeredTreePieces.length()){
     activeRung = registeredTreePieces[0].tp->getActiveRung();
     hapi_initInstrument(registeredTreePieces.length(), BOTTOM_EWALD_KERNEL+1);
     treePiecesDoneInitInstrumentation = 0;
   }
+  CmiUnlock(__nodelock);
+  return saved;
 }
 #endif
 
@@ -397,7 +404,7 @@ void DataManager::donePrefetch(int chunk){
 
       // Transfer moments and particle cores to gpu
 #ifdef CUDA_INSTRUMENT_WRS
-      DataManagerTransferRemoteChunk(buffers->moments->getVec(), lastChunkMoments, buffers->particles->getVec(), lastChunkParticles, CkMyPe(), activeRung);
+      DataManagerTransferRemoteChunk(buffers->moments->getVec(), lastChunkMoments, buffers->particles->getVec(), lastChunkParticles, 0, activeRung);
 #else
       DataManagerTransferRemoteChunk(buffers->moments->getVec(), lastChunkMoments, buffers->particles->getVec(), lastChunkParticles);
 #endif
@@ -676,7 +683,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 #endif
   // Transfer moments and particle cores to gpu
 #ifdef CUDA_INSTRUMENT_WRS
-  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, CkMyPe(), activeRung);
+  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, 0, activeRung);
 #else
   DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, CkMyPe());
 #endif
@@ -702,7 +709,7 @@ void DataManager::freeLocalTreeMemory(){
   if(treePiecesDoneLocalComputation == registeredTreePieces.length()){
     treePiecesDoneLocalComputation = 0; 
 #ifdef CUDA_INSTRUMENT_WRS
-    FreeDataManagerLocalTreeMemory(savedNumTotalNodes > 0, savedNumTotalParticles > 0, CkMyPe(), activeRung);
+    FreeDataManagerLocalTreeMemory(savedNumTotalNodes > 0, savedNumTotalParticles > 0, 0, activeRung);
 #else
     FreeDataManagerLocalTreeMemory(savedNumTotalNodes > 0, savedNumTotalParticles > 0);
 #endif
@@ -717,7 +724,7 @@ void DataManager::freeRemoteChunkMemory(int chunk){
     treePiecesDoneRemoteChunkComputation = 0; 
     //CkPrintf("(%d) DM freeRemoteChunkMemory chunk %d called\n", CkMyPe(), chunk);
 #ifdef CUDA_INSTRUMENT_WRS
-    FreeDataManagerRemoteChunkMemory(chunk, (void *)this, lastChunkMoments != 0, lastChunkParticles != 0, CkMyPe(), activeRung);
+    FreeDataManagerRemoteChunkMemory(chunk, (void *)this, lastChunkMoments != 0, lastChunkParticles != 0, 0, activeRung);
 #else
     FreeDataManagerRemoteChunkMemory(chunk, (void *)this, lastChunkMoments != 0, lastChunkParticles != 0);
 #endif
@@ -741,7 +748,7 @@ void DataManager::initiateNextChunkTransfer(){
 
     CkPrintf("(%d) DM initiateNextChunkTransfer chunk %d, 0x%x (%d); 0x%x (%d) \n", CkMyPe(), next->moments->getVec(), lastChunkMoments, next->particles->getVec(), lastChunkParticles);
 #ifdef CUDA_INSTRUMENT_WRS
-    DataManagerTransferRemoteChunk(next->moments->getVec(), next->moments->length(), next->particles->getVec(), next->particles->length(), CkMyPe(), activeRung);
+    DataManagerTransferRemoteChunk(next->moments->getVec(), next->moments->length(), next->particles->getVec(), next->particles->length(), 0, activeRung);
 #else
     DataManagerTransferRemoteChunk(next->moments->getVec(), next->moments->length(), next->particles->getVec(), next->particles->length());
 #endif
@@ -791,7 +798,7 @@ void DataManager::transferParticleVarsBack(){
     data->size = savedNumTotalParticles;
 
 #ifdef CUDA_INSTRUMENT_WRS
-    TransferParticleVarsBack(buf, savedNumTotalParticles*sizeof(VariablePartData), data->cb, CkMyPe(), activeRung);
+    TransferParticleVarsBack(buf, savedNumTotalParticles*sizeof(VariablePartData), data->cb, 0, activeRung);
 #else
     TransferParticleVarsBack(buf, savedNumTotalParticles*sizeof(VariablePartData), data->cb);
 #endif
@@ -802,6 +809,7 @@ void DataManager::transferParticleVarsBack(){
 void DataManager::updateParticles(UpdateParticlesStruct *data){
   int partIndex = 0;
 
+  // FIXME - not required?
   CmiLock(__nodelock);
 
   VariablePartData *deviceParticles = data->buf;
@@ -874,11 +882,8 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
     treePieces[registeredTreePieces[i].index].continueWrapUp();
   }
 
-#ifdef CUDA_INSTRUMENT_WRS
-  hapi_clearInstrument();
-#endif
-  
   registeredTreePieces.length() = 0;
+  // FIXME - not required?
   CmiUnlock(__nodelock); 
 }
 
@@ -893,5 +898,13 @@ void updateParticlesCallback(void *param, void *msg){
   delete (data->cb);
   delete data;
 }
+
+void DataManager::clearInstrument(CkCallback &cb){
+#ifdef CUDA_INSTRUMENT_WRS
+  hapi_clearInstrument();
+  contribute(0,0,CkReduction::concat,cb);
+#endif
+}
+
 #endif
 

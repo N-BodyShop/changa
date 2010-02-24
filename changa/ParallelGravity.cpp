@@ -37,6 +37,7 @@ CProxy_LvArray smoothProxy; // Proxy for smooth reductions
 CProxy_CkCacheManager cacheGravPart;
 CProxy_CkCacheManager cacheSmoothPart;
 CProxy_CkCacheManager cacheNode;
+CProxy_DataManager dMProxy;
 bool _cache;
 int _nocache;
 int _cacheLineDepth;
@@ -79,6 +80,7 @@ int partForceUE;
 
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
+
 
 void _Leader(void) {
     puts("USAGE: ChaNGa [SETTINGS | FLAGS] [PARAM_FILE]");
@@ -819,6 +821,7 @@ Main::Main(CkArgMsg* m) {
 	//create the DataManager
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
 	dataManagerID = dataManager;
+        dMProxy = dataManager;
 
 	streamingProxy = pieces;
 
@@ -1176,10 +1179,16 @@ void Main::advanceBigStep(int iStep) {
 	if(param.bConcurrentSph) {
 	    ckout << endl;
 	    treeProxy.startIteration(activeRung, theta, cbGravity);
+#ifdef CUDA_INSTRUMENT_WRS
+            dMProxy.clearInstrument(cbGravity);
+#endif
 	    }
 	else {
 	    treeProxy.startIteration(activeRung, theta,
 				     CkCallbackResumeThread());
+#ifdef CUDA_INSTRUMENT_WRS
+            dMProxy.clearInstrument(CkCallbackResumeThread());
+#endif
 	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		  << endl;
 	    }
@@ -1355,7 +1364,10 @@ void Main::setupICs() {
   }
 	
   if(param.bPeriodic) {	// puts all particles within the boundary
+      ckout << "drift particles to reset" << endl;
       treeProxy.drift(0.0, 0, 0, 0.0, 0, CkCallbackResumeThread());
+      ckout << "end drift particles to reset" << endl;
+
   }
   
   initialForces();
@@ -1451,9 +1463,15 @@ Main::initialForces()
       startTime = CkWallTimer();
       if(param.bConcurrentSph) {
 	  treeProxy.startIteration(0, theta, cbGravity);
+#ifdef CUDA_INSTRUMENT_WRS
+            dMProxy.clearInstrument(cbGravity);
+#endif
 	  }
       else {
 	  treeProxy.startIteration(0, theta, CkCallbackResumeThread());
+#ifdef CUDA_INSTRUMENT_WRS
+            dMProxy.clearInstrument(CkCallbackResumeThread());
+#endif
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
 	  }

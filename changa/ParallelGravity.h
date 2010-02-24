@@ -98,6 +98,7 @@ extern CProxy_TreePiece treeProxy;
 extern CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 extern CProxy_LvArray smoothProxy;  // Proxy for smooth reduction
 extern CProxy_TreePiece streamingProxy;
+extern CProxy_DataManager dMProxy;
 extern unsigned int numTreePieces;
 extern unsigned int particlesPerChare;
 
@@ -558,6 +559,9 @@ class TreePiece : public CBase_TreePiece {
         void callFreeRemoteChunkMemory(int chunk);
 
         int getActiveRung(){ return activeRung; }
+#ifdef CUDA_INSTRUMENT_WRS
+        int getInstrumentId(){ return instrumentId; }
+#endif
         // returns either all particles or only active particles,
         // depending on fraction of active particles to their
         // total count.
@@ -647,6 +651,10 @@ class TreePiece : public CBase_TreePiece {
         long long remotePartInteractions;
         long long remoteResumeNodeInteractions;
         long long remoteResumePartInteractions;
+#endif
+
+#ifdef CUDA_INSTRUMENT_WRS
+        int instrumentId;
 #endif
 
 #endif

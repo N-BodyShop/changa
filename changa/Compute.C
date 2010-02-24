@@ -1793,6 +1793,11 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
   data->remote = (getOptType() == Remote);
   data->callDummy = callDummy;
 
+#ifdef CUDA_INSTRUMENT_WRS
+  data->tpIndex = tp->getInstrumentId();
+  data->phase = tp->getActiveRung();
+#endif
+
 #ifdef CUDA_PRINT_TRANSFERRED_INTERACTIONS
   CkPrintf("*************\n");
   CkPrintf("[%d] %d cellLists:\n", thisIndex, getOptType());
@@ -1871,6 +1876,10 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
   data->remote = (getOptType() == Remote);
   data->callDummy = callDummy;
 
+#ifdef CUDA_INSTRUMENT_WRS
+  data->tpIndex = tp->getInstrumentId();
+  data->phase = tp->getActiveRung();
+#endif
 
 #ifdef CUDA_PRINT_TRANSFERRED_INTERACTIONS
   CkPrintf("*************\n");

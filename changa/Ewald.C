@@ -451,7 +451,11 @@ void TreePiece::EwaldGPU() {
 
   
   CkPrintf("[%d] in EwaldGPU, calling EwaldHost\n", thisIndex);
+#ifdef CUDA_INSTRUMENT_WRS
+  EwaldHost(h_idata, (void *) cb, instrumentId, activeRung); 
+#else
   EwaldHost(h_idata, (void *) cb, thisIndex); 
+#endif
 
 #endif
 }
