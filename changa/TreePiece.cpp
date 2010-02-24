@@ -31,6 +31,13 @@
 #include "cell_typedef.h"
 #endif
 
+#ifdef CUDA
+#ifdef CUDA_INSTRUMENT_WRS
+#define GPU_INSTRUMENT_WRS
+#include "wr.h"
+#endif
+#endif
+
 using namespace std;
 using namespace SFC;
 using namespace TreeStuff;
@@ -3343,6 +3350,11 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   // we realize no more computation requests will be received
   // (i.e. all buckets have finished their RNR/Local walks)
 #ifdef CUDA
+
+#ifdef CUDA_INSTRUMENT_WRS
+  dm->initInstrumentation();
+#endif
+
   numActiveBuckets = 0;
   calculateNumActiveParticles();
   for(int i = 0; i < numBuckets; i++){
@@ -5335,12 +5347,59 @@ void TreePiece::finishWalk()
 #endif
 
 #ifdef CUDA_STATS
+
+#ifdef CUDA_INSTRUMENT_WRS
+  RequestTimeInfo &rti1 = hapi_queryInstrument(thisIndex, DM_TRANSFER_LOCAL, activeRung);
+  RequestTimeInfo &rti2 = hapi_queryInstrument(thisIndex, DM_TRANSFER_REMOTE_CHUNK, activeRung);
+  RequestTimeInfo &rti3 = hapi_queryInstrument(thisIndex, DM_TRANSFER_BACK, activeRung);
+  RequestTimeInfo &rti4 = hapi_queryInstrument(thisIndex, DM_TRANSFER_FREE_LOCAL, activeRung);
+  RequestTimeInfo &rti5 = hapi_queryInstrument(thisIndex, DM_TRANSFER_FREE_REMOTE_CHUNK, activeRung);
+  
+  RequestTimeInfo &rti6 = hapi_queryInstrument(thisIndex, TP_GRAVITY_LOCAL, activeRung);
+  RequestTimeInfo &rti7 = hapi_queryInstrument(thisIndex, TP_GRAVITY_REMOTE, activeRung);
+  RequestTimeInfo &rti8 = hapi_queryInstrument(thisIndex, TP_GRAVITY_REMOTE_RESUME, activeRung);
+  
+  RequestTimeInfo &rti9 = hapi_queryInstrument(thisIndex,TP_PART_GRAVITY_LOCAL_SMALLPHASE, activeRung);
+  RequestTimeInfo &rti10 = hapi_queryInstrument(thisIndex, TP_PART_GRAVITY_LOCAL, activeRung);
+  RequestTimeInfo &rti11 = hapi_queryInstrument(thisIndex, TP_PART_GRAVITY_REMOTE, activeRung);
+  RequestTimeInfo &rti12 = hapi_queryInstrument(thisIndex, TP_PART_GRAVITY_REMOTE_RESUME, activeRung);
+
+  RequestTimeInfo &rti13 = hapi_queryInstrument(thisIndex, TOP_EWALD_KERNEL, activeRung);
+  RequestTimeInfo &rti14 = hapi_queryInstrument(thisIndex, BOTTOM_EWALD_KERNEL, activeRung);
+
+  CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS localnode: (%f,%f,%f)\n", thisIndex, activeRung, 
+                                                                    rti6.transferTime/rti6.n,
+                                                                    rti6.kernelTime/rti6.n,
+                                                                    rti6.cleanupTime/rti6.n);
+  CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remotenode: (%f,%f,%f)\n", thisIndex, activeRung, 
+                                                                    rti7.transferTime/rti7.n,
+                                                                    rti7.kernelTime/rti7.n,
+                                                                    rti7.cleanupTime/rti7.n);
+  CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remoteresumenode: (%f,%f,%f)\n", thisIndex, activeRung, 
+                                                                    rti8.transferTime/rti8.n,
+                                                                    rti8.kernelTime/rti8.n,
+                                                                    rti8.cleanupTime/rti8.n);
+  CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS localpart: (%f,%f,%f)\n", thisIndex, activeRung, 
+                                                                    rti10.transferTime/rti10.n,
+                                                                    rti10.kernelTime/rti10.n,
+                                                                    rti10.cleanupTime/rti10.n);
+  CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remotepart: (%f,%f,%f)\n", thisIndex, activeRung, 
+                                                                    rti11.transferTime/rti11.n,
+                                                                    rti11.kernelTime/rti11.n,
+                                                                    rti11.cleanupTime/rti11.n);
+  CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remoteresumepart: (%f,%f,%f)\n", thisIndex, activeRung, 
+                                                                    rti12.transferTime/rti12.n,
+                                                                    rti12.kernelTime/rti12.n,
+                                                                    rti12.cleanupTime/rti12.n);
+
+#endif
   CkPrintf("[%d] (%d) CUDA_STATS localnode: %ld\n", thisIndex, activeRung, localNodeInteractions);
   CkPrintf("[%d] (%d) CUDA_STATS remotenode: %ld\n", thisIndex, activeRung, remoteNodeInteractions);
   CkPrintf("[%d] (%d) CUDA_STATS remoteresumenode: %ld\n", thisIndex, activeRung, remoteResumeNodeInteractions);
   CkPrintf("[%d] (%d) CUDA_STATS localpart: %ld\n", thisIndex, activeRung, localPartInteractions);
   CkPrintf("[%d] (%d) CUDA_STATS remotepart: %ld\n", thisIndex, activeRung, remotePartInteractions);
   CkPrintf("[%d] (%d) CUDA_STATS remoteresumepart: %ld\n", thisIndex, activeRung, remoteResumePartInteractions);
+  
 #endif
 
   contribute(0, 0, CkReduction::concat, callback);

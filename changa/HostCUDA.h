@@ -113,6 +113,10 @@ typedef struct _CudaRequest{
         bool node;
         // is this a remote or local computation 
         bool remote;
+#ifdef CUDA_INSTRUMENT_WRS
+        int tpIndex;
+        char phase;
+#endif
 }CudaRequest;
 
 typedef struct _ParameterStruct{
@@ -123,8 +127,19 @@ typedef struct _ParameterStruct{
   cudatype fperiod;
 }ParameterStruct;
 
+#ifdef CUDA_INSTRUMENT_WRS
+void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase);
+void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase);
+void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart, int pe, char phase);
+void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart, int pe, char phase);
+void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, int pe, char phase);
+#else
 void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype);
 void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts);
+void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart);
+void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart);
+void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb);
+#endif
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data);
 void TreePieceCellListDataTransferRemote(CudaRequest *data);

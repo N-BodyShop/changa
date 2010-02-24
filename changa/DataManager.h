@@ -108,10 +108,6 @@ protected:
         //std::map<Tree::NodeKey, GenericTreeNode *> missedNodesOnGpu;
         //std::map<Tree::NodeKey, ExternalGravityParticle *> missedPartsOnGpu;
 
-#if 0
-        TreePieceDescriptor *findKeyInDescriptors(SFC::Key particleKey);
-#endif
-
         // can the gpu accept a chunk of remote particles/nodes?
         bool gpuFree;
         // queue that stores all pending chunk transfers
@@ -120,6 +116,11 @@ protected:
         // last remote chunk's size in moments and particles
         int lastChunkMoments;
         int lastChunkParticles;
+
+#ifdef CUDA_INSTRUMENT_WRS
+        int activeRung;
+        int treePiecesDoneInitInstrumentation;
+#endif
 #endif
 	/// The root of the combined trees
 	Tree::GenericTreeNode * root;
@@ -152,6 +153,9 @@ public:
         void transferParticleVarsBack();
         void updateParticles(UpdateParticlesStruct *data);
         void initiateNextChunkTransfer();
+#ifdef CUDA_INSTRUMENT_WRS
+        void initInstrumentation();
+#endif
         DataManager(){} 
 #endif
 

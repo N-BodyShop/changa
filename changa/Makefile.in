@@ -34,10 +34,13 @@ HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
 # for performance monitoring via projections/stats
 # -DCUDA_STATS
 # -DCUDA_TRACE
+# -DCUDA_INSTRUMENT_WRS: to instrument time taken for each phase of a request. 
+#                        prints average transfer, kernel and cleanup times for
+#                        various kinds of request.
 #
 # Uncomment definition of CUDA for make benefit CUDA version
 # Currently requires that HEXADECAPOLE be disabled 
-# CUDA = -DINTERLIST_VER=2 -DCUDA_STATS -DCUDA -DCUDA_USE_CUDAMALLOCHOST -DSPCUDA #-DCUDA_MEMPOOL 
+# CUDA = -DINTERLIST_VER=2 -DCUDA_STATS -DCUDA -DCUDA_USE_CUDAMALLOCHOST -DSPCUDA #-DCUDA_MEMPOOL #-DCUDA_INSTRUMENT_WRS
 
 # useful refactor flag combinations:
 # -DCHANGA_REFACTOR_WALKCHECK
