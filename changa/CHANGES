@@ -1,0 +1,51 @@
+What's new in ChaNGa 2.0 (Since 1.0)
+
+===============================================================================
+
+Physics Changes:
+
+- Smooth Particle Hydrodynamics is now implemented.
+
+- Hexadecapole expansions for the gravity calculation.
+
+- Physical gravitational softening lengths for comoving simulations.
+
+- Gravitational timestepping option.
+
+- Non-cubical periodic boundary conditions.
+
+- Adiabatically grow particle masses for equilibrium initial conditions.
+
+-------------------------------------------------------------------------------
+
+Output Changes:
+
+- Output of movie files is available.
+
+- Realtime visualization via liveViz is implemented.
+
+- Output at specific redshifts or times.
+
+-------------------------------------------------------------------------------
+
+Hardware support changes:
+
+- Support for CUDA.
+
+- SSE2 implementation of force calculations.
+
+- Better detection of 64 bit integer type.
+
+-------------------------------------------------------------------------------
+
+Parallel Infrastructure Changes:
+
+- Multistep-aware load balancer.
+
+- Rewrite of inter node caching to use the Charm++ Cache framework.
+
+- Refactor of treewalking for easier support for new types of treewalks.
+
+- Checkpointing using the Charm run time system.
+
+- Overlapping treewalks.

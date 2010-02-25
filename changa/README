@@ -1,3 +1,11 @@
+          ChaNGa - An adaptible N-body and gas dynamics code.
+                  (Charm N-body GrAvity solver)
+
+For documentation, see the web site:
+http://librarian.phys.washington.edu/astro/index.php/Research:ChaNGa
+
+For more help, subscribe to the list changa-users@u.washington.edu.
+
 To compile ChaNGa first compile Charm++ or get a precompiled version.  Also
 build the "cache" module and the "liveViz" module in charm++, then run:
 
@@ -19,9 +27,30 @@ More information are available in the online wiki:
 http://librarian.phys.washington.edu/astro/index.php/Research:ChaNGa
 
 Several test simulations are included in subdirectories:
-A small cosmological simulation is included in testcosmo.
-A small globular cluster simulation is included in teststep.
-For simple performance benchmarking, arbitrary size simulations can be done
-in testdata.
-An example simulation that generates movie frames is included in movie.
 
+A small globular cluster simulation is included in teststep.  This
+simulation can give a quick sanity check that the gravity code is
+operating correctly.
+
+A small cosmological simulation is included in testcosmo.
+
+A small shock tube (gas only) simulation is included in testshock.
+
+A small gas collapse simulation is included in testcollapse.
+
+For simple performance benchmarking, arbitrary size simulations can be created
+using the tools in testdata.
+
+An example simulation that generates movie frames is included in movie.  See
+the director.README in that directory for movie-making options.
+
+ACKNOWLEDGEMENTS
+================
+
+The development of ChaNGa was supported by a National Science
+Foundation ITR grant PHY-0205413 to the University of Washington, and
+NSF ITR grant NSF-0205611 to the University of Illinois.  Contributors
+to the program include Graeme Lufkin, Tom Quinn, Rok Roskar, Filippo
+Gioachin, Sayantan Chakravorty, Amit Sharma, Pritish Jetley, Lukasz
+Wesolowski, Edgar Solomonik, Celso Mendes, Joachim Stadel, and James
+Wadsley.
