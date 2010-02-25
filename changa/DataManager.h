@@ -156,9 +156,9 @@ public:
 #ifdef CUDA_INSTRUMENT_WRS
         int initInstrumentation();
 #endif
-        void clearInstrument(CkCallback &cb);
         DataManager(){} 
 #endif
+        void clearInstrument(CkCallback &cb);
 
 private:
         void init();

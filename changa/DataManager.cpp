@@ -899,6 +899,8 @@ void updateParticlesCallback(void *param, void *msg){
   delete data;
 }
 
+#endif
+
 void DataManager::clearInstrument(CkCallback &cb){
 #ifdef CUDA_INSTRUMENT_WRS
   hapi_clearInstrument();
@@ -906,5 +908,4 @@ void DataManager::clearInstrument(CkCallback &cb){
 #endif
 }
 
-#endif
 
