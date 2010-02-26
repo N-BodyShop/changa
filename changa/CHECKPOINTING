@@ -15,19 +15,3 @@ restored.
 
 All groups and node groups need to get migration constructors since they
 automatically get dumped.
-
-There are a number of Charm++ issues/bugs.
-
-1) Mainchare and any other regular Chare (like Sorter) isn't handled well in
-this framework.  Orion has a suggested solution to fix this, but for now
-Sorter needs to be re-allocated, and a MainChare entrypoint can't be used as
-a Checkpoint restart callback.
-
-2) There are some memory initialization problems with the restart that get
-uncovered by -memory paranoid
-
-3) Groups don't get restarted completely properly.  This gets uncovered by
-the group reduction done by the CacheManager.
-
-
-
