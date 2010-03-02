@@ -381,7 +381,7 @@ void Sorter::convertNodesToSplitters(){
  * splitters key for the histogramming phase.
  */
 Key * Sorter::convertNodesToSplittersRefine(int num, NodeKey* keys){
-  Key partKey;
+  Key partKey = Key(0);
 
   Key *result = new Key[num * ((2<<refineLevel)+1)];
   int64_t levelMask = int64_t(1) << 63;
