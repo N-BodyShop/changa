@@ -441,7 +441,7 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
 
   // to calculate ratio of active particles in phase
   int numActiveParticles = 0;
-  int totalNumParticles;
+  int totalNumParticles = 0;
   
   for(i = 0; i < stats->n_objs; i++){
     stats->to_proc[i] = stats->from_proc[i];
