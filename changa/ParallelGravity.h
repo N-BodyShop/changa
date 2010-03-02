@@ -655,6 +655,21 @@ class TreePiece : public CBase_TreePiece {
 
 #ifdef CUDA_INSTRUMENT_WRS
         int instrumentId;
+
+        double localNodeListConstructionTime;
+        double remoteNodeListConstructionTime;
+        double remoteResumeNodeListConstructionTime;
+        double localPartListConstructionTime;
+        double remotePartListConstructionTime;
+        double remoteResumePartListConstructionTime;
+        
+        int nLocalNodeReqs;
+        int nRemoteNodeReqs;
+        int nRemoteResumeNodeReqs;
+        int nLocalPartReqs;
+        int nRemotePartReqs;
+        int nRemoteResumePartReqs;
+
 #endif
 
 #endif

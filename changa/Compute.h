@@ -193,6 +193,7 @@ class ListCompute : public Compute{
   void resetCudaNodeState(DoubleWalkState *state);
   void resetCudaPartState(DoubleWalkState *state);
   void initCudaState(DoubleWalkState *state, int numBuckets, int nodeThreshold, int partThreshold, bool resume);
+  
 #endif
 
 };

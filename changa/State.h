@@ -127,6 +127,11 @@ class DoubleWalkState : public State {
   GenericList<ILCell> nodeLists;
   GenericList<ILPart> particleLists;
 
+#ifdef CUDA_INSTRUMENT_WRS
+  double nodeListTime;
+  double partListTime;
+#endif
+
   CkVec<CudaMultipoleMoments> *nodes;
   CkVec<CompactPartData> *particles;
 
@@ -160,6 +165,16 @@ class DoubleWalkState : public State {
   bool partOffloadReady(){
     return particleLists.totalNumInteractions >= partThreshold;
   }
+
+#ifdef CUDA_INSTRUMENT_WRS
+  void updateNodeThreshold(int t){
+    nodeThreshold = t;
+  }
+  void updatePartThreshold(int t){
+    partThreshold = t;
+  }
+#endif
+
 #endif
 
   // The lowest nodes reached on paths to each bucket
@@ -171,6 +186,26 @@ class DoubleWalkState : public State {
 
   DoubleWalkState() : chklists(0), lowestNode(0), level(-1)
   {}
+
+#ifdef CUDA_INSTRUMENT_WRS
+  void nodeListConstructionTimeStart(){
+    nodeListTime = CmiWallTimer();
+  }
+
+  double nodeListConstructionTimeStop(){
+    return CmiWallTimer()-nodeListTime;
+  }
+
+  void partListConstructionTimeStart(){
+    partListTime = CmiWallTimer();
+  }
+
+  double partListConstructionTimeStop(){
+    return CmiWallTimer()-partListTime;
+  }
+
+#endif
+
 
 };
 

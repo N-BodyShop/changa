@@ -22,8 +22,6 @@
 
 #include "wr.h"
 
-#define BLOCK_SIZE_GRAV 64
-
 //extern workRequestQueue *wrQueue;
 //extern void **devBuffers;
 //extern cudaStream_t kernel_stream;
@@ -296,7 +294,11 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
         //ParameterStruct *pmtr;
 
 	gravityKernel.dimGrid = dim3(numBlocks);
-	gravityKernel.dimBlock = dim3(BLOCK_SIZE_GRAV);
+#ifdef CUDA_2D_TB_KERNEL
+        gravityKernel.dimBlock = dim3(NODES_PER_BLOCK,PARTS_PER_BLOCK);
+#else
+	gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
+#endif
 	gravityKernel.smemSize = 0;
 
 	gravityKernel.nBuffers = TP_GRAVITY_LOCAL_NBUFFERS;
@@ -326,7 +328,11 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
 	//dataInfo *buffer, *partCoreBuffer;
 
 	gravityKernel.dimGrid = dim3(numBlocks);
-	gravityKernel.dimBlock = dim3(BLOCK_SIZE_GRAV);
+#ifdef CUDA_2D_TB_KERNEL
+        gravityKernel.dimBlock = dim3(NODES_PER_BLOCK,PARTS_PER_BLOCK);
+#else
+	gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
+#endif
 	gravityKernel.smemSize = 0;
 
 	gravityKernel.nBuffers = TP_NODE_GRAVITY_REMOTE_NBUFFERS;
@@ -358,7 +364,11 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleM
   bool transfer;
 
   gravityKernel.dimGrid = dim3(numBlocks);
-  gravityKernel.dimBlock = dim3(BLOCK_SIZE_GRAV);
+#ifdef CUDA_2D_TB_KERNEL
+        gravityKernel.dimBlock = dim3(NODES_PER_BLOCK,PARTS_PER_BLOCK);
+#else
+  gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
+#endif
   gravityKernel.smemSize = 0;
 
   gravityKernel.nBuffers = TP_NODE_GRAVITY_REMOTE_RESUME_NBUFFERS;
@@ -472,7 +482,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
         bool transfer;
 
 	gravityKernel.dimGrid = dim3(numBlocks);
-	gravityKernel.dimBlock = dim3(BLOCK_SIZE_GRAV);
+	gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
 	gravityKernel.smemSize = 0;
 
 	gravityKernel.nBuffers = TP_GRAVITY_LOCAL_NBUFFERS_SMALLPHASE;
@@ -530,7 +540,7 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
 	//dataInfo *buffer, *partCoreBuffer;
 
 	gravityKernel.dimGrid = dim3(numBlocks);
-	gravityKernel.dimBlock = dim3(BLOCK_SIZE_GRAV);
+	gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
 	gravityKernel.smemSize = 0;
 
 	gravityKernel.nBuffers = TP_GRAVITY_LOCAL_NBUFFERS;
@@ -559,7 +569,7 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
 	workRequest gravityKernel;
 
 	gravityKernel.dimGrid = dim3(numBlocks);
-	gravityKernel.dimBlock = dim3(BLOCK_SIZE_GRAV);
+	gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
 	gravityKernel.smemSize = 0;
 
 	gravityKernel.nBuffers = TP_PART_GRAVITY_REMOTE_NBUFFERS;
@@ -591,7 +601,7 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartDat
         dataInfo *buffer;
 
 	gravityKernel.dimGrid = dim3(numBlocks);
-	gravityKernel.dimBlock = dim3(BLOCK_SIZE_GRAV);
+	gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
 	gravityKernel.smemSize = 0;
 
 	gravityKernel.nBuffers = TP_PART_GRAVITY_REMOTE_RESUME_NBUFFERS;
@@ -860,7 +870,7 @@ void DummyKernel(void *cb){
   //dataInfo *buffer;
 
   dummy.dimGrid = dim3(1);
-  dummy.dimBlock = dim3(BLOCK_SIZE_GRAV);
+  dummy.dimBlock = dim3(THREADS_PER_BLOCK);
   dummy.smemSize = 0;
   dummy.nBuffers = 0;
   dummy.bufferInfo = 0; //(dataInfo *) malloc(1 * sizeof(dataInfo));
@@ -1470,6 +1480,149 @@ void kernelSelect(workRequest *wr) {
 #define GROUP(t)  ((t)/MAX_THREADS_PER_GROUP)
 #define GROUP_INDEX(t) ((t)%MAX_THREADS_PER_GROUP)
 
+// 2d thread blocks 
+#ifdef CUDA_2D_TB_KERNEL
+#define TRANSLATE(x,y) (y*NODES_PER_BLOCK+x)
+__global__ void nodeGravityComputation(
+		CompactPartData *particleCores,
+		VariablePartData *particleVars,
+		CudaMultipoleMoments *moments,
+		ILCell *ils,
+		int numInteractions,
+		int *ilmarks,
+		int *bucketStarts,
+		int *bucketSizes,
+		int numBucketsPlusOne, cudatype fperiod, int type, int numNodes){
+  
+  __shared__ CudaVector3D acc[THREADS_PER_BLOCK];
+  __shared__ cudatype pot[THREADS_PER_BLOCK];
+  __shared__ CudaMultipoleMoments m[NODES_PER_BLOCK];
+  __shared__ CompactPartData shared_particle_cores[PARTS_PER_BLOCK];
+
+  int bucket = blockIdx.x;
+  int start = ilmarks[bucket];
+  int end = ilmarks[bucket+1];
+  int bucketStart = bucketStarts[bucket];
+  int bucketSize = bucketSizes[bucket];
+  char tx, ty;
+
+
+  int xstart, ystart;
+  tx = threadIdx.x;
+  ty = threadIdx.y;
+
+  for(ystart = 0; ystart < bucketSize; ystart += PARTS_PER_BLOCK){
+  
+    int my_particle_idx = ystart + ty;
+    if(tx == 0 && my_particle_idx < bucketSize){
+      shared_particle_cores[ty] = particleCores[bucketStart+my_particle_idx];
+    }
+    acc[TRANSLATE(tx,ty)].x = 0.0;
+    acc[TRANSLATE(tx,ty)].y = 0.0;
+    acc[TRANSLATE(tx,ty)].z = 0.0;
+    pot[TRANSLATE(tx,ty)] = 0.0;
+    
+    for(xstart = 0; xstart < end; xstart += NODES_PER_BLOCK){
+      int my_cell_idx = start + xstart + tx;
+      ILCell ilc;
+      int offsetID;
+
+      __syncthreads(); // wait for all threads to finish using 
+                       // previous iteration's nodes before reloading
+      
+      if(ty == 0 && my_cell_idx < end){
+        ilc = ils[my_cell_idx];
+        m[tx] = moments[ilc.index];
+        offsetID = ilc.offsetID;
+      }
+      
+      __syncthreads(); // wait for nodes to be loaded before using them
+      
+      if(my_particle_idx < bucketSize && my_cell_idx < end){ // INTERACT
+        CudaVector3D r;
+        cudatype rsq;
+        cudatype twoh, a, b, c, d;
+
+        r.x = shared_particle_cores[ty].position.x -
+          ((((offsetID >> 22) & 0x7)-3)*fperiod + m[tx].cm.x);
+        r.y = shared_particle_cores[ty].position.y -
+          ((((offsetID >> 25) & 0x7)-3)*fperiod + m[tx].cm.y);
+        r.z = shared_particle_cores[ty].position.z -
+          ((((offsetID >> 28) & 0x7)-3)*fperiod + m[tx].cm.z);
+
+        rsq = r.x*r.x + r.y*r.y + r.z*r.z;        
+        twoh = m[tx].soft + shared_particle_cores[ty].soft;
+        if(rsq != 0){
+          cudatype dir = 1.0/sqrt(rsq);
+          // SPLINEQ(dir, rsq, twoh, a, b, c, d);
+          // expansion of function below:
+          cudatype u,dih;
+          if (rsq < twoh*twoh) {
+            dih = 2.0/twoh;
+            u = dih/dir;
+            if (u < 1.0) {
+              a = dih*(7.0/5.0 - 2.0/3.0*u*u + 3.0/10.0*u*u*u*u
+                  - 1.0/10.0*u*u*u*u*u);
+              b = dih*dih*dih*(4.0/3.0 - 6.0/5.0*u*u + 1.0/2.0*u*u*u);
+              c = dih*dih*dih*dih*dih*(12.0/5.0 - 3.0/2.0*u);
+              d = 3.0/2.0*dih*dih*dih*dih*dih*dih*dir;
+            }
+            else {
+              a = -1.0/15.0*dir + dih*(8.0/5.0 - 4.0/3.0*u*u + u*u*u
+                  - 3.0/10.0*u*u*u*u + 1.0/30.0*u*u*u*u*u);
+              b = -1.0/15.0*dir*dir*dir + dih*dih*dih*(8.0/3.0 - 3.0*u
+                  + 6.0/5.0*u*u - 1.0/6.0*u*u*u);
+              c = -1.0/5.0*dir*dir*dir*dir*dir + 3.0*dih*dih*dih*dih*dir
+                + dih*dih*dih*dih*dih*(-12.0/5.0 + 1.0/2.0*u);
+              d = -dir*dir*dir*dir*dir*dir*dir
+                + 3.0*dih*dih*dih*dih*dir*dir*dir
+                - 1.0/2.0*dih*dih*dih*dih*dih*dih*dir;
+            }
+          }
+          else {
+            a = dir;
+            b = a*a*a;
+            c = 3.0*b*a*a;
+            d = 5.0*c*a*a;
+          }
+
+          cudatype qirx = m[tx].xx*r.x + m[tx].xy*r.y + m[tx].xz*r.z;
+          cudatype qiry = m[tx].xy*r.x + m[tx].yy*r.y + m[tx].yz*r.z;
+          cudatype qirz = m[tx].xz*r.x + m[tx].yz*r.y + m[tx].zz*r.z;
+          cudatype qir = 0.5*(qirx*r.x + qiry*r.y + qirz*r.z);
+          cudatype tr = 0.5*(m[tx].xx + m[tx].yy + m[tx].zz);
+          cudatype qir3 = b*m[tx].totalMass + d*qir - c*tr;
+
+          pot[TRANSLATE(tx, ty)] -= m[tx].totalMass * a + c*qir - b*tr;
+
+          acc[TRANSLATE(tx, ty)].x -= qir3*r.x - c*qirx;
+          acc[TRANSLATE(tx, ty)].y -= qir3*r.y - c*qiry;
+          acc[TRANSLATE(tx, ty)].z -= qir3*r.z - c*qirz;
+        }// end if rsq != 0
+      }// end INTERACT
+    }// end for each NODE group
+
+    __syncthreads(); // wait for all threads to finish before results become available
+
+    cudatype sumx, sumy, sumz, poten;
+    sumx = sumy = sumz = poten = 0.0;
+    // accumulate forces, potential in global memory data structure
+    if(tx == 0 && my_particle_idx < bucketSize){
+      for(int i = 0; i < NODES_PER_BLOCK; i++){
+        sumx += acc[TRANSLATE(i,ty)].x;
+        sumy += acc[TRANSLATE(i,ty)].y;
+        sumz += acc[TRANSLATE(i,ty)].z;
+        poten += pot[TRANSLATE(i,ty)];
+      }
+      particleVars[bucketStart+ystart+my_particle_idx].a.x += sumx;
+      particleVars[bucketStart+ystart+my_particle_idx].a.y += sumy;
+      particleVars[bucketStart+ystart+my_particle_idx].a.z += sumz;
+      particleVars[bucketStart+ystart+my_particle_idx].potential += poten;
+    }
+  }// end for each PARTICLE group
+}
+
+#else
 __global__ void nodeGravityComputation(
 		CompactPartData *particleCores,
 		VariablePartData *particleVars,
@@ -1656,40 +1809,11 @@ __global__ void nodeGravityComputation(
                                                     );
 #endif
     }
-
-
-    /*
-    cudatype sum = 0.0;
-    if(thread == 0){
-      for(int i = 0; i < THREADS_PER_BLOCK; i++){
-        sum += acc[i].x;
-      }
-      particleVars[bucketStart+particle].a.x += sum;
-
-      sum = 0;
-      for(int i = 0; i < THREADS_PER_BLOCK; i++){
-        sum += acc[i].y;
-      }
-      particleVars[bucketStart+particle].a.y += sum;
-
-      sum = 0;
-      for(int i = 0; i < THREADS_PER_BLOCK; i++){
-        sum += acc[i].z;
-      }
-      particleVars[bucketStart+particle].a.z += sum;
-
-      sum = 0;
-      for(int i = 0; i < THREADS_PER_BLOCK; i++){
-        sum += pot[i];
-      }
-      particleVars[bucketStart+particle].potential += sum;
-    }
-    */
-
   }// for each particle in bucket
 
       
 }
+#endif
 
 __global__ void particleGravityComputation(
                                    CompactPartData *targetCores,

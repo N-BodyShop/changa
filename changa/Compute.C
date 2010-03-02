@@ -1678,6 +1678,7 @@ void ListCompute::initCudaState(DoubleWalkState *state, int numBuckets, int node
 
         state->nodeLists.init(numBuckets, NUM_INIT_MOMENT_INTERACTIONS_PER_BUCKET);
         state->particleLists.init(numBuckets, NUM_INIT_PARTICLE_INTERACTIONS_PER_BUCKET);
+
 }
 
 void ListCompute::resetCudaNodeState(DoubleWalkState *state){
@@ -1694,6 +1695,7 @@ void ListCompute::resetCudaNodeState(DoubleWalkState *state){
     }
     state->nodeMap.length() = 0;
   }
+  
 }
 
 void ListCompute::resetCudaPartState(DoubleWalkState *state){
@@ -1703,8 +1705,6 @@ void ListCompute::resetCudaPartState(DoubleWalkState *state){
     state->partMap.clear();
   }
 }
-
-
 
 void cudaCallback(void *param, void *msg){
   CudaRequest *data = (CudaRequest *)param;
@@ -1833,17 +1833,28 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
 
   OptType type = getOptType();
   data->cb = new CkCallback(cudaCallback, data);
+#ifdef CUDA_INSTRUMENT_WRS
+  double time = state->nodeListConstructionTimeStop();
+#endif
   if(type == Local){
 #ifdef CUDA_STATS
     tp->localNodeInteractions += state->nodeLists.totalNumInteractions;
 #endif
     TreePieceCellListDataTransferLocal(data);
+#ifdef CUDA_INSTRUMENT_WRS
+    tp->localNodeListConstructionTime += time;
+    tp->nLocalNodeReqs++;
+#endif
   }
   else if(type == Remote && !state->resume){
 #ifdef CUDA_STATS
     tp->remoteNodeInteractions += state->nodeLists.totalNumInteractions;
 #endif
     TreePieceCellListDataTransferRemote(data);
+#ifdef CUDA_INSTRUMENT_WRS
+    tp->remoteNodeListConstructionTime += time;
+    tp->nRemoteNodeReqs++;
+#endif
   }
   else if(type == Remote && state->resume){
     CudaMultipoleMoments *missedNodes = state->nodes->getVec();
@@ -1853,10 +1864,17 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
     tp->remoteResumeNodeInteractions += state->nodeLists.totalNumInteractions;
 #endif
     TreePieceCellListDataTransferRemoteResume(data, missedNodes, len);
+#ifdef CUDA_INSTRUMENT_WRS
+    tp->remoteResumeNodeListConstructionTime += time;
+    tp->nRemoteResumeNodeReqs++;
+#endif
   }
 #ifdef CHANGA_REFACTOR_MEMCHECK
   CkPrintf("memcheck after sendNodeInteractionsToGpu\n");
   CmiMemoryCheck();
+#endif
+#ifdef CUDA_INSTRUMENT_WRS
+  state->nodeListConstructionTimeStart();
 #endif
 }
 
@@ -1915,6 +1933,9 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
 
   OptType type = getOptType();
   data->cb = new CkCallback(cudaCallback, data);
+#ifdef CUDA_INSTRUMENT_WRS
+  double time = state->partListConstructionTimeStop();
+#endif
 
   if(type == Local){
 #ifdef CUDA_STATS
@@ -1929,12 +1950,20 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
       TreePiecePartListDataTransferLocalSmallPhase(data, parts, leng);
       tp->clearMarkedBuckets(state->markedBuckets);
     }
+#ifdef CUDA_INSTRUMENT_WRS
+    tp->localPartListConstructionTime += time;
+    tp->nLocalPartReqs++;
+#endif
   }
   else if(type == Remote && !state->resume){
 #ifdef CUDA_STATS
     tp->remotePartInteractions += state->particleLists.totalNumInteractions;
 #endif
     TreePiecePartListDataTransferRemote(data);
+#ifdef CUDA_INSTRUMENT_WRS
+    tp->remotePartListConstructionTime += time;
+    tp->nRemotePartReqs++;
+#endif
   }
   else if(type == Remote && state->resume){
     CompactPartData *missedParts = state->particles->getVec();
@@ -1944,10 +1973,17 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
     tp->remoteResumePartInteractions += state->particleLists.totalNumInteractions;
 #endif
     TreePiecePartListDataTransferRemoteResume(data, missedParts, len);
+#ifdef CUDA_INSTRUMENT_WRS
+    tp->remoteResumePartListConstructionTime += time;
+    tp->nRemoteResumePartReqs++;
+#endif
   }
 #ifdef CHANGA_REFACTOR_MEMCHECK
   CkPrintf("memcheck after sendPartInteractionsToGpu\n");
   CmiMemoryCheck();
+#endif
+#ifdef CUDA_INSTRUMENT_WRS
+  state->partListConstructionTimeStart();
 #endif
 }
 

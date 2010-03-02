@@ -2172,6 +2172,10 @@ void TreePiece::doAllBuckets(){
 #endif
 
   thisProxy[thisIndex].nextBucket(msg);
+#ifdef CUDA_INSTRUMENT_WRS
+  ((DoubleWalkState *)sLocalGravityState)->nodeListConstructionTimeStart();
+  ((DoubleWalkState *)sLocalGravityState)->partListConstructionTimeStart();
+#endif
 }
 
 #ifdef CELL
@@ -2774,6 +2778,13 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
   CkPrintf("memcheck right after starting cgr\n");
   CmiMemoryCheck();
 #endif
+
+#ifdef CUDA_INSTRUMENT_WRS
+  ((DoubleWalkState *)sRemoteGravityState)->nodeListConstructionTimeStart();
+  ((DoubleWalkState *)sRemoteGravityState)->partListConstructionTimeStart();
+  ((DoubleWalkState *)sInterListStateRemoteResume)->nodeListConstructionTimeStart();
+  ((DoubleWalkState *)sInterListStateRemoteResume)->partListConstructionTimeStart();
+#endif
     // OK to pass bogus arguments because we don't expect to miss on this anyway (see CkAssert(chunkRoot) below.)
   if (chunkRoot == NULL) {
     int first, last;
@@ -3358,6 +3369,20 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
 
 #ifdef CUDA_INSTRUMENT_WRS
   instrumentId = dm->initInstrumentation();
+
+  localNodeListConstructionTime = 0.0;
+  remoteNodeListConstructionTime = 0.0;
+  remoteResumeNodeListConstructionTime = 0.0;
+  localPartListConstructionTime = 0.0;
+  remotePartListConstructionTime = 0.0;
+  remoteResumePartListConstructionTime = 0.0;
+
+  nLocalNodeReqs = 0;
+  nRemoteNodeReqs = 0;
+  nRemoteResumeNodeReqs = 0;
+  nLocalPartReqs = 0;
+  nRemotePartReqs = 0;
+  nRemoteResumePartReqs = 0;
 #endif
 
   numActiveBuckets = 0;
@@ -5406,6 +5431,55 @@ void TreePiece::finishWalk()
         rti12->transferTime/rti12->n,
         rti12->kernelTime/rti12->n,
         rti12->cleanupTime/rti12->n, rti12->n);
+  }
+
+  if(nLocalNodeReqs > 0){
+    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction local node reqs: %d, avg: %f\n", 
+              thisIndex, 
+              activeRung,
+              nLocalNodeReqs,
+              localNodeListConstructionTime/nLocalNodeReqs
+              );
+  }
+  if(nRemoteNodeReqs > 0){
+    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction remote node reqs: %d, avg: %f\n", 
+              thisIndex, 
+              activeRung,
+              nRemoteNodeReqs,
+              remoteNodeListConstructionTime/nRemoteNodeReqs
+              );
+  }
+  if(nRemoteResumeNodeReqs > 0){
+    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction remote resume node reqs: %d, avg: %f\n", 
+              thisIndex, 
+              activeRung,
+              nRemoteResumeNodeReqs,
+              remoteResumeNodeListConstructionTime/nRemoteResumeNodeReqs
+              );
+  }
+  if(nLocalPartReqs > 0){
+    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction local part reqs: %d, avg: %f\n", 
+              thisIndex, 
+              activeRung,
+              nLocalPartReqs,
+              localPartListConstructionTime/nLocalPartReqs
+              );
+  }
+  if(nRemotePartReqs > 0){
+    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction remote part reqs: %d, avg: %f\n", 
+              thisIndex, 
+              activeRung,
+              nRemotePartReqs,
+              remotePartListConstructionTime/nRemotePartReqs
+              );
+  }
+  if(nRemoteResumePartReqs > 0){
+    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction remote resume part reqs: %d, avg: %f\n", 
+              thisIndex, 
+              activeRung,
+              nRemoteResumePartReqs,
+              remoteResumePartListConstructionTime/nRemoteResumePartReqs
+              );
   }
 
 #endif
