@@ -10,7 +10,7 @@ enum boolean {NO, YES};
 #define THREADS_PER_BLOCK 128
 
 #ifdef CUDA_2D_TB_KERNEL
-#define NODES_PER_BLOCK 32
+#define NODES_PER_BLOCK 64
 #define PARTS_PER_BLOCK (THREADS_PER_BLOCK/NODES_PER_BLOCK)
 #endif
 

@@ -1497,35 +1497,39 @@ __global__ void nodeGravityComputation(
   __shared__ CudaVector3D acc[THREADS_PER_BLOCK];
   __shared__ cudatype pot[THREADS_PER_BLOCK];
   __shared__ CudaMultipoleMoments m[NODES_PER_BLOCK];
+  __shared__ int offsetID[THREADS_PER_BLOCK];
   __shared__ CompactPartData shared_particle_cores[PARTS_PER_BLOCK];
 
-  int bucket = blockIdx.x;
-  int start = ilmarks[bucket];
-  int end = ilmarks[bucket+1];
-  int bucketStart = bucketStarts[bucket];
-  int bucketSize = bucketSizes[bucket];
+  int start = ilmarks[blockIdx.x];
+  int end = ilmarks[blockIdx.x+1];
+  int bucketStart = bucketStarts[blockIdx.x];
+  char bucketSize = bucketSizes[blockIdx.x];
   char tx, ty;
 
 
-  int xstart, ystart;
+  int xstart;
+  char ystart;
   tx = threadIdx.x;
   ty = threadIdx.y;
 
   for(ystart = 0; ystart < bucketSize; ystart += PARTS_PER_BLOCK){
   
+
     int my_particle_idx = ystart + ty;
     if(tx == 0 && my_particle_idx < bucketSize){
       shared_particle_cores[ty] = particleCores[bucketStart+my_particle_idx];
     }
+    
+    __syncthreads(); // wait for leader threads to finish using acc's, pot's of other threads
     acc[TRANSLATE(tx,ty)].x = 0.0;
     acc[TRANSLATE(tx,ty)].y = 0.0;
     acc[TRANSLATE(tx,ty)].z = 0.0;
     pot[TRANSLATE(tx,ty)] = 0.0;
     
-    for(xstart = 0; xstart < end; xstart += NODES_PER_BLOCK){
-      int my_cell_idx = start + xstart + tx;
+    
+    for(xstart = start; xstart < end; xstart += NODES_PER_BLOCK){
+      int my_cell_idx = xstart + tx;
       ILCell ilc;
-      int offsetID;
 
       __syncthreads(); // wait for all threads to finish using 
                        // previous iteration's nodes before reloading
@@ -1533,7 +1537,7 @@ __global__ void nodeGravityComputation(
       if(ty == 0 && my_cell_idx < end){
         ilc = ils[my_cell_idx];
         m[tx] = moments[ilc.index];
-        offsetID = ilc.offsetID;
+        offsetID[tx] = ilc.offsetID;
       }
       
       __syncthreads(); // wait for nodes to be loaded before using them
@@ -1544,11 +1548,11 @@ __global__ void nodeGravityComputation(
         cudatype twoh, a, b, c, d;
 
         r.x = shared_particle_cores[ty].position.x -
-          ((((offsetID >> 22) & 0x7)-3)*fperiod + m[tx].cm.x);
+          ((((offsetID[tx] >> 22) & 0x7)-3)*fperiod + m[tx].cm.x);
         r.y = shared_particle_cores[ty].position.y -
-          ((((offsetID >> 25) & 0x7)-3)*fperiod + m[tx].cm.y);
+          ((((offsetID[tx] >> 25) & 0x7)-3)*fperiod + m[tx].cm.y);
         r.z = shared_particle_cores[ty].position.z -
-          ((((offsetID >> 28) & 0x7)-3)*fperiod + m[tx].cm.z);
+          ((((offsetID[tx] >> 28) & 0x7)-3)*fperiod + m[tx].cm.z);
 
         rsq = r.x*r.x + r.y*r.y + r.z*r.z;        
         twoh = m[tx].soft + shared_particle_cores[ty].soft;
@@ -1614,11 +1618,12 @@ __global__ void nodeGravityComputation(
         sumz += acc[TRANSLATE(i,ty)].z;
         poten += pot[TRANSLATE(i,ty)];
       }
-      particleVars[bucketStart+ystart+my_particle_idx].a.x += sumx;
-      particleVars[bucketStart+ystart+my_particle_idx].a.y += sumy;
-      particleVars[bucketStart+ystart+my_particle_idx].a.z += sumz;
-      particleVars[bucketStart+ystart+my_particle_idx].potential += poten;
+      particleVars[bucketStart+my_particle_idx].a.x += sumx;
+      particleVars[bucketStart+my_particle_idx].a.y += sumy;
+      particleVars[bucketStart+my_particle_idx].a.z += sumz;
+      particleVars[bucketStart+my_particle_idx].potential += poten;
     }
+
   }// end for each PARTICLE group
 }
 
