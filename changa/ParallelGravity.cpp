@@ -475,7 +475,7 @@ Main::Main(CkArgMsg* m) {
 		    sizeof(int),"D", "Kind of domain decomposition of particles");
         lbcomm_cutoff_msgs = 1;
 	prmAddParam(prm, "lbcommCutoffMsgs", paramInt, &lbcomm_cutoff_msgs,
-		    sizeof(int),"lbcommcut", "Cutoff for communication recording");
+		    sizeof(int),"lbcommcut", "Cutoff for communication recording (IGNORED)");
 	param.bConcurrentSph = 0;
 	prmAddParam(prm, "bConcurrentSph", paramBool, &param.bConcurrentSph,
 		    sizeof(int),"consph", "Enable SPH running concurrently with Gravity");
@@ -649,6 +649,11 @@ Main::Main(CkArgMsg* m) {
           ckout << "INFO: ";
           ckout << "remoteResumeParts: " << remoteResumePartsPerReq << endl;
 #endif
+
+	if(prmSpecified(prm, "lbcommCutoffMsgs")) {
+	    ckerr << "WARNING: ";
+	    ckerr << "lbcommcut parameter ignored." << endl;
+	    }
 	    
 	if(prmSpecified(prm, "bGeometric")) {
 	    ckerr << "WARNING: ";
