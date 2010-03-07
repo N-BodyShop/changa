@@ -542,23 +542,20 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles,
 				      const int n, const extraSPHData *pGas,
 				      const int nGasIn) {
 
-  if (dm == NULL) {
-      dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
-  }
-  if(myPlace == -1) {
-    if (dm == NULL) {
-      dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
-    }
-    myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
-    CkAssert(myPlace < dm->responsibleIndex.size());
-  }
+  //Need to get the place here again.  Getting the place in unshuffleParticles and using it here results in a race condition.
+  if (dm == NULL)
+    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
+  if (myPlace == dm->responsibleIndex.size()) myPlace = -2;
 
   // The following assert does not work anymore when TreePieces can have 0 particles assigned
   //assert(myPlace >= 0 && myPlace < dm->particleCounts.size());
   if (myPlace == -2) {
     // Special case where no particle is assigned to this TreePiece
     myNumParticles = 0;
+    myNumSPH = 0;
     incomingParticlesSelf = false;
+    incomingParticles = NULL;
     if(verbosity>1) ckout << thisIndex <<" no particles assigned"<<endl;
 
     if (root != NULL) {
@@ -570,7 +567,8 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles,
     contribute(0, 0, CkReduction::concat, callback);
     return;
   }
-  
+
+ 
   // allocate new particles array on first call
   if (incomingParticles == NULL) {
     incomingParticles = new GravityParticle[dm->particleCounts[myPlace] + 2];
@@ -598,14 +596,14 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles,
   if(dm->particleCounts[myPlace] == incomingParticlesArrived
      && incomingParticlesSelf) {
       //I've got all my particles
-      delete[] myParticles;
+      if (myNumParticles > 0) delete[] myParticles;
       myParticles = incomingParticles;
       incomingParticles = NULL;
       myNumParticles = dm->particleCounts[myPlace];
       incomingParticlesArrived = 0;
       incomingParticlesSelf = false;
       
-      delete[] mySPHParticles;
+      if (myNumSPH > 0) delete[] mySPHParticles;
       myNumSPH = incomingGas->size();
       mySPHParticles = new extraSPHData[myNumSPH];
       memcpy(mySPHParticles, &((*incomingGas)[0]),
