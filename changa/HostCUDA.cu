@@ -1022,14 +1022,10 @@ void kernelSelect(workRequest *wr) {
            (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
            (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
            (ILCell *)devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID],
-           ptr->numInteractions,
            (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
-           ptr->numBucketsPlusOne,
-           ptr->fperiod,
-           0,
-           ptr->numEntities
+           ptr->fperiod
           );
 #endif
 
@@ -1084,12 +1080,10 @@ void kernelSelect(workRequest *wr) {
            (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
            (CompactPartData *)devBuffers[wr->bufferInfo[MISSED_PARTS_IDX].bufferID],
            (ILPart *)devBuffers[wr->bufferInfo[ILPART_IDX].bufferID],
-           ptr->numMissedCores,
            (int *)devBuffers[wr->bufferInfo[PART_BUCKET_MARKERS_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[PART_BUCKET_SIZES_IDX].bufferID],
-           ptr->numBucketsPlusOne,
-           ptr->fperiod,3 
+           ptr->fperiod 
           );
 #endif
 
@@ -1148,12 +1142,10 @@ void kernelSelect(workRequest *wr) {
            (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
            (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
            (ILPart *)devBuffers[wr->bufferInfo[ILPART_IDX].bufferID],
-           ptr->numInteractions,
            (int *)devBuffers[wr->bufferInfo[PART_BUCKET_MARKERS_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[PART_BUCKET_SIZES_IDX].bufferID],
-           ptr->numBucketsPlusOne,
-           ptr->fperiod,0 
+           ptr->fperiod
           );
 #endif
 
@@ -1209,14 +1201,10 @@ void kernelSelect(workRequest *wr) {
            (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
            (CudaMultipoleMoments *)devBuffers[REMOTE_MOMENTS],
            (ILCell *)devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID],
-           ptr->numInteractions,
            (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
-           ptr->numBucketsPlusOne,
-           ptr->fperiod,
-           1,
-           ptr->numEntities
+           ptr->fperiod
           );
 #endif
 
@@ -1271,12 +1259,10 @@ void kernelSelect(workRequest *wr) {
            (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
            (CompactPartData *)devBuffers[REMOTE_PARTICLE_CORES],
            (ILPart *)devBuffers[wr->bufferInfo[ILPART_IDX].bufferID],
-           ptr->numInteractions,
            (int *)devBuffers[wr->bufferInfo[PART_BUCKET_MARKERS_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[PART_BUCKET_SIZES_IDX].bufferID],
-           ptr->numBucketsPlusOne,
-           ptr->fperiod,1
+           ptr->fperiod
           );
 #endif
 
@@ -1333,14 +1319,10 @@ void kernelSelect(workRequest *wr) {
            (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
            (CudaMultipoleMoments *)devBuffers[wr->bufferInfo[MISSED_MOMENTS_IDX].bufferID],
            (ILCell *)devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID],
-           ptr->numInteractions,
            (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
-           ptr->numBucketsPlusOne,
-           ptr->fperiod,
-           2,
-           ptr->numEntities
+           ptr->fperiod
           );
 #endif
 
@@ -1400,12 +1382,10 @@ void kernelSelect(workRequest *wr) {
            (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
            (CompactPartData *)devBuffers[wr->bufferInfo[MISSED_PARTS_IDX].bufferID],
            (ILPart *)devBuffers[wr->bufferInfo[ILPART_IDX].bufferID],
-           ptr->numMissedCores,
            (int *)devBuffers[wr->bufferInfo[PART_BUCKET_MARKERS_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[PART_BUCKET_SIZES_IDX].bufferID],
-           ptr->numBucketsPlusOne,
-           ptr->fperiod,2
+           ptr->fperiod
           );
 #endif
 
@@ -1488,11 +1468,10 @@ __global__ void nodeGravityComputation(
 		VariablePartData *particleVars,
 		CudaMultipoleMoments *moments,
 		ILCell *ils,
-		int numInteractions,
 		int *ilmarks,
 		int *bucketStarts,
 		int *bucketSizes,
-		int numBucketsPlusOne, cudatype fperiod, int type, int numNodes){
+		cudatype fperiod){
   
   __shared__ CudaVector3D acc[THREADS_PER_BLOCK];
   __shared__ cudatype pot[THREADS_PER_BLOCK];
@@ -1500,12 +1479,27 @@ __global__ void nodeGravityComputation(
   __shared__ int offsetID[THREADS_PER_BLOCK];
   __shared__ CompactPartData shared_particle_cores[PARTS_PER_BLOCK];
 
+  /*
   int start = ilmarks[blockIdx.x];
   int end = ilmarks[blockIdx.x+1];
   int bucketStart = bucketStarts[blockIdx.x];
   char bucketSize = bucketSizes[blockIdx.x];
+  */
+
+  __shared__ int start;
+ __shared__ int end;
+ __shared__ int bucketStart;
+ __shared__ char bucketSize;
+
   char tx, ty;
 
+  if(threadIdx.x == 0 && threadIdx.y == 0){
+    start = ilmarks[blockIdx.x];
+    end = ilmarks[blockIdx.x+1];
+    bucketStart = bucketStarts[blockIdx.x];
+    bucketSize = bucketSizes[blockIdx.x];
+  }
+  __syncthreads();
 
   int xstart;
   char ystart;
@@ -1633,11 +1627,10 @@ __global__ void nodeGravityComputation(
 		VariablePartData *particleVars,
 		CudaMultipoleMoments *moments,
 		ILCell *ils,
-		int numInteractions,
 		int *ilmarks,
 		int *bucketStarts,
 		int *bucketSizes,
-		int numBucketsPlusOne, cudatype fperiod, int type, int numNodes){
+		cudatype fperiod){
 
   // each thread has its own storage for these
   __shared__ CudaVector3D acc[THREADS_PER_BLOCK];
@@ -1825,11 +1818,10 @@ __global__ void particleGravityComputation(
                                    VariablePartData *targetVars,
                                    CompactPartData *sourceCores,
                                    ILPart *ils,
-		                   int numInteractions,
                                    int *ilmarks,
 		                   int *bucketStarts,
 		                   int *bucketSizes,
-		                   int numBucketsPlusOne, cudatype fperiod, int type){
+		                   cudatype fperiod){
 
   // each thread has its own storage for these
   __shared__ CudaVector3D acc[THREADS_PER_BLOCK];

@@ -11,23 +11,21 @@ __global__ void nodeGravityComputation(
 		VariablePartData *particleVars,
 		CudaMultipoleMoments *moments,
 		ILCell *ils,
-		int numInteractions,
 		int *ilmarks,
 		int *bucketStarts,
 		int *bucketSizes,
-		int numBucketsPlusOne, cudatype fperiod, int type,
-                int numNodes);
+		cudatype fperiod
+                );
 
 __global__ void particleGravityComputation(
                 CompactPartData *targetCores,
                 VariablePartData *targetVars,
                 CompactPartData *sourceCores,
                 ILPart *ils,
-		int numInteractions,
                 int *ilmarks,
 		int *bucketStarts,
 		int *bucketSizes,
-		int numBucketsPlusOne, cudatype fperiod, int type);
+		cudatype fperiod);
 
 #endif
 
