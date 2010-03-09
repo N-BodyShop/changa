@@ -1463,6 +1463,7 @@ void kernelSelect(workRequest *wr) {
 // 2d thread blocks 
 #ifdef CUDA_2D_TB_KERNEL
 #define TRANSLATE(x,y) (y*NODES_PER_BLOCK+x)
+#ifndef CUDA_2D_FLAT
 __global__ void nodeGravityComputation(
 		CompactPartData *particleCores,
 		VariablePartData *particleVars,
@@ -1476,23 +1477,24 @@ __global__ void nodeGravityComputation(
   __shared__ CudaVector3D acc[THREADS_PER_BLOCK];
   __shared__ cudatype pot[THREADS_PER_BLOCK];
   __shared__ CudaMultipoleMoments m[NODES_PER_BLOCK];
-  __shared__ int offsetID[THREADS_PER_BLOCK];
+  __shared__ int offsetID[NODES_PER_BLOCK];
   __shared__ CompactPartData shared_particle_cores[PARTS_PER_BLOCK];
 
-  /*
   int start = ilmarks[blockIdx.x];
   int end = ilmarks[blockIdx.x+1];
   int bucketStart = bucketStarts[blockIdx.x];
   char bucketSize = bucketSizes[blockIdx.x];
-  */
 
+  /*
   __shared__ int start;
  __shared__ int end;
  __shared__ int bucketStart;
  __shared__ char bucketSize;
+ */
 
   char tx, ty;
 
+/*
   if(threadIdx.x == 0 && threadIdx.y == 0){
     start = ilmarks[blockIdx.x];
     end = ilmarks[blockIdx.x+1];
@@ -1500,6 +1502,7 @@ __global__ void nodeGravityComputation(
     bucketSize = bucketSizes[blockIdx.x];
   }
   __syncthreads();
+  */
 
   int xstart;
   char ystart;
@@ -1620,7 +1623,191 @@ __global__ void nodeGravityComputation(
 
   }// end for each PARTICLE group
 }
+#else 
+__global__ void nodeGravityComputation(
+		CompactPartData *particleCores,
+		VariablePartData *particleVars,
+		CudaMultipoleMoments *moments,
+		ILCell *ils,
+		int *ilmarks,
+		int *bucketStarts,
+		int *bucketSizes,
+		cudatype fperiod){
+  
+  __shared__ cudatype accx[THREADS_PER_BLOCK];
+  __shared__ cudatype accy[THREADS_PER_BLOCK];
+  __shared__ cudatype accz[THREADS_PER_BLOCK];
+  __shared__ cudatype pot[THREADS_PER_BLOCK];
+  //__shared__ cudatype mr[NODES_PER_BLOCK];
+  __shared__ cudatype ms[NODES_PER_BLOCK];
+  __shared__ cudatype mt[NODES_PER_BLOCK];
+  __shared__ cudatype mcmx[NODES_PER_BLOCK];
+  __shared__ cudatype mcmy[NODES_PER_BLOCK];
+  __shared__ cudatype mcmz[NODES_PER_BLOCK];
+  __shared__ cudatype mxx[NODES_PER_BLOCK];
+  __shared__ cudatype mxy[NODES_PER_BLOCK];
+  __shared__ cudatype mxz[NODES_PER_BLOCK];
+  __shared__ cudatype myy[NODES_PER_BLOCK];
+  __shared__ cudatype myz[NODES_PER_BLOCK];
+  __shared__ cudatype mzz[NODES_PER_BLOCK];
+  __shared__ int offsetID[NODES_PER_BLOCK];
+  __shared__ CompactPartData shared_particle_cores[PARTS_PER_BLOCK];
 
+  int start = ilmarks[blockIdx.x];
+  int end = ilmarks[blockIdx.x+1];
+  int bucketStart = bucketStarts[blockIdx.x];
+  char bucketSize = bucketSizes[blockIdx.x];
+
+  /*
+  __shared__ int start;
+ __shared__ int end;
+ __shared__ int bucketStart;
+ __shared__ char bucketSize;
+ */
+
+  char tx, ty;
+
+/*
+  if(threadIdx.x == 0 && threadIdx.y == 0){
+    start = ilmarks[blockIdx.x];
+    end = ilmarks[blockIdx.x+1];
+    bucketStart = bucketStarts[blockIdx.x];
+    bucketSize = bucketSizes[blockIdx.x];
+  }
+  __syncthreads();
+  */
+
+  int xstart;
+  char ystart;
+  tx = threadIdx.x;
+  ty = threadIdx.y;
+
+  for(ystart = 0; ystart < bucketSize; ystart += PARTS_PER_BLOCK){
+  
+
+    int my_particle_idx = ystart + ty;
+    if(tx == 0 && my_particle_idx < bucketSize){
+      shared_particle_cores[ty] = particleCores[bucketStart+my_particle_idx];
+    }
+    
+    __syncthreads(); // wait for leader threads to finish using acc's, pot's of other threads
+    accx[TRANSLATE(tx,ty)] = 0.0;
+    accy[TRANSLATE(tx,ty)] = 0.0;
+    accz[TRANSLATE(tx,ty)] = 0.0;
+    pot[TRANSLATE(tx,ty)] = 0.0;
+    
+    
+    for(xstart = start; xstart < end; xstart += NODES_PER_BLOCK){
+      int my_cell_idx = xstart + tx;
+      ILCell ilc;
+
+      __syncthreads(); // wait for all threads to finish using 
+                       // previous iteration's nodes before reloading
+      
+      if(ty == 0 && my_cell_idx < end){
+        ilc = ils[my_cell_idx];
+        //mr[tx] = moments[ilc.index].radius;
+        ms[tx] = moments[ilc.index].soft;
+        mt[tx] = moments[ilc.index].totalMass;
+        mcmx[tx] = moments[ilc.index].cm.x;
+        mcmy[tx] = moments[ilc.index].cm.y;
+        mcmz[tx] = moments[ilc.index].cm.z;
+        mxx[tx] = moments[ilc.index].xx;
+        mxy[tx] = moments[ilc.index].xy;
+        mxz[tx] = moments[ilc.index].xz;
+        myy[tx] = moments[ilc.index].yy;
+        myz[tx] = moments[ilc.index].yz;
+        mzz[tx] = moments[ilc.index].zz;
+        offsetID[tx] = ilc.offsetID;
+      }
+      
+      __syncthreads(); // wait for nodes to be loaded before using them
+      
+      if(my_particle_idx < bucketSize && my_cell_idx < end){ // INTERACT
+        CudaVector3D r;
+        cudatype rsq;
+        cudatype twoh, a, b, c, d;
+
+        r.x = shared_particle_cores[ty].position.x -
+          ((((offsetID[tx] >> 22) & 0x7)-3)*fperiod + mcmx[tx]);
+        r.y = shared_particle_cores[ty].position.y -
+          ((((offsetID[tx] >> 25) & 0x7)-3)*fperiod + mcmy[tx]);
+        r.z = shared_particle_cores[ty].position.z -
+          ((((offsetID[tx] >> 28) & 0x7)-3)*fperiod + mcmz[tx]);
+
+        rsq = r.x*r.x + r.y*r.y + r.z*r.z;        
+        twoh = ms[tx] + shared_particle_cores[ty].soft;
+        if(rsq != 0){
+          cudatype dir = 1.0/sqrt(rsq);
+          // SPLINEQ(dir, rsq, twoh, a, b, c, d);
+          // expansion of function below:
+          cudatype u,dih;
+          if (rsq < twoh*twoh) {
+            dih = 2.0/twoh;
+            u = dih/dir;
+            if (u < 1.0) {
+              a = dih*(7.0/5.0 - 2.0/3.0*u*u + 3.0/10.0*u*u*u*u
+                  - 1.0/10.0*u*u*u*u*u);
+              b = dih*dih*dih*(4.0/3.0 - 6.0/5.0*u*u + 1.0/2.0*u*u*u);
+              c = dih*dih*dih*dih*dih*(12.0/5.0 - 3.0/2.0*u);
+              d = 3.0/2.0*dih*dih*dih*dih*dih*dih*dir;
+            }
+            else {
+              a = -1.0/15.0*dir + dih*(8.0/5.0 - 4.0/3.0*u*u + u*u*u
+                  - 3.0/10.0*u*u*u*u + 1.0/30.0*u*u*u*u*u);
+              b = -1.0/15.0*dir*dir*dir + dih*dih*dih*(8.0/3.0 - 3.0*u
+                  + 6.0/5.0*u*u - 1.0/6.0*u*u*u);
+              c = -1.0/5.0*dir*dir*dir*dir*dir + 3.0*dih*dih*dih*dih*dir
+                + dih*dih*dih*dih*dih*(-12.0/5.0 + 1.0/2.0*u);
+              d = -dir*dir*dir*dir*dir*dir*dir
+                + 3.0*dih*dih*dih*dih*dir*dir*dir
+                - 1.0/2.0*dih*dih*dih*dih*dih*dih*dir;
+            }
+          }
+          else {
+            a = dir;
+            b = a*a*a;
+            c = 3.0*b*a*a;
+            d = 5.0*c*a*a;
+          }
+
+          cudatype qirx = mxx[tx]*r.x + mxy[tx]*r.y + mxz[tx]*r.z;
+          cudatype qiry = mxy[tx]*r.x + myy[tx]*r.y + myz[tx]*r.z;
+          cudatype qirz = mxz[tx]*r.x + myz[tx]*r.y + mzz[tx]*r.z;
+          cudatype qir = 0.5*(qirx*r.x + qiry*r.y + qirz*r.z);
+          cudatype tr = 0.5*(mxx[tx] + myy[tx] + mzz[tx]);
+          cudatype qir3 = b*mt[tx] + d*qir - c*tr;
+
+          pot[TRANSLATE(tx, ty)] -= mt[tx] * a + c*qir - b*tr;
+
+          accx[TRANSLATE(tx, ty)] -= qir3*r.x - c*qirx;
+          accy[TRANSLATE(tx, ty)] -= qir3*r.y - c*qiry;
+          accz[TRANSLATE(tx, ty)] -= qir3*r.z - c*qirz;
+        }// end if rsq != 0
+      }// end INTERACT
+    }// end for each NODE group
+
+    __syncthreads(); // wait for all threads to finish before results become available
+
+    cudatype sumx, sumy, sumz, poten;
+    sumx = sumy = sumz = poten = 0.0;
+    // accumulate forces, potential in global memory data structure
+    if(tx == 0 && my_particle_idx < bucketSize){
+      for(int i = 0; i < NODES_PER_BLOCK; i++){
+        sumx += accx[TRANSLATE(i,ty)];
+        sumy += accy[TRANSLATE(i,ty)];
+        sumz += accz[TRANSLATE(i,ty)];
+        poten += pot[TRANSLATE(i,ty)];
+      }
+      particleVars[bucketStart+my_particle_idx].a.x += sumx;
+      particleVars[bucketStart+my_particle_idx].a.y += sumy;
+      particleVars[bucketStart+my_particle_idx].a.z += sumz;
+      particleVars[bucketStart+my_particle_idx].potential += poten;
+    }
+
+  }// end for each PARTICLE group
+}
+#endif
 #else
 __global__ void nodeGravityComputation(
 		CompactPartData *particleCores,
@@ -1813,6 +2000,8 @@ __global__ void nodeGravityComputation(
 }
 #endif
 
+#ifdef CUDA_2D_TB_KERNEL_PARTICLES
+#else
 __global__ void particleGravityComputation(
                                    CompactPartData *targetCores,
                                    VariablePartData *targetVars,
@@ -1978,45 +2167,9 @@ __global__ void particleGravityComputation(
 #endif
     }
 
-    /*
-    cudatype sum = 0.0;
-    if(thread == 0){
-      for(int i = 0; i < THREADS_PER_BLOCK; i++){
-#if defined  __DEVICE_EMULATION__ && defined CUDA_EMU_KERNEL_PART_PRINTS
-        printf("acc[%d][%d].x = %f\n", bucket, i, acc[i].x);
-#endif
-        sum += acc[i].x;
-      }
-      targetVars[bucketStart+target].a.x += sum;
-
-      sum = 0;
-      for(int i = 0; i < THREADS_PER_BLOCK; i++){
-#if defined  __DEVICE_EMULATION__ && defined CUDA_EMU_KERNEL_PART_PRINTS
-        printf("acc[%d][%d].y = %f\n", bucket, i, acc[i].y);
-#endif
-        sum += acc[i].y;
-      }
-      targetVars[bucketStart+target].a.y += sum;
-
-      sum = 0;
-      for(int i = 0; i < THREADS_PER_BLOCK; i++){
-#if defined  __DEVICE_EMULATION__ && defined CUDA_EMU_KERNEL_PART_PRINTS
-        printf("acc[%d][%d].z = %f\n", bucket, i, acc[i].z);
-#endif
-        sum += acc[i].z;
-      }
-      targetVars[bucketStart+target].a.z += sum;
-
-      sum = 0;
-      for(int i = 0; i < THREADS_PER_BLOCK; i++){
-        sum += pot[i];
-      }
-      targetVars[bucketStart+target].potential += sum;
-    }
-    */
-
   }// for each target part
 }
+#endif
 
 __global__ void EwaldTopKernel(GravityParticleData *particleTable);
 __global__ void EwaldBottomKernel(GravityParticleData *particleTable);

@@ -332,6 +332,16 @@ class Main : public CBase_Main {
 				   will service */
 	int nActiveGrav;
 	int nActiveSPH;
+
+#ifdef CUDA
+          double localNodesPerReqDouble;
+          double remoteNodesPerReqDouble;
+          double remoteResumeNodesPerReqDouble;
+          double localPartsPerReqDouble;
+          double remotePartsPerReqDouble;
+          double remoteResumePartsPerReqDouble;
+#endif
+
 public:
 
 	Main(CkArgMsg* m);

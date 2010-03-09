@@ -483,13 +483,6 @@ Main::Main(CkArgMsg* m) {
           // jetley - cuda parameters
 #ifdef CUDA
 
-          double localNodesPerReqDouble;
-          double remoteNodesPerReqDouble;
-          double remoteResumeNodesPerReqDouble;
-          double localPartsPerReqDouble;
-          double remotePartsPerReqDouble;
-          double remoteResumePartsPerReqDouble;
-
           localNodesPerReqDouble = NODE_INTERACTIONS_PER_REQUEST_L;
 	  prmAddParam(prm, "localNodesPerReq", paramDouble, &localNodesPerReqDouble,
                 sizeof(double),"localnodes", "Num. local node interactions allowed per CUDA request");
@@ -648,6 +641,10 @@ Main::Main(CkArgMsg* m) {
           ckout << "remoteParts: " << remotePartsPerReq << endl;
           ckout << "INFO: ";
           ckout << "remoteResumeParts: " << remoteResumePartsPerReq << endl;
+
+          if(numTreePieces > CkNumPes() || numTreePieces <= 0){
+            numTreePieces = CkNumPes();
+          }
 #endif
 
 	if(prmSpecified(prm, "lbcommCutoffMsgs")) {
