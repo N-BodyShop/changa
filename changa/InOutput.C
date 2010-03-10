@@ -339,6 +339,9 @@ void TreePiece::loadTipsy(const std::string& filename,
 			myParticles[i+1].position = gp.pos;
 			myParticles[i+1].velocity = gp.vel;
 			myParticles[i+1].soft = gp.hsmooth;
+#ifdef CHANGESOFT
+			myParticles[i+1].fSoft0 = gp.hsmooth;
+#endif
 			myParticles[i+1].iType = TYPE_GAS;
 			myParticles[i+1].fDensity = gp.rho;
 			myParticles[i+1].extraData = &mySPHParticles[iSPH];
@@ -356,6 +359,9 @@ void TreePiece::loadTipsy(const std::string& filename,
 			myParticles[i+1].position = dp.pos;
 			myParticles[i+1].velocity = dp.vel;
 			myParticles[i+1].soft = dp.eps;
+#ifdef CHANGESOFT
+			myParticles[i+1].fSoft0 = dp.eps;
+#endif
 			myParticles[i+1].iType = TYPE_DARK;
 		} else {
 			if(!r.getNextStarParticle(sp)) {
@@ -365,6 +371,9 @@ void TreePiece::loadTipsy(const std::string& filename,
 			myParticles[i+1].position = sp.pos;
 			myParticles[i+1].velocity = sp.vel;
 			myParticles[i+1].soft = sp.eps;
+#ifdef CHANGESOFT
+			myParticles[i+1].fSoft0 = sp.eps;
+#endif
 			myParticles[i+1].iType = TYPE_STAR;
 		}
 		myParticles[i+1].iOrder = i + startParticle;
@@ -465,7 +474,11 @@ void TreePiece::writeTipsy(const std::string& filename, const double dTime,
 	    gp.mass = myParticles[i+1].mass;
 	    gp.pos = myParticles[i+1].position;
 	    gp.vel = myParticles[i+1].velocity*dvFac;
+#ifdef CHANGESOFT
+	    gp.hsmooth = myParticles[i+1].fSoft0;
+#else
 	    gp.hsmooth = myParticles[i+1].soft;
+#endif
 	    gp.phi = myParticles[i+1].potential;
 	    gp.rho = myParticles[i+1].fDensity;
 	    gp.metals = myParticles[i+1].fMetals();
@@ -479,7 +492,11 @@ void TreePiece::writeTipsy(const std::string& filename, const double dTime,
 	    dp.mass = myParticles[i+1].mass;
 	    dp.pos = myParticles[i+1].position;
 	    dp.vel = myParticles[i+1].velocity*dvFac;
+#ifdef CHANGESOFT
+	    dp.eps = myParticles[i+1].fSoft0;
+#else
 	    dp.eps = myParticles[i+1].soft;
+#endif
 	    dp.phi = myParticles[i+1].potential;
 
 	    w.putNextDarkParticle(dp);
@@ -489,7 +506,11 @@ void TreePiece::writeTipsy(const std::string& filename, const double dTime,
 	    sp.mass = myParticles[i+1].mass;
 	    sp.pos = myParticles[i+1].position;
 	    sp.vel = myParticles[i+1].velocity*dvFac;
+#ifdef CHANGESOFT
+	    sp.eps = myParticles[i+1].fSoft0;
+#else
 	    sp.eps = myParticles[i+1].soft;
+#endif
 	    sp.phi = myParticles[i+1].potential;
 
 	    w.putNextStarParticle(sp);

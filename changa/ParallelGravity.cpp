@@ -565,7 +565,7 @@ Main::Main(CkArgMsg* m) {
 	    }
 	    
 	if (param.bPhysicalSoft) {
-	    if (param.csm->bComove) {
+	    if (!param.csm->bComove) {
 		ckerr << "WARNING: bPhysicalSoft reset to 0 for non-comoving (bComove == 0)\n";
 		param.bPhysicalSoft = 0;
 		}
@@ -1936,7 +1936,6 @@ void Main::countActive(int activeRung)
 void Main::updateSoft()
 {
 #ifdef CHANGESOFT
-    if (!(param.bPhysicalSoft)) return;
     if (param.bPhysicalSoft) {
 	 double dFac = 1./csmTime2Exp(param.csm,dTime);
 
