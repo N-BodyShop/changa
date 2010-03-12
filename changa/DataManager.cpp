@@ -846,8 +846,8 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
               tp->myParticles[j].treeAcceleration.y,
               tp->myParticles[j].treeAcceleration.z);
 #endif
-          partIndex++;
         }
+        partIndex++;
       }
     }
     else{

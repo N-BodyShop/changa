@@ -642,6 +642,8 @@ Main::Main(CkArgMsg* m) {
           ckout << "INFO: ";
           ckout << "remoteResumeParts: " << remoteResumePartsPerReq << endl;
 
+          ckout << "INFO: largePhaseThreshold: " << largePhaseThreshold << endl;
+
           if(numTreePieces > CkNumPes() || numTreePieces <= 0){
             numTreePieces = CkNumPes();
           }
