@@ -373,6 +373,7 @@ public:
 	int nextMaxRungIncDF(int nextMaxRung);
 	void pup(PUP::er& p);
 	void liveVizImagePrep(liveVizRequestMsg *msg);
+
 };
 
 /* IBM brain damage */
@@ -661,6 +662,15 @@ class TreePiece : public CBase_TreePiece {
         long long remotePartInteractions;
         long long remoteResumeNodeInteractions;
         long long remoteResumePartInteractions;
+
+        double lastIterTime;
+        double thisIterTime;
+        bool lastIterDirection;
+        unsigned long long lastParam;
+        unsigned long long  thisParam;
+#ifdef CUDA_STATS
+        void setNextIterParams();
+#endif
 #endif
 
 #ifdef CUDA_INSTRUMENT_WRS

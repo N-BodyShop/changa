@@ -835,6 +835,10 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
 #ifndef CUDA_NO_ACC_UPDATES
           tp->myParticles[j].treeAcceleration = deviceParticles[partIndex].a + tp->myParticles[j].treeAcceleration;
           tp->myParticles[j].potential += deviceParticles[partIndex].potential;
+#else
+          tp->myParticles[j].treeAcceleration.x = 0; 
+          tp->myParticles[j].treeAcceleration.y = 0; 
+          tp->myParticles[j].treeAcceleration.z = 0; 
 #endif
 #ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
           CkPrintf("particle %d device: (%f,%f,%f) total: (%f,%f,%f)\n",
@@ -856,7 +860,12 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
 #ifndef CUDA_NO_ACC_UPDATES
           tp->myParticles[j].treeAcceleration = deviceParticles[partIndex].a + tp->myParticles[j].treeAcceleration;
           tp->myParticles[j].potential += deviceParticles[partIndex].potential;
+#else
+          tp->myParticles[j].treeAcceleration.x = 0; 
+          tp->myParticles[j].treeAcceleration.y = 0; 
+          tp->myParticles[j].treeAcceleration.z = 0; 
 #endif
+
 #ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
           CkPrintf("particle %d device: (%f,%f,%f) total: (%f,%f,%f)\n",
               j, 

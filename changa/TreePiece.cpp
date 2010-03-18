@@ -3150,6 +3150,9 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
 			       double myTheta, // opening criterion
 			       const CkCallback& cb) {
   LBTurnInstrumentOn();
+#ifdef CUDA_STATS
+  thisIterTime = CmiWallTimer();
+#endif
   iterationNo++;
 
   callback = cb;
@@ -3399,7 +3402,17 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
           state->particles = NULL;
 
 	  DoubleWalkState *lstate = (DoubleWalkState *)sLocalGravityState;
+#ifdef CUDA_STATS
+          if(iterationNo == 1){
+            thisParam = localNodesPerReq;
+            lastParam = 0.8*thisParam;
+            lastIterDirection = 1;
+            lastIterTime = thisIterTime+1.0; // to ensure that we always increase in the first iteration
+          }
+	  ((ListCompute *)sGravity)->initCudaState(lstate, numBuckets, thisParam, localPartsPerReq, false);
+#else
 	  ((ListCompute *)sGravity)->initCudaState(lstate, numBuckets, localNodesPerReq, localPartsPerReq, false);
+#endif
           // ditto
           lstate->nodes = NULL;
           // allocate space for local particles 
@@ -3426,7 +3439,11 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   }
   {
 	  DoubleWalkState *state = (DoubleWalkState *)sInterListStateRemoteResume;
+#ifdef CUDA_STATS
+	  ((ListCompute *)sGravity)->initCudaState(state, numBuckets, thisParam, remoteResumePartsPerReq, true);
+#else
 	  ((ListCompute *)sGravity)->initCudaState(state, numBuckets, remoteResumeNodesPerReq, remoteResumePartsPerReq, true);
+#endif
 
 	  state->nodes = new CkVec<CudaMultipoleMoments>(100000);
           state->nodes->length() = 0;
@@ -4620,6 +4637,15 @@ void TreePiece::pup(PUP::er& p) {
   p | nTotalSPH;
   p | myNumSPH;
   p | nTotalStars;
+
+#if defined CUDA && defined CUDA_STATS
+  p | lastIterTime;
+  p | thisIterTime;
+  p | lastIterDirection;
+  p | lastParam;
+  p | thisParam;
+#endif
+
   if(p.isUnpacking()) {
     myParticles = new GravityParticle[myNumParticles + 2];
     mySPHParticles = new extraSPHData[myNumSPH];
@@ -5488,11 +5514,35 @@ void TreePiece::finishWalk()
   CkPrintf("[%d] (%d) CUDA_STATS localpart: %ld\n", thisIndex, activeRung, localPartInteractions);
   CkPrintf("[%d] (%d) CUDA_STATS remotepart: %ld\n", thisIndex, activeRung, remotePartInteractions);
   CkPrintf("[%d] (%d) CUDA_STATS remoteresumepart: %ld\n", thisIndex, activeRung, remoteResumePartInteractions);
+  thisIterTime = CmiWallTimer()-thisIterTime;
+  CkPrintf("[%d] last iter time: %f, this iter: %f\n", thisIndex, lastIterTime, thisIterTime);
+
+  setNextIterParams();
+  lastIterTime = thisIterTime;
   
 #endif
 
   contribute(0, 0, CkReduction::concat, callback);
 }
+
+#ifdef CUDA_STATS
+#define THRESHOLD_INCREASE_FACTOR 0.5
+void TreePiece::setNextIterParams(){
+  int incr;
+  CkPrintf("[%d] old lastParam: %d, thisParam = %d\n", thisIndex, lastParam, thisParam);
+  if(thisIterTime < lastIterTime){
+    lastParam = thisParam;
+    thisParam = (1+lastIterDirection*THRESHOLD_INCREASE_FACTOR)*thisParam;
+  }
+  else{
+    int save = thisParam;
+    thisParam = 0.5*(thisParam+lastParam);
+    lastParam = save;
+    lastIterDirection = -lastIterDirection;
+  }
+  CkPrintf("[%d] new lastParam: %d, thisParam = %d\n", thisIndex, lastParam, thisParam);
+}
+#endif
 
 #if INTERLIST_VER > 0
 void TreePiece::getBucketsBeneathBounds(GenericTreeNode *&source, int &start, int &end){

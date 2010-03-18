@@ -479,7 +479,7 @@ void TreePiece::EwaldGPUComplete() {
     myParticles[i].potential = particleTable[i].potential;
   }
 
-  CkPrintf("[%d] in EwaldGPUComplete, calling EwaldHostMemoryFree\n", thisIndex);
+  //CkPrintf("[%d] in EwaldGPUComplete, calling EwaldHostMemoryFree\n", thisIndex);
   EwaldHostMemoryFree(h_idata); 
   free(h_idata); 
 
@@ -489,7 +489,7 @@ void TreePiece::EwaldGPUComplete() {
     bucketReqs[i].finished = 1; 
     finishBucket(i); 
   }
-  CkPrintf("[%d] in EwaldGPUComplete, completed book-keeping\n", thisIndex);
+  //CkPrintf("[%d] in EwaldGPUComplete, completed book-keeping\n", thisIndex);
 #endif 
 }
 
