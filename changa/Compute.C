@@ -1062,6 +1062,199 @@ int encodeOffset(int reqID, int x, int y, int z);
 #define CELLBUFFERSIZE 16*1024
 #endif
 
+void allocatePinnedHostMemory(void **ptr, int size);
+
+template<typename T>
+CudaRequest *GenericList<T>::serialize(TreePiece *tp){
+    // get count of buckets with interactions first
+    int numFilledBuckets = 0;
+    int listpos = 0;
+    int curbucket = 0;
+
+#ifdef CUDA_TRACE
+    double starttime = CmiWallTimer();
+#endif
+    for(int i = 0; i < lists.length(); i++){
+      if(lists[i].length() > 0){
+        numFilledBuckets++;
+      }
+    }
+
+    // create flat lists and associated data structures
+    // allocate memory and flatten lists only if there
+    // are interactions to transfer. 
+    T *flatlists = NULL;
+    int *markers = NULL;
+    int *starts = NULL;
+    int *sizes = NULL;
+    int *affectedBuckets = NULL;
+
+    if(totalNumInteractions > 0){
+#ifdef CUDA_USE_CUDAMALLOCHOST
+      allocatePinnedHostMemory((void **)&flatlists, totalNumInteractions*sizeof(T));
+      allocatePinnedHostMemory((void **)&markers, (numFilledBuckets+1)*sizeof(int));
+      allocatePinnedHostMemory((void **)&starts, (numFilledBuckets)*sizeof(int));
+      allocatePinnedHostMemory((void **)&sizes, (numFilledBuckets)*sizeof(int));
+#else
+      flatlists = (T *) malloc(totalNumInteractions*sizeof(T));
+      markers = (int *) malloc((numFilledBuckets+1)*sizeof(int));
+      starts = (int *) malloc(numFilledBuckets*sizeof(int));
+      sizes = (int *) malloc(numFilledBuckets*sizeof(int));
+#endif
+      affectedBuckets = new int[numFilledBuckets];
+
+      // populate flat lists
+      int listslen = lists.length();
+      for(int i = 0; i < listslen; i++){
+        int listilen = lists[i].length();
+        if(listilen > 0){
+          memcpy(&flatlists[listpos], lists[i].getVec(), listilen*sizeof(T));
+          markers[curbucket] = listpos;
+          getBucketParameters(tp, i, starts[curbucket], sizes[curbucket]);
+          affectedBuckets[curbucket] = i;
+          listpos += listilen;
+          curbucket++;
+        }
+      }
+      markers[numFilledBuckets] = listpos;
+      CkAssert(listpos == totalNumInteractions);
+    }
+
+    CudaRequest *request = new CudaRequest;
+    request->list = (void *)flatlists;
+    request->bucketMarkers = markers;
+    request->bucketStarts = starts;
+    request->bucketSizes = sizes;
+    request->numInteractions = totalNumInteractions;
+    request->numBucketsPlusOne = numFilledBuckets+1;
+    request->affectedBuckets = affectedBuckets;
+    request->tp = (void *)tp;
+    request->fperiod = tp->fPeriod.x;
+
+#ifdef CUDA_TRACE
+    traceUserBracketEvent(CUDA_SER_LIST, starttime, CmiWallTimer());
+#endif
+
+    return request;
+  }
+
+// specialization for particle interlists
+// need to send interactions with particles instead of those with buckets
+// so that we can allot interactions within a bucket-bucket interaction
+// to different threads 
+
+template<>
+CudaRequest *GenericList<ILPart>::serialize(TreePiece *tp){
+    // get count of buckets with interactions first
+    int numFilledBuckets = 0;
+    int listpos = 0;
+    int curbucket = 0;
+
+#ifdef CUDA_TRACE
+    double starttime = CmiWallTimer();
+#endif
+    int numParticleInteractions = 0;
+    for(int i = 0; i < lists.length(); i++){
+      if(lists[i].length() > 0){
+        numFilledBuckets++;
+        for(int j = 0; j < lists[i].length(); j++){
+          numParticleInteractions += lists[i][j].num;
+        }
+      }
+    }
+
+    CkPrintf("[%d] Offloading %d particle interactions\n", tp->getIndex(), numParticleInteractions);
+
+    // create flat lists and associated data structures
+    // allocate memory and flatten lists only if there
+    // are interactions to transfer. 
+    // use ILCell instead of ILPart because we don't need num field anymore
+    // however, we pay the price of replicating the offset for each particle in the bucket 
+    ILCell *flatlists = NULL;
+    int *markers = NULL;
+    int *starts = NULL;
+    int *sizes = NULL;
+    int *affectedBuckets = NULL;
+
+    if(totalNumInteractions > 0){
+#ifdef CUDA_USE_CUDAMALLOCHOST
+      allocatePinnedHostMemory((void **)&flatlists, numParticleInteractions*sizeof(ILCell));
+      allocatePinnedHostMemory((void **)&markers, (numFilledBuckets+1)*sizeof(int));
+      allocatePinnedHostMemory((void **)&starts, (numFilledBuckets)*sizeof(int));
+      allocatePinnedHostMemory((void **)&sizes, (numFilledBuckets)*sizeof(int));
+#else
+      flatlists = (T *) malloc(numParticleInteractions*sizeof(ILCell));
+      markers = (int *) malloc((numFilledBuckets+1)*sizeof(int));
+      starts = (int *) malloc(numFilledBuckets*sizeof(int));
+      sizes = (int *) malloc(numFilledBuckets*sizeof(int));
+#endif
+      affectedBuckets = new int[numFilledBuckets];
+
+      // populate flat lists
+      int listslen = lists.length();
+      // for each level i
+      for(int i = 0; i < listslen; i++){
+        int listilen = lists[i].length();
+        if(listilen > 0){
+          
+          markers[curbucket] = listpos;
+          // for each bucket j at level i
+          for(int j = 0; j < listilen; j++){
+
+            ILPart &ilp = lists[i][j];
+            int bucketLength = ilp.num;
+            int bucketStart = ilp.index;
+            int offsetID = ilp.off;
+            
+            // for each particle k in bucket j
+            for(int k = 0; k < bucketLength; k++){
+              flatlists[listpos].index = bucketStart+k;
+              flatlists[listpos].offsetID = offsetID;
+              listpos++;
+            }
+          }
+          getBucketParameters(tp, i, starts[curbucket], sizes[curbucket]);
+          affectedBuckets[curbucket] = i;
+          curbucket++;
+        }
+      }
+      markers[numFilledBuckets] = listpos;
+      CkAssert(listpos == numParticleInteractions);
+    }
+
+    CudaRequest *request = new CudaRequest;
+    request->list = (void *)flatlists;
+    request->bucketMarkers = markers;
+    request->bucketStarts = starts;
+    request->bucketSizes = sizes;
+    request->numInteractions = numParticleInteractions;
+    request->numBucketsPlusOne = numFilledBuckets+1;
+    request->affectedBuckets = affectedBuckets;
+    request->tp = (void *)tp;
+    request->fperiod = tp->fPeriod.x;
+
+#ifdef CUDA_TRACE
+    traceUserBracketEvent(CUDA_SER_LIST, starttime, CmiWallTimer());
+#endif
+
+    return request;
+  }
+
+
+
+//#include <typeinfo>
+template<typename T>
+void GenericList<T>::push_back(int b, T &ilc, DoubleWalkState *state, TreePiece *tp){
+    if(lists[b].length() == 0){
+        state->counterArrays[0][b]++;
+#if COSMO_PRINT_BK > 1
+        CkPrintf("[%d] request out bucket %d numAddReq: %d,%d\n", tp->getIndex(), b, tp->sRemoteGravityState->counterArrays[0][b], tp->sLocalGravityState->counterArrays[0][b]);
+#endif
+    }
+    lists[b].push_back(ilc);
+    totalNumInteractions++;
+  }
+
 void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start, int end){
   int thisIndex = tp->getIndex();
   GravityParticle *particles = tp->getParticles();

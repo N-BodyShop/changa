@@ -3385,11 +3385,14 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
 
   numActiveBuckets = 0;
   calculateNumActiveParticles();
+
   for(int i = 0; i < numBuckets; i++){
     if(bucketList[i]->rungs >= activeRung){
       numActiveBuckets++;
     }
   }
+  CkPrintf("[%d] avg target bucket size: %f\n", thisIndex, 1.0*myNumActiveParticles/numActiveBuckets);
+
 
   {
 	  DoubleWalkState *state = (DoubleWalkState *)sRemoteGravityState;

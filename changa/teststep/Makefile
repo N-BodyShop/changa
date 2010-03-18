@@ -5,7 +5,7 @@ test: pgtest_ms.log
 	@tail -1 pgtest_ms.log | awk '{print $$4;}'
 	
 pgtest_ms.log:
-	../charmrun +p 2 ../ChaNGa test_pg.param
+	sh runtest.sh #../charmrun +p 2 ../ChaNGa test_pg.param
 	
 clean:
 	rm -rf *.chk? pgtest_ms.log pgtest_ms.000*
