@@ -1062,6 +1062,7 @@ int encodeOffset(int reqID, int x, int y, int z);
 #define CELLBUFFERSIZE 16*1024
 #endif
 
+#ifdef CUDA
 void allocatePinnedHostMemory(void **ptr, int size);
 
 template<typename T>
@@ -1254,6 +1255,7 @@ void GenericList<T>::push_back(int b, T &ilc, DoubleWalkState *state, TreePiece 
     lists[b].push_back(ilc);
     totalNumInteractions++;
   }
+#endif
 
 void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start, int end){
   int thisIndex = tp->getIndex();
