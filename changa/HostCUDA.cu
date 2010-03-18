@@ -1460,19 +1460,10 @@ void kernelSelect(workRequest *wr) {
 #define GROUP(t)  ((t)/MAX_THREADS_PER_GROUP)
 #define GROUP_INDEX(t) ((t)%MAX_THREADS_PER_GROUP)
 
-#ifndef CUDA_NO_KERNELS
 // 2d thread blocks 
 #ifdef CUDA_2D_TB_KERNEL
 #define TRANSLATE(x,y) (y*NODES_PER_BLOCK+x)
 #ifndef CUDA_2D_FLAT
-
-#define ONETHIRD 0.3333333333333
-#define TWOTHIRDS 0.6666666666667
-#define ONEONETHIRD 1.3333333333333
-#define ONEFIFTEENTH 0.0666666667
-#define ONETHIRTIETH 0.0333333333
-#define EIGHTTHIRDS 2.66666667
-#define ONESIXTH 0.166666667
 __global__ void nodeGravityComputation(
 		CompactPartData *particleCores,
 		VariablePartData *particleVars,
@@ -1571,22 +1562,22 @@ __global__ void nodeGravityComputation(
             dih = 2.0/twoh;
             u = dih/dir;
             if (u < 1.0) {
-              a = dih*(1.4 - TWOTHIRDS*u*u + 0.3*u*u*u*u
-                  - 0.1*u*u*u*u*u);
-              b = dih*dih*dih*(ONEONETHIRD - 1.2*u*u + 0.5*u*u*u);
-              c = dih*dih*dih*dih*dih*(2.4 - 1.5*u);
-              d = 1.5*dih*dih*dih*dih*dih*dih*dir;
+              a = dih*(7.0/5.0 - 2.0/3.0*u*u + 3.0/10.0*u*u*u*u
+                  - 1.0/10.0*u*u*u*u*u);
+              b = dih*dih*dih*(4.0/3.0 - 6.0/5.0*u*u + 1.0/2.0*u*u*u);
+              c = dih*dih*dih*dih*dih*(12.0/5.0 - 3.0/2.0*u);
+              d = 3.0/2.0*dih*dih*dih*dih*dih*dih*dir;
             }
             else {
-              a = -ONEFIFTEENTH*dir + dih*(1.6 - ONEONETHIRD*u*u + u*u*u
-                  - 0.3*u*u*u*u + ONETHIRTIETH*u*u*u*u*u);
-              b = -ONEFIFTEENTH*dir*dir*dir + dih*dih*dih*(EIGHTTHIRDS - 3.0*u
-                  + 1.2*u*u - ONESIXTH*u*u*u);
-              c = -0.2*dir*dir*dir*dir*dir + 3.0*dih*dih*dih*dih*dir
-                + dih*dih*dih*dih*dih*(-2.4 + 0.5*u);
+              a = -1.0/15.0*dir + dih*(8.0/5.0 - 4.0/3.0*u*u + u*u*u
+                  - 3.0/10.0*u*u*u*u + 1.0/30.0*u*u*u*u*u);
+              b = -1.0/15.0*dir*dir*dir + dih*dih*dih*(8.0/3.0 - 3.0*u
+                  + 6.0/5.0*u*u - 1.0/6.0*u*u*u);
+              c = -1.0/5.0*dir*dir*dir*dir*dir + 3.0*dih*dih*dih*dih*dir
+                + dih*dih*dih*dih*dih*(-12.0/5.0 + 1.0/2.0*u);
               d = -dir*dir*dir*dir*dir*dir*dir
                 + 3.0*dih*dih*dih*dih*dir*dir*dir
-                - 0.5*dih*dih*dih*dih*dih*dih*dir;
+                - 1.0/2.0*dih*dih*dih*dih*dih*dih*dir;
             }
           }
           else {
@@ -2178,7 +2169,6 @@ __global__ void particleGravityComputation(
 
   }// for each target part
 }
-#endif
 #endif
 
 __global__ void EwaldTopKernel(GravityParticleData *particleTable);
