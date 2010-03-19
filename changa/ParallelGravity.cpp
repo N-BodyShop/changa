@@ -630,17 +630,17 @@ Main::Main(CkArgMsg* m) {
           remoteResumePartsPerReq = (int) (remoteResumePartsPerReqDouble * mil);
 
           ckout << "INFO: ";
-          ckout << "localNodes: " << localNodesPerReq << endl;
+          ckout << "localNodes: " << localNodesPerReqDouble << endl;
           ckout << "INFO: ";
-          ckout << "remoteNodes: " << remoteNodesPerReq << endl;
+          ckout << "remoteNodes: " << remoteNodesPerReqDouble << endl;
           ckout << "INFO: ";
-          ckout << "remoteResumeNodes: " << remoteResumeNodesPerReq << endl;
+          ckout << "remoteResumeNodes: " << remoteResumeNodesPerReqDouble << endl;
           ckout << "INFO: ";
-          ckout << "localParts: " << localPartsPerReq << endl;
+          ckout << "localParts: " << localPartsPerReqDouble << endl;
           ckout << "INFO: ";
-          ckout << "remoteParts: " << remotePartsPerReq << endl;
+          ckout << "remoteParts: " << remotePartsPerReqDouble << endl;
           ckout << "INFO: ";
-          ckout << "remoteResumeParts: " << remoteResumePartsPerReq << endl;
+          ckout << "remoteResumeParts: " << remoteResumePartsPerReqDouble << endl;
 
           ckout << "INFO: largePhaseThreshold: " << largePhaseThreshold << endl;
 
