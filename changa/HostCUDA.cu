@@ -840,9 +840,9 @@ void FreeDataManagerRemoteChunkMemory(int chunk, void *dm, bool freemom, bool fr
 }
 
 #ifdef CUDA_INSTRUMENT_WRS
-void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, int index, char phase){
+void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, bool freemom, bool freepart, int index, char phase){
 #else
-void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb){
+void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, bool freemom, bool freepart){
 #endif
   workRequest gravityKernel;
   dataInfo *buffer;
@@ -854,18 +854,35 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb){
   gravityKernel.dimBlock = dim3(0);
   gravityKernel.smemSize = 0;
 
-  gravityKernel.nBuffers = 1;
+  gravityKernel.nBuffers = 3;
 
   /* schedule buffers for transfer to the GPU */
-  gravityKernel.bufferInfo = (dataInfo *) malloc(1 * sizeof(dataInfo));
+  gravityKernel.bufferInfo = (dataInfo *) malloc(3 * sizeof(dataInfo));
 
-  buffer = &(gravityKernel.bufferInfo[0]);
+  buffer = &(gravityKernel.bufferInfo[LOCAL_PARTICLE_VARS_IDX]);
   buffer->bufferID = LOCAL_PARTICLE_VARS;
   buffer->transferToDevice = NO ;
   buffer->hostBuffer = hostBuffer;
   buffer->size = size;
   buffer->transferFromDevice = size > 0 ? YES : NO;
   buffer->freeBuffer = size > 0 ? YES : NO;
+
+  buffer = &(gravityKernel.bufferInfo[LOCAL_MOMENTS_IDX]);
+  buffer->bufferID = LOCAL_MOMENTS;
+  buffer->transferToDevice = NO ;
+  buffer->transferFromDevice = NO;
+  buffer->freeBuffer = freemom ? YES : NO;
+  buffer->hostBuffer = 0;
+  buffer->size = 0;
+
+  buffer = &(gravityKernel.bufferInfo[LOCAL_PARTICLE_CORES_IDX]);
+  buffer->bufferID = LOCAL_PARTICLE_CORES;
+  buffer->transferToDevice = NO ;
+  buffer->transferFromDevice = NO;
+  buffer->freeBuffer = freepart ? YES : NO;
+  buffer->hostBuffer = 0;
+  buffer->size = 0;
+
 
   gravityKernel.callbackFn = cb;
   gravityKernel.id = DM_TRANSFER_BACK;

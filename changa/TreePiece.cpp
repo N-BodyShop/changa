@@ -2122,7 +2122,7 @@ void TreePiece::finishBucket(int iBucket) {
       // not be reset, so that the data manager gets 
       // confused.
       dm->transferParticleVarsBack();
-      dm->freeLocalTreeMemory();
+      //dm->freeLocalTreeMemory();
 #else
       // move on to markwalkdone in non-cuda version
       continueWrapUp();
@@ -5359,9 +5359,9 @@ void TreePiece::markWalkDone() {
 #ifdef CHECK_WALK_COMPLETIONS
         CkPrintf("[%d] inside markWalkDone, completedActiveWalks: %d, activeWalks: %d, contrib finishWalk\n", thisIndex, completedActiveWalks, activeWalks.size());
 #endif
-	finishWalk();
-	// CkCallback cb = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
-	// contribute(0, 0, CkReduction::concat, cb);
+	//finishWalk();
+	CkCallback cb = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
+	contribute(0, 0, CkReduction::concat, cb);
 	}
     }
 
@@ -5370,9 +5370,6 @@ void TreePiece::finishWalk()
   
   completedActiveWalks = 0;
   freeWalkObjects();
-  //#ifdef CUDA
-  //    FreeDataManagerMemory();
-  //#endif
 #ifdef CHECK_WALK_COMPLETIONS
   CkPrintf("[%d] inside finishWalk contrib callback\n", thisIndex);
 #endif

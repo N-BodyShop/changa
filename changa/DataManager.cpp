@@ -798,9 +798,9 @@ void DataManager::transferParticleVarsBack(){
     data->size = savedNumTotalParticles;
 
 #ifdef CUDA_INSTRUMENT_WRS
-    TransferParticleVarsBack(buf, savedNumTotalParticles*sizeof(VariablePartData), data->cb, 0, activeRung);
+    TransferParticleVarsBack(buf, savedNumTotalParticles*sizeof(VariablePartData), data->cb, savedNumTotalNodes > 0, savedNumTotalParticles > 0, 0, activeRung);
 #else
-    TransferParticleVarsBack(buf, savedNumTotalParticles*sizeof(VariablePartData), data->cb);
+    TransferParticleVarsBack(buf, savedNumTotalParticles*sizeof(VariablePartData), data->cb, savedNumTotalNodes > 0, savedNumTotalParticles > 0);
 #endif
   }
   CmiUnlock(__nodelock);
