@@ -1111,7 +1111,12 @@ CudaRequest *GenericList<T>::serialize(TreePiece *tp){
         if(listilen > 0){
           memcpy(&flatlists[listpos], lists[i].getVec(), listilen*sizeof(T));
           markers[curbucket] = listpos;
-          getBucketParameters(tp, i, starts[curbucket], sizes[curbucket]);
+          if(tp->largePhase()){
+            getBucketParameters(tp, i, starts[curbucket], sizes[curbucket]);
+          }
+          else{
+            getActiveBucketParameters(tp, i, starts[curbucket], sizes[curbucket]);
+          }
           affectedBuckets[curbucket] = i;
           listpos += listilen;
           curbucket++;
@@ -1214,7 +1219,12 @@ CudaRequest *GenericList<ILPart>::serialize(TreePiece *tp){
               listpos++;
             }
           }
-          getBucketParameters(tp, i, starts[curbucket], sizes[curbucket]);
+          if(tp->largePhase()){
+            getBucketParameters(tp, i, starts[curbucket], sizes[curbucket]);
+          }
+          else{
+            getActiveBucketParameters(tp, i, starts[curbucket], sizes[curbucket]);
+          }
           affectedBuckets[curbucket] = i;
           curbucket++;
         }
