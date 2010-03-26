@@ -550,7 +550,7 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles,
 
   // The following assert does not work anymore when TreePieces can have 0 particles assigned
   //assert(myPlace >= 0 && myPlace < dm->particleCounts.size());
-  if (myPlace == -2) {
+  if (myPlace == -2 || dm->particleCounts[myPlace] == 0) {
     // Special case where no particle is assigned to this TreePiece
     myNumParticles = 0;
     myNumSPH = 0;
@@ -1483,6 +1483,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   }
   //CmiLock(dm->__nodelock);
 
+  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
   if(myPlace == 0)
     myParticles[0].key = firstPossibleKey;
   else
@@ -1492,6 +1493,9 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
     myParticles[myNumParticles + 1].key = lastPossibleKey;
   else
     myParticles[myNumParticles + 1].key = dm->splitters[2 * myPlace + 2];
+
+  CkAssert(myParticles[1].key >= myParticles[0].key);
+  CkAssert(myParticles[myNumParticles + 1].key >= myParticles[myNumParticles].key);
 
   // create the root of the global tree
   switch (useTree) {

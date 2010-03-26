@@ -602,7 +602,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 bool Sorter::refineOctSplitting(int n, int *count) {
   int i, idx;
   if (nodesOpened.size() == 0) {
-    // This means that we are not refining the counts, but we got a brand new histogramming
+    // This means that we are not refining the counts, but we got a brand new histogramming     
     CkAssert(n == nodeKeys.size());
     binCounts.resize(n);
     copy(count, count+n, binCounts.begin());
@@ -622,7 +622,6 @@ bool Sorter::refineOctSplitting(int n, int *count) {
         binCounts[idx-1] += binCounts[idx];
         binCounts.erase(binCounts.begin()+idx);
         availableChares.push_back(chareIDs[idx]);
-        chareIDs.erase(chareIDs.begin()+idx);
         --idx;
       }
     }
@@ -632,6 +631,10 @@ bool Sorter::refineOctSplitting(int n, int *count) {
     levelMask >>= refineLevel;
     const Key mask = Key(1) << 63;
     for (int i=0; i<nodesOpened.size(); ++i) {
+      if (availableChares.size() < 1<<refineLevel) {
+	CkPrintf("availableChares size is %d, cannot refine further\n", availableChares.size());
+        break;
+      }
       NodeKey key = nodesOpened[i];
       int index = std::find(nodeKeys.begin(), nodeKeys.end(), key) - nodeKeys.begin();
 
@@ -653,10 +656,10 @@ bool Sorter::refineOctSplitting(int n, int *count) {
       }
       binCounts[index] = count[i*(1<<refineLevel)];
       binCounts.insert(binCounts.begin()+index+1, &count[i*(1<<refineLevel)+1], &count[(i+1)*(1<<refineLevel)]);
-      CkAssert(availableChares.size()+1 >= 1<<refineLevel);
       chareIDs.insert(chareIDs.begin()+index+1, availableChares.end()-(1<<refineLevel), availableChares.end());
       availableChares.erase(availableChares.end()-(1<<refineLevel), availableChares.end());
-      
+     
+ 
       // Trim down what we over-opened just above
       for (int j=1, idx=1; j<(1<<refineLevel); ++j, ++idx) {
         if (binCounts[idx] > splitThreshold) {

@@ -50,12 +50,46 @@ void DataManager::init() {
 }
 
 void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb) {
-	boundaryKeys.resize(n);
+/*	boundaryKeys.resize(n);
 	copy(keys, keys + n, boundaryKeys.begin());
 	responsibleIndex.resize(n - 1);
 	copy(responsible, responsible + n - 1, responsibleIndex.begin());
 	particleCounts.resize(n - 1);
-	copy(bins, bins + n - 1, particleCounts.begin());
+	copy(bins, bins + n - 1, particleCounts.begin());*/
+
+  //should not assign responsibility or place to a treepiece that will get no particles
+  int ignored = 0;
+  for (int i = 0; i < n - 1; i ++){
+    if (bins[i] == 0)
+      ignored++;
+  }
+  boundaryKeys.resize(n - ignored);
+  responsibleIndex.resize(n - 1 - ignored);
+  particleCounts.resize(n - 1 - ignored);
+
+  //if all treepieces receiving particles, copy everything
+  if (ignored == 0){
+    copy(keys, keys + n, boundaryKeys.begin());
+    copy(responsible, responsible + n - 1, responsibleIndex.begin());
+    copy(bins, bins + n - 1, particleCounts.begin());
+  } else {
+    boundaryKeys[0] = keys[0];
+    int idx = 0;
+    int last = 0;
+      
+    for (int i = 0; i < n; i ++){
+      //skip empty treepieces by copying in chunks
+      if (bins[i] == 0 || i == n - 1){
+	copy(keys + last + 1, keys + i + 1, boundaryKeys.begin() + idx + 1);
+	copy(responsible + last, responsible + i, responsibleIndex.begin() + idx);
+	copy(bins + last, bins + i, particleCounts.begin() + idx);
+	idx += i - last;
+	last = i+1;
+
+      } 
+    }
+  }
+
 
   if(verbosity >= 3 && CkMyPe()==0){
     std::vector<int>::iterator iter1;
