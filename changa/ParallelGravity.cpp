@@ -1453,6 +1453,13 @@ Main::initialForces()
         << endl;
   iPhase = 0;
   
+#ifdef CUDA
+  ckout << "Init. Accel. ...";
+  treeProxy.initAccel(0, CkCallbackResumeThread());
+  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+        << endl;
+#endif
+      
   CkCallback cbGravity(CkCallback::resumeThread);  // needed below to wait for gravity
 
   if(param.bDoGravity) {
