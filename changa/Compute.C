@@ -1169,7 +1169,7 @@ CudaRequest *GenericList<ILPart>::serialize(TreePiece *tp){
       }
     }
 
-    CkPrintf("[%d] Offloading %d particle interactions\n", tp->getIndex(), numParticleInteractions);
+    //CkPrintf("[%d] Offloading %d particle interactions\n", tp->getIndex(), numParticleInteractions);
 
     // create flat lists and associated data structures
     // allocate memory and flatten lists only if there
