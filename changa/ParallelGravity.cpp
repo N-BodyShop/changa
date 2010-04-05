@@ -395,9 +395,9 @@ Main::Main(CkArgMsg* m) {
 	param.bParaRead = 1;
 	prmAddParam(prm, "bParaRead", paramBool, &param.bParaRead,sizeof(int),
 		    "par", "enable/disable parallel reading of files (IGNORED)");
-	param.bParaWrite = 0;
+	param.bParaWrite = 1;
 	prmAddParam(prm, "bParaWrite", paramBool, &param.bParaWrite,sizeof(int),
-		    "paw", "enable/disable parallel writing of files (IGNORED)");
+		    "paw", "enable/disable parallel writing of files");
 	param.achInFile[0] = '\0';
 	prmAddParam(prm,"achInFile",paramString,param.achInFile,
 		    256, "I", "input file name (or base file name)");
@@ -1670,12 +1670,12 @@ Main::doSimulation()
 	  ckout << "Outputting densities ...";
 	  startTime = CkWallTimer();
 	  DenOutputParams pDenOut(string(achFile) + ".den");
-	  treeProxy[0].outputASCII(pDenOut, CkCallbackResumeThread());
+	  treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
 	  ckout << "Outputting hsmooth ...";
 	  HsmOutputParams pHsmOut(string(achFile) + ".hsmall");
-	  treeProxy[0].outputASCII(pHsmOut, CkCallbackResumeThread());
+	  treeProxy[0].outputASCII(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
 	  }
       else {
 	  treeProxy.reOrder(CkCallbackResumeThread());
@@ -1688,19 +1688,19 @@ Main::doSimulation()
 	      CkAssert(0);
 	  else {
 	      DenOutputParams pDenOut(string(achFile) + ".gasden");
-	      treeProxy[0].outputASCII(pDenOut, CkCallbackResumeThread());
+	      treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
 	      PresOutputParams pPresOut(string(achFile) + ".pres");
-	      treeProxy[0].outputASCII(pPresOut, CkCallbackResumeThread());
+	      treeProxy[0].outputASCII(pPresOut, param.bParaWrite, CkCallbackResumeThread());
 	      HsmOutputParams pSphHOut(string(achFile) + ".SphH");
-	      treeProxy[0].outputASCII(pSphHOut, CkCallbackResumeThread());
+	      treeProxy[0].outputASCII(pSphHOut, param.bParaWrite, CkCallbackResumeThread());
 	      DivVOutputParams pDivVOut(string(achFile) + ".divv");
-	      treeProxy[0].outputASCII(pDivVOut, CkCallbackResumeThread());
+	      treeProxy[0].outputASCII(pDivVOut, param.bParaWrite, CkCallbackResumeThread());
 	      PDVOutputParams pPDVOut(string(achFile) + ".PdV");
-	      treeProxy[0].outputASCII(pPDVOut, CkCallbackResumeThread());
+	      treeProxy[0].outputASCII(pPDVOut, param.bParaWrite, CkCallbackResumeThread());
 	      MuMaxOutputParams pMuMaxOut(string(achFile) + ".mumax");
-	      treeProxy[0].outputASCII(pMuMaxOut, CkCallbackResumeThread());
+	      treeProxy[0].outputASCII(pMuMaxOut, param.bParaWrite, CkCallbackResumeThread());
 	      BSwOutputParams pBSwOut(string(achFile) + ".BSw");
-	      treeProxy[0].outputASCII(pBSwOut, CkCallbackResumeThread());
+	      treeProxy[0].outputASCII(pBSwOut, param.bParaWrite, CkCallbackResumeThread());
 	      }
 	  }
       ckout << "Outputting accelerations  ...";
@@ -1709,13 +1709,13 @@ Main::doSimulation()
 					   "acc2", CkCallbackResumeThread());
       else {
 	  AccOutputParams pAcc(string(achFile) + ".acc2");
-	  treeProxy[0].outputASCII(pAcc, CkCallbackResumeThread());
+	  treeProxy[0].outputASCII(pAcc, param.bParaWrite, CkCallbackResumeThread());
 	  }
 #ifdef NEED_DT
       ckout << "Outputting dt ...";
       adjust(0);
       DtOutputParams pDt(string(achFile) + ".dt");
-      treeProxy[0].outputASCII(pDt, CkCallbackResumeThread());
+      treeProxy[0].outputASCII(pDt, param.bParaWrite, CkCallbackResumeThread());
 #endif
       if(param.bDoGas && param.bDoDensity) {
 	  double tolerance = 0.01;	// tolerance for domain decomposition
@@ -1749,12 +1749,12 @@ Main::doSimulation()
 	  ckout << "Outputting densities ...";
 	  startTime = CkWallTimer();
 	  DenOutputParams pDenOut(string(achFile) + ".den");
-	  treeProxy[0].outputASCII(pDenOut, CkCallbackResumeThread());
+	  treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
 	  ckout << "Outputting hsmooth ...";
 	  HsmOutputParams pHsmOut(string(achFile) + ".hsmall");
-	  treeProxy[0].outputASCII(pHsmOut, CkCallbackResumeThread());
+	  treeProxy[0].outputASCII(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
 	  }
       treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
 				     CkCallbackResumeThread());
@@ -1859,8 +1859,12 @@ void Main::writeOutput(int iStep)
 	startTime = CkWallTimer();
 	}
     double duTFac = (param.dConstGamma-1)*param.dMeanMolWeight/param.dGasConst;
-    treeProxy.setupWrite(0, 0, achFile, dOutTime, dvFac, duTFac,
-		      CkCallbackResumeThread());
+    if(param.bParaWrite)
+    	treeProxy.setupWrite(0, 0, achFile, dOutTime, dvFac, duTFac,
+			     CkCallbackResumeThread());
+    else
+	treeProxy[0].serialWrite(0, achFile, dOutTime, dvFac, duTFac,
+                              CkCallbackResumeThread());
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
@@ -1891,7 +1895,7 @@ void Main::writeOutput(int iStep)
 	ckout << "Outputting densities ...";
 	startTime = CkWallTimer();
 	DenOutputParams pDenOut(string(achFile) + ".den");
-	treeProxy[0].outputASCII(pDenOut, CkCallbackResumeThread());
+	treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 	}

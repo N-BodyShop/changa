@@ -1199,6 +1199,26 @@ public:
 			const std::string& filename, const double dTime,
 			const double dvFac, const double duTFac,
 			const CkCallback& cb);
+	// serial output
+	void serialWrite(u_int64_t iPrevOffset, const std::string& filename,
+			 const double dTime,
+			 const double dvFac, const double duTFac,
+			 const CkCallback& cb);
+	// setup for serial output
+	void oneNodeWrite(int iIndex,
+			       int iOutParticles,
+			       int iOutSPH,
+			       GravityParticle *particles, // particles to
+						     // write
+			       extraSPHData *pGas, // SPH data
+			       int *piSPH, // SPH data offsets
+			       const u_int64_t iPrevOffset,
+			       const std::string& filename,  // output file
+			       const double dTime,      // time or expansion
+			       const double dvFac,  // velocity conversion
+			     const double duTFac, // temperature
+						  // conversion
+			  const CkCallback &cb);
 	// Reorder for output
 	void reOrder(CkCallback& cb);
 	// move particles around for output
@@ -1406,7 +1426,15 @@ public:
 	void ResumeFromSync();
 
 	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
-	void outputASCII(OutputParams& params, const CkCallback& cb);
+	void outputASCII(OutputParams& params, int bParaWrite,
+			 const CkCallback& cb);
+	void oneNodeOutVec(OutputParams& params, Vector3D<double>* avOut,
+			   int nPart, int iIndex, int bDone,
+			   CkCallback& cb) ;
+	void oneNodeOutArr(OutputParams& params, double* adOut,
+			   int nPart, int iIndex, int bDone,
+			   CkCallback& cb) ;
+	
 	void outputIOrderASCII(const std::string& suffix, const CkCallback& cb);
 	void outputStatistics(const CkCallback& cb);
 

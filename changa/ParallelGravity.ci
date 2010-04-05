@@ -146,6 +146,23 @@ mainmodule ParallelGravity {
         const double dTime, const double dvFac,
         const double duTfac,
         const CkCallback& cb);
+    entry void serialWrite(u_int64_t iPrevOffset, const std::string& filename,
+        const double dTime, const double dvFac,
+        const double duTfac,
+        const CkCallback& cb);
+    entry void oneNodeWrite(int iIndex,
+			       int iOutParticles,
+			       int iOutSPH,
+			       GravityParticle particles[iOutParticles+2], // particles to
+						     // write
+			       extraSPHData pGas[iOutSPH], // SPH data
+			       int piSPH[iOutSPH], // SPH data offsets
+			       const u_int64_t iPrevOffset,
+			       const std::string& filename,  // output file
+			       const double dTime,      // time or expansion
+			       const double dvFac,  // velocity conversion
+			     const double duTFac, // temperature conversion
+			     const CkCallback& cb);
     entry void reOrder(CkCallback& cb);
     entry void ioAcceptSortedParticles(const GravityParticle particles[n],
 	     const int n, const extraSPHData pGas[nGasIn], const int nGasIn);
@@ -261,7 +278,14 @@ mainmodule ParallelGravity {
     entry void doAtSync();
 
     entry void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
-    entry void outputASCII(CkReference<OutputParams>, const CkCallback& cb);
+    entry void outputASCII(CkReference<OutputParams>, int bParaWrite,
+			   const CkCallback& cb);
+    entry void oneNodeOutVec(CkReference<OutputParams>, Vector3D<double> avOut[nPart],
+			   int nPart, int iIndex, int bDone,
+			   CkCallback& cb) ;
+    entry void oneNodeOutArr(CkReference<OutputParams>, double adOut[nPart],
+			   int nPart, int iIndex, int bDone,
+			   CkCallback& cb) ;
     entry void outputIOrderASCII(const std::string& suffix, const CkCallback& cb);
     entry void outputStatistics(const CkCallback& cb);
     //entry void getPieceValues(piecedata *totaldata);
