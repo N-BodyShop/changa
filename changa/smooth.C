@@ -287,6 +287,10 @@ void TreePiece::startIterationSmooth(// type of smoothing and parameters
       markSmoothWalkDone();
       return;
       }
+
+  // It is assumed that there are at least nSmooth particles on a
+  // treepiece in order to prime the search queue.
+  CkAssert(myNumParticles > nSmooth);
   
   //for (int i=0; i<numChunks; ++i) remaining Chunk[i] = myNumParticles;
 
