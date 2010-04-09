@@ -169,6 +169,27 @@ class BSwOutputParams : public OutputParams
 	}
     };
 
+class CsOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p)
+    {
+	if (TYPETest(p, TYPE_GAS))
+	    return p->c();
+	else
+	    return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    CsOutputParams() {}
+    CsOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    PUPable_decl(CsOutputParams);
+    CsOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
 class DtOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -186,6 +207,24 @@ class DtOutputParams : public OutputParams
     DtOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
     PUPable_decl(DtOutputParams);
     DtOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class RungOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p)
+    {
+	return (double) p->rung;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    RungOutputParams() {}
+    RungOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    PUPable_decl(RungOutputParams);
+    RungOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
         OutputParams::pup(p);//Call base class
 	}

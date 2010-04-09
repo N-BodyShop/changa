@@ -1701,6 +1701,8 @@ Main::doSimulation()
 	      treeProxy[0].outputASCII(pMuMaxOut, param.bParaWrite, CkCallbackResumeThread());
 	      BSwOutputParams pBSwOut(string(achFile) + ".BSw");
 	      treeProxy[0].outputASCII(pBSwOut, param.bParaWrite, CkCallbackResumeThread());
+	      CsOutputParams pCsOut(string(achFile) + ".c");
+	      treeProxy[0].outputASCII(pCsOut, param.bParaWrite, CkCallbackResumeThread());
 	      }
 	  }
       ckout << "Outputting accelerations  ...";
@@ -1717,6 +1719,8 @@ Main::doSimulation()
       DtOutputParams pDt(string(achFile) + ".dt");
       treeProxy[0].outputASCII(pDt, param.bParaWrite, CkCallbackResumeThread());
 #endif
+      RungOutputParams pRung(string(achFile) + ".rung");
+      treeProxy[0].outputASCII(pRung, param.bParaWrite, CkCallbackResumeThread());
       if(param.bDoGas && param.bDoDensity) {
 	  double tolerance = 0.01;	// tolerance for domain decomposition
 	  // The following call is to get the particles in key order
