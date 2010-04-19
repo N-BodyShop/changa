@@ -725,7 +725,7 @@ Main::Main(CkArgMsg* m) {
 	    }
 	else { useTree = Binary_Oct; }
 
-        ckerr << "Running on " << CkNumPes() << " processors with " << numTreePieces << " TreePieces" << endl;
+        ckerr << "Running on " << CkNumPes() << " processors/ "<< CkNumNodes() <<" nodes with " << numTreePieces << " TreePieces" << endl;
 
 	if (verbosity) 
 	  ckerr << "yieldPeriod set to " << _yieldPeriod << endl;
@@ -1579,7 +1579,10 @@ Main::doSimulation()
 
 
   for(int iStep = param.iStartStep+1; iStep <= param.nSteps; iStep++){
-    if (killAt > 0 && killAt == iStep) break;
+    if (killAt > 0 && killAt == iStep) {
+      ckout << "KillAT: Stopping after " << (CkWallTimer()-dSimStartTime) << " seconds\n";
+      break;
+    }
     
     if (verbosity) ckout << "Starting big step " << iStep << endl;
     startTime = CkWallTimer();
