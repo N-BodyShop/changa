@@ -104,11 +104,14 @@ class Sorter : public Chare {
 public:
 	
 	Sorter() {
-          //nodeKeys = NULL;
           chareIDs.resize(numTreePieces, 1);
           chareIDs[0] = 0;
           partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
-          //numUsedChares = numTreePieces;
+	};
+	Sorter(CkMigrateMessage* m) {
+          chareIDs.resize(numTreePieces, 1);
+          chareIDs[0] = 0;
+          partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
 	};
 
 	/** Sort the particles in an array of TreePieces using a histogram-probing method.

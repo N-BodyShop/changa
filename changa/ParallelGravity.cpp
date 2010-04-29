@@ -841,7 +841,6 @@ Main::Main(CkArgMsg* m) {
 Main::Main(CkMigrateMessage* m) {
     mainChare = thishandle;
     bIsRestarting = 1;
-    sorter = CProxy_Sorter::ckNew();
     CkPrintf("Main(CkMigrateMessage) called\n");
     }
 
@@ -2133,6 +2132,7 @@ void Main::pup(PUP::er& p)
     p | bDumpFrame;
     p | bChkFirst;
     p | nPhases;
+    p | sorter;
     }
 
 

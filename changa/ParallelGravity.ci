@@ -87,7 +87,7 @@ mainmodule ParallelGravity {
     entry void liveVizImagePrep(liveVizRequestMsg *msg);
   };
 
-  chare Sorter {
+  chare [migratable] Sorter {
     entry Sorter();
 
     entry void startSorting(const CkGroupID& dataManagerID,
