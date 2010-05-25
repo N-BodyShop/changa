@@ -41,6 +41,7 @@ void prmArgUsage(PRM prm);
 void prmLogParam(PRM prm, char *pszFile);
 int prmParseParam(PRM,char *);
 int prmArgProc(PRM,int,char **);
+int prmArgOnlyProc(PRM prm,int argc,char **argv);
 int prmSpecified(PRM,const char *);
 int prmArgSpecified(PRM,const char *);
 int prmFileSpecified(PRM,const char *);

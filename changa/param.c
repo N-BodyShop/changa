@@ -375,6 +375,132 @@ int prmArgProc(PRM prm,int argc,char **argv)
 	return(1);
 	}
 
+/*
+ * Like the above, but only parses the comand line parameters
+ */
+
+int prmArgOnlyProc(PRM prm,int argc,char **argv)
+{
+	int i,ret;
+	PRM_NODE *pn;
+
+    if (argc < 2) return(1);
+    /*
+     ** Look for the sim_file name and IGNORE it. If no
+     ** sim_file name then ignore and look at command line settings
+     ** and options. The cases are a bit tricky.
+     */
+	if (*argv[argc-1] != '-' && *argv[argc-1] != '+') {
+		if (*argv[argc-2] != '-') {
+			--argc;
+			}
+		else {
+			pn = prm->pnHead;
+			while (pn) {
+				if (pn->pszArg) 
+					if (!strcmp(&argv[argc-2][1],pn->pszArg)) break;
+				pn = pn->pnNext;
+				}
+			if (pn) {
+				if (pn->iType == paramBool) {
+					/*
+					 ** It's a boolean flag.
+					 */
+					--argc;
+					}
+				}
+			else {
+				--argc;
+				}
+			}
+		}
+	for (i=1;i<argc;++i) {
+		if (*argv[i] == '-' || *argv[i] == '+') {
+			pn = prm->pnHead;
+			while (pn) {
+				if (pn->pszArg)
+					if (!strcmp(&argv[i][1],pn->pszArg)) break;
+				pn = pn->pnNext;
+				}
+			if (!pn) {
+				printf("Unrecognized command line argument:%s\n",argv[i]);
+				prmArgUsage(prm);
+				return(0);
+				}
+			}
+		else if (i == argc-1) return(1);
+		else {
+			printf("Unrecognized command line argument:%s\n",argv[i]);
+			prmArgUsage(prm);
+			return(0);
+			}
+		switch (pn->iType) {
+		case paramBool:
+			/*
+			 ** It's a boolean.
+			 */
+			if (argv[i][0] == '-') *((int *)pn->pValue) = 0;
+			else *((int *)pn->pValue) = 1;
+			break;
+		case paramInt:
+			/*
+			 ** It's an int
+			 */
+			++i;
+			if (i == argc) {
+				printf("Missing integer value after command line ");
+			    printf("argument:%s\n",argv[i-1]);
+				prmArgUsage(prm);
+				return(0);
+				}
+			ret = sscanf(argv[i],"%d",(int *) pn->pValue);
+			if (ret != 1) {
+				printf("Expected integer after command line ");
+			    printf("argument:%s\n",argv[i-1]);
+				prmArgUsage(prm);
+				return(0);
+				}
+			break;
+		case paramDouble:
+			/*
+			 ** It's a DOUBLE
+			 */
+			++i;
+			if (i == argc) {
+				printf("Missing double value after command line ");
+			    printf("argument:%s\n",argv[i-1]);
+				prmArgUsage(prm);
+				return(0);
+				}
+			ret = sscanf(argv[i],"%lf",(double *)pn->pValue);
+			if (ret != 1) {
+				printf("Expected double after command line ");
+			    printf("argument:%s\n",argv[i-1]);
+				prmArgUsage(prm);
+				return(0);
+				}
+			break;
+		case paramString:
+			/*
+			 ** It's a string
+			 */
+			++i;
+			if (i == argc) {
+				printf("Missing string after command line ");
+			    printf("argument:%s\n",argv[i-1]);
+				prmArgUsage(prm);
+				return(0);
+				}
+			assert(pn->iSize > strlen(argv[i]));
+			strcpy((char *)pn->pValue,argv[i]);
+			break;
+		default:
+			assert(0);
+			}
+		pn->bArg = 1;
+		}
+	return(1);
+	}
 
 int prmArgSpecified(PRM prm,const char *pszName)
 {

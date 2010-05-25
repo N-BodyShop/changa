@@ -839,6 +839,8 @@ Main::Main(CkArgMsg* m) {
 }
 
 Main::Main(CkMigrateMessage* m) {
+    args = (CkArgMsg *)malloc(sizeof(*args));
+    args->argv = CmiCopyArgs(((CkArgMsg *) m)->argv);
     mainChare = thishandle;
     bIsRestarting = 1;
     CkPrintf("Main(CkMigrateMessage) called\n");
@@ -1408,7 +1410,34 @@ Main::restart()
 	sprintf(achLogFileName, "%s.log", param.achOutName);
 	ofstream ofsLog(achLogFileName, ios_base::app);
 	ofsLog << "# ReStarting ChaNGa" << endl;
+	for (int i = 0; i < CmiGetArgc(args->argv); i++)
+	    ofsLog << " " << args->argv[i];
+	ofsLog << endl;
 	ofsLog.close();
+	/*
+	 * Parse command line parameters
+	 */
+	prmInitialize(&prm,_Leader,_Trailer);
+	/*
+	 * Add a subset of the parameters.
+	 */
+	prmAddParam(prm, "dDelta", paramDouble, &param.dDelta,
+		    sizeof(double),"dt", "Base Timestep for integration");
+	prmAddParam(prm, "nSteps", paramInt, &param.nSteps,
+		    sizeof(int),"n", "Number of Timesteps");
+	prmAddParam(prm,"iWallRunTime",paramInt,&param.iWallRunTime,
+		    sizeof(int),"wall",
+		    "<Maximum Wallclock time (in minutes) to run> = 0 = infinite");
+	prmAddParam(prm, "nBucket", paramInt, &bucketSize,
+		    sizeof(int),"b", "Particles per Bucket (default: 12)");
+	prmAddParam(prm, "iOutInterval", paramInt, &param.iOutInterval,
+		    sizeof(int),"oi", "Output Interval");
+	prmAddParam(prm, "iCheckInterval", paramInt, &param.iCheckInterval,
+		    sizeof(int),"oc", "Checkpoint Interval");
+	
+	if(!prmArgOnlyProc(prm,CmiGetArgc(args->argv),args->argv)) {
+	    CkExit();
+        }
 	treeProxy.drift(0.0, 0, 0, 0.0, 0, CkCallbackResumeThread());
 	mainChare.initialForces();
 	}
