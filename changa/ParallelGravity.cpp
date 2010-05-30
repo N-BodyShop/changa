@@ -1434,6 +1434,8 @@ Main::restart()
 		    sizeof(int),"oi", "Output Interval");
 	prmAddParam(prm, "iCheckInterval", paramInt, &param.iCheckInterval,
 		    sizeof(int),"oc", "Checkpoint Interval");
+	prmAddParam(prm, "iVerbosity", paramInt, &verbosity,
+		    sizeof(int),"v", "Verbosity");
 	
 	if(!prmArgOnlyProc(prm,CmiGetArgc(args->argv),args->argv)) {
 	    CkExit();
