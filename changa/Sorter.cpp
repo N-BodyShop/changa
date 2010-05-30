@@ -567,7 +567,8 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   else{
     sorted=true;
     if(verbosity)
-      cerr << "Sorter: Histograms balanced after " << numIterations << " iterations." << endl;
+      ckout << "Sorter: Histograms balanced after " << numIterations
+	    << " iterations." << endl;
     //We have the splitters here because weight balancer didn't change any node keys
     //We also have the final bin counts
 		
