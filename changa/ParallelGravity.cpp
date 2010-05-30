@@ -1304,6 +1304,8 @@ void Main::setupICs() {
   nActiveGrav = nTotalParticles;
   nActiveSPH = nTotalSPH;
   ckout << "N: " << nTotalParticles << endl;
+  if(particlesPerChare == 0)
+      particlesPerChare = nTotalParticles/numTreePieces;
   
   if(nTotalSPH == 0 && param.bDoGas) {
       ckerr << "WARNING: no SPH particles and bDoGas is set\n";
