@@ -1,5 +1,0 @@
-//Redutions.ci
-
-module Reductions {
-	initcall void registerReductions();
-};
