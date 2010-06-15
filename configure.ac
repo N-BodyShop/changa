@@ -2,10 +2,10 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([ChaNGa], [0.1], [changa-users@u.washington.edu])
+AC_INIT([ChaNGa], [2.0], [changa-users@u.washington.edu])
 AC_CONFIG_SRCDIR([Reductions.h])
 AC_CONFIG_HEADER([config.h
-		  ../structures/config.h])
+		  ../utility/structures/config.h])
 
 AC_ARG_VAR([CHARMC], "Charm compiler")
 # Checks for programs.
@@ -72,6 +72,6 @@ AC_CHECK_LIB([xdr], [xdr_hyper])
 AC_CHECK_FUNCS([xdr_hyper])
 
 AC_CONFIG_FILES([Makefile
-		 ../structures/Makefile
+		 ../utility/structures/Makefile
 		])
 AC_OUTPUT
