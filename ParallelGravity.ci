@@ -211,6 +211,7 @@ mainmodule ParallelGravity {
     entry void getCOMByType(int iType, const CkCallback& cb, int bLiveViz);
     entry void DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump) ;
     entry void liveVizDumpFrameInit(liveVizRequestMsg * msg);
+    entry void setProjections(int bOn);
     entry void buildTree(int bucketSize, const CkCallback& cb);
 
     //entry void collectSplitters(CkReductionMsg* m);

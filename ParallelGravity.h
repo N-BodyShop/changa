@@ -1290,6 +1290,7 @@ public:
 	void getCOMByType(int iType, const CkCallback& cb, int bLiveViz);
 	void DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump) ;
 	void liveVizDumpFrameInit(liveVizRequestMsg *msg);
+	void setProjections(int bOn);
 
 	/// Charm entry point to build the tree (called by Main), calls collectSplitters
 	void buildTree(int bucketSize, const CkCallback& cb);
