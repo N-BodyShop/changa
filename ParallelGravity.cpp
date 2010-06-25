@@ -1412,6 +1412,7 @@ Main::restart()
 	sprintf(achLogFileName, "%s.log", param.achOutName);
 	ofstream ofsLog(achLogFileName, ios_base::app);
 	ofsLog << "# ReStarting ChaNGa" << endl;
+	ofsLog << "#";
 	for (int i = 0; i < CmiGetArgc(args->argv); i++)
 	    ofsLog << " " << args->argv[i];
 	ofsLog << endl;
