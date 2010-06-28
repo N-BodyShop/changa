@@ -675,7 +675,15 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		  p->vPred() = p->velocity
 		      + dDelta[p->rung]*p->treeAcceleration;
 		  if(!bGasIsothermal) {
+#ifndef COOLING_NONE
+		      p->u() = p->u() + p->uDot()*duDelta[p->rung];
+		      if (p->u() < 0) {
+			  double uold = p->u() - p->uDot()*duDelta[p->rung];
+			  p->u() = uold*exp(p->uDot()*duDelta[p->rung]/uold);
+			  }
+#else /* COOLING_NONE */
 		      p->u() += p->PdV()*duDelta[p->rung];
+#endif /* COOLING_NONE */
 		      p->uPred() = p->u();
 		      }
 		  }
@@ -684,7 +692,15 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		  p->vPred() = p->velocity;
 		  if(!bGasIsothermal) {
 		      p->uPred() = p->u();
+#ifndef COOLING_NONE
+		      p->u() += p->uDot()*duDelta[p->rung];
+		      if (p->u() < 0) {
+			  double uold = p->u() - p->uDot()*duDelta[p->rung];
+			  p->u() = uold*exp(p->uDot()*duDelta[p->rung]/uold);
+			  }
+#else /* COOLING_NONE */
 		      p->u() += p->PdV()*duDelta[p->rung];
+#endif /* COOLING_NONE */
 		      }
 		  }
 	      CkAssert(p->u() > 0.0);
@@ -804,10 +820,12 @@ void TreePiece::countActive(int activeRung, const CkCallback& cb) {
   contribute(2*sizeof(int), nActive, CkReduction::sum_int, cb);
 }
 
-void TreePiece::drift(double dDelta,  // time step in v containing
+void TreePiece::drift(double dDelta,  // time step in x containing
 				      // cosmo scaling
 		      int bNeedVpred, // Update predicted velocities
 		      int bGasIsothermal, // Isothermal EOS
+		      double dvDelta, // time step in v containing
+				      // cosmo scaling
 		      double duDelta, // time step for internal energy
 		      int nGrowMass,  // GrowMass particles are locked
 				      // in place
@@ -855,9 +873,21 @@ void TreePiece::drift(double dDelta,  // time step in v containing
       }
       boundingBox.grow(p->position);
       if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
-	  p->vPred() += dDelta*p->treeAcceleration;
+	  p->vPred() += dvDelta*p->treeAcceleration;
 	  if(!bGasIsothermal) {
+#ifndef COOLING_NONE
+	      p->uPred() += p->uDot()*duDelta;
+	      if (p->uPred() < 0) {
+		  double uold = p->uPred() - p->uDot()*duDelta;
+		  p->uPred() = uold*exp(p->uDot()*duDelta/uold);
+		  }
+#else
 	      p->uPred() += p->PdV()*duDelta;
+	      if (p->uPred() < 0) {
+		  double uold = p->uPred() - p->PdV()*duDelta;
+		  p->uPred() = uold*exp(p->PdV()*duDelta/uold);
+		  }
+#endif
 	      }
 	  }
       }
