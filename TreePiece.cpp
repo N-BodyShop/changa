@@ -5605,6 +5605,18 @@ void TreePiece::updateUnfinishedBucketState(int start, int end, int n, int chunk
    }
  }
 
+/*
+ * Utility to turn projections on or off
+ * bOn == True => turn on.
+ */
+void TreePiece::setProjections(int bOn)
+{
+    if(bOn)
+        traceBegin();
+    else
+        traceEnd();
+}
+
 #ifdef CUDA
 void TreePiece::clearMarkedBuckets(CkVec<GenericTreeNode *> &markedBuckets){
   int len = markedBuckets.length();
