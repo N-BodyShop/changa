@@ -49,6 +49,8 @@
 #endif
 
 PUPbytes(InDumpFrame);
+PUPbytes(COOL);
+PUPbytes(COOLPARAM);
 
 #ifdef HPM_COUNTER
 #include <libhpm.h>
@@ -367,6 +369,7 @@ public:
 	void updateSoft();
 	void growMass(double dTime, double dDelta);
 	void initSph();
+	void initCooling();
 	void doSph(int activeRung);
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
@@ -1107,7 +1110,6 @@ public:
           incomingParticlesArrived = 0;
           incomingParticlesSelf = false;
     orbBoundaries.clear();
-    //tempOrbBoundaries.clear();
 	}
 
 	TreePiece(CkMigrateMessage* m) {
@@ -1141,9 +1143,7 @@ public:
 	  nodeInterRemote = NULL;
           particleInterRemote = NULL;
 
-    orbBoundaries.clear();
-    //openingDiffCount=0;
-    //tempOrbBoundaries.clear();
+	  orbBoundaries.clear();
 	}
 
         private:
@@ -1193,17 +1193,18 @@ public:
 		       const CkCallback& cb);
 	// Write a Tipsy file
 	void writeTipsy(const std::string& filename, const double dTime,
-			const double dvFac, const double duTfac);
+			const double dvFac, const double duTfac,
+			const int bCool);
 	// Find position in the file to start writing
 	void setupWrite(int iStage, u_int64_t iPrevOffset,
 			const std::string& filename, const double dTime,
 			const double dvFac, const double duTFac,
-			const CkCallback& cb);
+			const int bCool, const CkCallback& cb);
 	// serial output
 	void serialWrite(u_int64_t iPrevOffset, const std::string& filename,
 			 const double dTime,
 			 const double dvFac, const double duTFac,
-			 const CkCallback& cb);
+			 const int bCool, const CkCallback& cb);
 	// setup for serial output
 	void oneNodeWrite(int iIndex,
 			       int iOutParticles,
@@ -1218,6 +1219,7 @@ public:
 			       const double dvFac,  // velocity conversion
 			     const double duTFac, // temperature
 						  // conversion
+			  const int bCool,
 			  const CkCallback &cb);
 	// Reorder for output
 	void reOrder(CkCallback& cb);
@@ -1249,8 +1251,8 @@ public:
   void kick(int iKickRung, double dDelta[MAXRUNG+1], int bClosing,
 	    int bNeedVPred, int bGasIsothermal, double duDelta[MAXRUNG+1],
 	    const CkCallback& cb);
-  void drift(double dDelta, int bNeedVPred, int bGasIsothermal, double duDelta,
-	     int nGrowMass, const CkCallback& cb);
+  void drift(double dDelta, int bNeedVPred, int bGasIsothermal, double dvDelta,
+	     double duDelta, int nGrowMass, const CkCallback& cb);
   void initAccel(int iKickRung, const CkCallback& cb);
 /**
  * Adjust timesteps of active particles.
@@ -1279,10 +1281,18 @@ public:
 	void physicalSoft(const double dSoftMax, const double dFac,
 			  const int bSoftMaxMul, const CkCallback& cb);
 	void growMass(int nGrowMass, double dDeltaM, const CkCallback& cb);
+	// void initCooling(COOL inCool, COOLPARAM inParam, const CkCallback& cb);
+	void InitEnergy(double dTuFac, double z, double dTime,
+			const CkCallback& cb);
+	void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
+			double dTime, double z, int bCool,
+			int bUpdateState, const CkCallback& cb);
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
 	void getAdiabaticGasPressure(double gamma, double gammam1,
 				     const CkCallback &cb);
+	void getCoolingGasPressure(double gamma, double gammam1,
+				   const CkCallback &cb);
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
 	void setTypeFromFile(int iSetMask, char *file, const CkCallback& cb);
@@ -1290,6 +1300,7 @@ public:
 	void getCOMByType(int iType, const CkCallback& cb, int bLiveViz);
 	void DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump) ;
 	void liveVizDumpFrameInit(liveVizRequestMsg *msg);
+	void setProjections(int bOn);
 
 	/// Charm entry point to build the tree (called by Main), calls collectSplitters
 	void buildTree(int bucketSize, const CkCallback& cb);

@@ -1,6 +1,8 @@
 #ifndef GRAVITYPARTICLE_H
 #define GRAVITYPARTICLE_H
 
+#include "cooling.h"
+
 #include "SFC.h"
 #include <vector>
 
@@ -48,6 +50,12 @@ class extraSPHData
     double _PoverRho2;		/* Pressure/rho^2 */
     double _BalsaraSwitch;	/* Pressure/rho^2 */
     double _fBallMax;		/* Radius for inverse neighbor finding */
+#ifndef COOLING_NONE
+    double _uDot;		/* Rate of change of u, for
+				   predicting u */
+    COOLPARTICLE _CoolParticle;	/* Abundances and any other cooling
+				   internal variables */
+#endif
     
  public:
     inline double& u() {return _u;}
@@ -62,6 +70,10 @@ class extraSPHData
     inline double& PoverRho2() {return _PoverRho2;}
     inline double& BalsaraSwitch() {return _BalsaraSwitch;}
     inline double& fBallMax() {return _fBallMax;}
+#ifndef COOLING_NONE
+    inline double& uDot() {return _uDot;}
+    inline COOLPARTICLE& CoolParticle() {return _CoolParticle;}
+#endif
     void pup(PUP::er &p) {
 	p | _u;
 	p | _fMetals;
@@ -75,6 +87,10 @@ class extraSPHData
 	p | _PoverRho2;
 	p | _BalsaraSwitch;
 	p | _fBallMax;
+#ifndef COOLING_NONE
+	p | _uDot;
+	p((char *) &_CoolParticle, sizeof(_CoolParticle)); /* PUPs as bytes */
+#endif
 	}
     };
 
@@ -149,6 +165,10 @@ public:
 	inline double& PoverRho2() { return (((extraSPHData*)extraData)->PoverRho2());}
 	inline double& BalsaraSwitch() { return (((extraSPHData*)extraData)->BalsaraSwitch());}
 	inline double& fBallMax() { return (((extraSPHData*)extraData)->fBallMax());}
+#ifndef COOLING_NONE
+	inline double& uDot() { return (((extraSPHData*)extraData)->uDot());}
+	inline COOLPARTICLE& CoolParticle() { return (((extraSPHData*)extraData)->CoolParticle());}
+#endif
 };
 
 #define TYPE_GAS               (1<<0)

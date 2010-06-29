@@ -335,6 +335,11 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"bGasIsothermal",paramBool,&param.bGasIsothermal,
 		    sizeof(int),"GasIsothermal",
 		    "<Gas is Isothermal> = -GasIsothermal");
+	param.bGasCooling = 0;
+	prmAddParam(prm,"bGasCooling",paramBool,&param.bGasCooling,
+		    sizeof(int),"GasCooling",
+		    "<Gas is Cooling> = +GasCooling");
+	CoolAddParams(&param.CoolParam, prm);
 	param.dMsolUnit = 1.0;
 	prmAddParam(prm,"dMsolUnit",paramDouble,&param.dMsolUnit,
 		    sizeof(double),"msu", "<Solar mass/system mass unit>");
@@ -666,6 +671,15 @@ Main::Main(CkArgMsg* m) {
 	    if (!param.bViscosityLimiter) param.iViscosityLimiter=0;
 	    }
 
+	if(param.bGasCooling && (param.bGasIsothermal || param.bGasAdiabatic)) {
+	    ckerr << "WARNING: ";
+	    ckerr << "More than one gas model set.  ";
+	    ckerr << "Defaulting to Cooling.";
+	    ckerr << endl;
+	    param.bGasCooling = 1;
+	    param.bGasAdiabatic = 0;
+	    param.bGasIsothermal = 0;
+	    }
 	if(param.bGasAdiabatic && param.bGasIsothermal) {
 	    ckerr << "WARNING: ";
 	    ckerr << "Both adiabatic and isothermal set.";
@@ -677,6 +691,14 @@ Main::Main(CkArgMsg* m) {
 	if(prmSpecified(prm, "bBulkViscosity")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bBulkViscosity parameter ignored." << endl;
+	    }
+#ifdef COOLING_NONE
+        if(param.bGasCooling)
+	    CkAbort("Gas cooling requested but not compiled in");
+#endif
+	if(param.bGasCooling) {
+	    CkAssert(prmSpecified(prm, "dMsolUnit")
+		     && prmSpecified(prm, "dKpcUnit"));
 	    }
 	/* bolzman constant in cgs */
 #define KBOLTZ	1.38e-16
@@ -1077,6 +1099,13 @@ void Main::advanceBigStep(int iStep) {
         duKick[iRung] = 0.5*dTimeSub;
         dKickFac[iRung] = csmComoveKickFac(param.csm, dTime, 0.5*dTimeSub);
       }
+      if(param.bDoGas) {
+	  if(verbosity)
+	      ckout << "uDot update:" << endl;
+	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
+	  treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
+			       1, CkCallbackResumeThread());
+	  }
       treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas,
 		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
 
@@ -1104,8 +1133,9 @@ void Main::advanceBigStep(int iStep) {
 	      if(param.bDynGrowMass) nGrowMassDrift = 0;
 	      
 	      double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
+	      double dKickFac = csmComoveKickFac(param.csm, dTime, dTimeSub);
 	      treeProxy.drift(dDriftFac, param.bDoGas, param.bGasIsothermal,
-			      dTimeSub, nGrowMassDrift,
+			      dKickFac, dTimeSub, nGrowMassDrift,
 			      CkCallbackResumeThread());
 
 	      // Advance time to end of smallest step
@@ -1139,6 +1169,21 @@ void Main::advanceBigStep(int iStep) {
             << " Gravity rung " << activeRung << " to "
             << nextMaxRung << endl;
 
+    if(param.bDoGas) {
+	double duKick[MAXRUNG+1];
+	if(verbosity)
+	    ckout << "uDot update:" << endl;
+	for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
+	    double dTimeSub = RungToDt(param.dDelta, iRung);
+	    if(verbosity) {
+		ckout << " Rung " << iRung << ": " << 0.5*dTimeSub << endl;
+		}
+	    duKick[iRung] = 0.5*dTimeSub;
+	  }
+	double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
+	treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
+			     0, CkCallbackResumeThread());
+	}
 
     countActive(activeRung);
     
@@ -1259,6 +1304,11 @@ void Main::advanceBigStep(int iStep) {
                                            dTime - 0.5*dTimeSub,
                                            0.5*dTimeSub);
       }
+      if(param.bDoGas) {
+	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
+	  treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
+			       1, CkCallbackResumeThread());
+	  }
       treeProxy.kick(activeRung, dKickFac, 1, param.bDoGas,
 		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
     }
@@ -1317,6 +1367,9 @@ void Main::setupICs() {
       if(dTime < vdOutTime[iOut]) break;
       }
 	
+  if(param.bGasCooling) 
+      initCooling();
+  
   char achLogFileName[MAXPATHLEN];
   sprintf(achLogFileName, "%s.log", param.achOutName);
   ofstream ofsLog(achLogFileName, ios_base::trunc);
@@ -1334,6 +1387,12 @@ void Main::setupICs() {
   ofsLog << "# Preprocessor macros:";
 #ifdef CHANGESOFT
   ofsLog << " CHANGESOFT";
+#endif
+#ifdef COOLING_NONE
+  ofsLog << " COOLING_NONE";
+#endif
+#ifdef COOLING_PLANET
+  ofsLog << " COOLING_PLANET";
 #endif
 #ifdef HEXADECAPOLE
   ofsLog << " HEXADECAPOLE";
@@ -1372,7 +1431,7 @@ void Main::setupICs() {
 	
   if(param.bPeriodic) {	// puts all particles within the boundary
       ckout << "drift particles to reset" << endl;
-      treeProxy.drift(0.0, 0, 0, 0.0, 0, CkCallbackResumeThread());
+      treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
       ckout << "end drift particles to reset" << endl;
 
   }
@@ -1412,6 +1471,7 @@ Main::restart()
 	sprintf(achLogFileName, "%s.log", param.achOutName);
 	ofstream ofsLog(achLogFileName, ios_base::app);
 	ofsLog << "# ReStarting ChaNGa" << endl;
+	ofsLog << "#";
 	for (int i = 0; i < CmiGetArgc(args->argv); i++)
 	    ofsLog << " " << args->argv[i];
 	ofsLog << endl;
@@ -1441,8 +1501,10 @@ Main::restart()
 	
 	if(!prmArgOnlyProc(prm,CmiGetArgc(args->argv),args->argv)) {
 	    CkExit();
-        }
-	treeProxy.drift(0.0, 0, 0, 0.0, 0, CkCallbackResumeThread());
+	}
+	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+	if(param.bGasCooling) 
+	    initCooling();
 	mainChare.initialForces();
 	}
     else {
@@ -1760,7 +1822,7 @@ Main::doSimulation()
 	  double tolerance = 0.01;	// tolerance for domain decomposition
 	  // The following call is to get the particles in key order
 	  // before the sort.
-	  treeProxy.drift(0.0, 0, 0, 0.0, 0, CkCallbackResumeThread());
+	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
 	  sorter.startSorting(dataManagerID, tolerance,
 			      CkCallbackResumeThread(), true);
 	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
@@ -1900,10 +1962,10 @@ void Main::writeOutput(int iStep)
     double duTFac = (param.dConstGamma-1)*param.dMeanMolWeight/param.dGasConst;
     if(param.bParaWrite)
     	treeProxy.setupWrite(0, 0, achFile, dOutTime, dvFac, duTFac,
-			     CkCallbackResumeThread());
+			     param.bGasCooling, CkCallbackResumeThread());
     else
 	treeProxy[0].serialWrite(0, achFile, dOutTime, dvFac, duTFac,
-                              CkCallbackResumeThread());
+				 param.bGasCooling, CkCallbackResumeThread());
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
@@ -1911,7 +1973,7 @@ void Main::writeOutput(int iStep)
 	double tolerance = 0.01;	// tolerance for domain decomposition
 	// The following call is to get the particles in key order
 	// before the sort.
-	treeProxy.drift(0.0, 0, 0, 0.0, 0, CkCallbackResumeThread());
+	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
 	sorter.startSorting(dataManagerID, tolerance,
 			    CkCallbackResumeThread(), true);
 	treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
