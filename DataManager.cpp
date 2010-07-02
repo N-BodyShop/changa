@@ -47,6 +47,7 @@ void DataManager::init() {
 
   gpuFree = true;
 #endif
+  Cool = CoolInit();
 }
 
 void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb) {

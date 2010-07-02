@@ -56,6 +56,25 @@ if test "${MISSING_XDR}" = "yes" ; then
    LDFLAGS="$LDFLAGS -L../xdr"
 fi
 
+# Cooling:
+AC_ARG_ENABLE([cooling],
+	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (planet)])],
+	[cooling=$enableval], [cooling=no])
+OBJECTS_COOLING=""
+if test "$cooling" = "no" ; then
+   echo "Adiabatic SPH only selected"
+   FLAG_COOLING="-DCOOLING_NONE"
+elif test "$cooling" = "planet" ; then
+   echo "Planet cooling selected"
+   FLAG_COOLING="-DCOOLING_PLANET"
+   OBJECTS_COOLING="cooling_planet.o stiff.o"
+   LIBS="$LIBS -lgsl"
+else
+	echo "Unknown cooling selected, using Adiabatic"
+	FLAG_COOLING="-DCOOLING_NONE"
+fi
+AC_SUBST([FLAG_COOLING])
+AC_SUBST([OBJECTS_COOLING])
  
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL

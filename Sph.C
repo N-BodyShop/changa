@@ -6,6 +6,7 @@
  */
 
 #include "ParallelGravity.h"
+#include "DataManager.h"
 #include "smooth.h"
 #include "Sph.h"
 
@@ -14,11 +15,66 @@ void
 Main::initSph() 
 {
     if(param.bDoGas) {
+	ckout << "Calculating densities/divv ...";
+	// The following smooths all GAS, and also marks neighbors of
+	// actives, and those who have actives as neighbors.
+	DenDvDxSmoothParams pDen(TYPE_GAS, 0, param.csm, dTime, 0);
+	double startTime = CkWallTimer();
+	treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+	iPhase++;
+	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+	      << endl;
+	double dTuFac = param.dGasConst/(param.dConstGamma-1)
+	    /param.dMeanMolWeight;
+	double z = 1.0/csmTime2Exp(param.csm, dTime) - 1.0;
+	treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
 	if(verbosity) CkPrintf("Initializing SPH forces\n");
+	nActiveSPH = nTotalSPH;
 	doSph(0);
+	double duDelta[MAXRUNG+1];
+	for(int iRung = 0; iRung <= MAXRUNG; iRung++)
+	    duDelta[iRung] = 0.5e-7*param.dDelta;
+	treeProxy.updateuDot(0, duDelta, dTime, z, param.bGasCooling, 0,
+			     CkCallbackResumeThread());
 	}
     }
 
+/*
+ * Initialize cooling constants and integration data structures.
+ * XXX if this is to work on an SMP configuration, we need to change
+ * this so that the integration data structures are per treepiece, not
+ * per node.
+ */
+void Main::initCooling()
+{
+#ifndef COOLING_NONE
+    dMProxy.initCooling(param.dGmPerCcUnit, param.dComovingGmPerCcUnit,
+		    param.dErgPerGmUnit, param.dSecUnit, param.dKpcUnit,
+		    param.CoolParam, CkCallbackResumeThread());
+#endif
+    }
+
+/*
+ * Initialized Cooling Read-only data on the DataManager, which
+ * doesn't migrate.
+ */
+void
+DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
+		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
+		       COOLPARAM inParam, const CkCallback& cb)
+{
+#ifndef COOLING_NONE
+    clInitConstants(Cool, dGmPerCcUnit, dComovingGmPerCcUnit, dErgPerGmUnit,
+		    dSecUnit, dKpcUnit, inParam);
+    
+    CoolInitRatesTable(Cool,inParam);
+#endif
+    contribute(0, 0, CkReduction::concat, cb);
+    }
+
+/*
+ * Perform the SPH force calculation.
+ */
 void
 Main::doSph(int activeRung) 
 {
@@ -65,9 +121,14 @@ Main::doSph(int activeRung)
 	}
     treeProxy.sphViscosityLimiter(param.iViscosityLimiter, activeRung,
 			CkCallbackResumeThread());
-    treeProxy.getAdiabaticGasPressure(param.dConstGamma,
-				      param.dConstGamma-1,
-				      CkCallbackResumeThread());
+    if(param.bGasCooling)
+	treeProxy.getCoolingGasPressure(param.dConstGamma,
+					param.dConstGamma-1,
+					CkCallbackResumeThread());
+    else
+	treeProxy.getAdiabaticGasPressure(param.dConstGamma,
+					  param.dConstGamma-1,
+					  CkCallbackResumeThread());
 
     ckout << "Calculating pressure gradients ...";
     PressureSmoothParams pPressure(TYPE_GAS, activeRung, param.csm, dTime,
@@ -80,6 +141,83 @@ Main::doSph(int activeRung)
     
     treeProxy.ballMax(activeRung, 1.0+param.ddHonHLimit,
 		      CkCallbackResumeThread());
+    }
+
+/*
+ * Initialize energy and ionization state for cooling particles
+ */
+void TreePiece::InitEnergy(double dTuFac, // T to internal energy
+			   double z,	  // redshift
+			   double dTime,
+			   const CkCallback& cb)
+{
+#ifndef COOLING_NONE
+    COOL *cl;
+
+    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+    cl = dm->Cool;
+    CoolSetTime( cl, dTime, z  );
+#endif
+
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+	if (TYPETest(p, TYPE_GAS) && p->rung >= activeRung) {
+	    double T,E;
+#ifndef COOLING_NONE
+	    T = p->u() / dTuFac;
+	    CoolInitEnergyAndParticleData(cl, &p->CoolParticle(), &E,
+					  p->fDensity, T, p->fMetals() );
+	    p->u() = E;
+#endif
+	    p->uPred() = p->u();
+	    }
+	}
+    contribute(0, 0, CkReduction::concat, cb);
+    }
+
+/*
+ * Update the cooling rate (uDot)
+ */
+void TreePiece::updateuDot(int activeRung,
+			   double duDelta[MAXRUNG+1], // timesteps
+			   double dTime, // current time
+			   double z, // current redshift
+			   int bCool, // select equation of state
+			   int bUpdateState, // update ionization fractions
+			   const CkCallback& cb)
+{
+    double dt; // time in seconds
+    
+#ifndef COOLING_NONE
+    if ( bCool ) {
+	CoolSetTime(dm->Cool, dTime, z  );
+	}
+    
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+	if (TYPETest(p, TYPE_GAS) && p->rung >= activeRung) {
+	    dt = CoolCodeTimeToSeconds(dm->Cool, duDelta[p->rung] );
+	    double ExternalHeating = p->PdV(); // Will change with star formation
+	    if ( bCool ) {
+		COOLPARTICLE cp = p->CoolParticle();
+		double E = p->u();
+		double r[3];  // For conversion to C
+		p->position.array_form(r);
+
+		CoolIntegrateEnergyCode(dm->Cool, &cp, &E, ExternalHeating,
+					p->fDensity, p->fMetals(),
+					r, dt);
+		CkAssert(E > 0.0);
+		p->uDot() = (E - p->u())/duDelta[p->rung]; // linear interpolation over interval
+		if (bUpdateState) p->CoolParticle() = cp;
+		}
+	    else { 
+		p->uDot() = ExternalHeating;
+		}
+	    }
+	}
+#endif
+    contribute(0, 0, CkReduction::concat, cb);
     }
 
 /* Set a maximum ball for inverse Nearest Neighbor searching */
@@ -305,6 +443,30 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1,
 	    p->c() = sqrt(gamma*PoverRho);
 	    }
 	}
+    contribute(0, 0, CkReduction::concat, cb);
+    }
+
+/* Note: Uses uPred */
+void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
+					const CkCallback &cb)
+{
+    GravityParticle *p;
+    double PoverRho;
+    int i;
+#ifndef COOLING_NONE
+    COOL *cl = dm->Cool;
+
+    for(i=1; i<= myNumParticles; ++i) {
+	p = &myParticles[i];
+	if (TYPETest(p, TYPE_GAS)) {
+	    CoolCodePressureOnDensitySoundSpeed(cl, &p->CoolParticle(),
+						p->uPred(), p->fDensity(),
+						gamma, gammam1, &PoverRho,
+						&(p->c()) );
+	    p->PoverRho2() = PoverRho/p->fDensity;
+	    }
+	}
+#endif
     contribute(0, 0, CkReduction::concat, cb);
     }
 

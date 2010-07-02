@@ -1,4 +1,5 @@
 #include "ParallelGravity.h"
+#include "DataManager.h"
 #include "TipsyFile.h"
 #include "OrientedBox.h"
 #include "Reductions.h"
@@ -403,12 +404,13 @@ void TreePiece::setupWrite(int iStage, // stage of scan
 			   const double dTime,
 			   const double dvFac,
 			   const double duTFac,
+			   const int bCool,
 			   const CkCallback& cb)
 {
     if(iStage > nSetupWriteStage + 1) {
 	// requeue message
 	pieces[thisIndex].setupWrite(iStage, iPrevOffset, filename,
-				     dTime, dvFac, duTFac, cb);
+				     dTime, dvFac, duTFac, bCool, cb);
 	return;
 	}
     nSetupWriteStage++;
@@ -426,7 +428,7 @@ void TreePiece::setupWrite(int iStage, // stage of scan
 	pieces[thisIndex+iOffset].setupWrite(iStage+1,
 					     nStartWrite+myNumParticles,
 					     filename, dTime, dvFac, duTFac,
-					     cb);
+					     bCool, cb);
 	}
     if(thisIndex < iOffset) { // No more messages are coming my way
 	// send out all the messages
@@ -441,12 +443,12 @@ void TreePiece::setupWrite(int iStage, // stage of scan
 	    pieces[thisIndex+iOffset].setupWrite(iStage+1,
 						 nStartWrite+myNumParticles,
 						 filename, dTime, dvFac,
-						 duTFac, cb);
+						 duTFac, bCool, cb);
 	    }
 	if(thisIndex == (int) numTreePieces-1)
 	    assert(nStartWrite+myNumParticles == nTotalParticles);
 	nSetupWriteStage = -1;	// reset for next time.
-	writeTipsy(filename, dTime, dvFac, duTFac);
+	writeTipsy(filename, dTime, dvFac, duTFac, bCool);
 	contribute(0, 0, CkReduction::concat, cb);
 	}
     }
@@ -458,6 +460,7 @@ void TreePiece::serialWrite(const u_int64_t iPrevOffset, // previously written
 			    const double dTime,	 // time or expansion
 			    const double dvFac,  // velocity conversion
 			    const double duTFac, // temperature conversion
+			    const int bCool,
 			    const CkCallback& cb)
 {
     int *piSph = NULL;
@@ -476,7 +479,7 @@ void TreePiece::serialWrite(const u_int64_t iPrevOffset, // previously written
 	}
     pieces[0].oneNodeWrite(thisIndex, myNumParticles, myNumSPH, myParticles,
 			   mySPHParticles, piSph, iPrevOffset, filename, dTime,
-			   dvFac, duTFac, cb);
+			   dvFac, duTFac, bCool, cb);
     if(myNumSPH > 0)
 	delete [] piSph;
     }
@@ -494,6 +497,7 @@ TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
 			const double dTime,	 // time or expansion
 			const double dvFac,  // velocity conversion
 			const double duTFac, // temperature conversion
+			const int bCool,
 			const CkCallback& cb)
 {
     /*
@@ -517,7 +521,7 @@ TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
     myParticles = particles;
     mySPHParticles = pGas;
     nStartWrite = iPrevOffset;
-    writeTipsy(filename, dTime, dvFac, duTFac);
+    writeTipsy(filename, dTime, dvFac, duTFac, bCool);
     /*
      * Restore pointers/data
      */
@@ -527,14 +531,15 @@ TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
     
     if(iIndex < (numTreePieces - 1))
 	treeProxy[iIndex+1].serialWrite(iPrevOffset + iOutParticles, filename,
-					dTime, dvFac, duTFac, cb);
+					dTime, dvFac, duTFac, bCool, cb);
     else
 	cb.send();  // we are done.
     }
     
 void TreePiece::writeTipsy(const std::string& filename, const double dTime,
 			   const double dvFac, // scale velocities
-			   const double duTFac) // convert temperature
+			   const double duTFac, // convert temperature
+			   const int bCool)
 {
     Tipsy::header tipsyHeader;
 
@@ -564,7 +569,18 @@ void TreePiece::writeTipsy(const std::string& filename, const double dTime,
 	    gp.phi = myParticles[i+1].potential;
 	    gp.rho = myParticles[i+1].fDensity;
 	    gp.metals = myParticles[i+1].fMetals();
-	    gp.temp = duTFac*myParticles[i+1].u();
+	    if(bCool) {
+#ifndef COOLING_NONE
+		gp.temp = CoolCodeEnergyToTemperature(dm->Cool,
+						      &myParticles[i+1].CoolParticle(),
+						      myParticles[i+1].u(),
+						      myParticles[i+1].fMetals());
+#else
+		CkAbort("cooling output without cooling code");
+#endif
+		}
+	    else 
+		gp.temp = duTFac*myParticles[i+1].u();
 
 	    if(!w.putNextGasParticle(gp))
 		CkAbort("Bad Write");

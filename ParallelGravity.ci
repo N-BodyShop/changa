@@ -115,6 +115,9 @@ mainmodule ParallelGravity {
     //entry [local,exclusive] void notifyPresence(int index, Tree::GenericTreeNode *root);
     entry void combineLocalTrees(CkReductionMsg *m);
     entry void clearInstrument(CkCallback &cb);
+    entry void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
+		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
+			 COOLPARAM inParam, const CkCallback& cb);
   };
   array [1D] TreePiece {
     entry TreePiece();
@@ -146,11 +149,11 @@ mainmodule ParallelGravity {
     entry void setupWrite(int iStage, u_int64_t iPrevOffset,
         const std::string& filename,
         const double dTime, const double dvFac,
-        const double duTfac,
+        const double duTfac, const int bCool,
         const CkCallback& cb);
     entry void serialWrite(u_int64_t iPrevOffset, const std::string& filename,
         const double dTime, const double dvFac,
-        const double duTfac,
+        const double duTfac, const int bCool,
         const CkCallback& cb);
     entry void oneNodeWrite(int iIndex,
 			       int iOutParticles,
@@ -164,7 +167,7 @@ mainmodule ParallelGravity {
 			       const double dTime,      // time or expansion
 			       const double dvFac,  // velocity conversion
 			     const double duTFac, // temperature conversion
-			     const CkCallback& cb);
+			     const int bCool, const CkCallback& cb);
     entry void reOrder(CkCallback& cb);
     entry void ioAcceptSortedParticles(const GravityParticle particles[n],
 	     const int n, const extraSPHData pGas[nGasIn], const int nGasIn);
@@ -194,17 +197,25 @@ mainmodule ParallelGravity {
     entry void rungStats(const CkCallback& cb);
     entry void countActive(int activeRung, const CkCallback& cb);
     entry void drift(double dDelta, int bNeedVPred, int bGasIsoThermal,
-		     double duDelta, int nGrowMass, const CkCallback& cb);
+		     double dvDelta, double duDelta, int nGrowMass,
+		     const CkCallback& cb);
     entry void calcEnergy(const CkCallback& cb);
     entry void setSoft(const double dSoft);
     entry void physicalSoft(const double dSoftMax, const double dFac,
         const int bSoftMaxMul, const CkCallback& cb);
     entry void growMass(int nGrowMass, double dDeltaM, const CkCallback& cb);
+    entry void InitEnergy(double dTuFac, double z, double dTime,
+			const CkCallback& cb);
+    entry void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
+    	       		double dTime, double z, int bCool,
+			int bUpdateState, const CkCallback& cb);
     entry void ballMax(int activeRung, double dFac, const CkCallback& cb);
     entry void sphViscosityLimiter(int bOn, int activeRung,
 	const CkCallback& cb);
     entry void getAdiabaticGasPressure(double gamma, double gammam1,
 					const CkCallback &cb);
+    entry void getCoolingGasPressure(double gamma, double gammam1,
+				   const CkCallback &cb);
     entry void setTypeFromFile(int iSetMask, char file[256],
         const CkCallback& cb);
     entry void getCOM(const CkCallback& cb, int bLiveViz);
