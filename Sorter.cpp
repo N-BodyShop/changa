@@ -285,8 +285,11 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
 	    splitters.reserve(3 * numChares - 1);
 	    delta = (lastPossibleKey - SFC::firstPossibleKey) / (3 * numChares - 2);
 	    k = firstPossibleKey;
-	    for(int i = 0; i < (3 * numChares - 2); i++, k += delta)
-		    splitters.push_back(k);
+	    for(int i = 0; i < (3 * numChares - 2); i++, k += delta) {
+		if(k != firstPossibleKey)
+		    k |= 7L;  // Set bottom bits to avoid trees too deep
+		splitters.push_back(k);
+		}
 	    splitters.push_back(lastPossibleKey);
         }
         break;
@@ -400,23 +403,6 @@ Key * Sorter::convertNodesToSplittersRefine(int num, NodeKey* keys){
     for (int j=0; j<=(1<<refineLevel); ++j) {
       result[idx++] = (partKey+j) << shift;
     }
-    /*    
-    nextKey=partKey+1;
-    lastKey=nextKey+1;
-    while(!(partKey & mask)){
-      partKey <<= 1;
-      nextKey <<= 1;
-      lastKey <<= 1;
-    }
-    partKey &= ~mask;
-    nextKey &= ~mask;
-    lastKey &= ~mask;
-    CkAbort("To FIX");
-    splitters.push_back(partKey);
-    splitters.push_back(nextKey);
-    splitters.push_back(nextKey);
-    splitters.push_back(lastKey);
-    */
   }
   //Sort here to make sure that splitters go sorted to histogramming
   //They might be unsorted here due to sorted or unsorted node keys
@@ -424,64 +410,6 @@ Key * Sorter::convertNodesToSplittersRefine(int num, NodeKey* keys){
   //sort(splitters.begin(),splitters.end());
   return result;
 }
-
-/*
-void Sorter::convertNodesToSplittersRefine(int num, NodeKey* keys){
-  Key partKey;
-  Key nextKey;
-  Key lastKey;
-
-  splitters.clear();
-  splitters.reserve(num * 4);
-  const Key mask = Key(1) << 63;
-  for(unsigned int i=0;i<num;i++){
-    partKey=Key(keys[i]<<1);
-    nextKey=partKey+1;
-    lastKey=nextKey+1;
-    while(!(partKey & mask)){
-      partKey <<= 1;
-      nextKey <<= 1;
-      lastKey <<= 1;
-    }
-    partKey &= ~mask;
-    nextKey &= ~mask;
-    lastKey &= ~mask;
-    splitters.push_back(partKey);
-    splitters.push_back(nextKey);
-    splitters.push_back(nextKey);
-    splitters.push_back(lastKey);
-  }
-  //Sort here to make sure that splitters go sorted to histogramming
-  //They might be unsorted here due to sorted or unsorted node keys
-  // FILIPPO: no, by construction they must be ordered already!
-  //sort(splitters.begin(),splitters.end());
-}
-
-void Sorter::convertNodesToSplittersNoZeros(int num, NodeKey* nodeKeys, CkVec<int> &zero){
-  Key partKey;
-
-  splitters.clear();
-  splitters.reserve(num + 1);
-  binCounts.clear();
-  binCounts.reserve(num + 1);
-  const Key mask = Key(1) << 63;
-  for(unsigned int i=0;i<num;i++){
-    if (zero[i] == 0) continue;
-    partKey=Key(nodeKeys[i]);
-    while(!(partKey & mask)){
-      partKey <<= 1;
-    }
-    partKey &= ~mask;
-    splitters.push_back(partKey);
-    binCounts.push_back(zero[i]);
-  }
-  //Sort here to make sure that splitters go sorted to histogramming
-  //They might be unsorted here due to sorted or unsorted node keys
-  // FILIPPO: no, by construction they must be ordered already!
-  //sort(splitters.begin(),splitters.end());
-  splitters.push_back(lastPossibleKey);
-}
-*/
 
 void Sorter::collectEvaluations(CkReductionMsg* m) {
 
@@ -808,10 +736,13 @@ void Sorter::adjustSplitters() {
 			++Ngoal;
 			goals.erase(temp);
 		} else {
-			//not close enough yet, add the bracketing keys and the middle to the guesses
-			newSplitters.insert(leftBound);
-			newSplitters.insert(leftBound / 2 + rightBound / 2);
-			newSplitters.insert(rightBound);
+			// not close enough yet, add the bracketing keys and
+			// the middle to the guesses
+			// Set bottom bits to avoid trees to deep.
+			newSplitters.insert(leftBound | 7L);
+			newSplitters.insert((leftBound / 2 + rightBound / 2)
+					    | 7L);
+			newSplitters.insert(rightBound | 7L);
 			++Ngoal;
 		}
 	}
