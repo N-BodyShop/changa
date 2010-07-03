@@ -49,7 +49,7 @@ void TreePiece::fillRequestParticles(CkCacheRequestMsg *msg) {
   // the key used in the cache is shifted to the left of 1, this makes
   // a clear distinction between nodes and particles
   const GenericTreeNode *bucket = lookupNode(msg->key >> 1);
-  
+  CkAssert(bucket != NULL);
   int total = sizeof(CacheParticle) + (bucket->lastParticle - bucket->firstParticle) * sizeof(ExternalGravityParticle);
   CkCacheFillMsg *reply = new (total) CkCacheFillMsg(msg->key);
   CkAssert(reply != NULL);

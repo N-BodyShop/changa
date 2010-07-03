@@ -1706,11 +1706,13 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
     if (node == NULL) break;
 #endif
 
-  if (level == 63) {
+  if (level == 62) {
     ckerr << thisIndex << ": TreePiece: This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
     ckerr << "Left particle: " << (node->firstParticle) << " Right particle: " << (node->lastParticle) << endl;
     ckerr << "Left key : " << keyBits((myParticles[node->firstParticle]).key, 63).c_str() << endl;
     ckerr << "Right key: " << keyBits((myParticles[node->lastParticle]).key, 63).c_str() << endl;
+    ckerr << "Node type: " << node->getType() << endl;
+    ckerr << "myNumParticles: " << myNumParticles << endl;
     CkAbort("Tree is too deep!");
     return;
   }
@@ -1750,7 +1752,14 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
 	streamingProxy[child->remoteIndex].requestRemoteMoments(child->getKey(), thisIndex);
 	//CkPrintf("[%d] asking for moments of %s to %d\n",thisIndex,keyBits(child->getKey(),63).c_str(),child->remoteIndex);
       }
-    } else if (child->getType() == Internal && child->lastParticle - child->firstParticle < maxBucketSize) {
+    } else if (child->getType() == Internal
+              && (child->lastParticle - child->firstParticle < maxBucketSize
+                  || level > 61)) {
+       if(level > 61)
+           ckerr << "Truncated tree with "
+                 << child->lastParticle - child->firstParticle
+                 << " particle bucket" << endl;
+       
       CkAssert(child->firstParticle != 0 && child->lastParticle != myNumParticles+1);
       child->remoteIndex = thisIndex;
       child->makeBucket(myParticles);
@@ -4426,6 +4435,7 @@ ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk
 
     CkCacheRequestorData request(thisElement, &EntryTypeGravityParticle::callback, userData);
     CkArrayIndexMax remIdx = CkArrayIndex1D(remoteIndex);
+    CkAssert(key < (((CmiUInt8) 1) << 63));
     CkCacheKey ckey = key<<1;
     CacheParticle *p = (CacheParticle *) cacheGravPart[CkMyPe()].requestData(ckey,remIdx,chunk,&gravityParticleEntry,request);
     if (p == NULL) {
