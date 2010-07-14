@@ -37,7 +37,7 @@ class Centroid3d{
 class TPObject{
   public:
 
-  Centroid3d centroid;
+  Vector3D<float> centroid;
   float load;
   int index;
   int lbindex;

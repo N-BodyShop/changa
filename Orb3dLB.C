@@ -3,6 +3,7 @@
 #include "Orb3dLB.h"
 #include "ParallelGravity.h"
 #include "TopoManager.h"
+#include "Vector3D.h"
 
 extern CProxy_TreePiece treeProxy;
 
@@ -11,17 +12,17 @@ CreateLBFunc_Def(Orb3dLB, "3d ORB mapping of tree piece space onto 3d processor 
 int comparx(const void *a, const void *b){
   TPObject *ta = (TPObject *)a;
   TPObject *tb = (TPObject *)b;
-  return (ta->centroid.x-tb->centroid.x);
+  return (int)(ta->centroid.x-tb->centroid.x);
 }
 int compary(const void *a, const void *b){
   TPObject *ta = (TPObject *)a;
   TPObject *tb = (TPObject *)b;
-  return (ta->centroid.y-tb->centroid.y);
+  return (int)(ta->centroid.y-tb->centroid.y);
 }
 int comparz(const void *a, const void *b){
   TPObject *ta = (TPObject *)a;
   TPObject *tb = (TPObject *)b;
-  return (ta->centroid.z-tb->centroid.z);
+  return (int)(ta->centroid.z-tb->centroid.z);
 }
 
 Orb3dLB::Orb3dLB(const CkLBOptions &opt): CentralLB(opt)
@@ -94,6 +95,90 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
     CkPrintf("%d TP %d (%f,%f,%f) from %d to %d\n", i, tp[i].index, tp[i].centroid.x, tp[i].centroid.y, tp[i].centroid.z, stats->from_proc[i], stats->to_proc[i]);
   }
   */
+
+#ifdef ORB3DLB_VISUALIZE
+  CkVec<Vector3D<float> > procCentroids;
+  CkVec<int> procNumTPs;
+  procCentroids.reserve(stats->count);
+  procNumTPs.reserve(stats->count);
+  procCentroids.length() = 0;
+  procNumTPs.length() = 0;
+  for(int i = 0; i < stats->count; i++){
+    procCentroids[i].x = 0.0;
+    procCentroids[i].y = 0.0;
+    procCentroids[i].z = 0.0;
+    procNumTPs[i] = 0;
+  }
+
+  for(int i = 0; i < numobjs; i++){
+    CkAssert(i == tp[i].lbindex);
+    int proc = stats->to_proc[i];
+    procCentroids[proc] += tp[i].centroid;
+    procNumTPs[proc]++;
+  }
+
+  for(int i = 0; i < stats->count; i++){
+    if(procNumTPs[i] > 0){
+      procCentroids[i] = procCentroids[i]/(1.0*procNumTPs[i]);
+    }
+  }
+
+  float minx = procCentroids[0].x;
+  float miny = procCentroids[0].y;
+  float minz = procCentroids[0].z;
+
+  float maxx = procCentroids[0].x;
+  float maxy = procCentroids[0].y;
+  float maxz = procCentroids[0].z;
+
+  for(int i = 1; i < stats->count; i++){
+    if(procNumTPs[i] > 0){
+      if(procCentroids[i].x > maxx){
+        maxx = procCentroids[i].x;
+      }
+      if(procCentroids[i].y > maxy){
+        maxy = procCentroids[i].y;
+      }
+      if(procCentroids[i].z > maxz){
+        maxz = procCentroids[i].z;
+      }
+
+      if(procCentroids[i].x < minx){
+        minx = procCentroids[i].x;
+      }
+      if(procCentroids[i].y < miny){
+        miny = procCentroids[i].y;
+      }
+      if(procCentroids[i].z < minz){
+        minz = procCentroids[i].z;
+      }
+    }
+  }
+
+  maxx -= minx;
+  maxy -= miny;
+  maxz -= minz;
+
+  Vector3D<float> minv;
+  minv.x = minx;
+  minv.y = miny;
+  minv.z = minz;
+  
+  Vector3D<float> r;
+  r.x = maxx;
+  r.y = maxy;
+  r.z = maxz;
+
+  for(int i = 0; i < stats->count; i++){
+    if(procNumTPs[i] > 0){
+      procCentroids[i] -= minv;
+      procCentroids[i] /= r;
+      CkPrintf("[Orb3dLB]: proc %d (%f,%f,%f)\n", i, procCentroids[i].x, procCentroids[i].y, procCentroids[i].z);
+    }
+  }
+
+#endif
+
 #endif
 
   
@@ -122,9 +207,9 @@ void Orb3dLB::map(TPObject *tp, int ntp, int np, CmiUInt4 path, int dim){
   }
 }
 
-#define XMAX 2
-#define YMAX 2
-#define ZMAX 1
+#define XMAX 8
+#define YMAX 8
+#define ZMAX 4
 
 void Orb3dLB::directMap(TPObject *tp, int ntp, CmiUInt4 path){
   int numshifts = 0;
