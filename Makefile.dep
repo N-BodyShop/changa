@@ -45,12 +45,23 @@ gravity.h \
 ../utility/structures/Space.h \
 ../utility/structures/Box.h \
 MultistepLB.decl.h \
+Orb3dLB.decl.h \
 InOutput.h \
 ParallelGravity.decl.h \
 Compute.h \
 DataManager.h \
 Reductions.decl.h \
 Reductions.h \
+
+CacheInterface.o: \
+ParallelGravity.decl.h \
+GravityParticle.h \
+CacheInterface.h
+
+smooth.o: \
+smooth.h \
+ParallelGravity.decl.h \
+
 
 Sorter.o: \
 Sorter.cpp \
@@ -91,6 +102,7 @@ gravity.h \
 ../utility/structures/Box.h \
 MultistepLB.decl.h \
 InOutput.h \
+Orb3dLB.decl.h \
 ParallelGravity.decl.h \
 
 TreePiece.o: \
@@ -130,6 +142,7 @@ gravity.h \
 ../utility/structures/Space.h \
 ../utility/structures/Box.h \
 MultistepLB.decl.h \
+Orb3dLB.decl.h \
 InOutput.h \
 ParallelGravity.decl.h \
 Compute.h \
@@ -201,6 +214,7 @@ gravity.h \
 ../utility/structures/Space.h \
 ../utility/structures/Box.h \
 MultistepLB.decl.h \
+Orb3dLB.decl.h \
 InOutput.h \
 ParallelGravity.decl.h \
 Compute.h \
@@ -247,6 +261,7 @@ gravity.h \
 ../utility/structures/Space.h \
 ../utility/structures/Box.h \
 MultistepLB.decl.h \
+Orb3dLB.decl.h \
 InOutput.h \
 ParallelGravity.decl.h \
 
@@ -287,6 +302,7 @@ gravity.h \
 ../utility/structures/Space.h \
 ../utility/structures/Box.h \
 MultistepLB.decl.h \
+Orb3dLB.decl.h \
 InOutput.h \
 ParallelGravity.decl.h \
 Compute.h \
@@ -357,6 +373,46 @@ InOutput.h \
 ParallelGravity.decl.h \
 Compute.h \
 
+Orb3dLB.o: \
+Orb3dLB.C \
+MapStructures.h \
+../structures/Vector3D.h \
+../structures/TypeSelection.h \
+../structures/TaggedVector3D.h \
+../structures/Vector3D.h \
+ScaleTranMapBG.h \
+ScaledORBMapBG.h \
+Orb3dLB.decl.h \
+ParallelGravity.h \
+config.h \
+../structures/tree_xdr.h \
+../structures/OrientedBox.h \
+../structures/Shape.h \
+../structures/xdr_template.h \
+../structures/config.h \
+../structures/TypedArray.h \
+../structures/TypeHandling.h \
+../structures/TipsyFile.h \
+../structures/TipsyParticles.h \
+../structures/TipsyReader.h \
+../structures/Sphere.h \
+../structures/SFC.h \
+TreeNode.h \
+GenericTreeNode.h \
+../structures/OrientedBox.h \
+MultipoleMoments.h \
+GravityParticle.h \
+../structures/Interval.h \
+parameters.h \
+cosmo.h \
+param.h \
+dumpframe.h \
+CacheInterface.h \
+gravity.h \
+../structures/Space.h \
+../structures/Box.h \
+ParallelGravity.decl.h \
+
 TreeWalk.o: \
 TreeWalk.C \
 config.h \
@@ -394,6 +450,7 @@ gravity.h \
 ../utility/structures/Space.h \
 ../utility/structures/Box.h \
 MultistepLB.decl.h \
+Orb3dLB.decl.h \
 InOutput.h \
 ParallelGravity.decl.h \
 Compute.h \
@@ -436,9 +493,15 @@ gravity.h \
 ../utility/structures/Space.h \
 ../utility/structures/Box.h \
 MultistepLB.decl.h \
+Orb3dLB.decl.h \
 InOutput.h \
 ParallelGravity.decl.h \
 Compute.h \
 Opt.h \
 TreeWalk.h \
 
+Sph.o: \
+Sph.C \
+ParallelGravity.decl.h \
+ParallelGravity.h \
+smooth.h
