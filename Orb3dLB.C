@@ -69,7 +69,6 @@ CmiBool Orb3dLB::QueryBalanceNow(int step){
 
 void Orb3dLB::work(BaseLB::LDStats* stats, int count)
 {
-#if CMK_LBDB_ON
   int numobjs = stats->n_objs;
   TPObject *tp = new TPObject[numobjs];
 
@@ -90,19 +89,17 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
   int dim = 0;
   map(tp,numobjs,stats->count,path,dim);
 
-  /*
   for(int i = 0; i < numobjs; i++){
-    CkPrintf("%d TP %d (%f,%f,%f) from %d to %d\n", i, tp[i].index, tp[i].centroid.x, tp[i].centroid.y, tp[i].centroid.z, stats->from_proc[i], stats->to_proc[i]);
+    CkPrintf("%f %f %f %d\n", tp[i].centroid.x, tp[i].centroid.y, tp[i].centroid.z, stats->to_proc[i]);
   }
-  */
 
 #ifdef ORB3DLB_VISUALIZE
   CkVec<Vector3D<float> > procCentroids;
   CkVec<int> procNumTPs;
-  procCentroids.reserve(stats->count);
-  procNumTPs.reserve(stats->count);
-  procCentroids.length() = 0;
-  procNumTPs.length() = 0;
+  procCentroids.resize(stats->count);
+  procNumTPs.resize(stats->count);
+  procCentroids.length() = stats->count;
+  procNumTPs.length() = stats->count;
   for(int i = 0; i < stats->count; i++){
     procCentroids[i].x = 0.0;
     procCentroids[i].y = 0.0;
@@ -173,15 +170,11 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
     if(procNumTPs[i] > 0){
       procCentroids[i] -= minv;
       procCentroids[i] /= r;
-      CkPrintf("[Orb3dLB]: proc %d (%f,%f,%f)\n", i, procCentroids[i].x, procCentroids[i].y, procCentroids[i].z);
+      CkPrintf("%f %f %f %d\n", procCentroids[i].x, procCentroids[i].y, procCentroids[i].z, i);
     }
   }
-
 #endif
 
-#endif
-
-  
 }
 
 // path is a sequence of binary digits, each telling us how
@@ -207,9 +200,9 @@ void Orb3dLB::map(TPObject *tp, int ntp, int np, CmiUInt4 path, int dim){
   }
 }
 
-#define XMAX 8
-#define YMAX 8
-#define ZMAX 4
+#define XMAX 2
+#define YMAX 2
+#define ZMAX 2
 
 void Orb3dLB::directMap(TPObject *tp, int ntp, CmiUInt4 path){
   int numshifts = 0;
@@ -235,7 +228,6 @@ void Orb3dLB::directMap(TPObject *tp, int ntp, CmiUInt4 path){
   int dim = 0;
   for(int i = 0; i < numshifts; i++){
     bit = correctbits & 0x1;
-    //CkPrintf("bit: %d\n", bit);
     if(bit){
       min[dim] = min[dim]+(max[dim]-min[dim]+1)/2;
     }
@@ -254,7 +246,7 @@ void Orb3dLB::directMap(TPObject *tp, int ntp, CmiUInt4 path){
 #ifdef USE_TOPOMGR
     (*mapping)[tp[i].lbindex] = tm.coordinatesToRank(min[0],min[1],min[2]);
 #else
-    (*mapping)[tp[i].lbindex] = min[2]*XMAX*YMAX+min[1]*XMAX+min[0]; 
+    (*mapping)[tp[i].lbindex] = min[0]*XMAX*YMAX+min[1]*XMAX+min[2]; 
 #endif
   }
 }
