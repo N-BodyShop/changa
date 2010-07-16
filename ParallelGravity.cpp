@@ -576,7 +576,7 @@ Main::Main(CkArgMsg* m) {
 		}
 #ifndef CHANGESOFT
 	    ckerr << "ERROR: You must compile with -DCHANGESOFT to use changing softening options\n";
-	    CkExit();
+	    CkAbort("CHANGESOFT needed");
 #endif
 	    }
 	
