@@ -53,6 +53,9 @@ private:
   ComparatorFn compares[NDIMS];
   // pointer to stats->to_proc
   CkVec<int> *mapping;
+
+  int procsPerNode;
+
   // things are stored in here before work
   // is ever called.
   CkVec<TaggedVector3D> tpCentroids;
@@ -66,8 +69,8 @@ public:
   Orb3dLB(CkMigrateMessage *m):CentralLB(m) { lbname = "Orb3dLB"; }
   void work(BaseLB::LDStats* stats, int count);
   void receiveCentroids(CkReductionMsg *msg);
-  void directMap(TPObject *tp, int ntp, CmiUInt4 path);
-  void map(TPObject *tp, int ntp, int np, CmiUInt4 path, int dim);
+  void directMap(TPObject *tp, int ntp, int *x);
+  void map(TPObject *tp, int ntp, int np, int *x1, int *x2, int dim);
   int nextDim(int dim);
   TPObject *partitionEvenLoad(TPObject *tp, int &ntp);
 

@@ -3790,8 +3790,8 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
     TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles, activeRung, prevLARung);
 
     // CkCallback(int ep, int whichProc, CkGroupID &gid)
-    //CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
-    CkCallback cbk(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
+    CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
+    //CkCallback cbk(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
 #if COSMO_MCLB > 1
     CkPrintf("[%d : %d] proxyValid, contributing value (%f,%f,%f, %u,%u,%u : %d)\n", CkMyPe(), thisIndex, tv.vec.x, tv.vec.y, tv.vec.z, tv.numActiveParticles, tv.myNumParticles, tv.activeRung, tv.tag);
 #endif

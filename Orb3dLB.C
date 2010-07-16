@@ -87,7 +87,19 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
   mapping = &stats->to_proc;
   CmiUInt4 path = 0x1;
   int dim = 0;
-  map(tp,numobjs,stats->count,path,dim);
+  TopoManager tmgr;
+
+  procsPerNode = tmgr.getDimNT();
+
+  int nx = tmgr.getDimNX();
+  int ny = tmgr.getDimNY();
+  int nz = tmgr.getDimNZ();
+  int numnodes = nx*ny*nz; 
+
+  int x1[NDIMS] = {0,0,0};
+  int x2[NDIMS] = {nx-1,ny-1,nz-1};
+
+  map(tp,numobjs,numnodes,x1,x2,dim);
 
   for(int i = 0; i < numobjs; i++){
     CkPrintf("%f %f %f %d\n", tp[i].centroid.x, tp[i].centroid.y, tp[i].centroid.z, stats->to_proc[i]);
@@ -177,34 +189,44 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
 
 }
 
-// path is a sequence of binary digits, each telling us how
-// to get to the current partition of processors. The first
-// 1 bit form the MSB marks the beginning of the path. The bit
-// after that tells us whether we must go to the left or the right,
-// the next whether we should go down or up, the one after that 
-// whether near or far, the next whether left or right, and so on.
-void Orb3dLB::map(TPObject *tp, int ntp, int np, CmiUInt4 path, int dim){
+void Orb3dLB::map(TPObject *tp, int ntp, int nn, int *x1, int *x2, int dim){
   //CkPrintf("ntp: %d np: %d dim: %d path: 0x%x\n",ntp,np,dim,path);
-  if(np == 1){
-    directMap(tp,ntp,path);
+  if(nn == 1){
+    CkAssert(x1[0]==x2[0]);
+    CkAssert(x1[1]==x2[1]);
+    CkAssert(x1[2]==x2[2]);
+    directMap(tp,ntp,x1);
   }
   else{
     int totalTp = ntp;
+    // xx0 is the greater corner of the left/dn/near partition
+    int xx0[NDIMS];
+    // xx1 is the lesser corner of the right/up/far partition
+    int xx1[NDIMS];
+    
     qsort(tp,ntp,sizeof(TPObject),compares[dim]);
     // tp and ntp are modified to hold the particulars of
-    // the left/up/near partitions
+    // the left/dn/near partitions
+    // tp2 and totalTp-ntp hold the objects in the 
+    // right/up/far partitions
     TPObject *tp2 = partitionEvenLoad(tp,ntp);
     int d = nextDim(dim); 
-    map(tp,ntp,np/2,(path << 1)|0x0,d);
-    map(tp2,totalTp-ntp,np/2,(path << 1)|0x1,d);
+    for(int i = 0; i < NDIMS; i++){
+      if(i == dim){
+        xx0[dim] = x2[dim]-(x2[dim]-x1[dim]+1)/2; 
+        xx1[dim] = x1[dim]+(x2[dim]-x1[dim]+1)/2;
+      }
+      else{
+        xx0[i] = x2[i];
+        xx1[i] = x1[i];
+      }
+    }
+    map(tp,ntp,nn/2,x1,xx0,d);
+    map(tp2,totalTp-ntp,nn/2,xx1,x2,d);
   }
 }
-
-#define XMAX 2
-#define YMAX 2
-#define ZMAX 2
-
-void Orb3dLB::directMap(TPObject *tp, int ntp, CmiUInt4 path){
+void Orb3dLB::directMap(TPObject *tp, int ntp, int *x){
+  /*
   int numshifts = 0;
   CmiUInt4 correctbits = 0x0; 
   CmiUInt4 bit;
@@ -215,13 +237,16 @@ void Orb3dLB::directMap(TPObject *tp, int ntp, CmiUInt4 path){
     correctbits |= bit;
     numshifts++;
   }
+  */
 
+/*
 #ifdef USE_TOPOMGR
   TopoManager tm;
 #endif
   int min[NDIMS] = {0,0,0};
 #ifdef USE_TOPOMGR
   int max[NDIMS] = {tm.getDimNX()-1,tm.getDimNY()-1,tm.getDimNZ()-1};
+  int coresPerNode = tm.getDimNT();
 #else
   int max[NDIMS] = {XMAX-1,YMAX-1,ZMAX-1};
 #endif
@@ -241,13 +266,14 @@ void Orb3dLB::directMap(TPObject *tp, int ntp, CmiUInt4 path){
   CkAssert(min[0] == max[0]);
   CkAssert(min[1] == max[1]);
   CkAssert(min[2] == max[2]);
+*/
 
+  CkPrintf("[Orb3dLB] mapping %d objects to node (%d,%d,%d)\n", ntp, x[0],x[1],x[2]);
+  int t = 0;
+  TopoManager tmgr;
   for(int i = 0; i < ntp; i++){
-#ifdef USE_TOPOMGR
-    (*mapping)[tp[i].lbindex] = tm.coordinatesToRank(min[0],min[1],min[2]);
-#else
-    (*mapping)[tp[i].lbindex] = min[0]*XMAX*YMAX+min[1]*XMAX+min[2]; 
-#endif
+    (*mapping)[tp[i].lbindex] = tmgr.coordinatesToRank(x[0],x[1],x[2],t);
+    t = (t+1)%procsPerNode;
   }
 }
 
