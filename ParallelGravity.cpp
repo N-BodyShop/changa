@@ -852,7 +852,7 @@ Main::Main(CkArgMsg* m) {
 	streamingProxy = pieces;
 
 	//create the Sorter
-	sorter = CProxy_Sorter::ckNew();
+	sorter = CProxy_Sorter::ckNew(0);
 
 	if(verbosity)
 	  ckerr << "Created " << numTreePieces << " pieces of tree" << endl;
@@ -866,6 +866,7 @@ Main::Main(CkMigrateMessage* m) {
     mainChare = thishandle;
     bIsRestarting = 1;
     CkPrintf("Main(CkMigrateMessage) called\n");
+    sorter = CProxy_Sorter::ckNew(0);
     }
 
 

@@ -57,6 +57,7 @@ void StiffStep(STIFF *s, double y[], double dydx[], double *xx, double htry,
   *hnext = h;
 }
 
+#if 0
 /*
  * Jacobn test code
  */ 
@@ -88,6 +89,7 @@ void derivs(double x, double y[], double dydx[], void *params)
   dydx[1] = -2500.0*y[1]*y[2];
   dydx[2] = -0.013*y[0]-1000.0*y[0]*y[2]-2500.0*y[1]*y[2];
 }
+#endif
 
 #endif
 
