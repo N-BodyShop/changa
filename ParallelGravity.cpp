@@ -837,6 +837,10 @@ Main::Main(CkArgMsg* m) {
 	    if(param.bFastGas)
 		nPhases += 2;
 	    }
+	if(nPhases == 0) {
+	    ckerr << "Neither bDoGravity or bDoGas are set!" << endl;
+	    CkAbort("Nothing to do!");
+	    }
 	CkGroupID *gids = new CkGroupID[nPhases];
 	int i;
 	for(i = 0; i < nPhases; i++)
