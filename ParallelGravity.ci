@@ -74,6 +74,10 @@ mainmodule ParallelGravity {
   PUPable MuMaxOutputParams;
   PUPable BSwOutputParams;
   PUPable CsOutputParams;
+  PUPable EDotOutputParams;
+  PUPable Cool0OutputParams;
+  PUPable Cool1OutputParams;
+  PUPable Cool2OutputParams;
   PUPable DtOutputParams;
   PUPable RungOutputParams;
 

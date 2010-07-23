@@ -11,6 +11,7 @@
 #include <map>
 #include <string>
 #include "GenericTreeNode.h"
+#include "ParallelGravity.decl.h"
 
 #ifdef CUDA
 
@@ -134,12 +135,12 @@ protected:
         /// Lookup table for the chunkRoots
         Tree::NodeLookupType chunkRootTable;
 
+public:
+
 	/* 
 	 ** Cooling 
 	 */
 	COOL *Cool;
-
-public:
 
 	DataManager(const CkArrayID& treePieceID);
 	DataManager(CkMigrateMessage *);

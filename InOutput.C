@@ -847,6 +847,7 @@ void TreePiece::outputASCII(OutputParams& params, // specifies
   FILE* outfile;
   double *adOut;	// array for oneNode I/O
   Vector3D<double> *avOut;	// array for one node I/O
+  params.dm = dm; // pass cooling information
   
   if((thisIndex==0 && packed) || (thisIndex==0 && !packed && cnt==0)) {
     if(verbosity > 2)

@@ -1396,6 +1396,9 @@ void Main::setupICs() {
 #ifdef COOLING_NONE
   ofsLog << " COOLING_NONE";
 #endif
+#ifdef COOLING_COSMO
+  ofsLog << " COOLING_COSMO";
+#endif
 #ifdef COOLING_PLANET
   ofsLog << " COOLING_PLANET";
 #endif
@@ -1805,6 +1808,11 @@ Main::doSimulation()
 	      treeProxy[0].outputASCII(pBSwOut, param.bParaWrite, CkCallbackResumeThread());
 	      CsOutputParams pCsOut(string(achFile) + ".c");
 	      treeProxy[0].outputASCII(pCsOut, param.bParaWrite, CkCallbackResumeThread());
+#ifndef COOLING_NONE
+	      EDotOutputParams pEDotOut(string(achFile) + ".eDot");
+	      treeProxy[0].outputASCII(pEDotOut, param.bParaWrite,
+				       CkCallbackResumeThread());
+#endif
 	      }
 	  }
       ckout << "Outputting accelerations  ...";
@@ -1974,6 +1982,17 @@ void Main::writeOutput(int iStep)
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
+#ifndef COOLING_NONE
+      Cool0OutputParams pCool0Out(string(achFile) + "." + COOL_ARRAY0_EXT);
+      treeProxy[0].outputASCII(pCool0Out, param.bParaWrite,
+			       CkCallbackResumeThread());
+      Cool1OutputParams pCool1Out(string(achFile) + "." + COOL_ARRAY1_EXT);
+      treeProxy[0].outputASCII(pCool1Out, param.bParaWrite,
+			       CkCallbackResumeThread());
+      Cool2OutputParams pCool2Out(string(achFile) + "." + COOL_ARRAY2_EXT);
+      treeProxy[0].outputASCII(pCool2Out, param.bParaWrite,
+			       CkCallbackResumeThread());
+#endif
     if(param.nSteps != 0 && param.bDoDensity) {
 	double tolerance = 0.01;	// tolerance for domain decomposition
 	// The following call is to get the particles in key order
