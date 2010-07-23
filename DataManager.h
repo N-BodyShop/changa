@@ -217,6 +217,9 @@ public:
     void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		     double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 		     COOLPARAM inParam, const CkCallback& cb);
+    void CoolingSetTime(double z, // redshift
+			double dTime, // Time
+			const CkCallback& cb);
 };
 
 #endif //DATAMANAGER_H

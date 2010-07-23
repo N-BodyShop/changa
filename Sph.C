@@ -27,6 +27,8 @@ Main::initSph()
 	double dTuFac = param.dGasConst/(param.dConstGamma-1)
 	    /param.dMeanMolWeight;
 	double z = 1.0/csmTime2Exp(param.csm, dTime) - 1.0;
+	// Update cooling on the datamanager
+	dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
 	if(verbosity) CkPrintf("Initializing SPH forces\n");
 	nActiveSPH = nTotalSPH;
@@ -34,6 +36,8 @@ Main::initSph()
 	double duDelta[MAXRUNG+1];
 	for(int iRung = 0; iRung <= MAXRUNG; iRung++)
 	    duDelta[iRung] = 0.5e-7*param.dDelta;
+	if(param.bGasCooling)
+	    dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	treeProxy.updateuDot(0, duDelta, dTime, z, param.bGasCooling, 0,
 			     CkCallbackResumeThread());
 	}
@@ -69,6 +73,22 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     
     CoolInitRatesTable(Cool,inParam);
 #endif
+    contribute(0, 0, CkReduction::concat, cb);
+    }
+
+/*
+ * Update the cooling functions to the current time.
+ * This is on the DataManager to avoid duplication of effort.
+ */
+void
+DataManager::CoolingSetTime(double z, // redshift
+			    double dTime, // Time
+			    const CkCallback& cb)
+{
+#ifndef COOLING_NONE
+    CoolSetTime( Cool, dTime, z  );
+#endif
+
     contribute(0, 0, CkReduction::concat, cb);
     }
 
@@ -156,7 +176,6 @@ void TreePiece::InitEnergy(double dTuFac, // T to internal energy
 
     dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
     cl = dm->Cool;
-    CoolSetTime( cl, dTime, z  );
 #endif
 
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
@@ -189,10 +208,6 @@ void TreePiece::updateuDot(int activeRung,
     double dt; // time in seconds
     
 #ifndef COOLING_NONE
-    if ( bCool ) {
-	CoolSetTime(dm->Cool, dTime, z  );
-	}
-    
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS) && p->rung >= activeRung) {

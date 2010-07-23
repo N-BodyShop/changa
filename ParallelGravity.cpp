@@ -1108,6 +1108,8 @@ void Main::advanceBigStep(int iStep) {
 	  if(verbosity)
 	      ckout << "uDot update:" << endl;
 	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
+	  if(param.bGasCooling)
+	      dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	  treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
 			       1, CkCallbackResumeThread());
 	  }
@@ -1186,6 +1188,8 @@ void Main::advanceBigStep(int iStep) {
 	    duKick[iRung] = 0.5*dTimeSub;
 	  }
 	double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
+	if(param.bGasCooling)
+	    dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
 			     0, CkCallbackResumeThread());
 	}
@@ -1311,6 +1315,8 @@ void Main::advanceBigStep(int iStep) {
       }
       if(param.bDoGas) {
 	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
+	  if(param.bGasCooling)
+	      dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	  treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
 			       1, CkCallbackResumeThread());
 	  }
