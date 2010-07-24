@@ -70,15 +70,19 @@ COOL *CoolInit( )
 
   cl->DerivsData = malloc(sizeof(clDerivsData));
   assert(cl->DerivsData != NULL);
+  /* These have to be allocated per treepiece
   cl->DerivsData->IntegratorContext = 
     StiffInit( EPSINTEG, 1, cl->DerivsData, clDerivs, clJacobn );
+  */
   
   return cl;
 }
 
 void CoolFinalize(COOL *cl ) 
 {
+  /* This is allocated in a treepiece
   StiffFinalize(cl->DerivsData->IntegratorContext );
+  */
   free(cl->DerivsData);
   if (cl->UV != NULL) free(cl->UV);
   if (cl->RT != NULL) free(cl->RT);
@@ -1114,13 +1118,12 @@ int clJacobn(double x, const double y[], double dfdx[], double *dfdy, void *Data
   return GSL_SUCCESS;
 }
 
-void clIntegrateEnergy(COOL *cl, PERBARYON *Y, double *E, 
+void clIntegrateEnergy(COOL *cl, STIFF *sbs, PERBARYON *Y, double *E, 
 		       double ExternalHeating, double rho, double ZMetal, double tStep ) {
 
   double dEdt,dE,Ein = *E,EMin;
   double t=0,dtused,dtnext,tstop,dtEst;
   clDerivsData *d = cl->DerivsData;
-  STIFF *sbs = d->IntegratorContext;
   
   if (tStep == 0) return;
 
@@ -1399,25 +1402,26 @@ void CoolSetTime( COOL *cl, double dTime, double z ) {
 /* Integration Routines */
 
 /* Physical units */
-void CoolIntegrateEnergy(COOL *cl, COOLPARTICLE *cp, double *E,
+void CoolIntegrateEnergy(COOL *cl, STIFF *sbs, COOLPARTICLE *cp, double *E,
                        double PdV, double rho, double ZMetal, double tStep ) {
         PERBARYON Y;
 
         CoolPARTICLEtoPERBARYON(cl, &Y,cp);
-        clIntegrateEnergy(cl, &Y, E, PdV, rho, ZMetal, tStep);
+        clIntegrateEnergy(cl, sbs, &Y, E, PdV, rho, ZMetal, tStep);
         CoolPERBARYONtoPARTICLE(cl, &Y, cp);
         }
 
 /* Code Units ecept for dt */
-void CoolIntegrateEnergyCode(COOL *cl, COOLPARTICLE *cp, double *ECode, 
+void CoolIntegrateEnergyCode(COOL *cl, STIFF *sbs, COOLPARTICLE *cp, double *ECode, 
 		       double ExternalHeatingCode, double rhoCode, double ZMetal, double *posCode, double tStep ) {
 	PERBARYON Y;
 	double E;
 	
 	E = CoolCodeEnergyToErgPerGm( cl, *ECode );
 	CoolPARTICLEtoPERBARYON(cl, &Y, cp);
-	clIntegrateEnergy(cl, &Y, &E, CoolCodeWorkToErgPerGmPerSec( cl, ExternalHeatingCode ), 
-					  CodeDensityToComovingGmPerCc(cl, rhoCode), ZMetal, tStep);
+	clIntegrateEnergy(cl, sbs, &Y, &E,
+			  CoolCodeWorkToErgPerGmPerSec( cl, ExternalHeatingCode ), 
+			  CodeDensityToComovingGmPerCc(cl, rhoCode), ZMetal, tStep);
 	CoolPERBARYONtoPARTICLE(cl, &Y, cp);
 	*ECode = CoolErgPerGmToCodeEnergy(cl, E);
 
