@@ -208,6 +208,9 @@ void TreePiece::updateuDot(int activeRung,
     double dt; // time in seconds
     
 #ifndef COOLING_NONE
+    const double EPSINTEG=1e-5;
+    STIFF *sbs = StiffInit( EPSINTEG, 1, dm->Cool->DerivsData, clDerivs,
+			    clJacobn );
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS) && p->rung >= activeRung) {
@@ -219,9 +222,9 @@ void TreePiece::updateuDot(int activeRung,
 		double r[3];  // For conversion to C
 		p->position.array_form(r);
 
-		CoolIntegrateEnergyCode(dm->Cool, &cp, &E, ExternalHeating,
-					p->fDensity, p->fMetals(),
-					r, dt);
+		CoolIntegrateEnergyCode(dm->Cool, sbs, &cp, &E,
+					ExternalHeating, p->fDensity,
+					p->fMetals(), r, dt);
 		CkAssert(E > 0.0);
 		p->uDot() = (E - p->u())/duDelta[p->rung]; // linear interpolation over interval
 		if (bUpdateState) p->CoolParticle() = cp;
@@ -231,6 +234,7 @@ void TreePiece::updateuDot(int activeRung,
 		}
 	    }
 	}
+    StiffFinalize(sbs);
 #endif
     contribute(0, 0, CkReduction::concat, cb);
     }
