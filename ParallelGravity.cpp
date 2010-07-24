@@ -1917,7 +1917,7 @@ void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
     double a = csmTime2Exp(param.csm, dTime);
     
     if(first && !bIsRestarting) {
-	fprintf(fpLog, "# time redshift TotalEVir TotalE Kinetic Virial Potential TotalECosmo Lx Ly Lz Wallclock\n");
+	fprintf(fpLog, "# time redshift TotalEVir TotalE Kinetic Virial Potential TotalECosmo Ethermal Lx Ly Lz Wallclock\n");
 	dEcosmo = 0.0;
 	first = 0;
 	}
@@ -1931,16 +1931,21 @@ void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
 	    dEcosmo += 0.5*(a - csmTime2Exp(param.csm, dTimeOld))
 		*(dEnergy[2] + dUOld);
 	    }
+	first = 0;
 	}
 
     dUOld = dEnergy[2];
     dEnergy[2] *= a;
+    dEnergy[1] *= a;
     dTimeOld = dTime;
     double z = 1.0/a - 1.0;
+    double dEtotal = dEnergy[0] + dEnergy[2] - dEcosmo + a*a*dEnergy[6];
+    // Energy using the virial of Clausius
+    double dEtotalVir = dEnergy[0] + dEnergy[1] - dEcosmo + a*a*dEnergy[6];
     
-    fprintf(fpLog, "%g %g %g %g %g %g %g %g %g %g %g %g\n", dTime, z,
-	    dEnergy[0] + dEnergy[1], dEnergy[0]+dEnergy[2], dEnergy[0],
-	    dEnergy[1], dEnergy[2], dEcosmo, dEnergy[3], dEnergy[4],
+    fprintf(fpLog, "%g %g %g %g %g %g %g %g %g %g %g %g %g\n", dTime, z,
+	    dEtotalVir, dEtotal, dEnergy[0], dEnergy[1], dEnergy[2], dEcosmo,
+	    dEnergy[6], dEnergy[3], dEnergy[4],
 	    dEnergy[5], wallTime);
     fclose(fpLog);
     
