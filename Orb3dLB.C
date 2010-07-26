@@ -25,6 +25,22 @@ int comparz(const void *a, const void *b){
   return (int)(ta->centroid.z-tb->centroid.z);
 }
 
+int pcx(const void *a, const void *b){
+  Proc *ta = (Proc *)a;
+  Proc *tb = (Proc *)b;
+  return (int)(ta->x-tb->x);
+}
+int pcy(const void *a, const void *b){
+  Proc *ta = (Proc *)a;
+  Proc *tb = (Proc *)b;
+  return (int)(ta->y-tb->y);
+}
+int pcz(const void *a, const void *b){
+  Proc *ta = (Proc *)a;
+  Proc *tb = (Proc *)b;
+  return (int)(ta->z-tb->z);
+}
+
 Orb3dLB::Orb3dLB(const CkLBOptions &opt): CentralLB(opt)
 {
   lbname = "Orb3dLB";
@@ -33,6 +49,10 @@ Orb3dLB::Orb3dLB(const CkLBOptions &opt): CentralLB(opt)
   compares[0] = comparx;
   compares[1] = compary;
   compares[2] = comparz;
+
+  pc[0] = pcx;
+  pc[1] = pcy;
+  pc[2] = pcz;
 }
 
 void Orb3dLB::receiveCentroids(CkReductionMsg *msg){
@@ -85,7 +105,6 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
   }
 
   mapping = &stats->to_proc;
-  CmiUInt4 path = 0x1;
   int dim = 0;
   TopoManager tmgr;
 
@@ -96,13 +115,27 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
   int nz = tmgr.getDimNZ();
   int numnodes = nx*ny*nz; 
 
-  int x1[NDIMS] = {0,0,0};
-  int x2[NDIMS] = {nx-1,ny-1,nz-1};
+  Proc *procs = new Proc[stats->count];
 
-  map(tp,numobjs,numnodes,x1,x2,dim);
+  for(int i = 0; i < stats->count; i++){
+    procs[i].rank = i;
+    tmgr.rankToCoordinates(i,procs[i].x,procs[i].y,procs[i].z,procs[i].t);
+  }
+
+  map(tp,numobjs,numnodes,procs,dim);
+
+  float *procload = new float[stats->count];
+  for(int i = 0; i < stats->count; i++){
+    procload[i] = 0.0;
+  }
 
   for(int i = 0; i < numobjs; i++){
-    CkPrintf("%f %f %f %d\n", tp[i].centroid.x, tp[i].centroid.y, tp[i].centroid.z, stats->to_proc[i]);
+    //CkPrintf("%f %f %f %d %f\n", tp[i].centroid.x, tp[i].centroid.y, tp[i].centroid.z, stats->to_proc[i]);
+    procload[stats->to_proc[i]] += tp[i].load;
+  }
+
+  for(int i = 0; i < stats->count; i++){
+    CkPrintf("proc %d load %f\n", i, procload[i]);
   }
 
 #ifdef ORB3DLB_VISUALIZE
@@ -189,13 +222,10 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
 
 }
 
-void Orb3dLB::map(TPObject *tp, int ntp, int nn, int *x1, int *x2, int dim){
+void Orb3dLB::map(TPObject *tp, int ntp, int np, Proc *procs, int dim){
   //CkPrintf("ntp: %d np: %d dim: %d path: 0x%x\n",ntp,np,dim,path);
-  if(nn == 1){
-    CkAssert(x1[0]==x2[0]);
-    CkAssert(x1[1]==x2[1]);
-    CkAssert(x1[2]==x2[2]);
-    directMap(tp,ntp,x1);
+  if(np == 1){
+    directMap(tp,ntp,procs);
   }
   else{
     int totalTp = ntp;
@@ -205,75 +235,23 @@ void Orb3dLB::map(TPObject *tp, int ntp, int nn, int *x1, int *x2, int dim){
     int xx1[NDIMS];
     
     qsort(tp,ntp,sizeof(TPObject),compares[dim]);
+    qsort(procs,np,sizeof(Proc),pc[dim]);
     // tp and ntp are modified to hold the particulars of
     // the left/dn/near partitions
     // tp2 and totalTp-ntp hold the objects in the 
     // right/up/far partitions
     TPObject *tp2 = partitionEvenLoad(tp,ntp);
+    Proc *procs2 = halveProcessors(procs,np);
     int d = nextDim(dim); 
-    for(int i = 0; i < NDIMS; i++){
-      if(i == dim){
-        xx0[dim] = x2[dim]-(x2[dim]-x1[dim]+1)/2; 
-        xx1[dim] = x1[dim]+(x2[dim]-x1[dim]+1)/2;
-      }
-      else{
-        xx0[i] = x2[i];
-        xx1[i] = x1[i];
-      }
-    }
-    map(tp,ntp,nn/2,x1,xx0,d);
-    map(tp2,totalTp-ntp,nn/2,xx1,x2,d);
+    map(tp,ntp,np/2,procs,d);
+    map(tp2,totalTp-ntp,np/2,procs2,d);
   }
 }
-void Orb3dLB::directMap(TPObject *tp, int ntp, int *x){
-  /*
-  int numshifts = 0;
-  CmiUInt4 correctbits = 0x0; 
-  CmiUInt4 bit;
-  while(path > 0x1){
-    bit = path & 0x1;
-    path = path >> 1;
-    correctbits = correctbits << 1;
-    correctbits |= bit;
-    numshifts++;
-  }
-  */
-
-/*
-#ifdef USE_TOPOMGR
-  TopoManager tm;
-#endif
-  int min[NDIMS] = {0,0,0};
-#ifdef USE_TOPOMGR
-  int max[NDIMS] = {tm.getDimNX()-1,tm.getDimNY()-1,tm.getDimNZ()-1};
-  int coresPerNode = tm.getDimNT();
-#else
-  int max[NDIMS] = {XMAX-1,YMAX-1,ZMAX-1};
-#endif
-  int dim = 0;
-  for(int i = 0; i < numshifts; i++){
-    bit = correctbits & 0x1;
-    if(bit){
-      min[dim] = min[dim]+(max[dim]-min[dim]+1)/2;
-    }
-    else{
-      max[dim] = max[dim]-(max[dim]-min[dim]+1)/2;
-    }
-    dim = (dim+1)%NDIMS;
-    correctbits = correctbits >> 1;
-  }
-
-  CkAssert(min[0] == max[0]);
-  CkAssert(min[1] == max[1]);
-  CkAssert(min[2] == max[2]);
-*/
-
-  CkPrintf("[Orb3dLB] mapping %d objects to node (%d,%d,%d)\n", ntp, x[0],x[1],x[2]);
-  int t = 0;
+void Orb3dLB::directMap(TPObject *tp, int ntp, Proc *procs){
+  CkPrintf("[Orb3dLB] mapping %d objects to proc (%d,%d,%d,%d)\n", ntp, procs[0].x, procs[0].y, procs[0].z, procs[0].t);
   TopoManager tmgr;
   for(int i = 0; i < ntp; i++){
-    (*mapping)[tp[i].lbindex] = tmgr.coordinatesToRank(x[0],x[1],x[2],t);
-    t = (t+1)%procsPerNode;
+    (*mapping)[tp[i].lbindex] = procs[0].rank;
   }
 }
 
@@ -287,7 +265,7 @@ TPObject *Orb3dLB::partitionEvenLoad(TPObject *tp, int &ntp){
   for(int i = 0; i < ntp; i++){
     totalLoad += tp[i].load;
   }
-  float halfLoad = totalLoad/2.0;
+  float halfLoad = 0.5*totalLoad;
   int split = -1;
 
   for(int i = 0; i < ntp; i++){
@@ -301,6 +279,12 @@ TPObject *Orb3dLB::partitionEvenLoad(TPObject *tp, int &ntp){
 
   ntp = split+1;
   return (tp+split+1);
+}
+
+Proc *Orb3dLB::halveProcessors(Proc *start, int np){
+  Proc *ret = start;
+  for(int i = 0; i < np/2; i++,ret=ret+1);
+  return ret;
 }
 
 #include "Orb3dLB.def.h"

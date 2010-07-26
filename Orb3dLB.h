@@ -43,6 +43,11 @@ class TPObject{
   int lbindex;
 };
 
+class Proc {
+  public:
+  int x, y, z, t;
+  int rank;
+};
 
 typedef int (*ComparatorFn) (const void *, const void *);
 
@@ -51,6 +56,7 @@ private:
   CmiBool firstRound; 
   CmiBool centroidsAllocated;
   ComparatorFn compares[NDIMS];
+  ComparatorFn pc[NDIMS];
   // pointer to stats->to_proc
   CkVec<int> *mapping;
 
@@ -69,10 +75,11 @@ public:
   Orb3dLB(CkMigrateMessage *m):CentralLB(m) { lbname = "Orb3dLB"; }
   void work(BaseLB::LDStats* stats, int count);
   void receiveCentroids(CkReductionMsg *msg);
-  void directMap(TPObject *tp, int ntp, int *x);
-  void map(TPObject *tp, int ntp, int np, int *x1, int *x2, int dim);
+  void directMap(TPObject *tp, int ntp, Proc *proc);
+  void map(TPObject *tp, int ntp, int np, Proc *procs, int dim);
   int nextDim(int dim);
   TPObject *partitionEvenLoad(TPObject *tp, int &ntp);
+  Proc *halveProcessors(Proc *start, int np);
 
 };
 
