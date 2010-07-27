@@ -593,13 +593,13 @@ bool Sorter::refineOctSplitting(int n, int *count) {
       }
       binCounts[index] = count[i*(1<<refineLevel)];
       binCounts.insert(binCounts.begin()+index+1, &count[i*(1<<refineLevel)+1], &count[(i+1)*(1<<refineLevel)]);
-      chareIDs.insert(chareIDs.begin()+index+1, availableChares.end()-(1<<refineLevel), availableChares.end());
+      chareIDs.insert(chareIDs.begin()+index+1, availableChares.end()-(1<<refineLevel)+1, availableChares.end());
 
       if (verbosity >= 4 ) 
 	CkPrintf("Split node index %d, last added chare is %d (refine level = %d), %d available chares left\n", index, availableChares.back(), (1<<refineLevel), availableChares.size()-1);
 
       
-      availableChares.erase(availableChares.end()-(1<<refineLevel), availableChares.end());
+      availableChares.erase(availableChares.end()-(1<<refineLevel)+1, availableChares.end());
      
  
       // Trim down what we over-opened just above
