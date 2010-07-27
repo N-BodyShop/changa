@@ -10,11 +10,6 @@ void ScaledORBMapBG::assign(int *from, int *clusterWeights, CkVec<int> &to, int 
         nClusters = count;
 	clusterArray = new Cluster[nClusters];
         
-/*
-	for(i = 0; i < nClusters; i++){
-                clusterArray[i].load = clusterWeights[i];
-	}
-*/	
         float *clusterRadius = new float[nClusters];    // radii
         for(i = 0; i < count; i++){
           clusterRadius[i] = 0.0;
@@ -24,7 +19,7 @@ void ScaledORBMapBG::assign(int *from, int *clusterWeights, CkVec<int> &to, int 
 	Vector3D<float> vec;
         int j;
 	for(i = 0; i < numobjs; i++)	{
-          j = (int)tpCentroids[i].tag;                  // FIXME - don't cast CkIndex1D to int!!
+          j = (int)tpCentroids[i].tag; 
           clusterArray[from[j]].count++;
           clusterArray[from[j]].centroid[0] += tpCentroids[j].vec.x;
           clusterArray[from[j]].centroid[1] += tpCentroids[j].vec.y;
@@ -40,46 +35,6 @@ void ScaledORBMapBG::assign(int *from, int *clusterWeights, CkVec<int> &to, int 
 		
 #define abs(x) (x > 0 ? x : -1*x)
  
-/*
-  // note distances between clusters
-  for(i = 0; i < count; i++){
-	Vector3D<float> iVector(clusterArray[i].centroid);
-	CkPrintf("metis-eff: ");
-	// inter-cluster distances
-	for (j = 0; j < count; j++){
-		Vector3D<float> jVector(clusterArray[j].centroid);
-		CkPrintf("%f ",(iVector-jVector).length());
-	}
-	CkPrintf("\n");
-  // cluster diameter
-	float max = -1;
-        float dist;
-
-        for(j = 0; j < clusterArray[i].tps.size(); j++){
-		for(int k = 0; k < clusterArray[i].tps.size(); k++){
-			dist = (tpCentroids[clusterArray[i].tps[j]].vec - tpCentroids[clusterArray[i].tps[k]].vec).length();
-			if(dist > max)
-				max = dist;	
-		}
-	}
-	CkPrintf("metis-eff-rad: %f\n", max);
-  }
-*/ 
-        // efficacy checks - cluster radii
-        float rad, *ptr;
-
-        for(i = 0; i < numobjs; i++){
-          j = (int)tpCentroids[i].tag;
-          Vector3D<float> tempVec(clusterArray[from[j]].centroid);
-          
-          rad = (tempVec - tpCentroids[i].vec).length();
-          ptr = clusterRadius+from[j];
-          if(*ptr < rad)
-            *ptr = rad;
-        }
-        for(i = 0; i < count; i++)
-          CkPrintf("Cluster %d rad: %f\n", i, clusterRadius[i]);
-
 #ifdef CMK_VERSION_BLUEGENE
 	manager = new BGLTorusManager;
 	xsize = manager->getDimNX();
@@ -92,35 +47,24 @@ void ScaledORBMapBG::assign(int *from, int *clusterWeights, CkVec<int> &to, int 
 	zsize = 2; 
 #endif
 	// we now have the torus dimensions
-	
-	//avail = new bool[count];
-        
         int l[3] = {0,0,0};
         int g[3] = {xsize-1,ysize-1,zsize-1};
-        Volume<int> entireProcSpace(l,g);       // all clusters are assigned to the entire processor space to begin with
-                                                                // the idea is to recursively refine this assignment to successively smaller 
-                                                                // partitions of processors, till each cluster has just one processor
-
-	/*
-	for(i=0; i < count; i++){
-		//avail[i] = true;
-                clusterArray[i].partition = &entireProcSpace;    // count == nClusters, so we can do this assignment here
-        }
-	*/
+        Volume<int> entireProcSpace(l,g);       
+        // all clusters are assigned to the entire 
+        // processor space to begin with
+        // the idea is to recursively refine this 
+        // assignment to successively smaller 
+        // partitions of processors, till each 
+        // cluster has just one processor
 
         // construct initial simulation space
         float lesser[3] = {-.5,-.5,-.5};
         float greater[3] = {.5,.5,.5};
         Volume<float> clusterVol(lesser, greater);
         
-        // create initial array section - entire array of clusters
+        // create initial array section - 
+        // entire array of clusters
         ClusterSection section(0,nClusters-1);
-        
-        /* get target weight for each partition
-        int target = 0;
-        for(i = 0; i < nClusters; i++)
-          target += clusterArray[i].load;
-        */
         
 #if COSMO_MCLB > 1 
         CkPrintf("Map \n{");
@@ -128,29 +72,23 @@ void ScaledORBMapBG::assign(int *from, int *clusterWeights, CkVec<int> &to, int 
           CkPrintf("(%f,%f,%f), ", clusterArray[i].centroid[0],clusterArray[i].centroid[1],clusterArray[i].centroid[2]);
         CkPrintf("}\n");
 #endif
-        map(/*clusterVol,*/ section, entireProcSpace, nClusters);
+        map(section, entireProcSpace, nClusters);
                 
 	// write out the assignments in the 'to' array
-	for(i = 0; i < numobjs; i++){
-		to[i] = clusterArray[from[i]].proc;
+        for(i = 0; i < numobjs; i++){
+          to[i] = clusterArray[from[i]].proc;
 #if COSMO_MCLB > 1 
-                CkPrintf("ScaledORBMapBG.C: TP %d to proc. %d\n", i, to[i]);
+          CkPrintf("ScaledORBMapBG.C: TP %d to proc. %d\n", i, to[i]);
 #endif  
-		if (to[i] == -1)
-			CmiAbort("ScaledORBMapBG.C: assignment out of range\n");
-	}
+          if (to[i] == -1)
+            CmiAbort("ScaledORBMapBG.C: assignment out of range\n");
+        }
         
-        /*
-        */	
-        // FIXME - remember to free memory allocated to clusterArray elements
-        // delete [] avail;
         delete [] clusterRadius;
         delete [] clusterArray;
-        //delete entireProcSpace;
-
 }
 
-void ScaledORBMapBG::map(/*Volume <float> &clusterVol,*/ ClusterSection &section, Volume <int> &procVol, int totalClusters){
+void ScaledORBMapBG::map(ClusterSection &section, Volume <int> &procVol, int totalClusters){
  
   int i;
 
@@ -173,7 +111,7 @@ void ScaledORBMapBG::map(/*Volume <float> &clusterVol,*/ ClusterSection &section
   int axis = procVol.decideSplitAxis();
   
   /* split the processor space along the same dimension
-    FIXME - tacit assumption that number of processors (and therefore the number of clusters) is even. This might not happen, 
+    FIXME - tacit assumption that number of processors (and therefore the number of clusters) is power of two. This might not happen, 
     and so, to avoid load imbalance, we must divide the processors in the ratio determined by the loads
     induced by the corresponding partitions of clusters, and not down the middle. Need to have sheared partitions - do later.
     

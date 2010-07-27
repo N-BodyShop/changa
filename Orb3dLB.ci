@@ -1,0 +1,11 @@
+module Orb3dLB {
+
+extern module CentralLB;
+initnode void lbinit(void);
+
+group [migratable] Orb3dLB : CentralLB {
+  entry void Orb3dLB(const CkLBOptions &);  
+  entry void receiveCentroids(CkReductionMsg *msg);
+};
+
+};

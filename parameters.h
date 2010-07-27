@@ -2,6 +2,7 @@
 #define PARAMETERS_HINCLUDED
 
 #include "cosmo.h"
+#include "cooling.h"
 
 typedef struct parameters {
     /*
@@ -55,6 +56,8 @@ typedef struct parameters {
     int bBulkViscosity;
     int bGasAdiabatic;
     int bGasIsothermal;
+    int bGasCooling;
+    COOLPARAM CoolParam;
     double dhMinOverSoft;
     double dMsolUnit;
     double dKpcUnit;
@@ -137,6 +140,8 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.bBulkViscosity;
     p|param.bGasAdiabatic;
     p|param.bGasIsothermal;
+    p|param.bGasCooling;
+    p((char *)&param.CoolParam, sizeof(param.CoolParam));
     p|param.bFastGas;
     p|param.dFracFastGas;
     p|param.bViscosityLimiter;

@@ -539,6 +539,8 @@ void KNearestSmoothCompute::walkDone(State *state) {
       part[i-node->firstParticle].fBall = h;
       int nCnt = nstate->heap_sizes[i];
       params->fcnSmooth(&part[i-node->firstParticle], nCnt, Q);
+      delete [] Q;
+      nstate->Qs[i] = NULL;
       }
       // XXX jetley - the nearneighborstate allocated for this compute
       // may be deleted after this function is called. 

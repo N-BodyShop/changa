@@ -11,6 +11,7 @@
 #include <map>
 #include <string>
 #include "GenericTreeNode.h"
+#include "ParallelGravity.decl.h"
 
 #ifdef CUDA
 
@@ -136,6 +137,11 @@ protected:
 
 public:
 
+	/* 
+	 ** Cooling 
+	 */
+	COOL *Cool;
+
 	DataManager(const CkArrayID& treePieceID);
 	DataManager(CkMigrateMessage *);
 
@@ -165,7 +171,9 @@ private:
 
 public:
 
-	~DataManager() { }
+	~DataManager() {
+	    CoolFinalize(Cool);
+	    }
 
 	/// Collect the boundaries of all TreePieces, and trigger the real treebuild
 	void collectSplitters(CkReductionMsg* m);
@@ -206,6 +214,12 @@ public:
       else return NULL;
     }
     inline Tree::GenericTreeNode *getRoot() { return root; }
+    void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
+		     double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
+		     COOLPARAM inParam, const CkCallback& cb);
+    void CoolingSetTime(double z, // redshift
+			double dTime, // Time
+			const CkCallback& cb);
 };
 
 #endif //DATAMANAGER_H

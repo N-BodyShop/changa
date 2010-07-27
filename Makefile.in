@@ -7,6 +7,7 @@
 #CACHE_TREE = -DCACHE_TREE          # enable processor tree inside the cache
 INTERLIST = -DINTERLIST_VER=2      # enable interaction lists
 HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
+FLAG_COOLING = @FLAG_COOLING@
 
 #CELL = -DINTERLIST_VER=2 -DCELL -DCELL_PART -DCELL_NODE -DCELL_EWALD  # Cell processor offload
 
@@ -57,7 +58,7 @@ HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
 
 #MULTISTEP_LOADBALANCING_VERBOSE = -DCOSMO_MCLB=2 -DMCLBMSV
 #ORB3DLB_LOADBALANCING_VERBOSE = -DORB3DLBV
-DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST) $(HEXADECAPOLE) $(CELL) $(FLAG_REFACTOR) $(MULTISTEP_LOADBALANCING_VERBOSE) $(ORB3DLB_LOADBALANCING_VERBOSE) $(CUDA)
+DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST) $(HEXADECAPOLE) $(FLAG_COOLING) $(CELL) $(FLAG_REFACTOR) $(MULTISTEP_LOADBALANCING_VERBOSE) $(ORB3DLB_LOADBALANCING_VERBOSE) $(CUDA)
 
 CHARM_PATH = @CHARM_PATH@
 STRUCTURES_PATH = ../utility/structures
@@ -78,7 +79,7 @@ NVCC_LIBS = -lcuda -lcudart -lGL -lcutil
 #OPTS = -g -memory charmdebug
 OPTS = -O3
 CXXFLAGS += $(OPTS) -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) -I.. @CPPFLAGS@
-LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache -module commlib -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MultistepLB -module liveViz #-tracemode projections -memory charmdebug -memory paranoid
+LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache -module commlib -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MultistepLB -module Orb3dLB -module liveViz #-tracemode projections -memory charmdebug -memory paranoid
 XDR_DIR = ../rpc
 XDR_OBJS = $(XDR_DIR)/xdr.o $(XDR_DIR)/xdr_float.o $(XDR_DIR)/xdr_mem.o $(XDR_DIR)/xdr_stdio.o
 LDLIBS += $(STRUCTURES_PATH)/libTipsy.a  @LIBS@
@@ -89,19 +90,20 @@ CXX = $(CHARMC)
 CC = $(CXX)
 AR = @AR@ 
 CXX_DEPEND = $(CXX) -M -MM -MG $(CXXFLAGS)
-CFLAGS = $(OPTS)
+CFLAGS = $(OPTS) $(DEFINE_FLAGS) @CFLAGS@
 
 # Orb3dLB.{o,C} below
 OBJECTS = DataManager.o Reductions.o TreePiece.o Sorter.o \
 	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
 	  InOutput.o cosmo.o romberg.o runge.o dumpframe.o dffuncs.o \
-	  moments.o MultistepLB.o \
-	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o
+	  moments.o MultistepLB.o Orb3dLB.o \
+	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o\
+	@OBJECTS_COOLING@
 
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \
 	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
 	InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c \
-	moments.c MultistepLB.C \
+	moments.c MultistepLB.C Orb3dLB.C \
 	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C
 
 ifdef CUDA
@@ -121,7 +123,7 @@ VERSION = 1.0
 all: $(TARGET)
 
 # libmoduleOrb3dLB.a can be added here
-$(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a 
+$(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a 
 	$(CHARMC) -o $(TARGET) $(LDFLAGS) $(OBJECTS) $(LDLIBS)
 
 $(TARGET).%: $(TARGET)
@@ -133,6 +135,9 @@ $(STRUCTURES_PATH)/libTipsy.a:
 
 libmoduleMultistepLB.a: MultistepLB.o
 	$(CHARMC) -o libmoduleMultistepLB.a MultistepLB.o 
+
+libmoduleOrb3dLB.a: Orb3dLB.o
+	$(CHARMC) -o libmoduleOrb3dLB.a Orb3dLB.o 
 
 #libmoduleOrb3dLB.a: Orb3dLB.o
 #	$(CHARMC) -o libmoduleOrb3dLB.a Orb3dLB.o ScaledORBMapBG.o
@@ -186,7 +191,7 @@ ref-clean:
 
 # The following line is a script usable to regenerate the dependace file,
 # without the inclusion of charm headers.
-# ../charm/bin/charmc  -M -MM -MG -O3 -I../utility/structures -I../ParallelGravity -Wall  -DCOSMO_STATS=1   -DCOSMO_DEBUG=2        -DCACHE_TREE   Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c moments.c MultistepLB.C TreeWalk.C Compute.C | while read i;do echo $i| awk -F' ' '{for (i=1;i<NF;++i) print $i" \\"}';echo;done|grep -v "charm/bin" > Makefile.dep
+# $CHARM_DIR/bin/charmc  -M -MM -MG -O3 -I../utility/structures -I../ParallelGravity -Wall  -DCOSMO_STATS=1   -DCOSMO_DEBUG=2  -DINTERLIST_VER=2 -DHEXADECAPOLE     -DCACHE_TREE -DCOOLING_NONE  Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c moments.c MultistepLB.C Orb3dLB.C TreeWalk.C Compute.C | while read i;do echo $i| awk -F' ' '{for (i=1;i<NF;++i) print $i" \\"}';echo;done|grep -v "charm/bin" > Makefile.dep
 
 .PHONY: all docs dist clean depend test
 

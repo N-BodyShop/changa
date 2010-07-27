@@ -13,7 +13,8 @@ build the "cache" module and the "liveViz" module in charm++, then run:
 make (or gmake)
 
 The executable ChaNGa will be created together with the submit script charmrun
-(for most machines).
+(for most machines).  Configure takes the usual options and also the "--enable-cooling"
+option to specify cooling for gas simulations.
 
 To run the code:
 

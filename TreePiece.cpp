@@ -15,6 +15,7 @@
 #include "Reductions.h"
 // jetley
 #include "MultistepLB.h"
+#include "Orb3dLB.h"
 // jetley - refactoring
 //#include "codes.h"
 #include "Opt.h"
@@ -675,7 +676,15 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		  p->vPred() = p->velocity
 		      + dDelta[p->rung]*p->treeAcceleration;
 		  if(!bGasIsothermal) {
+#ifndef COOLING_NONE
+		      p->u() = p->u() + p->uDot()*duDelta[p->rung];
+		      if (p->u() < 0) {
+			  double uold = p->u() - p->uDot()*duDelta[p->rung];
+			  p->u() = uold*exp(p->uDot()*duDelta[p->rung]/uold);
+			  }
+#else /* COOLING_NONE */
 		      p->u() += p->PdV()*duDelta[p->rung];
+#endif /* COOLING_NONE */
 		      p->uPred() = p->u();
 		      }
 		  }
@@ -684,7 +693,15 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		  p->vPred() = p->velocity;
 		  if(!bGasIsothermal) {
 		      p->uPred() = p->u();
+#ifndef COOLING_NONE
+		      p->u() += p->uDot()*duDelta[p->rung];
+		      if (p->u() < 0) {
+			  double uold = p->u() - p->uDot()*duDelta[p->rung];
+			  p->u() = uold*exp(p->uDot()*duDelta[p->rung]/uold);
+			  }
+#else /* COOLING_NONE */
 		      p->u() += p->PdV()*duDelta[p->rung];
+#endif /* COOLING_NONE */
 		      }
 		  }
 	      CkAssert(p->u() > 0.0);
@@ -804,10 +821,12 @@ void TreePiece::countActive(int activeRung, const CkCallback& cb) {
   contribute(2*sizeof(int), nActive, CkReduction::sum_int, cb);
 }
 
-void TreePiece::drift(double dDelta,  // time step in v containing
+void TreePiece::drift(double dDelta,  // time step in x containing
 				      // cosmo scaling
 		      int bNeedVpred, // Update predicted velocities
 		      int bGasIsothermal, // Isothermal EOS
+		      double dvDelta, // time step in v containing
+				      // cosmo scaling
 		      double duDelta, // time step for internal energy
 		      int nGrowMass,  // GrowMass particles are locked
 				      // in place
@@ -855,9 +874,21 @@ void TreePiece::drift(double dDelta,  // time step in v containing
       }
       boundingBox.grow(p->position);
       if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
-	  p->vPred() += dDelta*p->treeAcceleration;
+	  p->vPred() += dvDelta*p->treeAcceleration;
 	  if(!bGasIsothermal) {
+#ifndef COOLING_NONE
+	      p->uPred() += p->uDot()*duDelta;
+	      if (p->uPred() < 0) {
+		  double uold = p->uPred() - p->uDot()*duDelta;
+		  p->uPred() = uold*exp(p->uDot()*duDelta/uold);
+		  }
+#else
 	      p->uPred() += p->PdV()*duDelta;
+	      if (p->uPred() < 0) {
+		  double uold = p->uPred() - p->PdV()*duDelta;
+		  p->uPred() = uold*exp(p->PdV()*duDelta/uold);
+		  }
+#endif
 	      }
 	  }
       }
@@ -1676,11 +1707,13 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
     if (node == NULL) break;
 #endif
 
-  if (level == 63) {
+  if (level == 62) {
     ckerr << thisIndex << ": TreePiece: This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
     ckerr << "Left particle: " << (node->firstParticle) << " Right particle: " << (node->lastParticle) << endl;
     ckerr << "Left key : " << keyBits((myParticles[node->firstParticle]).key, 63).c_str() << endl;
     ckerr << "Right key: " << keyBits((myParticles[node->lastParticle]).key, 63).c_str() << endl;
+    ckerr << "Node type: " << node->getType() << endl;
+    ckerr << "myNumParticles: " << myNumParticles << endl;
     CkAbort("Tree is too deep!");
     return;
   }
@@ -1720,7 +1753,14 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
 	streamingProxy[child->remoteIndex].requestRemoteMoments(child->getKey(), thisIndex);
 	//CkPrintf("[%d] asking for moments of %s to %d\n",thisIndex,keyBits(child->getKey(),63).c_str(),child->remoteIndex);
       }
-    } else if (child->getType() == Internal && child->lastParticle - child->firstParticle < maxBucketSize) {
+    } else if (child->getType() == Internal
+              && (child->lastParticle - child->firstParticle < maxBucketSize
+                  || level > 61)) {
+       if(level > 61)
+           ckerr << "Truncated tree with "
+                 << child->lastParticle - child->firstParticle
+                 << " particle bucket" << endl;
+       
       CkAssert(child->firstParticle != 0 && child->lastParticle != myNumParticles+1);
       child->remoteIndex = thisIndex;
       child->makeBucket(myParticles);
@@ -3725,6 +3765,7 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d calling AtSync()\n",CkMyPe(),thisIndex);
   // AtSync();
+  //
 
   if(!proxyValid || !proxySet){              // jetley
     proxyValid = true;
@@ -3749,6 +3790,7 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
     TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles, activeRung, prevLARung);
 
     // CkCallback(int ep, int whichProc, CkGroupID &gid)
+    //CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
     CkCallback cbk(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
 #if COSMO_MCLB > 1
     CkPrintf("[%d : %d] proxyValid, contributing value (%f,%f,%f, %u,%u,%u : %d)\n", CkMyPe(), thisIndex, tv.vec.x, tv.vec.y, tv.vec.z, tv.numActiveParticles, tv.myNumParticles, tv.activeRung, tv.tag);
@@ -4396,6 +4438,7 @@ ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk
 
     CkCacheRequestorData request(thisElement, &EntryTypeGravityParticle::callback, userData);
     CkArrayIndexMax remIdx = CkArrayIndex1D(remoteIndex);
+    CkAssert(key < (((CmiUInt8) 1) << 63));
     CkCacheKey ckey = key<<1;
     CacheParticle *p = (CacheParticle *) cacheGravPart[CkMyPe()].requestData(ckey,remIdx,chunk,&gravityParticleEntry,request);
     if (p == NULL) {
@@ -5574,6 +5617,18 @@ void TreePiece::updateUnfinishedBucketState(int start, int end, int n, int chunk
 	mainChare.liveVizImagePrep(msg);
    }
  }
+
+/*
+ * Utility to turn projections on or off
+ * bOn == True => turn on.
+ */
+void TreePiece::setProjections(int bOn)
+{
+    if(bOn)
+        traceBegin();
+    else
+        traceEnd();
+}
 
 #ifdef CUDA
 void TreePiece::clearMarkedBuckets(CkVec<GenericTreeNode *> &markedBuckets){
