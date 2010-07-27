@@ -603,10 +603,10 @@ bool Sorter::refineOctSplitting(int n, int *count) {
      
  
       // Trim down what we over-opened just above
-      for (int j=1, idx=1; j<(1<<refineLevel); ++j, ++idx) {
-        if (binCounts[idx] > splitThreshold) {
+      for (int j=1, idx=0; j<=(1<<refineLevel); ++j, ++idx) {
+        if (binCounts[index+idx] > splitThreshold) {
           //CkPrintf("Sorter: further opening %llx (%d)\n",nodeKeys[index+idx],binCounts[index+idx]);
-          tmpOpened.push_back(nodeKeys[idx]);
+          tmpOpened.push_back(nodeKeys[index+idx]);
         }
         while (idx>0 && (binCounts[index+idx-1]+binCounts[index+idx] <= splitThreshold) && (nodeKeys[index+idx-1]>>1 == nodeKeys[index+idx]>>1)) {
           // Join and repeat the check recursively
