@@ -496,7 +496,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     sorted=true;
     if(verbosity)
       ckout << "Sorter: Histograms balanced after " << numIterations
-	    << " iterations." << endl;
+	    << " iterations. Using " << nodeKeys.size() << " chares." << endl;
     //We have the splitters here because weight balancer didn't change any node keys
     //We also have the final bin counts
 		
@@ -631,6 +631,7 @@ bool Sorter::refineOctSplitting(int n, int *count) {
   //CkPrintf("Sorter: final situation {");
   //for (i=0; i<nodeKeys.size(); ++i) CkPrintf(" %llx(%d)",nodeKeys[i],binCounts[i]);
   //CkPrintf(" }\n");
+  //CkPrintf("Chares used: %d. Chares available: %d. Total: %d\n",nodeKeys.size(),availableChares.size(),nodeKeys.size()+availableChares.size());
   return nodesOpened.size() > 0;
 }
 
