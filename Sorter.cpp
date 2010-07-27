@@ -326,7 +326,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
   }
 
 	if(verbosity >= 3)
-		cout << "Sorter: Initially have " << splitters.size() << " splitters" << endl;
+		ckout << "Sorter: Initially have " << splitters.size() << " splitters" << endl;
 
 	//send out the first guesses to be evaluated
   if(domainDecomposition!=ORB_dec){
@@ -717,7 +717,7 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	}
 	
 	if(verbosity >= 4)
-		cout << "Sorter: On iteration " << numIterations << endl;
+		ckout << "Sorter: On iteration " << numIterations << endl;
 	CkAssert(numIterations < 1000);  // Sorter has not converged.
 	
 	//sum up the individual bin counts, so each bin has the count of it and all preceding
@@ -728,7 +728,7 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 		int avgValue = numKeys / numChares;
 		closeEnough = static_cast<int>(avgValue * tolerance);
 		if(closeEnough < 0 || closeEnough >= avgValue) {
-			cerr << "Sorter: Unacceptable tolerance, requiring exact fit." << endl;
+			ckerr << "Sorter: Unacceptable tolerance, requiring exact fit." << endl;
 			closeEnough = 0;
 		}
 		
@@ -737,21 +737,21 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 		partial_sum(goals.begin(), goals.end(), goals.begin());
 		
 		if(verbosity >= 3)
-			cout << "Sorter: Target keys per chare: " << avgValue << " plus/minus " << (2 * closeEnough) << endl;
+			ckout << "Sorter: Target keys per chare: " << avgValue << " plus/minus " << (2 * closeEnough) << endl;
 	}
 
 	//make adjustments to the splitter keys based on the results of the previous iteration
 	adjustSplitters();
 
 	if(verbosity >= 4) {
-		cout << "Sorter: Probing " << splitters.size() << " splitter keys" << endl;
-		cout << "Sorter: Decided on " << (keyBoundaries.size() - 1) << " splitting keys" << endl;
+		ckout << "Sorter: Probing " << splitters.size() << " splitter keys" << endl;
+		ckout << "Sorter: Decided on " << (keyBoundaries.size() - 1) << " splitting keys" << endl;
 	}
 	
 	//check if we have found all the splitters
 	if(sorted) {
 		if(verbosity)
-			cerr << "Sorter: Histograms balanced after " << numIterations << " iterations." << endl;
+			ckout << "Sorter: Histograms balanced after " << numIterations << " iterations." << endl;
 		
 		sort(keyBoundaries.begin() + 1, keyBoundaries.end());
 		keyBoundaries.push_back(lastPossibleKey);
@@ -786,9 +786,9 @@ void Sorter::adjustSplitters() {
 		numLeftKey = numRightKey - 1;
 		
 		if(numRightKey == binCounts.begin())
-			cerr << "Sorter: Looking for " << *Ngoal << " How could this happen at the beginning?" << endl;
+			ckerr << "Sorter: Looking for " << *Ngoal << " How could this happen at the beginning?" << endl;
 		if(numRightKey == binCounts.end())
-			cerr << "Sorter: Looking for " << *Ngoal << " How could this happen at the end?" << endl;
+			ckerr << "Sorter: Looking for " << *Ngoal << " How could this happen at the end?" << endl;
 		
 		//translate the positions into the bracketing keys
 		leftBound = splitters[numLeftKey - binCounts.begin()];
