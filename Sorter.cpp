@@ -566,7 +566,7 @@ bool Sorter::refineOctSplitting(int n, int *count) {
     int64_t levelMask = int64_t(1) << 63;
     levelMask >>= refineLevel;
     const Key mask = Key(1) << 63;
-    for (int i=0; i<nodesOpened.size(); ++i) {
+    for (i=0; i<nodesOpened.size(); ++i) {
       //CkPrintf("Sorter: considering %llx\n",nodesOpened[i]);
       if (availableChares.size() < 1<<refineLevel) {
 	CkPrintf("availableChares size is %d, cannot refine further\n", availableChares.size());
@@ -624,7 +624,7 @@ bool Sorter::refineOctSplitting(int n, int *count) {
     }
     // Copy the new list of nodes to be opened to nodesOpened
     nodesOpened.removeAll();
-    for (int i=0; i<tmpOpened.size(); ++i) {
+    for (i=0; i<tmpOpened.size(); ++i) {
       nodesOpened.push_back(tmpOpened[i]);
     }
   }
