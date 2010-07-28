@@ -75,15 +75,26 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
       CkAbort("Invalid domain decomposition requested");
   }
 
+  unsigned int numLoadingTreePieces;
+  if (domainDecomposition == Oct_dec) {
+    numLoadingTreePieces = CkNumPes();
+    if (thisIndex >= CkNumPes()) {
+      myNumParticles = 0;
+      contribute(0, 0, CkReduction::concat, cb);
+      return;
+    }
+  }
+  else numLoadingTreePieces = numTreePieces;
+  
   unsigned int *startParticles;
   unsigned int *numParticlesChunk;
   unsigned int excess;
     numParticlesChunk = new unsigned int[2];
     startParticles = new unsigned int[1];
-    numParticlesChunk[0] = fh.numParticles / numTreePieces;
+    numParticlesChunk[0] = fh.numParticles / numLoadingTreePieces;
     numParticlesChunk[1] = 0; // sentinel for end chunks
     
-    excess = fh.numParticles % numTreePieces;
+    excess = fh.numParticles % numLoadingTreePieces;
     startParticles[0] = numParticlesChunk[0] * thisIndex;
     if(thisIndex < (int) excess) {
       numParticlesChunk[0]++;
@@ -257,7 +268,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 	callback = cb;
 	
 	bLoaded = 0;
-	
+
 	Tipsy::TipsyReader r(filename);
 	if(!r.status()) {
 		cerr << thisIndex << ": TreePiece: Fatal: Couldn't open tipsy file!" << endl;
@@ -291,9 +302,20 @@ void TreePiece::loadTipsy(const std::string& filename,
 	    CkAbort("Invalid domain decomposition requested");
 	    }
 
-	myNumParticles = nTotalParticles / numTreePieces;
+        unsigned int numLoadingTreePieces;
+        if (domainDecomposition == Oct_dec) {
+          numLoadingTreePieces = CkNumPes();
+          if (thisIndex >= CkNumPes()) {
+            myNumParticles = 0;
+            contribute(0, 0, CkReduction::concat, cb);
+            return;
+          }
+        }
+        else numLoadingTreePieces = numTreePieces;
+	
+	myNumParticles = nTotalParticles / numLoadingTreePieces;
     
-	excess = nTotalParticles % numTreePieces;
+	excess = nTotalParticles % numLoadingTreePieces;
 	startParticle = myNumParticles * thisIndex;
 	if(thisIndex < (int) excess) {
 	    myNumParticles++;
