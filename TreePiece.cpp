@@ -421,6 +421,7 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
   myBinCounts.resize(numBins);
   int *myCounts = myBinCounts.getVec();
   memset(myCounts, 0, numBins*sizeof(int));
+  if (myNumParticles > 0) {
   Key* endKeys = keys+n;
   GravityParticle *binBegin = &myParticles[1];
   GravityParticle *binEnd;
@@ -459,6 +460,7 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
 #ifdef COSMO_EVENTS
   traceUserBracketEvent(boundaryEvaluationUE, startTimer, CmiWallTimer());
 #endif
+  }
   //send my bin counts back in a reduction
   contribute(numBins * sizeof(int), myCounts, CkReduction::sum_int, cb);
 }
