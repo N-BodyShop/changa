@@ -1266,7 +1266,7 @@ void Main::advanceBigStep(int iStep) {
       ckerr << ((printingStep & MAXSUBSTEPS) ? "1" : "0");
       printingStep = (printingStep & ~MAXSUBSTEPS) << 1;
     }
-    ckerr << " (rungs " << activeRung << "-" << nextMaxRung << ")" << ":" << endl;
+    //ckerr << " (rungs " << activeRung << "-" << nextMaxRung << ")" << ":" << endl;
     CkReductionMsg *tps;
     treeProxy.collectStatistics(CkCallbackResumeThread((void*&)tps));
     ((TreePieceStatistics*)tps->getData())->printTo(ckerr);
@@ -1867,7 +1867,8 @@ Main::doSimulation()
   startTime = CkWallTimer();
   Interval<unsigned int> dummy;
 	
-  treeProxy[0].outputStatistics(dummy, dummy, dummy, dummy, 0, CkCallbackResumeThread());
+  treeProxy[0].outputStatistics(CkCallbackResumeThread());
+  //treeProxy[0].outputStatistics(dummy, dummy, dummy, dummy, 0, CkCallbackResumeThread());
 
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 #endif

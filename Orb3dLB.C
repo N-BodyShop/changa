@@ -130,7 +130,7 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
   }
 
   for(int i = 0; i < numobjs; i++){
-    //CkPrintf("%f %f %f %d %f\n", tp[i].centroid.x, tp[i].centroid.y, tp[i].centroid.z, stats->to_proc[i]);
+    CkPrintf("obj %d to %d (%f %f %f)\n", stats->objData[i].id().id[0], stats->to_proc[i], tp[i].centroid.x, tp[i].centroid.y, tp[i].centroid.z);
     procload[stats->to_proc[i]] += tp[i].load;
   }
 
