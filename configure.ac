@@ -58,7 +58,7 @@ fi
 
 # Cooling:
 AC_ARG_ENABLE([cooling],
-	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (planet)])],
+	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (planet,cosmo)])],
 	[cooling=$enableval], [cooling=no])
 OBJECTS_COOLING=""
 if test "$cooling" = "no" ; then
@@ -68,6 +68,11 @@ elif test "$cooling" = "planet" ; then
    echo "Planet cooling selected"
    FLAG_COOLING="-DCOOLING_PLANET"
    OBJECTS_COOLING="cooling_planet.o stiff.o"
+   LIBS="$LIBS -lgsl"
+elif test "$cooling" = "cosmo" ; then
+   echo "Cosmo cooling selected"
+   FLAG_COOLING="-DCOOLING_COSMO"
+   OBJECTS_COOLING="cooling_cosmo.o stiff.o"
    LIBS="$LIBS -lgsl"
 else
 	echo "Unknown cooling selected, using Adiabatic"

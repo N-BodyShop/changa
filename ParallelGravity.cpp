@@ -576,7 +576,7 @@ Main::Main(CkArgMsg* m) {
 		}
 #ifndef CHANGESOFT
 	    ckerr << "ERROR: You must compile with -DCHANGESOFT to use changing softening options\n";
-	    CkExit();
+	    CkAbort("CHANGESOFT needed");
 #endif
 	    }
 	
@@ -836,6 +836,10 @@ Main::Main(CkArgMsg* m) {
 	    nPhases += 2;
 	    if(param.bFastGas)
 		nPhases += 2;
+	    }
+	if(nPhases == 0) {
+	    ckerr << "Neither bDoGravity or bDoGas are set!" << endl;
+	    CkAbort("Nothing to do!");
 	    }
 	CkGroupID *gids = new CkGroupID[nPhases];
 	int i;
@@ -1104,6 +1108,8 @@ void Main::advanceBigStep(int iStep) {
 	  if(verbosity)
 	      ckout << "uDot update:" << endl;
 	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
+	  if(param.bGasCooling)
+	      dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	  treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
 			       1, CkCallbackResumeThread());
 	  }
@@ -1182,6 +1188,8 @@ void Main::advanceBigStep(int iStep) {
 	    duKick[iRung] = 0.5*dTimeSub;
 	  }
 	double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
+	if(param.bGasCooling)
+	    dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
 			     0, CkCallbackResumeThread());
 	}
@@ -1307,6 +1315,8 @@ void Main::advanceBigStep(int iStep) {
       }
       if(param.bDoGas) {
 	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
+	  if(param.bGasCooling)
+	      dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	  treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
 			       1, CkCallbackResumeThread());
 	  }
@@ -1391,6 +1401,9 @@ void Main::setupICs() {
 #endif
 #ifdef COOLING_NONE
   ofsLog << " COOLING_NONE";
+#endif
+#ifdef COOLING_COSMO
+  ofsLog << " COOLING_COSMO";
 #endif
 #ifdef COOLING_PLANET
   ofsLog << " COOLING_PLANET";
@@ -1801,6 +1814,11 @@ Main::doSimulation()
 	      treeProxy[0].outputASCII(pBSwOut, param.bParaWrite, CkCallbackResumeThread());
 	      CsOutputParams pCsOut(string(achFile) + ".c");
 	      treeProxy[0].outputASCII(pCsOut, param.bParaWrite, CkCallbackResumeThread());
+#ifndef COOLING_NONE
+	      EDotOutputParams pEDotOut(string(achFile) + ".eDot");
+	      treeProxy[0].outputASCII(pEDotOut, param.bParaWrite,
+				       CkCallbackResumeThread());
+#endif
 	      }
 	  }
       ckout << "Outputting accelerations  ...";
@@ -1865,7 +1883,7 @@ Main::doSimulation()
 #if COSMO_STATS > 0
   ckerr << "Outputting statistics ...";
   startTime = CkWallTimer();
-  Interval<unsigned int> dummy;
+  //Interval<unsigned int> dummy;
 	
   treeProxy[0].outputStatistics(CkCallbackResumeThread());
   //treeProxy[0].outputStatistics(dummy, dummy, dummy, dummy, 0, CkCallbackResumeThread());
@@ -1971,6 +1989,17 @@ void Main::writeOutput(int iStep)
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
+#ifndef COOLING_NONE
+      Cool0OutputParams pCool0Out(string(achFile) + "." + COOL_ARRAY0_EXT);
+      treeProxy[0].outputASCII(pCool0Out, param.bParaWrite,
+			       CkCallbackResumeThread());
+      Cool1OutputParams pCool1Out(string(achFile) + "." + COOL_ARRAY1_EXT);
+      treeProxy[0].outputASCII(pCool1Out, param.bParaWrite,
+			       CkCallbackResumeThread());
+      Cool2OutputParams pCool2Out(string(achFile) + "." + COOL_ARRAY2_EXT);
+      treeProxy[0].outputASCII(pCool2Out, param.bParaWrite,
+			       CkCallbackResumeThread());
+#endif
     if(param.nSteps != 0 && param.bDoDensity) {
 	double tolerance = 0.01;	// tolerance for domain decomposition
 	// The following call is to get the particles in key order

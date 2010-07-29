@@ -1,6 +1,9 @@
 #ifndef __INOUTPUT_H
 #define __INOUTPUT_H
 
+class OutputParams;
+#include "DataManager.h"
+
 class OutputParams : public PUP::able 
 {
  public:
@@ -8,10 +11,11 @@ class OutputParams : public PUP::able
     virtual Vector3D<double> vValue(GravityParticle *p) = 0;
     int bVector;	// Is a vector, as opposed to a scalar
     std::string fileName;	// output file
+    DataManager *dm;	// For extra state information (e.g. cooling)
 
-    OutputParams() {}
+    OutputParams() {dm = NULL;}
     PUPable_abstract(OutputParams);
-    OutputParams(CkMigrateMessage *m) : PUP::able(m) {}
+    OutputParams(CkMigrateMessage *m) : PUP::able(m) {dm = NULL;}
     virtual void pup(PUP::er &p) {
         PUP::able::pup(p);//Call base class
         p|fileName;
@@ -185,6 +189,102 @@ class CsOutputParams : public OutputParams
     CsOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
     PUPable_decl(CsOutputParams);
     CsOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class EDotOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p)
+    {
+#ifndef COOLING_NONE
+	CkAssert(dm != NULL);
+	if (TYPETest(p, TYPE_GAS)) {
+	    double r[3];  // For conversion to C
+	    p->position.array_form(r);
+	    return (COOL_EDOT(dm->Cool, &p->CoolParticle(), p->u(), p->fDensity, p->fMetals(), r));
+	    }
+	else
+#endif
+	    return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    EDotOutputParams() {}
+    EDotOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    PUPable_decl(EDotOutputParams);
+    EDotOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class Cool0OutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p)
+    {
+#ifndef COOLING_NONE
+	if (TYPETest(p, TYPE_GAS))
+	    return COOL_ARRAY0(unused1, &p->CoolParticle(), unused2);
+	else
+#endif
+	    return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    Cool0OutputParams() {}
+    Cool0OutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    PUPable_decl(Cool0OutputParams);
+    Cool0OutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class Cool1OutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p)
+    {
+#ifndef COOLING_NONE
+	if (TYPETest(p, TYPE_GAS))
+	    return COOL_ARRAY1(unused1, &p->CoolParticle(), unused2);
+	else
+#endif
+	    return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    Cool1OutputParams() {}
+    Cool1OutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    PUPable_decl(Cool1OutputParams);
+    Cool1OutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class Cool2OutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p)
+    {
+#ifndef COOLING_NONE
+	if (TYPETest(p, TYPE_GAS))
+	    return COOL_ARRAY2(unused1, &p->CoolParticle(), unused2);
+	else
+#endif
+	    return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    Cool2OutputParams() {}
+    Cool2OutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    PUPable_decl(Cool2OutputParams);
+    Cool2OutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
         OutputParams::pup(p);//Call base class
 	}

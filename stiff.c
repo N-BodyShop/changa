@@ -13,8 +13,8 @@
 
 
 STIFF *StiffInit( double eps, int nv, void *Data,
-		  int (*derivs)(double, double [], double [], void *Data),
-		  int (*jacobn)(double x, double y[], double dfdx[], double *dfdy, void *Data) 
+		  int (*derivs)(double, const double *, double *, void *Data),
+		  int (*jacobn)(double x, const double y[], double dfdx[], double *dfdy, void *Data) 
 		   ) 
 {
   int k,iq;
@@ -90,6 +90,47 @@ void derivs(double x, double y[], double dydx[], void *params)
   dydx[2] = -0.013*y[0]-1000.0*y[0]*y[2]-2500.0*y[1]*y[2];
 }
 #endif
+
+#include <gsl/gsl_errno.h>
+#include <gsl/gsl_roots.h>
+
+/*
+ * Interface to GSL Root finder
+ */
+double RootFind(double (*func)(double, void *Data), void *Data,
+		double x1,  /* lower bracket on the root */
+		double x2,  /* upper bracket on the root */
+		double tol)  /* Absolute tolerance */
+{
+    const int itmax = 100;
+    const double epsRel = 3.0e-8;
+    int iter;
+    int status;
+    double root;
+    
+    const gsl_root_fsolver_type *T;
+    gsl_root_fsolver *s;
+    gsl_function F;
+    
+    F.function = func;
+    F.params = Data;
+    
+    T = gsl_root_fsolver_brent;
+    s = gsl_root_fsolver_alloc(T);
+    gsl_root_fsolver_set (s, &F, x1, x2);
+    for(iter = 0; iter < itmax; iter++) {
+	status = gsl_root_fsolver_iterate(s);
+	root = gsl_root_fsolver_root(s);
+	x1 = gsl_root_fsolver_x_lower(s);
+	x2 = gsl_root_fsolver_x_upper(s);
+	status = gsl_root_test_interval (x1, x2, tol, epsRel);
+	if(status == GSL_SUCCESS)
+	    break;
+	}
+    gsl_root_fsolver_free(s);
+    assert(iter < itmax);
+    return root;
+    }
 
 #endif
 
