@@ -1109,6 +1109,9 @@ public:
           incomingParticles = NULL;
           incomingParticlesArrived = 0;
           incomingParticlesSelf = false;
+
+          myParticles = NULL;
+          mySPHParticles = NULL;
     orbBoundaries.clear();
 	}
 

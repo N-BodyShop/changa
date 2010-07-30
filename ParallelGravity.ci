@@ -74,6 +74,10 @@ mainmodule ParallelGravity {
   PUPable MuMaxOutputParams;
   PUPable BSwOutputParams;
   PUPable CsOutputParams;
+  PUPable EDotOutputParams;
+  PUPable Cool0OutputParams;
+  PUPable Cool1OutputParams;
+  PUPable Cool2OutputParams;
   PUPable DtOutputParams;
   PUPable RungOutputParams;
 
@@ -118,6 +122,7 @@ mainmodule ParallelGravity {
     entry void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 			 COOLPARAM inParam, const CkCallback& cb);
+    entry void CoolingSetTime(double z, double dTime, const CkCallback& cb);
   };
   array [1D] TreePiece {
     entry TreePiece();

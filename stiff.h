@@ -16,8 +16,8 @@ typedef struct StiffContextStructure {
  */
 
 STIFF *StiffInit( double eps, int nv, void *Data, 
-		  int (*derivs)(double, double [], double [], void *Data),
-		  int (*jacobn)(double x, double y[], double dfdx[],
+		  int (*derivs)(double, const double [], double [], void *Data),
+		  int (*jacobn)(double x, const double y[], double dfdx[],
 				 double *dfdy, void *Data) );
 		   
 void StiffFinalize( STIFF *s );
@@ -28,7 +28,7 @@ void StiffStep(STIFF *s, double y[], double dydx[], double *xx, double htry,
  * Root Finder Header
  */
 
-double RootFind(double (*func)(void *Data, double), void *Data, double x1, double x2, double tol);
+double RootFind(double (*func)(double, void *Data), void *Data, double x1, double x2, double tol);
 
 /*
  * Utils
