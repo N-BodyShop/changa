@@ -496,7 +496,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     sorted=true;
     if(verbosity)
       ckout << "Sorter: Histograms balanced after " << numIterations
-	    << " iterations." << endl;
+	    << " iterations. Using " << nodeKeys.size() << " chares." << endl;
     //We have the splitters here because weight balancer didn't change any node keys
     //We also have the final bin counts
 		
@@ -535,16 +535,22 @@ bool Sorter::refineOctSplitting(int n, int *count) {
     CkAssert(n == nodeKeys.size());
     binCounts.resize(n);
     copy(count, count+n, binCounts.begin());
+    //CkPrintf("Sorter: threshold %d %d\n",splitThreshold,joinThreshold);
+    //CkPrintf("Sorter: incoming> {");
+    //for (i=0; i<n; ++i) CkPrintf(" (%llx)%d",nodeKeys[i],binCounts[i]);
+    //CkPrintf(" }\n");
     // Walk the keys and assign the new counts, while walking also decide if some nodes
     // are to be opened further or joined together
     for (i=0, idx=0; i<n; ++i, ++idx) {
       // Check if the node has too many particles and needs to be split
       if (binCounts[idx] > splitThreshold) {
         nodesOpened.push_back(nodeKeys[idx]);
+        //CkPrintf("Sorter: opening %llx (%d)\n",nodeKeys[idx],binCounts[idx]);
       }
       // Check if two nodes can be joined together
       while (idx>0 && (binCounts[idx-1]+binCounts[idx] < joinThreshold) && (nodeKeys[idx-1]>>1 == nodeKeys[idx]>>1)) {
         // Join and repeat the check recursively
+        //CkPrintf("Sorter: joining %llx and %llx (%d + %d)\n",nodeKeys[idx-1],nodeKeys[idx],binCounts[idx-1],binCounts[idx]);
         nodeKeys[idx-1] >>= 1;
         nodeKeys.erase(nodeKeys.begin()+idx);
         splitters.erase(splitters.begin()+idx);
@@ -560,7 +566,8 @@ bool Sorter::refineOctSplitting(int n, int *count) {
     int64_t levelMask = int64_t(1) << 63;
     levelMask >>= refineLevel;
     const Key mask = Key(1) << 63;
-    for (int i=0; i<nodesOpened.size(); ++i) {
+    for (i=0; i<nodesOpened.size(); ++i) {
+      //CkPrintf("Sorter: considering %llx\n",nodesOpened[i]);
       if (availableChares.size() < 1<<refineLevel) {
 	CkPrintf("availableChares size is %d, cannot refine further\n", availableChares.size());
         break;
@@ -586,22 +593,24 @@ bool Sorter::refineOctSplitting(int n, int *count) {
       }
       binCounts[index] = count[i*(1<<refineLevel)];
       binCounts.insert(binCounts.begin()+index+1, &count[i*(1<<refineLevel)+1], &count[(i+1)*(1<<refineLevel)]);
-      chareIDs.insert(chareIDs.begin()+index+1, availableChares.end()-(1<<refineLevel), availableChares.end());
+      chareIDs.insert(chareIDs.begin()+index+1, availableChares.end()-(1<<refineLevel)+1, availableChares.end());
 
       if (verbosity >= 4 ) 
 	CkPrintf("Split node index %d, last added chare is %d (refine level = %d), %d available chares left\n", index, availableChares.back(), (1<<refineLevel), availableChares.size()-1);
 
       
-      availableChares.erase(availableChares.end()-(1<<refineLevel), availableChares.end());
+      availableChares.erase(availableChares.end()-(1<<refineLevel)+1, availableChares.end());
      
  
       // Trim down what we over-opened just above
-      for (int j=1, idx=1; j<(1<<refineLevel); ++j, ++idx) {
-        if (binCounts[idx] > splitThreshold) {
-          tmpOpened.push_back(nodeKeys[idx]);
+      for (int j=1, idx=0; j<=(1<<refineLevel); ++j, ++idx) {
+        if (binCounts[index+idx] > splitThreshold) {
+          //CkPrintf("Sorter: further opening %llx (%d)\n",nodeKeys[index+idx],binCounts[index+idx]);
+          tmpOpened.push_back(nodeKeys[index+idx]);
         }
         while (idx>0 && (binCounts[index+idx-1]+binCounts[index+idx] <= splitThreshold) && (nodeKeys[index+idx-1]>>1 == nodeKeys[index+idx]>>1)) {
           // Join and repeat the check recursively
+          //CkPrintf("Sorter: re-joining %llx and %llx (%d + %d)\n",nodeKeys[index+idx-1],nodeKeys[index+idx],binCounts[index+idx-1],binCounts[index+idx]);
           nodeKeys[index+idx-1] >>= 1;
           nodeKeys.erase(nodeKeys.begin()+index+idx);
           splitters.erase(splitters.begin()+index+idx);
@@ -615,10 +624,14 @@ bool Sorter::refineOctSplitting(int n, int *count) {
     }
     // Copy the new list of nodes to be opened to nodesOpened
     nodesOpened.removeAll();
-    for (int i=0; i<tmpOpened.size(); ++i) {
+    for (i=0; i<tmpOpened.size(); ++i) {
       nodesOpened.push_back(tmpOpened[i]);
     }
   }
+  //CkPrintf("Sorter: final situation {");
+  //for (i=0; i<nodeKeys.size(); ++i) CkPrintf(" %llx(%d)",nodeKeys[i],binCounts[i]);
+  //CkPrintf(" }\n");
+  //CkPrintf("Chares used: %d. Chares available: %d. Total: %d\n",nodeKeys.size(),availableChares.size(),nodeKeys.size()+availableChares.size());
   return nodesOpened.size() > 0;
 }
 
