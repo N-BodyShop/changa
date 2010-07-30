@@ -122,7 +122,7 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
     tmgr.rankToCoordinates(i,procs[i].x,procs[i].y,procs[i].z,procs[i].t);
   }
 
-  map(tp,numobjs,numnodes,procs,dim);
+  map(tp,numobjs,numnodes*procsPerNode,procs,dim);
 
   float *procload = new float[stats->count];
   for(int i = 0; i < stats->count; i++){
