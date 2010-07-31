@@ -677,6 +677,7 @@ void TreePiece::reOrder(CkCallback& cb)
 						    // with MaxIOrder
 						    // for particle
 						    // creation/deletion
+    if (myNumParticles > 0) {
     // Sort particles in iOrder
     sort(myParticles+1, myParticles+myNumParticles+1, compIOrder);
 
@@ -724,12 +725,12 @@ void TreePiece::reOrder(CkCallback& cb)
 	    break;
 	binBegin = binEnd;
 	}
-
+    }
     delete[] startParticle;
 
     // signify completion
     incomingParticlesSelf = true;
-    ioAcceptSortedParticles(binBegin, 0, NULL, 0);
+    ioAcceptSortedParticles(NULL, 0, NULL, 0);
     }
 
 /// Accept particles from other TreePieces once the sorting has finished
