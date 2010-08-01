@@ -1169,13 +1169,6 @@ void Main::advanceBigStep(int iStep) {
       tmpRung <<= 1;
     }
 
-    if(verbosity)
-      ckout << "Step: " << iStep << " Substep: " << currentStep
-	    << " ( " << ((double) currentStep)/MAXSUBSTEPS << " )"
-            << " Time: " << dTime
-            << " Gravity rung " << activeRung << " to "
-            << nextMaxRung << endl;
-
     if(param.bDoGas) {
 	double duKick[MAXRUNG+1];
 	if(verbosity)
@@ -1193,6 +1186,11 @@ void Main::advanceBigStep(int iStep) {
 	treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
 			     0, CkCallbackResumeThread());
 	}
+
+    ckout << "Step: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
+          << " Time: " << dTime
+          << " Rungs " << activeRung << " to "
+          << nextMaxRung << ". ";
 
     countActive(activeRung);
     
