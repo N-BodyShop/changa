@@ -266,6 +266,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 			  const double dTuFac, // Convert Temperature
 			  const CkCallback& cb) {
 	callback = cb;
+        CkCallback replyCB(CkIndex_TreePiece::assignKeys(0), pieces);
 	
 	bLoaded = 0;
 
@@ -307,7 +308,7 @@ void TreePiece::loadTipsy(const std::string& filename,
           numLoadingTreePieces = CkNumPes();
           if (thisIndex >= CkNumPes()) {
             myNumParticles = 0;
-            contribute(0, 0, CkReduction::concat, cb);
+            contribute(0, 0, CkReduction::concat, replyCB);
             return;
           }
         }
@@ -415,7 +416,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 	bLoaded = 1;
   contribute(sizeof(OrientedBox<float>), &boundingBox,
 		   growOrientedBox_float,
-		   CkCallback(CkIndex_TreePiece::assignKeys(0), pieces));
+		   replyCB);
 }
 
 // Perform Parallel Scan to establish start of parallel writes, then
