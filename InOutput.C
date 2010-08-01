@@ -308,7 +308,9 @@ void TreePiece::loadTipsy(const std::string& filename,
           numLoadingTreePieces = CkNumPes();
           if (thisIndex >= CkNumPes()) {
             myNumParticles = 0;
-            contribute(0, 0, CkReduction::concat, replyCB);
+            contribute(sizeof(OrientedBox<float>), &boundingBox,
+                       growOrientedBox_float,
+                       replyCB);
             return;
           }
         }
