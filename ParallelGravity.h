@@ -1143,6 +1143,7 @@ public:
           incomingParticlesArrived = 0;
           incomingParticlesSelf = false;
 
+	  cnt=0;
 	  nodeInterRemote = NULL;
           particleInterRemote = NULL;
 

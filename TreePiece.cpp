@@ -2153,8 +2153,8 @@ void TreePiece::finishBucket(int iBucket) {
         CkPrintf("[%d] TreePiece %d finished with bucket %d , openCriterions:%lld\n",CkMyPe(),thisIndex,iBucket,numOpenCriterionCalls);
 #else
         CkPrintf("[%d] TreePiece %d finished with bucket %d\n",CkMyPe(),thisIndex,iBucket);
-      }
 #endif
+      }
 
 #if defined CUDA
       // in cuda version, must wait till particle accels.
