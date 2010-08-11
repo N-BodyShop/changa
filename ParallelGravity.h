@@ -370,6 +370,7 @@ public:
 	void growMass(double dTime, double dDelta);
 	void initSph();
 	void initCooling();
+	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
 	void doSph(int activeRung);
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
