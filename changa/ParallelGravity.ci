@@ -225,7 +225,7 @@ mainmodule ParallelGravity {
     entry void finishNodeCache(int iPhases, CkCallback &cb);
 
     entry [inline] void requestRemoteMoments(Tree::NodeKey key, int sender);
-    entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, MultipoleMoments& moments, OrientedBox<double>& box, OrientedBox<double>& boxBall);
+    entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, MultipoleMoments& moments, OrientedBox<double>& box, OrientedBox<double>& boxBall, unsigned int iParticleTypes);
 
     //entry void calculateGravityDirect(const CkCallback& cb);
     //entry void fillRequestDirect(GravityRequest req);
