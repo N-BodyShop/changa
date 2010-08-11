@@ -63,6 +63,9 @@ int SmoothCompute::doWork(GenericTreeNode *node, // Node to test
     if(node->getType() == Empty || node->getType() == CachedEmpty){
 	return DUMP;
 	}
+    if(!(node->iParticleTypes & params->iType)) {
+	return DUMP; // no particles of appropriate type
+	}
     // check opening criterion
     int open = openCriterion(tp, node, reqID, state);
     // Turn open into an action
@@ -389,6 +392,7 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
   int iCount = 0;
   int lastQueue = firstQueue;
   // Find only particles of interest
+  // First search from the start of the bucket to the end of this treepiece
   for(lastQueue = firstQueue;
       iCount <= nSmooth && lastQueue <= tp->myNumParticles;
       lastQueue++) {
@@ -396,15 +400,22 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 	  iCount++;
       }
   
+  // We still don't have enough particles.  Search back to the start of the
+  // treepiece
+  int bEnough = 1;	// Do we have enough particles on piece to get a limit?
   if(lastQueue > tp->myNumParticles) 
       {
 	  lastQueue = tp->myNumParticles;
 	  firstQueue = myNode->firstParticle - 1;
 	  for(; iCount <= nSmooth; firstQueue--) {
+	      if(firstQueue == 0) {
+		  bEnough = 0; // Ran out of particles
+		  break;
+		  }
 	      if(TYPETest(&tp->myParticles[firstQueue], params->iType))
 		  iCount++;
 	      }
-	  CkAssert(firstQueue > 0);
+	  // CkAssert(firstQueue > 0);
 	  }
 	  
   for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
@@ -426,7 +437,10 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 		  }
 	      }
       int end = nstate->heap_sizes[j];
-      Q[end].fKey = sqrt(drMax2);
+      if(bEnough)
+	  Q[end].fKey = sqrt(drMax2);
+      else
+	  Q[end].fKey = HUGE;
       Q[end].p = NULL; 
       std::push_heap(Q + 0, Q + end + 1); 
       nstate->heap_sizes[j]++; 
