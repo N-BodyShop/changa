@@ -41,7 +41,7 @@
 #include "Opt.h"
 #include "smooth.h"
 #include "Space.h"
-
+#include <float.h>
 
 SmoothParams *globalSmoothParams;
 
@@ -385,6 +385,15 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
   // state is passed in to function now. 
   NearNeighborState *nstate = (NearNeighborState *)state;
   
+  int bucketActive = 0;
+  for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
+      if(params->isSmoothActive(&tp->myParticles[j]))
+	  bucketActive++;
+      }
+
+  if(!bucketActive) // No particles in this bucket are active.
+      return;
+  
   //
   // Get nearest nSmooth particles in tree order
   //
@@ -439,7 +448,7 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
       if(bEnough)
 	  Q[end].fKey = sqrt(drMax2);
       else
-	  Q[end].fKey = HUGE;
+	  Q[end].fKey = sqrt(DBL_MAX);
       Q[end].p = NULL; 
       std::push_heap(Q + 0, Q + end + 1); 
       nstate->heap_sizes[j]++; 
@@ -454,7 +463,7 @@ void TreePiece::smoothBucketComputation() {
   int bucketActive = 0;
   for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
       if(((SmoothCompute *)sSmooth)->params->isSmoothActive(&myParticles[j]))
-	  bucketActive = 1;
+	  bucketActive += 1;
       }
 
   // start the tree walk from the tree built in the cache
