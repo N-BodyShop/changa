@@ -421,6 +421,7 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
   myBinCounts.resize(numBins);
   int *myCounts = myBinCounts.getVec();
   memset(myCounts, 0, numBins*sizeof(int));
+  if (myNumParticles > 0) {
   Key* endKeys = keys+n;
   GravityParticle *binBegin = &myParticles[1];
   GravityParticle *binEnd;
@@ -459,6 +460,7 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
 #ifdef COSMO_EVENTS
   traceUserBracketEvent(boundaryEvaluationUE, startTimer, CmiWallTimer());
 #endif
+  }
   //send my bin counts back in a reduction
   contribute(numBins * sizeof(int), myCounts, CkReduction::sum_int, cb);
 }
@@ -1341,7 +1343,7 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
     iter++;
     if (node->getType() == Empty || node->moments.totalMass > 0) {
       for (int i=0; i<l->length(); ++i) {
-	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall);
+	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall, node->iParticleTypes);
 	//CkPrintf("[%d] sending moments of %s to %d upon treebuild finished\n",thisIndex,keyBits(node->getKey(),63).c_str(),(*l)[i]);
       }
       delete l;
@@ -1473,6 +1475,7 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
       if (node->getType() != Boundary) {
 	  node->moments += child->moments;
 	  node->bndBoxBall.grow(child->bndBoxBall);
+	  node->iParticleTypes |= child->iParticleTypes;
 	  }
       if (child->rungs > node->rungs) node->rungs = child->rungs;
     } else if (child->getType() == Empty) {
@@ -1488,6 +1491,7 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
       if (node->getType() != Boundary) {
 	  node->moments += child->moments;
 	  node->bndBoxBall.grow(child->bndBoxBall);
+	  node->iParticleTypes |= child->iParticleTypes;
 	  }
       if (child->rungs > node->rungs) node->rungs = child->rungs;
     }
@@ -1610,7 +1614,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
     iter++;
     if (node->getType() == Empty || node->moments.totalMass > 0) {
       for (int i=0; i<l->length(); ++i) {
-	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall);
+	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall, node->iParticleTypes);
 	  //CkPrintf("[%d] sending moments of %s to %d upon treebuild finished\n",thisIndex,keyBits(node->getKey(),63).c_str(),(*l)[i]);
       }
       delete l;
@@ -1778,6 +1782,7 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
         node->moments += child->moments;
         node->boundingBox.grow(child->boundingBox);
         node->bndBoxBall.grow(child->bndBoxBall);
+	node->iParticleTypes |= child->iParticleTypes;
       }
       if (child->rungs > node->rungs) node->rungs = child->rungs;
     } else if (child->getType() == Empty) {
@@ -1799,6 +1804,7 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
         node->moments += child->moments;
         node->boundingBox.grow(child->boundingBox);
         node->bndBoxBall.grow(child->bndBoxBall);
+	node->iParticleTypes |= child->iParticleTypes;
       }
       // for the rung information we can always do now since it is a local property
       if (child->rungs > node->rungs) node->rungs = child->rungs;
@@ -1841,6 +1847,7 @@ void TreePiece::growBottomUp(GenericTreeNode *node) {
       node->moments += child->moments;
       node->boundingBox.grow(child->boundingBox);
       node->bndBoxBall.grow(child->bndBoxBall);
+      node->iParticleTypes |= child->iParticleTypes;
     }
     if (child->rungs > node->rungs) node->rungs = child->rungs;
   }
@@ -1853,7 +1860,7 @@ void TreePiece::growBottomUp(GenericTreeNode *node) {
 void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
   GenericTreeNode *node = keyToNode(key);
   if (node != NULL && (node->getType() == Empty || node->moments.totalMass > 0)) {
-      streamingProxy[sender].receiveRemoteMoments(key, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall);
+      streamingProxy[sender].receiveRemoteMoments(key, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall, node->iParticleTypes);
     //CkPrintf("[%d] sending moments of %s to %d directly\n",thisIndex,keyBits(node->getKey(),63).c_str(),sender);
   } else {
     CkVec<int> *l = momentRequests[key];
@@ -1873,7 +1880,8 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
 				     int numParticles,
 				     const MultipoleMoments& moments,
 				     const OrientedBox<double>& box,
-				     const OrientedBox<double>& boxBall) {
+				     const OrientedBox<double>& boxBall,
+				     const unsigned int iParticleTypes) {
   GenericTreeNode *node = keyToNode(key);
   CkAssert(node != NULL);
   //CkPrintf("[%d] received moments for %s\n",thisIndex,keyBits(key,63).c_str());
@@ -1889,6 +1897,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
     node->moments = moments;
     node->boundingBox = box;
     node->bndBoxBall = boxBall;
+    node->iParticleTypes = iParticleTypes;
   }
   // look if we can compute the moments of some ancestors, and eventually send
   // them to a requester
@@ -1905,6 +1914,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
       parent->moments += child->moments;
       parent->boundingBox.grow(child->boundingBox);
       parent->bndBoxBall.grow(child->bndBoxBall);
+      parent->iParticleTypes |= child->iParticleTypes;
     }
     calculateRadiusFarthestCorner(parent->moments, parent->boundingBox);
     // check if someone has requested this node
@@ -1912,7 +1922,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
     if ((iter = momentRequests.find(parent->getKey())) != momentRequests.end()) {
       CkVec<int> *l = iter->second;
       for (int i=0; i<l->length(); ++i) {
-	  streamingProxy[(*l)[i]].receiveRemoteMoments(parent->getKey(), parent->getType(), parent->firstParticle, parent->particleCount, parent->moments, parent->boundingBox, parent->bndBoxBall);
+	  streamingProxy[(*l)[i]].receiveRemoteMoments(parent->getKey(), parent->getType(), parent->firstParticle, parent->particleCount, parent->moments, parent->boundingBox, parent->bndBoxBall, parent->iParticleTypes);
 	//CkPrintf("[%d] sending moments of %s to %d\n",thisIndex,keyBits(parent->getKey(),63).c_str(),(*l)[i]);
       }
       delete l;
@@ -2155,8 +2165,8 @@ void TreePiece::finishBucket(int iBucket) {
         CkPrintf("[%d] TreePiece %d finished with bucket %d , openCriterions:%lld\n",CkMyPe(),thisIndex,iBucket,numOpenCriterionCalls);
 #else
         CkPrintf("[%d] TreePiece %d finished with bucket %d\n",CkMyPe(),thisIndex,iBucket);
-      }
 #endif
+      }
 
 #if defined CUDA
       // in cuda version, must wait till particle accels.
