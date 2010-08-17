@@ -29,7 +29,8 @@ Main::initSph()
 	double z = 1.0/csmTime2Exp(param.csm, dTime) - 1.0;
 	// Update cooling on the datamanager
 	dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
-	treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
+	if(param.bGasCooling)
+	    treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
 	if(verbosity) CkPrintf("Initializing SPH forces\n");
 	nActiveSPH = nTotalSPH;
 	doSph(0);
