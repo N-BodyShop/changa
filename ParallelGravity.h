@@ -1113,7 +1113,9 @@ public:
 
           myParticles = NULL;
           mySPHParticles = NULL;
-    orbBoundaries.clear();
+	  orbBoundaries.clear();
+	  boxes = NULL;
+	  splitDims = NULL;
 	}
 
 	TreePiece(CkMigrateMessage* m) {
@@ -1149,6 +1151,8 @@ public:
           particleInterRemote = NULL;
 
 	  orbBoundaries.clear();
+	  boxes = NULL;
+	  splitDims = NULL;
 	}
 
         private:
@@ -1173,6 +1177,8 @@ public:
 	    root->fullyDelete();
 	    delete root;
 	  }
+	  delete[] boxes;
+	  delete[] splitDims;
 
           if (verbosity>1) ckout <<"Finished deallocation of treepiece "<<thisIndex<<endl;
 	}
