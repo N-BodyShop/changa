@@ -75,15 +75,26 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
       CkAbort("Invalid domain decomposition requested");
   }
 
+  unsigned int numLoadingTreePieces;
+  if (domainDecomposition == Oct_dec) {
+    numLoadingTreePieces = CkNumPes();
+    if (thisIndex >= CkNumPes()) {
+      myNumParticles = 0;
+      contribute(0, 0, CkReduction::concat, cb);
+      return;
+    }
+  }
+  else numLoadingTreePieces = numTreePieces;
+  
   unsigned int *startParticles;
   unsigned int *numParticlesChunk;
   unsigned int excess;
     numParticlesChunk = new unsigned int[2];
     startParticles = new unsigned int[1];
-    numParticlesChunk[0] = fh.numParticles / numTreePieces;
+    numParticlesChunk[0] = fh.numParticles / numLoadingTreePieces;
     numParticlesChunk[1] = 0; // sentinel for end chunks
     
-    excess = fh.numParticles % numTreePieces;
+    excess = fh.numParticles % numLoadingTreePieces;
     startParticles[0] = numParticlesChunk[0] * thisIndex;
     if(thisIndex < (int) excess) {
       numParticlesChunk[0]++;
@@ -255,9 +266,10 @@ void TreePiece::loadTipsy(const std::string& filename,
 			  const double dTuFac, // Convert Temperature
 			  const CkCallback& cb) {
 	callback = cb;
+        CkCallback replyCB(CkIndex_TreePiece::assignKeys(0), pieces);
 	
 	bLoaded = 0;
-	
+
 	Tipsy::TipsyReader r(filename);
 	if(!r.status()) {
 		cerr << thisIndex << ": TreePiece: Fatal: Couldn't open tipsy file!" << endl;
@@ -291,9 +303,22 @@ void TreePiece::loadTipsy(const std::string& filename,
 	    CkAbort("Invalid domain decomposition requested");
 	    }
 
-	myNumParticles = nTotalParticles / numTreePieces;
+        unsigned int numLoadingTreePieces;
+        if (domainDecomposition == Oct_dec) {
+          numLoadingTreePieces = CkNumPes();
+          if (thisIndex >= CkNumPes()) {
+            myNumParticles = 0;
+            contribute(sizeof(OrientedBox<float>), &boundingBox,
+                       growOrientedBox_float,
+                       replyCB);
+            return;
+          }
+        }
+        else numLoadingTreePieces = numTreePieces;
+	
+	myNumParticles = nTotalParticles / numLoadingTreePieces;
     
-	excess = nTotalParticles % numTreePieces;
+	excess = nTotalParticles % numLoadingTreePieces;
 	startParticle = myNumParticles * thisIndex;
 	if(thisIndex < (int) excess) {
 	    myNumParticles++;
@@ -393,7 +418,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 	bLoaded = 1;
   contribute(sizeof(OrientedBox<float>), &boundingBox,
 		   growOrientedBox_float,
-		   CkCallback(CkIndex_TreePiece::assignKeys(0), pieces));
+		   replyCB);
 }
 
 // Perform Parallel Scan to establish start of parallel writes, then
@@ -655,6 +680,7 @@ void TreePiece::reOrder(CkCallback& cb)
 						    // with MaxIOrder
 						    // for particle
 						    // creation/deletion
+    if (myNumParticles > 0) {
     // Sort particles in iOrder
     sort(myParticles+1, myParticles+myNumParticles+1, compIOrder);
 
@@ -702,12 +728,12 @@ void TreePiece::reOrder(CkCallback& cb)
 	    break;
 	binBegin = binEnd;
 	}
-
+    }
     delete[] startParticle;
 
     // signify completion
     incomingParticlesSelf = true;
-    ioAcceptSortedParticles(binBegin, 0, NULL, 0);
+    ioAcceptSortedParticles(NULL, 0, NULL, 0);
     }
 
 /// Accept particles from other TreePieces once the sorting has finished

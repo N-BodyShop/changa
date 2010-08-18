@@ -370,6 +370,7 @@ public:
 	void growMass(double dTime, double dDelta);
 	void initSph();
 	void initCooling();
+	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
 	void doSph(int activeRung);
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
@@ -1109,7 +1110,12 @@ public:
           incomingParticles = NULL;
           incomingParticlesArrived = 0;
           incomingParticlesSelf = false;
-    orbBoundaries.clear();
+
+          myParticles = NULL;
+          mySPHParticles = NULL;
+	  orbBoundaries.clear();
+	  boxes = NULL;
+	  splitDims = NULL;
 	}
 
 	TreePiece(CkMigrateMessage* m) {
@@ -1140,10 +1146,13 @@ public:
           incomingParticlesArrived = 0;
           incomingParticlesSelf = false;
 
+	  cnt=0;
 	  nodeInterRemote = NULL;
           particleInterRemote = NULL;
 
 	  orbBoundaries.clear();
+	  boxes = NULL;
+	  splitDims = NULL;
 	}
 
         private:
@@ -1168,6 +1177,8 @@ public:
 	    root->fullyDelete();
 	    delete root;
 	  }
+	  delete[] boxes;
+	  delete[] splitDims;
 
           if (verbosity>1) ckout <<"Finished deallocation of treepiece "<<thisIndex<<endl;
 	}
@@ -1319,7 +1330,7 @@ public:
 
 	/// Request the TreePiece to send back later the moments for this node.
 	void requestRemoteMoments(const Tree::NodeKey key, int sender);
-	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments, const OrientedBox<double>& box, const OrientedBox<double>& boxBall);
+	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments, const OrientedBox<double>& box, const OrientedBox<double>& boxBall, const unsigned int iParticleTypes);
 
 	/// Decide whether the node should be opened for the force computation
 	/// of the given request. --- Moved outside TreePiece class
