@@ -93,6 +93,8 @@ namespace Tree {
     OrientedBox<double> boundingBox;
     /// The bounding box including search balls of this node
     OrientedBox<double> bndBoxBall;
+    /// Mask of particle types contatained in this node
+    unsigned int iParticleTypes;
     /// An index for the first particle contained by this node, 0 means outside the node
     /// An index for the first particle contained by this node, 0 means outside the node
     int firstParticle;
@@ -184,6 +186,7 @@ namespace Tree {
 #endif
       boundingBox.reset();
       bndBoxBall.reset();
+      iParticleTypes = 0;
       rungs = 0;
       for (int i = firstParticle; i <= lastParticle; ++i) {
         moments += part[i];
@@ -195,6 +198,7 @@ namespace Tree {
 	    bndBoxBall.grow(part[i].position
 			    - Vector3D<double>(fBallMax, fBallMax, fBallMax));
 	    }
+	iParticleTypes |= part[i].iType;
         if (part[i].rung > rungs) rungs = part[i].rung;
       }
       calculateRadiusFarthestParticle(moments, &part[firstParticle], &part[lastParticle+1]);
@@ -209,6 +213,7 @@ namespace Tree {
       moments.clear();
       boundingBox.reset();
       bndBoxBall.reset();
+      iParticleTypes = 0;
     }
 
     virtual NodeKey getLongestCommonPrefix(NodeKey k1, NodeKey k2)
@@ -242,6 +247,7 @@ namespace Tree {
       p | moments;
       p | boundingBox;
       p | bndBoxBall;
+      p | iParticleTypes;
       p | firstParticle;
       p | lastParticle;
       p | remoteIndex;

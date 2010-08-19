@@ -29,7 +29,8 @@ Main::initSph()
 	double z = 1.0/csmTime2Exp(param.csm, dTime) - 1.0;
 	// Update cooling on the datamanager
 	dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
-	treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
+	if(param.bGasCooling)
+	    treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
 	if(verbosity) CkPrintf("Initializing SPH forces\n");
 	nActiveSPH = nTotalSPH;
 	doSph(0);
@@ -55,6 +56,31 @@ void Main::initCooling()
     dMProxy.initCooling(param.dGmPerCcUnit, param.dComovingGmPerCcUnit,
 		    param.dErgPerGmUnit, param.dSecUnit, param.dKpcUnit,
 		    param.CoolParam, CkCallbackResumeThread());
+    
+    /* Read in tables from files as necessary */
+    int cntTable = 0;
+    int nTableRows;
+    int nTableColumns;
+    char TableFileSuffix[20];
+    
+    for (;;) {
+	CoolTableReadInfo(&param.CoolParam, cntTable, &nTableColumns,
+			  TableFileSuffix);
+	if (!nTableColumns) break;
+    
+	cntTable++;
+	nTableRows = ReadASCII(TableFileSuffix, nTableColumns, NULL);
+	if (nTableRows) {
+	    CkAssert(sizeof(double)*nTableRows*nTableColumns <= CL_NMAXBYTETABLE );
+	    double *dTableData = (double *)malloc(sizeof(double)*nTableRows*nTableColumns);
+	    CkAssert( dTableData != NULL );
+	    nTableRows = ReadASCII(TableFileSuffix, nTableColumns, dTableData);
+      
+	    dMProxy.dmCoolTableRead(dTableData,nTableRows*nTableColumns,
+				  CkCallbackResumeThread());
+	    free(dTableData);
+	    }
+	}
 #endif
     }
 
@@ -75,6 +101,96 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 #endif
     contribute(0, 0, CkReduction::concat, cb);
     }
+
+void
+DataManager::dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb)
+{
+#ifndef COOLING_NONE
+    CoolTableRead(Cool, nData*sizeof(double), (void *) dTableData);
+#endif
+    contribute(0, 0, CkReduction::concat, cb);
+    }
+
+/*
+ * function from PKDGRAV to read an ASCII table
+ */
+/* Note if dDataOut is NULL it just counts the number of valid input lines */
+int Main::ReadASCII(char *extension, int nDataPerLine, double *dDataOut)
+{
+	FILE *fp;
+	int i,ret;
+	char achIn[160];
+	double *dData;
+
+	if (dDataOut == NULL) 
+	    dData = (double *)malloc(sizeof(double)*nDataPerLine);
+	else
+	    dData = dDataOut;
+	
+	CkAssert(nDataPerLine > 0 && nDataPerLine <= 10);
+	char achFile[MAXPATHLEN];
+	sprintf(achFile, "%s.%s", param.achOutName, extension);
+	fp = fopen(achFile,"r");
+	if (!fp) {
+	    if (verbosity)
+		CkPrintf("WARNING: Could not open .%s input file:%s\n",
+			 extension,achFile);
+	    return 0;
+	    }
+
+	i = 0;
+	while (1) {
+	    if (!fgets(achIn,160,fp)) goto Done;
+	    switch (nDataPerLine) {
+	    case 1:
+		ret = sscanf(achIn,"%lf",dData); 
+		break;
+	    case 2:
+		ret = sscanf(achIn,"%lf %lf",dData,dData+1); 
+		break;
+	    case 3:
+		ret = sscanf(achIn,"%lf %lf %lf",dData,dData+1,dData+2); 
+		break;
+	    case 4:
+		ret = sscanf(achIn,"%lf %lf %lf %lf",dData,dData+1,dData+2,dData+3); 
+		break;
+	    case 5:
+		ret = sscanf(achIn,"%lf %lf %lf %lf %lf",dData,dData+1,dData+2,dData+3,dData+4); 
+		break;
+	    case 6:
+		ret = sscanf(achIn,"%lf %lf %lf %lf %lf %lf",dData,dData+1,dData+2,dData+3,dData+4,dData+5); 
+		break;
+	    case 7:
+		ret = sscanf(achIn,"%lf %lf %lf %lf %lf %lf %lf",
+			     dData,dData+1,dData+2,dData+3,dData+4,dData+5,dData+6); 
+		break;
+	    case 8:
+		ret = sscanf(achIn,"%lf %lf %lf %lf %lf %lf %lf %lf",
+			     dData,dData+1,dData+2,dData+3,dData+4,dData+5,dData+6,dData+7); 
+		break;
+	    case 9:
+		ret = sscanf(achIn,"%lf %lf %lf %lf %lf %lf %lf %lf %lf",
+			     dData,dData+1,dData+2,dData+3,dData+4,dData+5,dData+6,dData+7,dData+8); 
+		break;
+	    case 10:
+		ret = sscanf(achIn,"%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
+			     dData,dData+1,dData+2,dData+3,dData+4,dData+5,dData+6,dData+7,dData+8,dData+9); 
+		break;
+	    default:
+		ret = EOF;
+		CkAssert(0);
+		}
+	    if (ret != nDataPerLine) goto Done;
+	    ++i;
+	    if (dDataOut != NULL) dData += nDataPerLine;
+	    }
+ Done:
+	fclose(fp);
+	if (dDataOut != NULL && verbosity)
+	    printf("Read %i lines from %s\n",i,achFile);
+	if (dDataOut == NULL) free(dData);
+	return i;
+	}
 
 /*
  * Update the cooling functions to the current time.
