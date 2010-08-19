@@ -181,7 +181,7 @@ mainmodule ParallelGravity {
     entry void unshuffleParticles(CkReductionMsg* m);
     entry void acceptSortedParticles(const GravityParticle particles[n],
         const int n, const extraSPHData pExtra[nGas],
-        const int nGas);
+        const int nGas, const double load);
     //ORB
     entry void initORBPieces(const CkCallback& cb);
     entry void initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback);

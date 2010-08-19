@@ -485,6 +485,8 @@ class TreePiece : public CBase_TreePiece {
    int nCacheAccesses; // keep track of outstanding cache accesses to
 		       // know when writebacks complete.  XXX this
 		       // should be part of the smooth state
+   
+   double treePieceLoad; // used to store CPU load data for incoming particles
 
  public:
 #if COSMO_PRINT_BK > 1
@@ -1050,7 +1052,8 @@ private:
 public:
  TreePiece() : pieces(thisArrayID), root(0), proxyValid(false),
 	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
-	    sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0) {
+	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
+	  treePieceLoad(0) {
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
 	  dm = NULL;
@@ -1242,7 +1245,7 @@ public:
 	void unshuffleParticles(CkReductionMsg* m);
 	void acceptSortedParticles(const GravityParticle* particles,
 				   const int n, const extraSPHData *pExtra,
-				   const int nGas);
+				   const int nGas, const double load);
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);
   void initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback);
