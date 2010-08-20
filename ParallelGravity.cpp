@@ -1169,13 +1169,6 @@ void Main::advanceBigStep(int iStep) {
       tmpRung <<= 1;
     }
 
-    if(verbosity)
-      ckout << "Step: " << iStep << " Substep: " << currentStep
-	    << " ( " << ((double) currentStep)/MAXSUBSTEPS << " )"
-            << " Time: " << dTime
-            << " Gravity rung " << activeRung << " to "
-            << nextMaxRung << endl;
-
     if(param.bDoGas) {
 	double duKick[MAXRUNG+1];
 	if(verbosity)
@@ -1193,6 +1186,11 @@ void Main::advanceBigStep(int iStep) {
 	treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
 			     0, CkCallbackResumeThread());
 	}
+
+    ckout << "Step: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
+          << " Time: " << dTime
+          << " Rungs " << activeRung << " to "
+          << nextMaxRung << ". ";
 
     countActive(activeRung);
     
@@ -1883,9 +1881,10 @@ Main::doSimulation()
 #if COSMO_STATS > 0
   ckerr << "Outputting statistics ...";
   startTime = CkWallTimer();
-  Interval<unsigned int> dummy;
+  //Interval<unsigned int> dummy;
 	
-  treeProxy[0].outputStatistics(dummy, dummy, dummy, dummy, 0, CkCallbackResumeThread());
+  treeProxy[0].outputStatistics(CkCallbackResumeThread());
+  //treeProxy[0].outputStatistics(dummy, dummy, dummy, dummy, 0, CkCallbackResumeThread());
 
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 #endif
@@ -1917,7 +1916,7 @@ void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
     double a = csmTime2Exp(param.csm, dTime);
     
     if(first && !bIsRestarting) {
-	fprintf(fpLog, "# time redshift TotalEVir TotalE Kinetic Virial Potential TotalECosmo Lx Ly Lz Wallclock\n");
+	fprintf(fpLog, "# time redshift TotalEVir TotalE Kinetic Virial Potential TotalECosmo Ethermal Lx Ly Lz Wallclock\n");
 	dEcosmo = 0.0;
 	first = 0;
 	}
@@ -1931,16 +1930,21 @@ void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
 	    dEcosmo += 0.5*(a - csmTime2Exp(param.csm, dTimeOld))
 		*(dEnergy[2] + dUOld);
 	    }
+	first = 0;
 	}
 
     dUOld = dEnergy[2];
     dEnergy[2] *= a;
+    dEnergy[1] *= a;
     dTimeOld = dTime;
     double z = 1.0/a - 1.0;
+    double dEtotal = dEnergy[0] + dEnergy[2] - dEcosmo + a*a*dEnergy[6];
+    // Energy using the virial of Clausius
+    double dEtotalVir = dEnergy[0] + dEnergy[1] - dEcosmo + a*a*dEnergy[6];
     
-    fprintf(fpLog, "%g %g %g %g %g %g %g %g %g %g %g %g\n", dTime, z,
-	    dEnergy[0] + dEnergy[1], dEnergy[0]+dEnergy[2], dEnergy[0],
-	    dEnergy[1], dEnergy[2], dEcosmo, dEnergy[3], dEnergy[4],
+    fprintf(fpLog, "%g %g %g %g %g %g %g %g %g %g %g %g %g\n", dTime, z,
+	    dEtotalVir, dEtotal, dEnergy[0], dEnergy[1], dEnergy[2], dEcosmo,
+	    dEnergy[6], dEnergy[3], dEnergy[4],
 	    dEnergy[5], wallTime);
     fclose(fpLog);
     
