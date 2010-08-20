@@ -3786,7 +3786,8 @@ void TreePiece::startlb(CkCallback &cb){
 void TreePiece::startlb(CkCallback &cb, int activeRung){
 
   setObjTime(treePieceLoad);
-  CkPrintf("set to: %g, actual: %g\n", treePieceLoad, getObjTime());  
+  if(verbosity > 1)
+     CkPrintf("set to: %g, actual: %g\n", treePieceLoad, getObjTime());  
   treePieceLoad = 0;
   callback = cb;
   if(verbosity > 1)
@@ -5443,7 +5444,9 @@ void TreePiece::markWalkDone() {
 
 void TreePiece::finishWalk()
 {
-  CkPrintf("[%d] current load: %g current particles: %d\n", thisIndex, getObjTime(), myNumParticles);
+  if(verbosity > 1)
+      CkPrintf("[%d] current load: %g current particles: %d\n", thisIndex,
+	       getObjTime(), myNumParticles);
   completedActiveWalks = 0;
   freeWalkObjects();
 #ifdef CHECK_WALK_COMPLETIONS
