@@ -3230,8 +3230,9 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   // The following if is necessary to make nodes containing only TreePieces
   // without particles to get stuck and crash...
   if (numChunks == 0 && myNumParticles == 0) numChunks = 1;
+  int dummy;
   cacheNode[CkMyPe()].cacheSync(numChunks, idxMax, localIndex);
-  cacheGravPart[CkMyPe()].cacheSync(numChunks, idxMax, localIndex);
+  cacheGravPart[CkMyPe()].cacheSync(numChunks, idxMax, dummy);
 
   if (myNumParticles == 0) {
     // No particles assigned to this TreePiece
