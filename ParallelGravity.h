@@ -370,6 +370,7 @@ public:
 	void growMass(double dTime, double dDelta);
 	void initSph();
 	void initCooling();
+	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
 	void doSph(int activeRung);
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
@@ -485,6 +486,8 @@ class TreePiece : public CBase_TreePiece {
    int nCacheAccesses; // keep track of outstanding cache accesses to
 		       // know when writebacks complete.  XXX this
 		       // should be part of the smooth state
+   
+   double treePieceLoad; // used to store CPU load data for incoming particles
 
  public:
 #if COSMO_PRINT_BK > 1
@@ -500,6 +503,10 @@ class TreePiece : public CBase_TreePiece {
 
         int getIndex() {
           return thisIndex;
+        }
+
+        int getLocalIndex(){
+          return localIndex;
         }
 
         /*
@@ -1050,7 +1057,8 @@ private:
 public:
  TreePiece() : pieces(thisArrayID), root(0), proxyValid(false),
 	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
-	    sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0) {
+	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
+	  treePieceLoad(0) {
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
 	  dm = NULL;
@@ -1112,7 +1120,9 @@ public:
 
           myParticles = NULL;
           mySPHParticles = NULL;
-    orbBoundaries.clear();
+	  orbBoundaries.clear();
+	  boxes = NULL;
+	  splitDims = NULL;
 	}
 
 	TreePiece(CkMigrateMessage* m) {
@@ -1143,10 +1153,13 @@ public:
           incomingParticlesArrived = 0;
           incomingParticlesSelf = false;
 
+	  cnt=0;
 	  nodeInterRemote = NULL;
           particleInterRemote = NULL;
 
 	  orbBoundaries.clear();
+	  boxes = NULL;
+	  splitDims = NULL;
 	}
 
         private:
@@ -1171,6 +1184,8 @@ public:
 	    root->fullyDelete();
 	    delete root;
 	  }
+	  delete[] boxes;
+	  delete[] splitDims;
 
           if (verbosity>1) ckout <<"Finished deallocation of treepiece "<<thisIndex<<endl;
 	}
@@ -1241,7 +1256,7 @@ public:
 	void unshuffleParticles(CkReductionMsg* m);
 	void acceptSortedParticles(const GravityParticle* particles,
 				   const int n, const extraSPHData *pExtra,
-				   const int nGas);
+				   const int nGas, const double load);
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);
   void initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback);
@@ -1322,7 +1337,7 @@ public:
 
 	/// Request the TreePiece to send back later the moments for this node.
 	void requestRemoteMoments(const Tree::NodeKey key, int sender);
-	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments, const OrientedBox<double>& box, const OrientedBox<double>& boxBall);
+	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments, const OrientedBox<double>& box, const OrientedBox<double>& boxBall, const unsigned int iParticleTypes);
 
 	/// Decide whether the node should be opened for the force computation
 	/// of the given request. --- Moved outside TreePiece class

@@ -122,6 +122,7 @@ mainmodule ParallelGravity {
     entry void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 			 COOLPARAM inParam, const CkCallback& cb);
+    entry void dmCoolTableRead(double dTableData[nData], int nData, const CkCallback& cb);
     entry void CoolingSetTime(double z, double dTime, const CkCallback& cb);
   };
   array [1D] TreePiece {
@@ -181,7 +182,7 @@ mainmodule ParallelGravity {
     entry void unshuffleParticles(CkReductionMsg* m);
     entry void acceptSortedParticles(const GravityParticle particles[n],
         const int n, const extraSPHData pExtra[nGas],
-        const int nGas);
+        const int nGas, const double load);
     //ORB
     entry void initORBPieces(const CkCallback& cb);
     entry void initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback);
@@ -242,7 +243,7 @@ mainmodule ParallelGravity {
     entry void finishNodeCache(int iPhases, CkCallback &cb);
 
     entry [inline] void requestRemoteMoments(Tree::NodeKey key, int sender);
-    entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, MultipoleMoments& moments, OrientedBox<double>& box, OrientedBox<double>& boxBall);
+    entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, MultipoleMoments& moments, OrientedBox<double>& box, OrientedBox<double>& boxBall, unsigned int iParticleTypes);
 
     //entry void calculateGravityDirect(const CkCallback& cb);
     //entry void fillRequestDirect(GravityRequest req);
