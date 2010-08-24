@@ -9,6 +9,7 @@
 #include "CentralLB.h"
 #include "Orb3dLB.decl.h"
 #include "TaggedVector3D.h"
+#include <queue>
 
 void CreateOrb3dLB();
 BaseLB * AllocateOrb3dLB();
@@ -41,12 +42,29 @@ class TPObject{
   float load;
   int index;
   int lbindex;
+
+  bool operator<(const TPObject &t) const{
+    return load < t.load;
+  }
+
 };
 
-class Proc {
+class Processor{
   public:
-  int x, y, z, t;
-  int rank;
+
+  float load;
+  int t;
+
+  bool operator<(const Processor &p) const{
+    return load > p.load;
+  }
+
+};
+
+class Node {
+  public:
+  int x, y, z;
+  CkVec<int> procRanks;
 };
 
 typedef int (*ComparatorFn) (const void *, const void *);
@@ -75,11 +93,12 @@ public:
   Orb3dLB(CkMigrateMessage *m):CentralLB(m) { lbname = "Orb3dLB"; }
   void work(BaseLB::LDStats* stats, int count);
   void receiveCentroids(CkReductionMsg *msg);
-  void directMap(TPObject *tp, int ntp, Proc *proc);
-  void map(TPObject *tp, int ntp, int np, Proc *procs, int dim);
-  int nextDim(int dim);
+  void directMap(TPObject *tp, int ntp, Node *nodes);
+  void map(TPObject *tp, int ntp, int nn, Node *procs, int xs, int ys, int zs, int dim);
+  int nextDim(int dim, int xs, int ys, int zs);
   TPObject *partitionEvenLoad(TPObject *tp, int &ntp);
-  Proc *halveProcessors(Proc *start, int np);
+  Node *halveNodes(Node *start, int np);
+
 
 };
 
