@@ -33,7 +33,7 @@ Main::initSph()
 	    treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
 	if(verbosity) CkPrintf("Initializing SPH forces\n");
 	nActiveSPH = nTotalSPH;
-	doSph(0);
+	doSph(0, 0);
 	double duDelta[MAXRUNG+1];
 	for(int iRung = 0; iRung <= MAXRUNG; iRung++)
 	    duDelta[iRung] = 0.5e-7*param.dDelta;
@@ -208,12 +208,17 @@ DataManager::CoolingSetTime(double z, // redshift
     contribute(0, 0, CkReduction::concat, cb);
     }
 
-/*
- * Perform the SPH force calculation.
+/**
+ *  Perform the SPH force calculation.
+ *  @param activeRung Timestep rung (and above) on which to perform
+ *  SPH
+ *  @param bNeedDensity Does the density calculation need to be done?
+ *  Defaults to 1
  */
 void
-Main::doSph(int activeRung) 
+Main::doSph(int activeRung, int bNeedDensity) 
 {
+  if(bNeedDensity) {
     if (param.bFastGas && nActiveSPH < nTotalSPH*param.dFracFastGas) {
 	ckout << "Calculating densities/divv on Actives ...";
 	// This also marks neighbors of actives
@@ -255,6 +260,7 @@ Main::doSph(int activeRung)
 	      << endl;
 
 	}
+      }
     treeProxy.sphViscosityLimiter(param.iViscosityLimiter, activeRung,
 			CkCallbackResumeThread());
     if(param.bGasCooling)

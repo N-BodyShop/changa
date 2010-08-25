@@ -1607,6 +1607,7 @@ Main::initialForces()
 	      << (CkWallTimer() - startTime) << " seconds." << endl;
       }
   
+  CkAssert(iPhase <= nPhases);
   if(iPhase < nPhases)
       treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
 
