@@ -4467,6 +4467,9 @@ ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk
     CkCacheRequestorData request(thisElement, &EntryTypeGravityParticle::callback, userData);
     CkArrayIndexMax remIdx = CkArrayIndex1D(remoteIndex);
     CkAssert(key < (((CmiUInt8) 1) << 63));
+    //
+    // Key is shifted to distiguish between nodes and particles
+    //
     CkCacheKey ckey = key<<1;
     CacheParticle *p = (CacheParticle *) cacheGravPart[CkMyPe()].requestData(ckey,remIdx,chunk,&gravityParticleEntry,request);
     if (p == NULL) {
