@@ -505,6 +505,10 @@ class TreePiece : public CBase_TreePiece {
           return thisIndex;
         }
 
+        int getLocalIndex(){
+          return localIndex;
+        }
+
         /*
         int decPrefetchWaiting() {
           prefetchWaiting--;
