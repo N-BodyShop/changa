@@ -33,7 +33,7 @@ Main::initSph()
 	    treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
 	if(verbosity) CkPrintf("Initializing SPH forces\n");
 	nActiveSPH = nTotalSPH;
-	doSph(0);
+	doSph(0, 0);
 	double duDelta[MAXRUNG+1];
 	for(int iRung = 0; iRung <= MAXRUNG; iRung++)
 	    duDelta[iRung] = 0.5e-7*param.dDelta;
@@ -81,10 +81,11 @@ void Main::initCooling()
 	    free(dTableData);
 	    }
 	}
+    treeProxy.initCoolingData(CkCallbackResumeThread());
 #endif
     }
 
-/*
+/**
  * Initialized Cooling Read-only data on the DataManager, which
  * doesn't migrate.
  */
@@ -98,6 +99,19 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		    dSecUnit, dKpcUnit, inParam);
     
     CoolInitRatesTable(Cool,inParam);
+#endif
+    contribute(0, 0, CkReduction::concat, cb);
+    }
+
+/**
+ * Per thread initialization
+ */
+void
+TreePiece::initCoolingData(const CkCallback& cb)
+{
+#ifndef COOLING_NONE
+    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+    CoolData = CoolDerivsInit(dm->Cool);
 #endif
     contribute(0, 0, CkReduction::concat, cb);
     }
@@ -208,12 +222,17 @@ DataManager::CoolingSetTime(double z, // redshift
     contribute(0, 0, CkReduction::concat, cb);
     }
 
-/*
- * Perform the SPH force calculation.
+/**
+ *  Perform the SPH force calculation.
+ *  @param activeRung Timestep rung (and above) on which to perform
+ *  SPH
+ *  @param bNeedDensity Does the density calculation need to be done?
+ *  Defaults to 1
  */
 void
-Main::doSph(int activeRung) 
+Main::doSph(int activeRung, int bNeedDensity) 
 {
+  if(bNeedDensity) {
     if (param.bFastGas && nActiveSPH < nTotalSPH*param.dFracFastGas) {
 	ckout << "Calculating densities/divv on Actives ...";
 	// This also marks neighbors of actives
@@ -255,6 +274,7 @@ Main::doSph(int activeRung)
 	      << endl;
 
 	}
+      }
     treeProxy.sphViscosityLimiter(param.iViscosityLimiter, activeRung,
 			CkCallbackResumeThread());
     if(param.bGasCooling)
@@ -310,7 +330,7 @@ void TreePiece::InitEnergy(double dTuFac, // T to internal energy
     contribute(0, 0, CkReduction::concat, cb);
     }
 
-/*
+/**
  * Update the cooling rate (uDot)
  */
 void TreePiece::updateuDot(int activeRung,
@@ -324,9 +344,6 @@ void TreePiece::updateuDot(int activeRung,
     double dt; // time in seconds
     
 #ifndef COOLING_NONE
-    const double EPSINTEG=1e-5;
-    STIFF *sbs = StiffInit( EPSINTEG, 1, dm->Cool->DerivsData, clDerivs,
-			    clJacobn );
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS) && p->rung >= activeRung) {
@@ -338,7 +355,7 @@ void TreePiece::updateuDot(int activeRung,
 		double r[3];  // For conversion to C
 		p->position.array_form(r);
 
-		CoolIntegrateEnergyCode(dm->Cool, sbs, &cp, &E,
+		CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
 					ExternalHeating, p->fDensity,
 					p->fMetals(), r, dt);
 		CkAssert(E > 0.0);
@@ -350,7 +367,6 @@ void TreePiece::updateuDot(int activeRung,
 		}
 	    }
 	}
-    StiffFinalize(sbs);
 #endif
     contribute(0, 0, CkReduction::concat, cb);
     }

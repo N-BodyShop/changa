@@ -269,7 +269,7 @@ void ListCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePiece 
 int GravityCompute::openCriterion(TreePiece *ownerTP,
                           GenericTreeNode *node, int reqID, State *state){
   return
-    openCriterionBucket(node,(GenericTreeNode *)computeEntity,ownerTP->decodeOffset(reqID), ownerTP->getIndex());
+    openCriterionBucket(node,(GenericTreeNode *)computeEntity,ownerTP->decodeOffset(reqID), ownerTP->getLocalIndex());
 
 }
 
