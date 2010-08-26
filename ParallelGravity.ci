@@ -143,6 +143,7 @@ mainmodule ParallelGravity {
     entry void setPeriodic(int nReplicas, Vector3D<double> fPeriod, int bEwald,
 		 double fEwCut, double fEwhCut, int bPeriod);
     entry void EwaldInit();
+    entry void initCoolingData(const CkCallback& cb);
     entry void calculateEwald(dummyMsg *m);
     entry void EwaldGPUComplete(); 
     entry void EwaldGPU(); 

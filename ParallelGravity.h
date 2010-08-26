@@ -848,6 +848,9 @@ private:
 	MOMC momcRoot;		/* complete moments of root */
 #endif
 
+#ifndef COOLING_NONE
+	clDerivsData *CoolData;
+#endif
 	/// Setup for writing
 	int nSetupWriteStage;
 	int64_t nStartWrite;	// Particle number at which this piece starts
@@ -1197,6 +1200,7 @@ public:
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit();
 	void calculateEwald(dummyMsg *m);
+	void initCoolingData(const CkCallback& cb);
 	// Scale velocities (needed to convert to canonical momenta for
 	// comoving coordinates.)
 	void velScale(double dScale);
@@ -1299,7 +1303,6 @@ public:
 	void physicalSoft(const double dSoftMax, const double dFac,
 			  const int bSoftMaxMul, const CkCallback& cb);
 	void growMass(int nGrowMass, double dDeltaM, const CkCallback& cb);
-	// void initCooling(COOL inCool, COOLPARAM inParam, const CkCallback& cb);
 	void InitEnergy(double dTuFac, double z, double dTime,
 			const CkCallback& cb);
 	void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
