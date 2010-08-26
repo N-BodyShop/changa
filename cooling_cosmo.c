@@ -68,26 +68,44 @@ COOL *CoolInit( )
 
   cl->nTableRead = 0; /* Internal Tables read from Files */
 
-  cl->DerivsData = malloc(sizeof(clDerivsData));
-  assert(cl->DerivsData != NULL);
-  /* These have to be allocated per treepiece
-  cl->DerivsData->IntegratorContext = 
-    StiffInit( EPSINTEG, 1, cl->DerivsData, clDerivs, clJacobn );
-  */
-  
   return cl;
 }
 
+/**
+ * Per thread initialization of cooling
+ * @param cl Initialized COOL structure.
+ */
+clDerivsData *CoolDerivsInit(COOL *cl)
+{
+    clDerivsData *Data;
+
+    assert(cl != NULL);
+    Data = malloc(sizeof(clDerivsData));
+    assert(Data != NULL);
+    Data->IntegratorContext = StiffInit( EPSINTEG, 1, Data, clDerivs,
+					 clJacobn );
+    Data->cl = cl;
+    Data->Y_Total0 = (cl->Y_H+cl->Y_He)*.9999; /* neutral */
+    Data->Y_Total1 = (cl->Y_eMAX+cl->Y_H+cl->Y_He)*1.0001; /* Full Ionization */
+    Data->dlnE = (log(EMUL)-log(1/EMUL));
+    return Data;
+    }
+
 void CoolFinalize(COOL *cl ) 
 {
-  /* This is allocated in a treepiece
-  StiffFinalize(cl->DerivsData->IntegratorContext );
-  */
-  free(cl->DerivsData);
   if (cl->UV != NULL) free(cl->UV);
   if (cl->RT != NULL) free(cl->RT);
   free(cl);
 }
+
+/**
+ * Deallocate memory for per-thread data.
+ */
+void CoolDerivsFinalize(clDerivsData *clData)
+{
+    StiffFinalize(clData->IntegratorContext );
+    free(clData);
+    }
 
 void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit, 
 		double dErgPerGmUnit, double dSecUnit, double dKpcUnit, COOLPARAM CoolParam) 
@@ -111,17 +129,6 @@ void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit
   cl->bLowTCool = CoolParam.bLowTCool;
   cl->bSelfShield = CoolParam.bSelfShield;
 
-  /* Derivs Data Struct */
-  {
-    clDerivsData *Data = cl->DerivsData;
-
-    assert(Data != NULL);
-
-    Data->cl = cl;
-    Data->Y_Total0 = (cl->Y_H+cl->Y_He)*.9999; /* neutral */
-    Data->Y_Total1 = (cl->Y_eMAX+cl->Y_H+cl->Y_He)*1.0001; /* Full Ionization */
-    Data->dlnE = (log(EMUL)-log(1/EMUL));
-  }
 }
 
 void clInitUV(COOL *cl, int nTableColumns, int nTableRows, double *dTableData )
@@ -1118,12 +1125,13 @@ int clJacobn(double x, const double y[], double dfdx[], double *dfdy, void *Data
   return GSL_SUCCESS;
 }
 
-void clIntegrateEnergy(COOL *cl, STIFF *sbs, PERBARYON *Y, double *E, 
+void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
 		       double ExternalHeating, double rho, double ZMetal, double tStep ) {
 
   double dEdt,dE,Ein = *E,EMin;
   double t=0,dtused,dtnext,tstop,dtEst;
-  clDerivsData *d = cl->DerivsData;
+  clDerivsData *d = clData;
+  STIFF *sbs = d->IntegratorContext;
   
   if (tStep == 0) return;
 
@@ -1401,25 +1409,32 @@ void CoolSetTime( COOL *cl, double dTime, double z ) {
 
 /* Integration Routines */
 
-/* Physical units */
-void CoolIntegrateEnergy(COOL *cl, STIFF *sbs, COOLPARTICLE *cp, double *E,
+/**
+ * Physical units
+ */
+void CoolIntegrateEnergy(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
+			 double *E,
                        double PdV, double rho, double ZMetal, double tStep ) {
         PERBARYON Y;
 
         CoolPARTICLEtoPERBARYON(cl, &Y,cp);
-        clIntegrateEnergy(cl, sbs, &Y, E, PdV, rho, ZMetal, tStep);
+        clIntegrateEnergy(cl, clData, &Y, E, PdV, rho, ZMetal, tStep);
         CoolPERBARYONtoPARTICLE(cl, &Y, cp);
         }
 
-/* Code Units ecept for dt */
-void CoolIntegrateEnergyCode(COOL *cl, STIFF *sbs, COOLPARTICLE *cp, double *ECode, 
-		       double ExternalHeatingCode, double rhoCode, double ZMetal, double *posCode, double tStep ) {
+/**
+ * Code Units except for dt
+ */
+void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
+			     double *ECode, double ExternalHeatingCode,
+			     double rhoCode, double ZMetal, double *posCode,
+			     double tStep ) {
 	PERBARYON Y;
 	double E;
 	
 	E = CoolCodeEnergyToErgPerGm( cl, *ECode );
 	CoolPARTICLEtoPERBARYON(cl, &Y, cp);
-	clIntegrateEnergy(cl, sbs, &Y, &E,
+	clIntegrateEnergy(cl, clData, &Y, &E,
 			  CoolCodeWorkToErgPerGmPerSec( cl, ExternalHeatingCode ), 
 			  CodeDensityToComovingGmPerCc(cl, rhoCode), ZMetal, tStep);
 	CoolPERBARYONtoPARTICLE(cl, &Y, cp);

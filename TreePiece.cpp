@@ -469,6 +469,8 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
 /// particles out to the TreePiece responsible for them
 
 void TreePiece::unshuffleParticles(CkReductionMsg* m) {
+        double tpLoad = getObjTime();
+        double partialLoad; 
 	callback = *static_cast<CkCallback *>(m->getData());
 	delete m;
 
@@ -497,6 +499,12 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 	    //find particles between this and the last key
 	    binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1],
 				 dummy);
+            if (myNumParticles > 0) {
+                partialLoad = tpLoad * (binEnd-binBegin) / myNumParticles;
+            }
+            else {
+                partialLoad = 0; 
+            }
 	    // If I have any particles in this bin, send them to
 	    // the responsible TreePiece
 	    if((binEnd - binBegin) > 0) {
@@ -523,10 +531,10 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 		if(*responsibleIter == thisIndex) {
             if (verbosity > 1) CkPrintf("TreePiece %d: keeping %d / %d particles: %d\n", thisIndex, binEnd-binBegin, myNumParticles, (binEnd-binBegin)*10000/myNumParticles);
 		    acceptSortedParticles(binBegin, binEnd - binBegin,
-					  pGasOut, nGasOut);
+					  pGasOut, nGasOut, partialLoad);
 		    }
 		else {
-		    pieces[*responsibleIter].acceptSortedParticles(binBegin, binEnd - binBegin, pGasOut, nGasOut);
+		    pieces[*responsibleIter].acceptSortedParticles(binBegin, binEnd - binBegin, pGasOut, nGasOut, partialLoad);
 		    }
 		if(nGasOut > 0)
 		    delete pGasOut;
@@ -537,14 +545,15 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 	}
 
         incomingParticlesSelf = true;
-        acceptSortedParticles(binBegin, 0, NULL, 0);
+        acceptSortedParticles(binBegin, 0, NULL, 0, 0);
 }
 
 /// Accept particles from other TreePieces once the sorting has finished
 void TreePiece::acceptSortedParticles(const GravityParticle* particles,
 				      const int n, const extraSPHData *pGas,
-				      const int nGasIn) {
+				      const int nGasIn, const double load) {
 
+    treePieceLoad += load; 
   //Need to get the place here again.  Getting the place in unshuffleParticles and using it here results in a race condition.
   if (dm == NULL)
     dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
@@ -3221,8 +3230,9 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   // The following if is necessary to make nodes containing only TreePieces
   // without particles to get stuck and crash...
   if (numChunks == 0 && myNumParticles == 0) numChunks = 1;
+  int dummy;
   cacheNode[CkMyPe()].cacheSync(numChunks, idxMax, localIndex);
-  cacheGravPart[CkMyPe()].cacheSync(numChunks, idxMax, localIndex);
+  cacheGravPart[CkMyPe()].cacheSync(numChunks, idxMax, dummy);
 
   if (myNumParticles == 0) {
     // No particles assigned to this TreePiece
@@ -3775,6 +3785,11 @@ void TreePiece::startlb(CkCallback &cb){
   // jetley - contribute your centroid. AtSync is now called by the load balancer (broadcast) when it has
   // all centroids.
 void TreePiece::startlb(CkCallback &cb, int activeRung){
+
+  setObjTime(treePieceLoad);
+  if(verbosity > 1)
+     CkPrintf("set to: %g, actual: %g\n", treePieceLoad, getObjTime());  
+  treePieceLoad = 0;
   callback = cb;
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d calling AtSync()\n",CkMyPe(),thisIndex);
@@ -4453,6 +4468,9 @@ ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk
     CkCacheRequestorData request(thisElement, &EntryTypeGravityParticle::callback, userData);
     CkArrayIndexMax remIdx = CkArrayIndex1D(remoteIndex);
     CkAssert(key < (((CmiUInt8) 1) << 63));
+    //
+    // Key is shifted to distiguish between nodes and particles
+    //
     CkCacheKey ckey = key<<1;
     CacheParticle *p = (CacheParticle *) cacheGravPart[CkMyPe()].requestData(ckey,remIdx,chunk,&gravityParticleEntry,request);
     if (p == NULL) {
@@ -4670,6 +4688,8 @@ void TreePiece::outputStatistics(const CkCallback& cb) {
 /// @TODO Fix pup routine to handle correctly the tree
 void TreePiece::pup(PUP::er& p) {
   CBase_TreePiece::pup(p);
+
+  p | treePieceLoad; 
 
   // jetley
   p | proxy;
@@ -5428,7 +5448,9 @@ void TreePiece::markWalkDone() {
 
 void TreePiece::finishWalk()
 {
-  
+  if(verbosity > 1)
+      CkPrintf("[%d] current load: %g current particles: %d\n", thisIndex,
+	       getObjTime(), myNumParticles);
   completedActiveWalks = 0;
   freeWalkObjects();
 #ifdef CHECK_WALK_COMPLETIONS

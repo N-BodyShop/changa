@@ -371,7 +371,7 @@ public:
 	void initSph();
 	void initCooling();
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
-	void doSph(int activeRung);
+	void doSph(int activeRung, int bNeedDensity = 1);
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
 	int nextMaxRungIncDF(int nextMaxRung);
@@ -486,6 +486,8 @@ class TreePiece : public CBase_TreePiece {
    int nCacheAccesses; // keep track of outstanding cache accesses to
 		       // know when writebacks complete.  XXX this
 		       // should be part of the smooth state
+   
+   double treePieceLoad; // used to store CPU load data for incoming particles
 
  public:
 #if COSMO_PRINT_BK > 1
@@ -501,6 +503,10 @@ class TreePiece : public CBase_TreePiece {
 
         int getIndex() {
           return thisIndex;
+        }
+
+        int getLocalIndex(){
+          return localIndex;
         }
 
         /*
@@ -842,6 +848,9 @@ private:
 	MOMC momcRoot;		/* complete moments of root */
 #endif
 
+#ifndef COOLING_NONE
+	clDerivsData *CoolData;
+#endif
 	/// Setup for writing
 	int nSetupWriteStage;
 	int64_t nStartWrite;	// Particle number at which this piece starts
@@ -1051,7 +1060,8 @@ private:
 public:
  TreePiece() : pieces(thisArrayID), root(0), proxyValid(false),
 	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
-	    sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0) {
+	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
+	  treePieceLoad(0) {
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
 	  dm = NULL;
@@ -1190,6 +1200,7 @@ public:
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit();
 	void calculateEwald(dummyMsg *m);
+	void initCoolingData(const CkCallback& cb);
 	// Scale velocities (needed to convert to canonical momenta for
 	// comoving coordinates.)
 	void velScale(double dScale);
@@ -1249,7 +1260,7 @@ public:
 	void unshuffleParticles(CkReductionMsg* m);
 	void acceptSortedParticles(const GravityParticle* particles,
 				   const int n, const extraSPHData *pExtra,
-				   const int nGas);
+				   const int nGas, const double load);
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);
   void initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback);
@@ -1292,7 +1303,6 @@ public:
 	void physicalSoft(const double dSoftMax, const double dFac,
 			  const int bSoftMaxMul, const CkCallback& cb);
 	void growMass(int nGrowMass, double dDeltaM, const CkCallback& cb);
-	// void initCooling(COOL inCool, COOLPARAM inParam, const CkCallback& cb);
 	void InitEnergy(double dTuFac, double z, double dTime,
 			const CkCallback& cb);
 	void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
