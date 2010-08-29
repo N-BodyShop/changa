@@ -636,7 +636,7 @@ void ReSmoothCompute::bucketCompare(TreePiece *ownerTP,
     for(int j = node->firstParticle; j <= node->lastParticle; ++j) {
 	if(!params->isSmoothActive(&particles[j]))
 	    continue;
-	std::vector<pqSmoothNode> *Q = &nstate->Qs[j];
+	CkVec<pqSmoothNode> *Q = &nstate->Qs[j];
 	double rOld = particles[j].fBall; // Ball radius
 	Vector3D<double> dr = particles[j].position - rp;
 	
@@ -787,7 +787,7 @@ void ReSmoothCompute::walkDone(State *state) {
   for(int i = node->firstParticle; i <= node->lastParticle; i++) {
       if(!params->isSmoothActive(&part[i-node->firstParticle]))
 	  continue;
-      std::vector<pqSmoothNode> *Q = &((ReNearNeighborState *)state)->Qs[i];
+      CkVec<pqSmoothNode> *Q = &((ReNearNeighborState *)state)->Qs[i];
       pqSmoothNode *NN = &((*Q)[0]);
       int nCnt = Q->size();
       params->fcnSmooth(&part[i-node->firstParticle], nCnt, NN);

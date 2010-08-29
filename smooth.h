@@ -195,11 +195,11 @@ public:
 
 class ReNearNeighborState: public State {
 public:
-    std::vector <pqSmoothNode> *Qs;
+    CkVec<pqSmoothNode> *Qs;
     int nParticlesPending;
     bool started;
     ReNearNeighborState(int nParts) {
-	Qs = new std::vector<pqSmoothNode>[nParts+2];
+	Qs = new CkVec<pqSmoothNode>[nParts+2];
 	}
     void finishBucketSmooth(int iBucket, TreePiece *tp);
     ~ReNearNeighborState() { delete [] Qs; }
