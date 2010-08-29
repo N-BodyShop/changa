@@ -312,7 +312,7 @@ Main::Main(CkArgMsg* m) {
 	param.bFastGas = 0;
 	prmAddParam(prm, "bFastGas", paramBool, &param.bFastGas,
 		    sizeof(int),"Fgas", "Fast Gas Method");
-	param.dFracFastGas = 0.0;
+	param.dFracFastGas = 0.1;
 	prmAddParam(prm,"dFracFastGas",paramDouble,&param.dFracFastGas,
 		    sizeof(double),"ffg",
 		    "<Fraction of Active Particles for Fast Gas>");
