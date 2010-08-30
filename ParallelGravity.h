@@ -776,16 +776,12 @@ private:
 	/// holds the total mass of the current TreePiece
 	double piecemass;
 
-	/// @if ALL
-
 	/// used to determine which coordinate we are outputting, while printing
 	/// accelerations in ASCII format
 	int cnt;
 	/// used to determine if the x, y, z coordinates should be printed
 	/// together while outputting accelerations in ASCII format
 	int packed;
-
-	/// @endif
 
           // the index assigned by the CacheManager upon registration
           int localIndex;
@@ -874,7 +870,6 @@ private:
 
 	//u_int64_t openingDiffCount;
     /// @if STATISTICS
-
 #if COSMO_STATS > 0
 	//u_int64_t myNumCellInteractions;
 	//u_int64_t myNumParticleInteractions;
@@ -891,9 +886,9 @@ private:
 	u_int64_t *nodeInterRemote;
 	u_int64_t particleInterLocal;
 	u_int64_t *particleInterRemote;
-	int nActive;		// number of particles that are active
-
 	/// @endif
+
+	int nActive;		// number of particles that are active
 
 	/// Size of bucketList, total number of buckets present
 	unsigned int numBuckets;
