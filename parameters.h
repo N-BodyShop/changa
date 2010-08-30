@@ -22,6 +22,7 @@ typedef struct parameters {
     int bEpsAccStep;
     int bGravStep;
     double dEta;
+    int nTruncateRung;
     int iMaxRung;
     int bCannonical;
     int bKDK;
@@ -111,6 +112,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.bEpsAccStep;
     p|param.bGravStep;
     p|param.dEta;
+    p|param.nTruncateRung;
     p|param.iMaxRung;
     p|param.bCannonical;
     p|param.bKDK;

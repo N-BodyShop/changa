@@ -29,10 +29,11 @@ Main::initSph()
 	double z = 1.0/csmTime2Exp(param.csm, dTime) - 1.0;
 	// Update cooling on the datamanager
 	dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
-	treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
+	if(param.bGasCooling)
+	    treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
 	if(verbosity) CkPrintf("Initializing SPH forces\n");
 	nActiveSPH = nTotalSPH;
-	doSph(0);
+	doSph(0, 0);
 	double duDelta[MAXRUNG+1];
 	for(int iRung = 0; iRung <= MAXRUNG; iRung++)
 	    duDelta[iRung] = 0.5e-7*param.dDelta;
@@ -55,10 +56,36 @@ void Main::initCooling()
     dMProxy.initCooling(param.dGmPerCcUnit, param.dComovingGmPerCcUnit,
 		    param.dErgPerGmUnit, param.dSecUnit, param.dKpcUnit,
 		    param.CoolParam, CkCallbackResumeThread());
+    
+    /* Read in tables from files as necessary */
+    int cntTable = 0;
+    int nTableRows;
+    int nTableColumns;
+    char TableFileSuffix[20];
+    
+    for (;;) {
+	CoolTableReadInfo(&param.CoolParam, cntTable, &nTableColumns,
+			  TableFileSuffix);
+	if (!nTableColumns) break;
+    
+	cntTable++;
+	nTableRows = ReadASCII(TableFileSuffix, nTableColumns, NULL);
+	if (nTableRows) {
+	    CkAssert(sizeof(double)*nTableRows*nTableColumns <= CL_NMAXBYTETABLE );
+	    double *dTableData = (double *)malloc(sizeof(double)*nTableRows*nTableColumns);
+	    CkAssert( dTableData != NULL );
+	    nTableRows = ReadASCII(TableFileSuffix, nTableColumns, dTableData);
+      
+	    dMProxy.dmCoolTableRead(dTableData,nTableRows*nTableColumns,
+				  CkCallbackResumeThread());
+	    free(dTableData);
+	    }
+	}
+    treeProxy.initCoolingData(CkCallbackResumeThread());
 #endif
     }
 
-/*
+/**
  * Initialized Cooling Read-only data on the DataManager, which
  * doesn't migrate.
  */
@@ -76,6 +103,109 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     contribute(0, 0, CkReduction::concat, cb);
     }
 
+/**
+ * Per thread initialization
+ */
+void
+TreePiece::initCoolingData(const CkCallback& cb)
+{
+#ifndef COOLING_NONE
+    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+    CoolData = CoolDerivsInit(dm->Cool);
+#endif
+    contribute(0, 0, CkReduction::concat, cb);
+    }
+
+void
+DataManager::dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb)
+{
+#ifndef COOLING_NONE
+    CoolTableRead(Cool, nData*sizeof(double), (void *) dTableData);
+#endif
+    contribute(0, 0, CkReduction::concat, cb);
+    }
+
+/*
+ * function from PKDGRAV to read an ASCII table
+ */
+/* Note if dDataOut is NULL it just counts the number of valid input lines */
+int Main::ReadASCII(char *extension, int nDataPerLine, double *dDataOut)
+{
+	FILE *fp;
+	int i,ret;
+	char achIn[160];
+	double *dData;
+
+	if (dDataOut == NULL) 
+	    dData = (double *)malloc(sizeof(double)*nDataPerLine);
+	else
+	    dData = dDataOut;
+	
+	CkAssert(nDataPerLine > 0 && nDataPerLine <= 10);
+	char achFile[MAXPATHLEN];
+	sprintf(achFile, "%s.%s", param.achOutName, extension);
+	fp = fopen(achFile,"r");
+	if (!fp) {
+	    if (verbosity)
+		CkPrintf("WARNING: Could not open .%s input file:%s\n",
+			 extension,achFile);
+	    return 0;
+	    }
+
+	i = 0;
+	while (1) {
+	    if (!fgets(achIn,160,fp)) goto Done;
+	    switch (nDataPerLine) {
+	    case 1:
+		ret = sscanf(achIn,"%lf",dData); 
+		break;
+	    case 2:
+		ret = sscanf(achIn,"%lf %lf",dData,dData+1); 
+		break;
+	    case 3:
+		ret = sscanf(achIn,"%lf %lf %lf",dData,dData+1,dData+2); 
+		break;
+	    case 4:
+		ret = sscanf(achIn,"%lf %lf %lf %lf",dData,dData+1,dData+2,dData+3); 
+		break;
+	    case 5:
+		ret = sscanf(achIn,"%lf %lf %lf %lf %lf",dData,dData+1,dData+2,dData+3,dData+4); 
+		break;
+	    case 6:
+		ret = sscanf(achIn,"%lf %lf %lf %lf %lf %lf",dData,dData+1,dData+2,dData+3,dData+4,dData+5); 
+		break;
+	    case 7:
+		ret = sscanf(achIn,"%lf %lf %lf %lf %lf %lf %lf",
+			     dData,dData+1,dData+2,dData+3,dData+4,dData+5,dData+6); 
+		break;
+	    case 8:
+		ret = sscanf(achIn,"%lf %lf %lf %lf %lf %lf %lf %lf",
+			     dData,dData+1,dData+2,dData+3,dData+4,dData+5,dData+6,dData+7); 
+		break;
+	    case 9:
+		ret = sscanf(achIn,"%lf %lf %lf %lf %lf %lf %lf %lf %lf",
+			     dData,dData+1,dData+2,dData+3,dData+4,dData+5,dData+6,dData+7,dData+8); 
+		break;
+	    case 10:
+		ret = sscanf(achIn,"%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
+			     dData,dData+1,dData+2,dData+3,dData+4,dData+5,dData+6,dData+7,dData+8,dData+9); 
+		break;
+	    default:
+		ret = EOF;
+		CkAssert(0);
+		}
+	    if (ret != nDataPerLine) goto Done;
+	    ++i;
+	    if (dDataOut != NULL) dData += nDataPerLine;
+	    }
+ Done:
+	fclose(fp);
+	if (dDataOut != NULL && verbosity)
+	    printf("Read %i lines from %s\n",i,achFile);
+	if (dDataOut == NULL) free(dData);
+	return i;
+	}
+
 /*
  * Update the cooling functions to the current time.
  * This is on the DataManager to avoid duplication of effort.
@@ -92,12 +222,17 @@ DataManager::CoolingSetTime(double z, // redshift
     contribute(0, 0, CkReduction::concat, cb);
     }
 
-/*
- * Perform the SPH force calculation.
+/**
+ *  Perform the SPH force calculation.
+ *  @param activeRung Timestep rung (and above) on which to perform
+ *  SPH
+ *  @param bNeedDensity Does the density calculation need to be done?
+ *  Defaults to 1
  */
 void
-Main::doSph(int activeRung) 
+Main::doSph(int activeRung, int bNeedDensity) 
 {
+  if(bNeedDensity) {
     if (param.bFastGas && nActiveSPH < nTotalSPH*param.dFracFastGas) {
 	ckout << "Calculating densities/divv on Actives ...";
 	// This also marks neighbors of actives
@@ -139,6 +274,7 @@ Main::doSph(int activeRung)
 	      << endl;
 
 	}
+      }
     treeProxy.sphViscosityLimiter(param.iViscosityLimiter, activeRung,
 			CkCallbackResumeThread());
     if(param.bGasCooling)
@@ -194,7 +330,7 @@ void TreePiece::InitEnergy(double dTuFac, // T to internal energy
     contribute(0, 0, CkReduction::concat, cb);
     }
 
-/*
+/**
  * Update the cooling rate (uDot)
  */
 void TreePiece::updateuDot(int activeRung,
@@ -208,9 +344,6 @@ void TreePiece::updateuDot(int activeRung,
     double dt; // time in seconds
     
 #ifndef COOLING_NONE
-    const double EPSINTEG=1e-5;
-    STIFF *sbs = StiffInit( EPSINTEG, 1, dm->Cool->DerivsData, clDerivs,
-			    clJacobn );
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS) && p->rung >= activeRung) {
@@ -222,7 +355,7 @@ void TreePiece::updateuDot(int activeRung,
 		double r[3];  // For conversion to C
 		p->position.array_form(r);
 
-		CoolIntegrateEnergyCode(dm->Cool, sbs, &cp, &E,
+		CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
 					ExternalHeating, p->fDensity,
 					p->fMetals(), r, dt);
 		CkAssert(E > 0.0);
@@ -234,7 +367,6 @@ void TreePiece::updateuDot(int activeRung,
 		}
 	    }
 	}
-    StiffFinalize(sbs);
 #endif
     contribute(0, 0, CkReduction::concat, cb);
     }

@@ -54,6 +54,8 @@ int _randChunks;
 unsigned int bucketSize;
 int lbcomm_cutoff_msgs;
 
+double dFracNoDomainDecomp; // Dummy for backward compatibility
+
 //jetley
 int localNodesPerReq;
 int remoteNodesPerReq;
@@ -310,7 +312,7 @@ Main::Main(CkArgMsg* m) {
 	param.bFastGas = 0;
 	prmAddParam(prm, "bFastGas", paramBool, &param.bFastGas,
 		    sizeof(int),"Fgas", "Fast Gas Method");
-	param.dFracFastGas = 0.0;
+	param.dFracFastGas = 0.1;
 	prmAddParam(prm,"dFracFastGas",paramDouble,&param.dFracFastGas,
 		    sizeof(double),"ffg",
 		    "<Fraction of Active Particles for Fast Gas>");
@@ -384,6 +386,10 @@ Main::Main(CkArgMsg* m) {
 	param.dEtauDot = 0.25;
 	prmAddParam(prm,"dEtauDot",paramDouble,&param.dEtauDot,
 		    sizeof(double),"etau", "<uDot criterion> = 0.25");
+	param.nTruncateRung = 0;
+        prmAddParam(prm,"nTruncateRung",paramInt,&param.nTruncateRung,
+		    sizeof(int),"nTR",
+		    "<number of MaxRung particles to delete MaxRung> = 0");
 
 	//
 	// Output parameters
@@ -478,6 +484,9 @@ Main::Main(CkArgMsg* m) {
         peanoKey=0;
 	prmAddParam(prm, "nDomainDecompose", paramInt, &domainDecomposition,
 		    sizeof(int),"D", "Kind of domain decomposition of particles");
+	dFracNoDomainDecomp = 0.0;
+	prmAddParam(prm, "dFracNoDomainDecomp", paramDouble, &dFracNoDomainDecomp,
+		    sizeof(double),"fndd", "(IGNORED)");
         lbcomm_cutoff_msgs = 1;
 	prmAddParam(prm, "lbcommCutoffMsgs", paramInt, &lbcomm_cutoff_msgs,
 		    sizeof(int),"lbcommcut", "Cutoff for communication recording (IGNORED)");
@@ -530,6 +539,10 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "iMaxRung parameter ignored. MaxRung is " << MAXRUNG
 		  << endl;
 	    }
+	if(prmSpecified(prm, "nTruncateRung")) {
+	    ckerr << "WARNING: ";
+	    ckerr << "nTruncateRung parameter ignored." << endl;
+	    }
 	if(prmSpecified(prm, "bKDK")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bKDK parameter ignored; KDK is always used." << endl;
@@ -566,6 +579,11 @@ Main::Main(CkArgMsg* m) {
 	if(prmSpecified(prm, "bOverwrite")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bOverwrite parameter ignored."
+		  << endl;
+	    }
+	if(prmSpecified(prm, "dFracNoDomainDecomp")) {
+	    ckerr << "WARNING: ";
+	    ckerr << "dFracNoDomainDecomp parameter ignored."
 		  << endl;
 	    }
 	    
@@ -1607,6 +1625,7 @@ Main::initialForces()
 	      << (CkWallTimer() - startTime) << " seconds." << endl;
       }
   
+  CkAssert(iPhase <= nPhases);
   if(iPhase < nPhases)
       treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
 
@@ -1916,7 +1935,7 @@ void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
     double a = csmTime2Exp(param.csm, dTime);
     
     if(first && !bIsRestarting) {
-	fprintf(fpLog, "# time redshift TotalEVir TotalE Kinetic Virial Potential TotalECosmo Lx Ly Lz Wallclock\n");
+	fprintf(fpLog, "# time redshift TotalEVir TotalE Kinetic Virial Potential TotalECosmo Ethermal Lx Ly Lz Wallclock\n");
 	dEcosmo = 0.0;
 	first = 0;
 	}
@@ -1930,16 +1949,21 @@ void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
 	    dEcosmo += 0.5*(a - csmTime2Exp(param.csm, dTimeOld))
 		*(dEnergy[2] + dUOld);
 	    }
+	first = 0;
 	}
 
     dUOld = dEnergy[2];
     dEnergy[2] *= a;
+    dEnergy[1] *= a;
     dTimeOld = dTime;
     double z = 1.0/a - 1.0;
+    double dEtotal = dEnergy[0] + dEnergy[2] - dEcosmo + a*a*dEnergy[6];
+    // Energy using the virial of Clausius
+    double dEtotalVir = dEnergy[0] + dEnergy[1] - dEcosmo + a*a*dEnergy[6];
     
-    fprintf(fpLog, "%g %g %g %g %g %g %g %g %g %g %g %g\n", dTime, z,
-	    dEnergy[0] + dEnergy[1], dEnergy[0]+dEnergy[2], dEnergy[0],
-	    dEnergy[1], dEnergy[2], dEcosmo, dEnergy[3], dEnergy[4],
+    fprintf(fpLog, "%g %g %g %g %g %g %g %g %g %g %g %g %g\n", dTime, z,
+	    dEtotalVir, dEtotal, dEnergy[0], dEnergy[1], dEnergy[2], dEcosmo,
+	    dEnergy[6], dEnergy[3], dEnergy[4],
 	    dEnergy[5], wallTime);
     fclose(fpLog);
     

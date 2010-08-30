@@ -41,7 +41,7 @@
 #include "Opt.h"
 #include "smooth.h"
 #include "Space.h"
-
+#include <float.h>
 
 SmoothParams *globalSmoothParams;
 
@@ -62,6 +62,9 @@ int SmoothCompute::doWork(GenericTreeNode *node, // Node to test
     // so that we have a quick return in case of empty nodes
     if(node->getType() == Empty || node->getType() == CachedEmpty){
 	return DUMP;
+	}
+    if(!(node->iParticleTypes & params->iType)) {
+	return DUMP; // no particles of appropriate type
 	}
     // check opening criterion
     int open = openCriterion(tp, node, reqID, state);
@@ -382,6 +385,15 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
   // state is passed in to function now. 
   NearNeighborState *nstate = (NearNeighborState *)state;
   
+  int bucketActive = 0;
+  for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
+      if(params->isSmoothActive(&tp->myParticles[j]))
+	  bucketActive++;
+      }
+
+  if(!bucketActive) // No particles in this bucket are active.
+      return;
+  
   //
   // Get nearest nSmooth particles in tree order
   //
@@ -389,6 +401,7 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
   int iCount = 0;
   int lastQueue = firstQueue;
   // Find only particles of interest
+  // First search from the start of the bucket to the end of this treepiece
   for(lastQueue = firstQueue;
       iCount <= nSmooth && lastQueue <= tp->myNumParticles;
       lastQueue++) {
@@ -396,15 +409,21 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 	  iCount++;
       }
   
+  // We still don't have enough particles.  Search back to the start of the
+  // treepiece
+  int bEnough = 1;	// Do we have enough particles on piece to get a limit?
   if(lastQueue > tp->myNumParticles) 
       {
 	  lastQueue = tp->myNumParticles;
 	  firstQueue = myNode->firstParticle - 1;
 	  for(; iCount <= nSmooth; firstQueue--) {
+	      if(firstQueue == 0) {
+		  bEnough = 0; // Ran out of particles
+		  break;
+		  }
 	      if(TYPETest(&tp->myParticles[firstQueue], params->iType))
 		  iCount++;
 	      }
-	  CkAssert(firstQueue > 0);
 	  }
 	  
   for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
@@ -426,7 +445,10 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 		  }
 	      }
       int end = nstate->heap_sizes[j];
-      Q[end].fKey = sqrt(drMax2);
+      if(bEnough)
+	  Q[end].fKey = sqrt(drMax2);
+      else
+	  Q[end].fKey = sqrt(DBL_MAX);
       Q[end].p = NULL; 
       std::push_heap(Q + 0, Q + end + 1); 
       nstate->heap_sizes[j]++; 
@@ -436,15 +458,21 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 void TreePiece::smoothBucketComputation() {
   twSmooth->init(sSmooth, this);
   int currentBucket = sSmoothState->currentBucket;
-  sSmooth->init(bucketList[currentBucket], activeRung, optSmooth);
+  GenericTreeNode *myNode = bucketList[currentBucket];
+  sSmooth->init(myNode, activeRung, optSmooth);
+  int bucketActive = 0;
+  for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
+      if(((SmoothCompute *)sSmooth)->params->isSmoothActive(&myParticles[j]))
+	  bucketActive += 1;
+      }
 
   // start the tree walk from the tree built in the cache
-  //  if (bucketList[currentBucket]->rungs >= activeRung) {
+  if (bucketActive) {
     for(int cr = 0; cr < numChunks; cr++){
       GenericTreeNode *chunkRoot = dm->chunkRootToNode(prefetchRoots[cr]);
       if(!chunkRoot){
         continue;
-      }
+	}
       twSmooth->walk(chunkRoot, sSmoothState, cr,
 		     encodeOffset(currentBucket, 0,0,0), smoothAwi);
       for(int x = -nReplicas; x <= nReplicas; x++) {
@@ -453,10 +481,11 @@ void TreePiece::smoothBucketComputation() {
 	      if(x || y || z)
 		  twSmooth->walk(chunkRoot, sSmoothState, cr,
 				 encodeOffset(currentBucket, x,y,z), smoothAwi);
-          }
-        }
+	      }
+	    }
+	  }
+	}
       }
-    }
   sSmoothState->counterArrays[0][currentBucket]--;
 } 
 
@@ -607,7 +636,7 @@ void ReSmoothCompute::bucketCompare(TreePiece *ownerTP,
     for(int j = node->firstParticle; j <= node->lastParticle; ++j) {
 	if(!params->isSmoothActive(&particles[j]))
 	    continue;
-	std::vector<pqSmoothNode> *Q = &nstate->Qs[j];
+	CkVec<pqSmoothNode> *Q = &nstate->Qs[j];
 	double rOld = particles[j].fBall; // Ball radius
 	Vector3D<double> dr = particles[j].position - rp;
 	
@@ -758,7 +787,7 @@ void ReSmoothCompute::walkDone(State *state) {
   for(int i = node->firstParticle; i <= node->lastParticle; i++) {
       if(!params->isSmoothActive(&part[i-node->firstParticle]))
 	  continue;
-      std::vector<pqSmoothNode> *Q = &((ReNearNeighborState *)state)->Qs[i];
+      CkVec<pqSmoothNode> *Q = &((ReNearNeighborState *)state)->Qs[i];
       pqSmoothNode *NN = &((*Q)[0]);
       int nCnt = Q->size();
       params->fcnSmooth(&part[i-node->firstParticle], nCnt, NN);
