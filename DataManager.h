@@ -55,10 +55,9 @@ struct PendingBuffers {
  */
 class DataManager : public CBase_DataManager {
 	friend class TreePiece;
+
 	/// The array of TreePieces I hold data for.
 	CProxy_TreePiece treePieces;
-	// A pointer to the CacheManager in the local processor
-	//CacheManager *localCache;
 
 protected:
 
