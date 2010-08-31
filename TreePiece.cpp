@@ -630,6 +630,8 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles,
 		  = (extraSPHData *)&mySPHParticles[iGas];
 	      iGas++;
 	      }
+	  else
+	      myParticles[iPart+1].extraData = NULL;
 	  }
 
       sort(myParticles+1, myParticles+myNumParticles+1);
