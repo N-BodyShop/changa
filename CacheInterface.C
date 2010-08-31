@@ -97,7 +97,8 @@ void * EntryTypeSmoothParticle::unpack(CkCacheFillMsg *msg, int chunk, CkArrayIn
     for(int i = 0; i < nTotal; i++) {
 	cParts->partCached[i].extraData = &cParts->extraSPHCached[i];
 	cPartsIn->partExt[i].getParticle(&cParts->partCached[i]);
-      	globalSmoothParams->initSmoothCache(&(cParts->partCached[i]));	// Clear cached copy
+      	if(TYPETest(&(cParts->partCached[i]), globalSmoothParams->iType))
+	   globalSmoothParams->initSmoothCache(&(cParts->partCached[i]));	// Clear cached copy
 	}
     CkFreeMsg(msg);
     return (void*) cParts;
