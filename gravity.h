@@ -588,6 +588,12 @@ openCriterionBucket(Tree::GenericTreeNode *node,
                    int localIndex // requesting TreePiece
                    ) {
   // mark the node as used by the requesting TreePiece
+  /*
+  if(localIndex > 8){
+    CkPrintf("%d [openCriterionBucket] localindex: %d\n", CkMyPe(), localIndex);
+    CkAbort("");
+  }
+  */
   node->markUsedBy(localIndex);
 
 #if COSMO_STATS > 0

@@ -262,6 +262,7 @@ void TreePiece::setupSmooth() {
   if (numChunks == 0 && myNumParticles == 0) numChunks = 1;
   cacheSmoothPart[CkMyPe()].cacheSync(numChunks, idxMax, localIndex);
   cacheNode[CkMyPe()].cacheSync(numChunks, idxMax, localIndex);
+  CkPrintf("[%d] (%d) SPH localIndex %d\n", thisIndex, CkMyPe(), localIndex);
   
   // The following if is necessary to prevent nodes containing only TreePieces
   // without particles from getting stuck and crashing.

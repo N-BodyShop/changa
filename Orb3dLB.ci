@@ -1,11 +1,34 @@
 module Orb3dLB {
 
 extern module CentralLB;
+
 initnode void lbinit(void);
 
 group [migratable] Orb3dLB : CentralLB {
   entry void Orb3dLB(const CkLBOptions &);  
   entry void receiveCentroids(CkReductionMsg *msg);
+
+  
+  //entry void recvRemoteGraph(CommGraphMsg *msg);
+  //entry constructCommGraph(CkCallback &cb);
+  //entry void waitForGraphParts(){
+
+  //  for(commGraphI = 0; commGraphI < 3; commGraphI++){
+  //    when recvRemoteGraph(CommGraphMsg *msg){
+  //      atomic{
+
+  //        delete msg;
+  //      }
+  //    }
+  //  }
+  //  when constructCommGraph(CkCallback &cb) {
+  //    atomic{
+        
+  //      cb.send();
+  //    }
+  //  }
+
+  //};
 };
 
 };

@@ -78,6 +78,9 @@ protected:
 
 	/// A list of roots of the TreePieces in this node
 	CkVec<Tree::GenericTreeNode*> registeredChares;
+	std::map<int,CkArrayIndexMax> registeredCharesLocalIndices;
+        int numProcessRequests;
+        int numResidents;
 #ifdef CUDA
 	// holds chare array indices of registered treepieces
 	CkVec<TreePieceDescriptor> registeredTreePieces;
@@ -145,6 +148,9 @@ public:
 	DataManager(const CkArrayID& treePieceID);
 	DataManager(CkMigrateMessage *);
 
+
+        void recvLocalIndex(CkArrayIndexMax &index, int localindex); 
+
 #ifdef CUDA
         //void serializeNodes(GenericTreeNode *start, CudaMultipoleMoments *&postPrefetchMoments, CompactPartData *&postPrefetchParticles);
 		//void serializeNodes(GenericTreeNode *start);
@@ -165,9 +171,13 @@ public:
         DataManager(){} 
 #endif
         void clearInstrument(CkCallback &cb);
+        void processLocalCommGraph();
+        void waitForLocalGraphAndProxy();
+
 
 private:
         void init();
+        void enumerateUsedBy(GenericTreeNode *node, int *weights, int totalChares, int home);
 
 public:
 

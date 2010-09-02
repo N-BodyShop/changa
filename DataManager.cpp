@@ -6,6 +6,7 @@
 #include "ParallelGravity.h"
 #include "DataManager.h"
 #include "Reductions.h"
+#include "Orb3dLB.h"
 
 #ifdef CUDA
 #include "cuda_typedef.h"
@@ -35,6 +36,8 @@ void DataManager::init() {
   root = NULL;
   oldNumChunks = 0;
   chunkRoots = NULL;
+  numProcessRequests = 0;
+  numResidents = 0;
 #ifdef CUDA
   treePiecesDone = 0;
   treePiecesDonePrefetch = 0;
@@ -48,6 +51,8 @@ void DataManager::init() {
   gpuFree = true;
 #endif
   Cool = CoolInit();
+
+  //thisgroup[CkMyNode()].waitForLocalGraphAndProxy();
 }
 
 void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb) {
@@ -172,6 +177,7 @@ void DataManager::notifyPresence(Tree::GenericTreeNode *root) {
 
   CmiLock(__nodelock);
   registeredChares.push_back(root);
+  numResidents++;
 
 #ifdef CUDA
   registeredTreePieces.push_back(TreePieceDescriptor(tp, index));
@@ -196,16 +202,19 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
 #endif
     Tree::GenericTreeNode **gtn = registeredChares.getVec();
     // delete old tree
+
     Tree::NodeLookupType::iterator nodeIter;
+
     for (nodeIter = nodeLookupTable.begin(); nodeIter != nodeLookupTable.end(); nodeIter++) {
       delete nodeIter->second;
     }
+
+    registeredCharesLocalIndices.clear();
     nodeLookupTable.clear();
 #ifdef CUDA
     cumNumReplicatedNodes = 0;
 #endif
     root = buildProcessorTree(totalChares, gtn);
-    registeredChares.removeAll();
 #if COSMO_DEBUG > 0
     printGenericTree(root,*ofs);
     ofs->close();
@@ -949,4 +958,128 @@ void DataManager::clearInstrument(CkCallback &cb){
 #endif
 }
 
+LDObjid idx2LDObjid(const CkArrayIndex &idx);
 
+void DataManager::processLocalCommGraph(){
+
+  CmiLock(__nodelock);
+
+  int totalChares = numResidents; 
+  numProcessRequests++;
+  if(numProcessRequests == totalChares){
+
+    //CkPrintf("(%d) INSIDE PROCESSLOCALCOMMGRAPH: %d\n", CkMyPe(), totalChares);
+    /*
+    Tree::NodeLookupType::iterator nodeIter;
+    std::map<CkArrayIndexMax,int> *useinf = new std::map<CkArrayIndexMax,int>[totalChares+1];
+    int nodesExamined = 0;
+    int nodeUpdates = 0;
+    int nodeInserts = 0;
+    int shifts = 0;
+    */
+
+    int *weights;
+    int wsize = (totalChares+1)*(totalChares+1);
+    weights = new int [wsize];
+    for(int i = 0; i < wsize; i++){
+      weights[i] = 0;
+    }
+
+    //CkPrintf("DM checking before enumerateUsedBy\n");
+    //CmiMemoryCheck();
+    for(int i = 0; i < registeredChares.size(); i++){
+      GenericTreeNode *iroot = registeredChares[i];
+      enumerateUsedBy(iroot, weights, totalChares, i);
+    }
+    registeredChares.removeAll();
+    //CkPrintf("DM checking after enumerateUsedBy\n");
+    //CmiMemoryCheck();
+
+
+    CkLocMgr *mgr = treePieces.ckLocMgr();  
+    CkAssert(mgr != NULL);
+    const LDOMHandle omhandle = mgr->getOMHandle();
+    LBDatabase *mylbdatabaseptr = LBDatabaseObj();
+
+    //CkPrintf("(%d) nodes examined %d nodeUpdates %d nodeInserts %d shifts %d\n", CkMyPe(), nodesExamined, nodeUpdates, nodeInserts, shifts);
+    //CkPrintf("DM checking before LB update\n");
+    //CmiMemoryCheck();
+    for(int i = 1; i < totalChares+1; i++){
+      std::map<int,CkArrayIndexMax>::iterator liit = 
+        registeredCharesLocalIndices.find(i);
+        
+      CkLocRec *rec = mgr->elementNrec(liit->second);
+      if(rec == NULL){
+        CkPrintf("(%d) NULL locrec for local index %d %d array index %d\n", CkMyNode(), i, liit->first, (liit->second).index[0]);
+        CkAbort("DM NULL CkLocRec\n");
+      }
+      else if(rec->type() != CkLocRec::local){
+        CkAbort("non-local rec for comm source obj.\n");
+      }
+
+      CkLocRec_local *lrec = (CkLocRec_local *)rec;
+      LDObjHandle srchandle = lrec->getLdHandle();
+
+      for(int j = 1; j < totalChares; j++){
+        if(i != j){
+          std::map<int, CkArrayIndexMax>::iterator riit = 
+            registeredCharesLocalIndices.find(j);
+            // FIXME -won't work for SMP
+          mylbdatabaseptr->ExplicitSend(omhandle, idx2LDObjid(riit->second), weights[i*(totalChares+1)+j], CkMyNode(), srchandle);
+        }
+      }
+    }
+    //CkPrintf("DM checking after LB update\n");
+    //CmiMemoryCheck();
+
+
+    delete [] weights;
+
+    registeredCharesLocalIndices.clear();
+    numProcessRequests = 0;
+    numResidents = 0;
+
+    CkCacheDummyMsg *dummy = new CkCacheDummyMsg;
+    cacheGravPart[CkMyNode()].localGraphReady(dummy);
+
+    dummy = new CkCacheDummyMsg;
+    cacheNode[CkMyNode()].localGraphReady(dummy);
+
+    dummy = new CkCacheDummyMsg;
+    cacheSmoothPart[CkMyNode()].localGraphReady(dummy);
+
+
+  }
+  CmiUnlock(__nodelock);
+
+
+  return;
+}
+
+void DataManager::enumerateUsedBy(GenericTreeNode *node, int *weights, int totalChares, int home){
+  CmiUInt8 usedby = node->getUsedBy();
+  int localtp = 1;
+  //CkPrintf("(%d) nodes examined usedby %d\n", CkMyPe(), usedby); 
+  while(usedby > 0 && localtp <= totalChares){
+    if(usedby & 0x1){
+      //shifts++;
+      weights[home*(totalChares+1)+localtp]++;
+    }
+    usedby >>= 1;
+    localtp++;
+  }
+  for(int i = 0; i < node->numChildren(); i++){
+    GenericTreeNode *child = node->getChildren(i);
+    if(child != NULL){
+      enumerateUsedBy(child, weights, totalChares, home);
+    }
+  }
+}
+
+void DataManager::recvLocalIndex(CkArrayIndexMax &index, int localindex){ 
+
+  CmiLock(__nodelock);
+  //CkPrintf("(%d) recvlocalindex %d %d\n", CkMyNode(), index.index[0], localindex);
+  registeredCharesLocalIndices[localindex] = index;
+  CmiUnlock(__nodelock);
+}

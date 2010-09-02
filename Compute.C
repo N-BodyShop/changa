@@ -625,7 +625,7 @@ int PrefetchCompute::openCriterion(TreePiece *ownerTP,
     testNode.boundingBox = prs.prefetchReq[i];
     //testNode.moments.softBound = 0.0;
 
-    if(openCriterionBucket(node, &testNode, offset, ownerTP->getIndex()))
+    if(openCriterionBucket(node, &testNode, offset, ownerTP->getLocalIndex()))
       return 1;
   }
   return 0;

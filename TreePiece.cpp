@@ -16,6 +16,7 @@
 // jetley
 #include "MultistepLB.h"
 #include "Orb3dLB.h"
+#include "CommMeasureLB.h"
 // jetley - refactoring
 //#include "codes.h"
 #include "Opt.h"
@@ -2204,6 +2205,7 @@ void TreePiece::continueWrapUp(){
 #endif
 
   markWalkDone();
+  dm->processLocalCommGraph();
 
   if(verbosity > 4){
     ckerr << "TreePiece " << thisIndex << ": My particles are done"
@@ -3233,6 +3235,12 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   int dummy;
   cacheNode[CkMyPe()].cacheSync(numChunks, idxMax, localIndex);
   cacheGravPart[CkMyPe()].cacheSync(numChunks, idxMax, dummy);
+  //CkPrintf("[%d] (%d) localIndex %d\n", thisIndex, CkMyPe(), localIndex);
+
+  CkArrayIndexMax cmx;
+  cmx.nInts = 1;
+  cmx.index[0] = thisIndex;
+  dm->recvLocalIndex(cmx, localIndex);
 
   if (myNumParticles == 0) {
     // No particles assigned to this TreePiece
@@ -3819,7 +3827,8 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
     TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles, activeRung, prevLARung);
 
     // CkCallback(int ep, int whichProc, CkGroupID &gid)
-    CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
+    CkCallback cbk(CkIndex_CommMeasureLB::receiveCentroids(NULL), 0, proxy);
+    //CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
     //CkCallback cbk(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
 #if COSMO_MCLB > 1
     CkPrintf("[%d : %d] proxyValid, contributing value (%f,%f,%f, %u,%u,%u : %d)\n", CkMyPe(), thisIndex, tv.vec.x, tv.vec.y, tv.vec.z, tv.numActiveParticles, tv.myNumParticles, tv.activeRung, tv.tag);

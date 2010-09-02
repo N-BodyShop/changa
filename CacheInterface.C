@@ -255,6 +255,11 @@ void * EntryTypeGravityNode::request(CkArrayIndexMax& idx, CkCacheKey key) {
   return NULL;
 }
 
+CmiUInt8 EntryTypeGravityNode::getUsedBy(void *data){
+  GenericTreeNode *node = (GenericTreeNode *)data;
+  return node->getUsedBy();
+}
+
 void * EntryTypeGravityNode::unpack(CkCacheFillMsg *msg, int chunk, CkArrayIndexMax &from) {
   // recreate the entire tree inside this message
   Tree::BinaryTreeNode *node = (Tree::BinaryTreeNode *) (((char*)msg->data) + 8);

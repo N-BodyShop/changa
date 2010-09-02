@@ -3,6 +3,7 @@
 mainmodule ParallelGravity {
 
   extern module Reductions;
+  extern module CkCache;
 
   readonly CProxy_Main mainChare;
   readonly int verbosity;
@@ -124,6 +125,9 @@ mainmodule ParallelGravity {
 			 COOLPARAM inParam, const CkCallback& cb);
     entry void dmCoolTableRead(double dTableData[nData], int nData, const CkCallback& cb);
     entry void CoolingSetTime(double z, double dTime, const CkCallback& cb);
+
+    //entry [exclusive] void recvLocalIndex(CkArrayIndexMax &, int);
+
   };
   array [1D] TreePiece {
     entry TreePiece();

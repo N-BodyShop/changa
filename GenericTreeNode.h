@@ -85,6 +85,7 @@ namespace Tree {
     bool used; // FIXME: this field can now be replaced by "usedBy"
 #endif
 
+    CmiUInt8 getUsedBy(){ return usedBy; }
     /// The moments for the gravity computation
     MultipoleMoments moments;
     /// The parent of this node, or null if none
@@ -164,8 +165,8 @@ namespace Tree {
 
     // these two functions are used to track the communication between objects:
     // a nodes is marked usedBy when a local TreePiece has touched it
-    void markUsedBy(int index) { usedBy |= (((CmiUInt8)1) << index); }
-    bool isUsedBy(int index) { return (usedBy & (((CmiUInt8)1) << index)); }
+    void markUsedBy(int index) { usedBy |= (((CmiUInt8)1) << (index-1)); }
+    bool isUsedBy(int index) { return (usedBy & (((CmiUInt8)1) << (index-1))); }
 
     /// construct the children of the "this" node following the given logical
     /// criteria (Oct/Orb)

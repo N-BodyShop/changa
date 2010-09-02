@@ -77,6 +77,7 @@ private:
   ComparatorFn pc[NDIMS];
   // pointer to stats->to_proc
   CkVec<int> *mapping;
+  int commGraphI;
 
   int procsPerNode;
 

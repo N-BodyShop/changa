@@ -1,0 +1,12 @@
+module CommMeasureLB {
+
+extern module CentralLB;
+
+initnode void lbinit(void);
+
+group [migratable] CommMeasureLB : CentralLB {
+  entry void CommMeasureLB(const CkLBOptions &);  
+  entry void receiveCentroids(CkReductionMsg *msg);
+};
+
+};

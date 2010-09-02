@@ -73,6 +73,7 @@ public:
   void writeback(CkArrayIndexMax&, CkCacheKey, void *);
   void free(void *);
   int size(void *);
+  CmiUInt8 getUsedBy(void *data);
   
   static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, CkCacheUserData &, void*, int);
 };

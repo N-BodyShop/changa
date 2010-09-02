@@ -6,6 +6,10 @@
 #include "Vector3D.h"
 
 extern CProxy_TreePiece treeProxy;
+extern CProxy_DataManager dMProxy;
+extern CProxy_CkCacheManager cacheGravPart;
+extern CProxy_CkCacheManager cacheGravSmooth;
+extern CProxy_CkCacheManager cacheGravNode;
 
 using namespace std;
 
@@ -67,6 +71,8 @@ Orb3dLB::Orb3dLB(const CkLBOptions &opt): CentralLB(opt)
   pc[0] = pcx;
   pc[1] = pcy;
   pc[2] = pcz;
+
+  //thisgroup[CkMyPe()].waitForGraphParts();
 }
 
 void Orb3dLB::receiveCentroids(CkReductionMsg *msg){

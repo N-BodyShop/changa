@@ -1292,6 +1292,15 @@ void Main::advanceBigStep(int iStep) {
     if(iPhase < nPhases)
 	treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
 
+    //CkPrintf("[main] start collect\n");
+    cacheGravPart.collectCommGraph(CkCallbackResumeThread());
+    //CkPrintf("[main] done grav part collect\n");
+    cacheNode.collectCommGraph(CkCallbackResumeThread());
+    //CkPrintf("[main] done grav node collect\n");
+    //cacheSmoothPart.collectCommGraph(CkCallbackResumeThread());
+    //CkPrintf("[main] done smooth part collect\n");
+
+
     if(!param.bStaticTest) {
       // Closing Kick
       double dKickFac[MAXRUNG+1];
@@ -1609,6 +1618,14 @@ Main::initialForces()
   
   if(iPhase < nPhases)
       treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
+
+  //CkPrintf("[main] start initial collect\n");
+  cacheGravPart.collectCommGraph(CkCallbackResumeThread());
+  //CkPrintf("[main] done initial grav part collect\n");
+  cacheNode.collectCommGraph(CkCallbackResumeThread());
+  //CkPrintf("[main] done initial grav node collect\n");
+  //cacheSmoothPart.collectCommGraph(CkCallbackResumeThread());
+  //CkPrintf("[main] done initial smooth part collect\n");
 
   // Initial Log entry
   char achLogFileName[MAXPATHLEN];
