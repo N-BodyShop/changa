@@ -224,9 +224,8 @@ void TreePiece::flushSmoothParticles(CkCacheFillMsg *msg) {
   
   int j = 0;
   for(int i = data->begin; i <= data->end; i++) {
-      if(!TYPETest(&myParticles[i], sc->params->iType))
-	  continue;
-      sc->params->combSmoothCache(&myParticles[i], &data->partExt[j]);
+      if(TYPETest(&myParticles[i], sc->params->iType))
+	  sc->params->combSmoothCache(&myParticles[i], &data->partExt[j]);
       j++;
       }
   
