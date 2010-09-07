@@ -37,6 +37,8 @@
 #include "dumpframe.h"
 #include "liveViz.h"
 
+#include "TaggedVector3D.h"
+
 #include "codes.h"
 #include "CacheInterface.h"
 
@@ -81,6 +83,7 @@ inline void operator|(PUP::er &p,DomainsDec &d) {
 #include "GravityParticle.h"
 
 #include "MultistepLB.decl.h"          // jetley - needed for CkIndex_MultistepLB
+#include "Orb3dLB.decl.h"          // jetley - needed for CkIndex_Orb3dLB
 
 class SmoothParams;
 
@@ -1499,6 +1502,8 @@ public:
         void receiveProxy(CkGroupID _proxy){ proxy = _proxy; proxySet = true; /*CkPrintf("[%d : %d] received proxy\n", CkMyPe(), thisIndex);*/}
         void doAtSync();
         GravityParticle *getParticles(){return myParticles;}
+
+        void balanceBeforeInitialForces(CkCallback &cb);
 
 };
 
