@@ -862,8 +862,8 @@ void TreePiece::drift(double dDelta,  // time step in x containing
   boundingBox.reset();
   int bInBox = 1;
 
-  for(unsigned int i = 0; i < myNumParticles; ++i) {
-      GravityParticle *p = &myParticles[i+1];
+  for(unsigned int i = 1; i <= myNumParticles; ++i) {
+      GravityParticle *p = &myParticles[i];
       if (p->iOrder >= nGrowMass)
 	  p->position += dDelta*p->velocity;
       if(bPeriodic) {
@@ -880,14 +880,16 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 
           //CkPrintf("[%d] particle %d test %d: %d,%d\n", thisIndex, i, j, a, b);
           // Sanity Checks
-          bInBox = bInBox
-            && (p->position[j] >= -0.5*fPeriod[j]);
-          bInBox = bInBox
-            && (p->position[j] < 0.5*fPeriod[j]);
+          bInBox = bInBox && a; 
+          bInBox = bInBox && b;
         }
-        CkAssert(bInBox);
+        if(!bInBox){
+          CkPrintf("[%d] p: %f,%f,%f\n", thisIndex, p->position[0], p->position[1], p->position[2]);
+          CkAbort("binbox failed\n");
+        }
       }
       boundingBox.grow(p->position);
+      /*
       if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
 	  p->vPred() += dvDelta*p->treeAcceleration;
 	  if(!bGasIsothermal) {
@@ -906,8 +908,12 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 #endif
 	      }
 	  }
+          */
       }
   CkAssert(bInBox);
+  if(!bInBox){
+    CkAbort("binbox2 failed\n");
+  }
   contribute(sizeof(OrientedBox<float>), &boundingBox,
       growOrientedBox_float,
       CkCallback(CkIndex_TreePiece::assignKeys(0), pieces));
@@ -3796,40 +3802,42 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   // AtSync();
   //
 
+  /*
   if(!proxyValid || !proxySet){              // jetley
     proxyValid = true;
 #if COSMO_MCLB > 1
     CkPrintf("[%d : %d] !proxyValid, calling doAtSync()\n", CkMyPe(), thisIndex);
 #endif
-    prevLARung = activeRung;
     doAtSync();
   }
   else{
-    unsigned int numActiveParticles, i;
+  */
+  unsigned int numActiveParticles, i;
 
-    if(activeRung == 0){
-      numActiveParticles = myNumParticles;
-    }
-    else{
-      for(numActiveParticles = 0, i = 1; i <= myNumParticles; i++)
-        if(myParticles[i].rung >= activeRung)
-          numActiveParticles++;
-    }
-    LDObjHandle myHandle = myRec->getLdHandle();
-    TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles, activeRung, prevLARung);
+  if(activeRung == 0){
+    numActiveParticles = myNumParticles;
+  }
+  else{
+    for(numActiveParticles = 0, i = 1; i <= myNumParticles; i++)
+      if(myParticles[i].rung >= activeRung)
+        numActiveParticles++;
+  }
+  LDObjHandle myHandle = myRec->getLdHandle();
+  TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles, activeRung, prevLARung);
+  tv.tag = thisIndex;
 
-    // CkCallback(int ep, int whichProc, CkGroupID &gid)
-    CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
-    //CkCallback cbk(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
+  // CkCallback(int ep, int whichProc, CkGroupID &gid)
+  CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
+  //CkCallback cbk(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
 #if COSMO_MCLB > 1
     CkPrintf("[%d : %d] proxyValid, contributing value (%f,%f,%f, %u,%u,%u : %d)\n", CkMyPe(), thisIndex, tv.vec.x, tv.vec.y, tv.vec.z, tv.numActiveParticles, tv.myNumParticles, tv.activeRung, tv.tag);
 #endif
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
-    if(thisIndex == 0)
-      CkPrintf("Changing prevLARung from %d to %d\n", prevLARung, activeRung);
-    prevLARung = activeRung;
-    //contribute(sizeof(TaggedVector3D), &tv, CkReduction::set, cbk);
-  }
+  contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
+  if(thisIndex == 0)
+    CkPrintf("Changing prevLARung from %d to %d\n", prevLARung, activeRung);
+  prevLARung = activeRung;
+  //contribute(sizeof(TaggedVector3D), &tv, CkReduction::set, cbk);
+  //}
 }
 
 void TreePiece::doAtSync(){
@@ -5663,6 +5671,39 @@ void TreePiece::setProjections(int bOn)
         traceEnd();
 }
 
+void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
+  LDObjHandle handle = myRec->getLdHandle();
+  Vector3D<float> centroid;
+  centroid.x = 0.0;
+  centroid.y = 0.0;
+  centroid.z = 0.0;
+  for(int i = 1; i <= myNumParticles; i++){
+    centroid += myParticles[i].position; 
+  }
+  if(myNumParticles > 0){
+    centroid /= myNumParticles;
+  }
+
+  TaggedVector3D tv(centroid, handle, myNumParticles, myNumParticles, 0, 0);
+  tv.tag = thisIndex;
+
+  string lbname("Orb3dLB");
+  LBDatabase *lbdb = LBDatabaseObj();
+  BaseLB **lbs = lbdb->getLoadBalancers();
+  int nlbs = lbdb->getNLoadBalancers(); 
+  int i;
+  for(i = 0; i < nlbs; i++){
+    if(lbname == string(lbs[i]->lbName())) break;
+  }
+  proxy = lbs[i]->getGroupID();
+
+  CkCallback lbcb(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
+  contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+
+  // this will be called in resumeFromSync()
+  callback = cb;
+}
+
 #ifdef CUDA
 void TreePiece::clearMarkedBuckets(CkVec<GenericTreeNode *> &markedBuckets){
   int len = markedBuckets.length();
@@ -5676,4 +5717,5 @@ void TreePiece::clearMarkedBucketsAll(){
     bucketList[i]->bucketArrayIndex = -1;
   }
 }
+
 #endif

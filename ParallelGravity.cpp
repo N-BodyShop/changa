@@ -1554,6 +1554,10 @@ Main::initialForces()
 	 	      CkCallbackResumeThread(), true);
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
+  
+  // Balance load initially after decomposition
+  treeProxy.balanceBeforeInitialForces(CkCallbackResumeThread());
+
   /******** Tree Build *******/
   ckout << "Building trees ...";
   startTime = CkWallTimer();
@@ -1568,6 +1572,7 @@ Main::initialForces()
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
 #endif
+
       
   CkCallback cbGravity(CkCallback::resumeThread);  // needed below to wait for gravity
 

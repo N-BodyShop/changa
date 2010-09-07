@@ -67,6 +67,7 @@ Orb3dLB::Orb3dLB(const CkLBOptions &opt): CentralLB(opt)
   pc[0] = pcx;
   pc[1] = pcy;
   pc[2] = pcz;
+
 }
 
 void Orb3dLB::receiveCentroids(CkReductionMsg *msg){
@@ -87,6 +88,7 @@ void Orb3dLB::receiveCentroids(CkReductionMsg *msg){
 
 //jetley
 CmiBool Orb3dLB::QueryBalanceNow(int step){
+  /*
   if(step == 0){
     if(CkMyPe() == 0){                          // only one group member need broadcast
       CkPrintf("Orb3dLB: Step 0, calling treeProxy.receiveProxy(thisgroup)\n");
@@ -95,6 +97,11 @@ CmiBool Orb3dLB::QueryBalanceNow(int step){
     firstRound = true;
     return false; 
   }
+  */
+  // Now, by the first step, we already have
+  // centroids. of course, since no gravity has
+  // been calculated yet, load can only be 
+  // estimated via num particles in treepiece
   if(CkMyPe() == 0)
     CkPrintf("Orb3dLB: Step %d\n", step);
   return true;
@@ -114,8 +121,14 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
     tp[tag].centroid.x = tpCentroids[i].vec.x;
     tp[tag].centroid.y = tpCentroids[i].vec.y;
     tp[tag].centroid.z = tpCentroids[i].vec.z;
-    tp[tag].load = stats->objData[i].wallTime;
+    if(step() == 0){
+      tp[tag].load = tpCentroids[i].myNumParticles;
+    }
+    else{
+      tp[tag].load = stats->objData[i].wallTime;
+    }
     tp[tag].lbindex = tag;
+    tp[tag].index = tpCentroids[i].tag;
   }
 
   mapping = &stats->to_proc;
@@ -161,6 +174,10 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
     CkPrintf("proc %d load %f\n", i, procload[i]);
   }
 
+  delete[] procload;
+  delete[] tp;
+  delete[] nodes;
+
 }
 
 void Orb3dLB::map(TPObject *tp, int ntp, int nn, Node *nodes, int xs, int ys, int zs, int dim){
@@ -198,7 +215,7 @@ void Orb3dLB::directMap(TPObject *tp, int ntp, Node *nodes){
   //CkPrintf("[Orb3dLB] mapping %d objects to Node (%d,%d,%d)\n", ntp, nodes[0].x, nodes[0].y, nodes[0].z);
 
   for(int i = 0; i < ntp; i++){
-    CkPrintf("obj %d %f %f %f %f to node %d %d %d\n", tp[i].lbindex, tp[i].load, tp[i].centroid.x, tp[i].centroid.y, tp[i].centroid.z, nodes[0].x, nodes[0].y, nodes[0].z);
+    CkPrintf("obj %d thisindex %d %f %f %f %f to node %d %d %d\n", tp[i].lbindex, tp[i].index, tp[i].load, tp[i].centroid.x, tp[i].centroid.y, tp[i].centroid.z, nodes[0].x, nodes[0].y, nodes[0].z);
   }
   
   std::priority_queue<TPObject> pq_obj;
