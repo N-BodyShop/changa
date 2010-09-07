@@ -1230,8 +1230,9 @@ void Main::advanceBigStep(int iStep) {
 	    if (a >= param.daSwitchTheta) theta = param.dTheta2; 
 	    }
 	/******** Force Computation ********/
-	ckout << "Calculating gravity (tree bucket, theta = " << theta
-	      << ") ...";
+	//ckout << "Calculating gravity (tree bucket, theta = " << theta
+	//      << ") ...";
+        CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
 	startTime = CkWallTimer();
 	if(param.bConcurrentSph) {
 	    ckout << endl;
@@ -1246,8 +1247,9 @@ void Main::advanceBigStep(int iStep) {
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
-	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-		  << endl;
+	    //ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+	    //	  << endl;
+            CkPrintf("took %f seconds\n", CkWallTimer()-startTime);
 	    }
 	iPhase++;
     }
@@ -1260,8 +1262,9 @@ void Main::advanceBigStep(int iStep) {
     
     if(param.bConcurrentSph && param.bDoGravity) {
 	CkFreeMsg(cbGravity.thread_delay());
-	ckout << "Calculating gravity and SPH took "
-	      << (CkWallTimer() - startTime) << " seconds." << endl;
+	//ckout << "Calculating gravity and SPH took "
+	//      << (CkWallTimer() - startTime) << " seconds." << endl;
+        CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
 	}
     
 #if COSMO_STATS > 0
@@ -1575,8 +1578,9 @@ Main::initialForces()
 	  if (a >= param.daSwitchTheta) theta = param.dTheta2; 
 	  }
       /******** Force Computation ********/
-      ckout << "Calculating gravity (theta = " << theta
-	    << ") ...";
+      //ckout << "Calculating gravity (theta = " << theta
+      //    << ") ...";
+      CkPrintf("Calculating gravity (theta = %f) ... ", theta);
       startTime = CkWallTimer();
       if(param.bConcurrentSph) {
 	  treeProxy.startIteration(0, theta, cbGravity);
@@ -1589,8 +1593,9 @@ Main::initialForces()
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
-	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-		<< endl;
+	  //ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+          //		<< endl;
+          CkPrintf("took %f seconds.\n", CkWallTimer()-startTime);
 	  }
       iPhase++;
       }
@@ -1603,8 +1608,9 @@ Main::initialForces()
   
   if(param.bConcurrentSph && param.bDoGravity) {
       CkFreeMsg(cbGravity.thread_delay());
-	ckout << "Calculating gravity and SPH took "
-	      << (CkWallTimer() - startTime) << " seconds." << endl;
+	//ckout << "Calculating gravity and SPH took "
+	//      << (CkWallTimer() - startTime) << " seconds." << endl;
+        CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
       }
   
   if(iPhase < nPhases)
