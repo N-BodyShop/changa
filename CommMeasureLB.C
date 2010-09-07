@@ -63,19 +63,33 @@ void CommMeasureLB::work(BaseLB::LDStats* stats, int count)
   stats->makeCommHash();
   Vector3D<float> *lbcentroids = new Vector3D<float>[numobjs];
   
-  //CkPrintf("checking before centroids\n");
-  //CmiMemoryCheck();
   CkAssert(tpCentroids.length() == numobjs);
   for(int i = 0; i < numobjs; i++){
     LDObjHandle &handle = tpCentroids[i].handle;
     int tag = stats->getHash(handle.id,handle.omhandle.id);
     lbcentroids[tag] = tpCentroids[i].vec;
   }
-  //CkPrintf("checking before comm\n");
-  //CmiMemoryCheck();
+
+  // first find max and min
+  int nb = 20;
+  float max = 1.8;
+  float min = 0.0;
+  float gran = (max-min)/(1.0*nb);
+
+  int *counts;
+
 
   const int csz = stats->n_comm;
-  for(int i=0; i<csz; i++) {
+  
+  int i;
+
+  counts = new int [nb];
+  for(i = 0; i < nb; i++){
+    counts[i] = 0;
+  }
+
+
+  for(i=0; i<csz; i++) {
       LDCommData &cdata = stats->commData[i];
       if(!cdata.from_proc() && cdata.receiver.get_type() == LD_OBJ_MSG)
       {
@@ -84,31 +98,35 @@ void CommMeasureLB::work(BaseLB::LDStats* stats, int count)
         if (stats->complete_flag == 0 && recverID == -1) continue;
         CmiAssert(senderID < numobjs && senderID >= 0);
         CmiAssert(recverID < numobjs && recverID >= 0);
-        //comm[senderID][recverID] += cdata.messages;
-        //comm[recverID][senderID] += cdata.messages;
         Vector3D<float> dist = lbcentroids[senderID]-lbcentroids[recverID];
-        CkPrintf("[edge] %d %d %d %f\n", senderID, recverID, cdata.bytes, dist.length());
 
+        int bin = (dist.length()-min)/gran;
+        counts[bin] += cdata.bytes;
 
       }
-      /*
-      else if (cdata.receiver.get_type() == LD_OBJLIST_MSG) {
-        int nobjs;
-        LDObjKey *objs = cdata.receiver.get_destObjs(nobjs);
-        int senderID = stats->getHash(cdata.sender);
-        for (j=0; j<nobjs; j++) {
-           int recverID = stats->getHash(objs[j]);
-           if((senderID == -1)||(recverID == -1))
-              if (_lb_args.migObjOnly()) continue;
-              else CkAbort("Error in search\n");
-           comm[senderID][recverID] += cdata.messages;
-           comm[recverID][senderID] += cdata.messages;
-        }
-      }
-      */
     }
 
+    ofstream ofs("hist.dat");
+    ofs << "=table" << endl
+        << "ylabel=Volume" << endl                                                                  
+        << "xlabel=Distance" << endl                                                            
+        << "=noxlabels"  << endl                                                                     
+        << "colors=red"  << endl                                                                     
+        << "font=Helvetica" << endl                                                                  
+        << "extraops=set size 0.65,0.65" << endl;
+
+    ofs << endl;
+    for(i = 0; i < nb; i++){
+      float imin = min+i*gran;
+      if(imin > max) break;
+      CkPrintf("%f %d\n", imin, counts[i]);
+      ofs << imin << " " << counts[i] << endl; 
+    }
+
+    ofs.close();
+
     delete[] lbcentroids;
+    delete[] counts;
 
 
 }
