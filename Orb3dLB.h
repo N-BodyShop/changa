@@ -42,6 +42,7 @@ class TPObject{
   float load;
   int index;
   int lbindex;
+  int nparticles;
 
   bool operator<(const TPObject &t) const{
     return load < t.load;
