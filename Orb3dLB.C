@@ -117,10 +117,14 @@ CmiBool Orb3dLB::QueryBalanceNow(int step){
 void Orb3dLB::work(BaseLB::LDStats* stats, int count)
 {
   int numobjs = stats->n_objs;
+  CkPrintf("[orb3dlb] %d objects allocating %d bytes for tp\n", numobjs, numobjs*sizeof(TPObject));
   TPObject *tp = new TPObject[numobjs];
 
   stats->makeCommHash();
-  CkAssert(tpCentroids.length() == stats->n_objs);
+  CkPrintf("[orb3dlb] ready tp data structure\n");
+  if(tpCentroids.length() != stats->n_objs){
+    CkAbort("wrong tpCentroids length\n");
+  }
   for(int i = 0; i < stats->n_objs; i++){
     LDObjHandle &handle = tpCentroids[i].handle;
     int tag = stats->getHash(handle.id,handle.omhandle.id);
@@ -134,8 +138,8 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
       tp[tag].load = stats->objData[tag].wallTime;
     }
     tp[tag].lbindex = tag;
-    tp[tag].index = tpCentroids[i].tag;
-    tp[tag].nparticles = tpCentroids[i].myNumParticles;
+    //tp[tag].index = tpCentroids[i].tag;
+    //tp[tag].nparticles = tpCentroids[i].myNumParticles;
   }
 
   mapping = &stats->to_proc;
@@ -149,6 +153,7 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
   int nz = tmgr.getDimNZ();
   int numnodes = nx*ny*nz; 
 
+  CkPrintf("[orb3dlb] %d numnodes allocating %d bytes for nodes\n", numnodes, numnodes*sizeof(Node));
   Node *nodes = new Node[numnodes];
 
   for(int i = 0; i < stats->count; i++){
@@ -165,8 +170,10 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
     //CkPrintf("node %d,%d,%d (%d) gets t %d\n", nodes[node].x, nodes[node].y, nodes[node].z, node, t);
   }
 
+  CkPrintf("[orb3dlb] map\n");
   map(tp,numobjs,numnodes,nodes,nx,ny,nz,dim);
 
+  /*
   int migr = 0;
   float *objload = new float[stats->count];
   for(int i = 0; i < stats->count; i++){
@@ -193,9 +200,9 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
                                objload[i]);
   }
   CkPrintf("%d objects migrating\n", migr);
+  */
 
-
-  delete[] objload;
+  //delete[] objload;
   delete[] tp;
   delete[] nodes;
 

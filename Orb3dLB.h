@@ -40,9 +40,9 @@ class TPObject{
 
   Vector3D<float> centroid;
   float load;
-  int index;
+  //int index;
   int lbindex;
-  int nparticles;
+  //int nparticles;
 
   bool operator<(const TPObject &t) const{
     return load < t.load;
