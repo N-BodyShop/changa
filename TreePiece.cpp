@@ -630,6 +630,8 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles,
 		  = (extraSPHData *)&mySPHParticles[iGas];
 	      iGas++;
 	      }
+	  else
+	      myParticles[iPart+1].extraData = NULL;
 	  }
 
       sort(myParticles+1, myParticles+myNumParticles+1);
@@ -3245,21 +3247,17 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
     return;
   }
   
-  if (oldNumChunks != numChunks /*&& remaining chunk != NULL*/) {
-    // reallocate remaining chunk to the new size
-    // delete[] remaining Chunk;
-    // remaining Chunk = NULL;
+  if (oldNumChunks != numChunks ) {
     delete[] nodeInterRemote;
     delete[] particleInterRemote;
     nodeInterRemote = new u_int64_t[numChunks];
     particleInterRemote = new u_int64_t[numChunks];
   }
 
-  /*
-  if (remaining Chunk == NULL) {
-    remaining Chunk = new int[numChunks];
-  }
-  */
+  if(nodeInterRemote == NULL)
+	nodeInterRemote = new u_int64_t[numChunks];
+  if(particleInterRemote == NULL)
+	particleInterRemote = new u_int64_t[numChunks];
 #if COSMO_STATS > 0
   //myNumProxyCalls = 0;
   //myNumProxyCallsBack = 0;
