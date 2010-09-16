@@ -5691,11 +5691,12 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   LBDatabase *lbdb = LBDatabaseObj();
   BaseLB **lbs = lbdb->getLoadBalancers();
   int nlbs = lbdb->getNLoadBalancers(); 
-  int i;
-  for(i = 0; i < nlbs; i++){
-    if(lbname == string(lbs[i]->lbName())) break;
+  for(int i = 0; i < nlbs; i++){
+    if(lbname == string(lbs[i]->lbName())){ 
+      proxy = lbs[i]->getGroupID();
+      break;
+    }
   }
-  proxy = lbs[i]->getGroupID();
 
   CkCallback lbcb(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
   contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
