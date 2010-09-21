@@ -1123,6 +1123,7 @@ void Main::advanceBigStep(int iStep) {
         dKickFac[iRung] = csmComoveKickFac(param.csm, dTime, 0.5*dTimeSub);
       }
       if(param.bDoGas) {
+	  double startTime = CkWallTimer();
 	  if(verbosity)
 	      ckout << "uDot update:" << endl;
 	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
@@ -1130,6 +1131,9 @@ void Main::advanceBigStep(int iStep) {
 	      dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	  treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
 			       1, CkCallbackResumeThread());
+	  if(verbosity)
+	      ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+		    << endl;
 	  }
       treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas,
 		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
@@ -1189,6 +1193,7 @@ void Main::advanceBigStep(int iStep) {
 
     if(param.bDoGas) {
 	double duKick[MAXRUNG+1];
+	double startTime = CkWallTimer();
 	if(verbosity)
 	    ckout << "uDot update:" << endl;
 	for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
@@ -1203,6 +1208,9 @@ void Main::advanceBigStep(int iStep) {
 	    dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
 			     0, CkCallbackResumeThread());
+	if(verbosity)
+	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+		  << endl;
 	}
 
     ckout << "Step: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
@@ -1330,11 +1338,17 @@ void Main::advanceBigStep(int iStep) {
                                            0.5*dTimeSub);
       }
       if(param.bDoGas) {
+	  double startTime = CkWallTimer();
+	  if(verbosity)
+	      ckout << "uDot update:" << endl;
 	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
 	  if(param.bGasCooling)
 	      dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	  treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
 			       1, CkCallbackResumeThread());
+	  if(verbosity)
+	      ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+		    << endl;
 	  }
       treeProxy.kick(activeRung, dKickFac, 1, param.bDoGas,
 		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
