@@ -20,7 +20,7 @@ STIFF *StiffInit( double eps, int nv, void *Data,
   int k,iq;
 
   STIFF *s;
-  const gsl_odeiv_step_type *T = gsl_odeiv_step_bsimp;
+  const gsl_odeiv_step_type *T = gsl_odeiv_step_rk4imp;
 
   s = (STIFF *) malloc(sizeof(STIFF));
   assert(s!=NULL);
