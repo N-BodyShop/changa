@@ -311,8 +311,10 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
   DoubleWalkState *s = (DoubleWalkState *)state;
 
   while(1){
+
     comp->setComputeEntity(localNode);
 
+    s->level = level;
     CheckList &chklist = s->chklists[level];
     UndecidedList &myUndlist = s->undlists[level];
 
@@ -342,7 +344,6 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
       bool didcomp = false;
       int reqID = reEncodeOffset(targetBucketIndex, glblNode.offsetID);
       descend = processNode(glblNode.node, s, chunk, reqID, isRoot, didcomp, awi);
-
     }
 
     if(myUndlist.length() > 0){
@@ -451,7 +452,6 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
   CkAssert(s->lowestNode != 0);
 #endif
 
-  CkPrintf("target %d lowest %ld\n", targetBucketIndex, s->lowestNode->getKey());
 }
 
 bool LocalTargetWalk::processNode(
