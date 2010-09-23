@@ -308,7 +308,7 @@ int reEncodeOffset(int reqID, int offsetID);
 void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, int targetBucketIndex, bool isRoot, int awi, int level){
 
   bool descend;
-  DoubleWalk *s = (DoubleWalk *)state;
+  DoubleWalkState *s = (DoubleWalkState *)state;
 
   while(1){
     comp->setComputeEntity(localNode);
