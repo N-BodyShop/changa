@@ -307,7 +307,62 @@ int reEncodeOffset(int reqID, int offsetID);
 // This walk interprets what is otherwise the 'reqID' argument as the targetBucketIndex
 void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, int targetBucketIndex, bool isRoot, int awi, int level){
 
-  bool descend = false;
+  bool descend;
+  DoubleWalk *s = (DoubleWalk *)state;
+
+  while(1){
+    comp->setComputeEntity(localNode);
+
+    CheckList &chklist = s->chklists[level];
+    UndecidedList &myUndlist = s->undlists[level];
+
+    if(!isRoot){
+      comp->initState(s);
+      UndecidedList &parentUndlist = s->undlists[level-1];
+      // process parent's undecided nodes first
+      // don't modify parentundlist - sibling will need the same list
+      CkAssert(chklist.isEmpty());
+      for(int i = 0; i < parentUndlist.length(); i++){
+        // get remote node from state
+        OffsetNode &glblNode = parentUndlist[i];
+
+        // do work
+        bool didcomp = false;
+        int reqID = reEncodeOffset(targetBucketIndex, glblNode.offsetID);
+
+        descend = processNode(glblNode.node, s, chunk, reqID, isRoot, didcomp, awi);
+      }
+    }
+
+    while(!chklist.isEmpty()){
+      // get remote node from state
+      const OffsetNode &glblNode = chklist.deq();
+
+      // do work
+      bool didcomp = false;
+      int reqID = reEncodeOffset(targetBucketIndex, glblNode.offsetID);
+      descend = processNode(glblNode.node, s, chunk, reqID, isRoot, didcomp, awi);
+
+    }
+
+    if(myUndlist.length() > 0){
+      int which = localNode->whichChild(targetKey);
+      GenericTreeNode *child = localNode->getChildren(which);
+      CkAssert(child);
+      localNode = child;
+      level++;
+      isRoot = false;
+    }
+    else{
+      s->lowestNode = localNode;
+      break;
+    }
+  }
+
+
+
+#if 0
+  //bool descend = false;
   // localNode has changed, need to update computeEntity
   comp->setComputeEntity(localNode);
 
@@ -394,6 +449,7 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
     s->lowestNode = localNode;
   }
   CkAssert(s->lowestNode != 0);
+#endif
 }
 
 bool LocalTargetWalk::processNode(

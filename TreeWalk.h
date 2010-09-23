@@ -7,7 +7,6 @@ class State;
 class Compute;
 class TreePiece;
 
-
 class TreeWalk{
   protected:
   Compute *comp;
