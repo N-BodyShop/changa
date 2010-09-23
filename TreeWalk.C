@@ -307,7 +307,7 @@ int reEncodeOffset(int reqID, int offsetID);
 // This walk interprets what is otherwise the 'reqID' argument as the targetBucketIndex
 void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, int targetBucketIndex, bool isRoot, int awi, int level){
 
-  bool descend;
+  bool descend = false;
   DoubleWalkState *s = (DoubleWalkState *)state;
 
   while(1){
@@ -450,6 +450,8 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
   }
   CkAssert(s->lowestNode != 0);
 #endif
+
+  CkPrintf("target %d lowest %ld\n", targetBucketIndex, s->lowestNode->getKey());
 }
 
 bool LocalTargetWalk::processNode(
