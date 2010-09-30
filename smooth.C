@@ -414,7 +414,6 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
   int bEnough = 1;	// Do we have enough particles on piece to get a limit?
   if(lastQueue > tp->myNumParticles) 
       {
-	  lastQueue = tp->myNumParticles;
 	  firstQueue = myNode->firstParticle - 1;
 	  for(; iCount <= nSmooth; firstQueue--) {
 	      if(firstQueue == 0) {
