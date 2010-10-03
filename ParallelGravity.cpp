@@ -1248,8 +1248,9 @@ void Main::advanceBigStep(int iStep) {
 	    if (a >= param.daSwitchTheta) theta = param.dTheta2; 
 	    }
 	/******** Force Computation ********/
-	ckout << "Calculating gravity (tree bucket, theta = " << theta
-	      << ") ...";
+	//ckout << "Calculating gravity (tree bucket, theta = " << theta
+	//      << ") ...";
+        CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
 	startTime = CkWallTimer();
 	if(param.bConcurrentSph) {
 	    ckout << endl;
@@ -1264,8 +1265,9 @@ void Main::advanceBigStep(int iStep) {
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
-	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-		  << endl;
+	    //ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+	    //	  << endl;
+            CkPrintf("took %f seconds\n", CkWallTimer()-startTime);
 	    }
 	iPhase++;
     }
@@ -1278,8 +1280,9 @@ void Main::advanceBigStep(int iStep) {
     
     if(param.bConcurrentSph && param.bDoGravity) {
 	CkFreeMsg(cbGravity.thread_delay());
-	ckout << "Calculating gravity and SPH took "
-	      << (CkWallTimer() - startTime) << " seconds." << endl;
+	//ckout << "Calculating gravity and SPH took "
+	//      << (CkWallTimer() - startTime) << " seconds." << endl;
+        CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
 	}
     
 #if COSMO_STATS > 0
@@ -1290,7 +1293,7 @@ void Main::advanceBigStep(int iStep) {
       ckerr << ((printingStep & MAXSUBSTEPS) ? "1" : "0");
       printingStep = (printingStep & ~MAXSUBSTEPS) << 1;
     }
-    ckerr << " (rungs " << activeRung << "-" << nextMaxRung << ")" << ":" << endl;
+    //ckerr << " (rungs " << activeRung << "-" << nextMaxRung << ")" << ":" << endl;
     CkReductionMsg *tps;
     treeProxy.collectStatistics(CkCallbackResumeThread((void*&)tps));
     ((TreePieceStatistics*)tps->getData())->printTo(ckerr);
@@ -1569,6 +1572,10 @@ Main::initialForces()
 	 	      CkCallbackResumeThread(), true);
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
+  
+  // Balance load initially after decomposition
+  treeProxy.balanceBeforeInitialForces(CkCallbackResumeThread());
+
   /******** Tree Build *******/
   ckout << "Building trees ...";
   startTime = CkWallTimer();
@@ -1583,6 +1590,7 @@ Main::initialForces()
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
 #endif
+
       
   CkCallback cbGravity(CkCallback::resumeThread);  // needed below to wait for gravity
 
@@ -1593,8 +1601,9 @@ Main::initialForces()
 	  if (a >= param.daSwitchTheta) theta = param.dTheta2; 
 	  }
       /******** Force Computation ********/
-      ckout << "Calculating gravity (theta = " << theta
-	    << ") ...";
+      //ckout << "Calculating gravity (theta = " << theta
+      //    << ") ...";
+      CkPrintf("Calculating gravity (theta = %f) ... ", theta);
       startTime = CkWallTimer();
       if(param.bConcurrentSph) {
 	  treeProxy.startIteration(0, theta, cbGravity);
@@ -1607,8 +1616,9 @@ Main::initialForces()
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
-	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-		<< endl;
+	  //ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+          //		<< endl;
+          CkPrintf("took %f seconds.\n", CkWallTimer()-startTime);
 	  }
       iPhase++;
       }
@@ -1621,8 +1631,9 @@ Main::initialForces()
   
   if(param.bConcurrentSph && param.bDoGravity) {
       CkFreeMsg(cbGravity.thread_delay());
-	ckout << "Calculating gravity and SPH took "
-	      << (CkWallTimer() - startTime) << " seconds." << endl;
+	//ckout << "Calculating gravity and SPH took "
+	//      << (CkWallTimer() - startTime) << " seconds." << endl;
+        CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
       }
   
   CkAssert(iPhase <= nPhases);

@@ -7,52 +7,99 @@
 
 extern CProxy_TreePiece treeProxy;
 
+using namespace std;
+
 CreateLBFunc_Def(Orb3dLB, "3d ORB mapping of tree piece space onto 3d processor mesh");
 
-int comparx(const void *a, const void *b){
+static int comparx(const void *a, const void *b){
   TPObject *ta = (TPObject *)a;
   TPObject *tb = (TPObject *)b;
   return (int)(ta->centroid.x-tb->centroid.x);
 }
-int compary(const void *a, const void *b){
+static int compary(const void *a, const void *b){
   TPObject *ta = (TPObject *)a;
   TPObject *tb = (TPObject *)b;
   return (int)(ta->centroid.y-tb->centroid.y);
 }
-int comparz(const void *a, const void *b){
+static int comparz(const void *a, const void *b){
   TPObject *ta = (TPObject *)a;
   TPObject *tb = (TPObject *)b;
   return (int)(ta->centroid.z-tb->centroid.z);
+}
+
+static int pcx(const void *a, const void *b){
+  Node *ta = (Node *)a;
+  Node *tb = (Node *)b;
+  return (int)(ta->x-tb->x);
+}
+static int pcy(const void *a, const void *b){
+  Node *ta = (Node *)a;
+  Node *tb = (Node *)b;
+  return (int)(ta->y-tb->y);
+}
+static int pcz(const void *a, const void *b){
+  Node *ta = (Node *)a;
+  Node *tb = (Node *)b;
+  return (int)(ta->z-tb->z);
 }
 
 Orb3dLB::Orb3dLB(const CkLBOptions &opt): CentralLB(opt)
 {
   lbname = "Orb3dLB";
   centroidsAllocated = false;
-  if (CkMyPe() == 0) CkPrintf("[%d] Orb3dLB created\n",CkMyPe());
+  if (CkMyPe() == 0){
+    CkPrintf("[%d] Orb3dLB created\n",CkMyPe());
+    TopoManager tmgr;
+
+    int ppn = tmgr.getDimNT();
+
+    int nx = tmgr.getDimNX();
+    int ny = tmgr.getDimNY();
+    int nz = tmgr.getDimNZ();
+    int numnodes = nx*ny*nz; 
+
+    CkPrintf("[%d] Orb3dLB Topo %d %d %d %d %d \n",CkMyPe(), nx, ny, nz, numnodes, ppn);
+  }
   compares[0] = comparx;
   compares[1] = compary;
   compares[2] = comparz;
+
+  pc[0] = pcx;
+  pc[1] = pcy;
+  pc[2] = pcz;
+
+  haveTPCentroids = false;
+
 }
 
 void Orb3dLB::receiveCentroids(CkReductionMsg *msg){
-  int i = 0;
-   TaggedVector3D * cur = (TaggedVector3D *)msg->getData();
+  if(haveTPCentroids){
+    delete tpmsg;
+  }
+  tpCentroids = (TaggedVector3D *)msg->getData();
+  nrecvd = msg->getGcount();
+  tpmsg = msg;
+  haveTPCentroids = true;
+  // TaggedVector3D * cur = (TaggedVector3D *)msg->getData();
   CkPrintf("Orb3dLB: receiveCentroids started: %d elements, msg length: %d\n", msg->getGcount(), msg->getLength()); 
-  tpCentroids.free();
+  //tpCentroids.free();
   
+  /*
   while(i < msg->getGcount()){
      tpCentroids.push_back(*cur);
      cur = cur + 1;
      i++;
   }
+  */
   treeProxy.doAtSync();
   CkPrintf("Orb3dLB: receiveCentroids done\n");  
-  delete msg;
+  // delete msg later
+  //delete msg;
 }
 
 //jetley
 CmiBool Orb3dLB::QueryBalanceNow(int step){
+  /*
   if(step == 0){
     if(CkMyPe() == 0){                          // only one group member need broadcast
       CkPrintf("Orb3dLB: Step 0, calling treeProxy.receiveProxy(thisgroup)\n");
@@ -61,199 +108,218 @@ CmiBool Orb3dLB::QueryBalanceNow(int step){
     firstRound = true;
     return false; 
   }
+  */
+  // Now, by the first step, we already have
+  // centroids. of course, since no gravity has
+  // been calculated yet, load can only be 
+  // estimated via num particles in treepiece
   if(CkMyPe() == 0)
     CkPrintf("Orb3dLB: Step %d\n", step);
-  return true;
+  //return true;
+  if(step == 0){
+    return false;
+  }
+  else{
+    return true;
+  }
 
 }
 
 void Orb3dLB::work(BaseLB::LDStats* stats, int count)
 {
   int numobjs = stats->n_objs;
+  int nmig = stats->n_migrateobjs;
+
+  CkPrintf("[orb3dlb] %d objects allocating %d bytes for tp\n", numobjs, numobjs*sizeof(TPObject));
   TPObject *tp = new TPObject[numobjs];
 
   stats->makeCommHash();
-  CkAssert(tpCentroids.length() == stats->n_objs);
+  CkPrintf("[orb3dlb] ready tp data structure\n");
+  if(nrecvd != numobjs){
+    CkAbort("wrong tpCentroids length\n");
+  }
   for(int i = 0; i < stats->n_objs; i++){
     LDObjHandle &handle = tpCentroids[i].handle;
     int tag = stats->getHash(handle.id,handle.omhandle.id);
     tp[tag].centroid.x = tpCentroids[i].vec.x;
     tp[tag].centroid.y = tpCentroids[i].vec.y;
     tp[tag].centroid.z = tpCentroids[i].vec.z;
-    tp[tag].load = stats->objData[i].wallTime;
+    tp[tag].migratable = stats->objData[tag].migratable;
+    if(step() == 0){
+      tp[tag].load = tpCentroids[i].myNumParticles;
+    }
+    else{
+      tp[tag].load = stats->objData[tag].wallTime;
+    }
     tp[tag].lbindex = tag;
   }
 
   mapping = &stats->to_proc;
-  CmiUInt4 path = 0x1;
   int dim = 0;
-  map(tp,numobjs,stats->count,path,dim);
+  TopoManager tmgr;
 
-  for(int i = 0; i < numobjs; i++){
-    CkPrintf("%f %f %f %d\n", tp[i].centroid.x, tp[i].centroid.y, tp[i].centroid.z, stats->to_proc[i]);
-  }
+  procsPerNode = tmgr.getDimNT();
 
-#ifdef ORB3DLB_VISUALIZE
-  CkVec<Vector3D<float> > procCentroids;
-  CkVec<int> procNumTPs;
-  procCentroids.resize(stats->count);
-  procNumTPs.resize(stats->count);
-  procCentroids.length() = stats->count;
-  procNumTPs.length() = stats->count;
-  for(int i = 0; i < stats->count; i++){
-    procCentroids[i].x = 0.0;
-    procCentroids[i].y = 0.0;
-    procCentroids[i].z = 0.0;
-    procNumTPs[i] = 0;
-  }
+  int nx = tmgr.getDimNX();
+  int ny = tmgr.getDimNY();
+  int nz = tmgr.getDimNZ();
+  int numnodes = nx*ny*nz; 
 
-  for(int i = 0; i < numobjs; i++){
-    CkAssert(i == tp[i].lbindex);
-    int proc = stats->to_proc[i];
-    procCentroids[proc] += tp[i].centroid;
-    procNumTPs[proc]++;
-  }
+  CkPrintf("[orb3dlb] %d numnodes allocating %d bytes for nodes\n", numnodes, numnodes*sizeof(Node));
+  Node *nodes = new Node[numnodes];
 
   for(int i = 0; i < stats->count; i++){
-    if(procNumTPs[i] > 0){
-      procCentroids[i] = procCentroids[i]/(1.0*procNumTPs[i]);
-    }
+    int t;
+    int x,y,z;
+    int node;
+    tmgr.rankToCoordinates(i,x,y,z,t);
+    
+    node = z*nx*ny + y*nx + x; 
+    nodes[node].x = x;
+    nodes[node].y = y;
+    nodes[node].z = z;
+    nodes[node].procRanks.push_back(i);
+    //CkPrintf("node %d,%d,%d (%d) gets t %d\n", nodes[node].x, nodes[node].y, nodes[node].z, node, t);
   }
 
-  float minx = procCentroids[0].x;
-  float miny = procCentroids[0].y;
-  float minz = procCentroids[0].z;
+  CkPrintf("[orb3dlb] map\n");
+  map(tp,numobjs,numnodes,nodes,nx,ny,nz,dim);
 
-  float maxx = procCentroids[0].x;
-  float maxy = procCentroids[0].y;
-  float maxz = procCentroids[0].z;
-
-  for(int i = 1; i < stats->count; i++){
-    if(procNumTPs[i] > 0){
-      if(procCentroids[i].x > maxx){
-        maxx = procCentroids[i].x;
-      }
-      if(procCentroids[i].y > maxy){
-        maxy = procCentroids[i].y;
-      }
-      if(procCentroids[i].z > maxz){
-        maxz = procCentroids[i].z;
-      }
-
-      if(procCentroids[i].x < minx){
-        minx = procCentroids[i].x;
-      }
-      if(procCentroids[i].y < miny){
-        miny = procCentroids[i].y;
-      }
-      if(procCentroids[i].z < minz){
-        minz = procCentroids[i].z;
-      }
-    }
+  /*
+  int migr = 0;
+  float *objload = new float[stats->count];
+  for(int i = 0; i < stats->count; i++){
+    objload[i] = 0.0;
   }
-
-  maxx -= minx;
-  maxy -= miny;
-  maxz -= minz;
-
-  Vector3D<float> minv;
-  minv.x = minx;
-  minv.y = miny;
-  minv.z = minz;
+  for(int i = 0; i < numobjs; i++){
+    objload[stats->from_proc[i]] += stats->objData[i].wallTime;
+    if(stats->to_proc[i] != stats->from_proc[i]) migr++;
+  }
   
-  Vector3D<float> r;
-  r.x = maxx;
-  r.y = maxy;
-  r.z = maxz;
-
+  CkPrintf("***************************\n");
+  CkPrintf("Before LB step %d\n", step());
+  CkPrintf("***************************\n");
+  CkPrintf("i pe wall cpu idle bg_wall bg_cpu objload\n");
   for(int i = 0; i < stats->count; i++){
-    if(procNumTPs[i] > 0){
-      procCentroids[i] -= minv;
-      procCentroids[i] /= r;
-      CkPrintf("%f %f %f %d\n", procCentroids[i].x, procCentroids[i].y, procCentroids[i].z, i);
-    }
+    CkPrintf("[pestats] %d %d %f %f %f %f %f %f\n", 
+                               i,
+                               stats->procs[i].pe, 
+                               stats->procs[i].total_walltime, 
+                               stats->procs[i].total_cputime, 
+                               stats->procs[i].idletime,
+                               stats->procs[i].bg_walltime,
+                               stats->procs[i].bg_cputime,
+                               objload[i]);
   }
-#endif
+  CkPrintf("%d objects migrating\n", migr);
+  */
+
+  //delete[] objload;
+  delete[] tp;
+  delete[] nodes;
 
 }
 
-// path is a sequence of binary digits, each telling us how
-// to get to the current partition of processors. The first
-// 1 bit form the MSB marks the beginning of the path. The bit
-// after that tells us whether we must go to the left or the right,
-// the next whether we should go down or up, the one after that 
-// whether near or far, the next whether left or right, and so on.
-void Orb3dLB::map(TPObject *tp, int ntp, int np, CmiUInt4 path, int dim){
+void Orb3dLB::map(TPObject *tp, int ntp, int nn, Node *nodes, int xs, int ys, int zs, int dim){
   //CkPrintf("ntp: %d np: %d dim: %d path: 0x%x\n",ntp,np,dim,path);
-  if(np == 1){
-    directMap(tp,ntp,path);
+  if(nn == 1){
+    directMap(tp,ntp,nodes);
   }
   else{
     int totalTp = ntp;
+    
     qsort(tp,ntp,sizeof(TPObject),compares[dim]);
+    qsort(nodes,nn,sizeof(Node),pc[dim]);
     // tp and ntp are modified to hold the particulars of
-    // the left/up/near partitions
+    // the left/dn/near partitions
+    // tp2 and totalTp-ntp hold the objects in the 
+    // right/up/far partitions
     TPObject *tp2 = partitionEvenLoad(tp,ntp);
-    int d = nextDim(dim); 
-    map(tp,ntp,np/2,(path << 1)|0x0,d);
-    map(tp2,totalTp-ntp,np/2,(path << 1)|0x1,d);
-  }
-}
-
-#define XMAX 2
-#define YMAX 2
-#define ZMAX 2
-
-void Orb3dLB::directMap(TPObject *tp, int ntp, CmiUInt4 path){
-  int numshifts = 0;
-  CmiUInt4 correctbits = 0x0; 
-  CmiUInt4 bit;
-  while(path > 0x1){
-    bit = path & 0x1;
-    path = path >> 1;
-    correctbits = correctbits << 1;
-    correctbits |= bit;
-    numshifts++;
-  }
-
-#ifdef USE_TOPOMGR
-  TopoManager tm;
-#endif
-  int min[NDIMS] = {0,0,0};
-#ifdef USE_TOPOMGR
-  int max[NDIMS] = {tm.getDimNX()-1,tm.getDimNY()-1,tm.getDimNZ()-1};
-#else
-  int max[NDIMS] = {XMAX-1,YMAX-1,ZMAX-1};
-#endif
-  int dim = 0;
-  for(int i = 0; i < numshifts; i++){
-    bit = correctbits & 0x1;
-    if(bit){
-      min[dim] = min[dim]+(max[dim]-min[dim]+1)/2;
+    Node *nodes2 = halveNodes(nodes,nn);
+    int d = nextDim(dim,xs,ys,zs); 
+    if(d == 0){
+      xs >>= 1;
+    }
+    else if(d == 1){
+      ys >>= 1;
     }
     else{
-      max[dim] = max[dim]-(max[dim]-min[dim]+1)/2;
+      zs >>= 1;
     }
-    dim = (dim+1)%NDIMS;
-    correctbits = correctbits >> 1;
+    map(tp,ntp,nn/2,nodes,xs,ys,zs,d);
+    map(tp2,totalTp-ntp,nn/2,nodes2,xs,ys,zs,d);
   }
+}
 
-  CkAssert(min[0] == max[0]);
-  CkAssert(min[1] == max[1]);
-  CkAssert(min[2] == max[2]);
+#define ZERO_THRESHOLD 0.00001
+
+void Orb3dLB::directMap(TPObject *tp, int ntp, Node *nodes){
+  //CkPrintf("[Orb3dLB] mapping %d objects to Node (%d,%d,%d)\n", ntp, nodes[0].x, nodes[0].y, nodes[0].z);
+
+  float load = 0.0;
+  for(int i = 0; i < ntp; i++){
+    //CkPrintf("obj %d thisindex %d %d %f %f %f %f to node %d %d %d\n", tp[i].lbindex, tp[i].index, tp[i].nparticles, tp[i].load, tp[i].centroid.x, tp[i].centroid.y, tp[i].centroid.z, nodes[0].x, nodes[0].y, nodes[0].z);
+    load += tp[i].load;
+  }
+  //CkPrintf("node %d %d %d total load %f\n", nodes[0].x, nodes[0].y, nodes[0].z, load);
+  
+  std::priority_queue<TPObject> pq_obj;
+  std::priority_queue<Processor> pq_proc;
 
   for(int i = 0; i < ntp; i++){
-#ifdef USE_TOPOMGR
-    (*mapping)[tp[i].lbindex] = tm.coordinatesToRank(min[0],min[1],min[2]);
-#else
-    (*mapping)[tp[i].lbindex] = min[0]*XMAX*YMAX+min[1]*XMAX+min[2]; 
-#endif
+    pq_obj.push(tp[i]);
+  }
+
+  for(int i = 0; i < procsPerNode; i++){
+    Processor p;
+    p.load = 0.0;
+    p.t = i;
+    pq_proc.push(p);
+  }
+
+  int currentZeroProc = 0;
+  while(!pq_obj.empty()){
+    TPObject tp = pq_obj.top();
+    pq_obj.pop();
+
+    // spread around zero-load objects
+    if(tp.load < ZERO_THRESHOLD){
+      (*mapping)[tp.lbindex] = nodes[0].procRanks[currentZeroProc];
+      currentZeroProc = currentZeroProc+1;
+      if(currentZeroProc == procsPerNode){
+        currentZeroProc = 0;
+      }
+    }
+    else{
+      // if object has some non-zero load, assign it to a proc greedily
+      Processor p = pq_proc.top();
+      pq_proc.pop();
+
+      //CkPrintf("proc %d load %f gets obj %d load %f\n", p.t, p.load, tp.lbindex, tp.load);
+
+      p.load += tp.load;
+      (*mapping)[tp.lbindex] = nodes[0].procRanks[p.t];
+
+      pq_proc.push(p);
+    }
   }
 }
 
-int Orb3dLB::nextDim(int dim){
-  return (dim+1)%NDIMS; 
+int Orb3dLB::nextDim(int dim_, int xs, int ys, int zs){
+  int max = xs;
+  int dim = 0;
+  if(max < ys){
+    max = ys;
+    dim = 1;
+  }
+  if(max < zs){
+    max = zs;
+    dim = 2;
+  }
+  return dim; 
 }
+
+#define LOAD_EQUAL_TOLERANCE 1.02
 
 TPObject *Orb3dLB::partitionEvenLoad(TPObject *tp, int &ntp){
   float partition1Load = 0.0;
@@ -261,20 +327,40 @@ TPObject *Orb3dLB::partitionEvenLoad(TPObject *tp, int &ntp){
   for(int i = 0; i < ntp; i++){
     totalLoad += tp[i].load;
   }
-  float halfLoad = totalLoad/2.0;
+  float halfLoad = 0.5*totalLoad;
+  //CkPrintf("partitionEvenLoad total load %f half load %f\n", totalLoad, halfLoad);
   int split = -1;
 
   for(int i = 0; i < ntp; i++){
     // if including this element in partition1 brings us closer
     // to halfLoad, do it
-    if((partition1Load+tp[i].load-halfLoad) < (halfLoad-partition1Load)){
+    //if((partition1Load+tp[i].load-halfLoad) < (halfLoad-partition1Load)){
+    if((partition1Load+tp[i].load <= halfLoad) ||
+       (partition1Load < halfLoad && partition1Load+tp[i].load > halfLoad)){
       partition1Load += tp[i].load;
       split++;
     }
+    else{
+      break;
+    }
   }
+
+  //float lload = 0.0;
+  //for(int i = 0; i < split+1; i++){
+  //  lload += tp[i].load;
+  //}
+  //float rload = totalLoad-lload;
+
+  //CkPrintf("partitionEvenLoad partition1Load %f lsplit %f rsplit %f\n", partition1Load, lload, rload);
 
   ntp = split+1;
   return (tp+split+1);
+}
+
+Node *Orb3dLB::halveNodes(Node *start, int np){
+  Node *ret = start;
+  ret = start+np/2;
+  return ret;
 }
 
 #include "Orb3dLB.def.h"
