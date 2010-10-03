@@ -802,6 +802,8 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	  }
 
       int iNewRung = DtToRung(dDelta, dTIdeal);
+      if(iNewRung > MAXRUNG)
+	CkAbort("Timestep too small");
       if(iNewRung < iKickRung) iNewRung = iKickRung;
       if(iNewRung > iCurrMaxRung) iCurrMaxRung = iNewRung;
       myParticles[i].rung = iNewRung;
@@ -1585,7 +1587,12 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   root->startBucket=0;
 #endif
   // recursively build the tree
-  buildOctTree(root, 0);
+  try {
+	buildOctTree(root, 0);
+	}
+  catch (std::bad_alloc) {
+	CkAbort("Out of memory in treebuild");
+	}
 /* jetley - save the first internal node for use later.
    needed because each treepiece must, for oct decomposition, send its centroid to a
    load balancing strategy object. the previous tree will have been deleted at this point.
