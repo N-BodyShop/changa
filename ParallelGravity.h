@@ -737,6 +737,8 @@ private:
 
         // jetley - proxy for load balancer
         CkGroupID proxy;
+        bool foundorb3d;
+        bool foundmultistep;
         // jetley - whether proxy is valid or not
         CmiBool proxyValid;
         // jetley - saved first internal node

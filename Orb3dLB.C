@@ -11,33 +11,33 @@ using namespace std;
 
 CreateLBFunc_Def(Orb3dLB, "3d ORB mapping of tree piece space onto 3d processor mesh");
 
-int comparx(const void *a, const void *b){
+static int comparx(const void *a, const void *b){
   TPObject *ta = (TPObject *)a;
   TPObject *tb = (TPObject *)b;
   return (int)(ta->centroid.x-tb->centroid.x);
 }
-int compary(const void *a, const void *b){
+static int compary(const void *a, const void *b){
   TPObject *ta = (TPObject *)a;
   TPObject *tb = (TPObject *)b;
   return (int)(ta->centroid.y-tb->centroid.y);
 }
-int comparz(const void *a, const void *b){
+static int comparz(const void *a, const void *b){
   TPObject *ta = (TPObject *)a;
   TPObject *tb = (TPObject *)b;
   return (int)(ta->centroid.z-tb->centroid.z);
 }
 
-int pcx(const void *a, const void *b){
+static int pcx(const void *a, const void *b){
   Node *ta = (Node *)a;
   Node *tb = (Node *)b;
   return (int)(ta->x-tb->x);
 }
-int pcy(const void *a, const void *b){
+static int pcy(const void *a, const void *b){
   Node *ta = (Node *)a;
   Node *tb = (Node *)b;
   return (int)(ta->y-tb->y);
 }
-int pcz(const void *a, const void *b){
+static int pcz(const void *a, const void *b){
   Node *ta = (Node *)a;
   Node *tb = (Node *)b;
   return (int)(ta->z-tb->z);
@@ -68,22 +68,33 @@ Orb3dLB::Orb3dLB(const CkLBOptions &opt): CentralLB(opt)
   pc[1] = pcy;
   pc[2] = pcz;
 
+  haveTPCentroids = false;
+
 }
 
 void Orb3dLB::receiveCentroids(CkReductionMsg *msg){
-  int i = 0;
-   TaggedVector3D * cur = (TaggedVector3D *)msg->getData();
+  if(haveTPCentroids){
+    delete tpmsg;
+  }
+  tpCentroids = (TaggedVector3D *)msg->getData();
+  nrecvd = msg->getGcount();
+  tpmsg = msg;
+  haveTPCentroids = true;
+  // TaggedVector3D * cur = (TaggedVector3D *)msg->getData();
   CkPrintf("Orb3dLB: receiveCentroids started: %d elements, msg length: %d\n", msg->getGcount(), msg->getLength()); 
-  tpCentroids.free();
+  //tpCentroids.free();
   
+  /*
   while(i < msg->getGcount()){
      tpCentroids.push_back(*cur);
      cur = cur + 1;
      i++;
   }
+  */
   treeProxy.doAtSync();
   CkPrintf("Orb3dLB: receiveCentroids done\n");  
-  delete msg;
+  // delete msg later
+  //delete msg;
 }
 
 //jetley
@@ -117,12 +128,14 @@ CmiBool Orb3dLB::QueryBalanceNow(int step){
 void Orb3dLB::work(BaseLB::LDStats* stats, int count)
 {
   int numobjs = stats->n_objs;
+  int nmig = stats->n_migrateobjs;
+
   CkPrintf("[orb3dlb] %d objects allocating %d bytes for tp\n", numobjs, numobjs*sizeof(TPObject));
   TPObject *tp = new TPObject[numobjs];
 
   stats->makeCommHash();
   CkPrintf("[orb3dlb] ready tp data structure\n");
-  if(tpCentroids.length() != stats->n_objs){
+  if(nrecvd != numobjs){
     CkAbort("wrong tpCentroids length\n");
   }
   for(int i = 0; i < stats->n_objs; i++){
@@ -131,6 +144,7 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
     tp[tag].centroid.x = tpCentroids[i].vec.x;
     tp[tag].centroid.y = tpCentroids[i].vec.y;
     tp[tag].centroid.z = tpCentroids[i].vec.z;
+    tp[tag].migratable = stats->objData[tag].migratable;
     if(step() == 0){
       tp[tag].load = tpCentroids[i].myNumParticles;
     }
@@ -138,8 +152,6 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
       tp[tag].load = stats->objData[tag].wallTime;
     }
     tp[tag].lbindex = tag;
-    //tp[tag].index = tpCentroids[i].tag;
-    //tp[tag].nparticles = tpCentroids[i].myNumParticles;
   }
 
   mapping = &stats->to_proc;

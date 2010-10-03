@@ -3826,13 +3826,14 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles, activeRung, prevLARung);
   tv.tag = thisIndex;
 
-  // CkCallback(int ep, int whichProc, CkGroupID &gid)
-  CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
-  //CkCallback cbk(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
-#if COSMO_MCLB > 1
-    CkPrintf("[%d : %d] proxyValid, contributing value (%f,%f,%f, %u,%u,%u : %d)\n", CkMyPe(), thisIndex, tv.vec.x, tv.vec.y, tv.vec.z, tv.numActiveParticles, tv.myNumParticles, tv.activeRung, tv.tag);
-#endif
-  contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
+  if(foundmultistep){
+    CkCallback cbk(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
+  }
+  else if(foundorb3d){
+    CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
+  }
   if(thisIndex == 0)
     CkPrintf("Changing prevLARung from %d to %d\n", prevLARung, activeRung);
   prevLARung = activeRung;
@@ -4698,6 +4699,8 @@ void TreePiece::pup(PUP::er& p) {
 
   // jetley
   p | proxy;
+  p | foundorb3d;
+  p | foundmultistep;
   p | proxyValid;
   p | proxySet;
   p | savedCentroid;
@@ -5687,19 +5690,29 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   TaggedVector3D tv(centroid, handle, myNumParticles, myNumParticles, 0, 0);
   tv.tag = thisIndex;
 
-  string lbname("Orb3dLB");
   LBDatabase *lbdb = LBDatabaseObj();
+  string msname("MultistepLB");
+  string orb3dname("Orb3dLB");
+
   BaseLB **lbs = lbdb->getLoadBalancers();
   int nlbs = lbdb->getNLoadBalancers(); 
   for(int i = 0; i < nlbs; i++){
-    if(lbname == string(lbs[i]->lbName())){ 
+    if(msname == string(lbs[i]->lbName())){ 
       proxy = lbs[i]->getGroupID();
+      foundmultistep = true;
+      CkCallback lbcb(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
+      contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+      break;
+    }
+    else if(orb3dname == string(lbs[i]->lbName())){ 
+      proxy = lbs[i]->getGroupID();
+      foundorb3d = true;
+      CkCallback lbcb(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
+      contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
       break;
     }
   }
 
-  CkCallback lbcb(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
-  contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
 
   // this will be called in resumeFromSync()
   callback = cb;

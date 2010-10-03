@@ -7,6 +7,7 @@
 #define _ORB3DLB_H_
 
 #include "CentralLB.h"
+#include "MapStructures.h"
 #include "Orb3dLB.decl.h"
 #include "TaggedVector3D.h"
 #include <queue>
@@ -14,63 +15,8 @@
 void CreateOrb3dLB();
 BaseLB * AllocateOrb3dLB();
 
-#define NDIMS 3
-class Centroid3d{
-  public:
-  float x;
-  float y;
-  float z;
-
-  float *pointers[NDIMS];
-
-  Centroid3d(){
-    pointers[0] = &x;
-    pointers[1] = &y;
-    pointers[2] = &z;
-  }
-
-  float& operator[](int i){
-    return *(pointers[i]);
-  }
-
-};
-
-class TPObject{
-  public:
-
-  Vector3D<float> centroid;
-  float load;
-  //int index;
-  int lbindex;
-  //int nparticles;
-
-  bool operator<(const TPObject &t) const{
-    return load < t.load;
-  }
-
-};
-
-class Processor{
-  public:
-
-  float load;
-  int t;
-
-  bool operator<(const Processor &p) const{
-    return load > p.load;
-  }
-
-};
-
-class Node {
-  public:
-  int x, y, z;
-  CkVec<int> procRanks;
-};
-
-typedef int (*ComparatorFn) (const void *, const void *);
-
 class Orb3dLB : public CentralLB {
+  friend class MultistepLB;
 private:
   CmiBool firstRound; 
   CmiBool centroidsAllocated;
@@ -83,7 +29,10 @@ private:
 
   // things are stored in here before work
   // is ever called.
-  CkVec<TaggedVector3D> tpCentroids;
+  TaggedVector3D *tpCentroids;
+  CkReductionMsg *tpmsg;
+  int nrecvd;
+  bool haveTPCentroids;
 
   CmiBool QueryBalanceNow(int step);
 

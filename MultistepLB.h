@@ -45,10 +45,20 @@ class WeightObject{
 };
 
 
+
 class MultistepLB : public CentralLB {
 private:
   CmiBool firstRound; 
-  CmiBool centroidsAllocated;
+  bool haveTPCentroids;
+  ComparatorFn compares[NDIMS];
+  ComparatorFn pc[NDIMS];
+
+  TaggedVector3D *tpCentroids;
+  CkReductionMsg *tpmsg;
+  int nrecvd;
+  CkVec<int> *mapping;
+
+  int procsPerNode;
 
   CkVec<BaseLB::LDStats> savedPhaseStats;       // stats saved from previous phases
   
@@ -66,7 +76,6 @@ public:
   void work(BaseLB::LDStats* stats, int count);
   void receiveCentroids(CkReductionMsg *msg);
   //ScaleTranMapBG map;
-  ScaledORBMapBG map;
 
 public:/* <- Sun CC demands Partition be public for ComputeLoad to access it. */
 
@@ -115,13 +124,23 @@ private:
   void rec_divide(int, Partition&);
   void setVal(int x, int y, int z);
   int sort_partition(int x, int p, int r);
-  void qsort(int x, int p, int r);
+  void qsort1(int x, int p, int r);
   void quicksort(int x);
   void mapPartitionsToNodes();
 
 public:
   double overLoad;
   
+//**************************************
+// ORB3DLB functions
+//**************************************
+//
+  void work2(BaseLB::LDStats* stats, int count);
+  void directMap(TPObject *tp, int ntp, Node *nodes);
+  void map(TPObject *tp, int ntp, int nn, Node *procs, int xs, int ys, int zs, int dim);
+  int nextDim(int dim, int xs, int ys, int zs);
+  TPObject *partitionEvenLoad(TPObject *tp, int &ntp);
+  Node *halveNodes(Node *start, int np);
 };
 
 #endif /* _MultistepLB */
