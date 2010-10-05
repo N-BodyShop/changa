@@ -645,11 +645,6 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	delete m;
 	
 	if(sorted) { //true after the final keys have been binned
-		//determine which TreePiece is responsible for each interval
-		//vector<int> chareIDs(numChares, 1);
-		//chareIDs[0] = 0;
-		//partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
-		
 		//send out the final splitters and responsibility table
 		dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()) + 1, keyBoundaries.size(), sortingCallback);
 		numIterations = 0;
