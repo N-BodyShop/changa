@@ -2009,6 +2009,9 @@ int reEncodeOffset(int reqID, int offsetID)
 }
 
 
+/**
+ * Initialize all particles for gravity force calculation.
+ */
 void TreePiece::initBuckets() {
   int ewaldCondition = (bEwald ? 0 : 1);
   for (unsigned int j=0; j<numBuckets; ++j) {
