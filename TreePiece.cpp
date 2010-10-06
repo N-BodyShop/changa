@@ -5679,6 +5679,13 @@ void TreePiece::setProjections(int bOn)
 
 void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   LDObjHandle handle = myRec->getLdHandle();
+  LBDatabase *lbdb = LBDatabaseObj();
+  int nlbs = lbdb->getNLoadBalancers(); 
+  if(nlbs == 0) { // no load balancers.  Skip this
+      contribute(cb);
+      return;
+      }
+
   Vector3D<float> centroid;
   centroid.x = 0.0;
   centroid.y = 0.0;
@@ -5693,13 +5700,12 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   TaggedVector3D tv(centroid, handle, myNumParticles, myNumParticles, 0, 0);
   tv.tag = thisIndex;
 
-  LBDatabase *lbdb = LBDatabaseObj();
   string msname("MultistepLB");
   string orb3dname("Orb3dLB");
 
   BaseLB **lbs = lbdb->getLoadBalancers();
-  int nlbs = lbdb->getNLoadBalancers(); 
-  for(int i = 0; i < nlbs; i++){
+  int i;
+  for(i = 0; i < nlbs; i++){
     if(msname == string(lbs[i]->lbName())){ 
       proxy = lbs[i]->getGroupID();
       foundmultistep = true;
@@ -5715,7 +5721,9 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
       break;
     }
   }
-
+  if(i == nlbs) // none of the balancers requiring centroids found; go
+		// straight to AtSync()
+      doAtSync();
 
   // this will be called in resumeFromSync()
   callback = cb;
