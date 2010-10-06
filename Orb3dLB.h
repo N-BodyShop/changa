@@ -7,55 +7,32 @@
 #define _ORB3DLB_H_
 
 #include "CentralLB.h"
+#include "MapStructures.h"
 #include "Orb3dLB.decl.h"
 #include "TaggedVector3D.h"
+#include <queue>
 
 void CreateOrb3dLB();
 BaseLB * AllocateOrb3dLB();
 
-#define NDIMS 3
-class Centroid3d{
-  public:
-  float x;
-  float y;
-  float z;
-
-  float *pointers[NDIMS];
-
-  Centroid3d(){
-    pointers[0] = &x;
-    pointers[1] = &y;
-    pointers[2] = &z;
-  }
-
-  float& operator[](int i){
-    return *(pointers[i]);
-  }
-
-};
-
-class TPObject{
-  public:
-
-  Vector3D<float> centroid;
-  float load;
-  int index;
-  int lbindex;
-};
-
-
-typedef int (*ComparatorFn) (const void *, const void *);
-
 class Orb3dLB : public CentralLB {
+  friend class MultistepLB;
 private:
   CmiBool firstRound; 
   CmiBool centroidsAllocated;
   ComparatorFn compares[NDIMS];
+  ComparatorFn pc[NDIMS];
   // pointer to stats->to_proc
   CkVec<int> *mapping;
+
+  int procsPerNode;
+
   // things are stored in here before work
   // is ever called.
-  CkVec<TaggedVector3D> tpCentroids;
+  TaggedVector3D *tpCentroids;
+  CkReductionMsg *tpmsg;
+  int nrecvd;
+  bool haveTPCentroids;
 
   CmiBool QueryBalanceNow(int step);
 
@@ -66,10 +43,12 @@ public:
   Orb3dLB(CkMigrateMessage *m):CentralLB(m) { lbname = "Orb3dLB"; }
   void work(BaseLB::LDStats* stats, int count);
   void receiveCentroids(CkReductionMsg *msg);
-  void directMap(TPObject *tp, int ntp, CmiUInt4 path);
-  void map(TPObject *tp, int ntp, int np, CmiUInt4 path, int dim);
-  int nextDim(int dim);
+  void directMap(TPObject *tp, int ntp, Node *nodes);
+  void map(TPObject *tp, int ntp, int nn, Node *procs, int xs, int ys, int zs, int dim);
+  int nextDim(int dim, int xs, int ys, int zs);
   TPObject *partitionEvenLoad(TPObject *tp, int &ntp);
+  Node *halveNodes(Node *start, int np);
+
 
 };
 
