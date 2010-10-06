@@ -1153,6 +1153,9 @@ void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump)
     free(bufImage);
     }
 
+/**
+ * Overall start of building Tree
+ */
 void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
 #if COSMO_DEBUG > 1
   char fout[100];
@@ -1173,13 +1176,11 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
   case Oct_Oct:
     Key bounds[2];
     if (myNumParticles > 0) {
-      //sort(myParticles+1, myParticles+myNumParticles+1);
 #ifdef COSMO_PRINT
       CkPrintf("[%d] Keys: %016llx %016llx\n",thisIndex,myParticles[1].key,myParticles[myNumParticles].key);
 #endif
       bounds[0] = myParticles[1].key;
       bounds[1] = myParticles[myNumParticles].key;
-      //    contribute(2 * sizeof(Key), bounds, CkReduction::concat, CkCallback(CkIndex_TreePiece::collectSplitters(0), thisArrayID));
       contribute(2 * sizeof(Key), bounds, CkReduction::concat, CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
     } else {
       // No particles assigned to this TreePiece
@@ -1188,8 +1189,6 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
     break;
   case Binary_ORB:
     // WARNING: ORB trees do not allow TreePieces to have 0 particles!
-    //CkAbort("ORB logic for tree-build not yet implemented");
-    //contribute(0,0,CkReduction::concat,sorterCallBack);
     contribute(0, 0, CkReduction::concat, CkCallback(CkIndex_TreePiece::startORBTreeBuild(0), thisArrayID));
     break;
   }

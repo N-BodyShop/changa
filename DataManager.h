@@ -176,7 +176,12 @@ public:
 
 	/// Collect the boundaries of all TreePieces, and trigger the real treebuild
 	void collectSplitters(CkReductionMsg* m);
-	/// Called by the Sorter, I save these final keys and the list of which TreePiece is responsible for which interval
+	/// Called by ORB Sorter, save the list of which TreePiece is
+	/// responsible for which interval.
+	void acceptResponsibleIndex(const int* responsible, const int n,
+				    const CkCallback& cb);
+	/// Called by the Sorter, I save these final keys and the list
+	/// of which TreePiece is responsible for which interval
 	void acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb);
 	void pup(PUP::er& p);
 

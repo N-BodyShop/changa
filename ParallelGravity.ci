@@ -107,10 +107,8 @@ mainmodule ParallelGravity {
   nodegroup [migratable] DataManager {
     entry DataManager(const CkArrayID& treePieceID);
 
-    //entry void acceptCandidateKeys(const SFC::Key keys[n],
-    //			       const int n,
-    //                                       int isRefine,
-    //			       const CkCallback& cb);
+    entry void acceptResponsibleIndex(const int responsible[n], const int n,
+				      const CkCallback& cb);
     entry void acceptFinalKeys(const SFC::Key keys[n],
         const int responsible[n - 1],
         unsigned int bins[n - 1], const int n,

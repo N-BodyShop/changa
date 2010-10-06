@@ -140,11 +140,11 @@ void Sorter::finishPhase(CkReductionMsg *m){
 
   if(numChares == orbData.size()){ //Move data around
     for(i=0;i<numChares;i++){
-      if(verbosity > 1)
-      CkPrintf("%d has %d particles\n",i,binCounts[i]);
-			//treeProxy[i].sendORBParticles(binCounts[i],sortingCallback,CkCallback(CkIndex_Sorter::sendBoundingBoxes(0), thishandle));
-			treeProxy[i].initBeforeORBSend(binCounts[i],sortingCallback,CkCallback(CkIndex_Sorter::readytoSendORB(0), thishandle));
-		}
+	if(verbosity > 1)
+	    CkPrintf("%d has %d particles\n",i,binCounts[i]);
+	treeProxy[i].initBeforeORBSend(binCounts[i],sortingCallback,
+				       CkCallback(CkIndex_Sorter::readytoSendORB(0), thishandle));
+	}
   }
   else{ //Send the next phase of splitters
     ORBSplittersMsg *splittersMsg = new (orbData.size(),orbData.size()) ORBSplittersMsg(orbData.size(),CkCallback(CkIndex_Sorter::collectORBCounts(0), thishandle));
@@ -164,7 +164,12 @@ void Sorter::finishPhase(CkReductionMsg *m){
 void Sorter::readytoSendORB(CkReductionMsg* m){
   delete m;
 
-  treeProxy.sendORBParticles();
+/*
+ * Send information to DataManager, then broadcast to send particles.
+ */
+  dm.acceptResponsibleIndex(&(*chareIDs.begin()), chareIDs.size(),
+			    CkCallback(CkIndex_TreePiece::sendORBParticles(),
+				       treeProxy));
 }
 
 void Sorter::collectORBCounts(CkReductionMsg* m){
@@ -232,34 +237,9 @@ void Sorter::collectORBCounts(CkReductionMsg* m){
   
 }
 
-/*void Sorter::sendBoundingBoxes(CkReductionMsg* m){
-  delete m;
-
-  std::list<ORBData>::iterator iter;
-  int i;
-  
-  BoundingBoxes *bounding = new (numChares) BoundingBoxes();
-
-  for(i=0,iter=orbData.begin();iter!=orbData.end();iter++,i++){
-    bounding->boxes[i] = (*iter).boundingBox;
-  }
-
-  treeProxy.receiveBoundingBoxes(bounding);
-
-}*/
-
-/************************************************/
-
-/*
-class WeighedNode {
-public:
-  Key key;
-  u_int64_t count;
-  WeighedNode children[2];
-  WeighedNode(Key k, u_int64_t c) : key(k), count(c) { }
-};
-*/
-
+/**
+ * Overall start of domain decomposition
+ */
 void Sorter::startSorting(const CkGroupID& dataManagerID,
 			  const double toler, const CkCallback& cb, bool decompose) {
 	numChares = numTreePieces;

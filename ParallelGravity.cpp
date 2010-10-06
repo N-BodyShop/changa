@@ -761,7 +761,7 @@ Main::Main(CkArgMsg* m) {
 	// hardcoding some parameters, later may be full options
 	if(domainDecomposition==ORB_dec){
 	    useTree = Binary_ORB;
-	    CkAbort("ORB decomposition known to be bad and not implemented");
+	    // CkAbort("ORB decomposition known to be bad and not implemented");
 	    }
 	else { useTree = Binary_Oct; }
 
