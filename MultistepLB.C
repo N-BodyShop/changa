@@ -951,6 +951,7 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
       tp[j].load = stats->objData[tag].wallTime;
     }
     tp[j].lbindex = tag;
+    j++;
   }
 
   mapping = &stats->to_proc;
