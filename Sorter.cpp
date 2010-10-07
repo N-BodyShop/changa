@@ -26,6 +26,12 @@ void Sorter::doORBDecomposition(CkReductionMsg* m){
   OrientedBox<float> box = *static_cast<OrientedBox<float> *>(m->getData());
   delete m;
 
+  if(numChares == 1) { // No decomposition to do
+      treeProxy[0].initBeforeORBSend(0,sortingCallback,
+				     CkCallback(CkIndex_Sorter::readytoSendORB(0), thishandle));
+      return;
+      }
+
   ORBData single;
   single.boundingBox = box;
   
@@ -59,10 +65,6 @@ void Sorter::doORBDecomposition(CkReductionMsg* m){
 	splittersMsg->pos[0] = pos;
 	splittersMsg->dim[0] = dim;
   treeProxy.evaluateParticleCounts(splittersMsg);
-  //phaseLeader=0;
-  //lastPiece = numTreePieces-1;
-  //for(int i=0;i<numTreePieces;i++)
-    //thisProxy[i].evaluateFirstTime(pos,dim,phaseLeader);
 }
 
 void Sorter::finishPhase(CkReductionMsg *m){

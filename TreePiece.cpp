@@ -210,8 +210,9 @@ public:
 void TreePiece::initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback){
 
   callback = cb;
-  //sorterCallBack = sorterCb;
   CkCallback nextCallback = cback;
+  if(numTreePieces == 1)
+      myCount = myNumParticles;
   myExpectedCount = myCount;
 
   mySortedParticles.clear();
