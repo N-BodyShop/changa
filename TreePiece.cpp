@@ -1430,6 +1430,9 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
   node->rungs = 0;
 
   GenericTreeNode *child;
+#if INTERLIST_VER > 0
+  int bucketsBeneath = 0;
+#endif
   for (unsigned int i=0; i<node->numChildren(); ++i) {
     child = node->getChildren(i);
     CkAssert(child != NULL);
@@ -1511,7 +1514,14 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
 	  }
       if (child->rungs > node->rungs) node->rungs = child->rungs;
     }
+#if INTERLIST_VER > 0
+    bucketsBeneath += child->numBucketsBeneath;
+#endif
   }
+
+#if INTERLIST_VER > 0
+  node->numBucketsBeneath = bucketsBeneath;
+#endif
 
   /* The old version collected Boundary nodes, the new version collects NonLocal nodes */
 
