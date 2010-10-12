@@ -3834,6 +3834,9 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
     CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
   }
+  else{
+    AtSync();
+  }
   if(thisIndex == 0)
     CkPrintf("Changing prevLARung from %d to %d\n", prevLARung, activeRung);
   prevLARung = activeRung;
@@ -5713,9 +5716,14 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
     }
   }
 
-
   // this will be called in resumeFromSync()
   callback = cb;
+  if(foundorb3d || foundmultistep){
+    return;
+  }
+  else{
+    AtSync();
+  }
 }
 
 #ifdef CUDA
