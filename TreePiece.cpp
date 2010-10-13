@@ -3840,6 +3840,10 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles, activeRung, prevLARung);
   tv.tag = thisIndex;
 
+  if(thisIndex == 0)
+    CkPrintf("Changing prevLARung from %d to %d\n", prevLARung, activeRung);
+  prevLARung = activeRung;
+
   if(foundmultistep){
     CkCallback cbk(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
@@ -3848,9 +3852,10 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
     CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
   }
-  if(thisIndex == 0)
-    CkPrintf("Changing prevLARung from %d to %d\n", prevLARung, activeRung);
-  prevLARung = activeRung;
+  else{
+    doAtSync();
+  }
+
   //contribute(sizeof(TaggedVector3D), &tv, CkReduction::set, cbk);
   //}
 }
