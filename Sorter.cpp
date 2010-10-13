@@ -194,7 +194,9 @@ void Sorter::collectORBCounts(CkReductionMsg* m){
   int doneCount=0;
   
   for(i=0,iter=orbData.begin(); iter!=orbData.end(); i++,iter++){
-    if(binCounts[2*i+1]*(1-TOLER)<=binCounts[2*i] && binCounts[2*i]<=(1+TOLER)*binCounts[2*i+1]){
+      if((binCounts[2*i+1]*(1-TOLER)<=binCounts[2*i]
+	  && binCounts[2*i]<=(1+TOLER)*binCounts[2*i+1])
+	 || (domainDecomposition == ORB_space_dec)){
       doneCount++;
     }
     else{
@@ -303,6 +305,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
       convertNodesToSplitters();
       break;
     case ORB_dec:
+    case ORB_space_dec:
 	numKeys = 0;
       treeProxy.initORBPieces(CkCallback(CkIndex_Sorter::doORBDecomposition(0), thishandle));
     break;
@@ -314,7 +317,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
 		ckout << "Sorter: Initially have " << splitters.size() << " splitters" << endl;
 
 	//send out the first guesses to be evaluated
-  if(domainDecomposition!=ORB_dec){
+  if((domainDecomposition!=ORB_dec) && (domainDecomposition!=ORB_space_dec)){
     if (decompose) {
 
 	// XXX: Optimizations available if sort has been done before!
@@ -323,12 +326,10 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
 	keyBoundaries.reserve(numChares + 1);
 	keyBoundaries.push_back(firstPossibleKey);
 
-//      dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-	  treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+	treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
     } else {
       //send out all the decided keys to get final bin counts
       sorted = true;
-//      dm.acceptCandidateKeys(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
       treeProxy.evaluateBoundaries(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
     }
   }
@@ -406,6 +407,7 @@ void Sorter::collectEvaluations(CkReductionMsg* m) {
       collectEvaluationsOct(m);
       break;
     case ORB_dec:
+    case ORB_space_dec:
       CkAbort("ORB: We shouldn't have reached here");
     break;
       default:

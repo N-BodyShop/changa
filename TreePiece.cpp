@@ -105,7 +105,8 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 		ckout << "TreePiece: Bounding box originally: "
 		     << boundingBox << endl;
 	//give particles keys, using bounding box to scale
-	if(domainDecomposition!=ORB_dec){
+	if((domainDecomposition!=ORB_dec)
+	   && (domainDecomposition!=ORB_space_dec)){
 	      // get longest axis
 	      Vector3D<float> bsize = boundingBox.size();
 	      float max = (bsize.x > bsize.y) ? bsize.x : bsize.y;
@@ -1427,7 +1428,8 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
 
   CkAssert(node->getType() == Boundary || node->getType() == Internal);
 
-  node->makeOrbChildren(myParticles, myNumParticles, level, chunkRootLevel, compFuncPtr);
+  node->makeOrbChildren(myParticles, myNumParticles, level, chunkRootLevel,
+			compFuncPtr, (domainDecomposition == ORB_space_dec));
   node->rungs = 0;
 
   GenericTreeNode *child;
@@ -3347,6 +3349,7 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   switch(domainDecomposition){
     case Oct_dec:
     case ORB_dec:
+    case ORB_space_dec:
       //Prefetch Roots for Oct
       prefetchReq[0].reset();
       for (unsigned int i=1; i<=myNumParticles; ++i) {
@@ -4822,6 +4825,7 @@ void TreePiece::pup(PUP::er& p) {
       break;
     case Oct_dec:
     case ORB_dec:
+    case ORB_space_dec:
       numPrefetchReq = 1;
       prefetchReq = new OrientedBox<double>[1];
       break;

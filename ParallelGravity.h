@@ -61,12 +61,13 @@ PUPbytes(COOLPARAM);
 using namespace Tree;
 
 enum DomainsDec {
-  SFC_dec=0,
-  Oct_dec=1,
-  ORB_dec=2,
-  SFC_peano_dec=3,
-  SFC_peano_dec_3D=4,
-  SFC_peano_dec_2D=5
+    SFC_dec=0,	// Space Filling Curve with Morton ordering
+    Oct_dec=1, 	// Oct tree
+    ORB_dec=2,	// Bisect the longest axis, balancing particles
+    SFC_peano_dec=3,	// SFC with Piano-Hilbert ordering
+    SFC_peano_dec_3D=4, // Joachim Stadel's implementation of P-H ordering
+    SFC_peano_dec_2D=5,	// 2D version of Piano-Hilbert ordering
+    ORB_space_dec=6		// Bisect space
 };
 
 inline void operator|(PUP::er &p,DomainsDec &d) {
