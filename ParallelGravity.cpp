@@ -867,7 +867,7 @@ Main::Main(CkArgMsg* m) {
 	for(i = 0; i < nPhases; i++)
 	    gids[i] = pieces.ckLocMgr()->getGroupID();
 	cacheNode = CProxy_CkCacheManager::ckNew(cacheSize, nPhases, gids);
-	delete gids;
+	delete[] gids;
 
 	//create the DataManager
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
