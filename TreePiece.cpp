@@ -539,7 +539,7 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 		    pieces[*responsibleIter].acceptSortedParticles(binBegin, binEnd - binBegin, pGasOut, nGasOut, partialLoad);
 		    }
 		if(nGasOut > 0)
-		    delete pGasOut;
+		    delete[] pGasOut;
 		}
 	    if(&myParticles[myNumParticles + 1] <= binEnd)
 		    break;
@@ -5698,6 +5698,8 @@ void TreePiece::setProjections(int bOn)
 }
 
 void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
+  foundmultistep = false;
+  foundorb3d = false;
   LDObjHandle handle = myRec->getLdHandle();
   LBDatabase *lbdb = LBDatabaseObj();
   int nlbs = lbdb->getNLoadBalancers(); 
