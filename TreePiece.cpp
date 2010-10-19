@@ -195,98 +195,116 @@ void TreePiece::initORBPieces(const CkCallback& cb){
   contribute(sizeof(OrientedBox<float>), &box, boxReduction, cb);
 }
 
-/*class Compare{ //Defines the comparison operator on the map used in balancer
-  int dim;
-public:
-  Compare() {}
-  Compare(int i) : dim(i) {}
-
-  void setDim(int i){ dim = i; }
-
-  bool operator()(GravityParticle& p1, GravityParticle& p2) const {
-    return p1.position[dim] < p2.position[dim];
-  }
-};*/
-
-void TreePiece::initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback){
+/// Allocate memory for sorted particles.
+/// @param cb callback after everything is sorted.
+/// @param cback callback to perform now.
+void TreePiece::initBeforeORBSend(unsigned int myCount,
+				  unsigned int myCountGas,
+				  const CkCallback& cb,
+				  const CkCallback& cback){
 
   callback = cb;
   CkCallback nextCallback = cback;
-  if(numTreePieces == 1)
+  if(numTreePieces == 1) {
       myCount = myNumParticles;
+      myCountGas = myNumSPH;
+      }
   myExpectedCount = myCount;
+  myExpectedCountSPH = myCountGas;
 
   mySortedParticles.clear();
   mySortedParticles.reserve(myExpectedCount);
-
-  /*if(myExpectedCount > myNumParticles){
-    delete [] myParticles;
-    myParticles = new GravityParticle[myExpectedCount + 2];
-  }
-  myNumParticles = myExpectedCount;*/
+  mySortedParticlesSPH.clear();
+  mySortedParticlesSPH.reserve(myExpectedCountSPH);
 
   contribute(0, 0, CkReduction::concat, nextCallback);
 }
 
-//void TreePiece::sendORBParticles(unsigned int myCount, const CkCallback& cb, const CkCallback& sorterCb){
 void TreePiece::sendORBParticles(){
-
-  /*callback = cb;
-  sorterCallBack = sorterCb;
-  myExpectedCount = myCount;
-
-  std::list<GravityParticle *>::iterator iter;
-  std::list<GravityParticle *>::iterator iter2;
-
-  mySortedParticles.clear();
-  mySortedParticles.reserve(myExpectedCount);*/
 
   std::list<GravityParticle *>::iterator iter;
   std::list<GravityParticle *>::iterator iter2;
 
   int i=0;
+  int nCounts = myBinCountsORB.size()/2; // Gas counts are in second half
   for(iter=orbBoundaries.begin();iter!=orbBoundaries.end();iter++,i++){
-		iter2=iter;
-		iter2++;
-		if(iter2==orbBoundaries.end())
-			break;
-    if(i==thisIndex){
-			//CkPrintf("[%d] send %d particles to %d\n",thisIndex,myBinCounts[i],i);
-      if(myBinCountsORB[i]>0)
-        acceptORBParticles(*iter,myBinCountsORB[i]);
+	iter2=iter;
+	iter2++;
+	if(iter2==orbBoundaries.end())
+		break;
+	if(myBinCountsORB[i]>0) {
+	    extraSPHData *pGasOut = NULL;
+	    if(myBinCountsORB[nCounts+i] > 0) {
+		pGasOut = new extraSPHData[myBinCountsORB[nCounts+i]];
+		if (verbosity>=3)
+		  CkPrintf("me:%d to:%d nPart :%d, nGas:%d\n", thisIndex, i,
+			   *iter2 - *iter, myBinCountsORB[nCounts+i]);
+		int iGasOut = 0;
+		for(GravityParticle *pPart = *iter; pPart < *iter2; pPart++) {
+		    if(TYPETest(pPart, TYPE_GAS)) {
+			pGasOut[iGasOut] = *(extraSPHData *)pPart->extraData;
+			iGasOut++;
+			}
+		    }
 		}
-    else{
-			//CkPrintf("[%d] send %d particles to %d\n",thisIndex,myBinCounts[i],i);
-      if(myBinCountsORB[i]>0)
-        pieces[i].acceptORBParticles(*iter,myBinCountsORB[i]);
+	
+	    if(i==thisIndex){
+		acceptORBParticles(*iter,myBinCountsORB[i], pGasOut,
+				   myBinCountsORB[nCounts+i]);
 		}
-  }
+	    else{
+		pieces[i].acceptORBParticles(*iter,myBinCountsORB[i], pGasOut,
+					     myBinCountsORB[nCounts+i]);
+		}
+	    if(pGasOut != NULL)
+		delete[] pGasOut;
+	    }
+      }
 
   if(myExpectedCount > (int) myNumParticles){
     delete [] myParticles;
     myParticles = new GravityParticle[myExpectedCount + 2];
   }
   myNumParticles = myExpectedCount;
+
+  if(myExpectedCountSPH > (int) myNumSPH){
+    delete [] mySPHParticles;
+    mySPHParticles = new extraSPHData[myExpectedCountSPH];
+  }
+  myNumSPH = myExpectedCountSPH;
 }
 
 /// Accept particles from other TreePieces once the sorting has finished
-void TreePiece::acceptORBParticles(const GravityParticle* particles, const int n) {
+void TreePiece::acceptORBParticles(const GravityParticle* particles,
+				   const int n,
+				   const extraSPHData *pGas,
+				   const int nGasIn) {
 
   copy(particles, particles + n, back_inserter(mySortedParticles));
+  copy(pGas, pGas + nGasIn, back_inserter(mySortedParticlesSPH));
 
-  //CkPrintf("[%d] accepted %d particles:myexpected:%d,got:%d\n",thisIndex,n,myExpectedCount,mySortedParticles.size());
   if(myExpectedCount == mySortedParticles.size()) {
-	  //I've got all my particles
+      //I've got all my particles
     //Assigning keys to particles
-    //Key k = 1 << 63;
-    //Key k = thisIndex;
     for(int i=0;i<myExpectedCount;i++){
       mySortedParticles[i].key = thisIndex;
     }
-	  //sort(mySortedParticles.begin(), mySortedParticles.end());
-	  copy(mySortedParticles.begin(), mySortedParticles.end(), &myParticles[1]);
+    copy(mySortedParticles.begin(), mySortedParticles.end(), &myParticles[1]);
+    copy(mySortedParticlesSPH.begin(), mySortedParticlesSPH.end(),
+	 &mySPHParticles[0]);
+    // assign gas data pointers
+    int iGas = 0;
+    for(int i=0;i<myExpectedCount;i++){
+	if(TYPETest(&myParticles[i+1], TYPE_GAS)) {
+	    myParticles[i+1].extraData
+		= (extraSPHData *)&mySPHParticles[iGas];
+	    iGas++;
+	    }
+	else
+	    myParticles[i].extraData = NULL;
+	}
 	  //signify completion with a reduction
-	  if(verbosity>1)
+    if(verbosity>1)
       ckout << thisIndex <<" contributing to accept particles"<<endl;
 	  if (root != NULL) {
 	    root->fullyDelete();
@@ -300,7 +318,7 @@ void TreePiece::acceptORBParticles(const GravityParticle* particles, const int n
 
 void TreePiece::finalizeBoundaries(ORBSplittersMsg *splittersMsg){
 
-  CkCallback& cback = splittersMsg->cb;
+  CkCallback cback = splittersMsg->cb;
 
   std::list<GravityParticle *>::iterator iter;
   std::list<GravityParticle *>::iterator iter2;
@@ -347,24 +365,23 @@ void TreePiece::finalizeBoundaries(ORBSplittersMsg *splittersMsg){
 
   firstTime = true;
 
-  myBinCountsORB.assign(2*splittersMsg->length,0);
+  // First part is total particles, second part is gas counts.
+  myBinCountsORB.assign(4*splittersMsg->length,0);
   copy(tempBinCounts.begin(),tempBinCounts.end(),myBinCountsORB.begin());
 
-  contribute(0,0,CkReduction::concat,cback);
-
+  delete splittersMsg;
+  contribute(cback);
 }
 
-void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg){
+/// Evaluate particle counts for ORB decomposition
+void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg)
+{
 
-  //myBinCounts.assign(2*splittersMsg->length,0);
-
-  //if(firstTime){
-    //myBinCounts.assign(splittersMsg->length,0);
-    //copy(tempBinCounts.begin(),tempBinCounts.end(),myBinCounts.begin());
-  //}
   CkCallback& cback = splittersMsg->cb;
 
-  tempBinCounts.assign(2*splittersMsg->length,0);
+  // For each split, BinCounts has total lower, total higher.
+  // The second half of the array has the counts for gas particles.
+  tempBinCounts.assign(4*splittersMsg->length,0);
 
   std::list<GravityParticle *>::iterator iter;
   std::list<GravityParticle *>::iterator iter2;
@@ -379,17 +396,9 @@ void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg){
     if(firstTime){
       sort(*iter,*iter2,compFuncPtr[dimen]);
     }
-    //curDivision = pos;
-    /*if(firstTime){
-      curDivision = pos;
-      phaseLeader = leader;
-      Compare comp(dim);
-      sort(myParticles+1, myParticles+myNumParticles+1,comp);
-    }*/
-	  //Current location of the division is stored in a variable
     //Evaluate the number of particles in each division
 
-		GravityParticle dummy;
+    GravityParticle dummy;
     GravityParticle* divStart = *iter;
     Vector3D<double> divide(0.0,0.0,0.0);
     divide[dimen] = splittersMsg->pos[i];
@@ -397,14 +406,27 @@ void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg){
     GravityParticle* divEnd = upper_bound(*iter,*iter2,dummy,compFuncPtr[dimen]);
     tempBinCounts[2*i] = divEnd - divStart;
     tempBinCounts[2*i + 1] = myBinCountsORB[i] - (divEnd - divStart);
-
-    iter++; iter2++;
+    int nGasLow = 0;
+    int nGasHigh = 0;
+    for(GravityParticle *pPart = divStart; pPart < divEnd; pPart++) {
+	// Count gas
+	if(TYPETest(pPart, TYPE_GAS))
+	    nGasLow++;
 	}
+    for(GravityParticle *pPart = divEnd; pPart < *iter2; pPart++) {
+	// Count gas
+	if(TYPETest(pPart, TYPE_GAS))
+	    nGasHigh++;
+	}
+    tempBinCounts[2*splittersMsg->length + 2*i] = nGasLow;
+    tempBinCounts[2*splittersMsg->length + 2*i + 1] = nGasHigh;
+    iter++; iter2++;
+    }
 
   if(firstTime)
     firstTime=false;
-  //thisProxy[phaseLeader].collectORBCounts(firstCnt,secondCnt);
-  contribute(2*splittersMsg->length*sizeof(int), &(*tempBinCounts.begin()), CkReduction::sum_int, cback);
+  contribute(4*splittersMsg->length*sizeof(int), &(*tempBinCounts.begin()), CkReduction::sum_int, cback);
+  delete splittersMsg;
 }
 
 /// Determine my part of the sorting histograms by counting the number

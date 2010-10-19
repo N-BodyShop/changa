@@ -27,7 +27,7 @@ void Sorter::doORBDecomposition(CkReductionMsg* m){
   delete m;
 
   if(numChares == 1) { // No decomposition to do
-      treeProxy[0].initBeforeORBSend(0,sortingCallback,
+      treeProxy[0].initBeforeORBSend(0,0,sortingCallback,
 				     CkCallback(CkIndex_Sorter::readytoSendORB(0), thishandle));
       return;
       }
@@ -67,6 +67,8 @@ void Sorter::doORBDecomposition(CkReductionMsg* m){
   treeProxy.evaluateParticleCounts(splittersMsg);
 }
 
+/// Calculate candidate divisions for next level in the tree.
+/// If we have enough pieces, proceed to sending particles.
 void Sorter::finishPhase(CkReductionMsg *m){
 
   float len=0.0,len2=0.0;
@@ -138,13 +140,14 @@ void Sorter::finishPhase(CkReductionMsg *m){
     iter = orbData.erase(iter);
   }
  
-	//CkPrintf("num chares:%d, partitions got:%d\n",numChares,orbData.size());
-
   if(numChares == orbData.size()){ //Move data around
     for(i=0;i<numChares;i++){
-	if(verbosity > 1)
+	if(verbosity > 1) {
 	    CkPrintf("%d has %d particles\n",i,binCounts[i]);
-	treeProxy[i].initBeforeORBSend(binCounts[i],sortingCallback,
+	    CkPrintf("%d has %d gas particles\n",i,binCountsGas[i]);
+	    }
+	treeProxy[i].initBeforeORBSend(binCounts[i], binCountsGas[i],
+				       sortingCallback,
 				       CkCallback(CkIndex_Sorter::readytoSendORB(0), thishandle));
 	}
   }
@@ -154,10 +157,6 @@ void Sorter::finishPhase(CkReductionMsg *m){
       splittersMsg->pos[i] = (*iter).curDivision;
       splittersMsg->dim[i] = (*iter).curDim;
     }
-    /*for(int i=0;i<orbData.size();i++){
-      splittersMsg->pos[i] = orbData[i].curDivision;
-      splittersMsg->dim[i] = (char) orbData[i].curDim;
-    }*/
     treeProxy.evaluateParticleCounts(splittersMsg);
   }
 
@@ -179,13 +178,15 @@ void Sorter::collectORBCounts(CkReductionMsg* m){
   std::list<ORBData>::iterator iter;
   int i;
   
-  numCounts = m->getSize() / sizeof(int);
-	binCounts.resize(numCounts);
-	//binCounts[0] = 0;
-	int* startCounts = static_cast<int *>(m->getData());
-	//copy(startCounts, startCounts + numCounts, binCounts.begin() + 1);
-	copy(startCounts, startCounts + numCounts, binCounts.begin());
-	delete m;
+  numCounts = m->getSize() / (2*sizeof(int)); // two separate arrays for
+					    // total and gas
+  binCounts.resize(numCounts);
+  binCountsGas.resize(numCounts);
+  int* startCounts = static_cast<int *>(m->getData());
+  copy(startCounts, startCounts + numCounts, binCounts.begin());
+  copy(startCounts + numCounts, startCounts + 2*numCounts,
+       binCountsGas.begin());
+  delete m;
 
   CkAssert(numCounts == 2*orbData.size());
   
@@ -219,10 +220,6 @@ void Sorter::collectORBCounts(CkReductionMsg* m){
       splittersMsg->pos[i] = (*iter).curDivision;
       splittersMsg->dim[i] = (*iter).curDim;
     }
-    /*for(int i=0;i<orbData.size();i++){
-      splittersMsg->pos[i] = orbData[i].curDivision;
-      splittersMsg->dim[i] = (char) orbData[i].curDim;
-    }*/
     //finalize the boundaries in all the Treepieces
     treeProxy.finalizeBoundaries(splittersMsg);
   }
@@ -232,10 +229,6 @@ void Sorter::collectORBCounts(CkReductionMsg* m){
       splittersMsg->pos[i] = (*iter).curDivision;
       splittersMsg->dim[i] = (*iter).curDim;
     }
-    /*for(int i=0;i<orbData.size();i++){
-      splittersMsg->pos[i] = orbData[i].curDivision;
-      splittersMsg->dim[i] = (char) orbData[i].curDim;
-    }*/
     treeProxy.evaluateParticleCounts(splittersMsg);
   }
   

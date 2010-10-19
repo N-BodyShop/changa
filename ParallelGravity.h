@@ -775,6 +775,8 @@ private:
 
 	/// Array with sorted particles for domain decomposition (ORB)
 	std::vector<GravityParticle> mySortedParticles;
+	/// Array with sorted SPH data for domain decomposition (ORB)
+	std::vector<extraSPHData> mySortedParticlesSPH;
         /// Array with incoming particles for domain decomposition (without stl)
         GravityParticle *incomingParticles;
         /// How many particles have already arrived during domain decomposition
@@ -951,6 +953,9 @@ private:
 
   ///Expected number of particles for each TreePiece after ORB decomposition
   int myExpectedCount;
+  ///Expected number of SPH particles for each TreePiece after ORB
+  ///decomposition
+  int myExpectedCountSPH;
 
   ///Level after which the local subtrees of all the TreePieces start
   unsigned int chunkRootLevel;
@@ -1264,9 +1269,12 @@ public:
 				   const int nGas, const double load);
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);
-  void initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback);
+  void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,
+			 const CkCallback& cb, const CkCallback& cback);
   void sendORBParticles();
   void acceptORBParticles(const GravityParticle* particles, const int n);
+  void acceptORBParticles(const GravityParticle* particles, const int n,
+			  const extraSPHData *pGas, const int nGasIn);
   void finalizeBoundaries(ORBSplittersMsg *splittersMsg);
   void evaluateParticleCounts(ORBSplittersMsg *splittersMsg);
   /*****************************/
