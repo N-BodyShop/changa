@@ -3840,13 +3840,16 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles, activeRung, prevLARung);
   tv.tag = thisIndex;
 
-  if(foundmultistep){
+  if(foundLB == Multistep){
     CkCallback cbk(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
   }
-  else if(foundorb3d){
+  else if(foundLB == Orb3d){
     CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
+  }
+  else{
+    doAtSync();
   }
   if(thisIndex == 0)
     CkPrintf("Changing prevLARung from %d to %d\n", prevLARung, activeRung);
@@ -4716,8 +4719,7 @@ void TreePiece::pup(PUP::er& p) {
 
   // jetley
   p | proxy;
-  p | foundorb3d;
-  p | foundmultistep;
+  p | foundLB;
   p | proxyValid;
   p | proxySet;
   p | savedCentroid;
@@ -5701,6 +5703,7 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
       return;
       }
 
+  foundLB = Null;
   Vector3D<float> centroid;
   centroid.x = 0.0;
   centroid.y = 0.0;
@@ -5723,23 +5726,23 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   for(i = 0; i < nlbs; i++){
     if(msname == string(lbs[i]->lbName())){ 
       proxy = lbs[i]->getGroupID();
-      foundmultistep = true;
+      foundLB = Multistep;
       CkCallback lbcb(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
       contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
       break;
     }
     else if(orb3dname == string(lbs[i]->lbName())){ 
       proxy = lbs[i]->getGroupID();
-      foundorb3d = true;
+      foundLB = Orb3d;
       CkCallback lbcb(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
       contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
       break;
     }
   }
-  if(i == nlbs) // none of the balancers requiring centroids found; go
+  if(foundLB == Null){ // none of the balancers requiring centroids found; go
 		// straight to AtSync()
       doAtSync();
-
+  }
   // this will be called in resumeFromSync()
   callback = cb;
 }

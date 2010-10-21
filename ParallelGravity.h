@@ -60,6 +60,13 @@ PUPbytes(COOLPARAM);
 
 using namespace Tree;
 
+enum LBStrategy{
+  Null,
+  Multistep,
+  Orb3d
+};
+PUPbytes(LBStrategy);
+
 enum DomainsDec {
     SFC_dec=0,	// Space Filling Curve with Morton ordering
     Oct_dec=1, 	// Oct tree
@@ -738,8 +745,7 @@ private:
 
         // jetley - proxy for load balancer
         CkGroupID proxy;
-        bool foundorb3d;
-        bool foundmultistep;
+        LBStrategy foundLB;
         // jetley - whether proxy is valid or not
         CmiBool proxyValid;
         // jetley - saved first internal node
