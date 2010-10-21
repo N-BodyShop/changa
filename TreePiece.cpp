@@ -893,7 +893,6 @@ void TreePiece::drift(double dDelta,  // time step in x containing
         }
       }
       boundingBox.grow(p->position);
-      /*
       if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
 	  p->vPred() += dvDelta*p->treeAcceleration;
 	  if(!bGasIsothermal) {
@@ -912,7 +911,6 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 #endif
 	      }
 	  }
-          */
       }
   CkAssert(bInBox);
   if(!bInBox){
