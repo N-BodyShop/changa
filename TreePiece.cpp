@@ -5715,8 +5715,6 @@ void TreePiece::setProjections(int bOn)
 }
 
 void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
-  foundmultistep = false;
-  foundorb3d = false;
   LDObjHandle handle = myRec->getLdHandle();
   LBDatabase *lbdb = LBDatabaseObj();
   int nlbs = lbdb->getNLoadBalancers(); 
