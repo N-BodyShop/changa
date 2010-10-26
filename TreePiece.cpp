@@ -3833,19 +3833,7 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   callback = cb;
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d calling AtSync()\n",CkMyPe(),thisIndex);
-  // AtSync();
-  //
 
-  /*
-  if(!proxyValid || !proxySet){              // jetley
-    proxyValid = true;
-#if COSMO_MCLB > 1
-    CkPrintf("[%d : %d] !proxyValid, calling doAtSync()\n", CkMyPe(), thisIndex);
-#endif
-    doAtSync();
-  }
-  else{
-  */
   unsigned int numActiveParticles, i;
 
   if(activeRung == 0){
@@ -3858,7 +3846,7 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   }
   LDObjHandle myHandle = myRec->getLdHandle();
   TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles, activeRung, prevLARung);
-  tv.tag = thisIndex;
+  tv.tpindex = thisIndex;
 
   if(foundLB == Multistep){
     CkCallback cbk(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
@@ -4741,7 +4729,6 @@ void TreePiece::pup(PUP::er& p) {
   p | proxy;
   p | foundLB;
   p | proxyValid;
-  p | proxySet;
   p | savedCentroid;
   p | prevLARung;
 
@@ -5742,8 +5729,8 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   string orb3dname("Orb3dLB");
 
   BaseLB **lbs = lbdb->getLoadBalancers();
-  int i;
-  for(i = 0; i < nlbs; i++){
+
+  for(int i = 0; i < nlbs; i++){
     if(msname == string(lbs[i]->lbName())){ 
       proxy = lbs[i]->getGroupID();
       foundLB = Multistep;

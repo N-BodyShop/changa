@@ -99,16 +99,6 @@ void Orb3dLB::receiveCentroids(CkReductionMsg *msg){
 
 //jetley
 CmiBool Orb3dLB::QueryBalanceNow(int step){
-  /*
-  if(step == 0){
-    if(CkMyPe() == 0){                          // only one group member need broadcast
-      CkPrintf("Orb3dLB: Step 0, calling treeProxy.receiveProxy(thisgroup)\n");
-      treeProxy.receiveProxy(thisgroup);        // broadcast proxy to all treepieces
-    }
-    firstRound = true;
-    return false; 
-  }
-  */
   // Now, by the first step, we already have
   // centroids. of course, since no gravity has
   // been calculated yet, load can only be 

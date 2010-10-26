@@ -297,7 +297,6 @@ mainmodule ParallelGravity {
     entry void startlb(CkCallback &cb, int activeRung);
     entry void ResumeFromSync();
     //jetley
-    entry void receiveProxy(CkGroupID);
     entry void doAtSync();
 
     entry void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);

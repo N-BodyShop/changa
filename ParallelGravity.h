@@ -1514,7 +1514,6 @@ public:
         void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source);
         void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
         void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
-        void receiveProxy(CkGroupID _proxy){ proxy = _proxy; proxySet = true; /*CkPrintf("[%d : %d] received proxy\n", CkMyPe(), thisIndex);*/}
         void doAtSync();
         GravityParticle *getParticles(){return myParticles;}
 
