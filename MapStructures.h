@@ -117,11 +117,12 @@ class TPObject{
   float load;
   //int index;
   int lbindex;
+  int tpindex;
   bool migratable;
   //int nparticles;
 
   bool operator<(const TPObject &t) const{
-    return load < t.load;
+    return load >= t.load;
   }
 
 };
@@ -133,7 +134,7 @@ class Processor{
   int t;
 
   bool operator<(const Processor &p) const{
-    return load > p.load;
+    return load < p.load;
   }
 
 };
@@ -141,7 +142,23 @@ class Processor{
 class Node {
   public:
   int x, y, z;
+  int num; 
   CkVec<int> procRanks;
+
+  Node(){
+    num = -789;
+  }
+};
+
+class SmallPhaseObject {
+  public:
+  float load;
+  int lbindex;
+  int tpindex;
+
+  bool operator<(const SmallPhaseObject &t) const{
+    return load >= t.load;
+  }
 };
 
 typedef int (*ComparatorFn) (const void *, const void *);

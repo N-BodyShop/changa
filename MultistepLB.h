@@ -88,44 +88,44 @@ struct CondensedLDStats {
   CkVec<double> cpuTime;
   CkVec<double> wallTime;
   CkVec<bool> migratable;
-  CkVec<int> tpindex;
 
   int n_objs;
   int n_migrateobjs; 
   int count;
 
   public: 
-  void init(BaseLB::LDStats *stats){
+  void init(BaseLB::LDStats *stats, int *lbToTp){
     int n = stats->n_objs;
 
     cpuTime.reserve(n);
     wallTime.reserve(n);
     migratable.reserve(n);
-    tpindex.reserve(n);
 
     cpuTime.length() = n;
     wallTime.length() = n;
     migratable.length() = n;
-    tpindex.length() = n;
 
-    copy(stats);
+    copy(stats, lbToTp);
   }
 
-  void copy(BaseLB::LDStats *stats){
-    merge(stats,0.0,false);
+  void copy(BaseLB::LDStats *stats, int *lbToTp){
+    merge(stats,lbToTp,0.0,false);
   }
 
-  void merge(BaseLB::LDStats *stats, double alpha, bool _m){
+  void merge(BaseLB::LDStats *stats, int *lbToTp, double alpha, bool _m){
     for(int i = 0; i < stats->n_objs; i++){
+      int tpindex = lbToTp[i];
       if(_m){
-        cpuTime[i] = alpha*cpuTime[i] + (1.0-alpha)*stats->objData[i].cpuTime;
-        wallTime[i] = alpha*wallTime[i] + (1.0-alpha)*stats->objData[i].cpuTime;
+        cpuTime[tpindex] = alpha*cpuTime[tpindex] 
+                           + (1.0-alpha)*stats->objData[i].cpuTime;
+        wallTime[tpindex] = alpha*wallTime[tpindex] 
+                           + (1.0-alpha)*stats->objData[i].cpuTime;
       }
       else{
-        cpuTime[i] = stats->objData[i].cpuTime;
-        wallTime[i] = stats->objData[i].cpuTime;
+        cpuTime[tpindex] = stats->objData[i].cpuTime;
+        wallTime[tpindex] = stats->objData[i].cpuTime;
       }
-      migratable[i] = stats->objData[i].migratable;
+      migratable[tpindex] = stats->objData[i].migratable;
     }
     n_objs = stats->n_objs;
     count = stats->count;
@@ -140,7 +140,6 @@ struct CondensedLDStats {
     p | cpuTime;
     p | wallTime;
     p | migratable;
-    p | tpindex;
   }
   
 };
@@ -163,8 +162,8 @@ private:
   //int prevPhase;
 
   unsigned int determinePhase(unsigned int activeRung);
-  void makeActiveProcessorList(CondensedLDStats *stats, int numActiveObjs, int numTotalObjs);
-  void mergeInstrumentedData(int phase, BaseLB::LDStats *phaseStats);
+  void makeActiveProcessorList(CondensedLDStats *stats, int numActiveObjs, int numTotalObjs, bool largePhase);
+  void mergeInstrumentedData(int phase, BaseLB::LDStats *phaseStats, int *lbToTp);
   bool havePhaseData(int phase); 
   void printData(CondensedLDStats *stats, int phase);
 public:
@@ -183,8 +182,6 @@ public:
 
   void work(BaseLB::LDStats* stats, int count);
   void receiveCentroids(CkReductionMsg *msg);
-  //ScaleTranMapBG map;
-  //
   void pup(PUP::er &p){
     CentralLB::pup(p);
 
@@ -206,60 +203,7 @@ public:
 
   }
 
-public:/* <- Sun CC demands Partition be public for ComputeLoad to access it. */
-
-  class Partition {
-  public:
-    int refno;
-    double load;			// total load in this set
-    int origin[3];			// box coordinates
-    int corner[3];
-    int  count;				// number of objects in this partition
-    int node, mapped;
-    CkVec<int>   bkpes;			// background processors
-  public:
-    Partition(): refno(0), load(0.0), node(-1), mapped(0) {};
-  };
-
-private:  
-  struct ComputeLoad {
-    int id;
-    int v[3];
-    double load;
-    int  refno;
-    double  tv;
-    Partition * partition;
-  };
-  
-  
-  struct VecArray {
-    int v;
-    int id;
-  };
-  
-  enum {XDIR=0, YDIR, ZDIR};
-  
-  LDStats* statsData;
-  int P;
-  ComputeLoad *computeLoad;
-  int nObjs;
-  VecArray  *(vArray[3]);
-  Partition *partitions;
-  Partition top_partition;
-  int npartition;
-  int currentp, refno;
-  
-  void strategy();
-  void rec_divide(int, Partition&);
-  void setVal(int x, int y, int z);
-  int sort_partition(int x, int p, int r);
-  void qsort1(int x, int p, int r);
-  void quicksort(int x);
-  void mapPartitionsToNodes();
-
 public:
-  double overLoad;
-  
 //**************************************
 // ORB3DLB functions
 //**************************************
@@ -270,6 +214,8 @@ public:
   int nextDim(int dim, int xs, int ys, int zs);
   TPObject *partitionEvenLoad(TPObject *tp, int &ntp);
   Node *halveNodes(Node *start, int np);
+
+  void greedySmallPhase(SmallPhaseObject *tp, int ntp, int np, CkVec<int> &mapping);
 };
 
 #endif /* _MultistepLB */
