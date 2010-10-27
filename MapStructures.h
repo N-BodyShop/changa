@@ -122,7 +122,7 @@ class TPObject{
   //int nparticles;
 
   bool operator<(const TPObject &t) const{
-    return load >= t.load;
+    return load < t.load;
   }
 
 };
@@ -134,7 +134,7 @@ class Processor{
   int t;
 
   bool operator<(const Processor &p) const{
-    return load < p.load;
+    return load >= p.load;
   }
 
 };
@@ -157,7 +157,7 @@ class SmallPhaseObject {
   int tpindex;
 
   bool operator<(const SmallPhaseObject &t) const{
-    return load >= t.load;
+    return load < t.load;
   }
 };
 
