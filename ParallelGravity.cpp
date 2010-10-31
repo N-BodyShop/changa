@@ -1765,6 +1765,9 @@ Main::doSimulation()
 	    sprintf(achCheckFileName, "%s.chk1", param.achOutName);
 	    bChkFirst = 1;
 	    }
+	// The following drift is called because it deletes the tree
+	// so it won't be saved on disk.
+	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
 	bIsRestarting = 0;
 	CkCallback cb(CkIndex_TreePiece::restart(), treeProxy[0]);
