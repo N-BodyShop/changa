@@ -1120,7 +1120,7 @@ void Main::advanceBigStep(int iStep) {
       for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
         double dTimeSub = RungToDt(param.dDelta, iRung);
 	if(verbosity) {
-	    ckout << " Rung " << iRung << ": " << 0.5*dTimeSub << endl;
+	    CkPrintf(" Rung %d: %g\n", iRung, 0.5*dTimeSub);
 	    }
         duKick[iRung] = 0.5*dTimeSub;
         dKickFac[iRung] = csmComoveKickFac(param.csm, dTime, 0.5*dTimeSub);
@@ -1151,8 +1151,7 @@ void Main::advanceBigStep(int iStep) {
       for(int iSub = 0; iSub < driftSteps; iSub++) 
 	  {
 	      if(verbosity)
-		  ckout << "Drift: Rung " << driftRung << " Delta "
-			<< dTimeSub << endl;
+		  CkPrintf("Drift: Rung %d Delta %g\n", driftRung, dTimeSub);
 
 	      // Only effective if growmass parameters have been set.
 	      growMass(dTime, dTimeSub);
@@ -1197,7 +1196,7 @@ void Main::advanceBigStep(int iStep) {
 	for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
 	    double dTimeSub = RungToDt(param.dDelta, iRung);
 	    if(verbosity) {
-		ckout << " Rung " << iRung << ": " << 0.5*dTimeSub << endl;
+		CkPrintf(" Rung %d: %g\n", iRung, 0.5*dTimeSub);
 		}
 	    duKick[iRung] = 0.5*dTimeSub;
 	  }
@@ -1328,7 +1327,7 @@ void Main::advanceBigStep(int iStep) {
       for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
         double dTimeSub = RungToDt(param.dDelta, iRung);
 	if(verbosity) {
-	    ckout << " Rung " << iRung << ": " << 0.5*dTimeSub << endl;
+	    CkPrintf(" Rung %d: %g\n", iRung, 0.5*dTimeSub);
 	    }
         duKick[iRung] = 0.5*dTimeSub;
         dKickFac[iRung] = csmComoveKickFac(param.csm,
