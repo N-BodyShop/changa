@@ -9,6 +9,9 @@
 extern CProxy_TreePiece treeProxy;
 using namespace std;
 
+extern double msLargePhaseThreshold;
+extern double msExpandFactor;
+
 CreateLBFunc_Def(MultistepLB, "Works best with multistepped runs; uses OrbSmooth for larger steps, RoundRobin otherwise");
 
 
@@ -166,25 +169,29 @@ void MultistepLB::printData(CondensedLDStats *stats, int phase){
   CkPrintf("---- end data ----\n", phase);
 }
 
-void MultistepLB::makeActiveProcessorList(CondensedLDStats *stats, int nap, int np, bool largePhase){
-  int objsPerProc = 8;
-  double expandFactor = 4.0;
+void MultistepLB::makeActiveProcessorList(CondensedLDStats *stats, int na, int n, bool largePhase){
+  double expandFactor = msExpandFactor;
   if(!largePhase){
-    int procsNeeded = expandFactor*(((float)nap*stats->count)/np);
+    int procsNeeded = expandFactor*(((float)na*stats->count)/n);
     if(procsNeeded > stats->count){
       procsNeeded = stats->count;
     }
-
-    if(_lb_args.debug() >= 1){
-      CkPrintf("Processors 0 to %d active particles %d total particles %d\n", procsNeeded-1, nap, np);
+    else if(procsNeeded < 1){
+      procsNeeded = 1;
     }
 
+    if(_lb_args.debug() >= 0){
+      CkPrintf("small: Processors 0 to %d active %d total %d\n", procsNeeded-1, na, n);
+    }
     stats->count = procsNeeded;
+  }
+  else{
+    CkPrintf("large: Processors 0 to %d active %d total %d\n", stats->count-1, na, n);
+    // don't modify stats->count
   }
 }
 #endif
 
-#define LARGE_PHASE_THRESHOLD 0.1
 
 void MultistepLB::work(BaseLB::LDStats* stats, int count)
 {
@@ -303,23 +310,31 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
 
 
   // select processors
-  bool largePhase = (float)numActiveParticles/totalNumParticles > LARGE_PHASE_THRESHOLD;
+  float activeRatio = (float)numActiveParticles/totalNumParticles;
+  bool largePhase = activeRatio > msLargePhaseThreshold;
   makeActiveProcessorList(statsToUse, numActiveParticles, totalNumParticles, largePhase);
+  int savedCount = count;
   count = statsToUse->count;
 
   // let the strategy take over on merged data and processor information
   if(largePhase){
     if(_lb_args.debug() >= 1){
-      CkPrintf("******** BIG STEP *********!\n");
+      CkPrintf("******** BIG STEP activeRatio %f activeObjects %d processors %d *********!\n", activeRatio, numActiveObjects, statsToUse->count);
     }
     work2(statsToUse, ratios, count, &stats->to_proc, useRatios, phase);
   }     // end if large phase
   else{ 
+    //fprintf(stderr, "before alloc\n");
+    CmiMemoryCheck();
     SmallPhaseObject *tp = new SmallPhaseObject[statsToUse->n_migrateobjs];
     int j = 0;
     // iterate through BaseLB::LDStats. therefore,
     // order to get the load information from savedPhaseStats,
     // we will need to translate from lbindex to tpindex
+    if(_lb_args.debug() >= 1){
+      fprintf(stderr, "smallPhaseGreedy activeRatio %f activeObjects %d processors %d\n", activeRatio, numActiveObjects, statsToUse->count);
+      fflush(stderr);
+    }
     for(int i = 0; i < stats->n_objs; i++){
       int tpindex = lbToTp[i]; 
       if(statsToUse->migratable[tpindex] == 0){
@@ -329,10 +344,18 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
         tp[j].load = statsToUse->wallTime[tpindex];
         tp[j].lbindex = i;
         tp[j].tpindex = tpindex;
+        if(_lb_args.debug() >= 2){
+          fprintf(stderr, "smallPhaseGreedy tpindex %d lbindex %d load %f\n", tpindex, i, tp[j].load);
+          fflush(stderr);
+        }
         j++;
       }
     }
-    greedySmallPhase(tp, statsToUse->n_migrateobjs, statsToUse->count, stats->to_proc);
+    //fprintf(stderr, "after copies\n");
+    CmiMemoryCheck();
+    greedySmallPhase(tp, statsToUse->n_migrateobjs, statsToUse->count, &(stats->to_proc));
+    //fprintf(stderr, "after greedySmallPhase\n");
+    CmiMemoryCheck();
     /*
     for(int i = 0; i < stats->n_objs; i++){
       if(stats->objData[i].migratable == 0) continue;
@@ -340,6 +363,24 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
     }
     */
     delete[] tp;
+    //fprintf(stderr, "after delete\n");
+    CmiMemoryCheck();
+  }
+  if(_lb_args.debug() >= 2){
+    fprintf(stderr, "\n\nLB decisions:\n\n");
+    for(int i = 0; i < stats->count; i++){
+      fprintf(stderr, "tpindex %d lbindex %d from %d to %d\n", lbToTp[i], i, stats->from_proc[i], stats->to_proc[i]);
+    }
+  }
+
+  for(int i = 0; i < stats->count; i++){
+    fprintf(stderr, "procload step %d proc %d nobjs %d walltime %f cputime %f idletime %f\n", 
+                                    step()-1, 
+                                    i, 
+                                    stats->procs[i].n_objs, 
+                                    stats->procs[i].total_walltime,
+                                    stats->procs[i].total_cputime, 
+                                    stats->procs[i].idletime);
   }
   delete []ratios;
   delete []lbToTp;
@@ -347,7 +388,7 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
 
 }
 
-void MultistepLB::greedySmallPhase(SmallPhaseObject *tp, int ntp, int np, CkVec<int> &mapping){
+void MultistepLB::greedySmallPhase(SmallPhaseObject *tp, int ntp, int np, CkVec<int> *mapping){
   std::priority_queue<SmallPhaseObject> pq_obj;
   std::priority_queue<Processor> pq_proc;
 
@@ -371,9 +412,20 @@ void MultistepLB::greedySmallPhase(SmallPhaseObject *tp, int ntp, int np, CkVec<
 
     p.load += obj.load;
     if(_lb_args.debug() >= 2){
-      CkPrintf("smallPhaseGreedy tpindex %d lbindex %d to rank %d\n", obj.tpindex, obj.lbindex, p.t);
+      fprintf(stderr,"smallPhaseGreedy tpindex %d lbindex %d load %f to rank %d weight %f\n", obj.tpindex, obj.lbindex, obj.load, p.t, p.load);
+      fflush(stderr);
     }
-    mapping[obj.lbindex] = p.t;
+    (*mapping)[obj.lbindex] = p.t;
+    pq_proc.push(p);
+  }
+
+  if(_lb_args.debug() >= 1){
+    fprintf(stderr, "smallPhaseGreedy PROCESSOR LOADS\n");
+    while(!pq_proc.empty()){
+      Processor p = pq_proc.top();
+      fprintf(stderr, "rank %d load %f\n", p.t, p.load);
+      pq_proc.pop();
+    }
   }
 
 }

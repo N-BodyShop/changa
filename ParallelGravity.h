@@ -146,6 +146,10 @@ extern int remoteResumePartsPerReq;
 
 extern double largePhaseThreshold;
 
+// jetley mstep
+extern double msLargePhaseTreshold;
+extern double msExpandFactor;
+
 extern double theta;
 extern double thetaMono;
 

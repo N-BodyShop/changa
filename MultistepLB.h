@@ -215,7 +215,7 @@ public:
   TPObject *partitionEvenLoad(TPObject *tp, int &ntp);
   Node *halveNodes(Node *start, int np);
 
-  void greedySmallPhase(SmallPhaseObject *tp, int ntp, int np, CkVec<int> &mapping);
+  void greedySmallPhase(SmallPhaseObject *tp, int ntp, int np, CkVec<int> *mapping);
 };
 
 #endif /* _MultistepLB */

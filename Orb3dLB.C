@@ -174,7 +174,6 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
 
   CkPrintf("[orb3dlb] map\n");
   map(tp,numobjs,numnodes,nodes,nx,ny,nz,dim);
-
   /*
   int migr = 0;
   float *objload = new float[stats->count];

@@ -68,6 +68,14 @@ int remoteResumePartsPerReq;
 // switch threshold
 double largePhaseThreshold;
 
+// jetley mstep
+
+#define MS_LARGE_PHASE_THRESHOLD_DEFAULT 0.1
+#define MS_EXPAND_FACTOR_DEFAULT 2.0 
+
+double msLargePhaseThreshold;
+double msExpandFactor;
+
 double theta;
 double thetaMono;
 /* readonly */ int nSmooth;
@@ -523,9 +531,15 @@ Main::Main(CkArgMsg* m) {
 
           largePhaseThreshold = TP_LARGE_PHASE_THRESHOLD_DEFAULT;
           prmAddParam(prm, "largePhaseThreshold", paramDouble, &largePhaseThreshold,
-              sizeof(double),"largephasethresh", "Ratio of active to total particles at which all particles (not just active ones) are sent to gpu in the target buffer (No source particles are sent.)");
+              sizeof(double),"largePhaseThresh", "Ratio of active to total particles at which all particles (not just active ones) are sent to gpu in the target buffer (No source particles are sent.)");
 
 #endif
+
+        msLargePhaseThreshold = MS_LARGE_PHASE_THRESHOLD_DEFAULT;
+        prmAddParam(prm, "msLargePhaseThreshold", paramDouble, &largePhaseThreshold, sizeof(double), "msLargePhaseThresh", "Ratio of active to total particles at which Orb3dLB is used.");
+
+        msExpandFactor = MS_EXPAND_FACTOR_DEFAULT;
+        prmAddParam(prm, "msExpandFactor", paramDouble, &msExpandFactor, sizeof(double), "msExpandFact", "Multiply this factor by the product of the ratio of active to total tree pieces and the total number of PEs to obtain the number of PEs used for a particular phase.");
 
 	if(!prmArgProc(prm,m->argc,m->argv)) {
 	    CkExit();
@@ -671,6 +685,10 @@ Main::Main(CkArgMsg* m) {
             numTreePieces = CkNumPes();
           }
 #endif
+
+          ckout << "INFO: ";
+          ckout << "msLargePhaseThreshold: " << msLargePhaseThreshold << endl;
+          ckout << "msExpandFactor: " << msExpandFactor << endl;
 
 	if(prmSpecified(prm, "lbcommCutoffMsgs")) {
 	    ckerr << "WARNING: ";
@@ -1101,6 +1119,9 @@ void Main::advanceBigStep(int iStep) {
   while (currentStep < MAXSUBSTEPS) {
 
     if(!param.bStaticTest) {
+
+      // separate one time step from the next
+      CkPrintf("\n");
       CkAssert(param.dDelta != 0.0);
       // Find new rung for active particles
       nextMaxRung = adjust(activeRung);

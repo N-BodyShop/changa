@@ -39,6 +39,10 @@ mainmodule ParallelGravity {
   readonly int remoteResumePartsPerReq;
   readonly double largePhaseThreshold;
 
+  // jetley
+  readonly double msLargePhaseThreshold;
+  readonly double msExpandFactor;
+
   readonly ComlibInstanceHandle cinst1;
   readonly ComlibInstanceHandle cinst2;
 
