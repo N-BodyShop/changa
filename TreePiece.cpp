@@ -272,6 +272,9 @@ void TreePiece::sendORBParticles(){
     mySPHParticles = new extraSPHData[myExpectedCountSPH];
   }
   myNumSPH = myExpectedCountSPH;
+  if(myExpectedCount == 0) // No particles.  Make sure transfer is
+			   // complete
+      acceptORBParticles(NULL, 0, NULL, 0);
 }
 
 /// Accept particles from other TreePieces once the sorting has finished
@@ -1325,18 +1328,18 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
       dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
       }
 
+  if (myNumParticles == 0) {
+    // No particle assigned to this TreePiece
+    if (verbosity > 3)
+      ckerr << "TreePiece " << thisIndex
+	    << ": No particles, finished tree build" << endl;
+    contribute(sizeof(callback), &callback, CkReduction::random,
+	       CkCallback(CkIndex_DataManager::combineLocalTrees((CkReductionMsg*)NULL), CProxy_DataManager(dataManagerID)));
+    return;
+  }
   myParticles[0].key = thisIndex;
   myParticles[myNumParticles+1].key = thisIndex;
 
-  /*//Find out how many levels will be there before tree goes
-  //into a treepiece
-  chunkRootLevel=0;
-  unsigned int tmp = numTreePieces;
-  while(tmp){
-    tmp >>= 1;
-    chunkRootLevel++;
-  }
-  chunkRootLevel--;*/
   compFuncPtr[0]= &comp_dim0;
   compFuncPtr[1]= &comp_dim1;
   compFuncPtr[2]= &comp_dim2;
