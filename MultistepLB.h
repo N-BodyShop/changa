@@ -125,11 +125,11 @@ struct CondensedLDStats {
         cpuTime[tpindex] = stats->objData[i].cpuTime;
         wallTime[tpindex] = stats->objData[i].cpuTime;
       }
-      migratable[tpindex] = stats->objData[i].migratable;
+      //migratable[tpindex] = stats->objData[i].migratable;
     }
     n_objs = stats->n_objs;
     count = stats->count;
-    n_migrateobjs = stats->n_migrateobjs;
+    //n_migrateobjs = stats->n_migrateobjs;
   }
 
   void pup(PUP::er &p){
@@ -162,7 +162,7 @@ private:
   //int prevPhase;
 
   unsigned int determinePhase(unsigned int activeRung);
-  void makeActiveProcessorList(CondensedLDStats *stats, int numActiveObjs, int numTotalObjs, bool largePhase);
+  void makeActiveProcessorList(CondensedLDStats *stats, float ratio, bool largePhase);
   void mergeInstrumentedData(int phase, BaseLB::LDStats *phaseStats, int *lbToTp);
   bool havePhaseData(int phase); 
   void printData(CondensedLDStats *stats, int phase);

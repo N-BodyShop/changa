@@ -169,10 +169,10 @@ void MultistepLB::printData(CondensedLDStats *stats, int phase){
   CkPrintf("---- end data ----\n", phase);
 }
 
-void MultistepLB::makeActiveProcessorList(CondensedLDStats *stats, int na, int n, bool largePhase){
+void MultistepLB::makeActiveProcessorList(CondensedLDStats *stats, float ratio, bool largePhase){
   double expandFactor = msExpandFactor;
   if(!largePhase){
-    int procsNeeded = expandFactor*(((float)na*stats->count)/n);
+    int procsNeeded = expandFactor*ratio*((float)stats->count);
     if(procsNeeded > stats->count){
       procsNeeded = stats->count;
     }
@@ -181,12 +181,12 @@ void MultistepLB::makeActiveProcessorList(CondensedLDStats *stats, int na, int n
     }
 
     if(_lb_args.debug() >= 0){
-      CkPrintf("small: Processors 0 to %d active %d total %d\n", procsNeeded-1, na, n);
+      CkPrintf("small: Processors 0 to %d ratio %f\n", procsNeeded-1, ratio);
     }
     stats->count = procsNeeded;
   }
   else{
-    CkPrintf("large: Processors 0 to %d active %d total %d\n", stats->count-1, na, n);
+    CkPrintf("large: Processors 0 to %d ratio %f\n", stats->count-1, ratio);
     // don't modify stats->count
   }
 }
@@ -221,22 +221,50 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
     stats->to_proc[i] = stats->from_proc[i];
   }
   // update phase data 
-  if(_lb_args.debug() >= 1){
+  if(_lb_args.debug() >= 0){
     CkPrintf("merging previous phase %d data; current phase: %d\n", prevPhase, phase);
   }
+  
+  if(prevPhase == -1) prevPhase = 0;
+
   mergeInstrumentedData(prevPhase, stats, lbToTp); 
+
+/*
+  for(int i = 0; i < stats->n_objs; i++){
+    int lbindex = i;
+    int tpindex = lbToTp[lbindex];
+    CkPrintf("SAVED DATA prevphase %d tp %d lb %d load %f\n", prevPhase, tpindex, lbindex, stats->objData[i].wallTime);
+  }
+  */
+
+  //CkPrintf("prevphase PROCESSOR LOADS\n");
+    /*
+  for(int i = 0; i < stats->count; i++){
+    CkPrintf("preprocload prevphase %d proc %d nobjs %d walltime %f cputime %f idletime %f\n", 
+                                    prevPhase, 
+                                    i, 
+                                    stats->procs[i].n_objs, 
+                                    stats->procs[i].total_walltime,
+                                    stats->procs[i].total_cputime, 
+                                    stats->procs[i].idletime);
+  }
+    */
+
 
   bool useRatios;
   CondensedLDStats *statsToUse = NULL;
   if(havePhaseData(phase)){
+    CkPrintf("decision: using previously stored phase %d data\n", phase);
     statsToUse = &(savedPhaseStats[phase]); 
     useRatios = false;
   }
   else if(havePhaseData(0)){
+    CkPrintf("decision: interpolating from phase 0 data\n");
     statsToUse = &(savedPhaseStats[0]);
     useRatios = true;
   }
   else{
+    CkPrintf("decision: return without balancing\n");
     return;
   }
 
@@ -246,6 +274,8 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
   // update migratable info in current stats 
   // also record the ratios of active to total
   // particles for each object
+  statsToUse->n_migrateobjs = statsToUse->n_objs;
+  statsToUse->count = count;
   for(int i = 0; i < statsToUse->n_objs; i++){
     int np = tpCentroids[i].myNumParticles;
     int nap = tpCentroids[i].numActiveParticles;
@@ -253,25 +283,28 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
     if(np == 0 || nap == 0){
       numInactiveObjects++;
       ratios[tpindex] = 0.0;
-      if(statsToUse->migratable[tpindex]){
-        statsToUse->migratable[tpindex] = 0;
-        statsToUse->n_migrateobjs--;
-      }
+      statsToUse->migratable[tpindex] = 0;
+      statsToUse->n_migrateobjs--;
     }
     else{
-      ratios[tpindex] = nap/(float)np;
       numActiveObjects++;
+      ratios[tpindex] = nap/(float)np;
+      statsToUse->migratable[tpindex] = 1;
     }
     numActiveParticles += nap; 
     totalNumParticles += np; 
   }
+
+  CkPrintf("phase %d numactiveobjects %d numinactiveobjects %d procs %d stats->count %d count %d\n", phase, numActiveObjects, numInactiveObjects, statsToUse->count, stats->count, count);
 
   if(_lb_args.debug() >= 2){
     CkPrintf("LDSTATS:\n");
     for(int i = 0; i < statsToUse->n_objs; i++){
       int lbindex = tpCentroids[i].tag;
       int tpindex = tpCentroids[i].tpindex;
-      CkPrintf("work1 %d %d %d %f\n", tpindex, lbindex, statsToUse->migratable[tpindex], statsToUse->wallTime[tpindex]);
+      if(statsToUse->migratable[tpindex]){
+        CkPrintf("USED DATA phase %d %d %d %d %f\n", phase, tpindex, lbindex, statsToUse->migratable[tpindex], statsToUse->wallTime[tpindex]);
+      }
     }
   }
 
@@ -310,9 +343,9 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
 
 
   // select processors
-  float activeRatio = (float)numActiveParticles/totalNumParticles;
+  float activeRatio = (float)numActiveObjects/(numActiveObjects+numInactiveObjects);
   bool largePhase = activeRatio > msLargePhaseThreshold;
-  makeActiveProcessorList(statsToUse, numActiveParticles, totalNumParticles, largePhase);
+  makeActiveProcessorList(statsToUse, activeRatio, largePhase);
   int savedCount = count;
   count = statsToUse->count;
 
@@ -331,9 +364,10 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
     // iterate through BaseLB::LDStats. therefore,
     // order to get the load information from savedPhaseStats,
     // we will need to translate from lbindex to tpindex
+    //CkPrintf("greedySmallPhase nmigr: %d\n", statsToUse->n_migrateobjs);
     if(_lb_args.debug() >= 1){
-      fprintf(stderr, "smallPhaseGreedy activeRatio %f activeObjects %d processors %d\n", activeRatio, numActiveObjects, statsToUse->count);
-      fflush(stderr);
+      CkPrintf("smallPhaseGreedy activeRatio %f activeObjects %d processors %d\n", activeRatio, numActiveObjects, statsToUse->count);
+      //fflush(stderr);
     }
     for(int i = 0; i < stats->n_objs; i++){
       int tpindex = lbToTp[i]; 
@@ -345,8 +379,7 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
         tp[j].lbindex = i;
         tp[j].tpindex = tpindex;
         if(_lb_args.debug() >= 2){
-          fprintf(stderr, "smallPhaseGreedy tpindex %d lbindex %d load %f\n", tpindex, i, tp[j].load);
-          fflush(stderr);
+          CkPrintf("smallPhaseGreedy tpindex %d lbindex %d load %f\n", tpindex, i, tp[j].load);
         }
         j++;
       }
@@ -366,24 +399,34 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
     //fprintf(stderr, "after delete\n");
     CmiMemoryCheck();
   }
-  if(_lb_args.debug() >= 2){
-    fprintf(stderr, "\n\nLB decisions:\n\n");
-    for(int i = 0; i < stats->count; i++){
-      fprintf(stderr, "tpindex %d lbindex %d from %d to %d\n", lbToTp[i], i, stats->from_proc[i], stats->to_proc[i]);
+
+  if(_lb_args.debug() >= 0){
+    /*
+    double *objTimes = new double[savedCount];
+    for(int i = 0; i < savedCount; i++){
+      objTimes[i] = 0.0;
     }
+    int nmigratable = 0;
+    for(int i = 0; i < statsToUse->n_objs; i++){
+      int lbindex = tpCentroids[i].tag;
+      int tpindex = tpCentroids[i].tpindex;
+
+      if(statsToUse->migratable[tpindex]){
+        nmigratable++;
+        objTimes[stats->to_proc[lbindex]] += statsToUse->wallTime[tpindex];
+      }
+    }
+    CkPrintf("\n\nPROCESSOR STATS for phase %d nmigratable %d:\n\n", phase, nmigratable);
+    for(int i = 0; i < stats->count; i++){
+      //CkPrintf("curprocload curphase %d proc %d objTime %d\n", phase, i, objTimes[i]); 
+    }
+    
+    delete[] objTimes;
+    */
   }
 
-  for(int i = 0; i < stats->count; i++){
-    fprintf(stderr, "procload step %d proc %d nobjs %d walltime %f cputime %f idletime %f\n", 
-                                    step()-1, 
-                                    i, 
-                                    stats->procs[i].n_objs, 
-                                    stats->procs[i].total_walltime,
-                                    stats->procs[i].total_cputime, 
-                                    stats->procs[i].idletime);
-  }
-  delete []ratios;
-  delete []lbToTp;
+  delete[] ratios;
+  delete[] lbToTp;
 #endif //CMK_LDB_ON
 
 }
@@ -440,7 +483,7 @@ void MultistepLB::work2(CondensedLDStats *stats, float *ratios, int count, CkVec
   int numobjs = stats->n_objs;
   int nmig = stats->n_migrateobjs;
 
-  if(_lb_args.debug() >= 1){
+  if(_lb_args.debug() >= 0){
     CkPrintf("[work2] %d objects allocating %d bytes for tp\n", nmig, nmig*sizeof(TPObject));
   }
   TPObject *tp = new TPObject[nmig];
@@ -471,9 +514,6 @@ void MultistepLB::work2(CondensedLDStats *stats, float *ratios, int count, CkVec
     }
     tp[j].lbindex = lbindex;
     tp[j].tpindex = tpindex;
-    if(_lb_args.debug() >= 2){
-      CkPrintf("work2 %d %d %d %f\n", tpindex, lbindex, stats->migratable[tpindex], tp[j].load);
-    }
     j++;
   }
 
