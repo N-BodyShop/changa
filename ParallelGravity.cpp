@@ -536,7 +536,7 @@ Main::Main(CkArgMsg* m) {
 #endif
 
         msLargePhaseThreshold = MS_LARGE_PHASE_THRESHOLD_DEFAULT;
-        prmAddParam(prm, "msLargePhaseThreshold", paramDouble, &largePhaseThreshold, sizeof(double), "msLargePhaseThresh", "Ratio of active to total particles at which Orb3dLB is used.");
+        prmAddParam(prm, "msLargePhaseThreshold", paramDouble, &msLargePhaseThreshold, sizeof(double), "msLargePhaseThresh", "Ratio of active to total particles at which Orb3dLB is used.");
 
         msExpandFactor = MS_EXPAND_FACTOR_DEFAULT;
         prmAddParam(prm, "msExpandFactor", paramDouble, &msExpandFactor, sizeof(double), "msExpandFact", "Multiply this factor by the product of the ratio of active to total tree pieces and the total number of PEs to obtain the number of PEs used for a particular phase.");
