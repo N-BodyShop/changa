@@ -759,9 +759,9 @@ Main::Main(CkArgMsg* m) {
         if (domainDecomposition == SFC_peano_dec_3D) peanoKey = 3;
 
 	// hardcoding some parameters, later may be full options
-	if(domainDecomposition==ORB_dec){
+	if(domainDecomposition==ORB_dec || domainDecomposition==ORB_space_dec){
 	    useTree = Binary_ORB;
-	    CkAbort("ORB decomposition known to be bad and not implemented");
+	    // CkAbort("ORB decomposition known to be bad and not implemented");
 	    }
 	else { useTree = Binary_Oct; }
 
@@ -809,6 +809,9 @@ Main::Main(CkArgMsg* m) {
             break;
           case ORB_dec:
             ckerr << "Domain decomposition...ORB" << endl;
+            break;
+          case ORB_space_dec:
+            ckerr << "Domain decomposition...ORB space" << endl;
             break;
           case SFC_peano_dec:
             ckerr << "Domain decomposition...SFC Peano-Hilbert" << endl;
@@ -864,7 +867,7 @@ Main::Main(CkArgMsg* m) {
 	for(i = 0; i < nPhases; i++)
 	    gids[i] = pieces.ckLocMgr()->getGroupID();
 	cacheNode = CProxy_CkCacheManager::ckNew(cacheSize, nPhases, gids);
-	delete gids;
+	delete[] gids;
 
 	//create the DataManager
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
@@ -1762,6 +1765,9 @@ Main::doSimulation()
 	    sprintf(achCheckFileName, "%s.chk1", param.achOutName);
 	    bChkFirst = 1;
 	    }
+	// The following drift is called because it deletes the tree
+	// so it won't be saved on disk.
+	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
 	bIsRestarting = 0;
 	CkCallback cb(CkIndex_TreePiece::restart(), treeProxy[0]);

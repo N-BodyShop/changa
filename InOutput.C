@@ -66,6 +66,7 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
     prefetchReq = new OrientedBox<double>[2];
   case Oct_dec:
   case ORB_dec:
+  case ORB_space_dec:
     if (numPrefetchReq == 0) {
       numPrefetchReq = 1;
       prefetchReq = new OrientedBox<double>[1];
@@ -213,12 +214,13 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   if(pos == maxPos) { //all the same position
     //XXX This would be bad!
     Key k;
-    if(domainDecomposition!=ORB_dec){
+    if((domainDecomposition!=ORB_dec) && (domainDecomposition!=ORB_space_dec)){
       k = generateKey(pos, boundingBox);
     }
     for(u_int64_t i = 0; i < myNumParticles; ++i) {
       myParticles[i + 1].position = pos;
-      if(domainDecomposition!=ORB_dec){
+      if((domainDecomposition!=ORB_dec)
+	 && (domainDecomposition!=ORB_space_dec)){
         myParticles[i + 1].key = k;
       }
     }
@@ -239,7 +241,8 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
 	        CkAbort("Badness");
 	      }
 	      myParticles[++myPart].position = pos;
-        if(domainDecomposition!=ORB_dec){
+	      if((domainDecomposition!=ORB_dec)
+		 && (domainDecomposition!=ORB_space_dec)){
 	        current = generateKey(pos, boundingBox);
 	        myParticles[myPart].key = current;
         }
@@ -256,7 +259,7 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
 	
   bLoaded = 1;
 
-  if(domainDecomposition!=ORB_dec){
+  if((domainDecomposition!=ORB_dec) && (domainDecomposition!=ORB_space_dec)){
     sort(myParticles+1, myParticles+myNumParticles+1);
   }
   contribute(0, 0, CkReduction::concat, cb);
@@ -294,6 +297,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 	    prefetchReq = new OrientedBox<double>[2];
 	case Oct_dec:
 	case ORB_dec:
+	case ORB_space_dec:
 	    if (numPrefetchReq == 0) {
 		numPrefetchReq = 1;
 		prefetchReq = new OrientedBox<double>[1];
@@ -375,6 +379,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 			mySPHParticles[iSPH].u() = dTuFac*gp.temp;
 			mySPHParticles[iSPH].uPred() = dTuFac*gp.temp;
 			mySPHParticles[iSPH].vPred() = gp.vel;
+			mySPHParticles[iSPH].fBallMax() = HUGE;
 			iSPH++;
 		} else if(i + startParticle < (unsigned int) tipsyHeader.nsph
 			  + tipsyHeader.ndark) {

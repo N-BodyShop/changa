@@ -65,8 +65,9 @@ MultistepLB::MultistepLB(const CkLBOptions &opt): CentralLB(opt)
   int nz = tmgr.getDimNZ();
   int numnodes = nx*ny*nz; 
 
-  if(verbosity > 2)
-   CkPrintf("[%d] Multistep Topo %d %d %d %d %d \n",CkMyPe(), nx, ny, nz, numnodes, ppn);
+  if (CkMyPe() == 0){
+    CkPrintf("[%d] Multistep Topo %d %d %d %d %d \n",CkMyPe(), nx, ny, nz, numnodes, ppn);
+  }
 
   compares[0] = comparx;
   compares[1] = compary;

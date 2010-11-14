@@ -291,12 +291,6 @@ void TreePiece::startIterationSmooth(// type of smoothing and parameters
       return;
       }
 
-  // It is assumed that there are at least nSmooth particles on a
-  // treepiece in order to prime the search queue.
-  CkAssert(myNumParticles > nSmooth);
-  
-  //for (int i=0; i<numChunks; ++i) remaining Chunk[i] = myNumParticles;
-
   // Create objects that are reused by all buckets
   twSmooth = new BottomUpTreeWalk;
   sSmooth = new KNearestSmoothCompute(this, params, nSmooth);

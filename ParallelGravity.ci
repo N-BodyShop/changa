@@ -107,10 +107,8 @@ mainmodule ParallelGravity {
   nodegroup [migratable] DataManager {
     entry DataManager(const CkArrayID& treePieceID);
 
-    //entry void acceptCandidateKeys(const SFC::Key keys[n],
-    //			       const int n,
-    //                                       int isRefine,
-    //			       const CkCallback& cb);
+    entry void acceptResponsibleIndex(const int responsible[n], const int n,
+				      const CkCallback& cb);
     entry void acceptFinalKeys(const SFC::Key keys[n],
         const int responsible[n - 1],
         unsigned int bins[n - 1], const int n,
@@ -186,9 +184,13 @@ mainmodule ParallelGravity {
         const int nGas, const double load);
     //ORB
     entry void initORBPieces(const CkCallback& cb);
-    entry void initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback);
+    entry void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,
+			     const CkCallback& cb, const CkCallback& cback);
     entry void sendORBParticles();
-    entry void acceptORBParticles(const GravityParticle particlesi[n], const int n);
+    entry void acceptORBParticles(const GravityParticle particles[n],
+				  const int n,
+			  	  const extraSPHData pGas[nGasIn],
+				  const int nGasIn);
     entry void finalizeBoundaries(ORBSplittersMsg *splittersMsg);
     entry void evaluateParticleCounts(ORBSplittersMsg *splittersMsg);
 

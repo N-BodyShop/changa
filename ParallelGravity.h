@@ -60,13 +60,21 @@ PUPbytes(COOLPARAM);
 
 using namespace Tree;
 
+enum LBStrategy{
+  Null,
+  Multistep,
+  Orb3d
+};
+PUPbytes(LBStrategy);
+
 enum DomainsDec {
-  SFC_dec=0,
-  Oct_dec=1,
-  ORB_dec=2,
-  SFC_peano_dec=3,
-  SFC_peano_dec_3D=4,
-  SFC_peano_dec_2D=5
+    SFC_dec=0,	// Space Filling Curve with Morton ordering
+    Oct_dec=1, 	// Oct tree
+    ORB_dec=2,	// Bisect the longest axis, balancing particles
+    SFC_peano_dec=3,	// SFC with Piano-Hilbert ordering
+    SFC_peano_dec_3D=4, // Joachim Stadel's implementation of P-H ordering
+    SFC_peano_dec_2D=5,	// 2D version of Piano-Hilbert ordering
+    ORB_space_dec=6		// Bisect space
 };
 
 inline void operator|(PUP::er &p,DomainsDec &d) {
@@ -737,8 +745,7 @@ private:
 
         // jetley - proxy for load balancer
         CkGroupID proxy;
-        bool foundorb3d;
-        bool foundmultistep;
+        LBStrategy foundLB;
         // jetley - whether proxy is valid or not
         CmiBool proxyValid;
         // jetley - saved first internal node
@@ -774,6 +781,8 @@ private:
 
 	/// Array with sorted particles for domain decomposition (ORB)
 	std::vector<GravityParticle> mySortedParticles;
+	/// Array with sorted SPH data for domain decomposition (ORB)
+	std::vector<extraSPHData> mySortedParticlesSPH;
         /// Array with incoming particles for domain decomposition (without stl)
         GravityParticle *incomingParticles;
         /// How many particles have already arrived during domain decomposition
@@ -950,6 +959,9 @@ private:
 
   ///Expected number of particles for each TreePiece after ORB decomposition
   int myExpectedCount;
+  ///Expected number of SPH particles for each TreePiece after ORB
+  ///decomposition
+  int myExpectedCountSPH;
 
   ///Level after which the local subtrees of all the TreePieces start
   unsigned int chunkRootLevel;
@@ -1263,9 +1275,12 @@ public:
 				   const int nGas, const double load);
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);
-  void initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback);
+  void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,
+			 const CkCallback& cb, const CkCallback& cback);
   void sendORBParticles();
   void acceptORBParticles(const GravityParticle* particles, const int n);
+  void acceptORBParticles(const GravityParticle* particles, const int n,
+			  const extraSPHData *pGas, const int nGasIn);
   void finalizeBoundaries(ORBSplittersMsg *splittersMsg);
   void evaluateParticleCounts(ORBSplittersMsg *splittersMsg);
   /*****************************/
