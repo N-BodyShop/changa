@@ -152,10 +152,9 @@ State *KNearestSmoothCompute::getNewState(int nBuckets){
   state->counterArrays[1] = 0;
 
   for(int j = 0; j < nBuckets; ++j){
-    initSmoothPrioQueue(j, state);
     state->counterArrays[0][j] = 1;	// so we know that the local
 					// walk is not finished.
-  }
+    }
   state->started = true;
   state->nParticlesPending = tp->myNumParticles;
   state->currentBucket = 0;
@@ -285,6 +284,7 @@ void TreePiece::startIterationSmooth(// type of smoothing and parameters
   cbSmooth = cb;
   activeRung = params->activeRung;
 
+  try {
   setupSmooth();
   if (myNumParticles == 0) {
       markSmoothWalkDone();
@@ -308,7 +308,11 @@ void TreePiece::startIterationSmooth(// type of smoothing and parameters
   CkPrintf("[%d] addActiveWalk smooth (%d)\n", thisIndex, activeWalks.length());
 #endif
 
-  thisProxy[thisIndex].calculateSmoothLocal();
+  calculateSmoothLocal();
+  }
+  catch (std::bad_alloc) {
+	CkAbort("Out of memory in startIterationSmooth");
+	}
 }
 
 // Initialize particles in bucket and bucket bookkeeping
@@ -486,6 +490,8 @@ void TreePiece::smoothNextBucket() {
   int currentBucket = sSmoothState->currentBucket;
   if(currentBucket >= numBuckets)
     return;
+  ((KNearestSmoothCompute *)sSmooth)->initSmoothPrioQueue(currentBucket,
+							  sSmoothState);
   smoothBucketComputation();
   ((NearNeighborState *)sSmoothState)->finishBucketSmooth(currentBucket, this);
 }
