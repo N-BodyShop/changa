@@ -1,3 +1,5 @@
+#ifndef _MAP_STRUCTURES_H_
+#define _MAP_STRUCTURES_H_
 #include <iostream>
 
 #include "Vector3D.h"
@@ -87,3 +89,60 @@ void Volume<T>::split(int axis, T* where, Volume<T> &secondhalf){
   secondhalf.lesser[axis] = where[axis];
 }
 
+#define NDIMS 3
+class Centroid3d{
+  public:
+  float x;
+  float y;
+  float z;
+
+  float *pointers[NDIMS];
+
+  Centroid3d(){
+    pointers[0] = &x;
+    pointers[1] = &y;
+    pointers[2] = &z;
+  }
+
+  float& operator[](int i){
+    return *(pointers[i]);
+  }
+
+};
+
+class TPObject{
+  public:
+
+  Vector3D<float> centroid;
+  float load;
+  //int index;
+  int lbindex;
+  bool migratable;
+  //int nparticles;
+
+  bool operator<(const TPObject &t) const{
+    return load < t.load;
+  }
+
+};
+
+class Processor{
+  public:
+
+  float load;
+  int t;
+
+  bool operator<(const Processor &p) const{
+    return load > p.load;
+  }
+
+};
+
+class Node {
+  public:
+  int x, y, z;
+  CkVec<int> procRanks;
+};
+
+typedef int (*ComparatorFn) (const void *, const void *);
+#endif // _MAP_STRUCTURES_H_

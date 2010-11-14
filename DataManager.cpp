@@ -50,6 +50,16 @@ void DataManager::init() {
   Cool = CoolInit();
 }
 
+/**
+ * Fill in responsibleIndex after ORB decomposition
+ */
+void DataManager::acceptResponsibleIndex(const int* responsible, const int n,
+					 const CkCallback& cb) {
+    responsibleIndex.resize(n);
+    copy(responsible, responsible + n, responsibleIndex.begin());
+    contribute(cb);
+    }
+
 void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb) {
 
   //should not assign responsibility or place to a treepiece that will get no particles
