@@ -456,6 +456,8 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		double fDist2 = nnList[i].fKey*nnList[i].fKey;
 		r2 = fDist2*ih2;
 		q = nnList[i].p;
+		if(q == NULL)
+		    CkAbort("NULL neighbor in DenDvDxSmooth");
 		if (p->rung >= activeRung)
 		    TYPESet(q,TYPE_NbrOfACTIVE); /* important for SPH */
 		if(q->rung >= activeRung)
