@@ -21,12 +21,17 @@ void MultistepLB::receiveCentroids(CkReductionMsg *msg){
   CkPrintf("MultistepLB: receiveCentroids started: %d elements, msg length: %d\n", msg->getGcount(), msg->getLength()); 
   map.tpCentroids.free();
   
+  try {
   while(i < msg->getGcount()){
      map.tpCentroids.push_back(*cur);
      cur = cur + 1;
      i++;
   }
   treeProxy.doAtSync();
+  }
+  catch(std::bad_alloc) {
+    CkAbort("Out of memory in receiveCentroids");
+    }
   CkPrintf("MultistepLB: receiveCentroids done\n");  
   delete msg;
 }
