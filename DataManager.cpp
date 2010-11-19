@@ -421,14 +421,17 @@ void DataManager::donePrefetch(int chunk){
 #ifdef CUDA_TRACE
     double starttime = CmiWallTimer();
 #endif
-    PendingBuffers *buffers = serializeRemoteChunk(root);
+    // PendingBuffers *buffers = serializeRemoteChunk(root);
+    PendingBuffers *buffers = NULL;
 #ifdef CUDA_TRACE
     traceUserBracketEvent(CUDA_SER_TREE, starttime, CmiWallTimer());
 #endif
     if(gpuFree){
       gpuFree = false;
+      /*
       lastChunkMoments = buffers->moments->length();
       lastChunkParticles = buffers->particles->length();
+      */
       //CkPrintf("(%d) DM donePrefetch gpuFree, transferring 0x%x (%d); 0x%x (%d) \n", CkMyPe(), buffers->moments->getVec(), lastChunkMoments, buffers->particles->getVec(), lastChunkParticles);
 
       // Transfer moments and particle cores to gpu
@@ -438,9 +441,11 @@ void DataManager::donePrefetch(int chunk){
       DataManagerTransferRemoteChunk(buffers->moments->getVec(), lastChunkMoments, buffers->particles->getVec(), lastChunkParticles);
 #endif
 
+      /*
       delete buffers->moments;
       delete buffers->particles;
       delete buffers;
+      */
       // resume each treepiece's startRemoteChunk, now that the nodes
       // are properly labeled and the particles accounted for
       for(int i = 0; i < registeredTreePieces.length(); i++){
@@ -648,10 +653,10 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   CkVec<CudaMultipoleMoments> localMoments;
   CkVec<CompactPartData> localParticles;
 
-  localMoments.reserve(numNodes);
+  //localMoments.reserve(numNodes);
   localParticles.resize(numParticles);
 
-  localMoments.length() = 0;
+  //localMoments.length() = 0;
 
   // fill up postPrefetchMoments with node moments
   int nodeIndex = 0;
@@ -663,6 +668,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   CkPrintf("*************\n");
 #endif
   queue.enq(node);
+  /*
   while(!queue.isEmpty()){
     GenericTreeNode *node = queue.deq();
     NodeType type = node->getType();
@@ -694,10 +700,11 @@ void DataManager::serializeLocal(GenericTreeNode *node){
       }
     }
   }// end while queue not empty
+  */
 
   // used later, when copying particle vars back to the host
   savedNumTotalParticles = numParticles;
-  savedNumTotalNodes = localMoments.length();
+  //savedNumTotalNodes = localMoments.length();
 
   for(int i = 0; i < registeredTreePieces.length(); i++){
     TreePiece *tp = registeredTreePieces[i].tp;
@@ -767,19 +774,21 @@ void initiateNextChunkTransfer(void *dm_){
 }
 
 void DataManager::initiateNextChunkTransfer(){
-  PendingBuffers *next = 0;
+  PendingBuffers *next = NULL;
   if(next = pendingChunkTransferQ.deq()){
     // Transfer moments and particle cores to gpu
     int chunk = next->chunk;
     //CkPrintf("(%d) DM initiateNextChunkTransfer chunk %d (%d moments, %d particles) called\n", CkMyPe(), chunk, next->moments->length(), next->particles->length());
+    /*
     lastChunkMoments = next->moments->length();
     lastChunkParticles = next->particles->length();
+    */
 
-    CkPrintf("(%d) DM initiateNextChunkTransfer chunk %d, 0x%x (%d); 0x%x (%d) \n", CkMyPe(), next->moments->getVec(), lastChunkMoments, next->particles->getVec(), lastChunkParticles);
+    //CkPrintf("(%d) DM initiateNextChunkTransfer chunk %d, 0x%x (%d); 0x%x (%d) \n", CkMyPe(), next->moments->getVec(), lastChunkMoments, next->particles->getVec(), lastChunkParticles);
 #ifdef CUDA_INSTRUMENT_WRS
     DataManagerTransferRemoteChunk(next->moments->getVec(), next->moments->length(), next->particles->getVec(), next->particles->length(), 0, activeRung);
 #else
-    DataManagerTransferRemoteChunk(next->moments->getVec(), next->moments->length(), next->particles->getVec(), next->particles->length());
+    DataManagerTransferRemoteChunk(NULL, 0, NULL, 0);
 #endif
 
     delete next->moments;

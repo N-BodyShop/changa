@@ -124,16 +124,13 @@ class DoubleWalkState : public State {
   int nodeThreshold;
   int partThreshold;
 
-  GenericList<ILCell> nodeLists;
-  GenericList<ILPart> particleLists;
+  // two requests for double-buffering
+  CudaRequest requests[2];
 
 #ifdef CUDA_INSTRUMENT_WRS
   double nodeListTime;
   double partListTime;
 #endif
-
-  CkVec<CudaMultipoleMoments> *nodes;
-  CkVec<CompactPartData> *particles;
 
   // during 'small' rungs, buckets are marked when
   // they are included for computation in the request's
@@ -155,8 +152,8 @@ class DoubleWalkState : public State {
   // be writing to the nodeArrayIndex field of the CacheManager's nodes.
   // We need a different group that manages GPU memory for this purpose.
   //std::map<NodeKey,int> nodeMap;
-  CkVec<GenericTreeNode *> nodeMap;
-  std::map<NodeKey,int> partMap;
+  // CkVec<GenericTreeNode *> nodeMap;
+  // std::map<NodeKey,int> partMap;
 
   bool nodeOffloadReady(){
     return nodeLists.totalNumInteractions >= nodeThreshold;

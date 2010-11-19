@@ -1283,7 +1283,8 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
   // for local particles
   //std::map<NodeKey, int> &lpref = tp->dm->getLocalPartsOnGpuTable();
   // for cached particles
-  std::map<NodeKey, int> &cpref = tp->dm->getCachedPartsOnGpuTable();
+  // FIXME - change code where this table is set up and copied over
+  //std::map<NodeKey, int> &cpref = tp->dm->getCachedPartsOnGpuTable();
 #endif
 
   GenericTreeNode *lowestNode = state->lowestNode;

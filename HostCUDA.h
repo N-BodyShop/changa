@@ -23,17 +23,11 @@ enum boolean {NO, YES};
 #define NUM_INIT_PARTICLE_INTERACTIONS_PER_BUCKET 100
 
 /* defines for Hybrid API buffer indices */
-#define LOCAL_MOMENTS        0
-#define LOCAL_PARTICLE_CORES  1
-#define LOCAL_PARTICLE_VARS      2
-#define REMOTE_MOMENTS 3 
-#define REMOTE_PARTICLE_CORES 4
+#define LOCAL_PARTICLE_CORES  0
+#define LOCAL_PARTICLE_VARS      1
 
-#define LOCAL_MOMENTS_IDX        0
-#define LOCAL_PARTICLE_CORES_IDX  1
-#define LOCAL_PARTICLE_VARS_IDX      2
-#define REMOTE_MOMENTS_IDX 0
-#define REMOTE_PARTICLE_CORES_IDX 1
+#define LOCAL_PARTICLE_CORES_IDX  0
+#define LOCAL_PARTICLE_VARS_IDX      1
 
 #define ILPART 0
 #define PART_BUCKET_MARKERS 1
@@ -60,8 +54,8 @@ enum boolean {NO, YES};
 #define MISSED_PARTS_IDX 4
 
 // node moments, particle cores, particle vars
-#define DM_TRANSFER_LOCAL_NBUFFERS 3
-#define DM_TRANSFER_REMOTE_CHUNK_NBUFFERS 2
+#define DM_TRANSFER_LOCAL_NBUFFERS 2
+#define DM_TRANSFER_REMOTE_CHUNK_NBUFFERS 0
 
 // interaction list
 // list markers

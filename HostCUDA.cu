@@ -96,6 +96,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
 	/* schedule two buffers for transfer to the GPU */
 	transferKernel.bufferInfo = (dataInfo *) malloc(transferKernel.nBuffers * sizeof(dataInfo));
 
+        /*
 	buf = &(transferKernel.bufferInfo[LOCAL_MOMENTS_IDX]);
 	buf->bufferID = LOCAL_MOMENTS;
 	buf->freeBuffer = NO;
@@ -103,6 +104,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
 	buf->size = size;
 	buf->transferToDevice = size > 0 ? YES : NO;
 	buf->transferFromDevice = NO;
+        */
 
         //double mill = 1e6;
         //printf("(%d) DM local moments: %f mbytes\n", mype, 1.0*size/mill);
@@ -110,6 +112,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
 #ifdef CUDA_PRINT_ERRORS
         printf("(%d) DMLocal 0000: %s\n", mype, cudaGetErrorString( cudaGetLastError() ));
 #endif
+        /*
         if(size > 0){
 #ifdef CUDA_USE_CUDAMALLOCHOST
 #ifdef CUDA_MEMPOOL
@@ -121,11 +124,12 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
           buf->hostBuffer = malloc(size);
 #endif
         }
+        */
 
 #ifdef CUDA_PRINT_ERRORS
         printf("(%d) DMLocal 0: %s hostBuf: 0x%x, size: %d\n", mype, cudaGetErrorString( cudaGetLastError() ), buf->hostBuffer, size );
 #endif
-        memcpy(buf->hostBuffer, moments, size);
+        //memcpy(buf->hostBuffer, moments, size);
 
 	buf = &(transferKernel.bufferInfo[LOCAL_PARTICLE_CORES_IDX]);
 	buf->bufferID = LOCAL_PARTICLE_CORES;
@@ -212,8 +216,9 @@ void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments,
   transferKernel.dimBlock = dim3(0);
   transferKernel.smemSize = 0;
 
-  transferKernel.nBuffers = DM_TRANSFER_REMOTE_CHUNK_NBUFFERS;
+  transferKernel.nBuffers = 0;
 
+  /*
   transferKernel.bufferInfo = (dataInfo *) malloc(transferKernel.nBuffers * sizeof(dataInfo));
 
   buf = &(transferKernel.bufferInfo[REMOTE_MOMENTS_IDX]);
@@ -281,6 +286,7 @@ void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments,
   transferKernel.compType = transferKernel.id;
   transferKernel.compPhase = phase; 
 #endif
+  */
   enqueue(wrQueue, &transferKernel);
 
 }
@@ -377,6 +383,7 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleM
   gravityKernel.bufferInfo = (dataInfo *) malloc(gravityKernel.nBuffers * sizeof(dataInfo));
 
   TreePieceCellListDataTransferBasic(data, &gravityKernel);
+  // FIXME - is it necessary to check whether ilcell has been transferred?
   transfer = gravityKernel.bufferInfo[ILCELL_IDX].transferToDevice == YES;
 
   buffer = &(gravityKernel.bufferInfo[MISSED_MOMENTS_IDX]);
@@ -927,21 +934,10 @@ void kernelSelect(workRequest *wr) {
     case DM_TRANSFER_LOCAL:
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
       printf("DM_TRANSFER_LOCAL KERNELSELECT\n");
-      printf("mom: 0x%x\n", devBuffers[LOCAL_MOMENTS]);
       printf("cores: 0x%x\n", devBuffers[LOCAL_PARTICLE_CORES]);
       printf("vars: 0x%x\n", devBuffers[LOCAL_PARTICLE_VARS]);
 #endif
 #ifdef CUDA_USE_CUDAMALLOCHOST
-      if(wr->bufferInfo[LOCAL_MOMENTS_IDX].transferToDevice == YES){
-#ifdef CUDA_MEMPOOL
-        hapi_poolFree(wr->bufferInfo[LOCAL_MOMENTS_IDX].hostBuffer);
-#else
-        delayedFree(wr->bufferInfo[LOCAL_MOMENTS_IDX].hostBuffer);
-#endif
-      }
-#ifdef CUDA_PRINT_ERRORS
-      printf("DM_TRANSFER_LOCAL 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
       if(wr->bufferInfo[LOCAL_PARTICLE_CORES_IDX].transferToDevice == YES){
 #ifdef CUDA_MEMPOOL
         hapi_poolFree(wr->bufferInfo[LOCAL_PARTICLE_CORES_IDX].hostBuffer);
@@ -962,6 +958,8 @@ void kernelSelect(workRequest *wr) {
 #ifdef CUDA_PRINT_ERRORS
       printf("DM_TRANSFER_LOCAL 2: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
+      
+// no pinned memory
 #else
       if(wr->bufferInfo[LOCAL_MOMENTS_IDX].transferToDevice == YES){
         free(wr->bufferInfo[LOCAL_MOMENTS_IDX].hostBuffer);
@@ -976,38 +974,6 @@ void kernelSelect(workRequest *wr) {
       break;
 
     case DM_TRANSFER_REMOTE_CHUNK:
-#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-      printf("DM_TRANSFER_REMOTE_CHUNK, %d KERNELSELECT\n", wr->bufferInfo[REMOTE_MOMENTS_IDX].transferToDevice == YES);
-#endif
-      if(wr->bufferInfo[REMOTE_MOMENTS_IDX].transferToDevice == YES){
-#ifdef CUDA_USE_CUDAMALLOCHOST
-#ifdef CUDA_MEMPOOL
-        hapi_poolFree(wr->bufferInfo[REMOTE_MOMENTS_IDX].hostBuffer);
-#else
-        delayedFree(wr->bufferInfo[REMOTE_MOMENTS_IDX].hostBuffer);
-#endif
-#ifdef CUDA_PRINT_ERRORS
-        printf("DM_TRANSFER_REMOTE_CHUNK 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-#else
-        free(wr->bufferInfo[REMOTE_MOMENTS_IDX].hostBuffer);
-#endif
-      }
-
-      if(wr->bufferInfo[REMOTE_PARTICLE_CORES_IDX].transferToDevice == YES){
-#ifdef CUDA_USE_CUDAMALLOCHOST
-#ifdef CUDA_MEMPOOL
-        hapi_poolFree(wr->bufferInfo[REMOTE_PARTICLE_CORES_IDX].hostBuffer);
-#else
-        delayedFree(wr->bufferInfo[REMOTE_PARTICLE_CORES_IDX].hostBuffer);
-#endif
-#ifdef CUDA_PRINT_ERRORS
-        printf("DM_TRANSFER_REMOTE_CHUNK 1: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-#else
-        free(wr->bufferInfo[REMOTE_PARTICLE_CORES_IDX].hostBuffer);
-#endif
-      }
       break;
 
     case DM_TRANSFER_FREE_LOCAL:
@@ -1047,6 +1013,12 @@ void kernelSelect(workRequest *wr) {
           devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID]
           );
 #endif
+      // FIXME - 
+      // 1. must have offsets passed into kernel
+      // 2. change buffers sent to node gravity comp kernels
+      // 3. check freed buffers for same
+      // 4. change compute.c to get nodes instead of node pointers
+      // 5. do same for parts, missed nodes and missed parts
       if(wr->bufferInfo[ILCELL_IDX].transferToDevice == YES){
 #ifndef CUDA_NO_KERNELS
         nodeGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
@@ -1054,7 +1026,6 @@ void kernelSelect(workRequest *wr) {
            (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
            (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
            (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
-           (ILCell *)devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
@@ -1261,7 +1232,6 @@ void kernelSelect(workRequest *wr) {
            (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
            (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
            (CudaMultipoleMoments *)devBuffers[REMOTE_MOMENTS],
-           (ILCell *)devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
@@ -1393,7 +1363,6 @@ void kernelSelect(workRequest *wr) {
            (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
            (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
            (CudaMultipoleMoments *)devBuffers[wr->bufferInfo[MISSED_MOMENTS_IDX].bufferID],
-           (ILCell *)devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
            (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
@@ -1557,7 +1526,6 @@ __global__ void nodeGravityComputation(
 		CompactPartData *particleCores,
 		VariablePartData *particleVars,
 		CudaMultipoleMoments *moments,
-		ILCell *ils,
 		int *ilmarks,
 		int *bucketStarts,
 		int *bucketSizes,
@@ -1615,15 +1583,13 @@ __global__ void nodeGravityComputation(
     
     for(xstart = start; xstart < end; xstart += NODES_PER_BLOCK){
       int my_cell_idx = xstart + tx;
-      ILCell ilc;
 
       __syncthreads(); // wait for all threads to finish using 
                        // previous iteration's nodes before reloading
       
       if(ty == 0 && my_cell_idx < end){
-        ilc = ils[my_cell_idx];
-        m[tx] = moments[ilc.index];
-        offsetID[tx] = ilc.offsetID;
+        m[tx] = moments[my_cell_index];
+        offsetID[tx] = offsets[my_cell_index];
       }
       
       __syncthreads(); // wait for nodes to be loaded before using them
