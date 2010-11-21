@@ -1368,14 +1368,23 @@ void Main::setupICs() {
     // Try loading Tipsy format; first just grab the header.
     ckout << " trying Tipsy ...";
 	    
-    Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
-    if(!ptf.loadedSuccessfully()) {
-      ckerr << endl << "Couldn't load the tipsy file \""
-            << basefilename.c_str()
-            << "\". Maybe it's not a tipsy file?" << endl;
-      CkExit();
-      return;
-    }
+    try {
+	Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
+	if(!ptf.loadedSuccessfully()) {
+	    ckerr << endl << "Couldn't load the tipsy file \""
+		  << basefilename.c_str()
+		  << "\". Maybe it's not a tipsy file?" << endl;
+	    CkExit();
+	    return;
+	    }
+	}
+    catch (std::ios_base::failure e) {
+	ckerr << "File read: " << basefilename.c_str() << ": " << e.what()
+	      << endl;
+	CkExit();
+	return;
+	}
+    
     double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
     treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
   }	
