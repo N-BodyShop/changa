@@ -41,6 +41,7 @@ template<typename T>
 class GenericList{
   public:
   CkVec<CkVec<T> > lists;
+  CkVec<CkVec<int> > offsets;
   int totalNumInteractions;
 
   GenericList() : totalNumInteractions(0) {}
@@ -49,6 +50,7 @@ class GenericList{
     // clear all bucket lists:
     for(int i = 0; i < lists.length(); i++){
       lists[i].length() = 0;
+      offsets[i].length() = 0;
     }
     totalNumInteractions = 0;
   }
@@ -56,15 +58,19 @@ class GenericList{
   void free(){
     for(int i = 0; i < lists.length(); i++){
       lists[i].free();
+      offsets[i].free();
     }
     lists.free();
+    offsets.free();
     totalNumInteractions = 0;
   }
 
   void init(int numBuckets, int numper){
     lists.resize(numBuckets);
+    offsets.resize(numBuckets);
     for(int i = 0; i < numBuckets; i++){
       lists[i].reserve(numper);
+      offsets[i].reserve(numper);
     }
   }
 
@@ -96,7 +102,7 @@ class GenericList{
 	CkAssert(bucketStart >= 0);
   }
 
-  void push_back(int b, T &ilc, DoubleWalkState *state, TreePiece *tp);
+  void push_back(int b, T &ilc, int offset, DoubleWalkState *state, TreePiece *tp);
   
 
 };
@@ -125,7 +131,6 @@ class DoubleWalkState : public State {
   int partThreshold;
 
   // two requests for double-buffering
-  CudaRequest requests[2];
 
 #ifdef CUDA_INSTRUMENT_WRS
   double nodeListTime;
@@ -155,12 +160,22 @@ class DoubleWalkState : public State {
   // CkVec<GenericTreeNode *> nodeMap;
   // std::map<NodeKey,int> partMap;
 
+  // actual lists, one per bucket
+  // these include offsets now
+  GenericList<CudaMultipoleMoments> moments;
+  GenericList<LocalPartInfo> localParticles;
+  GenericList<RemotePartInfo> remoteParticles;
+
   bool nodeOffloadReady(){
-    return nodeLists.totalNumInteractions >= nodeThreshold;
+    return moments.totalNumInteractions >= nodeThreshold;
   }
 
-  bool partOffloadReady(){
-    return particleLists.totalNumInteractions >= partThreshold;
+  bool localPartOffloadReady(){
+    return localParticles.totalNumInteractions >= partThreshold;
+  }
+
+  bool remotePartOffloadReady(){
+    return remoteParticles.totalNumInteractions >= partThreshold;
   }
 
 #ifdef CUDA_INSTRUMENT_WRS

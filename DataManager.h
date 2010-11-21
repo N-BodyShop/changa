@@ -101,7 +101,7 @@ protected:
         // * or for each entry, get key, find bucket node in CM, DM or TPs and get number
         // for now, the former
 
-        std::map<NodeKey, int> cachedPartsOnGpu;
+        //std::map<NodeKey, int> cachedPartsOnGpu;
         // local particles that have been copied to the gpu
         //std::map<NodeKey, int> localPartsOnGpu;
 
@@ -185,16 +185,6 @@ public:
 	void acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb);
 	void pup(PUP::er& p);
 
-#ifdef CUDA
-        /*
-        std::map<NodeKey, int> &getLocalPartsOnGpuTable(){
-          return localPartsOnGpu;
-        }
-        */
-        std::map<NodeKey, int> &getCachedPartsOnGpuTable(){
-          return cachedPartsOnGpu;
-        }
-#endif
 	// Functions used to create a tree inside the DataManager comprising
 	// all the trees in the TreePieces in the local node
 private:

@@ -42,10 +42,12 @@ enum boolean {NO, YES};
 #define PART_BUCKET_MARKERS_IDX 1
 #define PART_BUCKET_START_MARKERS_IDX 2
 #define PART_BUCKET_SIZES_IDX 3
+#define PART_OFFSETS_IDX 4
 #define ILCELL_IDX 0
 #define NODE_BUCKET_MARKERS_IDX 1
 #define NODE_BUCKET_START_MARKERS_IDX 2
 #define NODE_BUCKET_SIZES_IDX 3
+#define NODE_OFFSETS_IDX 4
 
 #define MISSED_MOMENTS 4
 #define MISSED_PARTS 4
@@ -61,10 +63,10 @@ enum boolean {NO, YES};
 // list markers
 // bucket starts
 // bucket sizes
-#define TP_GRAVITY_LOCAL_NBUFFERS 4
+#define TP_GRAVITY_LOCAL_NBUFFERS 5
 #define TP_GRAVITY_LOCAL_NBUFFERS_SMALLPHASE 5
 
-#define TP_NODE_GRAVITY_REMOTE_NBUFFERS 4
+#define TP_NODE_GRAVITY_REMOTE_NBUFFERS 5
 #define TP_PART_GRAVITY_REMOTE_NBUFFERS 5
 
 #define TP_NODE_GRAVITY_REMOTE_RESUME_NBUFFERS 5
@@ -94,11 +96,13 @@ enum kernels {
 
 
 typedef struct _CudaRequest{
-        // can either be a ILCell* or an ILPart*
+        // can be CudaMultipoleMoments or CompactPartData list 
 	void *list;
+        int *offsets;
 	int *bucketMarkers;
 	int *bucketStarts;
 	int *bucketSizes;
+
 	int numInteractions;
 	int numBucketsPlusOne;
         void *tp;

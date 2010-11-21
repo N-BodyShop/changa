@@ -168,7 +168,8 @@ class ListCompute : public Compute{
 
 #ifdef CUDA
   void sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy=false);
-  void sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy=false);
+  void sendLocalPartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy=false);
+  void sendRemotePartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy=false);
 #endif
 
   private:

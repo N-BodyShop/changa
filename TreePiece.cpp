@@ -2446,14 +2446,18 @@ void TreePiece::nextBucket(dummyMsg *msg){
     DoubleWalkState *ds = (DoubleWalkState *)sLocalGravityState;
     ListCompute *lc = (ListCompute *)sGravity;
 
-    if(lc && ds){
-      if(ds->nodeLists.totalNumInteractions > 0){
+    if(lc != NULL && ds != NULL){
+      if(ds->moments.totalNumInteractions > 0){
         lc->sendNodeInteractionsToGpu(ds, this);
         lc->resetCudaNodeState(ds);
       }
-      if(ds->particleLists.totalNumInteractions > 0){
-        lc->sendPartInteractionsToGpu(ds, this);
-        lc->resetCudaPartState(ds);
+      if(ds->localParticles.totalNumInteractions > 0){
+        lc->sendLocalPartInteractionsToGpu(ds, this);
+        lc->resetCudaLocalPartState(ds);
+      }
+      if(ds->remoteParticles.totalNumInteractions > 0){
+        lc->sendRemotePartInteractionsToGpu(ds, this);
+        lc->resetCudaRemotePartState(ds);
       }
     }
 #endif
@@ -3141,14 +3145,18 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
     DoubleWalkState *ds = (DoubleWalkState *)sRemoteGravityState;
     ListCompute *lc = (ListCompute *)sGravity;
 
-    if(lc && ds){
-      if(ds->nodeLists.totalNumInteractions > 0){
+    if(lc != NULL && ds != NULL){
+      if(ds->moments.totalNumInteractions > 0){
         lc->sendNodeInteractionsToGpu(ds, this);
         lc->resetCudaNodeState(ds);
       }
-      if(ds->particleLists.totalNumInteractions > 0){
-        lc->sendPartInteractionsToGpu(ds, this);
-        lc->resetCudaPartState(ds);
+      if(ds->localParticles.totalNumInteractions > 0){
+        lc->sendLocalPartInteractionsToGpu(ds, this);
+        lc->resetCudaLocalPartState(ds);
+      }
+      if(ds->remoteParticles.totalNumInteractions > 0){
+        lc->sendRemotePartInteractionsToGpu(ds, this);
+        lc->resetCudaRemotePartState(ds);
       }
     }
 
@@ -3177,32 +3185,50 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       ListCompute *lc = (ListCompute *)sGravity;
 
 
-      if(lc && ds){
-        bool nodeDummy = false;
-        bool partDummy = true;
+      /*
+         if(lc && ds){
+         bool nodeDummy = false;
+         bool partDummy = true;
 
-        if(ds->nodeLists.totalNumInteractions > 0){
-          nodeDummy = true;
-        }
-        else if(ds->particleLists.totalNumInteractions > 0){
-          partDummy = true;
-        }
+         if(ds->nodeLists.totalNumInteractions > 0){
+         nodeDummy = true;
+         }
+         else if(ds->particleLists.totalNumInteractions > 0){
+         partDummy = true;
+         }
 
-        if(nodeDummy && partDummy){
+         if(nodeDummy && partDummy){
+         lc->sendNodeInteractionsToGpu(ds, this);
+         lc->sendPartInteractionsToGpu(ds, this, true);
+         lc->resetCudaNodeState(ds);
+         lc->resetCudaPartState(ds);
+         }
+         else if(nodeDummy){
+         lc->sendNodeInteractionsToGpu(ds, this,true);
+         lc->resetCudaNodeState(ds);
+         }
+         else if(partDummy){
+         lc->sendPartInteractionsToGpu(ds, this, true);
+         lc->resetCudaPartState(ds);
+         }
+         }
+         */
+
+      if(lc != NULL && ds != NULL){
+        if(ds->moments.totalNumInteractions > 0){
           lc->sendNodeInteractionsToGpu(ds, this);
-          lc->sendPartInteractionsToGpu(ds, this, true);
-          lc->resetCudaNodeState(ds);
-          lc->resetCudaPartState(ds);
-        }
-        else if(nodeDummy){
-          lc->sendNodeInteractionsToGpu(ds, this,true);
           lc->resetCudaNodeState(ds);
         }
-        else if(partDummy){
-          lc->sendPartInteractionsToGpu(ds, this, true);
-          lc->resetCudaPartState(ds);
+        if(ds->localParticles.totalNumInteractions > 0){
+          lc->sendLocalPartInteractionsToGpu(ds, this);
+          lc->resetCudaLocalPartState(ds);
+        }
+        if(ds->remoteParticles.totalNumInteractions > 0){
+          lc->sendRemotePartInteractionsToGpu(ds, this);
+          lc->resetCudaRemotePartState(ds);
         }
       }
+
 #endif
 
       cacheNode[CkMyPe()].finishedChunk(msg->chunkNum, nodeInterRemote[msg->chunkNum]);
@@ -3221,7 +3247,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 
 #ifdef CUDA
 void TreePiece::callFreeRemoteChunkMemory(int chunk){
-  dm->freeRemoteChunkMemory(chunk);
+  //dm->freeRemoteChunkMemory(chunk);
 }
 #endif
 
@@ -3742,16 +3768,7 @@ void TreePiece::startRemoteChunk() {
 #if CHANGA_REFACTOR_DEBUG > 0
   CkPrintf("[%d] sending message to commence remote gravity\n", thisIndex);
 #endif
-
-#ifdef CUDA
-  // dm counts until all treepieces have acknowledged prefetch completion
-  // it then flattens the tree on the processor, sends it to the device
-  // and sends messages to each of the registered treepieces to continueStartRemoteChunk()
-  //CkPrintf("[%d] startRemoteChunk done current Prefetch: %d\n", thisIndex, current Prefetch);
-  dm->donePrefetch(sPrefetchState->currentBucket);
-#else
   continueStartRemoteChunk(sPrefetchState->currentBucket);
-#endif
 }
 
 void TreePiece::continueStartRemoteChunk(int chunk){
