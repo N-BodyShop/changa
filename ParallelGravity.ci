@@ -59,6 +59,11 @@ mainmodule ParallelGravity {
     char dim[];
   };
 
+  message ParticleShuffleMsg {
+    GravityParticle particles[];
+    extraSPHData pGas[];
+  };
+
   PUPable DensitySmoothParams;
   PUPable DenDvDxSmoothParams;
   PUPable DenDvDxNeighborSmParams;
@@ -174,14 +179,11 @@ mainmodule ParallelGravity {
 			     const double duTFac, // temperature conversion
 			     const int bCool, const CkCallback& cb);
     entry void reOrder(CkCallback& cb);
-    entry void ioAcceptSortedParticles(const GravityParticle particles[n],
-	     const int n, const extraSPHData pGas[nGasIn], const int nGasIn);
+    entry void ioAcceptSortedParticles(ParticleShuffleMsg *);
     entry void assignKeys(CkReductionMsg* m);
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
     entry void unshuffleParticles(CkReductionMsg* m);
-    entry void acceptSortedParticles(const GravityParticle particles[n],
-        const int n, const extraSPHData pExtra[nGas],
-        const int nGas, const double load);
+    entry void acceptSortedParticles(ParticleShuffleMsg *);
     //ORB
     entry void initORBPieces(const CkCallback& cb);
     entry void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,
