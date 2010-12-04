@@ -164,7 +164,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
 	qiActive = 0;
 	for (i=0;i<nSmooth;++i) {
-		double fDist2 = nnList[i].fKey*nnList[i].fKey;
+		double fDist2 = nnList[i].fKey;
 		r2 = fDist2*ih2;
 		q = nnList[i].p;
 		if (p->rung >= activeRung)
@@ -223,7 +223,7 @@ void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	dvzdx = 0; dvzdy = 0; dvzdz= 0;
 
 	for (i=0;i<nSmooth;++i) {
-		double fDist2 = nnList[i].fKey*nnList[i].fKey;
+		double fDist2 = nnList[i].fKey;
 		r2 = fDist2*ih2;
 		q = nnList[i].p;
 		rs = KERNEL(r2);
@@ -370,7 +370,7 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	for (i=0;i<nSmooth;++i) {
 	    q = nnList[i].p;
 	    if ((p->rung < activeRung) && (q->rung < activeRung)) continue;
-	    double fDist2 = nnList[i].fKey*nnList[i].fKey;
+	    double fDist2 = nnList[i].fKey;
 	    r2 = fDist2*ih2;
 	    rs1 = DKERNEL(r2);
 	    rs1 *= fNorm1;

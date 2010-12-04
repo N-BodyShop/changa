@@ -163,6 +163,37 @@ State *KNearestSmoothCompute::getNewState(int nBuckets){
 }
 
 /*
+ * Return true if a sphere centered at pos with radius^2 of rsq
+ * intersects the bounding box of node.
+ * This is being used instead of the Space intersect method so we can use
+ * radius^2 for efficiency.
+ */
+static inline bool
+intersect(OrientedBox<double>& box, Vector3D<double> pos, double rsq)
+{
+    double dsq = 0.0;
+    double delta;
+    
+    if((delta = box.lesser_corner.x - pos.x) > 0)
+	dsq += delta * delta;
+    else if((delta = pos.x - box.greater_corner.x) > 0)
+	dsq += delta * delta;
+    if(rsq < dsq)
+	return false;
+    if((delta = box.lesser_corner.y - pos.y) > 0)
+	dsq += delta * delta;
+    else if((delta = pos.y - box.greater_corner.y) > 0)
+	dsq += delta * delta;
+    if(rsq < dsq)
+	return false;
+    if((delta = box.lesser_corner.z - pos.z) > 0)
+	dsq += delta * delta;
+    else if((delta = pos.z - box.greater_corner.z) > 0)
+	dsq += delta * delta;
+    return (dsq <= rsq);
+    }
+
+/*
  * Opening criterion for the smoothBucket walk.
  * Return true if we must open the node.
  */
@@ -177,9 +208,8 @@ int KNearestSmoothCompute::openCriterion(TreePiece *ownerTP,
     for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
 	if(!params->isSmoothActive(&particles[j]))
 	    continue;
-	double r = nstate->Qs[j][0].fKey; // Ball radius
-	Sphere<double> s(particles[j].position - offset, r);
-	if(Space::intersect(node->boundingBox, s)) {
+	double r2 = nstate->Qs[j][0].fKey; // Ball radius^2
+	if(intersect(node->boundingBox, particles[j].position - offset, r2)) {
 	   return 1;
 	   }
 	}
@@ -206,16 +236,16 @@ void KNearestSmoothCompute::bucketCompare(TreePiece *ownerTP,
 	if(!params->isSmoothActive(&particles[j]))
 	    continue;
 	pqSmoothNode *Q = nstate->Qs[j];
-	double rOld = Q[0].fKey; // Ball radius
+	double rOld2 = Q[0].fKey; // Ball radius
 	Vector3D<double> dr = particles[j].position - rp;
 	
-	if(rOld*rOld > dr.lengthSquared()) {  // Perform replacement
+	if(rOld2 >= dr.lengthSquared()) {  // Perform replacement
 	    if(nstate->heap_sizes[j] == nSmooth) {
 	        std::pop_heap(Q + 0, Q + nSmooth);
 	        nstate->heap_sizes[j]--;	// pop if list is full
 	        }
 	    int end = nstate->heap_sizes[j];
-	    Q[end].fKey = dr.length();
+	    Q[end].fKey = dr.lengthSquared();
 	    Q[end].dx = dr;
 	    Q[end].p = p;
 	    std::push_heap(Q + 0, Q + end + 1); 
@@ -422,6 +452,8 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 		  iCount++;
 	      }
 	  }
+  if(bEnough && ((lastQueue - firstQueue) < nSmooth))
+	CkAbort("Missing particles");
 	  
   for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
       if(!params->isSmoothActive(&tp->myParticles[j]))
@@ -442,10 +474,11 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 		  }
 	      }
       int end = nstate->heap_sizes[j];
+      CkAssert(end == 0);
       if(bEnough)
-	  Q[end].fKey = sqrt(drMax2);
+	  Q[end].fKey = drMax2;
       else
-	  Q[end].fKey = sqrt(DBL_MAX);
+	  Q[end].fKey = DBL_MAX;
       Q[end].p = NULL; 
       std::push_heap(Q + 0, Q + end + 1); 
       nstate->heap_sizes[j]++; 
@@ -563,9 +596,14 @@ void KNearestSmoothCompute::walkDone(State *state) {
 	  continue;
       NearNeighborState *nstate = (NearNeighborState *)state;
       pqSmoothNode *Q = nstate->Qs[i];
-      double h = Q[0].fKey; // Ball radius
+      double h = sqrt(Q[0].fKey); // Ball radius
       part[i-node->firstParticle].fBall = h;
       int nCnt = nstate->heap_sizes[i];
+      if(nCnt < nSmooth) {
+	CkPrintf("short count: %d, particle %d, h %g\n", nCnt,
+		  part[i-node->firstParticle].iOrder, h);
+	}
+      CkAssert(nCnt >= nSmooth);
       params->fcnSmooth(&part[i-node->firstParticle], nCnt, Q);
       delete [] Q;
       nstate->Qs[i] = NULL;
@@ -608,8 +646,7 @@ int ReSmoothCompute::openCriterion(TreePiece *ownerTP,
 	if(!params->isSmoothActive(&particles[j]))
 	    continue;
 	double r = particles[j].fBall; // Ball radius
-	Sphere<double> s(particles[j].position - offset, r);
-	if(Space::intersect(node->boundingBox, s)) {
+	if(intersect(node->boundingBox, particles[j].position - offset, r*r)) {
 	   return 1;
 	   }
 	}
@@ -641,7 +678,7 @@ void ReSmoothCompute::bucketCompare(TreePiece *ownerTP,
 	
 	if(rOld*rOld >= dr.lengthSquared()) {  // Add to list
 	    pqSmoothNode pqNew;
-	    pqNew.fKey = dr.length();
+	    pqNew.fKey = dr.lengthSquared();
 	    pqNew.dx = dr;
 	    pqNew.p = p;
 	    Q->push_back(pqNew);
@@ -1003,7 +1040,7 @@ void Density(GravityParticle *p,int nSmooth, pqSmoothNode *nnList)
 	ih2 = invH2(p);
 	fDensity = 0.0;
 	for (i=0;i<nSmooth;++i) {
-		double fDist2 = nnList[i].fKey*nnList[i].fKey;
+		double fDist2 = nnList[i].fKey;
 		r2 = fDist2*ih2;
 		rs = KERNEL(r2);
 		fDensity += rs*nnList[i].p->mass;
@@ -1042,7 +1079,7 @@ void DensitySmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	ih2 = invH2(p);
 	fNorm = 0.5*M_1_PI*sqrt(ih2)*ih2;
 	for (i=0;i<nSmooth;++i) {
-		double fDist2 = nnList[i].fKey*nnList[i].fKey;
+		double fDist2 = nnList[i].fKey;
 		r2 = fDist2*ih2;
 		rs = KERNEL(r2);
 		rs *= fNorm;
