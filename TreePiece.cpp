@@ -2260,6 +2260,10 @@ void TreePiece::continueWrapUp(){
   CkPrintf("[%d] markWalkDone TreePiece::continueWrapUp\n", thisIndex);
 #endif
 
+  memWithCache = CmiMemoryUsage()/(1024*1024);
+  nNodeCacheEntries = cacheNode[CkMyPe()].getCache()->size();
+  nPartCacheEntries = cacheGravPart[CkMyPe()].getCache()->size();
+
   markWalkDone();
 
   if(verbosity > 4){
@@ -5726,6 +5730,19 @@ void TreePiece::setProjections(int bOn)
         traceBegin();
     else
         traceEnd();
+}
+
+/*
+ * Gather memory use statistics recorded during the tree walk
+ */
+void TreePiece::memCacheStats(const CkCallback &cb) 
+{
+    int memOut[4];
+    memOut[0] = memWithCache;
+    memOut[1] = memPostCache;
+    memOut[2] = nNodeCacheEntries;
+    memOut[3] = nPartCacheEntries;
+    contribute(4*sizeof(int), memOut, CkReduction::max_int, cb);
 }
 
 void TreePiece::balanceBeforeInitialForces(CkCallback &cb){

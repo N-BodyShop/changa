@@ -24,6 +24,8 @@ Main::initSph()
 	iPhase++;
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
+	if(verbosity)
+	    memoryStatsCache();
 	double dTuFac = param.dGasConst/(param.dConstGamma-1)
 	    /param.dMeanMolWeight;
 	double z = 1.0/csmTime2Exp(param.csm, dTime) - 1.0;
@@ -273,6 +275,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 
+	if(verbosity)
+	    memoryStatsCache();
 	}
       }
     treeProxy.sphViscosityLimiter(param.iViscosityLimiter, activeRung,

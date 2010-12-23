@@ -223,6 +223,7 @@ public:
     void CoolingSetTime(double z, // redshift
 			double dTime, // Time
 			const CkCallback& cb);
+    void memoryStats(const CkCallback& cb);
 };
 
 #endif //DATAMANAGER_H

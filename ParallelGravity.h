@@ -398,6 +398,8 @@ public:
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
 	int nextMaxRungIncDF(int nextMaxRung);
+	void memoryStats();
+	void memoryStatsCache();
 	void pup(PUP::er& p);
 	void liveVizImagePrep(liveVizRequestMsg *msg);
 };
@@ -511,12 +513,16 @@ class TreePiece : public CBase_TreePiece {
 		       // should be part of the smooth state
    
    double treePieceLoad; // used to store CPU load data for incoming particles
+   int memWithCache, memPostCache;  // store memory usage.
+   int nNodeCacheEntries, nPartCacheEntries;  // store memory usage.
 
  public:
 #if COSMO_PRINT_BK > 1
   State *getSRemoteGravityState(){ return sRemoteGravityState; }
   State *getSLocalGravityState(){ return sLocalGravityState; }
 #endif
+  void memCacheStats(const CkCallback &cb);
+  
    void addActiveWalk(int iAwi, TreeWalk *tw, Compute *c, Opt *o, State *s);
 
         void markWalkDone();
