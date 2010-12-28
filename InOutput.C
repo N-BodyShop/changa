@@ -698,36 +698,36 @@ void TreePiece::reOrder(CkCallback& cb)
     for(iPiece = 0; iPiece < numTreePieces; iPiece++) {
 	for(binEnd = binBegin; binEnd->iOrder < startParticle[iPiece+1];
 	    binEnd++);
-	if((binEnd - binBegin) > 0) {
+	int nPartOut = binEnd - binBegin;
+	if(nPartOut > 0) {
 	    int nGasOut = 0;
 	    for(GravityParticle *pPart = binBegin; pPart < binEnd; pPart++) {
 		if(TYPETest(pPart, TYPE_GAS))
 		    nGasOut++;
 		}
-	    extraSPHData *pGasOut = NULL;
-	    if(nGasOut > 0) {
-		pGasOut = new extraSPHData[nGasOut];
-		int iGasOut = 0;
-		for(GravityParticle *pPart = binBegin; pPart < binEnd; pPart++) {
-		    if(TYPETest(pPart, TYPE_GAS)) {
-			pGasOut[iGasOut] = *(extraSPHData *)pPart->extraData;
-			iGasOut++;
-			}
+	    ParticleShuffleMsg *shuffleMsg
+		= new (nPartOut, nGasOut)
+		    ParticleShuffleMsg(nPartOut, nGasOut, 0.0);
+	    int iGasOut = 0;
+	    GravityParticle *pPartOut = shuffleMsg->particles;
+	    for(GravityParticle *pPart = binBegin; pPart < binEnd;
+		pPart++, pPartOut++) {
+		*pPartOut = *pPart;
+		if(TYPETest(pPart, TYPE_GAS)) {
+		    shuffleMsg->pGas[iGasOut]
+			= *(extraSPHData *)pPart->extraData;
+		    iGasOut++;
 		    }
 		}
 	    if (verbosity>=3)
 		CkPrintf("me:%d to:%d how many:%d\n",thisIndex, iPiece,
 			 (binEnd-binBegin));
 	    if(iPiece == thisIndex) {
-		ioAcceptSortedParticles(binBegin, binEnd - binBegin, pGasOut,
-					nGasOut);
+		ioAcceptSortedParticles(shuffleMsg);
 		}
 	    else {
-		pieces[iPiece].ioAcceptSortedParticles(binBegin,
-				       binEnd - binBegin, pGasOut, nGasOut);
+		pieces[iPiece].ioAcceptSortedParticles(shuffleMsg);
 		}
-	    if(nGasOut > 0)
-		delete pGasOut;
 	    }
 	if(&myParticles[myNumParticles + 1] <= binEnd)
 	    break;
@@ -738,13 +738,11 @@ void TreePiece::reOrder(CkCallback& cb)
 
     // signify completion
     incomingParticlesSelf = true;
-    ioAcceptSortedParticles(NULL, 0, NULL, 0);
+    ioAcceptSortedParticles(NULL);
     }
 
 /// Accept particles from other TreePieces once the sorting has finished
-void TreePiece::ioAcceptSortedParticles(const GravityParticle* particles,
-					const int n, const extraSPHData *pGas,
-					const int nGasIn) {
+void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 
     int myIOParticles = nTotalParticles / numTreePieces;
     
@@ -752,18 +750,10 @@ void TreePiece::ioAcceptSortedParticles(const GravityParticle* particles,
     if(thisIndex < (int) excess) {
 	    myIOParticles++;
 	    }
-  // allocate new particles array on first call
-  if (incomingParticles == NULL) {
-    incomingParticles = new GravityParticle[myIOParticles + 2];
-    incomingGas = new std::vector<extraSPHData>;
-  }
-
-  memcpy(&incomingParticles[incomingParticlesArrived+1], particles,
-	 n*sizeof(GravityParticle));
-  incomingParticlesArrived += n;
-  int nLastGas = incomingGas->size();
-  incomingGas->resize(nLastGas + nGasIn);
-  memcpy(&((*incomingGas)[nLastGas]), pGas, nGasIn*sizeof(extraSPHData));
+    if(shuffleMsg != NULL) {
+	incomingParticlesMsg.push_back(shuffleMsg);
+	incomingParticlesArrived += shuffleMsg->n;
+	}
 
   assert(incomingParticlesArrived <= myIOParticles);
   
@@ -773,20 +763,33 @@ void TreePiece::ioAcceptSortedParticles(const GravityParticle* particles,
   
   if(myIOParticles == incomingParticlesArrived && incomingParticlesSelf) {
     //I've got all my particles
-    delete[] myParticles;
-    myParticles = incomingParticles;
-    incomingParticles = NULL;
-    myNumParticles = myIOParticles;
+    if (myNumParticles > 0) delete[] myParticles;
+    myParticles = new GravityParticle[incomingParticlesArrived + 2];
+    myNumParticles = incomingParticlesArrived;
     // reset for next time
     incomingParticlesArrived = 0;
     incomingParticlesSelf = false;
-
+    int nSPH = 0;
+    int iMsg;
+    for(iMsg = 0; iMsg < incomingParticlesMsg.size(); iMsg++)
+	nSPH += incomingParticlesMsg[iMsg]->nSPH;
+    myNumSPH = nSPH;
     delete[] mySPHParticles;
-    myNumSPH = incomingGas->size();
     mySPHParticles = new extraSPHData[myNumSPH];
-    memcpy(mySPHParticles, &((*incomingGas)[0]),
-	   incomingGas->size()*sizeof(extraSPHData));
-    delete incomingGas;
+
+    int nPart = 0;
+    nSPH = 0;
+    for(iMsg = 0; iMsg < incomingParticlesMsg.size(); iMsg++) {
+	memcpy(&myParticles[nPart+1], incomingParticlesMsg[iMsg]->particles,
+	       incomingParticlesMsg[iMsg]->n*sizeof(GravityParticle));
+	nPart += incomingParticlesMsg[iMsg]->n;
+	memcpy(&mySPHParticles[nSPH], incomingParticlesMsg[iMsg]->pGas,
+	       incomingParticlesMsg[iMsg]->nSPH*sizeof(extraSPHData));
+	nSPH += incomingParticlesMsg[iMsg]->nSPH;
+	delete incomingParticlesMsg[iMsg];
+	}
+      
+    incomingParticlesMsg.clear();
 
     // assign gas data pointers
     int iGas = 0;

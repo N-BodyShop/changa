@@ -260,6 +260,18 @@ public:
 
 };
 
+/// Message for shuffling particles during domain decomposition
+class ParticleShuffleMsg : public CMessage_ParticleShuffleMsg{
+public:
+    int n;
+    int nSPH;
+    double load;
+    GravityParticle *particles;
+    extraSPHData *pGas;
+    ParticleShuffleMsg(int npart, int nsph, double pload): n(npart),
+	nSPH(nsph), load(pload) {}
+};
+    
 class Compare{ //Defines the comparison operator on the map used in balancer
   int dim;
 public:
@@ -386,6 +398,8 @@ public:
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
 	int nextMaxRungIncDF(int nextMaxRung);
+	void memoryStats();
+	void memoryStatsCache();
 	void pup(PUP::er& p);
 	void liveVizImagePrep(liveVizRequestMsg *msg);
 };
@@ -499,12 +513,16 @@ class TreePiece : public CBase_TreePiece {
 		       // should be part of the smooth state
    
    double treePieceLoad; // used to store CPU load data for incoming particles
+   int memWithCache, memPostCache;  // store memory usage.
+   int nNodeCacheEntries, nPartCacheEntries;  // store memory usage.
 
  public:
 #if COSMO_PRINT_BK > 1
   State *getSRemoteGravityState(){ return sRemoteGravityState; }
   State *getSLocalGravityState(){ return sLocalGravityState; }
 #endif
+  void memCacheStats(const CkCallback &cb);
+  
    void addActiveWalk(int iAwi, TreeWalk *tw, Compute *c, Opt *o, State *s);
 
         void markWalkDone();
@@ -783,8 +801,8 @@ private:
 	std::vector<GravityParticle> mySortedParticles;
 	/// Array with sorted SPH data for domain decomposition (ORB)
 	std::vector<extraSPHData> mySortedParticlesSPH;
-        /// Array with incoming particles for domain decomposition (without stl)
-        GravityParticle *incomingParticles;
+        /// Array with incoming particles messages for domain decomposition
+	std::vector<ParticleShuffleMsg*> incomingParticlesMsg;
         /// How many particles have already arrived during domain decomposition
         int incomingParticlesArrived;
         /// Flag to acknowledge that the current TreePiece has already
@@ -792,7 +810,6 @@ private:
         /// change the TreePiece particles before the one belonging to someone
         /// else have been sent out
         bool incomingParticlesSelf;
-	std::vector<extraSPHData> *incomingGas;
 
 	/// holds the total mass of the current TreePiece
 	double piecemass;
@@ -1129,7 +1146,7 @@ public:
 	  ewt = NULL;
 	  nMaxEwhLoop = 100;
 
-          incomingParticles = NULL;
+          incomingParticlesMsg.clear();
           incomingParticlesArrived = 0;
           incomingParticlesSelf = false;
 
@@ -1164,7 +1181,7 @@ public:
 	  sInterListWalk = NULL;
 #endif
 
-          incomingParticles = NULL;
+          incomingParticlesMsg.clear();
           incomingParticlesArrived = 0;
           incomingParticlesSelf = false;
 
@@ -1258,9 +1275,7 @@ public:
 	// Reorder for output
 	void reOrder(CkCallback& cb);
 	// move particles around for output
-	void ioAcceptSortedParticles(const GravityParticle* particles,
-				     const int n, const extraSPHData *pGas,
-				     const int nGasIn);
+	void ioAcceptSortedParticles(ParticleShuffleMsg *);
 	/** Inform the DataManager of my node that I'm here.
 	 The callback will receive a CkReductionMsg containing no data.
 	void registerWithDataManager(const CkGroupID& dataManagerID,
@@ -1270,9 +1285,7 @@ public:
 	void assignKeys(CkReductionMsg* m);
 	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
 	void unshuffleParticles(CkReductionMsg* m);
-	void acceptSortedParticles(const GravityParticle* particles,
-				   const int n, const extraSPHData *pExtra,
-				   const int nGas, const double load);
+	void acceptSortedParticles(ParticleShuffleMsg *);
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);
   void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,

@@ -357,6 +357,16 @@ void DataManager::getChunks(int &num, Tree::NodeKey *&roots) {
   roots = chunkRoots;
 }
 
+/*
+ * obtain memory utilization statistics
+ */
+void DataManager::memoryStats(const CkCallback& cb)
+{
+    int mem = CmiMemoryUsage()/(1024*1024);
+    contribute(sizeof(int), &mem, CkReduction::max_int, cb);
+    }
+ 
+	 
 const char *typeString(NodeType type);
 
 #ifdef CUDA

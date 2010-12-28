@@ -11,7 +11,7 @@
 class pqSmoothNode
 {
  public:
-    double fKey;	// distance -> place in priority queue
+    double fKey;	// distance^2 -> place in priority queue
     Vector3D<double> dx; // displacement of this particle
     GravityParticle *p; // pointer to rest of particle data
     
