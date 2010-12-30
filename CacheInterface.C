@@ -121,8 +121,8 @@ void EntryTypeSmoothParticle::writeback(CkArrayIndexMax& idx, CkCacheKey k, void
 
 void EntryTypeSmoothParticle::free(void *data) {
     CacheSmoothParticle *cPart = (CacheSmoothParticle *)data;
-    delete cPart->partCached;
-    delete cPart->extraSPHCached;
+    delete[] cPart->partCached;
+    delete[] cPart->extraSPHCached;
     delete cPart;
 }
 
@@ -156,7 +156,8 @@ void TreePiece::processReqSmoothParticles() {
 
 	CkVec<int> *vRec = iter->second;
 
-	iter++;
+	iter++;  // The current request gets deleted below, so
+		 // increment first.
 	CkCacheFillMsg *reply = new (total) CkCacheFillMsg(bucketKey);
 	CacheSmoothParticle *data = (CacheSmoothParticle*)reply->data;
 	data->begin = bucket->firstParticle;
@@ -167,13 +168,15 @@ void TreePiece::processReqSmoothParticles() {
 
 	for(int i = 0; i < vRec->length(); ++i) {
 	    nCacheAccesses++;
-	    if(i < vRec->length() - 1) {
+	    if(i < vRec->length() - 1) { // Copy message if there is
+					 // more than one outstanding request.
 		CkCacheFillMsg *replyCopy = (CkCacheFillMsg *) CkCopyMsg((void **) &reply);
 		cacheSmoothPart[(*vRec)[i]].recvData(replyCopy);
 		}
 	    else
 		cacheSmoothPart[(*vRec)[i]].recvData(reply);
 	    }
+	delete vRec;
 	smPartRequests.erase(bucketKey);
 	}
     }

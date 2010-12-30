@@ -367,6 +367,7 @@ inline int partBucketForce(ExternalGravityParticle *part,
 			   Vector3D<cosmoType> offset, int activeRung) {
   int nActiveParts = 0; 
   GravityParticle dummyPart = particles[0];
+  dummyPart.soft = 0.0;
 
   GravityParticle **activeParticles = 
     (GravityParticle**)alloca((req->lastParticle - req->firstParticle 
@@ -486,6 +487,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
   Vector3D<cosmoType> cm(m.cm + offset);
   int nActiveParts = 0;
   GravityParticle dummyPart = particles[0];
+  dummyPart.soft = 0.0;
 
   GravityParticle **activeParticles = 
     (GravityParticle**)alloca((req->lastParticle - req->firstParticle 

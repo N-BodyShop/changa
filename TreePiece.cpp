@@ -5522,6 +5522,7 @@ void TreePiece::finishWalk()
 	       getObjTime(), myNumParticles);
   completedActiveWalks = 0;
   freeWalkObjects();
+  memPostCache = CmiMemoryUsage()/(1024*1024);
 #ifdef CHECK_WALK_COMPLETIONS
   CkPrintf("[%d] inside finishWalk contrib callback\n", thisIndex);
 #endif
@@ -5752,12 +5753,12 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   LDObjHandle handle = myRec->getLdHandle();
   LBDatabase *lbdb = LBDatabaseObj();
   int nlbs = lbdb->getNLoadBalancers(); 
+  foundLB = Null;
   if(nlbs == 0) { // no load balancers.  Skip this
       contribute(cb);
       return;
       }
 
-  foundLB = Null;
   Vector3D<float> centroid;
   centroid.x = 0.0;
   centroid.y = 0.0;
