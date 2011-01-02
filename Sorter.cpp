@@ -26,6 +26,12 @@ void Sorter::doORBDecomposition(CkReductionMsg* m){
   OrientedBox<float> box = *static_cast<OrientedBox<float> *>(m->getData());
   delete m;
 
+  if(numChares == 1) { // No decomposition to do
+      treeProxy[0].initBeforeORBSend(0,0,sortingCallback,
+				     CkCallback(CkIndex_Sorter::readytoSendORB(0), thishandle));
+      return;
+      }
+
   ORBData single;
   single.boundingBox = box;
   
@@ -59,12 +65,10 @@ void Sorter::doORBDecomposition(CkReductionMsg* m){
 	splittersMsg->pos[0] = pos;
 	splittersMsg->dim[0] = dim;
   treeProxy.evaluateParticleCounts(splittersMsg);
-  //phaseLeader=0;
-  //lastPiece = numTreePieces-1;
-  //for(int i=0;i<numTreePieces;i++)
-    //thisProxy[i].evaluateFirstTime(pos,dim,phaseLeader);
 }
 
+/// Calculate candidate divisions for next level in the tree.
+/// If we have enough pieces, proceed to sending particles.
 void Sorter::finishPhase(CkReductionMsg *m){
 
   float len=0.0,len2=0.0;
@@ -136,15 +140,16 @@ void Sorter::finishPhase(CkReductionMsg *m){
     iter = orbData.erase(iter);
   }
  
-	//CkPrintf("num chares:%d, partitions got:%d\n",numChares,orbData.size());
-
   if(numChares == orbData.size()){ //Move data around
     for(i=0;i<numChares;i++){
-      if(verbosity > 1)
-      CkPrintf("%d has %d particles\n",i,binCounts[i]);
-			//treeProxy[i].sendORBParticles(binCounts[i],sortingCallback,CkCallback(CkIndex_Sorter::sendBoundingBoxes(0), thishandle));
-			treeProxy[i].initBeforeORBSend(binCounts[i],sortingCallback,CkCallback(CkIndex_Sorter::readytoSendORB(0), thishandle));
-		}
+	if(verbosity > 1) {
+	    CkPrintf("%d has %d particles\n",i,binCounts[i]);
+	    CkPrintf("%d has %d gas particles\n",i,binCountsGas[i]);
+	    }
+	treeProxy[i].initBeforeORBSend(binCounts[i], binCountsGas[i],
+				       sortingCallback,
+				       CkCallback(CkIndex_Sorter::readytoSendORB(0), thishandle));
+	}
   }
   else{ //Send the next phase of splitters
     ORBSplittersMsg *splittersMsg = new (orbData.size(),orbData.size()) ORBSplittersMsg(orbData.size(),CkCallback(CkIndex_Sorter::collectORBCounts(0), thishandle));
@@ -152,10 +157,6 @@ void Sorter::finishPhase(CkReductionMsg *m){
       splittersMsg->pos[i] = (*iter).curDivision;
       splittersMsg->dim[i] = (*iter).curDim;
     }
-    /*for(int i=0;i<orbData.size();i++){
-      splittersMsg->pos[i] = orbData[i].curDivision;
-      splittersMsg->dim[i] = (char) orbData[i].curDim;
-    }*/
     treeProxy.evaluateParticleCounts(splittersMsg);
   }
 
@@ -164,7 +165,12 @@ void Sorter::finishPhase(CkReductionMsg *m){
 void Sorter::readytoSendORB(CkReductionMsg* m){
   delete m;
 
-  treeProxy.sendORBParticles();
+/*
+ * Send information to DataManager, then broadcast to send particles.
+ */
+  dm.acceptResponsibleIndex(&(*chareIDs.begin()), chareIDs.size(),
+			    CkCallback(CkIndex_TreePiece::sendORBParticles(),
+				       treeProxy));
 }
 
 void Sorter::collectORBCounts(CkReductionMsg* m){
@@ -172,13 +178,15 @@ void Sorter::collectORBCounts(CkReductionMsg* m){
   std::list<ORBData>::iterator iter;
   int i;
   
-  numCounts = m->getSize() / sizeof(int);
-	binCounts.resize(numCounts);
-	//binCounts[0] = 0;
-	int* startCounts = static_cast<int *>(m->getData());
-	//copy(startCounts, startCounts + numCounts, binCounts.begin() + 1);
-	copy(startCounts, startCounts + numCounts, binCounts.begin());
-	delete m;
+  numCounts = m->getSize() / (2*sizeof(int)); // two separate arrays for
+					    // total and gas
+  binCounts.resize(numCounts);
+  binCountsGas.resize(numCounts);
+  int* startCounts = static_cast<int *>(m->getData());
+  copy(startCounts, startCounts + numCounts, binCounts.begin());
+  copy(startCounts + numCounts, startCounts + 2*numCounts,
+       binCountsGas.begin());
+  delete m;
 
   CkAssert(numCounts == 2*orbData.size());
   
@@ -187,7 +195,9 @@ void Sorter::collectORBCounts(CkReductionMsg* m){
   int doneCount=0;
   
   for(i=0,iter=orbData.begin(); iter!=orbData.end(); i++,iter++){
-    if(binCounts[2*i+1]*(1-TOLER)<=binCounts[2*i] && binCounts[2*i]<=(1+TOLER)*binCounts[2*i+1]){
+      if((binCounts[2*i+1]*(1-TOLER)<=binCounts[2*i]
+	  && binCounts[2*i]<=(1+TOLER)*binCounts[2*i+1])
+	 || (domainDecomposition == ORB_space_dec)){
       doneCount++;
     }
     else{
@@ -210,10 +220,6 @@ void Sorter::collectORBCounts(CkReductionMsg* m){
       splittersMsg->pos[i] = (*iter).curDivision;
       splittersMsg->dim[i] = (*iter).curDim;
     }
-    /*for(int i=0;i<orbData.size();i++){
-      splittersMsg->pos[i] = orbData[i].curDivision;
-      splittersMsg->dim[i] = (char) orbData[i].curDim;
-    }*/
     //finalize the boundaries in all the Treepieces
     treeProxy.finalizeBoundaries(splittersMsg);
   }
@@ -223,43 +229,14 @@ void Sorter::collectORBCounts(CkReductionMsg* m){
       splittersMsg->pos[i] = (*iter).curDivision;
       splittersMsg->dim[i] = (*iter).curDim;
     }
-    /*for(int i=0;i<orbData.size();i++){
-      splittersMsg->pos[i] = orbData[i].curDivision;
-      splittersMsg->dim[i] = (char) orbData[i].curDim;
-    }*/
     treeProxy.evaluateParticleCounts(splittersMsg);
   }
   
 }
 
-/*void Sorter::sendBoundingBoxes(CkReductionMsg* m){
-  delete m;
-
-  std::list<ORBData>::iterator iter;
-  int i;
-  
-  BoundingBoxes *bounding = new (numChares) BoundingBoxes();
-
-  for(i=0,iter=orbData.begin();iter!=orbData.end();iter++,i++){
-    bounding->boxes[i] = (*iter).boundingBox;
-  }
-
-  treeProxy.receiveBoundingBoxes(bounding);
-
-}*/
-
-/************************************************/
-
-/*
-class WeighedNode {
-public:
-  Key key;
-  u_int64_t count;
-  WeighedNode children[2];
-  WeighedNode(Key k, u_int64_t c) : key(k), count(c) { }
-};
-*/
-
+/**
+ * Overall start of domain decomposition
+ */
 void Sorter::startSorting(const CkGroupID& dataManagerID,
 			  const double toler, const CkCallback& cb, bool decompose) {
 	numChares = numTreePieces;
@@ -321,6 +298,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
       convertNodesToSplitters();
       break;
     case ORB_dec:
+    case ORB_space_dec:
 	numKeys = 0;
       treeProxy.initORBPieces(CkCallback(CkIndex_Sorter::doORBDecomposition(0), thishandle));
     break;
@@ -332,7 +310,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
 		ckout << "Sorter: Initially have " << splitters.size() << " splitters" << endl;
 
 	//send out the first guesses to be evaluated
-  if(domainDecomposition!=ORB_dec){
+  if((domainDecomposition!=ORB_dec) && (domainDecomposition!=ORB_space_dec)){
     if (decompose) {
 
 	// XXX: Optimizations available if sort has been done before!
@@ -341,12 +319,10 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
 	keyBoundaries.reserve(numChares + 1);
 	keyBoundaries.push_back(firstPossibleKey);
 
-//      dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-	  treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+	treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
     } else {
       //send out all the decided keys to get final bin counts
       sorted = true;
-//      dm.acceptCandidateKeys(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
       treeProxy.evaluateBoundaries(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
     }
   }
@@ -424,6 +400,7 @@ void Sorter::collectEvaluations(CkReductionMsg* m) {
       collectEvaluationsOct(m);
       break;
     case ORB_dec:
+    case ORB_space_dec:
       CkAbort("ORB: We shouldn't have reached here");
     break;
       default:
@@ -645,11 +622,6 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	delete m;
 	
 	if(sorted) { //true after the final keys have been binned
-		//determine which TreePiece is responsible for each interval
-		//vector<int> chareIDs(numChares, 1);
-		//chareIDs[0] = 0;
-		//partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
-		
 		//send out the final splitters and responsibility table
 		dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()) + 1, keyBoundaries.size(), sortingCallback);
 		numIterations = 0;

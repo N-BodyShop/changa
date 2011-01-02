@@ -37,6 +37,8 @@
 #include "dumpframe.h"
 #include "liveViz.h"
 
+#include "TaggedVector3D.h"
+
 #include "codes.h"
 #include "CacheInterface.h"
 
@@ -58,13 +60,21 @@ PUPbytes(COOLPARAM);
 
 using namespace Tree;
 
+enum LBStrategy{
+  Null,
+  Multistep,
+  Orb3d
+};
+PUPbytes(LBStrategy);
+
 enum DomainsDec {
-  SFC_dec=0,
-  Oct_dec=1,
-  ORB_dec=2,
-  SFC_peano_dec=3,
-  SFC_peano_dec_3D=4,
-  SFC_peano_dec_2D=5
+    SFC_dec=0,	// Space Filling Curve with Morton ordering
+    Oct_dec=1, 	// Oct tree
+    ORB_dec=2,	// Bisect the longest axis, balancing particles
+    SFC_peano_dec=3,	// SFC with Piano-Hilbert ordering
+    SFC_peano_dec_3D=4, // Joachim Stadel's implementation of P-H ordering
+    SFC_peano_dec_2D=5,	// 2D version of Piano-Hilbert ordering
+    ORB_space_dec=6		// Bisect space
 };
 
 inline void operator|(PUP::er &p,DomainsDec &d) {
@@ -81,6 +91,7 @@ inline void operator|(PUP::er &p,DomainsDec &d) {
 #include "GravityParticle.h"
 
 #include "MultistepLB.decl.h"          // jetley - needed for CkIndex_MultistepLB
+#include "Orb3dLB.decl.h"          // jetley - needed for CkIndex_Orb3dLB
 
 class SmoothParams;
 
@@ -249,6 +260,18 @@ public:
 
 };
 
+/// Message for shuffling particles during domain decomposition
+class ParticleShuffleMsg : public CMessage_ParticleShuffleMsg{
+public:
+    int n;
+    int nSPH;
+    double load;
+    GravityParticle *particles;
+    extraSPHData *pGas;
+    ParticleShuffleMsg(int npart, int nsph, double pload): n(npart),
+	nSPH(nsph), load(pload) {}
+};
+    
 class Compare{ //Defines the comparison operator on the map used in balancer
   int dim;
 public:
@@ -375,6 +398,8 @@ public:
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
 	int nextMaxRungIncDF(int nextMaxRung);
+	void memoryStats();
+	void memoryStatsCache();
 	void pup(PUP::er& p);
 	void liveVizImagePrep(liveVizRequestMsg *msg);
 };
@@ -488,12 +513,16 @@ class TreePiece : public CBase_TreePiece {
 		       // should be part of the smooth state
    
    double treePieceLoad; // used to store CPU load data for incoming particles
+   int memWithCache, memPostCache;  // store memory usage.
+   int nNodeCacheEntries, nPartCacheEntries;  // store memory usage.
 
  public:
 #if COSMO_PRINT_BK > 1
   State *getSRemoteGravityState(){ return sRemoteGravityState; }
   State *getSLocalGravityState(){ return sLocalGravityState; }
 #endif
+  void memCacheStats(const CkCallback &cb);
+  
    void addActiveWalk(int iAwi, TreeWalk *tw, Compute *c, Opt *o, State *s);
 
         void markWalkDone();
@@ -734,6 +763,7 @@ private:
 
         // jetley - proxy for load balancer
         CkGroupID proxy;
+        LBStrategy foundLB;
         // jetley - whether proxy is valid or not
         CmiBool proxyValid;
         // jetley - saved first internal node
@@ -769,8 +799,10 @@ private:
 
 	/// Array with sorted particles for domain decomposition (ORB)
 	std::vector<GravityParticle> mySortedParticles;
-        /// Array with incoming particles for domain decomposition (without stl)
-        GravityParticle *incomingParticles;
+	/// Array with sorted SPH data for domain decomposition (ORB)
+	std::vector<extraSPHData> mySortedParticlesSPH;
+        /// Array with incoming particles messages for domain decomposition
+	std::vector<ParticleShuffleMsg*> incomingParticlesMsg;
         /// How many particles have already arrived during domain decomposition
         int incomingParticlesArrived;
         /// Flag to acknowledge that the current TreePiece has already
@@ -778,7 +810,6 @@ private:
         /// change the TreePiece particles before the one belonging to someone
         /// else have been sent out
         bool incomingParticlesSelf;
-	std::vector<extraSPHData> *incomingGas;
 
 	/// holds the total mass of the current TreePiece
 	double piecemass;
@@ -945,6 +976,9 @@ private:
 
   ///Expected number of particles for each TreePiece after ORB decomposition
   int myExpectedCount;
+  ///Expected number of SPH particles for each TreePiece after ORB
+  ///decomposition
+  int myExpectedCountSPH;
 
   ///Level after which the local subtrees of all the TreePieces start
   unsigned int chunkRootLevel;
@@ -1112,7 +1146,7 @@ public:
 	  ewt = NULL;
 	  nMaxEwhLoop = 100;
 
-          incomingParticles = NULL;
+          incomingParticlesMsg.clear();
           incomingParticlesArrived = 0;
           incomingParticlesSelf = false;
 
@@ -1147,7 +1181,7 @@ public:
 	  sInterListWalk = NULL;
 #endif
 
-          incomingParticles = NULL;
+          incomingParticlesMsg.clear();
           incomingParticlesArrived = 0;
           incomingParticlesSelf = false;
 
@@ -1241,9 +1275,7 @@ public:
 	// Reorder for output
 	void reOrder(CkCallback& cb);
 	// move particles around for output
-	void ioAcceptSortedParticles(const GravityParticle* particles,
-				     const int n, const extraSPHData *pGas,
-				     const int nGasIn);
+	void ioAcceptSortedParticles(ParticleShuffleMsg *);
 	/** Inform the DataManager of my node that I'm here.
 	 The callback will receive a CkReductionMsg containing no data.
 	void registerWithDataManager(const CkGroupID& dataManagerID,
@@ -1253,14 +1285,15 @@ public:
 	void assignKeys(CkReductionMsg* m);
 	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
 	void unshuffleParticles(CkReductionMsg* m);
-	void acceptSortedParticles(const GravityParticle* particles,
-				   const int n, const extraSPHData *pExtra,
-				   const int nGas, const double load);
+	void acceptSortedParticles(ParticleShuffleMsg *);
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);
-  void initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback);
+  void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,
+			 const CkCallback& cb, const CkCallback& cback);
   void sendORBParticles();
   void acceptORBParticles(const GravityParticle* particles, const int n);
+  void acceptORBParticles(const GravityParticle* particles, const int n,
+			  const extraSPHData *pGas, const int nGasIn);
   void finalizeBoundaries(ORBSplittersMsg *splittersMsg);
   void evaluateParticleCounts(ORBSplittersMsg *splittersMsg);
   /*****************************/
@@ -1497,6 +1530,8 @@ public:
         void receiveProxy(CkGroupID _proxy){ proxy = _proxy; proxySet = true; /*CkPrintf("[%d : %d] received proxy\n", CkMyPe(), thisIndex);*/}
         void doAtSync();
         GravityParticle *getParticles(){return myParticles;}
+
+        void balanceBeforeInitialForces(CkCallback &cb);
 
 };
 
