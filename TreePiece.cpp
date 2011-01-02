@@ -304,7 +304,7 @@ void TreePiece::acceptORBParticles(const GravityParticle* particles,
 	    iGas++;
 	    }
 	else
-	    myParticles[i].extraData = NULL;
+	    myParticles[i+1].extraData = NULL;
 	}
 	  //signify completion with a reduction
     if(verbosity>1)
