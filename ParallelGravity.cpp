@@ -759,9 +759,9 @@ Main::Main(CkArgMsg* m) {
         if (domainDecomposition == SFC_peano_dec_3D) peanoKey = 3;
 
 	// hardcoding some parameters, later may be full options
-	if(domainDecomposition==ORB_dec){
+	if(domainDecomposition==ORB_dec || domainDecomposition==ORB_space_dec){
 	    useTree = Binary_ORB;
-	    CkAbort("ORB decomposition known to be bad and not implemented");
+	    // CkAbort("ORB decomposition known to be bad and not implemented");
 	    }
 	else { useTree = Binary_Oct; }
 
@@ -809,6 +809,9 @@ Main::Main(CkArgMsg* m) {
             break;
           case ORB_dec:
             ckerr << "Domain decomposition...ORB" << endl;
+            break;
+          case ORB_space_dec:
+            ckerr << "Domain decomposition...ORB space" << endl;
             break;
           case SFC_peano_dec:
             ckerr << "Domain decomposition...SFC Peano-Hilbert" << endl;
@@ -864,7 +867,7 @@ Main::Main(CkArgMsg* m) {
 	for(i = 0; i < nPhases; i++)
 	    gids[i] = pieces.ckLocMgr()->getGroupID();
 	cacheNode = CProxy_CkCacheManager::ckNew(cacheSize, nPhases, gids);
-	delete gids;
+	delete[] gids;
 
 	//create the DataManager
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
@@ -1106,6 +1109,8 @@ void Main::advanceBigStep(int iStep) {
 
       CkAssert(nextMaxRung <= MAXRUNG); // timesteps WAY too short
  
+      if(verbosity)
+	  memoryStats();
       // Opening Kick
       if(verbosity)
 	  ckout << "Kick Open:" << endl;
@@ -1117,11 +1122,13 @@ void Main::advanceBigStep(int iStep) {
       for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
         double dTimeSub = RungToDt(param.dDelta, iRung);
 	if(verbosity) {
-	    ckout << " Rung " << iRung << ": " << 0.5*dTimeSub << endl;
+	    CkPrintf(" Rung %d: %g\n", iRung, 0.5*dTimeSub);
 	    }
         duKick[iRung] = 0.5*dTimeSub;
         dKickFac[iRung] = csmComoveKickFac(param.csm, dTime, 0.5*dTimeSub);
       }
+      if(verbosity)
+	  memoryStats();
       if(param.bDoGas) {
 	  double startTime = CkWallTimer();
 	  if(verbosity)
@@ -1138,6 +1145,8 @@ void Main::advanceBigStep(int iStep) {
       treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas,
 		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
 
+      if(verbosity)
+	  memoryStats();
       // Dump frame may require a smaller step
       int driftRung = nextMaxRungIncDF(nextMaxRung);
       int driftSteps = 1;
@@ -1152,8 +1161,7 @@ void Main::advanceBigStep(int iStep) {
       for(int iSub = 0; iSub < driftSteps; iSub++) 
 	  {
 	      if(verbosity)
-		  ckout << "Drift: Rung " << driftRung << " Delta "
-			<< dTimeSub << endl;
+		  CkPrintf("Drift: Rung %d Delta %g\n", driftRung, dTimeSub);
 
 	      // Only effective if growmass parameters have been set.
 	      growMass(dTime, dTimeSub);
@@ -1191,6 +1199,8 @@ void Main::advanceBigStep(int iStep) {
       tmpRung <<= 1;
     }
 
+    if(verbosity)
+	memoryStats();
     if(param.bDoGas) {
 	double duKick[MAXRUNG+1];
 	double startTime = CkWallTimer();
@@ -1199,7 +1209,7 @@ void Main::advanceBigStep(int iStep) {
 	for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
 	    double dTimeSub = RungToDt(param.dDelta, iRung);
 	    if(verbosity) {
-		ckout << " Rung " << iRung << ": " << 0.5*dTimeSub << endl;
+		CkPrintf(" Rung %d: %g\n", iRung, 0.5*dTimeSub);
 		}
 	    duKick[iRung] = 0.5*dTimeSub;
 	  }
@@ -1220,6 +1230,8 @@ void Main::advanceBigStep(int iStep) {
 
     countActive(activeRung);
     
+    if(verbosity)
+	memoryStats();
     /***** Resorting of particles and Domain Decomposition *****/
     ckout << "Domain decomposition ...";
     double startTime = CkWallTimer();
@@ -1229,6 +1241,8 @@ void Main::advanceBigStep(int iStep) {
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
 
+    if(verbosity)
+	memoryStats();
     /********* Load balancer ********/
     // jetley - commenting out lastActiveRung == 0 check, balance load even for fast rungs
     //if(lastActiveRung == 0) {
@@ -1239,6 +1253,8 @@ void Main::advanceBigStep(int iStep) {
 	     << endl;
     //	}
 
+    if(verbosity)
+	memoryStats();
     /******** Tree Build *******/
     ckout << "Building trees ...";
     startTime = CkWallTimer();
@@ -1249,6 +1265,8 @@ void Main::advanceBigStep(int iStep) {
 
     CkCallback cbGravity(CkCallback::resumeThread);
 
+    if(verbosity)
+	memoryStats();
     if(param.bDoGravity) {
 	updateSoft();
 	if(param.csm->bComove) {
@@ -1256,8 +1274,9 @@ void Main::advanceBigStep(int iStep) {
 	    if (a >= param.daSwitchTheta) theta = param.dTheta2; 
 	    }
 	/******** Force Computation ********/
-	ckout << "Calculating gravity (tree bucket, theta = " << theta
-	      << ") ...";
+	//ckout << "Calculating gravity (tree bucket, theta = " << theta
+	//      << ") ...";
+        CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
 	startTime = CkWallTimer();
 	if(param.bConcurrentSph) {
 	    ckout << endl;
@@ -1272,22 +1291,30 @@ void Main::advanceBigStep(int iStep) {
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
-	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-		  << endl;
+	    //ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+	    //	  << endl;
+            CkPrintf("took %f seconds\n", CkWallTimer()-startTime);
 	    }
 	iPhase++;
+	if(verbosity)
+	    memoryStatsCache();
     }
     else {
 	treeProxy.initAccel(activeRung, CkCallbackResumeThread());
 	}
+    if(verbosity)
+	memoryStats();
     if(param.bDoGas) {
 	doSph(activeRung);
+	if(verbosity)
+	    memoryStatsCache();
 	}
     
     if(param.bConcurrentSph && param.bDoGravity) {
 	CkFreeMsg(cbGravity.thread_delay());
-	ckout << "Calculating gravity and SPH took "
-	      << (CkWallTimer() - startTime) << " seconds." << endl;
+	//ckout << "Calculating gravity and SPH took "
+	//      << (CkWallTimer() - startTime) << " seconds." << endl;
+        CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
 	}
     
 #if COSMO_STATS > 0
@@ -1298,7 +1325,7 @@ void Main::advanceBigStep(int iStep) {
       ckerr << ((printingStep & MAXSUBSTEPS) ? "1" : "0");
       printingStep = (printingStep & ~MAXSUBSTEPS) << 1;
     }
-    ckerr << " (rungs " << activeRung << "-" << nextMaxRung << ")" << ":" << endl;
+    //ckerr << " (rungs " << activeRung << "-" << nextMaxRung << ")" << ":" << endl;
     CkReductionMsg *tps;
     treeProxy.collectStatistics(CkCallbackResumeThread((void*&)tps));
     ((TreePieceStatistics*)tps->getData())->printTo(ckerr);
@@ -1326,11 +1353,13 @@ void Main::advanceBigStep(int iStep) {
         duKick[iRung]=dKickFac[iRung]=0;
       }
       if(verbosity)
+	  memoryStats();
+      if(verbosity)
 	  ckout << "Kick Close:" << endl;
       for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
         double dTimeSub = RungToDt(param.dDelta, iRung);
 	if(verbosity) {
-	    ckout << " Rung " << iRung << ": " << 0.5*dTimeSub << endl;
+	    CkPrintf(" Rung %d: %g\n", iRung, 0.5*dTimeSub);
 	    }
         duKick[iRung] = 0.5*dTimeSub;
         dKickFac[iRung] = csmComoveKickFac(param.csm,
@@ -1376,14 +1405,23 @@ void Main::setupICs() {
     // Try loading Tipsy format; first just grab the header.
     ckout << " trying Tipsy ...";
 	    
-    Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
-    if(!ptf.loadedSuccessfully()) {
-      ckerr << endl << "Couldn't load the tipsy file \""
-            << basefilename.c_str()
-            << "\". Maybe it's not a tipsy file?" << endl;
-      CkExit();
-      return;
-    }
+    try {
+	Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
+	if(!ptf.loadedSuccessfully()) {
+	    ckerr << endl << "Couldn't load the tipsy file \""
+		  << basefilename.c_str()
+		  << "\". Maybe it's not a tipsy file?" << endl;
+	    CkExit();
+	    return;
+	    }
+	}
+    catch (std::ios_base::failure e) {
+	ckerr << "File read: " << basefilename.c_str() << ": " << e.what()
+	      << endl;
+	CkExit();
+	return;
+	}
+    
     double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
     treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
   }	
@@ -1583,6 +1621,10 @@ Main::initialForces()
 	 	      CkCallbackResumeThread(), true);
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
+  
+  // Balance load initially after decomposition
+  treeProxy.balanceBeforeInitialForces(CkCallbackResumeThread());
+
   /******** Tree Build *******/
   ckout << "Building trees ...";
   startTime = CkWallTimer();
@@ -1590,6 +1632,8 @@ Main::initialForces()
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
   iPhase = 0;
+  if(verbosity)
+      memoryStats();
   
 #ifdef CUDA
   ckout << "Init. Accel. ...";
@@ -1597,6 +1641,7 @@ Main::initialForces()
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
 #endif
+
       
   CkCallback cbGravity(CkCallback::resumeThread);  // needed below to wait for gravity
 
@@ -1607,8 +1652,9 @@ Main::initialForces()
 	  if (a >= param.daSwitchTheta) theta = param.dTheta2; 
 	  }
       /******** Force Computation ********/
-      ckout << "Calculating gravity (theta = " << theta
-	    << ") ...";
+      //ckout << "Calculating gravity (theta = " << theta
+      //    << ") ...";
+      CkPrintf("Calculating gravity (theta = %f) ... ", theta);
       startTime = CkWallTimer();
       if(param.bConcurrentSph) {
 	  treeProxy.startIteration(0, theta, cbGravity);
@@ -1621,8 +1667,9 @@ Main::initialForces()
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
-	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-		<< endl;
+          CkPrintf("took %f seconds.\n", CkWallTimer()-startTime);
+	  if(verbosity)
+	      memoryStatsCache();
 	  }
       iPhase++;
       }
@@ -1635,8 +1682,9 @@ Main::initialForces()
   
   if(param.bConcurrentSph && param.bDoGravity) {
       CkFreeMsg(cbGravity.thread_delay());
-	ckout << "Calculating gravity and SPH took "
-	      << (CkWallTimer() - startTime) << " seconds." << endl;
+	//ckout << "Calculating gravity and SPH took "
+	//      << (CkWallTimer() - startTime) << " seconds." << endl;
+        CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
       }
   
   CkAssert(iPhase <= nPhases);
@@ -1765,6 +1813,9 @@ Main::doSimulation()
 	    sprintf(achCheckFileName, "%s.chk1", param.achOutName);
 	    bChkFirst = 1;
 	    }
+	// The following drift is called because it deletes the tree
+	// so it won't be saved on disk.
+	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
 	bIsRestarting = 0;
 	CkCallback cb(CkIndex_TreePiece::restart(), treeProxy[0]);
@@ -2264,6 +2315,37 @@ void Main::DumpFrame(double dTime, double dStep)
 		    }
 		}
 	}
+    }
+
+/**
+ * Diagnostic function to summmarize memory usage across all
+ * processors
+ */
+void Main::memoryStats() 
+{
+    CkReductionMsg *msg;
+    dMProxy.memoryStats(CkCallbackResumeThread((void*&)msg));
+    // simple maximum for now.
+    int *memMax = (int *)msg->getData();
+    CkPrintf("Maximum memory: %d MB\n", *memMax);
+    delete msg;
+    }
+
+/**
+ * Diagnostic function to summmarize cache memory usage across all
+ * processors
+ */
+void Main::memoryStatsCache() 
+{
+    CkReductionMsg *msg;
+    treeProxy.memCacheStats(CkCallbackResumeThread((void*&)msg));
+    // simple maximum for now.
+    int *memMax = (int *)msg->getData();
+    CkPrintf("Maximum memory with cache: %d MB, after: %d MB\n", memMax[0],
+	     memMax[1]);
+    CkPrintf("Maximum cache entries: node: %d , particle: %d\n", memMax[2],
+	     memMax[3]);
+    delete msg;
     }
 
 void registerStatistics() {
