@@ -60,7 +60,7 @@ typedef struct CoolingParametersStruct {
 
 typedef struct CoolingParticleStruct {
     double Y_Total;
-    double mrho;
+    double mrho;	/* (m/rho)^(1/3), i.e V^{1/3} in Boley 2009 */
 	} COOLPARTICLE;
 
 typedef struct clDerivsDataStruct clDerivsData;
