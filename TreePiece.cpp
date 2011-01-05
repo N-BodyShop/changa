@@ -596,7 +596,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     // Special case where no particle is assigned to this TreePiece
     if (myNumParticles > 0) delete[] myParticles;
     myNumParticles = 0;
-    delete[] mySPHParticles;
+    if (myNumSPH > 0) delete[] mySPHParticles;
     myNumSPH = 0;
     incomingParticlesSelf = false;
     incomingParticlesMsg.clear();
@@ -639,8 +639,8 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
       int iMsg;
       for(iMsg = 0; iMsg < incomingParticlesMsg.size(); iMsg++)
 	  nSPH += incomingParticlesMsg[iMsg]->nSPH;
+      if (myNumSPH > 0) delete[] mySPHParticles;
       myNumSPH = nSPH;
-      delete[] mySPHParticles;
       mySPHParticles = new extraSPHData[myNumSPH];
 
       int nPart = 0;
