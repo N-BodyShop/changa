@@ -90,7 +90,9 @@ void MultistepLB::receiveCentroids(CkReductionMsg *msg){
 
   tpCentroids = (TaggedVector3D *)msg->getData();
   nrecvd = msg->getGcount();
-  CkPrintf("MultistepLB: receiveCentroids started: %d elements, msg length: %d\n", msg->getGcount(), msg->getLength()); 
+  if (_lb_args.debug()>=2) {
+    CkPrintf("MultistepLB: receiveCentroids started: %d elements, msg length: %d\n", msg->getGcount(), msg->getLength()); 
+  }
   haveTPCentroids = true;
   tpmsg = msg;
   /*
@@ -103,7 +105,9 @@ void MultistepLB::receiveCentroids(CkReductionMsg *msg){
   }
   */
   treeProxy.doAtSync();
-  CkPrintf("MultistepLB: receiveCentroids done\n");  
+  if (_lb_args.debug()>=2) {
+    CkPrintf("MultistepLB: receiveCentroids done\n");  
+  }
   //delete msg;
 }
 
@@ -111,14 +115,18 @@ void MultistepLB::receiveCentroids(CkReductionMsg *msg){
 CmiBool MultistepLB::QueryBalanceNow(int step){
   if(step == 0){
     if(CkMyPe() == 0){                          // only one group member need broadcast
-      CkPrintf("MultistepLB: Step 0, calling treeProxy.receiveProxy(thisgroup)\n");
+      if (_lb_args.debug()>=2) {
+        CkPrintf("MultistepLB: Step 0, calling treeProxy.receiveProxy(thisgroup)\n");
+      }
       treeProxy.receiveProxy(thisgroup);        // broadcast proxy to all treepieces
     }
     firstRound = true;
     return false; 
   }
-  if(CkMyPe() == 0)
-    CkPrintf("MultistepLB: Step %d\n", step);
+  if (_lb_args.debug()>=1) {
+    if(CkMyPe() == 0)
+      CkPrintf("MultistepLB: Step %d\n", step);
+  }
   return true;
 
 }
@@ -523,7 +531,9 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
     stats->to_proc[i] = stats->from_proc[i];
   }
   // update phase data 
-  CkPrintf("merging previous phase %d data; current phase: %d\n", prevPhase, phase);
+  if (_lb_args.debug()>=2) {
+    CkPrintf("merging previous phase %d data; current phase: %d\n", prevPhase, phase);
+  }
   mergeInstrumentedData(prevPhase, stats); 
   
   for(i = 0; i < stats->n_objs; i++){
@@ -742,7 +752,9 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
     if(frompe != tope){
       stats->to_proc[computeLoad[obj].id] = tope;
     }
-    CkPrintf("%d(%d): %d -> %d\n", computeLoad[obj].id, obj, frompe, tope);
+    if (_lb_args.debug()>=2) {
+      CkPrintf("%d(%d): %d -> %d\n", computeLoad[obj].id, obj, frompe, tope);
+    }
   }
   /*
   objIdx = 0;
@@ -908,7 +920,9 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
   if (_lb_args.debug() >= 1)
     CkPrintf("MultistepLB finished time: %fs\n", CkWallTimer() - t);
 #else // Orb3dLB
-  CkPrintf("******** BIG STEP *********!\n");
+  if (_lb_args.debug()>=2) {
+    CkPrintf("******** BIG STEP *********!\n");
+  }
   work2(stats,count);
 #endif  // MCLBMS_ORBSMOOTH
     
@@ -932,10 +946,14 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
   int numobjs = stats->n_objs;
   int nmig = stats->n_migrateobjs;
 
-  CkPrintf("[work2] %d objects allocating %d bytes for tp\n", nmig, nmig*sizeof(TPObject));
+  if (_lb_args.debug()>=2) {
+    CkPrintf("[work2] %d objects allocating %d bytes for tp\n", nmig, nmig*sizeof(TPObject));
+  }
   TPObject *tp = new TPObject[nmig];
 
-  CkPrintf("[work2] ready tp data structure\n");
+  if (_lb_args.debug()>=2) {
+    CkPrintf("[work2] ready tp data structure\n");
+  }
 
   int j = 0;
   for(int i = 0; i < stats->n_objs; i++){
@@ -966,7 +984,9 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
   int nz = tmgr.getDimNZ();
   int numnodes = nx*ny*nz; 
 
-  CkPrintf("[work2] %d numnodes allocating %d bytes for nodes\n", numnodes, numnodes*sizeof(Node));
+  if (_lb_args.debug()>=2) {
+    CkPrintf("[work2] %d numnodes allocating %d bytes for nodes\n", numnodes, numnodes*sizeof(Node));
+  }
   Node *nodes = new Node[numnodes];
 
   for(int i = 0; i < stats->count; i++){
@@ -983,7 +1003,9 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
     //CkPrintf("node %d,%d,%d (%d) gets t %d\n", nodes[node].x, nodes[node].y, nodes[node].z, node, t);
   }
 
-  CkPrintf("[work2] map\n");
+  if (_lb_args.debug()>=2) {
+    CkPrintf("[work2] map\n");
+  }
   map(tp,nmig,numnodes,nodes,nx,ny,nz,dim);
 
   /*
