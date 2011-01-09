@@ -15,35 +15,35 @@ CreateLBFunc_Def(MultistepLB, "Works best with multistepped runs; uses OrbSmooth
 // ORB3DLB functions
 //**************************************
 static int comparx(const void *a, const void *b){
-  TPObject *ta = (TPObject *)a;
-  TPObject *tb = (TPObject *)b;
-  return (int)(ta->centroid.x-tb->centroid.x);
+  const TPObject *ta = reinterpret_cast<const TPObject*>(a);
+  const TPObject *tb = reinterpret_cast<const TPObject*>(b);
+  return ta->centroid.x < tb->centroid.x ? -1 : ta->centroid.x > tb->centroid.x ? 1 : 0;
 }
 static int compary(const void *a, const void *b){
-  TPObject *ta = (TPObject *)a;
-  TPObject *tb = (TPObject *)b;
-  return (int)(ta->centroid.y-tb->centroid.y);
+  const TPObject *ta = reinterpret_cast<const TPObject*>(a);
+  const TPObject *tb = reinterpret_cast<const TPObject*>(b);
+  return ta->centroid.y < tb->centroid.y ? -1 : ta->centroid.y > tb->centroid.y ? 1 : 0;
 }
 static int comparz(const void *a, const void *b){
-  TPObject *ta = (TPObject *)a;
-  TPObject *tb = (TPObject *)b;
-  return (int)(ta->centroid.z-tb->centroid.z);
+  const TPObject *ta = reinterpret_cast<const TPObject*>(a);
+  const TPObject *tb = reinterpret_cast<const TPObject*>(b);
+  return ta->centroid.z < tb->centroid.z ? -1 : ta->centroid.z > tb->centroid.z ? 1 : 0;
 }
 
 static int pcx(const void *a, const void *b){
-  Node *ta = (Node *)a;
-  Node *tb = (Node *)b;
-  return (int)(ta->x-tb->x);
+  const Node *ta = reinterpret_cast<const Node*>(a);
+  const Node *tb = reinterpret_cast<const Node*>(b);
+  return ta->x < tb->x ? -1 : ta->x > tb->x ? 1 : 0;
 }
 static int pcy(const void *a, const void *b){
-  Node *ta = (Node *)a;
-  Node *tb = (Node *)b;
-  return (int)(ta->y-tb->y);
+  const Node *ta = reinterpret_cast<const Node*>(a);
+  const Node *tb = reinterpret_cast<const Node*>(b);
+  return ta->y < tb->y ? -1 : ta->y > tb->y ? 1 : 0;
 }
 static int pcz(const void *a, const void *b){
-  Node *ta = (Node *)a;
-  Node *tb = (Node *)b;
-  return (int)(ta->z-tb->z);
+  const Node *ta = reinterpret_cast<const Node*>(a);
+  const Node *tb = reinterpret_cast<const Node*>(b);
+  return ta->z < tb->z ? -1 : ta->z > tb->z ? 1 : 0;
 }
 //**************************************
 
