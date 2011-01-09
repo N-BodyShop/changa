@@ -503,11 +503,12 @@ void MultistepLB::makeActiveProcessorList(BaseLB::LDStats *stats, int numActiveO
 
 #define LARGE_PHASE_THRESHOLD 0.1
 
-void MultistepLB::work(BaseLB::LDStats* stats, int count)
+void MultistepLB::work(BaseLB::LDStats* stats)
 {
 #if CMK_LBDB_ON
   // find active objects - mark the inactive ones as non-migratable
   int i;
+  int count;
   
   stats->makeCommHash();
   for(i = 0; i < stats->n_objs; i++){

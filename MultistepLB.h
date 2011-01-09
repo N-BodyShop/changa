@@ -73,7 +73,7 @@ private:
 public:
   MultistepLB(const CkLBOptions &);
   MultistepLB(CkMigrateMessage *m):CentralLB(m) { lbname = "MultistepLB"; }
-  void work(BaseLB::LDStats* stats, int count);
+  void work(BaseLB::LDStats* stats);
   void receiveCentroids(CkReductionMsg *msg);
   //ScaleTranMapBG map;
 
