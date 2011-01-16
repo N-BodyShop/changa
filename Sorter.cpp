@@ -287,13 +287,8 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
           availableChares.push_back(i);
         }
         joinThreshold = particlesPerChare;
-       splitThreshold = joinThreshold * 1.5;
-        /*
-        numKeys = 1;
-        treeRoot = new WeighedNode(1, 1<<30);
-        */
+	splitThreshold = (int)(joinThreshold * 1.5);
       }
-      //wbState = new WeightBalanceState<int>();
       //Convert the Node Keys to the splitter keys which will be sent to histogram
       convertNodesToSplitters();
       break;
@@ -426,7 +421,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   if (joinThreshold == 0) {
     int total_particles = std::accumulate(startCounts, startCounts+numCounts, 0);
     joinThreshold = total_particles / (numTreePieces>>1);
-    splitThreshold = joinThreshold * 1.5;
+    splitThreshold = (int) (joinThreshold * 1.5);
   }
   
   if(verbosity>=3){

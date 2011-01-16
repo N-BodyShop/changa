@@ -106,6 +106,7 @@ extern int _nocache;
 extern int _cacheLineDepth;
 extern unsigned int _yieldPeriod;
 extern DomainsDec domainDecomposition;
+extern double dExtraStore;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
 extern CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
@@ -781,6 +782,8 @@ private:
 	unsigned int myNumParticles;
 	/// Array with the particles in this chare
 	GravityParticle* myParticles;
+	/// Actual storage in the above array
+	int nStore;
  public:
 	/// Total Particles in the simulation
 	int64_t nTotalParticles;
@@ -791,6 +794,8 @@ private:
 	unsigned int myNumSPH;
 	/// Array with SPH particle data
 	extraSPHData *mySPHParticles;
+	/// Actual storage in the above array
+	int nStoreSPH;
 	/// Total Star Particles
 	int64_t nTotalStars;
 

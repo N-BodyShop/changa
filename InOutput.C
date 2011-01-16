@@ -106,12 +106,13 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
     myNumParticles = numParticlesChunk[0];
 
   /* At this point myNumParticles contain the number of particles to be loaded
-     into this processro, startParticles and numParticlesChunk are newly
+     into this processor, startParticles and numParticlesChunk are newly
      allocated array containing the first particle and the count of each
      contiguous chunk of particles that has to be loaded. */
 
   // allocate an array for myParticles
-  myParticles = new GravityParticle[myNumParticles + 2];
+  nStore = (int)((myNumParticles + 2)*(1.0 + dExtraStore));
+  myParticles = new GravityParticle[nStore];
   assert(myParticles != NULL);
 
   if(thisIndex == 0)
@@ -338,7 +339,8 @@ void TreePiece::loadTipsy(const std::string& filename,
 		     << " particles, starting at " << startParticle << endl;
 
 	// allocate an array for myParticles
-	myParticles = new GravityParticle[myNumParticles + 2];
+	nStore = (int)((myNumParticles + 2)*(1.0 + dExtraStore));
+	myParticles = new GravityParticle[nStore];
 	if(startParticle < nTotalSPH) {
 	    if(startParticle + myNumParticles <= nTotalSPH)
 		myNumSPH = myNumParticles;
@@ -348,7 +350,8 @@ void TreePiece::loadTipsy(const std::string& filename,
 	else {
 	    myNumSPH = 0;
 	    }
-	mySPHParticles = new extraSPHData[myNumSPH];
+	nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
+	mySPHParticles = new extraSPHData[nStoreSPH];
 	
 	if(!r.seekParticleNum(startParticle)) {
 		CkAbort("Couldn't seek to my particles!");
@@ -764,7 +767,8 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
   if(myIOParticles == incomingParticlesArrived && incomingParticlesSelf) {
     //I've got all my particles
     if (myNumParticles > 0) delete[] myParticles;
-    myParticles = new GravityParticle[incomingParticlesArrived + 2];
+    nStore = (int) ((incomingParticlesArrived + 2)*(1.0 + dExtraStore));
+    myParticles = new GravityParticle[nStore];
     myNumParticles = incomingParticlesArrived;
     // reset for next time
     incomingParticlesArrived = 0;
@@ -775,7 +779,8 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 	nSPH += incomingParticlesMsg[iMsg]->nSPH;
     myNumSPH = nSPH;
     delete[] mySPHParticles;
-    mySPHParticles = new extraSPHData[myNumSPH];
+    nStoreSPH = (int) (myNumSPH*(1.0 + dExtraStore));
+    mySPHParticles = new extraSPHData[nStoreSPH];
 
     int nPart = 0;
     nSPH = 0;

@@ -263,13 +263,15 @@ void TreePiece::sendORBParticles(){
 
   if(myExpectedCount > (int) myNumParticles){
     delete [] myParticles;
-    myParticles = new GravityParticle[myExpectedCount + 2];
+    nStore = (int)((myExpectedCount + 2)*(1.0 + dExtraStore));
+    myParticles = new GravityParticle[nStore];
   }
   myNumParticles = myExpectedCount;
 
   if(myExpectedCountSPH > (int) myNumSPH){
     delete [] mySPHParticles;
-    mySPHParticles = new extraSPHData[myExpectedCountSPH];
+    nStoreSPH = (int)(myExpectedCountSPH*(1.0 + dExtraStore));
+    mySPHParticles = new extraSPHData[nStoreSPH];
   }
   myNumSPH = myExpectedCountSPH;
   if(myExpectedCount == 0) // No particles.  Make sure transfer is
@@ -631,7 +633,8 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
      && incomingParticlesSelf) {
       //I've got all my particles
       if (myNumParticles > 0) delete[] myParticles;
-      myParticles = new GravityParticle[dm->particleCounts[myPlace] + 2];
+      nStore = (int)((dm->particleCounts[myPlace] + 2)*(1.0 + dExtraStore));
+      myParticles = new GravityParticle[nStore];
       myNumParticles = dm->particleCounts[myPlace];
       incomingParticlesArrived = 0;
       incomingParticlesSelf = false;
@@ -641,7 +644,8 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 	  nSPH += incomingParticlesMsg[iMsg]->nSPH;
       if (myNumSPH > 0) delete[] mySPHParticles;
       myNumSPH = nSPH;
-      mySPHParticles = new extraSPHData[myNumSPH];
+      nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
+      mySPHParticles = new extraSPHData[nStoreSPH];
 
       int nPart = 0;
       nSPH = 0;
@@ -4773,8 +4777,10 @@ void TreePiece::pup(PUP::er& p) {
   p | myNumSPH;
   p | nTotalStars;
   if(p.isUnpacking()) {
-    myParticles = new GravityParticle[myNumParticles + 2];
-    mySPHParticles = new extraSPHData[myNumSPH];
+      nStore = (int)((myNumParticles + 2)*(1.0 + dExtraStore));
+      myParticles = new GravityParticle[nStore];
+      nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
+      mySPHParticles = new extraSPHData[nStoreSPH];
   }
   for(unsigned int i=1;i<=myNumParticles;i++){
     p | myParticles[i];
