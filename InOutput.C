@@ -284,7 +284,8 @@ void TreePiece::loadTipsy(const std::string& filename,
 	Tipsy::header tipsyHeader = r.getHeader();
 	nTotalParticles = tipsyHeader.nbodies;
 	nTotalSPH = tipsyHeader.nsph;
-	nTotalStars = tipsyHeader.nstar;
+	nTotalDark = tipsyHeader.ndark;
+	nTotalStar = tipsyHeader.nstar;
 	dStartTime = tipsyHeader.time;
 	int excess;
 	unsigned int startParticle;
@@ -579,8 +580,8 @@ void TreePiece::writeTipsy(const std::string& filename, const double dTime,
     tipsyHeader.time = dTime;
     tipsyHeader.nbodies = nTotalParticles;
     tipsyHeader.nsph = nTotalSPH;
-    tipsyHeader.nstar = nTotalStars;
-    tipsyHeader.ndark = nTotalParticles - (nTotalSPH + nTotalStars);
+    tipsyHeader.nstar = nTotalStar;
+    tipsyHeader.ndark = nTotalParticles - (nTotalSPH + nTotalStar);
     
     Tipsy::TipsyWriter w(filename, tipsyHeader);
     

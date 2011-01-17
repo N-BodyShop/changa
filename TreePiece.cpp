@@ -959,6 +959,126 @@ void TreePiece::drift(double dDelta,  // time step in x containing
       CkCallback(CkIndex_TreePiece::assignKeys(0), pieces));
 }
 
+void TreePiece::unDeleteParticle(GravityParticle *p)
+{
+    CkAssert(TYPETest(p, TYPE_DELETED)); 
+
+    TYPEReset(p, TYPE_DELETED); 
+    }
+
+void TreePiece::deleteParticle(GravityParticle *p)
+{
+    TYPESet(p, TYPE_DELETED); 
+    }
+
+void TreePiece::newParticle(GravityParticle *p)
+{
+    if(myNumParticles + 2 >= nStore) {
+	CkAbort("No room for new particle: increase dExtraStore");
+	}
+    // Move Boundary particle
+    myParticles[myNumParticles+2] = myParticles[myNumParticles+1];
+    myNumParticles++;
+    myParticles[myNumParticles] = *p;
+    myParticles[myNumParticles].iOrder = -1;
+    if(p->isGas()) {
+	if(myNumSPH >= nStoreSPH)
+	    CkAbort("No room for new SPH particle: increase dExtraStore");
+	mySPHParticles[myNumSPH] = *((extraSPHData *) p->extraData);
+	myNumSPH++;
+	}
+    }
+
+/**
+ * Count add/deleted particles, and compact main particle storage.
+ * Extradata storage will be reclaimed on the next domain decompose.
+ * This contributes to a "set" reduction, which the main chare will
+ * iterate through to assign new iOrders.
+ */
+void TreePiece::colNParts(const CkCallback &cb)
+{
+    CountSetPart counts;
+    counts.index = thisIndex;
+    counts.nAddGas = 0;
+    counts.nAddDark = 0;
+    counts.nAddStar = 0;
+    counts.nDelGas = 0;
+    counts.nDelDark = 0;
+    counts.nDelStar = 0;
+    unsigned int i, j;
+    int newNPart = myNumParticles; // the number of particles may change.
+    
+    for(i = 1, j = 1; i <= myNumParticles; ++i) {
+	if(j < i)
+	    myParticles[j] = myParticles[i];
+	GravityParticle *p = &myParticles[i];
+	if(p->iOrder == -1) { // A new Particle
+	    j++;
+	    if (p->isGas())
+		counts.nAddGas++;
+	    else if(p->isStar())
+		counts.nAddStar++;
+	    else if(p->isDark())
+		counts.nAddDark++;
+	    else
+		CkAbort("Bad Particle type");
+	    }
+	else if(TYPETest(p, TYPE_DELETED) ) {
+	    newNPart--;
+	    if (p->isGas())
+		counts.nDelGas++;
+	    else if(p->isStar())
+		counts.nDelStar++;
+	    else if(p->isDark())
+		counts.nDelDark++;
+	    else
+		CkAbort("Bad Particle type");
+	    }
+	else {
+	    j++;
+	    }
+	}
+    if(j < i)  // move boundary particle if needed
+	myParticles[j] = myParticles[i];
+
+    myNumParticles = newNPart;
+    contribute(sizeof(counts), &counts, CkReduction::set, cb);
+    }
+
+/**
+ * Assign iOrders to recently added particles.
+ */
+void TreePiece::newOrder(int64_t nStartSPH, int64_t nStartDark,
+			  int64_t nStartStar, const CkCallback &cb) 
+{
+    unsigned int i;
+    for(i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+	if(p->iOrder == -1) {
+	    if (p->isGas()) 
+		p->iOrder = nStartSPH++;
+	    else if (p->isDark()) 
+		p->iOrder = nStartDark++;
+	    else 
+		p->iOrder = nStartStar++;
+	    }
+	}
+    contribute(cb);
+    }
+    
+/**
+ * Update total particle numbers.
+ */
+void TreePiece::setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
+			  int64_t _nTotalStar, const CkCallback &cb) 
+{
+    nTotalSPH = _nTotalSPH;
+    nTotalDark = _nTotalDark;
+    nTotalStar = _nTotalStar;
+    nTotalParticles = nTotalSPH + nTotalDark + nTotalStar;
+    contribute(cb);
+    }
+
 void TreePiece::setSoft(const double dSoft) {
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
 #ifdef CHANGESOFT
@@ -4775,7 +4895,8 @@ void TreePiece::pup(PUP::er& p) {
   p | myNumParticles;
   p | nTotalSPH;
   p | myNumSPH;
-  p | nTotalStars;
+  p | nTotalDark;
+  p | nTotalStar;
   if(p.isUnpacking()) {
       nStore = (int)((myNumParticles + 2)*(1.0 + dExtraStore));
       myParticles = new GravityParticle[nStore];

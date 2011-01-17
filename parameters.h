@@ -91,7 +91,7 @@ typedef struct parameters {
     int iOutInterval;
     int iCheckInterval;
     int iLogInterval;
-    double dExtraStore;		/* Unused, here for PKDGRAV compatibility */
+    double dExtraStore;
     double dDumpFrameStep;
     double dDumpFrameTime;
     int iDirector;

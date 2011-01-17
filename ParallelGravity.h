@@ -273,6 +273,29 @@ public:
 	nSPH(nsph), load(pload) {}
 };
     
+/// Class to count added and deleted particles
+class CountSetPart 
+{
+ public:
+    int index;			/* chare index */
+    int nAddGas;
+    int nDelGas;
+    int nAddDark;
+    int nDelDark;
+    int nAddStar;
+    int nDelStar;
+
+    void pup(PUP::er& p) {
+	p | index;
+	p | nAddGas;
+	p | nDelGas;
+	p | nAddDark;
+	p | nDelDark;
+	p | nAddStar;
+	p | nDelStar;
+	}
+    };
+
 class Compare{ //Defines the comparison operator on the map used in balancer
   int dim;
 public:
@@ -330,9 +353,14 @@ class Main : public CBase_Main {
 	CkArgMsg *args;
 	std::string basefilename;
 	CProxy_Sorter sorter;
-	int nTotalParticles;
-	int nTotalSPH;
-	//double theta; -- moved to readonly
+	int64_t nTotalParticles;
+	int64_t nTotalSPH;
+	int64_t nTotalDark;
+	int64_t nTotalStar;
+	int64_t nMaxOrderGas;  /* Maximum iOrders */
+	int64_t nMaxOrderDark;
+	int64_t nMaxOrder;
+	
 	double dTime;		/* Simulation time */
 	double dEcosmo;		/* variables for integrating
 				   Lazer-Irvine eq. */
@@ -399,6 +427,7 @@ public:
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
 	int nextMaxRungIncDF(int nextMaxRung);
+	void addDelParticles();
 	void memoryStats();
 	void memoryStatsCache();
 	void pup(PUP::er& p);
@@ -789,6 +818,10 @@ private:
 	int64_t nTotalParticles;
 	/// Total Gas Particles
 	int64_t nTotalSPH;
+	/// Total Dark Particles
+	int64_t nTotalDark;
+	/// Total Star Particles
+	int64_t nTotalStar;
  private:
 	/// Total gas in this chare
 	unsigned int myNumSPH;
@@ -796,8 +829,6 @@ private:
 	extraSPHData *mySPHParticles;
 	/// Actual storage in the above array
 	int nStoreSPH;
-	/// Total Star Particles
-	int64_t nTotalStars;
 
 	/// List of all the node-buckets in this TreePiece
 	std::vector<GenericTreeNode *> bucketList;
@@ -1331,7 +1362,23 @@ public:
 		       double dCosmoFac, const CkCallback& cb);
   void rungStats(const CkCallback& cb);
   void countActive(int activeRung, const CkCallback& cb);
-	void calcEnergy(const CkCallback& cb);
+  void calcEnergy(const CkCallback& cb);
+  /// unmark particle as deleted
+  void unDeleteParticle(GravityParticle *p);
+  /// mark particle as deleted
+  void deleteParticle(GravityParticle *p);
+  /// add new particle
+  void newParticle(GravityParticle *p);
+  /// Count add/deleted particles, and compact main particle storage.
+  void colNParts(const CkCallback &cb);
+  /// Assign iOrders to recently added particles.
+  void newOrder(int64_t nStartSPH, int64_t nStartDark,
+		int64_t nStartStar, const CkCallback &cb);
+  
+  /// Update total particle numbers
+  void setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
+		 int64_t _nTotalStar, const CkCallback &cb);
+
 	void setSoft(const double dSoft);
 	void physicalSoft(const double dSoftMax, const double dFac,
 			  const int bSoftMaxMul, const CkCallback& cb);

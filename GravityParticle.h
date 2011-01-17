@@ -94,6 +94,9 @@ class extraSPHData
 	}
     };
 
+class GravityParticle;
+int TYPETest(GravityParticle *a, unsigned int b);
+
 class ExternalSmoothParticle;
 
 // This class contains everything that a "dark matter" particle needs.
@@ -169,13 +172,22 @@ public:
 	inline double& uDot() { return (((extraSPHData*)extraData)->uDot());}
 	inline COOLPARTICLE& CoolParticle() { return (((extraSPHData*)extraData)->CoolParticle());}
 #endif
-};
+
+/* Particle Type Masks */
 
 #define TYPE_GAS               (1<<0)
 #define TYPE_DARK              (1<<1)
 #define TYPE_STAR              (1<<2)
-#define TYPE_PHOTOGENIC        (1<<3)
-#define TYPE_NbrOfACTIVE       (1<<4)
+
+#define TYPE_DELETED           (1<<3)
+
+#define TYPE_PHOTOGENIC        (1<<4)
+#define TYPE_NbrOfACTIVE       (1<<5)
+
+	inline bool isDark() { return TYPETest(this, TYPE_DARK);}
+	inline bool isGas() { return TYPETest(this, TYPE_GAS);}
+	inline bool isStar() { return TYPETest(this, TYPE_STAR);}
+};
 
 inline int TYPETest(GravityParticle *a, unsigned int b) {
     return a->iType & b;
@@ -186,7 +198,6 @@ inline int TYPESet(GravityParticle *a, unsigned int b) {
 inline int TYPEReset(GravityParticle *a, unsigned int b) {
     return a->iType &= (~b);
     }
-
 
 // Class for cross processor data needed for smooth operations
 class ExternalSmoothParticle {

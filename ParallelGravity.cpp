@@ -43,6 +43,7 @@ int _nocache;
 int _cacheLineDepth;
 unsigned int _yieldPeriod;
 DomainsDec domainDecomposition;
+double dExtraStore;		// fraction of extra particle storage
 int peanoKey;
 GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
@@ -415,9 +416,9 @@ Main::Main(CkArgMsg* m) {
 	strcpy(param.achOutName,"pargrav");
 	prmAddParam(prm,"achOutName",paramString,param.achOutName,256,"o",
 				"output name for snapshots and logfile");
-	param.dExtraStore = 0;
+	param.dExtraStore = 0.01;
 	prmAddParam(prm,"dExtraStore",paramDouble,&param.dExtraStore,
-		    sizeof(double), NULL, "IGNORED");
+		    sizeof(double), NULL, "Extra memory for new particles");
 	
 	bDumpFrame = 0;
 	df = NULL;
@@ -566,11 +567,7 @@ Main::Main(CkArgMsg* m) {
 	    }
 	theta = param.dTheta;
         thetaMono = theta*theta*theta*theta;
-	if(prmSpecified(prm, "dExtraStore")) {
-	    ckerr << "WARNING: ";
-	    ckerr << "dExtraStore parameter ignored."
-		  << endl;
-	    }
+	dExtraStore = param.dExtraStore;
 	if(prmSpecified(prm, "bCannonical")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bCannonical parameter ignored; integration is always cannonical"
@@ -1416,6 +1413,11 @@ void Main::setupICs() {
 	    
   nTotalParticles = treeProxy[0].ckLocal()->nTotalParticles;
   nTotalSPH = treeProxy[0].ckLocal()->nTotalSPH;
+  nTotalDark = treeProxy[0].ckLocal()->nTotalDark;
+  nTotalStar = treeProxy[0].ckLocal()->nTotalStar;
+  nMaxOrderGas = nTotalSPH - 1;
+  nMaxOrderDark = nTotalSPH + nTotalDark - 1;
+  nMaxOrder = nTotalParticles - 1;
   nActiveGrav = nTotalParticles;
   nActiveSPH = nTotalSPH;
   ckout << "N: " << nTotalParticles << endl;
@@ -2304,6 +2306,51 @@ void Main::DumpFrame(double dTime, double dStep)
     }
 
 /**
+ * Coalesce all added and deleted particles and update global
+ * quantities.
+ */
+
+void Main::addDelParticles()
+{
+    CkReductionMsg *msg;
+    
+    if(verbosity)
+	CkPrintf("Changing Particle number\n");
+	
+    treeProxy.colNParts(CkCallbackResumeThread((void*&)msg));
+    // a set of one element per treepiece
+    CkReduction::setElement *cur = (CkReduction::setElement *) msg->getData();
+
+    // Callback for neworder
+    CkCallbackResumeThread cb;
+
+    while(cur != NULL) {
+	CountSetPart *counts = (CountSetPart *)cur->data;
+	
+	treeProxy[counts->index].newOrder(nMaxOrderGas+1, nMaxOrderDark+1,
+					  nMaxOrder+1, cb);
+
+	nMaxOrderGas += counts->nAddGas;
+	nMaxOrderDark += counts->nAddDark;
+	nMaxOrder += counts->nAddStar;
+	nTotalSPH += counts->nAddGas - counts->nDelGas;
+	nTotalDark += counts->nAddDark - counts->nDelDark;
+	nTotalStar += counts->nAddStar - counts->nDelStar;
+	
+	cur = cur->next();
+	}
+    nTotalParticles = nTotalSPH + nTotalDark + nTotalStar;
+    delete msg;
+    if (verbosity)
+	CkPrintf("New numbers of particles: %d gas %d dark %d star\n",
+		 nTotalSPH, nTotalDark, nTotalStar);
+    
+    cb.thread_delay();
+    treeProxy.setNParts(nTotalSPH, nTotalDark, nTotalStar,
+			CkCallbackResumeThread());
+    }
+
+/**
  * Diagnostic function to summmarize memory usage across all
  * processors
  */
@@ -2350,6 +2397,11 @@ void Main::pup(PUP::er& p)
     p | basefilename;
     p | nTotalParticles;
     p | nTotalSPH;
+    p | nTotalDark;
+    p | nTotalStar;
+    p | nMaxOrderGas;
+    p | nMaxOrderDark;
+    p | nMaxOrder;
     p | theta;
     p | dTime;
     p | dEcosmo;
