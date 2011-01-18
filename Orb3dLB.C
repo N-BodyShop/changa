@@ -185,6 +185,19 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
   CkPrintf("[orb3dlb] map\n");
   map(tp,numobjs,numnodes,nodes,nx,ny,nz,dim);
 
+#ifdef PRINT_BOUNDING_BOXES
+  for(int i = 0; i < numnodes; i++){
+    CkPrintf("bb of node %d %f %f %f %f %f %f\n", i, 
+                    nodes[i].box.lesser_corner.x,
+                    nodes[i].box.lesser_corner.y,
+                    nodes[i].box.lesser_corner.z,
+                    nodes[i].box.greater_corner.x,
+                    nodes[i].box.greater_corner.y,
+                    nodes[i].box.greater_corner.z
+                    );
+  }
+#endif
+
   /*
   int migr = 0;
   float *objload = new float[stats->count];
@@ -299,6 +312,9 @@ void Orb3dLB::directMap(TPObject *tp, int ntp, Node *nodes){
 
       p.load += tp.load;
       (*mapping)[tp.lbindex] = nodes[0].procRanks[p.t];
+#ifdef PRINT_BOUNDING_BOXES
+      nodes[0].box.grow(tp.centroid);
+#endif
 
       pq_proc.push(p);
     }
