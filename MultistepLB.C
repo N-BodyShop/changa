@@ -11,42 +11,6 @@ using namespace std;
 
 CreateLBFunc_Def(MultistepLB, "Works best with multistepped runs; uses OrbSmooth for larger steps, RoundRobin otherwise");
 
-//**************************************
-// ORB3DLB functions
-//**************************************
-static int comparx(const void *a, const void *b){
-  const TPObject *ta = reinterpret_cast<const TPObject*>(a);
-  const TPObject *tb = reinterpret_cast<const TPObject*>(b);
-  return ta->centroid.x < tb->centroid.x ? -1 : ta->centroid.x > tb->centroid.x ? 1 : 0;
-}
-static int compary(const void *a, const void *b){
-  const TPObject *ta = reinterpret_cast<const TPObject*>(a);
-  const TPObject *tb = reinterpret_cast<const TPObject*>(b);
-  return ta->centroid.y < tb->centroid.y ? -1 : ta->centroid.y > tb->centroid.y ? 1 : 0;
-}
-static int comparz(const void *a, const void *b){
-  const TPObject *ta = reinterpret_cast<const TPObject*>(a);
-  const TPObject *tb = reinterpret_cast<const TPObject*>(b);
-  return ta->centroid.z < tb->centroid.z ? -1 : ta->centroid.z > tb->centroid.z ? 1 : 0;
-}
-
-static int pcx(const void *a, const void *b){
-  const Node *ta = reinterpret_cast<const Node*>(a);
-  const Node *tb = reinterpret_cast<const Node*>(b);
-  return ta->x < tb->x ? -1 : ta->x > tb->x ? 1 : 0;
-}
-static int pcy(const void *a, const void *b){
-  const Node *ta = reinterpret_cast<const Node*>(a);
-  const Node *tb = reinterpret_cast<const Node*>(b);
-  return ta->y < tb->y ? -1 : ta->y > tb->y ? 1 : 0;
-}
-static int pcz(const void *a, const void *b){
-  const Node *ta = reinterpret_cast<const Node*>(a);
-  const Node *tb = reinterpret_cast<const Node*>(b);
-  return ta->z < tb->z ? -1 : ta->z > tb->z ? 1 : 0;
-}
-//**************************************
-
 
 MultistepLB::MultistepLB(const CkLBOptions &opt): CentralLB(opt)
 {
@@ -114,6 +78,7 @@ void MultistepLB::receiveCentroids(CkReductionMsg *msg){
 //jetley
 CmiBool MultistepLB::QueryBalanceNow(int step){
   if(step == 0){
+    /*
     if(CkMyPe() == 0){                          // only one group member need broadcast
       if (_lb_args.debug()>=2) {
         CkPrintf("MultistepLB: Step 0, calling treeProxy.receiveProxy(thisgroup)\n");
@@ -121,6 +86,7 @@ CmiBool MultistepLB::QueryBalanceNow(int step){
       treeProxy.receiveProxy(thisgroup);        // broadcast proxy to all treepieces
     }
     firstRound = true;
+    */
     return false; 
   }
   if (_lb_args.debug()>=1) {
@@ -428,7 +394,7 @@ void MultistepLB::mergeInstrumentedData(int phase, BaseLB::LDStats *stats){
   if(phase > len-1){
     numAdditional = phase-len+1;
     while(numAdditional > 0){
-      savedPhaseStats.push_back(BaseLB::LDStats());
+      savedPhaseStats.push_back(LightweightLDStats());
 #ifdef MCLBMSV
       CkPrintf("Making new entry for phase %d (%d)\n", savedPhaseStats.length()-1, phase);
 #endif
@@ -1187,7 +1153,24 @@ Node *MultistepLB::halveNodes(Node *start, int np){
   return ret;
 }
 
+void MultistepLB::pup(PUP::er &p){
+  CentralLB::pup(p);
+  if(p.isPacking()){
+    // if checkpointing, no need to 
+    // keep around the centroid message
+    delete tpmsg;
+    haveTPCentroids = false;
+  }
+  p | haveTPCentroids; 
+  p | procsPerNode;
+  p | savedPhaseStats;
+}
 
+void LightweightLDStats::pup(PUP::er &p){
+  p|n_objs;
+  p|n_migrateobjs;
+  p|objData;
+}
 
 #include "MultistepLB.def.h"
 

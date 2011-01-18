@@ -5753,11 +5753,11 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   LDObjHandle handle = myRec->getLdHandle();
   LBDatabase *lbdb = LBDatabaseObj();
   int nlbs = lbdb->getNLoadBalancers(); 
-  foundLB = Null;
   if(nlbs == 0) { // no load balancers.  Skip this
       contribute(cb);
       return;
       }
+
 
   Vector3D<float> centroid;
   centroid.x = 0.0;
@@ -5778,24 +5778,31 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
 
   BaseLB **lbs = lbdb->getLoadBalancers();
   int i;
-  for(i = 0; i < nlbs; i++){
-    if(msname == string(lbs[i]->lbName())){ 
-      proxy = lbs[i]->getGroupID();
-      foundLB = Multistep;
-      CkCallback lbcb(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
-      contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-      break;
-    }
-    else if(orb3dname == string(lbs[i]->lbName())){ 
-      proxy = lbs[i]->getGroupID();
-      foundLB = Orb3d;
-      CkCallback lbcb(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
-      contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-      break;
+  if(foundLB == Null){
+    for(i = 0; i < nlbs; i++){
+      if(msname == string(lbs[i]->lbName())){ 
+        proxy = lbs[i]->getGroupID();
+        foundLB = Multistep;
+        break;
+      }
+      else if(orb3dname == string(lbs[i]->lbName())){ 
+        proxy = lbs[i]->getGroupID();
+        foundLB = Orb3d;
+        break;
+      }
     }
   }
-  if(foundLB == Null){ // none of the balancers requiring centroids found; go
-		// straight to AtSync()
+  if(foundLB == Multistep){
+    CkCallback lbcb(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+  }
+  else if(foundLB == Orb3d){
+    CkCallback lbcb(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+  }
+  else if(foundLB == Null){ 
+    // none of the balancers requiring centroids found; go
+    // straight to AtSync()
       doAtSync();
   }
   // this will be called in resumeFromSync()
