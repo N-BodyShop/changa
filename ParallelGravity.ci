@@ -63,6 +63,7 @@ mainmodule ParallelGravity {
   message ParticleShuffleMsg {
     GravityParticle particles[];
     extraSPHData pGas[];
+    extraStarData pStar[];
   };
 
   PUPable DensitySmoothParams;
@@ -171,17 +172,21 @@ mainmodule ParallelGravity {
     entry void oneNodeWrite(int iIndex,
 			       int iOutParticles,
 			       int iOutSPH,
+			       int iOutStar,
 			       GravityParticle particles[iOutParticles+2], // particles to
 						     // write
 			       extraSPHData pGas[iOutSPH], // SPH data
+			       extraStarData pStar[iOutStar], // Star data
 			       int piSPH[iOutSPH], // SPH data offsets
+			       int piStar[iOutStar], // Star data offsets
 			       const u_int64_t iPrevOffset,
 			       const std::string& filename,  // output file
 			       const double dTime,      // time or expansion
 			       const double dvFac,  // velocity conversion
 			     const double duTFac, // temperature conversion
 			     const int bCool, const CkCallback& cb);
-    entry void reOrder(CkCallback& cb);
+    entry void reOrder(int64_t nMaxOrder, CkCallback& cb);
+    entry void ioShuffle(CkReductionMsg *msg);
     entry void ioAcceptSortedParticles(ParticleShuffleMsg *);
     entry void assignKeys(CkReductionMsg* m);
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
@@ -195,7 +200,9 @@ mainmodule ParallelGravity {
     entry void acceptORBParticles(const GravityParticle particles[n],
 				  const int n,
 			  	  const extraSPHData pGas[nGasIn],
-				  const int nGasIn);
+				  const int nGasIn,
+			  	  const extraStarData pStar[nStarIn],
+				  const int nStarIn);
     entry void finalizeBoundaries(ORBSplittersMsg *splittersMsg);
     entry void evaluateParticleCounts(ORBSplittersMsg *splittersMsg);
 

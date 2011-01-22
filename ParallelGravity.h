@@ -266,11 +266,13 @@ class ParticleShuffleMsg : public CMessage_ParticleShuffleMsg{
 public:
     int n;
     int nSPH;
+    int nStar;
     double load;
     GravityParticle *particles;
     extraSPHData *pGas;
-    ParticleShuffleMsg(int npart, int nsph, double pload): n(npart),
-	nSPH(nsph), load(pload) {}
+    extraStarData *pStar;
+    ParticleShuffleMsg(int npart, int nsph, int nstar, double pload): n(npart),
+	nSPH(nsph), nStar(nstar), load(pload) {}
 };
     
 /// Class to count added and deleted particles
@@ -829,6 +831,16 @@ private:
 	extraSPHData *mySPHParticles;
 	/// Actual storage in the above array
 	int nStoreSPH;
+	/// Total stars in this chare
+	unsigned int myNumStar;
+	/// Array with star particle data
+	extraStarData *myStarParticles;
+	/// Actual storage in the above array
+	int nStoreStar;
+	/// MaxIOrder for output
+	int64_t nMaxOrder;
+	/// particle count for output
+	int myIOParticles;
 
 	/// List of all the node-buckets in this TreePiece
 	std::vector<GenericTreeNode *> bucketList;
@@ -837,6 +849,8 @@ private:
 	std::vector<GravityParticle> mySortedParticles;
 	/// Array with sorted SPH data for domain decomposition (ORB)
 	std::vector<extraSPHData> mySortedParticlesSPH;
+	/// Array with sorted Star data for domain decomposition (ORB)
+	std::vector<extraStarData> mySortedParticlesStar;
         /// Array with incoming particles messages for domain decomposition
 	std::vector<ParticleShuffleMsg*> incomingParticlesMsg;
         /// How many particles have already arrived during domain decomposition
@@ -1015,6 +1029,9 @@ private:
   ///Expected number of SPH particles for each TreePiece after ORB
   ///decomposition
   int myExpectedCountSPH;
+  ///Expected number of Star particles for each TreePiece after ORB
+  ///decomposition
+  int myExpectedCountStar;
 
   ///Level after which the local subtrees of all the TreePieces start
   unsigned int chunkRootLevel;
@@ -1296,10 +1313,13 @@ public:
 	void oneNodeWrite(int iIndex,
 			       int iOutParticles,
 			       int iOutSPH,
+			       int iOutStar,
 			       GravityParticle *particles, // particles to
 						     // write
 			       extraSPHData *pGas, // SPH data
+			       extraStarData *pStar, // Star data
 			       int *piSPH, // SPH data offsets
+			       int *piStar, // Star data offsets
 			       const u_int64_t iPrevOffset,
 			       const std::string& filename,  // output file
 			       const double dTime,      // time or expansion
@@ -1309,8 +1329,9 @@ public:
 			  const int bCool,
 			  const CkCallback &cb);
 	// Reorder for output
-	void reOrder(CkCallback& cb);
+	void reOrder(int64_t nMaxOrder, CkCallback& cb);
 	// move particles around for output
+	void ioShuffle(CkReductionMsg *msg);
 	void ioAcceptSortedParticles(ParticleShuffleMsg *);
 	/** Inform the DataManager of my node that I'm here.
 	 The callback will receive a CkReductionMsg containing no data.
@@ -1329,7 +1350,8 @@ public:
   void sendORBParticles();
   void acceptORBParticles(const GravityParticle* particles, const int n);
   void acceptORBParticles(const GravityParticle* particles, const int n,
-			  const extraSPHData *pGas, const int nGasIn);
+			  const extraSPHData *pGas, const int nGasIn,
+			  const extraStarData *pStar, const int nStarIn);
   void finalizeBoundaries(ORBSplittersMsg *splittersMsg);
   void evaluateParticleCounts(ORBSplittersMsg *splittersMsg);
   /*****************************/

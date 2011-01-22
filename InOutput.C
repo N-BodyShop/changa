@@ -342,6 +342,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 	// allocate an array for myParticles
 	nStore = (int)((myNumParticles + 2)*(1.0 + dExtraStore));
 	myParticles = new GravityParticle[nStore];
+	// Are we loading SPH?
 	if(startParticle < nTotalSPH) {
 	    if(startParticle + myNumParticles <= nTotalSPH)
 		myNumSPH = myNumParticles;
@@ -353,6 +354,19 @@ void TreePiece::loadTipsy(const std::string& filename,
 	    }
 	nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
 	mySPHParticles = new extraSPHData[nStoreSPH];
+	// Are we loading stars?
+	if(startParticle + myNumParticles > nTotalSPH + nTotalDark) {
+	    if(startParticle <= nTotalSPH + nTotalDark)
+		myNumStar = startParticle + myNumParticles
+		    - (nTotalSPH + nTotalDark);
+	    else
+		myNumStar = myNumParticles;
+	    }
+	else {
+	    myNumStar = 0;
+	    }
+	nStoreStar = (int)(myNumStar*(1.0 + dExtraStore));
+	myStarParticles = new extraStarData[nStoreStar];
 	
 	if(!r.seekParticleNum(startParticle)) {
 		CkAbort("Couldn't seek to my particles!");
@@ -364,6 +378,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 	Tipsy::star_particle sp;
 
 	int iSPH = 0;
+	int iStar = 0;
 	for(unsigned int i = 0; i < myNumParticles; ++i) {
 		if(i + startParticle < (unsigned int) tipsyHeader.nsph) {
 			if(!r.getNextGasParticle(gp)) {
@@ -409,7 +424,11 @@ void TreePiece::loadTipsy(const std::string& filename,
 #ifdef CHANGESOFT
 			myParticles[i+1].fSoft0 = sp.eps;
 #endif
+			myParticles[i+1].extraData = &myStarParticles[iStar];
+			myParticles[i+1].fStarMetals() = sp.metals;
+			myParticles[i+1].fTimeForm() = sp.tform;
 			myParticles[i+1].iType = TYPE_STAR;
+			iStar++;
 		}
 		myParticles[i+1].iOrder = i + startParticle;
 #if COSMO_STATS > 1
@@ -500,31 +519,46 @@ void TreePiece::serialWrite(const u_int64_t iPrevOffset, // previously written
     int *piSph = NULL;
     if(myNumSPH > 0)
 	piSph = new int[myNumSPH];
+    int *piStar = NULL;
+    if(myNumStar > 0)
+	piStar = new int[myNumStar];
     /*
      * Calculate offsets to send across processors
      */
     int iGasOut = 0;
+    int iStarOut = 0;
     for(int iPart = 1; iPart <= myNumParticles ; iPart++) {
-	if(TYPETest(&myParticles[iPart], TYPE_GAS)) {
+	if(myParticles[iPart].isGas()) {
 	    piSph[iGasOut] = (extraSPHData *)myParticles[iPart].extraData
 		- mySPHParticles;
 	    iGasOut++;
 	    }
+	if(myParticles[iPart].isStar()) {
+	    piStar[iStarOut] = (extraStarData *)myParticles[iPart].extraData
+		- myStarParticles;
+	    iStarOut++;
+	    }
 	}
-    pieces[0].oneNodeWrite(thisIndex, myNumParticles, myNumSPH, myParticles,
-			   mySPHParticles, piSph, iPrevOffset, filename, dTime,
+    pieces[0].oneNodeWrite(thisIndex, myNumParticles, myNumSPH, myNumStar,
+			   myParticles, mySPHParticles, myStarParticles,
+			   piSph, piStar, iPrevOffset, filename, dTime,
 			   dvFac, duTFac, bCool, cb);
     if(myNumSPH > 0)
 	delete [] piSph;
+    if(myNumStar > 0)
+	delete [] piStar;
     }
 
 void
 TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
 			int iOutParticles, // number of particles
 			int iOutSPH, // number of SPH particles
+			int iOutStar, // number of Star particles
 			GravityParticle* particles, // particles to write
 			extraSPHData *pGas, // SPH data
+			extraStarData *pStar, // Star data
 			int *piSPH, // SPH data offsets
+			int *piStar, // Star data offsets
 			const u_int64_t iPrevOffset, // previously written
 						    //particles
 			const std::string& filename,  // output file
@@ -538,10 +572,15 @@ TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
      * Calculate offsets from across processors
      */
     int iGasOut = 0;
+    int iStarOut = 0;
     for(int iPart = 1; iPart <= iOutParticles; iPart++) {
-	if(TYPETest(&particles[iPart], TYPE_GAS)) {
+	if(particles[iPart].isGas()) {
 	    particles[iPart].extraData = pGas+ piSPH[iGasOut];
 	    iGasOut++;
+	    }
+	if(particles[iPart].isStar()) {
+	    particles[iPart].extraData = pStar+ piStar[iStarOut];
+	    iStarOut++;
 	    }
 	}
     /*
@@ -551,9 +590,11 @@ TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
     int saveNumParticles = myNumParticles;
     GravityParticle *saveMyParticles = myParticles;
     extraSPHData *savemySPHParticles = mySPHParticles;
+    extraStarData *savemyStarParticles = myStarParticles;
     myNumParticles = iOutParticles;
     myParticles = particles;
     mySPHParticles = pGas;
+    myStarParticles = pStar;
     nStartWrite = iPrevOffset;
     writeTipsy(filename, dTime, dvFac, duTFac, bCool);
     /*
@@ -562,6 +603,7 @@ TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
     myNumParticles = saveNumParticles;
     myParticles = saveMyParticles;
     mySPHParticles = savemySPHParticles;
+    myStarParticles = savemyStarParticles;
     
     if(iIndex < (numTreePieces - 1))
 	treeProxy[iIndex+1].serialWrite(iPrevOffset + iOutParticles, filename,
@@ -646,6 +688,8 @@ void TreePiece::writeTipsy(const std::string& filename, const double dTime,
 	    sp.eps = myParticles[i+1].soft;
 #endif
 	    sp.phi = myParticles[i+1].potential;
+	    sp.metals = myParticles[i+1].fStarMetals();
+	    sp.tform = myParticles[i+1].fTimeForm();
 
 	    if(!w.putNextStarParticle(sp))
 		CkAbort("Bad Write");
@@ -662,40 +706,86 @@ static bool compIOrder(const GravityParticle& first,
     }
 
 ///
+/// @brief Calculate boundaries based on iOrder
+///
+inline int64_t *iOrderBoundaries(int nPieces, int64_t nMaxOrder) 
+{
+    int64_t *startParticle = new int64_t[nPieces+1];
+    int iPiece;
+
+    // Note that with particle creation/destruction this will not be
+    // perfectly balanced.
+    //
+    for(iPiece = 0; iPiece < nPieces; iPiece++) {
+	int nOutParticles = nMaxOrder/ nPieces;
+	startParticle[iPiece] = nOutParticles * iPiece;
+	}
+    startParticle[nPieces] = nMaxOrder+1;
+    return startParticle;
+    }
+
+///
 /// @brief Reorder particles for output
 ///
-void TreePiece::reOrder(CkCallback& cb)
+void TreePiece::reOrder(int64_t _nMaxOrder, CkCallback& cb)
 {
-    callback = cb;
-    int64_t *startParticle = new int64_t[numTreePieces+1];
+    callback = cb; // Save callback for after shuffle
+    int *counts = new int[numTreePieces];
+    int iPiece;
+    
+    nMaxOrder = _nMaxOrder;
+    for(iPiece = 0; iPiece < numTreePieces; iPiece++) {
+	counts[iPiece] = 0;
+	}
+
+    int64_t *startParticle = iOrderBoundaries(numTreePieces, nMaxOrder);
+
+    if (myNumParticles > 0) {
+	// Sort particles in iOrder
+	sort(myParticles+1, myParticles+myNumParticles+1, compIOrder);
+
+	// Tag boundary particle to avoid overruns
+	myParticles[myNumParticles+1].iOrder = nMaxOrder+1;
+    
+	// Loop through to get particle counts.
+	GravityParticle *binBegin = &myParticles[1];
+	GravityParticle *binEnd;
+	for(iPiece = 0; iPiece < numTreePieces; iPiece++) {
+	    for(binEnd = binBegin; binEnd->iOrder < startParticle[iPiece+1];
+		binEnd++);
+	    int nPartOut = binEnd - binBegin;
+	    counts[iPiece] = nPartOut;
+	    if(&myParticles[myNumParticles + 1] <= binEnd)
+		break;
+	    binBegin = binEnd;
+	    }
+	}
+    CkCallback cbShuffle = CkCallback(CkIndex_TreePiece::ioShuffle(NULL),
+				      pieces);
+    contribute(numTreePieces*sizeof(int), counts, CkReduction::sum_int,
+	       cbShuffle);
+    delete [] startParticle;
+    delete [] counts;
+    }
+
+///
+/// @brief Perform the shuffle for reOrder
+///
+void TreePiece::ioShuffle(CkReductionMsg *msg) 
+{
+    int *counts = (int *)msg->getData();
+    myIOParticles = counts[thisIndex];
+    delete msg;
+    
     int iPiece;
     
     //
     // Calculate iOrder boundaries for all processors
-    // @TODO: assumes no particle creation/destruction
     //
-    for(iPiece = 0; iPiece < numTreePieces; iPiece++) {
-	int nOutParticles = nTotalParticles/ numTreePieces;
-	int excess = nTotalParticles % numTreePieces;
-	startParticle[iPiece] = nOutParticles * iPiece;
-	if(iPiece < (int) excess) {
-	    startParticle[iPiece] += iPiece;
-	    }
-	else {
-	    startParticle[iPiece] += excess;
-	    }
-	}
-    startParticle[numTreePieces] = nTotalParticles; // @TODO: replace
-						    // with MaxIOrder
-						    // for particle
-						    // creation/deletion
-    if (myNumParticles > 0) {
-    // Sort particles in iOrder
-    sort(myParticles+1, myParticles+myNumParticles+1, compIOrder);
+    int64_t *startParticle = iOrderBoundaries(numTreePieces, nMaxOrder);
 
-    // Tag boundary particle to avoid overruns
-    myParticles[myNumParticles+1].iOrder = nTotalParticles;
-    
+    if (myNumParticles > 0) {
+	// Particles have been sorted in reOrder()
     // Loop through sending particles to correct processor.
     GravityParticle *binBegin = &myParticles[1];
     GravityParticle *binEnd;
@@ -705,22 +795,31 @@ void TreePiece::reOrder(CkCallback& cb)
 	int nPartOut = binEnd - binBegin;
 	if(nPartOut > 0) {
 	    int nGasOut = 0;
+	    int nStarOut = 0;
 	    for(GravityParticle *pPart = binBegin; pPart < binEnd; pPart++) {
-		if(TYPETest(pPart, TYPE_GAS))
+		if(pPart->isGas())
 		    nGasOut++;
+		if(pPart->isStar())
+		    nStarOut++;
 		}
 	    ParticleShuffleMsg *shuffleMsg
-		= new (nPartOut, nGasOut)
-		    ParticleShuffleMsg(nPartOut, nGasOut, 0.0);
+		= new (nPartOut, nGasOut, nStarOut)
+		ParticleShuffleMsg(nPartOut, nGasOut, nStarOut, 0.0);
 	    int iGasOut = 0;
+	    int iStarOut = 0;
 	    GravityParticle *pPartOut = shuffleMsg->particles;
 	    for(GravityParticle *pPart = binBegin; pPart < binEnd;
 		pPart++, pPartOut++) {
 		*pPartOut = *pPart;
-		if(TYPETest(pPart, TYPE_GAS)) {
+		if(pPart->isGas()) {
 		    shuffleMsg->pGas[iGasOut]
 			= *(extraSPHData *)pPart->extraData;
 		    iGasOut++;
+		    }
+		if(pPart->isStar()) {
+		    shuffleMsg->pStar[iStarOut]
+			= *(extraStarData *)pPart->extraData;
+		    iStarOut++;
 		    }
 		}
 	    if (verbosity>=3)
@@ -738,6 +837,7 @@ void TreePiece::reOrder(CkCallback& cb)
 	binBegin = binEnd;
 	}
     }
+	
     delete[] startParticle;
 
     // signify completion
@@ -748,43 +848,51 @@ void TreePiece::reOrder(CkCallback& cb)
 /// Accept particles from other TreePieces once the sorting has finished
 void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 
-    int myIOParticles = nTotalParticles / numTreePieces;
-    
-    int excess = nTotalParticles % numTreePieces;
-    if(thisIndex < (int) excess) {
-	    myIOParticles++;
-	    }
     if(shuffleMsg != NULL) {
 	incomingParticlesMsg.push_back(shuffleMsg);
 	incomingParticlesArrived += shuffleMsg->n;
 	}
 
-  assert(incomingParticlesArrived <= myIOParticles);
-  
-  if(verbosity >= 3) {
-      ckerr << thisIndex << ": received " << incomingParticlesArrived << endl;
-      }
-  
+    CkAssert(incomingParticlesArrived <= myIOParticles);
+    if(verbosity > 2)
+	ckout << thisIndex << ": incoming: " << incomingParticlesArrived
+	      << " myIO: " << myIOParticles << endl;
+    
   if(myIOParticles == incomingParticlesArrived && incomingParticlesSelf) {
-    //I've got all my particles
+      //I've got all my particles, now count them
+    if(verbosity>1) ckout << thisIndex <<" got ioParticles"
+			  <<endl;
+    int nTotal = 0;
+    int nSPH = 0;
+    int nStar = 0;
+    int iMsg;
+    for(iMsg = 0; iMsg < incomingParticlesMsg.size(); iMsg++) {
+	nTotal += incomingParticlesMsg[iMsg]->n;
+	nSPH += incomingParticlesMsg[iMsg]->nSPH;
+	nStar += incomingParticlesMsg[iMsg]->nStar;
+	}
+      
     if (myNumParticles > 0) delete[] myParticles;
-    nStore = (int) ((incomingParticlesArrived + 2)*(1.0 + dExtraStore));
+    nStore = (int) ((nTotal + 2)*(1.0 + dExtraStore));
     myParticles = new GravityParticle[nStore];
-    myNumParticles = incomingParticlesArrived;
+    myNumParticles = nTotal;
     // reset for next time
     incomingParticlesArrived = 0;
     incomingParticlesSelf = false;
-    int nSPH = 0;
-    int iMsg;
-    for(iMsg = 0; iMsg < incomingParticlesMsg.size(); iMsg++)
-	nSPH += incomingParticlesMsg[iMsg]->nSPH;
+
     myNumSPH = nSPH;
     delete[] mySPHParticles;
     nStoreSPH = (int) (myNumSPH*(1.0 + dExtraStore));
     mySPHParticles = new extraSPHData[nStoreSPH];
 
+    myNumStar = nStar;
+    delete[] myStarParticles;
+    nStoreStar = (int) (myNumStar*(1.0 + dExtraStore));
+    myStarParticles = new extraStarData[nStoreStar];
+
     int nPart = 0;
     nSPH = 0;
+    nStar = 0;
     for(iMsg = 0; iMsg < incomingParticlesMsg.size(); iMsg++) {
 	memcpy(&myParticles[nPart+1], incomingParticlesMsg[iMsg]->particles,
 	       incomingParticlesMsg[iMsg]->n*sizeof(GravityParticle));
@@ -792,6 +900,9 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 	memcpy(&mySPHParticles[nSPH], incomingParticlesMsg[iMsg]->pGas,
 	       incomingParticlesMsg[iMsg]->nSPH*sizeof(extraSPHData));
 	nSPH += incomingParticlesMsg[iMsg]->nSPH;
+	memcpy(&myStarParticles[nStar], incomingParticlesMsg[iMsg]->pStar,
+	       incomingParticlesMsg[iMsg]->nStar*sizeof(extraStarData));
+	nStar += incomingParticlesMsg[iMsg]->nStar;
 	delete incomingParticlesMsg[iMsg];
 	}
       
@@ -799,11 +910,17 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 
     // assign gas data pointers
     int iGas = 0;
+    int iStar = 0;
     for(int iPart = 0; iPart < myNumParticles; iPart++) {
-	if(TYPETest(&myParticles[iPart+1], TYPE_GAS)) {
+	if(myParticles[iPart+1].isGas()) {
 	    myParticles[iPart+1].extraData
 		= (extraSPHData *)&mySPHParticles[iGas];
 	    iGas++;
+	    }
+	if(myParticles[iPart+1].isStar()) {
+	    myParticles[iPart+1].extraData
+		= (extraStarData *)&myStarParticles[iStar];
+	    iStar++;
 	    }
 	}
 

@@ -1846,7 +1846,7 @@ Main::doSimulation()
 	      treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
           ckout << "Reodering ...";
           startTime = CkWallTimer();
-	  treeProxy.reOrder(CkCallbackResumeThread());
+	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	  ckout << "Outputting densities ...";
 	  startTime = CkWallTimer();
@@ -1859,7 +1859,7 @@ Main::doSimulation()
 	  treeProxy[0].outputASCII(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
 	  }
       else {
-	  treeProxy.reOrder(CkCallbackResumeThread());
+	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
 	  }
 
       writeOutput(0);
@@ -1934,7 +1934,7 @@ Main::doSimulation()
 	      treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
           ckout << "Reodering ...";
           startTime = CkWallTimer();
-	  treeProxy.reOrder(CkCallbackResumeThread());
+	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	  ckout << "Outputting densities ...";
 	  startTime = CkWallTimer();
@@ -2045,7 +2045,7 @@ void Main::writeOutput(int iStep)
 	startTime = CkWallTimer();
 	}
     
-    treeProxy.reOrder(CkCallbackResumeThread());
+    treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
@@ -2096,7 +2096,7 @@ void Main::writeOutput(int iStep)
 	      << endl;
 	ckout << "Reodering ...";
 	startTime = CkWallTimer();
-	treeProxy.reOrder(CkCallbackResumeThread());
+	treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 	ckout << "Outputting densities ...";

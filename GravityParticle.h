@@ -94,6 +94,21 @@ class extraSPHData
 	}
     };
 
+// Extra data needed for Stars
+class extraStarData 
+{
+ private:
+    double _fMetals;		/* Metalicity */
+    double _fTimeForm;		/* Formation time */
+ public:
+    inline double& fMetals() {return _fMetals;}
+    inline double& fTimeForm() {return _fTimeForm;}
+    void pup(PUP::er &p) {
+	p | _fMetals;
+	p | _fTimeForm;
+	}
+    };
+
 class GravityParticle;
 int TYPETest(GravityParticle *a, unsigned int b);
 
@@ -155,6 +170,7 @@ public:
 	  p | dt;
 #endif
         }
+	// Access SPH quantities
 	ExternalSmoothParticle getExternalSmoothParticle();
 	inline double& u() { return (((extraSPHData*)extraData)->u());}
 	inline double& fMetals() { return (((extraSPHData*)extraData)->fMetals());}
@@ -172,6 +188,11 @@ public:
 	inline double& uDot() { return (((extraSPHData*)extraData)->uDot());}
 	inline COOLPARTICLE& CoolParticle() { return (((extraSPHData*)extraData)->CoolParticle());}
 #endif
+	// Access Star Quantities
+	// XXX Beware overlaps with SPH; we could fix this by aligning
+	// all common variables up at the start of the extraData structure.
+	inline double& fStarMetals() { return (((extraStarData*)extraData)->fMetals());}
+	inline double& fTimeForm() { return (((extraStarData*)extraData)->fTimeForm());}
 
 /* Particle Type Masks */
 
