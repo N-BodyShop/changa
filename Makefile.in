@@ -97,7 +97,7 @@ OBJECTS = DataManager.o Reductions.o TreePiece.o Sorter.o \
 	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
 	  InOutput.o cosmo.o romberg.o runge.o dumpframe.o dffuncs.o \
 	  moments.o MultistepLB.o Orb3dLB.o \
-	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o\
+	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
 	@OBJECTS_COOLING@
 
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \

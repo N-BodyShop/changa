@@ -71,6 +71,7 @@ mainmodule ParallelGravity {
   PUPable DenDvDxNeighborSmParams;
   PUPable MarkSmoothParams;
   PUPable PressureSmoothParams;
+  PUPable DistDeletedGasSmoothParams;
 
   PUPable AccOutputParams;
   PUPable DenOutputParams;
@@ -242,6 +243,8 @@ mainmodule ParallelGravity {
 					const CkCallback &cb);
     entry void getCoolingGasPressure(double gamma, double gammam1,
 				   const CkCallback &cb);
+    entry void FormStars(StfmParam param, double dTime, double dCosmoFac,
+		       const CkCallback& cb);
     entry void setTypeFromFile(int iSetMask, char file[256],
         const CkCallback& cb);
     entry void getCOM(const CkCallback& cb, int bLiveViz);

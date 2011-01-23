@@ -426,6 +426,7 @@ public:
 	void initCooling();
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
 	void doSph(int activeRung, int bNeedDensity = 1);
+	void FormStars(double dTime, double dDelta);
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
 	int nextMaxRungIncDF(int nextMaxRung);
@@ -1385,10 +1386,6 @@ public:
   void rungStats(const CkCallback& cb);
   void countActive(int activeRung, const CkCallback& cb);
   void calcEnergy(const CkCallback& cb);
-  /// unmark particle as deleted
-  void unDeleteParticle(GravityParticle *p);
-  /// mark particle as deleted
-  void deleteParticle(GravityParticle *p);
   /// add new particle
   void newParticle(GravityParticle *p);
   /// Count add/deleted particles, and compact main particle storage.
@@ -1416,6 +1413,8 @@ public:
 				     const CkCallback &cb);
 	void getCoolingGasPressure(double gamma, double gammam1,
 				   const CkCallback &cb);
+	void FormStars(StfmParam param, double dTime, double dCosmoFac,
+		       const CkCallback& cb);
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
 	void setTypeFromFile(int iSetMask, char *file, const CkCallback& cb);

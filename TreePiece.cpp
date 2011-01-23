@@ -1025,18 +1025,6 @@ void TreePiece::drift(double dDelta,  // time step in x containing
       CkCallback(CkIndex_TreePiece::assignKeys(0), pieces));
 }
 
-void TreePiece::unDeleteParticle(GravityParticle *p)
-{
-    CkAssert(TYPETest(p, TYPE_DELETED)); 
-
-    TYPEReset(p, TYPE_DELETED); 
-    }
-
-void TreePiece::deleteParticle(GravityParticle *p)
-{
-    TYPESet(p, TYPE_DELETED); 
-    }
-
 void TreePiece::newParticle(GravityParticle *p)
 {
     if(myNumParticles + 2 >= nStore) {

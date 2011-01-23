@@ -100,12 +100,18 @@ class extraStarData
  private:
     double _fMetals;		/* Metalicity */
     double _fTimeForm;		/* Formation time */
+    double _fMassForm;		/* Formation mass */
+    int64_t _iGasOrder;		/* Gas from which this star formed */
  public:
     inline double& fMetals() {return _fMetals;}
     inline double& fTimeForm() {return _fTimeForm;}
+    inline double& fMassForm() {return _fMassForm;}
+    inline int64_t& iGasOrder() {return _iGasOrder;}
     void pup(PUP::er &p) {
 	p | _fMetals;
 	p | _fTimeForm;
+	p | _fMassForm;
+	p | _iGasOrder;
 	}
     };
 
@@ -193,6 +199,8 @@ public:
 	// all common variables up at the start of the extraData structure.
 	inline double& fStarMetals() { return (((extraStarData*)extraData)->fMetals());}
 	inline double& fTimeForm() { return (((extraStarData*)extraData)->fTimeForm());}
+	inline double& fMassForm() { return (((extraStarData*)extraData)->fMassForm());}
+	inline int64_t& iGasOrder() { return (((extraStarData*)extraData)->iGasOrder());}
 
 /* Particle Type Masks */
 
@@ -220,6 +228,30 @@ inline int TYPEReset(GravityParticle *a, unsigned int b) {
     return a->iType &= (~b);
     }
 
+/// unmark particle as deleted
+inline void unDeleteParticle(GravityParticle *p)
+{
+    CkAssert(TYPETest(p, TYPE_DELETED)); 
+
+    TYPEReset(p, TYPE_DELETED); 
+    }
+
+/// mark particle as deleted
+inline void deleteParticle(GravityParticle *p)
+{
+    TYPESet(p, TYPE_DELETED); 
+    }
+
+// Convert star particle to gas particle
+// Note that new memory is allocated for the extradata.
+inline GravityParticle StarFromGasParticle(GravityParticle *p) 
+{
+    GravityParticle starp = *p;
+    starp.extraData = new extraStarData;
+    starp.fStarMetals() = p->fMetals();
+    return starp;
+    }
+
 // Class for cross processor data needed for smooth operations
 class ExternalSmoothParticle {
  public:
@@ -228,6 +260,7 @@ class ExternalSmoothParticle {
   double fBall;
   double fDensity;
   Vector3D<double> position;
+  Vector3D<double> velocity;
   unsigned int iType;	// Bitmask to hold particle type information
   int rung;
   Vector3D<double> vPred;
@@ -238,6 +271,9 @@ class ExternalSmoothParticle {
   double PoverRho2;
   double BalsaraSwitch;
   double fBallMax;
+  double u;
+  double uDot;
+  double fMetals;
 
   ExternalSmoothParticle() {}
 
@@ -247,6 +283,7 @@ class ExternalSmoothParticle {
 	  fBall = p->fBall;
 	  fDensity = p->fDensity;
 	  position = p->position;
+	  velocity = p->velocity;
 	  iType = p->iType;
 	  rung = p->rung;
 	  treeAcceleration = p->treeAcceleration;
@@ -258,6 +295,11 @@ class ExternalSmoothParticle {
 	      PoverRho2 = p->PoverRho2();
 	      BalsaraSwitch = p->BalsaraSwitch();
 	      fBallMax = p->fBallMax();
+	      u = p->u();
+#ifndef COOLING_NONE
+	      uDot = p->uDot();
+#endif
+	      fMetals = p->fMetals();
 	      }
 	  }
   
@@ -266,6 +308,7 @@ class ExternalSmoothParticle {
       tmp->fBall = fBall;
       tmp->fDensity = fDensity;
       tmp->position = position;
+      tmp->velocity = velocity;
       tmp->iType = iType;
       tmp->rung = rung;
       tmp->treeAcceleration = treeAcceleration;
@@ -277,11 +320,17 @@ class ExternalSmoothParticle {
 	  tmp->PoverRho2() = PoverRho2;
 	  tmp->BalsaraSwitch() = BalsaraSwitch;
 	  tmp->fBallMax() = fBallMax;
+	  tmp->u() = u;
+#ifndef COOLING_NONE
+	  tmp->uDot() = uDot;
+#endif
+	  tmp->fMetals() = fMetals;
 	  }
       }
 	  
   void pup(PUP::er &p) {
     p | position;
+    p | velocity;
     p | mass;
     p | fBall;
     p | fDensity;
@@ -295,12 +344,13 @@ class ExternalSmoothParticle {
     p | PoverRho2;
     p | BalsaraSwitch;
     p | fBallMax;
+    p | u;
+    p | uDot;
+    p | fMetals;
   }
 };
 
 inline ExternalSmoothParticle GravityParticle::getExternalSmoothParticle()
 { return ExternalSmoothParticle(this); }
-
-/* Particle Type Masks */
 
 #endif

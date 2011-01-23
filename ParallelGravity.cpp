@@ -17,6 +17,7 @@
 #include "param.h"
 #include "smooth.h"
 #include "Sph.h"
+#include "starform.h"
 
 #ifdef CUDA
 // for default per-list parameters
@@ -392,6 +393,19 @@ Main::Main(CkArgMsg* m) {
 		    sizeof(int),"nTR",
 		    "<number of MaxRung particles to delete MaxRung> = 0");
 
+	param.bStarForm = 0;
+	prmAddParam(prm,"bStarForm",paramBool,&param.bStarForm,sizeof(int),
+		    "stfm","<Star Forming> = 0");
+
+	param.stfm = new StfmParam();
+	StfmAddParams(param.stfm, prm);
+
+	param.iRandomSeed = 1;
+	prmAddParam(prm,"iRandomSeed", paramInt, &param.iRandomSeed,
+		    sizeof(int), "iRand", "<Feedback random Seed> = 1");
+	
+
+	
 	//
 	// Output parameters
 	//
@@ -715,22 +729,7 @@ Main::Main(CkArgMsg* m) {
 	    CkAssert(prmSpecified(prm, "dMsolUnit")
 		     && prmSpecified(prm, "dKpcUnit"));
 	    }
-	/* bolzman constant in cgs */
-#define KBOLTZ	1.38e-16
-	/* mass of hydrogen atom in grams */
-#define MHYDR 1.67e-24
-	/* solar mass in grams */
-#define MSOLG 1.99e33
-	/* G in cgs */
-#define GCGS 6.67e-8
-	/* kiloparsec in centimeters */
-#define KPCCM 3.085678e21
-	/* Thompson cross-section (cm^2) */
-#define SIGMAT 6.6524e-25
-	/* Speed of Light cm/s */
-#define LIGHTSPEED 2.9979e10
-
-#define SECONDSPERYEAR   31557600.
+#include "physconst.h"
 	/*
 	 ** Convert kboltz/mhydrogen to system units, assuming that
 	 ** G == 1.
@@ -751,6 +750,9 @@ Main::Main(CkArgMsg* m) {
 		param.dComovingGmPerCcUnit = param.dGmPerCcUnit;
 		}
 
+	if(param.bStarForm)
+	    StfmCheckParams(param.stfm, prm, param);
+	
         if (domainDecomposition == SFC_peano_dec) peanoKey = 1;
         if (domainDecomposition == SFC_peano_dec_2D) peanoKey = 2;
         if (domainDecomposition == SFC_peano_dec_3D) peanoKey = 3;
@@ -1171,6 +1173,11 @@ void Main::advanceBigStep(int iStep) {
 	      // Advance time to end of smallest step
 	      dTime += dTimeSub;
 	      currentStep += RungToSubsteps(driftRung);
+	      /*
+	       * Form stars at user defined intervals
+	       */
+	      if(param.bStarForm && activeRung <= param.stfm->iStarFormRung)
+		  FormStars(dTime, max(dTimeSub, param.stfm->dDeltaStarForm));
 	      /* 
 	       ** Dump Frame
 	       */
