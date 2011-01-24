@@ -61,7 +61,7 @@ PUPbytes(COOLPARAM);
 using namespace Tree;
 
 enum LBStrategy{
-  Null,
+  Null=0,
   Multistep,
   Orb3d
 };
