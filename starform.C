@@ -147,7 +147,7 @@ void Main::FormStars(double dTime, double dDelta)
     treeProxy.FormStars(*(param.stfm), dTime,
 			pow(csmTime2Exp(param.csm, dTime), 3.0),
 			CkCallbackResumeThread((void*&)msgCounts));
-    double *dCounts = (double *)msgCounts->getData();
+    int *dCounts = (int *)msgCounts->getData();
     
     if(verbosity)
 	CkPrintf("%d Stars formed, %d gas deleted\n", dCounts[0], dCounts[1]);
