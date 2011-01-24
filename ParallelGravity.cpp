@@ -750,9 +750,6 @@ Main::Main(CkArgMsg* m) {
 		param.dComovingGmPerCcUnit = param.dGmPerCcUnit;
 		}
 
-	if(param.bStarForm)
-	    StfmCheckParams(param.stfm, prm, param);
-	
         if (domainDecomposition == SFC_peano_dec) peanoKey = 1;
         if (domainDecomposition == SFC_peano_dec_2D) peanoKey = 2;
         if (domainDecomposition == SFC_peano_dec_3D) peanoKey = 3;
@@ -1444,6 +1441,9 @@ void Main::setupICs() {
   if(param.bGasCooling) 
       initCooling();
   
+  if(param.bStarForm)
+      StfmCheckParams(param.stfm, prm, param);
+	
   char achLogFileName[MAXPATHLEN];
   sprintf(achLogFileName, "%s.log", param.achOutName);
   ofstream ofsLog(achLogFileName, ios_base::trunc);
