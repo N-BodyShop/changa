@@ -272,6 +272,7 @@ class ExternalSmoothParticle {
   double BalsaraSwitch;
   double fBallMax;
   double u;
+  double uPred;
   double uDot;
   double fMetals;
 
@@ -298,6 +299,7 @@ class ExternalSmoothParticle {
 	      u = p->u();
 #ifndef COOLING_NONE
 	      uDot = p->uDot();
+	      uPred = p->uPred();
 #endif
 	      fMetals = p->fMetals();
 	      }
@@ -323,6 +325,7 @@ class ExternalSmoothParticle {
 	  tmp->u() = u;
 #ifndef COOLING_NONE
 	  tmp->uDot() = uDot;
+	  tmp->uPred() = uPred;
 #endif
 	  tmp->fMetals() = fMetals;
 	  }
@@ -345,6 +348,7 @@ class ExternalSmoothParticle {
     p | BalsaraSwitch;
     p | fBallMax;
     p | u;
+    p | uPred;
     p | uDot;
     p | fMetals;
   }

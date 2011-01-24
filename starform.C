@@ -330,8 +330,8 @@ void DistDeletedGasSmoothParams::combSmoothCache(GravityParticle *p1,
 	    if(p1->uDot() < 0.0) /* margin of 1% to avoid roundoff
 				  * problems */
 		fTCool = 1.01*p1->uPred()/p1->uDot(); 
-	    p1->u() = f1*p1->u() + f2*p2->u();
-	    p1->uPred() = f1*p1->uPred() + f2*p2->uPred();
+	    p1->u() = f1*p1->u() + f2*p2->u;
+	    p1->uPred() = f1*p1->uPred() + f2*p2->uPred;
 	    if(p1->uDot() < 0.0)
 		p1->uDot() = p1->uPred()/fTCool;
 #endif
