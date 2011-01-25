@@ -1246,6 +1246,10 @@ public:
 	  orbBoundaries.clear();
 	  boxes = NULL;
 	  splitDims = NULL;
+#ifndef COOLING_NONE
+	  dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+	  CoolData = CoolDerivsInit(dm->Cool);
+#endif
 	}
 
         private:
@@ -1273,6 +1277,9 @@ public:
 	  delete[] boxes;
 	  delete[] splitDims;
 
+#ifndef COOLING_NONE
+	  CoolDerivsFinalize(CoolData);
+#endif
           if (verbosity>1) ckout <<"Finished deallocation of treepiece "<<thisIndex<<endl;
 	}
 
