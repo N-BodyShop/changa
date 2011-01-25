@@ -105,20 +105,20 @@ void StfmCheckParams(StfmParam *stfm, PRM prm, Parameters &param)
 	    stfm->iStarFormRung++;
 	}
     if ( testDelta <= param.dDelta ){
-	CkPrintf("dDeltaStarForm (set): %g, effectively: %g = %g yrs, iStarFormRung: %i",
+	CkPrintf("dDeltaStarForm (set): %g, effectively: %g = %g yrs, iStarFormRung: %i\n",
 		 stfm->dDeltaStarForm, testDelta,
 		 testDelta*param.dSecUnit/SECONDSPERYEAR,
 		 stfm->iStarFormRung );
 	stfm->dDeltaStarForm = testDelta;
 	}
     else if ( stfm->dDeltaStarForm == 0.0 ) {
-	CkPrintf(" dDeltaStarForm (set): %g, effectively: 0.0 = 0.0 yrs, iStarFormRung: maxRung",
+	CkPrintf(" dDeltaStarForm (set): %g, effectively: 0.0 = 0.0 yrs, iStarFormRung: maxRung\n",
 		 stfm->dDeltaStarForm );
 	
 	stfm->iStarFormRung = param.iMaxRung;
 	}
     else {
-	CkPrintf(" dDeltaStarForm (set): %g, effectively:  NO STARS WILL FORM",
+	CkPrintf(" dDeltaStarForm (set): %g, effectively:  NO STARS WILL FORM\n",
 		 stfm->dDeltaStarForm);
 	}
     }
@@ -128,6 +128,8 @@ void StfmCheckParams(StfmParam *stfm, PRM prm, Parameters &param)
 ///
 void Main::FormStars(double dTime, double dDelta) 
 {
+    int iPhase = 0; // Keeps track of node cache use
+    
     if(verbosity)
 	CkPrintf("Form Stars ... ");
     double startTime = CkWallTimer();
@@ -142,6 +144,7 @@ void Main::FormStars(double dTime, double dDelta)
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
     DensitySmoothParams pDen(TYPE_GAS, 0);
     treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+    iPhase++;
 
     CkReductionMsg *msgCounts;
     treeProxy.FormStars(*(param.stfm), dTime,
@@ -155,6 +158,11 @@ void Main::FormStars(double dTime, double dDelta)
     
     DistDeletedGasSmoothParams pDGas(TYPE_GAS, 0);
     treeProxy.startIterationSmooth(&pDGas, CkCallbackResumeThread());
+    iPhase++;
+
+    CkAssert(iPhase <= nPhases);
+    if(iPhase < nPhases)
+	treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
 
     addDelParticles();
     CkPrintf("Star Formation Calculated, Wallclock %f secs\n",
