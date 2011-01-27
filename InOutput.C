@@ -366,6 +366,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 	    myNumStar = 0;
 	    }
 	nStoreStar = (int)(myNumStar*(1.0 + dExtraStore));
+	nStoreStar += 12;  // in case we start with 0
 	myStarParticles = new extraStarData[nStoreStar];
 	
 	if(!r.seekParticleNum(startParticle)) {
@@ -888,6 +889,7 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     myNumStar = nStar;
     delete[] myStarParticles;
     nStoreStar = (int) (myNumStar*(1.0 + dExtraStore));
+    nStoreStar += 12;
     myStarParticles = new extraStarData[nStoreStar];
 
     int nPart = 0;

@@ -297,6 +297,7 @@ void TreePiece::sendORBParticles(){
   if(myExpectedCountStar > (int) myNumStar){
     delete [] myStarParticles;
     nStoreStar = (int)(myExpectedCountStar*(1.0 + dExtraStore));
+    nStoreStar += 12;  // In case we start with 0
     myStarParticles = new extraStarData[nStoreStar];
   }
   myNumStar = myExpectedCountStar;
@@ -702,6 +703,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
       if (myNumStar > 0) delete[] myStarParticles;
       myNumStar = nStar;
       nStoreStar = (int)(myNumStar*(1.0 + dExtraStore));
+      nStoreStar += 12;  // In case we start with 0
       myStarParticles = new extraStarData[nStoreStar];
 
       int nPart = 0;
@@ -723,6 +725,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
       incomingParticlesMsg.clear();
       // assign gas data pointers
       int iGas = 0;
+      int iStar = 0;
       for(int iPart = 0; iPart < myNumParticles; iPart++) {
 	  if(myParticles[iPart+1].isGas()) {
 	      myParticles[iPart+1].extraData
@@ -731,8 +734,8 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 	      }
 	  else if(myParticles[iPart+1].isStar()) {
 	      myParticles[iPart+1].extraData
-		  = (extraStarData *)&myStarParticles[iGas];
-	      iGas++;
+		  = (extraStarData *)&myStarParticles[iStar];
+	      iStar++;
 	      }
 	  else
 	      myParticles[iPart+1].extraData = NULL;
@@ -1039,12 +1042,14 @@ void TreePiece::newParticle(GravityParticle *p)
 	if(myNumSPH >= nStoreSPH)
 	    CkAbort("No room for new SPH particle: increase dExtraStore");
 	mySPHParticles[myNumSPH] = *((extraSPHData *) p->extraData);
+	myParticles[myNumParticles].extraData = &mySPHParticles[myNumSPH];
 	myNumSPH++;
 	}
     if(p->isStar()) {
 	if(myNumStar >= nStoreStar)
 	    CkAbort("No room for new Star particle: increase dExtraStore");
 	myStarParticles[myNumStar] = *((extraStarData *) p->extraData);
+	myParticles[myNumParticles].extraData = &myStarParticles[myNumStar];
 	myNumStar++;
 	}
     }
@@ -4964,6 +4969,7 @@ void TreePiece::pup(PUP::er& p) {
       nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
       mySPHParticles = new extraSPHData[nStoreSPH];
       nStoreStar = (int)(myNumStar*(1.0 + dExtraStore));
+      nStoreStar += 12;  // In case we start with 0
       myStarParticles = new extraStarData[nStoreStar];
   }
   for(unsigned int i=1;i<=myNumParticles;i++){
