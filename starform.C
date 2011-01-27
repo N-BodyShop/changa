@@ -152,13 +152,19 @@ void Main::FormStars(double dTime, double dDelta)
 			CkCallbackResumeThread((void*&)msgCounts));
     int *dCounts = (int *)msgCounts->getData();
     
+    int nDelGas = dCounts[1];
     if(verbosity)
 	CkPrintf("%d Stars formed, %d gas deleted\n", dCounts[0], dCounts[1]);
     delete msgCounts;
     
-    DistDeletedGasSmoothParams pDGas(TYPE_GAS, 0);
-    treeProxy.startIterationSmooth(&pDGas, CkCallbackResumeThread());
-    iPhase++;
+    if(nDelGas > 0) {
+	if(verbosity)
+	    CkPrintf("Distribute Deleted gas\n");
+	DistDeletedGasSmoothParams pDGas(TYPE_GAS, 0);
+	treeProxy.startIterationSmooth(&pDGas, CkCallbackResumeThread());
+	iPhase++;
+
+	}
 
     CkAssert(iPhase <= nPhases);
     if(iPhase < nPhases)
