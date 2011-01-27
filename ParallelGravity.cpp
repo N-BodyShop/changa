@@ -1126,13 +1126,16 @@ void Main::advanceBigStep(int iStep) {
       if(verbosity)
 	  memoryStats();
       if(param.bDoGas) {
+	  double startTime = CkWallTimer();
 	  if(verbosity)
-	      ckout << "uDot update:" << endl;
+	      CkPrintf("uDot update: ... ");
 	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
 	  if(param.bGasCooling)
 	      dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	  treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
 			       1, CkCallbackResumeThread());
+	  if(verbosity)
+	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
       treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas,
 		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
@@ -1200,8 +1203,7 @@ void Main::advanceBigStep(int iStep) {
 	memoryStats();
     if(param.bDoGas) {
 	double duKick[MAXRUNG+1];
-	if(verbosity)
-	    ckout << "uDot update:" << endl;
+    	double startTime = CkWallTimer();
 	for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
 	    double dTimeSub = RungToDt(param.dDelta, iRung);
 	    if(verbosity) {
@@ -1209,11 +1211,15 @@ void Main::advanceBigStep(int iStep) {
 		}
 	    duKick[iRung] = 0.5*dTimeSub;
 	  }
+	if(verbosity)
+	    CkPrintf("uDot update: ... ");
 	double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
 	if(param.bGasCooling)
 	    dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
 			     0, CkCallbackResumeThread());
+	if(verbosity)
+	    CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	}
 
     ckout << "Step: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
