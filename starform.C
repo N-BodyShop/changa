@@ -197,7 +197,6 @@ void TreePiece::FormStars(StfmParam stfm, double dTime, double dCosmoFac,
 	GravityParticle *p = &myParticles[i];
 	if(p->isGas()) {
 	    double T;
-	    double tcool;
 	    /*
 	     * Determine dynamical time.
 	     */
@@ -205,24 +204,19 @@ void TreePiece::FormStars(StfmParam stfm, double dTime, double dCosmoFac,
 #ifndef COOLING_NONE
 	    T = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(),
 					    p->u(), p->fMetals());
-	    double r[3];  // For conversion to C
-	    p->position.array_form(r);
-	    tcool = p->u()
-		/CoolEdotInstantCode(dm->Cool, &p->CoolParticle(), p->u(),
-				     p->fDensity, p->fMetals(), r);
+#else
+	    T = 0.0;
 #endif
 	    /*
 	     * Determine if this particle satisfies all conditions.
 	     */
+	    if(T > stfm.dTempMax) continue;
+
 	    if(p->fDensity < stfm.dOverDenMin ||
 	       p->fDensity/dCosmoFac < stfm.dPhysDenMin)
 		continue;
 	    
-	    double tform;
-	    if(tcool < 0.0 || tdyn > tcool || T < stfm.dTempMax)
-		tform = tdyn;
-	    else
-		tform = tcool;
+	    double tform = tdyn;
 
 	    double dMprob = 1.0 - exp(-stfm.dCStar*stfm.dDeltaStarForm/tform);
 
