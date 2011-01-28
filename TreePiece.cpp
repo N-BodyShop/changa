@@ -1112,13 +1112,16 @@ void TreePiece::colNParts(const CkCallback &cb)
 
 /**
  * Assign iOrders to recently added particles.
+ * Also insure keys are OK
  */
 void TreePiece::newOrder(int64_t nStartSPH, int64_t nStartDark,
 			  int64_t nStartStar, const CkCallback &cb) 
 {
     unsigned int i;
+    boundingBox.reset();
     for(i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
+	boundingBox.grow(p->position);
 	if(p->iOrder == -1) {
 	    if (p->isGas()) 
 		p->iOrder = nStartSPH++;
@@ -1128,7 +1131,11 @@ void TreePiece::newOrder(int64_t nStartSPH, int64_t nStartDark,
 		p->iOrder = nStartStar++;
 	    }
 	}
-    contribute(cb);
+    callback = cb;		// called by assignKeys()
+    // get the new particles into key order
+    contribute(sizeof(OrientedBox<float>), &boundingBox,
+	       growOrientedBox_float,
+	       CkCallback(CkIndex_TreePiece::assignKeys(0), pieces));
     }
     
 /**
@@ -4996,7 +5003,7 @@ void TreePiece::pup(PUP::er& p) {
 	    }
 	else {
 	    p | iStar;
-	    myParticles[i].extraData = mySPHParticles + iStar;
+	    myParticles[i].extraData = myStarParticles + iStar;
 	    CkAssert(iStar < myNumStar);
 	    }
 	}
