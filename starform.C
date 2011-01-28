@@ -264,10 +264,6 @@ void TreePiece::FormStars(StfmParam stfm, double dTime, double dCosmoFac,
 		nDeleted++;
 		deleteParticle(p);
 		}
-	    p->mass -= dDeltaM;
-	    CkAssert(p->mass >= 0.0);
-	    starp.mass = dDeltaM;
-	    starp.fMassForm() = dDeltaM;
 
 	    /* NB: It is important that the star inherit special
 	       properties of the gas particle such as being a target
