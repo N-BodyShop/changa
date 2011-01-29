@@ -1405,6 +1405,7 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
 
   maxBucketSize = bucketSize;
   callback = cb;
+  myTreeParticles = myNumParticles;
 
   // decide which logic are we using to divide the particles: Oct or ORB
   switch (useTree) {

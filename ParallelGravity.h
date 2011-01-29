@@ -816,6 +816,9 @@ private:
 	GravityParticle* myParticles;
 	/// Actual storage in the above array
 	int nStore;
+	/// Number of particles in my tree.  Can be different from
+	/// myNumParticles when particles are created.
+	int myTreeParticles;
  public:
 	/// Total Particles in the simulation
 	int64_t nTotalParticles;
@@ -1206,6 +1209,7 @@ public:
 
           myParticles = NULL;
           mySPHParticles = NULL;
+	  myTreeParticles = -1;
 	  orbBoundaries.clear();
 	  boxes = NULL;
 	  splitDims = NULL;
@@ -1246,6 +1250,7 @@ public:
 	  orbBoundaries.clear();
 	  boxes = NULL;
 	  splitDims = NULL;
+	  myTreeParticles = -1;
 #ifndef COOLING_NONE
 	  dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
 	  CoolData = CoolDerivsInit(dm->Cool);
