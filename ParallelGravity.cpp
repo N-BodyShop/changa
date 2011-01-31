@@ -17,6 +17,7 @@
 #include "param.h"
 #include "smooth.h"
 #include "Sph.h"
+#include "starform.h"
 
 #ifdef CUDA
 // for default per-list parameters
@@ -43,6 +44,7 @@ int _nocache;
 int _cacheLineDepth;
 unsigned int _yieldPeriod;
 DomainsDec domainDecomposition;
+double dExtraStore;		// fraction of extra particle storage
 int peanoKey;
 GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
@@ -391,6 +393,19 @@ Main::Main(CkArgMsg* m) {
 		    sizeof(int),"nTR",
 		    "<number of MaxRung particles to delete MaxRung> = 0");
 
+	param.bStarForm = 0;
+	prmAddParam(prm,"bStarForm",paramBool,&param.bStarForm,sizeof(int),
+		    "stfm","<Star Forming> = 0");
+
+	param.stfm = new StfmParam();
+	StfmAddParams(param.stfm, prm);
+
+	param.iRandomSeed = 1;
+	prmAddParam(prm,"iRandomSeed", paramInt, &param.iRandomSeed,
+		    sizeof(int), "iRand", "<Feedback random Seed> = 1");
+	
+
+	
 	//
 	// Output parameters
 	//
@@ -415,9 +430,10 @@ Main::Main(CkArgMsg* m) {
 	strcpy(param.achOutName,"pargrav");
 	prmAddParam(prm,"achOutName",paramString,param.achOutName,256,"o",
 				"output name for snapshots and logfile");
-	param.dExtraStore = 0;
+	param.dExtraStore = 0.01;
 	prmAddParam(prm,"dExtraStore",paramDouble,&param.dExtraStore,
-		    sizeof(double), NULL, "IGNORED");
+		    sizeof(double), "estore",
+		    "Extra memory for new particles");
 	
 	bDumpFrame = 0;
 	df = NULL;
@@ -566,11 +582,7 @@ Main::Main(CkArgMsg* m) {
 	    }
 	theta = param.dTheta;
         thetaMono = theta*theta*theta*theta;
-	if(prmSpecified(prm, "dExtraStore")) {
-	    ckerr << "WARNING: ";
-	    ckerr << "dExtraStore parameter ignored."
-		  << endl;
-	    }
+	dExtraStore = param.dExtraStore;
 	if(prmSpecified(prm, "bCannonical")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bCannonical parameter ignored; integration is always cannonical"
@@ -718,22 +730,7 @@ Main::Main(CkArgMsg* m) {
 	    CkAssert(prmSpecified(prm, "dMsolUnit")
 		     && prmSpecified(prm, "dKpcUnit"));
 	    }
-	/* bolzman constant in cgs */
-#define KBOLTZ	1.38e-16
-	/* mass of hydrogen atom in grams */
-#define MHYDR 1.67e-24
-	/* solar mass in grams */
-#define MSOLG 1.99e33
-	/* G in cgs */
-#define GCGS 6.67e-8
-	/* kiloparsec in centimeters */
-#define KPCCM 3.085678e21
-	/* Thompson cross-section (cm^2) */
-#define SIGMAT 6.6524e-25
-	/* Speed of Light cm/s */
-#define LIGHTSPEED 2.9979e10
-
-#define SECONDSPERYEAR   31557600.
+#include "physconst.h"
 	/*
 	 ** Convert kboltz/mhydrogen to system units, assuming that
 	 ** G == 1.
@@ -1130,13 +1127,16 @@ void Main::advanceBigStep(int iStep) {
       if(verbosity)
 	  memoryStats();
       if(param.bDoGas) {
+	  double startTime = CkWallTimer();
 	  if(verbosity)
-	      ckout << "uDot update:" << endl;
+	      CkPrintf("uDot update: ... ");
 	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
 	  if(param.bGasCooling)
 	      dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	  treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
 			       1, CkCallbackResumeThread());
+	  if(verbosity)
+	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
       treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas,
 		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
@@ -1174,6 +1174,11 @@ void Main::advanceBigStep(int iStep) {
 	      // Advance time to end of smallest step
 	      dTime += dTimeSub;
 	      currentStep += RungToSubsteps(driftRung);
+	      /*
+	       * Form stars at user defined intervals
+	       */
+	      if(param.bStarForm && activeRung <= param.stfm->iStarFormRung)
+		  FormStars(dTime, max(dTimeSub, param.stfm->dDeltaStarForm));
 	      /* 
 	       ** Dump Frame
 	       */
@@ -1199,8 +1204,7 @@ void Main::advanceBigStep(int iStep) {
 	memoryStats();
     if(param.bDoGas) {
 	double duKick[MAXRUNG+1];
-	if(verbosity)
-	    ckout << "uDot update:" << endl;
+    	double startTime = CkWallTimer();
 	for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
 	    double dTimeSub = RungToDt(param.dDelta, iRung);
 	    if(verbosity) {
@@ -1208,11 +1212,15 @@ void Main::advanceBigStep(int iStep) {
 		}
 	    duKick[iRung] = 0.5*dTimeSub;
 	  }
+	if(verbosity)
+	    CkPrintf("uDot update: ... ");
 	double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
 	if(param.bGasCooling)
 	    dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
 			     0, CkCallbackResumeThread());
+	if(verbosity)
+	    CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	}
 
     ckout << "Step: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
@@ -1416,6 +1424,11 @@ void Main::setupICs() {
 	    
   nTotalParticles = treeProxy[0].ckLocal()->nTotalParticles;
   nTotalSPH = treeProxy[0].ckLocal()->nTotalSPH;
+  nTotalDark = treeProxy[0].ckLocal()->nTotalDark;
+  nTotalStar = treeProxy[0].ckLocal()->nTotalStar;
+  nMaxOrderGas = nTotalSPH - 1;
+  nMaxOrderDark = nTotalSPH + nTotalDark - 1;
+  nMaxOrder = nTotalParticles - 1;
   nActiveGrav = nTotalParticles;
   nActiveSPH = nTotalSPH;
   ckout << "N: " << nTotalParticles << endl;
@@ -1435,6 +1448,9 @@ void Main::setupICs() {
   if(param.bGasCooling) 
       initCooling();
   
+  if(param.bStarForm)
+      StfmCheckParams(param.stfm, prm, param);
+	
   char achLogFileName[MAXPATHLEN];
   sprintf(achLogFileName, "%s.log", param.achOutName);
   ofstream ofsLog(achLogFileName, ios_base::trunc);
@@ -1566,10 +1582,15 @@ Main::restart()
 		    sizeof(int),"oc", "Checkpoint Interval");
 	prmAddParam(prm, "iVerbosity", paramInt, &verbosity,
 		    sizeof(int),"v", "Verbosity");
+	prmAddParam(prm,"dExtraStore",paramDouble,&param.dExtraStore,
+		    sizeof(double), "estore",
+		    "Extra memory for new particles");
 	
 	if(!prmArgOnlyProc(prm,CmiGetArgc(args->argv),args->argv)) {
 	    CkExit();
 	}
+	
+	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
 	if(param.bGasCooling) 
 	    initCooling();
@@ -1844,7 +1865,7 @@ Main::doSimulation()
 	      treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
           ckout << "Reodering ...";
           startTime = CkWallTimer();
-	  treeProxy.reOrder(CkCallbackResumeThread());
+	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	  ckout << "Outputting densities ...";
 	  startTime = CkWallTimer();
@@ -1857,7 +1878,7 @@ Main::doSimulation()
 	  treeProxy[0].outputASCII(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
 	  }
       else {
-	  treeProxy.reOrder(CkCallbackResumeThread());
+	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
 	  }
 
       writeOutput(0);
@@ -1932,7 +1953,7 @@ Main::doSimulation()
 	      treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
           ckout << "Reodering ...";
           startTime = CkWallTimer();
-	  treeProxy.reOrder(CkCallbackResumeThread());
+	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	  ckout << "Outputting densities ...";
 	  startTime = CkWallTimer();
@@ -2043,7 +2064,7 @@ void Main::writeOutput(int iStep)
 	startTime = CkWallTimer();
 	}
     
-    treeProxy.reOrder(CkCallbackResumeThread());
+    treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
@@ -2094,7 +2115,7 @@ void Main::writeOutput(int iStep)
 	      << endl;
 	ckout << "Reodering ...";
 	startTime = CkWallTimer();
-	treeProxy.reOrder(CkCallbackResumeThread());
+	treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 	ckout << "Outputting densities ...";
@@ -2304,6 +2325,51 @@ void Main::DumpFrame(double dTime, double dStep)
     }
 
 /**
+ * Coalesce all added and deleted particles and update global
+ * quantities.
+ */
+
+void Main::addDelParticles()
+{
+    CkReductionMsg *msg;
+    
+    if(verbosity)
+	CkPrintf("Changing Particle number\n");
+	
+    treeProxy.colNParts(CkCallbackResumeThread((void*&)msg));
+    // a set of one element per treepiece
+    CkReduction::setElement *cur = (CkReduction::setElement *) msg->getData();
+
+    // Callback for neworder
+    CkCallbackResumeThread cb;
+
+    while(cur != NULL) {
+	CountSetPart *counts = (CountSetPart *)cur->data;
+	
+	treeProxy[counts->index].newOrder(nMaxOrderGas+1, nMaxOrderDark+1,
+					  nMaxOrder+1, cb);
+
+	nMaxOrderGas += counts->nAddGas;
+	nMaxOrderDark += counts->nAddDark;
+	nMaxOrder += counts->nAddStar;
+	nTotalSPH += counts->nAddGas - counts->nDelGas;
+	nTotalDark += counts->nAddDark - counts->nDelDark;
+	nTotalStar += counts->nAddStar - counts->nDelStar;
+	
+	cur = cur->next();
+	}
+    nTotalParticles = nTotalSPH + nTotalDark + nTotalStar;
+    delete msg;
+    if (verbosity)
+	CkPrintf("New numbers of particles: %d gas %d dark %d star\n",
+		 nTotalSPH, nTotalDark, nTotalStar);
+    
+    cb.thread_delay();
+    treeProxy.setNParts(nTotalSPH, nTotalDark, nTotalStar,
+			CkCallbackResumeThread());
+    }
+
+/**
  * Diagnostic function to summmarize memory usage across all
  * processors
  */
@@ -2350,6 +2416,11 @@ void Main::pup(PUP::er& p)
     p | basefilename;
     p | nTotalParticles;
     p | nTotalSPH;
+    p | nTotalDark;
+    p | nTotalStar;
+    p | nMaxOrderGas;
+    p | nMaxOrderDark;
+    p | nMaxOrder;
     p | theta;
     p | dTime;
     p | dEcosmo;

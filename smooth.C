@@ -156,7 +156,8 @@ State *KNearestSmoothCompute::getNewState(int nBuckets){
 					// walk is not finished.
     }
   state->started = true;
-  state->nParticlesPending = tp->myNumParticles;
+  CkAssert(tp->myTreeParticles >= 0);
+  state->nParticlesPending = tp->myTreeParticles;
   state->currentBucket = 0;
   state->bWalkDonePending = 0;
   return state;
@@ -629,7 +630,8 @@ State *ReSmoothCompute::getNewState(int nBucket){
 					// walk is not finished.
     }
   state->started = true;
-  state->nParticlesPending = tp->myNumParticles;
+  CkAssert(tp->myTreeParticles >= 0);
+  state->nParticlesPending = tp->myTreeParticles;
   state->currentBucket = 0;
   state->bWalkDonePending = 0;
   return state;
@@ -798,10 +800,10 @@ void ReNearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
 
   if(counterArrays[0][iBucket] == 0) {
       tp->sSmooth->walkDone(this);
-  if(verbosity>1)
-	CkPrintf("[%d] TreePiece %d finished smooth with bucket %d\n",CkMyPe(),
-		 tp->thisIndex,iBucket);
     nParticlesPending -= node->particleCount;
+  if(verbosity>4)
+	CkPrintf("[%d] TreePiece %d finished resmooth with bucket %d, %d Pending\n",CkMyPe(),
+		 tp->thisIndex,iBucket,nParticlesPending);
     if(started && nParticlesPending == 0) {
       started = false;
       tp->memWithCache = CmiMemoryUsage()/(1024*1024);
@@ -811,10 +813,7 @@ void ReNearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
       CkPrintf("[%d] markWalkDone ReNearNeighborState\n", tp->getIndex());
 #endif
       tp->markSmoothWalkDone();
-      if(verbosity>1)
-	CkPrintf("[%d] TreePiece %d finished smooth with bucket %d\n",CkMyPe(),
-		 tp->thisIndex,iBucket);
-      if(verbosity > 4)
+      if(verbosity > 1)
 	ckerr << "TreePiece " << tp->thisIndex << ": My particles are done"
 	     << endl;
     }
@@ -846,7 +845,8 @@ State *MarkSmoothCompute::getNewState(int nBucket){
 					// walk is not finished.
     }
   state->started = true;
-  state->nParticlesPending = tp->myNumParticles;
+  CkAssert(tp->myTreeParticles >= 0);
+  state->nParticlesPending = tp->myTreeParticles;
   state->currentBucket = 0;
   state->bWalkDonePending = 0;
   return state;
@@ -1008,7 +1008,7 @@ void MarkNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
 
   if(counterArrays[0][iBucket] == 0) {
       tp->sSmooth->walkDone(this);
-  if(verbosity>1)
+  if(verbosity>4)
 	CkPrintf("[%d] TreePiece %d finished smooth with bucket %d\n",CkMyPe(),
 		 tp->thisIndex,iBucket);
     nParticlesPending -= node->particleCount;
@@ -1024,7 +1024,7 @@ void MarkNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
       if(verbosity>1)
 	CkPrintf("[%d] TreePiece %d finished smooth with bucket %d\n",CkMyPe(),
 		 tp->thisIndex,iBucket);
-      if(verbosity > 4)
+      if(verbosity > 1)
 	ckerr << "TreePiece " << tp->thisIndex << ": My particles are done"
 	     << endl;
     }

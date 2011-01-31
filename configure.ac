@@ -68,17 +68,17 @@ elif test "$cooling" = "planet" ; then
    echo "Planet cooling selected"
    FLAG_COOLING="-DCOOLING_PLANET"
    OBJECTS_COOLING="cooling_planet.o stiff.o"
-   LIBS="$LIBS -lgsl"
+   LIBS="$LIBS -lgsl -lgslcblas"
 elif test "$cooling" = "boley" ; then
    echo "Boley 2009 Planet cooling selected"
    FLAG_COOLING="-DCOOLING_BOLEY"
    OBJECTS_COOLING="cooling_boley.o stiff.o"
-   LIBS="$LIBS -lgsl"
+   LIBS="$LIBS -lgsl -lgslcblas"
 elif test "$cooling" = "cosmo" ; then
    echo "Cosmo cooling selected"
    FLAG_COOLING="-DCOOLING_COSMO"
    OBJECTS_COOLING="cooling_cosmo.o stiff.o"
-   LIBS="$LIBS -lgsl"
+   LIBS="$LIBS -lgsl -lgslcblas"
 else
 	echo "Unknown cooling selected, using Adiabatic"
 	FLAG_COOLING="-DCOOLING_NONE"

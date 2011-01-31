@@ -61,7 +61,7 @@ PUPbytes(COOLPARAM);
 using namespace Tree;
 
 enum LBStrategy{
-  Null,
+  Null=0,
   Multistep,
   Orb3d
 };
@@ -106,6 +106,7 @@ extern int _nocache;
 extern int _cacheLineDepth;
 extern unsigned int _yieldPeriod;
 extern DomainsDec domainDecomposition;
+extern double dExtraStore;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
 extern CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
@@ -265,13 +266,38 @@ class ParticleShuffleMsg : public CMessage_ParticleShuffleMsg{
 public:
     int n;
     int nSPH;
+    int nStar;
     double load;
     GravityParticle *particles;
     extraSPHData *pGas;
-    ParticleShuffleMsg(int npart, int nsph, double pload): n(npart),
-	nSPH(nsph), load(pload) {}
+    extraStarData *pStar;
+    ParticleShuffleMsg(int npart, int nsph, int nstar, double pload): n(npart),
+	nSPH(nsph), nStar(nstar), load(pload) {}
 };
     
+/// Class to count added and deleted particles
+class CountSetPart 
+{
+ public:
+    int index;			/* chare index */
+    int nAddGas;
+    int nDelGas;
+    int nAddDark;
+    int nDelDark;
+    int nAddStar;
+    int nDelStar;
+
+    void pup(PUP::er& p) {
+	p | index;
+	p | nAddGas;
+	p | nDelGas;
+	p | nAddDark;
+	p | nDelDark;
+	p | nAddStar;
+	p | nDelStar;
+	}
+    };
+
 class Compare{ //Defines the comparison operator on the map used in balancer
   int dim;
 public:
@@ -329,9 +355,14 @@ class Main : public CBase_Main {
 	CkArgMsg *args;
 	std::string basefilename;
 	CProxy_Sorter sorter;
-	int nTotalParticles;
-	int nTotalSPH;
-	//double theta; -- moved to readonly
+	int64_t nTotalParticles;
+	int64_t nTotalSPH;
+	int64_t nTotalDark;
+	int64_t nTotalStar;
+	int64_t nMaxOrderGas;  /* Maximum iOrders */
+	int64_t nMaxOrderDark;
+	int64_t nMaxOrder;
+	
 	double dTime;		/* Simulation time */
 	double dEcosmo;		/* variables for integrating
 				   Lazer-Irvine eq. */
@@ -395,9 +426,11 @@ public:
 	void initCooling();
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
 	void doSph(int activeRung, int bNeedDensity = 1);
+	void FormStars(double dTime, double dDelta);
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
 	int nextMaxRungIncDF(int nextMaxRung);
+	void addDelParticles();
 	void memoryStats();
 	void memoryStatsCache();
 	void pup(PUP::er& p);
@@ -781,18 +814,37 @@ private:
 	unsigned int myNumParticles;
 	/// Array with the particles in this chare
 	GravityParticle* myParticles;
+	/// Actual storage in the above array
+	int nStore;
+	/// Number of particles in my tree.  Can be different from
+	/// myNumParticles when particles are created.
+	int myTreeParticles;
  public:
 	/// Total Particles in the simulation
 	int64_t nTotalParticles;
 	/// Total Gas Particles
 	int64_t nTotalSPH;
+	/// Total Dark Particles
+	int64_t nTotalDark;
+	/// Total Star Particles
+	int64_t nTotalStar;
  private:
 	/// Total gas in this chare
 	unsigned int myNumSPH;
 	/// Array with SPH particle data
 	extraSPHData *mySPHParticles;
-	/// Total Star Particles
-	int64_t nTotalStars;
+	/// Actual storage in the above array
+	int nStoreSPH;
+	/// Total stars in this chare
+	unsigned int myNumStar;
+	/// Array with star particle data
+	extraStarData *myStarParticles;
+	/// Actual storage in the above array
+	int nStoreStar;
+	/// MaxIOrder for output
+	int64_t nMaxOrder;
+	/// particle count for output
+	int myIOParticles;
 
 	/// List of all the node-buckets in this TreePiece
 	std::vector<GenericTreeNode *> bucketList;
@@ -801,6 +853,8 @@ private:
 	std::vector<GravityParticle> mySortedParticles;
 	/// Array with sorted SPH data for domain decomposition (ORB)
 	std::vector<extraSPHData> mySortedParticlesSPH;
+	/// Array with sorted Star data for domain decomposition (ORB)
+	std::vector<extraStarData> mySortedParticlesStar;
         /// Array with incoming particles messages for domain decomposition
 	std::vector<ParticleShuffleMsg*> incomingParticlesMsg;
         /// How many particles have already arrived during domain decomposition
@@ -979,6 +1033,9 @@ private:
   ///Expected number of SPH particles for each TreePiece after ORB
   ///decomposition
   int myExpectedCountSPH;
+  ///Expected number of Star particles for each TreePiece after ORB
+  ///decomposition
+  int myExpectedCountStar;
 
   ///Level after which the local subtrees of all the TreePieces start
   unsigned int chunkRootLevel;
@@ -1152,6 +1209,7 @@ public:
 
           myParticles = NULL;
           mySPHParticles = NULL;
+	  myTreeParticles = -1;
 	  orbBoundaries.clear();
 	  boxes = NULL;
 	  splitDims = NULL;
@@ -1192,6 +1250,11 @@ public:
 	  orbBoundaries.clear();
 	  boxes = NULL;
 	  splitDims = NULL;
+	  myTreeParticles = -1;
+#ifndef COOLING_NONE
+	  dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+	  CoolData = CoolDerivsInit(dm->Cool);
+#endif
 	}
 
         private:
@@ -1219,6 +1282,9 @@ public:
 	  delete[] boxes;
 	  delete[] splitDims;
 
+#ifndef COOLING_NONE
+	  CoolDerivsFinalize(CoolData);
+#endif
           if (verbosity>1) ckout <<"Finished deallocation of treepiece "<<thisIndex<<endl;
 	}
 
@@ -1260,10 +1326,13 @@ public:
 	void oneNodeWrite(int iIndex,
 			       int iOutParticles,
 			       int iOutSPH,
+			       int iOutStar,
 			       GravityParticle *particles, // particles to
 						     // write
 			       extraSPHData *pGas, // SPH data
+			       extraStarData *pStar, // Star data
 			       int *piSPH, // SPH data offsets
+			       int *piStar, // Star data offsets
 			       const u_int64_t iPrevOffset,
 			       const std::string& filename,  // output file
 			       const double dTime,      // time or expansion
@@ -1273,8 +1342,9 @@ public:
 			  const int bCool,
 			  const CkCallback &cb);
 	// Reorder for output
-	void reOrder(CkCallback& cb);
+	void reOrder(int64_t nMaxOrder, CkCallback& cb);
 	// move particles around for output
+	void ioShuffle(CkReductionMsg *msg);
 	void ioAcceptSortedParticles(ParticleShuffleMsg *);
 	/** Inform the DataManager of my node that I'm here.
 	 The callback will receive a CkReductionMsg containing no data.
@@ -1293,7 +1363,8 @@ public:
   void sendORBParticles();
   void acceptORBParticles(const GravityParticle* particles, const int n);
   void acceptORBParticles(const GravityParticle* particles, const int n,
-			  const extraSPHData *pGas, const int nGasIn);
+			  const extraSPHData *pGas, const int nGasIn,
+			  const extraStarData *pStar, const int nStarIn);
   void finalizeBoundaries(ORBSplittersMsg *splittersMsg);
   void evaluateParticleCounts(ORBSplittersMsg *splittersMsg);
   /*****************************/
@@ -1326,7 +1397,19 @@ public:
 		       double dCosmoFac, const CkCallback& cb);
   void rungStats(const CkCallback& cb);
   void countActive(int activeRung, const CkCallback& cb);
-	void calcEnergy(const CkCallback& cb);
+  void calcEnergy(const CkCallback& cb);
+  /// add new particle
+  void newParticle(GravityParticle *p);
+  /// Count add/deleted particles, and compact main particle storage.
+  void colNParts(const CkCallback &cb);
+  /// Assign iOrders to recently added particles.
+  void newOrder(int64_t nStartSPH, int64_t nStartDark,
+		int64_t nStartStar, const CkCallback &cb);
+  
+  /// Update total particle numbers
+  void setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
+		 int64_t _nTotalStar, const CkCallback &cb);
+
 	void setSoft(const double dSoft);
 	void physicalSoft(const double dSoftMax, const double dFac,
 			  const int bSoftMaxMul, const CkCallback& cb);
@@ -1342,6 +1425,8 @@ public:
 				     const CkCallback &cb);
 	void getCoolingGasPressure(double gamma, double gammam1,
 				   const CkCallback &cb);
+	void FormStars(StfmParam param, double dTime, double dCosmoFac,
+		       const CkCallback& cb);
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
 	void setTypeFromFile(int iSetMask, char *file, const CkCallback& cb);

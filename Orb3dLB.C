@@ -12,35 +12,35 @@ using namespace std;
 CreateLBFunc_Def(Orb3dLB, "3d ORB mapping of tree piece space onto 3d processor mesh");
 
 static int comparx(const void *a, const void *b){
-  TPObject *ta = (TPObject *)a;
-  TPObject *tb = (TPObject *)b;
-  return (int)(ta->centroid.x-tb->centroid.x);
+  const TPObject *ta = reinterpret_cast<const TPObject*>(a);
+  const TPObject *tb = reinterpret_cast<const TPObject*>(b);
+  return ta->centroid.x < tb->centroid.x ? -1 : ta->centroid.x > tb->centroid.x ? 1 : 0;
 }
 static int compary(const void *a, const void *b){
-  TPObject *ta = (TPObject *)a;
-  TPObject *tb = (TPObject *)b;
-  return (int)(ta->centroid.y-tb->centroid.y);
+  const TPObject *ta = reinterpret_cast<const TPObject*>(a);
+  const TPObject *tb = reinterpret_cast<const TPObject*>(b);
+  return ta->centroid.y < tb->centroid.y ? -1 : ta->centroid.y > tb->centroid.y ? 1 : 0;
 }
 static int comparz(const void *a, const void *b){
-  TPObject *ta = (TPObject *)a;
-  TPObject *tb = (TPObject *)b;
-  return (int)(ta->centroid.z-tb->centroid.z);
+  const TPObject *ta = reinterpret_cast<const TPObject*>(a);
+  const TPObject *tb = reinterpret_cast<const TPObject*>(b);
+  return ta->centroid.z < tb->centroid.z ? -1 : ta->centroid.z > tb->centroid.z ? 1 : 0;
 }
 
 static int pcx(const void *a, const void *b){
-  Node *ta = (Node *)a;
-  Node *tb = (Node *)b;
-  return (int)(ta->x-tb->x);
+  const Node *ta = reinterpret_cast<const Node*>(a);
+  const Node *tb = reinterpret_cast<const Node*>(b);
+  return ta->x < tb->x ? -1 : ta->x > tb->x ? 1 : 0;
 }
 static int pcy(const void *a, const void *b){
-  Node *ta = (Node *)a;
-  Node *tb = (Node *)b;
-  return (int)(ta->y-tb->y);
+  const Node *ta = reinterpret_cast<const Node*>(a);
+  const Node *tb = reinterpret_cast<const Node*>(b);
+  return ta->y < tb->y ? -1 : ta->y > tb->y ? 1 : 0;
 }
 static int pcz(const void *a, const void *b){
-  Node *ta = (Node *)a;
-  Node *tb = (Node *)b;
-  return (int)(ta->z-tb->z);
+  const Node *ta = reinterpret_cast<const Node*>(a);
+  const Node *tb = reinterpret_cast<const Node*>(b);
+  return ta->z < tb->z ? -1 : ta->z > tb->z ? 1 : 0;
 }
 
 Orb3dLB::Orb3dLB(const CkLBOptions &opt): CentralLB(opt)
@@ -125,7 +125,7 @@ CmiBool Orb3dLB::QueryBalanceNow(int step){
 
 }
 
-void Orb3dLB::work(BaseLB::LDStats* stats, int count)
+void Orb3dLB::work(BaseLB::LDStats* stats)
 {
   int numobjs = stats->n_objs;
   int nmig = stats->n_migrateobjs;
@@ -184,6 +184,19 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
 
   CkPrintf("[orb3dlb] map\n");
   map(tp,numobjs,numnodes,nodes,nx,ny,nz,dim);
+
+#ifdef PRINT_BOUNDING_BOXES
+  for(int i = 0; i < numnodes; i++){
+    CkPrintf("bb of node %d %f %f %f %f %f %f\n", i, 
+                    nodes[i].box.lesser_corner.x,
+                    nodes[i].box.lesser_corner.y,
+                    nodes[i].box.lesser_corner.z,
+                    nodes[i].box.greater_corner.x,
+                    nodes[i].box.greater_corner.y,
+                    nodes[i].box.greater_corner.z
+                    );
+  }
+#endif
 
   /*
   int migr = 0;
@@ -299,6 +312,9 @@ void Orb3dLB::directMap(TPObject *tp, int ntp, Node *nodes){
 
       p.load += tp.load;
       (*mapping)[tp.lbindex] = nodes[0].procRanks[p.t];
+#ifdef PRINT_BOUNDING_BOXES
+      nodes[0].box.grow(tp.centroid);
+#endif
 
       pq_proc.push(p);
     }
