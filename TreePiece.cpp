@@ -5012,6 +5012,9 @@ void TreePiece::pup(PUP::er& p) {
   for(unsigned int i=0;i<myNumSPH;i++){
     p | mySPHParticles[i];
   }
+  for(unsigned int i=0;i<myNumStar;i++){
+    p | myStarParticles[i];
+  }
   p | pieces;
   p | basefilename;
   p | boundingBox;
