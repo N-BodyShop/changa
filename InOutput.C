@@ -633,7 +633,7 @@ void TreePiece::writeTipsy(const std::string& filename, const double dTime,
     if(!w.seekParticleNum(nStartWrite))
 	CkAbort("bad seek");
     for(unsigned int i = 0; i < myNumParticles; i++) {
-	if(myParticles[i+1].iOrder < tipsyHeader.nsph) {
+	if(myParticles[i+1].isGas()) {
 	    Tipsy::gas_particle gp;
 	    gp.mass = myParticles[i+1].mass;
 	    gp.pos = myParticles[i+1].position;
@@ -662,8 +662,7 @@ void TreePiece::writeTipsy(const std::string& filename, const double dTime,
 	    if(!w.putNextGasParticle(gp))
 		CkAbort("Bad Write");
 	    }
-	else if(myParticles[i+1].iOrder < tipsyHeader.nsph
-		      + tipsyHeader.ndark) {
+	else if(myParticles[i+1].isDark()) {
 	    Tipsy::dark_particle dp;
 	    dp.mass = myParticles[i+1].mass;
 	    dp.pos = myParticles[i+1].position;
@@ -678,7 +677,7 @@ void TreePiece::writeTipsy(const std::string& filename, const double dTime,
 	    if(!w.putNextDarkParticle(dp))
 		CkAbort("Bad Write");
 	    }
-	else {
+	else if(myParticles[i+1].isStar()) {
 	    Tipsy::star_particle sp;
 	    sp.mass = myParticles[i+1].mass;
 	    sp.pos = myParticles[i+1].position;
@@ -694,6 +693,9 @@ void TreePiece::writeTipsy(const std::string& filename, const double dTime,
 
 	    if(!w.putNextStarParticle(sp))
 		CkAbort("Bad Write");
+	    }
+	else {
+	    CkAbort("Bad particle type in tipsyWrite");
 	    }
 	}
     }
