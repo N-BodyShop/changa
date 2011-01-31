@@ -432,7 +432,8 @@ Main::Main(CkArgMsg* m) {
 				"output name for snapshots and logfile");
 	param.dExtraStore = 0.01;
 	prmAddParam(prm,"dExtraStore",paramDouble,&param.dExtraStore,
-		    sizeof(double), NULL, "Extra memory for new particles");
+		    sizeof(double), "estore",
+		    "Extra memory for new particles");
 	
 	bDumpFrame = 0;
 	df = NULL;
@@ -1581,10 +1582,15 @@ Main::restart()
 		    sizeof(int),"oc", "Checkpoint Interval");
 	prmAddParam(prm, "iVerbosity", paramInt, &verbosity,
 		    sizeof(int),"v", "Verbosity");
+	prmAddParam(prm,"dExtraStore",paramDouble,&param.dExtraStore,
+		    sizeof(double), "estore",
+		    "Extra memory for new particles");
 	
 	if(!prmArgOnlyProc(prm,CmiGetArgc(args->argv),args->argv)) {
 	    CkExit();
 	}
+	
+	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
 	if(param.bGasCooling) 
 	    initCooling();

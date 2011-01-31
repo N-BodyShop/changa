@@ -131,6 +131,7 @@ mainmodule ParallelGravity {
     entry void dmCoolTableRead(double dTableData[nData], int nData, const CkCallback& cb);
     entry void CoolingSetTime(double z, double dTime, const CkCallback& cb);
     entry void memoryStats(const CkCallback& cb);
+    entry void resetReadOnly(Parameters param, const CkCallback &cb);
   };
   array [1D] TreePiece {
     entry TreePiece();
