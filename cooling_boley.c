@@ -67,6 +67,7 @@ clDerivsData *CoolDerivsInit(COOL *cl)
 					 clJacobn );
     Data->cl = cl;
     Data->dlnE = (log(EMUL)-log(1/EMUL));
+    return Data;
   }
   
 

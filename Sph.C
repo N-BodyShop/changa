@@ -359,7 +359,7 @@ void TreePiece::updateuDot(int activeRung,
 		double r[3];  // For conversion to C
 		p->position.array_form(r);
 #ifdef COOLING_BOLEY
-		p->CoolParticle().mrho = pow(p->mass/p->fDensity, 1./3.);
+		cp.mrho = pow(p->mass/p->fDensity, 1./3.);
 #endif
 
 		CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
