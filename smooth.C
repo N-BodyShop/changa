@@ -575,6 +575,13 @@ void TreePiece::finishSmoothWalk()
     return;
   }
 
+  // At this point, this piece has finished its walk, and all particle
+  // requests from other processors have been flushed back through the
+  // combiner.
+
+  for(int i = 0; i < myNumParticles; i++) {
+      ((SmoothCompute *)sSmooth)->params->postTreeParticle(&myParticles[i+1]);
+      }
   memPostCache = CmiMemoryUsage()/(1024*1024);
   nCacheAccesses = 0; // reset for next walk.
 
@@ -585,11 +592,11 @@ void TreePiece::finishSmoothWalk()
       delete twSmooth;
       sSmooth = 0;
       }
+  
 #ifdef CHECK_WALK_COMPLETIONS
   CkPrintf("[%d] inside finishSmoothWalk contrib callback\n", thisIndex);
 #endif
-  smoothProxy[thisIndex].ckLocal()->contribute(0, 0, CkReduction::concat,
-					       cbSmooth);
+  smoothProxy[thisIndex].ckLocal()->contribute(cbSmooth);
 }
 
 void KNearestSmoothCompute::walkDone(State *state) {
