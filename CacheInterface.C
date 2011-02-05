@@ -223,7 +223,7 @@ void TreePiece::fillRequestSmoothParticles(CkCacheRequestMsg *msg) {
 void TreePiece::flushSmoothParticles(CkCacheFillMsg *msg) {
   
   CacheSmoothParticle *data = (CacheSmoothParticle*)msg->data;
-  SmoothCompute *sc = dynamic_cast<SmoothCompute *>(sSmooth);
+  SmoothCompute *sc = sSmooth;
   
   CkAssert(sc != NULL);
   CkAssert(nCacheAccesses > 0);

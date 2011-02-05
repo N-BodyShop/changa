@@ -527,7 +527,7 @@ class TreePiece : public CBase_TreePiece {
    State *sInterListStateRemoteResume;
 #endif
    Compute *sGravity, *sPrefetch;
-   Compute *sSmooth;
+   SmoothCompute *sSmooth;
    
    Opt *sLocal, *sRemote, *sPref;
    Opt *optSmooth;
