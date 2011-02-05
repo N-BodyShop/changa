@@ -765,3 +765,122 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		}
 	    }
 }
+
+/*
+ * Methods to distribute Deleted gas
+ */
+int DistDeletedGasSmoothParams::isSmoothActive(GravityParticle *p) 
+{
+    return (TYPETest(p, TYPE_DELETED) && TYPETest(p, iType));
+    }
+
+void DistDeletedGasSmoothParams::initSmoothCache(GravityParticle *p) 
+{
+    if(!TYPETest(p, TYPE_DELETED)) {
+	/*
+	 * Zero out accumulated quantities.
+	 */
+	p->mass = 0;
+	p->velocity[0] = 0;
+	p->velocity[1] = 0;
+	p->velocity[2] = 0;
+#ifndef COOLING_NONE
+	p->u() = 0;
+	p->uDot() = 0.0;
+#endif
+	p->fMetals() = 0.0;
+	}
+    }
+
+void DistDeletedGasSmoothParams::combSmoothCache(GravityParticle *p1,
+					  ExternalSmoothParticle *p2)
+{
+    /*
+     * Distribute u, v, and fMetals for particles returning from cache
+     * so that everything is conserved nicely.  
+     */
+    if(!TYPETest((p1), TYPE_DELETED)) {
+	double delta_m = p2->mass;
+	double m_new,f1,f2;
+	double fTCool; /* time to cool to zero */
+	m_new = p1->mass + delta_m;
+	if (m_new > 0) {
+	    f1 = p1->mass /m_new;
+	    f2 = delta_m  /m_new;
+	    p1->mass = m_new;
+	    p1->velocity = f1*p1->velocity + f2*p2->velocity;            
+	    p1->fMetals() = f1*p1->fMetals() + f2*p2->fMetals;
+#ifndef COOLING_NONE
+	    if(p1->uDot() < 0.0) /* margin of 1% to avoid roundoff
+				  * problems */
+		fTCool = 1.01*p1->uPred()/p1->uDot(); 
+	    p1->u() = f1*p1->u() + f2*p2->u;
+	    p1->uPred() = f1*p1->uPred() + f2*p2->uPred;
+	    if(p1->uDot() < 0.0)
+		p1->uDot() = p1->uPred()/fTCool;
+#endif
+	    }
+	}
+    }
+
+void DistDeletedGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
+					   pqSmoothNode *nnList)
+{	
+    GravityParticle *q;
+    double fNorm,ih2,r2,rs,rstot,delta_m,m_new,f1,f2;
+    double fTCool; /* time to cool to zero */
+    int i;
+    CkAssert(TYPETest(p, TYPE_GAS));
+    ih2 = invH2(p);
+    rstot = 0;        
+    for (i=0;i<nSmooth;++i) {
+	double fDist2 = nnList[i].fKey;
+	q = nnList[i].p;
+	if(TYPETest(q, TYPE_DELETED)) continue;
+	CkAssert(TYPETest(q, TYPE_GAS));
+	r2 = fDist2*ih2;            
+        rs = KERNEL(r2);
+	rstot += rs;
+        }
+    if(rstot <= 0.0) {
+	if(p->mass == 0.0) /* the particle to be deleted has NOTHING */
+	    return;
+	/* we have a particle to delete and nowhere to put its mass
+	 * => we will keep it around */
+	unDeleteParticle(p);
+	return;
+	}
+    CkAssert(rstot > 0.0);
+    fNorm = 1./rstot;
+    CkAssert(p->mass >= 0.0);
+    for (i=0;i<nSmooth;++i) {
+	q = nnList[i].p;
+	if(TYPETest(q, TYPE_DELETED)) continue;
+
+	double fDist2 = nnList[i].fKey;
+	r2 = fDist2*ih2;            
+	rs = KERNEL(r2);
+	/*
+	 * All these quantities are per unit mass.
+	 * Exact if only one gas particle being distributed or in serial
+	 * Approximate in parallel (small error).
+	 */
+	delta_m = rs*fNorm*p->mass;
+	m_new = q->mass + delta_m;
+	/* Cached copies can have zero mass: skip them */
+	if (m_new == 0) continue;
+	f1 = q->mass /m_new;
+	f2 = delta_m  /m_new;
+	q->mass = m_new;
+	q->velocity = f1*q->velocity + f2*p->velocity;            
+	q->fMetals() = f1*q->fMetals() + f2*p->fMetals();
+#ifndef COOLING_NONE
+	if(q->uDot() < 0.0) /* margin of 1% to avoid roundoff error */
+	    fTCool = 1.01*q->uPred()/q->uDot(); 
+	q->u() = f1*q->u()+f2*p->u();
+	q->uPred() = f1*q->uPred()+f2*p->uPred();
+	if(q->uDot() < 0.0) /* make sure we don't shorten cooling time */
+	    q->uDot() = q->uPred()/fTCool;
+#endif
+        }
+    }

@@ -2,32 +2,56 @@
 #define STARFORM_HINCLUDED
 
 #include "parameters.h"
-#include "smooth.h"
 
-/*
- * SmoothParams class for distributing deleted gas to neighboring
- * particles.
- */
-class DistDeletedGasSmoothParams : public SmoothParams
-{
-    virtual void fcnSmooth(GravityParticle *p, int nSmooth,
-			   pqSmoothNode *nList);
-    virtual int isSmoothActive(GravityParticle *p);
-    virtual void initSmoothParticle(GravityParticle *p) {};
-    virtual void initTreeParticle(GravityParticle *p) {}
-    virtual void initSmoothCache(GravityParticle *p);
-    virtual void combSmoothCache(GravityParticle *p1,
-				 ExternalSmoothParticle *p2);
+class Stfm {
+ private:
+    double dDeltaStarForm;	/* timestep in system units */
+    int iStarFormRung;		/* rung for star formation */
+    double dGmUnit;		/* system mass in grams */
+    double dGmPerCcUnit;	/* system density in gm/cc */
+    double dSecUnit;		/* system time in seconds */
+    double dErgUnit;		/* system energy in ergs */
+    double dPhysDenMin;		/* Physical density minimum for star
+				   formation (in system units) */
+    double dOverDenMin;		/* Overdensity minimum for star formation */
+    double dTempMax;		/* Form stars below this temperature
+				   EVEN IF the gas is not cooling. */
+    double dSoftMin;		/* Jean's length as a fraction of
+				   softening at which to form stars*/
+    double dCStar;		/* Star formation constant */
+    double dStarEff;		/* Fraction of gas mass converted into
+				 star mass per timestep. */
+    double dInitStarMass;       /* Fixed Initial Star Mass */
+    double dMinSpawnStarMass;   /* Minimum Initial Star Mass */
+    double dMinGasMass;		/* minimum mass gas before we delete
+				   the particle. */
+    double dMaxStarMass;	/* maximum mass star particle to form */
  public:
-    DistDeletedGasSmoothParams() {}
-    DistDeletedGasSmoothParams(int _iType, int am) {
-	iType = _iType;
-	activeRung = am;
-	}
-    PUPable_decl(DistDeletedGasSmoothParams);
-    DistDeletedGasSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
-    virtual void pup(PUP::er &p) {
-        SmoothParams::pup(p);//Call base class
-	}
+    void AddParams(PRM prm);
+    void CheckParams(PRM prm, struct parameters &param);
+    bool isStarFormRung(int aRung) {return aRung <= iStarFormRung;}
+    GravityParticle *FormStar(GravityParticle *p,  COOL *Cool, double dTime,
+			      double dDelta, double dCosmoFac);
+    inline void pup(PUP::er &p);
     };
+
+inline void Stfm::pup(PUP::er &p) {
+    p|dDeltaStarForm;
+    p|iStarFormRung;
+    p|dGmUnit;
+    p|dGmPerCcUnit;
+    p|dSecUnit;
+    p|dErgUnit;
+    p|dPhysDenMin;
+    p|dOverDenMin;
+    p|dTempMax;
+    p|dSoftMin;
+    p|dCStar;
+    p|dStarEff;
+    p|dInitStarMass;
+    p|dMinSpawnStarMass;
+    p|dMinGasMass;
+    p|dMaxStarMass;
+    }
+
 #endif
