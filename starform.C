@@ -219,7 +219,8 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 
 */
 GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
-				double dDelta, double dCosmoFac) 
+				double dDelta,  // drift timestep
+				double dCosmoFac) 
 {
     double T;
     /*
@@ -242,7 +243,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 	return NULL;
 
     double tform = tdyn;
-    double dTimeStarForm = max(dDelta, dDeltaStarForm);
+    double dTimeStarForm = (dDelta > dDeltaStarForm ? dDelta : dDeltaStarForm);
     double dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform);
 
     /*
