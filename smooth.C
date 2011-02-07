@@ -326,7 +326,7 @@ void TreePiece::startIterationSmooth(// type of smoothing and parameters
   twSmooth = new BottomUpTreeWalk;
   sSmooth = new KNearestSmoothCompute(this, params, nSmooth);
       
-  initBucketsSmooth((SmoothCompute *) sSmooth);
+  initBucketsSmooth(sSmooth);
 
   // creates and initializes nearneighborstate object
   sSmoothState = sSmooth->getNewState(numBuckets);
@@ -493,7 +493,7 @@ void TreePiece::smoothBucketComputation() {
   sSmooth->init(myNode, activeRung, optSmooth);
   int bucketActive = 0;
   for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
-      if(((SmoothCompute *)sSmooth)->params->isSmoothActive(&myParticles[j]))
+      if(sSmooth->params->isSmoothActive(&myParticles[j]))
 	  bucketActive += 1;
       }
 
@@ -575,6 +575,13 @@ void TreePiece::finishSmoothWalk()
     return;
   }
 
+  // At this point, this piece has finished its walk, and all particle
+  // requests from other processors have been flushed back through the
+  // combiner.
+
+  for(int i = 0; i < myNumParticles; i++) {
+      sSmooth->params->postTreeParticle(&myParticles[i+1]);
+      }
   memPostCache = CmiMemoryUsage()/(1024*1024);
   nCacheAccesses = 0; // reset for next walk.
 
@@ -585,11 +592,11 @@ void TreePiece::finishSmoothWalk()
       delete twSmooth;
       sSmooth = 0;
       }
+  
 #ifdef CHECK_WALK_COMPLETIONS
   CkPrintf("[%d] inside finishSmoothWalk contrib callback\n", thisIndex);
 #endif
-  smoothProxy[thisIndex].ckLocal()->contribute(0, 0, CkReduction::concat,
-					       cbSmooth);
+  smoothProxy[thisIndex].ckLocal()->contribute(cbSmooth);
 }
 
 void KNearestSmoothCompute::walkDone(State *state) {
@@ -740,7 +747,7 @@ void TreePiece::startIterationReSmooth(SmoothParams* params,
   twSmooth = new TopDownTreeWalk;
   sSmooth = new ReSmoothCompute(this, params);
 
-  initBucketsSmooth((ReSmoothCompute *) sSmooth);
+  initBucketsSmooth(sSmooth);
 
   // creates and initializes nearneighborstate object
   sSmoothState = sSmooth->getNewState(numBuckets);
@@ -949,7 +956,7 @@ void TreePiece::startIterationMarkSmooth(SmoothParams* params,
   twSmooth = new TopDownTreeWalk;
   sSmooth = new MarkSmoothCompute(this, params);
 
-  initBucketsSmooth((MarkSmoothCompute *) sSmooth);
+  initBucketsSmooth(sSmooth);
 
   // creates and initializes nearneighborstate object
   sSmoothState = sSmooth->getNewState(numBuckets);

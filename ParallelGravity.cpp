@@ -397,8 +397,8 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"bStarForm",paramBool,&param.bStarForm,sizeof(int),
 		    "stfm","<Star Forming> = 0");
 
-	param.stfm = new StfmParam();
-	StfmAddParams(param.stfm, prm);
+	param.stfm = new Stfm();
+	param.stfm->AddParams(prm);
 
 	param.iRandomSeed = 1;
 	prmAddParam(prm,"iRandomSeed", paramInt, &param.iRandomSeed,
@@ -1177,8 +1177,8 @@ void Main::advanceBigStep(int iStep) {
 	      /*
 	       * Form stars at user defined intervals
 	       */
-	      if(param.bStarForm && activeRung <= param.stfm->iStarFormRung)
-		  FormStars(dTime, max(dTimeSub, param.stfm->dDeltaStarForm));
+	      if(param.bStarForm && param.stfm->isStarFormRung(activeRung))
+		  FormStars(dTime, dTimeSub);
 	      /* 
 	       ** Dump Frame
 	       */
@@ -1455,7 +1455,7 @@ void Main::setupICs() {
       initCooling();
   
   if(param.bStarForm)
-      StfmCheckParams(param.stfm, prm, param);
+      param.stfm->CheckParams(prm, param);
 	
   char achLogFileName[MAXPATHLEN];
   sprintf(achLogFileName, "%s.log", param.achOutName);

@@ -527,7 +527,7 @@ class TreePiece : public CBase_TreePiece {
    State *sInterListStateRemoteResume;
 #endif
    Compute *sGravity, *sPrefetch;
-   Compute *sSmooth;
+   SmoothCompute *sSmooth;
    
    Opt *sLocal, *sRemote, *sPref;
    Opt *optSmooth;
@@ -1425,7 +1425,7 @@ public:
 				     const CkCallback &cb);
 	void getCoolingGasPressure(double gamma, double gammam1,
 				   const CkCallback &cb);
-	void FormStars(StfmParam param, double dTime, double dCosmoFac,
+	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
 		       const CkCallback& cb);
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
