@@ -7,7 +7,7 @@
 #include <math.h>
 #include <assert.h>
 #include <string.h>
-#include <values.h>
+#include <float.h>
 
 #include <charm.h>
 

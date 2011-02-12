@@ -33,7 +33,7 @@ void Fdbk::CalcSNIIFeedback(SFEvent *sfEvent,
   double dMStarMin = pdva.StarMass(dStarLtimeMax, sfEvent->dMetals); 
   double dMStarMax = pdva.StarMass(dStarLtimeMin, sfEvent->dMetals); 
 
-  double dMtot = imf.CumMass(0.0); /* total mass in stars integrated over IMF */
+  double dMtot = imf->CumMass(0.0); /* total mass in stars integrated over IMF */
 
   /* Quantize feedback */
   if (iNSNIIQuantum && dMStarMin > dMSNIImax && dStarLtimeMin){
@@ -43,7 +43,7 @@ void Fdbk::CalcSNIIFeedback(SFEvent *sfEvent,
     fbEffects->dMIron = 0.0;
     fbEffects->dMOxygen = 0.0;
 
-    dNSNTypeII = imf.CumNumber(dMSNIImin);
+    dNSNTypeII = imf->CumNumber(dMSNIImin);
     dNSNTypeII *= sfEvent->dMass/dMtot; /* normalize to star particle mass */
     fbEffects->dMassLoss = dNSNTypeII * dDelta / 1e6; /* 1 M_sol / Myr / SN */
     fbEffects->dEnergy = dNSNTypeII * 3e42 * dDelta/ /* 1e35 erg/s /SN */
@@ -67,8 +67,8 @@ void Fdbk::CalcSNIIFeedback(SFEvent *sfEvent,
 
     /* cumulative mass of stars with mass greater than dMStarMinII 
        and dMStarMaxII in solar masses */
-    double dCumMMin = imf.CumMass (dMStarMinII);
-    double dCumMMax = imf.CumMass (dMStarMaxII);
+    double dCumMMin = imf->CumMass (dMStarMinII);
+    double dCumMMax = imf->CumMass (dMStarMaxII);
 
     if(dCumMMax > dCumMMin || dCumMMax < 0) dMSNTypeII = dCumMMin;
     else dMSNTypeII = dCumMMin - dCumMMax; /* mass of stars that go SN II
@@ -78,8 +78,8 @@ void Fdbk::CalcSNIIFeedback(SFEvent *sfEvent,
 
     /* cumulative number of stars with mass greater than dMStarMinII and
        less than dMstarMaxII in solar masses */
-    double dCumNMinII = imf.CumNumber (dMStarMinII); 
-    double dCumNMaxII = imf.CumNumber (dMStarMaxII);
+    double dCumNMinII = imf->CumNumber (dMStarMinII); 
+    double dCumNMaxII = imf->CumNumber (dMStarMaxII);
 
     if(dCumNMaxII > dCumNMinII || dCumNMaxII < 0) dNSNTypeII = dCumNMinII;
     else dNSNTypeII = dCumNMinII - dCumNMaxII;
@@ -150,7 +150,7 @@ void Fdbk::CalcSNIaFeedback(SFEvent *sfEvent,
   double dMinMass = pdva.StarMass(dMaxLifetime, sfEvent->dMetals); 
   double dMaxMass = pdva.StarMass(dMinLifetime, sfEvent->dMetals); 
 
-  double dTotalMass = imf.CumMass(0.0); /* total mass in stars integrated over IMF */
+  double dTotalMass = imf->CumMass(0.0); /* total mass in stars integrated over IMF */
 
   if (dMinMass > dMBmin/2. && dMaxMass < dMBmax/2.) {
 

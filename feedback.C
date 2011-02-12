@@ -74,8 +74,10 @@ void Fdbk::AddParams(PRM prm)
 	dMOxexp = 2.721;
 	dMOxconst = 4.586e-4; 
 	dSNIaMetals = 1.4;  /* Ia's ejecta are entirely metals */
-        imf = new IMF(achIMF);
-	pdva = new Padova();
+	if(achIMF == "MillerScalo") imf = new MillerScalo();
+	else if(achIMF == "Chabrier") imf = new Chabrier();
+	else imf = new Kroupa93();
+	//	pdva = new Padova();
 }
 
 void Fdbk::CheckParams(PRM prm, struct parameters &param)
@@ -130,8 +132,6 @@ void Main::StellarFeedback(double dTime, double dDelta)
     if(verbosity)
 	CkPrintf("Stellar Feedback ... \n");
     double startTime = CkWallTimer();
-    // Don't need to tree build because it was just done for star formation
-    iPhase++;
 
     CkReductionMsg *msgFeedback;
     treeProxy.Feedback(*(param.feedback), dTime, dDelta,
@@ -152,7 +152,15 @@ void Main::StellarFeedback(double dTime, double dDelta)
     delete msgFeedback;
     
     if(verbosity)
-      CkPrintf("Distribute Stellar Feedback\n");
+      CkPrintf("Distribute Stellar Feedback ... ");
+    // Need to build tree since we just did addDelParticle.
+    // XXX need to check whether a treebuild needs the domain
+    // decomposition.  If not, this could be avoided.
+    //
+    double tolerance = 0.01;	// tolerance for domain decomposition
+    sorter.startSorting(dataManagerID, tolerance,
+                        CkCallbackResumeThread(), true);
+    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
     DistStellarFeedbackSmoothParams pDSFB(TYPE_STAR, 0, param.csm, dTime, 
 					  param.dConstGamma, param.feedback);
     treeProxy.startIterationReSmooth(&pDSFB, CkCallbackResumeThread());
@@ -315,9 +323,9 @@ void Fdbk::CalcWindFeedback(SFEvent *sfEvent, double dTime, /* current time in y
 	   then fit to function: MFreturned = 0.86 - exp(-Mass/1.1) */
 	double dMassFracReturned=0.86-exp(-((dMaxMass+dMinMass)/2.)/1.1);
 
-	double dMinCumMass = imf.CumMass(dMinMass);
-	double dMaxCumMass = imf.CumMass(dMaxMass);
-	double dMTot = imf.CumMass(0.0);
+	double dMinCumMass = imf->CumMass(dMinMass);
+	double dMaxCumMass = imf->CumMass(dMaxMass);
+	double dMTot = imf->CumMass(0.0);
 	/* Find out mass fraction of dying stars, then multiply by the original
 	   mass of the star particle */
 	if (dMTot == 0.0){

@@ -165,4 +165,50 @@ class DistDeletedGasSmoothParams : public SmoothParams
 	}
     };
 
+/*
+ * SmoothParams class for distributing stellar feedback (energy, mass + metals) 
+ * to neighboring particles.
+ */
+class DistStellarFeedbackSmoothParams : public SmoothParams
+{
+  double dTime, H, a, gamma;
+  Fdbk fb;
+    virtual void fcnSmooth(GravityParticle *p, int nSmooth,
+			   pqSmoothNode *nList);
+    virtual int isSmoothActive(GravityParticle *p);
+    virtual void initSmoothParticle(GravityParticle *p) {}
+    virtual void initTreeParticle(GravityParticle *p);
+    virtual void postTreeParticle(GravityParticle *p);
+    virtual void initSmoothCache(GravityParticle *p);
+    virtual void combSmoothCache(GravityParticle *p1,
+				 ExternalSmoothParticle *p2);
+    void DistFBMME(GravityParticle *p, int nSmooth, pqSmoothNode *nList);
+ public:
+    DistStellarFeedbackSmoothParams() {}
+    DistStellarFeedbackSmoothParams(int _iType, int am, CSM csm, double _dTime,
+				    double _gamma, Fdbk *feedback) {
+	iType = _iType;
+	activeRung = am;
+	gamma = _gamma;
+	fb = *feedback;
+	if(csm->bComove) {
+	    H = csmTime2Hub(csm,dTime);
+	    a = csmTime2Exp(csm,dTime);
+	    }
+	else {
+	    H = 0.0;
+	    a = 1.0;
+	    }
+	}
+    PUPable_decl(DistStellarFeedbackSmoothParams);
+    DistStellarFeedbackSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
+    virtual void pup(PUP::er &p) {
+        SmoothParams::pup(p);//Call base class
+	p|a;
+	p|H;
+	p|gamma;
+	p|fb;
+	}
+    };
+
 #endif

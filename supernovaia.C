@@ -15,7 +15,7 @@ double dMSIMFSec(Fdbk *fb, double dMass2)
     double dIMFSecExp, dIMFSecIntExp, dIMFSec;
     double dMass2_2, Msup, Minf;
     
-    dIMFSecExp = fb->imf.Oneto8Exp() - 3.; /* subtract 1 from exponent in integrand
+    dIMFSecExp = fb->imf->Oneto8Exp() - 3.; /* subtract 1 from exponent in integrand
                                       because MS IMF is per unit log mass,
                                       subtract 2 because of square of ratio of mass
                                       of secondary to mass of binary */
@@ -24,7 +24,7 @@ double dMSIMFSec(Fdbk *fb, double dMass2)
     dMass2_2 = 2.*dMass2;    
     Minf = (dMass2_2 > 3)?dMass2_2:3;
     dIMFSec = pow (Msup, dIMFSecIntExp) - pow(Minf, dIMFSecIntExp);
-    dIMFSec *= fb->dFracBinSNIa * fb->imf.Oneto8PreFactor() * dMass2*dMass2 / dIMFSecIntExp;
+    dIMFSec *= fb->dFracBinSNIa * fb->imf->Oneto8PreFactor() * dMass2*dMass2 / dIMFSecIntExp;
     return dIMFSec;
     }
 
@@ -46,7 +46,7 @@ double MSIMFSecM(Fdbk *fb, double dMass2)
     double dIMFSecExp, dIMFSecIntExp, dIMFSec;
     double dMass2_2, Msup, Minf;
     
-    dIMFSecIntExp = fb->imf.Oneto8Exp() - 2.; /* subtract 1 from exponent in integrand
+    dIMFSecIntExp = fb->imf->Oneto8Exp() - 2.; /* subtract 1 from exponent in integrand
                                       because MS IMF is per unit log mass,
                                       subtract 2 because of square of ratio of mass
                                       of secondary to mass of binary, add 1 to multiply 
@@ -56,7 +56,7 @@ double MSIMFSecM(Fdbk *fb, double dMass2)
     dMass2_2 = 2.*dMass2;    
     Minf = (dMass2_2 > 3)?dMass2_2:3;
     dIMFSec = pow (Msup, dIMFSecIntExp) - pow(Minf, dIMFSecIntExp);
-    dIMFSec *= fb->dFracBinSNIa * fb->imf.Oneto8PreFactor() * dMass2*dMass2*dMass2 / dIMFSecIntExp;
+    dIMFSec *= fb->dFracBinSNIa * fb->imf->Oneto8PreFactor() * dMass2*dMass2*dMass2 / dIMFSecIntExp;
     return dIMFSec;
     }
 

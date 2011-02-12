@@ -39,6 +39,9 @@ class extraSPHData
  private:
     double _u;			/* Internal Energy */
     double _fMetals;		/* Metalicity */
+    double _fMFracOxygen;	/* Oxygen mass fraction  */
+    double _fMFracIron;		/* Iron mass fraction  */
+    double _fTimeCoolIsOffUntil;/* time cooling is turned back on */
     Vector3D<double> _vPred;	/* Predicted velocities for velocity
 				   dependent forces */
     double _uPred;		/* Predicted internal energy */
@@ -60,6 +63,9 @@ class extraSPHData
  public:
     inline double& u() {return _u;}
     inline double& fMetals() {return _fMetals;}
+    inline double& fMFracOxygen() {return _fMFracOxygen;}
+    inline double& fMFracIron() {return _fMFracIron;}
+    inline double& fTimeCoolIsOffUntil() {return _fTimeCoolIsOffUntil;}
     inline Vector3D<double>& vPred() {return _vPred;}
     inline double& uPred() {return _uPred;}
     inline double& divv() {return _divv;}
@@ -77,6 +83,9 @@ class extraSPHData
     void pup(PUP::er &p) {
 	p | _u;
 	p | _fMetals;
+	p | _fMFracIron;
+	p | _fMFracOxygen;
+	p | _fTimeCoolIsOffUntil;
 	p | _vPred;
 	p | _uPred;
 	p | _divv;
@@ -101,16 +110,40 @@ class extraStarData
     double _fMetals;		/* Metalicity */
     double _fTimeForm;		/* Formation time */
     double _fMassForm;		/* Formation mass */
+    double _fESNrate;		/* SN energy rate  */
+    double _fNSN;               /* number of SN exploding */
+    double _fMSN;               /* mass of feedback ejecta */
+    double _fMFracOxygen;	/* Oxygen mass fraction  */
+    double _fMFracIron;		/* Iron mass fraction  */
+    double _fSNMetals;          /* Ejected metals from feedback */
+    double _fMOxygenOut;        /* Ejected oxygen */
+    double _fMIronOut;          /* Ejected iron */
     int64_t _iGasOrder;		/* Gas from which this star formed */
  public:
     inline double& fMetals() {return _fMetals;}
     inline double& fTimeForm() {return _fTimeForm;}
     inline double& fMassForm() {return _fMassForm;}
+    inline double& fESNrate() {return _fESNrate;}
+    inline double& fNSN() {return _fNSN;}
+    inline double& fMSN() {return _fMSN;}
+    inline double& fMFracOxygen() {return _fMFracOxygen;}
+    inline double& fMFracIron() {return _fMFracIron;}
+    inline double& fMIronOut() {return _fMIronOut;}
+    inline double& fMOxygenOut() {return _fMOxygenOut;}
+    inline double& fSNMetals() {return _fSNMetals;}
     inline int64_t& iGasOrder() {return _iGasOrder;}
     void pup(PUP::er &p) {
 	p | _fMetals;
 	p | _fTimeForm;
 	p | _fMassForm;
+	p | _fESNrate;
+	p | _fNSN;    
+	p | _fMSN;    
+	p | _fMFracOxygen;
+	p | _fSNMetals;
+	p | _fMOxygenOut;
+	p | _fMIronOut;
+	p | _fMFracIron;
 	p | _iGasOrder;
 	}
     };
@@ -180,6 +213,9 @@ public:
 	ExternalSmoothParticle getExternalSmoothParticle();
 	inline double& u() { return (((extraSPHData*)extraData)->u());}
 	inline double& fMetals() { return (((extraSPHData*)extraData)->fMetals());}
+	inline double& fMFracOxygen() {return (((extraSPHData*)extraData)->fMFracOxygen());}
+	inline double& fMFracIron() {return (((extraSPHData*)extraData)->fMFracIron());}
+	inline double& fTimeCoolIsOffUntil() {return (((extraSPHData*)extraData)->fTimeCoolIsOffUntil());}
 	inline Vector3D<double>& vPred() { return (((extraSPHData*)extraData)->vPred());}
 	inline double& uPred() { return (((extraSPHData*)extraData)->uPred());}
 	inline double& divv() { return (((extraSPHData*)extraData)->divv());}
@@ -198,8 +234,16 @@ public:
 	// XXX Beware overlaps with SPH; we could fix this by aligning
 	// all common variables up at the start of the extraData structure.
 	inline double& fStarMetals() { return (((extraStarData*)extraData)->fMetals());}
+	inline double& fStarMFracOxygen() {return (((extraStarData*)extraData)->fMFracOxygen());}
+	inline double& fStarMFracIron() {return (((extraStarData*)extraData)->fMFracIron());}
 	inline double& fTimeForm() { return (((extraStarData*)extraData)->fTimeForm());}
 	inline double& fMassForm() { return (((extraStarData*)extraData)->fMassForm());}
+	inline double& fESNrate() {return (((extraStarData*)extraData)->fESNrate());}
+	inline double& fNSN() {return (((extraStarData*)extraData)->fNSN());}
+	inline double& fMSN() {return (((extraStarData*)extraData)->fMSN());}
+	inline double& fMIronOut() {return (((extraStarData*)extraData)->fMIronOut());}
+	inline double& fMOxygenOut() {return (((extraStarData*)extraData)->fMOxygenOut());}
+	inline double& fSNMetals() {return (((extraStarData*)extraData)->fSNMetals());}
 	inline int64_t& iGasOrder() { return (((extraStarData*)extraData)->iGasOrder());}
 
 /* Particle Type Masks */
@@ -242,7 +286,7 @@ inline void deleteParticle(GravityParticle *p)
     TYPESet(p, TYPE_DELETED); 
     }
 
-// Convert star particle to gas particle
+// Convert gas particle to star particle
 // Note that new memory is allocated for the extradata.
 inline GravityParticle StarFromGasParticle(GravityParticle *p) 
 {
@@ -274,7 +318,13 @@ class ExternalSmoothParticle {
   double u;
   double uPred;
   double uDot;
+  double fESNrate;
   double fMetals;
+  double fMFracOxygen;
+  double fMFracIron;
+  double fTimeCoolIsOffUntil;
+  double fTimeForm;
+  Vector3D<double> curlv;	/* Curl of the velocity */
 
   ExternalSmoothParticle() {}
 
@@ -296,12 +346,18 @@ class ExternalSmoothParticle {
 	      PoverRho2 = p->PoverRho2();
 	      BalsaraSwitch = p->BalsaraSwitch();
 	      fBallMax = p->fBallMax();
+	      curlv = p->curlv();
 	      u = p->u();
 #ifndef COOLING_NONE
 	      uDot = p->uDot();
 	      uPred = p->uPred();
 #endif
 	      fMetals = p->fMetals();
+	      fESNrate = p->fESNrate();
+	      fMFracOxygen = p->fMFracOxygen();
+	      fMFracIron = p->fMFracIron();
+	      fTimeCoolIsOffUntil = p->fTimeCoolIsOffUntil();
+	      fTimeForm = p->fTimeForm();
 	      }
 	  }
   
@@ -322,12 +378,18 @@ class ExternalSmoothParticle {
 	  tmp->PoverRho2() = PoverRho2;
 	  tmp->BalsaraSwitch() = BalsaraSwitch;
 	  tmp->fBallMax() = fBallMax;
+	  tmp->curlv() = curlv;
 	  tmp->u() = u;
 #ifndef COOLING_NONE
 	  tmp->uDot() = uDot;
 	  tmp->uPred() = uPred;
 #endif
 	  tmp->fMetals() = fMetals;
+	  tmp->fESNrate() = fESNrate;
+	  tmp->fMFracOxygen() = fMFracOxygen;
+	  tmp->fMFracIron() = fMFracIron;
+	  tmp->fTimeCoolIsOffUntil() = fTimeCoolIsOffUntil;
+	  tmp->fTimeForm() = fTimeForm;
 	  }
       }
 	  
@@ -350,7 +412,13 @@ class ExternalSmoothParticle {
     p | u;
     p | uPred;
     p | uDot;
+    p | curlv;
     p | fMetals;
+    p | fESNrate;
+    p | fMFracOxygen;
+    p | fMFracIron;
+    p | fTimeCoolIsOffUntil;
+    p | fTimeForm;
   }
 };
 

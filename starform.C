@@ -17,7 +17,7 @@
 
 void Stfm::AddParams(PRM prm) 
 {
-    dOverDenMin = 2.0;
+    dOverDenMin = 20.0;
     prmAddParam(prm,"dOverDenMin", paramDouble, &dOverDenMin,
 		    sizeof(double), "stODmin",
 		    "<Minimum overdensity for forming stars> = 2");
@@ -71,6 +71,7 @@ void Stfm::CheckParams(PRM prm, Parameters &param)
 		 && prmSpecified(prm, "dKpcUnit"));
 	if(!param.bGasCooling)
 	    CkError("Warning: You are not running a cooling EOS with starformation\n");
+	param.bDoGas = 1;
 	}
     CkAssert((dStarEff > 0.0 && dStarEff < 1.0)
 	      || dInitStarMass > 0.0);

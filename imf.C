@@ -10,17 +10,6 @@
 #include "imf.h"
 #include "romberg.h"
 
-void IMF::initialize(std::string achIMF)
-{
-    /* This seems unlikely, but it is called "placement new" and it
-       calls the constructor for these other objects and puts them in
-       the current memory space, in this case the IMF object that was
-       declared in the Fdbk class. */
-    if(achIMF == "MillerScalo") this = new MillerScalo();
-    else if(achIMF == "Chabrier") this = new Chabrier();
-    else this = new Kroupa93();
-}
-
 // Private function to return result of basic IMF
 double IMF::returnimf(double mass)
 {

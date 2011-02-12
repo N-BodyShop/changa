@@ -396,6 +396,8 @@ void TreePiece::loadTipsy(const std::string& filename,
 			myParticles[i+1].fDensity = gp.rho;
 			myParticles[i+1].extraData = &mySPHParticles[iSPH];
 			mySPHParticles[iSPH].fMetals() = gp.metals;
+			mySPHParticles[iSPH].fMFracOxygen() = 0.95*gp.metals;
+			mySPHParticles[iSPH].fMFracIron() = 0.05*gp.metals;
 			mySPHParticles[iSPH].u() = dTuFac*gp.temp;
 			mySPHParticles[iSPH].uPred() = dTuFac*gp.temp;
 			mySPHParticles[iSPH].vPred() = gp.vel;
@@ -427,6 +429,9 @@ void TreePiece::loadTipsy(const std::string& filename,
 #endif
 			myParticles[i+1].extraData = &myStarParticles[iStar];
 			myParticles[i+1].fStarMetals() = sp.metals;
+			myParticles[i+1].fStarMFracOxygen() = 0.95*sp.metals;
+			myParticles[i+1].fStarMFracIron() = 0.05*sp.metals;
+			myParticles[i+1].fMassForm() = sp.mass;
 			myParticles[i+1].fTimeForm() = sp.tform;
 			myParticles[i+1].iType = TYPE_STAR;
 			iStar++;

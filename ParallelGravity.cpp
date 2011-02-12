@@ -400,6 +400,13 @@ Main::Main(CkArgMsg* m) {
 	param.stfm = new Stfm();
 	param.stfm->AddParams(prm);
 
+	param.bFeedback = 0;
+	prmAddParam(prm,"bFeedback",paramBool,&param.bFeedback,sizeof(int),
+		    "stfm","<Star Forming> = 0");
+
+	param.feedback = new Fdbk();
+	param.feedback->AddParams(prm);
+
 	param.iRandomSeed = 1;
 	prmAddParam(prm,"iRandomSeed", paramInt, &param.iRandomSeed,
 		    sizeof(int), "iRand", "<Feedback random Seed> = 1");
@@ -846,11 +853,6 @@ Main::Main(CkArgMsg* m) {
 	cacheGravPart = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 	// Smooth particles
 	cacheSmoothPart = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
-	if(param.bStarForm && !param.bDoGas) {
-	    ckerr << "WARNING: star formation set without enabling SPH" << endl;
-	    ckerr << "Enabling SPH" << endl;
-	    param.bDoGas = 1;
-	    }
 	// Nodes: we need the right number of phases to keep the
 	// nodes.
 	nPhases = 0;
@@ -1182,8 +1184,11 @@ void Main::advanceBigStep(int iStep) {
 	      /*
 	       * Form stars at user defined intervals
 	       */
-	      if(param.bStarForm && param.stfm->isStarFormRung(activeRung))
+	      if(param.bStarForm && param.stfm->isStarFormRung(activeRung)) 
 		  FormStars(dTime, dTimeSub);
+
+	      if(param.bFeedback && param.stfm->isStarFormRung(activeRung)) 
+		  StellarFeedback(dTime, dTimeSub);
 	      /* 
 	       ** Dump Frame
 	       */
@@ -1372,17 +1377,11 @@ void Main::advanceBigStep(int iStep) {
                                            0.5*dTimeSub);
       }
       if(param.bDoGas) {
-	  double startTime = CkWallTimer();
-	  if(verbosity)
-	      ckout << "uDot update:" << endl;
 	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
 	  if(param.bGasCooling)
 	      dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	  treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
 			       1, CkCallbackResumeThread());
-	  if(verbosity)
-	      ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-		    << endl;
 	  }
       treeProxy.kick(activeRung, dKickFac, 1, param.bDoGas,
 		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
@@ -1462,6 +1461,9 @@ void Main::setupICs() {
   if(param.bStarForm)
       param.stfm->CheckParams(prm, param);
 	
+  if(param.bFeedback)
+      param.feedback->CheckParams(prm, param);
+
   char achLogFileName[MAXPATHLEN];
   sprintf(achLogFileName, "%s.log", param.achOutName);
   ofstream ofsLog(achLogFileName, ios_base::trunc);

@@ -12,7 +12,6 @@ class IMF : public PUP::able {
     double returnimf(double mass);
     //    double imfIntM(double logMass, void * params);
  IMF(): a1(0),b1(0),m1(0), a2(0), b2(0), m2(0), a3(0), b3(0), m3(0),mmax(0) {}
-    void initialize(std::string achIMF);
     IMF(double _a1,double _b1,double _m1,double _a2, double _b2, double _m2,
 	double _a3, double _b3, double _m3, double _mmax) :a1(_a1),b1(_b1),
       m1(_m1), a2(_a2), b2(_b2), m2(_m2), a3(_a3), b3(_b3), m3(_m3),mmax(_mmax){}
@@ -20,6 +19,8 @@ class IMF : public PUP::able {
     virtual double CumMass(double mass);
     double Oneto8Exp();
     double Oneto8PreFactor();
+    PUPable_decl(IMF);
+ IMF(CkMigrateMessage *m) : PUP::able(m) {}
     virtual void pup(PUP::er& p) {
       PUP::able::pup(p);
 	p | a1;
@@ -50,21 +51,31 @@ class IMF : public PUP::able {
    either side of the plane of the galaxy"
 */
 
-class MillerScalo : IMF {
+class MillerScalo : public IMF {
  public:
     /* normalization, index, minimum mass */
  MillerScalo() : IMF(42.0,-0.4,0.1, /* parameters from Ap.J. Supp., 41,1979 */
     42.0,-1.5,1.0, /* This is discontinuous, but is what */
     240.0,-2.3,10.0,100.0) { } /* they report in paper, so we leave it.*/
+    PUPable_decl(MillerScalo);
+    MillerScalo(CkMigrateMessage *m) : IMF(m) {}
+    virtual void pup(PUP::er &p) {
+        IMF::pup(p);//Call base class
+	}
     };
 
-class Kroupa93 : IMF {
+class Kroupa93 : public IMF {
  public:
 /* parameters from Raiteri et. al. A&A, 315,1996, eq. 2;  See also the
    conclusions of Kroupa, Tout & Gilmore, 1993. */
  Kroupa93() :  IMF(0.3029*1.86606, -0.3, .08, 
     0.3029, -1.2, 0.5, 
     0.3029, -1.7, 1.0, 100.0) { }
+    PUPable_decl(Kroupa93);
+    Kroupa93(CkMigrateMessage *m) : IMF(m) {}
+    virtual void pup(PUP::er &p) {
+        IMF::pup(p);//Call base class
+	}
 };
 
 /*
@@ -72,7 +83,7 @@ class Kroupa93 : IMF {
   Stellar and Substellar Initial Mass Function", PASP 115, 763.
 */
 
-class Chabrier : IMF {
+class Chabrier : public IMF {
   double imf(double mass);
  public:
   /*
@@ -87,6 +98,11 @@ class Chabrier : IMF {
     4.43e-2, -1.3, 1.0,100.0) { }
   virtual double CumNumber(double mass);
   virtual double CumMass(double mass);
+    PUPable_decl(Chabrier);
+    Chabrier(CkMigrateMessage *m) : IMF(m) {}
+    virtual void pup(PUP::er &p) {
+        IMF::pup(p);//Call base class
+	}
 };
 
 

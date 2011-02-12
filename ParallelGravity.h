@@ -427,6 +427,7 @@ public:
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
 	void doSph(int activeRung, int bNeedDensity = 1);
 	void FormStars(double dTime, double dDelta);
+	void StellarFeedback(double dTime, double dDelta);
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
 	int nextMaxRungIncDF(int nextMaxRung);
@@ -1426,6 +1427,8 @@ public:
 	void getCoolingGasPressure(double gamma, double gammam1,
 				   const CkCallback &cb);
 	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
+		       const CkCallback& cb);
+	void Feedback(Fdbk param, double dTime, double dDelta,
 		       const CkCallback& cb);
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);

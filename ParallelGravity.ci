@@ -72,6 +72,11 @@ mainmodule ParallelGravity {
   PUPable MarkSmoothParams;
   PUPable PressureSmoothParams;
   PUPable DistDeletedGasSmoothParams;
+  PUPable DistStellarFeedbackSmoothParams;
+  PUPable IMF;
+  PUPable Chabrier;
+  PUPable MillerScalo;
+  PUPable Kroupa93;
 
   PUPable AccOutputParams;
   PUPable DenOutputParams;
@@ -246,6 +251,8 @@ mainmodule ParallelGravity {
 				   const CkCallback &cb);
     entry void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
 		       const CkCallback& cb);
+    entry void Feedback(Fdbk param, double dTime, double dDelta, 
+    	       		const CkCallback& cb);
     entry void setTypeFromFile(int iSetMask, char file[256],
         const CkCallback& cb);
     entry void getCOM(const CkCallback& cb, int bLiveViz);

@@ -72,7 +72,7 @@ class Fdbk {
     double dMOxexp;             /* exponent of oxygen */
     double dMOxconst;           /* normalization of oxygen */
     double dSNIaMetals;         /* amount of metals produced by SNIa */
-    Padova *pdva;
+    Padova pdva;
  public:
     double dSecUnit;		/* system time in seconds */
     int iNSNIIQuantum;	/* minimum amount of supernovae */
@@ -127,6 +127,7 @@ inline void Fdbk::pup(PUP::er &p) {
     p | dTimePreFactor;
     p | nSmoothFeedback;
     p | dFracBinSNIa;
+    p | imf;
     }
 
 enum FBenum{
