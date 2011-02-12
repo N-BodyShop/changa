@@ -157,13 +157,10 @@ void Main::StellarFeedback(double dTime, double dDelta)
     // XXX need to check whether a treebuild needs the domain
     // decomposition.  If not, this could be avoided.
     //
-    double tolerance = 0.01;	// tolerance for domain decomposition
-    sorter.startSorting(dataManagerID, tolerance,
-                        CkCallbackResumeThread(), true);
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-    DistStellarFeedbackSmoothParams pDSFB(TYPE_STAR, 0, param.csm, dTime, 
+    DistStellarFeedbackSmoothParams pDSFB(TYPE_GAS, 0, param.csm, dTime, 
 					  param.dConstGamma, param.feedback);
-    treeProxy.startIterationReSmooth(&pDSFB, CkCallbackResumeThread());
+    treeProxy.startIterationSmooth(&pDSFB, CkCallbackResumeThread());
     iPhase++;
 
     CkAssert(iPhase <= nPhases);

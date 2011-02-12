@@ -894,7 +894,7 @@ void DistDeletedGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
  */
 int DistStellarFeedbackSmoothParams::isSmoothActive(GravityParticle *p) 
 {
-    return TYPETest(p, iType);
+    return p->isStar();
     }
 
 void DistStellarFeedbackSmoothParams::initTreeParticle(GravityParticle *p1)
