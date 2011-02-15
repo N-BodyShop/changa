@@ -6,6 +6,7 @@
  * modified.  Contributers include Neal Katz, Eric Hayashi, Greg Stinson
  */
 #include <math.h>
+#include <sys/stat.h>
 #include "ParallelGravity.h"
 #include "starform.h"
 #include "smooth.h"

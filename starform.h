@@ -80,7 +80,7 @@ class StarLogEvent : public PUP::able
 	}
     PUPable_decl(StarLogEvent);
  StarLogEvent(CkMigrateMessage *m) : PUP::able(m) {}
-    virtual void pup(PUP::er& p) {
+    void pup(PUP::er& p) {
 	PUP::able::pup(p);
 	p | iOrdStar;
 	p | iOrdGas;
@@ -93,7 +93,7 @@ class StarLogEvent : public PUP::able
 	}
     };
 
-class StarLog
+class StarLog : public PUP::able
 {
  public:
     int nOrdered;		/* The number of events that have been
@@ -105,7 +105,7 @@ class StarLog
     void flush();
     PUPable_decl(StarLog);
  StarLog(CkMigrateMessage *m) : PUP::able(m) {}
-    virtual void pup(PUP::er& p) {
+    void pup(PUP::er& p) {
 	PUP::able::pup(p);
 	p | nOrdered;
 	p | fileName;

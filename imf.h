@@ -34,6 +34,7 @@ class IMF : public PUP::able {
 	p | m3;
 	p | mmax;
 	}
+    virtual ~IMF() {}
 };
 
 
@@ -65,6 +66,7 @@ class MillerScalo : public IMF {
     virtual void pup(PUP::er &p) {
         IMF::pup(p);//Call base class
 	}
+    virtual ~MillerScalo() {}
     };
 
 class Kroupa93 : public IMF {
@@ -80,6 +82,7 @@ class Kroupa93 : public IMF {
     virtual void pup(PUP::er &p) {
         IMF::pup(p);//Call base class
 	}
+    virtual ~Kroupa93() {}
 };
 
 /*
@@ -110,6 +113,7 @@ class Chabrier : public IMF {
     virtual void pup(PUP::er &p) {
         IMF::pup(p);//Call base class
 	}
+    virtual ~Chabrier() {};
 };
 
 
