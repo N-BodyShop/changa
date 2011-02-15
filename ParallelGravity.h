@@ -424,6 +424,7 @@ public:
 	void growMass(double dTime, double dDelta);
 	void initSph();
 	void initCooling();
+	void initStarLog();
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
 	void doSph(int activeRung, int bNeedDensity = 1);
 	void FormStars(double dTime, double dDelta);
@@ -536,6 +537,7 @@ class TreePiece : public CBase_TreePiece {
    State *sPrefetchState;
    State *sLocalGravityState, *sRemoteGravityState, *sSmoothState;
    typedef std::map<CkCacheKey, CkVec<int>* > SmPartRequestType;
+   StarLog *starLog;
    // buffer of requests for smoothParticles.
    SmPartRequestType smPartRequests;
 
@@ -1148,7 +1150,7 @@ public:
  TreePiece() : pieces(thisArrayID), root(0), proxyValid(false),
 	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
 	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
-	  treePieceLoad(0) {
+	    treePieceLoad(0) {
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
 	  dm = NULL;
@@ -1214,6 +1216,7 @@ public:
 	  orbBoundaries.clear();
 	  boxes = NULL;
 	  splitDims = NULL;
+	  starLog = NULL;
 	}
 
 	TreePiece(CkMigrateMessage* m) {
@@ -1282,6 +1285,7 @@ public:
 	  }
 	  delete[] boxes;
 	  delete[] splitDims;
+	  delete starLog;
 
 #ifndef COOLING_NONE
 	  CoolDerivsFinalize(CoolData);
@@ -1428,6 +1432,7 @@ public:
 				   const CkCallback &cb);
 	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
 		       const CkCallback& cb);
+	void flushStarLog(const CkCallback& cb);
 	void Feedback(Fdbk param, double dTime, double dDelta,
 		       const CkCallback& cb);
 	void SetTypeFromFileSweep(int iSetMask, char *file,

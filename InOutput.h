@@ -290,6 +290,42 @@ class Cool2OutputParams : public OutputParams
 	}
     };
 
+class OxOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+	if (TYPETest(p, TYPE_STAR)) return p->fStarMFracOxygen();
+	if (TYPETest(p, TYPE_GAS)) return p->fMFracOxygen();
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    OxOutputParams() {}
+    OxOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    PUPable_decl(OxOutputParams);
+    OxOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class FeOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+	if (TYPETest(p, TYPE_STAR)) return p->fStarMFracIron();
+	if (TYPETest(p, TYPE_GAS)) return p->fMFracIron();
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    FeOutputParams() {}
+    FeOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    PUPable_decl(FeOutputParams);
+    FeOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
 class DtOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)

@@ -1127,8 +1127,12 @@ void TreePiece::newOrder(int64_t nStartSPH, int64_t nStartDark,
 		p->iOrder = nStartSPH++;
 	    else if (p->isDark()) 
 		p->iOrder = nStartDark++;
-	    else 
+	    else {
+		/* Also record iOrder in the starLog table. */
+		dm->starLog->seTab[dm->starLog->nOrdered].iOrdStar = nStartStar;
+		dm->starLog->nOrdered++;
 		p->iOrder = nStartStar++;
+		}
 	    }
 	}
     callback = cb;		// called by assignKeys()

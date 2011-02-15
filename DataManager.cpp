@@ -48,6 +48,7 @@ void DataManager::init() {
   gpuFree = true;
 #endif
   Cool = CoolInit();
+  starLog = new StarLog();
 }
 
 /**
@@ -156,6 +157,7 @@ void DataManager::collectSplitters(CkReductionMsg *m) {
 void DataManager::pup(PUP::er& p) {
     CBase_DataManager::pup(p);
     p | treePieces;
+    p | starLog;
 }
 
 #ifdef CUDA

@@ -83,7 +83,7 @@ void Fdbk::AddParams(PRM prm)
 void Fdbk::CheckParams(PRM prm, struct parameters &param)
 {
 #include "physconst.h"
-
+    param.bDoGas = 1;
 	dSecUnit = param.dSecUnit;
 	dGmPerCcUnit = param.dGmPerCcUnit;
 	dGmUnit = param.dMsolUnit*MSOLG;

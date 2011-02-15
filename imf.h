@@ -54,9 +54,12 @@ class IMF : public PUP::able {
 class MillerScalo : public IMF {
  public:
     /* normalization, index, minimum mass */
- MillerScalo() : IMF(42.0,-0.4,0.1, /* parameters from Ap.J. Supp., 41,1979 */
-    42.0,-1.5,1.0, /* This is discontinuous, but is what */
-    240.0,-2.3,10.0,100.0) { } /* they report in paper, so we leave it.*/
+    MillerScalo() {
+	a1=42.0; b1=-0.4;m1=0.1; /* parameters from Ap.J. Supp., 41,1979 */
+	a2=42.0;b2=-1.5;m2=1.0; /* This is discontinuous, but is what */
+	a3=240.0;b3=-2.3;m3=10.0;/* they report in paper, so we leave it.*/
+	mmax=100.0;
+	} 
     PUPable_decl(MillerScalo);
     MillerScalo(CkMigrateMessage *m) : IMF(m) {}
     virtual void pup(PUP::er &p) {
@@ -68,9 +71,10 @@ class Kroupa93 : public IMF {
  public:
 /* parameters from Raiteri et. al. A&A, 315,1996, eq. 2;  See also the
    conclusions of Kroupa, Tout & Gilmore, 1993. */
- Kroupa93() :  IMF(0.3029*1.86606, -0.3, .08, 
-    0.3029, -1.2, 0.5, 
-    0.3029, -1.7, 1.0, 100.0) { }
+    Kroupa93() {a1=0.3029*1.86606;b1=-0.3;m1=.08; 
+	a2=0.3029;b2=-1.2;m2=0.5; 
+	a3=0.3029; b3=-1.7; m3=1.0; 
+	mmax=100.0; }
     PUPable_decl(Kroupa93);
     Kroupa93(CkMigrateMessage *m) : IMF(m) {}
     virtual void pup(PUP::er &p) {
@@ -91,11 +95,14 @@ class Chabrier : public IMF {
        \xi(log m) = A exp [ - (log m - log m_c)^2/2 \sigma^2]
     double a1, sigma, mc;  (b1 is sigma, m1 is mc)
      */
- Chabrier() : IMF(0.158, .69, .079,
+  Chabrier() {
+      a1=0.158;b1=0.69;m1=.079;
     /* For high mass: normalization, index, minimum mass */
     /* Parameters from Table 1 of Chabrier, 2003. */
-    4.43e-2, -1.3, 1.0,
-    4.43e-2, -1.3, 1.0,100.0) { }
+      a2=4.43e-2;b2=-1.3; m2=1.0;
+      a3=4.43e-2;b3=-1.3; m3=1.0;
+      mmax=100.0;
+      }
   virtual double CumNumber(double mass);
   virtual double CumMass(double mass);
     PUPable_decl(Chabrier);

@@ -73,6 +73,8 @@ mainmodule ParallelGravity {
   PUPable PressureSmoothParams;
   PUPable DistDeletedGasSmoothParams;
   PUPable DistStellarFeedbackSmoothParams;
+  PUPable StarLog;
+  PUPable StarLogEvent;
   PUPable IMF;
   PUPable Chabrier;
   PUPable MillerScalo;
@@ -137,6 +139,7 @@ mainmodule ParallelGravity {
     entry void CoolingSetTime(double z, double dTime, const CkCallback& cb);
     entry void memoryStats(const CkCallback& cb);
     entry void resetReadOnly(Parameters param, const CkCallback &cb);
+    entry void initStarLog(std::string _fileName, const CkCallback &cb);
   };
   array [1D] TreePiece {
     entry TreePiece();
@@ -249,8 +252,9 @@ mainmodule ParallelGravity {
 					const CkCallback &cb);
     entry void getCoolingGasPressure(double gamma, double gammam1,
 				   const CkCallback &cb);
-    entry void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
-		       const CkCallback& cb);
+    entry void FormStars(Stfm param, double dTime, double dDelta, 
+    	       		 double dCosmoFac, const CkCallback& cb);
+    entry void flushStarLog(const CkCallback& cb);
     entry void Feedback(Fdbk param, double dTime, double dDelta, 
     	       		const CkCallback& cb);
     entry void setTypeFromFile(int iSetMask, char file[256],

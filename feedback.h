@@ -92,7 +92,9 @@ class Fdbk {
     void CheckParams(PRM prm, struct parameters &param);
     void DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
 		    FBEffects *fbTotals);
-
+    ~Fdbk() {
+	delete imf;
+	}
     inline void pup(PUP::er &p);
     };
 

@@ -737,6 +737,7 @@ Main::Main(CkArgMsg* m) {
 	    CkAssert(prmSpecified(prm, "dMsolUnit")
 		     && prmSpecified(prm, "dKpcUnit"));
 	    }
+	if(param.bFeedback || param.bStarForm) param.bDoGas = 1;
 #include "physconst.h"
 	/*
 	 ** Convert kboltz/mhydrogen to system units, assuming that
@@ -1458,8 +1459,10 @@ void Main::setupICs() {
   if(param.bGasCooling) 
       initCooling();
   
-  if(param.bStarForm)
+  if(param.bStarForm) {
       param.stfm->CheckParams(prm, param);
+      initStarLog();
+      }
 	
   if(param.bFeedback)
       param.feedback->CheckParams(prm, param);
@@ -1840,6 +1843,7 @@ Main::doSimulation()
 	bIsRestarting = 0;
 	CkCallback cb(CkIndex_TreePiece::restart(), treeProxy[0]);
 	CkStartCheckpoint(achCheckFileName, cb);
+	treeProxy[0].flushStarLog(cb);
 	return;
     }
     if (iStop) break;
