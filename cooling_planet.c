@@ -54,20 +54,40 @@ COOL *CoolInit( )
 
   cl->nTableRead = 0; /* Internal Tables read from Files */
 
-  cl->DerivsData = malloc(sizeof(clDerivsData));
-  assert(cl->DerivsData != NULL);
-  cl->DerivsData->IntegratorContext = 
-    StiffInit( EPSINTEG, 1, cl->DerivsData, clDerivs, clJacobn );
-  
   return cl;
+}
+
+/**
+ * Per thread initialization of cooling
+ * @param cl Initialized COOL structure.
+ */
+
+clDerivsData *CoolDerivsInit(COOL *cl)
+{
+    clDerivsData *Data;
+
+    assert(cl != NULL);
+    Data = malloc(sizeof(clDerivsData));
+    assert(Data != NULL);
+
+    Data->IntegratorContext = StiffInit( EPSINTEG, 1, Data, clDerivs, clJacobn );
+  
+  return Data;
 }
 
 void CoolFinalize(COOL *cl ) 
 {
-  StiffFinalize(cl->DerivsData->IntegratorContext );
-  free(cl->DerivsData);
   free(cl);
 }
+
+/**
+ * Deallocate memory for per-thread data.
+ */
+void CoolDerivsFinalize(clDerivsData *clData)
+{
+    StiffFinalize(clData->IntegratorContext );
+    free(clData);
+    }
 
 void clInitConstants(COOL *cl, double dGmPerCcUnit,
 		     double dComovingGmPerCcUnit, double dErgPerGmUnit,
@@ -141,7 +161,7 @@ double clEdotInstant( COOL *cl, double E, double T, double rho, double rFactor )
  * 
  */
 
-int clDerivs(double x, double *y, double *dydx, void *Data) {
+int clDerivs(double x, const double *y, double *dydx, void *Data) {
   clDerivsData *d = Data;
 
   d->E = y[0];
@@ -150,7 +170,7 @@ int clDerivs(double x, double *y, double *dydx, void *Data) {
   return GSL_SUCCESS;
 }
 
-int clJacobn(double x, double y[], double dfdx[], double *dfdy, void *Data) {
+int clJacobn(double x, const double y[], double dfdx[], double *dfdy, void *Data) {
   clDerivsData *d = Data;
   double E = y[0],dE;
   const int ndim = 1;
@@ -170,12 +190,12 @@ int clJacobn(double x, double y[], double dfdx[], double *dfdy, void *Data) {
   return GSL_SUCCESS;
 }
 
-void clIntegrateEnergy(COOL *cl, double *E, double PdV, double rho,
-		       double Y_Total, double radius, double tStep ) {
+void clIntegrateEnergy(COOL *cl, clDerivsData *clData, double *E, double PdV,
+		       double rho, double Y_Total, double radius, double tStep ) {
 
   double dEdt,dE,Ein = *E,EMin;
   double t=0,dtused,dtnext,tstop = tStep*(1-1e-8),dtEst;
-  clDerivsData *d = cl->DerivsData;
+  clDerivsData *d = clData;
   STIFF *sbs = d->IntegratorContext;
   
   if (tStep <= 0) return;
@@ -332,7 +352,8 @@ double CoolCodeEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E,
 
 #define CONVERT_CMPERKPC (3.0857e21)
 
-void CoolIntegrateEnergyCode(COOL *cl, COOLPARTICLE *cp, double *ECode, 
+void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
+			     double *ECode, 
 		       double PdVCode, double rhoCode, double ZMetal, double *posCode, double tStep ) {
 	double radius;
 	
@@ -340,7 +361,7 @@ void CoolIntegrateEnergyCode(COOL *cl, COOLPARTICLE *cp, double *ECode,
 		*cl->dKpcUnit*CONVERT_CMPERKPC;
 
 	*ECode = CoolCodeEnergyToErgPerGm( cl, *ECode );
-	clIntegrateEnergy(cl,  ECode, CoolCodeWorkToErgPerGmPerSec( cl, PdVCode ), 
+	clIntegrateEnergy(cl,  clData, ECode, CoolCodeWorkToErgPerGmPerSec( cl, PdVCode ), 
 					  CodeDensityToComovingGmPerCc(cl, rhoCode), cp->Y_Total, radius, tStep);
 	*ECode = CoolErgPerGmToCodeEnergy(cl, *ECode);
 
