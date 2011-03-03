@@ -4,5 +4,6 @@
 *.def.h
 config.*
 Makefile
+makefile
 charmrun
 ChaNGa*
