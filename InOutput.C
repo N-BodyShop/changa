@@ -763,6 +763,7 @@ void TreePiece::reOrder(int64_t _nMaxOrder, CkCallback& cb)
 	    binBegin = binEnd;
 	    }
 	}
+    myIOParticles = -1;
     CkCallback cbShuffle = CkCallback(CkIndex_TreePiece::ioShuffle(NULL),
 				      pieces);
     contribute(numTreePieces*sizeof(int), counts, CkReduction::sum_int,
@@ -856,6 +857,7 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 	incomingParticlesArrived += shuffleMsg->n;
 	}
 
+    CkAssert(myIOParticles >= 0);  // check that ioShuffle has been called.
     CkAssert(incomingParticlesArrived <= myIOParticles);
     if(verbosity > 2)
 	ckout << thisIndex << ": incoming: " << incomingParticlesArrived
