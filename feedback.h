@@ -92,6 +92,8 @@ class Fdbk {
     void CheckParams(PRM prm, struct parameters &param);
     void DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
 		    FBEffects *fbTotals);
+    Fdbk();
+    Fdbk(const Fdbk& fb);
     ~Fdbk() {
 	delete imf;
 	}
@@ -131,6 +133,7 @@ inline void Fdbk::pup(PUP::er &p) {
     p | dFracBinSNIa;
     p | imf;
     }
+PUPmarshall(Fdbk);
 
 enum FBenum{
   FB_SNII=0,

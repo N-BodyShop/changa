@@ -18,109 +18,149 @@
 
 void Fdbk::AddParams(PRM prm)
 {
-        achIMF = "Kroupa93";
 	prmAddParam(prm,"achIMF", 1, &achIMF, sizeof(char [32]), "achIMF", "<IMF> = Kroupa93");
-	iRandomSeed = 1;
 	prmAddParam(prm,"iRandomSeed", 1, &iRandomSeed, sizeof(int), "iRand",
 		    "<Feedback random Seed> = 1");
-	iNSNIIQuantum = 0.;
 	prmAddParam(prm,"iNSNIIQuantum", 1, &iNSNIIQuantum, sizeof(int), "snQuant",
 		    "<Min # SNII per timestep> = 0.");
-	dESN = 0.1e51;
 	prmAddParam(prm,"dESN", 2, &dESN, sizeof(double), "snESN",
 		    "<Energy of supernova in ergs> = 0.1e51");
-	if (dESN > 0.0) bSmallSNSmooth = 1;
-        else bSmallSNSmooth = 0;
 	prmAddParam(prm,"bSmallSNSmooth", 0, &bSmallSNSmooth, sizeof(int), "bSmallSNSmooth",
 		    "<smooth SN ejecta over blast or smoothing radius> = blast radius");
-        bShortCoolShutoff = 0;
 	prmAddParam(prm,"bShortCoolShutoff", 0, &bShortCoolShutoff,
 		    sizeof(int), "bShortCoolShutoff", "<Use snowplow time> = 0");
-        dExtraCoolShutoff = 0;
 	prmAddParam(prm,"dExtraCoolShutoff", 0, &dExtraCoolShutoff,
 		    sizeof(int), "dExtraCoolShutoff", "<Use snowplow time> = 0");
-        bSNTurnOffCooling = 1;
 	prmAddParam(prm,"bSNTurnOffCooling", 0, &bSNTurnOffCooling,
 		    sizeof(int), "bSNTurnOffCooling", "<Do SN turn off cooling> = 1");
-	nSmoothFeedback = 64;
 	prmAddParam(prm,"nSmoothFeedback",1,&nSmoothFeedback,sizeof(int),"s",
 		    "<number of particles to smooth feedback over> = 64");
 /* supernova constants */
 	
-	dMSNrem = 1.4;			/* mass of supernova remnant in solar masses 
-						 * Also used for SNIa ejected mass */
-    
-	dMSNIImin = 8.0;		/* Mass above which stars
-					   supernova in solar
-					   masses */
-	dMSNIImax = 40.;		/* Mass below which stars
-					   supernova in solar masses */
-	dMBmin = 3.0;			/* Minimum mass of binary that
-						   can go SNIa */
-	
-	dMBmax = 16.0;			/* Maximum mass of binary that
-						   can go SNIa */
-	dFracBinSNIa = 0.16;/*0.04847;	 fraction of binary systems in
-				  appropriate mass range that go SNIa =
-				  0.16 (van den Bergh & McClure, ApJ
-				  425, 205, 1994) */
-	/* normalization constant and exponent in formulae for masses of
-	   ejected Fe and O16 as a function of stellar mass taken from
-	   Raiteri, Villata and Navarro, A&A 315, 105, 1996 */
-	dMEjexp = 1.056;    
-	dMEjconst = 0.7682; 
-	dMFeexp = 1.864;    
-	dMFeconst = 2.802e-4;
-	dMOxexp = 2.721;
-	dMOxconst = 4.586e-4; 
-	dSNIaMetals = 1.4;  /* Ia's ejecta are entirely metals */
 	if(achIMF == "MillerScalo") imf = new MillerScalo();
 	else if(achIMF == "Chabrier") imf = new Chabrier();
 	else imf = new Kroupa93();
 	//	pdva = new Padova();
 }
 
+Fdbk::Fdbk()
+{
+    achIMF = "Kroupa93";
+    iRandomSeed = 1;
+    iNSNIIQuantum = 0.;
+    dESN = 0.1e51;
+    bSmallSNSmooth = 1;
+    bShortCoolShutoff = 0;
+    dExtraCoolShutoff = 0;
+    bSNTurnOffCooling = 1;
+    nSmoothFeedback = 64;
+    /* supernova constants */
+    dMSNrem = 1.4;	/* mass of supernova remnant in solar masses 
+			 * Also used for SNIa ejected mass */
+    dMSNIImin = 8.0;/* Mass above which stars supernova in solar
+		       masses */
+    dMSNIImax = 40.;/* Mass below which stars supernova in solar masses */
+    dMBmin = 3.0;	/* Minimum mass of binary that can go SNIa */
+    
+    dMBmax = 16.0;	/* Maximum mass of binary that can go SNIa */
+    dFracBinSNIa = 0.16;/*0.04847;	 fraction of binary systems in
+			  appropriate mass range that go SNIa =
+			  0.16 (van den Bergh & McClure, ApJ
+			  425, 205, 1994) */
+    /* normalization constant and exponent in formulae for masses of
+       ejected Fe and O16 as a function of stellar mass taken from
+       Raiteri, Villata and Navarro, A&A 315, 105, 1996 */
+    dMEjexp = 1.056;    
+    dMEjconst = 0.7682; 
+    dMFeexp = 1.864;    
+    dMFeconst = 2.802e-4;
+    dMOxexp = 2.721;
+    dMOxconst = 4.586e-4; 
+    dSNIaMetals = 1.4;  /* Ia's ejecta are entirely metals */
+    if(achIMF == "MillerScalo") imf = new MillerScalo();
+    else if(achIMF == "Chabrier") imf = new Chabrier();
+    else imf = new Kroupa93();
+    //	pdva = new Padova();
+    }
+
+Fdbk::Fdbk(const Fdbk& fb)
+{
+    achIMF  = fb.achIMF;
+    iRandomSeed = fb.iRandomSeed;
+    iNSNIIQuantum  = fb.iNSNIIQuantum ;
+    dESN  = fb.dESN;
+    bSmallSNSmooth  = fb.bSmallSNSmooth;
+    bShortCoolShutoff  = fb.bShortCoolShutoff;
+    dExtraCoolShutoff  = fb.dExtraCoolShutoff;
+    bSNTurnOffCooling  = fb.bSNTurnOffCooling;
+    nSmoothFeedback  = fb.nSmoothFeedback;
+    dMSNrem  = fb.dMSNrem;
+    dMSNIImin  = fb.dMSNIImin;
+    dMSNIImax  = fb.dMSNIImax;
+    dMBmin  = fb.dMBmin;
+    dMBmax  = fb.dMBmax;
+    dFracBinSNIa  = fb.dFracBinSNIa;
+    dMEjexp  = fb.dMEjexp;
+    dMEjconst  = fb.dMEjconst;
+    dMFeexp  = fb.dMFeexp;
+    dMFeconst  = fb.dMFeconst;
+    dMOxexp  = fb.dMOxexp;
+    dMOxconst  = fb.dMOxconst;
+    dSNIaMetals  = fb.dSNIaMetals;
+    dSecUnit = fb.dSecUnit;
+    dGmPerCcUnit = fb.dGmPerCcUnit;
+    dGmUnit = fb.dGmUnit;
+    dErgUnit = fb.dErgUnit;
+    dErgPerGmUnit = fb.dErgPerGmUnit;
+    dRadPreFactor = fb.dRadPreFactor;
+    dTimePreFactor = fb.dTimePreFactor;
+    imf = fb.imf->clone();
+    pdva = fb.pdva;
+}
+
 void Fdbk::CheckParams(PRM prm, struct parameters &param)
 {
 #include "physconst.h"
+    if (dESN > 0.0) bSmallSNSmooth = 1;
+    else bSmallSNSmooth = 0;
     param.bDoGas = 1;
-	dSecUnit = param.dSecUnit;
-	dGmPerCcUnit = param.dGmPerCcUnit;
-	dGmUnit = param.dMsolUnit*MSOLG;
-	dErgUnit = GCGS*pow(param.dMsolUnit*MSOLG, 2.0)
-	  /(param.dKpcUnit*KPCCM);
-	dErgPerGmUnit = GCGS*param.dMsolUnit*MSOLG/(param.dKpcUnit*KPCCM);
-	/* eq 3 from McCray + Kafatos (1987) is good both before SN start
-	 * exploding and after because Luminosity is essentially constant
-	 * Stellar winds:  dM/dt ~ 1e-6 M_sun / yr, v ~ 2000 km/s 
-	 * (cf Castor et al (1975) for theory)
-	 */
-	if (iNSNIIQuantum > 0) {
-	  dRadPreFactor = (0.097 / param.dKpcUnit) *
+    dSecUnit = param.dSecUnit;
+    dGmPerCcUnit = param.dGmPerCcUnit;
+    dGmUnit = param.dMsolUnit*MSOLG;
+    dErgUnit = GCGS*pow(param.dMsolUnit*MSOLG, 2.0)
+	/(param.dKpcUnit*KPCCM);
+    dErgPerGmUnit = GCGS*param.dMsolUnit*MSOLG/(param.dKpcUnit*KPCCM);
+    /* eq 3 from McCray + Kafatos (1987) is good both before SN start
+     * exploding and after because Luminosity is essentially constant
+     * Stellar winds:  dM/dt ~ 1e-6 M_sun / yr, v ~ 2000 km/s 
+     * (cf Castor et al (1975) for theory)
+     */
+    if (iNSNIIQuantum > 0) {
+	dRadPreFactor = (0.097 / param.dKpcUnit) *
 	    pow(param.dGmPerCcUnit/MHYDR,-0.2)*
 	    pow(param.dSecUnit/SECONDSPERYEAR / 1e7,0.6);
-	  /* Solar metallicity Z from Grevesse & Sauval (1998) SSR 85 161*/
-	  /* TOO LONG dTimePreFactor = 4e6*SECONDSPERYEAR/
-	    param.dSecUnit * pow(0.018,1.5)*
-	    pow(param.dGmPerCcUnit/MHYDR,-0.7);*/
+	/* Solar metallicity Z from Grevesse & Sauval (1998) SSR 85 161*/
+	/* TOO LONG dTimePreFactor = 4e6*SECONDSPERYEAR/
+	   param.dSecUnit * pow(0.018,1.5)*
+	   pow(param.dGmPerCcUnit/MHYDR,-0.7);*/
 	} else {
-	  /* from McKee and Ostriker (1977) ApJ 218 148 */
-	  dRadPreFactor = pow(10,1.74)/(param.dKpcUnit*1000.0)*
+	/* from McKee and Ostriker (1977) ApJ 218 148 */
+	dRadPreFactor = pow(10,1.74)/(param.dKpcUnit*1000.0)*
 	    pow(MSOLG*param.dMsolUnit/(param.dMeanMolWeight*MHYDR*pow(KPCCM*param.dKpcUnit,3)),-0.16)*
 	    pow(0.0001*GCGS*pow(MSOLG*param.dMsolUnit,2)/(pow(KPCCM*param.dKpcUnit,4)*KBOLTZ),-0.2);
 	}
-	if (bShortCoolShutoff){        /* end of snowplow */
-	  dTimePreFactor = 
+    if (bShortCoolShutoff){        /* end of snowplow */
+	dTimePreFactor = 
 	    SECONDSPERYEAR*pow(10,5.92)/(param.dSecUnit)*
 	    pow(MSOLG*param.dMsolUnit/(param.dMeanMolWeight*MHYDR*pow(KPCCM*param.dKpcUnit,3)),0.27)*
 	    pow(0.0001*GCGS*pow(MSOLG*param.dMsolUnit,2)/(pow(KPCCM*param.dKpcUnit,4)*KBOLTZ),-0.64);
 	} else {       /* t_{max}*/
-	  dTimePreFactor = dExtraCoolShutoff*SECONDSPERYEAR*pow(10,6.85)/(dSecUnit)*
+	dTimePreFactor = dExtraCoolShutoff*SECONDSPERYEAR*pow(10,6.85)/(dSecUnit)*
 	    pow(MSOLG*param.dMsolUnit/(param.dMeanMolWeight*MHYDR*pow(KPCCM*param.dKpcUnit,3)),0.32)*
 	    pow(0.0001*GCGS*pow(MSOLG*param.dMsolUnit,2)/(pow(KPCCM*param.dKpcUnit,4)*KBOLTZ),-0.70);
 	}
-
-}
+    
+    }
 
 ///
 /// form stars main method
@@ -135,7 +175,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
 
     CkReductionMsg *msgFeedback;
     treeProxy.Feedback(*(param.feedback), dTime, dDelta,
-			CkCallbackResumeThread((void*&)msgFeedback));
+		       CkCallbackResumeThread((void*&)msgFeedback));
     double *dFeedback = (double *)msgFeedback->getData();
     
     if(verbosity) 
@@ -172,7 +212,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
     }
 
 ///
-/// processor specific method for star formation
+/// processor specific method for stellar feedback
 /// 
 void TreePiece::Feedback(Fdbk fb, double dTime, double dDelta, const CkCallback& cb)
 {
@@ -216,11 +256,11 @@ void TreePiece::Feedback(Fdbk fb, double dTime, double dDelta, const CkCallback&
 void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
 		      FBEffects *fbTotals)
 {
-  double dTotMassLoss, dTotMetals, dTotMOxygen, dTotMIron, dDelta;
-  dTotMassLoss = dTotMetals = dTotMOxygen = dTotMIron = 0.0;
-  dDelta = dDeltaYr*SECONDSPERYEAR / dSecUnit;
-  p->fESNrate() = 0.0;
-  p->fNSN() = 0.0;
+    double dTotMassLoss, dTotMetals, dTotMOxygen, dTotMIron, dDelta;
+    dTotMassLoss = dTotMetals = dTotMOxygen = dTotMIron = 0.0;
+    dDelta = dDeltaYr*SECONDSPERYEAR / dSecUnit;
+    p->fESNrate() = 0.0;
+    p->fNSN() = 0.0;
   
     FBEffects fbEffects;
     // Particle properties that will be sent to feedback
@@ -237,45 +277,45 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
      * Call all the effects in order and accumulate them.
      */
     for(int j = 0; j < NFEEDBACKS; j++) {
-      double dNSNII = 0;
-      switch (j) {
-      case FB_SNII:
-	CalcSNIIFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
-	if (dESN > 0) p->fNSN() = fbEffects.dEnergy / dESN;
-	break;
-      case FB_SNIA:
-	CalcSNIaFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
-	dSNIaMassStore=fbEffects.dMassLoss;
-	break;
-      case FB_WIND:
-	CalcWindFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
-	fbEffects.dMassLoss -= dSNIaMassStore;
-	/*printf("Wind, SNaI Mass Loss: %d   %d\n",fbEffects.dMassLoss,dSNIaMassStore); */
-	break;
-      case FB_UV:
+	double dNSNII = 0;
+	switch (j) {
+	case FB_SNII:
+	    CalcSNIIFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
+	    if (dESN > 0) p->fNSN() = fbEffects.dEnergy / dESN;
+	    break;
+	case FB_SNIA:
+	    CalcSNIaFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
+	    dSNIaMassStore=fbEffects.dMassLoss;
+	    break;
+	case FB_WIND:
+	    CalcWindFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
+	    fbEffects.dMassLoss -= dSNIaMassStore;
+	    /*printf("Wind, SNaI Mass Loss: %d   %d\n",fbEffects.dMassLoss,dSNIaMassStore); */
+	    break;
+	case FB_UV:
 	CalcUVFeedback(dTime, dDeltaYr, &fbEffects);
 	break;
-      default:
-	assert(0);
-      }
-      
-      // Convert to system units
-      fbEffects.dMassLoss *= MSOLG/dGmUnit;
-      fbEffects.dEnergy /= dErgPerGmUnit;
-      
-      dTotMassLoss += fbEffects.dMassLoss;
-      p->fESNrate() += fbEffects.dEnergy*fbEffects.dMassLoss;
-      dTotMetals += fbEffects.dMetals*fbEffects.dMassLoss;
-      dTotMOxygen += fbEffects.dMOxygen*fbEffects.dMassLoss;
-      dTotMIron += fbEffects.dMIron*fbEffects.dMassLoss;
-      
-      fbTotals[j].dMassLoss += fbEffects.dMassLoss;
-      fbTotals[j].dEnergy += fbEffects.dEnergy*fbEffects.dMassLoss;
-      fbTotals[j].dMetals += fbEffects.dMetals*fbEffects.dMassLoss;
-      fbTotals[j].dMIron += fbEffects.dMIron*fbEffects.dMassLoss;
-      fbTotals[j].dMOxygen += fbEffects.dMOxygen*fbEffects.dMassLoss;
-    }
-
+	default:
+	    assert(0);
+	    }
+	
+	// Convert to system units
+	fbEffects.dMassLoss *= MSOLG/dGmUnit;
+	fbEffects.dEnergy /= dErgPerGmUnit;
+	
+	dTotMassLoss += fbEffects.dMassLoss;
+	p->fESNrate() += fbEffects.dEnergy*fbEffects.dMassLoss;
+	dTotMetals += fbEffects.dMetals*fbEffects.dMassLoss;
+	dTotMOxygen += fbEffects.dMOxygen*fbEffects.dMassLoss;
+	dTotMIron += fbEffects.dMIron*fbEffects.dMassLoss;
+	
+	fbTotals[j].dMassLoss += fbEffects.dMassLoss;
+	fbTotals[j].dEnergy += fbEffects.dEnergy*fbEffects.dMassLoss;
+	fbTotals[j].dMetals += fbEffects.dMetals*fbEffects.dMassLoss;
+	fbTotals[j].dMIron += fbEffects.dMIron*fbEffects.dMassLoss;
+	fbTotals[j].dMOxygen += fbEffects.dMOxygen*fbEffects.dMassLoss;
+	}
+    
     /*
      * Modify star particle
      */

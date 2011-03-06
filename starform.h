@@ -54,7 +54,7 @@ inline void Stfm::pup(PUP::er &p) {
     p|dMaxStarMass;
     }
 
-class StarLogEvent : public PUP::able
+class StarLogEvent
 	/* Holds statistics of the star formation event */
 {
  public:
@@ -78,10 +78,7 @@ class StarLogEvent : public PUP::able
 	rhoForm = p->fDensity/dCosmoFac;
 	TForm = TempForm;
 	}
-    PUPable_decl(StarLogEvent);
- StarLogEvent(CkMigrateMessage *m) : PUP::able(m) {}
     void pup(PUP::er& p) {
-	PUP::able::pup(p);
 	p | iOrdStar;
 	p | iOrdGas;
 	p | timeForm;

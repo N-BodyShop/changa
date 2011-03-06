@@ -73,6 +73,21 @@ double IMF::CumNumber(double mass)
     return dCumN;
     }
 
+MillerScalo* MillerScalo::clone() const
+{
+    return new MillerScalo();
+    }
+
+Kroupa93* Kroupa93::clone() const
+{
+    return new Kroupa93();
+    }
+
+Chabrier* Chabrier::clone() const
+{
+    return new Chabrier();
+    }
+
 double Chabrier::CumNumber(double mass)
 {
     double dCumN;
