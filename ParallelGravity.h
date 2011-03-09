@@ -1151,6 +1151,7 @@ public:
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
 	  dm = NULL;
+	  foundLB = Null; 
 	  iterationNo=0;
 	  usesAtSync=CmiTrue;
 	  bucketReqs=NULL;
