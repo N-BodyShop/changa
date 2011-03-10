@@ -75,17 +75,17 @@ double IMF::CumNumber(double mass)
 
 MillerScalo* MillerScalo::clone() const
 {
-    return new MillerScalo();
+    return new MillerScalo(*this);
     }
 
 Kroupa93* Kroupa93::clone() const
 {
-    return new Kroupa93();
+    return new Kroupa93(*this);
     }
 
 Chabrier* Chabrier::clone() const
 {
-    return new Chabrier();
+    return new Chabrier(*this);
     }
 
 double Chabrier::CumNumber(double mass)

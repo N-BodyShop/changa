@@ -7,7 +7,7 @@
 #include <math.h>
 #include <assert.h>
 #include <string.h>
-#include <float.h>
+#include <values.h>
 
 #include <charm.h>
 
@@ -285,7 +285,6 @@ void dfParseOptions( struct DumpFrameContext *df, char * filename ) {
 	df->bGetCentreOfMass = 0;
 	df->bGetOldestStar = 0;
 	df->bGetPhotogenic = 0;
-	sprintf(df->FileName, "%s.%%09i.ppm", FileBaseName);
 
 	fp = fopen( filename, "r" );
 	if (fp==NULL) return;
