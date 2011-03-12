@@ -931,6 +931,10 @@ void DistStellarFeedbackSmoothParams::initSmoothCache(GravityParticle *p1)
     p1->fMFracIron() = 0.0;
     }
 
+static inline double max(double a, double b) {
+    return (a > b ? a : b);
+}
+
 void DistStellarFeedbackSmoothParams::combSmoothCache(GravityParticle *p1,
 						      ExternalSmoothParticle *p2)
 {
