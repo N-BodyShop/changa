@@ -24,7 +24,8 @@ class IMF : public PUP::able {
 	double _a3, double _b3, double _m3, double _mmax) :a1(_a1),b1(_b1),
       m1(_m1), a2(_a2), b2(_b2), m2(_m2), a3(_a3), b3(_b3), m3(_m3),mmax(_mmax){}
     PUPable_abstract(IMF);
-    void pup(PUP::er &p) {
+    virtual void pup(PUP::er &p) {
+	PUP::able::pup(p);
 	p|a1; p|b1; p|m1;
 	p|a2; p|b2; p|m2;
 	p|a3; p|b3; p|m3;
