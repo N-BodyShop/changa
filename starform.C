@@ -345,10 +345,10 @@ void Main::initStarLog(){
 
 void DataManager::initStarLog(std::string _fileName, const CkCallback &cb) {
     starLog->fileName = _fileName;
-    cb.send();
+    contribute(cb);
     }
 
-// Output a Tipsy ASCII file.
+/// \brief flush starlog table to disk.
 void TreePiece::flushStarLog(const CkCallback& cb) {
 
     if(verbosity > 3)
