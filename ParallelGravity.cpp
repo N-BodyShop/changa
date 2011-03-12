@@ -1850,11 +1850,11 @@ Main::doSimulation()
 	// The following drift is called because it deletes the tree
 	// so it won't be saved on disk.
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+	treeProxy[0].flushStarLog(CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
 	bIsRestarting = 0;
 	CkCallback cb(CkIndex_TreePiece::restart(), treeProxy[0]);
 	CkStartCheckpoint(achCheckFileName, cb);
-	treeProxy[0].flushStarLog(cb);
 	return;
     }
     if (iStop) break;

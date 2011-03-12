@@ -537,7 +537,6 @@ class TreePiece : public CBase_TreePiece {
    State *sPrefetchState;
    State *sLocalGravityState, *sRemoteGravityState, *sSmoothState;
    typedef std::map<CkCacheKey, CkVec<int>* > SmPartRequestType;
-   StarLog *starLog;
    // buffer of requests for smoothParticles.
    SmPartRequestType smPartRequests;
 
@@ -1216,7 +1215,6 @@ public:
 	  orbBoundaries.clear();
 	  boxes = NULL;
 	  splitDims = NULL;
-	  starLog = NULL;
 	}
 
 	TreePiece(CkMigrateMessage* m) {
@@ -1285,7 +1283,6 @@ public:
 	  }
 	  delete[] boxes;
 	  delete[] splitDims;
-	  delete starLog;
 
 #ifndef COOLING_NONE
 	  CoolDerivsFinalize(CoolData);
