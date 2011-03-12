@@ -176,6 +176,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     if(p.isUnpacking())
  	param.stfm = new Stfm();
     p|*param.stfm;
+    p|param.bFeedback;
     if(p.isUnpacking())
  	param.feedback = new Fdbk();
     p|*param.feedback;
