@@ -1267,6 +1267,7 @@ public:
 	  if (verbosity>1) ckout <<"Deallocating treepiece "<<thisIndex<<endl;
 	  delete[] myParticles;
 	  delete[] mySPHParticles;
+	  delete[] myStarParticles;
 	  //delete[] splitters;
 	  //delete[] prefetchRoots;
 	  //delete[] remaining Chunk;
