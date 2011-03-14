@@ -171,8 +171,8 @@ class DistDeletedGasSmoothParams : public SmoothParams
  */
 class DistStellarFeedbackSmoothParams : public SmoothParams
 {
-  double dTime, H, a, gamma;
-  Fdbk fb;
+    double dTime, H, a, gamma;
+    Fdbk *fb;
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
     virtual int isSmoothActive(GravityParticle *p);
@@ -186,11 +186,12 @@ class DistStellarFeedbackSmoothParams : public SmoothParams
  public:
     DistStellarFeedbackSmoothParams() {}
     DistStellarFeedbackSmoothParams(int _iType, int am, CSM csm, double _dTime,
-				    double _gamma, Fdbk *feedback) {
+				    double _gamma, Fdbk *feedback) : 
+    fb (feedback) {
 	iType = _iType;
 	activeRung = am;
 	gamma = _gamma;
-	fb = *feedback;
+	dTime = _dTime;
 	if(csm->bComove) {
 	    H = csmTime2Hub(csm,dTime);
 	    a = csmTime2Exp(csm,dTime);
@@ -200,6 +201,9 @@ class DistStellarFeedbackSmoothParams : public SmoothParams
 	    a = 1.0;
 	    }
 	}
+    /*    ~DistStellarFeedbackSmoothParams() {
+	delete fb;
+	}*/
     PUPable_decl(DistStellarFeedbackSmoothParams);
     DistStellarFeedbackSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
     virtual void pup(PUP::er &p) {
@@ -208,6 +212,7 @@ class DistStellarFeedbackSmoothParams : public SmoothParams
 	p|H;
 	p|gamma;
 	p|fb;
+	p|dTime;
 	}
     };
 

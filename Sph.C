@@ -1053,34 +1053,34 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 	}
     fNorm_Pres *= (gamma-1.0)/dCosmoDenFac;
     fAveDens /= dCosmoDenFac;
-    if (fb.iNSNIIQuantum > 0) {
+    if (fb->iNSNIIQuantum > 0) {
 	/* McCray + Kafatos (1987) ApJ 317 190*/
-	fBlastRadius = fb.dRadPreFactor*pow(p->fNSN() / fAveDens, 0.2) * 
+	fBlastRadius = fb->dRadPreFactor*pow(p->fNSN() / fAveDens, 0.2) * 
 	    pow(dAge,0.6)/aFac; /* eq 3 */
 	/* TOO LONG    fShutoffTime = dTimePreFactor*pow(p->fMetals, -1.5)*
 	   pow(p->fNSN,0.3) / pow(fAveDens,0.7);*/
 	}
     else {
 	/* from McKee and Ostriker (1977) ApJ 218 148 */
-	fBlastRadius = fb.dRadPreFactor*pow(p->fNSN(),0.32)*
+	fBlastRadius = fb->dRadPreFactor*pow(p->fNSN(),0.32)*
 	    pow(fAveDens,-0.16)*pow(fNorm_Pres,-0.2)/aFac;
 	}
-    if (fb.bShortCoolShutoff){
+    if (fb->bShortCoolShutoff){
 	/* End of snowplow phase */
-	fShutoffTime = fb.dTimePreFactor*pow(p->fNSN(),0.31)*
+	fShutoffTime = fb->dTimePreFactor*pow(p->fNSN(),0.31)*
 	    pow(fAveDens,0.27)*pow(fNorm_Pres,-0.64);
 	} else{        /* McKee + Ostriker 1977 t_{max} */
-	fShutoffTime = fb.dTimePreFactor*pow(p->fNSN(),0.32)*
+	fShutoffTime = fb->dTimePreFactor*pow(p->fNSN(),0.32)*
 	    pow(fAveDens,0.34)*pow(fNorm_Pres,-0.70);
 	}
     /* Shut off cooling for 3 Myr for stellar wind */
-    if (p->fNSN() < fb.iNSNIIQuantum)
-	fShutoffTime= 3e6 * SECONDSPERYEAR / fb.dSecUnit;
+    if (p->fNSN() < fb->iNSNIIQuantum)
+	fShutoffTime= 3e6 * SECONDSPERYEAR / fb->dSecUnit;
     
     fmind = p->fBall*p->fBall;
     imind = 0;
     if ( p->fESNrate() > 0.0 ) {
-	if(fb.bSmallSNSmooth) {
+	if(fb->bSmallSNSmooth) {
 	    /* Change smoothing radius to blast radius 
 	     * so that we only distribute mass, metals, and energy
 	     * over that range. 
@@ -1095,7 +1095,7 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 	for (i=0;i<nSmooth;++i) {
 	    double fDist2 = nList[i].fKey;
 	    if ( fDist2 < fmind ){imind = i; fmind = fDist2;}
-	    if ( fDist2 < f2h2 || !fb.bSmallSNSmooth) {
+	    if ( fDist2 < f2h2 || !fb->bSmallSNSmooth) {
 		r2 = fDist2*ih2;            
 		rs = KERNEL(r2);
 		q = nList[i].p;
@@ -1133,9 +1133,9 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 	double weight;
 	double fDist2 = nList[i].fKey;
 	q = nList[i].p;
-	if (fb.bSmallSNSmooth) {
+	if (fb->bSmallSNSmooth) {
 	    if ( (fDist2 <= f2h2) || (i == imind) ) {
-		if( fb.bSNTurnOffCooling && 
+		if( fb->bSNTurnOffCooling && 
 		    (fBlastRadius*fBlastRadius >= fDist2)) {
 		    q->fTimeCoolIsOffUntil() = max(q->fTimeCoolIsOffUntil(),
 						   dTime + fShutoffTime);
@@ -1172,7 +1172,7 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 	    q->fESNrate() += weight*p->fESNrate();
 	    /*		printf("SNTEST: %d %g %g %g %g\n",q->iOrder,weight,sqrt(q->r[0]*q->r[0]+q->r[1]*q->r[1]+q->r[2]*q->r[2]),q->fESNrate,q->fDensity);*/
 	    
-	    if ( p->fESNrate() > 0.0 && fb.bSNTurnOffCooling && 
+	    if ( p->fESNrate() > 0.0 && fb->bSNTurnOffCooling && 
 		 (fBlastRadius*fBlastRadius >= fDist2)){
 		q->fTimeCoolIsOffUntil() = max(q->fTimeCoolIsOffUntil(),
 					       dTime + fShutoffTime);       

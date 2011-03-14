@@ -40,7 +40,9 @@ class SFEvent {
     dMass(mass), dTimeForm(tform), dMetals(mets), dMFracIron(fefrac), dMFracOxygen(oxfrac) { }
     };
 
-class Fdbk {
+class Fdbk : public PUP::able {
+ private:
+    Fdbk& operator=(Fdbk& fb) {}
     void CalcSNIIFeedback(SFEvent *sfEvent, double dTime, double dDelta, 
 			  FBEffects *fbEffects);
     void CalcSNIaFeedback(SFEvent *sfEvent,double dTime, 
@@ -92,8 +94,49 @@ class Fdbk {
     void CheckParams(PRM prm, struct parameters &param);
     void DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
 		    FBEffects *fbTotals);
-    Fdbk();
-    Fdbk(const Fdbk& fb);
+ Fdbk() : achIMF("Kroupa93"),iRandomSeed(1),iNSNIIQuantum(0.),dESN(0.1e51),
+	bSmallSNSmooth(1),bShortCoolShutoff(0),dExtraCoolShutoff(0),
+	bSNTurnOffCooling(1), nSmoothFeedback(64),
+	/* supernova constants */
+	dMSNrem(1.4),	/* mass of supernova remnant in solar masses 
+			 * Also used for SNIa ejected mass */
+	dMSNIImin(8.0),/* Mass above which stars supernova in solar
+			  masses */
+	dMSNIImax(40.),/* Mass below which stars supernova in solar masses */
+	dMBmin(3.0),	/* Minimum mass of binary that can go SNIa */
+	
+	dMBmax(16.0),	/* Maximum mass of binary that can go SNIa */
+	dFracBinSNIa(0.16),/*0.04847),	 fraction of binary systems in
+			     appropriate mass range that go SNIa =
+			     0.16 (van den Bergh & McClure, ApJ
+			     425, 205, 1994) */
+	/* normalization constant and exponent in formulae for masses of
+	   ejected Fe and O16 as a function of stellar mass taken from
+	   Raiteri, Villata and Navarro, A&A 315, 105, 1996 */
+	dMEjexp(1.056),dMEjconst(0.7682), dMFeexp(1.864), dMFeconst(2.802e-4),
+	dMOxexp(2.721),	dMOxconst(4.586e-4), 
+	dSNIaMetals(1.4)  /* Ia's ejecta are entirely metals */
+	    { /*pdva = new Padova();*/}
+
+ Fdbk(const Fdbk& fb) : achIMF (fb.achIMF), iRandomSeed(fb.iRandomSeed),
+	iNSNIIQuantum (fb.iNSNIIQuantum ), dESN (fb.dESN),
+	bSmallSNSmooth (fb.bSmallSNSmooth), 
+	bShortCoolShutoff (fb.bShortCoolShutoff),
+	dExtraCoolShutoff (fb.dExtraCoolShutoff),
+	bSNTurnOffCooling (fb.bSNTurnOffCooling),
+	nSmoothFeedback (fb.nSmoothFeedback),
+	dMSNrem (fb.dMSNrem),dMSNIImin (fb.dMSNIImin),dMSNIImax (fb.dMSNIImax),
+	dMBmin (fb.dMBmin),dMBmax (fb.dMBmax), dFracBinSNIa (fb.dFracBinSNIa),
+	dMEjexp (fb.dMEjexp),dMEjconst (fb.dMEjconst), dMFeexp (fb.dMFeexp),
+	dMFeconst (fb.dMFeconst), dMOxexp (fb.dMOxexp),dMOxconst (fb.dMOxconst),
+	dSNIaMetals (fb.dSNIaMetals), dSecUnit(fb.dSecUnit),
+	dGmPerCcUnit(fb.dGmPerCcUnit), dGmUnit(fb.dGmUnit),
+	dErgUnit(fb.dErgUnit), dErgPerGmUnit(fb.dErgPerGmUnit),
+	dRadPreFactor(fb.dRadPreFactor),dTimePreFactor(fb.dTimePreFactor),
+	pdva(fb.pdva) {	imf = fb.imf->clone();	}
+
+    PUPable_decl(Fdbk);
+ Fdbk(CkMigrateMessage *m) : PUP::able(m) {}
     ~Fdbk() {
 	delete imf;
 	}

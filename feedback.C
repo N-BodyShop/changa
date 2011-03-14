@@ -37,89 +37,14 @@ void Fdbk::AddParams(PRM prm)
 		    "<number of particles to smooth feedback over> = 64");
 /* supernova constants */
 	
-	if(achIMF == "MillerScalo") imf = new MillerScalo();
-	else if(achIMF == "Chabrier") imf = new Chabrier();
-	else imf = new Kroupa93();
 	//	pdva = new Padova();
-}
-
-Fdbk::Fdbk()
-{
-    achIMF = "Kroupa93";
-    iRandomSeed = 1;
-    iNSNIIQuantum = 0.;
-    dESN = 0.1e51;
-    bSmallSNSmooth = 1;
-    bShortCoolShutoff = 0;
-    dExtraCoolShutoff = 0;
-    bSNTurnOffCooling = 1;
-    nSmoothFeedback = 64;
-    /* supernova constants */
-    dMSNrem = 1.4;	/* mass of supernova remnant in solar masses 
-			 * Also used for SNIa ejected mass */
-    dMSNIImin = 8.0;/* Mass above which stars supernova in solar
-		       masses */
-    dMSNIImax = 40.;/* Mass below which stars supernova in solar masses */
-    dMBmin = 3.0;	/* Minimum mass of binary that can go SNIa */
-    
-    dMBmax = 16.0;	/* Maximum mass of binary that can go SNIa */
-    dFracBinSNIa = 0.16;/*0.04847;	 fraction of binary systems in
-			  appropriate mass range that go SNIa =
-			  0.16 (van den Bergh & McClure, ApJ
-			  425, 205, 1994) */
-    /* normalization constant and exponent in formulae for masses of
-       ejected Fe and O16 as a function of stellar mass taken from
-       Raiteri, Villata and Navarro, A&A 315, 105, 1996 */
-    dMEjexp = 1.056;    
-    dMEjconst = 0.7682; 
-    dMFeexp = 1.864;    
-    dMFeconst = 2.802e-4;
-    dMOxexp = 2.721;
-    dMOxconst = 4.586e-4; 
-    dSNIaMetals = 1.4;  /* Ia's ejecta are entirely metals */
-    if(achIMF == "MillerScalo") imf = new MillerScalo();
-    else if(achIMF == "Chabrier") imf = new Chabrier();
-    else imf = new Kroupa93();
-    //	pdva = new Padova();
-    }
-
-Fdbk::Fdbk(const Fdbk& fb)
-{
-    achIMF  = fb.achIMF;
-    iRandomSeed = fb.iRandomSeed;
-    iNSNIIQuantum  = fb.iNSNIIQuantum ;
-    dESN  = fb.dESN;
-    bSmallSNSmooth  = fb.bSmallSNSmooth;
-    bShortCoolShutoff  = fb.bShortCoolShutoff;
-    dExtraCoolShutoff  = fb.dExtraCoolShutoff;
-    bSNTurnOffCooling  = fb.bSNTurnOffCooling;
-    nSmoothFeedback  = fb.nSmoothFeedback;
-    dMSNrem  = fb.dMSNrem;
-    dMSNIImin  = fb.dMSNIImin;
-    dMSNIImax  = fb.dMSNIImax;
-    dMBmin  = fb.dMBmin;
-    dMBmax  = fb.dMBmax;
-    dFracBinSNIa  = fb.dFracBinSNIa;
-    dMEjexp  = fb.dMEjexp;
-    dMEjconst  = fb.dMEjconst;
-    dMFeexp  = fb.dMFeexp;
-    dMFeconst  = fb.dMFeconst;
-    dMOxexp  = fb.dMOxexp;
-    dMOxconst  = fb.dMOxconst;
-    dSNIaMetals  = fb.dSNIaMetals;
-    dSecUnit = fb.dSecUnit;
-    dGmPerCcUnit = fb.dGmPerCcUnit;
-    dGmUnit = fb.dGmUnit;
-    dErgUnit = fb.dErgUnit;
-    dErgPerGmUnit = fb.dErgPerGmUnit;
-    dRadPreFactor = fb.dRadPreFactor;
-    dTimePreFactor = fb.dTimePreFactor;
-    imf = fb.imf->clone();
-    pdva = fb.pdva;
 }
 
 void Fdbk::CheckParams(PRM prm, struct parameters &param)
 {
+    if(achIMF == "MillerScalo") imf = new MillerScalo();
+    else if(achIMF == "Chabrier") imf = new Chabrier();
+    else if(achIMF == "Kroupa93") imf = new Kroupa93();
 #include "physconst.h"
     if (dESN > 0.0) bSmallSNSmooth = 1;
     else bSmallSNSmooth = 0;
@@ -161,6 +86,7 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
 	}
     
     }
+
 
 ///
 /// form stars main method
@@ -214,7 +140,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
 ///
 /// processor specific method for stellar feedback
 /// 
-void TreePiece::Feedback(Fdbk fb, double dTime, double dDelta, const CkCallback& cb)
+void TreePiece::Feedback(Fdbk &fb, double dTime, double dDelta, const CkCallback& cb)
 {
     FBEffects fbTotals[NFEEDBACKS];
     double dDeltaYr;

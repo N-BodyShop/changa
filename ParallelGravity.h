@@ -1431,7 +1431,7 @@ public:
 	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
 		       const CkCallback& cb);
 	void flushStarLog(const CkCallback& cb);
-	void Feedback(Fdbk fb, double dTime, double dDelta,
+	void Feedback(Fdbk &fb, double dTime, double dDelta,
 		       const CkCallback& cb);
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
