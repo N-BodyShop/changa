@@ -2342,26 +2342,26 @@ void Main::addDelParticles()
 	CkPrintf("Changing Particle number\n");
 	
     treeProxy.colNParts(CkCallbackResumeThread((void*&)msg));
-    // a set of one element per treepiece
-    CkReduction::setElement *cur = (CkReduction::setElement *) msg->getData();
+    // an array of one element per treepiece produced by CkReduction::concat
+    // @TODO: replace this with a proper scan
+    CountSetPart *counts = (CountSetPart *) msg->getData();
+    CkAssert(msg->getSize() == numTreePieces*sizeof(*counts));
 
     // Callback for neworder
     CkCallbackResumeThread cb;
 
-    while(cur != NULL) {
-	CountSetPart *counts = (CountSetPart *)cur->data;
-	
-	treeProxy[counts->index].newOrder(nMaxOrderGas+1, nMaxOrderDark+1,
-					  nMaxOrder+1, cb);
+    int iPiece = 0;
+    for(iPiece = 0; iPiece < numTreePieces; iPiece++) {
+	treeProxy[counts[iPiece].index].newOrder(nMaxOrderGas+1,
+						 nMaxOrderDark+1,
+						 nMaxOrder+1, cb);
 
-	nMaxOrderGas += counts->nAddGas;
-	nMaxOrderDark += counts->nAddDark;
-	nMaxOrder += counts->nAddStar;
-	nTotalSPH += counts->nAddGas - counts->nDelGas;
-	nTotalDark += counts->nAddDark - counts->nDelDark;
-	nTotalStar += counts->nAddStar - counts->nDelStar;
-	
-	cur = cur->next();
+	nMaxOrderGas += counts[iPiece].nAddGas;
+	nMaxOrderDark += counts[iPiece].nAddDark;
+	nMaxOrder += counts[iPiece].nAddStar;
+	nTotalSPH += counts[iPiece].nAddGas - counts[iPiece].nDelGas;
+	nTotalDark += counts[iPiece].nAddDark - counts[iPiece].nDelDark;
+	nTotalStar += counts[iPiece].nAddStar - counts[iPiece].nDelStar;
 	}
     nTotalParticles = nTotalSPH + nTotalDark + nTotalStar;
     delete msg;

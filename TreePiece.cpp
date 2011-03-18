@@ -1107,7 +1107,7 @@ void TreePiece::colNParts(const CkCallback &cb)
 	myParticles[j] = myParticles[i];
 
     myNumParticles = newNPart;
-    contribute(sizeof(counts), &counts, CkReduction::set, cb);
+    contribute(sizeof(counts), &counts, CkReduction::concat, cb);
     }
 
 /**
