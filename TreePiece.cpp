@@ -2026,8 +2026,8 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
       }
     } else if (child->getType() == Internal
               && (child->lastParticle - child->firstParticle < maxBucketSize
-                  || level > 61)) {
-       if(level > 61)
+                  || level >= 61)) {
+       if(level >= 61)
            ckerr << "Truncated tree with "
                  << child->lastParticle - child->firstParticle
                  << " particle bucket" << endl;
@@ -2269,8 +2269,6 @@ void TreePiece::initBuckets() {
   for (unsigned int j=0; j<numBuckets; ++j) {
     GenericTreeNode* node = bucketList[j];
     int numParticlesInBucket = node->particleCount;
-
-    CkAssert(numParticlesInBucket <= maxBucketSize);
 
     // TODO: active bounds may give a performance boost in the
     // multi-timstep regime.
