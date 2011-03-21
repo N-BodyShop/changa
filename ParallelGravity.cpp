@@ -1635,7 +1635,11 @@ Main::initialForces()
         << endl;
   
   // Balance load initially after decomposition
+  ckout << "Initial load balancing ..." << endl;
+  startTime = CkWallTimer();
   treeProxy.balanceBeforeInitialForces(CkCallbackResumeThread());
+  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+        << endl;
 
   /******** Tree Build *******/
   ckout << "Building trees ...";
