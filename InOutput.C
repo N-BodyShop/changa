@@ -886,12 +886,12 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     incomingParticlesSelf = false;
 
     myNumSPH = nSPH;
-    delete[] mySPHParticles;
+    if (nStoreSPH > 0) delete[] mySPHParticles;
     nStoreSPH = (int) (myNumSPH*(1.0 + dExtraStore));
     mySPHParticles = new extraSPHData[nStoreSPH];
 
     myNumStar = nStar;
-    delete[] myStarParticles;
+    if(nStoreStar > 0) delete[] myStarParticles;
     nStoreStar = (int) (myNumStar*(1.0 + dExtraStore));
     nStoreStar += 12;
     myStarParticles = new extraStarData[nStoreStar];
