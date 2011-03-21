@@ -648,8 +648,12 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     // Special case where no particle is assigned to this TreePiece
     if (myNumParticles > 0) delete[] myParticles;
     myNumParticles = 0;
-    if (myNumSPH > 0) delete[] mySPHParticles;
+    if (nStoreSPH > 0) delete[] mySPHParticles;
     myNumSPH = 0;
+    nStoreSPH = 0;
+    if (nStoreStar > 0) delete[] myStarParticles;
+    myNumStar = 0;
+    nStoreStar = 0;
     incomingParticlesSelf = false;
     incomingParticlesMsg.clear();
     if(verbosity>1) ckout << thisIndex <<" no particles assigned"<<endl;

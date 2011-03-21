@@ -1210,10 +1210,14 @@ public:
 
           myParticles = NULL;
           mySPHParticles = NULL;
+          myStarParticles = NULL;
+	  myNumParticles = myNumSPH = myNumStar = 0;
+	  nStore = nStoreSPH = nStoreStar = 0;
 	  myTreeParticles = -1;
 	  orbBoundaries.clear();
 	  boxes = NULL;
 	  splitDims = NULL;
+	  foundLB = Null;
 	}
 
 	TreePiece(CkMigrateMessage* m) {
@@ -1265,8 +1269,8 @@ public:
 	~TreePiece() {
 	  if (verbosity>1) ckout <<"Deallocating treepiece "<<thisIndex<<endl;
 	  delete[] myParticles;
-	  delete[] mySPHParticles;
-	  delete[] myStarParticles;
+	  if(nStoreSPH > 0) delete[] mySPHParticles;
+	  if(nStoreStar > 0) delete[] myStarParticles;
 	  //delete[] splitters;
 	  //delete[] prefetchRoots;
 	  //delete[] remaining Chunk;
