@@ -92,6 +92,9 @@ mainmodule ParallelGravity {
   PUPable Cool0OutputParams;
   PUPable Cool1OutputParams;
   PUPable Cool2OutputParams;
+  PUPable OxOutputParams;
+  PUPable FeOutputParams;
+  PUPable coolontimeOutputParams;
   PUPable DtOutputParams;
   PUPable RungOutputParams;
 
@@ -341,6 +344,16 @@ mainmodule ParallelGravity {
 			   int nPart, int iIndex, int bDone,
 			   CkCallback& cb) ;
     entry void outputIOrderASCII(const std::string& suffix, const CkCallback& cb);
+    entry void outputBinary(CkReference<OutputParams>, int bParaWrite,
+			   			       const CkCallback& cb);
+    entry void oneNodeOutBinVec(CkReference<OutputParams>, 
+				Vector3D<float> avOut[nPart],
+    		     		int nPart, int iIndex, int bDone,
+			   	CkCallback& cb) ;
+    entry void oneNodeOutBinArr(CkReference<OutputParams>, float adOut[nPart],
+			     int nPart, int iIndex, int bDone,
+			     CkCallback& cb) ;
+    entry void outputIOrderBinary(const std::string& suffix, const CkCallback& cb);
     entry void outputStatistics(const CkCallback& cb);
     //entry void getPieceValues(piecedata *totaldata);
     entry void collectStatistics(CkCallback &cb);

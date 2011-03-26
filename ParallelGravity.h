@@ -1585,10 +1585,19 @@ public:
 	void oneNodeOutArr(OutputParams& params, double* adOut,
 			   int nPart, int iIndex, int bDone,
 			   CkCallback& cb) ;
-	
 	void outputIOrderASCII(const std::string& suffix, const CkCallback& cb);
-	void outputStatistics(const CkCallback& cb);
 
+	void outputBinary(OutputParams& params, int bParaWrite,
+			 const CkCallback& cb);
+	void oneNodeOutBinVec(OutputParams& params, Vector3D<float>* avOut,
+			      int nPart, int iIndex, int bDone,
+			      CkCallback& cb) ;
+	void oneNodeOutBinArr(OutputParams& params, float* adOut,
+			      int nPart, int iIndex, int bDone,
+			      CkCallback& cb) ;
+	void outputIOrderBinary(const std::string& suffix, const CkCallback& cb);
+
+	void outputStatistics(const CkCallback& cb);
 	/// Collect the total statistics from the various chares
 	void collectStatistics(CkCallback &cb);
 	//void getPieceValues(piecedata *totaldata);

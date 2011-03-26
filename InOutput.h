@@ -300,7 +300,10 @@ class OxOutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
  public:
     OxOutputParams() {}
-    OxOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    OxOutputParams(std::string achFileName) { 
+	bVector = 0; 
+	fileName = achFileName+".OxMassFrac";
+	}
     PUPable_decl(OxOutputParams);
     OxOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -318,9 +321,32 @@ class FeOutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
  public:
     FeOutputParams() {}
-    FeOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    FeOutputParams(std::string achFileName) { 
+	bVector = 0; 
+	fileName = achFileName+".FeMassFrac";
+	}
     PUPable_decl(FeOutputParams);
     FeOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class coolontimeOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+	if (TYPETest(p, TYPE_GAS)) return p->fTimeCoolIsOffUntil();
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+    {CkAssert(0); return 0.0;}
+ public:
+    coolontimeOutputParams() {}
+    coolontimeOutputParams(std::string achFileName) { 
+	bVector = 0; 
+	fileName = achFileName+".coolontime";
+	}
+    PUPable_decl(coolontimeOutputParams);
+    coolontimeOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
         OutputParams::pup(p);//Call base class
 	}

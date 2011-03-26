@@ -140,10 +140,10 @@ class extraStarData
 	p | _fNSN;    
 	p | _fMSN;    
 	p | _fMFracOxygen;
+	p | _fMFracIron;
 	p | _fSNMetals;
 	p | _fMOxygenOut;
 	p | _fMIronOut;
-	p | _fMFracIron;
 	p | _iGasOrder;
 	}
     };

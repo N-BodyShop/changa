@@ -923,7 +923,7 @@ void DistStellarFeedbackSmoothParams::initSmoothCache(GravityParticle *p1)
      * Let's use the curlv field in the cached particle copy to hold the original
      * mass.  Note: original particle curlv's never modified.
      */
-  p1->curlv().x = p1->mass;
+    p1->curlv().x = p1->mass;
 
     /*
      * Zero out accumulated quantities.
@@ -1193,12 +1193,12 @@ void DistStellarFeedbackSmoothParams::postTreeParticle(GravityParticle *p1)
     /* Convert energy and metals back to specific quantities (per mass)
        because we are done with our conservative calculations */
     
-  if(p1->isGas()){
-    p1->fESNrate() /= p1->mass;
-    p1->fMetals() /= p1->mass;    
-    p1->fMFracIron() /= p1->mass;    
-    p1->fMFracOxygen() /= p1->mass;    
-        }
+    if(p1->isGas()){
+	p1->fESNrate() /= p1->mass;
+	p1->fMetals() /= p1->mass;    
+	p1->fMFracIron() /= p1->mass;    
+	p1->fMFracOxygen() /= p1->mass;    
+	}
     
     }
 

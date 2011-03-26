@@ -11,7 +11,7 @@
 #include "smooth.h"
 #include "Sph.h"
 
-
+#define max(A,B) ((A) > (B) ? (A) : (B))
 ///
 /// @brief initialize parameters for star formation
 ///
@@ -49,6 +49,7 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     if (dESN > 0.0) bSmallSNSmooth = 1;
     else bSmallSNSmooth = 0;
     param.bDoGas = 1;
+    dDeltaStarForm = param.stfm->dDeltaStarForm;
     dSecUnit = param.dSecUnit;
     dGmPerCcUnit = param.dGmPerCcUnit;
     dGmUnit = param.dMsolUnit*MSOLG;
@@ -119,6 +120,13 @@ void Main::StellarFeedback(double dTime, double dDelta)
     
     if(verbosity)
       CkPrintf("Distribute Stellar Feedback ... ");
+    // particles need sorting before tree build when star formation
+    // not enabled
+    if(!param.bStarForm) {
+	double tolerance = 0.01;    // tolerance for domain decomposition
+	sorter.startSorting(dataManagerID, tolerance,
+			    CkCallbackResumeThread(), true);
+	}
     // Need to build tree since we just did addDelParticle.
     // XXX need to check whether a treebuild needs the domain
     // decomposition.  If not, this could be avoided.
@@ -147,7 +155,7 @@ void TreePiece::Feedback(Fdbk &fb, double dTime, double dDelta, const CkCallback
     double dSNIaMassStore;
         
     dTime *= fb.dSecUnit/SEC_YR;
-    dDeltaYr = dDelta*fb.dSecUnit/SEC_YR;
+    dDeltaYr = max(dDelta,fb.dDeltaStarForm)*fb.dSecUnit/SEC_YR;
     
     /* 0 out accumulator class before starting feedback */
     for(int i = 0; i < NFEEDBACKS; i++) {
@@ -164,8 +172,8 @@ void TreePiece::Feedback(Fdbk &fb, double dTime, double dDelta, const CkCallback
 	if(p->isStar() && p->fTimeForm() >= 0.0) 
 	  fb.DoFeedback(p, dTime, dDeltaYr, fbTotals);
 	else if(p->isGas()){
-	  assert(p->u() >= 0.0);
-	  assert(p->uPred() >= 0.0);
+	  CkAssert(p->u() >= 0.0);
+	  CkAssert(p->uPred() >= 0.0);
 	  p->fESNrate() = 0.0;	/* reset SN heating rate of gas to zero */
 	}
     }
@@ -222,7 +230,7 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
 	CalcUVFeedback(dTime, dDeltaYr, &fbEffects);
 	break;
 	default:
-	    assert(0);
+	    CkAssert(0);
 	    }
 	
 	// Convert to system units
@@ -245,7 +253,7 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     /*
      * Modify star particle
      */
-    assert(p->mass > dTotMassLoss);
+    CkAssert(p->mass > dTotMassLoss);
     
     p->mass -= dTotMassLoss;
     p->fMSN() = dTotMassLoss;
@@ -278,7 +286,7 @@ void Fdbk::CalcWindFeedback(SFEvent *sfEvent, double dTime, /* current time in y
 
     double dMinMass = pdva.StarMass(dMaxLifetime, sfEvent->dMetals); 
     double dMaxMass = pdva.StarMass(dMinLifetime, sfEvent->dMetals); 
-    assert(dMaxMass >= dMinMass);
+    CkAssert(dMaxMass >= dMinMass);
 
     if (((dMinMass < dMmax) && (dMaxMass > dMmin)) && dMaxMass > dMinMass) {
 

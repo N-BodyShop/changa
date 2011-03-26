@@ -95,6 +95,7 @@ typedef struct parameters {
     char achOutName[256];
     int bStaticTest;
     int bBenchmark;
+    int iBinaryOut;
     int iOutInterval;
     int iCheckInterval;
     int iLogInterval;
@@ -186,6 +187,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p(param.achOutName, 256);
     p|param.bStaticTest;
     p|param.bBenchmark;
+    p|param.iBinaryOut;
     p|param.iOutInterval;
     p|param.iCheckInterval;
     p|param.iLogInterval;

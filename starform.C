@@ -233,7 +233,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     double tdyn = 1.0/sqrt(4.0*M_PI*p->fDensity/dCosmoFac);
 #ifndef COOLING_NONE
     *T = CoolCodeEnergyToTemperature(Cool, &p->CoolParticle(),
-				    p->u(), p->fMetals());
+				     p->u(), p->fMetals());
 #else
     *T = 0.0;
 #endif
@@ -320,10 +320,10 @@ void Main::initStarLog(){
 	    FILE *fpLog = fopen(achStarLogFile,"r");
 	    XDR xdrs;
 	    
-	    assert(fpLog != NULL);
+	    CkAssert(fpLog != NULL);
 	    xdrstdio_create(&xdrs,fpLog,XDR_DECODE);
 	    xdr_int(&xdrs, &iSize);
-	    assert(iSize == sizeof(StarLogEvent));
+	    CkAssert(iSize == sizeof(StarLogEvent));
 	    xdr_destroy(&xdrs);
 	    fclose(fpLog);
 	    } else {
@@ -333,7 +333,7 @@ void Main::initStarLog(){
 	FILE *fpLog = fopen(achStarLogFile,"w");
 	XDR xdrs;
 
-	assert(fpLog != NULL);
+	CkAssert(fpLog != NULL);
 	xdrstdio_create(&xdrs,fpLog,XDR_ENCODE);
 	iSize = sizeof(StarLogEvent);
 	xdr_int(&xdrs, &iSize);
@@ -370,10 +370,10 @@ void StarLog::flush(void) {
 	XDR xdrs;
 	
 	outfile = fopen(fileName.c_str(), "a");
-	assert(outfile != NULL);
+	CkAssert(outfile != NULL);
 	xdrstdio_create(&xdrs,outfile,XDR_ENCODE);
 
-	assert(seTab.size() == nOrdered);
+	CkAssert(seTab.size() == nOrdered);
     
 	for(int iLog = 0; iLog < seTab.size(); iLog++){
 	    StarLogEvent *pSfEv = &(seTab[iLog]);

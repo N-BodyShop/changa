@@ -19,9 +19,9 @@ double mod(double a, int b) {return (a-b*floor(a/b));}
  */
 
 void Fdbk::CalcSNIIFeedback(SFEvent *sfEvent,
-			double dTime, /* current time in years */
-			double dDelta, /* length of timestep (years) */
-			FBEffects *fbEffects)
+			    double dTime, /* current time in years */
+			    double dDelta, /* length of timestep (years) */
+			    FBEffects *fbEffects)
 {
     double dMSNTypeII, dNSNTypeII, dMeanMStar;
     /* stellar lifetimes corresponding to beginning and end of 
@@ -62,8 +62,8 @@ void Fdbk::CalcSNIIFeedback(SFEvent *sfEvent,
 	double dMStarMinII = max (dMSNIImin, dMStarMin); 
 	double dMStarMaxII = min (dMSNIImax, dMStarMax);
 	
-	assert (dMStarMinII < dMStarMaxII && 
-		dMStarMinII >0.0 && dMStarMaxII > 0.0);
+	CkAssert (dMStarMinII < dMStarMaxII && 
+		  dMStarMinII >0.0 && dMStarMaxII > 0.0);
 	
 	/* cumulative mass of stars with mass greater than dMStarMinII 
 	   and dMStarMaxII in solar masses */
@@ -152,12 +152,12 @@ void Fdbk::CalcSNIaFeedback(SFEvent *sfEvent,
     
     double dTotalMass = imf->CumMass(0.0); /* total mass in stars integrated over IMF */
     
-    if (dMinMass > dMBmin/2. && dMaxMass < dMBmax/2.) {
+    if (dMinMass > dMBmin && dMaxMass < dMBmax/2.) {
 	
-	double dMStarMinIa = max (dMBmin/2., dMinMass); 
+	double dMStarMinIa = max (dMBmin, dMinMass); 
 	double dMStarMaxIa = min (dMBmax/2., dMaxMass); 
 	
-	assert (dMStarMinIa < dMStarMaxIa && dMStarMinIa >0.0 && dMStarMaxIa > 0.0);
+	CkAssert (dMStarMinIa < dMStarMaxIa && dMStarMinIa >0.0 && dMStarMaxIa > 0.0);
 	
 	/* mass of stars that go SNIa based on normalized IMF */
 	/*        dMSNTypeIa = dMSNIa (&mssn, dMStarMinIa, dMStarMaxIa); 

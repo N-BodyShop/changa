@@ -217,7 +217,7 @@ main(int argc, char **argv)
     printf ("mass in SN Ia %g\n", dMSNIa (MSparam, dMassT1, dMassT2));
 #endif
 
-    assert(argc == 2);
+    CkAssert(argc == 2);
     
     nsamp = atoi(argv[1]);
     dlgm = (2.0 + 1.0)/nsamp;

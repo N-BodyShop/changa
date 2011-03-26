@@ -73,9 +73,11 @@ class Fdbk : public PUP::able {
     double dMFeconst;           /* normalization of iron */
     double dMOxexp;             /* exponent of oxygen */
     double dMOxconst;           /* normalization of oxygen */
-    double dSNIaMetals;         /* amount of metals produced by SNIa */
+    double dSNIaMetals;         /* amount of metals produced by SNIa
+				   */
     Padova pdva;
  public:
+    double dDeltaStarForm;
     double dSecUnit;		/* system time in seconds */
     int iNSNIIQuantum;	/* minimum amount of supernovae */
     double dESN;		/* how much energy comes from a supernova */
@@ -103,7 +105,7 @@ class Fdbk : public PUP::able {
 	dMSNIImin(8.0),/* Mass above which stars supernova in solar
 			  masses */
 	dMSNIImax(40.),/* Mass below which stars supernova in solar masses */
-	dMBmin(3.0),	/* Minimum mass of binary that can go SNIa */
+	dMBmin(0.8),	/* Minimum mass of binary that can go SNIa */
 	
 	dMBmax(16.0),	/* Maximum mass of binary that can go SNIa */
 	dFracBinSNIa(0.16),/*0.04847),	 fraction of binary systems in
@@ -145,6 +147,7 @@ class Fdbk : public PUP::able {
 
 inline void Fdbk::pup(PUP::er &p) {
     p | achIMF;
+    p | dDeltaStarForm;
     p | iRandomSeed;
     p | dErgPerGmUnit;
     p | dGmUnit;

@@ -30,7 +30,7 @@ double dMSIMFSec(Fdbk *fb, double dMass2)
 
 double Fdbk::NSNIa (double dMassT1, double dMassT2)
 {
-    assert (dMassT1 < dMassT2 && dMassT1 >= dMBmin/2. && dMassT2 <= dMBmax/2.);
+    CkAssert (dMassT1 < dMassT2 && dMassT1 >= dMBmin && dMassT2 <= dMBmax/2.);
     
 	/* calculate number of SN Type Ia a la Raiteri, Villata, Navarro, A&A
 	   315, 105, 1996) Returns number of SN Type Ia that occur during
@@ -62,7 +62,7 @@ double MSIMFSecM(Fdbk *fb, double dMass2)
 
 double Fdbk::MSNIa (double dMassT1, double dMassT2)
 {
-    assert (dMassT1 < dMassT2 && dMassT1 >= dMBmin/2. && dMassT2 <= dMBmax/2.);
+    CkAssert (dMassT1 < dMassT2 && dMassT1 >= dMBmin/2. && dMassT2 <= dMBmax/2.);
     
 	/* calculate mass of stars that go SN Type Ia a la Raiteri, Villata,
 	   Navarro, A&A 315, 105, 1996) Returns total mass in stars that go SN
