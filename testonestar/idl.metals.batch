@@ -1,0 +1,23 @@
+!quiet = 1
+.r read_ascii_array.pro
+.r rtipsy.pro
+.r numlines.pro
+.r rdfloat.pro
+.r ejecta_K.pro
+.r wind_ejecta_K.pro
+.r snia_K.pro
+.r snii_fe_K.pro
+.r snii_ox_K.pro
+.r snii_felin_K.pro
+.r snii_oxlin_K.pro
+.r ejecta_MS.pro
+.r snia_MS.pro
+.r snii_fe_MS.pro
+.r snii_ox_MS.pro
+.r metalcheck.pro
+.r sntots.pro
+.r imf.pro
+imf
+metalcheck
+exit
+
