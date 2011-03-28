@@ -1235,6 +1235,7 @@ public:
 	  prefetchRoots = NULL;
 	  //remaining Chunk = NULL;
           ewt = NULL;
+	  root = NULL;
 
       sTopDown = 0;
 	  sGravity = NULL;

@@ -353,7 +353,8 @@ void TreePiece::loadTipsy(const std::string& filename,
 	    myNumSPH = 0;
 	    }
 	nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
-	mySPHParticles = new extraSPHData[nStoreSPH];
+	if(nStoreSPH > 0)
+	    mySPHParticles = new extraSPHData[nStoreSPH];
 	// Are we loading stars?
 	if(startParticle + myNumParticles > nTotalSPH + nTotalDark) {
 	    if(startParticle <= nTotalSPH + nTotalDark)
