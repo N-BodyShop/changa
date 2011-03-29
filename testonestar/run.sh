@@ -5,5 +5,5 @@ CHARMRUN=../charmrun
 CHANGA=../ChaNGa
 #
 echo "Beginning ChaNGa"
-$CHARMRUN $CHANGA onestar.param > onestar.out
+$CHARMRUN $CHANGA +LBPeriod 0.01 onestar.param > onestar.out
 echo "ChaNGa finished"
