@@ -1153,6 +1153,7 @@ public:
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
 	  dm = NULL;
+	  foundLB = Null; 
 	  iterationNo=0;
 	  usesAtSync=CmiTrue;
 	  bucketReqs=NULL;
@@ -1211,10 +1212,14 @@ public:
 
           myParticles = NULL;
           mySPHParticles = NULL;
+          myStarParticles = NULL;
+	  myNumParticles = myNumSPH = myNumStar = 0;
+	  nStore = nStoreSPH = nStoreStar = 0;
 	  myTreeParticles = -1;
 	  orbBoundaries.clear();
 	  boxes = NULL;
 	  splitDims = NULL;
+	  foundLB = Null;
 	}
 
 	TreePiece(CkMigrateMessage* m) {
@@ -1232,6 +1237,7 @@ public:
 	  prefetchRoots = NULL;
 	  //remaining Chunk = NULL;
           ewt = NULL;
+	  root = NULL;
 
       sTopDown = 0;
 	  sGravity = NULL;
@@ -1266,8 +1272,8 @@ public:
 	~TreePiece() {
 	  if (verbosity>1) ckout <<"Deallocating treepiece "<<thisIndex<<endl;
 	  delete[] myParticles;
-	  delete[] mySPHParticles;
-	  delete[] myStarParticles;
+	  if(nStoreSPH > 0) delete[] mySPHParticles;
+	  if(nStoreStar > 0) delete[] myStarParticles;
 	  //delete[] splitters;
 	  //delete[] prefetchRoots;
 	  //delete[] remaining Chunk;

@@ -356,8 +356,6 @@ void TreePiece::initBucketsSmooth(Tsmooth tSmooth) {
     GenericTreeNode* node = bucketList[j];
     int numParticlesInBucket = node->particleCount;
 
-    CkAssert(numParticlesInBucket <= TreeStuff::maxBucketSize);
-    
     // TODO: active bounds may give a performance boost in the
     // multi-timstep regime.
     // node->boundingBox.reset();  // XXXX dangerous should have separate

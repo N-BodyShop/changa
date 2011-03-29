@@ -353,7 +353,8 @@ void TreePiece::loadTipsy(const std::string& filename,
 	    myNumSPH = 0;
 	    }
 	nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
-	mySPHParticles = new extraSPHData[nStoreSPH];
+	if(nStoreSPH > 0)
+	    mySPHParticles = new extraSPHData[nStoreSPH];
 	// Are we loading stars?
 	if(startParticle + myNumParticles > nTotalSPH + nTotalDark) {
 	    if(startParticle <= nTotalSPH + nTotalDark)
@@ -768,6 +769,7 @@ void TreePiece::reOrder(int64_t _nMaxOrder, CkCallback& cb)
 	    binBegin = binEnd;
 	    }
 	}
+    myIOParticles = -1;
     CkCallback cbShuffle = CkCallback(CkIndex_TreePiece::ioShuffle(NULL),
 				      pieces);
     contribute(numTreePieces*sizeof(int), counts, CkReduction::sum_int,
@@ -861,6 +863,7 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 	incomingParticlesArrived += shuffleMsg->n;
 	}
 
+    CkAssert(myIOParticles >= 0);  // check that ioShuffle has been called.
     CkAssert(incomingParticlesArrived <= myIOParticles);
     if(verbosity > 2)
 	ckout << thisIndex << ": incoming: " << incomingParticlesArrived
@@ -889,12 +892,12 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     incomingParticlesSelf = false;
 
     myNumSPH = nSPH;
-    delete[] mySPHParticles;
+    if (nStoreSPH > 0) delete[] mySPHParticles;
     nStoreSPH = (int) (myNumSPH*(1.0 + dExtraStore));
     mySPHParticles = new extraSPHData[nStoreSPH];
 
     myNumStar = nStar;
-    delete[] myStarParticles;
+    if(nStoreStar > 0) delete[] myStarParticles;
     nStoreStar = (int) (myNumStar*(1.0 + dExtraStore));
     nStoreStar += 12;
     myStarParticles = new extraStarData[nStoreStar];

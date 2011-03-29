@@ -33,18 +33,17 @@ Main::initSph()
 	double dTuFac = param.dGasConst/(param.dConstGamma-1)
 	    /param.dMeanMolWeight;
 	double z = 1.0/csmTime2Exp(param.csm, dTime) - 1.0;
-	// Update cooling on the datamanager
-	dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
-	if(param.bGasCooling)
+	if(param.bGasCooling) {
+	    // Update cooling on the datamanager
+	    dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	    treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
+	    }
 	if(verbosity) CkPrintf("Initializing SPH forces\n");
 	nActiveSPH = nTotalSPH;
 	doSph(0, 0);
 	double duDelta[MAXRUNG+1];
 	for(int iRung = 0; iRung <= MAXRUNG; iRung++)
 	    duDelta[iRung] = 0.5e-7*param.dDelta;
-	if(param.bGasCooling)
-	    dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	treeProxy.updateuDot(0, duDelta, dTime, z, param.bGasCooling, 0,
 			     CkCallbackResumeThread());
 	}
