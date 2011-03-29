@@ -41,6 +41,7 @@ class extraSPHData
     double _fMetals;		/* Metalicity */
     double _fMFracOxygen;	/* Oxygen mass fraction  */
     double _fMFracIron;		/* Iron mass fraction  */
+    double _fESNrate;		/* SN energy rate  */
     double _fTimeCoolIsOffUntil;/* time cooling is turned back on */
     Vector3D<double> _vPred;	/* Predicted velocities for velocity
 				   dependent forces */
@@ -65,6 +66,7 @@ class extraSPHData
     inline double& fMetals() {return _fMetals;}
     inline double& fMFracOxygen() {return _fMFracOxygen;}
     inline double& fMFracIron() {return _fMFracIron;}
+    inline double& fESNrate() {return _fESNrate;}
     inline double& fTimeCoolIsOffUntil() {return _fTimeCoolIsOffUntil;}
     inline Vector3D<double>& vPred() {return _vPred;}
     inline double& uPred() {return _uPred;}
@@ -85,6 +87,7 @@ class extraSPHData
 	p | _fMetals;
 	p | _fMFracIron;
 	p | _fMFracOxygen;
+	p | _fESNrate;
 	p | _fTimeCoolIsOffUntil;
 	p | _vPred;
 	p | _uPred;
@@ -209,42 +212,61 @@ public:
 	  p | dt;
 #endif
         }
+
+// Debugging macros for the extra data fields.
+// To enable, define GP_DEBUG_EXTRAS
+
+#define GP_DEBUG_EXTRAS
+
+#ifdef GP_DEBUG_EXTRAS
+#define IMAGAS CkAssert(isGas())
+#define IMASTAR CkAssert(isStar())
+#else
+#define IMAGAS
+#define IMASTAR
+#endif
+
 	// Access SPH quantities
 	ExternalSmoothParticle getExternalSmoothParticle();
-	inline double& u() { return (((extraSPHData*)extraData)->u());}
-	inline double& fMetals() { return (((extraSPHData*)extraData)->fMetals());}
-	inline double& fMFracOxygen() {return (((extraSPHData*)extraData)->fMFracOxygen());}
-	inline double& fMFracIron() {return (((extraSPHData*)extraData)->fMFracIron());}
-	inline double& fTimeCoolIsOffUntil() {return (((extraSPHData*)extraData)->fTimeCoolIsOffUntil());}
-	inline Vector3D<double>& vPred() { return (((extraSPHData*)extraData)->vPred());}
-	inline double& uPred() { return (((extraSPHData*)extraData)->uPred());}
-	inline double& divv() { return (((extraSPHData*)extraData)->divv());}
-	inline Vector3D<double>& curlv() { return (((extraSPHData*)extraData)->curlv());}
-	inline double& mumax() { return (((extraSPHData*)extraData)->mumax());}
-	inline double& PdV() { return (((extraSPHData*)extraData)->PdV());}
-	inline double& c() { return (((extraSPHData*)extraData)->c());}
-	inline double& PoverRho2() { return (((extraSPHData*)extraData)->PoverRho2());}
-	inline double& BalsaraSwitch() { return (((extraSPHData*)extraData)->BalsaraSwitch());}
-	inline double& fBallMax() { return (((extraSPHData*)extraData)->fBallMax());}
+	inline double& u() { IMAGAS; return (((extraSPHData*)extraData)->u());}
+	inline double& fMetals() { IMAGAS; return (((extraSPHData*)extraData)->fMetals());}
+	inline double& fMFracOxygen() {IMAGAS; return (((extraSPHData*)extraData)->fMFracOxygen());}
+	inline double& fMFracIron() {IMAGAS; return (((extraSPHData*)extraData)->fMFracIron());}
+	inline double& fESNrate() {IMAGAS; return (((extraSPHData*)extraData)->fESNrate());}
+	inline double& fTimeCoolIsOffUntil() {IMAGAS; return (((extraSPHData*)extraData)->fTimeCoolIsOffUntil());}
+	inline Vector3D<double>& vPred() { IMAGAS; return (((extraSPHData*)extraData)->vPred());}
+	inline double& uPred() {IMAGAS;  return (((extraSPHData*)extraData)->uPred());}
+	inline double& divv() { IMAGAS; return (((extraSPHData*)extraData)->divv());}
+	inline Vector3D<double>& curlv() { IMAGAS; return (((extraSPHData*)extraData)->curlv());}
+	inline double& mumax() { IMAGAS; return (((extraSPHData*)extraData)->mumax());}
+	inline double& PdV() { IMAGAS; return (((extraSPHData*)extraData)->PdV());}
+	inline double& c() { IMAGAS; return (((extraSPHData*)extraData)->c());}
+	inline double& PoverRho2() { IMAGAS; return (((extraSPHData*)extraData)->PoverRho2());}
+	inline double& BalsaraSwitch() { IMAGAS; return (((extraSPHData*)extraData)->BalsaraSwitch());}
+	inline double& fBallMax() { IMAGAS; return (((extraSPHData*)extraData)->fBallMax());}
 #ifndef COOLING_NONE
-	inline double& uDot() { return (((extraSPHData*)extraData)->uDot());}
-	inline COOLPARTICLE& CoolParticle() { return (((extraSPHData*)extraData)->CoolParticle());}
+	inline double& uDot() { IMAGAS; return (((extraSPHData*)extraData)->uDot());}
+	inline COOLPARTICLE& CoolParticle() { IMAGAS; return (((extraSPHData*)extraData)->CoolParticle());}
 #endif
 	// Access Star Quantities
 	// XXX Beware overlaps with SPH; we could fix this by aligning
 	// all common variables up at the start of the extraData structure.
-	inline double& fStarMetals() { return (((extraStarData*)extraData)->fMetals());}
-	inline double& fStarMFracOxygen() {return (((extraStarData*)extraData)->fMFracOxygen());}
-	inline double& fStarMFracIron() {return (((extraStarData*)extraData)->fMFracIron());}
-	inline double& fTimeForm() { return (((extraStarData*)extraData)->fTimeForm());}
-	inline double& fMassForm() { return (((extraStarData*)extraData)->fMassForm());}
-	inline double& fESNrate() {return (((extraStarData*)extraData)->fESNrate());}
-	inline double& fNSN() {return (((extraStarData*)extraData)->fNSN());}
-	inline double& fMSN() {return (((extraStarData*)extraData)->fMSN());}
-	inline double& fMIronOut() {return (((extraStarData*)extraData)->fMIronOut());}
-	inline double& fMOxygenOut() {return (((extraStarData*)extraData)->fMOxygenOut());}
-	inline double& fSNMetals() {return (((extraStarData*)extraData)->fSNMetals());}
-	inline int64_t& iGasOrder() { return (((extraStarData*)extraData)->iGasOrder());}
+	inline double& fStarMetals() { IMASTAR; return (((extraStarData*)extraData)->fMetals());}
+	inline double& fStarMFracOxygen() {IMASTAR; return (((extraStarData*)extraData)->fMFracOxygen());}
+	inline double& fStarMFracIron() {IMASTAR; return (((extraStarData*)extraData)->fMFracIron());}
+	inline double& fTimeForm() { IMASTAR; return (((extraStarData*)extraData)->fTimeForm());}
+	inline double& fMassForm() { IMASTAR; return (((extraStarData*)extraData)->fMassForm());}
+	inline double& fStarESNrate() {IMASTAR; return (((extraStarData*)extraData)->fESNrate());}
+	inline double& fNSN() {IMASTAR; return (((extraStarData*)extraData)->fNSN());}
+	inline double& fMSN() {IMASTAR; return (((extraStarData*)extraData)->fMSN());}
+	inline double& fMIronOut() {IMASTAR; return (((extraStarData*)extraData)->fMIronOut());}
+	inline double& fMOxygenOut() {IMASTAR; return (((extraStarData*)extraData)->fMOxygenOut());}
+	inline double& fSNMetals() {IMASTAR; return (((extraStarData*)extraData)->fSNMetals());}
+	inline int64_t& iGasOrder() { IMASTAR; return (((extraStarData*)extraData)->iGasOrder());}
+
+// See above debugging macros
+#undef IMAGAS
+#undef IMASTAR
 
 /* Particle Type Masks */
 

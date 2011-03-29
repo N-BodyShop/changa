@@ -193,7 +193,7 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     double dTotMassLoss, dTotMetals, dTotMOxygen, dTotMIron, dDelta;
     dTotMassLoss = dTotMetals = dTotMOxygen = dTotMIron = 0.0;
     dDelta = dDeltaYr*SECONDSPERYEAR / dSecUnit;
-    p->fESNrate() = 0.0;
+    p->fStarESNrate() = 0.0;
     p->fNSN() = 0.0;
   
     FBEffects fbEffects;
@@ -238,7 +238,7 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
 	fbEffects.dEnergy /= dErgPerGmUnit;
 	
 	dTotMassLoss += fbEffects.dMassLoss;
-	p->fESNrate() += fbEffects.dEnergy*fbEffects.dMassLoss;
+	p->fStarESNrate() += fbEffects.dEnergy*fbEffects.dMassLoss;
 	dTotMetals += fbEffects.dMetals*fbEffects.dMassLoss;
 	dTotMOxygen += fbEffects.dMOxygen*fbEffects.dMassLoss;
 	dTotMIron += fbEffects.dMIron*fbEffects.dMassLoss;
@@ -267,7 +267,7 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     p->fSNMetals() = dTotMetals;
     p->fMIronOut() = dTotMIron;
     p->fMOxygenOut() = dTotMOxygen;
-    p->fESNrate() /= dDelta; /* convert to rate */
+    p->fStarESNrate() /= dDelta; /* convert to rate */
 }
 
 void Fdbk::CalcWindFeedback(SFEvent *sfEvent, double dTime, /* current time in years */

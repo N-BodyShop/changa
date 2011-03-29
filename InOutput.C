@@ -403,6 +403,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 			mySPHParticles[iSPH].uPred() = dTuFac*gp.temp;
 			mySPHParticles[iSPH].vPred() = gp.vel;
 			mySPHParticles[iSPH].fBallMax() = HUGE;
+			mySPHParticles[iSPH].fESNrate() = 0.0;
 			iSPH++;
 		} else if(i + startParticle < (unsigned int) tipsyHeader.nsph
 			  + tipsyHeader.ndark) {
@@ -428,13 +429,13 @@ void TreePiece::loadTipsy(const std::string& filename,
 #ifdef CHANGESOFT
 			myParticles[i+1].fSoft0 = sp.eps;
 #endif
+			myParticles[i+1].iType = TYPE_STAR;
 			myParticles[i+1].extraData = &myStarParticles[iStar];
 			myParticles[i+1].fStarMetals() = sp.metals;
 			myParticles[i+1].fStarMFracOxygen() = 0.95*sp.metals;
 			myParticles[i+1].fStarMFracIron() = 0.05*sp.metals;
 			myParticles[i+1].fMassForm() = sp.mass;
 			myParticles[i+1].fTimeForm() = sp.tform;
-			myParticles[i+1].iType = TYPE_STAR;
 			iStar++;
 		}
 		myParticles[i+1].iOrder = i + startParticle;

@@ -355,7 +355,8 @@ void TreePiece::updateuDot(int activeRung,
 	GravityParticle *p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS) && p->rung >= activeRung) {
 	    dt = CoolCodeTimeToSeconds(dm->Cool, duDelta[p->rung] );
-	    double ExternalHeating = p->PdV(); // Will change with star formation
+	    double ExternalHeating = p->PdV();
+	    ExternalHeating += p->fESNrate();
 	    if ( bCool ) {
 		COOLPARTICLE cp = p->CoolParticle();
 		double E = p->u();
@@ -1002,7 +1003,7 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
 #else
 	weight = rs*fNorm_u*q->mass;
 #endif
-	if (p->fNSN() == 0.0) q->fESNrate() += weight*p->fESNrate();
+	if (p->fNSN() == 0.0) q->fESNrate() += weight*p->fStarESNrate();
 	q->fMetals() += weight*p->fSNMetals();
 	q->fMFracOxygen() += weight*p->fMOxygenOut();
 	q->fMFracIron() += weight*p->fMIronOut();
@@ -1078,7 +1079,7 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
     
     fmind = p->fBall*p->fBall;
     imind = 0;
-    if ( p->fESNrate() > 0.0 ) {
+    if ( p->fStarESNrate() > 0.0 ) {
 	if(fb->bSmallSNSmooth) {
 	    /* Change smoothing radius to blast radius 
 	     * so that we only distribute mass, metals, and energy
@@ -1153,7 +1154,7 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 #else
 		weight = rs*fNorm_u*q->mass;
 #endif
-		q->fESNrate() += weight*p->fESNrate();
+		q->fESNrate() += weight*p->fStarESNrate();
 		}
 	    } else {
 	    double fDist2 = nList[i].fKey;
