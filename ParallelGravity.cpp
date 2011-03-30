@@ -10,6 +10,8 @@
 // Debug floating point problems
 // #include <fenv.h>
 
+#include "BaseLB.h"
+
 #include "Sorter.h"
 #include "ParallelGravity.h"
 #include "DataManager.h"
@@ -1490,6 +1492,23 @@ void Main::setupICs() {
   ofsLog << " INTERLIST_VER:" << INTERLIST_VER;
 #endif
   ofsLog << endl;
+
+  // Print out load balance information
+  LBDatabase *lbdb = LBDatabaseObj();
+  int nlbs = lbdb->getNLoadBalancers(); 
+  if(nlbs == 0) {
+      ofsLog << "# No load balancer in use" << endl;
+      }
+  else {
+      int ilb;
+      BaseLB **lbs = lbdb->getLoadBalancers();
+      ofsLog << "# Load balancers:";
+      for(ilb = 0; ilb < nlbs; ilb++){
+	  ofsLog << " " << lbs[ilb]->lbName();
+	  }
+      ofsLog << endl;
+      }
+  
   ofsLog.close();
 	
   prmLogParam(prm, achLogFileName);
@@ -1636,6 +1655,7 @@ Main::initialForces()
   
   // Balance load initially after decomposition
   ckout << "Initial load balancing ..." << endl;
+  LBSetPeriod(0.0); // no need for LB interval: we are using Sync Mode
   startTime = CkWallTimer();
   treeProxy.balanceBeforeInitialForces(CkCallbackResumeThread());
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
