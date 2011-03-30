@@ -953,8 +953,6 @@ void DistStellarFeedbackSmoothParams::combSmoothCache(GravityParticle *p1,
     p1->fMFracIron() += p2->fMFracIron;
     p1->fTimeCoolIsOffUntil() = max( p1->fTimeCoolIsOffUntil(),
 				     p2->fTimeCoolIsOffUntil );
-    p1->fTimeForm() = max( p1->fTimeForm(),
-			   p2->fTimeForm ); /* propagate FB time JMB 2/24/10 */
     }
 
 void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, pqSmoothNode *nList)
@@ -1139,7 +1137,6 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 		    (fBlastRadius*fBlastRadius >= fDist2)) {
 		    q->fTimeCoolIsOffUntil() = max(q->fTimeCoolIsOffUntil(),
 						   dTime + fShutoffTime);
-		    q->fTimeForm() = dTime; /* store SN FB time here JMB 2/24/10 */
 		    }
 		
 		counter++;  
@@ -1176,7 +1173,6 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 		 (fBlastRadius*fBlastRadius >= fDist2)){
 		q->fTimeCoolIsOffUntil() = max(q->fTimeCoolIsOffUntil(),
 					       dTime + fShutoffTime);       
-		q->fTimeForm() = dTime;  /* store SN FB time here JMB 2/24/10 */
 		counter++;
 		}
 	    /*	update mass after everything else so that distribution

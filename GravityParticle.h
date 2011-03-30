@@ -345,7 +345,6 @@ class ExternalSmoothParticle {
   double fMFracOxygen;
   double fMFracIron;
   double fTimeCoolIsOffUntil;
-  double fTimeForm;
   Vector3D<double> curlv;	/* Curl of the velocity */
 
   ExternalSmoothParticle() {}
@@ -379,7 +378,6 @@ class ExternalSmoothParticle {
 	      fMFracOxygen = p->fMFracOxygen();
 	      fMFracIron = p->fMFracIron();
 	      fTimeCoolIsOffUntil = p->fTimeCoolIsOffUntil();
-	      fTimeForm = p->fTimeForm();
 	      }
 	  }
   
@@ -411,7 +409,6 @@ class ExternalSmoothParticle {
 	  tmp->fMFracOxygen() = fMFracOxygen;
 	  tmp->fMFracIron() = fMFracIron;
 	  tmp->fTimeCoolIsOffUntil() = fTimeCoolIsOffUntil;
-	  tmp->fTimeForm() = fTimeForm;
 	  }
       }
 	  
@@ -440,7 +437,6 @@ class ExternalSmoothParticle {
     p | fMFracOxygen;
     p | fMFracIron;
     p | fTimeCoolIsOffUntil;
-    p | fTimeForm;
   }
 };
 
