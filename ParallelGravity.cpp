@@ -1390,9 +1390,6 @@ void Main::advanceBigStep(int iStep) {
 void Main::setupICs() {
   double startTime;
 
-  // DEBUGGING
-  //CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
-
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic);
 
@@ -1625,6 +1622,9 @@ Main::initialForces()
 {
   double startTime;
   double tolerance = 0.01;	// tolerance for domain decomposition
+
+  // DEBUGGING
+  // CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
 
   /***** Initial sorting of particles and Domain Decomposition *****/
   ckout << "Initial domain decomposition ...";
