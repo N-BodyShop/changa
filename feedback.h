@@ -43,6 +43,7 @@ class SFEvent {
 class Fdbk : public PUP::able {
  private:
     Fdbk& operator=(Fdbk& fb) {}
+    Fdbk(const Fdbk& fb) {}
     void CalcSNIIFeedback(SFEvent *sfEvent, double dTime, double dDelta, 
 			  FBEffects *fbEffects);
     void CalcSNIaFeedback(SFEvent *sfEvent,double dTime, 
@@ -96,7 +97,7 @@ class Fdbk : public PUP::able {
     void CheckParams(PRM prm, struct parameters &param);
     void DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
 		    FBEffects *fbTotals);
- Fdbk() : achIMF("Kroupa93"),iRandomSeed(1),iNSNIIQuantum(0.),dESN(0.1e51),
+ Fdbk() : achIMF("Kroupa93"),iRandomSeed(1),iNSNIIQuantum(0),dESN(0.1e51),
 	bSmallSNSmooth(1),bShortCoolShutoff(0),dExtraCoolShutoff(0),
 	bSNTurnOffCooling(1), nSmoothFeedback(64),
 	/* supernova constants */
@@ -119,23 +120,6 @@ class Fdbk : public PUP::able {
 	dMOxexp(2.721),	dMOxconst(4.586e-4), 
 	dSNIaMetals(1.4)  /* Ia's ejecta are entirely metals */
 	    { /*pdva = new Padova();*/}
-
- Fdbk(const Fdbk& fb) : achIMF (fb.achIMF), iRandomSeed(fb.iRandomSeed),
-	iNSNIIQuantum (fb.iNSNIIQuantum ), dESN (fb.dESN),
-	bSmallSNSmooth (fb.bSmallSNSmooth), 
-	bShortCoolShutoff (fb.bShortCoolShutoff),
-	dExtraCoolShutoff (fb.dExtraCoolShutoff),
-	bSNTurnOffCooling (fb.bSNTurnOffCooling),
-	nSmoothFeedback (fb.nSmoothFeedback),
-	dMSNrem (fb.dMSNrem),dMSNIImin (fb.dMSNIImin),dMSNIImax (fb.dMSNIImax),
-	dMBmin (fb.dMBmin),dMBmax (fb.dMBmax), dFracBinSNIa (fb.dFracBinSNIa),
-	dMEjexp (fb.dMEjexp),dMEjconst (fb.dMEjconst), dMFeexp (fb.dMFeexp),
-	dMFeconst (fb.dMFeconst), dMOxexp (fb.dMOxexp),dMOxconst (fb.dMOxconst),
-	dSNIaMetals (fb.dSNIaMetals), dSecUnit(fb.dSecUnit),
-	dGmPerCcUnit(fb.dGmPerCcUnit), dGmUnit(fb.dGmUnit),
-	dErgUnit(fb.dErgUnit), dErgPerGmUnit(fb.dErgPerGmUnit),
-	dRadPreFactor(fb.dRadPreFactor),dTimePreFactor(fb.dTimePreFactor),
-	pdva(fb.pdva) {	imf = fb.imf->clone();	}
 
     PUPable_decl(Fdbk);
  Fdbk(CkMigrateMessage *m) : PUP::able(m) {}
