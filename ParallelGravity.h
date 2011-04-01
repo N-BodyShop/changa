@@ -932,6 +932,7 @@ private:
 #endif
 
 #ifndef COOLING_NONE
+	int bGasCooling;
 	clDerivsData *CoolData;
 #endif
 	/// Setup for writing
@@ -1219,7 +1220,7 @@ public:
 	  orbBoundaries.clear();
 	  boxes = NULL;
 	  splitDims = NULL;
-	  foundLB = Null;
+	  bGasCooling = 0;
 	}
 
 	TreePiece(CkMigrateMessage* m) {
@@ -1259,10 +1260,6 @@ public:
 	  boxes = NULL;
 	  splitDims = NULL;
 	  myTreeParticles = -1;
-#ifndef COOLING_NONE
-	  dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
-	  CoolData = CoolDerivsInit(dm->Cool);
-#endif
 	}
 
         private:
@@ -1292,7 +1289,8 @@ public:
 	  delete[] splitDims;
 
 #ifndef COOLING_NONE
-	  CoolDerivsFinalize(CoolData);
+	  if(bGasCooling)
+	      CoolDerivsFinalize(CoolData);
 #endif
           if (verbosity>1) ckout <<"Finished deallocation of treepiece "<<thisIndex<<endl;
 	}
