@@ -288,7 +288,7 @@ void TreePiece::sendORBParticles(){
   myNumParticles = myExpectedCount;
 
   if(myExpectedCountSPH > (int) myNumSPH){
-    delete [] mySPHParticles;
+    if(nStoreSPH > 0) delete [] mySPHParticles;
     nStoreSPH = (int)(myExpectedCountSPH*(1.0 + dExtraStore));
     mySPHParticles = new extraSPHData[nStoreSPH];
   }
@@ -702,7 +702,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
       if (nStoreSPH > 0) delete[] mySPHParticles;
       myNumSPH = nSPH;
       nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
-      mySPHParticles = new extraSPHData[nStoreSPH];
+      if(nStoreSPH > 0) mySPHParticles = new extraSPHData[nStoreSPH];
 
       if (nStoreStar > 0) delete[] myStarParticles;
       myNumStar = nStar;
@@ -4978,7 +4978,7 @@ void TreePiece::pup(PUP::er& p) {
       nStore = (int)((myNumParticles + 2)*(1.0 + dExtraStore));
       myParticles = new GravityParticle[nStore];
       nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
-      mySPHParticles = new extraSPHData[nStoreSPH];
+      if(nStoreSPH > 0) mySPHParticles = new extraSPHData[nStoreSPH];
       nStoreStar = (int)(myNumStar*(1.0 + dExtraStore));
       nStoreStar += 12;  // In case we start with 0
       myStarParticles = new extraStarData[nStoreStar];
@@ -5022,21 +5022,6 @@ void TreePiece::pup(PUP::er& p) {
   p | basefilename;
   p | boundingBox;
   p | iterationNo;
-  if(p.isUnpacking()){
-    switch (useTree) {
-    case Binary_Oct:
-      root = new BinaryTreeNode(1, Tree::Boundary, 0, myNumParticles+1, 0);
-      break;
-    case Binary_ORB:
-      root = new BinaryTreeNode(1, Tree::Boundary, 0, myNumParticles+1, 0);
-      break;
-    case Oct_Oct:
-      //root = new OctTreeNode(1, Tree::Boundary, 0, myNumParticles+1, 0);
-      break;
-    default:
-      CkAbort("We should have never reached here!");
-    }
-  }
 
   //PUP components for ORB decomposition
   p | chunkRootLevel;
@@ -5102,18 +5087,14 @@ void TreePiece::pup(PUP::er& p) {
 
   p | myPlace;
 
+  p | bGasCooling;
   if(p.isUnpacking()){
     dm = NULL;
-  }
-
-  int notNull = (root==NULL)?0:1;
-  p | notNull;
-  if (notNull == 1) {
-    p | (*root);
-    if(p.isUnpacking()){
-      // reconstruct the nodeLookupTable and the bucketList
-      reconstructNodeLookup(root);
-    }
+#ifndef COOLING_NONE
+    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+    if(bGasCooling)
+	CoolData = CoolDerivsInit(dm->Cool);
+#endif
   }
 
   if (verbosity > 1) {
@@ -5135,33 +5116,6 @@ void TreePiece::reconstructNodeLookup(GenericTreeNode *node) {
     if (child != NULL) reconstructNodeLookup(child);
   }
 }
-
-/*
-void TreePiece::rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *count){
-  if(node == NULL){
-    return;
-  }
-  (*count)++;
-  node->parent = (GenericTreeNode *)parent;
-  for (unsigned int i=0; i<node->numChildren(); ++i) {
-    GenericTreeNode *child = nodeLookupTable[node->getChildKey(i)];
-    switch (useTree) {
-    case Binary_Oct:
-      ((BinaryTreeNode*)node)->children[i] = (BinaryTreeNode*)child;
-      break;
-    case Oct_Oct:
-      ((OctTreeNode*)node)->children[i] = (OctTreeNode*)child;
-      break;
-    default:
-      CkAbort("We should have never reached here!");
-    }
-    rebuildSFCTree(child,node,count);
-  }
-}
-bool compBucket(GenericTreeNode *ln,GenericTreeNode *rn){
-  return (ln->firstParticle < rn->firstParticle);
-}
-*/
 
 /** Check that all the particles in the tree are really in their boxes.
     Because the keys are made of only the first 21 out of 23 bits of the

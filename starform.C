@@ -72,6 +72,7 @@ void Stfm::CheckParams(PRM prm, Parameters &param)
 	if(!param.bGasCooling)
 	    CkError("Warning: You are not running a cooling EOS with starformation\n");
 	}
+    bGasCooling = param.bGasCooling;
     CkAssert((dStarEff > 0.0 && dStarEff < 1.0)
 	      || dInitStarMass > 0.0);
     if (dInitStarMass > 0) {
@@ -228,8 +229,11 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
      */
     double tdyn = 1.0/sqrt(4.0*M_PI*p->fDensity/dCosmoFac);
 #ifndef COOLING_NONE
-    T = CoolCodeEnergyToTemperature(Cool, &p->CoolParticle(),
-				    p->u(), p->fMetals());
+    if(bGasCooling)
+    	T = CoolCodeEnergyToTemperature(Cool, &p->CoolParticle(),
+				    	p->u(), p->fMetals());
+    else
+	T = 0.0;
 #else
     T = 0.0;
 #endif

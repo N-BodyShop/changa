@@ -26,6 +26,7 @@ class Stfm {
     double dMinGasMass;		/* minimum mass gas before we delete
 				   the particle. */
     double dMaxStarMass;	/* maximum mass star particle to form */
+    int bGasCooling;		/* Can we call cooling for temperature */
  public:
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
@@ -52,6 +53,7 @@ inline void Stfm::pup(PUP::er &p) {
     p|dMinSpawnStarMass;
     p|dMinGasMass;
     p|dMaxStarMass;
+    p|bGasCooling;
     }
 
 #endif

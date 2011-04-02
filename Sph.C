@@ -111,6 +111,7 @@ void
 TreePiece::initCoolingData(const CkCallback& cb)
 {
 #ifndef COOLING_NONE
+    bGasCooling = 1;
     dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
     CoolData = CoolDerivsInit(dm->Cool);
 #endif
