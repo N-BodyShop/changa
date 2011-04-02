@@ -20,6 +20,7 @@
 #include "smooth.h"
 #include "Sph.h"
 #include "starform.h"
+#include "feedback.h"
 
 #ifdef CUDA
 // for default per-list parameters
