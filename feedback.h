@@ -56,7 +56,7 @@ class Fdbk : public PUP::able {
 			  double dDelta, FBEffects *fbEffects);
     void CalcUVFeedback(double dTime, double dDelta, FBEffects *fbEffects);
 
-    std::string achIMF;	        /* initial mass function */
+    char achIMF[32];	        /* initial mass function */
     int iRandomSeed;		/* seed for stochastic quantized feedback */
     double dErgPerGmUnit;	/* system specific energy in ergs/gm */
     double dGmUnit;		/* system mass in grams */
@@ -85,7 +85,7 @@ class Fdbk : public PUP::able {
     int bSNTurnOffCooling;      /* turn off cooling or not */
     int bSmallSNSmooth;	/* smooth SN energy only over blast radius */
     int bShortCoolShutoff;      /* use snowplow time */
-    int dExtraCoolShutoff;      /* multiplicative factor for shutoff time */
+    double dExtraCoolShutoff;      /* multiplicative factor for shutoff time */
     double dRadPreFactor;       /* McKee + Ostriker size constant in system units */
     double dTimePreFactor;      /* McKee + Ostriker time constant in system units */
     int nSmoothFeedback;	/* number of particles to smooth feedback over*/
@@ -97,9 +97,7 @@ class Fdbk : public PUP::able {
     void CheckParams(PRM prm, struct parameters &param);
     void DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
 		    FBEffects *fbTotals);
- Fdbk() : achIMF("Kroupa93"),iRandomSeed(1),iNSNIIQuantum(0),dESN(0.1e51),
-	bSmallSNSmooth(1),bShortCoolShutoff(0),dExtraCoolShutoff(0),
-	bSNTurnOffCooling(1), nSmoothFeedback(64),
+ Fdbk() : 
 	/* supernova constants */
 	dMSNrem(1.4),	/* mass of supernova remnant in solar masses 
 			 * Also used for SNIa ejected mass */
@@ -130,7 +128,7 @@ class Fdbk : public PUP::able {
     };
 
 inline void Fdbk::pup(PUP::er &p) {
-    p | achIMF;
+    p(achIMF, 32);
     p | dDeltaStarForm;
     p | iRandomSeed;
     p | dErgPerGmUnit;

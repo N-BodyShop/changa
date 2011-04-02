@@ -18,33 +18,41 @@
 
 void Fdbk::AddParams(PRM prm)
 {
-	prmAddParam(prm,"achIMF", 1, &achIMF, sizeof(char [32]), "achIMF", "<IMF> = Kroupa93");
-	prmAddParam(prm,"iRandomSeed", 1, &iRandomSeed, sizeof(int), "iRand",
-		    "<Feedback random Seed> = 1");
-	prmAddParam(prm,"iNSNIIQuantum", 1, &iNSNIIQuantum, sizeof(int), "snQuant",
-		    "<Min # SNII per timestep> = 0.");
-	prmAddParam(prm,"dESN", 2, &dESN, sizeof(double), "snESN",
+    strcpy(achIMF, "Kroupa93");
+    prmAddParam(prm,"achIMF", paramString, &achIMF, 32, "achIMF",
+		"<IMF> = Kroupa93");
+    iRandomSeed = 1;
+    prmAddParam(prm,"iRandomSeed", paramInt, &iRandomSeed, sizeof(int),
+		"iRand", "<Feedback random Seed> = 1");
+    iNSNIIQuantum = 0;
+    prmAddParam(prm,"iNSNIIQuantum", paramInt, &iNSNIIQuantum, sizeof(int),
+		"snQuant", "<Min # SNII per timestep> = 0.");
+    dESN = 0.1e51;
+    prmAddParam(prm,"dESN", paramDouble, &dESN, sizeof(double), "snESN",
 		    "<Energy of supernova in ergs> = 0.1e51");
-	prmAddParam(prm,"bSmallSNSmooth", 0, &bSmallSNSmooth, sizeof(int), "bSmallSNSmooth",
-		    "<smooth SN ejecta over blast or smoothing radius> = blast radius");
-	prmAddParam(prm,"bShortCoolShutoff", 0, &bShortCoolShutoff,
+    bSmallSNSmooth = 1;
+    prmAddParam(prm,"bSmallSNSmooth", paramBool, &bSmallSNSmooth, sizeof(int),
+		"bSmallSNSmooth",
+		"<smooth SN ejecta over blast or smoothing radius> = blast radius");
+    bShortCoolShutoff = 0;
+    prmAddParam(prm,"bShortCoolShutoff", paramBool, &bShortCoolShutoff,
 		    sizeof(int), "bShortCoolShutoff", "<Use snowplow time> = 0");
-	prmAddParam(prm,"dExtraCoolShutoff", 0, &dExtraCoolShutoff,
-		    sizeof(int), "dExtraCoolShutoff", "<Use snowplow time> = 0");
-	prmAddParam(prm,"bSNTurnOffCooling", 0, &bSNTurnOffCooling,
-		    sizeof(int), "bSNTurnOffCooling", "<Do SN turn off cooling> = 1");
-	prmAddParam(prm,"nSmoothFeedback",1,&nSmoothFeedback,sizeof(int),"s",
-		    "<number of particles to smooth feedback over> = 64");
-/* supernova constants */
-	
-	//	pdva = new Padova();
+    dExtraCoolShutoff = 1.0;
+    prmAddParam(prm,"dExtraCoolShutoff", paramDouble, &dExtraCoolShutoff,
+		sizeof(int), "dExtraCoolShutoff", "<Extend shutoff time> = 1.0");
+    bSNTurnOffCooling = 1;
+    prmAddParam(prm,"bSNTurnOffCooling", paramBool, &bSNTurnOffCooling,
+		sizeof(int), "bSNTurnOffCooling", "<Do SN turn off cooling> = 1");
+    nSmoothFeedback = 64;
+    prmAddParam(prm,"nSmoothFeedback", paramInt,&nSmoothFeedback, sizeof(int),
+		"s", "<number of particles to smooth feedback over> = 64");
 }
 
 void Fdbk::CheckParams(PRM prm, struct parameters &param)
 {
-    if(achIMF == "MillerScalo") imf = new MillerScalo();
-    else if(achIMF == "Chabrier") imf = new Chabrier();
-    else if(achIMF == "Kroupa93") imf = new Kroupa93();
+    if(strcmp(achIMF, "MillerScalo") == 0) imf = new MillerScalo();
+    else if(strcmp(achIMF, "Chabrier") == 0) imf = new Chabrier();
+    else if(strcmp(achIMF, "Kroupa93") == 0) imf = new Kroupa93();
 #include "physconst.h"
     if (dESN > 0.0) bSmallSNSmooth = 1;
     else bSmallSNSmooth = 0;
