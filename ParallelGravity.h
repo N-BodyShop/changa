@@ -931,8 +931,8 @@ private:
 	MOMC momcRoot;		/* complete moments of root */
 #endif
 
-#ifndef COOLING_NONE
 	int bGasCooling;
+#ifndef COOLING_NONE
 	clDerivsData *CoolData;
 #endif
 	/// Setup for writing

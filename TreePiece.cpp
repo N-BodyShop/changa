@@ -2047,7 +2047,8 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
     } else if (child->getType() == Internal
               && (child->lastParticle - child->firstParticle < maxBucketSize
                   || level >= 61)) {
-       if(level >= 61)
+       if(level >= 61
+	  && child->lastParticle - child->firstParticle >= maxBucketSize)
            ckerr << "Truncated tree with "
                  << child->lastParticle - child->firstParticle
                  << " particle bucket" << endl;
