@@ -547,7 +547,7 @@ Main::Main(CkArgMsg* m) {
 	    CkExit();
         }
 	
-	if(bVDetails)
+	if(bVDetails && !verbosity)
 	    verbosity = 1;
 	
 	if(prmSpecified(prm, "iMaxRung")) {
