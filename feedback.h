@@ -42,7 +42,7 @@ class SFEvent {
 
 class Fdbk : public PUP::able {
  private:
-    Fdbk& operator=(Fdbk& fb) {}
+    Fdbk& operator=(const Fdbk& fb);
     Fdbk(const Fdbk& fb) {}
     void CalcSNIIFeedback(SFEvent *sfEvent, double dTime, double dDelta, 
 			  FBEffects *fbEffects);
