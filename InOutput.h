@@ -295,6 +295,7 @@ class OxOutputParams : public OutputParams
     virtual double dValue(GravityParticle *p) {
 	if (TYPETest(p, TYPE_STAR)) return p->fStarMFracOxygen();
 	if (TYPETest(p, TYPE_GAS)) return p->fMFracOxygen();
+	else return 0.0;
 	}
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
@@ -316,6 +317,7 @@ class FeOutputParams : public OutputParams
     virtual double dValue(GravityParticle *p) {
 	if (TYPETest(p, TYPE_STAR)) return p->fStarMFracIron();
 	if (TYPETest(p, TYPE_GAS)) return p->fMFracIron();
+	else return 0.0;
 	}
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
@@ -336,6 +338,7 @@ class coolontimeOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p) {
 	if (TYPETest(p, TYPE_GAS)) return p->fTimeCoolIsOffUntil();
+	else return 0.0;
 	}
     virtual Vector3D<double> vValue(GravityParticle *p)
     {CkAssert(0); return 0.0;}
