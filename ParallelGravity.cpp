@@ -191,6 +191,9 @@ Main::Main(CkArgMsg* m) {
 	param.bDoDensity = 1;
 	prmAddParam(prm, "bDoDensity", paramBool, &param.bDoDensity,
 		    sizeof(int),"den", "Enable Density outputs");
+	param.bDoIOrderOutput = 0;
+	prmAddParam(prm,"bDoIOrderOutput",paramBool,&param.bDoIOrderOutput,
+		    sizeof(int), "iordout","enable/disable iOrder outputs = -iordout");
 	nSmooth = 32;
 	prmAddParam(prm, "nSmooth", paramInt, &nSmooth,
 		    sizeof(int),"nsm", "Number of neighbors for smooth");
@@ -2123,6 +2126,11 @@ void Main::writeOutput(int iStep)
       treeProxy[0].outputASCII(pCool2Out, param.bParaWrite,
 			       CkCallbackResumeThread());
 #endif
+      if(param.bDoIOrderOutput) {
+	  treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
+					 CkCallbackResumeThread());
+	  }
+      
     if(param.nSteps != 0 && param.bDoDensity) {
 	double tolerance = 0.01;	// tolerance for domain decomposition
 	// The following call is to get the particles in key order
