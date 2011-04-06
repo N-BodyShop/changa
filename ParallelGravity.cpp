@@ -1155,10 +1155,11 @@ void Main::advanceBigStep(int iStep) {
 	  memoryStats();
       // Dump frame may require a smaller step
       int driftRung = nextMaxRungIncDF(nextMaxRung);
+      // Get number of drift steps from driftRung
       int driftSteps = 1;
       while(driftRung > nextMaxRung) {
 	  driftRung--;
-	  driftSteps >>= 1;
+	  driftSteps <<= 1;
 	  }
       driftRung = nextMaxRungIncDF(nextMaxRung);
       
