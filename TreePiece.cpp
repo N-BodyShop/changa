@@ -1010,8 +1010,15 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 #ifndef COOLING_NONE
 	      p->uPred() += p->uDot()*duDelta;
 	      if (p->uPred() < 0) {
+		  // Backout the update to upred
 		  double uold = p->uPred() - p->uDot()*duDelta;
-		  p->uPred() = uold*exp(p->uDot()*duDelta/uold);
+		  // uold could be negative because of round-off
+		  // error.  If this is the case then uDot*Delta/u is
+		  // large, the final uPred will be zero.
+		  if(uold <= 0.0) p->uPred() = 0.0;
+		  // Cooling rate is large: use an exponential decay
+		  // of timescale u/uDot.
+		  else p->uPred() = uold*exp(p->uDot()*duDelta/uold);
 		  }
 #else
 	      p->uPred() += p->PdV()*duDelta;
@@ -1020,6 +1027,7 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 		  p->uPred() = uold*exp(p->PdV()*duDelta/uold);
 		  }
 #endif
+	      CkAssert(p->uPred() >= 0.0);
 	      }
 	  }
       }
