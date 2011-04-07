@@ -4,6 +4,7 @@
 
 class DenDvDxSmoothParams : public SmoothParams
 {
+ protected:
     double a, H; // Cosmological parameters
     int bActiveOnly;
     
@@ -48,9 +49,6 @@ class DenDvDxSmoothParams : public SmoothParams
 
 class DenDvDxNeighborSmParams : public DenDvDxSmoothParams
 {
-    double a, H; // Cosmological parameters
-    int bActiveOnly;
-    
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
     virtual int isSmoothActive(GravityParticle *p);
