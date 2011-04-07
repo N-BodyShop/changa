@@ -27,8 +27,17 @@ void StiffStep(STIFF *s, double y[], double dydx[], double *xx, double htry,
 /* 
  * Root Finder Header
  */
+#include <gsl/gsl_roots.h>
 
-double RootFind(double (*func)(double, void *Data), void *Data, double x1, double x2, double tol);
+typedef struct RootFindContextStructure {
+  gsl_root_fsolver *solver;
+} ROOTFIND;
+
+ROOTFIND *RootFindInit();
+void RootFindFinalize(ROOTFIND *r);
+
+double RootFind(ROOTFIND *r, double (*func)(double, void *Data), void *Data,
+		double x1, double x2, double tol);
 
 /*
  * Utils
