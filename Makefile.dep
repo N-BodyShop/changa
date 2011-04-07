@@ -706,6 +706,7 @@ smooth.h \
 
 Sph.o: \
 Sph.C \
+Sph.h \
 ParallelGravity.h \
 config.h \
 ../utility/structures/Vector3D.h \
