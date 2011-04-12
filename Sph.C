@@ -42,7 +42,7 @@ Main::initSph()
 	double duDelta[MAXRUNG+1];
 	for(int iRung = 0; iRung <= MAXRUNG; iRung++)
 	    duDelta[iRung] = 0.5e-7*param.dDelta;
-	treeProxy.updateuDot(0, duDelta, dTime, z, param.bGasCooling, 0,
+	treeProxy.updateuDot(0, duDelta, dTime, z, param.bGasCooling, 0, 1,
 			     CkCallbackResumeThread());
 	}
     }
@@ -349,6 +349,7 @@ void TreePiece::updateuDot(int activeRung,
 			   double z, // current redshift
 			   int bCool, // select equation of state
 			   int bUpdateState, // update ionization fractions
+			   int bAll, // update all rungs below activeRung
 			   const CkCallback& cb)
 {
     double dt; // time in seconds
@@ -356,7 +357,8 @@ void TreePiece::updateuDot(int activeRung,
 #ifndef COOLING_NONE
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
-	if (TYPETest(p, TYPE_GAS) && p->rung >= activeRung) {
+	if (TYPETest(p, TYPE_GAS)
+	    && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
 	    dt = CoolCodeTimeToSeconds(dm->Cool, duDelta[p->rung] );
 	    double ExternalHeating = p->PdV(); // Will change with star formation
 	    if ( bCool ) {

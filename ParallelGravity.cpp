@@ -1135,12 +1135,12 @@ void Main::advanceBigStep(int iStep) {
       if(param.bDoGas) {
 	  double startTime = CkWallTimer();
 	  if(verbosity)
-	      CkPrintf("uDot update: ... ");
+	      CkPrintf("uDot update: Rung %d ... ", activeRung);
 	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
 	  if(param.bGasCooling)
 	      dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	  treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
-			       1, CkCallbackResumeThread());
+			       1, 1, CkCallbackResumeThread());
 	  if(verbosity)
 	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
@@ -1200,13 +1200,13 @@ void Main::advanceBigStep(int iStep) {
 	      if(param.bDoGas && (iSub+1 == driftSteps >> 1)) {
 		  double startTime = CkWallTimer();
 		  if(verbosity)
-		      CkPrintf("uDot update: ... ");
+		      CkPrintf("uDot' update: Rung %d ... ", nextMaxRung);
 		  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
 		  if(param.bGasCooling)
 		      dMProxy.CoolingSetTime(z, dTime,
 					     CkCallbackResumeThread());
-		  treeProxy.updateuDot(activeRung, duKick, dTime, z,
-				       param.bGasCooling, 0,
+		  treeProxy.updateuDot(nextMaxRung, duKick, dTime, z,
+				       param.bGasCooling, 0, 0,
 				       CkCallbackResumeThread());
 		  if(verbosity)
 		      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
@@ -1373,14 +1373,32 @@ void Main::advanceBigStep(int iStep) {
                                            0.5*dTimeSub);
       }
       if(param.bDoGas) {
+	  double startTime = CkWallTimer();
+	  if(verbosity)
+	      CkPrintf("uDot update: Rung %d ... ", activeRung);
 	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
 	  if(param.bGasCooling)
 	      dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	  treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
-			       1, CkCallbackResumeThread());
+			       1, 1, CkCallbackResumeThread());
+	  if(verbosity)
+	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
       treeProxy.kick(activeRung, dKickFac, 1, param.bDoGas,
 		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
+      // 1/2 step uDot update
+      if(activeRung > 0 && param.bDoGas) {
+	  double startTime = CkWallTimer();
+	  if(verbosity)
+	      CkPrintf("uDot' update: Rung %d ... ", activeRung-1);
+	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
+	  duKick[activeRung-1] = 0.5*RungToDt(param.dDelta, activeRung-1);
+	  treeProxy.updateuDot(activeRung-1, duKick, dTime, z,
+			       param.bGasCooling, 0, 0,
+			       CkCallbackResumeThread());
+	  if(verbosity)
+	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
+	  }
     }
 		
   }
