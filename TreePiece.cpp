@@ -101,7 +101,7 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 
 	boundingBox = *static_cast<OrientedBox<float> *>(m->getData());
 	delete m;
-	if(thisIndex == 0 && verbosity)
+	if(thisIndex == 0 && verbosity > 1)
 		ckout << "TreePiece: Bounding box originally: "
 		     << boundingBox << endl;
 	//give particles keys, using bounding box to scale
@@ -117,7 +117,7 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 	      Vector3D<float> bcenter = boundingBox.center();
 	      bsize = Vector3D<float>(0.5*max);
 	      boundingBox = OrientedBox<float>(bcenter-bsize, bcenter+bsize);
-	      if(thisIndex == 0 && verbosity)
+	      if(thisIndex == 0 && verbosity > 1)
 		      ckout << "TreePiece: Bounding box now: "
 			   << boundingBox << endl;
 
