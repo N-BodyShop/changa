@@ -1212,11 +1212,6 @@ void Main::advanceBigStep(int iStep) {
 		      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 		  }
 	      }
-      /*
-       * Form stars at user defined intervals
-       */
-      if(param.bStarForm && param.stfm->isStarFormRung(activeRung))
-	  FormStars(dTime, RungToDt(param.dDelta, activeRung));
     }
 
     // int lastActiveRung = activeRung;
@@ -1228,6 +1223,11 @@ void Main::advanceBigStep(int iStep) {
       activeRung++;
       tmpRung <<= 1;
     }
+    /*
+     * Form stars at user defined intervals
+     */
+    if(param.bStarForm && param.stfm->isStarFormRung(activeRung))
+	FormStars(dTime, RungToDt(param.dDelta, activeRung));
 
     ckout << "Step: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
           << " Time: " << dTime
