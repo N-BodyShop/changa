@@ -261,7 +261,8 @@ mainmodule ParallelGravity {
     entry void startORBTreeBuild(CkReductionMsg* m);
 
     entry void startIteration(int activeRung, double myTheta, CkCallback &cb);
-    entry void startIterationSmooth(CkPointer<SmoothParams>, CkCallback &cb);
+    entry void startIterationSmooth(CkPointer<SmoothParams>, int iLowhFix,
+				    double dfBall2OverSoft2, CkCallback &cb);
     entry void startIterationReSmooth(CkPointer<SmoothParams>, CkCallback &cb);
     entry void startIterationMarkSmooth(CkPointer<SmoothParams>, CkCallback &cb);
     entry void finishNodeCache(int iPhases, CkCallback &cb);

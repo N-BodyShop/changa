@@ -236,21 +236,22 @@ void KNearestSmoothCompute::bucketCompare(TreePiece *ownerTP,
     for(int j = node->firstParticle; j <= node->lastParticle; ++j) {
 	if(!params->isSmoothActive(&particles[j]))
 	    continue;
-	pqSmoothNode *Q = nstate->Qs[j];
+	CkVec<pqSmoothNode> &Q = nstate->Qs[j];
 	double rOld2 = Q[0].fKey; // Ball radius
 	Vector3D<double> dr = particles[j].position - rp;
 	
 	if(rOld2 >= dr.lengthSquared()) {  // Perform replacement
-	    if(nstate->heap_sizes[j] == nSmooth) {
-	        std::pop_heap(Q + 0, Q + nSmooth);
-	        nstate->heap_sizes[j]--;	// pop if list is full
+	    if(Q.size() == nSmooth
+	       && (!iLowhFix || rOld2 > dfBall2OverSoft2*particles[j].soft*particles[j].soft)) {
+	        std::pop_heap(&(Q[0]) + 0, &(Q[0]) + nSmooth);
+		Q.resize(Q.size()-1); 	// pop if list is full
 	        }
-	    int end = nstate->heap_sizes[j];
-	    Q[end].fKey = dr.lengthSquared();
-	    Q[end].dx = dr;
-	    Q[end].p = p;
-	    std::push_heap(Q + 0, Q + end + 1); 
-	    nstate->heap_sizes[j]++;
+	    pqSmoothNode pqNew;
+	    pqNew.fKey = dr.lengthSquared();
+	    pqNew.dx = dr;
+	    pqNew.p = p;
+	    Q.push_back(pqNew);
+	    std::push_heap(&(Q[0]) + 0, &(Q[0]) + Q.size());
 	    }
 	}
     }
@@ -310,6 +311,8 @@ void TreePiece::setupSmooth() {
 
 void TreePiece::startIterationSmooth(// type of smoothing and parameters
 				     SmoothParams* params,
+				     int iLowhFix,
+				     double dfBall2OverSoft2,
 				     const CkCallback& cb) {
 
   cbSmooth = cb;
@@ -324,7 +327,8 @@ void TreePiece::startIterationSmooth(// type of smoothing and parameters
 
   // Create objects that are reused by all buckets
   twSmooth = new BottomUpTreeWalk;
-  sSmooth = new KNearestSmoothCompute(this, params, nSmooth);
+  sSmooth = new KNearestSmoothCompute(this, params, nSmooth, iLowhFix,
+				      dfBall2OverSoft2);
       
   initBucketsSmooth(sSmooth);
 
@@ -457,7 +461,8 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
   for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
       if(!params->isSmoothActive(&tp->myParticles[j]))
 	  continue;
-      pqSmoothNode *Q = nstate->Qs[j] = new pqSmoothNode[nSmooth];
+      CkVec<pqSmoothNode> *Q = &nstate->Qs[j];
+      Q->reserve(nSmooth);
       //
       // Find maximum of nearest neighbors
       //
@@ -472,15 +477,18 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 		  drMax2 = dr.lengthSquared();
 		  }
 	      }
-      int end = nstate->heap_sizes[j];
-      CkAssert(end == 0);
+      CkAssert(Q->size() == 0);
+      pqSmoothNode pqNew;
       if(bEnough)
-	  Q[end].fKey = drMax2;
+	  pqNew.fKey = drMax2;
       else
-	  Q[end].fKey = DBL_MAX;
-      Q[end].p = NULL; 
-      std::push_heap(Q + 0, Q + end + 1); 
-      nstate->heap_sizes[j]++; 
+	  pqNew.fKey = DBL_MAX;
+      if(iLowhFix && pqNew.fKey < dfBall2OverSoft2*tp->myParticles[j].soft*tp->myParticles[j].soft)
+	  pqNew.fKey = dfBall2OverSoft2*tp->myParticles[j].soft*tp->myParticles[j].soft;
+
+      pqNew.p = NULL;
+      Q->push_back(pqNew);
+      std::push_heap(&((*Q)[0]) + 0, &((*Q)[0]) + 1); 
       }
     }
 
@@ -605,18 +613,23 @@ void KNearestSmoothCompute::walkDone(State *state) {
       if(!params->isSmoothActive(&part[i-node->firstParticle]))
 	  continue;
       NearNeighborState *nstate = (NearNeighborState *)state;
-      pqSmoothNode *Q = nstate->Qs[i];
+      CkVec<pqSmoothNode> &Q = nstate->Qs[i];
       double h = sqrt(Q[0].fKey); // Ball radius
       part[i-node->firstParticle].fBall = h;
-      int nCnt = nstate->heap_sizes[i];
+      int nCnt = Q.size();
+      if(Q[0].p == NULL) { // This can happen if iLowhFix is
+			      // operating
+	  CkAssert(iLowhFix != 0);
+	  std::pop_heap(&(Q[0]) + 0, &(Q[0]) + nCnt);
+	  nCnt--;
+	  }
       if(nCnt < nSmooth) {
 	CkPrintf("short count: %d, particle %d, h %g\n", nCnt,
 		  part[i-node->firstParticle].iOrder, h);
 	}
       CkAssert(nCnt >= nSmooth);
-      params->fcnSmooth(&part[i-node->firstParticle], nCnt, Q);
-      delete [] Q;
-      nstate->Qs[i] = NULL;
+      params->fcnSmooth(&part[i-node->firstParticle], nCnt, &(Q[0]));
+      Q.clear();
       }
       // XXX jetley - the nearneighborstate allocated for this compute
       // may be deleted after this function is called. 

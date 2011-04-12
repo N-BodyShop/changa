@@ -1512,7 +1512,8 @@ public:
   void startIteration(int am, double myTheta, const CkCallback& cb);
   /// As above, but for a smooth operation.
   void setupSmooth();
-  void startIterationSmooth(SmoothParams *p, const CkCallback& cb);
+  void startIterationSmooth(SmoothParams *p, int iLowhFix,
+			    double dfBall2OverSoft2, const CkCallback &cb);
   void startIterationReSmooth(SmoothParams *p, const CkCallback& cb);
   void startIterationMarkSmooth(SmoothParams *p, const CkCallback& cb);
 

@@ -145,7 +145,9 @@ void Main::FormStars(double dTime, double dDelta)
                         CkCallbackResumeThread(), true);
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
     DensitySmoothParams pDen(TYPE_GAS, 0);
-    treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+    double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+    treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
+				   CkCallbackResumeThread());
     iPhase++;
 
     CkReductionMsg *msgCounts;

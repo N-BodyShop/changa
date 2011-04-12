@@ -20,7 +20,9 @@ Main::initSph()
 	// actives, and those who have actives as neighbors.
 	DenDvDxSmoothParams pDen(TYPE_GAS, 0, param.csm, dTime, 0);
 	double startTime = CkWallTimer();
-	treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+	double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
+				       CkCallbackResumeThread());
 	iPhase++;
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
@@ -235,12 +237,14 @@ void
 Main::doSph(int activeRung, int bNeedDensity) 
 {
   if(bNeedDensity) {
+    double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
     if (param.bFastGas && nActiveSPH < nTotalSPH*param.dFracFastGas) {
 	ckout << "Calculating densities/divv on Actives ...";
 	// This also marks neighbors of actives
 	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 1);
 	double startTime = CkWallTimer();
-	treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
+				       CkCallbackResumeThread());
 	iPhase++;
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
@@ -259,7 +263,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// additional marking
 	DenDvDxNeighborSmParams pDenN(TYPE_GAS, activeRung, param.csm, dTime);
 	startTime = CkWallTimer();
-	treeProxy.startIterationSmooth(&pDenN, CkCallbackResumeThread());
+	treeProxy.startIterationSmooth(&pDenN, 1, dfBall2OverSoft2,
+				       CkCallbackResumeThread());
 	iPhase++;
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
@@ -270,7 +275,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// actives, and those who have actives as neighbors.
 	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 0);
 	double startTime = CkWallTimer();
-	treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
+				       CkCallbackResumeThread());
 	iPhase++;
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;

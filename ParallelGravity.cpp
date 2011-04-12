@@ -698,10 +698,6 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bGeometric parameter ignored." << endl;
 	    }
-	if(prmSpecified(prm, "dhMinOverSoft")) {
-	    ckerr << "WARNING: ";
-	    ckerr << "dhMinOverSoft parameter ignored." << endl;
-	    }
 	if (prmSpecified(prm,"bViscosityLimiter")) {
 	    if (!param.bViscosityLimiter) param.iViscosityLimiter=0;
 	    }
@@ -1878,7 +1874,9 @@ Main::doSimulation()
 	  ckout << "Calculating total densities ...";
 	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	  startTime = CkWallTimer();
-	  treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+	  double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+	  treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
+					 CkCallbackResumeThread());
 	  iPhase++;
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
@@ -1971,7 +1969,9 @@ Main::doSimulation()
 	  ckout << "Calculating total densities ...";
 	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	  startTime = CkWallTimer();
-	  treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+	  double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+	  treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
+					 CkCallbackResumeThread());
 	  iPhase++;
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
@@ -2144,7 +2144,9 @@ void Main::writeOutput(int iStep)
 	ckout << "Calculating total densities ...";
 	DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	startTime = CkWallTimer();
-	treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+	double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
+				       CkCallbackResumeThread());
 	iPhase++;
 	if(iPhase < nPhases)
 	    treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
