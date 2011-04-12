@@ -217,6 +217,8 @@ int KNearestSmoothCompute::openCriterion(TreePiece *ownerTP,
     return 0;
 }
 
+inline double sqr(double x) { return x*x; }
+
 /*
  * Test a given particle against all the priority queues in the
  * bucket.
@@ -240,9 +242,14 @@ void KNearestSmoothCompute::bucketCompare(TreePiece *ownerTP,
 	double rOld2 = Q[0].fKey; // Ball radius
 	Vector3D<double> dr = particles[j].position - rp;
 	
-	if(rOld2 >= dr.lengthSquared()) {  // Perform replacement
-	    if(Q.size() == nSmooth
-	       && (!iLowhFix || rOld2 > dfBall2OverSoft2*particles[j].soft*particles[j].soft)) {
+	// include particle if less than the current search radius, or
+	// less than the h_min limit set by softening.
+	if(rOld2 >= dr.lengthSquared()
+	   || (iLowhFix && dr.lengthSquared() <= dfBall2OverSoft2*sqr(particles[j].soft))) {
+	    // Perform replacement if we've got enough particles and
+	    // we are not hitting the h_min limit.
+	    if(Q.size() >= nSmooth
+	       && (!iLowhFix || rOld2 > dfBall2OverSoft2*sqr(particles[j].soft))) {
 	        std::pop_heap(&(Q[0]) + 0, &(Q[0]) + nSmooth);
 		Q.resize(Q.size()-1); 	// pop if list is full
 	        }
