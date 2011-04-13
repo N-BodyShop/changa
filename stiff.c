@@ -17,8 +17,6 @@ STIFF *StiffInit( double eps, int nv, void *Data,
 		  int (*jacobn)(double x, const double y[], double dfdx[], double *dfdy, void *Data) 
 		   ) 
 {
-  int k,iq;
-
   STIFF *s;
   const gsl_odeiv_step_type *T = gsl_odeiv_step_rk4imp;
 

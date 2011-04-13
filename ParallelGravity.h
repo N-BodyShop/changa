@@ -1424,7 +1424,7 @@ public:
 	void InitEnergy(double dTuFac, double z, double dTime,
 			const CkCallback& cb);
 	void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
-			double dTime, double z, int bCool,
+			double dTime, double z, int bCool, int bAll,
 			int bUpdateState, const CkCallback& cb);
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
@@ -1517,7 +1517,8 @@ public:
   void startIteration(int am, double myTheta, const CkCallback& cb);
   /// As above, but for a smooth operation.
   void setupSmooth();
-  void startIterationSmooth(SmoothParams *p, const CkCallback& cb);
+  void startIterationSmooth(SmoothParams *p, int iLowhFix,
+			    double dfBall2OverSoft2, const CkCallback &cb);
   void startIterationReSmooth(SmoothParams *p, const CkCallback& cb);
   void startIterationMarkSmooth(SmoothParams *p, const CkCallback& cb);
 

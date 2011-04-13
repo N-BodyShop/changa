@@ -500,7 +500,10 @@ void MultistepLB::work(BaseLB::LDStats* stats)
   mergeInstrumentedData(prevPhase, stats); 
   
   for(i = 0; i < stats->n_objs; i++){
-    ratios[tpCentroids[i].tag] = tpCentroids[i].numActiveParticles/(float)tpCentroids[i].myNumParticles;
+    if(tpCentroids[i].myNumParticles != 0)
+    	ratios[tpCentroids[i].tag] = tpCentroids[i].numActiveParticles/(float)tpCentroids[i].myNumParticles;
+    else
+	ratios[tpCentroids[i].tag] = 1.0;
     numActiveParticles += tpCentroids[i].numActiveParticles;
     totalNumParticles += tpCentroids[i].myNumParticles;
     pCentroids[i] = &tpCentroids[i].vec;

@@ -24,7 +24,9 @@ Main::initSph()
 	// actives, and those who have actives as neighbors.
 	DenDvDxSmoothParams pDen(TYPE_GAS, 0, param.csm, dTime, 0);
 	double startTime = CkWallTimer();
-	treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+	double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
+				       CkCallbackResumeThread());
 	iPhase++;
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
@@ -44,7 +46,7 @@ Main::initSph()
 	double duDelta[MAXRUNG+1];
 	for(int iRung = 0; iRung <= MAXRUNG; iRung++)
 	    duDelta[iRung] = 0.5e-7*param.dDelta;
-	treeProxy.updateuDot(0, duDelta, dTime, z, param.bGasCooling, 0,
+	treeProxy.updateuDot(0, duDelta, dTime, z, param.bGasCooling, 0, 1,
 			     CkCallbackResumeThread());
 	}
     }
@@ -239,12 +241,14 @@ void
 Main::doSph(int activeRung, int bNeedDensity) 
 {
   if(bNeedDensity) {
+    double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
     if (param.bFastGas && nActiveSPH < nTotalSPH*param.dFracFastGas) {
 	ckout << "Calculating densities/divv on Actives ...";
 	// This also marks neighbors of actives
 	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 1);
 	double startTime = CkWallTimer();
-	treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
+				       CkCallbackResumeThread());
 	iPhase++;
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
@@ -263,7 +267,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// additional marking
 	DenDvDxNeighborSmParams pDenN(TYPE_GAS, activeRung, param.csm, dTime);
 	startTime = CkWallTimer();
-	treeProxy.startIterationSmooth(&pDenN, CkCallbackResumeThread());
+	treeProxy.startIterationSmooth(&pDenN, 1, dfBall2OverSoft2,
+				       CkCallbackResumeThread());
 	iPhase++;
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
@@ -274,7 +279,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// actives, and those who have actives as neighbors.
 	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 0);
 	double startTime = CkWallTimer();
-	treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
+				       CkCallbackResumeThread());
 	iPhase++;
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
@@ -347,6 +353,7 @@ void TreePiece::updateuDot(int activeRung,
 			   double z, // current redshift
 			   int bCool, // select equation of state
 			   int bUpdateState, // update ionization fractions
+			   int bAll, // update all rungs below activeRung
 			   const CkCallback& cb)
 {
     double dt; // time in seconds
@@ -354,7 +361,8 @@ void TreePiece::updateuDot(int activeRung,
 #ifndef COOLING_NONE
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
-	if (TYPETest(p, TYPE_GAS) && p->rung >= activeRung) {
+	if (TYPETest(p, TYPE_GAS)
+	    && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
 	    dt = CoolCodeTimeToSeconds(dm->Cool, duDelta[p->rung] );
 	    double ExternalHeating = p->PdV();
 	    ExternalHeating += p->fESNrate();
