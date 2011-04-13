@@ -313,6 +313,7 @@ inline void deleteParticle(GravityParticle *p)
 inline GravityParticle StarFromGasParticle(GravityParticle *p) 
 {
     GravityParticle starp = *p;
+    TYPESet(&starp, TYPE_STAR);
     starp.extraData = new extraStarData;
     starp.fStarMetals() = p->fMetals();
     return starp;
