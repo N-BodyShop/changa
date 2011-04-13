@@ -142,7 +142,9 @@ void Main::StellarFeedback(double dTime, double dDelta)
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
     DistStellarFeedbackSmoothParams pDSFB(TYPE_GAS, 0, param.csm, dTime, 
 					  param.dConstGamma, param.feedback);
-    treeProxy.startIterationSmooth(&pDSFB, CkCallbackResumeThread());
+    double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+    treeProxy.startIterationSmooth(&pDSFB, 1, dfBall2OverSoft2,
+				   CkCallbackResumeThread());
     iPhase++;
 
     CkAssert(iPhase <= nPhases);
@@ -160,7 +162,6 @@ void TreePiece::Feedback(Fdbk &fb, double dTime, double dDelta, const CkCallback
 {
     FBEffects fbTotals[NFEEDBACKS];
     double dDeltaYr;
-    double dSNIaMassStore;
         
     dTime *= fb.dSecUnit/SECONDSPERYEAR ;
     dDeltaYr = max(dDelta,fb.dDeltaStarForm)*fb.dSecUnit/SECONDSPERYEAR ;
@@ -219,7 +220,6 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
      * Call all the effects in order and accumulate them.
      */
     for(int j = 0; j < NFEEDBACKS; j++) {
-	double dNSNII = 0;
 	switch (j) {
 	case FB_SNII:
 	    CalcSNIIFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
@@ -406,7 +406,7 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
 {
     GravityParticle *q;
     double fNorm,ih2,r2,rs,rstot,fNorm_u,fNorm_Pres,fAveDens;
-    int i,counter,imind;
+    int i,counter;
     
     if ( p->fMSN() == 0.0 ){return;} /* Is there any feedback mass? */
     CkAssert(TYPETest(p, TYPE_STAR));
