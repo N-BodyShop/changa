@@ -12,35 +12,35 @@ using namespace std;
 CreateLBFunc_Def(Orb3dLB, "3d ORB mapping of tree piece space onto 3d processor mesh");
 
 static int comparx(const void *a, const void *b){
-  TPObject *ta = (TPObject *)a;
-  TPObject *tb = (TPObject *)b;
-  return (int)(ta->centroid.x-tb->centroid.x);
+  const TPObject *ta = (const TPObject*)(a);
+  const TPObject *tb = (const TPObject*)(b);
+  return ta->centroid.x < tb->centroid.x ? -1 : ta->centroid.x > tb->centroid.x ? 1 : 0;
 }
 static int compary(const void *a, const void *b){
-  TPObject *ta = (TPObject *)a;
-  TPObject *tb = (TPObject *)b;
-  return (int)(ta->centroid.y-tb->centroid.y);
+  const TPObject *ta = (const TPObject*)(a);
+  const TPObject *tb = (const TPObject*)(b);
+  return ta->centroid.y < tb->centroid.y ? -1 : ta->centroid.y > tb->centroid.y ? 1 : 0;
 }
 static int comparz(const void *a, const void *b){
-  TPObject *ta = (TPObject *)a;
-  TPObject *tb = (TPObject *)b;
-  return (int)(ta->centroid.z-tb->centroid.z);
+  const TPObject *ta = (const TPObject*)(a);
+  const TPObject *tb = (const TPObject*)(b);
+  return ta->centroid.z < tb->centroid.z ? -1 : ta->centroid.z > tb->centroid.z ? 1 : 0;
 }
 
 static int pcx(const void *a, const void *b){
-  Node *ta = (Node *)a;
-  Node *tb = (Node *)b;
-  return (int)(ta->x-tb->x);
+  const Node *ta = (const Node*)(a);
+  const Node *tb = (const Node*)(b);
+  return ta->x < tb->x ? -1 : ta->x > tb->x ? 1 : 0;
 }
 static int pcy(const void *a, const void *b){
-  Node *ta = (Node *)a;
-  Node *tb = (Node *)b;
-  return (int)(ta->y-tb->y);
+  const Node *ta = (const Node*)(a);
+  const Node *tb = (const Node*)(b);
+  return ta->y < tb->y ? -1 : ta->y > tb->y ? 1 : 0;
 }
 static int pcz(const void *a, const void *b){
-  Node *ta = (Node *)a;
-  Node *tb = (Node *)b;
-  return (int)(ta->z-tb->z);
+  const Node *ta = (const Node*)(a);
+  const Node *tb = (const Node*)(b);
+  return ta->z < tb->z ? -1 : ta->z > tb->z ? 1 : 0;
 }
 
 Orb3dLB::Orb3dLB(const CkLBOptions &opt): CentralLB(opt)
@@ -152,6 +152,18 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
       tp[tag].load = stats->objData[tag].wallTime;
     }
     tp[tag].lbindex = tag;
+    /*
+    if(step() == 1){
+      CkPrintf("[tpinfo] %f %f %f %f %d %d\n",
+          tp[tag].centroid.x,
+          tp[tag].centroid.y,
+          tp[tag].centroid.z,
+          tp[tag].load,
+          tpCentroids[i].numActiveParticles,
+          tp[tag].lbindex
+          );
+    }
+    */
   }
 
   mapping = &stats->to_proc;
@@ -184,6 +196,18 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
 
   CkPrintf("[orb3dlb] map\n");
   map(tp,numobjs,numnodes,nodes,nx,ny,nz,dim);
+
+  for(int i = 0; i < numnodes; i++){
+    CkPrintf("bb of node %d %f %f %f %f %f %f\n",
+              i, 
+              nodes[i].box.lesser_corner.x,
+              nodes[i].box.lesser_corner.y,
+              nodes[i].box.lesser_corner.z,
+              nodes[i].box.greater_corner.x,
+              nodes[i].box.greater_corner.y,
+              nodes[i].box.greater_corner.z
+              );
+  }
 
   /*
   int migr = 0;
@@ -283,12 +307,16 @@ void Orb3dLB::directMap(TPObject *tp, int ntp, Node *nodes){
     pq_obj.pop();
 
     // spread around zero-load objects
+    // disabled to reduce the number of migrations, and
+    // check whether this might solve the BG/P crash
     if(tp.load < ZERO_THRESHOLD){
+      /*
       (*mapping)[tp.lbindex] = nodes[0].procRanks[currentZeroProc];
       currentZeroProc = currentZeroProc+1;
       if(currentZeroProc == procsPerNode){
         currentZeroProc = 0;
       }
+      */
     }
     else{
       // if object has some non-zero load, assign it to a proc greedily
@@ -299,6 +327,7 @@ void Orb3dLB::directMap(TPObject *tp, int ntp, Node *nodes){
 
       p.load += tp.load;
       (*mapping)[tp.lbindex] = nodes[0].procRanks[p.t];
+      nodes[0].box.grow(tp.centroid);
 
       pq_proc.push(p);
     }

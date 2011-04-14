@@ -4,6 +4,7 @@
 
 #include "Vector3D.h"
 #include "TaggedVector3D.h"
+#include "OrientedBox.h"
 using namespace std;
 
 template <class T>
@@ -142,6 +143,7 @@ class Node {
   public:
   int x, y, z;
   CkVec<int> procRanks;
+  OrientedBox<float> box;
 };
 
 typedef int (*ComparatorFn) (const void *, const void *);
