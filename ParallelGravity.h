@@ -527,7 +527,7 @@ class TreePiece : public CBase_TreePiece {
    State *sInterListStateRemoteResume;
 #endif
    Compute *sGravity, *sPrefetch;
-   Compute *sSmooth;
+   SmoothCompute *sSmooth;
    
    Opt *sLocal, *sRemote, *sPref;
    Opt *optSmooth;
@@ -816,6 +816,9 @@ private:
 	GravityParticle* myParticles;
 	/// Actual storage in the above array
 	int nStore;
+	/// Number of particles in my tree.  Can be different from
+	/// myNumParticles when particles are created.
+	int myTreeParticles;
  public:
 	/// Total Particles in the simulation
 	int64_t nTotalParticles;
@@ -926,6 +929,7 @@ private:
 	MOMC momcRoot;		/* complete moments of root */
 #endif
 
+	int bGasCooling;
 #ifndef COOLING_NONE
 	clDerivsData *CoolData;
 #endif
@@ -1148,6 +1152,7 @@ public:
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
 	  dm = NULL;
+	  foundLB = Null; 
 	  iterationNo=0;
 	  usesAtSync=CmiTrue;
 	  bucketReqs=NULL;
@@ -1206,9 +1211,14 @@ public:
 
           myParticles = NULL;
           mySPHParticles = NULL;
+          myStarParticles = NULL;
+	  myNumParticles = myNumSPH = myNumStar = 0;
+	  nStore = nStoreSPH = nStoreStar = 0;
+	  myTreeParticles = -1;
 	  orbBoundaries.clear();
 	  boxes = NULL;
 	  splitDims = NULL;
+	  bGasCooling = 0;
 	}
 
 	TreePiece(CkMigrateMessage* m) {
@@ -1226,6 +1236,7 @@ public:
 	  prefetchRoots = NULL;
 	  //remaining Chunk = NULL;
           ewt = NULL;
+	  root = NULL;
 
       sTopDown = 0;
 	  sGravity = NULL;
@@ -1246,10 +1257,7 @@ public:
 	  orbBoundaries.clear();
 	  boxes = NULL;
 	  splitDims = NULL;
-#ifndef COOLING_NONE
-	  dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
-	  CoolData = CoolDerivsInit(dm->Cool);
-#endif
+	  myTreeParticles = -1;
 	}
 
         private:
@@ -1259,7 +1267,8 @@ public:
 	~TreePiece() {
 	  if (verbosity>1) ckout <<"Deallocating treepiece "<<thisIndex<<endl;
 	  delete[] myParticles;
-	  delete[] mySPHParticles;
+	  if(nStoreSPH > 0) delete[] mySPHParticles;
+	  if(nStoreStar > 0) delete[] myStarParticles;
 	  //delete[] splitters;
 	  //delete[] prefetchRoots;
 	  //delete[] remaining Chunk;
@@ -1278,7 +1287,8 @@ public:
 	  delete[] splitDims;
 
 #ifndef COOLING_NONE
-	  CoolDerivsFinalize(CoolData);
+	  if(bGasCooling)
+	      CoolDerivsFinalize(CoolData);
 #endif
           if (verbosity>1) ckout <<"Finished deallocation of treepiece "<<thisIndex<<endl;
 	}
@@ -1412,7 +1422,7 @@ public:
 	void InitEnergy(double dTuFac, double z, double dTime,
 			const CkCallback& cb);
 	void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
-			double dTime, double z, int bCool,
+			double dTime, double z, int bCool, int bAll,
 			int bUpdateState, const CkCallback& cb);
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
@@ -1420,7 +1430,7 @@ public:
 				     const CkCallback &cb);
 	void getCoolingGasPressure(double gamma, double gammam1,
 				   const CkCallback &cb);
-	void FormStars(StfmParam param, double dTime, double dCosmoFac,
+	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
 		       const CkCallback& cb);
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
@@ -1502,7 +1512,8 @@ public:
   void startIteration(int am, double myTheta, const CkCallback& cb);
   /// As above, but for a smooth operation.
   void setupSmooth();
-  void startIterationSmooth(SmoothParams *p, const CkCallback& cb);
+  void startIterationSmooth(SmoothParams *p, int iLowhFix,
+			    double dfBall2OverSoft2, const CkCallback &cb);
   void startIterationReSmooth(SmoothParams *p, const CkCallback& cb);
   void startIterationMarkSmooth(SmoothParams *p, const CkCallback& cb);
 

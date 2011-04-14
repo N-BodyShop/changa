@@ -224,6 +224,7 @@ public:
 			double dTime, // Time
 			const CkCallback& cb);
     void memoryStats(const CkCallback& cb);
+    void resetReadOnly(Parameters param, const CkCallback &cb);
 };
 
 #endif //DATAMANAGER_H

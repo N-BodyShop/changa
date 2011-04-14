@@ -365,7 +365,19 @@ void DataManager::memoryStats(const CkCallback& cb)
     int mem = CmiMemoryUsage()/(1024*1024);
     contribute(sizeof(int), &mem, CkReduction::max_int, cb);
     }
- 
+
+/*
+ * reset readonly variables after a restart
+ */
+void DataManager::resetReadOnly(Parameters param, const CkCallback &cb) 
+{
+    /*
+     * Insert any variables that can change due to a restart.
+     */
+    dExtraStore = param.dExtraStore;
+    contribute(cb);
+    }
+  
 	 
 const char *typeString(NodeType type);
 

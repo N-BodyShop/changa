@@ -131,6 +131,7 @@ mainmodule ParallelGravity {
     entry void dmCoolTableRead(double dTableData[nData], int nData, const CkCallback& cb);
     entry void CoolingSetTime(double z, double dTime, const CkCallback& cb);
     entry void memoryStats(const CkCallback& cb);
+    entry void resetReadOnly(Parameters param, const CkCallback &cb);
   };
   array [1D] TreePiece {
     entry TreePiece();
@@ -234,7 +235,7 @@ mainmodule ParallelGravity {
     entry void InitEnergy(double dTuFac, double z, double dTime,
 			const CkCallback& cb);
     entry void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
-    	       		double dTime, double z, int bCool,
+    	       		double dTime, double z, int bCool, int bAll,
 			int bUpdateState, const CkCallback& cb);
     entry void ballMax(int activeRung, double dFac, const CkCallback& cb);
     entry void sphViscosityLimiter(int bOn, int activeRung,
@@ -243,7 +244,7 @@ mainmodule ParallelGravity {
 					const CkCallback &cb);
     entry void getCoolingGasPressure(double gamma, double gammam1,
 				   const CkCallback &cb);
-    entry void FormStars(StfmParam param, double dTime, double dCosmoFac,
+    entry void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
 		       const CkCallback& cb);
     entry void setTypeFromFile(int iSetMask, char file[256],
         const CkCallback& cb);
@@ -260,7 +261,8 @@ mainmodule ParallelGravity {
     entry void startORBTreeBuild(CkReductionMsg* m);
 
     entry void startIteration(int activeRung, double myTheta, CkCallback &cb);
-    entry void startIterationSmooth(CkPointer<SmoothParams>, CkCallback &cb);
+    entry void startIterationSmooth(CkPointer<SmoothParams>, int iLowhFix,
+				    double dfBall2OverSoft2, CkCallback &cb);
     entry void startIterationReSmooth(CkPointer<SmoothParams>, CkCallback &cb);
     entry void startIterationMarkSmooth(CkPointer<SmoothParams>, CkCallback &cb);
     entry void finishNodeCache(int iPhases, CkCallback &cb);

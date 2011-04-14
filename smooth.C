@@ -156,7 +156,8 @@ State *KNearestSmoothCompute::getNewState(int nBuckets){
 					// walk is not finished.
     }
   state->started = true;
-  state->nParticlesPending = tp->myNumParticles;
+  CkAssert(tp->myTreeParticles >= 0);
+  state->nParticlesPending = tp->myTreeParticles;
   state->currentBucket = 0;
   state->bWalkDonePending = 0;
   return state;
@@ -216,6 +217,8 @@ int KNearestSmoothCompute::openCriterion(TreePiece *ownerTP,
     return 0;
 }
 
+inline double sqr(double x) { return x*x; }
+
 /*
  * Test a given particle against all the priority queues in the
  * bucket.
@@ -235,21 +238,27 @@ void KNearestSmoothCompute::bucketCompare(TreePiece *ownerTP,
     for(int j = node->firstParticle; j <= node->lastParticle; ++j) {
 	if(!params->isSmoothActive(&particles[j]))
 	    continue;
-	pqSmoothNode *Q = nstate->Qs[j];
+	CkVec<pqSmoothNode> &Q = nstate->Qs[j];
 	double rOld2 = Q[0].fKey; // Ball radius
 	Vector3D<double> dr = particles[j].position - rp;
 	
-	if(rOld2 >= dr.lengthSquared()) {  // Perform replacement
-	    if(nstate->heap_sizes[j] == nSmooth) {
-	        std::pop_heap(Q + 0, Q + nSmooth);
-	        nstate->heap_sizes[j]--;	// pop if list is full
+	// include particle if less than the current search radius, or
+	// less than the h_min limit set by softening.
+	if(rOld2 >= dr.lengthSquared()
+	   || (iLowhFix && dr.lengthSquared() <= dfBall2OverSoft2*sqr(particles[j].soft))) {
+	    // Perform replacement if we've got enough particles and
+	    // we are not hitting the h_min limit.
+	    if(Q.size() >= nSmooth
+	       && (!iLowhFix || rOld2 > dfBall2OverSoft2*sqr(particles[j].soft))) {
+	        std::pop_heap(&(Q[0]) + 0, &(Q[0]) + nSmooth);
+		Q.resize(Q.size()-1); 	// pop if list is full
 	        }
-	    int end = nstate->heap_sizes[j];
-	    Q[end].fKey = dr.lengthSquared();
-	    Q[end].dx = dr;
-	    Q[end].p = p;
-	    std::push_heap(Q + 0, Q + end + 1); 
-	    nstate->heap_sizes[j]++;
+	    pqSmoothNode pqNew;
+	    pqNew.fKey = dr.lengthSquared();
+	    pqNew.dx = dr;
+	    pqNew.p = p;
+	    Q.push_back(pqNew);
+	    std::push_heap(&(Q[0]) + 0, &(Q[0]) + Q.size());
 	    }
 	}
     }
@@ -309,6 +318,8 @@ void TreePiece::setupSmooth() {
 
 void TreePiece::startIterationSmooth(// type of smoothing and parameters
 				     SmoothParams* params,
+				     int iLowhFix,
+				     double dfBall2OverSoft2,
 				     const CkCallback& cb) {
 
   cbSmooth = cb;
@@ -323,9 +334,10 @@ void TreePiece::startIterationSmooth(// type of smoothing and parameters
 
   // Create objects that are reused by all buckets
   twSmooth = new BottomUpTreeWalk;
-  sSmooth = new KNearestSmoothCompute(this, params, nSmooth);
+  sSmooth = new KNearestSmoothCompute(this, params, nSmooth, iLowhFix,
+				      dfBall2OverSoft2);
       
-  initBucketsSmooth((SmoothCompute *) sSmooth);
+  initBucketsSmooth(sSmooth);
 
   // creates and initializes nearneighborstate object
   sSmoothState = sSmooth->getNewState(numBuckets);
@@ -355,8 +367,6 @@ void TreePiece::initBucketsSmooth(Tsmooth tSmooth) {
     GenericTreeNode* node = bucketList[j];
     int numParticlesInBucket = node->particleCount;
 
-    CkAssert(numParticlesInBucket <= TreeStuff::maxBucketSize);
-    
     // TODO: active bounds may give a performance boost in the
     // multi-timstep regime.
     // node->boundingBox.reset();  // XXXX dangerous should have separate
@@ -458,7 +468,8 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
   for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
       if(!params->isSmoothActive(&tp->myParticles[j]))
 	  continue;
-      pqSmoothNode *Q = nstate->Qs[j] = new pqSmoothNode[nSmooth];
+      CkVec<pqSmoothNode> *Q = &nstate->Qs[j];
+      Q->reserve(nSmooth);
       //
       // Find maximum of nearest neighbors
       //
@@ -473,15 +484,18 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 		  drMax2 = dr.lengthSquared();
 		  }
 	      }
-      int end = nstate->heap_sizes[j];
-      CkAssert(end == 0);
+      CkAssert(Q->size() == 0);
+      pqSmoothNode pqNew;
       if(bEnough)
-	  Q[end].fKey = drMax2;
+	  pqNew.fKey = drMax2;
       else
-	  Q[end].fKey = DBL_MAX;
-      Q[end].p = NULL; 
-      std::push_heap(Q + 0, Q + end + 1); 
-      nstate->heap_sizes[j]++; 
+	  pqNew.fKey = DBL_MAX;
+      if(iLowhFix && pqNew.fKey < dfBall2OverSoft2*tp->myParticles[j].soft*tp->myParticles[j].soft)
+	  pqNew.fKey = dfBall2OverSoft2*tp->myParticles[j].soft*tp->myParticles[j].soft;
+
+      pqNew.p = NULL;
+      Q->push_back(pqNew);
+      std::push_heap(&((*Q)[0]) + 0, &((*Q)[0]) + 1); 
       }
     }
 
@@ -492,7 +506,7 @@ void TreePiece::smoothBucketComputation() {
   sSmooth->init(myNode, activeRung, optSmooth);
   int bucketActive = 0;
   for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
-      if(((SmoothCompute *)sSmooth)->params->isSmoothActive(&myParticles[j]))
+      if(sSmooth->params->isSmoothActive(&myParticles[j]))
 	  bucketActive += 1;
       }
 
@@ -574,6 +588,13 @@ void TreePiece::finishSmoothWalk()
     return;
   }
 
+  // At this point, this piece has finished its walk, and all particle
+  // requests from other processors have been flushed back through the
+  // combiner.
+
+  for(int i = 0; i < myNumParticles; i++) {
+      sSmooth->params->postTreeParticle(&myParticles[i+1]);
+      }
   memPostCache = CmiMemoryUsage()/(1024*1024);
   nCacheAccesses = 0; // reset for next walk.
 
@@ -584,11 +605,11 @@ void TreePiece::finishSmoothWalk()
       delete twSmooth;
       sSmooth = 0;
       }
+  
 #ifdef CHECK_WALK_COMPLETIONS
   CkPrintf("[%d] inside finishSmoothWalk contrib callback\n", thisIndex);
 #endif
-  smoothProxy[thisIndex].ckLocal()->contribute(0, 0, CkReduction::concat,
-					       cbSmooth);
+  smoothProxy[thisIndex].ckLocal()->contribute(cbSmooth);
 }
 
 void KNearestSmoothCompute::walkDone(State *state) {
@@ -599,18 +620,23 @@ void KNearestSmoothCompute::walkDone(State *state) {
       if(!params->isSmoothActive(&part[i-node->firstParticle]))
 	  continue;
       NearNeighborState *nstate = (NearNeighborState *)state;
-      pqSmoothNode *Q = nstate->Qs[i];
+      CkVec<pqSmoothNode> &Q = nstate->Qs[i];
       double h = sqrt(Q[0].fKey); // Ball radius
       part[i-node->firstParticle].fBall = h;
-      int nCnt = nstate->heap_sizes[i];
+      int nCnt = Q.size();
+      if(Q[0].p == NULL) { // This can happen if iLowhFix is
+			      // operating
+	  CkAssert(iLowhFix != 0);
+	  std::pop_heap(&(Q[0]) + 0, &(Q[0]) + nCnt);
+	  nCnt--;
+	  }
       if(nCnt < nSmooth) {
 	CkPrintf("short count: %d, particle %d, h %g\n", nCnt,
 		  part[i-node->firstParticle].iOrder, h);
 	}
       CkAssert(nCnt >= nSmooth);
-      params->fcnSmooth(&part[i-node->firstParticle], nCnt, Q);
-      delete [] Q;
-      nstate->Qs[i] = NULL;
+      params->fcnSmooth(&part[i-node->firstParticle], nCnt, &(Q[0]));
+      Q.clear();
       }
       // XXX jetley - the nearneighborstate allocated for this compute
       // may be deleted after this function is called. 
@@ -629,7 +655,8 @@ State *ReSmoothCompute::getNewState(int nBucket){
 					// walk is not finished.
     }
   state->started = true;
-  state->nParticlesPending = tp->myNumParticles;
+  CkAssert(tp->myTreeParticles >= 0);
+  state->nParticlesPending = tp->myTreeParticles;
   state->currentBucket = 0;
   state->bWalkDonePending = 0;
   return state;
@@ -738,7 +765,7 @@ void TreePiece::startIterationReSmooth(SmoothParams* params,
   twSmooth = new TopDownTreeWalk;
   sSmooth = new ReSmoothCompute(this, params);
 
-  initBucketsSmooth((ReSmoothCompute *) sSmooth);
+  initBucketsSmooth(sSmooth);
 
   // creates and initializes nearneighborstate object
   sSmoothState = sSmooth->getNewState(numBuckets);
@@ -798,10 +825,10 @@ void ReNearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
 
   if(counterArrays[0][iBucket] == 0) {
       tp->sSmooth->walkDone(this);
-  if(verbosity>1)
-	CkPrintf("[%d] TreePiece %d finished smooth with bucket %d\n",CkMyPe(),
-		 tp->thisIndex,iBucket);
     nParticlesPending -= node->particleCount;
+  if(verbosity>4)
+	CkPrintf("[%d] TreePiece %d finished resmooth with bucket %d, %d Pending\n",CkMyPe(),
+		 tp->thisIndex,iBucket,nParticlesPending);
     if(started && nParticlesPending == 0) {
       started = false;
       tp->memWithCache = CmiMemoryUsage()/(1024*1024);
@@ -811,10 +838,7 @@ void ReNearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
       CkPrintf("[%d] markWalkDone ReNearNeighborState\n", tp->getIndex());
 #endif
       tp->markSmoothWalkDone();
-      if(verbosity>1)
-	CkPrintf("[%d] TreePiece %d finished smooth with bucket %d\n",CkMyPe(),
-		 tp->thisIndex,iBucket);
-      if(verbosity > 4)
+      if(verbosity > 1)
 	ckerr << "TreePiece " << tp->thisIndex << ": My particles are done"
 	     << endl;
     }
@@ -846,7 +870,8 @@ State *MarkSmoothCompute::getNewState(int nBucket){
 					// walk is not finished.
     }
   state->started = true;
-  state->nParticlesPending = tp->myNumParticles;
+  CkAssert(tp->myTreeParticles >= 0);
+  state->nParticlesPending = tp->myTreeParticles;
   state->currentBucket = 0;
   state->bWalkDonePending = 0;
   return state;
@@ -949,7 +974,7 @@ void TreePiece::startIterationMarkSmooth(SmoothParams* params,
   twSmooth = new TopDownTreeWalk;
   sSmooth = new MarkSmoothCompute(this, params);
 
-  initBucketsSmooth((MarkSmoothCompute *) sSmooth);
+  initBucketsSmooth(sSmooth);
 
   // creates and initializes nearneighborstate object
   sSmoothState = sSmooth->getNewState(numBuckets);
@@ -1008,7 +1033,7 @@ void MarkNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
 
   if(counterArrays[0][iBucket] == 0) {
       tp->sSmooth->walkDone(this);
-  if(verbosity>1)
+  if(verbosity>4)
 	CkPrintf("[%d] TreePiece %d finished smooth with bucket %d\n",CkMyPe(),
 		 tp->thisIndex,iBucket);
     nParticlesPending -= node->particleCount;
@@ -1024,7 +1049,7 @@ void MarkNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
       if(verbosity>1)
 	CkPrintf("[%d] TreePiece %d finished smooth with bucket %d\n",CkMyPe(),
 		 tp->thisIndex,iBucket);
-      if(verbosity > 4)
+      if(verbosity > 1)
 	ckerr << "TreePiece " << tp->thisIndex << ": My particles are done"
 	     << endl;
     }

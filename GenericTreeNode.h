@@ -61,7 +61,8 @@ namespace Tree {
     NodeKey key;
     CmiUInt8 usedBy;
 
-    GenericTreeNode() : myType(Invalid), key(0), parent(0), firstParticle(0), lastParticle(0), remoteIndex(0), usedBy(0) {
+    GenericTreeNode() : myType(Invalid), key(0), parent(0), firstParticle(0),
+	lastParticle(0), remoteIndex(0), usedBy(0), iParticleTypes(0) {
 #if COSMO_STATS > 0
       used = false;
 #endif

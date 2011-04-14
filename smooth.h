@@ -25,28 +25,19 @@ class pqSmoothNode
 
 class NearNeighborState: public State {
 public:
-    pqSmoothNode **Qs; 
-    int *heap_sizes; 
+    CkVec<pqSmoothNode> *Qs; 
     int nParticlesPending;
     int mynParts; 
     bool started;
     
     NearNeighborState(int nParts, int nSmooth) {
-        Qs = new pqSmoothNode*[nParts+2];
-	heap_sizes = new int[nParts+2]; 
-	bzero(Qs, (nParts+2) * sizeof(pqSmoothNode *)); 
-	bzero(heap_sizes, (nParts+2) * sizeof(int)); 
+        Qs = new CkVec<pqSmoothNode>[nParts+2];
 	mynParts = nParts; 
         }
 
     void finishBucketSmooth(int iBucket, TreePiece *tp);
     ~NearNeighborState() {
-        for (int i=0; i<mynParts+2; i++) {
-	    if(Qs[i] != NULL)
-		delete [] Qs[i]; 
-        }
 	delete [] Qs; 
-	delete [] heap_sizes; 
         }
 };
 
@@ -65,6 +56,8 @@ class SmoothParams : public PUP::able
     virtual void initSmoothParticle(GravityParticle *p) = 0;
     // initialize particles in tree but not smoothed
     virtual void initTreeParticle(GravityParticle *p) = 0;
+    // calculation on all tree particles after all walks are done
+    virtual void postTreeParticle(GravityParticle *p) = 0;
     // initialize particles as they come into the cache
     virtual void initSmoothCache(GravityParticle *p) = 0;
     // combine cache copy with home particle
@@ -92,6 +85,7 @@ class DensitySmoothParams : public SmoothParams
     virtual int isSmoothActive(GravityParticle *p);
     virtual void initSmoothParticle(GravityParticle *p);
     virtual void initTreeParticle(GravityParticle *p) {}
+    virtual void postTreeParticle(GravityParticle *p) {}
     virtual void initSmoothCache(GravityParticle *p);
     virtual void combSmoothCache(GravityParticle *p1,
 				 ExternalSmoothParticle *p2);
@@ -152,11 +146,19 @@ class SmoothCompute : public Compute
 class KNearestSmoothCompute : public SmoothCompute 
 {
     int nSmooth;
+    // limit small smoothing lengths
+    int iLowhFix;
+    // smoothing to gravitational softening ratio limit
+    double dfBall2OverSoft2;
+    
 public:
     
-     KNearestSmoothCompute(TreePiece *_tp, SmoothParams *_params, int nSm)
+    KNearestSmoothCompute(TreePiece *_tp, SmoothParams *_params, int nSm,
+			  int iLhF, double dfB2OS2)
        : SmoothCompute(_tp, _params){
          nSmooth = nSm;
+	 iLowhFix = iLhF;
+	 dfBall2OverSoft2 = dfB2OS2;
          }
     ~KNearestSmoothCompute() { //delete state;
 	delete params;

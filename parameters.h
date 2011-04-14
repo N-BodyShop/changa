@@ -3,7 +3,7 @@
 
 #include "cosmo.h"
 #include "cooling.h"
-#include "starform_param.h"
+#include "starform.h"
 
 typedef struct parameters {
     /*
@@ -82,7 +82,7 @@ typedef struct parameters {
     double dEtaCourant;
     double dEtauDot;
     int bStarForm;
-    StfmParam *stfm;
+    Stfm *stfm;
     int iRandomSeed;
     int bStandard;
     int bOverwrite;
@@ -95,6 +95,7 @@ typedef struct parameters {
     int iOutInterval;
     int iCheckInterval;
     int iLogInterval;
+    int bDoIOrderOutput;
     double dExtraStore;
     double dDumpFrameStep;
     double dDumpFrameTime;
@@ -171,7 +172,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dEtauDot;
     p|param.bStarForm;
     if(p.isUnpacking())
- 	param.stfm = new StfmParam();
+ 	param.stfm = new Stfm();
     p|*param.stfm;
     p|param.iRandomSeed;
     p|param.bStandard;
@@ -185,6 +186,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.iOutInterval;
     p|param.iCheckInterval;
     p|param.iLogInterval;
+    p|param.bDoIOrderOutput;
     p|param.dExtraStore;
     p|param.dDumpFrameStep;
     p|param.dDumpFrameTime;

@@ -380,7 +380,7 @@ void MultistepLB::mergeInstrumentedData(int phase, BaseLB::LDStats *stats){
 
   // tune alpha as needed - this is the merge parameter
   double alpha = 0.0;
-  double savedCpu, savedWall;
+  double savedWall;
   
   if(phase == -1){
 #ifdef MCLBMSV
@@ -421,9 +421,7 @@ void MultistepLB::mergeInstrumentedData(int phase, BaseLB::LDStats *stats){
 #endif
       for(i = 0; i < stats->n_objs; i++){
         savedWall =  savedPhaseStats[phase].objData[i].wallTime;
-        
         savedPhaseStats[phase].objData[i]= stats->objData[i];
-        
         savedPhaseStats[phase].objData[i].wallTime = alpha*savedWall + (1.0-alpha)*stats->objData[i].wallTime;
         
       }
@@ -502,7 +500,10 @@ void MultistepLB::work(BaseLB::LDStats* stats)
   mergeInstrumentedData(prevPhase, stats); 
   
   for(i = 0; i < stats->n_objs; i++){
-    ratios[tpCentroids[i].tag] = tpCentroids[i].numActiveParticles/(float)tpCentroids[i].myNumParticles;
+    if(tpCentroids[i].myNumParticles != 0)
+    	ratios[tpCentroids[i].tag] = tpCentroids[i].numActiveParticles/(float)tpCentroids[i].myNumParticles;
+    else
+	ratios[tpCentroids[i].tag] = 1.0;
     numActiveParticles += tpCentroids[i].numActiveParticles;
     totalNumParticles += tpCentroids[i].myNumParticles;
     pCentroids[i] = &tpCentroids[i].vec;

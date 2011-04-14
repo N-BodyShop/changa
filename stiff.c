@@ -17,8 +17,6 @@ STIFF *StiffInit( double eps, int nv, void *Data,
 		  int (*jacobn)(double x, const double y[], double dfdx[], double *dfdy, void *Data) 
 		   ) 
 {
-  int k,iq;
-
   STIFF *s;
   const gsl_odeiv_step_type *T = gsl_odeiv_step_rk4imp;
 
@@ -97,7 +95,25 @@ void derivs(double x, double y[], double dydx[], void *params)
 /*
  * Interface to GSL Root finder
  */
-double RootFind(double (*func)(double, void *Data), void *Data,
+ROOTFIND *RootFindInit()
+{
+    ROOTFIND *r;
+    const gsl_root_fsolver_type *T = gsl_root_fsolver_brent;
+    
+    r = (ROOTFIND *)malloc(sizeof(ROOTFIND));
+    assert(r!=NULL);
+    r->solver = gsl_root_fsolver_alloc(T);
+    
+    return r;
+    }
+
+void RootFindFinalize(ROOTFIND *r)
+{
+    gsl_root_fsolver_free(r->solver);
+    free(r);
+    }
+
+double RootFind(ROOTFIND *r, double (*func)(double, void *Data), void *Data,
 		double x1,  /* lower bracket on the root */
 		double x2,  /* upper bracket on the root */
 		double tol)  /* Absolute tolerance */
@@ -108,26 +124,21 @@ double RootFind(double (*func)(double, void *Data), void *Data,
     int status;
     double root;
     
-    const gsl_root_fsolver_type *T;
-    gsl_root_fsolver *s;
     gsl_function F;
     
     F.function = func;
     F.params = Data;
     
-    T = gsl_root_fsolver_brent;
-    s = gsl_root_fsolver_alloc(T);
-    gsl_root_fsolver_set (s, &F, x1, x2);
+    gsl_root_fsolver_set (r->solver, &F, x1, x2);
     for(iter = 0; iter < itmax; iter++) {
-	status = gsl_root_fsolver_iterate(s);
-	root = gsl_root_fsolver_root(s);
-	x1 = gsl_root_fsolver_x_lower(s);
-	x2 = gsl_root_fsolver_x_upper(s);
+	status = gsl_root_fsolver_iterate(r->solver);
+	root = gsl_root_fsolver_root(r->solver);
+	x1 = gsl_root_fsolver_x_lower(r->solver);
+	x2 = gsl_root_fsolver_x_upper(r->solver);
 	status = gsl_root_test_interval (x1, x2, tol, epsRel);
 	if(status == GSL_SUCCESS)
 	    break;
 	}
-    gsl_root_fsolver_free(s);
     assert(iter < itmax);
     return root;
     }

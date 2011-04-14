@@ -9,61 +9,62 @@
 #include "ParallelGravity.h"
 #include "starform.h"
 #include "smooth.h"
+#include "Sph.h"
 
 ///
 /// @brief initialize parameters for star formation
 ///
 
-void StfmAddParams(StfmParam *stfm, PRM prm) 
+void Stfm::AddParams(PRM prm) 
 {
-    stfm->dOverDenMin = 2.0;
-    prmAddParam(prm,"dOverDenMin", paramDouble, &stfm->dOverDenMin,
+    dOverDenMin = 2.0;
+    prmAddParam(prm,"dOverDenMin", paramDouble, &dOverDenMin,
 		    sizeof(double), "stODmin",
 		    "<Minimum overdensity for forming stars> = 2");
-    stfm->dPhysDenMin = 0.1;
-    prmAddParam(prm,"dPhysDenMin", paramDouble, &stfm->dPhysDenMin,
+    dPhysDenMin = 0.1;
+    prmAddParam(prm,"dPhysDenMin", paramDouble, &dPhysDenMin,
 		sizeof(double), "stPDmin",
 		"<Minimum physical density for forming stars (atoms/cc)> = .1");
-    stfm->dStarEff = .3333;
-    prmAddParam(prm,"dStarEff", paramDouble, &stfm->dStarEff,
+    dStarEff = .3333;
+    prmAddParam(prm,"dStarEff", paramDouble, &dStarEff,
 		sizeof(double), "stEff",
 		"<Fraction of gas converted into stars per timestep> = .3333");
-    stfm->dInitStarMass = 0.0;
-    prmAddParam(prm,"dInitStarMass", paramDouble, &stfm->dInitStarMass,
+    dInitStarMass = 0.0;
+    prmAddParam(prm,"dInitStarMass", paramDouble, &dInitStarMass,
 		sizeof(double), "stm0", "<Initial star mass> = 0");
-    stfm->dMinGasMass = 0.0;
-    prmAddParam(prm,"dMinGasMass", paramDouble, &stfm->dMinGasMass,
+    dMinGasMass = 0.0;
+    prmAddParam(prm,"dMinGasMass", paramDouble, &dMinGasMass,
 		sizeof(double), "stMinGas",
 		"<Minimum mass of a gas particle> = 0.0");
-    stfm->dMaxStarMass = 0.0;
-    prmAddParam(prm,"dMaxStarMass", paramDouble, &stfm->dMaxStarMass,
+    dMaxStarMass = 0.0;
+    prmAddParam(prm,"dMaxStarMass", paramDouble, &dMaxStarMass,
 		sizeof(double), "stMaxStarMass",
 		"<Maximum amount of star mass a hybrid particle can contain = 0.0");
-    stfm->dCStar = 0.05;
-    prmAddParam(prm,"dCStar", paramDouble, &stfm->dCStar,
+    dCStar = 0.05;
+    prmAddParam(prm,"dCStar", paramDouble, &dCStar,
 		sizeof(double), "stCStar",
 		"<Star formation coefficient> = 0.1");
-    stfm->dTempMax = 1.5e4;
-    prmAddParam(prm,"dTempMax", paramDouble, &stfm->dTempMax,
+    dTempMax = 1.5e4;
+    prmAddParam(prm,"dTempMax", paramDouble, &dTempMax,
 		sizeof(double), "stTempMax",
 		"<Maximum temperature at which star formation occurs> = 1.5e4");
-    stfm->dSoftMin = 1.0;
-    prmAddParam(prm,"dSoftMin", paramDouble, &stfm->dSoftMin,
+    dSoftMin = 1.0;
+    prmAddParam(prm,"dSoftMin", paramDouble, &dSoftMin,
 		sizeof(double), "stSoftMin",
 		"<Minimum softening for star formation> = 0.0");
-    stfm->dDeltaStarForm = 1e6;
-    prmAddParam(prm,"dDeltaStarForm", paramDouble, &stfm->dDeltaStarForm,
+    dDeltaStarForm = 1e6;
+    prmAddParam(prm,"dDeltaStarForm", paramDouble, &dDeltaStarForm,
 		sizeof(double), "dDeltaStarForm",
 		"<Minimum SF timestep in years> = 1e6");
-    stfm->iStarFormRung = 0;
-    prmAddParam(prm,"iStarFormRung", paramInt, &stfm->iStarFormRung,
+    iStarFormRung = 0;
+    prmAddParam(prm,"iStarFormRung", paramInt, &iStarFormRung,
 		sizeof(int), "iStarFormRung", "<Star Formation Rung> = 0");
     }
 
 /*
  * Verify that the set parameters are OK.
  */
-void StfmCheckParams(StfmParam *stfm, PRM prm, Parameters &param) 
+void Stfm::CheckParams(PRM prm, Parameters &param) 
 {
     if(param.bStarForm) {
 	CkAssert(prmSpecified(prm, "dMsolUnit")
@@ -71,55 +72,56 @@ void StfmCheckParams(StfmParam *stfm, PRM prm, Parameters &param)
 	if(!param.bGasCooling)
 	    CkError("Warning: You are not running a cooling EOS with starformation\n");
 	}
-    CkAssert((stfm->dStarEff > 0.0 && stfm->dStarEff < 1.0)
-	      || stfm->dInitStarMass > 0.0);
-    if (stfm->dInitStarMass > 0) {
+    bGasCooling = param.bGasCooling;
+    CkAssert((dStarEff > 0.0 && dStarEff < 1.0)
+	      || dInitStarMass > 0.0);
+    if (dInitStarMass > 0) {
 	/* Only allow 10% underweight star particles */
-	stfm->dMinGasMass = 0.9*stfm->dInitStarMass;
+	dMinGasMass = 0.9*dInitStarMass;
 	}
     else
-	CkAssert(stfm->dMinGasMass > 0.0);
+	CkAssert(dMinGasMass > 0.0);
     if (!param.csm->bComove && !prmSpecified(prm, "dOverDenMin")) {
 	/*
 	 * Overdensity criterion makes no sense for non-comoving simulations
 	 */
-	stfm->dOverDenMin = 0.0;
+	dOverDenMin = 0.0;
 	}
 		
 #include "physconst.h"
 
-    stfm->dSecUnit = param.dSecUnit;
-    stfm->dGmPerCcUnit = param.dGmPerCcUnit;
-    stfm->dGmUnit = param.dMsolUnit*MSOLG;
-    stfm->dErgUnit = GCGS*pow(param.dMsolUnit*MSOLG, 2.0)
+    dSecUnit = param.dSecUnit;
+    dGmPerCcUnit = param.dGmPerCcUnit;
+    dGmUnit = param.dMsolUnit*MSOLG;
+    dErgUnit = GCGS*pow(param.dMsolUnit*MSOLG, 2.0)
 	/(param.dKpcUnit*KPCCM);
     /* convert to system units */
-    stfm->dPhysDenMin *= MHYDR/stfm->dGmPerCcUnit;
-    stfm->dDeltaStarForm *= SECONDSPERYEAR/param.dSecUnit;
+    dPhysDenMin *= MHYDR/dGmPerCcUnit;
+    dDeltaStarForm *= SECONDSPERYEAR/param.dSecUnit;
 
     double testDelta;
     for(testDelta = param.dDelta;
-	testDelta >= stfm->dDeltaStarForm && stfm->dDeltaStarForm > 0.0;
+	testDelta >= dDeltaStarForm && dDeltaStarForm > 0.0;
 	testDelta *= 0.5 ){
 	if ( !(prmSpecified(prm,"iStarFormRung")) )
-	    stfm->iStarFormRung++;
+	    iStarFormRung++;
 	}
     if ( testDelta <= param.dDelta ){
 	CkPrintf("dDeltaStarForm (set): %g, effectively: %g = %g yrs, iStarFormRung: %i\n",
-		 stfm->dDeltaStarForm, testDelta,
+		 dDeltaStarForm, testDelta,
 		 testDelta*param.dSecUnit/SECONDSPERYEAR,
-		 stfm->iStarFormRung );
-	stfm->dDeltaStarForm = testDelta;
+		 iStarFormRung );
+	dDeltaStarForm = testDelta;
 	}
-    else if ( stfm->dDeltaStarForm == 0.0 ) {
+    else if ( dDeltaStarForm == 0.0 ) {
 	CkPrintf(" dDeltaStarForm (set): %g, effectively: 0.0 = 0.0 yrs, iStarFormRung: maxRung\n",
-		 stfm->dDeltaStarForm );
+		 dDeltaStarForm );
 	
-	stfm->iStarFormRung = param.iMaxRung;
+	iStarFormRung = param.iMaxRung;
 	}
     else {
 	CkPrintf(" dDeltaStarForm (set): %g, effectively:  NO STARS WILL FORM\n",
-		 stfm->dDeltaStarForm);
+		 dDeltaStarForm);
 	}
     }
 
@@ -143,11 +145,13 @@ void Main::FormStars(double dTime, double dDelta)
                         CkCallbackResumeThread(), true);
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
     DensitySmoothParams pDen(TYPE_GAS, 0);
-    treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+    double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+    treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
+				   CkCallbackResumeThread());
     iPhase++;
 
     CkReductionMsg *msgCounts;
-    treeProxy.FormStars(*(param.stfm), dTime,
+    treeProxy.FormStars(*(param.stfm), dTime, dDelta,
 			pow(csmTime2Exp(param.csm, dTime), 3.0),
 			CkCallbackResumeThread((void*&)msgCounts));
     int *dCounts = (int *)msgCounts->getData();
@@ -161,7 +165,7 @@ void Main::FormStars(double dTime, double dDelta)
 	if(verbosity)
 	    CkPrintf("Distribute Deleted gas\n");
 	DistDeletedGasSmoothParams pDGas(TYPE_GAS, 0);
-	treeProxy.startIterationSmooth(&pDGas, CkCallbackResumeThread());
+	treeProxy.startIterationReSmooth(&pDGas, CkCallbackResumeThread());
 	iPhase++;
 
 	}
@@ -178,16 +182,9 @@ void Main::FormStars(double dTime, double dDelta)
 ///
 /// processor specific method for star formation
 /// 
-/*
-     taken from TREESPH and modified greatly.
-     Uses the following formula for the star formation rate:
 
-              d(ln(rhostar))/dt=cstar*rhogas/tdyn
-
-*/
-
-void TreePiece::FormStars(StfmParam stfm, double dTime, double dCosmoFac,
-			  const CkCallback& cb) 
+void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
+			  double dCosmoFac, const CkCallback& cb) 
 {
     int nFormed = 0;
     int nDeleted = 0;
@@ -196,91 +193,18 @@ void TreePiece::FormStars(StfmParam stfm, double dTime, double dCosmoFac,
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if(p->isGas()) {
-	    double T;
-	    /*
-	     * Determine dynamical time.
-	     */
-	    double tdyn = 1.0/sqrt(4.0*M_PI*p->fDensity/dCosmoFac);
-#ifndef COOLING_NONE
-	    T = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(),
-					    p->u(), p->fMetals());
-#else
-	    T = 0.0;
-#endif
-	    /*
-	     * Determine if this particle satisfies all conditions.
-	     */
-	    if(T > stfm.dTempMax) continue;
-
-	    if(p->fDensity < stfm.dOverDenMin ||
-	       p->fDensity/dCosmoFac < stfm.dPhysDenMin)
-		continue;
+	    GravityParticle *starp = stfm.FormStar(p, dm->Cool, dTime,
+						   dDelta, dCosmoFac);
 	    
-	    double tform = tdyn;
-
-	    double dMprob = 1.0 - exp(-stfm.dCStar*stfm.dDeltaStarForm/tform);
-
-	    /*
-	     * Decrement mass of particle.
-	     */
-	    double dDeltaM;
-	    if (stfm.dInitStarMass > 0.0) 
-		dDeltaM = stfm.dInitStarMass;
-	    else 
-		dDeltaM = p->mass*stfm.dStarEff;
-
-	    /* No negative or very tiny masses please! */
-	    if ( (dDeltaM > p->mass) ) dDeltaM = p->mass;
-
-	    if(dMprob*p->mass < dDeltaM*(rand()/((double) RAND_MAX)))
-		continue;
-
-	    /* 
-	     * Note on number of stars formed:
-	     * n = log(dMinGasMass/dInitMass)/log(1-dStarEff) = max
-	     * no. stars 
-	     * formed per gas particle, e.g. if min gas mass = 10%
-	     * initial mass,
-	     * dStarEff = 1/3, max no. stars formed = 6 (round up so
-	     * gas mass goes below min gas mass)
-	     */
-
-	    GravityParticle
-		starp = StarFromGasParticle(p); /* grab copy before
-					       possible deletion */
-	    /*
-	     * form star
-	     */
-
-	    starp.fTimeForm() = dTime;
-	    /* iOrder gets reassigned in NewParticle() */
-	    starp.iGasOrder() = starp.iOrder;
-		
-	    p->mass -= dDeltaM;
-	    CkAssert(p->mass >= 0.0);
-	    starp.mass = dDeltaM;
-	    starp.fMassForm() = dDeltaM;
-	    if(p->mass < stfm.dMinGasMass) {
-		nDeleted++;
-		deleteParticle(p);
+	    if(starp != NULL) {
+		nFormed++;
+		dMassFormed += starp->mass;
+		newParticle(starp);
+		delete (extraStarData *)starp->extraData;
+		delete starp;
+		if(TYPETest(p, TYPE_DELETED))
+		    nDeleted++;
 		}
-	    p->mass -= dDeltaM;
-	    CkAssert(p->mass >= 0.0);
-	    starp.mass = dDeltaM;
-	    starp.fMassForm() = dDeltaM;
-
-	    /* NB: It is important that the star inherit special
-	       properties of the gas particle such as being a target
-	       for movies or other tracing
-	       Thus: Do not remove all the TYPE properties -- just
-	       the gas specific ones */
-	    TYPEReset(&starp, TYPE_GAS|TYPE_NbrOfACTIVE);
-	    TYPESet(&starp, TYPE_STAR) ;
-    
-	    nFormed++;
-	    dMassFormed += dDeltaM;
-	    newParticle(&starp);
-	    delete (extraStarData *)starp.extraData;
 	    }
 	}
     
@@ -291,120 +215,93 @@ void TreePiece::FormStars(StfmParam stfm, double dTime, double dCosmoFac,
     }
 
 /*
- * Methods to distribute Deleted gas
- */
-int DistDeletedGasSmoothParams::isSmoothActive(GravityParticle *p) 
-{
-    return (TYPETest(p, TYPE_DELETED) && TYPETest(p, iType));
-    }
+     taken from TREESPH and modified greatly.
+     Uses the following formula for the star formation rate:
 
-void DistDeletedGasSmoothParams::initSmoothCache(GravityParticle *p) 
-{
-    if(!TYPETest(p, TYPE_DELETED)) {
-	/*
-	 * Zero out accumulated quantities.
-	 */
-	p->mass = 0;
-	p->velocity[0] = 0;
-	p->velocity[1] = 0;
-	p->velocity[2] = 0;
-#ifndef COOLING_NONE
-	p->u() = 0;
-	p->uDot() = 0.0;
-#endif
-	p->fMetals() = 0.0;
-	}
-    }
+              d(ln(rhostar))/dt=cstar*rhogas/tdyn
 
-void DistDeletedGasSmoothParams::combSmoothCache(GravityParticle *p1,
-					  ExternalSmoothParticle *p2)
+*/
+GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
+				double dDelta,  // drift timestep
+				double dCosmoFac) 
 {
+    double T;
     /*
-     * Distribute u, v, and fMetals for particles returning from cache
-     * so that everything is conserved nicely.  
+     * Determine dynamical time.
      */
-    if(!TYPETest((p1), TYPE_DELETED)) {
-	double delta_m = p2->mass;
-	double m_new,f1,f2;
-	double fTCool; /* time to cool to zero */
-	m_new = p1->mass + delta_m;
-	if (m_new > 0) {
-	    f1 = p1->mass /m_new;
-	    f2 = delta_m  /m_new;
-	    p1->mass = m_new;
-	    p1->velocity = f1*p1->velocity + f2*p2->velocity;            
-	    p1->fMetals() = f1*p1->fMetals() + f2*p2->fMetals;
+    double tdyn = 1.0/sqrt(4.0*M_PI*p->fDensity/dCosmoFac);
 #ifndef COOLING_NONE
-	    if(p1->uDot() < 0.0) /* margin of 1% to avoid roundoff
-				  * problems */
-		fTCool = 1.01*p1->uPred()/p1->uDot(); 
-	    p1->u() = f1*p1->u() + f2*p2->u;
-	    p1->uPred() = f1*p1->uPred() + f2*p2->uPred;
-	    if(p1->uDot() < 0.0)
-		p1->uDot() = p1->uPred()/fTCool;
+    if(bGasCooling)
+    	T = CoolCodeEnergyToTemperature(Cool, &p->CoolParticle(),
+				    	p->u(), p->fMetals());
+    else
+	T = 0.0;
+#else
+    T = 0.0;
 #endif
-	    }
-	}
-    }
+    /*
+     * Determine if this particle satisfies all conditions.
+     */
+    if(T > dTempMax)
+	return NULL;
 
-void DistDeletedGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
-					   pqSmoothNode *nnList)
-{	
-    GravityParticle *q;
-    double fNorm,ih2,r2,rs,rstot,delta_m,m_new,f1,f2;
-    double fTCool; /* time to cool to zero */
-    int i;
-    CkAssert(TYPETest(p, TYPE_GAS));
-    ih2 = invH2(p);
-    rstot = 0;        
-    for (i=0;i<nSmooth;++i) {
-	double fDist2 = nnList[i].fKey;
-	q = nnList[i].p;
-	if(TYPETest(q, TYPE_DELETED)) continue;
-	CkAssert(TYPETest(q, TYPE_GAS));
-	r2 = fDist2*ih2;            
-        rs = KERNEL(r2);
-	rstot += rs;
-        }
-    if(rstot <= 0.0) {
-	if(p->mass == 0.0) /* the particle to be deleted has NOTHING */
-	    return;
-	/* we have a particle to delete and nowhere to put its mass
-	 * => we will keep it around */
-	unDeleteParticle(p);
-	return;
-	}
-    CkAssert(rstot > 0.0);
-    fNorm = 1./rstot;
+    if(p->fDensity < dOverDenMin || p->fDensity/dCosmoFac < dPhysDenMin)
+	return NULL;
+
+    double tform = tdyn;
+    double dTimeStarForm = (dDelta > dDeltaStarForm ? dDelta : dDeltaStarForm);
+    double dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform);
+
+    /*
+     * Decrement mass of particle.
+     */
+    double dDeltaM;
+    if (dInitStarMass > 0.0) 
+	dDeltaM = dInitStarMass;
+    else 
+	dDeltaM = p->mass*dStarEff;
+
+    /* No negative or very tiny masses please! */
+    if ( (dDeltaM > p->mass) ) dDeltaM = p->mass;
+
+    if(dMprob*p->mass < dDeltaM*(rand()/((double) RAND_MAX)))
+	return NULL;
+
+    /* 
+     * Note on number of stars formed:
+     * n = log(dMinGasMass/dInitMass)/log(1-dStarEff) = max
+     * no. stars 
+     * formed per gas particle, e.g. if min gas mass = 10%
+     * initial mass,
+     * dStarEff = 1/3, max no. stars formed = 6 (round up so
+     * gas mass goes below min gas mass)
+     */
+
+    GravityParticle *starp = new GravityParticle();
+    *starp = StarFromGasParticle(p); /* grab copy before
+				       possible deletion */
+    /*
+     * form star
+     */
+
+    starp->fTimeForm() = dTime;
+    /* iOrder gets reassigned in NewParticle() */
+    starp->iGasOrder() = starp->iOrder;
+
+    p->mass -= dDeltaM;
     CkAssert(p->mass >= 0.0);
-    for (i=0;i<nSmooth;++i) {
-	q = nnList[i].p;
-	if(TYPETest(q, TYPE_DELETED)) continue;
+    starp->mass = dDeltaM;
+    starp->fMassForm() = dDeltaM;
+    if(p->mass < dMinGasMass) {
+	deleteParticle(p);
+	}
 
-	double fDist2 = nnList[i].fKey;
-	r2 = fDist2*ih2;            
-	rs = KERNEL(r2);
-	/*
-	 * All these quantities are per unit mass.
-	 * Exact if only one gas particle being distributed or in serial
-	 * Approximate in parallel (small error).
-	 */
-	delta_m = rs*fNorm*p->mass;
-	m_new = q->mass + delta_m;
-	/* Cached copies can have zero mass: skip them */
-	if (m_new == 0) continue;
-	f1 = q->mass /m_new;
-	f2 = delta_m  /m_new;
-	q->mass = m_new;
-	q->velocity = f1*q->velocity + f2*p->velocity;            
-	q->fMetals() = f1*q->fMetals() + f2*p->fMetals();
-#ifndef COOLING_NONE
-	if(q->uDot() < 0.0) /* margin of 1% to avoid roundoff error */
-	    fTCool = 1.01*q->uPred()/q->uDot(); 
-	q->u() = f1*q->u()+f2*p->u();
-	q->uPred() = f1*q->uPred()+f2*p->uPred();
-	if(q->uDot() < 0.0) /* make sure we don't shorten cooling time */
-	    q->uDot() = q->uPred()/fTCool;
-#endif
-        }
+    /* NB: It is important that the star inherit special
+       properties of the gas particle such as being a target
+       for movies or other tracing
+       Thus: Do not remove all the TYPE properties -- just
+       the gas specific ones */
+    TYPEReset(starp, TYPE_GAS|TYPE_NbrOfACTIVE);
+    TYPESet(starp, TYPE_STAR) ;
+    return starp;
     }
