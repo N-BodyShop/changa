@@ -410,7 +410,7 @@ Main::Main(CkArgMsg* m) {
 	param.stfm->AddParams(prm);
 
 	param.bFeedback = 0;
-	prmAddParam(prm,"bFeedback",paramBool,&param.bFeedback,sizeof(int),
+	prmAddParam(prm,"bFeedBack",paramBool,&param.bFeedback,sizeof(int),
 		    "stfm","<Star Forming> = 0");
 
 	param.feedback = new Fdbk();
@@ -1240,6 +1240,9 @@ void Main::advanceBigStep(int iStep) {
      */
     if(param.bStarForm && param.stfm->isStarFormRung(activeRung))
 	FormStars(dTime, RungToDt(param.dDelta, activeRung));
+    if(param.bFeedback && param.stfm->isStarFormRung(activeRung)) 
+	StellarFeedback(dTime, RungToDt(param.dDelta, activeRung));
+
 
     ckout << "\nStep: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
           << " Time: " << dTime
