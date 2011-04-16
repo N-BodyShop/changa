@@ -1239,9 +1239,9 @@ void Main::advanceBigStep(int iStep) {
      * Form stars at user defined intervals
      */
     if(param.bStarForm && param.stfm->isStarFormRung(activeRung))
-	FormStars(dTime, RungToDt(param.dDelta, activeRung));
+	FormStars(dTime, param.stfm->dDeltaStarForm);
     if(param.bFeedback && param.stfm->isStarFormRung(activeRung)) 
-	StellarFeedback(dTime, RungToDt(param.dDelta, activeRung));
+	StellarFeedback(dTime, param.stfm->dDeltaStarForm);
 
 
     ckout << "\nStep: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
