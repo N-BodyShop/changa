@@ -815,6 +815,14 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 #endif /* COOLING_NONE */
 		      p->uPred() = p->u();
 		      }
+#ifdef DIFFUSION
+		  p->fMetals() += p->fMetalsDot()*duDelta[p->rung];
+		  p->fMetalsPred() = p->fMetals();
+		  p->fMFracOxygen() += p->fMFracOxygenDot()*duDelta[p->rung];
+		  p->fMFracOxygenPred() = p->fMFracOxygen();
+		  p->fMFracIron() += p->fMFracIronDot()*duDelta[p->rung];
+		  p->fMFracIronPred() = p->fMFracIron();
+#endif
 		  }
 	      else {	// predicted quantities are at the beginning
 			// of step
@@ -831,6 +839,14 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		      p->u() += p->PdV()*duDelta[p->rung];
 #endif /* COOLING_NONE */
 		      }
+#ifdef DIFFUSION
+		  p->fMetalsPred() = p->fMetals();
+		  p->fMetals() += p->fMetalsDot()*duDelta[p->rung];
+		  p->fMFracOxygenPred() = p->fMFracOxygen();
+		  p->fMFracOxygen() += p->fMFracOxygenDot()*duDelta[p->rung];
+		  p->fMFracIronPred() = p->fMFracIron();
+		  p->fMFracIron() += p->fMFracIronDot()*duDelta[p->rung];
+#endif
 		  }
 	      CkAssert(p->u() > 0.0);
 	      CkAssert(p->uPred() > 0.0);
@@ -910,6 +926,13 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      if (dt < dTIdeal) 
 		  dTIdeal = dt;
 	      }
+#ifdef DIFFUSION
+	  /* h^2/(2.77Q) Linear stability from Brookshaw */
+	  if (p->diff() > 0) {
+	      dt = (1/2.8*(dEtaCourant/0.4))*ph*ph/(p->diff());  
+	      if (dt < dTIdeal) dTIdeal = dt;
+	      }
+#endif
 	  }
 
       int iNewRung = DtToRung(dDelta, dTIdeal);
@@ -1029,6 +1052,11 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 #endif
 	      CkAssert(p->uPred() > 0.0);
 	      }
+#ifdef DIFFUSION
+	  p->fMetalsPred() += p->fMetalsDot()*duDelta;
+	  p->fMFracOxygenPred() += p->fMFracOxygenDot()*duDelta;
+	  p->fMFracIronPred() += p->fMFracIronDot()*duDelta;
+#endif /* DIFFUSION */
 	  }
       }
   CkAssert(bInBox);

@@ -22,7 +22,8 @@ Main::initSph()
 	ckout << "Calculating densities/divv ...";
 	// The following smooths all GAS, and also marks neighbors of
 	// actives, and those who have actives as neighbors.
-	DenDvDxSmoothParams pDen(TYPE_GAS, 0, param.csm, dTime, 0);
+	DenDvDxSmoothParams pDen(TYPE_GAS, 0, param.csm, dTime, 0,
+				 param.bConstantDiffusion);
 	double startTime = CkWallTimer();
 	double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
 	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
@@ -245,7 +246,8 @@ Main::doSph(int activeRung, int bNeedDensity)
     if (param.bFastGas && nActiveSPH < nTotalSPH*param.dFracFastGas) {
 	ckout << "Calculating densities/divv on Actives ...";
 	// This also marks neighbors of actives
-	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 1);
+	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 1,
+				 param.bConstantDiffusion);
 	double startTime = CkWallTimer();
 	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
 				       CkCallbackResumeThread());
@@ -265,7 +267,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	ckout << "Density of Neighbors ...";
 	// This does neighbors (but not actives),  It also does no
 	// additional marking
-	DenDvDxNeighborSmParams pDenN(TYPE_GAS, activeRung, param.csm, dTime);
+	DenDvDxNeighborSmParams pDenN(TYPE_GAS, activeRung, param.csm, dTime,
+				      param.bConstantDiffusion);
 	startTime = CkWallTimer();
 	treeProxy.startIterationSmooth(&pDenN, 1, dfBall2OverSoft2,
 				       CkCallbackResumeThread());
@@ -277,7 +280,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	ckout << "Calculating densities/divv ...";
 	// The following smooths all GAS, and also marks neighbors of
 	// actives, and those who have actives as neighbors.
-	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 0);
+	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 0,
+				 param.bConstantDiffusion);
 	double startTime = CkWallTimer();
 	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
 				       CkCallbackResumeThread());
@@ -302,7 +306,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 
     ckout << "Calculating pressure gradients ...";
     PressureSmoothParams pPressure(TYPE_GAS, activeRung, param.csm, dTime,
-				   param.dConstAlpha, param.dConstBeta);
+				   param.dConstAlpha, param.dConstBeta,
+				   param.dThermalDiffusionCoeff, param.dMetalDiffusionCoeff);
     double startTime = CkWallTimer();
     treeProxy.startIterationReSmooth(&pPressure, CkCallbackResumeThread());
     iPhase++;
@@ -512,6 +517,21 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	p->curlv().x = fNorm1*(dvzdy - dvydz); 
 	p->curlv().y = fNorm1*(dvxdz - dvzdx);
 	p->curlv().z = fNorm1*(dvydx - dvxdy);
+#ifdef DIFFUSION
+        {
+	double onethirdtrace = (1./3.)*trace;
+	/* Build Traceless Strain Tensor (not yet normalized) */
+	double sxx = dvxdx - onethirdtrace; /* pure compression/expansion doesn't diffuse */
+	double syy = dvydy - onethirdtrace;
+	double szz = dvzdz - onethirdtrace;
+	double sxy = 0.5*(dvxdy + dvydx); /* pure rotation doesn't diffuse */
+	double sxz = 0.5*(dvxdz + dvzdx);
+	double syz = 0.5*(dvydz + dvzdy);
+	/* diff coeff., nu ~ C L^2 S (add C via dMetalDiffusionConstant, assume L ~ h) */
+	if (bConstantDiffusion) p->diff() = 1;
+	else p->diff() = fNorm1*0.25*p->fBall*p->fBall*sqrt(2*(sxx*sxx + syy*syy + szz*szz + 2*(sxy*sxy + sxz*sxz + syz*syz)));
+	}
+#endif
 	}
 
 /* As above, but no marking */
@@ -565,6 +585,21 @@ void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	p->curlv().x = fNorm1*(dvzdy - dvydz); 
 	p->curlv().y = fNorm1*(dvxdz - dvzdx);
 	p->curlv().z = fNorm1*(dvydx - dvxdy);
+#ifdef DIFFUSION
+        {
+	double onethirdtrace = (1./3.)*trace;
+	/* Build Traceless Strain Tensor (not yet normalized) */
+	double sxx = dvxdx - onethirdtrace; /* pure compression/expansion doesn't diffuse */
+	double syy = dvydy - onethirdtrace;
+	double szz = dvzdz - onethirdtrace;
+	double sxy = 0.5*(dvxdy + dvydx); /* pure rotation doesn't diffuse */
+	double sxz = 0.5*(dvxdz + dvzdx);
+	double syz = 0.5*(dvydz + dvzdy);
+	/* diff coeff., nu ~ C L^2 S (add C via dMetalDiffusionConstant, assume L ~ h) */
+	if (bConstantDiffusion) p->diff() = 1;
+	else p->diff() = fNorm1*0.25*p->fBall*p->fBall*sqrt(2*(sxx*sxx + syy*syy + szz*szz + 2*(sxy*sxy + sxz*sxz + syz*syz)));
+	}
+#endif
 	}
 
 void 
@@ -654,6 +689,11 @@ void PressureSmoothParams::initSmoothParticle(GravityParticle *p)
 	if (p->rung >= activeRung) {
 	    p->mumax() = 0.0;
 	    p->PdV() = 0.0;
+#ifdef DIFFUSION
+	    p->fMetalsDot() = 0.0;
+	    p->fMFracOxygenDot() = 0.0;
+	    p->fMFracIronDot() = 0.0;
+#endif /* DIFFUSION */
 	    }
 	}
 
@@ -664,6 +704,11 @@ void PressureSmoothParams::initSmoothCache(GravityParticle *p)
 	    p->mumax() = 0.0;
 	    p->PdV() = 0.0;
 	    p->treeAcceleration = 0.0;
+#ifdef DIFFUSION
+	    p->fMetalsDot() = 0.0;
+	    p->fMFracOxygenDot() = 0.0;
+	    p->fMFracIronDot() = 0.0;
+#endif /* DIFFUSION */
 	    }
 	}
 
@@ -675,6 +720,11 @@ void PressureSmoothParams::combSmoothCache(GravityParticle *p1,
 	    if (p2->mumax > p1->mumax())
 		p1->mumax() = p2->mumax;
 	    p1->treeAcceleration += p2->treeAcceleration;
+#ifdef DIFFUSION
+	    p1->fMetalsDot() += p2->fMetalsDot;
+	    p1->fMFracOxygenDot() += p2->fMFracOxygenDot;
+	    p1->fMFracIronDot() += p2->fMFracIronDot;
+#endif /* DIFFUSION */
 	    }
 	}
 
@@ -727,6 +777,39 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 #define PRES_ACC(a,b) (a+b)
 #define SWITCHCOMBINE(a,b) (0.5*(a->BalsaraSwitch()+b->BalsaraSwitch()))
 
+#ifdef DIFFUSION
+#ifdef DIFFUSIONTHERMAL
+#define DIFFUSIONThermal() \
+	    { double diff = 2*dThermalDiffusionCoeff*(p->diff()+q->diff())*(p->uPred()-q->uPred()) \
+		/(p->fDensity+q->fDensity); \
+		PACTIVE( p->PdV() += diff*rq );	\
+		QACTIVE( q->PdV() -= diff*rp ); }
+#else
+/* Default -- no thermal diffusion */
+#define DIFFUSIONThermal()
+#endif
+#define DIFFUSIONMetals() \
+	    { double diff = 2*dMetalDiffusionCoeff*(p->diff()+q->diff())*(p->fMetals() - q->fMetals()) \
+		/(p->fDensity+q->fDensity); \
+		PACTIVE( p->fMetalsDot() += diff*rq );	\
+		QACTIVE( q->fMetalsDot() -= diff*rp ); }
+#define DIFFUSIONMetalsOxygen() \
+	    { double diff = 2*dMetalDiffusionCoeff*(p->diff()+q->diff())*(p->fMFracOxygen() - q->fMFracOxygen()) \
+		/(p->fDensity+q->fDensity); \
+		PACTIVE( p->fMFracOxygenDot() += diff*rq );	\
+		QACTIVE( q->fMFracOxygenDot() -= diff*rp ); }
+#define DIFFUSIONMetalsIron() \
+	    { double diff = 2*dMetalDiffusionCoeff*(p->diff()+q->diff())*(p->fMFracIron() - q->fMFracIron()) \
+		/(p->fDensity+q->fDensity); \
+      PACTIVE( p->fMFracIronDot() += diff*rq ); \
+      QACTIVE( q->fMFracIronDot() -= diff*rp ); }
+#else /* No diffusion */
+#define DIFFUSIONThermal()
+#define DIFFUSIONMetals() 
+#define DIFFUSIONMetalsOxygen() 
+#define DIFFUSIONMetalsIron() 
+#endif
+
 	    // Macro to simplify the active/inactive logic
 #define SphPressureTermsSymACTIVECODE() \
 	    if (dvdotdr>0.0) { \
@@ -757,7 +840,11 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	    PACTIVE( p->treeAcceleration.z -= Accp * dz; ); \
 	    QACTIVE( q->treeAcceleration.x += Accq * dx; ); \
 	    QACTIVE( q->treeAcceleration.y += Accq * dy; ); \
-	    QACTIVE( q->treeAcceleration.z += Accq * dz; );
+	    QACTIVE( q->treeAcceleration.z += Accq * dz; ); \
+            DIFFUSIONThermal(); \
+            DIFFUSIONMetals(); \
+            DIFFUSIONMetalsOxygen(); \
+            DIFFUSIONMetalsIron(); 
 
 
 	    if (p->rung >= activeRung) {

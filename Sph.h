@@ -7,6 +7,7 @@ class DenDvDxSmoothParams : public SmoothParams
  protected:
     double a, H; // Cosmological parameters
     int bActiveOnly;
+    int bConstantDiffusion;
     
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
@@ -20,10 +21,11 @@ class DenDvDxSmoothParams : public SmoothParams
  public:
     DenDvDxSmoothParams() {}
     DenDvDxSmoothParams(int _iType, int am, CSM csm, double dTime,
-			int _bActiveOnly) {
+			int _bActiveOnly, int _bConstantDiffusion) {
 	iType = _iType;
 	activeRung = am;
 	bActiveOnly = _bActiveOnly;
+	bConstantDiffusion = _bConstantDiffusion;
 	if(csm->bComove) {
 	    H = csmTime2Hub(csm,dTime);
 	    a = csmTime2Exp(csm,dTime);
@@ -40,6 +42,7 @@ class DenDvDxSmoothParams : public SmoothParams
 	p|a;
 	p|H;
 	p|bActiveOnly;
+	p|bConstantDiffusion;
 	}
     };
 
@@ -60,8 +63,9 @@ class DenDvDxNeighborSmParams : public DenDvDxSmoothParams
 				 ExternalSmoothParticle *p2) {}
  public:
     DenDvDxNeighborSmParams() {}
-    DenDvDxNeighborSmParams(int _iType, int am, CSM csm, double dTime)
-	: DenDvDxSmoothParams(_iType, am, csm, dTime, 0) {}
+    DenDvDxNeighborSmParams(int _iType, int am, CSM csm, double dTime,
+			 int bConstDiffusion)
+	: DenDvDxSmoothParams(_iType, am, csm, dTime, 0, bConstDiffusion) {}
     PUPable_decl(DenDvDxNeighborSmParams);
     DenDvDxNeighborSmParams(CkMigrateMessage *m) : DenDvDxSmoothParams(m) {}
     virtual void pup(PUP::er &p) {
@@ -97,6 +101,8 @@ class PressureSmoothParams : public SmoothParams
 {
     double a, H; // Cosmological parameters
     double alpha, beta; // SPH viscosity parameters
+    double dThermalDiffusionCoeff;
+    double dMetalDiffusionCoeff;
     
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
@@ -110,7 +116,7 @@ class PressureSmoothParams : public SmoothParams
  public:
     PressureSmoothParams() {}
     PressureSmoothParams(int _iType, int am, CSM csm, double dTime,
-			 double _alpha, double _beta) {
+			 double _alpha, double _beta, double _dThermalDiff, double _dMetalDiff) {
 	iType = _iType;
 	activeRung = am;
 	if(csm->bComove) {
@@ -123,6 +129,8 @@ class PressureSmoothParams : public SmoothParams
 	    }
 	alpha = _alpha;
 	beta = _beta;
+	dThermalDiffusionCoeff = _dThermalDiff;
+	dMetalDiffusionCoeff = _dMetalDiff;
     }
     PUPable_decl(PressureSmoothParams);
     PressureSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
@@ -132,6 +140,8 @@ class PressureSmoothParams : public SmoothParams
 	p|H;
 	p|alpha;
 	p|beta;
+	p|dThermalDiffusionCoeff;
+	p|dMetalDiffusionCoeff;
 	}
     };
 

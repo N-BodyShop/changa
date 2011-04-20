@@ -74,6 +74,9 @@ typedef struct parameters {
     double dGmPerCcUnit;
     double dSecUnit;
     double dComovingGmPerCcUnit;
+    double dThermalDiffusionCoeff;
+    double dMetalDiffusionCoeff;
+    int bConstantDiffusion;
     int bSphStep;
     int bFastGas;
     double dFracFastGas;
@@ -170,6 +173,9 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dGmPerCcUnit;
     p|param.dSecUnit;
     p|param.dComovingGmPerCcUnit;
+    p|param.dThermalDiffusionCoeff;
+    p|param.dMetalDiffusionCoeff;
+    p|param.bConstantDiffusion;
     p|param.bSphStep;
     p|param.bViscosityLimitdt;
     p|param.dEtaCourant;

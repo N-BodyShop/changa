@@ -399,6 +399,11 @@ void TreePiece::loadTipsy(const std::string& filename,
 			mySPHParticles[iSPH].fMetals() = gp.metals;
 			mySPHParticles[iSPH].fMFracOxygen() = 0.95*gp.metals;
 			mySPHParticles[iSPH].fMFracIron() = 0.05*gp.metals;
+#ifdef DIFFUSION
+			mySPHParticles[iSPH].fMetalsPred() = gp.metals;
+			mySPHParticles[iSPH].fMFracOxygenPred() = 0.95*gp.metals;
+			mySPHParticles[iSPH].fMFracIronPred() = 0.05*gp.metals;
+#endif
 			mySPHParticles[iSPH].u() = dTuFac*gp.temp;
 			mySPHParticles[iSPH].uPred() = dTuFac*gp.temp;
 			mySPHParticles[iSPH].vPred() = gp.vel;

@@ -60,6 +60,15 @@ class extraSPHData
     COOLPARTICLE _CoolParticle;	/* Abundances and any other cooling
 				   internal variables */
 #endif
+#ifdef DIFFUSION
+    double _diff;		/* Diffusion coefficient, based on Smagorinski  */
+    double _fMetalsDot;
+    double _fMetalsPred;
+    double _fMFracOxygenDot;
+    double _fMFracIronDot;
+    double _fMFracOxygenPred;
+    double _fMFracIronPred;
+#endif
     
  public:
     inline double& u() {return _u;}
@@ -82,6 +91,15 @@ class extraSPHData
     inline double& uDot() {return _uDot;}
     inline COOLPARTICLE& CoolParticle() {return _CoolParticle;}
 #endif
+#ifdef DIFFUSION
+    inline double& diff() {return _diff;}
+    inline double& fMetalsDot() {return _fMetalsDot;}
+    inline double& fMetalsPred() {return _fMetalsPred;}
+    inline double& fMFracOxygenDot() {return _fMFracOxygenDot;}
+    inline double& fMFracOxygenPred() {return _fMFracOxygenPred;}
+    inline double& fMFracIronDot() {return _fMFracIronDot;}
+    inline double& fMFracIronPred() {return _fMFracIronPred;}
+#endif
     void pup(PUP::er &p) {
 	p | _u;
 	p | _fMetals;
@@ -102,6 +120,15 @@ class extraSPHData
 #ifndef COOLING_NONE
 	p | _uDot;
 	p((char *) &_CoolParticle, sizeof(_CoolParticle)); /* PUPs as bytes */
+#endif
+#ifdef DIFFUSION
+	p| _diff;
+	p| _fMetalsDot;
+	p| _fMetalsPred;
+	p| _fMFracOxygenDot;
+	p| _fMFracOxygenPred;
+	p| _fMFracIronDot;
+	p| _fMFracIronPred;
 #endif
 	}
     };
@@ -248,6 +275,15 @@ public:
 	inline double& uDot() { IMAGAS; return (((extraSPHData*)extraData)->uDot());}
 	inline COOLPARTICLE& CoolParticle() { IMAGAS; return (((extraSPHData*)extraData)->CoolParticle());}
 #endif
+#ifdef DIFFUSION
+	inline double& diff() { IMAGAS; return (((extraSPHData*)extraData)->diff());}
+	inline double& fMetalsDot() { IMAGAS; return (((extraSPHData*)extraData)->fMetalsDot());}
+	inline double& fMetalsPred() { IMAGAS; return (((extraSPHData*)extraData)->fMetalsPred());}
+	inline double& fMFracOxygenDot() { IMAGAS; return (((extraSPHData*)extraData)->fMFracOxygenDot());}
+	inline double& fMFracIronDot() { IMAGAS; return (((extraSPHData*)extraData)->fMFracIronDot());}
+	inline double& fMFracOxygenPred() { IMAGAS; return (((extraSPHData*)extraData)->fMFracOxygenPred());}
+	inline double& fMFracIronPred() { IMAGAS; return (((extraSPHData*)extraData)->fMFracIronPred());}
+#endif
 	// Access Star Quantities
 	// XXX Beware overlaps with SPH; we could fix this by aligning
 	// all common variables up at the start of the extraData structure.
@@ -347,6 +383,12 @@ class ExternalSmoothParticle {
   double fMFracIron;
   double fTimeCoolIsOffUntil;
   Vector3D<double> curlv;	/* Curl of the velocity */
+#ifdef DIFFUSION
+  double diff;
+  double fMetalsDot;
+  double fMFracOxygenDot;
+  double fMFracIronDot;
+#endif
 
   ExternalSmoothParticle() {}
 
@@ -379,6 +421,12 @@ class ExternalSmoothParticle {
 	      fMFracOxygen = p->fMFracOxygen();
 	      fMFracIron = p->fMFracIron();
 	      fTimeCoolIsOffUntil = p->fTimeCoolIsOffUntil();
+#ifdef DIFFUSION
+	      diff = p->diff();
+	      fMetalsDot = p->fMetalsDot();
+	      fMFracOxygenDot = p->fMFracOxygenDot();
+	      fMFracIronDot = p->fMFracIronDot();
+#endif	      
 	      }
 	  }
   
@@ -410,6 +458,12 @@ class ExternalSmoothParticle {
 	  tmp->fMFracOxygen() = fMFracOxygen;
 	  tmp->fMFracIron() = fMFracIron;
 	  tmp->fTimeCoolIsOffUntil() = fTimeCoolIsOffUntil;
+#ifdef DIFFUSION
+	  tmp->diff() = diff;
+	  tmp->fMetalsDot() = fMetalsDot;
+	  tmp->fMFracOxygenDot() = fMFracOxygenDot;
+	  tmp->fMFracIronDot() = fMFracIronDot;
+#endif
 	  }
       }
 	  
@@ -438,6 +492,12 @@ class ExternalSmoothParticle {
     p | fMFracOxygen;
     p | fMFracIron;
     p | fTimeCoolIsOffUntil;
+#ifdef DIFFUSION
+    p | diff;
+    p | fMetalsDot;
+    p | fMFracOxygenDot;
+    p | fMFracIronDot;
+#endif
   }
 };
 

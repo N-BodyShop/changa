@@ -334,6 +334,79 @@ class FeOutputParams : public OutputParams
 	}
     };
 
+class MetalsDotOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+#ifdef DIFFUSION
+	if (p->isGas()) return p->fMetalsDot();
+	else
+	    return 0.0;
+#endif
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    MetalsDotOutputParams() {}
+    MetalsDotOutputParams(std::string achFileName) { 
+	bVector = 0; 
+	fileName = achFileName+".Metalsdot";
+	}
+    PUPable_decl(MetalsDotOutputParams);
+    MetalsDotOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class OxygenMassFracDotOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+#ifdef DIFFUSION
+	if (p->isGas()) return p->fMFracOxygenDot();
+	else
+	    return 0.0;
+#endif
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    OxygenMassFracDotOutputParams() {}
+    OxygenMassFracDotOutputParams(std::string achFileName) { 
+	bVector = 0; 
+	fileName = achFileName+".OxMassFracdot";
+	}
+    PUPable_decl(OxygenMassFracDotOutputParams);
+    OxygenMassFracDotOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class IronMassFracDotOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+#ifdef DIFFUSION
+	if (p->isGas()) return p->fMFracIronDot();
+	else
+	    return 0.0;
+#endif
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    IronMassFracDotOutputParams() {}
+    IronMassFracDotOutputParams(std::string achFileName) { 
+	bVector = 0; 
+	fileName = achFileName+".FeMassFracdot";
+	}
+    PUPable_decl(IronMassFracDotOutputParams);
+    IronMassFracDotOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+
 class coolontimeOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p) {

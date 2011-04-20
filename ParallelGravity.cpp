@@ -383,6 +383,21 @@ Main::Main(CkArgMsg* m) {
 	param.bBulkViscosity = 0;
 	prmAddParam(prm,"bBulkViscosity",paramBool,&param.bBulkViscosity,
 		    sizeof(int), "bulk","<Bulk Viscosity> = 0");
+	param.dMetalDiffusionCoeff = 0;
+	prmAddParam(prm,"dMetalDiffusionCoeff",paramDouble,
+		    &param.dMetalDiffusionCoeff, sizeof(double),"metaldiff",
+				"<Coefficient in Metal Diffusion> = 0.0");
+#ifdef DIFFUSIONPRICE
+	param.dThermalDiffusionCoeff = 1;
+#else
+	param.dThermalDiffusionCoeff = 0;
+#endif
+	prmAddParam(prm,"dThermalDiffusionCoeff",paramDouble,
+		    &param.dThermalDiffusionCoeff, sizeof(double),"thermaldiff",
+				"<Coefficient in Thermal Diffusion> = 0.0");
+	param.bConstantDiffusion = 0;
+	prmAddParam(prm,"bConstantDiffusion",paramBool,&param.bConstantDiffusion,
+				sizeof(int),"constdiff", "<Constant Diffusion BC> = +constdiff");
 	// SPH timestepping
 	param.bSphStep = 1;
 	prmAddParam(prm,"bSphStep",paramBool,&param.bSphStep,sizeof(int),
@@ -764,6 +779,16 @@ Main::Main(CkArgMsg* m) {
 		param.dComovingGmPerCcUnit = param.dGmPerCcUnit;
 		}
 
+#ifndef DIFFUSION
+	if (prmSpecified(prm,"dMetalDiffusionCoeff")) {
+	    CkAbort("Metal Diffusion Rate specified but not compiled for\nUse -DDIFFUSION during compilation\n");
+	    }
+#endif
+#ifndef DIFFUSIONTHERMAL
+	if (prmSpecified(prm,"dThermalDiffusionCoeff")) {
+	    CkAbort("Thermal Diffusion Rate specified but not compiled for\nUse -DDIFFUSIONTHERMAL during compilation\n");
+	    }
+#endif
         if (domainDecomposition == SFC_peano_dec) peanoKey = 1;
         if (domainDecomposition == SFC_peano_dec_2D) peanoKey = 2;
         if (domainDecomposition == SFC_peano_dec_3D) peanoKey = 3;
@@ -1519,6 +1544,12 @@ void Main::setupICs() {
 #ifdef COOLING_PLANET
   ofsLog << " COOLING_PLANET";
 #endif
+#ifdef DIFFUSION
+  ofsLog << " DIFFUSION";
+#endif
+#ifdef DIFFUSIONTHERMAL
+  ofsLog << " DIFFUSIONTHERMAL";
+#endif
 #ifdef HEXADECAPOLE
   ofsLog << " HEXADECAPOLE";
 #endif
@@ -2167,6 +2198,11 @@ void Main::writeOutput(int iStep)
     Cool1OutputParams pCool1Out(string(achFile) + "." + COOL_ARRAY1_EXT);
     Cool2OutputParams pCool2Out(string(achFile) + "." + COOL_ARRAY2_EXT);
 #endif
+#ifdef DIFFUSION
+    MetalsDotOutputParams pMetalsDotOut(achFile);
+    OxygenMassFracDotOutputParams pOxDotOut(achFile);
+    IronMassFracDotOutputParams pFeDotOut(achFile);
+#endif
 
     if (param.iBinaryOut) {
 	treeProxy[0].outputBinary(pOxOut, param.bParaWrite, CkCallbackResumeThread());
@@ -2183,6 +2219,14 @@ void Main::writeOutput(int iStep)
 	treeProxy[0].outputBinary(pCool2Out, param.bParaWrite,
 				 CkCallbackResumeThread());
 #endif
+#ifdef DIFFUSION
+	treeProxy[0].outputBinary(pMetalsDotOut, param.bParaWrite,
+				 CkCallbackResumeThread());
+	treeProxy[0].outputBinary(pOxDotOut, param.bParaWrite,
+				 CkCallbackResumeThread());
+	treeProxy[0].outputBinary(pFeDotOut, param.bParaWrite,
+				 CkCallbackResumeThread());
+#endif
 	} else {
 	treeProxy[0].outputASCII(pOxOut, param.bParaWrite, CkCallbackResumeThread());
 	treeProxy[0].outputASCII(pFeOut, param.bParaWrite, CkCallbackResumeThread());
@@ -2196,6 +2240,14 @@ void Main::writeOutput(int iStep)
 	treeProxy[0].outputASCII(pCool1Out, param.bParaWrite,
 				 CkCallbackResumeThread());
 	treeProxy[0].outputASCII(pCool2Out, param.bParaWrite,
+				 CkCallbackResumeThread());
+#endif
+#ifdef DIFFUSION
+	treeProxy[0].outputASCII(pMetalsDotOut, param.bParaWrite,
+				 CkCallbackResumeThread());
+	treeProxy[0].outputASCII(pOxDotOut, param.bParaWrite,
+				 CkCallbackResumeThread());
+	treeProxy[0].outputASCII(pFeDotOut, param.bParaWrite,
 				 CkCallbackResumeThread());
 #endif
 	}
