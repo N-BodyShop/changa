@@ -1481,13 +1481,14 @@ void Main::setupICs() {
       if(dTime < vdOutTime[iOut]) break;
       }
 	
-  if(param.bGasCooling) 
+  if(param.bGasCooling || param.bStarForm) 
       initCooling();
   
-  if(param.bStarForm) {
+  if(param.bStarForm || param.bFeedback)
       param.stfm->CheckParams(prm, param);
+
+  if(param.bStarForm)
       initStarLog();
-      }
 	
   if(param.bFeedback)
       param.feedback->CheckParams(prm, param);
