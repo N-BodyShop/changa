@@ -316,6 +316,8 @@ inline GravityParticle StarFromGasParticle(GravityParticle *p)
     TYPESet(&starp, TYPE_STAR);
     starp.extraData = new extraStarData;
     starp.fStarMetals() = p->fMetals();
+    starp.fStarMFracOxygen() = p->fMFracOxygen();
+    starp.fStarMFracIron() = p->fMFracIron();
     return starp;
     }
 
