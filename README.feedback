@@ -8,13 +8,23 @@ the mass of O16 in particular or the mass of all the alpha elements.
 
 * Upon reading a tipsy file which only has "metals",  the division of metals
   between "Oxygen", and "Iron" is 95% and 5% respectively, whereas in Gasoline
-  this division was 75% and 25%.  XXX I (trq) have no idea why this change
-  was made.
+  this division was 75% and 25%.  The 75%/25% in gasoline was a rather random
+  guess.  95%/5% is also incorrect.  The real answer lies somewhere inbetween.
+  It seems sensible to put the oxygen/iron abundances to the solar value.
+  If you follow this stuff, that ratio has changed dramatically over the last
+  10 years from 0.84/0.12 from Anders + Grevesse (1989) to 0.58/0.13 in 
+  Asplund (1989).  The trouble is that our SNII yields are based on the former,
+  though it might be nice to use the latter.  So, Oxygen should be somewhere
+  between 81% and 87%.
 
 * SNIa eject all their mass in "metals", whereas Gasoline only ejects .76
-  solar masses in "metals" per supernova.  My (trq) guess is that this change
-  is related to confusion (probably in Gasoline) about the definitions noted
-  above.
+  solar masses in "metals" per supernova.  SNIa models are of exploding
+  Oxygen white dwarfs, so all the material in such an explosion is composed
+  of "metals" (Oxygen or heavier elements).  In Gasoline, Fe + O =0.63+0.13
+  solar masses = 0.76.  Nomoto et al (1999) Table 1 states that Fe is
+  actually 0.74 once you count up all of its isotopes.  Still, the rest of
+  the ejecta are metals, lots of Si and Ni, so this will contribute to metal
+  cooling.
   
 * The minimum mass of binary that can go supernova is .8 solar masses, whereas
   in Gasoline this is 3 solar masses.  The lowered limit allows SNIa's to
