@@ -404,6 +404,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 			mySPHParticles[iSPH].vPred() = gp.vel;
 			mySPHParticles[iSPH].fBallMax() = HUGE;
 			mySPHParticles[iSPH].fESNrate() = 0.0;
+			mySPHParticles[iSPH].fTimeCoolIsOffUntil() = 0.0;
 			iSPH++;
 		} else if(i + startParticle < (unsigned int) tipsyHeader.nsph
 			  + tipsyHeader.ndark) {
