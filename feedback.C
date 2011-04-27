@@ -231,8 +231,8 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
 	    break;
 	case FB_WIND:
 	    CalcWindFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
-	    fbEffects.dMassLoss -= dSNIaMassStore;
-	    /*printf("Wind, SNaI Mass Loss: %d   %d\n",fbEffects.dMassLoss,dSNIaMassStore); */
+	    if(dSNIaMassStore < fbEffects.dMassLoss)
+		fbEffects.dMassLoss -= dSNIaMassStore;
 	    break;
 	case FB_UV:
 	CalcUVFeedback(dTime, dDeltaYr, &fbEffects);

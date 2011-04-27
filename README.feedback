@@ -19,3 +19,9 @@ the mass of O16 in particular or the mass of all the alpha elements.
 * The minimum mass of binary that can go supernova is .8 solar masses, whereas
   in Gasoline this is 3 solar masses.  The lowered limit allows SNIa's to
   continue happening for a very long time after star formation.
+
+* In Gasoline, mass lost in SNIa is discounted against mass lost in winds.
+  With the lower limit to SNIa binary masses noted above, which is below the
+  lower mass limit for winds, there can be SNIa going off and no winds.
+  Discounting SNIa mass loss against the wind mass loss would result in
+  negative mass loss in winds, so it is not done.
