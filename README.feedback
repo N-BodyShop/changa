@@ -1,0 +1,21 @@
+The star formation/supernova feedback implemenation was translated
+from Gasoline by Greg Stinson.  Note the following differences from
+the Gasoline implementation that has been in common use from 2006
+through 2010.  N.B. In all of the following, the definition of
+"metals", "Oxygen" and "Iron" are not clear, and this may be the
+origin of some of the noted differences.  E.g., does "Oxygen" refer to
+the mass of O16 in particular or the mass of all the alpha elements.
+
+* Upon reading a tipsy file which only has "metals",  the division of metals
+  between "Oxygen", and "Iron" is 95% and 5% respectively, whereas in Gasoline
+  this division was 75% and 25%.  XXX I (trq) have no idea why this change
+  was made.
+
+* SNIa eject all their mass in "metals", whereas Gasoline only ejects .76
+  solar masses in "metals" per supernova.  My (trq) guess is that this change
+  is related to confusion (probably in Gasoline) about the definitions noted
+  above.
+  
+* The minimum mass of binary that can go supernova is .8 solar masses, whereas
+  in Gasoline this is 3 solar masses.  The lowered limit allows SNIa's to
+  continue happening for a very long time after star formation.
