@@ -2170,12 +2170,16 @@ void Main::writeOutput(int iStep)
 #endif
 
     if (param.iBinaryOut) {
-	treeProxy[0].outputBinary(pOxOut, param.bParaWrite, CkCallbackResumeThread());
-	treeProxy[0].outputBinary(pFeOut, param.bParaWrite, CkCallbackResumeThread());
-	treeProxy[0].outputBinary(pcoolontimeOut, param.bParaWrite, CkCallbackResumeThread());
-	if (param.bStarForm) 
+	if (param.bStarForm || param.bFeedback) {
+	    treeProxy[0].outputBinary(pOxOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	    treeProxy[0].outputBinary(pFeOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	    treeProxy[0].outputBinary(pcoolontimeOut, param.bParaWrite,
+				      CkCallbackResumeThread());
 	    treeProxy[0].outputIOrderBinary(string(achFile) + ".iord",
 					    CkCallbackResumeThread());
+	    }
 #ifndef COOLING_NONE
 	treeProxy[0].outputBinary(pCool0Out, param.bParaWrite,
 				 CkCallbackResumeThread());
@@ -2185,12 +2189,16 @@ void Main::writeOutput(int iStep)
 				 CkCallbackResumeThread());
 #endif
 	} else {
-	treeProxy[0].outputASCII(pOxOut, param.bParaWrite, CkCallbackResumeThread());
-	treeProxy[0].outputASCII(pFeOut, param.bParaWrite, CkCallbackResumeThread());
-	treeProxy[0].outputASCII(pcoolontimeOut, param.bParaWrite, CkCallbackResumeThread());
-	if (param.bStarForm) 
+	if (param.bStarForm || param.bFeedback) {
+	    treeProxy[0].outputASCII(pOxOut, param.bParaWrite,
+				     CkCallbackResumeThread());
+	    treeProxy[0].outputASCII(pFeOut, param.bParaWrite,
+				     CkCallbackResumeThread());
+	    treeProxy[0].outputASCII(pcoolontimeOut, param.bParaWrite,
+				     CkCallbackResumeThread());
 	    treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
 					   CkCallbackResumeThread());
+	    }
 #ifndef COOLING_NONE
 	treeProxy[0].outputASCII(pCool0Out, param.bParaWrite,
 				 CkCallbackResumeThread());
