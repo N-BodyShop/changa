@@ -1496,7 +1496,7 @@ void Main::setupICs() {
   char achLogFileName[MAXPATHLEN];
   sprintf(achLogFileName, "%s.log", param.achOutName);
   ofstream ofsLog(achLogFileName, ios_base::trunc);
-  ofsLog << "# Starting ChaNGa version 2.00" << endl;
+  ofsLog << "# Starting ChaNGa version 2.00 UW" << endl;
   ofsLog << "#";		// Output command line
   for (int i = 0; i < args->argc; i++)
       ofsLog << " " << args->argv[i];
