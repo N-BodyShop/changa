@@ -125,6 +125,8 @@ void Main::StellarFeedback(double dTime, double dDelta)
 	}
       }
     delete msgFeedback;
+    CkReductionMsg *msgChk;
+    treeProxy.massMetalsEnergyCheck(1, CkCallbackResumeThread((void*&)msgChk));
     
     if(verbosity)
       CkPrintf("Distribute Stellar Feedback ... ");
@@ -153,6 +155,25 @@ void Main::StellarFeedback(double dTime, double dDelta)
 
     CkPrintf("Stellar Feedback Calculated, Wallclock %f secs\n",
 	     CkWallTimer() - startTime);
+
+    CkReductionMsg *msgChk2;
+    treeProxy.massMetalsEnergyCheck(0, CkCallbackResumeThread((void*&)msgChk2));
+    double *dTotals = (double *)msgChk->getData();
+    double *dTotals2 = (double *)msgChk2->getData();
+    int i;
+    for(i = 0; i < 5; i++) {
+	char *labels[5] = {"Mass", "Metals", "Oxygen", "Iron", "Energy"};
+	if(verbosity > 1)
+	    CkPrintf("Total %s: %g\n", labels[i], dTotals[i]);
+
+	if(fabs(dTotals[i] - dTotals2[i]) > 1e-12*(dTotals[i])) {
+	    CkError("ERROR: %s not conserved: %.15e != %.15e!\n", labels[i],
+		    dTotals[i], dTotals2[i]);
+	    }
+	}
+
+    delete msgChk;
+    delete msgChk2;
     }
 
 ///
@@ -643,5 +664,42 @@ void DistStellarFeedbackSmoothParams::postTreeParticle(GravityParticle *p1)
 	p1->fMFracOxygen() /= p1->mass;    
 	}
     
+    }
+
+/// @brief total feedback quantities for conservation check
+/// 
+/// Sums are contributed back to main chare.
+/// @param bPreDist Is this before the feedback gets distributed.  In
+/// this case the "out" quantities need to be summed.
+void
+TreePiece::massMetalsEnergyCheck(int bPreDist, const CkCallback& cb)
+{
+    double dTotals[5];
+    for(int j = 0; j < 5; j++)
+	dTotals[j] = 0.0;
+    
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+	dTotals[0] += p->mass;
+	if(p->isGas()) {
+	    dTotals[1] += p->mass*p->fMetals();
+	    dTotals[2] += p->mass*p->fMFracOxygen();
+	    dTotals[3] += p->mass*p->fMFracIron();
+	    dTotals[4] += p->mass*p->fESNrate();
+	    }
+	if(p->isStar()) {
+	    dTotals[1] += p->mass*p->fStarMetals();
+	    dTotals[2] += p->mass*p->fStarMFracOxygen();
+	    dTotals[3] += p->mass*p->fStarMFracIron();
+	    if(bPreDist) { // sum up the quantities that will be distributed
+		dTotals[0] += p->fMSN();
+		dTotals[1] += p->fSNMetals();
+		dTotals[2] += p->fMOxygenOut();
+		dTotals[3] += p->fMIronOut();
+		dTotals[4] += p->fStarESNrate();
+		}
+	    }
+	}
+    contribute(sizeof(dTotals), dTotals, CkReduction::sum_double, cb);
     }
 

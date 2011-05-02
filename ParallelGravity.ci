@@ -259,6 +259,7 @@ mainmodule ParallelGravity {
     entry void flushStarLog(const CkCallback& cb);
     entry void Feedback(Fdbk &fb, double dTime, double dDelta, 
     	       		const CkCallback& cb);
+    entry void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
     entry void setTypeFromFile(int iSetMask, char file[256],
         const CkCallback& cb);
     entry void getCOM(const CkCallback& cb, int bLiveViz);
