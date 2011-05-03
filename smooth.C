@@ -456,6 +456,7 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 	  for(; iCount <= nSmooth; firstQueue--) {
 	      if(firstQueue == 0) {
 		  bEnough = 0; // Ran out of particles
+		  firstQueue++;
 		  break;
 		  }
 	      if(TYPETest(&tp->myParticles[firstQueue], params->iType))
