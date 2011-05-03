@@ -231,8 +231,8 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     // methods in normal units (M_sun + seconds)
     SFEvent sfEvent(p->fMassForm()*dGmUnit/MSOLG, 
 		    p->fTimeForm()*dSecUnit/SECONDSPERYEAR,
-		    p->fStarMetals(), p->fStarMFracOxygen(), 
-		    p->fStarMFracIron());
+		    p->fStarMetals(), p->fStarMFracIron(),
+		    p->fStarMFracOxygen());
 
     double dSNIaMassStore=0.0;  /* Stores mass loss of Ia so as not to 
 				   double count it in wind feedback */
