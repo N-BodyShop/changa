@@ -88,6 +88,8 @@ rdfloat, 'winds.out', massw, Ew, metalsw
 m_snII_sim = total(massII)*dMsolUnit
 m_snIa_sim = total(massIa)*dMsolUnit
 m_winds_sim = total(massw)*dMsolUnit
+Fe_winds = m_winds_sim * z * 0.05
+Ox_winds = m_winds_sim * z * 0.95
 ; Compare mass of ejecta
 print, 'Checking ejected mass:'
 print, '     expected (Msun)','   simulation   ',' Difference (%)'
@@ -119,11 +121,15 @@ if (file_test(file+'.CMassFrac')) then begin
    moremetals=1
 endif else moremetals=0
 
-print, '  SNII pred (M_sun)',"     SNIa pred  ",'   Simulation   ','Difference (%)'
-ejecta_Fe_diff = abs(((Fe_SNII+Fe_SNIa-mass_fe)/(Fe_SNII+Fe_SNIa))*100)
-print, format='("Fe:",4(G15))', Fe_SNII, Fe_SNIa, mass_fe, ejecta_Fe_diff
-ejecta_Ox_diff = abs(((Ox_SNII+Ox_SNIa-mass_ox)/(Ox_SNII+Ox_SNIa))*100)
-print, format='("Ox:",4(G15))', Ox_SNII, Ox_SNIa, mass_ox, ejecta_Ox_diff
+print, '  SNII pred (M_sun)',"     SNIa pred  ",'winds','   Simulation   ','Difference (%)'
+ejecta_Fe_diff = abs(((Fe_SNII+Fe_SNIa+Fe_winds-mass_fe)/ $
+                      (Fe_SNII+Fe_SNIa+Fe_winds))*100)
+print, format='("Fe:",4(G12))', Fe_SNII, Fe_SNIa, Fe_winds, $
+       mass_fe, ejecta_Fe_diff
+ejecta_Ox_diff = abs(((Ox_SNII+Ox_SNIa+Ox_winds-mass_ox)/ $
+                      (Ox_SNII+Ox_SNIa+Ox_winds))*100)
+print, format='("Ox:",4(G12))', Ox_SNII, Ox_SNIa, Ox_winds, $
+       mass_ox, ejecta_Ox_diff
 if (moremetals) then begin
    print, 'C:', C_SNII, 'C_agb', mass_C, abs(((C_SNII-mass_C)/(C_SNII))*100)
    print, 'N:', N_SNII, 'N_agb', mass_N, abs(((N_SNII-mass_N)/(N_SNII))*100)
