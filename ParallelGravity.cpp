@@ -936,7 +936,7 @@ void Main::getStartTime()
 			      << endl;
 			CkExit();
 			}
-		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta);
+		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta)+param.iStartStep;
 		    }
 		else if (!prmArgSpecified(prm,"dDelta") &&
 			 prmArgSpecified(prm,"nSteps")) {
@@ -970,7 +970,7 @@ void Main::getStartTime()
 			      << endl;
 			CkExit();
 			}
-		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta);
+		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta) + param.iStartStep;
 		    }
 		else if (!prmSpecified(prm,"dDelta") &&
 			 prmFileSpecified(prm,"nSteps")) {
@@ -993,7 +993,7 @@ void Main::getStartTime()
 		    }
 		}
 	    else {
-		tTo = dTime + param.nSteps*param.dDelta;
+		tTo = dTime + (param.nSteps-param.iStartStep)*param.dDelta;
 		aTo = csmTime2Exp(param.csm,tTo);
 		if (verbosity > 0)
 		    ckout << "Simulation to Time:" << tTo << " Redshift:"
@@ -1007,7 +1007,7 @@ void Main::getStartTime()
 	    dTime = treeProxy[0].ckLocal()->dStartTime; 
 	    if(verbosity > 0)
 		ckout << "Input file, Time:" << dTime << endl;
-	    double tTo = dTime + param.nSteps*param.dDelta;
+	    double tTo = dTime + (param.nSteps-param.iStartStep)*param.dDelta;
 	    if (verbosity > 0) {
 		ckout << "Simulation to Time:" << tTo << endl;
 		}
