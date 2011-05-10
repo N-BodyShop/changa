@@ -43,7 +43,6 @@ class SFEvent {
 class Fdbk : public PUP::able {
  private:
     Fdbk& operator=(const Fdbk& fb);
-    Fdbk(const Fdbk& fb) {}
     void CalcSNIIFeedback(SFEvent *sfEvent, double dTime, double dDelta, 
 			  FBEffects *fbEffects);
     void CalcSNIaFeedback(SFEvent *sfEvent,double dTime, 
@@ -120,12 +119,49 @@ class Fdbk : public PUP::able {
 	    { /*pdva = new Padova();*/}
 
     PUPable_decl(Fdbk);
- Fdbk(CkMigrateMessage *m) : PUP::able(m) {}
+    Fdbk(const Fdbk& fb);
+    Fdbk(CkMigrateMessage *m) : PUP::able(m) {}
     ~Fdbk() {
 	delete imf;
 	}
     inline void pup(PUP::er &p);
     };
+
+//  "Deep copy" constructer is need because of imf pointer.
+inline Fdbk::Fdbk(const Fdbk& fb) {
+    strcpy(achIMF, fb.achIMF);
+    dDeltaStarForm = fb.dDeltaStarForm;
+    iRandomSeed = fb.iRandomSeed;
+    dErgPerGmUnit = fb.dErgPerGmUnit;
+    dGmUnit = fb.dGmUnit;
+    dGmPerCcUnit = fb.dGmPerCcUnit;
+    dErgUnit = fb.dErgUnit;
+    dInitStarMass = fb.dInitStarMass; 
+    dMSNrem = fb.dMSNrem;
+    dMSNIImin = fb.dMSNIImin;
+    dMSNIImax = fb.dMSNIImax;
+    dMBmin = fb.dMBmin;
+    dMBmax = fb.dMBmax;
+    dMEjexp = fb.dMEjexp;
+    dMEjconst = fb.dMEjconst;
+    dMFeexp = fb.dMFeexp;
+    dMFeconst = fb.dMFeconst;
+    dMOxexp = fb.dMOxexp;
+    dMOxconst = fb.dMOxconst;
+    dSNIaMetals = fb.dSNIaMetals;
+    dSecUnit = fb.dSecUnit;
+    iNSNIIQuantum = fb.iNSNIIQuantum;
+    dESN = fb.dESN;
+    bSNTurnOffCooling = fb.bSNTurnOffCooling;
+    bSmallSNSmooth = fb.bSmallSNSmooth;
+    bShortCoolShutoff = fb.bShortCoolShutoff;
+    dExtraCoolShutoff = fb.dExtraCoolShutoff;
+    dRadPreFactor = fb.dRadPreFactor;
+    dTimePreFactor = fb.dTimePreFactor;
+    nSmoothFeedback = fb.nSmoothFeedback;
+    dFracBinSNIa = fb.dFracBinSNIa;
+    imf = fb.imf->clone();
+}
 
 inline void Fdbk::pup(PUP::er &p) {
     p(achIMF, 32);
@@ -180,7 +216,7 @@ enum FBenum{
 class DistStellarFeedbackSmoothParams : public SmoothParams
 {
     double dTime, H, a, gamma;
-    Fdbk *fb;
+    Fdbk fb;
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
     virtual int isSmoothActive(GravityParticle *p);
@@ -195,7 +231,7 @@ class DistStellarFeedbackSmoothParams : public SmoothParams
     DistStellarFeedbackSmoothParams() {}
     DistStellarFeedbackSmoothParams(int _iType, int am, CSM csm, double _dTime,
 				    double _gamma, Fdbk *feedback) : 
-    fb (feedback) {
+    fb (*feedback) {
 	iType = _iType;
 	activeRung = am;
 	gamma = _gamma;
