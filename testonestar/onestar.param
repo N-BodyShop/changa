@@ -53,7 +53,7 @@ bViscosityLimitdt = 1
 #star formation parameters 
 bStarForm = 1
 bUV       = 0
-bFeedback = 1
+bFeedBack = 1
 dOverDenMin = 0.0
 dPhysDenMin = 0.1
 dCStar = 0.0
