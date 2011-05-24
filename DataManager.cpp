@@ -126,6 +126,26 @@ public:
   }
 };
 
+SFC::Key getCommonPrefix(SFC::Key k1, SFC::Key k2, int &nfilled){
+  SFC::Key mask = (SFC::Key(1) << 63);
+  SFC::Key result = SFC::Key(0);
+
+  nfilled = 0;
+  while(mask > 0 && ((k1&mask) == (k2&mask))){
+    result |= (k1&mask);
+    mask >>= 1;
+    nfilled++;
+  }
+  
+  //CkPrintf("key 1 0x%lx key 2 0x%lx\n", k1, k2);
+
+  result >>= (64-nfilled);
+  result |= (SFC::Key(1)<<(nfilled-1));
+  CkAssert(nfilled < 64);
+  
+  return result;
+}                    
+
 void DataManager::collectSplitters(CkReductionMsg *m) {
   numSplitters = m->getSize() / sizeof(SFC::Key);
   CkAssert(! (numSplitters&1)); // must be even
@@ -150,6 +170,11 @@ void DataManager::collectSplitters(CkReductionMsg *m) {
   delete m;
   if(verbosity > 3)
     ckerr << "DataManager " << CkMyNode() << ": Collected splitters" << endl;
+
+  if(CkMyNode() == 0){                                        
+    createTopLevelTree();
+    CkExit();
+  }                  
 
 }
 
@@ -963,6 +988,510 @@ void DataManager::clearInstrument(CkCallback &cb){
   hapi_clearInstrument();
   contribute(0,0,CkReduction::concat,cb);
 #endif
+}
+
+struct NbrNode;
+typedef std::map<NbrNode *,CkVec<NbrNode*> > AdjacencyMap;
+typedef AdjacencyMap::iterator AdjacencyMapIter;
+
+typedef std::pair<NbrNode *,CkVec<NbrNode *> > AdjacencyPair;
+
+class NbrGraph {
+  int numVertices;
+  int numEdges;
+
+  public:
+  NbrGraph(int);
+  CkVec<std::pair<NbrNode *, CkVec<NbrNode *> > > adjacencyList; 
+  void addEdge(NbrNode *n1, NbrNode *n2);
+  void printGraphViz();
+  void printScotch();
+  int getNumNbrs(int leafnum);
+};
+
+struct NbrNode {
+  static const double rootCellSide = 1.0;
+  static const int XDIM = 0;
+  static const int YDIM = 1;
+  static const int ZDIM = 2;
+
+  SFC::Key key;
+  int level;
+  int whichChild;
+  Vector3D<double> coordinates;
+  OrientedBox<double> bb;
+  double side;
+  int leafNum;
+  bool valid;
+
+  NbrNode *children[2];
+  CkVec<NbrNode *> nbrs;
+
+  NbrNode(){
+    children[0] = NULL;
+    children[1] = NULL;
+    leafNum = -1;
+    valid = true;
+  }
+
+  NbrNode(SFC::Key k, int l){
+    key = k;
+    level = l;
+    SFC::Key parent = (k>>1);
+    whichChild = (k > (parent<<1));
+
+    children[0] = NULL;
+    children[1] = NULL;
+
+    leafNum = -1;
+    valid = true;
+  }
+
+  NbrNode(NbrNode *childone, NbrNode *childtwo){
+    CkAssert(childone->level==childtwo->level);
+    CkAssert(childone->whichChild+childtwo->whichChild==1);
+
+    key = (childone->key>>1);
+    SFC::Key parent = (key>>1);
+    whichChild = (key > (parent<<1));
+    level = childone->level-1;
+
+    children[childone->whichChild] = childone;
+    children[childtwo->whichChild] = childtwo;
+
+    leafNum = -1;
+    valid = true;
+  }
+
+  void makeSibling(NbrNode &sib){
+    CkAssert(key!=SFC::Key(1));
+    sib.level = level;
+    sib.key = (key>>1);
+    sib.whichChild = (whichChild+1)%2;
+    sib.key <<= 1;
+    sib.key += sib.whichChild;
+    sib.children[0] = NULL;
+    sib.children[1] = NULL;
+    sib.nbrs.length()=0;
+    sib.valid = false;
+
+    // CkPrintf("made %ld sibling of %ld\n", sib.key, key);
+  }
+
+  bool operator<=(const NbrNode &other) const{
+    return (key >= other.key);
+  }
+
+  bool operator>=(const NbrNode &other) const{
+    return (key <= other.key);
+  }
+
+  // assuming oct decomposition
+  void calculateOctCoordinates(int &leafctr){
+    Vector3D<double> rootCoord(0.0,0.0,0.0);
+    OrientedBox<double> rootBox;
+    rootBox.lesser_corner.x = -0.5;
+    rootBox.lesser_corner.y = -0.5;
+    rootBox.lesser_corner.z = -0.5;
+    rootBox.greater_corner.x = 0.5;
+    rootBox.greater_corner.y = 0.5;
+    rootBox.greater_corner.z = 0.5;
+    recOctCoordinates(rootCellSide,rootCoord,rootBox,XDIM,leafctr);  
+  }
+
+  void recOctCoordinates(double s, Vector3D<double> v, OrientedBox<double> &box, int dim, int &leafctr){
+    coordinates = v;
+    side = s;
+    bb = box;
+
+    if(isNotLeaf()){
+      Vector3D<double> v1;
+      Vector3D<double> v2;
+
+      double delta = s/2.0;
+
+      OrientedBox<double> b1(box);
+      OrientedBox<double> b2(box);
+
+      for(int i = XDIM; i <= ZDIM; i++){
+        v1[i] = v[i];
+      }
+      v1[dim] = v[dim]-(delta/2.0);
+      v2[dim] = v[dim]+(delta/2.0);
+
+      double dimExtLess = box.lesser_corner[dim];
+      double dimExtMore = box.greater_corner[dim];
+      b1.greater_corner[dim] = b2.lesser_corner[dim] = (dimExtLess+dimExtMore)/2.0;
+
+      if(dim==ZDIM){
+        s = s/(2.0);
+        dim = XDIM;
+      }
+      else{
+        dim++;
+      }
+
+      children[0]->recOctCoordinates(s,v1,b1,dim,leafctr);
+      children[1]->recOctCoordinates(s,v2,b2,dim,leafctr);
+    }
+    else if(isLeaf()){
+      leafNum = leafctr;
+      leafctr++;
+      /*
+         CkPrintf("bb of key 0x%lx leaf %d %f %f %f %f %f %f\n",
+         key, leafNum,
+         bb.lesser_corner.x,  
+         bb.lesser_corner.y,  
+         bb.lesser_corner.z,  
+         bb.greater_corner.x,  
+         bb.greater_corner.y,  
+         bb.greater_corner.z  
+         );
+         */
+
+
+    }
+  }
+
+  void printGraphViz(){
+    std::ofstream ofs("topLevel.0.dot");
+
+    ofs << "digraph toplevel{\n";
+    print(ofs);
+    ofs << "}\n";
+    ofs.close();
+  }
+
+  void printNbrsGraphViz(){
+    std::ofstream ofs("nbrgraph.dot");
+    ofs << "graph nbrgraph {\n";
+
+    print2(ofs);
+
+    ofs << "}\n";
+    ofs.close();
+
+  }
+
+  void print2(std::ofstream &ofs){
+    if(!valid){
+      return;
+    }
+    else if(isLeaf()){
+      ofs << NbrNode::kbits(this) << " [label=\"" << leafNum << "\"]\n";
+      for(int i = 0; i < nbrs.length(); i++){
+        NbrNode *target = nbrs[i];
+        ofs << NbrNode::kbits(this) << " -- " << NbrNode::kbits(target) << "\n";
+      }
+    }
+    else{
+      CkAssert(nbrs.length()==0);
+      CkAssert(children[0] != NULL);
+      CkAssert(children[1] != NULL);
+      children[0]->print2(ofs);
+      children[1]->print2(ofs);
+    }
+  }
+
+
+  static std::string kbits(NbrNode *nd){
+    SFC::Key k = nd->key;
+    int level = nd->level;
+    std::ostringstream oss;
+    SFC::Key mask = (1 << level);
+    while(mask > 0){
+      oss << ((k & mask) == 0 ? 0 : 1);
+      mask >>= 1;
+    }
+    //CkPrintf("kbits 0x%lx level %d -> %s\n", k, level, oss.str().c_str());
+    return oss.str();
+  }
+
+  void print(std::ofstream &ofs){
+    std::string myKeyString = kbits(this);
+    ofs << myKeyString << " [label=\"" 
+      << myKeyString << " (" 
+      << coordinates.x << "," 
+      << coordinates.y << "," 
+      << coordinates.z<< ")";
+    if(leafNum >= 0){
+      ofs << " leaf: " << leafNum;
+    }
+    ofs << "\"]" << ";\n";
+    if(isNotLeaf()){
+      ofs << myKeyString << " -> " << kbits(children[0]) << "\n";
+      ofs << myKeyString << " -> " << kbits(children[1]) << "\n";
+
+      children[0]->print(ofs);
+      children[1]->print(ofs);
+    }
+  }
+
+  bool isNotLeaf(){
+    return (children[0] != NULL && children[1] != NULL);
+  }
+
+  bool isLeaf(){
+    return (children[0] == NULL && children[1] == NULL);
+  }
+
+  void findNeighbors(NbrNode *nd, int &numEdges){
+    CkAssert(nd != NULL);
+    if(!nd->valid) return;
+    //Sphere<double> other(nd->coordinates, nd->side);
+    Vector3D<double> diff = nd->bb.greater_corner-nd->bb.lesser_corner;
+    double radius = diff.length()/2.0;
+    radius /= theta;
+    Sphere<double> sph(nd->coordinates,radius);
+    bool doesIntersect = Space::intersect(bb,sph);
+    /*
+    if(leafNum==0){
+      CkPrintf("test %f %f %f %f with key %ld result %d\n", 
+      coordinates.x,
+      coordinates.y,
+      coordinates.z,
+      radius,
+      nd->key,
+      doesIntersect);
+    }
+    */
+    if(doesIntersect && 
+        nd->isNotLeaf()){
+      findNeighbors(nd->children[0], numEdges);
+      findNeighbors(nd->children[1], numEdges);
+    }
+    else if(nd->isLeaf() && nd->key != key){
+      addEdge(nd,numEdges);
+    }
+  }
+
+  void addEdge(NbrNode *n2, int &numEdges){
+    CkVec<NbrNode *> v2 = n2->nbrs;
+    /*
+       bool found = false;
+       for(int i = 0; i < v2.length(); i++){
+       if(v2[i]->key==key){
+       found = true;
+       break;
+       }
+       }
+       if(!found){
+       */
+    nbrs.push_back(n2);
+    numEdges++;
+    //}
+  }
+
+  void printScotch(int numVertices, int numEdges){
+    std::ofstream ofs("nbrhoods.grf");
+    std::ofstream oofs("positions.xyz");
+
+    // version number
+    ofs << "0\n";
+    // number of vertices and edges
+    ofs << numVertices << " " << numEdges << "\n";
+    // start index and weights
+    ofs << "0 100\n";
+
+    oofs << "3\n";
+    oofs << numVertices << "\n";
+
+    recPrintScotch(ofs, oofs);
+
+    ofs.close();
+    oofs.close();
+
+  }
+
+  void recPrintScotch(std::ofstream &ofs, std::ofstream &oofs){
+    if(!valid){
+      return;
+    }
+    else if(isLeaf()){
+      oofs << leafNum 
+        << " " << coordinates.x 
+        << " " << coordinates.y 
+        << " " << coordinates.z 
+        << "\n";
+      // number of nbrs
+      ofs << leafNum << " " << nbrs.length(); 
+      for(int i = 0; i < nbrs.length(); i++){
+        NbrNode *target = nbrs[i];
+        // nbr indices
+        ofs << " " << target->leafNum;
+      }
+      ofs << "\n";
+    }
+    else{
+      CkAssert(nbrs.length()==0);
+      children[0]->recPrintScotch(ofs,oofs);
+      children[1]->recPrintScotch(ofs,oofs);
+    }
+  }
+
+};
+
+
+void DataManager::createTopLevelTree(){
+  int tp = 0; 
+  // first is parent key, so that siblings 
+  // can look for each other
+  std::map<SFC::Key,NbrNode *> topLevelTreeMap;
+  CkVec<NbrNode *> leaves;
+
+  CkPrintf("numSplitters: %d\n", numSplitters);
+  for(int i = 0; i < numSplitters-1; i += 2){
+    int nfilled;
+    if(splitters[i]!=splitters[i+1]){
+      SFC::Key me = getCommonPrefix(splitters[i],splitters[i+1],nfilled);
+      /*CkPrintf("splitters for tree piece %d: 0x%lx 0x%lx common 0x%lx nfilled %d\n",  
+          tp, splitters[i], splitters[i+1],
+          me, nfilled);            */
+
+      NbrNode *leaf = new NbrNode(me,nfilled-1);
+      checkAndPush(leaf,topLevelTreeMap);
+      leaves.push_back(leaf);
+      tp++;                                                   
+    }
+  }
+
+  
+  if(topLevelTreeMap.size()>1){
+    CkVec<NbrNode> remNodes;
+    for(NbrNodeIter it=topLevelTreeMap.begin();
+        it != topLevelTreeMap.end();
+        it++){
+      CkPrintf("rem %ld\n", it->second->key);
+      NbrNode sib;
+      it->second->makeSibling(sib);
+      remNodes.push_back(sib);
+    }
+    remNodes.quickSort();
+    for(int i = 0; (i <= remNodes.length()) && (topLevelTreeMap.size()>1); i++){
+      SFC::Key searchKey = (remNodes[i].key>>1);
+      NbrNodeIter it = topLevelTreeMap.find(searchKey);
+      if(it != topLevelTreeMap.end()){
+        checkAndPush(&remNodes[i],topLevelTreeMap);
+      }
+      /*
+      while(searchKey >= SFC::Key(1)){
+          // topLevelTreeMap.erase(it);
+          CkPrintf("found key %ld\n", searchKey);
+          searchKey >>= 1;
+        }
+        else{
+          break;
+        }
+      }
+      */
+    }
+    CkAssert(topLevelTreeMap.size()==1);
+  }
+
+  NbrNodeIter rootIter = topLevelTreeMap.find(SFC::Key(0));
+  CkAssert(rootIter != topLevelTreeMap.end());
+
+
+  NbrNode *rt = rootIter->second;
+  
+  int numLeaves = 0;
+  int numEdges = 0;
+  // this call sets the number of leaves
+  rt->calculateOctCoordinates(numLeaves);
+  rt->printGraphViz();
+
+  NbrGraph g(numLeaves);
+
+  for(int i = 0; i < leaves.length(); i++){
+    NbrNode *leaf = leaves[i];
+    if(leaf->valid){
+      leaf->findNeighbors(rt,numEdges);
+      CkPrintf("leaf %d %ld num %d nbrs %d coord %g %g %g side %g\n", i, leaf->key, leaf->leafNum, leaf->nbrs.length(),
+      leaf->coordinates.x,
+      leaf->coordinates.y,
+      leaf->coordinates.z,
+      leaf->side);
+    }
+  }
+
+  rt->printNbrsGraphViz();
+  rt->printScotch(numLeaves,numEdges);
+  //g.printScotch();
+}
+
+void DataManager::checkAndPush(NbrNode *nd, NbrNodeMap &topLevelTreeMap){
+  SFC::Key me = nd->key;
+  SFC::Key parent = (me>>1);
+  /*
+  if(parent==SFC::Key(0)){
+    CkPrintf("skipping 0\n");
+    return;
+  }
+  */
+  CkPrintf("checking key %ld\n",me);
+  NbrNodeIter it = topLevelTreeMap.find(parent);
+  if(it == topLevelTreeMap.end()){
+    CkPrintf("sibling not found, inserting self\n");
+    topLevelTreeMap[parent] = nd;
+  }
+  else{
+    NbrNode *sibling = it->second;
+    NbrNode *parentNode = new NbrNode(sibling,nd);
+    CkPrintf("found sibling %ld\n",sibling->key);
+    topLevelTreeMap.erase(it);
+    checkAndPush(parentNode,topLevelTreeMap);
+  }
+}
+
+NbrGraph::NbrGraph(int numLeaves){
+  numVertices = numLeaves;
+  adjacencyList.resize(numLeaves);
+  numEdges = 0;
+}
+
+void NbrGraph::addEdge(NbrNode *n1, NbrNode *n2){
+  AdjacencyPair &p1 = adjacencyList[n1->leafNum];
+  //AdjacencyPair &p2 = adjacencyList[n2->leafNum];
+  CkVec<NbrNode *> &v1 = p1.second;
+  /*
+  CkVec<NbrNode *> &v2 = p2.second;
+  bool found = false;
+  for(int i = 0; i < v2.length(); i++){
+    if(v2[i]->key==n1->key){
+      found = true;
+      break;
+    }
+  }
+  if(!found){
+    */
+  p1.first = n1;
+  v1.push_back(n2);
+  numEdges++;
+  //}
+}
+
+void NbrGraph::printGraphViz(){
+  AdjacencyMapIter it;
+  std::ofstream ofs("nbrgraph.dot");
+  ofs << "digraph nbrgraph {\n";
+
+  for(int vtx=0; vtx < numVertices; vtx++){
+    AdjacencyPair &p = adjacencyList[vtx];
+    NbrNode *src = p.first;
+    ofs << NbrNode::kbits(src) << " [label=\"" << src->leafNum << "\"]\n";
+    CkVec<NbrNode *> &list = p.second;
+    for(int i = 0; i < list.length(); i++){
+      NbrNode *target = list[i];
+      ofs << NbrNode::kbits(src) << " -> " << NbrNode::kbits(target) << "\n";
+    }
+  }
+
+  ofs << "}\n";
+  ofs.close();
+}
+
+int NbrGraph::getNumNbrs(int leafnum){
+  return adjacencyList[leafnum].second.length();
 }
 
 

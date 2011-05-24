@@ -7,11 +7,14 @@
 #ifndef DATAMANAGER_H
 #define DATAMANAGER_H
 
+#include <iostream>
+#include <fstream>
 #include <vector>
 #include <map>
 #include <string>
 #include "GenericTreeNode.h"
 #include "ParallelGravity.decl.h"
+
 
 #ifdef CUDA
 
@@ -53,11 +56,17 @@ struct PendingBuffers {
  the Sorter.  The DataManager then instructs all the TreePieces on its node
  to evaluate the boundary keys.
  */
+struct NbrNode;
+typedef std::map<SFC::Key, NbrNode *> NbrNodeMap;
+typedef std::map<SFC::Key, NbrNode *>::iterator NbrNodeIter;
+
 class DataManager : public CBase_DataManager {
 	friend class TreePiece;
 
 	/// The array of TreePieces I hold data for.
 	CProxy_TreePiece treePieces;
+
+        void checkAndPush(NbrNode *, NbrNodeMap &);
 
 protected:
 
@@ -134,6 +143,8 @@ protected:
         /// Lookup table for the chunkRoots
         Tree::NodeLookupType chunkRootTable;
 
+        void createTopLevelTree();
+
 public:
 
 	/* 
@@ -200,6 +211,8 @@ public:
 private:
 	Tree::GenericTreeNode *buildProcessorTree(int n, Tree::GenericTreeNode **gtn);
 	int createLookupRoots(Tree::GenericTreeNode *node, Tree::NodeKey *keys);
+
+        void pushAndCheck(NbrNode *nd);
 public:
 
 #ifdef CUDA
