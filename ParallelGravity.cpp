@@ -1475,6 +1475,9 @@ void Main::setupICs() {
   char achLogFileName[MAXPATHLEN];
   sprintf(achLogFileName, "%s.log", param.achOutName);
   ofstream ofsLog(achLogFileName, ios_base::trunc);
+  if(!ofsLog)
+      CkAbort("Error opening log file.");
+      
   ofsLog << "# Starting ChaNGa version 2.00" << endl;
   ofsLog << "#";		// Output command line
   for (int i = 0; i < args->argc; i++)
@@ -1545,6 +1548,8 @@ void Main::setupICs() {
     }
   ofsLog << endl;
   ofsLog.close();
+  if(!ofsLog)
+      CkAbort("Error closing log file");
 
   if(prmSpecified(prm,"dSoft")) {
     ckout << "Set Softening...\n";
