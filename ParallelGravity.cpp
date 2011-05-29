@@ -1892,7 +1892,7 @@ Main::doSimulation()
 	  ckout << "Calculating total densities ...";
 	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	  startTime = CkWallTimer();
-	  double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+	  double dfBall2OverSoft2 = 0.0;
 	  treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
 					 CkCallbackResumeThread());
 	  iPhase++;
@@ -1987,7 +1987,7 @@ Main::doSimulation()
 	  ckout << "Calculating total densities ...";
 	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	  startTime = CkWallTimer();
-	  double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+	  double dfBall2OverSoft2 = 0.0;
 	  treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
 					 CkCallbackResumeThread());
 	  iPhase++;
@@ -2162,7 +2162,7 @@ void Main::writeOutput(int iStep)
 	ckout << "Calculating total densities ...";
 	DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	startTime = CkWallTimer();
-	double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+	double dfBall2OverSoft2 = 0.0;
 	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
 				       CkCallbackResumeThread());
 	iPhase++;
