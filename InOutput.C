@@ -858,8 +858,6 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 	incomingParticlesArrived += shuffleMsg->n;
 	}
 
-    CkAssert(myIOParticles >= 0);  // check that ioShuffle has been called.
-    CkAssert(incomingParticlesArrived <= myIOParticles);
     if(verbosity > 2)
 	ckout << thisIndex << ": incoming: " << incomingParticlesArrived
 	      << " myIO: " << myIOParticles << endl;
