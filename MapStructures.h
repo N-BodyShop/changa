@@ -141,6 +141,16 @@ class Processor{
     return load > p.load;
   }
 
+  Processor(){
+    load = 0.0;
+    t = -1;
+  }
+
+  Processor(int pe){
+    load = 0.0;
+    t = pe;
+  }
+
 };
 
 class Node {

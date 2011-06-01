@@ -168,24 +168,6 @@ private:
   
   enum {XDIR=0, YDIR, ZDIR};
   
-  LDStats* statsData;
-  int P;
-  ComputeLoad *computeLoad;
-  int nObjs;
-  VecArray  *(vArray[3]);
-  Partition *partitions;
-  Partition top_partition;
-  int npartition;
-  int currentp, refno;
-  
-  void strategy();
-  void rec_divide(int, Partition&);
-  void setVal(int x, int y, int z);
-  int sort_partition(int x, int p, int r);
-  void qsort1(int x, int p, int r);
-  void quicksort(int x);
-  void mapPartitionsToNodes();
-
 public:
   double overLoad;
   

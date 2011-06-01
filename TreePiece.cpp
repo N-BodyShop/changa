@@ -4087,7 +4087,7 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   }
   LDObjHandle myHandle = myRec->getLdHandle();
   TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles, activeRung, prevLARung);
-  tv.tag = thisIndex;
+  tv.tp = thisIndex;
 
   if(foundLB == Multistep){
     CkCallback cbk(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
@@ -5956,7 +5956,7 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   }
 
   TaggedVector3D tv(centroid, handle, myNumParticles, myNumParticles, 0, 0);
-  tv.tag = thisIndex;
+  tv.tp = thisIndex;
 
   string msname("MultistepLB");
   string orb3dname("Orb3dLB");
