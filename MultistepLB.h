@@ -193,7 +193,8 @@ public:
 // ORB3DLB functions
 //**************************************
 //
-  void work2(BaseLB::LDStats* stats, int count);
+  void work2(BaseLB::LDStats* stats, int count, int phase, int prevPhase);
+  void greedy(BaseLB::LDStats* stats, int count, int phase, int prevPhase);
   void directMap(TPObject *tp, int ntp, Node *nodes);
   void map(TPObject *tp, int ntp, int nn, Node *procs, int xs, int ys, int zs, int dim);
   int nextDim(int dim, int xs, int ys, int zs);
