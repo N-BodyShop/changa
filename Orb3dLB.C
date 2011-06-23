@@ -183,8 +183,8 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
     cur = cur->next();
   }
 
-  //mapping = &stats->to_proc;
-  mapping.resize(numobjs);
+  mapping = &stats->to_proc;
+  //mapping.resize(numobjs);
   int dim = 0;
   TopoManager tmgr;
 
@@ -232,9 +232,6 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
   }
 #endif
 
-  for(int i = 0; i < numobjs; i++){
-    stats->to_proc[i] = mapping[i];
-  }
 
   /*
   int migr = 0;
@@ -362,7 +359,7 @@ void Orb3dLB::directMap(int tpstart, int tpend, int nodestart, int nodeend){
       //CkPrintf("proc %d load %f gets obj %d load %f\n", p.t, p.load, tp.lbindex, tp.load);
 
       p.load += tp.load;
-      mapping[tp.lbindex] = nodes[nodestart].procRanks[p.t];
+      (*mapping)[tp.lbindex] = nodes[nodestart].procRanks[p.t];
 #ifdef PRINT_BOUNDING_BOXES
       nodes[nodestart].box.grow(tp.centroid);
 #endif
