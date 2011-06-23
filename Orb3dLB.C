@@ -265,6 +265,7 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
 void Orb3dLB::map(int tpstart, int tpend, int nodestart, int nodeend, int xs, int ys, int zs, int dim){
   //CkPrintf("ntp: %d np: %d dim: %d path: 0x%x\n",ntp,np,dim,path);
   int nn = nodeend-nodestart;
+  CkAssert(nn > 0);
   if(nn == 1){
     directMap(tpstart,tpend,nodestart,nodeend);
   }
@@ -377,6 +378,8 @@ void Orb3dLB::partitionEvenLoad(int tpstart, int tpend, int &tpmid){
   for(int i = tpstart; i < tpend; i++){
     totalLoad += tps[i].load;
   }
+  //CkPrintf("************************************************************\n");
+  //CkPrintf("partitionEvenLoad start %d end %d total %f\n", tpstart, tpend, totalLoad);
   float lload = 0.0;
   float rload = totalLoad;
   float prevDiff = lload-rload;
@@ -394,22 +397,22 @@ void Orb3dLB::partitionEvenLoad(int tpstart, int tpend, int &tpmid){
       newdiff = -newdiff;
     }
 
-    //CkPrintf("consider load %f newdiff %f prevdiff %f\n", tp[consider].load, newdiff, prevDiff);
+    //CkPrintf("consider load %f newdiff %f prevdiff %f\n", tps[consider].load, newdiff, prevDiff);
 
-    if(newdiff < prevDiff){
+    if(newdiff > prevDiff){
+      break;
+    }
+    else{
       consider++;
       lload = newll;
       rload = newrl;
       prevDiff = newdiff;
     }
-    else{
-      break;
-    }
   }
 
-  //CkPrintf("partitionEvenLoad lload %f rload %f\n", lload, rload);
-
   tpmid = consider;
+  //CkPrintf("partitionEvenLoad mid %d lload %f rload %f\n", tpmid, lload, rload);
+
 }
 
 void Orb3dLB::halveNodes(int nodestart, int nodeend, int &nodemid){
