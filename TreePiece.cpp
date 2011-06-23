@@ -4088,14 +4088,22 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   LDObjHandle myHandle = myRec->getLdHandle();
   TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles, activeRung, prevLARung);
   tv.tag = thisIndex;
+  /*
+  CkPrintf("[%d] centroid %f %f %f\n", 
+                      thisIndex,
+                      tv.vec.x,
+                      tv.vec.y,
+                      tv.vec.z
+                      );
+  */
 
   if(foundLB == Multistep){
     CkCallback cbk(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::set, cbk);
   }
   else if(foundLB == Orb3d){
     CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::set, cbk);
   }
   else{
     doAtSync();
@@ -5957,6 +5965,14 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
 
   TaggedVector3D tv(centroid, handle, myNumParticles, myNumParticles, 0, 0);
   tv.tag = thisIndex;
+  /*
+  CkPrintf("[%d] centroid %f %f %f\n", 
+                      thisIndex,
+                      tv.vec.x,
+                      tv.vec.y,
+                      tv.vec.z
+                      );
+  */
 
   string msname("MultistepLB");
   string orb3dname("Orb3dLB");
@@ -5980,11 +5996,11 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
 
   if(foundLB == Multistep){
     CkCallback lbcb(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::set, lbcb);
   }
   else if(foundLB == Orb3d){
     CkCallback lbcb(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::set, lbcb);
   }
   else if(foundLB == Null){ 
     // none of the balancers requiring centroids found; go

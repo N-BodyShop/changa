@@ -76,12 +76,18 @@ void Orb3dLB::receiveCentroids(CkReductionMsg *msg){
   if(haveTPCentroids){
     delete tpmsg;
   }
-  tpCentroids = (TaggedVector3D *)msg->getData();
-  nrecvd = msg->getGcount();
+  tpCentroids = (CkReduction::setElement *)msg->getData();
+  CkReduction::setElement *cur = tpCentroids;
+  nrecvd = 0;
+  while(cur != NULL){
+    CkAssert(cur->dataSize == sizeof(TaggedVector3D));
+    nrecvd++;
+    cur = cur->next();
+  }
   tpmsg = msg;
   haveTPCentroids = true;
   // TaggedVector3D * cur = (TaggedVector3D *)msg->getData();
-  CkPrintf("Orb3dLB: receiveCentroids started: %d elements, msg length: %d\n", msg->getGcount(), msg->getLength()); 
+  CkPrintf("Orb3dLB: receiveCentroids started: %d elements, msg length: %d\n", nrecvd, msg->getLength()); 
   //tpCentroids.free();
   
   /*
@@ -135,18 +141,27 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
 
   stats->makeCommHash();
   CkPrintf("[orb3dlb] ready tp data structure\n");
-  if(nrecvd != numobjs){
-    CkAbort("wrong tpCentroids length\n");
-  }
-  for(int i = 0; i < stats->n_objs; i++){
-    LDObjHandle &handle = tpCentroids[i].handle;
+  CkAssert(nrecvd == numobjs);
+
+  CkReduction::setElement *cur = tpCentroids;
+  while(cur != NULL){
+    TaggedVector3D *data = (TaggedVector3D *) cur->data;
+    LDObjHandle &handle = data->handle;
     int tag = stats->getHash(handle.id,handle.omhandle.id);
-    tps[tag].centroid.x = tpCentroids[i].vec.x;
-    tps[tag].centroid.y = tpCentroids[i].vec.y;
-    tps[tag].centroid.z = tpCentroids[i].vec.z;
+    tps[tag].centroid.x = data->vec.x;
+    tps[tag].centroid.y = data->vec.y;
+    tps[tag].centroid.z = data->vec.z;
+    /*
+    CkPrintf("[orb3dlb] tree piece %d centroid %f %f %f\n", 
+                                      data->tag,
+                                      data->vec.x,
+                                      data->vec.y,
+                                      data->vec.z
+                                      );
+    */
     tps[tag].migratable = stats->objData[tag].migratable;
     if(step() == 0){
-      tps[tag].load = tpCentroids[i].myNumParticles;
+      tps[tag].load = data->myNumParticles;
     }
     else{
       tps[tag].load = stats->objData[tag].wallTime;
@@ -164,6 +179,8 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
           );
     }
     */
+
+    cur = cur->next();
   }
 
   mapping = &stats->to_proc;
