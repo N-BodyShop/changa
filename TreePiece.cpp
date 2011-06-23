@@ -101,11 +101,12 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 
 	boundingBox = *static_cast<OrientedBox<float> *>(m->getData());
 	delete m;
-	if(thisIndex == 0 && verbosity)
+	if(thisIndex == 0 && verbosity > 1)
 		ckout << "TreePiece: Bounding box originally: "
 		     << boundingBox << endl;
 	//give particles keys, using bounding box to scale
-	if(domainDecomposition!=ORB_dec){
+	if((domainDecomposition!=ORB_dec)
+	   && (domainDecomposition!=ORB_space_dec)){
 	      // get longest axis
 	      Vector3D<float> bsize = boundingBox.size();
 	      float max = (bsize.x > bsize.y) ? bsize.x : bsize.y;
@@ -116,7 +117,7 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 	      Vector3D<float> bcenter = boundingBox.center();
 	      bsize = Vector3D<float>(0.5*max);
 	      boundingBox = OrientedBox<float>(bcenter-bsize, bcenter+bsize);
-	      if(thisIndex == 0 && verbosity)
+	      if(thisIndex == 0 && verbosity > 1)
 		      ckout << "TreePiece: Bounding box now: "
 			   << boundingBox << endl;
 
@@ -194,97 +195,160 @@ void TreePiece::initORBPieces(const CkCallback& cb){
   contribute(sizeof(OrientedBox<float>), &box, boxReduction, cb);
 }
 
-/*class Compare{ //Defines the comparison operator on the map used in balancer
-  int dim;
-public:
-  Compare() {}
-  Compare(int i) : dim(i) {}
-
-  void setDim(int i){ dim = i; }
-
-  bool operator()(GravityParticle& p1, GravityParticle& p2) const {
-    return p1.position[dim] < p2.position[dim];
-  }
-};*/
-
-void TreePiece::initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback){
+/// Allocate memory for sorted particles.
+/// @param cb callback after everything is sorted.
+/// @param cback callback to perform now.
+void TreePiece::initBeforeORBSend(unsigned int myCount,
+				  unsigned int myCountGas,
+				  const CkCallback& cb,
+				  const CkCallback& cback){
 
   callback = cb;
-  //sorterCallBack = sorterCb;
   CkCallback nextCallback = cback;
+  if(numTreePieces == 1) {
+      myCount = myNumParticles;
+      myCountGas = myNumSPH;
+      }
   myExpectedCount = myCount;
+  myExpectedCountSPH = myCountGas;
 
   mySortedParticles.clear();
   mySortedParticles.reserve(myExpectedCount);
-
-  /*if(myExpectedCount > myNumParticles){
-    delete [] myParticles;
-    myParticles = new GravityParticle[myExpectedCount + 2];
-  }
-  myNumParticles = myExpectedCount;*/
+  mySortedParticlesSPH.clear();
+  mySortedParticlesSPH.reserve(myExpectedCountSPH);
 
   contribute(0, 0, CkReduction::concat, nextCallback);
 }
 
-//void TreePiece::sendORBParticles(unsigned int myCount, const CkCallback& cb, const CkCallback& sorterCb){
 void TreePiece::sendORBParticles(){
-
-  /*callback = cb;
-  sorterCallBack = sorterCb;
-  myExpectedCount = myCount;
-
-  std::list<GravityParticle *>::iterator iter;
-  std::list<GravityParticle *>::iterator iter2;
-
-  mySortedParticles.clear();
-  mySortedParticles.reserve(myExpectedCount);*/
 
   std::list<GravityParticle *>::iterator iter;
   std::list<GravityParticle *>::iterator iter2;
 
   int i=0;
+  int nCounts = myBinCountsORB.size()/3; // Gas counts are in second
+					 // half and star counts are
+					 // in third half
+  
   for(iter=orbBoundaries.begin();iter!=orbBoundaries.end();iter++,i++){
-		iter2=iter;
-		iter2++;
-		if(iter2==orbBoundaries.end())
-			break;
-    if(i==thisIndex){
-			//CkPrintf("[%d] send %d particles to %d\n",thisIndex,myBinCounts[i],i);
-      if(myBinCountsORB[i]>0)
-        acceptORBParticles(*iter,myBinCountsORB[i]);
+	iter2=iter;
+	iter2++;
+	if(iter2==orbBoundaries.end())
+		break;
+	if(myBinCountsORB[i]>0) {
+	    extraSPHData *pGasOut = NULL;
+	    if(myBinCountsORB[nCounts+i] > 0) {
+		pGasOut = new extraSPHData[myBinCountsORB[nCounts+i]];
+		if (verbosity>=3)
+		  CkPrintf("me:%d to:%d nPart :%d, nGas:%d\n", thisIndex, i,
+			   *iter2 - *iter, myBinCountsORB[nCounts+i]);
+		int iGasOut = 0;
+		for(GravityParticle *pPart = *iter; pPart < *iter2; pPart++) {
+		    if(TYPETest(pPart, TYPE_GAS)) {
+			pGasOut[iGasOut] = *(extraSPHData *)pPart->extraData;
+			iGasOut++;
+			}
+		    }
 		}
-    else{
-			//CkPrintf("[%d] send %d particles to %d\n",thisIndex,myBinCounts[i],i);
-      if(myBinCountsORB[i]>0)
-        pieces[i].acceptORBParticles(*iter,myBinCountsORB[i]);
+	    extraStarData *pStarOut = NULL;
+	    if(myBinCountsORB[2*nCounts+i] > 0) {
+		pStarOut = new extraStarData[myBinCountsORB[2*nCounts+i]];
+		int iStarOut = 0;
+		for(GravityParticle *pPart = *iter; pPart < *iter2; pPart++) {
+		    if(pPart->isStar()) {
+			pStarOut[iStarOut] = *(extraStarData *)pPart->extraData;
+			iStarOut++;
+			}
+		    }
 		}
-  }
+	
+	    if(i==thisIndex){
+		acceptORBParticles(*iter,myBinCountsORB[i], pGasOut,
+				   myBinCountsORB[nCounts+i], pStarOut,
+				   myBinCountsORB[2*nCounts+i]);
+		}
+	    else{
+		pieces[i].acceptORBParticles(*iter,myBinCountsORB[i], pGasOut,
+					     myBinCountsORB[nCounts+i],
+					     pStarOut,
+					     myBinCountsORB[2*nCounts+i]);
+		}
+	    if(pGasOut != NULL)
+		delete[] pGasOut;
+	    if(pStarOut != NULL)
+		delete[] pStarOut;
+	    }
+      }
 
   if(myExpectedCount > (int) myNumParticles){
     delete [] myParticles;
-    myParticles = new GravityParticle[myExpectedCount + 2];
+    nStore = (int)((myExpectedCount + 2)*(1.0 + dExtraStore));
+    myParticles = new GravityParticle[nStore];
   }
   myNumParticles = myExpectedCount;
+
+  if(myExpectedCountSPH > (int) myNumSPH){
+    if(nStoreSPH > 0) delete [] mySPHParticles;
+    nStoreSPH = (int)(myExpectedCountSPH*(1.0 + dExtraStore));
+    mySPHParticles = new extraSPHData[nStoreSPH];
+  }
+  myNumSPH = myExpectedCountSPH;
+
+  if(myExpectedCountStar > (int) myNumStar){
+    delete [] myStarParticles;
+    nStoreStar = (int)(myExpectedCountStar*(1.0 + dExtraStore));
+    nStoreStar += 12;  // In case we start with 0
+    myStarParticles = new extraStarData[nStoreStar];
+  }
+  myNumStar = myExpectedCountStar;
+
+  if(myExpectedCount == 0) // No particles.  Make sure transfer is
+			   // complete
+      acceptORBParticles(NULL, 0, NULL, 0, NULL, 0);
 }
 
 /// Accept particles from other TreePieces once the sorting has finished
-void TreePiece::acceptORBParticles(const GravityParticle* particles, const int n) {
+void TreePiece::acceptORBParticles(const GravityParticle* particles,
+				   const int n,
+				   const extraSPHData *pGas,
+				   const int nGasIn,
+				   const extraStarData *pStar,
+				   const int nStarIn) {
 
   copy(particles, particles + n, back_inserter(mySortedParticles));
+  copy(pGas, pGas + nGasIn, back_inserter(mySortedParticlesSPH));
+  copy(pStar, pStar + nStarIn, back_inserter(mySortedParticlesStar));
 
-  //CkPrintf("[%d] accepted %d particles:myexpected:%d,got:%d\n",thisIndex,n,myExpectedCount,mySortedParticles.size());
   if(myExpectedCount == mySortedParticles.size()) {
-	  //I've got all my particles
+      //I've got all my particles
     //Assigning keys to particles
-    //Key k = 1 << 63;
-    //Key k = thisIndex;
     for(int i=0;i<myExpectedCount;i++){
       mySortedParticles[i].key = thisIndex;
     }
-	  //sort(mySortedParticles.begin(), mySortedParticles.end());
-	  copy(mySortedParticles.begin(), mySortedParticles.end(), &myParticles[1]);
+    copy(mySortedParticles.begin(), mySortedParticles.end(), &myParticles[1]);
+    copy(mySortedParticlesSPH.begin(), mySortedParticlesSPH.end(),
+	 &mySPHParticles[0]);
+    copy(mySortedParticlesStar.begin(), mySortedParticlesStar.end(),
+	 &myStarParticles[0]);
+    // assign gas and star data pointers
+    int iGas = 0;
+    int iStar = 0;
+    for(int i=0;i<myExpectedCount;i++){
+	if(myParticles[i+1].isGas()) {
+	    myParticles[i+1].extraData
+		= (extraSPHData *)&mySPHParticles[iGas];
+	    iGas++;
+	    }
+	else if(myParticles[i+1].isStar()) {
+	    myParticles[i+1].extraData
+		= (extraStarData *)&myStarParticles[iStar];
+	    iStar++;
+	    }
+	else
+	    myParticles[i+1].extraData = NULL;
+	}
 	  //signify completion with a reduction
-	  if(verbosity>1)
+    if(verbosity>1)
       ckout << thisIndex <<" contributing to accept particles"<<endl;
 	  if (root != NULL) {
 	    root->fullyDelete();
@@ -298,7 +362,7 @@ void TreePiece::acceptORBParticles(const GravityParticle* particles, const int n
 
 void TreePiece::finalizeBoundaries(ORBSplittersMsg *splittersMsg){
 
-  CkCallback& cback = splittersMsg->cb;
+  CkCallback cback = splittersMsg->cb;
 
   std::list<GravityParticle *>::iterator iter;
   std::list<GravityParticle *>::iterator iter2;
@@ -345,24 +409,23 @@ void TreePiece::finalizeBoundaries(ORBSplittersMsg *splittersMsg){
 
   firstTime = true;
 
-  myBinCountsORB.assign(2*splittersMsg->length,0);
+  // First part is total particles, second part is gas counts.
+  myBinCountsORB.assign(4*splittersMsg->length,0);
   copy(tempBinCounts.begin(),tempBinCounts.end(),myBinCountsORB.begin());
 
-  contribute(0,0,CkReduction::concat,cback);
-
+  delete splittersMsg;
+  contribute(cback);
 }
 
-void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg){
+/// Evaluate particle counts for ORB decomposition
+void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg)
+{
 
-  //myBinCounts.assign(2*splittersMsg->length,0);
-
-  //if(firstTime){
-    //myBinCounts.assign(splittersMsg->length,0);
-    //copy(tempBinCounts.begin(),tempBinCounts.end(),myBinCounts.begin());
-  //}
   CkCallback& cback = splittersMsg->cb;
 
-  tempBinCounts.assign(2*splittersMsg->length,0);
+  // For each split, BinCounts has total lower, total higher.
+  // The second half of the array has the counts for gas particles.
+  tempBinCounts.assign(4*splittersMsg->length,0);
 
   std::list<GravityParticle *>::iterator iter;
   std::list<GravityParticle *>::iterator iter2;
@@ -377,17 +440,9 @@ void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg){
     if(firstTime){
       sort(*iter,*iter2,compFuncPtr[dimen]);
     }
-    //curDivision = pos;
-    /*if(firstTime){
-      curDivision = pos;
-      phaseLeader = leader;
-      Compare comp(dim);
-      sort(myParticles+1, myParticles+myNumParticles+1,comp);
-    }*/
-	  //Current location of the division is stored in a variable
     //Evaluate the number of particles in each division
 
-		GravityParticle dummy;
+    GravityParticle dummy;
     GravityParticle* divStart = *iter;
     Vector3D<double> divide(0.0,0.0,0.0);
     divide[dimen] = splittersMsg->pos[i];
@@ -395,14 +450,27 @@ void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg){
     GravityParticle* divEnd = upper_bound(*iter,*iter2,dummy,compFuncPtr[dimen]);
     tempBinCounts[2*i] = divEnd - divStart;
     tempBinCounts[2*i + 1] = myBinCountsORB[i] - (divEnd - divStart);
-
-    iter++; iter2++;
+    int nGasLow = 0;
+    int nGasHigh = 0;
+    for(GravityParticle *pPart = divStart; pPart < divEnd; pPart++) {
+	// Count gas
+	if(TYPETest(pPart, TYPE_GAS))
+	    nGasLow++;
 	}
+    for(GravityParticle *pPart = divEnd; pPart < *iter2; pPart++) {
+	// Count gas
+	if(TYPETest(pPart, TYPE_GAS))
+	    nGasHigh++;
+	}
+    tempBinCounts[2*splittersMsg->length + 2*i] = nGasLow;
+    tempBinCounts[2*splittersMsg->length + 2*i + 1] = nGasHigh;
+    iter++; iter2++;
+    }
 
   if(firstTime)
     firstTime=false;
-  //thisProxy[phaseLeader].collectORBCounts(firstCnt,secondCnt);
-  contribute(2*splittersMsg->length*sizeof(int), &(*tempBinCounts.begin()), CkReduction::sum_int, cback);
+  contribute(4*splittersMsg->length*sizeof(int), &(*tempBinCounts.begin()), CkReduction::sum_int, cback);
+  delete splittersMsg;
 }
 
 /// Determine my part of the sorting histograms by counting the number
@@ -507,37 +575,52 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
             }
 	    // If I have any particles in this bin, send them to
 	    // the responsible TreePiece
-	    if((binEnd - binBegin) > 0) {
+	    int nPartOut = binEnd - binBegin;
+	    if(nPartOut > 0) {
 		int nGasOut = 0;
+		int nStarOut = 0;
 		for(GravityParticle *pPart = binBegin; pPart < binEnd;
 		    pPart++) {
-		    if(TYPETest(pPart, TYPE_GAS))
+		    if(pPart->isGas())
 			nGasOut++;
+		    if(pPart->isStar())
+			nStarOut++;
 		    }
-		extraSPHData *pGasOut = NULL;
-		if(nGasOut > 0)
-		    pGasOut = new extraSPHData[nGasOut];
+		ParticleShuffleMsg *shuffleMsg
+		    = new (nPartOut, nGasOut, nStarOut)
+		    ParticleShuffleMsg(nPartOut, nGasOut, nStarOut,
+				       partialLoad);
 		if (verbosity>=3)
-		  CkPrintf("me:%d to:%d nPart :%d, nGas:%d\n", thisIndex,
-			   *responsibleIter,(binEnd-binBegin), nGasOut);
+		  CkPrintf("me:%d to:%d nPart :%d, nGas:%d, nStar: %d\n",
+			   thisIndex, *responsibleIter,nPartOut, nGasOut,
+			   nStarOut);
 		int iGasOut = 0;
+		int iStarOut = 0;
+		GravityParticle *pPartOut = shuffleMsg->particles;
 		for(GravityParticle *pPart = binBegin; pPart < binEnd;
-		    pPart++) {
-		    if(TYPETest(pPart, TYPE_GAS)) {
-			pGasOut[iGasOut] = *(extraSPHData *)pPart->extraData;
+		    pPart++, pPartOut++) {
+		    *pPartOut = *pPart;
+		    if(pPart->isGas()) {
+			shuffleMsg->pGas[iGasOut]
+			    = *(extraSPHData *)pPart->extraData;
 			iGasOut++;
+			}
+		    if(pPart->isStar()) {
+			shuffleMsg->pStar[iStarOut]
+			    = *(extraStarData *)pPart->extraData;
+			iStarOut++;
 			}
 		    }
 		if(*responsibleIter == thisIndex) {
-            if (verbosity > 1) CkPrintf("TreePiece %d: keeping %d / %d particles: %d\n", thisIndex, binEnd-binBegin, myNumParticles, (binEnd-binBegin)*10000/myNumParticles);
-		    acceptSortedParticles(binBegin, binEnd - binBegin,
-					  pGasOut, nGasOut, partialLoad);
+		    if (verbosity > 1)
+			CkPrintf("TreePiece %d: keeping %d / %d particles: %d\n",
+				 thisIndex, nPartOut, myNumParticles,
+				 nPartOut*10000/myNumParticles);
+		    acceptSortedParticles(shuffleMsg);
 		    }
 		else {
-		    pieces[*responsibleIter].acceptSortedParticles(binBegin, binEnd - binBegin, pGasOut, nGasOut, partialLoad);
+		    pieces[*responsibleIter].acceptSortedParticles(shuffleMsg);
 		    }
-		if(nGasOut > 0)
-		    delete pGasOut;
 		}
 	    if(&myParticles[myNumParticles + 1] <= binEnd)
 		    break;
@@ -545,29 +628,34 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 	}
 
         incomingParticlesSelf = true;
-        acceptSortedParticles(binBegin, 0, NULL, 0, 0);
+        acceptSortedParticles(NULL);
 }
 
 /// Accept particles from other TreePieces once the sorting has finished
-void TreePiece::acceptSortedParticles(const GravityParticle* particles,
-				      const int n, const extraSPHData *pGas,
-				      const int nGasIn, const double load) {
-
-    treePieceLoad += load; 
-  //Need to get the place here again.  Getting the place in unshuffleParticles and using it here results in a race condition.
+void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
+  //Need to get the place here again.  Getting the place in
+  //unshuffleParticles and using it here results in a race condition.
   if (dm == NULL)
     dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
-  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
+  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(),
+		 thisIndex) - dm->responsibleIndex.begin();
   if (myPlace == dm->responsibleIndex.size()) myPlace = -2;
 
-  // The following assert does not work anymore when TreePieces can have 0 particles assigned
+  // The following assert does not work anymore when TreePieces can
+  //have 0 particles assigned
   //assert(myPlace >= 0 && myPlace < dm->particleCounts.size());
   if (myPlace == -2 || dm->particleCounts[myPlace] == 0) {
     // Special case where no particle is assigned to this TreePiece
+    if (myNumParticles > 0) delete[] myParticles;
     myNumParticles = 0;
+    if (nStoreSPH > 0) delete[] mySPHParticles;
     myNumSPH = 0;
+    nStoreSPH = 0;
+    if (nStoreStar > 0) delete[] myStarParticles;
+    myNumStar = 0;
+    nStoreStar = 0;
     incomingParticlesSelf = false;
-    incomingParticles = NULL;
+    incomingParticlesMsg.clear();
     if(verbosity>1) ckout << thisIndex <<" no particles assigned"<<endl;
 
     if (root != NULL) {
@@ -576,28 +664,18 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles,
       root = NULL;
       nodeLookupTable.clear();
     }
+    // We better not have a message with particles for us
+    CkAssert(shuffleMsg == NULL);
     contribute(0, 0, CkReduction::concat, callback);
     return;
   }
 
- 
-  // allocate new particles array on first call
-  if (incomingParticles == NULL) {
-    incomingParticles = new GravityParticle[dm->particleCounts[myPlace] + 2];
-    assert(incomingParticles != NULL);
-    incomingGas = new std::vector<extraSPHData>;
-    if (verbosity > 1)
-      ckout << "Treepiece "<<thisIndex<<": allocated "
-	<< dm->particleCounts[myPlace]+2 <<" particles"<<endl;
-  }
-
-  memcpy(&incomingParticles[incomingParticlesArrived+1], particles,
-	 n*sizeof(GravityParticle));
-  incomingParticlesArrived += n;
-  int nLastGas = incomingGas->size();
-  incomingGas->resize(nLastGas + nGasIn);
-  memcpy(&((*incomingGas)[nLastGas]), pGas, nGasIn*sizeof(extraSPHData));
-
+  if(shuffleMsg != NULL) {
+      incomingParticlesMsg.push_back(shuffleMsg);
+      incomingParticlesArrived += shuffleMsg->n;
+      treePieceLoad += shuffleMsg->load; 
+      }
+  
   if (verbosity>=3)
       ckout << thisIndex <<" waiting for "
 	    << dm->particleCounts[myPlace]-incomingParticlesArrived
@@ -609,27 +687,62 @@ void TreePiece::acceptSortedParticles(const GravityParticle* particles,
      && incomingParticlesSelf) {
       //I've got all my particles
       if (myNumParticles > 0) delete[] myParticles;
-      myParticles = incomingParticles;
-      incomingParticles = NULL;
+      nStore = (int)((dm->particleCounts[myPlace] + 2)*(1.0 + dExtraStore));
+      myParticles = new GravityParticle[nStore];
       myNumParticles = dm->particleCounts[myPlace];
       incomingParticlesArrived = 0;
       incomingParticlesSelf = false;
-      
-      delete[] mySPHParticles;
-      myNumSPH = incomingGas->size();
-      mySPHParticles = new extraSPHData[myNumSPH];
-      memcpy(mySPHParticles, &((*incomingGas)[0]),
-	     myNumSPH*sizeof(extraSPHData));
-      delete incomingGas;
+      int nSPH = 0;
+      int nStar = 0;
+      int iMsg;
+      for(iMsg = 0; iMsg < incomingParticlesMsg.size(); iMsg++) {
+	  nSPH += incomingParticlesMsg[iMsg]->nSPH;
+	  nStar += incomingParticlesMsg[iMsg]->nStar;
+	  }
+      if (nStoreSPH > 0) delete[] mySPHParticles;
+      myNumSPH = nSPH;
+      nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
+      if(nStoreSPH > 0) mySPHParticles = new extraSPHData[nStoreSPH];
 
+      if (nStoreStar > 0) delete[] myStarParticles;
+      myNumStar = nStar;
+      nStoreStar = (int)(myNumStar*(1.0 + dExtraStore));
+      nStoreStar += 12;  // In case we start with 0
+      myStarParticles = new extraStarData[nStoreStar];
+
+      int nPart = 0;
+      nSPH = 0;
+      nStar = 0;
+      for(iMsg = 0; iMsg < incomingParticlesMsg.size(); iMsg++) {
+	  memcpy(&myParticles[nPart+1], incomingParticlesMsg[iMsg]->particles,
+		 incomingParticlesMsg[iMsg]->n*sizeof(GravityParticle));
+	  nPart += incomingParticlesMsg[iMsg]->n;
+	  memcpy(&mySPHParticles[nSPH], incomingParticlesMsg[iMsg]->pGas,
+		 incomingParticlesMsg[iMsg]->nSPH*sizeof(extraSPHData));
+	  nSPH += incomingParticlesMsg[iMsg]->nSPH;
+	  memcpy(&myStarParticles[nStar], incomingParticlesMsg[iMsg]->pStar,
+		 incomingParticlesMsg[iMsg]->nStar*sizeof(extraStarData));
+	  nStar += incomingParticlesMsg[iMsg]->nStar;
+	  delete incomingParticlesMsg[iMsg];
+	  }
+      
+      incomingParticlesMsg.clear();
       // assign gas data pointers
       int iGas = 0;
+      int iStar = 0;
       for(int iPart = 0; iPart < myNumParticles; iPart++) {
-	  if(TYPETest(&myParticles[iPart+1], TYPE_GAS)) {
+	  if(myParticles[iPart+1].isGas()) {
 	      myParticles[iPart+1].extraData
 		  = (extraSPHData *)&mySPHParticles[iGas];
 	      iGas++;
 	      }
+	  else if(myParticles[iPart+1].isStar()) {
+	      myParticles[iPart+1].extraData
+		  = (extraStarData *)&myStarParticles[iStar];
+	      iStar++;
+	      }
+	  else
+	      myParticles[iPart+1].extraData = NULL;
 	  }
 
       sort(myParticles+1, myParticles+myNumParticles+1);
@@ -800,6 +913,8 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	  }
 
       int iNewRung = DtToRung(dDelta, dTIdeal);
+      if(iNewRung > MAXRUNG)
+	CkAbort("Timestep too small");
       if(iNewRung < iKickRung) iNewRung = iKickRung;
       if(iNewRung > iCurrMaxRung) iCurrMaxRung = iNewRung;
       myParticles[i].rung = iNewRung;
@@ -889,15 +1004,21 @@ void TreePiece::drift(double dDelta,  // time step in x containing
         }
       }
       boundingBox.grow(p->position);
-      /*
       if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
 	  p->vPred() += dvDelta*p->treeAcceleration;
 	  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
 	      p->uPred() += p->uDot()*duDelta;
 	      if (p->uPred() < 0) {
+		  // Backout the update to upred
 		  double uold = p->uPred() - p->uDot()*duDelta;
-		  p->uPred() = uold*exp(p->uDot()*duDelta/uold);
+		  // uold could be negative because of round-off
+		  // error.  If this is the case then uDot*Delta/u is
+		  // large, the final uPred will be zero.
+		  if(uold <= 0.0) p->uPred() = 0.0;
+		  // Cooling rate is large: use an exponential decay
+		  // of timescale u/uDot.
+		  else p->uPred() = uold*exp(p->uDot()*duDelta/uold);
 		  }
 #else
 	      p->uPred() += p->PdV()*duDelta;
@@ -906,9 +1027,9 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 		  p->uPred() = uold*exp(p->PdV()*duDelta/uold);
 		  }
 #endif
+	      CkAssert(p->uPred() > 0.0);
 	      }
 	  }
-          */
       }
   CkAssert(bInBox);
   if(!bInBox){
@@ -918,6 +1039,129 @@ void TreePiece::drift(double dDelta,  // time step in x containing
       growOrientedBox_float,
       CkCallback(CkIndex_TreePiece::assignKeys(0), pieces));
 }
+
+void TreePiece::newParticle(GravityParticle *p)
+{
+    if(myNumParticles + 2 >= nStore) {
+	CkAbort("No room for new particle: increase dExtraStore");
+	}
+    // Move Boundary particle
+    myParticles[myNumParticles+2] = myParticles[myNumParticles+1];
+    myNumParticles++;
+    myParticles[myNumParticles] = *p;
+    myParticles[myNumParticles].iOrder = -1;
+    if(p->isGas()) {
+	if(myNumSPH >= nStoreSPH)
+	    CkAbort("No room for new SPH particle: increase dExtraStore");
+	mySPHParticles[myNumSPH] = *((extraSPHData *) p->extraData);
+	myParticles[myNumParticles].extraData = &mySPHParticles[myNumSPH];
+	myNumSPH++;
+	}
+    if(p->isStar()) {
+	if(myNumStar >= nStoreStar)
+	    CkAbort("No room for new Star particle: increase dExtraStore");
+	myStarParticles[myNumStar] = *((extraStarData *) p->extraData);
+	myParticles[myNumParticles].extraData = &myStarParticles[myNumStar];
+	myNumStar++;
+	}
+    }
+
+/**
+ * Count add/deleted particles, and compact main particle storage.
+ * Extradata storage will be reclaimed on the next domain decompose.
+ * This contributes to a "set" reduction, which the main chare will
+ * iterate through to assign new iOrders.
+ */
+void TreePiece::colNParts(const CkCallback &cb)
+{
+    CountSetPart counts;
+    counts.index = thisIndex;
+    counts.nAddGas = 0;
+    counts.nAddDark = 0;
+    counts.nAddStar = 0;
+    counts.nDelGas = 0;
+    counts.nDelDark = 0;
+    counts.nDelStar = 0;
+    unsigned int i, j;
+    int newNPart = myNumParticles; // the number of particles may change.
+    
+    for(i = 1, j = 1; i <= myNumParticles; ++i) {
+	if(j < i)
+	    myParticles[j] = myParticles[i];
+	GravityParticle *p = &myParticles[i];
+	if(p->iOrder == -1) { // A new Particle
+	    j++;
+	    if (p->isGas())
+		counts.nAddGas++;
+	    else if(p->isStar())
+		counts.nAddStar++;
+	    else if(p->isDark())
+		counts.nAddDark++;
+	    else
+		CkAbort("Bad Particle type");
+	    }
+	else if(TYPETest(p, TYPE_DELETED) ) {
+	    newNPart--;
+	    if (p->isGas())
+		counts.nDelGas++;
+	    else if(p->isStar())
+		counts.nDelStar++;
+	    else if(p->isDark())
+		counts.nDelDark++;
+	    else
+		CkAbort("Bad Particle type");
+	    }
+	else {
+	    j++;
+	    }
+	}
+    if(j < i)  // move boundary particle if needed
+	myParticles[j] = myParticles[i];
+
+    myNumParticles = newNPart;
+    contribute(sizeof(counts), &counts, CkReduction::concat, cb);
+    }
+
+/**
+ * Assign iOrders to recently added particles.
+ * Also insure keys are OK
+ */
+void TreePiece::newOrder(int64_t nStartSPH, int64_t nStartDark,
+			  int64_t nStartStar, const CkCallback &cb) 
+{
+    unsigned int i;
+    boundingBox.reset();
+    for(i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+	boundingBox.grow(p->position);
+	if(p->iOrder == -1) {
+	    if (p->isGas()) 
+		p->iOrder = nStartSPH++;
+	    else if (p->isDark()) 
+		p->iOrder = nStartDark++;
+	    else 
+		p->iOrder = nStartStar++;
+	    }
+	}
+    callback = cb;		// called by assignKeys()
+    // get the new particles into key order
+    contribute(sizeof(OrientedBox<float>), &boundingBox,
+	       growOrientedBox_float,
+	       CkCallback(CkIndex_TreePiece::assignKeys(0), pieces));
+    }
+    
+/**
+ * Update total particle numbers.
+ */
+void TreePiece::setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
+			  int64_t _nTotalStar, const CkCallback &cb) 
+{
+    nTotalSPH = _nTotalSPH;
+    nTotalDark = _nTotalDark;
+    nTotalStar = _nTotalStar;
+    nTotalParticles = nTotalSPH + nTotalDark + nTotalStar;
+    contribute(cb);
+    }
 
 void TreePiece::setSoft(const double dSoft) {
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
@@ -1157,6 +1401,9 @@ void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump)
     free(bufImage);
     }
 
+/**
+ * Overall start of building Tree
+ */
 void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
 #if COSMO_DEBUG > 1
   char fout[100];
@@ -1170,6 +1417,7 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
 
   maxBucketSize = bucketSize;
   callback = cb;
+  myTreeParticles = myNumParticles;
 
   // decide which logic are we using to divide the particles: Oct or ORB
   switch (useTree) {
@@ -1177,13 +1425,11 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
   case Oct_Oct:
     Key bounds[2];
     if (myNumParticles > 0) {
-      //sort(myParticles+1, myParticles+myNumParticles+1);
 #ifdef COSMO_PRINT
       CkPrintf("[%d] Keys: %016llx %016llx\n",thisIndex,myParticles[1].key,myParticles[myNumParticles].key);
 #endif
       bounds[0] = myParticles[1].key;
       bounds[1] = myParticles[myNumParticles].key;
-      //    contribute(2 * sizeof(Key), bounds, CkReduction::concat, CkCallback(CkIndex_TreePiece::collectSplitters(0), thisArrayID));
       contribute(2 * sizeof(Key), bounds, CkReduction::concat, CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
     } else {
       // No particles assigned to this TreePiece
@@ -1192,8 +1438,6 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
     break;
   case Binary_ORB:
     // WARNING: ORB trees do not allow TreePieces to have 0 particles!
-    //CkAbort("ORB logic for tree-build not yet implemented");
-    //contribute(0,0,CkReduction::concat,sorterCallBack);
     contribute(0, 0, CkReduction::concat, CkCallback(CkIndex_TreePiece::startORBTreeBuild(0), thisArrayID));
     break;
   }
@@ -1302,18 +1546,18 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
       dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
       }
 
+  if (myNumParticles == 0) {
+    // No particle assigned to this TreePiece
+    if (verbosity > 3)
+      ckerr << "TreePiece " << thisIndex
+	    << ": No particles, finished tree build" << endl;
+    contribute(sizeof(callback), &callback, CkReduction::random,
+	       CkCallback(CkIndex_DataManager::combineLocalTrees((CkReductionMsg*)NULL), CProxy_DataManager(dataManagerID)));
+    return;
+  }
   myParticles[0].key = thisIndex;
   myParticles[myNumParticles+1].key = thisIndex;
 
-  /*//Find out how many levels will be there before tree goes
-  //into a treepiece
-  chunkRootLevel=0;
-  unsigned int tmp = numTreePieces;
-  while(tmp){
-    tmp >>= 1;
-    chunkRootLevel++;
-  }
-  chunkRootLevel--;*/
   compFuncPtr[0]= &comp_dim0;
   compFuncPtr[1]= &comp_dim1;
   compFuncPtr[2]= &comp_dim2;
@@ -1425,10 +1669,14 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
 
   CkAssert(node->getType() == Boundary || node->getType() == Internal);
 
-  node->makeOrbChildren(myParticles, myNumParticles, level, chunkRootLevel, compFuncPtr);
+  node->makeOrbChildren(myParticles, myNumParticles, level, chunkRootLevel,
+			compFuncPtr, (domainDecomposition == ORB_space_dec));
   node->rungs = 0;
 
   GenericTreeNode *child;
+#if INTERLIST_VER > 0
+  int bucketsBeneath = 0;
+#endif
   for (unsigned int i=0; i<node->numChildren(); ++i) {
     child = node->getChildren(i);
     CkAssert(child != NULL);
@@ -1510,7 +1758,14 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
 	  }
       if (child->rungs > node->rungs) node->rungs = child->rungs;
     }
+#if INTERLIST_VER > 0
+    bucketsBeneath += child->numBucketsBeneath;
+#endif
   }
+
+#if INTERLIST_VER > 0
+  node->numBucketsBeneath = bucketsBeneath;
+#endif
 
   /* The old version collected Boundary nodes, the new version collects NonLocal nodes */
 
@@ -1589,7 +1844,12 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   root->startBucket=0;
 #endif
   // recursively build the tree
-  buildOctTree(root, 0);
+  try {
+	buildOctTree(root, 0);
+	}
+  catch (std::bad_alloc) {
+	CkAbort("Out of memory in treebuild");
+	}
 /* jetley - save the first internal node for use later.
    needed because each treepiece must, for oct decomposition, send its centroid to a
    load balancing strategy object. the previous tree will have been deleted at this point.
@@ -1778,8 +2038,9 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
       }
     } else if (child->getType() == Internal
               && (child->lastParticle - child->firstParticle < maxBucketSize
-                  || level > 61)) {
-       if(level > 61)
+                  || level >= 61)) {
+       if(level >= 61
+	  && child->lastParticle - child->firstParticle >= maxBucketSize)
            ckerr << "Truncated tree with "
                  << child->lastParticle - child->firstParticle
                  << " particle bucket" << endl;
@@ -2013,13 +2274,14 @@ int reEncodeOffset(int reqID, int offsetID)
 }
 
 
+/**
+ * Initialize all particles for gravity force calculation.
+ */
 void TreePiece::initBuckets() {
   int ewaldCondition = (bEwald ? 0 : 1);
   for (unsigned int j=0; j<numBuckets; ++j) {
     GenericTreeNode* node = bucketList[j];
     int numParticlesInBucket = node->particleCount;
-
-    CkAssert(numParticlesInBucket <= maxBucketSize);
 
     // TODO: active bounds may give a performance boost in the
     // multi-timstep regime.
@@ -2208,6 +2470,10 @@ void TreePiece::continueWrapUp(){
 #ifdef CHECK_WALK_COMPLETIONS
   CkPrintf("[%d] markWalkDone TreePiece::continueWrapUp\n", thisIndex);
 #endif
+
+  memWithCache = CmiMemoryUsage()/(1024*1024);
+  nNodeCacheEntries = cacheNode[CkMyPe()].getCache()->size();
+  nPartCacheEntries = cacheGravPart[CkMyPe()].getCache()->size();
 
   markWalkDone();
 
@@ -3251,21 +3517,17 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
     return;
   }
   
-  if (oldNumChunks != numChunks /*&& remaining chunk != NULL*/) {
-    // reallocate remaining chunk to the new size
-    // delete[] remaining Chunk;
-    // remaining Chunk = NULL;
+  if (oldNumChunks != numChunks ) {
     delete[] nodeInterRemote;
     delete[] particleInterRemote;
     nodeInterRemote = new u_int64_t[numChunks];
     particleInterRemote = new u_int64_t[numChunks];
   }
 
-  /*
-  if (remaining Chunk == NULL) {
-    remaining Chunk = new int[numChunks];
-  }
-  */
+  if(nodeInterRemote == NULL)
+	nodeInterRemote = new u_int64_t[numChunks];
+  if(particleInterRemote == NULL)
+	particleInterRemote = new u_int64_t[numChunks];
 #if COSMO_STATS > 0
   //myNumProxyCalls = 0;
   //myNumProxyCallsBack = 0;
@@ -3336,6 +3598,7 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   switch(domainDecomposition){
     case Oct_dec:
     case ORB_dec:
+    case ORB_space_dec:
       //Prefetch Roots for Oct
       prefetchReq[0].reset();
       for (unsigned int i=1; i<=myNumParticles; ++i) {
@@ -3826,16 +4089,16 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles, activeRung, prevLARung);
   tv.tag = thisIndex;
 
-  if(foundmultistep){
+  if(foundLB == Multistep){
     CkCallback cbk(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
   }
-  else if(foundorb3d){
+  else if(foundLB == Orb3d){
     CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
   }
   else{
-    AtSync();
+    doAtSync();
   }
   if(thisIndex == 0)
     CkPrintf("Changing prevLARung from %d to %d\n", prevLARung, activeRung);
@@ -4480,6 +4743,9 @@ ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk
     CkCacheRequestorData request(thisElement, &EntryTypeGravityParticle::callback, userData);
     CkArrayIndexMax remIdx = CkArrayIndex1D(remoteIndex);
     CkAssert(key < (((CmiUInt8) 1) << 63));
+    //
+    // Key is shifted to distiguish between nodes and particles
+    //
     CkCacheKey ckey = key<<1;
     CacheParticle *p = (CacheParticle *) cacheGravPart[CkMyPe()].requestData(ckey,remIdx,chunk,&gravityParticleEntry,request);
     if (p == NULL) {
@@ -4702,8 +4968,7 @@ void TreePiece::pup(PUP::er& p) {
 
   // jetley
   p | proxy;
-  p | foundorb3d;
-  p | foundmultistep;
+  p | foundLB;
   p | proxyValid;
   p | proxySet;
   p | savedCentroid;
@@ -4714,14 +4979,21 @@ void TreePiece::pup(PUP::er& p) {
   p | myNumParticles;
   p | nTotalSPH;
   p | myNumSPH;
-  p | nTotalStars;
+  p | nTotalDark;
+  p | nTotalStar;
+  p | myNumStar;
   if(p.isUnpacking()) {
-    myParticles = new GravityParticle[myNumParticles + 2];
-    mySPHParticles = new extraSPHData[myNumSPH];
+      nStore = (int)((myNumParticles + 2)*(1.0 + dExtraStore));
+      myParticles = new GravityParticle[nStore];
+      nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
+      if(nStoreSPH > 0) mySPHParticles = new extraSPHData[nStoreSPH];
+      nStoreStar = (int)(myNumStar*(1.0 + dExtraStore));
+      nStoreStar += 12;  // In case we start with 0
+      myStarParticles = new extraStarData[nStoreStar];
   }
   for(unsigned int i=1;i<=myNumParticles;i++){
     p | myParticles[i];
-    if(TYPETest(&myParticles[i],TYPE_GAS)) {
+    if(myParticles[i].isGas()) {
 	int iSPH;
 	if(!p.isUnpacking()) {
 	    iSPH = (extraSPHData *)myParticles[i].extraData - mySPHParticles;
@@ -4734,29 +5006,30 @@ void TreePiece::pup(PUP::er& p) {
 	    CkAssert(iSPH < myNumSPH);
 	    }
 	}
+    if(myParticles[i].isStar()) {
+	int iStar;
+	if(!p.isUnpacking()) {
+	    iStar = (extraStarData *)myParticles[i].extraData - myStarParticles;
+	    CkAssert(iStar < myNumStar);
+	    p | iStar;
+	    }
+	else {
+	    p | iStar;
+	    myParticles[i].extraData = myStarParticles + iStar;
+	    CkAssert(iStar < myNumStar);
+	    }
+	}
   }
   for(unsigned int i=0;i<myNumSPH;i++){
     p | mySPHParticles[i];
+  }
+  for(unsigned int i=0;i<myNumStar;i++){
+    p | myStarParticles[i];
   }
   p | pieces;
   p | basefilename;
   p | boundingBox;
   p | iterationNo;
-  if(p.isUnpacking()){
-    switch (useTree) {
-    case Binary_Oct:
-      root = new BinaryTreeNode(1, Tree::Boundary, 0, myNumParticles+1, 0);
-      break;
-    case Binary_ORB:
-      root = new BinaryTreeNode(1, Tree::Boundary, 0, myNumParticles+1, 0);
-      break;
-    case Oct_Oct:
-      //root = new OctTreeNode(1, Tree::Boundary, 0, myNumParticles+1, 0);
-      break;
-    default:
-      CkAbort("We should have never reached here!");
-    }
-  }
 
   //PUP components for ORB decomposition
   p | chunkRootLevel;
@@ -4811,6 +5084,7 @@ void TreePiece::pup(PUP::er& p) {
       break;
     case Oct_dec:
     case ORB_dec:
+    case ORB_space_dec:
       numPrefetchReq = 1;
       prefetchReq = new OrientedBox<double>[1];
       break;
@@ -4821,18 +5095,14 @@ void TreePiece::pup(PUP::er& p) {
 
   p | myPlace;
 
+  p | bGasCooling;
   if(p.isUnpacking()){
     dm = NULL;
-  }
-
-  int notNull = (root==NULL)?0:1;
-  p | notNull;
-  if (notNull == 1) {
-    p | (*root);
-    if(p.isUnpacking()){
-      // reconstruct the nodeLookupTable and the bucketList
-      reconstructNodeLookup(root);
-    }
+#ifndef COOLING_NONE
+    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+    if(bGasCooling)
+	CoolData = CoolDerivsInit(dm->Cool);
+#endif
   }
 
   if (verbosity > 1) {
@@ -4854,33 +5124,6 @@ void TreePiece::reconstructNodeLookup(GenericTreeNode *node) {
     if (child != NULL) reconstructNodeLookup(child);
   }
 }
-
-/*
-void TreePiece::rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *count){
-  if(node == NULL){
-    return;
-  }
-  (*count)++;
-  node->parent = (GenericTreeNode *)parent;
-  for (unsigned int i=0; i<node->numChildren(); ++i) {
-    GenericTreeNode *child = nodeLookupTable[node->getChildKey(i)];
-    switch (useTree) {
-    case Binary_Oct:
-      ((BinaryTreeNode*)node)->children[i] = (BinaryTreeNode*)child;
-      break;
-    case Oct_Oct:
-      ((OctTreeNode*)node)->children[i] = (OctTreeNode*)child;
-      break;
-    default:
-      CkAbort("We should have never reached here!");
-    }
-    rebuildSFCTree(child,node,count);
-  }
-}
-bool compBucket(GenericTreeNode *ln,GenericTreeNode *rn){
-  return (ln->firstParticle < rn->firstParticle);
-}
-*/
 
 /** Check that all the particles in the tree are really in their boxes.
     Because the keys are made of only the first 21 out of 23 bits of the
@@ -5464,6 +5707,7 @@ void TreePiece::finishWalk()
 	       getObjTime(), myNumParticles);
   completedActiveWalks = 0;
   freeWalkObjects();
+  memPostCache = CmiMemoryUsage()/(1024*1024);
 #ifdef CHECK_WALK_COMPLETIONS
   CkPrintf("[%d] inside finishWalk contrib callback\n", thisIndex);
 #endif
@@ -5677,8 +5921,29 @@ void TreePiece::setProjections(int bOn)
         traceEnd();
 }
 
+/*
+ * Gather memory use statistics recorded during the tree walk
+ */
+void TreePiece::memCacheStats(const CkCallback &cb) 
+{
+    int memOut[4];
+    memOut[0] = memWithCache;
+    memOut[1] = memPostCache;
+    memOut[2] = nNodeCacheEntries;
+    memOut[3] = nPartCacheEntries;
+    contribute(4*sizeof(int), memOut, CkReduction::max_int, cb);
+}
+
 void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   LDObjHandle handle = myRec->getLdHandle();
+  LBDatabase *lbdb = LBDatabaseObj();
+  int nlbs = lbdb->getNLoadBalancers(); 
+  if(nlbs == 0) { // no load balancers.  Skip this
+      contribute(cb);
+      return;
+      }
+
+
   Vector3D<float> centroid;
   centroid.x = 0.0;
   centroid.y = 0.0;
@@ -5693,37 +5958,41 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   TaggedVector3D tv(centroid, handle, myNumParticles, myNumParticles, 0, 0);
   tv.tag = thisIndex;
 
-  LBDatabase *lbdb = LBDatabaseObj();
   string msname("MultistepLB");
   string orb3dname("Orb3dLB");
 
   BaseLB **lbs = lbdb->getLoadBalancers();
-  int nlbs = lbdb->getNLoadBalancers(); 
-  for(int i = 0; i < nlbs; i++){
-    if(msname == string(lbs[i]->lbName())){ 
-      proxy = lbs[i]->getGroupID();
-      foundmultistep = true;
-      CkCallback lbcb(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
-      contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-      break;
-    }
-    else if(orb3dname == string(lbs[i]->lbName())){ 
-      proxy = lbs[i]->getGroupID();
-      foundorb3d = true;
-      CkCallback lbcb(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
-      contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-      break;
+  int i;
+  if(foundLB == Null){
+    for(i = 0; i < nlbs; i++){
+      if(msname == string(lbs[i]->lbName())){ 
+        proxy = lbs[i]->getGroupID();
+        foundLB = Multistep;
+        break;
+      }
+      else if(orb3dname == string(lbs[i]->lbName())){ 
+        proxy = lbs[i]->getGroupID();
+        foundLB = Orb3d;
+        break;
+      }
     }
   }
 
+  if(foundLB == Multistep){
+    CkCallback lbcb(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+  }
+  else if(foundLB == Orb3d){
+    CkCallback lbcb(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+  }
+  else if(foundLB == Null){ 
+    // none of the balancers requiring centroids found; go
+    // straight to AtSync()
+      doAtSync();
+  }
   // this will be called in resumeFromSync()
   callback = cb;
-  if(foundorb3d || foundmultistep){
-    return;
-  }
-  else{
-    AtSync();
-  }
 }
 
 #ifdef CUDA

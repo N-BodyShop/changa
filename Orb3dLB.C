@@ -125,7 +125,7 @@ CmiBool Orb3dLB::QueryBalanceNow(int step){
 
 }
 
-void Orb3dLB::work(BaseLB::LDStats* stats, int count)
+void Orb3dLB::work(BaseLB::LDStats* stats)
 {
   int numobjs = stats->n_objs;
   int nmig = stats->n_migrateobjs;
@@ -213,6 +213,19 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
               );
   }
 
+#ifdef PRINT_BOUNDING_BOXES
+  for(int i = 0; i < numnodes; i++){
+    CkPrintf("bb of node %d %f %f %f %f %f %f\n", i, 
+                    nodes[i].box.lesser_corner.x,
+                    nodes[i].box.lesser_corner.y,
+                    nodes[i].box.lesser_corner.z,
+                    nodes[i].box.greater_corner.x,
+                    nodes[i].box.greater_corner.y,
+                    nodes[i].box.greater_corner.z
+                    );
+  }
+#endif
+
   /*
   int migr = 0;
   float *objload = new float[stats->count];
@@ -229,14 +242,12 @@ void Orb3dLB::work(BaseLB::LDStats* stats, int count)
   CkPrintf("***************************\n");
   CkPrintf("i pe wall cpu idle bg_wall bg_cpu objload\n");
   for(int i = 0; i < stats->count; i++){
-    CkPrintf("[pestats] %d %d %f %f %f %f %f %f\n", 
+    CkPrintf("[pestats] %d %d %f %f %f %f\n", 
                                i,
                                stats->procs[i].pe, 
                                stats->procs[i].total_walltime, 
-                               stats->procs[i].total_cputime, 
                                stats->procs[i].idletime,
                                stats->procs[i].bg_walltime,
-                               stats->procs[i].bg_cputime,
                                objload[i]);
   }
   CkPrintf("%d objects migrating\n", migr);
@@ -331,7 +342,9 @@ void Orb3dLB::directMap(int tpstart, int tpend, int nodestart, int nodeend){
 
       p.load += tp.load;
       (*mapping)[tp.lbindex] = nodes[nodestart].procRanks[p.t];
+#ifdef PRINT_BOUNDING_BOXES
       nodes[nodestart].box.grow(tp.centroid);
+#endif
 
       pq_proc.push(p);
     }

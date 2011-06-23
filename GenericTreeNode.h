@@ -61,7 +61,8 @@ namespace Tree {
     NodeKey key;
     CmiUInt8 usedBy;
 
-    GenericTreeNode() : myType(Invalid), key(0), parent(0), firstParticle(0), lastParticle(0), remoteIndex(0), usedBy(0) {
+    GenericTreeNode() : myType(Invalid), key(0), parent(0), firstParticle(0),
+	lastParticle(0), remoteIndex(0), usedBy(0), iParticleTypes(0) {
 #if COSMO_STATS > 0
       used = false;
 #endif
@@ -170,7 +171,7 @@ namespace Tree {
     /// construct the children of the "this" node following the given logical
     /// criteria (Oct/Orb)
     virtual void makeOctChildren(GravityParticle *part, int totalPart, int level) = 0;
-    virtual void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle)) = 0;
+    virtual void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle), bool spatial) = 0;
 
     // get the number of chunks possible for the given request
     // @return a number greater or iqual to th the request
@@ -485,7 +486,7 @@ namespace Tree {
     }
 
     // Constructs 2 children of this node based on ORB decomposition
-    void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle)) {
+    void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle), bool spatial) {
 
       children[0] = new BinaryTreeNode();
       children[1] = new BinaryTreeNode();
@@ -551,6 +552,12 @@ namespace Tree {
       else{ //Below the TreePiece root level
         float len=0.0,len2=0.0;
         char dim;
+	
+	if(spatial) { // "squeeze" box before division
+	    boundingBox.reset();
+	    for (int i = firstParticle; i <= lastParticle; ++i)
+		boundingBox.grow(part[i].position);
+	    }
 
         len=boundingBox.greater_corner.x-boundingBox.lesser_corner.x;
         dim=0;
@@ -571,18 +578,37 @@ namespace Tree {
         boundingBox.greater_corner[dim] = part[lastParticle].position[dim];
         boundingBox.lesser_corner[dim] = part[firstParticle].position[dim];
 
-        if((lastParticle-firstParticle+1)%2==0){
-          children[0]->lastParticle = firstParticle + (lastParticle-firstParticle-1)/2;
-          children[1]->firstParticle = firstParticle + (lastParticle-firstParticle+1)/2;
-          children[0]->particleCount = (lastParticle-firstParticle+1)/2;
-          children[1]->particleCount = (lastParticle-firstParticle+1)/2;
-        }
-        else{
-          children[0]->lastParticle = firstParticle + (lastParticle-firstParticle)/2;
-          children[1]->firstParticle = firstParticle + (lastParticle-firstParticle+2)/2;
-          children[0]->particleCount = (lastParticle-firstParticle+2)/2;
-          children[1]->particleCount = (lastParticle-firstParticle)/2;
-        }
+	if(!spatial) {
+	    if((lastParticle-firstParticle+1)%2==0){
+	      children[0]->lastParticle = firstParticle + (lastParticle-firstParticle-1)/2;
+	      children[1]->firstParticle = firstParticle + (lastParticle-firstParticle+1)/2;
+	      children[0]->particleCount = (lastParticle-firstParticle+1)/2;
+	      children[1]->particleCount = (lastParticle-firstParticle+1)/2;
+	    }
+	    else{
+	      children[0]->lastParticle = firstParticle + (lastParticle-firstParticle)/2;
+	      children[1]->firstParticle = firstParticle + (lastParticle-firstParticle+2)/2;
+	      children[0]->particleCount = (lastParticle-firstParticle+2)/2;
+	      children[1]->particleCount = (lastParticle-firstParticle)/2;
+	    }
+	}
+	else {
+	    GravityParticle dummy;  // dummy for splitting
+	    GravityParticle* divStart = &part[firstParticle];
+	    Vector3D<double> divide(0.0,0.0,0.0);
+	    divide[dim] = part[firstParticle].position[dim] + 0.5*len;
+	    dummy.position = divide;
+	    GravityParticle* divEnd
+		= std::upper_bound(&part[firstParticle],&part[lastParticle+1],
+				   dummy,compFnPtr[dim]);
+	    children[0]->lastParticle = firstParticle + (divEnd - divStart) - 1;
+	    children[1]->firstParticle = firstParticle + (divEnd - divStart);
+	    children[0]->particleCount = divEnd - divStart;
+	    children[1]->particleCount = 1 + (lastParticle-firstParticle)
+		- (divEnd - divStart);
+	    CkAssert(children[0]->particleCount > 0);
+	    CkAssert(children[1]->particleCount > 0);
+	}
 
         children[0]->myType = Internal;
         children[1]->myType = Internal;
@@ -819,7 +845,7 @@ namespace Tree {
 
     void makeOctChildren(GravityParticle *part, int totalPart, int level) {}
 
-    void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle)) {}
+    void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle), bool spatial) {}
 
     GenericTreeNode *createNew() const {
       return new OctTreeNode();

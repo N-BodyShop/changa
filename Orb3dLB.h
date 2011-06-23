@@ -44,7 +44,7 @@ private:
 public:
   Orb3dLB(const CkLBOptions &);
   Orb3dLB(CkMigrateMessage *m):CentralLB(m) { lbname = "Orb3dLB"; }
-  void work(BaseLB::LDStats* stats, int count);
+  void work(BaseLB::LDStats* stats);
   void receiveCentroids(CkReductionMsg *msg);
   void directMap(int tpstart, int tpend, int nodestart, int nodeend);
   void map(int tpstart, int tpend, int nodestart, int nodeend, int xs, int ys, int zs, int dim);

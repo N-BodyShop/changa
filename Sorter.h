@@ -50,6 +50,7 @@ class Sorter : public Chare {
 	std::vector<NodeKey> nodeKeys;
 	/// The histogram of counts for the last round of splitter keys.
 	std::vector<unsigned int> binCounts;
+	std::vector<unsigned int> binCountsGas;
 	/// The number of bins in the histogram.
 	int numCounts;
 	/// The keys I've decided on that divide the objects evenly (within the tolerance).
@@ -78,6 +79,9 @@ class Sorter : public Chare {
     char curDim;
   } ORBData;
 
+  /// Contains the split information for the domain decomposition.
+  /// Splits are inserted into the list as the decomposition tree is
+  /// built down from the top.
   std::list<ORBData> orbData;
 
 	
@@ -88,15 +92,7 @@ class Sorter : public Chare {
         /// The transient state used by the weightBalance routine
         WeightBalanceState<int>* wbState;
 
-  //double curDivision;
-  //int curDim;
-  //OrientedBox<float> curBoundingBox;
-  //int phaseLeader;
   Compare comp;
-  //int lastPiece; //Last TreePiece overseen by the leader
-  //Used by the histogramming leader
-  //double curLow;
-  //double curHigh;
 
 	void adjustSplitters();
 	bool refineOctSplitting(int n, int *count);

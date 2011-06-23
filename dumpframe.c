@@ -9,6 +9,8 @@
 #include <string.h>
 #include <values.h>
 
+#include <charm.h>
+
 #ifndef DBL_MAX
 #define DBL_MAX 1.7976931348623157E+308
 #endif
@@ -68,7 +70,7 @@ void dfInitialize( struct DumpFrameContext **pdf, double dYearUnit, double dTime
 /* Parse time dependent camera options (mostly 2D) */
 	dfParseCameraDirections( *pdf, filename );
 
-	if (df->bVDetails) printf("DF Initialized Frame dumping: Time Interval %g [%g] (Step %i) Step Interval %g -> MaxRung %i\n",dDumpFrameTime,floor(dDumpFrameTime)+dDelta*pow(2.0,-floor(tock)),(int) floor(dDumpFrameTime/dDelta),dDumpFrameStep,df->iMaxRung);
+	if (df->bVDetails) CkPrintf("DF Initialized Frame dumping: Time Interval %g [%g] (Step %i) Step Interval %g -> MaxRung %i\n",dDumpFrameTime,floor(dDumpFrameTime)+dDelta*pow(2.0,-floor(tock)),(int) floor(dDumpFrameTime/dDelta),dDumpFrameStep,df->iMaxRung);
 	}
 
 
@@ -255,11 +257,11 @@ void dfProjection( struct inDumpFrame *in, struct dfFrameSetup *fs, int nxPix, i
 	/* in->bNonLocal not set (an internal use only variable) */
 
 	if (in->bVDetails) {
-		printf("DF Projection: %i x %i FOV %f  width %f height %f\n",fs->nxPix,fs->nyPix,fs->FOV,width,height);
-		printf("DF eye %f %f %f, target %f %f %f, (separation %f)\n",fs->eye[0],fs->eye[1],fs->eye[2],fs->target[0],fs->target[1],fs->target[2],in->zEye );
-		printf("DF up %f %f %f  Z-Clipping: Near %f Far %f\n",fs->up[0],fs->up[1],fs->up[2],in->zClipNear,in->zClipFar);
-		printf("DF Vectors: x %f %f %f, y %f %f %f z %f %f %f\n",in->x[0],in->x[1],in->x[2], in->y[0],in->y[1],in->y[2], in->z[0],in->z[1],in->z[2] );
-		printf("DF Colours: star %f %f %f gas %f %f %f dark %f %f %f\n",in->ColStar.r,in->ColStar.g,in->ColStar.b,in->ColGas.r,in->ColGas.g,in->ColGas.b,in->ColDark.r,in->ColDark.g,in->ColDark.b);
+		CkPrintf("DF Projection: %i x %i FOV %f  width %f height %f\n",fs->nxPix,fs->nyPix,fs->FOV,width,height);
+		CkPrintf("DF eye %f %f %f, target %f %f %f, (separation %f)\n",fs->eye[0],fs->eye[1],fs->eye[2],fs->target[0],fs->target[1],fs->target[2],in->zEye );
+		CkPrintf("DF up %f %f %f  Z-Clipping: Near %f Far %f\n",fs->up[0],fs->up[1],fs->up[2],in->zClipNear,in->zClipFar);
+		CkPrintf("DF Vectors: x %f %f %f, y %f %f %f z %f %f %f\n",in->x[0],in->x[1],in->x[2], in->y[0],in->y[1],in->y[2], in->z[0],in->z[1],in->z[2] );
+		CkPrintf("DF Colours: star %f %f %f gas %f %f %f dark %f %f %f\n",in->ColStar.r,in->ColStar.g,in->ColStar.b,in->ColGas.r,in->ColGas.g,in->ColGas.b,in->ColDark.r,in->ColDark.g,in->ColDark.b);
 		}
 	}
 
@@ -283,6 +285,8 @@ void dfParseOptions( struct DumpFrameContext *df, char * filename ) {
 	df->bGetCentreOfMass = 0;
 	df->bGetOldestStar = 0;
 	df->bGetPhotogenic = 0;
+	df->bVDetails = 0;
+	sprintf(df->FileName, "%s.%%09i.ppm", FileBaseName);
 
 	fp = fopen( filename, "r" );
 	if (fp==NULL) return;
@@ -518,13 +522,13 @@ void dfParseCameraDirections( struct DumpFrameContext *df, char * filename ) {
 		df->fs = (struct dfFrameSetup *) malloc(sizeof(struct dfFrameSetup)*df->nFrameSetup);
 		assert( df->fs != NULL );
 
-		if (df->bVDetails) printf("DF Default Frame Setup\n" );
+		if (df->bVDetails) CkPrintf("DF Default Frame Setup\n" );
 		/* dfProjection( &in, &fs ); */ /* Redundant now -- done again later */
 		df->fs[0] = fs;
 		return;
 		}
 
-	if (df->bVDetails) printf("DF Reading camera directions from: %s\n",filename );
+	if (df->bVDetails) CkPrintf("DF Reading camera directions from: %s\n",filename );
 	
 	df->iFrameSetup = -1;
 	df->nFrameSetup=1; /* Defaults */
@@ -539,7 +543,7 @@ void dfParseCameraDirections( struct DumpFrameContext *df, char * filename ) {
 	assert( df->fs != NULL );
 
 	n=0;
-	if (df->bVDetails) printf("DF Default Frame Setup\n" );
+	if (df->bVDetails) CkPrintf("DF Default Frame Setup\n" );
 	for ( ;; ) {
 		if (fgets( line, 81, fp ) == NULL) break;
 		nitem = sscanf( line, "%s", command );
@@ -552,7 +556,7 @@ void dfParseCameraDirections( struct DumpFrameContext *df, char * filename ) {
 			nitem = sscanf( line, "%s %lf", command, &fs.dTime );
 			assert( nitem == 2 );
 			
-			if (df->bVDetails) printf("DF Frame Setup from time: %f\n",fs.dTime );
+			if (df->bVDetails) CkPrintf("DF Frame Setup from time: %f\n",fs.dTime );
 			}
 		else if (!strcmp( command, "target") ) {
 			nitem = sscanf( line, "%s %lf %lf %lf", command, &fs.target[0], &fs.target[1], &fs.target[2] );
@@ -868,7 +872,7 @@ void dfSetupFrame( struct DumpFrameContext *df, double dTime, double dStep, doub
 		}
 
 	
-	if (df->bVDetails) printf("DF Interpolating at t=%g Setups: %i (t=%g) %i (t=%g)\n",dTime,ifs,df->fs[ifs].dTime,ifs+1,df->fs[ifs+1].dTime);
+	if (df->bVDetails) CkPrintf("DF Interpolating at t=%g Setups: %i (t=%g) %i (t=%g)\n",dTime,ifs,df->fs[ifs].dTime,ifs+1,df->fs[ifs+1].dTime);
 
 	fs = df->fs[ifs];
 
