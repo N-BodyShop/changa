@@ -201,18 +201,6 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
   int nodeend = numnodes;
   map(tpstart,tpend,nodestart,nodeend,nx,ny,nz,dim);
 
-  for(int i = 0; i < numnodes; i++){
-    CkPrintf("bb of node %d %f %f %f %f %f %f\n",
-              i, 
-              nodes[i].box.lesser_corner.x,
-              nodes[i].box.lesser_corner.y,
-              nodes[i].box.lesser_corner.z,
-              nodes[i].box.greater_corner.x,
-              nodes[i].box.greater_corner.y,
-              nodes[i].box.greater_corner.z
-              );
-  }
-
 #ifdef PRINT_BOUNDING_BOXES
   for(int i = 0; i < numnodes; i++){
     CkPrintf("bb of node %d %f %f %f %f %f %f\n", i, 
