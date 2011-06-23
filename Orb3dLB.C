@@ -183,7 +183,8 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
     cur = cur->next();
   }
 
-  mapping = &stats->to_proc;
+  //mapping = &stats->to_proc;
+  mapping.resize(numobjs);
   int dim = 0;
   TopoManager tmgr;
 
@@ -231,6 +232,10 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
   }
 #endif
 
+  for(int i = 0; i < numobjs; i++){
+    stats->to_proc[i] = mapping[i];
+  }
+
   /*
   int migr = 0;
   float *objload = new float[stats->count];
@@ -271,6 +276,16 @@ void Orb3dLB::map(int tpstart, int tpend, int nodestart, int nodeend, int xs, in
   }
   else{
     int totalTp = tpend-tpstart;
+
+    float tpload = 0.0;
+    for(int i = tpstart; i < tpend; i++){
+      tpload += tps[i].load;
+    }
+
+    int numProcRanks = nodes[nodestart].procRanks.length();
+    for(int i = nodestart+1; i < nodeend; i++){
+      CkAssert(nodes[i].procRanks.length() == numProcRanks);
+    }
     
     qsort(tps.getVec()+tpstart,totalTp,sizeof(TPObject),compares[dim]);
     qsort(nodes.getVec()+nodestart,nn,sizeof(Node),pc[dim]);
@@ -347,7 +362,7 @@ void Orb3dLB::directMap(int tpstart, int tpend, int nodestart, int nodeend){
       //CkPrintf("proc %d load %f gets obj %d load %f\n", p.t, p.load, tp.lbindex, tp.load);
 
       p.load += tp.load;
-      (*mapping)[tp.lbindex] = nodes[nodestart].procRanks[p.t];
+      mapping[tp.lbindex] = nodes[nodestart].procRanks[p.t];
 #ifdef PRINT_BOUNDING_BOXES
       nodes[nodestart].box.grow(tp.centroid);
 #endif
