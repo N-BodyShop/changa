@@ -444,12 +444,12 @@ void MultistepLB::mergeInstrumentedData(int phase, BaseLB::LDStats *stats){
       CkPrintf("Found previous entry for phase %d - merging\n", phase);
 #endif
       for(i = 0; i < stats->n_objs; i++){
-        savedCpu =  savedPhaseStats[phase].objData[i].cpuTime;
+        //savedCpu =  savedPhaseStats[phase].objData[i].cpuTime;
         savedWall =  savedPhaseStats[phase].objData[i].wallTime;
         
         savedPhaseStats[phase].objData[i]= stats->objData[i];
         
-        savedPhaseStats[phase].objData[i].cpuTime = alpha*savedCpu + (1.0-alpha)*stats->objData[i].cpuTime;
+        //savedPhaseStats[phase].objData[i].cpuTime = alpha*savedCpu + (1.0-alpha)*stats->objData[i].cpuTime;
         savedPhaseStats[phase].objData[i].wallTime = alpha*savedWall + (1.0-alpha)*stats->objData[i].wallTime;
         
       }
@@ -472,7 +472,7 @@ void MultistepLB::printData(BaseLB::LDStats &stats, int phase, int *revObjMap){
   
   CkPrintf("---- data (%d): %d objects ----\n", phase, stats.n_objs);
   for(i = 0; i < stats.n_objs; i++){
-     CkPrintf("%d: %g %g\n", i, stats.objData[i].cpuTime,
+     CkPrintf("%d: %g\n", i,
 	       stats.objData[i].wallTime);
   }
   CkPrintf("---- end data (%d) ----\n", phase);
@@ -554,7 +554,7 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
     CkPrintf("phase %d data available\n", phase);
 #endif
     for(i = 0; i < stats->n_objs; i++){
-      stats->objData[i].cpuTime = savedPhaseStats[phase].objData[i].cpuTime;
+      //stats->objData[i].cpuTime = savedPhaseStats[phase].objData[i].cpuTime;
       stats->objData[i].wallTime = savedPhaseStats[phase].objData[i].wallTime;
     }
   }
@@ -564,7 +564,7 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
 #endif
     //CkPrintf("using phase 0 loads\n", phase);
     for(i = 0; i < stats->n_objs; i++){
-      stats->objData[i].cpuTime = ratios[i]*savedPhaseStats[0].objData[i].cpuTime;
+      //stats->objData[i].cpuTime = ratios[i]*savedPhaseStats[0].objData[i].cpuTime;
       stats->objData[i].wallTime = ratios[i]*savedPhaseStats[0].objData[i].wallTime;
     }
   }
@@ -622,7 +622,7 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
     computeLoad[objIdx].v[XDIR] = pvec->x;
     computeLoad[objIdx].v[YDIR] = pvec->y;
     computeLoad[objIdx].v[ZDIR] = pvec->z;
-    computeLoad[objIdx].load = _lb_args.useCpuTime()?odata.cpuTime:odata.wallTime;
+    computeLoad[objIdx].load = odata.wallTime;
     computeLoad[objIdx].refno = 0;
     computeLoad[objIdx].partition = NULL;
     for (int k=XDIR; k<=ZDIR; k++) {
