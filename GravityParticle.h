@@ -94,6 +94,30 @@ class extraSPHData
 	}
     };
 
+// Extra data needed for Stars
+class extraStarData 
+{
+ private:
+    double _fMetals;		/* Metalicity */
+    double _fTimeForm;		/* Formation time */
+    double _fMassForm;		/* Formation mass */
+    int64_t _iGasOrder;		/* Gas from which this star formed */
+ public:
+    inline double& fMetals() {return _fMetals;}
+    inline double& fTimeForm() {return _fTimeForm;}
+    inline double& fMassForm() {return _fMassForm;}
+    inline int64_t& iGasOrder() {return _iGasOrder;}
+    void pup(PUP::er &p) {
+	p | _fMetals;
+	p | _fTimeForm;
+	p | _fMassForm;
+	p | _iGasOrder;
+	}
+    };
+
+class GravityParticle;
+int TYPETest(GravityParticle *a, unsigned int b);
+
 class ExternalSmoothParticle;
 
 // This class contains everything that a "dark matter" particle needs.
@@ -152,6 +176,7 @@ public:
 	  p | dt;
 #endif
         }
+	// Access SPH quantities
 	ExternalSmoothParticle getExternalSmoothParticle();
 	inline double& u() { return (((extraSPHData*)extraData)->u());}
 	inline double& fMetals() { return (((extraSPHData*)extraData)->fMetals());}
@@ -169,13 +194,29 @@ public:
 	inline double& uDot() { return (((extraSPHData*)extraData)->uDot());}
 	inline COOLPARTICLE& CoolParticle() { return (((extraSPHData*)extraData)->CoolParticle());}
 #endif
-};
+	// Access Star Quantities
+	// XXX Beware overlaps with SPH; we could fix this by aligning
+	// all common variables up at the start of the extraData structure.
+	inline double& fStarMetals() { return (((extraStarData*)extraData)->fMetals());}
+	inline double& fTimeForm() { return (((extraStarData*)extraData)->fTimeForm());}
+	inline double& fMassForm() { return (((extraStarData*)extraData)->fMassForm());}
+	inline int64_t& iGasOrder() { return (((extraStarData*)extraData)->iGasOrder());}
+
+/* Particle Type Masks */
 
 #define TYPE_GAS               (1<<0)
 #define TYPE_DARK              (1<<1)
 #define TYPE_STAR              (1<<2)
-#define TYPE_PHOTOGENIC        (1<<3)
-#define TYPE_NbrOfACTIVE       (1<<4)
+
+#define TYPE_DELETED           (1<<3)
+
+#define TYPE_PHOTOGENIC        (1<<4)
+#define TYPE_NbrOfACTIVE       (1<<5)
+
+	inline bool isDark() { return TYPETest(this, TYPE_DARK);}
+	inline bool isGas() { return TYPETest(this, TYPE_GAS);}
+	inline bool isStar() { return TYPETest(this, TYPE_STAR);}
+};
 
 inline int TYPETest(GravityParticle *a, unsigned int b) {
     return a->iType & b;
@@ -187,6 +228,29 @@ inline int TYPEReset(GravityParticle *a, unsigned int b) {
     return a->iType &= (~b);
     }
 
+/// unmark particle as deleted
+inline void unDeleteParticle(GravityParticle *p)
+{
+    CkAssert(TYPETest(p, TYPE_DELETED)); 
+
+    TYPEReset(p, TYPE_DELETED); 
+    }
+
+/// mark particle as deleted
+inline void deleteParticle(GravityParticle *p)
+{
+    TYPESet(p, TYPE_DELETED); 
+    }
+
+// Convert star particle to gas particle
+// Note that new memory is allocated for the extradata.
+inline GravityParticle StarFromGasParticle(GravityParticle *p) 
+{
+    GravityParticle starp = *p;
+    starp.extraData = new extraStarData;
+    starp.fStarMetals() = p->fMetals();
+    return starp;
+    }
 
 // Class for cross processor data needed for smooth operations
 class ExternalSmoothParticle {
@@ -196,6 +260,7 @@ class ExternalSmoothParticle {
   double fBall;
   double fDensity;
   Vector3D<double> position;
+  Vector3D<double> velocity;
   unsigned int iType;	// Bitmask to hold particle type information
   int rung;
   Vector3D<double> vPred;
@@ -206,6 +271,10 @@ class ExternalSmoothParticle {
   double PoverRho2;
   double BalsaraSwitch;
   double fBallMax;
+  double u;
+  double uPred;
+  double uDot;
+  double fMetals;
 
   ExternalSmoothParticle() {}
 
@@ -215,6 +284,7 @@ class ExternalSmoothParticle {
 	  fBall = p->fBall;
 	  fDensity = p->fDensity;
 	  position = p->position;
+	  velocity = p->velocity;
 	  iType = p->iType;
 	  rung = p->rung;
 	  treeAcceleration = p->treeAcceleration;
@@ -226,6 +296,12 @@ class ExternalSmoothParticle {
 	      PoverRho2 = p->PoverRho2();
 	      BalsaraSwitch = p->BalsaraSwitch();
 	      fBallMax = p->fBallMax();
+	      u = p->u();
+#ifndef COOLING_NONE
+	      uDot = p->uDot();
+	      uPred = p->uPred();
+#endif
+	      fMetals = p->fMetals();
 	      }
 	  }
   
@@ -234,6 +310,7 @@ class ExternalSmoothParticle {
       tmp->fBall = fBall;
       tmp->fDensity = fDensity;
       tmp->position = position;
+      tmp->velocity = velocity;
       tmp->iType = iType;
       tmp->rung = rung;
       tmp->treeAcceleration = treeAcceleration;
@@ -245,11 +322,18 @@ class ExternalSmoothParticle {
 	  tmp->PoverRho2() = PoverRho2;
 	  tmp->BalsaraSwitch() = BalsaraSwitch;
 	  tmp->fBallMax() = fBallMax;
+	  tmp->u() = u;
+#ifndef COOLING_NONE
+	  tmp->uDot() = uDot;
+	  tmp->uPred() = uPred;
+#endif
+	  tmp->fMetals() = fMetals;
 	  }
       }
 	  
   void pup(PUP::er &p) {
     p | position;
+    p | velocity;
     p | mass;
     p | fBall;
     p | fDensity;
@@ -263,12 +347,14 @@ class ExternalSmoothParticle {
     p | PoverRho2;
     p | BalsaraSwitch;
     p | fBallMax;
+    p | u;
+    p | uPred;
+    p | uDot;
+    p | fMetals;
   }
 };
 
 inline ExternalSmoothParticle GravityParticle::getExternalSmoothParticle()
 { return ExternalSmoothParticle(this); }
-
-/* Particle Type Masks */
 
 #endif

@@ -55,10 +55,9 @@ struct PendingBuffers {
  */
 class DataManager : public CBase_DataManager {
 	friend class TreePiece;
+
 	/// The array of TreePieces I hold data for.
 	CProxy_TreePiece treePieces;
-	// A pointer to the CacheManager in the local processor
-	//CacheManager *localCache;
 
 protected:
 
@@ -177,9 +176,12 @@ public:
 
 	/// Collect the boundaries of all TreePieces, and trigger the real treebuild
 	void collectSplitters(CkReductionMsg* m);
-	/// Called by the Sorter, I ask my TreePieces to evaluate these splitter keys
-	//void acceptCandidateKeys(const SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
-	/// Called by the Sorter, I save these final keys and the list of which TreePiece is responsible for which interval
+	/// Called by ORB Sorter, save the list of which TreePiece is
+	/// responsible for which interval.
+	void acceptResponsibleIndex(const int* responsible, const int n,
+				    const CkCallback& cb);
+	/// Called by the Sorter, I save these final keys and the list
+	/// of which TreePiece is responsible for which interval
 	void acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb);
 	void pup(PUP::er& p);
 
@@ -221,6 +223,8 @@ public:
     void CoolingSetTime(double z, // redshift
 			double dTime, // Time
 			const CkCallback& cb);
+    void memoryStats(const CkCallback& cb);
+    void resetReadOnly(Parameters param, const CkCallback &cb);
 };
 
 #endif //DATAMANAGER_H

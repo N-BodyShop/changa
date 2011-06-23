@@ -19,6 +19,7 @@ mainmodule ParallelGravity {
   readonly int _cacheLineDepth;
   readonly unsigned int _yieldPeriod;
   readonly DomainsDec domainDecomposition;
+  readonly double dExtraStore;
   readonly int peanoKey;
   readonly GenericTrees useTree;
   readonly int _prefetch;
@@ -59,11 +60,18 @@ mainmodule ParallelGravity {
     char dim[];
   };
 
+  message ParticleShuffleMsg {
+    GravityParticle particles[];
+    extraSPHData pGas[];
+    extraStarData pStar[];
+  };
+
   PUPable DensitySmoothParams;
   PUPable DenDvDxSmoothParams;
   PUPable DenDvDxNeighborSmParams;
   PUPable MarkSmoothParams;
   PUPable PressureSmoothParams;
+  PUPable DistDeletedGasSmoothParams;
 
   PUPable AccOutputParams;
   PUPable DenOutputParams;
@@ -107,10 +115,8 @@ mainmodule ParallelGravity {
   nodegroup [migratable] DataManager {
     entry DataManager(const CkArrayID& treePieceID);
 
-    //entry void acceptCandidateKeys(const SFC::Key keys[n],
-    //			       const int n,
-    //                                       int isRefine,
-    //			       const CkCallback& cb);
+    entry void acceptResponsibleIndex(const int responsible[n], const int n,
+				      const CkCallback& cb);
     entry void acceptFinalKeys(const SFC::Key keys[n],
         const int responsible[n - 1],
         unsigned int bins[n - 1], const int n,
@@ -124,6 +130,8 @@ mainmodule ParallelGravity {
 			 COOLPARAM inParam, const CkCallback& cb);
     entry void dmCoolTableRead(double dTableData[nData], int nData, const CkCallback& cb);
     entry void CoolingSetTime(double z, double dTime, const CkCallback& cb);
+    entry void memoryStats(const CkCallback& cb);
+    entry void resetReadOnly(Parameters param, const CkCallback &cb);
   };
   array [1D] TreePiece {
     entry TreePiece();
@@ -131,6 +139,7 @@ mainmodule ParallelGravity {
 
     // DEBUGGING
     entry void quiescence();
+    entry void memCacheStats(const CkCallback &cb);
 
     entry void report();
 
@@ -143,6 +152,7 @@ mainmodule ParallelGravity {
     entry void setPeriodic(int nReplicas, Vector3D<double> fPeriod, int bEwald,
 		 double fEwCut, double fEwhCut, int bPeriod);
     entry void EwaldInit();
+    entry void initCoolingData(const CkCallback& cb);
     entry void calculateEwald(dummyMsg *m);
     entry void EwaldGPUComplete(); 
     entry void EwaldGPU(); 
@@ -164,30 +174,37 @@ mainmodule ParallelGravity {
     entry void oneNodeWrite(int iIndex,
 			       int iOutParticles,
 			       int iOutSPH,
+			       int iOutStar,
 			       GravityParticle particles[iOutParticles+2], // particles to
 						     // write
 			       extraSPHData pGas[iOutSPH], // SPH data
+			       extraStarData pStar[iOutStar], // Star data
 			       int piSPH[iOutSPH], // SPH data offsets
+			       int piStar[iOutStar], // Star data offsets
 			       const u_int64_t iPrevOffset,
 			       const std::string& filename,  // output file
 			       const double dTime,      // time or expansion
 			       const double dvFac,  // velocity conversion
 			     const double duTFac, // temperature conversion
 			     const int bCool, const CkCallback& cb);
-    entry void reOrder(CkCallback& cb);
-    entry void ioAcceptSortedParticles(const GravityParticle particles[n],
-	     const int n, const extraSPHData pGas[nGasIn], const int nGasIn);
+    entry void reOrder(int64_t nMaxOrder, CkCallback& cb);
+    entry void ioShuffle(CkReductionMsg *msg);
+    entry void ioAcceptSortedParticles(ParticleShuffleMsg *);
     entry void assignKeys(CkReductionMsg* m);
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
     entry void unshuffleParticles(CkReductionMsg* m);
-    entry void acceptSortedParticles(const GravityParticle particles[n],
-        const int n, const extraSPHData pExtra[nGas],
-        const int nGas, const double load);
+    entry void acceptSortedParticles(ParticleShuffleMsg *);
     //ORB
     entry void initORBPieces(const CkCallback& cb);
-    entry void initBeforeORBSend(unsigned int myCount, const CkCallback& cb, const CkCallback& cback);
+    entry void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,
+			     const CkCallback& cb, const CkCallback& cback);
     entry void sendORBParticles();
-    entry void acceptORBParticles(const GravityParticle particlesi[n], const int n);
+    entry void acceptORBParticles(const GravityParticle particles[n],
+				  const int n,
+			  	  const extraSPHData pGas[nGasIn],
+				  const int nGasIn,
+			  	  const extraStarData pStar[nStarIn],
+				  const int nStarIn);
     entry void finalizeBoundaries(ORBSplittersMsg *splittersMsg);
     entry void evaluateParticleCounts(ORBSplittersMsg *splittersMsg);
 
@@ -206,6 +223,11 @@ mainmodule ParallelGravity {
 		     double dvDelta, double duDelta, int nGrowMass,
 		     const CkCallback& cb);
     entry void calcEnergy(const CkCallback& cb);
+    entry void colNParts(const CkCallback &cb);
+    entry void newOrder(int64_t nStartSPH, int64_t nStartDark,
+		int64_t nStartStar, const CkCallback &cb);
+    entry void setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
+		 int64_t _nTotalStar, const CkCallback &cb);
     entry void setSoft(const double dSoft);
     entry void physicalSoft(const double dSoftMax, const double dFac,
         const int bSoftMaxMul, const CkCallback& cb);
@@ -213,7 +235,7 @@ mainmodule ParallelGravity {
     entry void InitEnergy(double dTuFac, double z, double dTime,
 			const CkCallback& cb);
     entry void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
-    	       		double dTime, double z, int bCool,
+    	       		double dTime, double z, int bCool, int bAll,
 			int bUpdateState, const CkCallback& cb);
     entry void ballMax(int activeRung, double dFac, const CkCallback& cb);
     entry void sphViscosityLimiter(int bOn, int activeRung,
@@ -222,6 +244,8 @@ mainmodule ParallelGravity {
 					const CkCallback &cb);
     entry void getCoolingGasPressure(double gamma, double gammam1,
 				   const CkCallback &cb);
+    entry void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
+		       const CkCallback& cb);
     entry void setTypeFromFile(int iSetMask, char file[256],
         const CkCallback& cb);
     entry void getCOM(const CkCallback& cb, int bLiveViz);
@@ -237,7 +261,8 @@ mainmodule ParallelGravity {
     entry void startORBTreeBuild(CkReductionMsg* m);
 
     entry void startIteration(int activeRung, double myTheta, CkCallback &cb);
-    entry void startIterationSmooth(CkPointer<SmoothParams>, CkCallback &cb);
+    entry void startIterationSmooth(CkPointer<SmoothParams>, int iLowhFix,
+				    double dfBall2OverSoft2, CkCallback &cb);
     entry void startIterationReSmooth(CkPointer<SmoothParams>, CkCallback &cb);
     entry void startIterationMarkSmooth(CkPointer<SmoothParams>, CkCallback &cb);
     entry void finishNodeCache(int iPhases, CkCallback &cb);

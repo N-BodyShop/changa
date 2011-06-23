@@ -86,7 +86,7 @@ struct CoolingPKDStruct {
 
 COOL *CoolInit( );
 void CoolFinalize( COOL *cl );
-clDerivsData *CoolDerivsInit( );
+clDerivsData *CoolDerivsInit(COOL *cl);
 void CoolDerivsFinalize(clDerivsData *cld ) ;
 
 void clInitConstants( COOL *cl, double dGMPerCcunit,
@@ -100,13 +100,12 @@ double clThermalEnergy( double Y_Total, double T );
 double clTemperature( double Y_Total, double E );
 
 double clEdotInstant( COOL *cl, double E, double T, double rho, double r );
-void clIntegrateEnergy(COOL *cl, double *E, double PdV, double rho,
-		       double Y_Total, double radius, double tStep );
+void clIntegrateEnergy(COOL *cl, clDerivsData *clData,  double *E, double PdV,
+		       double rho, double Y_Total, double radius, double tStep );
 
+int clDerivs(double x, const double *y, double *dydx, void *Data) ;
 
-int clDerivs(double x, double *y, double *dydx, void *Data) ;
-
-int clJacobn(double x, double y[], double dfdx[], double *dfdy, void *Data) ;
+int clJacobn(double x, const double y[], double dfdx[], double *dfdy, void *Data) ;
   
 void CoolAddParams( COOLPARAM *CoolParam, PRM );
 void CoolLogParams( COOLPARAM *CoolParam, FILE *fp );
@@ -170,11 +169,11 @@ double CodeDensityToComovingGmPerCc( COOL *Cool, double dCodeDensity );
 
 #define CodeDensityToComovingGmPerCc( Cool, dCodeDensity )  ((Cool)->dComovingGmPerCcUnit*(dCodeDensity))
 
-void CoolIntegrateEnergy(COOL *cl, COOLPARTICLE *cp, double *E, 
+void CoolIntegrateEnergy(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp, double *E, 
 		       double PdV, double rho, double ZMetal, double tStep );
 
-void CoolIntegrateEnergyCode(COOL *cl, COOLPARTICLE *cp, double *E, 
-		       double PdV, double rho, double ZMetal, double *r, double tStep );
+void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp, double *E, 
+			     double PdV, double rho, double ZMetal, double *r, double tStep );
 
 void CoolDefaultParticleData( COOLPARTICLE *cp );
 

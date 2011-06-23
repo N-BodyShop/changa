@@ -155,7 +155,6 @@ typedef struct CoolingPKDStruct {
    double     Y_H;
    double     Y_He;
    double     Y_eMAX;
-   clDerivsData *DerivsData;
 /* Diagnostic */
    int        its;
 } COOL;
@@ -196,7 +195,8 @@ typedef struct {
 
 
 struct clDerivsDataStruct {
-  void *IntegratorContext;
+  STIFF *IntegratorContext;
+  ROOTFIND *RootFindContext;
   COOL *cl;
   double rho,ExternalHeating,E,ZMetal;
   RATE Rate;
@@ -209,7 +209,7 @@ struct clDerivsDataStruct {
 
 COOL *CoolInit( );
 void CoolFinalize( COOL *cl );
-clDerivsData *CoolDerivsInit( );
+clDerivsData *CoolDerivsInit(COOL *cl);
 void CoolDerivsFinalize(clDerivsData *cld ) ;
 
 void clInitConstants( COOL *cl, double dGMPerCcunit, double dComovingGmPerCcUnit,
@@ -248,7 +248,7 @@ double clCoolLineHeII( double T );
 double clCoolLowT( double T );
 
 double clEdotInstant ( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal );
-void clIntegrateEnergy(COOL *cl, STIFF *sbs, PERBARYON *Y, double *E, 
+void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
 		       double ExternalHeating, double rho, double ZMetal, double dt );
 void clIntegrateEnergyDEBUG(COOL *cl, PERBARYON *Y, double *E, 
 		       double ExternalHeating, double rho, double ZMetal, double dt );
@@ -340,10 +340,10 @@ double CodeDensityToComovingGmPerCc( COOL *Cool, double dCodeDensity );
 
 #define CodeDensityToComovingGmPerCc( Cool, dCodeDensity )  ((Cool)->dComovingGmPerCcUnit*(dCodeDensity))
 
-void CoolIntegrateEnergy(COOL *cl, STIFF *sbs, COOLPARTICLE *cp, double *E, 
+void CoolIntegrateEnergy(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp, double *E, 
 		       double ExternalHeating, double rho, double ZMetal, double tStep );
 
-void CoolIntegrateEnergyCode(COOL *cl, STIFF *sbs, COOLPARTICLE *cp, double *E, 
+void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp, double *E, 
 		       double ExternalHeating, double rho, double ZMetal, double *r, double tStep );
 
 void CoolDefaultParticleData( COOLPARTICLE *cp );

@@ -1,5 +1,5 @@
 /** \file DataManager.cpp
- Implementation of the DataManager
+ \brief Implementation of the DataManager
  \author Graeme Lufkin (gwl@u.washington.edu)
 */
 
@@ -50,13 +50,17 @@ void DataManager::init() {
   Cool = CoolInit();
 }
 
+/**
+ * Fill in responsibleIndex after ORB decomposition
+ */
+void DataManager::acceptResponsibleIndex(const int* responsible, const int n,
+					 const CkCallback& cb) {
+    responsibleIndex.resize(n);
+    copy(responsible, responsible + n, responsibleIndex.begin());
+    contribute(cb);
+    }
+
 void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb) {
-/*	boundaryKeys.resize(n);
-	copy(keys, keys + n, boundaryKeys.begin());
-	responsibleIndex.resize(n - 1);
-	copy(responsible, responsible + n - 1, responsibleIndex.begin());
-	particleCounts.resize(n - 1);
-	copy(bins, bins + n - 1, particleCounts.begin());*/
 
   //should not assign responsibility or place to a treepiece that will get no particles
   int ignored = 0;
@@ -100,12 +104,6 @@ void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, 
       CkPrintf("(%d,%d),",*iter1,*iter2);
     }
     CkPrintf("\n");
-    /*CkPrintf("Particle Counts:");
-    for(iter=particleCounts.begin();iter!=particleCounts.end();iter++){
-      if(*iter==0)
-        CkPrintf("%d,",*iter);
-    }
-    CkPrintf("\n");*/
     std::vector<SFC::Key>::iterator iter3;
     CkPrintf("Keys:");
     for(iter3=boundaryKeys.begin();iter3!=boundaryKeys.end();iter3++){
@@ -117,10 +115,6 @@ void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, 
 	contribute(sizeof(CkCallback), &cb, callbackReduction,
 		   CkCallback(CkIndex_TreePiece::unshuffleParticles(0),
 			      treePieces));
-
-	//tell my TreePieces to move the particle data to the responsible chare
-	//for(vector<int>::iterator iter = myTreePieces.begin(); iter != myTreePieces.end(); ++iter)
-	//	treePieces[*iter].unshuffleParticles(cb);
 }
 
 class KeyDouble {
@@ -363,6 +357,28 @@ void DataManager::getChunks(int &num, Tree::NodeKey *&roots) {
   roots = chunkRoots;
 }
 
+/*
+ * obtain memory utilization statistics
+ */
+void DataManager::memoryStats(const CkCallback& cb)
+{
+    int mem = CmiMemoryUsage()/(1024*1024);
+    contribute(sizeof(int), &mem, CkReduction::max_int, cb);
+    }
+
+/*
+ * reset readonly variables after a restart
+ */
+void DataManager::resetReadOnly(Parameters param, const CkCallback &cb) 
+{
+    /*
+     * Insert any variables that can change due to a restart.
+     */
+    dExtraStore = param.dExtraStore;
+    contribute(cb);
+    }
+  
+	 
 const char *typeString(NodeType type);
 
 #ifdef CUDA

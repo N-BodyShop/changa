@@ -97,13 +97,13 @@ OBJECTS = DataManager.o Reductions.o TreePiece.o Sorter.o \
 	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
 	  InOutput.o cosmo.o romberg.o runge.o dumpframe.o dffuncs.o \
 	  moments.o MultistepLB.o Orb3dLB.o \
-	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o\
+	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
 	@OBJECTS_COOLING@
 
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \
 	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
 	InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c \
-	moments.c MultistepLB.C Orb3dLB.C \
+	moments.c MultistepLB.C Orb3dLB.C starform.C \
 	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C
 
 ifdef CUDA
@@ -185,6 +185,9 @@ clean:
 
 ref-clean:
 	rm -f $(TARGET) Compute.o TreeWalk.o
+
+depends:
+	$(CXX_DEPEND) $(SRSC) | while read i;do echo $$i| awk -F' ' '{for (i=1;i<NF;++i) print $$i" \\"}';echo;done|grep -v "$(CHARM_PATH)/bin" > Makefile.dep
 
 # depend:
 # 	$(CXX_DEPEND) $(SRSC) > Makefile.dep

@@ -11,42 +11,6 @@ using namespace std;
 
 CreateLBFunc_Def(MultistepLB, "Works best with multistepped runs; uses OrbSmooth for larger steps, RoundRobin otherwise");
 
-//**************************************
-// ORB3DLB functions
-//**************************************
-static int comparx(const void *a, const void *b){
-  TPObject *ta = (TPObject *)a;
-  TPObject *tb = (TPObject *)b;
-  return (int)(ta->centroid.x-tb->centroid.x);
-}
-static int compary(const void *a, const void *b){
-  TPObject *ta = (TPObject *)a;
-  TPObject *tb = (TPObject *)b;
-  return (int)(ta->centroid.y-tb->centroid.y);
-}
-static int comparz(const void *a, const void *b){
-  TPObject *ta = (TPObject *)a;
-  TPObject *tb = (TPObject *)b;
-  return (int)(ta->centroid.z-tb->centroid.z);
-}
-
-static int pcx(const void *a, const void *b){
-  Node *ta = (Node *)a;
-  Node *tb = (Node *)b;
-  return (int)(ta->x-tb->x);
-}
-static int pcy(const void *a, const void *b){
-  Node *ta = (Node *)a;
-  Node *tb = (Node *)b;
-  return (int)(ta->y-tb->y);
-}
-static int pcz(const void *a, const void *b){
-  Node *ta = (Node *)a;
-  Node *tb = (Node *)b;
-  return (int)(ta->z-tb->z);
-}
-//**************************************
-
 
 MultistepLB::MultistepLB(const CkLBOptions &opt): CentralLB(opt)
 {
@@ -65,7 +29,9 @@ MultistepLB::MultistepLB(const CkLBOptions &opt): CentralLB(opt)
   int nz = tmgr.getDimNZ();
   int numnodes = nx*ny*nz; 
 
-  CkPrintf("[%d] Multistep Topo %d %d %d %d %d \n",CkMyPe(), nx, ny, nz, numnodes, ppn);
+  if (CkMyPe() == 0){
+    CkPrintf("[%d] Multistep Topo %d %d %d %d %d \n",CkMyPe(), nx, ny, nz, numnodes, ppn);
+  }
 
   compares[0] = comparx;
   compares[1] = compary;
@@ -88,7 +54,9 @@ void MultistepLB::receiveCentroids(CkReductionMsg *msg){
 
   tpCentroids = (TaggedVector3D *)msg->getData();
   nrecvd = msg->getGcount();
-  CkPrintf("MultistepLB: receiveCentroids started: %d elements, msg length: %d\n", msg->getGcount(), msg->getLength()); 
+  if (_lb_args.debug()>=2) {
+    CkPrintf("MultistepLB: receiveCentroids started: %d elements, msg length: %d\n", msg->getGcount(), msg->getLength()); 
+  }
   haveTPCentroids = true;
   tpmsg = msg;
   /*
@@ -101,22 +69,30 @@ void MultistepLB::receiveCentroids(CkReductionMsg *msg){
   }
   */
   treeProxy.doAtSync();
-  CkPrintf("MultistepLB: receiveCentroids done\n");  
+  if (_lb_args.debug()>=2) {
+    CkPrintf("MultistepLB: receiveCentroids done\n");  
+  }
   //delete msg;
 }
 
 //jetley
 CmiBool MultistepLB::QueryBalanceNow(int step){
   if(step == 0){
+    /*
     if(CkMyPe() == 0){                          // only one group member need broadcast
-      CkPrintf("MultistepLB: Step 0, calling treeProxy.receiveProxy(thisgroup)\n");
+      if (_lb_args.debug()>=2) {
+        CkPrintf("MultistepLB: Step 0, calling treeProxy.receiveProxy(thisgroup)\n");
+      }
       treeProxy.receiveProxy(thisgroup);        // broadcast proxy to all treepieces
     }
     firstRound = true;
+    */
     return false; 
   }
-  if(CkMyPe() == 0)
-    CkPrintf("MultistepLB: Step %d\n", step);
+  if (_lb_args.debug()>=1) {
+    if(CkMyPe() == 0)
+      CkPrintf("MultistepLB: Step %d\n", step);
+  }
   return true;
 
 }
@@ -404,7 +380,7 @@ void MultistepLB::mergeInstrumentedData(int phase, BaseLB::LDStats *stats){
 
   // tune alpha as needed - this is the merge parameter
   double alpha = 0.0;
-  double savedCpu, savedWall;
+  double savedWall;
   
   if(phase == -1){
 #ifdef MCLBMSV
@@ -418,7 +394,7 @@ void MultistepLB::mergeInstrumentedData(int phase, BaseLB::LDStats *stats){
   if(phase > len-1){
     numAdditional = phase-len+1;
     while(numAdditional > 0){
-      savedPhaseStats.push_back(BaseLB::LDStats());
+      savedPhaseStats.push_back(LightweightLDStats());
 #ifdef MCLBMSV
       CkPrintf("Making new entry for phase %d (%d)\n", savedPhaseStats.length()-1, phase);
 #endif
@@ -444,12 +420,8 @@ void MultistepLB::mergeInstrumentedData(int phase, BaseLB::LDStats *stats){
       CkPrintf("Found previous entry for phase %d - merging\n", phase);
 #endif
       for(i = 0; i < stats->n_objs; i++){
-        //savedCpu =  savedPhaseStats[phase].objData[i].cpuTime;
         savedWall =  savedPhaseStats[phase].objData[i].wallTime;
-        
         savedPhaseStats[phase].objData[i]= stats->objData[i];
-        
-        //savedPhaseStats[phase].objData[i].cpuTime = alpha*savedCpu + (1.0-alpha)*stats->objData[i].cpuTime;
         savedPhaseStats[phase].objData[i].wallTime = alpha*savedWall + (1.0-alpha)*stats->objData[i].wallTime;
         
       }
@@ -472,7 +444,7 @@ void MultistepLB::printData(BaseLB::LDStats &stats, int phase, int *revObjMap){
   
   CkPrintf("---- data (%d): %d objects ----\n", phase, stats.n_objs);
   for(i = 0; i < stats.n_objs; i++){
-     CkPrintf("%d: %g\n", i,
+     CkPrintf("%d: %g\n", i, 
 	       stats.objData[i].wallTime);
   }
   CkPrintf("---- end data (%d) ----\n", phase);
@@ -493,11 +465,12 @@ void MultistepLB::makeActiveProcessorList(BaseLB::LDStats *stats, int numActiveO
 
 #define LARGE_PHASE_THRESHOLD 0.1
 
-void MultistepLB::work(BaseLB::LDStats* stats, int count)
+void MultistepLB::work(BaseLB::LDStats* stats)
 {
 #if CMK_LBDB_ON
   // find active objects - mark the inactive ones as non-migratable
   int i;
+  int count;
   
   stats->makeCommHash();
   for(i = 0; i < stats->n_objs; i++){
@@ -521,11 +494,16 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
     stats->to_proc[i] = stats->from_proc[i];
   }
   // update phase data 
-  CkPrintf("merging previous phase %d data; current phase: %d\n", prevPhase, phase);
+  if (_lb_args.debug()>=2) {
+    CkPrintf("merging previous phase %d data; current phase: %d\n", prevPhase, phase);
+  }
   mergeInstrumentedData(prevPhase, stats); 
   
   for(i = 0; i < stats->n_objs; i++){
-    ratios[tpCentroids[i].tag] = tpCentroids[i].numActiveParticles/(float)tpCentroids[i].myNumParticles;
+    if(tpCentroids[i].myNumParticles != 0)
+    	ratios[tpCentroids[i].tag] = tpCentroids[i].numActiveParticles/(float)tpCentroids[i].myNumParticles;
+    else
+	ratios[tpCentroids[i].tag] = 1.0;
     numActiveParticles += tpCentroids[i].numActiveParticles;
     totalNumParticles += tpCentroids[i].myNumParticles;
     pCentroids[i] = &tpCentroids[i].vec;
@@ -554,7 +532,6 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
     CkPrintf("phase %d data available\n", phase);
 #endif
     for(i = 0; i < stats->n_objs; i++){
-      //stats->objData[i].cpuTime = savedPhaseStats[phase].objData[i].cpuTime;
       stats->objData[i].wallTime = savedPhaseStats[phase].objData[i].wallTime;
     }
   }
@@ -564,7 +541,6 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
 #endif
     //CkPrintf("using phase 0 loads\n", phase);
     for(i = 0; i < stats->n_objs; i++){
-      //stats->objData[i].cpuTime = ratios[i]*savedPhaseStats[0].objData[i].cpuTime;
       stats->objData[i].wallTime = ratios[i]*savedPhaseStats[0].objData[i].wallTime;
     }
   }
@@ -740,7 +716,9 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
     if(frompe != tope){
       stats->to_proc[computeLoad[obj].id] = tope;
     }
-    CkPrintf("%d(%d): %d -> %d\n", computeLoad[obj].id, obj, frompe, tope);
+    if (_lb_args.debug()>=2) {
+      CkPrintf("%d(%d): %d -> %d\n", computeLoad[obj].id, obj, frompe, tope);
+    }
   }
   /*
   objIdx = 0;
@@ -906,7 +884,9 @@ void MultistepLB::work(BaseLB::LDStats* stats, int count)
   if (_lb_args.debug() >= 1)
     CkPrintf("MultistepLB finished time: %fs\n", CkWallTimer() - t);
 #else // Orb3dLB
-  CkPrintf("******** BIG STEP *********!\n");
+  if (_lb_args.debug()>=2) {
+    CkPrintf("******** BIG STEP *********!\n");
+  }
   work2(stats,count);
 #endif  // MCLBMS_ORBSMOOTH
     
@@ -930,10 +910,14 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
   int numobjs = stats->n_objs;
   int nmig = stats->n_migrateobjs;
 
-  CkPrintf("[work2] %d objects allocating %d bytes for tp\n", nmig, nmig*sizeof(TPObject));
+  if (_lb_args.debug()>=2) {
+    CkPrintf("[work2] %d objects allocating %d bytes for tp\n", nmig, nmig*sizeof(TPObject));
+  }
   TPObject *tp = new TPObject[nmig];
 
-  CkPrintf("[work2] ready tp data structure\n");
+  if (_lb_args.debug()>=2) {
+    CkPrintf("[work2] ready tp data structure\n");
+  }
 
   int j = 0;
   for(int i = 0; i < stats->n_objs; i++){
@@ -950,6 +934,7 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
       tp[j].load = stats->objData[tag].wallTime;
     }
     tp[j].lbindex = tag;
+    j++;
   }
 
   mapping = &stats->to_proc;
@@ -963,7 +948,9 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
   int nz = tmgr.getDimNZ();
   int numnodes = nx*ny*nz; 
 
-  CkPrintf("[work2] %d numnodes allocating %d bytes for nodes\n", numnodes, numnodes*sizeof(Node));
+  if (_lb_args.debug()>=2) {
+    CkPrintf("[work2] %d numnodes allocating %d bytes for nodes\n", numnodes, numnodes*sizeof(Node));
+  }
   Node *nodes = new Node[numnodes];
 
   for(int i = 0; i < stats->count; i++){
@@ -980,7 +967,9 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
     //CkPrintf("node %d,%d,%d (%d) gets t %d\n", nodes[node].x, nodes[node].y, nodes[node].z, node, t);
   }
 
-  CkPrintf("[work2] map\n");
+  if (_lb_args.debug()>=2) {
+    CkPrintf("[work2] map\n");
+  }
   map(tp,nmig,numnodes,nodes,nx,ny,nz,dim);
 
   /*
@@ -999,14 +988,12 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
   CkPrintf("***************************\n");
   CkPrintf("i pe wall cpu idle bg_wall bg_cpu objload\n");
   for(int i = 0; i < stats->count; i++){
-    CkPrintf("[pestats] %d %d %f %f %f %f %f %f\n", 
+    CkPrintf("[pestats] %d %d %f %f %f %f\n", 
                                i,
                                stats->procs[i].pe, 
                                stats->procs[i].total_walltime, 
-                               stats->procs[i].total_cputime, 
                                stats->procs[i].idletime,
                                stats->procs[i].bg_walltime,
-                               stats->procs[i].bg_cputime,
                                objload[i]);
   }
   CkPrintf("%d objects migrating\n", migr);
@@ -1161,7 +1148,24 @@ Node *MultistepLB::halveNodes(Node *start, int np){
   return ret;
 }
 
+void MultistepLB::pup(PUP::er &p){
+  CentralLB::pup(p);
+  if(p.isPacking()){
+    // if checkpointing, no need to 
+    // keep around the centroid message
+    delete tpmsg;
+    haveTPCentroids = false;
+  }
+  p | haveTPCentroids; 
+  p | procsPerNode;
+  p | savedPhaseStats;
+}
 
+void LightweightLDStats::pup(PUP::er &p){
+  p|n_objs;
+  p|n_migrateobjs;
+  p|objData;
+}
 
 #include "MultistepLB.def.h"
 

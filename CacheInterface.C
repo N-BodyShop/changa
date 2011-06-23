@@ -93,18 +93,18 @@ void * EntryTypeSmoothParticle::unpack(CkCacheFillMsg *msg, int chunk, CkArrayIn
     cParts->partCached = new GravityParticle[nTotal];
     cParts->extraSPHCached = new extraSPHData[nTotal];
     // Expand External particles to full particles in cache
-    // XXX also need to allocate extra data.
     for(int i = 0; i < nTotal; i++) {
 	cParts->partCached[i].extraData = &cParts->extraSPHCached[i];
 	cPartsIn->partExt[i].getParticle(&cParts->partCached[i]);
-      	globalSmoothParams->initSmoothCache(&(cParts->partCached[i]));	// Clear cached copy
+      	if(TYPETest(&(cParts->partCached[i]), globalSmoothParams->iType))
+	   globalSmoothParams->initSmoothCache(&(cParts->partCached[i]));	// Clear cached copy
 	}
     CkFreeMsg(msg);
     return (void*) cParts;
 }
 
+/// Send the message back to the original TreePiece.
 void EntryTypeSmoothParticle::writeback(CkArrayIndexMax& idx, CkCacheKey k, void *data) {
-    // Send the message back to the original TreePiece.
     CacheSmoothParticle *cPart = (CacheSmoothParticle *)data;
     int total = sizeof(CacheSmoothParticle)
 	+ (cPart->end - cPart->begin)*sizeof(ExternalSmoothParticle);
@@ -121,8 +121,8 @@ void EntryTypeSmoothParticle::writeback(CkArrayIndexMax& idx, CkCacheKey k, void
 
 void EntryTypeSmoothParticle::free(void *data) {
     CacheSmoothParticle *cPart = (CacheSmoothParticle *)data;
-    delete cPart->partCached;
-    delete cPart->extraSPHCached;
+    delete[] cPart->partCached;
+    delete[] cPart->extraSPHCached;
     delete cPart;
 }
 
@@ -156,7 +156,8 @@ void TreePiece::processReqSmoothParticles() {
 
 	CkVec<int> *vRec = iter->second;
 
-	iter++;
+	iter++;  // The current request gets deleted below, so
+		 // increment first.
 	CkCacheFillMsg *reply = new (total) CkCacheFillMsg(bucketKey);
 	CacheSmoothParticle *data = (CacheSmoothParticle*)reply->data;
 	data->begin = bucket->firstParticle;
@@ -167,13 +168,15 @@ void TreePiece::processReqSmoothParticles() {
 
 	for(int i = 0; i < vRec->length(); ++i) {
 	    nCacheAccesses++;
-	    if(i < vRec->length() - 1) {
+	    if(i < vRec->length() - 1) { // Copy message if there is
+					 // more than one outstanding request.
 		CkCacheFillMsg *replyCopy = (CkCacheFillMsg *) CkCopyMsg((void **) &reply);
 		cacheSmoothPart[(*vRec)[i]].recvData(replyCopy);
 		}
 	    else
 		cacheSmoothPart[(*vRec)[i]].recvData(reply);
 	    }
+	delete vRec;
 	smPartRequests.erase(bucketKey);
 	}
     }
@@ -214,19 +217,21 @@ void TreePiece::fillRequestSmoothParticles(CkCacheRequestMsg *msg) {
   delete msg;
 }
 
+/// Combine cached copies with the originals on the treepiece.
+/// This function also decrements the count of outstanding cache
+/// accesses and does a check to see if the smooth walk is finished.
 void TreePiece::flushSmoothParticles(CkCacheFillMsg *msg) {
   
   CacheSmoothParticle *data = (CacheSmoothParticle*)msg->data;
-  SmoothCompute *sc = dynamic_cast<SmoothCompute *>(sSmooth);
+  SmoothCompute *sc = sSmooth;
   
   CkAssert(sc != NULL);
   CkAssert(nCacheAccesses > 0);
   
   int j = 0;
   for(int i = data->begin; i <= data->end; i++) {
-      if(!TYPETest(&myParticles[i], sc->params->iType))
-	  continue;
-      sc->params->combSmoothCache(&myParticles[i], &data->partExt[j]);
+      if(TYPETest(&myParticles[i], sc->params->iType))
+	  sc->params->combSmoothCache(&myParticles[i], &data->partExt[j]);
       j++;
       }
   

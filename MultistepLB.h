@@ -28,6 +28,44 @@
 void CreateMultistepLB();
 BaseLB * AllocateMultistepLB();
 
+//**************************************
+// ORB3DLB functions
+//**************************************
+static int comparx(const void *a, const void *b){
+  const TPObject *ta = reinterpret_cast<const TPObject*>(a);
+  const TPObject *tb = reinterpret_cast<const TPObject*>(b);
+  return ta->centroid.x < tb->centroid.x ? -1 : ta->centroid.x > tb->centroid.x ? 1 : 0;
+}
+static int compary(const void *a, const void *b){
+  const TPObject *ta = reinterpret_cast<const TPObject*>(a);
+  const TPObject *tb = reinterpret_cast<const TPObject*>(b);
+  return ta->centroid.y < tb->centroid.y ? -1 : ta->centroid.y > tb->centroid.y ? 1 : 0;
+}
+static int comparz(const void *a, const void *b){
+  const TPObject *ta = reinterpret_cast<const TPObject*>(a);
+  const TPObject *tb = reinterpret_cast<const TPObject*>(b);
+  return ta->centroid.z < tb->centroid.z ? -1 : ta->centroid.z > tb->centroid.z ? 1 : 0;
+}
+
+static int pcx(const void *a, const void *b){
+  const Node *ta = reinterpret_cast<const Node*>(a);
+  const Node *tb = reinterpret_cast<const Node*>(b);
+  return ta->x < tb->x ? -1 : ta->x > tb->x ? 1 : 0;
+}
+static int pcy(const void *a, const void *b){
+  const Node *ta = reinterpret_cast<const Node*>(a);
+  const Node *tb = reinterpret_cast<const Node*>(b);
+  return ta->y < tb->y ? -1 : ta->y > tb->y ? 1 : 0;
+}
+static int pcz(const void *a, const void *b){
+  const Node *ta = reinterpret_cast<const Node*>(a);
+  const Node *tb = reinterpret_cast<const Node*>(b);
+  return ta->z < tb->z ? -1 : ta->z > tb->z ? 1 : 0;
+}
+//**************************************
+
+
+
 class WeightObject{
   public:
 
@@ -45,6 +83,15 @@ class WeightObject{
 };
 
 
+class LightweightLDStats {
+  public:
+  int n_objs;
+  int n_migrateobjs;
+  CkVec<LDObjData> objData;
+
+  void pup(PUP::er &p);
+};
+
 
 class MultistepLB : public CentralLB {
 private:
@@ -60,7 +107,7 @@ private:
 
   int procsPerNode;
 
-  CkVec<BaseLB::LDStats> savedPhaseStats;       // stats saved from previous phases
+  CkVec<LightweightLDStats> savedPhaseStats;       // stats saved from previous phases
   
   CmiBool QueryBalanceNow(int step);
   //int prevPhase;
@@ -72,8 +119,19 @@ private:
   void printData(BaseLB::LDStats &stats, int phase, int *revObjMap);
 public:
   MultistepLB(const CkLBOptions &);
-  MultistepLB(CkMigrateMessage *m):CentralLB(m) { lbname = "MultistepLB"; }
-  void work(BaseLB::LDStats* stats, int count);
+  MultistepLB(CkMigrateMessage *m):CentralLB(m) { 
+    lbname = "MultistepLB"; 
+    compares[0] = comparx;
+    compares[1] = compary;
+    compares[2] = comparz;
+
+    pc[0] = pcx;
+    pc[1] = pcy;
+    pc[2] = pcz;
+
+  }
+    
+  void work(BaseLB::LDStats* stats);
   void receiveCentroids(CkReductionMsg *msg);
   //ScaleTranMapBG map;
 
@@ -141,6 +199,8 @@ public:
   int nextDim(int dim, int xs, int ys, int zs);
   TPObject *partitionEvenLoad(TPObject *tp, int &ntp);
   Node *halveNodes(Node *start, int np);
+
+  void pup(PUP::er &p);
 };
 
 #endif /* _MultistepLB */

@@ -143,7 +143,9 @@ class Node {
   public:
   int x, y, z;
   CkVec<int> procRanks;
+#ifdef PRINT_BOUNDING_BOXES
   OrientedBox<float> box;
+#endif
 };
 
 typedef int (*ComparatorFn) (const void *, const void *);
