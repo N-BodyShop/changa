@@ -669,14 +669,14 @@ TPObject *MultistepLB::partitionEvenLoad(TPObject *tp, int &ntp){
 
     //CkPrintf("consider load %f newdiff %f prevdiff %f\n", tp[consider].load, newdiff, prevDiff);
 
-    if(newdiff < prevDiff){
+    if(newdiff > prevDiff){
+      break;
+    }
+    else{
       consider++;
       lload = newll;
       rload = newrl;
       prevDiff = newdiff;
-    }
-    else{
-      break;
     }
   }
 
