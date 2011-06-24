@@ -5938,6 +5938,7 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   LDObjHandle handle = myRec->getLdHandle();
   LBDatabase *lbdb = LBDatabaseObj();
   int nlbs = lbdb->getNLoadBalancers(); 
+
   if(nlbs == 0) { // no load balancers.  Skip this
       contribute(cb);
       return;

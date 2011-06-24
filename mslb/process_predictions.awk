@@ -1,6 +1,4 @@
 BEGIN{
-  processingActual = 0
-  processingPredicted = 0
   actual = -1
   max_tp = -1
   max_phase = -1
@@ -60,19 +58,19 @@ function assert(condition, string)
 }
 
 END{
-  for(i=0; i < max_tp; i++){
-    for(j=0; j < max_phase; j++){ 
+  for(i=0; i <= max_tp; i++){
+    for(j=0; j <= max_phase; j++){ 
       pred_load = tp_loads[i,j,0]
       actual_load = tp_loads[i,j,1]
 
-      #print " tp " i " phase " j " predicted " pred_load " actual " actual_load
+      print " tp " i " phase " j " predicted " pred_load " actual " actual_load
       delta = (pred_load-actual_load)
       if(delta < 0){
         delta = -delta
       }
 
       if((actual_load > 0) && (delta/actual_load > err_tol)){
-        print "tp " i " phase " j " predicted " pred_load " actual " actual_load
+       # print "tp " i " phase " j " predicted " pred_load " actual " actual_load
       }
     }
   }

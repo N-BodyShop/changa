@@ -9,7 +9,7 @@
 extern CProxy_TreePiece treeProxy;
 using namespace std;
 
-CreateLBFunc_Def(MultistepLB, "Works best with multistepped runs; uses OrbSmooth for larger steps, RoundRobin otherwise");
+CreateLBFunc_Def(MultistepLB, "Works best with multistepped runs; uses Orb3D for larger steps, greedy otherwise");
 
 
 MultistepLB::MultistepLB(const CkLBOptions &opt): CentralLB(opt)
@@ -59,39 +59,15 @@ void MultistepLB::receiveCentroids(CkReductionMsg *msg){
   }
   haveTPCentroids = true;
   tpmsg = msg;
-  /*
-  map.tpCentroids.free();
-  
-  while(i < msg->getGcount()){
-     map.tpCentroids.push_back(*cur);
-     cur = cur + 1;
-     i++;
-  }
-  */
   treeProxy.doAtSync();
   if (_lb_args.debug()>=2) {
     CkPrintf("MultistepLB: receiveCentroids done\n");  
   }
-  //delete msg;
 }
 
-//jetley
 CmiBool MultistepLB::QueryBalanceNow(int step){
   if(step == 0){
-    /*
-    if(CkMyPe() == 0){                          // only one group member need broadcast
-      if (_lb_args.debug()>=2) {
-        CkPrintf("MultistepLB: Step 0, calling treeProxy.receiveProxy(thisgroup)\n");
-      }
-      treeProxy.receiveProxy(thisgroup);        // broadcast proxy to all treepieces
-    }
-    firstRound = true;
-    */
     return false; 
-  }
-  else if(step == 23){
-    CkExit();
-    return false;
   }
   if (_lb_args.debug()>=1) {
     if(CkMyPe() == 0){
@@ -133,6 +109,7 @@ void MultistepLB::mergeInstrumentedData(int phase, BaseLB::LDStats *stats){
     phase = 0;
   }
 
+  /*
   CkPrintf("**********************************************\n");
   CkPrintf("Actual object loads phase %d\n", phase);
   CkPrintf("**********************************************\n");
@@ -144,6 +121,7 @@ void MultistepLB::mergeInstrumentedData(int phase, BaseLB::LDStats *stats){
   CkPrintf("**********************************************\n");
   CkPrintf("Done actual object loads phase %d\n", phase);
   CkPrintf("**********************************************\n");
+  */
   
   len = savedPhaseStats.length();
   
@@ -226,7 +204,7 @@ void MultistepLB::makeActiveProcessorList(BaseLB::LDStats *stats, int numActiveO
 }
 #endif
 
-#define LARGE_PHASE_THRESHOLD 0.00
+#define LARGE_PHASE_THRESHOLD 0.10
 
 void MultistepLB::work(BaseLB::LDStats* stats)
 {
@@ -274,8 +252,8 @@ void MultistepLB::work(BaseLB::LDStats* stats)
 
     if(tpCentroids[i].numActiveParticles == 0){
       numInactiveObjects++;
-      if(stats->objData[tp].migratable){
-        stats->objData[tp].migratable = 0;
+      if(stats->objData[lb].migratable){
+        stats->objData[lb].migratable = 0;
 #ifdef MCLBMSV
         CkPrintf("marking object %d non-migratable (inactive)\n", tpCentroids[i].tag);
 #endif
@@ -302,7 +280,9 @@ void MultistepLB::work(BaseLB::LDStats* stats)
 #endif
     CkPrintf("phase %d data available\n", phase);
     for(int i = 0; i < stats->n_objs; i++){
-      stats->objData[i].wallTime = savedPhaseStats[phase].objData[i].wallTime;
+      int tp = tpCentroids[i].tp;
+      int lb = tpCentroids[i].tag;
+      stats->objData[lb].wallTime = savedPhaseStats[phase].objData[tp].wallTime;
     }
   }
   else if(havePhaseData(0)){
@@ -312,7 +292,9 @@ void MultistepLB::work(BaseLB::LDStats* stats)
     CkPrintf("phase %d data unavailable, using phase 0 loads\n", phase);
     //CkPrintf("using phase 0 loads\n", phase);
     for(int i = 0; i < stats->n_objs; i++){
-      stats->objData[i].wallTime = ratios[i]*savedPhaseStats[0].objData[i].wallTime;
+      int tp = tpCentroids[i].tp;
+      int lb = tpCentroids[i].tag;
+      stats->objData[lb].wallTime = ratios[tp]*savedPhaseStats[0].objData[tp].wallTime;
     }
   }
   else{
@@ -324,15 +306,19 @@ void MultistepLB::work(BaseLB::LDStats* stats)
     return;
   }
 
+  /*
   CkPrintf("**********************************************\n");
   CkPrintf("Object load predictions phase %d\n", phase);
   CkPrintf("**********************************************\n");
   for(int i = 0; i < stats->n_objs; i++){
-    CkPrintf("tp %d load %f\n",i,stats->objData[i].wallTime);
+      int tp = tpCentroids[i].tp;
+      int lb = tpCentroids[i].tag;
+    CkPrintf("tp %d load %f\n",tp,stats->objData[lb].wallTime);
   }
   CkPrintf("**********************************************\n");
   CkPrintf("Done object load predictions phase %d\n", prevPhase);
   CkPrintf("**********************************************\n");
+  */
 
   // select processors
 #ifdef MCLBMSV
@@ -345,8 +331,8 @@ void MultistepLB::work(BaseLB::LDStats* stats)
   delete []ratios;
 
   // let the strategy take over on this modified instrumented data and processor information
-  //if((float)numActiveParticles/totalNumParticles > LARGE_PHASE_THRESHOLD){
-  if(false){
+  if((float)numActiveParticles/totalNumParticles > LARGE_PHASE_THRESHOLD){
+  //if(true){
     if (_lb_args.debug()>=2) {
       CkPrintf("******** BIG STEP *********!\n");
     }
@@ -375,13 +361,13 @@ void MultistepLB::greedy(BaseLB::LDStats *stats, int count, int phase, int prevP
     int tp = tpCentroids[i].tag;
     int lb = tpCentroids[i].tag;
 
-    if(!stats->objData[tp].migratable) continue;
-    tp_array[j].migratable = stats->objData[tp].migratable;
+    if(!stats->objData[lb].migratable) continue;
+    tp_array[j].migratable = stats->objData[lb].migratable;
     if(step() == 0){
       tp_array[j].load = tpCentroids[i].myNumParticles; 
     }
     else{
-      tp_array[j].load = stats->objData[tp].wallTime;
+      tp_array[j].load = stats->objData[lb].wallTime;
     }
     tp_array[j].lbindex = lb;
     j++;
@@ -415,6 +401,7 @@ void MultistepLB::greedy(BaseLB::LDStats *stats, int count, int phase, int prevP
   }
 
   // diagnostics
+  /*
   CkPrintf("**********************************\n");
   CkPrintf("GREEDY CPU LOAD PREDICTIONS phase %d\n", phase);
   CkPrintf("**********************************\n");
@@ -423,6 +410,19 @@ void MultistepLB::greedy(BaseLB::LDStats *stats, int count, int phase, int prevP
     processors.pop();
     CkPrintf("proc %d load %f\n", p.t, p.load);
   }
+  */
+
+  CkPrintf("**********************************\n");
+  CkPrintf("GREEDY MEASURED CPU LOAD prev %d\n", prevPhase);
+  CkPrintf("**********************************\n");
+  for(int i = 0; i < stats->count; i++){
+    CkPrintf("[pestats] %d %g %g\n", 
+                               i,
+                               stats->procs[i].total_walltime,
+                               stats->procs[i].idletime);
+  }
+
+
 
   delete []tp_array;
 }
@@ -451,7 +451,7 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count, int phase, int prevPh
     int tp = tpCentroids[i].tp;
     int lb = tpCentroids[i].tag;
 
-    if(!stats->objData[tp].migratable) continue;
+    if(!stats->objData[lb].migratable) continue;
     tp_array[j].centroid.x = tpCentroids[i].vec.x;
     tp_array[j].centroid.y = tpCentroids[i].vec.y;
     tp_array[j].centroid.z = tpCentroids[i].vec.z;
@@ -460,7 +460,7 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count, int phase, int prevPh
       tp_array[j].load = tpCentroids[i].myNumParticles;
     }
     else{
-      tp_array[j].load = stats->objData[tp].wallTime;
+      tp_array[j].load = stats->objData[lb].wallTime;
     }
     tp_array[j].lbindex = lb;
     j++;
@@ -515,15 +515,6 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count, int phase, int prevPh
   }
 
   /*
-  for(int i = 0; i < numobjs; i++){
-    int tp = tpCentroids[i].tp;
-    int lb = tpCentroids[i].tag;
-
-    objload[stats->to_proc[lb]] += stats->objData[tp].wallTime;
-    if(stats->to_proc[lb] != stats->from_proc[lb]) migr++;
-  }
-  */
-  
   CkPrintf("******************************\n");
   CkPrintf("CPU LOAD PREDICTIONS phase %d\n", phase);
   CkPrintf("******************************\n");
@@ -532,6 +523,7 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count, int phase, int prevPh
                                i,
                                objload[i]);
   }
+  */
 
 
   CkPrintf("******************************\n");
@@ -541,7 +533,8 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count, int phase, int prevPh
     CkPrintf("[pestats] %d %g %g\n", 
                                i,
                                stats->procs[i].total_walltime,
-                               stats->procs[i].idletime); 
+                               stats->procs[i].idletime
+                               ); 
   }
 
 
@@ -653,39 +646,44 @@ int MultistepLB::nextDim(int dim_, int xs, int ys, int zs){
 #define LOAD_EQUAL_TOLERANCE 1.02
 
 TPObject *MultistepLB::partitionEvenLoad(TPObject *tp, int &ntp){
-  float partition1Load = 0.0;
   float totalLoad = 0.0;
   for(int i = 0; i < ntp; i++){
     totalLoad += tp[i].load;
   }
-  float halfLoad = 0.5*totalLoad;
-  //CkPrintf("partitionEvenLoad total load %f half load %f\n", totalLoad, halfLoad);
-  int split = -1;
+  float lload = 0.0;
+  float rload = totalLoad;
+  float prevDiff = lload-rload;
+  if(prevDiff < 0.0){
+    prevDiff = -prevDiff;
+  }
 
-  for(int i = 0; i < ntp; i++){
-    // if including this element in partition1 brings us closer
-    // to halfLoad, do it
-    //if((partition1Load+tp[i].load-halfLoad) < (halfLoad-partition1Load)){
-    if((partition1Load+tp[i].load <= halfLoad) ||
-       (partition1Load < halfLoad && partition1Load+tp[i].load > halfLoad)){
-      partition1Load += tp[i].load;
-      split++;
+  int consider;
+  for(consider = 0; consider < ntp;){
+    float newll = lload + tp[consider].load;
+    float newrl = rload - tp[consider].load;
+    
+    float newdiff = newll-newrl;
+    if(newdiff < 0.0){
+      newdiff = -newdiff;
+    }
+
+    //CkPrintf("consider load %f newdiff %f prevdiff %f\n", tp[consider].load, newdiff, prevDiff);
+
+    if(newdiff < prevDiff){
+      consider++;
+      lload = newll;
+      rload = newrl;
+      prevDiff = newdiff;
     }
     else{
       break;
     }
   }
 
-  //float lload = 0.0;
-  //for(int i = 0; i < split+1; i++){
-  //  lload += tp[i].load;
-  //}
-  //float rload = totalLoad-lload;
+  //CkPrintf("partitionEvenLoad lload %f rload %f\n", lload, rload);
 
-  //CkPrintf("partitionEvenLoad partition1Load %f lsplit %f rsplit %f\n", partition1Load, lload, rload);
-
-  ntp = split+1;
-  return (tp+split+1);
+  ntp = consider;
+  return (tp+consider);
 }
 
 Node *MultistepLB::halveNodes(Node *start, int np){
