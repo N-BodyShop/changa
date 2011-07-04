@@ -492,8 +492,8 @@ Main::Main(CkArgMsg* m) {
 	_yieldPeriod=5;
 	prmAddParam(prm, "nYield", paramInt, &_yieldPeriod,
 		    sizeof(int),"y", "Yield Period (default: 5)");
-	_cacheLineDepth=4;
-	prmAddParam(prm, "nCacheDepth", paramInt, &_cacheLineDepth,
+	param.cacheLineDepth=4;
+	prmAddParam(prm, "nCacheDepth", paramInt, &param.cacheLineDepth,
 		    sizeof(int),"d", "Cache Line Depth (default: 4)");
 	_prefetch=true;
 	prmAddParam(prm, "bPrefetch", paramBool, &_prefetch,
@@ -588,6 +588,7 @@ Main::Main(CkArgMsg* m) {
 	theta = param.dTheta;
         thetaMono = theta*theta*theta*theta;
 	dExtraStore = param.dExtraStore;
+	_cacheLineDepth = param.cacheLineDepth;
 	if(prmSpecified(prm, "bCannonical")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bCannonical parameter ignored; integration is always cannonical"
@@ -1619,6 +1620,8 @@ Main::restart()
 		    "<Maximum Wallclock time (in minutes) to run> = 0 = infinite");
 	prmAddParam(prm, "nBucket", paramInt, &bucketSize,
 		    sizeof(int),"b", "Particles per Bucket (default: 12)");
+	prmAddParam(prm, "nCacheDepth", paramInt, &param.cacheLineDepth,
+		    sizeof(int),"d", "Cache Line Depth (default: 4)");
 	prmAddParam(prm, "iOutInterval", paramInt, &param.iOutInterval,
 		    sizeof(int),"oi", "Output Interval");
 	prmAddParam(prm, "iCheckInterval", paramInt, &param.iCheckInterval,
