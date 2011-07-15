@@ -96,6 +96,7 @@ typedef struct parameters {
     int iCheckInterval;
     int iLogInterval;
     int bDoIOrderOutput;
+    int cacheLineDepth;
     double dExtraStore;
     double dDumpFrameStep;
     double dDumpFrameTime;
@@ -187,6 +188,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.iCheckInterval;
     p|param.iLogInterval;
     p|param.bDoIOrderOutput;
+    p|param.cacheLineDepth;
     p|param.dExtraStore;
     p|param.dDumpFrameStep;
     p|param.dDumpFrameTime;
