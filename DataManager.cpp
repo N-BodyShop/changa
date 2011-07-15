@@ -377,6 +377,7 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
     _cacheLineDepth = param.cacheLineDepth;
     dExtraStore = param.dExtraStore;
     contribute(cb);
+    delete param.stfm;
     }
   
 	 
