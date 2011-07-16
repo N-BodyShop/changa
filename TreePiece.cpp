@@ -5031,16 +5031,6 @@ void TreePiece::pup(PUP::er& p) {
   p | boundingBox;
   p | iterationNo;
 
-  //PUP components for ORB decomposition
-  p | chunkRootLevel;
-  if(p.isUnpacking()){
-    boxes = new OrientedBox<float>[chunkRootLevel+1];
-    splitDims = new char[chunkRootLevel+1];
-  }
-  for(unsigned int i=0;i<chunkRootLevel;i++){
-    p | boxes[i];
-    p | splitDims[i];
-  }
   p | nSetupWriteStage;
 
   // Periodic variables
@@ -5080,13 +5070,11 @@ void TreePiece::pup(PUP::er& p) {
     case SFC_peano_dec_3D:
     case SFC_peano_dec_2D:
       numPrefetchReq = 2;
-      prefetchReq = new OrientedBox<double>[2];
       break;
     case Oct_dec:
     case ORB_dec:
     case ORB_space_dec:
       numPrefetchReq = 1;
-      prefetchReq = new OrientedBox<double>[1];
       break;
     default:
       CmiAbort("Pupper has wrong domain decomposition type!\n");

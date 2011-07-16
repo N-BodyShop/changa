@@ -956,7 +956,7 @@ private:
 	/// Array of keys that will be the root of the prefetching chunks
 	Tree::NodeKey *prefetchRoots;
 	/// Placeholder for particles used for prefetching
-	OrientedBox<double> *prefetchReq;
+	OrientedBox<double> prefetchReq[2];
 	unsigned int numPrefetchReq;
 	/// number of particles/buckets still remaining to compute for the chunk
 	//int *remaining Chunk;
@@ -1200,8 +1200,6 @@ public:
 	  numChunks=-1;
 	  prefetchRoots = NULL;
 	  numPrefetchReq = 0;
-	  prefetchReq = NULL;
-	  //remaining Chunk = NULL;
 	  ewt = NULL;
 	  nMaxEwhLoop = 100;
 
@@ -1269,13 +1267,9 @@ public:
 	  delete[] myParticles;
 	  if(nStoreSPH > 0) delete[] mySPHParticles;
 	  if(nStoreStar > 0) delete[] myStarParticles;
-	  //delete[] splitters;
-	  //delete[] prefetchRoots;
-	  //delete[] remaining Chunk;
 	  delete[] nodeInterRemote;
 	  delete[] particleInterRemote;
 	  delete[] bucketReqs;
-	  delete[] prefetchReq;
           delete[] ewt;
 
 	  // recursively delete the entire tree
@@ -1283,8 +1277,8 @@ public:
 	    root->fullyDelete();
 	    delete root;
 	  }
-	  delete[] boxes;
-	  delete[] splitDims;
+	  if(boxes!= NULL ) delete[] boxes;
+	  if(splitDims != NULL) delete[] splitDims;
 
 #ifndef COOLING_NONE
 	  if(bGasCooling)
