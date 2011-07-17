@@ -96,7 +96,7 @@ if test "${MISSING_GSL}" = "yes" ; then
 	   fi
    done
    if test "${MISSING_GSL}" = "yes" ; then
-	echo GSL (GNU Scientific Libary) is missing for cooling code
+	echo "GSL (GNU Scientific Libary) is missing for cooling code"
 	exit
    fi
 fi
