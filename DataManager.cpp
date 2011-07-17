@@ -190,11 +190,10 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
 #endif
     Tree::GenericTreeNode **gtn = registeredChares.getVec();
     // delete old tree
-    Tree::NodeLookupType::iterator nodeIter;
-    for (nodeIter = nodeLookupTable.begin(); nodeIter != nodeLookupTable.end(); nodeIter++) {
-      delete nodeIter->second;
+    for (int i = 0; i < nodeTable.length(); i++) {
+      delete nodeTable[i];
     }
-    nodeLookupTable.clear();
+    nodeTable.clear();
 #ifdef CUDA
     cumNumReplicatedNodes = 0;
 #endif
@@ -293,7 +292,7 @@ Tree::GenericTreeNode *DataManager::buildProcessorTree(int n, Tree::GenericTreeN
 #if COSMO_DEBUG > 0
     (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(newNode->getKey(),63)<<" duplicating node"<<endl;
 #endif
-    nodeLookupTable[newNode->getKey()] = newNode;
+    nodeTable.push_back(newNode);
     Tree::GenericTreeNode **newgtn = new Tree::GenericTreeNode*[count];
     for (int child=0; child<gtn[0]->numChildren(); ++child) {
       for (int i=0, j=0; i<n; ++i) {

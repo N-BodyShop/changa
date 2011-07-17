@@ -124,8 +124,9 @@ protected:
 #endif
 	/// The root of the combined trees
 	Tree::GenericTreeNode * root;
-	/// The lookup table for nodes created by the DataManager to combine trees
-	Tree::NodeLookupType nodeLookupTable;
+	/// Table for nodes created by the DataManager to combine trees.
+	/// Kept track of here so we can delete them when done.
+	CkVec<GenericTreeNode *> nodeTable;
 
 	/// Number of chunks in which the tree was splitted during last combine operation
 	int oldNumChunks;
@@ -171,6 +172,11 @@ private:
 public:
 
 	~DataManager() {
+	    for (int i = 0; i < nodeTable.length(); i++) {
+      		delete nodeTable[i];
+    		}
+    	    nodeTable.clear();
+
 	    CoolFinalize(Cool);
 	    }
 
