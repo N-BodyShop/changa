@@ -2221,18 +2221,6 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
   }// else CkPrintf("[%d] still missing one child of %s\n",thisIndex,keyBits(parent->getKey(),63).c_str());
 }
 
-Vector3D<double> TreePiece::decodeOffset(int reqID)
-{
-    int offsetcode = reqID >> 22;
-    int x = (offsetcode & 0x7) - 3;
-    int y = ((offsetcode >> 3) & 0x7) - 3;
-    int z = ((offsetcode >> 6) & 0x7) - 3;
-
-    Vector3D<double> offset(x*fPeriod.x, y*fPeriod.y, z*fPeriod.z);
-
-    return offset;
-    }
-
 bool bIsReplica(int reqID)
 {
     int offsetcode = reqID >> 22;

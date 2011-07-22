@@ -1609,7 +1609,16 @@ public:
         // need this in TreeWalk
         GenericTreeNode *getRoot() {return root;}
         // need this in Compute
-	Vector3D<double> decodeOffset(int reqID);
+	inline Vector3D<double> decodeOffset(int reqID) {
+	    int offsetcode = reqID >> 22;
+	    int x = (offsetcode & 0x7) - 3;
+	    int y = ((offsetcode >> 3) & 0x7) - 3;
+	    int z = ((offsetcode >> 6) & 0x7) - 3;
+
+	    Vector3D<double> offset(x*fPeriod.x, y*fPeriod.y, z*fPeriod.z);
+
+	    return offset;
+	    }
 
         GenericTreeNode *nodeMissed(int reqID, int remoteIndex, Tree::NodeKey &key, int chunk, bool isPrefetch, int awi, void *source);
 
