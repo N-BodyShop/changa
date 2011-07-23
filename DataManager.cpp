@@ -842,6 +842,9 @@ void DataManager::transferParticleVarsBack(){
       buf = (VariablePartData *) malloc(savedNumTotalParticles*sizeof(VariablePartData));
 #endif
     }
+    else{
+      buf = NULL;
+    }
 
     data = new UpdateParticlesStruct;
     data->cb = new CkCallback(updateParticlesCallback, data);
@@ -948,11 +951,13 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
 void updateParticlesCallback(void *param, void *msg){  
   UpdateParticlesStruct *data = (UpdateParticlesStruct *)param;
   data->dm->updateParticles(data);
+  if(data->size > 0){
 #ifdef CUDA_USE_CUDAMALLOCHOST
-  freePinnedHostMemory(data->buf);
+    freePinnedHostMemory(data->buf);
 #else
-  free(data->buf);
+    free(data->buf);
 #endif
+  }
   delete (data->cb);
   delete data;
 }
