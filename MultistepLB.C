@@ -380,7 +380,7 @@ void MultistepLB::mergeInstrumentedData(int phase, BaseLB::LDStats *stats){
 
   // tune alpha as needed - this is the merge parameter
   double alpha = 0.0;
-  double savedCpu, savedWall;
+  double savedWall;
   
   if(phase == -1){
 #ifdef MCLBMSV
@@ -420,12 +420,8 @@ void MultistepLB::mergeInstrumentedData(int phase, BaseLB::LDStats *stats){
       CkPrintf("Found previous entry for phase %d - merging\n", phase);
 #endif
       for(i = 0; i < stats->n_objs; i++){
-        savedCpu =  savedPhaseStats[phase].objData[i].cpuTime;
         savedWall =  savedPhaseStats[phase].objData[i].wallTime;
-        
         savedPhaseStats[phase].objData[i]= stats->objData[i];
-        
-        savedPhaseStats[phase].objData[i].cpuTime = alpha*savedCpu + (1.0-alpha)*stats->objData[i].cpuTime;
         savedPhaseStats[phase].objData[i].wallTime = alpha*savedWall + (1.0-alpha)*stats->objData[i].wallTime;
         
       }
@@ -448,7 +444,7 @@ void MultistepLB::printData(BaseLB::LDStats &stats, int phase, int *revObjMap){
   
   CkPrintf("---- data (%d): %d objects ----\n", phase, stats.n_objs);
   for(i = 0; i < stats.n_objs; i++){
-     CkPrintf("%d: %g %g\n", i, stats.objData[i].cpuTime,
+     CkPrintf("%d: %g\n", i, 
 	       stats.objData[i].wallTime);
   }
   CkPrintf("---- end data (%d) ----\n", phase);
@@ -504,7 +500,10 @@ void MultistepLB::work(BaseLB::LDStats* stats)
   mergeInstrumentedData(prevPhase, stats); 
   
   for(i = 0; i < stats->n_objs; i++){
-    ratios[tpCentroids[i].tag] = tpCentroids[i].numActiveParticles/(float)tpCentroids[i].myNumParticles;
+    if(tpCentroids[i].myNumParticles != 0)
+    	ratios[tpCentroids[i].tag] = tpCentroids[i].numActiveParticles/(float)tpCentroids[i].myNumParticles;
+    else
+	ratios[tpCentroids[i].tag] = 1.0;
     numActiveParticles += tpCentroids[i].numActiveParticles;
     totalNumParticles += tpCentroids[i].myNumParticles;
     pCentroids[i] = &tpCentroids[i].vec;
@@ -533,7 +532,6 @@ void MultistepLB::work(BaseLB::LDStats* stats)
     CkPrintf("phase %d data available\n", phase);
 #endif
     for(i = 0; i < stats->n_objs; i++){
-      stats->objData[i].cpuTime = savedPhaseStats[phase].objData[i].cpuTime;
       stats->objData[i].wallTime = savedPhaseStats[phase].objData[i].wallTime;
     }
   }
@@ -543,7 +541,6 @@ void MultistepLB::work(BaseLB::LDStats* stats)
 #endif
     //CkPrintf("using phase 0 loads\n", phase);
     for(i = 0; i < stats->n_objs; i++){
-      stats->objData[i].cpuTime = ratios[i]*savedPhaseStats[0].objData[i].cpuTime;
       stats->objData[i].wallTime = ratios[i]*savedPhaseStats[0].objData[i].wallTime;
     }
   }
@@ -601,7 +598,7 @@ void MultistepLB::work(BaseLB::LDStats* stats)
     computeLoad[objIdx].v[XDIR] = pvec->x;
     computeLoad[objIdx].v[YDIR] = pvec->y;
     computeLoad[objIdx].v[ZDIR] = pvec->z;
-    computeLoad[objIdx].load = _lb_args.useCpuTime()?odata.cpuTime:odata.wallTime;
+    computeLoad[objIdx].load = odata.wallTime;
     computeLoad[objIdx].refno = 0;
     computeLoad[objIdx].partition = NULL;
     for (int k=XDIR; k<=ZDIR; k++) {
@@ -991,14 +988,12 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
   CkPrintf("***************************\n");
   CkPrintf("i pe wall cpu idle bg_wall bg_cpu objload\n");
   for(int i = 0; i < stats->count; i++){
-    CkPrintf("[pestats] %d %d %f %f %f %f %f %f\n", 
+    CkPrintf("[pestats] %d %d %f %f %f %f\n", 
                                i,
                                stats->procs[i].pe, 
                                stats->procs[i].total_walltime, 
-                               stats->procs[i].total_cputime, 
                                stats->procs[i].idletime,
                                stats->procs[i].bg_walltime,
-                               stats->procs[i].bg_cputime,
                                objload[i]);
   }
   CkPrintf("%d objects migrating\n", migr);
@@ -1155,7 +1150,7 @@ Node *MultistepLB::halveNodes(Node *start, int np){
 
 void MultistepLB::pup(PUP::er &p){
   CentralLB::pup(p);
-  if(p.isPacking()){
+  if(p.isPacking() && haveTPCentroids){
     // if checkpointing, no need to 
     // keep around the centroid message
     delete tpmsg;

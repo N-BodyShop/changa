@@ -72,6 +72,7 @@ void Stfm::CheckParams(PRM prm, Parameters &param)
 	if(!param.bGasCooling)
 	    CkError("Warning: You are not running a cooling EOS with starformation\n");
 	}
+    bGasCooling = param.bGasCooling;
     CkAssert((dStarEff > 0.0 && dStarEff < 1.0)
 	      || dInitStarMass > 0.0);
     if (dInitStarMass > 0) {
@@ -144,7 +145,9 @@ void Main::FormStars(double dTime, double dDelta)
                         CkCallbackResumeThread(), true);
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
     DensitySmoothParams pDen(TYPE_GAS, 0);
-    treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+    double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+    treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
+				   CkCallbackResumeThread());
     iPhase++;
 
     CkReductionMsg *msgCounts;
@@ -219,7 +222,8 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 
 */
 GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
-				double dDelta, double dCosmoFac) 
+				double dDelta,  // drift timestep
+				double dCosmoFac) 
 {
     double T;
     /*
@@ -227,8 +231,11 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
      */
     double tdyn = 1.0/sqrt(4.0*M_PI*p->fDensity/dCosmoFac);
 #ifndef COOLING_NONE
-    T = CoolCodeEnergyToTemperature(Cool, &p->CoolParticle(),
-				    p->u(), p->fMetals());
+    if(bGasCooling)
+    	T = CoolCodeEnergyToTemperature(Cool, &p->CoolParticle(),
+				    	p->u(), p->fMetals());
+    else
+	T = 0.0;
 #else
     T = 0.0;
 #endif
@@ -242,7 +249,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 	return NULL;
 
     double tform = tdyn;
-    double dTimeStarForm = max(dDelta, dDeltaStarForm);
+    double dTimeStarForm = (dDelta > dDeltaStarForm ? dDelta : dDeltaStarForm);
     double dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform);
 
     /*

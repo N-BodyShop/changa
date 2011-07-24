@@ -84,6 +84,7 @@ clDerivsData *CoolDerivsInit(COOL *cl)
     assert(Data != NULL);
     Data->IntegratorContext = StiffInit( EPSINTEG, 1, Data, clDerivs,
 					 clJacobn );
+    Data->RootFindContext = RootFindInit();
     Data->cl = cl;
     Data->Y_Total0 = (cl->Y_H+cl->Y_He)*.9999; /* neutral */
     Data->Y_Total1 = (cl->Y_eMAX+cl->Y_H+cl->Y_He)*1.0001; /* Full Ionization */
@@ -104,6 +105,7 @@ void CoolFinalize(COOL *cl )
 void CoolDerivsFinalize(clDerivsData *clData)
 {
     StiffFinalize(clData->IntegratorContext );
+    RootFindFinalize(clData->RootFindContext );
     free(clData);
     }
 
@@ -1089,7 +1091,7 @@ void clTempIteration( clDerivsData *d )
    TA = clTemperature( d->Y_Total1, d->E );
    if (TA > TB) { T=TA; TA=TB; TB=T; }
 
-   T = RootFind( clfTemp, d, TA, TB, EPSTEMP*TA ); 
+   T = RootFind(d->RootFindContext, clfTemp, d, TA, TB, EPSTEMP*TA ); 
  } 
  d->its++;
  clRates( d->cl, &d->Rate, T, d->rho );

@@ -214,14 +214,12 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
   CkPrintf("***************************\n");
   CkPrintf("i pe wall cpu idle bg_wall bg_cpu objload\n");
   for(int i = 0; i < stats->count; i++){
-    CkPrintf("[pestats] %d %d %f %f %f %f %f %f\n", 
+    CkPrintf("[pestats] %d %d %f %f %f %f\n", 
                                i,
                                stats->procs[i].pe, 
                                stats->procs[i].total_walltime, 
-                               stats->procs[i].total_cputime, 
                                stats->procs[i].idletime,
                                stats->procs[i].bg_walltime,
-                               stats->procs[i].bg_cputime,
                                objload[i]);
   }
   CkPrintf("%d objects migrating\n", migr);

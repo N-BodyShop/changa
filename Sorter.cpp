@@ -343,6 +343,7 @@ void Sorter::convertNodesToSplitters(){
       partKey <<= 1;
     }
     partKey &= ~mask;
+    if(partKey != 0) partKey--;
     splitters.push_back(partKey);
   }
   //Sort here to make sure that splitters go sorted to histogramming
@@ -376,7 +377,7 @@ Key * Sorter::convertNodesToSplittersRefine(int num, NodeKey* keys){
     }
     partKey &= ~mask >> shift;
     for (int j=0; j<=(1<<refineLevel); ++j) {
-      result[idx++] = (partKey+j) << shift;
+      result[idx++] = ((partKey+j) << shift) - 1;
     }
   }
   //Sort here to make sure that splitters go sorted to histogramming
@@ -562,7 +563,7 @@ bool Sorter::refineOctSplitting(int n, int *count) {
       splitters.insert(splitters.begin()+index+1, (1<<refineLevel)-1, key&(~mask >> shift));
       for (int j=1; j<(1<<refineLevel); ++j) {
         nodeKeys[index+j] += j;
-        splitters[index+j] = (splitters[index+j] + j) << shift;
+        splitters[index+j] = ((splitters[index+j] + j) << shift)-1;
       }
       binCounts[index] = count[i*(1<<refineLevel)];
       binCounts.insert(binCounts.begin()+index+1, &count[i*(1<<refineLevel)+1], &count[(i+1)*(1<<refineLevel)]);

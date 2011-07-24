@@ -10,6 +10,8 @@
 // Debug floating point problems
 // #include <fenv.h>
 
+#include "BaseLB.h"
+
 #include "Sorter.h"
 #include "ParallelGravity.h"
 #include "DataManager.h"
@@ -197,6 +199,9 @@ Main::Main(CkArgMsg* m) {
 	param.bDoDensity = 1;
 	prmAddParam(prm, "bDoDensity", paramBool, &param.bDoDensity,
 		    sizeof(int),"den", "Enable Density outputs");
+	param.bDoIOrderOutput = 0;
+	prmAddParam(prm,"bDoIOrderOutput",paramBool,&param.bDoIOrderOutput,
+		    sizeof(int), "iordout","enable/disable iOrder outputs = -iordout");
 	nSmooth = 32;
 	prmAddParam(prm, "nSmooth", paramInt, &nSmooth,
 		    sizeof(int),"nsm", "Number of neighbors for smooth");
@@ -495,8 +500,8 @@ Main::Main(CkArgMsg* m) {
 	_yieldPeriod=5;
 	prmAddParam(prm, "nYield", paramInt, &_yieldPeriod,
 		    sizeof(int),"y", "Yield Period (default: 5)");
-	_cacheLineDepth=4;
-	prmAddParam(prm, "nCacheDepth", paramInt, &_cacheLineDepth,
+	param.cacheLineDepth=4;
+	prmAddParam(prm, "nCacheDepth", paramInt, &param.cacheLineDepth,
 		    sizeof(int),"d", "Cache Line Depth (default: 4)");
 	_prefetch=true;
 	prmAddParam(prm, "bPrefetch", paramBool, &_prefetch,
@@ -555,7 +560,7 @@ Main::Main(CkArgMsg* m) {
 	    CkExit();
         }
 	
-	if(bVDetails)
+	if(bVDetails && !verbosity)
 	    verbosity = 1;
 	
 	if(prmSpecified(prm, "iMaxRung")) {
@@ -591,6 +596,7 @@ Main::Main(CkArgMsg* m) {
 	theta = param.dTheta;
         thetaMono = theta*theta*theta*theta;
 	dExtraStore = param.dExtraStore;
+	_cacheLineDepth = param.cacheLineDepth;
 	if(prmSpecified(prm, "bCannonical")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bCannonical parameter ignored; integration is always cannonical"
@@ -700,10 +706,6 @@ Main::Main(CkArgMsg* m) {
 	if(prmSpecified(prm, "bGeometric")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bGeometric parameter ignored." << endl;
-	    }
-	if(prmSpecified(prm, "dhMinOverSoft")) {
-	    ckerr << "WARNING: ";
-	    ckerr << "dhMinOverSoft parameter ignored." << endl;
 	    }
 	if (prmSpecified(prm,"bViscosityLimiter")) {
 	    if (!param.bViscosityLimiter) param.iViscosityLimiter=0;
@@ -854,6 +856,11 @@ Main::Main(CkArgMsg* m) {
 	cacheGravPart = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 	// Smooth particles
 	cacheSmoothPart = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+	if(param.bStarForm && !param.bDoGas) {
+	    ckerr << "WARNING: star formation set without enabling SPH" << endl;
+	    ckerr << "Enabling SPH" << endl;
+	    param.bDoGas = 1;
+	    }
 	// Nodes: we need the right number of phases to keep the
 	// nodes.
 	nPhases = 0;
@@ -944,7 +951,7 @@ void Main::getStartTime()
 			      << endl;
 			CkExit();
 			}
-		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta);
+		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta)+param.iStartStep;
 		    }
 		else if (!prmArgSpecified(prm,"dDelta") &&
 			 prmArgSpecified(prm,"nSteps")) {
@@ -978,7 +985,7 @@ void Main::getStartTime()
 			      << endl;
 			CkExit();
 			}
-		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta);
+		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta) + param.iStartStep;
 		    }
 		else if (!prmSpecified(prm,"dDelta") &&
 			 prmFileSpecified(prm,"nSteps")) {
@@ -1001,7 +1008,7 @@ void Main::getStartTime()
 		    }
 		}
 	    else {
-		tTo = dTime + param.nSteps*param.dDelta;
+		tTo = dTime + (param.nSteps-param.iStartStep)*param.dDelta;
 		aTo = csmTime2Exp(param.csm,tTo);
 		if (verbosity > 0)
 		    ckout << "Simulation to Time:" << tTo << " Redshift:"
@@ -1015,7 +1022,7 @@ void Main::getStartTime()
 	    dTime = treeProxy[0].ckLocal()->dStartTime; 
 	    if(verbosity > 0)
 		ckout << "Input file, Time:" << dTime << endl;
-	    double tTo = dTime + param.nSteps*param.dDelta;
+	    double tTo = dTime + (param.nSteps-param.iStartStep)*param.dDelta;
 	    if (verbosity > 0) {
 		ckout << "Simulation to Time:" << tTo << endl;
 		}
@@ -1152,12 +1159,12 @@ void Main::advanceBigStep(int iStep) {
       if(param.bDoGas) {
 	  double startTime = CkWallTimer();
 	  if(verbosity)
-	      CkPrintf("uDot update: ... ");
+	      CkPrintf("uDot update: Rung %d ... ", activeRung);
 	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
 	  if(param.bGasCooling)
 	      dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	  treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
-			       1, CkCallbackResumeThread());
+			       1, 1, CkCallbackResumeThread());
 	  if(verbosity)
 	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
@@ -1168,12 +1175,20 @@ void Main::advanceBigStep(int iStep) {
 	  memoryStats();
       // Dump frame may require a smaller step
       int driftRung = nextMaxRungIncDF(nextMaxRung);
+      // Get number of drift steps from driftRung
       int driftSteps = 1;
       while(driftRung > nextMaxRung) {
 	  driftRung--;
-	  driftSteps >>= 1;
+	  driftSteps <<= 1;
 	  }
       driftRung = nextMaxRungIncDF(nextMaxRung);
+      // uDot needs to be updated at a 1/2 drift step
+      int uDotRung = nextMaxRung + 1;
+      double dTimeuDot = RungToDt(param.dDelta, nextMaxRung + 1) ;
+      if(param.bDoGas && (driftRung == nextMaxRung)) {
+	  driftRung++;
+	  driftSteps <<=1;
+	  }
       
       double dTimeSub = RungToDt(param.dDelta, driftRung);
       // Drift of smallest step
@@ -1197,11 +1212,6 @@ void Main::advanceBigStep(int iStep) {
 	      // Advance time to end of smallest step
 	      dTime += dTimeSub;
 	      currentStep += RungToSubsteps(driftRung);
-	      /*
-	       * Form stars at user defined intervals
-	       */
-	      if(param.bStarForm && param.stfm->isStarFormRung(activeRung))
-		  FormStars(dTime, dTimeSub);
 	      /* 
 	       ** Dump Frame
 	       */
@@ -1210,6 +1220,21 @@ void Main::advanceBigStep(int iStep) {
 		  DumpFrame(dTime, dStep );
 	      else if(param.dDumpFrameStep > 0 && dStep >= df[0]->dStep) 
 		  DumpFrame(dTime, dStep );
+	      // Update uDot at the 1/2 way point.
+	      if(param.bDoGas && (iSub+1 == driftSteps >> 1)) {
+		  double startTime = CkWallTimer();
+		  if(verbosity)
+		      CkPrintf("uDot' update: Rung %d ... ", nextMaxRung);
+		  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
+		  if(param.bGasCooling)
+		      dMProxy.CoolingSetTime(z, dTime,
+					     CkCallbackResumeThread());
+		  treeProxy.updateuDot(nextMaxRung, duKick, dTime, z,
+				       param.bGasCooling, 0, 0,
+				       CkCallbackResumeThread());
+		  if(verbosity)
+		      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
+		  }
 	      }
     }
 
@@ -1222,29 +1247,11 @@ void Main::advanceBigStep(int iStep) {
       activeRung++;
       tmpRung <<= 1;
     }
-
-    if(verbosity)
-	memoryStats();
-    if(param.bDoGas) {
-	double duKick[MAXRUNG+1];
-    	double startTime = CkWallTimer();
-	for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
-	    double dTimeSub = RungToDt(param.dDelta, iRung);
-	    if(verbosity) {
-		CkPrintf(" Rung %d: %g\n", iRung, 0.5*dTimeSub);
-		}
-	    duKick[iRung] = 0.5*dTimeSub;
-	  }
-	if(verbosity)
-	    CkPrintf("uDot update: ... ");
-	double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
-	if(param.bGasCooling)
-	    dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
-	treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
-			     0, CkCallbackResumeThread());
-	if(verbosity)
-	    CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
-	}
+    /*
+     * Form stars at user defined intervals
+     */
+    if(param.bStarForm && param.stfm->isStarFormRung(activeRung))
+	FormStars(dTime, param.stfm->dDeltaStarForm);
 
     ckout << "Step: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
           << " Time: " << dTime
@@ -1390,14 +1397,32 @@ void Main::advanceBigStep(int iStep) {
                                            0.5*dTimeSub);
       }
       if(param.bDoGas) {
+	  double startTime = CkWallTimer();
+	  if(verbosity)
+	      CkPrintf("uDot update: Rung %d ... ", activeRung);
 	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
 	  if(param.bGasCooling)
 	      dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	  treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
-			       1, CkCallbackResumeThread());
+			       1, 1, CkCallbackResumeThread());
+	  if(verbosity)
+	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
       treeProxy.kick(activeRung, dKickFac, 1, param.bDoGas,
 		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
+      // 1/2 step uDot update
+      if(activeRung > 0 && param.bDoGas) {
+	  double startTime = CkWallTimer();
+	  if(verbosity)
+	      CkPrintf("uDot' update: Rung %d ... ", activeRung-1);
+	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
+	  duKick[activeRung-1] = 0.5*RungToDt(param.dDelta, activeRung-1);
+	  treeProxy.updateuDot(activeRung-1, duKick, dTime, z,
+			       param.bGasCooling, 0, 0,
+			       CkCallbackResumeThread());
+	  if(verbosity)
+	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
+	  }
     }
 		
   }
@@ -1414,9 +1439,6 @@ void Main::advanceBigStep(int iStep) {
 
 void Main::setupICs() {
   double startTime;
-
-  // DEBUGGING
-  //CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
 
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic);
@@ -1484,6 +1506,9 @@ void Main::setupICs() {
   char achLogFileName[MAXPATHLEN];
   sprintf(achLogFileName, "%s.log", param.achOutName);
   ofstream ofsLog(achLogFileName, ios_base::trunc);
+  if(!ofsLog)
+      CkAbort("Error opening log file.");
+      
   ofsLog << "# Starting ChaNGa version 2.00" << endl;
   ofsLog << "#";		// Output command line
   for (int i = 0; i < args->argc; i++)
@@ -1515,6 +1540,23 @@ void Main::setupICs() {
   ofsLog << " INTERLIST_VER:" << INTERLIST_VER;
 #endif
   ofsLog << endl;
+
+  // Print out load balance information
+  LBDatabase *lbdb = LBDatabaseObj();
+  int nlbs = lbdb->getNLoadBalancers(); 
+  if(nlbs == 0) {
+      ofsLog << "# No load balancer in use" << endl;
+      }
+  else {
+      int ilb;
+      BaseLB **lbs = lbdb->getLoadBalancers();
+      ofsLog << "# Load balancers:";
+      for(ilb = 0; ilb < nlbs; ilb++){
+	  ofsLog << " " << lbs[ilb]->lbName();
+	  }
+      ofsLog << endl;
+      }
+  
   ofsLog.close();
 	
   prmLogParam(prm, achLogFileName);
@@ -1537,6 +1579,8 @@ void Main::setupICs() {
     }
   ofsLog << endl;
   ofsLog.close();
+  if(!ofsLog)
+      CkAbort("Error closing log file");
 
   if(prmSpecified(prm,"dSoft")) {
     ckout << "Set Softening...\n";
@@ -1613,6 +1657,8 @@ Main::restart()
 		    "<Maximum Wallclock time (in minutes) to run> = 0 = infinite");
 	prmAddParam(prm, "nBucket", paramInt, &bucketSize,
 		    sizeof(int),"b", "Particles per Bucket (default: 12)");
+	prmAddParam(prm, "nCacheDepth", paramInt, &param.cacheLineDepth,
+		    sizeof(int),"d", "Cache Line Depth (default: 4)");
 	prmAddParam(prm, "iOutInterval", paramInt, &param.iOutInterval,
 		    sizeof(int),"oi", "Output Interval");
 	prmAddParam(prm, "iCheckInterval", paramInt, &param.iCheckInterval,
@@ -1664,6 +1710,9 @@ Main::initialForces()
   double startTime;
   double tolerance = 0.01;	// tolerance for domain decomposition
 
+  // DEBUGGING
+  // CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
+
   /***** Initial sorting of particles and Domain Decomposition *****/
   ckout << "Initial domain decomposition ...";
   startTime = CkWallTimer();
@@ -1673,7 +1722,12 @@ Main::initialForces()
         << endl;
   
   // Balance load initially after decomposition
+  ckout << "Initial load balancing ..." << endl;
+  LBSetPeriod(0.0); // no need for LB interval: we are using Sync Mode
+  startTime = CkWallTimer();
   treeProxy.balanceBeforeInitialForces(CkCallbackResumeThread());
+  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+        << endl;
 
   /******** Tree Build *******/
   ckout << "Building trees ...";
@@ -1895,7 +1949,9 @@ Main::doSimulation()
 	  ckout << "Calculating total densities ...";
 	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	  startTime = CkWallTimer();
-	  treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+	  double dfBall2OverSoft2 = 0.0;
+	  treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
+					 CkCallbackResumeThread());
 	  iPhase++;
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
@@ -1988,7 +2044,9 @@ Main::doSimulation()
 	  ckout << "Calculating total densities ...";
 	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	  startTime = CkWallTimer();
-	  treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+	  double dfBall2OverSoft2 = 0.0;
+	  treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
+					 CkCallbackResumeThread());
 	  iPhase++;
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
@@ -2149,6 +2207,11 @@ void Main::writeOutput(int iStep)
       treeProxy[0].outputASCII(pCool2Out, param.bParaWrite,
 			       CkCallbackResumeThread());
 #endif
+      if(param.bDoIOrderOutput) {
+	  treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
+					 CkCallbackResumeThread());
+	  }
+      
     if(param.nSteps != 0 && param.bDoDensity) {
 	double tolerance = 0.01;	// tolerance for domain decomposition
 	// The following call is to get the particles in key order
@@ -2162,7 +2225,9 @@ void Main::writeOutput(int iStep)
 	ckout << "Calculating total densities ...";
 	DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	startTime = CkWallTimer();
-	treeProxy.startIterationSmooth(&pDen, CkCallbackResumeThread());
+	double dfBall2OverSoft2 = 0.0;
+	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
+				       CkCallbackResumeThread());
 	iPhase++;
 	if(iPhase < nPhases)
 	    treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
@@ -2407,26 +2472,26 @@ void Main::addDelParticles()
 	CkPrintf("Changing Particle number\n");
 	
     treeProxy.colNParts(CkCallbackResumeThread((void*&)msg));
-    // a set of one element per treepiece
-    CkReduction::setElement *cur = (CkReduction::setElement *) msg->getData();
+    // an array of one element per treepiece produced by CkReduction::concat
+    // @TODO: replace this with a proper scan
+    CountSetPart *counts = (CountSetPart *) msg->getData();
+    CkAssert(msg->getSize() == numTreePieces*sizeof(*counts));
 
     // Callback for neworder
     CkCallbackResumeThread cb;
 
-    while(cur != NULL) {
-	CountSetPart *counts = (CountSetPart *)cur->data;
-	
-	treeProxy[counts->index].newOrder(nMaxOrderGas+1, nMaxOrderDark+1,
-					  nMaxOrder+1, cb);
+    int iPiece = 0;
+    for(iPiece = 0; iPiece < numTreePieces; iPiece++) {
+	treeProxy[counts[iPiece].index].newOrder(nMaxOrderGas+1,
+						 nMaxOrderDark+1,
+						 nMaxOrder+1, cb);
 
-	nMaxOrderGas += counts->nAddGas;
-	nMaxOrderDark += counts->nAddDark;
-	nMaxOrder += counts->nAddStar;
-	nTotalSPH += counts->nAddGas - counts->nDelGas;
-	nTotalDark += counts->nAddDark - counts->nDelDark;
-	nTotalStar += counts->nAddStar - counts->nDelStar;
-	
-	cur = cur->next();
+	nMaxOrderGas += counts[iPiece].nAddGas;
+	nMaxOrderDark += counts[iPiece].nAddDark;
+	nMaxOrder += counts[iPiece].nAddStar;
+	nTotalSPH += counts[iPiece].nAddGas - counts[iPiece].nDelGas;
+	nTotalDark += counts[iPiece].nAddDark - counts[iPiece].nDelDark;
+	nTotalStar += counts[iPiece].nAddStar - counts[iPiece].nDelStar;
 	}
     nTotalParticles = nTotalSPH + nTotalDark + nTotalStar;
     delete msg;

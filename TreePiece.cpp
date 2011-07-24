@@ -101,7 +101,7 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 
 	boundingBox = *static_cast<OrientedBox<float> *>(m->getData());
 	delete m;
-	if(thisIndex == 0 && verbosity)
+	if(thisIndex == 0 && verbosity > 1)
 		ckout << "TreePiece: Bounding box originally: "
 		     << boundingBox << endl;
 	//give particles keys, using bounding box to scale
@@ -117,7 +117,7 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 	      Vector3D<float> bcenter = boundingBox.center();
 	      bsize = Vector3D<float>(0.5*max);
 	      boundingBox = OrientedBox<float>(bcenter-bsize, bcenter+bsize);
-	      if(thisIndex == 0 && verbosity)
+	      if(thisIndex == 0 && verbosity > 1)
 		      ckout << "TreePiece: Bounding box now: "
 			   << boundingBox << endl;
 
@@ -288,7 +288,7 @@ void TreePiece::sendORBParticles(){
   myNumParticles = myExpectedCount;
 
   if(myExpectedCountSPH > (int) myNumSPH){
-    delete [] mySPHParticles;
+    if(nStoreSPH > 0) delete [] mySPHParticles;
     nStoreSPH = (int)(myExpectedCountSPH*(1.0 + dExtraStore));
     mySPHParticles = new extraSPHData[nStoreSPH];
   }
@@ -648,8 +648,12 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     // Special case where no particle is assigned to this TreePiece
     if (myNumParticles > 0) delete[] myParticles;
     myNumParticles = 0;
-    if (myNumSPH > 0) delete[] mySPHParticles;
+    if (nStoreSPH > 0) delete[] mySPHParticles;
     myNumSPH = 0;
+    nStoreSPH = 0;
+    if (nStoreStar > 0) delete[] myStarParticles;
+    myNumStar = 0;
+    nStoreStar = 0;
     incomingParticlesSelf = false;
     incomingParticlesMsg.clear();
     if(verbosity>1) ckout << thisIndex <<" no particles assigned"<<endl;
@@ -695,12 +699,12 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 	  nSPH += incomingParticlesMsg[iMsg]->nSPH;
 	  nStar += incomingParticlesMsg[iMsg]->nStar;
 	  }
-      if (myNumSPH > 0) delete[] mySPHParticles;
+      if (nStoreSPH > 0) delete[] mySPHParticles;
       myNumSPH = nSPH;
       nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
-      mySPHParticles = new extraSPHData[nStoreSPH];
+      if(nStoreSPH > 0) mySPHParticles = new extraSPHData[nStoreSPH];
 
-      if (myNumStar > 0) delete[] myStarParticles;
+      if (nStoreStar > 0) delete[] myStarParticles;
       myNumStar = nStar;
       nStoreStar = (int)(myNumStar*(1.0 + dExtraStore));
       nStoreStar += 12;  // In case we start with 0
@@ -1006,8 +1010,15 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 #ifndef COOLING_NONE
 	      p->uPred() += p->uDot()*duDelta;
 	      if (p->uPred() < 0) {
+		  // Backout the update to upred
 		  double uold = p->uPred() - p->uDot()*duDelta;
-		  p->uPred() = uold*exp(p->uDot()*duDelta/uold);
+		  // uold could be negative because of round-off
+		  // error.  If this is the case then uDot*Delta/u is
+		  // large, the final uPred will be zero.
+		  if(uold <= 0.0) p->uPred() = 0.0;
+		  // Cooling rate is large: use an exponential decay
+		  // of timescale u/uDot.
+		  else p->uPred() = uold*exp(p->uDot()*duDelta/uold);
 		  }
 #else
 	      p->uPred() += p->PdV()*duDelta;
@@ -1016,6 +1027,7 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 		  p->uPred() = uold*exp(p->PdV()*duDelta/uold);
 		  }
 #endif
+	      CkAssert(p->uPred() > 0.0);
 	      }
 	  }
       }
@@ -1107,7 +1119,7 @@ void TreePiece::colNParts(const CkCallback &cb)
 	myParticles[j] = myParticles[i];
 
     myNumParticles = newNPart;
-    contribute(sizeof(counts), &counts, CkReduction::set, cb);
+    contribute(sizeof(counts), &counts, CkReduction::concat, cb);
     }
 
 /**
@@ -2022,8 +2034,9 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
       }
     } else if (child->getType() == Internal
               && (child->lastParticle - child->firstParticle < maxBucketSize
-                  || level > 61)) {
-       if(level > 61)
+                  || level >= 61)) {
+       if(level >= 61
+	  && child->lastParticle - child->firstParticle >= maxBucketSize)
            ckerr << "Truncated tree with "
                  << child->lastParticle - child->firstParticle
                  << " particle bucket" << endl;
@@ -2206,18 +2219,6 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
   }// else CkPrintf("[%d] still missing one child of %s\n",thisIndex,keyBits(parent->getKey(),63).c_str());
 }
 
-Vector3D<double> TreePiece::decodeOffset(int reqID)
-{
-    int offsetcode = reqID >> 22;
-    int x = (offsetcode & 0x7) - 3;
-    int y = ((offsetcode >> 3) & 0x7) - 3;
-    int z = ((offsetcode >> 6) & 0x7) - 3;
-
-    Vector3D<double> offset(x*fPeriod.x, y*fPeriod.y, z*fPeriod.z);
-
-    return offset;
-    }
-
 bool bIsReplica(int reqID)
 {
     int offsetcode = reqID >> 22;
@@ -2267,8 +2268,6 @@ void TreePiece::initBuckets() {
   for (unsigned int j=0; j<numBuckets; ++j) {
     GenericTreeNode* node = bucketList[j];
     int numParticlesInBucket = node->particleCount;
-
-    CkAssert(numParticlesInBucket <= maxBucketSize);
 
     // TODO: active bounds may give a performance boost in the
     // multi-timstep regime.
@@ -4965,7 +4964,7 @@ void TreePiece::pup(PUP::er& p) {
       nStore = (int)((myNumParticles + 2)*(1.0 + dExtraStore));
       myParticles = new GravityParticle[nStore];
       nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
-      mySPHParticles = new extraSPHData[nStoreSPH];
+      if(nStoreSPH > 0) mySPHParticles = new extraSPHData[nStoreSPH];
       nStoreStar = (int)(myNumStar*(1.0 + dExtraStore));
       nStoreStar += 12;  // In case we start with 0
       myStarParticles = new extraStarData[nStoreStar];
@@ -5009,21 +5008,6 @@ void TreePiece::pup(PUP::er& p) {
   p | basefilename;
   p | boundingBox;
   p | iterationNo;
-  if(p.isUnpacking()){
-    switch (useTree) {
-    case Binary_Oct:
-      root = new BinaryTreeNode(1, Tree::Boundary, 0, myNumParticles+1, 0);
-      break;
-    case Binary_ORB:
-      root = new BinaryTreeNode(1, Tree::Boundary, 0, myNumParticles+1, 0);
-      break;
-    case Oct_Oct:
-      //root = new OctTreeNode(1, Tree::Boundary, 0, myNumParticles+1, 0);
-      break;
-    default:
-      CkAbort("We should have never reached here!");
-    }
-  }
 
   //PUP components for ORB decomposition
   p | chunkRootLevel;
@@ -5089,18 +5073,14 @@ void TreePiece::pup(PUP::er& p) {
 
   p | myPlace;
 
+  p | bGasCooling;
   if(p.isUnpacking()){
     dm = NULL;
-  }
-
-  int notNull = (root==NULL)?0:1;
-  p | notNull;
-  if (notNull == 1) {
-    p | (*root);
-    if(p.isUnpacking()){
-      // reconstruct the nodeLookupTable and the bucketList
-      reconstructNodeLookup(root);
-    }
+#ifndef COOLING_NONE
+    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+    if(bGasCooling)
+	CoolData = CoolDerivsInit(dm->Cool);
+#endif
   }
 
   if (verbosity > 1) {
@@ -5122,33 +5102,6 @@ void TreePiece::reconstructNodeLookup(GenericTreeNode *node) {
     if (child != NULL) reconstructNodeLookup(child);
   }
 }
-
-/*
-void TreePiece::rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *count){
-  if(node == NULL){
-    return;
-  }
-  (*count)++;
-  node->parent = (GenericTreeNode *)parent;
-  for (unsigned int i=0; i<node->numChildren(); ++i) {
-    GenericTreeNode *child = nodeLookupTable[node->getChildKey(i)];
-    switch (useTree) {
-    case Binary_Oct:
-      ((BinaryTreeNode*)node)->children[i] = (BinaryTreeNode*)child;
-      break;
-    case Oct_Oct:
-      ((OctTreeNode*)node)->children[i] = (OctTreeNode*)child;
-      break;
-    default:
-      CkAbort("We should have never reached here!");
-    }
-    rebuildSFCTree(child,node,count);
-  }
-}
-bool compBucket(GenericTreeNode *ln,GenericTreeNode *rn){
-  return (ln->firstParticle < rn->firstParticle);
-}
-*/
 
 /** Check that all the particles in the tree are really in their boxes.
     Because the keys are made of only the first 21 out of 23 bits of the

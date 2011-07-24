@@ -195,7 +195,8 @@ typedef struct {
 
 
 struct clDerivsDataStruct {
-  void *IntegratorContext;
+  STIFF *IntegratorContext;
+  ROOTFIND *RootFindContext;
   COOL *cl;
   double rho,ExternalHeating,E,ZMetal;
   RATE Rate;

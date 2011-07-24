@@ -61,7 +61,8 @@ namespace Tree {
     NodeKey key;
     CmiUInt8 usedBy;
 
-    GenericTreeNode() : myType(Invalid), key(0), parent(0), firstParticle(0), lastParticle(0), remoteIndex(0), usedBy(0) {
+    GenericTreeNode() : myType(Invalid), key(0), parent(0), firstParticle(0),
+	lastParticle(0), remoteIndex(0), usedBy(0), iParticleTypes(0) {
 #if COSMO_STATS > 0
       used = false;
 #endif
@@ -126,7 +127,12 @@ namespace Tree {
     bool wasNeg;
 #endif
 #endif
-    //GenericTreeNode() : myType(Invalid), key(0), parent(0), beginParticle(0), endParticle(0), remoteIndex(0) { }
+    /// center of smoothActive particles during smooth operation
+    Vector3D<double> centerSm;
+    /// Radius of bounding sphere of smoothActive particles
+    double sizeSm;
+    /// Maximum smoothing radius of smoothActive particles
+    double fKeyMax;
 
     GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0), usedBy(0) {
 #if INTERLIST_VER > 0
@@ -258,6 +264,9 @@ namespace Tree {
       p | numBucketsBeneath;
       p | startBucket;
 #endif
+      p | centerSm;
+      p | sizeSm;
+      p | fKeyMax;
 #ifdef CHANGA_REFACTOR_WALKCHECK
       p | touched;
       p | by;
