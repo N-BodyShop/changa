@@ -109,6 +109,14 @@ void _Trailer(void) {
 int killAt;
 int cacheSize;
 
+///
+/// @brief Main routine to start simulation.
+///
+/// This routine parses the command line and file specified parameters,
+/// and allocates the charm structures.  The charm "readonly" variables
+/// are writable in this method, and are broadcast globally once this
+/// method exits.
+///
 Main::Main(CkArgMsg* m) {
 	args = m;
 	_cache = true;
@@ -503,8 +511,8 @@ Main::Main(CkArgMsg* m) {
 	_yieldPeriod=5;
 	prmAddParam(prm, "nYield", paramInt, &_yieldPeriod,
 		    sizeof(int),"y", "Yield Period (default: 5)");
-	_cacheLineDepth=4;
-	prmAddParam(prm, "nCacheDepth", paramInt, &_cacheLineDepth,
+	param.cacheLineDepth=4;
+	prmAddParam(prm, "nCacheDepth", paramInt, &param.cacheLineDepth,
 		    sizeof(int),"d", "Cache Line Depth (default: 4)");
 	_prefetch=true;
 	prmAddParam(prm, "bPrefetch", paramBool, &_prefetch,
@@ -599,6 +607,7 @@ Main::Main(CkArgMsg* m) {
 	theta = param.dTheta;
         thetaMono = theta*theta*theta*theta;
 	dExtraStore = param.dExtraStore;
+	_cacheLineDepth = param.cacheLineDepth;
 	if(prmSpecified(prm, "bCannonical")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bCannonical parameter ignored; integration is always cannonical"
@@ -900,6 +909,11 @@ Main::Main(CkArgMsg* m) {
 	CProxy_Main(thishandle).setupICs();
 }
 
+/// 
+/// @brief Restart Main constructor
+///
+/// This is only called when restarting from a checkpoint.
+///
 Main::Main(CkMigrateMessage* m) {
     args = (CkArgMsg *)malloc(sizeof(*args));
     args->argv = CmiCopyArgs(((CkArgMsg *) m)->argv);
@@ -910,6 +924,7 @@ Main::Main(CkMigrateMessage* m) {
     }
 
 
+/// @brief entry method to cleanly shutdown.  Only used for debugging.
 void Main::niceExit() {
   static unsigned int count = 0;
   if (++count == numTreePieces) CkExit();
@@ -948,7 +963,7 @@ void Main::getStartTime()
 			      << endl;
 			CkExit();
 			}
-		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta);
+		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta)+param.iStartStep;
 		    }
 		else if (!prmArgSpecified(prm,"dDelta") &&
 			 prmArgSpecified(prm,"nSteps")) {
@@ -982,7 +997,7 @@ void Main::getStartTime()
 			      << endl;
 			CkExit();
 			}
-		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta);
+		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta) + param.iStartStep;
 		    }
 		else if (!prmSpecified(prm,"dDelta") &&
 			 prmFileSpecified(prm,"nSteps")) {
@@ -1005,7 +1020,7 @@ void Main::getStartTime()
 		    }
 		}
 	    else {
-		tTo = dTime + param.nSteps*param.dDelta;
+		tTo = dTime + (param.nSteps-param.iStartStep)*param.dDelta;
 		aTo = csmTime2Exp(param.csm,tTo);
 		if (verbosity > 0)
 		    ckout << "Simulation to Time:" << tTo << " Redshift:"
@@ -1019,7 +1034,7 @@ void Main::getStartTime()
 	    dTime = treeProxy[0].ckLocal()->dStartTime; 
 	    if(verbosity > 0)
 		ckout << "Input file, Time:" << dTime << endl;
-	    double tTo = dTime + param.nSteps*param.dDelta;
+	    double tTo = dTime + (param.nSteps-param.iStartStep)*param.dDelta;
 	    if (verbosity > 0) {
 		ckout << "Simulation to Time:" << tTo << endl;
 		}
@@ -1107,6 +1122,15 @@ inline int Main::nextMaxRungIncDF(int nextMaxRung)
 	nextMaxRung = df[0]->iMaxRung;
     return nextMaxRung;
 }
+
+///
+/// @brief Take one base timestep of the simulation.
+/// @param iStep The current step number.
+///
+/// This method implements the standard "Kick Drift Kick" (Quinn et al
+/// 1997) hierarchical timestepping algorithm.  It assumes that the
+/// forces for the first opening kick have already been calculated.
+///
 
 void Main::advanceBigStep(int iStep) {
   int currentStep = 0; // the current timestep within the big step
@@ -1242,7 +1266,6 @@ void Main::advanceBigStep(int iStep) {
 	FormStars(dTime, param.stfm->dDeltaStarForm);
     if(param.bFeedback && param.stfm->isStarFormRung(activeRung)) 
 	StellarFeedback(dTime, param.stfm->dDeltaStarForm);
-
 
     ckout << "\nStep: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
           << " Time: " << dTime
@@ -1419,7 +1442,14 @@ void Main::advanceBigStep(int iStep) {
   }
 }
     
-// Load particles into pieces
+///
+/// @brief Load particles into pieces
+///
+/// Reads the particle data in from a file.  Since the full
+/// information about the run (including starting time) isn't known
+/// until the particles are loaded, this routine also completes the
+/// specification of the run details and writes out the log file
+/// entry.  In concludes by calling initialForces()
 
 void Main::setupICs() {
   double startTime;
@@ -1496,6 +1526,9 @@ void Main::setupICs() {
   char achLogFileName[MAXPATHLEN];
   sprintf(achLogFileName, "%s.log", param.achOutName);
   ofstream ofsLog(achLogFileName, ios_base::trunc);
+  if(!ofsLog)
+      CkAbort("Error opening log file.");
+      
   ofsLog << "# Starting ChaNGa version 2.00 UW" << endl;
   ofsLog << "#";		// Output command line
   for (int i = 0; i < args->argc; i++)
@@ -1566,6 +1599,8 @@ void Main::setupICs() {
     }
   ofsLog << endl;
   ofsLog.close();
+  if(!ofsLog)
+      CkAbort("Error closing log file");
 
   if(prmSpecified(prm,"dSoft")) {
     ckout << "Set Softening...\n";
@@ -1602,8 +1637,15 @@ int CheckForStop()
 	return 0;
 	}
 
-// Callback to restart simulation after a checkpoint or after writing
-// a checkpoint.
+/// @brief Callback to restart simulation after a checkpoint or after writing
+/// a checkpoint.
+///
+/// A restart looks like we've just finished writing a checkpoint.  We
+/// can tell the difference by the bIsRestarting flag set in the Main
+/// CkMigrate constructor.  In that case we do some simple parameter
+/// parsing and go to InitialForces.  Otherwise we return to the
+/// doSimulation() loop.
+
 void
 Main::restart() 
 {
@@ -1635,6 +1677,8 @@ Main::restart()
 		    "<Maximum Wallclock time (in minutes) to run> = 0 = infinite");
 	prmAddParam(prm, "nBucket", paramInt, &bucketSize,
 		    sizeof(int),"b", "Particles per Bucket (default: 12)");
+	prmAddParam(prm, "nCacheDepth", paramInt, &param.cacheLineDepth,
+		    sizeof(int),"d", "Cache Line Depth (default: 4)");
 	prmAddParam(prm, "iOutInterval", paramInt, &param.iOutInterval,
 		    sizeof(int),"oi", "Output Interval");
 	prmAddParam(prm, "iCheckInterval", paramInt, &param.iCheckInterval,
@@ -1665,8 +1709,8 @@ Main::restart()
 	}
     }
 
-// The restart callback needs to be an array entry, so we have a short
-// entry that simply calls the main entry.
+/// For checkpointing, the restart callback needs to be an array entry,
+/// so we have a short entry that simply calls the main entry.
 
 void
 TreePiece::restart() 
@@ -1674,6 +1718,12 @@ TreePiece::restart()
     mainChare.restart();
     }
 
+///
+/// @brief Initial calculation of forces.
+///
+/// This is called both when starting or restarting a run.  It
+/// concludes by calling doSimulation(), the main simulation loop.
+///
 void
 Main::initialForces()
 {
@@ -1828,8 +1878,14 @@ Main::initialForces()
   doSimulation();
 }
 
-// Principal method which does all the coordination of the simulation
-// over timesteps.
+///
+/// \brief Principal method which does all the coordination of the
+/// simulation over timesteps.
+///
+/// This routine calls advanceBigStep() for each step, logs
+/// statistics, determines if output is needed, and halts the
+/// simulation when done.
+///
 
 void
 Main::doSimulation()
@@ -1914,7 +1970,7 @@ Main::doSimulation()
 	  ckout << "Calculating total densities ...";
 	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	  startTime = CkWallTimer();
-	  double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+	  double dfBall2OverSoft2 = 0.0;
 	  treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
 					 CkCallbackResumeThread());
 	  iPhase++;
@@ -2009,7 +2065,7 @@ Main::doSimulation()
 	  ckout << "Calculating total densities ...";
 	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	  startTime = CkWallTimer();
-	  double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+	  double dfBall2OverSoft2 = 0.0;
 	  treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
 					 CkCallbackResumeThread());
 	  iPhase++;
@@ -2063,12 +2119,14 @@ Main::doSimulation()
   CkExit();
 }
 
-/**
- * Calculate various energy and momentum quantities, and output them
- * to a log file.
- */
+///
+/// \brief Calculate various energy and momentum quantities, and output them
+/// to a log file.
+///
 
-void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
+void
+Main::calcEnergy(double dTime, double wallTime, char *achLogFileName)
+{
     CkReductionMsg *msg;
     treeProxy.calcEnergy(CkCallbackResumeThread((void*&)msg));
     double *dEnergy = (double *) msg->getData();
@@ -2085,7 +2143,7 @@ void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
 	}
     else {
 	/*
-	 * Estimate integral (\dot a*U*dt) over the interval.
+	 * Estimate integral (\\dot a*U*dt) over the interval.
 	 * Note that this is equal to integral (W*da) and the latter
 	 * is more accurate when a is changing rapidly.
 	 */
@@ -2113,6 +2171,10 @@ void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
     
     delete msg;
 }
+
+///
+/// @brief Output a snapshot
+///
 
 void Main::writeOutput(int iStep) 
 {
@@ -2230,7 +2292,7 @@ void Main::writeOutput(int iStep)
 	ckout << "Calculating total densities ...";
 	DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	startTime = CkWallTimer();
-	double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+	double dfBall2OverSoft2 = 0.0;
 	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
 				       CkCallbackResumeThread());
 	iPhase++;
@@ -2254,6 +2316,15 @@ void Main::writeOutput(int iStep)
 	      << endl;
 	}
     }
+
+///
+/// @brief Calculate timesteps of particles.
+///
+/// Particles on the KickRung and shorter have their timesteps
+/// adjusted.
+///
+/// @param iKickRung Rung (and above) about to be kicked.
+///
 
 int Main::adjust(int iKickRung) 
 {
@@ -2300,6 +2371,12 @@ void Main::countActive(int activeRung)
     delete msg;
     }
 
+/**
+ * \brief Change the softening in comoving coordinates
+ *
+ * When compiled with -DCHANGESOFT, and bPhysicalSoft is set, the
+ * (comoving) softening is changed so that it is constant in physical units.
+ */
 void Main::updateSoft()
 {
 #ifdef CHANGESOFT
@@ -2453,7 +2530,7 @@ void Main::DumpFrame(double dTime, double dStep)
     }
 
 /**
- * Coalesce all added and deleted particles and update global
+ * \brief Coalesce all added and deleted particles and update global
  * quantities.
  */
 

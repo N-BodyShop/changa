@@ -121,6 +121,9 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
           buf->hostBuffer = malloc(size);
 #endif
         }
+        else{
+          buf->hostBuffer = NULL;
+        }
 
 #ifdef CUDA_PRINT_ERRORS
         printf("(%d) DMLocal 0: %s hostBuf: 0x%x, size: %d\n", mype, cudaGetErrorString( cudaGetLastError() ), buf->hostBuffer, size );
@@ -149,6 +152,9 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
           printf("(%d) DMLocal 1: %s\n", mype, cudaGetErrorString( cudaGetLastError() ) );
 #endif
           memcpy(buf->hostBuffer, compactParts, size);
+        }
+        else{
+          buf->hostBuffer = NULL;
         }
 
         VariablePartData *zeroArray;
@@ -181,6 +187,9 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
             zeroArray[i].a.z = 0.0;
             zeroArray[i].potential = 0.0;
           }
+        }
+        else{
+          buf->hostBuffer = NULL;
         }
 
 	transferKernel.callbackFn = 0;
@@ -872,7 +881,7 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, 
   buffer->transferToDevice = NO ;
   buffer->transferFromDevice = NO;
   buffer->freeBuffer = freemom ? YES : NO;
-  buffer->hostBuffer = 0;
+  buffer->hostBuffer = NULL;
   buffer->size = 0;
 
   buffer = &(gravityKernel.bufferInfo[LOCAL_PARTICLE_CORES_IDX]);
@@ -880,7 +889,7 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, 
   buffer->transferToDevice = NO ;
   buffer->transferFromDevice = NO;
   buffer->freeBuffer = freepart ? YES : NO;
-  buffer->hostBuffer = 0;
+  buffer->hostBuffer = NULL;
   buffer->size = 0;
 
 

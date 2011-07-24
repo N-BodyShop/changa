@@ -127,16 +127,21 @@ public:
   }
 };
 
+/**
+ * Collect and sort the boundaries of all treepieces so that they are
+ * available to each treepiece as they do their tree build.  The
+ * treebuild continues with a call to TreePiece::startOctTreeBuild.
+ */
 void DataManager::collectSplitters(CkReductionMsg *m) {
   numSplitters = m->getSize() / sizeof(SFC::Key);
   CkAssert(! (numSplitters&1)); // must be even
-//  numSplitters = 2 * numTreePieces;
   delete[] splitters;
   splitters = new SFC::Key[numSplitters];
   SFC::Key* splits = static_cast<SFC::Key *>(m->getData());
   std::copy(splits, splits + numSplitters, splitters);
+  // The splitters come in pairs (1st and last key of each treepiece).
+  // Sort them as pairs.
   KeyDouble* splitters2 = (KeyDouble *)splitters;
-  //sort(splitters, splitters + numSplitters);
   std::sort(splitters2, splitters2 + (numSplitters>>1));
   for (unsigned int i=1; i<numSplitters; ++i) {
     if (splitters[i] < splitters[i-1]) {
@@ -179,9 +184,14 @@ void DataManager::notifyPresence(Tree::GenericTreeNode *root) {
   CmiUnlock(__nodelock);
 }
 
+/// \brief Build a local tree inside the node.
+///
+/// This will be an exact superset of all the trees in this
+/// processor. Only the minimum number of nodes is duplicated.  The
+/// actual treebuilding is in a call to DataManager::buildProcessorTree.
+/// @param msg contains the callback for when we are done.
+///
 void DataManager::combineLocalTrees(CkReductionMsg *msg) {
-  // build a local tree inside the node. This will be an exact superset of all
-  // the trees in this processor. Only the minimum number of nodes is duplicated
   int totalChares = registeredChares.size();
   if (totalChares > 0) {
 #if COSMO_DEBUG > 0
@@ -243,6 +253,21 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
   delete msg;
 }
 
+/**
+ * \brief Build common tree for all pieces in a node.
+ *
+ * Given an array of pointers to an identical treenode in multiple
+ * treepieces, return a node whose decendents will contain the union
+ * of all those trees.  This is done recursively by calling this
+ * function on each of the children of the treenode.  The recursion
+ * stops if we hit an node that is totally contained in a single
+ * processor, or there is only one copy of the node, or we have a node
+ * that is non-local to all the treepieces.
+ *
+ * @param n number of nodes to process.
+ * @param gtn array of nodes to process.  This contains the pointers
+ * to the copies in each treepiece of an identical node.
+ */
 Tree::GenericTreeNode *DataManager::buildProcessorTree(int n, Tree::GenericTreeNode **gtn) {
   //CkAssert(n > 1); // the recursion should have stopped before!
   int pick = -1;
@@ -296,6 +321,7 @@ Tree::GenericTreeNode *DataManager::buildProcessorTree(int n, Tree::GenericTreeN
 #endif
     nodeLookupTable[newNode->getKey()] = newNode;
     Tree::GenericTreeNode **newgtn = new Tree::GenericTreeNode*[count];
+    // Recurse into common children.
     for (int child=0; child<gtn[0]->numChildren(); ++child) {
       for (int i=0, j=0; i<n; ++i) {
         if (gtn[i]->getType() == Tree::Boundary) newgtn[j++]=gtn[i]->getChildren(child);
@@ -315,6 +341,7 @@ Tree::GenericTreeNode *DataManager::buildProcessorTree(int n, Tree::GenericTreeN
   }
 }
 
+/// \brief Fill in chunkRootTable, mapping keys to nodes.
 int DataManager::createLookupRoots(Tree::GenericTreeNode *node, Tree::NodeKey *keys) {
   // assumes that the keys are ordered in tree depth first!
   if (node->getKey() == *keys) {
@@ -375,6 +402,7 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
     /*
      * Insert any variables that can change due to a restart.
      */
+    _cacheLineDepth = param.cacheLineDepth;
     dExtraStore = param.dExtraStore;
     contribute(cb);
     }
@@ -842,6 +870,9 @@ void DataManager::transferParticleVarsBack(){
       buf = (VariablePartData *) malloc(savedNumTotalParticles*sizeof(VariablePartData));
 #endif
     }
+    else{
+      buf = NULL;
+    }
 
     data = new UpdateParticlesStruct;
     data->cb = new CkCallback(updateParticlesCallback, data);
@@ -948,11 +979,13 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
 void updateParticlesCallback(void *param, void *msg){  
   UpdateParticlesStruct *data = (UpdateParticlesStruct *)param;
   data->dm->updateParticles(data);
+  if(data->size > 0){
 #ifdef CUDA_USE_CUDAMALLOCHOST
-  freePinnedHostMemory(data->buf);
+    freePinnedHostMemory(data->buf);
 #else
-  free(data->buf);
+    free(data->buf);
 #endif
+  }
   delete (data->cb);
   delete data;
 }
