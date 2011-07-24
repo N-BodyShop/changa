@@ -103,7 +103,9 @@ namespace Tree {
     int lastParticle;
     /// An index to the *real* location of this node if this node is NonLocal, if
     /// it is Boundary or Internal or Bucket it is equal to thisIndex
-    unsigned int remoteIndex;
+    /// During Treebuid, it indicates whether remote moments are
+    /// needed to calculate this nodes moment.
+    int remoteIndex;
     /// If this node is partially local, total number of particles contained (across all chares)
     unsigned int particleCount;
     /// Pointer to the first particle in this node
@@ -125,7 +127,12 @@ namespace Tree {
     bool wasNeg;
 #endif
 #endif
-    //GenericTreeNode() : myType(Invalid), key(0), parent(0), beginParticle(0), endParticle(0), remoteIndex(0) { }
+    /// center of smoothActive particles during smooth operation
+    Vector3D<double> centerSm;
+    /// Radius of bounding sphere of smoothActive particles
+    double sizeSm;
+    /// Maximum smoothing radius of smoothActive particles
+    double fKeyMax;
 
     GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0), usedBy(0) {
 #if INTERLIST_VER > 0
@@ -168,8 +175,8 @@ namespace Tree {
     void markUsedBy(int index) { usedBy |= (((CmiUInt8)1) << index); }
     bool isUsedBy(int index) { return (usedBy & (((CmiUInt8)1) << index)); }
 
-    /// construct the children of the "this" node following the given logical
-    /// criteria (Oct/Orb)
+    /// \brief construct the children of the "this" node following the
+    /// given logical criteria (Oct/Orb)
     virtual void makeOctChildren(GravityParticle *part, int totalPart, int level) = 0;
     virtual void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle), bool spatial) = 0;
 
@@ -257,6 +264,9 @@ namespace Tree {
       p | numBucketsBeneath;
       p | startBucket;
 #endif
+      p | centerSm;
+      p | sizeSm;
+      p | fKeyMax;
 #ifdef CHANGA_REFACTOR_WALKCHECK
       p | touched;
       p | by;
@@ -377,6 +387,16 @@ namespace Tree {
 	return 0;
     }
 
+    /// Equally divide space into two child nodes.  The split
+    /// direction is determined by level.
+    /// For each child:
+    ///   1. A key is assigned which encodes the tree branching path
+    /// to the child
+    ///	  2. indices to first and last particles are assigned.
+    ///   3. "Type" of node is assigned (Internal, Boundary, etc.)
+    ///        This generally depends on the nature of the sibling.
+    ///   4. Pointer to particles is assigned.
+    ///
     void makeOctChildren(GravityParticle *part, int totalPart, int level) {
       children[0] = new BinaryTreeNode();
       children[1] = new BinaryTreeNode();

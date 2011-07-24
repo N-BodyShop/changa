@@ -412,7 +412,7 @@ public:
 	int adjust(int iKickRung);
 	void rungStats();
 	void countActive(int activeRung);
-	void calcEnergy(double, double, char *) ;
+	void calcEnergy(double, double, char *);
 	void getStartTime();
 	void getOutTimes();
 	int bOutTime();
@@ -778,7 +778,7 @@ class TreePiece : public CBase_TreePiece {
 #if INTERLIST_VER > 0
         GenericTreeNode *getStartAncestor(int current, int previous, GenericTreeNode *dflt);
 #endif
-	/// convert a key to a node using the nodeLookupTable
+	/// \brief convert a key to a node using the nodeLookupTable
 	inline GenericTreeNode *keyToNode(const Tree::NodeKey k){
           NodeLookupType::iterator iter = nodeLookupTable.find(k);
           if (iter != nodeLookupTable.end()) return iter->second;
@@ -907,7 +907,8 @@ private:
 
 	typedef std::map<NodeKey, CkVec<int>* >   MomentRequestType;
 	/// Keep track of the requests for remote moments not yet satisfied.
-	/// Used only during the tree construction.
+	/// Used only during the tree construction.  This is a map
+	/// from NodeKey to a vector of treepieces that have requested it.
 	MomentRequestType momentRequests;
 
 	/// Opening angle
@@ -1447,12 +1448,10 @@ public:
 	void liveVizDumpFrameInit(liveVizRequestMsg *msg);
 	void setProjections(int bOn);
 
-	/// Charm entry point to build the tree (called by Main), calls collectSplitters
+	/// \brief Charm entry point to build the tree (called by Main).
 	void buildTree(int bucketSize, const CkCallback& cb);
 
-	/// Collect the boundaries of all TreePieces, and trigger the real treebuild
-	//void collectSplitters(CkReductionMsg* m);
-	/// Real tree build, independent of other TreePieces; calls the recursive buildTree
+	/// \brief Real tree build, independent of other TreePieces.
 	void startOctTreeBuild(CkReductionMsg* m);
 
   /********ORB Tree**********/
@@ -1516,8 +1515,14 @@ public:
   /// @param theta the opening angle
   /// @param cb the callback to use after all the computation has finished
   void startIteration(int am, double myTheta, const CkCallback& cb);
-  /// As above, but for a smooth operation.
+  /// Setup utility function for all the smooths.  Initializes caches.
   void setupSmooth();
+  /// Start a tree based smooth computation.
+  /// @param p parameters, including the type, of the smooth.
+  /// @param iLowhFix true if a minimum h/softening is used.
+  /// @param dfBall2OverSoft2 square of minimum ratio of h to softening.
+  /// @param cb the callback to use after all the computation has finished
+  /// @reference SmoothParams
   void startIterationSmooth(SmoothParams *p, int iLowhFix,
 			    double dfBall2OverSoft2, const CkCallback &cb);
   void startIterationReSmooth(SmoothParams *p, const CkCallback& cb);
@@ -1624,7 +1629,16 @@ public:
         // need this in TreeWalk
         GenericTreeNode *getRoot() {return root;}
         // need this in Compute
-	Vector3D<double> decodeOffset(int reqID);
+	inline Vector3D<double> decodeOffset(int reqID) {
+	    int offsetcode = reqID >> 22;
+	    int x = (offsetcode & 0x7) - 3;
+	    int y = ((offsetcode >> 3) & 0x7) - 3;
+	    int z = ((offsetcode >> 6) & 0x7) - 3;
+
+	    Vector3D<double> offset(x*fPeriod.x, y*fPeriod.y, z*fPeriod.z);
+
+	    return offset;
+	    }
 
         GenericTreeNode *nodeMissed(int reqID, int remoteIndex, Tree::NodeKey &key, int chunk, bool isPrefetch, int awi, void *source);
 
