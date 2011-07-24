@@ -102,7 +102,9 @@ namespace Tree {
     int lastParticle;
     /// An index to the *real* location of this node if this node is NonLocal, if
     /// it is Boundary or Internal or Bucket it is equal to thisIndex
-    unsigned int remoteIndex;
+    /// During Treebuid, it indicates whether remote moments are
+    /// needed to calculate this nodes moment.
+    int remoteIndex;
     /// If this node is partially local, total number of particles contained (across all chares)
     unsigned int particleCount;
     /// Pointer to the first particle in this node
@@ -167,8 +169,8 @@ namespace Tree {
     void markUsedBy(int index) { usedBy |= (((CmiUInt8)1) << index); }
     bool isUsedBy(int index) { return (usedBy & (((CmiUInt8)1) << index)); }
 
-    /// construct the children of the "this" node following the given logical
-    /// criteria (Oct/Orb)
+    /// \brief construct the children of the "this" node following the
+    /// given logical criteria (Oct/Orb)
     virtual void makeOctChildren(GravityParticle *part, int totalPart, int level) = 0;
     virtual void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle), bool spatial) = 0;
 
@@ -376,6 +378,16 @@ namespace Tree {
 	return 0;
     }
 
+    /// Equally divide space into two child nodes.  The split
+    /// direction is determined by level.
+    /// For each child:
+    ///   1. A key is assigned which encodes the tree branching path
+    /// to the child
+    ///	  2. indices to first and last particles are assigned.
+    ///   3. "Type" of node is assigned (Internal, Boundary, etc.)
+    ///        This generally depends on the nature of the sibling.
+    ///   4. Pointer to particles is assigned.
+    ///
     void makeOctChildren(GravityParticle *part, int totalPart, int level) {
       children[0] = new BinaryTreeNode();
       children[1] = new BinaryTreeNode();

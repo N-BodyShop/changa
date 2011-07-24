@@ -106,6 +106,14 @@ void _Trailer(void) {
 int killAt;
 int cacheSize;
 
+///
+/// @brief Main routine to start simulation.
+///
+/// This routine parses the command line and file specified parameters,
+/// and allocates the charm structures.  The charm "readonly" variables
+/// are writable in this method, and are broadcast globally once this
+/// method exits.
+///
 Main::Main(CkArgMsg* m) {
 	args = m;
 	_cache = true;
@@ -882,6 +890,11 @@ Main::Main(CkArgMsg* m) {
 	CProxy_Main(thishandle).setupICs();
 }
 
+/// 
+/// @brief Restart Main constructor
+///
+/// This is only called when restarting from a checkpoint.
+///
 Main::Main(CkMigrateMessage* m) {
     args = (CkArgMsg *)malloc(sizeof(*args));
     args->argv = CmiCopyArgs(((CkArgMsg *) m)->argv);
@@ -892,6 +905,7 @@ Main::Main(CkMigrateMessage* m) {
     }
 
 
+/// @brief entry method to cleanly shutdown.  Only used for debugging.
 void Main::niceExit() {
   static unsigned int count = 0;
   if (++count == numTreePieces) CkExit();
@@ -1089,6 +1103,15 @@ inline int Main::nextMaxRungIncDF(int nextMaxRung)
 	nextMaxRung = df[0]->iMaxRung;
     return nextMaxRung;
 }
+
+///
+/// @brief Take one base timestep of the simulation.
+/// @param iStep The current step number.
+///
+/// This method implements the standard "Kick Drift Kick" (Quinn et al
+/// 1997) hierarchical timestepping algorithm.  It assumes that the
+/// forces for the first opening kick have already been calculated.
+///
 
 void Main::advanceBigStep(int iStep) {
   int currentStep = 0; // the current timestep within the big step
@@ -1380,7 +1403,14 @@ void Main::advanceBigStep(int iStep) {
   }
 }
     
-// Load particles into pieces
+///
+/// @brief Load particles into pieces
+///
+/// Reads the particle data in from a file.  Since the full
+/// information about the run (including starting time) isn't known
+/// until the particles are loaded, this routine also completes the
+/// specification of the run details and writes out the log file
+/// entry.  In concludes by calling initialForces()
 
 void Main::setupICs() {
   double startTime;
@@ -1543,8 +1573,15 @@ int CheckForStop()
 	return 0;
 	}
 
-// Callback to restart simulation after a checkpoint or after writing
-// a checkpoint.
+/// @brief Callback to restart simulation after a checkpoint or after writing
+/// a checkpoint.
+///
+/// A restart looks like we've just finished writing a checkpoint.  We
+/// can tell the difference by the bIsRestarting flag set in the Main
+/// CkMigrate constructor.  In that case we do some simple parameter
+/// parsing and go to InitialForces.  Otherwise we return to the
+/// doSimulation() loop.
+
 void
 Main::restart() 
 {
@@ -1606,8 +1643,8 @@ Main::restart()
 	}
     }
 
-// The restart callback needs to be an array entry, so we have a short
-// entry that simply calls the main entry.
+/// For checkpointing, the restart callback needs to be an array entry,
+/// so we have a short entry that simply calls the main entry.
 
 void
 TreePiece::restart() 
@@ -1615,6 +1652,12 @@ TreePiece::restart()
     mainChare.restart();
     }
 
+///
+/// @brief Initial calculation of forces.
+///
+/// This is called both when starting or restarting a run.  It
+/// concludes by calling doSimulation(), the main simulation loop.
+///
 void
 Main::initialForces()
 {
@@ -1761,8 +1804,14 @@ Main::initialForces()
   doSimulation();
 }
 
-// Principal method which does all the coordination of the simulation
-// over timesteps.
+///
+/// \brief Principal method which does all the coordination of the
+/// simulation over timesteps.
+///
+/// This routine calls advanceBigStep() for each step, logs
+/// statistics, determines if output is needed, and halts the
+/// simulation when done.
+///
 
 void
 Main::doSimulation()
@@ -1991,12 +2040,14 @@ Main::doSimulation()
   CkExit();
 }
 
-/**
- * Calculate various energy and momentum quantities, and output them
- * to a log file.
- */
+///
+/// \brief Calculate various energy and momentum quantities, and output them
+/// to a log file.
+///
 
-void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
+void
+Main::calcEnergy(double dTime, double wallTime, char *achLogFileName)
+{
     CkReductionMsg *msg;
     treeProxy.calcEnergy(CkCallbackResumeThread((void*&)msg));
     double *dEnergy = (double *) msg->getData();
@@ -2013,7 +2064,7 @@ void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
 	}
     else {
 	/*
-	 * Estimate integral (\dot a*U*dt) over the interval.
+	 * Estimate integral (\\dot a*U*dt) over the interval.
 	 * Note that this is equal to integral (W*da) and the latter
 	 * is more accurate when a is changing rapidly.
 	 */
@@ -2041,6 +2092,10 @@ void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
     
     delete msg;
 }
+
+///
+/// @brief Output a snapshot
+///
 
 void Main::writeOutput(int iStep) 
 {
@@ -2127,6 +2182,15 @@ void Main::writeOutput(int iStep)
 	}
     }
 
+///
+/// @brief Calculate timesteps of particles.
+///
+/// Particles on the KickRung and shorter have their timesteps
+/// adjusted.
+///
+/// @param iKickRung Rung (and above) about to be kicked.
+///
+
 int Main::adjust(int iKickRung) 
 {
     CkReductionMsg *msg;
@@ -2172,6 +2236,12 @@ void Main::countActive(int activeRung)
     delete msg;
     }
 
+/**
+ * \brief Change the softening in comoving coordinates
+ *
+ * When compiled with -DCHANGESOFT, and bPhysicalSoft is set, the
+ * (comoving) softening is changed so that it is constant in physical units.
+ */
 void Main::updateSoft()
 {
 #ifdef CHANGESOFT
@@ -2325,7 +2395,7 @@ void Main::DumpFrame(double dTime, double dStep)
     }
 
 /**
- * Coalesce all added and deleted particles and update global
+ * \brief Coalesce all added and deleted particles and update global
  * quantities.
  */
 

@@ -194,7 +194,7 @@ intersect(OrientedBox<double>& box, Vector3D<double> pos, double rsq)
     return (dsq <= rsq);
     }
 
-/*
+/**
  * Opening criterion for the smoothBucket walk.
  * Return true if we must open the node.
  */
@@ -217,7 +217,7 @@ int KNearestSmoothCompute::openCriterion(TreePiece *ownerTP,
     return 0;
 }
 
-/*
+/**
  * Test a given particle against all the priority queues in the
  * bucket.
  */
@@ -256,7 +256,7 @@ void KNearestSmoothCompute::bucketCompare(TreePiece *ownerTP,
     }
 
 
-/*
+/**
  * Process particles received from missed Cache request
  */
 void KNearestSmoothCompute::recvdParticlesFull(GravityParticle *part,
