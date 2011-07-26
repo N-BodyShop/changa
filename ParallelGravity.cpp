@@ -1668,7 +1668,7 @@ Main::initialForces()
   double tolerance = 0.01;	// tolerance for domain decomposition
 
   // DEBUGGING
-  // CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
+  CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
 
   /***** Initial sorting of particles and Domain Decomposition *****/
   ckout << "Initial domain decomposition ...";

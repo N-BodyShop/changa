@@ -1471,13 +1471,19 @@ void TreePiece::quiescence() {
     }
   }
   */
-  CkPrintf("[%d] quiescence detected, pending %d\n",thisIndex, sLocalGravityState->myNumParticlesPending);
+  CkPrintf("[%d] quiescence detected, pending %d total %d\n",
+                          thisIndex, sLocalGravityState->myNumParticlesPending,
+                          numBuckets);
+
   for (unsigned int i=0; i<numBuckets; ++i) {
     int remaining;
     remaining = sRemoteGravityState->counterArrays[0][i]
                 + sLocalGravityState->counterArrays[0][i];
     if (remaining != 0)
-      CkPrintf("[%d] requests for %d remaining %d\n",thisIndex,i,remaining);
+      CkPrintf("[%d] requests for %d remaining l %d r %d\n",
+                thisIndex,i,
+                sRemoteGravityState->counterArrays[0][i],
+                sLocalGravityState->counterArrays[0][i]);
   }
   CkPrintf("quiescence detected!\n");
   mainChare.niceExit();
@@ -2432,6 +2438,7 @@ void TreePiece::finishBucket(int iBucket) {
   // XXX finished means Ewald is done.
   if(req->finished && remaining == 0) {
     sLocalGravityState->myNumParticlesPending -= 1;
+
 #ifdef COSMO_PRINT_BK
     CkPrintf("[%d] Finished bucket %d, %d particles remaining\n",thisIndex,iBucket, sLocalGravityState->myNumParticlesPending);
 #endif
@@ -2582,12 +2589,15 @@ void TreePiece::nextBucket(dummyMsg *msg){
 #if COSMO_PRINT_BK > 1
         CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", thisIndex, j, sRemoteGravityState->counterArrays[0][j], sLocalGravityState->counterArrays[0][j]);
 #endif
-#if !defined CUDA
-        // no need to call finishbucket here, since
-        // callback for computation couldn't have been
-        // called yet.
-        finishBucket(j);
+        // have to call finishBucket here for inactive buckets.
+#ifdef CUDA
+        if(bucketList[j]->rungs < activeRung){
 #endif
+          finishBucket(j);
+#ifdef CUDA
+        }
+#endif
+
 #endif
         if(bucketList[j]->rungs >= activeRung){
           numActualBuckets++;
@@ -3271,9 +3281,15 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 #if COSMO_PRINT_BK > 1
         CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", thisIndex, j, sRemoteGravityState->counterArrays[0][j], sLocalGravityState->counterArrays[0][j]);
 #endif
-#if !defined CUDA
-        finishBucket(j);
+
+#ifdef CUDA
+        if(bucketList[j]->rungs < activeRung){
 #endif
+          finishBucket(j);
+#ifdef CUDA
+        }
+#endif
+
 #endif
         if(bucketList[j]->rungs >= activeRung){
           numActualBuckets++;
@@ -3728,7 +3744,9 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
       numActiveBuckets++;
     }
   }
-  CkPrintf("[%d] avg target bucket size: %f\n", thisIndex, 1.0*myNumActiveParticles/numActiveBuckets);
+  if(numActiveBuckets > 0){
+    CkPrintf("[%d] num active buckets %d avg size: %f\n", thisIndex, numActiveBuckets, 1.0*myNumActiveParticles/numActiveBuckets);
+  }
 
 
   {
