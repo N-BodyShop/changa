@@ -1172,6 +1172,10 @@ void TreePiece::setSoft(const double dSoft) {
   }
 }
 
+/**
+ * \brief Adjust comoving softening to maintain constant physical
+ * softening
+ */
 void TreePiece::physicalSoft(const double dSoftMax, const double dFac,
 			     const int bSoftMaxMul, const CkCallback& cb) {
 #ifdef CHANGESOFT
@@ -1402,7 +1406,10 @@ void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump)
     }
 
 /**
- * Overall start of building Tree
+ * Overall start of building Tree.  For Oct trees, this begins by a
+ * reduction of each treepieces boundaries to DataManager::collectSplitters.
+ *
+ * For ORB trees, this continues on to TreePiece::startORBTreeBuild.
  */
 void TreePiece::buildTree(int bucketSize, const CkCallback& cb) {
 #if COSMO_DEBUG > 1
@@ -1506,32 +1513,6 @@ GenericTreeNode *TreePiece::get3DIndex() {
   }
   return node;
 }
-
-/*
-void TreePiece::collectSplitters(CkReductionMsg* m) {
-  numSplitters = 2 * numTreePieces;
-  delete[] splitters;
-  splitters = new Key[numSplitters];
-  Key* splits = static_cast<Key *>(m->getData());
-  copy(splits, splits + numSplitters, splitters);
-  KeyDouble* splitters2 = (KeyDouble *)splitters;
-  //sort(splitters, splitters + numSplitters);
-  sort(splitters2, splitters2 + numTreePieces);
-  for (unsigned int i=1; i<numSplitters; ++i) {
-    if (splitters[i] < splitters[i-1]) {
-      //for (unsigned int j=0; j<numSplitters; ++j)
-      //  CkPrintf("%d: Key %d = %016llx\n",thisIndex,j,splitters[j]);
-      if(thisIndex==0)
-        CkAbort("Keys not ordered");
-    }
-  }
-  splitters[0] = firstPossibleKey;
-  contribute(0, 0, CkReduction::concat, CkCallback(CkIndex_TreePiece::startOctTreeBuild(0), thisArrayID));
-  delete m;
-  if(verbosity > 3)
-    ckerr << "TreePiece " << thisIndex << ": Collected splitters" << endl;
-}
-*/
 
 /*****************ORB**********************/
 /*void TreePiece::receiveBoundingBoxes(BoundingBoxes *msg){
@@ -1782,6 +1763,20 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
 }
 /******************************************/
 
+/**
+ * Actual treebuild for each treepiece.  Each treepiece begins its
+ * treebuild at the global root.  During the treebuild, the
+ * nodeLookupTable, a mapping from keys to nodes, is constructed.
+ * Also, the bucket list is constructed.  Constructing moments for the
+ * boundary nodes requires requesting the moments of nodes on other
+ * pieces.  After all the moments are constructed, the treepiece
+ * passes its root to the DataManager via DataManager::notifyPresence.
+ *
+ * After the local treebuild is finished
+ * DataManager::combineLocalTrees is called, and the treebuild phase
+ * is finished.
+ */
+
 void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   delete m;
 
@@ -1798,6 +1793,9 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   }
   //CmiLock(dm->__nodelock);
 
+  // The boundary particles are set to the splitters of the
+  // neighboring pieces, i.e. the nearest particles that are not in
+  // this treepiece.
   myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
   if(myPlace == 0)
     myParticles[0].key = firstPossibleKey;
@@ -1829,22 +1827,12 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   root->particleCount = myNumParticles;
   nodeLookupTable[(Tree::NodeKey)1] = root;
 
-  //root->key = firstPossibleKey;
   root->boundingBox = boundingBox;
-  //nodeLookup[root->lookupKey()] = root;
   numBuckets = 0;
   bucketList.clear();
 
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Starting tree build" << endl;
-
-  // set the number of chunks in which we will split the tree for remote computation
-  /* OLD, moved to the CacheManager and startIteration
-  numChunks = root->getNumChunks(_numChunks);
-  assert(numChunks > 0);
-  //remaining Chunk = new int[numChunks];
-  root->getChunks(_numChunks, prefetchRoots;
-  */
 
 #if INTERLIST_VER > 0
   root->startBucket=0;
@@ -1856,9 +1844,10 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   catch (std::bad_alloc) {
 	CkAbort("Out of memory in treebuild");
 	}
-/* jetley - save the first internal node for use later.
-   needed because each treepiece must, for oct decomposition, send its centroid to a
-   load balancing strategy object. the previous tree will have been deleted at this point.
+/* jetley - save the treepiece bounding box for use later.
+   Needed because each treepiece must, for oct decomposition, send its
+   centroid to a load balancing strategy object. The previous tree
+   will have been deleted at that point.
    */
   CkVec <GenericTreeNode *> queue;
   GenericTreeNode *child, *temp;
@@ -1949,6 +1938,7 @@ inline bool TreePiece::nodeOwnership(const Tree::NodeKey nkey, int &firstOwner, 
     }
   }
   else{
+      // From the nodekey determine the particle keys that bound this node.
     Key firstKey = Key(nkey);
     Key lastKey = Key(nkey + 1);
     const Key mask = Key(1) << 63;
@@ -2010,6 +2000,9 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
   CkAssert(node->getType() == Boundary || node->getType() == Internal);
 
   node->makeOctChildren(myParticles, myNumParticles, level);
+  // The boundingBox was used above to determine the spacially equal
+  // split between the children.  Now reset it so it can be calculated
+  // from the particle positions.
   node->boundingBox.reset();
   node->rungs = 0;
 
@@ -2034,6 +2027,9 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
 	child->makeEmpty();
 	child->remoteIndex = thisIndex;
       } else {
+	  // Choose a piece from among the owners from which to
+	  // request moments in such a way that if I am a piece with a
+	  // higher index, I request from a higher indexed treepiece.
 	child->remoteIndex = dm->responsibleIndex[first + (thisIndex & (last-first))];
 	// if we have a remote child, the node is a Boundary. Thus count that we
 	// have to receive one more message for the NonLocal node
@@ -2056,7 +2052,6 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
       child->makeBucket(myParticles);
       bucketList.push_back(child);
 #if INTERLIST_VER > 0
-    //  child->bucketListIndex=numBuckets;
       child->startBucket=numBuckets;
 #endif
       numBuckets++;
@@ -2139,12 +2134,14 @@ void TreePiece::growBottomUp(GenericTreeNode *node) {
 }
 #endif
 
+/// \brief entry method to obtain the moments of a node
 void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
   GenericTreeNode *node = keyToNode(key);
   if (node != NULL && (node->getType() == Empty || node->moments.totalMass > 0)) {
       streamingProxy[sender].receiveRemoteMoments(key, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall, node->iParticleTypes);
     //CkPrintf("[%d] sending moments of %s to %d directly\n",thisIndex,keyBits(node->getKey(),63).c_str(),sender);
   } else {
+      // Save request for when we've calculated the moment.
     CkVec<int> *l = momentRequests[key];
     if (l == NULL) {
       l = new CkVec<int>();
@@ -2156,6 +2153,7 @@ void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
   }
 }
 
+/// \brief response from requestRemoteMoments
 void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
 				     Tree::NodeType type,
 				     int firstParticle,
@@ -2226,18 +2224,6 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
 	contribute(sizeof(callback), &callback, CkReduction::random, CkCallback(CkIndex_DataManager::combineLocalTrees((CkReductionMsg*)NULL), CProxy_DataManager(dataManagerID)));
   }// else CkPrintf("[%d] still missing one child of %s\n",thisIndex,keyBits(parent->getKey(),63).c_str());
 }
-
-Vector3D<double> TreePiece::decodeOffset(int reqID)
-{
-    int offsetcode = reqID >> 22;
-    int x = (offsetcode & 0x7) - 3;
-    int y = ((offsetcode >> 3) & 0x7) - 3;
-    int z = ((offsetcode >> 6) & 0x7) - 3;
-
-    Vector3D<double> offset(x*fPeriod.x, y*fPeriod.y, z*fPeriod.z);
-
-    return offset;
-    }
 
 bool bIsReplica(int reqID)
 {
@@ -2504,16 +2490,6 @@ void TreePiece::doAllBuckets(){
   *((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + thisIndex + 1;
   CkSetQueueing(msg,CK_QUEUEING_IFIFO);
   msg->val=0;
-
-#if INTERLIST_VER > 0
-/*
-  checkListLocal[0].length()=0;
-  for(int i=0;i<=myTreeLevels;i++){
-    cellListLocal[i].length()=0;
-    particleListLocal[i].length()=0;
-  }
-  */
-#endif
 
   thisProxy[thisIndex].nextBucket(msg);
 #ifdef CUDA_INSTRUMENT_WRS
@@ -3499,7 +3475,9 @@ void TreePiece::finishNodeCache(int iPhases, const CkCallback& cb)
     contribute(0, 0, CkReduction::concat, cb);
     }
 
-// Start tree walk and gravity calculation
+/// This method starts the tree walk and gravity calculation.  It
+/// first registers with the node and particle caches.  It initializes
+/// the particle acceleration by calling initBucket().
 
 void TreePiece::startIteration(int am, // the active mask for multistepping
 			       double myTheta, // opening criterion
