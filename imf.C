@@ -11,7 +11,24 @@
 #include "romberg.h"
 
 // Private function to return result of basic IMF
-double IMF::returnimf(double mass)
+double MillerScalo::returnimf(double mass)
+{
+    double dIMF;
+    
+    if(mass > mmax)
+	return 0.0;
+    if(mass > m3)
+	dIMF = a3*pow(mass, b3);
+    else if(mass > m2)
+	dIMF = a2*pow(mass, b2);
+    else if(mass > m1)
+	dIMF = a1*pow(mass, b1);
+    else
+	dIMF = 0.0;
+    return dIMF;
+    }
+
+double Kroupa93::returnimf(double mass)
 {
     double dIMF;
     
@@ -29,17 +46,17 @@ double IMF::returnimf(double mass)
     }
 
 // Chabrier imf function
-double chabrierimf(IMF *imf, double mass)
+double Chabrier::returnimf(double mass)
 {
     double dIMF;
 
-    if(mass > imf->mmax)
+    if(mass > mmax)
 	return 0.0;
-    if(mass > imf->m2)
-	dIMF = imf->a2*pow(mass, imf->b2);
-    else if(mass > imf->m1)
-	dIMF = imf->a1 * exp(- pow(log10(mass) - log10(imf->m1), 2.0)
-			   /(2.0*imf->b1*imf->b1));
+    if(mass > m2)
+	dIMF = a2*pow(mass, b2);
+    else if(mass > m1)
+	dIMF = a1 * exp(- pow(log10(mass) - log10(m1), 2.0)
+			   /(2.0*b1*b1));
     else
 	dIMF = 0.0;
    return dIMF;
@@ -48,27 +65,46 @@ double chabrierimf(IMF *imf, double mass)
 double imfIntM(IMF *theimf, double logMass) 
 {
     double mass = pow(10.0, logMass);
-    return mass*chabrierimf(theimf, mass);
+    return mass*theimf->returnimf(mass);
     }
 
 /*
  * Cumulative number of stars with mass greater than "mass".
  */
-double IMF::CumNumber(double mass)
+double MillerScalo::CumNumber(double mass)
 {
     double dCumN;
     
     if(mass > mmax) return 0;
-    if(mass > m3) return a3/b3*(pow(mmax, b3) - pow(mass, b3));
-    else dCumN = a3/b3*(pow(mmax, b3) - pow(m3, b3)); 
+    if(mass > m3) return a3/b3*(pow(mmax, b3) - pow(mass, b3))/log(10.0);
+    else dCumN = a3/b3*(pow(mmax, b3) - pow(m3, b3))/log(10.0); 
     if(mass > m2) {
-	dCumN += a2/b2*(pow(m3, b2) - pow(mass, b2));
+	dCumN += a2/b2*(pow(m3, b2) - pow(mass, b2))/log(10.0);
 	return dCumN;
     }
-    else dCumN += a2/b2*(pow(m3, b2) - pow(m2, b2));
+    else dCumN += a2/b2*(pow(m3, b2) - pow(m2, b2))/log(10.0);
 
-    if(mass > m1) dCumN += a1/b1*(pow(m2, b1) - pow(mass, b1));
-    else dCumN += a1/b1*(pow(m2, b1) - pow(m1, b1));
+    if(mass > m1) dCumN += a1/b1*(pow(m2, b1) - pow(mass, b1))/log(10.0);
+    else dCumN += a1/b1*(pow(m2, b1) - pow(m1, b1))/log(10.0);
+    
+    return dCumN;
+    }
+
+double Kroupa93::CumNumber(double mass)
+{
+    double dCumN;
+    
+    if(mass > mmax) return 0;
+    if(mass > m3) return a3/b3*(pow(mmax, b3) - pow(mass, b3))/log(10.0);
+    else dCumN = a3/b3*(pow(mmax, b3) - pow(m3, b3))/log(10.0); 
+    if(mass > m2) {
+	dCumN += a2/b2*(pow(m3, b2) - pow(mass, b2))/log(10.0);
+	return dCumN;
+    }
+    else dCumN += a2/b2*(pow(m3, b2) - pow(m2, b2))/log(10.0);
+
+    if(mass > m1) dCumN += a1/b1*(pow(m2, b1) - pow(mass, b1))/log(10.0);
+    else dCumN += a1/b1*(pow(m2, b1) - pow(m1, b1))/log(10.0);
     
     return dCumN;
     }
@@ -115,41 +151,69 @@ double Chabrier::CumNumber(double mass)
 /*
  * Cumulative mass of stars with mass greater than "mass".
  */
-double IMF::CumMass(double mass)
+double MillerScalo::CumMass(double mass)
 {
     double dCumM;
     
     if(mass > mmax) return 0;
     if(mass > m3)
 	return a3/(b3 + 1)*(pow(mmax, b3 + 1)
-				  - pow(mass, b3 + 1));
+			    - pow(mass, b3 + 1))/log(10.0);
     else
 	dCumM = a3/(b3 + 1)*(pow(mmax, b3 + 1)
-				   - pow(m3, b3 + 1)); 
+			     - pow(m3, b3 + 1))/log(10.0); 
     if(mass > m2) {
 	dCumM += a2/(b2 + 1)*(pow(m3, b2 + 1)
-				    - pow(mass, b2 + 1));
+			      - pow(mass, b2 + 1))/log(10.0);
 	return dCumM;
 	}
     else {
 	dCumM += a2/(b2 + 1)*(pow(m3, b2 + 1)
-				    - pow(m2, b2 + 1));
+			      - pow(m2, b2 + 1))/log(10.0);
 	}
     if(mass > m1)
 	dCumM += a1/(b1 + 1)*(pow(m2, b1 + 1)
-				    - pow(mass, b1 + 1));
+			      - pow(mass, b1 + 1))/log(10.0);
     else
 	dCumM += a1/(b1 + 1)*(pow(m2, b1 + 1)
-					- pow(m1, b1 + 1));
+			      - pow(m1, b1 + 1))/log(10.0);
 
     return dCumM;
     }
 
+double Kroupa93::CumMass(double mass)
+{
+    double dCumM;
+    
+    if(mass > mmax) return 0;
+    if(mass > m3)
+	return a3/(b3 + 1)*(pow(mmax, b3 + 1)
+			    - pow(mass, b3 + 1))/log(10.0);
+    else
+	dCumM = a3/(b3 + 1)*(pow(mmax, b3 + 1)
+			     - pow(m3, b3 + 1))/log(10.0); 
+    if(mass > m2) {
+	dCumM += a2/(b2 + 1)*(pow(m3, b2 + 1)
+			      - pow(mass, b2 + 1))/log(10.0);
+	return dCumM;
+	}
+    else {
+	dCumM += a2/(b2 + 1)*(pow(m3, b2 + 1)
+			      - pow(m2, b2 + 1))/log(10.0);
+	}
+    if(mass > m1)
+	dCumM += a1/(b1 + 1)*(pow(m2, b1 + 1)
+			      - pow(mass, b1 + 1))/log(10.0);
+    else
+	dCumM += a1/(b1 + 1)*(pow(m2, b1 + 1)
+			      - pow(m1, b1 + 1))/log(10.0);
+
+    return dCumM;
+    }
 
 double Chabrier::CumMass(double mass)
 {
-  double dCumM, result, error;
-  double alpha = 1.0;
+  double dCumM;
     if(mass > m2)
 	return a2/(b2 + 1)*(pow(mmax, b2 + 1)
 				  - pow(mass, b2 + 1))/log(10.0);
@@ -171,21 +235,9 @@ double Chabrier::CumMass(double mass)
     return dCumM;
 }
 
-double IMF::Oneto8Exp()
-{
-  if(m3 < 3.0) return b3;
-  else if(m2 < 3.0) return b2;
-  else return b1;
-}
-
-double IMF::Oneto8PreFactor()
-{
-  if(m3 < 3.0) return a3;
-  else if(m2 < 3.0) return a2;
-  else return a1;
-}
-
 #ifdef IMF_TST
+#include "testimf.decl.h"
+
 int
 main(int argc, char **argv)
 {
@@ -197,8 +249,10 @@ main(int argc, char **argv)
     double Mtot;
     double dMassT1, dMassT2, dMass, part, sum;
     
-    MSPARAM MSparam;
-    MSInitialize (&MSparam);
+    
+    MillerScalo msimf;
+    Kroupa93 krimf;
+    Chabrier chimf;
 
     sum = 0;
 #if 0
@@ -222,15 +276,31 @@ main(int argc, char **argv)
     nsamp = atoi(argv[1]);
     dlgm = (2.0 + 1.0)/nsamp;
     
-    Ntot = CumNumber(MSparam, 0.0791);
-    Mtot = CumMass(MSparam, 0.0791);
+    Ntot = msimf.CumNumber(0.0791);
+    Mtot = msimf.CumMass(0.0791);
+    printf("# MS Ntot, Mtot = %g %g\n", Ntot, Mtot);
+    printf("# MS Fraction of mass in stars that go Type II SN: %g\n",
+	   msimf.CumMass(8.0)/Mtot);
+    printf("# MS SuperNovea/solar mass of stars formed: %g\n",
+	   msimf.CumNumber(8.0)/Mtot);
+
+    Ntot = krimf.CumNumber(0.0791);
+    Mtot = krimf.CumMass(0.0791);
+    printf("# Kroupa Ntot, Mtot = %g %g\n", Ntot, Mtot);
+    printf("# Kroupa Fraction of mass in stars that go Type II SN: %g\n",
+	   krimf.CumMass(8.0)/Mtot);
+    printf("# Kroupa SuperNovea/solar mass of stars formed: %g\n",
+	   krimf.CumNumber(8.0)/Mtot);
+
+    Ntot = chimf.CumNumber(0.0791);
+    Mtot = chimf.CumMass(0.0791);
+    printf("# Chabrier Ntot, Mtot = %g %g\n", Ntot, Mtot);
+    printf("# Chabrier Fraction of mass in stars that go Type II SN: %g\n",
+	   chimf.CumMass(8.0)/Mtot);
+    printf("# Chabrier SuperNovea/solar mass of stars formed: %g\n",
+	   chimf.CumNumber(8.0)/Mtot);
     
-    printf("# Ntot, Mtot = %g %g\n", Ntot, Mtot);
-    printf("# Fraction of mass in stars that go Type II SN: %g\n",
-	   CumMass(MSparam, 8.0)/Mtot);
-    printf("# SuperNovea/solar mass of stars formed: %g\n",
-	   CumNumber(MSparam, 8.0)/Mtot);
-    
+    printf("# mass MSIMF MSCumNumber MSCumMass KrIMF KrCumNumber KrCumMass ChIMF ChCumNumber ChCumMass\n");
     for(i = 0; i < nsamp; i++) {
 	double mass;
 	
@@ -239,10 +309,13 @@ main(int argc, char **argv)
 	mass = pow(10.0, lgm);
 
 
-	printf("%g %g %g %g\n", mass, imf(MSparam, mass),
-	       CumNumber(MSparam, mass),
-	       CumMass(MSparam, mass));
+	printf("%g %g %g %g %g %g %g %g %g %g\n", mass,
+	       msimf.returnimf(mass), msimf.CumNumber(mass), msimf.CumMass(mass),
+	       krimf.returnimf(mass), krimf.CumNumber(mass), krimf.CumMass(mass),
+	       chimf.returnimf(mass), chimf.CumNumber(mass), chimf.CumMass(mass));
 	}
     return 0;
     }
+
+#include "testimf.def.h"
 #endif
