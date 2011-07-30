@@ -154,9 +154,8 @@ void SN::CalcSNIaFeedback(SFEvent *sfEvent,
     
     double dTotalMass = imf->CumMass(0.0); /* total mass in stars integrated over IMF */
     
-    if (dMaxMass > dMBmin && dMinMass < dMBmax/2.) {
-	
-	double dMStarMinIa = max (dMBmin, dMinMass); 
+    if (dMinMass < dMBmax/2.) {
+	double dMStarMinIa = dMinMass; 
 	double dMStarMaxIa = min (dMBmax/2., dMaxMass); 
 	
 	CkAssert (dMStarMinIa < dMStarMaxIa && dMStarMinIa >0.0 && dMStarMaxIa > 0.0);

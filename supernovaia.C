@@ -56,6 +56,11 @@ double dMSIMFSec(SN *sn, double dMass2)
 double SN::NSNIa (double dMassT1, double dMassT2)
 {
     CkAssert (dMassT1 < dMassT2);
+    // Exclude primaries that go SNII
+    if (dMassT1 >= 0.5*dMBmax)
+	return 0.0;
+    if(dMassT2 > 0.5*dMBmax)
+	dMassT2 = 0.5*dMBmax;
     return dRombergO(this, (double (*)(void *, double))dMSIMFSec, dMassT1, dMassT2, EPSSNIA);
     }
 
@@ -65,14 +70,26 @@ double SN::NSNIa (double dMassT1, double dMassT2)
 int
 main(int argc, char **argv)
 {
-    Kroupa93 krimf;
+    Chabrier chimf; // Chabrier has power law index of -1.3 which
+		    // matches s = -2.35 in Greggio & Renzini, 1983
     SN sn;
-    SN.imf = &krimf;
-    double deltat = 1e8; /// in years
+    sn.imf = &chimf;
+    Padova pdva;
+    double z = 0.02;		// metalicity: use value to compare
+				// with Greggio & Renzini, 1983
 
-    for(int i = 0; i < 140; i++) {
-	double t = i*deltat;
-	printf ("%g %g\n", t, sn.NSNIa(t, t+deltat));
+    double nsamp = 100;
+    double tfac = log(14.0e9/1e6)/nsamp;  /// equal log interavals from 1Myr
+				    /// to 14Gyr
+    
+    for(int i = 0; i < nsamp; i++) {
+	double t = 1e6*exp(i*tfac);
+	double deltat = 0.01*t;  /// interval to determine rate
+	double dMaxMass = pdva.StarMass(t, z); 
+	double dMinMass = pdva.StarMass(t+deltat, z); 
+	if (dMaxMass > dMinMass)
+	    printf ("%g %g\n", t,
+		    sn.NSNIa(dMinMass, dMaxMass)/deltat/chimf.CumMass(0.0));
 	}
     }
 #include "testsnia.def.h"
