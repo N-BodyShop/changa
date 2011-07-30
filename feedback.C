@@ -24,11 +24,11 @@ void Fdbk::AddParams(PRM prm)
     iRandomSeed = 1;
     prmAddParam(prm,"iRandomSeed", paramInt, &iRandomSeed, sizeof(int),
 		"iRand", "<Feedback random Seed> = 1");
-    iNSNIIQuantum = 0;
-    prmAddParam(prm,"iNSNIIQuantum", paramInt, &iNSNIIQuantum, sizeof(int),
+    sn.iNSNIIQuantum = 0;
+    prmAddParam(prm,"iNSNIIQuantum", paramInt, &sn.iNSNIIQuantum, sizeof(int),
 		"snQuant", "<Min # SNII per timestep> = 0.");
-    dESN = 0.1e51;
-    prmAddParam(prm,"dESN", paramDouble, &dESN, sizeof(double), "snESN",
+    sn.dESN = 0.1e51;
+    prmAddParam(prm,"dESN", paramDouble, &sn.dESN, sizeof(double), "snESN",
 		    "<Energy of supernova in ergs> = 0.1e51");
     bSmallSNSmooth = 1;
     prmAddParam(prm,"bSmallSNSmooth", paramBool, &bSmallSNSmooth, sizeof(int),
@@ -53,8 +53,9 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     if(strcmp(achIMF, "MillerScalo") == 0) imf = new MillerScalo();
     else if(strcmp(achIMF, "Chabrier") == 0) imf = new Chabrier();
     else if(strcmp(achIMF, "Kroupa93") == 0) imf = new Kroupa93();
+    sn.imf = imf;
 #include "physconst.h"
-    if (dESN > 0.0) bSmallSNSmooth = 1;
+    if (sn.dESN > 0.0) bSmallSNSmooth = 1;
     else bSmallSNSmooth = 0;
     param.bDoGas = 1;
     dDeltaStarForm = param.stfm->dDeltaStarForm;
@@ -69,7 +70,7 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
      * Stellar winds:  dM/dt ~ 1e-6 M_sun / yr, v ~ 2000 km/s 
      * (cf Castor et al (1975) for theory)
      */
-    if (iNSNIIQuantum > 0) {
+    if (sn.iNSNIIQuantum > 0) {
 	dRadPreFactor = (0.097 / param.dKpcUnit) *
 	    pow(param.dGmPerCcUnit/MHYDR,-0.2)*
 	    pow(param.dSecUnit/SECONDSPERYEAR / 1e7,0.6);
@@ -96,9 +97,8 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     
     }
 
-
 ///
-/// form stars main method
+/// Feedback main method
 ///
 void Main::StellarFeedback(double dTime, double dDelta) 
 {
@@ -186,6 +186,7 @@ void TreePiece::Feedback(Fdbk &fb, double dTime, double dDelta, const CkCallback
         
     dTime *= fb.dSecUnit/SECONDSPERYEAR ;
     dDeltaYr = max(dDelta,fb.dDeltaStarForm)*fb.dSecUnit/SECONDSPERYEAR ;
+    fb.sn.imf = fb.imf;		// point sn imf at our imf
     
     /* 0 out accumulator class before starting feedback */
     for(int i = 0; i < NFEEDBACKS; i++) {
@@ -243,11 +244,11 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     for(int j = 0; j < NFEEDBACKS; j++) {
 	switch (j) {
 	case FB_SNII:
-	    CalcSNIIFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
-	    if (dESN > 0) p->fNSN() = fbEffects.dEnergy / dESN;
+	    sn.CalcSNIIFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
+	    if (sn.dESN > 0) p->fNSN() = fbEffects.dEnergy / sn.dESN;
 	    break;
 	case FB_SNIA:
-	    CalcSNIaFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
+	    sn.CalcSNIaFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
 	    dSNIaMassStore=fbEffects.dMassLoss;
 	    break;
 	case FB_WIND:
@@ -256,7 +257,7 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
 		fbEffects.dMassLoss -= dSNIaMassStore;
 	    break;
 	case FB_UV:
-	CalcUVFeedback(dTime, dDeltaYr, &fbEffects);
+	    CalcUVFeedback(dTime, dDeltaYr, &fbEffects);
 	break;
 	default:
 	    CkAssert(0);
@@ -519,7 +520,7 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 	}
     fNorm_Pres *= (gamma-1.0)/dCosmoDenFac;
     fAveDens /= dCosmoDenFac;
-    if (fb.iNSNIIQuantum > 0) {
+    if (fb.sn.iNSNIIQuantum > 0) {
 	/* McCray + Kafatos (1987) ApJ 317 190*/
 	fBlastRadius = fb.dRadPreFactor*pow(p->fNSN() / fAveDens, 0.2) * 
 	    pow(dAge,0.6)/aFac; /* eq 3 */
@@ -540,7 +541,7 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 	    pow(fAveDens,0.34)*pow(fNorm_Pres,-0.70);
 	}
     /* Shut off cooling for 3 Myr for stellar wind */
-    if (p->fNSN() < fb.iNSNIIQuantum)
+    if (p->fNSN() < fb.sn.iNSNIIQuantum)
 	fShutoffTime= 3e6 * SECONDSPERYEAR / fb.dSecUnit;
     
     fmind = p->fBall*p->fBall;
@@ -647,9 +648,6 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 		is based entirely upon initial mass of gas particle */
 	    } 
 	}
-    /*if(counter>0) printf("%i ",counter);
-      if (p->fNSN >0) printf("%i E51:  %g  Dens:  %g  P:  %g  R:  %g shutoff time: %g   StarAge: %g  \n",counter,p->fNSN,fAveDens,fNorm_Pres,fBlastRadius,fShutoffTime,dAge);
-      /*if(p->fNSN!= 0.0)printf("E51:  %g  Dens:  %g  P:  %g  R:  %g shutoff time: %g  \n",p->fNSN,fAveDens,fNorm_Pres,fBlastRadius,fShutoffTime);*/
     }
 
 void DistStellarFeedbackSmoothParams::postTreeParticle(GravityParticle *p1)

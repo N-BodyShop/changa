@@ -8,6 +8,7 @@
 #include <math.h>
 #include "ParallelGravity.h"
 #include "feedback.h"
+#include "supernova.h"
 #include "smooth.h"
 #include "physconst.h"
 
@@ -19,7 +20,7 @@ double mod(double a, int b) {return (a-b*floor(a/b));}
  * Supernova module for GASOLINE
  */
 
-void Fdbk::CalcSNIIFeedback(SFEvent *sfEvent,
+void SN::CalcSNIIFeedback(SFEvent *sfEvent,
 			    double dTime, /* current time in years */
 			    double dDelta, /* length of timestep (years) */
 			    FBEffects *fbEffects)
@@ -138,7 +139,7 @@ void Fdbk::CalcSNIIFeedback(SFEvent *sfEvent,
 	}
     }
 
-void Fdbk::CalcSNIaFeedback(SFEvent *sfEvent,
+void SN::CalcSNIaFeedback(SFEvent *sfEvent,
 			double dTime, /* current time in years */
 			double dDelta, /* length of timestep (years) */
 			FBEffects *fbEffects)
@@ -153,18 +154,12 @@ void Fdbk::CalcSNIaFeedback(SFEvent *sfEvent,
     
     double dTotalMass = imf->CumMass(0.0); /* total mass in stars integrated over IMF */
     
-    if (dMinMass > dMBmin && dMaxMass < dMBmax/2.) {
+    if (dMaxMass > dMBmin && dMinMass < dMBmax/2.) {
 	
 	double dMStarMinIa = max (dMBmin, dMinMass); 
 	double dMStarMaxIa = min (dMBmax/2., dMaxMass); 
 	
 	CkAssert (dMStarMinIa < dMStarMaxIa && dMStarMinIa >0.0 && dMStarMaxIa > 0.0);
-	
-	/* mass of stars that go SNIa based on normalized IMF */
-	/*        dMSNTypeIa = dMSNIa (&mssn, dMStarMinIa, dMStarMaxIa); 
-		  dMSNTypeIa /= dMtot;	/* convert to mass fraction of stars /
-		  /* convert to mass of stars that go SNIa / 
-		  dMSNTypeIa *= sfEvent->dMass; */
 	
 	/* number of stars that go SNIa */        
 	double dNSNTypeIa = NSNIa (dMStarMinIa, dMStarMaxIa); 

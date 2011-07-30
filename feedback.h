@@ -2,6 +2,7 @@
 #define FEEDBACK_HINCLUDED
 
 #include "parameters.h"
+#include "supernova.h"
 #include "imf.h"
 #include "starlifetime.h"
 #define NFEEDBACKS 4
@@ -43,14 +44,6 @@ class SFEvent {
 class Fdbk : public PUP::able {
  private:
     Fdbk& operator=(const Fdbk& fb);
-    void CalcSNIIFeedback(SFEvent *sfEvent, double dTime, double dDelta, 
-			  FBEffects *fbEffects);
-    void CalcSNIaFeedback(SFEvent *sfEvent,double dTime, 
-			  double dDelta, FBEffects *fbEffects);
-    double NSNIa (double dMassT1, double dMassT2);
-    //    double dMSIMFSec(Padova *pdva, double dMass2);
-    double MSNIa (double dMassT1, double dMassT2);
-    //    double MSIMFSecM(Padova *pdva, double dMass2);
     void CalcWindFeedback(SFEvent *sfEvent, double dTime, 
 			  double dDelta, FBEffects *fbEffects);
     void CalcUVFeedback(double dTime, double dDelta, FBEffects *fbEffects);
@@ -61,26 +54,11 @@ class Fdbk : public PUP::able {
     double dGmUnit;		/* system mass in grams */
     double dGmPerCcUnit;	/* system density in gm/cc */
     double dErgUnit;		/* system energy in ergs */
-    double dInitStarMass; 
-    double dMSNrem;		/* mass of SN remnant in M_sun */
-    double dMSNIImin;		/* Minimum core collapse SN mass */
-    double dMSNIImax;           /* Maximum core collapse SN mass */
-    double dMBmin;              /* Minimum Mass of binary that can do SNIa */
-    double dMBmax;		/* Maximum mass of binary that an SNIa */
-    double dMEjexp;             /* exponent of ejection mass power law */
-    double dMEjconst;           /* normalization for ejection mass power law */
-    double dMFeexp;             /* exponent of iron productions */
-    double dMFeconst;           /* normalization of iron */
-    double dMOxexp;             /* exponent of oxygen */
-    double dMOxconst;           /* normalization of oxygen */
-    double dSNIaMetals;         /* amount of metals produced by SNIa
-				   */
     Padova pdva;
  public:
+    SN sn;
     double dDeltaStarForm;
     double dSecUnit;		/* system time in seconds */
-    int iNSNIIQuantum;	/* minimum amount of supernovae */
-    double dESN;		/* how much energy comes from a supernova */
     int bSNTurnOffCooling;      /* turn off cooling or not */
     int bSmallSNSmooth;	/* smooth SN energy only over blast radius */
     int bShortCoolShutoff;      /* use snowplow time */
@@ -88,35 +66,14 @@ class Fdbk : public PUP::able {
     double dRadPreFactor;       /* McKee + Ostriker size constant in system units */
     double dTimePreFactor;      /* McKee + Ostriker time constant in system units */
     int nSmoothFeedback;	/* number of particles to smooth feedback over*/
-    double dFracBinSNIa;	/* fraction of binary systems in mass range that 
-				   go SNIa  (van den Bergh & McClure, ApJ 425, 205, 1994) */
     IMF *imf;
 
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
     void DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
 		    FBEffects *fbTotals);
- Fdbk() : 
-	/* supernova constants */
-	dMSNrem(1.4),	/* mass of supernova remnant in solar masses 
-			 * Also used for SNIa ejected mass */
-	dMSNIImin(8.0),/* Mass above which stars supernova in solar
-			  masses */
-	dMSNIImax(40.),/* Mass below which stars supernova in solar masses */
-	dMBmin(0.8),	/* Minimum mass of binary that can go SNIa */
-	
-	dMBmax(16.0),	/* Maximum mass of binary that can go SNIa */
-	dFracBinSNIa(0.16),/*0.04847),	 fraction of binary systems in
-			     appropriate mass range that go SNIa =
-			     0.16 (van den Bergh & McClure, ApJ
-			     425, 205, 1994) */
-	/* normalization constant and exponent in formulae for masses of
-	   ejected Fe and O16 as a function of stellar mass taken from
-	   Raiteri, Villata and Navarro, A&A 315, 105, 1996 */
-	dMEjexp(1.056),dMEjconst(0.7682), dMFeexp(1.864), dMFeconst(2.802e-4),
-	dMOxexp(2.721),	dMOxconst(4.586e-4), 
-	dSNIaMetals(1.4)  /* Ia's ejecta are entirely metals */
-	    { /*pdva = new Padova();*/}
+    double NSNIa (double dMassT1, double dMassT2);
+ Fdbk() { }
 
     PUPable_decl(Fdbk);
     Fdbk(const Fdbk& fb);
@@ -136,22 +93,7 @@ inline Fdbk::Fdbk(const Fdbk& fb) {
     dGmUnit = fb.dGmUnit;
     dGmPerCcUnit = fb.dGmPerCcUnit;
     dErgUnit = fb.dErgUnit;
-    dInitStarMass = fb.dInitStarMass; 
-    dMSNrem = fb.dMSNrem;
-    dMSNIImin = fb.dMSNIImin;
-    dMSNIImax = fb.dMSNIImax;
-    dMBmin = fb.dMBmin;
-    dMBmax = fb.dMBmax;
-    dMEjexp = fb.dMEjexp;
-    dMEjconst = fb.dMEjconst;
-    dMFeexp = fb.dMFeexp;
-    dMFeconst = fb.dMFeconst;
-    dMOxexp = fb.dMOxexp;
-    dMOxconst = fb.dMOxconst;
-    dSNIaMetals = fb.dSNIaMetals;
     dSecUnit = fb.dSecUnit;
-    iNSNIIQuantum = fb.iNSNIIQuantum;
-    dESN = fb.dESN;
     bSNTurnOffCooling = fb.bSNTurnOffCooling;
     bSmallSNSmooth = fb.bSmallSNSmooth;
     bShortCoolShutoff = fb.bShortCoolShutoff;
@@ -159,7 +101,8 @@ inline Fdbk::Fdbk(const Fdbk& fb) {
     dRadPreFactor = fb.dRadPreFactor;
     dTimePreFactor = fb.dTimePreFactor;
     nSmoothFeedback = fb.nSmoothFeedback;
-    dFracBinSNIa = fb.dFracBinSNIa;
+    sn = fb.sn;
+    pdva = fb.pdva;
     imf = fb.imf->clone();
 }
 
@@ -171,22 +114,7 @@ inline void Fdbk::pup(PUP::er &p) {
     p | dGmUnit;
     p | dGmPerCcUnit;
     p | dErgUnit;
-    p | dInitStarMass; 
-    p | dMSNrem;
-    p | dMSNIImin;
-    p | dMSNIImax;
-    p | dMBmin;
-    p | dMBmax;
-    p | dMEjexp;
-    p | dMEjconst;
-    p | dMFeexp;
-    p | dMFeconst;
-    p | dMOxexp;
-    p | dMOxconst;
-    p | dSNIaMetals;
     p | dSecUnit;
-    p | iNSNIIQuantum;
-    p | dESN;
     p | bSNTurnOffCooling;
     p | bSmallSNSmooth;
     p | bShortCoolShutoff;
@@ -194,10 +122,10 @@ inline void Fdbk::pup(PUP::er &p) {
     p | dRadPreFactor;
     p | dTimePreFactor;
     p | nSmoothFeedback;
-    p | dFracBinSNIa;
+    p | sn;
+    p | pdva;
     p | imf;
     }
-PUPmarshall(Fdbk);
 
 enum FBenum{
   FB_SNII=0,
