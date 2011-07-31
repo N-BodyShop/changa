@@ -68,6 +68,7 @@ double SN::NSNIa (double dMassT1, double dMassT2)
 #include "testsnia.decl.h"
 #define max(A,B) ((A) > (B) ? (A) : (B))
 #define min(A,B) ((A) < (B) ? (A) : (B))
+#include "feedback.h"
 
 int
 main(int argc, char **argv)
@@ -87,22 +88,37 @@ main(int argc, char **argv)
     for(int i = 0; i < nsamp; i++) {
 	double t = 1e6*exp(i*tfac);
 	double deltat = 0.01*t;  /// interval to determine rate
-	double dMaxMass = pdva.StarMass(t, z); 
-	double dMinMass = pdva.StarMass(t+deltat, z); 
-	double dMStarMinII = max (8.0, dMinMass); 
+	double dMaxMass = pdva.StarMass(t, z); // stars dying at start
+	double dMinMass = pdva.StarMass(t+deltat, z); // stars dying
+						      // at end
+	double dMStarMinII = max (8.0, dMinMass); // range of SNII
 	double dMStarMaxII = min (40.0, dMaxMass);
 	double dCumNMinII = chimf.CumNumber(dMStarMinII); 
 	double dCumNMaxII = chimf.CumNumber(dMStarMaxII);
 	double dMtot = chimf.CumMass(0.0);
 	double dNSNII;
+	// One solar mass formed at t = 0, with metallicity 0.02
+	SFEvent sfEvent(1.0, 0.0, 0.02, .005, .005);
+	FBEffects fbEffectsII;
+	FBEffects fbEffectsIa;
+	
 	if(dMaxMass > 8.0 && dMinMass < 40.0) {
 	    dNSNII = (dCumNMinII - dCumNMaxII)/dMtot/deltat;
 	    }
 	else dNSNII = 0.0;
 	
+	sn.CalcSNIIFeedback(&sfEvent, t, deltat, &fbEffectsII);
+	sn.CalcSNIaFeedback(&sfEvent, t, deltat, &fbEffectsIa);
+	
 	if (dMaxMass > dMinMass)
-	    printf ("%g %g %g\n", t,
-		    sn.NSNIa(dMinMass, dMaxMass)/deltat/dMtot, dNSNII);
+	    printf ("%g %g %g %g %g %g %g %g %g %g %g %g %g\n", t,
+		    sn.NSNIa(dMinMass, dMaxMass)/deltat/dMtot, dNSNII,
+		    fbEffectsIa.dEnergy, fbEffectsII.dEnergy,
+		    fbEffectsIa.dMassLoss, fbEffectsII.dMassLoss,
+		    fbEffectsIa.dMetals, fbEffectsII.dMetals,
+		    fbEffectsIa.dMIron, fbEffectsII.dMIron,
+		    fbEffectsIa.dMOxygen, fbEffectsII.dMOxygen
+		    );
 	}
     }
 #include "testsnia.def.h"

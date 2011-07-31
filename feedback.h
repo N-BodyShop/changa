@@ -12,7 +12,7 @@
  */
 class FBEffects {
  public:
-   double dEnergy;		/* Energy produced (ergs); note that
+   double dEnergy;		/* Energy produced per mass (ergs/gm); note that
 				   this might need to be divided up
 				   into different forms of energy. */
     double dMassLoss;		/* Mass lost in Solar Masses */

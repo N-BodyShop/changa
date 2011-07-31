@@ -40,9 +40,6 @@ class SN
 				   solar masses */
 	dMBmin = 3.0;		/* Minimum mass of binary that can go SNIa */
 	dMBmax = 16.0;		/* Maximum mass of binary that can go SNIa */
-	dFracBinSNIa = 0.16;	/* fraction of binary systems in
-			appropriate mass range that go SNIa = 0.16
-			(van den Bergh & McClure, ApJ 425, 205, 1994) */
   /* normalization constant and exponent in formulae for masses of
      ejected Fe and O16 as a function of stellar mass taken from
      Raiteri, Villata and Navarro, A&A 315, 105, 1996 */
@@ -53,6 +50,9 @@ class SN
 	dMOxexp = 2.721;
 	dMOxconst = 4.586e-4; 
 	dSNIaMetals = 0.76;  /* 0.63 Msol Fe + 0.13 Msol Ox (Theilemann 1986)*/
+	dESN = 0.1e51;
+	iNSNIIQuantum = 0;
+	dFracBinSNIa = 0.16;
 	}
     void CalcSNIIFeedback(SFEvent *sfEvent, double dTime, double dDelta, 
 			  FBEffects *fbEffects);
