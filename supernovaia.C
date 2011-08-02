@@ -22,8 +22,11 @@ public:
 /// of mass dMassB having a secondary of MSBinary->dMass2
 double dMSIMFSecInt(MSBinary *msb, double dMassB) 
 {
+    // A factor of 1/(dMassB*log(10)) is from the definition of IMF as
+    // number per log10(M).  Another factor of 1/dMassB is to
+    // normalized the integral over mass ratios.
     return pow(msb->dMass2/dMassB, msb->dGamma_2nd)
-	*msb->imf->returnimf(dMassB)/dMassB;
+	*msb->imf->returnimf(dMassB)/dMassB/dMassB/log(10.0);
     }
 
 /** IMF of secondary in binary system that goes SN Ia
@@ -40,9 +43,12 @@ double dMSIMFSec(SN *sn, double dMass2)
 
     MSBinary msb = {dMass2, dGamma_2nd, sn->imf};
 
-    Msup = dMass2 + 8.0;  // Mass where primary would have gone supernovaII
+    Msup = dMass2 + sn->dMSNIImin;  // Mass where primary would have gone supernovaII
+    // Msup = 16.0;  // Note that the double integral can be tested by
+    // uncommenting the above line, setting dFracBinSNIa = 1.0, and
+    // comparing NSNIa with the number of stars in the 3.0-16.0 mass interval.
     dMass2_2 = 2.*dMass2;  // Minimum mass of binary
-    Minf = (dMass2_2 > 3.0)?dMass2_2:3.0;
+    Minf = (dMass2_2 > sn->dMBmin)?dMass2_2:sn->dMBmin;
     dIMFSec = dRombergO(&msb, (double (*)(void *, double))dMSIMFSecInt, Minf, Msup, EPSSNIA);
     dIMFSec *= sn->dFracBinSNIa * dNorm_2nd;
     return dIMFSec;
@@ -73,8 +79,10 @@ double SN::NSNIa (double dMassT1, double dMassT2)
 int
 main(int argc, char **argv)
 {
-    Chabrier chimf; // Chabrier has power law index of -1.3 which
+    // Chabrier chimf; // Chabrier has power law index of -1.3 which
 		    // matches s = -2.35 in Greggio & Renzini, 1983
+    Kroupa93 chimf; // Kroupa is what RVN use.
+    // MillerScalo chimf;
     SN sn;
     sn.imf = &chimf;
     Padova pdva;
@@ -85,6 +93,10 @@ main(int argc, char **argv)
     double tfac = log(14.0e9/1e6)/nsamp;  /// equal log interavals from 1Myr
 				    /// to 14Gyr
     
+    // sn.dFracBinSNIa = 1.00;
+    printf("# Total Ia, II supernova: %g %g, SNIa mass range: %g\n", sn.NSNIa(0.8, 8.0),
+      chimf.CumNumber(8.0) - chimf.CumNumber(40.0),
+      chimf.CumNumber(3.0) - chimf.CumNumber(16.0));
     for(int i = 0; i < nsamp; i++) {
 	double t = 1e6*exp(i*tfac);
 	double deltat = 0.01*t;  /// interval to determine rate
