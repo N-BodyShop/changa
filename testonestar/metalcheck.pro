@@ -16,7 +16,7 @@ close, lun
 rtipsy, 'onestar.tbin', h,g,d,s
 z = s[0].metals
 maxstar = 40.0
-minsecondary = 0.8
+minsecondary = 0.9
 
 ; find units from param file via eff.out file
 effstring = ' '
