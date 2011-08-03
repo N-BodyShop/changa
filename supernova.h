@@ -52,7 +52,7 @@ class SN
 	dSNIaMetals = 0.76;  /* 0.63 Msol Fe + 0.13 Msol Ox (Theilemann 1986)*/
 	dESN = 0.1e51;
 	iNSNIIQuantum = 0;
-	dFracBinSNIa = 0.16;
+	dFracBinSNIa = 0.05;
 	}
     void CalcSNIIFeedback(SFEvent *sfEvent, double dTime, double dDelta, 
 			  FBEffects *fbEffects);
