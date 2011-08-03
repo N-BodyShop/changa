@@ -189,8 +189,8 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "bBenchmark", paramBool, &param.bBenchmark,
 		    sizeof(int),"bench", "Benchmark only; no output or checkpoints");
 	param.iBinaryOut = 0;
-	prmAddParam(prm, "iBinaryOut", paramInt, &param.iBinaryOut,
-		    sizeof(int),"ibo", "Output Binary Arrays");
+	prmAddParam(prm, "iBinaryOutput", paramInt, &param.iBinaryOut,
+		    sizeof(int),"binout", "Output Binary Arrays");
 	param.iOutInterval = 10;
 	prmAddParam(prm, "iOutInterval", paramInt, &param.iOutInterval,
 		    sizeof(int),"oi", "Output Interval");
