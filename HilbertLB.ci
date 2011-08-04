@@ -1,0 +1,11 @@
+module HilbertLB{
+
+extern module CentralLB;
+initnode void lbinit(void);
+
+group [migratable] HilbertLB : CentralLB{
+	entry void HilbertLB(const CkLBOptions &);
+	entry void receiveCentroids(CkReductionMsg *msg);
+};
+
+};
