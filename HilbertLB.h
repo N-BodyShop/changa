@@ -17,7 +17,6 @@ private:
         CkReduction::setElement *tpCentroids;
 	CkReductionMsg *tpmsg;	
 	TPObject *tps;
-	CmiBool centroidsAllocated;
 	float loadThreshold;
 	float totalLoad;	
 

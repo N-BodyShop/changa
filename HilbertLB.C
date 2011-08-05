@@ -26,7 +26,6 @@ int comparekey(const void* a, const void* b){
 HilbertLB::HilbertLB(const CkLBOptions &opt): CentralLB(opt)
 {
 	lbname = "HilbertLB";
-	centroidsAllocated = false;
 /* Add other necessary information */
 }
 
@@ -50,6 +49,7 @@ void HilbertLB::receiveCentroids(CkReductionMsg *msg){
 
 void HilbertLB::work(BaseLB::LDStats* stats){
 
+  CkPrintf("[%d] HilbertLB work\n", CkMyPe());
   int numobjs = stats->n_objs;
   int nmig = stats->n_migrateobjs;
   mapping = &stats->to_proc;
@@ -62,6 +62,15 @@ void HilbertLB::work(BaseLB::LDStats* stats){
   /* Find the bounding box of all centroids. */
   OrientedBox<double> univBB;
   getBoundingBox(univBB);
+  CkPrintf("[%d] HilbertLB univ bb %g %g %g %g %g %g\n", 
+                CkMyPe(),
+                univBB.lesser_corner.x,
+                univBB.lesser_corner.y,
+                univBB.lesser_corner.z,
+                univBB.greater_corner.x,
+                univBB.greater_corner.y,
+                univBB.greater_corner.z
+                  );
 
   float xres, yres, zres;	
 
@@ -84,6 +93,8 @@ void HilbertLB::work(BaseLB::LDStats* stats){
     numshifts++;
     bit_mask <<= 1;
   }
+
+  CkPrintf("[%d] HilbertLB start setup \n", CkMyPe());
 
   CkReduction::setElement *cur = tpCentroids;
   while(cur != NULL){
@@ -112,10 +123,14 @@ void HilbertLB::work(BaseLB::LDStats* stats){
     cur = cur->next();
   }
 
+  CkPrintf("[%d] HilbertLB done setup \n", CkMyPe());
+
   loadThreshold = totalLoad / (ALPHA * stats->count);
   qsort(tps,numobjs,sizeof(TPObject),comparekey);
   buildBuckets(0,numobjs);
   bucketList.quickSort();
+
+  CkPrintf("[%d] HilbertLB built tree \n", CkMyPe());
 
   int index;
   int numProcs = stats->count;
@@ -146,6 +161,7 @@ void HilbertLB::work(BaseLB::LDStats* stats){
     }
   }
 
+  CkPrintf("[%d] HilbertLB done assignment\n", CkMyPe());
   /* assign buckets to procs based on an average */
 
 
@@ -164,6 +180,7 @@ void HilbertLB::getBoundingBox(OrientedBox<double> &univBB){
   while(cur != NULL){
     TaggedVector3D *data = (TaggedVector3D *)cur;
     univBB.grow(data->vec);
+    cur = cur->next();
   }
 }
 

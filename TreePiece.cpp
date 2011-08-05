@@ -6001,6 +6001,7 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
     }
   }
 
+
   if(foundLB == Multistep){
     CkCallback lbcb(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::set, lbcb);
@@ -6011,7 +6012,7 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   }
   else if(foundLB == Hilbert){
     CkCallback lbcb(CkIndex_HilbertLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::set, lbcb);
   }
   else if(foundLB == Null){ 
     // none of the balancers requiring centroids found; go
