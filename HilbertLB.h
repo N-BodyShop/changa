@@ -14,7 +14,7 @@ private:
 	TaggedVector3D *tpCentroids;
 	bool haveTPCentroids;
 	int nrecvd, numxbins,numybins, numzbins, numshifts, bit_mask;
-	long *xbin, *ybin, *zbin;
+	CmiUInt8 *xbin, *ybin, *zbin;
 	CkReductionMsg *tpmsg;	
 	TPObject *tp;
 	CmiBool centroidsAllocated;
@@ -30,9 +30,9 @@ public:
 	void work(BaseLB::LDStats*);
 	void receiveCentroids(CkReductionMsg *msg);
 	void normalizeCoordinates(int numobjs);
-	long generateKey(int i);
+	CmiUInt8 generateKey(int i);
 	void buildBuckets(int index, int numobjs);
-	void newCentroid(long totalLoad, LBBucket b, int numobjs);
+	void newCentroid(float totalLoad, LBBucket b, int numobjs);
 };
 
 #endif

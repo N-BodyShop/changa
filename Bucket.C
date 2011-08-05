@@ -31,7 +31,7 @@
 		return !(hilbertID >= b.hilbertID);
 	}
 	
-	void LBBucket::setLoad(long l){
+	void LBBucket::setLoad(float l){
 		CkAssert(l > 0);
 		load += l;
 	}
@@ -56,7 +56,7 @@
 		return tpStartIndex;
 	}
 
-	long LBBucket::getLoad(){
+	float LBBucket::getLoad(){
 		return load;
 	}
 

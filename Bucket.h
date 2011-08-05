@@ -13,7 +13,8 @@
 class LBBucket{
 
 public:
-	long load, hilbertID;
+	float load;
+	CmiUInt8 hilbertID;
 	TPObject *tp;
 	int numobjs;
 	int tpStartIndex;
@@ -24,12 +25,12 @@ public:
 	bool operator>=(const LBBucket &b) const;
 	bool operator>(const LBBucket &b) const;
 	bool operator<(const LBBucket &b) const;
-	void setLoad(long l);
+	void setLoad(float l);
 	void setTP(TPObject* tpobj, int len);
 	void setCentroid(float xc, float yc, float zc);
 	void setIndex(int i);
 	int getIndex();
-	long getLoad();
+	float getLoad();
 	long getHilbertID();
 	int getNumTPs();
 	TPObject* getTPs();

@@ -137,9 +137,9 @@ void HilbertLB::normalizeCoordinates(int numobjs){
 	
 	float xres, yres, zres;	
 
-	xbin = new long[numobjs];
-	ybin = new long[numobjs];
-	zbin = new long[numobjs];
+	xbin = new CmiUInt8[numobjs];
+	ybin = new CmiUInt8[numobjs];
+	zbin = new CmiUInt8[numobjs];
 	
 	/* Find the coordinates of the bounding box(mins and max) for the centroids. */
 	for(int i = 1; i < numobjs; i++){
@@ -172,8 +172,8 @@ void HilbertLB::normalizeCoordinates(int numobjs){
 	}
 }
 
-long HilbertLB::generateKey(int i){
-	long key;
+CmiUInt8 HilbertLB::generateKey(int i){
+	CmiUInt8 key;
 	int mask = bit_mask;
 	
 	/* For each centroid: use the <x,y,z> bin numbers to generate the 64bit key by interleaving bits.
@@ -213,7 +213,7 @@ void HilbertLB::buildBuckets(int index, int numobjs){
 	}
 }
 
-void HilbertLB::newCentroid(long totalLoad, LBBucket b, int numobjs){
+void HilbertLB::newCentroid(float totalLoad, LBBucket b, int numobjs){
 	float x,y,z;
 	x = 0.0;
 	y = 0.0;
