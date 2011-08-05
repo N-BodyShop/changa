@@ -4,11 +4,7 @@
 
 #include "Vector3D.h"
 #include "TaggedVector3D.h"
-
-#ifdef PRINT_BOUNDING_BOXES
 #include "OrientedBox.h"
-#endif
-
 using namespace std;
 
 template <class T>
