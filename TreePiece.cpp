@@ -16,6 +16,7 @@
 // jetley
 #include "MultistepLB.h"
 #include "Orb3dLB.h"
+#include "HilbertLB.h"
 // jetley - refactoring
 //#include "codes.h"
 #include "Opt.h"
@@ -4093,6 +4094,10 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
     CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
   }
+  else if(foundLB == Hilbert){
+    CkCallback cbk(CkIndex_HilbertLB::receiveCentroids(NULL), 0, proxy);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
+  }
   else{
     doAtSync();
   }
@@ -5956,6 +5961,7 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
 
   string msname("MultistepLB");
   string orb3dname("Orb3dLB");
+  string hilbertname("HilbertLB");
 
   BaseLB **lbs = lbdb->getLoadBalancers();
   int i;
@@ -5971,6 +5977,11 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
         foundLB = Orb3d;
         break;
       }
+      else if(hilbertname == string(lbs[i]->lbName())){ 
+        proxy = lbs[i]->getGroupID();
+        foundLB = Hilbert;
+        break;
+      }
     }
   }
   if(foundLB == Multistep){
@@ -5979,6 +5990,10 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   }
   else if(foundLB == Orb3d){
     CkCallback lbcb(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+  }
+  else if(foundLB == Hilbert){
+    CkCallback lbcb(CkIndex_HilbertLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
   }
   else if(foundLB == Null){ 
