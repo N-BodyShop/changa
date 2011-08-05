@@ -33,6 +33,7 @@ public:
 	void normalizeCoordinates(int numobjs);
 	CmiUInt8 generateKey(int i);
 	void buildBuckets(int index, int numobjs);
+	void mapBuckets(int bucketIndex, int toProc);
 	void newCentroid(float totalLoad, LBBucket b, int numobjs);
 };
 

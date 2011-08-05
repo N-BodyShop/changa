@@ -128,6 +128,7 @@ void HilbertLB::work(BaseLB::LDStats* stats){
   loadThreshold = totalLoad / (ALPHA * stats->count);
   qsort(tps,numobjs,sizeof(TPObject),comparekey);
   buildBuckets(0,numobjs);
+  CkPrintf("HilbertLB: LoadThreshold: %f totalLoad: %f Bucket size: %d\n",loadThreshold, totalLoad, bucketList.length());
   bucketList.quickSort();
 
   CkPrintf("[%d] HilbertLB built tree \n", CkMyPe());
@@ -139,15 +140,12 @@ void HilbertLB::work(BaseLB::LDStats* stats){
   float currLoad = 0.0;
   float avgLoad = totalLoad / numProcs;
 
+
   for(int i = 0; i < bucketList.length(); i++){
 
-    index = bucketList[i].tpStartIndex;
-    length = bucketList[i].numobjs;
-
-    for(int j = index; j < length; j++){
-      if(currLoad < avgLoad){
+     if(currLoad < avgLoad){
         (*mapping)[bucketList[i].tp[j].lbindex] = toProc;
-        currLoad += bucketList[i].tp[j].load;
+        currLoad += bucketList[i].load;
       }
       else{
         toProc++;
@@ -155,10 +153,10 @@ void HilbertLB::work(BaseLB::LDStats* stats){
         numProcs--;
         avgLoad = totalLoad/numProcs;
         currLoad = 0;
-        (*mapping)[bucketList[i].tp[j].lbindex] = toProc;
-        currLoad += bucketList[i].tp[j].load;
+        mapBuckets(i , toProc);
+		currLoad += bucketList[i].load;
+		CkPrintf("HilbertLB: Assigning %f load to proc:%d\n",currLoad,toProc);
       }
-    }
   }
 
   CkPrintf("[%d] HilbertLB done assignment\n", CkMyPe());
@@ -172,7 +170,18 @@ void HilbertLB::work(BaseLB::LDStats* stats){
   delete[] ybin;
   delete[] zbin;
 
+  totalLoad = 0;
   bucketList.length() = 0;
+}
+
+void HilbertLB::mapBuckets(int bucketIndex, int toProc){
+	int length = bucketList[i].numobjs;
+	int startIndex = bucketList[i].tpStartIndex;
+
+	for(int i = 0; i < length; i++){
+		(*mapping)[bucketList[i].tp[i].lbindex] = toProc;
+	}
+
 }
 
 void HilbertLB::getBoundingBox(OrientedBox<double> &univBB){
@@ -209,6 +218,7 @@ void HilbertLB::buildBuckets(int index, int numobjs){
 	for(int i = index; i < index + numobjs; i++){
 		currLoad += tps[i].load;
 	}
+	CkPrintf("HilbertLB::buildBuckets(): currLoad: %f loadThreshold: %f\n",currLoad,loadThreshold);
 	if(currLoad < loadThreshold){
 		LBBucket b;
 		b.setLoad(currLoad);
