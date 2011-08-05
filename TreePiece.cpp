@@ -4104,7 +4104,7 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   }
   else if(foundLB == Hilbert){
     CkCallback cbk(CkIndex_HilbertLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::set, cbk);
   }
   else{
     doAtSync();

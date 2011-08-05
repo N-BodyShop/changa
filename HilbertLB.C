@@ -31,145 +31,140 @@ HilbertLB::HilbertLB(const CkLBOptions &opt): CentralLB(opt)
 }
 
 void HilbertLB::receiveCentroids(CkReductionMsg *msg){
-	if(haveTPCentroids){
-		delete tpmsg;
-	}
-	tpCentroids = (TaggedVector3D *)msg->getData();
-	nrecvd = msg->getGcount();
-	tpmsg = msg;
-	haveTPCentroids = true;
-	CkPrintf("HilbertLB: receiveCentroids started: %d elements, msg length: %d\n", msg->getGcount(), msg->getLength()); 
-	treeProxy.doAtSync();
-	CkPrintf("HilbertLB: receiveCentroids done\n");
+  if(haveTPCentroids){
+    delete tpmsg;
+  }
+  tpCentroids = (CkReduction::setElement *)msg->getData();
+  CkReduction::setElement *cur = tpCentroids;
+  nrecvd = 0;
+  while(cur != NULL){
+    CkAssert(cur->dataSize == sizeof(TaggedVector3D));
+    nrecvd++;
+    cur = cur->next();
+  }
+  tpmsg = msg;
+  haveTPCentroids = true;
+  CkPrintf("HilbertLB: receiveCentroids %d elements, msg length %d\n", nrecvd, msg->getLength()); 
+  treeProxy.doAtSync();
 }
 
 void HilbertLB::work(BaseLB::LDStats* stats){
-	
-	int numobjs = stats->n_objs;
-	int nmig = stats->n_migrateobjs;
-	mapping = &stats->to_proc;
 
-	
-	tp = new TPObject[numobjs];
-	stats->makeCommHash();
+  int numobjs = stats->n_objs;
+  int nmig = stats->n_migrateobjs;
+  mapping = &stats->to_proc;
 
-	if(nrecvd != numobjs)
-		CkAbort("wrong tpCentroids length\n");
+  tps = new TPObject[numobjs];
+  stats->makeCommHash();
 
-	for(int i = 0; i < numobjs; i++){
-		LDObjHandle &handle = tpCentroids[i].handle;
-		int tag = stats->getHash(handle.id, handle.omhandle.id);
-		tp[tag].centroid.x = tpCentroids[i].vec.x;
-		tp[tag].centroid.y = tpCentroids[i].vec.y;
-		tp[tag].centroid.z = tpCentroids[i].vec.z;
-		tp[tag].migratable = stats->objData[tag].migratable;
-		tp[tag].load = tpCentroids[i].myNumParticles;
-		totalLoad += tp[tag].load;
-		tp[tag].lbindex = tag;
-		tp[tag].key = generateKey(tag);
-	}
-	
-	normalizeCoordinates(numobjs);
-	
-	bit_mask = 1;
-	int x = numxbins; /* Assuming same number of bins for each dimension */
-	numshifts = -1;
-	while(x != 0){
-		x >>= 1;
-		numshifts++;
-		bit_mask <<= 1;
-	}
+  CkAssert(nrecvd == numobjs);
 
-	
-	loadThreshold = totalLoad / (ALPHA * stats->count);
-	qsort(tp,numobjs,sizeof(TPObject),comparekey);
-	buildBuckets(0,numobjs);
-	bucketList.quickSort();
-	
-	int index;
-	int numProcs = stats->count;
-	int toProc = 0;
-	int length;
-	float currLoad = 0.0;
-	float avgLoad = totalLoad / numProcs;
-	
-	for(int i = 0; i < bucketList.length(); i++){
+  /* Find the bounding box of all centroids. */
+  OrientedBox<double> univBB;
+  getBoundingBox(univBB);
 
-		index = bucketList[i].tpStartIndex;
-		length = bucketList[i].numobjs;
-		
-		for(int j = index; j < length; j++){
-			if(currLoad < avgLoad){
-				(*mapping)[bucketList[i].tp[j].lbindex] = toProc;
-				currLoad += bucketList[i].tp[j].load;
-			}
-			else{
-				toProc++;
-				totalLoad -= currLoad;
-				numProcs--;
-				avgLoad = totalLoad/numProcs;
-				currLoad = 0;
-				(*mapping)[bucketList[i].tp[j].lbindex] = toProc;
-				currLoad += bucketList[i].tp[j].load;
-			}
-		}
-	}
+  float xres, yres, zres;	
 
-	/* assign buckets to procs based on an average */
-	
+  /* Each tp is put into a bin in each dimension */
+  xbin = new CmiUInt8[numobjs];
+  ybin = new CmiUInt8[numobjs];
+  zbin = new CmiUInt8[numobjs];
 
-	/* Clean-up */
+  numxbins = numybins = numzbins = (1<<21);
 
-	delete[] tp;
-	delete[] xbin;
-	delete[] ybin;
-	delete[] zbin;
+  xres = (univBB.greater_corner.x - univBB.lesser_corner.x) / numxbins;
+  yres = (univBB.greater_corner.y - univBB.lesser_corner.y) / numybins;
+  zres = (univBB.greater_corner.z - univBB.lesser_corner.z) / numzbins;
+
+  bit_mask = 1;
+  int x = numxbins; /* Assuming same number of bins for each dimension */
+  numshifts = -1;
+  while(x != 0){
+    x >>= 1;
+    numshifts++;
+    bit_mask <<= 1;
+  }
+
+  CkReduction::setElement *cur = tpCentroids;
+  while(cur != NULL){
+    TaggedVector3D *data = (TaggedVector3D *) cur->data;
+    LDObjHandle &handle = data->handle;
+    int tag = stats->getHash(handle.id,handle.omhandle.id);
+    tps[tag].centroid.x = data->vec.x;
+    tps[tag].centroid.y = data->vec.y;
+    tps[tag].centroid.z = data->vec.z;
+    tps[tag].migratable = stats->objData[tag].migratable;
+    if(step() == 0){
+      tps[tag].load = data->myNumParticles;
+    }
+    else{
+      tps[tag].load = stats->objData[tag].wallTime;
+    }
+
+    totalLoad += tps[tag].load;
+    tps[tag].lbindex = tag;
+    tps[tag].key = generateKey(tag);
+
+    xbin[tag] = (tps[tag].centroid.x - univBB.lesser_corner.x)/xres;
+    ybin[tag] = (tps[tag].centroid.y - univBB.lesser_corner.y)/yres;
+    zbin[tag] = (tps[tag].centroid.z - univBB.lesser_corner.z)/zres;
+
+    cur = cur->next();
+  }
+
+  loadThreshold = totalLoad / (ALPHA * stats->count);
+  qsort(tps,numobjs,sizeof(TPObject),comparekey);
+  buildBuckets(0,numobjs);
+  bucketList.quickSort();
+
+  int index;
+  int numProcs = stats->count;
+  int toProc = 0;
+  int length;
+  float currLoad = 0.0;
+  float avgLoad = totalLoad / numProcs;
+
+  for(int i = 0; i < bucketList.length(); i++){
+
+    index = bucketList[i].tpStartIndex;
+    length = bucketList[i].numobjs;
+
+    for(int j = index; j < length; j++){
+      if(currLoad < avgLoad){
+        (*mapping)[bucketList[i].tp[j].lbindex] = toProc;
+        currLoad += bucketList[i].tp[j].load;
+      }
+      else{
+        toProc++;
+        totalLoad -= currLoad;
+        numProcs--;
+        avgLoad = totalLoad/numProcs;
+        currLoad = 0;
+        (*mapping)[bucketList[i].tp[j].lbindex] = toProc;
+        currLoad += bucketList[i].tp[j].load;
+      }
+    }
+  }
+
+  /* assign buckets to procs based on an average */
+
+
+  /* Clean-up */
+
+  delete[] tps;
+  delete[] xbin;
+  delete[] ybin;
+  delete[] zbin;
+
+  bucketList.length() = 0;
 }
 
-void HilbertLB::normalizeCoordinates(int numobjs){
-	
-	float xmin = tpCentroids[0].vec.x;
-	float ymin = tpCentroids[0].vec.y;
-	float zmin = tpCentroids[0].vec.z;
-	float xmax = tpCentroids[0].vec.x;
-	float ymax = tpCentroids[0].vec.y;
-	float zmax = tpCentroids[0].vec.z;
-	
-	float xres, yres, zres;	
-
-	xbin = new CmiUInt8[numobjs];
-	ybin = new CmiUInt8[numobjs];
-	zbin = new CmiUInt8[numobjs];
-	
-	/* Find the coordinates of the bounding box(mins and max) for the centroids. */
-	for(int i = 1; i < numobjs; i++){
-		xmin = (tpCentroids[i].vec.x < xmin) ? tpCentroids[i].vec.x : xmin;
-		xmax = (tpCentroids[i].vec.x > xmax) ? tpCentroids[i].vec.x : xmax;
-		ymin = (tpCentroids[i].vec.y < ymin) ? tpCentroids[i].vec.y : ymin;
-		ymax = (tpCentroids[i].vec.y > ymax) ? tpCentroids[i].vec.y : ymax;
-		zmin = (tpCentroids[i].vec.z < zmin) ? tpCentroids[i].vec.z : zmin;
-		zmax = (tpCentroids[i].vec.z > zmax) ? tpCentroids[i].vec.z : zmax;
-	}
-	
-	/* Calculate the number of cells for each dimension */
-	/*	numxbins = (xmax - xmin)/resolution;
-		numybins = (ymax - ymin)/resolution;
-		numzbins = (zmax - zmin)/resolution;
-	*/
-		numxbins = 2097151;
-		numybins = 2097151;
-		numzbins = 2097151;
-		
-		xres = (xmax - xmin) / numxbins;
-		yres = (ymax - ymin) / numybins;
-		zres = (zmax - zmin) / numzbins;
-	
-	/* Calculate which cell the centroid belongs to for each dimension */
-	for(int i = 0; i < numobjs; i++){
-		xbin[i] = (long)((tpCentroids[i].vec.x - xmin) / xres);
-		ybin[i] = (long)((tpCentroids[i].vec.y - ymin) / yres);
-		zbin[i] = (long)((tpCentroids[i].vec.z - zmin) / zres);
-	}
+void HilbertLB::getBoundingBox(OrientedBox<double> &univBB){
+  CkReduction::setElement *cur = tpCentroids;
+  while(cur != NULL){
+    TaggedVector3D *data = (TaggedVector3D *)cur;
+    univBB.grow(data->vec);
+  }
 }
 
 CmiUInt8 HilbertLB::generateKey(int i){
@@ -195,16 +190,16 @@ CmiUInt8 HilbertLB::generateKey(int i){
 void HilbertLB::buildBuckets(int index, int numobjs){
 	float currLoad = 0.0;
 	for(int i = index; i < index + numobjs; i++){
-		currLoad += tp[i].load;
+		currLoad += tps[i].load;
 	}
 	if(currLoad < loadThreshold){
 		LBBucket b;
 		b.setLoad(currLoad);
-		b.setTP(&(tp[index]),numobjs);
+		b.setTP(&(tps[index]),numobjs);
 		newCentroid(currLoad, b, numobjs);
 		b.hilbertID = hilbert3d(b.getx(),b.gety(),b.getz());
 		b.setIndex(index);
-		bucketList.insertAtEnd(b);
+		bucketList.push_back(b);
 		return;
 	}
 	else{

@@ -11,18 +11,20 @@
 class HilbertLB : public CentralLB{
 
 private:
-	TaggedVector3D *tpCentroids;
 	bool haveTPCentroids;
 	int nrecvd, numxbins,numybins, numzbins, numshifts, bit_mask;
 	CmiUInt8 *xbin, *ybin, *zbin;
+        CkReduction::setElement *tpCentroids;
 	CkReductionMsg *tpmsg;	
-	TPObject *tp;
+	TPObject *tps;
 	CmiBool centroidsAllocated;
 	float loadThreshold;
 	float totalLoad;	
 
 	CkVec<LBBucket> bucketList; 
 	CkVec<int> *mapping;
+
+        void getBoundingBox(OrientedBox<double> &univBB);
 
 public:
 	HilbertLB(const CkLBOptions &);
