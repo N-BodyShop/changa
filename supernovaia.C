@@ -79,9 +79,9 @@ double SN::NSNIa (double dMassT1, double dMassT2)
 int
 main(int argc, char **argv)
 {
-    // Chabrier chimf; // Chabrier has power law index of -1.3 which
+    Chabrier chimf; // Chabrier has power law index of -1.3 which
 		    // matches s = -2.35 in Greggio & Renzini, 1983
-    Kroupa93 chimf; // Kroupa is what RVN use.
+    // Kroupa93 chimf; // Kroupa is what RVN use.
     // MillerScalo chimf;
     SN sn;
     sn.imf = &chimf;
@@ -94,9 +94,29 @@ main(int argc, char **argv)
 				    /// to 14Gyr
     
     // sn.dFracBinSNIa = 1.00;
-    printf("# Total Ia, II supernova: %g %g, SNIa mass range: %g\n", sn.NSNIa(0.8, 8.0),
-      chimf.CumNumber(8.0) - chimf.CumNumber(40.0),
-      chimf.CumNumber(3.0) - chimf.CumNumber(16.0));
+    printf("# Total Ia, II supernova: %g %g, SNIa mass range: %g\n",
+	   sn.NSNIa(0.8, 8.0)/chimf.CumMass(0.0),
+	   (chimf.CumNumber(8.0) - chimf.CumNumber(40.0))/chimf.CumMass(0.0),
+	   (chimf.CumNumber(3.0) - chimf.CumNumber(16.0))/chimf.CumMass(0.0));
+    {
+	// One solar mass formed at t = 0, with metallicity 0.02
+	SFEvent sfEvent(1.0, 0.0, 0.02, .005, .005);
+	FBEffects fbEffectsII;
+	FBEffects fbEffectsIa;
+	double t, deltat;
+	
+	t = 1e6; deltat = 1e8;
+	sn.CalcSNIIFeedback(&sfEvent, t, deltat, &fbEffectsII);
+	t = 1e7; deltat = 1e10;
+	sn.CalcSNIaFeedback(&sfEvent, t, deltat, &fbEffectsIa);
+	printf("# Total II Ox: %g, Fe: %g\n",
+	       fbEffectsII.dMassLoss*fbEffectsII.dMOxygen,
+	       fbEffectsII.dMassLoss*fbEffectsII.dMIron);
+	printf("# Total Ia Ox: %g, Fe: %g\n",
+	       fbEffectsIa.dMassLoss*fbEffectsIa.dMOxygen,
+	       fbEffectsIa.dMassLoss*fbEffectsIa.dMIron);
+	}
+    
     for(int i = 0; i < nsamp; i++) {
 	double t = 1e6*exp(i*tfac);
 	double deltat = 0.01*t;  /// interval to determine rate
