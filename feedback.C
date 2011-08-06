@@ -53,6 +53,7 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     if(strcmp(achIMF, "MillerScalo") == 0) imf = new MillerScalo();
     else if(strcmp(achIMF, "Chabrier") == 0) imf = new Chabrier();
     else if(strcmp(achIMF, "Kroupa93") == 0) imf = new Kroupa93();
+    else if(strcmp(achIMF, "Kroupa01") == 0) imf = new Kroupa01();
     sn.imf = imf;
 #include "physconst.h"
     if (sn.dESN > 0.0) bSmallSNSmooth = 1;
