@@ -45,6 +45,21 @@ double Kroupa93::returnimf(double mass)
     return dIMF;
     }
 
+double Kroupa01::returnimf(double mass)
+{
+    double dIMF;
+    
+    if(mass > mmax)
+	return 0.0;
+    if(mass > m2)
+	dIMF = a2*pow(mass, b2);
+    else if(mass > m1)
+	dIMF = a1*pow(mass, b1);
+    else
+	dIMF = 0.0;
+    return dIMF;
+    }
+
 // Chabrier imf function
 double Chabrier::returnimf(double mass)
 {
@@ -109,6 +124,23 @@ double Kroupa93::CumNumber(double mass)
     return dCumN;
     }
 
+double Kroupa01::CumNumber(double mass)
+{
+    double dCumN;
+    
+    if(mass > mmax) return 0;
+    if(mass > m2) {
+	dCumN = a2/b2*(pow(mmax, b2) - pow(mass, b2))/log(10.0);
+	return dCumN;
+    }
+    else dCumN = a2/b2*(pow(mmax, b2) - pow(m2, b2))/log(10.0);
+
+    if(mass > m1) dCumN += a1/b1*(pow(m2, b1) - pow(mass, b1))/log(10.0);
+    else dCumN += a1/b1*(pow(m2, b1) - pow(m1, b1))/log(10.0);
+    
+    return dCumN;
+    }
+
 MillerScalo* MillerScalo::clone() const
 {
     return new MillerScalo(*this);
@@ -117,6 +149,11 @@ MillerScalo* MillerScalo::clone() const
 Kroupa93* Kroupa93::clone() const
 {
     return new Kroupa93(*this);
+    }
+
+Kroupa01* Kroupa01::clone() const
+{
+    return new Kroupa01(*this);
     }
 
 Chabrier* Chabrier::clone() const
@@ -211,6 +248,30 @@ double Kroupa93::CumMass(double mass)
     return dCumM;
     }
 
+double Kroupa01::CumMass(double mass)
+{
+    double dCumM;
+    
+    if(mass > mmax) return 0;
+    if(mass > m2) {
+	dCumM = a2/(b2 + 1)*(pow(mmax, b2 + 1)
+			      - pow(mass, b2 + 1))/log(10.0);
+	return dCumM;
+	}
+    else {
+	dCumM = a2/(b2 + 1)*(pow(mmax, b2 + 1)
+			      - pow(m2, b2 + 1))/log(10.0);
+	}
+    if(mass > m1)
+	dCumM += a1/(b1 + 1)*(pow(m2, b1 + 1)
+			      - pow(mass, b1 + 1))/log(10.0);
+    else
+	dCumM += a1/(b1 + 1)*(pow(m2, b1 + 1)
+			      - pow(m1, b1 + 1))/log(10.0);
+
+    return dCumM;
+    }
+
 double Chabrier::CumMass(double mass)
 {
   double dCumM;
@@ -252,6 +313,7 @@ main(int argc, char **argv)
     
     MillerScalo msimf;
     Kroupa93 krimf;
+    Kroupa01 kr01imf;
     Chabrier chimf;
 
     sum = 0;
@@ -286,11 +348,19 @@ main(int argc, char **argv)
 
     Ntot = krimf.CumNumber(0.0791);
     Mtot = krimf.CumMass(0.0791);
-    printf("# Kroupa Ntot, Mtot = %g %g\n", Ntot, Mtot);
-    printf("# Kroupa Fraction of mass in stars that go Type II SN: %g\n",
+    printf("# Kroupa93 Ntot, Mtot = %g %g\n", Ntot, Mtot);
+    printf("# Kroupa93 Fraction of mass in stars that go Type II SN: %g\n",
 	   krimf.CumMass(8.0)/Mtot);
     printf("# Kroupa SuperNovea/solar mass of stars formed: %g\n",
 	   krimf.CumNumber(8.0)/Mtot);
+
+    Ntot = kr01imf.CumNumber(0.0791);
+    Mtot = kr01imf.CumMass(0.0791);
+    printf("# Kroupa01 Ntot, Mtot = %g %g\n", Ntot, Mtot);
+    printf("# Kroupa01 Fraction of mass in stars that go Type II SN: %g\n",
+	   kr01imf.CumMass(8.0)/Mtot);
+    printf("# Kroupa SuperNovea/solar mass of stars formed: %g\n",
+	   kr01imf.CumNumber(8.0)/Mtot);
 
     Ntot = chimf.CumNumber(0.0791);
     Mtot = chimf.CumMass(0.0791);
@@ -300,7 +370,7 @@ main(int argc, char **argv)
     printf("# Chabrier SuperNovea/solar mass of stars formed: %g\n",
 	   chimf.CumNumber(8.0)/Mtot);
     
-    printf("# mass MSIMF MSCumNumber MSCumMass KrIMF KrCumNumber KrCumMass ChIMF ChCumNumber ChCumMass\n");
+    printf("# mass MSIMF MSCumNumber MSCumMass KrIMF KrCumNumber KrCumMass Kr01IMF Kr01CumNumber Kr01CumMass ChIMF ChCumNumber ChCumMass\n");
     for(i = 0; i < nsamp; i++) {
 	double mass;
 	
@@ -309,9 +379,10 @@ main(int argc, char **argv)
 	mass = pow(10.0, lgm);
 
 
-	printf("%g %g %g %g %g %g %g %g %g %g\n", mass,
+	printf("%g %g %g %g %g %g %g %g %g %g %g %g %g\n", mass,
 	       msimf.returnimf(mass), msimf.CumNumber(mass), msimf.CumMass(mass),
 	       krimf.returnimf(mass), krimf.CumNumber(mass), krimf.CumMass(mass),
+	       kr01imf.returnimf(mass), kr01imf.CumNumber(mass), kr01imf.CumMass(mass),
 	       chimf.returnimf(mass), chimf.CumNumber(mass), chimf.CumMass(mass));
 	}
     return 0;

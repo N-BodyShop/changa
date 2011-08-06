@@ -82,6 +82,7 @@ main(int argc, char **argv)
     Chabrier chimf; // Chabrier has power law index of -1.3 which
 		    // matches s = -2.35 in Greggio & Renzini, 1983
     // Kroupa93 chimf; // Kroupa is what RVN use.
+    // Kroupa01 chimf;
     // MillerScalo chimf;
     SN sn;
     sn.imf = &chimf;
@@ -104,17 +105,23 @@ main(int argc, char **argv)
 	FBEffects fbEffectsII;
 	FBEffects fbEffectsIa;
 	double t, deltat;
+	double dMOxII = 0.0;
+	double dMFeII = 0.0;
+	double dMOxIa = 0.0;
+	double dMFeIa = 0.0;
 	
-	t = 1e6; deltat = 1e8;
-	sn.CalcSNIIFeedback(&sfEvent, t, deltat, &fbEffectsII);
-	t = 1e7; deltat = 1e10;
-	sn.CalcSNIaFeedback(&sfEvent, t, deltat, &fbEffectsIa);
-	printf("# Total II Ox: %g, Fe: %g\n",
-	       fbEffectsII.dMassLoss*fbEffectsII.dMOxygen,
-	       fbEffectsII.dMassLoss*fbEffectsII.dMIron);
-	printf("# Total Ia Ox: %g, Fe: %g\n",
-	       fbEffectsIa.dMassLoss*fbEffectsIa.dMOxygen,
-	       fbEffectsIa.dMassLoss*fbEffectsIa.dMIron);
+	deltat = 1e6;
+	for (int i = 0; i < 10000; i++) {
+	    t = i*deltat;
+	    sn.CalcSNIIFeedback(&sfEvent, t, deltat, &fbEffectsII);
+	    dMOxII += fbEffectsII.dMassLoss*fbEffectsII.dMOxygen;
+	    dMFeII += fbEffectsII.dMassLoss*fbEffectsII.dMIron;
+	    sn.CalcSNIaFeedback(&sfEvent, t, deltat, &fbEffectsIa);
+	    dMOxIa += fbEffectsIa.dMassLoss*fbEffectsIa.dMOxygen;
+	    dMFeIa += fbEffectsIa.dMassLoss*fbEffectsIa.dMIron;
+	    }
+	printf("# Total II Ox: %g, Fe: %g\n", dMOxII, dMFeII);
+	printf("# Total Ia Ox: %g, Fe: %g\n", dMOxIa, dMFeIa);
 	}
     
     for(int i = 0; i < nsamp; i++) {

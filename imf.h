@@ -97,6 +97,36 @@ class Kroupa93 : public IMF {
 	}
 };
 
+class Kroupa01 : public IMF {
+    double a1, b1, m1;
+    double a2, b2, m2;
+    double mmax;
+ public:
+/* parameters from Kroupa 2001, equation 2, and ignoring brown dwarfs,
+   Also normalized so that the mass integral is 1. */
+/* NOTE BENE: Kroupa 2001 has a revised IMF in section 6.2 which is
+   different than this */
+/* To convert to the IMF(log10(M)) convention of Miller-Scalo, we
+    increase the power law by 1 and multiply the coefficient by
+    ln(10.0). See, eg., Chabrier 2003, eq. 2 */
+    Kroupa01() {
+	a1=0.22038*2.0*log(10.0);b1=-0.3;m1=.08; 
+	a2=0.22038*log(10.0);b2=-1.3;m2=0.5; 
+	mmax=100.0; }
+    PUPable_decl(Kroupa01);
+    Kroupa01(CkMigrateMessage *m) : IMF(m) {}
+    virtual double returnimf(double mass);
+    virtual double CumNumber(double mass);
+    virtual double CumMass(double mass);
+    virtual Kroupa01* clone() const;
+    virtual void pup(PUP::er &p) {
+	PUP::able::pup(p);
+	p|a1; p|b1; p|m1;
+	p|a2; p|b2; p|m2;
+	p|mmax;
+	}
+};
+
 /*
   Use the log normal + power law fit of Chabrier, 2003, Galactic
   Stellar and Substellar Initial Mass Function", PASP 115, 763.
