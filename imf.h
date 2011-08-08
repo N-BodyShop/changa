@@ -105,7 +105,12 @@ class Kroupa01 : public IMF {
 /* parameters from Kroupa 2001, equation 2, and ignoring brown dwarfs,
    Also normalized so that the mass integral is 1. */
 /* NOTE BENE: Kroupa 2001 has a revised IMF in section 6.2 which is
-   different than this */
+   different than this; however, below is what is used as the default in
+   Starburst99
+   (http://www.stsci.edu/science/starburst99/mappings/docs/run.html)
+   with the exception that the low mass cutoff is .1 instead of the .08
+   below and in the Kroupa paper.
+ */
 /* To convert to the IMF(log10(M)) convention of Miller-Scalo, we
     increase the power law by 1 and multiply the coefficient by
     ln(10.0). See, eg., Chabrier 2003, eq. 2 */
