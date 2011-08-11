@@ -76,6 +76,9 @@ class TopDownTreeWalk : public TreeWalk{
   void walk(GenericTreeNode *node, State *state, int chunk, int reqID, int awi);
 };
 
+/// Walk a tree starting with a leaf node and working up the tree.
+/// This class is used for the k-th nearest neighbor search (Smooth).
+
 class BottomUpTreeWalk : public TreeWalk{ 
   public: 
   BottomUpTreeWalk(Compute *_comp, TreePiece *tp):TreeWalk(_comp,tp,BottomUp){}

@@ -180,14 +180,21 @@ public:
 	    CoolFinalize(Cool);
 	    }
 
-	/// Collect the boundaries of all TreePieces, and trigger the real treebuild
+	/// \brief Collect the boundaries of all TreePieces, and
+	/// trigger the real treebuild
 	void collectSplitters(CkReductionMsg* m);
 	/// Called by ORB Sorter, save the list of which TreePiece is
 	/// responsible for which interval.
 	void acceptResponsibleIndex(const int* responsible, const int n,
 				    const CkCallback& cb);
 	/// Called by the Sorter, I save these final keys and the list
-	/// of which TreePiece is responsible for which interval
+	/// of which TreePiece is responsible for which interval.
+	/// This routine then calls TreePiece::unshuffleParticles to
+	/// move the particles around.
+	/// @param keys vector of boundary keys
+	/// @param responsible vector of which piece is responsible
+	/// for which interval
+	/// @param bins number of particles in each interval.
 	void acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb);
 	void pup(PUP::er& p);
 
@@ -208,6 +215,10 @@ private:
 	int createLookupRoots(Tree::GenericTreeNode *node, Tree::NodeKey *keys);
 public:
 
+/// \brief Collect roots of treepieces on this node.
+///
+/// The roots are stored in registeredChares to be used by TreePiece
+/// combineLocalTrees.
 #ifdef CUDA
     //XXX - coercing arrayindex to int in last arg      
     void notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp, int index);

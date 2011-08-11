@@ -206,14 +206,15 @@ void TopDownTreeWalk::bft(GenericTreeNode *node, State *state, int chunk, int re
 
 
 bool bIsReplica(int reqID);
-//
-// Bottom up treewalk for efficient smooth:
-// check for root (and non periodic) and do local work
-// first.  A Stack of siblings is allocated in the local frame.
-// Once the stack is processed, then all walks are done in the
-// standard "top down" way.
 
-
+///
+/// Bottom up treewalk for efficient smooth:
+/// If startNode is the root, and not a periodic,
+/// then go down to the bucket being walked, pushing siblings onto a
+/// stack in the local frame.
+/// Once the stack is processed, then all walks are done in the
+/// standard "top down" way.
+///
 void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
 			    int chunk, int reqID, int awi){
     int reqIDlist = decodeReqID(reqID);
@@ -269,6 +270,8 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
 	return;
 	}
     std::stack<GenericTreeNode *> nodeStack;
+    // go down the tree toward the bucket, push all siblings of the
+    // ancestor onto the stack.
     while(node != reqnode) {
 	int which = node->whichChild(reqnode->getKey());
 	for(int iChild = 0; iChild < node->numChildren(); iChild++) {

@@ -123,6 +123,7 @@ class TPObject{
   //int index;
   int lbindex;
   bool migratable;
+  long key;
   //int nparticles;
 
   bool operator<(const TPObject &t) const{
