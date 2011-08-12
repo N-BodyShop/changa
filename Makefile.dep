@@ -53,8 +53,8 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
+Reductions.decl.h \
 Compute.h \
-Reductions.h \
 
 Sorter.o: \
 Sorter.cpp \
@@ -102,6 +102,7 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
+Reductions.decl.h \
 
 TreePiece.o: \
 TreePiece.cpp \
@@ -148,9 +149,9 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
+Reductions.decl.h \
 Compute.h \
 Reductions.h \
-Reductions.decl.h \
 MultistepLB.h \
 MapStructures.h \
 ScaleTranMapBG.h \
@@ -227,6 +228,7 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
+Reductions.decl.h \
 Compute.h \
 smooth.h \
 State.h \
@@ -279,6 +281,7 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
+Reductions.decl.h \
 
 InOutput.o: \
 InOutput.C \
@@ -325,8 +328,8 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
+Reductions.decl.h \
 Compute.h \
-Reductions.h \
 
 cosmo.o: \
 cosmo.c \
@@ -396,6 +399,7 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
+Reductions.decl.h \
 Compute.h \
 
 Orb3dLB.o: \
@@ -445,6 +449,7 @@ MultistepLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
+Reductions.decl.h \
 Compute.h \
 
 starform.o: \
@@ -492,6 +497,7 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
+Reductions.decl.h \
 Compute.h \
 smooth.h \
 State.h \
@@ -543,6 +549,7 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
+Reductions.decl.h \
 Compute.h \
 TreeWalk.h \
 
@@ -591,6 +598,7 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
+Reductions.decl.h \
 Compute.h \
 Opt.h \
 TreeWalk.h \
@@ -640,6 +648,7 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
+Reductions.decl.h \
 Compute.h \
 Opt.h \
 smooth.h \
@@ -689,6 +698,7 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
+Reductions.decl.h \
 Compute.h \
 TreeWalk.h \
 Opt.h \
@@ -739,6 +749,7 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
+Reductions.decl.h \
 Compute.h \
 smooth.h \
 State.h \
