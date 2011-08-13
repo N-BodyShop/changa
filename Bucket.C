@@ -32,6 +32,7 @@
 	}
 	
 	void LBBucket::setLoad(float l){
+		//CkPrintf("Load = %f\n",l);
 		CkAssert(l > 0);
 		load += l;
 	}

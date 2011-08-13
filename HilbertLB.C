@@ -7,7 +7,7 @@
 #include "hilbert.h"
 
 #define UNIVERSAL_BIT 0x8000000000000000
-#define ALPHA 2
+#define ALPHA 5
 
 using namespace std;
 
@@ -131,7 +131,7 @@ void HilbertLB::work(BaseLB::LDStats* stats){
   CkPrintf("HilbertLB: LoadThreshold: %f totalLoad: %f Bucket size: %d\n",loadThreshold, totalLoad, bucketList.length());
   bucketList.quickSort();
 
-  CkPrintf("[%d] HilbertLB built tree \n", CkMyPe());
+ //CkPrintf("[%d] HilbertLB built tree Bucket Len= %d\n", CkMyPe(), bucketList.length());
 
   int index;
   int numProcs = stats->count;
@@ -139,23 +139,25 @@ void HilbertLB::work(BaseLB::LDStats* stats){
   int length;
   float currLoad = 0.0;
   float avgLoad = totalLoad / numProcs;
-
+	int mapCount=0;
+	CkPrintf("Average Load: %f numProcs: %d\n",avgLoad,numProcs);
 
   for(int i = 0; i < bucketList.length(); i++){
 
-     if(currLoad < avgLoad){
-        (*mapping)[bucketList[i].tp[j].lbindex] = toProc;
+     if( (currLoad /*+ bucketList[i].load*/) < avgLoad){
         currLoad += bucketList[i].load;
+				mapCount++;
+        mapBuckets(i,toProc);
+				//CkPrintf("HilbertLB: Assigned Load:%f CurrentLoad: %f  Avg Load:%f toProc:%d\n",bucketList[i].load,currLoad,avgLoad,toProc);
       }
       else{
+				mapCount = 0;
         toProc++;
-        totalLoad -= currLoad;
-        numProcs--;
-        avgLoad = totalLoad/numProcs;
+       	totalLoad -= currLoad;
+       	numProcs--;
+       	i--;
+				avgLoad = totalLoad/numProcs;
         currLoad = 0;
-        mapBuckets(i , toProc);
-		currLoad += bucketList[i].load;
-		CkPrintf("HilbertLB: Assigning %f load to proc:%d\n",currLoad,toProc);
       }
   }
 
@@ -175,11 +177,9 @@ void HilbertLB::work(BaseLB::LDStats* stats){
 }
 
 void HilbertLB::mapBuckets(int bucketIndex, int toProc){
-	int length = bucketList[i].numobjs;
-	int startIndex = bucketList[i].tpStartIndex;
-
+	int length = bucketList[bucketIndex].numobjs;
 	for(int i = 0; i < length; i++){
-		(*mapping)[bucketList[i].tp[i].lbindex] = toProc;
+		(*mapping)[bucketList[bucketIndex].tp[i].lbindex] = toProc;
 	}
 
 }
@@ -218,8 +218,8 @@ void HilbertLB::buildBuckets(int index, int numobjs){
 	for(int i = index; i < index + numobjs; i++){
 		currLoad += tps[i].load;
 	}
-	CkPrintf("HilbertLB::buildBuckets(): currLoad: %f loadThreshold: %f\n",currLoad,loadThreshold);
-	if(currLoad < loadThreshold){
+	if(currLoad == 0.0){return;}
+	else if(currLoad < loadThreshold){
 		LBBucket b;
 		b.setLoad(currLoad);
 		b.setTP(&(tps[index]),numobjs);
@@ -227,6 +227,7 @@ void HilbertLB::buildBuckets(int index, int numobjs){
 		b.hilbertID = hilbert3d(b.getx(),b.gety(),b.getz());
 		b.setIndex(index);
 		bucketList.push_back(b);
+		//CkPrintf("HilbertLB::buildBuckets(): currLoad: %f loadThreshold: %f\n",currLoad,loadThreshold);
 		return;
 	}
 	else{
