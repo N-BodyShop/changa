@@ -1478,6 +1478,8 @@ void TreePiece::quiescence() {
     }
   }
   */
+
+  /*
   CkPrintf("[%d] quiescence detected, pending %d total %d\n",
                           thisIndex, sLocalGravityState->myNumParticlesPending,
                           numBuckets);
@@ -1492,6 +1494,8 @@ void TreePiece::quiescence() {
                 sRemoteGravityState->counterArrays[0][i],
                 sLocalGravityState->counterArrays[0][i]);
   }
+  */
+
   CkPrintf("quiescence detected!\n");
   mainChare.niceExit();
 }
@@ -3485,6 +3489,8 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   LBTurnInstrumentOn();
   iterationNo++;
 
+  CkPrintf("[%d] startIteration\n", thisIndex);
+
   callback = cb;
   activeRung = am;
   theta = myTheta;
@@ -4104,12 +4110,14 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
 }
 
 void TreePiece::doAtSync(){
+  CkPrintf("[%d] TreePiece %d calling AtSync() at %g\n",CkMyPe(),thisIndex, CkWallTimer());
   if(verbosity > 1)
       CkPrintf("[%d] TreePiece %d calling AtSync() at %g\n",CkMyPe(),thisIndex, CkWallTimer());
   AtSync();
 }
 
 void TreePiece::ResumeFromSync(){
+  CkPrintf("[%d] TreePiece %d in ResumefromSync\n",CkMyPe(),thisIndex);
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d in ResumefromSync\n",CkMyPe(),thisIndex);
   contribute(0, 0, CkReduction::concat, callback);
