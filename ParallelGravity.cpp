@@ -1279,7 +1279,6 @@ void Main::advanceBigStep(int iStep) {
 	ckout << "Load balancer ...";
 	startTime = CkWallTimer();
 	treeProxy.startlb(CkCallbackResumeThread(), activeRung);
-        CkPrintf("done load balancing\n");
 	ckout << " took "<<(CkWallTimer() - startTime) << " seconds."
 	     << endl;
     //	}
@@ -1712,7 +1711,7 @@ Main::initialForces()
   double tolerance = 0.01;	// tolerance for domain decomposition
 
   // DEBUGGING
-  //CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
+  CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
 
   /***** Initial sorting of particles and Domain Decomposition *****/
   ckout << "Initial domain decomposition ...";
