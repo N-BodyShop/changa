@@ -79,7 +79,8 @@ class Sorter : public Chare {
 
 	/// Variables to decide when to split or join a TreePiece in the Oct decomposition
 	int joinThreshold, splitThreshold;
-	/// Specify what is the level of refinement of nodes sent out for histogramming
+	/// Specify what is the level of refinement of nodes sent out
+	/// for histogramming in Oct decomposition.
 	int refineLevel;
 	
   ///Variables added for ORB decomposition
