@@ -1158,6 +1158,10 @@ public:
 	  usesAtSync=CmiTrue;
 	  bucketReqs=NULL;
 	  nCacheAccesses = 0;
+	  memWithCache = 0;
+	  memPostCache = 0;
+	  nNodeCacheEntries = 0;
+	  nPartCacheEntries = 0;
 	  completedActiveWalks = 0;
 	  myPlace = -1;
 	  nSetupWriteStage = -1;
@@ -1233,6 +1237,10 @@ public:
 	  bucketReqs = NULL;
 	  numChunks=-1;
 	  nCacheAccesses = 0;
+	  memWithCache = 0;
+	  memPostCache = 0;
+	  nNodeCacheEntries = 0;
+	  nPartCacheEntries = 0;
 	  completedActiveWalks = 0;
 	  prefetchRoots = NULL;
 	  //remaining Chunk = NULL;

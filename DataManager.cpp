@@ -134,6 +134,7 @@ public:
 void DataManager::collectSplitters(CkReductionMsg *m) {
   numSplitters = m->getSize() / sizeof(SFC::Key);
   CkAssert(! (numSplitters&1)); // must be even
+  CkAssert(numSplitters > 0);
   delete[] splitters;
   splitters = new SFC::Key[numSplitters];
   SFC::Key* splits = static_cast<SFC::Key *>(m->getData());
@@ -144,8 +145,6 @@ void DataManager::collectSplitters(CkReductionMsg *m) {
   std::sort(splitters2, splitters2 + (numSplitters>>1));
   for (unsigned int i=1; i<numSplitters; ++i) {
     if (splitters[i] < splitters[i-1]) {
-      //for (unsigned int j=0; j<numSplitters; ++j)
-      //  CkPrintf("%d: Key %d = %016llx\n",thisIndex,j,splitters[j]);
       if(CkMyNode()==0)
         CkAbort("Keys not ordered");
     }
