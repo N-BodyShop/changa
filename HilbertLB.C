@@ -79,21 +79,14 @@ void HilbertLB::work(BaseLB::LDStats* stats){
   ybin = new CmiUInt8[numobjs];
   zbin = new CmiUInt8[numobjs];
 
-  numxbins = numybins = numzbins = (1<<21);
+  numxbins = numybins = numzbins = (1<<20);
 
   xres = (univBB.greater_corner.x - univBB.lesser_corner.x) / numxbins;
   yres = (univBB.greater_corner.y - univBB.lesser_corner.y) / numybins;
   zres = (univBB.greater_corner.z - univBB.lesser_corner.z) / numzbins;
 
-  bit_mask = 1;
-  int x = numxbins; /* Assuming same number of bins for each dimension */
-  numshifts = -1;
-  while(x != 0){
-    x >>= 1;
-    numshifts++;
-    bit_mask <<= 1;
-  }
-
+  bit_mask = (1<<20);
+  CkPrintf("numxbins = %x bit_mask = %x \n",numxbins, bit_mask);
   CkPrintf("[%d] HilbertLB start setup \n", CkMyPe());
 
   CkReduction::setElement *cur = tpCentroids;
@@ -114,12 +107,12 @@ void HilbertLB::work(BaseLB::LDStats* stats){
 
     totalLoad += tps[tag].load;
     tps[tag].lbindex = tag;
-    tps[tag].key = generateKey(tag);
 
     xbin[tag] = (tps[tag].centroid.x - univBB.lesser_corner.x)/xres;
     ybin[tag] = (tps[tag].centroid.y - univBB.lesser_corner.y)/yres;
     zbin[tag] = (tps[tag].centroid.z - univBB.lesser_corner.z)/zres;
 
+    tps[tag].key = generateKey(tag);
     cur = cur->next();
   }
 
