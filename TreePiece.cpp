@@ -1478,6 +1478,7 @@ void TreePiece::quiescence() {
     }
   }
   */
+
   CkPrintf("[%d] quiescence detected, pending %d total %d\n",
                           thisIndex, sLocalGravityState->myNumParticlesPending,
                           numBuckets);
@@ -1492,6 +1493,7 @@ void TreePiece::quiescence() {
                 sRemoteGravityState->counterArrays[0][i],
                 sLocalGravityState->counterArrays[0][i]);
   }
+
   CkPrintf("quiescence detected!\n");
   mainChare.niceExit();
 }

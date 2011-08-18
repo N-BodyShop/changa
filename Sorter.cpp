@@ -354,10 +354,11 @@ void Sorter::convertNodesToSplitters(){
 }
 
 /**
- * Given "num" node keys, create splitters for these selected nodekeys to 
- * refine the information within those nodes: each node is divided
- * "level" times. Returns a newly allocated Key array containing the
- * splitters key for the histogramming phase.
+ * Given "num" node keys, create splitters for these selected nodekeys
+ * to refine the information within those nodes: each node in keys is
+ * divided a number of times that depends on "refineLevel". Returns a
+ * newly allocated Key array containing a concatenation of the
+ * splitter keys for each node to be refined for the histogramming phase.
  */
 Key * Sorter::convertNodesToSplittersRefine(int num, NodeKey* keys){
   Key partKey = Key(0);
@@ -377,7 +378,9 @@ Key * Sorter::convertNodesToSplittersRefine(int num, NodeKey* keys){
     }
     partKey &= ~mask >> shift;
     for (int j=0; j<=(1<<refineLevel); ++j) {
-      result[idx++] = ((partKey+j) << shift) - 1;
+      Key kResult =  ((partKey+j) << shift);
+      if(kResult != 0) kResult--;
+      result[idx++] = kResult;
     }
   }
   //Sort here to make sure that splitters go sorted to histogramming
@@ -461,8 +464,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     CkPrintf("\n");
   }
   if(histogram){
-    //convertNodesToSplitters(numKeys,nodeKeys);
-    refineLevel = 2;
+    refineLevel = 1;
     int arraySize = (1<<refineLevel)+1;
     Key *array = convertNodesToSplittersRefine(nodesOpened.size(),nodesOpened.getVec());
     treeProxy.evaluateBoundaries(array, nodesOpened.size()*arraySize, 1<<refineLevel, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
@@ -542,7 +544,7 @@ bool Sorter::refineOctSplitting(int n, int *count) {
     const Key mask = Key(1) << 63;
     for (i=0; i<nodesOpened.size(); ++i) {
       //CkPrintf("Sorter: considering %llx\n",nodesOpened[i]);
-      if (availableChares.size() < 1<<refineLevel) {
+      if (availableChares.size() < 1<<refineLevel - 1) {
 	CkPrintf("availableChares size is %d, cannot refine further\n", availableChares.size());
         break;
       }
