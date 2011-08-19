@@ -477,7 +477,11 @@ void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg)
 /// of my particles in each bin.
 /// This routine assumes the particles in key order.
 /// The parameter skipEvery means that every "skipEvery" bins counted, one
-/// must be skipped.
+/// must be skipped.  When skipEvery is set, the keys are in groups of
+/// "skipEvery" size, and only splits within each group need to be
+/// evaluated.  Hence the counts between the end of one group, and the
+/// start of the next group are not evaluated.  This feature is used
+/// by the Oct decomposition.
 void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, const CkCallback& cb) {
 #ifdef COSMO_EVENT
   double startTimer = CmiWallTimer();
@@ -5984,7 +5988,11 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   else if(foundLB == Null){ 
     // none of the balancers requiring centroids found; go
     // straight to AtSync()
-      doAtSync();
+    // At the moment there is no load data: we would have to supply
+    // some load data (like particle count) if we want this to work well.
+    //  doAtSync();
+      contribute(cb);
+      return;
   }
   // this will be called in resumeFromSync()
   callback = cb;
