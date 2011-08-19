@@ -7,7 +7,7 @@
 #include "hilbert.h"
 
 #define UNIVERSAL_BIT 0x8000000000000000
-#define ALPHA 5
+#define ALPHA 6
 
 using namespace std;
 
@@ -86,7 +86,7 @@ void HilbertLB::work(BaseLB::LDStats* stats){
   zres = (univBB.greater_corner.z - univBB.lesser_corner.z) / numzbins;
 
   bit_mask = (1<<20);
-  CkPrintf("numxbins = %x bit_mask = %x \n",numxbins, bit_mask);
+  //CkPrintf("numxbins = %x bit_mask = %x \n",numxbins, bit_mask);
   CkPrintf("[%d] HilbertLB start setup \n", CkMyPe());
 
   CkReduction::setElement *cur = tpCentroids;
