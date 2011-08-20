@@ -428,7 +428,7 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"iRandomSeed", paramInt, &param.iRandomSeed,
 		    sizeof(int), "iRand", "<Feedback random Seed> = 1");
 	
-
+	param.sinks.AddParams(prm);
 	
 	//
 	// Output parameters
@@ -773,6 +773,27 @@ Main::Main(CkArgMsg* m) {
 		param.dComovingGmPerCcUnit = param.dGmPerCcUnit;
 		}
 
+	if (param.bBHSink) {
+	    assert (prmSpecified(prm, "dMsolUnit") &&
+		    prmSpecified(prm, "dKpcUnit"));
+
+	    /* For BH sinks -- default to negative tform as sink indicator */
+	    if(!prmSpecified(prm, "dSinkMassMin"))
+		param.dSinkMassMin = FLT_MAX;
+
+	    if(!param.bDoGas) {
+		ckerr << "Warning: BH sinks set without enabling SPH" << endl;
+		ckerr << "Enabling SPH" << endl;
+		param.bDoGas = 1;
+		}
+	    param.bDoSinks = 1;
+            /* Units of inverse time -- code units */
+	    param.dBHSinkEddFactor = GCGS*4*M_PI*MHYDR/
+		(SIGMAT*LIGHTSPEED*param.dBHSinkEddEff)*param.dSecUnit;
+	    /* c^2 times efficiency factor (ergs per g) -- code units */
+	    param.dBHSinkFeedbackFactor = param.dBHSinkFeedbackEff
+		*param.dBHSinkEddEff*LIGHTSPEED*LIGHTSPEED/param.dErgPerGmUnit;
+	    }
         if (domainDecomposition == SFC_peano_dec) peanoKey = 1;
         if (domainDecomposition == SFC_peano_dec_2D) peanoKey = 2;
         if (domainDecomposition == SFC_peano_dec_3D) peanoKey = 3;
@@ -1437,8 +1458,8 @@ void Main::advanceBigStep(int iStep) {
 	  if(verbosity)
 	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
-    }
-		
+      doSinks(dTime, RungToDt(param.dDelta, iRung), activeRung);
+   }
   }
 }
     

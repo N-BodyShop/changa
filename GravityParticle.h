@@ -278,6 +278,11 @@ public:
 
 #define TYPE_PHOTOGENIC        (1<<4)
 #define TYPE_NbrOfACTIVE       (1<<5)
+#define TYPE_SMOOTHACTIVE      (1<<6)
+
+#define TYPE_SINK              (1<<7)
+#define TYPE_SINKING           (1<<8)
+#define TYPE_NEWSINKING        (1<<9)
 
 	inline bool isDark() { return TYPETest(this, TYPE_DARK);}
 	inline bool isGas() { return TYPETest(this, TYPE_GAS);}
