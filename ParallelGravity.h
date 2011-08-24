@@ -546,6 +546,7 @@ class TreePiece : public CBase_TreePiece {
 		       // should be part of the smooth state
    
    double treePieceLoad; // used to store CPU load data for incoming particles
+   double treePieceLoadTmp; // temporary accumulator for above
    int memWithCache, memPostCache;  // store memory usage.
    int nNodeCacheEntries, nPartCacheEntries;  // store memory usage.
 
@@ -1149,7 +1150,7 @@ public:
  TreePiece() : pieces(thisArrayID), root(0), proxyValid(false),
 	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
 	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
-	  treePieceLoad(0) {
+	  treePieceLoad(0.0), treePieceLoadTmp(0.0) {
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
 	  dm = NULL;

@@ -571,12 +571,6 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 	    //find particles between this and the last key
 	    binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1],
 				 dummy);
-            if (myNumParticles > 0) {
-                partialLoad = tpLoad * (binEnd-binBegin) / myNumParticles;
-            }
-            else {
-                partialLoad = 0; 
-            }
 	    // If I have any particles in this bin, send them to
 	    // the responsible TreePiece
 	    int nPartOut = binEnd - binBegin;
@@ -590,6 +584,7 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 		    if(pPart->isStar())
 			nStarOut++;
 		    }
+                partialLoad = tpLoad * nPartOut / myNumParticles;
 		ParticleShuffleMsg *shuffleMsg
 		    = new (nPartOut, nGasOut, nStarOut)
 		    ParticleShuffleMsg(nPartOut, nGasOut, nStarOut,
@@ -677,7 +672,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
   if(shuffleMsg != NULL) {
       incomingParticlesMsg.push_back(shuffleMsg);
       incomingParticlesArrived += shuffleMsg->n;
-      treePieceLoad += shuffleMsg->load; 
+      treePieceLoadTmp += shuffleMsg->load; 
       }
   
   if (verbosity>=3)
@@ -696,6 +691,8 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
       myNumParticles = dm->particleCounts[myPlace];
       incomingParticlesArrived = 0;
       incomingParticlesSelf = false;
+      treePieceLoad = treePieceLoadTmp;
+      treePieceLoadTmp = 0.0;
       int nSPH = 0;
       int nStar = 0;
       int iMsg;
@@ -4057,9 +4054,9 @@ void TreePiece::startlb(CkCallback &cb){
   // all centroids.
 void TreePiece::startlb(CkCallback &cb, int activeRung){
 
-  setObjTime(treePieceLoad);
   if(verbosity > 1)
      CkPrintf("set to: %g, actual: %g\n", treePieceLoad, getObjTime());  
+  setObjTime(treePieceLoad);
   treePieceLoad = 0;
   callback = cb;
   if(verbosity > 1)
