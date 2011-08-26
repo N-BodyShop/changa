@@ -66,6 +66,6 @@ dESN = 1.0e51
 iNSNIIQuantum = 0
 #director requirement
 #dDumpFrameStep  = 0.125
-
-
+dDeltaStarForm = 5.0e5
+achIMF = Kroupa01
 
