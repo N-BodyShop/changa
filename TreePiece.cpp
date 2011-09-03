@@ -3488,7 +3488,7 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   LBTurnInstrumentOn();
   iterationNo++;
 
-  callback = cb;
+  cbGravity = cb;
   activeRung = am;
   theta = myTheta;
   thetaMono = theta*theta*theta*theta;
@@ -3504,14 +3504,14 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   cacheGravPart[CkMyPe()].cacheSync(numChunks, idxMax, dummy);
 
   if (myNumParticles == 0) {
-    // No particles assigned to this TreePiece
+      // No particles assigned to this TreePiece
       for (int i=0; i< numChunks; ++i) {
 	  cacheNode[CkMyPe()].finishedChunk(i, 0);
 	  cacheGravPart[CkMyPe()].finishedChunk(i, 0);
 	  }
-    contribute(0, 0, CkReduction::concat, callback);
-    numChunks = -1; //numchunks needs to get reset next iteration incase particles move into this treepiece
-    return;
+      gravityProxy[thisIndex].ckLocal()->contribute(cbGravity);
+      numChunks = -1; //numchunks needs to get reset next iteration incase particles move into this treepiece
+      return;
   }
   
   if (oldNumChunks != numChunks ) {
@@ -3551,7 +3551,7 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
       if(verbosity >= 3) {
 	  ckerr << "TreePiece " << thisIndex << ": no actives" << endl;
 	  }
-      contribute(0, 0, CkReduction::concat, callback);
+      gravityProxy[thisIndex].ckLocal()->contribute(cbGravity);
       return;
       }
 #endif
@@ -5681,9 +5681,8 @@ void TreePiece::markWalkDone() {
 #ifdef CHECK_WALK_COMPLETIONS
         CkPrintf("[%d] inside markWalkDone, completedActiveWalks: %d, activeWalks: %d, contrib finishWalk\n", thisIndex, completedActiveWalks, activeWalks.size());
 #endif
-	//finishWalk();
 	CkCallback cb = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
-	contribute(0, 0, CkReduction::concat, cb);
+	gravityProxy[thisIndex].ckLocal()->contribute(cb);
 	}
     }
 
@@ -5816,7 +5815,7 @@ void TreePiece::finishWalk()
   
 #endif
 
-  contribute(0, 0, CkReduction::concat, callback);
+  gravityProxy[thisIndex].ckLocal()->contribute(cbGravity);
 }
 
 #if INTERLIST_VER > 0

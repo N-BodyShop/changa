@@ -111,6 +111,7 @@ extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
 extern CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 extern CProxy_LvArray smoothProxy;  // Proxy for smooth reduction
+extern CProxy_LvArray gravityProxy; // Proxy for gravity reduction
 extern CProxy_TreePiece streamingProxy;
 extern CProxy_DataManager dMProxy;
 extern unsigned int numTreePieces;
@@ -809,6 +810,8 @@ private:
 	/// @brief Used to inform the mainchare that the requested operation has
 	/// globally finished
 	CkCallback callback;
+	/// gravity globally finished
+	CkCallback cbGravity;
 	/// smooth globally finished
 	CkCallback cbSmooth;
 	/// Total number of particles contained in this chare

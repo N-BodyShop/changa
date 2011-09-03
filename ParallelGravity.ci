@@ -9,6 +9,7 @@ mainmodule ParallelGravity {
   readonly CProxy_TreePiece treeProxy;
   readonly CProxy_LvArray lvProxy;
   readonly CProxy_LvArray smoothProxy;
+  readonly CProxy_LvArray gravityProxy;
   readonly CProxy_TreePiece streamingProxy;
   readonly CProxy_CkCacheManager cacheNode;
   readonly CProxy_CkCacheManager cacheGravPart;

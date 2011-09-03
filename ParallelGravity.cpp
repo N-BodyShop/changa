@@ -37,6 +37,7 @@ int bVDetails;
 CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
 CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 CProxy_LvArray smoothProxy; // Proxy for smooth reductions
+CProxy_LvArray gravityProxy; // Proxy for gravity reductions
 CProxy_CkCacheManager cacheGravPart;
 CProxy_CkCacheManager cacheSmoothPart;
 CProxy_CkCacheManager cacheNode;
@@ -850,6 +851,8 @@ Main::Main(CkArgMsg* m) {
 	lvProxy = CProxy_LvArray::ckNew(opts);
 	// Create an array for the smooth reductions
 	smoothProxy = CProxy_LvArray::ckNew(opts);
+	// Create an array for the gravity reductions
+	gravityProxy = CProxy_LvArray::ckNew(opts);
 	
 	// create CacheManagers
 	// Gravity particles
