@@ -3482,7 +3482,7 @@ void TreePiece::finishNodeCache(int iPhases, const CkCallback& cb)
 /// first registers with the node and particle caches.  It initializes
 /// the particle acceleration by calling initBucket().
 
-void TreePiece::startIteration(int am, // the active mask for multistepping
+void TreePiece::startGravity(int am, // the active mask for multistepping
 			       double myTheta, // opening criterion
 			       const CkCallback& cb) {
   LBTurnInstrumentOn();
@@ -5632,7 +5632,7 @@ void TreePiece::freeWalkObjects(){
 #if INTERLIST_VER > 0
     // remote-resume state
     // overwrite copies of counters shared with sRemoteGravityState to
-    // avoid double deletion.  See startIteration()
+    // avoid double deletion.  See startGravity()
     sInterListStateRemoteResume->counterArrays[0] = NULL;
     sInterListStateRemoteResume->counterArrays[1] = NULL;
     sGravity->freeState(sInterListStateRemoteResume);

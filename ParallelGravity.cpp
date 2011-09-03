@@ -1313,13 +1313,13 @@ void Main::advanceBigStep(int iStep) {
 	startTime = CkWallTimer();
 	if(param.bConcurrentSph) {
 	    ckout << endl;
-	    treeProxy.startIteration(activeRung, theta, cbGravity);
+	    treeProxy.startGravity(activeRung, theta, cbGravity);
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(cbGravity);
 #endif
 	    }
 	else {
-	    treeProxy.startIteration(activeRung, theta,
+	    treeProxy.startGravity(activeRung, theta,
 				     CkCallbackResumeThread());
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
@@ -1764,13 +1764,13 @@ Main::initialForces()
       CkPrintf("Calculating gravity (theta = %f) ... ", theta);
       startTime = CkWallTimer();
       if(param.bConcurrentSph) {
-	  treeProxy.startIteration(0, theta, cbGravity);
+	  treeProxy.startGravity(0, theta, cbGravity);
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(cbGravity);
 #endif
 	  }
       else {
-	  treeProxy.startIteration(0, theta, CkCallbackResumeThread());
+	  treeProxy.startGravity(0, theta, CkCallbackResumeThread());
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif

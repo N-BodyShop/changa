@@ -1465,23 +1465,10 @@ public:
 	void requestRemoteMoments(const Tree::NodeKey key, int sender);
 	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments, const OrientedBox<double>& box, const OrientedBox<double>& boxBall, const unsigned int iParticleTypes);
 
-	/// Decide whether the node should be opened for the force computation
-	/// of the given request. --- Moved outside TreePiece class
-	/*bool openCriterionBucket(GenericTreeNode *node,
-				 GenericTreeNode *bucketNode,
-				 Vector3D<double> offset // Offset of node
-				 );
-
-	int openCriterionNode(GenericTreeNode *node,
-			      GenericTreeNode *myNode,
-			      Vector3D<double> offset // Offset of node
-			      );
-	 */
-
 	/// Entry point for the local computation: for each bucket compute the
 	/// force that its particles see due to the other particles hosted in
 	/// this TreePiece. The opening angle theta has already been passed
-	/// through "startIteration"
+	/// through startGravity()
 	void calculateGravityLocal();
 	void commenceCalculateGravityLocal();
 
@@ -1514,7 +1501,7 @@ public:
   /// @param am the active rung for the computation
   /// @param theta the opening angle
   /// @param cb the callback to use after all the computation has finished
-  void startIteration(int am, double myTheta, const CkCallback& cb);
+  void startGravity(int am, double myTheta, const CkCallback& cb);
   /// Setup utility function for all the smooths.  Initializes caches.
   void setupSmooth();
   /// Start a tree based smooth computation.
