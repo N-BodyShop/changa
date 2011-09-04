@@ -32,7 +32,7 @@ class Stfm {
     void CheckParams(PRM prm, struct parameters &param);
     bool isStarFormRung(int aRung) {return aRung <= iStarFormRung;}
     GravityParticle *FormStar(GravityParticle *p,  COOL *Cool, double dTime,
-			      double dDelta, double dCosmoFac);
+			      double dDelta, double dCosmoFac, double *T);
     inline void pup(PUP::er &p);
     };
 
@@ -55,5 +55,61 @@ inline void Stfm::pup(PUP::er &p) {
     p|dMaxStarMass;
     p|bGasCooling;
     }
+
+class StarLogEvent
+	/* Holds statistics of the star formation event */
+{
+ public:
+    int iOrdStar;
+    int iOrdGas;
+    double timeForm;
+    Vector3D<double> rForm;
+    Vector3D<double> vForm;
+    double massForm;
+    double rhoForm;
+    double TForm;
+ StarLogEvent() : iOrdGas(-1),	timeForm(0),rForm(0),vForm(0),
+	massForm(0),rhoForm(0),TForm(0){}
+    StarLogEvent(GravityParticle *p, double dCosmoFac, double TempForm) {
+	iOrdGas = p->iOrder;
+	// star's iOrder assigned in TreePiece::NewOrder
+	timeForm = p->fTimeForm();
+	rForm = p->position;
+	vForm = p->velocity;
+	massForm = p->fMassForm();
+	rhoForm = p->fDensity/dCosmoFac;
+	TForm = TempForm;
+	}
+    void pup(PUP::er& p) {
+	p | iOrdStar;
+	p | iOrdGas;
+	p | timeForm;
+        p | rForm;
+	p | vForm;
+	p | massForm;
+	p | rhoForm;
+	p | TForm;
+	}
+    };
+
+class StarLog : public PUP::able
+{
+ public:
+    int nOrdered;		/* The number of events that have been
+				   globally ordered, incremented by
+				   pkdNewOrder() */
+    std::string fileName;
+    std::vector<StarLogEvent> seTab;		/* The actual table */
+ StarLog() : nOrdered(0),fileName("starlog") {}
+    void flush();
+    PUPable_decl(StarLog);
+ StarLog(CkMigrateMessage *m) : PUP::able(m) {}
+    void pup(PUP::er& p) {
+	PUP::able::pup(p);
+	p | nOrdered;
+	p | fileName;
+	p | seTab;
+	}
+    };
 
 #endif

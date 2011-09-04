@@ -290,6 +290,71 @@ class Cool2OutputParams : public OutputParams
 	}
     };
 
+class OxOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+	if (TYPETest(p, TYPE_STAR)) return p->fStarMFracOxygen();
+	if (TYPETest(p, TYPE_GAS)) return p->fMFracOxygen();
+	else return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    OxOutputParams() {}
+    OxOutputParams(std::string achFileName) { 
+	bVector = 0; 
+	fileName = achFileName+".OxMassFrac";
+	}
+    PUPable_decl(OxOutputParams);
+    OxOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class FeOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+	if (TYPETest(p, TYPE_STAR)) return p->fStarMFracIron();
+	if (TYPETest(p, TYPE_GAS)) return p->fMFracIron();
+	else return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    FeOutputParams() {}
+    FeOutputParams(std::string achFileName) { 
+	bVector = 0; 
+	fileName = achFileName+".FeMassFrac";
+	}
+    PUPable_decl(FeOutputParams);
+    FeOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class coolontimeOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+	if (TYPETest(p, TYPE_GAS)) return p->fTimeCoolIsOffUntil();
+	else return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+    {CkAssert(0); return 0.0;}
+ public:
+    coolontimeOutputParams() {}
+    coolontimeOutputParams(std::string achFileName) { 
+	bVector = 0; 
+	fileName = achFileName+".coolontime";
+	}
+    PUPable_decl(coolontimeOutputParams);
+    coolontimeOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
 class DtOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)

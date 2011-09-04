@@ -48,6 +48,7 @@ void DataManager::init() {
   gpuFree = true;
 #endif
   Cool = CoolInit();
+  starLog = new StarLog();
 }
 
 /**

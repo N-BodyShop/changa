@@ -73,6 +73,13 @@ mainmodule ParallelGravity {
   PUPable MarkSmoothParams;
   PUPable PressureSmoothParams;
   PUPable DistDeletedGasSmoothParams;
+  PUPable DistStellarFeedbackSmoothParams;
+  PUPable Fdbk;
+  PUPable StarLog;
+  PUPable Chabrier;
+  PUPable MillerScalo;
+  PUPable Kroupa93;
+  PUPable Kroupa01;
 
   PUPable AccOutputParams;
   PUPable DenOutputParams;
@@ -87,6 +94,9 @@ mainmodule ParallelGravity {
   PUPable Cool0OutputParams;
   PUPable Cool1OutputParams;
   PUPable Cool2OutputParams;
+  PUPable OxOutputParams;
+  PUPable FeOutputParams;
+  PUPable coolontimeOutputParams;
   PUPable DtOutputParams;
   PUPable RungOutputParams;
 
@@ -133,6 +143,7 @@ mainmodule ParallelGravity {
     entry void CoolingSetTime(double z, double dTime, const CkCallback& cb);
     entry void memoryStats(const CkCallback& cb);
     entry void resetReadOnly(Parameters param, const CkCallback &cb);
+    entry void initStarLog(std::string _fileName, const CkCallback &cb);
   };
   array [1D] TreePiece {
     entry TreePiece();
@@ -245,8 +256,12 @@ mainmodule ParallelGravity {
 					const CkCallback &cb);
     entry void getCoolingGasPressure(double gamma, double gammam1,
 				   const CkCallback &cb);
-    entry void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
-		       const CkCallback& cb);
+    entry void FormStars(Stfm param, double dTime, double dDelta, 
+    	       		 double dCosmoFac, const CkCallback& cb);
+    entry void flushStarLog(const CkCallback& cb);
+    entry void Feedback(Fdbk &fb, double dTime, double dDelta, 
+    	       		const CkCallback& cb);
+    entry void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
     entry void setTypeFromFile(int iSetMask, char file[256],
         const CkCallback& cb);
     entry void getCOM(const CkCallback& cb, int bLiveViz);
@@ -333,6 +348,16 @@ mainmodule ParallelGravity {
 			   int nPart, int iIndex, int bDone,
 			   CkCallback& cb) ;
     entry void outputIOrderASCII(const std::string& suffix, const CkCallback& cb);
+    entry void outputBinary(CkReference<OutputParams>, int bParaWrite,
+			   			       const CkCallback& cb);
+    entry void oneNodeOutBinVec(CkReference<OutputParams>, 
+				Vector3D<float> avOut[nPart],
+    		     		int nPart, int iIndex, int bDone,
+			   	CkCallback& cb) ;
+    entry void oneNodeOutBinArr(CkReference<OutputParams>, float adOut[nPart],
+			     int nPart, int iIndex, int bDone,
+			     CkCallback& cb) ;
+    entry void outputIOrderBinary(const std::string& suffix, const CkCallback& cb);
     entry void outputStatistics(const CkCallback& cb);
     //entry void getPieceValues(piecedata *totaldata);
     entry void collectStatistics(CkCallback &cb);

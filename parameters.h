@@ -4,6 +4,7 @@
 #include "cosmo.h"
 #include "cooling.h"
 #include "starform.h"
+#include "feedback.h"
 
 typedef struct parameters {
     /*
@@ -83,6 +84,8 @@ typedef struct parameters {
     double dEtauDot;
     int bStarForm;
     Stfm *stfm;
+    int bFeedback;
+    Fdbk *feedback;
     int iRandomSeed;
     int bStandard;
     int bOverwrite;
@@ -92,6 +95,7 @@ typedef struct parameters {
     char achOutName[256];
     int bStaticTest;
     int bBenchmark;
+    int iBinaryOut;
     int iOutInterval;
     int iCheckInterval;
     int iLogInterval;
@@ -175,6 +179,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     if(p.isUnpacking())
  	param.stfm = new Stfm();
     p|*param.stfm;
+    p|param.feedback;
     p|param.iRandomSeed;
     p|param.bStandard;
     p|param.bOverwrite;
@@ -184,6 +189,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p(param.achOutName, 256);
     p|param.bStaticTest;
     p|param.bBenchmark;
+    p|param.iBinaryOut;
     p|param.iOutInterval;
     p|param.iCheckInterval;
     p|param.iLogInterval;

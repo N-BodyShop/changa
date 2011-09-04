@@ -20,6 +20,7 @@
 #include "smooth.h"
 #include "Sph.h"
 #include "starform.h"
+#include "feedback.h"
 
 #ifdef CUDA
 // for default per-list parameters
@@ -188,6 +189,9 @@ Main::Main(CkArgMsg* m) {
 	param.bBenchmark = 0;
 	prmAddParam(prm, "bBenchmark", paramBool, &param.bBenchmark,
 		    sizeof(int),"bench", "Benchmark only; no output or checkpoints");
+	param.iBinaryOut = 0;
+	prmAddParam(prm, "iBinaryOutput", paramInt, &param.iBinaryOut,
+		    sizeof(int),"binout", "Output Binary Arrays");
 	param.iOutInterval = 10;
 	prmAddParam(prm, "iOutInterval", paramInt, &param.iOutInterval,
 		    sizeof(int),"oi", "Output Interval");
@@ -413,6 +417,13 @@ Main::Main(CkArgMsg* m) {
 
 	param.stfm = new Stfm();
 	param.stfm->AddParams(prm);
+
+	param.bFeedback = 0;
+	prmAddParam(prm,"bFeedBack",paramBool,&param.bFeedback,sizeof(int),
+		    "stfm","<Star Forming> = 0");
+
+	param.feedback = new Fdbk();
+	param.feedback->AddParams(prm);
 
 	param.iRandomSeed = 1;
 	prmAddParam(prm,"iRandomSeed", paramInt, &param.iRandomSeed,
@@ -741,6 +752,7 @@ Main::Main(CkArgMsg* m) {
 	    CkAssert(prmSpecified(prm, "dMsolUnit")
 		     && prmSpecified(prm, "dKpcUnit"));
 	    }
+	if(param.bFeedback || param.bStarForm) param.bDoGas = 1;
 #include "physconst.h"
 	/*
 	 ** Convert kboltz/mhydrogen to system units, assuming that
@@ -1157,7 +1169,7 @@ void Main::advanceBigStep(int iStep) {
         duKick[iRung] = 0.5*dTimeSub;
         dKickFac[iRung] = csmComoveKickFac(param.csm, dTime, 0.5*dTimeSub);
       }
-      if(verbosity)
+      if(verbosity > 1)
 	  memoryStats();
       if(param.bDoGas) {
 	  double startTime = CkWallTimer();
@@ -1174,7 +1186,7 @@ void Main::advanceBigStep(int iStep) {
       treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas,
 		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
 
-      if(verbosity)
+      if(verbosity > 1)
 	  memoryStats();
       // Dump frame may require a smaller step
       int driftRung = nextMaxRungIncDF(nextMaxRung);
@@ -1255,15 +1267,17 @@ void Main::advanceBigStep(int iStep) {
      */
     if(param.bStarForm && param.stfm->isStarFormRung(activeRung))
 	FormStars(dTime, param.stfm->dDeltaStarForm);
+    if(param.bFeedback && param.stfm->isStarFormRung(activeRung)) 
+	StellarFeedback(dTime, param.stfm->dDeltaStarForm);
 
-    ckout << "Step: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
+    ckout << "\nStep: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
           << " Time: " << dTime
           << " Rungs " << activeRung << " to "
           << nextMaxRung << ". ";
 
     countActive(activeRung);
     
-    if(verbosity)
+    if(verbosity > 1)
 	memoryStats();
     /***** Resorting of particles and Domain Decomposition *****/
     ckout << "Domain decomposition ...";
@@ -1274,7 +1288,7 @@ void Main::advanceBigStep(int iStep) {
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
 
-    if(verbosity)
+    if(verbosity > 1)
 	memoryStats();
     /********* Load balancer ********/
     // jetley - commenting out lastActiveRung == 0 check, balance load even for fast rungs
@@ -1286,7 +1300,7 @@ void Main::advanceBigStep(int iStep) {
 	     << endl;
     //	}
 
-    if(verbosity)
+    if(verbosity > 1)
 	memoryStats();
     /******** Tree Build *******/
     ckout << "Building trees ...";
@@ -1298,7 +1312,7 @@ void Main::advanceBigStep(int iStep) {
 
     CkCallback cbGravity(CkCallback::resumeThread);
 
-    if(verbosity)
+    if(verbosity > 1)
 	memoryStats();
     if(param.bDoGravity) {
 	updateSoft();
@@ -1335,7 +1349,7 @@ void Main::advanceBigStep(int iStep) {
     else {
 	treeProxy.initAccel(activeRung, CkCallbackResumeThread());
 	}
-    if(verbosity)
+    if(verbosity > 1)
 	memoryStats();
     if(param.bDoGas) {
 	doSph(activeRung);
@@ -1385,7 +1399,7 @@ void Main::advanceBigStep(int iStep) {
       for (int iRung=0; iRung<=MAXRUNG; iRung++) {
         duKick[iRung]=dKickFac[iRung]=0;
       }
-      if(verbosity)
+      if(verbosity > 1)
 	  memoryStats();
       if(verbosity)
 	  ckout << "Kick Close:" << endl;
@@ -1500,19 +1514,25 @@ void Main::setupICs() {
       if(dTime < vdOutTime[iOut]) break;
       }
 	
-  if(param.bGasCooling) 
+  if(param.bGasCooling || param.bStarForm) 
       initCooling();
   
-  if(param.bStarForm)
+  if(param.bStarForm || param.bFeedback)
       param.stfm->CheckParams(prm, param);
+
+  if(param.bStarForm)
+      initStarLog();
 	
+  if(param.bFeedback)
+      param.feedback->CheckParams(prm, param);
+
   char achLogFileName[MAXPATHLEN];
   sprintf(achLogFileName, "%s.log", param.achOutName);
   ofstream ofsLog(achLogFileName, ios_base::trunc);
   if(!ofsLog)
       CkAbort("Error opening log file.");
       
-  ofsLog << "# Starting ChaNGa version 2.00" << endl;
+  ofsLog << "# Starting ChaNGa version 2.00 UW" << endl;
   ofsLog << "#";		// Output command line
   for (int i = 0; i < args->argc; i++)
       ofsLog << " " << args->argv[i];
@@ -1739,7 +1759,7 @@ Main::initialForces()
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
   iPhase = 0;
-  if(verbosity)
+  if(verbosity > 1)
       memoryStats();
   
 #ifdef CUDA
@@ -1929,6 +1949,7 @@ Main::doSimulation()
 	// The following drift is called because it deletes the tree
 	// so it won't be saved on disk.
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+	treeProxy[0].flushStarLog(CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
 	bIsRestarting = 0;
 	CkCallback cb(CkIndex_TreePiece::restart(), treeProxy[0]);
@@ -2186,7 +2207,7 @@ void Main::writeOutput(int iStep)
 	      << endl;
     
     if(verbosity) {
-	ckout << "Writing output ...";
+	ckout << "Writing Tipsy file ...";
 	startTime = CkWallTimer();
 	}
     double duTFac = (param.dConstGamma-1)*param.dMeanMolWeight/param.dGasConst;
@@ -2199,22 +2220,68 @@ void Main::writeOutput(int iStep)
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
+    if(verbosity) {
+	ckout << "Writing arrays ...";
+	startTime = CkWallTimer();
+	}
+
+    OxOutputParams pOxOut(string(achFile)+"");
+    FeOutputParams pFeOut(string(achFile)+"");
+    coolontimeOutputParams pcoolontimeOut(string(achFile)+"");
 #ifndef COOLING_NONE
-      Cool0OutputParams pCool0Out(string(achFile) + "." + COOL_ARRAY0_EXT);
-      treeProxy[0].outputASCII(pCool0Out, param.bParaWrite,
-			       CkCallbackResumeThread());
-      Cool1OutputParams pCool1Out(string(achFile) + "." + COOL_ARRAY1_EXT);
-      treeProxy[0].outputASCII(pCool1Out, param.bParaWrite,
-			       CkCallbackResumeThread());
-      Cool2OutputParams pCool2Out(string(achFile) + "." + COOL_ARRAY2_EXT);
-      treeProxy[0].outputASCII(pCool2Out, param.bParaWrite,
-			       CkCallbackResumeThread());
+    Cool0OutputParams pCool0Out(string(achFile) + "." + COOL_ARRAY0_EXT);
+    Cool1OutputParams pCool1Out(string(achFile) + "." + COOL_ARRAY1_EXT);
+    Cool2OutputParams pCool2Out(string(achFile) + "." + COOL_ARRAY2_EXT);
 #endif
-      if(param.bDoIOrderOutput) {
+
+    if (param.iBinaryOut) {
+	if (param.bStarForm || param.bFeedback) {
+	    treeProxy[0].outputBinary(pOxOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	    treeProxy[0].outputBinary(pFeOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	    treeProxy[0].outputBinary(pcoolontimeOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	    treeProxy[0].outputIOrderBinary(string(achFile) + ".iord",
+					    CkCallbackResumeThread());
+	    }
+#ifndef COOLING_NONE
+	treeProxy[0].outputBinary(pCool0Out, param.bParaWrite,
+				 CkCallbackResumeThread());
+	treeProxy[0].outputBinary(pCool1Out, param.bParaWrite,
+				 CkCallbackResumeThread());
+	treeProxy[0].outputBinary(pCool2Out, param.bParaWrite,
+				 CkCallbackResumeThread());
+#endif
+	} else {
+	if (param.bStarForm || param.bFeedback) {
+	    treeProxy[0].outputASCII(pOxOut, param.bParaWrite,
+				     CkCallbackResumeThread());
+	    treeProxy[0].outputASCII(pFeOut, param.bParaWrite,
+				     CkCallbackResumeThread());
+	    treeProxy[0].outputASCII(pcoolontimeOut, param.bParaWrite,
+				     CkCallbackResumeThread());
+	    treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
+					   CkCallbackResumeThread());
+	    }
+#ifndef COOLING_NONE
+	treeProxy[0].outputASCII(pCool0Out, param.bParaWrite,
+				 CkCallbackResumeThread());
+	treeProxy[0].outputASCII(pCool1Out, param.bParaWrite,
+				 CkCallbackResumeThread());
+	treeProxy[0].outputASCII(pCool2Out, param.bParaWrite,
+				 CkCallbackResumeThread());
+#endif
+	}
+      
+	if(param.bDoIOrderOutput) {
 	  treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
 					 CkCallbackResumeThread());
 	  }
       
+    if(verbosity)
+	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+	      << endl;
     if(param.nSteps != 0 && param.bDoDensity) {
 	double tolerance = 0.01;	// tolerance for domain decomposition
 	// The following call is to get the particles in key order
@@ -2244,7 +2311,10 @@ void Main::writeOutput(int iStep)
 	ckout << "Outputting densities ...";
 	startTime = CkWallTimer();
 	DenOutputParams pDenOut(string(achFile) + ".den");
-	treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
+	if (param.iBinaryOut)
+	    treeProxy[0].outputBinary(pDenOut, param.bParaWrite, CkCallbackResumeThread());
+	else
+	    treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 	}

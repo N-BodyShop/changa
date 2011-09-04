@@ -425,9 +425,11 @@ public:
 	void growMass(double dTime, double dDelta);
 	void initSph();
 	void initCooling();
+	void initStarLog();
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
 	void doSph(int activeRung, int bNeedDensity = 1);
 	void FormStars(double dTime, double dDelta);
+	void StellarFeedback(double dTime, double dDelta);
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
 	int nextMaxRungIncDF(int nextMaxRung);
@@ -1439,6 +1441,10 @@ public:
 				   const CkCallback &cb);
 	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
 		       const CkCallback& cb);
+	void flushStarLog(const CkCallback& cb);
+	void Feedback(Fdbk &fb, double dTime, double dDelta,
+		       const CkCallback& cb);
+	void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
 	void setTypeFromFile(int iSetMask, char *file, const CkCallback& cb);
@@ -1583,10 +1589,19 @@ public:
 	void oneNodeOutArr(OutputParams& params, double* adOut,
 			   int nPart, int iIndex, int bDone,
 			   CkCallback& cb) ;
-	
 	void outputIOrderASCII(const std::string& suffix, const CkCallback& cb);
-	void outputStatistics(const CkCallback& cb);
 
+	void outputBinary(OutputParams& params, int bParaWrite,
+			 const CkCallback& cb);
+	void oneNodeOutBinVec(OutputParams& params, Vector3D<float>* avOut,
+			      int nPart, int iIndex, int bDone,
+			      CkCallback& cb) ;
+	void oneNodeOutBinArr(OutputParams& params, float* adOut,
+			      int nPart, int iIndex, int bDone,
+			      CkCallback& cb) ;
+	void outputIOrderBinary(const std::string& suffix, const CkCallback& cb);
+
+	void outputStatistics(const CkCallback& cb);
 	/// Collect the total statistics from the various chares
 	void collectStatistics(CkCallback &cb);
 	//void getPieceValues(piecedata *totaldata);

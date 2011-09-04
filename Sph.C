@@ -9,7 +9,11 @@
 #include "DataManager.h"
 #include "smooth.h"
 #include "Sph.h"
+#include "physconst.h"
 
+#ifndef MAXPATHLEN
+#define MAXPATHLEN PATH_MAX
+#endif
 
 void
 Main::initSph() 
@@ -360,7 +364,8 @@ void TreePiece::updateuDot(int activeRung,
 	if (TYPETest(p, TYPE_GAS)
 	    && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
 	    dt = CoolCodeTimeToSeconds(dm->Cool, duDelta[p->rung] );
-	    double ExternalHeating = p->PdV(); // Will change with star formation
+	    double ExternalHeating = p->PdV();
+	    ExternalHeating += p->fESNrate();
 	    if ( bCool ) {
 		COOLPARTICLE cp = p->CoolParticle();
 		double E = p->u();
@@ -797,6 +802,8 @@ void DistDeletedGasSmoothParams::initSmoothCache(GravityParticle *p)
 	p->uDot() = 0.0;
 #endif
 	p->fMetals() = 0.0;
+	p->fMFracIron() = 0.0;
+	p->fMFracOxygen() = 0.0;
 	}
     }
 
@@ -818,6 +825,8 @@ void DistDeletedGasSmoothParams::combSmoothCache(GravityParticle *p1,
 	    p1->mass = m_new;
 	    p1->velocity = f1*p1->velocity + f2*p2->velocity;            
 	    p1->fMetals() = f1*p1->fMetals() + f2*p2->fMetals;
+	    p1->fMFracIron() = f1*p1->fMFracIron() + f2*p2->fMFracIron;
+	    p1->fMFracOxygen() = f1*p1->fMFracOxygen() + f2*p2->fMFracOxygen;
 #ifndef COOLING_NONE
 	    if(p1->uDot() < 0.0) /* margin of 1% to avoid roundoff
 				  * problems */
@@ -882,6 +891,8 @@ void DistDeletedGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	q->mass = m_new;
 	q->velocity = f1*q->velocity + f2*p->velocity;            
 	q->fMetals() = f1*q->fMetals() + f2*p->fMetals();
+	q->fMFracIron() = f1*q->fMFracIron() + f2*p->fMFracIron();
+	q->fMFracOxygen() = f1*q->fMFracOxygen() + f2*p->fMFracOxygen();
 #ifndef COOLING_NONE
 	if(q->uDot() < 0.0) /* margin of 1% to avoid roundoff error */
 	    fTCool = 1.01*q->uPred()/q->uDot(); 
