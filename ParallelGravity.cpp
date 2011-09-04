@@ -89,6 +89,14 @@ int partForceUE;
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
 
+/* The following is for backward compatibility and deprecated */
+#define GASMODEL_UNSET -1
+enum GasModel {
+	GASMODEL_ADIABATIC, 
+	GASMODEL_ISOTHERMAL, 
+	GASMODEL_COOLING, 
+	GASMODEL_GLASS
+	}; 
 
 void _Leader(void) {
     puts("USAGE: ChaNGa [SETTINGS | FLAGS] [PARAM_FILE]");
@@ -361,6 +369,11 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"bGasCooling",paramBool,&param.bGasCooling,
 		    sizeof(int),"GasCooling",
 		    "<Gas is Cooling> = +GasCooling");
+	int iGasModel = GASMODEL_UNSET; /* Deprecated in for backwards
+					   compatibility */
+	prmAddParam(prm,"iGasModel",paramInt,&iGasModel,
+				sizeof(int),"GasModel",
+				"<Gas model employed> = 0 (Adiabatic)");
 	CoolAddParams(&param.CoolParam, prm);
 	param.dMsolUnit = 1.0;
 	prmAddParam(prm,"dMsolUnit",paramDouble,&param.dMsolUnit,
@@ -723,6 +736,20 @@ Main::Main(CkArgMsg* m) {
 	    if (!param.bViscosityLimiter) param.iViscosityLimiter=0;
 	    }
 
+	if(prmSpecified(prm, "iGasModel")) {
+	    switch(iGasModel) {
+	    case GASMODEL_ADIABATIC:
+		param.bGasAdiabatic = 1;	
+		break;
+	    case GASMODEL_ISOTHERMAL:
+		param.bGasIsothermal = 1;
+		break;
+	    case GASMODEL_COOLING:
+		param.bGasCooling = 1;
+		break;
+		}
+	    }
+		
 	if(param.bGasCooling && (param.bGasIsothermal || param.bGasAdiabatic)) {
 	    ckerr << "WARNING: ";
 	    ckerr << "More than one gas model set.  ";
