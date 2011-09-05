@@ -84,6 +84,8 @@ mainmodule ParallelGravity {
   PUPable AccOutputParams;
   PUPable DenOutputParams;
   PUPable HsmOutputParams;
+  PUPable CSoundOutputParams;
+  PUPable SoftOutputParams;
   PUPable PresOutputParams;
   PUPable DivVOutputParams;
   PUPable PDVOutputParams;

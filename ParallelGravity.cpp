@@ -215,6 +215,16 @@ Main::Main(CkArgMsg* m) {
 	param.bDoIOrderOutput = 0;
 	prmAddParam(prm,"bDoIOrderOutput",paramBool,&param.bDoIOrderOutput,
 		    sizeof(int), "iordout","enable/disable iOrder outputs = -iordout");
+	param.bDoSoftOutput = 0;
+	prmAddParam(prm,"bDoSoftOutput",paramBool,&param.bDoSoftOutput,
+		    sizeof(int),
+		    "softout","enable/disable soft outputs = -softout");
+	param.bDohOutput = 0;
+	prmAddParam(prm,"bDohOutput",paramBool,&param.bDohOutput,sizeof(int),
+		    "hout","enable/disable h outputs = -hout");
+	param.bDoCSound = 0;
+	prmAddParam(prm,"bDoCSound",paramBool,&param.bDoCSound,sizeof(int),
+		    "csound","enable/disable sound speed outputs = -csound");
 	nSmooth = 32;
 	prmAddParam(prm, "nSmooth", paramInt, &nSmooth,
 		    sizeof(int),"nsm", "Number of neighbors for smooth");
@@ -2260,6 +2270,9 @@ void Main::writeOutput(int iStep)
     Cool1OutputParams pCool1Out(string(achFile) + "." + COOL_ARRAY1_EXT);
     Cool2OutputParams pCool2Out(string(achFile) + "." + COOL_ARRAY2_EXT);
 #endif
+    SoftOutputParams pSoftOut(string(achFile)+".soft");
+    HsmOutputParams pHsmOut(string(achFile)+".smoothlength");
+    CSoundOutputParams pCSOut(string(achFile)+".c");
 
     if (param.iBinaryOut) {
 	if (param.bStarForm || param.bFeedback) {
@@ -2269,8 +2282,6 @@ void Main::writeOutput(int iStep)
 				      CkCallbackResumeThread());
 	    treeProxy[0].outputBinary(pcoolontimeOut, param.bParaWrite,
 				      CkCallbackResumeThread());
-	    treeProxy[0].outputIOrderBinary(string(achFile) + ".iord",
-					    CkCallbackResumeThread());
 	    }
 #ifndef COOLING_NONE
 	treeProxy[0].outputBinary(pCool0Out, param.bParaWrite,
@@ -2280,6 +2291,20 @@ void Main::writeOutput(int iStep)
 	treeProxy[0].outputBinary(pCool2Out, param.bParaWrite,
 				 CkCallbackResumeThread());
 #endif
+	if(param.bDoIOrderOutput || param.bStarForm || param.bFeedback) {
+	    treeProxy[0].outputIOrderBinary(string(achFile) + ".iord",
+					    CkCallbackResumeThread());
+	    }
+	if(param.bDoSoftOutput)
+	    treeProxy[0].outputBinary(pSoftOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	    
+	if(param.bDohOutput)
+	    treeProxy[0].outputBinary(pHsmOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	if(param.bDoCSound)
+	    treeProxy[0].outputBinary(pCSOut, param.bParaWrite,
+				      CkCallbackResumeThread());
 	} else {
 	if (param.bStarForm || param.bFeedback) {
 	    treeProxy[0].outputASCII(pOxOut, param.bParaWrite,
@@ -2288,8 +2313,6 @@ void Main::writeOutput(int iStep)
 				     CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pcoolontimeOut, param.bParaWrite,
 				     CkCallbackResumeThread());
-	    treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
-					   CkCallbackResumeThread());
 	    }
 #ifndef COOLING_NONE
 	treeProxy[0].outputASCII(pCool0Out, param.bParaWrite,
@@ -2299,12 +2322,21 @@ void Main::writeOutput(int iStep)
 	treeProxy[0].outputASCII(pCool2Out, param.bParaWrite,
 				 CkCallbackResumeThread());
 #endif
+	if(param.bDoSoftOutput)
+	    treeProxy[0].outputASCII(pSoftOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	if(param.bDohOutput)
+	    treeProxy[0].outputASCII(pHsmOut, param.bParaWrite,
+				     CkCallbackResumeThread());
+	if(param.bDoCSound)
+	    treeProxy[0].outputASCII(pCSOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	if(param.bDoIOrderOutput || param.bStarForm || param.bFeedback) {
+	    treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
+					   CkCallbackResumeThread());
+	    }
 	}
       
-	if(param.bDoIOrderOutput) {
-	  treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
-					 CkCallbackResumeThread());
-	  }
       
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
