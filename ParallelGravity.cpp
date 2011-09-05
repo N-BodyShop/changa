@@ -2272,7 +2272,7 @@ void Main::writeOutput(int iStep)
 #endif
     SoftOutputParams pSoftOut(string(achFile)+".soft");
     HsmOutputParams pHsmOut(string(achFile)+".smoothlength");
-    CSoundOutputParams pCSOut(string(achFile)+".c");
+    CsOutputParams pCSOut(string(achFile)+".c");
 
     if (param.iBinaryOut) {
 	if (param.bStarForm || param.bFeedback) {
