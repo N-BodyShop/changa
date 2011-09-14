@@ -1545,6 +1545,12 @@ void Main::setupICs() {
       ckerr << "WARNING: no SPH particles and bDoGas is set\n";
       param.bDoGas = 0;
       }
+  if(nTotalSPH > 0 && !param.bDoGas) {
+      if(prmSpecified(prm, "bDoGas"))
+	  ckerr << "WARNING: SPH particles present and bDoGas is set off\n";
+      else
+	  param.bDoGas = 1;
+      }
   getStartTime();
   if(param.nSteps > 0) getOutTimes();
   for(iOut = 0; iOut < vdOutTime.size(); iOut++) {
@@ -2070,9 +2076,11 @@ Main::doSimulation()
 	      CsOutputParams pCsOut(string(achFile) + ".c");
 	      treeProxy[0].outputASCII(pCsOut, param.bParaWrite, CkCallbackResumeThread());
 #ifndef COOLING_NONE
-	      EDotOutputParams pEDotOut(string(achFile) + ".eDot");
-	      treeProxy[0].outputASCII(pEDotOut, param.bParaWrite,
-				       CkCallbackResumeThread());
+	      if(param.bGasCooling) {
+		  EDotOutputParams pEDotOut(string(achFile) + ".eDot");
+		  treeProxy[0].outputASCII(pEDotOut, param.bParaWrite,
+					   CkCallbackResumeThread());
+		  }
 #endif
 	      }
 	  }
@@ -2284,12 +2292,14 @@ void Main::writeOutput(int iStep)
 				      CkCallbackResumeThread());
 	    }
 #ifndef COOLING_NONE
-	treeProxy[0].outputBinary(pCool0Out, param.bParaWrite,
-				 CkCallbackResumeThread());
-	treeProxy[0].outputBinary(pCool1Out, param.bParaWrite,
-				 CkCallbackResumeThread());
-	treeProxy[0].outputBinary(pCool2Out, param.bParaWrite,
-				 CkCallbackResumeThread());
+	if(param.bGasCooling) {
+	    treeProxy[0].outputBinary(pCool0Out, param.bParaWrite,
+				     CkCallbackResumeThread());
+	    treeProxy[0].outputBinary(pCool1Out, param.bParaWrite,
+				     CkCallbackResumeThread());
+	    treeProxy[0].outputBinary(pCool2Out, param.bParaWrite,
+				      CkCallbackResumeThread());
+	    }
 #endif
 	if(param.bDoIOrderOutput || param.bStarForm || param.bFeedback) {
 	    treeProxy[0].outputIOrderBinary(string(achFile) + ".iord",
@@ -2315,12 +2325,14 @@ void Main::writeOutput(int iStep)
 				     CkCallbackResumeThread());
 	    }
 #ifndef COOLING_NONE
-	treeProxy[0].outputASCII(pCool0Out, param.bParaWrite,
-				 CkCallbackResumeThread());
-	treeProxy[0].outputASCII(pCool1Out, param.bParaWrite,
-				 CkCallbackResumeThread());
-	treeProxy[0].outputASCII(pCool2Out, param.bParaWrite,
-				 CkCallbackResumeThread());
+	if(param.bGasCooling) {
+	    treeProxy[0].outputASCII(pCool0Out, param.bParaWrite,
+				     CkCallbackResumeThread());
+	    treeProxy[0].outputASCII(pCool1Out, param.bParaWrite,
+				     CkCallbackResumeThread());
+	    treeProxy[0].outputASCII(pCool2Out, param.bParaWrite,
+				     CkCallbackResumeThread());
+	    }
 #endif
 	if(param.bDoSoftOutput)
 	    treeProxy[0].outputASCII(pSoftOut, param.bParaWrite,
