@@ -167,6 +167,7 @@ struct OrbObject {
   }
 
   OrbObject(int tag) : 
+    partition(-1),
     lbindex(tag)
   {
   }

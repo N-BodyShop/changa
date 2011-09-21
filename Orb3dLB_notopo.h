@@ -16,7 +16,6 @@ void CreateOrb3dLB_notopo();
 BaseLB * AllocateOrb3dLB_notopo();
 
 class Orb3dLB_notopo : public CentralLB {
-  friend class MultistepLB;
 private:
   CmiBool firstRound; 
   ComparatorFn compares[NDIMS];
@@ -25,6 +24,7 @@ private:
   CkVec<int> *mapping;
 
   CkVec<OrbObject> tps;
+  CkVec<float> procload;
 
   int procsPerNode;
 

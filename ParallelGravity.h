@@ -63,7 +63,8 @@ using namespace Tree;
 enum LBStrategy{
   Null=0,
   Multistep,
-  Orb3d
+  Orb3d,
+  Orb3d_notopo
 };
 PUPbytes(LBStrategy);
 

@@ -7,6 +7,8 @@
 
 extern CProxy_TreePiece treeProxy;
 
+#define ORB3DLB_NOTOPO_DEBUG CkPrintf
+
 using namespace std;
 
 CreateLBFunc_Def(Orb3dLB_notopo, "3d ORB mapping of tree piece space onto 3d processor mesh");
@@ -38,16 +40,9 @@ void Orb3dLB_notopo::receiveCentroids(CkReductionMsg *msg){
   CkPrintf("Orb3dLB_notopo: receiveCentroids %d elements, msg length: %d\n", nrecvd, msg->getLength()); 
 }
 
-//jetley
 CmiBool Orb3dLB_notopo::QueryBalanceNow(int step){
-  if(CkMyPe() == 0)
-    CkPrintf("Orb3dLB_notopo: Step %d\n", step);
-  if(step == 0){
-    return false;
-  }
-  else{
-    return true;
-  }
+  if(CkMyPe() == 0) CkPrintf("Orb3dLB_notopo: Step %d\n", step);
+  return true;
 }
 
 void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
@@ -55,20 +50,19 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
   int numobjs = stats->n_objs;
   int nmig = stats->n_migrateobjs;
 
-  CkPrintf("[Orb3dLB_notopo] %d objects allocating %d bytes for tp\n", numobjs, numobjs*sizeof(TPObject));
-
   stats->makeCommHash();
-  CkPrintf("[Orb3dLB_notopo] ready tp data structure\n");
   CkAssert(nrecvd == numobjs);
 
   CkVec<Event> tpEvents[NDIMS];
   for(int i = 0; i < NDIMS; i++){
-    tpEvents[i].resize(numobjs);
+    tpEvents[i].reserve(numobjs);
   }
   tps.resize(numobjs);
 
   CkReduction::setElement *cur = tpCentroids;
   OrientedBox<float> box;
+
+  int numProcessed = 0;
 
   while(cur != NULL){
     TaggedVector3D *data = (TaggedVector3D *) cur->data;
@@ -111,10 +105,15 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
     */
 
     cur = cur->next();
+    numProcessed++;
   }
 
+  CkAssert(numProcessed == numobjs);
+  CkAssert(tpEvents[XDIM].length() == numobjs);
+  CkAssert(tpEvents[YDIM].length() == numobjs);
+  CkAssert(tpEvents[ZDIM].length() == numobjs);
+
   mapping = &stats->to_proc;
-  //mapping.resize(numobjs);
   int dim = 0;
 
   CkPrintf("[Orb3dLB_notopo] sorting\n");
@@ -131,6 +130,12 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
   box.greater_corner.z = tpEvents[ZDIM][numobjs-1].position;
 
   nextProc = 0;
+
+  procload.resize(stats->count);
+  for(int i = 0; i < stats->count; i++){
+    procload[i] = 0.0;
+  }
+
   orbPartition(tpEvents,box,stats->count);
 
 
@@ -147,6 +152,9 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
   }
 #endif
 
+  for(int i = 0; i < stats->count; i++){
+    CkPrintf("pe %d load %f\n", i, procload[i]);
+  }
 
   /*
   int migr = 0;
@@ -180,17 +188,32 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
 }
 
 void Orb3dLB_notopo::orbPartition(CkVec<Event> *events, OrientedBox<float> &box, int nprocs){
-  CkAssert(events[XDIM].length() == events[YDIM].length() == events[ZDIM].length());
+
+  ORB3DLB_NOTOPO_DEBUG("partition events %d %d %d nprocs %d\n", 
+            events[XDIM].length(),
+            events[YDIM].length(),
+            events[ZDIM].length(),
+            nprocs
+            );
   int numEvents = events[XDIM].length();
+  CkAssert(numEvents == events[YDIM].length());
+  CkAssert(numEvents == events[ZDIM].length());
+
   if(nprocs <= 1){
+    ORB3DLB_NOTOPO_DEBUG("base: assign %d tps to proc %d\n", numEvents, nextProc);
     // direct assignment of tree pieces to processors
     if(numEvents > 0) CkAssert(nprocs != 0);
+    float totalLoad = 0.0;
     for(int i = 0; i < events[XDIM].length(); i++){
       Event &ev = events[XDIM][i];
       OrbObject &orb = tps[ev.owner];
       (*mapping)[orb.lbindex] = nextProc;
+      totalLoad += ev.load;
     }
-    nextProc++;
+    procload[nextProc] += totalLoad;
+
+    if(numEvents > 0) nextProc++;
+    return;
   }
 
   // find longest dimension
@@ -205,10 +228,19 @@ void Orb3dLB_notopo::orbPartition(CkVec<Event> *events, OrientedBox<float> &box,
     }
   }
 
+  ORB3DLB_NOTOPO_DEBUG("dimensions %f %f %f longest %d\n", 
+            box.greater_corner[XDIM]-box.lesser_corner[XDIM],
+            box.greater_corner[YDIM]-box.lesser_corner[YDIM],
+            box.greater_corner[ZDIM]-box.lesser_corner[ZDIM],
+            longestDim
+          );
+
   int nlprocs = nprocs/2;
   int nrprocs = nprocs-nlprocs;
 
   float ratio = (1.0*nlprocs)/(1.0*nrprocs);
+
+  ORB3DLB_NOTOPO_DEBUG("nlprocs %d nrprocs %d ratio %f\n", nlprocs, nrprocs, ratio);
 
   int splitIndex = partitionRatioLoad(events[longestDim],ratio);
   int nleft = splitIndex;
@@ -225,11 +257,13 @@ void Orb3dLB_notopo::orbPartition(CkVec<Event> *events, OrientedBox<float> &box,
   // classify events
   for(int i = 0; i < splitIndex; i++){
     Event &ev = events[longestDim][i];
+    CkAssert(ev.owner >= 0);
     CkAssert(tps[ev.owner].partition == INVALID_PARTITION);
     tps[ev.owner].partition = LEFT_PARTITION;
   }
   for(int i = splitIndex; i < numEvents; i++){
     Event &ev = events[longestDim][i];
+    CkAssert(ev.owner >= 0);
     CkAssert(tps[ev.owner].partition == INVALID_PARTITION);
     tps[ev.owner].partition = RIGHT_PARTITION;
   }
@@ -238,8 +272,14 @@ void Orb3dLB_notopo::orbPartition(CkVec<Event> *events, OrientedBox<float> &box,
   CkVec<Event> rightEvents[NDIMS];
 
   for(int i = 0; i < NDIMS; i++){
-    leftEvents[i].resize(nleft);
-    rightEvents[i].resize(nright);
+    if(i == longestDim){ 
+      leftEvents[i].resize(nleft);
+      rightEvents[i].resize(nright);
+    }
+    else{
+      leftEvents[i].reserve(nleft);
+      rightEvents[i].reserve(nright);
+    }
   }
 
   // copy events of split dimension
@@ -251,6 +291,7 @@ void Orb3dLB_notopo::orbPartition(CkVec<Event> *events, OrientedBox<float> &box,
     if(i == longestDim) continue;
     for(int j = 0; j < numEvents; j++){
       Event &ev = events[i][j];
+      CkAssert(ev.owner >= 0);
       OrbObject &orb = tps[ev.owner];
       CkAssert(orb.partition != INVALID_PARTITION);
       if(orb.partition == LEFT_PARTITION) leftEvents[i].push_back(ev);
@@ -259,23 +300,24 @@ void Orb3dLB_notopo::orbPartition(CkVec<Event> *events, OrientedBox<float> &box,
   }
 
   // cleanup
-  // first free events from parent node,
-  // since they are not needed anymore
-  // (we have partition all events into the
-  // left and right event subsets)
-  for(int i = 0; i < NDIMS; i++){
-    events[i].free();
-  }
-
   // next, reset the ownership information in the
   // OrbObjects, so that the next invocation may use
   // the same locations for its book-keeping
   CkVec<Event> &eraseVec = events[longestDim];
   for(int i = 0; i < numEvents; i++){
     Event &ev = eraseVec[i];
+    CkAssert(ev.owner >= 0);
     OrbObject &orb = tps[ev.owner];
     CkAssert(orb.partition != INVALID_PARTITION);
     orb.partition = INVALID_PARTITION;
+  }
+
+  // free events from parent node,
+  // since they are not needed anymore
+  // (we have partition all events into the
+  // left and right event subsets)
+  for(int i = 0; i < NDIMS; i++){
+    events[i].free();
   }
 
   orbPartition(leftEvents,leftBox,nlprocs);

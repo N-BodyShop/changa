@@ -16,6 +16,7 @@
 // jetley
 #include "MultistepLB.h"
 #include "Orb3dLB.h"
+#include "Orb3dLB_notopo.h"
 // jetley - refactoring
 //#include "codes.h"
 #include "Opt.h"
@@ -4105,6 +4106,10 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
     CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::set, cbk);
   }
+  else if(foundLB == Orb3d_notopo){
+    CkCallback cbk(CkIndex_Orb3dLB_notopo::receiveCentroids(NULL), 0, proxy);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::set, cbk);
+  }
   else{
     doAtSync();
   }
@@ -5976,22 +5981,29 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
 
   string msname("MultistepLB");
   string orb3dname("Orb3dLB");
+  string orb3d_notoponame("Orb3dLB_notopo");
 
   BaseLB **lbs = lbdb->getLoadBalancers();
   int i;
   if(foundLB == Null){
     for(i = 0; i < nlbs; i++){
       if(msname == string(lbs[i]->lbName())){ 
-        proxy = lbs[i]->getGroupID();
         foundLB = Multistep;
         break;
       }
       else if(orb3dname == string(lbs[i]->lbName())){ 
-        proxy = lbs[i]->getGroupID();
         foundLB = Orb3d;
         break;
       }
+      else if(orb3d_notoponame == string(lbs[i]->lbName())){
+        foundLB = Orb3d_notopo;
+        break;
+      }
     }
+  }
+
+  if(foundLB != Null){
+    proxy = lbs[i]->getGroupID();
   }
 
   if(foundLB == Multistep){
@@ -6000,6 +6012,10 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   }
   else if(foundLB == Orb3d){
     CkCallback lbcb(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::set, lbcb);
+  }
+  else if(foundLB == Orb3d_notopo){
+    CkCallback lbcb(CkIndex_Orb3dLB_notopo::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::set, lbcb);
   }
   else if(foundLB == Null){ 
