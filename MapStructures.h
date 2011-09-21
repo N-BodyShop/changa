@@ -7,6 +7,15 @@
 #include "OrientedBox.h"
 using namespace std;
 
+#define XDIM 0
+#define YDIM 1
+#define ZDIM 2
+#define NDIMS 3
+
+#define LEFT_PARTITION 0
+#define RIGHT_PARTITION 1
+#define INVALID_PARTITION -1
+
 template <class T>
 class Volume{
 	
@@ -111,6 +120,58 @@ class Centroid3d{
 
 };
 
+// Each tpobject has three events, one for 
+// each component of its centroid. This helps
+// us avoid sorting after each recursive partitioning
+// step.
+
+class TPObject;
+
+struct Event {
+  int owner;
+  float load;
+  float position;
+
+  Event(float pos, float ld, int o) : 
+    position(pos),
+    load(ld),
+    owner(o)
+  {
+  }
+
+  Event() : 
+    owner(-1),
+    load(0.0),
+    position(0.0)
+  {
+  }
+
+  bool operator<=(const Event &e){
+    return position <= e.position;
+  }
+
+  bool operator>=(const Event &e){
+    return position >= e.position;
+  }
+};
+
+struct OrbObject {
+  int partition;
+  // XXX do we really need this field?
+  int lbindex;
+
+  OrbObject() : 
+    partition(-1),
+    lbindex(-1)
+  {
+  }
+
+  OrbObject(int tag) : 
+    lbindex(tag)
+  {
+  }
+};
+
 class TPObject{
   public:
 
@@ -121,8 +182,17 @@ class TPObject{
   bool migratable;
   //int nparticles;
 
+  int whichPartition;
+
   bool operator<(const TPObject &t) const{
     return load < t.load;
+  }
+
+  TPObject() : 
+    load(0.0),
+    lbindex(-1),
+    whichPartition(-1)
+  {
   }
 
 };
