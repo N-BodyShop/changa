@@ -4073,6 +4073,10 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   else{
   */
   unsigned int numActiveParticles, i;
+  OrientedBox<float> bb;
+  for(int i = 1; i <= myNumParticles; i++){
+    bb.grow(myParticles[i].position);
+  }
 
   if(activeRung == 0){
     numActiveParticles = myNumParticles;
@@ -4084,7 +4088,8 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   }
   LDObjHandle myHandle = myRec->getLdHandle();
   TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles, activeRung, prevLARung);
-  tv.tag = thisIndex;
+  tv.tp = thisIndex;
+  tv.box = bb;
   /*
   CkPrintf("[%d] centroid %f %f %f\n", 
                       thisIndex,
@@ -5957,15 +5962,20 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   centroid.x = 0.0;
   centroid.y = 0.0;
   centroid.z = 0.0;
+
+  OrientedBox<float> bb;
   for(int i = 1; i <= myNumParticles; i++){
     centroid += myParticles[i].position; 
+    bb.grow(myParticles[i].position);
   }
+
   if(myNumParticles > 0){
     centroid /= myNumParticles;
   }
 
   TaggedVector3D tv(centroid, handle, myNumParticles, myNumParticles, 0, 0);
-  tv.tag = thisIndex;
+  tv.tp = thisIndex;
+  tv.box = bb;
   /*
   CkPrintf("[%d] centroid %f %f %f\n", 
                       thisIndex,

@@ -10,15 +10,15 @@
 #ifndef _BUCKET_H_
 #define _BUCKET_H_
 #include "MapStructures.h"
-class LBBucket{
+struct LBBucket{
 
-public:
 	float load;
 	CmiUInt8 hilbertID;
 	TPObject *tp;
 	int numobjs;
 	int tpStartIndex;
-	float x,y,z;
+        Vector3D<float> centroid;
+        OrientedBox<float> box; 
 	
 	LBBucket();
 	bool operator<=(const LBBucket &b) const;

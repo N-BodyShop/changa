@@ -115,12 +115,12 @@ class TPObject{
   public:
 
   Vector3D<float> centroid;
+  OrientedBox<float> box;
   float load;
-  //int index;
   int lbindex;
   bool migratable;
-  long key;
-  //int nparticles;
+  CmiUInt8 key;
+  int tpindex;
 
   bool operator<(const TPObject &t) const{
     return load < t.load;

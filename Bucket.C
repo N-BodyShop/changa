@@ -13,9 +13,6 @@
 		load = 0;
 		hilbertID = 0;
 		numobjs = 0;
-		x = 0.0;
-		y = 0.0;
-		z = 0.0;
 	}
 
 	bool LBBucket::operator<=(const LBBucket &b) const{
@@ -43,12 +40,6 @@
 		numobjs = len;
 	}
 		
-	void LBBucket::setCentroid(float xc, float yc, float zc){
-		x = xc;
-		y = yc;
-		z = zc;
-	}
-
 	void LBBucket::setIndex(int i){
 		tpStartIndex = i;
 	}
@@ -71,16 +62,4 @@
 
 	TPObject* LBBucket::getTPs(){
 		return tp;
-	}
-
-	float LBBucket::getx(){
-		return x;
-	}
-
-	float LBBucket::gety(){
-		return y;
-	}
-
-	float LBBucket::getz(){
-		return z;
 	}
