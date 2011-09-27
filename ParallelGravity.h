@@ -1229,6 +1229,7 @@ public:
 	}
 
 	TreePiece(CkMigrateMessage* m) {
+	  treePieceLoadTmp = 0.0;
           // jetley
           proxyValid = false;
           proxySet = false;
