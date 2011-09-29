@@ -40,6 +40,7 @@ typedef struct parameters {
     double daSwitchTheta;
     int iOrder;
     int bConcurrentSph;
+    double dFracNoDomainDecomp;
     CSM csm;			/* cosmo parameters */
     double dRedTo;
     /*
@@ -141,6 +142,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.daSwitchTheta;
     p|param.iOrder;
     p|param.bConcurrentSph;
+    p|param.dFracNoDomainDecomp;
     if(p.isUnpacking())
  	csmInitialize(&param.csm);
     p|*param.csm;
