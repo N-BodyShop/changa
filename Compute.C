@@ -1057,7 +1057,6 @@ void ListCompute::addNodeToInt(GenericTreeNode *node, int offsetID, DoubleWalkSt
 }
 
 #ifdef CUDA
-int encodeOffset(int reqID, int x, int y, int z);
 #include "DataManager.h"
 #endif
 

@@ -3726,8 +3726,9 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
       numActiveBuckets++;
     }
   }
-  if(numActiveBuckets > 0){
-    CkPrintf("[%d] num active buckets %d avg size: %f\n", thisIndex, numActiveBuckets, 1.0*myNumActiveParticles/numActiveBuckets);
+  if(numActiveBuckets > 0 && verbosity > 1){
+    CkPrintf("[%d] num active buckets %d avg size: %f\n", thisIndex,
+	     numActiveBuckets, 1.0*myNumActiveParticles/numActiveBuckets);
   }
 
 
