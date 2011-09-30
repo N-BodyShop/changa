@@ -123,11 +123,23 @@ class TPObject{
   //int index;
   int lbindex;
   bool migratable;
-  long key;
   //int nparticles;
 
   bool operator<(const TPObject &t) const{
     return load < t.load;
+  }
+
+  int whichPartition;
+
+  void clearPartition(){
+    whichPartition = -1;
+  }
+
+  TPObject() : 
+    load(0.0),
+    lbindex(-1),
+    whichPartition(-1)
+  {
   }
 
 };
@@ -151,6 +163,26 @@ class Node {
 #ifdef PRINT_BOUNDING_BOXES
   OrientedBox<float> box;
 #endif
+};
+
+// Each tree piece has three events, one for each dimension
+// This is required in Orb3d_notopo
+struct Event {
+  TPObject *owner;
+  float pos;
+  float load;
+
+  bool operator<=(Event &other){
+    return pos <= other.pos;
+  }
+
+  bool operator>=(Event &other){
+    return pos >= other.pos;
+  }
+
+  Event &operator=(const TPObject &tp){
+
+  }
 };
 
 typedef int (*ComparatorFn) (const void *, const void *);
