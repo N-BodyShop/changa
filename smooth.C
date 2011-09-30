@@ -866,7 +866,7 @@ void TreePiece::reSmoothNextBucket() {
       }
   myNode->centerSm = bndSmoothAct.center();
   myNode->sizeSm = .5*(bndSmoothAct.size()).length();
-  myNode->fKeyMax = sqrt(dKeyMaxBucket);
+  myNode->fKeyMax = dKeyMaxBucket;
 
   smoothBucketComputation();
   ((ReNearNeighborState *)sSmoothState)->finishBucketSmooth(currentBucket, this);

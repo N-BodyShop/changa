@@ -37,6 +37,7 @@ int bVDetails;
 CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
 CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 CProxy_LvArray smoothProxy; // Proxy for smooth reductions
+CProxy_LvArray gravityProxy; // Proxy for gravity reductions
 CProxy_CkCacheManager cacheGravPart;
 CProxy_CkCacheManager cacheSmoothPart;
 CProxy_CkCacheManager cacheNode;
@@ -57,8 +58,6 @@ int _numChunks;
 int _randChunks;
 unsigned int bucketSize;
 int lbcomm_cutoff_msgs;
-
-double dFracNoDomainDecomp; // Dummy for backward compatibility
 
 //jetley
 int localNodesPerReq;
@@ -513,9 +512,10 @@ Main::Main(CkArgMsg* m) {
         peanoKey=0;
 	prmAddParam(prm, "nDomainDecompose", paramInt, &domainDecomposition,
 		    sizeof(int),"D", "Kind of domain decomposition of particles");
-	dFracNoDomainDecomp = 0.0;
-	prmAddParam(prm, "dFracNoDomainDecomp", paramDouble, &dFracNoDomainDecomp,
-		    sizeof(double),"fndd", "(IGNORED)");
+	param.dFracNoDomainDecomp = 0.0;
+	prmAddParam(prm, "dFracNoDomainDecomp", paramDouble,
+		    &param.dFracNoDomainDecomp, sizeof(double),"fndd",
+		    "Fraction of active particles for no new DD = 0.0");
         lbcomm_cutoff_msgs = 1;
 	prmAddParam(prm, "lbcommCutoffMsgs", paramInt, &lbcomm_cutoff_msgs,
 		    sizeof(int),"lbcommcut", "Cutoff for communication recording (IGNORED)");
@@ -605,11 +605,6 @@ Main::Main(CkArgMsg* m) {
 	if(prmSpecified(prm, "bOverwrite")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bOverwrite parameter ignored."
-		  << endl;
-	    }
-	if(prmSpecified(prm, "dFracNoDomainDecomp")) {
-	    ckerr << "WARNING: ";
-	    ckerr << "dFracNoDomainDecomp parameter ignored."
 		  << endl;
 	    }
 	    
@@ -850,6 +845,8 @@ Main::Main(CkArgMsg* m) {
 	lvProxy = CProxy_LvArray::ckNew(opts);
 	// Create an array for the smooth reductions
 	smoothProxy = CProxy_LvArray::ckNew(opts);
+	// Create an array for the gravity reductions
+	gravityProxy = CProxy_LvArray::ckNew(opts);
 	
 	// create CacheManagers
 	// Gravity particles
@@ -1266,22 +1263,22 @@ void Main::advanceBigStep(int iStep) {
     ckout << "Domain decomposition ...";
     double startTime = CkWallTimer();
     double tolerance = 0.01;	// tolerance for domain decomposition
+    bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
     sorter.startSorting(dataManagerID, tolerance,
-                        CkCallbackResumeThread(), true);
+                        CkCallbackResumeThread(), bDoDD);
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
+    if(verbosity && !bDoDD)
+	CkPrintf("Skipped DD\n");
 
     if(verbosity)
 	memoryStats();
     /********* Load balancer ********/
-    // jetley - commenting out lastActiveRung == 0 check, balance load even for fast rungs
-    //if(lastActiveRung == 0) {
-	ckout << "Load balancer ...";
-	startTime = CkWallTimer();
-	treeProxy.startlb(CkCallbackResumeThread(), activeRung);
-	ckout << " took "<<(CkWallTimer() - startTime) << " seconds."
+    ckout << "Load balancer ...";
+    startTime = CkWallTimer();
+    treeProxy.startlb(CkCallbackResumeThread(), activeRung);
+    ckout << " took "<<(CkWallTimer() - startTime) << " seconds."
 	     << endl;
-    //	}
 
     if(verbosity)
 	memoryStats();
@@ -1310,13 +1307,13 @@ void Main::advanceBigStep(int iStep) {
 	startTime = CkWallTimer();
 	if(param.bConcurrentSph) {
 	    ckout << endl;
-	    treeProxy.startIteration(activeRung, theta, cbGravity);
+	    treeProxy.startGravity(activeRung, theta, cbGravity);
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(cbGravity);
 #endif
 	    }
 	else {
-	    treeProxy.startIteration(activeRung, theta,
+	    treeProxy.startGravity(activeRung, theta,
 				     CkCallbackResumeThread());
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
@@ -1490,6 +1487,12 @@ void Main::setupICs() {
   if(nTotalSPH == 0 && param.bDoGas) {
       ckerr << "WARNING: no SPH particles and bDoGas is set\n";
       param.bDoGas = 0;
+      }
+  if(nTotalSPH > 0 && !param.bDoGas) {
+      if(prmSpecified(prm, "bDoGas"))
+	  ckerr << "WARNING: SPH particles present and bDoGas is set off\n";
+      else
+	  param.bDoGas = 1;
       }
   getStartTime();
   if(param.nSteps > 0) getOutTimes();
@@ -1711,7 +1714,7 @@ Main::initialForces()
   double tolerance = 0.01;	// tolerance for domain decomposition
 
   // DEBUGGING
-  CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
+  // CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
 
   /***** Initial sorting of particles and Domain Decomposition *****/
   ckout << "Initial domain decomposition ...";
@@ -1761,13 +1764,13 @@ Main::initialForces()
       CkPrintf("Calculating gravity (theta = %f) ... ", theta);
       startTime = CkWallTimer();
       if(param.bConcurrentSph) {
-	  treeProxy.startIteration(0, theta, cbGravity);
+	  treeProxy.startGravity(0, theta, cbGravity);
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(cbGravity);
 #endif
 	  }
       else {
-	  treeProxy.startIteration(0, theta, CkCallbackResumeThread());
+	  treeProxy.startGravity(0, theta, CkCallbackResumeThread());
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
@@ -2009,9 +2012,11 @@ Main::doSimulation()
 	      CsOutputParams pCsOut(string(achFile) + ".c");
 	      treeProxy[0].outputASCII(pCsOut, param.bParaWrite, CkCallbackResumeThread());
 #ifndef COOLING_NONE
-	      EDotOutputParams pEDotOut(string(achFile) + ".eDot");
-	      treeProxy[0].outputASCII(pEDotOut, param.bParaWrite,
-				       CkCallbackResumeThread());
+	      if(param.bGasCooling) {
+		  EDotOutputParams pEDotOut(string(achFile) + ".eDot");
+		  treeProxy[0].outputASCII(pEDotOut, param.bParaWrite,
+					   CkCallbackResumeThread());
+		  }
 #endif
 	      }
 	  }
@@ -2197,15 +2202,17 @@ void Main::writeOutput(int iStep)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 #ifndef COOLING_NONE
-      Cool0OutputParams pCool0Out(string(achFile) + "." + COOL_ARRAY0_EXT);
-      treeProxy[0].outputASCII(pCool0Out, param.bParaWrite,
-			       CkCallbackResumeThread());
-      Cool1OutputParams pCool1Out(string(achFile) + "." + COOL_ARRAY1_EXT);
-      treeProxy[0].outputASCII(pCool1Out, param.bParaWrite,
-			       CkCallbackResumeThread());
-      Cool2OutputParams pCool2Out(string(achFile) + "." + COOL_ARRAY2_EXT);
-      treeProxy[0].outputASCII(pCool2Out, param.bParaWrite,
-			       CkCallbackResumeThread());
+    if(param.bGasCooling) {
+	Cool0OutputParams pCool0Out(string(achFile) + "." + COOL_ARRAY0_EXT);
+	treeProxy[0].outputASCII(pCool0Out, param.bParaWrite,
+				 CkCallbackResumeThread());
+	Cool1OutputParams pCool1Out(string(achFile) + "." + COOL_ARRAY1_EXT);
+	treeProxy[0].outputASCII(pCool1Out, param.bParaWrite,
+				 CkCallbackResumeThread());
+	Cool2OutputParams pCool2Out(string(achFile) + "." + COOL_ARRAY2_EXT);
+	treeProxy[0].outputASCII(pCool2Out, param.bParaWrite,
+				 CkCallbackResumeThread());
+	}
 #endif
       if(param.bDoIOrderOutput) {
 	  treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
@@ -2365,8 +2372,12 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 		if (df[0]->bGetPhotogenic) {
 		  achFile[0] = 0;
 		  sprintf(achFile,"%s.photogenic", param.achOutName);
+		  FILE *fp = fopen(param.achOutName, "r" );
+		  if(fp == NULL)
+		      CkAbort("DumpFrame: photogenic specified, but no photogenic file\n");
+		  fclose(fp);
 
-          CkReductionMsg *msg;
+		  CkReductionMsg *msg;
 		  treeProxy.setTypeFromFile(TYPE_PHOTOGENIC, achFile, CkCallbackResumeThread((void*&)msg));
 		  int *nSet = (int *)msg->getData();
 		  if (verbosity)

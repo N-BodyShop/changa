@@ -63,14 +63,10 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   case SFC_peano_dec_3D:
   case SFC_peano_dec_2D:
     numPrefetchReq = 2;
-    prefetchReq = new OrientedBox<double>[2];
   case Oct_dec:
   case ORB_dec:
   case ORB_space_dec:
-    if (numPrefetchReq == 0) {
-      numPrefetchReq = 1;
-      prefetchReq = new OrientedBox<double>[1];
-    }
+    numPrefetchReq = 1;
     break;
   default:
       CkAbort("Invalid domain decomposition requested");
@@ -296,14 +292,10 @@ void TreePiece::loadTipsy(const std::string& filename,
 	case SFC_peano_dec_3D:
 	case SFC_peano_dec_2D:
 	    numPrefetchReq = 2;
-	    prefetchReq = new OrientedBox<double>[2];
 	case Oct_dec:
 	case ORB_dec:
 	case ORB_space_dec:
-	    if (numPrefetchReq == 0) {
-		numPrefetchReq = 1;
-		prefetchReq = new OrientedBox<double>[1];
-		}
+	    numPrefetchReq = 1;
 	    break;
 	default:
 	    CkAbort("Invalid domain decomposition requested");

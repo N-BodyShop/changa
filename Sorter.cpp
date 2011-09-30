@@ -263,10 +263,11 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
         if (splitters.size() == 0) {
           // reuse the existing splitters from the previous decomposition
 	    splitters.clear();
-	    splitters.reserve(3 * numChares - 1);
-	    delta = (lastPossibleKey - SFC::firstPossibleKey) / (3 * numChares - 2);
+	    int nSplitters = 4*numChares + 1;
+	    splitters.reserve(nSplitters);
+	    delta = (lastPossibleKey - SFC::firstPossibleKey) / (nSplitters-1);
 	    k = firstPossibleKey;
-	    for(int i = 0; i < (3 * numChares - 2); i++, k += delta) {
+	    for(int i = 0; i < (nSplitters-1); i++, k += delta) {
 		if(k != firstPossibleKey)
 		    k |= 7L;  // Set bottom bits to avoid trees too deep
 		splitters.push_back(k);
@@ -730,7 +731,11 @@ void Sorter::adjustSplitters() {
 			// the middle to the guesses
 			// Set bottom bits to avoid trees to deep.
 			newSplitters.insert(leftBound | 7L);
+			newSplitters.insert((leftBound / 4 * 3 + rightBound / 4)
+					    | 7L);
 			newSplitters.insert((leftBound / 2 + rightBound / 2)
+					    | 7L);
+			newSplitters.insert((leftBound / 4 + rightBound / 4 * 3)
 					    | 7L);
 			newSplitters.insert(rightBound | 7L);
 			++Ngoal;
@@ -749,9 +754,12 @@ void Sorter::adjustSplitters() {
 		// The following loop is a work around.
 		// splitters.assign(newSplitters.begin(), newSplitters.end());
 		splitters.clear();
+		if(verbosity >=4 ) CkPrintf("Keys:");
 		for(set<Key>::iterator iterNew = newSplitters.begin();
 		    iterNew != newSplitters.end(); iterNew++) {
+		    if(verbosity >= 4) CkPrintf("%lx,", *iterNew);
 		    splitters.push_back(*iterNew);
 		    }
+		if(verbosity >=4 ) CkPrintf("\n");
 	}
 }

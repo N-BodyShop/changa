@@ -9,6 +9,7 @@ mainmodule ParallelGravity {
   readonly CProxy_TreePiece treeProxy;
   readonly CProxy_LvArray lvProxy;
   readonly CProxy_LvArray smoothProxy;
+  readonly CProxy_LvArray gravityProxy;
   readonly CProxy_TreePiece streamingProxy;
   readonly CProxy_CkCacheManager cacheNode;
   readonly CProxy_CkCacheManager cacheGravPart;
@@ -260,7 +261,7 @@ mainmodule ParallelGravity {
 
     entry void startORBTreeBuild(CkReductionMsg* m);
 
-    entry void startIteration(int activeRung, double myTheta, CkCallback &cb);
+    entry void startGravity(int activeRung, double myTheta, CkCallback &cb);
     entry void startIterationSmooth(CkPointer<SmoothParams>, int iLowhFix,
 				    double dfBall2OverSoft2, CkCallback &cb);
     entry void startIterationReSmooth(CkPointer<SmoothParams>, CkCallback &cb);

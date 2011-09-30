@@ -477,7 +477,11 @@ void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg)
 /// of my particles in each bin.
 /// This routine assumes the particles in key order.
 /// The parameter skipEvery means that every "skipEvery" bins counted, one
-/// must be skipped.
+/// must be skipped.  When skipEvery is set, the keys are in groups of
+/// "skipEvery" size, and only splits within each group need to be
+/// evaluated.  Hence the counts between the end of one group, and the
+/// start of the next group are not evaluated.  This feature is used
+/// by the Oct decomposition.
 void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, const CkCallback& cb) {
 #ifdef COSMO_EVENT
   double startTimer = CmiWallTimer();
@@ -567,12 +571,6 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 	    //find particles between this and the last key
 	    binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1],
 				 dummy);
-            if (myNumParticles > 0) {
-                partialLoad = tpLoad * (binEnd-binBegin) / myNumParticles;
-            }
-            else {
-                partialLoad = 0; 
-            }
 	    // If I have any particles in this bin, send them to
 	    // the responsible TreePiece
 	    int nPartOut = binEnd - binBegin;
@@ -586,6 +584,7 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m) {
 		    if(pPart->isStar())
 			nStarOut++;
 		    }
+                partialLoad = tpLoad * nPartOut / myNumParticles;
 		ParticleShuffleMsg *shuffleMsg
 		    = new (nPartOut, nGasOut, nStarOut)
 		    ParticleShuffleMsg(nPartOut, nGasOut, nStarOut,
@@ -673,7 +672,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
   if(shuffleMsg != NULL) {
       incomingParticlesMsg.push_back(shuffleMsg);
       incomingParticlesArrived += shuffleMsg->n;
-      treePieceLoad += shuffleMsg->load; 
+      treePieceLoadTmp += shuffleMsg->load; 
       }
   
   if (verbosity>=3)
@@ -692,6 +691,8 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
       myNumParticles = dm->particleCounts[myPlace];
       incomingParticlesArrived = 0;
       incomingParticlesSelf = false;
+      treePieceLoad = treePieceLoadTmp;
+      treePieceLoadTmp = 0.0;
       int nSPH = 0;
       int nStar = 0;
       int iMsg;
@@ -3481,13 +3482,13 @@ void TreePiece::finishNodeCache(int iPhases, const CkCallback& cb)
 /// first registers with the node and particle caches.  It initializes
 /// the particle acceleration by calling initBucket().
 
-void TreePiece::startIteration(int am, // the active mask for multistepping
+void TreePiece::startGravity(int am, // the active mask for multistepping
 			       double myTheta, // opening criterion
 			       const CkCallback& cb) {
   LBTurnInstrumentOn();
   iterationNo++;
 
-  callback = cb;
+  cbGravity = cb;
   activeRung = am;
   theta = myTheta;
   thetaMono = theta*theta*theta*theta;
@@ -3503,14 +3504,15 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
   cacheGravPart[CkMyPe()].cacheSync(numChunks, idxMax, dummy);
 
   if (myNumParticles == 0) {
-    // No particles assigned to this TreePiece
+      // No particles assigned to this TreePiece
       for (int i=0; i< numChunks; ++i) {
 	  cacheNode[CkMyPe()].finishedChunk(i, 0);
 	  cacheGravPart[CkMyPe()].finishedChunk(i, 0);
 	  }
-    contribute(0, 0, CkReduction::concat, callback);
-    numChunks = -1; //numchunks needs to get reset next iteration incase particles move into this treepiece
-    return;
+      CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
+      gravityProxy[thisIndex].ckLocal()->contribute(cbf);
+      numChunks = -1; //numchunks needs to get reset next iteration incase particles move into this treepiece
+      return;
   }
   
   if (oldNumChunks != numChunks ) {
@@ -3550,7 +3552,7 @@ void TreePiece::startIteration(int am, // the active mask for multistepping
       if(verbosity >= 3) {
 	  ckerr << "TreePiece " << thisIndex << ": no actives" << endl;
 	  }
-      contribute(0, 0, CkReduction::concat, callback);
+      gravityProxy[thisIndex].ckLocal()->contribute(cbGravity);
       return;
       }
 #endif
@@ -4053,9 +4055,9 @@ void TreePiece::startlb(CkCallback &cb){
   // all centroids.
 void TreePiece::startlb(CkCallback &cb, int activeRung){
 
-  setObjTime(treePieceLoad);
   if(verbosity > 1)
      CkPrintf("set to: %g, actual: %g\n", treePieceLoad, getObjTime());  
+  setObjTime(treePieceLoad);
   treePieceLoad = 0;
   callback = cb;
   if(verbosity > 1)
@@ -5029,16 +5031,6 @@ void TreePiece::pup(PUP::er& p) {
   p | boundingBox;
   p | iterationNo;
 
-  //PUP components for ORB decomposition
-  p | chunkRootLevel;
-  if(p.isUnpacking()){
-    boxes = new OrientedBox<float>[chunkRootLevel+1];
-    splitDims = new char[chunkRootLevel+1];
-  }
-  for(unsigned int i=0;i<chunkRootLevel;i++){
-    p | boxes[i];
-    p | splitDims[i];
-  }
   p | nSetupWriteStage;
 
   // Periodic variables
@@ -5078,13 +5070,11 @@ void TreePiece::pup(PUP::er& p) {
     case SFC_peano_dec_3D:
     case SFC_peano_dec_2D:
       numPrefetchReq = 2;
-      prefetchReq = new OrientedBox<double>[2];
       break;
     case Oct_dec:
     case ORB_dec:
     case ORB_space_dec:
       numPrefetchReq = 1;
-      prefetchReq = new OrientedBox<double>[1];
       break;
     default:
       CmiAbort("Pupper has wrong domain decomposition type!\n");
@@ -5643,7 +5633,7 @@ void TreePiece::freeWalkObjects(){
 #if INTERLIST_VER > 0
     // remote-resume state
     // overwrite copies of counters shared with sRemoteGravityState to
-    // avoid double deletion.  See startIteration()
+    // avoid double deletion.  See startGravity()
     sInterListStateRemoteResume->counterArrays[0] = NULL;
     sInterListStateRemoteResume->counterArrays[1] = NULL;
     sGravity->freeState(sInterListStateRemoteResume);
@@ -5692,9 +5682,8 @@ void TreePiece::markWalkDone() {
 #ifdef CHECK_WALK_COMPLETIONS
         CkPrintf("[%d] inside markWalkDone, completedActiveWalks: %d, activeWalks: %d, contrib finishWalk\n", thisIndex, completedActiveWalks, activeWalks.size());
 #endif
-	//finishWalk();
 	CkCallback cb = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
-	contribute(0, 0, CkReduction::concat, cb);
+	gravityProxy[thisIndex].ckLocal()->contribute(cb);
 	}
     }
 
@@ -5827,7 +5816,7 @@ void TreePiece::finishWalk()
   
 #endif
 
-  contribute(0, 0, CkReduction::concat, callback);
+  gravityProxy[thisIndex].ckLocal()->contribute(cbGravity);
 }
 
 #if INTERLIST_VER > 0
@@ -5986,7 +5975,11 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   else if(foundLB == Null){ 
     // none of the balancers requiring centroids found; go
     // straight to AtSync()
-      doAtSync();
+    // At the moment there is no load data: we would have to supply
+    // some load data (like particle count) if we want this to work well.
+    //  doAtSync();
+      contribute(cb);
+      return;
   }
   // this will be called in resumeFromSync()
   callback = cb;

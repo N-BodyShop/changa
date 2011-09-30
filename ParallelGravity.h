@@ -111,6 +111,7 @@ extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
 extern CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 extern CProxy_LvArray smoothProxy;  // Proxy for smooth reduction
+extern CProxy_LvArray gravityProxy; // Proxy for gravity reduction
 extern CProxy_TreePiece streamingProxy;
 extern CProxy_DataManager dMProxy;
 extern unsigned int numTreePieces;
@@ -546,6 +547,7 @@ class TreePiece : public CBase_TreePiece {
 		       // should be part of the smooth state
    
    double treePieceLoad; // used to store CPU load data for incoming particles
+   double treePieceLoadTmp; // temporary accumulator for above
    int memWithCache, memPostCache;  // store memory usage.
    int nNodeCacheEntries, nPartCacheEntries;  // store memory usage.
 
@@ -808,6 +810,8 @@ private:
 	/// @brief Used to inform the mainchare that the requested operation has
 	/// globally finished
 	CkCallback callback;
+	/// gravity globally finished
+	CkCallback cbGravity;
 	/// smooth globally finished
 	CkCallback cbSmooth;
 	/// Total number of particles contained in this chare
@@ -957,7 +961,7 @@ private:
 	/// Array of keys that will be the root of the prefetching chunks
 	Tree::NodeKey *prefetchRoots;
 	/// Placeholder for particles used for prefetching
-	OrientedBox<double> *prefetchReq;
+	OrientedBox<double> prefetchReq[2];
 	unsigned int numPrefetchReq;
 	/// number of particles/buckets still remaining to compute for the chunk
 	//int *remaining Chunk;
@@ -1149,7 +1153,7 @@ public:
  TreePiece() : pieces(thisArrayID), root(0), proxyValid(false),
 	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
 	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
-	  treePieceLoad(0) {
+	  treePieceLoad(0.0), treePieceLoadTmp(0.0) {
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
 	  dm = NULL;
@@ -1205,8 +1209,6 @@ public:
 	  numChunks=-1;
 	  prefetchRoots = NULL;
 	  numPrefetchReq = 0;
-	  prefetchReq = NULL;
-	  //remaining Chunk = NULL;
 	  ewt = NULL;
 	  nMaxEwhLoop = 100;
 
@@ -1227,6 +1229,7 @@ public:
 	}
 
 	TreePiece(CkMigrateMessage* m) {
+	  treePieceLoadTmp = 0.0;
           // jetley
           proxyValid = false;
           proxySet = false;
@@ -1278,13 +1281,9 @@ public:
 	  delete[] myParticles;
 	  if(nStoreSPH > 0) delete[] mySPHParticles;
 	  if(nStoreStar > 0) delete[] myStarParticles;
-	  //delete[] splitters;
-	  //delete[] prefetchRoots;
-	  //delete[] remaining Chunk;
 	  delete[] nodeInterRemote;
 	  delete[] particleInterRemote;
 	  delete[] bucketReqs;
-	  delete[] prefetchReq;
           delete[] ewt;
 
 	  // recursively delete the entire tree
@@ -1292,8 +1291,8 @@ public:
 	    root->fullyDelete();
 	    delete root;
 	  }
-	  delete[] boxes;
-	  delete[] splitDims;
+	  if(boxes!= NULL ) delete[] boxes;
+	  if(splitDims != NULL) delete[] splitDims;
 
 #ifndef COOLING_NONE
 	  if(bGasCooling)
@@ -1467,23 +1466,10 @@ public:
 	void requestRemoteMoments(const Tree::NodeKey key, int sender);
 	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments, const OrientedBox<double>& box, const OrientedBox<double>& boxBall, const unsigned int iParticleTypes);
 
-	/// Decide whether the node should be opened for the force computation
-	/// of the given request. --- Moved outside TreePiece class
-	/*bool openCriterionBucket(GenericTreeNode *node,
-				 GenericTreeNode *bucketNode,
-				 Vector3D<double> offset // Offset of node
-				 );
-
-	int openCriterionNode(GenericTreeNode *node,
-			      GenericTreeNode *myNode,
-			      Vector3D<double> offset // Offset of node
-			      );
-	 */
-
 	/// Entry point for the local computation: for each bucket compute the
 	/// force that its particles see due to the other particles hosted in
 	/// this TreePiece. The opening angle theta has already been passed
-	/// through "startIteration"
+	/// through startGravity()
 	void calculateGravityLocal();
 	void commenceCalculateGravityLocal();
 
@@ -1516,7 +1502,7 @@ public:
   /// @param am the active rung for the computation
   /// @param theta the opening angle
   /// @param cb the callback to use after all the computation has finished
-  void startIteration(int am, double myTheta, const CkCallback& cb);
+  void startGravity(int am, double myTheta, const CkCallback& cb);
   /// Setup utility function for all the smooths.  Initializes caches.
   void setupSmooth();
   /// Start a tree based smooth computation.
