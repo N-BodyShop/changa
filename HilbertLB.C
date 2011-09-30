@@ -90,7 +90,6 @@ void HilbertLB::work(BaseLB::LDStats* stats){
     LDObjHandle &handle = data->handle;
     int tag = stats->getHash(handle.id,handle.omhandle.id);
     tps[tag].centroid = data->vec;
-    tps[tag].box = data->box;
 
     // skip zero-load tree pieces: keep them where they are
 

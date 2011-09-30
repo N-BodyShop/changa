@@ -4089,7 +4089,6 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   LDObjHandle myHandle = myRec->getLdHandle();
   TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles, activeRung, prevLARung);
   tv.tp = thisIndex;
-  tv.box = bb;
   /*
   CkPrintf("[%d] centroid %f %f %f\n", 
                       thisIndex,
@@ -5975,7 +5974,6 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
 
   TaggedVector3D tv(centroid, handle, myNumParticles, myNumParticles, 0, 0);
   tv.tp = thisIndex;
-  tv.box = bb;
   /*
   CkPrintf("[%d] centroid %f %f %f\n", 
                       thisIndex,
