@@ -323,7 +323,14 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
     } else {
       //send out all the decided keys to get final bin counts
       sorted = true;
-      treeProxy.evaluateBoundaries(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+      if(domainDecomposition == Oct_dec)
+	  treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(),
+				       0,
+				       CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+      else
+	  treeProxy.evaluateBoundaries(&(*keyBoundaries.begin()),
+				       keyBoundaries.size(), 0,
+				       CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
     }
   }
 }
