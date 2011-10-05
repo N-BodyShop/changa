@@ -1370,7 +1370,7 @@ void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump)
     GravityParticle *p = &(myParticles[1]);
 
     dfRenderParticlesInit( &in, TYPE_GAS, TYPE_DARK, TYPE_STAR,
-			   &p->position[0], &p->mass, &p->soft, &p->soft,
+			   &p->position[0], &p->mass, &p->soft, &p->fBall,
 			   &p->iType,
 #ifdef GASOLINE
 			   &p->fTimeForm,
