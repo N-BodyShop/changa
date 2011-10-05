@@ -1374,7 +1374,7 @@ void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump)
     GravityParticle *p = &(myParticles[1]);
 
     dfRenderParticlesInit( &in, TYPE_GAS, TYPE_DARK, TYPE_STAR,
-			   &p->position[0], &p->mass, &p->soft, &p->soft,
+			   &p->position[0], &p->mass, &p->soft, &p->fBall,
 			   &p->iType,
 #ifdef GASOLINE
 			   &p->fTimeForm,
@@ -3742,8 +3742,9 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
       numActiveBuckets++;
     }
   }
-  if(numActiveBuckets > 0){
-    CkPrintf("[%d] num active buckets %d avg size: %f\n", thisIndex, numActiveBuckets, 1.0*myNumActiveParticles/numActiveBuckets);
+  if(numActiveBuckets > 0 && verbosity > 1){
+    CkPrintf("[%d] num active buckets %d avg size: %f\n", thisIndex,
+	     numActiveBuckets, 1.0*myNumActiveParticles/numActiveBuckets);
   }
 
 
@@ -4078,19 +4079,7 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   callback = cb;
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d calling AtSync()\n",CkMyPe(),thisIndex);
-  // AtSync();
-  //
-
-  /*
-  if(!proxyValid || !proxySet){              // jetley
-    proxyValid = true;
-#if COSMO_MCLB > 1
-    CkPrintf("[%d : %d] !proxyValid, calling doAtSync()\n", CkMyPe(), thisIndex);
-#endif
-    doAtSync();
-  }
-  else{
-  */
+  
   unsigned int numActiveParticles, i;
 
   if(activeRung == 0){
@@ -4113,14 +4102,15 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
     CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
   }
-  else{
+  else if(activeRung == 0) {
     doAtSync();
+  }
+  else {
+    contribute(cb);  // Skip the load balancer
   }
   if(thisIndex == 0)
     CkPrintf("Changing prevLARung from %d to %d\n", prevLARung, activeRung);
   prevLARung = activeRung;
-  //contribute(sizeof(TaggedVector3D), &tv, CkReduction::set, cbk);
-  //}
 }
 
 void TreePiece::doAtSync(){

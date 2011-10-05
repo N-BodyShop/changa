@@ -997,6 +997,9 @@ void dfRenderParticlePoint( struct inDumpFrame *in, void *vImage,
 		}
 	}
 
+/*
+ * Change for ChaNGa: "fBall2" is not the square of fBall.
+ */
 void dfRenderParticleTSC( struct inDumpFrame *in, void *vImage, 
 						 double *r, double fMass, double fSoft, double fBall2, int iActive, double fAge ) {
     DFIMAGE *Image = vImage;
@@ -1010,7 +1013,7 @@ void dfRenderParticleTSC( struct inDumpFrame *in, void *vImage,
 	br0=1;
 	if ((iActive & in->iTypeGas)) {
 		if (fMass < in->dMassGasMin || fMass > in->dMassGasMax) return;
-		if (in->bGasSph) h = sqrt(fBall2)*0.5*in->dGasSoftMul;
+		if (in->bGasSph) h = fBall2*0.5*in->dGasSoftMul;
 		else h = fSoft*in->dGasSoftMul;
 		col = in->ColGas;
 		}
@@ -1135,7 +1138,7 @@ void dfRenderParticleSolid( struct inDumpFrame *in, void *vImage,
 
 	if ((iActive & in->iTypeGas )) {
 		if (fMass < in->dMassGasMin || fMass > in->dMassGasMax) return;
-		if (in->bGasSph) h = sqrt(fBall2)*0.5*in->dGasSoftMul;
+		if (in->bGasSph) h = fBall2*0.5*in->dGasSoftMul;
 		else h = fSoft*in->dGasSoftMul;
 		col = in->ColGas;
 		}
