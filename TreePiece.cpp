@@ -4063,19 +4063,7 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   callback = cb;
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d calling AtSync()\n",CkMyPe(),thisIndex);
-  // AtSync();
-  //
-
-  /*
-  if(!proxyValid || !proxySet){              // jetley
-    proxyValid = true;
-#if COSMO_MCLB > 1
-    CkPrintf("[%d : %d] !proxyValid, calling doAtSync()\n", CkMyPe(), thisIndex);
-#endif
-    doAtSync();
-  }
-  else{
-  */
+  
   unsigned int numActiveParticles, i;
 
   if(activeRung == 0){
@@ -4098,14 +4086,15 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
     CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
   }
-  else{
+  else if(activeRung == 0) {
     doAtSync();
+  }
+  else {
+    contribute(cb);  // Skip the load balancer
   }
   if(thisIndex == 0)
     CkPrintf("Changing prevLARung from %d to %d\n", prevLARung, activeRung);
   prevLARung = activeRung;
-  //contribute(sizeof(TaggedVector3D), &tv, CkReduction::set, cbk);
-  //}
 }
 
 void TreePiece::doAtSync(){
