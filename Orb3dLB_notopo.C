@@ -82,6 +82,7 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
     tpEvents[ZDIM].push_back(Event(data->vec.z,load,tag));
 
     tps[tag] = OrbObject(tag);
+    tps[tag].centroid = data->vec;
     
     /*
     CkPrintf("[Orb3dLB_notopo] tree piece %d centroid %f %f %f\n", 
@@ -132,6 +133,7 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
   nextProc = 0;
 
   procload.resize(stats->count);
+  procbox.resize(stats->count);
   for(int i = 0; i < stats->count; i++){
     procload[i] = 0.0;
   }
@@ -153,7 +155,14 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
 #endif
 
   for(int i = 0; i < stats->count; i++){
-    CkPrintf("pe %d load %f\n", i, procload[i]);
+    CkPrintf("pe %d load %f box %f %f %f %f %f %f\n", i, procload[i], 
+                                procbox[i].lesser_corner.x,
+                                procbox[i].lesser_corner.y,
+                                procbox[i].lesser_corner.z,
+                                procbox[i].greater_corner.x,
+                                procbox[i].greater_corner.y,
+                                procbox[i].greater_corner.z
+                                );
   }
 
   /*
@@ -209,6 +218,7 @@ void Orb3dLB_notopo::orbPartition(CkVec<Event> *events, OrientedBox<float> &box,
       OrbObject &orb = tps[ev.owner];
       (*mapping)[orb.lbindex] = nextProc;
       totalLoad += ev.load;
+      procbox[nextProc].grow(orb.centroid);
     }
     procload[nextProc] += totalLoad;
 

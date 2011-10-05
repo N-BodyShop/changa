@@ -25,6 +25,7 @@ private:
 
   CkVec<OrbObject> tps;
   CkVec<float> procload;
+  CkVec<OrientedBox<float> > procbox;
 
   int procsPerNode;
 

@@ -157,8 +157,8 @@ struct Event {
 
 struct OrbObject {
   int partition;
-  // XXX do we really need this field?
   int lbindex;
+  Vector3D<float> centroid;
 
   OrbObject() : 
     partition(-1),
