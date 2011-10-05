@@ -88,6 +88,7 @@ int partForceUE;
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
 
+CProxy_ProjectionsControl prjgrp;
 
 void _Leader(void) {
     puts("USAGE: ChaNGa [SETTINGS | FLAGS] [PARAM_FILE]");
@@ -144,6 +145,8 @@ Main::Main(CkArgMsg* m) {
         traceRegisterUserEvent("Remote Particle", CUDA_REMOTE_PART_KERNEL);
         traceRegisterUserEvent("Remote Resume Particle", CUDA_REMOTE_RESUME_PART_KERNEL);
 #endif
+
+        prjgrp = CProxy_ProjectionsControl::ckNew();
 	
 	prmInitialize(&prm,_Leader,_Trailer);
 	csmInitialize(&param.csm);
@@ -1291,7 +1294,11 @@ void Main::advanceBigStep(int iStep) {
     /******** Tree Build *******/
     ckout << "Building trees ...";
     startTime = CkWallTimer();
+
+    prjgrp.on(CkCallbackResumeThread());
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+    prjgrp.off(CkCallbackResumeThread());
+
     iPhase = 0;
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
@@ -1735,7 +1742,11 @@ Main::initialForces()
   /******** Tree Build *******/
   ckout << "Building trees ...";
   startTime = CkWallTimer();
+
+  prjgrp.on(CkCallbackResumeThread());
   treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+  prjgrp.off(CkCallbackResumeThread());
+
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
   iPhase = 0;
@@ -2041,7 +2052,11 @@ Main::doSimulation()
 	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
 	  sorter.startSorting(dataManagerID, tolerance,
 			      CkCallbackResumeThread(), true);
+          
+          prjgrp.on(CkCallbackResumeThread());
 	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+          prjgrp.off(CkCallbackResumeThread());
+
 	  iPhase = 0;
 	  
 	  ckout << "Calculating total densities ...";
@@ -2222,7 +2237,9 @@ void Main::writeOutput(int iStep)
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
 	sorter.startSorting(dataManagerID, tolerance,
 			    CkCallbackResumeThread(), true);
+        prjgrp.on(CkCallbackResumeThread());
 	treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+        prjgrp.off(CkCallbackResumeThread());
 
 	iPhase = 0;
 	ckout << "Calculating total densities ...";

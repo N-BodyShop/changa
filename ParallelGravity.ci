@@ -349,5 +349,11 @@ mainmodule ParallelGravity {
       entry LvArray();
   };
 
+  group ProjectionsControl {
+    entry ProjectionsControl();
+    entry [notrace] void on(CkCallback);
+    entry [notrace] void off(CkCallback);
+  };
+
   initproc void registerStatistics();
 };

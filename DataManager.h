@@ -244,4 +244,11 @@ public:
     void resetReadOnly(Parameters param, const CkCallback &cb);
 };
 
+class ProjectionsControl : public CBase_ProjectionsControl {
+  public:
+  ProjectionsControl() {}
+  void on(CkCallback cb) {traceBegin(); contribute(0,0,CkReduction::sum_int,cb);}
+  void off(CkCallback cb) {traceEnd(); contribute(0,0,CkReduction::sum_int,cb);}
+};
+
 #endif //DATAMANAGER_H
