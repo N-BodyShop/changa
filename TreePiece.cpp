@@ -980,8 +980,10 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
       GravityParticle *p = &myParticles[i];
-      if (p->iOrder >= nGrowMass)
-	  p->position += dDelta*p->velocity;
+      if (p->iOrder >= nGrowMass){
+        // FIXME - remove this
+	  // p->position += dDelta*p->velocity;
+      }
       if(bPeriodic) {
         for(int j = 0; j < 3; j++) {
           if(p->position[j] >= 0.5*fPeriod[j]){

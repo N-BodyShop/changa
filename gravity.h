@@ -269,6 +269,7 @@ inline int partBucketForce(ExternalGravityParticle *part,
 			   GravityParticle *particles, 
 			   Vector3D<cosmoType> offset, int activeRung) {
   int computed = 0;
+#if 0
   Vector3D<cosmoType> r;
   cosmoType rsq;
   cosmoType twoh, a, b;
@@ -299,6 +300,13 @@ inline int partBucketForce(ExternalGravityParticle *part,
       }
     }
   }
+#endif
+  for(int j = req->firstParticle; j <= req->lastParticle; ++j) {
+    particles[j].treeAcceleration.x = 0;
+    particles[j].treeAcceleration.y = 0;
+    particles[j].treeAcceleration.z = 0;
+    particles[j].potential = 0;
+  }
   return computed;
 }
 #else
@@ -306,6 +314,7 @@ inline int partBucketForce(ExternalGravityParticle *part,
 			   Tree::GenericTreeNode *req, 
 			   GravityParticle **activeParticles, 
 			   Vector3D<cosmoType> offset, int nActiveParts) {
+#if 0
   Vector3D<SSEcosmoType> r;
   SSEcosmoType rsq; 
   SSEcosmoType twoh, a, b; 
@@ -358,6 +367,7 @@ inline int partBucketForce(ExternalGravityParticle *part,
       SSEStore(idt2, activeParticles, i, ->dtGrav); 
     }
   }
+#endif
   return nActiveParts;
 }
 
@@ -366,6 +376,7 @@ inline int partBucketForce(ExternalGravityParticle *part,
 			   GravityParticle *particles, 
 			   Vector3D<cosmoType> offset, int activeRung) {
   int nActiveParts = 0; 
+#if 0
   GravityParticle dummyPart = particles[0];
   dummyPart.soft = 0.0;
 
@@ -385,6 +396,14 @@ inline int partBucketForce(ExternalGravityParticle *part,
 #endif
 
   return partBucketForce(part, req, activeParticles, offset, nActiveParts); 
+#endif
+  for(int j = req->firstParticle; j <= req->lastParticle; ++j) {
+    particles[j].treeAcceleration.x = 0;
+    particles[j].treeAcceleration.y = 0;
+    particles[j].treeAcceleration.z = 0;
+    particles[j].potential = 0;
+  }
+  return nActiveParts;
 }
 
 #endif
@@ -404,6 +423,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
 
 {
   int computed = 0;
+#if 0
   Vector3D<cosmoType> r;
   cosmoType rsq;
   cosmoType twoh, a, b, c, d;
@@ -467,6 +487,13 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
         particles[j].dtGrav = idt2;
     }
   }
+#endif
+  for(int j = req->firstParticle; j <= req->lastParticle; ++j) {
+    particles[j].treeAcceleration.x = 0;
+    particles[j].treeAcceleration.y = 0;
+    particles[j].treeAcceleration.z = 0;
+    particles[j].potential = 0;
+  }
   return computed;
 }
 
@@ -479,13 +506,14 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
 		    int activeRung)
 
 {
+  int nActiveParts = 0;
+#if 0
   Vector3D<SSEcosmoType> r; 
   SSEcosmoType rsq;
   SSEcosmoType twoh;
   SSEcosmoType a,b,c,d;
   MultipoleMoments m = node->moments;
   Vector3D<cosmoType> cm(m.cm + offset);
-  int nActiveParts = 0;
   GravityParticle dummyPart = particles[0];
   dummyPart.soft = 0.0;
 
@@ -575,6 +603,13 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
     SSEStore(packedPotential, activeParticles, i, ->potential);
     idt2 = max(idt2, packedDtGrav);   
     SSEStore(idt2, activeParticles, i, ->dtGrav); 
+  }
+#endif
+  for(int j = req->firstParticle; j <= req->lastParticle; ++j) {
+    particles[j].treeAcceleration.x = 0;
+    particles[j].treeAcceleration.y = 0;
+    particles[j].treeAcceleration.z = 0;
+    particles[j].potential = 0;
   }
   return nActiveParts;
 }
