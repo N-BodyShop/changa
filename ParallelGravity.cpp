@@ -831,6 +831,13 @@ Main::Main(CkArgMsg* m) {
             CkAbort("None of the implemented decompositions specified");
           }
         }
+
+        monitorRung = 12;
+        numTraceIterations = 3;
+        numSkipIterations = 400;
+        traceIteration = 0;
+        traceState = TraceNormal;
+        projectionsOn = false;
 	
 	CkArrayOptions opts(numTreePieces); 
 	if (domainDecomposition == Oct_dec) {
@@ -1289,9 +1296,9 @@ void Main::advanceBigStep(int iStep) {
     ckout << "Building trees ...";
     startTime = CkWallTimer();
 
-    prjgrp.on(CkCallbackResumeThread());
+    //prjgrp.on(CkCallbackResumeThread());
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-    prjgrp.off(CkCallbackResumeThread());
+    //prjgrp.off(CkCallbackResumeThread());
 
     iPhase = 0;
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -1314,14 +1321,18 @@ void Main::advanceBigStep(int iStep) {
 	startTime = CkWallTimer();
 	if(param.bConcurrentSph) {
 	    ckout << endl;
+            turnProjectionsOn(activeRung);
 	    treeProxy.startGravity(activeRung, theta, cbGravity);
+            turnProjectionsOff();
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(cbGravity);
 #endif
 	    }
 	else {
+            turnProjectionsOn(activeRung);
 	    treeProxy.startGravity(activeRung, theta,
 				     CkCallbackResumeThread());
+            turnProjectionsOff();
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
@@ -1743,9 +1754,9 @@ Main::initialForces()
   ckout << "Building trees ...";
   startTime = CkWallTimer();
 
-  prjgrp.on(CkCallbackResumeThread());
+  //prjgrp.on(CkCallbackResumeThread());
   treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-  prjgrp.off(CkCallbackResumeThread());
+  //prjgrp.off(CkCallbackResumeThread());
 
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
@@ -1775,13 +1786,17 @@ Main::initialForces()
       CkPrintf("Calculating gravity (theta = %f) ... ", theta);
       startTime = CkWallTimer();
       if(param.bConcurrentSph) {
+            turnProjectionsOn(0);
 	  treeProxy.startGravity(0, theta, cbGravity);
+            turnProjectionsOff();
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(cbGravity);
 #endif
 	  }
       else {
+            turnProjectionsOn(0);
 	  treeProxy.startGravity(0, theta, CkCallbackResumeThread());
+            turnProjectionsOff();
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
@@ -2055,9 +2070,9 @@ Main::doSimulation()
 	  sorter.startSorting(dataManagerID, tolerance,
 			      CkCallbackResumeThread(), true);
           
-          prjgrp.on(CkCallbackResumeThread());
+          //prjgrp.on(CkCallbackResumeThread());
 	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-          prjgrp.off(CkCallbackResumeThread());
+          //prjgrp.off(CkCallbackResumeThread());
 
 	  iPhase = 0;
 	  
@@ -2241,9 +2256,9 @@ void Main::writeOutput(int iStep)
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
 	sorter.startSorting(dataManagerID, tolerance,
 			    CkCallbackResumeThread(), true);
-        prjgrp.on(CkCallbackResumeThread());
+        //prjgrp.on(CkCallbackResumeThread());
 	treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-        prjgrp.off(CkCallbackResumeThread());
+        //prjgrp.off(CkCallbackResumeThread());
 
 	iPhase = 0;
 	ckout << "Calculating total densities ...";
@@ -2643,6 +2658,43 @@ void Main::liveVizImagePrep(liveVizRequestMsg *msg)
   if (df_temp.bGetPhotogenic)
       delete msgCOMbyType;
   
+}
+
+void Main::turnProjectionsOn(int activeRung){
+  CkAssert(!projectionsOn);
+  if(traceState == TraceNormal){
+    if(activeRung != monitorRung){
+    }
+    else if(traceIteration < numTraceIterations){
+      prjgrp.on(CkCallbackResumeThread());
+      projectionsOn = true;
+      traceIteration++;
+    }
+    else{
+      traceState = TraceSkip;
+      traceIteration = 0;
+    }
+  }
+  else if(traceState == TraceSkip){
+    if(activeRung != monitorRung){
+    }
+    else if(traceIteration < numSkipIterations){
+      traceIteration++;
+    }
+    else{
+      traceState = TraceNormal;
+      prjgrp.on(CkCallbackResumeThread());
+      projectionsOn = true;
+      traceIteration = 1;
+    }
+  }
+}
+
+void Main::turnProjectionsOff(){
+  if(projectionsOn){
+    prjgrp.off(CkCallbackResumeThread());
+    projectionsOn = false;
+  }
 }
 
 #include "ParallelGravity.def.h"

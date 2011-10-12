@@ -77,6 +77,11 @@ enum DomainsDec {
     ORB_space_dec=6		// Bisect space
 };
 
+enum TraceState {
+  TraceNormal = 0,
+  TraceSkip = 1
+};
+
 inline void operator|(PUP::er &p,DomainsDec &d) {
   int di;
   if (p.isUnpacking()) {
@@ -399,6 +404,16 @@ class Main : public CBase_Main {
           double remoteResumePartsPerReqDouble;
 #endif
 
+        int monitorRung;
+        int numTraceIterations;
+        int numSkipIterations;
+        int traceIteration;
+        int traceState;
+        bool projectionsOn;
+
+        void turnProjectionsOn(int activeRung);
+        void turnProjectionsOff();
+
 public:
 
 	Main(CkArgMsg* m);
@@ -436,6 +451,7 @@ public:
 	void memoryStatsCache();
 	void pup(PUP::er& p);
 	void liveVizImagePrep(liveVizRequestMsg *msg);
+
 };
 
 /* IBM brain damage */
