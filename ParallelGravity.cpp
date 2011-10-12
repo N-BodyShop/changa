@@ -525,6 +525,23 @@ Main::Main(CkArgMsg* m) {
 	param.bConcurrentSph = 0;
 	prmAddParam(prm, "bConcurrentSph", paramBool, &param.bConcurrentSph,
 		    sizeof(int),"consph", "Enable SPH running concurrently with Gravity");
+
+        monitorRung = 12;
+	prmAddParam(prm, "iTraceRung", paramInt, &monitorRung,
+              sizeof(int),"traceRung", "Gravity starting rung to trace selectively");
+
+        numTraceIterations = 3;
+	prmAddParam(prm, "iTraceFor", paramInt, &numTraceIterations,
+              sizeof(int),"traceFor", "Trace this many instances of the selected rungs");
+
+        numSkipIterations = 400;
+	prmAddParam(prm, "iTraceSkip", paramInt, &numSkipIterations,
+              sizeof(int),"traceSkip", "Skip tracing for these many iterations");
+
+        traceIteration = 0;
+        traceState = TraceNormal;
+        projectionsOn = false;
+	
     
           // jetley - cuda parameters
 #ifdef CUDA
@@ -832,13 +849,7 @@ Main::Main(CkArgMsg* m) {
           }
         }
 
-        monitorRung = 12;
-        numTraceIterations = 3;
-        numSkipIterations = 400;
-        traceIteration = 0;
-        traceState = TraceNormal;
-        projectionsOn = false;
-	
+
 	CkArrayOptions opts(numTreePieces); 
 	if (domainDecomposition == Oct_dec) {
 	  CProxy_RRMap myMap=CProxy_RRMap::ckNew(); 
@@ -2672,7 +2683,7 @@ void Main::turnProjectionsOn(int activeRung){
     }
     else{
       traceState = TraceSkip;
-      traceIteration = 0;
+      traceIteration = 1;
     }
   }
   else if(traceState == TraceSkip){

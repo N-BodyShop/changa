@@ -248,8 +248,22 @@ class ProjectionsControl : public CBase_ProjectionsControl {
   public:
   ProjectionsControl() {}
   ProjectionsControl(CkMigrateMessage *) {}
-  void on(CkCallback cb) {traceBegin(); contribute(0,0,CkReduction::sum_int,cb);}
-  void off(CkCallback cb) {traceEnd(); contribute(0,0,CkReduction::sum_int,cb);}
+
+  void on(CkCallback cb) {
+    if(CkMyPe() == 0){
+      CkPrintf("\n\n**** PROJECTIONS ON *****\n\n");
+    }
+    traceBegin(); 
+    contribute(0,0,CkReduction::sum_int,cb);
+  }
+
+  void off(CkCallback cb) {
+    if(CkMyPe() == 0){
+      CkPrintf("\n\n**** PROJECTIONS OFF *****\n\n");
+    }
+    traceEnd(); 
+    contribute(0,0,CkReduction::sum_int,cb);
+  }
 };
 
 #endif //DATAMANAGER_H
