@@ -59,8 +59,6 @@ int _randChunks;
 unsigned int bucketSize;
 int lbcomm_cutoff_msgs;
 
-double dFracNoDomainDecomp; // Dummy for backward compatibility
-
 //jetley
 int localNodesPerReq;
 int remoteNodesPerReq;
@@ -517,9 +515,10 @@ Main::Main(CkArgMsg* m) {
         peanoKey=0;
 	prmAddParam(prm, "nDomainDecompose", paramInt, &domainDecomposition,
 		    sizeof(int),"D", "Kind of domain decomposition of particles");
-	dFracNoDomainDecomp = 0.0;
-	prmAddParam(prm, "dFracNoDomainDecomp", paramDouble, &dFracNoDomainDecomp,
-		    sizeof(double),"fndd", "(IGNORED)");
+	param.dFracNoDomainDecomp = 0.0;
+	prmAddParam(prm, "dFracNoDomainDecomp", paramDouble,
+		    &param.dFracNoDomainDecomp, sizeof(double),"fndd",
+		    "Fraction of active particles for no new DD = 0.0");
         lbcomm_cutoff_msgs = 1;
 	prmAddParam(prm, "lbcommCutoffMsgs", paramInt, &lbcomm_cutoff_msgs,
 		    sizeof(int),"lbcommcut", "Cutoff for communication recording (IGNORED)");
@@ -609,11 +608,6 @@ Main::Main(CkArgMsg* m) {
 	if(prmSpecified(prm, "bOverwrite")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bOverwrite parameter ignored."
-		  << endl;
-	    }
-	if(prmSpecified(prm, "dFracNoDomainDecomp")) {
-	    ckerr << "WARNING: ";
-	    ckerr << "dFracNoDomainDecomp parameter ignored."
 		  << endl;
 	    }
 	    
@@ -1272,22 +1266,22 @@ void Main::advanceBigStep(int iStep) {
     ckout << "Domain decomposition ...";
     double startTime = CkWallTimer();
     double tolerance = 0.01;	// tolerance for domain decomposition
+    bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
     sorter.startSorting(dataManagerID, tolerance,
-                        CkCallbackResumeThread(), true);
+                        CkCallbackResumeThread(), bDoDD);
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
+    if(verbosity && !bDoDD)
+	CkPrintf("Skipped DD\n");
 
     if(verbosity)
 	memoryStats();
     /********* Load balancer ********/
-    // jetley - commenting out lastActiveRung == 0 check, balance load even for fast rungs
-    //if(lastActiveRung == 0) {
-	ckout << "Load balancer ...";
-	startTime = CkWallTimer();
-	treeProxy.startlb(CkCallbackResumeThread(), activeRung);
-	ckout << " took "<<(CkWallTimer() - startTime) << " seconds."
+    ckout << "Load balancer ...";
+    startTime = CkWallTimer();
+    treeProxy.startlb(CkCallbackResumeThread(), activeRung);
+    ckout << " took "<<(CkWallTimer() - startTime) << " seconds."
 	     << endl;
-    //	}
 
     if(verbosity)
 	memoryStats();
@@ -1500,6 +1494,12 @@ void Main::setupICs() {
   if(nTotalSPH == 0 && param.bDoGas) {
       ckerr << "WARNING: no SPH particles and bDoGas is set\n";
       param.bDoGas = 0;
+      }
+  if(nTotalSPH > 0 && !param.bDoGas) {
+      if(prmSpecified(prm, "bDoGas"))
+	  ckerr << "WARNING: SPH particles present and bDoGas is set off\n";
+      else
+	  param.bDoGas = 1;
       }
   getStartTime();
   if(param.nSteps > 0) getOutTimes();
@@ -2023,9 +2023,11 @@ Main::doSimulation()
 	      CsOutputParams pCsOut(string(achFile) + ".c");
 	      treeProxy[0].outputASCII(pCsOut, param.bParaWrite, CkCallbackResumeThread());
 #ifndef COOLING_NONE
-	      EDotOutputParams pEDotOut(string(achFile) + ".eDot");
-	      treeProxy[0].outputASCII(pEDotOut, param.bParaWrite,
-				       CkCallbackResumeThread());
+	      if(param.bGasCooling) {
+		  EDotOutputParams pEDotOut(string(achFile) + ".eDot");
+		  treeProxy[0].outputASCII(pEDotOut, param.bParaWrite,
+					   CkCallbackResumeThread());
+		  }
 #endif
 	      }
 	  }
@@ -2215,15 +2217,17 @@ void Main::writeOutput(int iStep)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 #ifndef COOLING_NONE
-      Cool0OutputParams pCool0Out(string(achFile) + "." + COOL_ARRAY0_EXT);
-      treeProxy[0].outputASCII(pCool0Out, param.bParaWrite,
-			       CkCallbackResumeThread());
-      Cool1OutputParams pCool1Out(string(achFile) + "." + COOL_ARRAY1_EXT);
-      treeProxy[0].outputASCII(pCool1Out, param.bParaWrite,
-			       CkCallbackResumeThread());
-      Cool2OutputParams pCool2Out(string(achFile) + "." + COOL_ARRAY2_EXT);
-      treeProxy[0].outputASCII(pCool2Out, param.bParaWrite,
-			       CkCallbackResumeThread());
+    if(param.bGasCooling) {
+	Cool0OutputParams pCool0Out(string(achFile) + "." + COOL_ARRAY0_EXT);
+	treeProxy[0].outputASCII(pCool0Out, param.bParaWrite,
+				 CkCallbackResumeThread());
+	Cool1OutputParams pCool1Out(string(achFile) + "." + COOL_ARRAY1_EXT);
+	treeProxy[0].outputASCII(pCool1Out, param.bParaWrite,
+				 CkCallbackResumeThread());
+	Cool2OutputParams pCool2Out(string(achFile) + "." + COOL_ARRAY2_EXT);
+	treeProxy[0].outputASCII(pCool2Out, param.bParaWrite,
+				 CkCallbackResumeThread());
+	}
 #endif
       if(param.bDoIOrderOutput) {
 	  treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
