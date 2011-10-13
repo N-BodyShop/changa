@@ -1450,7 +1450,12 @@ void Main::advanceBigStep(int iStep) {
 	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
     }
-		
+
+    if(param.iWallRunTime > 0 && (CkWallTimer()-totalTimeStart > param.iWallRunTime*60.)) {
+      ckout << "Time " << CkWallTimer()-totalTimeStart << " exceeded limit " << param.iWallRunTime*60. 
+            << " within big step.  Exiting" << endl;
+      CkExit();
+    }
   }
 }
     
@@ -1915,6 +1920,7 @@ Main::doSimulation()
   sprintf(achLogFileName, "%s.log", param.achOutName);
 
 
+  totalTimeStart = CkWallTimer();
   for(int iStep = param.iStartStep+1; iStep <= param.nSteps; iStep++){
     if (killAt > 0 && killAt == iStep) {
       ckout << "KillAT: Stopping after " << (CkWallTimer()-dSimStartTime) << " seconds\n";
@@ -1941,17 +1947,7 @@ Main::doSimulation()
 	writeOutput(iStep);
     }
 	  
-    if(!iStop && param.iWallRunTime > 0) {
-	if (param.iWallRunTime*60. - (CkWallTimer()-dSimStartTime)
-	    < stepTime*1.5) {
-	    ckout << "RunTime limit exceeded.  Writing checkpoint and exiting.\n";
-	    ckout << "    iWallRunTime(sec): " << param.iWallRunTime*60
-		  << " Time running: " << CkWallTimer() - dSimStartTime
-		  << " Last step: " << stepTime << endl;
-	    iStop = 1;
-	    }
-	}
-    
+   
     if((param.bBenchmark == 0)
        && (iStop || iStep%param.iCheckInterval == 0)) {
 	char achCheckFileName[MAXPATHLEN];

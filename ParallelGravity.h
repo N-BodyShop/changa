@@ -395,6 +395,8 @@ class Main : public CBase_Main {
 	int nActiveGrav;
 	int nActiveSPH;
 
+        double totalTimeStart;
+
 #ifdef CUDA
           double localNodesPerReqDouble;
           double remoteNodesPerReqDouble;
