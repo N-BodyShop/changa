@@ -1,7 +1,7 @@
 bPeriodic       = 1
 dTheta          = 0.75
 nReplicas       = 1
-achInFile       = /home/pjetley2/changa/testdata/testdata.tbin
+achInFile       = testdata.tbin
 achOutName      = testdata
 dHubble0        = 2.894405
 dOmega0         = 1.0
