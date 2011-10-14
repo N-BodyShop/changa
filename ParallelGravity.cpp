@@ -538,6 +538,10 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "iTraceSkip", paramInt, &numSkipIterations,
               sizeof(int),"traceSkip", "Skip tracing for these many iterations");
 
+        numMaxTrace = 5;
+	prmAddParam(prm, "iTraceMax", paramInt, &numMaxTrace,
+              sizeof(int),"traceMax", "Max. num. iterations traced");
+
         traceIteration = 0;
         traceState = TraceNormal;
         projectionsOn = false;
@@ -2669,10 +2673,13 @@ void Main::liveVizImagePrep(liveVizRequestMsg *msg)
 
 void Main::turnProjectionsOn(int activeRung){
   CkAssert(!projectionsOn);
+  if(numMaxTrace <= 0) return;
+
   if(traceState == TraceNormal){
     if(activeRung != monitorRung){
     }
     else if(traceIteration < numTraceIterations){
+      numMaxTrace--;
       prjgrp.on(CkCallbackResumeThread());
       projectionsOn = true;
       traceIteration++;
@@ -2690,6 +2697,7 @@ void Main::turnProjectionsOn(int activeRung){
     }
     else{
       traceState = TraceNormal;
+      numMaxTrace--;
       prjgrp.on(CkCallbackResumeThread());
       projectionsOn = true;
       traceIteration = 1;

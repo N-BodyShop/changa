@@ -409,6 +409,7 @@ class Main : public CBase_Main {
         int monitorRung;
         int numTraceIterations;
         int numSkipIterations;
+        int numMaxTrace;
         int traceIteration;
         int traceState;
         bool projectionsOn;
