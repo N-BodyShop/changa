@@ -52,6 +52,10 @@ mainmodule ParallelGravity {
 
   readonly int nSmooth;
 
+#ifdef SELECTIVE_TRACING
+  readonly CProxy_ProjectionsControl prjgrp;
+#endif
+
   //message piecedata;
   message dummyMsg;
   message ComputeChunkMsg;
@@ -348,6 +352,15 @@ mainmodule ParallelGravity {
   array [1D] LvArray {
       entry LvArray();
   };
+
+#ifdef SELECTIVE_TRACING
+  group [migratable] ProjectionsControl {
+    entry ProjectionsControl();
+    entry [notrace] void on(CkCallback);
+    entry [notrace] void off(CkCallback);                     
+  };                                                          
+#endif
+  
 
   initproc void registerStatistics();
 };
