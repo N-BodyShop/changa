@@ -1335,32 +1335,24 @@ void Main::advanceBigStep(int iStep) {
 	/******** Force Computation ********/
 	//ckout << "Calculating gravity (tree bucket, theta = " << theta
 	//      << ") ...";
+#ifdef SELECTIVE_TRACING
+        turnProjectionsOn(activeRung);
+#endif
+
         CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
 	startTime = CkWallTimer();
 	if(param.bConcurrentSph) {
 	    ckout << endl;
 
-#ifdef SELECTIVE_TRACING
-            turnProjectionsOn(activeRung);
-#endif
 	    treeProxy.startGravity(activeRung, theta, cbGravity);
-#ifdef SELECTIVE_TRACING
-            turnProjectionsOff();
-#endif
 
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(cbGravity);
 #endif
 	    }
 	else {
-#ifdef SELECTIVE_TRACING
-            turnProjectionsOn(activeRung);
-#endif
 	    treeProxy.startGravity(activeRung, theta,
 				     CkCallbackResumeThread());
-#ifdef SELECTIVE_TRACING
-            turnProjectionsOff();
-#endif
 
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
@@ -1368,6 +1360,9 @@ void Main::advanceBigStep(int iStep) {
 	    //ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	    //	  << endl;
             CkPrintf("took %f seconds\n", CkWallTimer()-startTime);
+#ifdef SELECTIVE_TRACING
+            turnProjectionsOff();
+#endif
 	    }
 	iPhase++;
 	if(verbosity)
@@ -1389,6 +1384,9 @@ void Main::advanceBigStep(int iStep) {
 	//ckout << "Calculating gravity and SPH took "
 	//      << (CkWallTimer() - startTime) << " seconds." << endl;
         CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
+#ifdef SELECTIVE_TRACING
+        turnProjectionsOff();
+#endif
 	}
     
 #if COSMO_STATS > 0
@@ -1816,35 +1814,29 @@ Main::initialForces()
       /******** Force Computation ********/
       //ckout << "Calculating gravity (theta = " << theta
       //    << ") ...";
+#ifdef SELECTIVE_TRACING
+      turnProjectionsOn(0);
+#endif
       CkPrintf("Calculating gravity (theta = %f) ... ", theta);
       startTime = CkWallTimer();
       if(param.bConcurrentSph) {
 
-#ifdef SELECTIVE_TRACING
-          turnProjectionsOn(0);
-#endif
 	  treeProxy.startGravity(0, theta, cbGravity);
-#ifdef SELECTIVE_TRACING
-          turnProjectionsOff();
-#endif
 
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(cbGravity);
 #endif
 	  }
       else {
-#ifdef SELECTIVE_TRACING
-          turnProjectionsOn(0);
-#endif
 	  treeProxy.startGravity(0, theta, CkCallbackResumeThread());
-#ifdef SELECTIVE_TRACING
-          turnProjectionsOff();
-#endif
 
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
           CkPrintf("took %f seconds.\n", CkWallTimer()-startTime);
+#ifdef SELECTIVE_TRACING
+          turnProjectionsOff();
+#endif
 	  if(verbosity)
 	      memoryStatsCache();
 	  }
@@ -1862,6 +1854,9 @@ Main::initialForces()
 	//ckout << "Calculating gravity and SPH took "
 	//      << (CkWallTimer() - startTime) << " seconds." << endl;
         CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
+#ifdef SELECTIVE_TRACING
+        turnProjectionsOff();
+#endif
       }
   
   CkAssert(iPhase <= nPhases);

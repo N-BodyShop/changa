@@ -104,6 +104,14 @@ mainmodule ParallelGravity {
     entry void liveVizImagePrep(liveVizRequestMsg *msg);
   };
 
+#ifdef SELECTIVE_TRACING
+  group [migratable] ProjectionsControl {
+    entry ProjectionsControl();
+    entry [notrace] void on(CkCallback);
+    entry [notrace] void off(CkCallback);                     
+  };                                                          
+#endif
+
   chare [migratable] Sorter {
     entry Sorter();
 
@@ -352,15 +360,6 @@ mainmodule ParallelGravity {
   array [1D] LvArray {
       entry LvArray();
   };
-
-#ifdef SELECTIVE_TRACING
-  group [migratable] ProjectionsControl {
-    entry ProjectionsControl();
-    entry [notrace] void on(CkCallback);
-    entry [notrace] void off(CkCallback);                     
-  };                                                          
-#endif
-  
 
   initproc void registerStatistics();
 };
