@@ -15,6 +15,7 @@
 #include "Reductions.h"
 // jetley
 #include "MultistepLB.h"
+#include "MultistepLB_notopo.h"
 #include "Orb3dLB.h"
 // jetley - refactoring
 //#include "codes.h"
@@ -4097,6 +4098,11 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
     CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
   }
+  else if(foundLB == Multistep_notopo){
+    CkCallback lbcb(CkIndex_MultistepLB_notopo::receiveCentroids(NULL), 0, proxy);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+  }
+
   else{
     doAtSync();
   }
@@ -5961,6 +5967,7 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
 
   string msname("MultistepLB");
   string orb3dname("Orb3dLB");
+  string ms_notoponame("MultistepLB_notopo");
 
   BaseLB **lbs = lbdb->getLoadBalancers();
   int i;
@@ -5976,6 +5983,12 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
         foundLB = Orb3d;
         break;
       }
+     else if(ms_notoponame == string(lbs[i]->lbName())){ 
+        proxy = lbs[i]->getGroupID();
+        foundLB = Multistep_notopo;
+        break;
+      }
+
     }
   }
   if(foundLB == Multistep){
@@ -5986,6 +5999,11 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
     CkCallback lbcb(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
   }
+  else if(foundLB == Multistep_notopo){
+    CkCallback lbcb(CkIndex_MultistepLB_notopo::receiveCentroids(NULL), 0, proxy);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+  }
+
   else if(foundLB == Null){ 
     // none of the balancers requiring centroids found; go
     // straight to AtSync()
