@@ -216,6 +216,12 @@ public:
 	inline bool isDark() { return TYPETest(this, TYPE_DARK);}
 	inline bool isGas() { return TYPETest(this, TYPE_GAS);}
 	inline bool isStar() { return TYPETest(this, TYPE_STAR);}
+
+        GravityParticle &operator=(const ExternalGravityParticle &p){
+          mass = p.mass;
+          soft = p.soft;
+          position = p.position;
+        }
 };
 
 inline int TYPETest(GravityParticle *a, unsigned int b) {

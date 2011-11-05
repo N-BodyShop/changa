@@ -86,6 +86,11 @@ int partForceUE;
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
 
+#ifdef PUSH_GRAVITY
+#include "ckmulticast.h"
+CProxy_CkMulticastMgr ckMulticastMgrProxy;
+#endif
+
 #ifdef SELECTIVE_TRACING
 CProxy_ProjectionsControl prjgrp;
 #endif
@@ -526,6 +531,14 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "bConcurrentSph", paramBool, &param.bConcurrentSph,
 		    sizeof(int),"consph", "Enable SPH running concurrently with Gravity");
 
+#ifdef PUSH_GRAVITY
+        param.dFracPushParticles = 0.0;
+	prmAddParam(prm, "dFracPushParticles", paramDouble,
+		    &param.dFracPushParticles, sizeof(double),"fDoPush",
+		    "Maximum proportion of active to total particles for push-based force evaluation = 0.0");
+#endif
+
+
 #ifdef SELECTIVE_TRACING
         /* tracing control */ 
         monitorRung = 12;
@@ -879,6 +892,10 @@ Main::Main(CkArgMsg* m) {
 	smoothProxy = CProxy_LvArray::ckNew(opts);
 	// Create an array for the gravity reductions
 	gravityProxy = CProxy_LvArray::ckNew(opts);
+
+#ifdef PUSH_GRAVITY
+        ckMulticastMgrProxy = CProxy_CkMulticastMgr::ckNew();
+#endif
 	
 	// create CacheManagers
 	// Gravity particles
@@ -1296,6 +1313,9 @@ void Main::advanceBigStep(int iStep) {
     double startTime = CkWallTimer();
     double tolerance = 0.01;	// tolerance for domain decomposition
     bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
+#ifdef PUSH_GRAVITY
+    bool bDoPush = param.dFracPushParticles*nTotalParticles > nActiveGrav;
+#endif
     sorter.startSorting(dataManagerID, tolerance,
                         CkCallbackResumeThread(), bDoDD);
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -1317,7 +1337,11 @@ void Main::advanceBigStep(int iStep) {
     /******** Tree Build *******/
     ckout << "Building trees ...";
     startTime = CkWallTimer();
+#ifdef PUSH_GRAVITY
+    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),!bDoPush);
+#else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
     iPhase = 0;
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
@@ -1344,15 +1368,34 @@ void Main::advanceBigStep(int iStep) {
 	if(param.bConcurrentSph) {
 	    ckout << endl;
 
-	    treeProxy.startGravity(activeRung, theta, cbGravity);
+#ifdef PUSH_GRAVITY
+            if(bDoPush){ 
+              treeProxy.startPushGravity(activeRung, theta);
+            }
+	    else{ 
+#endif
+              treeProxy.startGravity(activeRung, theta, cbGravity);
+#ifdef PUSH_GRAVITY
+            }
+#endif
+
 
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(cbGravity);
 #endif
 	    }
 	else {
-	    treeProxy.startGravity(activeRung, theta,
-				     CkCallbackResumeThread());
+#ifdef PUSH_GRAVITY
+	    if(bDoPush){
+              treeProxy.startPushGravity(activeRung, theta);
+              CkWaitQD();
+            }
+	    else{
+#endif
+              treeProxy.startGravity(activeRung, theta, CkCallbackResumeThread());
+#ifdef PUSH_GRAVITY
+            }
+#endif
 
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
@@ -1380,7 +1423,16 @@ void Main::advanceBigStep(int iStep) {
 	}
     
     if(param.bConcurrentSph && param.bDoGravity) {
-	CkFreeMsg(cbGravity.thread_delay());
+#ifdef PUSH_GRAVITY
+      if(bDoPush){
+        CkWaitQD();
+      }
+      else{
+#endif
+        CkFreeMsg(cbGravity.thread_delay());
+#ifdef PUSH_GRAVITY
+      }
+#endif
 	//ckout << "Calculating gravity and SPH took "
 	//      << (CkWallTimer() - startTime) << " seconds." << endl;
         CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
@@ -1788,7 +1840,11 @@ Main::initialForces()
   /******** Tree Build *******/
   ckout << "Building trees ...";
   startTime = CkWallTimer();
+#ifdef PUSH_GRAVITY
+  treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
+#else
   treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
   iPhase = 0;
@@ -2111,7 +2167,11 @@ Main::doSimulation()
 	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
 	  sorter.startSorting(dataManagerID, tolerance,
 			      CkCallbackResumeThread(), true);
+#ifdef PUSH_GRAVITY
+	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
+#else
 	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
 	  iPhase = 0;
 	  
 	  ckout << "Calculating total densities ...";
@@ -2294,7 +2354,11 @@ void Main::writeOutput(int iStep)
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
 	sorter.startSorting(dataManagerID, tolerance,
 			    CkCallbackResumeThread(), true);
+#ifdef PUSH_GRAVITY
+	treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
+#else
 	treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
 
 	iPhase = 0;
 	ckout << "Calculating total densities ...";

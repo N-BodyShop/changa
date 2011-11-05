@@ -71,6 +71,13 @@ mainmodule ParallelGravity {
     extraStarData pStar[];
   };
 
+#ifdef PUSH_GRAVITY
+  message BucketMsg {
+    GenericTreeNode buckets[];
+    ExternalGravityParticle particles[];
+  };
+#endif
+
   PUPable DensitySmoothParams;
   PUPable DenDvDxSmoothParams;
   PUPable DenDvDxNeighborSmParams;
@@ -146,6 +153,7 @@ mainmodule ParallelGravity {
     entry void memoryStats(const CkCallback& cb);
     entry void resetReadOnly(Parameters param, const CkCallback &cb);
   };
+
   array [1D] TreePiece {
     entry TreePiece();
     entry void restart();
@@ -266,7 +274,11 @@ mainmodule ParallelGravity {
     entry void DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump) ;
     entry void liveVizDumpFrameInit(liveVizRequestMsg * msg);
     entry void setProjections(int bOn);
+#ifdef PUSH_GRAVITY
+    entry void buildTree(int bucketSize, const CkCallback& cb, bool merge);
+#else
     entry void buildTree(int bucketSize, const CkCallback& cb);
+#endif
 
     //entry void collectSplitters(CkReductionMsg* m);
     entry void startOctTreeBuild(CkReductionMsg* m);
@@ -274,6 +286,12 @@ mainmodule ParallelGravity {
     entry void startORBTreeBuild(CkReductionMsg* m);
 
     entry void startGravity(int activeRung, double myTheta, CkCallback &cb);
+#ifdef PUSH_GRAVITY
+    entry void startPushGravity(int am, double myTheta);
+    entry void recvPushBuckets(BucketMsg *);
+    entry void recvPushAccelerations(CkReductionMsg *);
+#endif
+
     entry void startIterationSmooth(CkPointer<SmoothParams>, int iLowhFix,
 				    double dfBall2OverSoft2, CkCallback &cb);
     entry void startIterationReSmooth(CkPointer<SmoothParams>, CkCallback &cb);

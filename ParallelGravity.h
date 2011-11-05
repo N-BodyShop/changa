@@ -58,6 +58,10 @@ PUPbytes(COOLPARAM);
 #include <libhpm.h>
 #endif
 
+#include <map>
+
+using namespace std;
+
 using namespace Tree;
 
 enum LBStrategy{
@@ -282,6 +286,16 @@ public:
     ParticleShuffleMsg(int npart, int nsph, int nstar, double pload): n(npart),
 	nSPH(nsph), nStar(nstar), load(pload) {}
 };
+
+#ifdef PUSH_GRAVITY
+struct BucketMsg : public CkMcastBaseMsg, CMessage_BucketMsg {
+  GenericTreeNode *buckets;
+  int numBuckets;
+  ExternalGravityParticle *particles;
+  int numParticles;
+  int whichTreePiece;
+};
+#endif
     
 /// Class to count added and deleted particles
 class CountSetPart 
@@ -576,71 +590,67 @@ class TreePiece : public CBase_TreePiece {
    int memWithCache, memPostCache;  // store memory usage.
    int nNodeCacheEntries, nPartCacheEntries;  // store memory usage.
 
+#ifdef PUSH_GRAVITY
+   bool doMerge;
+   bool createdSpanningTree;
+   CProxySection_TreePiece allTreePieceSection;
+   CkVec<GravityParticle> foreignParticles;
+   CkVec<double> foreignParticleAccelerations;
+
+   map<int,CkSectionInfo> cookieJar;
+  
+   BucketMsg *createBucketMsg();
+   void unpackBuckets(BucketMsg *, GenericTreeNode *&foreignBuckets, int &numForeignBuckets);
+   void calculateForces(GenericTreeNode *foreignBuckets, int numForeignBuckets);
+
+#endif
+
  public:
+
+#ifdef PUSH_GRAVITY
+  void startPushGravity(int am, double myTheta);
+  void recvPushBuckets(BucketMsg *);
+  void recvPushAccelerations(CkReductionMsg *);
+#endif
+
 #if COSMO_PRINT_BK > 1
   State *getSRemoteGravityState(){ return sRemoteGravityState; }
   State *getSLocalGravityState(){ return sLocalGravityState; }
 #endif
   void memCacheStats(const CkCallback &cb);
-  
-   void addActiveWalk(int iAwi, TreeWalk *tw, Compute *c, Opt *o, State *s);
+  void addActiveWalk(int iAwi, TreeWalk *tw, Compute *c, Opt *o, State *s);
 
-        void markWalkDone();
-	void finishWalk();
-        void markSmoothWalkDone();
-	void finishSmoothWalk();
+  void markWalkDone();
+  void finishWalk();
+  void markSmoothWalkDone();
+  void finishSmoothWalk();
 
-        int getIndex() {
-          return thisIndex;
-        }
+  int getIndex() {
+    return thisIndex;
+  }
 
-        int getLocalIndex(){
-          return localIndex;
-        }
+  int getLocalIndex(){
+    return localIndex;
+  }
 
-        /*
-        int decPrefetchWaiting() {
-          prefetchWaiting--;
-          return prefetchWaiting;
-        }
+  void addToNodeInterRemote(int chunk, int howmany){
+    nodeInterRemote[chunk] += howmany;
+  }
 
-        int incPrefetchWaiting() {
-          prefetchWaiting++;
-          return prefetchWaiting;
-        }
-        */
+  void addToParticleInterRemote(int chunk, int howmany){
+    particleInterRemote[chunk] += howmany;
+  }
 
-        /*
-        int addToremaining Chunk(int chunk, int howMuch){
-          remaining Chunk[chunk] += howMuch;
-          return remaining Chunk[chunk];
-        }
-        */
+  void addToNodeInterLocal(int howmany){
+    nodeInterLocal += howmany;
+  }
 
-        void addToNodeInterRemote(int chunk, int howmany){
-          nodeInterRemote[chunk] += howmany;
-        }
+  void addToParticleInterLocal(int howmany){
+    particleInterLocal += howmany;
+  }
 
-        void addToParticleInterRemote(int chunk, int howmany){
-          particleInterRemote[chunk] += howmany;
-        }
-
-        void addToNodeInterLocal(int howmany){
-          nodeInterLocal += howmany;
-        }
-
-        void addToParticleInterLocal(int howmany){
-          particleInterLocal += howmany;
-        }
-
-        /// Start a new remote computation upon prefetch finished
-        void startRemoteChunk();
-
-        /*
-        int getCurrentRemote Bucket(){
-        	return currentRemote Bucket;
-        }
-        */
+  /// Start a new remote computation upon prefetch finished
+  void startRemoteChunk();
 
 #ifdef CUDA
         // this variable holds the number of buckets active at
@@ -1251,6 +1261,10 @@ public:
 	  boxes = NULL;
 	  splitDims = NULL;
 	  bGasCooling = 0;
+
+#ifdef PUSH_GRAVITY
+          createdSpanningTree = false;
+#endif
 	}
 
 	TreePiece(CkMigrateMessage* m) {
@@ -1475,7 +1489,11 @@ public:
 	void setProjections(int bOn);
 
 	/// \brief Charm entry point to build the tree (called by Main).
+#ifdef PUSH_GRAVITY
+	void buildTree(int bucketSize, const CkCallback& cb, bool merge);
+#else
 	void buildTree(int bucketSize, const CkCallback& cb);
+#endif
 
 	/// \brief Real tree build, independent of other TreePieces.
 	void startOctTreeBuild(CkReductionMsg* m);
