@@ -68,6 +68,21 @@ class HsmOutputParams : public OutputParams
 	}
     };
 
+class SoftOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {return p->soft;}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    SoftOutputParams() {}
+    SoftOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    PUPable_decl(SoftOutputParams);
+    SoftOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
 class PresOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)

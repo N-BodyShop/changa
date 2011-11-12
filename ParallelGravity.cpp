@@ -90,6 +90,14 @@ CkArrayID treePieceID;
 #ifdef SELECTIVE_TRACING
 CProxy_ProjectionsControl prjgrp;
 #endif
+/* The following is for backward compatibility and deprecated */
+#define GASMODEL_UNSET -1
+enum GasModel {
+	GASMODEL_ADIABATIC, 
+	GASMODEL_ISOTHERMAL, 
+	GASMODEL_COOLING, 
+	GASMODEL_GLASS
+	}; 
 
 void _Leader(void) {
     puts("USAGE: ChaNGa [SETTINGS | FLAGS] [PARAM_FILE]");
@@ -110,6 +118,7 @@ void _Trailer(void) {
 
 int killAt;
 int cacheSize;
+int iGasModel;
 
 ///
 /// @brief Main routine to start simulation.
@@ -208,6 +217,16 @@ Main::Main(CkArgMsg* m) {
 	param.bDoIOrderOutput = 0;
 	prmAddParam(prm,"bDoIOrderOutput",paramBool,&param.bDoIOrderOutput,
 		    sizeof(int), "iordout","enable/disable iOrder outputs = -iordout");
+	param.bDoSoftOutput = 0;
+	prmAddParam(prm,"bDoSoftOutput",paramBool,&param.bDoSoftOutput,
+		    sizeof(int),
+		    "softout","enable/disable soft outputs = -softout");
+	param.bDohOutput = 0;
+	prmAddParam(prm,"bDohOutput",paramBool,&param.bDohOutput,sizeof(int),
+		    "hout","enable/disable h outputs = -hout");
+	param.bDoCSound = 0;
+	prmAddParam(prm,"bDoCSound",paramBool,&param.bDoCSound,sizeof(int),
+		    "csound","enable/disable sound speed outputs = -csound");
 	nSmooth = 32;
 	prmAddParam(prm, "nSmooth", paramInt, &nSmooth,
 		    sizeof(int),"nsm", "Number of neighbors for smooth");
@@ -362,6 +381,11 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"bGasCooling",paramBool,&param.bGasCooling,
 		    sizeof(int),"GasCooling",
 		    "<Gas is Cooling> = +GasCooling");
+	iGasModel = GASMODEL_UNSET;	/* Deprecated in for backwards
+					   compatibility */
+	prmAddParam(prm,"iGasModel",paramInt,&iGasModel,
+				sizeof(int),"GasModel",
+				"<Gas model employed> = 0 (Adiabatic)");
 	CoolAddParams(&param.CoolParam, prm);
 	param.dMsolUnit = 1.0;
 	prmAddParam(prm,"dMsolUnit",paramDouble,&param.dMsolUnit,
@@ -744,6 +768,20 @@ Main::Main(CkArgMsg* m) {
 	    if (!param.bViscosityLimiter) param.iViscosityLimiter=0;
 	    }
 
+	if(prmSpecified(prm, "iGasModel")) {
+	    switch(iGasModel) {
+	    case GASMODEL_ADIABATIC:
+		param.bGasAdiabatic = 1;	
+		break;
+	    case GASMODEL_ISOTHERMAL:
+		param.bGasIsothermal = 1;
+		break;
+	    case GASMODEL_COOLING:
+		param.bGasCooling = 1;
+		break;
+		}
+	    }
+		
 	if(param.bGasCooling && (param.bGasIsothermal || param.bGasAdiabatic)) {
 	    ckerr << "WARNING: ";
 	    ckerr << "More than one gas model set.  ";
@@ -2303,6 +2341,9 @@ void Main::writeOutput(int iStep)
     Cool1OutputParams pCool1Out(string(achFile) + "." + COOL_ARRAY1_EXT);
     Cool2OutputParams pCool2Out(string(achFile) + "." + COOL_ARRAY2_EXT);
 #endif
+    SoftOutputParams pSoftOut(string(achFile)+".soft");
+    HsmOutputParams pHsmOut(string(achFile)+".smoothlength");
+    CsOutputParams pCSOut(string(achFile)+".c");
 
     if (param.iBinaryOut) {
 	if (param.bStarForm || param.bFeedback) {
@@ -2312,8 +2353,6 @@ void Main::writeOutput(int iStep)
 				      CkCallbackResumeThread());
 	    treeProxy[0].outputBinary(pcoolontimeOut, param.bParaWrite,
 				      CkCallbackResumeThread());
-	    treeProxy[0].outputIOrderBinary(string(achFile) + ".iord",
-					    CkCallbackResumeThread());
 	    }
 #ifndef COOLING_NONE
 	if(param.bGasCooling) {
@@ -2325,6 +2364,20 @@ void Main::writeOutput(int iStep)
 				      CkCallbackResumeThread());
 	    }
 #endif
+	if(param.bDoIOrderOutput || param.bStarForm || param.bFeedback) {
+	    treeProxy[0].outputIOrderBinary(string(achFile) + ".iord",
+					    CkCallbackResumeThread());
+	    }
+	if(param.bDoSoftOutput)
+	    treeProxy[0].outputBinary(pSoftOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	    
+	if(param.bDohOutput)
+	    treeProxy[0].outputBinary(pHsmOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	if(param.bDoCSound)
+	    treeProxy[0].outputBinary(pCSOut, param.bParaWrite,
+				      CkCallbackResumeThread());
 	} else {
 	if (param.bStarForm || param.bFeedback) {
 	    treeProxy[0].outputASCII(pOxOut, param.bParaWrite,
@@ -2333,8 +2386,6 @@ void Main::writeOutput(int iStep)
 				     CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pcoolontimeOut, param.bParaWrite,
 				     CkCallbackResumeThread());
-	    treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
-					   CkCallbackResumeThread());
 	    }
 #ifndef COOLING_NONE
 	if(param.bGasCooling) {
@@ -2346,12 +2397,21 @@ void Main::writeOutput(int iStep)
 				     CkCallbackResumeThread());
 	    }
 #endif
+	if(param.bDoSoftOutput)
+	    treeProxy[0].outputASCII(pSoftOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	if(param.bDohOutput)
+	    treeProxy[0].outputASCII(pHsmOut, param.bParaWrite,
+				     CkCallbackResumeThread());
+	if(param.bDoCSound)
+	    treeProxy[0].outputASCII(pCSOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	if(param.bDoIOrderOutput || param.bStarForm || param.bFeedback) {
+	    treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
+					   CkCallbackResumeThread());
+	    }
 	}
       
-	if(param.bDoIOrderOutput) {
-	  treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
-					 CkCallbackResumeThread());
-	  }
       
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."

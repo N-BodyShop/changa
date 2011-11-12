@@ -39,7 +39,7 @@ void Fdbk::AddParams(PRM prm)
 		    sizeof(int), "bShortCoolShutoff", "<Use snowplow time> = 0");
     dExtraCoolShutoff = 1.0;
     prmAddParam(prm,"dExtraCoolShutoff", paramDouble, &dExtraCoolShutoff,
-		sizeof(int), "dExtraCoolShutoff", "<Extend shutoff time> = 1.0");
+		sizeof(double), "dExtraCoolShutoff", "<Extend shutoff time> = 1.0");
     bSNTurnOffCooling = 1;
     prmAddParam(prm,"bSNTurnOffCooling", paramBool, &bSNTurnOffCooling,
 		sizeof(int), "bSNTurnOffCooling", "<Do SN turn off cooling> = 1");
@@ -163,13 +163,13 @@ void Main::StellarFeedback(double dTime, double dDelta)
     double *dTotals2 = (double *)msgChk2->getData();
     int i;
     for(i = 0; i < 5; i++) {
-	char *labels[5] = {"Mass", "Metals", "Oxygen", "Iron", "Energy"};
+	std::string labels[5] = {"Mass", "Metals", "Oxygen", "Iron", "Energy"};
 	if(verbosity > 1)
-	    CkPrintf("Total %s: %g\n", labels[i], dTotals[i]);
+	    CkPrintf("Total %s: %g\n", labels[i].c_str(), dTotals[i]);
 
 	if(fabs(dTotals[i] - dTotals2[i]) > 1e-12*(dTotals[i])) {
-	    CkError("ERROR: %s not conserved: %.15e != %.15e!\n", labels[i],
-		    dTotals[i], dTotals2[i]);
+	    CkError("ERROR: %s not conserved: %.15e != %.15e!\n",
+		    labels[i].c_str(), dTotals[i], dTotals2[i]);
 	    }
 	}
 

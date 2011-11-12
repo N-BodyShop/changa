@@ -88,6 +88,7 @@ mainmodule ParallelGravity {
   PUPable AccOutputParams;
   PUPable DenOutputParams;
   PUPable HsmOutputParams;
+  PUPable SoftOutputParams;
   PUPable PresOutputParams;
   PUPable DivVOutputParams;
   PUPable PDVOutputParams;

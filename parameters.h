@@ -101,6 +101,9 @@ typedef struct parameters {
     int iCheckInterval;
     int iLogInterval;
     int bDoIOrderOutput;
+    int bDoSoftOutput;
+    int bDohOutput;
+    int bDoCSound;
     int cacheLineDepth;
     double dExtraStore;
     double dDumpFrameStep;
@@ -181,6 +184,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     if(p.isUnpacking())
  	param.stfm = new Stfm();
     p|*param.stfm;
+    p|param.bFeedback;
     p|param.feedback;
     p|param.iRandomSeed;
     p|param.bStandard;
@@ -196,6 +200,9 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.iCheckInterval;
     p|param.iLogInterval;
     p|param.bDoIOrderOutput;
+    p|param.bDoSoftOutput;
+    p|param.bDohOutput;
+    p|param.bDoCSound;
     p|param.cacheLineDepth;
     p|param.dExtraStore;
     p|param.dDumpFrameStep;
