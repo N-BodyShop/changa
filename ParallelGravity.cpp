@@ -115,6 +115,7 @@ void _Trailer(void) {
 
 int killAt;
 int cacheSize;
+int iGasModel;
 
 ///
 /// @brief Main routine to start simulation.
@@ -377,7 +378,7 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"bGasCooling",paramBool,&param.bGasCooling,
 		    sizeof(int),"GasCooling",
 		    "<Gas is Cooling> = +GasCooling");
-	int iGasModel = GASMODEL_UNSET; /* Deprecated in for backwards
+	iGasModel = GASMODEL_UNSET;	/* Deprecated in for backwards
 					   compatibility */
 	prmAddParam(prm,"iGasModel",paramInt,&iGasModel,
 				sizeof(int),"GasModel",
