@@ -247,4 +247,33 @@ public:
     void resetReadOnly(Parameters param, const CkCallback &cb);
 };
 
+#ifdef SELECTIVE_TRACING
+class ProjectionsControl : public CBase_ProjectionsControl { 
+  public: 
+  ProjectionsControl() {} 
+  ProjectionsControl(CkMigrateMessage *) {} 
+ 
+  void on(CkCallback cb) { 
+    if(CkMyPe() == 0){ 
+      CkPrintf("\n\n**** PROJECTIONS ON *****\n\n"); 
+    } 
+    traceBegin();  
+    contribute(0,0,CkReduction::sum_int,cb); 
+  } 
+ 
+  void off(CkCallback cb) { 
+    if(CkMyPe() == 0){ 
+      CkPrintf("\n\n**** PROJECTIONS OFF *****\n\n"); 
+    } 
+    traceEnd();  
+    contribute(0,0,CkReduction::sum_int,cb); 
+  } 
+
+  void pup(PUP::er &p){
+  }
+}; 
+
+#endif
+
+
 #endif //DATAMANAGER_H

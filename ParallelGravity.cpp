@@ -87,6 +87,9 @@ int partForceUE;
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
 
+#ifdef SELECTIVE_TRACING
+CProxy_ProjectionsControl prjgrp;
+#endif
 
 void _Leader(void) {
     puts("USAGE: ChaNGa [SETTINGS | FLAGS] [PARAM_FILE]");
@@ -533,6 +536,30 @@ Main::Main(CkArgMsg* m) {
 	param.bConcurrentSph = 0;
 	prmAddParam(prm, "bConcurrentSph", paramBool, &param.bConcurrentSph,
 		    sizeof(int),"consph", "Enable SPH running concurrently with Gravity");
+
+#ifdef SELECTIVE_TRACING
+        /* tracing control */ 
+        monitorRung = 12;
+        prmAddParam(prm, "iTraceRung", paramInt, &monitorRung,
+              sizeof(int),"traceRung", "Gravity starting rung to trace selectively");
+
+        numTraceIterations = 3;
+        prmAddParam(prm, "iTraceFor", paramInt, &numTraceIterations,
+              sizeof(int),"traceFor", "Trace this many instances of the selected rungs");
+
+        numSkipIterations = 400;
+        prmAddParam(prm, "iTraceSkip", paramInt, &numSkipIterations,
+              sizeof(int),"traceSkip", "Skip tracing for these many iterations");
+
+        numMaxTrace = 5;
+        prmAddParam(prm, "iTraceMax", paramInt, &numMaxTrace,
+              sizeof(int),"traceMax", "Max. num. iterations traced");
+
+
+        traceIteration = 0;
+        traceState = TraceNormal;
+        projectionsOn = false;
+#endif
     
           // jetley - cuda parameters
 #ifdef CUDA
@@ -851,6 +878,11 @@ Main::Main(CkArgMsg* m) {
 	}
 
 	CProxy_TreePiece pieces = CProxy_TreePiece::ckNew(opts);
+
+#ifdef SELECTIVE_TRACING
+        prjgrp = CProxy_ProjectionsControl::ckNew();
+#endif
+
 	treeProxy = pieces;
 
 	opts.bindTo(treeProxy);
@@ -1317,11 +1349,17 @@ void Main::advanceBigStep(int iStep) {
 	/******** Force Computation ********/
 	//ckout << "Calculating gravity (tree bucket, theta = " << theta
 	//      << ") ...";
+#ifdef SELECTIVE_TRACING
+        turnProjectionsOn(activeRung);
+#endif
+
         CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
 	startTime = CkWallTimer();
 	if(param.bConcurrentSph) {
 	    ckout << endl;
+
 	    treeProxy.startGravity(activeRung, theta, cbGravity);
+
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(cbGravity);
 #endif
@@ -1329,12 +1367,16 @@ void Main::advanceBigStep(int iStep) {
 	else {
 	    treeProxy.startGravity(activeRung, theta,
 				     CkCallbackResumeThread());
+
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
 	    //ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	    //	  << endl;
             CkPrintf("took %f seconds\n", CkWallTimer()-startTime);
+#ifdef SELECTIVE_TRACING
+            turnProjectionsOff();
+#endif
 	    }
 	iPhase++;
 	if(verbosity)
@@ -1356,6 +1398,9 @@ void Main::advanceBigStep(int iStep) {
 	//ckout << "Calculating gravity and SPH took "
 	//      << (CkWallTimer() - startTime) << " seconds." << endl;
         CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
+#ifdef SELECTIVE_TRACING
+        turnProjectionsOff();
+#endif
 	}
     
 #if COSMO_STATS > 0
@@ -1435,6 +1480,14 @@ void Main::advanceBigStep(int iStep) {
 	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
     }
+
+#ifdef CHECK_TIME_WITHIN_BIGSTEP
+    if(param.iWallRunTime > 0 && ((CkWallTimer()-wallTimeStart) > param.iWallRunTime*60.)){
+      CkPrintf("wall time %g exceeded limit %g within advancestep\n", CkWallTimer()-wallTimeStart, param.iWallRunTime*60.);
+      CkExit();
+    }
+#endif
+
 		
   }
 }
@@ -1781,20 +1834,29 @@ Main::initialForces()
       /******** Force Computation ********/
       //ckout << "Calculating gravity (theta = " << theta
       //    << ") ...";
+#ifdef SELECTIVE_TRACING
+      turnProjectionsOn(0);
+#endif
       CkPrintf("Calculating gravity (theta = %f) ... ", theta);
       startTime = CkWallTimer();
       if(param.bConcurrentSph) {
+
 	  treeProxy.startGravity(0, theta, cbGravity);
+
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(cbGravity);
 #endif
 	  }
       else {
 	  treeProxy.startGravity(0, theta, CkCallbackResumeThread());
+
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
           CkPrintf("took %f seconds.\n", CkWallTimer()-startTime);
+#ifdef SELECTIVE_TRACING
+          turnProjectionsOff();
+#endif
 	  if(verbosity)
 	      memoryStatsCache();
 	  }
@@ -1812,6 +1874,9 @@ Main::initialForces()
 	//ckout << "Calculating gravity and SPH took "
 	//      << (CkWallTimer() - startTime) << " seconds." << endl;
         CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
+#ifdef SELECTIVE_TRACING
+        turnProjectionsOff();
+#endif
       }
   
   CkAssert(iPhase <= nPhases);
@@ -1897,6 +1962,9 @@ Main::doSimulation()
   char achLogFileName[MAXPATHLEN];
   sprintf(achLogFileName, "%s.log", param.achOutName);
 
+#ifdef CHECK_TIME_WITHIN_BIGSTEP
+  wallTimeStart = CkWallTimer();
+#endif
 
   for(int iStep = param.iStartStep+1; iStep <= param.nSteps; iStep++){
     if (killAt > 0 && killAt == iStep) {
@@ -2699,6 +2767,50 @@ void Main::liveVizImagePrep(liveVizRequestMsg *msg)
       delete msgCOMbyType;
   
 }
+
+#ifdef SELECTIVE_TRACING
+void Main::turnProjectionsOn(int activeRung){
+  CkAssert(!projectionsOn);
+  if(numMaxTrace <= 0) return;
+  if(traceState == TraceNormal){
+    if(activeRung != monitorRung){
+    }
+    else if(traceIteration < numTraceIterations){
+      prjgrp.on(CkCallbackResumeThread());
+      projectionsOn = true;
+      traceIteration++;
+      numMaxTrace--;
+    }
+    else{
+      traceState = TraceSkip;
+      traceIteration = 1;
+    }
+  }
+  else if(traceState == TraceSkip){
+    if(activeRung != monitorRung){
+    }
+    else if(traceIteration < numSkipIterations){
+      traceIteration++;
+    }
+    else{
+      traceState = TraceNormal;
+      prjgrp.on(CkCallbackResumeThread());
+      projectionsOn = true;
+      traceIteration = 1;
+      numMaxTrace--;
+    }
+  }
+}
+
+
+void Main::turnProjectionsOff(){
+  if(projectionsOn){
+    prjgrp.off(CkCallbackResumeThread());
+    projectionsOn = false;
+  }
+}
+#endif
+
 
 #include "ParallelGravity.def.h"
 

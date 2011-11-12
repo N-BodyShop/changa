@@ -145,7 +145,7 @@ libmoduleOrb3dLB.a: Orb3dLB.o
 #	$(CHARMC) -o libmoduleOrb3dLB.a Orb3dLB.o ScaledORBMapBG.o
 
 %.decl.h %.def.h : %.ci
-	$(CHARMC) $<
+	$(CHARMC) -E $(DEFINE_FLAGS) $<
 
 HostCUDA.o: HostCUDA.cu HostCUDA.h
 	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) HostCUDA.cu
