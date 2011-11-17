@@ -502,6 +502,7 @@ class SmoothCompute;
 template<typename T> class GenericList;
 #endif
 
+/// Fundamental structure that holds particle and tree data.
 class TreePiece : public CBase_TreePiece {
    // jetley
    friend class PrefetchCompute;
@@ -534,6 +535,7 @@ class TreePiece : public CBase_TreePiece {
    Opt *optSmooth;
 
    State *sPrefetchState;
+   /// Keeps track of the gravity walks over the local tree.
    State *sLocalGravityState, *sRemoteGravityState, *sSmoothState;
    typedef std::map<CkCacheKey, CkVec<int>* > SmPartRequestType;
    // buffer of requests for smoothParticles.
@@ -1143,7 +1145,7 @@ private:
 	 */
 	void startNextBucket();
 	/** @brief Start a full step of bucket computation, it sends a message
-	 * to trigger nextBucket which will loop over all the buckets.
+	 * to trigger nextBucket() which will loop over all the buckets.
 	 */
 	void doAllBuckets();
 	void reconstructNodeLookup(GenericTreeNode *node);
@@ -1592,7 +1594,7 @@ public:
 	//void getPieceValues(piecedata *totaldata);
 
         /** @brief Entry method used to split the processing of all the buckets
-         * in small pieces. It call startNextBucket a _yieldPeriod number of
+         * in small pieces. It calls startNextBucket() _yieldPeriod number of
          * times, and then it returns to the scheduler after enqueuing a message
          * for itself.
 	 */

@@ -2317,11 +2317,10 @@ void TreePiece::startNextBucket() {
   // with gravity or prefetch objects
   // sInterListWalk->init(sGravity, this);
 
-  GenericTreeNode *lca;
-  // check whether we have a valid lca. for the first bucket (currentBucket == 0)
-  // the lca must be set to the highest point in the local tree that contains
-  // bucket 0
-  //GenericTreeNode *startChunkRoot = findContainingChunkRoot(target);
+  GenericTreeNode *lca;		// Least Common Ancestor
+  // check whether we have a valid lca. for the first bucket
+  // (currentBucket == 0) the lca must be set to the highest point
+  // in the local tree that contains bucket 0.
   lca = getStartAncestor(currentBucket, prevBucket, root);
 
   int lcaLevel = lca->getLevel(lca->getKey());
@@ -4449,211 +4448,6 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, int reqID) {
   }
 }
 
- /*
- * Cached version of Tree walk. One characteristic of the tree used is that once
- * we go into cached data, we cannot come back to internal data anymore. Thus we
- * can safely distinguish between local computation done by walkBucketTree and
- * remote computation done by cachedWalkBucketTree.
- */
-
- // removed
-
-#if INTERLIST_VER > 0
-/*
-inline void TreePiece::calculateForces(OffsetNode node, GenericTreeNode *myNode,int level,int chunk){
-
-  GenericTreeNode *tmpNode;
-  int startBucket=myNode->startBucket;
-  int lastBucket;
-  int i;
-
-  for(i=startBucket+1;i<numBuckets;i++){
-    tmpNode = bucketList[i];
-    if(tmpNode->lastParticle>myNode->lastParticle)
-      break;
-  }
-  lastBucket=i-1;
-
-  int test=0;
-
-  for(i=startBucket;i<=lastBucket;i++){
-      CkAbort("Please refrain from using the interaction list version of ChaNGa for the time being. This part of the code is being rewritten\n");
-    if(part != NULL){
-      CkAssert(test==0);
-      TreePiece::RemotePartInfo pinfo;
-      pinfo.particles = part;
-#if COSMO_DEBUG>1
-      pinfo.nd=node.node;
-#endif
-      pinfo.numParticles = node.node->lastParticle - node.node->firstParticle + 1;
-      pinfo.offset = decodeOffset(node.offsetID);
-      particleList[level].push_back(pinfo);
-      break;
-    } else {
-      //remaining Chunk[chunk] += node.node->lastParticle
-      //	  - node.node->firstParticle + 1;
-    }
-    test++;
-  }
-}
-*/
-
-/*
-inline void TreePiece::calculateForcesNode(OffsetNode node,
-					   GenericTreeNode *myNode,
-					   int level,int chunk){
-
-  GenericTreeNode *tmpNode;
-  int startBucket=myNode->startBucket;
-  int k;
-  CkAbort("calculateForcesNode: shouldn't be here.");
-
-  OffsetNode child;
-  child.offsetID = node.offsetID;
-  for (unsigned int i=0; i<node.node->numChildren(); ++i) {
-    child.node = node.node->getChildren(i);
-    k = startBucket;
-
-    if (child.node) {
-      undecidedList.enq(child);
-    } else { //missed the cache
-      //PROBLEM: how to construct req
-      if (child.node) { // means that node was on a local TreePiece
-        undecidedList.enq(child);
-      } else { // we completely missed the cache, we will be called back
-        //We have to queue the requests for all the buckets, all buckets will be called back later
-
-        //remaining Chunk[chunk] ++;
-        for(k=startBucket+1;k<numBuckets;k++){
-          tmpNode = bucketList[k];
-          if(tmpNode->lastParticle>myNode->lastParticle) break;
-          CkAssert(child.node==NULL);
-          //remaining Chunk[chunk] ++;
-        }
-      }
-    }
-  }
-}
-*/
-
-#endif
-
-#if 0
-void TreePiece::cachedWalkBucketTree(GenericTreeNode* node, int chunk, int reqID) {
-    int reqIDlist = decodeReqID(reqID);
-    Vector3D<double> offset = decodeOffset(reqID);
-
-  CkAbort("cachedWalkBucketTree: shouldn't be in this part of code\n");
-  GenericTreeNode *reqnode = bucketList[reqIDlist];
-#if COSMO_STATS > 0
-  myNumMACChecks++;
-#endif
-
-  CkAssert(node->getType() != Invalid);
-
-#if COSMO_STATS > 0
-  numOpenCriterionCalls++;
-#endif
-  if(!openCriterionBucket(node, reqnode, offset, localIndex)) {
-#if COSMO_STATS > 1
-    MultipoleMoments m = node->moments;
-    for(int i = reqnode->firstParticle; i <= reqnode->lastParticle; ++i)
-      myParticles[i].extcellmass += m.totalMass;
-#endif
-#if COSMO_PRINT > 1
-  CkPrintf("[%d] cachedwalk bucket %s -> node %s\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),keyBits(node->getKey(),63).c_str());
-#endif
-#if COSMO_DEBUG > 1
-  bucketcheckList[reqIDlist].insert(node->getKey());
-  combineKeys(node->getKey(),reqIDlist);
-#endif
-#ifdef COSMO_EVENTS
-    double startTimer = CmiWallTimer();
-#endif
-#ifdef HPM_COUNTER
-    hpmStart(1,"node force");
-#endif
-    int computed = nodeBucketForce(node, reqnode, myParticles, offset, activeRung);
-#ifdef HPM_COUNTER
-    hpmStop(1);
-#endif
-#ifdef COSMO_EVENTS
-    traceUserBracketEvent(nodeForceUE, startTimer, CmiWallTimer());
-#endif
-    nodeInterRemote[chunk] += computed;
-  } else if(node->getType() == CachedBucket || node->getType() == Bucket || node->getType() == NonLocalBucket) {
-    /*
-     * Sending the request for all the particles at one go, instead of one by one
-     */
-    //printf("{%d-%d} cachewalk requests for %016llx in chunk %d\n",CkMyPe(),thisIndex,node->getKey(),chunk);
-    CkAbort("Shouldn't be in this part of the code.\n");
-    //ExternalGravityParticle *part = requestParticles(node->getKey(),chunk,node->remoteIndex,node->firstParticle,node->lastParticle,reqID);
-    ExternalGravityParticle *part;
-    if(part != NULL){
-      int computed;
-      for(int i = node->firstParticle; i <= node->lastParticle; ++i) {
-#if COSMO_STATS > 1
-        for(int j = reqnode->firstParticle; j <= reqnode->lastParticle; ++j) {
-          myParticles[j].extpartmass += myParticles[i].mass;
-        }
-#endif
-#if COSMO_PRINT > 1
-        CkPrintf("[%d] cachedwalk bucket %s -> part %016llx\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),part[i-node->firstParticle].key);
-#endif
-#ifdef COSMO_EVENTS
-        double startTimer = CmiWallTimer();
-#endif
-#ifdef HPM_COUNTER
-    hpmStart(2,"particle force");
-#endif
-        computed = partBucketForce(&part[i-node->firstParticle], reqnode, myParticles,
-                                   offset, activeRung);
-#ifdef HPM_COUNTER
-    hpmStop(2);
-#endif
-#ifdef COSMO_EVENTS
-        traceUserBracketEvent(partForceUE, startTimer, CmiWallTimer());
-#endif
-      }
-      particleInterRemote[chunk] += node->particleCount * computed;
-#if COSMO_DEBUG > 1
-      bucketcheckList[reqIDlist].insert(node->getKey());
-      combineKeys(node->getKey(),reqIDlist);
-#endif
-    } else {
-      //remaining Chunk[chunk] += node->lastParticle - node->firstParticle + 1;
-    }
-  } else if (node->getType() != CachedEmpty && node->getType() != Empty) {
-    // Here the type is Cached, Boundary, Internal, NonLocal, which means the
-    // node in the global tree has children (it is not a leaf), so we iterate
-    // over them. If we get a NULL node, then we missed the cache and we request
-    // it
-
-    // Warning, since the cache returns nodes with pointers to other chare
-    // elements trees, we could be actually traversing the tree of another chare
-    // in this processor.
-
-#if COSMO_STATS > 0
-    nodesOpenedRemote++;
-#endif
-    // Use cachedWalkBucketTree() as callback
-    GenericTreeNode *child;
-    for (unsigned int i=0; i<node->numChildren(); ++i) {
-      child = node->getChildren(i);
-      if (child) {
-	cachedWalkBucketTree(child, chunk, reqID);
-      } else { //missed the cache
-	if (child) { // means that node was on a local TreePiece
-	  cachedWalkBucketTree(child, chunk, reqID);
-	} else { // we completely missed the cache, we will be called back
-	  //remaining Chunk[chunk] ++;
-	}
-      }
-    }
-  }
-}
-#endif
-
 GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key, int chunk, int reqID, int awi, void *source, bool isPrefetch) {
 
   CkAssert(remoteIndex < (int) numTreePieces);
@@ -5820,12 +5614,11 @@ void TreePiece::finishWalk()
 }
 
 #if INTERLIST_VER > 0
+/// \brief get range of bucket numbers beneath a given TreeNode.
+/// \param source Given TreeNode
+/// \param start Index of first bucket (returned)
+/// \param end Index of last bucket (returned)
 void TreePiece::getBucketsBeneathBounds(GenericTreeNode *&source, int &start, int &end){
-	/*
-  if(source->startBucket == -1){
-    source = keyToNode(source->getKey());
-  }
-  */
   start = source->startBucket;
   end = start+(source->numBucketsBeneath);
 }
