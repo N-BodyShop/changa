@@ -2520,6 +2520,8 @@ void TreePiece::nextBucket(dummyMsg *msg){
   unsigned int i=0;
 
   int currentBucket = sLocalGravityState->currentBucket;
+  if(verbosity >= 4)
+	CkPrintf("[%d] walking bucket %d\n", thisIndex, currentBucket);	
 #if INTERLIST_VER > 0
   sInterListWalk->init(sGravity, this);
 #endif
