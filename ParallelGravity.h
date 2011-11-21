@@ -67,6 +67,13 @@ enum LBStrategy{
 };
 PUPbytes(LBStrategy);
 
+#ifdef SELECTIVE_TRACING
+enum TraceState {
+  TraceNormal = 0,
+  TraceSkip
+};
+#endif
+
 enum DomainsDec {
     SFC_dec=0,	// Space Filling Curve with Morton ordering
     Oct_dec=1, 	// Oct tree
@@ -398,6 +405,24 @@ class Main : public CBase_Main {
           double remotePartsPerReqDouble;
           double remoteResumePartsPerReqDouble;
 #endif
+
+#ifdef CHECK_TIME_WITHIN_BIGSTEP
+       double wallTimeStart;
+#endif
+
+#ifdef SELECTIVE_TRACING
+       int monitorRung;
+       int numTraceIterations;
+       int numSkipIterations;
+       int numMaxTrace;
+       int traceIteration;
+       int traceState;
+       bool projectionsOn;
+
+       void turnProjectionsOn(int activeRung);
+       void turnProjectionsOff();
+#endif
+
 
 public:
 
