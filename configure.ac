@@ -86,7 +86,7 @@ if test "$cooling" != "no" ; then
 fi
 if test "${MISSING_GSL}" = "yes" ; then
    echo "GSL missing, attempting to search in parent directory"
-   for gsl in $PWD/../gsl $PWD/../gsl-1.14 $PWD/../gsl-1.13 ; do
+   for gsl in $PWD/../gsl $PWD/../gsl-1.15 $PWD/../gsl-1.14 $PWD/../gsl-1.13 ; do
 	   if test -d $gsl ; then
 		CPPFLAGS="$CPPFLAGS -I$gsl/include"
 		CFLAGS="$CFLAGS -I$gsl/include"
