@@ -22,10 +22,9 @@ struct PrefetchRequestStruct{
   PrefetchRequestStruct(OrientedBox<double> *p, int n) : prefetchReq(p), numPrefetchReq(n) {}
 };
 
-/* Computes */
+/// Base clase for all tree based computations.
 class Compute{
   protected:
-  //State *state;
   Opt *opt;
   void *computeEntity;
   int activeRung;

@@ -965,22 +965,12 @@ private:
 	/// Placeholder for particles used for prefetching
 	OrientedBox<double> prefetchReq[2];
 	unsigned int numPrefetchReq;
-	/// number of particles/buckets still remaining to compute for the chunk
-	//int *remaining Chunk;
 
 	/// number of chunks in which the tree will be chopped for prefetching
 	int numChunks;
 
-	//u_int64_t openingDiffCount;
-    /// @if STATISTICS
 #if COSMO_STATS > 0
-	//u_int64_t myNumCellInteractions;
-	//u_int64_t myNumParticleInteractions;
 	u_int64_t myNumMACChecks;
-	//u_int64_t myNumProxyCalls;
-	//u_int64_t myNumProxyCallsBack;
-	// Same as myNumCellInteractions, only restricted to cached nodes
-	//int cachecellcount;
 	u_int64_t nodesOpenedLocal;
 	u_int64_t nodesOpenedRemote;
 	u_int64_t numOpenCriterionCalls;
@@ -989,7 +979,6 @@ private:
 	u_int64_t *nodeInterRemote;
 	u_int64_t particleInterLocal;
 	u_int64_t *particleInterRemote;
-	/// @endif
 
 	int nActive;		// number of particles that are active
 
