@@ -1090,6 +1090,8 @@ private:
   ///of TreePieces
   int phase;
 
+  double myTotalMass;
+
  #if INTERLIST_VER > 0
 
 
@@ -1360,6 +1362,11 @@ public:
 	// Load from Tipsy file
 	void loadTipsy(const std::string& filename, const double dTuFac,
 		       const CkCallback& cb);
+
+        void findTotalMass(CkCallback &cb);
+        void recvTotalMass(CkReductionMsg *msg);
+        void initParticlesInterMass();
+
 	// Write a Tipsy file
 	void writeTipsy(const std::string& filename, const double dTime,
 			const double dvFac, const double duTfac,

@@ -459,7 +459,8 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
     return KEEP;
   }
   else if(action == COMPUTE){
-    CkPrintf("GravityCompute %d bucket %s node %s\n", tp->getIndex(), keyBits(((GenericTreeNode*)computeEntity)->getKey(),63).c_str(), keyBits(node->getKey(),63).c_str());
+    CkPrintf("GravityCompute %d bucket %llu node %llu\n", tp->getIndex(), ((GenericTreeNode*)computeEntity)->getKey(), node->getKey());
+    //CkPrintf("GravityCompute %d bucket %llu node %llu\n", tp->getIndex(), keyBits(((GenericTreeNode*)computeEntity)->getKey(),63).c_str(), keyBits(node->getKey(),63).c_str());
     didcomp = true;
 #ifdef BENCHMARK_TIME_COMPUTE
     double startTime = CmiWallTimer();
@@ -488,7 +489,8 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
   }
   else if(action == KEEP_LOCAL_BUCKET){
     didcomp = true;
-    CkPrintf("GravityCompute %d bucket %s local bucket %s\n", tp->getIndex(), keyBits(((GenericTreeNode*)computeEntity)->getKey(),63).c_str(), keyBits(node->getKey(),63).c_str());
+    CkPrintf("GravityCompute %d bucket %llu local bucket %llu\n", tp->getIndex(), ((GenericTreeNode*)computeEntity)->getKey(), node->getKey());
+    //CkPrintf("GravityCompute %d bucket %s local bucket %s\n", tp->getIndex(), keyBits(((GenericTreeNode*)computeEntity)->getKey(),63).c_str(), keyBits(node->getKey(),63).c_str());
 #if CHANGA_REFACTOR_DEBUG > 2
     CkAssert(node->getType() == Bucket);
     CkPrintf("[%d] GravityCompute told to KEEP_LOCAL_BUCKET, chunk=%d, remoteIndex=%d, first=%d, last=%d, reqID=%d\n", tp->getIndex(),
@@ -538,7 +540,8 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
   else if(action == KEEP_REMOTE_BUCKET){
     didcomp = true;
   // fetch particles and compute.
-    CkPrintf("GravityCompute %d bucket %s remote bucket %s\n", tp->getIndex(), keyBits(((GenericTreeNode*)computeEntity)->getKey(),63).c_str(), keyBits(node->getKey(),63).c_str());
+    CkPrintf("GravityCompute %d bucket %s remote bucket %s\n", tp->getIndex(), ((GenericTreeNode*)computeEntity)->getKey(), node->getKey());
+    //CkPrintf("GravityCompute %d bucket %s remote bucket %s\n", tp->getIndex(), keyBits(((GenericTreeNode*)computeEntity)->getKey(),63).c_str(), keyBits(node->getKey(),63).c_str());
 #if CHANGA_REFACTOR_DEBUG > 2
     CkPrintf("[%d] GravityCompute told to KEEP_REMOTE_BUCKET, chunk=%d, remoteIndex=%d, first=%d, last=%d, reqID=%d\n", tp->getIndex(),
                          chunk, node->remoteIndex,

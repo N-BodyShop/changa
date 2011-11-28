@@ -1572,6 +1572,8 @@ void Main::setupICs() {
     
     double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
     treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
+
+    treeProxy.findTotalMass(CkCallbackResumeThread());
   }	
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;

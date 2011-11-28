@@ -844,7 +844,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 	      CkAssert(p->u() > 0.0);
 	      CkAssert(p->uPred() > 0.0);
 	      }
-          CkPrintf("[%d] particle %d acc %f %f %f\n", thisIndex, i, p->treeAcceleration.x, p->treeAcceleration.y, p->treeAcceleration.z);
+          //CkPrintf("[%d] particle %d acc %f %f %f\n", thisIndex, i, p->treeAcceleration.x, p->treeAcceleration.y, p->treeAcceleration.z);
 	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
 	  }
       }
@@ -3560,6 +3560,15 @@ void TreePiece::finishNodeCache(int iPhases, const CkCallback& cb)
   and contribute forces a reduction for this TreePiece in particular. When all
   work has finished, quiescence is detected and we move on in the small step.
 */
+
+void TreePiece::initParticlesInterMass(){
+  for(int i = 1; i <= myNumParticles; i++){
+    if(myParticles[i].rung >= activeRung){ 
+      myParticles[i].interMass = 0.0;
+    }
+  }
+}
+
 void TreePiece::startPushGravity(int am, double myTheta){
   LBTurnInstrumentOn();
   
@@ -3567,6 +3576,11 @@ void TreePiece::startPushGravity(int am, double myTheta){
   activeRung = am;
   theta = myTheta;
   thetaMono = theta*theta*theta*theta;
+
+  char fout[100];
+  report();
+
+  initParticlesInterMass();
 
   CkAssert(!doMerge);
   if(!createdSpanningTree){
@@ -3602,6 +3616,8 @@ BucketMsg *TreePiece::createBucketMsg(){
     if(numActiveParticles > saveNumActiveParticles) numActiveBuckets++;
   }
 
+  CkPrintf("tree %d active particles %d active buckets %d\n", thisIndex, numActiveParticles, numActiveBuckets);
+
   if(numActiveParticles == 0) return NULL;
 
   // allocate message
@@ -3629,6 +3645,7 @@ BucketMsg *TreePiece::createBucketMsg(){
     if(numActiveParticles > saveNumActiveParticles){
       // copy active bucket to bucket msg
       msg->buckets[numActiveBuckets] = *sbucket;
+      CkPrintf("tree piece %d bucket %llu %llu active\n", thisIndex, msg->buckets[numActiveBuckets].getKey(), sbucket->getKey());
       GenericTreeNode &tbucket = msg->buckets[numActiveBuckets];
       // set particle bounds for copied bucket (as integers)
       tbucket.particlePointer = NULL;
@@ -3648,6 +3665,7 @@ BucketMsg *TreePiece::createBucketMsg(){
 void TreePiece::recvPushBuckets(BucketMsg *msg){
   GenericTreeNode *foreignBuckets;
   int numForeignBuckets;
+
 
   // make sure there is enough space for foreignParticles
   foreignParticles.resize(msg->numParticles);
@@ -3686,6 +3704,8 @@ void TreePiece::unpackBuckets(BucketMsg *msg, GenericTreeNode *&foreignBuckets, 
   foreignBuckets = msg->buckets;
   numForeignBuckets = msg->numBuckets;
 
+  CkPrintf("tree %d recv %d buckets %d particles from %d\n", thisIndex, msg->numParticles, msg->numBuckets, msg->whichTreePiece);
+
   GravityParticle *baseParticlePtr = &foreignParticles[0];
   for(int i = 0; i < numForeignBuckets; i++){
     GenericTreeNode &bucket = foreignBuckets[i];
@@ -3703,6 +3723,7 @@ void TreePiece::calculateForces(GenericTreeNode *foreignBuckets, int numForeignB
 
   for(int i = 0; i < numForeignBuckets; i++){
     GenericTreeNode &target = foreignBuckets[i];
+    CkPrintf("tree piece %d calculate forces on bucket %llu\n", thisIndex, target.getKey());
     grav.setComputeEntity(&target);
     topdown.init(&grav,this);
     // for each replica
@@ -3733,11 +3754,28 @@ void TreePiece::recvPushAccelerations(CkReductionMsg *msg){
       myParticles[i].treeAcceleration.z += accelerations[j+2];
       j += 3;
       numUpdates++;
+
+      double totalMass = myParticles[i].mass+myParticles[i].interMass;
+      CkAssert(totalMass == myTotalMass);
     }
   }
   CkAssert(numUpdates == numAccelerations/3);
 }
 #endif
+
+void TreePiece::findTotalMass(CkCallback &cb){
+  callback = cb;
+  myTotalMass = 0;
+  for(int i = 1; i <= myNumParticles; i++){
+    myTotalMass += myParticles[i].mass;
+  }
+  contribute(sizeof(double), &myTotalMass, CkReduction::sum_double, CkCallback(CkIndex_TreePiece::recvTotalMass(NULL),thisProxy));
+}
+
+void TreePiece::recvTotalMass(CkReductionMsg *msg){
+  myTotalMass = *((double *)msg->getData());
+  contribute(0,0,CkReduction::sum_int,callback);
+}
 
 /// This method starts the tree walk and gravity calculation.  It
 /// first registers with the node and particle caches.  It initializes
