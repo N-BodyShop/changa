@@ -4103,10 +4103,15 @@ void TreePiece::doAtSync(){
   AtSync();
 }
 
+extern CProxy_CkCacheSynchronizer syncProxy;
+
 void TreePiece::ResumeFromSync(){
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d in ResumefromSync\n",CkMyPe(),thisIndex);
-  contribute(0, 0, CkReduction::concat, callback);
+  if(thisIndex == 0) CkPrintf("SYNC RESUMEFROMSYNC\n");
+  CkCallback syncCallback(CkIndex_CkCacheSynchronizer::synchronize(NULL),syncProxy);
+  contribute(sizeof(CkCallback),&callback,CkReduction::random,syncCallback);
+  //contribute(0, 0, CkReduction::concat, callback);
 }
 
 /*
@@ -5920,6 +5925,8 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
       return;
       }
 
+  // this will be called in resumeFromSync()
+  callback = cb;
 
   Vector3D<float> centroid;
   centroid.x = 0.0;
@@ -5967,12 +5974,10 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
     // straight to AtSync()
     // At the moment there is no load data: we would have to supply
     // some load data (like particle count) if we want this to work well.
-    //  doAtSync();
-      contribute(cb);
-      return;
+      doAtSync();
+      //contribute(cb);
+      //return;
   }
-  // this will be called in resumeFromSync()
-  callback = cb;
 }
 
 #ifdef CUDA

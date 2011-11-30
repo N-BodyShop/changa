@@ -38,9 +38,12 @@ CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
 CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 CProxy_LvArray smoothProxy; // Proxy for smooth reductions
 CProxy_LvArray gravityProxy; // Proxy for gravity reductions
+
 CProxy_CkCacheManager cacheGravPart;
 CProxy_CkCacheManager cacheSmoothPart;
 CProxy_CkCacheManager cacheNode;
+CProxy_CkCacheSynchronizer syncProxy;
+
 CProxy_DataManager dMProxy;
 bool _cache;
 int _nocache;
@@ -909,6 +912,14 @@ Main::Main(CkArgMsg* m) {
 	    gids[i] = pieces.ckLocMgr()->getGroupID();
 	cacheNode = CProxy_CkCacheManager::ckNew(cacheSize, nPhases, gids);
 	delete[] gids;
+
+        int numCaches = 3;
+        CkGroupID *caches = new CkGroupID[3];
+        caches[0] = cacheNode.ckGetGroupID();
+        caches[1] = cacheGravPart.ckGetGroupID();
+        caches[2] = cacheSmoothPart.ckGetGroupID();
+
+        syncProxy = CProxy_CkCacheSynchronizer::ckNew(numCaches,caches);
 
 	//create the DataManager
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
