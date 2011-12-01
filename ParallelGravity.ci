@@ -52,6 +52,10 @@ mainmodule ParallelGravity {
 
   readonly int nSmooth;
 
+#ifdef PUSH_GRAVITY
+  readonly CkGroupID ckMulticastGrpId;
+#endif
+
 #ifdef SELECTIVE_TRACING
   readonly CProxy_ProjectionsControl prjgrp;
 #endif

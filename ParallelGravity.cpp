@@ -88,7 +88,7 @@ CkArrayID treePieceID;
 
 #ifdef PUSH_GRAVITY
 #include "ckmulticast.h"
-CProxy_CkMulticastMgr ckMulticastMgrProxy;
+CkGroupID ckMulticastGrpId;
 #endif
 
 #ifdef SELECTIVE_TRACING
@@ -533,8 +533,8 @@ Main::Main(CkArgMsg* m) {
 
 #ifdef PUSH_GRAVITY
         param.dFracPushParticles = 0.0;
-	prmAddParam(prm, "dFracPushParticles", paramDouble,
-		    &param.dFracPushParticles, sizeof(double),"fDoPush",
+	prmAddParam(prm, "dFracPush", paramDouble,
+		    &param.dFracPushParticles, sizeof(double),"fPush",
 		    "Maximum proportion of active to total particles for push-based force evaluation = 0.0");
 #endif
 
@@ -894,7 +894,7 @@ Main::Main(CkArgMsg* m) {
 	gravityProxy = CProxy_LvArray::ckNew(opts);
 
 #ifdef PUSH_GRAVITY
-        ckMulticastMgrProxy = CProxy_CkMulticastMgr::ckNew();
+        ckMulticastGrpId = CProxy_CkMulticastMgr::ckNew();
 #endif
 	
 	// create CacheManagers
@@ -1313,9 +1313,6 @@ void Main::advanceBigStep(int iStep) {
     double startTime = CkWallTimer();
     double tolerance = 0.01;	// tolerance for domain decomposition
     bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
-#ifdef PUSH_GRAVITY
-    bool bDoPush = param.dFracPushParticles*nTotalParticles > nActiveGrav;
-#endif
     sorter.startSorting(dataManagerID, tolerance,
                         CkCallbackResumeThread(), bDoDD);
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -1334,6 +1331,13 @@ void Main::advanceBigStep(int iStep) {
 
     if(verbosity)
 	memoryStats();
+
+
+#ifdef PUSH_GRAVITY
+    bool bDoPush = param.dFracPushParticles*nTotalParticles > nActiveGrav;
+    if(bDoPush) CkPrintf("[main] fracActive %f PUSH_GRAVITY\n", 1.0*nActiveGrav/nTotalParticles);
+#endif
+
     /******** Tree Build *******/
     ckout << "Building trees ...";
     startTime = CkWallTimer();

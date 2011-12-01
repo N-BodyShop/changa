@@ -459,7 +459,7 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
     return KEEP;
   }
   else if(action == COMPUTE){
-    CkPrintf("GravityCompute %d bucket %llu node %llu\n", tp->getIndex(), ((GenericTreeNode*)computeEntity)->getKey(), node->getKey());
+    //CkPrintf("GravityCompute %d bucket %llu node %llu\n", tp->getIndex(), ((GenericTreeNode*)computeEntity)->getKey(), node->getKey());
     //CkPrintf("GravityCompute %d bucket %llu node %llu\n", tp->getIndex(), keyBits(((GenericTreeNode*)computeEntity)->getKey(),63).c_str(), keyBits(node->getKey(),63).c_str());
     didcomp = true;
 #ifdef BENCHMARK_TIME_COMPUTE
@@ -470,6 +470,10 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
                     tp->getParticles(),
                     tp->decodeOffset(reqID),
                     activeRung);
+    
+    GenericTreeNode *b = (GenericTreeNode *)computeEntity;
+    updateInterMass(b->particlePointer,b->firstParticle,b->lastParticle,node->moments.totalMass);
+
 #ifdef BENCHMARK_TIME_COMPUTE
     computeTimeNode += CmiWallTimer() - startTime;
 #endif
@@ -489,7 +493,7 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
   }
   else if(action == KEEP_LOCAL_BUCKET){
     didcomp = true;
-    CkPrintf("GravityCompute %d bucket %llu local bucket %llu\n", tp->getIndex(), ((GenericTreeNode*)computeEntity)->getKey(), node->getKey());
+    //CkPrintf("GravityCompute %d bucket %llu local bucket %llu\n", tp->getIndex(), ((GenericTreeNode*)computeEntity)->getKey(), node->getKey());
     //CkPrintf("GravityCompute %d bucket %s local bucket %s\n", tp->getIndex(), keyBits(((GenericTreeNode*)computeEntity)->getKey(),63).c_str(), keyBits(node->getKey(),63).c_str());
 #if CHANGA_REFACTOR_DEBUG > 2
     CkAssert(node->getType() == Bucket);
@@ -507,13 +511,17 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
 #ifdef BENCHMARK_TIME_COMPUTE
       double startTime = CmiWallTimer();
 #endif
+      Vector3D<cosmoType> offset = tp->decodeOffset(reqID);
       for(int i = node->firstParticle; i <= node->lastParticle; i++){
         computed += partBucketForce(
                                   &part[i-node->firstParticle],
                                   (GenericTreeNode *)computeEntity,
                                   tp->getParticles(),
-                                  tp->decodeOffset(reqID),
+                                  offset,
                                   activeRung);
+
+        GenericTreeNode *b = (GenericTreeNode *)computeEntity;
+        updateInterMass(b->particlePointer,b->firstParticle,b->lastParticle,&part[i-node->firstParticle],offset);
       }
 #ifdef BENCHMARK_TIME_COMPUTE
       computeTimePart += CmiWallTimer() - startTime;
@@ -540,7 +548,7 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
   else if(action == KEEP_REMOTE_BUCKET){
     didcomp = true;
   // fetch particles and compute.
-    CkPrintf("GravityCompute %d bucket %s remote bucket %s\n", tp->getIndex(), ((GenericTreeNode*)computeEntity)->getKey(), node->getKey());
+    //CkPrintf("GravityCompute %d bucket %s remote bucket %s\n", tp->getIndex(), ((GenericTreeNode*)computeEntity)->getKey(), node->getKey());
     //CkPrintf("GravityCompute %d bucket %s remote bucket %s\n", tp->getIndex(), keyBits(((GenericTreeNode*)computeEntity)->getKey(),63).c_str(), keyBits(node->getKey(),63).c_str());
 #if CHANGA_REFACTOR_DEBUG > 2
     CkPrintf("[%d] GravityCompute told to KEEP_REMOTE_BUCKET, chunk=%d, remoteIndex=%d, first=%d, last=%d, reqID=%d\n", tp->getIndex(),
@@ -589,6 +597,21 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
   }
   CkAbort("bad walk state");
   return -1;
+}
+
+void GravityCompute::updateInterMass(GravityParticle *p, int start, int end, double totalMass){
+  for(int j = start; j <= end; j++){
+    p[j-start].interMass += totalMass;
+  }
+}
+
+void GravityCompute::updateInterMass(GravityParticle *p, int start, int end, GravityParticle *s, Vector3D<cosmoType> &offset){
+  Vector3D<cosmoType> r; 
+  for(int j = start; j <= end; j++){
+    r = offset + s->position - p[j-start].position;
+    if(r.lengthSquared() == 0) continue;
+    p[j-start].interMass += s->mass;
+  }
 }
 
 // Source of force is a group of particles

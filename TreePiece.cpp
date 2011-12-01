@@ -51,7 +51,7 @@ using namespace TypeHandling;
 int TreeStuff::maxBucketSize;
 
 #ifdef PUSH_GRAVITY
-extern CProxy_CkMulticastMgr ckMulticastMgrProxy;
+extern CkGroupID ckMulticastGrpId;
 #endif
 
 #ifdef CELL
@@ -3561,14 +3561,6 @@ void TreePiece::finishNodeCache(int iPhases, const CkCallback& cb)
   work has finished, quiescence is detected and we move on in the small step.
 */
 
-void TreePiece::initParticlesInterMass(){
-  for(int i = 1; i <= myNumParticles; i++){
-    if(myParticles[i].rung >= activeRung){ 
-      myParticles[i].interMass = 0.0;
-    }
-  }
-}
-
 void TreePiece::startPushGravity(int am, double myTheta){
   LBTurnInstrumentOn();
   
@@ -3580,20 +3572,16 @@ void TreePiece::startPushGravity(int am, double myTheta){
   char fout[100];
   report();
 
-  initParticlesInterMass();
-
   CkAssert(!doMerge);
   if(!createdSpanningTree){
     createdSpanningTree = true;
     allTreePieceSection = CProxySection_TreePiece::ckNew(thisProxy,0,numTreePieces-1,1);
-    CkMulticastMgr *mgr = ckMulticastMgrProxy.ckLocalBranch();
+    CkMulticastMgr *mgr = CProxy_CkMulticastMgr(ckMulticastGrpId).ckLocalBranch();
     allTreePieceSection.ckSectionDelegate(mgr);
   }
 
   BucketMsg *msg = createBucketMsg();
-  if(msg == NULL) return;
-
-  allTreePieceSection.recvPushBuckets(msg);
+  if(msg != NULL) allTreePieceSection.recvPushBuckets(msg);
 }
 
 BucketMsg *TreePiece::createBucketMsg(){
@@ -3616,7 +3604,7 @@ BucketMsg *TreePiece::createBucketMsg(){
     if(numActiveParticles > saveNumActiveParticles) numActiveBuckets++;
   }
 
-  CkPrintf("tree %d active particles %d active buckets %d\n", thisIndex, numActiveParticles, numActiveBuckets);
+  //CkPrintf("tree %d active particles %d active buckets %d\n", thisIndex, numActiveParticles, numActiveBuckets);
 
   if(numActiveParticles == 0) return NULL;
 
@@ -3645,12 +3633,12 @@ BucketMsg *TreePiece::createBucketMsg(){
     if(numActiveParticles > saveNumActiveParticles){
       // copy active bucket to bucket msg
       msg->buckets[numActiveBuckets] = *sbucket;
-      CkPrintf("tree piece %d bucket %llu %llu active\n", thisIndex, msg->buckets[numActiveBuckets].getKey(), sbucket->getKey());
+      //CkPrintf("tree piece %d bucket %llu %llu active\n", thisIndex, msg->buckets[numActiveBuckets].getKey(), sbucket->getKey());
       GenericTreeNode &tbucket = msg->buckets[numActiveBuckets];
       // set particle bounds for copied bucket (as integers)
       tbucket.particlePointer = NULL;
       tbucket.firstParticle = saveNumActiveParticles;
-      tbucket.lastParticle = numActiveParticles;
+      tbucket.lastParticle = numActiveParticles-1;
       numActiveBuckets++;
     }
   }
@@ -3667,25 +3655,30 @@ void TreePiece::recvPushBuckets(BucketMsg *msg){
   int numForeignBuckets;
 
 
+  int numFields = 4;
   // make sure there is enough space for foreignParticles
   foreignParticles.resize(msg->numParticles);
-  foreignParticleAccelerations.resize(3*msg->numParticles);
+  foreignParticleAccelerations.resize(numFields*msg->numParticles);
   // obtain positions of foreignParticles from message
   unpackBuckets(msg,foreignBuckets,numForeignBuckets);
-  // calculate forces on foreignParticles due to your local tree
-  calculateForces(foreignBuckets,numForeignBuckets);
+  if(myNumParticles > 0){
+    // If there is a local tree associated with this tree piece,
+    // calculate forces on foreignParticles due to it
+    calculateForces(foreignBuckets,numForeignBuckets);
+  }
   // update cookie
   CkGetSectionInfo(cookieJar[msg->whichTreePiece],msg);
 
   for(int i = 0; i < msg->numParticles; i++){
-    foreignParticleAccelerations[3*i] = foreignParticles[i].treeAcceleration.x;
-    foreignParticleAccelerations[3*i+1] = foreignParticles[i].treeAcceleration.y;
-    foreignParticleAccelerations[3*i+2] = foreignParticles[i].treeAcceleration.z;
+    foreignParticleAccelerations[numFields*i] = foreignParticles[i].treeAcceleration.x;
+    foreignParticleAccelerations[numFields*i+1] = foreignParticles[i].treeAcceleration.y;
+    foreignParticleAccelerations[numFields*i+2] = foreignParticles[i].treeAcceleration.z;
+    foreignParticleAccelerations[numFields*i+3] = foreignParticles[i].interMass;
   }
 
   // contribute accelerations
   CkCallback cb(CkIndex_TreePiece::recvPushAccelerations(NULL),CkArrayIndex1D(msg->whichTreePiece),thisProxy);
-  CkMulticastMgr *mgr = ckMulticastMgrProxy.ckLocalBranch();
+  CkMulticastMgr *mgr = CProxy_CkMulticastMgr(ckMulticastGrpId).ckLocalBranch();
   mgr->contribute(foreignParticleAccelerations.length()*sizeof(double),&foreignParticleAccelerations[0],CkReduction::sum_double,cookieJar[msg->whichTreePiece],cb);
 
   delete msg;
@@ -3698,13 +3691,14 @@ void TreePiece::unpackBuckets(BucketMsg *msg, GenericTreeNode *&foreignBuckets, 
     foreignParticles[i].treeAcceleration.x = 0.0;
     foreignParticles[i].treeAcceleration.y = 0.0;
     foreignParticles[i].treeAcceleration.z = 0.0;
+    foreignParticles[i].interMass = 0.0;
   }
 
   // Make buckets point to appropriate positions in local buffer of particles
   foreignBuckets = msg->buckets;
   numForeignBuckets = msg->numBuckets;
 
-  CkPrintf("tree %d recv %d buckets %d particles from %d\n", thisIndex, msg->numParticles, msg->numBuckets, msg->whichTreePiece);
+  //CkPrintf("tree %d recv %d particles %d buckets from %d\n", thisIndex, msg->numParticles, msg->numBuckets, msg->whichTreePiece);
 
   GravityParticle *baseParticlePtr = &foreignParticles[0];
   for(int i = 0; i < numForeignBuckets; i++){
@@ -3721,9 +3715,10 @@ void TreePiece::calculateForces(GenericTreeNode *foreignBuckets, int numForeignB
 
   grav.init(NULL,activeRung,&pushOpt);
 
+  CkAssert(root != NULL);
   for(int i = 0; i < numForeignBuckets; i++){
     GenericTreeNode &target = foreignBuckets[i];
-    CkPrintf("tree piece %d calculate forces on bucket %llu\n", thisIndex, target.getKey());
+    //CkPrintf("tree piece %d calculate forces on bucket %llu\n", thisIndex, target.getKey());
     grav.setComputeEntity(&target);
     topdown.init(&grav,this);
     // for each replica
@@ -3747,19 +3742,25 @@ void TreePiece::recvPushAccelerations(CkReductionMsg *msg){
   int j = 0;
 
   int numUpdates = 0;
+  int numFields = 4;
   for(int i = 1; i <= myNumParticles; i++){
     if(myParticles[i].rung >= activeRung){ 
-      myParticles[i].treeAcceleration.x += accelerations[j];
-      myParticles[i].treeAcceleration.y += accelerations[j+1];
-      myParticles[i].treeAcceleration.z += accelerations[j+2];
-      j += 3;
+      myParticles[i].treeAcceleration.x = accelerations[j];
+      myParticles[i].treeAcceleration.y = accelerations[j+1];
+      myParticles[i].treeAcceleration.z = accelerations[j+2];
+
+      myParticles[i].interMass = accelerations[j+3]; 
+      j += numFields;
       numUpdates++;
 
       double totalMass = myParticles[i].mass+myParticles[i].interMass;
-      CkAssert(totalMass == myTotalMass);
+      if(totalMass != myTotalMass){
+        CkPrintf("[%d] particle %d interMass %f should be %f partMass %f\n", thisIndex, i, totalMass, myTotalMass, myParticles[i].mass);
+        CkAbort("bad intermass\n");
+      }
     }
   }
-  CkAssert(numUpdates == numAccelerations/3);
+  CkAssert(numUpdates == numAccelerations/numFields);
 }
 #endif
 

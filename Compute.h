@@ -93,6 +93,8 @@ class Compute{
   virtual void freeState(State *state);
 };
 
+#include "SSEdefs.h"
+
 class GravityCompute : public Compute{
   // GenericTreeNode *myBucket;
   // int activeRung;
@@ -100,6 +102,9 @@ class GravityCompute : public Compute{
   double computeTimePart;
   double computeTimeNode;
 #endif
+
+  void updateInterMass(GravityParticle *p, int start, int end, double mass);
+  void updateInterMass(GravityParticle *p, int start, int end, GravityParticle *s, Vector3D<cosmoType> &offset);
 
   public:
   GravityCompute() : Compute(Gravity){

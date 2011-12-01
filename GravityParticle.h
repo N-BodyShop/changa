@@ -26,8 +26,6 @@ class ExternalGravityParticle {
   double soft;
   Vector3D<double> position;
 
-  double interMass;
-
   void pup(PUP::er &p) {
     p | position;
     p | mass;
@@ -151,6 +149,8 @@ public:
 	double extcellmass;
 	double extpartmass;
 #endif
+
+        double interMass;
 	
 	GravityParticle(SFC::Key k = 0) : ExternalGravityParticle() {
           key = k;

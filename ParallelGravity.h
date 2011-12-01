@@ -288,7 +288,9 @@ public:
 };
 
 #ifdef PUSH_GRAVITY
-struct BucketMsg : public CkMcastBaseMsg, CMessage_BucketMsg {
+#include "ckmulticast.h"
+
+struct BucketMsg : public CkMcastBaseMsg, public CMessage_BucketMsg {
   GenericTreeNode *buckets;
   int numBuckets;
   ExternalGravityParticle *particles;
@@ -1365,7 +1367,6 @@ public:
 
         void findTotalMass(CkCallback &cb);
         void recvTotalMass(CkReductionMsg *msg);
-        void initParticlesInterMass();
 
 	// Write a Tipsy file
 	void writeTipsy(const std::string& filename, const double dTime,
