@@ -3569,9 +3569,6 @@ void TreePiece::startPushGravity(int am, double myTheta){
   theta = myTheta;
   thetaMono = theta*theta*theta*theta;
 
-  char fout[100];
-  report();
-
   CkAssert(!doMerge);
   if(!createdSpanningTree){
     createdSpanningTree = true;
