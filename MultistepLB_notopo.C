@@ -439,10 +439,13 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
     else{
       load = stats->objData[lb].wallTime;
     }
+ //   int lb = tpCentroids[i].tag;
 
-    tpEvents[XDIM].push_back(Event(tpCentroids[i].vec.x,load,lb));
-    tpEvents[YDIM].push_back(Event(tpCentroids[i].vec.y,load,lb));
-    tpEvents[ZDIM].push_back(Event(tpCentroids[i].vec.z,load,lb));
+    // CkPrintf("Before calling Orb %d %f \n",lb, load);
+
+    tpEvents[XDIM].push_back(Event(tpCentroids[i].vec.x,load,j));
+    tpEvents[YDIM].push_back(Event(tpCentroids[i].vec.y,load,j));
+    tpEvents[ZDIM].push_back(Event(tpCentroids[i].vec.z,load,j));
 
     tp_array[j]= OrbObject(lb);
     tp_array[j].centroid = tpCentroids[i].vec;
@@ -466,8 +469,13 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
   CkPrintf("[Orb3dLB_notopo] sorting\n");
   for(int i = 0; i < NDIMS; i++){
     tpEvents[i].quickSort();
-  }
+/*  for(int j = 0; j < tpEvents[i].length(); j++){
+	int own = tpEvents[i][j].owner;
+	CkPrintf("After sorting %d %d \n", own, tp_array[own].lbindex);
 
+  }
+  */ 
+  }
   box.lesser_corner.x = tpEvents[XDIM][0].position;
   box.lesser_corner.y = tpEvents[YDIM][0].position;
   box.lesser_corner.z = tpEvents[ZDIM][0].position;
