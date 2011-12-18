@@ -17,6 +17,12 @@ inline double max(double x, double y)
     else return y;
     }
 
+inline double min(double a, double b)
+{
+    if(a < b) return a;
+    else return b;
+    }
+
 /* implement fortran sign function: return a with the sign of b */
 inline double sign(double a, double b) 
 {
@@ -31,6 +37,7 @@ STIFF *StiffInit( double eps, int nv, void *Data,
 		  ) 
 {
   STIFF *s;
+  int i;
 
   s = (STIFF *) malloc(sizeof(STIFF));
   assert(s!=NULL);
@@ -43,6 +50,8 @@ STIFF *StiffInit( double eps, int nv, void *Data,
   s->dtmin = 1e-15;
   s->itermax = 1;
   s->ymin = calloc(nv, sizeof(*(s->ymin)));
+  for(i = 0; i < nv; i++)
+      s->ymin[i] = 1e-20;
   s->y0 = malloc(nv*sizeof(*(s->y0)));
   s->y1 = malloc(nv*sizeof(*(s->y1)));
   s->q = malloc(nv*sizeof(*(s->q)));
@@ -279,7 +288,7 @@ cd
 	    if(iter == 1) {
 		/*
 		c the first corrector step advances the time (tentatively) and
-		c saves the initial predictor value as y for the timestep
+		c saves the initial predictor value as y1 for the timestep
 		check later.
 		*/
 		tn = ts + dt;
@@ -319,12 +328,12 @@ cd
 	    iter++;
 	    }
 	/*
-	c calculate newf, check for convergence, and limit decreasing
+	c calculate new f, check for convergence, and limit decreasing
 	c functions. the order of the operations in this loop is important.
 	*/
 	for(i = 0; i < n; i++) {
 	    scr2 = max(ys[i] + dt*scrarray[i], 0.0);
-	    scr1 = fabs(scr2- y[i]);
+	    scr1 = fabs(scr2 - y1[i]);
 	    y[i] = max(scr2, ymin[i]);
 	    /*
 	    C ym2(i) = ymi(i)
@@ -385,7 +394,7 @@ cd
 	  begin new step if previous step converged.
 	*/
 	if(eps > epsmax) {
-	    /*    & .or. stab. gt. */
+	    /*    & .or. stab. gt. 1 */
 	    rcount++;
 	    /*
 	    c After an unsuccessful step the initial timescales don't
@@ -393,7 +402,7 @@ cd
 	    c ratio of the new and old timesteps.
 	    */
 	    dto = dt/dto;
-	    for(i = 1; i < n; i++) {
+	    for(i = 0; i < n; i++) {
 		rtaus[i] = rtaus[i]*dto;
 		}
 	    /*
@@ -406,9 +415,303 @@ cd
 	  Successful step; get the source terms for the next step
 	  and continue back at line 100
 	*/
+	s->derivs(tn + tstart, y, q, d, s->Data);
 	gcount++;
 	}
     }
+
+#ifdef TESTCHEMEQ
+void csdfe(double t, double *y, double *q, double *d, void *data);
+
+#include <time.h>
+
+int
+main(int argc, char** argv) 
+{
+    /*    
+C
+C This is the driver program for the seven-species cesium
+C mechanism test problem. The code integrates the system
+C MXCASE times using differnt values of the chemeq2 variable
+C epsmin (set by passing an entry from array EPS through
+C CHEMSP before each integration).
+
+C 
+C For this example,the external subroutine that calculates the
+C source terms is called CSDFE.
+C
+    */
+    double ymin[10] = {1e-20, 1e-20, 1e-20, 1e-20, 1e-20, 1e-20, 1e-20, 1e-20,
+		   1e-20, 1e-20} ;
+    
+    char *spsym[7] = {"02-", "CS+", "CS", "CS02", "02", "N2", "NE"} ;
+    double eps[15] = {.1, .05, .01, .005, .001, .0005, .0001, .00005,
+		      .00001, .000005, .000001, 5.e-7, 1.e-7, 5.e-8, 1.e-8};
+/* ,5.e-9, 1.e-9,5.e-10,1.e-10 */
+    double tscale;
+    
+    int mxcase = 9;
+    int inlp, ns, na;
+    double ti, tf, deltat;
+    double yi[7], yf[7];
+    double epsil[15];
+    int icase;
+
+    /*
+Note that the timing routines included maynot work on
+all systems. Extra timing options are included as comments.
+    */
+    double dtime, delta, tarray[2];
+    double tnorm;
+    delta = 1.;
+    /*
+    C
+    C INITIALIZE CONTROL PARAMETERS.
+    C
+    C TSCALE is simply a normalization factor for the timing
+    C results. It can be used to compare results from differnt
+    C machines (by setting it to the time required for that
+    C machine to solve a standard problem of some sort) or to
+    C simply make the timing results more "friendly."
+    */
+    tscale = 1.0/1024.;
+    
+    /*
+C INLP allows the user to subdivide the interval over which
+C each test is run. For INLP=1,CHEMEQ2 is sent the full
+C interval TF-TI (specified below) as the global timestep.
+    */
+
+    inlp = 1;
+    
+    /*
+C For this particular test, the electron number density is not
+C integrated. The other five reacting species are integrated,
+C and the electron density is found through charge conservation.
+C This calculation is done within CSDFE. Therefore, NA=5 is
+C the number of equations that are integrated, but NS=7 is
+C number of species. Species to be integrated must be placed in
+C first NA positions within the Y array. CHEMEQ2 only works with
+C these first NA entries since NA is passed in the argument list
+C below, but all NS values are available to and used by CSDFE.
+    */
+    ns = 7;
+    na = 5;
+    /* "TI" - INITIAL TIME, "TF" - FINAL TIME. */
+    ti = 0.0;
+    tf = 1000.0;
+    deltat = (tf - ti)/inlp;
+     
+     /*
+C STORE INITIAL(TI = 0.0) AND FINALT(F = 1000.0)
+C 02-
+    */
+    yi[0] = 5.200e+02;
+    yf[0] = 2.59139492061e+04;
+    /* CS+ */
+    yi[1] = 6.200E+02;
+    yf[1] = 7.55718460300e+04;
+    /* Cs */
+    yi[2] = 1.000E+12;
+    yf[2] = 1.53194051722e+03;
+    /* CS02 */
+    yi[3] = 0.;
+    yf[3] = 9.99999923516e+11;
+    /* 02 */
+    yi[4] = 3.600E+14;
+    yf[4] = 3.59000000051e+14;
+    /* N2 */
+    yi[5] = 1.400E+15;
+    yf[5] = 1.40000000000e+15;
+    /* NE */
+    yi[6] = 1.000E+02;
+    yf[6] = 4.96578968239e+04;
+    /*
+      C LOOP OVER THE TEST CASES.
+    */
+    for(icase = 0; icase < mxcase; icase++) {
+	STIFF *s;
+	double cput;
+	double t = 0.0;
+	double y[7];
+	double sum;
+	int istep;
+	int i;
+	
+	printf("case %d: eps: %g inlp: %d\n", icase, eps[icase], inlp);
+	s = StiffInit(eps[icase], 5, NULL, csdfe);
+	cput = clock()/CLOCKS_PER_SEC;
+	 /* RESET "Y" TO INITIAL VALUES "YI"'. */
+	for(i = 0; i < ns; i++)
+	    y[i] = yi[i];
+	/*
+	  C SET TIMER.
+	  T = SECNDS(O.0)
+	  delta = dtime(tarray);
+	*/
+	/*
+	 INNER LOOP TO DETERMINE OVERHEAD OR RELATIVE STARTING EFFECIENCY
+	 OF ITEGRATION SCHEME BEING TESTED.
+	*/
+	for(istep = 0; istep < inlp; istep++) {
+	    /* CALL INTEGRATOR. */
+	    /* chemeq2(deltat, csdfe, na, y); */
+	    StiffStep(s, y, t, deltat);
+	    t += deltat;
+	    }
+	/* CALCULATE CPU TIME USED IN THE INTEGRATION PROCESS.
+	   delta = dtime(tarray);
+	   dsec = tarray[0];
+	 */
+	/* DSEC = delta */
+	cput = clock()/CLOCKS_PER_SEC;
+	tnorm = (int)(cput/tscale + .5);
+	 /*
+	  Calculate final electron density from densities of other
+	  charges species
+	 */
+	y[6] = y[1] - y[0];
+
+	/* CALCULATE RELATIVE ERROR. */
+	for(i = 0; i < ns; i++)
+	    epsil[i] = fabs(y[i] - yf[i])/min(y[i] , yf[i]);
+
+	sum = 0.0;
+	for(i = 0; i < ns; i++)
+	    sum = sum + pow(epsil[i],2);
+
+	/*
+	  Root-mean-square error is calculated using ns-1 (rather than ns)
+	  since N2 is inert.
+	*/
+	sum = sqrt(sum/(ns-1));
+
+	/*
+	  PRINT RESULTS.
+	*/
+	printf("ti: %g, tf: %g\n", ti, tf);
+	for(i = 0; i < ns; i++)
+	    printf("%s %g %g %g %g\n", spsym[i], yi[i], yf[i], y[i],
+		   epsil[i]);
+	printf("sum: %g\n", sum);
+	printf("cpu %g tnorm %g\n", cput, tnorm);
+	printf("eps %g, cput %g, tnorm %g, sum %g\n", eps[icase], cput,
+	       tnorm, sum);
+
+	/* CALL CHEMCT(TF) */
+	StiffFinalize(s);
+	}
+    return 0;
+    }
+
+void csdfe(double t, double *y, double *q, double *d, void *data)
+{
+    /*
+cd * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+cd 
+cd csdfe(y, q, d, t)
+cd 
+cd description:
+cd derivative function evaluator(gsub) for an atmospheric chemical
+cd relaxation test problem involving cesium and cesium ions. format-
+cd ion and loss rates are calculated for this set of "stiff ordinary
+cd differential equations" that was suggested by by d. edelson of
+cd bell laboratories.
+cd 
+cd argument list definitions:
+cd y(i)		r	current values of the functions plus the	i/o
+cd 		      	extra data at the end of the array that may be
+cd			passed back and forth between "csdfe" and the
+cd			main program. locations in y(i) which represent
+cd			the functions being advanced should not be
+cd			tampered with here.
+cd q(i)		r	total formation rates.
+cd d(i)		r	total loss rates.
+cd t		r	the value of the independent variable.
+cd
+cd * * * * * * * * * * *
+c
+c local specifications.
+c _ _____ ____ ___
+    */
+    double ne, n2;
+    double o2m, csp, cs, cso2, o2;
+    double cr1, cr2, cr3, cr4, cr5, cr6, cr7;
+    /*
+     * utilize local storage for varibles.
+     */
+    o2m = y[0];
+    csp = y[1];
+    cs =y[2];
+    cso2 = y[3];
+    o2 = y[4];
+    n2 = y[5];
+    /*
+c write(63,*) t
+c
+c calculate electron density for local use and transmission back to
+c the main program via y(7). however in this case this value should
+c not be trusted since "chemeq"will not call the gsub" with the
+c latest function values after the final step has converged. y(7 )
+c will be one iteration behind in this case. y(7) and y(6) are
+c examples tho, of how data may be transfered between the gsub" and
+c the main program.
+    */
+    ne = max(csp - o2m, 0.0);
+    y[6] = ne;
+    /*
+c calculate reaction rates.
+    */
+    cr1 = 5.00e-08*o2m*csp;
+    cr2 = 1.00e-12*csp*ne;
+    cr3 = 3.24e-03*cs;
+    cr4 = 4.00e-01*o2m;
+    cr5 = 1.00e-31*o2*cs*(cs + cso2 + n2 + o2);
+    cr6 = 1.24e-30*o2*o2*ne;
+    cr7 = 1.00e-31*o2*n2*ne;
+    /*
+if(t.ge.700.) then
+c cr4= 0.
+c cr6 = 0.
+c cr7 = 0.
+c end if
+
+c calculate total formation rates (c(i)) and total loss rates (d(i))
+c for each species.
+c 
+c o2m
+    */
+    q[0] = cr6 + cr7;
+    d[0] = cr1 + cr4;
+    /*
+      Cs+
+    */
+    q[1] = cr3;
+    d[1] = cr1 + cr2;
+    /*
+      Cs
+    */
+    q[2] = cr1 + cr2;
+    d[2] = cr3 + cr5;
+    /*
+      cso2
+    */
+    q[3] = cr5;
+    d[3] = 0.0;
+    /*
+q(4) = q(4) -
+d(4) = - l.OOe-31*o2*cs*cso2
+    */
+    /*
+      o2
+    */
+    q[4] = cr1 + cr4;
+    d[4]= cr5 + cr6 + cr7;
+    return;
+    }
+
+#else
+/* TESTCHEMEQ excludes root finder */
 
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_roots.h>
@@ -463,6 +766,8 @@ double RootFind(ROOTFIND *r, double (*func)(double, void *Data), void *Data,
     assert(iter < itmax);
     return root;
     }
+
+#endif /* STIFFTEST */
 
 #endif
 

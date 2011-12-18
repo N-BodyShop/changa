@@ -36,6 +36,7 @@ STIFF *StiffInit(double eps, int nv, void *Data,
 void StiffFinalize( STIFF *s );
 void StiffStep(STIFF *s, double y[], double tstart, double htry) ;
 
+#ifndef TESTCHEMEQ
 /* 
  * Root Finder Header
  */
@@ -51,5 +52,6 @@ void RootFindFinalize(ROOTFIND *r);
 double RootFind(ROOTFIND *r, double (*func)(double, void *Data), void *Data,
 		double x1, double x2, double tol);
 
+#endif
 #endif
 
