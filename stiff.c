@@ -49,9 +49,9 @@ STIFF *StiffInit( double eps, int nv, void *Data,
   s->epsmax = 10.0;
   s->dtmin = 1e-15;
   s->itermax = 1;
-  s->ymin = calloc(nv, sizeof(*(s->ymin)));
+  s->ymin = malloc(nv*sizeof(*(s->ymin)));
   for(i = 0; i < nv; i++)
-      s->ymin[i] = 1e-20;
+      s->ymin[i] = 1e-300;
   s->y0 = malloc(nv*sizeof(*(s->y0)));
   s->y1 = malloc(nv*sizeof(*(s->y1)));
   s->q = malloc(nv*sizeof(*(s->q)));
@@ -441,9 +441,6 @@ C For this example,the external subroutine that calculates the
 C source terms is called CSDFE.
 C
     */
-    double ymin[10] = {1e-20, 1e-20, 1e-20, 1e-20, 1e-20, 1e-20, 1e-20, 1e-20,
-		   1e-20, 1e-20} ;
-    
     char *spsym[7] = {"02-", "CS+", "CS", "CS02", "02", "N2", "NE"} ;
     double eps[15] = {.1, .05, .01, .005, .001, .0005, .0001, .00005,
 		      .00001, .000005, .000001, 5.e-7, 1.e-7, 5.e-8, 1.e-8};
