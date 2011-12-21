@@ -1101,7 +1101,10 @@ void clDerivs(double x, const double *y, double *dHeat, double *dCool,
   d->E = y[0];
   clTempIteration( d );
   clEdotInstant( d->cl, &d->Y, &d->Rate, d->rho, d->ZMetal, dHeat, dCool );
-  *dHeat += d->ExternalHeating;
+  if(d->ExternalHeating > 0.0)
+      *dHeat += d->ExternalHeating;
+  else
+      *dCool -= d->ExternalHeating;
 }
 
 #if 0
