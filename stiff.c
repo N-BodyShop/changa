@@ -2,6 +2,13 @@
 /*
  * Integrate "stiff" equations similar to chemical equilibrium
  * equations.
+ *
+ * The source code below is taken from Mott, D.R. & Oran, E.S., 2001,
+ * "CHEMEQ2: A Solver for the Stiff Ordinary Differential Equations of
+ * Chemical Kinetics", Naval Research Laboratory,
+ * NRL/MR/6400-01-8553.  The report documentation page states under
+ * distribution/availability statement states:
+ * "Approved for public release; distribution is unlimited."
  */
 
 #include <stdio.h>
@@ -31,6 +38,9 @@ inline double sign(double a, double b)
     else return -aabs;
     }
 
+/*
+ * Set integration parameters and allocate scratch arrays.
+ */
 STIFF *StiffInit( double eps, int nv, void *Data,
 		  void (*derivs)(double, const double *, double *, double *,
 				void *Data)
@@ -164,6 +174,9 @@ cd
 
     double tn;			/* time within step */
     int i;
+    /*
+     * Local copies of Stiff context
+     */
     int n = s->nv;
     double *y0 = s->y0;
     double *ymin = s->ymin;
@@ -181,16 +194,16 @@ cd
     double epsmax = s->epsmax;
     double dtmin = s->dtmin;
     int itermax = s->itermax;
-    int gcount = 0;
-    int rcount = 0;		/* restart steps */
+    int gcount = 0;		/* count calls to derivs */
+    int rcount = 0;		/* count restart steps */
     double scrtch;
     double ascr;
     double scr1;
     double scr2;
     double dt;			/* timestep used by the integrator */
     double ts;			/* t at start of the chemical timestep */
-    double alpha;
-    int iter;
+    double alpha;		/* solution parameter used in update */
+    int iter;			/* counter for corrector iterations */
     double eps;			/* maximum correction term */
     double rtaub;
     double qt;			/* alpha weighted average of q */
@@ -421,6 +434,10 @@ cd
     }
 
 #ifdef TESTCHEMEQ
+/*
+ * Test case for the CHEMEQ2 solver.
+ */
+
 void csdfe(double t, double *y, double *q, double *d, void *data);
 
 #include <time.h>

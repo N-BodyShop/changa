@@ -31,8 +31,6 @@
 #define EPSTEMP 1e-5
 #define ETAMINTIMESTEP 1e-4
 
-#include "gsl/gsl_errno.h"
-#include "gsl/gsl_odeiv.h"
 #include "cooling.h"
 
 /* Integrator constants */
@@ -995,7 +993,7 @@ double clEdotInstant( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
   RATES_T *RT0,*RT1;
   int iTln;
 
-  double Edot,ne,LowTCool;
+  double ne,LowTCool;
 
   ne = Y->e*en_B;
 
@@ -1132,8 +1130,8 @@ int clJacobn(double x, const double y[], double dfdx[], double *dfdy, void *Data
 void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
 		       double ExternalHeating, double rho, double ZMetal, double tStep ) {
 
-  double dEdt,dE,Ein = *E,EMin;
-  double t=0,dtused,dtnext,tstop,dtEst;
+  double EMin;
+  double t=0;
   clDerivsData *d = clData;
   STIFF *sbs = d->IntegratorContext;
   

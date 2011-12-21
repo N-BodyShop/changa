@@ -10,11 +10,11 @@ typedef struct StiffContextStructure {
     double dtmin;		/* minimum timestep allowed */
     int itermax;		/* number of corrector iterations */
     int nv; 			/* number of dependent variables */
-    double *ymin;
+    double *ymin;		/* minimum value for y */
     double *y0;			/* initial y for global timestep */
     double *y1;			/* predicted value */
-    double *q;
-    double *d;
+    double *q;			/* scratch for creation rate */
+    double *d;			/* scratch for destruction rate */
     double *rtau;		/* ratio of timestep to timescale */
     double *ys;			/* initial y for individual timesteps */
     double *qs;			/* initial production rate */
@@ -28,9 +28,15 @@ typedef struct StiffContextStructure {
  * Integrator Step Headers
  */
 
-STIFF *StiffInit(double eps, int nv, void *Data, 
-		 void (*derivs)(double, const double [], double [],
-			       double [], void *Data)
+STIFF *StiffInit(double eps, 	/* relative accuracy parameter */
+		 int nv,	/* number of dependent variables */
+		 void *Data, 	/* pointer to extra data */
+		 void (*derivs)(double t, const double yin[],  /* input */
+				double yheat[],	/* heating or creation
+						   rate */
+			       double ycool[],	/* cooling or
+						   destruction rate */
+				void *Data)
 		 );
 		   
 void StiffFinalize( STIFF *s );
