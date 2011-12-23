@@ -64,10 +64,11 @@ class TopDownTreeWalk : public TreeWalk{
   private:
 #ifndef CHANGA_REFACTOR_WALKCHECK
   void dft(GenericTreeNode *node, State *state, int chunk, int reqID, bool isRoot, int awi);
-  void bft(GenericTreeNode *node, State *state, int chunk, int reqID, bool isRoot, int awi);
 #else
-  void dft(GenericTreeNode *node, State *state, int chunk, int reqID, bool isRoot, int shift, bool doprint);
+  void dft(GenericTreeNode *node, State *state, int chunk, int reqID, bool isRoot, int awi, int shift, bool doprint);
 #endif
+  void bft(GenericTreeNode *node, State *state, int chunk, int reqID, bool isRoot, int awi);
+
   public: 
   TopDownTreeWalk(Compute *_comp, TreePiece *tp):TreeWalk(_comp,tp,TopDown){}
   TopDownTreeWalk() : TreeWalk(TopDown) {}

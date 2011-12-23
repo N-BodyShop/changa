@@ -297,6 +297,26 @@ struct BucketMsg : public CkMcastBaseMsg, public CMessage_BucketMsg {
   int numParticles;
   int whichTreePiece;
 };
+
+struct PushBufferStruct {
+  int idx;
+  BucketMsg *msg;
+  PushBufferStruct() : idx(-1), msg(NULL) {}
+  PushBufferStruct(int i, BucketMsg *m){
+    idx = i;
+    msg = m;
+  }
+
+  bool operator<=(const PushBufferStruct &o) const {
+    return idx <= o.idx;
+  }
+
+  bool operator>=(const PushBufferStruct &o) const {
+    return idx >= o.idx;
+  }
+};
+
+
 #endif
     
 /// Class to count added and deleted particles
@@ -600,8 +620,12 @@ class TreePiece : public CBase_TreePiece {
    CkVec<double> foreignParticleAccelerations;
 
    map<int,CkSectionInfo> cookieJar;
+
+   CkVec<PushBufferStruct> bufferedPushBuckets;
   
    BucketMsg *createBucketMsg();
+
+   void myRecvPushBuckets(BucketMsg *);
    void unpackBuckets(BucketMsg *, GenericTreeNode *&foreignBuckets, int &numForeignBuckets);
    void calculateForces(GenericTreeNode *foreignBuckets, int numForeignBuckets);
 
@@ -613,6 +637,8 @@ class TreePiece : public CBase_TreePiece {
   void startPushGravity(int am, double myTheta);
   void recvPushBuckets(BucketMsg *);
   void recvPushAccelerations(CkReductionMsg *);
+
+  void resumePushGravity();
 #endif
 
 #if COSMO_PRINT_BK > 1
@@ -1092,8 +1118,6 @@ private:
   ///of TreePieces
   int phase;
 
-  double myTotalMass;
-
  #if INTERLIST_VER > 0
 
 
@@ -1364,9 +1388,6 @@ public:
 	// Load from Tipsy file
 	void loadTipsy(const std::string& filename, const double dTuFac,
 		       const CkCallback& cb);
-
-        void findTotalMass(CkCallback &cb);
-        void recvTotalMass(CkReductionMsg *msg);
 
 	// Write a Tipsy file
 	void writeTipsy(const std::string& filename, const double dTime,

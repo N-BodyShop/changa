@@ -1374,6 +1374,8 @@ void Main::advanceBigStep(int iStep) {
 
 #ifdef PUSH_GRAVITY
             if(bDoPush){ 
+              CkCallback qdcb(CkIndex_TreePiece::resumePushGravity(),treeProxy);
+              CkStartQD(qdcb);
               treeProxy.startPushGravity(activeRung, theta);
             }
 	    else{ 
@@ -1391,6 +1393,8 @@ void Main::advanceBigStep(int iStep) {
 	else {
 #ifdef PUSH_GRAVITY
 	    if(bDoPush){
+              CkCallback qdcb(CkIndex_TreePiece::resumePushGravity(),treeProxy);
+              CkStartQD(qdcb);
               treeProxy.startPushGravity(activeRung, theta);
               CkWaitQD();
             }
@@ -1577,7 +1581,6 @@ void Main::setupICs() {
     double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
     treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
 
-    treeProxy.findTotalMass(CkCallbackResumeThread());
   }	
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;

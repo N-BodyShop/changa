@@ -3562,6 +3562,7 @@ void TreePiece::finishNodeCache(int iPhases, const CkCallback& cb)
 */
 
 void TreePiece::startPushGravity(int am, double myTheta){
+  //CmiMemoryCheck();
   LBTurnInstrumentOn();
   
   iterationNo++;
@@ -3570,18 +3571,22 @@ void TreePiece::startPushGravity(int am, double myTheta){
   thetaMono = theta*theta*theta*theta;
 
   CkAssert(!doMerge);
+#if 0
   if(!createdSpanningTree){
     createdSpanningTree = true;
     allTreePieceSection = CProxySection_TreePiece::ckNew(thisProxy,0,numTreePieces-1,1);
     CkMulticastMgr *mgr = CProxy_CkMulticastMgr(ckMulticastGrpId).ckLocalBranch();
     allTreePieceSection.ckSectionDelegate(mgr);
   }
+#endif
 
   BucketMsg *msg = createBucketMsg();
-  if(msg != NULL) allTreePieceSection.recvPushBuckets(msg);
+  if(msg != NULL) thisProxy.recvPushBuckets(msg);
+  //CmiMemoryCheck();
 }
 
 BucketMsg *TreePiece::createBucketMsg(){
+  //CmiMemoryCheck();
   int saveNumActiveParticles = 0;
   int numActiveParticles = 0;
   int numActiveBuckets = 0;
@@ -3593,8 +3598,8 @@ BucketMsg *TreePiece::createBucketMsg(){
     int buckEnd = bucket->lastParticle;
     GravityParticle *buckParticles = bucket->particlePointer;
     saveNumActiveParticles = numActiveParticles;
-    for(int j = 0; j <= buckEnd-buckStart; j++){
-      if(buckParticles[j].rung >= activeRung){
+    for(int j = buckStart; j <= buckEnd; j++){
+      if(buckParticles[j-buckStart].rung >= activeRung){
         numActiveParticles++;
       }
     }
@@ -3602,6 +3607,9 @@ BucketMsg *TreePiece::createBucketMsg(){
   }
 
   //CkPrintf("tree %d active particles %d active buckets %d\n", thisIndex, numActiveParticles, numActiveBuckets);
+
+  int savedNumActiveParticles = numActiveParticles;
+  int savedNumActiveBuckets = numActiveBuckets;
 
   if(numActiveParticles == 0) return NULL;
 
@@ -3620,10 +3628,10 @@ BucketMsg *TreePiece::createBucketMsg(){
     int buckEnd = sbucket->lastParticle;
     GravityParticle *buckParticles = sbucket->particlePointer;
     saveNumActiveParticles = numActiveParticles;
-    for(int j = 0; j <= buckEnd-buckStart; j++){
-      if(buckParticles[j].rung >= activeRung){
+    for(int j = buckStart; j <= buckEnd; j++){
+      if(buckParticles[j-buckStart].rung >= activeRung){
         // copy active particle to bucket msg
-        msg->particles[numActiveParticles] = buckParticles[j]; 
+        msg->particles[numActiveParticles] = buckParticles[j-buckStart]; 
         numActiveParticles++;
       }
     }
@@ -3644,15 +3652,36 @@ BucketMsg *TreePiece::createBucketMsg(){
   msg->numParticles = numActiveParticles;
   msg->whichTreePiece = thisIndex;
 
+
+  CkAssert(msg->numBuckets == savedNumActiveBuckets);
+  CkAssert(msg->numParticles == savedNumActiveParticles);
+
+  CkAssert(numActiveBuckets >= 0);
+  CkAssert(numActiveParticles >= 0);
+
+  //CmiMemoryCheck();
   return msg;
 }
 
 void TreePiece::recvPushBuckets(BucketMsg *msg){
+  bufferedPushBuckets.push_back(PushBufferStruct(msg->whichTreePiece,msg));
+}
+
+void TreePiece::resumePushGravity(){
+  bufferedPushBuckets.quickSort();
+  for(int i = 0; i < bufferedPushBuckets.length(); i++){
+    myRecvPushBuckets(bufferedPushBuckets[i].msg);
+  }
+  bufferedPushBuckets.length() = 0;
+}
+
+void TreePiece::myRecvPushBuckets(BucketMsg *msg){
+  //CmiMemoryCheck();
   GenericTreeNode *foreignBuckets;
   int numForeignBuckets;
 
 
-  int numFields = 4;
+  int numFields = 3;
   // make sure there is enough space for foreignParticles
   foreignParticles.resize(msg->numParticles);
   foreignParticleAccelerations.resize(numFields*msg->numParticles);
@@ -3664,31 +3693,43 @@ void TreePiece::recvPushBuckets(BucketMsg *msg){
     calculateForces(foreignBuckets,numForeignBuckets);
   }
   // update cookie
-  CkGetSectionInfo(cookieJar[msg->whichTreePiece],msg);
+  // CkGetSectionInfo(cookieJar[msg->whichTreePiece],msg);
 
   for(int i = 0; i < msg->numParticles; i++){
     foreignParticleAccelerations[numFields*i] = foreignParticles[i].treeAcceleration.x;
     foreignParticleAccelerations[numFields*i+1] = foreignParticles[i].treeAcceleration.y;
     foreignParticleAccelerations[numFields*i+2] = foreignParticles[i].treeAcceleration.z;
-    foreignParticleAccelerations[numFields*i+3] = foreignParticles[i].interMass;
+    //foreignParticleAccelerations[numFields*i+3] = foreignParticles[i].interMass;
+    if(foreignParticles[i].interParticles != myNumParticles){
+      CkPrintf("particle %d from tree piece %d BAD total %d expected %d\n", i, msg->whichTreePiece, foreignParticles[i].interParticles, myNumParticles);
+    }
   }
+
+
+  //CmiMemoryCheck();
 
   // contribute accelerations
   CkCallback cb(CkIndex_TreePiece::recvPushAccelerations(NULL),CkArrayIndex1D(msg->whichTreePiece),thisProxy);
+#if 0
   CkMulticastMgr *mgr = CProxy_CkMulticastMgr(ckMulticastGrpId).ckLocalBranch();
   mgr->contribute(foreignParticleAccelerations.length()*sizeof(double),&foreignParticleAccelerations[0],CkReduction::sum_double,cookieJar[msg->whichTreePiece],cb);
+#endif
+  contribute(foreignParticleAccelerations.length()*sizeof(double),&foreignParticleAccelerations[0],CkReduction::sum_double,cb);
 
+  //CmiMemoryCheck();
   delete msg;
 }
 
 void TreePiece::unpackBuckets(BucketMsg *msg, GenericTreeNode *&foreignBuckets, int &numForeignBuckets){
+  //CmiMemoryCheck();
   // Copy foreign particle positions, etc. into local buffer
   for(int i = 0; i < msg->numParticles; i++){
     foreignParticles[i] = msg->particles[i];
     foreignParticles[i].treeAcceleration.x = 0.0;
     foreignParticles[i].treeAcceleration.y = 0.0;
     foreignParticles[i].treeAcceleration.z = 0.0;
-    foreignParticles[i].interMass = 0.0;
+    foreignParticles[i].interParticles = 0;
+    //foreignParticles[i].interMass = 0.0;
   }
 
   // Make buckets point to appropriate positions in local buffer of particles
@@ -3702,9 +3743,11 @@ void TreePiece::unpackBuckets(BucketMsg *msg, GenericTreeNode *&foreignBuckets, 
     GenericTreeNode &bucket = foreignBuckets[i];
     bucket.particlePointer = baseParticlePtr+bucket.firstParticle;
   }
+  //CmiMemoryCheck();
 }
 
 void TreePiece::calculateForces(GenericTreeNode *foreignBuckets, int numForeignBuckets){
+  //CmiMemoryCheck();
   TopDownTreeWalk topdown;
   GravityCompute grav;
   NullState nullState;
@@ -3731,49 +3774,41 @@ void TreePiece::calculateForces(GenericTreeNode *foreignBuckets, int numForeignB
       }
     }
   }
+  //CmiMemoryCheck();
 }
 
 void TreePiece::recvPushAccelerations(CkReductionMsg *msg){
+  //CmiMemoryCheck();
   double *accelerations = (double *) msg->getData();
   int numAccelerations = msg->getSize()/sizeof(double);
   int j = 0;
 
   int numUpdates = 0;
-  int numFields = 4;
+  int numFields = 3;
   for(int i = 1; i <= myNumParticles; i++){
     if(myParticles[i].rung >= activeRung){ 
       myParticles[i].treeAcceleration.x = accelerations[j];
       myParticles[i].treeAcceleration.y = accelerations[j+1];
       myParticles[i].treeAcceleration.z = accelerations[j+2];
 
-      myParticles[i].interMass = accelerations[j+3]; 
+      //myParticles[i].interMass = accelerations[j+3]; 
       j += numFields;
       numUpdates++;
 
+      /*
       double totalMass = myParticles[i].mass+myParticles[i].interMass;
       if(totalMass != myTotalMass){
         CkPrintf("[%d] particle %d interMass %f should be %f partMass %f\n", thisIndex, i, totalMass, myTotalMass, myParticles[i].mass);
         CkAbort("bad intermass\n");
       }
+      */
     }
   }
   CkAssert(numUpdates == numAccelerations/numFields);
+  //CmiMemoryCheck();
 }
+
 #endif
-
-void TreePiece::findTotalMass(CkCallback &cb){
-  callback = cb;
-  myTotalMass = 0;
-  for(int i = 1; i <= myNumParticles; i++){
-    myTotalMass += myParticles[i].mass;
-  }
-  contribute(sizeof(double), &myTotalMass, CkReduction::sum_double, CkCallback(CkIndex_TreePiece::recvTotalMass(NULL),thisProxy));
-}
-
-void TreePiece::recvTotalMass(CkReductionMsg *msg){
-  myTotalMass = *((double *)msg->getData());
-  contribute(0,0,CkReduction::sum_int,callback);
-}
 
 /// This method starts the tree walk and gravity calculation.  It
 /// first registers with the node and particle caches.  It initializes
@@ -4632,7 +4667,7 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, int reqID) {
 #ifdef HPM_COUNTER
     hpmStart(1,"node force");
 #endif
-    int computed = nodeBucketForce(node, reqnode, myParticles, offset, activeRung);
+    int computed = nodeBucketForce(node, reqnode, offset, activeRung);
 #ifdef HPM_COUNTER
     hpmStop(1);
 #endif
@@ -4660,7 +4695,7 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, int reqID) {
     hpmStart(2,"particle force");
 #endif
       computed = partBucketForce(&node->particlePointer[i-node->firstParticle], reqnode,
-                                 myParticles, offset, activeRung);
+                                 offset, activeRung);
 #ifdef HPM_COUNTER
     hpmStop(2);
 #endif

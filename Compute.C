@@ -302,7 +302,7 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
 #ifdef HPM_COUNTER
     hpmStart(2,"particle force");
 #endif
-    computed = partBucketForce(&part[i], reqnode, tp->myParticles, offset, activeRung);
+    computed = partBucketForce(&part[i], reqnode, offset, activeRung);
 #ifdef HPM_COUNTER
     hpmStop(2);
 #endif
@@ -315,8 +315,8 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
 #endif
   tp->particleInterRemote[chunk] += computed * num;
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK
-  tp->bucketcheckList[reqIDlist].insert(remoteBucketID);
-  tp->combineKeys(remoteBucketID,reqIDlist);
+  tp->bucketcheckList[reqIDlist].insert(remoteBucket);
+  tp->combineKeys(remoteBucket,reqIDlist);
 #endif
   tp->finishBucket(reqIDlist);
   CkAssert(state->counterArrays[1][chunk] >= 0);
@@ -434,6 +434,9 @@ void PrefetchCompute::walkDone(){
 #include "TreeNode.h"
 using namespace TreeStuff;
 
+const char *typeString(NodeType type);
+const char *actionString(int type);
+
 int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
                               State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi){
   // ignores state
@@ -455,6 +458,11 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
   CkAssert(opt != NULL);
 
   int action = opt->action(open, node);
+
+  //unsigned int keyint = node->getKey(); 
+
+  //CkPrintf("DFT tp %d node action %s type %s key %u\n", tp->getIndex(), actionString(action), typeString(node->getType()), keyint);
+
   if(action == KEEP){ // keep node
     return KEEP;
   }
@@ -465,14 +473,15 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
 #ifdef BENCHMARK_TIME_COMPUTE
     double startTime = CmiWallTimer();
 #endif
+    GenericTreeNode *buck = (GenericTreeNode *)computeEntity;
     int computed = nodeBucketForce(node,
-                    (GenericTreeNode *)computeEntity,
-                    tp->getParticles(),
+                    buck,
                     tp->decodeOffset(reqID),
                     activeRung);
     
+
     GenericTreeNode *b = (GenericTreeNode *)computeEntity;
-    updateInterMass(b->particlePointer,b->firstParticle,b->lastParticle,node->moments.totalMass);
+    updateInterMass(b->particlePointer,b->firstParticle,b->lastParticle,node->particleCount);
 
 #ifdef BENCHMARK_TIME_COMPUTE
     computeTimeNode += CmiWallTimer() - startTime;
@@ -516,7 +525,6 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
         computed += partBucketForce(
                                   &part[i-node->firstParticle],
                                   (GenericTreeNode *)computeEntity,
-                                  tp->getParticles(),
                                   offset,
                                   activeRung);
 
@@ -599,9 +607,9 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
   return -1;
 }
 
-void GravityCompute::updateInterMass(GravityParticle *p, int start, int end, double totalMass){
+void GravityCompute::updateInterMass(GravityParticle *p, int start, int end, int interParticles){
   for(int j = start; j <= end; j++){
-    p[j-start].interMass += totalMass;
+    p[j-start].interParticles += interParticles;
   }
 }
 
@@ -609,8 +617,11 @@ void GravityCompute::updateInterMass(GravityParticle *p, int start, int end, Gra
   Vector3D<cosmoType> r; 
   for(int j = start; j <= end; j++){
     r = offset + s->position - p[j-start].position;
-    if(r.lengthSquared() == 0) continue;
-    p[j-start].interMass += s->mass;
+    // src/target particles have the same 
+    // key and offset is 0, i.e. 
+    // particle trying to interact with itself.
+    if(p[j-start].key == s->key && offset.x == 0 && offset.y == 0 && offset.z == 0) continue;
+    p[j-start].interParticles++;
   }
 }
 
@@ -624,7 +635,6 @@ int GravityCompute::computeParticleForces(TreePiece *ownerTP, GenericTreeNode *n
     computed += partBucketForce(
                                   &part[i-node->firstParticle],
                                   (GenericTreeNode *)computeEntity,
-                                  ownerTP->getParticles(),
                                   ownerTP->decodeOffset(reqID),
                                   activeRung);
   }
@@ -1410,7 +1420,6 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 #else
           computed =  nodeBucketForce(clist[i].node,
               tp->getBucket(b),
-              particles,
               tp->decodeOffset(clist[i].offsetID), activeRung);
 #endif
           if(getOptType() == Remote){
@@ -1490,7 +1499,6 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 #else
               computed = partBucketForce(&rpi.particles[j],
                   tp->getBucket(b),
-                  particles,
                   rpi.offset, activeRung);
 #endif // CELL_PART
               if(getOptType() == Remote){// don't really have to perform this check
@@ -1543,7 +1551,6 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 #else
               int computed = partBucketForce(&lpi.particles[j],
                   tp->getBucket(b),
-                  particles,
                   lpi.offset, activeRung);
               tp->addToParticleInterLocal(computed);
 #endif// CELL_PART

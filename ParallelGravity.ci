@@ -187,8 +187,6 @@ mainmodule ParallelGravity {
     entry void loadTipsy(const std::string& filename,
         const double dTuFac,
         const CkCallback& cb);
-    entry void findTotalMass(CkCallback &cb);
-    entry void recvTotalMass(CkReductionMsg *msg);
     entry void setupWrite(int iStage, u_int64_t iPrevOffset,
         const std::string& filename,
         const double dTime, const double dvFac,
@@ -295,6 +293,7 @@ mainmodule ParallelGravity {
 #ifdef PUSH_GRAVITY
     entry void startPushGravity(int am, double myTheta);
     entry void recvPushBuckets(BucketMsg *);
+    entry void resumePushGravity();
     entry void recvPushAccelerations(CkReductionMsg *);
 #endif
 

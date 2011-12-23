@@ -103,7 +103,7 @@ class GravityCompute : public Compute{
   double computeTimeNode;
 #endif
 
-  void updateInterMass(GravityParticle *p, int start, int end, double mass);
+  void updateInterMass(GravityParticle *p, int start, int end, int interParticles);
   void updateInterMass(GravityParticle *p, int start, int end, GravityParticle *s, Vector3D<cosmoType> &offset);
 
   public:

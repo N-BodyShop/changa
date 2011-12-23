@@ -266,15 +266,17 @@ static int forProgress = 0;
 #ifndef __SSE2__
 inline int partBucketForce(ExternalGravityParticle *part, 
 			   Tree::GenericTreeNode *req, 
-			   GravityParticle *particles, 
 			   Vector3D<cosmoType> offset, int activeRung) {
   int computed = 0;
   Vector3D<cosmoType> r;
   cosmoType rsq;
   cosmoType twoh, a, b;
 
+  GravityParticle *particles = req->particlePointer; 
+
   for(int j = req->firstParticle; j <= req->lastParticle; ++j) {
-    if (particles[j].rung >= activeRung) {
+    GravityParticle &particle = particles[j-req->firstParticle];
+    if (particle.rung >= activeRung) {
 #ifdef CMK_VERSION_BLUEGENE
       if (++forProgress > 200) {
         forProgress = 0;
@@ -285,17 +287,17 @@ inline int partBucketForce(ExternalGravityParticle *part,
       }
 #endif
       computed++;
-      r = offset + part->position - particles[j].position;
+      r = offset + part->position - particle.position;
       rsq = r.lengthSquared();
-      twoh = part->soft + particles[j].soft;
+      twoh = part->soft + particle.soft;
       if(rsq != 0) {
         SPLINE(rsq, twoh, a, b);
-	cosmoType idt2 = (particles[j].mass + part->mass)*b; // (timescale)^-2
+	cosmoType idt2 = (particle.mass + part->mass)*b; // (timescale)^-2
 	// of interaction
-        particles[j].treeAcceleration += r * (b * part->mass);
-        particles[j].potential -= part->mass * a;
-	if(idt2 > particles[j].dtGrav)
-	  particles[j].dtGrav = idt2;
+        particle.treeAcceleration += r * (b * part->mass);
+        particle.potential -= part->mass * a;
+	if(idt2 > particle.dtGrav)
+	  particle.dtGrav = idt2;
       }
     }
   }
@@ -363,19 +365,21 @@ inline int partBucketForce(ExternalGravityParticle *part,
 
 inline int partBucketForce(ExternalGravityParticle *part, 
 			   Tree::GenericTreeNode *req, 
-			   GravityParticle *particles, 
 			   Vector3D<cosmoType> offset, int activeRung) {
   int nActiveParts = 0; 
   GravityParticle dummyPart = particles[0];
   dummyPart.soft = 0.0;
+
+  GravityParticle *particles = req->particlePointer; 
 
   GravityParticle **activeParticles = 
     (GravityParticle**)alloca((req->lastParticle - req->firstParticle 
 			       + 1 + FORCE_INPUT_LIST_PAD) 
 			      * sizeof(GravityParticle*));
   for (int j=req->firstParticle; j <= req->lastParticle; ++j) {
-    if (particles[j].rung >= activeRung) 
-      activeParticles[nActiveParts++] = &particles[j];
+    GravityParticle &particle = particles[j-req->firstParticle];
+    if (particle.rung >= activeRung) 
+      activeParticles[nActiveParts++] = &particle;
   }
   
   activeParticles[nActiveParts] = &dummyPart; 
@@ -398,7 +402,6 @@ inline int partBucketForce(ExternalGravityParticle *part,
 inline
 int nodeBucketForce(Tree::GenericTreeNode *node, 
 		    Tree::GenericTreeNode *req,  
-		    GravityParticle *particles, 
 		    Vector3D<cosmoType> offset,    
 		    int activeRung)
 
@@ -409,6 +412,9 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
   cosmoType twoh, a, b, c, d;
   MultipoleMoments &m = node->moments;
 
+
+  GravityParticle *particles = req->particlePointer;
+
   Vector3D<cosmoType> cm(m.cm + offset);
 
 #ifdef HEXADECAPOLE
@@ -417,12 +423,12 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
     tmpPart.mass = m.totalMass;
     tmpPart.soft = m.soft;
     tmpPart.position = m.cm;
-    return partBucketForce(&tmpPart, req, particles, offset, activeRung);
+    return partBucketForce(&tmpPart, req, offset, activeRung);
   }
 #endif
   for(int j = req->firstParticle; j <= req->lastParticle; ++j) {
-    if (particles[j].rung >= activeRung) {
-      particles[j].interMass += m.totalMass;
+    GravityParticle &particle = particles[j-req->firstParticle];
+    if (particle.rung >= activeRung) {
 #ifdef CMK_VERSION_BLUEGENE
       if (++forProgress > 200) {
         forProgress = 0;
@@ -433,17 +439,17 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
       }
 #endif
       computed++;
-      r = Vector3D<cosmoType>(particles[j].position) - cm;
+      r = Vector3D<cosmoType>(particle.position) - cm;
       rsq = r.lengthSquared();
       cosmoType dir = COSMO_CONST(1.0)/sqrt(rsq);
 #ifdef HEXADECAPOLE
-      momEvalMomr(&m.mom, dir, -r.x, -r.y, -r.z, &particles[j].potential,
-		  &particles[j].treeAcceleration.x,
-		  &particles[j].treeAcceleration.y,
-		  &particles[j].treeAcceleration.z);
-      cosmoType idt2 = (particles[j].mass + m.totalMass)*dir*dir*dir;
+      momEvalMomr(&m.mom, dir, -r.x, -r.y, -r.z, &particle.potential,
+		  &particle.treeAcceleration.x,
+		  &particle.treeAcceleration.y,
+		  &particle.treeAcceleration.z);
+      cosmoType idt2 = (particle.mass + m.totalMass)*dir*dir*dir;
 #else
-      twoh = CONVERT_TO_COSMO_TYPE(m.soft + particles[j].soft);
+      twoh = CONVERT_TO_COSMO_TYPE(m.soft + particle.soft);
       SPLINEQ(dir, rsq, twoh, a, b, c, d);
       cosmoType qirx = CONVERT_TO_COSMO_TYPE m.xx*r.x 
 	+ CONVERT_TO_COSMO_TYPE m.xy*r.y + CONVERT_TO_COSMO_TYPE m.xz*r.z;
@@ -456,16 +462,16 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
 				       + CONVERT_TO_COSMO_TYPE m.yy 
 				       + CONVERT_TO_COSMO_TYPE m.zz);
       cosmoType qir3 = b*CONVERT_TO_COSMO_TYPE m.totalMass + d*qir - c*tr;
-      particles[j].potential -= CONVERT_TO_COSMO_TYPE m.totalMass * a 
+      particle.potential -= CONVERT_TO_COSMO_TYPE m.totalMass * a 
 	+ c*qir - b*tr;
-      particles[j].treeAcceleration.x -= qir3*r.x - c*qirx;
-      particles[j].treeAcceleration.y -= qir3*r.y - c*qiry;
-      particles[j].treeAcceleration.z -= qir3*r.z - c*qirz;
-      cosmoType idt2 = (CONVERT_TO_COSMO_TYPE particles[j].mass 
+      particle.treeAcceleration.x -= qir3*r.x - c*qirx;
+      particle.treeAcceleration.y -= qir3*r.y - c*qiry;
+      particle.treeAcceleration.z -= qir3*r.z - c*qirz;
+      cosmoType idt2 = (CONVERT_TO_COSMO_TYPE particle.mass 
 			+ CONVERT_TO_COSMO_TYPE m.totalMass)*b;
 #endif
-      if(idt2 > particles[j].dtGrav)
-        particles[j].dtGrav = idt2;
+      if(idt2 > particle.dtGrav)
+        particle.dtGrav = idt2;
     }
   }
   return computed;
@@ -475,7 +481,6 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
 inline
 int nodeBucketForce(Tree::GenericTreeNode *node, 
 		    Tree::GenericTreeNode *req,  
-		    GravityParticle *particles, 
 		    Vector3D<cosmoType> offset,    
 		    int activeRung)
 
@@ -487,6 +492,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
   MultipoleMoments m = node->moments;
   Vector3D<cosmoType> cm(m.cm + offset);
   int nActiveParts = 0;
+  GravityParticle *particles = req->particlePointer;
   GravityParticle dummyPart = particles[0];
   dummyPart.soft = 0.0;
 
@@ -495,8 +501,9 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
 			       + 1 + FORCE_INPUT_LIST_PAD) 
 			      * sizeof(GravityParticle*));
   for (int j=req->firstParticle; j <= req->lastParticle; ++j) {
-    if (particles[j].rung >= activeRung) 
-      activeParticles[nActiveParts++] = &particles[j];
+    GravityParticle &particle = particles[j-req->firstParticle];
+    if (particle.rung >= activeRung) 
+      activeParticles[nActiveParts++] = &particle;
   }
 
   activeParticles[nActiveParts] = &dummyPart; 

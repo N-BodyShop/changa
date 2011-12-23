@@ -2,6 +2,8 @@
 #ifndef CODES_H
 #define CODES_H
 
+#define NUM_ACTION_TYPES 8
+
 #define KEEP 0  // descend further down this path
 #define KEEP_REMOTE_BUCKET 6    // request particles of a remote bucket
 #define KEEP_LOCAL_BUCKET 7     // directly access particles of a local bucket

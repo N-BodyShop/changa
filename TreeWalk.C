@@ -32,19 +32,11 @@ void TopDownTreeWalk::walk(GenericTreeNode *startNode, State *state, int chunk, 
   dft(startNode, state, chunk, reqID, true, awi);       // isRoot
 #endif
 #else
-  bool doprint = false;
-  if(comp->getSelfType() == Gravity && comp->getOptType() == Remote){
-    // FIXME - TP::getCurrentRemote Bucket method is no more
-    doprint = (ownerTP->/*getCurrentRemote Bucket()*/ == CHECK_BUCKET && ownerTP->getIndex() == CHECK_INDEX);
-  }
-  else if(comp->getSelfType() == Gravity && comp->getOptType() == Local){
-    // FIXME - TP::getCurrent Bucket method is no more
-    doprint = (ownerTP->/*getCurrent Bucket()*/ == CHECK_BUCKET && ownerTP->getIndex() == CHECK_INDEX);
-  }
+  bool doprint = true;
   if(doprint){
     CkPrintf("Printing walk (%d: type %c)\n", ownerTP->getIndex(), comp->getOptType() == Local ? 'L' : 'R');
   }
-  dft(startNode, state, chunk, reqID, true, 0, doprint);       // isRoot
+  dft(startNode, state, chunk, reqID, true, awi, 0, doprint);       // isRoot
 #endif
 #ifdef BENCHMARK_TIME_WALK
   walkTime += CmiWallTimer() - startTime;
@@ -54,7 +46,7 @@ void TopDownTreeWalk::walk(GenericTreeNode *startNode, State *state, int chunk, 
 #ifndef CHANGA_REFACTOR_WALKCHECK
 void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int reqID, bool isRoot, int awi){
 #else
-void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int reqID, bool isRoot, int shift, bool doprint){
+void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int reqID, bool isRoot, int awi, int shift, bool doprint){
 #endif
   int ret;
   if(node == NULL){   // something went wrong here
@@ -76,8 +68,8 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
   if(doprint){
     string s;
     for(int i = 0; i < shift; i++) s = s + " ";
-    char *arr = "KD";
-    char *c = "NY";
+    string arr("KD");
+    string c("NY");
     if(ret == KEEP)
       CkPrintf("%s%ld (%c)\n", s.c_str(),node->getKey(), arr[ret]);
     else if(ret == DUMP)
@@ -146,7 +138,7 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
 #ifndef CHANGA_REFACTOR_WALKCHECK
       dft(child, state, chunk, reqID, false, awi);
 #else
-      dft(child, state, chunk, reqID, false, shift+2, doprint);
+      dft(child, state, chunk, reqID, false, awi, shift+2, doprint);
 #endif
 
     }// for each child
@@ -520,7 +512,7 @@ void LocalTargetWalk::resumeWalk(GenericTreeNode *node, State *state_, int chunk
 }
 #endif
 
-const char *translations[] = {"",
+const char *_translations[] = {"",
                                  "Invalid",
                                  "Bucket",
                                  "Internal",
@@ -536,5 +528,21 @@ const char *translations[] = {"",
 
 const char *typeString(NodeType type){
   CkAssert(type > 0 && type <= NUM_NODE_TYPES);
-  return translations[type];
+  return _translations[type];
+}
+
+const char *_action_translations[] = {
+                                 "Keep",
+                                 "Dump",
+                                 "Error",
+                                 "NOP",
+                                 "Compute",
+                                 "Defer",
+                                 "KeepRemoteBucket",
+                                 "KeepLocalBucket"
+                                 };
+
+const char *actionString(int type){
+  CkAssert(type >= 0 && type < NUM_ACTION_TYPES);
+  return _action_translations[type];
 }

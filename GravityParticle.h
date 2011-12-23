@@ -150,7 +150,7 @@ public:
 	double extpartmass;
 #endif
 
-        double interMass;
+        int interParticles;
 	
 	GravityParticle(SFC::Key k = 0) : ExternalGravityParticle() {
           key = k;
