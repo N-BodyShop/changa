@@ -532,10 +532,10 @@ Main::Main(CkArgMsg* m) {
 		    sizeof(int),"consph", "Enable SPH running concurrently with Gravity");
 
 #ifdef PUSH_GRAVITY
-        param.dFracPushParticles = 0.0;
-	prmAddParam(prm, "dFracPush", paramDouble,
-		    &param.dFracPushParticles, sizeof(double),"fPush",
-		    "Maximum proportion of active to total particles for push-based force evaluation = 0.0");
+        param.iMaxPushParticles = 0;
+	prmAddParam(prm, "iMaxPushParticles", paramInt,
+		    &param.iMaxPushParticles, sizeof(double),"iPush",
+		    "Maximum number of active particles for push-based force evaluation = 0");
 #endif
 
 
@@ -1334,8 +1334,8 @@ void Main::advanceBigStep(int iStep) {
 
 
 #ifdef PUSH_GRAVITY
-    bool bDoPush = param.dFracPushParticles*nTotalParticles > nActiveGrav;
-    if(bDoPush) CkPrintf("[main] fracActive %f PUSH_GRAVITY\n", 1.0*nActiveGrav/nTotalParticles);
+    bool bDoPush = param.iMaxPushParticles > nActiveGrav;
+    if(bDoPush) CkPrintf("[main] nActive %d PUSH_GRAVITY\n", nActiveGrav);
 #endif
 
     /******** Tree Build *******/

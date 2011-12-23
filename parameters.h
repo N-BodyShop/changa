@@ -41,7 +41,7 @@ typedef struct parameters {
     int bConcurrentSph;
     double dFracNoDomainDecomp;
 #ifdef PUSH_GRAVITY
-    double dFracPushParticles;
+    int iMaxPushParticles;
 #endif
     CSM csm;			/* cosmo parameters */
     double dRedTo;
@@ -140,7 +140,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.bConcurrentSph;
     p|param.dFracNoDomainDecomp;
 #ifdef PUSH_GRAVITY
-    p|param.dFracPushParticles;
+    p|param.iMaxPushParticles;
 #endif
     if(p.isUnpacking())
  	csmInitialize(&param.csm);
