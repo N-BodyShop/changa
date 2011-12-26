@@ -160,6 +160,7 @@ Orb3dLB.h \
 Opt.h \
 TreeWalk.h \
 smooth.h \
+State.h \
 
 param.o: \
 param.c \
@@ -451,6 +452,13 @@ DataManager.h \
 ParallelGravity.decl.h \
 Reductions.decl.h \
 Compute.h \
+
+EvacLB.o: \
+EvacLB.cpp \
+EvacLB.h \
+EvacLB.decl.h \
+../utility/structures/Vector3D.h \
+../utility/structures/TypeSelection.h \
 
 starform.o: \
 starform.C \

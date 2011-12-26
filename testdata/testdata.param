@@ -1,6 +1,6 @@
 bPeriodic       = 1
 dTheta          = 0.75
-nReplicas       = 1
+nReplicas       = 0
 achInFile       = testdata.tbin
 achOutName      = testdata
 dHubble0        = 2.894405
