@@ -275,7 +275,7 @@ public:
         }
 };
 
-PushExternalGravityParticle &PushExternalGravityParticle::operator=(const GravityParticle &p){
+inline PushExternalGravityParticle &PushExternalGravityParticle::operator=(const GravityParticle &p){
   *((ExternalGravityParticle *)this) = p;
 
   rung = p.rung;

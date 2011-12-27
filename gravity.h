@@ -367,10 +367,10 @@ inline int partBucketForce(ExternalGravityParticle *part,
 			   Tree::GenericTreeNode *req, 
 			   Vector3D<cosmoType> offset, int activeRung) {
   int nActiveParts = 0; 
-  GravityParticle dummyPart = particles[0];
-  dummyPart.soft = 0.0;
 
   GravityParticle *particles = req->particlePointer; 
+  GravityParticle dummyPart = particles[0];
+  dummyPart.soft = 0.0;
 
   GravityParticle **activeParticles = 
     (GravityParticle**)alloca((req->lastParticle - req->firstParticle 
