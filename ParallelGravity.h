@@ -293,7 +293,7 @@ public:
 struct BucketMsg : public CkMcastBaseMsg, public CMessage_BucketMsg {
   GenericTreeNode *buckets;
   int numBuckets;
-  ExternalGravityParticle *particles;
+  PushExternalGravityParticle *particles;
   int numParticles;
   int whichTreePiece;
 };
@@ -619,6 +619,8 @@ class TreePiece : public CBase_TreePiece {
    CkVec<GravityParticle> foreignParticles;
    CkVec<double> foreignParticleAccelerations;
 
+   CkVec<int> myActiveParticleIndices;
+
    map<int,CkSectionInfo> cookieJar;
 
    CkVec<PushBufferStruct> bufferedPushBuckets;
@@ -634,7 +636,7 @@ class TreePiece : public CBase_TreePiece {
  public:
 
 #ifdef PUSH_GRAVITY
-  void startPushGravity(int am, double myTheta);
+  void startPushGravity(int am, double myTheta, CkCallback);
   void recvPushBuckets(BucketMsg *);
   void recvPushAccelerations(CkReductionMsg *);
 
@@ -1456,6 +1458,7 @@ public:
   void drift(double dDelta, int bNeedVPred, int bGasIsothermal, double dvDelta,
 	     double duDelta, int nGrowMass, const CkCallback& cb);
   void initAccel(int iKickRung, const CkCallback& cb);
+  void printAccel(CkCallback &cb);
 /**
  * Adjust timesteps of active particles.
  * @param iKickRung The rung we are on.

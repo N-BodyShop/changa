@@ -851,6 +851,15 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
   contribute(0, 0, CkReduction::concat, cb);
 }
 
+void TreePiece::printAccel(CkCallback &cb){
+  for(unsigned int i = 1; i <= myNumParticles; ++i) {
+    Vector3D<double> &a = myParticles[i].treeAcceleration;
+    CkPrintf("[%d] %d %f %f %f\n", thisIndex, i, a.x, a.y, a.z);
+  }
+
+  contribute(0,0,CkReduction::sum_int,cb);
+}
+
 void TreePiece::initAccel(int iKickRung, const CkCallback& cb) 
 {
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
@@ -3561,7 +3570,7 @@ void TreePiece::finishNodeCache(int iPhases, const CkCallback& cb)
   work has finished, quiescence is detected and we move on in the small step.
 */
 
-void TreePiece::startPushGravity(int am, double myTheta){
+void TreePiece::startPushGravity(int am, double myTheta, CkCallback cb){
   //CmiMemoryCheck();
   LBTurnInstrumentOn();
   
@@ -3571,17 +3580,22 @@ void TreePiece::startPushGravity(int am, double myTheta){
   thetaMono = theta*theta*theta*theta;
 
   CkAssert(!doMerge);
-#if 0
   if(!createdSpanningTree){
     createdSpanningTree = true;
     allTreePieceSection = CProxySection_TreePiece::ckNew(thisProxy,0,numTreePieces-1,1);
     CkMulticastMgr *mgr = CProxy_CkMulticastMgr(ckMulticastGrpId).ckLocalBranch();
     allTreePieceSection.ckSectionDelegate(mgr);
   }
-#endif
 
   BucketMsg *msg = createBucketMsg();
-  if(msg != NULL) thisProxy.recvPushBuckets(msg);
+  //if(msg != NULL) thisProxy.recvPushBuckets(msg);
+  if(msg != NULL){
+    callback = cb;
+    allTreePieceSection.recvPushBuckets(msg);
+  }
+  else{
+    contribute(0,0,CkReduction::sum_int,cb);
+  }
   //CmiMemoryCheck();
 }
 
@@ -3632,6 +3646,8 @@ BucketMsg *TreePiece::createBucketMsg(){
       if(buckParticles[j-buckStart].rung >= activeRung){
         // copy active particle to bucket msg
         msg->particles[numActiveParticles] = buckParticles[j-buckStart]; 
+        myActiveParticleIndices.push_back(j);
+        //CkPrintf("[%d] particle %d active\n", thisIndex, j);
         numActiveParticles++;
       }
     }
@@ -3664,7 +3680,8 @@ BucketMsg *TreePiece::createBucketMsg(){
 }
 
 void TreePiece::recvPushBuckets(BucketMsg *msg){
-  bufferedPushBuckets.push_back(PushBufferStruct(msg->whichTreePiece,msg));
+  //bufferedPushBuckets.push_back(PushBufferStruct(msg->whichTreePiece,msg));
+  myRecvPushBuckets(msg);
 }
 
 void TreePiece::resumePushGravity(){
@@ -3681,7 +3698,7 @@ void TreePiece::myRecvPushBuckets(BucketMsg *msg){
   int numForeignBuckets;
 
 
-  int numFields = 3;
+  int numFields = 4;
   // make sure there is enough space for foreignParticles
   foreignParticles.resize(msg->numParticles);
   foreignParticleAccelerations.resize(numFields*msg->numParticles);
@@ -3693,12 +3710,15 @@ void TreePiece::myRecvPushBuckets(BucketMsg *msg){
     calculateForces(foreignBuckets,numForeignBuckets);
   }
   // update cookie
-  // CkGetSectionInfo(cookieJar[msg->whichTreePiece],msg);
+  CkGetSectionInfo(cookieJar[msg->whichTreePiece],msg);
 
   for(int i = 0; i < msg->numParticles; i++){
     foreignParticleAccelerations[numFields*i] = foreignParticles[i].treeAcceleration.x;
     foreignParticleAccelerations[numFields*i+1] = foreignParticles[i].treeAcceleration.y;
     foreignParticleAccelerations[numFields*i+2] = foreignParticles[i].treeAcceleration.z;
+    foreignParticleAccelerations[numFields*i+3] = foreignParticles[i].potential;
+
+    //CkPrintf("[%d] contrib for %d particle %d acc %f %f %f pot %f\n", thisIndex, msg->whichTreePiece, i, foreignParticleAccelerations[numFields*i], foreignParticleAccelerations[numFields*i+1], foreignParticleAccelerations[numFields*i+2], foreignParticleAccelerations[numFields*i+3]);
     //foreignParticleAccelerations[numFields*i+3] = foreignParticles[i].interMass;
     if(foreignParticles[i].interParticles != myNumParticles){
       CkPrintf("particle %d from tree piece %d BAD total %d expected %d\n", i, msg->whichTreePiece, foreignParticles[i].interParticles, myNumParticles);
@@ -3710,11 +3730,11 @@ void TreePiece::myRecvPushBuckets(BucketMsg *msg){
 
   // contribute accelerations
   CkCallback cb(CkIndex_TreePiece::recvPushAccelerations(NULL),CkArrayIndex1D(msg->whichTreePiece),thisProxy);
-#if 0
   CkMulticastMgr *mgr = CProxy_CkMulticastMgr(ckMulticastGrpId).ckLocalBranch();
   mgr->contribute(foreignParticleAccelerations.length()*sizeof(double),&foreignParticleAccelerations[0],CkReduction::sum_double,cookieJar[msg->whichTreePiece],cb);
-#endif
+#if 0
   contribute(foreignParticleAccelerations.length()*sizeof(double),&foreignParticleAccelerations[0],CkReduction::sum_double,cb);
+#endif
 
   //CmiMemoryCheck();
   delete msg;
@@ -3728,6 +3748,7 @@ void TreePiece::unpackBuckets(BucketMsg *msg, GenericTreeNode *&foreignBuckets, 
     foreignParticles[i].treeAcceleration.x = 0.0;
     foreignParticles[i].treeAcceleration.y = 0.0;
     foreignParticles[i].treeAcceleration.z = 0.0;
+    foreignParticles[i].potential = 0.0;
     foreignParticles[i].interParticles = 0;
     //foreignParticles[i].interMass = 0.0;
   }
@@ -3783,13 +3804,33 @@ void TreePiece::recvPushAccelerations(CkReductionMsg *msg){
   int numAccelerations = msg->getSize()/sizeof(double);
   int j = 0;
 
+  // FIXME instead of going through all particles, maintain list of active particles
+  // only
+
   int numUpdates = 0;
-  int numFields = 3;
+  int numFields = 4;
+
+  for(int i = 0; i < myActiveParticleIndices.length(); i++){
+    int idx = myActiveParticleIndices[i];
+    GravityParticle &p = myParticles[idx];
+    p.treeAcceleration.x = accelerations[j];
+    p.treeAcceleration.y = accelerations[j+1];
+    p.treeAcceleration.z = accelerations[j+2];
+    p.potential = accelerations[j+3];
+
+    j += numFields;
+    numUpdates++;
+  }
+
+  myActiveParticleIndices.resize(0);
+
+#if 0
   for(int i = 1; i <= myNumParticles; i++){
     if(myParticles[i].rung >= activeRung){ 
       myParticles[i].treeAcceleration.x = accelerations[j];
       myParticles[i].treeAcceleration.y = accelerations[j+1];
       myParticles[i].treeAcceleration.z = accelerations[j+2];
+      myParticles[i].potential = accelerations[j+3];
 
       //myParticles[i].interMass = accelerations[j+3]; 
       j += numFields;
@@ -3804,7 +3845,17 @@ void TreePiece::recvPushAccelerations(CkReductionMsg *msg){
       */
     }
   }
+
+  /*
+  for(int i = 0; i < numAccelerations; i += numFields){
+    CkPrintf("[%d] particle %d acc %f %f %f pot %f\n", thisIndex, i, accelerations[i], accelerations[i+1], accelerations[i+2], accelerations[i+3]);
+  }
+  */
+#endif
+
   CkAssert(numUpdates == numAccelerations/numFields);
+  delete msg;
+  contribute(0,0,CkReduction::sum_int,callback);
   //CmiMemoryCheck();
 }
 

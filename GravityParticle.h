@@ -33,6 +33,35 @@ class ExternalGravityParticle {
   }
 };
 
+class GravityParticle;
+
+class PushExternalGravityParticle : public ExternalGravityParticle {
+  public:
+
+  int rung;
+  double dtGrav;
+#ifdef CHANGESOFT
+  double fSoft0;
+#endif
+#ifdef NEED_DT
+  double dt;
+#endif
+
+  void pup(PUP::er &p){
+    ExternalGravityParticle::pup(p);
+    p|rung;
+    p|dtGrav;
+#ifdef CHANGESOFT
+    p|fSoft0;
+#endif
+#ifdef NEED_DT
+    p|dt;
+#endif
+  }
+
+  PushExternalGravityParticle &operator=(const GravityParticle &p);
+};
+
 // Extra data needed for SPH
 class extraSPHData 
 {
@@ -224,7 +253,42 @@ public:
           soft = p.soft;
           position = p.position;
         }
+
+        GravityParticle &operator=(const PushExternalGravityParticle &p){
+          /*
+          mass = p.mass;
+          soft = p.soft;
+          position = p.position;
+          */
+
+          (*this) = *((const ExternalGravityParticle *)&p);
+
+          rung = p.rung;
+          dtGrav = p.dtGrav;
+#ifdef CHANGESOFT
+          fSoft0 = p.fSoft0;
+#endif
+#ifdef NEED_DT
+          dt = p.dt;
+#endif
+
+        }
 };
+
+PushExternalGravityParticle &PushExternalGravityParticle::operator=(const GravityParticle &p){
+  *((ExternalGravityParticle *)this) = p;
+
+  rung = p.rung;
+  dtGrav = p.dtGrav;
+#ifdef CHANGESOFT
+  fSoft0 = p.fSoft0;
+#endif
+#ifdef NEED_DT
+  dt = p.dt;
+#endif
+
+}
+
 
 inline int TYPETest(GravityParticle *a, unsigned int b) {
     return a->iType & b;

@@ -1374,9 +1374,9 @@ void Main::advanceBigStep(int iStep) {
 
 #ifdef PUSH_GRAVITY
             if(bDoPush){ 
-              CkCallback qdcb(CkIndex_TreePiece::resumePushGravity(),treeProxy);
-              CkStartQD(qdcb);
-              treeProxy.startPushGravity(activeRung, theta);
+              //CkCallback qdcb(CkIndex_TreePiece::resumePushGravity(),treeProxy);
+              //CkStartQD(qdcb);
+              treeProxy.startPushGravity(activeRung, theta, CkCallbackResumeThread());
             }
 	    else{ 
 #endif
@@ -1393,9 +1393,9 @@ void Main::advanceBigStep(int iStep) {
 	else {
 #ifdef PUSH_GRAVITY
 	    if(bDoPush){
-              CkCallback qdcb(CkIndex_TreePiece::resumePushGravity(),treeProxy);
-              CkStartQD(qdcb);
-              treeProxy.startPushGravity(activeRung, theta);
+              //CkCallback qdcb(CkIndex_TreePiece::resumePushGravity(),treeProxy);
+              //CkStartQD(qdcb);
+              treeProxy.startPushGravity(activeRung, theta, CkCallbackResumeThread());
               CkWaitQD();
             }
 	    else{
@@ -1533,6 +1533,8 @@ void Main::advanceBigStep(int iStep) {
       CkExit();
     }
 #endif
+
+    //treeProxy.printAccel(CkCallbackResumeThread());
 
 		
   }
