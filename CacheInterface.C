@@ -58,7 +58,7 @@ void TreePiece::fillRequestParticles(CkCacheRequestMsg *msg) {
   data->begin = bucket->firstParticle;
   data->end = bucket->lastParticle;
   
-  for (int i=0; i<bucket->particleCount; ++i) {
+  for (unsigned int i=0; i<bucket->particleCount; ++i) {
     data->part[i] = *((ExternalGravityParticle*)&myParticles[i+bucket->firstParticle]);
   }
   
@@ -162,11 +162,11 @@ void TreePiece::processReqSmoothParticles() {
 	CacheSmoothParticle *data = (CacheSmoothParticle*)reply->data;
 	data->begin = bucket->firstParticle;
 	data->end = bucket->lastParticle;
-	for (int ip=0; ip<bucket->particleCount; ++ip) {
+	for (unsigned int ip=0; ip<bucket->particleCount; ++ip) {
 	    data->partExt[ip] = myParticles[ip+bucket->firstParticle].getExternalSmoothParticle();
 	    }
 
-	for(int i = 0; i < vRec->length(); ++i) {
+	for(unsigned int i = 0; i < vRec->length(); ++i) {
 	    nCacheAccesses++;
 	    if(i < vRec->length() - 1) { // Copy message if there is
 					 // more than one outstanding request.
@@ -206,7 +206,7 @@ void TreePiece::fillRequestSmoothParticles(CkCacheRequestMsg *msg) {
   data->begin = bucket->firstParticle;
   data->end = bucket->lastParticle;
   
-  for (int i=0; i<bucket->particleCount; ++i) {
+  for (unsigned int i=0; i<bucket->particleCount; ++i) {
       data->partExt[i] = myParticles[i+bucket->firstParticle].getExternalSmoothParticle();
   }
   

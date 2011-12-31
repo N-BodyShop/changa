@@ -174,7 +174,7 @@ void TopDownTreeWalk::bft(GenericTreeNode *node, State *state, int chunk, int re
     ret = comp->doWork(node, this, state, chunk, reqID, isRoot, didcomp, awi);
 
     if(ret == KEEP){      // descend further down tree
-      for(int i = 0; i < node->numChildren(); i++){
+      for(unsigned int i = 0; i < node->numChildren(); i++){
         GenericTreeNode *child = node->getChildren(i);
         globalKey = node->getChildKey(i);
 
@@ -238,7 +238,7 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
 	ret = comp->doWork(node, this, state, chunk, reqID, isRoot, didcomp,
 			   awi);
 	if(ret == KEEP){      // descend further down tree
-	    for(int i = 0; i < node->numChildren(); i++){
+	    for(unsigned int i = 0; i < node->numChildren(); i++){
 		GenericTreeNode *child = node->getChildren(i);
 		currentGlobalKey = node->getChildKey(i);
 
@@ -335,7 +335,7 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
     // process parent's undecided nodes first
     // don't modify parentundlist - sibling will need the same list
     CkAssert(chklist.isEmpty());
-    for(int i = 0; i < parentUndlist.length(); i++)
+    for(unsigned int i = 0; i < parentUndlist.length(); i++)
     {
       // get remote node from state
       OffsetNode &glblNode = parentUndlist[i];
@@ -450,7 +450,6 @@ void LocalTargetWalk::resumeWalk(GenericTreeNode *node, State *state_, int chunk
 	// untouched.
 	GenericTreeNode *dummySource = source;
 	ownerTP->getBucketsBeneathBounds(dummySource, startBucket, endBucket);
-	int tpindex = ownerTP->getIndex();
 
 	// clear all levels up to and including source
 	// this is so that we don't include the lists from

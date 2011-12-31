@@ -267,7 +267,7 @@ void dfProjection( struct inDumpFrame *in, struct dfFrameSetup *fs, int nxPix, i
 
 void dfParseOptions( struct DumpFrameContext *df, char * filename ) {
 	FILE *fp;
-	int n,nitem;
+	int nitem;
 	char line[81],command[40],word[40];
 	char FileBaseName[81]="Frame";
 	char NumberingFormat[41]="";
@@ -299,7 +299,6 @@ void dfParseOptions( struct DumpFrameContext *df, char * filename ) {
 
 	rewind( fp );
 
-	n=0;
 	for ( ;; ) {
 		if (fgets( line, 81, fp ) == NULL) break;
 		nitem = sscanf( line, "%s", command );

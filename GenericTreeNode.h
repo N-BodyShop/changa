@@ -571,7 +571,7 @@ namespace Tree {
       }
       else{ //Below the TreePiece root level
         float len=0.0,len2=0.0;
-        char dim;
+        int dim;
 	
 	if(spatial) { // "squeeze" box before division
 	    boundingBox.reset();
