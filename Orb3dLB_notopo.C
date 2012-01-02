@@ -2,6 +2,7 @@
 #include "cklists.h"
 #include "Orb3dLB_notopo.h"
 #include "ParallelGravity.h"
+#include "Refiner.h"
 #include "TopoManager.h"
 #include "Vector3D.h"
 
@@ -111,6 +112,71 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
 
   orbPartition(tpEvents,box,stats->count);
 
+  int *from_procs = Refiner::AllocProcs(stats->count, stats);
+  int migr = 0;
+  for(int i = 0; i < numobjs; i++){
+    if(stats->to_proc[i] != stats->from_proc[i]) migr++;
+    int pe = stats->to_proc[i];
+    from_procs[i] = pe;
+  }
+
+  int *to_procs = Refiner::AllocProcs(stats->count, stats);
+
+  Refiner refiner(1.010);
+
+  refiner.Refine(stats->count,stats,from_procs,to_procs);
+
+  int numRefineMigrated = 0;
+  for(int i = 0; i < numobjs; i++){
+    if(to_procs[i] != from_procs[i]) numRefineMigrated++;
+    stats->to_proc[i] = to_procs[i];
+  }
+
+  double minWall = 0.0;
+  double maxWall = 0.0;
+  double avgWall = 0.0;
+
+  double minObj = 0.0;
+  double maxObj = 0.0;
+  double avgObj = 0.0;
+
+  CkPrintf("***************************\n");
+  CkPrintf("Before LB step %d\n", step());
+  CkPrintf("***************************\n");
+  CkPrintf("i pe wall idle bg_wall objload\n");
+  for(int i = 0; i < stats->count; i++){
+    double wallTime = stats->procs[i].total_walltime;
+    double idleTime = stats->procs[i].idletime;
+    double bgTime = stats->procs[i].bg_walltime;
+    double objTime = wallTime-(idleTime+bgTime);
+    /*
+    CkPrintf("[pestats] %d %d %f %f %f %f\n", 
+        i,
+        stats->procs[i].pe, 
+        wallTime,
+        idleTime,
+        bgTime,
+        objTime);
+        */
+
+    avgWall += wallTime; 
+    avgObj += objTime; 
+
+    if(i==0 || minWall > wallTime) minWall = wallTime;
+    if(i==0 || maxWall < wallTime) maxWall = wallTime;
+
+    if(i==0 || minObj > objTime) minObj = objTime;
+    if(i==0 || maxObj < objTime) maxObj = objTime;
+
+  }
+
+  avgWall /= stats->count;
+  avgObj /= stats->count;
+
+#if 0
+  float minload, maxload, avgload;
+  minload = maxload = procload[0];
+  avgload = 0.0;
   for(int i = 0; i < stats->count; i++){
     CkPrintf("pe %d load %f box %f %f %f %f %f %f\n", i, procload[i], 
                                 procbox[i].lesser_corner.x,
@@ -120,7 +186,25 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
                                 procbox[i].greater_corner.y,
                                 procbox[i].greater_corner.z
                                 );
+    avgload += procload[i];
+    if(minload > procload[i]) minload = procload[i];
+    if(maxload < procload[i]) maxload = procload[i];
   }
+
+  avgload /= stats->count;
+
+  CkPrintf("Orb3dLB_notopo stats: min %f max %f avg %f max/avg %f\n", minload, maxload, avgload, maxload/avgload);
+#endif
+
+ 
+  CkPrintf("Orb3dLB_notopo stats: minWall %f maxWall %f avgWall %f maxWall/avgWall %f\n", minWall, maxWall, avgWall, maxWall/avgWall);
+  CkPrintf("Orb3dLB_notopo stats: minObj %f maxObj %f avgObj %f maxObj/avgObj %f\n", minObj, maxObj, avgObj, maxObj/avgObj);
+  CkPrintf("Orb3dLB_notopo stats: orb migrated %d refine migrated %d objects\n", migr, numRefineMigrated);
+
+  // Free the refine buffers
+  Refiner::FreeProcs(from_procs);
+  Refiner::FreeProcs(to_procs);
+
 }
 
 void Orb3dLB_notopo::orbPartition(CkVec<Event> *events, OrientedBox<float> &box, int nprocs){
