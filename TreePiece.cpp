@@ -652,6 +652,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
       myParticles = NULL;
     }
     myNumParticles = 0;
+    nStore = 0;
     if (nStoreSPH > 0){
       delete[] mySPHParticles;
       mySPHParticles = NULL;

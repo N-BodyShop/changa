@@ -1267,7 +1267,7 @@ public:
         public:
 	~TreePiece() {
 	  if (verbosity>1) ckout <<"Deallocating treepiece "<<thisIndex<<endl;
-	  delete[] myParticles;
+	  if(nStore > 0) delete[] myParticles;
 	  if(nStoreSPH > 0) delete[] mySPHParticles;
 	  if(nStoreStar > 0) delete[] myStarParticles;
 	  //delete[] splitters;
