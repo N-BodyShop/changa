@@ -17,9 +17,6 @@ BaseLB * AllocateOrb3dLB_notopo();
 
 class Orb3dLB_notopo : public CentralLB {
 private:
-  CmiBool firstRound; 
-  ComparatorFn compares[NDIMS];
-  ComparatorFn pc[NDIMS];
   // pointer to stats->to_proc
   CkVec<int> *mapping;
 
@@ -27,11 +24,9 @@ private:
   CkVec<float> procload;
   CkVec<OrientedBox<float> > procbox;
 
-  int procsPerNode;
-
   // things are stored in here before work
   // is ever called.
-  CkReduction::setElement *tpCentroids;
+  TaggedVector3D *tpCentroids;
   CkReductionMsg *tpmsg;
   int nrecvd;
   bool haveTPCentroids;
