@@ -19,6 +19,7 @@ class Orb3dLB_notopo : public CentralLB {
 private:
   // pointer to stats->to_proc
   CkVec<int> *mapping;
+  CkVec<int> *from;
 
   CkVec<OrbObject> tps;
   CkVec<float> procload;

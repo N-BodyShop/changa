@@ -73,7 +73,7 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
     tpEvents[YDIM].push_back(Event(data->vec.y,load,tag));
     tpEvents[ZDIM].push_back(Event(data->vec.z,load,tag));
 
-    tps[tag] = OrbObject(tag);
+    tps[tag] = OrbObject(tag,data->myNumParticles);
     tps[tag].centroid = data->vec;
     
     numProcessed++;
@@ -85,6 +85,7 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
   CkAssert(tpEvents[ZDIM].length() == numobjs);
 
   mapping = &stats->to_proc;
+  from = &stats->from_proc;
   int dim = 0;
 
   CkPrintf("[Orb3dLB_notopo] sorting\n");
@@ -134,17 +135,23 @@ void Orb3dLB_notopo::orbPartition(CkVec<Event> *events, OrientedBox<float> &box,
   CkAssert(numEvents == events[YDIM].length());
   CkAssert(numEvents == events[ZDIM].length());
 
-  if(nprocs <= 1){
+  if(nprocs == 1){
     ORB3DLB_NOTOPO_DEBUG("base: assign %d tps to proc %d\n", numEvents, nextProc);
     // direct assignment of tree pieces to processors
-    if(numEvents > 0) CkAssert(nprocs != 0);
+    //if(numEvents > 0) CkAssert(nprocs != 0);
     float totalLoad = 0.0;
     for(int i = 0; i < events[XDIM].length(); i++){
       Event &ev = events[XDIM][i];
       OrbObject &orb = tps[ev.owner];
-      (*mapping)[orb.lbindex] = nextProc;
-      totalLoad += ev.load;
-      procbox[nextProc].grow(orb.centroid);
+      if(orb.numParticles > 0){
+        (*mapping)[orb.lbindex] = nextProc;
+        totalLoad += ev.load;
+        procbox[nextProc].grow(orb.centroid);
+      }
+      else{
+        int fromPE = (*from)[orb.lbindex];
+        procload[fromPE] += ev.load;
+      }
     }
     procload[nextProc] += totalLoad;
 
@@ -284,7 +291,7 @@ int Orb3dLB_notopo::partitionRatioLoad(CkVec<Event> &events, float ratio){
       newdiff = -newdiff;
     }
 
-    //CkPrintf("consider load %f newdiff %f prevdiff %f\n", tps[consider].load, newdiff, prevDiff);
+    ORB3DLB_NOTOPO_DEBUG("consider load %f newdiff %f prevdiff %f\n", events[consider].load, newdiff, prevDiff);
 
     if(newdiff > prevDiff){
       break;
@@ -297,8 +304,8 @@ int Orb3dLB_notopo::partitionRatioLoad(CkVec<Event> &events, float ratio){
     }
   }
 
+  ORB3DLB_NOTOPO_DEBUG("partitionEvenLoad mid %d lload %f rload %f ratio %f\n", consider, lload, rload, lload/rload);
   return consider;
-  //CkPrintf("partitionEvenLoad mid %d lload %f rload %f\n", tpmid, lload, rload);
 }
 
 #include "Orb3dLB_notopo.def.h"

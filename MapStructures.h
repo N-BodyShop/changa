@@ -159,16 +159,19 @@ struct OrbObject {
   int partition;
   int lbindex;
   Vector3D<float> centroid;
+  int numParticles;
 
   OrbObject() : 
     partition(-1),
-    lbindex(-1)
+    lbindex(-1),
+    numParticles(0)
   {
   }
 
-  OrbObject(int tag) : 
+  OrbObject(int tag, int np) : 
     partition(-1),
-    lbindex(tag)
+    lbindex(tag),
+    numParticles(np)
   {
   }
 };
