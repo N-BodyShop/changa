@@ -29,10 +29,13 @@ private:
 
   // things are stored in here before work
   // is ever called.
-  TaggedVector3D *tpCentroids;
+  CkReduction::setElement *tpCentroids;
   CkReductionMsg *tpmsg;
   int nrecvd;
   bool haveTPCentroids;
+
+  CkVec<TPObject> tps;
+  CkVec<Node> nodes;
 
   CmiBool QueryBalanceNow(int step);
 
@@ -43,11 +46,11 @@ public:
   Orb3dLB(CkMigrateMessage *m):CentralLB(m) { lbname = "Orb3dLB"; }
   void work(BaseLB::LDStats* stats);
   void receiveCentroids(CkReductionMsg *msg);
-  void directMap(TPObject *tp, int ntp, Node *nodes);
-  void map(TPObject *tp, int ntp, int nn, Node *procs, int xs, int ys, int zs, int dim);
+  void directMap(int tpstart, int tpend, int nodestart, int nodeend);
+  void map(int tpstart, int tpend, int nodestart, int nodeend, int xs, int ys, int zs, int dim);
   int nextDim(int dim, int xs, int ys, int zs);
-  TPObject *partitionEvenLoad(TPObject *tp, int &ntp);
-  Node *halveNodes(Node *start, int np);
+  void partitionEvenLoad(int tpstart, int tpend, int &tpmid);
+  void halveNodes(int nodestart, int nodeend, int &nodemid);
 
 
 };

@@ -4,12 +4,17 @@
 
 #include "Vector3D.h"
 #include "TaggedVector3D.h"
-
-#ifdef PRINT_BOUNDING_BOXES
 #include "OrientedBox.h"
-#endif
-
 using namespace std;
+
+#define XDIM 0
+#define YDIM 1
+#define ZDIM 2
+#define NDIMS 3
+
+#define LEFT_PARTITION 0
+#define RIGHT_PARTITION 1
+#define INVALID_PARTITION -1
 
 template <class T>
 class Volume{
@@ -115,6 +120,62 @@ class Centroid3d{
 
 };
 
+// Each tpobject has three events, one for 
+// each component of its centroid. This helps
+// us avoid sorting after each recursive partitioning
+// step.
+
+class TPObject;
+
+struct Event {
+  int owner;
+  float load;
+  float position;
+
+  Event(float pos, float ld, int o) : 
+    position(pos),
+    load(ld),
+    owner(o)
+  {
+  }
+
+  Event() : 
+    owner(-1),
+    load(0.0),
+    position(0.0)
+  {
+  }
+
+  bool operator<=(const Event &e){
+    return position <= e.position;
+  }
+
+  bool operator>=(const Event &e){
+    return position >= e.position;
+  }
+};
+
+struct OrbObject {
+  int partition;
+  int lbindex;
+  Vector3D<float> centroid;
+  int numParticles;
+
+  OrbObject() : 
+    partition(-1),
+    lbindex(-1),
+    numParticles(0)
+  {
+  }
+
+  OrbObject(int tag, int np) : 
+    partition(-1),
+    lbindex(tag),
+    numParticles(np)
+  {
+  }
+};
+
 class TPObject{
   public:
 
@@ -125,14 +186,10 @@ class TPObject{
   bool migratable;
   //int nparticles;
 
-  bool operator<(const TPObject &t) const{
-    return load < t.load;
-  }
-
   int whichPartition;
 
-  void clearPartition(){
-    whichPartition = -1;
+  bool operator<(const TPObject &t) const{
+    return load < t.load;
   }
 
   TPObject() : 
@@ -163,26 +220,6 @@ class Node {
 #ifdef PRINT_BOUNDING_BOXES
   OrientedBox<float> box;
 #endif
-};
-
-// Each tree piece has three events, one for each dimension
-// This is required in Orb3d_notopo
-struct Event {
-  TPObject *owner;
-  float pos;
-  float load;
-
-  bool operator<=(Event &other){
-    return pos <= other.pos;
-  }
-
-  bool operator>=(Event &other){
-    return pos >= other.pos;
-  }
-
-  Event &operator=(const TPObject &tp){
-
-  }
 };
 
 typedef int (*ComparatorFn) (const void *, const void *);

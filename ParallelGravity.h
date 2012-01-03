@@ -67,7 +67,8 @@ using namespace Tree;
 enum LBStrategy{
   Null=0,
   Multistep,
-  Orb3d
+  Orb3d,
+  Orb3d_notopo
 };
 PUPbytes(LBStrategy);
 
@@ -1312,7 +1313,7 @@ public:
         public:
 	~TreePiece() {
 	  if (verbosity>1) ckout <<"Deallocating treepiece "<<thisIndex<<endl;
-	  delete[] myParticles;
+	  if(nStore > 0) delete[] myParticles;
 	  if(nStoreSPH > 0) delete[] mySPHParticles;
 	  if(nStoreStar > 0) delete[] myStarParticles;
 	  delete[] nodeInterRemote;
