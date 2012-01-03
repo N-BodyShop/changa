@@ -223,6 +223,7 @@ public:
           mass = p.mass;
           soft = p.soft;
           position = p.position;
+          return *this;
         }
 };
 
