@@ -113,16 +113,18 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
   orbPartition(tpEvents,box,stats->count);
 
   int *from_procs = Refiner::AllocProcs(stats->count, stats);
+  int *to_procs = Refiner::AllocProcs(stats->count, stats);
+
   int migr = 0;
   for(int i = 0; i < numobjs; i++){
     if(stats->to_proc[i] != stats->from_proc[i]) migr++;
     int pe = stats->to_proc[i];
     from_procs[i] = pe;
+    to_procs[i] = pe;
   }
 
-  int *to_procs = Refiner::AllocProcs(stats->count, stats);
 
-  Refiner refiner(1.010);
+  Refiner refiner(1.050);
 
   refiner.Refine(stats->count,stats,from_procs,to_procs);
 
