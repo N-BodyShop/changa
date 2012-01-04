@@ -429,6 +429,7 @@ class Main : public CBase_Main {
 
 #ifdef SELECTIVE_TRACING
        int monitorRung;
+       int monitorStart;
        int numTraceIterations;
        int numSkipIterations;
        int numMaxTrace;
