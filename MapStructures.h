@@ -146,11 +146,15 @@ struct Event {
   {
   }
 
-  bool operator<=(const Event &e){
+  bool operator<(const Event &e) const {
+    return position < e.position;
+  }
+
+  bool operator<=(const Event &e) const {
     return position <= e.position;
   }
 
-  bool operator>=(const Event &e){
+  bool operator>=(const Event &e) const {
     return position >= e.position;
   }
 };

@@ -37,8 +37,8 @@ private:
   CmiBool QueryBalanceNow(int step);
   void printData(BaseLB::LDStats &stats, int phase, int *revObjMap);
 
-  void orbPartition(CkVec<Event> *events, OrientedBox<float> &box, int procs);
-  int partitionRatioLoad(CkVec<Event> &events, float ratio);
+  void orbPartition(vector<Event> *events, OrientedBox<float> &box, int procs);
+  int partitionRatioLoad(vector<Event> &events, float ratio);
 
 public:
   Orb3dLB_notopo(const CkLBOptions &);
