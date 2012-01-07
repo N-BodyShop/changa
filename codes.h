@@ -26,7 +26,7 @@ enum WalkType {TopDown, LocalTarget, BottomUp, BucketIterator, InvalidWalk};
 enum ComputeType {Gravity, Prefetch, List, BucketEwald, Smooth, ReSmooth,
 		  InvalidCompute};
 
-enum OptType {Local, Remote, Pref, Double, InvalidOpt};
+enum OptType {Local, Remote, Pref, Double, PushGravity, InvalidOpt};
 
 #define INTERLIST_LEVELS 64
 #define NUM_NODE_TYPES 11

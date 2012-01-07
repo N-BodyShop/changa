@@ -116,7 +116,7 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 	nEwReps = (int) ceil(fEwCut);
 	L = fPeriod.x;
 	fEwCut2 = fEwCut*fEwCut*L*L;
-	fInner2 = 3.0e-3*L*L;
+	fInner2 = 1.2e-3*L*L;
 	nEwReps = nEwReps > nReps ? nEwReps : nReps;
 	alpha = 2.0/L;
 	alpha2 = alpha*alpha;
@@ -442,7 +442,7 @@ void TreePiece::EwaldGPU() {
   roData->k1 = (float) M_PI/(alpha*alpha*L*L*L);
   roData->ka = (float) 2.0*alpha/sqrt(M_PI);
   roData->fEwCut2 = (float) fEwCut*fEwCut*L*L;
-  roData->fInner2 = (float) 3.0e-3*L*L;
+  roData->fInner2 = (float) 1.2e-3*L*L;
 
   CkCallback *cb; 
   CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex); 

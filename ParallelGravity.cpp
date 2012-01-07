@@ -37,6 +37,7 @@ int bVDetails;
 CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
 CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 CProxy_LvArray smoothProxy; // Proxy for smooth reductions
+CProxy_LvArray gravityProxy; // Proxy for gravity reductions
 CProxy_CkCacheManager cacheGravPart;
 CProxy_CkCacheManager cacheSmoothPart;
 CProxy_CkCacheManager cacheNode;
@@ -57,8 +58,6 @@ int _numChunks;
 int _randChunks;
 unsigned int bucketSize;
 int lbcomm_cutoff_msgs;
-
-double dFracNoDomainDecomp; // Dummy for backward compatibility
 
 //jetley
 int localNodesPerReq;
@@ -87,6 +86,14 @@ int partForceUE;
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
 
+#ifdef PUSH_GRAVITY
+#include "ckmulticast.h"
+CkGroupID ckMulticastGrpId;
+#endif
+
+#ifdef SELECTIVE_TRACING
+CProxy_ProjectionsControl prjgrp;
+#endif
 
 void _Leader(void) {
     puts("USAGE: ChaNGa [SETTINGS | FLAGS] [PARAM_FILE]");
@@ -108,6 +115,14 @@ void _Trailer(void) {
 int killAt;
 int cacheSize;
 
+///
+/// @brief Main routine to start simulation.
+///
+/// This routine parses the command line and file specified parameters,
+/// and allocates the charm structures.  The charm "readonly" variables
+/// are writable in this method, and are broadcast globally once this
+/// method exits.
+///
 Main::Main(CkArgMsg* m) {
 	args = m;
 	_cache = true;
@@ -492,8 +507,8 @@ Main::Main(CkArgMsg* m) {
 	_yieldPeriod=5;
 	prmAddParam(prm, "nYield", paramInt, &_yieldPeriod,
 		    sizeof(int),"y", "Yield Period (default: 5)");
-	_cacheLineDepth=4;
-	prmAddParam(prm, "nCacheDepth", paramInt, &_cacheLineDepth,
+	param.cacheLineDepth=4;
+	prmAddParam(prm, "nCacheDepth", paramInt, &param.cacheLineDepth,
 		    sizeof(int),"d", "Cache Line Depth (default: 4)");
 	_prefetch=true;
 	prmAddParam(prm, "bPrefetch", paramBool, &_prefetch,
@@ -505,15 +520,52 @@ Main::Main(CkArgMsg* m) {
         peanoKey=0;
 	prmAddParam(prm, "nDomainDecompose", paramInt, &domainDecomposition,
 		    sizeof(int),"D", "Kind of domain decomposition of particles");
-	dFracNoDomainDecomp = 0.0;
-	prmAddParam(prm, "dFracNoDomainDecomp", paramDouble, &dFracNoDomainDecomp,
-		    sizeof(double),"fndd", "(IGNORED)");
+	param.dFracNoDomainDecomp = 0.0;
+	prmAddParam(prm, "dFracNoDomainDecomp", paramDouble,
+		    &param.dFracNoDomainDecomp, sizeof(double),"fndd",
+		    "Fraction of active particles for no new DD = 0.0");
         lbcomm_cutoff_msgs = 1;
 	prmAddParam(prm, "lbcommCutoffMsgs", paramInt, &lbcomm_cutoff_msgs,
 		    sizeof(int),"lbcommcut", "Cutoff for communication recording (IGNORED)");
 	param.bConcurrentSph = 0;
 	prmAddParam(prm, "bConcurrentSph", paramBool, &param.bConcurrentSph,
 		    sizeof(int),"consph", "Enable SPH running concurrently with Gravity");
+
+#ifdef PUSH_GRAVITY
+        param.dFracPushParticles = 0.0;
+	prmAddParam(prm, "dFracPush", paramDouble,
+		    &param.dFracPushParticles, sizeof(double),"fPush",
+		    "Maximum proportion of active to total particles for push-based force evaluation = 0.0");
+#endif
+
+
+#ifdef SELECTIVE_TRACING
+        /* tracing control */ 
+        monitorRung = 12;
+        prmAddParam(prm, "iTraceRung", paramInt, &monitorRung,
+              sizeof(int),"traceRung", "Gravity starting rung to trace selectively");
+
+        monitorStart = 0;
+        prmAddParam(prm, "iTraceStart", paramInt, &monitorStart,
+              sizeof(int),"traceStart", "When to start selective tracing");
+
+        numTraceIterations = 3;
+        prmAddParam(prm, "iTraceFor", paramInt, &numTraceIterations,
+              sizeof(int),"traceFor", "Trace this many instances of the selected rungs");
+
+        numSkipIterations = 400;
+        prmAddParam(prm, "iTraceSkip", paramInt, &numSkipIterations,
+              sizeof(int),"traceSkip", "Skip tracing for these many iterations");
+
+        numMaxTrace = 5;
+        prmAddParam(prm, "iTraceMax", paramInt, &numMaxTrace,
+              sizeof(int),"traceMax", "Max. num. iterations traced");
+
+
+        traceIteration = 0;
+        traceState = TraceNormal;
+        projectionsOn = false;
+#endif
     
           // jetley - cuda parameters
 #ifdef CUDA
@@ -588,6 +640,7 @@ Main::Main(CkArgMsg* m) {
 	theta = param.dTheta;
         thetaMono = theta*theta*theta*theta;
 	dExtraStore = param.dExtraStore;
+	_cacheLineDepth = param.cacheLineDepth;
 	if(prmSpecified(prm, "bCannonical")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bCannonical parameter ignored; integration is always cannonical"
@@ -596,11 +649,6 @@ Main::Main(CkArgMsg* m) {
 	if(prmSpecified(prm, "bOverwrite")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bOverwrite parameter ignored."
-		  << endl;
-	    }
-	if(prmSpecified(prm, "dFracNoDomainDecomp")) {
-	    ckerr << "WARNING: ";
-	    ckerr << "dFracNoDomainDecomp parameter ignored."
 		  << endl;
 	    }
 	    
@@ -835,12 +883,23 @@ Main::Main(CkArgMsg* m) {
 	}
 
 	CProxy_TreePiece pieces = CProxy_TreePiece::ckNew(opts);
+
+#ifdef SELECTIVE_TRACING
+        prjgrp = CProxy_ProjectionsControl::ckNew();
+#endif
+
 	treeProxy = pieces;
 
 	opts.bindTo(treeProxy);
 	lvProxy = CProxy_LvArray::ckNew(opts);
 	// Create an array for the smooth reductions
 	smoothProxy = CProxy_LvArray::ckNew(opts);
+	// Create an array for the gravity reductions
+	gravityProxy = CProxy_LvArray::ckNew(opts);
+
+#ifdef PUSH_GRAVITY
+        ckMulticastGrpId = CProxy_CkMulticastMgr::ckNew();
+#endif
 	
 	// create CacheManagers
 	// Gravity particles
@@ -888,6 +947,11 @@ Main::Main(CkArgMsg* m) {
 	CProxy_Main(thishandle).setupICs();
 }
 
+/// 
+/// @brief Restart Main constructor
+///
+/// This is only called when restarting from a checkpoint.
+///
 Main::Main(CkMigrateMessage* m) {
     args = (CkArgMsg *)malloc(sizeof(*args));
     args->argv = CmiCopyArgs(((CkArgMsg *) m)->argv);
@@ -898,6 +962,7 @@ Main::Main(CkMigrateMessage* m) {
     }
 
 
+/// @brief entry method to cleanly shutdown.  Only used for debugging.
 void Main::niceExit() {
   static unsigned int count = 0;
   if (++count == numTreePieces) CkExit();
@@ -936,7 +1001,7 @@ void Main::getStartTime()
 			      << endl;
 			CkExit();
 			}
-		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta);
+		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta)+param.iStartStep;
 		    }
 		else if (!prmArgSpecified(prm,"dDelta") &&
 			 prmArgSpecified(prm,"nSteps")) {
@@ -970,7 +1035,7 @@ void Main::getStartTime()
 			      << endl;
 			CkExit();
 			}
-		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta);
+		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta) + param.iStartStep;
 		    }
 		else if (!prmSpecified(prm,"dDelta") &&
 			 prmFileSpecified(prm,"nSteps")) {
@@ -993,7 +1058,7 @@ void Main::getStartTime()
 		    }
 		}
 	    else {
-		tTo = dTime + param.nSteps*param.dDelta;
+		tTo = dTime + (param.nSteps-param.iStartStep)*param.dDelta;
 		aTo = csmTime2Exp(param.csm,tTo);
 		if (verbosity > 0)
 		    ckout << "Simulation to Time:" << tTo << " Redshift:"
@@ -1007,7 +1072,7 @@ void Main::getStartTime()
 	    dTime = treeProxy[0].ckLocal()->dStartTime; 
 	    if(verbosity > 0)
 		ckout << "Input file, Time:" << dTime << endl;
-	    double tTo = dTime + param.nSteps*param.dDelta;
+	    double tTo = dTime + (param.nSteps-param.iStartStep)*param.dDelta;
 	    if (verbosity > 0) {
 		ckout << "Simulation to Time:" << tTo << endl;
 		}
@@ -1095,6 +1160,15 @@ inline int Main::nextMaxRungIncDF(int nextMaxRung)
 	nextMaxRung = df[0]->iMaxRung;
     return nextMaxRung;
 }
+
+///
+/// @brief Take one base timestep of the simulation.
+/// @param iStep The current step number.
+///
+/// This method implements the standard "Kick Drift Kick" (Quinn et al
+/// 1997) hierarchical timestepping algorithm.  It assumes that the
+/// forces for the first opening kick have already been calculated.
+///
 
 void Main::advanceBigStep(int iStep) {
   int currentStep = 0; // the current timestep within the big step
@@ -1227,7 +1301,7 @@ void Main::advanceBigStep(int iStep) {
      * Form stars at user defined intervals
      */
     if(param.bStarForm && param.stfm->isStarFormRung(activeRung))
-	FormStars(dTime, RungToDt(param.dDelta, activeRung));
+	FormStars(dTime, param.stfm->dDeltaStarForm);
 
     ckout << "Step: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
           << " Time: " << dTime
@@ -1242,29 +1316,40 @@ void Main::advanceBigStep(int iStep) {
     ckout << "Domain decomposition ...";
     double startTime = CkWallTimer();
     double tolerance = 0.01;	// tolerance for domain decomposition
+    bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
     sorter.startSorting(dataManagerID, tolerance,
-                        CkCallbackResumeThread(), true);
+                        CkCallbackResumeThread(), bDoDD);
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
+    if(verbosity && !bDoDD)
+	CkPrintf("Skipped DD\n");
 
     if(verbosity)
 	memoryStats();
     /********* Load balancer ********/
-    // jetley - commenting out lastActiveRung == 0 check, balance load even for fast rungs
-    //if(lastActiveRung == 0) {
-	ckout << "Load balancer ...";
-	startTime = CkWallTimer();
-	treeProxy.startlb(CkCallbackResumeThread(), activeRung);
-	ckout << " took "<<(CkWallTimer() - startTime) << " seconds."
+    ckout << "Load balancer ...";
+    startTime = CkWallTimer();
+    treeProxy.startlb(CkCallbackResumeThread(), activeRung);
+    ckout << " took "<<(CkWallTimer() - startTime) << " seconds."
 	     << endl;
-    //	}
 
     if(verbosity)
 	memoryStats();
+
+
+#ifdef PUSH_GRAVITY
+    bool bDoPush = param.dFracPushParticles*nTotalParticles > nActiveGrav;
+    if(bDoPush) CkPrintf("[main] fracActive %f PUSH_GRAVITY\n", 1.0*nActiveGrav/nTotalParticles);
+#endif
+
     /******** Tree Build *******/
     ckout << "Building trees ...";
     startTime = CkWallTimer();
+#ifdef PUSH_GRAVITY
+    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),!bDoPush);
+#else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
     iPhase = 0;
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
@@ -1282,24 +1367,53 @@ void Main::advanceBigStep(int iStep) {
 	/******** Force Computation ********/
 	//ckout << "Calculating gravity (tree bucket, theta = " << theta
 	//      << ") ...";
+#ifdef SELECTIVE_TRACING
+        turnProjectionsOn(activeRung);
+#endif
+
         CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
 	startTime = CkWallTimer();
 	if(param.bConcurrentSph) {
 	    ckout << endl;
-	    treeProxy.startIteration(activeRung, theta, cbGravity);
+
+#ifdef PUSH_GRAVITY
+            if(bDoPush){ 
+              treeProxy.startPushGravity(activeRung, theta);
+            }
+	    else{ 
+#endif
+              treeProxy.startGravity(activeRung, theta, cbGravity);
+#ifdef PUSH_GRAVITY
+            }
+#endif
+
+
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(cbGravity);
 #endif
 	    }
 	else {
-	    treeProxy.startIteration(activeRung, theta,
-				     CkCallbackResumeThread());
+#ifdef PUSH_GRAVITY
+	    if(bDoPush){
+              treeProxy.startPushGravity(activeRung, theta);
+              CkWaitQD();
+            }
+	    else{
+#endif
+              treeProxy.startGravity(activeRung, theta, CkCallbackResumeThread());
+#ifdef PUSH_GRAVITY
+            }
+#endif
+
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
 	    //ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	    //	  << endl;
             CkPrintf("took %f seconds\n", CkWallTimer()-startTime);
+#ifdef SELECTIVE_TRACING
+            turnProjectionsOff();
+#endif
 	    }
 	iPhase++;
 	if(verbosity)
@@ -1317,10 +1431,22 @@ void Main::advanceBigStep(int iStep) {
 	}
     
     if(param.bConcurrentSph && param.bDoGravity) {
-	CkFreeMsg(cbGravity.thread_delay());
+#ifdef PUSH_GRAVITY
+      if(bDoPush){
+        CkWaitQD();
+      }
+      else{
+#endif
+        CkFreeMsg(cbGravity.thread_delay());
+#ifdef PUSH_GRAVITY
+      }
+#endif
 	//ckout << "Calculating gravity and SPH took "
 	//      << (CkWallTimer() - startTime) << " seconds." << endl;
         CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
+#ifdef SELECTIVE_TRACING
+        turnProjectionsOff();
+#endif
 	}
     
 #if COSMO_STATS > 0
@@ -1400,11 +1526,26 @@ void Main::advanceBigStep(int iStep) {
 	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
     }
+
+#ifdef CHECK_TIME_WITHIN_BIGSTEP
+    if(param.iWallRunTime > 0 && ((CkWallTimer()-wallTimeStart) > param.iWallRunTime*60.)){
+      CkPrintf("wall time %g exceeded limit %g within advancestep\n", CkWallTimer()-wallTimeStart, param.iWallRunTime*60.);
+      CkExit();
+    }
+#endif
+
 		
   }
 }
     
-// Load particles into pieces
+///
+/// @brief Load particles into pieces
+///
+/// Reads the particle data in from a file.  Since the full
+/// information about the run (including starting time) isn't known
+/// until the particles are loaded, this routine also completes the
+/// specification of the run details and writes out the log file
+/// entry.  In concludes by calling initialForces()
 
 void Main::setupICs() {
   double startTime;
@@ -1439,6 +1580,8 @@ void Main::setupICs() {
     
     double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
     treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
+
+    treeProxy.findTotalMass(CkCallbackResumeThread());
   }	
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
@@ -1460,6 +1603,12 @@ void Main::setupICs() {
       ckerr << "WARNING: no SPH particles and bDoGas is set\n";
       param.bDoGas = 0;
       }
+  if(nTotalSPH > 0 && !param.bDoGas) {
+      if(prmSpecified(prm, "bDoGas"))
+	  ckerr << "WARNING: SPH particles present and bDoGas is set off\n";
+      else
+	  param.bDoGas = 1;
+      }
   getStartTime();
   if(param.nSteps > 0) getOutTimes();
   for(iOut = 0; iOut < vdOutTime.size(); iOut++) {
@@ -1475,6 +1624,9 @@ void Main::setupICs() {
   char achLogFileName[MAXPATHLEN];
   sprintf(achLogFileName, "%s.log", param.achOutName);
   ofstream ofsLog(achLogFileName, ios_base::trunc);
+  if(!ofsLog)
+      CkAbort("Error opening log file.");
+      
   ofsLog << "# Starting ChaNGa version 2.00" << endl;
   ofsLog << "#";		// Output command line
   for (int i = 0; i < args->argc; i++)
@@ -1545,6 +1697,8 @@ void Main::setupICs() {
     }
   ofsLog << endl;
   ofsLog.close();
+  if(!ofsLog)
+      CkAbort("Error closing log file");
 
   if(prmSpecified(prm,"dSoft")) {
     ckout << "Set Softening...\n";
@@ -1581,8 +1735,15 @@ int CheckForStop()
 	return 0;
 	}
 
-// Callback to restart simulation after a checkpoint or after writing
-// a checkpoint.
+/// @brief Callback to restart simulation after a checkpoint or after writing
+/// a checkpoint.
+///
+/// A restart looks like we've just finished writing a checkpoint.  We
+/// can tell the difference by the bIsRestarting flag set in the Main
+/// CkMigrate constructor.  In that case we do some simple parameter
+/// parsing and go to InitialForces.  Otherwise we return to the
+/// doSimulation() loop.
+
 void
 Main::restart() 
 {
@@ -1614,6 +1775,8 @@ Main::restart()
 		    "<Maximum Wallclock time (in minutes) to run> = 0 = infinite");
 	prmAddParam(prm, "nBucket", paramInt, &bucketSize,
 		    sizeof(int),"b", "Particles per Bucket (default: 12)");
+	prmAddParam(prm, "nCacheDepth", paramInt, &param.cacheLineDepth,
+		    sizeof(int),"d", "Cache Line Depth (default: 4)");
 	prmAddParam(prm, "iOutInterval", paramInt, &param.iOutInterval,
 		    sizeof(int),"oi", "Output Interval");
 	prmAddParam(prm, "iCheckInterval", paramInt, &param.iCheckInterval,
@@ -1644,8 +1807,8 @@ Main::restart()
 	}
     }
 
-// The restart callback needs to be an array entry, so we have a short
-// entry that simply calls the main entry.
+/// For checkpointing, the restart callback needs to be an array entry,
+/// so we have a short entry that simply calls the main entry.
 
 void
 TreePiece::restart() 
@@ -1653,6 +1816,12 @@ TreePiece::restart()
     mainChare.restart();
     }
 
+///
+/// @brief Initial calculation of forces.
+///
+/// This is called both when starting or restarting a run.  It
+/// concludes by calling doSimulation(), the main simulation loop.
+///
 void
 Main::initialForces()
 {
@@ -1681,7 +1850,11 @@ Main::initialForces()
   /******** Tree Build *******/
   ckout << "Building trees ...";
   startTime = CkWallTimer();
+#ifdef PUSH_GRAVITY
+  treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
+#else
   treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
   iPhase = 0;
@@ -1707,20 +1880,29 @@ Main::initialForces()
       /******** Force Computation ********/
       //ckout << "Calculating gravity (theta = " << theta
       //    << ") ...";
+#ifdef SELECTIVE_TRACING
+      turnProjectionsOn(0);
+#endif
       CkPrintf("Calculating gravity (theta = %f) ... ", theta);
       startTime = CkWallTimer();
       if(param.bConcurrentSph) {
-	  treeProxy.startIteration(0, theta, cbGravity);
+
+	  treeProxy.startGravity(0, theta, cbGravity);
+
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(cbGravity);
 #endif
 	  }
       else {
-	  treeProxy.startIteration(0, theta, CkCallbackResumeThread());
+	  treeProxy.startGravity(0, theta, CkCallbackResumeThread());
+
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
           CkPrintf("took %f seconds.\n", CkWallTimer()-startTime);
+#ifdef SELECTIVE_TRACING
+          turnProjectionsOff();
+#endif
 	  if(verbosity)
 	      memoryStatsCache();
 	  }
@@ -1738,6 +1920,9 @@ Main::initialForces()
 	//ckout << "Calculating gravity and SPH took "
 	//      << (CkWallTimer() - startTime) << " seconds." << endl;
         CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
+#ifdef SELECTIVE_TRACING
+        turnProjectionsOff();
+#endif
       }
   
   CkAssert(iPhase <= nPhases);
@@ -1807,8 +1992,14 @@ Main::initialForces()
   doSimulation();
 }
 
-// Principal method which does all the coordination of the simulation
-// over timesteps.
+///
+/// \brief Principal method which does all the coordination of the
+/// simulation over timesteps.
+///
+/// This routine calls advanceBigStep() for each step, logs
+/// statistics, determines if output is needed, and halts the
+/// simulation when done.
+///
 
 void
 Main::doSimulation()
@@ -1817,6 +2008,9 @@ Main::doSimulation()
   char achLogFileName[MAXPATHLEN];
   sprintf(achLogFileName, "%s.log", param.achOutName);
 
+#ifdef CHECK_TIME_WITHIN_BIGSTEP
+  wallTimeStart = CkWallTimer();
+#endif
 
   for(int iStep = param.iStartStep+1; iStep <= param.nSteps; iStep++){
     if (killAt > 0 && killAt == iStep) {
@@ -1892,7 +2086,7 @@ Main::doSimulation()
 	  ckout << "Calculating total densities ...";
 	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	  startTime = CkWallTimer();
-	  double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+	  double dfBall2OverSoft2 = 0.0;
 	  treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
 					 CkCallbackResumeThread());
 	  iPhase++;
@@ -1952,9 +2146,11 @@ Main::doSimulation()
 	      CsOutputParams pCsOut(string(achFile) + ".c");
 	      treeProxy[0].outputASCII(pCsOut, param.bParaWrite, CkCallbackResumeThread());
 #ifndef COOLING_NONE
-	      EDotOutputParams pEDotOut(string(achFile) + ".eDot");
-	      treeProxy[0].outputASCII(pEDotOut, param.bParaWrite,
-				       CkCallbackResumeThread());
+	      if(param.bGasCooling) {
+		  EDotOutputParams pEDotOut(string(achFile) + ".eDot");
+		  treeProxy[0].outputASCII(pEDotOut, param.bParaWrite,
+					   CkCallbackResumeThread());
+		  }
 #endif
 	      }
 	  }
@@ -1981,13 +2177,17 @@ Main::doSimulation()
 	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
 	  sorter.startSorting(dataManagerID, tolerance,
 			      CkCallbackResumeThread(), true);
+#ifdef PUSH_GRAVITY
+	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
+#else
 	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
 	  iPhase = 0;
 	  
 	  ckout << "Calculating total densities ...";
 	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	  startTime = CkWallTimer();
-	  double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+	  double dfBall2OverSoft2 = 0.0;
 	  treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
 					 CkCallbackResumeThread());
 	  iPhase++;
@@ -2041,12 +2241,14 @@ Main::doSimulation()
   CkExit();
 }
 
-/**
- * Calculate various energy and momentum quantities, and output them
- * to a log file.
- */
+///
+/// \brief Calculate various energy and momentum quantities, and output them
+/// to a log file.
+///
 
-void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
+void
+Main::calcEnergy(double dTime, double wallTime, char *achLogFileName)
+{
     CkReductionMsg *msg;
     treeProxy.calcEnergy(CkCallbackResumeThread((void*&)msg));
     double *dEnergy = (double *) msg->getData();
@@ -2063,7 +2265,7 @@ void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
 	}
     else {
 	/*
-	 * Estimate integral (\dot a*U*dt) over the interval.
+	 * Estimate integral (\\dot a*U*dt) over the interval.
 	 * Note that this is equal to integral (W*da) and the latter
 	 * is more accurate when a is changing rapidly.
 	 */
@@ -2091,6 +2293,10 @@ void Main::calcEnergy(double dTime, double wallTime, char *achLogFileName) {
     
     delete msg;
 }
+
+///
+/// @brief Output a snapshot
+///
 
 void Main::writeOutput(int iStep) 
 {
@@ -2134,15 +2340,17 @@ void Main::writeOutput(int iStep)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 #ifndef COOLING_NONE
-      Cool0OutputParams pCool0Out(string(achFile) + "." + COOL_ARRAY0_EXT);
-      treeProxy[0].outputASCII(pCool0Out, param.bParaWrite,
-			       CkCallbackResumeThread());
-      Cool1OutputParams pCool1Out(string(achFile) + "." + COOL_ARRAY1_EXT);
-      treeProxy[0].outputASCII(pCool1Out, param.bParaWrite,
-			       CkCallbackResumeThread());
-      Cool2OutputParams pCool2Out(string(achFile) + "." + COOL_ARRAY2_EXT);
-      treeProxy[0].outputASCII(pCool2Out, param.bParaWrite,
-			       CkCallbackResumeThread());
+    if(param.bGasCooling) {
+	Cool0OutputParams pCool0Out(string(achFile) + "." + COOL_ARRAY0_EXT);
+	treeProxy[0].outputASCII(pCool0Out, param.bParaWrite,
+				 CkCallbackResumeThread());
+	Cool1OutputParams pCool1Out(string(achFile) + "." + COOL_ARRAY1_EXT);
+	treeProxy[0].outputASCII(pCool1Out, param.bParaWrite,
+				 CkCallbackResumeThread());
+	Cool2OutputParams pCool2Out(string(achFile) + "." + COOL_ARRAY2_EXT);
+	treeProxy[0].outputASCII(pCool2Out, param.bParaWrite,
+				 CkCallbackResumeThread());
+	}
 #endif
       if(param.bDoIOrderOutput) {
 	  treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
@@ -2156,13 +2364,17 @@ void Main::writeOutput(int iStep)
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
 	sorter.startSorting(dataManagerID, tolerance,
 			    CkCallbackResumeThread(), true);
+#ifdef PUSH_GRAVITY
+	treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
+#else
 	treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
 
 	iPhase = 0;
 	ckout << "Calculating total densities ...";
 	DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	startTime = CkWallTimer();
-	double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+	double dfBall2OverSoft2 = 0.0;
 	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
 				       CkCallbackResumeThread());
 	iPhase++;
@@ -2184,6 +2396,15 @@ void Main::writeOutput(int iStep)
 	}
     }
 
+///
+/// @brief Calculate timesteps of particles.
+///
+/// Particles on the KickRung and shorter have their timesteps
+/// adjusted.
+///
+/// @param iKickRung Rung (and above) about to be kicked.
+///
+
 int Main::adjust(int iKickRung) 
 {
     CkReductionMsg *msg;
@@ -2200,6 +2421,12 @@ int Main::adjust(int iKickRung)
     return iCurrMaxRung;
     }
 
+///
+/// @brief Count and print out the number of particles in each
+/// timestep bin.
+///
+/// This routine is for information only.
+///
 void Main::rungStats() 
 {
     CkReductionMsg *msg;
@@ -2229,6 +2456,12 @@ void Main::countActive(int activeRung)
     delete msg;
     }
 
+/**
+ * \brief Change the softening in comoving coordinates
+ *
+ * When compiled with -DCHANGESOFT, and bPhysicalSoft is set, the
+ * (comoving) softening is changed so that it is constant in physical units.
+ */
 void Main::updateSoft()
 {
 #ifdef CHANGESOFT
@@ -2287,8 +2520,12 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 		if (df[0]->bGetPhotogenic) {
 		  achFile[0] = 0;
 		  sprintf(achFile,"%s.photogenic", param.achOutName);
+		  FILE *fp = fopen(param.achOutName, "r" );
+		  if(fp == NULL)
+		      CkAbort("DumpFrame: photogenic specified, but no photogenic file\n");
+		  fclose(fp);
 
-          CkReductionMsg *msg;
+		  CkReductionMsg *msg;
 		  treeProxy.setTypeFromFile(TYPE_PHOTOGENIC, achFile, CkCallbackResumeThread((void*&)msg));
 		  int *nSet = (int *)msg->getData();
 		  if (verbosity)
@@ -2382,7 +2619,7 @@ void Main::DumpFrame(double dTime, double dStep)
     }
 
 /**
- * Coalesce all added and deleted particles and update global
+ * \brief Coalesce all added and deleted particles and update global
  * quantities.
  */
 
@@ -2538,6 +2775,60 @@ void Main::liveVizImagePrep(liveVizRequestMsg *msg)
       delete msgCOMbyType;
   
 }
+
+#ifdef SELECTIVE_TRACING
+void Main::turnProjectionsOn(int activeRung){
+  CkAssert(!projectionsOn);
+  if(numMaxTrace <= 0) return;
+  if(traceState == TraceNormal){
+    if(activeRung != monitorRung){
+    }
+    else if(traceIteration < numTraceIterations){
+      if(monitorStart == 0){
+        prjgrp.on(CkCallbackResumeThread());
+        projectionsOn = true;
+        traceIteration++;
+        numMaxTrace--;
+      }
+      else{
+        monitorStart--;
+      }
+    }
+    else{
+      traceState = TraceSkip;
+      traceIteration = 1;
+    }
+  }
+  else if(traceState == TraceSkip){
+    if(activeRung != monitorRung){
+    }
+    else if(traceIteration < numSkipIterations){
+      traceIteration++;
+    }
+    else{
+      traceState = TraceNormal;
+      if(monitorStart == 0){
+        prjgrp.on(CkCallbackResumeThread());
+        projectionsOn = true;
+        traceIteration = 1;
+        numMaxTrace--;
+      }
+      else{
+        monitorStart--;
+      }
+    }
+  }
+}
+
+
+void Main::turnProjectionsOff(){
+  if(projectionsOn){
+    prjgrp.off(CkCallbackResumeThread());
+    projectionsOn = false;
+  }
+}
+#endif
+
 
 #include "ParallelGravity.def.h"
 

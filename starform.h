@@ -5,7 +5,6 @@
 
 class Stfm {
  private:
-    double dDeltaStarForm;	/* timestep in system units */
     int iStarFormRung;		/* rung for star formation */
     double dGmUnit;		/* system mass in grams */
     double dGmPerCcUnit;	/* system density in gm/cc */
@@ -28,6 +27,7 @@ class Stfm {
     double dMaxStarMass;	/* maximum mass star particle to form */
     int bGasCooling;		/* Can we call cooling for temperature */
  public:
+    double dDeltaStarForm;	/* timestep in system units */
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
     bool isStarFormRung(int aRung) {return aRung <= iStarFormRung;}

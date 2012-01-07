@@ -124,8 +124,9 @@ protected:
 #endif
 	/// The root of the combined trees
 	Tree::GenericTreeNode * root;
-	/// The lookup table for nodes created by the DataManager to combine trees
-	Tree::NodeLookupType nodeLookupTable;
+	/// Table for nodes created by the DataManager to combine trees.
+	/// Kept track of here so we can delete them when done.
+	CkVec<GenericTreeNode *> nodeTable;
 
 	/// Number of chunks in which the tree was splitted during last combine operation
 	int oldNumChunks;
@@ -171,17 +172,29 @@ private:
 public:
 
 	~DataManager() {
+	    for (unsigned int i = 0; i < nodeTable.length(); i++) {
+      		delete nodeTable[i];
+    		}
+    	    nodeTable.clear();
+
 	    CoolFinalize(Cool);
 	    }
 
-	/// Collect the boundaries of all TreePieces, and trigger the real treebuild
+	/// \brief Collect the boundaries of all TreePieces, and
+	/// trigger the real treebuild
 	void collectSplitters(CkReductionMsg* m);
 	/// Called by ORB Sorter, save the list of which TreePiece is
 	/// responsible for which interval.
 	void acceptResponsibleIndex(const int* responsible, const int n,
 				    const CkCallback& cb);
 	/// Called by the Sorter, I save these final keys and the list
-	/// of which TreePiece is responsible for which interval
+	/// of which TreePiece is responsible for which interval.
+	/// This routine then calls TreePiece::unshuffleParticles to
+	/// move the particles around.
+	/// @param keys vector of boundary keys
+	/// @param responsible vector of which piece is responsible
+	/// for which interval
+	/// @param bins number of particles in each interval.
 	void acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb);
 	void pup(PUP::er& p);
 
@@ -202,6 +215,10 @@ private:
 	int createLookupRoots(Tree::GenericTreeNode *node, Tree::NodeKey *keys);
 public:
 
+/// \brief Collect roots of treepieces on this node.
+///
+/// The roots are stored in registeredChares to be used by TreePiece
+/// combineLocalTrees.
 #ifdef CUDA
     //XXX - coercing arrayindex to int in last arg      
     void notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp, int index);
@@ -226,5 +243,34 @@ public:
     void memoryStats(const CkCallback& cb);
     void resetReadOnly(Parameters param, const CkCallback &cb);
 };
+
+#ifdef SELECTIVE_TRACING
+class ProjectionsControl : public CBase_ProjectionsControl { 
+  public: 
+  ProjectionsControl() {} 
+  ProjectionsControl(CkMigrateMessage *) {} 
+ 
+  void on(CkCallback cb) { 
+    if(CkMyPe() == 0){ 
+      CkPrintf("\n\n**** PROJECTIONS ON *****\n\n"); 
+    } 
+    traceBegin();  
+    contribute(0,0,CkReduction::sum_int,cb); 
+  } 
+ 
+  void off(CkCallback cb) { 
+    if(CkMyPe() == 0){ 
+      CkPrintf("\n\n**** PROJECTIONS OFF *****\n\n"); 
+    } 
+    traceEnd();  
+    contribute(0,0,CkReduction::sum_int,cb); 
+  } 
+
+  void pup(PUP::er &p){
+  }
+}; 
+
+#endif
+
 
 #endif //DATAMANAGER_H

@@ -1057,17 +1057,6 @@ double clEdotInstant( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMe
  * 
  */
 
-#define MAXBRACKET 10
-
-#define ITMAX 100
-#define BRENTEPS 1e-5
-#define BRENTTOL 1e6
-
-typedef struct {
-  PERBARYON Y;
-  double E,T,F;
-} BRENT;
-  
 double clfTemp(double T,  void *Data) 
 {
   clDerivsData *d = Data; 
@@ -1509,5 +1498,53 @@ double CoolHeatingCode(COOL *cl, COOLPARTICLE *cp, double ECode,
     return CoolErgPerGmPerSecToCodeWork( cl, Edot );
     }
 
+#ifdef TEST_COOLING
+
+int main(int argc, char **argv)
+{
+    COOL *cl;
+    double rate;
+    PERBARYON Y;
+    double rho = 1.0; /* 1 gm/cc */
+    double ZMetal = 0.0;
+    double lgT, dlgT;
+    clDerivsData *d;
+    double dCoolingTmin = 10.0;
+    double dCoolingTmax = 1e9;
+    double nCoolingTable = 10000;
+    
+    cl = CoolInit();
+    cl->dGmPerCcUnit = 1.0;
+    cl->dComovingGmPerCcUnit = 1.0;
+    cl->dErgPerGmUnit = 1.0;
+    cl->dSecUnit = 1.0;
+    cl->dErgPerGmPerSecUnit = cl->dErgPerGmUnit / cl->dSecUnit;
+    cl->diErgPerGmUnit = 1./cl->dErgPerGmUnit;
+    cl->dKpcUnit = 0.0;
+  
+    cl->Y_H = 1.0-0.24;
+    cl->Y_He = 0.24/4;
+    cl->Y_eMAX = cl->Y_H + cl->Y_He*2;
+
+    cl->bUV = 0;
+    cl->bLowTCool = 0;
+    cl->bSelfShield = 0;
+    clInitRatesTable( cl, dCoolingTmin, dCoolingTmax, nCoolingTable );
+    d = CoolDerivsInit(cl);
+    
+    for(lgT = 3.4; lgT < 8.0; lgT += .05) {
+	double T = exp(lgT*log(10.0));
+	d->rho = 1.67e-24;
+	d->E = clfTemp(T, d);
+	clRates( d->cl, &d->Rate, T, d->rho );
+	clAbunds( d->cl, &d->Y, &d->Rate, d->rho );
+ 	d->E=clThermalEnergy( d->Y.Total, T );
+	rate = clEdotInstant( cl, &d->Y, &d->Rate, rho, ZMetal );
+	printf("%g %g %g %g\n", T, d->rho*d->rho*rate, d->rho*d->E, d->E/rate);
+	}
+    return 0;
+    }
+
+#endif
 #endif /* NOCOOLING */
 

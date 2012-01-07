@@ -267,7 +267,7 @@ void dfProjection( struct inDumpFrame *in, struct dfFrameSetup *fs, int nxPix, i
 
 void dfParseOptions( struct DumpFrameContext *df, char * filename ) {
 	FILE *fp;
-	int n,nitem;
+	int nitem;
 	char line[81],command[40],word[40];
 	char FileBaseName[81]="Frame";
 	char NumberingFormat[41]="";
@@ -299,7 +299,6 @@ void dfParseOptions( struct DumpFrameContext *df, char * filename ) {
 
 	rewind( fp );
 
-	n=0;
 	for ( ;; ) {
 		if (fgets( line, 81, fp ) == NULL) break;
 		nitem = sscanf( line, "%s", command );
@@ -997,6 +996,9 @@ void dfRenderParticlePoint( struct inDumpFrame *in, void *vImage,
 		}
 	}
 
+/*
+ * Change for ChaNGa: "fBall2" is not the square of fBall.
+ */
 void dfRenderParticleTSC( struct inDumpFrame *in, void *vImage, 
 						 double *r, double fMass, double fSoft, double fBall2, int iActive, double fAge ) {
     DFIMAGE *Image = vImage;
@@ -1010,7 +1012,7 @@ void dfRenderParticleTSC( struct inDumpFrame *in, void *vImage,
 	br0=1;
 	if ((iActive & in->iTypeGas)) {
 		if (fMass < in->dMassGasMin || fMass > in->dMassGasMax) return;
-		if (in->bGasSph) h = sqrt(fBall2)*0.5*in->dGasSoftMul;
+		if (in->bGasSph) h = fBall2*0.5*in->dGasSoftMul;
 		else h = fSoft*in->dGasSoftMul;
 		col = in->ColGas;
 		}
@@ -1135,7 +1137,7 @@ void dfRenderParticleSolid( struct inDumpFrame *in, void *vImage,
 
 	if ((iActive & in->iTypeGas )) {
 		if (fMass < in->dMassGasMin || fMass > in->dMassGasMax) return;
-		if (in->bGasSph) h = sqrt(fBall2)*0.5*in->dGasSoftMul;
+		if (in->bGasSph) h = fBall2*0.5*in->dGasSoftMul;
 		else h = fSoft*in->dGasSoftMul;
 		col = in->ColGas;
 		}
