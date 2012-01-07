@@ -143,7 +143,11 @@ void Main::FormStars(double dTime, double dDelta)
     double tolerance = 0.01;	// tolerance for domain decomposition
     sorter.startSorting(dataManagerID, tolerance,
                         CkCallbackResumeThread(), true);
+#ifdef PUSH_GRAVITY
+    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
+#else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
     DensitySmoothParams pDen(TYPE_GAS, 0);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
     treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,

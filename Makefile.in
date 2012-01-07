@@ -58,7 +58,7 @@ FLAG_COOLING = @FLAG_COOLING@
 
 #MULTISTEP_LOADBALANCING_VERBOSE = -DCOSMO_MCLB=2 -DMCLBMSV
 #ORB3DLB_LOADBALANCING_VERBOSE = -DORB3DLBV
-DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST) $(HEXADECAPOLE) $(FLAG_COOLING) $(CELL) $(FLAG_REFACTOR) $(MULTISTEP_LOADBALANCING_VERBOSE) $(ORB3DLB_LOADBALANCING_VERBOSE) $(CUDA)
+DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST) $(HEXADECAPOLE) $(FLAG_COOLING) $(CELL) $(FLAG_REFACTOR) $(MULTISTEP_LOADBALANCING_VERBOSE) $(ORB3DLB_LOADBALANCING_VERBOSE) $(CUDA) -DPUSH_GRAVITY
 
 CHARM_PATH = @CHARM_PATH@
 STRUCTURES_PATH = ../utility/structures
@@ -66,6 +66,8 @@ CHARM_LDB_PATH = $(CHARM_PATH)/src/ck-ldb
 CHARM_UTIL_PATH = $(CHARM_PATH)/src/util
 CHARM_LIB_PATH = $(CHARM_PATH)/lib
 METIS_SRC_PATH = $(CHARM_PATH)/src/libs/ck-libs/parmetis/METISLib
+CACHE_LIB_PATH = $(CHARM_PATH)/tmp/libs/ck-libs/cache
+THREADSAFE_HT_PATH = $(CACHE_LIB_PATH)/threadsafe_hashtable
 
 NVIDIA_CUDA_SDK = $(HOME)/NVIDIA_CUDA_SDK
 CUDA_DIR = /usr/local/cuda
@@ -78,8 +80,8 @@ NVCC_LIBS = -lcuda -lcudart -lGL -lcutil
 # add -module Orb3dLB here for load balancing during singlestepped runs
 #OPTS = -g -memory charmdebug
 OPTS = -O3
-CXXFLAGS += $(OPTS) -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) -I.. @CPPFLAGS@
-LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache -module commlib -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MultistepLB -module Orb3dLB -module MultistepLB_notopo  -module liveViz #-tracemode projections -memory charmdebug -memory paranoid
+CXXFLAGS += $(OPTS) -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) @CPPFLAGS@
+LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache -module commlib -module CkMulticast -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MultistepLB -module MultistepLB_notopo -module Orb3dLB -module Orb3dLB_notopo -module liveViz #-tracemode projections -memory charmdebug -memory paranoid
 XDR_DIR = ../rpc
 XDR_OBJS = $(XDR_DIR)/xdr.o $(XDR_DIR)/xdr_float.o $(XDR_DIR)/xdr_mem.o $(XDR_DIR)/xdr_stdio.o
 LDLIBS += $(STRUCTURES_PATH)/libTipsy.a  @LIBS@
@@ -90,20 +92,22 @@ CXX = $(CHARMC)
 CC = $(CXX)
 AR = @AR@ 
 CXX_DEPEND = $(CXX) -M -MM -MG $(CXXFLAGS)
-CFLAGS = $(OPTS) $(DEFINE_FLAGS) @CFLAGS@
+CFLAGS = $(OPTS) $(DEFINE_FLAGS) @CFLAGS@ @CPPFLAGS@
 
 # Orb3dLB.{o,C} below
 OBJECTS = DataManager.o Reductions.o TreePiece.o Sorter.o \
 	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
 	  InOutput.o cosmo.o romberg.o runge.o dumpframe.o dffuncs.o \
-	  moments.o MultistepLB.o Orb3dLB.o MultistepLB_notopo.o \
+	  moments.o MultistepLB.o Orb3dLB.o Orb3dLB_notopo.o \
+	  MultistepLB_notopo.o \
 	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
 	@OBJECTS_COOLING@
 
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \
 	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
 	InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c \
-	moments.c MultistepLB.C Orb3dLB.C MultistepLB_notopo.C starform.C \
+	moments.c MultistepLB.C Orb3dLB.C Orb3dLB_notopo.C starform.C \
+	MultistepLB_notopo.C \
 	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C
 
 ifdef CUDA
@@ -122,8 +126,7 @@ TARGET = ChaNGa
 VERSION = 1.0
 all: $(TARGET)
 
-# libmoduleOrb3dLB.a can be added here
-$(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleMultistepLB_notopo.a 
+$(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleMultistepLB_notopo.a 
 	$(CHARMC) -o $(TARGET) $(LDFLAGS) $(OBJECTS) $(LDLIBS)
 
 $(TARGET).%: $(TARGET)
@@ -143,11 +146,11 @@ libmoduleMultistepLB_notopo.a: MultistepLB_notopo.o
 libmoduleOrb3dLB.a: Orb3dLB.o
 	$(CHARMC) -o libmoduleOrb3dLB.a Orb3dLB.o 
 
-#libmoduleOrb3dLB.a: Orb3dLB.o
-#	$(CHARMC) -o libmoduleOrb3dLB.a Orb3dLB.o ScaledORBMapBG.o
+libmoduleOrb3dLB_notopo.a: Orb3dLB_notopo.o
+	$(CHARMC) -o libmoduleOrb3dLB_notopo.a Orb3dLB_notopo.o 
 
 %.decl.h %.def.h : %.ci
-	$(CHARMC) $<
+	$(CHARMC) -E $(DEFINE_FLAGS) $<
 
 HostCUDA.o: HostCUDA.cu HostCUDA.h
 	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) HostCUDA.cu
@@ -191,7 +194,7 @@ ref-clean:
 	rm -f $(TARGET) Compute.o TreeWalk.o
 
 depends:
-	$(CXX_DEPEND) $(SRSC) | while read i;do echo $$i| awk -F' ' '{for (i=1;i<NF;++i) print $$i" \\"}';echo;done|grep -v "$(CHARM_PATH)/bin" > Makefile.dep
+	$(CXX_DEPEND) $(SRSC) | while read i;do echo $$i| awk -F' ' '{for (i=1;i<NF;++i) print $$i" \\"}';echo;done|grep -v "$(CHARM_PATH)/bin" | grep -v "hashtable_mt.h" > Makefile.dep
 
 # depend:
 # 	$(CXX_DEPEND) $(SRSC) > Makefile.dep

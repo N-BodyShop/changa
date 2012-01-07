@@ -146,11 +146,15 @@ struct Event {
   {
   }
 
-  bool operator<=(const Event &e){
+  bool operator<(const Event &e) const {
+    return position < e.position;
+  }
+
+  bool operator<=(const Event &e) const {
     return position <= e.position;
   }
 
-  bool operator>=(const Event &e){
+  bool operator>=(const Event &e) const {
     return position >= e.position;
   }
 };
@@ -159,16 +163,26 @@ struct OrbObject {
   int partition;
   int lbindex;
   Vector3D<float> centroid;
-
-  OrbObject() : 
-    partition(-1),
-    lbindex(-1)
-  {
-  }
+  int numParticles;
 
   OrbObject(int tag) : 
     partition(-1),
-    lbindex(tag)
+    lbindex(tag),
+    numParticles(0)
+   {
+   }
+
+  OrbObject() : 
+    partition(-1),
+    lbindex(-1),
+    numParticles(0)
+  {
+  }
+
+  OrbObject(int tag, int np) : 
+    partition(-1),
+    lbindex(tag),
+    numParticles(np)
   {
   }
 };

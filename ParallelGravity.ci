@@ -9,6 +9,7 @@ mainmodule ParallelGravity {
   readonly CProxy_TreePiece treeProxy;
   readonly CProxy_LvArray lvProxy;
   readonly CProxy_LvArray smoothProxy;
+  readonly CProxy_LvArray gravityProxy;
   readonly CProxy_TreePiece streamingProxy;
   readonly CProxy_CkCacheManager cacheNode;
   readonly CProxy_CkCacheManager cacheGravPart;
@@ -51,6 +52,14 @@ mainmodule ParallelGravity {
 
   readonly int nSmooth;
 
+#ifdef PUSH_GRAVITY
+  readonly CkGroupID ckMulticastGrpId;
+#endif
+
+#ifdef SELECTIVE_TRACING
+  readonly CProxy_ProjectionsControl prjgrp;
+#endif
+
   //message piecedata;
   message dummyMsg;
   message ComputeChunkMsg;
@@ -65,6 +74,13 @@ mainmodule ParallelGravity {
     extraSPHData pGas[];
     extraStarData pStar[];
   };
+
+#ifdef PUSH_GRAVITY
+  message BucketMsg {
+    GenericTreeNode buckets[];
+    ExternalGravityParticle particles[];
+  };
+#endif
 
   PUPable DensitySmoothParams;
   PUPable DenDvDxSmoothParams;
@@ -98,6 +114,14 @@ mainmodule ParallelGravity {
     entry void niceExit();
     entry void liveVizImagePrep(liveVizRequestMsg *msg);
   };
+
+#ifdef SELECTIVE_TRACING
+  group [migratable] ProjectionsControl {
+    entry ProjectionsControl();
+    entry [notrace] void on(CkCallback);
+    entry [notrace] void off(CkCallback);                     
+  };                                                          
+#endif
 
   chare [migratable] Sorter {
     entry Sorter();
@@ -133,6 +157,7 @@ mainmodule ParallelGravity {
     entry void memoryStats(const CkCallback& cb);
     entry void resetReadOnly(Parameters param, const CkCallback &cb);
   };
+
   array [1D] TreePiece {
     entry TreePiece();
     entry void restart();
@@ -162,6 +187,8 @@ mainmodule ParallelGravity {
     entry void loadTipsy(const std::string& filename,
         const double dTuFac,
         const CkCallback& cb);
+    entry void findTotalMass(CkCallback &cb);
+    entry void recvTotalMass(CkReductionMsg *msg);
     entry void setupWrite(int iStage, u_int64_t iPrevOffset,
         const std::string& filename,
         const double dTime, const double dvFac,
@@ -253,14 +280,24 @@ mainmodule ParallelGravity {
     entry void DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump) ;
     entry void liveVizDumpFrameInit(liveVizRequestMsg * msg);
     entry void setProjections(int bOn);
+#ifdef PUSH_GRAVITY
+    entry void buildTree(int bucketSize, const CkCallback& cb, bool merge);
+#else
     entry void buildTree(int bucketSize, const CkCallback& cb);
+#endif
 
     //entry void collectSplitters(CkReductionMsg* m);
     entry void startOctTreeBuild(CkReductionMsg* m);
 
     entry void startORBTreeBuild(CkReductionMsg* m);
 
-    entry void startIteration(int activeRung, double myTheta, CkCallback &cb);
+    entry void startGravity(int activeRung, double myTheta, CkCallback &cb);
+#ifdef PUSH_GRAVITY
+    entry void startPushGravity(int am, double myTheta);
+    entry void recvPushBuckets(BucketMsg *);
+    entry void recvPushAccelerations(CkReductionMsg *);
+#endif
+
     entry void startIterationSmooth(CkPointer<SmoothParams>, int iLowhFix,
 				    double dfBall2OverSoft2, CkCallback &cb);
     entry void startIterationReSmooth(CkPointer<SmoothParams>, CkCallback &cb);

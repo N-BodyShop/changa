@@ -1,6 +1,6 @@
 /** \file Sorter.cpp
  Implementation of the parallel sort.
- \author Graeme Lufkin (gwl@u.washington.edu)
+ \author originally Graeme Lufkin (gwl@u.washington.edu)
  */
 
 #include <algorithm>
@@ -235,7 +235,11 @@ void Sorter::collectORBCounts(CkReductionMsg* m){
 }
 
 /**
- * Overall start of domain decomposition
+ * \brief Overall start of domain decomposition
+ * @param dataManagerID ID of data manager group
+ * @param toler Tolerance within which to have the same number of particles
+ * @param cb Callback for when we are done.
+ * @param decompose Are we still deciding on decomposition?
  */
 void Sorter::startSorting(const CkGroupID& dataManagerID,
 			  const double toler, const CkCallback& cb, bool decompose) {
@@ -259,10 +263,11 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
         if (splitters.size() == 0) {
           // reuse the existing splitters from the previous decomposition
 	    splitters.clear();
-	    splitters.reserve(3 * numChares - 1);
-	    delta = (lastPossibleKey - SFC::firstPossibleKey) / (3 * numChares - 2);
+	    int nSplitters = 4*numChares + 1;
+	    splitters.reserve(nSplitters);
+	    delta = (lastPossibleKey - SFC::firstPossibleKey) / (nSplitters-1);
 	    k = firstPossibleKey;
-	    for(int i = 0; i < (3 * numChares - 2); i++, k += delta) {
+	    for(int i = 0; i < (nSplitters-1); i++, k += delta) {
 		if(k != firstPossibleKey)
 		    k |= 7L;  // Set bottom bits to avoid trees too deep
 		splitters.push_back(k);
@@ -318,7 +323,14 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
     } else {
       //send out all the decided keys to get final bin counts
       sorted = true;
-      treeProxy.evaluateBoundaries(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+      if(domainDecomposition == Oct_dec)
+	  treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(),
+				       0,
+				       CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+      else
+	  treeProxy.evaluateBoundaries(&(*keyBoundaries.begin()),
+				       keyBoundaries.size(), 0,
+				       CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
     }
   }
 }
@@ -350,10 +362,11 @@ void Sorter::convertNodesToSplitters(){
 }
 
 /**
- * Given "num" node keys, create splitters for these selected nodekeys to 
- * refine the information within those nodes: each node is divided
- * "level" times. Returns a newly allocated Key array containing the
- * splitters key for the histogramming phase.
+ * Given "num" node keys, create splitters for these selected nodekeys
+ * to refine the information within those nodes: each node in keys is
+ * divided a number of times that depends on "refineLevel". Returns a
+ * newly allocated Key array containing a concatenation of the
+ * splitter keys for each node to be refined for the histogramming phase.
  */
 Key * Sorter::convertNodesToSplittersRefine(int num, NodeKey* keys){
   Key partKey = Key(0);
@@ -373,7 +386,9 @@ Key * Sorter::convertNodesToSplittersRefine(int num, NodeKey* keys){
     }
     partKey &= ~mask >> shift;
     for (int j=0; j<=(1<<refineLevel); ++j) {
-      result[idx++] = ((partKey+j) << shift) - 1;
+      Key kResult =  ((partKey+j) << shift);
+      if(kResult != 0) kResult--;
+      result[idx++] = kResult;
     }
   }
   //Sort here to make sure that splitters go sorted to histogramming
@@ -404,17 +419,18 @@ void Sorter::collectEvaluations(CkReductionMsg* m) {
   }
 }
 
+/**
+ * Examine the counts for Oct decomposition and determine if further
+ * refining is needed.  Call TreePiece::evaluateBoundaries if needed,
+ * else send the final keys to DataManager::acceptFinalKeys.
+ * Sorter::refineOctSplitting does the new splitting choice.
+ */
 void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 
   numIterations++;
   numCounts = m->getSize() / sizeof(int);
-  //binCounts.resize(numCounts);
-  //binCounts[0] = 0;
   int* startCounts = static_cast<int *>(m->getData());
-  //copy(startCounts, startCounts + numCounts, binCounts.begin() + 1);
-  //copy(startCounts, startCounts + numCounts, binCounts.begin());
 
-  //CkAssert(numCounts==numChares);
   //call function which will balance the bin counts: define it in GenericTreeNode
   //make it a templated function
   //Pass the bincounts as well as the nodekeys
@@ -445,7 +461,6 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   }
   
   double startTimer = CmiWallTimer();
-  //bool histogram=weightBalance<int>(nodeKeys,startCounts,numKeys,keysSize,numChares,&zeros,&nodesOpened,wbState);
   bool histogram = refineOctSplitting(numCounts, startCounts);
   traceUserBracketEvent(weightBalanceUE, startTimer, CmiWallTimer());
   delete m;
@@ -457,11 +472,9 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     CkPrintf("\n");
   }
   if(histogram){
-    //convertNodesToSplitters(numKeys,nodeKeys);
-    refineLevel = 2;
+    refineLevel = 1;
     int arraySize = (1<<refineLevel)+1;
     Key *array = convertNodesToSplittersRefine(nodesOpened.size(),nodesOpened.getVec());
-//    dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), 1, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
     treeProxy.evaluateBoundaries(array, nodesOpened.size()*arraySize, 1<<refineLevel, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
     delete[] array;
   }
@@ -485,8 +498,6 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     dm.acceptFinalKeys(&(*splitters.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), splitters.size(), sortingCallback);
     numIterations = 0;
     sorted = false;
-    //delete [] nodeKeys;
-    //delete wbState;
     return;
   }
 }
@@ -541,7 +552,7 @@ bool Sorter::refineOctSplitting(int n, int *count) {
     const Key mask = Key(1) << 63;
     for (i=0; i<nodesOpened.size(); ++i) {
       //CkPrintf("Sorter: considering %llx\n",nodesOpened[i]);
-      if (availableChares.size() < 1<<refineLevel) {
+      if (availableChares.size() < 1<<refineLevel - 1) {
 	CkPrintf("availableChares size is %d, cannot refine further\n", availableChares.size());
         break;
       }
@@ -608,6 +619,14 @@ bool Sorter::refineOctSplitting(int n, int *count) {
   return nodesOpened.size() > 0;
 }
 
+/**
+ * \brief Collect evaluations for the SFC domain decomposion.
+ *
+ * Examines the bin counts to see if the iteration has converged.  If
+ * yes, a final count is done and then sent to
+ * DataManager::acceptFinalKeys.  If not, then Sorter::adjustSplitters
+ * is used to refine the search intervals.
+ */
 void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	numIterations++;
 	numCounts = m->getSize() / sizeof(int);
@@ -666,19 +685,17 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 		keyBoundaries.push_back(lastPossibleKey);
 		
 		//send out all the decided keys to get final bin counts
-//		dm.acceptCandidateKeys(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-        treeProxy.evaluateBoundaries(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+		treeProxy.evaluateBoundaries(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 	} else //send out the new guesses to be evaluated
-//		dm.acceptCandidateKeys(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 	    treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 }
 
 /** Generate new guesses for splitter keys based on the histograms that came
  back from the last batch.
- We need to find the keys that split a distribution into well defined piles.
- We send out low, high, and middle guesses for each split.  We then pick the
- left or right side and move into there, sending out for evaluation.  This
- is a simultaneous binary search for each splitter key not yet found.
+ We need to find the keys that split a distribution into even piles.
+ We find the bracketing splits, and then insert a new guess in the
+ middle for a new evaluation. This is a simultaneous bisection search
+ for each splitter key not yet found.
  */
 void Sorter::adjustSplitters() {
 	
@@ -721,7 +738,11 @@ void Sorter::adjustSplitters() {
 			// the middle to the guesses
 			// Set bottom bits to avoid trees to deep.
 			newSplitters.insert(leftBound | 7L);
+			newSplitters.insert((leftBound / 4 * 3 + rightBound / 4)
+					    | 7L);
 			newSplitters.insert((leftBound / 2 + rightBound / 2)
+					    | 7L);
+			newSplitters.insert((leftBound / 4 + rightBound / 4 * 3)
 					    | 7L);
 			newSplitters.insert(rightBound | 7L);
 			++Ngoal;
@@ -740,9 +761,12 @@ void Sorter::adjustSplitters() {
 		// The following loop is a work around.
 		// splitters.assign(newSplitters.begin(), newSplitters.end());
 		splitters.clear();
+		if(verbosity >=4 ) CkPrintf("Keys:");
 		for(set<Key>::iterator iterNew = newSplitters.begin();
 		    iterNew != newSplitters.end(); iterNew++) {
+		    if(verbosity >= 4) CkPrintf("%lx,", *iterNew);
 		    splitters.push_back(*iterNew);
 		    }
+		if(verbosity >=4 ) CkPrintf("\n");
 	}
 }

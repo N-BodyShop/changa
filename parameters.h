@@ -39,6 +39,10 @@ typedef struct parameters {
     double daSwitchTheta;
     int iOrder;
     int bConcurrentSph;
+    double dFracNoDomainDecomp;
+#ifdef PUSH_GRAVITY
+    double dFracPushParticles;
+#endif
     CSM csm;			/* cosmo parameters */
     double dRedTo;
     /*
@@ -96,6 +100,7 @@ typedef struct parameters {
     int iCheckInterval;
     int iLogInterval;
     int bDoIOrderOutput;
+    int cacheLineDepth;
     double dExtraStore;
     double dDumpFrameStep;
     double dDumpFrameTime;
@@ -133,6 +138,10 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.daSwitchTheta;
     p|param.iOrder;
     p|param.bConcurrentSph;
+    p|param.dFracNoDomainDecomp;
+#ifdef PUSH_GRAVITY
+    p|param.dFracPushParticles;
+#endif
     if(p.isUnpacking())
  	csmInitialize(&param.csm);
     p|*param.csm;
@@ -187,6 +196,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.iCheckInterval;
     p|param.iLogInterval;
     p|param.bDoIOrderOutput;
+    p|param.cacheLineDepth;
     p|param.dExtraStore;
     p|param.dDumpFrameStep;
     p|param.dDumpFrameTime;
