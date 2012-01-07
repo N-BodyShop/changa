@@ -2417,6 +2417,12 @@ int Main::adjust(int iKickRung)
     return iCurrMaxRung;
     }
 
+///
+/// @brief Count and print out the number of particles in each
+/// timestep bin.
+///
+/// This routine is for information only.
+///
 void Main::rungStats() 
 {
     CkReductionMsg *msg;
