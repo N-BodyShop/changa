@@ -545,6 +545,10 @@ Main::Main(CkArgMsg* m) {
         prmAddParam(prm, "iTraceRung", paramInt, &monitorRung,
               sizeof(int),"traceRung", "Gravity starting rung to trace selectively");
 
+        monitorStart = 0;
+        prmAddParam(prm, "iTraceStart", paramInt, &monitorStart,
+              sizeof(int),"traceStart", "When to start selective tracing");
+
         numTraceIterations = 3;
         prmAddParam(prm, "iTraceFor", paramInt, &numTraceIterations,
               sizeof(int),"traceFor", "Trace this many instances of the selected rungs");
@@ -2780,10 +2784,15 @@ void Main::turnProjectionsOn(int activeRung){
     if(activeRung != monitorRung){
     }
     else if(traceIteration < numTraceIterations){
-      prjgrp.on(CkCallbackResumeThread());
-      projectionsOn = true;
-      traceIteration++;
-      numMaxTrace--;
+      if(monitorStart == 0){
+        prjgrp.on(CkCallbackResumeThread());
+        projectionsOn = true;
+        traceIteration++;
+        numMaxTrace--;
+      }
+      else{
+        monitorStart--;
+      }
     }
     else{
       traceState = TraceSkip;
@@ -2798,10 +2807,15 @@ void Main::turnProjectionsOn(int activeRung){
     }
     else{
       traceState = TraceNormal;
-      prjgrp.on(CkCallbackResumeThread());
-      projectionsOn = true;
-      traceIteration = 1;
-      numMaxTrace--;
+      if(monitorStart == 0){
+        prjgrp.on(CkCallbackResumeThread());
+        projectionsOn = true;
+        traceIteration = 1;
+        numMaxTrace--;
+      }
+      else{
+        monitorStart--;
+      }
     }
   }
 }

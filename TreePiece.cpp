@@ -16,6 +16,7 @@
 // jetley
 #include "MultistepLB.h"
 #include "Orb3dLB.h"
+#include "Orb3dLB_notopo.h"
 // jetley - refactoring
 //#include "codes.h"
 #include "Opt.h"
@@ -653,12 +654,22 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
   //assert(myPlace >= 0 && myPlace < dm->particleCounts.size());
   if (myPlace == -2 || dm->particleCounts[myPlace] == 0) {
     // Special case where no particle is assigned to this TreePiece
-    if (myNumParticles > 0) delete[] myParticles;
+    if (myNumParticles > 0){
+      delete[] myParticles;
+      myParticles = NULL;
+    }
     myNumParticles = 0;
-    if (nStoreSPH > 0) delete[] mySPHParticles;
+    nStore = 0;
+    if (nStoreSPH > 0){
+      delete[] mySPHParticles;
+      mySPHParticles = NULL;
+    }
     myNumSPH = 0;
     nStoreSPH = 0;
-    if (nStoreStar > 0) delete[] myStarParticles;
+    if (nStoreStar > 0){
+      delete[] myStarParticles;
+      myStarParticles = NULL;
+    }
     myNumStar = 0;
     nStoreStar = 0;
     incomingParticlesSelf = false;
@@ -712,6 +723,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
       myNumSPH = nSPH;
       nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
       if(nStoreSPH > 0) mySPHParticles = new extraSPHData[nStoreSPH];
+      else mySPHParticles = NULL;
 
       if (nStoreStar > 0) delete[] myStarParticles;
       myNumStar = nStar;
@@ -4335,6 +4347,14 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   LDObjHandle myHandle = myRec->getLdHandle();
   TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles, activeRung, prevLARung);
   tv.tag = thisIndex;
+  /*
+  CkPrintf("[%d] centroid %f %f %f\n", 
+                      thisIndex,
+                      tv.vec.x,
+                      tv.vec.y,
+                      tv.vec.z
+                      );
+  */
 
   if(foundLB == Multistep){
     CkCallback cbk(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
@@ -4342,6 +4362,10 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   }
   else if(foundLB == Orb3d){
     CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
+  }
+  else if(foundLB == Orb3d_notopo){
+    CkCallback cbk(CkIndex_Orb3dLB_notopo::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
   }
   else if(activeRung == 0) {
@@ -5895,31 +5919,52 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   TaggedVector3D tv(centroid, handle, myNumParticles, myNumParticles, 0, 0);
   tv.tag = thisIndex;
 
+  /*
+  CkPrintf("[%d] centroid %f %f %f\n", 
+                      thisIndex,
+                      tv.vec.x,
+                      tv.vec.y,
+                      tv.vec.z
+                      );
+  */
+
   string msname("MultistepLB");
   string orb3dname("Orb3dLB");
+  string orb3d_notoponame("Orb3dLB_notopo");
 
   BaseLB **lbs = lbdb->getLoadBalancers();
   int i;
   if(foundLB == Null){
     for(i = 0; i < nlbs; i++){
       if(msname == string(lbs[i]->lbName())){ 
-        proxy = lbs[i]->getGroupID();
         foundLB = Multistep;
         break;
       }
       else if(orb3dname == string(lbs[i]->lbName())){ 
-        proxy = lbs[i]->getGroupID();
         foundLB = Orb3d;
+        break;
+      }
+      else if(orb3d_notoponame == string(lbs[i]->lbName())){
+        foundLB = Orb3d_notopo;
         break;
       }
     }
   }
+
+  if(foundLB != Null){
+    proxy = lbs[i]->getGroupID();
+  }
+
   if(foundLB == Multistep){
     CkCallback lbcb(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
   }
   else if(foundLB == Orb3d){
     CkCallback lbcb(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+  }
+  else if(foundLB == Orb3d_notopo){
+    CkCallback lbcb(CkIndex_Orb3dLB_notopo::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
   }
   else if(foundLB == Null){ 
