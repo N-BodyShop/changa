@@ -55,6 +55,7 @@ DataManager.h \
 ParallelGravity.decl.h \
 Compute.h \
 Reductions.h \
+Reductions.decl.h \
 
 Sorter.o: \
 Sorter.cpp \
