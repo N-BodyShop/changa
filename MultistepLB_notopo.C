@@ -8,7 +8,7 @@
 
 extern CProxy_TreePiece treeProxy;
 using namespace std;
-#define ORB3DLB_NOTOPO_DEBUG CkPrintf
+#define ORB3DLB_NOTOPO_DEBUG
 
 CreateLBFunc_Def(MultistepLB_notopo, "Works best with multistepped runs; uses Orb3D_notopo for larger steps, greedy otherwise");
 
@@ -178,7 +178,7 @@ void MultistepLB_notopo::makeActiveProcessorList(BaseLB::LDStats *stats, int num
 }
 #endif
 
-#define LARGE_PHASE_THRESHOLD 0.10
+#define LARGE_PHASE_THRESHOLD 0.0
 
 void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 {
@@ -224,7 +224,7 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
     numActiveParticles += tpCentroids[i].numActiveParticles;
     totalNumParticles += tpCentroids[i].myNumParticles;
 
-    if(tpCentroids[i].numActiveParticles == 0){
+    if(false && tpCentroids[i].numActiveParticles == 0){
       numInactiveObjects++;
       if(stats->objData[lb].migratable){
         stats->objData[lb].migratable = 0;
@@ -306,7 +306,6 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 
   // let the strategy take over on this modified instrumented data and processor information
   if((float)numActiveParticles/totalNumParticles > LARGE_PHASE_THRESHOLD){
-  //if(true){
     if (_lb_args.debug()>=2) {
       CkPrintf("******** BIG STEP *********!\n");
     }
@@ -594,6 +593,10 @@ void MultistepLB_notopo::orbPartition(CkVec<Event> *events, OrientedBox<float> &
   ORB3DLB_NOTOPO_DEBUG("nlprocs %d nrprocs %d ratio %f\n", nlprocs, nrprocs, ratio);
 
   int splitIndex = partitionRatioLoad(events[longestDim],ratio);
+  if(splitIndex == numEvents) {
+      ORB3DLB_NOTOPO_DEBUG("evenly split 0 load\n");
+      splitIndex = splitIndex/2;
+      }
   int nleft = splitIndex;
   int nright = numEvents-nleft;
 
