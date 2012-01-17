@@ -75,7 +75,7 @@ NVCC = $(CUDA_DIR)/bin/nvcc
 NVCC_FLAGS = -c -use_fast_math --ptxas-options=-v #-deviceemu -device-debug 
 NVCC_INC = -I$(CUDA_DIR)/include -I$(NVIDIA_CUDA_SDK)/common/inc -I$(CHARM_PATH)/tmp/hybridAPI
 # add $(NVCC_LIBS) to LDLIBS when compiling for cuda
-NVCC_LIBS = -lcuda -lcudart -lGL -lcutil
+NVCC_LIBS = -lcuda -lcudart -lGL
 
 # add -module Orb3dLB here for load balancing during singlestepped runs
 #OPTS = -g -memory charmdebug
@@ -114,7 +114,7 @@ ifdef CUDA
   SRSC += HostCUDA.cu #EwaldCUDA.cu
   LDLIBS += $(NVCC_LIBS)
   NVCC_FLAGS += $(CXXFLAGS)
-  LDFLAGS += -L$(NVIDIA_CUDA_SDK)/lib -L$(CUDA_DIR)/lib
+  LDFLAGS += -L$(NVIDIA_CUDA_SDK)/lib -L$(CUDA_DIR)/lib64
 ifdef HEXADECAPOLE
   HEXADECAPOLE = #  
 endif
