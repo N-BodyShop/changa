@@ -54,6 +54,7 @@ InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
 Compute.h \
+Reductions.decl.h \
 Reductions.h \
 
 Sorter.o: \
