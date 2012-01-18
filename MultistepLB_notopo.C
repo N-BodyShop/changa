@@ -600,6 +600,17 @@ void MultistepLB_notopo::orbPartition(CkVec<Event> *events, OrientedBox<float> &
   int nleft = splitIndex;
   int nright = numEvents-nleft;
 
+  if(nright < nrprocs) {  // at least one piece per processor
+      nright = nrprocs;
+      nleft = splitIndex = numEvents-nright;
+      CkAssert(nleft >= nlprocs);
+      }
+  else if(nleft < nlprocs) {
+      nleft = splitIndex = nlprocs;
+      nright = numEvents-nleft;
+      CkAssert(nright >= nrprocs);
+      }
+
   OrientedBox<float> leftBox;
   OrientedBox<float> rightBox;
 
