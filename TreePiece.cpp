@@ -5945,10 +5945,12 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   if(foundLB == Null){
     for(i = 0; i < nlbs; i++){
       if(msname == string(lbs[i]->lbName())){ 
+      	proxy = lbs[i]->getGroupID();
         foundLB = Multistep;
         break;
       }
       else if(orb3dname == string(lbs[i]->lbName())){ 
+      	proxy = lbs[i]->getGroupID();
         foundLB = Orb3d;
         break;
       }
@@ -5958,14 +5960,11 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
         break;
       }
       else if(orb3d_notoponame == string(lbs[i]->lbName())){
+      	proxy = lbs[i]->getGroupID();
         foundLB = Orb3d_notopo;
         break;
       }
     }
-  }
-
-  if(foundLB != Null){
-    proxy = lbs[i]->getGroupID();
   }
 
   if(foundLB == Multistep){
