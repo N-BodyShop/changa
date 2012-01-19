@@ -58,12 +58,17 @@ PUPbytes(COOLPARAM);
 #include <libhpm.h>
 #endif
 
+#include <map>
+
+using namespace std;
+
 using namespace Tree;
 
 enum LBStrategy{
   Null=0,
   Multistep,
-  Orb3d
+  Orb3d,
+  Orb3d_notopo
 };
 PUPbytes(LBStrategy);
 
@@ -282,6 +287,18 @@ public:
     ParticleShuffleMsg(int npart, int nsph, int nstar, double pload): n(npart),
 	nSPH(nsph), nStar(nstar), load(pload) {}
 };
+
+#ifdef PUSH_GRAVITY
+#include "ckmulticast.h"
+
+struct BucketMsg : public CkMcastBaseMsg, public CMessage_BucketMsg {
+  GenericTreeNode *buckets;
+  int numBuckets;
+  ExternalGravityParticle *particles;
+  int numParticles;
+  int whichTreePiece;
+};
+#endif
     
 /// Class to count added and deleted particles
 class CountSetPart 
@@ -412,6 +429,7 @@ class Main : public CBase_Main {
 
 #ifdef SELECTIVE_TRACING
        int monitorRung;
+       int monitorStart;
        int numTraceIterations;
        int numSkipIterations;
        int numMaxTrace;
@@ -527,6 +545,7 @@ class SmoothCompute;
 template<typename T> class GenericList;
 #endif
 
+/// Fundamental structure that holds particle and tree data.
 class TreePiece : public CBase_TreePiece {
    // jetley
    friend class PrefetchCompute;
@@ -559,6 +578,7 @@ class TreePiece : public CBase_TreePiece {
    Opt *optSmooth;
 
    State *sPrefetchState;
+   /// Keeps track of the gravity walks over the local tree.
    State *sLocalGravityState, *sRemoteGravityState, *sSmoothState;
    typedef std::map<CkCacheKey, CkVec<int>* > SmPartRequestType;
    // buffer of requests for smoothParticles.
@@ -576,71 +596,67 @@ class TreePiece : public CBase_TreePiece {
    int memWithCache, memPostCache;  // store memory usage.
    int nNodeCacheEntries, nPartCacheEntries;  // store memory usage.
 
+#ifdef PUSH_GRAVITY
+   bool doMerge;
+   bool createdSpanningTree;
+   CProxySection_TreePiece allTreePieceSection;
+   CkVec<GravityParticle> foreignParticles;
+   CkVec<double> foreignParticleAccelerations;
+
+   map<int,CkSectionInfo> cookieJar;
+  
+   BucketMsg *createBucketMsg();
+   void unpackBuckets(BucketMsg *, GenericTreeNode *&foreignBuckets, int &numForeignBuckets);
+   void calculateForces(GenericTreeNode *foreignBuckets, int numForeignBuckets);
+
+#endif
+
  public:
+
+#ifdef PUSH_GRAVITY
+  void startPushGravity(int am, double myTheta);
+  void recvPushBuckets(BucketMsg *);
+  void recvPushAccelerations(CkReductionMsg *);
+#endif
+
 #if COSMO_PRINT_BK > 1
   State *getSRemoteGravityState(){ return sRemoteGravityState; }
   State *getSLocalGravityState(){ return sLocalGravityState; }
 #endif
   void memCacheStats(const CkCallback &cb);
-  
-   void addActiveWalk(int iAwi, TreeWalk *tw, Compute *c, Opt *o, State *s);
+  void addActiveWalk(int iAwi, TreeWalk *tw, Compute *c, Opt *o, State *s);
 
-        void markWalkDone();
-	void finishWalk();
-        void markSmoothWalkDone();
-	void finishSmoothWalk();
+  void markWalkDone();
+  void finishWalk();
+  void markSmoothWalkDone();
+  void finishSmoothWalk();
 
-        int getIndex() {
-          return thisIndex;
-        }
+  int getIndex() {
+    return thisIndex;
+  }
 
-        int getLocalIndex(){
-          return localIndex;
-        }
+  int getLocalIndex(){
+    return localIndex;
+  }
 
-        /*
-        int decPrefetchWaiting() {
-          prefetchWaiting--;
-          return prefetchWaiting;
-        }
+  void addToNodeInterRemote(int chunk, int howmany){
+    nodeInterRemote[chunk] += howmany;
+  }
 
-        int incPrefetchWaiting() {
-          prefetchWaiting++;
-          return prefetchWaiting;
-        }
-        */
+  void addToParticleInterRemote(int chunk, int howmany){
+    particleInterRemote[chunk] += howmany;
+  }
 
-        /*
-        int addToremaining Chunk(int chunk, int howMuch){
-          remaining Chunk[chunk] += howMuch;
-          return remaining Chunk[chunk];
-        }
-        */
+  void addToNodeInterLocal(int howmany){
+    nodeInterLocal += howmany;
+  }
 
-        void addToNodeInterRemote(int chunk, int howmany){
-          nodeInterRemote[chunk] += howmany;
-        }
+  void addToParticleInterLocal(int howmany){
+    particleInterLocal += howmany;
+  }
 
-        void addToParticleInterRemote(int chunk, int howmany){
-          particleInterRemote[chunk] += howmany;
-        }
-
-        void addToNodeInterLocal(int howmany){
-          nodeInterLocal += howmany;
-        }
-
-        void addToParticleInterLocal(int howmany){
-          particleInterLocal += howmany;
-        }
-
-        /// Start a new remote computation upon prefetch finished
-        void startRemoteChunk();
-
-        /*
-        int getCurrentRemote Bucket(){
-        	return currentRemote Bucket;
-        }
-        */
+  /// Start a new remote computation upon prefetch finished
+  void startRemoteChunk();
 
 #ifdef CUDA
         // this variable holds the number of buckets active at
@@ -988,22 +1004,12 @@ private:
 	/// Placeholder for particles used for prefetching
 	OrientedBox<double> prefetchReq[2];
 	unsigned int numPrefetchReq;
-	/// number of particles/buckets still remaining to compute for the chunk
-	//int *remaining Chunk;
 
 	/// number of chunks in which the tree will be chopped for prefetching
 	int numChunks;
 
-	//u_int64_t openingDiffCount;
-    /// @if STATISTICS
 #if COSMO_STATS > 0
-	//u_int64_t myNumCellInteractions;
-	//u_int64_t myNumParticleInteractions;
 	u_int64_t myNumMACChecks;
-	//u_int64_t myNumProxyCalls;
-	//u_int64_t myNumProxyCallsBack;
-	// Same as myNumCellInteractions, only restricted to cached nodes
-	//int cachecellcount;
 	u_int64_t nodesOpenedLocal;
 	u_int64_t nodesOpenedRemote;
 	u_int64_t numOpenCriterionCalls;
@@ -1012,7 +1018,6 @@ private:
 	u_int64_t *nodeInterRemote;
 	u_int64_t particleInterLocal;
 	u_int64_t *particleInterRemote;
-	/// @endif
 
 	int nActive;		// number of particles that are active
 
@@ -1079,6 +1084,8 @@ private:
   ///Phase of ORB decomposition: the number of boxes double in each phase till they are equal to the number
   ///of TreePieces
   int phase;
+
+  double myTotalMass;
 
  #if INTERLIST_VER > 0
 
@@ -1168,7 +1175,7 @@ private:
 	 */
 	void startNextBucket();
 	/** @brief Start a full step of bucket computation, it sends a message
-	 * to trigger nextBucket which will loop over all the buckets.
+	 * to trigger nextBucket() which will loop over all the buckets.
 	 */
 	void doAllBuckets();
 	void reconstructNodeLookup(GenericTreeNode *node);
@@ -1251,6 +1258,10 @@ public:
 	  boxes = NULL;
 	  splitDims = NULL;
 	  bGasCooling = 0;
+
+#ifdef PUSH_GRAVITY
+          createdSpanningTree = false;
+#endif
 	}
 
 	TreePiece(CkMigrateMessage* m) {
@@ -1303,7 +1314,7 @@ public:
         public:
 	~TreePiece() {
 	  if (verbosity>1) ckout <<"Deallocating treepiece "<<thisIndex<<endl;
-	  delete[] myParticles;
+	  if(nStore > 0) delete[] myParticles;
 	  if(nStoreSPH > 0) delete[] mySPHParticles;
 	  if(nStoreStar > 0) delete[] myStarParticles;
 	  delete[] nodeInterRemote;
@@ -1346,6 +1357,10 @@ public:
 	// Load from Tipsy file
 	void loadTipsy(const std::string& filename, const double dTuFac,
 		       const CkCallback& cb);
+
+        void findTotalMass(CkCallback &cb);
+        void recvTotalMass(CkReductionMsg *msg);
+
 	// Write a Tipsy file
 	void writeTipsy(const std::string& filename, const double dTime,
 			const double dvFac, const double duTfac,
@@ -1475,7 +1490,11 @@ public:
 	void setProjections(int bOn);
 
 	/// \brief Charm entry point to build the tree (called by Main).
+#ifdef PUSH_GRAVITY
+	void buildTree(int bucketSize, const CkCallback& cb, bool merge);
+#else
 	void buildTree(int bucketSize, const CkCallback& cb);
+#endif
 
 	/// \brief Real tree build, independent of other TreePieces.
 	void startOctTreeBuild(CkReductionMsg* m);
@@ -1618,7 +1637,7 @@ public:
 	//void getPieceValues(piecedata *totaldata);
 
         /** @brief Entry method used to split the processing of all the buckets
-         * in small pieces. It call startNextBucket a _yieldPeriod number of
+         * in small pieces. It calls startNextBucket() _yieldPeriod number of
          * times, and then it returns to the scheduler after enqueuing a message
          * for itself.
 	 */

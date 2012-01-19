@@ -86,6 +86,11 @@ int partForceUE;
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
 
+#ifdef PUSH_GRAVITY
+#include "ckmulticast.h"
+CkGroupID ckMulticastGrpId;
+#endif
+
 #ifdef SELECTIVE_TRACING
 CProxy_ProjectionsControl prjgrp;
 #endif
@@ -526,11 +531,23 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "bConcurrentSph", paramBool, &param.bConcurrentSph,
 		    sizeof(int),"consph", "Enable SPH running concurrently with Gravity");
 
+#ifdef PUSH_GRAVITY
+        param.dFracPushParticles = 0.0;
+	prmAddParam(prm, "dFracPush", paramDouble,
+		    &param.dFracPushParticles, sizeof(double),"fPush",
+		    "Maximum proportion of active to total particles for push-based force evaluation = 0.0");
+#endif
+
+
 #ifdef SELECTIVE_TRACING
         /* tracing control */ 
         monitorRung = 12;
         prmAddParam(prm, "iTraceRung", paramInt, &monitorRung,
               sizeof(int),"traceRung", "Gravity starting rung to trace selectively");
+
+        monitorStart = 0;
+        prmAddParam(prm, "iTraceStart", paramInt, &monitorStart,
+              sizeof(int),"traceStart", "When to start selective tracing");
 
         numTraceIterations = 3;
         prmAddParam(prm, "iTraceFor", paramInt, &numTraceIterations,
@@ -879,6 +896,10 @@ Main::Main(CkArgMsg* m) {
 	smoothProxy = CProxy_LvArray::ckNew(opts);
 	// Create an array for the gravity reductions
 	gravityProxy = CProxy_LvArray::ckNew(opts);
+
+#ifdef PUSH_GRAVITY
+        ckMulticastGrpId = CProxy_CkMulticastMgr::ckNew();
+#endif
 	
 	// create CacheManagers
 	// Gravity particles
@@ -1314,10 +1335,21 @@ void Main::advanceBigStep(int iStep) {
 
     if(verbosity)
 	memoryStats();
+
+
+#ifdef PUSH_GRAVITY
+    bool bDoPush = param.dFracPushParticles*nTotalParticles > nActiveGrav;
+    if(bDoPush) CkPrintf("[main] fracActive %f PUSH_GRAVITY\n", 1.0*nActiveGrav/nTotalParticles);
+#endif
+
     /******** Tree Build *******/
     ckout << "Building trees ...";
     startTime = CkWallTimer();
+#ifdef PUSH_GRAVITY
+    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),!bDoPush);
+#else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
     iPhase = 0;
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
@@ -1344,15 +1376,34 @@ void Main::advanceBigStep(int iStep) {
 	if(param.bConcurrentSph) {
 	    ckout << endl;
 
-	    treeProxy.startGravity(activeRung, theta, cbGravity);
+#ifdef PUSH_GRAVITY
+            if(bDoPush){ 
+              treeProxy.startPushGravity(activeRung, theta);
+            }
+	    else{ 
+#endif
+              treeProxy.startGravity(activeRung, theta, cbGravity);
+#ifdef PUSH_GRAVITY
+            }
+#endif
+
 
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(cbGravity);
 #endif
 	    }
 	else {
-	    treeProxy.startGravity(activeRung, theta,
-				     CkCallbackResumeThread());
+#ifdef PUSH_GRAVITY
+	    if(bDoPush){
+              treeProxy.startPushGravity(activeRung, theta);
+              CkWaitQD();
+            }
+	    else{
+#endif
+              treeProxy.startGravity(activeRung, theta, CkCallbackResumeThread());
+#ifdef PUSH_GRAVITY
+            }
+#endif
 
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
@@ -1380,7 +1431,16 @@ void Main::advanceBigStep(int iStep) {
 	}
     
     if(param.bConcurrentSph && param.bDoGravity) {
-	CkFreeMsg(cbGravity.thread_delay());
+#ifdef PUSH_GRAVITY
+      if(bDoPush){
+        CkWaitQD();
+      }
+      else{
+#endif
+        CkFreeMsg(cbGravity.thread_delay());
+#ifdef PUSH_GRAVITY
+      }
+#endif
 	//ckout << "Calculating gravity and SPH took "
 	//      << (CkWallTimer() - startTime) << " seconds." << endl;
         CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
@@ -1520,6 +1580,8 @@ void Main::setupICs() {
     
     double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
     treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
+
+    treeProxy.findTotalMass(CkCallbackResumeThread());
   }	
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
@@ -1788,7 +1850,11 @@ Main::initialForces()
   /******** Tree Build *******/
   ckout << "Building trees ...";
   startTime = CkWallTimer();
+#ifdef PUSH_GRAVITY
+  treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
+#else
   treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
   iPhase = 0;
@@ -2111,7 +2177,11 @@ Main::doSimulation()
 	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
 	  sorter.startSorting(dataManagerID, tolerance,
 			      CkCallbackResumeThread(), true);
+#ifdef PUSH_GRAVITY
+	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
+#else
 	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
 	  iPhase = 0;
 	  
 	  ckout << "Calculating total densities ...";
@@ -2294,7 +2364,11 @@ void Main::writeOutput(int iStep)
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
 	sorter.startSorting(dataManagerID, tolerance,
 			    CkCallbackResumeThread(), true);
+#ifdef PUSH_GRAVITY
+	treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
+#else
 	treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
 
 	iPhase = 0;
 	ckout << "Calculating total densities ...";
@@ -2347,6 +2421,12 @@ int Main::adjust(int iKickRung)
     return iCurrMaxRung;
     }
 
+///
+/// @brief Count and print out the number of particles in each
+/// timestep bin.
+///
+/// This routine is for information only.
+///
 void Main::rungStats() 
 {
     CkReductionMsg *msg;
@@ -2704,10 +2784,15 @@ void Main::turnProjectionsOn(int activeRung){
     if(activeRung != monitorRung){
     }
     else if(traceIteration < numTraceIterations){
-      prjgrp.on(CkCallbackResumeThread());
-      projectionsOn = true;
-      traceIteration++;
-      numMaxTrace--;
+      if(monitorStart == 0){
+        prjgrp.on(CkCallbackResumeThread());
+        projectionsOn = true;
+        traceIteration++;
+        numMaxTrace--;
+      }
+      else{
+        monitorStart--;
+      }
     }
     else{
       traceState = TraceSkip;
@@ -2722,10 +2807,15 @@ void Main::turnProjectionsOn(int activeRung){
     }
     else{
       traceState = TraceNormal;
-      prjgrp.on(CkCallbackResumeThread());
-      projectionsOn = true;
-      traceIteration = 1;
-      numMaxTrace--;
+      if(monitorStart == 0){
+        prjgrp.on(CkCallbackResumeThread());
+        projectionsOn = true;
+        traceIteration = 1;
+        numMaxTrace--;
+      }
+      else{
+        monitorStart--;
+      }
     }
   }
 }

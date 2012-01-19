@@ -102,8 +102,6 @@ class Sorter : public Chare {
         CkVec<int> zeros;
         /// The list of nodes opened by the last invocation of weightBalance
         CkVec<NodeKey> nodesOpened;
-        /// The transient state used by the weightBalance routine
-        WeightBalanceState<int>* wbState;
 
   Compare comp;
 

@@ -407,7 +407,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
   Vector3D<cosmoType> r;
   cosmoType rsq;
   cosmoType twoh, a, b, c, d;
-  MultipoleMoments m = node->moments;
+  MultipoleMoments &m = node->moments;
 
   Vector3D<cosmoType> cm(m.cm + offset);
 
@@ -422,6 +422,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
 #endif
   for(int j = req->firstParticle; j <= req->lastParticle; ++j) {
     if (particles[j].rung >= activeRung) {
+      particles[j].interMass += m.totalMass;
 #ifdef CMK_VERSION_BLUEGENE
       if (++forProgress > 200) {
         forProgress = 0;
