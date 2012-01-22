@@ -110,8 +110,8 @@ SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \
 
 ifdef CUDA
   CXXFLAGS += $(NVCC_INC)
-  OBJECTS += HostCUDA.o #EwaldCUDA.o
-  SRSC += HostCUDA.cu #EwaldCUDA.cu
+  OBJECTS += HostCUDA.o 
+  SRSC += HostCUDA.cu 
   LDLIBS += $(NVCC_LIBS)
   NVCC_FLAGS += $(CXXFLAGS)
   LDFLAGS += -L$(NVIDIA_CUDA_SDK)/lib -L$(CUDA_DIR)/lib64
@@ -148,9 +148,6 @@ libmoduleOrb3dLB_notopo.a: Orb3dLB_notopo.o
 
 HostCUDA.o: HostCUDA.cu HostCUDA.h
 	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) HostCUDA.cu
-
-EwaldCUDA.o: EwaldCUDA.cu EwaldCUDA.h
-	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) EwaldCUDA.cu	
 
 %.o: Makefile
 
