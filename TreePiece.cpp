@@ -40,6 +40,13 @@
 #endif
 #endif
 
+/*
+// uncomment when using cuda version of charm but running without GPUs
+struct workRequest; 
+void kernelSelect(workRequest *wr) {
+}
+*/
+
 #ifdef PUSH_GRAVITY
 #include "ckmulticast.h"
 #endif
@@ -2794,12 +2801,8 @@ void TreePiece::calculateEwald(dummyMsg *msg) {
 #ifdef SPCUDA
   h_idata = (EwaldData*) malloc(sizeof(EwaldData)); 
 
-  CkCallback *cb; 
   CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex); 
-  cb = new CkCallback(CkIndex_TreePiece::EwaldGPU(), myIndex, thisArrayID); 
-
-  //CkPrintf("[%d] in calculateEwald, calling EwaldHostMemorySetup\n", thisIndex);
-  EwaldHostMemorySetup(h_idata, myNumParticles, nEwhLoop, (void *) cb); 
+  EwaldHostMemorySetup(h_idata, myNumParticles, nEwhLoop); 
   EwaldGPU();
 #else
   unsigned int i=0;
