@@ -455,7 +455,7 @@ DataManager.h \
 ParallelGravity.decl.h \
 Reductions.decl.h \
 Compute.h \
-Orb3dLBHelper.h \
+Orb3dLBCommon.h \
 
 Orb3dLB.o: \
 Orb3dLB.C \
@@ -555,7 +555,7 @@ InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
 Compute.h \
-Orb3dLBHelper.h \
+Orb3dLBCommon.h \
 
 EvacLB.o: \
 EvacLB.cpp \

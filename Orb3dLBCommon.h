@@ -14,7 +14,7 @@
 #include "Vector3D.h"
 #include "CentralLB.h"
 #define  ORB3DLB_NOTOPO_DEBUG 
-class Orb3dHelper{
+class Orb3dCommon{
 // pointer to stats->to_proc
 		protected:		
   CkVec<int> *mapping;

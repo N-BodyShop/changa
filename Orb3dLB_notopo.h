@@ -8,12 +8,12 @@
 
 #include "Orb3dLB_notopo.decl.h"
 #include <queue>
-#include "Orb3dLBHelper.h"
+#include "Orb3dLBCommon.h"
 
 void CreateOrb3dLB_notopo();
 BaseLB * AllocateOrb3dLB_notopo();
 
-class Orb3dLB_notopo : public CentralLB, public Orb3dHelper {
+class Orb3dLB_notopo : public CentralLB, public Orb3dCommon {
 private:
 
   vector<OrbObject> tps;

@@ -17,7 +17,7 @@
 #define MCLB_ORBSMOOTH  // orbsmooth for large steps
 #define MCLB_RR         // round robin otherwise
 
-#include "Orb3dLBHelper.h"
+#include "Orb3dLBCommon.h"
 
 //#include "ScaleTranMapBG.h"
 //#include "ScaledORBMapBG.h"
@@ -60,7 +60,7 @@ class LightweightLDStats {
 };
 
 
-class MultistepLB_notopo : public CentralLB, public Orb3dHelper {
+class MultistepLB_notopo : public CentralLB, public Orb3dCommon {
 private:
   CmiBool firstRound; 
   // things are stored in here before work

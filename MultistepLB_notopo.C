@@ -173,7 +173,7 @@ void MultistepLB_notopo::makeActiveProcessorList(BaseLB::LDStats *stats, int num
 }
 #endif
 
-#define LARGE_PHASE_THRESHOLD 0.00
+#define LARGE_PHASE_THRESHOLD 0.10
 
 void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 {
@@ -389,7 +389,6 @@ void MultistepLB_notopo::greedy(BaseLB::LDStats *stats, int count, int phase, in
                                stats->procs[i].total_walltime,
                                stats->procs[i].idletime);
   }
-
 
 
   delete []tp_array;
