@@ -17,9 +17,8 @@
 #define MCLB_ORBSMOOTH  // orbsmooth for large steps
 #define MCLB_RR         // round robin otherwise
 
-#include "CentralLB.h"
+#include "Orb3dLBHelper.h"
 
-#include "MapStructures.h"
 //#include "ScaleTranMapBG.h"
 //#include "ScaledORBMapBG.h"
 
@@ -61,22 +60,17 @@ class LightweightLDStats {
 };
 
 
-class MultistepLB_notopo : public CentralLB {
+class MultistepLB_notopo : public CentralLB, public Orb3dHelper {
 private:
   CmiBool firstRound; 
-  bool haveTPCentroids;
-
+  // things are stored in here before work
+  // is ever called.
   TaggedVector3D *tpCentroids;
   CkReductionMsg *tpmsg;
-  int nrecvd;
-  CkVec<int> *mapping;
-  
+
  // CkVec<OrbObject> tps;
-  CkVec<float> procload;
-  CkVec<OrientedBox<float> > procbox;
   int procsPerNode;
 
-  int nextProc;
   CkVec<LightweightLDStats> savedPhaseStats;       // stats saved from previous phases
   
   CmiBool QueryBalanceNow(int step);
@@ -89,8 +83,8 @@ private:
   void printData(BaseLB::LDStats &stats, int phase, int *revObjMap);
 
 
-  void orbPartition(CkVec<Event> *events, OrientedBox<float> &box, int procs, OrbObject * tp);
-  int partitionRatioLoad(CkVec<Event> &events, float ratio);
+//  void orbPartition(CkVec<Event> *events, OrientedBox<float> &box, int procs, OrbObject * tp);
+//  int partitionRatioLoad(CkVec<Event> &events, float ratio);
 
 
 public:
