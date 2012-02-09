@@ -41,7 +41,7 @@ FLAG_COOLING = @FLAG_COOLING@
 #
 # Uncomment definition of CUDA for make benefit CUDA version
 # Currently requires that HEXADECAPOLE be disabled 
-# CUDA = -DINTERLIST_VER=2 -DCUDA -DCUDA_USE_CUDAMALLOCHOST -DSPCUDA -DCUDA_2D_TB_KERNEL #-DCUDA_STATS #-DCUDA_MEMPOOL #-DCUDA_INSTRUMENT_WRS -DCUDA_2D_FLAT 
+# CUDA = -DINTERLIST_VER=2 -DCUDA -DCUDA_USE_CUDAMALLOCHOST -DSPCUDA -DCUDA_2D_TB_KERNEL -DCUDA_MEMPOOL #-DCUDA_STATS #-DCUDA_INSTRUMENT_WRS -DCUDA_2D_FLAT 
 
 # useful refactor flag combinations:
 # -DCHANGA_REFACTOR_WALKCHECK
@@ -112,8 +112,8 @@ SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \
 
 ifdef CUDA
   CXXFLAGS += $(NVCC_INC)
-  OBJECTS += HostCUDA.o #EwaldCUDA.o
-  SRSC += HostCUDA.cu #EwaldCUDA.cu
+  OBJECTS += HostCUDA.o 
+  SRSC += HostCUDA.cu 
   LDLIBS += $(NVCC_LIBS)
   NVCC_FLAGS += $(CXXFLAGS)
   LDFLAGS += -L$(NVIDIA_CUDA_SDK)/lib -L$(CUDA_DIR)/lib64
@@ -154,9 +154,6 @@ libmoduleOrb3dLB_notopo.a: Orb3dLB_notopo.o
 
 HostCUDA.o: HostCUDA.cu HostCUDA.h
 	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) HostCUDA.cu
-
-EwaldCUDA.o: EwaldCUDA.cu EwaldCUDA.h
-	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) EwaldCUDA.cu	
 
 %.o: Makefile
 
