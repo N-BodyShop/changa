@@ -173,7 +173,7 @@ void MultistepLB_notopo::makeActiveProcessorList(BaseLB::LDStats *stats, int num
 }
 #endif
 
-#define LARGE_PHASE_THRESHOLD 0.10
+#define LARGE_PHASE_THRESHOLD 0.00
 
 void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 {
