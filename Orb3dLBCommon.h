@@ -186,7 +186,6 @@ void orbPartition(vector<Event> *events, OrientedBox<float> &box, int nprocs, ve
   orbPartition(rightEvents,rightBox,nrprocs,tp, stats);
 }
 void orbPrepare(vector<Event> *tpEvents, OrientedBox<float> &box, int numobjs, BaseLB::LDStats * stats){
-CkAssert(numProcessed == numobjs);
   CkAssert(tpEvents[XDIM].size() == numobjs);
   CkAssert(tpEvents[YDIM].size() == numobjs);
   CkAssert(tpEvents[ZDIM].size() == numobjs);
