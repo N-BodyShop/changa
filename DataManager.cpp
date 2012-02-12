@@ -135,6 +135,8 @@ void DataManager::collectSplitters(CkReductionMsg *m) {
   numSplitters = m->getSize() / sizeof(SFC::Key);
   CkAssert(! (numSplitters&1)); // must be even
   CkAssert(numSplitters > 0);
+  if(domainDecomposition != Oct_dec)
+      CkAssert(numSplitters == 2*numTreePieces);
   delete[] splitters;
   splitters = new SFC::Key[numSplitters];
   SFC::Key* splits = static_cast<SFC::Key *>(m->getData());

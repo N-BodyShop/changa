@@ -639,6 +639,7 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	if(sorted) { //true after the final keys have been binned
 		//send out the final splitters and responsibility table
 		dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()) + 1, keyBoundaries.size(), sortingCallback);
+		CkAssert(keyBoundaries.size() == numTreePieces+1);
 		numIterations = 0;
 		sorted = false;
 		return;
