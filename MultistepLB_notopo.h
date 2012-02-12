@@ -63,7 +63,6 @@ class LightweightLDStats {
 
 class MultistepLB_notopo : public CentralLB {
 private:
-  CmiBool firstRound; 
   bool haveTPCentroids;
 
   TaggedVector3D *tpCentroids;
