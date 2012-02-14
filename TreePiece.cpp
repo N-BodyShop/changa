@@ -217,6 +217,7 @@ void TreePiece::initORBPieces(const CkCallback& cb){
 /// @param cback callback to perform now.
 void TreePiece::initBeforeORBSend(unsigned int myCount,
 				  unsigned int myCountGas,
+				  unsigned int myCountStar,
 				  const CkCallback& cb,
 				  const CkCallback& cback){
 
@@ -225,14 +226,18 @@ void TreePiece::initBeforeORBSend(unsigned int myCount,
   if(numTreePieces == 1) {
       myCount = myNumParticles;
       myCountGas = myNumSPH;
+      myCountStar = myNumStar;
       }
   myExpectedCount = myCount;
   myExpectedCountSPH = myCountGas;
+  myExpectedCountStar = myCountStar;
 
   mySortedParticles.clear();
   mySortedParticles.reserve(myExpectedCount);
   mySortedParticlesSPH.clear();
   mySortedParticlesSPH.reserve(myExpectedCountSPH);
+  mySortedParticlesStar.clear();
+  mySortedParticlesStar.reserve(myExpectedCountStar);
 
   contribute(0, 0, CkReduction::concat, nextCallback);
 }
@@ -377,6 +382,7 @@ void TreePiece::acceptORBParticles(const GravityParticle* particles,
   }
 }
 
+/// @brief Determine my boundaries at the end of ORB decomposition
 void TreePiece::finalizeBoundaries(ORBSplittersMsg *splittersMsg){
 
   CkCallback cback = splittersMsg->cb;
@@ -426,15 +432,22 @@ void TreePiece::finalizeBoundaries(ORBSplittersMsg *splittersMsg){
 
   firstTime = true;
 
-  // First part is total particles, second part is gas counts.
-  myBinCountsORB.assign(4*splittersMsg->length,0);
+  // First part is total particles, second part is gas counts, third
+  // part is star counts
+  myBinCountsORB.assign(6*splittersMsg->length,0);
   copy(tempBinCounts.begin(),tempBinCounts.end(),myBinCountsORB.begin());
 
   delete splittersMsg;
   contribute(cback);
 }
 
-/// Evaluate particle counts for ORB decomposition
+/// @brief Evaluate particle counts for ORB decomposition
+/// @param m A message containing splitting dimensions and splits, and
+///          the callback to contribute
+/// Counts the particles of this treepiece on each side of the
+/// splits.  These counts are summed in a contribution to the
+/// specified callback.
+///
 void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg)
 {
 
@@ -442,7 +455,8 @@ void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg)
 
   // For each split, BinCounts has total lower, total higher.
   // The second half of the array has the counts for gas particles.
-  tempBinCounts.assign(4*splittersMsg->length,0);
+  // The third half of the array has the counts for star particles.
+  tempBinCounts.assign(6*splittersMsg->length,0);
 
   std::list<GravityParticle *>::iterator iter;
   std::list<GravityParticle *>::iterator iter2;
@@ -469,24 +483,34 @@ void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg)
     tempBinCounts[2*i + 1] = myBinCountsORB[i] - (divEnd - divStart);
     int nGasLow = 0;
     int nGasHigh = 0;
+    int nStarLow = 0;
+    int nStarHigh = 0;
     for(GravityParticle *pPart = divStart; pPart < divEnd; pPart++) {
 	// Count gas
 	if(TYPETest(pPart, TYPE_GAS))
 	    nGasLow++;
+	// Count stars
+	if(TYPETest(pPart, TYPE_STAR))
+	    nStarLow++;
 	}
     for(GravityParticle *pPart = divEnd; pPart < *iter2; pPart++) {
 	// Count gas
 	if(TYPETest(pPart, TYPE_GAS))
 	    nGasHigh++;
+	// Count stars
+	if(TYPETest(pPart, TYPE_STAR))
+	    nStarHigh++;
 	}
     tempBinCounts[2*splittersMsg->length + 2*i] = nGasLow;
     tempBinCounts[2*splittersMsg->length + 2*i + 1] = nGasHigh;
+    tempBinCounts[4*splittersMsg->length + 2*i] = nStarLow;
+    tempBinCounts[4*splittersMsg->length + 2*i + 1] = nStarHigh;
     iter++; iter2++;
     }
 
   if(firstTime)
     firstTime=false;
-  contribute(4*splittersMsg->length*sizeof(int), &(*tempBinCounts.begin()), CkReduction::sum_int, cback);
+  contribute(6*splittersMsg->length*sizeof(int), &(*tempBinCounts.begin()), CkReduction::sum_int, cback);
   delete splittersMsg;
 }
 

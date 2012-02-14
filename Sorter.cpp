@@ -17,6 +17,13 @@ using namespace SFC;
 extern CProxy_TreePiece treeProxy;
 
 /***************ORB Decomposition*****************/
+/// @brief Start ORB decomposition
+/// @param m message with bounding box of the simulation
+///
+/// Begins the ORB decomposition by calculating the initial split and
+/// broadcasting to TreePiece::evaluateParticleCounts().  Particle
+/// counts will be contributed to Sorter::collectORBCounts().
+///
 void Sorter::doORBDecomposition(CkReductionMsg* m){
 
   float len=0.0,len2=0.0;
@@ -27,7 +34,7 @@ void Sorter::doORBDecomposition(CkReductionMsg* m){
   delete m;
 
   if(numChares == 1) { // No decomposition to do
-      treeProxy[0].initBeforeORBSend(0,0,sortingCallback,
+      treeProxy[0].initBeforeORBSend(0,0,0,sortingCallback,
 				     CkCallback(CkIndex_Sorter::readytoSendORB(0), thishandle));
       return;
       }
@@ -67,8 +74,9 @@ void Sorter::doORBDecomposition(CkReductionMsg* m){
   treeProxy.evaluateParticleCounts(splittersMsg);
 }
 
-/// Calculate candidate divisions for next level in the tree.
-/// If we have enough pieces, proceed to sending particles.
+/// Calculate candidate divisions for next level in the ORB
+/// decomposition tree. If we have enough pieces, proceed to
+/// sending particles. 
 void Sorter::finishPhase(CkReductionMsg *m){
 
   float len=0.0,len2=0.0;
@@ -142,12 +150,13 @@ void Sorter::finishPhase(CkReductionMsg *m){
  
   if(numChares == orbData.size()){ //Move data around
     for(i=0;i<numChares;i++){
-	if(verbosity > 1) {
+	if(verbosity > 2) {
 	    CkPrintf("%d has %d particles\n",i,binCounts[i]);
 	    CkPrintf("%d has %d gas particles\n",i,binCountsGas[i]);
+	    CkPrintf("%d has %d star particles\n",i,binCountsStar[i]);
 	    }
 	treeProxy[i].initBeforeORBSend(binCounts[i], binCountsGas[i],
-				       sortingCallback,
+				       binCountsStar[i], sortingCallback,
 				       CkCallback(CkIndex_Sorter::readytoSendORB(0), thishandle));
 	}
   }
@@ -173,19 +182,30 @@ void Sorter::readytoSendORB(CkReductionMsg* m){
 				       treeProxy));
 }
 
+/// @brief Collect particle counts from treepieces and send out new
+/// splits.
+/// @param m A message with the summed counts for the current ORB
+/// splits.
+///
+/// If the counts are within the tolerances, call
+/// TreePiece::finalizeBoundaries().
+///
 void Sorter::collectORBCounts(CkReductionMsg* m){
 
   std::list<ORBData>::iterator iter;
   int i;
   
-  numCounts = m->getSize() / (2*sizeof(int)); // two separate arrays for
-					    // total and gas
+  numCounts = m->getSize() / (3*sizeof(int)); // three separate arrays for
+					    // total, gas and stars
   binCounts.resize(numCounts);
   binCountsGas.resize(numCounts);
+  binCountsStar.resize(numCounts);
   int* startCounts = static_cast<int *>(m->getData());
   copy(startCounts, startCounts + numCounts, binCounts.begin());
   copy(startCounts + numCounts, startCounts + 2*numCounts,
        binCountsGas.begin());
+  copy(startCounts + 2*numCounts, startCounts + 3*numCounts,
+       binCountsStar.begin());
   delete m;
 
   CkAssert(numCounts == 2*orbData.size());

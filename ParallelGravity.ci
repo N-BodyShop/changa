@@ -224,6 +224,7 @@ mainmodule ParallelGravity {
     //ORB
     entry void initORBPieces(const CkCallback& cb);
     entry void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,
+			     unsigned int myCountStar,
 			     const CkCallback& cb, const CkCallback& cback);
     entry void sendORBParticles();
     entry void acceptORBParticles(const GravityParticle particles[n],
