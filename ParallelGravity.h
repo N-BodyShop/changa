@@ -461,9 +461,6 @@ public:
 	void getOutTimes();
 	int bOutTime();
 	void writeOutput(int iStep) ;
-	void setTotalParticles(int n) {
-	    nTotalParticles = n;
-        }
 	void updateSoft();
 	void growMass(double dTime, double dDelta);
 	void initSph();

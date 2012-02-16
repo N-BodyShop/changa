@@ -968,6 +968,8 @@ void Main::niceExit() {
   if (++count == numTreePieces) CkExit();
 }
 
+/// @brief determine start time of simulation
+///
 /// Function to determine the start time of the simulation.
 /// Modifies dTime member of main.
 void Main::getStartTime() 
@@ -1079,7 +1081,11 @@ void Main::getStartTime()
 	    }
     }
 
-// Return true if we need to write an output
+/// @brief Return true if we need to write an output
+/// 
+/// Advances iOut attribute, therefore this can only be called once
+/// per timestep.
+///
 int Main::bOutTime()
 {	
     if (iOut < vdOutTime.size()) {
@@ -1092,8 +1098,11 @@ int Main::bOutTime()
     else return(0);
     }
 
-// Read in desired output times and reshifts from a file
-//
+///
+/// @brief Read in desired output times and reshifts from a file
+///
+/// Fills in the vdOutTime vector by reading the .red file
+///
 void Main::getOutTimes()
 {
     FILE *fp;
@@ -2441,6 +2450,12 @@ void Main::rungStats()
     delete msg;
     }
 
+///
+/// @brief determine number of active particles in the given rung
+///
+/// Calls TreePiece::countActive() and sets Main::nActiveGrav and
+/// Main::nActiveSPH.
+///
 void Main::countActive(int activeRung) 
 {
     CkReductionMsg *msg;
@@ -2476,9 +2491,9 @@ void Main::updateSoft()
 #endif
     }
 
-//
-// Slowly increase mass of a subset of particles.
-//
+///
+/// @brief Slowly increase mass of a subset of particles.
+///
 void Main::growMass(double dTime, double dDelta)
 {
     if (param.nGrowMass > 0 && dTime > param.dGrowStartT
