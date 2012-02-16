@@ -10,6 +10,11 @@
 #include "smooth.h"
 #include "Sph.h"
 
+///
+/// @brief initialize SPH quantities
+///
+/// Initial calculation of densities and internal energies, and cooling rates.
+///
 
 void
 Main::initSph() 
@@ -47,12 +52,9 @@ Main::initSph()
 	}
     }
 
-/*
- * Initialize cooling constants and integration data structures.
- * XXX if this is to work on an SMP configuration, we need to change
- * this so that the integration data structures are per treepiece, not
- * per node.
- */
+///
+/// @brief Initialize cooling constants and integration data structures.
+///
 void Main::initCooling()
 {
 #ifndef COOLING_NONE
@@ -129,10 +131,16 @@ DataManager::dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb
     contribute(0, 0, CkReduction::concat, cb);
     }
 
-/*
- * function from PKDGRAV to read an ASCII table
- */
-/* Note if dDataOut is NULL it just counts the number of valid input lines */
+///
+/// @brief function from PKDGRAV to read an ASCII table
+///
+/// @param extension Appended to outName to determine file name to
+/// read.
+/// @param nDataPerLine Number of columns in the table.
+/// @param dDataOut pointer to array in which to store the table.
+/// Note if dDataOut is NULL it just counts the number of valid input
+/// lines.
+///
 int Main::ReadASCII(char *extension, int nDataPerLine, double *dDataOut)
 {
 	FILE *fp;
@@ -227,7 +235,7 @@ DataManager::CoolingSetTime(double z, // redshift
     }
 
 /**
- *  Perform the SPH force calculation.
+ *  @brief Perform the SPH force calculation.
  *  @param activeRung Timestep rung (and above) on which to perform
  *  SPH
  *  @param bNeedDensity Does the density calculation need to be done?
