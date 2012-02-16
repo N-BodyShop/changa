@@ -7,7 +7,12 @@
 #include <math.h>
 #include <assert.h>
 #include <string.h>
+#include "config.h"
+#ifdef HAVE_VALUES_H
 #include <values.h>
+#else
+#include <float.h>
+#endif
 
 #include <charm.h>
 

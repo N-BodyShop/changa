@@ -41,7 +41,7 @@ FLAG_COOLING = @FLAG_COOLING@
 #
 # Uncomment definition of CUDA for make benefit CUDA version
 # Currently requires that HEXADECAPOLE be disabled 
-# CUDA = -DINTERLIST_VER=2 -DCUDA -DCUDA_USE_CUDAMALLOCHOST -DSPCUDA -DCUDA_2D_TB_KERNEL #-DCUDA_STATS #-DCUDA_MEMPOOL #-DCUDA_INSTRUMENT_WRS -DCUDA_2D_FLAT 
+# CUDA = -DINTERLIST_VER=2 -DCUDA -DCUDA_USE_CUDAMALLOCHOST -DSPCUDA -DCUDA_2D_TB_KERNEL -DCUDA_MEMPOOL #-DCUDA_STATS #-DCUDA_INSTRUMENT_WRS -DCUDA_2D_FLAT 
 
 # useful refactor flag combinations:
 # -DCHANGA_REFACTOR_WALKCHECK
@@ -75,13 +75,13 @@ NVCC = $(CUDA_DIR)/bin/nvcc
 NVCC_FLAGS = -c -use_fast_math --ptxas-options=-v #-deviceemu -device-debug 
 NVCC_INC = -I$(CUDA_DIR)/include -I$(NVIDIA_CUDA_SDK)/common/inc -I$(CHARM_PATH)/tmp/hybridAPI
 # add $(NVCC_LIBS) to LDLIBS when compiling for cuda
-NVCC_LIBS = -lcuda -lcudart -lGL -lcutil
+NVCC_LIBS = -lcuda -lcudart -lGL
 
 # add -module Orb3dLB here for load balancing during singlestepped runs
 #OPTS = -g -memory charmdebug
 OPTS = -O3
 CXXFLAGS += $(OPTS) -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) @CPPFLAGS@
-LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache -module commlib -module CkMulticast -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MultistepLB -module Orb3dLB -module Orb3dLB_notopo -module liveViz #-tracemode projections -memory charmdebug -memory paranoid
+LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache -module commlib -module CkMulticast -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MultistepLB -module MultistepLB_notopo -module Orb3dLB -module Orb3dLB_notopo -module liveViz #-tracemode projections -memory charmdebug -memory paranoid
 XDR_DIR = ../rpc
 XDR_OBJS = $(XDR_DIR)/xdr.o $(XDR_DIR)/xdr_float.o $(XDR_DIR)/xdr_mem.o $(XDR_DIR)/xdr_stdio.o
 LDLIBS += $(STRUCTURES_PATH)/libTipsy.a  @LIBS@
@@ -99,6 +99,7 @@ OBJECTS = DataManager.o Reductions.o TreePiece.o Sorter.o \
 	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
 	  InOutput.o cosmo.o romberg.o runge.o dumpframe.o dffuncs.o \
 	  moments.o MultistepLB.o Orb3dLB.o Orb3dLB_notopo.o \
+	  MultistepLB_notopo.o \
 	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
 	@OBJECTS_COOLING@
 
@@ -106,15 +107,16 @@ SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \
 	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
 	InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c \
 	moments.c MultistepLB.C Orb3dLB.C Orb3dLB_notopo.C starform.C \
+	MultistepLB_notopo.C \
 	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C
 
 ifdef CUDA
   CXXFLAGS += $(NVCC_INC)
-  OBJECTS += HostCUDA.o #EwaldCUDA.o
-  SRSC += HostCUDA.cu #EwaldCUDA.cu
+  OBJECTS += HostCUDA.o 
+  SRSC += HostCUDA.cu 
   LDLIBS += $(NVCC_LIBS)
   NVCC_FLAGS += $(CXXFLAGS)
-  LDFLAGS += -L$(NVIDIA_CUDA_SDK)/lib -L$(CUDA_DIR)/lib
+  LDFLAGS += -L$(NVIDIA_CUDA_SDK)/lib -L$(CUDA_DIR)/lib64
 ifdef HEXADECAPOLE
   HEXADECAPOLE = #  
 endif
@@ -124,7 +126,7 @@ TARGET = ChaNGa
 VERSION = 1.0
 all: $(TARGET)
 
-$(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a 
+$(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleMultistepLB_notopo.a 
 	$(CHARMC) -o $(TARGET) $(LDFLAGS) $(OBJECTS) $(LDLIBS)
 
 $(TARGET).%: $(TARGET)
@@ -137,6 +139,10 @@ $(STRUCTURES_PATH)/libTipsy.a:
 libmoduleMultistepLB.a: MultistepLB.o
 	$(CHARMC) -o libmoduleMultistepLB.a MultistepLB.o 
 
+libmoduleMultistepLB_notopo.a: MultistepLB_notopo.o
+	$(CHARMC) -o libmoduleMultistepLB_notopo.a MultistepLB_notopo.o 
+
+
 libmoduleOrb3dLB.a: Orb3dLB.o
 	$(CHARMC) -o libmoduleOrb3dLB.a Orb3dLB.o 
 
@@ -148,9 +154,6 @@ libmoduleOrb3dLB_notopo.a: Orb3dLB_notopo.o
 
 HostCUDA.o: HostCUDA.cu HostCUDA.h
 	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) HostCUDA.cu
-
-EwaldCUDA.o: EwaldCUDA.cu EwaldCUDA.h
-	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) EwaldCUDA.cu	
 
 %.o: Makefile
 

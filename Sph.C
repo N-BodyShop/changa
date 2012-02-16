@@ -10,12 +10,15 @@
 #include "smooth.h"
 #include "Sph.h"
 
+#ifndef MAXPATHLEN
+#define MAXPATHLEN 1024
+#endif
+
 ///
 /// @brief initialize SPH quantities
 ///
 /// Initial calculation of densities and internal energies, and cooling rates.
 ///
-
 void
 Main::initSph() 
 {

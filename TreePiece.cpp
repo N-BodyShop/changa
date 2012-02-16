@@ -15,6 +15,7 @@
 #include "Reductions.h"
 // jetley
 #include "MultistepLB.h"
+#include "MultistepLB_notopo.h"
 #include "Orb3dLB.h"
 #include "Orb3dLB_notopo.h"
 // jetley - refactoring
@@ -39,6 +40,13 @@
 #include "wr.h"
 #endif
 #endif
+
+/*
+// uncomment when using cuda version of charm but running without GPUs
+struct workRequest; 
+void kernelSelect(workRequest *wr) {
+}
+*/
 
 #ifdef PUSH_GRAVITY
 #include "ckmulticast.h"
@@ -2794,12 +2802,8 @@ void TreePiece::calculateEwald(dummyMsg *msg) {
 #ifdef SPCUDA
   h_idata = (EwaldData*) malloc(sizeof(EwaldData)); 
 
-  CkCallback *cb; 
   CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex); 
-  cb = new CkCallback(CkIndex_TreePiece::EwaldGPU(), myIndex, thisArrayID); 
-
-  //CkPrintf("[%d] in calculateEwald, calling EwaldHostMemorySetup\n", thisIndex);
-  EwaldHostMemorySetup(h_idata, myNumParticles, nEwhLoop, (void *) cb); 
+  EwaldHostMemorySetup(h_idata, myNumParticles, nEwhLoop); 
   EwaldGPU();
 #else
   unsigned int i=0;
@@ -4346,6 +4350,7 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   }
   LDObjHandle myHandle = myRec->getLdHandle();
   TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles, activeRung, prevLARung);
+  tv.tp = thisIndex;
   tv.tag = thisIndex;
   /*
   CkPrintf("[%d] centroid %f %f %f\n", 
@@ -4363,6 +4368,10 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   else if(foundLB == Orb3d){
     CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
+  }
+  else if(foundLB == Multistep_notopo){
+    CkCallback lbcb(CkIndex_MultistepLB_notopo::receiveCentroids(NULL), 0, proxy);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
   }
   else if(foundLB == Orb3d_notopo){
     CkCallback cbk(CkIndex_Orb3dLB_notopo::receiveCentroids(NULL), 0, proxy);
@@ -5899,6 +5908,7 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   LDObjHandle handle = myRec->getLdHandle();
   LBDatabase *lbdb = LBDatabaseObj();
   int nlbs = lbdb->getNLoadBalancers(); 
+
   if(nlbs == 0) { // no load balancers.  Skip this
       contribute(cb);
       return;
@@ -5917,7 +5927,7 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   }
 
   TaggedVector3D tv(centroid, handle, myNumParticles, myNumParticles, 0, 0);
-  tv.tag = thisIndex;
+  tv.tp = thisIndex;
 
   /*
   CkPrintf("[%d] centroid %f %f %f\n", 
@@ -5930,6 +5940,7 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
 
   string msname("MultistepLB");
   string orb3dname("Orb3dLB");
+  string ms_notoponame("MultistepLB_notopo");
   string orb3d_notoponame("Orb3dLB_notopo");
 
   BaseLB **lbs = lbdb->getLoadBalancers();
@@ -5937,22 +5948,29 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   if(foundLB == Null){
     for(i = 0; i < nlbs; i++){
       if(msname == string(lbs[i]->lbName())){ 
+      	proxy = lbs[i]->getGroupID();
         foundLB = Multistep;
+	proxy = lbs[i]->getGroupID();
         break;
       }
       else if(orb3dname == string(lbs[i]->lbName())){ 
+      	proxy = lbs[i]->getGroupID();
         foundLB = Orb3d;
+	proxy = lbs[i]->getGroupID();
+        break;
+      }
+     else if(ms_notoponame == string(lbs[i]->lbName())){ 
+        proxy = lbs[i]->getGroupID();
+        foundLB = Multistep_notopo;
         break;
       }
       else if(orb3d_notoponame == string(lbs[i]->lbName())){
+      	proxy = lbs[i]->getGroupID();
         foundLB = Orb3d_notopo;
+	proxy = lbs[i]->getGroupID();
         break;
       }
     }
-  }
-
-  if(foundLB != Null){
-    proxy = lbs[i]->getGroupID();
   }
 
   if(foundLB == Multistep){
@@ -5961,6 +5979,10 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   }
   else if(foundLB == Orb3d){
     CkCallback lbcb(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+  }
+  else if(foundLB == Multistep_notopo){
+    CkCallback lbcb(CkIndex_MultistepLB_notopo::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
   }
   else if(foundLB == Orb3d_notopo){

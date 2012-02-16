@@ -68,6 +68,7 @@ enum LBStrategy{
   Null=0,
   Multistep,
   Orb3d,
+  Multistep_notopo,
   Orb3d_notopo
 };
 PUPbytes(LBStrategy);

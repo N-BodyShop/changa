@@ -165,6 +165,13 @@ struct OrbObject {
   Vector3D<float> centroid;
   int numParticles;
 
+  OrbObject(int tag) : 
+    partition(-1),
+    lbindex(tag),
+    numParticles(0)
+   {
+   }
+
   OrbObject() : 
     partition(-1),
     lbindex(-1),
@@ -213,6 +220,15 @@ class Processor{
 
   bool operator<(const Processor &p) const{
     return load > p.load;
+  }
+  Processor(){
+    load = 0.0;
+    t = -1;
+  }
+
+  Processor(int pe){
+    load = 0.0;
+    t = pe;
   }
 
 };

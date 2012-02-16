@@ -83,7 +83,7 @@ class WeightObject{
 };
 
 
-class LightweightLDStats {
+class LightweightLDStats1 {
   public:
   int n_objs;
   int n_migrateobjs;
@@ -107,7 +107,7 @@ private:
 
   int procsPerNode;
 
-  CkVec<LightweightLDStats> savedPhaseStats;       // stats saved from previous phases
+  CkVec<LightweightLDStats1> savedPhaseStats;       // stats saved from previous phases
   
   CmiBool QueryBalanceNow(int step);
   //int prevPhase;
@@ -168,24 +168,6 @@ private:
   
   enum {XDIR=0, YDIR, ZDIR};
   
-  LDStats* statsData;
-  int P;
-  ComputeLoad *computeLoad;
-  int nObjs;
-  VecArray  *(vArray[3]);
-  Partition *partitions;
-  Partition top_partition;
-  int npartition;
-  int currentp, refno;
-  
-  void strategy();
-  void rec_divide(int, Partition&);
-  void setVal(int x, int y, int z);
-  int sort_partition(int x, int p, int r);
-  void qsort1(int x, int p, int r);
-  void quicksort(int x);
-  void mapPartitionsToNodes();
-
 public:
   double overLoad;
   
@@ -193,7 +175,8 @@ public:
 // ORB3DLB functions
 //**************************************
 //
-  void work2(BaseLB::LDStats* stats, int count);
+  void work2(BaseLB::LDStats* stats, int count, int phase, int prevPhase);
+  void greedy(BaseLB::LDStats* stats, int count, int phase, int prevPhase);
   void directMap(TPObject *tp, int ntp, Node *nodes);
   void map(TPObject *tp, int ntp, int nn, Node *procs, int xs, int ys, int zs, int dim);
   int nextDim(int dim, int xs, int ys, int zs);
