@@ -377,6 +377,10 @@ inline double RungToDt(double dDelta, int iRung) {
   return dDelta*RungToSubsteps(iRung)*MAXSUBSTEPS_INV;
 }
 
+/// @brief Overall flow control of the simulation.
+///
+/// As well as controlling the overall flow of the simulation, the
+/// constructors are the main entry points into the program.
 class Main : public CBase_Main {
 	CkArgMsg *args;
 	std::string basefilename;

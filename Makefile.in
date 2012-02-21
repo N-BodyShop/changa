@@ -169,7 +169,7 @@ HostCUDA.o: HostCUDA.cu HostCUDA.h
 # End CELL specific
 
 docs:
-	doxygen $(TARGET).doxygen
+	doxygen Doxyfile
 
 DIRS = teststep
 
