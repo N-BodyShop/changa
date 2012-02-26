@@ -319,18 +319,36 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
 	keyBoundaries.reserve(numChares + 1);
 	keyBoundaries.push_back(firstPossibleKey);
 
+#ifdef DECOMPOSER_GROUP
+	decomposerProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#else
 	treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#endif
     } else {
       //send out all the decided keys to get final bin counts
       sorted = true;
-      if(domainDecomposition == Oct_dec)
+      if(domainDecomposition == Oct_dec){
+#ifdef DECOMPOSER_GROUP
+	  decomposerProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(),
+				       0,
+				       CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#else
 	  treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(),
 				       0,
 				       CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-      else
+#endif
+      }
+      else{
+#ifdef DECOMPOSER_GROUP
+	  decomposerProxy.evaluateBoundaries(&(*keyBoundaries.begin()),
+				       keyBoundaries.size(), 0,
+				       CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#else
 	  treeProxy.evaluateBoundaries(&(*keyBoundaries.begin()),
 				       keyBoundaries.size(), 0,
 				       CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#endif
+      }
     }
   }
 }
@@ -475,7 +493,11 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     refineLevel = 1;
     int arraySize = (1<<refineLevel)+1;
     Key *array = convertNodesToSplittersRefine(nodesOpened.size(),nodesOpened.getVec());
+#ifdef DECOMPOSER_GROUP
+    decomposerProxy.evaluateBoundaries(array, nodesOpened.size()*arraySize, 1<<refineLevel, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#else
     treeProxy.evaluateBoundaries(array, nodesOpened.size()*arraySize, 1<<refineLevel, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#endif
     delete[] array;
   }
   else{
@@ -685,9 +707,17 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 		keyBoundaries.push_back(lastPossibleKey);
 		
 		//send out all the decided keys to get final bin counts
+#ifdef DECOMPOSER_GROUP
+		decomposerProxy.evaluateBoundaries(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#else
 		treeProxy.evaluateBoundaries(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#endif
 	} else //send out the new guesses to be evaluated
+#ifdef DECOMPOSER_GROUP
+	    decomposerProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#else
 	    treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#endif
 }
 
 /** Generate new guesses for splitter keys based on the histograms that came

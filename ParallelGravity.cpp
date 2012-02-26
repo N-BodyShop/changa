@@ -35,6 +35,9 @@ CProxy_Main mainChare;
 int verbosity;
 int bVDetails;
 CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
+#ifdef DECOMPOSER_GROUP
+CProxy_Decomposer decomposerProxy;
+#endif
 CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 CProxy_LvArray smoothProxy; // Proxy for smooth reductions
 CProxy_LvArray gravityProxy; // Proxy for gravity reductions
@@ -885,6 +888,9 @@ Main::Main(CkArgMsg* m) {
 #endif
 
 	treeProxy = pieces;
+#ifdef DECOMPOSER_GROUP
+        decomposerProxy = CProxy_Decomposer::ckNew();
+#endif
 
 	opts.bindTo(treeProxy);
 	lvProxy = CProxy_LvArray::ckNew(opts);
@@ -1308,6 +1314,9 @@ void Main::advanceBigStep(int iStep) {
     
     if(verbosity)
 	memoryStats();
+
+    CkPrintf("starting dd\n");
+
     /***** Resorting of particles and Domain Decomposition *****/
     ckout << "Domain decomposition ...";
     double startTime = CkWallTimer();
@@ -1577,7 +1586,6 @@ void Main::setupICs() {
     double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
     treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
 
-    treeProxy.findTotalMass(CkCallbackResumeThread());
   }	
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
@@ -1834,6 +1842,10 @@ Main::initialForces()
 	 	      CkCallbackResumeThread(), true);
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
+
+
+  // FIXME - can remove this if not needed
+  treeProxy.findTotalMass(CkCallbackResumeThread());
   
   // Balance load initially after decomposition
   ckout << "Initial load balancing ..." << endl;

@@ -7,6 +7,9 @@ mainmodule ParallelGravity {
   readonly CProxy_Main mainChare;
   readonly int verbosity;
   readonly CProxy_TreePiece treeProxy;
+#ifdef DECOMPOSER_GROUP
+  readonly CProxy_Decomposer decomposerProxy;
+#endif
   readonly CProxy_LvArray lvProxy;
   readonly CProxy_LvArray smoothProxy;
   readonly CProxy_LvArray gravityProxy;
@@ -123,6 +126,16 @@ mainmodule ParallelGravity {
   };                                                          
 #endif
 
+#ifdef DECOMPOSER_GROUP
+  group Decomposer {
+    entry Decomposer();
+
+    entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
+    entry void doneLoad(CkReductionMsg *msg);
+    // entry void unshuffleParticles(CkReductionMsg* m);
+  };
+#endif
+
   chare [migratable] Sorter {
     entry Sorter();
 
@@ -218,7 +231,9 @@ mainmodule ParallelGravity {
     entry void ioShuffle(CkReductionMsg *msg);
     entry void ioAcceptSortedParticles(ParticleShuffleMsg *);
     entry void assignKeys(CkReductionMsg* m);
+#ifndef DECOMPOSER_GROUP
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
+#endif
     entry void unshuffleParticles(CkReductionMsg* m);
     entry void acceptSortedParticles(ParticleShuffleMsg *);
     //ORB

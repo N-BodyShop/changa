@@ -121,6 +121,9 @@ extern DomainsDec domainDecomposition;
 extern double dExtraStore;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
+#ifdef DECOMPOSER_GROUP
+extern CProxy_Decomposer decomposerProxy;
+#endif
 extern CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 extern CProxy_LvArray smoothProxy;  // Proxy for smooth reduction
 extern CProxy_LvArray gravityProxy; // Proxy for gravity reduction
@@ -1405,7 +1408,9 @@ public:
 	 */
 	// Assign keys after loading tipsy file and finding Bounding box
 	void assignKeys(CkReductionMsg* m);
+#ifndef DECOMPOSER_GROUP 
 	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
+#endif
 	void unshuffleParticles(CkReductionMsg* m);
 	void acceptSortedParticles(ParticleShuffleMsg *);
   /*****ORB Decomposition*******/
@@ -1674,6 +1679,16 @@ public:
         GravityParticle *getParticles(){return myParticles;}
 
         void balanceBeforeInitialForces(CkCallback &cb);
+        
+#ifdef DECOMPOSER_GROUP
+        void submitParticles();
+        //void checkin();
+
+        void setParticles(GravityParticle *);
+
+        private:
+        Decomposer *myDecomposer;
+#endif
 
 };
 
@@ -1689,4 +1704,68 @@ bool bIsReplica(int reqID);
 void initNodeLock();
 void printGenericTree(GenericTreeNode* node, std::ostream& os) ;
 //bool compBucket(GenericTreeNode *ln,GenericTreeNode *rn);
+
+#ifdef DECOMPOSER_GROUP
+class TreePieceCounter : public CkLocIterator {            
+  public:
+    int count;
+    TreePieceCounter() { reset(); }
+    void addLocation(CkLocation &loc){
+      count++;
+    }
+
+    void reset() {
+      count = 0;
+    }
+};
+
+struct SubmittedParticleStruct{
+  GravityParticle *particles;
+  int nparticles;
+  TreePiece *tp;
+  SFC::Key key;
+
+  SubmittedParticleStruct(GravityParticle *p, int n, TreePiece *t ,SFC::Key k) : 
+    particles(p), nparticles(n), tp(t), key(k)
+  {
+  }
+
+  bool operator<(const SubmittedParticleStruct &other) const {
+    //return tp->getIndex() < other.tp->getIndex();
+    return key < other.key;
+  }
+};
+
+class Decomposer : public CBase_Decomposer {
+  public:
+  Decomposer();
+
+  void evaluateBoundaries(SFC::Key *keys, const int n, int isRefine, const CkCallback& cb);
+  //void unshuffleParticles(CkReductionMsg* m);
+
+  void submitParticles(GravityParticle *particles, int nparticles, TreePiece *tp/*, SFC::Key k*/);
+
+  void doneLoad(CkReductionMsg *msg);
+  //void checkin();
+
+  private:
+  void senseLocalTreePieces();
+
+  private:
+  std::vector<SubmittedParticleStruct> submittedParticles;
+  int submittedParticleCount;
+
+  CkVec<int> myBinCounts;
+  unsigned int myNumParticles;
+  /// Array with the particles in this chare
+  GravityParticle* myParticles;
+  int myNumTreePieces;
+  int numTreePiecesCheckedIn;
+
+  DataManager *dm;
+
+  TreePieceCounter localTreePieces;
+};
+#endif
+
 #endif //PARALLELGRAVITY_H
