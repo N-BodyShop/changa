@@ -175,7 +175,7 @@ private:
 public:
 
 	~DataManager() {
-	    for (int i = 0; i < nodeTable.length(); i++) {
+	    for (unsigned int i = 0; i < nodeTable.length(); i++) {
       		delete nodeTable[i];
     		}
     	    nodeTable.clear();

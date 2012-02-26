@@ -942,7 +942,6 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
 void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk,int reqID,State *state_,TreePiece *tp, Tree::NodeKey &remoteBucket){
 
   Vector3D<double> offset = tp->decodeOffset(reqID);
-  int targetBucket = decodeReqID(reqID);
   CkAssert(num > 0);
   GenericTreeNode *source = (GenericTreeNode *)computeEntity;
 
@@ -1372,7 +1371,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
       for(int level = 0; level <= maxlevel; level++){
 
         CkVec<OffsetNode> &clist = state->clists[level];
-        for(int i = 0; i < clist.length(); i++){
+        for(unsigned int i = 0; i < clist.length(); i++){
 
 #ifdef CHANGA_REFACTOR_WALKCHECK_INTERLIST
           GenericTreeNode *node = clist[i].node;
@@ -1455,7 +1454,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
         if(hasRemoteLists){
           CkVec<RemotePartInfo> &rpilist = state->rplists[level];
           // for each bunch of particles in list
-          for(int i = 0; i < rpilist.length(); i++){
+          for(unsigned int i = 0; i < rpilist.length(); i++){
             RemotePartInfo &rpi = rpilist[i];
 
 #if defined CHANGA_REFACTOR_WALKCHECK_INTERLIST 
@@ -1510,7 +1509,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
         // local particles
         if(hasLocalLists){
           CkVec<LocalPartInfo> &lpilist = state->lplists[level];
-          for(int i = 0; i < lpilist.length(); i++){
+          for(unsigned int i = 0; i < lpilist.length(); i++){
             LocalPartInfo &lpi = lpilist[i];
 #if defined CHANGA_REFACTOR_WALKCHECK_INTERLIST 
             NodeKey key = lpi.key;

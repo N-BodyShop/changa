@@ -146,11 +146,15 @@ struct Event {
   {
   }
 
-  bool operator<=(const Event &e){
+  bool operator<(const Event &e) const {
+    return position < e.position;
+  }
+
+  bool operator<=(const Event &e) const {
     return position <= e.position;
   }
 
-  bool operator>=(const Event &e){
+  bool operator>=(const Event &e) const {
     return position >= e.position;
   }
 };
@@ -160,6 +164,13 @@ struct OrbObject {
   int lbindex;
   Vector3D<float> centroid;
   int numParticles;
+
+  OrbObject(int tag) : 
+    partition(-1),
+    lbindex(tag),
+    numParticles(0)
+   {
+   }
 
   OrbObject() : 
     partition(-1),
@@ -209,6 +220,15 @@ class Processor{
 
   bool operator<(const Processor &p) const{
     return load > p.load;
+  }
+  Processor(){
+    load = 0.0;
+    t = -1;
+  }
+
+  Processor(int pe){
+    load = 0.0;
+    t = pe;
   }
 
 };

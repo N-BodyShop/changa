@@ -68,6 +68,7 @@ enum LBStrategy{
   Null=0,
   Multistep,
   Orb3d,
+  Multistep_notopo,
   Orb3d_notopo
 };
 PUPbytes(LBStrategy);
@@ -379,6 +380,10 @@ inline double RungToDt(double dDelta, int iRung) {
   return dDelta*RungToSubsteps(iRung)*MAXSUBSTEPS_INV;
 }
 
+/// @brief Overall flow control of the simulation.
+///
+/// As well as controlling the overall flow of the simulation, the
+/// constructors are the main entry points into the program.
 class Main : public CBase_Main {
 	CkArgMsg *args;
 	std::string basefilename;
@@ -432,6 +437,7 @@ class Main : public CBase_Main {
 
 #ifdef SELECTIVE_TRACING
        int monitorRung;
+       int monitorStart;
        int numTraceIterations;
        int numSkipIterations;
        int numMaxTrace;
@@ -463,9 +469,6 @@ public:
 	void getOutTimes();
 	int bOutTime();
 	void writeOutput(int iStep) ;
-	void setTotalParticles(int n) {
-	    nTotalParticles = n;
-        }
 	void updateSoft();
 	void growMass(double dTime, double dDelta);
 	void initSph();
@@ -1416,6 +1419,7 @@ public:
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);
   void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,
+			 unsigned int myCountStar,
 			 const CkCallback& cb, const CkCallback& cback);
   void sendORBParticles();
   void acceptORBParticles(const GravityParticle* particles, const int n);

@@ -444,8 +444,11 @@ void TreePiece::loadTipsy(const std::string& filename,
 		   replyCB);
 }
 
-// Perform Parallel Scan to establish start of parallel writes, then
-// do the writing
+/// @brief Find starting offsets and begin parallel write.
+///
+/// Perform Parallel Scan (a log(p) algorithm) to establish start of
+/// parallel writes, then do the writing.  Calls writeTipsy() to do
+/// the actual writing.
 void TreePiece::setupWrite(int iStage, // stage of scan
 			   u_int64_t iPrevOffset,
 			   const std::string& filename,
