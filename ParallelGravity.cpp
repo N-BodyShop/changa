@@ -1328,8 +1328,6 @@ void Main::advanceBigStep(int iStep) {
     if(verbosity)
 	memoryStats();
 
-    CkPrintf("starting dd\n");
-
     /***** Resorting of particles and Domain Decomposition *****/
     ckout << "Domain decomposition ...";
     double startTime = CkWallTimer();
