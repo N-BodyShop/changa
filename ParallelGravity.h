@@ -663,6 +663,13 @@ class TreePiece : public CBase_TreePiece {
   /// Start a new remote computation upon prefetch finished
   void startRemoteChunk();
 
+  int getNumParticles(){
+    return myNumParticles;
+  }
+
+  GravityParticle *getParticles(){return myParticles;}
+
+
 #ifdef CUDA
         // this variable holds the number of buckets active at
         // the start of an iteration
@@ -676,11 +683,6 @@ class TreePiece : public CBase_TreePiece {
         int numActiveBuckets; 
         int myNumActiveParticles;
         BucketActiveInfo *bucketActiveInfo;
-
-
-        int getNumParticles(){
-        	return myNumParticles;
-        }
 
         int getNumBuckets(){
         	return numBuckets;
@@ -1680,18 +1682,17 @@ public:
         void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
         void receiveProxy(CkGroupID _proxy){ proxy = _proxy; proxySet = true; /*CkPrintf("[%d : %d] received proxy\n", CkMyPe(), thisIndex);*/}
         void doAtSync();
-        GravityParticle *getParticles(){return myParticles;}
 
         void balanceBeforeInitialForces(CkCallback &cb);
         
 #ifdef DECOMPOSER_GROUP
-        void submitParticles();
+        //void submitParticles();
         //void checkin();
 
         void setParticles(GravityParticle *);
 
         private:
-        Decomposer *myDecomposer;
+        //Decomposer *myDecomposer;
 #endif
 
 };
@@ -1710,19 +1711,6 @@ void printGenericTree(GenericTreeNode* node, std::ostream& os) ;
 //bool compBucket(GenericTreeNode *ln,GenericTreeNode *rn);
 
 #ifdef DECOMPOSER_GROUP
-class TreePieceCounter : public CkLocIterator {            
-  public:
-    int count;
-    TreePieceCounter() { reset(); }
-    void addLocation(CkLocation &loc){
-      count++;
-    }
-
-    void reset() {
-      count = 0;
-    }
-};
-
 struct SubmittedParticleStruct{
   GravityParticle *particles;
   int nparticles;
@@ -1734,10 +1722,25 @@ struct SubmittedParticleStruct{
   {
   }
 
+#if 0
   bool operator<(const SubmittedParticleStruct &other) const {
     //return tp->getIndex() < other.tp->getIndex();
     return key < other.key;
   }
+#endif
+};
+
+
+class TreePieceCounter : public CkLocIterator {            
+  public:
+    TreePieceCounter() { reset(); }
+    void addLocation(CkLocation &loc);
+    void reset();
+
+  public:
+    int count;
+    std::vector<SubmittedParticleStruct> submittedParticles;
+    int submittedParticleCount;
 };
 
 class Decomposer : public CBase_Decomposer {
@@ -1745,19 +1748,15 @@ class Decomposer : public CBase_Decomposer {
   Decomposer();
 
   void evaluateBoundaries(SFC::Key *keys, const int n, int isRefine, const CkCallback& cb);
-  //void unshuffleParticles(CkReductionMsg* m);
 
-  void submitParticles(GravityParticle *particles, int nparticles, TreePiece *tp/*, SFC::Key k*/);
-
-  void doneLoad(CkReductionMsg *msg);
-  //void checkin();
+  //void submitParticles(GravityParticle *particles, int nparticles, TreePiece *tp/*, SFC::Key k*/);
+  //void doneLoad(CkReductionMsg *msg);
+  void acceptParticles(CkCallback &cb);
 
   private:
   void senseLocalTreePieces();
 
   private:
-  std::vector<SubmittedParticleStruct> submittedParticles;
-  int submittedParticleCount;
 
   CkVec<int> myBinCounts;
   unsigned int myNumParticles;

@@ -131,8 +131,7 @@ mainmodule ParallelGravity {
     entry Decomposer();
 
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
-    entry void doneLoad(CkReductionMsg *msg);
-    // entry void unshuffleParticles(CkReductionMsg* m);
+    entry void acceptParticles(CkCallback &cb);
   };
 #endif
 
@@ -395,6 +394,7 @@ mainmodule ParallelGravity {
 
     // jetley - balancing before initial forces
     entry void balanceBeforeInitialForces(CkCallback &cb); 
+
   };
 
   array [1D] LvArray {

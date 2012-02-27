@@ -1303,6 +1303,10 @@ void Main::advanceBigStep(int iStep) {
 	      }
     }
 
+#ifdef DECOMPOSER_GROUP
+    decomposerProxy.acceptParticles(CkCallbackResumeThread());
+#endif
+
     // int lastActiveRung = activeRung;
 
     // determine largest timestep that needs a kick
@@ -1570,12 +1574,12 @@ void Main::setupICs() {
 			param.dEwCut, param.dEwhCut, param.bPeriodic);
 
   /******** Particles Loading ********/
-  ckout << "Loading particles ...";
+  CkPrintf("Loading particles ...");
   startTime = CkWallTimer();
   treeProxy.load(basefilename, CkCallbackResumeThread());
   if(!(treeProxy[0].ckLocal()->bLoaded)) {
     // Try loading Tipsy format; first just grab the header.
-    ckout << " trying Tipsy ...";
+    CkPrintf(" trying Tipsy ...");
 	    
     try {
 	Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
@@ -1726,6 +1730,10 @@ void Main::setupICs() {
       ckout << "end drift particles to reset" << endl;
 
   }
+
+#ifdef DECOMPOSER_GROUP
+  decomposerProxy.acceptParticles(CkCallbackResumeThread());
+#endif
   
   initialForces();
 }
@@ -1808,6 +1816,9 @@ Main::restart()
 	
 	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+#ifdef DECOMPOSER_GROUP
+	decomposerProxy.acceptParticles(CkCallbackResumeThread());
+#endif
 	if(param.bGasCooling) 
 	    initCooling();
 	mainChare.initialForces();
@@ -2194,6 +2205,9 @@ Main::doSimulation()
 	  // The following call is to get the particles in key order
 	  // before the sort.
 	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+#ifdef DECOMPOSER_GROUP
+          decomposerProxy.acceptParticles(CkCallbackResumeThread());
+#endif
 	  sorter.startSorting(dataManagerID, tolerance,
 			      CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
@@ -2381,6 +2395,9 @@ void Main::writeOutput(int iStep)
 	// The following call is to get the particles in key order
 	// before the sort.
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+#ifdef DECOMPOSER_GROUP
+        decomposerProxy.acceptParticles(CkCallbackResumeThread());
+#endif
 	sorter.startSorting(dataManagerID, tolerance,
 			    CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY

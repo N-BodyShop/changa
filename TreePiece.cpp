@@ -108,7 +108,6 @@ void TreePiece::velScale(double dScale)
 
 /// After the bounding box has been found, we can assign keys to the particles
 void TreePiece::assignKeys(CkReductionMsg* m) {
-  //CkPrintf("[%d] assignkeys\n", thisIndex);
 	if(m->getSize() != sizeof(OrientedBox<float>)) {
 		ckerr << thisIndex << ": TreePiece: Fatal: Wrong size reduction message received!" << endl;
 		CkAssert(0);
@@ -163,7 +162,7 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 	if(verbosity >= 5)
 		cout << thisIndex << ": TreePiece: Assigned keys to all my particles" << endl;
 
-#ifdef DECOMPOSER_GROUP
+#if 0
 /*
   if(myNumParticles > 0) 
     CkPrintf("[%d] %d (%llx) - %d (%llx)\n", thisIndex, 0, myParticles[0].key, myNumParticles+1, myParticles[myNumParticles+1].key);
@@ -172,9 +171,8 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
   submitParticles();
   CkCallback decompCb(CkIndex_Decomposer::doneLoad(NULL),decomposerProxy);
   contribute(sizeof(CkCallback),&callback,callbackReduction,decompCb);
-#else
-  contribute(0, 0, CkReduction::concat, callback);
 #endif
+  contribute(0, 0, CkReduction::concat, callback);
 
 }
 
@@ -725,6 +723,32 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
 }
 
 #ifdef DECOMPOSER_GROUP
+void TreePieceCounter::addLocation(CkLocation &loc){
+  const int *indexData = loc.getIndex().data();
+  TreePiece *tp = treeProxy[indexData[0]].ckLocal();
+  int np = tp->getNumParticles();
+  GravityParticle *ptr = NULL;
+  SFC::Key key;
+
+  if(np == 0){
+    key = SFC::Key(0);
+    key = ~key;
+  }
+  else{
+    ptr = tp->getParticles();
+    key = ptr[1].key;
+  }
+  submittedParticles.push_back(SubmittedParticleStruct(ptr, np, tp, key));
+  submittedParticleCount += np;
+  count++;
+}
+
+void TreePieceCounter::reset() {
+  count = 0;
+  submittedParticleCount = 0;
+  submittedParticles.clear();
+}
+
 void Decomposer::senseLocalTreePieces(){
   localTreePieces.reset();                          
   CkLocMgr *mgr = treeProxy.ckLocMgr();        
@@ -735,7 +759,6 @@ void Decomposer::senseLocalTreePieces(){
 
 void TreePiece::setParticles(GravityParticle *ptr){
   myParticles = ptr;
-  //CkPrintf("[%d] set %d (%llx) - %d (%llx)\n", thisIndex, 0, myParticles[0].key, myNumParticles+1, myParticles[myNumParticles+1].key);
 }
 #endif
 
@@ -6154,96 +6177,40 @@ Decomposer::Decomposer(){
   myNumParticles = 0;
   myNumTreePieces = -1;
   numTreePiecesCheckedIn = 0;
-  submittedParticleCount = 0;
 }
 
-void TreePiece::submitParticles(){
-  SFC::Key key;
-  //CkPrintf("[%d] submit %d\n", thisIndex, myNumParticles);
-
-  /*
-  if(myNumParticles > 0){
-    for(int i = 0; i <= myNumParticles+1; i++){
-      CkPrintf("[%d] submitting %d key %llx\n", thisIndex, i, myParticles[i].key);
-    }
-  }
-  */
-
-  decomposerProxy.ckLocalBranch()->submitParticles(myParticles,myNumParticles,this);
-}
-
-void Decomposer::submitParticles(GravityParticle *particles, int nparticles, TreePiece *tp/*, SFC::Key key*/){
-  if(nparticles == 0){
-    SFC::Key dummyKey = SFC::Key(0);
-    dummyKey = ~dummyKey;
-
-    submittedParticles.push_back(SubmittedParticleStruct(NULL,0,tp,dummyKey));
-  }
-  else{
-    submittedParticles.push_back(SubmittedParticleStruct(particles,nparticles,tp,particles[1].key));
-  }
-  myNumTreePieces++;
-  submittedParticleCount += nparticles;
-}
-
-void Decomposer::doneLoad(CkReductionMsg *m){
-  CkCallback cb = *((CkCallback*)m->getData());
-  CkAssert(m->getSize() == sizeof(CkCallback));
+void Decomposer::acceptParticles(CkCallback &cb){
   if(myNumParticles > 0){
     delete[] myParticles;
     myNumParticles = 0;
   }
 
-  /*
-  for(int i = 0; i < submittedParticles.size(); i++){
-    SubmittedParticleStruct &p = submittedParticles[i];
-    if(p.nparticles == 0) continue;
-    myNumParticles += (p.nparticles+2);
-  }
-  */
-  myNumParticles = submittedParticleCount;
-  submittedParticleCount = 0;
+  // This will fill up submittedParticles
+  senseLocalTreePieces();
+
+  myNumParticles = localTreePieces.submittedParticleCount;
 
   myParticles = new GravityParticle[myNumParticles+2];
-  /*
-  myNumParticles = 0;
-  */
   int nonEmptyTreePieces = 0;
   int idx = 1;
-  for(int i = 0; i < submittedParticles.size(); i++){
-    SubmittedParticleStruct &p = submittedParticles[i];
+  // copy particles from resident tree pieces
+  for(int i = 0; i < localTreePieces.submittedParticles.size(); i++){
+    SubmittedParticleStruct &p = localTreePieces.submittedParticles[i];
     if(p.nparticles == 0) continue;
 
     nonEmptyTreePieces++;
 
-    /*
-    memcpy(&myParticles[idx], p.particles, (p.nparticles+2)*sizeof(GravityParticle));
-    */
-
     memcpy(&myParticles[idx], p.particles+1, p.nparticles*sizeof(GravityParticle));
 
-    //CkPrintf("[%d] %d (%llx) - %d (%llx)\n", p.tp->getIndex(), idx, myParticles[idx].key,idx+p.nparticles+1,myParticles[idx+p.nparticles+1].key);
-
-    /*
-    for(int i = 0; i <= p.nparticles+1; i++){
-      CkPrintf("[%d] %d %llx\n", p.tp->getIndex(), i, p.particles[i].key);
-    }
-    */
-
-    //CkPrintf("[%d] delete %llx\n", p.tp->getIndex(), p.particles);
     delete[] p.particles;
     p.particles = &myParticles[idx-1];
-    //CkPrintf("[%d] set %llx\n", p.tp->getIndex(), p.particles);
-
     p.tp->setParticles(p.particles);
-
-    //myNumParticles += p.nparticles;
     idx += p.nparticles;
-    //idx += (p.nparticles+2);
   }
 
   CkAssert(idx == myNumParticles+1);
 
+  // sort copied particles
   if(myNumParticles > 0){
     sort(&myParticles[1], &myParticles[myNumParticles+1]);
   /*
@@ -6253,20 +6220,6 @@ void Decomposer::doneLoad(CkReductionMsg *m){
   */
   }
 
-  //std::sort(submittedParticles.begin(),submittedParticles.end());
-
-  /*
-  for(int i = 0; i < myNumParticles+2*nonEmptyTreePieces; i++){
-    CkPrintf("(%d) %d %llx\n", CkMyPe(), i, myParticles[i].key);
-  }
-  */
-
-  //CkAssert(idx == myNumParticles+2*nonEmptyTreePieces);
-
-  submittedParticles.clear();
-  //senseLocalTreePieces();
-
-  delete m;
   contribute(0,0,CkReduction::concat,cb);
 }
 #endif
