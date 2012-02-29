@@ -4536,8 +4536,6 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   else {
     contribute(cb);  // Skip the load balancer
   }
-  if(thisIndex == 0)
-    CkPrintf("Changing prevLARung from %d to %d\n", prevLARung, activeRung);
   prevLARung = activeRung;
 }
 
