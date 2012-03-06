@@ -122,6 +122,9 @@ extern DomainsDec domainDecomposition;
 extern double dExtraStore;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
+#ifdef DECOMPOSER_GROUP
+extern CProxy_Decomposer decomposerProxy;
+#endif
 extern CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 extern CProxy_LvArray smoothProxy;  // Proxy for smooth reduction
 extern CProxy_LvArray gravityProxy; // Proxy for gravity reduction
@@ -165,6 +168,8 @@ extern double theta;
 extern double thetaMono;
 
 extern int nSmooth;
+
+extern int numInitDecompBins;
 
 class dummyMsg : public CMessage_dummyMsg{
 public:
@@ -660,6 +665,13 @@ class TreePiece : public CBase_TreePiece {
   /// Start a new remote computation upon prefetch finished
   void startRemoteChunk();
 
+  int getNumParticles(){
+    return myNumParticles;
+  }
+
+  GravityParticle *getParticles(){return myParticles;}
+
+
 #ifdef CUDA
         // this variable holds the number of buckets active at
         // the start of an iteration
@@ -673,11 +685,6 @@ class TreePiece : public CBase_TreePiece {
         int numActiveBuckets; 
         int myNumActiveParticles;
         BucketActiveInfo *bucketActiveInfo;
-
-
-        int getNumParticles(){
-        	return myNumParticles;
-        }
 
         int getNumBuckets(){
         	return numBuckets;
@@ -1408,7 +1415,9 @@ public:
 	 */
 	// Assign keys after loading tipsy file and finding Bounding box
 	void assignKeys(CkReductionMsg* m);
+#ifndef DECOMPOSER_GROUP 
 	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
+#endif
 	void unshuffleParticles(CkReductionMsg* m);
 	void acceptSortedParticles(ParticleShuffleMsg *);
   /*****ORB Decomposition*******/
@@ -1675,9 +1684,18 @@ public:
         void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
         void receiveProxy(CkGroupID _proxy){ proxy = _proxy; proxySet = true; /*CkPrintf("[%d : %d] received proxy\n", CkMyPe(), thisIndex);*/}
         void doAtSync();
-        GravityParticle *getParticles(){return myParticles;}
 
         void balanceBeforeInitialForces(CkCallback &cb);
+        
+#ifdef DECOMPOSER_GROUP
+        //void submitParticles();
+        //void checkin();
+
+        void setParticles(GravityParticle *);
+
+        private:
+        //Decomposer *myDecomposer;
+#endif
 
 };
 
@@ -1693,4 +1711,66 @@ bool bIsReplica(int reqID);
 void initNodeLock();
 void printGenericTree(GenericTreeNode* node, std::ostream& os) ;
 //bool compBucket(GenericTreeNode *ln,GenericTreeNode *rn);
+
+#ifdef DECOMPOSER_GROUP
+struct SubmittedParticleStruct{
+  GravityParticle *particles;
+  int nparticles;
+  TreePiece *tp;
+  SFC::Key key;
+
+  SubmittedParticleStruct(GravityParticle *p, int n, TreePiece *t ,SFC::Key k) : 
+    particles(p), nparticles(n), tp(t), key(k)
+  {
+  }
+
+#if 0
+  bool operator<(const SubmittedParticleStruct &other) const {
+    //return tp->getIndex() < other.tp->getIndex();
+    return key < other.key;
+  }
+#endif
+};
+
+
+class TreePieceCounter : public CkLocIterator {            
+  public:
+    TreePieceCounter() { reset(); }
+    void addLocation(CkLocation &loc);
+    void reset();
+
+  public:
+    int count;
+    std::vector<SubmittedParticleStruct> submittedParticles;
+    int submittedParticleCount;
+};
+
+class Decomposer : public CBase_Decomposer {
+  public:
+  Decomposer();
+
+  void evaluateBoundaries(SFC::Key *keys, const int n, int isRefine, const CkCallback& cb);
+
+  //void submitParticles(GravityParticle *particles, int nparticles, TreePiece *tp/*, SFC::Key k*/);
+  //void doneLoad(CkReductionMsg *msg);
+  void acceptParticles(CkCallback &cb);
+
+  private:
+  void senseLocalTreePieces();
+
+  private:
+
+  CkVec<int> myBinCounts;
+  unsigned int myNumParticles;
+  /// Array with the particles in this chare
+  GravityParticle* myParticles;
+  int myNumTreePieces;
+  int numTreePiecesCheckedIn;
+
+  DataManager *dm;
+
+  TreePieceCounter localTreePieces;
+};
+#endif
+
 #endif //PARALLELGRAVITY_H

@@ -7,6 +7,9 @@ mainmodule ParallelGravity {
   readonly CProxy_Main mainChare;
   readonly int verbosity;
   readonly CProxy_TreePiece treeProxy;
+#ifdef DECOMPOSER_GROUP
+  readonly CProxy_Decomposer decomposerProxy;
+#endif
   readonly CProxy_LvArray lvProxy;
   readonly CProxy_LvArray smoothProxy;
   readonly CProxy_LvArray gravityProxy;
@@ -59,6 +62,10 @@ mainmodule ParallelGravity {
 #ifdef SELECTIVE_TRACING
   readonly CProxy_ProjectionsControl prjgrp;
 #endif
+
+  // number of bins to use for the first
+  // iteration of every decomposition step
+  readonly int numInitDecompBins;
 
   //message piecedata;
   message dummyMsg;
@@ -121,6 +128,15 @@ mainmodule ParallelGravity {
     entry [notrace] void on(CkCallback);
     entry [notrace] void off(CkCallback);                     
   };                                                          
+#endif
+
+#ifdef DECOMPOSER_GROUP
+  group Decomposer {
+    entry Decomposer();
+
+    entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
+    entry void acceptParticles(CkCallback &cb);
+  };
 #endif
 
   chare [migratable] Sorter {
@@ -218,7 +234,9 @@ mainmodule ParallelGravity {
     entry void ioShuffle(CkReductionMsg *msg);
     entry void ioAcceptSortedParticles(ParticleShuffleMsg *);
     entry void assignKeys(CkReductionMsg* m);
+#ifndef DECOMPOSER_GROUP
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
+#endif
     entry void unshuffleParticles(CkReductionMsg* m);
     entry void acceptSortedParticles(ParticleShuffleMsg *);
     //ORB
@@ -380,6 +398,7 @@ mainmodule ParallelGravity {
 
     // jetley - balancing before initial forces
     entry void balanceBeforeInitialForces(CkCallback &cb); 
+
   };
 
   array [1D] LvArray {

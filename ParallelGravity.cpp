@@ -35,6 +35,9 @@ CProxy_Main mainChare;
 int verbosity;
 int bVDetails;
 CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
+#ifdef DECOMPOSER_GROUP
+CProxy_Decomposer decomposerProxy;
+#endif
 CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 CProxy_LvArray smoothProxy; // Proxy for smooth reductions
 CProxy_LvArray gravityProxy; // Proxy for gravity reductions
@@ -94,6 +97,10 @@ CkGroupID ckMulticastGrpId;
 #ifdef SELECTIVE_TRACING
 CProxy_ProjectionsControl prjgrp;
 #endif
+
+// Number of bins to use for the first iteration
+// of every Oct decomposition step
+int numInitDecompBins;
 
 void _Leader(void) {
     puts("USAGE: ChaNGa [SETTINGS | FLAGS] [PARAM_FILE]");
@@ -566,6 +573,12 @@ Main::Main(CkArgMsg* m) {
         traceState = TraceNormal;
         projectionsOn = false;
 #endif
+
+        numInitDecompBins = (1<<11);
+        prmAddParam(prm, "iInitDecompBins", paramInt, &numInitDecompBins,
+              sizeof(int),"initDecompBins", "Number of bins to use for the first iteration of every Oct decomposition step");
+        if(numInitDecompBins > numTreePieces) numInitDecompBins = numTreePieces;
+
     
           // jetley - cuda parameters
 #ifdef CUDA
@@ -889,6 +902,9 @@ Main::Main(CkArgMsg* m) {
 #endif
 
 	treeProxy = pieces;
+#ifdef DECOMPOSER_GROUP
+        decomposerProxy = CProxy_Decomposer::ckNew();
+#endif
 
 	opts.bindTo(treeProxy);
 	lvProxy = CProxy_LvArray::ckNew(opts);
@@ -1297,6 +1313,10 @@ void Main::advanceBigStep(int iStep) {
 	      }
     }
 
+#ifdef DECOMPOSER_GROUP
+    decomposerProxy.acceptParticles(CkCallbackResumeThread());
+#endif
+
     // int lastActiveRung = activeRung;
 
     // determine largest timestep that needs a kick
@@ -1321,26 +1341,36 @@ void Main::advanceBigStep(int iStep) {
     
     if(verbosity)
 	memoryStats();
+
     /***** Resorting of particles and Domain Decomposition *****/
-    ckout << "Domain decomposition ...";
+    //ckout << "Domain decomposition ...";
+    CkPrintf("Domain decomposition ... ");
     double startTime = CkWallTimer();
     double tolerance = 0.01;	// tolerance for domain decomposition
     bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
     sorter.startSorting(dataManagerID, tolerance,
                         CkCallbackResumeThread(), bDoDD);
+    /*
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
+          */
+    CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+
     if(verbosity && !bDoDD)
 	CkPrintf("Skipped DD\n");
 
     if(verbosity)
 	memoryStats();
     /********* Load balancer ********/
-    ckout << "Load balancer ...";
+    //ckout << "Load balancer ...";
+    CkPrintf("Load balancer ... ");
     startTime = CkWallTimer();
     treeProxy.startlb(CkCallbackResumeThread(), activeRung);
+    /*
     ckout << " took "<<(CkWallTimer() - startTime) << " seconds."
 	     << endl;
+             */
+    CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
     if(verbosity)
 	memoryStats();
@@ -1352,7 +1382,8 @@ void Main::advanceBigStep(int iStep) {
 #endif
 
     /******** Tree Build *******/
-    ckout << "Building trees ...";
+    //ckout << "Building trees ...";
+    CkPrintf("Building trees ... ");
     startTime = CkWallTimer();
 #ifdef PUSH_GRAVITY
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),!bDoPush);
@@ -1360,8 +1391,11 @@ void Main::advanceBigStep(int iStep) {
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
     iPhase = 0;
+    /*
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
+          */
+    CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
     CkCallback cbGravity(CkCallback::resumeThread);
 
@@ -1419,7 +1453,7 @@ void Main::advanceBigStep(int iStep) {
 #endif
 	    //ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	    //	  << endl;
-            CkPrintf("took %f seconds\n", CkWallTimer()-startTime);
+            CkPrintf("took %g seconds\n", CkWallTimer()-startTime);
 #ifdef SELECTIVE_TRACING
             turnProjectionsOff();
 #endif
@@ -1452,7 +1486,7 @@ void Main::advanceBigStep(int iStep) {
 #endif
 	//ckout << "Calculating gravity and SPH took "
 	//      << (CkWallTimer() - startTime) << " seconds." << endl;
-        CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
+        CkPrintf("Calculating gravity and SPH took %g seconds.\n", CkWallTimer()-startTime);
 #ifdef SELECTIVE_TRACING
         turnProjectionsOff();
 #endif
@@ -1563,12 +1597,12 @@ void Main::setupICs() {
 			param.dEwCut, param.dEwhCut, param.bPeriodic);
 
   /******** Particles Loading ********/
-  ckout << "Loading particles ...";
+  CkPrintf("Loading particles ...");
   startTime = CkWallTimer();
   treeProxy.load(basefilename, CkCallbackResumeThread());
   if(!(treeProxy[0].ckLocal()->bLoaded)) {
     // Try loading Tipsy format; first just grab the header.
-    ckout << " trying Tipsy ...";
+    CkPrintf(" trying Tipsy ...");
 	    
     try {
 	Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
@@ -1586,11 +1620,10 @@ void Main::setupICs() {
 	CkExit();
 	return;
 	}
-    
+
     double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
     treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
 
-    treeProxy.findTotalMass(CkCallbackResumeThread());
   }	
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
@@ -1720,6 +1753,11 @@ void Main::setupICs() {
       ckout << "end drift particles to reset" << endl;
 
   }
+
+#ifdef DECOMPOSER_GROUP
+  decomposerProxy.acceptParticles(CkCallbackResumeThread());
+  CkPrintf("Main: acceptParticles done\n");
+#endif
   
   initialForces();
 }
@@ -1802,6 +1840,9 @@ Main::restart()
 	
 	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+#ifdef DECOMPOSER_GROUP
+	decomposerProxy.acceptParticles(CkCallbackResumeThread());
+#endif
 	if(param.bGasCooling) 
 	    initCooling();
 	mainChare.initialForces();
@@ -1841,31 +1882,48 @@ Main::initialForces()
   // CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
 
   /***** Initial sorting of particles and Domain Decomposition *****/
-  ckout << "Initial domain decomposition ...";
+  //ckout << "Initial domain decomposition ...";
+  CkPrintf("Initial domain decomposition ... ");
   startTime = CkWallTimer();
   sorter.startSorting(dataManagerID, tolerance,
 	 	      CkCallbackResumeThread(), true);
+  CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+  /*
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
+        */
+
+#ifdef PUSH_GRAVITY
+  treeProxy.findTotalMass(CkCallbackResumeThread());
+#endif
   
   // Balance load initially after decomposition
-  ckout << "Initial load balancing ..." << endl;
+  //ckout << "Initial load balancing ..." << endl;
+  CkPrintf("Initial load balancing ... ");
   LBSetPeriod(0.0); // no need for LB interval: we are using Sync Mode
   startTime = CkWallTimer();
   treeProxy.balanceBeforeInitialForces(CkCallbackResumeThread());
+  /*
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
+        */
+  CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
   /******** Tree Build *******/
-  ckout << "Building trees ...";
+  //ckout << "Building trees ...";
+  CkPrintf("Building trees ... ");
   startTime = CkWallTimer();
 #ifdef PUSH_GRAVITY
   treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
 #else
   treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
+  /*
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
+        */
+  CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+
   iPhase = 0;
   if(verbosity)
       memoryStats();
@@ -1908,7 +1966,7 @@ Main::initialForces()
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
-          CkPrintf("took %f seconds.\n", CkWallTimer()-startTime);
+          CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 #ifdef SELECTIVE_TRACING
           turnProjectionsOff();
 #endif
@@ -2184,6 +2242,9 @@ Main::doSimulation()
 	  // The following call is to get the particles in key order
 	  // before the sort.
 	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+#ifdef DECOMPOSER_GROUP
+          decomposerProxy.acceptParticles(CkCallbackResumeThread());
+#endif
 	  sorter.startSorting(dataManagerID, tolerance,
 			      CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
@@ -2371,6 +2432,9 @@ void Main::writeOutput(int iStep)
 	// The following call is to get the particles in key order
 	// before the sort.
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+#ifdef DECOMPOSER_GROUP
+        decomposerProxy.acceptParticles(CkCallbackResumeThread());
+#endif
 	sorter.startSorting(dataManagerID, tolerance,
 			    CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY

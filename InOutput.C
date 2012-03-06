@@ -259,6 +259,7 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   if((domainDecomposition!=ORB_dec) && (domainDecomposition!=ORB_space_dec)){
     sort(myParticles+1, myParticles+myNumParticles+1);
   }
+
   contribute(0, 0, CkReduction::concat, cb);
 }
 

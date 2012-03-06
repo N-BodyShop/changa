@@ -112,9 +112,9 @@ void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, 
     CkPrintf("\n");
   }
 
-	contribute(sizeof(CkCallback), &cb, callbackReduction,
-		   CkCallback(CkIndex_TreePiece::unshuffleParticles(0),
-			      treePieces));
+  CkCallback unshuffleCallback(CkIndex_TreePiece::unshuffleParticles(0),treePieces);
+
+  contribute(sizeof(CkCallback), &cb, callbackReduction, unshuffleCallback);
 }
 
 class KeyDouble {
