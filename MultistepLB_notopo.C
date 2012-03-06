@@ -481,5 +481,3 @@ void LightweightLDStats::pup(PUP::er &p){
 }
 
 #include "MultistepLB_notopo.def.h"
-
-/*@}*/

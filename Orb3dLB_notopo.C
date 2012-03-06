@@ -94,5 +94,3 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
 }
 
 #include "Orb3dLB_notopo.def.h"
-
-/*@}*/
