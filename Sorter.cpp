@@ -300,17 +300,29 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
         rt = new BinaryTreeNode();
         //numKeys = numChares;
         //keysSize = (int) (numChares * 1.1);
-        nodeKeys.reserve(numChares);
-        nodeKeys.resize(numChares>>1, 0);
+        int numInitialBins = numInitDecompBins;
+
+        nodeKeys.reserve(numInitialBins);
+        nodeKeys.resize(numInitialBins>>1, 0);
         chareIDs.resize(nodeKeys.size());
         NodeKey *tmp = &(*nodeKeys.begin());
         rt->getChunks(nodeKeys.size(),tmp);
         delete rt;
         // place the unused chares in the available list
-        availableChares.reserve(numChares>>1 + 10);
+        //availableChares.reserve(numChares>>1 + 10);
+        int toReserve = numChares-nodeKeys.size()+10;
+        if(toReserve < 0) toReserve = 0;
+        availableChares.reserve(toReserve);
+
         for (int i = numChares-1; i>=nodeKeys.size(); --i) {
           availableChares.push_back(i);
         }
+        
+        ostringstream oss;
+        for(int i = 0; i < availableChares.size(); i++){
+          oss << availableChares[i] << ",";
+        }
+
         joinThreshold = particlesPerChare;
 	splitThreshold = (int)(joinThreshold * 1.5);
       }
@@ -487,7 +499,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     }
     CkPrintf("\n");
     CkPrintf("Nodekeys:");
-    for(int j=0;j<numChares;j++)
+    for(int j=0;j<nodeKeys.size();j++)
       CkPrintf("%llx,",nodeKeys[j]);
     CkPrintf("\n");
     if (nodesOpened.size() > 0) {
@@ -497,7 +509,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
       CkPrintf("\n");
     }
   }
-  
+
   double startTimer = CmiWallTimer();
   bool histogram = refineOctSplitting(numCounts, startCounts);
   traceUserBracketEvent(weightBalanceUE, startTimer, CmiWallTimer());
@@ -537,6 +549,24 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     //convertNodesToSplittersNoZeros(numKeys,nodeKeys,zeros);
     //convertNodesToSplitters(); // Filippo: not needed anymore since splitters is kept in sync with
                                  // the other arrays by the function refileOctSplitting.
+    
+    /*
+    ostringstream oss;
+    oss << "final chares: ";
+    for(int i = 0; i < chareIDs.size(); i++){
+      oss << chareIDs[i] << ",";
+    }
+    oss << endl;
+    CkPrintf("sorter: %s",oss.str().c_str());
+
+    CkPrintf("sorter: %d splitters %d binCounts\n", splitters.size(), binCounts.size());
+    */
+
+    if(binCounts.size() > numTreePieces){
+      CkPrintf("Need %d tree pieces, available %d\n", binCounts.size(), numTreePieces);
+      CkAbort("too few tree pieces\n");
+    }
+
     dm.acceptFinalKeys(&(*splitters.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), splitters.size(), sortingCallback);
     numIterations = 0;
     sorted = false;
@@ -582,8 +612,9 @@ bool Sorter::refineOctSplitting(int n, int *count) {
         splitters.erase(splitters.begin()+idx);
         binCounts[idx-1] += binCounts[idx];
         binCounts.erase(binCounts.begin()+idx);
-        availableChares.push_back(chareIDs[idx]);
-        chareIDs.erase(chareIDs.begin()+idx);
+        //availableChares.push_back(chareIDs[idx]);
+        //CkPrintf("erase chareid %d from idx %d\n", chareIDs[idx], idx);
+        //chareIDs.erase(chareIDs.begin()+idx);
         --idx;
       }
     }
@@ -619,7 +650,15 @@ bool Sorter::refineOctSplitting(int n, int *count) {
       }
       binCounts[index] = count[i*(1<<refineLevel)];
       binCounts.insert(binCounts.begin()+index+1, &count[i*(1<<refineLevel)+1], &count[(i+1)*(1<<refineLevel)]);
-      chareIDs.insert(chareIDs.begin()+index+1, availableChares.end()-(1<<refineLevel)+1, availableChares.end());
+
+      ostringstream oss;
+      vector<int>::iterator it;
+      for(it = availableChares.end()-(1<<refineLevel)+1; ; it++){
+        oss << *it << ",";
+        if(it == availableChares.end()) break;
+      }
+      //CkPrintf("insert at position %d: %s\n",index+1,oss.str().c_str());
+      //chareIDs.insert(chareIDs.begin()+index+1, availableChares.end()-(1<<refineLevel)+1, availableChares.end());
 
       if (verbosity >= 4 ) 
 	CkPrintf("Split node index %d, last added chare is %d (refine level = %d), %d available chares left\n", index, availableChares.back(), (1<<refineLevel), availableChares.size()-1);
@@ -642,8 +681,9 @@ bool Sorter::refineOctSplitting(int n, int *count) {
           splitters.erase(splitters.begin()+index+idx);
           binCounts[index+idx-1] += binCounts[index+idx];
           binCounts.erase(binCounts.begin()+index+idx);
-          availableChares.push_back(chareIDs[index+idx]);
-          chareIDs.erase(chareIDs.begin()+index+idx);
+          //availableChares.push_back(chareIDs[index+idx]);
+          //CkPrintf("erase %d from idx %d\n", chareIDs[index+idx], index+idx);
+          //chareIDs.erase(chareIDs.begin()+index+idx);
           --idx;
         }
       }

@@ -63,6 +63,10 @@ mainmodule ParallelGravity {
   readonly CProxy_ProjectionsControl prjgrp;
 #endif
 
+  // number of bins to use for the first
+  // iteration of every decomposition step
+  readonly int numInitDecompBins;
+
   //message piecedata;
   message dummyMsg;
   message ComputeChunkMsg;

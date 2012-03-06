@@ -169,6 +169,8 @@ extern double thetaMono;
 
 extern int nSmooth;
 
+extern int numInitDecompBins;
+
 class dummyMsg : public CMessage_dummyMsg{
 public:
 int val;

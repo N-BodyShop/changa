@@ -98,6 +98,10 @@ CkGroupID ckMulticastGrpId;
 CProxy_ProjectionsControl prjgrp;
 #endif
 
+// Number of bins to use for the first iteration
+// of every Oct decomposition step
+int numInitDecompBins;
+
 void _Leader(void) {
     puts("USAGE: ChaNGa [SETTINGS | FLAGS] [PARAM_FILE]");
     puts("PARAM_FILE: Configuration file of a particular simulation, which");
@@ -569,6 +573,12 @@ Main::Main(CkArgMsg* m) {
         traceState = TraceNormal;
         projectionsOn = false;
 #endif
+
+        numInitDecompBins = (1<<11);
+        prmAddParam(prm, "iInitDecompBins", paramInt, &numInitDecompBins,
+              sizeof(int),"initDecompBins", "Number of bins to use for the first iteration of every Oct decomposition step");
+        if(numInitDecompBins > numTreePieces) numInitDecompBins = numTreePieces;
+
     
           // jetley - cuda parameters
 #ifdef CUDA
@@ -1610,7 +1620,7 @@ void Main::setupICs() {
 	CkExit();
 	return;
 	}
-    
+
     double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
     treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
 
