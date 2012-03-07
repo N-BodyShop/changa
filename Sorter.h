@@ -37,6 +37,8 @@
  shuffling of the particles to the correct owners.
  */
 class Sorter : public Chare {
+
+        double decompTime;
 	/// The total number of keys we're sorting.
 	int numKeys;
 	/// The number of chares to sort into.
