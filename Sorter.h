@@ -14,6 +14,26 @@
 
 #include "ParallelGravity.h"
 
+struct OctDecompNode {
+  static int maxNumChildren;
+  static int lgMaxNumChildren;
+
+  OctDecompNode() : children(NULL), nchildren(0), nparticles(0) 
+  {
+  }
+
+  NodeKey key;
+  
+  OctDecompNode *children;
+  int nchildren;
+
+  int nparticles;
+
+  void makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active);
+  void deleteBeneath();
+  void combine(int thresh, vector<SFC::Key> &finalKeys, vector<unsigned int> &counts);
+};
+
 /**
    \brief Domain decomposition of particles via a parallel sort
 */
@@ -85,6 +105,11 @@ class Sorter : public Chare {
 	/// Specify what is the level of refinement of nodes sent out
 	/// for histogramming in Oct decomposition.
 	int refineLevel;
+
+        OctDecompNode *decompRoots;
+        int numDecompRoots;
+        CkVec<OctDecompNode*> *activeNodes;
+        CkVec<OctDecompNode*> *tmpActiveNodes;
 	
   ///Variables added for ORB decomposition
   typedef struct DivData{
@@ -114,11 +139,20 @@ class Sorter : public Chare {
 public:
 	
 	Sorter() {
+          decompRoots = NULL;
+          numDecompRoots = 0;
+
+          activeNodes = new CkVec<OctDecompNode*>;
+          tmpActiveNodes = new CkVec<OctDecompNode*>;
+
           chareIDs.resize(numTreePieces, 1);
           chareIDs[0] = 0;
           partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
 	};
 	Sorter(CkMigrateMessage* m) {
+          decompRoots = NULL;
+          numDecompRoots = 0;
+
           chareIDs.resize(numTreePieces, 1);
           chareIDs[0] = 0;
           partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());

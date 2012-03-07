@@ -295,40 +295,39 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
 	    splitters.push_back(lastPossibleKey);
         }
         break;
+
     case Oct_dec:
-      if (nodeKeys.size() == 0) {
+      {
         rt = new BinaryTreeNode();
-        //numKeys = numChares;
-        //keysSize = (int) (numChares * 1.1);
         int numInitialBins = numInitDecompBins;
 
         nodeKeys.reserve(numInitialBins);
         nodeKeys.resize(numInitialBins>>1, 0);
-        chareIDs.resize(nodeKeys.size());
         NodeKey *tmp = &(*nodeKeys.begin());
         rt->getChunks(nodeKeys.size(),tmp);
         delete rt;
-        // place the unused chares in the available list
-        //availableChares.reserve(numChares>>1 + 10);
-        int toReserve = numChares-nodeKeys.size()+10;
-        if(toReserve < 0) toReserve = 0;
-        availableChares.reserve(toReserve);
 
-        for (int i = numChares-1; i>=nodeKeys.size(); --i) {
-          availableChares.push_back(i);
+        if(numDecompRoots > 0){
+          for(int i = 0; i < numDecompRoots; i++){
+            (*activeNodes)[i]->deleteBeneath();
+            delete[] decompRoots;
+          }
         }
-        
-        ostringstream oss;
-        for(int i = 0; i < availableChares.size(); i++){
-          oss << availableChares[i] << ",";
+        numDecompRoots = nodeKeys.size();
+        decompRoots = new OctDecompNode[numDecompRoots];
+        for(int i = 0; i < nodeKeys.size(); i++){
+          decompRoots[i].key = nodeKeys[i];
+          (*activeNodes).push_back(&decompRoots[i]);
         }
 
         joinThreshold = particlesPerChare;
 	splitThreshold = (int)(joinThreshold * 1.5);
+        
+        //Convert the Node Keys to the splitter keys which will be sent to histogram
+        convertNodesToSplitters();
+        break;
       }
-      //Convert the Node Keys to the splitter keys which will be sent to histogram
-      convertNodesToSplitters();
-      break;
+
     case ORB_dec:
     case ORB_space_dec:
 	numKeys = 0;
@@ -423,7 +422,7 @@ void Sorter::convertNodesToSplitters(){
 Key * Sorter::convertNodesToSplittersRefine(int num, NodeKey* keys){
   Key partKey = Key(0);
 
-  Key *result = new Key[num * ((2<<refineLevel)+1)];
+  Key *result = new Key[num * ((1<<refineLevel)+1)];
   int64_t levelMask = int64_t(1) << 63;
   levelMask >>= refineLevel;
   int idx = 0;
@@ -443,6 +442,11 @@ Key * Sorter::convertNodesToSplittersRefine(int num, NodeKey* keys){
       result[idx++] = kResult;
     }
   }
+
+  for(int i = 0; i < idx; i++){
+    CkPrintf("refineSplit %d key %llx\n", i, result[i]);
+  }
+
   //Sort here to make sure that splitters go sorted to histogramming
   //They might be unsorted here due to sorted or unsorted node keys
   // FILIPPO: no, by construction they must be ordered already!
@@ -451,8 +455,6 @@ Key * Sorter::convertNodesToSplittersRefine(int num, NodeKey* keys){
 }
 
 void Sorter::collectEvaluations(CkReductionMsg* m) {
-
-  CkPrintf("histogramming took %g sec\n", CmiWallTimer()-decompTime);
 
   switch (domainDecomposition){
     case SFC_dec:
@@ -484,6 +486,9 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   numIterations++;
   numCounts = m->getSize() / sizeof(int);
   int* startCounts = static_cast<int *>(m->getData());
+
+  CkPrintf("\nhistogramming %d bins took %g sec\n", numCounts, CmiWallTimer()-decompTime);
+
 
   //call function which will balance the bin counts: define it in GenericTreeNode
   //make it a templated function
@@ -518,7 +523,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   bool histogram = refineOctSplitting(numCounts, startCounts);
   traceUserBracketEvent(weightBalanceUE, startTimer, CmiWallTimer());
 
-  CkPrintf("refineOctSplitting took %g s\n", CmiWallTimer()-startTimer);
+  CkPrintf("refineOctSplitting nodesOpened %d took %g s\n", nodesOpened.size(), CmiWallTimer()-startTimer);
   delete m;
 
   if(verbosity>=3){
@@ -532,7 +537,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     int arraySize = (1<<refineLevel)+1;
     startTimer = CmiWallTimer();
     Key *array = convertNodesToSplittersRefine(nodesOpened.size(),nodesOpened.getVec());
-    CkPrintf("convertNodesToSplittersRefine took %g s\n", CmiWallTimer()-startTimer);
+    CkPrintf("convertNodesToSplittersRefine elts %d took %g s\n", nodesOpened.size()*arraySize, CmiWallTimer()-startTimer);
 #ifdef DECOMPOSER_GROUP
     decomposerProxy.evaluateBoundaries(array, nodesOpened.size()*arraySize, 1<<refineLevel, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 #else
@@ -542,6 +547,15 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   }
   else{
     sorted=true;
+    splitters.clear();
+    nodeKeys.clear();
+    binCounts.clear();
+    for(int i = 0; i < numDecompRoots; i++){
+      OctDecompNode *droot = &decompRoots[i];
+      droot->combine(joinThreshold,nodeKeys,binCounts);
+    }
+    convertNodesToSplitters();
+
     if(verbosity)
       ckout << "Sorter: Histograms balanced after " << numIterations
 	    << " iterations. Using " << nodeKeys.size() << " chares." << endl;
@@ -588,6 +602,51 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   decompTime = CmiWallTimer();
 }
 
+int OctDecompNode::maxNumChildren = 2;
+int OctDecompNode::lgMaxNumChildren = 1;
+
+void OctDecompNode::makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active){
+  if(refineLevel == 0){
+    active->push_back(this);
+    return;
+  }
+
+  children = new OctDecompNode[maxNumChildren];
+  nchildren = maxNumChildren;
+
+  NodeKey childKey = (key << lgMaxNumChildren);
+  for(int i = 0; i < nchildren; i++){
+    children[i].key = childKey;
+    children[i].makeSubTree(refineLevel-1,active);
+    childKey++;
+  }
+}
+
+void OctDecompNode::combine(int joinThreshold, vector<SFC::Key> &finalKeys, vector<unsigned int> &counts){
+  if(nparticles < joinThreshold){
+    finalKeys.push_back(SFC::Key(key));
+    counts.push_back(nparticles);
+    deleteBeneath();
+    return;
+  }
+
+  for(int i = 0; i < nchildren; i++){
+    children[i].combine(joinThreshold, finalKeys, counts);
+  }
+}
+
+void OctDecompNode::deleteBeneath(){
+  if(nchildren == 0) return;
+
+  for(int i = 0; i < nchildren; i++){
+    children[i].deleteBeneath();
+  }
+  delete[] children;
+
+  children = NULL;
+  nchildren = 0;
+}
+
 /**
  * This function uses nodeKeys as tree holding the current status of
  * the decomposition. It modifies it to decide when it is time to join two nodes,
@@ -605,6 +664,36 @@ bool Sorter::refineOctSplitting(int n, int *count) {
   unsigned int nopen = 0;
   unsigned int njoin = 0;
 
+  //CkAssert(nodeKeys.size() == activeNodes->length());
+  //CkAssert(splitters.size() == nodeKeys.size()+1);
+  //CkAssert(n == nodeKeys.size());
+  CkAssert(activeNodes->length() == n);
+
+  nodesOpened.clear();
+
+  for(int i = 0; i < n; i++){
+    if(count[i] > splitThreshold){
+      OctDecompNode *parent = (*activeNodes)[i];
+      parent->nparticles = count[i];
+      // create a subtree of depth 'refineLevel' underneath 'parent'
+      // newly created children are pushed into 'tmpActiveNodes'
+      // the key of the parent is placed in 'nodesOpened' so that we 
+      // can make splitters out of the childrens' keys
+      parent->makeSubTree(refineLevel, tmpActiveNodes);
+      nodesOpened.push_back(parent->key);
+    }
+  }
+
+  CkVec<OctDecompNode*> *save = tmpActiveNodes;
+  tmpActiveNodes = activeNodes;
+  activeNodes = save;
+
+  tmpActiveNodes->length() = 0;
+
+  return (nodesOpened.size() > 0);
+
+
+#if 0
   if (nodesOpened.size() == 0) {
     // This means that we are not refining the counts, but we got a brand new histogramming     
     CkAssert(n == nodeKeys.size());
@@ -730,6 +819,7 @@ bool Sorter::refineOctSplitting(int n, int *count) {
 
   CkPrintf("refineCounts n %d nprocess %d nopen %d njoin %d\n", n, nprocess, nopen, njoin);
   return nodesOpened.size() > 0;
+#endif
 }
 
 /**
