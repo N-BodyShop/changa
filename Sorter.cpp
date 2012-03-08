@@ -667,21 +667,25 @@ bool Sorter::refineOctSplitting(int n, int *count) {
   //CkAssert(nodeKeys.size() == activeNodes->length());
   //CkAssert(splitters.size() == nodeKeys.size()+1);
   //CkAssert(n == nodeKeys.size());
-  CkAssert(activeNodes->length() == n);
+  if(nodesOpened.size() == 0){
+    CkAssert(activeNodes->length() == n);
 
-  nodesOpened.clear();
+    nodesOpened.clear();
 
-  for(int i = 0; i < n; i++){
-    if(count[i] > splitThreshold){
-      OctDecompNode *parent = (*activeNodes)[i];
-      parent->nparticles = count[i];
-      // create a subtree of depth 'refineLevel' underneath 'parent'
-      // newly created children are pushed into 'tmpActiveNodes'
-      // the key of the parent is placed in 'nodesOpened' so that we 
-      // can make splitters out of the childrens' keys
-      parent->makeSubTree(refineLevel, tmpActiveNodes);
-      nodesOpened.push_back(parent->key);
+    for(int i = 0; i < n; i++){
+      if(count[i] > splitThreshold){
+        OctDecompNode *parent = (*activeNodes)[i];
+        parent->nparticles = count[i];
+        // create a subtree of depth 'refineLevel' underneath 'parent'
+        // newly created children are pushed into 'tmpActiveNodes'
+        // the key of the parent is placed in 'nodesOpened' so that we 
+        // can make splitters out of the childrens' keys
+        parent->makeSubTree(refineLevel, tmpActiveNodes);
+        nodesOpened.push_back(parent->key);
+      }
     }
+  }
+  else{
   }
 
   CkVec<OctDecompNode*> *save = tmpActiveNodes;
