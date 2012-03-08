@@ -16,6 +16,9 @@ CreateLBFunc_Def(Orb3dLB_notopo, "3d ORB mapping of tree piece space onto 3d pro
 
 Orb3dLB_notopo::Orb3dLB_notopo(const CkLBOptions &opt): CentralLB(opt)
 {
+#ifdef DUMPLB
+	dumpStep=0;	
+#endif
   lbname = "Orb3dLB_notopo";
   if (CkMyPe() == 0){
     CkPrintf("[%d] Orb3dLB_notopo created\n",CkMyPe());
@@ -44,6 +47,13 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
 {
   int numobjs = stats->n_objs;
   int nmig = stats->n_migrateobjs;
+
+#ifdef DUMPLB
+  dumpLB(stats, numobjs,tpCentroids);
+//  BaseLB::LDStats newstats;
+//  readDumpLB(&newstats, numobjs,tpCentroids);
+//  stats=&newstats;
+#endif
 
   stats->makeCommHash();
   CkAssert(nrecvd == numobjs);

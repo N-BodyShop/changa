@@ -7,13 +7,14 @@
 #include "cklists.h"
 #include "ParallelGravity.h"
 #include "TopoManager.h"
-
+#include "LBSimulation.h"
 #include "Refiner.h"
 #include "MapStructures.h"
 #include "TaggedVector3D.h"
 #include "Vector3D.h"
 #include "CentralLB.h"
-#define  ORB3DLB_NOTOPO_DEBUG 
+#define  ORB3DLB_NOTOPO_DEBUG
+#define DUMPLB
 class Orb3dCommon{
 // pointer to stats->to_proc
 		protected:		
@@ -28,7 +29,9 @@ class Orb3dCommon{
 
   int nextProc;
 
-
+#ifdef DUMPLB
+  int dumpStep;
+#endif
 void orbPartition(vector<Event> *events, OrientedBox<float> &box, int nprocs, vector<OrbObject> & tp, BaseLB::LDStats *stats){
 
   ORB3DLB_NOTOPO_DEBUG("partition events %d %d %d nprocs %d\n", 
@@ -382,6 +385,67 @@ int partitionRatioLoad(vector<Event> &events, float ratio){
   return consider;
 }
 
+#ifdef DUMPLB
+void dumpLB(BaseLB::LDStats *stats, int numobjs, TaggedVector3D * tpCentroids)
+{
+	char * fileName;
+    fileName = (char *)malloc(20*sizeof(char));
+    sprintf(fileName,"lbdump.dat%d",dumpStep);
+//    ckout<<"Writing LB Stats to file "<<endl;
+    FILE *txtFile=CmiFopen(fileName,"w");
+//    if (datFile==NULL) CkAbort("Could not create data file");
+    PUP::toTextFile  p(txtFile);
+    stats->pup(p);
+    CmiFclose(txtFile);
+	/* .. dump centroid data */
+
+	sprintf(fileName,"tpdump.dat%d",dumpStep);
+//    ckout<<"Writing LB Stats to file "<<endl;
+	//numobjs can be found from LB STats when reading
+    txtFile=CmiFopen(fileName,"w");
+    PUP::toTextFile  p1(txtFile);
+   for(int i = 0; i < numobjs; i++){
+    TaggedVector3D data = *(tpCentroids+i);
+	data.pup(p1);
+  }
+    CmiFclose(txtFile);
+
+	dumpStep++;	
+}
+
+void readDumpLB(BaseLB::LDStats *stats, int numobjs, TaggedVector3D * tpCentroids)
+{
+	dumpStep--;	
+	char * fileName;
+    fileName = (char *)malloc(20*sizeof(char));
+    sprintf(fileName,"lbdump.dat%d",dumpStep);
+//    ckout<<"Writing LB Stats to file "<<endl;
+	LBSimulation::simProcs = CkNumPes();
+
+    CkPrintf("Reading %d\n", dumpStep);
+    FILE *txtFile;
+	txtFile=CmiFopen(fileName,"r");
+    if (txtFile==NULL) CkAbort("Could not read data file");
+    PUP::fromTextFile  p(txtFile);
+    stats->pup(p);
+    CmiFclose(txtFile);
+	/* .. dump centroid data */
+
+	sprintf(fileName,"tpdump.dat%d",dumpStep);
+	//numobjs can be found from LB STats when reading
+    txtFile=CmiFopen(fileName,"r");
+    if (txtFile==NULL) CkAbort("Could not read tp data file");
+    PUP::fromTextFile  p1(txtFile);
+	//Allocate tpCentroids here before pupping
+    for(int i = 0; i < numobjs; i++){
+	   (tpCentroids+i)->pup(p1);
+    }
+    CmiFclose(txtFile);
+
+	dumpStep++;	
+    CkPrintf("Reading done\n");
+}
+#endif
 }; //end class
 
 #endif
