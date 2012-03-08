@@ -670,8 +670,6 @@ bool Sorter::refineOctSplitting(int n, int *count) {
   if(nodesOpened.size() == 0){
     CkAssert(activeNodes->length() == n);
 
-    nodesOpened.clear();
-
     for(int i = 0; i < n; i++){
       if(count[i] > splitThreshold){
         OctDecompNode *parent = (*activeNodes)[i];
