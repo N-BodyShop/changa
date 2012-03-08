@@ -445,6 +445,14 @@ Key * Sorter::convertNodesToSplittersRefine(int num, NodeKey* keys){
   //They might be unsorted here due to sorted or unsorted node keys
   // FILIPPO: no, by construction they must be ordered already!
   //sort(splitters.begin(),splitters.end());
+
+  for(int i = 0; i < num; i++){
+    CkPrintf("before %d key %llx\n", i, keys[i]);
+  }
+
+  for(int i = 0; i < idx; i++){
+    CkPrintf("after %d key %llx\n", i, result[i]);
+  }
   return result;
 }
 
