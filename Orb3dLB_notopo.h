@@ -10,6 +10,8 @@
 #include <queue>
 #include "Orb3dLBCommon.h"
 
+#include "pup_stl.h"
+
 void CreateOrb3dLB_notopo();
 BaseLB * AllocateOrb3dLB_notopo();
 
@@ -24,6 +26,8 @@ private:
  
   CmiBool QueryBalanceNow(int step);
   void printData(BaseLB::LDStats &stats, int phase, int *revObjMap);
+
+  void pupDump(PUP::er &, BaseLB::LDStats *, vector<Event> *);
 
 //  void orbPartition(vector<Event> *events, OrientedBox<float> &box, int procs);
 //  int partitionRatioLoad(vector<Event> &events, float ratio);

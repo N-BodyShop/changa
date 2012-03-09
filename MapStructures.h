@@ -157,6 +157,12 @@ struct Event {
   bool operator>=(const Event &e) const {
     return position >= e.position;
   }
+
+  void pup(PUP::er &p){
+    p|owner;
+    p|load;
+    p|position;
+  }
 };
 
 struct OrbObject {
@@ -184,6 +190,13 @@ struct OrbObject {
     lbindex(tag),
     numParticles(np)
   {
+  }
+
+  void pup(PUP::er &p){
+    p|partition;
+    p|lbindex;
+    p|centroid;
+    p|numParticles;
   }
 };
 

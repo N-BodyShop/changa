@@ -98,6 +98,10 @@ CkGroupID ckMulticastGrpId;
 CProxy_ProjectionsControl prjgrp;
 #endif
 
+bool doDumpLB;
+int lbDumpIteration;
+bool doSimulateLB;
+
 // Number of bins to use for the first iteration
 // of every Oct decomposition step
 int numInitDecompBins;
@@ -577,7 +581,20 @@ Main::Main(CkArgMsg* m) {
         numInitDecompBins = (1<<11);
         prmAddParam(prm, "iInitDecompBins", paramInt, &numInitDecompBins,
               sizeof(int),"initDecompBins", "Number of bins to use for the first iteration of every Oct decomposition step");
-        if(numInitDecompBins > numTreePieces) numInitDecompBins = numTreePieces;
+
+        doDumpLB = false;
+        prmAddParam(prm, "bdoDumpLB", paramBool, &doDumpLB,
+              sizeof(bool),"doDumpLB", "Should Orb3dLB dump LB database to text file and stop?");
+
+        lbDumpIteration = 1;
+        prmAddParam(prm, "ilbDumpIteration", paramInt, &lbDumpIteration,
+              sizeof(int),"lbDumpIteration", "Load balancing iteration for which to dump database");
+
+        doSimulateLB = false;
+        prmAddParam(prm, "bDoSimulateLB", paramBool, &doSimulateLB,
+              sizeof(bool),"doSimulateLB", "Should Orb3dLB simulate LB decisions from dumped text file and stop?");
+
+        CkAssert(!(doDumpLB && doSimulateLB));
 
     
           // jetley - cuda parameters
@@ -616,6 +633,8 @@ Main::Main(CkArgMsg* m) {
 	if(!prmArgProc(prm,m->argc,m->argv)) {
 	    CkExit();
         }
+
+        if(numInitDecompBins > numTreePieces) numInitDecompBins = numTreePieces;
 	
 	if(bVDetails && !verbosity)
 	    verbosity = 1;
