@@ -887,13 +887,17 @@ Main::Main(CkArgMsg* m) {
         }
 	
 	CkArrayOptions opts(numTreePieces); 
+#ifndef ALWAYS_BLOCK_MAP
 	if (domainDecomposition == Oct_dec) {
 	  CProxy_RRMap myMap=CProxy_RRMap::ckNew(); 
 	  opts.setMap(myMap);
 	} else {
+#endif
 	  CProxy_BlockMap myMap=CProxy_BlockMap::ckNew(); 
 	  opts.setMap(myMap);
+#ifndef ALWAYS_BLOCK_MAP
 	}
+#endif
 
 	CProxy_TreePiece pieces = CProxy_TreePiece::ckNew(opts);
 
@@ -1354,7 +1358,7 @@ void Main::advanceBigStep(int iStep) {
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
           */
-    CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+    CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
 
     if(verbosity && !bDoDD)
 	CkPrintf("Skipped DD\n");
@@ -1887,7 +1891,7 @@ Main::initialForces()
   startTime = CkWallTimer();
   sorter.startSorting(dataManagerID, tolerance,
 	 	      CkCallbackResumeThread(), true);
-  CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+  CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
   /*
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
