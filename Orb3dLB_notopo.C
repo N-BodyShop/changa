@@ -101,8 +101,11 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
     }
   }
 
+  int flagDump = doDumpLB;
+  CkPrintf("doDump %d dumpIter %d step %d\n", flagDump, lbDumpIteration, step());
 
-  if(doDumpLB && step() == lbDumpIteration){
+
+  if(lbDumpIteration > 0 && (step() == lbDumpIteration)){
     FILE *dumpFile = fopen("lb_dump.dat","w");
     CkAssert(dumpFile != NULL);
 

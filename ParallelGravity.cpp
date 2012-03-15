@@ -586,7 +586,7 @@ Main::Main(CkArgMsg* m) {
         prmAddParam(prm, "bdoDumpLB", paramBool, &doDumpLB,
               sizeof(bool),"doDumpLB", "Should Orb3dLB dump LB database to text file and stop?");
 
-        lbDumpIteration = 1;
+        lbDumpIteration = 0;
         prmAddParam(prm, "ilbDumpIteration", paramInt, &lbDumpIteration,
               sizeof(int),"lbDumpIteration", "Load balancing iteration for which to dump database");
 
