@@ -53,6 +53,7 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
+Reductions.decl.h \
 Compute.h \
 Reductions.h \
 
