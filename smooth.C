@@ -43,6 +43,9 @@
 #include "Space.h"
 #include <float.h>
 
+/// Point to the smooth parameters during a smooth walk.  This is for
+/// use by the EntryTypeSmoothParticle::unpack() method.
+
 SmoothParams *globalSmoothParams;
 
 /*
