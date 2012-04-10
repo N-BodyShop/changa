@@ -275,6 +275,8 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
   Key k;
   BinaryTreeNode *rt;
 
+  decompTime = CmiWallTimer();
+    
   switch (domainDecomposition){
     case SFC_dec:
     case SFC_peano_dec:
@@ -350,7 +352,6 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
 		ckout << "Sorter: Initially have " << splitters.size() << " splitters" << endl;
 
 
-  decompTime = CmiWallTimer();
 	//send out the first guesses to be evaluated
   if((domainDecomposition!=ORB_dec) && (domainDecomposition!=ORB_space_dec)){
     if (decompose) {
@@ -496,7 +497,6 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   numCounts = m->getSize() / sizeof(int);
   int* startCounts = static_cast<int *>(m->getData());
 
-  //CkPrintf("\nhistogramming %d bins took %g sec\n", numCounts, CmiWallTimer()-decompTime);
 
 
   //call function which will balance the bin counts: define it in GenericTreeNode
@@ -624,13 +624,15 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     return;
     */
 
+
+    CkPrintf(" histogramming %g sec ... used chares %d ... \n", CmiWallTimer()-decompTime, nodeKeys.size());
+    
     dm.acceptFinalKeys(&(*splitters.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), splitters.size(), sortingCallback);
     numIterations = 0;
     sorted = false;
     return;
   }
 
-  decompTime = CmiWallTimer();
 }
 
 int OctDecompNode::maxNumChildren = 2;
@@ -694,28 +696,21 @@ bool Sorter::refineOctSplitting(int n, int *count) {
   unsigned int nopen = 0;
   unsigned int njoin = 0;
 
-  //CkAssert(nodeKeys.size() == activeNodes->length());
-  //CkAssert(splitters.size() == nodeKeys.size()+1);
-  //CkAssert(n == nodeKeys.size());
-  if(1){
-    CkAssert(activeNodes->length() == n);
+  CkAssert(activeNodes->length() == n);
 
-    nodesOpened.clear();
+  nodesOpened.clear();
 
-    for(int i = 0; i < n; i++){
-      OctDecompNode *parent = (*activeNodes)[i];
-      parent->nparticles = count[i];
-      if(parent->nparticles > splitThreshold){
-        // create a subtree of depth 'refineLevel' underneath 'parent'
-        // newly created children are pushed into 'tmpActiveNodes'
-        // the key of the parent is placed in 'nodesOpened' so that we 
-        // can make splitters out of the childrens' keys
-        parent->makeSubTree(refineLevel, tmpActiveNodes);
-        nodesOpened.push_back(parent->key);
-      }
+  for(int i = 0; i < n; i++){
+    OctDecompNode *parent = (*activeNodes)[i];
+    parent->nparticles = count[i];
+    if(parent->nparticles > splitThreshold){
+      // create a subtree of depth 'refineLevel' underneath 'parent'
+      // newly created children are pushed into 'tmpActiveNodes'
+      // the key of the parent is placed in 'nodesOpened' so that we 
+      // can make splitters out of the childrens' keys
+      parent->makeSubTree(refineLevel, tmpActiveNodes);
+      nodesOpened.push_back(parent->key);
     }
-  }
-  else{
   }
 
   CkVec<OctDecompNode*> *save = tmpActiveNodes;
@@ -772,11 +767,11 @@ bool Sorter::refineOctSplitting(int n, int *count) {
       nprocess++;
       //CkPrintf("Sorter: considering %llx\n",nodesOpened[i]);
       /*
-      if (availableChares.size() < 1<<refineLevel - 1) {
-	CkPrintf("availableChares size is %d, cannot refine further\n", availableChares.size());
-        break;
-      }
-      */
+         if (availableChares.size() < 1<<refineLevel - 1) {
+         CkPrintf("availableChares size is %d, cannot refine further\n", availableChares.size());
+         break;
+         }
+       */
       NodeKey key = nodesOpened[i];
       int index = std::find(nodeKeys.begin(), nodeKeys.end(), key) - nodeKeys.begin();
 
@@ -800,23 +795,23 @@ bool Sorter::refineOctSplitting(int n, int *count) {
       binCounts.insert(binCounts.begin()+index+1, &count[i*(1<<refineLevel)+1], &count[(i+1)*(1<<refineLevel)]);
 
       /*
-      ostringstream oss;
-      vector<int>::iterator it;
-      for(it = availableChares.end()-(1<<refineLevel)+1; ; it++){
-        oss << *it << ",";
-        if(it == availableChares.end()) break;
-      }
-      */
+         ostringstream oss;
+         vector<int>::iterator it;
+         for(it = availableChares.end()-(1<<refineLevel)+1; ; it++){
+         oss << *it << ",";
+         if(it == availableChares.end()) break;
+         }
+       */
       //CkPrintf("insert at position %d: %s\n",index+1,oss.str().c_str());
       //chareIDs.insert(chareIDs.begin()+index+1, availableChares.end()-(1<<refineLevel)+1, availableChares.end());
 
       if (verbosity >= 4 ) 
-	CkPrintf("Split node index %d, last added chare is %d (refine level = %d), %d available chares left\n", index, availableChares.back(), (1<<refineLevel), availableChares.size()-1);
+        CkPrintf("Split node index %d, last added chare is %d (refine level = %d), %d available chares left\n", index, availableChares.back(), (1<<refineLevel), availableChares.size()-1);
 
-      
+
       //availableChares.erase(availableChares.end()-(1<<refineLevel)+1, availableChares.end());
-     
- 
+
+
       // Trim down what we over-opened just above
       for (int j=1, idx=0; j<=(1<<refineLevel); ++j, ++idx) {
         if (binCounts[index+idx] > splitThreshold) {

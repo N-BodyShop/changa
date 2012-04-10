@@ -98,6 +98,10 @@ CkGroupID ckMulticastGrpId;
 CProxy_ProjectionsControl prjgrp;
 #endif
 
+bool doDumpLB;
+int lbDumpIteration;
+bool doSimulateLB;
+
 // Number of bins to use for the first iteration
 // of every Oct decomposition step
 int numInitDecompBins;
@@ -577,7 +581,20 @@ Main::Main(CkArgMsg* m) {
         numInitDecompBins = (1<<11);
         prmAddParam(prm, "iInitDecompBins", paramInt, &numInitDecompBins,
               sizeof(int),"initDecompBins", "Number of bins to use for the first iteration of every Oct decomposition step");
-        if(numInitDecompBins > numTreePieces) numInitDecompBins = numTreePieces;
+
+        doDumpLB = false;
+        prmAddParam(prm, "bdoDumpLB", paramBool, &doDumpLB,
+              sizeof(bool),"doDumpLB", "Should Orb3dLB dump LB database to text file and stop?");
+
+        lbDumpIteration = 0;
+        prmAddParam(prm, "ilbDumpIteration", paramInt, &lbDumpIteration,
+              sizeof(int),"lbDumpIteration", "Load balancing iteration for which to dump database");
+
+        doSimulateLB = false;
+        prmAddParam(prm, "bDoSimulateLB", paramBool, &doSimulateLB,
+              sizeof(bool),"doSimulateLB", "Should Orb3dLB simulate LB decisions from dumped text file and stop?");
+
+        CkAssert(!(doDumpLB && doSimulateLB));
 
     
           // jetley - cuda parameters
@@ -616,6 +633,8 @@ Main::Main(CkArgMsg* m) {
 	if(!prmArgProc(prm,m->argc,m->argv)) {
 	    CkExit();
         }
+
+        if(numInitDecompBins > numTreePieces) numInitDecompBins = numTreePieces;
 	
 	if(bVDetails && !verbosity)
 	    verbosity = 1;
@@ -887,13 +906,17 @@ Main::Main(CkArgMsg* m) {
         }
 	
 	CkArrayOptions opts(numTreePieces); 
+#ifndef ALWAYS_BLOCK_MAP
 	if (domainDecomposition == Oct_dec) {
 	  CProxy_RRMap myMap=CProxy_RRMap::ckNew(); 
 	  opts.setMap(myMap);
 	} else {
+#endif
 	  CProxy_BlockMap myMap=CProxy_BlockMap::ckNew(); 
 	  opts.setMap(myMap);
+#ifndef ALWAYS_BLOCK_MAP
 	}
+#endif
 
 	CProxy_TreePiece pieces = CProxy_TreePiece::ckNew(opts);
 
@@ -1354,7 +1377,7 @@ void Main::advanceBigStep(int iStep) {
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
           */
-    CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+    CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
 
     if(verbosity && !bDoDD)
 	CkPrintf("Skipped DD\n");
@@ -1887,7 +1910,7 @@ Main::initialForces()
   startTime = CkWallTimer();
   sorter.startSorting(dataManagerID, tolerance,
 	 	      CkCallbackResumeThread(), true);
-  CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+  CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
   /*
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;

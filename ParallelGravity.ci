@@ -67,6 +67,10 @@ mainmodule ParallelGravity {
   // iteration of every decomposition step
   readonly int numInitDecompBins;
 
+  readonly bool doDumpLB;
+  readonly int lbDumpIteration;
+  readonly bool doSimulateLB;
+
   //message piecedata;
   message dummyMsg;
   message ComputeChunkMsg;

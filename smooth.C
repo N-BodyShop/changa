@@ -861,17 +861,20 @@ void TreePiece::reSmoothNextBucket() {
   GenericTreeNode *myNode = bucketList[currentBucket];
   OrientedBox<double> bndSmoothAct; // bounding box for smoothActive particles
   double dKeyMaxBucket = 0.0;
+  int bucketActive = 0;
   for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
       if(!sSmooth->params->isSmoothActive(&myParticles[j]))
-	  continue;
+        continue;
+      bucketActive++;
       bndSmoothAct.grow(myParticles[j].position);
       if(myParticles[j].fBall > dKeyMaxBucket)
 	  dKeyMaxBucket = myParticles[j].fBall;
       }
-  myNode->centerSm = bndSmoothAct.center();
-  myNode->sizeSm = .5*(bndSmoothAct.size()).length();
-  myNode->fKeyMax = dKeyMaxBucket;
-
+  if (bucketActive != 0) {
+    myNode->centerSm = bndSmoothAct.center();
+    myNode->sizeSm = .5*(bndSmoothAct.size()).length();
+    myNode->fKeyMax = dKeyMaxBucket;
+  }
   smoothBucketComputation();
   ((ReNearNeighborState *)sSmoothState)->finishBucketSmooth(currentBucket, this);
 }
