@@ -945,18 +945,6 @@ namespace Tree {
   };
 
 template <typename T>
-  class NodeJoint : public CkPool<NodeJoint<T>, 256> {
-  public:
-  T weight;
-  T left;
-  T right;
-  bool isLeaf;
-
-  NodeJoint(T w, T l, T r) : weight(w), left(l), right(r), isLeaf(false) { }
-  NodeJoint(T w) : weight(w), left(0), right(0), isLeaf(true) { }
-};
-
-template <typename T>
   class WeightKey {
   public:
   T weight;
@@ -990,49 +978,6 @@ inline CkHashCode NodeKeyClass::hash() const {
 inline int NodeKeyClass::compare(const NodeKeyClass &ind) const {
   if (key == ind.key) return 1;
   else return 0;
-}
-
-template <typename T>
-inline void reorderList(NodeKey *nodeKeys, int num, CkVec<T> *zeros, CkVec<NodeKey> *openedNodes, CkHashtableT<NodeKeyClass,NodeJoint<T>*> &nodes) {
-  // reorder the output list
-  NodeKey current = NodeKey(1);
-  NodeJoint<T> *curNode;
-  int count = 0;
-  if (zeros != NULL) zeros->removeAll();
-  if (openedNodes != NULL) openedNodes->removeAll();
-  while (1) {
-    curNode = nodes.get(current);
-    if (curNode != 0) {
-      if (curNode->isLeaf || (curNode->left == 0 && curNode->right == 0)) {
-        if (curNode->isLeaf) {
-          //if (curNode->weight == 0 && zeros != NULL) zeros->push_back(count);
-          if (zeros != NULL) zeros->push_back(curNode->weight);
-          nodeKeys[count++] = current;
-        }
-        else if (curNode->weight != 0) {
-          // node is not a leaf and has both children weight=0 (while not being itself zero)
-          // this means the nodes has just been opened
-          nodeKeys[count++] = current << 1;
-          nodeKeys[count++] = (current << 1) + 1;
-          if (openedNodes != NULL) openedNodes->push_back(current);
-        }
-        // terminate recursion and get the next sibling
-        while (current & 1) current >>= 1;
-        if (current == 0) break;
-        current++;
-      } else {
-        // get the first child
-        current <<= 1;
-      }
-
-      //delete curNode;
-    } else {
-      // get the first child
-      current <<= 1;
-    }
-  }
-  if (count != num) CkPrintf("count = %d, num = %d\n",count,num);
-  CkAssert(count == num);
 }
 
 } //close namespace Tree
