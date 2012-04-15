@@ -1,3 +1,7 @@
+/// @file CacheInterface.C
+///
+/// Implementation of the interfaces used by the CacheManager.
+///
 #include "CacheInterface.h"
 #include "ParallelGravity.h"
 #include "Opt.h"
@@ -5,17 +9,25 @@
 
 EntryTypeGravityParticle::EntryTypeGravityParticle() {
   CkCacheFillMsg msg(0);
-  offset = ((char*)&msg.data) - ((char*)&msg);
 }
 
+/// @param idx Index of the TreePiece
+/// @param key Key of the requested bucket.
+///
+/// Calls TreePiece::fillRequestParticles() to fullfill the request.
 void * EntryTypeGravityParticle::request(CkArrayIndexMax& idx, CkCacheKey key) {
   CkCacheRequestMsg *msg = new (32) CkCacheRequestMsg(key, CkMyPe());
+  // This is a high priority message
   *(int*)CkPriorityPtr(msg) = -100000000;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
   treeProxy[*idx.data()].fillRequestParticles(msg);
   return NULL;
 }
 
+/// @param msg Message containing requested data.
+/// @param chunk chunk of cache
+/// @param from Index of TreePiece which supplied the data
+/// @return pointer to cached data
 void * EntryTypeGravityParticle::unpack(CkCacheFillMsg *msg, int chunk, CkArrayIndexMax &from) {
   CacheParticle *data = (CacheParticle*) msg->data;
   data->msg = msg;
@@ -33,6 +45,13 @@ int EntryTypeGravityParticle::size(void * data) {
   return sizeof(CacheParticle) + (p->end - p->begin) * sizeof(ExternalGravityParticle);
 }
 
+/// @param requestorID ID of TreePiece CkArray
+/// @param requestorIdx Index of requesting TreePiece
+/// @param key Key of bucket requested
+/// @param userData Encodes which bucket and which walk requested this
+/// data.
+/// @param data Pointer to the cached data
+/// @param chunk Which chunk is this for.
 void EntryTypeGravityParticle::callback(CkArrayID requestorID, CkArrayIndexMax &requestorIdx, CkCacheKey key, CkCacheUserData &userData, void *data, int chunk) {
   CkArrayIndex1D idx(requestorIdx.data()[0]);
   CProxyElement_TreePiece elem(requestorID, idx);
