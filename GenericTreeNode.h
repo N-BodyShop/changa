@@ -958,28 +958,6 @@ template <typename T>
   }
 };
 
-class NodeKeyClass {
-  NodeKey key;
- public:
-  NodeKeyClass(NodeKey k) : key(k) {}
-  operator NodeKey() const { return key; }
-
-  CkHashCode hash(void) const;
-  static CkHashCode staticHash(const void *a,size_t);
-  int compare(const NodeKeyClass &ind) const;
-  static int staticCompare(const void *a,const void *b,size_t);
-};
-
-inline CkHashCode NodeKeyClass::hash() const {
-  CkHashCode ret = (key >> 32) + key;
-  return ret;
-}
-
-inline int NodeKeyClass::compare(const NodeKeyClass &ind) const {
-  if (key == ind.key) return 1;
-  else return 0;
-}
-
 } //close namespace Tree
 
 inline void operator|(PUP::er &p,Tree::NodeType &nt) {

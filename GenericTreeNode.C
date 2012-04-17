@@ -30,12 +30,4 @@ void BinaryTreeNode::pup(PUP::er &p, int depth) {
   }
 };
 
-int NodeKeyClass::staticCompare(const void *k1,const void *k2,size_t ){
-  return ((const NodeKeyClass*)k1)->compare(*(const NodeKeyClass*)k2);
-}
-
-CkHashCode NodeKeyClass::staticHash(const void *v,size_t){
-  return ((const NodeKeyClass*)v)->hash();
-}
-
 }
