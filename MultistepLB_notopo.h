@@ -19,9 +19,6 @@
 
 #include "Orb3dLBCommon.h"
 
-//#include "ScaleTranMapBG.h"
-//#include "ScaledORBMapBG.h"
-
 #include "MultistepLB_notopo.decl.h"
 
 void CreateMultistepLB_notopo();
@@ -31,24 +28,6 @@ BaseLB * AllocateMultistepLB_notopo();
 // ORB3DLB functions
 //**************************************
 
-
-/*
-class WeightObject{
-  public:
-
-  int idx;
-  double weight;
-
-  bool operator<= (const WeightObject& rhs){
-    return weight > rhs.weight;
-  }
-  bool operator>= (const WeightObject& rhs){
-    return weight < rhs.weight;
-  }
-  WeightObject(int _idx, double _weight) : idx(_idx), weight(_weight){};
-  WeightObject() : idx(0), weight(0.0){};
-};
-*/
 
 class LightweightLDStats {
   public:
