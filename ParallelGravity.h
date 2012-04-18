@@ -268,12 +268,20 @@ class ComputeChunkMsg : public CMessage_ComputeChunkMsg {
   }
 };
 
-
+/// @brief Message for evaluating splits for the ORB domain decomposition
+///
+/// This message contains the splitting dimensions and values for an
+/// ORB tree.  The size arrays pos and dim are set by arguments to
+/// the new() operator, but should be equal to length.
 class ORBSplittersMsg : public CMessage_ORBSplittersMsg{
 public:
-	int length;
+  /// Number of splits
+  int length;
+  /// Positions of splits
   double *pos;
+  /// Dimension of splits
   char *dim;
+  /// Callback for reduction of particle counts
   CkCallback cb;
 
   ORBSplittersMsg(int len, CkCallback callback): length (len), cb(callback) {}
