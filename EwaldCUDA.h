@@ -15,11 +15,15 @@
 #define BLOCK_SIZE 128
 #define NUM_GRAVITY_BUFS 10
 
+/** @brief Data for the Ewald h loop in the CUDA kernel
+ */
 typedef struct {
   float hx, hy, hz; 
   float hCfac, hSfac; 
 } EwtData;
 
+/** @brief CUDA version of complete MultipoleMoments for Ewald
+ */
 typedef struct {
   float xx, xy, xz, yy, yz, zz; 
   float totalMass; 
@@ -27,6 +31,8 @@ typedef struct {
 
 } MultipoleMomentsData; 
 
+/** @brief Parameters and data for Ewald in the CUDA kernel
+ */
 typedef struct {
   MultipoleMomentsData mm; 
   
@@ -35,6 +41,8 @@ typedef struct {
 
 } EwaldReadOnlyData; 
 
+/** @brief Particle data for the CUDA Ewald kernels
+ */
 typedef struct {
   float position_x,position_y,position_z;
   float acceleration_x, acceleration_y, acceleration_z; 
