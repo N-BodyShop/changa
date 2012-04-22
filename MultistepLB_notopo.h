@@ -39,6 +39,16 @@ class LightweightLDStats {
 };
 
 
+/// @brief Multistep load balancer where no processor topology
+/// information is used.
+///
+/// This balancer recognizes different "phases" (called rungs in other
+/// parts of the code), and uses loads based on measurements of the
+/// previous calculation at the same phase.  For large phases, (i.e.,
+/// when many particles are active, the TreePieces are divided among
+/// by 3 dimensional ORB based on the centroids of the TreePieces.
+/// For small phases, a greedy algorithm is used.
+///
 class MultistepLB_notopo : public CentralLB, public Orb3dCommon {
 private:
   CmiBool firstRound; 
@@ -50,7 +60,7 @@ private:
  // CkVec<OrbObject> tps;
   int procsPerNode;
 
-  CkVec<LightweightLDStats> savedPhaseStats;       // stats saved from previous phases
+  CkVec<LightweightLDStats> savedPhaseStats;      /// stats saved from previous phases
   
   CmiBool QueryBalanceNow(int step);
   //int prevPhase;
@@ -110,7 +120,6 @@ private:
   enum {XDIR=0, YDIR, ZDIR};
   
 public:
-  double overLoad;
   
 //**************************************
 // ORB3DLB functions

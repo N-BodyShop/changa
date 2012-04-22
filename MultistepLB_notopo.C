@@ -26,6 +26,8 @@ MultistepLB_notopo::MultistepLB_notopo(const CkLBOptions &opt): CentralLB(opt)
 
 }
 
+/// @brief Get position centroids of all TreePieces
+/// @param msg Reduction message with a concatenation of all centroids.
 void MultistepLB_notopo::receiveCentroids(CkReductionMsg *msg){
   if(haveTPCentroids){
     delete tpmsg;
@@ -173,8 +175,12 @@ void MultistepLB_notopo::makeActiveProcessorList(BaseLB::LDStats *stats, int num
 }
 #endif
 
+/// Threshold between ORB3D (large) and greedy (small) as fraction of
+/// active particles
 #define LARGE_PHASE_THRESHOLD 0.10
 
+/// @brief Implement load balancing: store loads and decide between
+/// ORB3D and greedy.
 void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 {
 #if CMK_LBDB_ON
@@ -394,6 +400,7 @@ void MultistepLB_notopo::greedy(BaseLB::LDStats *stats, int count, int phase, in
   delete []tp_array;
 }
 
+/// @brief ORB3D load balance.
 void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int prevPhase){
   int numobjs = stats->n_objs;
   int nmig = stats->n_migrateobjs;
