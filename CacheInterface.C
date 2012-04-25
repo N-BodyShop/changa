@@ -7,6 +7,8 @@
 #include "Opt.h"
 #include "smooth.h"
 
+extern CProxy_ArrayMeshStreamer<CkCacheRequest, int> aggregator;
+
 EntryTypeGravityParticle::EntryTypeGravityParticle() {
   CkCacheFillMsg msg(0);
 }
@@ -62,6 +64,7 @@ void EntryTypeGravityParticle::callback(CkArrayID requestorID, CkArrayIndexMax &
 
   elem.receiveParticlesCallback(cp->part, cp->end - cp->begin + 1, chunk, reqID, key, awi, source);
 }
+
 
 
 void TreePiece::fillRequestParticles(CkCacheRequestMsg *msg) {
@@ -272,10 +275,14 @@ EntryTypeGravityNode::EntryTypeGravityNode() {
 }
 
 void * EntryTypeGravityNode::request(CkArrayIndexMax& idx, CkCacheKey key) {
+  /*
   CkCacheRequestMsg *msg = new (32) CkCacheRequestMsg(key, CkMyPe());
   *(int*)CkPriorityPtr(msg) = -110000000;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
-  treeProxy[*idx.data()].fillRequestNode(msg);
+  */
+  //  treeProxy[*idx.data()].fillRequestNode(msg);
+  CkCacheRequest req(key, CkMyPe());
+  ((ArrayMeshStreamer<CkCacheRequest, int> *)  aggregator.ckLocalBranch())->insertData(req, *idx.data());
   return NULL;
 }
 
@@ -361,43 +368,39 @@ void EntryTypeGravityNode::callback(CkArrayID requestorID, CkArrayIndexMax &requ
   elem.receiveNodeCallback((Tree::GenericTreeNode*)data, chunk, reqID, awi, source);
 }
 
+void TreePiece::process(CkCacheRequest &req) {
+  fillRequestNode(req);
+}
 
 void TreePiece::fillRequestNode(CkCacheRequestMsg *msg) {
-  const Tree::GenericTreeNode* node = lookupNode(msg->key);
+  CkCacheRequest req(msg->key, msg->replyTo);
+  fillRequestNode(req);
+  delete msg;
+}
+void TreePiece::fillRequestNode(CkCacheRequest &req) {
+  const Tree::GenericTreeNode* node = lookupNode(req.key);
   //GenericTreeNode tmp;
   if(node != NULL) {
     if(_cache) {
-#if 1 || defined CACHE_BUFFER_MSGS
       int count = ((Tree::BinaryTreeNode*)node)->countDepth(_cacheLineDepth);
       //FillBinaryNodeMsg *reply = new (count, 0) FillBinaryNodeMsg(thisIndex);
       // 8 extra bytes are allocated to store the msg pointer at the
       // beginning of the buffer.  See the free() and the
       // unpackSingle() method above.
-      CkCacheFillMsg *reply = new (count * (sizeof(Tree::BinaryTreeNode)+8)) CkCacheFillMsg(msg->key);
+      CkCacheFillMsg *reply = new (count * (sizeof(Tree::BinaryTreeNode)+8)) CkCacheFillMsg(req.key);
       //reply->magic[0] = 0xd98cb23a;
       //new (reply->data) BinaryTreeNode[count];
       //CkPrintf("calling packing function: starting %p, magic=%p\n",reply->nodes,reply->magic);
       ((Tree::BinaryTreeNode*)node)->packNodes((Tree::BinaryTreeNode*)(reply->data+8), _cacheLineDepth, 8);
       //CkAssert(reply->magic[0] == 0xd98cb23a);
-#else
-      PUP::sizer p1;
-      node->pup(p1, msg->depth);
-      FillNodeMsg *reply = new (p1.size(), 0) FillNodeMsg(thisIndex);
-
-      /// @TODO: check that at destination of "remoteIndex" are correct
-      PUP::toMem p2((void*)reply->nodes);
-      node->pup(p2, msg->depth);
-      //int count = node->copyTo(reply->nodes, msg->depth);
-#endif
-      cacheNode[msg->replyTo].recvData(reply);
+      cacheNode[req.replyTo].recvData(reply);
     } else {
       CkAbort("Non cached version not anymore supported, feel free to fix it!");
       //copySFCTreeNode(tmp,node);
-      //streamingProxy[retIndex].receiveNode(tmp,msg->reqID);
+      //streamingProxy[retIndex].receiveNode(tmp,req.reqID);
     }
   }
   else {	// Handle NULL nodes
     CkAbort("Ok, before it handled this, but why do we have a null pointer in the tree?!?");
   }
-  delete msg;
 }

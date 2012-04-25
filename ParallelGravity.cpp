@@ -21,6 +21,8 @@
 #include "Sph.h"
 #include "starform.h"
 
+#include "TopoManager.h"
+
 #ifdef CUDA
 // for default per-list parameters
 #include "cuda_typedef.h"
@@ -35,6 +37,9 @@ CProxy_Main mainChare;
 int verbosity;
 int bVDetails;
 CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
+CProxy_ArrayMeshStreamer<CkCacheRequest, int> aggregator;
+CProxy_CompletionDetector detector; 
+
 #ifdef DECOMPOSER_GROUP
 CProxy_Decomposer decomposerProxy;
 #endif
@@ -923,8 +928,23 @@ Main::Main(CkArgMsg* m) {
 #ifdef SELECTIVE_TRACING
         prjgrp = CProxy_ProjectionsControl::ckNew();
 #endif
-
+       
 	treeProxy = pieces;
+        int NUM_MESSAGES_BUFFERED = 1024;
+
+        TopoManager tmgr;
+        int NUM_ROWS = tmgr.getDimNX()*tmgr.getDimNT();
+        int NUM_COLUMNS = tmgr.getDimNY();
+        int NUM_PLANES = tmgr.getDimNZ();
+
+        int dims[] = {NUM_ROWS, NUM_COLUMNS, NUM_PLANES};
+
+        aggregator = CProxy_ArrayMeshStreamer<CkCacheRequest, int>::
+          ckNew(NUM_MESSAGES_BUFFERED, 3, dims, 
+                (CProxy_MeshStreamerArrayClient<CkCacheRequest> )treeProxy, 
+                true, 10.0);
+        detector = CProxy_CompletionDetector::ckNew();
+
 #ifdef DECOMPOSER_GROUP
         decomposerProxy = CProxy_Decomposer::ckNew();
 #endif
@@ -1389,6 +1409,18 @@ void Main::advanceBigStep(int iStep) {
     CkPrintf("Load balancer ... ");
     startTime = CkWallTimer();
     treeProxy.startlb(CkCallbackResumeThread(), activeRung);
+
+    /*
+    CkCallback startCb(CkCallback::resumeThread); 
+    CkCallback endCb;
+    */
+
+    aggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), 
+                                 detector, 
+                                 INT_MIN); 
+
+    //    CkFreeMsg(startCb.thread_delay());
+
     /*
     ckout << " took "<<(CkWallTimer() - startTime) << " seconds."
 	     << endl;
@@ -1515,6 +1547,9 @@ void Main::advanceBigStep(int iStep) {
 #endif
 	}
     
+    // just one contributor was registered - finish streaming
+    ( (ArrayMeshStreamer<CkCacheRequest, int> *)aggregator.ckLocalBranch())->done();
+
 #if COSMO_STATS > 0
     /********* TreePiece Statistics ********/
     ckerr << "Total statistics iteration " << iStep << "/";
@@ -1926,6 +1961,17 @@ Main::initialForces()
   LBSetPeriod(0.0); // no need for LB interval: we are using Sync Mode
   startTime = CkWallTimer();
   treeProxy.balanceBeforeInitialForces(CkCallbackResumeThread());
+
+  /*
+  CkCallback startCb(CkCallback::resumeThread); 
+  CkCallback endCb;          
+  */
+
+  aggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), 
+                               detector, 
+                               INT_MIN); 
+
+  //  CkFreeMsg(startCb.thread_delay());
   /*
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
@@ -2014,7 +2060,10 @@ Main::initialForces()
         turnProjectionsOff();
 #endif
       }
-  
+
+  // just one contributor was registered - finish streaming
+  ( (ArrayMeshStreamer<CkCacheRequest, int> *)aggregator.ckLocalBranch())->done();
+
   CkAssert(iPhase <= nPhases);
   if(iPhase < nPhases)
       treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());

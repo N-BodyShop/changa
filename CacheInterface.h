@@ -16,6 +16,16 @@
  * Gravity interface: Particles
  *********************************************************/
 
+class CkCacheRequest {
+public:
+
+  CkCacheKey key;
+  int replyTo;
+  CkCacheRequest() {}
+  CkCacheRequest(CkCacheKey k, int r): key(k), replyTo(r) {}
+};
+PUPbytes(CkCacheRequest);
+
 class CacheParticle {
 public:
   CkCacheFillMsg *msg;

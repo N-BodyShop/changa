@@ -16,6 +16,8 @@
 #endif
 #endif
 
+#include "NDMeshStreamer.h"
+
 #include "config.h"
 #include <string>
 #include <map>
@@ -647,7 +649,7 @@ class TreePiece : public CBase_TreePiece {
   void finishSmoothWalk();
 
   int getIndex() {
-    return thisIndex;
+    return thisIndex.data[0];
   }
 
   int getLocalIndex(){
@@ -744,7 +746,7 @@ class TreePiece : public CBase_TreePiece {
               for(int i = buckstart; i <= buckend; i++){
                 fillArray[fillIndex] = buckparts[i-buckstart];
 #if defined CUDA_EMU_KERNEL_NODE_PRINTS || defined CUDA_EMU_KERNEL_PART_PRINTS
-                fillArray[fillIndex].tp = thisIndex;
+                fillArray[fillIndex].tp = thisIndex.data[0];
                 fillArray[fillIndex].id = i;
 #endif
                 fillIndex++;
@@ -768,7 +770,7 @@ class TreePiece : public CBase_TreePiece {
                 if(buckparts[i-buckstart].rung >= activeRung){
                   fillArray[fillIndex] = buckparts[i-buckstart];
 #if defined CUDA_EMU_KERNEL_NODE_PRINTS || defined CUDA_EMU_KERNEL_PART_PRINTS
-                  fillArray[fillIndex].tp = thisIndex;
+                  fillArray[fillIndex].tp = thisIndex.data[0];
                   fillArray[fillIndex].id = i;
 #endif
                   fillIndex++;
@@ -828,8 +830,8 @@ class TreePiece : public CBase_TreePiece {
 #if defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
         void addToBucketChecklist(int bucketIndex, NodeKey k){
           bucketcheckList[bucketIndex].insert(k);
-          if(bucketIndex == TEST_BUCKET && thisIndex == TEST_TP)
-            CkPrintf("[%d] add %ld\n", thisIndex, k);
+          if(bucketIndex == TEST_BUCKET && thisIndex.data[0] == TEST_TP)
+            CkPrintf("[%d] add %ld\n", thisIndex.data[0], k);
         }
 #endif
 
@@ -1203,7 +1205,7 @@ public:
 	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
 	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
 	  treePieceLoad(0.0), treePieceLoadTmp(0.0) {
-	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
+	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex.data[0], CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
 	  dm = NULL;
 	  foundLB = Null; 
@@ -1330,7 +1332,7 @@ public:
 
         public:
 	~TreePiece() {
-	  if (verbosity>1) ckout <<"Deallocating treepiece "<<thisIndex<<endl;
+	  if (verbosity>1) ckout <<"Deallocating treepiece "<<thisIndex.data[0]<<endl;
 	  if(nStore > 0) delete[] myParticles;
 	  if(nStoreSPH > 0) delete[] mySPHParticles;
 	  if(nStoreStar > 0) delete[] myStarParticles;
@@ -1351,7 +1353,7 @@ public:
 	  if(bGasCooling)
 	      CoolDerivsFinalize(CoolData);
 #endif
-          if (verbosity>1) ckout <<"Finished deallocation of treepiece "<<thisIndex<<endl;
+          if (verbosity>1) ckout <<"Finished deallocation of treepiece "<<thisIndex.data[0]<<endl;
 	}
 
 	void restart();
@@ -1592,7 +1594,12 @@ public:
         GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk, int reqID, int awi, void *source, bool isPrefetch);
 	/// @brief Receive a request for Nodes from a remote processor, copy the
 	/// data into it, and send back a message.
+
+  void process(CkCacheRequest &req);
+
 	void fillRequestNode(CkCacheRequestMsg *msg);
+	void fillRequestNode(CkCacheRequest &req);
+
 	/** @brief Receive the node from the cache as following a previous
 	 * request which returned NULL, and continue the treewalk of the bucket
 	 * which requested it with this new node.
@@ -1690,7 +1697,7 @@ public:
         void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source);
         void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
         void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
-        void receiveProxy(CkGroupID _proxy){ proxy = _proxy; proxySet = true; /*CkPrintf("[%d : %d] received proxy\n", CkMyPe(), thisIndex);*/}
+        void receiveProxy(CkGroupID _proxy){ proxy = _proxy; proxySet = true; /*CkPrintf("[%d : %d] received proxy\n", CkMyPe(), thisIndex.data[0]);*/}
         void doAtSync();
 
         void balanceBeforeInitialForces(CkCallback &cb);
