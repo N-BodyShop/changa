@@ -662,6 +662,15 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
     // the responsible TreePiece
     int nPartOut = binEnd - binBegin;
     if(nPartOut > 0) {
+
+      for(GravityParticle *pPart = binBegin; pPart < binEnd;
+          pPart++) {
+        CkAssert(!pPart->isGas());
+        CkAssert(!pPart->isStar());
+  ((ArrayMeshStreamer<ParticleShuffle, int> *)  shuffleAggregator.ckLocalBranch())->insertData(*pPart, *responsibleIter);
+      }
+
+      /*
       int nGasOut = 0;
       int nStarOut = 0;
       for(GravityParticle *pPart = binBegin; pPart < binEnd;
@@ -671,11 +680,16 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
         if(pPart->isStar())
           nStarOut++;
       }
+      */
+
       partialLoad = tpLoad * nPartOut / myNumParticles;
+
+      /*
       ParticleShuffleMsg *shuffleMsg
         = new (nPartOut, nGasOut, nStarOut)
         ParticleShuffleMsg(nPartOut, nGasOut, nStarOut,
             partialLoad);
+
 
       if (verbosity>=3)
         CkPrintf("me:%d to:%d nPart :%d, nGas:%d, nStar: %d\n",
@@ -708,9 +722,12 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
         acceptSortedParticles(shuffleMsg);
       }
       else {
+
         treeProxy[*responsibleIter].acceptSortedParticles(shuffleMsg);
       }
+      */
     }
+
     if(&myParticles[myNumParticles + 1] <= binEnd)
       break;
     binBegin = binEnd;
@@ -761,6 +778,104 @@ void TreePiece::setParticles(GravityParticle *ptr){
   myParticles = ptr;
 }
 #endif
+
+void TreePiece::acceptSortedParticles(ParticleShuffle &shuffle) {
+  if (dm == NULL) {
+    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+    myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(),
+                 thisIndex.data[0]) - dm->responsibleIndex.begin();
+    if (myPlace == dm->responsibleIndex.size()) myPlace = -2;
+  }
+
+  incomingParticlesMsg.push_back(shuffle.particle);
+  incomingParticlesArrived ++;
+  treePieceLoadTmp += shuffle.load; 
+
+  
+
+  if(dm->particleCounts[myPlace] == incomingParticlesArrived && incomingParticlesSelf) {
+    //I've got all my particles
+#ifndef DECOMPOSER_GROUP
+    if (myNumParticles > 0) delete[] myParticles;
+#endif
+    nStore = (int)((dm->particleCounts[myPlace] + 2)*(1.0 + dExtraStore));
+    myParticles = new GravityParticle[nStore];
+    myNumParticles = dm->particleCounts[myPlace];
+    incomingParticlesArrived = 0;
+    incomingParticlesSelf = false;
+    treePieceLoad = treePieceLoadTmp;
+    treePieceLoadTmp = 0.0;
+    int nSPH = 0;
+    int nStar = 0;
+    int iMsg;
+    for(iMsg = 0; iMsg < incomingParticlesMsg.size(); iMsg++) {
+      nSPH += incomingParticlesMsg[iMsg]->nSPH;
+      nStar += incomingParticlesMsg[iMsg]->nStar;
+    }
+    if (nStoreSPH > 0) delete[] mySPHParticles;
+    myNumSPH = nSPH;
+    nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
+    if(nStoreSPH > 0) mySPHParticles = new extraSPHData[nStoreSPH];
+    else mySPHParticles = NULL;
+
+    if (nStoreStar > 0) delete[] myStarParticles;
+    myNumStar = nStar;
+    nStoreStar = (int)(myNumStar*(1.0 + dExtraStore));
+    nStoreStar += 12;  // In case we start with 0
+    myStarParticles = new extraStarData[nStoreStar];
+
+    int nPart = 0;
+    nSPH = 0;
+    nStar = 0;
+    for(iMsg = 0; iMsg < incomingParticlesMsg.size(); iMsg++) {
+      memcpy(&myParticles[nPart+1], incomingParticlesMsg[iMsg]->particles,
+          incomingParticlesMsg[iMsg]->n*sizeof(GravityParticle));
+      nPart += incomingParticlesMsg[iMsg]->n;
+      memcpy(&mySPHParticles[nSPH], incomingParticlesMsg[iMsg]->pGas,
+          incomingParticlesMsg[iMsg]->nSPH*sizeof(extraSPHData));
+      nSPH += incomingParticlesMsg[iMsg]->nSPH;
+      memcpy(&myStarParticles[nStar], incomingParticlesMsg[iMsg]->pStar,
+          incomingParticlesMsg[iMsg]->nStar*sizeof(extraStarData));
+      nStar += incomingParticlesMsg[iMsg]->nStar;
+      delete incomingParticlesMsg[iMsg];
+    }
+
+    incomingParticlesMsg.clear();
+    // assign gas data pointers
+    int iGas = 0;
+    int iStar = 0;
+    for(int iPart = 0; iPart < myNumParticles; iPart++) {
+      if(myParticles[iPart+1].isGas()) {
+        myParticles[iPart+1].extraData
+          = (extraSPHData *)&mySPHParticles[iGas];
+        iGas++;
+      }
+      else if(myParticles[iPart+1].isStar()) {
+        myParticles[iPart+1].extraData
+          = (extraStarData *)&myStarParticles[iStar];
+        iStar++;
+      }
+      else
+        myParticles[iPart+1].extraData = NULL;
+    }
+
+    sort(myParticles+1, myParticles+myNumParticles+1);
+    //signify completion with a reduction
+    if(verbosity>1) ckout << thisIndex.data[0] <<" contributing to accept particles"
+      <<endl;
+
+    if (root != NULL) {
+      root->fullyDelete();
+      delete root;
+      root = NULL;
+      nodeLookupTable.clear();
+    }
+  
+    //CkPrintf("[%d] accepted %d particles\n", thisIndex.data[0], myNumParticles);
+    contribute(0, 0, CkReduction::concat, callback);
+  }
+
+}
 
 /// Accept particles from other TreePieces once the sorting has finished
 void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
@@ -5948,3 +6063,6 @@ void Decomposer::acceptParticles(CkCallback &cb){
 #endif
 
 
+void ShuffleShadowArray::process(ParticleShuffle &shuffle) {
+  treeProxy[thisIndex.data[0]].ckLocal()->acceptSortedParticles(shuffle);
+}

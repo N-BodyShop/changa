@@ -10,9 +10,12 @@ mainmodule ParallelGravity {
   readonly CProxy_CompletionDetector detector;
   readonly CProxy_ArrayMeshStreamer
             <CkCacheRequest, int> aggregator;
+  readonly CProxy_ArrayMeshStreamer
+            <ParticleShuffle, int> shuffleAggregator;  
 #ifdef DECOMPOSER_GROUP
   readonly CProxy_Decomposer decomposerProxy;
 #endif
+  readonly CProxy_ShuffleShadowArray shuffleShadowProxy;
   readonly CProxy_LvArray lvProxy;
   readonly CProxy_LvArray smoothProxy;
   readonly CProxy_LvArray gravityProxy;
@@ -356,7 +359,7 @@ mainmodule ParallelGravity {
 
     //entry void fillRequestNode(int retIndex, Tree::NodeKey lookupKey,
     //			   BucketGravityRequest &req);
-    entry [expedited] void fillRequestNode(CkCacheRequestMsg *msg);
+    //    entry [expedited] void fillRequestNode(CkCacheRequestMsg *msg);
     entry [local] void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source);
     //entry void receiveNode(GenericTreeNode node[1],
     //	       unsigned int reqID);
@@ -366,8 +369,8 @@ mainmodule ParallelGravity {
     //				BucketGravityRequest &req);
     //entry void receiveParticle(GravityParticle part,
     //			   BucketGravityRequest &req);
-    entry [expedited] void fillRequestParticles(CkCacheRequestMsg *msg);
-    entry [expedited] void fillRequestSmoothParticles(CkCacheRequestMsg *msg);
+    //    entry [expedited] void fillRequestParticles(CkCacheRequestMsg *msg);
+    //    entry [expedited] void fillRequestSmoothParticles(CkCacheRequestMsg *msg);
     entry void flushSmoothParticles(CkCacheFillMsg *msg);
     entry [local] void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
     entry [local] void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
@@ -410,6 +413,10 @@ mainmodule ParallelGravity {
 
   array [1D] LvArray {
       entry LvArray();
+  };
+
+  array [1D] ShuffleShadowArray: MeshStreamerArrayClient<ParticleShuffle> {
+    entry ShuffleShadowArray();
   };
 
   initproc void registerStatistics();

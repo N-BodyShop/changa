@@ -304,6 +304,14 @@ public:
 	nSPH(nsph), nStar(nstar), load(pload) {}
 };
 
+
+class ParticleShuffle {
+public:
+  int n; 
+  double load; 
+  GravityParticle particle; 
+};
+
 #ifdef PUSH_GRAVITY
 #include "ckmulticast.h"
 
@@ -562,6 +570,13 @@ class SmoothCompute;
 template<typename T> class GenericList;
 #endif
 
+
+class ShuffleShadowArray : public CBase_ShuffleShadowArray {
+public:
+  ShuffleShadowArray() {}
+  ShuffleShadowArray(CkMigrateMessage *msg) {}
+  void process(ParticleShuffle &shuffle);
+};
 /// Fundamental structure that holds particle and tree data.
 class TreePiece : public CBase_TreePiece {
    // jetley
@@ -920,7 +935,7 @@ private:
 	/// Array with sorted Star data for domain decomposition (ORB)
 	std::vector<extraStarData> mySortedParticlesStar;
         /// Array with incoming particles messages for domain decomposition
-	std::vector<ParticleShuffleMsg*> incomingParticlesMsg;
+	std::vector<GravityParticle> incomingParticlesMsg;
         /// How many particles have already arrived during domain decomposition
         int incomingParticlesArrived;
         /// Flag to acknowledge that the current TreePiece has already
@@ -1597,7 +1612,7 @@ public:
 
   void process(CkCacheRequest &req);
 
-	void fillRequestNode(CkCacheRequestMsg *msg);
+  //	void fillRequestNode(CkCacheRequestMsg *msg);
 	void fillRequestNode(CkCacheRequest &req);
 
 	/** @brief Receive the node from the cache as following a previous
@@ -1637,8 +1652,8 @@ public:
 	GravityParticle *requestSmoothParticles(Tree::NodeKey key, int chunk,
 				    int remoteIndex, int begin,int end,
 				    int reqID, int awi, void *source, bool isPrefetch);
-	void fillRequestParticles(CkCacheRequestMsg *msg);
-	void fillRequestSmoothParticles(CkCacheRequestMsg *msg);
+	void fillRequestParticles(CkCacheRequest &req);
+	void fillRequestSmoothParticles(CkCacheRequest &req);
 	void flushSmoothParticles(CkCacheFillMsg *msg);
 	void processReqSmoothParticles();
 

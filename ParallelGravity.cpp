@@ -38,6 +38,7 @@ int verbosity;
 int bVDetails;
 CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
 CProxy_ArrayMeshStreamer<CkCacheRequest, int> aggregator;
+CProxy_ArrayMeshStreamer<ParticleShuffle, int> shuffleAggregator;
 CProxy_CompletionDetector detector; 
 
 #ifdef DECOMPOSER_GROUP
@@ -46,6 +47,7 @@ CProxy_Decomposer decomposerProxy;
 CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 CProxy_LvArray smoothProxy; // Proxy for smooth reductions
 CProxy_LvArray gravityProxy; // Proxy for gravity reductions
+CProxy_ShuffleShadowArray shuffleShadowProxy;
 CProxy_CkCacheManager cacheGravPart;
 CProxy_CkCacheManager cacheSmoothPart;
 CProxy_CkCacheManager cacheNode;
@@ -943,18 +945,22 @@ Main::Main(CkArgMsg* m) {
           ckNew(NUM_MESSAGES_BUFFERED, 3, dims, 
                 (CProxy_MeshStreamerArrayClient<CkCacheRequest> )treeProxy, 
                 true, 10.0);
+        shuffleAggregator = CProxy_ArrayMeshStreamer<ParticleShuffle, int>::
+          ckNew(NUM_MESSAGES_BUFFERED, 3, dims, 
+                (CProxy_MeshStreamerArrayClient<ParticleShuffle> )treeProxy, 
+                true, 10.0);
         detector = CProxy_CompletionDetector::ckNew();
 
 #ifdef DECOMPOSER_GROUP
         decomposerProxy = CProxy_Decomposer::ckNew();
-#endif
-
+#endif        
 	opts.bindTo(treeProxy);
 	lvProxy = CProxy_LvArray::ckNew(opts);
 	// Create an array for the smooth reductions
 	smoothProxy = CProxy_LvArray::ckNew(opts);
 	// Create an array for the gravity reductions
 	gravityProxy = CProxy_LvArray::ckNew(opts);
+        shuffleShadowProxy = CProxy_ShuffleShadowArray::ckNew(opts);
 
 #ifdef PUSH_GRAVITY
         ckMulticastGrpId = CProxy_CkMulticastMgr::ckNew();

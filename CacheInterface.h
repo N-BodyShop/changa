@@ -12,6 +12,8 @@
 #include "gravity.h"
 #include "GenericTreeNode.h"
 
+enum CkCacheRequestType {nodeRequest, particleRequest, smoothParticleRequest};
+
 /*********************************************************
  * Gravity interface: Particles
  *********************************************************/
@@ -21,8 +23,10 @@ public:
 
   CkCacheKey key;
   int replyTo;
+  CkCacheRequestType type; 
   CkCacheRequest() {}
-  CkCacheRequest(CkCacheKey k, int r): key(k), replyTo(r) {}
+  CkCacheRequest(CkCacheKey k, int r, CkCacheRequestType t)
+    : key(k), replyTo(r), type(t) {}
 };
 PUPbytes(CkCacheRequest);
 

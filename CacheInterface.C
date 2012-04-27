@@ -18,12 +18,20 @@ EntryTypeGravityParticle::EntryTypeGravityParticle() {
 ///
 /// Calls TreePiece::fillRequestParticles() to fullfill the request.
 void * EntryTypeGravityParticle::request(CkArrayIndexMax& idx, CkCacheKey key) {
+  CkCacheRequest req(key, CkMyPe(), particleRequest);
+  ((ArrayMeshStreamer<CkCacheRequest, int> *)  aggregator.ckLocalBranch())->insertData(req, *idx.data());
+  return NULL;
+
+
+  /*
   CkCacheRequestMsg *msg = new (32) CkCacheRequestMsg(key, CkMyPe());
   // This is a high priority message
   *(int*)CkPriorityPtr(msg) = -100000000;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
   treeProxy[*idx.data()].fillRequestParticles(msg);
+  
   return NULL;
+  */
 }
 
 /// @param msg Message containing requested data.
@@ -67,13 +75,13 @@ void EntryTypeGravityParticle::callback(CkArrayID requestorID, CkArrayIndexMax &
 
 
 
-void TreePiece::fillRequestParticles(CkCacheRequestMsg *msg) {
+void TreePiece::fillRequestParticles(CkCacheRequest &req) {
   // the key used in the cache is shifted to the left of 1, this makes
   // a clear distinction between nodes and particles
-  const GenericTreeNode *bucket = lookupNode(msg->key >> 1);
+  const GenericTreeNode *bucket = lookupNode(req.key >> 1);
   CkAssert(bucket != NULL);
   int total = sizeof(CacheParticle) + (bucket->lastParticle - bucket->firstParticle) * sizeof(ExternalGravityParticle);
-  CkCacheFillMsg *reply = new (total) CkCacheFillMsg(msg->key);
+  CkCacheFillMsg *reply = new (total) CkCacheFillMsg(req.key);
   CkAssert(reply != NULL);
   CacheParticle *data = (CacheParticle*)reply->data;
   CkAssert(data != NULL);
@@ -84,9 +92,7 @@ void TreePiece::fillRequestParticles(CkCacheRequestMsg *msg) {
     data->part[i] = *((ExternalGravityParticle*)&myParticles[i+bucket->firstParticle]);
   }
   
-  cacheGravPart[msg->replyTo].recvData(reply);
-  
-  delete msg;
+  cacheGravPart[req.replyTo].recvData(reply);
 }
 
 // Methods for "combiner" cache
@@ -95,11 +101,16 @@ EntryTypeSmoothParticle::EntryTypeSmoothParticle() {
 }
 
 void * EntryTypeSmoothParticle::request(CkArrayIndexMax& idx, CkCacheKey key) {
+  CkCacheRequest req(key, CkMyPe(), smoothParticleRequest);
+  ((ArrayMeshStreamer<CkCacheRequest, int> *)  aggregator.ckLocalBranch())->insertData(req, *idx.data());
+  return NULL;
+  /*
   CkCacheRequestMsg *msg = new (32) CkCacheRequestMsg(key, CkMyPe());
   *(int*)CkPriorityPtr(msg) = -100000000;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
   treeProxy[*idx.data()].fillRequestSmoothParticles(msg);
   return NULL;
+  */
 }
 
 void * EntryTypeSmoothParticle::unpack(CkCacheFillMsg *msg, int chunk, CkArrayIndexMax &from) {
@@ -203,27 +214,26 @@ void TreePiece::processReqSmoothParticles() {
 	}
     }
 
-void TreePiece::fillRequestSmoothParticles(CkCacheRequestMsg *msg) {
+void TreePiece::fillRequestSmoothParticles(CkCacheRequest &req) {
     // buffer request if we are not ready for it.
     if(sSmooth == NULL) {
-	CkVec<int> *vReq = smPartRequests[msg->key];
+	CkVec<int> *vReq = smPartRequests[req.key];
 	if(vReq == NULL) {
 	    vReq = new CkVec<int>();
-	    smPartRequests[msg->key] = vReq;
+	    smPartRequests[req.key] = vReq;
 	    }
-	vReq->push_back(msg->replyTo);
-	delete msg;
+	vReq->push_back(req.replyTo);
 	return;
 	}
 
-  CkAssert(msg->replyTo != CkMyPe());
+  CkAssert(req.replyTo != CkMyPe());
   
   // the key used in the cache is shifted to the left of 1, this makes
   // a clear distinction between nodes and particles
-  const GenericTreeNode *bucket = lookupNode(msg->key >> 1);
+  const GenericTreeNode *bucket = lookupNode(req.key >> 1);
   
   int total = sizeof(CacheSmoothParticle) + (bucket->lastParticle - bucket->firstParticle) * sizeof(ExternalSmoothParticle);
-  CkCacheFillMsg *reply = new (total) CkCacheFillMsg(msg->key);
+  CkCacheFillMsg *reply = new (total) CkCacheFillMsg(req.key);
   CacheSmoothParticle *data = (CacheSmoothParticle*)reply->data;
   data->begin = bucket->firstParticle;
   data->end = bucket->lastParticle;
@@ -234,9 +244,7 @@ void TreePiece::fillRequestSmoothParticles(CkCacheRequestMsg *msg) {
   
   nCacheAccesses++;
   
-  cacheSmoothPart[msg->replyTo].recvData(reply);
-  
-  delete msg;
+  cacheSmoothPart[req.replyTo].recvData(reply);
 }
 
 /// Combine cached copies with the originals on the treepiece.
@@ -281,7 +289,7 @@ void * EntryTypeGravityNode::request(CkArrayIndexMax& idx, CkCacheKey key) {
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
   */
   //  treeProxy[*idx.data()].fillRequestNode(msg);
-  CkCacheRequest req(key, CkMyPe());
+  CkCacheRequest req(key, CkMyPe(), nodeRequest);
   ((ArrayMeshStreamer<CkCacheRequest, int> *)  aggregator.ckLocalBranch())->insertData(req, *idx.data());
   return NULL;
 }
@@ -369,14 +377,25 @@ void EntryTypeGravityNode::callback(CkArrayID requestorID, CkArrayIndexMax &requ
 }
 
 void TreePiece::process(CkCacheRequest &req) {
-  fillRequestNode(req);
+  switch(req.type) {
+  case nodeRequest:
+    fillRequestNode(req);
+    break;
+  case particleRequest:
+    fillRequestParticles(req);
+    break;
+  case smoothParticleRequest:
+    fillRequestSmoothParticles(req);
+    break;
+  }
 }
-
+/*
 void TreePiece::fillRequestNode(CkCacheRequestMsg *msg) {
-  CkCacheRequest req(msg->key, msg->replyTo);
+  CkCacheRequest req(msg->key, msg->replyTo, requestNode);
   fillRequestNode(req);
   delete msg;
 }
+*/
 void TreePiece::fillRequestNode(CkCacheRequest &req) {
   const Tree::GenericTreeNode* node = lookupNode(req.key);
   //GenericTreeNode tmp;
