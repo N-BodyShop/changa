@@ -4,10 +4,12 @@ mainmodule ParallelGravity {
 
   extern module Reductions;
 
+  class ParticleShuffle;
   readonly CProxy_Main mainChare;
   readonly int verbosity;
   readonly CProxy_TreePiece treeProxy;
   readonly CProxy_CompletionDetector detector;
+  readonly CProxy_CompletionDetector shuffleDetector;
   readonly CProxy_ArrayMeshStreamer
             <CkCacheRequest, int> aggregator;
   readonly CProxy_ArrayMeshStreamer
@@ -248,7 +250,7 @@ mainmodule ParallelGravity {
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
 #endif
     entry void unshuffleParticles(CkReductionMsg* m);
-    entry void acceptSortedParticles(ParticleShuffleMsg *);
+    //entry void acceptSortedParticles(ParticleShuffleMsg *);
     //ORB
     entry void initORBPieces(const CkCallback& cb);
     entry void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,
@@ -425,5 +427,11 @@ mainmodule ParallelGravity {
   array [1D] MeshStreamerArrayClient<CkCacheRequest>;
   group ArrayMeshStreamer<CkCacheRequest, int>;    
   group MeshStreamer<ArrayDataItem<CkCacheRequest, int> >;
+
+
+  message MeshStreamerMessage<ArrayDataItem<ParticleShuffle, int> >;
+  array [1D] MeshStreamerArrayClient<ParticleShuffle>;
+  group ArrayMeshStreamer<ParticleShuffle, int>;    
+  group MeshStreamer<ArrayDataItem<ParticleShuffle, int> >;
 
 };

@@ -40,6 +40,7 @@ CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
 CProxy_ArrayMeshStreamer<CkCacheRequest, int> aggregator;
 CProxy_ArrayMeshStreamer<ParticleShuffle, int> shuffleAggregator;
 CProxy_CompletionDetector detector; 
+CProxy_CompletionDetector shuffleDetector; 
 
 #ifdef DECOMPOSER_GROUP
 CProxy_Decomposer decomposerProxy;
@@ -942,14 +943,10 @@ Main::Main(CkArgMsg* m) {
         int dims[] = {NUM_ROWS, NUM_COLUMNS, NUM_PLANES};
 
         aggregator = CProxy_ArrayMeshStreamer<CkCacheRequest, int>::
-          ckNew(NUM_MESSAGES_BUFFERED, 3, dims, 
-                (CProxy_MeshStreamerArrayClient<CkCacheRequest> )treeProxy, 
-                true, 10.0);
-        shuffleAggregator = CProxy_ArrayMeshStreamer<ParticleShuffle, int>::
-          ckNew(NUM_MESSAGES_BUFFERED, 3, dims, 
-                (CProxy_MeshStreamerArrayClient<ParticleShuffle> )treeProxy, 
-                true, 10.0);
+          ckNew(NUM_MESSAGES_BUFFERED, 3, dims, treeProxy, false, 10.0);
+
         detector = CProxy_CompletionDetector::ckNew();
+        shuffleDetector = CProxy_CompletionDetector::ckNew();
 
 #ifdef DECOMPOSER_GROUP
         decomposerProxy = CProxy_Decomposer::ckNew();
@@ -961,6 +958,10 @@ Main::Main(CkArgMsg* m) {
 	// Create an array for the gravity reductions
 	gravityProxy = CProxy_LvArray::ckNew(opts);
         shuffleShadowProxy = CProxy_ShuffleShadowArray::ckNew(opts);
+
+        shuffleAggregator = CProxy_ArrayMeshStreamer<ParticleShuffle, int>::
+          ckNew(NUM_MESSAGES_BUFFERED, 3, dims, shuffleShadowProxy, false, 10.0);
+
 
 #ifdef PUSH_GRAVITY
         ckMulticastGrpId = CProxy_CkMulticastMgr::ckNew();
@@ -1397,6 +1398,8 @@ void Main::advanceBigStep(int iStep) {
     double startTime = CkWallTimer();
     double tolerance = 0.01;	// tolerance for domain decomposition
     bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
+
+    shuffleAggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), shuffleDetector, INT_MIN); 
     sorter.startSorting(dataManagerID, tolerance,
                         CkCallbackResumeThread(), bDoDD);
     /*
@@ -1404,6 +1407,10 @@ void Main::advanceBigStep(int iStep) {
           << endl;
           */
     CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
+    
+    // just one contributor was registered - finish streaming
+    ( (ArrayMeshStreamer<ParticleShuffle, int> *)shuffleAggregator.ckLocalBranch())->done();
+
 
     if(verbosity && !bDoDD)
 	CkPrintf("Skipped DD\n");
@@ -1420,10 +1427,6 @@ void Main::advanceBigStep(int iStep) {
     CkCallback startCb(CkCallback::resumeThread); 
     CkCallback endCb;
     */
-
-    aggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), 
-                                 detector, 
-                                 INT_MIN); 
 
     //    CkFreeMsg(startCb.thread_delay());
 
@@ -1458,6 +1461,7 @@ void Main::advanceBigStep(int iStep) {
           */
     CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
+    aggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), detector, INT_MIN); 
     CkCallback cbGravity(CkCallback::resumeThread);
 
     if(verbosity)
@@ -1949,9 +1953,16 @@ Main::initialForces()
   //ckout << "Initial domain decomposition ...";
   CkPrintf("Initial domain decomposition ... ");
   startTime = CkWallTimer();
+
+  shuffleAggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), shuffleDetector, INT_MIN); 
+
   sorter.startSorting(dataManagerID, tolerance,
 	 	      CkCallbackResumeThread(), true);
   CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
+
+  // just one contributor was registered - finish streaming
+  ( (ArrayMeshStreamer<ParticleShuffle, int> *)shuffleAggregator.ckLocalBranch())->done();
+
   /*
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
@@ -1973,9 +1984,6 @@ Main::initialForces()
   CkCallback endCb;          
   */
 
-  aggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), 
-                               detector, 
-                               INT_MIN); 
 
   //  CkFreeMsg(startCb.thread_delay());
   /*
@@ -2010,6 +2018,7 @@ Main::initialForces()
         << endl;
 #endif
 
+  aggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), detector, INT_MIN); 
       
   CkCallback cbGravity(CkCallback::resumeThread);  // needed below to wait for gravity
 
@@ -2323,8 +2332,14 @@ Main::doSimulation()
 #ifdef DECOMPOSER_GROUP
           decomposerProxy.acceptParticles(CkCallbackResumeThread());
 #endif
-	  sorter.startSorting(dataManagerID, tolerance,
+          
+          shuffleAggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), shuffleDetector, INT_MIN); 
+	  
+          sorter.startSorting(dataManagerID, tolerance,
 			      CkCallbackResumeThread(), true);
+          
+          // just one contributor was registered - finish streaming
+          ( (ArrayMeshStreamer<ParticleShuffle, int> *)shuffleAggregator.ckLocalBranch())->done();
 #ifdef PUSH_GRAVITY
 	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
 #else
@@ -2513,8 +2528,13 @@ void Main::writeOutput(int iStep)
 #ifdef DECOMPOSER_GROUP
         decomposerProxy.acceptParticles(CkCallbackResumeThread());
 #endif
-	sorter.startSorting(dataManagerID, tolerance,
+        shuffleAggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), shuffleDetector, INT_MIN); 
+	
+        sorter.startSorting(dataManagerID, tolerance,
 			    CkCallbackResumeThread(), true);
+        
+        // just one contributor was registered - finish streaming
+        ( (ArrayMeshStreamer<ParticleShuffle, int> *)shuffleAggregator.ckLocalBranch())->done();
 #ifdef PUSH_GRAVITY
 	treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
 #else

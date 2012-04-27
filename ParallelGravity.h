@@ -307,10 +307,13 @@ public:
 
 class ParticleShuffle {
 public:
-  int n; 
-  double load; 
   GravityParticle particle; 
+  double load; 
+
+  ParticleShuffle(GravityParticle &p, double ld) : particle(p), load(ld) {}
+  ParticleShuffle() {}
 };
+PUPbytes(ParticleShuffle);
 
 #ifdef PUSH_GRAVITY
 #include "ckmulticast.h"
@@ -935,7 +938,8 @@ private:
 	/// Array with sorted Star data for domain decomposition (ORB)
 	std::vector<extraStarData> mySortedParticlesStar;
         /// Array with incoming particles messages for domain decomposition
-	std::vector<GravityParticle> incomingParticlesMsg;
+	std::vector<GravityParticle> incomingParticles;
+	std::vector<ParticleShuffleMsg*> incomingParticlesMsg;
         /// How many particles have already arrived during domain decomposition
         int incomingParticlesArrived;
         /// Flag to acknowledge that the current TreePiece has already
@@ -1444,7 +1448,12 @@ public:
 	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
 #endif
 	void unshuffleParticles(CkReductionMsg* m);
-	void acceptSortedParticles(ParticleShuffleMsg *);
+	//void acceptSortedParticles(ParticleShuffleMsg *);
+
+        void acceptSortedParticles(ParticleShuffle &);
+        void receivedSortedParticles();
+        void expectingNoSortedParticles();
+
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);
   void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,

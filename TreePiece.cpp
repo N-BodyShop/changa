@@ -63,6 +63,8 @@ int TreeStuff::maxBucketSize;
 extern CkGroupID ckMulticastGrpId;
 #endif
 
+extern CProxy_ArrayMeshStreamer <ParticleShuffle,int> shuffleAggregator;  
+
 #ifdef CELL
 int workRequestOut = 0;
 CkVec<CellComputation> ewaldMessages;
@@ -667,7 +669,8 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
           pPart++) {
         CkAssert(!pPart->isGas());
         CkAssert(!pPart->isStar());
-  ((ArrayMeshStreamer<ParticleShuffle, int> *)  shuffleAggregator.ckLocalBranch())->insertData(*pPart, *responsibleIter);
+        ParticleShuffle ps(*pPart,tpLoad/myNumParticles);
+        ((ArrayMeshStreamer<ParticleShuffle, int> *)  shuffleAggregator.ckLocalBranch())->insertData(ps, *responsibleIter);
       }
 
       /*
@@ -680,11 +683,9 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
         if(pPart->isStar())
           nStarOut++;
       }
-      */
 
       partialLoad = tpLoad * nPartOut / myNumParticles;
 
-      /*
       ParticleShuffleMsg *shuffleMsg
         = new (nPartOut, nGasOut, nStarOut)
         ParticleShuffleMsg(nPartOut, nGasOut, nStarOut,
@@ -728,13 +729,22 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
       */
     }
 
+    //CkPrintf("[%d] streamed %d particles to %d\n", thisIndex.data[0], nPartOut, *responsibleIter);
+
     if(&myParticles[myNumParticles + 1] <= binEnd)
       break;
     binBegin = binEnd;
   }
 
+
   incomingParticlesSelf = true;
-  acceptSortedParticles(NULL);
+  if(myPlace == -2 || dm->particleCounts[myPlace] == 0){
+    CkAssert(incomingParticlesArrived == 0);
+    expectingNoSortedParticles();
+  }
+  else{
+    receivedSortedParticles();
+  }
 
   delete m;
 }
@@ -787,13 +797,60 @@ void TreePiece::acceptSortedParticles(ParticleShuffle &shuffle) {
     if (myPlace == dm->responsibleIndex.size()) myPlace = -2;
   }
 
-  incomingParticlesMsg.push_back(shuffle.particle);
-  incomingParticlesArrived ++;
+  incomingParticles.push_back(shuffle.particle);
+  incomingParticlesArrived++;
   treePieceLoadTmp += shuffle.load; 
 
-  
+  CkAssert(myPlace >= 0);
+  receivedSortedParticles();
+}
 
+void TreePiece::expectingNoSortedParticles(){
+  // Special case where no particle is assigned to this TreePiece
+  CkAssert(myPlace == -2 || dm->particleCounts[myPlace] == 0);
+  //CkPrintf("[%d] expecting no particles\n", thisIndex.data[0]);
+  if (myNumParticles > 0){
+#ifndef DECOMPOSER_GROUP
+    delete[] myParticles;
+#endif
+    myParticles = NULL;
+  }
+  myNumParticles = 0;
+  nStore = 0;
+  if (nStoreSPH > 0){
+    delete[] mySPHParticles;
+    mySPHParticles = NULL;
+  }
+  myNumSPH = 0;
+  nStoreSPH = 0;
+  if (nStoreStar > 0){
+    delete[] myStarParticles;
+    myStarParticles = NULL;
+  }
+  myNumStar = 0;
+  nStoreStar = 0;
+  incomingParticlesSelf = false;
+  incomingParticles.clear();
+  if(verbosity>1) ckout << thisIndex.data[0] <<" no particles assigned"<<endl;
+
+  if (root != NULL) {
+    root->fullyDelete();
+    delete root;
+    root = NULL;
+    nodeLookupTable.clear();
+  }
+  // We better not have a message with particles for us
+  CkAssert(incomingParticlesArrived == 0);
+  contribute(0, 0, CkReduction::concat, callback);
+}
+
+void TreePiece::receivedSortedParticles(){
+  CkAssert(myPlace >= 0 && dm->particleCounts[myPlace] > 0);
+  CkAssert(incomingParticlesArrived <= dm->particleCounts[myPlace]);
+  //CkPrintf("[%d] received particles %d / %d\n", thisIndex.data[0], incomingParticlesArrived, dm->particleCounts[myPlace]);
   if(dm->particleCounts[myPlace] == incomingParticlesArrived && incomingParticlesSelf) {
+    
+
     //I've got all my particles
 #ifndef DECOMPOSER_GROUP
     if (myNumParticles > 0) delete[] myParticles;
@@ -808,10 +865,12 @@ void TreePiece::acceptSortedParticles(ParticleShuffle &shuffle) {
     int nSPH = 0;
     int nStar = 0;
     int iMsg;
+    /*
     for(iMsg = 0; iMsg < incomingParticlesMsg.size(); iMsg++) {
       nSPH += incomingParticlesMsg[iMsg]->nSPH;
       nStar += incomingParticlesMsg[iMsg]->nStar;
     }
+    */
     if (nStoreSPH > 0) delete[] mySPHParticles;
     myNumSPH = nSPH;
     nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
@@ -827,6 +886,8 @@ void TreePiece::acceptSortedParticles(ParticleShuffle &shuffle) {
     int nPart = 0;
     nSPH = 0;
     nStar = 0;
+    memcpy(&myParticles[1], &incomingParticles[0], myNumParticles*sizeof(GravityParticle));
+    /*
     for(iMsg = 0; iMsg < incomingParticlesMsg.size(); iMsg++) {
       memcpy(&myParticles[nPart+1], incomingParticlesMsg[iMsg]->particles,
           incomingParticlesMsg[iMsg]->n*sizeof(GravityParticle));
@@ -839,12 +900,16 @@ void TreePiece::acceptSortedParticles(ParticleShuffle &shuffle) {
       nStar += incomingParticlesMsg[iMsg]->nStar;
       delete incomingParticlesMsg[iMsg];
     }
+    */
 
-    incomingParticlesMsg.clear();
+    incomingParticles.clear();
     // assign gas data pointers
     int iGas = 0;
     int iStar = 0;
     for(int iPart = 0; iPart < myNumParticles; iPart++) {
+      CkAssert(!myParticles[iPart+1].isGas());
+      CkAssert(!myParticles[iPart+1].isStar());
+      /*
       if(myParticles[iPart+1].isGas()) {
         myParticles[iPart+1].extraData
           = (extraSPHData *)&mySPHParticles[iGas];
@@ -855,8 +920,9 @@ void TreePiece::acceptSortedParticles(ParticleShuffle &shuffle) {
           = (extraStarData *)&myStarParticles[iStar];
         iStar++;
       }
-      else
-        myParticles[iPart+1].extraData = NULL;
+      else{}
+        */
+      myParticles[iPart+1].extraData = NULL;
     }
 
     sort(myParticles+1, myParticles+myNumParticles+1);
@@ -874,10 +940,10 @@ void TreePiece::acceptSortedParticles(ParticleShuffle &shuffle) {
     //CkPrintf("[%d] accepted %d particles\n", thisIndex.data[0], myNumParticles);
     contribute(0, 0, CkReduction::concat, callback);
   }
-
 }
 
 /// Accept particles from other TreePieces once the sorting has finished
+#if 0
 void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
   //Need to get the place here again.  Getting the place in
   //unshuffleParticles and using it here results in a race condition.
@@ -1024,6 +1090,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     contribute(0, 0, CkReduction::concat, callback);
   }
 }
+#endif
 
 
 #if 0
