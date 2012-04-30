@@ -2459,6 +2459,7 @@ Main::calcEnergy(double dTime, double wallTime, char *achLogFileName)
 
 ///
 /// @brief Output a snapshot
+/// @param iStep Timestep we are outputting, used for file name.
 ///
 
 void Main::writeOutput(int iStep) 
@@ -2542,28 +2543,67 @@ void Main::writeOutput(int iStep)
 #endif
 
 	iPhase = 0;
-	ckout << "Calculating total densities ...";
+	if(verbosity)
+	    ckout << "Calculating total densities ...";
 	DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	startTime = CkWallTimer();
 	double dfBall2OverSoft2 = 0.0;
 	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
 				       CkCallbackResumeThread());
 	iPhase++;
+	CkAssert(iPhase <= nPhases);
 	if(iPhase < nPhases)
 	    treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
-	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-	      << endl;
-	ckout << "Reodering ...";
+	if(verbosity) {
+	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+		  << endl;
+	    ckout << "Reodering ...";
+	    }
 	startTime = CkWallTimer();
 	treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
-	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-	      << endl;
-	ckout << "Outputting densities ...";
+	if(verbosity) {
+	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+		  << endl;
+	    ckout << "Outputting densities ...";
+	    }
 	startTime = CkWallTimer();
 	DenOutputParams pDenOut(string(achFile) + ".den");
 	treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
-	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-	      << endl;
+	if(verbosity)
+	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+		  << endl;
+
+	if(param.bDoGas) {	// recalculate gas densities for timestep
+	    if(verbosity)
+		ckout << "Recalculating gas densities ...";
+	    startTime = CkWallTimer();
+	    // The following call is to get the particles in key order
+	    // before the sort.
+	    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+#ifdef DECOMPOSER_GROUP
+	    decomposerProxy.acceptParticles(CkCallbackResumeThread());
+#endif
+	    sorter.startSorting(dataManagerID, tolerance,
+				CkCallbackResumeThread(), true);
+#ifdef PUSH_GRAVITY
+	    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
+#else
+	    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
+	    iPhase = 0;
+	    DensitySmoothParams pDenGas(TYPE_GAS, 0);
+	    dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+	    treeProxy.startIterationSmooth(&pDenGas, 1, dfBall2OverSoft2,
+					   CkCallbackResumeThread());
+	    iPhase++;
+	    CkAssert(iPhase <= nPhases);
+	    if(iPhase < nPhases)
+		treeProxy.finishNodeCache(nPhases-iPhase,
+					  CkCallbackResumeThread());
+	    if(verbosity)
+		ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+		      << endl;
+	    }
 	}
     }
 

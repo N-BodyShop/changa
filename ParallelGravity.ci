@@ -125,7 +125,7 @@ mainmodule ParallelGravity {
   PUPable RungOutputParams;
 
   mainchare [migratable] Main {
-    entry Main();
+    entry Main(CkArgMsg *);
     entry [threaded] void setupICs();
     entry [threaded] void initialForces();
     entry [threaded] void doSimulation();

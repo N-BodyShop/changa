@@ -1,8 +1,12 @@
+/// @file starform.h
+/// Declarations for star formation.
+
 #ifndef STARFORM_HINCLUDED
 #define STARFORM_HINCLUDED
 
 #include "parameters.h"
 
+/// Parameters and methods to implement star formation.
 class Stfm {
  private:
     int iStarFormRung;		/* rung for star formation */
