@@ -5,6 +5,8 @@
 #include "cooling.h"
 #include "starform.h"
 
+/** @brief Hold parameters of the run.
+ */
 typedef struct parameters {
     /*
     ** Parameters for ParallelGravity.
@@ -63,6 +65,7 @@ typedef struct parameters {
     int bGasAdiabatic;
     int bGasIsothermal;
     int bGasCooling;
+    int nSmooth;
     COOLPARAM CoolParam;
     double dhMinOverSoft;
     double dMsolUnit;

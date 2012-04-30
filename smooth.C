@@ -335,12 +335,14 @@ void TreePiece::setupSmooth() {
 
 // Start tree walk and smooth calculation
 
-void TreePiece::startIterationSmooth(// type of smoothing and parameters
+void TreePiece::startSmooth(// type of smoothing and parameters
 				     SmoothParams* params,
 				     int iLowhFix,
+				     int nSmooth,
 				     double dfBall2OverSoft2,
 				     const CkCallback& cb) {
 
+  CkAssert(nSmooth > 0);
   cbSmooth = cb;
   activeRung = params->activeRung;
 
@@ -372,7 +374,7 @@ void TreePiece::startIterationSmooth(// type of smoothing and parameters
   calculateSmoothLocal();
   }
   catch (std::bad_alloc) {
-	CkAbort("Out of memory in startIterationSmooth");
+	CkAbort("Out of memory in startSmooth");
 	}
 }
 
@@ -787,7 +789,7 @@ void ReSmoothCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state,
 
 // Start tree walk and smooth calculation
 
-void TreePiece::startIterationReSmooth(SmoothParams* params,
+void TreePiece::startReSmooth(SmoothParams* params,
 				       const CkCallback& cb) {
 
   cbSmooth = cb;
@@ -1015,7 +1017,7 @@ void MarkSmoothCompute::nodeRecvdEvent(TreePiece *owner, int chunk,
 
 // Start marksmooth walk
 
-void TreePiece::startIterationMarkSmooth(SmoothParams* params,
+void TreePiece::startMarkSmooth(SmoothParams* params,
 				       const CkCallback& cb) {
 
   cbSmooth = cb;

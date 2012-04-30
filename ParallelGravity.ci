@@ -53,8 +53,6 @@ mainmodule ParallelGravity {
   readonly int nodeForceUE;
   readonly int partForceUE;
 
-  readonly int nSmooth;
-
 #ifdef PUSH_GRAVITY
   readonly CkGroupID ckMulticastGrpId;
 #endif
@@ -321,10 +319,10 @@ mainmodule ParallelGravity {
     entry void recvPushAccelerations(CkReductionMsg *);
 #endif
 
-    entry void startIterationSmooth(CkPointer<SmoothParams>, int iLowhFix,
+    entry void startSmooth(CkPointer<SmoothParams>, int iLowhFix, int nSmooth,
 				    double dfBall2OverSoft2, CkCallback &cb);
-    entry void startIterationReSmooth(CkPointer<SmoothParams>, CkCallback &cb);
-    entry void startIterationMarkSmooth(CkPointer<SmoothParams>, CkCallback &cb);
+    entry void startReSmooth(CkPointer<SmoothParams>, CkCallback &cb);
+    entry void startMarkSmooth(CkPointer<SmoothParams>, CkCallback &cb);
     entry void finishNodeCache(int iPhases, CkCallback &cb);
 
     entry [inline] void requestRemoteMoments(Tree::NodeKey key, int sender);

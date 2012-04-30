@@ -76,7 +76,6 @@ double largePhaseThreshold;
 
 double theta;
 double thetaMono;
-/* readonly */ int nSmooth;
 
 ComlibInstanceHandle cinst1, cinst2;
 
@@ -220,8 +219,8 @@ Main::Main(CkArgMsg* m) {
 	param.bDoIOrderOutput = 0;
 	prmAddParam(prm,"bDoIOrderOutput",paramBool,&param.bDoIOrderOutput,
 		    sizeof(int), "iordout","enable/disable iOrder outputs = -iordout");
-	nSmooth = 32;
-	prmAddParam(prm, "nSmooth", paramInt, &nSmooth,
+	param.nSmooth = 32;
+	prmAddParam(prm, "nSmooth", paramInt, &param.nSmooth,
 		    sizeof(int),"nsm", "Number of neighbors for smooth");
 	param.bDoGravity = 1;
 	prmAddParam(prm, "bDoGravity", paramBool, &param.bDoGravity,
@@ -2177,8 +2176,8 @@ Main::doSimulation()
 	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	  startTime = CkWallTimer();
 	  double dfBall2OverSoft2 = 0.0;
-	  treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
-					 CkCallbackResumeThread());
+	  treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
+				CkCallbackResumeThread());
 	  iPhase++;
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
@@ -2281,14 +2280,14 @@ Main::doSimulation()
 	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	  startTime = CkWallTimer();
 	  double dfBall2OverSoft2 = 0.0;
-	  treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
+	  treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 					 CkCallbackResumeThread());
 	  iPhase++;
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
           ckout << "Recalculating densities ...";
           startTime = CkWallTimer();
-	  treeProxy.startIterationReSmooth(&pDen, CkCallbackResumeThread());
+	  treeProxy.startReSmooth(&pDen, CkCallbackResumeThread());
 	  iPhase++;
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	  CkAssert(iPhase <= nPhases);
@@ -2473,8 +2472,8 @@ void Main::writeOutput(int iStep)
 	DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	startTime = CkWallTimer();
 	double dfBall2OverSoft2 = 0.0;
-	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
-				       CkCallbackResumeThread());
+	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
+			      CkCallbackResumeThread());
 	iPhase++;
 	CkAssert(iPhase <= nPhases);
 	if(iPhase < nPhases)
@@ -2518,8 +2517,8 @@ void Main::writeOutput(int iStep)
 	    iPhase = 0;
 	    DensitySmoothParams pDenGas(TYPE_GAS, 0);
 	    dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
-	    treeProxy.startIterationSmooth(&pDenGas, 1, dfBall2OverSoft2,
-					   CkCallbackResumeThread());
+	    treeProxy.startSmooth(&pDenGas, 1, param.nSmooth, dfBall2OverSoft2,
+				  CkCallbackResumeThread());
 	    iPhase++;
 	    CkAssert(iPhase <= nPhases);
 	    if(iPhase < nPhases)
