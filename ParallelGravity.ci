@@ -196,10 +196,10 @@ mainmodule ParallelGravity {
 
     entry void report();
 
-    entry void nextBucket(dummyMsg *m);	
-    entry void nextBucketSmooth(dummyMsg *msg);
-    entry void nextBucketReSmooth(dummyMsg *msg);
-    entry void nextBucketMarkSmooth(dummyMsg *msg);
+    entry [notrace] void nextBucket(dummyMsg *m);	
+    entry [notrace] void nextBucketSmooth(dummyMsg *msg);
+    entry [notrace] void nextBucketReSmooth(dummyMsg *msg);
+    entry [notrace] void nextBucketMarkSmooth(dummyMsg *msg);
     //entry void registerWithDataManager(const CkGroupID& dataManagerID,
     //		     		  const CkCallback& cb);
     entry void setPeriodic(int nReplicas, Vector3D<double> fPeriod, int bEwald,
