@@ -381,6 +381,9 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"bGasCooling",paramBool,&param.bGasCooling,
 		    sizeof(int),"GasCooling",
 		    "<Gas is Cooling> = +GasCooling");
+	int iGasModel = -1; // For backward compatibility
+	prmAddParam(prm,"iGasModel", paramInt, &iGasModel, sizeof(int),
+		    "GasModel", "<Gas model employed> = 0 (Adiabatic)");
 	CoolAddParams(&param.CoolParam, prm);
 	param.dMsolUnit = 1.0;
 	prmAddParam(prm,"dMsolUnit",paramDouble,&param.dMsolUnit,
@@ -788,6 +791,19 @@ Main::Main(CkArgMsg* m) {
 	if (prmSpecified(prm,"bViscosityLimiter")) {
 	    if (!param.bViscosityLimiter) param.iViscosityLimiter=0;
 	    }
+
+	// Backward compatibility
+	switch(iGasModel) {
+	case 0:
+		param.bGasAdiabatic = 1;	
+		break;
+	case 1:
+		param.bGasIsothermal = 1;
+		break;
+	case 2:
+		param.bGasCooling = 1;
+		break;
+		}
 
 	if(param.bGasCooling && (param.bGasIsothermal || param.bGasAdiabatic)) {
 	    ckerr << "WARNING: ";
