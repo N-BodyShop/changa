@@ -205,6 +205,9 @@ Main::Main(CkArgMsg* m) {
 	param.bBenchmark = 0;
 	prmAddParam(prm, "bBenchmark", paramBool, &param.bBenchmark,
 		    sizeof(int),"bench", "Benchmark only; no output or checkpoints");
+	//
+	// Output flags
+	//
 	param.iOutInterval = 10;
 	prmAddParam(prm, "iOutInterval", paramInt, &param.iOutInterval,
 		    sizeof(int),"oi", "Output Interval");
@@ -214,6 +217,10 @@ Main::Main(CkArgMsg* m) {
 	param.iCheckInterval = 10;
 	prmAddParam(prm, "iCheckInterval", paramInt, &param.iCheckInterval,
 		    sizeof(int),"oc", "Checkpoint Interval");
+	param.iBinaryOutput = 0;
+	prmAddParam(prm, "iBinaryOutput", paramInt, &param.iBinaryOutput,
+		    sizeof(int), "binout",
+		    "<array outputs 0 ascii, 1 float, 2 double, 3 FLOAT(internal)> = 0");
 	param.bDoDensity = 1;
 	prmAddParam(prm, "bDoDensity", paramBool, &param.bDoDensity,
 		    sizeof(int),"den", "Enable Density outputs");
@@ -2433,6 +2440,8 @@ void Main::writeOutput(int iStep)
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
+    if(param.iBinaryOutput)
+	ckout << "WARNING: iBinaryOut is ignored." << endl;
 #ifndef COOLING_NONE
     if(param.bGasCooling) {
 	Cool0OutputParams pCool0Out(string(achFile) + "." + COOL_ARRAY0_EXT);
