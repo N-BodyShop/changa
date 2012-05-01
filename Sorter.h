@@ -14,6 +14,26 @@
 
 #include "ParallelGravity.h"
 
+struct OctDecompNode {
+  static int maxNumChildren;
+  static int lgMaxNumChildren;
+
+  OctDecompNode() : children(NULL), nchildren(0), nparticles(0) 
+  {
+  }
+
+  NodeKey key;
+  
+  OctDecompNode *children;
+  int nchildren;
+
+  int nparticles;
+
+  void makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active);
+  void deleteBeneath();
+  void combine(int thresh, vector<SFC::Key> &finalKeys, vector<unsigned int> &counts);
+};
+
 /**
    \brief Domain decomposition of particles via a parallel sort
 */
@@ -37,6 +57,8 @@
  shuffling of the particles to the correct owners.
  */
 class Sorter : public Chare {
+
+        double decompTime;
 	/// The total number of keys we're sorting.
 	int numKeys;
 	/// The number of chares to sort into.
@@ -63,6 +85,7 @@ class Sorter : public Chare {
 	/// The histogram of counts for the last round of splitter keys.
 	std::vector<unsigned int> binCounts;
 	std::vector<unsigned int> binCountsGas;
+	std::vector<unsigned int> binCountsStar;
 	/// The number of bins in the histogram.
 	int numCounts;
 	/// The keys I've decided on that divide the objects evenly (within the tolerance).
@@ -82,6 +105,11 @@ class Sorter : public Chare {
 	/// Specify what is the level of refinement of nodes sent out
 	/// for histogramming in Oct decomposition.
 	int refineLevel;
+
+        OctDecompNode *decompRoots;
+        int numDecompRoots;
+        CkVec<OctDecompNode*> *activeNodes;
+        CkVec<OctDecompNode*> *tmpActiveNodes;
 	
   ///Variables added for ORB decomposition
   typedef struct DivData{
@@ -102,8 +130,6 @@ class Sorter : public Chare {
         CkVec<int> zeros;
         /// The list of nodes opened by the last invocation of weightBalance
         CkVec<NodeKey> nodesOpened;
-        /// The transient state used by the weightBalance routine
-        WeightBalanceState<int>* wbState;
 
   Compare comp;
 
@@ -113,11 +139,20 @@ class Sorter : public Chare {
 public:
 	
 	Sorter() {
+          decompRoots = NULL;
+          numDecompRoots = 0;
+
+          activeNodes = new CkVec<OctDecompNode*>;
+          tmpActiveNodes = new CkVec<OctDecompNode*>;
+
           chareIDs.resize(numTreePieces, 1);
           chareIDs[0] = 0;
           partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
 	};
 	Sorter(CkMigrateMessage* m) {
+          decompRoots = NULL;
+          numDecompRoots = 0;
+
           chareIDs.resize(numTreePieces, 1);
           chareIDs[0] = 0;
           partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());

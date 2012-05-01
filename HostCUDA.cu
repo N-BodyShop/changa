@@ -2462,29 +2462,7 @@ __global__ void EwaldBottomKernel(GravityParticleData *particleTable);
 
 extern unsigned int timerHandle; 
 
-void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop,
-    void *cb) {
-/*
-  pinnedMemReq reqs; 
-
-  int nBuffers = 3; 
-  size_t *sizes = (size_t *)malloc(nBuffers * sizeof(size_t)); 
-  void ***hostPtrs = (void ***) malloc(nBuffers * sizeof(void **)); 
-  hostPtrs[0] = (void **) &(h_idata->p); 
-  hostPtrs[1] = (void **) &(h_idata->ewt); 
-  hostPtrs[2] = (void **) &(h_idata->cachedData); 
-  sizes[0] = (nParticles+1) * sizeof(GravityParticleData);
-  sizes[1] = nEwhLoop * sizeof(EwtData);
-  sizes[2] = sizeof(EwaldReadOnlyData);
-
-
-  reqs.sizes = sizes; 
-  reqs.hostPtrs = hostPtrs; 
-  reqs.callbackFn = cb;
-  reqs.nBuffers = nBuffers; 
-
-  pinnedMallocHost(&reqs); 
-*/
+void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop) {
 #ifdef CUDA_MEMPOOL
   h_idata->p = (GravityParticleData *) hapi_poolMalloc((nParticles+1)*sizeof(GravityParticleData));
   h_idata->ewt = (EwtData *) hapi_poolMalloc((nEwhLoop)*sizeof(EwtData));

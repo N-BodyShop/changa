@@ -7,6 +7,9 @@ mainmodule ParallelGravity {
   readonly CProxy_Main mainChare;
   readonly int verbosity;
   readonly CProxy_TreePiece treeProxy;
+#ifdef DECOMPOSER_GROUP
+  readonly CProxy_Decomposer decomposerProxy;
+#endif
   readonly CProxy_LvArray lvProxy;
   readonly CProxy_LvArray smoothProxy;
   readonly CProxy_LvArray gravityProxy;
@@ -60,6 +63,14 @@ mainmodule ParallelGravity {
   readonly CProxy_ProjectionsControl prjgrp;
 #endif
 
+  // number of bins to use for the first
+  // iteration of every decomposition step
+  readonly int numInitDecompBins;
+
+  readonly bool doDumpLB;
+  readonly int lbDumpIteration;
+  readonly bool doSimulateLB;
+
   //message piecedata;
   message dummyMsg;
   message ComputeChunkMsg;
@@ -106,7 +117,7 @@ mainmodule ParallelGravity {
   PUPable RungOutputParams;
 
   mainchare [migratable] Main {
-    entry Main();
+    entry Main(CkArgMsg *);
     entry [threaded] void setupICs();
     entry [threaded] void initialForces();
     entry [threaded] void doSimulation();
@@ -121,6 +132,15 @@ mainmodule ParallelGravity {
     entry [notrace] void on(CkCallback);
     entry [notrace] void off(CkCallback);                     
   };                                                          
+#endif
+
+#ifdef DECOMPOSER_GROUP
+  group Decomposer {
+    entry Decomposer();
+
+    entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
+    entry void acceptParticles(CkCallback &cb);
+  };
 #endif
 
   chare [migratable] Sorter {
@@ -168,10 +188,10 @@ mainmodule ParallelGravity {
 
     entry void report();
 
-    entry void nextBucket(dummyMsg *m);	
-    entry void nextBucketSmooth(dummyMsg *msg);
-    entry void nextBucketReSmooth(dummyMsg *msg);
-    entry void nextBucketMarkSmooth(dummyMsg *msg);
+    entry [notrace] void nextBucket(dummyMsg *m);	
+    entry [notrace] void nextBucketSmooth(dummyMsg *msg);
+    entry [notrace] void nextBucketReSmooth(dummyMsg *msg);
+    entry [notrace] void nextBucketMarkSmooth(dummyMsg *msg);
     //entry void registerWithDataManager(const CkGroupID& dataManagerID,
     //		     		  const CkCallback& cb);
     entry void setPeriodic(int nReplicas, Vector3D<double> fPeriod, int bEwald,
@@ -218,12 +238,15 @@ mainmodule ParallelGravity {
     entry void ioShuffle(CkReductionMsg *msg);
     entry void ioAcceptSortedParticles(ParticleShuffleMsg *);
     entry void assignKeys(CkReductionMsg* m);
+#ifndef DECOMPOSER_GROUP
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
+#endif
     entry void unshuffleParticles(CkReductionMsg* m);
     entry void acceptSortedParticles(ParticleShuffleMsg *);
     //ORB
     entry void initORBPieces(const CkCallback& cb);
     entry void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,
+			     unsigned int myCountStar,
 			     const CkCallback& cb, const CkCallback& cback);
     entry void sendORBParticles();
     entry void acceptORBParticles(const GravityParticle particles[n],
@@ -379,6 +402,7 @@ mainmodule ParallelGravity {
 
     // jetley - balancing before initial forces
     entry void balanceBeforeInitialForces(CkCallback &cb); 
+
   };
 
   array [1D] LvArray {

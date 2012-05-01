@@ -1055,17 +1055,6 @@ double clEdotInstant( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
  * 
  */
 
-#define MAXBRACKET 10
-
-#define ITMAX 100
-#define BRENTEPS 1e-5
-#define BRENTTOL 1e6
-
-typedef struct {
-  PERBARYON Y;
-  double E,T,F;
-} BRENT;
-  
 double clfTemp(double T,  void *Data) 
 {
   clDerivsData *d = Data; 

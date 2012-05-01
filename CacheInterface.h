@@ -1,6 +1,12 @@
 #ifndef __CACHEINTERFACE_H__
 #define __CACHEINTERFACE_H__
 
+/** @file CacheInterface.h
+ *
+ *  Declares the interfaces used by the CacheManager: the software
+ *  cache for requesting off processor particle and node data.
+ */
+
 #include "CkCache.h"
 #include "config.h"
 #include "gravity.h"
@@ -18,16 +24,23 @@ public:
   ExternalGravityParticle part[1];
 };
 
+/// @brief Cache interface to particles for the gravity calculation.
+/// This is a read-only cache of particles.
 class EntryTypeGravityParticle : public CkCacheEntryType {
-  int offset;
 public:
   EntryTypeGravityParticle();
+  /// @brief Request a bucket of particles from a TreePiece.
   void * request(CkArrayIndexMax&, CkCacheKey);
+  /// @brief Return data from fufilled cache request.
   void * unpack(CkCacheFillMsg *, int, CkArrayIndexMax &);
+  /// @brief Do nothing: this is a read-only cache.
   void writeback(CkArrayIndexMax&, CkCacheKey, void *);
+  /// @brief free cached data.
   void free(void *);
+  /// @brief return size of cached data.
   int size(void *);
   
+  /// @brief callback to TreePiece after data is received.
   static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, CkCacheUserData &, void*, int);
 };
 

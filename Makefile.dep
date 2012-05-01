@@ -55,6 +55,7 @@ DataManager.h \
 ParallelGravity.decl.h \
 Reductions.decl.h \
 Compute.h \
+Reductions.h \
 
 Sorter.o: \
 Sorter.cpp \
@@ -102,7 +103,6 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 
 TreePiece.o: \
 TreePiece.cpp \
@@ -149,18 +149,22 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 Reductions.h \
+Reductions.decl.h \
 MultistepLB.h \
 MapStructures.h \
 ScaleTranMapBG.h \
 ScaledORBMapBG.h \
+MultistepLB_notopo.h \
+Orb3dLBCommon.h \
+MultistepLB_notopo.decl.h \
 Orb3dLB.h \
+Orb3dLB_notopo.h \
+Orb3dLB_notopo.decl.h \
 Opt.h \
 TreeWalk.h \
 smooth.h \
-State.h \
 
 param.o: \
 param.c \
@@ -229,7 +233,6 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 smooth.h \
 State.h \
@@ -282,7 +285,6 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 
 InOutput.o: \
 InOutput.C \
@@ -329,8 +331,8 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
+Reductions.h \
 
 cosmo.o: \
 cosmo.c \
@@ -344,6 +346,7 @@ runge.o: \
 
 dumpframe.o: \
 dumpframe.c \
+config.h \
 
 dffuncs.o: \
 dffuncs.c \
@@ -359,6 +362,8 @@ MapStructures.h \
 ../utility/structures/TypeSelection.h \
 ../utility/structures/TaggedVector3D.h \
 ../utility/structures/Vector3D.h \
+../utility/structures/OrientedBox.h \
+../utility/structures/Shape.h \
 ScaleTranMapBG.h \
 ScaledORBMapBG.h \
 MultistepLB.decl.h \
@@ -366,7 +371,6 @@ ParallelGravity.h \
 config.h \
 ../utility/structures/tree_xdr.h \
 ../utility/structures/OrientedBox.h \
-../utility/structures/Shape.h \
 ../utility/structures/xdr_template.h \
 ../utility/structures/config.h \
 ../utility/structures/TypedArray.h \
@@ -379,7 +383,6 @@ config.h \
 ../utility/structures/hilbert.h \
 TreeNode.h \
 GenericTreeNode.h \
-../utility/structures/OrientedBox.h \
 MultipoleMoments.h \
 moments.h \
 SSEdefs.h \
@@ -400,7 +403,6 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 
 Orb3dLB.o: \
@@ -411,10 +413,58 @@ MapStructures.h \
 ../utility/structures/TypeSelection.h \
 ../utility/structures/TaggedVector3D.h \
 ../utility/structures/Vector3D.h \
+../utility/structures/OrientedBox.h \
+../utility/structures/Shape.h \
 Orb3dLB.decl.h \
 ParallelGravity.h \
 config.h \
 ../utility/structures/tree_xdr.h \
+../utility/structures/OrientedBox.h \
+../utility/structures/xdr_template.h \
+../utility/structures/config.h \
+../utility/structures/TypedArray.h \
+../utility/structures/TypeHandling.h \
+../utility/structures/TipsyFile.h \
+../utility/structures/TipsyParticles.h \
+../utility/structures/TipsyReader.h \
+../utility/structures/Sphere.h \
+../utility/structures/SFC.h \
+../utility/structures/hilbert.h \
+TreeNode.h \
+GenericTreeNode.h \
+MultipoleMoments.h \
+moments.h \
+SSEdefs.h \
+GravityParticle.h \
+cooling.h \
+param.h \
+../utility/structures/Interval.h \
+parameters.h \
+cosmo.h \
+starform.h \
+dumpframe.h \
+codes.h \
+CacheInterface.h \
+gravity.h \
+../utility/structures/Space.h \
+../utility/structures/Box.h \
+MultistepLB.decl.h \
+InOutput.h \
+DataManager.h \
+ParallelGravity.decl.h \
+Compute.h \
+
+Orb3dLB_notopo.o: \
+Orb3dLB_notopo.C \
+Orb3dLB_notopo.h \
+Orb3dLB_notopo.decl.h \
+Orb3dLBCommon.h \
+ParallelGravity.h \
+config.h \
+../utility/structures/Vector3D.h \
+../utility/structures/TypeSelection.h \
+../utility/structures/tree_xdr.h \
+../utility/structures/Vector3D.h \
 ../utility/structures/OrientedBox.h \
 ../utility/structures/Shape.h \
 ../utility/structures/xdr_template.h \
@@ -441,24 +491,19 @@ parameters.h \
 cosmo.h \
 starform.h \
 dumpframe.h \
+../utility/structures/TaggedVector3D.h \
 codes.h \
 CacheInterface.h \
 gravity.h \
 ../utility/structures/Space.h \
 ../utility/structures/Box.h \
 MultistepLB.decl.h \
+Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
-
-EvacLB.o: \
-EvacLB.cpp \
-EvacLB.h \
-EvacLB.decl.h \
-../utility/structures/Vector3D.h \
-../utility/structures/TypeSelection.h \
+MapStructures.h \
 
 starform.o: \
 starform.C \
@@ -505,12 +550,62 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 smooth.h \
 State.h \
 Opt.h \
 Sph.h \
+
+MultistepLB_notopo.o: \
+MultistepLB_notopo.C \
+MultistepLB_notopo.h \
+Orb3dLBCommon.h \
+ParallelGravity.h \
+config.h \
+../utility/structures/Vector3D.h \
+../utility/structures/TypeSelection.h \
+../utility/structures/tree_xdr.h \
+../utility/structures/Vector3D.h \
+../utility/structures/OrientedBox.h \
+../utility/structures/Shape.h \
+../utility/structures/xdr_template.h \
+../utility/structures/config.h \
+../utility/structures/TypedArray.h \
+../utility/structures/TypeHandling.h \
+../utility/structures/TipsyFile.h \
+../utility/structures/TipsyParticles.h \
+../utility/structures/TipsyReader.h \
+../utility/structures/Sphere.h \
+../utility/structures/SFC.h \
+../utility/structures/hilbert.h \
+TreeNode.h \
+GenericTreeNode.h \
+../utility/structures/OrientedBox.h \
+MultipoleMoments.h \
+moments.h \
+SSEdefs.h \
+GravityParticle.h \
+cooling.h \
+param.h \
+../utility/structures/Interval.h \
+parameters.h \
+cosmo.h \
+starform.h \
+dumpframe.h \
+../utility/structures/TaggedVector3D.h \
+codes.h \
+CacheInterface.h \
+gravity.h \
+../utility/structures/Space.h \
+../utility/structures/Box.h \
+MultistepLB.decl.h \
+Orb3dLB.decl.h \
+InOutput.h \
+DataManager.h \
+ParallelGravity.decl.h \
+Compute.h \
+MapStructures.h \
+MultistepLB_notopo.decl.h \
 
 TreeWalk.o: \
 TreeWalk.C \
@@ -557,7 +652,6 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 TreeWalk.h \
 
@@ -606,7 +700,6 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 Opt.h \
 TreeWalk.h \
@@ -656,7 +749,6 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 Opt.h \
 smooth.h \
@@ -706,7 +798,6 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 TreeWalk.h \
 Opt.h \
@@ -757,7 +848,6 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 smooth.h \
 State.h \

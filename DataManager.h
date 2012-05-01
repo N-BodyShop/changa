@@ -55,6 +55,9 @@ struct PendingBuffers {
  */
 class DataManager : public CBase_DataManager {
 	friend class TreePiece;
+#ifdef DECOMPOSER_GROUP
+	friend class Decomposer;
+#endif
 
 	/// The array of TreePieces I hold data for.
 	CProxy_TreePiece treePieces;
@@ -172,7 +175,7 @@ private:
 public:
 
 	~DataManager() {
-	    for (int i = 0; i < nodeTable.length(); i++) {
+	    for (unsigned int i = 0; i < nodeTable.length(); i++) {
       		delete nodeTable[i];
     		}
     	    nodeTable.clear();

@@ -7,7 +7,7 @@ class State;
 class Compute;
 class TreePiece;
 
-
+/// @brief Base class for walking trees
 class TreeWalk{
   protected:
   Compute *comp;
@@ -60,6 +60,7 @@ class TreeWalk{
 
 };
 
+/// @brief Walk a tree starting with the root node.
 class TopDownTreeWalk : public TreeWalk{ 
   private:
 #ifndef CHANGA_REFACTOR_WALKCHECK

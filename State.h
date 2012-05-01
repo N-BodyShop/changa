@@ -211,11 +211,4 @@ class DoubleWalkState : public State {
 class NullState : public State {
 };
 
-class ListState : public State {
-  //public:
-  //OffsetNode nodeList;
-  //CkVec<LocalPartInfo> localParticleList;
-  //CkVec<RemotePartInfo> remoteParticleList;
-};
-
 #endif
