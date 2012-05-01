@@ -60,7 +60,7 @@ void EntryTypeGravityParticle::callback(CkArrayID requestorID, CkArrayIndexMax &
   int awi = userData.d0 >> 32;
   void *source = (void *)userData.d1;
 
-  elem.receiveParticlesCallback(cp->part, cp->end - cp->begin + 1, chunk, reqID, key, awi, source);
+  elem.ckLocal()->receiveParticlesCallback(cp->part, cp->end - cp->begin + 1, chunk, reqID, key, awi, source);
 }
 
 
@@ -159,7 +159,7 @@ void EntryTypeSmoothParticle::callback(CkArrayID requestorID, CkArrayIndexMax &r
   void *source = (void *)userData.d1;
   CacheSmoothParticle *cPart = (CacheSmoothParticle *)data;
 
-  elem.receiveParticlesFullCallback(cPart->partCached,
+  elem.ckLocal()->receiveParticlesFullCallback(cPart->partCached,
 				cPart->end - cPart->begin + 1, chunk, reqID,
 				key, awi, source);
 }
@@ -358,7 +358,7 @@ void EntryTypeGravityNode::callback(CkArrayID requestorID, CkArrayIndexMax &requ
   int reqID = (int)(userData.d0 & 0xFFFFFFFF);
   int awi = userData.d0 >> 32;
   void *source = (void *)userData.d1;
-  elem.receiveNodeCallback((Tree::GenericTreeNode*)data, chunk, reqID, awi, source);
+  elem.ckLocal()->receiveNodeCallback((Tree::GenericTreeNode*)data, chunk, reqID, awi, source);
 }
 
 
