@@ -4151,17 +4151,17 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   ((CkCacheManager*)cacheNode.ckLocalBranch())->cacheSync(numChunks, idxMax, localIndex);
   ((CkCacheManager*)cacheGravPart.ckLocalBranch())->cacheSync(numChunks, idxMax, dummy);
 
-  //if (myNumParticles == 0) {
-      // No particles assigned to this TreePiece
-      for (int i=0; i< numChunks; ++i) {
-          ((CkCacheManager*)cacheNode.ckLocalBranch())->finishedChunk(i, 0);
-          ((CkCacheManager*)cacheGravPart.ckLocalBranch())->finishedChunk(i, 0);
-	  }
-      CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
-      gravityProxy[thisIndex.data[0]].ckLocal()->contribute(cbf);
-      numChunks = -1; //numchunks needs to get reset next iteration incase particles move into this treepiece
-      return;
-  //}
+  if (myNumParticles == 0) {
+    // No particles assigned to this TreePiece
+    for (int i=0; i< numChunks; ++i) {
+      ((CkCacheManager*)cacheNode.ckLocalBranch())->finishedChunk(i, 0);
+      ((CkCacheManager*)cacheGravPart.ckLocalBranch())->finishedChunk(i, 0);
+    }
+    CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
+    gravityProxy[thisIndex.data[0]].ckLocal()->contribute(cbf);
+    numChunks = -1; //numchunks needs to get reset next iteration incase particles move into this treepiece
+    return;
+  }
   
   if (oldNumChunks != numChunks ) {
     delete[] nodeInterRemote;
