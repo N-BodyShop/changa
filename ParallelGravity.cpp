@@ -977,7 +977,7 @@ Main::Main(CkArgMsg* m) {
 	// nodes.
 	nPhases = 0;
 	if(param.bDoGravity) nPhases++;
-	if(param.bDoGas) {
+	if(true || param.bDoGas) {  // anticipate that gas might be set.
 	    nPhases += 2;
 	    if(param.bFastGas)
 		nPhases += 2;
