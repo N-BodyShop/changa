@@ -98,9 +98,10 @@ class Compute{
 
 #include "SSEdefs.h"
 
+///
+/// @brief Class to compute gravity using a "bucket walk".
+///
 class GravityCompute : public Compute{
-  // GenericTreeNode *myBucket;
-  // int activeRung;
 #ifdef BENCHMARK_TIME_COMPUTE
   double computeTimePart;
   double computeTimeNode;
@@ -127,7 +128,6 @@ class GravityCompute : public Compute{
 
   int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
   int computeParticleForces(TreePiece *owner, GenericTreeNode *node, ExternalGravityParticle *part, int reqID);
-  int computeNodeForces(TreePiece *owner, GenericTreeNode *nd, int reqID);
 
   // book keeping on notifications
   void nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);

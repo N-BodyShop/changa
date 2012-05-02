@@ -614,7 +614,13 @@ void GravityCompute::updateInterMass(GravityParticle *p, int start, int end, Gra
   }
 }
 
-// Source of force is a group of particles
+///
+/// @brief Calculate forces due to particles in a node
+/// @param ownerTP TreePiece of target particles
+/// @param node GenericTreeNode containing source particles
+/// @param part array of source particles
+/// @param reqID bucket number of target particles and offset
+///
 int GravityCompute::computeParticleForces(TreePiece *ownerTP, GenericTreeNode *node, ExternalGravityParticle *part, int reqID){
   int computed = 0;
 #ifdef BENCHMARK_TIME_COMPUTE
@@ -637,11 +643,6 @@ int GravityCompute::computeParticleForces(TreePiece *ownerTP, GenericTreeNode *n
   ownerTP->combineKeys(node->getKey(), bucketIndex);
 #endif
   return computed;
-}
-
-// Source of force is a node
-int GravityCompute::computeNodeForces(TreePiece *ownerTP, GenericTreeNode *node, int reqID){
-  return -1;
 }
 
 int PrefetchCompute::openCriterion(TreePiece *ownerTP,
