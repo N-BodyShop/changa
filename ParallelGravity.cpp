@@ -1,4 +1,22 @@
 /** @file ParallelGravity.cpp
+ *
+ * @mainpage ChaNGa: Charm++ N-body Gravity 
+ * 
+ * For internal documentation of the operation of this code please see the
+ * following classes:
+ * 
+ * Main: Overall control flow of the program.
+ * 
+ * TreePiece: Structure that holds the particle data and tree
+ * structure in each object.
+ *
+ * Sorter: Organize domain decomposition.
+ *
+ * DataManager: Organize data across processors.
+ *
+ * Tree::GenericTreeNode: Interface for the tree data structure.
+ *
+ * GravityParticle: Per particle data structure.
  */
  
 #include <stdint.h>
