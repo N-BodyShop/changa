@@ -1342,13 +1342,16 @@ void TreePiece::setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
     contribute(cb);
     }
 
-void TreePiece::setSoft(const double dSoft) {
+/// @param dSoft gravitational softening
+/// @param cb callback
+void TreePiece::setSoft(const double dSoft, const CkCallback& cb) {
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
 #ifdef CHANGESOFT
       myParticles[i].fSoft0 = dSoft;
 #endif
       myParticles[i].soft = dSoft;
   }
+  contribute(cb);
 }
 
 /**

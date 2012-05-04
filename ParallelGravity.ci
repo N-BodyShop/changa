@@ -278,7 +278,7 @@ mainmodule ParallelGravity {
 		int64_t nStartStar, const CkCallback &cb);
     entry void setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
 		 int64_t _nTotalStar, const CkCallback &cb);
-    entry void setSoft(const double dSoft);
+    entry void setSoft(const double dSoft, const CkCallback &cb);
     entry void physicalSoft(const double dSoftMax, const double dFac,
         const int bSoftMaxMul, const CkCallback& cb);
     entry void growMass(int nGrowMass, double dDeltaM, const CkCallback& cb);

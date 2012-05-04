@@ -1790,7 +1790,7 @@ void Main::setupICs() {
 
   if(prmSpecified(prm,"dSoft")) {
     ckout << "Set Softening...\n";
-    treeProxy.setSoft(param.dSoft);
+    treeProxy.setSoft(param.dSoft, CkCallbackResumeThread());
   }
 	
   if(param.bPeriodic) {	// puts all particles within the boundary
