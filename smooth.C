@@ -317,8 +317,8 @@ void TreePiece::setupSmooth() {
   dm->getChunks(numChunks, prefetchRoots);
   CkArrayIndexMax idxMax = CkArrayIndex1D(thisIndex);
   if (numChunks == 0 && myNumParticles == 0) numChunks = 1;
-  cacheSmoothPart[CkMyPe()].cacheSync(numChunks, idxMax, localIndex);
-  cacheNode[CkMyPe()].cacheSync(numChunks, idxMax, localIndex);
+  ((CkCacheManager*)cacheSmoothPart.ckLocalBranch())->cacheSync(numChunks, idxMax, localIndex);
+  ((CkCacheManager*)cacheNode.ckLocalBranch())->cacheSync(numChunks, idxMax, localIndex);
   
   // The following if is necessary to prevent nodes containing only TreePieces
   // without particles from getting stuck and crashing.
@@ -335,12 +335,14 @@ void TreePiece::setupSmooth() {
 
 // Start tree walk and smooth calculation
 
-void TreePiece::startIterationSmooth(// type of smoothing and parameters
+void TreePiece::startSmooth(// type of smoothing and parameters
 				     SmoothParams* params,
 				     int iLowhFix,
+				     int nSmooth,
 				     double dfBall2OverSoft2,
 				     const CkCallback& cb) {
 
+  CkAssert(nSmooth > 0);
   cbSmooth = cb;
   activeRung = params->activeRung;
 
@@ -372,7 +374,7 @@ void TreePiece::startIterationSmooth(// type of smoothing and parameters
   calculateSmoothLocal();
   }
   catch (std::bad_alloc) {
-	CkAbort("Out of memory in startIterationSmooth");
+	CkAbort("Out of memory in startSmooth");
 	}
 }
 
@@ -585,8 +587,8 @@ void NearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
     if(started && nParticlesPending == 0) {
       started = false;
       tp->memWithCache = CmiMemoryUsage()/(1024*1024);
-      tp->nNodeCacheEntries = cacheNode[CkMyPe()].getCache()->size();
-      tp->nPartCacheEntries = cacheSmoothPart[CkMyPe()].getCache()->size();
+      tp->nNodeCacheEntries = ((CkCacheManager*)cacheNode.ckLocalBranch())->getCache()->size();
+      tp->nPartCacheEntries = ((CkCacheManager*)cacheSmoothPart.ckLocalBranch())->getCache()->size();
       cacheNode[CkMyPe()].finishedChunk(0, 0);
       cacheSmoothPart[CkMyPe()].finishedChunk(0, 0);
 #ifdef CHECK_WALK_COMPLETIONS
@@ -787,7 +789,7 @@ void ReSmoothCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state,
 
 // Start tree walk and smooth calculation
 
-void TreePiece::startIterationReSmooth(SmoothParams* params,
+void TreePiece::startReSmooth(SmoothParams* params,
 				       const CkCallback& cb) {
 
   cbSmooth = cb;
@@ -1015,7 +1017,7 @@ void MarkSmoothCompute::nodeRecvdEvent(TreePiece *owner, int chunk,
 
 // Start marksmooth walk
 
-void TreePiece::startIterationMarkSmooth(SmoothParams* params,
+void TreePiece::startMarkSmooth(SmoothParams* params,
 				       const CkCallback& cb) {
 
   cbSmooth = cb;

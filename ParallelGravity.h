@@ -167,8 +167,6 @@ extern double largePhaseThreshold;
 extern double theta;
 extern double thetaMono;
 
-extern int nSmooth;
-
 extern int numInitDecompBins;
 
 class dummyMsg : public CMessage_dummyMsg{
@@ -1572,13 +1570,14 @@ public:
   /// Start a tree based smooth computation.
   /// @param p parameters, including the type, of the smooth.
   /// @param iLowhFix true if a minimum h/softening is used.
+  /// @param nSmooth Number of particles to smooth over.
   /// @param dfBall2OverSoft2 square of minimum ratio of h to softening.
   /// @param cb the callback to use after all the computation has finished
   /// @reference SmoothParams
-  void startIterationSmooth(SmoothParams *p, int iLowhFix,
-			    double dfBall2OverSoft2, const CkCallback &cb);
-  void startIterationReSmooth(SmoothParams *p, const CkCallback& cb);
-  void startIterationMarkSmooth(SmoothParams *p, const CkCallback& cb);
+  void startSmooth(SmoothParams *p, int iLowhFix, int nSmooth,
+		   double dfBall2OverSoft2, const CkCallback &cb);
+  void startReSmooth(SmoothParams *p, const CkCallback& cb);
+  void startMarkSmooth(SmoothParams *p, const CkCallback& cb);
 
   void finishNodeCache(int iPhases, const CkCallback& cb);
 	/// Function called by the CacheManager to send out request for needed

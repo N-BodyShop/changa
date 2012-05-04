@@ -117,6 +117,10 @@ void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, 
   contribute(sizeof(CkCallback), &cb, callbackReduction, unshuffleCallback);
 }
 
+///
+/// @brief Class to represent key pairs that are to be sorted on the
+/// first key of the pair.
+///
 class KeyDouble {
   SFC::Key first;
   SFC::Key second;
