@@ -42,8 +42,8 @@ public:
         }
 };
 
-/// We can make this a base class from which parameters for all smooth
-/// types can be derived.
+/// @brief A base class from which parameters for all smooth
+/// operations can be derived.
 class SmoothParams : public PUP::able
 {
  public:
