@@ -1342,13 +1342,16 @@ void TreePiece::setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
     contribute(cb);
     }
 
-void TreePiece::setSoft(const double dSoft) {
+/// @param dSoft gravitational softening
+/// @param cb callback
+void TreePiece::setSoft(const double dSoft, const CkCallback& cb) {
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
 #ifdef CHANGESOFT
       myParticles[i].fSoft0 = dSoft;
 #endif
       myParticles[i].soft = dSoft;
   }
+  contribute(cb);
 }
 
 /**
@@ -2713,8 +2716,8 @@ void TreePiece::continueWrapUp(){
 #endif
 
   memWithCache = CmiMemoryUsage()/(1024*1024);
-  nNodeCacheEntries = cacheNode[CkMyPe()].getCache()->size();
-  nPartCacheEntries = cacheGravPart[CkMyPe()].getCache()->size();
+  nNodeCacheEntries = ((CkCacheManager*)cacheNode.ckLocalBranch())->getCache()->size();
+  nPartCacheEntries = ((CkCacheManager*)cacheGravPart.ckLocalBranch())->getCache()->size();
 
   markWalkDone();
 
@@ -3965,19 +3968,20 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   // without particles to get stuck and crash...
   if (numChunks == 0 && myNumParticles == 0) numChunks = 1;
   int dummy;
-  cacheNode[CkMyPe()].cacheSync(numChunks, idxMax, localIndex);
-  cacheGravPart[CkMyPe()].cacheSync(numChunks, idxMax, dummy);
+
+  ((CkCacheManager*)cacheNode.ckLocalBranch())->cacheSync(numChunks, idxMax, localIndex);
+  ((CkCacheManager*)cacheGravPart.ckLocalBranch())->cacheSync(numChunks, idxMax, dummy);
 
   if (myNumParticles == 0) {
-      // No particles assigned to this TreePiece
-      for (int i=0; i< numChunks; ++i) {
-	  cacheNode[CkMyPe()].finishedChunk(i, 0);
-	  cacheGravPart[CkMyPe()].finishedChunk(i, 0);
-	  }
-      CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
-      gravityProxy[thisIndex].ckLocal()->contribute(cbf);
-      numChunks = -1; //numchunks needs to get reset next iteration incase particles move into this treepiece
-      return;
+    // No particles assigned to this TreePiece
+    for (int i=0; i< numChunks; ++i) {
+      ((CkCacheManager*)cacheNode.ckLocalBranch())->finishedChunk(i, 0);
+      ((CkCacheManager*)cacheGravPart.ckLocalBranch())->finishedChunk(i, 0);
+    }
+    CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
+    gravityProxy[thisIndex].ckLocal()->contribute(cbf);
+    numChunks = -1; //numchunks needs to get reset next iteration incase particles move into this treepiece
+    return;
   }
   
   if (oldNumChunks != numChunks ) {
