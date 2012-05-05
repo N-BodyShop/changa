@@ -1449,6 +1449,7 @@ void TreePiece::getCOMByType(int iType, const CkCallback& cb, int bLiveViz) {
 	contribute(4*sizeof(double), com, CkReduction::sum_double, cb);
 }
 
+/// @brief structure for efficiently reading iOrders.
 struct SortStruct {
   int iOrder;
   int iStore;
@@ -1458,6 +1459,9 @@ int CompSortStruct(const void * a, const void * b) {
   return ( ( ((struct SortStruct *) a)->iOrder < ((struct SortStruct *) b)->iOrder ? -1 : 1 ) );
 }
 
+/// @brief Read file of iOrders to set particle type.
+///
+/// This is used by the photogenic code of dumpframe.
 void TreePiece::SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet) {
   int niOrder = 0, nSet = 0;
