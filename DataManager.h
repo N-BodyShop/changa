@@ -247,7 +247,6 @@ public:
     void resetReadOnly(Parameters param, const CkCallback &cb);
 };
 
-#ifdef SELECTIVE_TRACING
 class ProjectionsControl : public CBase_ProjectionsControl { 
   public: 
   ProjectionsControl() {} 
@@ -272,8 +271,6 @@ class ProjectionsControl : public CBase_ProjectionsControl {
   void pup(PUP::er &p){
   }
 }; 
-
-#endif
 
 
 #endif //DATAMANAGER_H
