@@ -102,9 +102,7 @@ CkArrayID treePieceID;
 CkGroupID ckMulticastGrpId;
 #endif
 
-#ifdef SELECTIVE_TRACING
 CProxy_ProjectionsControl prjgrp;
-#endif
 
 bool doDumpLB;
 int lbDumpIteration;
@@ -928,9 +926,7 @@ Main::Main(CkArgMsg* m) {
 
 	CProxy_TreePiece pieces = CProxy_TreePiece::ckNew(opts);
 
-#ifdef SELECTIVE_TRACING
         prjgrp = CProxy_ProjectionsControl::ckNew();
-#endif
        
 	treeProxy = pieces;
         int NUM_MESSAGES_BUFFERED = 1024;

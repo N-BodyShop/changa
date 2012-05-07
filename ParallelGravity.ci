@@ -67,9 +67,7 @@ mainmodule ParallelGravity {
   readonly CkGroupID ckMulticastGrpId;
 #endif
 
-#ifdef SELECTIVE_TRACING
   readonly CProxy_ProjectionsControl prjgrp;
-#endif
 
   // number of bins to use for the first
   // iteration of every decomposition step
@@ -134,14 +132,11 @@ mainmodule ParallelGravity {
     entry void liveVizImagePrep(liveVizRequestMsg *msg);
   };
 
-#ifdef SELECTIVE_TRACING
   group [migratable] ProjectionsControl {
     entry ProjectionsControl();
     entry [notrace] void on(CkCallback);
     entry [notrace] void off(CkCallback);                     
   };                                                          
-#endif
-
 #ifdef DECOMPOSER_GROUP
   group Decomposer {
     entry Decomposer();
