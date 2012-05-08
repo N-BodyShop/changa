@@ -148,6 +148,9 @@ extern int networkProgressUE;
 extern int nodeForceUE;
 extern int partForceUE;
 
+extern int tbRecursiveUE;
+extern int tbFlushRequestsUE;
+
 extern int _prefetch;
 extern int _randChunks;
 extern int _numChunks;

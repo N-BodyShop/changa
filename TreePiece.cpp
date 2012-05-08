@@ -2068,12 +2068,16 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   root->startBucket=0;
 #endif
   // recursively build the tree
+
+  double start = CmiWallTimer();
   try {
 	buildOctTree(root, 0);
 	}
   catch (std::bad_alloc) {
 	CkAbort("Out of memory in treebuild");
 	}
+  
+  traceUserBracketEvent(tbRecursiveUE,start,CmiWallTimer());
 /* jetley - save the treepiece bounding box for use later.
    Needed because each treepiece must, for oct decomposition, send its
    centroid to a load balancing strategy object. The previous tree
@@ -2102,6 +2106,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
 
   //CkPrintf("[%d] finished building local tree\n",thisIndex);
 
+  start = CmiWallTimer();
   // check all the pending requests in for RemoteMoments
   for (MomentRequestType::iterator iter = momentRequests.begin(); iter != momentRequests.end(); ) {
     NodeKey nodeKey = iter->first;
@@ -2121,6 +2126,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
       momentRequests.erase(node->getKey());
     }
   }
+  traceUserBracketEvent(tbFlushRequestsUE,start,CmiWallTimer());
 
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Number of buckets: " << numBuckets << endl;

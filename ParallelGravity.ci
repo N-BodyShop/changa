@@ -53,6 +53,9 @@ mainmodule ParallelGravity {
   readonly int nodeForceUE;
   readonly int partForceUE;
 
+  readonly int tbRecursiveUE;
+  readonly int tbFlushRequestsUE;
+
 #ifdef PUSH_GRAVITY
   readonly CkGroupID ckMulticastGrpId;
 #endif

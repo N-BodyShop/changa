@@ -103,6 +103,9 @@ int networkProgressUE;
 int nodeForceUE;
 int partForceUE;
 
+int tbRecursiveUE;
+int tbFlushRequestsUE;
+
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
 
@@ -176,6 +179,9 @@ Main::Main(CkArgMsg* m) {
         traceRegisterUserEvent("Remote Particle", CUDA_REMOTE_PART_KERNEL);
         traceRegisterUserEvent("Remote Resume Particle", CUDA_REMOTE_RESUME_PART_KERNEL);
 #endif
+
+        tbRecursiveUE = traceRegisterUserEvent("TreeBuild::buildOctTree::recursive");
+        tbFlushRequestsUE = traceRegisterUserEvent("TreeBuild::buildOctTree::flushRequests");
 	
 	prmInitialize(&prm,_Leader,_Trailer);
 	csmInitialize(&param.csm);
