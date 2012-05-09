@@ -259,6 +259,7 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   if((domainDecomposition!=ORB_dec) && (domainDecomposition!=ORB_space_dec)){
     sort(myParticles+1, myParticles+myNumParticles+1);
   }
+
   contribute(0, 0, CkReduction::concat, cb);
 }
 
@@ -452,8 +453,11 @@ void TreePiece::loadTipsy(const std::string& filename,
 		   replyCB);
 }
 
-// Perform Parallel Scan to establish start of parallel writes, then
-// do the writing
+/// @brief Find starting offsets and begin parallel write.
+///
+/// Perform Parallel Scan (a log(p) algorithm) to establish start of
+/// parallel writes, then do the writing.  Calls writeTipsy() to do
+/// the actual writing.
 void TreePiece::setupWrite(int iStage, // stage of scan
 			   u_int64_t iPrevOffset,
 			   const std::string& filename,

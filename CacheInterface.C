@@ -1,3 +1,7 @@
+/// @file CacheInterface.C
+///
+/// Implementation of the interfaces used by the CacheManager.
+///
 #include "CacheInterface.h"
 #include "ParallelGravity.h"
 #include "Opt.h"
@@ -5,17 +9,25 @@
 
 EntryTypeGravityParticle::EntryTypeGravityParticle() {
   CkCacheFillMsg msg(0);
-  offset = ((char*)&msg.data) - ((char*)&msg);
 }
 
+/// @param idx Index of the TreePiece
+/// @param key Key of the requested bucket.
+///
+/// Calls TreePiece::fillRequestParticles() to fullfill the request.
 void * EntryTypeGravityParticle::request(CkArrayIndexMax& idx, CkCacheKey key) {
   CkCacheRequestMsg *msg = new (32) CkCacheRequestMsg(key, CkMyPe());
+  // This is a high priority message
   *(int*)CkPriorityPtr(msg) = -100000000;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
   treeProxy[*idx.data()].fillRequestParticles(msg);
   return NULL;
 }
 
+/// @param msg Message containing requested data.
+/// @param chunk chunk of cache
+/// @param from Index of TreePiece which supplied the data
+/// @return pointer to cached data
 void * EntryTypeGravityParticle::unpack(CkCacheFillMsg *msg, int chunk, CkArrayIndexMax &from) {
   CacheParticle *data = (CacheParticle*) msg->data;
   data->msg = msg;
@@ -33,6 +45,13 @@ int EntryTypeGravityParticle::size(void * data) {
   return sizeof(CacheParticle) + (p->end - p->begin) * sizeof(ExternalGravityParticle);
 }
 
+/// @param requestorID ID of TreePiece CkArray
+/// @param requestorIdx Index of requesting TreePiece
+/// @param key Key of bucket requested
+/// @param userData Encodes which bucket and which walk requested this
+/// data.
+/// @param data Pointer to the cached data
+/// @param chunk Which chunk is this for.
 void EntryTypeGravityParticle::callback(CkArrayID requestorID, CkArrayIndexMax &requestorIdx, CkCacheKey key, CkCacheUserData &userData, void *data, int chunk) {
   CkArrayIndex1D idx(requestorIdx.data()[0]);
   CProxyElement_TreePiece elem(requestorID, idx);
@@ -41,7 +60,7 @@ void EntryTypeGravityParticle::callback(CkArrayID requestorID, CkArrayIndexMax &
   int awi = userData.d0 >> 32;
   void *source = (void *)userData.d1;
 
-  elem.receiveParticlesCallback(cp->part, cp->end - cp->begin + 1, chunk, reqID, key, awi, source);
+  elem.ckLocal()->receiveParticlesCallback(cp->part, cp->end - cp->begin + 1, chunk, reqID, key, awi, source);
 }
 
 
@@ -58,7 +77,7 @@ void TreePiece::fillRequestParticles(CkCacheRequestMsg *msg) {
   data->begin = bucket->firstParticle;
   data->end = bucket->lastParticle;
   
-  for (int i=0; i<bucket->particleCount; ++i) {
+  for (unsigned int i=0; i<bucket->particleCount; ++i) {
     data->part[i] = *((ExternalGravityParticle*)&myParticles[i+bucket->firstParticle]);
   }
   
@@ -140,7 +159,7 @@ void EntryTypeSmoothParticle::callback(CkArrayID requestorID, CkArrayIndexMax &r
   void *source = (void *)userData.d1;
   CacheSmoothParticle *cPart = (CacheSmoothParticle *)data;
 
-  elem.receiveParticlesFullCallback(cPart->partCached,
+  elem.ckLocal()->receiveParticlesFullCallback(cPart->partCached,
 				cPart->end - cPart->begin + 1, chunk, reqID,
 				key, awi, source);
 }
@@ -162,11 +181,11 @@ void TreePiece::processReqSmoothParticles() {
 	CacheSmoothParticle *data = (CacheSmoothParticle*)reply->data;
 	data->begin = bucket->firstParticle;
 	data->end = bucket->lastParticle;
-	for (int ip=0; ip<bucket->particleCount; ++ip) {
+	for (unsigned int ip=0; ip<bucket->particleCount; ++ip) {
 	    data->partExt[ip] = myParticles[ip+bucket->firstParticle].getExternalSmoothParticle();
 	    }
 
-	for(int i = 0; i < vRec->length(); ++i) {
+	for(unsigned int i = 0; i < vRec->length(); ++i) {
 	    nCacheAccesses++;
 	    if(i < vRec->length() - 1) { // Copy message if there is
 					 // more than one outstanding request.
@@ -206,7 +225,7 @@ void TreePiece::fillRequestSmoothParticles(CkCacheRequestMsg *msg) {
   data->begin = bucket->firstParticle;
   data->end = bucket->lastParticle;
   
-  for (int i=0; i<bucket->particleCount; ++i) {
+  for (unsigned int i=0; i<bucket->particleCount; ++i) {
       data->partExt[i] = myParticles[i+bucket->firstParticle].getExternalSmoothParticle();
   }
   
@@ -270,7 +289,7 @@ void * EntryTypeGravityNode::unpack(CkCacheFillMsg *msg, int chunk, CkArrayIndex
   
   // link node to its parent if present in the cache
   CkCacheKey ckey(node->getParentKey());
-  Tree::BinaryTreeNode *parent = (Tree::BinaryTreeNode *) cacheNode[CkMyPe()].requestDataNoFetch(ckey, chunk);
+  Tree::BinaryTreeNode *parent = (Tree::BinaryTreeNode *) ((CkCacheManager *)cacheNode.ckLocalBranch())->requestDataNoFetch(ckey, chunk);
   if (parent != NULL) {
     node->parent = parent;
     parent->setChildren(parent->whichChild(node->getKey()), node);
@@ -298,7 +317,7 @@ void EntryTypeGravityNode::unpackSingle(CkCacheFillMsg *msg, Tree::BinaryTreeNod
       unpackSingle(msg, node->children[i], chunk, from, false);
     } else {
       CkCacheKey ckey = node->getChildKey(i);
-      Tree::BinaryTreeNode *child = (Tree::BinaryTreeNode *) cacheNode[CkMyPe()].requestDataNoFetch(ckey, chunk);
+      Tree::BinaryTreeNode *child = (Tree::BinaryTreeNode *) ((CkCacheManager *)cacheNode.ckLocalBranch())->requestDataNoFetch(ckey, chunk);
       if (child != NULL) {
         child->parent = node;
         node->setChildren(node->whichChild(child->getKey()), child);
@@ -319,7 +338,7 @@ void EntryTypeGravityNode::unpackSingle(CkCacheFillMsg *msg, Tree::BinaryTreeNod
     node->setType(Tree::Cached);
   }
   CkCacheKey ckey(node->getKey());
-  if (!isRoot) cacheNode[CkMyPe()].recvData(ckey, from, (EntryTypeGravityNode*)this, chunk, (void*)node);
+  if (!isRoot) ((CkCacheManager*)cacheNode.ckLocalBranch())->recvData(ckey, from, (EntryTypeGravityNode*)this, chunk, (void*)node);
 }
 
 void EntryTypeGravityNode::writeback(CkArrayIndexMax& idx, CkCacheKey k, void *data) { }
@@ -339,7 +358,7 @@ void EntryTypeGravityNode::callback(CkArrayID requestorID, CkArrayIndexMax &requ
   int reqID = (int)(userData.d0 & 0xFFFFFFFF);
   int awi = userData.d0 >> 32;
   void *source = (void *)userData.d1;
-  elem.receiveNodeCallback((Tree::GenericTreeNode*)data, chunk, reqID, awi, source);
+  elem.ckLocal()->receiveNodeCallback((Tree::GenericTreeNode*)data, chunk, reqID, awi, source);
 }
 
 

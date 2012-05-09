@@ -6,6 +6,8 @@
 #include "starform.h"
 #include "feedback.h"
 
+/** @brief Hold parameters of the run.
+ */
 typedef struct parameters {
     /*
     ** Parameters for ParallelGravity.
@@ -41,6 +43,9 @@ typedef struct parameters {
     int iOrder;
     int bConcurrentSph;
     double dFracNoDomainDecomp;
+#ifdef PUSH_GRAVITY
+    double dFracPushParticles;
+#endif
     CSM csm;			/* cosmo parameters */
     double dRedTo;
     /*
@@ -61,6 +66,7 @@ typedef struct parameters {
     int bGasAdiabatic;
     int bGasIsothermal;
     int bGasCooling;
+    int nSmooth;
     COOLPARAM CoolParam;
     double dhMinOverSoft;
     double dMsolUnit;
@@ -143,6 +149,9 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.iOrder;
     p|param.bConcurrentSph;
     p|param.dFracNoDomainDecomp;
+#ifdef PUSH_GRAVITY
+    p|param.dFracPushParticles;
+#endif
     if(p.isUnpacking())
  	csmInitialize(&param.csm);
     p|*param.csm;

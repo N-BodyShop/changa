@@ -1,9 +1,16 @@
+/// @file InOutput.h
+/// Declarations for I/O implemenatation.
 #ifndef __INOUTPUT_H
 #define __INOUTPUT_H
 
 class OutputParams;
 #include "DataManager.h"
 
+/// @brief Base class for output parameters.
+///
+/// This is an abstract class from which an output parameter class can
+/// be derived.  Derived classes need to implement dValue() or
+/// vValue() which returns the value to be output for a given particle.
 class OutputParams : public PUP::able 
 {
  public:
@@ -23,6 +30,7 @@ class OutputParams : public PUP::able
 	}
     };
 
+/// @brief Output accelerations.
 class AccOutputParams : public OutputParams
 {
  public:
@@ -38,6 +46,7 @@ class AccOutputParams : public OutputParams
 	}
     };
     
+/// @brief Output densities.
 class DenOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p) {return p->fDensity;}
@@ -53,6 +62,7 @@ class DenOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output smoothing lengths.
 class HsmOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p) {return 0.5*p->fBall;}
@@ -68,6 +78,7 @@ class HsmOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output gravitational softening.
 class SoftOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p) {return p->soft;}
@@ -83,6 +94,7 @@ class SoftOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output pressure.
 class PresOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -104,6 +116,7 @@ class PresOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output divergence of velocity.
 class DivVOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -125,6 +138,7 @@ class DivVOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output pressure times change in volume.
 class PDVOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -146,6 +160,7 @@ class PDVOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output artificial viscosity mumax.
 class MuMaxOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -167,6 +182,7 @@ class MuMaxOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output value of Balsara switch.
 class BSwOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -188,6 +204,7 @@ class BSwOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output sound speed.
 class CsOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -209,6 +226,7 @@ class CsOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output the cooling rate.
 class EDotOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -236,6 +254,7 @@ class EDotOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output the value in cool_array0.
 class Cool0OutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -259,6 +278,7 @@ class Cool0OutputParams : public OutputParams
 	}
     };
 
+/// @brief Output the value in cool_array1.
 class Cool1OutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -282,6 +302,7 @@ class Cool1OutputParams : public OutputParams
 	}
     };
 
+/// @brief Output the value in cool_array2.
 class Cool2OutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -370,6 +391,7 @@ class coolontimeOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output timesteps.
 class DtOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -392,6 +414,7 @@ class DtOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output rungs.
 class RungOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)

@@ -22,10 +22,13 @@ struct PrefetchRequestStruct{
   PrefetchRequestStruct(OrientedBox<double> *p, int n) : prefetchReq(p), numPrefetchReq(n) {}
 };
 
-/* Computes */
+/// @brief Base clase for all tree based computations.
+///
+/// The Compute object determines what work is to be done at each
+/// treenode, as well as what gets done at the beginning and the end
+/// of a walk.  The key method is doWork().
 class Compute{
   protected:
-  //State *state;
   Opt *opt;
   void *computeEntity;
   int activeRung;
@@ -93,13 +96,19 @@ class Compute{
   virtual void freeState(State *state);
 };
 
+#include "SSEdefs.h"
+
+///
+/// @brief Class to compute gravity using a "bucket walk".
+///
 class GravityCompute : public Compute{
-  // GenericTreeNode *myBucket;
-  // int activeRung;
 #ifdef BENCHMARK_TIME_COMPUTE
   double computeTimePart;
   double computeTimeNode;
 #endif
+
+  void updateInterMass(GravityParticle *p, int start, int end, double mass);
+  void updateInterMass(GravityParticle *p, int start, int end, GravityParticle *s, Vector3D<cosmoType> &offset);
 
   public:
   GravityCompute() : Compute(Gravity){
@@ -119,7 +128,6 @@ class GravityCompute : public Compute{
 
   int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
   int computeParticleForces(TreePiece *owner, GenericTreeNode *node, ExternalGravityParticle *part, int reqID);
-  int computeNodeForces(TreePiece *owner, GenericTreeNode *nd, int reqID);
 
   // book keeping on notifications
   void nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);

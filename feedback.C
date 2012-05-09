@@ -146,7 +146,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
     DistStellarFeedbackSmoothParams pDSFB(TYPE_GAS, 0, param.csm, dTime, 
 					  param.dConstGamma, param.feedback);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
-    treeProxy.startIterationSmooth(&pDSFB, 1, dfBall2OverSoft2,
+    treeProxy.startSmooth(&pDSFB, 1, param.nSmooth, dfBall2OverSoft2,
 				   CkCallbackResumeThread());
     iPhase++;
 

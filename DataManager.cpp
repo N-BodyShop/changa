@@ -113,11 +113,15 @@ void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, 
     CkPrintf("\n");
   }
 
-	contribute(sizeof(CkCallback), &cb, callbackReduction,
-		   CkCallback(CkIndex_TreePiece::unshuffleParticles(0),
-			      treePieces));
+  CkCallback unshuffleCallback(CkIndex_TreePiece::unshuffleParticles(0),treePieces);
+
+  contribute(sizeof(CkCallback), &cb, callbackReduction, unshuffleCallback);
 }
 
+///
+/// @brief Class to represent key pairs that are to be sorted on the
+/// first key of the pair.
+///
 class KeyDouble {
   SFC::Key first;
   SFC::Key second;
@@ -915,11 +919,10 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
       for(int j = 1; j <= numParticles; j++){
         if(tp->isActive(j)){
 #ifndef CUDA_NO_ACC_UPDATES
-          // FIXME - used to be +=
-          tp->myParticles[j].treeAcceleration.x = deviceParticles[partIndex].a.x; //+ tp->myParticles[j].treeAcceleration;
-          tp->myParticles[j].treeAcceleration.y = deviceParticles[partIndex].a.y; //+ tp->myParticles[j].treeAcceleration;
-          tp->myParticles[j].treeAcceleration.z = deviceParticles[partIndex].a.z; //+ tp->myParticles[j].treeAcceleration;
-          tp->myParticles[j].potential = deviceParticles[partIndex].potential;
+          tp->myParticles[j].treeAcceleration.x += deviceParticles[partIndex].a.x; 
+          tp->myParticles[j].treeAcceleration.y += deviceParticles[partIndex].a.y; 
+          tp->myParticles[j].treeAcceleration.z += deviceParticles[partIndex].a.z; 
+          tp->myParticles[j].potential += deviceParticles[partIndex].potential;
 #endif
 #ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
           CkPrintf("particle %d device: (%f,%f,%f) host: (%f,%f,%f)\n",
@@ -939,11 +942,10 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
       for(int j = 1; j <= numParticles; j++){
         if(tp->isActive(j)){
 #ifndef CUDA_NO_ACC_UPDATES
-          // FIXME - used to be +=
-          tp->myParticles[j].treeAcceleration.x = deviceParticles[partIndex].a.x; // + tp->myParticles[j].treeAcceleration;
-          tp->myParticles[j].treeAcceleration.y = deviceParticles[partIndex].a.y; // + tp->myParticles[j].treeAcceleration;
-          tp->myParticles[j].treeAcceleration.z = deviceParticles[partIndex].a.z; // + tp->myParticles[j].treeAcceleration;
-          tp->myParticles[j].potential = deviceParticles[partIndex].potential;
+          tp->myParticles[j].treeAcceleration.x += deviceParticles[partIndex].a.x; 
+          tp->myParticles[j].treeAcceleration.y += deviceParticles[partIndex].a.y; 
+          tp->myParticles[j].treeAcceleration.z += deviceParticles[partIndex].a.z; 
+          tp->myParticles[j].potential += deviceParticles[partIndex].potential;
 #endif
 #ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
           CkPrintf("particle %d device: (%f,%f,%f) host: (%f,%f,%f)\n",

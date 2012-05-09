@@ -1,7 +1,14 @@
 #ifndef CUDA_TYPEDEF_H_
 #define CUDA_TYPEDEF_H_
 
+/** @file cuda_typedef.h
+ *
+ * Definitions of types for the CUDA port.
+ */
+
+/** @brief floating point type on the GPU */
 typedef float cudatype;
+/** @brief floating point type on the host */
 typedef double hosttype;
 
 // set these to appropriate values (in millions)
@@ -31,6 +38,8 @@ typedef double hosttype;
 #define TP_LARGE_PHASE_THRESHOLD_DEFAULT 0.3
 #define AVG_SOURCE_PARTICLES_PER_ACTIVE 10 
 
+/** @brief 3D vector of cudatype.
+ */
 typedef struct CudaVector3D{
   cudatype x,y,z;
 #if __cplusplus && !defined __CUDACC__
@@ -55,6 +64,8 @@ typedef struct CudaVector3D{
 #endif
 }CudaVector3D;
 
+/** @brief Version of MultipoleMoments using cudatype
+ */
 typedef struct CudaMultipoleMoments{
   cudatype radius;
   cudatype soft;
@@ -84,9 +95,14 @@ typedef struct CudaMultipoleMoments{
 #endif
 }CudaMultipoleMoments;
 
+/** @brief Bucket of particles on the interaction list for the GPU.
+ */
 typedef struct ILPart{
+  /** Index of particles on GPU. */
   int index;
+  /** Encodes the replica for periodic boundaries */
   int off;
+  /** Number of particles in the bucket. */
   int num;
 
 #if __cplusplus && !defined __CUDACC__
@@ -96,8 +112,12 @@ typedef struct ILPart{
 #endif
 }ILPart;
 
+/** @brief Cell on the interaction list for the GPU
+ */
 typedef struct ILCell{
+  /** Index of this cell's moments on the GPU. */
   int index;
+  /** Encodes the replica for periodic boundaries */
   int offsetID;
 #if __cplusplus && !defined __CUDACC__
   ILCell() {}

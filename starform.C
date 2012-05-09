@@ -145,11 +145,15 @@ void Main::FormStars(double dTime, double dDelta)
     double tolerance = 0.01;	// tolerance for domain decomposition
     sorter.startSorting(dataManagerID, tolerance,
                         CkCallbackResumeThread(), true);
+#ifdef PUSH_GRAVITY
+    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
+#else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
     DensitySmoothParams pDen(TYPE_GAS, 0);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
-    treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
-				   CkCallbackResumeThread());
+    treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
+			  CkCallbackResumeThread());
     iPhase++;
 
     CkReductionMsg *msgCounts;
@@ -167,7 +171,7 @@ void Main::FormStars(double dTime, double dDelta)
 	if(verbosity)
 	    CkPrintf("Distribute Deleted gas\n");
 	DistDeletedGasSmoothParams pDGas(TYPE_GAS, 0);
-	treeProxy.startIterationReSmooth(&pDGas, CkCallbackResumeThread());
+	treeProxy.startReSmooth(&pDGas, CkCallbackResumeThread());
 	iPhase++;
 
 	}
