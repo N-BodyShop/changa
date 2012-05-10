@@ -103,6 +103,9 @@ int networkProgressUE;
 int nodeForceUE;
 int partForceUE;
 
+int tbRecursiveUE;
+int tbFlushRequestsUE;
+
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
 
@@ -111,9 +114,7 @@ CkArrayID treePieceID;
 CkGroupID ckMulticastGrpId;
 #endif
 
-#ifdef SELECTIVE_TRACING
 CProxy_ProjectionsControl prjgrp;
-#endif
 
 bool doDumpLB;
 int lbDumpIteration;
@@ -178,6 +179,9 @@ Main::Main(CkArgMsg* m) {
         traceRegisterUserEvent("Remote Particle", CUDA_REMOTE_PART_KERNEL);
         traceRegisterUserEvent("Remote Resume Particle", CUDA_REMOTE_RESUME_PART_KERNEL);
 #endif
+
+        tbRecursiveUE = traceRegisterUserEvent("TreeBuild::buildOctTree::recursive");
+        tbFlushRequestsUE = traceRegisterUserEvent("TreeBuild::buildOctTree::flushRequests");
 	
 	prmInitialize(&prm,_Leader,_Trailer);
 	csmInitialize(&param.csm);
@@ -960,9 +964,7 @@ Main::Main(CkArgMsg* m) {
 
 	CProxy_TreePiece pieces = CProxy_TreePiece::ckNew(opts);
 
-#ifdef SELECTIVE_TRACING
         prjgrp = CProxy_ProjectionsControl::ckNew();
-#endif
 
 	treeProxy = pieces;
 #ifdef DECOMPOSER_GROUP

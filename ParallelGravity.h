@@ -148,6 +148,9 @@ extern int networkProgressUE;
 extern int nodeForceUE;
 extern int partForceUE;
 
+extern int tbRecursiveUE;
+extern int tbFlushRequestsUE;
+
 extern int _prefetch;
 extern int _randChunks;
 extern int _numChunks;
@@ -1002,18 +1005,8 @@ private:
 	/// Map between Keys and TreeNodes, used to get a node from a key
 	NodeLookupType nodeLookupTable;
 
-	/// Number of particles which are still traversing the tree
-	//u_int64_t myNumParticlesPending;
-
-        /// Number of pending chenks
-        // A chunk is pending wrt a TP until that TP has finished using
-        // it completely (i.e. state->counterArrays[1][chunk] == 0)
-        //int numPendingChunks;
-
 	/// Number of nodes still missing before starting the real computation
 	//u_int64_t prefetchWaiting;
-	/// Current prefetching chunk in progress
-        //int currentPrefetch;
 	/// Array of keys that will be the root of the prefetching chunks
 	Tree::NodeKey *prefetchRoots;
 	/// Placeholder for particles used for prefetching

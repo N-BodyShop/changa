@@ -1452,6 +1452,7 @@ void TreePiece::getCOMByType(int iType, const CkCallback& cb, int bLiveViz) {
 	contribute(4*sizeof(double), com, CkReduction::sum_double, cb);
 }
 
+/// @brief structure for efficiently reading iOrders.
 struct SortStruct {
   int iOrder;
   int iStore;
@@ -1461,6 +1462,9 @@ int CompSortStruct(const void * a, const void * b) {
   return ( ( ((struct SortStruct *) a)->iOrder < ((struct SortStruct *) b)->iOrder ? -1 : 1 ) );
 }
 
+/// @brief Read file of iOrders to set particle type.
+///
+/// This is used by the photogenic code of dumpframe.
 void TreePiece::SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet) {
   int niOrder = 0, nSet = 0;
@@ -1797,7 +1801,9 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
     iter++;
     if (node->getType() == Empty || node->moments.totalMass > 0) {
       for (int i=0; i<l->length(); ++i) {
-	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall, node->iParticleTypes);
+          CkEntryOptions opts;
+          opts.setPriority(-100000000);
+	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
 	//CkPrintf("[%d] sending moments of %s to %d upon treebuild finished\n",thisIndex,keyBits(node->getKey(),63).c_str(),(*l)[i]);
       }
       delete l;
@@ -1912,7 +1918,9 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
 	      // have to receive one more message for the NonLocal node
 	      node->remoteIndex --;
 	      // request the remote chare to fill this node with the Moments
-	      streamingProxy[child->remoteIndex].requestRemoteMoments(child->getKey(), thisIndex);
+              CkEntryOptions opts;
+              opts.setPriority(-110000000);
+	      streamingProxy[child->remoteIndex].requestRemoteMoments(child->getKey(), thisIndex, &opts);
 	      //CkPrintf("[%d] asking for moments of %s to %d\n",thisIndex,keyBits(child->getKey(),63).c_str(),child->remoteIndex);
       }
     } else if (child->getType() == Internal && child->lastParticle - child->firstParticle < maxBucketSize) {
@@ -2067,12 +2075,16 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   root->startBucket=0;
 #endif
   // recursively build the tree
+
+  double start = CmiWallTimer();
   try {
 	buildOctTree(root, 0);
 	}
   catch (std::bad_alloc) {
 	CkAbort("Out of memory in treebuild");
 	}
+  
+  traceUserBracketEvent(tbRecursiveUE,start,CmiWallTimer());
 /* jetley - save the treepiece bounding box for use later.
    Needed because each treepiece must, for oct decomposition, send its
    centroid to a load balancing strategy object. The previous tree
@@ -2101,6 +2113,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
 
   //CkPrintf("[%d] finished building local tree\n",thisIndex);
 
+  start = CmiWallTimer();
   // check all the pending requests in for RemoteMoments
   for (MomentRequestType::iterator iter = momentRequests.begin(); iter != momentRequests.end(); ) {
     NodeKey nodeKey = iter->first;
@@ -2113,13 +2126,16 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
     iter++;
     if (node->getType() == Empty || node->moments.totalMass > 0) {
       for (int i=0; i<l->length(); ++i) {
-	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall, node->iParticleTypes);
+          CkEntryOptions opts;
+          opts.setPriority(-100000000);
+	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
 	  //CkPrintf("[%d] sending moments of %s to %d upon treebuild finished\n",thisIndex,keyBits(node->getKey(),63).c_str(),(*l)[i]);
       }
       delete l;
       momentRequests.erase(node->getKey());
     }
   }
+  traceUserBracketEvent(tbFlushRequestsUE,start,CmiWallTimer());
 
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Number of buckets: " << numBuckets << endl;
@@ -2275,7 +2291,9 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
 	// have to receive one more message for the NonLocal node
 	node->remoteIndex --;
 	// request the remote chare to fill this node with the Moments
-	streamingProxy[child->remoteIndex].requestRemoteMoments(child->getKey(), thisIndex);
+        CkEntryOptions opts;
+        opts.setPriority(-110000000);
+	streamingProxy[child->remoteIndex].requestRemoteMoments(child->getKey(), thisIndex, &opts);
 	//CkPrintf("[%d] asking for moments of %s to %d\n",thisIndex,keyBits(child->getKey(),63).c_str(),child->remoteIndex);
       }
     } else if (child->getType() == Internal
@@ -2378,7 +2396,9 @@ void TreePiece::growBottomUp(GenericTreeNode *node) {
 void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
   GenericTreeNode *node = keyToNode(key);
   if (node != NULL && (node->getType() == Empty || node->moments.totalMass > 0)) {
-      streamingProxy[sender].receiveRemoteMoments(key, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall, node->iParticleTypes);
+      CkEntryOptions opts;
+      opts.setPriority(-100000000);
+      streamingProxy[sender].receiveRemoteMoments(key, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
     //CkPrintf("[%d] sending moments of %s to %d directly\n",thisIndex,keyBits(node->getKey(),63).c_str(),sender);
   } else {
       // Save request for when we've calculated the moment.
@@ -2442,7 +2462,9 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
     if ((iter = momentRequests.find(parent->getKey())) != momentRequests.end()) {
       CkVec<int> *l = iter->second;
       for (int i=0; i<l->length(); ++i) {
-	  streamingProxy[(*l)[i]].receiveRemoteMoments(parent->getKey(), parent->getType(), parent->firstParticle, parent->particleCount, parent->moments, parent->boundingBox, parent->bndBoxBall, parent->iParticleTypes);
+          CkEntryOptions opts;
+          opts.setPriority(-100000000);
+	  streamingProxy[(*l)[i]].receiveRemoteMoments(parent->getKey(), parent->getType(), parent->firstParticle, parent->particleCount, parent->moments, parent->boundingBox, parent->bndBoxBall, parent->iParticleTypes, &opts);
 	//CkPrintf("[%d] sending moments of %s to %d\n",thisIndex,keyBits(parent->getKey(),63).c_str(),(*l)[i]);
       }
       delete l;
