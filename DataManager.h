@@ -250,7 +250,7 @@ public:
 class ProjectionsControl : public CBase_ProjectionsControl { 
   public: 
   ProjectionsControl() {} 
-  ProjectionsControl(CkMigrateMessage *) {} 
+  ProjectionsControl(CkMigrateMessage *m) : CBase_ProjectionsControl(m) {} 
  
   void on(CkCallback cb) { 
     if(CkMyPe() == 0){ 
