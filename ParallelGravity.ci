@@ -53,13 +53,14 @@ mainmodule ParallelGravity {
   readonly int nodeForceUE;
   readonly int partForceUE;
 
+  readonly int tbRecursiveUE;
+  readonly int tbFlushRequestsUE;
+
 #ifdef PUSH_GRAVITY
   readonly CkGroupID ckMulticastGrpId;
 #endif
 
-#ifdef SELECTIVE_TRACING
   readonly CProxy_ProjectionsControl prjgrp;
-#endif
 
   // number of bins to use for the first
   // iteration of every decomposition step
@@ -135,13 +136,11 @@ mainmodule ParallelGravity {
     entry void liveVizImagePrep(liveVizRequestMsg *msg);
   };
 
-#ifdef SELECTIVE_TRACING
   group [migratable] ProjectionsControl {
     entry ProjectionsControl();
     entry [notrace] void on(CkCallback);
     entry [notrace] void off(CkCallback);                     
   };                                                          
-#endif
 
 #ifdef DECOMPOSER_GROUP
   group Decomposer {
@@ -288,7 +287,7 @@ mainmodule ParallelGravity {
 		int64_t nStartStar, const CkCallback &cb);
     entry void setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
 		 int64_t _nTotalStar, const CkCallback &cb);
-    entry void setSoft(const double dSoft);
+    entry void setSoft(const double dSoft, const CkCallback &cb);
     entry void physicalSoft(const double dSoftMax, const double dFac,
         const int bSoftMaxMul, const CkCallback& cb);
     entry void growMass(int nGrowMass, double dDeltaM, const CkCallback& cb);

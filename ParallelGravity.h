@@ -148,6 +148,9 @@ extern int networkProgressUE;
 extern int nodeForceUE;
 extern int partForceUE;
 
+extern int tbRecursiveUE;
+extern int tbFlushRequestsUE;
+
 extern int _prefetch;
 extern int _randChunks;
 extern int _numChunks;
@@ -1472,8 +1475,8 @@ public:
   /// Update total particle numbers
   void setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
 		 int64_t _nTotalStar, const CkCallback &cb);
-
-	void setSoft(const double dSoft);
+  /// @brief Set the gravitational softening on all particles
+  void setSoft(const double dSoft, const CkCallback &cb);
 	void physicalSoft(const double dSoftMax, const double dFac,
 			  const int bSoftMaxMul, const CkCallback& cb);
 	void growMass(int nGrowMass, double dDeltaM, const CkCallback& cb);

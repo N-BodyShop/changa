@@ -104,6 +104,9 @@ int networkProgressUE;
 int nodeForceUE;
 int partForceUE;
 
+int tbRecursiveUE;
+int tbFlushRequestsUE;
+
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
 
@@ -112,9 +115,8 @@ CkArrayID treePieceID;
 CkGroupID ckMulticastGrpId;
 #endif
 
-#ifdef SELECTIVE_TRACING
 CProxy_ProjectionsControl prjgrp;
-#endif
+
 /* The following is for backward compatibility and deprecated */
 #define GASMODEL_UNSET -1
 enum GasModel {
@@ -188,6 +190,9 @@ Main::Main(CkArgMsg* m) {
         traceRegisterUserEvent("Remote Particle", CUDA_REMOTE_PART_KERNEL);
         traceRegisterUserEvent("Remote Resume Particle", CUDA_REMOTE_RESUME_PART_KERNEL);
 #endif
+
+        tbRecursiveUE = traceRegisterUserEvent("TreeBuild::buildOctTree::recursive");
+        tbFlushRequestsUE = traceRegisterUserEvent("TreeBuild::buildOctTree::flushRequests");
 	
 	prmInitialize(&prm,_Leader,_Trailer);
 	csmInitialize(&param.csm);
@@ -232,9 +237,9 @@ Main::Main(CkArgMsg* m) {
 	param.bBenchmark = 0;
 	prmAddParam(prm, "bBenchmark", paramBool, &param.bBenchmark,
 		    sizeof(int),"bench", "Benchmark only; no output or checkpoints");
-	param.iBinaryOut = 0;
-	prmAddParam(prm, "iBinaryOutput", paramInt, &param.iBinaryOut,
-		    sizeof(int),"binout", "Output Binary Arrays");
+	//
+	// Output flags
+	//
 	param.iOutInterval = 10;
 	prmAddParam(prm, "iOutInterval", paramInt, &param.iOutInterval,
 		    sizeof(int),"oi", "Output Interval");
@@ -244,6 +249,10 @@ Main::Main(CkArgMsg* m) {
 	param.iCheckInterval = 10;
 	prmAddParam(prm, "iCheckInterval", paramInt, &param.iCheckInterval,
 		    sizeof(int),"oc", "Checkpoint Interval");
+	param.iBinaryOut = 0;
+	prmAddParam(prm, "iBinaryOutput", paramInt, &param.iBinaryOut,
+		    sizeof(int), "binout",
+		    "<array outputs 0 ascii, 1 float, 2 double, 3 FLOAT(internal)> = 0");
 	param.bDoDensity = 1;
 	prmAddParam(prm, "bDoDensity", paramBool, &param.bDoDensity,
 		    sizeof(int),"den", "Enable Density outputs");
@@ -416,9 +425,8 @@ Main::Main(CkArgMsg* m) {
 		    "<Gas is Cooling> = +GasCooling");
 	iGasModel = GASMODEL_UNSET;	/* Deprecated in for backwards
 					   compatibility */
-	prmAddParam(prm,"iGasModel",paramInt,&iGasModel,
-				sizeof(int),"GasModel",
-				"<Gas model employed> = 0 (Adiabatic)");
+	prmAddParam(prm,"iGasModel",paramInt,&iGasModel, sizeof(int),
+		    "GasModel", "<Gas model employed> = 0 (Adiabatic)");
 	CoolAddParams(&param.CoolParam, prm);
 	param.dMsolUnit = 1.0;
 	prmAddParam(prm,"dMsolUnit",paramDouble,&param.dMsolUnit,
@@ -987,9 +995,7 @@ Main::Main(CkArgMsg* m) {
 
 	CProxy_TreePiece pieces = CProxy_TreePiece::ckNew(opts);
 
-#ifdef SELECTIVE_TRACING
         prjgrp = CProxy_ProjectionsControl::ckNew();
-#endif
 
 	treeProxy = pieces;
 #ifdef DECOMPOSER_GROUP
@@ -1021,7 +1027,7 @@ Main::Main(CkArgMsg* m) {
 	// nodes.
 	nPhases = 0;
 	if(param.bDoGravity) nPhases++;
-	if(param.bDoGas) {
+	if(true || param.bDoGas) {  // anticipate that gas might be set.
 	    nPhases += 2;
 	    if(param.bFastGas)
 		nPhases += 2;
@@ -1842,7 +1848,7 @@ void Main::setupICs() {
 
   if(prmSpecified(prm,"dSoft")) {
     ckout << "Set Softening...\n";
-    treeProxy.setSoft(param.dSoft);
+    treeProxy.setSoft(param.dSoft, CkCallbackResumeThread());
   }
 	
   if(param.bPeriodic) {	// puts all particles within the boundary
