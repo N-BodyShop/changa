@@ -1005,6 +1005,7 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "Neither bDoGravity or bDoGas are set!" << endl;
 	    CkAbort("Nothing to do!");
 	    }
+
 	CkGroupID *gids = new CkGroupID[nPhases];
 	int i;
 	for(i = 0; i < nPhases; i++)

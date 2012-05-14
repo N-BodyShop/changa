@@ -4090,7 +4090,10 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 
   sLocal = new LocalOpt;
   sRemote = new RemoteOpt;
-  sPrefetch = new PrefetchCompute;
+
+  if(_prefetch) sPrefetch = new PrefetchCompute;
+  else sPrefetch = new DummyPrefetchCompute;
+
   sPref = new PrefetchOpt;
 
   State *remoteWalkState;
