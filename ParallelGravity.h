@@ -672,6 +672,9 @@ class TreePiece : public CBase_TreePiece {
     particleInterLocal += howmany;
   }
 
+  /// Start prefetching the specfied chunk; prefetch compute
+  /// calls startRemoteChunk() once chunk prefetch is complete
+  void initiatePrefetch(int chunk);
   /// Start a new remote computation upon prefetch finished
   void startRemoteChunk();
 

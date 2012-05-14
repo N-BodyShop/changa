@@ -4082,13 +4082,6 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
       break;
   }
 
-  int first, last;
-#ifdef DISABLE_NODE_TREE
-  GenericTreeNode *child = keyToNode(prefetchRoots[0]);
-#else
-  GenericTreeNode *child = dm->chunkRootToNode(prefetchRoots[0]);
-#endif
-
 #if CHANGA_REFACTOR_DEBUG > 0
   CkPrintf("Beginning prefetch\n");
 #endif
@@ -4097,7 +4090,10 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 
   sLocal = new LocalOpt;
   sRemote = new RemoteOpt;
-  sPrefetch = new PrefetchCompute;
+
+  if(_prefetch) sPrefetch = new PrefetchCompute;
+  else sPrefetch = new DummyPrefetchCompute;
+
   sPref = new PrefetchOpt;
 
   State *remoteWalkState;
@@ -4285,25 +4281,8 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 #endif
 
 
-  for(int x = -nReplicas; x <= nReplicas; x++) {
-    for(int y = -nReplicas; y <= nReplicas; y++) {
-      for(int z = -nReplicas; z <= nReplicas; z++) {
-        if (child == NULL) {
-          nodeOwnership(prefetchRoots[0], first, last);
-          child = requestNode(dm->responsibleIndex[(first+last)>>1],
-              prefetchRoots[0], 0,
-              encodeOffset(0, x, y, z),
-              prefetchAwi, (void *)0, true);
-        }
-        if (child != NULL) {
-#if CHANGA_REFACTOR_DEBUG > 1
-          CkPrintf("[%d] starting prefetch walk with current Prefetch=%d, numPrefetchReq=%d (%d,%d,%d)\n", thisIndex, sPrefetchState->currentBucket, numPrefetchReq, x,y,z);
-#endif
-          sTopDown->walk(child, sPrefetchState, sPrefetchState->currentBucket, encodeOffset(0,x,y,z), prefetchAwi);
-        }
-      }
-    }
-  }
+  // variable currentBucket masquerades as current chunk
+  initiatePrefetch(sPrefetchState->currentBucket);
 
 #if CHANGA_REFACTOR_DEBUG > 0
   CkPrintf("[%d]sending message to commence local gravity calculation\n", thisIndex);
@@ -4327,6 +4306,39 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 	CkPrintf("[%d]: CmiMaxMemoryUsage: %f M\n", CmiMyPe(),
 		 (float)CmiMaxMemoryUsage()/(1 << 20));
 #endif
+}
+
+// Starts the prefetching of the specified chunk; once the 
+// given chunk has been completely prefetched, the prefetch
+// compute invokes startRemoteChunk() 
+void TreePiece::initiatePrefetch(int chunk){
+#ifdef DISABLE_NODE_TREE
+  GenericTreeNode *child = keyToNode(prefetchRoots[chunk]);
+#else
+  GenericTreeNode *child = dm->chunkRootToNode(prefetchRoots[chunk]);
+#endif
+
+  int first, last;
+  for(int x = -nReplicas; x <= nReplicas; x++) {
+    for(int y = -nReplicas; y <= nReplicas; y++) {
+      for(int z = -nReplicas; z <= nReplicas; z++) {
+        if (child == NULL) {
+          nodeOwnership(prefetchRoots[chunk], first, last);
+          child = requestNode(dm->responsibleIndex[(first+last)>>1],
+              prefetchRoots[chunk], chunk,
+              encodeOffset(0, x, y, z),
+              prefetchAwi, (void *)0, true);
+        }
+        if (child != NULL) {
+#if CHANGA_REFACTOR_DEBUG > 1
+          CkPrintf("[%d] starting prefetch walk with current Prefetch=%d, numPrefetchReq=%d (%d,%d,%d)\n", thisIndex, chunk, numPrefetchReq, x,y,z);
+#endif
+          sTopDown->walk(child, sPrefetchState, chunk, encodeOffset(0,x,y,z), prefetchAwi);
+        }
+      }
+    }
+  }
+
 }
 
 void TreePiece::commenceCalculateGravityLocal(){
@@ -4390,36 +4402,9 @@ void TreePiece::continueStartRemoteChunk(int chunk){
     // instead of prefetchWaiting, we count through state->counters[0]
     //prefetchWaiting = (2*nReplicas + 1)*(2*nReplicas + 1)*(2*nReplicas + 1);
     sPrefetchState->counterArrays[0][0] = (2*nReplicas + 1)*(2*nReplicas + 1)*(2*nReplicas + 1);
-#ifdef DISABLE_NODE_TREE
-    GenericTreeNode *child = keyToNode(prefetchRoots[sPrefetchState->currentBucket]);
-#else
-    GenericTreeNode *child = dm->chunkRootToNode(prefetchRoots[sPrefetchState->currentBucket]);
-#endif
-    for(int x = -nReplicas; x <= nReplicas; x++) {
-      for(int y = -nReplicas; y <= nReplicas; y++) {
-        for(int z = -nReplicas; z <= nReplicas; z++) {
-          if (child == NULL) {
-            nodeOwnership(prefetchRoots[sPrefetchState->currentBucket], first, last);
-            child = requestNode(dm->responsibleIndex[(first+last)>>1],
-                prefetchRoots[sPrefetchState->currentBucket],
-                sPrefetchState->currentBucket,
-                encodeOffset(0, x, y, z),
-                prefetchAwi, (void *)0, true);
-          }
-          if (child != NULL) {
-            //prefetch(child, encodeOffset(0, x, y, z));
-#if CHANGA_REFACTOR_DEBUG > 1
-            CkPrintf("[%d] starting prefetch walk with current Prefetch=%d, numPrefetchReq=%d (%d,%d,%d)\n", thisIndex,
-                sPrefetchState->currentBucket, numPrefetchReq,
-                x,y,z);
-#endif
-            sTopDown->walk(child, sPrefetchState, sPrefetchState->currentBucket, encodeOffset(0,x,y,z), prefetchAwi);
 
-          }
-        }
-      }
-    }
-
+    // variable currentBucket masquerades as current chunk
+    initiatePrefetch(sPrefetchState->currentBucket);
   }
 }
 
