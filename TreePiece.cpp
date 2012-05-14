@@ -4344,6 +4344,8 @@ void TreePiece::startRemoteChunk() {
   CkPrintf("[%d] sending message to commence remote gravity\n", thisIndex);
 #endif
 
+  traceUserEvent(prefetchDoneUE);
+
 #ifdef CUDA
   // dm counts until all treepieces have acknowledged prefetch completion
   // it then flattens the tree on the processor, sends it to the device

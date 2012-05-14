@@ -150,6 +150,7 @@ extern int partForceUE;
 
 extern int tbRecursiveUE;
 extern int tbFlushRequestsUE;
+extern int prefetchDoneUE;
 
 extern int _prefetch;
 extern int _randChunks;

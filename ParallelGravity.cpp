@@ -105,6 +105,7 @@ int partForceUE;
 
 int tbRecursiveUE;
 int tbFlushRequestsUE;
+int prefetchDoneUE;
 
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
@@ -182,6 +183,8 @@ Main::Main(CkArgMsg* m) {
 
         tbRecursiveUE = traceRegisterUserEvent("TreeBuild::buildOctTree::recursive");
         tbFlushRequestsUE = traceRegisterUserEvent("TreeBuild::buildOctTree::flushRequests");
+
+        prefetchDoneUE = traceRegisterUserEvent("PrefetchDone");
 	
 	prmInitialize(&prm,_Leader,_Trailer);
 	csmInitialize(&param.csm);

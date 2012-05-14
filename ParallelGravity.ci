@@ -55,6 +55,7 @@ mainmodule ParallelGravity {
 
   readonly int tbRecursiveUE;
   readonly int tbFlushRequestsUE;
+  readonly int prefetchDoneUE;
 
 #ifdef PUSH_GRAVITY
   readonly CkGroupID ckMulticastGrpId;
@@ -185,7 +186,7 @@ mainmodule ParallelGravity {
 
     entry void report();
 
-    entry [notrace] void nextBucket(dummyMsg *m);	
+    entry void nextBucket(dummyMsg *m);	
     entry [notrace] void nextBucketSmooth(dummyMsg *msg);
     entry [notrace] void nextBucketReSmooth(dummyMsg *msg);
     entry [notrace] void nextBucketMarkSmooth(dummyMsg *msg);
@@ -195,7 +196,7 @@ mainmodule ParallelGravity {
 		 double fEwCut, double fEwhCut, int bPeriod);
     entry [notrace] void EwaldInit();
     entry [notrace] void initCoolingData(const CkCallback& cb);
-    entry [notrace] void calculateEwald(dummyMsg *m);
+    entry void calculateEwald(dummyMsg *m);
     entry [notrace] void EwaldGPUComplete(); 
     entry [notrace] void EwaldGPU(); 
     entry [notrace] void velScale(double dScale);
@@ -337,7 +338,7 @@ mainmodule ParallelGravity {
 
     entry [notrace] void commenceCalculateGravityLocal();
     entry [notrace] void calculateGravityLocal();
-    entry [notrace] void calculateGravityRemote(ComputeChunkMsg *msg);
+    entry void calculateGravityRemote(ComputeChunkMsg *msg);
 
     entry [notrace] void calculateSmoothLocal();
     entry [notrace] void calculateReSmoothLocal();
