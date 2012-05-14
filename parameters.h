@@ -161,6 +161,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.bGasAdiabatic;
     p|param.bGasIsothermal;
     p|param.bGasCooling;
+    p|param.nSmooth;
     p((char *)&param.CoolParam, sizeof(param.CoolParam));
     p|param.bFastGas;
     p|param.dFracFastGas;
