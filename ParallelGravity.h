@@ -359,6 +359,8 @@ class Main : public CBase_Main {
 	int64_t nTotalSPH;
 	int64_t nTotalDark;
 	int64_t nTotalStar;
+	/// Total Sink Particles
+	int64_t nSink;
 	int64_t nMaxOrderGas;  /* Maximum iOrders */
 	int64_t nMaxOrderDark;
 	int64_t nMaxOrder;
@@ -429,6 +431,9 @@ public:
 	void doSph(int activeRung, int bNeedDensity = 1);
 	void FormStars(double dTime, double dDelta);
 	void StellarFeedback(double dTime, double dDelta);
+	void SetSink();
+	void FormSinks(double dTime, double dDelta, int iKickRung);
+	void doSinks(double dTime, double dDelta, int iKickRung);
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
 	int nextMaxRungIncDF(int nextMaxRung);
@@ -1405,6 +1410,13 @@ public:
 		       double dCosmoFac, const CkCallback& cb);
   void rungStats(const CkCallback& cb);
   void countActive(int activeRung, const CkCallback& cb);
+  /// @brief count total number of particles of given type
+  void countType(int iType, const CkCallback& cb);
+  /// @brief set sink type based on formation time.
+  void SetSink(double dSinkMassMin, const CkCallback &cb);
+  void formSinks(int bJeans, double dJConst2, int bDensity,
+		 double dDensityCut, double dTime, int iKickRung, int bSimple,
+		 const CkCallback &cb);
   void calcEnergy(const CkCallback& cb);
   /// add new particle
   void newParticle(GravityParticle *p);

@@ -230,6 +230,11 @@ mainmodule ParallelGravity {
 	      double dCosmoFac, const CkCallback& cb);
     entry void rungStats(const CkCallback& cb);
     entry void countActive(int activeRung, const CkCallback& cb);
+    entry void countType(int iType, const CkCallback& cb);
+    entry void SetSink(double dSinkMassMin, const CkCallback &cb);
+    entry void formSinks(int bJeans, double dJConst2, int bDensity,
+		 double dDensityCut, double dTime, int iKickRung, int bSimple,
+		 const CkCallback &cb);
     entry void drift(double dDelta, int bNeedVPred, int bGasIsoThermal,
 		     double dvDelta, double duDelta, int nGrowMass,
 		     const CkCallback& cb);

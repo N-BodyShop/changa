@@ -951,6 +951,17 @@ void TreePiece::countActive(int activeRung, const CkCallback& cb) {
   contribute(2*sizeof(int), nActive, CkReduction::sum_int, cb);
 }
 
+void TreePiece::countType(int iType, const CkCallback& cb) {
+  int nCount = 0;
+
+  for(unsigned int i = 1; i <= myNumParticles; ++i) {
+      if(TYPETest(&myParticles[i], iType)) {
+	  nCount++;
+	  }
+      }
+  contribute(sizeof(int), &nCount, CkReduction::sum_int, cb);
+}
+
 void TreePiece::drift(double dDelta,  // time step in x containing
 				      // cosmo scaling
 		      int bNeedVpred, // Update predicted velocities

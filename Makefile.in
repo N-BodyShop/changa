@@ -99,13 +99,16 @@ OBJECTS = DataManager.o Reductions.o TreePiece.o Sorter.o \
 	  moments.o MultistepLB.o Orb3dLB.o \
 	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
 	  feedback.o imf.o supernova.o supernovaia.o starlifetime.o \
+	  sinks.o \
 	  @OBJECTS_COOLING@
 
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \
 	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
 	InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c \
 	moments.c MultistepLB.C Orb3dLB.C starform.C \
-	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C
+	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C \
+	starform.C feedback.C imf.C supernova.C supernovaia.C starlifetime.C \
+	sinks.C \
 
 ifdef CUDA
   CXXFLAGS += $(NVCC_INC)

@@ -5,6 +5,7 @@
 #include "cooling.h"
 #include "starform.h"
 #include "feedback.h"
+#include "sinks.h"
 
 typedef struct parameters {
     /*
