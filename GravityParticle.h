@@ -298,6 +298,9 @@ inline int TYPESet(GravityParticle *a, unsigned int b) {
 inline int TYPEReset(GravityParticle *a, unsigned int b) {
     return a->iType &= (~b);
     }
+inline int TYPEClear(GravityParticle *a) {
+    return a->iType = 0;
+    }
 
 /// unmark particle as deleted
 inline void unDeleteParticle(GravityParticle *p)
@@ -354,6 +357,7 @@ class ExternalSmoothParticle {
   double fMFracIron;
   double fTimeCoolIsOffUntil;
   Vector3D<double> curlv;	/* Curl of the velocity */
+  double fNSN;
 
   ExternalSmoothParticle() {}
 
@@ -386,6 +390,7 @@ class ExternalSmoothParticle {
 	      fMFracOxygen = p->fMFracOxygen();
 	      fMFracIron = p->fMFracIron();
 	      fTimeCoolIsOffUntil = p->fTimeCoolIsOffUntil();
+	      fNSN = p->fNSN();
 	      }
 	  }
   
@@ -417,6 +422,7 @@ class ExternalSmoothParticle {
 	  tmp->fMFracOxygen() = fMFracOxygen;
 	  tmp->fMFracIron() = fMFracIron;
 	  tmp->fTimeCoolIsOffUntil() = fTimeCoolIsOffUntil;
+	  tmp->fNSN() = fNSN;
 	  }
       }
 	  
@@ -445,10 +451,15 @@ class ExternalSmoothParticle {
     p | fMFracOxygen;
     p | fMFracIron;
     p | fTimeCoolIsOffUntil;
+    p | fNSN;
   }
 };
 
 inline ExternalSmoothParticle GravityParticle::getExternalSmoothParticle()
 { return ExternalSmoothParticle(this); }
+
+inline int TYPETest(ExternalSmoothParticle *a, unsigned int b) {
+    return a->iType & b;
+    }
 
 #endif
