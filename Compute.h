@@ -213,7 +213,7 @@ class PrefetchCompute : public Compute{
   PrefetchCompute() : Compute(Prefetch) {
     computeEntity = 0;
   }
-  int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi);
+  virtual int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi);
   int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqIDD, State *state);
 
   // book-keeping on notifications
@@ -221,6 +221,15 @@ class PrefetchCompute : public Compute{
   void finishNodeProcessEvent(TreePiece *owner, State *state);
 
   void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket);
+};
+
+// when prefetching is disabled from command line, use 
+// DummyPrefetchCompute instead of PrefetchCompute
+class DummyPrefetchCompute : public PrefetchCompute {
+  public:
+  int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi){
+    return DUMP;
+  }
 };
 
 // distingish between the walks that could be running.

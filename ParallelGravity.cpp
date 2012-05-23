@@ -105,6 +105,7 @@ int partForceUE;
 
 int tbRecursiveUE;
 int tbFlushRequestsUE;
+int prefetchDoneUE;
 
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
@@ -182,6 +183,8 @@ Main::Main(CkArgMsg* m) {
 
         tbRecursiveUE = traceRegisterUserEvent("TreeBuild::buildOctTree::recursive");
         tbFlushRequestsUE = traceRegisterUserEvent("TreeBuild::buildOctTree::flushRequests");
+
+        prefetchDoneUE = traceRegisterUserEvent("PrefetchDone");
 	
 	prmInitialize(&prm,_Leader,_Trailer);
 	csmInitialize(&param.csm);
@@ -1005,6 +1008,7 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "Neither bDoGravity or bDoGas are set!" << endl;
 	    CkAbort("Nothing to do!");
 	    }
+
 	CkGroupID *gids = new CkGroupID[nPhases];
 	int i;
 	for(i = 0; i < nPhases; i++)
