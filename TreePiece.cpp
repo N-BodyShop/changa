@@ -389,14 +389,22 @@ void TreePiece::acceptORBParticles(const GravityParticle* particles,
 	  //signify completion with a reduction
     if(verbosity>1)
       ckout << thisIndex <<" contributing to accept particles"<<endl;
-	  if (root != NULL) {
+    if(pTreeNodes != NULL) {
+	delete pTreeNodes;
+	pTreeNodes = NULL;
+	root = NULL;
+      	nodeLookupTable.clear();
+	}
+    else {
+	if (root != NULL) {
 	    root->fullyDelete();
 	    delete root;
 	    root = NULL;
-      nodeLookupTable.clear();
-	  }
-	  contribute(0, 0, CkReduction::concat, callback);
-  }
+      	    nodeLookupTable.clear();
+	    }
+	}
+    contribute(callback);
+    }
 }
 
 /// @brief Determine my boundaries at the end of ORB decomposition
@@ -801,12 +809,20 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     incomingParticlesMsg.clear();
     if(verbosity>1) ckout << thisIndex <<" no particles assigned"<<endl;
 
-    if (root != NULL) {
-      root->fullyDelete();
-      delete root;
-      root = NULL;
-      nodeLookupTable.clear();
-    }
+    if(pTreeNodes != NULL) {
+	delete pTreeNodes;
+	pTreeNodes = NULL;
+	root = NULL;
+        nodeLookupTable.clear();
+	}
+    else {
+        if (root != NULL) {
+      	    root->fullyDelete();
+      	    delete root;
+      	    root = NULL;
+      	    nodeLookupTable.clear();
+	    }
+    	}
     // We better not have a message with particles for us
     CkAssert(shuffleMsg == NULL);
     contribute(0, 0, CkReduction::concat, callback);
@@ -898,13 +914,20 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     if(verbosity>1) ckout << thisIndex <<" contributing to accept particles"
       <<endl;
 
-    if (root != NULL) {
-      root->fullyDelete();
-      delete root;
-      root = NULL;
-      nodeLookupTable.clear();
-    }
-  
+    if(pTreeNodes != NULL) {
+	delete pTreeNodes;
+	pTreeNodes = NULL;
+	root = NULL;
+        nodeLookupTable.clear();
+	}
+    else {
+	if (root != NULL) {
+      	    root->fullyDelete();
+      	    delete root;
+      	    root = NULL;
+      	    nodeLookupTable.clear();
+	    }
+    	}
     //CkPrintf("[%d] accepted %d particles\n", thisIndex, myNumParticles);
     contribute(0, 0, CkReduction::concat, callback);
   }

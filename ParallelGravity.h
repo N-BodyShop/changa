@@ -969,6 +969,8 @@ private:
 	unsigned iterationNo;
 	/// The root of the global tree, always local to any chare
 	GenericTreeNode* root;
+	/// pool of memory to hold TreeNodes: makes allocation more efficient.
+	NodePool *pTreeNodes;
 
 	typedef std::map<NodeKey, CkVec<int>* >   MomentRequestType;
 	/// Keep track of the requests for remote moments not yet satisfied.
@@ -1204,6 +1206,7 @@ public:
 	  foundLB = Null; 
 	  iterationNo=0;
 	  usesAtSync=CmiTrue;
+	  pTreeNodes = NULL;
 	  bucketReqs=NULL;
 	  nCacheAccesses = 0;
 	  memWithCache = 0;
@@ -1297,6 +1300,7 @@ public:
 	  //remaining Chunk = NULL;
           ewt = NULL;
 	  root = NULL;
+	  pTreeNodes = NULL;
 
       sTopDown = 0;
 	  sGravity = NULL;
@@ -1334,11 +1338,16 @@ public:
 	  delete[] bucketReqs;
           delete[] ewt;
 
+	  if(pTreeNodes != NULL) {
+	     delete pTreeNodes;
+	     }
+	  else {
 	  // recursively delete the entire tree
-	  if (root != NULL) {
-	    root->fullyDelete();
-	    delete root;
-	  }
+	     if (root != NULL) {
+	 	root->fullyDelete();
+		delete root;
+		}
+	     }
 	  if(boxes!= NULL ) delete[] boxes;
 	  if(splitDims != NULL) delete[] splitDims;
 
