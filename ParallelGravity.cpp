@@ -68,6 +68,8 @@ int _nocache;
 int _cacheLineDepth;
 unsigned int _yieldPeriod;
 DomainsDec domainDecomposition;
+/// tolerance for unequal pieces in SFC based decompositions.
+const double ddTolerance = 0.1;
 double dExtraStore;		// fraction of extra particle storage
 int peanoKey;
 GenericTrees useTree;
@@ -1415,9 +1417,8 @@ void Main::advanceBigStep(int iStep) {
     //ckout << "Domain decomposition ...";
     CkPrintf("Domain decomposition ... ");
     double startTime = CkWallTimer();
-    double tolerance = 0.01;	// tolerance for domain decomposition
     bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
-    sorter.startSorting(dataManagerID, tolerance,
+    sorter.startSorting(dataManagerID, ddTolerance,
                         CkCallbackResumeThread(), bDoDD);
     /*
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -1945,7 +1946,6 @@ void
 Main::initialForces()
 {
   double startTime;
-  double tolerance = 0.01;	// tolerance for domain decomposition
 
   // DEBUGGING
   // CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
@@ -1954,7 +1954,7 @@ Main::initialForces()
   //ckout << "Initial domain decomposition ...";
   CkPrintf("Initial domain decomposition ... ");
   startTime = CkWallTimer();
-  sorter.startSorting(dataManagerID, tolerance,
+  sorter.startSorting(dataManagerID, ddTolerance,
 	 	      CkCallbackResumeThread(), true);
   CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
   /*
@@ -2307,14 +2307,13 @@ Main::doSimulation()
       RungOutputParams pRung(string(achFile) + ".rung");
       treeProxy[0].outputASCII(pRung, param.bParaWrite, CkCallbackResumeThread());
       if(param.bDoGas && param.bDoDensity) {
-	  double tolerance = 0.01;	// tolerance for domain decomposition
 	  // The following call is to get the particles in key order
 	  // before the sort.
 	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
 #ifdef DECOMPOSER_GROUP
           decomposerProxy.acceptParticles(CkCallbackResumeThread());
 #endif
-	  sorter.startSorting(dataManagerID, tolerance,
+	  sorter.startSorting(dataManagerID, ddTolerance,
 			      CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
 	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
@@ -2500,14 +2499,13 @@ void Main::writeOutput(int iStep)
 	  }
       
     if(param.nSteps != 0 && param.bDoDensity) {
-	double tolerance = 0.01;	// tolerance for domain decomposition
 	// The following call is to get the particles in key order
 	// before the sort.
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
 #ifdef DECOMPOSER_GROUP
         decomposerProxy.acceptParticles(CkCallbackResumeThread());
 #endif
-	sorter.startSorting(dataManagerID, tolerance,
+	sorter.startSorting(dataManagerID, ddTolerance,
 			    CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
 	treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
@@ -2556,7 +2554,7 @@ void Main::writeOutput(int iStep)
 #ifdef DECOMPOSER_GROUP
 	    decomposerProxy.acceptParticles(CkCallbackResumeThread());
 #endif
-	    sorter.startSorting(dataManagerID, tolerance,
+	    sorter.startSorting(dataManagerID, ddTolerance,
 				CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
 	    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
