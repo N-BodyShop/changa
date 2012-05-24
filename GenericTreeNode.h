@@ -181,7 +181,7 @@ class NodePool;
     /// \brief construct the children of the "this" node following the
     /// given logical criteria (Oct/Orb)
     virtual void makeOctChildren(GravityParticle *part, int totalPart, int level, NodePool *pool = NULL) = 0;
-    virtual void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle), bool spatial) = 0;
+    virtual void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle), bool spatial, NodePool *pool = NULL) = 0;
 
     // get the number of chunks possible for the given request
     // @return a number greater or iqual to th the request
@@ -292,6 +292,9 @@ public:
     ~NodePool();
     /// give out one node from the pool, allocating a new pool block if needed.
     BinaryTreeNode *alloc_one();
+    BinaryTreeNode *alloc_one(NodeKey k, NodeType type, int first,
+			      int nextlast, BinaryTreeNode *p);
+
     };
 
   /** A table of the nodes in my tree, indexed by their keys.
@@ -533,10 +536,19 @@ public:
     }
 
     // Constructs 2 children of this node based on ORB decomposition
-    void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle), bool spatial) {
+    void makeOrbChildren(GravityParticle *part, int totalPart, int level,
+		         int rootsLevel,
+			 bool (*compFnPtr[])(GravityParticle, GravityParticle),
+			 bool spatial, NodePool *pool=NULL) {
 
-      children[0] = new BinaryTreeNode();
-      children[1] = new BinaryTreeNode();
+      if(pool) {
+	  children[0] = pool->alloc_one();
+	  children[1] = pool->alloc_one();
+	  }
+      else {
+          children[0] = new BinaryTreeNode();
+          children[1] = new BinaryTreeNode();
+	  }
       children[0]->parent = this;
       children[1]->parent = this;
       children[0]->boundingBox = boundingBox;
@@ -816,6 +828,13 @@ NodePool::alloc_one() {
         return &pools.front()[next++];
         }
 
+inline BinaryTreeNode *
+NodePool::alloc_one(NodeKey k, NodeType type, int first, int nextlast,
+		    BinaryTreeNode *p) {
+	BinaryTreeNode *one = alloc_one();
+	return new (one) BinaryTreeNode(k, type, first, nextlast, p);
+	}
+
   class OctTreeNode : public GenericTreeNode {
   protected:
   public:
@@ -911,7 +930,8 @@ NodePool::alloc_one() {
     void makeOctChildren(GravityParticle *part, int totalPart, int level,
 			 NodePool *pool = NULL) {}
 
-    void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle), bool spatial) {}
+    void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle), bool spatial,
+			 NodePool *pool = NULL) {}
 
     GenericTreeNode *createNew() const {
       return new OctTreeNode();

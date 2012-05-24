@@ -389,20 +389,7 @@ void TreePiece::acceptORBParticles(const GravityParticle* particles,
 	  //signify completion with a reduction
     if(verbosity>1)
       ckout << thisIndex <<" contributing to accept particles"<<endl;
-    if(pTreeNodes != NULL) {
-	delete pTreeNodes;
-	pTreeNodes = NULL;
-	root = NULL;
-      	nodeLookupTable.clear();
-	}
-    else {
-	if (root != NULL) {
-	    root->fullyDelete();
-	    delete root;
-	    root = NULL;
-      	    nodeLookupTable.clear();
-	    }
-	}
+    deleteTree();
     contribute(callback);
     }
 }
@@ -809,20 +796,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     incomingParticlesMsg.clear();
     if(verbosity>1) ckout << thisIndex <<" no particles assigned"<<endl;
 
-    if(pTreeNodes != NULL) {
-	delete pTreeNodes;
-	pTreeNodes = NULL;
-	root = NULL;
-        nodeLookupTable.clear();
-	}
-    else {
-        if (root != NULL) {
-      	    root->fullyDelete();
-      	    delete root;
-      	    root = NULL;
-      	    nodeLookupTable.clear();
-	    }
-    	}
+    deleteTree();
     // We better not have a message with particles for us
     CkAssert(shuffleMsg == NULL);
     contribute(0, 0, CkReduction::concat, callback);
@@ -914,20 +888,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     if(verbosity>1) ckout << thisIndex <<" contributing to accept particles"
       <<endl;
 
-    if(pTreeNodes != NULL) {
-	delete pTreeNodes;
-	pTreeNodes = NULL;
-	root = NULL;
-        nodeLookupTable.clear();
-	}
-    else {
-	if (root != NULL) {
-      	    root->fullyDelete();
-      	    delete root;
-      	    root = NULL;
-      	    nodeLookupTable.clear();
-	    }
-    	}
+    deleteTree();
     //CkPrintf("[%d] accepted %d particles\n", thisIndex, myNumParticles);
     contribute(0, 0, CkReduction::concat, callback);
   }
@@ -1164,13 +1125,8 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 				      // in place
 		      const CkCallback& cb) {
   callback = cb;		// called by assignKeys()
-  if (root != NULL) {
-    // Delete the tree since is no longer useful
-    root->fullyDelete();
-    delete root;
-    root = NULL;
-    nodeLookupTable.clear();
-  }
+  deleteTree();
+
   if(bucketReqs != NULL) {
     delete[] bucketReqs;
     bucketReqs = NULL;
@@ -1784,7 +1740,9 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
   compFuncPtr[1]= &comp_dim1;
   compFuncPtr[2]= &comp_dim2;
 
-  root = new BinaryTreeNode(1, numTreePieces>1?Tree::Boundary:Tree::Internal, 0, myNumParticles+1, 0);
+  pTreeNodes = new NodePool();
+  root = pTreeNodes->alloc_one(1, numTreePieces>1?Tree::Boundary:Tree::Internal,
+			       0, myNumParticles+1, 0);
 
   if (thisIndex == 0) root->firstParticle ++;
   if (thisIndex == (int)numTreePieces-1) root->lastParticle --;
@@ -1906,7 +1864,8 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
   CkAssert(node->getType() == Boundary || node->getType() == Internal);
 
   node->makeOrbChildren(myParticles, myNumParticles, level, chunkRootLevel,
-			compFuncPtr, (domainDecomposition == ORB_space_dec));
+			compFuncPtr, (domainDecomposition == ORB_space_dec),
+			pTreeNodes);
   node->rungs = 0;
 
   GenericTreeNode *child;
@@ -2073,7 +2032,8 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   // create the root of the global tree
   switch (useTree) {
   case Binary_Oct:
-    root = new BinaryTreeNode(1, numTreePieces>1?Tree::Boundary:Tree::Internal, 0, myNumParticles+1, 0);
+    pTreeNodes = new NodePool;
+    root = pTreeNodes->alloc_one(1, numTreePieces>1?Tree::Boundary:Tree::Internal, 0, myNumParticles+1, 0);
     break;
   case Oct_Oct:
     //root = new OctTreeNode(1, Tree::Boundary, 0, myNumParticles+1, 0);
@@ -2278,7 +2238,7 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
 
   CkAssert(node->getType() == Boundary || node->getType() == Internal);
 
-  node->makeOctChildren(myParticles, myNumParticles, level);
+  node->makeOctChildren(myParticles, myNumParticles, level, pTreeNodes);
   // The boundingBox was used above to determine the spacially equal
   // split between the children.  Now reset it so it can be calculated
   // from the particle positions.

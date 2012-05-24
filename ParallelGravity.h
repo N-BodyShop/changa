@@ -1144,6 +1144,24 @@ private:
 	  return nodeLookupTable.size();
   }
 
+  /// delete treenodes if allocated
+  void deleteTree() {
+    if(pTreeNodes != NULL) {
+        delete pTreeNodes;
+        pTreeNodes = NULL;
+        root = NULL;
+        nodeLookupTable.clear();
+        }
+    else {
+        if (root != NULL) {
+            root->fullyDelete();
+            delete root;
+            root = NULL;
+            nodeLookupTable.clear();
+            }
+        }
+    }
+
   GenericTreeNode *get3DIndex();
 
 	/// Recursive call to build the subtree with root "node", level
@@ -1338,16 +1356,8 @@ public:
 	  delete[] bucketReqs;
           delete[] ewt;
 
-	  if(pTreeNodes != NULL) {
-	     delete pTreeNodes;
-	     }
-	  else {
-	  // recursively delete the entire tree
-	     if (root != NULL) {
-	 	root->fullyDelete();
-		delete root;
-		}
-	     }
+	  deleteTree();
+
 	  if(boxes!= NULL ) delete[] boxes;
 	  if(splitDims != NULL) delete[] splitDims;
 
