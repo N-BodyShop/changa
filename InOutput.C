@@ -930,12 +930,7 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     if(verbosity>1) ckout << thisIndex <<" contributing to ioAccept particles"
 			  <<endl;
 
-    if (root != NULL) {
-      root->fullyDelete();
-      delete root;
-      root = NULL;
-      nodeLookupTable.clear();
-    }
+    deleteTree();
     contribute(0, 0, CkReduction::concat, callback);
   }
 }
