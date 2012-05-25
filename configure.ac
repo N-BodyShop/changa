@@ -73,12 +73,12 @@ elif test "$cooling" = "planet" ; then
    echo "Planet cooling selected"
    FLAG_COOLING="-DCOOLING_PLANET"
    OBJECTS_COOLING="cooling_planet.o stiff.o"
-   LIBS="$LIBS -lgsl -lgslcblas"
+   LIBS="$LIBS -lgsl"
 elif test "$cooling" = "cosmo" ; then
    echo "Cosmo cooling selected"
    FLAG_COOLING="-DCOOLING_COSMO"
    OBJECTS_COOLING="cooling_cosmo.o stiff.o"
-   LIBS="$LIBS -lgsl -lgslcblas"
+   LIBS="$LIBS -lgsl"
 else
 	echo "Unknown cooling selected, using Adiabatic"
 	FLAG_COOLING="-DCOOLING_NONE"
@@ -97,7 +97,7 @@ if test "${MISSING_GSL}" = "yes" ; then
 		CFLAGS="$CFLAGS -I$gsl/include"
 		LDFLAGS="$LDFLAGS -L$gsl/lib"
 		MISSING_GSL="no"
-		LIBS="$LIBS -lgslcblas"
+		LIBS="$LIBS"
 	   fi
    done
    if test "${MISSING_GSL}" = "yes" ; then
