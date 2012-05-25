@@ -80,6 +80,17 @@ STIFF *StiffInit( double eps, int nv, void *Data,
   return s;
 }
 
+/**
+ * Specify minimum values of quantities.
+ */
+void StiffSetYMin(STIFF *s, const double *ymin)
+{
+    int i;
+
+    for(i = 0; i < s->nv; i++)
+       s->ymin[i] = ymin[i];
+    }
+
 void StiffFinalize( STIFF *s ) 
 {
     free(s->ymin);

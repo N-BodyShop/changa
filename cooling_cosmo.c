@@ -85,9 +85,8 @@ clDerivsData *CoolDerivsInit(COOL *cl)
     Data->cl = cl;
     Data->Y_Total0 = (cl->Y_H+cl->Y_He)*.9999; /* neutral */
     Data->Y_Total1 = (cl->Y_eMAX+cl->Y_H+cl->Y_He)*1.0001; /* Full Ionization */
-    Data->IntegratorContext->ymin[0] = clThermalEnergy(Data->Y_Total0,
-						       cl->TMin);
-    Data->dlnE = (log(EMUL)-log(1/EMUL));
+    double dEMin =  clThermalEnergy(Data->Y_Total0, cl->TMin);
+    StiffSetYMin(Data->IntegratorContext, &dEMin);
     return Data;
     }
 
