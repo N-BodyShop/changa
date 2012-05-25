@@ -1,6 +1,8 @@
 #ifndef STIFF_HINCLUDED
 #define STIFF_HINCLUDED
 
+/** @brief Context for stiff integration
+*/
 typedef struct StiffContextStructure {
     double epsmin;		/* relative accuracy criterion */
     double sqreps;		/* parameter to calculate initial timestep */
@@ -41,6 +43,7 @@ STIFF *StiffInit(double eps, 	/* relative accuracy parameter */
 		   
 void StiffFinalize( STIFF *s );
 void StiffStep(STIFF *s, double y[], double tstart, double htry) ;
+void StiffSetYMin(STIFF *s, const double *ymin);
 
 #ifndef TESTCHEMEQ
 /* 
