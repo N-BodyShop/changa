@@ -30,8 +30,6 @@
 #define EPSTEMP 1e-5
 #define ETAMINTIMESTEP 1e-4
 
-#include "gsl/gsl_errno.h"
-#include "gsl/gsl_odeiv.h"
 #include "cooling.h"
 
 /* Integrator constants */
@@ -70,7 +68,7 @@ clDerivsData *CoolDerivsInit(COOL *cl)
     Data = malloc(sizeof(clDerivsData));
     assert(Data != NULL);
 
-    Data->IntegratorContext = StiffInit( EPSINTEG, 1, Data, clDerivs, clJacobn );
+    Data->IntegratorContext = StiffInit( EPSINTEG, 1, Data, clDerivs);
   
   return Data;
 }
@@ -144,11 +142,14 @@ double clTemperature( double Y_Total, double E ) {
   return E/(Y_Total*CL_Eerg_gm_degK3_2);
 }
 
-double clEdotInstant( COOL *cl, double E, double T, double rho, double rFactor )
+double clEdotInstant( COOL *cl, double E, double T, double rho, double rFactor,
+		      double *dHeat, double *dCool)
 {
 	double Edot;
 
 	Edot = (T < cl->Tmin ? 0 : -E*rFactor);
+	*dHeat = 0.0;
+	*dCool = -Edot;
 
 	return Edot;
 	}
@@ -161,15 +162,20 @@ double clEdotInstant( COOL *cl, double E, double T, double rho, double rFactor )
  * 
  */
 
-int clDerivs(double x, const double *y, double *dydx, void *Data) {
+void clDerivs(double x, const double *y, double *dHeat, double *dCool,
+	     void *Data) {
   clDerivsData *d = Data;
 
   d->E = y[0];
   d->T = clTemperature( d->Y_Total, d->E );
-  dydx[0] = clEdotInstant( d->cl, d->E, d->T, d->rho, d->rFactor ) + d->PdV;
-  return GSL_SUCCESS;
+  clEdotInstant( d->cl, d->E, d->T, d->rho, d->rFactor, dHeat, dCool );
+  if(d->PdV > 0.0)
+      *dHeat += d->PdV;
+  else
+      *dCool -= d->PdV;
 }
 
+#if 0
 int clJacobn(double x, const double y[], double dfdx[], double *dfdy, void *Data) {
   clDerivsData *d = Data;
   double E = y[0],dE;
@@ -189,6 +195,7 @@ int clJacobn(double x, const double y[], double dfdx[], double *dfdy, void *Data
   dfdy[0*ndim + 0] = dE/(E*d->dlnE);
   return GSL_SUCCESS;
 }
+#endif
 
 void clIntegrateEnergy(COOL *cl, clDerivsData *clData, double *E, double PdV,
 		       double rho, double Y_Total, double radius, double tStep ) {
@@ -207,48 +214,17 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, double *E, double PdV,
   
   EMin = clThermalEnergy( d->Y_Total, cl->Tmin );
 
-  dtnext = tStep;
-  gsl_odeiv_evolve_reset(sbs->evolver);
   {
-    int its = 0;
-    while (t<tstop) {
-      double Eold;
-      if (its++ > MAXINTEGITS) assert(0);
       d->E = *E;
-	  d->T = clTemperature( d->Y_Total, d->E );
-	  clDerivs(t, E, &dEdt, d);
-      if (fabs(dEdt) > 0) {
-		  dtEst = fabs(*E/dEdt);
-
-      /* 
-	 Since there is no time dependence and the function is smooth
-	 if the changes become very small it must have reached a saddle or
-	 an equilibrium.  I'll put my money on Equilibrium and abort 
-      */
-      /*
-      if (tStep-t < ECHANGEFRACSMALL*dtEst) {
-	fprintf(stderr,"Aborting -- changes too small\n");
-	*E += (tStep-t)*dEdt;
-	break;
-      }
-      if (dtEst < tStep-t) sbs->hMin = dtEst*ETAMINTIMESTEP;
-      else sbs->hMin = (tStep-t)*ETAMINTIMESTEP;
-      */
-
-	if (dtnext > 0.5*dtEst) dtnext = 0.5*dtEst;
-      }
-      if (dtnext >= tStep-t) dtnext = tStep-t;
-      StiffStep( sbs, E, &dEdt,  &t, dtnext, &Ein, &dtused, &dtnext );
-      Eold = *E;
+      d->T = clTemperature( d->Y_Total, d->E );
+      StiffStep( sbs, E, t, tStep);
 #ifdef ASSERTENEG      
       assert(*E > 0.0);
 #else
       if (*E < EMin) {
 	*E = EMin;
-	break;
       }
 #endif    
-    }
   }
   /* 
      Note Stored abundances are not necessary with

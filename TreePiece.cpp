@@ -3985,7 +3985,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
     }
     CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
     gravityProxy[thisIndex].ckLocal()->contribute(cbf);
-    numChunks = -1; //numchunks needs to get reset next iteration incase particles move into this treepiece
+    // numChunks = -1; //numchunks needs to get reset next iteration incase particles move into this treepiece
     return;
   }
   

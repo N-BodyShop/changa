@@ -247,14 +247,16 @@ double clCoolLineHeI( double T );
 double clCoolLineHeII( double T );
 double clCoolLowT( double T );
 
-double clEdotInstant ( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal );
+double clEdotInstant ( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
+		       double ZMetal, double *EdotCool, double *EdotHeat );
 void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
 		       double ExternalHeating, double rho, double ZMetal, double dt );
 void clIntegrateEnergyDEBUG(COOL *cl, PERBARYON *Y, double *E, 
 		       double ExternalHeating, double rho, double ZMetal, double dt );
 
 
-int clDerivs(double x, const double *y, double *dydx, void *Data) ;
+void clDerivs(double x, const double *y, double *dHeat, double *dCool,
+	     void *Data) ;
 
 int clJacobn( double x, const double y[], double dfdx[], double *dfdy, void *Data) ;
   
