@@ -248,7 +248,7 @@ double clCoolLineHeII( double T );
 double clCoolLowT( double T );
 
 double clEdotInstant ( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
-		       double ZMetal, double *EdotCool, double *EdotHeat );
+		       double ZMetal, double *EdotHeat, double *EdotCool );
 void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
 		       double ExternalHeating, double rho, double ZMetal, double dt );
 void clIntegrateEnergyDEBUG(COOL *cl, PERBARYON *Y, double *E, 
