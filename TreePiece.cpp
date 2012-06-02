@@ -1054,6 +1054,8 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 		       double dDelta, double dAccFac,
 		       double dCosmoFac, const CkCallback& cb) {
   int iCurrMaxRung = 0;
+  int nMaxRung = 0;  // number of particles in maximum rung
+  
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
     GravityParticle *p = &myParticles[i];
     if(p->rung >= iKickRung) {
@@ -1095,15 +1097,34 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
       if(iNewRung > MAXRUNG)
 	CkAbort("Timestep too small");
       if(iNewRung < iKickRung) iNewRung = iKickRung;
-      if(iNewRung > iCurrMaxRung) iCurrMaxRung = iNewRung;
+      if(iNewRung > iCurrMaxRung) {
+	  iCurrMaxRung = iNewRung;
+	  nMaxRung = 1;
+	  }
+      else if(iNewRung == iCurrMaxRung)
+	  nMaxRung++;
       myParticles[i].rung = iNewRung;
 #ifdef NEED_DT
       myParticles[i].dt = dTIdeal;
 #endif
     }
   }
-  contribute(sizeof(int), &iCurrMaxRung, CkReduction::max_int, cb);
+  // Pack into array for reduction
+  int newcount[2];
+  newcount[0] = iCurrMaxRung;
+  newcount[1] = nMaxRung;
+  contribute(2*sizeof(int), newcount, max_count, cb);
 }
+
+void TreePiece::truncateRung(int iCurrMaxRung, const CkCallback& cb) {
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+	if(p->rung > iCurrMaxRung)
+	    p->rung--;
+	CkAssert(p->rung <= iCurrMaxRung);
+	}
+    contribute(cb);
+    }
 
 void TreePiece::rungStats(const CkCallback& cb) {
   int nInRung[MAXRUNG+1];
