@@ -581,6 +581,9 @@ class TreePiece : public CBase_TreePiece {
    template<typename T> friend class GenericList;
 #endif
 
+   friend class OctTreeBuildPhaseIWorker; 
+   friend class OctTreeBuildPhaseIIWorker; 
+
    TreeWalk *sTopDown;
    TreeWalk *twSmooth;
 #if INTERLIST_VER > 0

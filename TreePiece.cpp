@@ -2099,7 +2099,17 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
 
   double start = CmiWallTimer();
   try {
+#ifdef SPLIT_PHASE_TREE_BUILD
+        LocalTreeTraversal traversal; 
+        OctTreeBuildPhaseIWorker w1(this);
+        traversal.dft(root,&w1,0);
+
+        OctTreeBuildPhaseIIWorker w2(this);
+        traversal.dft(root,&w2,0);
+#else
 	buildOctTree(root, 0);
+#endif
+
 	}
   catch (std::bad_alloc) {
 	CkAbort("Out of memory in treebuild");

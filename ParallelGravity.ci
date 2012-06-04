@@ -404,6 +404,13 @@ mainmodule ParallelGravity {
 
   };
 
+  /*
+  group CacheSynchronizer {
+    entry CacheSynchronizer(CkGroupID cacheGids[nCaches], int nCaches);
+    entry void sync(CkCallback &cb);
+  };
+  */
+
   array [1D] LvArray {
       entry LvArray();
   };
