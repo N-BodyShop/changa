@@ -680,10 +680,6 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "iMaxRung parameter ignored. MaxRung is " << MAXRUNG
 		  << endl;
 	    }
-	if(prmSpecified(prm, "nTruncateRung")) {
-	    ckerr << "WARNING: ";
-	    ckerr << "nTruncateRung parameter ignored." << endl;
-	    }
 	if(prmSpecified(prm, "bKDK")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bKDK parameter ignored; KDK is always used." << endl;
@@ -2582,7 +2578,7 @@ void Main::writeOutput(int iStep)
 /// @brief Calculate timesteps of particles.
 ///
 /// Particles on the KickRung and shorter have their timesteps
-/// adjusted.
+/// adjusted.  Calls TreePiece::adjust().
 ///
 /// @param iKickRung Rung (and above) about to be kicked.
 ///
@@ -2598,8 +2594,15 @@ int Main::adjust(int iKickRung)
 		     param.dEtauDot, param.dDelta, 1.0/(a*a*a), a,
 		     CkCallbackResumeThread((void*&)msg));
 
-    int iCurrMaxRung = *(int *)msg->getData();
+    int iCurrMaxRung = ((int *)msg->getData())[0];
+    int nMaxRung = ((int *)msg->getData())[1];
     delete msg;
+    if(nMaxRung <= param.nTruncateRung && iCurrMaxRung > iKickRung) {
+	if(verbosity)
+	    CkPrintf("n_CurrMaxRung = %d, iCurrMaxRung = %d: promoting particles\n", nMaxRung, iCurrMaxRung);
+	iCurrMaxRung--;
+	treeProxy.truncateRung(iCurrMaxRung, CkCallbackResumeThread());
+	}
     return iCurrMaxRung;
     }
 

@@ -1463,6 +1463,12 @@ public:
 		       double dEta, double dEtaCourant, double dEtauDot,
 		       double dDelta, double dAccFac,
 		       double dCosmoFac, const CkCallback& cb);
+  /**
+   * @brief Truncate the highest rung
+   * @param iCurrMaxRung new maximum rung.
+   * @param cb callback.
+   */
+  void truncateRung(int iCurrMaxRung, const CkCallback& cb);
   void rungStats(const CkCallback& cb);
   void countActive(int activeRung, const CkCallback& cb);
   void calcEnergy(const CkCallback& cb);
