@@ -254,4 +254,36 @@ class ActiveWalk {
       tw(_tw), c(_c), o(_o), s(state){}
   ActiveWalk(){}
 };
+
+class TreeNodeWorker {
+
+  public:
+  virtual bool work(GenericTreeNode *node, int level) = 0;
+  virtual void doneChildren(GenericTreeNode *node, int level) {}
+};
+
+class OctTreeBuildPhaseIWorker : public TreeNodeWorker {
+  TreePiece *tp;
+
+  public:
+  OctTreeBuildPhaseIWorker(TreePiece *owner) : 
+    tp(owner)
+  {}
+
+  bool work(GenericTreeNode *node, int level);
+  void doneChildren(GenericTreeNode *node, int level);
+
+};
+
+class OctTreeBuildPhaseIIWorker : public TreeNodeWorker {
+  TreePiece *tp;
+
+  public:
+  OctTreeBuildPhaseIIWorker(TreePiece *owner) : 
+    tp(owner)
+  {}
+
+  bool work(GenericTreeNode *node, int level);
+  void doneChildren(GenericTreeNode *node, int level);
+};
 #endif

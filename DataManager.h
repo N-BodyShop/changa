@@ -55,6 +55,7 @@ struct PendingBuffers {
  */
 class DataManager : public CBase_DataManager {
 	friend class TreePiece;
+        friend class OctTreeBuildPhaseIWorker;
 #ifdef DECOMPOSER_GROUP
 	friend class Decomposer;
 #endif

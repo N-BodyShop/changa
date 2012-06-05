@@ -2099,7 +2099,18 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
 
   double start = CmiWallTimer();
   try {
+#ifdef SPLIT_PHASE_TREE_BUILD
+        LocalTreeTraversal traversal; 
+        OctTreeBuildPhaseIWorker w1(this);
+        traversal.dft(root,&w1,0);
+
+        OctTreeBuildPhaseIIWorker w2(this);
+        traversal.dft(root,&w2,0);
+
+#else
 	buildOctTree(root, 0);
+#endif
+
 	}
   catch (std::bad_alloc) {
 	CkAbort("Out of memory in treebuild");
@@ -2445,7 +2456,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
 				     const unsigned int iParticleTypes) {
   GenericTreeNode *node = keyToNode(key);
   CkAssert(node != NULL);
-  //CkPrintf("[%d] received moments for %s\n",thisIndex,keyBits(key,63).c_str());
+  //CkPrintf("[%d] received moments for %llu\n",thisIndex,key);
   // assign the incoming moments to the node
   if (type == Empty) node->makeEmpty();
   else {
