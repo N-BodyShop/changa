@@ -130,7 +130,7 @@ class LocalTreeTraversal {
       for(int i = 0; i < node->numChildren(); i++){
         dft(node->getChildren(i),worker,level+1);
       }
-      worker->doneChildren(node,level);
+      if(node->numChildren() > 0) worker->doneChildren(node,level);
     }
   }
 };

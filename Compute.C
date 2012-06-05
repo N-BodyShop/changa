@@ -2331,6 +2331,8 @@ bool OctTreeBuildPhaseIWorker::work(GenericTreeNode *node, int level){
   CkAssert(node != NULL);
   CkAssert(node->isValid() && !node->isCached());
 
+  //CkPrintf("[%d] phase I visit %llu type %d\n", tp->thisIndex, node->getKey(), node->getType());
+
   // if non-local, send request
   if(node->getType() == NonLocal){
     // find a remote index for the node
@@ -2347,12 +2349,11 @@ bool OctTreeBuildPhaseIWorker::work(GenericTreeNode *node, int level){
       // request moments in such a way that if I am a piece with a
       // higher index, I request from a higher indexed treepiece.
       node->remoteIndex = tp->dm->responsibleIndex[first + (tp->thisIndex & (last-first))];
-      node->parent->remoteIndex--;
       // request the remote chare to fill this node with the Moments
       CkEntryOptions opts;
       opts.setPriority(-110000000);
+      //CkPrintf("[%d] phase I request moments for %llu from %d\n", tp->thisIndex, node->getKey(), node->remoteIndex);
       streamingProxy[node->remoteIndex].requestRemoteMoments(node->getKey(), tp->thisIndex, &opts);
-      //CkPrintf("[%d] asking for moments of %s to %d\n",thisIndex,keyBits(child->getKey(),63).c_str(),child->remoteIndex);
     }
     return false;
   }
@@ -2390,6 +2391,8 @@ bool OctTreeBuildPhaseIIWorker::work(GenericTreeNode *node, int level){
 #if INTERLIST_VER > 0
   node->startBucket = tp->numBuckets; 
 #endif
+
+  //CkPrintf("[%d] phase II visit node %llu type %d\n", tp->thisIndex, node->getKey(), node->getType());
 
   if(node->getType() == NonLocal){
     return false;
@@ -2438,6 +2441,7 @@ void OctTreeBuildPhaseIIWorker::doneChildren(GenericTreeNode *node, int level){
   node->numBucketsBeneath = 0;
 #endif
 
+  //CkPrintf("[%d] phase II doneChildren node %llu type %d\n", tp->thisIndex, node->getKey(), node->getType());
   if(node->getType() == Boundary){
     for(int i = 0; i < node->numChildren(); i++){
       GenericTreeNode *child = node->getChildren(i);
