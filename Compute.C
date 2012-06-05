@@ -321,7 +321,6 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
   tp->finishBucket(reqIDlist);
   CkAssert(state->counterArrays[1][chunk] >= 0);
   if (state->counterArrays[1][chunk] == 0) {
-    cacheNode[CkMyPe()].finishedChunk(chunk, tp->nodeInterRemote[chunk]);
     cacheGravPart[CkMyPe()].finishedChunk(chunk, tp->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d GravityCompute::recvdParticles\n", tp->getIndex(), chunk);
@@ -353,7 +352,6 @@ void GravityCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, i
   state->counterArrays[1][chunk] --;
   CkAssert(state->counterArrays[1][chunk] >= 0);
   if (state->counterArrays[1][chunk] == 0) {
-    cacheNode[CkMyPe()].finishedChunk(chunk, owner->nodeInterRemote[chunk]);
     cacheGravPart[CkMyPe()].finishedChunk(chunk, owner->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d GravityCompute::nodeRecvdEvent\n", owner->getIndex(), chunk);
@@ -413,7 +411,6 @@ void ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int 
 #if COSMO_PRINT_BK > 1
     CkPrintf("[%d] FINISHED CHUNK %d from nodeRecvdEvent\n", owner->getIndex(), chunk);
 #endif
-    cacheNode[CkMyPe()].finishedChunk(chunk, owner->nodeInterRemote[chunk]);
     cacheGravPart[CkMyPe()].finishedChunk(chunk, owner->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d ListCompute::nodeRecvdEvent\n", owner->getIndex(), chunk);
@@ -1021,7 +1018,6 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
 #if COSMO_PRINT_BK > 1
     CkPrintf("[%d] FINISHED CHUNK %d from recvdParticles\n", tp->getIndex(), chunk);
 #endif
-    cacheNode[CkMyPe()].finishedChunk(chunk, tp->nodeInterRemote[chunk]);
     cacheGravPart[CkMyPe()].finishedChunk(chunk, tp->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d ListCompute::recvdParticles\n", tp->getIndex(), chunk);

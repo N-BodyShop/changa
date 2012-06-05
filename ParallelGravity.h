@@ -428,9 +428,6 @@ class Main : public CBase_Main {
 	double dSimStartTime;   // Start time for entire simulation
 	int iStop;		/* indicate we're stopping the
 				   simulation early */
-	int iPhase;
-	int nPhases;		/* number of walks that a node cache
-				   will service */
 	int nActiveGrav;
 	int nActiveSPH;
 
@@ -1582,7 +1579,7 @@ public:
   void startReSmooth(SmoothParams *p, const CkCallback& cb);
   void startMarkSmooth(SmoothParams *p, const CkCallback& cb);
 
-  void finishNodeCache(int iPhases, const CkCallback& cb);
+  void finishNodeCache(const CkCallback& cb);
 	/// Function called by the CacheManager to send out request for needed
 	/// remote data, so that the later computation will hit.
 	void prefetch(GenericTreeNode *node, int offsetID);
