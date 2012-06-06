@@ -2097,7 +2097,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
 #endif
   // recursively build the tree
 
-  double start = CmiWallTimer();
+  double start;
   try {
 #ifdef SPLIT_PHASE_TREE_BUILD
         LocalTreeTraversal traversal; 
@@ -2108,7 +2108,9 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
         traversal.dft(root,&w2,0);
 
 #else
+        start = CmiWallTimer();
 	buildOctTree(root, 0);
+        traceUserBracketEvent(tbRecursiveUE,start,CmiWallTimer());
 #endif
 
 	}
@@ -2116,7 +2118,6 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
 	CkAbort("Out of memory in treebuild");
 	}
   
-  traceUserBracketEvent(tbRecursiveUE,start,CmiWallTimer());
 /* jetley - save the treepiece bounding box for use later.
    Needed because each treepiece must, for oct decomposition, send its
    centroid to a load balancing strategy object. The previous tree
@@ -2198,7 +2199,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
 
 /// Determine who are all the owners of this node
 /// @return true if the caller is part of the owners, false otherwise
-inline bool TreePiece::nodeOwnership(const Tree::NodeKey nkey, int &firstOwner, int &lastOwner) {
+bool TreePiece::nodeOwnership(const Tree::NodeKey nkey, int &firstOwner, int &lastOwner) {
 
   if(useTree == Binary_ORB){ // Added for ORB Trees
     int keyLevel=0;
