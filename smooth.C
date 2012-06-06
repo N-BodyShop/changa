@@ -325,7 +325,6 @@ void TreePiece::setupSmooth() {
   if (myNumParticles == 0) {
     // No particles assigned to this TreePiece
       for (int i=0; i< numChunks; ++i) {
-	  cacheNode[CkMyPe()].finishedChunk(i, 0);
 	  cacheSmoothPart[CkMyPe()].finishedChunk(i, 0);
 	  }
       return;
@@ -589,7 +588,6 @@ void NearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
       tp->memWithCache = CmiMemoryUsage()/(1024*1024);
       tp->nNodeCacheEntries = ((CkCacheManager*)cacheNode.ckLocalBranch())->getCache()->size();
       tp->nPartCacheEntries = ((CkCacheManager*)cacheSmoothPart.ckLocalBranch())->getCache()->size();
-      cacheNode[CkMyPe()].finishedChunk(0, 0);
       cacheSmoothPart[CkMyPe()].finishedChunk(0, 0);
 #ifdef CHECK_WALK_COMPLETIONS
       CkPrintf("[%d] markWalkDone NearNeighborState\n", tp->getIndex());
@@ -893,7 +891,6 @@ void ReNearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
     if(started && nParticlesPending == 0) {
       started = false;
       tp->memWithCache = CmiMemoryUsage()/(1024*1024);
-      cacheNode[CkMyPe()].finishedChunk(0, 0);
       cacheSmoothPart[CkMyPe()].finishedChunk(0, 0);
 #ifdef CHECK_WALK_COMPLETIONS
       CkPrintf("[%d] markWalkDone ReNearNeighborState\n", tp->getIndex());
@@ -1101,7 +1098,6 @@ void MarkNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
     if(started && nParticlesPending == 0) {
       started = false;
       tp->memWithCache = CmiMemoryUsage()/(1024*1024);
-      cacheNode[CkMyPe()].finishedChunk(0, 0);
       cacheSmoothPart[CkMyPe()].finishedChunk(0, 0);
 #ifdef CHECK_WALK_COMPLETIONS
       CkPrintf("[%d] markWalkDone ReNearNeighborState\n", tp->getIndex());
