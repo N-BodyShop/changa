@@ -3721,7 +3721,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       }
 #endif
 
-      cacheNode[CkMyPe()].finishedChunk(msg->chunkNum, nodeInterRemote[msg->chunkNum]);
       cacheGravPart[CkMyPe()].finishedChunk(msg->chunkNum, particleInterRemote[msg->chunkNum]);
 #ifdef CHECK_WALK_COMPLETIONS
       CkPrintf("[%d] finishedChunk TreePiece::calculateGravityRemote\n", thisIndex);
@@ -3765,14 +3764,11 @@ GenericTreeNode *TreePiece::getStartAncestor(int current, int previous, GenericT
 
 // We are done with the node Cache
 
-void TreePiece::finishNodeCache(int iPhases, const CkCallback& cb)
+void TreePiece::finishNodeCache(const CkCallback& cb)
 {
-    int i;
-    for (i = 0; i < iPhases; i++) {
-	int j;
-	for (j = 0; j < numChunks; j++) {
-	    cacheNode[CkMyPe()].finishedChunk(j, 0);
-	    }
+    int j;
+    for (j = 0; j < numChunks; j++) {
+	cacheNode[CkMyPe()].finishedChunk(j, 0);
 	}
     contribute(0, 0, CkReduction::concat, cb);
     }
@@ -4035,7 +4031,10 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
     }
     CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
     gravityProxy[thisIndex].ckLocal()->contribute(cbf);
-    // numChunks = -1; //numchunks needs to get reset next iteration incase particles move into this treepiece
+    numChunks = -1; // numchunks needs to get reset next iteration in
+		    // case particles move into this treepiece.
+		    // Also makes sure cacheNode->finishedChunk()
+		    // doesn't get called again.
     return;
   }
   

@@ -856,6 +856,11 @@ Main::Main(CkArgMsg* m) {
 	    CkAssert(prmSpecified(prm, "dMsolUnit")
 		     && prmSpecified(prm, "dKpcUnit"));
 	    }
+	if(param.bStarForm && !param.bDoGas) {
+	    ckerr << "WARNING: star formation set without enabling SPH" << endl;
+	    ckerr << "Enabling SPH" << endl;
+	    param.bDoGas = 1;
+	    }
 #include "physconst.h"
 	/*
 	 ** Convert kboltz/mhydrogen to system units, assuming that
@@ -988,31 +993,8 @@ Main::Main(CkArgMsg* m) {
 	cacheGravPart = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 	// Smooth particles
 	cacheSmoothPart = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
-	if(param.bStarForm && !param.bDoGas) {
-	    ckerr << "WARNING: star formation set without enabling SPH" << endl;
-	    ckerr << "Enabling SPH" << endl;
-	    param.bDoGas = 1;
-	    }
-	// Nodes: we need the right number of phases to keep the
-	// nodes.
-	nPhases = 0;
-	if(param.bDoGravity) nPhases++;
-	if(true || param.bDoGas) {  // anticipate that gas might be set.
-	    nPhases += 2;
-	    if(param.bFastGas)
-		nPhases += 2;
-	    }
-	if(nPhases == 0) {
-	    ckerr << "Neither bDoGravity or bDoGas are set!" << endl;
-	    CkAbort("Nothing to do!");
-	    }
-
-	CkGroupID *gids = new CkGroupID[nPhases];
-	int i;
-	for(i = 0; i < nPhases; i++)
-	    gids[i] = pieces.ckLocMgr()->getGroupID();
-	cacheNode = CProxy_CkCacheManager::ckNew(cacheSize, nPhases, gids);
-	delete[] gids;
+	// Nodes
+	cacheNode = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 
 	//create the DataManager
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
@@ -1456,11 +1438,6 @@ void Main::advanceBigStep(int iStep) {
 #else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
-    iPhase = 0;
-    /*
-    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-          << endl;
-          */
     CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
     CkCallback cbGravity(CkCallback::resumeThread);
@@ -1524,7 +1501,6 @@ void Main::advanceBigStep(int iStep) {
             turnProjectionsOff();
 #endif
 	    }
-	iPhase++;
 	if(verbosity)
 	    memoryStatsCache();
     }
@@ -1581,10 +1557,7 @@ void Main::advanceBigStep(int iStep) {
     ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
 
-    CkAssert(iPhase <= nPhases);
-    
-    if(iPhase < nPhases)
-	treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
+    treeProxy.finishNodeCache(CkCallbackResumeThread());
 
     if(!param.bStaticTest) {
       // Closing Kick
@@ -1983,13 +1956,8 @@ Main::initialForces()
 #else
   treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
-  /*
-  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-        << endl;
-        */
   CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
-  iPhase = 0;
   if(verbosity)
       memoryStats();
   
@@ -2038,7 +2006,6 @@ Main::initialForces()
 	  if(verbosity)
 	      memoryStatsCache();
 	  }
-      iPhase++;
       }
   else {
       treeProxy.initAccel(0, CkCallbackResumeThread());
@@ -2057,9 +2024,7 @@ Main::initialForces()
 #endif
       }
   
-  CkAssert(iPhase <= nPhases);
-  if(iPhase < nPhases)
-      treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
+  treeProxy.finishNodeCache(CkCallbackResumeThread());
 
   // Initial Log entry
   char achLogFileName[MAXPATHLEN];
@@ -2212,7 +2177,6 @@ Main::doSimulation()
     
       sprintf(achFile,"%s.%06i",param.achOutName,0);
       if((!param.bDoGas) && param.bDoDensity) {
-	  iPhase = 0;
 	  // If gas isn't being calculated, we can do the total
 	  // densities before we start the output.
 	  ckout << "Calculating total densities ...";
@@ -2221,7 +2185,6 @@ Main::doSimulation()
 	  double dfBall2OverSoft2 = 0.0;
 	  treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 				CkCallbackResumeThread());
-	  iPhase++;
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
 #if 0
@@ -2231,13 +2194,10 @@ Main::doSimulation()
           ckout << "Recalculating densities ...";
           startTime = CkWallTimer();
 	  treeProxy.startIterationReSmooth(&pDen, CkCallbackResumeThread());
-	  iPhase++;
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 #endif
-	  CkAssert(iPhase <= nPhases);
-	  if(iPhase < nPhases)
-	      treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
-          ckout << "Reodering ...";
+	  treeProxy.finishNodeCache(CkCallbackResumeThread());
+          ckout << "Reordering ...";
           startTime = CkWallTimer();
 	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
@@ -2316,7 +2276,6 @@ Main::doSimulation()
 #else
 	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
-	  iPhase = 0;
 	  
 	  ckout << "Calculating total densities ...";
 	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
@@ -2324,17 +2283,13 @@ Main::doSimulation()
 	  double dfBall2OverSoft2 = 0.0;
 	  treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 					 CkCallbackResumeThread());
-	  iPhase++;
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
           ckout << "Recalculating densities ...";
           startTime = CkWallTimer();
 	  treeProxy.startReSmooth(&pDen, CkCallbackResumeThread());
-	  iPhase++;
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	  CkAssert(iPhase <= nPhases);
-	  if(iPhase < nPhases)
-	      treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
+	  treeProxy.finishNodeCache(CkCallbackResumeThread());
           ckout << "Reodering ...";
           startTime = CkWallTimer();
 	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
@@ -2509,7 +2464,6 @@ void Main::writeOutput(int iStep)
 	treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
 
-	iPhase = 0;
 	if(verbosity)
 	    ckout << "Calculating total densities ...";
 	DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
@@ -2517,10 +2471,7 @@ void Main::writeOutput(int iStep)
 	double dfBall2OverSoft2 = 0.0;
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
-	iPhase++;
-	CkAssert(iPhase <= nPhases);
-	if(iPhase < nPhases)
-	    treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
+	treeProxy.finishNodeCache(CkCallbackResumeThread());
 	if(verbosity) {
 	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		  << endl;
@@ -2557,16 +2508,11 @@ void Main::writeOutput(int iStep)
 #else
 	    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
-	    iPhase = 0;
 	    DensitySmoothParams pDenGas(TYPE_GAS, 0);
 	    dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
 	    treeProxy.startSmooth(&pDenGas, 1, param.nSmooth, dfBall2OverSoft2,
 				  CkCallbackResumeThread());
-	    iPhase++;
-	    CkAssert(iPhase <= nPhases);
-	    if(iPhase < nPhases)
-		treeProxy.finishNodeCache(nPhases-iPhase,
-					  CkCallbackResumeThread());
+	    treeProxy.finishNodeCache(CkCallbackResumeThread());
 	    if(verbosity)
 		ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		      << endl;
@@ -2917,7 +2863,6 @@ void Main::pup(PUP::er& p)
     p | iOut;
     p | bDumpFrame;
     p | bChkFirst;
-    p | nPhases;
     p | sorter;
     }
 

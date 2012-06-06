@@ -31,7 +31,6 @@ Main::initSph()
 	double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
-	iPhase++;
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 	if(verbosity)
@@ -256,7 +255,6 @@ Main::doSph(int activeRung, int bNeedDensity)
 	double startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
-	iPhase++;
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 
@@ -265,7 +263,6 @@ Main::doSph(int activeRung, int bNeedDensity)
 	MarkSmoothParams pMark(TYPE_GAS, activeRung);
 	startTime = CkWallTimer();
 	treeProxy.startMarkSmooth(&pMark, CkCallbackResumeThread());
-	iPhase++;
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 	
@@ -276,7 +273,6 @@ Main::doSph(int activeRung, int bNeedDensity)
 	startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDenN, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
-	iPhase++;
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 	}
@@ -288,7 +284,6 @@ Main::doSph(int activeRung, int bNeedDensity)
 	double startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
-	iPhase++;
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 
@@ -312,7 +307,6 @@ Main::doSph(int activeRung, int bNeedDensity)
 				   param.dConstAlpha, param.dConstBeta);
     double startTime = CkWallTimer();
     treeProxy.startReSmooth(&pPressure, CkCallbackResumeThread());
-    iPhase++;
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	  << endl;
     

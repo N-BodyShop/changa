@@ -10,3 +10,6 @@ ppartt: ppartt.c tipsydefs.h
 pgaspart: pgaspart.c tipsydefs.h
 	$(CC) -o pgaspart pgaspart.c -lm
 
+clean:
+	-rm -f pgaspart ppartt testdata.tbin
+
