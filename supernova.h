@@ -50,7 +50,9 @@ class SN
 	dMOxconst = 4.586e-4; 
 	dESN = 0.1e51;
 	iNSNIIQuantum = 0;
-	dFracBinSNIa = 0.05;
+	dFracBinSNIa = 0.05; 	/* .05 is in line with chemical evolution
+				   models of the Milky Way (Francois
+				   et al 2004) */
 	}
     void CalcSNIIFeedback(SFEvent *sfEvent, double dTime, double dDelta, 
 			  FBEffects *fbEffects);
