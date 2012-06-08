@@ -1,5 +1,4 @@
-/** @file ParallelGravity.cpp
- *
+/**
  * @mainpage ChaNGa: Charm++ N-body Gravity 
  * 
  * For internal documentation of the operation of this code please see the
