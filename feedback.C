@@ -219,6 +219,12 @@ void TreePiece::Feedback(Fdbk &fb, double dTime, double dDelta, const CkCallback
     contribute(sizeof(dFeedback),dFeedback, CkReduction::sum_double, cb);
 }
 
+/// @brief Fdbk main method.
+/// @param p Star particle doing feedback
+/// @param dTime Current time in years.
+/// @param dDeltaYr Timestep in years.
+/// @param fbTotals pointer to total effects for bookkeeping
+
 void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
 		      FBEffects *fbTotals)
 {
@@ -246,7 +252,8 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
 	switch (j) {
 	case FB_SNII:
 	    sn.CalcSNIIFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
-	    if (sn.dESN > 0) p->fNSN() = fbEffects.dEnergy / sn.dESN;
+	    if (sn.dESN > 0)
+		p->fNSN() = fbEffects.dEnergy*MSOLG*fbEffects.dMassLoss/sn.dESN;
 	    break;
 	case FB_SNIA:
 	    sn.CalcSNIaFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
