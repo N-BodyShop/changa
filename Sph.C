@@ -373,12 +373,22 @@ void TreePiece::updateuDot(int activeRung,
 		double E = p->u();
 		double r[3];  // For conversion to C
 		p->position.array_form(r);
+		double dtUse = dt;
+		
+		if(dTime < p->fTimeCoolIsOffUntil()) {
+		    /* This flags cooling shutoff (e.g., from SNe) to
+		       the cooling functions. */
+		    dtUse = -dt;
+		    p->uDot() = ExternalHeating;
+		    }
 
 		CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
 					ExternalHeating, p->fDensity,
-					p->fMetals(), r, dt);
+					p->fMetals(), r, dtUse);
 		CkAssert(E > 0.0);
-		p->uDot() = (E - p->u())/duDelta[p->rung]; // linear interpolation over interval
+		if(dtUse > 0 || ExternalHeating*duDelta[p->rung] + p->u() < 0)
+		    // linear interpolation over interval
+		    p->uDot() = (E - p->u())/duDelta[p->rung];
 		if (bUpdateState) p->CoolParticle() = cp;
 		}
 	    else { 
