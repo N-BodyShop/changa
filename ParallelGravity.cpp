@@ -714,6 +714,19 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "bOverwrite parameter ignored."
 		  << endl;
 	    }
+	if(param.iOutInterval <= 0) {
+	    ckerr << "WARNING: ";
+	    ckerr << "iOutInterval is non-positive; setting to 1."
+		  << endl;
+	    param.iOutInterval = 1;
+	    }
+	    
+	if(param.iLogInterval <= 0) {
+	    ckerr << "WARNING: ";
+	    ckerr << "iLogInterval is non-positive; setting to 1."
+		  << endl;
+	    param.iLogInterval = 1;
+	    }
 	    
 	if (param.bPhysicalSoft) {
 	    if (!param.csm->bComove) {
