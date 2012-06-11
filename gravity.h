@@ -543,7 +543,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
     SSEcosmoType SSELoad(packedMass, activeParticles, i, ->mass);  
     SSEcosmoType SSELoad(packedDtGrav, activeParticles, i, ->dtGrav);
 #ifdef HEXADECAPOLE
-    momEvalMomr(&m.mom, dir, -r.x, -r.y, -r.z, &packedPotential,
+    momEvalFmomr(&m.mom, dir, -r.x, -r.y, -r.z, &packedPotential,
 		&packedAcc.x,
 		&packedAcc.y,
 		&packedAcc.z);
