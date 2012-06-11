@@ -1054,6 +1054,8 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 		       double dDelta, double dAccFac,
 		       double dCosmoFac, const CkCallback& cb) {
   int iCurrMaxRung = 0;
+  int nMaxRung = 0;  // number of particles in maximum rung
+  
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
     GravityParticle *p = &myParticles[i];
     if(p->rung >= iKickRung) {
@@ -1095,15 +1097,34 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
       if(iNewRung > MAXRUNG)
 	CkAbort("Timestep too small");
       if(iNewRung < iKickRung) iNewRung = iKickRung;
-      if(iNewRung > iCurrMaxRung) iCurrMaxRung = iNewRung;
+      if(iNewRung > iCurrMaxRung) {
+	  iCurrMaxRung = iNewRung;
+	  nMaxRung = 1;
+	  }
+      else if(iNewRung == iCurrMaxRung)
+	  nMaxRung++;
       myParticles[i].rung = iNewRung;
 #ifdef NEED_DT
       myParticles[i].dt = dTIdeal;
 #endif
     }
   }
-  contribute(sizeof(int), &iCurrMaxRung, CkReduction::max_int, cb);
+  // Pack into array for reduction
+  int newcount[2];
+  newcount[0] = iCurrMaxRung;
+  newcount[1] = nMaxRung;
+  contribute(2*sizeof(int), newcount, max_count, cb);
 }
+
+void TreePiece::truncateRung(int iCurrMaxRung, const CkCallback& cb) {
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+	if(p->rung > iCurrMaxRung)
+	    p->rung--;
+	CkAssert(p->rung <= iCurrMaxRung);
+	}
+    contribute(cb);
+    }
 
 void TreePiece::rungStats(const CkCallback& cb) {
   int nInRung[MAXRUNG+1];
@@ -2091,15 +2112,27 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
 #endif
   // recursively build the tree
 
-  double start = CmiWallTimer();
+  double start;
   try {
+#ifdef SPLIT_PHASE_TREE_BUILD
+        LocalTreeTraversal traversal; 
+        OctTreeBuildPhaseIWorker w1(this);
+        traversal.dft(root,&w1,0);
+
+        OctTreeBuildPhaseIIWorker w2(this);
+        traversal.dft(root,&w2,0);
+
+#else
+        start = CmiWallTimer();
 	buildOctTree(root, 0);
+        traceUserBracketEvent(tbRecursiveUE,start,CmiWallTimer());
+#endif
+
 	}
   catch (std::bad_alloc) {
 	CkAbort("Out of memory in treebuild");
 	}
   
-  traceUserBracketEvent(tbRecursiveUE,start,CmiWallTimer());
 /* jetley - save the treepiece bounding box for use later.
    Needed because each treepiece must, for oct decomposition, send its
    centroid to a load balancing strategy object. The previous tree
@@ -2181,7 +2214,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
 
 /// Determine who are all the owners of this node
 /// @return true if the caller is part of the owners, false otherwise
-inline bool TreePiece::nodeOwnership(const Tree::NodeKey nkey, int &firstOwner, int &lastOwner) {
+bool TreePiece::nodeOwnership(const Tree::NodeKey nkey, int &firstOwner, int &lastOwner) {
 
   if(useTree == Binary_ORB){ // Added for ORB Trees
     int keyLevel=0;
@@ -2439,7 +2472,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
 				     const unsigned int iParticleTypes) {
   GenericTreeNode *node = keyToNode(key);
   CkAssert(node != NULL);
-  //CkPrintf("[%d] received moments for %s\n",thisIndex,keyBits(key,63).c_str());
+  //CkPrintf("[%d] received moments for %llu\n",thisIndex,key);
   // assign the incoming moments to the node
   if (type == Empty) node->makeEmpty();
   else {
@@ -3703,7 +3736,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       }
 #endif
 
-      cacheNode[CkMyPe()].finishedChunk(msg->chunkNum, nodeInterRemote[msg->chunkNum]);
       cacheGravPart[CkMyPe()].finishedChunk(msg->chunkNum, particleInterRemote[msg->chunkNum]);
 #ifdef CHECK_WALK_COMPLETIONS
       CkPrintf("[%d] finishedChunk TreePiece::calculateGravityRemote\n", thisIndex);
@@ -3747,14 +3779,11 @@ GenericTreeNode *TreePiece::getStartAncestor(int current, int previous, GenericT
 
 // We are done with the node Cache
 
-void TreePiece::finishNodeCache(int iPhases, const CkCallback& cb)
+void TreePiece::finishNodeCache(const CkCallback& cb)
 {
-    int i;
-    for (i = 0; i < iPhases; i++) {
-	int j;
-	for (j = 0; j < numChunks; j++) {
-	    cacheNode[CkMyPe()].finishedChunk(j, 0);
-	    }
+    int j;
+    for (j = 0; j < numChunks; j++) {
+	cacheNode[CkMyPe()].finishedChunk(j, 0);
 	}
     contribute(0, 0, CkReduction::concat, cb);
     }
@@ -4017,7 +4046,10 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
     }
     CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
     gravityProxy[thisIndex].ckLocal()->contribute(cbf);
-    numChunks = -1; //numchunks needs to get reset next iteration incase particles move into this treepiece
+    numChunks = -1; // numchunks needs to get reset next iteration in
+		    // case particles move into this treepiece.
+		    // Also makes sure cacheNode->finishedChunk()
+		    // doesn't get called again.
     return;
   }
   

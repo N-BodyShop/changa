@@ -103,8 +103,6 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
 ///
 void Main::StellarFeedback(double dTime, double dDelta) 
 {
-    int iPhase = 0; // Keeps track of node cache use
-    
     if(verbosity)
 	CkPrintf("Stellar Feedback ... \n");
     double startTime = CkWallTimer();
@@ -148,11 +146,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
     treeProxy.startSmooth(&pDSFB, 1, param.nSmooth, dfBall2OverSoft2,
 				   CkCallbackResumeThread());
-    iPhase++;
-
-    CkAssert(iPhase <= nPhases);
-    if(iPhase < nPhases)
-	treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
+    treeProxy.finishNodeCache(CkCallbackResumeThread());
 
     CkPrintf("Stellar Feedback Calculated, Wallclock %f secs\n",
 	     CkWallTimer() - startTime);

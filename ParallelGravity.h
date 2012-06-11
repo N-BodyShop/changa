@@ -428,9 +428,6 @@ class Main : public CBase_Main {
 	double dSimStartTime;   // Start time for entire simulation
 	int iStop;		/* indicate we're stopping the
 				   simulation early */
-	int iPhase;
-	int nPhases;		/* number of walks that a node cache
-				   will service */
 	int nActiveGrav;
 	int nActiveSPH;
 
@@ -582,6 +579,9 @@ class TreePiece : public CBase_TreePiece {
    friend class DataManager;
    template<typename T> friend class GenericList;
 #endif
+
+   friend class OctTreeBuildPhaseIWorker; 
+   friend class OctTreeBuildPhaseIIWorker; 
 
    TreeWalk *sTopDown;
    TreeWalk *twSmooth;
@@ -1465,6 +1465,12 @@ public:
 		       double dEta, double dEtaCourant, double dEtauDot,
 		       double dDelta, double dAccFac,
 		       double dCosmoFac, const CkCallback& cb);
+  /**
+   * @brief Truncate the highest rung
+   * @param iCurrMaxRung new maximum rung.
+   * @param cb callback.
+   */
+  void truncateRung(int iCurrMaxRung, const CkCallback& cb);
   void rungStats(const CkCallback& cb);
   void countActive(int activeRung, const CkCallback& cb);
   void calcEnergy(const CkCallback& cb);
@@ -1582,7 +1588,7 @@ public:
   void startReSmooth(SmoothParams *p, const CkCallback& cb);
   void startMarkSmooth(SmoothParams *p, const CkCallback& cb);
 
-  void finishNodeCache(int iPhases, const CkCallback& cb);
+  void finishNodeCache(const CkCallback& cb);
 	/// Function called by the CacheManager to send out request for needed
 	/// remote data, so that the later computation will hit.
 	void prefetch(GenericTreeNode *node, int offsetID);

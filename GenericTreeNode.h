@@ -170,6 +170,16 @@ namespace Tree {
     virtual bool contains(NodeKey nodekey) = 0;
 #endif
 
+    bool isValid(){
+      return (myType != Invalid);
+    }
+
+    bool isCached(){
+      return (myType == Cached ||
+              myType == CachedBucket ||
+              myType == CachedEmpty);
+    }
+
     // these two functions are used to track the communication between objects:
     // a nodes is marked usedBy when a local TreePiece has touched it
     void markUsedBy(int index) { usedBy |= (((CmiUInt8)1) << index); }

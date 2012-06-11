@@ -277,6 +277,7 @@ mainmodule ParallelGravity {
 	      double dEta, double dEtaCourant, double dEtauDot,
 	      double dDelta, double dAccFac,
 	      double dCosmoFac, const CkCallback& cb);
+    entry void truncateRung(int iCurrMaxRung, const CkCallback& cb);
     entry void rungStats(const CkCallback& cb);
     entry void countActive(int activeRung, const CkCallback& cb);
     entry void drift(double dDelta, int bNeedVPred, int bGasIsoThermal,
@@ -339,7 +340,7 @@ mainmodule ParallelGravity {
 				    double dfBall2OverSoft2, CkCallback &cb);
     entry void startReSmooth(CkPointer<SmoothParams>, CkCallback &cb);
     entry void startMarkSmooth(CkPointer<SmoothParams>, CkCallback &cb);
-    entry void finishNodeCache(int iPhases, CkCallback &cb);
+    entry void finishNodeCache(CkCallback &cb);
 
     entry [inline] void requestRemoteMoments(Tree::NodeKey key, int sender);
     entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, MultipoleMoments& moments, OrientedBox<double>& box, OrientedBox<double>& boxBall, unsigned int iParticleTypes);
@@ -428,6 +429,13 @@ mainmodule ParallelGravity {
     entry void balanceBeforeInitialForces(CkCallback &cb); 
 
   };
+
+  /*
+  group CacheSynchronizer {
+    entry CacheSynchronizer(CkGroupID cacheGids[nCaches], int nCaches);
+    entry void sync(CkCallback &cb);
+  };
+  */
 
   array [1D] LvArray {
       entry LvArray();

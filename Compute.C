@@ -321,7 +321,6 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
   tp->finishBucket(reqIDlist);
   CkAssert(state->counterArrays[1][chunk] >= 0);
   if (state->counterArrays[1][chunk] == 0) {
-    cacheNode[CkMyPe()].finishedChunk(chunk, tp->nodeInterRemote[chunk]);
     cacheGravPart[CkMyPe()].finishedChunk(chunk, tp->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d GravityCompute::recvdParticles\n", tp->getIndex(), chunk);
@@ -353,7 +352,6 @@ void GravityCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, i
   state->counterArrays[1][chunk] --;
   CkAssert(state->counterArrays[1][chunk] >= 0);
   if (state->counterArrays[1][chunk] == 0) {
-    cacheNode[CkMyPe()].finishedChunk(chunk, owner->nodeInterRemote[chunk]);
     cacheGravPart[CkMyPe()].finishedChunk(chunk, owner->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d GravityCompute::nodeRecvdEvent\n", owner->getIndex(), chunk);
@@ -413,7 +411,6 @@ void ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int 
 #if COSMO_PRINT_BK > 1
     CkPrintf("[%d] FINISHED CHUNK %d from nodeRecvdEvent\n", owner->getIndex(), chunk);
 #endif
-    cacheNode[CkMyPe()].finishedChunk(chunk, owner->nodeInterRemote[chunk]);
     cacheGravPart[CkMyPe()].finishedChunk(chunk, owner->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d ListCompute::nodeRecvdEvent\n", owner->getIndex(), chunk);
@@ -1021,7 +1018,6 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
 #if COSMO_PRINT_BK > 1
     CkPrintf("[%d] FINISHED CHUNK %d from recvdParticles\n", tp->getIndex(), chunk);
 #endif
-    cacheNode[CkMyPe()].finishedChunk(chunk, tp->nodeInterRemote[chunk]);
     cacheGravPart[CkMyPe()].finishedChunk(chunk, tp->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d ListCompute::recvdParticles\n", tp->getIndex(), chunk);
@@ -2326,5 +2322,148 @@ void printUndlist(DoubleWalkState *state, int level, TreePiece *tp){
     }
 }
 #endif
+
+bool OctTreeBuildPhaseIWorker::work(GenericTreeNode *node, int level){
+  CkAssert(node != NULL);
+  CkAssert(node->isValid() && !node->isCached());
+
+  //CkPrintf("[%d] phase I visit %llu type %d\n", tp->thisIndex, node->getKey(), node->getType());
+
+  // if non-local, send request
+  if(node->getType() == NonLocal){
+    // find a remote index for the node
+    int first, last;
+    bool isShared = tp->nodeOwnership(node->getKey(), first, last);
+    CkAssert(!isShared);
+    if (last < first) {
+      // the node is really empty because falling between two TreePieces
+      node->makeEmpty();
+      node->remoteIndex = tp->thisIndex;
+    } 
+    else {
+      // Choose a piece from among the owners from which to
+      // request moments in such a way that if I am a piece with a
+      // higher index, I request from a higher indexed treepiece.
+      node->remoteIndex = tp->dm->responsibleIndex[first + (tp->thisIndex & (last-first))];
+      // request the remote chare to fill this node with the Moments
+      CkEntryOptions opts;
+      opts.setPriority(-110000000);
+      //CkPrintf("[%d] phase I request moments for %llu from %d\n", tp->thisIndex, node->getKey(), node->remoteIndex);
+      streamingProxy[node->remoteIndex].requestRemoteMoments(node->getKey(), tp->thisIndex, &opts);
+    }
+    return false;
+  }
+  else if(node->getType() == Empty || 
+          node->getType() == Internal){
+    return false;
+  }
+  else if(node->getType() == Boundary){
+    node->makeOctChildren(tp->myParticles,tp->myNumParticles,level);
+    // The boundingBox was used above to determine the spacially equal
+    // split between the children.  Now reset it so it can be calculated
+    // from the particle positions.
+    node->boundingBox.reset();
+
+    return true;
+  }
+}
+
+void OctTreeBuildPhaseIWorker::doneChildren(GenericTreeNode *node, int level){
+}
+
+bool OctTreeBuildPhaseIIWorker::work(GenericTreeNode *node, int level){
+  if (level == 62) {
+    ckerr << tp->thisIndex << ": TreePiece: This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
+    ckerr << "Left particle: " << (node->firstParticle) << " Right particle: " << (node->lastParticle) << endl;
+    ckerr << "Left key : " << keyBits((tp->myParticles[node->firstParticle]).key, 63).c_str() << endl;
+    ckerr << "Right key: " << keyBits((tp->myParticles[node->lastParticle]).key, 63).c_str() << endl;
+    ckerr << "Node type: " << node->getType() << endl;
+    ckerr << "myNumParticles: " << tp->myNumParticles << endl;
+    CkAbort("Tree is too deep!");
+    return false;
+  }
+
+  tp->nodeLookupTable[node->getKey()] = node;
+#if INTERLIST_VER > 0
+  node->startBucket = tp->numBuckets; 
+#endif
+
+  //CkPrintf("[%d] phase II visit node %llu type %d\n", tp->thisIndex, node->getKey(), node->getType());
+
+  if(node->getType() == NonLocal){
+    return false;
+  }
+  else if(node->getType() == Internal &&
+          (node->lastParticle - node->firstParticle < maxBucketSize || level >= 61)){
+
+       if(level >= 61
+	  && node->lastParticle - node->firstParticle >= maxBucketSize)
+           ckerr << "Truncated tree with "
+                 << node->lastParticle - node->firstParticle
+                 << " particle bucket" << endl;
+       
+      CkAssert(node->firstParticle != 0 && node->lastParticle != tp->myNumParticles+1);
+      node->remoteIndex = tp->thisIndex;
+      node->makeBucket(tp->myParticles);
+      tp->bucketList.push_back(node);
+      tp->numBuckets++;
+      return false;
+  }
+  else if(node->getType() == Empty){
+    node->remoteIndex = tp->thisIndex;
+    return false;
+  }
+  else if(node->getType() == Internal){
+    node->makeOctChildren(tp->myParticles,tp->myNumParticles,level);
+    // The boundingBox was used above to determine the spacially equal
+    // split between the children.  Now reset it so it can be calculated
+    // from the particle positions.
+    node->boundingBox.reset();
+
+    node->remoteIndex = tp->thisIndex;
+    return true;
+  }
+  else if(node->getType() == Boundary){
+    CkAssert(node->getChildren(0) != NULL);
+    return true;
+  }
+}
+
+void OctTreeBuildPhaseIIWorker::doneChildren(GenericTreeNode *node, int level){
+  CkAssert(node->getType() == Boundary ||
+           node->getType() == Internal);
+  node->rungs = 0;
+#if INTERLIST_VER > 0
+  node->numBucketsBeneath = 0;
+#endif
+
+  //CkPrintf("[%d] phase II doneChildren node %llu type %d\n", tp->thisIndex, node->getKey(), node->getType());
+  if(node->getType() == Boundary){
+    for(int i = 0; i < node->numChildren(); i++){
+      GenericTreeNode *child = node->getChildren(i);
+      if(child->getType() == NonLocal ||
+         child->getType() == Boundary) node->remoteIndex--;
+      if(child->rungs > node->rungs) node->rungs = child->rungs;
+#if INTERLIST_VER > 0
+      node->numBucketsBeneath += child->numBucketsBeneath;
+#endif
+    }
+  }
+  else{
+    for(int i = 0; i < node->numChildren(); i++){
+      GenericTreeNode *child = node->getChildren(i);
+      node->moments += child->moments;
+      node->boundingBox.grow(child->boundingBox);
+      node->bndBoxBall.grow(child->bndBoxBall);
+      node->iParticleTypes |= child->iParticleTypes;
+      if(child->rungs > node->rungs) node->rungs = child->rungs;
+#if INTERLIST_VER > 0
+      node->numBucketsBeneath += child->numBucketsBeneath;
+#endif
+    }
+
+    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
+  }
+}
 
 #endif // INTERLIST_VER > 0
