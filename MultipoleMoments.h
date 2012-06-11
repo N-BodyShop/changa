@@ -97,7 +97,7 @@ public:
 	/// The center of mass (zeroth order multipole)
 	Vector3D<double> cm;
 #ifdef HEXADECAPOLE
-	MOMR mom;
+	FMOMR mom;
 #else						\
 	//Tensor for higher order moments goes here
 	double xx, xy, xz, yy, yz, zz;
@@ -108,7 +108,7 @@ public:
 		cm.x = cm.y = cm.z = 0;
 		//clear higher order components here
 #ifdef HEXADECAPOLE
-		momClearMomr(&mom);
+		momClearFmomr(&mom);
 #else
 		xx = xy = xz = yy = yz = zz = 0;
 #endif
@@ -129,11 +129,11 @@ public:
 		cm = (m1*cm + m.totalMass*m.cm)/totalMass;
 #ifdef HEXADECAPOLE
 		Vector3D<double> dr = cm1 - cm;
-		momShiftMomr(&mom, dr.x, dr.y, dr.z);
+		momShiftFmomr(&mom, dr.x, dr.y, dr.z);
 		MOMR mom2 = m.mom;
 		dr = m.cm - cm;
-		momShiftMomr(&mom2, dr.x, dr.y, dr.z);
-		momAddMomr(&mom, &mom2);
+		momShiftFmomr(&mom2, dr.x, dr.y, dr.z);
+		momAddFmomr(&mom, &mom2);
 #else
 		//add higher order components here
 		Vector3D<double> dr = cm1 - cm;
@@ -169,11 +169,11 @@ public:
 		// you could first determine the center of mass, then
 		// do a momMakeMomr(); momAddMomr() for each particle.
 		Vector3D<double> dr = cm1 - cm;
-		momShiftMomr(&mom, dr.x, dr.y, dr.z);
+		momShiftFmomr(&mom, dr.x, dr.y, dr.z);
 		dr = p.position - cm;
-		MOMR momPart;
+		FMOMR momPart;
 		momMakeMomr(&momPart, p.mass, dr.x, dr.y, dr.z);
-		momAddMomr(&mom, &momPart);
+		momAddFmomr(&mom, &momPart);
 #else
 		//add higher order components here
 		Vector3D<double> dr = cm1 - cm;
@@ -209,11 +209,11 @@ public:
 #ifdef HEXADECAPOLE
 		Vector3D<double> dr = cm - newMoments.cm;
 		newMoments.mom = mom;
-		momShiftMomr(&mom, dr.x, dr.y, dr.z);
-		MOMR mom2 = m.mom;
+		momShiftFmomr(&mom, dr.x, dr.y, dr.z);
+		FMOMR mom2 = m.mom;
 		dr = m.cm - newMoments.cm;
-		momShiftMomr(&mom2, dr.x, dr.y, dr.z);
-		momSubMomr(&newMoments.mom, &mom2);
+		momShiftFmomr(&mom2, dr.x, dr.y, dr.z);
+		momSubFmomr(&newMoments.mom, &mom2);
 #else
 		//subtract off higher order components here
 		Vector3D<double> dr = cm - newMoments.cm;
@@ -242,7 +242,7 @@ public:
 		cm.x = cm.y = cm.z = 0;
 		//clear higher order components here
 #ifdef HEXADECAPOLE
-		momClearMomr(&mom);
+		momClearFmomr(&mom);
 #else
 		xx = xy = xz = yy = yz = zz = 0;
 #endif
