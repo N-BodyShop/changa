@@ -133,6 +133,8 @@ namespace Tree {
     double sizeSm;
     /// Maximum smoothing radius of smoothActive particles
     double fKeyMax;
+    /// SMP rank of node owner
+    int iRank;
 
     GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0), usedBy(0) {
 #if INTERLIST_VER > 0
@@ -199,6 +201,7 @@ namespace Tree {
     /// transform an internal node into a bucket
     inline void makeBucket(GravityParticle *part) {
       myType = Bucket;
+      iRank = CkMyRank();
 #if INTERLIST_VER > 0
       numBucketsBeneath = 1;
 #endif
