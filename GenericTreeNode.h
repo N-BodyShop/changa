@@ -234,6 +234,8 @@ namespace Tree {
       iParticleTypes = 0;
     }
 
+    void getGraphViz(std::ostream &out);
+
     virtual NodeKey getLongestCommonPrefix(NodeKey k1, NodeKey k2)
     {
       CkAbort("getLongestCommonPrefix not implemented\n");
@@ -991,6 +993,5 @@ inline void operator|(PUP::er &p,Tree::GenericTrees &gt) {
     p | gti;
   }
 }
-
 
 #endif //GENERICTREENODE_H
