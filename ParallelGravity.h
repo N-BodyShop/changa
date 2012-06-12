@@ -60,6 +60,8 @@ PUPbytes(COOLPARAM);
 
 #include <map>
 
+#define MERGE_REMOTE_REQUESTS_VERBOSE /*CkPrintf*/
+
 using namespace std;
 
 using namespace Tree;
@@ -84,9 +86,9 @@ enum DomainsDec {
     SFC_dec=0,	// Space Filling Curve with Morton ordering
     Oct_dec=1, 	// Oct tree
     ORB_dec=2,	// Bisect the longest axis, balancing particles
-    SFC_peano_dec=3,	// SFC with Piano-Hilbert ordering
+    SFC_peano_dec=3,	// SFC with Peano-Hilbert ordering
     SFC_peano_dec_3D=4, // Joachim Stadel's implementation of P-H ordering
-    SFC_peano_dec_2D=5,	// 2D version of Piano-Hilbert ordering
+    SFC_peano_dec_2D=5,	// 2D version of Peano-Hilbert ordering
     ORB_space_dec=6		// Bisect space
 };
 
@@ -133,6 +135,7 @@ extern CProxy_DataManager dMProxy;
 extern unsigned int numTreePieces;
 extern unsigned int particlesPerChare;
 
+extern CProxy_PETreeMerger peTreeMergerProxy;
 extern CProxy_CkCacheManager cacheGravPart;
 extern CProxy_CkCacheManager cacheSmoothPart;
 extern CProxy_CkCacheManager cacheNode;
@@ -559,6 +562,38 @@ class SmoothCompute;
 template<typename T> class GenericList;
 #endif
 
+struct NonLocalMomentsClient {
+  TreePiece *clientTreePiece;
+  GenericTreeNode *clientNode;
+
+  NonLocalMomentsClient() :
+    clientTreePiece(NULL),
+    clientNode(NULL)
+  {}
+
+  NonLocalMomentsClient(TreePiece *tp, GenericTreeNode *node) : 
+    clientTreePiece(tp),
+    clientNode(node)
+  {}
+};
+
+struct NonLocalMomentsClientList {
+  GenericTreeNode *targetNode;
+  CkVec<NonLocalMomentsClient> clients;
+
+  NonLocalMomentsClientList() : 
+    targetNode(NULL)
+  {}
+
+  NonLocalMomentsClientList(GenericTreeNode *node) :
+    targetNode(node)
+  {}
+
+  void addClient(const NonLocalMomentsClient &cli){
+    clients.push_back(cli);
+  }
+};
+
 /// Fundamental structure that holds particle and tree data.
 class TreePiece : public CBase_TreePiece {
    // jetley
@@ -578,8 +613,8 @@ class TreePiece : public CBase_TreePiece {
    template<typename T> friend class GenericList;
 #endif
 
-   friend class OctTreeBuildPhaseIWorker; 
-   friend class OctTreeBuildPhaseIIWorker; 
+   friend class RemoteTreeBuilder; 
+   friend class LocalTreeBuilder; 
 
    TreeWalk *sTopDown;
    TreeWalk *twSmooth;
@@ -1274,6 +1309,8 @@ public:
 #ifdef PUSH_GRAVITY
           createdSpanningTree = false;
 #endif
+
+          localTreeBuildComplete = false;
 	}
 
 	TreePiece(CkMigrateMessage* m) {
@@ -1318,6 +1355,9 @@ public:
 	  boxes = NULL;
 	  splitDims = NULL;
 	  myTreeParticles = -1;
+
+
+          localTreeBuildComplete = false;
 	}
 
         private:
@@ -1707,6 +1747,32 @@ public:
         //Decomposer *myDecomposer;
 #endif
 
+        // For merging of remote moment requests
+        // before sending messages during tree building
+        public:
+        void sendRequestForNonLocalMoments(GenericTreeNode *pickedNode);
+        void mergeNonLocalRequestsDone();
+        //void addTreeBuildMomentsClient(GenericTreeNode *targetNode, TreePiece *client, GenericTreeNode *clientNode);
+        std::map<NodeKey,NonLocalMomentsClientList>::iterator createTreeBuildMomentsEntry(GenericTreeNode *pickedNode);
+
+
+        private:
+        // XXX - hashtable instead of map
+        std::map<NodeKey,NonLocalMomentsClientList> nonLocalMomentsClients;
+        bool localTreeBuildComplete;
+        int getResponsibleIndex(int first, int last);
+        
+
+        GenericTreeNode *boundaryParentReady(GenericTreeNode *parent);
+        void accumulateMomentsFromChild(GenericTreeNode *parent, GenericTreeNode *child);
+
+        //void flushNonLocalMomentsClients();
+        void deliverMomentsToClients(GenericTreeNode *);
+        void deliverMomentsToClients(const std::map<NodeKey,NonLocalMomentsClientList>::iterator &it);
+        void treeBuildComplete();
+        void saveCentroid();
+        void processRemoteRequestsForMoments();
+
 };
 
 class LvArray : public CBase_LvArray {
@@ -1743,7 +1809,7 @@ struct SubmittedParticleStruct{
 };
 
 
-class TreePieceCounter : public CkLocIterator {            
+class TreePieceCounter : public CkLocIterator { 
   public:
     TreePieceCounter() { reset(); }
     void addLocation(CkLocation &loc);
@@ -1754,6 +1820,8 @@ class TreePieceCounter : public CkLocIterator {
     std::vector<SubmittedParticleStruct> submittedParticles;
     int submittedParticleCount;
 };
+
+
 
 class Decomposer : public CBase_Decomposer {
   public:
@@ -1782,5 +1850,15 @@ class Decomposer : public CBase_Decomposer {
   TreePieceCounter localTreePieces;
 };
 #endif
+
+class NonEmptyTreePieceCounter : public CkLocIterator {            
+  public:
+    NonEmptyTreePieceCounter() { reset(); }
+    void addLocation(CkLocation &loc);
+    void reset();
+
+  public:
+    int count;
+};
 
 #endif //PARALLELGRAVITY_H
