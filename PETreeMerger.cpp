@@ -32,18 +32,32 @@ GenericTreeNode *PETreeMerger::mergeWalk(CkVec<GenericTreeNode*> &mergeList, CkV
   ostringstream oss;
   // picked node promises to give moments to others in need
   TreePiece *pickedTreePiece = treePieceList[pickedIndex];
-  std::map<NodeKey,NonLocalMomentsClientList>::iterator it;
-  it = pickedTreePiece->createTreeBuildMomentsEntry(pickedNode);
+  // make an entry in the table recording clients for nodes
+  // only if there are any clients in the first place
+  int numClients = 0;
   for(int i = 0; i < mergeList.length(); i++){
     if(i == pickedIndex || mergeList[i]->getType() != NonLocal) continue;
-    it->second.addClient(NonLocalMomentsClient(treePieceList[i],mergeList[i]));
-    oss << "(" << 
+    numClients++;
+  }
+
+  if(numClients > 0){
+    std::map<NodeKey,NonLocalMomentsClientList>::iterator it;
+    it = pickedTreePiece->createTreeBuildMomentsEntry(pickedNode);
+    for(int i = 0; i < mergeList.length(); i++){
+      if(i == pickedIndex || mergeList[i]->getType() != NonLocal) continue;
+      it->second.addClient(NonLocalMomentsClient(treePieceList[i],mergeList[i]));
+
+    /*
+      oss << "(" << 
         mergeList[i]->getKey() << "," << 
         typeString(mergeList[i]->getType()) << "," << 
         treePieceList[i]->getIndex() << "); ";
+        */
+    }
+    
+    MERGE_REMOTE_REQUESTS_VERBOSE("[%d] clients (%llu,%s,%d): %s\n", CkMyPe(), pickedNode->getKey(), typeString(pickedNode->getType()), pickedTreePiece->getIndex(), oss.str().c_str());
   }
 
-  MERGE_REMOTE_REQUESTS_VERBOSE("[%d] clients (%llu,%s,%d): %s\n", CkMyPe(), pickedNode->getKey(), typeString(pickedNode->getType()), pickedTreePiece->getIndex(), oss.str().c_str());
 
   if(pickedNode->getType() == NonLocal){
     // this is the NonLocal node which will request moments
@@ -52,7 +66,7 @@ GenericTreeNode *PETreeMerger::mergeWalk(CkVec<GenericTreeNode*> &mergeList, CkV
     // there can be no Boundary nodes in the list with this NonLocal
     // node
     CkAssert(nUnresolved == 0);
-    requestNonLocalMoments(pickedNode,pickedTreePiece);
+    pickedTreePiece->sendRequestForNonLocalMoments(pickedNode);
     return pickedNode;
   }
   else if(nUnresolved >= 1){
@@ -91,20 +105,3 @@ GenericTreeNode *PETreeMerger::mergeWalk(CkVec<GenericTreeNode*> &mergeList, CkV
   }
 }
 
-void PETreeMerger::requestNonLocalMoments(GenericTreeNode *pickedNode, TreePiece *pickedTreePiece){
-  int first, last;
-  bool isShared = pickedTreePiece->nodeOwnership(pickedNode->getKey(), first, last);
-  CkAssert(!isShared);
-  int tpindex = pickedTreePiece->getIndex();
-  if (last >= first) {
-    // Choose a piece from among the owners from which to
-    // request moments in such a way that if I am a piece with a
-    // higher index, I request from a higher indexed treepiece.
-    pickedNode->remoteIndex = pickedTreePiece->getResponsibleIndex(first,last);
-    // request the remote chare to fill this node with the Moments
-    CkEntryOptions opts;
-    opts.setPriority(-110000000);
-    //CkPrintf("[%d] phase I request moments for %llu from %d\n", tp->thisIndex, node->getKey(), node->remoteIndex);
-    treeProxy[pickedNode->remoteIndex].requestRemoteMoments(pickedNode->getKey(), tpindex, &opts);
-  }
-}
