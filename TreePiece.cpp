@@ -2670,6 +2670,8 @@ void TreePiece::deliverMomentsToClients(const std::map<NodeKey,NonLocalMomentsCl
 }
 
 void TreePiece::treeBuildComplete(){
+
+#ifdef MERGE_REMOTE_REQUESTS
   MERGE_REMOTE_REQUESTS_VERBOSE("[%d] treeBuildComplete\n", thisIndex);
   // reset
   CkAssert(localTreeBuildComplete);
@@ -2684,6 +2686,7 @@ void TreePiece::treeBuildComplete(){
   }
   */
   CkAssert(nonLocalMomentsClients.empty());
+#endif
 
 #ifdef PUSH_GRAVITY
   if(doMerge){
