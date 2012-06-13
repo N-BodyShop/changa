@@ -2323,55 +2323,80 @@ void printUndlist(DoubleWalkState *state, int level, TreePiece *tp){
 }
 #endif
 
-bool OctTreeBuildPhaseIWorker::work(GenericTreeNode *node, int level){
+void RemoteTreeBuilder::registerNode(GenericTreeNode *node){
+  tp->nodeLookupTable[node->getKey()] = node;
+}
+
+void LocalTreeBuilder::registerNode(GenericTreeNode *node){
+  tp->nodeLookupTable[node->getKey()] = node;
+}
+
+bool RemoteTreeBuilder::work(GenericTreeNode *node, int level){
   CkAssert(node != NULL);
   CkAssert(node->isValid() && !node->isCached());
 
-  //CkPrintf("[%d] phase I visit %llu type %d\n", tp->thisIndex, node->getKey(), node->getType());
+  Tree::NodeType type = node->getType();
 
-  // if non-local, send request
-  if(node->getType() == NonLocal){
-    // find a remote index for the node
-    int first, last;
-    bool isShared = tp->nodeOwnership(node->getKey(), first, last);
-    CkAssert(!isShared);
-    if (last < first) {
-      // the node is really empty because falling between two TreePieces
-      node->makeEmpty();
-      node->remoteIndex = tp->thisIndex;
-    } 
-    else {
-      // Choose a piece from among the owners from which to
-      // request moments in such a way that if I am a piece with a
-      // higher index, I request from a higher indexed treepiece.
-      node->remoteIndex = tp->dm->responsibleIndex[first + (tp->thisIndex & (last-first))];
-      // request the remote chare to fill this node with the Moments
-      CkEntryOptions opts;
-      opts.setPriority(-110000000);
-      //CkPrintf("[%d] phase I request moments for %llu from %d\n", tp->thisIndex, node->getKey(), node->remoteIndex);
-      streamingProxy[node->remoteIndex].requestRemoteMoments(node->getKey(), tp->thisIndex, &opts);
+  switch(type){
+    case NonLocal:
+    {
+      // find a remote index for the node
+      int first, last;
+      bool isShared = tp->nodeOwnership(node->getKey(), first, last);
+      CkAssert(!isShared);
+      if (last < first) {
+        // the node is really empty because falling between two TreePieces
+        node->makeEmpty();
+        node->remoteIndex = tp->thisIndex;
+      } 
+      else if(requestNonLocalMoments){
+        // Choose a piece from among the owners from which to
+        // request moments in such a way that if I am a piece with a
+        // higher index, I request from a higher indexed treepiece.
+        node->remoteIndex = tp->getResponsibleIndex(first,last);
+        // request the remote chare to fill this node with the Moments
+        CkEntryOptions opts;
+        opts.setPriority(-110000000);
+        streamingProxy[node->remoteIndex].requestRemoteMoments(node->getKey(), tp->thisIndex, &opts);
+      }
+      registerNode(node);
+      return false;
     }
-    return false;
-  }
-  else if(node->getType() == Empty || 
-          node->getType() == Internal){
-    return false;
-  }
-  else if(node->getType() == Boundary){
-    node->makeOctChildren(tp->myParticles,tp->myNumParticles,level);
-    // The boundingBox was used above to determine the spacially equal
-    // split between the children.  Now reset it so it can be calculated
-    // from the particle positions.
-    node->boundingBox.reset();
 
-    return true;
+    case Empty:
+    case Internal:
+      return false;
+
+    case Boundary:
+      node->makeOctChildren(tp->myParticles,tp->myNumParticles,level);
+      // The boundingBox was used above to determine the spatially equal
+      // split between the children.  Now reset it so it can be calculated
+      // from the particle positions.
+      node->boundingBox.reset();
+
+      registerNode(node);
+      return true;
+
+    default:
+      CkAbort("Bad node type in RemoteTreeBuilder\n");
+      return false;
   }
 }
 
-void OctTreeBuildPhaseIWorker::doneChildren(GenericTreeNode *node, int level){
+void RemoteTreeBuilder::doneChildren(GenericTreeNode *node, int level){
+  CkAssert(node->getType() == Boundary ||
+           node->getType() == Internal);
+
+  if(node->getType() == Boundary){
+    for(int i = 0; i < node->numChildren(); i++){
+      GenericTreeNode *child = node->getChildren(i);
+      if(child->getType() == NonLocal ||
+         child->getType() == Boundary) node->remoteIndex--;
+    }
+  }
 }
 
-bool OctTreeBuildPhaseIIWorker::work(GenericTreeNode *node, int level){
+bool LocalTreeBuilder::work(GenericTreeNode *node, int level){
   if (level == 62) {
     ckerr << tp->thisIndex << ": TreePiece: This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
     ckerr << "Left particle: " << (node->firstParticle) << " Right particle: " << (node->lastParticle) << endl;
@@ -2383,7 +2408,6 @@ bool OctTreeBuildPhaseIIWorker::work(GenericTreeNode *node, int level){
     return false;
   }
 
-  tp->nodeLookupTable[node->getKey()] = node;
 #if INTERLIST_VER > 0
   node->startBucket = tp->numBuckets; 
 #endif
@@ -2391,6 +2415,21 @@ bool OctTreeBuildPhaseIIWorker::work(GenericTreeNode *node, int level){
   //CkPrintf("[%d] phase II visit node %llu type %d\n", tp->thisIndex, node->getKey(), node->getType());
 
   if(node->getType() == NonLocal){
+    // don't deliver moments of this node to clients
+    // because:
+    // 1. either this is a NonLocal node which my TP 
+    // requested from a remote source, in which
+    // case we couldn't have received the response
+    // yet, since the local tree build is still on,
+    // and we haven't yielded the processor since
+    // the remote requests were sent out. That is,
+    // the moments of this node aren't ready yet.
+
+    // 2. or this is a NonLocal node whose moments
+    // can be supplied by a TreePiece on this PE.
+    // In this case, my TP cannot be the supplier
+    // of this node to any other TP. That is, my
+    // TP doesn't have to deliver this node to anyone
     return false;
   }
   else if(node->getType() == Internal &&
@@ -2407,10 +2446,19 @@ bool OctTreeBuildPhaseIIWorker::work(GenericTreeNode *node, int level){
       node->makeBucket(tp->myParticles);
       tp->bucketList.push_back(node);
       tp->numBuckets++;
+
+      registerNode(node);
+      // deliver moments, since doneChildren() will
+      // never be called with a bucket
+      tp->deliverMomentsToClients(node);
       return false;
   }
   else if(node->getType() == Empty){
     node->remoteIndex = tp->thisIndex;
+
+    registerNode(node);
+    // don't deliver MomentsToClients, since no
+    // one needs the moments of an empty node
     return false;
   }
   else if(node->getType() == Internal){
@@ -2419,17 +2467,26 @@ bool OctTreeBuildPhaseIIWorker::work(GenericTreeNode *node, int level){
     // split between the children.  Now reset it so it can be calculated
     // from the particle positions.
     node->boundingBox.reset();
-
     node->remoteIndex = tp->thisIndex;
+
+    registerNode(node);
+    // don't deliver MomentsToClients, since we
+    // haven't yet computed the moments for this 
+    // node: this will happen only after the moments
+    // of both children of this node have been
+    // completed (i.e. childrenDone() is called with
+    // this node.
     return true;
   }
   else if(node->getType() == Boundary){
     CkAssert(node->getChildren(0) != NULL);
+    // don't deliver MomentsToClients yet: same 
+    // explanation as above
     return true;
   }
 }
 
-void OctTreeBuildPhaseIIWorker::doneChildren(GenericTreeNode *node, int level){
+void LocalTreeBuilder::doneChildren(GenericTreeNode *node, int level){
   CkAssert(node->getType() == Boundary ||
            node->getType() == Internal);
   node->rungs = 0;
@@ -2441,21 +2498,25 @@ void OctTreeBuildPhaseIIWorker::doneChildren(GenericTreeNode *node, int level){
   if(node->getType() == Boundary){
     for(int i = 0; i < node->numChildren(); i++){
       GenericTreeNode *child = node->getChildren(i);
-      if(child->getType() == NonLocal ||
-         child->getType() == Boundary) node->remoteIndex--;
       if(child->rungs > node->rungs) node->rungs = child->rungs;
 #if INTERLIST_VER > 0
       node->numBucketsBeneath += child->numBucketsBeneath;
 #endif
     }
+
+    if(node->remoteIndex == 0){
+      tp->boundaryParentReady(node);
+      // call deliver MomentsToClients, since the 
+      // moments for this node have been computed
+      // in boundaryParent Ready
+      tp->deliverMomentsToClients(node);
+    }
   }
   else{
     for(int i = 0; i < node->numChildren(); i++){
       GenericTreeNode *child = node->getChildren(i);
-      node->moments += child->moments;
-      node->boundingBox.grow(child->boundingBox);
-      node->bndBoxBall.grow(child->bndBoxBall);
-      node->iParticleTypes |= child->iParticleTypes;
+      tp->accumulateMomentsFromChild(node,child); 
+
       if(child->rungs > node->rungs) node->rungs = child->rungs;
 #if INTERLIST_VER > 0
       node->numBucketsBeneath += child->numBucketsBeneath;
@@ -2463,6 +2524,8 @@ void OctTreeBuildPhaseIIWorker::doneChildren(GenericTreeNode *node, int level){
     }
 
     calculateRadiusFarthestCorner(node->moments, node->boundingBox);
+
+    tp->deliverMomentsToClients(node);
   }
 }
 
