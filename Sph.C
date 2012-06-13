@@ -48,9 +48,12 @@ Main::initSph()
 	nActiveSPH = nTotalSPH;
 	doSph(0, 0);
 	double duDelta[MAXRUNG+1];
-	for(int iRung = 0; iRung <= MAXRUNG; iRung++)
+	double dStartTime[MAXRUNG+1];
+	for(int iRung = 0; iRung <= MAXRUNG; iRung++) {
 	    duDelta[iRung] = 0.5e-7*param.dDelta;
-	treeProxy.updateuDot(0, duDelta, dTime, z, param.bGasCooling, 0, 1,
+	    dStartTime[iRung] = dTime;
+	    }
+	treeProxy.updateuDot(0, duDelta, dStartTime, param.bGasCooling, 0, 1,
 			     CkCallbackResumeThread());
 	}
     }
@@ -347,12 +350,19 @@ void TreePiece::InitEnergy(double dTuFac, // T to internal energy
     }
 
 /**
- * Update the cooling rate (uDot)
+ * @brief Update the cooling rate (uDot)
+ *
+ * @param activeRung (minimum) rung being updated
+ * @param duDelta    array of timesteps of length MAXRUNG+1
+ * @param dStartTime array of start times of length MAXRUNG+1
+ * @param bCool      Whether cooling is on
+ * @param bUpdateState Whether the ionization factions need updating
+ * @param bAll	     Do all rungs below activeRung
+ * @param cb	     Callback.
  */
 void TreePiece::updateuDot(int activeRung,
 			   double duDelta[MAXRUNG+1], // timesteps
-			   double dTime, // current time
-			   double z, // current redshift
+			   double dStartTime[MAXRUNG+1],
 			   int bCool, // select equation of state
 			   int bUpdateState, // update ionization fractions
 			   int bAll, // update all rungs below activeRung
@@ -375,7 +385,8 @@ void TreePiece::updateuDot(int activeRung,
 		p->position.array_form(r);
 		double dtUse = dt;
 		
-		if(dTime < p->fTimeCoolIsOffUntil()) {
+		if(dStartTime[p->rung] + 0.5*duDelta[p->rung]
+		   < p->fTimeCoolIsOffUntil()) {
 		    /* This flags cooling shutoff (e.g., from SNe) to
 		       the cooling functions. */
 		    dtUse = -dt;
