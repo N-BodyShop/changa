@@ -2338,6 +2338,7 @@ bool RemoteTreeBuilder::work(GenericTreeNode *node, int level){
   Tree::NodeType type = node->getType();
 
   switch(type){
+    case NonLocalBucket:
     case NonLocal:
     {
       // find a remote index for the node
@@ -2414,7 +2415,7 @@ bool LocalTreeBuilder::work(GenericTreeNode *node, int level){
 
   //CkPrintf("[%d] phase II visit node %llu type %d\n", tp->thisIndex, node->getKey(), node->getType());
 
-  if(node->getType() == NonLocal){
+  if(node->getType() == NonLocal || node->getType() == NonLocalBucket){
     // don't deliver moments of this node to clients
     // because:
     // 1. either this is a NonLocal node which my TP 

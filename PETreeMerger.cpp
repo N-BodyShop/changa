@@ -36,7 +36,9 @@ GenericTreeNode *PETreeMerger::mergeWalk(CkVec<GenericTreeNode*> &mergeList, CkV
   // only if there are any clients in the first place
   int numClients = 0;
   for(int i = 0; i < mergeList.length(); i++){
-    if(i == pickedIndex || mergeList[i]->getType() != NonLocal) continue;
+    NodeType type = mergeList[i]->getType();
+    bool isRemote = (type == NonLocal || type == NonLocalBucket);
+    if(i == pickedIndex || !isRemote) continue;
     numClients++;
   }
 
@@ -44,7 +46,9 @@ GenericTreeNode *PETreeMerger::mergeWalk(CkVec<GenericTreeNode*> &mergeList, CkV
     std::map<NodeKey,NonLocalMomentsClientList>::iterator it;
     it = pickedTreePiece->createTreeBuildMomentsEntry(pickedNode);
     for(int i = 0; i < mergeList.length(); i++){
-      if(i == pickedIndex || mergeList[i]->getType() != NonLocal) continue;
+      NodeType type = mergeList[i]->getType();
+      bool isRemote = (type == NonLocal || type == NonLocalBucket);
+      if(i == pickedIndex || !isRemote) continue;
       it->second.addClient(NonLocalMomentsClient(treePieceList[i],mergeList[i]));
 
     /*
@@ -59,7 +63,7 @@ GenericTreeNode *PETreeMerger::mergeWalk(CkVec<GenericTreeNode*> &mergeList, CkV
   }
 
 
-  if(pickedNode->getType() == NonLocal){
+  if(pickedNode->getType() == NonLocal || pickedNode->getType() == NonLocalBucket){
     // this is the NonLocal node which will request moments
     // from the owner, and upon receiving them, will forward
     // them to the clients (see above)
