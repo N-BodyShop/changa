@@ -963,7 +963,7 @@ Main::Main(CkArgMsg* m) {
         }
 	
 	CkArrayOptions opts(numTreePieces); 
-#ifndef ALWAYS_BLOCK_MAP
+#ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	if (domainDecomposition == Oct_dec) {
 	  CProxy_RRMap myMap=CProxy_RRMap::ckNew(); 
 	  opts.setMap(myMap);
@@ -971,7 +971,7 @@ Main::Main(CkArgMsg* m) {
 #endif
 	  CProxy_BlockMap myMap=CProxy_BlockMap::ckNew(); 
 	  opts.setMap(myMap);
-#ifndef ALWAYS_BLOCK_MAP
+#ifndef ROUND_ROBIN_WITH_OCT_DECOMP
 	}
 #endif
 
