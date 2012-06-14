@@ -6133,7 +6133,14 @@ void TreePiece::clearMarkedBucketsAll(){
 Decomposer::Decomposer(){
   myNumParticles = 0;
   myNumTreePieces = -1;
-  numTreePiecesCheckedIn = 0;
+}
+
+Decomposer::Decomposer(CkMigrateMessage *){
+}
+
+void Decomposer::pup(PUP::er &p){
+  p|myNumParticles;
+  p|myNumTreePieces;
 }
 
 void Decomposer::acceptParticles(CkCallback &cb){

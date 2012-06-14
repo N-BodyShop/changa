@@ -1826,11 +1826,11 @@ class TreePieceCounter : public CkLocIterator {
 class Decomposer : public CBase_Decomposer {
   public:
   Decomposer();
+  Decomposer(CkMigrateMessage *);
+  void pup(PUP::er &p);
 
   void evaluateBoundaries(SFC::Key *keys, const int n, int isRefine, const CkCallback& cb);
 
-  //void submitParticles(GravityParticle *particles, int nparticles, TreePiece *tp/*, SFC::Key k*/);
-  //void doneLoad(CkReductionMsg *msg);
   void acceptParticles(CkCallback &cb);
 
   private:
@@ -1843,9 +1843,6 @@ class Decomposer : public CBase_Decomposer {
   /// Array with the particles in this chare
   GravityParticle* myParticles;
   int myNumTreePieces;
-  int numTreePiecesCheckedIn;
-
-  DataManager *dm;
 
   TreePieceCounter localTreePieces;
 };

@@ -136,7 +136,7 @@ mainmodule ParallelGravity {
   };                                                          
 
 #ifdef DECOMPOSER_GROUP
-  group Decomposer {
+  group [migratable] Decomposer {
     entry Decomposer();
 
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
