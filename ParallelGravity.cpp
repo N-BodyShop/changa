@@ -38,6 +38,8 @@
 #include "Sph.h"
 #include "starform.h"
 
+#include "PETreeMerger.h"
+
 #ifdef CUDA
 // for default per-list parameters
 #include "cuda_typedef.h"
@@ -62,6 +64,12 @@ CProxy_CkCacheManager cacheGravPart;
 CProxy_CkCacheManager cacheSmoothPart;
 CProxy_CkCacheManager cacheNode;
 CProxy_DataManager dMProxy;
+
+CProxy_PETreeMerger peTreeMergerProxy;
+
+
+
+
 bool _cache;
 int _nocache;
 int _cacheLineDepth;
@@ -968,7 +976,7 @@ Main::Main(CkArgMsg* m) {
         }
 	
 	CkArrayOptions opts(numTreePieces); 
-#ifndef ALWAYS_BLOCK_MAP
+#ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	if (domainDecomposition == Oct_dec) {
 	  CProxy_RRMap myMap=CProxy_RRMap::ckNew(); 
 	  opts.setMap(myMap);
@@ -976,7 +984,7 @@ Main::Main(CkArgMsg* m) {
 #endif
 	  CProxy_BlockMap myMap=CProxy_BlockMap::ckNew(); 
 	  opts.setMap(myMap);
-#ifndef ALWAYS_BLOCK_MAP
+#ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	}
 #endif
 
@@ -999,6 +1007,8 @@ Main::Main(CkArgMsg* m) {
 #ifdef PUSH_GRAVITY
         ckMulticastGrpId = CProxy_CkMulticastMgr::ckNew();
 #endif
+
+        peTreeMergerProxy = CProxy_PETreeMerger::ckNew();
 	
 	// create CacheManagers
 	// Gravity particles
@@ -2976,6 +2986,45 @@ void Main::turnProjectionsOff(){
   }
 }
 #endif
+
+const char *typeString(NodeType type);
+
+void GenericTreeNode::getGraphViz(std::ostream &out){
+  out << getKey()
+    << "[label=\"" << getKey()
+    << " " 
+    << typeString(getType())
+    << "\\n"
+    << moments.totalMass << " "
+    << "(" << moments.cm.x << ","
+    << moments.cm.y << ","
+    << moments.cm.z << ")"
+    << "\"];"
+    << std::endl;
+
+  if(getType() == Boundary){
+    for(int i = 0; i < numChildren(); i++){
+      GenericTreeNode *child = getChildren(i);
+      out << getKey() << "->" << child->getKey() << ";" << std::endl;
+    }
+  }
+}
+
+void printTreeGraphVizRecursive(GenericTreeNode *node, ostream &out){
+  node->getGraphViz(out);
+  out << endl;
+  if(node->getType() == Boundary){
+    for(int i = 0; i < node->numChildren(); i++){
+      printTreeGraphVizRecursive(node->getChildren(i),out);
+    }
+  }
+}
+
+void printTreeGraphViz(GenericTreeNode *node, ostream &out, const string &name){
+  out << "digraph " << name << " {" << endl;
+  printTreeGraphVizRecursive(node,out);
+  out << "}" << endl;
+}
 
 
 #include "ParallelGravity.def.h"

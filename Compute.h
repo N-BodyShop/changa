@@ -262,28 +262,37 @@ class TreeNodeWorker {
   virtual void doneChildren(GenericTreeNode *node, int level) {}
 };
 
-class OctTreeBuildPhaseIWorker : public TreeNodeWorker {
+class RemoteTreeBuilder : public TreeNodeWorker {
+  TreePiece *tp;
+  bool requestNonLocalMoments; 
+
+  public:
+  RemoteTreeBuilder(TreePiece *owner, bool req) : 
+    tp(owner),
+    requestNonLocalMoments(req)
+  {}
+
+  bool work(GenericTreeNode *node, int level);
+  void doneChildren(GenericTreeNode *node, int level);
+
+  private:
+  void registerNode(GenericTreeNode *node);
+
+};
+
+class LocalTreeBuilder : public TreeNodeWorker {
   TreePiece *tp;
 
   public:
-  OctTreeBuildPhaseIWorker(TreePiece *owner) : 
+  LocalTreeBuilder(TreePiece *owner) :
     tp(owner)
   {}
 
   bool work(GenericTreeNode *node, int level);
   void doneChildren(GenericTreeNode *node, int level);
 
+  private:
+  void registerNode(GenericTreeNode *node);
 };
 
-class OctTreeBuildPhaseIIWorker : public TreeNodeWorker {
-  TreePiece *tp;
-
-  public:
-  OctTreeBuildPhaseIIWorker(TreePiece *owner) : 
-    tp(owner)
-  {}
-
-  bool work(GenericTreeNode *node, int level);
-  void doneChildren(GenericTreeNode *node, int level);
-};
 #endif
