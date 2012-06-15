@@ -783,6 +783,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     // Special case where no particle is assigned to this TreePiece
     if (myNumParticles > 0){
 #ifndef DECOMPOSER_GROUP
+      // this has already been done in Decomposer::acceptParticles()
       delete[] myParticles;
 #endif
       myParticles = NULL;
@@ -834,6 +835,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
   if(dm->particleCounts[myPlace] == incomingParticlesArrived && incomingParticlesSelf) {
     //I've got all my particles
 #ifndef DECOMPOSER_GROUP
+    // this has already been done in Decomposer::acceptParticles()
     if (myNumParticles > 0) delete[] myParticles;
 #endif
     nStore = (int)((dm->particleCounts[myPlace] + 2)*(1.0 + dExtraStore));
