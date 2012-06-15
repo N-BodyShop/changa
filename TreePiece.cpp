@@ -3942,9 +3942,9 @@ void TreePiece::finishNodeCache(const CkCallback& cb)
 {
     int j;
     for (j = 0; j < numChunks; j++) {
-	cacheNode[CkMyPe()].finishedChunk(j, 0);
+	((CkCacheManager*)cacheNode.ckLocalBranch())->finishedChunk(j, 0);
 	}
-    contribute(0, 0, CkReduction::concat, cb);
+    contribute(cb);
     }
 
 #ifdef PUSH_GRAVITY
@@ -4200,15 +4200,15 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   if (myNumParticles == 0) {
     // No particles assigned to this TreePiece
     for (int i=0; i< numChunks; ++i) {
-      ((CkCacheManager*)cacheNode.ckLocalBranch())->finishedChunk(i, 0);
       ((CkCacheManager*)cacheGravPart.ckLocalBranch())->finishedChunk(i, 0);
     }
     CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
     gravityProxy[thisIndex].ckLocal()->contribute(cbf);
-    numChunks = -1; // numchunks needs to get reset next iteration in
+    // XXX May need another way to take care of particles moving into
+    // this piece.  numChunks gets reset anyway by setupSmooth(), so
+    // this breaks SPH.
+    // numChunks = -1; // numchunks needs to get reset next iteration in
 		    // case particles move into this treepiece.
-		    // Also makes sure cacheNode->finishedChunk()
-		    // doesn't get called again.
     return;
   }
   
