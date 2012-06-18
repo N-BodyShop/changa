@@ -13,19 +13,19 @@
 #include "GenericTreeNode.h"
 #include "ParallelGravity.decl.h"
 
-#ifdef CUDA
 
 struct TreePieceDescriptor{
-	TreePiece *tp;
-	int index;
+	TreePiece *treePiece;
+        Tree::GenericTreeNode *root;
 
 	TreePieceDescriptor(){}
-	TreePieceDescriptor(TreePiece *tp_, int index_){
-		tp = tp_;
-		index = index_;
+	TreePieceDescriptor(TreePiece *tp_, GenericTreeNode *r){
+		treePiece = tp_;
+                root = r;
 	}
 };
 
+#ifdef CUDA
 struct UpdateParticlesStruct{
   CkCallback *cb;
   DataManager *dm;
@@ -80,10 +80,9 @@ protected:
 	int numSplitters;
 
 	/// A list of roots of the TreePieces in this node
-	CkVec<Tree::GenericTreeNode*> registeredChares;
-#ifdef CUDA
 	// holds chare array indices of registered treepieces
 	CkVec<TreePieceDescriptor> registeredTreePieces;
+#ifdef CUDA
 	//CkVec<int> registeredTreePieceIndices;
         int cumNumReplicatedNodes;
         int treePiecesDone;
@@ -225,12 +224,7 @@ public:
 ///
 /// The roots are stored in registeredChares to be used by TreePiece
 /// combineLocalTrees.
-#ifdef CUDA
-    //XXX - coercing arrayindex to int in last arg      
-    void notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp, int index);
-#else
-	void notifyPresence(Tree::GenericTreeNode *root);
-#endif
+    void notifyPresence(Tree::GenericTreeNode *root, TreePiece *treePiece);
     void combineLocalTrees(CkReductionMsg *msg);
     void getChunks(int &num, Tree::NodeKey *&roots);
     inline Tree::GenericTreeNode *chunkRootToNode(const Tree::NodeKey k) {
@@ -249,6 +243,9 @@ public:
 			const CkCallback& cb);
     void memoryStats(const CkCallback& cb);
     void resetReadOnly(Parameters param, const CkCallback &cb);
+
+  public:
+  static Tree::GenericTreeNode *pickNodeFromMergeList(int n, GenericTreeNode **gtn, int &nUnresolved, int &pickedIndex);
 };
 
 class ProjectionsControl : public CBase_ProjectionsControl { 

@@ -81,7 +81,6 @@ clDerivsData *CoolDerivsInit(COOL *cl)
     Data = malloc(sizeof(clDerivsData));
     assert(Data != NULL);
     Data->IntegratorContext = StiffInit( EPSINTEG, 1, Data, clDerivs);
-    Data->RootFindContext = RootFindInit();
     Data->cl = cl;
     Data->Y_Total0 = (cl->Y_H+cl->Y_He)*.9999; /* neutral */
     Data->Y_Total1 = (cl->Y_eMAX+cl->Y_H+cl->Y_He)*1.0001; /* Full Ionization */
@@ -103,7 +102,6 @@ void CoolFinalize(COOL *cl )
 void CoolDerivsFinalize(clDerivsData *clData)
 {
     StiffFinalize(clData->IntegratorContext );
-    RootFindFinalize(clData->RootFindContext );
     free(clData);
     }
 
@@ -1054,7 +1052,7 @@ double clEdotInstant( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
  * 
  */
 
-double clfTemp(double T,  void *Data) 
+double clfTemp(void *Data, double T) 
 {
   clDerivsData *d = Data; 
   
@@ -1077,7 +1075,7 @@ void clTempIteration( clDerivsData *d )
    TA = clTemperature( d->Y_Total1, d->E );
    if (TA > TB) { T=TA; TA=TB; TB=T; }
 
-   T = RootFind(d->RootFindContext, clfTemp, d, TA, TB, EPSTEMP*TA ); 
+   T = RootFind(clfTemp, d, TA, TB, EPSTEMP*TA ); 
  } 
  d->its++;
  clRates( d->cl, &d->Rate, T, d->rho );
@@ -1457,7 +1455,7 @@ int main(int argc, char **argv)
     for(lgT = 3.4; lgT < 8.0; lgT += .05) {
 	double T = exp(lgT*log(10.0));
 	d->rho = 1.67e-24;
-	d->E = clfTemp(T, d);
+	d->E = clfTemp(d, T);
 	clRates( d->cl, &d->Rate, T, d->rho );
 	clAbunds( d->cl, &d->Y, &d->Rate, d->rho );
  	d->E=clThermalEnergy( d->Y.Total, T );

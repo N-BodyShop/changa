@@ -196,13 +196,11 @@ typedef struct {
 
 struct clDerivsDataStruct {
   STIFF *IntegratorContext;
-  ROOTFIND *RootFindContext;
   COOL *cl;
   double rho,ExternalHeating,E,ZMetal;
   RATE Rate;
   PERBARYON Y;
   double     Y_Total0, Y_Total1;
-  double     dlnE;
   int        its;  /* Debug */
 };
 

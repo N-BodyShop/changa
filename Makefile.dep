@@ -53,7 +53,6 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 Reductions.h \
 
@@ -165,6 +164,7 @@ Orb3dLB_notopo.decl.h \
 Opt.h \
 TreeWalk.h \
 smooth.h \
+State.h \
 
 param.o: \
 param.c \
@@ -238,6 +238,7 @@ smooth.h \
 State.h \
 Opt.h \
 Sph.h \
+PETreeMerger.h \
 physconst.h \
 
 Ewald.o: \
@@ -606,6 +607,53 @@ ParallelGravity.decl.h \
 Compute.h \
 MapStructures.h \
 MultistepLB_notopo.decl.h \
+
+PETreeMerger.o: \
+PETreeMerger.cpp \
+PETreeMerger.h \
+ParallelGravity.h \
+config.h \
+../utility/structures/Vector3D.h \
+../utility/structures/TypeSelection.h \
+../utility/structures/tree_xdr.h \
+../utility/structures/Vector3D.h \
+../utility/structures/OrientedBox.h \
+../utility/structures/Shape.h \
+../utility/structures/xdr_template.h \
+../utility/structures/config.h \
+../utility/structures/TypedArray.h \
+../utility/structures/TypeHandling.h \
+../utility/structures/TipsyFile.h \
+../utility/structures/TipsyParticles.h \
+../utility/structures/TipsyReader.h \
+../utility/structures/Sphere.h \
+../utility/structures/SFC.h \
+../utility/structures/hilbert.h \
+TreeNode.h \
+GenericTreeNode.h \
+../utility/structures/OrientedBox.h \
+MultipoleMoments.h \
+moments.h \
+SSEdefs.h \
+GravityParticle.h \
+cooling.h \
+param.h \
+../utility/structures/Interval.h \
+parameters.h \
+cosmo.h \
+starform.h \
+dumpframe.h \
+../utility/structures/TaggedVector3D.h \
+codes.h \
+CacheInterface.h \
+gravity.h \
+../utility/structures/Space.h \
+../utility/structures/Box.h \
+MultistepLB.decl.h \
+Orb3dLB.decl.h \
+InOutput.h \
+DataManager.h \
+ParallelGravity.decl.h \
 
 TreeWalk.o: \
 TreeWalk.C \
