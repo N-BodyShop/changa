@@ -14,17 +14,51 @@
 
 #include "ParallelGravity.h"
 
-/** The Sorter will control sorting of particles based on their keys.
+struct OctDecompNode {
+  static int maxNumChildren;
+  static int lgMaxNumChildren;
+
+  OctDecompNode() : children(NULL), nchildren(0), nparticles(0) 
+  {
+  }
+
+  NodeKey key;
+  
+  OctDecompNode *children;
+  int nchildren;
+
+  int nparticles;
+
+  void makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active);
+  void deleteBeneath();
+  void combine(int thresh, vector<SFC::Key> &finalKeys, vector<unsigned int> &counts);
+};
+
+/**
+   \brief Domain decomposition of particles via a parallel sort
+*/
+/** Domain decomposition is handled differently depending on the type
+ of decomposition requested.  SFC (either Morton ordering or
+ Peano-Hibert) or Oct (where domains are complete nodes within the
+ tree) is described first.
+ 
+ In the SFC and Oct case, the Sorter controls a parallel sorting of particles
+ based on their keys.  The goal is to split the particles up into n
+ pieces of roughly equal sizes.
+ 
  The Sorter generates a list of possible splitter keys, and broadcasts this
- list to the DataManager.  When the DataManager has accepted the list, it
- tells its TreePieces to evaluate the list, determining how many particles
- it has between each splitter key.  These bin counts are then reduced back
- to the Sorter, which uses the information to create a new list.  When the
- last iteration of splitter keys is deemed satisfactory, the final keys
- are broadcast, and the TreePieces can shuffle the particles to the correct
- owners.
+ list to the TreePieces. The TreePieces evaluate the list, determining
+ how many particles they have between each splitter key.  These
+ bin counts are then reduced back to the Sorter::collectEvaluations,
+ which uses the information to create a new list.  When the
+ last iteration of splitter keys is deemed satisfactory, counts for
+ the final keys are evaluated, and the keys and counts are broadcast
+ to DataManager::acceptFinalKeys(), which coordinates the
+ shuffling of the particles to the correct owners.
  */
 class Sorter : public Chare {
+
+        double decompTime;
 	/// The total number of keys we're sorting.
 	int numKeys;
 	/// The number of chares to sort into.
@@ -51,6 +85,7 @@ class Sorter : public Chare {
 	/// The histogram of counts for the last round of splitter keys.
 	std::vector<unsigned int> binCounts;
 	std::vector<unsigned int> binCountsGas;
+	std::vector<unsigned int> binCountsStar;
 	/// The number of bins in the histogram.
 	int numCounts;
 	/// The keys I've decided on that divide the objects evenly (within the tolerance).
@@ -67,8 +102,14 @@ class Sorter : public Chare {
 
 	/// Variables to decide when to split or join a TreePiece in the Oct decomposition
 	int joinThreshold, splitThreshold;
-	/// Specify what is the level of refinement of nodes sent out for histogramming
+	/// Specify what is the level of refinement of nodes sent out
+	/// for histogramming in Oct decomposition.
 	int refineLevel;
+
+        OctDecompNode *decompRoots;
+        int numDecompRoots;
+        CkVec<OctDecompNode*> *activeNodes;
+        CkVec<OctDecompNode*> *tmpActiveNodes;
 	
   ///Variables added for ORB decomposition
   typedef struct DivData{
@@ -89,8 +130,6 @@ class Sorter : public Chare {
         CkVec<int> zeros;
         /// The list of nodes opened by the last invocation of weightBalance
         CkVec<NodeKey> nodesOpened;
-        /// The transient state used by the weightBalance routine
-        WeightBalanceState<int>* wbState;
 
   Compare comp;
 
@@ -100,19 +139,28 @@ class Sorter : public Chare {
 public:
 	
 	Sorter() {
+          decompRoots = NULL;
+          numDecompRoots = 0;
+
+          activeNodes = new CkVec<OctDecompNode*>;
+          tmpActiveNodes = new CkVec<OctDecompNode*>;
+
           chareIDs.resize(numTreePieces, 1);
           chareIDs[0] = 0;
           partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
 	};
 	Sorter(CkMigrateMessage* m) {
+          decompRoots = NULL;
+          numDecompRoots = 0;
+
           chareIDs.resize(numTreePieces, 1);
           chareIDs[0] = 0;
           partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
 	};
 
 	/** Sort the particles in an array of TreePieces using a histogram-probing method.
-	 The DataManager receives splitter keys from the Sorter, and instructs the TreePieces
-	 to evaluate them.  The evaluation results in a histogram back to the Sorter,
+	 The the Sorter sends splitters to the TreePieces for them to evaluate.
+	 The evaluation results in a histogram back to the Sorter,
 	 which uses the information to generate new guesses for the splitter keys.
 	 When all the splitter keys have been found (within the percent tolerance per chare)
 	 the TreePieces move the data around to the proper sorted location.  The boundary

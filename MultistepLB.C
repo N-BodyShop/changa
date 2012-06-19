@@ -9,7 +9,7 @@
 extern CProxy_TreePiece treeProxy;
 using namespace std;
 
-CreateLBFunc_Def(MultistepLB, "Works best with multistepped runs; uses OrbSmooth for larger steps, RoundRobin otherwise");
+CreateLBFunc_Def(MultistepLB, "Works best with multistepped runs; uses Orb3D for larger steps, greedy otherwise");
 
 
 MultistepLB::MultistepLB(const CkLBOptions &opt): CentralLB(opt)
@@ -59,307 +59,22 @@ void MultistepLB::receiveCentroids(CkReductionMsg *msg){
   }
   haveTPCentroids = true;
   tpmsg = msg;
-  /*
-  map.tpCentroids.free();
-  
-  while(i < msg->getGcount()){
-     map.tpCentroids.push_back(*cur);
-     cur = cur + 1;
-     i++;
-  }
-  */
   treeProxy.doAtSync();
   if (_lb_args.debug()>=2) {
     CkPrintf("MultistepLB: receiveCentroids done\n");  
   }
-  //delete msg;
 }
 
-//jetley
 CmiBool MultistepLB::QueryBalanceNow(int step){
   if(step == 0){
-    /*
-    if(CkMyPe() == 0){                          // only one group member need broadcast
-      if (_lb_args.debug()>=2) {
-        CkPrintf("MultistepLB: Step 0, calling treeProxy.receiveProxy(thisgroup)\n");
-      }
-      treeProxy.receiveProxy(thisgroup);        // broadcast proxy to all treepieces
-    }
-    firstRound = true;
-    */
     return false; 
   }
   if (_lb_args.debug()>=1) {
-    if(CkMyPe() == 0)
+    if(CkMyPe() == 0){
       CkPrintf("MultistepLB: Step %d\n", step);
+    }
   }
   return true;
-
-}
-
-void MultistepLB::rec_divide(int n, Partition &p)
-{
-  int i;
-  int midpos;
-  int n1, n2;
-  double load1, currentload;
-  int maxdir, count;
-  Partition p1, p2;
-
-  if (_lb_args.debug()>=2) {
-    CmiPrintf("rec_divide starts: partition n:%d count:%d load:%f (%d %d %d, %d %d %d)\n", n, p.count, p.load, p.origin[0], p.origin[1], p.origin[2], p.corner[0], p.corner[1], p.corner[2]);
-  }
-
-  if (n==1) {		// we are done in this branch
-    partitions[currentp++] = p;
-    return;
-  }
-/*
-  if (p.origin.x==p.corner.x && p.origin.y==p.corner.y && p.origin.z==p.corner.z) 
-     CmiAbort("AlgRecBisection failed in recursion.\n"); 
-*/
-  if (_lb_args.debug()>=2) {
-    CmiPrintf("{\n");
-  }
-
-  // divide into n1 and n2 two subpartitions
-  n2 = n/2;
-  n1 = n-n2;
-
-  // subpartition n1 should have this load
-  load1 = (1.0*n1/n) * p.load;
-  if (_lb_args.debug()>=2)
-    CmiPrintf("goal: n1: %d with load1: %f; n2: %d load2: %f\n", n1, load1, n2, p.load-load1);
-
-  p1 = p;
-  p1.refno = ++refno;
-  p1.bkpes.resize(0);
-
-  p2 = p;
-  p2.refno = ++refno;
-  p2.bkpes.resize(0);
-
-  // determine the best division direction
-  int maxSpan=-1;
-  maxdir = XDIR;
-  for (i=XDIR; i<=ZDIR; i++) {
-    int myspan = p.corner[i] - p.origin[i];
-    if (myspan > maxSpan) {
-      maxdir = i;
-      maxSpan = myspan;
-    }
-  }
-
-  // other two dimensions
-  int dir2 = (maxdir+1)%3;
-  int dir3 = (maxdir+2)%3;
-
-  currentload = 0.0;
-  // counting background load
-  if (!_lb_args.ignoreBgLoad()) {
-    CmiAssert(p.bkpes.size() == n);
-    // first n1 processors
-    for (i=0; i<n1; i++) currentload += statsData->procs[p.bkpes[i]].bg_walltime;
-  }
-
-  count = 0;
-  midpos = p.origin[maxdir];
-  for (i=0; i<nObjs; i++) {
-    // not belong to this partition
-    if (computeLoad[vArray[maxdir][i].id].refno != p.refno) continue;
-    if (vArray[maxdir][i].v<p.origin[maxdir]) continue;
-    if (vArray[maxdir][i].v>p.corner[maxdir]) break;
-
-    int cid = vArray[maxdir][i].id;	// this compute ID
-    // check if this compute is within the partition
-    if ( computeLoad[cid].v[dir2] >= p.origin[dir2] &&
-	 computeLoad[cid].v[dir2] <= p.corner[dir2] &&
-	 computeLoad[cid].v[dir3] >= p.origin[dir3] &&
-	 computeLoad[cid].v[dir3] <= p.corner[dir3]  ) {
-      // this compute is set to the first partition
-      if (currentload <= load1) {
-	computeLoad[cid].refno = p1.refno;
-        currentload += computeLoad[cid].load;
-        count ++;
-	midpos = computeLoad[cid].v[maxdir];
-      }
-      else {	// or the next partition
-	computeLoad[cid].refno = p2.refno;
-      }
-    }
-  }
-#ifdef DEBUG
-//  CmiPrintf("X:cur:%d, prev:%d load:%f %f\n", cur, prev, currentload, prevload);
-  CmiPrintf("DIR:%d %d load:%f\n", maxdir, midpos, currentload);
-#endif
-
-  p1.corner[maxdir] = midpos;
-  p2.origin[maxdir] = midpos;
-
-  p1.load = currentload;
-  p1.count = count;
-  p2.load = p.load - p1.load;
-  p2.count = p.count - p1.count;
-
-  // assign first n1 copy of background to p1, and rest to p2
-  if (!_lb_args.ignoreBgLoad()) {
-    for (i=0; i<n; i++)
-      if (i<n1) p1.bkpes.push_back(p.bkpes[i]);
-      else p2.bkpes.push_back(p.bkpes[i]);
-  }
-
-  if (_lb_args.debug()>=2) {
-    CmiPrintf("p1: n:%d count:%d load:%f\n", n1, p1.count, p1.load);
-    CmiPrintf("p2: n:%d count:%d load:%f\n", n2, p2.count, p2.load);
-    CmiPrintf("}\n");
-  }
-
-  rec_divide(n1, p1);
-  rec_divide(n2, p2);
-}
-
-void MultistepLB::setVal(int x, int y, int z)
-{
-  int i;
-  for (i=0; i<nObjs; i++) {
-    computeLoad[i].tv = 1000000.0*computeLoad[i].v[x]+
-			1000.0*computeLoad[i].v[y]+
-			computeLoad[i].v[z];
-  }
-#if 0
-  CmiPrintf("original:%d\n", x);
-  for (i=0; i<numComputes; i++) 
-    CmiPrintf("%d ", computeLoad[i].tv);
-  CmiPrintf("\n");
-#endif
-}
-
-int MultistepLB::sort_partition(int x, int p, int r)
-{
-  double mid = computeLoad[vArray[x][p].id].tv;
-  int i= p;
-  int j= r;
-  while (1) {
-    while (computeLoad[vArray[x][j].id].tv > mid && j>i) j--;
-    while (computeLoad[vArray[x][i].id].tv < mid && i<j) i++;
-    if (i<j) {
-      if (computeLoad[vArray[x][i].id].tv == computeLoad[vArray[x][j].id].tv)
-      {
-	if (computeLoad[vArray[x][i].id].tv != mid) CmiAbort("my god!\n");
-	if (i-p < r-j) i++;
-	else j--;
-	continue;
-      }
-      VecArray tmp = vArray[x][i];
-      vArray[x][i] = vArray[x][j];
-      vArray[x][j] = tmp;
-    }
-    else
-      return j;
-  }
-}
-
-void MultistepLB::qsort1(int x, int p, int r)
-{
-  if (p<r) {
-    int q = sort_partition(x, p, r);
-//CmiPrintf("midpoint: %d %d %d\n", p,q,r);
-    qsort1(x, p, q-1);
-    qsort1(x, q+1, r);
-  }
-}
-
-void MultistepLB::quicksort(int x)
-{
-  int y = (x+1)%3;
-  int z = (x+2)%3;
-  setVal(x, y, z);
-  qsort1(x, 0, nObjs-1);
-
-#if 0
-  CmiPrintf("result for :%d\n", x);
-  for (int i=0; i<nObjs; i++) 
-    CmiPrintf("%d ", computeLoad[vArray[x][i].id].tv);
-  CmiPrintf("\n");
-#endif
-}
-
-void MultistepLB::mapPartitionsToNodes()
-{
-  int i,j;
-#if 1
-  if (!_lb_args.ignoreBgLoad()) {
-      // processor mapping has already been determined by the background load pe
-    for (i=0; i<npartition; i++) partitions[i].node = partitions[i].bkpes[0];
-  }
-  else {
-    for (i=0; i<P; i++) partitions[i].node = i;
-  }
-#else
-  PatchMap *patchMap = PatchMap::Object();
-
-  int **pool = new int *[P];
-  for (i=0; i<P; i++) pool[i] = new int[P];
-  for (i=0; i<P; i++) for (j=0; j<P; j++) pool[i][j] = 0;
-
-  // sum up the number of nodes that patches of computes are on
-  for (i=0; i<numComputes; i++)
-  {
-    for (j=0; j<P; j++)
-      if (computeLoad[i].refno == partitions[j].refno) 
-      {
-	int node1 = patchMap->node(computes[i].patch1);
-	int node2 = patchMap->node(computes[i].patch2);
-	pool[j][node1]++;
-	pool[j][node2]++;
-      }
-  }
-#ifdef DEBUG
-  for (i=0; i<P; i++) {
-    for (j=0; j<P; j++) CmiPrintf("%d ", pool[i][j]);
-    CmiPrintf("\n");
-  }
-#endif
-  while (1)
-  {
-    int index=-1, node=0, eager=-1;
-    for (j=0; j<npartition; j++) {
-      if (partitions[j].node != -1) continue;
-      int wantmost=-1, maxnodes=-1;
-      for (k=0; k<P; k++) if (pool[j][k] > maxnodes && !partitions[k].mapped) {wantmost=k; maxnodes = pool[j][k];}
-      if (maxnodes > eager) {
-	index = j; node = wantmost; eager = maxnodes;
-      }
-    }
-    if (eager == -1) break;
-    partitions[index].node = node;
-    partitions[node].mapped = 1;
-  }
-
-  for (i=0; i<P; i++) delete [] pool[i];
-  delete [] pool;
-#endif
-
-/*
-  if (_lb_args.debug()) {
-    CmiPrintf("partition load: ");
-    for (i=0; i<npartition; i++) CmiPrintf("%f ", partitions[i].load);
-    CmiPrintf("\n");
-    CmiPrintf("partitions to nodes mapping: ");
-    for (i=0; i<npartition; i++) CmiPrintf("%d ", partitions[i].node);
-    CmiPrintf("\n");
-  }
-*/
-  if (_lb_args.debug()) {
-    CmiPrintf("After partitioning: \n");
-    for (i=0; i<npartition; i++) {
-      double bgload = 0.0;
-      if (!_lb_args.ignoreBgLoad())
-        bgload = statsData->procs[partitions[i].bkpes[0]].bg_walltime;
-      CmiPrintf("[%d=>%d] (%d,%d,%d) (%d,%d,%d) load:%f count:%d objload:%f\n", i, partitions[i].node, partitions[i].origin[0], partitions[i].origin[1], partitions[i].origin[2], partitions[i].corner[0], partitions[i].corner[1], partitions[i].corner[2], partitions[i].load, partitions[i].count, partitions[i].load-bgload);
-    }
-    for (i=npartition; i<P; i++) CmiPrintf("[%d] --------- \n", i);
-  }
 
 }
 
@@ -372,6 +87,10 @@ unsigned int MultistepLB::determinePhase(unsigned int lastActiveRung){
 }
 
 // merge data instrumented in previous iteration of computation with data from earlier iterations
+// this data must be stored according to the tree piece 
+// index of the treepiece (obtained from treepiece[.].tag)
+// since the ldb index of an object changes from iteration
+// to iteration.
 void MultistepLB::mergeInstrumentedData(int phase, BaseLB::LDStats *stats){
 
   int i, len;
@@ -386,15 +105,30 @@ void MultistepLB::mergeInstrumentedData(int phase, BaseLB::LDStats *stats){
 #ifdef MCLBMSV
     CkPrintf("phase = -1, discarding\n");
 #endif
-    return;
+    //return;
+    phase = 0;
   }
+
+  /*
+  CkPrintf("**********************************************\n");
+  CkPrintf("Actual object loads phase %d\n", phase);
+  CkPrintf("**********************************************\n");
+  for(int i = 0; i < stats->n_objs; i++){
+    int tp = tpCentroids[i].tp;
+    int lb = tpCentroids[i].tag;
+    CkPrintf("tp %d load %f\n",tp,stats->objData[lb].wallTime);
+  }
+  CkPrintf("**********************************************\n");
+  CkPrintf("Done actual object loads phase %d\n", phase);
+  CkPrintf("**********************************************\n");
+  */
   
   len = savedPhaseStats.length();
   
   if(phase > len-1){
     numAdditional = phase-len+1;
     while(numAdditional > 0){
-      savedPhaseStats.push_back(LightweightLDStats());
+      savedPhaseStats.push_back(LightweightLDStats1());
 #ifdef MCLBMSV
       CkPrintf("Making new entry for phase %d (%d)\n", savedPhaseStats.length()-1, phase);
 #endif
@@ -402,8 +136,12 @@ void MultistepLB::mergeInstrumentedData(int phase, BaseLB::LDStats *stats){
       numAdditional--;
     }
     len = savedPhaseStats.length();
-    for(i = 0; i < stats->n_objs; i++)
-      savedPhaseStats[len-1].objData.push_back(stats->objData[i]);
+    savedPhaseStats[len-1].objData.resize(stats->n_objs);
+    for(i = 0; i < stats->n_objs; i++){
+      int tp = tpCentroids[i].tp;
+      int lb = tpCentroids[i].tag;
+      savedPhaseStats[len-1].objData[tp] = stats->objData[lb];
+    }
     whichPos = len-1;
   }
   else{ 
@@ -412,22 +150,25 @@ void MultistepLB::mergeInstrumentedData(int phase, BaseLB::LDStats *stats){
 #ifdef MCLBMSV
       CkPrintf("Found unpopulated entry for phase %d\n", phase);
 #endif
-      for(i = 0; i < stats->n_objs; i++)
-        savedPhaseStats[phase].objData.push_back(stats->objData[i]);
+      savedPhaseStats[phase].objData.resize(stats->n_objs);
+      for(i = 0; i < stats->n_objs; i++){
+        int tp = tpCentroids[i].tp;
+        int lb = tpCentroids[i].tag;
+        savedPhaseStats[phase].objData[tp] = stats->objData[lb];
+      }
     }
     else{        // filled this phase out some time in the past - merge current with previous data
 #ifdef MCLBMSV
       CkPrintf("Found previous entry for phase %d - merging\n", phase);
 #endif
       for(i = 0; i < stats->n_objs; i++){
-        savedWall =  savedPhaseStats[phase].objData[i].wallTime;
-        savedPhaseStats[phase].objData[i]= stats->objData[i];
-        savedPhaseStats[phase].objData[i].wallTime = alpha*savedWall + (1.0-alpha)*stats->objData[i].wallTime;
-        
+        int tp = tpCentroids[i].tp;
+        int lb = tpCentroids[i].tag;
+        savedPhaseStats[phase].objData[tp] = stats->objData[lb];
       }
     }
   }
-  savedPhaseStats[whichPos].n_objs=  stats->n_objs;
+  savedPhaseStats[whichPos].n_objs = stats->n_objs;
   savedPhaseStats[whichPos].n_migrateobjs = stats->n_migrateobjs;
 #ifdef MCLBMSV
   //printData(savedPhaseStats[whichPos], phase, NULL);
@@ -463,17 +204,16 @@ void MultistepLB::makeActiveProcessorList(BaseLB::LDStats *stats, int numActiveO
 }
 #endif
 
-#define LARGE_PHASE_THRESHOLD 0.1
+#define LARGE_PHASE_THRESHOLD 0.10
 
 void MultistepLB::work(BaseLB::LDStats* stats)
 {
 #if CMK_LBDB_ON
   // find active objects - mark the inactive ones as non-migratable
-  int i;
   int count;
   
   stats->makeCommHash();
-  for(i = 0; i < stats->n_objs; i++){
+  for(int i = 0; i < stats->n_objs; i++){
     LDObjHandle &handle = tpCentroids[i].handle;
     tpCentroids[i].tag = stats->getHash(handle.id, handle.omhandle.id);
   }
@@ -481,7 +221,6 @@ void MultistepLB::work(BaseLB::LDStats* stats)
   int prevPhase = tpCentroids[0].prevActiveRung;
   float *ratios = new float[stats->n_objs];
   // save pointers to centroids of treepieces
-  Vector3D<float> **pCentroids = new Vector3D<float> *[stats->n_objs];
 
   int numActiveObjects = 0;
   int numInactiveObjects = 0;
@@ -490,7 +229,7 @@ void MultistepLB::work(BaseLB::LDStats* stats)
   int numActiveParticles = 0;
   int totalNumParticles = 0;
   
-  for(i = 0; i < stats->n_objs; i++){
+  for(int i = 0; i < stats->n_objs; i++){
     stats->to_proc[i] = stats->from_proc[i];
   }
   // update phase data 
@@ -499,19 +238,22 @@ void MultistepLB::work(BaseLB::LDStats* stats)
   }
   mergeInstrumentedData(prevPhase, stats); 
   
-  for(i = 0; i < stats->n_objs; i++){
-    if(tpCentroids[i].myNumParticles != 0)
-    	ratios[tpCentroids[i].tag] = tpCentroids[i].numActiveParticles/(float)tpCentroids[i].myNumParticles;
-    else
-	ratios[tpCentroids[i].tag] = 1.0;
+  for(int i = 0; i < stats->n_objs; i++){
+    int tp = tpCentroids[i].tp;
+    int lb = tpCentroids[i].tag;
+    if(tpCentroids[i].myNumParticles != 0){
+      ratios[tp] = tpCentroids[i].numActiveParticles/(float)tpCentroids[i].myNumParticles;
+    }
+    else{
+      ratios[tp] = 1.0;
+    }
     numActiveParticles += tpCentroids[i].numActiveParticles;
     totalNumParticles += tpCentroids[i].myNumParticles;
-    pCentroids[i] = &tpCentroids[i].vec;
 
     if(tpCentroids[i].numActiveParticles == 0){
       numInactiveObjects++;
-      if(stats->objData[tpCentroids[i].tag].migratable){
-        stats->objData[tpCentroids[i].tag].migratable = 0;
+      if(stats->objData[lb].migratable){
+        stats->objData[lb].migratable = 0;
 #ifdef MCLBMSV
         CkPrintf("marking object %d non-migratable (inactive)\n", tpCentroids[i].tag);
 #endif
@@ -520,38 +262,64 @@ void MultistepLB::work(BaseLB::LDStats* stats)
     }
     else{
       numActiveObjects++;
-      //CkPrintf("object %d (proc %d) active, ratio: %f\n", map.tpCentroids[i].tag, 
-                                              //stats->from_proc[map.tpCentroids[i].tag], ratios[map.tpCentroids[i].tag]);
     }
   }
 #ifdef MCLBMSV
   CkPrintf("numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects, numInactiveObjects);
 #endif
+
+
+
+  // get load information for this phase, if possible
+  // after this, stats->objData[] is indexed by tree piece
+  // index since we are copying data from savedPhaseStats,
+  // which was written into using tree piece indices
   if(havePhaseData(phase)){
 #ifdef MCLBMSV
     CkPrintf("phase %d data available\n", phase);
 #endif
-    for(i = 0; i < stats->n_objs; i++){
-      stats->objData[i].wallTime = savedPhaseStats[phase].objData[i].wallTime;
+    CkPrintf("phase %d data available\n", phase);
+    for(int i = 0; i < stats->n_objs; i++){
+      int tp = tpCentroids[i].tp;
+      int lb = tpCentroids[i].tag;
+      stats->objData[lb].wallTime = savedPhaseStats[phase].objData[tp].wallTime;
     }
   }
   else if(havePhaseData(0)){
 #ifdef MCLBMSV
     CkPrintf("phase %d data unavailable, using phase 0 loads\n", phase);
 #endif
+    CkPrintf("phase %d data unavailable, using phase 0 loads\n", phase);
     //CkPrintf("using phase 0 loads\n", phase);
-    for(i = 0; i < stats->n_objs; i++){
-      stats->objData[i].wallTime = ratios[i]*savedPhaseStats[0].objData[i].wallTime;
+    for(int i = 0; i < stats->n_objs; i++){
+      int tp = tpCentroids[i].tp;
+      int lb = tpCentroids[i].tag;
+      stats->objData[lb].wallTime = ratios[tp]*savedPhaseStats[0].objData[tp].wallTime;
     }
   }
   else{
 #ifdef MCLBMSV
     CkPrintf("phase %d data unavailable\n", phase);
 #endif
-    delete[] pCentroids;
+    CkPrintf("phase %d data unavailable\n", phase);
     delete[] ratios;
     return;
   }
+
+  /*
+  CkPrintf("**********************************************\n");
+  CkPrintf("Object load predictions phase %d\n", phase);
+  CkPrintf("**********************************************\n");
+  for(int i = 0; i < stats->n_objs; i++){
+      int tp = tpCentroids[i].tp;
+      int lb = tpCentroids[i].tag;
+    CkPrintf("tp %d load %f\n",tp,stats->objData[lb].wallTime);
+  }
+  CkPrintf("**********************************************\n");
+  CkPrintf("Done object load predictions phase %d\n", prevPhase);
+  CkPrintf("**********************************************\n");
+  */
+
   // select processors
 #ifdef MCLBMSV
   //printData(*stats, phase, NULL);
@@ -564,340 +332,15 @@ void MultistepLB::work(BaseLB::LDStats* stats)
 
   // let the strategy take over on this modified instrumented data and processor information
   if((float)numActiveParticles/totalNumParticles > LARGE_PHASE_THRESHOLD){
-#ifdef NOTDF
-  statsData = stats;
-
-  P = count;
-
-  // calculate total number of migratable objects
-  nObjs = stats->n_migrateobjs;
-#ifdef MCLBMSV
-  CkPrintf("OrbLB: num objects: %d\n", nObjs);
-#endif
-
-  // create computeLoad and calculate tentative computes coordinates
-  computeLoad = new ComputeLoad[nObjs];
-  for (i=XDIR; i<=ZDIR; i++) vArray[i] = new VecArray[nObjs];
-
-  // v[0] = XDIR  v[1] = YDIR v[2] = ZDIR
-  // vArray[XDIR] is an array holding the x vector for all computes
-  int objIdx = 0;
-  for (i=0; i<stats->n_objs; i++) {
-    LDObjData &odata = stats->objData[i];
-    if (odata.migratable == 0) continue;
-#ifdef MCLBMSV
-    CkPrintf("OrbLB: considering object %d\n", i);
-#endif
-    computeLoad[objIdx].id = i;
-    /*
-    computeLoad[objIdx].v[XDIR] = odata.objID().id[0];
-    computeLoad[objIdx].v[YDIR] = odata.objID().id[1];
-    computeLoad[objIdx].v[ZDIR] = odata.objID().id[2];
-    */
-    Vector3D<float> *pvec = pCentroids[i];
-    computeLoad[objIdx].v[XDIR] = pvec->x;
-    computeLoad[objIdx].v[YDIR] = pvec->y;
-    computeLoad[objIdx].v[ZDIR] = pvec->z;
-    computeLoad[objIdx].load = odata.wallTime;
-    computeLoad[objIdx].refno = 0;
-    computeLoad[objIdx].partition = NULL;
-    for (int k=XDIR; k<=ZDIR; k++) {
-        vArray[k][objIdx].id = objIdx;
-        vArray[k][objIdx].v = computeLoad[objIdx].v[k];
-    }
-#ifdef DEBUG
-    CmiPrintf("Object %d: %d %d %d load:%f\n", objIdx, computeLoad[objIdx].v[XDIR], computeLoad[objIdx].v[YDIR], computeLoad[objIdx].v[ZDIR], computeLoad[objIdx].load);
-#endif
-    objIdx ++;
-  }
-  CmiAssert(nObjs == objIdx);
-
-  double t = CkWallTimer();
-
-  quicksort(XDIR);
-  quicksort(YDIR);
-  quicksort(ZDIR);
-#ifdef DEBUG
-  CmiPrintf("qsort1 time: %f\n", CkWallTimer() - t);
-#endif
-
-  npartition = P;
-  partitions = new Partition[npartition];
-
-  double totalLoad = 0.0;
-  int minx, miny, minz, maxx, maxy, maxz;
-  minx = maxx= computeLoad[0].v[XDIR];
-  miny = maxy= computeLoad[0].v[YDIR];
-  minz = maxz= computeLoad[0].v[ZDIR];
-  for (i=1; i<nObjs; i++) {
-    totalLoad += computeLoad[i].load;
-    if (computeLoad[i].v[XDIR] < minx) minx = computeLoad[i].v[XDIR];
-    else if (computeLoad[i].v[XDIR] > maxx) maxx = computeLoad[i].v[XDIR];
-    if (computeLoad[i].v[YDIR] < miny) miny = computeLoad[i].v[YDIR];
-    else if (computeLoad[i].v[YDIR] > maxy) maxy = computeLoad[i].v[YDIR];
-    if (computeLoad[i].v[ZDIR] < minz) minz = computeLoad[i].v[ZDIR];
-    else if (computeLoad[i].v[ZDIR] > maxz) maxz = computeLoad[i].v[ZDIR];
-  }
-
-  top_partition.origin[XDIR] = minx;
-  top_partition.origin[YDIR] = miny;
-  top_partition.origin[ZDIR] = minz;
-  top_partition.corner[XDIR] = maxx;
-  top_partition.corner[YDIR] = maxy; 
-  top_partition.corner[ZDIR] = maxz;
-
-  top_partition.refno = 0;
-  top_partition.load = 0.0;
-  top_partition.count = nObjs;
-
-  // if we take background load into account
-  if (!_lb_args.ignoreBgLoad()) {
-    top_partition.bkpes.resize(0);
-    double total = totalLoad;
-    for (i=0; i<P; i++) {
-      double bkload = stats->procs[i].bg_walltime;
-      total += bkload;
-    }
-    double averageLoad = total / P;
-    for (i=0; i<P; i++) {
-      double bkload = stats->procs[i].bg_walltime;
-      if (bkload < averageLoad) top_partition.bkpes.push_back(i);
-      else CkPrintf("MultistepLB Info> PE %d with %f background load will have 0 object.\n", i, bkload);
-    }
-    npartition = top_partition.bkpes.size();
-    // formally add these bg load to total load
-    for (i=0; i<npartition; i++) 
-      totalLoad += stats->procs[top_partition.bkpes[i]].bg_walltime; 
+  //if(true){
     if (_lb_args.debug()>=2) {
-      CkPrintf("BG load: ");
-      for (i=0; i<P; i++)  CkPrintf(" %f", stats->procs[i].bg_walltime);
-      CkPrintf("\n");
-      CkPrintf("Partition BG load: ");
-      for (i=0; i<npartition; i++)  CkPrintf(" %f", stats->procs[top_partition.bkpes[i]].bg_walltime);
-      CkPrintf("\n");
+      CkPrintf("******** BIG STEP *********!\n");
     }
-  }
-
-  top_partition.load = totalLoad;
-
-  currentp = 0;
-  refno = 0;
-
-  // recursively divide
-  rec_divide(npartition, top_partition);
-
-  // mapping partitions to nodes
-  mapPartitionsToNodes();
-
-  // this is for sanity check
-  int *num = new int[P];
-  for (i=0; i<P; i++) num[i] = 0;
-
-  for (i=0; i<nObjs; i++)
-  {
-    for (j=0; j<npartition; j++)
-      if (computeLoad[i].refno == partitions[j].refno)   {
-        computeLoad[i].partition = partitions+j;
-        num[j] ++;
-    }
-    CmiAssert(computeLoad[i].partition != NULL);
-  }
-
-  for (i=0; i<npartition; i++)
-    if (num[i] != partitions[i].count) 
-      CmiAbort("MultistepLB: Compute counts don't agree!\n");
-
-  delete [] num;
-
-  // Save output
-  for(int obj = 0; obj < stats->n_migrateobjs; obj++){
-    int frompe = stats->from_proc[computeLoad[obj].id];
-    int tope = computeLoad[obj].partition->node;
-    if(frompe != tope){
-      stats->to_proc[computeLoad[obj].id] = tope;
-    }
-    if (_lb_args.debug()>=2) {
-      CkPrintf("%d(%d): %d -> %d\n", computeLoad[obj].id, obj, frompe, tope);
-    }
-  }
-  /*
-  objIdx = 0;
-  for(int obj=0;obj<stats->n_objs;obj++) {
-      stats->to_proc[obj] = stats->from_proc[obj];
-      LDObjData &odata = stats->objData[obj];
-      if (odata.migratable == 0) { continue; }
-      int frompe = stats->from_proc[obj];
-      int tope = computeLoad[objIdx].partition->node;
-      if (frompe != tope) {
-        if (_lb_args.debug() >= 3) {
-              CkPrintf("[%d] Obj %d migrating from %d to %d\n",
-                     CkMyPe(),obj,frompe,tope);
-        }
-	stats->to_proc[obj] = tope;
-      }
-      objIdx ++;
-  }
-*/
-#define min(a,b) (a <= b ? a : b)
-#define ceil(a,b) (a%b == 0? a/b : a/b+1)
-  // jetley - smooth out the load profile
-  int stride = 4, step = 4;             // if step = stride, groups of processors are disjoint and productive
-  int k;
-  int group;
-  double th = 0.15;
-  
-  double *procWeights = new double[count];
-  CkVec<WeightObject> *objectList = new CkVec<WeightObject>[count];        // one for each processor
-  Vector3D<float> *procCentroids = new Vector3D<float>[count];             // one for each processor - COM of all objects on processor
-  Vector3D<float> *objCentroids = new Vector3D<float>[stats->n_objs];      // one for each object
-  
-  // initialize COM's to zero
-  for(i = 0; i < count; i++){
-    procCentroids[i].x = 0;
-    procCentroids[i].y = 0;
-    procCentroids[i].z = 0;
-    procWeights[i] = 0.0;
-  }
-
-  // set up centroids of individual objects
-  for(i = 0; i < stats->n_objs; i++)
-    objCentroids[tpCentroids[i].tag] = tpCentroids[i].vec;      // now objCentroids[i] contains centroid of object i
-    
-  // populate objectList, calc. COM's and weights 
-  double tempWeight;
-  for(i = 0; i < stats->n_objs; i++){
-    LDObjData &odata = stats->objData[i];
-    if(odata.migratable == 0) continue;
-    tempWeight = odata.wallTime*stats->procs[stats->to_proc[i]].pe_speed;
-    (objectList[stats->to_proc[i]]).push_back(WeightObject(i,tempWeight));      // membership
-    procCentroids[stats->to_proc[i]] += tempWeight*objCentroids[i];             // COM
-    procWeights[stats->to_proc[i]] += tempWeight;                               // weight
-  }
-  for(i = 0; i < count; i++)
-    procCentroids[i] /= procWeights[i];
-    
-  // begin balancing
-  // for each group g
-#ifdef MCLBMSV
-  CkPrintf("MCLB: Start balancing\n");
-#endif
-  for(i = 0; i+stride <= count; i += step){
-    CkVec<int> heavy, light;
-    double idealAvg = 0.0; 
-    bool done; 
-#ifdef MCLBMSV
-    CkPrintf("MCLB: balance [%d,%d]\n", i, i+stride-1);
-#endif
-    // calc. idealAvg for this group of processors
-    for(j = i; j < i + stride; j++)
-      for(k = 0; k < (objectList[j]).size(); k++){
-        CkAssert((objectList[j])[k].weight == stats->objData[(objectList[j])[k].idx].wallTime*stats->procs[j].pe_speed);
-        idealAvg += (objectList[j])[k].weight;
-      }
-    idealAvg /= stride;
-#ifdef MCLBMSV
-    CkPrintf("MCLB: idealAvg: %f\n", idealAvg);
-#endif
-    
-    // compute heavy and light sets - H(g), L(g)
-    for(j = i; j < i + stride; j++){
-      if(procWeights[j] >= (1+th)*idealAvg){
-        heavy.push_back(j);
-        // CkPrintf("MCLB: %d(%f) heavy\n", j, procWeights[j]);
-      }
-      else if(procWeights[j] < (1-th)*idealAvg){
-        light.push_back(j);
-        // CkPrintf("MCLB: %d(%f) light\n", j, procWeights[j]);
-      }
-    }
-    // for each heavy processor p
-    for(j = 0; j < heavy.size(); j++){
-      int donor = heavy[j];
-      done = false;
-      // CkPrintf("MCLB: Picked heavy proc. %d(%f)\n", donor, procWeights[donor]);
-      // pick an o in O(p)
-      // CkPrintf("MCLB: Pick an object\n");
-      for(int r = 0; r < objectList[donor].size(); r++){ 
-        int donatedObj = (objectList[donor])[r].idx;
-        double donatedWeight = (objectList[donor])[r].weight;
-        // CkPrintf("MCLB: Trying object %d(%f)\n", donatedObj, donatedWeight);
-        // pick a p' in L(g) such that a swap is viable (weight) and advisable (distance)
-        int acceptor = -1;
-        float closestDist = 3.4e+38;    // about the largest fp value possible 
-        int savedLightIndex = -1;
-        for(k = 0; k < light.size(); k++){
-          if(donatedWeight+procWeights[light[k]] <= (1+th)*idealAvg && 
-            procWeights[donor]-donatedWeight >= (1-th)*idealAvg &&
-            closestDist > (procCentroids[light[k]]-objCentroids[donatedObj]).length()){
-            closestDist = (procCentroids[light[k]]-objCentroids[donatedObj]).length();
-            acceptor = light[k];
-            savedLightIndex = k;
-          }
-        }
-        // found an acceptor p' for object o
-        if(acceptor > 0){
-          // CkPrintf("MCLB: Picked light proc. %d(%f)\n", acceptor, procWeights[acceptor]);
-          procCentroids[donor] *= procWeights[donor];
-          procCentroids[donor] -= objCentroids[donatedObj]*donatedWeight;
-          procWeights[donor] -= donatedWeight;
-          procCentroids[donor] /= procWeights[donor];
-          
-          procCentroids[acceptor] *= procWeights[acceptor];
-          procCentroids[acceptor] += objCentroids[donatedObj]*donatedWeight;
-          procWeights[acceptor] += donatedWeight;
-          procCentroids[acceptor] /= procWeights[acceptor];
-          
-          objectList[donor].remove(r); // expensive - FIXME
-          objectList[acceptor].push_back(WeightObject(donatedObj, donatedWeight));
-          //actually shift the donated object
-          stats->to_proc[donatedObj] = acceptor;
-          
-          // if heavy processor isn't so anymore
-          if(procWeights[donor] < (1+th)*idealAvg){
-            // CkPrintf("MCLB: Proc. %d(%d) not heavy anymore\n", donor, j);
-            heavy.remove(j);
-            done = true;
-          }
-          if(procWeights[acceptor] >= (1-th)*idealAvg){
-            // CkPrintf("MCLB: Proc. %d(%d) not light anymore\n", acceptor, savedLightIndex);
-            light.remove(savedLightIndex);  
-          }
-          if(done)
-            break;
-        }// end if acceptor found
-      }// end pick an object
-      //if(!done)
-        //CkPrintf("MultistepLB: Warning - couldn't flatten processor %d\n", donor);
-    }// end for each heavy processor
-  }// end for each group
-  
-  // free memory
-  delete [] procCentroids;
-  delete [] objectList;
-  delete [] objCentroids;
-  delete [] procWeights;
-  
-  delete [] computeLoad;
-  for (i=0; i<3; i++) delete [] vArray[i];
-  delete [] partitions;
-
-  if (_lb_args.debug() >= 1)
-    CkPrintf("MultistepLB finished time: %fs\n", CkWallTimer() - t);
-#else // Orb3dLB
-  if (_lb_args.debug()>=2) {
-    CkPrintf("******** BIG STEP *********!\n");
-  }
-  work2(stats,count);
-#endif  // MCLBMS_ORBSMOOTH
-    
+    work2(stats,count,phase,prevPhase);
   }     // end if phase == 0
-  else{ // not even greedy; round-robin
-    for(i = 0; i < stats->n_objs; i++){
-      if(stats->objData[i].migratable == 0) continue;
-      stats->to_proc[i] = i%stats->count;
-    }
+  else{
+    greedy(stats,count,phase,prevPhase);
   }
-  delete[] pCentroids;
 #endif //CMK_LDB_ON
 
 }
@@ -905,37 +348,124 @@ void MultistepLB::work(BaseLB::LDStats* stats)
 //**************************************
 // ORB3DLB functions
 //**************************************
+//
+void MultistepLB::greedy(BaseLB::LDStats *stats, int count, int phase, int prevPhase){
 
-void MultistepLB::work2(BaseLB::LDStats *stats, int count){
+  int numobjs = stats->n_objs;
+  int nmig = stats->n_migrateobjs;
+  CkPrintf("[GREEDY] objects total %d active %d\n", numobjs,nmig);
+
+  TPObject *tp_array = new TPObject[nmig];
+  int j = 0;
+  for(int i = 0; i < stats->n_objs; i++){
+    int tp = tpCentroids[i].tag;
+    int lb = tpCentroids[i].tag;
+
+    if(!stats->objData[lb].migratable) continue;
+    tp_array[j].migratable = stats->objData[lb].migratable;
+    if(step() == 0){
+      tp_array[j].load = tpCentroids[i].myNumParticles; 
+    }
+    else{
+      tp_array[j].load = stats->objData[lb].wallTime;
+    }
+    tp_array[j].lbindex = lb;
+    j++;
+  }
+  mapping = &stats->to_proc;
+
+  CkAssert(j==nmig);
+
+  std::priority_queue<TPObject> objects;
+  std::priority_queue<Processor> processors;
+
+  for(int i = 0; i < nmig; i++){
+    objects.push(tp_array[i]);
+  }
+
+  for(int i = 0; i < count; i++){
+    processors.push(Processor(i));
+  }
+
+  while(!objects.empty()){
+    TPObject obj = objects.top();
+    objects.pop();
+
+    Processor p = processors.top();
+    processors.pop();
+
+    p.load += obj.load;
+    (*mapping)[obj.lbindex] = p.t;
+
+    processors.push(p);
+  }
+
+  // diagnostics
+  /*
+  CkPrintf("**********************************\n");
+  CkPrintf("GREEDY CPU LOAD PREDICTIONS phase %d\n", phase);
+  CkPrintf("**********************************\n");
+  while(!processors.empty()){
+    Processor p = processors.top();
+    processors.pop();
+    CkPrintf("proc %d load %f\n", p.t, p.load);
+  }
+  */
+
+  CkPrintf("**********************************\n");
+  CkPrintf("GREEDY MEASURED CPU LOAD prev %d\n", prevPhase);
+  CkPrintf("**********************************\n");
+  for(int i = 0; i < stats->count; i++){
+    CkPrintf("[pestats] %d %g %g\n", 
+                               i,
+                               stats->procs[i].total_walltime,
+                               stats->procs[i].idletime);
+  }
+
+
+
+  delete []tp_array;
+}
+
+void MultistepLB::work2(BaseLB::LDStats *stats, int count, int phase, int prevPhase){
   int numobjs = stats->n_objs;
   int nmig = stats->n_migrateobjs;
 
   if (_lb_args.debug()>=2) {
     CkPrintf("[work2] %d objects allocating %d bytes for tp\n", nmig, nmig*sizeof(TPObject));
   }
-  TPObject *tp = new TPObject[nmig];
+  CkPrintf("[ORB3D] objects total %d active %d\n", numobjs,nmig);
+
+  // this data structure is used by the orb3d strategy
+  // to balance objects. it is NOT indexed by tree piece index
+  // there are as many entries in it as there are
+  // migratable (active) tree pieces
+  TPObject *tp_array = new TPObject[nmig];
 
   if (_lb_args.debug()>=2) {
-    CkPrintf("[work2] ready tp data structure\n");
+    CkPrintf("[work2] ready tp_array data structure\n");
   }
 
   int j = 0;
-  for(int i = 0; i < stats->n_objs; i++){
-    int tag = tpCentroids[i].tag;
-    if(!stats->objData[tag].migratable) continue;
-    tp[j].centroid.x = tpCentroids[i].vec.x;
-    tp[j].centroid.y = tpCentroids[i].vec.y;
-    tp[j].centroid.z = tpCentroids[i].vec.z;
-    tp[j].migratable = stats->objData[tag].migratable;
+  for(int i = 0; i < numobjs; i++){
+    int tp = tpCentroids[i].tp;
+    int lb = tpCentroids[i].tag;
+
+    if(!stats->objData[lb].migratable) continue;
+    tp_array[j].centroid.x = tpCentroids[i].vec.x;
+    tp_array[j].centroid.y = tpCentroids[i].vec.y;
+    tp_array[j].centroid.z = tpCentroids[i].vec.z;
+    tp_array[j].migratable = true; 
     if(step() == 0){
-      tp[j].load = tpCentroids[i].myNumParticles;
+      tp_array[j].load = tpCentroids[i].myNumParticles;
     }
     else{
-      tp[j].load = stats->objData[tag].wallTime;
+      tp_array[j].load = stats->objData[lb].wallTime;
     }
-    tp[j].lbindex = tag;
+    tp_array[j].lbindex = lb;
     j++;
   }
+  CkAssert(j==nmig);
 
   mapping = &stats->to_proc;
   int dim = 0;
@@ -970,37 +500,46 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
   if (_lb_args.debug()>=2) {
     CkPrintf("[work2] map\n");
   }
-  map(tp,nmig,numnodes,nodes,nx,ny,nz,dim);
+  map(tp_array,nmig,numnodes,nodes,nx,ny,nz,dim);
 
-  /*
-  int migr = 0;
   float *objload = new float[stats->count];
   for(int i = 0; i < stats->count; i++){
     objload[i] = 0.0;
   }
-  for(int i = 0; i < numobjs; i++){
-    objload[stats->from_proc[i]] += stats->objData[i].wallTime;
-    if(stats->to_proc[i] != stats->from_proc[i]) migr++;
+  for(j = 0; j < nmig; j++){
+    float load = tp_array[j].load;
+    int lb = tp_array[j].lbindex;
+    int pe = stats->to_proc[lb];
+
+    objload[pe] += load; 
   }
-  
-  CkPrintf("***************************\n");
-  CkPrintf("Before LB step %d\n", step());
-  CkPrintf("***************************\n");
-  CkPrintf("i pe wall cpu idle bg_wall bg_cpu objload\n");
+
+  /*
+  CkPrintf("******************************\n");
+  CkPrintf("CPU LOAD PREDICTIONS phase %d\n", phase);
+  CkPrintf("******************************\n");
   for(int i = 0; i < stats->count; i++){
-    CkPrintf("[pestats] %d %d %f %f %f %f\n", 
+    CkPrintf("[pestats] %d %g \n", 
                                i,
-                               stats->procs[i].pe, 
-                               stats->procs[i].total_walltime, 
-                               stats->procs[i].idletime,
-                               stats->procs[i].bg_walltime,
                                objload[i]);
   }
-  CkPrintf("%d objects migrating\n", migr);
   */
 
-  //delete[] objload;
-  delete[] tp;
+
+  CkPrintf("******************************\n");
+  CkPrintf("MEASURED CPU LOAD prev %d\n", prevPhase);
+  CkPrintf("******************************\n");
+  for(int i = 0; i < stats->count; i++){
+    CkPrintf("[pestats] %d %g %g\n", 
+                               i,
+                               stats->procs[i].total_walltime,
+                               stats->procs[i].idletime
+                               ); 
+  }
+
+
+  delete[] objload;
+  delete[] tp_array;
   delete[] nodes;
 
 
@@ -1104,42 +643,146 @@ int MultistepLB::nextDim(int dim_, int xs, int ys, int zs){
   return dim; 
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #define LOAD_EQUAL_TOLERANCE 1.02
 
 TPObject *MultistepLB::partitionEvenLoad(TPObject *tp, int &ntp){
-  float partition1Load = 0.0;
   float totalLoad = 0.0;
   for(int i = 0; i < ntp; i++){
     totalLoad += tp[i].load;
   }
-  float halfLoad = 0.5*totalLoad;
-  //CkPrintf("partitionEvenLoad total load %f half load %f\n", totalLoad, halfLoad);
-  int split = -1;
+  float lload = 0.0;
+  float rload = totalLoad;
+  float prevDiff = lload-rload;
+  if(prevDiff < 0.0){
+    prevDiff = -prevDiff;
+  }
 
-  for(int i = 0; i < ntp; i++){
-    // if including this element in partition1 brings us closer
-    // to halfLoad, do it
-    //if((partition1Load+tp[i].load-halfLoad) < (halfLoad-partition1Load)){
-    if((partition1Load+tp[i].load <= halfLoad) ||
-       (partition1Load < halfLoad && partition1Load+tp[i].load > halfLoad)){
-      partition1Load += tp[i].load;
-      split++;
+  int consider;
+  for(consider = 0; consider < ntp;){
+    float newll = lload + tp[consider].load;
+    float newrl = rload - tp[consider].load;
+    
+    float newdiff = newll-newrl;
+    if(newdiff < 0.0){
+      newdiff = -newdiff;
+    }
+
+    //CkPrintf("consider load %f newdiff %f prevdiff %f\n", tp[consider].load, newdiff, prevDiff);
+
+    if(newdiff > prevDiff){
+      break;
     }
     else{
-      break;
+      consider++;
+      lload = newll;
+      rload = newrl;
+      prevDiff = newdiff;
     }
   }
 
-  //float lload = 0.0;
-  //for(int i = 0; i < split+1; i++){
-  //  lload += tp[i].load;
-  //}
-  //float rload = totalLoad-lload;
+  //CkPrintf("partitionEvenLoad lload %f rload %f\n", lload, rload);
 
-  //CkPrintf("partitionEvenLoad partition1Load %f lsplit %f rsplit %f\n", partition1Load, lload, rload);
-
-  ntp = split+1;
-  return (tp+split+1);
+  ntp = consider;
+  return (tp+consider);
 }
 
 Node *MultistepLB::halveNodes(Node *start, int np){
@@ -1150,7 +793,7 @@ Node *MultistepLB::halveNodes(Node *start, int np){
 
 void MultistepLB::pup(PUP::er &p){
   CentralLB::pup(p);
-  if(p.isPacking()){
+  if(p.isPacking() && haveTPCentroids){
     // if checkpointing, no need to 
     // keep around the centroid message
     delete tpmsg;
@@ -1161,12 +804,10 @@ void MultistepLB::pup(PUP::er &p){
   p | savedPhaseStats;
 }
 
-void LightweightLDStats::pup(PUP::er &p){
+void LightweightLDStats1::pup(PUP::er &p){
   p|n_objs;
   p|n_migrateobjs;
   p|objData;
 }
 
 #include "MultistepLB.def.h"
-
-/*@}*/

@@ -8,4 +8,4 @@ pgtest_ms.log:
 	sh runtest.sh #../charmrun +p 2 ../ChaNGa test_pg.param
 	
 clean:
-	rm -rf *.chk? pgtest_ms.log pgtest_ms.000*
+	rm -rf *.chk? pgtest_ms.log pgtest_ms.000* lastcheckpoint

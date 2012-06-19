@@ -16,15 +16,15 @@ namespace TreeStuff {
 using namespace SFC;
 
 inline std::string keyBits(const Key k, const int numBits) {
-	std::ostringstream oss;
-	//oss << "N";
-	bool ready = false;
-	for(int i = 0; i < numBits; i++) {
-	  Key k2 = k & (static_cast<Key>(1) << (62 - i));
-	  if (ready) oss << (k2 ? 1 : 0);
-	  else if (k2 != 0) ready = true;
-	}
-	return oss.str();
+  std::ostringstream oss;
+  //oss << "N";
+  bool ready = false;
+  for(int i = 0; i < numBits; i++) {
+    Key k2 = k & (static_cast<Key>(1) << (62 - i));
+    if (ready) oss << (k2 ? 1 : 0);
+    else if (k2 != 0) ready = true;
+  }
+  return oss.str();
 }
 
 // This converts a "radius to the furthest particle" to the standard

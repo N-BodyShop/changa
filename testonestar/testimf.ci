@@ -1,0 +1,8 @@
+mainmodule testimf {
+
+  PUPable Chabrier;
+  PUPable MillerScalo;
+  PUPable Kroupa93;
+  PUPable Kroupa01;
+  PUPable Fdbk;
+}

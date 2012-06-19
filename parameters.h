@@ -6,6 +6,8 @@
 #include "starform.h"
 #include "feedback.h"
 
+/** @brief Hold parameters of the run.
+ */
 typedef struct parameters {
     /*
     ** Parameters for ParallelGravity.
@@ -40,6 +42,10 @@ typedef struct parameters {
     double daSwitchTheta;
     int iOrder;
     int bConcurrentSph;
+    double dFracNoDomainDecomp;
+#ifdef PUSH_GRAVITY
+    double dFracPushParticles;
+#endif
     CSM csm;			/* cosmo parameters */
     double dRedTo;
     /*
@@ -60,6 +66,7 @@ typedef struct parameters {
     int bGasAdiabatic;
     int bGasIsothermal;
     int bGasCooling;
+    int nSmooth;
     COOLPARAM CoolParam;
     double dhMinOverSoft;
     double dMsolUnit;
@@ -103,6 +110,10 @@ typedef struct parameters {
     int iCheckInterval;
     int iLogInterval;
     int bDoIOrderOutput;
+    int bDoSoftOutput;
+    int bDohOutput;
+    int bDoCSound;
+    int cacheLineDepth;
     double dExtraStore;
     double dDumpFrameStep;
     double dDumpFrameTime;
@@ -140,6 +151,10 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.daSwitchTheta;
     p|param.iOrder;
     p|param.bConcurrentSph;
+    p|param.dFracNoDomainDecomp;
+#ifdef PUSH_GRAVITY
+    p|param.dFracPushParticles;
+#endif
     if(p.isUnpacking())
  	csmInitialize(&param.csm);
     p|*param.csm;
@@ -155,6 +170,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.bGasAdiabatic;
     p|param.bGasIsothermal;
     p|param.bGasCooling;
+    p|param.nSmooth;
     p((char *)&param.CoolParam, sizeof(param.CoolParam));
     p|param.bFastGas;
     p|param.dFracFastGas;
@@ -184,6 +200,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     if(p.isUnpacking())
  	param.stfm = new Stfm();
     p|*param.stfm;
+    p|param.bFeedback;
     p|param.feedback;
     p|param.iRandomSeed;
     p|param.bStandard;
@@ -199,6 +216,10 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.iCheckInterval;
     p|param.iLogInterval;
     p|param.bDoIOrderOutput;
+    p|param.bDoSoftOutput;
+    p|param.bDohOutput;
+    p|param.bDoCSound;
+    p|param.cacheLineDepth;
     p|param.dExtraStore;
     p|param.dDumpFrameStep;
     p|param.dDumpFrameTime;

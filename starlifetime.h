@@ -22,7 +22,7 @@
   zsol = solar metal abundance 
   xoxsol = solar oxygen abundance */
 
-class Padova /*: public PUP::able*/ {
+class Padova {
     double a00, a01, a02;
     double a10, a11, a12;
     double a20, a21, a22;
@@ -38,10 +38,7 @@ class Padova /*: public PUP::able*/ {
 
     double Lifetime(double dStarMass, double dMetals);
     double StarMass(double dStarLtime, double dMetals);
-    /*PUPable_decl(Padova);
- Padova(CkMigrateMessage *m) : PUP::able(m) {}
-    virtual*/ void pup(PUP::er& p) {
-	/*      PUP::able::pup(p);*/
+    void pup(PUP::er& p) {
 	p | a00;
 	p | a01;
 	p | a02;

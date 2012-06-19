@@ -132,8 +132,6 @@ void Stfm::CheckParams(PRM prm, Parameters &param)
 ///
 void Main::FormStars(double dTime, double dDelta) 
 {
-    int iPhase = 0; // Keeps track of node cache use
-    
     if(verbosity)
 	CkPrintf("Form Stars ... ");
     double startTime = CkWallTimer();
@@ -145,12 +143,15 @@ void Main::FormStars(double dTime, double dDelta)
     double tolerance = 0.01;	// tolerance for domain decomposition
     sorter.startSorting(dataManagerID, tolerance,
                         CkCallbackResumeThread(), true);
+#ifdef PUSH_GRAVITY
+    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
+#else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
     DensitySmoothParams pDen(TYPE_GAS, 0);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
-    treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
-				   CkCallbackResumeThread());
-    iPhase++;
+    treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
+			  CkCallbackResumeThread());
 
     CkReductionMsg *msgCounts;
     treeProxy.FormStars(*(param.stfm), dTime, dDelta,
@@ -167,14 +168,11 @@ void Main::FormStars(double dTime, double dDelta)
 	if(verbosity)
 	    CkPrintf("Distribute Deleted gas\n");
 	DistDeletedGasSmoothParams pDGas(TYPE_GAS, 0);
-	treeProxy.startIterationReSmooth(&pDGas, CkCallbackResumeThread());
-	iPhase++;
+	treeProxy.startReSmooth(&pDGas, CkCallbackResumeThread());
 
 	}
 
-    CkAssert(iPhase <= nPhases);
-    if(iPhase < nPhases)
-	treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
+    treeProxy.finishNodeCache(CkCallbackResumeThread());
 
     addDelParticles();
     CkPrintf("Star Formation Calculated, Wallclock %f secs\n",

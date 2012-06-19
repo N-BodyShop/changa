@@ -16,7 +16,7 @@ close, lun
 rtipsy, 'onestar.tbin', h,g,d,s
 z = s[0].metals
 maxstar = 40.0
-minsecondary = 0.8
+minsecondary = 0.9
 
 ; find units from param file via eff.out file
 effstring = ' '
@@ -49,6 +49,7 @@ a2 = 1.262+0.3385*alog10(z)+0.05417*(alog10(z))^2.
 
 if IMF eq 'MS' then goto, MS
 if IMF eq 'K' then goto, Kroupa
+if IMF eq 'K01' then goto, Kroupa01
 
 ;Kroupa IMF
 ; fit to M, not log M!
@@ -57,14 +58,34 @@ Kroupa: M_SNII_ej = qromb('ejecta_K', 8.0, maxstar)
 N_SNIa = qromb('snia_K', minsecondary, 8.0)
 M_SNIa_ej = N_SNIa*1.40
 M_winds_ej = qromb('wind_ejecta_K',1.0,8.0)
-Fe_SNII = qromb('snii_felin_K', 8.0, maxstar)
-Ox_SNII = qromb('snii_oxlin_K', 8.0, maxstar)
+Fe_SNII = qromb('snii_fe_K', 8.0, maxstar)
+Ox_SNII = qromb('snii_ox_K', 8.0, maxstar)
 Mg_SNII = qromb('snii_mglin_K', 8.0, maxstar)
 Si_SNII = qromb('snii_silin_K', 8.0, maxstar)
 Neon_SNII = qromb('snii_Nelin_K', 8.0, maxstar)
 C_SNII = qromb('snii_clin_K', 8.0, maxstar)
 N_SNII = qromb('snii_nlin_K', 8.0, maxstar)
 Ox_agb = qromb('agb_oxlin_K', 1.0, 8.0)
+Fe_SNIa = N_SNIa*0.63
+Ox_SNIa = N_SNIa*0.13
+
+goto, jump1
+
+;Kroupa01 IMF
+; fit to M, not log M!
+; Analytic solutions from Raiteri et al. (1996)
+Kroupa01: M_SNII_ej = qromb('ejecta_K01', 8.0, maxstar)
+N_SNIa = qromb('snia_K01', minsecondary, 8.0)
+M_SNIa_ej = N_SNIa*1.40
+M_winds_ej = qromb('wind_ejecta_K01',1.0,8.0)
+Fe_SNII = qromb('snii_fe_K01', 8.0, maxstar)
+Ox_SNII = qromb('snii_ox_K01', 8.0, maxstar)
+Mg_SNII = qromb('snii_mglin_K01', 8.0, maxstar)
+Si_SNII = qromb('snii_silin_K01', 8.0, maxstar)
+Neon_SNII = qromb('snii_Nelin_K01', 8.0, maxstar)
+C_SNII = qromb('snii_clin_K01', 8.0, maxstar)
+N_SNII = qromb('snii_nlin_K01', 8.0, maxstar)
+Ox_agb = qromb('agb_oxlin_K01', 1.0, 8.0)
 Fe_SNIa = N_SNIa*0.63
 Ox_SNIa = N_SNIa*0.13
 
@@ -88,6 +109,8 @@ rdfloat, 'winds.out', massw, Ew, metalsw
 m_snII_sim = total(massII)*dMsolUnit
 m_snIa_sim = total(massIa)*dMsolUnit
 m_winds_sim = total(massw)*dMsolUnit
+Fe_winds = m_winds_sim * z * 0.13
+Ox_winds = m_winds_sim * z * 0.58
 ; Compare mass of ejecta
 print, 'Checking ejected mass:'
 print, '     expected (Msun)','   simulation   ',' Difference (%)'
@@ -119,11 +142,15 @@ if (file_test(file+'.CMassFrac')) then begin
    moremetals=1
 endif else moremetals=0
 
-print, '  SNII pred (M_sun)',"     SNIa pred  ",'   Simulation   ','Difference (%)'
-ejecta_Fe_diff = abs(((Fe_SNII+Fe_SNIa-mass_fe)/(Fe_SNII+Fe_SNIa))*100)
-print, format='("Fe:",4(G15))', Fe_SNII, Fe_SNIa, mass_fe, ejecta_Fe_diff
-ejecta_Ox_diff = abs(((Ox_SNII+Ox_SNIa-mass_ox)/(Ox_SNII+Ox_SNIa))*100)
-print, format='("Ox:",4(G15))', Ox_SNII, Ox_SNIa, mass_ox, ejecta_Ox_diff
+print, '  SNII pred (M_sun)',"     SNIa pred  ",'winds','   Simulation   ','Difference (%)'
+ejecta_Fe_diff = abs(((Fe_SNII+Fe_SNIa+Fe_winds-mass_fe)/ $
+                      (Fe_SNII+Fe_SNIa+Fe_winds))*100)
+print, format='("Fe:",4(G12))', Fe_SNII, Fe_SNIa, Fe_winds, $
+       mass_fe, ejecta_Fe_diff
+ejecta_Ox_diff = abs(((Ox_SNII+Ox_SNIa+Ox_winds-mass_ox)/ $
+                      (Ox_SNII+Ox_SNIa+Ox_winds))*100)
+print, format='("Ox:",4(G12))', Ox_SNII, Ox_SNIa, Ox_winds, $
+       mass_ox, ejecta_Ox_diff
 if (moremetals) then begin
    print, 'C:', C_SNII, 'C_agb', mass_C, abs(((C_SNII-mass_C)/(C_SNII))*100)
    print, 'N:', N_SNII, 'N_agb', mass_N, abs(((N_SNII-mass_N)/(N_SNII))*100)
@@ -182,14 +209,14 @@ if ejecta_Fe_diff gt 5 then print, 'The total mass of Fe ejecta varies from anal
 if ejecta_Ox_diff gt 5 then print, 'The total mass of Ox ejecta varies from analytic predictions by more than 5%.  It is uncertain if SNIa or SNII are the problem.  SOMETHING APPEARS TO BE WRONG WITH THE CODE!'
 ; Now timescales.
 print, 'SUMMARY: TIMESCALES'
-if (time_II_start lt 2 and time_II_last lt 2 and time_Ia_start lt 2 and time_Ia_last lt 2 and time_w_start lt 2 and time_w_last lt 2) then print, 'Congrats!  All the ejecta timescales in the simulation agree with theoretical predictions to less than 2%.  The code seems to be working.' 
-if time_II_start gt 2 and time_II_start lt 5 then print, 'The time that SNII ejecta is first produced in the simulations is different from analytic predictions by 2-5%.  BEWARE! Check the numbers above to see the discrepancy.'
+if (time_II_start lt 5 and time_II_last lt 2 and time_Ia_start lt 2 and time_Ia_last lt 2 and time_w_start lt 2 and time_w_last lt 2) then print, 'Congrats!  All the ejecta timescales in the simulation agree with theoretical predictions to less than 5%.  The code seems to be working.' 
+if time_II_start gt 5 and time_II_start lt 10 then print, 'The time that SNII ejecta is first produced in the simulations is different from analytic predictions by 5-10%.  BEWARE! Check the numbers above to see the discrepancy.'
 if time_II_last gt 2 and time_II_last lt 5 then print, 'The time that SNII ejecta stops being produced in the simulations is different from analytic predictions by 2-5%.  BEWARE! Check the numbers above to see the discrepancy.'
 if time_Ia_start gt 2 and time_Ia_start lt 5 then print, 'The time that SNIa ejecta is first produced in the simulations is different from analytic predictions by 2-5%.  BEWARE! Check the numbers above to see the discrepancy.'
 if time_Ia_last gt 2 and time_Ia_last lt 5 then print, 'The time that SNIa ejecta stops being produced in the simulations is different from analytic predictions by 2-5%.  BEWARE! Check the numbers above to see the discrepancy.'
 if time_w_start gt 2 and time_w_start lt 5 then print, 'The time that wind ejecta is first produced in the simulations is different from analytic predictions by 2-5%.  BEWARE! Check the numbers above to see the discrepancy.'
 if time_w_last gt 2 and time_w_last lt 5 then print, 'The time that wind ejecta stops being produced in the simulations is different from analytic predictions by 2-5%.  BEWARE! Check the numbers above to see the discrepancy.'
-if time_II_start gt 5 then print, 'The time that SNII ejecta is first produced in the simulations is different from analytic predictions more than 5%.  SOMETHING APPEARS TO BE WRONG WITH THE CODE!'
+if time_II_start gt 10 then print, 'The time that SNII ejecta is first produced in the simulations is different from analytic predictions more than 10%.  SOMETHING APPEARS TO BE WRONG WITH THE CODE!'
 if time_Ia_start gt 5 then print, 'The time that SNIa ejecta is first produced in the simulations is different from analytic predictions more than 5%.  SOMETHING APPEARS TO BE WRONG WITH THE CODE!'
 if time_w_start gt 5 then print, 'The time that wind ejecta is first produced in the simulations is different from analytic predictions more than 5%.  SOMETHING APPEARS TO BE WRONG WITH THE CODE!'
 if time_II_last gt 5 then print, 'The time that SNII ejecta stops being produced in the simulations is different from analytic predictions more than 5%.  SOMETHING APPEARS TO BE WRONG WITH THE CODE!'

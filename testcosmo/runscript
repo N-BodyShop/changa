@@ -1,0 +1,1 @@
+../charmrun +p8 ../ChaNGa -D 1 -ppc 250 -p 8000 -killat 5 +balancer MultistepLB_notopo +traceroot /expand/home/abhigupta/work/changa/changa/testcosmo/projLogs  cube300.param > cube300.out #++debug-no-pause

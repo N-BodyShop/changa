@@ -12,32 +12,14 @@
 class IMF : public PUP::able {
 
  public:
-    double a1, b1, m1;
-    double a2, b2, m2;
-    double a3, b3, m3;
-    double mmax;
-
-    double returnimf(double mass);
-    //    double imfIntM(double logMass, void * params);
- IMF(): a1(0),b1(0),m1(0), a2(0), b2(0), m2(0), a3(0), b3(0), m3(0),mmax(0) {}
-    IMF(double _a1,double _b1,double _m1,double _a2, double _b2, double _m2,
-	double _a3, double _b3, double _m3, double _mmax) :a1(_a1),b1(_b1),
-      m1(_m1), a2(_a2), b2(_b2), m2(_m2), a3(_a3), b3(_b3), m3(_m3),mmax(_mmax){}
+    IMF() {};
+    virtual double returnimf(double mass) = 0;
     PUPable_abstract(IMF);
-    virtual void pup(PUP::er &p) {
-	PUP::able::pup(p);
-	p|a1; p|b1; p|m1;
-	p|a2; p|b2; p|m2;
-	p|a3; p|b3; p|m3;
-	p|mmax;
-	}
- IMF(CkMigrateMessage *m) : PUP::able(m) {}
-    virtual double CumNumber(double mass);
-    virtual double CumMass(double mass);
+    IMF(CkMigrateMessage *m) : PUP::able(m) {}
+    virtual double CumNumber(double mass) = 0;
+    virtual double CumMass(double mass) = 0;
     virtual IMF* clone() const = 0;
-    double Oneto8Exp();
-    double Oneto8PreFactor();
-    virtual ~IMF() {}
+    ~IMF() {};
 };
 
 
@@ -56,6 +38,12 @@ class IMF : public PUP::able {
 */
 
 class MillerScalo : public IMF {
+
+    double a1, b1, m1;
+    double a2, b2, m2;
+    double a3, b3, m3;
+    double mmax;
+
  public:
     /* normalization, index, minimum mass */
     MillerScalo() {
@@ -64,42 +52,84 @@ class MillerScalo : public IMF {
 	a3=240.0;b3=-2.3;m3=10.0;/* they report in paper, so we leave it.*/
 	mmax=100.0;
 	} 
-    MillerScalo(const MillerScalo& ms) {
-	a1 = ms.a1; b1 = ms.b1; m1 = ms.m1; 
-	a2 = ms.a2; b2 = ms.b2; m2 = ms.m2; 
-	a3 = ms.a3; b3 = ms.b3; m3 = ms.m3; 
-	mmax = ms.mmax;
-	}
     PUPable_decl(MillerScalo);
     MillerScalo(CkMigrateMessage *m) : IMF(m) {}
+    virtual double returnimf(double mass);
+    virtual double CumNumber(double mass);
+    virtual double CumMass(double mass);
     virtual MillerScalo* clone() const;
     virtual void pup(PUP::er &p) {
-        IMF::pup(p);//Call base class
+	PUP::able::pup(p);
+	p|a1; p|b1; p|m1;
+	p|a2; p|b2; p|m2;
+	p|a3; p|b3; p|m3;
+	p|mmax;
 	}
-    virtual ~MillerScalo() {}
     };
 
 class Kroupa93 : public IMF {
+    double a1, b1, m1;
+    double a2, b2, m2;
+    double a3, b3, m3;
+    double mmax;
  public:
 /* parameters from Raiteri et. al. A&A, 315,1996, eq. 2;  See also the
    conclusions of Kroupa, Tout & Gilmore, 1993. */
-    Kroupa93() {a1=0.3029*1.86606;b1=-0.3;m1=.08; 
-	a2=0.3029;b2=-1.2;m2=0.5; 
-	a3=0.3029; b3=-1.7; m3=1.0; 
+/* To convert to the IMF(log10(M)) convention of Miller-Scale, we
+    increase the power law by 1 and multiply the coefficient by
+    ln(10.0). See, eg., Chabrier 2003, eq. 2 */
+    Kroupa93() {a1=0.3029*1.86606*log(10.0);b1=-0.3;m1=.08; 
+	a2=0.3029*log(10.0);b2=-1.2;m2=0.5; 
+	a3=0.3029*log(10.0); b3=-1.7; m3=1.0; 
 	mmax=100.0; }
-    Kroupa93(const Kroupa93& kroup) {
-	a1 = kroup.a1; b1 = kroup.b1; m1 = kroup.m1; 
-	a2 = kroup.a2; b2 = kroup.b2; m2 = kroup.m2; 
-	a3 = kroup.a3; b3 = kroup.b3; m3 = kroup.m3; 
-	mmax = kroup.mmax;
-	}
     PUPable_decl(Kroupa93);
     Kroupa93(CkMigrateMessage *m) : IMF(m) {}
+    virtual double returnimf(double mass);
+    virtual double CumNumber(double mass);
+    virtual double CumMass(double mass);
     virtual Kroupa93* clone() const;
     virtual void pup(PUP::er &p) {
-        IMF::pup(p);//Call base class
+	PUP::able::pup(p);
+	p|a1; p|b1; p|m1;
+	p|a2; p|b2; p|m2;
+	p|a3; p|b3; p|m3;
+	p|mmax;
 	}
-    virtual ~Kroupa93() {}
+};
+
+class Kroupa01 : public IMF {
+    double a1, b1, m1;
+    double a2, b2, m2;
+    double mmax;
+ public:
+/* parameters from Kroupa 2001, equation 2, and ignoring brown dwarfs,
+   Also normalized so that the mass integral is 1. */
+/* NOTE BENE: Kroupa 2001 has a revised IMF in section 6.2 which is
+   different than this; however, below is what is used as the default in
+   Starburst99
+   (http://www.stsci.edu/science/starburst99/mappings/docs/run.html)
+   with the exception that the low mass cutoff is .1 instead of the .08
+   below and in the Kroupa paper.
+ */
+/* To convert to the IMF(log10(M)) convention of Miller-Scalo, we
+    increase the power law by 1 and multiply the coefficient by
+    ln(10.0). See, eg., Chabrier 2003, eq. 2 */
+    Kroupa01() {
+	a1=0.22038*2.0*log(10.0);b1=-0.3;m1=.08; 
+	a2=0.22038*log(10.0);b2=-1.3;m2=0.5; 
+	mmax=100.0; }
+    PUPable_decl(Kroupa01);
+    Kroupa01(CkMigrateMessage *m) : IMF(m) {}
+    virtual double returnimf(double mass);
+    virtual double CumNumber(double mass);
+    virtual double CumMass(double mass);
+    virtual Kroupa01* clone() const;
+    virtual void pup(PUP::er &p) {
+	PUP::able::pup(p);
+	p|a1; p|b1; p|m1;
+	p|a2; p|b2; p|m2;
+	p|mmax;
+	}
 };
 
 /*
@@ -108,7 +138,9 @@ class Kroupa93 : public IMF {
 */
 
 class Chabrier : public IMF {
-    double imf(double mass);
+    double a1, b1, m1;
+    double a2, b2, m2;
+    double mmax;
  public:
     /*
       Chabrier low mass formula:
@@ -120,26 +152,20 @@ class Chabrier : public IMF {
 	/* For high mass: normalization, index, minimum mass */
 	/* Parameters from Table 1 of Chabrier, 2003. */
 	a2=4.43e-2;b2=-1.3; m2=1.0;
-	a3=4.43e-2;b3=-1.3; m3=1.0;
 	mmax=100.0;
 	}
-    Chabrier(const Chabrier& chab) {
-	a1 = chab.a1; b1 = chab.b1; m1 = chab.m1; 
-	a2 = chab.a2; b2 = chab.b2; m2 = chab.m2; 
-	a3 = chab.a3; b3 = chab.b3; m3 = chab.m3; 
-	mmax = chab.mmax;
-	}
+    virtual double returnimf(double mass);
     virtual double CumNumber(double mass);
     virtual double CumMass(double mass);
     virtual Chabrier* clone() const;
     PUPable_decl(Chabrier);
- Chabrier(CkMigrateMessage *m) : IMF(m) {}
+    Chabrier(CkMigrateMessage *m) : IMF(m) {}
     virtual void pup(PUP::er &p) {
-        IMF::pup(p);//Call base class
+	PUP::able::pup(p);
+	p|a1; p|b1; p|m1;
+	p|a2; p|b2; p|m2;
+	p|mmax;
 	}
-    virtual ~Chabrier() {};
 };
-
-
 
 #endif

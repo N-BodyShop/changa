@@ -116,7 +116,7 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 	nEwReps = (int) ceil(fEwCut);
 	L = fPeriod.x;
 	fEwCut2 = fEwCut*fEwCut*L*L;
-	fInner2 = 3.0e-3*L*L;
+	fInner2 = 1.2e-3*L*L;
 	nEwReps = nEwReps > nReps ? nEwReps : nReps;
 	alpha = 2.0/L;
 	alpha2 = alpha*alpha;
@@ -404,6 +404,11 @@ void TreePiece::EwaldGPU() {
     particleTable[i].position_x = (float) myParticles[i].position.x;
     particleTable[i].position_y = (float) myParticles[i].position.y;
     particleTable[i].position_z = (float) myParticles[i].position.z;
+    particleTable[i].acceleration_x = 0; 
+    particleTable[i].acceleration_y = 0; 
+    particleTable[i].acceleration_z = 0; 
+    particleTable[i].potential = 0; 
+    /*
     particleTable[i].acceleration_x = 
       (float) myParticles[i].treeAcceleration.x;
     particleTable[i].acceleration_y = 
@@ -411,6 +416,7 @@ void TreePiece::EwaldGPU() {
     particleTable[i].acceleration_z = 
       (float) myParticles[i].treeAcceleration.z;
     particleTable[i].potential = (float) myParticles[i].potential;
+    */
   }  
 
   for (int i=0; i<nEwhLoop; i++) {
@@ -442,7 +448,7 @@ void TreePiece::EwaldGPU() {
   roData->k1 = (float) M_PI/(alpha*alpha*L*L*L);
   roData->ka = (float) 2.0*alpha/sqrt(M_PI);
   roData->fEwCut2 = (float) fEwCut*fEwCut*L*L;
-  roData->fInner2 = (float) 3.0e-3*L*L;
+  roData->fInner2 = (float) 1.2e-3*L*L;
 
   CkCallback *cb; 
   CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex); 
@@ -470,13 +476,13 @@ void TreePiece::EwaldGPUComplete() {
   particleTable = h_idata->p; 
 
   for (int i=1; i<=myNumParticles; i++) {
-    myParticles[i].treeAcceleration.x = 
+    myParticles[i].treeAcceleration.x += 
       particleTable[i].acceleration_x;
-    myParticles[i].treeAcceleration.y = 
+    myParticles[i].treeAcceleration.y += 
       particleTable[i].acceleration_y;
-    myParticles[i].treeAcceleration.z = 
+    myParticles[i].treeAcceleration.z += 
       particleTable[i].acceleration_z;
-    myParticles[i].potential = particleTable[i].potential;
+    myParticles[i].potential += particleTable[i].potential;
   }
 
   //CkPrintf("[%d] in EwaldGPUComplete, calling EwaldHostMemoryFree\n", thisIndex);

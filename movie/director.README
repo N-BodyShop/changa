@@ -163,7 +163,9 @@ colmass [scale]
 
 logscale logmin logmax
   set scaling for colours from the projected column densities
-  converts input colors to final colours
+  converts input colors to final colours.
+  logmin is the column density that maps to "0" pixel value
+  logmax is the column density that maps to the saturated pixel value.
   default: OFF
   
 softgassph

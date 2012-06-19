@@ -24,11 +24,11 @@ void Fdbk::AddParams(PRM prm)
     iRandomSeed = 1;
     prmAddParam(prm,"iRandomSeed", paramInt, &iRandomSeed, sizeof(int),
 		"iRand", "<Feedback random Seed> = 1");
-    iNSNIIQuantum = 0;
-    prmAddParam(prm,"iNSNIIQuantum", paramInt, &iNSNIIQuantum, sizeof(int),
+    sn.iNSNIIQuantum = 0;
+    prmAddParam(prm,"iNSNIIQuantum", paramInt, &sn.iNSNIIQuantum, sizeof(int),
 		"snQuant", "<Min # SNII per timestep> = 0.");
-    dESN = 0.1e51;
-    prmAddParam(prm,"dESN", paramDouble, &dESN, sizeof(double), "snESN",
+    sn.dESN = 0.1e51;
+    prmAddParam(prm,"dESN", paramDouble, &sn.dESN, sizeof(double), "snESN",
 		    "<Energy of supernova in ergs> = 0.1e51");
     bSmallSNSmooth = 1;
     prmAddParam(prm,"bSmallSNSmooth", paramBool, &bSmallSNSmooth, sizeof(int),
@@ -39,7 +39,7 @@ void Fdbk::AddParams(PRM prm)
 		    sizeof(int), "bShortCoolShutoff", "<Use snowplow time> = 0");
     dExtraCoolShutoff = 1.0;
     prmAddParam(prm,"dExtraCoolShutoff", paramDouble, &dExtraCoolShutoff,
-		sizeof(int), "dExtraCoolShutoff", "<Extend shutoff time> = 1.0");
+		sizeof(double), "dExtraCoolShutoff", "<Extend shutoff time> = 1.0");
     bSNTurnOffCooling = 1;
     prmAddParam(prm,"bSNTurnOffCooling", paramBool, &bSNTurnOffCooling,
 		sizeof(int), "bSNTurnOffCooling", "<Do SN turn off cooling> = 1");
@@ -53,8 +53,10 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     if(strcmp(achIMF, "MillerScalo") == 0) imf = new MillerScalo();
     else if(strcmp(achIMF, "Chabrier") == 0) imf = new Chabrier();
     else if(strcmp(achIMF, "Kroupa93") == 0) imf = new Kroupa93();
+    else if(strcmp(achIMF, "Kroupa01") == 0) imf = new Kroupa01();
+    sn.imf = imf;
 #include "physconst.h"
-    if (dESN > 0.0) bSmallSNSmooth = 1;
+    if (sn.dESN > 0.0) bSmallSNSmooth = 1;
     else bSmallSNSmooth = 0;
     param.bDoGas = 1;
     dDeltaStarForm = param.stfm->dDeltaStarForm;
@@ -69,7 +71,7 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
      * Stellar winds:  dM/dt ~ 1e-6 M_sun / yr, v ~ 2000 km/s 
      * (cf Castor et al (1975) for theory)
      */
-    if (iNSNIIQuantum > 0) {
+    if (sn.iNSNIIQuantum > 0) {
 	dRadPreFactor = (0.097 / param.dKpcUnit) *
 	    pow(param.dGmPerCcUnit/MHYDR,-0.2)*
 	    pow(param.dSecUnit/SECONDSPERYEAR / 1e7,0.6);
@@ -96,14 +98,11 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     
     }
 
-
 ///
-/// form stars main method
+/// Feedback main method
 ///
 void Main::StellarFeedback(double dTime, double dDelta) 
 {
-    int iPhase = 0; // Keeps track of node cache use
-    
     if(verbosity)
 	CkPrintf("Stellar Feedback ... \n");
     double startTime = CkWallTimer();
@@ -125,6 +124,8 @@ void Main::StellarFeedback(double dTime, double dDelta)
 	}
       }
     delete msgFeedback;
+    CkReductionMsg *msgChk;
+    treeProxy.massMetalsEnergyCheck(1, CkCallbackResumeThread((void*&)msgChk));
     
     if(verbosity)
       CkPrintf("Distribute Stellar Feedback ... ");
@@ -143,16 +144,31 @@ void Main::StellarFeedback(double dTime, double dDelta)
     DistStellarFeedbackSmoothParams pDSFB(TYPE_GAS, 0, param.csm, dTime, 
 					  param.dConstGamma, param.feedback);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
-    treeProxy.startIterationSmooth(&pDSFB, 1, dfBall2OverSoft2,
+    treeProxy.startSmooth(&pDSFB, 1, param.nSmooth, dfBall2OverSoft2,
 				   CkCallbackResumeThread());
-    iPhase++;
-
-    CkAssert(iPhase <= nPhases);
-    if(iPhase < nPhases)
-	treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
+    treeProxy.finishNodeCache(CkCallbackResumeThread());
 
     CkPrintf("Stellar Feedback Calculated, Wallclock %f secs\n",
 	     CkWallTimer() - startTime);
+
+    CkReductionMsg *msgChk2;
+    treeProxy.massMetalsEnergyCheck(0, CkCallbackResumeThread((void*&)msgChk2));
+    double *dTotals = (double *)msgChk->getData();
+    double *dTotals2 = (double *)msgChk2->getData();
+    int i;
+    for(i = 0; i < 5; i++) {
+	std::string labels[5] = {"Mass", "Metals", "Oxygen", "Iron", "Energy"};
+	if(verbosity > 1)
+	    CkPrintf("Total %s: %g\n", labels[i].c_str(), dTotals[i]);
+
+	if(fabs(dTotals[i] - dTotals2[i]) > 1e-12*(dTotals[i])) {
+	    CkError("ERROR: %s not conserved: %.15e != %.15e!\n",
+		    labels[i].c_str(), dTotals[i], dTotals2[i]);
+	    }
+	}
+
+    delete msgChk;
+    delete msgChk2;
     }
 
 ///
@@ -165,6 +181,7 @@ void TreePiece::Feedback(Fdbk &fb, double dTime, double dDelta, const CkCallback
         
     dTime *= fb.dSecUnit/SECONDSPERYEAR ;
     dDeltaYr = max(dDelta,fb.dDeltaStarForm)*fb.dSecUnit/SECONDSPERYEAR ;
+    fb.sn.imf = fb.imf;		// point sn imf at our imf
     
     /* 0 out accumulator class before starting feedback */
     for(int i = 0; i < NFEEDBACKS; i++) {
@@ -196,6 +213,12 @@ void TreePiece::Feedback(Fdbk &fb, double dTime, double dDelta, const CkCallback
     contribute(sizeof(dFeedback),dFeedback, CkReduction::sum_double, cb);
 }
 
+/// @brief Fdbk main method.
+/// @param p Star particle doing feedback
+/// @param dTime Current time in years.
+/// @param dDeltaYr Timestep in years.
+/// @param fbTotals pointer to total effects for bookkeeping
+
 void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
 		      FBEffects *fbTotals)
 {
@@ -210,8 +233,8 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     // methods in normal units (M_sun + seconds)
     SFEvent sfEvent(p->fMassForm()*dGmUnit/MSOLG, 
 		    p->fTimeForm()*dSecUnit/SECONDSPERYEAR,
-		    p->fStarMetals(), p->fStarMFracOxygen(), 
-		    p->fStarMFracIron());
+		    p->fStarMetals(), p->fStarMFracIron(),
+		    p->fStarMFracOxygen());
 
     double dSNIaMassStore=0.0;  /* Stores mass loss of Ia so as not to 
 				   double count it in wind feedback */
@@ -222,20 +245,21 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     for(int j = 0; j < NFEEDBACKS; j++) {
 	switch (j) {
 	case FB_SNII:
-	    CalcSNIIFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
-	    if (dESN > 0) p->fNSN() = fbEffects.dEnergy / dESN;
+	    sn.CalcSNIIFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
+	    if (sn.dESN > 0)
+		p->fNSN() = fbEffects.dEnergy*MSOLG*fbEffects.dMassLoss/sn.dESN;
 	    break;
 	case FB_SNIA:
-	    CalcSNIaFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
+	    sn.CalcSNIaFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
 	    dSNIaMassStore=fbEffects.dMassLoss;
 	    break;
 	case FB_WIND:
 	    CalcWindFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
-	    fbEffects.dMassLoss -= dSNIaMassStore;
-	    /*printf("Wind, SNaI Mass Loss: %d   %d\n",fbEffects.dMassLoss,dSNIaMassStore); */
+	    if(dSNIaMassStore < fbEffects.dMassLoss)
+		fbEffects.dMassLoss -= dSNIaMassStore;
 	    break;
 	case FB_UV:
-	CalcUVFeedback(dTime, dDeltaYr, &fbEffects);
+	    CalcUVFeedback(dTime, dDeltaYr, &fbEffects);
 	break;
 	default:
 	    CkAssert(0);
@@ -498,34 +522,34 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 	}
     fNorm_Pres *= (gamma-1.0)/dCosmoDenFac;
     fAveDens /= dCosmoDenFac;
-    if (fb->iNSNIIQuantum > 0) {
+    if (fb.sn.iNSNIIQuantum > 0) {
 	/* McCray + Kafatos (1987) ApJ 317 190*/
-	fBlastRadius = fb->dRadPreFactor*pow(p->fNSN() / fAveDens, 0.2) * 
+	fBlastRadius = fb.dRadPreFactor*pow(p->fNSN() / fAveDens, 0.2) * 
 	    pow(dAge,0.6)/aFac; /* eq 3 */
 	/* TOO LONG    fShutoffTime = dTimePreFactor*pow(p->fMetals, -1.5)*
 	   pow(p->fNSN,0.3) / pow(fAveDens,0.7);*/
 	}
     else {
 	/* from McKee and Ostriker (1977) ApJ 218 148 */
-	fBlastRadius = fb->dRadPreFactor*pow(p->fNSN(),0.32)*
+	fBlastRadius = fb.dRadPreFactor*pow(p->fNSN(),0.32)*
 	    pow(fAveDens,-0.16)*pow(fNorm_Pres,-0.2)/aFac;
 	}
-    if (fb->bShortCoolShutoff){
+    if (fb.bShortCoolShutoff){
 	/* End of snowplow phase */
-	fShutoffTime = fb->dTimePreFactor*pow(p->fNSN(),0.31)*
+	fShutoffTime = fb.dTimePreFactor*pow(p->fNSN(),0.31)*
 	    pow(fAveDens,0.27)*pow(fNorm_Pres,-0.64);
 	} else{        /* McKee + Ostriker 1977 t_{max} */
-	fShutoffTime = fb->dTimePreFactor*pow(p->fNSN(),0.32)*
+	fShutoffTime = fb.dTimePreFactor*pow(p->fNSN(),0.32)*
 	    pow(fAveDens,0.34)*pow(fNorm_Pres,-0.70);
 	}
     /* Shut off cooling for 3 Myr for stellar wind */
-    if (p->fNSN() < fb->iNSNIIQuantum)
-	fShutoffTime= 3e6 * SECONDSPERYEAR / fb->dSecUnit;
+    if (p->fNSN() < fb.sn.iNSNIIQuantum)
+	fShutoffTime= 3e6 * SECONDSPERYEAR / fb.dSecUnit;
     
     fmind = p->fBall*p->fBall;
     imind = 0;
     if ( p->fStarESNrate() > 0.0 ) {
-	if(fb->bSmallSNSmooth) {
+	if(fb.bSmallSNSmooth) {
 	    /* Change smoothing radius to blast radius 
 	     * so that we only distribute mass, metals, and energy
 	     * over that range. 
@@ -540,7 +564,7 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 	for (i=0;i<nSmooth;++i) {
 	    double fDist2 = nList[i].fKey;
 	    if ( fDist2 < fmind ){imind = i; fmind = fDist2;}
-	    if ( fDist2 < f2h2 || !fb->bSmallSNSmooth) {
+	    if ( fDist2 < f2h2 || !fb.bSmallSNSmooth) {
 		r2 = fDist2*ih2;            
 		rs = KERNEL(r2);
 		q = nList[i].p;
@@ -578,9 +602,9 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 	double weight;
 	double fDist2 = nList[i].fKey;
 	q = nList[i].p;
-	if (fb->bSmallSNSmooth) {
+	if (fb.bSmallSNSmooth) {
 	    if ( (fDist2 <= f2h2) || (i == imind) ) {
-		if( fb->bSNTurnOffCooling && 
+		if( fb.bSNTurnOffCooling && 
 		    (fBlastRadius*fBlastRadius >= fDist2)) {
 		    q->fTimeCoolIsOffUntil() = max(q->fTimeCoolIsOffUntil(),
 						   dTime + fShutoffTime);
@@ -616,7 +640,7 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 	    q->fESNrate() += weight*p->fESNrate();
 	    /*		printf("SNTEST: %d %g %g %g %g\n",q->iOrder,weight,sqrt(q->r[0]*q->r[0]+q->r[1]*q->r[1]+q->r[2]*q->r[2]),q->fESNrate,q->fDensity);*/
 	    
-	    if ( p->fESNrate() > 0.0 && fb->bSNTurnOffCooling && 
+	    if ( p->fESNrate() > 0.0 && fb.bSNTurnOffCooling && 
 		 (fBlastRadius*fBlastRadius >= fDist2)){
 		q->fTimeCoolIsOffUntil() = max(q->fTimeCoolIsOffUntil(),
 					       dTime + fShutoffTime);       
@@ -626,9 +650,6 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 		is based entirely upon initial mass of gas particle */
 	    } 
 	}
-    /*if(counter>0) printf("%i ",counter);
-      if (p->fNSN >0) printf("%i E51:  %g  Dens:  %g  P:  %g  R:  %g shutoff time: %g   StarAge: %g  \n",counter,p->fNSN,fAveDens,fNorm_Pres,fBlastRadius,fShutoffTime,dAge);
-      /*if(p->fNSN!= 0.0)printf("E51:  %g  Dens:  %g  P:  %g  R:  %g shutoff time: %g  \n",p->fNSN,fAveDens,fNorm_Pres,fBlastRadius,fShutoffTime);*/
     }
 
 void DistStellarFeedbackSmoothParams::postTreeParticle(GravityParticle *p1)
@@ -643,5 +664,42 @@ void DistStellarFeedbackSmoothParams::postTreeParticle(GravityParticle *p1)
 	p1->fMFracOxygen() /= p1->mass;    
 	}
     
+    }
+
+/// @brief total feedback quantities for conservation check
+/// 
+/// Sums are contributed back to main chare.
+/// @param bPreDist Is this before the feedback gets distributed.  In
+/// this case the "out" quantities need to be summed.
+void
+TreePiece::massMetalsEnergyCheck(int bPreDist, const CkCallback& cb)
+{
+    double dTotals[5];
+    for(int j = 0; j < 5; j++)
+	dTotals[j] = 0.0;
+    
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+	dTotals[0] += p->mass;
+	if(p->isGas()) {
+	    dTotals[1] += p->mass*p->fMetals();
+	    dTotals[2] += p->mass*p->fMFracOxygen();
+	    dTotals[3] += p->mass*p->fMFracIron();
+	    dTotals[4] += p->mass*p->fESNrate();
+	    }
+	if(p->isStar()) {
+	    dTotals[1] += p->mass*p->fStarMetals();
+	    dTotals[2] += p->mass*p->fStarMFracOxygen();
+	    dTotals[3] += p->mass*p->fStarMFracIron();
+	    if(bPreDist) { // sum up the quantities that will be distributed
+		dTotals[0] += p->fMSN();
+		dTotals[1] += p->fSNMetals();
+		dTotals[2] += p->fMOxygenOut();
+		dTotals[3] += p->fMIronOut();
+		dTotals[4] += p->fStarESNrate();
+		}
+	    }
+	}
+    contribute(sizeof(dTotals), dTotals, CkReduction::sum_double, cb);
     }
 

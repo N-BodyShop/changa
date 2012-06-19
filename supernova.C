@@ -8,6 +8,7 @@
 #include <math.h>
 #include "ParallelGravity.h"
 #include "feedback.h"
+#include "supernova.h"
 #include "smooth.h"
 #include "physconst.h"
 
@@ -19,7 +20,7 @@ double mod(double a, int b) {return (a-b*floor(a/b));}
  * Supernova module for GASOLINE
  */
 
-void Fdbk::CalcSNIIFeedback(SFEvent *sfEvent,
+void SN::CalcSNIIFeedback(SFEvent *sfEvent,
 			    double dTime, /* current time in years */
 			    double dDelta, /* length of timestep (years) */
 			    FBEffects *fbEffects)
@@ -133,12 +134,13 @@ void Fdbk::CalcSNIIFeedback(SFEvent *sfEvent,
 	    / (dMEjconst * pow(dMeanMStar, dMEjexp));
 	fbEffects->dMOxygen = dMOxconst*pow(dMeanMStar, dMOxexp)
 	    / (dMEjconst * pow(dMeanMStar, dMEjexp));
-	
-	fbEffects->dMetals = ( fbEffects->dMIron + fbEffects->dMOxygen );
+	// Use ratio of Fe to total iron group and O to total non-iron
+	// group derived from Asplund et al 2009
+	fbEffects->dMetals = 1.06*fbEffects->dMIron + 2.09*fbEffects->dMOxygen;
 	}
     }
 
-void Fdbk::CalcSNIaFeedback(SFEvent *sfEvent,
+void SN::CalcSNIaFeedback(SFEvent *sfEvent,
 			double dTime, /* current time in years */
 			double dDelta, /* length of timestep (years) */
 			FBEffects *fbEffects)
@@ -153,18 +155,11 @@ void Fdbk::CalcSNIaFeedback(SFEvent *sfEvent,
     
     double dTotalMass = imf->CumMass(0.0); /* total mass in stars integrated over IMF */
     
-    if (dMinMass > dMBmin && dMaxMass < dMBmax/2.) {
-	
-	double dMStarMinIa = max (dMBmin, dMinMass); 
+    if (dMinMass < dMBmax/2.) {
+	double dMStarMinIa = dMinMass; 
 	double dMStarMaxIa = min (dMBmax/2., dMaxMass); 
 	
 	CkAssert (dMStarMinIa < dMStarMaxIa && dMStarMinIa >0.0 && dMStarMaxIa > 0.0);
-	
-	/* mass of stars that go SNIa based on normalized IMF */
-	/*        dMSNTypeIa = dMSNIa (&mssn, dMStarMinIa, dMStarMaxIa); 
-		  dMSNTypeIa /= dMtot;	/* convert to mass fraction of stars /
-		  /* convert to mass of stars that go SNIa / 
-		  dMSNTypeIa *= sfEvent->dMass; */
 	
 	/* number of stars that go SNIa */        
 	double dNSNTypeIa = NSNIa (dMStarMinIa, dMStarMaxIa); 
@@ -189,10 +184,13 @@ void Fdbk::CalcSNIaFeedback(SFEvent *sfEvent,
 	fbEffects->dMIron = dNSNTypeIa*0.63/fbEffects->dMassLoss;
 	fbEffects->dMOxygen = dNSNTypeIa*0.13/fbEffects->dMassLoss;
 	/* Fraction of mass in metals to be re-distributed among neighbouring
-	 * gas particles: assumes fixed amount of metals per supernovea independent of
-	 * mass. See Raiteri, Villata and Navarro, page 108.
+	 * gas particles: assumes fixed amount of metals per
+	 * supernovea independent of mass. See Raiteri, Villata and
+	 * Navarro, page 108.
 	 */
-	fbEffects->dMetals = dNSNTypeIa*dSNIaMetals/fbEffects->dMassLoss; 
+	// Use total metals to Fe and O based on Asplund et al 2009
+	fbEffects->dMetals = dNSNTypeIa*(0.63*1.06 + 0.13*2.09)
+	    /fbEffects->dMassLoss; 
 	} else {
 	fbEffects->dMassLoss = 0.0;
 	fbEffects->dEnergy = 0.0;    

@@ -13,19 +13,19 @@
 #include "GenericTreeNode.h"
 #include "ParallelGravity.decl.h"
 
-#ifdef CUDA
 
 struct TreePieceDescriptor{
-	TreePiece *tp;
-	int index;
+	TreePiece *treePiece;
+        Tree::GenericTreeNode *root;
 
 	TreePieceDescriptor(){}
-	TreePieceDescriptor(TreePiece *tp_, int index_){
-		tp = tp_;
-		index = index_;
+	TreePieceDescriptor(TreePiece *tp_, GenericTreeNode *r){
+		treePiece = tp_;
+                root = r;
 	}
 };
 
+#ifdef CUDA
 struct UpdateParticlesStruct{
   CkCallback *cb;
   DataManager *dm;
@@ -55,6 +55,10 @@ struct PendingBuffers {
  */
 class DataManager : public CBase_DataManager {
 	friend class TreePiece;
+        friend class OctTreeBuildPhaseIWorker;
+#ifdef DECOMPOSER_GROUP
+	friend class Decomposer;
+#endif
 
 	/// The array of TreePieces I hold data for.
 	CProxy_TreePiece treePieces;
@@ -76,10 +80,9 @@ protected:
 	int numSplitters;
 
 	/// A list of roots of the TreePieces in this node
-	CkVec<Tree::GenericTreeNode*> registeredChares;
-#ifdef CUDA
 	// holds chare array indices of registered treepieces
 	CkVec<TreePieceDescriptor> registeredTreePieces;
+#ifdef CUDA
 	//CkVec<int> registeredTreePieceIndices;
         int cumNumReplicatedNodes;
         int treePiecesDone;
@@ -124,8 +127,9 @@ protected:
 #endif
 	/// The root of the combined trees
 	Tree::GenericTreeNode * root;
-	/// The lookup table for nodes created by the DataManager to combine trees
-	Tree::NodeLookupType nodeLookupTable;
+	/// Table for nodes created by the DataManager to combine trees.
+	/// Kept track of here so we can delete them when done.
+	CkVec<GenericTreeNode *> nodeTable;
 
 	/// Number of chunks in which the tree was splitted during last combine operation
 	int oldNumChunks;
@@ -172,18 +176,30 @@ private:
 public:
 
 	~DataManager() {
+	    for (unsigned int i = 0; i < nodeTable.length(); i++) {
+      		delete nodeTable[i];
+    		}
+    	    nodeTable.clear();
+
 	    CoolFinalize(Cool);
 	    delete starLog;
 	    }
 
-	/// Collect the boundaries of all TreePieces, and trigger the real treebuild
+	/// \brief Collect the boundaries of all TreePieces, and
+	/// trigger the real treebuild
 	void collectSplitters(CkReductionMsg* m);
 	/// Called by ORB Sorter, save the list of which TreePiece is
 	/// responsible for which interval.
 	void acceptResponsibleIndex(const int* responsible, const int n,
 				    const CkCallback& cb);
 	/// Called by the Sorter, I save these final keys and the list
-	/// of which TreePiece is responsible for which interval
+	/// of which TreePiece is responsible for which interval.
+	/// This routine then calls TreePiece::unshuffleParticles to
+	/// move the particles around.
+	/// @param keys vector of boundary keys
+	/// @param responsible vector of which piece is responsible
+	/// for which interval
+	/// @param bins number of particles in each interval.
 	void acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb);
 	void pup(PUP::er& p);
 
@@ -204,12 +220,11 @@ private:
 	int createLookupRoots(Tree::GenericTreeNode *node, Tree::NodeKey *keys);
 public:
 
-#ifdef CUDA
-    //XXX - coercing arrayindex to int in last arg      
-    void notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp, int index);
-#else
-	void notifyPresence(Tree::GenericTreeNode *root);
-#endif
+/// \brief Collect roots of treepieces on this node.
+///
+/// The roots are stored in registeredChares to be used by TreePiece
+/// combineLocalTrees.
+    void notifyPresence(Tree::GenericTreeNode *root, TreePiece *treePiece);
     void combineLocalTrees(CkReductionMsg *msg);
     void getChunks(int &num, Tree::NodeKey *&roots);
     inline Tree::GenericTreeNode *chunkRootToNode(const Tree::NodeKey k) {
@@ -228,6 +243,35 @@ public:
 			const CkCallback& cb);
     void memoryStats(const CkCallback& cb);
     void resetReadOnly(Parameters param, const CkCallback &cb);
+
+  public:
+  static Tree::GenericTreeNode *pickNodeFromMergeList(int n, GenericTreeNode **gtn, int &nUnresolved, int &pickedIndex);
 };
+
+class ProjectionsControl : public CBase_ProjectionsControl { 
+  public: 
+  ProjectionsControl() {} 
+  ProjectionsControl(CkMigrateMessage *m) : CBase_ProjectionsControl(m) {} 
+ 
+  void on(CkCallback cb) { 
+    if(CkMyPe() == 0){ 
+      CkPrintf("\n\n**** PROJECTIONS ON *****\n\n"); 
+    } 
+    traceBegin();  
+    contribute(0,0,CkReduction::sum_int,cb); 
+  } 
+ 
+  void off(CkCallback cb) { 
+    if(CkMyPe() == 0){ 
+      CkPrintf("\n\n**** PROJECTIONS OFF *****\n\n"); 
+    } 
+    traceEnd();  
+    contribute(0,0,CkReduction::sum_int,cb); 
+  } 
+
+  void pup(PUP::er &p){
+  }
+}; 
+
 
 #endif //DATAMANAGER_H

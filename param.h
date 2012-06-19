@@ -7,6 +7,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+/** 
+ * @brief Indicate type of parameter
+ */
 enum TypeParam {
     paramBool = 0,
     paramInt = 1,
@@ -14,6 +17,9 @@ enum TypeParam {
     paramString = 3
 };
 
+/**
+ * @brief Information about a parameter
+ */
 typedef struct prmNode {
 	struct prmNode *pnNext;
 	char *pszName;
@@ -26,6 +32,9 @@ typedef struct prmNode {
 	char *pszArgUsage;
 	} PRM_NODE;
 
+/**
+ * @brief Object containing the parameter information.
+ */  
 typedef struct prmContext {
 	PRM_NODE *pnHead;
 	void (*fcnLeader)(void);

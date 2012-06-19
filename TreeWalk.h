@@ -7,7 +7,7 @@ class State;
 class Compute;
 class TreePiece;
 
-
+/// @brief Base class for walking trees
 class TreeWalk{
   protected:
   Compute *comp;
@@ -60,6 +60,7 @@ class TreeWalk{
 
 };
 
+/// @brief Walk a tree starting with the root node.
 class TopDownTreeWalk : public TreeWalk{ 
   private:
 #ifndef CHANGA_REFACTOR_WALKCHECK
@@ -75,6 +76,9 @@ class TopDownTreeWalk : public TreeWalk{
   //bool ancestorCheck(GenericTreeNode *node, int reqID);
   void walk(GenericTreeNode *node, State *state, int chunk, int reqID, int awi);
 };
+
+/// Walk a tree starting with a leaf node and working up the tree.
+/// This class is used for the k-th nearest neighbor search (Smooth).
 
 class BottomUpTreeWalk : public TreeWalk{ 
   public: 
@@ -117,5 +121,18 @@ class LocalTargetWalk : public TreeWalk {
   
 };
 #endif
+
+class LocalTreeTraversal {
+
+  public:
+  void dft(GenericTreeNode *node, TreeNodeWorker *worker, int level){
+    if(worker->work(node,level)){
+      for(int i = 0; i < node->numChildren(); i++){
+        dft(node->getChildren(i),worker,level+1);
+      }
+      if(node->numChildren() > 0) worker->doneChildren(node,level);
+    }
+  }
+};
 
 #endif
