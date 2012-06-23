@@ -106,7 +106,7 @@ namespace Tree {
     /// During Treebuid, it indicates whether remote moments are
     /// needed to calculate this nodes moment.
     int remoteIndex;
-    /// If this node is partially local, total number of particles contained (across all chares)
+    /// Total number of particles contained (across all chares)
     unsigned int particleCount;
     /// Pointer to the first particle in this node
     GravityParticle *particlePointer;
