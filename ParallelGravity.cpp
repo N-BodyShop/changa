@@ -1831,6 +1831,9 @@ void Main::setupICs() {
 #ifdef DIFFUSIONTHERMAL
   ofsLog << " DIFFUSIONTHERMAL";
 #endif
+#ifdef RTFORCE
+  ofsLog << " RTFORCE";
+#endif
 #ifdef HEXADECAPOLE
   ofsLog << " HEXADECAPOLE";
 #endif

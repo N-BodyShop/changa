@@ -763,8 +763,10 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	pc = p->c();
 	pDensity = p->fDensity;
 	pMass = p->mass;
+#ifndef RTFORCE
 	pPoverRho2 = p->PoverRho2();
 	pPoverRho2f = pPoverRho2;
+#endif
 	ph = sqrt(0.25*p->fBall*p->fBall);
 	ih2 = invH2(p);
 	fNorm = 0.5*M_1_PI*ih2/ph;
@@ -789,9 +791,15 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	    dvy = p->vPred()[1] - q->vPred()[1];
 	    dvz = p->vPred()[2] - q->vPred()[2];
 	    dvdotdr = vFac*(dvx*dx + dvy*dy + dvz*dz) + fDist2*H;
-	    
+#ifdef RTFORCE
+	    pPoverRho2 = p->PoverRho2()*pDensity/q->fDensity;
+	    pPoverRho2f = pPoverRho2;
+	    qPoverRho2 = q->PoverRho2()*q->fDensity/pDensity;
+	    qPoverRho2f = qPoverRho2;
+#else
 	    qPoverRho2 = q->PoverRho2();
 	    qPoverRho2f = qPoverRho2;
+#endif
 
 #define PRES_PDV(a,b) (a)
 #define PRES_ACC(a,b) (a+b)
