@@ -202,7 +202,9 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 		nFormed++;
 		dMassFormed += starp->mass;
 		newParticle(starp);
+		CmiLock(dm->lockStarLog);
 		dm->starLog->seTab.push_back(StarLogEvent(starp,dCosmoFac,TempForm));
+		CmiUnlock(dm->lockStarLog);
 		delete (extraStarData *)starp->extraData;
 		delete starp;
 		if(TYPETest(p, TYPE_DELETED))
@@ -357,7 +359,9 @@ void TreePiece::flushStarLog(const CkCallback& cb) {
 
     if(verbosity > 3)
 	ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
+    CmiLock(dm->lockStarLog);
     dm->starLog->flush();
+    CmiUnlock(dm->lockStarLog);
 
     if(thisIndex!=(int)numTreePieces-1) {
 	pieces[thisIndex + 1].flushStarLog(cb);

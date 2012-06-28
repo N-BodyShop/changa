@@ -51,6 +51,7 @@ void DataManager::init() {
 #endif
   Cool = CoolInit();
   starLog = new StarLog();
+  lockStarLog = CmiCreateLock();
 }
 
 /**
