@@ -1,6 +1,7 @@
 #ifndef __SSEDEFS_H__
 #define __SSEDEFS_H__
 
+#define COSMO_FLOAT
 #ifdef COSMO_FLOAT
 #define CONVERT_TO_COSMO_TYPE (float)  
 typedef float cosmoType;
@@ -67,9 +68,9 @@ typedef SSEFloat SSEcosmoType;
   arr[idx+2]field = p[2]; \
   arr[idx+3]field = p[3]; \
 }
+ 
 enum { cosmoMask=0xf };
-
-#else
+#elif defined(__SSE2__) && !defined(COSMO_FLOAT)
 
 #include "SSE-Double.h"
 #define SSE_VECTOR_WIDTH 2

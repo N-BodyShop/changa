@@ -582,6 +582,44 @@ void momSubMomr(MOMR *mr,MOMR *ma)
 	mr->xyyz -= ma->xyyz;
 	}
 
+/*
+ ** This function subtracts the reduced scaled moment ma to the
+ ** reduced scaled moment mr.
+ ** It needs to correctly rescale the moments of ma to be compatible
+ ** with the scaling of mr.
+ */
+void momScaledSubFmomr(FMOMR *mr,float ur,FMOMR *ma,float ua) {
+    float f,s;
+    assert(ur > 0.0 && ua > 0);
+    f = ua/ur;
+    s = f;
+    mr->m -= ma->m;
+    s *= f;
+    mr->xx -= s*ma->xx;
+    mr->yy -= s*ma->yy;
+    mr->xy -= s*ma->xy;
+    mr->xz -= s*ma->xz;
+    mr->yz -= s*ma->yz;
+    s *= f;
+    mr->xxx -= s*ma->xxx;
+    mr->xyy -= s*ma->xyy;
+    mr->xxy -= s*ma->xxy;
+    mr->yyy -= s*ma->yyy;
+    mr->xxz -= s*ma->xxz;
+    mr->yyz -= s*ma->yyz;
+    mr->xyz -= s*ma->xyz;
+    s *= f;
+    mr->xxxx -= s*ma->xxxx;
+    mr->xyyy -= s*ma->xyyy;
+    mr->xxxy -= s*ma->xxxy;
+    mr->yyyy -= s*ma->yyyy;
+    mr->xxxz -= s*ma->xxxz;
+    mr->yyyz -= s*ma->yyyz;
+    mr->xxyy -= s*ma->xxyy;
+    mr->xxyz -= s*ma->xxyz;
+    mr->xyyz -= s*ma->xyyz;
+    }
+
 
 /*
  ** This function calculates a complete multipole from a single
@@ -1421,7 +1459,6 @@ void momEvalMomr(MOMR *m,momFloat dir0,momFloat x,momFloat y,momFloat z,
  **
  ** OpCount = (*,+) = (106,72) = 178 - 8 = 170
  **
- ** CAREFUL: this function no longer accumulates on fPot,ax,ay,az!
  */
 void momEvalFmomrcm(FMOMR *m,float u,float dir,float x,float y,float z,
 		    float *fPot,float *ax,float *ay,float *az,float *magai) {
@@ -1472,15 +1509,51 @@ void momEvalFmomrcm(FMOMR *m,float u,float dir,float x,float y,float z,
     xz = g2*(-(m->xx + m->yy)*z + m->xz*x + m->yz*y);
     g2 = 0.5*(xx*x + xy*y + xz*z);
     g0 *= m->m;
-    *fPot = -(g0 + g2 + g3 + g4);
+    *fPot += -(g0 + g2 + g3 + g4);
     g0 += 5*g2 + 7*g3 + 9*g4;
-    *ax = dir*(xx + xxx + tx - x*g0);
-    *ay = dir*(xy + xxy + ty - y*g0);
-    *az = dir*(xz + xxz + tz - z*g0);
+    *ax += dir*(xx + xxx + tx - x*g0);
+    *ay += dir*(xy + xxy + ty - y*g0);
+    *az += dir*(xz + xxz + tz - z*g0);
     *magai = g0*dir;
     }
 
 void momMomr2Momc(MOMR *ma,MOMC *mc)
+{
+	mc->m = ma->m;
+	mc->xx = ma->xx;
+	mc->yy = ma->yy;
+	mc->xy = ma->xy;
+	mc->xz = ma->xz;
+	mc->yz = ma->yz;
+	mc->xxx = ma->xxx;
+	mc->xyy = ma->xyy;
+	mc->xxy = ma->xxy;
+	mc->yyy = ma->yyy;
+	mc->xxz = ma->xxz;
+	mc->yyz = ma->yyz;
+	mc->xyz = ma->xyz;
+	mc->xxxx = ma->xxxx;
+	mc->xyyy = ma->xyyy;
+	mc->xxxy = ma->xxxy;
+	mc->yyyy = ma->yyyy;
+	mc->xxxz = ma->xxxz;
+	mc->yyyz = ma->yyyz;
+	mc->xxyy = ma->xxyy;
+	mc->xxyz = ma->xxyz;
+	mc->xyyz = ma->xyyz;
+	mc->zz = -(ma->xx + ma->yy);
+	mc->xzz = -(ma->xxx + ma->xyy);
+	mc->yzz = -(ma->xxy + ma->yyy);
+	mc->zzz = -(ma->xxz + ma->yyz);
+	mc->xxzz = -(ma->xxxx + ma->xxyy);
+	mc->xyzz = -(ma->xxxy + ma->xyyy);
+	mc->xzzz = -(ma->xxxz + ma->xyyz);
+	mc->yyzz = -(ma->xxyy + ma->yyyy);
+	mc->yzzz = -(ma->xxyz + ma->yyyz);
+	mc->zzzz = -(mc->xxzz + mc->yyzz);
+	}
+
+void momFmomr2Momc(FMOMR *ma,MOMC *mc)
 {
 	mc->m = ma->m;
 	mc->xx = ma->xx;

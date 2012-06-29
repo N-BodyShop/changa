@@ -291,7 +291,11 @@ void TreePiece::EwaldInit()
 
 #ifdef HEXADECAPOLE
 	/* convert to complete moments */
-	momMomr2Momc(&(root->moments.mom), &momcRoot);
+	momRescaleFmomr(&(root->moments.mom),1.0f,root->moments.getRadius());
+	momFmomr2Momc(&(root->moments.mom), &momcRoot);
+	/* XXX note that we could leave the scaling as is and change
+	   the radius of the root. */
+	momRescaleFmomr(&(root->moments.mom),root->moments.getRadius(),1.0f);
 #endif
 	/*
 	 ** Now setup stuff for the h-loop.
