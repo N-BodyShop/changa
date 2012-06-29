@@ -6,8 +6,8 @@
 #include "Space.h"
 #include "SSEdefs.h"
 
-extern double theta;
-extern double thetaMono;
+extern cosmoType theta;
+extern cosmoType thetaMono;
 
 /*
 ** see (A1) and (A2) of TREESPH: A UNIFICATION OF SPH WITH THE 
@@ -618,11 +618,11 @@ openCriterionBucket(Tree::GenericTreeNode *node,
       }
 
   // Note that some of this could be pre-calculated into an "opening radius"
-  double radius = TreeStuff::opening_geometry_factor * node->moments.getRadius() / theta;
+  cosmoType radius = TreeStuff::opening_geometry_factor * node->moments.getRadius() / theta;
   if(radius < node->moments.getRadius())
       radius = node->moments.getRadius();
 
-  Sphere<double> s(node->moments.cm + offset, radius);
+  Sphere<cosmoType> s(node->moments.cm + offset, radius);
   
 #ifdef HEXADECAPOLE
   if(!Space::intersect(bucketNode->boundingBox, s)) {
@@ -632,7 +632,7 @@ openCriterionBucket(Tree::GenericTreeNode *node,
       }
       else {        // Open as monopole?
         radius = TreeStuff::opening_geometry_factor*node->moments.getRadius()/thetaMono;
-      Sphere<double> sM(node->moments.cm + offset, radius);
+      Sphere<cosmoType> sM(node->moments.cm + offset, radius);
       return Space::intersect(bucketNode->boundingBox, sM);
       }
       }
@@ -674,11 +674,11 @@ inline int openCriterionNode(Tree::GenericTreeNode *node,
       }
 
   // Note that some of this could be pre-calculated into an "opening radius"
-  double radius = TreeStuff::opening_geometry_factor * node->moments.getRadius() / theta;
+  cosmoType radius = TreeStuff::opening_geometry_factor * node->moments.getRadius() / theta;
   if(radius < node->moments.getRadius())
       radius = node->moments.getRadius();
 
-  Sphere<double> s(node->moments.cm + offset, radius);
+  Sphere<cosmoType> s(node->moments.cm + offset, radius);
 
   if(myNode->getType()==Tree::Bucket || myNode->getType()==Tree::CachedBucket || myNode->getType()==Tree::NonLocalBucket){
     if(Space::intersect(myNode->boundingBox, s))
@@ -692,7 +692,7 @@ inline int openCriterionNode(Tree::GenericTreeNode *node,
             }
         else {      // Open as monopole?
           radius = TreeStuff::opening_geometry_factor*node->moments.getRadius()/thetaMono;
-            Sphere<double> sM(node->moments.cm + offset, radius);
+            Sphere<cosmoType> sM(node->moments.cm + offset, radius);
             if(Space::intersect(myNode->boundingBox, sM))
                 return 1;
             else
@@ -719,7 +719,7 @@ inline int openCriterionNode(Tree::GenericTreeNode *node,
                 }
             else {      // Open as monopole?
                 radius = TreeStuff::opening_geometry_factor*node->moments.getRadius()/thetaMono;
-                Sphere<double> sM(node->moments.cm + offset, radius);
+                Sphere<cosmoType> sM(node->moments.cm + offset, radius);
                 if(Space::intersect(myNode->boundingBox, sM))
                     return 1;
                 else
