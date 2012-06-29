@@ -73,6 +73,8 @@ int SmoothCompute::doWork(GenericTreeNode *node, // Node to test
     int open = openCriterion(tp, node, reqID, state);
     // Turn open into an action
     int action = opt->action(open, node);
+    if(action == KEEP_LOCAL_BUCKET && node->iRank != CkMyRank())
+	action = KEEP_REMOTE_BUCKET;  // treat other rank's buckets as remote.
     if(action == KEEP){
 	// Bounds intersect ball; descend to children
 	return KEEP;

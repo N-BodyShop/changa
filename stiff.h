@@ -49,16 +49,8 @@ void StiffSetYMin(STIFF *s, const double *ymin);
 /* 
  * Root Finder Header
  */
-#include <gsl/gsl_roots.h>
 
-typedef struct RootFindContextStructure {
-  gsl_root_fsolver *solver;
-} ROOTFIND;
-
-ROOTFIND *RootFindInit();
-void RootFindFinalize(ROOTFIND *r);
-
-double RootFind(ROOTFIND *r, double (*func)(double, void *Data), void *Data,
+double RootFind(double (*func)(void *Data, double), void *Data,
 		double x1, double x2, double tol);
 
 #endif

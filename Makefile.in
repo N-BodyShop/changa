@@ -56,9 +56,15 @@ FLAG_COOLING = @FLAG_COOLING@
 # -DCHECK_WALK_COMPLETIONS
 #FLAG_REFACTOR =  
 
+# Flags for tree building. Use one or the other: 
+# -DMERGE_REMOTE_REQUESTS : merges remote requests before sending; local trees built after requests sent
+# -DSPLIT_PHASE_TREE_BUILD : no merging of remote requests on PE; local trees built after requests sent
+# debug with -DPRINT_MERGED_TREE
+FLAG_TREE_BUILD = 
+
 #MULTISTEP_LOADBALANCING_VERBOSE = -DCOSMO_MCLB=2 -DMCLBMSV
 #ORB3DLB_LOADBALANCING_VERBOSE = -DORB3DLBV
-DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST) $(HEXADECAPOLE) $(FLAG_COOLING) $(CELL) $(FLAG_REFACTOR) $(MULTISTEP_LOADBALANCING_VERBOSE) $(ORB3DLB_LOADBALANCING_VERBOSE) $(CUDA) 
+DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST) $(HEXADECAPOLE) $(FLAG_COOLING) $(CELL) $(FLAG_REFACTOR) $(MULTISTEP_LOADBALANCING_VERBOSE) $(ORB3DLB_LOADBALANCING_VERBOSE) $(CUDA) -DDECOMPOSER_GROUP $(FLAG_TREE_BUILD)  
 
 CHARM_PATH = @CHARM_PATH@
 STRUCTURES_PATH = ../utility/structures
@@ -95,11 +101,11 @@ CXX_DEPEND = $(CXX) -M -MM -MG $(CXXFLAGS)
 CFLAGS = $(OPTS) $(DEFINE_FLAGS) @CFLAGS@ @CPPFLAGS@
 
 # Orb3dLB.{o,C} below
-OBJECTS = DataManager.o Reductions.o TreePiece.o Sorter.o \
+OBJECTS = Reductions.o DataManager.o TreePiece.o Sorter.o \
 	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
 	  InOutput.o cosmo.o romberg.o runge.o dumpframe.o dffuncs.o \
 	  moments.o MultistepLB.o Orb3dLB.o Orb3dLB_notopo.o \
-	  MultistepLB_notopo.o \
+	  MultistepLB_notopo.o PETreeMerger.o \
 	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
 	@OBJECTS_COOLING@
 
@@ -107,7 +113,7 @@ SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \
 	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
 	InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c \
 	moments.c MultistepLB.C Orb3dLB.C Orb3dLB_notopo.C starform.C \
-	MultistepLB_notopo.C \
+	MultistepLB_notopo.C PETreeMerger.cpp \
 	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C
 
 ifdef CUDA

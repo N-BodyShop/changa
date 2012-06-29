@@ -106,7 +106,7 @@ namespace Tree {
     /// During Treebuid, it indicates whether remote moments are
     /// needed to calculate this nodes moment.
     int remoteIndex;
-    /// If this node is partially local, total number of particles contained (across all chares)
+    /// Total number of particles contained (across all chares)
     unsigned int particleCount;
     /// Pointer to the first particle in this node
     GravityParticle *particlePointer;
@@ -133,6 +133,8 @@ namespace Tree {
     double sizeSm;
     /// Maximum smoothing radius of smoothActive particles
     double fKeyMax;
+    /// SMP rank of node owner
+    int iRank;
 
     GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0), usedBy(0) {
 #if INTERLIST_VER > 0
@@ -199,6 +201,7 @@ namespace Tree {
     /// transform an internal node into a bucket
     inline void makeBucket(GravityParticle *part) {
       myType = Bucket;
+      iRank = CkMyRank();
 #if INTERLIST_VER > 0
       numBucketsBeneath = 1;
 #endif
@@ -236,6 +239,8 @@ namespace Tree {
       bndBoxBall.reset();
       iParticleTypes = 0;
     }
+
+    void getGraphViz(std::ostream &out);
 
     virtual NodeKey getLongestCommonPrefix(NodeKey k1, NodeKey k2)
     {
@@ -994,6 +999,5 @@ inline void operator|(PUP::er &p,Tree::GenericTrees &gt) {
     p | gti;
   }
 }
-
 
 #endif //GENERICTREENODE_H

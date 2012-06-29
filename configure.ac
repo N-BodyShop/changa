@@ -73,37 +73,14 @@ elif test "$cooling" = "planet" ; then
    echo "Planet cooling selected"
    FLAG_COOLING="-DCOOLING_PLANET"
    OBJECTS_COOLING="cooling_planet.o stiff.o"
-   LIBS="$LIBS -lgsl"
 elif test "$cooling" = "cosmo" ; then
    echo "Cosmo cooling selected"
    FLAG_COOLING="-DCOOLING_COSMO"
    OBJECTS_COOLING="cooling_cosmo.o stiff.o"
-   LIBS="$LIBS -lgsl"
 else
 	echo "Unknown cooling selected, using Adiabatic"
 	FLAG_COOLING="-DCOOLING_NONE"
 	cooling="no"
-fi
-
-if test "$cooling" != "no" ; then
-	AC_CHECK_HEADER(gsl/gsl_odeiv.h,,[MISSING_GSL=yes])
-	AC_SEARCH_LIBS([gsl_odeiv_step_alloc], [gsl],,[MISSING_GSL=yes])
-fi
-if test "${MISSING_GSL}" = "yes" ; then
-   echo "GSL missing, attempting to search in parent directory"
-   for gsl in $PWD/../gsl $PWD/../gsl-1.15 $PWD/../gsl-1.14 $PWD/../gsl-1.13 ; do
-	   if test -d $gsl ; then
-		CPPFLAGS="$CPPFLAGS -I$gsl/include"
-		CFLAGS="$CFLAGS -I$gsl/include"
-		LDFLAGS="$LDFLAGS -L$gsl/lib"
-		MISSING_GSL="no"
-		LIBS="$LIBS"
-	   fi
-   done
-   if test "${MISSING_GSL}" = "yes" ; then
-	echo "GSL (GNU Scientific Libary) is missing for cooling code"
-	exit
-   fi
 fi
 
 AC_SUBST([FLAG_COOLING])

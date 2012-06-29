@@ -18,6 +18,9 @@ mainmodule ParallelGravity {
   readonly CProxy_CkCacheManager cacheGravPart;
   readonly CProxy_CkCacheManager cacheSmoothPart;
   readonly CProxy_DataManager dMProxy;
+  readonly CProxy_PETreeMerger peTreeMergerProxy;
+
+
   readonly bool _cache;
   readonly int _nocache;
   readonly int _cacheLineDepth;
@@ -133,7 +136,7 @@ mainmodule ParallelGravity {
   };                                                          
 
 #ifdef DECOMPOSER_GROUP
-  group Decomposer {
+  group [migratable] Decomposer {
     entry Decomposer();
 
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
@@ -404,15 +407,12 @@ mainmodule ParallelGravity {
 
   };
 
-  /*
-  group CacheSynchronizer {
-    entry CacheSynchronizer(CkGroupID cacheGids[nCaches], int nCaches);
-    entry void sync(CkCallback &cb);
-  };
-  */
-
   array [1D] LvArray {
       entry LvArray();
+  };
+
+  group [migratable] PETreeMerger {
+    entry PETreeMerger();
   };
 
   initproc void registerStatistics();
