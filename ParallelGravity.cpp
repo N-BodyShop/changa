@@ -111,8 +111,8 @@ int remoteResumePartsPerReq;
 // switch threshold
 double largePhaseThreshold;
 
-double theta;
-double thetaMono;
+cosmoType theta;
+cosmoType thetaMono;
 
 int boundaryEvaluationUE;
 int weightBalanceUE;
