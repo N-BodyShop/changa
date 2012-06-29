@@ -202,6 +202,7 @@ namespace Tree {
 #if INTERLIST_VER > 0
       numBucketsBeneath = 1;
 #endif
+      calculateRadiusBox(moments, boundingBox);	/* set initial size */
       boundingBox.reset();
       bndBoxBall.reset();
       iParticleTypes = 0;
@@ -219,7 +220,9 @@ namespace Tree {
 	iParticleTypes |= part[i].iType;
         if (part[i].rung > rungs) rungs = part[i].rung;
       }
-      calculateRadiusFarthestParticle(moments, &part[firstParticle], &part[lastParticle+1]);
+      if(particleCount > 1)
+	  calculateRadiusFarthestParticle(moments, &part[firstParticle],
+					  &part[lastParticle+1]);
     }
 
     inline void makeEmpty() {

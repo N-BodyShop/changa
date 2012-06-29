@@ -82,6 +82,7 @@ void momMulAddMomr(MOMR *,momFloat,MOMR *);
 void momMulAddFmomr(FMOMR *mr,float ur,float m,FMOMR *ma,float ua);
 void momSubMomc(MOMC *,MOMC *);
 void momSubMomr(MOMR *,MOMR *);
+void momScaledSubFmomr(FMOMR *mr,float ur,FMOMR *ma,float ua);
 void momMakeMomc(MOMC *,momFloat,momFloat,momFloat,momFloat);
 float momMakeFmomr(FMOMR *mr,float m,float u,float x,float y,float z);
 momFloat momMakeMomr(MOMR *,momFloat,momFloat,momFloat,momFloat);
@@ -96,6 +97,7 @@ void momEvalMomr(MOMR *,momFloat,momFloat,momFloat,momFloat,
 void momEvalFmomrcm(FMOMR *m,float u,float dir,float x,float y,float z,
 		    float *fPot,float *ax,float *ay,float *az,float *magai);
 void momMomr2Momc(MOMR *,MOMC *);
+void momFmomr2Momc(FMOMR *ma,MOMC *mc);
 void momPrintMomc(MOMC *);
 void momPrintMomr(MOMR *);
 
