@@ -168,8 +168,8 @@ extern int remoteResumePartsPerReq;
 
 extern double largePhaseThreshold;
 
-extern double theta;
-extern double thetaMono;
+extern cosmoType theta;
+extern cosmoType thetaMono;
 
 extern int numInitDecompBins;
 

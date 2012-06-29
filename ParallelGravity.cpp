@@ -93,8 +93,8 @@ int remoteResumePartsPerReq;
 // switch threshold
 double largePhaseThreshold;
 
-double theta;
-double thetaMono;
+cosmoType theta;
+cosmoType thetaMono;
 
 ComlibInstanceHandle cinst1, cinst2;
 

@@ -91,7 +91,7 @@ namespace Tree {
     /// The parent of this node, or null if none
     GenericTreeNode* parent;
     /// The axis-aligned bounding box of this node
-    OrientedBox<double> boundingBox;
+    OrientedBox<cosmoType> boundingBox;
     /// The bounding box including search balls of this node
     OrientedBox<double> bndBoxBall;
     /// Mask of particle types contatained in this node

@@ -173,10 +173,10 @@ State *KNearestSmoothCompute::getNewState(int nBuckets){
  * radius^2 for efficiency.
  */
 static inline bool
-intersect(OrientedBox<double>& box, Vector3D<double> pos, double rsq)
+intersect(OrientedBox<cosmoType>& box, Vector3D<cosmoType> pos, cosmoType rsq)
 {
-    double dsq = 0.0;
-    double delta;
+    cosmoType dsq = 0.0;
+    cosmoType delta;
     
     if((delta = box.lesser_corner.x - pos.x) > 0)
 	dsq += delta * delta;
