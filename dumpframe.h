@@ -4,6 +4,7 @@
  * Image dumping routines for movies from PKDGRAV
  * Original author: James Wadsley, 2002
  */
+#include "SSEdefs.h"
 
 #include "GravityParticle.h"
 
@@ -270,6 +271,20 @@ void dfRenderParticleTSC( struct inDumpFrame *in, void *vImage,
 			  GravityParticle *p, DataManager *dm);
 void dfRenderParticleSolid( struct inDumpFrame *in, void *vImage, 
 			    GravityParticle *p, DataManager *dm);
+void dfRenderParticleInit( struct inDumpFrame *in, int iTypeGas, int iTypeDark, int iTypeStar );
+void dfRenderParticle( struct inDumpFrame *in, void *vImage, 
+					  double *r, double fMass, double fSoft, double fBall2, int iActive, double fTimeForm );
+
+void dfRenderParticlesInit( struct inDumpFrame *in, int iTypeGas, int iTypeDark, int iTypeStar,
+			    cosmoType *pr, cosmoType *pfMass, cosmoType *pfSoft, double *pfBall2, unsigned int *piActive, double *pfTimeForm, void *p, int sizeofp );
+
+void dfRenderParticles( struct inDumpFrame *in, void *vImage, void *pStore, int n );
+
+/* Relies on PKD definition -- not portable */
+#ifdef PKD_HINCLUDED
+void dfRenderImage( PKD pkd, struct inDumpFrame *in, void *vImage );
+void dfRenderImageOld( PKD pkd, struct inDumpFrame *in, void *Image );
+#endif
 
 void dfFinishFrame( struct DumpFrameContext *df, double dTime, double dStep, struct inDumpFrame *in, void *Image, int liveViz, unsigned char **outgray);
 
