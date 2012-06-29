@@ -28,9 +28,9 @@ public:
 class ExternalGravityParticle {
  public:
 
-  double mass;
-  double soft;
-  Vector3D<double> position;
+  cosmoType mass;
+  cosmoType soft;
+  Vector3D<cosmoType> position;
 
   void pup(PUP::er &p) {
     p | position;
@@ -171,16 +171,16 @@ class GravityParticle : public ExternalGravityParticle {
 public:
 	SFC::Key key;
 	Vector3D<double> velocity;
-	Vector3D<double> treeAcceleration;
-	double potential;
-	double dtGrav;
+	Vector3D<cosmoType> treeAcceleration;
+	cosmoType potential;
+	cosmoType dtGrav;
 	double fBall;
 	double fDensity;
 	int64_t iOrder;		/* input order of particles */
         int rung;  ///< the current rung (greater means faster)
 	unsigned int iType;	// Bitmask to hold particle type information
 #ifdef CHANGESOFT
-	double fSoft0;
+	cosmoType fSoft0;
 #endif
 #ifdef NEED_DT
 	double dt;
@@ -194,7 +194,7 @@ public:
 	double extpartmass;
 #endif
 
-        double interMass;
+        cosmoType interMass;
 	
         GravityParticle(SFC::Key k) : ExternalGravityParticle() {
             key = k;
@@ -345,15 +345,15 @@ inline GravityParticle StarFromGasParticle(GravityParticle *p)
 class ExternalSmoothParticle {
  public:
 
-  double mass;
+  cosmoType mass;
   double fBall;
   double fDensity;
-  Vector3D<double> position;
+  Vector3D<cosmoType> position;
   Vector3D<double> velocity;
   unsigned int iType;	// Bitmask to hold particle type information
   int rung;
   Vector3D<double> vPred;
-  Vector3D<double> treeAcceleration;
+  Vector3D<cosmoType> treeAcceleration;
   double mumax;
   double PdV;
   double c;

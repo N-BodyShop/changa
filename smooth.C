@@ -208,7 +208,7 @@ int KNearestSmoothCompute::openCriterion(TreePiece *ownerTP,
 				  int reqID, State *state) {
     GenericTreeNode *myNode = (GenericTreeNode *) computeEntity;
     GravityParticle *particles = ownerTP->getParticles();
-    Vector3D<double> offset = ownerTP->decodeOffset(reqID);
+    Vector3D<cosmoType> offset = ownerTP->decodeOffset(reqID);
     NearNeighborState *nstate = (NearNeighborState *)state;
     
     double rBucket = myNode->sizeSm + myNode->fKeyMax;
@@ -292,7 +292,7 @@ void KNearestSmoothCompute::recvdParticlesFull(GravityParticle *part,
 				   int num, int chunk,int reqID, State *state,
 				   TreePiece *tp, Tree::NodeKey &remoteBucket){
 
-  Vector3D<double> offset = tp->decodeOffset(reqID);
+  Vector3D<cosmoType> offset = tp->decodeOffset(reqID);
   int reqIDlist = decodeReqID(reqID);
   CkAssert(num > 0);
   state->counterArrays[0][reqIDlist] -= num;
@@ -732,7 +732,7 @@ int ReSmoothCompute::openCriterion(TreePiece *ownerTP,
 				  int reqID, State *state) {
     GenericTreeNode *myNode = (GenericTreeNode *) computeEntity;
     GravityParticle *particles = ownerTP->getParticles();
-    Vector3D<double> offset = ownerTP->decodeOffset(reqID);
+    Vector3D<cosmoType> offset = ownerTP->decodeOffset(reqID);
     
     double rBucket = myNode->sizeSm + myNode->fKeyMax;
     if(!intersect(node->boundingBox, myNode->centerSm - offset,
@@ -797,7 +797,7 @@ void ReSmoothCompute::recvdParticlesFull(GravityParticle *part,
 				   int num, int chunk,int reqID, State *state,
 				   TreePiece *tp, Tree::NodeKey &remoteBucket){
 
-  Vector3D<double> offset = tp->decodeOffset(reqID);
+  Vector3D<cosmoType> offset = tp->decodeOffset(reqID);
   int reqIDlist = decodeReqID(reqID);
   CkAssert(num > 0);
   state->counterArrays[0][reqIDlist] -= num;
@@ -982,7 +982,7 @@ int MarkSmoothCompute::openCriterion(TreePiece *ownerTP,
 				  int reqID, State *state) {
     GenericTreeNode *myNode = (GenericTreeNode *) computeEntity; // my bucket
     GravityParticle *particles = ownerTP->getParticles();
-    Vector3D<double> offset = ownerTP->decodeOffset(reqID);
+    Vector3D<cosmoType> offset = ownerTP->decodeOffset(reqID);
     
     for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
 	if(!params->isSmoothActive(&particles[j]))
@@ -1029,7 +1029,7 @@ void MarkSmoothCompute::recvdParticlesFull(GravityParticle *part,
 				   int num, int chunk,int reqID, State *state,
 				   TreePiece *tp, Tree::NodeKey &remoteBucket){
 
-  Vector3D<double> offset = tp->decodeOffset(reqID);
+  Vector3D<cosmoType> offset = tp->decodeOffset(reqID);
   int reqIDlist = decodeReqID(reqID);
   CkAssert(num > 0);
   state->counterArrays[0][reqIDlist] -= num;

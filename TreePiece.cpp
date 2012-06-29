@@ -78,7 +78,7 @@ const char *typeString(NodeType type);
  */
 void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
 					  // each direction
-			    Vector3D<double> fPeriodPar, // Size of periodic box
+			    Vector3D<cosmoType> fPeriodPar, // Size of periodic box
 			    int bEwaldPar,     // Use Ewald summation
 			    double fEwCutPar,  // Cutoff on real summation
 			    double dEwhCutPar, // Cutoff on Fourier summation
@@ -5843,7 +5843,7 @@ ExternalGravityParticle *TreePiece::particlesMissed(Tree::NodeKey &key, int chun
 // It sets up a tree walk starting at node and initiates it
 void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source){
   int targetBucket = decodeReqID(reqID);
-  Vector3D<double> offset = decodeOffset(reqID);
+  Vector3D<cosmoType> offset = decodeOffset(reqID);
 
   TreeWalk *tw;
   Compute *compute;
