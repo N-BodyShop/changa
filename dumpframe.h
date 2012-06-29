@@ -4,6 +4,7 @@
  * Image dumping routines for movies from PKDGRAV
  * Original author: James Wadsley, 2002
  */
+#include "SSEdefs.h"
 
 #if defined(__cplusplus)
 extern "C" {
@@ -247,7 +248,7 @@ void dfRenderParticle( struct inDumpFrame *in, void *vImage,
 					  double *r, double fMass, double fSoft, double fBall2, int iActive, double fTimeForm );
 
 void dfRenderParticlesInit( struct inDumpFrame *in, int iTypeGas, int iTypeDark, int iTypeStar,
-							double *pr, double *pfMass, double *pfSoft, double *pfBall2, unsigned int *piActive, double *pfTimeForm, void *p, int sizeofp );
+			    cosmoType *pr, cosmoType *pfMass, cosmoType *pfSoft, double *pfBall2, unsigned int *piActive, double *pfTimeForm, void *p, int sizeofp );
 
 void dfRenderParticles( struct inDumpFrame *in, void *vImage, void *pStore, int n );
 

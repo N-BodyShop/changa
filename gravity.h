@@ -604,7 +604,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
 inline bool
 openCriterionBucket(Tree::GenericTreeNode *node,
                    Tree::GenericTreeNode *bucketNode,
-                   Vector3D<double> offset, // Offset of node
+                   Vector3D<cosmoType> offset, // Offset of node
                    int localIndex // requesting TreePiece
                    ) {
   // mark the node as used by the requesting TreePiece
@@ -662,7 +662,7 @@ openCriterionBucket(Tree::GenericTreeNode *node,
 
 inline int openCriterionNode(Tree::GenericTreeNode *node,
                     Tree::GenericTreeNode *myNode,
-                    Vector3D<double> offset,
+                    Vector3D<cosmoType> offset,
                     int localIndex // requesting TreePiece
                     ) {
   // mark the node as used by this TreePiece

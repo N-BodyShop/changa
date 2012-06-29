@@ -76,7 +76,7 @@ string getColor(GenericTreeNode*);
  */
 void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
 					  // each direction
-			    Vector3D<double> fPeriodPar, // Size of periodic box
+			    Vector3D<cosmoType> fPeriodPar, // Size of periodic box
 			    int bEwaldPar,     // Use Ewald summation
 			    double fEwCutPar,  // Cutoff on real summation
 			    double dEwhCutPar, // Cutoff on Fourier summation
@@ -1582,7 +1582,7 @@ void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump)
 			   &p->fTimeForm,
 #else
 		/* N.B. This is just a place holder when we don't have stars */
-			   &p->mass,
+			   &p->fBall,
 #endif
 			   p, sizeof(*p) );
     dfRenderParticles( &in, Image, p, myNumParticles);
@@ -3203,7 +3203,7 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
 #endif
 #ifdef CELL_NODE
           nodesData[indexNodes] = tmp.node->moments;
-          Vector3D<double> tmpoffsetID = decodeOffset(tmp.offsetID);
+          Vector3D<cosmoType> tmpoffsetID = decodeOffset(tmp.offsetID);
           nodesData[indexNodes].cm += tmpoffsetID;
           indexNodes++;
           if (indexNodes == nodesPerRequest) {
@@ -4550,7 +4550,7 @@ const GravityParticle *TreePiece::lookupParticles(int begin) {
 // @param reqID request ID which encodes bucket to be worked on and
 // a replica offset if we are using periodic boundary conditions
 void TreePiece::walkBucketTree(GenericTreeNode* node, int reqID) {
-    Vector3D<double> offset = decodeOffset(reqID);
+    Vector3D<cosmoType> offset = decodeOffset(reqID);
     int reqIDlist = decodeReqID(reqID);
 #if COSMO_STATS > 0
   myNumMACChecks++;
@@ -5360,7 +5360,7 @@ ExternalGravityParticle *TreePiece::particlesMissed(Tree::NodeKey &key, int chun
 // It sets up a tree walk starting at node and initiates it
 void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source){
   int targetBucket = decodeReqID(reqID);
-  Vector3D<double> offset = decodeOffset(reqID);
+  Vector3D<cosmoType> offset = decodeOffset(reqID);
 
   TreeWalk *tw;
   Compute *compute;

@@ -161,14 +161,14 @@ void momEvalFmomrcm(FMOMR *m,SSEcosmoType u,SSEcosmoType dir,SSEcosmoType x,
 class MultipoleMoments {
 	/// A physical size for this multipole expansion, calculated
 	/// by an external function using some other information
-	double radius;
+	cosmoType radius;
 public:
-	double soft;		/* Effective softening */
+	cosmoType soft;		/* Effective softening */
 
 	/// The total mass represented by this expansion
-	double totalMass;
+	cosmoType totalMass;
 	/// The center of mass (zeroth order multipole)
-	Vector3D<double> cm;
+	Vector3D<cosmoType> cm;
 #ifdef HEXADECAPOLE
 	FMOMR mom;
 #else						\
@@ -190,7 +190,7 @@ public:
 	/// Add two expansions together, using parallel axis theorem
 	MultipoleMoments& operator+=(const MultipoleMoments& m) {
 		//radius gets set by external function
-	    double m1 = totalMass;
+	    cosmoType m1 = totalMass;
 		totalMass += m.totalMass;
 		if(totalMass == 0.0) {
 		    soft = 0.5*(soft + m.soft);
@@ -204,10 +204,10 @@ public:
 		if(m.totalMass == 0.0)
 		    return *this;
 		soft = (m1*soft + m.totalMass*m.soft)/totalMass;
-		Vector3D<double> cm1 = cm;
+		Vector3D<cosmoType> cm1 = cm;
 		cm = (m1*cm + m.totalMass*m.cm)/totalMass;
 #ifdef HEXADECAPOLE
-		Vector3D<double> dr = cm1 - cm;
+		Vector3D<cosmoType> dr = cm1 - cm;
 		momShiftFmomr(&mom, radius, dr.x, dr.y, dr.z);
 		FMOMR mom2 = m.mom;
 		dr = m.cm - cm;
@@ -236,10 +236,10 @@ public:
 	/// Add the contribution of a particle to this multipole expansion
 	template <typename ParticleType>
 	MultipoleMoments& operator+=(const ParticleType& p) {
-	    double m1 = totalMass;
+	    cosmoType m1 = totalMass;
 		totalMass += p.mass;
 		soft = (m1*soft + p.mass*p.soft)/totalMass;
-		Vector3D<double> cm1 = cm;
+		Vector3D<cosmoType> cm1 = cm;
 		cm = (m1*cm + p.mass * p.position)/totalMass;
 #ifdef HEXADECAPOLE
 		// XXX this isn't the most efficient way, but it
@@ -247,7 +247,7 @@ public:
 		// be better to do this many particles at a time, then
 		// you could first determine the center of mass, then
 		// do a momMakeMomr(); momAddMomr() for each particle.
-		Vector3D<double> dr = cm1 - cm;
+		Vector3D<cosmoType> dr = cm1 - cm;
 		momShiftFmomr(&mom, radius, dr.x, dr.y, dr.z);
 		dr = p.position - cm;
 		FMOMR momPart;
@@ -286,7 +286,7 @@ public:
 		newMoments.cm = (totalMass*cm - m.totalMass*m.cm)
 		    /newMoments.totalMass;
 #ifdef HEXADECAPOLE
-		Vector3D<double> dr = cm - newMoments.cm;
+		Vector3D<cosmoType> dr = cm - newMoments.cm;
 		newMoments.mom = mom;
 		momShiftFmomr(&mom, radius, dr.x, dr.y, dr.z);
 		FMOMR mom2 = m.mom;
@@ -326,7 +326,7 @@ public:
 		xx = xy = xz = yy = yz = zz = 0;
 #endif
 	}
-	inline double getRadius() {return radius;}
+	inline cosmoType getRadius() {return radius;}
 	friend void operator|(PUP::er& p, MultipoleMoments& m);
 	friend void calculateRadiusFarthestCorner(MultipoleMoments& m,
 					      const OrientedBox<double>& box);
@@ -365,12 +365,12 @@ inline void operator|(PUP::er& p, MultipoleMoments& m) {
 
 /// Given an enclosing box, set the multipole expansion size to the distance from the center of mass to the farthest corner of the box
 inline void calculateRadiusFarthestCorner(MultipoleMoments& m, const OrientedBox<double>& box) {
-	Vector3D<double> delta1 = m.cm - box.lesser_corner;	
-	Vector3D<double> delta2 = box.greater_corner - m.cm;
+	Vector3D<cosmoType> delta1 = m.cm - box.lesser_corner;	
+	Vector3D<cosmoType> delta2 = box.greater_corner - m.cm;
 	delta1.x = (delta1.x > delta2.x ? delta1.x : delta2.x);
 	delta1.y = (delta1.y > delta2.y ? delta1.y : delta2.y);
 	delta1.z = (delta1.z > delta2.z ? delta1.z : delta2.z);
-	float newradius = delta1.length();
+	cosmoType newradius = delta1.length();
 	momRescaleFmomr(&m.mom, newradius, m.radius);
 	m.radius = newradius;
 }
@@ -379,8 +379,8 @@ inline void calculateRadiusFarthestCorner(MultipoleMoments& m, const OrientedBox
 /// distance from the center of the box to the farthest corner of the box
 inline void calculateRadiusBox(MultipoleMoments& m,
 			       const OrientedBox<double>& box) {
-	Vector3D<double> delta = box.greater_corner - box.lesser_corner;
-	float newradius = 0.5*delta.length();
+	Vector3D<cosmoType> delta = box.greater_corner - box.lesser_corner;
+	cosmoType newradius = 0.5*delta.length();
 	if(m.totalMass > 0.0)
 	    momRescaleFmomr(&m.mom, newradius, m.radius);
 	m.radius = newradius;
@@ -389,9 +389,9 @@ inline void calculateRadiusBox(MultipoleMoments& m,
 /// Given the positions that make up a multipole expansion, set the distance to the farthest particle from the center of mass
 template <typename ParticleType>
 inline void calculateRadiusFarthestParticle(MultipoleMoments& m, ParticleType* begin, const ParticleType* end) {
-	Vector3D<double> cm = m.cm;
-	double d;
-	double newradius = 0;
+	Vector3D<cosmoType> cm = m.cm;
+	cosmoType d;
+	cosmoType newradius = 0;
 	for(ParticleType* iter = begin; iter != end; ++iter) {
 		d = (cm - iter->position).lengthSquared();
 		if(d > newradius)
