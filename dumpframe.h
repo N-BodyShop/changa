@@ -4,12 +4,14 @@
  * Image dumping routines for movies from PKDGRAV
  * Original author: James Wadsley, 2002
  */
-#include "SSEdefs.h"
 
 #include "GravityParticle.h"
+#include "cosmoType.h"
+    
+#define DF_NXPIXMAX 1280
+#define DF_NYPIXMAX 1280
 
 /* PST */
-
 #ifdef USE_PNG
 #include "png.h"        /* libpng header; includes zlib.h and setjmp.h */
 #include "writepng.h"   /* typedefs, common macros, public prototypes */
