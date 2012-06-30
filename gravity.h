@@ -603,7 +603,7 @@ openCriterionBucket(Tree::GenericTreeNode *node,
 #endif
   // Always open node if this many particles or fewer.
   const int nMinParticleNode = 6;
-  if(node->particleCount < nMinParticleNode) {
+  if(node->particleCount <= nMinParticleNode) {
       return true;
       }
 
@@ -661,7 +661,7 @@ inline int openCriterionNode(Tree::GenericTreeNode *node,
 #endif
   // Always open node if this many particles or fewer.
   const int nMinParticleNode = 6;
-  if(node->particleCount < nMinParticleNode) {
+  if(node->particleCount <= nMinParticleNode) {
       return 1;
       }
 
