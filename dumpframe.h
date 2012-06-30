@@ -4,11 +4,12 @@
  * Image dumping routines for movies from PKDGRAV
  * Original author: James Wadsley, 2002
  */
-#include "SSEdefs.h"
 
 #if defined(__cplusplus)
 extern "C" {
 #endif
+
+#include "cosmoType.h"
     
 #define DF_NXPIXMAX 1280
 #define DF_NYPIXMAX 1280
