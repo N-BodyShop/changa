@@ -4,9 +4,9 @@
  * Image dumping routines for movies from PKDGRAV
  * Original author: James Wadsley, 2002
  */
-#include "SSEdefs.h"
 
 #include "GravityParticle.h"
+#include "cosmoType.h"
 
 /* PST */
 
