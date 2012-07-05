@@ -385,8 +385,6 @@ inline int partBucketForce(ExternalGravityParticle *part,
 #endif
 
   int ret = partBucketForce(part, req, activeParticles, offset, nActiveParts); 
-  for (int j=req->firstParticle; j <= req->lastParticle; ++j)
-	CkAssert(!isinf(particles[j].treeAcceleration.x));
   return ret; 
 }
 
@@ -518,10 +516,8 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
     tmpPart.position = m.cm;
     int ret = partBucketForce(&tmpPart, req, activeParticles, 
 			   offset, nActiveParts);
-  for (int j=req->firstParticle; j <= req->lastParticle; ++j)
-	CkAssert(!isinf(particles[j].treeAcceleration.x));
-  return ret; 
-  }
+    return ret; 
+    }
 #endif
   for (int i=0; i<nActiveParts; i+=SSE_VECTOR_WIDTH) {
 #ifdef CMK_VERSION_BLUEGENE
@@ -587,8 +583,6 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
     idt2 = max(idt2, packedDtGrav);   
     SSEStore(idt2, activeParticles, i, ->dtGrav); 
   }
-  for (int j=req->firstParticle; j <= req->lastParticle; ++j)
-	CkAssert(!isinf(particles[j].treeAcceleration.x));
   return nActiveParts;
 }
 #endif
