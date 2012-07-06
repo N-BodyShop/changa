@@ -4,6 +4,11 @@
  * Modified for inclusion in ChaNGa
  */
 #include <math.h>
+#ifdef HAVE_VALUES_H
+#include <values.h>
+#else
+#include <float.h>
+#endif
 #include "ParallelGravity.h"
 #include "smooth.h"
 #include "sinks.h"
@@ -290,19 +295,16 @@ void Main::FormSinks(double dTime, double dDelta, int iKickRung)
 	    nSink += nSinkAdd;
 	    } 
 	else {
-	    int iPhase = 0; // Keeps track of node cache use
 	/* Note: Only gas particles are combined into sinks */
 	    SinkFormTestSmoothParams pSFT(TYPE_GAS, iKickRung, param.sinks);
 	    double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
 	    treeProxy.startSmooth(&pSFT, 1, param.nSmooth, dfBall2OverSoft2,
 				  CkCallbackResumeThread());
-	    iPhase++;
 
 	    SinkFormSmoothParams pSF(TYPE_GAS, iKickRung, param.csm, dTime,
 				     param.sinks);
 	    treeProxy.startSmooth(&pSF, 1, param.nSmooth, dfBall2OverSoft2,
 				  CkCallbackResumeThread());
-	    iPhase++;
 	    
 	    addDelParticles();
 	    nSink += nSinkAdd = nTotalStar-nStarOld;
@@ -931,12 +933,10 @@ void Main::doSinks(double dTime, double dDelta, int iKickRung)
 					 dTime, param.sinks);
 	    treeProxy.startSmooth(&pBHDen, 1, param.nSmooth, dfBall2OverSoft2,
 				  CkCallbackResumeThread());
-	    iPhase++;
 	    BHAccreteSmoothParams pBHAcc(TYPE_GAS, iKickRung, param.csm,
 					 dTime, param.dDelta, param.sinks,
 					 param.dConstGamma);
 	    treeProxy.startReSmooth(&pBHAcc, CkCallbackResumeThread());
-	    iPhase++;
 	    /* build new tree of BHs for merging JMB 11/14/08  */
 	    /* Search for BHs that need merging */
 	    CkReductionMsg *msgCnt;
@@ -950,12 +950,10 @@ void Main::doSinks(double dTime, double dDelta, int iKickRung)
 		int nSmooth = nSink < 4 ? nSink : 4;
 		treeProxy.startSmooth(&pBHDen, 1, nSmooth, dfBall2OverSoft2,
 					       CkCallbackResumeThread());
-		iPhase++;
 		BHSinkMergeSmoothParams pBHM(TYPE_SINK, iKickRung, param.csm,
 					     dTime, param.sinks,
 					     param.dConstGamma);
 		treeProxy.startReSmooth(&pBHM, CkCallbackResumeThread());
-		iPhase++;
 		}
 	    }
 	else {
@@ -964,7 +962,6 @@ void Main::doSinks(double dTime, double dDelta, int iKickRung)
 						  param.sinks);
 	    treeProxy.startSmooth(&pSinkTest, 1, param.nSmooth,
 				  dfBall2OverSoft2, CkCallbackResumeThread());
-	    iPhase++;
 	    
 #ifdef SINKINGAVERAGE
 	    msrActiveType(msr,TYPE_NEWSINKING, TYPE_SMOOTHACTIVE);
@@ -972,13 +969,11 @@ void Main::doSinks(double dTime, double dDelta, int iKickRung)
 	    SinkingAverageSmoothParams pSinkAvg(TYPE_GAS, iKickRung, sinks);
 	    treeProxy.startSmooth(&pSinkAvg, 1, param.nSmooth,
 				  dfBall2OverSoft2, CkCallbackResumeThread());
-	    iPhase++;
 #endif
 	    SinkAccreteSmoothParams pSinkAcc(TYPE_GAS, iKickRung, dTime,
 					     param.sinks);
 	    treeProxy.startSmooth(&pSinkAcc, 1, param.nSmooth,
 				  dfBall2OverSoft2, CkCallbackResumeThread());
-	    iPhase++;
 	    }
 	
 	addDelParticles();
