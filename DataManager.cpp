@@ -20,6 +20,9 @@ void hapi_clearInstrument();
 
 #endif
 
+#include "Compute.h"
+#include "TreeWalk.h"
+
 void printTreeGraphViz(GenericTreeNode *node, ostream &out, const string &name);
 
 DataManager::DataManager(const CkArrayID& treePieceID) {
@@ -227,6 +230,7 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
       gtn.push_back(registeredTreePieces[i].root);
     }
     root = buildProcessorTree(totalChares, &gtn[0]);
+
     registeredTreePieces.removeAll();
 
 #ifdef PRINT_MERGED_TREE
