@@ -8,6 +8,7 @@
 #include "Compute.h"
 #include "State.h"
 
+/// Object for priority queue entry.
 class pqSmoothNode
 {
  public:
@@ -21,7 +22,7 @@ class pqSmoothNode
     };
 
 	
-// Object to bookkeep a Bucket Smooth Walk.
+/// Object to bookkeep a Bucket Smooth Walk.
 
 class NearNeighborState: public State {
 public:
@@ -48,6 +49,7 @@ public:
 
 extern SmoothParams *globalSmoothParams;
 
+/// Class to specify density smooth
 class DensitySmoothParams : public SmoothParams
 {
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
@@ -72,6 +74,7 @@ class DensitySmoothParams : public SmoothParams
 	}
     };
 
+/// Super class for Smooth and Resmooth computation.
 class SmoothCompute : public Compute
 {
  protected:
@@ -113,6 +116,7 @@ class SmoothCompute : public Compute
 
 };
 
+/// Class for computation over k nearest neighbors.
 class KNearestSmoothCompute : public SmoothCompute 
 {
     int nSmooth;
@@ -161,9 +165,9 @@ public:
     State *getNewState() {return 0;}
     };
 
-// Object to bookkeep a Bucket ReSmooth Walk.  This could be merged
-// with the standard smooth if we changed that to using push_heap()
-// and pop_heap()
+/// Object to bookkeep a Bucket ReSmooth Walk.  This could be merged
+/// with the standard smooth if we changed that to using push_heap()
+/// and pop_heap()
 
 class ReNearNeighborState: public State {
 public:
@@ -212,6 +216,7 @@ public:
     State *getNewState() {return 0;}
     };
 
+/// Computation over "inverse" nearest neighbors.
 class MarkSmoothCompute : public SmoothCompute 
 {
     
@@ -247,7 +252,7 @@ public:
     State *getNewState() {return 0;}
     };
 
-// Object to bookkeep a Bucket MarkSmooth Walk.
+/// Object to bookkeep a Bucket MarkSmooth Walk.
 
 class MarkNeighborState: public State {
 public:

@@ -117,6 +117,52 @@ class LocalOpt : public Opt{
   
 };
 
+class PushGravityOpt : public Opt{
+  public:
+  PushGravityOpt() : Opt(PushGravity){
+    // don't need to open node
+    // these nodes are your concern
+    action_array[0][Internal] = COMPUTE;
+    action_array[0][Bucket] = COMPUTE;
+
+    action_array[0][Boundary] = KEEP; 
+    // XXX - changed to DUMP from COMPUTE
+    action_array[0][NonLocal] = DUMP; 
+    action_array[0][NonLocalBucket] = DUMP;	
+    // changed these to DUMP from COMPUTE - remote does computation now
+    action_array[0][Cached] = DUMP;	
+    action_array[0][CachedBucket] = DUMP;
+
+    // these nodes are no one's concern
+    action_array[0][Empty] = DUMP;
+    action_array[0][CachedEmpty] = DUMP;
+    action_array[0][Top] = ERROR;
+    action_array[0][Invalid] = ERROR;
+    //--------------
+    // need to open node
+    // local data
+    action_array[1][Internal] = KEEP;
+    action_array[1][Bucket] = KEEP_LOCAL_BUCKET;
+    action_array[1][Boundary] = KEEP;
+
+    // remote data
+    action_array[1][NonLocal] = DUMP;
+    action_array[1][NonLocalBucket] = DUMP;
+    // remote opt KEEPs Cached and KEEP_REMOTE_BUCKETs CachedBucket
+    action_array[1][CachedBucket] = DUMP;
+    action_array[1][Cached] = DUMP;
+
+    // discard
+    action_array[1][Empty] = DUMP;
+    action_array[1][CachedEmpty] = DUMP;
+    action_array[1][Top] = ERROR;
+    action_array[1][Invalid] = ERROR;
+  }
+  
+};
+
+
+
 class PrefetchOpt : public Opt{
   public: 
   PrefetchOpt() : Opt(Pref){

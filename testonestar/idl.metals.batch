@@ -14,6 +14,12 @@
 .r snia_MS.pro
 .r snii_fe_MS.pro
 .r snii_ox_MS.pro
+.r ejecta_K01.pro
+.r wind_ejecta_K01.pro
+.r snia_K01.pro
+.r snii_fe_K01.pro
+.r snii_ox_K01.pro
+.r snii_oxlin_K01.pro
 .r metalcheck.pro
 .r sntots.pro
 .r imf.pro

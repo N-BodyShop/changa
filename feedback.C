@@ -39,7 +39,7 @@ void Fdbk::AddParams(PRM prm)
 		    sizeof(int), "bShortCoolShutoff", "<Use snowplow time> = 0");
     dExtraCoolShutoff = 1.0;
     prmAddParam(prm,"dExtraCoolShutoff", paramDouble, &dExtraCoolShutoff,
-		sizeof(int), "dExtraCoolShutoff", "<Extend shutoff time> = 1.0");
+		sizeof(double), "dExtraCoolShutoff", "<Extend shutoff time> = 1.0");
     bSNTurnOffCooling = 1;
     prmAddParam(prm,"bSNTurnOffCooling", paramBool, &bSNTurnOffCooling,
 		sizeof(int), "bSNTurnOffCooling", "<Do SN turn off cooling> = 1");
@@ -103,8 +103,6 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
 ///
 void Main::StellarFeedback(double dTime, double dDelta) 
 {
-    int iPhase = 0; // Keeps track of node cache use
-    
     if(verbosity)
 	CkPrintf("Stellar Feedback ... \n");
     double startTime = CkWallTimer();
@@ -116,7 +114,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
     
     if(verbosity) 
       {
-	printf("Feedback totals: mass, energy, metalicity\n");
+	CkPrintf("Feedback totals: mass, energy, metalicity\n");
 	for(int i = 0; i < NFEEDBACKS; i++){
 	  CkPrintf("feedback %d: %g %g %g\n", i,
 		   dFeedback[i*3],
@@ -146,13 +144,9 @@ void Main::StellarFeedback(double dTime, double dDelta)
     DistStellarFeedbackSmoothParams pDSFB(TYPE_GAS, 0, param.csm, dTime, 
 					  param.dConstGamma, param.feedback);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
-    treeProxy.startIterationSmooth(&pDSFB, 1, dfBall2OverSoft2,
+    treeProxy.startSmooth(&pDSFB, 1, param.nSmooth, dfBall2OverSoft2,
 				   CkCallbackResumeThread());
-    iPhase++;
-
-    CkAssert(iPhase <= nPhases);
-    if(iPhase < nPhases)
-	treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
+    treeProxy.finishNodeCache(CkCallbackResumeThread());
 
     CkPrintf("Stellar Feedback Calculated, Wallclock %f secs\n",
 	     CkWallTimer() - startTime);
@@ -163,13 +157,13 @@ void Main::StellarFeedback(double dTime, double dDelta)
     double *dTotals2 = (double *)msgChk2->getData();
     int i;
     for(i = 0; i < 5; i++) {
-	char *labels[5] = {"Mass", "Metals", "Oxygen", "Iron", "Energy"};
+	std::string labels[5] = {"Mass", "Metals", "Oxygen", "Iron", "Energy"};
 	if(verbosity > 1)
-	    CkPrintf("Total %s: %g\n", labels[i], dTotals[i]);
+	    CkPrintf("Total %s: %g\n", labels[i].c_str(), dTotals[i]);
 
 	if(fabs(dTotals[i] - dTotals2[i]) > 1e-12*(dTotals[i])) {
-	    CkError("ERROR: %s not conserved: %.15e != %.15e!\n", labels[i],
-		    dTotals[i], dTotals2[i]);
+	    CkError("ERROR: %s not conserved: %.15e != %.15e!\n",
+		    labels[i].c_str(), dTotals[i], dTotals2[i]);
 	    }
 	}
 
@@ -219,6 +213,12 @@ void TreePiece::Feedback(Fdbk &fb, double dTime, double dDelta, const CkCallback
     contribute(sizeof(dFeedback),dFeedback, CkReduction::sum_double, cb);
 }
 
+/// @brief Fdbk main method.
+/// @param p Star particle doing feedback
+/// @param dTime Current time in years.
+/// @param dDeltaYr Timestep in years.
+/// @param fbTotals pointer to total effects for bookkeeping
+
 void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
 		      FBEffects *fbTotals)
 {
@@ -246,7 +246,8 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
 	switch (j) {
 	case FB_SNII:
 	    sn.CalcSNIIFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
-	    if (sn.dESN > 0) p->fNSN() = fbEffects.dEnergy / sn.dESN;
+	    if (sn.dESN > 0)
+		p->fNSN() = fbEffects.dEnergy*MSOLG*fbEffects.dMassLoss/sn.dESN;
 	    break;
 	case FB_SNIA:
 	    sn.CalcSNIaFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);

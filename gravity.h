@@ -407,7 +407,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
   Vector3D<cosmoType> r;
   cosmoType rsq;
   cosmoType twoh, a, b, c, d;
-  MultipoleMoments m = node->moments;
+  MultipoleMoments &m = node->moments;
 
   Vector3D<cosmoType> cm(m.cm + offset);
 
@@ -422,6 +422,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
 #endif
   for(int j = req->firstParticle; j <= req->lastParticle; ++j) {
     if (particles[j].rung >= activeRung) {
+      particles[j].interMass += m.totalMass;
 #ifdef CMK_VERSION_BLUEGENE
       if (++forProgress > 200) {
         forProgress = 0;
@@ -580,8 +581,13 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
 }
 #endif
 
-// Return true if the node's opening radius intersects the
-// boundingBox, i.e. the node needs to be opened.
+/// @brief Gravity opening criterion for a bucket walk.
+/// @param node Source node to be tested
+/// @param bucketNode Target bucket
+/// @param offset Offset of periodic replica
+/// @param localIndex Index of requesting TreePiece
+/// @return True if the node's opening radius intersects the
+/// boundingBox of the bucket, i.e. the node needs to be opened.
 
 inline bool
 openCriterionBucket(Tree::GenericTreeNode *node,
@@ -595,6 +601,12 @@ openCriterionBucket(Tree::GenericTreeNode *node,
 #if COSMO_STATS > 0
   node->used = true;
 #endif
+  // Always open node if this many particles or fewer.
+  const int nMinParticleNode = 6;
+  if(node->particleCount < nMinParticleNode) {
+      return true;
+      }
+
   // Note that some of this could be pre-calculated into an "opening radius"
   double radius = TreeStuff::opening_geometry_factor * node->moments.radius / theta;
   if(radius < node->moments.radius)
@@ -620,9 +632,21 @@ openCriterionBucket(Tree::GenericTreeNode *node,
 #endif
 }
 
-// return -1 if there is an intersection
-//    0 if no intersection
-//    +1 if completely contained
+/// @brief Gravity opening criterion for "double walk".
+/// @param node Source node to be tested
+/// @param myNode Target node
+/// @param offset Offset for periodic replica
+/// @param localIndex Index of requesting TreePiece
+/// @return -1 if there is an intersection
+///    0 if no intersection
+///    +1 if completely contained
+///
+/// This is the criterion described in Stadel(2001): if no
+/// intersection, then the node is valid for all particles in myNode.
+/// If completely contained then it needs to be opened for all
+/// particles in myNode.  If a partial intersection, then node needs
+/// to be checked by the children of myNode.  If myNode is already a
+/// bucket, then only returns 0 or 1 are possible.
 
 inline int openCriterionNode(Tree::GenericTreeNode *node,
                     Tree::GenericTreeNode *myNode,
@@ -635,6 +659,11 @@ inline int openCriterionNode(Tree::GenericTreeNode *node,
 #if COSMO_STATS > 0
   node->used = true;
 #endif
+  // Always open node if this many particles or fewer.
+  const int nMinParticleNode = 6;
+  if(node->particleCount < nMinParticleNode) {
+      return 1;
+      }
 
   // Note that some of this could be pre-calculated into an "opening radius"
   double radius = TreeStuff::opening_geometry_factor * node->moments.radius / theta;

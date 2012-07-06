@@ -1,4 +1,21 @@
-/** @file ParallelGravity.cpp
+/**
+ * @mainpage ChaNGa: Charm++ N-body Gravity 
+ * 
+ * For internal documentation of the operation of this code please see the
+ * following classes:
+ * 
+ * Main: Overall control flow of the program.
+ * 
+ * TreePiece: Structure that holds the particle data and tree
+ * structure in each object.
+ *
+ * Sorter: Organize domain decomposition.
+ *
+ * DataManager: Organize data across processors.
+ *
+ * Tree::GenericTreeNode: Interface for the tree data structure.
+ *
+ * GravityParticle: Per particle data structure.
  */
  
 #include <stdint.h>
@@ -22,6 +39,8 @@
 #include "starform.h"
 #include "feedback.h"
 
+#include "PETreeMerger.h"
+
 #ifdef CUDA
 // for default per-list parameters
 #include "cuda_typedef.h"
@@ -36,17 +55,29 @@ CProxy_Main mainChare;
 int verbosity;
 int bVDetails;
 CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
+#ifdef DECOMPOSER_GROUP
+CProxy_Decomposer decomposerProxy;
+#endif
 CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 CProxy_LvArray smoothProxy; // Proxy for smooth reductions
+CProxy_LvArray gravityProxy; // Proxy for gravity reductions
 CProxy_CkCacheManager cacheGravPart;
 CProxy_CkCacheManager cacheSmoothPart;
 CProxy_CkCacheManager cacheNode;
 CProxy_DataManager dMProxy;
+
+CProxy_PETreeMerger peTreeMergerProxy;
+
+
+
+
 bool _cache;
 int _nocache;
 int _cacheLineDepth;
 unsigned int _yieldPeriod;
 DomainsDec domainDecomposition;
+/// tolerance for unequal pieces in SFC based decompositions.
+const double ddTolerance = 0.1;
 double dExtraStore;		// fraction of extra particle storage
 int peanoKey;
 GenericTrees useTree;
@@ -58,8 +89,6 @@ int _numChunks;
 int _randChunks;
 unsigned int bucketSize;
 int lbcomm_cutoff_msgs;
-
-double dFracNoDomainDecomp; // Dummy for backward compatibility
 
 //jetley
 int localNodesPerReq;
@@ -75,7 +104,6 @@ double largePhaseThreshold;
 
 double theta;
 double thetaMono;
-/* readonly */ int nSmooth;
 
 ComlibInstanceHandle cinst1, cinst2;
 
@@ -85,9 +113,36 @@ int networkProgressUE;
 int nodeForceUE;
 int partForceUE;
 
+int tbRecursiveUE;
+int tbFlushRequestsUE;
+int prefetchDoneUE;
+
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
 
+#ifdef PUSH_GRAVITY
+#include "ckmulticast.h"
+CkGroupID ckMulticastGrpId;
+#endif
+
+CProxy_ProjectionsControl prjgrp;
+
+/* The following is for backward compatibility and deprecated */
+#define GASMODEL_UNSET -1
+enum GasModel {
+	GASMODEL_ADIABATIC, 
+	GASMODEL_ISOTHERMAL, 
+	GASMODEL_COOLING, 
+	GASMODEL_GLASS
+	}; 
+
+bool doDumpLB;
+int lbDumpIteration;
+bool doSimulateLB;
+
+// Number of bins to use for the first iteration
+// of every Oct decomposition step
+int numInitDecompBins;
 
 void _Leader(void) {
     puts("USAGE: ChaNGa [SETTINGS | FLAGS] [PARAM_FILE]");
@@ -108,6 +163,7 @@ void _Trailer(void) {
 
 int killAt;
 int cacheSize;
+int iGasModel;
 
 ///
 /// @brief Main routine to start simulation.
@@ -144,6 +200,11 @@ Main::Main(CkArgMsg* m) {
         traceRegisterUserEvent("Remote Particle", CUDA_REMOTE_PART_KERNEL);
         traceRegisterUserEvent("Remote Resume Particle", CUDA_REMOTE_RESUME_PART_KERNEL);
 #endif
+
+        tbRecursiveUE = traceRegisterUserEvent("TreeBuild::buildOctTree::recursive");
+        tbFlushRequestsUE = traceRegisterUserEvent("TreeBuild::buildOctTree::flushRequests");
+
+        prefetchDoneUE = traceRegisterUserEvent("PrefetchDone");
 	
 	prmInitialize(&prm,_Leader,_Trailer);
 	csmInitialize(&param.csm);
@@ -188,9 +249,9 @@ Main::Main(CkArgMsg* m) {
 	param.bBenchmark = 0;
 	prmAddParam(prm, "bBenchmark", paramBool, &param.bBenchmark,
 		    sizeof(int),"bench", "Benchmark only; no output or checkpoints");
-	param.iBinaryOut = 0;
-	prmAddParam(prm, "iBinaryOutput", paramInt, &param.iBinaryOut,
-		    sizeof(int),"binout", "Output Binary Arrays");
+	//
+	// Output flags
+	//
 	param.iOutInterval = 10;
 	prmAddParam(prm, "iOutInterval", paramInt, &param.iOutInterval,
 		    sizeof(int),"oi", "Output Interval");
@@ -200,14 +261,28 @@ Main::Main(CkArgMsg* m) {
 	param.iCheckInterval = 10;
 	prmAddParam(prm, "iCheckInterval", paramInt, &param.iCheckInterval,
 		    sizeof(int),"oc", "Checkpoint Interval");
+	param.iBinaryOut = 0;
+	prmAddParam(prm, "iBinaryOutput", paramInt, &param.iBinaryOut,
+		    sizeof(int), "binout",
+		    "<array outputs 0 ascii, 1 float, 2 double, 3 FLOAT(internal)> = 0");
 	param.bDoDensity = 1;
 	prmAddParam(prm, "bDoDensity", paramBool, &param.bDoDensity,
 		    sizeof(int),"den", "Enable Density outputs");
 	param.bDoIOrderOutput = 0;
 	prmAddParam(prm,"bDoIOrderOutput",paramBool,&param.bDoIOrderOutput,
 		    sizeof(int), "iordout","enable/disable iOrder outputs = -iordout");
-	nSmooth = 32;
-	prmAddParam(prm, "nSmooth", paramInt, &nSmooth,
+	param.bDoSoftOutput = 0;
+	prmAddParam(prm,"bDoSoftOutput",paramBool,&param.bDoSoftOutput,
+		    sizeof(int),
+		    "softout","enable/disable soft outputs = -softout");
+	param.bDohOutput = 0;
+	prmAddParam(prm,"bDohOutput",paramBool,&param.bDohOutput,sizeof(int),
+		    "hout","enable/disable h outputs = -hout");
+	param.bDoCSound = 0;
+	prmAddParam(prm,"bDoCSound",paramBool,&param.bDoCSound,sizeof(int),
+		    "csound","enable/disable sound speed outputs = -csound");
+	param.nSmooth = 32;
+	prmAddParam(prm, "nSmooth", paramInt, &param.nSmooth,
 		    sizeof(int),"nsm", "Number of neighbors for smooth");
 	param.bDoGravity = 1;
 	prmAddParam(prm, "bDoGravity", paramBool, &param.bDoGravity,
@@ -360,6 +435,10 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"bGasCooling",paramBool,&param.bGasCooling,
 		    sizeof(int),"GasCooling",
 		    "<Gas is Cooling> = +GasCooling");
+	iGasModel = GASMODEL_UNSET;	/* Deprecated in for backwards
+					   compatibility */
+	prmAddParam(prm,"iGasModel",paramInt,&iGasModel, sizeof(int),
+		    "GasModel", "<Gas model employed> = 0 (Adiabatic)");
 	CoolAddParams(&param.CoolParam, prm);
 	param.dMsolUnit = 1.0;
 	prmAddParam(prm,"dMsolUnit",paramDouble,&param.dMsolUnit,
@@ -524,15 +603,71 @@ Main::Main(CkArgMsg* m) {
         peanoKey=0;
 	prmAddParam(prm, "nDomainDecompose", paramInt, &domainDecomposition,
 		    sizeof(int),"D", "Kind of domain decomposition of particles");
-	dFracNoDomainDecomp = 0.0;
-	prmAddParam(prm, "dFracNoDomainDecomp", paramDouble, &dFracNoDomainDecomp,
-		    sizeof(double),"fndd", "(IGNORED)");
+	param.dFracNoDomainDecomp = 0.0;
+	prmAddParam(prm, "dFracNoDomainDecomp", paramDouble,
+		    &param.dFracNoDomainDecomp, sizeof(double),"fndd",
+		    "Fraction of active particles for no new DD = 0.0");
         lbcomm_cutoff_msgs = 1;
 	prmAddParam(prm, "lbcommCutoffMsgs", paramInt, &lbcomm_cutoff_msgs,
 		    sizeof(int),"lbcommcut", "Cutoff for communication recording (IGNORED)");
 	param.bConcurrentSph = 0;
 	prmAddParam(prm, "bConcurrentSph", paramBool, &param.bConcurrentSph,
 		    sizeof(int),"consph", "Enable SPH running concurrently with Gravity");
+
+#ifdef PUSH_GRAVITY
+        param.dFracPushParticles = 0.0;
+	prmAddParam(prm, "dFracPush", paramDouble,
+		    &param.dFracPushParticles, sizeof(double),"fPush",
+		    "Maximum proportion of active to total particles for push-based force evaluation = 0.0");
+#endif
+
+
+#ifdef SELECTIVE_TRACING
+        /* tracing control */ 
+        monitorRung = 12;
+        prmAddParam(prm, "iTraceRung", paramInt, &monitorRung,
+              sizeof(int),"traceRung", "Gravity starting rung to trace selectively");
+
+        monitorStart = 0;
+        prmAddParam(prm, "iTraceStart", paramInt, &monitorStart,
+              sizeof(int),"traceStart", "When to start selective tracing");
+
+        numTraceIterations = 3;
+        prmAddParam(prm, "iTraceFor", paramInt, &numTraceIterations,
+              sizeof(int),"traceFor", "Trace this many instances of the selected rungs");
+
+        numSkipIterations = 400;
+        prmAddParam(prm, "iTraceSkip", paramInt, &numSkipIterations,
+              sizeof(int),"traceSkip", "Skip tracing for these many iterations");
+
+        numMaxTrace = 5;
+        prmAddParam(prm, "iTraceMax", paramInt, &numMaxTrace,
+              sizeof(int),"traceMax", "Max. num. iterations traced");
+
+
+        traceIteration = 0;
+        traceState = TraceNormal;
+        projectionsOn = false;
+#endif
+
+        numInitDecompBins = (1<<11);
+        prmAddParam(prm, "iInitDecompBins", paramInt, &numInitDecompBins,
+              sizeof(int),"initDecompBins", "Number of bins to use for the first iteration of every Oct decomposition step");
+
+        doDumpLB = false;
+        prmAddParam(prm, "bdoDumpLB", paramBool, &doDumpLB,
+              sizeof(bool),"doDumpLB", "Should Orb3dLB dump LB database to text file and stop?");
+
+        lbDumpIteration = 0;
+        prmAddParam(prm, "ilbDumpIteration", paramInt, &lbDumpIteration,
+              sizeof(int),"lbDumpIteration", "Load balancing iteration for which to dump database");
+
+        doSimulateLB = false;
+        prmAddParam(prm, "bDoSimulateLB", paramBool, &doSimulateLB,
+              sizeof(bool),"doSimulateLB", "Should Orb3dLB simulate LB decisions from dumped text file and stop?");
+
+        CkAssert(!(doDumpLB && doSimulateLB));
+
     
           // jetley - cuda parameters
 #ifdef CUDA
@@ -570,6 +705,8 @@ Main::Main(CkArgMsg* m) {
 	if(!prmArgProc(prm,m->argc,m->argv)) {
 	    CkExit();
         }
+
+        if(numInitDecompBins > numTreePieces) numInitDecompBins = numTreePieces;
 	
 	if(bVDetails && !verbosity)
 	    verbosity = 1;
@@ -578,10 +715,6 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "WARNING: ";
 	    ckerr << "iMaxRung parameter ignored. MaxRung is " << MAXRUNG
 		  << endl;
-	    }
-	if(prmSpecified(prm, "nTruncateRung")) {
-	    ckerr << "WARNING: ";
-	    ckerr << "nTruncateRung parameter ignored." << endl;
 	    }
 	if(prmSpecified(prm, "bKDK")) {
 	    ckerr << "WARNING: ";
@@ -618,10 +751,18 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "bOverwrite parameter ignored."
 		  << endl;
 	    }
-	if(prmSpecified(prm, "dFracNoDomainDecomp")) {
+	if(param.iOutInterval <= 0) {
 	    ckerr << "WARNING: ";
-	    ckerr << "dFracNoDomainDecomp parameter ignored."
+	    ckerr << "iOutInterval is non-positive; setting to 1."
 		  << endl;
+	    param.iOutInterval = 1;
+	    }
+	    
+	if(param.iLogInterval <= 0) {
+	    ckerr << "WARNING: ";
+	    ckerr << "iLogInterval is non-positive; setting to 1."
+		  << endl;
+	    param.iLogInterval = 1;
 	    }
 	    
 	if (param.bPhysicalSoft) {
@@ -722,6 +863,20 @@ Main::Main(CkArgMsg* m) {
 	    if (!param.bViscosityLimiter) param.iViscosityLimiter=0;
 	    }
 
+	if(prmSpecified(prm, "iGasModel")) {
+	    switch(iGasModel) {
+	    case GASMODEL_ADIABATIC:
+		param.bGasAdiabatic = 1;	
+		break;
+	    case GASMODEL_ISOTHERMAL:
+		param.bGasIsothermal = 1;
+		break;
+	    case GASMODEL_COOLING:
+		param.bGasCooling = 1;
+		break;
+		}
+	    }
+		
 	if(param.bGasCooling && (param.bGasIsothermal || param.bGasAdiabatic)) {
 	    ckerr << "WARNING: ";
 	    ckerr << "More than one gas model set.  ";
@@ -751,7 +906,11 @@ Main::Main(CkArgMsg* m) {
 	    CkAssert(prmSpecified(prm, "dMsolUnit")
 		     && prmSpecified(prm, "dKpcUnit"));
 	    }
-	if(param.bFeedback || param.bStarForm) param.bDoGas = 1;
+	if((param.bFeedback || param.bStarForm) && !param.bDoGas) {
+	    ckerr << "WARNING: star formation set without enabling SPH" << endl;
+	    ckerr << "Enabling SPH" << endl;
+	    param.bDoGas = 1;
+	    }
 #include "physconst.h"
 	/*
 	 ** Convert kboltz/mhydrogen to system units, assuming that
@@ -849,51 +1008,47 @@ Main::Main(CkArgMsg* m) {
         }
 	
 	CkArrayOptions opts(numTreePieces); 
+#ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	if (domainDecomposition == Oct_dec) {
 	  CProxy_RRMap myMap=CProxy_RRMap::ckNew(); 
 	  opts.setMap(myMap);
 	} else {
+#endif
 	  CProxy_BlockMap myMap=CProxy_BlockMap::ckNew(); 
 	  opts.setMap(myMap);
+#ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	}
+#endif
 
 	CProxy_TreePiece pieces = CProxy_TreePiece::ckNew(opts);
+
+        prjgrp = CProxy_ProjectionsControl::ckNew();
+
 	treeProxy = pieces;
+#ifdef DECOMPOSER_GROUP
+        decomposerProxy = CProxy_Decomposer::ckNew();
+#endif
 
 	opts.bindTo(treeProxy);
 	lvProxy = CProxy_LvArray::ckNew(opts);
 	// Create an array for the smooth reductions
 	smoothProxy = CProxy_LvArray::ckNew(opts);
+	// Create an array for the gravity reductions
+	gravityProxy = CProxy_LvArray::ckNew(opts);
+
+#ifdef PUSH_GRAVITY
+        ckMulticastGrpId = CProxy_CkMulticastMgr::ckNew();
+#endif
+
+        peTreeMergerProxy = CProxy_PETreeMerger::ckNew();
 	
 	// create CacheManagers
 	// Gravity particles
 	cacheGravPart = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 	// Smooth particles
 	cacheSmoothPart = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
-	if(param.bStarForm && !param.bDoGas) {
-	    ckerr << "WARNING: star formation set without enabling SPH" << endl;
-	    ckerr << "Enabling SPH" << endl;
-	    param.bDoGas = 1;
-	    }
-	// Nodes: we need the right number of phases to keep the
-	// nodes.
-	nPhases = 0;
-	if(param.bDoGravity) nPhases++;
-	if(param.bDoGas) {
-	    nPhases += 2;
-	    if(param.bFastGas)
-		nPhases += 2;
-	    }
-	if(nPhases == 0) {
-	    ckerr << "Neither bDoGravity or bDoGas are set!" << endl;
-	    CkAbort("Nothing to do!");
-	    }
-	CkGroupID *gids = new CkGroupID[nPhases];
-	int i;
-	for(i = 0; i < nPhases; i++)
-	    gids[i] = pieces.ckLocMgr()->getGroupID();
-	cacheNode = CProxy_CkCacheManager::ckNew(cacheSize, nPhases, gids);
-	delete[] gids;
+	// Nodes
+	cacheNode = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 
 	//create the DataManager
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
@@ -932,6 +1087,8 @@ void Main::niceExit() {
   if (++count == numTreePieces) CkExit();
 }
 
+/// @brief determine start time of simulation
+///
 /// Function to determine the start time of the simulation.
 /// Modifies dTime member of main.
 void Main::getStartTime() 
@@ -1043,7 +1200,11 @@ void Main::getStartTime()
 	    }
     }
 
-// Return true if we need to write an output
+/// @brief Return true if we need to write an output
+/// 
+/// Advances iOut attribute, therefore this can only be called once
+/// per timestep.
+///
 int Main::bOutTime()
 {	
     if (iOut < vdOutTime.size()) {
@@ -1056,8 +1217,11 @@ int Main::bOutTime()
     else return(0);
     }
 
-// Read in desired output times and reshifts from a file
-//
+///
+/// @brief Read in desired output times and reshifts from a file
+///
+/// Fills in the vdOutTime vector by reading the .red file
+///
 void Main::getOutTimes()
 {
     FILE *fp;
@@ -1157,6 +1321,7 @@ void Main::advanceBigStep(int iStep) {
 	  ckout << "Kick Open:" << endl;
       double dKickFac[MAXRUNG+1];
       double duKick[MAXRUNG+1];
+      double dStartTime[MAXRUNG+1];
       for (int iRung=0; iRung<=MAXRUNG; iRung++) {
         duKick[iRung]=dKickFac[iRung]=0;
       }
@@ -1167,6 +1332,7 @@ void Main::advanceBigStep(int iStep) {
 	    }
         duKick[iRung] = 0.5*dTimeSub;
         dKickFac[iRung] = csmComoveKickFac(param.csm, dTime, 0.5*dTimeSub);
+	dStartTime[iRung] = dTime;
       }
       if(verbosity > 1)
 	  memoryStats();
@@ -1177,8 +1343,9 @@ void Main::advanceBigStep(int iStep) {
 	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
 	  if(param.bGasCooling)
 	      dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
-	  treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
-			       1, 1, CkCallbackResumeThread());
+	  treeProxy.updateuDot(activeRung, duKick, dStartTime,
+			       param.bGasCooling, 1, 1,
+			       CkCallbackResumeThread());
 	  if(verbosity)
 	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
@@ -1243,7 +1410,8 @@ void Main::advanceBigStep(int iStep) {
 		  if(param.bGasCooling)
 		      dMProxy.CoolingSetTime(z, dTime,
 					     CkCallbackResumeThread());
-		  treeProxy.updateuDot(nextMaxRung, duKick, dTime, z,
+		  dStartTime[nextMaxRung] = dTime; // only updating this rung
+		  treeProxy.updateuDot(nextMaxRung, duKick, dStartTime,
 				       param.bGasCooling, 0, 0,
 				       CkCallbackResumeThread());
 		  if(verbosity)
@@ -1251,6 +1419,10 @@ void Main::advanceBigStep(int iStep) {
 		  }
 	      }
     }
+
+#ifdef DECOMPOSER_GROUP
+    decomposerProxy.acceptParticles(CkCallbackResumeThread());
+#endif
 
     // int lastActiveRung = activeRung;
 
@@ -1278,36 +1450,55 @@ void Main::advanceBigStep(int iStep) {
     
     if(verbosity > 1)
 	memoryStats();
+
     /***** Resorting of particles and Domain Decomposition *****/
-    ckout << "Domain decomposition ...";
+    //ckout << "Domain decomposition ...";
+    CkPrintf("Domain decomposition ... ");
     double startTime = CkWallTimer();
-    double tolerance = 0.01;	// tolerance for domain decomposition
-    sorter.startSorting(dataManagerID, tolerance,
-                        CkCallbackResumeThread(), true);
+    bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
+    sorter.startSorting(dataManagerID, ddTolerance,
+                        CkCallbackResumeThread(), bDoDD);
+    /*
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
+          */
+    CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
+
+    if(verbosity && !bDoDD)
+	CkPrintf("Skipped DD\n");
 
     if(verbosity > 1)
 	memoryStats();
     /********* Load balancer ********/
-    // jetley - commenting out lastActiveRung == 0 check, balance load even for fast rungs
-    //if(lastActiveRung == 0) {
-	ckout << "Load balancer ...";
-	startTime = CkWallTimer();
-	treeProxy.startlb(CkCallbackResumeThread(), activeRung);
-	ckout << " took "<<(CkWallTimer() - startTime) << " seconds."
+    //ckout << "Load balancer ...";
+    CkPrintf("Load balancer ... ");
+    startTime = CkWallTimer();
+    treeProxy.startlb(CkCallbackResumeThread(), activeRung);
+    /*
+    ckout << " took "<<(CkWallTimer() - startTime) << " seconds."
 	     << endl;
-    //	}
+             */
+    CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
     if(verbosity > 1)
 	memoryStats();
+
+
+#ifdef PUSH_GRAVITY
+    bool bDoPush = param.dFracPushParticles*nTotalParticles > nActiveGrav;
+    if(bDoPush) CkPrintf("[main] fracActive %f PUSH_GRAVITY\n", 1.0*nActiveGrav/nTotalParticles);
+#endif
+
     /******** Tree Build *******/
-    ckout << "Building trees ...";
+    //ckout << "Building trees ...";
+    CkPrintf("Building trees ... ");
     startTime = CkWallTimer();
+#ifdef PUSH_GRAVITY
+    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),!bDoPush);
+#else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-    iPhase = 0;
-    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-          << endl;
+#endif
+    CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
     CkCallback cbGravity(CkCallback::resumeThread);
 
@@ -1322,26 +1513,54 @@ void Main::advanceBigStep(int iStep) {
 	/******** Force Computation ********/
 	//ckout << "Calculating gravity (tree bucket, theta = " << theta
 	//      << ") ...";
+#ifdef SELECTIVE_TRACING
+        turnProjectionsOn(activeRung);
+#endif
+
         CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
 	startTime = CkWallTimer();
 	if(param.bConcurrentSph) {
 	    ckout << endl;
-	    treeProxy.startIteration(activeRung, theta, cbGravity);
+
+#ifdef PUSH_GRAVITY
+            if(bDoPush){ 
+              treeProxy.startPushGravity(activeRung, theta);
+            }
+	    else{ 
+#endif
+              treeProxy.startGravity(activeRung, theta, cbGravity);
+#ifdef PUSH_GRAVITY
+            }
+#endif
+
+
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(cbGravity);
 #endif
 	    }
 	else {
-	    treeProxy.startIteration(activeRung, theta,
-				     CkCallbackResumeThread());
+#ifdef PUSH_GRAVITY
+	    if(bDoPush){
+              treeProxy.startPushGravity(activeRung, theta);
+              CkWaitQD();
+            }
+	    else{
+#endif
+              treeProxy.startGravity(activeRung, theta, CkCallbackResumeThread());
+#ifdef PUSH_GRAVITY
+            }
+#endif
+
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
 	    //ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	    //	  << endl;
-            CkPrintf("took %f seconds\n", CkWallTimer()-startTime);
+            CkPrintf("took %g seconds\n", CkWallTimer()-startTime);
+#ifdef SELECTIVE_TRACING
+            turnProjectionsOff();
+#endif
 	    }
-	iPhase++;
 	if(verbosity)
 	    memoryStatsCache();
     }
@@ -1357,10 +1576,22 @@ void Main::advanceBigStep(int iStep) {
 	}
     
     if(param.bConcurrentSph && param.bDoGravity) {
-	CkFreeMsg(cbGravity.thread_delay());
+#ifdef PUSH_GRAVITY
+      if(bDoPush){
+        CkWaitQD();
+      }
+      else{
+#endif
+        CkFreeMsg(cbGravity.thread_delay());
+#ifdef PUSH_GRAVITY
+      }
+#endif
 	//ckout << "Calculating gravity and SPH took "
 	//      << (CkWallTimer() - startTime) << " seconds." << endl;
-        CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
+        CkPrintf("Calculating gravity and SPH took %g seconds.\n", CkWallTimer()-startTime);
+#ifdef SELECTIVE_TRACING
+        turnProjectionsOff();
+#endif
 	}
     
 #if COSMO_STATS > 0
@@ -1386,15 +1617,13 @@ void Main::advanceBigStep(int iStep) {
     ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
 
-    CkAssert(iPhase <= nPhases);
-    
-    if(iPhase < nPhases)
-	treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
+    treeProxy.finishNodeCache(CkCallbackResumeThread());
 
     if(!param.bStaticTest) {
       // Closing Kick
       double dKickFac[MAXRUNG+1];
       double duKick[MAXRUNG+1];
+      double dStartTime[MAXRUNG+1];
       for (int iRung=0; iRung<=MAXRUNG; iRung++) {
         duKick[iRung]=dKickFac[iRung]=0;
       }
@@ -1408,6 +1637,7 @@ void Main::advanceBigStep(int iStep) {
 	    CkPrintf(" Rung %d: %g\n", iRung, 0.5*dTimeSub);
 	    }
         duKick[iRung] = 0.5*dTimeSub;
+	dStartTime[iRung] = dTime - 0.5*dTimeSub;
         dKickFac[iRung] = csmComoveKickFac(param.csm,
                                            dTime - 0.5*dTimeSub,
                                            0.5*dTimeSub);
@@ -1419,8 +1649,9 @@ void Main::advanceBigStep(int iStep) {
 	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
 	  if(param.bGasCooling)
 	      dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
-	  treeProxy.updateuDot(activeRung, duKick, dTime, z, param.bGasCooling,
-			       1, 1, CkCallbackResumeThread());
+	  treeProxy.updateuDot(activeRung, duKick, dStartTime,
+			       param.bGasCooling, 1, 1,
+			       CkCallbackResumeThread());
 	  if(verbosity)
 	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
@@ -1433,14 +1664,23 @@ void Main::advanceBigStep(int iStep) {
 	      CkPrintf("uDot' update: Rung %d ... ", activeRung-1);
 	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
 	  duKick[activeRung-1] = 0.5*RungToDt(param.dDelta, activeRung-1);
-	  treeProxy.updateuDot(activeRung-1, duKick, dTime, z,
+	  dStartTime[activeRung-1] = dTime;
+	  treeProxy.updateuDot(activeRung-1, duKick, dStartTime,
 			       param.bGasCooling, 0, 0,
 			       CkCallbackResumeThread());
 	  if(verbosity)
 	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
       doSinks(dTime, RungToDt(param.dDelta, activeRung), activeRung);
-   }
+      }
+
+#ifdef CHECK_TIME_WITHIN_BIGSTEP
+    if(param.iWallRunTime > 0 && ((CkWallTimer()-wallTimeStart) > param.iWallRunTime*60.)){
+      CkPrintf("wall time %g exceeded limit %g within advancestep\n", CkWallTimer()-wallTimeStart, param.iWallRunTime*60.);
+      CkExit();
+    }
+#endif
+
   }
 }
     
@@ -1460,12 +1700,12 @@ void Main::setupICs() {
 			param.dEwCut, param.dEwhCut, param.bPeriodic);
 
   /******** Particles Loading ********/
-  ckout << "Loading particles ...";
+  CkPrintf("Loading particles ...");
   startTime = CkWallTimer();
   treeProxy.load(basefilename, CkCallbackResumeThread());
   if(!(treeProxy[0].ckLocal()->bLoaded)) {
     // Try loading Tipsy format; first just grab the header.
-    ckout << " trying Tipsy ...";
+    CkPrintf(" trying Tipsy ...");
 	    
     try {
 	Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
@@ -1483,9 +1723,10 @@ void Main::setupICs() {
 	CkExit();
 	return;
 	}
-    
+
     double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
     treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
+
   }	
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
@@ -1506,6 +1747,12 @@ void Main::setupICs() {
   if(nTotalSPH == 0 && param.bDoGas) {
       ckerr << "WARNING: no SPH particles and bDoGas is set\n";
       param.bDoGas = 0;
+      }
+  if(nTotalSPH > 0 && !param.bDoGas) {
+      if(prmSpecified(prm, "bDoGas"))
+	  ckerr << "WARNING: SPH particles present and bDoGas is set off\n";
+      else
+	  param.bDoGas = 1;
       }
   getStartTime();
   if(param.nSteps > 0) getOutTimes();
@@ -1608,7 +1855,7 @@ void Main::setupICs() {
 
   if(prmSpecified(prm,"dSoft")) {
     ckout << "Set Softening...\n";
-    treeProxy.setSoft(param.dSoft);
+    treeProxy.setSoft(param.dSoft, CkCallbackResumeThread());
   }
 	
   if(param.bPeriodic) {	// puts all particles within the boundary
@@ -1617,6 +1864,11 @@ void Main::setupICs() {
       ckout << "end drift particles to reset" << endl;
 
   }
+
+#ifdef DECOMPOSER_GROUP
+  decomposerProxy.acceptParticles(CkCallbackResumeThread());
+  CkPrintf("Main: acceptParticles done\n");
+#endif
   
   initialForces();
 }
@@ -1699,6 +1951,9 @@ Main::restart()
 	
 	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+#ifdef DECOMPOSER_GROUP
+	decomposerProxy.acceptParticles(CkCallbackResumeThread());
+#endif
 	if(param.bGasCooling) 
 	    initCooling();
 	mainChare.initialForces();
@@ -1732,35 +1987,50 @@ void
 Main::initialForces()
 {
   double startTime;
-  double tolerance = 0.01;	// tolerance for domain decomposition
 
   // DEBUGGING
   // CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
 
   /***** Initial sorting of particles and Domain Decomposition *****/
-  ckout << "Initial domain decomposition ...";
+  //ckout << "Initial domain decomposition ...";
+  CkPrintf("Initial domain decomposition ... ");
   startTime = CkWallTimer();
-  sorter.startSorting(dataManagerID, tolerance,
+  sorter.startSorting(dataManagerID, ddTolerance,
 	 	      CkCallbackResumeThread(), true);
+  CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
+  /*
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
+        */
+
+#ifdef PUSH_GRAVITY
+  treeProxy.findTotalMass(CkCallbackResumeThread());
+#endif
   
   // Balance load initially after decomposition
-  ckout << "Initial load balancing ..." << endl;
+  //ckout << "Initial load balancing ..." << endl;
+  CkPrintf("Initial load balancing ... ");
   LBSetPeriod(0.0); // no need for LB interval: we are using Sync Mode
   startTime = CkWallTimer();
   treeProxy.balanceBeforeInitialForces(CkCallbackResumeThread());
+  /*
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
+        */
+  CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
   /******** Tree Build *******/
-  ckout << "Building trees ...";
+  //ckout << "Building trees ...";
+  CkPrintf("Building trees ... ");
   startTime = CkWallTimer();
+#ifdef PUSH_GRAVITY
+  treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
+#else
   treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-        << endl;
-  iPhase = 0;
-  if(verbosity > 1)
+#endif
+  CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+
+  if(verbosity)
       memoryStats();
   
 #ifdef CUDA
@@ -1782,24 +2052,32 @@ Main::initialForces()
       /******** Force Computation ********/
       //ckout << "Calculating gravity (theta = " << theta
       //    << ") ...";
+#ifdef SELECTIVE_TRACING
+      turnProjectionsOn(0);
+#endif
       CkPrintf("Calculating gravity (theta = %f) ... ", theta);
       startTime = CkWallTimer();
       if(param.bConcurrentSph) {
-	  treeProxy.startIteration(0, theta, cbGravity);
+
+	  treeProxy.startGravity(0, theta, cbGravity);
+
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(cbGravity);
 #endif
 	  }
       else {
-	  treeProxy.startIteration(0, theta, CkCallbackResumeThread());
+	  treeProxy.startGravity(0, theta, CkCallbackResumeThread());
+
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
-          CkPrintf("took %f seconds.\n", CkWallTimer()-startTime);
+          CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+#ifdef SELECTIVE_TRACING
+          turnProjectionsOff();
+#endif
 	  if(verbosity)
 	      memoryStatsCache();
 	  }
-      iPhase++;
       }
   else {
       treeProxy.initAccel(0, CkCallbackResumeThread());
@@ -1811,11 +2089,12 @@ Main::initialForces()
   if(param.bConcurrentSph && param.bDoGravity) {
       CkFreeMsg(cbGravity.thread_delay());
       CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
+#ifdef SELECTIVE_TRACING
+        turnProjectionsOff();
+#endif
       }
   
-  CkAssert(iPhase <= nPhases);
-  if(iPhase < nPhases)
-      treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
+  treeProxy.finishNodeCache(CkCallbackResumeThread());
 
   if (param.sinks.bDoSinksAtStart) doSinks(dTime, 0.0, 0);
 
@@ -1898,6 +2177,9 @@ Main::doSimulation()
   char achLogFileName[MAXPATHLEN];
   sprintf(achLogFileName, "%s.log", param.achOutName);
 
+#ifdef CHECK_TIME_WITHIN_BIGSTEP
+  wallTimeStart = CkWallTimer();
+#endif
 
   for(int iStep = param.iStartStep+1; iStep <= param.nSteps; iStep++){
     if (killAt > 0 && killAt == iStep) {
@@ -1968,16 +2250,14 @@ Main::doSimulation()
     
       sprintf(achFile,"%s.%06i",param.achOutName,0);
       if((!param.bDoGas) && param.bDoDensity) {
-	  iPhase = 0;
 	  // If gas isn't being calculated, we can do the total
 	  // densities before we start the output.
 	  ckout << "Calculating total densities ...";
 	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	  startTime = CkWallTimer();
 	  double dfBall2OverSoft2 = 0.0;
-	  treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
-					 CkCallbackResumeThread());
-	  iPhase++;
+	  treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
+				CkCallbackResumeThread());
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
 #if 0
@@ -1987,13 +2267,10 @@ Main::doSimulation()
           ckout << "Recalculating densities ...";
           startTime = CkWallTimer();
 	  treeProxy.startIterationReSmooth(&pDen, CkCallbackResumeThread());
-	  iPhase++;
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 #endif
-	  CkAssert(iPhase <= nPhases);
-	  if(iPhase < nPhases)
-	      treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
-          ckout << "Reodering ...";
+	  treeProxy.finishNodeCache(CkCallbackResumeThread());
+          ckout << "Reordering ...";
           startTime = CkWallTimer();
 	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
@@ -2034,9 +2311,11 @@ Main::doSimulation()
 	      CsOutputParams pCsOut(string(achFile) + ".c");
 	      treeProxy[0].outputASCII(pCsOut, param.bParaWrite, CkCallbackResumeThread());
 #ifndef COOLING_NONE
-	      EDotOutputParams pEDotOut(string(achFile) + ".eDot");
-	      treeProxy[0].outputASCII(pEDotOut, param.bParaWrite,
-				       CkCallbackResumeThread());
+	      if(param.bGasCooling) {
+		  EDotOutputParams pEDotOut(string(achFile) + ".eDot");
+		  treeProxy[0].outputASCII(pEDotOut, param.bParaWrite,
+					   CkCallbackResumeThread());
+		  }
 #endif
 	      }
 	  }
@@ -2057,32 +2336,33 @@ Main::doSimulation()
       RungOutputParams pRung(string(achFile) + ".rung");
       treeProxy[0].outputASCII(pRung, param.bParaWrite, CkCallbackResumeThread());
       if(param.bDoGas && param.bDoDensity) {
-	  double tolerance = 0.01;	// tolerance for domain decomposition
 	  // The following call is to get the particles in key order
 	  // before the sort.
 	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-	  sorter.startSorting(dataManagerID, tolerance,
+#ifdef DECOMPOSER_GROUP
+          decomposerProxy.acceptParticles(CkCallbackResumeThread());
+#endif
+	  sorter.startSorting(dataManagerID, ddTolerance,
 			      CkCallbackResumeThread(), true);
+#ifdef PUSH_GRAVITY
+	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
+#else
 	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-	  iPhase = 0;
+#endif
 	  
 	  ckout << "Calculating total densities ...";
 	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	  startTime = CkWallTimer();
 	  double dfBall2OverSoft2 = 0.0;
-	  treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
+	  treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 					 CkCallbackResumeThread());
-	  iPhase++;
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
           ckout << "Recalculating densities ...";
           startTime = CkWallTimer();
-	  treeProxy.startIterationReSmooth(&pDen, CkCallbackResumeThread());
-	  iPhase++;
+	  treeProxy.startReSmooth(&pDen, CkCallbackResumeThread());
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	  CkAssert(iPhase <= nPhases);
-	  if(iPhase < nPhases)
-	      treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
+	  treeProxy.finishNodeCache(CkCallbackResumeThread());
           ckout << "Reodering ...";
           startTime = CkWallTimer();
 	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
@@ -2178,6 +2458,7 @@ Main::calcEnergy(double dTime, double wallTime, char *achLogFileName)
 
 ///
 /// @brief Output a snapshot
+/// @param iStep Timestep we are outputting, used for file name.
 ///
 
 void Main::writeOutput(int iStep) 
@@ -2234,6 +2515,9 @@ void Main::writeOutput(int iStep)
     Cool1OutputParams pCool1Out(string(achFile) + "." + COOL_ARRAY1_EXT);
     Cool2OutputParams pCool2Out(string(achFile) + "." + COOL_ARRAY2_EXT);
 #endif
+    SoftOutputParams pSoftOut(string(achFile)+".soft");
+    HsmOutputParams pHsmOut(string(achFile)+".smoothlength");
+    CsOutputParams pCSOut(string(achFile)+".c");
 
     if (param.iBinaryOut) {
 	if (param.bStarForm || param.bFeedback) {
@@ -2243,17 +2527,31 @@ void Main::writeOutput(int iStep)
 				      CkCallbackResumeThread());
 	    treeProxy[0].outputBinary(pcoolontimeOut, param.bParaWrite,
 				      CkCallbackResumeThread());
+	    }
+#ifndef COOLING_NONE
+	if(param.bGasCooling) {
+	    treeProxy[0].outputBinary(pCool0Out, param.bParaWrite,
+				     CkCallbackResumeThread());
+	    treeProxy[0].outputBinary(pCool1Out, param.bParaWrite,
+				     CkCallbackResumeThread());
+	    treeProxy[0].outputBinary(pCool2Out, param.bParaWrite,
+				      CkCallbackResumeThread());
+	    }
+#endif
+	if(param.bDoIOrderOutput || param.bStarForm || param.bFeedback) {
 	    treeProxy[0].outputIOrderBinary(string(achFile) + ".iord",
 					    CkCallbackResumeThread());
 	    }
-#ifndef COOLING_NONE
-	treeProxy[0].outputBinary(pCool0Out, param.bParaWrite,
-				 CkCallbackResumeThread());
-	treeProxy[0].outputBinary(pCool1Out, param.bParaWrite,
-				 CkCallbackResumeThread());
-	treeProxy[0].outputBinary(pCool2Out, param.bParaWrite,
-				 CkCallbackResumeThread());
-#endif
+	if(param.bDoSoftOutput)
+	    treeProxy[0].outputBinary(pSoftOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	    
+	if(param.bDohOutput)
+	    treeProxy[0].outputBinary(pHsmOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	if(param.bDoCSound)
+	    treeProxy[0].outputBinary(pCSOut, param.bParaWrite,
+				      CkCallbackResumeThread());
 	} else {
 	if (param.bStarForm || param.bFeedback) {
 	    treeProxy[0].outputASCII(pOxOut, param.bParaWrite,
@@ -2262,54 +2560,71 @@ void Main::writeOutput(int iStep)
 				     CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pcoolontimeOut, param.bParaWrite,
 				     CkCallbackResumeThread());
+	    }
+#ifndef COOLING_NONE
+	if(param.bGasCooling) {
+	    treeProxy[0].outputASCII(pCool0Out, param.bParaWrite,
+				     CkCallbackResumeThread());
+	    treeProxy[0].outputASCII(pCool1Out, param.bParaWrite,
+				     CkCallbackResumeThread());
+	    treeProxy[0].outputASCII(pCool2Out, param.bParaWrite,
+				     CkCallbackResumeThread());
+	    }
+#endif
+	if(param.bDoSoftOutput)
+	    treeProxy[0].outputASCII(pSoftOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	if(param.bDohOutput)
+	    treeProxy[0].outputASCII(pHsmOut, param.bParaWrite,
+				     CkCallbackResumeThread());
+	if(param.bDoCSound)
+	    treeProxy[0].outputASCII(pCSOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	if(param.bDoIOrderOutput || param.bStarForm || param.bFeedback) {
 	    treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
 					   CkCallbackResumeThread());
 	    }
-#ifndef COOLING_NONE
-	treeProxy[0].outputASCII(pCool0Out, param.bParaWrite,
-				 CkCallbackResumeThread());
-	treeProxy[0].outputASCII(pCool1Out, param.bParaWrite,
-				 CkCallbackResumeThread());
-	treeProxy[0].outputASCII(pCool2Out, param.bParaWrite,
-				 CkCallbackResumeThread());
-#endif
 	}
       
-	if(param.bDoIOrderOutput) {
-	  treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
-					 CkCallbackResumeThread());
-	  }
       
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
     if(param.nSteps != 0 && param.bDoDensity) {
-	double tolerance = 0.01;	// tolerance for domain decomposition
 	// The following call is to get the particles in key order
 	// before the sort.
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-	sorter.startSorting(dataManagerID, tolerance,
+#ifdef DECOMPOSER_GROUP
+        decomposerProxy.acceptParticles(CkCallbackResumeThread());
+#endif
+	sorter.startSorting(dataManagerID, ddTolerance,
 			    CkCallbackResumeThread(), true);
+#ifdef PUSH_GRAVITY
+	treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
+#else
 	treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
 
-	iPhase = 0;
-	ckout << "Calculating total densities ...";
+	if(verbosity)
+	    ckout << "Calculating total densities ...";
 	DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
 	startTime = CkWallTimer();
 	double dfBall2OverSoft2 = 0.0;
-	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
-				       CkCallbackResumeThread());
-	iPhase++;
-	if(iPhase < nPhases)
-	    treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
-	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-	      << endl;
-	ckout << "Reodering ...";
+	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
+			      CkCallbackResumeThread());
+	treeProxy.finishNodeCache(CkCallbackResumeThread());
+	if(verbosity) {
+	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+		  << endl;
+	    ckout << "Reodering ...";
+	    }
 	startTime = CkWallTimer();
 	treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
-	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-	      << endl;
-	ckout << "Outputting densities ...";
+	if(verbosity) {
+	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+		  << endl;
+	    ckout << "Outputting densities ...";
+	    }
 	startTime = CkWallTimer();
 	DenOutputParams pDenOut(string(achFile) + ".den");
 	if (param.iBinaryOut)
@@ -2318,6 +2633,37 @@ void Main::writeOutput(int iStep)
 	    treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
+	treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
+	if(verbosity)
+	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+		  << endl;
+
+	if(param.bDoGas) {	// recalculate gas densities for timestep
+	    if(verbosity)
+		ckout << "Recalculating gas densities ...";
+	    startTime = CkWallTimer();
+	    // The following call is to get the particles in key order
+	    // before the sort.
+	    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+#ifdef DECOMPOSER_GROUP
+	    decomposerProxy.acceptParticles(CkCallbackResumeThread());
+#endif
+	    sorter.startSorting(dataManagerID, ddTolerance,
+				CkCallbackResumeThread(), true);
+#ifdef PUSH_GRAVITY
+	    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
+#else
+	    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
+	    DensitySmoothParams pDenGas(TYPE_GAS, 0);
+	    dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+	    treeProxy.startSmooth(&pDenGas, 1, param.nSmooth, dfBall2OverSoft2,
+				  CkCallbackResumeThread());
+	    treeProxy.finishNodeCache(CkCallbackResumeThread());
+	    if(verbosity)
+		ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+		      << endl;
+	    }
 	}
     }
 
@@ -2325,7 +2671,7 @@ void Main::writeOutput(int iStep)
 /// @brief Calculate timesteps of particles.
 ///
 /// Particles on the KickRung and shorter have their timesteps
-/// adjusted.
+/// adjusted.  Calls TreePiece::adjust().
 ///
 /// @param iKickRung Rung (and above) about to be kicked.
 ///
@@ -2341,11 +2687,24 @@ int Main::adjust(int iKickRung)
 		     param.dEtauDot, param.dDelta, 1.0/(a*a*a), a,
 		     CkCallbackResumeThread((void*&)msg));
 
-    int iCurrMaxRung = *(int *)msg->getData();
+    int iCurrMaxRung = ((int *)msg->getData())[0];
+    int nMaxRung = ((int *)msg->getData())[1];
     delete msg;
+    if(nMaxRung <= param.nTruncateRung && iCurrMaxRung > iKickRung) {
+	if(verbosity)
+	    CkPrintf("n_CurrMaxRung = %d, iCurrMaxRung = %d: promoting particles\n", nMaxRung, iCurrMaxRung);
+	iCurrMaxRung--;
+	treeProxy.truncateRung(iCurrMaxRung, CkCallbackResumeThread());
+	}
     return iCurrMaxRung;
     }
 
+///
+/// @brief Count and print out the number of particles in each
+/// timestep bin.
+///
+/// This routine is for information only.
+///
 void Main::rungStats() 
 {
     CkReductionMsg *msg;
@@ -2360,6 +2719,12 @@ void Main::rungStats()
     delete msg;
     }
 
+///
+/// @brief determine number of active particles in the given rung
+///
+/// Calls TreePiece::countActive() and sets Main::nActiveGrav and
+/// Main::nActiveSPH.
+///
 void Main::countActive(int activeRung) 
 {
     CkReductionMsg *msg;
@@ -2395,9 +2760,9 @@ void Main::updateSoft()
 #endif
     }
 
-//
-// Slowly increase mass of a subset of particles.
-//
+///
+/// @brief Slowly increase mass of a subset of particles.
+///
 void Main::growMass(double dTime, double dDelta)
 {
     if (param.nGrowMass > 0 && dTime > param.dGrowStartT
@@ -2439,8 +2804,12 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 		if (df[0]->bGetPhotogenic) {
 		  achFile[0] = 0;
 		  sprintf(achFile,"%s.photogenic", param.achOutName);
+		  FILE *fp = fopen(param.achOutName, "r" );
+		  if(fp == NULL)
+		      CkAbort("DumpFrame: photogenic specified, but no photogenic file\n");
+		  fclose(fp);
 
-          CkReductionMsg *msg;
+		  CkReductionMsg *msg;
 		  treeProxy.setTypeFromFile(TYPE_PHOTOGENIC, achFile, CkCallbackResumeThread((void*&)msg));
 		  int *nSet = (int *)msg->getData();
 		  if (verbosity)
@@ -2641,7 +3010,6 @@ void Main::pup(PUP::er& p)
     p | iOut;
     p | bDumpFrame;
     p | bChkFirst;
-    p | nPhases;
     p | sorter;
     }
 
@@ -2690,6 +3058,99 @@ void Main::liveVizImagePrep(liveVizRequestMsg *msg)
       delete msgCOMbyType;
   
 }
+
+#ifdef SELECTIVE_TRACING
+void Main::turnProjectionsOn(int activeRung){
+  CkAssert(!projectionsOn);
+  if(numMaxTrace <= 0) return;
+  if(traceState == TraceNormal){
+    if(activeRung != monitorRung){
+    }
+    else if(traceIteration < numTraceIterations){
+      if(monitorStart == 0){
+        prjgrp.on(CkCallbackResumeThread());
+        projectionsOn = true;
+        traceIteration++;
+        numMaxTrace--;
+      }
+      else{
+        monitorStart--;
+      }
+    }
+    else{
+      traceState = TraceSkip;
+      traceIteration = 1;
+    }
+  }
+  else if(traceState == TraceSkip){
+    if(activeRung != monitorRung){
+    }
+    else if(traceIteration < numSkipIterations){
+      traceIteration++;
+    }
+    else{
+      traceState = TraceNormal;
+      if(monitorStart == 0){
+        prjgrp.on(CkCallbackResumeThread());
+        projectionsOn = true;
+        traceIteration = 1;
+        numMaxTrace--;
+      }
+      else{
+        monitorStart--;
+      }
+    }
+  }
+}
+
+
+void Main::turnProjectionsOff(){
+  if(projectionsOn){
+    prjgrp.off(CkCallbackResumeThread());
+    projectionsOn = false;
+  }
+}
+#endif
+
+const char *typeString(NodeType type);
+
+void GenericTreeNode::getGraphViz(std::ostream &out){
+  out << getKey()
+    << "[label=\"" << getKey()
+    << " " 
+    << typeString(getType())
+    << "\\n"
+    << moments.totalMass << " "
+    << "(" << moments.cm.x << ","
+    << moments.cm.y << ","
+    << moments.cm.z << ")"
+    << "\"];"
+    << std::endl;
+
+  if(getType() == Boundary){
+    for(int i = 0; i < numChildren(); i++){
+      GenericTreeNode *child = getChildren(i);
+      out << getKey() << "->" << child->getKey() << ";" << std::endl;
+    }
+  }
+}
+
+void printTreeGraphVizRecursive(GenericTreeNode *node, ostream &out){
+  node->getGraphViz(out);
+  out << endl;
+  if(node->getType() == Boundary){
+    for(int i = 0; i < node->numChildren(); i++){
+      printTreeGraphVizRecursive(node->getChildren(i),out);
+    }
+  }
+}
+
+void printTreeGraphViz(GenericTreeNode *node, ostream &out, const string &name){
+  out << "digraph " << name << " {" << endl;
+  printTreeGraphVizRecursive(node,out);
+  out << "}" << endl;
+}
+
 
 #include "ParallelGravity.def.h"
 

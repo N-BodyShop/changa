@@ -21,7 +21,6 @@ class SN
     double dMFeconst;           /* normalization of iron */
     double dMOxexp;             /* exponent of oxygen */
     double dMOxconst;           /* normalization of oxygen */
-    double dSNIaMetals;         /* amount of metals produced by SNIa */
     Padova pdva;
  public:
     double dESN;		/* how much energy comes from a supernova */
@@ -49,10 +48,11 @@ class SN
 	dMFeconst = 2.802e-4;
 	dMOxexp = 2.721;
 	dMOxconst = 4.586e-4; 
-	dSNIaMetals = 0.76;  /* 0.63 Msol Fe + 0.13 Msol Ox (Theilemann 1986)*/
 	dESN = 0.1e51;
 	iNSNIIQuantum = 0;
-	dFracBinSNIa = 0.05;
+	dFracBinSNIa = 0.05; 	/* .05 is in line with chemical evolution
+				   models of the Milky Way (Francois
+				   et al 2004) */
 	}
     void CalcSNIIFeedback(SFEvent *sfEvent, double dTime, double dDelta, 
 			  FBEffects *fbEffects);
@@ -73,7 +73,6 @@ class SN
 	p|dMFeconst;
 	p|dMOxexp;
 	p|dMOxconst;
-	p|dSNIaMetals;
 	p|dFracBinSNIa;
 	p|iNSNIIQuantum;
 	p|pdva;

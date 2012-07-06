@@ -20,6 +20,8 @@ void hapi_clearInstrument();
 
 #endif
 
+void printTreeGraphViz(GenericTreeNode *node, ostream &out, const string &name);
+
 DataManager::DataManager(const CkArrayID& treePieceID) {
   init();
   treePieces = CProxy_TreePiece(treePieceID);
@@ -49,6 +51,7 @@ void DataManager::init() {
 #endif
   Cool = CoolInit();
   starLog = new StarLog();
+  lockStarLog = CmiCreateLock();
 }
 
 /**
@@ -113,11 +116,15 @@ void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, 
     CkPrintf("\n");
   }
 
-	contribute(sizeof(CkCallback), &cb, callbackReduction,
-		   CkCallback(CkIndex_TreePiece::unshuffleParticles(0),
-			      treePieces));
+  CkCallback unshuffleCallback(CkIndex_TreePiece::unshuffleParticles(0),treePieces);
+
+  contribute(sizeof(CkCallback), &cb, callbackReduction, unshuffleCallback);
 }
 
+///
+/// @brief Class to represent key pairs that are to be sorted on the
+/// first key of the pair.
+///
 class KeyDouble {
   SFC::Key first;
   SFC::Key second;
@@ -135,6 +142,7 @@ public:
 void DataManager::collectSplitters(CkReductionMsg *m) {
   numSplitters = m->getSize() / sizeof(SFC::Key);
   CkAssert(! (numSplitters&1)); // must be even
+  CkAssert(numSplitters > 0);
   delete[] splitters;
   splitters = new SFC::Key[numSplitters];
   SFC::Key* splits = static_cast<SFC::Key *>(m->getData());
@@ -145,8 +153,6 @@ void DataManager::collectSplitters(CkReductionMsg *m) {
   std::sort(splitters2, splitters2 + (numSplitters>>1));
   for (unsigned int i=1; i<numSplitters; ++i) {
     if (splitters[i] < splitters[i-1]) {
-      //for (unsigned int j=0; j<numSplitters; ++j)
-      //  CkPrintf("%d: Key %d = %016llx\n",thisIndex,j,splitters[j]);
       if(CkMyNode()==0)
         CkAbort("Keys not ordered");
     }
@@ -164,21 +170,14 @@ void DataManager::pup(PUP::er& p) {
     p | treePieces;
 }
 
-#ifdef CUDA
-void DataManager::notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp, int index) {
-#else
-void DataManager::notifyPresence(Tree::GenericTreeNode *root) {
-#endif
-
+void DataManager::notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp) {
   CmiLock(__nodelock);
-  registeredChares.push_back(root);
-
+  registeredTreePieces.push_back(TreePieceDescriptor(tp, root));
 #ifdef CUDA
-  registeredTreePieces.push_back(TreePieceDescriptor(tp, index));
   //gpuFree = true;
   //registeredTreePieceIndices.push_back(index);
 #if COSMO_PRINT_BK > 1
-  CkPrintf("(%d) notifyPresence called by %d, length: %d\n", CkMyPe(), index, registeredTreePieces.length());
+  CkPrintf("(%d) notifyPresence called by %d, length: %d\n", CkMyPe(), tp->getIndex(), registeredTreePieces.length());
 #endif
 #endif
   CmiUnlock(__nodelock);
@@ -192,29 +191,52 @@ void DataManager::notifyPresence(Tree::GenericTreeNode *root) {
 /// @param msg contains the callback for when we are done.
 ///
 void DataManager::combineLocalTrees(CkReductionMsg *msg) {
-  int totalChares = registeredChares.size();
+  int totalChares = registeredTreePieces.size();
   if (totalChares > 0) {
-#if COSMO_DEBUG > 0
+#ifdef PRINT_MERGED_TREE
     char fout[100];
-    sprintf(fout,"cache.%d.%d",CkMyPe(),iterationNo);
-    ofs = new ofstream(fout);
+    sprintf(fout,"cache.%d.dot",CkMyPe());
+    ofstream ofs(fout);
 #endif
-    Tree::GenericTreeNode **gtn = registeredChares.getVec();
-    // delete old tree
-    Tree::NodeLookupType::iterator nodeIter;
-    for (nodeIter = nodeLookupTable.begin(); nodeIter != nodeLookupTable.end(); nodeIter++) {
-      delete nodeIter->second;
+
+#ifdef PRINT_MERGED_TREE
+    for(int i = 0; i < registeredTreePieces.length(); i++){
+      ostringstream oss;
+      ostringstream name;
+
+      oss << "tree." << registeredTreePieces[i].treePiece->getIndex() << "." << CkMyPe() << ".dot";
+      name << "tree_" << registeredTreePieces[i].treePiece->getIndex();
+
+      ofstream ofs1;
+      ofs1.open(oss.str().c_str());
+      printTreeGraphViz(registeredTreePieces[i].root,ofs1,name.str());
+      ofs1.close();
     }
-    nodeLookupTable.clear();
+#endif
+
+    // delete old tree
+    for (int i = 0; i < nodeTable.length(); i++) {
+      delete nodeTable[i];
+    }
+    nodeTable.clear();
+
 #ifdef CUDA
     cumNumReplicatedNodes = 0;
 #endif
-    root = buildProcessorTree(totalChares, gtn);
-    registeredChares.removeAll();
-#if COSMO_DEBUG > 0
-    printGenericTree(root,*ofs);
-    ofs->close();
-    delete ofs;
+
+    CkVec<Tree::GenericTreeNode*> gtn;
+    for(int i = 0; i < registeredTreePieces.length(); i++){
+      gtn.push_back(registeredTreePieces[i].root);
+    }
+    root = buildProcessorTree(totalChares, &gtn[0]);
+    registeredTreePieces.removeAll();
+
+#ifdef PRINT_MERGED_TREE
+    ostringstream dmName;
+    dmName << "dm_" << CkMyNode();
+
+    printTreeGraphViz(root,ofs,dmName.str());
+    ofs.close();
 #endif
 
     // select the roots for the chunks in which computation will be divided
@@ -268,13 +290,10 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
  * @param gtn array of nodes to process.  This contains the pointers
  * to the copies in each treepiece of an identical node.
  */
-Tree::GenericTreeNode *DataManager::buildProcessorTree(int n, Tree::GenericTreeNode **gtn) {
-  //CkAssert(n > 1); // the recursion should have stopped before!
+Tree::GenericTreeNode *DataManager::pickNodeFromMergeList(int n, GenericTreeNode **gtn, int &nUnresolved, int &pickedIndex){
   int pick = -1;
-  int count = 0;
-#ifdef CUDA
-  cumNumReplicatedNodes += (n-1);
-#endif
+  nUnresolved = 0;
+
   for (int i=0; i<n; ++i) {
     Tree::NodeType nt = gtn[i]->getType();
     if (nt == Tree::Internal || nt == Tree::Bucket) {
@@ -282,31 +301,62 @@ Tree::GenericTreeNode *DataManager::buildProcessorTree(int n, Tree::GenericTreeN
 #if COSMO_DEBUG > 0
       (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(gtn[i]->getKey(),63)<<" using Internal node"<<endl;
 #endif
+      pickedIndex = i;
       return gtn[i];
       // no change to the count of replicated nodes
     } else if (nt == Tree::Boundary) {
       // let's count up how many boundaries we find
       pick = i;
-      count++;
+      nUnresolved++;
     } else {
       // here it can be NonLocal, NonLocalBucket or Empty. In all cases nothing to do.
     }
   }
-  if (count == 0) {
+
+  if(nUnresolved == 0){
+    CkAssert(pick < 0);
     // only NonLocal (or Empty). any is good
 #if COSMO_DEBUG > 0
     (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(gtn[0]->getKey(),63)<<" using NonLocal node"<<endl;
 #endif
+    pickedIndex = 0;
     return gtn[0];
-  } else if (count == 1) {
-    // only one single Boundary, all others are NonLocal, use this directly
+  }
+  else{
+    // multiple boundary nodes: return anyone of them
 #if COSMO_DEBUG > 0
     (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(gtn[pick]->getKey(),63)<<" using Boundary node"<<endl;
 #endif
+    pickedIndex = pick;
     return gtn[pick];
-  } else {
-    // more than one boundary, need recursion
-    Tree::GenericTreeNode *newNode = gtn[pick]->clone();
+  } 
+}
+
+const char *typeString(NodeType type);
+Tree::GenericTreeNode *DataManager::buildProcessorTree(int n, Tree::GenericTreeNode **gtn) {
+#ifdef CUDA
+  cumNumReplicatedNodes += (n-1);
+#endif
+  int nUnresolved;
+  int pickedIndex;
+  GenericTreeNode *pickedNode = pickNodeFromMergeList(n,gtn,nUnresolved,pickedIndex);
+
+  /*
+  ostringstream oss;
+  for(int i = 0; i < n; i++){
+    oss << "(" << gtn[i]->getKey() << "," << typeString(gtn[i]->getType()) << ")";
+    if(gtn[i] == pickedNode) oss << " * ";
+    oss << "; ";
+  }
+  CkPrintf("[%d] %s\n", CkMyPe(), oss.str().c_str());
+  */
+
+  if(nUnresolved <= 1){
+    return pickedNode;
+  }
+  else{
+   // more than one boundary, need recursion
+    Tree::GenericTreeNode *newNode = pickedNode->clone();
 #if INTERLIST_VER > 0
     //newNode->particlePointer = (GravityParticle *)0;
     //newNode->firstParticle = -1;
@@ -319,18 +369,22 @@ Tree::GenericTreeNode *DataManager::buildProcessorTree(int n, Tree::GenericTreeN
 #if COSMO_DEBUG > 0
     (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(newNode->getKey(),63)<<" duplicating node"<<endl;
 #endif
-    nodeLookupTable[newNode->getKey()] = newNode;
-    Tree::GenericTreeNode **newgtn = new Tree::GenericTreeNode*[count];
+    nodeTable.push_back(newNode);
+    CkVec<Tree::GenericTreeNode*> newgtn;
     // Recurse into common children.
     for (int child=0; child<gtn[0]->numChildren(); ++child) {
-      for (int i=0, j=0; i<n; ++i) {
-        if (gtn[i]->getType() == Tree::Boundary) newgtn[j++]=gtn[i]->getChildren(child);
+      for (int i=0; i<n; ++i) {
+        if (gtn[i]->getType() == Tree::Boundary){
+          GenericTreeNode *childNode = gtn[i]->getChildren(child);
+          newgtn.push_back(childNode);
+          //CkPrintf("[%d] (%llu,%s) add child (%llu,%s)\n", CkMyPe(), pickedNode->getKey(), typeString(pickedNode->getType()), childNode->getKey(), typeString(childNode->getType()));
+        }
       }
-      Tree::GenericTreeNode *ch = buildProcessorTree(count, newgtn);
+      Tree::GenericTreeNode *ch = buildProcessorTree(newgtn.length(), &newgtn[0]);
+      newgtn.length() = 0;
       newNode->setChildren(child, ch);
       if (ch->getType() == Tree::Boundary || ch->getType() == Tree::NonLocal || ch->getType() == Tree::NonLocalBucket) isInternal = false;
     }
-    delete[] newgtn;
     if (isInternal) {
       newNode->setType(Internal);
 #if COSMO_DEBUG > 0
@@ -405,6 +459,7 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
     _cacheLineDepth = param.cacheLineDepth;
     dExtraStore = param.dExtraStore;
     contribute(cb);
+    delete param.stfm;
     }
   
 	 
@@ -419,7 +474,7 @@ int DataManager::initInstrumentation(){
   int saved = treePiecesDoneInitInstrumentation;
   treePiecesDoneInitInstrumentation++;
   if(treePiecesDoneInitInstrumentation == registeredTreePieces.length()){
-    activeRung = registeredTreePieces[0].tp->getActiveRung();
+    activeRung = registeredTreePieces[0].treePiece->getActiveRung();
     hapi_initInstrument(registeredTreePieces.length(), BOTTOM_EWALD_KERNEL+1);
     treePiecesDoneInitInstrumentation = 0;
   }
@@ -447,7 +502,7 @@ void DataManager::serializeLocalTree(){
     // resume each treepiece's startRemoteChunk, now that the nodes
     // are properly labeled and the particles accounted for
     for(int i = 0; i < registeredTreePieces.length(); i++){
-      int in = registeredTreePieces[i].index;
+      int in = registeredTreePieces[i].treePiece->getIndex();
 #if COSMO_PRINT_BK > 1
       CkPrintf("(%d) dm->%d\n", CkMyPe(), in);
 #endif
@@ -495,7 +550,7 @@ void DataManager::donePrefetch(int chunk){
       // resume each treepiece's startRemoteChunk, now that the nodes
       // are properly labeled and the particles accounted for
       for(int i = 0; i < registeredTreePieces.length(); i++){
-        int in = registeredTreePieces[i].index;
+        int in = registeredTreePieces[i].treePiece->getIndex();
         //CkPrintf("(%d) dm->%d chunk %d\n", CkMyPe(), in, chunk);
         treePieces[in].continueStartRemoteChunk(chunk);
       }
@@ -690,7 +745,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   int numCachedParticles = 0;
 
   for(int i = 0; i < numTreePieces; i++){
-    TreePiece *tp = registeredTreePieces[i].tp;
+    TreePiece *tp = registeredTreePieces[i].treePiece;
     numNodes += tp->getNumNodes();
     numParticles += tp->getDMNumParticles();
   }
@@ -751,7 +806,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   savedNumTotalNodes = localMoments.length();
 
   for(int i = 0; i < registeredTreePieces.length(); i++){
-    TreePiece *tp = registeredTreePieces[i].tp;
+    TreePiece *tp = registeredTreePieces[i].treePiece;
     tp->getDMParticles(localParticles.getVec(), partIndex);
   }
 #ifdef CUDA_DM_PRINT_TREES
@@ -839,7 +894,7 @@ void DataManager::initiateNextChunkTransfer(){
     // resume each treepiece's startRemoteChunk, now that the nodes
     // are properly labeled and the particles accounted for
     for(int i = 0; i < registeredTreePieces.length(); i++){
-      int in = registeredTreePieces[i].index;
+      int in = registeredTreePieces[i].treePiece->getIndex();
       //CkPrintf("(%d) dm->%d\n", CkMyPe(), in);
       treePieces[in].continueStartRemoteChunk(chunk);
     }
@@ -892,7 +947,6 @@ void DataManager::transferParticleVarsBack(){
 void DataManager::updateParticles(UpdateParticlesStruct *data){
   int partIndex = 0;
 
-  // FIXME - not required?
   CmiLock(__nodelock);
 
   VariablePartData *deviceParticles = data->buf;
@@ -902,7 +956,7 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
 #endif
 
   for(int i = 0; i < registeredTreePieces.length(); i++){
-    TreePiece *tp = registeredTreePieces[i].tp;
+    TreePiece *tp = registeredTreePieces[i].treePiece;
     int numParticles = tp->getNumParticles();
 #ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
     CkPrintf("(%d) tp %d, numParticles: %d\n", CkMyPe(), tp->getIndex(), numParticles);
@@ -916,11 +970,10 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
       for(int j = 1; j <= numParticles; j++){
         if(tp->isActive(j)){
 #ifndef CUDA_NO_ACC_UPDATES
-          // FIXME - used to be +=
-          tp->myParticles[j].treeAcceleration.x = deviceParticles[partIndex].a.x; //+ tp->myParticles[j].treeAcceleration;
-          tp->myParticles[j].treeAcceleration.y = deviceParticles[partIndex].a.y; //+ tp->myParticles[j].treeAcceleration;
-          tp->myParticles[j].treeAcceleration.z = deviceParticles[partIndex].a.z; //+ tp->myParticles[j].treeAcceleration;
-          tp->myParticles[j].potential = deviceParticles[partIndex].potential;
+          tp->myParticles[j].treeAcceleration.x += deviceParticles[partIndex].a.x; 
+          tp->myParticles[j].treeAcceleration.y += deviceParticles[partIndex].a.y; 
+          tp->myParticles[j].treeAcceleration.z += deviceParticles[partIndex].a.z; 
+          tp->myParticles[j].potential += deviceParticles[partIndex].potential;
 #endif
 #ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
           CkPrintf("particle %d device: (%f,%f,%f) host: (%f,%f,%f)\n",
@@ -940,11 +993,10 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
       for(int j = 1; j <= numParticles; j++){
         if(tp->isActive(j)){
 #ifndef CUDA_NO_ACC_UPDATES
-          // FIXME - used to be +=
-          tp->myParticles[j].treeAcceleration.x = deviceParticles[partIndex].a.x; // + tp->myParticles[j].treeAcceleration;
-          tp->myParticles[j].treeAcceleration.y = deviceParticles[partIndex].a.y; // + tp->myParticles[j].treeAcceleration;
-          tp->myParticles[j].treeAcceleration.z = deviceParticles[partIndex].a.z; // + tp->myParticles[j].treeAcceleration;
-          tp->myParticles[j].potential = deviceParticles[partIndex].potential;
+          tp->myParticles[j].treeAcceleration.x += deviceParticles[partIndex].a.x; 
+          tp->myParticles[j].treeAcceleration.y += deviceParticles[partIndex].a.y; 
+          tp->myParticles[j].treeAcceleration.z += deviceParticles[partIndex].a.z; 
+          tp->myParticles[j].potential += deviceParticles[partIndex].potential;
 #endif
 #ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
           CkPrintf("particle %d device: (%f,%f,%f) host: (%f,%f,%f)\n",
@@ -968,11 +1020,10 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
 
     // tell treepiece to go ahead with 
     // iteration wrap-up
-    treePieces[registeredTreePieces[i].index].continueWrapUp();
+    treePieces[registeredTreePieces[i].treePiece->getIndex()].continueWrapUp();
   }
 
   registeredTreePieces.length() = 0;
-  // FIXME - not required?
   CmiUnlock(__nodelock); 
 }
 

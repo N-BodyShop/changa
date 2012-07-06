@@ -63,14 +63,10 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   case SFC_peano_dec_3D:
   case SFC_peano_dec_2D:
     numPrefetchReq = 2;
-    prefetchReq = new OrientedBox<double>[2];
   case Oct_dec:
   case ORB_dec:
   case ORB_space_dec:
-    if (numPrefetchReq == 0) {
-      numPrefetchReq = 1;
-      prefetchReq = new OrientedBox<double>[1];
-    }
+    numPrefetchReq = 1;
     break;
   default:
       CkAbort("Invalid domain decomposition requested");
@@ -263,6 +259,7 @@ void TreePiece::load(const std::string& fn, const CkCallback& cb) {
   if((domainDecomposition!=ORB_dec) && (domainDecomposition!=ORB_space_dec)){
     sort(myParticles+1, myParticles+myNumParticles+1);
   }
+
   contribute(0, 0, CkReduction::concat, cb);
 }
 
@@ -296,14 +293,10 @@ void TreePiece::loadTipsy(const std::string& filename,
 	case SFC_peano_dec_3D:
 	case SFC_peano_dec_2D:
 	    numPrefetchReq = 2;
-	    prefetchReq = new OrientedBox<double>[2];
 	case Oct_dec:
 	case ORB_dec:
 	case ORB_space_dec:
-	    if (numPrefetchReq == 0) {
-		numPrefetchReq = 1;
-		prefetchReq = new OrientedBox<double>[1];
-		}
+	    numPrefetchReq = 1;
 	    break;
 	default:
 	    CkAbort("Invalid domain decomposition requested");
@@ -397,8 +390,9 @@ void TreePiece::loadTipsy(const std::string& filename,
 			myParticles[i+1].fDensity = gp.rho;
 			myParticles[i+1].extraData = &mySPHParticles[iSPH];
 			mySPHParticles[iSPH].fMetals() = gp.metals;
-			mySPHParticles[iSPH].fMFracOxygen() = 0.95*gp.metals;
-			mySPHParticles[iSPH].fMFracIron() = 0.05*gp.metals;
+			// O and Fe ratio based on Asplund et al 2009
+			mySPHParticles[iSPH].fMFracOxygen() = 0.43*gp.metals;
+			mySPHParticles[iSPH].fMFracIron() = 0.098*gp.metals;
 			mySPHParticles[iSPH].u() = dTuFac*gp.temp;
 			mySPHParticles[iSPH].uPred() = dTuFac*gp.temp;
 			mySPHParticles[iSPH].vPred() = gp.vel;
@@ -433,8 +427,9 @@ void TreePiece::loadTipsy(const std::string& filename,
 			myParticles[i+1].iType = TYPE_STAR;
 			myParticles[i+1].extraData = &myStarParticles[iStar];
 			myParticles[i+1].fStarMetals() = sp.metals;
-			myParticles[i+1].fStarMFracOxygen() = 0.95*sp.metals;
-			myParticles[i+1].fStarMFracIron() = 0.05*sp.metals;
+			// Metals to O and Fe based on Asplund et al 2009
+			myParticles[i+1].fStarMFracOxygen() = 0.43*sp.metals;
+			myParticles[i+1].fStarMFracIron() = 0.098*sp.metals;
 			myParticles[i+1].fMassForm() = sp.mass;
 			myParticles[i+1].fTimeForm() = sp.tform;
 			iStar++;
@@ -458,8 +453,11 @@ void TreePiece::loadTipsy(const std::string& filename,
 		   replyCB);
 }
 
-// Perform Parallel Scan to establish start of parallel writes, then
-// do the writing
+/// @brief Find starting offsets and begin parallel write.
+///
+/// Perform Parallel Scan (a log(p) algorithm) to establish start of
+/// parallel writes, then do the writing.  Calls writeTipsy() to do
+/// the actual writing.
 void TreePiece::setupWrite(int iStage, // stage of scan
 			   u_int64_t iPrevOffset,
 			   const std::string& filename,
