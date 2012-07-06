@@ -114,7 +114,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
     
     if(verbosity) 
       {
-	printf("Feedback totals: mass, energy, metalicity\n");
+	CkPrintf("Feedback totals: mass, energy, metalicity\n");
 	for(int i = 0; i < NFEEDBACKS; i++){
 	  CkPrintf("feedback %d: %g %g %g\n", i,
 		   dFeedback[i*3],
