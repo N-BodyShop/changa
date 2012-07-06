@@ -88,6 +88,7 @@ class SmoothCompute : public Compute
 	// XXX Assign to global pointer: not thread safe
 	globalSmoothParams = params;
         tp = _tp;       // needed in getNewState()
+	params->tp = tp;
 	}
     ~SmoothCompute() { //delete state;
       // delete params;

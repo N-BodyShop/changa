@@ -1763,9 +1763,13 @@ void Main::setupICs() {
   if(param.bGasCooling || param.bStarForm) 
       initCooling();
   
-  if(param.bStarForm || param.bFeedback)
+  if(param.bStarForm || param.bFeedback) {
       param.stfm->CheckParams(prm, param);
-
+      if(param.sinks.bBHSink)
+	  param.sinks.dDeltaStarForm = param.stfm->dDeltaStarForm;
+      
+      }
+  
   if(param.bStarForm)
       initStarLog();
 	

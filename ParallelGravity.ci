@@ -103,6 +103,15 @@ mainmodule ParallelGravity {
   PUPable PressureSmoothParams;
   PUPable DistDeletedGasSmoothParams;
   PUPable DistStellarFeedbackSmoothParams;
+  PUPable SinkFormTestSmoothParams;
+  PUPable SinkFormSmoothParams;
+  PUPable BHDensitySmoothParams;
+  PUPable BHAccreteSmoothParams;
+  PUPable BHIdentifySmoothParams;
+  PUPable BHSinkMergeSmoothParams;
+  PUPable SinkAccreteTestSmoothParams;
+  PUPable SinkingAverageSmoothParams;
+  PUPable SinkAccreteSmoothParams;
   PUPable Fdbk;
   PUPable StarLog;
   PUPable Chabrier;

@@ -12,6 +12,8 @@ class Sinks
     int bSmallBHSmooth;
     int bBHTurnOffCooling;
     int bDoBHKick;
+    double dDeltaStarForm;
+    double dKmPerSecUnit;
     double dBHSinkEddEff;
     double dBHSinkFeedbackEff;
     double dBHSinkAlpha;
@@ -54,6 +56,8 @@ inline void Sinks::pup(PUP::er &p) {
     p|bSmallBHSmooth;
     p|bBHTurnOffCooling;
     p|bDoBHKick;
+    p|dDeltaStarForm;
+    p|dKmPerSecUnit;
     p|dBHSinkEddEff;
     p|dBHSinkFeedbackEff;
     p|dBHSinkAlpha;
@@ -94,9 +98,9 @@ class SinkFormTestSmoothParams : public SmoothParams
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
     virtual int isSmoothActive(GravityParticle *p);
-    virtual void initTreeParticle(GravityParticle *p);
+    virtual void initTreeParticle(GravityParticle *p) { initSmoothCache(p); }
     virtual void postTreeParticle(GravityParticle *p) {} 
-    virtual void initSmoothParticle(GravityParticle *p);
+    virtual void initSmoothParticle(GravityParticle *p) { initSmoothCache(p); }
     virtual void initSmoothCache(GravityParticle *p);
     virtual void combSmoothCache(GravityParticle *p1,
 				 ExternalSmoothParticle *p2);
@@ -125,9 +129,9 @@ class SinkFormSmoothParams : public SmoothParams
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
     virtual int isSmoothActive(GravityParticle *p);
-    virtual void initTreeParticle(GravityParticle *p);
+    virtual void initTreeParticle(GravityParticle *p) {}
     virtual void postTreeParticle(GravityParticle *p) {} 
-    virtual void initSmoothParticle(GravityParticle *p);
+    virtual void initSmoothParticle(GravityParticle *p) {}
     virtual void initSmoothCache(GravityParticle *p) {}
     virtual void combSmoothCache(GravityParticle *p1,
 				 ExternalSmoothParticle *p2);
@@ -171,7 +175,7 @@ class BHDensitySmoothParams : public SmoothParams
     virtual int isSmoothActive(GravityParticle *p);
     virtual void initTreeParticle(GravityParticle *p);
     virtual void postTreeParticle(GravityParticle *p) {} 
-    virtual void initSmoothParticle(GravityParticle *p);
+    virtual void initSmoothParticle(GravityParticle *p) { initSmoothCache(p); } 
     virtual void initSmoothCache(GravityParticle *p);
     virtual void combSmoothCache(GravityParticle *p1,
 				 ExternalSmoothParticle *p2);
@@ -208,6 +212,8 @@ class BHAccreteSmoothParams : public SmoothParams
  protected:
     double a, H; // Cosmological parameters
     double dTime;
+    /// Big timestep to convert rungs into delta t.
+    double dDelta;
     Sinks s;
     double gamma;	// Adiabatic index for pressure
     
@@ -216,17 +222,18 @@ class BHAccreteSmoothParams : public SmoothParams
     virtual int isSmoothActive(GravityParticle *p);
     virtual void initTreeParticle(GravityParticle *p);
     virtual void postTreeParticle(GravityParticle *p); 
-    virtual void initSmoothParticle(GravityParticle *p);
+    virtual void initSmoothParticle(GravityParticle *p) {}
     virtual void initSmoothCache(GravityParticle *p);
     virtual void combSmoothCache(GravityParticle *p1,
 				 ExternalSmoothParticle *p2);
  public:
     BHAccreteSmoothParams() {}
     BHAccreteSmoothParams(int _iType, int am, CSM csm, double _dTime,
-			  Sinks _s, double _gamma) {
+			  double _dDelta, Sinks _s, double _gamma) {
 	iType = _iType;
 	activeRung = am;
 	dTime = _dTime;
+	dDelta = _dDelta;
 	if(csm->bComove) {
 	    H = csmTime2Hub(csm,dTime);
 	    a = csmTime2Exp(csm,dTime);
@@ -245,6 +252,7 @@ class BHAccreteSmoothParams : public SmoothParams
 	p|a;
 	p|H;
 	p|dTime;
+	p|dDelta;
 	p|s;
 	p|gamma;
 	}
@@ -257,9 +265,9 @@ class BHIdentifySmoothParams : public SmoothParams
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
     virtual int isSmoothActive(GravityParticle *p);
-    virtual void initTreeParticle(GravityParticle *p);
+    virtual void initTreeParticle(GravityParticle *p) {}
     virtual void postTreeParticle(GravityParticle *p) {} 
-    virtual void initSmoothParticle(GravityParticle *p);
+    virtual void initSmoothParticle(GravityParticle *p) {}
     virtual void initSmoothCache(GravityParticle *p);
     virtual void combSmoothCache(GravityParticle *p1,
 				 ExternalSmoothParticle *p2);
@@ -289,7 +297,7 @@ class BHSinkMergeSmoothParams : public SmoothParams
     virtual int isSmoothActive(GravityParticle *p);
     virtual void initTreeParticle(GravityParticle *p) {}
     virtual void postTreeParticle(GravityParticle *p) {} 
-    virtual void initSmoothParticle(GravityParticle *p);
+    virtual void initSmoothParticle(GravityParticle *p) {}
     virtual void initSmoothCache(GravityParticle *p) {}
     virtual void combSmoothCache(GravityParticle *p1,
 				 ExternalSmoothParticle *p2) {}
@@ -330,9 +338,9 @@ class SinkAccreteTestSmoothParams : public SmoothParams
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
     virtual int isSmoothActive(GravityParticle *p);
-    virtual void initTreeParticle(GravityParticle *p);
+    virtual void initTreeParticle(GravityParticle *p) {}
     virtual void postTreeParticle(GravityParticle *p) {} 
-    virtual void initSmoothParticle(GravityParticle *p);
+    virtual void initSmoothParticle(GravityParticle *p) {} 
     virtual void initSmoothCache(GravityParticle *p);
     virtual void combSmoothCache(GravityParticle *p1,
 				 ExternalSmoothParticle *p2);
@@ -360,12 +368,12 @@ class SinkingAverageSmoothParams : public SmoothParams
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
     virtual int isSmoothActive(GravityParticle *p);
-    virtual void initTreeParticle(GravityParticle *p);
+    virtual void initTreeParticle(GravityParticle *p) {}
     virtual void postTreeParticle(GravityParticle *p) {} 
-    virtual void initSmoothParticle(GravityParticle *p);
-    virtual void initSmoothCache(GravityParticle *p);
+    virtual void initSmoothParticle(GravityParticle *p) {}
+    virtual void initSmoothCache(GravityParticle *p) {}
     virtual void combSmoothCache(GravityParticle *p1,
-				 ExternalSmoothParticle *p2);
+				 ExternalSmoothParticle *p2) {}
  public:
     SinkingAverageSmoothParams() {}
     SinkingAverageSmoothParams(int _iType, int am, double dTime,
@@ -390,9 +398,9 @@ class SinkAccreteSmoothParams : public SmoothParams
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
     virtual int isSmoothActive(GravityParticle *p);
-    virtual void initTreeParticle(GravityParticle *p);
+    virtual void initTreeParticle(GravityParticle *p) {}
     virtual void postTreeParticle(GravityParticle *p) {} 
-    virtual void initSmoothParticle(GravityParticle *p);
+    virtual void initSmoothParticle(GravityParticle *p) {}
     virtual void initSmoothCache(GravityParticle *p);
     virtual void combSmoothCache(GravityParticle *p1,
 				 ExternalSmoothParticle *p2);

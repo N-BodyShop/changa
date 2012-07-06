@@ -128,6 +128,7 @@ class extraStarData
     double _fMOxygenOut;        /* Ejected oxygen */
     double _fMIronOut;          /* Ejected iron */
     int64_t _iGasOrder;		/* Gas from which this star formed */
+    int64_t _iEaterOrder;	/* iOrder for merging black holes */
  public:
     inline double& fMetals() {return _fMetals;}
     inline double& fTimeForm() {return _fTimeForm;}
@@ -141,6 +142,7 @@ class extraStarData
     inline double& fMOxygenOut() {return _fMOxygenOut;}
     inline double& fSNMetals() {return _fSNMetals;}
     inline int64_t& iGasOrder() {return _iGasOrder;}
+    inline int64_t& iEaterOrder() {return _iEaterOrder;}
     void pup(PUP::er &p) {
 	p | _fMetals;
 	p | _fTimeForm;
@@ -154,6 +156,7 @@ class extraStarData
 	p | _fMOxygenOut;
 	p | _fMIronOut;
 	p | _iGasOrder;
+	p | _iEaterOrder;
 	}
     };
 
@@ -275,6 +278,7 @@ public:
 	inline double& fMOxygenOut() {IMASTAR; return (((extraStarData*)extraData)->fMOxygenOut());}
 	inline double& fSNMetals() {IMASTAR; return (((extraStarData*)extraData)->fSNMetals());}
 	inline int64_t& iGasOrder() { IMASTAR; return (((extraStarData*)extraData)->iGasOrder());}
+	inline int64_t& iEaterOrder() { IMASTAR; return (((extraStarData*)extraData)->iEaterOrder());}
 
 // See above debugging macros
 #undef IMAGAS
@@ -377,6 +381,7 @@ class ExternalSmoothParticle {
   double fTimeCoolIsOffUntil;
   Vector3D<double> curlv;	/* Curl of the velocity */
   double fNSN;
+  int64_t iEaterOrder;
 
   ExternalSmoothParticle() {}
 
@@ -411,6 +416,9 @@ class ExternalSmoothParticle {
 	      fTimeCoolIsOffUntil = p->fTimeCoolIsOffUntil();
 	      fNSN = p->fNSN();
 	      }
+	  if(TYPETest(p, TYPE_STAR)) {
+	      iEaterOrder = p->iEaterOrder();
+	      }
 	  }
   
   /// @brief Fill in a full gravity particle from this object.
@@ -444,6 +452,9 @@ class ExternalSmoothParticle {
 	  tmp->fTimeCoolIsOffUntil() = fTimeCoolIsOffUntil;
 	  tmp->fNSN() = fNSN;
 	  }
+      if(TYPETest(tmp, TYPE_STAR)) {
+	  tmp->iEaterOrder() = iEaterOrder;
+	  }
       }
 	  
   void pup(PUP::er &p) {
@@ -472,6 +483,7 @@ class ExternalSmoothParticle {
     p | fMFracIron;
     p | fTimeCoolIsOffUntil;
     p | fNSN;
+    p | iEaterOrder;
   }
 };
 

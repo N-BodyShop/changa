@@ -919,3 +919,8 @@ supernova.h
 
 starlifetime.o: \
 ParallelGravity.decl.h
+
+sinks.o: \
+ParallelGravity.h \
+smooth.h \
+sinks.h

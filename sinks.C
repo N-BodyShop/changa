@@ -169,6 +169,8 @@ void Sinks::CheckParams(PRM prm, struct parameters &param)
 	/* c^2 times efficiency factor (ergs per g) -- code units */
 	dBHSinkFeedbackFactor = dBHSinkFeedbackEff
 	    *dBHSinkEddEff*LIGHTSPEED*LIGHTSPEED/param.dErgPerGmUnit;
+	dKmPerSecUnit = sqrt(GCGS*param.dMsolUnit*MSOLG
+			     /(param.dKpcUnit*KPCCM))/1e5 ;
 	}
     if (bDoSinks) {
 	double testDelta;
@@ -245,7 +247,12 @@ void TreePiece::SetSink(double dSinkMassMin, const CkCallback &cb)
     
 ///
 /// @brief Form sink particles; main routine
+/// @param dTime Current time.
+/// @param dDelta Current timestep.
+/// @param iKickRung Rung being kicked.
 ///
+/// Calls TreePiece::formSinks.
+
 void Main::FormSinks(double dTime, double dDelta, int iKickRung)
 /* For momentum conservation, only particles on iKickRung or higher may
    contribute mass to a sink.
@@ -287,14 +294,14 @@ void Main::FormSinks(double dTime, double dDelta, int iKickRung)
 	/* Note: Only gas particles are combined into sinks */
 	    SinkFormTestSmoothParams pSFT(TYPE_GAS, iKickRung, param.sinks);
 	    double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
-	    treeProxy.startIterationSmooth(&pSFT, 1, dfBall2OverSoft2,
-					   CkCallbackResumeThread());
+	    treeProxy.startSmooth(&pSFT, 1, param.nSmooth, dfBall2OverSoft2,
+				  CkCallbackResumeThread());
 	    iPhase++;
 
 	    SinkFormSmoothParams pSF(TYPE_GAS, iKickRung, param.csm, dTime,
 				     param.sinks);
-	    treeProxy.startIterationSmooth(&pSF, 1, dfBall2OverSoft2,
-				   CkCallbackResumeThread());
+	    treeProxy.startSmooth(&pSF, 1, param.nSmooth, dfBall2OverSoft2,
+				  CkCallbackResumeThread());
 	    iPhase++;
 	    
 	    addDelParticles();
@@ -352,6 +359,13 @@ void TreePiece::formSinks(int bJeans, double dJConst2, int bDensity,
 	}
     contribute(cb);
 }
+
+int SinkFormTestSmoothParams::isSmoothActive(GravityParticle *p)
+{
+    if(p->rung < activeRung)
+	return 0;
+    return (TYPETest(p, TYPE_GAS));
+    }
 
 #define fSinkRating(_a)    ((_a)->curlv()[0] )
 #define fSinkRating_Ex(_a)    ((_a)->curlv[0] )
@@ -580,6 +594,13 @@ void tqli3(double d[], double e[], double z[][3])
     } while (m != l);
   }
 }
+
+int SinkFormSmoothParams::isSmoothActive(GravityParticle *p)
+{
+    if(p->rung < activeRung)
+	return 0;
+    return (TYPETest(p, TYPE_GAS));
+    }
 
 void SinkFormSmoothParams::combSmoothCache(GravityParticle *p1,
 					   ExternalSmoothParticle *p2)
@@ -871,10 +892,10 @@ void SinkFormSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 #endif
 	    p->mass = 0;
 	    deleteParticle(p);
-	    newParticle(&sinkp);    
+	    tp->newParticle(&sinkp);    
 	    }
 	else {
-	    printf("Sink Failed Tests %d %g: np (%d) Mass (%g) Ek %g Eth %g Eg %g, %g %g\n",p->iOrder,p->fDensity,nEaten,mtot,Ek,Eth,Eg, 4/3.*pow(M_PI,2.5)/50.*sqrt((p->c()*p->c()*p->c()*p->c()*p->c()*p->c())/(p->mass*p->mass*p->fDensity)),pow(Eth/fabs(Eg),1.5) );
+	    CkPrintf("Sink Failed Tests %d %g: np (%d) Mass (%g) Ek %g Eth %g Eg %g, %g %g\n",p->iOrder,p->fDensity,nEaten,mtot,Ek,Eth,Eg, 4/3.*pow(M_PI,2.5)/50.*sqrt((p->c()*p->c()*p->c()*p->c()*p->c()*p->c())/(p->mass*p->mass*p->fDensity)),pow(Eth/fabs(Eg),1.5) );
 	    }
 }
 
@@ -908,14 +929,13 @@ void Main::doSinks(double dTime, double dDelta, int iKickRung)
 	    /* Smooth Bondi-Hoyle Accretion: radius set by nSmooth */
 	    BHDensitySmoothParams pBHDen(TYPE_GAS, iKickRung, param.csm,
 					 dTime, param.sinks);
-	    treeProxy.startIterationSmooth(&pBHDen, 1, dfBall2OverSoft2,
-					     CkCallbackResumeThread());
+	    treeProxy.startSmooth(&pBHDen, 1, param.nSmooth, dfBall2OverSoft2,
+				  CkCallbackResumeThread());
 	    iPhase++;
 	    BHAccreteSmoothParams pBHAcc(TYPE_GAS, iKickRung, param.csm,
-					 dTime, param.sinks,
+					 dTime, param.dDelta, param.sinks,
 					 param.dConstGamma);
-	    treeProxy.startIterationReSmooth(&pBHAcc,
-					     CkCallbackResumeThread());
+	    treeProxy.startReSmooth(&pBHAcc, CkCallbackResumeThread());
 	    iPhase++;
 	    /* build new tree of BHs for merging JMB 11/14/08  */
 	    /* Search for BHs that need merging */
@@ -927,15 +947,14 @@ void Main::doSinks(double dTime, double dDelta, int iKickRung)
 	    if (nSink > 1) { /* no need to merge if there is only one! */
 		BHIdentifySmoothParams pBHID(TYPE_SINK, iKickRung, param.csm,
 					     dTime, param.sinks);
-		treeProxy.startIterationSmooth(&pBHDen, 1, dfBall2OverSoft2,
-					       nSink,
+		int nSmooth = nSink < 4 ? nSink : 4;
+		treeProxy.startSmooth(&pBHDen, 1, nSmooth, dfBall2OverSoft2,
 					       CkCallbackResumeThread());
 		iPhase++;
 		BHSinkMergeSmoothParams pBHM(TYPE_SINK, iKickRung, param.csm,
 					     dTime, param.sinks,
 					     param.dConstGamma);
-		treeProxy.startIterationReSmooth(&pBHM,
-						 CkCallbackResumeThread());
+		treeProxy.startReSmooth(&pBHM, CkCallbackResumeThread());
 		iPhase++;
 		}
 	    }
@@ -943,22 +962,22 @@ void Main::doSinks(double dTime, double dDelta, int iKickRung)
 	    /* Fixed Radius Accretion: particle by particle (cf. Bate) */
 	    SinkAccreteTestSmoothParams pSinkTest(TYPE_GAS, iKickRung, dTime,
 						  param.sinks);
-	    treeProxy.startIterationSmooth(&pSinkTest, 1, dfBall2OverSoft2,
-					   CkCallbackResumeThread());
+	    treeProxy.startSmooth(&pSinkTest, 1, param.nSmooth,
+				  dfBall2OverSoft2, CkCallbackResumeThread());
 	    iPhase++;
 	    
 #ifdef SINKINGAVERAGE
 	    msrActiveType(msr,TYPE_NEWSINKING, TYPE_SMOOTHACTIVE);
 	    msrSmooth(msr, dTime, SMX_SINKINGAVERAGE,0);
 	    SinkingAverageSmoothParams pSinkAvg(TYPE_GAS, iKickRung, sinks);
-	    treeProxy.startIterationSmooth(&pSinkAvg, 1, dfBall2OverSoft2,
-					   CkCallbackResumeThread());
+	    treeProxy.startSmooth(&pSinkAvg, 1, param.nSmooth,
+				  dfBall2OverSoft2, CkCallbackResumeThread());
 	    iPhase++;
 #endif
 	    SinkAccreteSmoothParams pSinkAcc(TYPE_GAS, iKickRung, dTime,
 					     param.sinks);
-	    treeProxy.startIterationSmooth(&pSinkAcc, 1, dfBall2OverSoft2,
-					   CkCallbackResumeThread());
+	    treeProxy.startSmooth(&pSinkAcc, 1, param.nSmooth,
+				  dfBall2OverSoft2, CkCallbackResumeThread());
 	    iPhase++;
 	    }
 	
@@ -1225,6 +1244,13 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	    
 	    if (mdotCurr == 0.0) break;
 	    }
+    }
+
+int BHAccreteSmoothParams::isSmoothActive(GravityParticle *p) 
+{
+    if(p->rung < activeRung)
+	return 0;
+    return (TYPETest(p, TYPE_SINK));
     }
 
 void BHAccreteSmoothParams::initTreeParticle(GravityParticle *p1)
@@ -1611,7 +1637,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	  fNorm_u = 1./fNorm_u;
 	  counter=0;
 	  q = nnList[imind].p;
-	  fBHShutoffTime = q->dt;
+	  fBHShutoffTime = RungToDt(dDelta, q->rung);
 	  if(s.bBHTurnOffCooling)
 	      q->fTimeCoolIsOffUntil() = max(q->fTimeCoolIsOffUntil(),
 					     dTime + fBHShutoffTime);
@@ -1652,16 +1678,24 @@ void BHAccreteSmoothParams::postTreeParticle(GravityParticle *p1)
 	}  
 }
 
+int BHIdentifySmoothParams::isSmoothActive(GravityParticle *p) 
+{
+    if(p->rung < activeRung)
+	return 0;
+    return (TYPETest(p, TYPE_SINK));
+    }
+
 void BHIdentifySmoothParams::initSmoothCache(GravityParticle *p)
 {
-    p->fNSNtot() = 0.0;
+    p->iEaterOrder() = 0;
     /*  fNSNtot is a placeholder for merging info*/
 }
 
 void BHIdentifySmoothParams::combSmoothCache(GravityParticle *p1,
 					     ExternalSmoothParticle *p2)
 {
-    if(p2->fNSNtot > p1->fNSNtot()) p1->fNSNtot = p2->fNSNtot;
+    if(p2->iEaterOrder > p1->iEaterOrder())
+	p1->iEaterOrder() = p2->iEaterOrder;
 }
 
 void BHIdentifySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
@@ -1698,18 +1732,25 @@ void BHIdentifySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	 * within the softening  */
 
 	if(p->iOrder > q->iOrder) {
-	    if(p->iOrder > q->fNSNtot()) {
-		q->fNSNtot() = p->iOrder;
+	    if(p->iOrder > q->iEaterOrder()) {
+		q->iEaterOrder() = p->iOrder;
 		CkPrintf("BHSink MergeID %d will be eaten by %d \n",
 			 q->iOrder,p->iOrder);
 
-		/* fNSNtot is the place holder for the iord of the 
+		/* iEaterOrder is the place holder for the iord of the 
 		   eating black hole.  the victim remembers who eats
 		   it for the merging step which is next.  JMB 4/30/09 */
 		}
 	    }
 	}
 }
+
+int BHSinkMergeSmoothParams::isSmoothActive(GravityParticle *p) 
+{
+    if(p->rung < activeRung)
+	return 0;
+    return (TYPETest(p, TYPE_SINK));
+    }
 
 void BHSinkMergeSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 					pqSmoothNode *nnList)
@@ -1733,7 +1774,7 @@ void BHSinkMergeSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	q = nnList[i].p;
 		
 	/* Give mass to higher iOrd particle, delete lower. */
-	if(q->fNSNtot() == p->iOrder) {
+	if(q->iEaterOrder() == p->iOrder) {
 	    /* q has already been identified as a victim of p */	  
 	    ifMass = 1./(p->mass + q->mass);
 	    mratio = p->mass/q->mass;
@@ -1762,8 +1803,7 @@ void BHSinkMergeSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 
 	      /**** Gravitational Recoil  ****/
 	    if(s.bDoBHKick == 1
-	       && (fabs(-1.0*p->fTimeForm() - dTime)
-		   > s.dDeltaStarForm*SECONDSPERYEAR/smf->dSecUnit)) {
+	       && (fabs(-1.0*p->fTimeForm() - dTime) > s.dDeltaStarForm)) {
 	      /* Turn off recoil if BH has just formed. Ejecting them
 		 immediately is not helpful. JMB 8/5/09  */
 	      mfactor = pow(mratio,2)/pow((1+mratio),5);
@@ -1780,7 +1820,7 @@ void BHSinkMergeSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	      vpar = K * cos(cosine) * mfactor * (spin2*sin(angle2) - mratio*spin1*sin(angle1));
 
 	      vkick = sqrt ( (vm + vperp*cos(xi))*(vm + vperp*cos(xi)) + (vperp*sin(xi))*(vperp*sin(xi)) + vpar*vpar);
-	      vkick = vkick / smf->dKmPerSecUnit;
+	      vkick = vkick / s.dKmPerSecUnit;
 	      /* comoving coords are important JMB 5/15/09 */
 	      vkick = vkick*a*a;
 	    
@@ -1805,7 +1845,7 @@ void BHSinkMergeSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	    CkPrintf("BHSink Merge %d eating %d  Time %g kick velocity %g mass ratio %g \n",
 		     p->iOrder,q->iOrder,dTime,vkick,mratio);
 
-	    if(q->fNSNtot() > 0 && !(TYPETest(q,TYPE_DELETED))) {
+	    if(q->iEaterOrder() > 0 && !(TYPETest(q,TYPE_DELETED))) {
 	      CkPrintf("BHSink Merge %d eaten Time %g \n", q->iOrder,dTime);
 	      deleteParticle(q);
 	    }
