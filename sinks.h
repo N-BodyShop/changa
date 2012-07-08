@@ -300,7 +300,7 @@ class BHSinkMergeSmoothParams : public SmoothParams
     virtual void initSmoothParticle(GravityParticle *p) {}
     virtual void initSmoothCache(GravityParticle *p) {}
     virtual void combSmoothCache(GravityParticle *p1,
-				 ExternalSmoothParticle *p2) {}
+				 ExternalSmoothParticle *p2);
     
  public:
     BHSinkMergeSmoothParams() {}

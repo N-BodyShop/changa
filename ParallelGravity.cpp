@@ -261,6 +261,10 @@ Main::Main(CkArgMsg* m) {
 	param.iCheckInterval = 10;
 	prmAddParam(prm, "iCheckInterval", paramInt, &param.iCheckInterval,
 		    sizeof(int),"oc", "Checkpoint Interval");
+	param.iOrbitOutInterval = 1;
+        prmAddParam(prm,"iOrbitOutInterval", paramInt,
+		    &param.iOrbitOutInterval,sizeof(int), "ooi",
+                    "<number of timsteps between orbit outputs> = 1");
 	param.iBinaryOut = 0;
 	prmAddParam(prm, "iBinaryOutput", paramInt, &param.iBinaryOut,
 		    sizeof(int), "binout",
@@ -1440,6 +1444,15 @@ void Main::advanceBigStep(int iStep) {
 	FormStars(dTime, param.stfm->dDeltaStarForm);
     if(param.bFeedback && param.stfm->isStarFormRung(activeRung)) 
 	StellarFeedback(dTime, param.stfm->dDeltaStarForm);
+    if(param.sinks.bBHSink) {
+	CkReductionMsg *msgCnt;
+	treeProxy.countType(TYPE_SINK,
+			    CkCallbackResumeThread((void *&)msgCnt));
+	nSink = *(int *) msgCnt->getData();
+	delete msgCnt;
+	if(nSink != 0)
+	    CkPrintf("BHSink number of BHs: nSink = %d\n", nSink);
+	}
 
     ckout << "\nStep: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
           << " Time: " << dTime
@@ -2198,6 +2211,9 @@ Main::doSimulation()
     ckout << "Big step " << iStep << " took " << stepTime << " seconds."
 	  << endl;
 
+    if(iStep%param.iOrbitOutInterval == 0) {
+	outputBlackHoles(dTime);
+	}
     if(iStep%param.iLogInterval == 0) {
 	calcEnergy(dTime, stepTime, achLogFileName);
     }

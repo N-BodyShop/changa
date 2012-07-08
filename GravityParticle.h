@@ -60,6 +60,7 @@ class extraSPHData
     double _PoverRho2;		/* Pressure/rho^2 */
     double _BalsaraSwitch;	/* Pressure/rho^2 */
     double _fBallMax;		/* Radius for inverse neighbor finding */
+    double _dTimeFB;		/* Track feedback time */
 #ifndef COOLING_NONE
     double _uDot;		/* Rate of change of u, for
 				   predicting u */
@@ -84,6 +85,7 @@ class extraSPHData
     inline double& PoverRho2() {return _PoverRho2;}
     inline double& BalsaraSwitch() {return _BalsaraSwitch;}
     inline double& fBallMax() {return _fBallMax;}
+    inline double& dTimeFB() {return _dTimeFB;}
 #ifndef COOLING_NONE
     inline double& uDot() {return _uDot;}
     inline COOLPARTICLE& CoolParticle() {return _CoolParticle;}
@@ -105,6 +107,7 @@ class extraSPHData
 	p | _PoverRho2;
 	p | _BalsaraSwitch;
 	p | _fBallMax;
+	p | _dTimeFB;
 #ifndef COOLING_NONE
 	p | _uDot;
 	p((char *) &_CoolParticle, sizeof(_CoolParticle)); /* PUPs as bytes */
@@ -129,6 +132,8 @@ class extraStarData
     double _fMIronOut;          /* Ejected iron */
     int64_t _iGasOrder;		/* Gas from which this star formed */
     int64_t _iEaterOrder;	/* iOrder for merging black holes */
+    double _dMDot;		/* Accretion rate of black holes */
+    double _dDeltaM;		/* Actual Mass Accreted on black holes */
  public:
     inline double& fMetals() {return _fMetals;}
     inline double& fTimeForm() {return _fTimeForm;}
@@ -143,6 +148,8 @@ class extraStarData
     inline double& fSNMetals() {return _fSNMetals;}
     inline int64_t& iGasOrder() {return _iGasOrder;}
     inline int64_t& iEaterOrder() {return _iEaterOrder;}
+    inline double& dMDot() {return _dMDot;}
+    inline double& dDeltaM() {return _dDeltaM;}
     void pup(PUP::er &p) {
 	p | _fMetals;
 	p | _fTimeForm;
@@ -157,6 +164,8 @@ class extraStarData
 	p | _fMIronOut;
 	p | _iGasOrder;
 	p | _iEaterOrder;
+	p | _dMDot;
+	p | _dDeltaM;
 	}
     };
 
@@ -259,6 +268,7 @@ public:
 	inline double& PoverRho2() { IMAGAS; return (((extraSPHData*)extraData)->PoverRho2());}
 	inline double& BalsaraSwitch() { IMAGAS; return (((extraSPHData*)extraData)->BalsaraSwitch());}
 	inline double& fBallMax() { IMAGAS; return (((extraSPHData*)extraData)->fBallMax());}
+	inline double& dTimeFB() { IMAGAS; return (((extraSPHData*)extraData)->dTimeFB());}
 #ifndef COOLING_NONE
 	inline double& uDot() { IMAGAS; return (((extraSPHData*)extraData)->uDot());}
 	inline COOLPARTICLE& CoolParticle() { IMAGAS; return (((extraSPHData*)extraData)->CoolParticle());}
@@ -279,6 +289,8 @@ public:
 	inline double& fSNMetals() {IMASTAR; return (((extraStarData*)extraData)->fSNMetals());}
 	inline int64_t& iGasOrder() { IMASTAR; return (((extraStarData*)extraData)->iGasOrder());}
 	inline int64_t& iEaterOrder() { IMASTAR; return (((extraStarData*)extraData)->iEaterOrder());}
+	inline double& dDeltaM() { IMASTAR; return (((extraStarData*)extraData)->dDeltaM());}
+	inline double& dMDot() { IMASTAR; return (((extraStarData*)extraData)->dMDot());}
 
 // See above debugging macros
 #undef IMAGAS
@@ -382,6 +394,7 @@ class ExternalSmoothParticle {
   Vector3D<double> curlv;	/* Curl of the velocity */
   double fNSN;
   int64_t iEaterOrder;
+  double dTimeFB;
 
   ExternalSmoothParticle() {}
 
@@ -415,6 +428,7 @@ class ExternalSmoothParticle {
 	      fMFracIron = p->fMFracIron();
 	      fTimeCoolIsOffUntil = p->fTimeCoolIsOffUntil();
 	      fNSN = p->fNSN();
+	      dTimeFB = p->dTimeFB();
 	      }
 	  if(TYPETest(p, TYPE_STAR)) {
 	      iEaterOrder = p->iEaterOrder();
@@ -451,6 +465,7 @@ class ExternalSmoothParticle {
 	  tmp->fMFracIron() = fMFracIron;
 	  tmp->fTimeCoolIsOffUntil() = fTimeCoolIsOffUntil;
 	  tmp->fNSN() = fNSN;
+	  tmp->dTimeFB() = dTimeFB;
 	  }
       if(TYPETest(tmp, TYPE_STAR)) {
 	  tmp->iEaterOrder() = iEaterOrder;
@@ -484,6 +499,7 @@ class ExternalSmoothParticle {
     p | fTimeCoolIsOffUntil;
     p | fNSN;
     p | iEaterOrder;
+    p | dTimeFB;
   }
 };
 

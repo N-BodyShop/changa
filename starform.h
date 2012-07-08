@@ -30,6 +30,9 @@ class Stfm {
 				   the particle. */
     double dMaxStarMass;	/* maximum mass star particle to form */
     int bGasCooling;		/* Can we call cooling for temperature */
+    int bBHForm;		/* Form Black Holes */
+    double dBHFormProb;		/* Probability of Black Hole forming */
+    double dInitBHMass;		/* Initial mass of Black Holes */
  public:
     double dDeltaStarForm;	/* timestep in system units */
     void AddParams(PRM prm);
@@ -58,6 +61,9 @@ inline void Stfm::pup(PUP::er &p) {
     p|dMinGasMass;
     p|dMaxStarMass;
     p|bGasCooling;
+    p|bBHForm;
+    p|dBHFormProb;
+    p|dInitBHMass;
     }
 
 class StarLogEvent

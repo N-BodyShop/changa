@@ -60,6 +60,16 @@ void Stfm::AddParams(PRM prm)
     iStarFormRung = 0;
     prmAddParam(prm,"iStarFormRung", paramInt, &iStarFormRung,
 		sizeof(int), "iStarFormRung", "<Star Formation Rung> = 0");
+    // Blackhole formation parameters
+    bBHForm = 0;
+    prmAddParam(prm,"bBHForm",paramBool,&bBHForm,
+		sizeof(int),"stBhForm","<enable seed BH formation> = 0");
+    dBHFormProb = 0.0;
+    prmAddParam(prm,"dBHFormProb",paramDouble,&dBHFormProb, sizeof(double),
+		"stBhFormProb", "<seed BH formation probability> = 0.0");
+    dInitBHMass = 0.0;
+    prmAddParam(prm,"dInitBHMass",paramDouble, &dInitBHMass, sizeof(double),
+		"bhm0", "<initial BH mass> = 0.0");
     }
 
 /*
@@ -291,6 +301,21 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     starp->fTimeForm() = dTime;
     /* iOrder gets reassigned in NewParticle() */
     starp->iGasOrder() = starp->iOrder;
+    /* Seed BH Formation JMB 1/19/09*/
+    int newbh = 0;  /* BH tracker */
+    if (bBHForm == 1 && starp->fStarMetals() <= 1.0e-6
+	&& dBHFormProb > (rand()/((double) RAND_MAX ))) {
+	starp->fTimeForm() = -1.0*starp->fTimeForm();
+	newbh = 1;
+	/* Decrement mass of particle.*/
+	if (dInitBHMass > 0) {
+	    dDeltaM = dInitBHMass;  /* reassigning dDeltaM to be
+				       initBHmass JMB 6/16/09 */
+	    /* No negative or very tiny masses please! */
+	    if (dDeltaM > p->mass) dDeltaM = p->mass;
+	    }
+	}
+
 
     p->mass -= dDeltaM;
     CkAssert(p->mass >= 0.0);
@@ -306,7 +331,9 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
        Thus: Do not remove all the TYPE properties -- just
        the gas specific ones */
     TYPEReset(starp, TYPE_GAS|TYPE_NbrOfACTIVE);
-    TYPESet(starp, TYPE_STAR) ;
+    if(newbh == 0) TYPESet(starp, TYPE_STAR) ; /* if it's a BH make
+						   it a SINK  JMB  */
+    else TYPESet(starp, TYPE_SINK);
     return starp;
     }
 

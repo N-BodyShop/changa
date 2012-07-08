@@ -492,6 +492,7 @@ public:
 	void doSph(int activeRung, int bNeedDensity = 1);
 	void FormStars(double dTime, double dDelta);
 	void StellarFeedback(double dTime, double dDelta);
+	void outputBlackHoles(double dTime);
 	void SetSink();
 	void FormSinks(double dTime, double dDelta, int iKickRung);
 	void doSinks(double dTime, double dDelta, int iKickRung);
@@ -1520,6 +1521,8 @@ public:
   void countActive(int activeRung, const CkCallback& cb);
   /// @brief count total number of particles of given type
   void countType(int iType, const CkCallback& cb);
+  void outputBlackHoles(const std::string& pszFileName, double dvFac,
+			const CkCallback &cb);
   /// @brief set sink type based on formation time.
   void SetSink(double dSinkMassMin, const CkCallback &cb);
   void formSinks(int bJeans, double dJConst2, int bDensity,

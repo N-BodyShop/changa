@@ -213,6 +213,75 @@ void Sinks::CheckParams(PRM prm, struct parameters &param)
     }
 
 ///
+/// @brief Output black hole orbit information
+///
+/// Calls TreePiece::outputBlackHoles()
+///
+void Main::outputBlackHoles(double dTime)
+{
+    char achOutFile[MAXPATHLEN];
+    FILE *fp;
+    double dOutTime;
+    double dvFac;
+
+    if (param.sinks.bBHSink) {
+	sprintf(achOutFile,"%s.orbit", param.achOutName);
+
+	fp = fopen(achOutFile,"a");
+	CkAssert(fp != NULL);
+	fprintf(fp, "%d %g\n", nSink, dTime);
+	fclose(fp);
+	
+	if(param.csm->bComove) {
+	    dOutTime = csmTime2Exp(param.csm, dTime);
+	    dvFac = 1.0/(dOutTime*dOutTime);
+	    }
+	else {
+	    dOutTime = dTime;
+	    dvFac = 1.0;
+	    }
+	
+	treeProxy[0].outputBlackHoles(achOutFile, dvFac,
+				      CkCallbackResumeThread());
+	}
+    }
+
+///
+/// @brief processor specific routine to output black hole orbits.
+///
+///  Note this is not parallel.
+///
+void
+TreePiece::outputBlackHoles(const std::string& pszFileName, double dvFac,
+				 const CkCallback &cb)
+{
+    FILE *fp;
+    int nout;
+
+    fp = fopen(pszFileName.c_str(),"a");
+    CkAssert(fp != NULL);
+    
+    /*
+    ** Write Stuff!
+    */
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+	
+	if(p->isStar() && p->fTimeForm() < 0.0)
+	    fprintf(fp, "%i %g %g %g %g %g %g %g %g\n", p->iOrder,
+		    p->mass, p->position.x, p->position.y, p->position.z,
+		    dvFac*p->velocity.x, dvFac*p->velocity.y,
+		    dvFac*p->velocity.z, p->potential);
+	}
+    nout = fclose(fp);
+    CkAssert(nout == 0);
+    if(thisIndex != (int) numTreePieces - 1)
+	pieces[thisIndex + 1].outputBlackHoles(pszFileName, dvFac, cb);
+    else
+	cb.send();
+    }
+
+///
 /// @brief Initial identify sinks
 ///
 void Main::SetSink()
@@ -1056,7 +1125,7 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	double ddvx,ddvy,ddvz,dvv; /* measure mindeltav */
 
 	assert(p->rung >= s.iSinkCurrentRung);
-	p->curlv()[1] = 0.0; /// XXX BH is a star
+	p->dDeltaM() = 0.0;
 	naccreted = 0;
 	aFac = a;
 	dCosmoDenFac = aFac*aFac*aFac;
@@ -1156,8 +1225,7 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
 	if (mdot > mdotEdd) mdot = mdotEdd;
 
-	mdotCurr = p->divv() = mdot; /* store mdot in divv of sink XXX
-					*/
+	mdotCurr = p->dMDot() = mdot;
 
         weight = -1e37;
 	weat = -1e37;
@@ -1209,7 +1277,7 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	    else {
 	      if(naccreted != 0) CkPrintf("BHSink %d:  only %i accreted, %g uneaten mass\n",p->iOrder,naccreted,mdotCurr*dtEff);
 	      /* JMB 6/29/09 */
-	      if(naccreted == 0) p->curlv()[1] = 0.0; /* should be anyway XXX*/
+	      if(naccreted == 0) p->dDeltaM() = 0.0; /* should be anyway */
 	      return;  	     	      
 	    }
 	    assert(q != NULL);
@@ -1229,11 +1297,11 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	      q->curlv()[2] = p->iOrder; /* flag for pre-used victim particles */
 	      /* temporarily store mass lost -- to later check for double dipping */
 	      q->curlv()[1] += dmq;
-	      p->curlv()[1] += dmq; /* XXX */
+	      p->dDeltaM() += dmq;
 	      naccreted += 1;
 	      weat = -1e37; /* reset so other particles can be selected JMB 7/9/09 */
 
-	      CkPrintf("BHSink %d:  Time %g %d dmq %g %g %g\n",p->iOrder,dTime,q->iOrder,dmq,q->curlv()[1],p->curlv()[1]);
+	      CkPrintf("BHSink %d:  Time %g %d dmq %g %g %g\n",p->iOrder,dTime,q->iOrder,dmq,q->curlv()[1],p->dDeltaM());
 
 		}
 	    
@@ -1301,12 +1369,14 @@ void BHAccreteSmoothParams::combSmoothCache(GravityParticle *p1,
 	    }
 	
 	if(!(TYPETest(p1,TYPE_DELETED)))  { /*added 8/21/08 to check -0 mass particles  */
-	    assert(p1->mass > 0.0); 
+	    CkAssert(p1->mass > 0.0); 
 	    }
 	p1->u() += p2->u; /*added 6/10/08 for BH blastwave FB*/
 	p1->fNSN() += p2->fNSN;  /* (this is uPred) JMB 10/5/09  */
         p1->fTimeCoolIsOffUntil() = max( p1->fTimeCoolIsOffUntil(),
 					 p2->fTimeCoolIsOffUntil );
+	/* propagate FB time JMB 2/24/10 */
+	p1->dTimeFB() = max(p1->dTimeFB(), p2->dTimeFB);
 	}
 }
 
@@ -1318,7 +1388,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	double ih2,r2,rs,fDensity;
 	double fW;
 	double mdot, mdotCurr, dmAvg, dm, dmq, dE, ifMass, dtEff, dEwave;
-	double fNorm,rstot,fNorm_u,fNorm_Pres,fAveDens;
+	double fNorm,rstot,fNorm_new,fNorm_Pres,fAveDens, f2h2;
         double fBHBlastRadius,fBHShutoffTime,fmind;
 	int i,iRung,counter,imind,naccreted,ieat;
 	double weat;
@@ -1332,8 +1402,8 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	dCosmoDenFac = aFac*aFac*aFac;
         dCosmoVel2Fac = aFac*aFac*aFac*aFac;
 
-	mdot = p->divv();	
-	if (p->curlv()[1] == 0.0) {
+	mdot = p->dMDot();	
+	if (p->dDeltaM() == 0.0) {
 	    dtEff = s.dSinkCurrentDelta*pow(0.5,p->rung-s.iSinkCurrentRung);
 	    dmAvg = mdot*dtEff;
 	    CkPrintf("BHSink %d:  Delta: %g dm: 0 ( %g ) (victims on wrong step)\n",p->iOrder,dtEff,dmAvg);
@@ -1375,7 +1445,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	    CkAssert(mdotCurr >= 0.0);
 
 	    CkPrintf("BHSink %d:  Time %g %d dmq %g %g %g\n",p->iOrder, dTime,
-		     q->iOrder,dmq,q->curlv()[1],p->curlv()[1]);
+		     q->iOrder,dmq,q->curlv()[1],p->dDeltaM());
 	    if (q->rung >= s.iSinkCurrentRung) {
 		ifMass = 1./(p->mass + dmq);
 		/* to record angular momentum JMB 11/9/10 */
@@ -1508,7 +1578,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	    
 	    CkPrintf("BHSink %d:  Time: %g %d dmq %g %g %g sharing \n",
 		     p->iOrder,dTime,q->iOrder,dmq,q->curlv()[1],
-		     p->curlv()[1]);
+		     p->dDeltaM());
 	      if (q->rung >= s.iSinkCurrentRung) {
 		ifMass = 1./(p->mass + dmq);
 		/* to record angular momentum JMB 11/9/10 */
@@ -1574,90 +1644,46 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 
 	  /* Recalculate Normalization */
 	  ih2 = invH2(p);
-	  fDensity = 0.0; 
-	  rstot = 0.0;  
-	  fNorm_u = 0.0;
-	  fNorm_Pres = 0.0;
-	  fAveDens = 0.0;
+	  f2h2 = p->fBall*p->fBall;
+	  fNorm_new = 0.0;
 	  fNorm = 0.5*M_1_PI*sqrt(ih2)*ih2;
 
 	  for (i=0;i<nSmooth;++i) {
 	    r2 = nnList[i].fKey*ih2;
 	    rs = KERNEL(r2);
-	    fDensity += rs*nnList[i].p->mass;
-	    q = nnList[i].p;
-            fNorm_u += q->mass*rs;
+	    fNorm_new += rs;
             rs *= fNorm;
-            fAveDens += q->mass*rs;
-            fNorm_Pres += q->mass*(q->uPred()/q->curlv()[0])*rs;
-	    assert(TYPETest(q, TYPE_GAS));
 	  }
 
-	  fNorm_Pres *= (gamma-1.0)/dCosmoDenFac;
-	  fAveDens /= dCosmoDenFac;
+	  /* spread feedback to nearest 32 particles across the
+	     kernel.  JMB 8/29/11 */
 
+          CkAssert(fNorm_new != 0.0);
+          fNorm_new = 1./fNorm_new;
+          counter = 0;
 
-	  /* eliminating the blast wave feedback here.  just give dE
-	     to nearest particle and shut off cooling for deltat.
-	     JMB 8/25/10 */
-	
-	  fmind = p->fBall*p->fBall;
-	  imind = 0;
-	  rstot = 0.0;  
-	  fNorm_u = 0.0;
-
-	  /* find the closest gas particle */
 	  for (i=0;i<nSmooth;++i) {
-	      q = nnList[i].p;
-	      if(TYPETest(q,TYPE_DELETED)) continue;
-	      if(q->mass == 0.0) continue;
-	      if ( nnList[i].fKey < fmind ){imind = i; fmind = nnList[i].fKey;}
+	      r2 = nnList[i].fKey*ih2;
+	      rs = KERNEL(r2);
+
+	      fbweight = rs*fNorm_new;
+	      nnList[i].p->u() += fbweight*dE;
+	      nnList[i].p->fNSN() += fbweight*dE;
+	      counter ++;
+            /* now turn off cooling */
+	      if(  s.bBHTurnOffCooling)
+		  nnList[i].p->fTimeCoolIsOffUntil()
+		      = max(nnList[i].p->fTimeCoolIsOffUntil(),
+			    dTime + RungToDt(dDelta, nnList[i].p->rung));
+	      CkPrintf("BHSink %d: Time %g FB Energy to %i dE %g tCoolOffUntil %g \n",
+		       p->iOrder, dTime, nnList[i].p->iOrder,
+		       fbweight*dE,nnList[i].p->fTimeCoolIsOffUntil());
+	      if(s.bBHTurnOffCooling)
+		  CkAssert(nnList[i].p->fTimeCoolIsOffUntil() > dTime);
+	      nnList[i].p->dTimeFB() = dTime;
+	      /* track BHFB time in MassForm  JMB 11/19/08 */
 	      }
-
-          /* give mass and energy to nearest gas particle. */
-
-          r2 = nnList[imind].fKey*ih2;            
-	  rs = KERNEL(r2);
-	    /*
-	     * N.B. This will be NEGATIVE, but that's OK since it will
-	     * cancel out down below.
-	     */
-#ifdef VOLUMEFEEDBACK
-	  fNorm_u = nnList[imind].p->mass/nnList[imind].p->fDensity*rs;
-#else
-	  fNorm_u = nnList[imind].p->mass*rs;
-#endif
-	 
-	  assert(fNorm_u != 0.0);
-	  fNorm_u = 1./fNorm_u;
-	  counter=0;
-	  q = nnList[imind].p;
-	  fBHShutoffTime = RungToDt(dDelta, q->rung);
-	  if(s.bBHTurnOffCooling)
-	      q->fTimeCoolIsOffUntil() = max(q->fTimeCoolIsOffUntil(),
-					     dTime + fBHShutoffTime);
-	  CkPrintf("BHSink %d: Time %g tCoolOffUntil %g \n",
-		   p->iOrder,dTime,q->fTimeCoolIsOffUntil());
-	  
-	  q->fMassForm() = dTime;
-	  /* track BHFB time in MassForm
-		     JMB 11/19/08 */
-	  counter++;  
-
-	  /* Remember: We are dealing with total energy rate and total metal
-	   * mass, not energy/gram or metals per gram.  
-	   * q->fMass is in product to make units work for fNorm_u.
-	   */
-#ifdef VOLUMEFEEDBACK
-	  fbweight = rs*fNorm_u*q->mass/q->fDensity;
-#else
-	  fbweight = rs*fNorm_u*q->mass;
-#endif
-	  q->u() += fbweight*dE;
-	  q->fNSN() += fbweight*dE;
-	  CkPrintf("BHSink %i:  FB Energy to %i dE %g\n",
-		   p->iOrder,q->iOrder,fbweight*dE);	
-	}
+	    }
 }
 
 void BHAccreteSmoothParams::postTreeParticle(GravityParticle *p1)
@@ -1845,6 +1871,14 @@ void BHSinkMergeSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	      deleteParticle(q);
 	    }
 	  }
+	}
+}
+
+void BHSinkMergeSmoothParams::combSmoothCache(GravityParticle *p1,
+					      ExternalSmoothParticle *p2)
+{
+    if (!(TYPETest( p1, TYPE_DELETED )) && TYPETest( p2, TYPE_DELETED ) ) {
+        deleteParticle(p1);
 	}
 }
 
