@@ -427,10 +427,10 @@ class ExternalSmoothParticle {
 	      fMFracOxygen = p->fMFracOxygen();
 	      fMFracIron = p->fMFracIron();
 	      fTimeCoolIsOffUntil = p->fTimeCoolIsOffUntil();
-	      fNSN = p->fNSN();
 	      dTimeFB = p->dTimeFB();
 	      }
 	  if(TYPETest(p, TYPE_STAR)) {
+	      fNSN = p->fNSN();
 	      iEaterOrder = p->iEaterOrder();
 	      }
 	  }
@@ -464,10 +464,10 @@ class ExternalSmoothParticle {
 	  tmp->fMFracOxygen() = fMFracOxygen;
 	  tmp->fMFracIron() = fMFracIron;
 	  tmp->fTimeCoolIsOffUntil() = fTimeCoolIsOffUntil;
-	  tmp->fNSN() = fNSN;
 	  tmp->dTimeFB() = dTimeFB;
 	  }
       if(TYPETest(tmp, TYPE_STAR)) {
+	  tmp->fNSN() = fNSN;
 	  tmp->iEaterOrder() = iEaterOrder;
 	  }
       }
