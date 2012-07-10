@@ -2680,7 +2680,7 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 		if (df[0]->bGetPhotogenic) {
 		  achFile[0] = 0;
 		  sprintf(achFile,"%s.photogenic", param.achOutName);
-		  FILE *fp = fopen(param.achOutName, "r" );
+		  FILE *fp = fopen(achFile, "r" );
 		  if(fp == NULL)
 		      CkAbort("DumpFrame: photogenic specified, but no photogenic file\n");
 		  fclose(fp);
