@@ -6,6 +6,8 @@
 #include "ParallelGravity.h"
 #include "Opt.h"
 #include "smooth.h"
+#include "Compute.h"
+#include "TreeWalk.h"
 
 EntryTypeGravityParticle::EntryTypeGravityParticle() {
   CkCacheFillMsg msg(0);
@@ -17,6 +19,7 @@ EntryTypeGravityParticle::EntryTypeGravityParticle() {
 /// Calls TreePiece::fillRequestParticles() to fullfill the request.
 void * EntryTypeGravityParticle::request(CkArrayIndexMax& idx, CkCacheKey key) {
   CkCacheRequestMsg *msg = new (32) CkCacheRequestMsg(key, CkMyPe());
+
   // This is a high priority message
   *(int*)CkPriorityPtr(msg) = -100000000;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
@@ -275,6 +278,7 @@ void * EntryTypeGravityNode::request(CkArrayIndexMax& idx, CkCacheKey key) {
   CkCacheRequestMsg *msg = new (32) CkCacheRequestMsg(key, CkMyPe());
   *(int*)CkPriorityPtr(msg) = -110000000;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
+
   treeProxy[*idx.data()].fillRequestNode(msg);
   return NULL;
 }
