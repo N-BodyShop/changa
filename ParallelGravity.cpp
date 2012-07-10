@@ -79,6 +79,7 @@ DomainsDec domainDecomposition;
 /// tolerance for unequal pieces in SFC based decompositions.
 const double ddTolerance = 0.1;
 double dExtraStore;		// fraction of extra particle storage
+int iGasModel; 			// For backward compatibility
 int peanoKey;
 GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
@@ -437,7 +438,7 @@ Main::Main(CkArgMsg* m) {
 		    "<Gas is Cooling> = +GasCooling");
 	iGasModel = GASMODEL_UNSET;	/* Deprecated in for backwards
 					   compatibility */
-	prmAddParam(prm,"iGasModel",paramInt,&iGasModel, sizeof(int),
+	prmAddParam(prm,"iGasModel", paramInt, &iGasModel, sizeof(int),
 		    "GasModel", "<Gas model employed> = 0 (Adiabatic)");
 	CoolAddParams(&param.CoolParam, prm);
 	param.dMsolUnit = 1.0;
@@ -2866,7 +2867,7 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 		if (df[0]->bGetPhotogenic) {
 		  achFile[0] = 0;
 		  sprintf(achFile,"%s.photogenic", param.achOutName);
-		  FILE *fp = fopen(param.achOutName, "r" );
+		  FILE *fp = fopen(achFile, "r" );
 		  if(fp == NULL)
 		      CkAbort("DumpFrame: photogenic specified, but no photogenic file\n");
 		  fclose(fp);
