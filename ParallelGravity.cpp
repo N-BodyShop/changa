@@ -164,7 +164,6 @@ void _Trailer(void) {
 
 int killAt;
 int cacheSize;
-int iGasModel;
 
 ///
 /// @brief Main routine to start simulation.
