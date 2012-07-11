@@ -1690,14 +1690,16 @@ public:
 	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
 	void outputASCII(OutputParams& params, int bParaWrite,
 			 const CkCallback& cb);
+	void outputIntASCII(OutputIntParams& params, int bParaWrite,
+			 const CkCallback& cb);
 	void oneNodeOutVec(OutputParams& params, Vector3D<double>* avOut,
 			   int nPart, int iIndex, int bDone,
 			   CkCallback& cb) ;
 	void oneNodeOutArr(OutputParams& params, double* adOut,
 			   int nPart, int iIndex, int bDone,
 			   CkCallback& cb) ;
-	void outputIOrderASCII(const std::string& suffix, const CkCallback& cb);
-
+	void oneNodeOutIntArr(OutputIntParams& params, int *aiOut,
+			      int nPart, int iIndex, CkCallback& cb);
 	void outputBinary(OutputParams& params, int bParaWrite,
 			 const CkCallback& cb);
 	void oneNodeOutBinVec(OutputParams& params, Vector3D<float>* avOut,

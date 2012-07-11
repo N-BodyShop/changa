@@ -2330,7 +2330,7 @@ Main::doSimulation()
       treeProxy[0].outputASCII(pDt, param.bParaWrite, CkCallbackResumeThread());
 #endif
       RungOutputParams pRung(string(achFile) + ".rung");
-      treeProxy[0].outputASCII(pRung, param.bParaWrite, CkCallbackResumeThread());
+      treeProxy[0].outputIntASCII(pRung, param.bParaWrite, CkCallbackResumeThread());
       if(param.bDoGas && param.bDoDensity) {
 	  // The following call is to get the particles in key order
 	  // before the sort.
@@ -2373,8 +2373,9 @@ Main::doSimulation()
 	  HsmOutputParams pHsmOut(string(achFile) + ".hsmall");
 	  treeProxy[0].outputASCII(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
 	  }
-      treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
-				     CkCallbackResumeThread());
+      IOrderOutputParams pIOrdOut(string(achFile) + ".iord");
+      treeProxy[0].outputIntASCII(pIOrdOut, param.bParaWrite,
+				  CkCallbackResumeThread());
   }
 	
 #if COSMO_STATS > 0
@@ -2577,11 +2578,16 @@ void Main::writeOutput(int iStep)
 	    treeProxy[0].outputASCII(pCSOut, param.bParaWrite,
 				      CkCallbackResumeThread());
 	if(param.bDoIOrderOutput || param.bStarForm || param.bFeedback) {
-	    treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
-					   CkCallbackResumeThread());
-	    }
+	    IOrderOutputParams pIOrdOut(string(achFile) + ".iord");
+	    treeProxy[0].outputIntASCII(pIOrdOut, param.bParaWrite,
+					CkCallbackResumeThread());
+	    if(param.bStarForm) {
+		IGasOrderOutputParams pIGasOrdOut(string(achFile) + ".igasorder");
+		treeProxy[0].outputIntASCII(pIGasOrdOut, param.bParaWrite,
+					    CkCallbackResumeThread());
+	      }
+	  }
 	}
-      
       
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
