@@ -1207,34 +1207,110 @@ void TreePiece::oneNodeOutArr(OutputParams& params,
     pieces[0].outputASCII(params, 0, cb);
     }
 
-void TreePiece::outputIOrderASCII(const string& fileName, const CkCallback& cb) {
+void TreePiece::outputIntASCII(OutputIntParams& params, // specifies
+						  // filename, format,
+						  // and quantity to
+						  // be output
+			    int bParaWrite,	  // Every processor
+						  // can write.  If
+						  // false, all output
+						  // gets sent to
+						  // treepiece "0" for writing.
+			    const CkCallback& cb) {
+  FILE* outfile;
+  int *aiOut;	// array for oneNode I/O
+  
   if(thisIndex==0) {
     if(verbosity > 2)
-      ckerr << "TreePiece " << thisIndex << ": Writing header for iOrder file"
-	    << endl;
-    FILE* outfile = fopen(fileName.c_str(), "w");
+      ckout << "TreePiece " << thisIndex << ": Writing header for output file" << endl;
+    outfile = fopen(params.fileName.c_str(), "w");
+    CkAssert(outfile != NULL);
     fprintf(outfile,"%d\n",(int) nTotalParticles);
     fclose(outfile);
   }
 	
   if(verbosity > 3)
-    ckerr << "TreePiece " << thisIndex << ": Writing iOrder to disk" << endl;
+    ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
 	
-  FILE* outfile = fopen(fileName.c_str(), "r+");
-  fseek(outfile, 0, SEEK_END);
-  
+  if(bParaWrite) {
+      outfile = fopen(params.fileName.c_str(), "r+");
+      if(outfile == NULL)
+	    ckerr << "Treepiece " << thisIndex << " failed to open "
+		  << params.fileName.c_str() << " : " << errno << endl;
+      CkAssert(outfile != NULL);
+      int result = fseek(outfile, 0L, SEEK_END);
+      CkAssert(result == 0);
+      }
+  else {
+      aiOut = new int[myNumParticles];
+      }
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
-      if(fprintf(outfile,"%d\n", myParticles[i].iOrder) < 0) {
-	  ckerr << "TreePiece " << thisIndex
-		<< ": Error writing iOrder to disk, aborting" << endl;
-	  CkAbort("IO Badness");
+      int iOut;
+      iOut = params.iValue(&myParticles[i]);
+      
+      if(bParaWrite) {
+	  if(fprintf(outfile,"%d\n", iOut) < 0) {
+	      ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
+	      CkAbort("Badness");
+	      }
+	  }
+      else {
+	  aiOut[i-1] = iOut;
 	  }
       }
-  
-  fclose(outfile);
-  if(thisIndex==(int)numTreePieces-1) {
-      cb.send();
+     
+  if(bParaWrite) {
+      int result = fclose(outfile);
+      if(result != 0)
+	    ckerr << "Bad close: " << strerror(errno) << endl;
+      CkAssert(result == 0);
+
+      if(thisIndex!=(int)numTreePieces-1) {
+	  pieces[thisIndex + 1].outputIntASCII(params, bParaWrite, cb);
+	  return;
+	  }
+
+      cb.send(); // We are done.
+      return;
       }
-  else
-      pieces[thisIndex + 1].outputIOrderASCII(fileName, cb);
-  }
+  else {
+      pieces[0].oneNodeOutIntArr(params, aiOut, myNumParticles, thisIndex, cb);
+      delete [] aiOut;
+      }
+}
+
+// Receives an array of ints to write out in ASCII format
+// Assumed to be called from outputIntASCII() and will continue with the
+// next tree piece.
+
+void TreePiece::oneNodeOutIntArr(OutputIntParams& params,
+			      int *aiOut, // array to be output
+			      int nPart, // length of adOut
+			      int iIndex, // treepiece which called me
+			      CkCallback& cb) 
+{
+    FILE* outfile = fopen(params.fileName.c_str(), "r+");
+    if(outfile == NULL)
+	ckerr << "Treepiece " << thisIndex << " failed to open "
+	      << params.fileName.c_str() << " : " << errno << endl;
+    CkAssert(outfile != NULL);
+    int result = fseek(outfile, 0L, SEEK_END);
+    CkAssert(result == 0);
+    for(int i = 0; i < nPart; ++i) {
+	if(fprintf(outfile,"%d\n",aiOut[i]) < 0) {
+	  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
+	    CkAbort("Badness");
+	    }
+	}
+    result = fclose(outfile);
+    if(result != 0)
+	ckerr << "Bad close: " << strerror(errno) << endl;
+    CkAssert(result == 0);
+
+    if(iIndex!=(int)numTreePieces-1) {
+	  pieces[iIndex + 1].outputIntASCII(params, 0, cb);
+	  return;
+	  }
+
+    cb.send(); // We are done.
+    }
