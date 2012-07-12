@@ -2535,10 +2535,6 @@ void Main::writeOutput(int iStep)
 				      CkCallbackResumeThread());
 	    }
 #endif
-	if(param.bDoIOrderOutput || param.bStarForm || param.bFeedback) {
-	    treeProxy[0].outputIOrderBinary(string(achFile) + ".iord",
-					    CkCallbackResumeThread());
-	    }
 	if(param.bDoSoftOutput)
 	    treeProxy[0].outputBinary(pSoftOut, param.bParaWrite,
 				      CkCallbackResumeThread());
