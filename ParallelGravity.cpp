@@ -78,6 +78,7 @@ DomainsDec domainDecomposition;
 /// tolerance for unequal pieces in SFC based decompositions.
 const double ddTolerance = 0.1;
 double dExtraStore;		// fraction of extra particle storage
+int iGasModel; 			// For backward compatibility
 int peanoKey;
 GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
@@ -414,7 +415,7 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"bGasCooling",paramBool,&param.bGasCooling,
 		    sizeof(int),"GasCooling",
 		    "<Gas is Cooling> = +GasCooling");
-	int iGasModel = -1; // For backward compatibility
+	iGasModel = -1; // For backward compatibility
 	prmAddParam(prm,"iGasModel", paramInt, &iGasModel, sizeof(int),
 		    "GasModel", "<Gas model employed> = 0 (Adiabatic)");
 	CoolAddParams(&param.CoolParam, prm);
@@ -2283,7 +2284,7 @@ Main::doSimulation()
       treeProxy[0].outputASCII(pDt, param.bParaWrite, CkCallbackResumeThread());
 #endif
       RungOutputParams pRung(string(achFile) + ".rung");
-      treeProxy[0].outputASCII(pRung, param.bParaWrite, CkCallbackResumeThread());
+      treeProxy[0].outputIntASCII(pRung, param.bParaWrite, CkCallbackResumeThread());
       if(param.bDoGas && param.bDoDensity) {
 	  // The following call is to get the particles in key order
 	  // before the sort.
@@ -2326,8 +2327,9 @@ Main::doSimulation()
 	  HsmOutputParams pHsmOut(string(achFile) + ".hsmall");
 	  treeProxy[0].outputASCII(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
 	  }
-      treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
-				     CkCallbackResumeThread());
+      IOrderOutputParams pIOrdOut(string(achFile) + ".iord");
+      treeProxy[0].outputIntASCII(pIOrdOut, param.bParaWrite,
+				  CkCallbackResumeThread());
   }
 	
 #if COSMO_STATS > 0
@@ -2467,8 +2469,14 @@ void Main::writeOutput(int iStep)
 	}
 #endif
       if(param.bDoIOrderOutput) {
-	  treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
-					 CkCallbackResumeThread());
+	  IOrderOutputParams pIOrdOut(string(achFile) + ".iord");
+	  treeProxy[0].outputIntASCII(pIOrdOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	  if(param.bStarForm) {
+	      IGasOrderOutputParams pIGasOrdOut(string(achFile) + ".igasorder");
+	      treeProxy[0].outputIntASCII(pIGasOrdOut, param.bParaWrite,
+					  CkCallbackResumeThread());
+	      }
 	  }
       
     if(param.nSteps != 0 && param.bDoDensity) {
@@ -2679,7 +2687,7 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 		if (df[0]->bGetPhotogenic) {
 		  achFile[0] = 0;
 		  sprintf(achFile,"%s.photogenic", param.achOutName);
-		  FILE *fp = fopen(param.achOutName, "r" );
+		  FILE *fp = fopen(achFile, "r" );
 		  if(fp == NULL)
 		      CkAbort("DumpFrame: photogenic specified, but no photogenic file\n");
 		  fclose(fp);
