@@ -2460,8 +2460,9 @@ bool LocalTreeBuilder::work(GenericTreeNode *node, int level){
     node->remoteIndex = tp->thisIndex;
 
     registerNode(node);
-    // don't deliver MomentsToClients, since no
-    // one needs the moments of an empty node
+    // deliver MomentsToClients, since remote pieces don't know its
+    // an empty node.
+    tp->deliverMomentsToClients(node);
     return false;
   }
   else if(node->getType() == Internal){
