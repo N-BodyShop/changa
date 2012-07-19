@@ -2502,7 +2502,10 @@ void LocalTreeBuilder::doneChildren(GenericTreeNode *node, int level){
   if(node->getType() == Boundary){
     for(int i = 0; i < node->numChildren(); i++){
       GenericTreeNode *child = node->getChildren(i);
-      if(child->rungs > node->rungs) node->rungs = child->rungs;
+      if((child->getType() != NonLocal && child->getType() != NonLocalBucket
+	  && child->getType() != Empty)
+	 && child->rungs > node->rungs)
+	  node->rungs = child->rungs;
 #if INTERLIST_VER > 0
       node->numBucketsBeneath += child->numBucketsBeneath;
 #endif
@@ -2519,12 +2522,14 @@ void LocalTreeBuilder::doneChildren(GenericTreeNode *node, int level){
   else{
     for(int i = 0; i < node->numChildren(); i++){
       GenericTreeNode *child = node->getChildren(i);
-      tp->accumulateMomentsFromChild(node,child); 
+      if(child->getType() != Empty) {
+	  tp->accumulateMomentsFromChild(node,child); 
 
-      if(child->rungs > node->rungs) node->rungs = child->rungs;
+	  if(child->rungs > node->rungs) node->rungs = child->rungs;
 #if INTERLIST_VER > 0
-      node->numBucketsBeneath += child->numBucketsBeneath;
+	  node->numBucketsBeneath += child->numBucketsBeneath;
 #endif
+	  }
     }
 
     calculateRadiusFarthestCorner(node->moments, node->boundingBox);
