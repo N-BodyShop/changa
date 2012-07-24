@@ -656,9 +656,9 @@ void OctDecompNode::makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active){
   }
 }
 
-void OctDecompNode::combine(int joinThreshold, vector<SFC::Key> &finalKeys, vector<unsigned int> &counts){
+void OctDecompNode::combine(int joinThreshold, vector<NodeKey> &finalKeys, vector<unsigned int> &counts){
   if(nparticles < joinThreshold || nchildren == 0){
-    finalKeys.push_back(SFC::Key(key));
+    finalKeys.push_back(key);
     counts.push_back(nparticles);
     deleteBeneath();
     return;
