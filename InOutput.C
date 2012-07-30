@@ -1235,7 +1235,7 @@ void TreePiece::outputIntASCII(OutputIntParams& params, // specifies
   if(bParaWrite) {
       outfile = fopen(params.fileName.c_str(), "r+");
       if(outfile == NULL)
-	    ckerr << "Treepiece " << thisIndex << " failed to open "
+	    ckerr << "Treepiece " << thisIndex.data[0] << " failed to open "
 		  << params.fileName.c_str() << " : " << errno << endl;
       CkAssert(outfile != NULL);
       int result = fseek(outfile, 0L, SEEK_END);

@@ -1445,7 +1445,7 @@ void Main::advanceBigStep(int iStep) {
     double startTime = CkWallTimer();
     bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
 
-    shuffleAggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), shuffleDetector, INT_MIN); 
+    shuffleAggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), shuffleDetector, INT_MIN, true); 
     sorter.startSorting(dataManagerID, ddTolerance,
                         CkCallbackResumeThread(), bDoDD);
     /*
@@ -1502,7 +1502,7 @@ void Main::advanceBigStep(int iStep) {
 #endif
     CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
-    aggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), detector, INT_MIN); 
+    aggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), detector, INT_MIN, true); 
     CkCallback cbGravity(CkCallback::resumeThread);
 
     if(verbosity)
@@ -1990,7 +1990,7 @@ Main::initialForces()
   CkPrintf("Initial domain decomposition ... ");
   startTime = CkWallTimer();
 
-  shuffleAggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), shuffleDetector, INT_MIN); 
+  shuffleAggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), shuffleDetector, INT_MIN, true); 
 
   sorter.startSorting(dataManagerID, ddTolerance,
 	 	      CkCallbackResumeThread(), true);
@@ -2049,7 +2049,7 @@ Main::initialForces()
         << endl;
 #endif
 
-  aggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), detector, INT_MIN); 
+  aggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), detector, INT_MIN, true); 
       
   CkCallback cbGravity(CkCallback::resumeThread);  // needed below to wait for gravity
 
@@ -2354,7 +2354,7 @@ Main::doSimulation()
           decomposerProxy.acceptParticles(CkCallbackResumeThread());
 #endif
           
-          shuffleAggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), shuffleDetector, INT_MIN); 
+          shuffleAggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), shuffleDetector, INT_MIN, true); 
 	  
           sorter.startSorting(dataManagerID, ddTolerance,
 			      CkCallbackResumeThread(), true);
@@ -2553,7 +2553,7 @@ void Main::writeOutput(int iStep)
 #ifdef DECOMPOSER_GROUP
         decomposerProxy.acceptParticles(CkCallbackResumeThread());
 #endif
-        shuffleAggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), shuffleDetector, INT_MIN); 
+        shuffleAggregator.associateCallback(1, CkCallbackResumeThread(), CkCallback(), shuffleDetector, INT_MIN, true); 
 	
         sorter.startSorting(dataManagerID, ddTolerance,
 			    CkCallbackResumeThread(), true);
