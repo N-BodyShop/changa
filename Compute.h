@@ -98,9 +98,10 @@ class Compute{
 
 #include "SSEdefs.h"
 
+///
+/// @brief Class to compute gravity using a "bucket walk".
+///
 class GravityCompute : public Compute{
-  // GenericTreeNode *myBucket;
-  // int activeRung;
 #ifdef BENCHMARK_TIME_COMPUTE
   double computeTimePart;
   double computeTimeNode;
@@ -127,7 +128,6 @@ class GravityCompute : public Compute{
 
   int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
   int computeParticleForces(TreePiece *owner, GenericTreeNode *node, ExternalGravityParticle *part, int reqID);
-  int computeNodeForces(TreePiece *owner, GenericTreeNode *nd, int reqID);
 
   // book keeping on notifications
   void nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);
@@ -213,7 +213,7 @@ class PrefetchCompute : public Compute{
   PrefetchCompute() : Compute(Prefetch) {
     computeEntity = 0;
   }
-  int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi);
+  virtual int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi);
   int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqIDD, State *state);
 
   // book-keeping on notifications
@@ -221,6 +221,15 @@ class PrefetchCompute : public Compute{
   void finishNodeProcessEvent(TreePiece *owner, State *state);
 
   void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket);
+};
+
+// when prefetching is disabled from command line, use 
+// DummyPrefetchCompute instead of PrefetchCompute
+class DummyPrefetchCompute : public PrefetchCompute {
+  public:
+  int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi){
+    return DUMP;
+  }
 };
 
 // distingish between the walks that could be running.
@@ -245,4 +254,69 @@ class ActiveWalk {
       tw(_tw), c(_c), o(_o), s(state){}
   ActiveWalk(){}
 };
+
+class TreeNodeWorker {
+
+  public:
+  virtual bool work(GenericTreeNode *node, int level) = 0;
+  virtual void doneChildren(GenericTreeNode *node, int level) {}
+};
+
+class RemoteTreeBuilder : public TreeNodeWorker {
+  TreePiece *tp;
+  bool requestNonLocalMoments; 
+
+  public:
+  RemoteTreeBuilder(TreePiece *owner, bool req) : 
+    tp(owner),
+    requestNonLocalMoments(req)
+  {}
+
+  bool work(GenericTreeNode *node, int level);
+  void doneChildren(GenericTreeNode *node, int level);
+
+  private:
+  void registerNode(GenericTreeNode *node);
+
+};
+
+class LocalTreeBuilder : public TreeNodeWorker {
+  TreePiece *tp;
+
+  public:
+  LocalTreeBuilder(TreePiece *owner) :
+    tp(owner)
+  {}
+
+  bool work(GenericTreeNode *node, int level);
+  void doneChildren(GenericTreeNode *node, int level);
+
+  private:
+  void registerNode(GenericTreeNode *node);
+};
+
+class LocalTreePrinter : public TreeNodeWorker {
+  int index;
+  std::ofstream file;
+  string description;
+
+  void openFile();
+
+  public:
+  LocalTreePrinter(string d, int idx) : 
+    index(idx),
+    description(d)
+  {
+    openFile();
+  }
+
+  ~LocalTreePrinter(){
+    file << "}" << std::endl;
+    file.close();
+  }
+
+  bool work(GenericTreeNode *node, int level);
+  void doneChildren(GenericTreeNode *node, int level);
+};
+
 #endif

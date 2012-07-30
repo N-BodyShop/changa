@@ -6,6 +6,8 @@
 #include "ParallelGravity.h"
 #include "Opt.h"
 #include "smooth.h"
+#include "Compute.h"
+#include "TreeWalk.h"
 
 extern CProxy_ArrayMeshStreamer<CkCacheRequest, int> aggregator;
 
@@ -25,6 +27,7 @@ void * EntryTypeGravityParticle::request(CkArrayIndexMax& idx, CkCacheKey key) {
 
   /*
   CkCacheRequestMsg *msg = new (32) CkCacheRequestMsg(key, CkMyPe());
+
   // This is a high priority message
   *(int*)CkPriorityPtr(msg) = -100000000;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
@@ -287,8 +290,8 @@ void * EntryTypeGravityNode::request(CkArrayIndexMax& idx, CkCacheKey key) {
   CkCacheRequestMsg *msg = new (32) CkCacheRequestMsg(key, CkMyPe());
   *(int*)CkPriorityPtr(msg) = -110000000;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
+  treeProxy[*idx.data()].fillRequestNode(msg);
   */
-  //  treeProxy[*idx.data()].fillRequestNode(msg);
   CkCacheRequest req(key, CkMyPe(), nodeRequest);
   ((ArrayMeshStreamer<CkCacheRequest, int> *)  aggregator.ckLocalBranch())->insertData(req, *idx.data());
   return NULL;

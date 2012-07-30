@@ -62,6 +62,8 @@ PUPbytes(COOLPARAM);
 
 #include <map>
 
+#define MERGE_REMOTE_REQUESTS_VERBOSE /*CkPrintf*/
+
 using namespace std;
 
 using namespace Tree;
@@ -86,9 +88,9 @@ enum DomainsDec {
     SFC_dec=0,	// Space Filling Curve with Morton ordering
     Oct_dec=1, 	// Oct tree
     ORB_dec=2,	// Bisect the longest axis, balancing particles
-    SFC_peano_dec=3,	// SFC with Piano-Hilbert ordering
+    SFC_peano_dec=3,	// SFC with Peano-Hilbert ordering
     SFC_peano_dec_3D=4, // Joachim Stadel's implementation of P-H ordering
-    SFC_peano_dec_2D=5,	// 2D version of Piano-Hilbert ordering
+    SFC_peano_dec_2D=5,	// 2D version of Peano-Hilbert ordering
     ORB_space_dec=6		// Bisect space
 };
 
@@ -135,6 +137,7 @@ extern CProxy_DataManager dMProxy;
 extern unsigned int numTreePieces;
 extern unsigned int particlesPerChare;
 
+extern CProxy_PETreeMerger peTreeMergerProxy;
 extern CProxy_CkCacheManager cacheGravPart;
 extern CProxy_CkCacheManager cacheSmoothPart;
 extern CProxy_CkCacheManager cacheNode;
@@ -149,6 +152,10 @@ extern int weightBalanceUE;
 extern int networkProgressUE;
 extern int nodeForceUE;
 extern int partForceUE;
+
+extern int tbRecursiveUE;
+extern int tbFlushRequestsUE;
+extern int prefetchDoneUE;
 
 extern int _prefetch;
 extern int _randChunks;
@@ -168,8 +175,6 @@ extern double largePhaseThreshold;
 
 extern double theta;
 extern double thetaMono;
-
-extern int nSmooth;
 
 extern int numInitDecompBins;
 
@@ -439,9 +444,6 @@ class Main : public CBase_Main {
 	double dSimStartTime;   // Start time for entire simulation
 	int iStop;		/* indicate we're stopping the
 				   simulation early */
-	int iPhase;
-	int nPhases;		/* number of walks that a node cache
-				   will service */
 	int nActiveGrav;
 	int nActiveSPH;
 
@@ -574,12 +576,46 @@ template<typename T> class GenericList;
 #endif
 
 
+
 class ShuffleShadowArray : public CBase_ShuffleShadowArray {
 public:
   ShuffleShadowArray() {}
   ShuffleShadowArray(CkMigrateMessage *msg) {}
   void process(ParticleShuffle &shuffle);
 };
+
+struct NonLocalMomentsClient {
+  TreePiece *clientTreePiece;
+  GenericTreeNode *clientNode;
+
+  NonLocalMomentsClient() :
+    clientTreePiece(NULL),
+    clientNode(NULL)
+  {}
+
+  NonLocalMomentsClient(TreePiece *tp, GenericTreeNode *node) : 
+    clientTreePiece(tp),
+    clientNode(node)
+  {}
+};
+
+struct NonLocalMomentsClientList {
+  GenericTreeNode *targetNode;
+  CkVec<NonLocalMomentsClient> clients;
+
+  NonLocalMomentsClientList() : 
+    targetNode(NULL)
+  {}
+
+  NonLocalMomentsClientList(GenericTreeNode *node) :
+    targetNode(node)
+  {}
+
+  void addClient(const NonLocalMomentsClient &cli){
+    clients.push_back(cli);
+  }
+};
+
 /// Fundamental structure that holds particle and tree data.
 class TreePiece : public CBase_TreePiece {
    // jetley
@@ -598,6 +634,9 @@ class TreePiece : public CBase_TreePiece {
    friend class DataManager;
    template<typename T> friend class GenericList;
 #endif
+
+   friend class RemoteTreeBuilder; 
+   friend class LocalTreeBuilder; 
 
    TreeWalk *sTopDown;
    TreeWalk *twSmooth;
@@ -690,6 +729,9 @@ class TreePiece : public CBase_TreePiece {
     particleInterLocal += howmany;
   }
 
+  /// Start prefetching the specfied chunk; prefetch compute
+  /// calls startRemoteChunk() once chunk prefetch is complete
+  void initiatePrefetch(int chunk);
   /// Start a new remote computation upon prefetch finished
   void startRemoteChunk();
 
@@ -1025,18 +1067,8 @@ private:
 	/// Map between Keys and TreeNodes, used to get a node from a key
 	NodeLookupType nodeLookupTable;
 
-	/// Number of particles which are still traversing the tree
-	//u_int64_t myNumParticlesPending;
-
-        /// Number of pending chenks
-        // A chunk is pending wrt a TP until that TP has finished using
-        // it completely (i.e. state->counterArrays[1][chunk] == 0)
-        //int numPendingChunks;
-
 	/// Number of nodes still missing before starting the real computation
 	//u_int64_t prefetchWaiting;
-	/// Current prefetching chunk in progress
-        //int currentPrefetch;
 	/// Array of keys that will be the root of the prefetching chunks
 	Tree::NodeKey *prefetchRoots;
 	/// Placeholder for particles used for prefetching
@@ -1300,6 +1332,8 @@ public:
 #ifdef PUSH_GRAVITY
           createdSpanningTree = false;
 #endif
+
+          localTreeBuildComplete = false;
 	}
 
 	TreePiece(CkMigrateMessage* m) {
@@ -1344,6 +1378,9 @@ public:
 	  boxes = NULL;
 	  splitDims = NULL;
 	  myTreeParticles = -1;
+
+
+          localTreeBuildComplete = false;
 	}
 
         private:
@@ -1494,6 +1531,12 @@ public:
 		       double dEta, double dEtaCourant, double dEtauDot,
 		       double dDelta, double dAccFac,
 		       double dCosmoFac, const CkCallback& cb);
+  /**
+   * @brief Truncate the highest rung
+   * @param iCurrMaxRung new maximum rung.
+   * @param cb callback.
+   */
+  void truncateRung(int iCurrMaxRung, const CkCallback& cb);
   void rungStats(const CkCallback& cb);
   void countActive(int activeRung, const CkCallback& cb);
   void calcEnergy(const CkCallback& cb);
@@ -1508,8 +1551,8 @@ public:
   /// Update total particle numbers
   void setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
 		 int64_t _nTotalStar, const CkCallback &cb);
-
-	void setSoft(const double dSoft);
+  /// @brief Set the gravitational softening on all particles
+  void setSoft(const double dSoft, const CkCallback &cb);
 	void physicalSoft(const double dSoftMax, const double dFac,
 			  const int bSoftMaxMul, const CkCallback& cb);
 	void growMass(int nGrowMass, double dDeltaM, const CkCallback& cb);
@@ -1598,15 +1641,16 @@ public:
   /// Start a tree based smooth computation.
   /// @param p parameters, including the type, of the smooth.
   /// @param iLowhFix true if a minimum h/softening is used.
+  /// @param nSmooth Number of particles to smooth over.
   /// @param dfBall2OverSoft2 square of minimum ratio of h to softening.
   /// @param cb the callback to use after all the computation has finished
   /// @reference SmoothParams
-  void startIterationSmooth(SmoothParams *p, int iLowhFix,
-			    double dfBall2OverSoft2, const CkCallback &cb);
-  void startIterationReSmooth(SmoothParams *p, const CkCallback& cb);
-  void startIterationMarkSmooth(SmoothParams *p, const CkCallback& cb);
+  void startSmooth(SmoothParams *p, int iLowhFix, int nSmooth,
+		   double dfBall2OverSoft2, const CkCallback &cb);
+  void startReSmooth(SmoothParams *p, const CkCallback& cb);
+  void startMarkSmooth(SmoothParams *p, const CkCallback& cb);
 
-  void finishNodeCache(int iPhases, const CkCallback& cb);
+  void finishNodeCache(const CkCallback& cb);
 	/// Function called by the CacheManager to send out request for needed
 	/// remote data, so that the later computation will hit.
 	void prefetch(GenericTreeNode *node, int offsetID);
@@ -1673,14 +1717,17 @@ public:
 	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
 	void outputASCII(OutputParams& params, int bParaWrite,
 			 const CkCallback& cb);
+	void outputIntASCII(OutputIntParams& params, int bParaWrite,
+			 const CkCallback& cb);
 	void oneNodeOutVec(OutputParams& params, Vector3D<double>* avOut,
 			   int nPart, int iIndex, int bDone,
 			   CkCallback& cb) ;
 	void oneNodeOutArr(OutputParams& params, double* adOut,
 			   int nPart, int iIndex, int bDone,
 			   CkCallback& cb) ;
+	void oneNodeOutIntArr(OutputIntParams& params, int *aiOut,
+			      int nPart, int iIndex, CkCallback& cb);
 	
-	void outputIOrderASCII(const std::string& suffix, const CkCallback& cb);
 	void outputStatistics(const CkCallback& cb);
 
 	/// Collect the total statistics from the various chares
@@ -1736,6 +1783,32 @@ public:
         //Decomposer *myDecomposer;
 #endif
 
+        // For merging of remote moment requests
+        // before sending messages during tree building
+        public:
+        void sendRequestForNonLocalMoments(GenericTreeNode *pickedNode);
+        void mergeNonLocalRequestsDone();
+        //void addTreeBuildMomentsClient(GenericTreeNode *targetNode, TreePiece *client, GenericTreeNode *clientNode);
+        std::map<NodeKey,NonLocalMomentsClientList>::iterator createTreeBuildMomentsEntry(GenericTreeNode *pickedNode);
+
+
+        private:
+        // XXX - hashtable instead of map
+        std::map<NodeKey,NonLocalMomentsClientList> nonLocalMomentsClients;
+        bool localTreeBuildComplete;
+        int getResponsibleIndex(int first, int last);
+        
+
+        GenericTreeNode *boundaryParentReady(GenericTreeNode *parent);
+        void accumulateMomentsFromChild(GenericTreeNode *parent, GenericTreeNode *child);
+
+        //void flushNonLocalMomentsClients();
+        void deliverMomentsToClients(GenericTreeNode *);
+        void deliverMomentsToClients(const std::map<NodeKey,NonLocalMomentsClientList>::iterator &it);
+        void treeBuildComplete();
+        void saveCentroid();
+        void processRemoteRequestsForMoments();
+
 };
 
 class LvArray : public CBase_LvArray {
@@ -1772,7 +1845,7 @@ struct SubmittedParticleStruct{
 };
 
 
-class TreePieceCounter : public CkLocIterator {            
+class TreePieceCounter : public CkLocIterator { 
   public:
     TreePieceCounter() { reset(); }
     void addLocation(CkLocation &loc);
@@ -1784,14 +1857,16 @@ class TreePieceCounter : public CkLocIterator {
     int submittedParticleCount;
 };
 
+
+
 class Decomposer : public CBase_Decomposer {
   public:
   Decomposer();
+  Decomposer(CkMigrateMessage *);
+  void pup(PUP::er &p);
 
   void evaluateBoundaries(SFC::Key *keys, const int n, int isRefine, const CkCallback& cb);
 
-  //void submitParticles(GravityParticle *particles, int nparticles, TreePiece *tp/*, SFC::Key k*/);
-  //void doneLoad(CkReductionMsg *msg);
   void acceptParticles(CkCallback &cb);
 
   private:
@@ -1804,12 +1879,19 @@ class Decomposer : public CBase_Decomposer {
   /// Array with the particles in this chare
   GravityParticle* myParticles;
   int myNumTreePieces;
-  int numTreePiecesCheckedIn;
-
-  DataManager *dm;
 
   TreePieceCounter localTreePieces;
 };
 #endif
+
+class NonEmptyTreePieceCounter : public CkLocIterator {            
+  public:
+    NonEmptyTreePieceCounter() { reset(); }
+    void addLocation(CkLocation &loc);
+    void reset();
+
+  public:
+    int count;
+};
 
 #endif //PARALLELGRAVITY_H

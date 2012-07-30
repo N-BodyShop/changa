@@ -29,9 +29,8 @@ Main::initSph()
 	DenDvDxSmoothParams pDen(TYPE_GAS, 0, param.csm, dTime, 0);
 	double startTime = CkWallTimer();
 	double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
-	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
-				       CkCallbackResumeThread());
-	iPhase++;
+	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
+			      CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 	if(verbosity)
@@ -254,9 +253,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// This also marks neighbors of actives
 	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 1);
 	double startTime = CkWallTimer();
-	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
-				       CkCallbackResumeThread());
-	iPhase++;
+	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
+			      CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 
@@ -264,8 +262,7 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// This marks particles with actives as neighbors
 	MarkSmoothParams pMark(TYPE_GAS, activeRung);
 	startTime = CkWallTimer();
-	treeProxy.startIterationMarkSmooth(&pMark, CkCallbackResumeThread());
-	iPhase++;
+	treeProxy.startMarkSmooth(&pMark, CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 	
@@ -274,9 +271,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// additional marking
 	DenDvDxNeighborSmParams pDenN(TYPE_GAS, activeRung, param.csm, dTime);
 	startTime = CkWallTimer();
-	treeProxy.startIterationSmooth(&pDenN, 1, dfBall2OverSoft2,
-				       CkCallbackResumeThread());
-	iPhase++;
+	treeProxy.startSmooth(&pDenN, 1, param.nSmooth, dfBall2OverSoft2,
+			      CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 	}
@@ -286,9 +282,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// actives, and those who have actives as neighbors.
 	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 0);
 	double startTime = CkWallTimer();
-	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
-				       CkCallbackResumeThread());
-	iPhase++;
+	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
+			      CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 
@@ -311,8 +306,7 @@ Main::doSph(int activeRung, int bNeedDensity)
     PressureSmoothParams pPressure(TYPE_GAS, activeRung, param.csm, dTime,
 				   param.dConstAlpha, param.dConstBeta);
     double startTime = CkWallTimer();
-    treeProxy.startIterationReSmooth(&pPressure, CkCallbackResumeThread());
-    iPhase++;
+    treeProxy.startReSmooth(&pPressure, CkCallbackResumeThread());
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	  << endl;
     

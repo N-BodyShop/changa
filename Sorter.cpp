@@ -656,9 +656,9 @@ void OctDecompNode::makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active){
   }
 }
 
-void OctDecompNode::combine(int joinThreshold, vector<SFC::Key> &finalKeys, vector<unsigned int> &counts){
+void OctDecompNode::combine(int joinThreshold, vector<NodeKey> &finalKeys, vector<unsigned int> &counts){
   if(nparticles < joinThreshold || nchildren == 0){
-    finalKeys.push_back(SFC::Key(key));
+    finalKeys.push_back(key);
     counts.push_back(nparticles);
     deleteBeneath();
     return;
@@ -922,12 +922,14 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 #else
 		treeProxy.evaluateBoundaries(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 #endif
-	} else //send out the new guesses to be evaluated
+	} else {
+          //send out the new guesses to be evaluated
 #ifdef DECOMPOSER_GROUP
 	    decomposerProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 #else
 	    treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 #endif
+        }
 }
 
 /** Generate new guesses for splitter keys based on the histograms that came

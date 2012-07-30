@@ -29,6 +29,8 @@
 #include "gravity.h"
 #include "smooth.h"
 
+#include "PETreeMerger.h"
+
 #ifdef CELL
 #include "spert_ppu.h"
 #include "cell_typedef.h"
@@ -72,6 +74,8 @@ CkVec<CellComputation> ewaldMessages;
 
 //forward declaration
 string getColor(GenericTreeNode*);
+
+const char *typeString(NodeType type);
 
 /*
  * set periodic information in all the TreePieces
@@ -960,6 +964,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     // Special case where no particle is assigned to this TreePiece
     if (myNumParticles > 0){
 #ifndef DECOMPOSER_GROUP
+      // this has already been done in Decomposer::acceptParticles()
       delete[] myParticles;
 #endif
       myParticles = NULL;
@@ -1011,6 +1016,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
   if(dm->particleCounts[myPlace] == incomingParticlesArrived && incomingParticlesSelf) {
     //I've got all my particles
 #ifndef DECOMPOSER_GROUP
+    // this has already been done in Decomposer::acceptParticles()
     if (myNumParticles > 0) delete[] myParticles;
 #endif
     nStore = (int)((dm->particleCounts[myPlace] + 2)*(1.0 + dExtraStore));
@@ -1236,6 +1242,8 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 		       double dDelta, double dAccFac,
 		       double dCosmoFac, const CkCallback& cb) {
   int iCurrMaxRung = 0;
+  int nMaxRung = 0;  // number of particles in maximum rung
+  
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
     GravityParticle *p = &myParticles[i];
     if(p->rung >= iKickRung) {
@@ -1277,15 +1285,34 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
       if(iNewRung > MAXRUNG)
 	CkAbort("Timestep too small");
       if(iNewRung < iKickRung) iNewRung = iKickRung;
-      if(iNewRung > iCurrMaxRung) iCurrMaxRung = iNewRung;
+      if(iNewRung > iCurrMaxRung) {
+	  iCurrMaxRung = iNewRung;
+	  nMaxRung = 1;
+	  }
+      else if(iNewRung == iCurrMaxRung)
+	  nMaxRung++;
       myParticles[i].rung = iNewRung;
 #ifdef NEED_DT
       myParticles[i].dt = dTIdeal;
 #endif
     }
   }
-  contribute(sizeof(int), &iCurrMaxRung, CkReduction::max_int, cb);
+  // Pack into array for reduction
+  int newcount[2];
+  newcount[0] = iCurrMaxRung;
+  newcount[1] = nMaxRung;
+  contribute(2*sizeof(int), newcount, max_count, cb);
 }
+
+void TreePiece::truncateRung(int iCurrMaxRung, const CkCallback& cb) {
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+	if(p->rung > iCurrMaxRung)
+	    p->rung--;
+	CkAssert(p->rung <= iCurrMaxRung);
+	}
+    contribute(cb);
+    }
 
 void TreePiece::rungStats(const CkCallback& cb) {
   int nInRung[MAXRUNG+1];
@@ -1524,13 +1551,16 @@ void TreePiece::setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
     contribute(cb);
     }
 
-void TreePiece::setSoft(const double dSoft) {
+/// @param dSoft gravitational softening
+/// @param cb callback
+void TreePiece::setSoft(const double dSoft, const CkCallback& cb) {
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
 #ifdef CHANGESOFT
       myParticles[i].fSoft0 = dSoft;
 #endif
       myParticles[i].soft = dSoft;
   }
+  contribute(cb);
 }
 
 /**
@@ -1631,6 +1661,7 @@ void TreePiece::getCOMByType(int iType, const CkCallback& cb, int bLiveViz) {
 	contribute(4*sizeof(double), com, CkReduction::sum_double, cb);
 }
 
+/// @brief structure for efficiently reading iOrders.
 struct SortStruct {
   int iOrder;
   int iStore;
@@ -1640,6 +1671,9 @@ int CompSortStruct(const void * a, const void * b) {
   return ( ( ((struct SortStruct *) a)->iOrder < ((struct SortStruct *) b)->iOrder ? -1 : 1 ) );
 }
 
+/// @brief Read file of iOrders to set particle type.
+///
+/// This is used by the photogenic code of dumpframe.
 void TreePiece::SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet) {
   int niOrder = 0, nSet = 0;
@@ -1976,7 +2010,9 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
     iter++;
     if (node->getType() == Empty || node->moments.totalMass > 0) {
       for (int i=0; i<l->length(); ++i) {
-	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall, node->iParticleTypes);
+          CkEntryOptions opts;
+          opts.setPriority(-100000000);
+	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
 	//CkPrintf("[%d] sending moments of %s to %d upon treebuild finished\n",thisIndex.data[0],keyBits(node->getKey(),63).c_str(),(*l)[i]);
       }
       delete l;
@@ -1990,24 +2026,7 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
     ckerr << "TreePiece " << thisIndex.data[0] << ": Finished tree build, resolving boundary nodes" << endl;
 
   if (numTreePieces == 1) {
-#ifdef PUSH_GRAVITY
-    if(doMerge){
-#endif
-
-#ifdef CUDA
-      dm->notifyPresence(root, this, thisIndex.data[0]);
-#else
-      dm->notifyPresence(root);
-#endif
-      contribute(sizeof(callback), &callback, CkReduction::random, CkCallback(CkIndex_DataManager::combineLocalTrees((CkReductionMsg*)NULL), CProxy_DataManager(dataManagerID)));
-
-#ifdef PUSH_GRAVITY
-    }
-    else{
-      // if not merging, return control to mainchare
-      contribute(0,0,CkReduction::sum_int,callback);
-    }
-#endif
+    treeBuildComplete();
   }
 
 }
@@ -2091,7 +2110,9 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
 	      // have to receive one more message for the NonLocal node
 	      node->remoteIndex --;
 	      // request the remote chare to fill this node with the Moments
-	      streamingProxy[child->remoteIndex].requestRemoteMoments(child->getKey(), thisIndex.data[0]);
+              CkEntryOptions opts;
+              opts.setPriority(-110000000);
+	      streamingProxy[child->remoteIndex].requestRemoteMoments(child->getKey(), thisIndex.data[0], &opts);
 	      //CkPrintf("[%d] asking for moments of %s to %d\n",thisIndex.data[0],keyBits(child->getKey(),63).c_str(),child->remoteIndex);
       }
     } else if (child->getType() == Internal && child->lastParticle - child->firstParticle < maxBucketSize) {
@@ -2246,12 +2267,85 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   root->startBucket=0;
 #endif
   // recursively build the tree
+
+  double start;
   try {
+#if defined MERGE_REMOTE_REQUESTS
+        LocalTreeTraversal traversal;
+        // 1. Construct top level of your tree first, being careful
+        // not to send out requests for remote moments, and not
+        // descending into treepiece-local portions of the tree
+        // This is called the Remote tree
+        RemoteTreeBuilder remoteTreeBuilder(this,false);
+        traversal.dft(root,&remoteTreeBuilder,0);
+
+        // 2. Next, merge these top-level trees, causing requests
+        // to be sent out to the owners of the remote moments required
+        // on this PE.
+        peTreeMergerProxy.ckLocalBranch()->mergeNonLocalRequests(root,this);
+
+        // 3. Then, construct the treepiece-local portions of the tree
+        // and respond to remote requests for local moments
+        // 4. Finally, do a node-level merge on PE trees
+
+        // Items 3 and 4 are performed after PE-level merge of trees has been done
+        return;
+
+#elif defined SPLIT_PHASE_TREE_BUILD
+        LocalTreeTraversal traversal; 
+        // Try to construct the non-local part of the tree: 
+        // this results in early dispatch of remote moment
+        // requests
+        RemoteTreeBuilder w1(this,true);
+        traversal.dft(root,&w1,0);
+
+        // Then construct the local parts of the tree
+        LocalTreeBuilder w2(this);
+        traversal.dft(root,&w2,0);
+
+#else
+        start = CmiWallTimer();
 	buildOctTree(root, 0);
+        traceUserBracketEvent(tbRecursiveUE,start,CmiWallTimer());
+#endif
+
 	}
   catch (std::bad_alloc) {
 	CkAbort("Out of memory in treebuild");
 	}
+
+  saveCentroid();
+  processRemoteRequestsForMoments();
+
+  if(verbosity > 3){
+    ckerr << "TreePiece " << thisIndex.data[0] << ": Number of buckets: " << numBuckets << endl;
+    ckerr << "TreePiece " << thisIndex.data[0] << ": Finished tree build, resolving boundary nodes" << endl;
+  }
+
+  //CmiUnlock(dm->__nodelock);
+  if (numTreePieces == 1) {
+    treeBuildComplete();
+  }
+}
+
+void TreePiece::sendRequestForNonLocalMoments(GenericTreeNode *pickedNode){
+  int first, last;
+  bool isShared = nodeOwnership(pickedNode->getKey(), first, last);
+  CkAssert(!isShared);
+  if (last >= first) {
+    // Choose a piece from among the owners from which to
+    // request moments in such a way that if I am a piece with a
+    // higher index, I request from a higher indexed treepiece.
+    pickedNode->remoteIndex = getResponsibleIndex(first,last);
+    // request the remote chare to fill this node with the Moments
+    CkEntryOptions opts;
+    opts.setPriority(-110000000);
+    //CkPrintf("[%d] phase I request moments for %llu from %d\n", tp->thisIndex.data[0], node->getKey(), node->remoteIndex);
+    treeProxy[pickedNode->remoteIndex].requestRemoteMoments(pickedNode->getKey(), thisIndex.data[0], &opts);
+  }
+}
+
+void TreePiece::saveCentroid(){
 /* jetley - save the treepiece bounding box for use later.
    Needed because each treepiece must, for oct decomposition, send its
    centroid to a load balancing strategy object. The previous tree
@@ -2277,9 +2371,10 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
     }
   }
   savedCentroid = box.center();
+}
 
-  //CkPrintf("[%d] finished building local tree\n",thisIndex.data[0]);
-
+void TreePiece::processRemoteRequestsForMoments(){
+  double start = CmiWallTimer();
   // check all the pending requests in for RemoteMoments
   for (MomentRequestType::iterator iter = momentRequests.begin(); iter != momentRequests.end(); ) {
     NodeKey nodeKey = iter->first;
@@ -2292,44 +2387,80 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
     iter++;
     if (node->getType() == Empty || node->moments.totalMass > 0) {
       for (int i=0; i<l->length(); ++i) {
-	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall, node->iParticleTypes);
+          CkEntryOptions opts;
+          opts.setPriority(-100000000);
+	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
 	  //CkPrintf("[%d] sending moments of %s to %d upon treebuild finished\n",thisIndex.data[0],keyBits(node->getKey(),63).c_str(),(*l)[i]);
       }
       delete l;
       momentRequests.erase(node->getKey());
     }
   }
+  traceUserBracketEvent(tbFlushRequestsUE,start,CmiWallTimer());
 
-  if(verbosity > 3)
-    ckerr << "TreePiece " << thisIndex.data[0] << ": Number of buckets: " << numBuckets << endl;
-  if(verbosity > 3)
-    ckerr << "TreePiece " << thisIndex.data[0] << ": Finished tree build, resolving boundary nodes" << endl;
+}
 
-  //CmiUnlock(dm->__nodelock);
-  if (numTreePieces == 1) {
-#ifdef PUSH_GRAVITY
-    if(doMerge){
-#endif
+void NonEmptyTreePieceCounter::addLocation(CkLocation &loc){
+  const int *indexData = loc.getIndex().data();
+  TreePiece *tp = treeProxy[indexData[0]].ckLocal();
+  int np = tp->getNumParticles();
+  if(np > 0) count++;
+}
 
-#ifdef CUDA
-      dm->notifyPresence(root, this, thisIndex.data[0]);
-#else
-      dm->notifyPresence(root);
-#endif
-      contribute(sizeof(callback), &callback, CkReduction::random, CkCallback(CkIndex_DataManager::combineLocalTrees((CkReductionMsg*)NULL), CProxy_DataManager(dataManagerID)));
-#ifdef PUSH_GRAVITY
-    }
-    else{
-      // if not merging, return control to mainchare
-      contribute(0,0,CkReduction::sum_int,callback);
-    }
-#endif
+void NonEmptyTreePieceCounter::reset() {
+  count = 0;
+}
+
+void TreePiece::mergeNonLocalRequestsDone(){
+  // 3. Construct the treepiece-local portions of the tree
+
+  MERGE_REMOTE_REQUESTS_VERBOSE("[%d] mergeNonLocalRequestsDone\n", thisIndex.data[0]);
+
+  LocalTreeTraversal traversal;
+  LocalTreeBuilder localTreeBuilder(this);
+  traversal.dft(root,&localTreeBuilder,0);
+  localTreeBuildComplete = true;
+
+  // at this point, I might have completed building
+  // the entire tree, since:
+  // (a) I must have finished building the 
+  //     RemoteTree, otherwise the PETreeMerger 
+  //     wouldn't have invoked this method on me
+  
+  // (b) I might have received all the moments for
+  //     which I was a client
+  
+  saveCentroid();
+
+  // 4. Respond to remote requests for local moments
+  processRemoteRequestsForMoments();
+
+  // If none of the root's children will be updated
+  // with remote moments, we are done
+  if(root->remoteIndex == thisIndex.data[0]){
+    treeBuildComplete();
   }
 }
 
+/*
+void TreePiece::flushNonLocalMomentsClients(){
+  // if we are merging remote requests, there might
+  // be clients on my PE for some of my internal 
+  // nodes
+  MERGE_REMOTE_REQUESTS_VERBOSE("[%d] flushNonLocalMomentsClients\n",thisIndex.data[0]);
+  std::map<NodeKey,NonLocalMomentsClientList>::iterator it;
+  for(it = nonLocalMomentsClients.begin();
+      it != nonLocalMomentsClients.end();
+      ++it){
+    deliverMomentsToClients(it);
+  }
+  nonLocalMomentsClients.clear();
+}
+*/
+
 /// Determine who are all the owners of this node
 /// @return true if the caller is part of the owners, false otherwise
-inline bool TreePiece::nodeOwnership(const Tree::NodeKey nkey, int &firstOwner, int &lastOwner) {
+bool TreePiece::nodeOwnership(const Tree::NodeKey nkey, int &firstOwner, int &lastOwner) {
 
   if(useTree == Binary_ORB){ // Added for ORB Trees
     int keyLevel=0;
@@ -2454,7 +2585,9 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
 	// have to receive one more message for the NonLocal node
 	node->remoteIndex --;
 	// request the remote chare to fill this node with the Moments
-	streamingProxy[child->remoteIndex].requestRemoteMoments(child->getKey(), thisIndex.data[0]);
+        CkEntryOptions opts;
+        opts.setPriority(-110000000);
+	streamingProxy[child->remoteIndex].requestRemoteMoments(child->getKey(), thisIndex.data[0], &opts);
 	//CkPrintf("[%d] asking for moments of %s to %d\n",thisIndex.data[0],keyBits(child->getKey(),63).c_str(),child->remoteIndex);
       }
     } else if (child->getType() == Internal
@@ -2557,7 +2690,9 @@ void TreePiece::growBottomUp(GenericTreeNode *node) {
 void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
   GenericTreeNode *node = keyToNode(key);
   if (node != NULL && (node->getType() == Empty || node->moments.totalMass > 0)) {
-      streamingProxy[sender].receiveRemoteMoments(key, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall, node->iParticleTypes);
+      CkEntryOptions opts;
+      opts.setPriority(-100000000);
+      streamingProxy[sender].receiveRemoteMoments(key, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
     //CkPrintf("[%d] sending moments of %s to %d directly\n",thisIndex.data[0],keyBits(node->getKey(),63).c_str(),sender);
   } else {
       // Save request for when we've calculated the moment.
@@ -2583,7 +2718,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
 				     const unsigned int iParticleTypes) {
   GenericTreeNode *node = keyToNode(key);
   CkAssert(node != NULL);
-  //CkPrintf("[%d] received moments for %s\n",thisIndex.data[0],keyBits(key,63).c_str());
+  MERGE_REMOTE_REQUESTS_VERBOSE("[%d] receiveRemoteMoments %llu\n",thisIndex.data[0],key);
   // assign the incoming moments to the node
   if (type == Empty) node->makeEmpty();
   else {
@@ -2598,62 +2733,159 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
     node->bndBoxBall = boxBall;
     node->iParticleTypes = iParticleTypes;
   }
+
+#ifdef MERGE_REMOTE_REQUESTS
+  deliverMomentsToClients(node);
+#endif
+ 
   // look if we can compute the moments of some ancestors, and eventually send
   // them to a requester
   GenericTreeNode *parent = node->parent;
-  while (parent != NULL && ++parent->remoteIndex == 0) {
-    // compute the multipole for the parent
-    //CkPrintf("[%d] computed multipole of %s\n",thisIndex.data[0],keyBits(parent->getKey(),63).c_str());
-    parent->particleCount = 0;
-    parent->remoteIndex = thisIndex.data[0]; // reset the reference index to ourself
-    GenericTreeNode *child;
-    for (unsigned int i=0; i<parent->numChildren(); ++i) {
-      child = parent->getChildren(i);
-      parent->particleCount += child->particleCount;
-      parent->moments += child->moments;
-      parent->boundingBox.grow(child->boundingBox);
-      parent->bndBoxBall.grow(child->bndBoxBall);
-      parent->iParticleTypes |= child->iParticleTypes;
-    }
-    calculateRadiusFarthestCorner(parent->moments, parent->boundingBox);
-    // check if someone has requested this node
-    MomentRequestType::iterator iter;
-    if ((iter = momentRequests.find(parent->getKey())) != momentRequests.end()) {
-      CkVec<int> *l = iter->second;
-      for (int i=0; i<l->length(); ++i) {
-	  streamingProxy[(*l)[i]].receiveRemoteMoments(parent->getKey(), parent->getType(), parent->firstParticle, parent->particleCount, parent->moments, parent->boundingBox, parent->bndBoxBall, parent->iParticleTypes);
-	//CkPrintf("[%d] sending moments of %s to %d\n",thisIndex.data[0],keyBits(parent->getKey(),63).c_str(),(*l)[i]);
-      }
-      delete l;
-      momentRequests.erase(parent->getKey());
-    }
-    // go to the next ancestor
-    node = parent;
-    parent = node->parent;
+  if(parent != NULL){
+    CkAssert(parent->getType() == Boundary);
+    parent->remoteIndex++;
   }
+
+#ifdef MERGE_REMOTE_REQUESTS
+ // If we are merging remote requests, since we only build the skeleton
+  // top-level tree (i.e. RemoteTree) in the first pass (RemoteTreeBuilder)
+  // we might not have computed the moments of internal siblings of this node
+  // Moreover, we do not decrement the remoteIndex of the parent for these 
+  // Internal children whose moments have not yet been computed. Therefore, 
+  // we want to avoid the situation wherein a Boundary parent node's non-Internal
+  // child's moments are received in this invocation, but the moments of the
+  // parent have not yet been computed. We can be sure that the Internal childrens'
+  // moments have been computed when the LocalTreeBuilder has finished
+  if(!localTreeBuildComplete) return;
+#endif
+
+  while (parent != NULL && 
+         parent->remoteIndex == 0) {
+    GenericTreeNode *parentsParent = boundaryParentReady(parent);
+#ifdef MERGE_REMOTE_REQUESTS
+    deliverMomentsToClients(parent);
+#endif
+    parent = parentsParent;
+  }
+
   if (parent == NULL) {
     // if we are here then we are at the root, and thus we have finished to get
     // all moments
     //CkPrintf("[%d] contributing after building the tree\n",thisIndex.data[0]);
-#ifdef PUSH_GRAVITY
-    if(doMerge){
-#endif
-
-#ifdef CUDA
-      dm->notifyPresence(root, this, thisIndex.data[0]);
-#else
-      dm->notifyPresence(root);
-#endif
-      contribute(sizeof(callback), &callback, CkReduction::random, CkCallback(CkIndex_DataManager::combineLocalTrees((CkReductionMsg*)NULL), CProxy_DataManager(dataManagerID)));
-
-#ifdef PUSH_GRAVITY
-    }
-    else{
-      // if not merging, return control to mainchare
-      contribute(0,0,CkReduction::sum_int,callback);
-    }
-#endif
+    treeBuildComplete();
   }// else CkPrintf("[%d] still missing one child of %s\n",thisIndex.data[0],keyBits(parent->getKey(),63).c_str());
+}
+
+GenericTreeNode *TreePiece::boundaryParentReady(GenericTreeNode *parent){
+  // compute the multipole for the parent
+  MERGE_REMOTE_REQUESTS_VERBOSE("[%d] boundaryParentReady %llu\n",thisIndex.data[0],parent->getKey());
+  parent->particleCount = 0;
+  parent->remoteIndex = thisIndex.data[0]; // reset the reference index to ourself
+  GenericTreeNode *child;
+  for (unsigned int i=0; i<parent->numChildren(); ++i) {
+    child = parent->getChildren(i);
+    parent->particleCount += child->particleCount;
+    accumulateMomentsFromChild(parent,child);
+  }
+  calculateRadiusFarthestCorner(parent->moments, parent->boundingBox);
+  // check if someone has requested this node
+  MomentRequestType::iterator iter;
+  if ((iter = momentRequests.find(parent->getKey())) != momentRequests.end()) {
+    CkVec<int> *l = iter->second;
+    for (int i=0; i<l->length(); ++i) {
+      CkEntryOptions opts;
+      opts.setPriority(-100000000);
+      streamingProxy[(*l)[i]].receiveRemoteMoments(parent->getKey(), parent->getType(), parent->firstParticle, parent->particleCount, parent->moments, parent->boundingBox, parent->bndBoxBall, parent->iParticleTypes, &opts);
+      //CkPrintf("[%d] sending moments of %s to %d\n",thisIndex.data[0],keyBits(parent->getKey(),63).c_str(),(*l)[i]);
+    }
+    delete l;
+    momentRequests.erase(parent->getKey());
+  }
+
+  // go to the next ancestor
+  GenericTreeNode *node = parent;
+  parent = node->parent;
+  // we just computed the current parent's child's
+  // moments. The current parent must be a Boundary
+  if(parent != NULL){
+    CkAssert(parent->getType() == Boundary);
+    parent->remoteIndex++;
+  }
+
+  return parent;
+}
+
+void TreePiece::accumulateMomentsFromChild(GenericTreeNode *parent, GenericTreeNode *child){
+  parent->moments += child->moments;
+  parent->boundingBox.grow(child->boundingBox);
+  parent->bndBoxBall.grow(child->bndBoxBall);
+  parent->iParticleTypes |= child->iParticleTypes;
+}
+
+void TreePiece::deliverMomentsToClients(GenericTreeNode *node){
+  std::map<NodeKey,NonLocalMomentsClientList>::iterator it;
+  it = nonLocalMomentsClients.find(node->getKey());
+  if(it == nonLocalMomentsClients.end()) return;
+
+  CkAssert(it->second.targetNode == node);
+  deliverMomentsToClients(it);
+}
+
+void TreePiece::deliverMomentsToClients(const std::map<NodeKey,NonLocalMomentsClientList>::iterator &it){
+  NonLocalMomentsClientList &entry = it->second;
+  CkVec<NonLocalMomentsClient> &clients = entry.clients;
+  GenericTreeNode *node = entry.targetNode;
+
+  /*
+  if(node->remoteIndex < 0){
+    CkPrintf("[%d] sending moments that are not ready: node key %llu\n", thisIndex.data[0], node->getKey());
+    CkAbort("uninitialized moments being communicated\n");
+  }
+  */
+  CkAssert(node->remoteIndex >= 0);
+
+  for(int i = 0; i < clients.length(); i++){
+    MERGE_REMOTE_REQUESTS_VERBOSE("[%d] send %llu (%s) moments to %d\n", thisIndex.data[0], node->getKey(), typeString(node->getType()),clients[i].clientTreePiece->getIndex());
+    clients[i].clientTreePiece->receiveRemoteMoments(node->getKey(),node->getType(),node->firstParticle,node->particleCount,node->moments,node->boundingBox,node->bndBoxBall,node->iParticleTypes);
+  }
+  clients.clear();
+  nonLocalMomentsClients.erase(it);
+
+}
+
+void TreePiece::treeBuildComplete(){
+
+#ifdef MERGE_REMOTE_REQUESTS
+  MERGE_REMOTE_REQUESTS_VERBOSE("[%d] treeBuildComplete\n", thisIndex.data[0]);
+  // reset
+  CkAssert(localTreeBuildComplete);
+  localTreeBuildComplete = false;
+  /*
+  if(!nonLocalMomentsClients.empty()){
+    std::map<NodeKey,NonLocalMomentsClientList>::iterator it;
+    for(it = nonLocalMomentsClients.begin(); it != nonLocalMomentsClients.end(); ++it){
+      CkPrintf("[%d] BAD TREE BUILD: outstanding clients for node %llu\n", thisIndex.data[0], it->second.targetNode->getKey());
+    }
+    CkAbort("bad tree build\n");
+  }
+  */
+  CkAssert(nonLocalMomentsClients.empty());
+#endif
+
+#ifdef PUSH_GRAVITY
+  if(doMerge){
+#endif
+
+    dm->notifyPresence(root, this);
+    contribute(sizeof(callback), &callback, CkReduction::random, CkCallback(CkIndex_DataManager::combineLocalTrees((CkReductionMsg*)NULL), CProxy_DataManager(dataManagerID)));
+
+#ifdef PUSH_GRAVITY
+  }
+  else{
+    // if not merging, return control to mainchare
+    contribute(0,0,CkReduction::sum_int,callback);
+  }
+#endif
 }
 
 bool bIsReplica(int reqID)
@@ -3845,7 +4077,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       }
 #endif
 
-      cacheNode[CkMyPe()].finishedChunk(msg->chunkNum, nodeInterRemote[msg->chunkNum]);
       cacheGravPart[CkMyPe()].finishedChunk(msg->chunkNum, particleInterRemote[msg->chunkNum]);
 #ifdef CHECK_WALK_COMPLETIONS
       CkPrintf("[%d] finishedChunk TreePiece::calculateGravityRemote\n", thisIndex.data[0]);
@@ -3889,16 +4120,13 @@ GenericTreeNode *TreePiece::getStartAncestor(int current, int previous, GenericT
 
 // We are done with the node Cache
 
-void TreePiece::finishNodeCache(int iPhases, const CkCallback& cb)
+void TreePiece::finishNodeCache(const CkCallback& cb)
 {
-    int i;
-    for (i = 0; i < iPhases; i++) {
-	int j;
-	for (j = 0; j < numChunks; j++) {
-	    cacheNode[CkMyPe()].finishedChunk(j, 0);
-	    }
+    int j;
+    for (j = 0; j < numChunks; j++) {
+	((CkCacheManager*)cacheNode.ckLocalBranch())->finishedChunk(j, 0);
 	}
-    contribute(0, 0, CkReduction::concat, cb);
+    contribute(cb);
     }
 
 #ifdef PUSH_GRAVITY
@@ -4154,12 +4382,15 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   if (myNumParticles == 0) {
     // No particles assigned to this TreePiece
     for (int i=0; i< numChunks; ++i) {
-      ((CkCacheManager*)cacheNode.ckLocalBranch())->finishedChunk(i, 0);
       ((CkCacheManager*)cacheGravPart.ckLocalBranch())->finishedChunk(i, 0);
     }
     CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
     gravityProxy[thisIndex.data[0]].ckLocal()->contribute(cbf);
-    numChunks = -1; //numchunks needs to get reset next iteration incase particles move into this treepiece
+    // XXX May need another way to take care of particles moving into
+    // this piece.  numChunks gets reset anyway by setupSmooth(), so
+    // this breaks SPH.
+    // numChunks = -1; // numchunks needs to get reset next iteration in
+		    // case particles move into this treepiece.
     return;
   }
   
@@ -4239,13 +4470,6 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
       break;
   }
 
-  int first, last;
-#ifdef DISABLE_NODE_TREE
-  GenericTreeNode *child = keyToNode(prefetchRoots[0]);
-#else
-  GenericTreeNode *child = dm->chunkRootToNode(prefetchRoots[0]);
-#endif
-
 #if CHANGA_REFACTOR_DEBUG > 0
   CkPrintf("Beginning prefetch\n");
 #endif
@@ -4254,7 +4478,10 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 
   sLocal = new LocalOpt;
   sRemote = new RemoteOpt;
-  sPrefetch = new PrefetchCompute;
+
+  if(_prefetch) sPrefetch = new PrefetchCompute;
+  else sPrefetch = new DummyPrefetchCompute;
+
   sPref = new PrefetchOpt;
 
   State *remoteWalkState;
@@ -4442,25 +4669,8 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 #endif
 
 
-  for(int x = -nReplicas; x <= nReplicas; x++) {
-    for(int y = -nReplicas; y <= nReplicas; y++) {
-      for(int z = -nReplicas; z <= nReplicas; z++) {
-        if (child == NULL) {
-          nodeOwnership(prefetchRoots[0], first, last);
-          child = requestNode(dm->responsibleIndex[(first+last)>>1],
-              prefetchRoots[0], 0,
-              encodeOffset(0, x, y, z),
-              prefetchAwi, (void *)0, true);
-        }
-        if (child != NULL) {
-#if CHANGA_REFACTOR_DEBUG > 1
-          CkPrintf("[%d] starting prefetch walk with current Prefetch=%d, numPrefetchReq=%d (%d,%d,%d)\n", thisIndex.data[0], sPrefetchState->currentBucket, numPrefetchReq, x,y,z);
-#endif
-          sTopDown->walk(child, sPrefetchState, sPrefetchState->currentBucket, encodeOffset(0,x,y,z), prefetchAwi);
-        }
-      }
-    }
-  }
+  // variable currentBucket masquerades as current chunk
+  initiatePrefetch(sPrefetchState->currentBucket);
 
 #if CHANGA_REFACTOR_DEBUG > 0
   CkPrintf("[%d]sending message to commence local gravity calculation\n", thisIndex.data[0]);
@@ -4486,6 +4696,39 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 #endif
 }
 
+// Starts the prefetching of the specified chunk; once the 
+// given chunk has been completely prefetched, the prefetch
+// compute invokes startRemoteChunk() 
+void TreePiece::initiatePrefetch(int chunk){
+#ifdef DISABLE_NODE_TREE
+  GenericTreeNode *child = keyToNode(prefetchRoots[chunk]);
+#else
+  GenericTreeNode *child = dm->chunkRootToNode(prefetchRoots[chunk]);
+#endif
+
+  int first, last;
+  for(int x = -nReplicas; x <= nReplicas; x++) {
+    for(int y = -nReplicas; y <= nReplicas; y++) {
+      for(int z = -nReplicas; z <= nReplicas; z++) {
+        if (child == NULL) {
+          nodeOwnership(prefetchRoots[chunk], first, last);
+          child = requestNode(dm->responsibleIndex[(first+last)>>1],
+              prefetchRoots[chunk], chunk,
+              encodeOffset(0, x, y, z),
+              prefetchAwi, (void *)0, true);
+        }
+        if (child != NULL) {
+#if CHANGA_REFACTOR_DEBUG > 1
+          CkPrintf("[%d] starting prefetch walk with current Prefetch=%d, numPrefetchReq=%d (%d,%d,%d)\n", thisIndex.data[0], chunk, numPrefetchReq, x,y,z);
+#endif
+          sTopDown->walk(child, sPrefetchState, chunk, encodeOffset(0,x,y,z), prefetchAwi);
+        }
+      }
+    }
+  }
+
+}
+
 void TreePiece::commenceCalculateGravityLocal(){
 #if INTERLIST_VER > 0 
   // must set placedRoots to false before starting local comp.
@@ -4500,6 +4743,8 @@ void TreePiece::startRemoteChunk() {
 #if CHANGA_REFACTOR_DEBUG > 0
   CkPrintf("[%d] sending message to commence remote gravity\n", thisIndex.data[0]);
 #endif
+
+  traceUserEvent(prefetchDoneUE);
 
 #ifdef CUDA
   // dm counts until all treepieces have acknowledged prefetch completion
@@ -4545,36 +4790,9 @@ void TreePiece::continueStartRemoteChunk(int chunk){
     // instead of prefetchWaiting, we count through state->counters[0]
     //prefetchWaiting = (2*nReplicas + 1)*(2*nReplicas + 1)*(2*nReplicas + 1);
     sPrefetchState->counterArrays[0][0] = (2*nReplicas + 1)*(2*nReplicas + 1)*(2*nReplicas + 1);
-#ifdef DISABLE_NODE_TREE
-    GenericTreeNode *child = keyToNode(prefetchRoots[sPrefetchState->currentBucket]);
-#else
-    GenericTreeNode *child = dm->chunkRootToNode(prefetchRoots[sPrefetchState->currentBucket]);
-#endif
-    for(int x = -nReplicas; x <= nReplicas; x++) {
-      for(int y = -nReplicas; y <= nReplicas; y++) {
-        for(int z = -nReplicas; z <= nReplicas; z++) {
-          if (child == NULL) {
-            nodeOwnership(prefetchRoots[sPrefetchState->currentBucket], first, last);
-            child = requestNode(dm->responsibleIndex[(first+last)>>1],
-                prefetchRoots[sPrefetchState->currentBucket],
-                sPrefetchState->currentBucket,
-                encodeOffset(0, x, y, z),
-                prefetchAwi, (void *)0, true);
-          }
-          if (child != NULL) {
-            //prefetch(child, encodeOffset(0, x, y, z));
-#if CHANGA_REFACTOR_DEBUG > 1
-            CkPrintf("[%d] starting prefetch walk with current Prefetch=%d, numPrefetchReq=%d (%d,%d,%d)\n", thisIndex.data[0],
-                sPrefetchState->currentBucket, numPrefetchReq,
-                x,y,z);
-#endif
-            sTopDown->walk(child, sPrefetchState, sPrefetchState->currentBucket, encodeOffset(0,x,y,z), prefetchAwi);
 
-          }
-        }
-      }
-    }
-
+    // variable currentBucket masquerades as current chunk
+    initiatePrefetch(sPrefetchState->currentBucket);
   }
 }
 
@@ -6061,6 +6279,23 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   callback = cb;
 }
 
+int TreePiece::getResponsibleIndex(int first, int last){
+  return dm->responsibleIndex[first + (thisIndex.data[0] & (last-first))];
+}
+
+std::map<NodeKey,NonLocalMomentsClientList>::iterator TreePiece::createTreeBuildMomentsEntry(GenericTreeNode *pickedNode){
+  std::pair<std::map<NodeKey,NonLocalMomentsClientList>::iterator,bool> ret;
+  ret = nonLocalMomentsClients.insert(make_pair(pickedNode->getKey(),NonLocalMomentsClientList(pickedNode)));
+  CkAssert(ret.second);
+  return ret.first;
+}
+
+/*
+void TreePiece::addTreeBuildMomentsClient(GenericTreeNode *targetNode, TreePiece *client, GenericTreeNode *clientNode){
+  nonLocalMomentsClients[targetNode->getKey()].addClient(NonLocalMomentsClient(client,clientNode));
+}
+*/
+
 #ifdef CUDA
 void TreePiece::clearMarkedBuckets(CkVec<GenericTreeNode *> &markedBuckets){
   int len = markedBuckets.length();
@@ -6082,7 +6317,14 @@ void TreePiece::clearMarkedBucketsAll(){
 Decomposer::Decomposer(){
   myNumParticles = 0;
   myNumTreePieces = -1;
-  numTreePiecesCheckedIn = 0;
+}
+
+Decomposer::Decomposer(CkMigrateMessage *){
+}
+
+void Decomposer::pup(PUP::er &p){
+  p|myNumParticles;
+  p|myNumTreePieces;
 }
 
 void Decomposer::acceptParticles(CkCallback &cb){

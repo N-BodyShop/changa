@@ -72,16 +72,23 @@ public:
   ExternalSmoothParticle partExt[1];
 };
 
+/// @brief Cache interface to the particles for smooth calculations.
+/// This cache is a writeback cache.
 class EntryTypeSmoothParticle : public CkCacheEntryType {
     // N.B. can't have helpful attributes because of the static function.
 public:
   EntryTypeSmoothParticle();
+  /// @brief Request a bucket of particles from a TreePiece.
   void * request(CkArrayIndexMax&, CkCacheKey);
+  /// @brief Return data from fufilled cache request.
   void * unpack(CkCacheFillMsg *, int, CkArrayIndexMax &);
   void writeback(CkArrayIndexMax&, CkCacheKey, void *);
+  /// @brief free cached data.
   void free(void *);
+  /// @brief return size of cached data.
   int size(void *);
   
+  /// @brief callback to TreePiece after data is received.
   static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, CkCacheUserData &, void*, int);
 };
 

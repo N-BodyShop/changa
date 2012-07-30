@@ -73,6 +73,8 @@ int SmoothCompute::doWork(GenericTreeNode *node, // Node to test
     int open = openCriterion(tp, node, reqID, state);
     // Turn open into an action
     int action = opt->action(open, node);
+    if(action == KEEP_LOCAL_BUCKET && node->iRank != CkMyRank())
+	action = KEEP_REMOTE_BUCKET;  // treat other rank's buckets as remote.
     if(action == KEEP){
 	// Bounds intersect ball; descend to children
 	return KEEP;
@@ -325,7 +327,6 @@ void TreePiece::setupSmooth() {
   if (myNumParticles == 0) {
     // No particles assigned to this TreePiece
       for (int i=0; i< numChunks; ++i) {
-	  cacheNode[CkMyPe()].finishedChunk(i, 0);
 	  cacheSmoothPart[CkMyPe()].finishedChunk(i, 0);
 	  }
       return;
@@ -335,12 +336,14 @@ void TreePiece::setupSmooth() {
 
 // Start tree walk and smooth calculation
 
-void TreePiece::startIterationSmooth(// type of smoothing and parameters
+void TreePiece::startSmooth(// type of smoothing and parameters
 				     SmoothParams* params,
 				     int iLowhFix,
+				     int nSmooth,
 				     double dfBall2OverSoft2,
 				     const CkCallback& cb) {
 
+  CkAssert(nSmooth > 0);
   cbSmooth = cb;
   activeRung = params->activeRung;
 
@@ -372,7 +375,7 @@ void TreePiece::startIterationSmooth(// type of smoothing and parameters
   calculateSmoothLocal();
   }
   catch (std::bad_alloc) {
-	CkAbort("Out of memory in startIterationSmooth");
+	CkAbort("Out of memory in startSmooth");
 	}
 }
 
@@ -587,7 +590,6 @@ void NearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
       tp->memWithCache = CmiMemoryUsage()/(1024*1024);
       tp->nNodeCacheEntries = ((CkCacheManager*)cacheNode.ckLocalBranch())->getCache()->size();
       tp->nPartCacheEntries = ((CkCacheManager*)cacheSmoothPart.ckLocalBranch())->getCache()->size();
-      cacheNode[CkMyPe()].finishedChunk(0, 0);
       cacheSmoothPart[CkMyPe()].finishedChunk(0, 0);
 #ifdef CHECK_WALK_COMPLETIONS
       CkPrintf("[%d] markWalkDone NearNeighborState\n", tp->getIndex());
@@ -787,7 +789,7 @@ void ReSmoothCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state,
 
 // Start tree walk and smooth calculation
 
-void TreePiece::startIterationReSmooth(SmoothParams* params,
+void TreePiece::startReSmooth(SmoothParams* params,
 				       const CkCallback& cb) {
 
   cbSmooth = cb;
@@ -891,7 +893,6 @@ void ReNearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
     if(started && nParticlesPending == 0) {
       started = false;
       tp->memWithCache = CmiMemoryUsage()/(1024*1024);
-      cacheNode[CkMyPe()].finishedChunk(0, 0);
       cacheSmoothPart[CkMyPe()].finishedChunk(0, 0);
 #ifdef CHECK_WALK_COMPLETIONS
       CkPrintf("[%d] markWalkDone ReNearNeighborState\n", tp->getIndex());
@@ -1015,7 +1016,7 @@ void MarkSmoothCompute::nodeRecvdEvent(TreePiece *owner, int chunk,
 
 // Start marksmooth walk
 
-void TreePiece::startIterationMarkSmooth(SmoothParams* params,
+void TreePiece::startMarkSmooth(SmoothParams* params,
 				       const CkCallback& cb) {
 
   cbSmooth = cb;
@@ -1099,7 +1100,6 @@ void MarkNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
     if(started && nParticlesPending == 0) {
       started = false;
       tp->memWithCache = CmiMemoryUsage()/(1024*1024);
-      cacheNode[CkMyPe()].finishedChunk(0, 0);
       cacheSmoothPart[CkMyPe()].finishedChunk(0, 0);
 #ifdef CHECK_WALK_COMPLETIONS
       CkPrintf("[%d] markWalkDone ReNearNeighborState\n", tp->getIndex());

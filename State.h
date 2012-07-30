@@ -2,30 +2,37 @@
 #define __STATE_H__
 #include "ParallelGravity.h"
 
-// less flexible, but probably more efficient
-// and allows for sharing of counters between
-// states
+/// @brief Base class for maintaining the state of a tree walk.
 class State {
   public:
-    int bWalkDonePending; // needed for combiner cache flushes
-    // this variable is used instead of TreePiece::currentPrefetch
-    // in the prefetch walk
-    int currentBucket;  // The bucket we have started to walk.
+    /// Set after our walk is finished, but we are still waiting for
+    /// combiner cache flushes to be processed.
+    int bWalkDonePending;
+    /// The bucket we have started to walk.
+    int currentBucket;
 
     // shifted variable into state. there is an issue of redundancy 
     // here, though. in addition to local state, remote and remote-resume
     // state also have this variable but have no use for it, since only
     // a single copy is required.
     // could have made this the third element in the array below
+    /// @brief Keep track of how many buckets are unfinished.  XXX
+    /// note the misnomer.
     int myNumParticlesPending;
 
     // again, redundant variables, since only remote-no-resume
     // walks use this variable to see how many chunks have 
     // been used
+    ///
+    /// @brief Number of pending chunks.  
+    ///
+    /// The remote tree walk is divided into chunks for more parallelism.
+    /// A chunk is pending wrt a TreePiece until that TreePiece has
+    /// finished using it completely.
     int numPendingChunks;
 
-    // posn 0: bucket requests
-    // posn 1: chunk requests
+    /// @brief counters to keep track of outstanding remote processor
+    // requests tied to each bucket (position 0) and chunk (position 1).
     int *counterArrays[2];
     virtual ~State() {}
 };
@@ -103,6 +110,9 @@ class GenericList{
 
 #endif
 
+///
+/// @brief Hold state where both the targets and sources are tree walked.
+///
 class DoubleWalkState : public State {
   public:
   CheckList *chklists;
