@@ -110,6 +110,9 @@ class GenericList{
 
 #endif
 
+///
+/// @brief Hold state where both the targets and sources are tree walked.
+///
 class DoubleWalkState : public State {
   public:
   CheckList *chklists;
