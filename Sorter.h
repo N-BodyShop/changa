@@ -31,7 +31,7 @@ struct OctDecompNode {
 
   void makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active);
   void deleteBeneath();
-  void combine(int thresh, vector<SFC::Key> &finalKeys, vector<unsigned int> &counts);
+  void combine(int thresh, vector<NodeKey> &finalKeys, vector<unsigned int> &counts);
 };
 
 /**
