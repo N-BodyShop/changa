@@ -2611,24 +2611,15 @@ void Main::writeOutput(int iStep)
 				     CkCallbackResumeThread());
 	    }
 #endif
-	if (param.bStarForm) 
-	    treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
-					   CkCallbackResumeThread());
-#ifndef COOLING_NONE
-	treeProxy[0].outputASCII(pCool0Out, param.bParaWrite,
-				 CkCallbackResumeThread());
-	treeProxy[0].outputASCII(pCool1Out, param.bParaWrite,
-				 CkCallbackResumeThread());
-	treeProxy[0].outputASCII(pCool2Out, param.bParaWrite,
-				 CkCallbackResumeThread());
-#endif
 #ifdef DIFFUSION
 	treeProxy[0].outputASCII(pMetalsDotOut, param.bParaWrite,
 				 CkCallbackResumeThread());
-	treeProxy[0].outputASCII(pOxDotOut, param.bParaWrite,
-				 CkCallbackResumeThread());
-	treeProxy[0].outputASCII(pFeDotOut, param.bParaWrite,
-				 CkCallbackResumeThread());
+	if (param.bStarForm || param.bFeedback) {
+	    treeProxy[0].outputASCII(pOxDotOut, param.bParaWrite,
+				     CkCallbackResumeThread());
+	    treeProxy[0].outputASCII(pFeDotOut, param.bParaWrite,
+				     CkCallbackResumeThread());
+	    }
 #endif
 	if(param.bDoSoftOutput)
 	    treeProxy[0].outputASCII(pSoftOut, param.bParaWrite,
