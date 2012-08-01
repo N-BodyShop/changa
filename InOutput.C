@@ -499,10 +499,40 @@ void TreePiece::setupWrite(int iStage, // stage of scan
 	if(thisIndex == (int) numTreePieces-1)
 	    assert(nStartWrite+myNumParticles == nTotalParticles);
 	nSetupWriteStage = -1;	// reset for next time.
-	writeTipsy(filename, dTime, dvFac, duTFac, bCool);
-	contribute(0, 0, CkReduction::concat, cb);
+	parallelWrite(0, cb, filename, dTime, dvFac, duTFac, bCool);
 	}
     }
+
+/// @brief Control the parallelism in the tipsy output by breaking it
+/// up into nIOProcessor pieces.
+/// @param iPass What pass we are on in the parallel write.  The
+/// initial call should be with "0".
+
+void TreePiece::parallelWrite(int iPass, const CkCallback& cb,
+			      const std::string& filename, const double dTime,
+			      const double dvFac, // scale velocities
+			      const double duTFac, // convert temperature
+			      const int bCool)
+{
+    if(nIOProcessor == 0) {	// use them all
+	writeTipsy(filename, dTime, dvFac, duTFac, bCool);
+	contribute(cb);
+	return;
+	}
+    int nSkip = numTreePieces/nIOProcessor;
+    if(nSkip == 0)
+	nSkip = 1;
+    if(thisIndex%nSkip != iPass) { // N.B. this will only be the case
+				   // for the first pass.
+	return;
+	}
+    writeTipsy(filename, dTime, dvFac, duTFac, bCool);
+    if(iPass < (nSkip - 1) && thisIndex < (numTreePieces - 1))
+	treeProxy[thisIndex+1].parallelWrite(iPass + 1, cb, filename, dTime,
+					     dvFac, duTFac, bCool);
+    contribute(cb);
+    }
+
 
 // Serial output of tipsy file.
 void TreePiece::serialWrite(const u_int64_t iPrevOffset, // previously written
