@@ -134,6 +134,7 @@ extern CProxy_TreePiece streamingProxy;
 extern CProxy_DataManager dMProxy;
 extern unsigned int numTreePieces;
 extern unsigned int particlesPerChare;
+extern int nIOProcessor;
 
 extern CProxy_PETreeMerger peTreeMergerProxy;
 extern CProxy_CkCacheManager cacheGravPart;
@@ -1422,6 +1423,12 @@ public:
 			const std::string& filename, const double dTime,
 			const double dvFac, const double duTFac,
 			const int bCool, const CkCallback& cb);
+	// control parallelism in the write
+	void parallelWrite(int iPass, const CkCallback& cb,
+			   const std::string& filename, const double dTime,
+			   const double dvFac, // scale velocities
+			   const double duTFac, // convert temperature
+			   const int bCool);
 	// serial output
 	void serialWrite(u_int64_t iPrevOffset, const std::string& filename,
 			 const double dTime,

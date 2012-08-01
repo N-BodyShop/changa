@@ -84,6 +84,7 @@ GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
 unsigned int numTreePieces;
 unsigned int particlesPerChare;
+int nIOProcessor;		// Number of pieces to be doing I/O at once
 int _prefetch;
 int _numChunks;
 int _randChunks;
@@ -499,6 +500,9 @@ Main::Main(CkArgMsg* m) {
 	param.bParaWrite = 1;
 	prmAddParam(prm, "bParaWrite", paramBool, &param.bParaWrite,sizeof(int),
 		    "paw", "enable/disable parallel writing of files");
+	nIOProcessor = 0;
+	prmAddParam(prm,"nIOProcessor",paramInt,&nIOProcessor, sizeof(int),
+		    "npio", "number of simultaneous I/O processors = 0 (all)");
 	param.achInFile[0] = '\0';
 	prmAddParam(prm,"achInFile",paramString,param.achInFile,
 		    256, "I", "input file name (or base file name)");

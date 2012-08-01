@@ -37,6 +37,7 @@ mainmodule ParallelGravity {
   readonly unsigned int numTreePieces;
   readonly unsigned int particlesPerChare;
   readonly unsigned int bucketSize;
+  readonly int nIOProcessor;
   readonly int lbcomm_cutoff_msgs;
   // jetley
   readonly int localNodesPerReq;
@@ -217,6 +218,11 @@ mainmodule ParallelGravity {
         const double dTime, const double dvFac,
         const double duTfac, const int bCool,
         const CkCallback& cb);
+    entry void parallelWrite(int iPass, const CkCallback& cb,
+			   const std::string& filename, const double dTime,
+			   const double dvFac, // scale velocities
+			   const double duTFac, // convert temperature
+			   const int bCool);
     entry void serialWrite(u_int64_t iPrevOffset, const std::string& filename,
         const double dTime, const double dvFac,
         const double duTfac, const int bCool,
