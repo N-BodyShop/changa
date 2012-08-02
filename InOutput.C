@@ -302,35 +302,53 @@ void TreePiece::loadTipsy(const std::string& filename,
 	    CkAbort("Invalid domain decomposition requested");
 	    }
 
-        unsigned int numLoadingTreePieces;
-        if (domainDecomposition == Oct_dec) {
-          numLoadingTreePieces = CkNumPes();
-          if (thisIndex >= CkNumPes()) {
-            myNumParticles = 0;
-            contribute(sizeof(OrientedBox<float>), &boundingBox,
-                       growOrientedBox_float,
-                       replyCB);
-            return;
-          }
+        bool skipLoad = false;
+
+        // check whether this tree piece should load from file
+#ifdef ROUND_ROBIN_WITH_OCT_DECOMP 
+        if(thisIndex >= CkNumPes()) skipLoad = true;
+#else
+        // this is not the best way to divide objects among PEs, 
+        // but it is how charm++ does it.
+        int numTreePiecesPerPE = numTreePieces/CkNumPes();
+        int rem = numTreePieces-numTreePiecesPerPE*CkNumPes();
+
+        if(thisIndex == 0){
+          CkPrintf("Loading: numTreePieces %d numTreePiecesPerPE %d heavier %d\n", numTreePieces, numTreePiecesPerPE, rem);
         }
-        else numLoadingTreePieces = numTreePieces;
-	
-	myNumParticles = nTotalParticles / numLoadingTreePieces;
-    
-	excess = nTotalParticles % numLoadingTreePieces;
-	startParticle = myNumParticles * thisIndex;
-	if(thisIndex < (int) excess) {
+
+        if(rem > 0){
+          numTreePiecesPerPE++;
+        }
+
+        if(thisIndex % numTreePiecesPerPE > 0) skipLoad = true;
+#endif
+
+        if(skipLoad){
+          myNumParticles = 0;
+          contribute(sizeof(OrientedBox<float>), &boundingBox,
+                     growOrientedBox_float,
+                     replyCB);
+          return;
+        }
+
+        // find your load offset into input file
+        int myIndex = CkMyPe();
+	myNumParticles = nTotalParticles / CkNumPes();
+	excess = nTotalParticles % CkNumPes();
+	startParticle = myNumParticles * myIndex;
+	if(myIndex < (int) excess) {
 	    myNumParticles++;
-	    startParticle += thisIndex;
+	    startParticle += myIndex;
 	    }
 	else {
 	    startParticle += excess;
 	    }
 	
 	if(verbosity > 2)
-		cerr << thisIndex << ": TreePiece: Taking " << myNumParticles
+		cerr << "[" << thisIndex << "] Taking " << myNumParticles
 		     << " of " << nTotalParticles
-		     << " particles, starting at " << startParticle << endl;
+		     << " particles: [" << startParticle << "," << startParticle+myNumParticles << ")" << endl;
 
 	// allocate an array for myParticles
 	nStore = (int)((myNumParticles + 2)*(1.0 + dExtraStore));
