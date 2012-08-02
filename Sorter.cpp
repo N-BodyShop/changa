@@ -327,9 +327,11 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
         decompRoots = new OctDecompNode[numDecompRoots];
         for(int i = 0; i < nodeKeys.size(); i++){
           decompRoots[i].key = nodeKeys[i];
-          //CkPrintf("init add %llx to activeNodes\n", decompRoots[i].key);
+          //CkPrintf("init add %llu to activeNodes\n", decompRoots[i].key);
           activeNodes->push_back(&decompRoots[i]);
         }
+
+        //CkPrintf("Sorter: initially %d keys\n", activeNodes->length());
 
         joinThreshold = particlesPerChare;
 	splitThreshold = (int)(joinThreshold * 1.5);
@@ -362,35 +364,19 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
 	keyBoundaries.reserve(numChares + 1);
 	keyBoundaries.push_back(firstPossibleKey);
 
-#ifdef DECOMPOSER_GROUP
-	decomposerProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#else
 	treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#endif
     } else {
       //send out all the decided keys to get final bin counts
       sorted = true;
       if(domainDecomposition == Oct_dec){
-#ifdef DECOMPOSER_GROUP
-	  decomposerProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(),
-				       0,
-				       CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#else
 	  treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(),
 				       0,
 				       CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#endif
       }
       else{
-#ifdef DECOMPOSER_GROUP
-	  decomposerProxy.evaluateBoundaries(&(*keyBoundaries.begin()),
-				       keyBoundaries.size(), 0,
-				       CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#else
 	  treeProxy.evaluateBoundaries(&(*keyBoundaries.begin()),
 				       keyBoundaries.size(), 0,
 				       CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#endif
       }
     }
   }
@@ -547,11 +533,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     startTimer = CmiWallTimer();
     Key *array = convertNodesToSplittersRefine(nodesOpened.size(),nodesOpened.getVec());
     //CkPrintf("convertNodesToSplittersRefine elts %d took %g s\n", nodesOpened.size()*arraySize, CmiWallTimer()-startTimer);
-#ifdef DECOMPOSER_GROUP
-    decomposerProxy.evaluateBoundaries(array, nodesOpened.size()*arraySize, 1<<refineLevel, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#else
     treeProxy.evaluateBoundaries(array, nodesOpened.size()*arraySize, 1<<refineLevel, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#endif
     delete[] array;
   }
   else{
@@ -718,6 +700,8 @@ bool Sorter::refineOctSplitting(int n, int *count) {
   activeNodes = save;
 
   tmpActiveNodes->length() = 0;
+
+  //CkPrintf("Sorter: refined to get %d keys\n", activeNodes->length());
 
   return (nodesOpened.size() > 0);
 
@@ -917,18 +901,10 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 		keyBoundaries.push_back(lastPossibleKey);
 		
 		//send out all the decided keys to get final bin counts
-#ifdef DECOMPOSER_GROUP
-		decomposerProxy.evaluateBoundaries(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#else
 		treeProxy.evaluateBoundaries(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#endif
 	} else {
           //send out the new guesses to be evaluated
-#ifdef DECOMPOSER_GROUP
-	    decomposerProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#else
 	    treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#endif
         }
 }
 

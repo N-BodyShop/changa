@@ -54,8 +54,8 @@ CProxy_Main mainChare;
 int verbosity;
 int bVDetails;
 CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
-#ifdef DECOMPOSER_GROUP
-CProxy_Decomposer decomposerProxy;
+#ifdef REDUCTION_HELPER
+CProxy_ReductionHelper reductionHelperProxy;
 #endif
 CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 CProxy_LvArray smoothProxy; // Proxy for smooth reductions
@@ -998,8 +998,8 @@ Main::Main(CkArgMsg* m) {
         prjgrp = CProxy_ProjectionsControl::ckNew();
 
 	treeProxy = pieces;
-#ifdef DECOMPOSER_GROUP
-        decomposerProxy = CProxy_Decomposer::ckNew();
+#ifdef REDUCTION_HELPER
+        reductionHelperProxy = CProxy_ReductionHelper::ckNew();
 #endif
 
 	opts.bindTo(treeProxy);
@@ -1389,10 +1389,6 @@ void Main::advanceBigStep(int iStep) {
 	      }
     }
 
-#ifdef DECOMPOSER_GROUP
-    decomposerProxy.acceptParticles(CkCallbackResumeThread());
-#endif
-
     // int lastActiveRung = activeRung;
 
     // determine largest timestep that needs a kick
@@ -1421,8 +1417,15 @@ void Main::advanceBigStep(int iStep) {
     /***** Resorting of particles and Domain Decomposition *****/
     //ckout << "Domain decomposition ...";
     CkPrintf("Domain decomposition ... ");
-    double startTime = CkWallTimer();
+    double startTime;
     bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
+#ifdef REDUCTION_HELPER
+    startTime = CkWallTimer();
+    reductionHelperProxy.countTreePieces(CkCallbackResumeThread());
+    CkPrintf("count %g seconds ... ", CmiWallTimer()-startTime);
+#endif
+
+    startTime = CkWallTimer();
     sorter.startSorting(dataManagerID, ddTolerance,
                         CkCallbackResumeThread(), bDoDD);
     /*
@@ -1820,11 +1823,6 @@ void Main::setupICs() {
 
   }
 
-#ifdef DECOMPOSER_GROUP
-  decomposerProxy.acceptParticles(CkCallbackResumeThread());
-  CkPrintf("Main: acceptParticles done\n");
-#endif
-  
   initialForces();
 }
 
@@ -1906,9 +1904,6 @@ Main::restart()
 	
 	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-#ifdef DECOMPOSER_GROUP
-	decomposerProxy.acceptParticles(CkCallbackResumeThread());
-#endif
 	if(param.bGasCooling) 
 	    initCooling();
 	mainChare.initialForces();
@@ -1949,6 +1944,13 @@ Main::initialForces()
   /***** Initial sorting of particles and Domain Decomposition *****/
   //ckout << "Initial domain decomposition ...";
   CkPrintf("Initial domain decomposition ... ");
+
+#ifdef REDUCTION_HELPER
+  startTime = CkWallTimer();
+  reductionHelperProxy.countTreePieces(CkCallbackResumeThread());
+  CkPrintf("count %g seconds ... ", CkWallTimer()-startTime);
+#endif
+
   startTime = CkWallTimer();
   sorter.startSorting(dataManagerID, ddTolerance,
 	 	      CkCallbackResumeThread(), true);
@@ -2293,8 +2295,8 @@ Main::doSimulation()
 	  // The following call is to get the particles in key order
 	  // before the sort.
 	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-#ifdef DECOMPOSER_GROUP
-          decomposerProxy.acceptParticles(CkCallbackResumeThread());
+#ifdef REDUCTION_HELPER
+          reductionHelperProxy.countTreePieces(CkCallbackResumeThread());
 #endif
 	  sorter.startSorting(dataManagerID, ddTolerance,
 			      CkCallbackResumeThread(), true);
@@ -2487,8 +2489,8 @@ void Main::writeOutput(int iStep)
 	// The following call is to get the particles in key order
 	// before the sort.
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-#ifdef DECOMPOSER_GROUP
-        decomposerProxy.acceptParticles(CkCallbackResumeThread());
+#ifdef REDUCTION_HELPER
+        reductionHelperProxy.countTreePieces(CkCallbackResumeThread());
 #endif
 	sorter.startSorting(dataManagerID, ddTolerance,
 			    CkCallbackResumeThread(), true);
@@ -2532,8 +2534,8 @@ void Main::writeOutput(int iStep)
 	    // The following call is to get the particles in key order
 	    // before the sort.
 	    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-#ifdef DECOMPOSER_GROUP
-	    decomposerProxy.acceptParticles(CkCallbackResumeThread());
+#ifdef REDUCTION_HELPER
+	    reductionHelperProxy.countTreePieces(CkCallbackResumeThread());
 #endif
 	    sorter.startSorting(dataManagerID, ddTolerance,
 				CkCallbackResumeThread(), true);
