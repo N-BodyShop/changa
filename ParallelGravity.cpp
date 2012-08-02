@@ -1984,8 +1984,10 @@ Main::restart()
 #ifdef DECOMPOSER_GROUP
 	decomposerProxy.acceptParticles(CkCallbackResumeThread());
 #endif
-	if(param.bGasCooling) 
+	if(param.bGasCooling || param.bStarForm) 
 	    initCooling();
+	if(param.bStarForm)
+	    initStarLog();
 	mainChare.initialForces();
 	}
     else {
