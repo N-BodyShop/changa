@@ -531,6 +531,20 @@ void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg)
   delete splittersMsg;
 }
 
+void ReductionHelper::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, const CkCallback& cb){
+  if(localTreePieces.presentTreePieces.size() == 0){
+    int numBins = skipEvery ? n - (n-1)/(skipEvery+1) - 1 : n - 1;
+    int *dummy = new int[numBins];
+    for(int i = 0; i < numBins; i++) dummy[i] = 0;
+    contribute(sizeof(int)*numBins, dummy, CkReduction::sum_int, cb);
+    return;
+  }
+
+  for(int i = 0; i < localTreePieces.presentTreePieces.size(); i++){
+    localTreePieces.presentTreePieces[i]->evaluateBoundaries(keys, n, skipEvery, cb);
+  }
+}
+
 /// Determine my part of the sorting histograms by counting the number
 /// of my particles in each bin.
 /// This routine assumes the particles in key order.
@@ -6097,14 +6111,12 @@ void TreePiece::clearMarkedBucketsAll(){
 
 #ifdef REDUCTION_HELPER
 ReductionHelper::ReductionHelper(){
-  myNumTreePieces = -1;
 }
 
 ReductionHelper::ReductionHelper(CkMigrateMessage *){
 }
 
 void ReductionHelper::pup(PUP::er &p){
-  p|myNumTreePieces;
 }
 
 void ReductionHelper::countTreePieces(const CkCallback &cb){
@@ -6137,7 +6149,7 @@ void ReductionHelper::reduceBinCounts(int nBins, int *binCounts, const CkCallbac
   }
 
   // is it time to contribute to PE-wide reduction yet?
-  if(numTreePiecesCheckedIn == myNumTreePieces){
+  if(numTreePiecesCheckedIn == localTreePieces.presentTreePieces.size()){
     //CkPrintf("ReductionHelper %d contributing to PE-level reduction\n", CkMyPe());
     numTreePiecesCheckedIn = 0;
     contribute(sizeof(int)*myBinCounts.size(), &myBinCounts[0], CkReduction::sum_int, cb);
@@ -6145,19 +6157,19 @@ void ReductionHelper::reduceBinCounts(int nBins, int *binCounts, const CkCallbac
 }
 
 void TreePieceCounter::addLocation(CkLocation &loc){
-  count++;
+  const int *indexData = loc.getIndex().data();
+  TreePiece *tp = treeProxy[indexData[0]].ckLocal();
+  presentTreePieces.push_back(tp);
 }
 
 void TreePieceCounter::reset() {
-  count = 0;
+  presentTreePieces.resize(0);
 }
 
 void ReductionHelper::senseLocalTreePieces(){
   localTreePieces.reset();                          
   CkLocMgr *mgr = treeProxy.ckLocMgr();        
   mgr->iterate(localTreePieces);              
-  // at this point, myNumTreePieces is set
-  myNumTreePieces = localTreePieces.count;
 }
 
 #endif

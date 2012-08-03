@@ -1797,7 +1797,7 @@ class TreePieceCounter : public CkLocIterator {
     void reset();
 
   public:
-    int count;
+    CkVec<TreePiece *> presentTreePieces;
 };
 
 
@@ -1810,6 +1810,7 @@ class ReductionHelper : public CBase_ReductionHelper {
 
   void countTreePieces(const CkCallback &cb);
   void reduceBinCounts(int nBins, int *binCounts, const CkCallback &cb);
+  void evaluateBoundaries(SFC::Key *keys, const int n, int isRefine, const CkCallback& cb);
 
   private:
   void senseLocalTreePieces();
@@ -1817,7 +1818,6 @@ class ReductionHelper : public CBase_ReductionHelper {
   private:
 
   CkVec<int> myBinCounts;
-  int myNumTreePieces;
   int numTreePiecesCheckedIn;
 
   TreePieceCounter localTreePieces;

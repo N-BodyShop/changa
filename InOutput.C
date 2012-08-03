@@ -303,26 +303,32 @@ void TreePiece::loadTipsy(const std::string& filename,
 	    }
 
         bool skipLoad = false;
+        int numLoadingPEs = CkNumPes();
 
         // check whether this tree piece should load from file
 #ifdef ROUND_ROBIN_WITH_OCT_DECOMP 
-        if(thisIndex >= CkNumPes()) skipLoad = true;
+        if(thisIndex >= numLoadingPEs) skipLoad = true;
 #else
         // this is not the best way to divide objects among PEs, 
         // but it is how charm++ does it.
-        int numTreePiecesPerPE = numTreePieces/CkNumPes();
-        int rem = numTreePieces-numTreePiecesPerPE*CkNumPes();
-
-        if(thisIndex == 0){
-          CkPrintf("Loading: numTreePieces %d numTreePiecesPerPE %d heavier %d\n", numTreePieces, numTreePiecesPerPE, rem);
-        }
+        int numTreePiecesPerPE = numTreePieces/numLoadingPEs;
+        int rem = numTreePieces-numTreePiecesPerPE*numLoadingPEs;
 
         if(rem > 0){
           numTreePiecesPerPE++;
+          numLoadingPEs = numTreePieces/numTreePiecesPerPE;
+          if(numTreePieces % numTreePiecesPerPE > 0) numLoadingPEs++;
         }
 
         if(thisIndex % numTreePiecesPerPE > 0) skipLoad = true;
 #endif
+
+        /*
+        if(thisIndex == 0){
+          CkPrintf("[%d] numTreePieces %d numTreePiecesPerPE %d numLoadingPEs %d\n", thisIndex, numTreePieces, numTreePiecesPerPE, numLoadingPEs);
+        }
+        */
+
 
         if(skipLoad){
           myNumParticles = 0;
@@ -334,8 +340,8 @@ void TreePiece::loadTipsy(const std::string& filename,
 
         // find your load offset into input file
         int myIndex = CkMyPe();
-	myNumParticles = nTotalParticles / CkNumPes();
-	excess = nTotalParticles % CkNumPes();
+	myNumParticles = nTotalParticles / numLoadingPEs;
+	excess = nTotalParticles % numLoadingPEs;
 	startParticle = myNumParticles * myIndex;
 	if(myIndex < (int) excess) {
 	    myNumParticles++;
@@ -344,9 +350,10 @@ void TreePiece::loadTipsy(const std::string& filename,
 	else {
 	    startParticle += excess;
 	    }
+
 	
 	if(verbosity > 2)
-		cerr << "[" << thisIndex << "] Taking " << myNumParticles
+		cerr << "TreePiece " << thisIndex << " PE " << CkMyPe() << " Taking " << myNumParticles
 		     << " of " << nTotalParticles
 		     << " particles: [" << startParticle << "," << startParticle+myNumParticles << ")" << endl;
 

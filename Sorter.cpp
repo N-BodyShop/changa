@@ -364,19 +364,35 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
 	keyBoundaries.reserve(numChares + 1);
 	keyBoundaries.push_back(firstPossibleKey);
 
+#ifdef REDUCTION_HELPER
+	reductionHelperProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#else
 	treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#endif
     } else {
       //send out all the decided keys to get final bin counts
       sorted = true;
       if(domainDecomposition == Oct_dec){
+#ifdef REDUCTION_HELPER
+	  reductionHelperProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(),
+				       0,
+				       CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#else
 	  treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(),
 				       0,
 				       CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#endif
       }
       else{
+#ifdef REDUCTION_HELPER
+	  reductionHelperProxy.evaluateBoundaries(&(*keyBoundaries.begin()),
+				       keyBoundaries.size(), 0,
+				       CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#else
 	  treeProxy.evaluateBoundaries(&(*keyBoundaries.begin()),
 				       keyBoundaries.size(), 0,
 				       CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#endif
       }
     }
   }
@@ -533,7 +549,11 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     startTimer = CmiWallTimer();
     Key *array = convertNodesToSplittersRefine(nodesOpened.size(),nodesOpened.getVec());
     //CkPrintf("convertNodesToSplittersRefine elts %d took %g s\n", nodesOpened.size()*arraySize, CmiWallTimer()-startTimer);
+#ifdef REDUCTION_HELPER
+    reductionHelperProxy.evaluateBoundaries(array, nodesOpened.size()*arraySize, 1<<refineLevel, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#else
     treeProxy.evaluateBoundaries(array, nodesOpened.size()*arraySize, 1<<refineLevel, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#endif
     delete[] array;
   }
   else{
@@ -901,10 +921,18 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 		keyBoundaries.push_back(lastPossibleKey);
 		
 		//send out all the decided keys to get final bin counts
+#ifdef REDUCTION_HELPER
+		reductionHelperProxy.evaluateBoundaries(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#else
 		treeProxy.evaluateBoundaries(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#endif
 	} else {
           //send out the new guesses to be evaluated
+#ifdef REDUCTION_HELPER
+	    reductionHelperProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#else
 	    treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#endif
         }
 }
 
