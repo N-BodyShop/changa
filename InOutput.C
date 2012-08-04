@@ -302,35 +302,60 @@ void TreePiece::loadTipsy(const std::string& filename,
 	    CkAbort("Invalid domain decomposition requested");
 	    }
 
-        unsigned int numLoadingTreePieces;
-        if (domainDecomposition == Oct_dec) {
-          numLoadingTreePieces = CkNumPes();
-          if (thisIndex >= CkNumPes()) {
-            myNumParticles = 0;
-            contribute(sizeof(OrientedBox<float>), &boundingBox,
-                       growOrientedBox_float,
-                       replyCB);
-            return;
-          }
+        bool skipLoad = false;
+        int numLoadingPEs = CkNumPes();
+
+        // check whether this tree piece should load from file
+#ifdef ROUND_ROBIN_WITH_OCT_DECOMP 
+        if(thisIndex >= numLoadingPEs) skipLoad = true;
+#else
+        // this is not the best way to divide objects among PEs, 
+        // but it is how charm++ does it.
+        int numTreePiecesPerPE = numTreePieces/numLoadingPEs;
+        int rem = numTreePieces-numTreePiecesPerPE*numLoadingPEs;
+
+        if(rem > 0){
+          numTreePiecesPerPE++;
+          numLoadingPEs = numTreePieces/numTreePiecesPerPE;
+          if(numTreePieces % numTreePiecesPerPE > 0) numLoadingPEs++;
         }
-        else numLoadingTreePieces = numTreePieces;
-	
-	myNumParticles = nTotalParticles / numLoadingTreePieces;
-    
-	excess = nTotalParticles % numLoadingTreePieces;
-	startParticle = myNumParticles * thisIndex;
-	if(thisIndex < (int) excess) {
+
+        if(thisIndex % numTreePiecesPerPE > 0) skipLoad = true;
+#endif
+
+        /*
+        if(thisIndex == 0){
+          CkPrintf("[%d] numTreePieces %d numTreePiecesPerPE %d numLoadingPEs %d\n", thisIndex, numTreePieces, numTreePiecesPerPE, numLoadingPEs);
+        }
+        */
+
+
+        if(skipLoad){
+          myNumParticles = 0;
+          contribute(sizeof(OrientedBox<float>), &boundingBox,
+                     growOrientedBox_float,
+                     replyCB);
+          return;
+        }
+
+        // find your load offset into input file
+        int myIndex = CkMyPe();
+	myNumParticles = nTotalParticles / numLoadingPEs;
+	excess = nTotalParticles % numLoadingPEs;
+	startParticle = myNumParticles * myIndex;
+	if(myIndex < (int) excess) {
 	    myNumParticles++;
-	    startParticle += thisIndex;
+	    startParticle += myIndex;
 	    }
 	else {
 	    startParticle += excess;
 	    }
+
 	
 	if(verbosity > 2)
-		cerr << thisIndex << ": TreePiece: Taking " << myNumParticles
+		cerr << "TreePiece " << thisIndex << " PE " << CkMyPe() << " Taking " << myNumParticles
 		     << " of " << nTotalParticles
-		     << " particles, starting at " << startParticle << endl;
+		     << " particles: [" << startParticle << "," << startParticle+myNumParticles << ")" << endl;
 
 	// allocate an array for myParticles
 	nStore = (int)((myNumParticles + 2)*(1.0 + dExtraStore));
@@ -508,10 +533,40 @@ void TreePiece::setupWrite(int iStage, // stage of scan
 	if(thisIndex == (int) numTreePieces-1)
 	    assert(nStartWrite+myNumParticles == nTotalParticles);
 	nSetupWriteStage = -1;	// reset for next time.
-	writeTipsy(filename, dTime, dvFac, duTFac, bCool);
-	contribute(0, 0, CkReduction::concat, cb);
+	parallelWrite(0, cb, filename, dTime, dvFac, duTFac, bCool);
 	}
     }
+
+/// @brief Control the parallelism in the tipsy output by breaking it
+/// up into nIOProcessor pieces.
+/// @param iPass What pass we are on in the parallel write.  The
+/// initial call should be with "0".
+
+void TreePiece::parallelWrite(int iPass, const CkCallback& cb,
+			      const std::string& filename, const double dTime,
+			      const double dvFac, // scale velocities
+			      const double duTFac, // convert temperature
+			      const int bCool)
+{
+    if(nIOProcessor == 0) {	// use them all
+	writeTipsy(filename, dTime, dvFac, duTFac, bCool);
+	contribute(cb);
+	return;
+	}
+    int nSkip = numTreePieces/nIOProcessor;
+    if(nSkip == 0)
+	nSkip = 1;
+    if(thisIndex%nSkip != iPass) { // N.B. this will only be the case
+				   // for the first pass.
+	return;
+	}
+    writeTipsy(filename, dTime, dvFac, duTFac, bCool);
+    if(iPass < (nSkip - 1) && thisIndex < (numTreePieces - 1))
+	treeProxy[thisIndex+1].parallelWrite(iPass + 1, cb, filename, dTime,
+					     dvFac, duTFac, bCool);
+    contribute(cb);
+    }
+
 
 // Serial output of tipsy file.
 void TreePiece::serialWrite(const u_int64_t iPrevOffset, // previously written
