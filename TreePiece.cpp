@@ -146,11 +146,7 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 		myParticles[i+1].key = generateKey(myParticles[i+1].position,
 						   boundingBox);
 	      }
-#ifndef DECOMPOSER_GROUP
-              // if using decomposer, must sort particles after
-              // they have been collected from tree pieces
 	      sort(&myParticles[1], &myParticles[myNumParticles+1]);
-#endif
 	}
 
 #if COSMO_DEBUG > 1
@@ -535,6 +531,20 @@ void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg)
   delete splittersMsg;
 }
 
+void ReductionHelper::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, const CkCallback& cb){
+  if(localTreePieces.presentTreePieces.size() == 0){
+    int numBins = skipEvery ? n - (n-1)/(skipEvery+1) - 1 : n - 1;
+    int *dummy = new int[numBins];
+    for(int i = 0; i < numBins; i++) dummy[i] = 0;
+    contribute(sizeof(int)*numBins, dummy, CkReduction::sum_int, cb);
+    return;
+  }
+
+  for(int i = 0; i < localTreePieces.presentTreePieces.size(); i++){
+    localTreePieces.presentTreePieces[i]->evaluateBoundaries(keys, n, skipEvery, cb);
+  }
+}
+
 /// Determine my part of the sorting histograms by counting the number
 /// of my particles in each bin.
 /// This routine assumes the particles in key order.
@@ -544,12 +554,7 @@ void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg)
 /// evaluated.  Hence the counts between the end of one group, and the
 /// start of the next group are not evaluated.  This feature is used
 /// by the Oct decomposition.
-#ifdef DECOMPOSER_GROUP
-void Decomposer::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, const CkCallback& cb)
-#else
-void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, const CkCallback& cb)
-#endif
-{
+void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, const CkCallback& cb){
 #ifdef COSMO_EVENT
   double startTimer = CmiWallTimer();
 #endif
@@ -561,49 +566,58 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
   */
 
   int numBins = skipEvery ? n - (n-1)/(skipEvery+1) - 1 : n - 1;
+
   //this array will contain the number of particles I own in each bin
+  int *myCounts;
+
+#ifdef REDUCTION_HELPER
+  myCounts = new int[numBins];
+#else
   //myBinCounts.assign(numBins, 0);
   myBinCounts.resize(numBins);
-  int *myCounts = myBinCounts.getVec();
+  myCounts = myBinCounts.getVec();
+#endif
+
   memset(myCounts, 0, numBins*sizeof(int));
+
   if (myNumParticles > 0) {
-  Key* endKeys = keys+n;
-  GravityParticle *binBegin = &myParticles[1];
-  GravityParticle *binEnd;
-  GravityParticle dummy;
-  //int binIter = 0;
-  //vector<int>::iterator binIter = myBinCounts.begin();
-  //vector<Key>::iterator keyIter = dm->boundaryKeys.begin();
-  Key* keyIter = lower_bound(keys, keys+n, binBegin->key);
-  int binIter = skipEvery ? (keyIter-keys) - (keyIter-keys-1) / (skipEvery+1) - 1: keyIter - keys - 1;
-  int skip = skipEvery ? skipEvery - (keyIter-keys-1) % (skipEvery+1) : -1;
-  if (binIter == -1) {
-    dummy.key = keys[0];
-    binBegin = upper_bound(binBegin, &myParticles[myNumParticles+1], dummy);
-    keyIter++;
-    binIter++;
-    skip = skipEvery ? skipEvery : -1;
-  }
-  for( ; keyIter != endKeys; ++keyIter) {
-    dummy.key = *keyIter;
-    /// find the last place I could put this splitter key in
-    /// my array of particles
-    binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1], dummy);
-    /// this tells me the number of particles between the
-    /// last two splitter keys
-    if (skip != 0) {
-      myCounts[binIter] = (binEnd - binBegin);
-      ++binIter;
-      --skip;
-    } else {
-      skip = skipEvery;
+    Key* endKeys = keys+n;
+    GravityParticle *binBegin = &myParticles[1];
+    GravityParticle *binEnd;
+    GravityParticle dummy;
+    //int binIter = 0;
+    //vector<int>::iterator binIter = myBinCounts.begin();
+    //vector<Key>::iterator keyIter = dm->boundaryKeys.begin();
+    Key* keyIter = lower_bound(keys, keys+n, binBegin->key);
+    int binIter = skipEvery ? (keyIter-keys) - (keyIter-keys-1) / (skipEvery+1) - 1: keyIter - keys - 1;
+    int skip = skipEvery ? skipEvery - (keyIter-keys-1) % (skipEvery+1) : -1;
+    if (binIter == -1) {
+      dummy.key = keys[0];
+      binBegin = upper_bound(binBegin, &myParticles[myNumParticles+1], dummy);
+      keyIter++;
+      binIter++;
+      skip = skipEvery ? skipEvery : -1;
     }
-    if(&myParticles[myNumParticles+1] <= binEnd) break;
-    binBegin = binEnd;
-  }
+    for( ; keyIter != endKeys; ++keyIter) {
+      dummy.key = *keyIter;
+      /// find the last place I could put this splitter key in
+      /// my array of particles
+      binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1], dummy);
+      /// this tells me the number of particles between the
+      /// last two splitter keys
+      if (skip != 0) {
+        myCounts[binIter] = (binEnd - binBegin);
+        ++binIter;
+        --skip;
+      } else {
+        skip = skipEvery;
+      }
+      if(&myParticles[myNumParticles+1] <= binEnd) break;
+      binBegin = binEnd;
+    }
 
 #ifdef COSMO_EVENTS
-  traceUserBracketEvent(boundaryEvaluationUE, startTimer, CmiWallTimer());
+    traceUserBracketEvent(boundaryEvaluationUE, startTimer, CmiWallTimer());
 #endif
   }
   
@@ -614,7 +628,17 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
   */
 
   //send my bin counts back in a reduction
+#ifdef REDUCTION_HELPER
+  /*
+  for(int i = 0; i < numBins; i++){
+    CkPrintf("[%d] TP::evaluateBoundaries bin %d key %llu count %d\n", thisIndex, i, keys[i], myCounts[i]);
+  }
+  */
+  reductionHelperProxy.ckLocalBranch()->reduceBinCounts(numBins, myCounts, cb);
+  delete[] myCounts;
+#else
   contribute(numBins * sizeof(int), myCounts, CkReduction::sum_int, cb);
+#endif
 }
 
 /// Once final splitter keys have been decided, I need to give my
@@ -726,46 +750,6 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
   delete m;
 }
 
-#ifdef DECOMPOSER_GROUP
-void TreePieceCounter::addLocation(CkLocation &loc){
-  const int *indexData = loc.getIndex().data();
-  TreePiece *tp = treeProxy[indexData[0]].ckLocal();
-  int np = tp->getNumParticles();
-  GravityParticle *ptr = NULL;
-  SFC::Key key;
-
-  if(np == 0){
-    key = SFC::Key(0);
-    key = ~key;
-  }
-  else{
-    ptr = tp->getParticles();
-    key = ptr[1].key;
-  }
-  submittedParticles.push_back(SubmittedParticleStruct(ptr, np, tp, key));
-  submittedParticleCount += np;
-  count++;
-}
-
-void TreePieceCounter::reset() {
-  count = 0;
-  submittedParticleCount = 0;
-  submittedParticles.clear();
-}
-
-void Decomposer::senseLocalTreePieces(){
-  localTreePieces.reset();                          
-  CkLocMgr *mgr = treeProxy.ckLocMgr();        
-  mgr->iterate(localTreePieces);              
-  // at this point, myNumTreePieces is set
-  myNumTreePieces = localTreePieces.count;
-}
-
-void TreePiece::setParticles(GravityParticle *ptr){
-  myParticles = ptr;
-}
-#endif
-
 /// Accept particles from other TreePieces once the sorting has finished
 void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
   //Need to get the place here again.  Getting the place in
@@ -782,10 +766,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
   if (myPlace == -2 || dm->particleCounts[myPlace] == 0) {
     // Special case where no particle is assigned to this TreePiece
     if (myNumParticles > 0){
-#ifndef DECOMPOSER_GROUP
-      // this has already been done in Decomposer::acceptParticles()
       delete[] myParticles;
-#endif
       myParticles = NULL;
     }
     myNumParticles = 0;
@@ -834,10 +815,8 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 
   if(dm->particleCounts[myPlace] == incomingParticlesArrived && incomingParticlesSelf) {
     //I've got all my particles
-#ifndef DECOMPOSER_GROUP
-    // this has already been done in Decomposer::acceptParticles()
     if (myNumParticles > 0) delete[] myParticles;
-#endif
+
     nStore = (int)((dm->particleCounts[myPlace] + 2)*(1.0 + dExtraStore));
     myParticles = new GravityParticle[nStore];
     myNumParticles = dm->particleCounts[myPlace];
@@ -6175,64 +6154,69 @@ void TreePiece::clearMarkedBucketsAll(){
 
 #endif
 
-#ifdef DECOMPOSER_GROUP
-
-Decomposer::Decomposer(){
-  myNumParticles = 0;
-  myNumTreePieces = -1;
+#ifdef REDUCTION_HELPER
+ReductionHelper::ReductionHelper(){
 }
 
-Decomposer::Decomposer(CkMigrateMessage *){
+ReductionHelper::ReductionHelper(CkMigrateMessage *){
 }
 
-void Decomposer::pup(PUP::er &p){
-  p|myNumParticles;
-  p|myNumTreePieces;
+void ReductionHelper::pup(PUP::er &p){
 }
 
-void Decomposer::acceptParticles(CkCallback &cb){
-  if(myNumParticles > 0){
-    delete[] myParticles;
-    myNumParticles = 0;
-  }
-
-  // This will fill up submittedParticles
+void ReductionHelper::countTreePieces(const CkCallback &cb){
+  // count the number of tree pieces on this PE
   senseLocalTreePieces();
+  // no tree pieces can have called "reduce()" at this point
+  numTreePiecesCheckedIn = 0;
 
-  myNumParticles = localTreePieces.submittedParticleCount;
+  //CkPrintf("ReductionHelper %d counted %d pieces on PE\n", CkMyPe(), myNumTreePieces);
 
-  myParticles = new GravityParticle[myNumParticles+2];
-  int nonEmptyTreePieces = 0;
-  int idx = 1;
-  // copy particles from resident tree pieces
-  for(int i = 0; i < localTreePieces.submittedParticles.size(); i++){
-    SubmittedParticleStruct &p = localTreePieces.submittedParticles[i];
-    if(p.nparticles == 0) continue;
-
-    nonEmptyTreePieces++;
-
-    memcpy(&myParticles[idx], p.particles+1, p.nparticles*sizeof(GravityParticle));
-
-    delete[] p.particles;
-    p.particles = &myParticles[idx-1];
-    p.tp->setParticles(p.particles);
-    idx += p.nparticles;
-  }
-
-  CkAssert(idx == myNumParticles+1);
-
-  // sort copied particles
-  if(myNumParticles > 0){
-    sort(&myParticles[1], &myParticles[myNumParticles+1]);
-  /*
-    for(int i = 0; i <= myNumParticles+1; i++){
-      CkPrintf("(%d) submitted part %d key %llx\n", CkMyPe(), i, myParticles[i].key);
-    }
-  */
-  }
-
-  contribute(0,0,CkReduction::concat,cb);
+  contribute(cb);
 }
+
+void ReductionHelper::reduceBinCounts(int nBins, int *binCounts, const CkCallback &cb){
+  numTreePiecesCheckedIn++;
+  
+  //CkPrintf("ReductionHelper %d recvd %d/%d contributions\n", CkMyPe(), numTreePiecesCheckedIn, myNumTreePieces);
+
+  if(numTreePiecesCheckedIn == 1){
+    // resize bin counts vector
+    myBinCounts.resize(nBins);
+    // initialize counts to contribution to reduction from first tree piece
+    memcpy(&myBinCounts[0], binCounts, nBins*sizeof(int));
+  }
+  else{
+    CkAssert(nBins == myBinCounts.size());
+    for(int i = 0; i < nBins; i++){
+      myBinCounts[i] += binCounts[i];
+    }
+  }
+
+  // is it time to contribute to PE-wide reduction yet?
+  if(numTreePiecesCheckedIn == localTreePieces.presentTreePieces.size()){
+    //CkPrintf("ReductionHelper %d contributing to PE-level reduction\n", CkMyPe());
+    numTreePiecesCheckedIn = 0;
+    contribute(sizeof(int)*myBinCounts.size(), &myBinCounts[0], CkReduction::sum_int, cb);
+  }
+}
+
+void TreePieceCounter::addLocation(CkLocation &loc){
+  const int *indexData = loc.getIndex().data();
+  TreePiece *tp = treeProxy[indexData[0]].ckLocal();
+  presentTreePieces.push_back(tp);
+}
+
+void TreePieceCounter::reset() {
+  presentTreePieces.resize(0);
+}
+
+void ReductionHelper::senseLocalTreePieces(){
+  localTreePieces.reset();                          
+  CkLocMgr *mgr = treeProxy.ckLocMgr();        
+  mgr->iterate(localTreePieces);              
+}
+
 #endif
 
 

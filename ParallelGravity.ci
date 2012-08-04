@@ -7,8 +7,8 @@ mainmodule ParallelGravity {
   readonly CProxy_Main mainChare;
   readonly int verbosity;
   readonly CProxy_TreePiece treeProxy;
-#ifdef DECOMPOSER_GROUP
-  readonly CProxy_Decomposer decomposerProxy;
+#ifdef REDUCTION_HELPER
+  readonly CProxy_ReductionHelper reductionHelperProxy;
 #endif
   readonly CProxy_LvArray lvProxy;
   readonly CProxy_LvArray smoothProxy;
@@ -37,6 +37,7 @@ mainmodule ParallelGravity {
   readonly unsigned int numTreePieces;
   readonly unsigned int particlesPerChare;
   readonly unsigned int bucketSize;
+  readonly int nIOProcessor;
   readonly int lbcomm_cutoff_msgs;
   // jetley
   readonly int localNodesPerReq;
@@ -151,12 +152,11 @@ mainmodule ParallelGravity {
     entry [notrace] void off(CkCallback);                     
   };                                                          
 
-#ifdef DECOMPOSER_GROUP
-  group [migratable] Decomposer {
-    entry Decomposer();
-
+#ifdef REDUCTION_HELPER
+  group [migratable] ReductionHelper {
+    entry ReductionHelper();
+    entry void countTreePieces(CkCallback &cb);
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
-    entry void acceptParticles(CkCallback &cb);
   };
 #endif
 
@@ -232,6 +232,11 @@ mainmodule ParallelGravity {
         const double dTime, const double dvFac,
         const double duTfac, const int bCool,
         const CkCallback& cb);
+    entry void parallelWrite(int iPass, const CkCallback& cb,
+			   const std::string& filename, const double dTime,
+			   const double dvFac, // scale velocities
+			   const double duTFac, // convert temperature
+			   const int bCool);
     entry void serialWrite(u_int64_t iPrevOffset, const std::string& filename,
         const double dTime, const double dvFac,
         const double duTfac, const int bCool,
@@ -256,9 +261,7 @@ mainmodule ParallelGravity {
     entry void ioShuffle(CkReductionMsg *msg);
     entry void ioAcceptSortedParticles(ParticleShuffleMsg *);
     entry void assignKeys(CkReductionMsg* m);
-#ifndef DECOMPOSER_GROUP
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
-#endif
     entry void unshuffleParticles(CkReductionMsg* m);
     entry void acceptSortedParticles(ParticleShuffleMsg *);
     //ORB
