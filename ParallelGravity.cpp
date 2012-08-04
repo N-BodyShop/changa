@@ -1949,8 +1949,10 @@ Main::restart()
 	
 	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-	if(param.bGasCooling) 
+	if(param.bGasCooling || param.bStarForm) 
 	    initCooling();
+	if(param.bStarForm)
+	    initStarLog();
 	mainChare.initialForces();
 	}
     else {
