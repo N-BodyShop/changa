@@ -6113,7 +6113,7 @@ void TreePiece::clearMarkedBucketsAll(){
 ReductionHelper::ReductionHelper(){
 }
 
-ReductionHelper::ReductionHelper(CkMigrateMessage *){
+ReductionHelper::ReductionHelper(CkMigrateMessage *m) : CBase_ReductionHelper(m){
 }
 
 void ReductionHelper::pup(PUP::er &p){
