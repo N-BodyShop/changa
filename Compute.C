@@ -2350,15 +2350,17 @@ bool RemoteTreeBuilder::work(GenericTreeNode *node, int level){
         node->makeEmpty();
         node->remoteIndex = tp->thisIndex;
       } 
-      else if(requestNonLocalMoments){
+      else{
         // Choose a piece from among the owners from which to
         // request moments in such a way that if I am a piece with a
         // higher index, I request from a higher indexed treepiece.
         node->remoteIndex = tp->getResponsibleIndex(first,last);
         // request the remote chare to fill this node with the Moments
-        CkEntryOptions opts;
-        opts.setPriority(-110000000);
-        streamingProxy[node->remoteIndex].requestRemoteMoments(node->getKey(), tp->thisIndex, &opts);
+        if(requestNonLocalMoments){
+          CkEntryOptions opts;
+          opts.setPriority(-110000000);
+          streamingProxy[node->remoteIndex].requestRemoteMoments(node->getKey(), tp->thisIndex, &opts);
+        }
       }
       registerNode(node);
       return false;
@@ -2458,8 +2460,9 @@ bool LocalTreeBuilder::work(GenericTreeNode *node, int level){
     node->remoteIndex = tp->thisIndex;
 
     registerNode(node);
-    // don't deliver MomentsToClients, since no
-    // one needs the moments of an empty node
+    // deliver MomentsToClients, since remote pieces don't know its
+    // an empty node.
+    tp->deliverMomentsToClients(node);
     return false;
   }
   else if(node->getType() == Internal){
@@ -2499,7 +2502,10 @@ void LocalTreeBuilder::doneChildren(GenericTreeNode *node, int level){
   if(node->getType() == Boundary){
     for(int i = 0; i < node->numChildren(); i++){
       GenericTreeNode *child = node->getChildren(i);
-      if(child->rungs > node->rungs) node->rungs = child->rungs;
+      if((child->getType() != NonLocal && child->getType() != NonLocalBucket
+	  && child->getType() != Empty)
+	 && child->rungs > node->rungs)
+	  node->rungs = child->rungs;
 #if INTERLIST_VER > 0
       node->numBucketsBeneath += child->numBucketsBeneath;
 #endif
@@ -2516,18 +2522,52 @@ void LocalTreeBuilder::doneChildren(GenericTreeNode *node, int level){
   else{
     for(int i = 0; i < node->numChildren(); i++){
       GenericTreeNode *child = node->getChildren(i);
-      tp->accumulateMomentsFromChild(node,child); 
+      if(child->getType() != Empty) {
+	  tp->accumulateMomentsFromChild(node,child); 
 
-      if(child->rungs > node->rungs) node->rungs = child->rungs;
+	  if(child->rungs > node->rungs) node->rungs = child->rungs;
 #if INTERLIST_VER > 0
-      node->numBucketsBeneath += child->numBucketsBeneath;
+	  node->numBucketsBeneath += child->numBucketsBeneath;
 #endif
+	  }
     }
 
     calculateRadiusFarthestCorner(node->moments, node->boundingBox);
 
     tp->deliverMomentsToClients(node);
   }
+}
+
+const char *typeString(NodeType type);
+bool LocalTreePrinter::work(GenericTreeNode *node, int level){
+  CkAssert(node != NULL);
+
+  file << node->getKey() 
+       << "[label=\"" << node->getKey() 
+       << " (" << typeString(node->getType()) << ")\\n"
+       << node->remoteIndex
+       << "\"]" << std::endl;
+
+  if(node->getType() == Internal ||
+     node->getType() == Boundary)
+    return true;
+  else 
+    return false;
+}
+
+void LocalTreePrinter::doneChildren(GenericTreeNode *node, int level){
+  for(int i = 0; i < node->numChildren(); i++){
+    CkAssert(node->getChildren(i) != NULL);
+    file << node->getKey() << " -> " << node->getChildren(i)->getKey() << std::endl;
+  }
+}
+
+void LocalTreePrinter::openFile(){
+  std::ostringstream oss;
+  oss << description << ".tree." << index << ".dot";
+  file.open(oss.str().c_str());
+  CkAssert(file.is_open());
+  file << "digraph " << description << index << "{" << std::endl;
 }
 
 #endif // INTERLIST_VER > 0

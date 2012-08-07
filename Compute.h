@@ -301,4 +301,28 @@ class LocalTreeBuilder : public TreeNodeWorker {
   void registerNode(GenericTreeNode *node);
 };
 
+class LocalTreePrinter : public TreeNodeWorker {
+  int index;
+  std::ofstream file;
+  string description;
+
+  void openFile();
+
+  public:
+  LocalTreePrinter(string d, int idx) : 
+    index(idx),
+    description(d)
+  {
+    openFile();
+  }
+
+  ~LocalTreePrinter(){
+    file << "}" << std::endl;
+    file.close();
+  }
+
+  bool work(GenericTreeNode *node, int level);
+  void doneChildren(GenericTreeNode *node, int level);
+};
+
 #endif
