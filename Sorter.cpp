@@ -275,6 +275,11 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
   Key k;
   BinaryTreeNode *rt;
 
+#ifdef REDUCTION_HELPER
+  // The reduction helper needs to know the number of pieces on each processor.
+  reductionHelperProxy.countTreePieces(CkCallbackResumeThread());
+#endif
+
   decompTime = CmiWallTimer();
     
   switch (domainDecomposition){

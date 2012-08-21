@@ -528,9 +528,10 @@ Main::Main(CkArgMsg* m) {
 	param.bParaWrite = 1;
 	prmAddParam(prm, "bParaWrite", paramBool, &param.bParaWrite,sizeof(int),
 		    "paw", "enable/disable parallel writing of files");
-	nIOProcessor = 0;
-	prmAddParam(prm,"nIOProcessor",paramInt,&nIOProcessor, sizeof(int),
-		    "npio", "number of simultaneous I/O processors = 0 (all)");
+	param.nIOProcessor = 0;
+	prmAddParam(prm,"nIOProcessor",paramInt,&param.nIOProcessor,
+		    sizeof(int), "npio",
+		    "number of simultaneous I/O processors = 0 (all)");
 	param.achInFile[0] = '\0';
 	prmAddParam(prm,"achInFile",paramString,param.achInFile,
 		    256, "I", "input file name (or base file name)");
@@ -741,10 +742,12 @@ Main::Main(CkArgMsg* m) {
 	if(!prmSpecified(prm, "dTheta2")) {
 	    param.dTheta2 = param.dTheta;
 	    }
+	/* set readonly/global variables */
 	theta = param.dTheta;
         thetaMono = theta*theta*theta*theta;
 	dExtraStore = param.dExtraStore;
 	_cacheLineDepth = param.cacheLineDepth;
+	nIOProcessor = param.nIOProcessor;
 	if(prmSpecified(prm, "bCannonical")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bCannonical parameter ignored; integration is always cannonical"
@@ -1450,15 +1453,9 @@ void Main::advanceBigStep(int iStep) {
 	memoryStats();
 
     /***** Resorting of particles and Domain Decomposition *****/
-    //ckout << "Domain decomposition ...";
     CkPrintf("Domain decomposition ... ");
     double startTime;
     bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
-#ifdef REDUCTION_HELPER
-    startTime = CkWallTimer();
-    reductionHelperProxy.countTreePieces(CkCallbackResumeThread());
-    CkPrintf("count %g seconds ... ", CmiWallTimer()-startTime);
-#endif
 
     startTime = CkWallTimer();
     sorter.startSorting(dataManagerID, ddTolerance,
@@ -1929,6 +1926,9 @@ Main::restart()
 	prmAddParam(prm,"iWallRunTime",paramInt,&param.iWallRunTime,
 		    sizeof(int),"wall",
 		    "<Maximum Wallclock time (in minutes) to run> = 0 = infinite");
+	prmAddParam(prm,"nIOProcessor",paramInt,&param.nIOProcessor,
+		    sizeof(int), "npio",
+		    "number of simultaneous I/O processors = 0 (all)");
 	prmAddParam(prm, "nBucket", paramInt, &bucketSize,
 		    sizeof(int),"b", "Particles per Bucket (default: 12)");
 	prmAddParam(prm, "nCacheDepth", paramInt, &param.cacheLineDepth,
@@ -1987,14 +1987,7 @@ Main::initialForces()
   // CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
 
   /***** Initial sorting of particles and Domain Decomposition *****/
-  //ckout << "Initial domain decomposition ...";
   CkPrintf("Initial domain decomposition ... ");
-
-#ifdef REDUCTION_HELPER
-  startTime = CkWallTimer();
-  reductionHelperProxy.countTreePieces(CkCallbackResumeThread());
-  CkPrintf("count %g seconds ... ", CkWallTimer()-startTime);
-#endif
 
   startTime = CkWallTimer();
   sorter.startSorting(dataManagerID, ddTolerance,
@@ -2341,9 +2334,6 @@ Main::doSimulation()
 	  // The following call is to get the particles in key order
 	  // before the sort.
 	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-#ifdef REDUCTION_HELPER
-          reductionHelperProxy.countTreePieces(CkCallbackResumeThread());
-#endif
 	  sorter.startSorting(dataManagerID, ddTolerance,
 			      CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
@@ -2602,9 +2592,6 @@ void Main::writeOutput(int iStep)
 	// The following call is to get the particles in key order
 	// before the sort.
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-#ifdef REDUCTION_HELPER
-        reductionHelperProxy.countTreePieces(CkCallbackResumeThread());
-#endif
 	sorter.startSorting(dataManagerID, ddTolerance,
 			    CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
@@ -2653,9 +2640,6 @@ void Main::writeOutput(int iStep)
 	    // The following call is to get the particles in key order
 	    // before the sort.
 	    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-#ifdef REDUCTION_HELPER
-	    reductionHelperProxy.countTreePieces(CkCallbackResumeThread());
-#endif
 	    sorter.startSorting(dataManagerID, ddTolerance,
 				CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
