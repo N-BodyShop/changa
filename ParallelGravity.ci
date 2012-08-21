@@ -7,8 +7,8 @@ mainmodule ParallelGravity {
   readonly CProxy_Main mainChare;
   readonly int verbosity;
   readonly CProxy_TreePiece treeProxy;
-#ifdef DECOMPOSER_GROUP
-  readonly CProxy_Decomposer decomposerProxy;
+#ifdef REDUCTION_HELPER
+  readonly CProxy_ReductionHelper reductionHelperProxy;
 #endif
   readonly CProxy_LvArray lvProxy;
   readonly CProxy_LvArray smoothProxy;
@@ -138,12 +138,11 @@ mainmodule ParallelGravity {
     entry [notrace] void off(CkCallback);                     
   };                                                          
 
-#ifdef DECOMPOSER_GROUP
-  group [migratable] Decomposer {
-    entry Decomposer();
-
+#ifdef REDUCTION_HELPER
+  group [migratable] ReductionHelper {
+    entry ReductionHelper();
+    entry void countTreePieces(CkCallback &cb);
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
-    entry void acceptParticles(CkCallback &cb);
   };
 #endif
 
@@ -247,9 +246,7 @@ mainmodule ParallelGravity {
     entry void ioShuffle(CkReductionMsg *msg);
     entry void ioAcceptSortedParticles(ParticleShuffleMsg *);
     entry void assignKeys(CkReductionMsg* m);
-#ifndef DECOMPOSER_GROUP
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
-#endif
     entry void unshuffleParticles(CkReductionMsg* m);
     entry void acceptSortedParticles(ParticleShuffleMsg *);
     //ORB
@@ -337,7 +334,11 @@ mainmodule ParallelGravity {
     entry void startMarkSmooth(CkPointer<SmoothParams>, CkCallback &cb);
     entry void finishNodeCache(CkCallback &cb);
 
-    entry [inline] void requestRemoteMoments(Tree::NodeKey key, int sender);
+    entry
+#ifndef MERGE_REMOTE_REQUESTS 
+    	  [inline]
+#endif
+	  void requestRemoteMoments(Tree::NodeKey key, int sender);
     entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, MultipoleMoments& moments, OrientedBox<double>& box, OrientedBox<double>& boxBall, unsigned int iParticleTypes);
 
     //entry void calculateGravityDirect(const CkCallback& cb);
