@@ -1415,15 +1415,9 @@ void Main::advanceBigStep(int iStep) {
 	memoryStats();
 
     /***** Resorting of particles and Domain Decomposition *****/
-    //ckout << "Domain decomposition ...";
     CkPrintf("Domain decomposition ... ");
     double startTime;
     bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
-#ifdef REDUCTION_HELPER
-    startTime = CkWallTimer();
-    reductionHelperProxy.countTreePieces(CkCallbackResumeThread());
-    CkPrintf("count %g seconds ... ", CmiWallTimer()-startTime);
-#endif
 
     startTime = CkWallTimer();
     sorter.startSorting(dataManagerID, ddTolerance,
@@ -1942,14 +1936,7 @@ Main::initialForces()
   // CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
 
   /***** Initial sorting of particles and Domain Decomposition *****/
-  //ckout << "Initial domain decomposition ...";
   CkPrintf("Initial domain decomposition ... ");
-
-#ifdef REDUCTION_HELPER
-  startTime = CkWallTimer();
-  reductionHelperProxy.countTreePieces(CkCallbackResumeThread());
-  CkPrintf("count %g seconds ... ", CkWallTimer()-startTime);
-#endif
 
   startTime = CkWallTimer();
   sorter.startSorting(dataManagerID, ddTolerance,
@@ -2295,9 +2282,6 @@ Main::doSimulation()
 	  // The following call is to get the particles in key order
 	  // before the sort.
 	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-#ifdef REDUCTION_HELPER
-          reductionHelperProxy.countTreePieces(CkCallbackResumeThread());
-#endif
 	  sorter.startSorting(dataManagerID, ddTolerance,
 			      CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
@@ -2489,9 +2473,6 @@ void Main::writeOutput(int iStep)
 	// The following call is to get the particles in key order
 	// before the sort.
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-#ifdef REDUCTION_HELPER
-        reductionHelperProxy.countTreePieces(CkCallbackResumeThread());
-#endif
 	sorter.startSorting(dataManagerID, ddTolerance,
 			    CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
@@ -2534,9 +2515,6 @@ void Main::writeOutput(int iStep)
 	    // The following call is to get the particles in key order
 	    // before the sort.
 	    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-#ifdef REDUCTION_HELPER
-	    reductionHelperProxy.countTreePieces(CkCallbackResumeThread());
-#endif
 	    sorter.startSorting(dataManagerID, ddTolerance,
 				CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY

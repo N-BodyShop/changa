@@ -149,9 +149,10 @@ mainmodule ParallelGravity {
   chare [migratable] Sorter {
     entry Sorter();
 
-    entry void startSorting(const CkGroupID& dataManagerID,
-        const double toler,
-        const CkCallback& cb, bool decompose);
+    entry [threaded]
+	void startSorting(const CkGroupID& dataManagerID,
+        		const double toler,
+        		const CkCallback& cb, bool decompose);
     entry void collectEvaluations(CkReductionMsg* m);
     entry void collectORBCounts(CkReductionMsg* m);
     entry void finishPhase(CkReductionMsg* m);
