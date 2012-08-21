@@ -500,9 +500,10 @@ Main::Main(CkArgMsg* m) {
 	param.bParaWrite = 1;
 	prmAddParam(prm, "bParaWrite", paramBool, &param.bParaWrite,sizeof(int),
 		    "paw", "enable/disable parallel writing of files");
-	nIOProcessor = 0;
-	prmAddParam(prm,"nIOProcessor",paramInt,&nIOProcessor, sizeof(int),
-		    "npio", "number of simultaneous I/O processors = 0 (all)");
+	param.nIOProcessor = 0;
+	prmAddParam(prm,"nIOProcessor",paramInt,&param.nIOProcessor,
+		    sizeof(int), "npio",
+		    "number of simultaneous I/O processors = 0 (all)");
 	param.achInFile[0] = '\0';
 	prmAddParam(prm,"achInFile",paramString,param.achInFile,
 		    256, "I", "input file name (or base file name)");
@@ -713,10 +714,12 @@ Main::Main(CkArgMsg* m) {
 	if(!prmSpecified(prm, "dTheta2")) {
 	    param.dTheta2 = param.dTheta;
 	    }
+	/* set readonly/global variables */
 	theta = param.dTheta;
         thetaMono = theta*theta*theta*theta;
 	dExtraStore = param.dExtraStore;
 	_cacheLineDepth = param.cacheLineDepth;
+	nIOProcessor = param.nIOProcessor;
 	if(prmSpecified(prm, "bCannonical")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bCannonical parameter ignored; integration is always cannonical"
@@ -1886,6 +1889,9 @@ Main::restart()
 	prmAddParam(prm,"iWallRunTime",paramInt,&param.iWallRunTime,
 		    sizeof(int),"wall",
 		    "<Maximum Wallclock time (in minutes) to run> = 0 = infinite");
+	prmAddParam(prm,"nIOProcessor",paramInt,&param.nIOProcessor,
+		    sizeof(int), "npio",
+		    "number of simultaneous I/O processors = 0 (all)");
 	prmAddParam(prm, "nBucket", paramInt, &bucketSize,
 		    sizeof(int),"b", "Particles per Bucket (default: 12)");
 	prmAddParam(prm, "nCacheDepth", paramInt, &param.cacheLineDepth,
