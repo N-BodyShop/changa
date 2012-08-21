@@ -160,9 +160,10 @@ mainmodule ParallelGravity {
   chare [migratable] Sorter {
     entry Sorter();
 
-    entry void startSorting(const CkGroupID& dataManagerID,
-        const double toler,
-        const CkCallback& cb, bool decompose);
+    entry [threaded]
+	void startSorting(const CkGroupID& dataManagerID,
+        		const double toler,
+        		const CkCallback& cb, bool decompose);
     entry void collectEvaluations(CkReductionMsg* m);
     entry void collectORBCounts(CkReductionMsg* m);
     entry void finishPhase(CkReductionMsg* m);
@@ -350,7 +351,11 @@ mainmodule ParallelGravity {
     entry void startMarkSmooth(CkPointer<SmoothParams>, CkCallback &cb);
     entry void finishNodeCache(CkCallback &cb);
 
-    entry [inline] void requestRemoteMoments(Tree::NodeKey key, int sender);
+    entry
+#ifndef MERGE_REMOTE_REQUESTS 
+    	  [inline]
+#endif
+	  void requestRemoteMoments(Tree::NodeKey key, int sender);
     entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, MultipoleMoments& moments, OrientedBox<double>& box, OrientedBox<double>& boxBall, unsigned int iParticleTypes);
 
     //entry void calculateGravityDirect(const CkCallback& cb);
