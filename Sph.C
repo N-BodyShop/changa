@@ -42,7 +42,8 @@ Main::initSph()
 	if(param.bGasCooling) {
 	    // Update cooling on the datamanager
 	    dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
-	    treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
+	    if(!bIsRestarting)  // Energy is already OK from checkpoint.
+		treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
 	    }
 	if(verbosity) CkPrintf("Initializing SPH forces\n");
 	nActiveSPH = nTotalSPH;

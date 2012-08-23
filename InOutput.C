@@ -302,35 +302,60 @@ void TreePiece::loadTipsy(const std::string& filename,
 	    CkAbort("Invalid domain decomposition requested");
 	    }
 
-        unsigned int numLoadingTreePieces;
-        if (domainDecomposition == Oct_dec) {
-          numLoadingTreePieces = CkNumPes();
-          if (thisIndex >= CkNumPes()) {
-            myNumParticles = 0;
-            contribute(sizeof(OrientedBox<float>), &boundingBox,
-                       growOrientedBox_float,
-                       replyCB);
-            return;
-          }
+        bool skipLoad = false;
+        int numLoadingPEs = CkNumPes();
+
+        // check whether this tree piece should load from file
+#ifdef ROUND_ROBIN_WITH_OCT_DECOMP 
+        if(thisIndex >= numLoadingPEs) skipLoad = true;
+#else
+        // this is not the best way to divide objects among PEs, 
+        // but it is how charm++ does it.
+        int numTreePiecesPerPE = numTreePieces/numLoadingPEs;
+        int rem = numTreePieces-numTreePiecesPerPE*numLoadingPEs;
+
+        if(rem > 0){
+          numTreePiecesPerPE++;
+          numLoadingPEs = numTreePieces/numTreePiecesPerPE;
+          if(numTreePieces % numTreePiecesPerPE > 0) numLoadingPEs++;
         }
-        else numLoadingTreePieces = numTreePieces;
-	
-	myNumParticles = nTotalParticles / numLoadingTreePieces;
-    
-	excess = nTotalParticles % numLoadingTreePieces;
-	startParticle = myNumParticles * thisIndex;
-	if(thisIndex < (int) excess) {
+
+        if(thisIndex % numTreePiecesPerPE > 0) skipLoad = true;
+#endif
+
+        /*
+        if(thisIndex == 0){
+          CkPrintf("[%d] numTreePieces %d numTreePiecesPerPE %d numLoadingPEs %d\n", thisIndex, numTreePieces, numTreePiecesPerPE, numLoadingPEs);
+        }
+        */
+
+
+        if(skipLoad){
+          myNumParticles = 0;
+          contribute(sizeof(OrientedBox<float>), &boundingBox,
+                     growOrientedBox_float,
+                     replyCB);
+          return;
+        }
+
+        // find your load offset into input file
+        int myIndex = CkMyPe();
+	myNumParticles = nTotalParticles / numLoadingPEs;
+	excess = nTotalParticles % numLoadingPEs;
+	startParticle = myNumParticles * myIndex;
+	if(myIndex < (int) excess) {
 	    myNumParticles++;
-	    startParticle += thisIndex;
+	    startParticle += myIndex;
 	    }
 	else {
 	    startParticle += excess;
 	    }
+
 	
 	if(verbosity > 2)
-		cerr << thisIndex << ": TreePiece: Taking " << myNumParticles
+		cerr << "TreePiece " << thisIndex << " PE " << CkMyPe() << " Taking " << myNumParticles
 		     << " of " << nTotalParticles
-		     << " particles, starting at " << startParticle << endl;
+		     << " particles: [" << startParticle << "," << startParticle+myNumParticles << ")" << endl;
 
 	// allocate an array for myParticles
 	nStore = (int)((myNumParticles + 2)*(1.0 + dExtraStore));
@@ -508,10 +533,40 @@ void TreePiece::setupWrite(int iStage, // stage of scan
 	if(thisIndex == (int) numTreePieces-1)
 	    assert(nStartWrite+myNumParticles == nTotalParticles);
 	nSetupWriteStage = -1;	// reset for next time.
-	writeTipsy(filename, dTime, dvFac, duTFac, bCool);
-	contribute(0, 0, CkReduction::concat, cb);
+	parallelWrite(0, cb, filename, dTime, dvFac, duTFac, bCool);
 	}
     }
+
+/// @brief Control the parallelism in the tipsy output by breaking it
+/// up into nIOProcessor pieces.
+/// @param iPass What pass we are on in the parallel write.  The
+/// initial call should be with "0".
+
+void TreePiece::parallelWrite(int iPass, const CkCallback& cb,
+			      const std::string& filename, const double dTime,
+			      const double dvFac, // scale velocities
+			      const double duTFac, // convert temperature
+			      const int bCool)
+{
+    if(nIOProcessor == 0) {	// use them all
+	writeTipsy(filename, dTime, dvFac, duTFac, bCool);
+	contribute(cb);
+	return;
+	}
+    int nSkip = numTreePieces/nIOProcessor;
+    if(nSkip == 0)
+	nSkip = 1;
+    if(thisIndex%nSkip != iPass) { // N.B. this will only be the case
+				   // for the first pass.
+	return;
+	}
+    writeTipsy(filename, dTime, dvFac, duTFac, bCool);
+    if(iPass < (nSkip - 1) && thisIndex < (numTreePieces - 1))
+	treeProxy[thisIndex+1].parallelWrite(iPass + 1, cb, filename, dTime,
+					     dvFac, duTFac, bCool);
+    contribute(cb);
+    }
+
 
 // Serial output of tipsy file.
 void TreePiece::serialWrite(const u_int64_t iPrevOffset, // previously written
@@ -1216,37 +1271,108 @@ void TreePiece::oneNodeOutArr(OutputParams& params,
     pieces[0].outputASCII(params, 0, cb);
     }
 
-void TreePiece::outputIOrderASCII(const string& fileName, const CkCallback& cb) {
+void TreePiece::outputIntASCII(OutputIntParams& params, // specifies
+						  // filename, format,
+						  // and quantity to
+						  // be output
+			    int bParaWrite,	  // Every processor
+						  // can write.  If
+						  // false, all output
+						  // gets sent to
+						  // treepiece "0" for writing.
+			    const CkCallback& cb) {
+  FILE* outfile;
+  int *aiOut;	// array for oneNode I/O
+  
   if(thisIndex==0) {
     if(verbosity > 2)
-      ckerr << "TreePiece " << thisIndex << ": Writing header for iOrder file"
-	    << endl;
-    FILE* outfile = fopen(fileName.c_str(), "w");
+      ckout << "TreePiece " << thisIndex << ": Writing header for output file" << endl;
+    outfile = fopen(params.fileName.c_str(), "w");
+    CkAssert(outfile != NULL);
     fprintf(outfile,"%d\n",(int) nTotalParticles);
     fclose(outfile);
   }
 	
   if(verbosity > 3)
-    ckerr << "TreePiece " << thisIndex << ": Writing iOrder to disk" << endl;
+    ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
 	
-  FILE* outfile = fopen(fileName.c_str(), "r+");
-  fseek(outfile, 0, SEEK_END);
-  
+  if(bParaWrite) {
+      outfile = fopen(params.fileName.c_str(), "r+");
+      if(outfile == NULL)
+	    ckerr << "Treepiece " << thisIndex << " failed to open "
+		  << params.fileName.c_str() << " : " << errno << endl;
+      CkAssert(outfile != NULL);
+      int result = fseek(outfile, 0L, SEEK_END);
+      CkAssert(result == 0);
+      }
+  else {
+      aiOut = new int[myNumParticles];
+      }
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
-      if(fprintf(outfile,"%d\n", myParticles[i].iOrder) < 0) {
-	  ckerr << "TreePiece " << thisIndex
-		<< ": Error writing iOrder to disk, aborting" << endl;
-	  CkAbort("IO Badness");
+      int iOut;
+      iOut = params.iValue(&myParticles[i]);
+      
+      if(bParaWrite) {
+	  if(fprintf(outfile,"%d\n", iOut) < 0) {
+	      ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
+	      CkAbort("Badness");
+	      }
+	  }
+      else {
+	  aiOut[i-1] = iOut;
 	  }
       }
-  
-  fclose(outfile);
-  if(thisIndex==(int)numTreePieces-1) {
-      cb.send();
+     
+  if(bParaWrite) {
+      int result = fclose(outfile);
+      if(result != 0)
+	    ckerr << "Bad close: " << strerror(errno) << endl;
+      CkAssert(result == 0);
+
+      if(thisIndex!=(int)numTreePieces-1) {
+	  pieces[thisIndex + 1].outputIntASCII(params, bParaWrite, cb);
+	  return;
+	  }
+
+      cb.send(); // We are done.
+      return;
       }
-  else
-      pieces[thisIndex + 1].outputIOrderASCII(fileName, cb);
-  }
+  else {
+      pieces[0].oneNodeOutIntArr(params, aiOut, myNumParticles, thisIndex, cb);
+      delete [] aiOut;
+      }
+}
+
+// Receives an array of ints to write out in ASCII format
+// Assumed to be called from outputIntASCII() and will continue with the
+// next tree piece.
+
+void TreePiece::oneNodeOutIntArr(OutputIntParams& params,
+			      int *aiOut, // array to be output
+			      int nPart, // length of adOut
+			      int iIndex, // treepiece which called me
+			      CkCallback& cb) 
+{
+    FILE* outfile = fopen(params.fileName.c_str(), "r+");
+    int result = fseek(outfile, 0L, SEEK_END);
+    CkAssert(result == 0);
+    for(int i = 0; i < nPart; ++i) {
+	if(fprintf(outfile,"%d\n",aiOut[i]) < 0) {
+	  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
+	    CkAbort("Badness");
+	    }
+	}
+    result = fclose(outfile);
+    if(result != 0)
+	ckerr << "Bad close: " << strerror(errno) << endl;
+    CkAssert(result == 0);
+    if(iIndex!=(int)numTreePieces-1) {
+	  pieces[iIndex + 1].outputIntASCII(params, 0, cb);
+	  return;
+	  }
+
+    cb.send(); // We are done.
+    }
 
 // Output a Tipsy XDR binary float array file.
 void TreePiece::outputBinary(OutputParams& params, // specifies

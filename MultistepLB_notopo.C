@@ -177,7 +177,7 @@ void MultistepLB_notopo::makeActiveProcessorList(BaseLB::LDStats *stats, int num
 
 /// Threshold between ORB3D (large) and greedy (small) as fraction of
 /// active particles
-#define LARGE_PHASE_THRESHOLD 0.10
+#define LARGE_PHASE_THRESHOLD 0.00
 
 /// @brief Implement load balancing: store loads and decide between
 /// ORB3D and greedy.
@@ -470,7 +470,7 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
 
 void MultistepLB_notopo::pup(PUP::er &p){
   CentralLB::pup(p);
-  if(p.isPacking()){
+  if(p.isPacking() && haveTPCentroids) {
     // if checkpointing, no need to 
     // keep around the centroid message
     delete tpmsg;
