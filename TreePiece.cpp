@@ -531,6 +531,7 @@ void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg)
   delete splittersMsg;
 }
 
+#ifdef REDUCTION_HELPER
 void ReductionHelper::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, const CkCallback& cb){
   if(localTreePieces.presentTreePieces.size() == 0){
     int numBins = skipEvery ? n - (n-1)/(skipEvery+1) - 1 : n - 1;
@@ -544,6 +545,7 @@ void ReductionHelper::evaluateBoundaries(SFC::Key* keys, const int n, int skipEv
     localTreePieces.presentTreePieces[i]->evaluateBoundaries(keys, n, skipEvery, cb);
   }
 }
+#endif
 
 /// Determine my part of the sorting histograms by counting the number
 /// of my particles in each bin.
