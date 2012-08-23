@@ -1129,7 +1129,9 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	naccreted = 0;
 	aFac = a;
 	dCosmoDenFac = aFac*aFac*aFac;
-	dCosmoVel2Fac = aFac*aFac*aFac*aFac;
+	// XXX The following line will introduce bugs.  Because the
+	// expansion velocity is not accounted for.
+	dCosmoVel2Fac = aFac*aFac; // rdot^2 = velocity^2/dCosmoVel2Fac
 
         mdotsum = 0.;
         weat = -1e37;
@@ -1220,7 +1222,7 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
 	/* Eddington Limit Rate */
 	mdotEdd = s.dBHSinkEddFactor*p->mass;
-	CkPrintf("BHSink %d:  Time: %g mdot (BH): %g mdot (Edd): %g a: %g\n",
+	CkPrintf("BHSink %d:  Time: %.8f mdot (BH): %g mdot (Edd): %g a: %g\n",
 	       p->iOrder,dTime,mdot,mdotEdd, a);
 
 	if (mdot > mdotEdd) mdot = mdotEdd;
@@ -1400,7 +1402,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
         weat = -1e37;
 	aFac = a;
 	dCosmoDenFac = aFac*aFac*aFac;
-        dCosmoVel2Fac = aFac*aFac*aFac*aFac;
+        dCosmoVel2Fac = aFac*aFac;
 
 	mdot = p->dMDot();	
 	if (p->dDeltaM() == 0.0) {
@@ -1639,7 +1641,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 
 	  dtEff = s.dSinkCurrentDelta*pow(0.5,p->rung-s.iSinkCurrentRung);
 	  dmAvg = mdot*dtEff;    
-	  CkPrintf("BHSink %d:  Delta: %g Time: %g dm: %g dE %g\n",
+	  CkPrintf("BHSink %d:  Delta: %g Time: %.8f dm: %g dE %g\n",
 		   p->iOrder,dtEff,dTime,dm,dE);
 
 	  /* Recalculate Normalization */
@@ -1752,8 +1754,8 @@ void BHIdentifySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	 AND 
 	 * within the softening  */
 
-	if(p->iOrder > q->iOrder) {
-	    if(p->iOrder > q->iEaterOrder()) {
+	if(p->iOrder < q->iOrder) {
+	    if(p->iOrder < q->iEaterOrder() || q->iEaterOrder() == 0) {
 		q->iEaterOrder() = p->iOrder;
 		CkPrintf("BHSink MergeID %d will be eaten by %d \n",
 			 q->iOrder,p->iOrder);
