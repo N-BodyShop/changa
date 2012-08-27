@@ -6119,6 +6119,7 @@ ReductionHelper::ReductionHelper(CkMigrateMessage *m) : CBase_ReductionHelper(m)
 }
 
 void ReductionHelper::pup(PUP::er &p){
+    CBase_ReductionHelper::pup(p);
 }
 
 void ReductionHelper::countTreePieces(const CkCallback &cb){
