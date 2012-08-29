@@ -8,8 +8,8 @@ mainmodule ParallelGravity {
   readonly CProxy_Main mainChare;
   readonly int verbosity;
   readonly CProxy_TreePiece treeProxy;
-  readonly CProxy_CompletionDetector detector;
-  readonly CProxy_CompletionDetector shuffleDetector;
+  //  readonly CProxy_CompletionDetector detector;
+  //  readonly CProxy_CompletionDetector shuffleDetector;
   readonly CProxy_ArrayMeshStreamer
             <CkCacheRequest, int> aggregator;
   readonly CProxy_ArrayMeshStreamer
@@ -157,8 +157,7 @@ mainmodule ParallelGravity {
     entry Sorter();
 
     entry void startSorting(const CkGroupID& dataManagerID,
-        const double toler,
-        const CkCallback& cb, bool decompose);
+        const double toler, bool decompose);
     entry void collectEvaluations(CkReductionMsg* m);
     entry void collectORBCounts(CkReductionMsg* m);
     entry void finishPhase(CkReductionMsg* m);
@@ -173,8 +172,7 @@ mainmodule ParallelGravity {
 				      const CkCallback& cb);
     entry void acceptFinalKeys(const SFC::Key keys[n],
         const int responsible[n - 1],
-        unsigned int bins[n - 1], const int n,
-        const CkCallback& cb);
+        unsigned int bins[n - 1], const int n);
     entry void collectSplitters(CkReductionMsg* m);
     //entry [local,exclusive] void notifyPresence(int index, Tree::GenericTreeNode *root);
     entry void combineLocalTrees(CkReductionMsg *m);

@@ -139,8 +139,14 @@ void Main::FormStars(double dTime, double dDelta)
     // decomposition.  If not, this could be avoided.
     //
     double tolerance = 0.01;	// tolerance for domain decomposition
-    sorter.startSorting(dataManagerID, tolerance,
-                        CkCallbackResumeThread(), true);
+
+    CkCallback sortingCallback(CkCallback::resumeThread); 
+    shuffleAggregator.init(treeProxy, CkCallbackResumeThread(), 
+                           sortingCallback, INT_MIN, false); 	  
+
+    sorter.startSorting(dataManagerID, tolerance, true);
+    sortingCallback.thread_delay();
+
 #ifdef PUSH_GRAVITY
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
 #else

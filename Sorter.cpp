@@ -258,16 +258,14 @@ void Sorter::collectORBCounts(CkReductionMsg* m){
  * \brief Overall start of domain decomposition
  * @param dataManagerID ID of data manager group
  * @param toler Tolerance within which to have the same number of particles
- * @param cb Callback for when we are done.
  * @param decompose Are we still deciding on decomposition?
  */
 void Sorter::startSorting(const CkGroupID& dataManagerID,
-			  const double toler, const CkCallback& cb, bool decompose) {
+			  const double toler, bool decompose) {
 	numChares = numTreePieces;
 	dm = CProxy_DataManager(dataManagerID);
 	tolerance = toler;
 	sorted = false;
-	sortingCallback = cb;
 	numIterations = 0;
 	
   //Changed for implementing OCT decomposition
@@ -627,7 +625,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 
     CkPrintf(" histogramming %g sec ... used chares %d ... \n", CmiWallTimer()-decompTime, nodeKeys.size());
     
-    dm.acceptFinalKeys(&(*splitters.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), splitters.size(), sortingCallback);
+    dm.acceptFinalKeys(&(*splitters.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), splitters.size());
     numIterations = 0;
     sorted = false;
     return;
@@ -870,7 +868,7 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	
 	if(sorted) { //true after the final keys have been binned
 		//send out the final splitters and responsibility table
-		dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()) + 1, keyBoundaries.size(), sortingCallback);
+		dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()) + 1, keyBoundaries.size());
 		numIterations = 0;
 		sorted = false;
 		return;

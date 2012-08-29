@@ -198,7 +198,7 @@ public:
 	/// @param responsible vector of which piece is responsible
 	/// for which interval
 	/// @param bins number of particles in each interval.
-	void acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb);
+	void acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n);
 	void pup(PUP::er& p);
 
 #ifdef CUDA

@@ -98,7 +98,7 @@ class Sorter : public Chare {
 	/// The DataManager I broadcast candidate keys to.
 	CProxy_DataManager dm;
 	/// The callback for when the sort is complete.
-	CkCallback sortingCallback;
+  	CkCallback sortingCallback;
 
 	/// Variables to decide when to split or join a TreePiece in the Oct decomposition
 	int joinThreshold, splitThreshold;
@@ -168,7 +168,7 @@ public:
 	 tree building phase.
 	 The callback will receive a CkReductionMsg containing no data.
 	 */
-	void startSorting(const CkGroupID& dataManagerID, const double toler, const CkCallback& cb, bool decompose);
+	void startSorting(const CkGroupID& dataManagerID, const double toler, bool decompose);
 	void convertNodesToSplitters();
 	SFC::Key * convertNodesToSplittersRefine(int num, NodeKey* keys);
 	//void convertNodesToSplittersNoZeros(int num, NodeKey* nodeKeys, CkVec<int> &zero);

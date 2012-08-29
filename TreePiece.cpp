@@ -65,8 +65,6 @@ int TreeStuff::maxBucketSize;
 extern CkGroupID ckMulticastGrpId;
 #endif
 
-extern CProxy_ArrayMeshStreamer <ParticleShuffle,int> shuffleAggregator;  
-
 #ifdef CELL
 int workRequestOut = 0;
 CkVec<CellComputation> ewaldMessages;
@@ -631,7 +629,7 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
   }
 
   tpLoad = getObjTime();
-  callback = *static_cast<CkCallback *>(m->getData());
+  //  callback = *static_cast<CkCallback *>(m->getData());
 
   //find my responsibility
   myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex.data[0]) - dm->responsibleIndex.begin();
@@ -845,7 +843,9 @@ void TreePiece::expectingNoSortedParticles(){
   }
   // We better not have a message with particles for us
   CkAssert(incomingParticlesArrived == 0);
-  contribute(0, 0, CkReduction::concat, callback);
+  //  contribute(0, 0, CkReduction::concat, callback);
+  ((ArrayMeshStreamer<ParticleShuffle, int> *)  shuffleAggregator.ckLocalBranch())->done();
+
 }
 
 void TreePiece::receivedSortedParticles(){
@@ -942,7 +942,9 @@ void TreePiece::receivedSortedParticles(){
     }
   
     //CkPrintf("[%d] accepted %d particles\n", thisIndex.data[0], myNumParticles);
-    contribute(0, 0, CkReduction::concat, callback);
+    // contribute(0, 0, CkReduction::concat, callback);
+    ((ArrayMeshStreamer<ParticleShuffle, int> *)  shuffleAggregator.ckLocalBranch())->done();
+
   }
 }
 
@@ -6078,6 +6080,8 @@ void TreePiece::finishWalk()
 #endif
 
   gravityProxy[thisIndex.data[0]].ckLocal()->contribute(cbGravity);
+  ((ArrayMeshStreamer<CkCacheRequest, int> *)aggregator.ckLocalBranch())->done();
+
 }
 
 #if INTERLIST_VER > 0

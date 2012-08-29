@@ -133,6 +133,8 @@ extern CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 extern CProxy_LvArray smoothProxy;  // Proxy for smooth reduction
 extern CProxy_LvArray gravityProxy; // Proxy for gravity reduction
 extern CProxy_TreePiece streamingProxy;
+extern CProxy_ArrayMeshStreamer<ParticleShuffle,int> shuffleAggregator;  
+extern CProxy_ArrayMeshStreamer<CkCacheRequest, int> aggregator;
 extern CProxy_DataManager dMProxy;
 extern unsigned int numTreePieces;
 extern unsigned int particlesPerChare;

@@ -9,8 +9,6 @@
 #include "Compute.h"
 #include "TreeWalk.h"
 
-extern CProxy_ArrayMeshStreamer<CkCacheRequest, int> aggregator;
-
 EntryTypeGravityParticle::EntryTypeGravityParticle() {
   CkCacheFillMsg msg(0);
 }
