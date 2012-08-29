@@ -1596,9 +1596,6 @@ void Main::advanceBigStep(int iStep) {
 #endif
 	}
     
-    // just one contributor was registered - finish streaming
-    ( (ArrayMeshStreamer<CkCacheRequest, int> *)aggregator.ckLocalBranch())->done();
-
 #if COSMO_STATS > 0
     /********* TreePiece Statistics ********/
     ckerr << "Total statistics iteration " << iStep << "/";
@@ -2104,8 +2101,6 @@ Main::initialForces()
         turnProjectionsOff();
 #endif
       }
-  // just one contributor was registered - finish streaming
-  ( (ArrayMeshStreamer<CkCacheRequest, int> *)aggregator.ckLocalBranch())->done();
 
   treeProxy.finishNodeCache(CkCallbackResumeThread());
 

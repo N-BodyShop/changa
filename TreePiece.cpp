@@ -748,6 +748,7 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
     receivedSortedParticles();
   }
 
+  ((ArrayMeshStreamer<ParticleShuffle, int> *)  shuffleAggregator.ckLocalBranch())->done();
   delete m;
 }
 
@@ -844,8 +845,6 @@ void TreePiece::expectingNoSortedParticles(){
   // We better not have a message with particles for us
   CkAssert(incomingParticlesArrived == 0);
   //  contribute(0, 0, CkReduction::concat, callback);
-  ((ArrayMeshStreamer<ParticleShuffle, int> *)  shuffleAggregator.ckLocalBranch())->done();
-
 }
 
 void TreePiece::receivedSortedParticles(){
@@ -943,7 +942,6 @@ void TreePiece::receivedSortedParticles(){
   
     //CkPrintf("[%d] accepted %d particles\n", thisIndex.data[0], myNumParticles);
     // contribute(0, 0, CkReduction::concat, callback);
-    ((ArrayMeshStreamer<ParticleShuffle, int> *)  shuffleAggregator.ckLocalBranch())->done();
 
   }
 }
