@@ -1503,13 +1503,15 @@ public:
  * @param dDelta Base timestep
  * @param dAccFac Acceleration scaling for cosmology
  * @param dCosmoFac Cosmo scaling for Courant
+ * @param dhMinOverSoft minimum smoothing parameter.
  * @param cb Callback function reduces currrent maximum rung
  */
   void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      int bSphStep, int bViscosityLimitdt,
-		       double dEta, double dEtaCourant, double dEtauDot,
-		       double dDelta, double dAccFac,
-		       double dCosmoFac, const CkCallback& cb);
+	      double dEta, double dEtaCourant, double dEtauDot,
+	      double dDelta, double dAccFac,
+	      double dCosmoFac, double dhMinOverSoft,
+	      const CkCallback& cb);
   /**
    * @brief Truncate the highest rung
    * @param iCurrMaxRung new maximum rung.
