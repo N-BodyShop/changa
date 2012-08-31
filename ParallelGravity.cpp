@@ -2699,6 +2699,8 @@ int Main::adjust(int iKickRung)
 		     param.bSphStep, param.bViscosityLimitdt,
 		     param.dEta, param.dEtaCourant,
 		     param.dEtauDot, param.dDelta, 1.0/(a*a*a), a,
+		     0.0,  /* set to dhMinOverSoft if we implement
+			      Gasoline's LowerSoundSpeed. */
 		     CkCallbackResumeThread((void*&)msg));
 
     int iCurrMaxRung = ((int *)msg->getData())[0];

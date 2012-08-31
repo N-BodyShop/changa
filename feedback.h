@@ -159,9 +159,10 @@ class DistStellarFeedbackSmoothParams : public SmoothParams
     DistStellarFeedbackSmoothParams() {}
     DistStellarFeedbackSmoothParams(int _iType, int am, CSM csm, double _dTime,
 				    double _gamma, Fdbk *feedback) : 
-    fb (*feedback) {
+				    fb (*feedback) {
 	iType = _iType;
 	activeRung = am;
+	bUseBallMax = 0;
 	gamma = _gamma;
 	dTime = _dTime;
 	if(csm->bComove) {

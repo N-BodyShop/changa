@@ -531,6 +531,7 @@ void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg)
   delete splittersMsg;
 }
 
+#ifdef REDUCTION_HELPER
 void ReductionHelper::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, const CkCallback& cb){
   if(localTreePieces.presentTreePieces.size() == 0){
     int numBins = skipEvery ? n - (n-1)/(skipEvery+1) - 1 : n - 1;
@@ -544,6 +545,7 @@ void ReductionHelper::evaluateBoundaries(SFC::Key* keys, const int n, int skipEv
     localTreePieces.presentTreePieces[i]->evaluateBoundaries(keys, n, skipEvery, cb);
   }
 }
+#endif
 
 /// Determine my part of the sorting histograms by counting the number
 /// of my particles in each bin.
@@ -1031,13 +1033,15 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
  * @param dDelta Base timestep
  * @param dAccFac Acceleration scaling for cosmology
  * @param dCosmoFac Cosmo scaling for Courant
+ * @param dhMinOverSoft minimum smoothing parameter.
  * @param cb Callback function reduces currrent maximum rung
  */
 void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 		       int bSphStep, int bViscosityLimitdt,
 		       double dEta, double dEtaCourant, double dEtauDot,
 		       double dDelta, double dAccFac,
-		       double dCosmoFac, const CkCallback& cb) {
+		       double dCosmoFac, double dhMinOverSoft,
+		       const CkCallback& cb) {
   int iCurrMaxRung = 0;
   int nMaxRung = 0;  // number of particles in maximum rung
   
@@ -1047,7 +1051,16 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
       CkAssert(p->soft > 0.0);
       double dTIdeal = dDelta;
       if(bEpsAccStep) {
-	  double dt = dEta*sqrt(p->soft/(dAccFac*p->treeAcceleration.length()));
+	  double acc = dAccFac*p->treeAcceleration.length();
+	  double dt;
+	  if(p->isGas() && dhMinOverSoft < 1 && p->fBall < 2.0*p->soft) {
+	      if(p->fBall > 2.0*dhMinOverSoft*p->soft)
+		  dt = dEta*sqrt(0.5*p->fBall/acc);
+	      else
+		  dt = dEta*sqrt(dhMinOverSoft*p->soft/acc);
+	      }
+	  else
+	      dt = dEta*sqrt(p->soft/acc);
 	  if(dt < dTIdeal)
 	      dTIdeal = dt;
 	  }
@@ -6145,6 +6158,7 @@ ReductionHelper::ReductionHelper(CkMigrateMessage *m) : CBase_ReductionHelper(m)
 }
 
 void ReductionHelper::pup(PUP::er &p){
+    CBase_ReductionHelper::pup(p);
 }
 
 void ReductionHelper::countTreePieces(const CkCallback &cb){

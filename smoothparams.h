@@ -11,6 +11,7 @@ class SmoothParams : public PUP::able
     int iType;	// Particle type to smooth over;  "TreeActive"
     int activeRung;
     TreePiece *tp;
+    int bUseBallMax;	// limit fBall growth
     /// Function to apply to smooth particle and neighbors
     virtual void fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *nList) = 0;
     /// Particle is doing a neighbor search
@@ -28,7 +29,8 @@ class SmoothParams : public PUP::able
     /// @param p2 Incoming particle to combine.
     virtual void combSmoothCache(GravityParticle *p1,
 				 ExternalSmoothParticle *p2) = 0;
-    SmoothParams() { tp = NULL; }
+    // limit ball growth by default
+    SmoothParams() { bUseBallMax = 1; tp = NULL; }
     PUPable_abstract(SmoothParams);
     SmoothParams(CkMigrateMessage *m) : PUP::able(m) { tp = NULL; }
     /// required method for remote entry call.
@@ -36,6 +38,7 @@ class SmoothParams : public PUP::able
         PUP::able::pup(p);//Call base class
         p|iType;
         p|activeRung;
+	p|bUseBallMax;
 	}
     };
 #endif
