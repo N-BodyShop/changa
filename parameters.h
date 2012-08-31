@@ -101,6 +101,7 @@ typedef struct parameters {
     int bOverwrite;
     int bParaRead;
     int bParaWrite;
+    int nIOProcessor;
     char achInFile[256];
     char achOutName[256];
     int bStaticTest;
@@ -207,6 +208,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.bOverwrite;
     p|param.bParaRead;
     p|param.bParaWrite;
+    p|param.nIOProcessor;
     p(param.achInFile, 256);
     p(param.achOutName, 256);
     p|param.bStaticTest;
