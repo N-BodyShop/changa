@@ -110,6 +110,7 @@ class SinkFormTestSmoothParams : public SmoothParams
 	iType = _iType;
 	activeRung = am;
 	s = _s;
+	bUseBallMax = 0;
     }
     PUPable_decl(SinkFormTestSmoothParams);
     SinkFormTestSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
@@ -151,6 +152,7 @@ class SinkFormSmoothParams : public SmoothParams
 	    a = 1.0;
 	    }
 	s = _s;
+	bUseBallMax = 0;
     }
     PUPable_decl(SinkFormSmoothParams);
     SinkFormSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
@@ -351,6 +353,7 @@ class SinkAccreteTestSmoothParams : public SmoothParams
 	iType = _iType;
 	activeRung = am;
 	s = _s;
+	bUseBallMax = 0;
     }
     PUPable_decl(SinkAccreteTestSmoothParams);
     SinkAccreteTestSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
@@ -411,6 +414,7 @@ class SinkAccreteSmoothParams : public SmoothParams
 	iType = _iType;
 	activeRung = am;
 	s = _s;
+	bUseBallMax = 0;
     }
     PUPable_decl(SinkAccreteSmoothParams);
     SinkAccreteSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
