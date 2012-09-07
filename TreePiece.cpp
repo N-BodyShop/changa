@@ -2532,7 +2532,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
   // assign the incoming moments to the node
   if (type == Empty) node->makeEmpty();
   else {
-    if (type == Bucket) {
+    if (type == Bucket || type == NonLocalBucket) {
       node->setType(NonLocalBucket);
       node->firstParticle = firstParticle;
       node->lastParticle = firstParticle + numParticles - 1;
