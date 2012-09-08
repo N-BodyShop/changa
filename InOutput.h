@@ -465,6 +465,29 @@ class coolontimeOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output Supernova heating rate
+class ESNRateOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+	if (p->isGas()) return p->fESNrate();
+	else if(p->isStar()) return p->fStarESNrate();
+	else return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+    {CkAssert(0); return 0.0;}
+ public:
+    ESNRateOutputParams() {}
+    ESNRateOutputParams(std::string achFileName) { 
+	bVector = 0; 
+	fileName = achFileName+".ESNRate";
+	}
+    PUPable_decl(ESNRateOutputParams);
+    ESNRateOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
 /// @brief Output timesteps.
 class DtOutputParams : public OutputParams
 {

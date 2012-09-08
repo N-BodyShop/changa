@@ -2539,6 +2539,7 @@ void Main::writeOutput(int iStep)
     OxOutputParams pOxOut(string(achFile)+"");
     FeOutputParams pFeOut(string(achFile)+"");
     coolontimeOutputParams pcoolontimeOut(string(achFile)+"");
+    ESNRateOutputParams pESNRateOut(string(achFile)+"");
 #ifndef COOLING_NONE
     Cool0OutputParams pCool0Out(string(achFile) + "." + COOL_ARRAY0_EXT);
     Cool1OutputParams pCool1Out(string(achFile) + "." + COOL_ARRAY1_EXT);
@@ -2560,6 +2561,8 @@ void Main::writeOutput(int iStep)
 	    treeProxy[0].outputBinary(pFeOut, param.bParaWrite,
 				      CkCallbackResumeThread());
 	    treeProxy[0].outputBinary(pcoolontimeOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	    treeProxy[0].outputBinary(pESNRateOut, param.bParaWrite,
 				      CkCallbackResumeThread());
 	    }
 #ifndef COOLING_NONE
@@ -2598,6 +2601,8 @@ void Main::writeOutput(int iStep)
 				     CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pcoolontimeOut, param.bParaWrite,
 				     CkCallbackResumeThread());
+	    treeProxy[0].outputASCII(pESNRateOut, param.bParaWrite,
+				      CkCallbackResumeThread());
 	    }
 #ifndef COOLING_NONE
 	if(param.bGasCooling) {
