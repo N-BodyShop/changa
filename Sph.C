@@ -857,8 +857,8 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		visc = SWITCHCOMBINE(p,q)* \
 		    (alpha*(pc + q->c()) + beta*2*absmu)	\
 		    *absmu/(pDensity + q->fDensity); \
-		PACTIVE( p->PdV() += rq*(PRES_PDV(pPoverRho2,q->PoverRho2()) + 0.5*visc)*dvdotdr; ); \
-		QACTIVE( q->PdV() += rp*(PRES_PDV(q->PoverRho2(),pPoverRho2) + 0.5*visc)*dvdotdr; ); \
+		PACTIVE( p->PdV() += rq*(PRES_PDV(pPoverRho2,qPoverRho2) + 0.5*visc)*dvdotdr; ); \
+		QACTIVE( q->PdV() += rp*(PRES_PDV(qPoverRho2,pPoverRho2) + 0.5*visc)*dvdotdr; ); \
 		PACTIVE( Accp = (PRES_ACC(pPoverRho2f,qPoverRho2f) + visc); ); \
 		QACTIVE( Accq = (PRES_ACC(qPoverRho2f,pPoverRho2f) + visc); ); \
 		} \
