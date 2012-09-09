@@ -338,8 +338,10 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
 
         //CkPrintf("Sorter: initially %d keys\n", activeNodes->length());
 
-        joinThreshold = particlesPerChare;
-	splitThreshold = (int)(joinThreshold * 1.5);
+	if(!joinThreshold) {
+	    joinThreshold = particlesPerChare;
+	    splitThreshold = (int)(joinThreshold * 1.5);
+	    }
         
         //Convert the Node Keys to the splitter keys which will be sent to histogram
         convertNodesToSplitters();
@@ -564,12 +566,22 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   else{
     sorted=true;
     splitters.clear();
-    nodeKeys.clear();
-    binCounts.clear();
-    for(int i = 0; i < numDecompRoots; i++){
-      OctDecompNode *droot = &decompRoots[i];
-      droot->combine(joinThreshold,nodeKeys,binCounts);
-    }
+    do {
+	// Convert Oct domains to splitters, ensuring that we do not exceed
+	// the number of available TreePieces.
+	nodeKeys.clear();
+	binCounts.clear();
+	for(int i = 0; i < numDecompRoots; i++){
+	    OctDecompNode *droot = &decompRoots[i];
+	    droot->combine(joinThreshold,nodeKeys,binCounts);
+	    }
+	if(binCounts.size() > numTreePieces) {
+	    CkPrintf("bumping joinThreshold: %d, size: %d\n", joinThreshold,
+		     binCounts.size());
+	    joinThreshold = (int) (1.1*joinThreshold);
+	    }
+	}
+    while(binCounts.size() > numTreePieces);
     convertNodesToSplitters();
 
 #if 0
