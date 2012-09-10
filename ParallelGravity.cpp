@@ -918,6 +918,11 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "Enabling SPH" << endl;
 	    param.bDoGas = 1;
 	    }
+	if(param.bDoGas && !(param.bGasCooling || param.bGasAdiabatic
+			     || param.bGasIsothermal)) {
+	    ckerr << "Defaulting to Adiabatic Gas Model." << endl;
+	    param.bGasAdiabatic = 1;
+	    }
 #include "physconst.h"
 	/*
 	 ** Convert kboltz/mhydrogen to system units, assuming that
