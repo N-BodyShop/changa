@@ -107,6 +107,7 @@ OBJECTS = Reductions.o DataManager.o TreePiece.o Sorter.o \
 	  moments.o MultistepLB.o Orb3dLB.o Orb3dLB_notopo.o \
 	  MultistepLB_notopo.o PETreeMerger.o \
 	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
+	  cha_commitid.o \
 	@OBJECTS_COOLING@
 
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \
@@ -138,6 +139,14 @@ $(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmo
 $(TARGET).%: $(TARGET)
 	mv $(TARGET) $@
 	mv charmrun charmrun.$*
+
+
+VERSION: VERSION.new
+	./commitid.sh
+
+cha_commitid.c: VERSION
+	echo "const char * const Cha_CommitID = \"`cat VERSION`\";" > $@
+cha_commitid.o: CC=$(CHARMC)
 
 $(STRUCTURES_PATH)/libTipsy.a:
 	cd $(STRUCTURES_PATH); $(MAKE) libTipsy.a
