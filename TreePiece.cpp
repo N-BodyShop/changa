@@ -1034,6 +1034,7 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
  * @param dAccFac Acceleration scaling for cosmology
  * @param dCosmoFac Cosmo scaling for Courant
  * @param dhMinOverSoft minimum smoothing parameter.
+ * @param bDoGas We are calculating gas forces.
  * @param cb Callback function reduces currrent maximum rung
  */
 void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
@@ -1041,6 +1042,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 		       double dEta, double dEtaCourant, double dEtauDot,
 		       double dDelta, double dAccFac,
 		       double dCosmoFac, double dhMinOverSoft,
+		       int bDoGas,
 		       const CkCallback& cb) {
   int iCurrMaxRung = 0;
   int nMaxRung = 0;  // number of particles in maximum rung
@@ -1053,7 +1055,8 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
       if(bEpsAccStep) {
 	  double acc = dAccFac*p->treeAcceleration.length();
 	  double dt;
-	  if(p->isGas() && dhMinOverSoft < 1 && p->fBall < 2.0*p->soft) {
+	  if(bDoGas && p->isGas() && dhMinOverSoft < 1
+	     && p->fBall < 2.0*p->soft) {
 	      if(p->fBall > 2.0*dhMinOverSoft*p->soft)
 		  dt = dEta*sqrt(0.5*p->fBall/acc);
 	      else
@@ -1092,8 +1095,11 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	  }
 
       int iNewRung = DtToRung(dDelta, dTIdeal);
-      if(iNewRung > MAXRUNG)
+      if(iNewRung > MAXRUNG) {
+	CkError("dt: %g, soft: %g, accel: %g\n", dTIdeal, p->soft,
+		p->treeAcceleration.length());
 	CkAbort("Timestep too small");
+	}
       if(iNewRung < iKickRung) iNewRung = iKickRung;
       if(iNewRung > iCurrMaxRung) {
 	  iCurrMaxRung = iNewRung;

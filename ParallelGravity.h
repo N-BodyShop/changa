@@ -1504,6 +1504,7 @@ public:
  * @param dAccFac Acceleration scaling for cosmology
  * @param dCosmoFac Cosmo scaling for Courant
  * @param dhMinOverSoft minimum smoothing parameter.
+ * @param bDoGas We are calculating gas forces.
  * @param cb Callback function reduces currrent maximum rung
  */
   void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
@@ -1511,6 +1512,7 @@ public:
 	      double dEta, double dEtaCourant, double dEtauDot,
 	      double dDelta, double dAccFac,
 	      double dCosmoFac, double dhMinOverSoft,
+	      int bDoGas,
 	      const CkCallback& cb);
   /**
    * @brief Truncate the highest rung

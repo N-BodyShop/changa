@@ -890,6 +890,8 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "Enabling SPH" << endl;
 	    param.bDoGas = 1;
 	    }
+	if(!param.bDoGas)
+		param.bSphStep = 0;
 #include "physconst.h"
 	/*
 	 ** Convert kboltz/mhydrogen to system units, assuming that
@@ -2562,6 +2564,7 @@ int Main::adjust(int iKickRung)
 		     param.dEtauDot, param.dDelta, 1.0/(a*a*a), a,
 		     0.0,  /* set to dhMinOverSoft if we implement
 			      Gasoline's LowerSoundSpeed. */
+		     param.bDoGas,
 		     CkCallbackResumeThread((void*&)msg));
 
     int iCurrMaxRung = ((int *)msg->getData())[0];

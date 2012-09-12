@@ -274,6 +274,7 @@ mainmodule ParallelGravity {
 	      double dEta, double dEtaCourant, double dEtauDot,
 	      double dDelta, double dAccFac,
 	      double dCosmoFac, double dhMinOverSoft,
+	      int bDoGas,
 	      const CkCallback& cb);
     entry void truncateRung(int iCurrMaxRung, const CkCallback& cb);
     entry void rungStats(const CkCallback& cb);
