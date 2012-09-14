@@ -1571,17 +1571,27 @@ void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump)
 					    //message is the parameters
 
     dfClearImage( &in, Image, &nImage);
+    
+    //
+    // XXX The dump frame expects arrays of fixed structures.  This is
+    // incompatible with ChaNGa's design of having gas and star data
+    // as "decorations".  For now we copy the needed data from the
+    // decoration into an unused attribute of the base structure
+    // (GravityParticle) so it will be available to dumpframe.
+    // Fortunately, we have only one attribute to copy over
+    // (fTimeForm), and we have a temporary, dtGrav, that can be
+    // overloaded.
+    //
+    for (int i=1; i<=myNumParticles; ++i)
+	if(myParticles[i].isStar())
+	    myParticles[i].dtGrav = myParticles[i].fTimeForm();
+    
     GravityParticle *p = &(myParticles[1]);
 
     dfRenderParticlesInit( &in, TYPE_GAS, TYPE_DARK, TYPE_STAR,
 			   &p->position[0], &p->mass, &p->soft, &p->fBall,
 			   &p->iType,
-#ifdef GASOLINE
-			   &p->fTimeForm,
-#else
-		/* N.B. This is just a place holder when we don't have stars */
-			   &p->mass,
-#endif
+			   &p->dtGrav, // actually fTimeForm; see above
 			   p, sizeof(*p) );
     dfRenderParticles( &in, Image, p, myNumParticles);
     
