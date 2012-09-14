@@ -110,8 +110,9 @@ class GenericList{
 
 #endif
 
-/// Object to bookkeep a "Double Walk".  Examples include FMM like walks.
-
+///
+/// @brief Hold state where both the targets and sources are tree walked.
+///
 class DoubleWalkState : public State {
   public:
   CheckList *chklists;
