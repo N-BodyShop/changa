@@ -110,6 +110,8 @@ class GenericList{
 
 #endif
 
+/// Object to bookkeep a "Double Walk".  Examples include FMM like walks.
+
 class DoubleWalkState : public State {
   public:
   CheckList *chklists;

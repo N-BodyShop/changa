@@ -1521,7 +1521,7 @@ public:
   void buildORBTree(GenericTreeNode * node, int level);
   /**************************/
 
-	/// Request the TreePiece to send back later the moments for this node.
+	/// Request the moments for this node.
 	void requestRemoteMoments(const Tree::NodeKey key, int sender);
 	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments, const OrientedBox<double>& box, const OrientedBox<double>& boxBall, const unsigned int iParticleTypes);
 
