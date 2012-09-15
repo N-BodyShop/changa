@@ -48,6 +48,7 @@
 
 extern char *optarg;
 extern int optind, opterr, optopt;
+extern const char * const Cha_CommitID;
 
 using namespace std;
 
@@ -955,6 +956,7 @@ Main::Main(CkArgMsg* m) {
 	    }
 	else { useTree = Binary_Oct; }
 
+	ckerr << "ChaNGa version 2.0, commit " << Cha_CommitID << endl;
         ckerr << "Running on " << CkNumPes() << " processors/ "<< CkNumNodes() <<" nodes with " << numTreePieces << " TreePieces" << endl;
 
 	if (verbosity) 
@@ -1785,7 +1787,7 @@ void Main::setupICs() {
   if(!ofsLog)
       CkAbort("Error opening log file.");
       
-  ofsLog << "# Starting ChaNGa version 2.00 UW" << endl;
+  ofsLog << "# Starting ChaNGa version 2.00 commit " << Cha_CommitID << endl;
   ofsLog << "#";		// Output command line
   for (int i = 0; i < args->argc; i++)
       ofsLog << " " << args->argv[i];

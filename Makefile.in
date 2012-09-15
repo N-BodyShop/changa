@@ -108,6 +108,7 @@ OBJECTS = Reductions.o DataManager.o TreePiece.o Sorter.o \
 	  MultistepLB_notopo.o PETreeMerger.o \
 	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
 	  feedback.o imf.o supernova.o supernovaia.o starlifetime.o \
+	  cha_commitid.o \
 	  @OBJECTS_COOLING@
 
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \
@@ -139,6 +140,14 @@ $(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmo
 $(TARGET).%: $(TARGET)
 	mv $(TARGET) $@
 	mv charmrun charmrun.$*
+
+
+VERSION: VERSION.new
+	./commitid.sh
+
+cha_commitid.c: VERSION
+	echo "const char * const Cha_CommitID = \"`cat VERSION`\";" > $@
+cha_commitid.o: CC=$(CHARMC)
 
 $(STRUCTURES_PATH)/libTipsy.a:
 	cd $(STRUCTURES_PATH); $(MAKE) libTipsy.a
@@ -207,6 +216,6 @@ depends:
 # without the inclusion of charm headers.
 # $CHARM_DIR/bin/charmc  -M -MM -MG -O3 -I../utility/structures -I../ParallelGravity -Wall  -DCOSMO_STATS=1   -DCOSMO_DEBUG=2  -DINTERLIST_VER=2 -DHEXADECAPOLE     -DCACHE_TREE -DCOOLING_NONE  Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c moments.c MultistepLB.C Orb3dLB.C TreeWalk.C Compute.C | while read i;do echo $i| awk -F' ' '{for (i=1;i<NF;++i) print $i" \\"}';echo;done|grep -v "charm/bin" > Makefile.dep
 
-.PHONY: all docs dist clean depend test
+.PHONY: all docs dist clean depend test VERSION.new
 
 include Makefile.dep
