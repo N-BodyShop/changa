@@ -309,11 +309,35 @@ void TreePiece::loadTipsy(const std::string& filename,
 #ifdef ROUND_ROBIN_WITH_OCT_DECOMP 
         if(thisIndex >= numLoadingPEs) skipLoad = true;
 #else
-        // this is not the best way to divide objects among PEs, 
-        // but it is how charm++ does it.
         int numTreePiecesPerPE = numTreePieces/numLoadingPEs;
         int rem = numTreePieces-numTreePiecesPerPE*numLoadingPEs;
 
+#ifdef DEFAULT_ARRAY_MAP
+        if (rem > 0) {
+          int sizeSmallBlock = numTreePiecesPerPE; 
+          int numLargeBlocks = rem; 
+          int sizeLargeBlock = numTreePiecesPerPE + 1; 
+          int largeBlockBound = numLargeBlocks * sizeLargeBlock; 
+          
+          if (thisIndex < largeBlockBound) {
+            if (thisIndex % sizeLargeBlock > 0) {
+              skipLoad = true; 
+            }
+          }
+          else {
+            if ((thisIndex - largeBlockBound) % sizeSmallBlock > 0) {
+              skipLoad = true; 
+            }
+          }
+        }
+        else {
+          if ( (thisIndex % numTreePiecesPerPE) > 0) {
+            skipLoad = true; 
+          }
+        }
+#else
+        // this is not the best way to divide objects among PEs, 
+        // but it is how charm++ BlockMap does it.
         if(rem > 0){
           numTreePiecesPerPE++;
           numLoadingPEs = numTreePieces/numTreePiecesPerPE;
@@ -321,6 +345,7 @@ void TreePiece::loadTipsy(const std::string& filename,
         }
 
         if(thisIndex % numTreePiecesPerPE > 0) skipLoad = true;
+#endif
 #endif
 
         /*

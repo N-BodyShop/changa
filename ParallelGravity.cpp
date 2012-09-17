@@ -992,7 +992,11 @@ Main::Main(CkArgMsg* m) {
 	  opts.setMap(myMap);
 	} else {
 #endif
-	  CProxy_BlockMap myMap=CProxy_BlockMap::ckNew(); 
+#ifdef DEFAULT_ARRAY_MAP
+          CProxy_DefaultArrayMap myMap = CProxy_DefaultArrayMap::ckNew();
+#else
+	  CProxy_BlockMap myMap = CProxy_BlockMap::ckNew(); 
+#endif
 	  opts.setMap(myMap);
 #ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	}
