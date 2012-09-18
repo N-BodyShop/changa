@@ -433,5 +433,3 @@ void Orb3dLB::halveNodes(int nodestart, int nodeend, int &nodemid){
 }
 
 #include "Orb3dLB.def.h"
-
-/*@}*/

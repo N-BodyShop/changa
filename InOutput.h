@@ -1,9 +1,17 @@
+/// @file InOutput.h
+/// Declarations for I/O implemenatation.
 #ifndef __INOUTPUT_H
 #define __INOUTPUT_H
 
 class OutputParams;
+class OutputIntParams;
 #include "DataManager.h"
 
+/// @brief Base class for output parameters.
+///
+/// This is an abstract class from which an output parameter class can
+/// be derived.  Derived classes need to implement dValue() or
+/// vValue() which returns the value to be output for a given particle.
 class OutputParams : public PUP::able 
 {
  public:
@@ -23,6 +31,7 @@ class OutputParams : public PUP::able
 	}
     };
 
+/// @brief Output accelerations.
 class AccOutputParams : public OutputParams
 {
  public:
@@ -38,6 +47,7 @@ class AccOutputParams : public OutputParams
 	}
     };
     
+/// @brief Output densities.
 class DenOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p) {return p->fDensity;}
@@ -53,6 +63,7 @@ class DenOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output smoothing lengths.
 class HsmOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p) {return 0.5*p->fBall;}
@@ -68,6 +79,7 @@ class HsmOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output pressure.
 class PresOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -89,6 +101,7 @@ class PresOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output divergence of velocity.
 class DivVOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -110,6 +123,7 @@ class DivVOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output pressure times change in volume.
 class PDVOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -131,6 +145,7 @@ class PDVOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output artificial viscosity mumax.
 class MuMaxOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -152,6 +167,7 @@ class MuMaxOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output value of Balsara switch.
 class BSwOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -173,6 +189,7 @@ class BSwOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output sound speed.
 class CsOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -194,6 +211,7 @@ class CsOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output the cooling rate.
 class EDotOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -221,6 +239,7 @@ class EDotOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output the value in cool_array0.
 class Cool0OutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -244,6 +263,7 @@ class Cool0OutputParams : public OutputParams
 	}
     };
 
+/// @brief Output the value in cool_array1.
 class Cool1OutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -267,6 +287,7 @@ class Cool1OutputParams : public OutputParams
 	}
     };
 
+/// @brief Output the value in cool_array2.
 class Cool2OutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -290,6 +311,7 @@ class Cool2OutputParams : public OutputParams
 	}
     };
 
+/// @brief Output timesteps.
 class DtOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -312,21 +334,77 @@ class DtOutputParams : public OutputParams
 	}
     };
 
-class RungOutputParams : public OutputParams
+/// @brief Base class for Integer output parameters.
+///
+/// This is an abstract class from which an output parameter class can
+/// be derived.  Derived classes need to implement iValue()
+/// which returns the value to be output for a given particle.
+class OutputIntParams : public PUP::able 
 {
-    virtual double dValue(GravityParticle *p)
-    {
-	return (double) p->rung;
+ public:
+    virtual int iValue(GravityParticle *p) = 0;
+    std::string fileName;	// output file
+
+    OutputIntParams() {}
+    PUPable_abstract(OutputIntParams);
+    OutputIntParams(CkMigrateMessage *m) : PUP::able(m) {}
+    virtual void pup(PUP::er &p) {
+        PUP::able::pup(p);//Call base class
+        p|fileName;
 	}
-    virtual Vector3D<double> vValue(GravityParticle *p)
-			    {CkAssert(0); return 0.0;}
+    };
+
+/// @brief Output iOrder.
+class IOrderOutputParams : public OutputIntParams
+{
+    virtual int iValue(GravityParticle *p)
+    {
+	return p->iOrder;
+	}
+ public:
+    IOrderOutputParams() {}
+    IOrderOutputParams(std::string _fileName) { fileName = _fileName;}
+    PUPable_decl(IOrderOutputParams);
+    IOrderOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputIntParams::pup(p);//Call base class
+	}
+    };
+
+/// @brief Output iGasOrder.
+class IGasOrderOutputParams : public OutputIntParams
+{
+    virtual int iValue(GravityParticle *p)
+    {
+	if(p->isStar())
+	    return p->iGasOrder();
+	else
+	    return 0;
+	}
+ public:
+    IGasOrderOutputParams() {}
+    IGasOrderOutputParams(std::string _fileName) { fileName = _fileName;}
+    PUPable_decl(IGasOrderOutputParams);
+    IGasOrderOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputIntParams::pup(p);//Call base class
+	}
+    };
+
+/// @brief Output rungs.
+class RungOutputParams : public OutputIntParams
+{
+    virtual int iValue(GravityParticle *p)
+    {
+	return p->rung;
+	}
  public:
     RungOutputParams() {}
-    RungOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    RungOutputParams(std::string _fileName) { fileName = _fileName;}
     PUPable_decl(RungOutputParams);
     RungOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
-        OutputParams::pup(p);//Call base class
+        OutputIntParams::pup(p);//Call base class
 	}
     };
 #endif

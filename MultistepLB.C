@@ -811,5 +811,3 @@ void LightweightLDStats1::pup(PUP::er &p){
 }
 
 #include "MultistepLB.def.h"
-
-/*@}*/

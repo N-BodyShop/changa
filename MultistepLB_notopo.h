@@ -17,11 +17,7 @@
 #define MCLB_ORBSMOOTH  // orbsmooth for large steps
 #define MCLB_RR         // round robin otherwise
 
-#include "CentralLB.h"
-
-#include "MapStructures.h"
-//#include "ScaleTranMapBG.h"
-//#include "ScaledORBMapBG.h"
+#include "Orb3dLBCommon.h"
 
 #include "MultistepLB_notopo.decl.h"
 
@@ -33,24 +29,6 @@ BaseLB * AllocateMultistepLB_notopo();
 //**************************************
 
 
-/*
-class WeightObject{
-  public:
-
-  int idx;
-  double weight;
-
-  bool operator<= (const WeightObject& rhs){
-    return weight > rhs.weight;
-  }
-  bool operator>= (const WeightObject& rhs){
-    return weight < rhs.weight;
-  }
-  WeightObject(int _idx, double _weight) : idx(_idx), weight(_weight){};
-  WeightObject() : idx(0), weight(0.0){};
-};
-*/
-
 class LightweightLDStats {
   public:
   int n_objs;
@@ -61,22 +39,30 @@ class LightweightLDStats {
 };
 
 
-class MultistepLB_notopo : public CentralLB {
+/// @brief Multistep load balancer where no processor topology
+/// information is used.
+///
+/// This balancer recognizes different "phases" (called rungs in other
+/// parts of the code), and uses loads based on measurements of the
+/// previous calculation at the same phase.  For large phases, (i.e.,
+/// when many particles are active, the TreePieces are divided among
+/// by 3 dimensional ORB based on the centroids of the TreePieces.
+/// For small phases, a greedy algorithm is used.
+///
+class MultistepLB_notopo : public CentralLB, public Orb3dCommon {
 private:
   bool haveTPCentroids;
 
+  CmiBool firstRound; 
+  // things are stored in here before work
+  // is ever called.
   TaggedVector3D *tpCentroids;
   CkReductionMsg *tpmsg;
-  int nrecvd;
-  CkVec<int> *mapping;
-  
+
  // CkVec<OrbObject> tps;
-  CkVec<float> procload;
-  CkVec<OrientedBox<float> > procbox;
   int procsPerNode;
 
-  int nextProc;
-  CkVec<LightweightLDStats> savedPhaseStats;       // stats saved from previous phases
+  CkVec<LightweightLDStats> savedPhaseStats;      /// stats saved from previous phases
   
   CmiBool QueryBalanceNow(int step);
   //int prevPhase;
@@ -88,8 +74,8 @@ private:
   void printData(BaseLB::LDStats &stats, int phase, int *revObjMap);
 
 
-  void orbPartition(CkVec<Event> *events, OrientedBox<float> &box, int procs, OrbObject * tp);
-  int partitionRatioLoad(CkVec<Event> &events, float ratio);
+//  void orbPartition(CkVec<Event> *events, OrientedBox<float> &box, int procs, OrbObject * tp);
+//  int partitionRatioLoad(CkVec<Event> &events, float ratio);
 
 
 public:
@@ -136,7 +122,6 @@ private:
   enum {XDIR=0, YDIR, ZDIR};
   
 public:
-  double overLoad;
   
 //**************************************
 // ORB3DLB functions

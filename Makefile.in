@@ -41,7 +41,7 @@ FLAG_COOLING = @FLAG_COOLING@
 #
 # Uncomment definition of CUDA for make benefit CUDA version
 # Currently requires that HEXADECAPOLE be disabled 
-# CUDA = -DINTERLIST_VER=2 -DCUDA -DCUDA_USE_CUDAMALLOCHOST -DSPCUDA -DCUDA_2D_TB_KERNEL #-DCUDA_STATS #-DCUDA_MEMPOOL #-DCUDA_INSTRUMENT_WRS -DCUDA_2D_FLAT 
+# CUDA = -DINTERLIST_VER=2 -DCUDA -DCUDA_USE_CUDAMALLOCHOST -DSPCUDA -DCUDA_2D_TB_KERNEL -DCUDA_MEMPOOL #-DCUDA_STATS #-DCUDA_INSTRUMENT_WRS -DCUDA_2D_FLAT 
 
 # useful refactor flag combinations:
 # -DCHANGA_REFACTOR_WALKCHECK
@@ -56,9 +56,15 @@ FLAG_COOLING = @FLAG_COOLING@
 # -DCHECK_WALK_COMPLETIONS
 #FLAG_REFACTOR =  
 
+# Flags for tree building. Use one or the other: 
+# -DMERGE_REMOTE_REQUESTS : merges remote requests before sending; local trees built after requests sent
+# -DSPLIT_PHASE_TREE_BUILD : no merging of remote requests on PE; local trees built after requests sent
+# debug with -DPRINT_MERGED_TREE
+FLAG_TREE_BUILD = 
+
 #MULTISTEP_LOADBALANCING_VERBOSE = -DCOSMO_MCLB=2 -DMCLBMSV
 #ORB3DLB_LOADBALANCING_VERBOSE = -DORB3DLBV
-DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST) $(HEXADECAPOLE) $(FLAG_COOLING) $(CELL) $(FLAG_REFACTOR) $(MULTISTEP_LOADBALANCING_VERBOSE) $(ORB3DLB_LOADBALANCING_VERBOSE) $(CUDA) -DPUSH_GRAVITY
+DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST) $(HEXADECAPOLE) $(FLAG_COOLING) $(CELL) $(FLAG_REFACTOR) $(MULTISTEP_LOADBALANCING_VERBOSE) $(ORB3DLB_LOADBALANCING_VERBOSE) $(CUDA) -DREDUCTION_HELPER $(FLAG_TREE_BUILD)  
 
 CHARM_PATH = @CHARM_PATH@
 STRUCTURES_PATH = ../utility/structures
@@ -95,25 +101,26 @@ CXX_DEPEND = $(CXX) -M -MM -MG $(CXXFLAGS)
 CFLAGS = $(OPTS) $(DEFINE_FLAGS) @CFLAGS@ @CPPFLAGS@
 
 # Orb3dLB.{o,C} below
-OBJECTS = DataManager.o Reductions.o TreePiece.o Sorter.o \
+OBJECTS = Reductions.o DataManager.o TreePiece.o Sorter.o \
 	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
 	  InOutput.o cosmo.o romberg.o runge.o dumpframe.o dffuncs.o \
 	  moments.o MultistepLB.o Orb3dLB.o Orb3dLB_notopo.o \
-	  MultistepLB_notopo.o \
+	  MultistepLB_notopo.o PETreeMerger.o \
 	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
+	  cha_commitid.o \
 	@OBJECTS_COOLING@
 
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \
 	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
 	InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c \
 	moments.c MultistepLB.C Orb3dLB.C Orb3dLB_notopo.C starform.C \
-	MultistepLB_notopo.C \
+	MultistepLB_notopo.C PETreeMerger.cpp \
 	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C
 
 ifdef CUDA
   CXXFLAGS += $(NVCC_INC)
-  OBJECTS += HostCUDA.o #EwaldCUDA.o
-  SRSC += HostCUDA.cu #EwaldCUDA.cu
+  OBJECTS += HostCUDA.o 
+  SRSC += HostCUDA.cu 
   LDLIBS += $(NVCC_LIBS)
   NVCC_FLAGS += $(CXXFLAGS)
   LDFLAGS += -L$(NVIDIA_CUDA_SDK)/lib -L$(CUDA_DIR)/lib64
@@ -132,6 +139,14 @@ $(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmo
 $(TARGET).%: $(TARGET)
 	mv $(TARGET) $@
 	mv charmrun charmrun.$*
+
+
+VERSION: VERSION.new
+	./commitid.sh
+
+cha_commitid.c: VERSION
+	echo "const char * const Cha_CommitID = \"`cat VERSION`\";" > $@
+cha_commitid.o: CC=$(CHARMC)
 
 $(STRUCTURES_PATH)/libTipsy.a:
 	cd $(STRUCTURES_PATH); $(MAKE) libTipsy.a
@@ -155,9 +170,6 @@ libmoduleOrb3dLB_notopo.a: Orb3dLB_notopo.o
 HostCUDA.o: HostCUDA.cu HostCUDA.h
 	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) HostCUDA.cu
 
-EwaldCUDA.o: EwaldCUDA.cu EwaldCUDA.h
-	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) EwaldCUDA.cu	
-
 %.o: Makefile
 
 # CELL specific
@@ -172,7 +184,7 @@ EwaldCUDA.o: EwaldCUDA.cu EwaldCUDA.h
 # End CELL specific
 
 docs:
-	doxygen $(TARGET).doxygen
+	doxygen Doxyfile
 
 DIRS = teststep
 
@@ -203,6 +215,6 @@ depends:
 # without the inclusion of charm headers.
 # $CHARM_DIR/bin/charmc  -M -MM -MG -O3 -I../utility/structures -I../ParallelGravity -Wall  -DCOSMO_STATS=1   -DCOSMO_DEBUG=2  -DINTERLIST_VER=2 -DHEXADECAPOLE     -DCACHE_TREE -DCOOLING_NONE  Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c moments.c MultistepLB.C Orb3dLB.C TreeWalk.C Compute.C | while read i;do echo $i| awk -F' ' '{for (i=1;i<NF;++i) print $i" \\"}';echo;done|grep -v "charm/bin" > Makefile.dep
 
-.PHONY: all docs dist clean depend test
+.PHONY: all docs dist clean depend test VERSION.new
 
 include Makefile.dep

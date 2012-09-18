@@ -7,6 +7,9 @@ mainmodule ParallelGravity {
   readonly CProxy_Main mainChare;
   readonly int verbosity;
   readonly CProxy_TreePiece treeProxy;
+#ifdef REDUCTION_HELPER
+  readonly CProxy_ReductionHelper reductionHelperProxy;
+#endif
   readonly CProxy_LvArray lvProxy;
   readonly CProxy_LvArray smoothProxy;
   readonly CProxy_LvArray gravityProxy;
@@ -15,6 +18,9 @@ mainmodule ParallelGravity {
   readonly CProxy_CkCacheManager cacheGravPart;
   readonly CProxy_CkCacheManager cacheSmoothPart;
   readonly CProxy_DataManager dMProxy;
+  readonly CProxy_PETreeMerger peTreeMergerProxy;
+
+
   readonly bool _cache;
   readonly int _nocache;
   readonly int _cacheLineDepth;
@@ -31,6 +37,7 @@ mainmodule ParallelGravity {
   readonly unsigned int numTreePieces;
   readonly unsigned int particlesPerChare;
   readonly unsigned int bucketSize;
+  readonly int nIOProcessor;
   readonly int lbcomm_cutoff_msgs;
   // jetley
   readonly int localNodesPerReq;
@@ -50,15 +57,23 @@ mainmodule ParallelGravity {
   readonly int nodeForceUE;
   readonly int partForceUE;
 
-  readonly int nSmooth;
+  readonly int tbRecursiveUE;
+  readonly int tbFlushRequestsUE;
+  readonly int prefetchDoneUE;
 
 #ifdef PUSH_GRAVITY
   readonly CkGroupID ckMulticastGrpId;
 #endif
 
-#ifdef SELECTIVE_TRACING
   readonly CProxy_ProjectionsControl prjgrp;
-#endif
+
+  // number of bins to use for the first
+  // iteration of every decomposition step
+  readonly int numInitDecompBins;
+
+  readonly bool doDumpLB;
+  readonly int lbDumpIteration;
+  readonly bool doSimulateLB;
 
   //message piecedata;
   message dummyMsg;
@@ -104,9 +119,11 @@ mainmodule ParallelGravity {
   PUPable Cool2OutputParams;
   PUPable DtOutputParams;
   PUPable RungOutputParams;
+  PUPable IOrderOutputParams;
+  PUPable IGasOrderOutputParams;
 
   mainchare [migratable] Main {
-    entry Main();
+    entry Main(CkArgMsg*);
     entry [threaded] void setupICs();
     entry [threaded] void initialForces();
     entry [threaded] void doSimulation();
@@ -115,20 +132,27 @@ mainmodule ParallelGravity {
     entry void liveVizImagePrep(liveVizRequestMsg *msg);
   };
 
-#ifdef SELECTIVE_TRACING
   group [migratable] ProjectionsControl {
     entry ProjectionsControl();
     entry [notrace] void on(CkCallback);
     entry [notrace] void off(CkCallback);                     
   };                                                          
+
+#ifdef REDUCTION_HELPER
+  group [migratable] ReductionHelper {
+    entry ReductionHelper();
+    entry void countTreePieces(CkCallback &cb);
+    entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
+  };
 #endif
 
   chare [migratable] Sorter {
     entry Sorter();
 
-    entry void startSorting(const CkGroupID& dataManagerID,
-        const double toler,
-        const CkCallback& cb, bool decompose);
+    entry [threaded]
+	void startSorting(const CkGroupID& dataManagerID,
+        		const double toler,
+        		const CkCallback& cb, bool decompose);
     entry void collectEvaluations(CkReductionMsg* m);
     entry void collectORBCounts(CkReductionMsg* m);
     entry void finishPhase(CkReductionMsg* m);
@@ -169,19 +193,19 @@ mainmodule ParallelGravity {
     entry void report();
 
     entry void nextBucket(dummyMsg *m);	
-    entry void nextBucketSmooth(dummyMsg *msg);
-    entry void nextBucketReSmooth(dummyMsg *msg);
-    entry void nextBucketMarkSmooth(dummyMsg *msg);
+    entry [notrace] void nextBucketSmooth(dummyMsg *msg);
+    entry [notrace] void nextBucketReSmooth(dummyMsg *msg);
+    entry [notrace] void nextBucketMarkSmooth(dummyMsg *msg);
     //entry void registerWithDataManager(const CkGroupID& dataManagerID,
     //		     		  const CkCallback& cb);
     entry void setPeriodic(int nReplicas, Vector3D<double> fPeriod, int bEwald,
 		 double fEwCut, double fEwhCut, int bPeriod);
-    entry void EwaldInit();
-    entry void initCoolingData(const CkCallback& cb);
+    entry [notrace] void EwaldInit();
+    entry [notrace] void initCoolingData(const CkCallback& cb);
     entry void calculateEwald(dummyMsg *m);
-    entry void EwaldGPUComplete(); 
-    entry void EwaldGPU(); 
-    entry void velScale(double dScale);
+    entry [notrace] void EwaldGPUComplete(); 
+    entry [notrace] void EwaldGPU(); 
+    entry [notrace] void velScale(double dScale);
     //entry void markPresence(const CkCallback& cb);
     entry void load(const std::string& fn, const CkCallback& cb);
     entry void loadTipsy(const std::string& filename,
@@ -194,6 +218,11 @@ mainmodule ParallelGravity {
         const double dTime, const double dvFac,
         const double duTfac, const int bCool,
         const CkCallback& cb);
+    entry void parallelWrite(int iPass, const CkCallback& cb,
+			   const std::string& filename, const double dTime,
+			   const double dvFac, // scale velocities
+			   const double duTFac, // convert temperature
+			   const int bCool);
     entry void serialWrite(u_int64_t iPrevOffset, const std::string& filename,
         const double dTime, const double dvFac,
         const double duTfac, const int bCool,
@@ -224,6 +253,7 @@ mainmodule ParallelGravity {
     //ORB
     entry void initORBPieces(const CkCallback& cb);
     entry void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,
+			     unsigned int myCountStar,
 			     const CkCallback& cb, const CkCallback& cback);
     entry void sendORBParticles();
     entry void acceptORBParticles(const GravityParticle particles[n],
@@ -243,7 +273,10 @@ mainmodule ParallelGravity {
 	      int bSphStep, int bViscosityLimitdt,
 	      double dEta, double dEtaCourant, double dEtauDot,
 	      double dDelta, double dAccFac,
-	      double dCosmoFac, const CkCallback& cb);
+	      double dCosmoFac, double dhMinOverSoft,
+	      int bDoGas,
+	      const CkCallback& cb);
+    entry void truncateRung(int iCurrMaxRung, const CkCallback& cb);
     entry void rungStats(const CkCallback& cb);
     entry void countActive(int activeRung, const CkCallback& cb);
     entry void drift(double dDelta, int bNeedVPred, int bGasIsoThermal,
@@ -255,7 +288,7 @@ mainmodule ParallelGravity {
 		int64_t nStartStar, const CkCallback &cb);
     entry void setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
 		 int64_t _nTotalStar, const CkCallback &cb);
-    entry void setSoft(const double dSoft);
+    entry void setSoft(const double dSoft, const CkCallback &cb);
     entry void physicalSoft(const double dSoftMax, const double dFac,
         const int bSoftMaxMul, const CkCallback& cb);
     entry void growMass(int nGrowMass, double dDeltaM, const CkCallback& cb);
@@ -298,13 +331,17 @@ mainmodule ParallelGravity {
     entry void recvPushAccelerations(CkReductionMsg *);
 #endif
 
-    entry void startIterationSmooth(CkPointer<SmoothParams>, int iLowhFix,
+    entry void startSmooth(CkPointer<SmoothParams>, int iLowhFix, int nSmooth,
 				    double dfBall2OverSoft2, CkCallback &cb);
-    entry void startIterationReSmooth(CkPointer<SmoothParams>, CkCallback &cb);
-    entry void startIterationMarkSmooth(CkPointer<SmoothParams>, CkCallback &cb);
-    entry void finishNodeCache(int iPhases, CkCallback &cb);
+    entry void startReSmooth(CkPointer<SmoothParams>, CkCallback &cb);
+    entry void startMarkSmooth(CkPointer<SmoothParams>, CkCallback &cb);
+    entry void finishNodeCache(CkCallback &cb);
 
-    entry [inline] void requestRemoteMoments(Tree::NodeKey key, int sender);
+    entry
+#ifndef MERGE_REMOTE_REQUESTS 
+    	  [inline]
+#endif
+	  void requestRemoteMoments(Tree::NodeKey key, int sender);
     entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, MultipoleMoments& moments, OrientedBox<double>& box, OrientedBox<double>& boxBall, unsigned int iParticleTypes);
 
     //entry void calculateGravityDirect(const CkCallback& cb);
@@ -315,13 +352,13 @@ mainmodule ParallelGravity {
     //entry void fillRequestTree(GravityRequest req);	
     //entry void receiveGravityTree(const GravityRequest& req);
 
-    entry void commenceCalculateGravityLocal();
-    entry void calculateGravityLocal();
+    entry [notrace] void commenceCalculateGravityLocal();
+    entry [notrace] void calculateGravityLocal();
     entry void calculateGravityRemote(ComputeChunkMsg *msg);
 
-    entry void calculateSmoothLocal();
-    entry void calculateReSmoothLocal();
-    entry void calculateMarkSmoothLocal();
+    entry [notrace] void calculateSmoothLocal();
+    entry [notrace] void calculateReSmoothLocal();
+    entry [notrace] void calculateMarkSmoothLocal();
 
     entry void finishWalk();
     entry void finishSmoothWalk();
@@ -331,7 +368,7 @@ mainmodule ParallelGravity {
     //entry void fillRequestNode(int retIndex, Tree::NodeKey lookupKey,
     //			   BucketGravityRequest &req);
     entry [expedited] void fillRequestNode(CkCacheRequestMsg *msg);
-    entry [local] void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source);
+    //entry [local] void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source);
     //entry void receiveNode(GenericTreeNode node[1],
     //	       unsigned int reqID);
     //entry [inline] void receiveNode_inline(GenericTreeNode node[1],
@@ -343,8 +380,8 @@ mainmodule ParallelGravity {
     entry [expedited] void fillRequestParticles(CkCacheRequestMsg *msg);
     entry [expedited] void fillRequestSmoothParticles(CkCacheRequestMsg *msg);
     entry void flushSmoothParticles(CkCacheFillMsg *msg);
-    entry [local] void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
-    entry [local] void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
+    //entry [local] void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
+    //entry [local] void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
     //entry void fillRequestParticles(SFC::Key key,int retIndex, int begin,int end,
     //				unsigned int reqID);
     //entry void receiveParticles(ExternalGravityParticle part[num],int num,int chunk,
@@ -368,7 +405,10 @@ mainmodule ParallelGravity {
     entry void oneNodeOutArr(CkReference<OutputParams>, double adOut[nPart],
 			   int nPart, int iIndex, int bDone,
 			   CkCallback& cb) ;
-    entry void outputIOrderASCII(const std::string& suffix, const CkCallback& cb);
+    entry void outputIntASCII(CkReference<OutputIntParams>, int bParaWrite,
+			      const CkCallback& cb);
+    entry void oneNodeOutIntArr(CkReference<OutputIntParams>, int aiOut[nPart],
+				int nPart, int iIndex, CkCallback& cb);
     entry void outputStatistics(const CkCallback& cb);
     //entry void getPieceValues(piecedata *totaldata);
     entry void collectStatistics(CkCallback &cb);
@@ -379,10 +419,15 @@ mainmodule ParallelGravity {
 
     // jetley - balancing before initial forces
     entry void balanceBeforeInitialForces(CkCallback &cb); 
+
   };
 
   array [1D] LvArray {
       entry LvArray();
+  };
+
+  group [migratable] PETreeMerger {
+    entry PETreeMerger();
   };
 
   initproc void registerStatistics();

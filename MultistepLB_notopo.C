@@ -8,7 +8,7 @@
 
 extern CProxy_TreePiece treeProxy;
 using namespace std;
-#define ORB3DLB_NOTOPO_DEBUG
+//#define ORB3DLB_NOTOPO_DEBUG CkPrintf
 
 CreateLBFunc_Def(MultistepLB_notopo, "Works best with multistepped runs; uses Orb3D_notopo for larger steps, greedy otherwise");
 
@@ -26,28 +26,25 @@ MultistepLB_notopo::MultistepLB_notopo(const CkLBOptions &opt): CentralLB(opt)
 
 }
 
+/// @brief Get position centroids of all TreePieces
+/// @param msg Reduction message with a concatenation of all centroids.
 void MultistepLB_notopo::receiveCentroids(CkReductionMsg *msg){
-
   if(haveTPCentroids){
-    haveTPCentroids = false;
-    delete tpmsg; 
+    delete tpmsg;
   }
-
   tpCentroids = (TaggedVector3D *)msg->getData();
-  nrecvd = msg->getGcount();
-  if (_lb_args.debug()>=2) {
-    CkPrintf("MultistepLB_notopo: receiveCentroids started: %d elements, msg length: %d\n", msg->getGcount(), msg->getLength()); 
-  }
-  haveTPCentroids = true;
+  nrecvd = msg->getSize()/sizeof(TaggedVector3D);
   tpmsg = msg;
+  haveTPCentroids = true;
   treeProxy.doAtSync();
-  if (_lb_args.debug()>=2) {
-    CkPrintf("MultistepLB_notopo: receiveCentroids done\n");  
-  }
+  CkPrintf("Orb3dLB_notopo: receiveCentroids %d elements, msg length: %d\n", nrecvd, msg->getLength()); 
 }
+
+
 
 CmiBool MultistepLB_notopo::QueryBalanceNow(int step){
  if(CkMyPe() == 0) CkPrintf("Orb3dLB_notopo: Step %d\n", step);
+  if(step == 0) return false;
   return true;
 
 }
@@ -178,8 +175,12 @@ void MultistepLB_notopo::makeActiveProcessorList(BaseLB::LDStats *stats, int num
 }
 #endif
 
-#define LARGE_PHASE_THRESHOLD 0.0
+/// Threshold between ORB3D (large) and greedy (small) as fraction of
+/// active particles
+#define LARGE_PHASE_THRESHOLD 0.00
 
+/// @brief Implement load balancing: store loads and decide between
+/// ORB3D and greedy.
 void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 {
 #if CMK_LBDB_ON
@@ -396,10 +397,10 @@ void MultistepLB_notopo::greedy(BaseLB::LDStats *stats, int count, int phase, in
   }
 
 
-
   delete []tp_array;
 }
 
+/// @brief ORB3D load balance.
 void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int prevPhase){
   int numobjs = stats->n_objs;
   int nmig = stats->n_migrateobjs;
@@ -408,13 +409,14 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
   // to balance objects. it is NOT indexed by tree piece index
   // there are as many entries in it as there are
   // migratable (active) tree pieces
-  OrbObject *tp_array = new OrbObject[nmig];
+ vector<OrbObject> tp_array;
+ tp_array.reserve(nmig);
 
   if (_lb_args.debug()>=2) {
     CkPrintf("[work2] ready tp_array data structure\n");
   }
 
- CkVec<Event> tpEvents[NDIMS];
+ vector<Event> tpEvents[NDIMS];
   for(int i = 0; i < NDIMS; i++){
     tpEvents[i].reserve(nmig);
   }
@@ -446,7 +448,7 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
     tpEvents[YDIM].push_back(Event(tpCentroids[i].vec.y,load,j));
     tpEvents[ZDIM].push_back(Event(tpCentroids[i].vec.z,load,j));
 
-    tp_array[j]= OrbObject(lb);
+    tp_array[j]= OrbObject(lb,tpCentroids[i].myNumParticles);
     tp_array[j].centroid = tpCentroids[i].vec;
 
    
@@ -456,345 +458,19 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
 
   }
   CkAssert(j==nmig);
-  CkAssert(numProcessed == nmig);
-  CkAssert(tpEvents[XDIM].length() == nmig);
-  CkAssert(tpEvents[YDIM].length() == nmig);
-  CkAssert(tpEvents[ZDIM].length() == nmig);
-
-
-  mapping = &stats->to_proc;
-  int dim = 0;
-
-  CkPrintf("[Orb3dLB_notopo] sorting\n");
-  for(int i = 0; i < NDIMS; i++){
-    tpEvents[i].quickSort();
-/*  for(int j = 0; j < tpEvents[i].length(); j++){
-	int own = tpEvents[i][j].owner;
-	CkPrintf("After sorting %d %d \n", own, tp_array[own].lbindex);
-
-  }
-  */ 
-  }
-  box.lesser_corner.x = tpEvents[XDIM][0].position;
-  box.lesser_corner.y = tpEvents[YDIM][0].position;
-  box.lesser_corner.z = tpEvents[ZDIM][0].position;
-
-  box.greater_corner.x = tpEvents[XDIM][nmig-1].position;
-  box.greater_corner.y = tpEvents[YDIM][nmig-1].position;
-  box.greater_corner.z = tpEvents[ZDIM][nmig-1].position;
-
-  nextProc = 0;
-
-  procload.resize(stats->count);
-  procbox.resize(stats->count);
-  for(int i = 0; i < stats->count; i++){
-    procload[i] = 0.0;
-  }
- 
-
 
   
-  orbPartition(tpEvents,box,stats->count,tp_array);
- /* 
-  float *objload = new float[stats->count];
-  for(int i = 0; i < stats->count; i++){
-    objload[i] = 0.0;
-  }
-  for(j = 0; j < nmig; j++){
-    float load = tp_array[j].load;
-    int lb = tp_array[j].lbindex;
-    int pe = stats->to_proc[lb];
+  orbPrepare(tpEvents, box, nmig, stats);
+  orbPartition(tpEvents,box,stats->count,tp_array, stats);
 
-    objload[pe] += load; 
-  }
-*/
-  /*
-  CkPrintf("******************************\n");
-  CkPrintf("CPU LOAD PREDICTIONS phase %d\n", phase);
-  CkPrintf("******************************\n");
-  for(int i = 0; i < stats->count; i++){
-    CkPrintf("[pestats] %d %g \n", 
-                               i,
-                               objload[i]);
-  }
-  */
-
-
-  CkPrintf("******************************\n");
-  CkPrintf("MEASURED CPU LOAD prev %d\n", prevPhase);
-  CkPrintf("******************************\n");
-  for(int i = 0; i < stats->count; i++){
-    CkPrintf("[pestats] %d %g %g\n", 
-                               i,
-                               stats->procs[i].total_walltime,
-                               stats->procs[i].idletime
-                               ); 
-  }
-
-
- // delete[] objload;
-  delete[] tp_array;
+  refine(stats, nmig);
+ // delete[] tp_array;
 }
 
-void MultistepLB_notopo::orbPartition(CkVec<Event> *events, OrientedBox<float> &box, int nprocs, OrbObject * tp){
-
-  ORB3DLB_NOTOPO_DEBUG("partition events %d %d %d nprocs %d\n", 
-            events[XDIM].length(),
-            events[YDIM].length(),
-            events[ZDIM].length(),
-            nprocs
-            );
-  int numEvents = events[XDIM].length();
-  CkAssert(numEvents == events[YDIM].length());
-  CkAssert(numEvents == events[ZDIM].length());
-
-  if(nprocs <= 1){
-    ORB3DLB_NOTOPO_DEBUG("base: assign %d tps to proc %d\n", numEvents, nextProc);
-    // direct assignment of tree pieces to processors
-    if(numEvents > 0) CkAssert(nprocs != 0);
-    float totalLoad = 0.0;
-    for(int i = 0; i < events[XDIM].length(); i++){
-      Event &ev = events[XDIM][i];
-      OrbObject &orb = tp[ev.owner];
-      (*mapping)[orb.lbindex] = nextProc;
-      totalLoad += ev.load;
-      procbox[nextProc].grow(orb.centroid);
-    }
-    procload[nextProc] += totalLoad;
-
-    if(numEvents > 0) nextProc++;
-    return;
-  }
-
-  // find longest dimension
-
-  int longestDim = XDIM;
-  float longestDimLength = box.greater_corner[longestDim] - box.lesser_corner[longestDim];
-  for(int i = YDIM; i <= ZDIM; i++){
-    float thisDimLength = box.greater_corner[i]-box.lesser_corner[i];
-    if(thisDimLength > longestDimLength){
-      longestDimLength = thisDimLength;
-      longestDim = i;
-    }
-  }
-
-  ORB3DLB_NOTOPO_DEBUG("dimensions %f %f %f longest %d\n", 
-            box.greater_corner[XDIM]-box.lesser_corner[XDIM],
-            box.greater_corner[YDIM]-box.lesser_corner[YDIM],
-            box.greater_corner[ZDIM]-box.lesser_corner[ZDIM],
-            longestDim
-          );
-
-  int nlprocs = nprocs/2;
-  int nrprocs = nprocs-nlprocs;
-
-  float ratio = (1.0*nlprocs)/(1.0*nrprocs);
-
-  ORB3DLB_NOTOPO_DEBUG("nlprocs %d nrprocs %d ratio %f\n", nlprocs, nrprocs, ratio);
-
-  int splitIndex = partitionRatioLoad(events[longestDim],ratio);
-  if(splitIndex == numEvents) {
-      ORB3DLB_NOTOPO_DEBUG("evenly split 0 load\n");
-      splitIndex = splitIndex/2;
-      }
-  int nleft = splitIndex;
-  int nright = numEvents-nleft;
-
-  if(nright < nrprocs) {  // at least one piece per processor
-      nright = nrprocs;
-      nleft = splitIndex = numEvents-nright;
-      CkAssert(nleft >= nlprocs);
-      }
-  else if(nleft < nlprocs) {
-      nleft = splitIndex = nlprocs;
-      nright = numEvents-nleft;
-      CkAssert(nright >= nrprocs);
-      }
-
-  OrientedBox<float> leftBox;
-  OrientedBox<float> rightBox;
-
-  leftBox = rightBox = box;
-  float splitPosition = events[longestDim][splitIndex].position;
-  leftBox.greater_corner[longestDim] = splitPosition;
-  rightBox.lesser_corner[longestDim] = splitPosition;
-
-  // classify events
-  for(int i = 0; i < splitIndex; i++){
-    Event &ev = events[longestDim][i];
-    CkAssert(ev.owner >= 0);
-    CkAssert(tp[ev.owner].partition == INVALID_PARTITION);
-    tp[ev.owner].partition = LEFT_PARTITION;
-  }
-  for(int i = splitIndex; i < numEvents; i++){
-    Event &ev = events[longestDim][i];
-    CkAssert(ev.owner >= 0);
-    CkAssert(tp[ev.owner].partition == INVALID_PARTITION);
-    tp[ev.owner].partition = RIGHT_PARTITION;
-  }
-
-  CkVec<Event> leftEvents[NDIMS];
-  CkVec<Event> rightEvents[NDIMS];
-
-  for(int i = 0; i < NDIMS; i++){
-    if(i == longestDim){ 
-      leftEvents[i].resize(nleft);
-      rightEvents[i].resize(nright);
-    }
-    else{
-      leftEvents[i].reserve(nleft);
-      rightEvents[i].reserve(nright);
-    }
-  }
-
-  // copy events of split dimension
-  memcpy(leftEvents[longestDim].getVec(),events[longestDim].getVec(),sizeof(Event)*nleft);
-  memcpy(rightEvents[longestDim].getVec(),events[longestDim].getVec()+splitIndex,sizeof(Event)*nright);
-  
-  // copy events of other dimensions
-  for(int i = XDIM; i <= ZDIM; i++){
-    if(i == longestDim) continue;
-    for(int j = 0; j < numEvents; j++){
-      Event &ev = events[i][j];
-      CkAssert(ev.owner >= 0);
-      OrbObject &orb = tp[ev.owner];
-      CkAssert(orb.partition != INVALID_PARTITION);
-      if(orb.partition == LEFT_PARTITION) leftEvents[i].push_back(ev);
-      else if(orb.partition == RIGHT_PARTITION) rightEvents[i].push_back(ev);
-    }
-  }
-
-  // cleanup
-  // next, reset the ownership information in the
-  // OrbObjects, so that the next invocation may use
-  // the same locations for its book-keeping
-  CkVec<Event> &eraseVec = events[longestDim];
-  for(int i = 0; i < numEvents; i++){
-    Event &ev = eraseVec[i];
-    CkAssert(ev.owner >= 0);
-    OrbObject &orb = tp[ev.owner];
-    CkAssert(orb.partition != INVALID_PARTITION);
-    orb.partition = INVALID_PARTITION;
-  }
-
-  // free events from parent node,
-  // since they are not needed anymore
-  // (we have partition all events into the
-  // left and right event subsets)
-  for(int i = 0; i < NDIMS; i++){
-    events[i].free();
-  }
-
-  orbPartition(leftEvents,leftBox,nlprocs,tp);
-  orbPartition(rightEvents,rightBox,nrprocs,tp);
-}
-
-#define ZERO_THRESHOLD 0.00001
-
-#if 0
-void Orb3dLB_notopo::directMap(int tpstart, int tpend, int nodestart, int nodeend){
-  //CkPrintf("[Orb3dLB_notopo] mapping %d objects to Node (%d,%d,%d)\n", ntp, nodes[0].x, nodes[0].y, nodes[0].z);
-
-  std::priority_queue<TPObject> pq_obj;
-  std::priority_queue<Processor> pq_proc;
-
-  float load = 0.0;
-  CkAssert(nodestart==(nodeend-1));
-  for(int i = tpstart; i < tpend; i++){
-    //CkPrintf("obj %d thisindex %d %d %f %f %f %f to node %d %d %d\n", tp[i].lbindex, tp[i].index, tp[i].nparticles, tp[i].load, tp[i].centroid.x, tp[i].centroid.y, tp[i].centroid.z, nodes[0].x, nodes[0].y, nodes[0].z);
-    load += tps[i].load;
-    pq_obj.push(tps[i]);
-  }
-  //CkPrintf("node %d %d %d total load %f\n", nodes[0].x, nodes[0].y, nodes[0].z, load);
-  
-  for(int i = 0; i < procsPerNode; i++){
-    Processor p;
-    p.load = 0.0;
-    p.t = i;
-    pq_proc.push(p);
-  }
-
-  int currentZeroProc = 0;
-  while(!pq_obj.empty()){
-    TPObject tp = pq_obj.top();
-    pq_obj.pop();
-
-    // spread around zero-load objects
-    // disabled to reduce the number of migrations, and
-    // check whether this might solve the BG/P crash
-    if(tp.load < ZERO_THRESHOLD){
-      /*
-      (*mapping)[tp.lbindex] = nodes[0].procRanks[currentZeroProc];
-      currentZeroProc = currentZeroProc+1;
-      if(currentZeroProc == procsPerNode){
-        currentZeroProc = 0;
-      }
-      */
-    }
-    else{
-      // if object has some non-zero load, assign it to a proc greedily
-      Processor p = pq_proc.top();
-      pq_proc.pop();
-
-      //CkPrintf("proc %d load %f gets obj %d load %f\n", p.t, p.load, tp.lbindex, tp.load);
-
-      p.load += tp.load;
-      (*mapping)[tp.lbindex] = nodes[nodestart].procRanks[p.t];
-#ifdef PRINT_BOUNDING_BOXES
-      nodes[nodestart].box.grow(tp.centroid);
-#endif
-
-      pq_proc.push(p);
-    }
-  }
-}
-#endif
-
-#define LOAD_EQUAL_TOLERANCE 1.02
-
-int MultistepLB_notopo::partitionRatioLoad(CkVec<Event> &events, float ratio){
-  float totalLoad = 0.0;
-  for(int i = 0; i < events.length(); i++){
-    totalLoad += events[i].load;
-  }
-  float lload = 0.0;
-  float rload = totalLoad;
-  float prevDiff = lload-ratio*rload;
-  if(prevDiff < 0.0){
-    prevDiff = -prevDiff;
-  }
-
-  int consider;
-  for(consider = 0; consider < events.length();){
-    float newll = lload + events[consider].load;
-    float newrl = rload - events[consider].load;
-    
-    float newdiff = newll-ratio*newrl;
-    if(newdiff < 0.0){
-      newdiff = -newdiff;
-    }
-
-    //CkPrintf("consider load %f newdiff %f prevdiff %f\n", tp[consider].load, newdiff, prevDiff);
-
-    if(newdiff > prevDiff){
-      break;
-    }
-    else{
-      consider++;
-      lload = newll;
-      rload = newrl;
-      prevDiff = newdiff;
-    }
-  }
-
-  //CkPrintf("partitionEvenLoad lload %f rload %f\n", lload, rload);
-
-  return consider;
-}
 
 void MultistepLB_notopo::pup(PUP::er &p){
   CentralLB::pup(p);
-  if(p.isPacking()){
+  if(p.isPacking() && haveTPCentroids) {
     // if checkpointing, no need to 
     // keep around the centroid message
       if(haveTPCentroids) {
@@ -814,5 +490,3 @@ void LightweightLDStats::pup(PUP::er &p){
 }
 
 #include "MultistepLB_notopo.def.h"
-
-/*@}*/

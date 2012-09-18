@@ -99,14 +99,14 @@ void CoolInitRatesTable( COOL *cl, COOLPARAM CoolParam);
 double clThermalEnergy( double Y_Total, double T );
 double clTemperature( double Y_Total, double E );
 
-double clEdotInstant( COOL *cl, double E, double T, double rho, double r );
+double clEdotInstant( COOL *cl, double E, double T, double rho, double r,
+		      double *dHeat, double *dCool );
 void clIntegrateEnergy(COOL *cl, clDerivsData *clData,  double *E, double PdV,
 		       double rho, double Y_Total, double radius, double tStep );
 
-int clDerivs(double x, const double *y, double *dydx, void *Data) ;
+void clDerivs(double x, const double *y, double *dHeat, double *dCool,
+	     void *Data) ;
 
-int clJacobn(double x, const double y[], double dfdx[], double *dfdy, void *Data) ;
-  
 void CoolAddParams( COOLPARAM *CoolParam, PRM );
 void CoolLogParams( COOLPARAM *CoolParam, FILE *fp );
 void CoolOutputArray( COOLPARAM *CoolParam, int, int *, char * );
