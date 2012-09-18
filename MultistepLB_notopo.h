@@ -51,8 +51,6 @@ class LightweightLDStats {
 ///
 class MultistepLB_notopo : public CentralLB, public Orb3dCommon {
 private:
-  bool haveTPCentroids;
-
   CmiBool firstRound; 
   // things are stored in here before work
   // is ever called.

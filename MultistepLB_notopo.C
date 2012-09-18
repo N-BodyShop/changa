@@ -473,10 +473,8 @@ void MultistepLB_notopo::pup(PUP::er &p){
   if(p.isPacking() && haveTPCentroids) {
     // if checkpointing, no need to 
     // keep around the centroid message
-      if(haveTPCentroids) {
-	  delete tpmsg;
-	  haveTPCentroids = false;
-      }
+    delete tpmsg;
+    haveTPCentroids = false;
   }
   p | haveTPCentroids; 
   p | procsPerNode;
