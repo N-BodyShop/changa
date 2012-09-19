@@ -583,7 +583,7 @@ class ShuffleShadowArray : public CBase_ShuffleShadowArray {
 public:
   ShuffleShadowArray() {}
   ShuffleShadowArray(CkMigrateMessage *msg) {}
-  void process(ParticleShuffle &shuffle);
+  void process(const ParticleShuffle &shuffle);
 };
 
 struct NonLocalMomentsClient {
@@ -1489,7 +1489,7 @@ public:
 	void unshuffleParticles(CkReductionMsg* m);
 	//void acceptSortedParticles(ParticleShuffleMsg *);
 
-        void acceptSortedParticles(ParticleShuffle &);
+        void acceptSortedParticles(const ParticleShuffle &);
         void receivedSortedParticles();
         void expectingNoSortedParticles();
 
@@ -1665,10 +1665,10 @@ public:
 	/// @brief Receive a request for Nodes from a remote processor, copy the
 	/// data into it, and send back a message.
 
-  void process(CkCacheRequest &req);
+  void process(const CkCacheRequest &req);
 
   //	void fillRequestNode(CkCacheRequestMsg *msg);
-	void fillRequestNode(CkCacheRequest &req);
+	void fillRequestNode(const CkCacheRequest &req);
 
 	/** @brief Receive the node from the cache as following a previous
 	 * request which returned NULL, and continue the treewalk of the bucket
@@ -1707,8 +1707,8 @@ public:
 	GravityParticle *requestSmoothParticles(Tree::NodeKey key, int chunk,
 				    int remoteIndex, int begin,int end,
 				    int reqID, int awi, void *source, bool isPrefetch);
-	void fillRequestParticles(CkCacheRequest &req);
-	void fillRequestSmoothParticles(CkCacheRequest &req);
+	void fillRequestParticles(const CkCacheRequest &req);
+	void fillRequestSmoothParticles(const CkCacheRequest &req);
 	void flushSmoothParticles(CkCacheFillMsg *msg);
 	void processReqSmoothParticles();
 

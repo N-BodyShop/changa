@@ -76,7 +76,7 @@ void EntryTypeGravityParticle::callback(CkArrayID requestorID, CkArrayIndexMax &
 
 
 
-void TreePiece::fillRequestParticles(CkCacheRequest &req) {
+void TreePiece::fillRequestParticles(const CkCacheRequest &req) {
   // the key used in the cache is shifted to the left of 1, this makes
   // a clear distinction between nodes and particles
   const GenericTreeNode *bucket = lookupNode(req.key >> 1);
@@ -215,7 +215,7 @@ void TreePiece::processReqSmoothParticles() {
 	}
     }
 
-void TreePiece::fillRequestSmoothParticles(CkCacheRequest &req) {
+void TreePiece::fillRequestSmoothParticles(const CkCacheRequest &req) {
     // buffer request if we are not ready for it.
     if(sSmooth == NULL) {
 	CkVec<int> *vReq = smPartRequests[req.key];
@@ -377,7 +377,7 @@ void EntryTypeGravityNode::callback(CkArrayID requestorID, CkArrayIndexMax &requ
   elem.ckLocal()->receiveNodeCallback((Tree::GenericTreeNode*)data, chunk, reqID, awi, source);
 }
 
-void TreePiece::process(CkCacheRequest &req) {
+void TreePiece::process(const CkCacheRequest &req) {
   switch(req.type) {
   case nodeRequest:
     fillRequestNode(req);
@@ -397,7 +397,7 @@ void TreePiece::fillRequestNode(CkCacheRequestMsg *msg) {
   delete msg;
 }
 */
-void TreePiece::fillRequestNode(CkCacheRequest &req) {
+void TreePiece::fillRequestNode(const CkCacheRequest &req) {
   const Tree::GenericTreeNode* node = lookupNode(req.key);
   //GenericTreeNode tmp;
   if(node != NULL) {

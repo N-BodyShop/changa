@@ -792,7 +792,7 @@ void TreePiece::setParticles(GravityParticle *ptr){
 }
 #endif
 
-void TreePiece::acceptSortedParticles(ParticleShuffle &shuffle) {
+void TreePiece::acceptSortedParticles(const ParticleShuffle &shuffle) {
   if (dm == NULL) {
     dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
     myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(),
@@ -6375,6 +6375,6 @@ void Decomposer::acceptParticles(CkCallback &cb){
 #endif
 
 
-void ShuffleShadowArray::process(ParticleShuffle &shuffle) {
+void ShuffleShadowArray::process(const ParticleShuffle &shuffle) {
   treeProxy[thisIndex.data[0]].ckLocal()->acceptSortedParticles(shuffle);
 }
