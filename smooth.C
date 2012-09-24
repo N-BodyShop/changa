@@ -649,12 +649,12 @@ void KNearestSmoothCompute::walkDone(State *state) {
   GravityParticle *part = node->particlePointer;
 
   for(int i = node->firstParticle; i <= node->lastParticle; i++) {
-      if(!params->isSmoothActive(&part[i-node->firstParticle]))
+      GravityParticle *p = &part[i-node->firstParticle];
+      if(!params->isSmoothActive(p))
 	  continue;
       NearNeighborState *nstate = (NearNeighborState *)state;
       CkVec<pqSmoothNode> &Q = nstate->Qs[i];
       double h = sqrt(Q[0].fKey); // Ball radius
-      part[i-node->firstParticle].fBall = h;
       int nCnt = Q.size();
       if(Q[0].p == NULL) { // This can happen if iLowhFix is
 			      // operating
@@ -662,12 +662,19 @@ void KNearestSmoothCompute::walkDone(State *state) {
 	  std::pop_heap(&(Q[0]) + 0, &(Q[0]) + nCnt);
 	  nCnt--;
 	  }
-      if(nCnt < nSmooth) {
-	CkPrintf("short count: %d, particle %d, h %g\n", nCnt,
-		  part[i-node->firstParticle].iOrder, h);
-	}
       CkAssert(nCnt >= nSmooth);
-      params->fcnSmooth(&part[i-node->firstParticle], nCnt, &(Q[0]));
+      // Limit fBall growth to help stability and inverse neighbor finding.
+      if(!(iLowhFix && h*h <= dfBall2OverSoft2*p->soft*p->soft)
+	 && params->bUseBallMax && p->isGas() && p->fBallMax() > 0.0
+	 && h > p->fBallMax()) {
+	  h = p->fBallMax();
+	  while(Q[0].fKey > h*h) {
+	      std::pop_heap(&(Q[0]) + 0, &(Q[0]) + nCnt);
+	      nCnt--;
+	      }
+	  }
+      p->fBall = h;
+      params->fcnSmooth(p, nCnt, &(Q[0]));
       Q.clear();
       }
       // XXX jetley - the nearneighborstate allocated for this compute

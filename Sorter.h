@@ -14,6 +14,9 @@
 
 #include "ParallelGravity.h"
 
+/**
+  \brief Class to hold the Oct decomposition tree
+*/
 struct OctDecompNode {
   static int maxNumChildren;
   static int lgMaxNumChildren;
@@ -141,6 +144,7 @@ public:
 	Sorter() {
           decompRoots = NULL;
           numDecompRoots = 0;
+	  joinThreshold = 0;
 
           activeNodes = new CkVec<OctDecompNode*>;
           tmpActiveNodes = new CkVec<OctDecompNode*>;
@@ -152,6 +156,7 @@ public:
 	Sorter(CkMigrateMessage* m) {
           decompRoots = NULL;
           numDecompRoots = 0;
+	  joinThreshold = 0;
 
           chareIDs.resize(numTreePieces, 1);
           chareIDs[0] = 0;

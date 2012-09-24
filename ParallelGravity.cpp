@@ -48,6 +48,7 @@
 
 extern char *optarg;
 extern int optind, opterr, optopt;
+extern const char * const Cha_CommitID;
 
 using namespace std;
 
@@ -55,13 +56,14 @@ CProxy_Main mainChare;
 int verbosity;
 int bVDetails;
 CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
+
 CProxy_ArrayMeshStreamer<CkCacheRequest, int> aggregator;
 CProxy_ArrayMeshStreamer<ParticleShuffle, int> shuffleAggregator;
 //CProxy_CompletionDetector detector; 
 //CProxy_CompletionDetector shuffleDetector; 
 
-#ifdef DECOMPOSER_GROUP
-CProxy_Decomposer decomposerProxy;
+#ifdef REDUCTION_HELPER
+CProxy_ReductionHelper reductionHelperProxy;
 #endif
 CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 CProxy_LvArray smoothProxy; // Proxy for smooth reductions
@@ -89,6 +91,7 @@ GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
 unsigned int numTreePieces;
 unsigned int particlesPerChare;
+int nIOProcessor;		// Number of pieces to be doing I/O at once
 int _prefetch;
 int _numChunks;
 int _randChunks;
@@ -504,6 +507,10 @@ Main::Main(CkArgMsg* m) {
 	param.bParaWrite = 1;
 	prmAddParam(prm, "bParaWrite", paramBool, &param.bParaWrite,sizeof(int),
 		    "paw", "enable/disable parallel writing of files");
+	param.nIOProcessor = 0;
+	prmAddParam(prm,"nIOProcessor",paramInt,&param.nIOProcessor,
+		    sizeof(int), "npio",
+		    "number of simultaneous I/O processors = 0 (all)");
 	param.achInFile[0] = '\0';
 	prmAddParam(prm,"achInFile",paramString,param.achInFile,
 		    256, "I", "input file name (or base file name)");
@@ -714,10 +721,12 @@ Main::Main(CkArgMsg* m) {
 	if(!prmSpecified(prm, "dTheta2")) {
 	    param.dTheta2 = param.dTheta;
 	    }
+	/* set readonly/global variables */
 	theta = param.dTheta;
         thetaMono = theta*theta*theta*theta;
 	dExtraStore = param.dExtraStore;
 	_cacheLineDepth = param.cacheLineDepth;
+	nIOProcessor = param.nIOProcessor;
 	if(prmSpecified(prm, "bCannonical")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bCannonical parameter ignored; integration is always cannonical"
@@ -887,6 +896,8 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "Enabling SPH" << endl;
 	    param.bDoGas = 1;
 	    }
+	if(!param.bDoGas)
+		param.bSphStep = 0;
 #include "physconst.h"
 	/*
 	 ** Convert kboltz/mhydrogen to system units, assuming that
@@ -919,6 +930,7 @@ Main::Main(CkArgMsg* m) {
 	    }
 	else { useTree = Binary_Oct; }
 
+	ckerr << "ChaNGa version 2.0, commit " << Cha_CommitID << endl;
         ckerr << "Running on " << CkNumPes() << " processors/ "<< CkNumNodes() <<" nodes with " << numTreePieces << " TreePieces" << endl;
 
 	if (verbosity) 
@@ -988,10 +1000,12 @@ Main::Main(CkArgMsg* m) {
 	  opts.setMap(myMap);
 	} else {
 #endif
-          /*
-	  CProxy_BlockMap myMap=CProxy_BlockMap::ckNew(); 
+#ifdef DEFAULT_ARRAY_MAP
+          CProxy_DefaultArrayMap myMap = CProxy_DefaultArrayMap::ckNew();
+#else
+	  CProxy_BlockMap myMap = CProxy_BlockMap::ckNew(); 
+#endif
 	  opts.setMap(myMap);
-          */
 #ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	}
 #endif
@@ -1000,6 +1014,7 @@ Main::Main(CkArgMsg* m) {
 
         prjgrp = CProxy_ProjectionsControl::ckNew();
 	treeProxy = pieces;
+
         int NUM_MESSAGES_BUFFERED = 1024;
 
         TopoManager tmgr;
@@ -1015,9 +1030,10 @@ Main::Main(CkArgMsg* m) {
         //        detector = CProxy_CompletionDetector::ckNew();
         //shuffleDetector = CProxy_CompletionDetector::ckNew();
 
-#ifdef DECOMPOSER_GROUP
-        decomposerProxy = CProxy_Decomposer::ckNew();
-#endif        
+#ifdef REDUCTION_HELPER
+        reductionHelperProxy = CProxy_ReductionHelper::ckNew();
+#endif
+
 	opts.bindTo(treeProxy);
 	lvProxy = CProxy_LvArray::ckNew(opts);
 	// Create an array for the smooth reductions
@@ -1410,10 +1426,6 @@ void Main::advanceBigStep(int iStep) {
 	      }
     }
 
-#ifdef DECOMPOSER_GROUP
-    decomposerProxy.acceptParticles(CkCallbackResumeThread());
-#endif
-
     // int lastActiveRung = activeRung;
 
     // determine largest timestep that needs a kick
@@ -1440,12 +1452,12 @@ void Main::advanceBigStep(int iStep) {
 	memoryStats();
 
     /***** Resorting of particles and Domain Decomposition *****/
-    //ckout << "Domain decomposition ...";
     CkPrintf("Domain decomposition ... ");
-    double startTime = CkWallTimer();
+    double startTime;
     bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
 
     CkCallback sortingCallback(CkCallback::resumeThread); 
+    startTime = CkWallTimer();
     shuffleAggregator.init(treeProxy, CkCallbackResumeThread(), 
                            sortingCallback, INT_MIN, false); 
     sorter.startSorting(dataManagerID, ddTolerance, bDoDD);
@@ -1772,7 +1784,7 @@ void Main::setupICs() {
   if(!ofsLog)
       CkAbort("Error opening log file.");
       
-  ofsLog << "# Starting ChaNGa version 2.00" << endl;
+  ofsLog << "# Starting ChaNGa version 2.00 commit " << Cha_CommitID << endl;
   ofsLog << "#";		// Output command line
   for (int i = 0; i < args->argc; i++)
       ofsLog << " " << args->argv[i];
@@ -1857,11 +1869,6 @@ void Main::setupICs() {
 
   }
 
-#ifdef DECOMPOSER_GROUP
-  decomposerProxy.acceptParticles(CkCallbackResumeThread());
-  CkPrintf("Main: acceptParticles done\n");
-#endif
-  
   initialForces();
 }
 
@@ -1923,6 +1930,9 @@ Main::restart()
 	prmAddParam(prm,"iWallRunTime",paramInt,&param.iWallRunTime,
 		    sizeof(int),"wall",
 		    "<Maximum Wallclock time (in minutes) to run> = 0 = infinite");
+	prmAddParam(prm,"nIOProcessor",paramInt,&param.nIOProcessor,
+		    sizeof(int), "npio",
+		    "number of simultaneous I/O processors = 0 (all)");
 	prmAddParam(prm, "nBucket", paramInt, &bucketSize,
 		    sizeof(int),"b", "Particles per Bucket (default: 12)");
 	prmAddParam(prm, "nCacheDepth", paramInt, &param.cacheLineDepth,
@@ -1943,9 +1953,6 @@ Main::restart()
 	
 	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-#ifdef DECOMPOSER_GROUP
-	decomposerProxy.acceptParticles(CkCallbackResumeThread());
-#endif
 	if(param.bGasCooling) 
 	    initCooling();
 	mainChare.initialForces();
@@ -1984,8 +1991,8 @@ Main::initialForces()
   // CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
 
   /***** Initial sorting of particles and Domain Decomposition *****/
-  //ckout << "Initial domain decomposition ...";
   CkPrintf("Initial domain decomposition ... ");
+
   startTime = CkWallTimer();
 
   CkCallback sortingCallback(CkCallback::resumeThread); 
@@ -2346,9 +2353,6 @@ Main::doSimulation()
 	  // The following call is to get the particles in key order
 	  // before the sort.
 	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-#ifdef DECOMPOSER_GROUP
-          decomposerProxy.acceptParticles(CkCallbackResumeThread());
-#endif
           
           CkCallback sortingCallback(CkCallback::resumeThread); 
           shuffleAggregator.init(treeProxy, CkCallbackResumeThread(), 
@@ -2546,9 +2550,6 @@ void Main::writeOutput(int iStep)
 	// The following call is to get the particles in key order
 	// before the sort.
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-#ifdef DECOMPOSER_GROUP
-        decomposerProxy.acceptParticles(CkCallbackResumeThread());
-#endif
 	
         CkCallback sortingCallback(CkCallback::resumeThread); 
         shuffleAggregator.init(treeProxy, CkCallbackResumeThread(), 
@@ -2597,9 +2598,6 @@ void Main::writeOutput(int iStep)
 	    // The following call is to get the particles in key order
 	    // before the sort.
 	    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-#ifdef DECOMPOSER_GROUP
-	    decomposerProxy.acceptParticles(CkCallbackResumeThread());
-#endif
 
             CkCallback sortingCallback(CkCallback::resumeThread); 
             shuffleAggregator.init(treeProxy, CkCallbackResumeThread(), 
@@ -2643,6 +2641,9 @@ int Main::adjust(int iKickRung)
 		     param.bSphStep, param.bViscosityLimitdt,
 		     param.dEta, param.dEtaCourant,
 		     param.dEtauDot, param.dDelta, 1.0/(a*a*a), a,
+		     0.0,  /* set to dhMinOverSoft if we implement
+			      Gasoline's LowerSoundSpeed. */
+		     param.bDoGas,
 		     CkCallbackResumeThread((void*&)msg));
 
     int iCurrMaxRung = ((int *)msg->getData())[0];

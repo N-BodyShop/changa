@@ -14,8 +14,8 @@ mainmodule ParallelGravity {
             <CkCacheRequest, int> aggregator;
   readonly CProxy_ArrayMeshStreamer
             <ParticleShuffle, int> shuffleAggregator;  
-#ifdef DECOMPOSER_GROUP
-  readonly CProxy_Decomposer decomposerProxy;
+#ifdef REDUCTION_HELPER
+  readonly CProxy_ReductionHelper reductionHelperProxy;
 #endif
   readonly CProxy_ShuffleShadowArray shuffleShadowProxy;
   readonly CProxy_LvArray lvProxy;
@@ -45,6 +45,7 @@ mainmodule ParallelGravity {
   readonly unsigned int numTreePieces;
   readonly unsigned int particlesPerChare;
   readonly unsigned int bucketSize;
+  readonly int nIOProcessor;
   readonly int lbcomm_cutoff_msgs;
   // jetley
   readonly int localNodesPerReq;
@@ -144,20 +145,21 @@ mainmodule ParallelGravity {
     entry [notrace] void on(CkCallback);
     entry [notrace] void off(CkCallback);                     
   };                                                          
-#ifdef DECOMPOSER_GROUP
-  group [migratable] Decomposer {
-    entry Decomposer();
 
+#ifdef REDUCTION_HELPER
+  group [migratable] ReductionHelper {
+    entry ReductionHelper();
+    entry void countTreePieces(CkCallback &cb);
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
-    entry void acceptParticles(CkCallback &cb);
   };
 #endif
 
   chare [migratable] Sorter {
     entry Sorter();
 
-    entry void startSorting(const CkGroupID& dataManagerID,
-        const double toler, bool decompose);
+    entry [threaded]
+	void startSorting(const CkGroupID& dataManagerID,
+        		const double toler, bool decompose);
     entry void collectEvaluations(CkReductionMsg* m);
     entry void collectORBCounts(CkReductionMsg* m);
     entry void finishPhase(CkReductionMsg* m);
@@ -222,6 +224,11 @@ mainmodule ParallelGravity {
         const double dTime, const double dvFac,
         const double duTfac, const int bCool,
         const CkCallback& cb);
+    entry void parallelWrite(int iPass, const CkCallback& cb,
+			   const std::string& filename, const double dTime,
+			   const double dvFac, // scale velocities
+			   const double duTFac, // convert temperature
+			   const int bCool);
     entry void serialWrite(u_int64_t iPrevOffset, const std::string& filename,
         const double dTime, const double dvFac,
         const double duTfac, const int bCool,
@@ -246,9 +253,7 @@ mainmodule ParallelGravity {
     entry void ioShuffle(CkReductionMsg *msg);
     entry void ioAcceptSortedParticles(ParticleShuffleMsg *);
     entry void assignKeys(CkReductionMsg* m);
-#ifndef DECOMPOSER_GROUP
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
-#endif
     entry void unshuffleParticles(CkReductionMsg* m);
     //entry void acceptSortedParticles(ParticleShuffleMsg *);
     //ORB
@@ -274,7 +279,9 @@ mainmodule ParallelGravity {
 	      int bSphStep, int bViscosityLimitdt,
 	      double dEta, double dEtaCourant, double dEtauDot,
 	      double dDelta, double dAccFac,
-	      double dCosmoFac, const CkCallback& cb);
+	      double dCosmoFac, double dhMinOverSoft,
+	      int bDoGas,
+	      const CkCallback& cb);
     entry void truncateRung(int iCurrMaxRung, const CkCallback& cb);
     entry void rungStats(const CkCallback& cb);
     entry void countActive(int activeRung, const CkCallback& cb);
@@ -336,7 +343,11 @@ mainmodule ParallelGravity {
     entry void startMarkSmooth(CkPointer<SmoothParams>, CkCallback &cb);
     entry void finishNodeCache(CkCallback &cb);
 
-    entry [inline] void requestRemoteMoments(Tree::NodeKey key, int sender);
+    entry
+#ifndef MERGE_REMOTE_REQUESTS 
+    	  [inline]
+#endif
+	  void requestRemoteMoments(Tree::NodeKey key, int sender);
     entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, MultipoleMoments& moments, OrientedBox<double>& box, OrientedBox<double>& boxBall, unsigned int iParticleTypes);
 
     //entry void calculateGravityDirect(const CkCallback& cb);

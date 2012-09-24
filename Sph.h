@@ -184,6 +184,7 @@ class DistDeletedGasSmoothParams : public SmoothParams
     DistDeletedGasSmoothParams(int _iType, int am) {
 	iType = _iType;
 	activeRung = am;
+	bUseBallMax = 0;
 	}
     PUPable_decl(DistDeletedGasSmoothParams);
     DistDeletedGasSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}

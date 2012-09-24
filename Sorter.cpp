@@ -273,6 +273,14 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
   Key k;
   BinaryTreeNode *rt;
 
+#ifdef REDUCTION_HELPER
+  // The reduction helper needs to know the number of pieces on each processor.
+  reductionHelperProxy.countTreePieces(CkCallbackResumeThread());
+  CProxy_ReductionHelper boundariesTargetProxy = reductionHelperProxy; 
+#else
+  CProxy_TreePiece boundariesTargetProxy = treeProxy; 
+#endif
+
   decompTime = CmiWallTimer();
     
   switch (domainDecomposition){
@@ -325,12 +333,16 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
         decompRoots = new OctDecompNode[numDecompRoots];
         for(int i = 0; i < nodeKeys.size(); i++){
           decompRoots[i].key = nodeKeys[i];
-          //CkPrintf("init add %llx to activeNodes\n", decompRoots[i].key);
+          //CkPrintf("init add %llu to activeNodes\n", decompRoots[i].key);
           activeNodes->push_back(&decompRoots[i]);
         }
 
-        joinThreshold = particlesPerChare;
-	splitThreshold = (int)(joinThreshold * 1.5);
+        //CkPrintf("Sorter: initially %d keys\n", activeNodes->length());
+
+	if(!joinThreshold) {
+	    joinThreshold = particlesPerChare;
+	    splitThreshold = (int)(joinThreshold * 1.5);
+	    }
         
         //Convert the Node Keys to the splitter keys which will be sent to histogram
         convertNodesToSplitters();
@@ -345,52 +357,34 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
       default:
     CkAbort("Invalid domain decomposition requested");
   }
+  
+  if(verbosity >= 3)
+    ckout << "Sorter: Initially have " << splitters.size() << " splitters" << endl;
+  
 
-	if(verbosity >= 3)
-		ckout << "Sorter: Initially have " << splitters.size() << " splitters" << endl;
+  //send out the first guesses to be evaluated
+  if((domainDecomposition!=ORB_dec) && (domainDecomposition!=ORB_space_dec)) {
 
-
-	//send out the first guesses to be evaluated
-  if((domainDecomposition!=ORB_dec) && (domainDecomposition!=ORB_space_dec)){
     if (decompose) {
-
-	// XXX: Optimizations available if sort has been done before!
-	//create initial evenly distributed guesses for splitter keys
-	keyBoundaries.clear();
-	keyBoundaries.reserve(numChares + 1);
-	keyBoundaries.push_back(firstPossibleKey);
-
-#ifdef DECOMPOSER_GROUP
-	decomposerProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#else
-	treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#endif
+      // XXX: Optimizations available if sort has been done before!
+      //create initial evenly distributed guesses for splitter keys
+      keyBoundaries.clear();
+      keyBoundaries.reserve(numChares + 1);
+      keyBoundaries.push_back(firstPossibleKey);      
     } else {
       //send out all the decided keys to get final bin counts
-      sorted = true;
-      if(domainDecomposition == Oct_dec){
-#ifdef DECOMPOSER_GROUP
-	  decomposerProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(),
-				       0,
-				       CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#else
-	  treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(),
-				       0,
-				       CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#endif
-      }
-      else{
-#ifdef DECOMPOSER_GROUP
-	  decomposerProxy.evaluateBoundaries(&(*keyBoundaries.begin()),
-				       keyBoundaries.size(), 0,
-				       CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#else
-	  treeProxy.evaluateBoundaries(&(*keyBoundaries.begin()),
-				       keyBoundaries.size(), 0,
-				       CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#endif
-      }
+      sorted = true;     
     }
+
+    std::vector<SFC::Key>* keys; 
+    if(decompose || domainDecomposition == Oct_dec){
+      keys = &splitters; 
+    }
+    else {
+      keys = &keyBoundaries; 
+    }
+
+    boundariesTargetProxy.evaluateBoundaries(&(*keys->begin()), keys->size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
   }
 }
 
@@ -545,22 +539,33 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     startTimer = CmiWallTimer();
     Key *array = convertNodesToSplittersRefine(nodesOpened.size(),nodesOpened.getVec());
     //CkPrintf("convertNodesToSplittersRefine elts %d took %g s\n", nodesOpened.size()*arraySize, CmiWallTimer()-startTimer);
-#ifdef DECOMPOSER_GROUP
-    decomposerProxy.evaluateBoundaries(array, nodesOpened.size()*arraySize, 1<<refineLevel, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#ifdef REDUCTION_HELPER
+    CProxy_ReductionHelper boundariesTargetProxy = reductionHelperProxy; 
 #else
-    treeProxy.evaluateBoundaries(array, nodesOpened.size()*arraySize, 1<<refineLevel, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+    CProxy_TreePiece boundariesTargetProxy = treeProxy; 
 #endif
+    boundariesTargetProxy.evaluateBoundaries(array, nodesOpened.size()*arraySize, 1<<refineLevel, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
     delete[] array;
   }
   else{
     sorted=true;
     splitters.clear();
-    nodeKeys.clear();
-    binCounts.clear();
-    for(int i = 0; i < numDecompRoots; i++){
-      OctDecompNode *droot = &decompRoots[i];
-      droot->combine(joinThreshold,nodeKeys,binCounts);
-    }
+    do {
+	// Convert Oct domains to splitters, ensuring that we do not exceed
+	// the number of available TreePieces.
+	nodeKeys.clear();
+	binCounts.clear();
+	for(int i = 0; i < numDecompRoots; i++){
+	    OctDecompNode *droot = &decompRoots[i];
+	    droot->combine(joinThreshold,nodeKeys,binCounts);
+	    }
+	if(binCounts.size() > numTreePieces) {
+	    CkPrintf("bumping joinThreshold: %d, size: %d\n", joinThreshold,
+		     binCounts.size());
+	    joinThreshold = (int) (1.1*joinThreshold);
+	    }
+	}
+    while(binCounts.size() > numTreePieces);
     convertNodesToSplitters();
 
 #if 0
@@ -716,6 +721,8 @@ bool Sorter::refineOctSplitting(int n, int *count) {
   activeNodes = save;
 
   tmpActiveNodes->length() = 0;
+
+  //CkPrintf("Sorter: refined to get %d keys\n", activeNodes->length());
 
   return (nodesOpened.size() > 0);
 
@@ -905,9 +912,11 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 		ckout << "Sorter: Probing " << splitters.size() << " splitter keys" << endl;
 		ckout << "Sorter: Decided on " << (keyBoundaries.size() - 1) << " splitting keys" << endl;
 	}
-	
+
+        std::vector<SFC::Key>* keys; 
 	//check if we have found all the splitters
 	if(sorted) {
+          
 		if(verbosity)
 			ckout << "Sorter: Histograms balanced after " << numIterations << " iterations." << endl;
 		
@@ -915,19 +924,18 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 		keyBoundaries.push_back(lastPossibleKey);
 		
 		//send out all the decided keys to get final bin counts
-#ifdef DECOMPOSER_GROUP
-		decomposerProxy.evaluateBoundaries(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#else
-		treeProxy.evaluateBoundaries(&(*keyBoundaries.begin()), keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#endif
+                keys = &keyBoundaries; 
 	} else {
           //send out the new guesses to be evaluated
-#ifdef DECOMPOSER_GROUP
-	    decomposerProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#else
-	    treeProxy.evaluateBoundaries(&(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#endif
+          keys = &splitters; 
         }
+
+#ifdef REDUCTION_HELPER
+        CProxy_ReductionHelper boundariesTargetProxy = reductionHelperProxy; 
+#else
+        CProxy_TreePiece boundariesTargetProxy = treeProxy; 
+#endif
+        boundariesTargetProxy.evaluateBoundaries(&(*keys->begin()), keys->size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 }
 
 /** Generate new guesses for splitter keys based on the histograms that came

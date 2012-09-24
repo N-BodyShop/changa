@@ -126,8 +126,8 @@ extern DomainsDec domainDecomposition;
 extern double dExtraStore;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
-#ifdef DECOMPOSER_GROUP
-extern CProxy_Decomposer decomposerProxy;
+#ifdef REDUCTION_HELPER
+extern CProxy_ReductionHelper reductionHelperProxy;
 #endif
 extern CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 extern CProxy_LvArray smoothProxy;  // Proxy for smooth reduction
@@ -138,6 +138,7 @@ extern CProxy_ArrayMeshStreamer<CkCacheRequest, int> aggregator;
 extern CProxy_DataManager dMProxy;
 extern unsigned int numTreePieces;
 extern unsigned int particlesPerChare;
+extern int nIOProcessor;
 
 extern CProxy_PETreeMerger peTreeMergerProxy;
 extern CProxy_CkCacheManager cacheGravPart;
@@ -1015,7 +1016,9 @@ private:
 
 	/// The counts of how many particles belonging to other
 	/// TreePieces I currently hold
+#ifndef REDUCTION_HELPER
 	CkVec<int> myBinCounts;
+#endif
 	std::vector<int> myBinCountsORB;
 	/// My index in the responsibility array.
 	int myPlace;
@@ -1447,6 +1450,12 @@ public:
 			const std::string& filename, const double dTime,
 			const double dvFac, const double duTFac,
 			const int bCool, const CkCallback& cb);
+	// control parallelism in the write
+	void parallelWrite(int iPass, const CkCallback& cb,
+			   const std::string& filename, const double dTime,
+			   const double dvFac, // scale velocities
+			   const double duTFac, // convert temperature
+			   const int bCool);
 	// serial output
 	void serialWrite(u_int64_t iPrevOffset, const std::string& filename,
 			 const double dTime,
@@ -1483,9 +1492,7 @@ public:
 	 */
 	// Assign keys after loading tipsy file and finding Bounding box
 	void assignKeys(CkReductionMsg* m);
-#ifndef DECOMPOSER_GROUP 
 	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
-#endif
 	void unshuffleParticles(CkReductionMsg* m);
 	//void acceptSortedParticles(ParticleShuffleMsg *);
 
@@ -1526,13 +1533,17 @@ public:
  * @param dDelta Base timestep
  * @param dAccFac Acceleration scaling for cosmology
  * @param dCosmoFac Cosmo scaling for Courant
+ * @param dhMinOverSoft minimum smoothing parameter.
+ * @param bDoGas We are calculating gas forces.
  * @param cb Callback function reduces currrent maximum rung
  */
   void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      int bSphStep, int bViscosityLimitdt,
-		       double dEta, double dEtaCourant, double dEtauDot,
-		       double dDelta, double dAccFac,
-		       double dCosmoFac, const CkCallback& cb);
+	      double dEta, double dEtaCourant, double dEtauDot,
+	      double dDelta, double dAccFac,
+	      double dCosmoFac, double dhMinOverSoft,
+	      int bDoGas,
+	      const CkCallback& cb);
   /**
    * @brief Truncate the highest rung
    * @param iCurrMaxRung new maximum rung.
@@ -1597,7 +1608,7 @@ public:
   void buildORBTree(GenericTreeNode * node, int level);
   /**************************/
 
-	/// Request the TreePiece to send back later the moments for this node.
+	/// Request the moments for this node.
 	void requestRemoteMoments(const Tree::NodeKey key, int sender);
 	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments, const OrientedBox<double>& box, const OrientedBox<double>& boxBall, const unsigned int iParticleTypes);
 
@@ -1775,16 +1786,6 @@ public:
 
         void balanceBeforeInitialForces(CkCallback &cb);
         
-#ifdef DECOMPOSER_GROUP
-        //void submitParticles();
-        //void checkin();
-
-        void setParticles(GravityParticle *);
-
-        private:
-        //Decomposer *myDecomposer;
-#endif
-
         // For merging of remote moment requests
         // before sending messages during tree building
         public:
@@ -1826,26 +1827,7 @@ void initNodeLock();
 void printGenericTree(GenericTreeNode* node, std::ostream& os) ;
 //bool compBucket(GenericTreeNode *ln,GenericTreeNode *rn);
 
-#ifdef DECOMPOSER_GROUP
-struct SubmittedParticleStruct{
-  GravityParticle *particles;
-  int nparticles;
-  TreePiece *tp;
-  SFC::Key key;
-
-  SubmittedParticleStruct(GravityParticle *p, int n, TreePiece *t ,SFC::Key k) : 
-    particles(p), nparticles(n), tp(t), key(k)
-  {
-  }
-
-#if 0
-  bool operator<(const SubmittedParticleStruct &other) const {
-    //return tp->getIndex() < other.tp->getIndex();
-    return key < other.key;
-  }
-#endif
-};
-
+#ifdef REDUCTION_HELPER
 
 class TreePieceCounter : public CkLocIterator { 
   public:
@@ -1854,22 +1836,20 @@ class TreePieceCounter : public CkLocIterator {
     void reset();
 
   public:
-    int count;
-    std::vector<SubmittedParticleStruct> submittedParticles;
-    int submittedParticleCount;
+    CkVec<TreePiece *> presentTreePieces;
 };
 
 
 
-class Decomposer : public CBase_Decomposer {
+class ReductionHelper : public CBase_ReductionHelper {
   public:
-  Decomposer();
-  Decomposer(CkMigrateMessage *);
+  ReductionHelper();
+  ReductionHelper(CkMigrateMessage *);
   void pup(PUP::er &p);
 
+  void countTreePieces(const CkCallback &cb);
+  void reduceBinCounts(int nBins, int *binCounts, const CkCallback &cb);
   void evaluateBoundaries(SFC::Key *keys, const int n, int isRefine, const CkCallback& cb);
-
-  void acceptParticles(CkCallback &cb);
 
   private:
   void senseLocalTreePieces();
@@ -1877,10 +1857,7 @@ class Decomposer : public CBase_Decomposer {
   private:
 
   CkVec<int> myBinCounts;
-  unsigned int myNumParticles;
-  /// Array with the particles in this chare
-  GravityParticle* myParticles;
-  int myNumTreePieces;
+  int numTreePiecesCheckedIn;
 
   TreePieceCounter localTreePieces;
 };

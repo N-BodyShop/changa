@@ -2358,7 +2358,8 @@ bool RemoteTreeBuilder::work(GenericTreeNode *node, int level){
         // request the remote chare to fill this node with the Moments
         if(requestNonLocalMoments){
           CkEntryOptions opts;
-          opts.setPriority(-110000000);
+
+          opts.setPriority((unsigned int) -110000000);
           streamingProxy[node->remoteIndex].requestRemoteMoments(node->getKey(), tp->thisIndex.data[0], &opts);
         }
       }
@@ -2488,6 +2489,8 @@ bool LocalTreeBuilder::work(GenericTreeNode *node, int level){
     // explanation as above
     return true;
   }
+  CkAbort("Unhandled node type");
+  return false;
 }
 
 void LocalTreeBuilder::doneChildren(GenericTreeNode *node, int level){
