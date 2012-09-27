@@ -173,7 +173,7 @@ public:
 	Vector3D<double> velocity;
 	Vector3D<cosmoType> treeAcceleration;
 	cosmoType potential;
-	cosmoType dtGrav;
+	double dtGrav;
 	double fBall;
 	double fDensity;
 	int64_t iOrder;		/* input order of particles */
