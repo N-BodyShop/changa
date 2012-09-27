@@ -9,7 +9,7 @@
 /** @brief floating point type on the GPU */
 typedef float cudatype;
 /** @brief floating point type on the host */
-typedef double hosttype;
+typedef cosmoType hosttype;
 
 // set these to appropriate values (in millions)
 // local
