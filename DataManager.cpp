@@ -620,9 +620,9 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
   int numCachedParticles = 0;
   int totalNumBuckets = 0;
 
-  cacheType *wholeNodeCache = cacheNode[CkMyPe()].getCache();
+  cacheType *wholeNodeCache = ((CkCacheManager*)cacheNode.ckLocalBranch())->getCache();
   cacheType *ctNode = &wholeNodeCache[chunk];
-  cacheType *wholePartCache = cacheGravPart[CkMyPe()].getCache();
+  cacheType *wholePartCache = ((CkCacheManager*)cacheGravPart.ckLocalBranch())->getCache();
   cacheType *ctPart = &wholePartCache[chunk];
 
   // find out number of particles and nodes cached
