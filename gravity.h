@@ -379,7 +379,7 @@ inline int partBucketForce(ExternalGravityParticle *part,
   }
   
   activeParticles[nActiveParts] = &dummyPart; 
-#ifdef COSMO_FLOAT
+#ifdef SSE_COSMO_FLOAT
   activeParticles[nActiveParts+1] = &dummyPart; 
   activeParticles[nActiveParts+2] = &dummyPart; 
 #endif
@@ -503,7 +503,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
   }
 
   activeParticles[nActiveParts] = &dummyPart; 
-#ifdef COSMO_FLOAT
+#ifdef SSE_COSMO_FLOAT
   activeParticles[nActiveParts+1] = &dummyPart; 
   activeParticles[nActiveParts+2] = &dummyPart; 
 #endif

@@ -3,7 +3,9 @@
 
 #include "cosmoType.h"
 
-#if defined(__SSE2__) && defined(COSMO_FLOAT)
+#define SSE_COSMO_FLOAT
+
+#if defined(__SSE2__) && defined(SSE_COSMO_FLOAT)
 #include "SSE-Float.h"
 #define SSE_VECTOR_WIDTH 4
 #define FORCE_INPUT_LIST_PAD 3
@@ -19,7 +21,7 @@ typedef SSEFloat SSEcosmoType;
 }
  
 enum { cosmoMask=0xf };
-#elif defined(__SSE2__) && !defined(COSMO_FLOAT)
+#elif defined(__SSE2__) && !defined(SSE_COSMO_FLOAT)
 #include "SSE-Double.h"
 #define SSE_VECTOR_WIDTH 2
 #define FORCE_INPUT_LIST_PAD 1
