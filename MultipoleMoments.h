@@ -159,6 +159,7 @@ void momEvalFmomrcm(FMOMR *m,SSEcosmoType u,SSEcosmoType dir,SSEcosmoType x,
 
 /// A representation of a multipole expansion.
 class MultipoleMoments {
+	friend class CudaMultipoleMoments;
 	/// A physical size for this multipole expansion, calculated
 	/// by an external function using some other information
 	cosmoType radius;
@@ -371,7 +372,9 @@ inline void calculateRadiusFarthestCorner(MultipoleMoments& m, const OrientedBox
 	delta1.y = (delta1.y > delta2.y ? delta1.y : delta2.y);
 	delta1.z = (delta1.z > delta2.z ? delta1.z : delta2.z);
 	cosmoType newradius = delta1.length();
+#ifdef HEXADECAPOLE
 	momRescaleFmomr(&m.mom, newradius, m.radius);
+#endif
 	m.radius = newradius;
 }
 
@@ -381,8 +384,10 @@ inline void calculateRadiusBox(MultipoleMoments& m,
 			       const OrientedBox<double>& box) {
 	Vector3D<cosmoType> delta = box.greater_corner - box.lesser_corner;
 	cosmoType newradius = 0.5*delta.length();
+#ifdef HEXADECAPOLE
 	if(m.totalMass > 0.0)
 	    momRescaleFmomr(&m.mom, newradius, m.radius);
+#endif
 	m.radius = newradius;
 }
 
@@ -398,7 +403,9 @@ inline void calculateRadiusFarthestParticle(MultipoleMoments& m, ParticleType* b
 			newradius = d;
 	}
 	newradius = sqrt(newradius);
+#ifdef HEXADECAPOLE
 	momRescaleFmomr(&m.mom, newradius, m.radius);
+#endif
 	m.radius = newradius;
 }
 
