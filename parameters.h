@@ -5,6 +5,8 @@
 #include "cooling.h"
 #include "starform.h"
 
+/** @brief Hold parameters of the run.
+ */
 typedef struct parameters {
     /*
     ** Parameters for ParallelGravity.
@@ -63,6 +65,7 @@ typedef struct parameters {
     int bGasAdiabatic;
     int bGasIsothermal;
     int bGasCooling;
+    int nSmooth;
     COOLPARAM CoolParam;
     double dhMinOverSoft;
     double dMsolUnit;
@@ -92,6 +95,7 @@ typedef struct parameters {
     int bOverwrite;
     int bParaRead;
     int bParaWrite;
+    int nIOProcessor;
     char achInFile[256];
     char achOutName[256];
     int bStaticTest;
@@ -99,6 +103,7 @@ typedef struct parameters {
     int iOutInterval;
     int iCheckInterval;
     int iLogInterval;
+    int iBinaryOutput;
     int bDoIOrderOutput;
     int cacheLineDepth;
     double dExtraStore;
@@ -157,6 +162,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.bGasAdiabatic;
     p|param.bGasIsothermal;
     p|param.bGasCooling;
+    p|param.nSmooth;
     p((char *)&param.CoolParam, sizeof(param.CoolParam));
     p|param.bFastGas;
     p|param.dFracFastGas;
@@ -188,6 +194,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.bOverwrite;
     p|param.bParaRead;
     p|param.bParaWrite;
+    p|param.nIOProcessor;
     p(param.achInFile, 256);
     p(param.achOutName, 256);
     p|param.bStaticTest;
@@ -195,6 +202,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.iOutInterval;
     p|param.iCheckInterval;
     p|param.iLogInterval;
+    p|param.iBinaryOutput;
     p|param.bDoIOrderOutput;
     p|param.cacheLineDepth;
     p|param.dExtraStore;

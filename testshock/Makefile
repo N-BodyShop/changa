@@ -11,4 +11,4 @@ shocktube.000300:
 	../charmrun ../ChaNGa shocktube.param
 
 clean:
-	rm -rf pressplot pressplot.o shocktube.000300 pres.out *.chk?
+	rm -rf pressplot pressplot.o shocktube.000300 pres.out *.chk?  shocktube.log lastcheckpoint

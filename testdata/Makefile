@@ -1,5 +1,5 @@
 # Change the N here to make a new size dataset.
-N=7000
+N=1000
 
 testdata.tbin: ppartt Makefile
 	./ppartt $N -.5 .5 -1 > testdata.tbin
@@ -9,4 +9,7 @@ ppartt: ppartt.c tipsydefs.h
 
 pgaspart: pgaspart.c tipsydefs.h
 	$(CC) -o pgaspart pgaspart.c -lm
+
+clean:
+	-rm -f pgaspart ppartt testdata.tbin
 

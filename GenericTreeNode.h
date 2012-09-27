@@ -106,7 +106,7 @@ namespace Tree {
     /// During Treebuid, it indicates whether remote moments are
     /// needed to calculate this nodes moment.
     int remoteIndex;
-    /// If this node is partially local, total number of particles contained (across all chares)
+    /// Total number of particles contained (across all chares)
     unsigned int particleCount;
     /// Pointer to the first particle in this node
     GravityParticle *particlePointer;
@@ -133,6 +133,8 @@ namespace Tree {
     double sizeSm;
     /// Maximum smoothing radius of smoothActive particles
     double fKeyMax;
+    /// SMP rank of node owner
+    int iRank;
 
     GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0), usedBy(0) {
 #if INTERLIST_VER > 0
@@ -170,6 +172,16 @@ namespace Tree {
     virtual bool contains(NodeKey nodekey) = 0;
 #endif
 
+    bool isValid(){
+      return (myType != Invalid);
+    }
+
+    bool isCached(){
+      return (myType == Cached ||
+              myType == CachedBucket ||
+              myType == CachedEmpty);
+    }
+
     // these two functions are used to track the communication between objects:
     // a nodes is marked usedBy when a local TreePiece has touched it
     void markUsedBy(int index) { usedBy |= (((CmiUInt8)1) << index); }
@@ -189,6 +201,7 @@ namespace Tree {
     /// transform an internal node into a bucket
     inline void makeBucket(GravityParticle *part) {
       myType = Bucket;
+      iRank = CkMyRank();
 #if INTERLIST_VER > 0
       numBucketsBeneath = 1;
 #endif
@@ -223,6 +236,8 @@ namespace Tree {
       bndBoxBall.reset();
       iParticleTypes = 0;
     }
+
+    void getGraphViz(std::ostream &out);
 
     virtual NodeKey getLongestCommonPrefix(NodeKey k1, NodeKey k2)
     {
@@ -945,18 +960,6 @@ namespace Tree {
   };
 
 template <typename T>
-  class NodeJoint : public CkPool<NodeJoint<T>, 256> {
-  public:
-  T weight;
-  T left;
-  T right;
-  bool isLeaf;
-
-  NodeJoint(T w, T l, T r) : weight(w), left(l), right(r), isLeaf(false) { }
-  NodeJoint(T w) : weight(w), left(0), right(0), isLeaf(true) { }
-};
-
-template <typename T>
   class WeightKey {
   public:
   T weight;
@@ -969,71 +972,6 @@ template <typename T>
     else return key < k2.key;
   }
 };
-
-class NodeKeyClass {
-  NodeKey key;
- public:
-  NodeKeyClass(NodeKey k) : key(k) {}
-  operator NodeKey() const { return key; }
-
-  CkHashCode hash(void) const;
-  static CkHashCode staticHash(const void *a,size_t);
-  int compare(const NodeKeyClass &ind) const;
-  static int staticCompare(const void *a,const void *b,size_t);
-};
-
-inline CkHashCode NodeKeyClass::hash() const {
-  CkHashCode ret = (key >> 32) + key;
-  return ret;
-}
-
-inline int NodeKeyClass::compare(const NodeKeyClass &ind) const {
-  if (key == ind.key) return 1;
-  else return 0;
-}
-
-template <typename T>
-inline void reorderList(NodeKey *nodeKeys, int num, CkVec<T> *zeros, CkVec<NodeKey> *openedNodes, CkHashtableT<NodeKeyClass,NodeJoint<T>*> &nodes) {
-  // reorder the output list
-  NodeKey current = NodeKey(1);
-  NodeJoint<T> *curNode;
-  int count = 0;
-  if (zeros != NULL) zeros->removeAll();
-  if (openedNodes != NULL) openedNodes->removeAll();
-  while (1) {
-    curNode = nodes.get(current);
-    if (curNode != 0) {
-      if (curNode->isLeaf || (curNode->left == 0 && curNode->right == 0)) {
-        if (curNode->isLeaf) {
-          //if (curNode->weight == 0 && zeros != NULL) zeros->push_back(count);
-          if (zeros != NULL) zeros->push_back(curNode->weight);
-          nodeKeys[count++] = current;
-        }
-        else if (curNode->weight != 0) {
-          // node is not a leaf and has both children weight=0 (while not being itself zero)
-          // this means the nodes has just been opened
-          nodeKeys[count++] = current << 1;
-          nodeKeys[count++] = (current << 1) + 1;
-          if (openedNodes != NULL) openedNodes->push_back(current);
-        }
-        // terminate recursion and get the next sibling
-        while (current & 1) current >>= 1;
-        if (current == 0) break;
-        current++;
-      } else {
-        // get the first child
-        current <<= 1;
-      }
-
-      //delete curNode;
-    } else {
-      // get the first child
-      current <<= 1;
-    }
-  }
-  if (count != num) CkPrintf("count = %d, num = %d\n",count,num);
-  CkAssert(count == num);
-}
 
 } //close namespace Tree
 
@@ -1058,6 +996,5 @@ inline void operator|(PUP::er &p,Tree::GenericTrees &gt) {
     p | gti;
   }
 }
-
 
 #endif //GENERICTREENODE_H

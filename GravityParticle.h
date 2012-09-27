@@ -1,3 +1,6 @@
+/** @file GravityParticle.h
+ * Defines the fundamental particle data structures.
+ */
 #ifndef GRAVITYPARTICLE_H
 #define GRAVITYPARTICLE_H
 
@@ -6,7 +9,7 @@
 #include "SFC.h"
 #include <vector>
 
-// Object to bookkeep a Bucket Walk.
+/// @brief Object to bookkeep a Bucket Walk.
 class BucketGravityRequest {
 public:
 		
@@ -17,8 +20,11 @@ public:
 	
 };
 
-// Information needed to calculate gravity
-
+/// @brief Information needed to calculate gravity
+///
+/// This is used in the CacheParticle class since it contains only the
+/// information that an external procesor needs to calculate gravity.
+///
 class ExternalGravityParticle {
  public:
 
@@ -33,7 +39,7 @@ class ExternalGravityParticle {
   }
 };
 
-// Extra data needed for SPH
+/// @brief Extra data needed for SPH
 class extraSPHData 
 {
  private:
@@ -94,7 +100,7 @@ class extraSPHData
 	}
     };
 
-// Extra data needed for Stars
+/// @brief Extra data needed for Stars
 class extraStarData 
 {
  private:
@@ -120,8 +126,10 @@ int TYPETest(GravityParticle *a, unsigned int b);
 
 class ExternalSmoothParticle;
 
-// This class contains everything that a "dark matter" particle needs.
-// Other classes of particles require this plus an "extra data" class.
+/// @brief Fundamental type for a particle
+///
+/// This class contains everything that a "dark matter" particle needs.
+/// Other classes of particles require this plus an "extra data" class.
 
 class GravityParticle : public ExternalGravityParticle {
 public:
@@ -157,6 +165,7 @@ public:
           rung = 0;
         }
 
+	/// @brief Used to sort the particles into tree order.
 	inline bool operator<(const GravityParticle& p) const {
 		return key < p.key;
 	}
@@ -179,6 +188,7 @@ public:
 #endif
         }
 	// Access SPH quantities
+	/// @brief Get quantities needed for SPH smooths.
 	ExternalSmoothParticle getExternalSmoothParticle();
 	inline double& u() { return (((extraSPHData*)extraData)->u());}
 	inline double& fMetals() { return (((extraSPHData*)extraData)->fMetals());}
@@ -237,7 +247,7 @@ inline int TYPEReset(GravityParticle *a, unsigned int b) {
     return a->iType &= (~b);
     }
 
-/// unmark particle as deleted
+/// @brief unmark particle as deleted
 inline void unDeleteParticle(GravityParticle *p)
 {
     CkAssert(TYPETest(p, TYPE_DELETED)); 
@@ -245,14 +255,14 @@ inline void unDeleteParticle(GravityParticle *p)
     TYPEReset(p, TYPE_DELETED); 
     }
 
-/// mark particle as deleted
+/// @brief mark particle as deleted
 inline void deleteParticle(GravityParticle *p)
 {
     TYPESet(p, TYPE_DELETED); 
     }
 
-// Convert star particle to gas particle
-// Note that new memory is allocated for the extradata.
+/// @brief Create gas particle to star particle
+/// Note that new memory is allocated for the extradata.
 inline GravityParticle StarFromGasParticle(GravityParticle *p) 
 {
     GravityParticle starp = *p;
@@ -261,7 +271,7 @@ inline GravityParticle StarFromGasParticle(GravityParticle *p)
     return starp;
     }
 
-// Class for cross processor data needed for smooth operations
+/// @brief Class for cross processor data needed for smooth operations
 class ExternalSmoothParticle {
  public:
 
@@ -314,6 +324,7 @@ class ExternalSmoothParticle {
 	      }
 	  }
   
+  /// @brief Fill in a full gravity particle from this object.
   inline void getParticle(GravityParticle *tmp) { 
       tmp->mass = mass;
       tmp->fBall = fBall;

@@ -3,7 +3,7 @@
 
 #include "codes.h"
 
-
+/// Base class for optimizing walk actions.
 
 class Opt{
   protected:
@@ -11,6 +11,10 @@ class Opt{
   OptType type;
   Opt(OptType _type) : type(_type) {}
   public:
+
+  /// Key method of Opt: given a opening decision, and a node, return
+  /// an action to perform.  The action will depend on the type of
+  /// node considered and which walk is being done.
 
   int action(int openDecision, GenericTreeNode *node){
     return action_array[openDecision][node->getType()];
@@ -161,7 +165,7 @@ class PushGravityOpt : public Opt{
   
 };
 
-
+/// Optimization for Prefetch walk.
 
 class PrefetchOpt : public Opt{
   public: 

@@ -10,7 +10,15 @@
 #include "smooth.h"
 #include "Sph.h"
 
+#ifndef MAXPATHLEN
+#define MAXPATHLEN 1024
+#endif
 
+///
+/// @brief initialize SPH quantities
+///
+/// Initial calculation of densities and internal energies, and cooling rates.
+///
 void
 Main::initSph() 
 {
@@ -21,9 +29,8 @@ Main::initSph()
 	DenDvDxSmoothParams pDen(TYPE_GAS, 0, param.csm, dTime, 0);
 	double startTime = CkWallTimer();
 	double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
-	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
-				       CkCallbackResumeThread());
-	iPhase++;
+	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
+			      CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 	if(verbosity)
@@ -34,7 +41,8 @@ Main::initSph()
 	if(param.bGasCooling) {
 	    // Update cooling on the datamanager
 	    dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
-	    treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
+	    if(!bIsRestarting)  // Energy is already OK from checkpoint.
+		treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
 	    }
 	if(verbosity) CkPrintf("Initializing SPH forces\n");
 	nActiveSPH = nTotalSPH;
@@ -47,12 +55,9 @@ Main::initSph()
 	}
     }
 
-/*
- * Initialize cooling constants and integration data structures.
- * XXX if this is to work on an SMP configuration, we need to change
- * this so that the integration data structures are per treepiece, not
- * per node.
- */
+///
+/// @brief Initialize cooling constants and integration data structures.
+///
 void Main::initCooling()
 {
 #ifndef COOLING_NONE
@@ -129,10 +134,16 @@ DataManager::dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb
     contribute(0, 0, CkReduction::concat, cb);
     }
 
-/*
- * function from PKDGRAV to read an ASCII table
- */
-/* Note if dDataOut is NULL it just counts the number of valid input lines */
+///
+/// @brief function from PKDGRAV to read an ASCII table
+///
+/// @param extension Appended to outName to determine file name to
+/// read.
+/// @param nDataPerLine Number of columns in the table.
+/// @param dDataOut pointer to array in which to store the table.
+/// Note if dDataOut is NULL it just counts the number of valid input
+/// lines.
+///
 int Main::ReadASCII(char *extension, int nDataPerLine, double *dDataOut)
 {
 	FILE *fp;
@@ -227,7 +238,7 @@ DataManager::CoolingSetTime(double z, // redshift
     }
 
 /**
- *  Perform the SPH force calculation.
+ *  @brief Perform the SPH force calculation.
  *  @param activeRung Timestep rung (and above) on which to perform
  *  SPH
  *  @param bNeedDensity Does the density calculation need to be done?
@@ -243,9 +254,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// This also marks neighbors of actives
 	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 1);
 	double startTime = CkWallTimer();
-	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
-				       CkCallbackResumeThread());
-	iPhase++;
+	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
+			      CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 
@@ -253,8 +263,7 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// This marks particles with actives as neighbors
 	MarkSmoothParams pMark(TYPE_GAS, activeRung);
 	startTime = CkWallTimer();
-	treeProxy.startIterationMarkSmooth(&pMark, CkCallbackResumeThread());
-	iPhase++;
+	treeProxy.startMarkSmooth(&pMark, CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 	
@@ -263,9 +272,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// additional marking
 	DenDvDxNeighborSmParams pDenN(TYPE_GAS, activeRung, param.csm, dTime);
 	startTime = CkWallTimer();
-	treeProxy.startIterationSmooth(&pDenN, 1, dfBall2OverSoft2,
-				       CkCallbackResumeThread());
-	iPhase++;
+	treeProxy.startSmooth(&pDenN, 1, param.nSmooth, dfBall2OverSoft2,
+			      CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 	}
@@ -275,9 +283,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// actives, and those who have actives as neighbors.
 	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 0);
 	double startTime = CkWallTimer();
-	treeProxy.startIterationSmooth(&pDen, 1, dfBall2OverSoft2,
-				       CkCallbackResumeThread());
-	iPhase++;
+	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
+			      CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 
@@ -300,8 +307,7 @@ Main::doSph(int activeRung, int bNeedDensity)
     PressureSmoothParams pPressure(TYPE_GAS, activeRung, param.csm, dTime,
 				   param.dConstAlpha, param.dConstBeta);
     double startTime = CkWallTimer();
-    treeProxy.startIterationReSmooth(&pPressure, CkCallbackResumeThread());
-    iPhase++;
+    treeProxy.startReSmooth(&pPressure, CkCallbackResumeThread());
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	  << endl;
     

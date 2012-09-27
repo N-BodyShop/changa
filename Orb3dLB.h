@@ -29,7 +29,7 @@ private:
 
   // things are stored in here before work
   // is ever called.
-  CkReduction::setElement *tpCentroids;
+  TaggedVector3D *tpCentroids;
   CkReductionMsg *tpmsg;
   int nrecvd;
   bool haveTPCentroids;

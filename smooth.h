@@ -8,6 +8,7 @@
 #include "Compute.h"
 #include "State.h"
 
+/// Object for priority queue entry.
 class pqSmoothNode
 {
  public:
@@ -21,7 +22,7 @@ class pqSmoothNode
     };
 
 	
-// Object to bookkeep a Bucket Smooth Walk.
+/// Object to bookkeep a Bucket Smooth Walk.
 
 class NearNeighborState: public State {
 public:
@@ -41,35 +42,39 @@ public:
         }
 };
 
-// We can make this a base class from which parameters for all smooth
-// types can be derived.
+/// @brief A base class from which parameters for all smooth
+/// operations can be derived.
 class SmoothParams : public PUP::able
 {
  public:
     int iType;	// Particle type to smooth over;  "TreeActive"
     int activeRung;
-    // Function to apply to smooth particle and neighbors
+    int bUseBallMax;	// limit fBall growth
+    /// Function to apply to smooth particle and neighbors
     virtual void fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *nList) = 0;
-    // Particle is doing a neighbor search
+    /// Particle is doing a neighbor search
     virtual int isSmoothActive(GravityParticle *p) = 0;
-    // initialize particles to be smoothed
+    /// initialize particles to be smoothed
     virtual void initSmoothParticle(GravityParticle *p) = 0;
-    // initialize particles in tree but not smoothed
+    /// initialize particles in tree but not smoothed
     virtual void initTreeParticle(GravityParticle *p) = 0;
-    // calculation on all tree particles after all walks are done
+    /// calculation on all tree particles after all walks are done
     virtual void postTreeParticle(GravityParticle *p) = 0;
-    // initialize particles as they come into the cache
+    /// initialize particles as they come into the cache
     virtual void initSmoothCache(GravityParticle *p) = 0;
-    // combine cache copy with home particle
+    /// combine cache copy with home particle
     virtual void combSmoothCache(GravityParticle *p1,
 				 ExternalSmoothParticle *p2) = 0;
-    SmoothParams() {}
+    // limit ball growth by default
+    SmoothParams() { bUseBallMax = 1; }
     PUPable_abstract(SmoothParams);
     SmoothParams(CkMigrateMessage *m) : PUP::able(m) {}
+    /// required method for remote entry call.
     virtual void pup(PUP::er &p) {
         PUP::able::pup(p);//Call base class
         p|iType;
         p|activeRung;
+	p|bUseBallMax;
 	}
     };
 
@@ -78,6 +83,7 @@ class SmoothParams : public PUP::able
 
 extern SmoothParams *globalSmoothParams;
 
+/// Class to specify density smooth
 class DensitySmoothParams : public SmoothParams
 {
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
@@ -102,6 +108,7 @@ class DensitySmoothParams : public SmoothParams
 	}
     };
 
+/// Super class for Smooth and Resmooth computation.
 class SmoothCompute : public Compute
 {
  protected:
@@ -143,6 +150,7 @@ class SmoothCompute : public Compute
 
 };
 
+/// Class for computation over k nearest neighbors.
 class KNearestSmoothCompute : public SmoothCompute 
 {
     int nSmooth;
@@ -191,9 +199,9 @@ public:
     State *getNewState() {return 0;}
     };
 
-// Object to bookkeep a Bucket ReSmooth Walk.  This could be merged
-// with the standard smooth if we changed that to using push_heap()
-// and pop_heap()
+/// Object to bookkeep a Bucket ReSmooth Walk.  This could be merged
+/// with the standard smooth if we changed that to using push_heap()
+/// and pop_heap()
 
 class ReNearNeighborState: public State {
 public:
@@ -242,6 +250,7 @@ public:
     State *getNewState() {return 0;}
     };
 
+/// Computation over "inverse" nearest neighbors.
 class MarkSmoothCompute : public SmoothCompute 
 {
     
@@ -277,7 +286,7 @@ public:
     State *getNewState() {return 0;}
     };
 
-// Object to bookkeep a Bucket MarkSmooth Walk.
+/// Object to bookkeep a Bucket MarkSmooth Walk.
 
 class MarkNeighborState: public State {
 public:
