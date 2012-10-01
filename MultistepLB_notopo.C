@@ -239,9 +239,8 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
       numActiveObjects++;
     }
   }
-#ifdef MCLBMSV
-  CkPrintf("numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects, numInactiveObjects);
-#endif
+  CkPrintf("numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects,
+	   numInactiveObjects);
   if(numInactiveObjects < 1.0*numActiveObjects) {
 	// insignificant number of inactive objects; migrate them anyway
   	for(int i = 0; i < stats->n_objs; i++){
@@ -436,7 +435,6 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
 
   int numProcessed = 0;
 
-  int j = 0;
   for(int i = 0; i < numobjs; i++){
     int tp = tpCentroids[i].tp;
     int lb = tpCentroids[i].tag;
@@ -451,31 +449,27 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
     else{
       load = stats->objData[lb].wallTime;
     }
- //   int lb = tpCentroids[i].tag;
 
     // CkPrintf("Before calling Orb %d %f \n",lb, load);
 
-    tpEvents[XDIM].push_back(Event(tpCentroids[i].vec.x,load,j));
-    tpEvents[YDIM].push_back(Event(tpCentroids[i].vec.y,load,j));
-    tpEvents[ZDIM].push_back(Event(tpCentroids[i].vec.z,load,j));
+    tpEvents[XDIM].push_back(Event(tpCentroids[i].vec.x,load,numProcessed));
+    tpEvents[YDIM].push_back(Event(tpCentroids[i].vec.y,load,numProcessed));
+    tpEvents[ZDIM].push_back(Event(tpCentroids[i].vec.z,load,numProcessed));
 
-    tp_array[j]= OrbObject(lb,tpCentroids[i].myNumParticles);
-    tp_array[j].centroid = tpCentroids[i].vec;
+    tp_array[numProcessed]= OrbObject(lb,tpCentroids[i].myNumParticles);
+    tp_array[numProcessed].centroid = tpCentroids[i].vec;
 
    
-    tp_array[j].lbindex = lb;
-    j++;
+    tp_array[numProcessed].lbindex = lb;
     numProcessed++;
-
   }
-  CkAssert(j==nmig);
+  CkAssert(numProcessed==nmig);
 
   
   orbPrepare(tpEvents, box, nmig, stats);
   orbPartition(tpEvents,box,stats->count,tp_array, stats);
 
-  refine(stats, nmig);
- // delete[] tp_array;
+  refine(stats, numobjs);
 }
 
 
