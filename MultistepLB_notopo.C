@@ -177,7 +177,7 @@ void MultistepLB_notopo::makeActiveProcessorList(BaseLB::LDStats *stats, int num
 
 /// Threshold between ORB3D (large) and greedy (small) as fraction of
 /// active particles
-#define LARGE_PHASE_THRESHOLD 0.00
+#define LARGE_PHASE_THRESHOLD 0.0001
 
 /// @brief Implement load balancing: store loads and decide between
 /// ORB3D and greedy.
@@ -225,7 +225,7 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
     numActiveParticles += tpCentroids[i].numActiveParticles;
     totalNumParticles += tpCentroids[i].myNumParticles;
 
-    if(false && tpCentroids[i].numActiveParticles == 0){
+    if(tpCentroids[i].numActiveParticles == 0){
       numInactiveObjects++;
       if(stats->objData[lb].migratable){
         stats->objData[lb].migratable = 0;
@@ -242,8 +242,19 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 #ifdef MCLBMSV
   CkPrintf("numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects, numInactiveObjects);
 #endif
-
-
+  if(numInactiveObjects < 1.0*numActiveObjects) {
+	// insignificant number of inactive objects; migrate them anyway
+  	for(int i = 0; i < stats->n_objs; i++){
+    	    int lb = tpCentroids[i].tag;
+            if(!stats->objData[lb].migratable){
+        	stats->objData[lb].migratable = 1;
+        	stats->n_migrateobjs++;
+		numActiveObjects++;
+		numInactiveObjects--;
+		}
+	    }
+  	CkPrintf("Migrating all: numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects, numInactiveObjects);
+	}
 
   // get load information for this phase, if possible
   // after this, stats->objData[] is indexed by tree piece
@@ -313,7 +324,7 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
     work2(stats,count,phase,prevPhase);
   }     // end if phase == 0
   else{
-    greedy(stats,count,phase,prevPhase);
+    // greedy(stats,count,phase,prevPhase);
   }
 #endif //CMK_LDB_ON
 
