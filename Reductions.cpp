@@ -14,6 +14,8 @@ CkReduction::reducerType minmax_int;
 CkReduction::reducerType minmax_float;
 CkReduction::reducerType minmax_double;
 
+CkReduction::reducerType max_count;
+
 CkReduction::reducerType callbackReduction;
 CkReduction::reducerType boxReduction;
 
@@ -46,6 +48,29 @@ CkReductionMsg* minmax(int nMsg, CkReductionMsg** msgs) {
 	}
 	
 	return CkReductionMsg::buildNew(2 * sizeof(T), pminmax);
+}
+
+/// Reduction for determining both the maximum timestep rung
+/// (iMaxRung) and the number of particles in that rung (nMaxRung).
+///
+CkReductionMsg* max_count_reduce(int nMsg, CkReductionMsg** msgs) {
+    int* pmaxcount = static_cast<int *>(msgs[0]->getData());
+    int iMaxRung = pmaxcount[0];  // maxmimum rung
+    int nMaxRung = pmaxcount[1];  // count in maximum rung
+    for(int i = 1; i < nMsg; i++) {
+	pmaxcount = static_cast<int *>(msgs[i]->getData());
+	if(pmaxcount[0] > iMaxRung) {
+	    iMaxRung = pmaxcount[0];
+	    nMaxRung = pmaxcount[1];
+	    }
+	else if(pmaxcount[0] == iMaxRung) {
+	    nMaxRung += pmaxcount[1];
+	    }
+	}
+    int newcount[2];
+    newcount[0] = iMaxRung;
+    newcount[1] = nMaxRung;
+    return CkReductionMsg::buildNew(2 * sizeof(int), newcount);
 }
 
 /// Return a single object, given many copies of it
@@ -83,6 +108,7 @@ void registerReductions() {
 	minmax_int = CkReduction::addReducer(minmax<int>);
 	minmax_float = CkReduction::addReducer(minmax<float>);
 	minmax_double = CkReduction::addReducer(minmax<double>);
+	max_count = CkReduction::addReducer(max_count_reduce);
 	callbackReduction = CkReduction::addReducer(same<CkCallback>);
 	boxReduction = CkReduction::addReducer(same<OrientedBox<float> >);
 	dfImageReduction = CkReduction::addReducer(dfImageReducer);

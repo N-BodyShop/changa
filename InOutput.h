@@ -4,6 +4,7 @@
 #define __INOUTPUT_H
 
 class OutputParams;
+class OutputIntParams;
 #include "DataManager.h"
 
 /// @brief Base class for output parameters.
@@ -333,22 +334,77 @@ class DtOutputParams : public OutputParams
 	}
     };
 
-/// @brief Output rungs.
-class RungOutputParams : public OutputParams
+/// @brief Base class for Integer output parameters.
+///
+/// This is an abstract class from which an output parameter class can
+/// be derived.  Derived classes need to implement iValue()
+/// which returns the value to be output for a given particle.
+class OutputIntParams : public PUP::able 
 {
-    virtual double dValue(GravityParticle *p)
-    {
-	return (double) p->rung;
+ public:
+    virtual int iValue(GravityParticle *p) = 0;
+    std::string fileName;	// output file
+
+    OutputIntParams() {}
+    PUPable_abstract(OutputIntParams);
+    OutputIntParams(CkMigrateMessage *m) : PUP::able(m) {}
+    virtual void pup(PUP::er &p) {
+        PUP::able::pup(p);//Call base class
+        p|fileName;
 	}
-    virtual Vector3D<double> vValue(GravityParticle *p)
-			    {CkAssert(0); return 0.0;}
+    };
+
+/// @brief Output iOrder.
+class IOrderOutputParams : public OutputIntParams
+{
+    virtual int iValue(GravityParticle *p)
+    {
+	return p->iOrder;
+	}
+ public:
+    IOrderOutputParams() {}
+    IOrderOutputParams(std::string _fileName) { fileName = _fileName;}
+    PUPable_decl(IOrderOutputParams);
+    IOrderOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputIntParams::pup(p);//Call base class
+	}
+    };
+
+/// @brief Output iGasOrder.
+class IGasOrderOutputParams : public OutputIntParams
+{
+    virtual int iValue(GravityParticle *p)
+    {
+	if(p->isStar())
+	    return p->iGasOrder();
+	else
+	    return 0;
+	}
+ public:
+    IGasOrderOutputParams() {}
+    IGasOrderOutputParams(std::string _fileName) { fileName = _fileName;}
+    PUPable_decl(IGasOrderOutputParams);
+    IGasOrderOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputIntParams::pup(p);//Call base class
+	}
+    };
+
+/// @brief Output rungs.
+class RungOutputParams : public OutputIntParams
+{
+    virtual int iValue(GravityParticle *p)
+    {
+	return p->rung;
+	}
  public:
     RungOutputParams() {}
-    RungOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    RungOutputParams(std::string _fileName) { fileName = _fileName;}
     PUPable_decl(RungOutputParams);
     RungOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
-        OutputParams::pup(p);//Call base class
+        OutputIntParams::pup(p);//Call base class
 	}
     };
 #endif

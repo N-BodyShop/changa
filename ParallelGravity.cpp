@@ -1,5 +1,4 @@
-/** @file ParallelGravity.cpp
- *
+/**
  * @mainpage ChaNGa: Charm++ N-body Gravity 
  * 
  * For internal documentation of the operation of this code please see the
@@ -39,6 +38,8 @@
 #include "Sph.h"
 #include "starform.h"
 
+#include "PETreeMerger.h"
+
 #ifdef CUDA
 // for default per-list parameters
 #include "cuda_typedef.h"
@@ -46,6 +47,7 @@
 
 extern char *optarg;
 extern int optind, opterr, optopt;
+extern const char * const Cha_CommitID;
 
 using namespace std;
 
@@ -53,8 +55,8 @@ CProxy_Main mainChare;
 int verbosity;
 int bVDetails;
 CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
-#ifdef DECOMPOSER_GROUP
-CProxy_Decomposer decomposerProxy;
+#ifdef REDUCTION_HELPER
+CProxy_ReductionHelper reductionHelperProxy;
 #endif
 CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 CProxy_LvArray smoothProxy; // Proxy for smooth reductions
@@ -63,6 +65,12 @@ CProxy_CkCacheManager cacheGravPart;
 CProxy_CkCacheManager cacheSmoothPart;
 CProxy_CkCacheManager cacheNode;
 CProxy_DataManager dMProxy;
+
+CProxy_PETreeMerger peTreeMergerProxy;
+
+
+
+
 bool _cache;
 int _nocache;
 int _cacheLineDepth;
@@ -71,11 +79,13 @@ DomainsDec domainDecomposition;
 /// tolerance for unequal pieces in SFC based decompositions.
 const double ddTolerance = 0.1;
 double dExtraStore;		// fraction of extra particle storage
+int iGasModel; 			// For backward compatibility
 int peanoKey;
 GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
 unsigned int numTreePieces;
 unsigned int particlesPerChare;
+int nIOProcessor;		// Number of pieces to be doing I/O at once
 int _prefetch;
 int _numChunks;
 int _randChunks;
@@ -407,7 +417,7 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"bGasCooling",paramBool,&param.bGasCooling,
 		    sizeof(int),"GasCooling",
 		    "<Gas is Cooling> = +GasCooling");
-	int iGasModel = -1; // For backward compatibility
+	iGasModel = -1; // For backward compatibility
 	prmAddParam(prm,"iGasModel", paramInt, &iGasModel, sizeof(int),
 		    "GasModel", "<Gas model employed> = 0 (Adiabatic)");
 	CoolAddParams(&param.CoolParam, prm);
@@ -491,6 +501,10 @@ Main::Main(CkArgMsg* m) {
 	param.bParaWrite = 1;
 	prmAddParam(prm, "bParaWrite", paramBool, &param.bParaWrite,sizeof(int),
 		    "paw", "enable/disable parallel writing of files");
+	param.nIOProcessor = 0;
+	prmAddParam(prm,"nIOProcessor",paramInt,&param.nIOProcessor,
+		    sizeof(int), "npio",
+		    "number of simultaneous I/O processors = 0 (all)");
 	param.achInFile[0] = '\0';
 	prmAddParam(prm,"achInFile",paramString,param.achInFile,
 		    256, "I", "input file name (or base file name)");
@@ -680,10 +694,6 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "iMaxRung parameter ignored. MaxRung is " << MAXRUNG
 		  << endl;
 	    }
-	if(prmSpecified(prm, "nTruncateRung")) {
-	    ckerr << "WARNING: ";
-	    ckerr << "nTruncateRung parameter ignored." << endl;
-	    }
 	if(prmSpecified(prm, "bKDK")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bKDK parameter ignored; KDK is always used." << endl;
@@ -705,10 +715,12 @@ Main::Main(CkArgMsg* m) {
 	if(!prmSpecified(prm, "dTheta2")) {
 	    param.dTheta2 = param.dTheta;
 	    }
+	/* set readonly/global variables */
 	theta = param.dTheta;
         thetaMono = theta*theta*theta*theta;
 	dExtraStore = param.dExtraStore;
 	_cacheLineDepth = param.cacheLineDepth;
+	nIOProcessor = param.nIOProcessor;
 	if(prmSpecified(prm, "bCannonical")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bCannonical parameter ignored; integration is always cannonical"
@@ -718,6 +730,19 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bOverwrite parameter ignored."
 		  << endl;
+	    }
+	if(param.iOutInterval <= 0) {
+	    ckerr << "WARNING: ";
+	    ckerr << "iOutInterval is non-positive; setting to 1."
+		  << endl;
+	    param.iOutInterval = 1;
+	    }
+	    
+	if(param.iLogInterval <= 0) {
+	    ckerr << "WARNING: ";
+	    ckerr << "iLogInterval is non-positive; setting to 1."
+		  << endl;
+	    param.iLogInterval = 1;
 	    }
 	    
 	if (param.bPhysicalSoft) {
@@ -860,6 +885,13 @@ Main::Main(CkArgMsg* m) {
 	    CkAssert(prmSpecified(prm, "dMsolUnit")
 		     && prmSpecified(prm, "dKpcUnit"));
 	    }
+	if(param.bStarForm && !param.bDoGas) {
+	    ckerr << "WARNING: star formation set without enabling SPH" << endl;
+	    ckerr << "Enabling SPH" << endl;
+	    param.bDoGas = 1;
+	    }
+	if(!param.bDoGas)
+		param.bSphStep = 0;
 #include "physconst.h"
 	/*
 	 ** Convert kboltz/mhydrogen to system units, assuming that
@@ -892,6 +924,7 @@ Main::Main(CkArgMsg* m) {
 	    }
 	else { useTree = Binary_Oct; }
 
+	ckerr << "ChaNGa version 2.0, commit " << Cha_CommitID << endl;
         ckerr << "Running on " << CkNumPes() << " processors/ "<< CkNumNodes() <<" nodes with " << numTreePieces << " TreePieces" << endl;
 
 	if (verbosity) 
@@ -955,15 +988,19 @@ Main::Main(CkArgMsg* m) {
         }
 	
 	CkArrayOptions opts(numTreePieces); 
-#ifndef ALWAYS_BLOCK_MAP
+#ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	if (domainDecomposition == Oct_dec) {
 	  CProxy_RRMap myMap=CProxy_RRMap::ckNew(); 
 	  opts.setMap(myMap);
 	} else {
 #endif
-	  CProxy_BlockMap myMap=CProxy_BlockMap::ckNew(); 
+#ifdef DEFAULT_ARRAY_MAP
+          CProxy_DefaultArrayMap myMap = CProxy_DefaultArrayMap::ckNew();
+#else
+	  CProxy_BlockMap myMap = CProxy_BlockMap::ckNew(); 
+#endif
 	  opts.setMap(myMap);
-#ifndef ALWAYS_BLOCK_MAP
+#ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	}
 #endif
 
@@ -972,8 +1009,8 @@ Main::Main(CkArgMsg* m) {
         prjgrp = CProxy_ProjectionsControl::ckNew();
 
 	treeProxy = pieces;
-#ifdef DECOMPOSER_GROUP
-        decomposerProxy = CProxy_Decomposer::ckNew();
+#ifdef REDUCTION_HELPER
+        reductionHelperProxy = CProxy_ReductionHelper::ckNew();
 #endif
 
 	opts.bindTo(treeProxy);
@@ -986,37 +1023,16 @@ Main::Main(CkArgMsg* m) {
 #ifdef PUSH_GRAVITY
         ckMulticastGrpId = CProxy_CkMulticastMgr::ckNew();
 #endif
+
+        peTreeMergerProxy = CProxy_PETreeMerger::ckNew();
 	
 	// create CacheManagers
 	// Gravity particles
 	cacheGravPart = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 	// Smooth particles
 	cacheSmoothPart = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
-	if(param.bStarForm && !param.bDoGas) {
-	    ckerr << "WARNING: star formation set without enabling SPH" << endl;
-	    ckerr << "Enabling SPH" << endl;
-	    param.bDoGas = 1;
-	    }
-	// Nodes: we need the right number of phases to keep the
-	// nodes.
-	nPhases = 0;
-	if(param.bDoGravity) nPhases++;
-	if(true || param.bDoGas) {  // anticipate that gas might be set.
-	    nPhases += 2;
-	    if(param.bFastGas)
-		nPhases += 2;
-	    }
-	if(nPhases == 0) {
-	    ckerr << "Neither bDoGravity or bDoGas are set!" << endl;
-	    CkAbort("Nothing to do!");
-	    }
-
-	CkGroupID *gids = new CkGroupID[nPhases];
-	int i;
-	for(i = 0; i < nPhases; i++)
-	    gids[i] = pieces.ckLocMgr()->getGroupID();
-	cacheNode = CProxy_CkCacheManager::ckNew(cacheSize, nPhases, gids);
-	delete[] gids;
+	// Nodes
+	cacheNode = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 
 	//create the DataManager
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
@@ -1384,10 +1400,6 @@ void Main::advanceBigStep(int iStep) {
 	      }
     }
 
-#ifdef DECOMPOSER_GROUP
-    decomposerProxy.acceptParticles(CkCallbackResumeThread());
-#endif
-
     // int lastActiveRung = activeRung;
 
     // determine largest timestep that needs a kick
@@ -1414,10 +1426,11 @@ void Main::advanceBigStep(int iStep) {
 	memoryStats();
 
     /***** Resorting of particles and Domain Decomposition *****/
-    //ckout << "Domain decomposition ...";
     CkPrintf("Domain decomposition ... ");
-    double startTime = CkWallTimer();
+    double startTime;
     bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
+
+    startTime = CkWallTimer();
     sorter.startSorting(dataManagerID, ddTolerance,
                         CkCallbackResumeThread(), bDoDD);
     /*
@@ -1460,11 +1473,6 @@ void Main::advanceBigStep(int iStep) {
 #else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
-    iPhase = 0;
-    /*
-    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-          << endl;
-          */
     CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
     CkCallback cbGravity(CkCallback::resumeThread);
@@ -1528,7 +1536,6 @@ void Main::advanceBigStep(int iStep) {
             turnProjectionsOff();
 #endif
 	    }
-	iPhase++;
 	if(verbosity)
 	    memoryStatsCache();
     }
@@ -1585,10 +1592,7 @@ void Main::advanceBigStep(int iStep) {
     ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
 
-    CkAssert(iPhase <= nPhases);
-    
-    if(iPhase < nPhases)
-	treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
+    treeProxy.finishNodeCache(CkCallbackResumeThread());
 
     if(!param.bStaticTest) {
       // Closing Kick
@@ -1739,7 +1743,7 @@ void Main::setupICs() {
   if(!ofsLog)
       CkAbort("Error opening log file.");
       
-  ofsLog << "# Starting ChaNGa version 2.00" << endl;
+  ofsLog << "# Starting ChaNGa version 2.00 commit " << Cha_CommitID << endl;
   ofsLog << "#";		// Output command line
   for (int i = 0; i < args->argc; i++)
       ofsLog << " " << args->argv[i];
@@ -1824,11 +1828,6 @@ void Main::setupICs() {
 
   }
 
-#ifdef DECOMPOSER_GROUP
-  decomposerProxy.acceptParticles(CkCallbackResumeThread());
-  CkPrintf("Main: acceptParticles done\n");
-#endif
-  
   initialForces();
 }
 
@@ -1890,6 +1889,9 @@ Main::restart()
 	prmAddParam(prm,"iWallRunTime",paramInt,&param.iWallRunTime,
 		    sizeof(int),"wall",
 		    "<Maximum Wallclock time (in minutes) to run> = 0 = infinite");
+	prmAddParam(prm,"nIOProcessor",paramInt,&param.nIOProcessor,
+		    sizeof(int), "npio",
+		    "number of simultaneous I/O processors = 0 (all)");
 	prmAddParam(prm, "nBucket", paramInt, &bucketSize,
 		    sizeof(int),"b", "Particles per Bucket (default: 12)");
 	prmAddParam(prm, "nCacheDepth", paramInt, &param.cacheLineDepth,
@@ -1910,9 +1912,6 @@ Main::restart()
 	
 	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-#ifdef DECOMPOSER_GROUP
-	decomposerProxy.acceptParticles(CkCallbackResumeThread());
-#endif
 	if(param.bGasCooling) 
 	    initCooling();
 	mainChare.initialForces();
@@ -1951,8 +1950,8 @@ Main::initialForces()
   // CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
 
   /***** Initial sorting of particles and Domain Decomposition *****/
-  //ckout << "Initial domain decomposition ...";
   CkPrintf("Initial domain decomposition ... ");
+
   startTime = CkWallTimer();
   sorter.startSorting(dataManagerID, ddTolerance,
 	 	      CkCallbackResumeThread(), true);
@@ -1987,13 +1986,8 @@ Main::initialForces()
 #else
   treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
-  /*
-  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-        << endl;
-        */
   CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
-  iPhase = 0;
   if(verbosity)
       memoryStats();
   
@@ -2042,7 +2036,6 @@ Main::initialForces()
 	  if(verbosity)
 	      memoryStatsCache();
 	  }
-      iPhase++;
       }
   else {
       treeProxy.initAccel(0, CkCallbackResumeThread());
@@ -2061,9 +2054,7 @@ Main::initialForces()
 #endif
       }
   
-  CkAssert(iPhase <= nPhases);
-  if(iPhase < nPhases)
-      treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
+  treeProxy.finishNodeCache(CkCallbackResumeThread());
 
   // Initial Log entry
   char achLogFileName[MAXPATHLEN];
@@ -2216,7 +2207,6 @@ Main::doSimulation()
     
       sprintf(achFile,"%s.%06i",param.achOutName,0);
       if((!param.bDoGas) && param.bDoDensity) {
-	  iPhase = 0;
 	  // If gas isn't being calculated, we can do the total
 	  // densities before we start the output.
 	  ckout << "Calculating total densities ...";
@@ -2225,7 +2215,6 @@ Main::doSimulation()
 	  double dfBall2OverSoft2 = 0.0;
 	  treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 				CkCallbackResumeThread());
-	  iPhase++;
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
 #if 0
@@ -2235,13 +2224,10 @@ Main::doSimulation()
           ckout << "Recalculating densities ...";
           startTime = CkWallTimer();
 	  treeProxy.startIterationReSmooth(&pDen, CkCallbackResumeThread());
-	  iPhase++;
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 #endif
-	  CkAssert(iPhase <= nPhases);
-	  if(iPhase < nPhases)
-	      treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
-          ckout << "Reodering ...";
+	  treeProxy.finishNodeCache(CkCallbackResumeThread());
+          ckout << "Reordering ...";
           startTime = CkWallTimer();
 	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
@@ -2305,14 +2291,11 @@ Main::doSimulation()
       treeProxy[0].outputASCII(pDt, param.bParaWrite, CkCallbackResumeThread());
 #endif
       RungOutputParams pRung(string(achFile) + ".rung");
-      treeProxy[0].outputASCII(pRung, param.bParaWrite, CkCallbackResumeThread());
+      treeProxy[0].outputIntASCII(pRung, param.bParaWrite, CkCallbackResumeThread());
       if(param.bDoGas && param.bDoDensity) {
 	  // The following call is to get the particles in key order
 	  // before the sort.
 	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-#ifdef DECOMPOSER_GROUP
-          decomposerProxy.acceptParticles(CkCallbackResumeThread());
-#endif
 	  sorter.startSorting(dataManagerID, ddTolerance,
 			      CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
@@ -2320,7 +2303,6 @@ Main::doSimulation()
 #else
 	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
-	  iPhase = 0;
 	  
 	  ckout << "Calculating total densities ...";
 	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
@@ -2328,17 +2310,13 @@ Main::doSimulation()
 	  double dfBall2OverSoft2 = 0.0;
 	  treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 					 CkCallbackResumeThread());
-	  iPhase++;
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
           ckout << "Recalculating densities ...";
           startTime = CkWallTimer();
 	  treeProxy.startReSmooth(&pDen, CkCallbackResumeThread());
-	  iPhase++;
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	  CkAssert(iPhase <= nPhases);
-	  if(iPhase < nPhases)
-	      treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
+	  treeProxy.finishNodeCache(CkCallbackResumeThread());
           ckout << "Reodering ...";
           startTime = CkWallTimer();
 	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
@@ -2353,8 +2331,9 @@ Main::doSimulation()
 	  HsmOutputParams pHsmOut(string(achFile) + ".hsmall");
 	  treeProxy[0].outputASCII(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
 	  }
-      treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
-				     CkCallbackResumeThread());
+      IOrderOutputParams pIOrdOut(string(achFile) + ".iord");
+      treeProxy[0].outputIntASCII(pIOrdOut, param.bParaWrite,
+				  CkCallbackResumeThread());
   }
 	
 #if COSMO_STATS > 0
@@ -2494,17 +2473,20 @@ void Main::writeOutput(int iStep)
 	}
 #endif
       if(param.bDoIOrderOutput) {
-	  treeProxy[0].outputIOrderASCII(string(achFile) + ".iord",
-					 CkCallbackResumeThread());
+	  IOrderOutputParams pIOrdOut(string(achFile) + ".iord");
+	  treeProxy[0].outputIntASCII(pIOrdOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	  if(param.bStarForm) {
+	      IGasOrderOutputParams pIGasOrdOut(string(achFile) + ".igasorder");
+	      treeProxy[0].outputIntASCII(pIGasOrdOut, param.bParaWrite,
+					  CkCallbackResumeThread());
+	      }
 	  }
       
     if(param.nSteps != 0 && param.bDoDensity) {
 	// The following call is to get the particles in key order
 	// before the sort.
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-#ifdef DECOMPOSER_GROUP
-        decomposerProxy.acceptParticles(CkCallbackResumeThread());
-#endif
 	sorter.startSorting(dataManagerID, ddTolerance,
 			    CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
@@ -2513,7 +2495,6 @@ void Main::writeOutput(int iStep)
 	treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
 
-	iPhase = 0;
 	if(verbosity)
 	    ckout << "Calculating total densities ...";
 	DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
@@ -2521,10 +2502,7 @@ void Main::writeOutput(int iStep)
 	double dfBall2OverSoft2 = 0.0;
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
-	iPhase++;
-	CkAssert(iPhase <= nPhases);
-	if(iPhase < nPhases)
-	    treeProxy.finishNodeCache(nPhases-iPhase, CkCallbackResumeThread());
+	treeProxy.finishNodeCache(CkCallbackResumeThread());
 	if(verbosity) {
 	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		  << endl;
@@ -2551,9 +2529,6 @@ void Main::writeOutput(int iStep)
 	    // The following call is to get the particles in key order
 	    // before the sort.
 	    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
-#ifdef DECOMPOSER_GROUP
-	    decomposerProxy.acceptParticles(CkCallbackResumeThread());
-#endif
 	    sorter.startSorting(dataManagerID, ddTolerance,
 				CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
@@ -2561,16 +2536,11 @@ void Main::writeOutput(int iStep)
 #else
 	    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
-	    iPhase = 0;
 	    DensitySmoothParams pDenGas(TYPE_GAS, 0);
 	    dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
 	    treeProxy.startSmooth(&pDenGas, 1, param.nSmooth, dfBall2OverSoft2,
 				  CkCallbackResumeThread());
-	    iPhase++;
-	    CkAssert(iPhase <= nPhases);
-	    if(iPhase < nPhases)
-		treeProxy.finishNodeCache(nPhases-iPhase,
-					  CkCallbackResumeThread());
+	    treeProxy.finishNodeCache(CkCallbackResumeThread());
 	    if(verbosity)
 		ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		      << endl;
@@ -2582,7 +2552,7 @@ void Main::writeOutput(int iStep)
 /// @brief Calculate timesteps of particles.
 ///
 /// Particles on the KickRung and shorter have their timesteps
-/// adjusted.
+/// adjusted.  Calls TreePiece::adjust().
 ///
 /// @param iKickRung Rung (and above) about to be kicked.
 ///
@@ -2596,10 +2566,20 @@ int Main::adjust(int iKickRung)
 		     param.bSphStep, param.bViscosityLimitdt,
 		     param.dEta, param.dEtaCourant,
 		     param.dEtauDot, param.dDelta, 1.0/(a*a*a), a,
+		     0.0,  /* set to dhMinOverSoft if we implement
+			      Gasoline's LowerSoundSpeed. */
+		     param.bDoGas,
 		     CkCallbackResumeThread((void*&)msg));
 
-    int iCurrMaxRung = *(int *)msg->getData();
+    int iCurrMaxRung = ((int *)msg->getData())[0];
+    int nMaxRung = ((int *)msg->getData())[1];
     delete msg;
+    if(nMaxRung <= param.nTruncateRung && iCurrMaxRung > iKickRung) {
+	if(verbosity)
+	    CkPrintf("n_CurrMaxRung = %d, iCurrMaxRung = %d: promoting particles\n", nMaxRung, iCurrMaxRung);
+	iCurrMaxRung--;
+	treeProxy.truncateRung(iCurrMaxRung, CkCallbackResumeThread());
+	}
     return iCurrMaxRung;
     }
 
@@ -2708,7 +2688,7 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 		if (df[0]->bGetPhotogenic) {
 		  achFile[0] = 0;
 		  sprintf(achFile,"%s.photogenic", param.achOutName);
-		  FILE *fp = fopen(param.achOutName, "r" );
+		  FILE *fp = fopen(achFile, "r" );
 		  if(fp == NULL)
 		      CkAbort("DumpFrame: photogenic specified, but no photogenic file\n");
 		  fclose(fp);
@@ -2914,7 +2894,6 @@ void Main::pup(PUP::er& p)
     p | iOut;
     p | bDumpFrame;
     p | bChkFirst;
-    p | nPhases;
     p | sorter;
     }
 
@@ -3016,6 +2995,45 @@ void Main::turnProjectionsOff(){
   }
 }
 #endif
+
+const char *typeString(NodeType type);
+
+void GenericTreeNode::getGraphViz(std::ostream &out){
+  out << getKey()
+    << "[label=\"" << getKey()
+    << " " 
+    << typeString(getType())
+    << "\\n"
+    << moments.totalMass << " "
+    << "(" << moments.cm.x << ","
+    << moments.cm.y << ","
+    << moments.cm.z << ")"
+    << "\"];"
+    << std::endl;
+
+  if(getType() == Boundary){
+    for(int i = 0; i < numChildren(); i++){
+      GenericTreeNode *child = getChildren(i);
+      out << getKey() << "->" << child->getKey() << ";" << std::endl;
+    }
+  }
+}
+
+void printTreeGraphVizRecursive(GenericTreeNode *node, ostream &out){
+  node->getGraphViz(out);
+  out << endl;
+  if(node->getType() == Boundary){
+    for(int i = 0; i < node->numChildren(); i++){
+      printTreeGraphVizRecursive(node->getChildren(i),out);
+    }
+  }
+}
+
+void printTreeGraphViz(GenericTreeNode *node, ostream &out, const string &name){
+  out << "digraph " << name << " {" << endl;
+  printTreeGraphVizRecursive(node,out);
+  out << "}" << endl;
+}
 
 
 #include "ParallelGravity.def.h"

@@ -738,58 +738,139 @@ d(4) = - l.OOe-31*o2*cs*cso2
 #else
 /* TESTCHEMEQ excludes root finder */
 
-#include <gsl/gsl_errno.h>
-#include <gsl/gsl_roots.h>
-
 /*
- * Interface to GSL Root finder
+ * The following is an implementation of the Brent root finding
+ * algorithm.  This is based on code from the GSL which has the
+ * following copyright.  The code was modified to avoid the overhead
+ * that is somewhat unnecessary for such a simple routine.
  */
-ROOTFIND *RootFindInit()
-{
-    ROOTFIND *r;
-    const gsl_root_fsolver_type *T = gsl_root_fsolver_brent;
-    
-    r = (ROOTFIND *)malloc(sizeof(ROOTFIND));
-    assert(r!=NULL);
-    r->solver = gsl_root_fsolver_alloc(T);
-    
-    return r;
-    }
+/* roots/brent.c
+ *
+ * Copyright (C) 1996, 1997, 1998, 1999, 2000, 2007 Reid Priedhorsky, Brian Gou\
+gh
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or (at
+ * your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, US\
+A.
+ */
 
-void RootFindFinalize(ROOTFIND *r)
-{
-    gsl_root_fsolver_free(r->solver);
-    free(r);
-    }
+const int itmaxRoot = 100;
+const double epsRoot = 3.0e-8;
 
-double RootFind(ROOTFIND *r, double (*func)(double, void *Data), void *Data,
-		double x1,  /* lower bracket on the root */
-		double x2,  /* upper bracket on the root */
-		double tol)  /* Absolute tolerance */
+double RootFind(double (*func)(void *Data, double), void *Data, double x1,
+                double x2, double tol)
 {
-    const int itmax = 100;
-    const double epsRel = 3.0e-8;
-    int iter;
-    int status;
-    double root;
-    
-    gsl_function F;
-    
-    F.function = func;
-    F.params = Data;
-    
-    gsl_root_fsolver_set (r->solver, &F, x1, x2);
-    for(iter = 0; iter < itmax; iter++) {
-	status = gsl_root_fsolver_iterate(r->solver);
-	root = gsl_root_fsolver_root(r->solver);
-	x1 = gsl_root_fsolver_x_lower(r->solver);
-	x2 = gsl_root_fsolver_x_upper(r->solver);
-	status = gsl_root_test_interval (x1, x2, tol, epsRel);
-	if(status == GSL_SUCCESS)
-	    break;
-	}
-    assert(iter < itmax);
-    return root;
+    int i;
+    double a = x1;
+    double fa = (*func)(Data, a);
+    double b = x2;
+    double fb = (*func)(Data, b);
+    double c = x2;
+    double fc = fb;
+    double d = x2 - x1;
+    double e = x2 - x1;
+
+    if ((fa < 0.0 && fb < 0.0) || (fa > 0.0 && fb > 0.0))
+    {
+        fprintf(stderr, "RootFind: endpoints do not straddle y=0");
+        assert(0);
+        }
+
+    for(i = 0; i < itmaxRoot; i++) {
+        double m;
+        double dTol;
+
+        int ac_equal = 0;
+
+        if ((fb < 0 && fc < 0) || (fb > 0 && fc > 0)) {
+            ac_equal = 1;
+            c = a;
+            fc = fa;
+            d = b - a;
+            e = b - a;
+            }
+
+        if (fabs (fc) < fabs (fb)) {
+            ac_equal = 1;
+            a = b;
+            b = c;
+            c = a;
+            fa = fb;
+            fb = fc;
+            fc = fa;
+            }
+
+        dTol = 0.5 * epsRoot * fabs (b) + 0.5*tol;
+        m = 0.5 * (c - b);
+
+        if (fb == 0) {
+            return b;   /* SUCCESS */
+            }
+        if (fabs (m) <= dTol) {
+            return b; /* SUCCESS */
+            }
+
+        if (fabs (e) < dTol || fabs (fa) <= fabs (fb)) {
+            d = m;            /* use bisection */
+            e = m;
+            }
+        else {
+            double p, q, r;   /* use inverse cubic interpolation */
+            double s = fb / fa;
+
+            if (ac_equal) {
+                p = 2 * m * s;
+                q = 1 - s;
+                }
+            else {
+                q = fa / fc;
+                r = fb / fc;
+                p = s * (2 * m * q * (q - r) - (b - a) * (r - 1));
+                q = (q - 1) * (r - 1) * (s - 1);
+                }
+            if (p > 0) {
+                q = -q;
+                }
+            else {
+                p = -p;
+                }
+
+            if (2 * p < min(3 * m * q - fabs (dTol * q), fabs (e * q))) {
+                e = d;
+                d = p / q;
+                }
+            else {
+                /* interpolation failed, fall back to bisection */
+                d = m;
+                e = m;
+                }
+            }
+        a = b;
+        fa = fb;
+
+        if (fabs (d) > dTol) {
+            b += d;
+            }
+        else {
+            b += (m > 0 ? +dTol : -dTol);
+            }
+        fb = (*func)(Data, b);
+        }
+
+    fprintf(stderr, "brent: number of interations exceeded");
+    assert(0);
+    return 0.0;
     }
 
 #endif /* STIFFTEST */

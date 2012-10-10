@@ -254,4 +254,69 @@ class ActiveWalk {
       tw(_tw), c(_c), o(_o), s(state){}
   ActiveWalk(){}
 };
+
+class TreeNodeWorker {
+
+  public:
+  virtual bool work(GenericTreeNode *node, int level) = 0;
+  virtual void doneChildren(GenericTreeNode *node, int level) {}
+};
+
+class RemoteTreeBuilder : public TreeNodeWorker {
+  TreePiece *tp;
+  bool requestNonLocalMoments; 
+
+  public:
+  RemoteTreeBuilder(TreePiece *owner, bool req) : 
+    tp(owner),
+    requestNonLocalMoments(req)
+  {}
+
+  bool work(GenericTreeNode *node, int level);
+  void doneChildren(GenericTreeNode *node, int level);
+
+  private:
+  void registerNode(GenericTreeNode *node);
+
+};
+
+class LocalTreeBuilder : public TreeNodeWorker {
+  TreePiece *tp;
+
+  public:
+  LocalTreeBuilder(TreePiece *owner) :
+    tp(owner)
+  {}
+
+  bool work(GenericTreeNode *node, int level);
+  void doneChildren(GenericTreeNode *node, int level);
+
+  private:
+  void registerNode(GenericTreeNode *node);
+};
+
+class LocalTreePrinter : public TreeNodeWorker {
+  int index;
+  std::ofstream file;
+  string description;
+
+  void openFile();
+
+  public:
+  LocalTreePrinter(string d, int idx) : 
+    index(idx),
+    description(d)
+  {
+    openFile();
+  }
+
+  ~LocalTreePrinter(){
+    file << "}" << std::endl;
+    file.close();
+  }
+
+  bool work(GenericTreeNode *node, int level);
+  void doneChildren(GenericTreeNode *node, int level);
+};
+
 #endif

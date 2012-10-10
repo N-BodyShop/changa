@@ -22,7 +22,7 @@ s = [pres[i]/rho[i]**(5./3.) for i in range(len(pres))]
 sc = [presc[i]/rhoc[i]**(5./3.) for i in range(len(presc))]
 # compare inner entropy profile
 rds = [abs((sc[i] - s[i])/s[i]) for i in range(len(sc)) if r[i] < .1]
-print 'Expect relative differences of less than 0.04'
+print 'Expect relative differences of less than 0.004'
 print 'maximum relative entropy difference in inner region: ', max(rds)
 rdvr = [abs((vrc[i] - vr[i])/vr[i]) for i in range(len(vrc)) if r[i] > .25]
 print 'maximum relative velocity difference in outer region: ', max(rdvr)

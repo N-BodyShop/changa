@@ -321,7 +321,6 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
   tp->finishBucket(reqIDlist);
   CkAssert(state->counterArrays[1][chunk] >= 0);
   if (state->counterArrays[1][chunk] == 0) {
-    cacheNode[CkMyPe()].finishedChunk(chunk, tp->nodeInterRemote[chunk]);
     cacheGravPart[CkMyPe()].finishedChunk(chunk, tp->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d GravityCompute::recvdParticles\n", tp->getIndex(), chunk);
@@ -353,7 +352,6 @@ void GravityCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, i
   state->counterArrays[1][chunk] --;
   CkAssert(state->counterArrays[1][chunk] >= 0);
   if (state->counterArrays[1][chunk] == 0) {
-    cacheNode[CkMyPe()].finishedChunk(chunk, owner->nodeInterRemote[chunk]);
     cacheGravPart[CkMyPe()].finishedChunk(chunk, owner->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d GravityCompute::nodeRecvdEvent\n", owner->getIndex(), chunk);
@@ -413,7 +411,6 @@ void ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int 
 #if COSMO_PRINT_BK > 1
     CkPrintf("[%d] FINISHED CHUNK %d from nodeRecvdEvent\n", owner->getIndex(), chunk);
 #endif
-    cacheNode[CkMyPe()].finishedChunk(chunk, owner->nodeInterRemote[chunk]);
     cacheGravPart[CkMyPe()].finishedChunk(chunk, owner->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d ListCompute::nodeRecvdEvent\n", owner->getIndex(), chunk);
@@ -1021,7 +1018,6 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
 #if COSMO_PRINT_BK > 1
     CkPrintf("[%d] FINISHED CHUNK %d from recvdParticles\n", tp->getIndex(), chunk);
 #endif
-    cacheNode[CkMyPe()].finishedChunk(chunk, tp->nodeInterRemote[chunk]);
     cacheGravPart[CkMyPe()].finishedChunk(chunk, tp->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d ListCompute::recvdParticles\n", tp->getIndex(), chunk);
@@ -2326,5 +2322,254 @@ void printUndlist(DoubleWalkState *state, int level, TreePiece *tp){
     }
 }
 #endif
+
+void RemoteTreeBuilder::registerNode(GenericTreeNode *node){
+  tp->nodeLookupTable[node->getKey()] = node;
+}
+
+void LocalTreeBuilder::registerNode(GenericTreeNode *node){
+  tp->nodeLookupTable[node->getKey()] = node;
+}
+
+bool RemoteTreeBuilder::work(GenericTreeNode *node, int level){
+  CkAssert(node != NULL);
+  CkAssert(node->isValid() && !node->isCached());
+
+  Tree::NodeType type = node->getType();
+
+  switch(type){
+    case NonLocalBucket:
+    case NonLocal:
+    {
+      // find a remote index for the node
+      int first, last;
+      bool isShared = tp->nodeOwnership(node->getKey(), first, last);
+      CkAssert(!isShared);
+      if (last < first) {
+        // the node is really empty because falling between two TreePieces
+        node->makeEmpty();
+        node->remoteIndex = tp->thisIndex;
+      } 
+      else{
+        // Choose a piece from among the owners from which to
+        // request moments in such a way that if I am a piece with a
+        // higher index, I request from a higher indexed treepiece.
+        node->remoteIndex = tp->getResponsibleIndex(first,last);
+        // request the remote chare to fill this node with the Moments
+        if(requestNonLocalMoments){
+          CkEntryOptions opts;
+          opts.setPriority((unsigned int) -110000000);
+          streamingProxy[node->remoteIndex].requestRemoteMoments(node->getKey(), tp->thisIndex, &opts);
+        }
+      }
+      registerNode(node);
+      return false;
+    }
+
+    case Empty:
+    case Internal:
+      return false;
+
+    case Boundary:
+      node->makeOctChildren(tp->myParticles,tp->myNumParticles,level);
+      // The boundingBox was used above to determine the spatially equal
+      // split between the children.  Now reset it so it can be calculated
+      // from the particle positions.
+      node->boundingBox.reset();
+
+      registerNode(node);
+      return true;
+
+    default:
+      CkAbort("Bad node type in RemoteTreeBuilder\n");
+      return false;
+  }
+}
+
+void RemoteTreeBuilder::doneChildren(GenericTreeNode *node, int level){
+  CkAssert(node->getType() == Boundary ||
+           node->getType() == Internal);
+
+  if(node->getType() == Boundary){
+    for(int i = 0; i < node->numChildren(); i++){
+      GenericTreeNode *child = node->getChildren(i);
+      if(child->getType() == NonLocal ||
+         child->getType() == Boundary) node->remoteIndex--;
+    }
+  }
+}
+
+bool LocalTreeBuilder::work(GenericTreeNode *node, int level){
+  if (level == 62) {
+    ckerr << tp->thisIndex << ": TreePiece: This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
+    ckerr << "Left particle: " << (node->firstParticle) << " Right particle: " << (node->lastParticle) << endl;
+    ckerr << "Left key : " << keyBits((tp->myParticles[node->firstParticle]).key, 63).c_str() << endl;
+    ckerr << "Right key: " << keyBits((tp->myParticles[node->lastParticle]).key, 63).c_str() << endl;
+    ckerr << "Node type: " << node->getType() << endl;
+    ckerr << "myNumParticles: " << tp->myNumParticles << endl;
+    CkAbort("Tree is too deep!");
+    return false;
+  }
+
+#if INTERLIST_VER > 0
+  node->startBucket = tp->numBuckets; 
+#endif
+
+  //CkPrintf("[%d] phase II visit node %llu type %d\n", tp->thisIndex, node->getKey(), node->getType());
+
+  if(node->getType() == NonLocal || node->getType() == NonLocalBucket){
+    // don't deliver moments of this node to clients
+    // because:
+    // 1. either this is a NonLocal node which my TP 
+    // requested from a remote source, in which
+    // case we couldn't have received the response
+    // yet, since the local tree build is still on,
+    // and we haven't yielded the processor since
+    // the remote requests were sent out. That is,
+    // the moments of this node aren't ready yet.
+
+    // 2. or this is a NonLocal node whose moments
+    // can be supplied by a TreePiece on this PE.
+    // In this case, my TP cannot be the supplier
+    // of this node to any other TP. That is, my
+    // TP doesn't have to deliver this node to anyone
+    return false;
+  }
+  else if(node->getType() == Internal &&
+          (node->lastParticle - node->firstParticle < maxBucketSize || level >= 61)){
+
+       if(level >= 61
+	  && node->lastParticle - node->firstParticle >= maxBucketSize)
+           ckerr << "Truncated tree with "
+                 << node->lastParticle - node->firstParticle
+                 << " particle bucket" << endl;
+       
+      CkAssert(node->firstParticle != 0 && node->lastParticle != tp->myNumParticles+1);
+      node->remoteIndex = tp->thisIndex;
+      node->makeBucket(tp->myParticles);
+      tp->bucketList.push_back(node);
+      tp->numBuckets++;
+
+      registerNode(node);
+      // deliver moments, since doneChildren() will
+      // never be called with a bucket
+      tp->deliverMomentsToClients(node);
+      return false;
+  }
+  else if(node->getType() == Empty){
+    node->remoteIndex = tp->thisIndex;
+
+    registerNode(node);
+    // deliver MomentsToClients, since remote pieces don't know its
+    // an empty node.
+    tp->deliverMomentsToClients(node);
+    return false;
+  }
+  else if(node->getType() == Internal){
+    node->makeOctChildren(tp->myParticles,tp->myNumParticles,level);
+    // The boundingBox was used above to determine the spacially equal
+    // split between the children.  Now reset it so it can be calculated
+    // from the particle positions.
+    node->boundingBox.reset();
+    node->remoteIndex = tp->thisIndex;
+
+    registerNode(node);
+    // don't deliver MomentsToClients, since we
+    // haven't yet computed the moments for this 
+    // node: this will happen only after the moments
+    // of both children of this node have been
+    // completed (i.e. childrenDone() is called with
+    // this node.
+    return true;
+  }
+  else if(node->getType() == Boundary){
+    CkAssert(node->getChildren(0) != NULL);
+    // don't deliver MomentsToClients yet: same 
+    // explanation as above
+    return true;
+  }
+  CkAbort("Unhandled node type");
+  return false;
+}
+
+void LocalTreeBuilder::doneChildren(GenericTreeNode *node, int level){
+  CkAssert(node->getType() == Boundary ||
+           node->getType() == Internal);
+  node->rungs = 0;
+#if INTERLIST_VER > 0
+  node->numBucketsBeneath = 0;
+#endif
+
+  //CkPrintf("[%d] phase II doneChildren node %llu type %d\n", tp->thisIndex, node->getKey(), node->getType());
+  if(node->getType() == Boundary){
+    for(int i = 0; i < node->numChildren(); i++){
+      GenericTreeNode *child = node->getChildren(i);
+      if((child->getType() != NonLocal && child->getType() != NonLocalBucket
+	  && child->getType() != Empty)
+	 && child->rungs > node->rungs)
+	  node->rungs = child->rungs;
+#if INTERLIST_VER > 0
+      node->numBucketsBeneath += child->numBucketsBeneath;
+#endif
+    }
+
+    if(node->remoteIndex == 0){
+      tp->boundaryParentReady(node);
+      // call deliver MomentsToClients, since the 
+      // moments for this node have been computed
+      // in boundaryParent Ready
+      tp->deliverMomentsToClients(node);
+    }
+  }
+  else{
+    for(int i = 0; i < node->numChildren(); i++){
+      GenericTreeNode *child = node->getChildren(i);
+      if(child->getType() != Empty) {
+	  tp->accumulateMomentsFromChild(node,child); 
+
+	  if(child->rungs > node->rungs) node->rungs = child->rungs;
+#if INTERLIST_VER > 0
+	  node->numBucketsBeneath += child->numBucketsBeneath;
+#endif
+	  }
+    }
+
+    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
+
+    tp->deliverMomentsToClients(node);
+  }
+}
+
+const char *typeString(NodeType type);
+bool LocalTreePrinter::work(GenericTreeNode *node, int level){
+  CkAssert(node != NULL);
+
+  file << node->getKey() 
+       << "[label=\"" << node->getKey() 
+       << " (" << typeString(node->getType()) << ")\\n"
+       << node->remoteIndex
+       << "\"]" << std::endl;
+
+  if(node->getType() == Internal ||
+     node->getType() == Boundary)
+    return true;
+  else 
+    return false;
+}
+
+void LocalTreePrinter::doneChildren(GenericTreeNode *node, int level){
+  for(int i = 0; i < node->numChildren(); i++){
+    CkAssert(node->getChildren(i) != NULL);
+    file << node->getKey() << " -> " << node->getChildren(i)->getKey() << std::endl;
+  }
+}
+
+void LocalTreePrinter::openFile(){
+  std::ostringstream oss;
+  oss << description << ".tree." << index << ".dot";
+  file.open(oss.str().c_str());
+  CkAssert(file.is_open());
+  file << "digraph " << description << index << "{" << std::endl;
+}
 
 #endif // INTERLIST_VER > 0
