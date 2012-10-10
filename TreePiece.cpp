@@ -4684,6 +4684,10 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
     CkCallback cbk(CkIndex_Orb3dLB_notopo::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
   }
+  else if(foundLB == MultistepOrb){
+    CkCallback lbcb(CkIndex_MultistepOrbLB::receiveCentroids(NULL), 0, proxy);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+  }
   else if(activeRung == 0) {
     doAtSync();
   }
@@ -6047,6 +6051,7 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   string orb3dname("Orb3dLB");
   string ms_notoponame("MultistepLB_notopo");
   string orb3d_notoponame("Orb3dLB_notopo");
+  string msorb_name("MultistepOrbLB");
 
   BaseLB **lbs = lbdb->getLoadBalancers();
   int i;
@@ -6067,6 +6072,11 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
      else if(ms_notoponame == string(lbs[i]->lbName())){ 
         proxy = lbs[i]->getGroupID();
         foundLB = Multistep_notopo;
+        break;
+      }
+     else if(msorb_name == string(lbs[i]->lbName())){ 
+        proxy = lbs[i]->getGroupID();
+        foundLB = MultistepOrb;
         break;
       }
       else if(orb3d_notoponame == string(lbs[i]->lbName())){
@@ -6092,6 +6102,10 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   }
   else if(foundLB == Orb3d_notopo){
     CkCallback lbcb(CkIndex_Orb3dLB_notopo::receiveCentroids(NULL), 0, proxy);
+    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+  }
+  else if(foundLB == MultistepOrb){
+    CkCallback lbcb(CkIndex_MultistepOrbLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
   }
   else if(foundLB == Null){ 
