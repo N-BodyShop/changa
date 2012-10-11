@@ -810,7 +810,7 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 #ifdef DIFFUSIONTHERMAL
 #define DIFFUSIONThermal() \
 	    { double diff = 2*dThermalDiffusionCoeff*(p->diff()+q->diff())*(p->uPred()-q->uPred()) \
-		/(p->fDensity+q->fDensity); \
+		/(pDensity+q->fDensity); \
 		PACTIVE( p->PdV() += diff*rq );	\
 		QACTIVE( q->PdV() -= diff*rp ); }
 #else
@@ -819,17 +819,17 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 #endif
 #define DIFFUSIONMetals() \
 	    { double diff = 2*dMetalDiffusionCoeff*(p->diff()+q->diff())*(p->fMetals() - q->fMetals()) \
-		/(p->fDensity+q->fDensity); \
+		/(pDensity+q->fDensity); \
 		PACTIVE( p->fMetalsDot() += diff*rq );	\
 		QACTIVE( q->fMetalsDot() -= diff*rp ); }
 #define DIFFUSIONMetalsOxygen() \
 	    { double diff = 2*dMetalDiffusionCoeff*(p->diff()+q->diff())*(p->fMFracOxygen() - q->fMFracOxygen()) \
-		/(p->fDensity+q->fDensity); \
+		/(pDensity+q->fDensity); \
 		PACTIVE( p->fMFracOxygenDot() += diff*rq );	\
 		QACTIVE( q->fMFracOxygenDot() -= diff*rp ); }
 #define DIFFUSIONMetalsIron() \
 	    { double diff = 2*dMetalDiffusionCoeff*(p->diff()+q->diff())*(p->fMFracIron() - q->fMFracIron()) \
-		/(p->fDensity+q->fDensity); \
+		/(pDensity+q->fDensity); \
       PACTIVE( p->fMFracIronDot() += diff*rq ); \
       QACTIVE( q->fMFracIronDot() -= diff*rp ); }
 #else /* No diffusion */
