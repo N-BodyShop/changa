@@ -435,8 +435,8 @@ class ExternalSmoothParticle {
 	      u = p->u();
 #ifndef COOLING_NONE
 	      uDot = p->uDot();
-	      uPred = p->uPred();
 #endif
+	      uPred = p->uPred();
 	      fMetals = p->fMetals();
 	      fESNrate = p->fESNrate();
 	      fMFracOxygen = p->fMFracOxygen();
@@ -473,8 +473,8 @@ class ExternalSmoothParticle {
 	  tmp->u() = u;
 #ifndef COOLING_NONE
 	  tmp->uDot() = uDot;
-	  tmp->uPred() = uPred;
 #endif
+	  tmp->uPred() = uPred;
 	  tmp->fMetals() = fMetals;
 	  tmp->fESNrate() = fESNrate;
 	  tmp->fMFracOxygen() = fMFracOxygen;
