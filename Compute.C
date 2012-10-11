@@ -2371,7 +2371,8 @@ bool RemoteTreeBuilder::work(GenericTreeNode *node, int level){
       return false;
 
     case Boundary:
-      node->makeOctChildren(tp->myParticles,tp->myNumParticles,level);
+      node->makeOctChildren(tp->myParticles,tp->myNumParticles,level,
+			    tp->pTreeNodes);
       // The boundingBox was used above to determine the spatially equal
       // split between the children.  Now reset it so it can be calculated
       // from the particle positions.
@@ -2466,7 +2467,8 @@ bool LocalTreeBuilder::work(GenericTreeNode *node, int level){
     return false;
   }
   else if(node->getType() == Internal){
-    node->makeOctChildren(tp->myParticles,tp->myNumParticles,level);
+    node->makeOctChildren(tp->myParticles,tp->myNumParticles,level,
+	                  tp->pTreeNodes);
     // The boundingBox was used above to determine the spacially equal
     // split between the children.  Now reset it so it can be calculated
     // from the particle positions.
