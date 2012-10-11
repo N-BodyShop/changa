@@ -407,6 +407,10 @@ DataManager.h \
 ParallelGravity.decl.h \
 Compute.h \
 
+MultistepOrbLB.o: \
+MultistepOrbLB.decl.h \
+ParallelGravity.decl.h \
+
 Orb3dLB.o: \
 Orb3dLB.C \
 Orb3dLB.h \
