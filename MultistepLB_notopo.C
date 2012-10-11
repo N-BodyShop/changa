@@ -177,7 +177,7 @@ void MultistepLB_notopo::makeActiveProcessorList(BaseLB::LDStats *stats, int num
 
 /// Threshold between ORB3D (large) and greedy (small) as fraction of
 /// active particles
-#define LARGE_PHASE_THRESHOLD 0.00
+#define LARGE_PHASE_THRESHOLD 0.0001
 
 /// @brief Implement load balancing: store loads and decide between
 /// ORB3D and greedy.
@@ -225,7 +225,7 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
     numActiveParticles += tpCentroids[i].numActiveParticles;
     totalNumParticles += tpCentroids[i].myNumParticles;
 
-    if(false && tpCentroids[i].numActiveParticles == 0){
+    if(tpCentroids[i].numActiveParticles == 0){
       numInactiveObjects++;
       if(stats->objData[lb].migratable){
         stats->objData[lb].migratable = 0;
@@ -239,11 +239,21 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
       numActiveObjects++;
     }
   }
-#ifdef MCLBMSV
-  CkPrintf("numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects, numInactiveObjects);
-#endif
-
-
+  CkPrintf("numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects,
+	   numInactiveObjects);
+  if(numInactiveObjects < 1.0*numActiveObjects) {
+	// insignificant number of inactive objects; migrate them anyway
+  	for(int i = 0; i < stats->n_objs; i++){
+    	    int lb = tpCentroids[i].tag;
+            if(!stats->objData[lb].migratable){
+        	stats->objData[lb].migratable = 1;
+        	stats->n_migrateobjs++;
+		numActiveObjects++;
+		numInactiveObjects--;
+		}
+	    }
+  	CkPrintf("Migrating all: numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects, numInactiveObjects);
+	}
 
   // get load information for this phase, if possible
   // after this, stats->objData[] is indexed by tree piece
@@ -313,7 +323,7 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
     work2(stats,count,phase,prevPhase);
   }     // end if phase == 0
   else{
-    greedy(stats,count,phase,prevPhase);
+    // greedy(stats,count,phase,prevPhase);
   }
 #endif //CMK_LDB_ON
 
@@ -425,7 +435,6 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
 
   int numProcessed = 0;
 
-  int j = 0;
   for(int i = 0; i < numobjs; i++){
     int tp = tpCentroids[i].tp;
     int lb = tpCentroids[i].tag;
@@ -440,31 +449,27 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
     else{
       load = stats->objData[lb].wallTime;
     }
- //   int lb = tpCentroids[i].tag;
 
     // CkPrintf("Before calling Orb %d %f \n",lb, load);
 
-    tpEvents[XDIM].push_back(Event(tpCentroids[i].vec.x,load,j));
-    tpEvents[YDIM].push_back(Event(tpCentroids[i].vec.y,load,j));
-    tpEvents[ZDIM].push_back(Event(tpCentroids[i].vec.z,load,j));
+    tpEvents[XDIM].push_back(Event(tpCentroids[i].vec.x,load,numProcessed));
+    tpEvents[YDIM].push_back(Event(tpCentroids[i].vec.y,load,numProcessed));
+    tpEvents[ZDIM].push_back(Event(tpCentroids[i].vec.z,load,numProcessed));
 
-    tp_array[j]= OrbObject(lb,tpCentroids[i].myNumParticles);
-    tp_array[j].centroid = tpCentroids[i].vec;
+    tp_array[numProcessed]= OrbObject(lb,tpCentroids[i].myNumParticles);
+    tp_array[numProcessed].centroid = tpCentroids[i].vec;
 
    
-    tp_array[j].lbindex = lb;
-    j++;
+    tp_array[numProcessed].lbindex = lb;
     numProcessed++;
-
   }
-  CkAssert(j==nmig);
+  CkAssert(numProcessed==nmig);
 
   
   orbPrepare(tpEvents, box, nmig, stats);
   orbPartition(tpEvents,box,stats->count,tp_array, stats);
 
-  refine(stats, nmig);
- // delete[] tp_array;
+  refine(stats, numobjs);
 }
 
 

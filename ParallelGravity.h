@@ -71,7 +71,8 @@ enum LBStrategy{
   Multistep,
   Orb3d,
   Multistep_notopo,
-  Orb3d_notopo
+  Orb3d_notopo,
+  MultistepOrb
 };
 PUPbytes(LBStrategy);
 
@@ -107,6 +108,7 @@ inline void operator|(PUP::er &p,DomainsDec &d) {
 
 #include "MultistepLB.decl.h"          // jetley - needed for CkIndex_MultistepLB
 #include "Orb3dLB.decl.h"          // jetley - needed for CkIndex_Orb3dLB
+#include "MultistepOrbLB.decl.h"          // jetley - needed for CkIndex_MultistepLB
 
 class SmoothParams;
 
