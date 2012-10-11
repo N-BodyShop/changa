@@ -1,0 +1,11 @@
+module MultistepOrbLB {
+
+extern module OrbLB;
+initnode void lbinit(void);
+
+group [migratable] MultistepOrbLB : OrbLB {
+  entry void MultistepOrbLB(const CkLBOptions &);  
+  entry void receiveCentroids(CkReductionMsg *msg);
+};
+
+};
