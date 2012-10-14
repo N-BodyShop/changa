@@ -399,7 +399,7 @@ void Sorter::convertNodesToSplitters(){
   splitters.clear();
   splitters.reserve(nodeKeys.size() + 1);
   //binCounts.reserve(nodeKeys.size());
-  const Key mask = Key(1) << 63;
+  const Key mask = Key(1) << KeyBits;
   for(unsigned int i=0;i<nodeKeys.size();i++){
     partKey=Key(nodeKeys[i]);
     while(!(partKey & mask)){
@@ -427,10 +427,10 @@ Key * Sorter::convertNodesToSplittersRefine(int num, NodeKey* keys){
   Key partKey = Key(0);
 
   Key *result = new Key[num * ((1<<refineLevel)+1)];
-  int64_t levelMask = int64_t(1) << 63;
+  Key levelMask = Key(1) << KeyBits;
   levelMask >>= refineLevel;
   int idx = 0;
-  const Key mask = Key(1) << 63;
+  const Key mask = Key(1) << KeyBits;
   for(unsigned int i=0;i<num;i++){
     CkAssert(! (partKey & levelMask));
     partKey=Key(keys[i]<<refineLevel);
@@ -767,9 +767,9 @@ bool Sorter::refineOctSplitting(int n, int *count) {
     }
   } else {
     CkVec<NodeKey> tmpOpened;
-    int64_t levelMask = int64_t(1) << 63;
+    NodeKey levelMask = NodeKey(1) << (NodeKeyBits-1);
     levelMask >>= refineLevel;
-    const Key mask = Key(1) << 63;
+    const NodeKey mask = NodeKey(1) << (NodeKeyBits-1);
     for (i=0; i<nodesOpened.size(); ++i) {
       nprocess++;
       //CkPrintf("Sorter: considering %llx\n",nodesOpened[i]);
