@@ -30,7 +30,12 @@ namespace Tree {
       node into the tree, all the bits at its right describe the path of this
       node into the tree, and the bits at its left are clearly 0 and unused.
    */
+#ifdef BIGKEYS
+  typedef __uint128_t NodeKey;
+#else
   typedef CmiUInt8 NodeKey;
+#endif
+  static const int NodeKeyBits = 8*sizeof(NodeKey);
 
   /// This enumeration determines the different types of node a GenericTreeNode can be
   enum NodeType {
@@ -355,12 +360,12 @@ namespace Tree {
       int l1 = getLevel(k1)+1;
       int l2 = getLevel(k2)+1;
 
-      NodeKey a1 = k1 << (64-l1);
-      NodeKey a2 = k2 << (64-l2);
+      NodeKey a1 = k1 << (NodeKeyBits-l1);
+      NodeKey a2 = k2 << (NodeKeyBits-l2);
 
       NodeKey a = a1 ^ a2;
       int i = 0;
-      while( a < (NodeKey(1)<<63) )
+      while( a < (NodeKey(1)<<(NodeKeyBits-1)) )
       {
         a = a << 1;
         i++;
@@ -442,7 +447,7 @@ namespace Tree {
       children[0]->firstParticle = firstParticle;
       children[1]->lastParticle = lastParticle;
 
-      SFC::Key mask = SFC::Key(1) << (62 - level);
+      SFC::Key mask = SFC::Key(1) << ((SFC::KeyBits-1) - level);
       SFC::Key leftBit = part[firstParticle].key & mask;
       SFC::Key rightBit = part[lastParticle].key & mask;
 
@@ -496,7 +501,7 @@ namespace Tree {
 	  GravityParticle *splitParticle = std::lower_bound(&part[firstParticle],
 			&part[lastParticle+1],
 			(GravityParticle)(part[lastParticle].key
-					  & ((~ (SFC::Key)0) << (62-level))));
+					  & ((~ (SFC::Key)0) << ((SFC::KeyBits-1)-level))));
 	  children[0]->lastParticle = splitParticle - part - 1;
 	  children[1]->firstParticle = splitParticle - part;
 	  children[0]->particleCount = children[0]->lastParticle - firstParticle + 1;

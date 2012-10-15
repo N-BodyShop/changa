@@ -2400,11 +2400,11 @@ void RemoteTreeBuilder::doneChildren(GenericTreeNode *node, int level){
 }
 
 bool LocalTreeBuilder::work(GenericTreeNode *node, int level){
-  if (level == 62) {
+  if (level == NodeKeyBits-2) {
     ckerr << tp->thisIndex << ": TreePiece: This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
     ckerr << "Left particle: " << (node->firstParticle) << " Right particle: " << (node->lastParticle) << endl;
-    ckerr << "Left key : " << keyBits((tp->myParticles[node->firstParticle]).key, 63).c_str() << endl;
-    ckerr << "Right key: " << keyBits((tp->myParticles[node->lastParticle]).key, 63).c_str() << endl;
+    ckerr << "Left key : " << keyBits((tp->myParticles[node->firstParticle]).key, KeyBits).c_str() << endl;
+    ckerr << "Right key: " << keyBits((tp->myParticles[node->lastParticle]).key, KeyBits).c_str() << endl;
     ckerr << "Node type: " << node->getType() << endl;
     ckerr << "myNumParticles: " << tp->myNumParticles << endl;
     CkAbort("Tree is too deep!");
@@ -2436,9 +2436,9 @@ bool LocalTreeBuilder::work(GenericTreeNode *node, int level){
     return false;
   }
   else if(node->getType() == Internal &&
-          (node->lastParticle - node->firstParticle < maxBucketSize || level >= 61)){
+          (node->lastParticle - node->firstParticle < maxBucketSize || level >= NodeKeyBits-3)){
 
-       if(level >= 61
+       if(level >= NodeKeyBits-3
 	  && node->lastParticle - node->firstParticle >= maxBucketSize)
            ckerr << "Truncated tree with "
                  << node->lastParticle - node->firstParticle
@@ -2544,8 +2544,15 @@ const char *typeString(NodeType type);
 bool LocalTreePrinter::work(GenericTreeNode *node, int level){
   CkAssert(node != NULL);
 
+#ifdef BIGKEYS
+  uint64_t upper = node->getKey() >> 64;
+  uint64_t lower = node->getKey();
+  file << upper << lower
+       << "[label=\"" << upper << lower
+#else  
   file << node->getKey() 
        << "[label=\"" << node->getKey() 
+#endif
        << " (" << typeString(node->getType()) << ")\\n"
        << node->remoteIndex
        << "\"]" << std::endl;
@@ -2558,9 +2565,19 @@ bool LocalTreePrinter::work(GenericTreeNode *node, int level){
 }
 
 void LocalTreePrinter::doneChildren(GenericTreeNode *node, int level){
+#ifdef BIGKEYS
+  uint64_t upper = node->getKey() >> 64;
+  uint64_t lower = node->getKey();
+#endif
   for(int i = 0; i < node->numChildren(); i++){
     CkAssert(node->getChildren(i) != NULL);
+#ifdef BIGKEYS
+    uint64_t ch_upper = node->getChildren(i)->getKey() >> 64;
+    uint64_t ch_lower = node->getChildren(i)->getKey();
+    file << upper << lower << " -> " << ch_upper << ch_lower << std::endl;
+#else
     file << node->getKey() << " -> " << node->getChildren(i)->getKey() << std::endl;
+#endif
   }
 }
 
