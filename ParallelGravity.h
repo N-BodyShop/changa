@@ -1009,6 +1009,8 @@ private:
 	unsigned iterationNo;
 	/// The root of the global tree, always local to any chare
 	GenericTreeNode* root;
+	/// pool of memory to hold TreeNodes: makes allocation more efficient.
+	NodePool *pTreeNodes;
 
 	typedef std::map<NodeKey, CkVec<int>* >   MomentRequestType;
 	/// Keep track of the requests for remote moments not yet satisfied.
@@ -1182,6 +1184,24 @@ private:
 	  return nodeLookupTable.size();
   }
 
+  /// delete treenodes if allocated
+  void deleteTree() {
+    if(pTreeNodes != NULL) {
+        delete pTreeNodes;
+        pTreeNodes = NULL;
+        root = NULL;
+        nodeLookupTable.clear();
+        }
+    else {
+        if (root != NULL) {
+            root->fullyDelete();
+            delete root;
+            root = NULL;
+            nodeLookupTable.clear();
+            }
+        }
+    }
+
   GenericTreeNode *get3DIndex();
 
 	/// Recursive call to build the subtree with root "node", level
@@ -1244,6 +1264,7 @@ public:
 	  foundLB = Null; 
 	  iterationNo=0;
 	  usesAtSync=CmiTrue;
+	  pTreeNodes = NULL;
 	  bucketReqs=NULL;
 	  nCacheAccesses = 0;
 	  memWithCache = 0;
@@ -1339,6 +1360,7 @@ public:
 	  //remaining Chunk = NULL;
           ewt = NULL;
 	  root = NULL;
+	  pTreeNodes = NULL;
 
       sTopDown = 0;
 	  sGravity = NULL;
@@ -1379,11 +1401,8 @@ public:
 	  delete[] bucketReqs;
           delete[] ewt;
 
-	  // recursively delete the entire tree
-	  if (root != NULL) {
-	    root->fullyDelete();
-	    delete root;
-	  }
+	  deleteTree();
+
 	  if(boxes!= NULL ) delete[] boxes;
 	  if(splitDims != NULL) delete[] splitDims;
 
