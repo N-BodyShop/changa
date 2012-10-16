@@ -14,6 +14,7 @@
 #include <vector>
 #include <algorithm>
 #include <set>
+#include <list>
 
 #include "OrientedBox.h"
 #include "MultipoleMoments.h"
@@ -30,7 +31,12 @@ namespace Tree {
       node into the tree, all the bits at its right describe the path of this
       node into the tree, and the bits at its left are clearly 0 and unused.
    */
+#ifdef BIGKEYS
+  typedef __uint128_t NodeKey;
+#else
   typedef CmiUInt8 NodeKey;
+#endif
+  static const int NodeKeyBits = 8*sizeof(NodeKey);
 
   /// This enumeration determines the different types of node a GenericTreeNode can be
   enum NodeType {
@@ -49,6 +55,8 @@ namespace Tree {
 
   /// A simple counter for how many nodes are empty - statistics
   extern int numEmptyNodes;
+
+class NodePool;
 
   class GenericTreeNode {
 #ifdef CHANGA_REFACTOR_WALKCHECK
@@ -189,8 +197,8 @@ namespace Tree {
 
     /// \brief construct the children of the "this" node following the
     /// given logical criteria (Oct/Orb)
-    virtual void makeOctChildren(GravityParticle *part, int totalPart, int level) = 0;
-    virtual void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle), bool spatial) = 0;
+    virtual void makeOctChildren(GravityParticle *part, int totalPart, int level, NodePool *pool = NULL) = 0;
+    virtual void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle), bool spatial, NodePool *pool = NULL) = 0;
 
     // get the number of chunks possible for the given request
     // @return a number greater or iqual to th the request
@@ -292,6 +300,26 @@ namespace Tree {
     }
   };
 
+class BinaryTreeNode;
+
+/// Utility to pool allocations of tree nodes
+class NodePool {
+    int next;
+    int szPool;
+    /// list of allocated pool blocks.
+    std::list<BinaryTreeNode *> pools;
+public:
+    NodePool() {
+        next = szPool = 128;  // Determines the size of the pools
+    }
+    ~NodePool();
+    /// give out one node from the pool, allocating a new pool block if needed.
+    BinaryTreeNode *alloc_one();
+    BinaryTreeNode *alloc_one(NodeKey k, NodeType type, int first,
+			      int nextlast, BinaryTreeNode *p);
+
+    };
+
   /** A table of the nodes in my tree, indexed by their keys.
       @todo XXX: Make this lookup a hash table, so we get O(1) behavior instead of O(log N).
   */
@@ -358,12 +386,12 @@ namespace Tree {
       int l1 = getLevel(k1)+1;
       int l2 = getLevel(k2)+1;
 
-      NodeKey a1 = k1 << (64-l1);
-      NodeKey a2 = k2 << (64-l2);
+      NodeKey a1 = k1 << (NodeKeyBits-l1);
+      NodeKey a2 = k2 << (NodeKeyBits-l2);
 
       NodeKey a = a1 ^ a2;
       int i = 0;
-      while( a < (NodeKey(1)<<63) )
+      while( a < (NodeKey(1)<<(NodeKeyBits-1)) )
       {
         a = a << 1;
         i++;
@@ -415,9 +443,16 @@ namespace Tree {
     ///        This generally depends on the nature of the sibling.
     ///   4. Pointer to particles is assigned.
     ///
-    void makeOctChildren(GravityParticle *part, int totalPart, int level) {
-      children[0] = new BinaryTreeNode();
-      children[1] = new BinaryTreeNode();
+    void makeOctChildren(GravityParticle *part, int totalPart, int level,
+			 NodePool *pool=NULL) {
+      if(pool) {
+	  children[0] = pool->alloc_one();
+	  children[1] = pool->alloc_one();
+	  }
+      else {
+	  children[0] = new BinaryTreeNode();
+	  children[1] = new BinaryTreeNode();
+	  }
       children[0]->parent = this;
       children[1]->parent = this;
       children[0]->boundingBox = boundingBox;
@@ -445,7 +480,7 @@ namespace Tree {
       children[0]->firstParticle = firstParticle;
       children[1]->lastParticle = lastParticle;
 
-      SFC::Key mask = SFC::Key(1) << (62 - level);
+      SFC::Key mask = SFC::Key(1) << ((SFC::KeyBits-1) - level);
       SFC::Key leftBit = part[firstParticle].key & mask;
       SFC::Key rightBit = part[lastParticle].key & mask;
 
@@ -499,7 +534,7 @@ namespace Tree {
 	  GravityParticle *splitParticle = std::lower_bound(&part[firstParticle],
 			&part[lastParticle+1],
 			(GravityParticle)(part[lastParticle].key
-					  & ((~ (SFC::Key)0) << (62-level))));
+					  & ((~ (SFC::Key)0) << ((SFC::KeyBits-1)-level))));
 	  children[0]->lastParticle = splitParticle - part - 1;
 	  children[1]->firstParticle = splitParticle - part;
 	  children[0]->particleCount = children[0]->lastParticle - firstParticle + 1;
@@ -524,10 +559,19 @@ namespace Tree {
     }
 
     // Constructs 2 children of this node based on ORB decomposition
-    void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle), bool spatial) {
+    void makeOrbChildren(GravityParticle *part, int totalPart, int level,
+		         int rootsLevel,
+			 bool (*compFnPtr[])(GravityParticle, GravityParticle),
+			 bool spatial, NodePool *pool=NULL) {
 
-      children[0] = new BinaryTreeNode();
-      children[1] = new BinaryTreeNode();
+      if(pool) {
+	  children[0] = pool->alloc_one();
+	  children[1] = pool->alloc_one();
+	  }
+      else {
+          children[0] = new BinaryTreeNode();
+          children[1] = new BinaryTreeNode();
+	  }
       children[0]->parent = this;
       children[1]->parent = this;
       children[0]->boundingBox = boundingBox;
@@ -789,6 +833,31 @@ namespace Tree {
       }*/
   };
 
+inline
+NodePool::~NodePool() {
+        while(!pools.empty()) {
+            delete [] pools.front();
+            pools.pop_front();
+            }
+        }
+
+inline BinaryTreeNode *
+NodePool::alloc_one() {
+        if(next >= szPool) { // need new pool block
+            BinaryTreeNode *nodes = new BinaryTreeNode[szPool];
+            next = 0;
+            pools.push_front(nodes);
+            }
+        return &pools.front()[next++];
+        }
+
+inline BinaryTreeNode *
+NodePool::alloc_one(NodeKey k, NodeType type, int first, int nextlast,
+		    BinaryTreeNode *p) {
+	BinaryTreeNode *one = alloc_one();
+	return new (one) BinaryTreeNode(k, type, first, nextlast, p);
+	}
+
   class OctTreeNode : public GenericTreeNode {
   protected:
   public:
@@ -881,9 +950,11 @@ namespace Tree {
     }
 #endif
 
-    void makeOctChildren(GravityParticle *part, int totalPart, int level) {}
+    void makeOctChildren(GravityParticle *part, int totalPart, int level,
+			 NodePool *pool = NULL) {}
 
-    void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle), bool spatial) {}
+    void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle), bool spatial,
+			 NodePool *pool = NULL) {}
 
     GenericTreeNode *createNew() const {
       return new OctTreeNode();

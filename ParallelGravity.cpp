@@ -913,7 +913,7 @@ Main::Main(CkArgMsg* m) {
 		param.dComovingGmPerCcUnit = param.dGmPerCcUnit;
 		}
 
-        if (domainDecomposition == SFC_peano_dec) peanoKey = 1;
+        if (domainDecomposition == SFC_peano_dec) peanoKey = 3;
         if (domainDecomposition == SFC_peano_dec_2D) peanoKey = 2;
         if (domainDecomposition == SFC_peano_dec_3D) peanoKey = 3;
 
@@ -2999,8 +2999,15 @@ void Main::turnProjectionsOff(){
 const char *typeString(NodeType type);
 
 void GenericTreeNode::getGraphViz(std::ostream &out){
+#ifdef BIGKEYS
+  uint64_t lower = getKey();
+  uint64_t upper = getKey() >> 64;
+  out << upper << lower
+    << "[label=\"" << upper << lower
+#else    
   out << getKey()
     << "[label=\"" << getKey()
+#endif
     << " " 
     << typeString(getType())
     << "\\n"
@@ -3014,7 +3021,13 @@ void GenericTreeNode::getGraphViz(std::ostream &out){
   if(getType() == Boundary){
     for(int i = 0; i < numChildren(); i++){
       GenericTreeNode *child = getChildren(i);
+#ifdef BIGKEYS
+      uint64_t ch_lower = getKey();
+      uint64_t ch_upper = getKey() >> 64;
+      out << upper << lower << "->" << ch_upper << ch_lower << ";" << std::endl;
+#else
       out << getKey() << "->" << child->getKey() << ";" << std::endl;
+#endif
     }
   }
 }
