@@ -281,7 +281,7 @@ mainmodule ParallelGravity {
     entry void countActive(int activeRung, const CkCallback& cb);
     entry void drift(double dDelta, int bNeedVPred, int bGasIsoThermal,
 		     double dvDelta, double duDelta, int nGrowMass,
-		     const CkCallback& cb);
+		     bool buildTree, const CkCallback& cb);
     entry void calcEnergy(const CkCallback& cb);
     entry void colNParts(const CkCallback &cb);
     entry void newOrder(int64_t nStartSPH, int64_t nStartDark,

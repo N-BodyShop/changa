@@ -944,7 +944,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		     int bGasIsothermal, // Isothermal EOS
 		     double duDelta[MAXRUNG+1], // dts for energy
 		     const CkCallback& cb) {
-  LBTurnInstrumentOff();
+  // LBTurnInstrumentOff();
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
       GravityParticle *p = &myParticles[i];
       if(p->rung >= iKickRung) {
@@ -1148,6 +1148,8 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 		      double duDelta, // time step for internal energy
 		      int nGrowMass,  // GrowMass particles are locked
 				      // in place
+		      bool buildTree, // is a treebuild happening before the
+				      // next drift?
 		      const CkCallback& cb) {
   callback = cb;		// called by assignKeys()
   deleteTree();
@@ -1218,9 +1220,12 @@ void TreePiece::drift(double dDelta,  // time step in x containing
   if(!bInBox){
     CkAbort("binbox2 failed\n");
   }
-  contribute(sizeof(OrientedBox<float>), &boundingBox,
-      growOrientedBox_float,
-      CkCallback(CkIndex_TreePiece::assignKeys(0), pieces));
+  if(buildTree)
+    contribute(sizeof(OrientedBox<float>), &boundingBox,
+      	       growOrientedBox_float,
+      	       CkCallback(CkIndex_TreePiece::assignKeys(0), pieces));
+  else
+    contribute(cb);
 }
 
 void TreePiece::newParticle(GravityParticle *p)

@@ -1509,7 +1509,8 @@ public:
 	    int bNeedVPred, int bGasIsothermal, double duDelta[MAXRUNG+1],
 	    const CkCallback& cb);
   void drift(double dDelta, int bNeedVPred, int bGasIsothermal, double dvDelta,
-	     double duDelta, int nGrowMass, const CkCallback& cb);
+	     double duDelta, int nGrowMass, bool buildTree,
+	     const CkCallback& cb);
   void initAccel(int iKickRung, const CkCallback& cb);
 /**
  * Adjust timesteps of active particles.
