@@ -2293,6 +2293,8 @@ Main::doSimulation()
 #endif
       RungOutputParams pRung(string(achFile) + ".rung");
       treeProxy[0].outputIntASCII(pRung, param.bParaWrite, CkCallbackResumeThread());
+      KeyOutputParams pKey(string(achFile) + ".key");
+      treeProxy[0].outputASCII(pKey, param.bParaWrite, CkCallbackResumeThread());
       if(param.bDoGas && param.bDoDensity) {
 	  // The following call is to get the particles in key order
 	  // before the sort.

@@ -118,6 +118,7 @@ mainmodule ParallelGravity {
   PUPable Cool1OutputParams;
   PUPable Cool2OutputParams;
   PUPable DtOutputParams;
+  PUPable KeyOutputParams;
   PUPable RungOutputParams;
   PUPable IOrderOutputParams;
   PUPable IGasOrderOutputParams;
