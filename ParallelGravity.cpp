@@ -61,9 +61,9 @@ CProxy_ReductionHelper reductionHelperProxy;
 CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 CProxy_LvArray smoothProxy; // Proxy for smooth reductions
 CProxy_LvArray gravityProxy; // Proxy for gravity reductions
-CProxy_CkCacheManager cacheGravPart;
-CProxy_CkCacheManager cacheSmoothPart;
-CProxy_CkCacheManager cacheNode;
+CProxy_CkCacheManager<KeyType> cacheGravPart;
+CProxy_CkCacheManager<KeyType> cacheSmoothPart;
+CProxy_CkCacheManager<KeyType> cacheNode;
 CProxy_DataManager dMProxy;
 
 CProxy_PETreeMerger peTreeMergerProxy;
@@ -1028,11 +1028,11 @@ Main::Main(CkArgMsg* m) {
 	
 	// create CacheManagers
 	// Gravity particles
-	cacheGravPart = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+	cacheGravPart = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 	// Smooth particles
-	cacheSmoothPart = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+	cacheSmoothPart = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 	// Nodes
-	cacheNode = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+	cacheNode = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 
 	//create the DataManager
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);

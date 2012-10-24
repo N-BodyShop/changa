@@ -50,6 +50,8 @@
 #include "cuda_typedef.h"
 #endif
 
+#include "keytype.h"
+
 PUPbytes(InDumpFrame);
 PUPbytes(COOL);
 PUPbytes(COOLPARAM);
@@ -139,9 +141,9 @@ extern unsigned int particlesPerChare;
 extern int nIOProcessor;
 
 extern CProxy_PETreeMerger peTreeMergerProxy;
-extern CProxy_CkCacheManager cacheGravPart;
-extern CProxy_CkCacheManager cacheSmoothPart;
-extern CProxy_CkCacheManager cacheNode;
+extern CProxy_CkCacheManager<KeyType> cacheGravPart;
+extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
+extern CProxy_CkCacheManager<KeyType> cacheNode;
 
 extern ComlibInstanceHandle cinst1, cinst2;
 
@@ -635,7 +637,7 @@ class TreePiece : public CBase_TreePiece {
    State *sPrefetchState;
    /// Keeps track of the gravity walks over the local tree.
    State *sLocalGravityState, *sRemoteGravityState, *sSmoothState;
-   typedef std::map<CkCacheKey, CkVec<int>* > SmPartRequestType;
+   typedef std::map<KeyType, CkVec<int>* > SmPartRequestType;
    // buffer of requests for smoothParticles.
    SmPartRequestType smPartRequests;
 
@@ -1667,7 +1669,7 @@ public:
         GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk, int reqID, int awi, void *source, bool isPrefetch);
 	/// @brief Receive a request for Nodes from a remote processor, copy the
 	/// data into it, and send back a message.
-	void fillRequestNode(CkCacheRequestMsg *msg);
+	void fillRequestNode(CkCacheRequestMsg<KeyType> *msg);
 	/** @brief Receive the node from the cache as following a previous
 	 * request which returned NULL, and continue the treewalk of the bucket
 	 * which requested it with this new node.
@@ -1705,9 +1707,9 @@ public:
 	GravityParticle *requestSmoothParticles(Tree::NodeKey key, int chunk,
 				    int remoteIndex, int begin,int end,
 				    int reqID, int awi, void *source, bool isPrefetch);
-	void fillRequestParticles(CkCacheRequestMsg *msg);
-	void fillRequestSmoothParticles(CkCacheRequestMsg *msg);
-	void flushSmoothParticles(CkCacheFillMsg *msg);
+	void fillRequestParticles(CkCacheRequestMsg<KeyType> *msg);
+	void fillRequestSmoothParticles(CkCacheRequestMsg<KeyType> *msg);
+	void flushSmoothParticles(CkCacheFillMsg<KeyType> *msg);
 	void processReqSmoothParticles();
 
 	//void startlb(CkCallback &cb);

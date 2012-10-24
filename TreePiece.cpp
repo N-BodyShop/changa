@@ -2943,8 +2943,8 @@ void TreePiece::continueWrapUp(){
 #endif
 
   memWithCache = CmiMemoryUsage()/(1024*1024);
-  nNodeCacheEntries = ((CkCacheManager*)cacheNode.ckLocalBranch())->getCache()->size();
-  nPartCacheEntries = ((CkCacheManager*)cacheGravPart.ckLocalBranch())->getCache()->size();
+  nNodeCacheEntries = ((CkCacheManager<KeyType>*)cacheNode.ckLocalBranch())->getCache()->size();
+  nPartCacheEntries = ((CkCacheManager<KeyType>*)cacheGravPart.ckLocalBranch())->getCache()->size();
 
   markWalkDone();
 
@@ -3942,7 +3942,7 @@ void TreePiece::finishNodeCache(const CkCallback& cb)
 {
     int j;
     for (j = 0; j < numChunks; j++) {
-	((CkCacheManager*)cacheNode.ckLocalBranch())->finishedChunk(j, 0);
+	((CkCacheManager<KeyType>*)cacheNode.ckLocalBranch())->finishedChunk(j, 0);
 	}
     contribute(cb);
     }
@@ -4194,13 +4194,13 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   if (numChunks == 0 && myNumParticles == 0) numChunks = 1;
   int dummy;
 
-  ((CkCacheManager*)cacheNode.ckLocalBranch())->cacheSync(numChunks, idxMax, localIndex);
-  ((CkCacheManager*)cacheGravPart.ckLocalBranch())->cacheSync(numChunks, idxMax, dummy);
+  ((CkCacheManager<KeyType>*)cacheNode.ckLocalBranch())->cacheSync(numChunks, idxMax, localIndex);
+  ((CkCacheManager<KeyType>*)cacheGravPart.ckLocalBranch())->cacheSync(numChunks, idxMax, dummy);
 
   if (myNumParticles == 0) {
     // No particles assigned to this TreePiece
     for (int i=0; i< numChunks; ++i) {
-      ((CkCacheManager*)cacheGravPart.ckLocalBranch())->finishedChunk(i, 0);
+      ((CkCacheManager<KeyType>*)cacheGravPart.ckLocalBranch())->finishedChunk(i, 0);
     }
     CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
     gravityProxy[thisIndex].ckLocal()->contribute(cbf);
@@ -4848,9 +4848,9 @@ GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key, int 
     userData.d0 = (((CmiUInt8) awi)<<32)+reqID;
     userData.d1 = (CmiUInt8) source;
 
-    CkCacheRequestorData request(thisElement, &EntryTypeGravityNode::callback, userData);
+    CkCacheRequestorData<KeyType> request(thisElement, &EntryTypeGravityNode::callback, userData);
     CkArrayIndexMax remIdx = CkArrayIndex1D(remoteIndex);
-    GenericTreeNode *res = (GenericTreeNode *) ((CkCacheManager *)cacheNode.ckLocalBranch())->requestData(key,remIdx,chunk,&gravityNodeEntry,request);
+    GenericTreeNode *res = (GenericTreeNode *) ((CkCacheManager<KeyType> *)cacheNode.ckLocalBranch())->requestData(key,remIdx,chunk,&gravityNodeEntry,request);
 
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_BUCKET_START_FIN
     if(source && !res){
@@ -4884,14 +4884,14 @@ ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk
     userData.d0 = (((CmiUInt8) awi)<<32)+reqID;
     userData.d1 = (CmiUInt8) source;
 
-    CkCacheRequestorData request(thisElement, &EntryTypeGravityParticle::callback, userData);
+    CkCacheRequestorData<KeyType> request(thisElement, &EntryTypeGravityParticle::callback, userData);
     CkArrayIndexMax remIdx = CkArrayIndex1D(remoteIndex);
     CkAssert(key < (((NodeKey) 1) << (NodeKeyBits-1)));
     //
     // Key is shifted to distiguish between nodes and particles
     //
-    CkCacheKey ckey = key<<1;
-    CacheParticle *p = (CacheParticle *) ((CkCacheManager *)cacheGravPart.ckLocalBranch())->requestData(ckey,remIdx,chunk,&gravityParticleEntry,request);
+    KeyType ckey = key<<1;
+    CacheParticle *p = (CacheParticle *) ((CkCacheManager<KeyType> *)cacheGravPart.ckLocalBranch())->requestData(ckey,remIdx,chunk,&gravityParticleEntry,request);
     if (p == NULL) {
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_BUCKET_START_FIN
       if(source){
@@ -4934,10 +4934,10 @@ TreePiece::requestSmoothParticles(Tree::NodeKey key,int chunk,int remoteIndex,
     userData.d0 = (((CmiUInt8) awi)<<32)+reqID;
     userData.d1 = (CmiUInt8) source;
 
-    CkCacheRequestorData request(thisElement, &EntryTypeSmoothParticle::callback, userData);
+    CkCacheRequestorData<KeyType> request(thisElement, &EntryTypeSmoothParticle::callback, userData);
     CkArrayIndexMax remIdx = CkArrayIndex1D(remoteIndex);
-    CkCacheKey ckey = key<<1;
-    CacheSmoothParticle *p = (CacheSmoothParticle *) ((CkCacheManager *)cacheSmoothPart.ckLocalBranch())->requestData(ckey,remIdx,chunk,&smoothParticleEntry,request);
+    KeyType ckey = key<<1;
+    CacheSmoothParticle *p = (CacheSmoothParticle *) ((CkCacheManager<KeyType> *)cacheSmoothPart.ckLocalBranch())->requestData(ckey,remIdx,chunk,&smoothParticleEntry,request);
     if (p == NULL) {
       return NULL;
     }
