@@ -52,6 +52,8 @@
 #include "cuda_typedef.h"
 #endif
 
+#include "keytype.h"
+
 PUPbytes(InDumpFrame);
 PUPbytes(COOL);
 PUPbytes(COOLPARAM);
@@ -73,7 +75,8 @@ enum LBStrategy{
   Multistep,
   Orb3d,
   Multistep_notopo,
-  Orb3d_notopo
+  Orb3d_notopo,
+  MultistepOrb
 };
 PUPbytes(LBStrategy);
 
@@ -109,6 +112,7 @@ inline void operator|(PUP::er &p,DomainsDec &d) {
 
 #include "MultistepLB.decl.h"          // jetley - needed for CkIndex_MultistepLB
 #include "Orb3dLB.decl.h"          // jetley - needed for CkIndex_Orb3dLB
+#include "MultistepOrbLB.decl.h"          // jetley - needed for CkIndex_MultistepLB
 
 class SmoothParams;
 
@@ -141,9 +145,9 @@ extern unsigned int particlesPerChare;
 extern int nIOProcessor;
 
 extern CProxy_PETreeMerger peTreeMergerProxy;
-extern CProxy_CkCacheManager cacheGravPart;
-extern CProxy_CkCacheManager cacheSmoothPart;
-extern CProxy_CkCacheManager cacheNode;
+extern CProxy_CkCacheManager<KeyType> cacheGravPart;
+extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
+extern CProxy_CkCacheManager<KeyType> cacheNode;
 
 extern ComlibInstanceHandle cinst1, cinst2;
 
@@ -657,7 +661,7 @@ class TreePiece : public CBase_TreePiece {
    State *sPrefetchState;
    /// Keeps track of the gravity walks over the local tree.
    State *sLocalGravityState, *sRemoteGravityState, *sSmoothState;
-   typedef std::map<CkCacheKey, CkVec<int>* > SmPartRequestType;
+   typedef std::map<KeyType, CkVec<int>* > SmPartRequestType;
    // buffer of requests for smoothParticles.
    SmPartRequestType smPartRequests;
 
@@ -1032,6 +1036,8 @@ private:
 	unsigned iterationNo;
 	/// The root of the global tree, always local to any chare
 	GenericTreeNode* root;
+	/// pool of memory to hold TreeNodes: makes allocation more efficient.
+	NodePool *pTreeNodes;
 
 	typedef std::map<NodeKey, CkVec<int>* >   MomentRequestType;
 	/// Keep track of the requests for remote moments not yet satisfied.
@@ -1205,6 +1211,24 @@ private:
 	  return nodeLookupTable.size();
   }
 
+  /// delete treenodes if allocated
+  void deleteTree() {
+    if(pTreeNodes != NULL) {
+        delete pTreeNodes;
+        pTreeNodes = NULL;
+        root = NULL;
+        nodeLookupTable.clear();
+        }
+    else {
+        if (root != NULL) {
+            root->fullyDelete();
+            delete root;
+            root = NULL;
+            nodeLookupTable.clear();
+            }
+        }
+    }
+
   GenericTreeNode *get3DIndex();
 
 	/// Recursive call to build the subtree with root "node", level
@@ -1267,6 +1291,7 @@ public:
 	  foundLB = Null; 
 	  iterationNo=0;
 	  usesAtSync=CmiTrue;
+	  pTreeNodes = NULL;
 	  bucketReqs=NULL;
 	  nCacheAccesses = 0;
 	  memWithCache = 0;
@@ -1362,6 +1387,7 @@ public:
 	  //remaining Chunk = NULL;
           ewt = NULL;
 	  root = NULL;
+	  pTreeNodes = NULL;
 
       sTopDown = 0;
 	  sGravity = NULL;
@@ -1402,11 +1428,8 @@ public:
 	  delete[] bucketReqs;
           delete[] ewt;
 
-	  // recursively delete the entire tree
-	  if (root != NULL) {
-	    root->fullyDelete();
-	    delete root;
-	  }
+	  deleteTree();
+
 	  if(boxes!= NULL ) delete[] boxes;
 	  if(splitDims != NULL) delete[] splitDims;
 
@@ -1518,7 +1541,8 @@ public:
 	    int bNeedVPred, int bGasIsothermal, double duDelta[MAXRUNG+1],
 	    const CkCallback& cb);
   void drift(double dDelta, int bNeedVPred, int bGasIsothermal, double dvDelta,
-	     double duDelta, int nGrowMass, const CkCallback& cb);
+	     double duDelta, int nGrowMass, bool buildTree,
+	     const CkCallback& cb);
   void initAccel(int iKickRung, const CkCallback& cb);
 /**
  * Adjust timesteps of active particles.
@@ -1678,8 +1702,8 @@ public:
 
   void process(const CkCacheRequest &req);
 
-  //	void fillRequestNode(CkCacheRequestMsg *msg);
-	void fillRequestNode(const CkCacheRequest &req);
+  //	void fillRequestNode(CkCacheRequestMsg<KeyType> *msg);
+  void fillRequestNode(const CkCacheRequest  &req);
 
 	/** @brief Receive the node from the cache as following a previous
 	 * request which returned NULL, and continue the treewalk of the bucket
@@ -1718,9 +1742,10 @@ public:
 	GravityParticle *requestSmoothParticles(Tree::NodeKey key, int chunk,
 				    int remoteIndex, int begin,int end,
 				    int reqID, int awi, void *source, bool isPrefetch);
+
 	void fillRequestParticles(const CkCacheRequest &req);
 	void fillRequestSmoothParticles(const CkCacheRequest &req);
-	void flushSmoothParticles(CkCacheFillMsg *msg);
+        void flushSmoothParticles(CkCacheFillMsg<KeyType> *msg);
 	void processReqSmoothParticles();
 
 	//void startlb(CkCallback &cb);

@@ -11,6 +11,7 @@
 #include "config.h"
 #include "gravity.h"
 #include "GenericTreeNode.h"
+#include "keytype.h"
 
 enum CkCacheRequestType {nodeRequest, particleRequest, smoothParticleRequest};
 
@@ -21,18 +22,18 @@ enum CkCacheRequestType {nodeRequest, particleRequest, smoothParticleRequest};
 class CkCacheRequest {
 public:
 
-  CkCacheKey key;
+  KeyType key;
   int replyTo;
   CkCacheRequestType type; 
   CkCacheRequest() {}
-  CkCacheRequest(CkCacheKey k, int r, CkCacheRequestType t)
+  CkCacheRequest(KeyType k, int r, CkCacheRequestType t)
     : key(k), replyTo(r), type(t) {}
 };
 PUPbytes(CkCacheRequest);
 
 class CacheParticle {
 public:
-  CkCacheFillMsg *msg;
+  CkCacheFillMsg<KeyType> *msg;
   int begin;
   int end;
   ExternalGravityParticle part[1];
@@ -40,22 +41,22 @@ public:
 
 /// @brief Cache interface to particles for the gravity calculation.
 /// This is a read-only cache of particles.
-class EntryTypeGravityParticle : public CkCacheEntryType {
+class EntryTypeGravityParticle : public CkCacheEntryType<KeyType> {
 public:
   EntryTypeGravityParticle();
   /// @brief Request a bucket of particles from a TreePiece.
-  void * request(CkArrayIndexMax&, CkCacheKey);
+  void * request(CkArrayIndexMax&, KeyType);
   /// @brief Return data from fufilled cache request.
-  void * unpack(CkCacheFillMsg *, int, CkArrayIndexMax &);
+  void * unpack(CkCacheFillMsg<KeyType> *, int, CkArrayIndexMax &);
   /// @brief Do nothing: this is a read-only cache.
-  void writeback(CkArrayIndexMax&, CkCacheKey, void *);
+  void writeback(CkArrayIndexMax&, KeyType, void *);
   /// @brief free cached data.
   void free(void *);
   /// @brief return size of cached data.
   int size(void *);
   
   /// @brief callback to TreePiece after data is received.
-  static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, CkCacheUserData &, void*, int);
+  static void callback(CkArrayID, CkArrayIndexMax&, KeyType, CkCacheUserData &, void*, int);
 };
 
 /*********************************************************
@@ -66,7 +67,7 @@ class CacheSmoothParticle {
 public:
     int begin; // Beginning particle number
     int end;	// ending Particle number
-    CkCacheKey key;
+    KeyType key;
     GravityParticle *partCached;
     extraSPHData *extraSPHCached;
   ExternalSmoothParticle partExt[1];
@@ -74,41 +75,41 @@ public:
 
 /// @brief Cache interface to the particles for smooth calculations.
 /// This cache is a writeback cache.
-class EntryTypeSmoothParticle : public CkCacheEntryType {
+class EntryTypeSmoothParticle : public CkCacheEntryType<KeyType> {
     // N.B. can't have helpful attributes because of the static function.
 public:
   EntryTypeSmoothParticle();
   /// @brief Request a bucket of particles from a TreePiece.
-  void * request(CkArrayIndexMax&, CkCacheKey);
+  void * request(CkArrayIndexMax&, KeyType);
   /// @brief Return data from fufilled cache request.
-  void * unpack(CkCacheFillMsg *, int, CkArrayIndexMax &);
-  void writeback(CkArrayIndexMax&, CkCacheKey, void *);
+  void * unpack(CkCacheFillMsg<KeyType> *, int, CkArrayIndexMax &);
+  void writeback(CkArrayIndexMax&, KeyType, void *);
   /// @brief free cached data.
   void free(void *);
   /// @brief return size of cached data.
   int size(void *);
   
   /// @brief callback to TreePiece after data is received.
-  static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, CkCacheUserData &, void*, int);
+  static void callback(CkArrayID, CkArrayIndexMax&, KeyType, CkCacheUserData &, void*, int);
 };
 
 /*********************************************************
  * Gravity interface: Nodes
  *********************************************************/
 
-class EntryTypeGravityNode : public CkCacheEntryType {
+class EntryTypeGravityNode : public CkCacheEntryType<KeyType> {
   void *vptr; // For saving a copy of the virtual function table.
 	      // It's use will be compiler dependent.
-  void unpackSingle(CkCacheFillMsg *, Tree::BinaryTreeNode *, int, CkArrayIndexMax &, bool);
+  void unpackSingle(CkCacheFillMsg<KeyType> *, Tree::BinaryTreeNode *, int, CkArrayIndexMax &, bool);
 public:
   EntryTypeGravityNode();
-  void * request(CkArrayIndexMax&, CkCacheKey);
-  void * unpack(CkCacheFillMsg *, int, CkArrayIndexMax &);
-  void writeback(CkArrayIndexMax&, CkCacheKey, void *);
+  void * request(CkArrayIndexMax&, KeyType);
+  void * unpack(CkCacheFillMsg<KeyType> *, int, CkArrayIndexMax &);
+  void writeback(CkArrayIndexMax&, KeyType, void *);
   void free(void *);
   int size(void *);
   
-  static void callback(CkArrayID, CkArrayIndexMax&, CkCacheKey, CkCacheUserData &, void*, int);
+  static void callback(CkArrayID, CkArrayIndexMax&, KeyType, CkCacheUserData &, void*, int);
 };
 
 #endif
