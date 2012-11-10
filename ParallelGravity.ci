@@ -4,6 +4,8 @@ mainmodule ParallelGravity {
 
   extern module Reductions;
 
+  include "keytype.h";
+
   readonly CProxy_Main mainChare;
   readonly int verbosity;
   readonly CProxy_TreePiece treeProxy;
@@ -14,9 +16,9 @@ mainmodule ParallelGravity {
   readonly CProxy_LvArray smoothProxy;
   readonly CProxy_LvArray gravityProxy;
   readonly CProxy_TreePiece streamingProxy;
-  readonly CProxy_CkCacheManager cacheNode;
-  readonly CProxy_CkCacheManager cacheGravPart;
-  readonly CProxy_CkCacheManager cacheSmoothPart;
+  readonly CProxy_CkCacheManager<KeyType> cacheNode;
+  readonly CProxy_CkCacheManager<KeyType> cacheGravPart;
+  readonly CProxy_CkCacheManager<KeyType> cacheSmoothPart;
   readonly CProxy_DataManager dMProxy;
   readonly CProxy_PETreeMerger peTreeMergerProxy;
 
@@ -118,6 +120,7 @@ mainmodule ParallelGravity {
   PUPable Cool1OutputParams;
   PUPable Cool2OutputParams;
   PUPable DtOutputParams;
+  PUPable KeyOutputParams;
   PUPable RungOutputParams;
   PUPable IOrderOutputParams;
   PUPable IGasOrderOutputParams;
@@ -365,9 +368,9 @@ mainmodule ParallelGravity {
     //entry void fillRequestBucketTree(BucketGravityRequest req);	
     //entry void receiveGravityBucketTree(const BucketGravityRequest& req);
 
-    //entry void fillRequestNode(int retIndex, Tree::NodeKey lookupKey,
+    //entry void FillRequestNode(int retIndex, Tree::NodeKey lookupKey,
     //			   BucketGravityRequest &req);
-    entry [expedited] void fillRequestNode(CkCacheRequestMsg *msg);
+    entry [expedited] void fillRequestNode(CkCacheRequestMsg<KeyType> *msg);
     //entry [local] void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source);
     //entry void receiveNode(GenericTreeNode node[1],
     //	       unsigned int reqID);
@@ -377,9 +380,9 @@ mainmodule ParallelGravity {
     //				BucketGravityRequest &req);
     //entry void receiveParticle(GravityParticle part,
     //			   BucketGravityRequest &req);
-    entry [expedited] void fillRequestParticles(CkCacheRequestMsg *msg);
-    entry [expedited] void fillRequestSmoothParticles(CkCacheRequestMsg *msg);
-    entry void flushSmoothParticles(CkCacheFillMsg *msg);
+    entry [expedited] void fillRequestParticles(CkCacheRequestMsg<KeyType> *msg);
+    entry [expedited] void fillRequestSmoothParticles(CkCacheRequestMsg<KeyType> *msg);
+    entry void flushSmoothParticles(CkCacheFillMsg<KeyType> *msg);
     //entry [local] void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
     //entry [local] void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
     //entry void fillRequestParticles(SFC::Key key,int retIndex, int begin,int end,
