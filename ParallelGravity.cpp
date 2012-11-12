@@ -1093,34 +1093,26 @@ void Main::getStartTime()
 		ckout << "Input file, Time:" << dTime << " Redshift:" << z
 		      << " Expansion factor:" << dAStart << endl;
 	    if (prmSpecified(prm,"dRedTo")) {
+
+                aTo = 1.0/(param.dRedTo + 1.0);
+                tTo = csmExp2Time(param.csm,aTo);
+                if (verbosity > 0)
+                    ckout << "Simulation to Time:" << tTo << " Redshift:"
+                          << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
+                          << endl;
+                if (tTo < dTime) {
+                    ckerr << "Badly specified final redshift, check -zto parameter."
+                          << endl;
+                    CkExit();
+                    } 
+
 		if (!prmArgSpecified(prm,"nSteps") &&
 		    prmArgSpecified(prm,"dDelta")) {
-		    aTo = 1.0/(param.dRedTo + 1.0);
-		    tTo = csmExp2Time(param.csm,aTo);
-		    if (verbosity > 0)
-			ckout << "Simulation to Time:" << tTo << " Redshift:"
-			      << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
-			      << endl;
-		    if (tTo < dTime) {
-			ckerr << "Badly specified final redshift, check -zto parameter."
-			      << endl;
-			CkExit();
-			}
+
 		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta)+param.iStartStep;
 		    }
 		else if (!prmArgSpecified(prm,"dDelta") &&
 			 prmArgSpecified(prm,"nSteps")) {
-		    aTo = 1.0/(param.dRedTo + 1.0);
-		    tTo = csmExp2Time(param.csm,aTo);
-		    if (verbosity > 0)
-			ckout << "Simulation to Time:" << tTo << " Redshift:"
-			      << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
-			      << endl;
-		    if (tTo < dTime) {
-			ckerr << "Badly specified final redshift, check -zto parameter."
-			      << endl;
-			CkExit();
-			}
 		    if(param.nSteps != 0)
 			param.dDelta =
 				(tTo-dTime)/(param.nSteps - param.iStartStep);
@@ -1129,32 +1121,10 @@ void Main::getStartTime()
 		    }
 		else if (!prmSpecified(prm,"nSteps") &&
 			 prmFileSpecified(prm,"dDelta")) {
-		    aTo = 1.0/(param.dRedTo + 1.0);
-		    tTo = csmExp2Time(param.csm,aTo);
-		    if (verbosity > 0)
-			ckout << "Simulation to Time:" << tTo << " Redshift:"
-			      << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
-			      << endl;
-		    if (tTo < dTime) {
-			ckerr << "Badly specified final redshift, check -zto parameter."
-			      << endl;
-			CkExit();
-			}
 		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta) + param.iStartStep;
 		    }
 		else if (!prmSpecified(prm,"dDelta") &&
 			 prmFileSpecified(prm,"nSteps")) {
-		    aTo = 1.0/(param.dRedTo + 1.0);
-		    tTo = csmExp2Time(param.csm,aTo);
-		    if (verbosity > 0)
-			ckout << "Simulation to Time:" << tTo << " Redshift:"
-			      << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
-			      << endl;
-		    if (tTo < dTime) {
-			ckerr << "Badly specified final redshift, check -zto parameter."
-			      << endl;
-			CkExit();
-			}
 		    if(param.nSteps != 0)
 			param.dDelta =	(tTo-dTime)/(param.nSteps
 							 - param.iStartStep);
