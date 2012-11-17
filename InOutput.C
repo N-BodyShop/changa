@@ -309,11 +309,35 @@ void TreePiece::loadTipsy(const std::string& filename,
 #ifdef ROUND_ROBIN_WITH_OCT_DECOMP 
         if(thisIndex >= numLoadingPEs) skipLoad = true;
 #else
-        // this is not the best way to divide objects among PEs, 
-        // but it is how charm++ does it.
         int numTreePiecesPerPE = numTreePieces/numLoadingPEs;
         int rem = numTreePieces-numTreePiecesPerPE*numLoadingPEs;
 
+#ifdef DEFAULT_ARRAY_MAP
+        if (rem > 0) {
+          int sizeSmallBlock = numTreePiecesPerPE; 
+          int numLargeBlocks = rem; 
+          int sizeLargeBlock = numTreePiecesPerPE + 1; 
+          int largeBlockBound = numLargeBlocks * sizeLargeBlock; 
+          
+          if (thisIndex < largeBlockBound) {
+            if (thisIndex % sizeLargeBlock > 0) {
+              skipLoad = true; 
+            }
+          }
+          else {
+            if ((thisIndex - largeBlockBound) % sizeSmallBlock > 0) {
+              skipLoad = true; 
+            }
+          }
+        }
+        else {
+          if ( (thisIndex % numTreePiecesPerPE) > 0) {
+            skipLoad = true; 
+          }
+        }
+#else
+        // this is not the best way to divide objects among PEs, 
+        // but it is how charm++ BlockMap does it.
         if(rem > 0){
           numTreePiecesPerPE++;
           numLoadingPEs = numTreePieces/numTreePiecesPerPE;
@@ -321,6 +345,7 @@ void TreePiece::loadTipsy(const std::string& filename,
         }
 
         if(thisIndex % numTreePiecesPerPE > 0) skipLoad = true;
+#endif
 #endif
 
         /*
@@ -350,7 +375,11 @@ void TreePiece::loadTipsy(const std::string& filename,
 	else {
 	    startParticle += excess;
 	    }
-
+	if(startParticle > nTotalParticles) {
+	    CkError("Bad startParticle: %d, nPart: %d, myIndex: %d, nLoading: %d\n",
+		    startParticle, nTotalParticles, myIndex, numLoadingPEs);
+	    }
+	CkAssert(startParticle <= nTotalParticles);
 	
 	if(verbosity > 2)
 		cerr << "TreePiece " << thisIndex << " PE " << CkMyPe() << " Taking " << myNumParticles
@@ -999,12 +1028,7 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     if(verbosity>1) ckout << thisIndex <<" contributing to ioAccept particles"
 			  <<endl;
 
-    if (root != NULL) {
-      root->fullyDelete();
-      delete root;
-      root = NULL;
-      nodeLookupTable.clear();
-    }
+    deleteTree();
     contribute(0, 0, CkReduction::concat, callback);
   }
 }

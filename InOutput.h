@@ -511,6 +511,25 @@ class DtOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output timesteps.
+class KeyOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p)
+    {
+	return p->key;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    KeyOutputParams() {}
+    KeyOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    PUPable_decl(KeyOutputParams);
+    KeyOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
 /// @brief Base class for Integer output parameters.
 ///
 /// This is an abstract class from which an output parameter class can
