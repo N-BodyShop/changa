@@ -41,6 +41,9 @@ class Orb3dCommon{
       CkAssert(numEvents == events[YDIM].size());
       CkAssert(numEvents == events[ZDIM].size());
 
+      if(numEvents == 0)
+	return;
+
       if(nprocs == 1){
         ORB3DLB_NOTOPO_DEBUG("base: assign %d tps to proc %d\n", numEvents, nextProc);
         // direct assignment of tree pieces to processors
@@ -99,6 +102,7 @@ class Orb3dCommon{
       int nleft = splitIndex;
       int nright = numEvents-nleft;
 
+#if 0
       if(nright < nrprocs) {  // at least one piece per processor
         nright = nrprocs;
         nleft = splitIndex = numEvents-nright;
@@ -109,6 +113,7 @@ class Orb3dCommon{
         nright = numEvents-nleft;
         CkAssert(nright >= nrprocs);
       }
+#endif
       OrientedBox<float> leftBox;
       OrientedBox<float> rightBox;
 
@@ -255,14 +260,17 @@ class Orb3dCommon{
 #endif
 
       double *predLoad = new double[stats->count];
+      double *predCount = new double[stats->count];
       for(int i = 0; i < stats->count; i++){
         predLoad[i] = 0.0;
+        predCount[i] = 0.0;
       }
 
       for(int i = 0; i < numobjs; i++){
         double ld = stats->objData[i].wallTime;
         int proc = stats->to_proc[i];
         predLoad[proc] += ld; 
+        predCount[proc] += 1.0; 
       }
 
       double minWall = 0.0;
@@ -281,15 +289,18 @@ class Orb3dCommon{
       double minPred = 0.0;
       double maxPred = 0.0;
 
+      double avgPiece = 0.0;
+      double minPiece = 0.0;
+      double maxPiece = 0.0;
+
       CkPrintf("***************************\n");
       //  CkPrintf("Before LB step %d\n", step());
-      CkPrintf("***************************\n");
-      CkPrintf("i pe wall idle bg_wall objload\n");
       for(int i = 0; i < stats->count; i++){
         double wallTime = stats->procs[i].total_walltime;
         double idleTime = stats->procs[i].idletime;
         double bgTime = stats->procs[i].bg_walltime;
         double pred = predLoad[i];
+        double npiece = predCount[i];
         /*
            CkPrintf("[pestats] %d %d %f %f %f %f\n", 
            i,
@@ -304,6 +315,7 @@ class Orb3dCommon{
         avgIdle += idleTime; 
         avgBg += bgTime;
         avgPred += pred;
+        avgPiece += npiece;
 
         if(i==0 || minWall > wallTime) minWall = wallTime;
         if(i==0 || maxWall < wallTime) maxWall = wallTime;
@@ -317,15 +329,20 @@ class Orb3dCommon{
         if(i==0 || minPred > pred) minPred = pred;
         if(i==0 || maxPred < pred) maxPred = pred;
 
+        if(i==0 || minPiece > npiece) minPiece = npiece;
+        if(i==0 || maxPiece < npiece) maxPiece = npiece;
+
       }
 
       avgWall /= stats->count;
       avgIdle /= stats->count;
       avgBg /= stats->count;
       avgPred /= stats->count;
+      avgPiece /= stats->count;
 
 
       delete[] predLoad;
+      delete[] predCount;
 
 #if 0
       float minload, maxload, avgload;
@@ -354,6 +371,7 @@ class Orb3dCommon{
       CkPrintf("Orb3dLB_notopo stats: minWall %f maxWall %f avgWall %f maxWall/avgWall %f\n", minWall, maxWall, avgWall, maxWall/avgWall);
       CkPrintf("Orb3dLB_notopo stats: minIdle %f maxIdle %f avgIdle %f minIdle/avgIdle %f\n", minIdle, maxIdle, avgIdle, minIdle/avgIdle);
       CkPrintf("Orb3dLB_notopo stats: minPred %f maxPred %f avgPred %f maxPred/avgPred %f\n", minPred, maxPred, avgPred, maxPred/avgPred);
+      CkPrintf("Orb3dLB_notopo stats: minPiece %f maxPiece %f avgPiece %f maxPiece/avgPiece %f\n", minPiece, maxPiece, avgPiece, maxPiece/avgPiece);
 
       CkPrintf("Orb3dLB_notopo stats: minBg %f maxBg %f avgBg %f maxBg/avgBg %f\n", minBg, maxBg, avgBg, maxBg/avgBg);
       CkPrintf("Orb3dLB_notopo stats: orb migrated %d refine migrated %d objects\n", migr, numRefineMigrated);
