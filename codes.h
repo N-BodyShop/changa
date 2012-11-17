@@ -28,7 +28,12 @@ enum ComputeType {Gravity, Prefetch, List, BucketEwald, Smooth, ReSmooth,
 
 enum OptType {Local, Remote, Pref, Double, PushGravity, InvalidOpt};
 
+#ifdef BIGKEYS
+#define INTERLIST_LEVELS 128
+#else
 #define INTERLIST_LEVELS 64
+#endif
+
 #define NUM_NODE_TYPES 11
 
 // debug
