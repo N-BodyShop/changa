@@ -50,6 +50,7 @@ void Fdbk::AddParams(PRM prm)
 
 void Fdbk::CheckParams(PRM prm, struct parameters &param)
 {
+    delete imf;
     if(strcmp(achIMF, "MillerScalo") == 0) imf = new MillerScalo();
     else if(strcmp(achIMF, "Chabrier") == 0) imf = new Chabrier();
     else if(strcmp(achIMF, "Kroupa93") == 0) imf = new Kroupa93();
