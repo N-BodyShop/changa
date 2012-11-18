@@ -73,7 +73,9 @@ class Fdbk : public PUP::able {
     void DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
 		    FBEffects *fbTotals);
     double NSNIa (double dMassT1, double dMassT2);
- Fdbk() { }
+    Fdbk() {
+	imf = new Kroupa01(); /* a default placeholder */
+	}
 
     PUPable_decl(Fdbk);
     Fdbk(const Fdbk& fb);
