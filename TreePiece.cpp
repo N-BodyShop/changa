@@ -697,7 +697,8 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
         CkAssert(!pPart->isGas());
         CkAssert(!pPart->isStar());
         ParticleShuffle ps(*pPart,tpLoad/myNumParticles);
-        ((ArrayMeshStreamer<ParticleShuffle, int> *)  shuffleAggregator.ckLocalBranch())->insertData(ps, *responsibleIter);
+        //        ((ArrayMeshStreamer<ParticleShuffle, int> *)  shuffleAggregator.ckLocalBranch())->insertData(ps, *responsibleIter);
+        shuffleAggregator.ckLocalBranch()->insertData(ps, *responsibleIter);
       }
 
       /*
@@ -773,7 +774,8 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
     receivedSortedParticles();
   }
 
-  ((ArrayMeshStreamer<ParticleShuffle, int> *)  shuffleAggregator.ckLocalBranch())->done();
+  //((ArrayMeshStreamer<ParticleShuffle, int> *)  shuffleAggregator.ckLocalBranch())->done();
+  shuffleAggregator.ckLocalBranch()->done();
   delete m;
 }
 
@@ -6080,8 +6082,11 @@ void TreePiece::finishWalk()
 #endif
 
   gravityProxy[thisIndex.data[0]].ckLocal()->contribute(cbGravity);
-  ((ArrayMeshStreamer<CkCacheRequest, int> *)aggregator.ckLocalBranch())->done();
-
+  //  ((ArrayMeshStreamer<CkCacheRequest, int> *)aggregator.ckLocalBranch())->done();
+  aggregator.ckLocalBranch()->done();
+  //  ((GroupChunkMeshStreamer<ExternalGravityParticle> *) cacheAggregator.ckLocalBranch())->done();
+  cacheAggregator.ckLocalBranch()->done();
+  CmiMemoryCheck();
 }
 
 #if INTERLIST_VER > 0

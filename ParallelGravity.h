@@ -139,6 +139,7 @@ extern CProxy_LvArray gravityProxy; // Proxy for gravity reduction
 extern CProxy_TreePiece streamingProxy;
 extern CProxy_ArrayMeshStreamer<ParticleShuffle,int> shuffleAggregator;  
 extern CProxy_ArrayMeshStreamer<CkCacheRequest, int> aggregator;
+extern CProxy_GroupChunkMeshStreamer<ExternalGravityParticle> cacheAggregator; 
 extern CProxy_DataManager dMProxy;
 extern unsigned int numTreePieces;
 extern unsigned int particlesPerChare;
@@ -589,6 +590,13 @@ public:
   ShuffleShadowArray() {}
   ShuffleShadowArray(CkMigrateMessage *msg) {}
   void process(const ParticleShuffle &shuffle);
+};
+
+class CacheMessageSequencer : public CBase_CacheMessageSequencer {
+public:
+  CacheMessageSequencer() {}
+  CacheMessageSequencer(CkMigrateMessage *msg) {}
+  void receiveArray(ExternalGravityParticle *data, int numItems, int sourcePe);
 };
 
 struct NonLocalMomentsClient {

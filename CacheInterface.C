@@ -19,7 +19,8 @@ EntryTypeGravityParticle::EntryTypeGravityParticle() {
 /// Calls TreePiece::fillRequestParticles() to fullfill the request.
 void * EntryTypeGravityParticle::request(CkArrayIndexMax& idx, KeyType key) {
   CkCacheRequest req(key, CkMyPe(), particleRequest);
-  ((ArrayMeshStreamer<CkCacheRequest, int> *)  aggregator.ckLocalBranch())->insertData(req, *idx.data());
+  //  ((ArrayMeshStreamer<CkCacheRequest, int> *)  aggregator.ckLocalBranch())->insertData(req, *idx.data());
+  aggregator.ckLocalBranch()->insertData(req, *idx.data());
   return NULL;
 
   /*
@@ -39,15 +40,21 @@ void * EntryTypeGravityParticle::request(CkArrayIndexMax& idx, KeyType key) {
 /// @param from Index of TreePiece which supplied the data
 /// @return pointer to cached data
 void * EntryTypeGravityParticle::unpack(CkCacheFillMsg<KeyType> *msg, int chunk, CkArrayIndexMax &from) {
+  /*
   CacheParticle *data = (CacheParticle*) msg->data;
   data->msg = msg;
   return (void*) data;
+  */
 }
 
 void EntryTypeGravityParticle::writeback(CkArrayIndexMax& idx, KeyType k, void *data) { }
 
 void EntryTypeGravityParticle::free(void *data) {
-  CkFreeMsg(((CacheParticle*)data)->msg);
+  CacheParticle *wrapper = (CacheParticle *) data; 
+  delete [] wrapper->part; 
+  delete wrapper; 
+
+  //  CkFreeMsg(((CacheParticle*)data)->msg);
 }
 
 int EntryTypeGravityParticle::size(void * data) {
@@ -78,7 +85,11 @@ void TreePiece::fillRequestParticles(const CkCacheRequest &req) {
   // a clear distinction between nodes and particles
   const GenericTreeNode *bucket = lookupNode(req.key >> 1);
   CkAssert(bucket != NULL);
+
+  /*
   int total = sizeof(CacheParticle) + (bucket->lastParticle - bucket->firstParticle) * sizeof(ExternalGravityParticle);
+
+
   CkCacheFillMsg<KeyType> *reply = new (total) CkCacheFillMsg<KeyType>(req.key);
   CkAssert(reply != NULL);
   CacheParticle *data = (CacheParticle*)reply->data;
@@ -89,8 +100,19 @@ void TreePiece::fillRequestParticles(const CkCacheRequest &req) {
   for (unsigned int i=0; i<bucket->particleCount; ++i) {
     data->part[i] = *((ExternalGravityParticle*)&myParticles[i+bucket->firstParticle]);
   }
-  
   cacheGravPart[req.replyTo].recvData(reply);
+
+  */
+  
+  ExternalGravityParticle *parts = new ExternalGravityParticle[bucket->lastParticle - bucket->firstParticle + 1]; 
+  for (unsigned int i=0; i<bucket->particleCount; ++i) {
+    parts[i] = *((ExternalGravityParticle*)&myParticles[i+bucket->firstParticle]);
+  }
+
+  CacheSequencerExtraData reply(req.key, bucket->firstParticle, 
+                               bucket->lastParticle);
+  cacheAggregator.ckLocalBranch()->insertData(parts, reply.end - reply.begin + 1, req.replyTo, &reply, sizeof(reply)); 
+  delete [] parts; 
 }
 
 // Methods for "combiner" cache
@@ -100,7 +122,8 @@ EntryTypeSmoothParticle::EntryTypeSmoothParticle() {
 
 void * EntryTypeSmoothParticle::request(CkArrayIndexMax& idx, KeyType key) {
   CkCacheRequest req(key, CkMyPe(), smoothParticleRequest);
-  ((ArrayMeshStreamer<CkCacheRequest, int> *)  aggregator.ckLocalBranch())->insertData(req, *idx.data());
+  //  ((ArrayMeshStreamer<CkCacheRequest, int> *)  aggregator.ckLocalBranch())->insertData(req, *idx.data());
+  aggregator.ckLocalBranch()->insertData(req, *idx.data());
   return NULL;
   /*
   CkCacheRequestMsg<KeyType> *msg = new (32) CkCacheRequestMsg<KeyType>(key, CkMyPe());
@@ -289,7 +312,8 @@ void * EntryTypeGravityNode::request(CkArrayIndexMax& idx, KeyType key) {
   treeProxy[*idx.data()].fillRequestNode(msg);
   */
   CkCacheRequest req(key, CkMyPe(), nodeRequest);
-  ((ArrayMeshStreamer<CkCacheRequest, int> *)  aggregator.ckLocalBranch())->insertData(req, *idx.data());
+  //  ((ArrayMeshStreamer<CkCacheRequest, int> *)  aggregator.ckLocalBranch())->insertData(req, *idx.data());
+  aggregator.ckLocalBranch()->insertData(req, *idx.data());
   return NULL;
 }
 
@@ -421,4 +445,18 @@ void TreePiece::fillRequestNode(const CkCacheRequest &req) {
   else {	// Handle NULL nodes
     CkAbort("Ok, before it handled this, but why do we have a null pointer in the tree?!?");
   }
+}
+
+void CacheMessageSequencer::receiveArray(ExternalGravityParticle *data, 
+                                         int numItems, int sourcePe) {
+
+  CacheSequencerExtraData *extras = (CacheSequencerExtraData *) &data[numItems]; 
+
+  CacheParticle *cachePart = new CacheParticle(); 
+  cachePart->begin = extras->begin; 
+  cachePart->end = extras->end; 
+  cachePart->part = data;   
+  
+  cacheGravPart.ckLocalBranch()->recvData(extras->key, cachePart); 
+
 }

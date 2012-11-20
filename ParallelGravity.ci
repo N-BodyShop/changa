@@ -17,10 +17,14 @@ mainmodule ParallelGravity {
             <CkCacheRequest, int> aggregator;
   readonly CProxy_ArrayMeshStreamer
             <ParticleShuffle, int> shuffleAggregator;  
+  readonly CProxy_GroupChunkMeshStreamer
+            <ExternalGravityParticle> cacheAggregator;
+    
 #ifdef REDUCTION_HELPER
   readonly CProxy_ReductionHelper reductionHelperProxy;
 #endif
   readonly CProxy_ShuffleShadowArray shuffleShadowProxy;
+  readonly CProxy_CacheMessageSequencer cacheSequencerProxy;
   readonly CProxy_LvArray lvProxy;
   readonly CProxy_LvArray smoothProxy;
   readonly CProxy_LvArray gravityProxy;
@@ -436,10 +440,14 @@ mainmodule ParallelGravity {
       entry LvArray();
   };
 
-
   array [1D] ShuffleShadowArray: MeshStreamerArrayClient<ParticleShuffle> {
     entry ShuffleShadowArray();
   };
+
+  group CacheMessageSequencer: MeshStreamerGroupClient<ExternalGravityParticle> {
+    entry CacheMessageSequencer();
+    entry void receiveArray(ExternalGravityParticle data[numItems], int numItems, int sourcePe); 
+  }
 
   group [migratable] PETreeMerger {
     entry PETreeMerger();
@@ -457,5 +465,10 @@ mainmodule ParallelGravity {
   array [1D] MeshStreamerArrayClient<ParticleShuffle>;
   group ArrayMeshStreamer<ParticleShuffle, int>;    
   group MeshStreamer<ArrayDataItem<ParticleShuffle, int> >;
+
+  message MeshStreamerMessage<ChunkDataItem>; 
+  group MeshStreamerGroupClient<ExternalGravityParticle>;
+  group GroupChunkMeshStreamer<ExternalGravityParticle>;
+  group MeshStreamer<ChunkDataItem>;
 
 };

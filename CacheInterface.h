@@ -31,12 +31,21 @@ public:
 };
 PUPbytes(CkCacheRequest);
 
+class CacheSequencerExtraData {
+public:
+  KeyType key; 
+  int begin; 
+  int end; 
+
+  CacheSequencerExtraData(KeyType k, int b, int e) : key(k), begin(b), end(e) {}
+};
+
 class CacheParticle {
 public:
-  CkCacheFillMsg<KeyType> *msg;
+  // CkCacheFillMsg<KeyType> *msg;
   int begin;
   int end;
-  ExternalGravityParticle part[1];
+  ExternalGravityParticle *part;
 };
 
 /// @brief Cache interface to particles for the gravity calculation.

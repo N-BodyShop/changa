@@ -59,6 +59,7 @@ CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
 
 CProxy_ArrayMeshStreamer<CkCacheRequest, int> aggregator;
 CProxy_ArrayMeshStreamer<ParticleShuffle, int> shuffleAggregator;
+CProxy_GroupChunkMeshStreamer <ExternalGravityParticle> cacheAggregator;
 //CProxy_CompletionDetector detector; 
 //CProxy_CompletionDetector shuffleDetector; 
 
@@ -70,6 +71,7 @@ CProxy_LvArray smoothProxy; // Proxy for smooth reductions
 CProxy_LvArray gravityProxy; // Proxy for gravity reductions
 
 CProxy_ShuffleShadowArray shuffleShadowProxy;
+CProxy_CacheMessageSequencer cacheSequencerProxy;
 CProxy_CkCacheManager<KeyType> cacheGravPart;
 CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 CProxy_CkCacheManager<KeyType> cacheNode;
@@ -1042,10 +1044,14 @@ Main::Main(CkArgMsg* m) {
 	// Create an array for the gravity reductions
 	gravityProxy = CProxy_LvArray::ckNew(opts);
         shuffleShadowProxy = CProxy_ShuffleShadowArray::ckNew(opts);
+        cacheSequencerProxy = CProxy_CacheMessageSequencer::ckNew();
 
         shuffleAggregator = CProxy_ArrayMeshStreamer<ParticleShuffle, int>::
           ckNew(NUM_MESSAGES_BUFFERED, 3, dims, shuffleShadowProxy, false, 10.0);
 
+        cacheAggregator = CProxy_GroupChunkMeshStreamer<ExternalGravityParticle>::
+          ckNew(NUM_MESSAGES_BUFFERED, 3, dims, cacheSequencerProxy, false, 10.0, 
+                true); 
 
 #ifdef PUSH_GRAVITY
         ckMulticastGrpId = CProxy_CkMulticastMgr::ckNew();
@@ -1519,7 +1525,8 @@ void Main::advanceBigStep(int iStep) {
     CkCallback cbGravity(CkCallback::resumeThread);
     aggregator.init(treeProxy, CkCallbackResumeThread(), 
                     CkCallback(), INT_MIN, true); 
-
+    cacheAggregator.init(treeProxy, CkCallbackResumeThread(), 
+                         CkCallback(), INT_MIN, true); 
     if(verbosity)
 	memoryStats();
     if(param.bDoGravity) {
@@ -2059,6 +2066,8 @@ Main::initialForces()
     CkCallback cbGravity(CkCallback::resumeThread);
     aggregator.init(treeProxy, CkCallbackResumeThread(), 
                     CkCallback(), INT_MIN, true); 
+    cacheAggregator.init(treeProxy, CkCallbackResumeThread(), 
+                         CkCallback(), INT_MIN, true); 
       
   if(param.bDoGravity) {
       updateSoft();
