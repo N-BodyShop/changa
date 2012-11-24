@@ -2642,6 +2642,10 @@ void TreePiece::accumulateMomentsFromChild(GenericTreeNode *parent, GenericTreeN
   parent->iParticleTypes |= child->iParticleTypes;
 }
 
+/// @brief determine if moments of node have been requested.
+///
+/// This is used by MERGE_REMOTE_REQUESTS to distribute the received
+/// moments among Treepieces on a core.
 void TreePiece::deliverMomentsToClients(GenericTreeNode *node){
   std::map<NodeKey,NonLocalMomentsClientList>::iterator it;
   it = nonLocalMomentsClients.find(node->getKey());
@@ -2651,6 +2655,10 @@ void TreePiece::deliverMomentsToClients(GenericTreeNode *node){
   deliverMomentsToClients(it);
 }
 
+/// @brief send moments to all the pieces that have requested them.
+///
+/// This is used by MERGE_REMOTE_REQUESTS to distribute the received
+/// moments among Treepieces on a core.
 void TreePiece::deliverMomentsToClients(const std::map<NodeKey,NonLocalMomentsClientList>::iterator &it){
   NonLocalMomentsClientList &entry = it->second;
   CkVec<NonLocalMomentsClient> &clients = entry.clients;
