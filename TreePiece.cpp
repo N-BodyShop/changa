@@ -136,7 +136,7 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 	      // Make the bounding box cubical.
 	      //
 	      Vector3D<float> bcenter = boundingBox.center();
-	      const float fEps = 1.0 + 2.0e-7;  // slop to ensure keys fall
+	      const float fEps = 1.0 + 3.0e-7;  // slop to ensure keys fall
 						// between 0 and 1.
 	      bsize = Vector3D<float>(fEps*0.5*max);
 	      boundingBox = OrientedBox<float>(bcenter-bsize, bcenter+bsize);
@@ -4628,7 +4628,7 @@ void TreePiece::startlb(CkCallback &cb){
 void TreePiece::startlb(CkCallback &cb, int activeRung){
 
   if(verbosity > 1)
-     CkPrintf("set to: %g, actual: %g\n", treePieceLoad, getObjTime());  
+     CkPrintf("[%d] load set to: %g, actual: %g\n", thisIndex, treePieceLoad, getObjTime());  
   setObjTime(treePieceLoad);
   treePieceLoad = 0;
   callback = cb;
