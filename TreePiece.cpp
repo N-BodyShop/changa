@@ -4358,12 +4358,12 @@ void TreePiece::recvTotalMass(CkReductionMsg *msg){
 /// the particle acceleration by calling initBucket().
 
 void TreePiece::startGravity(int am, // the active mask for multistepping
-                              double myTheta, // opening criterion
-			      const CkCallback& cb) {
+                             double myTheta) { // opening criterion
+//			      const CkCallback& cb) {
   LBTurnInstrumentOn();
   iterationNo++;
 
-  cbGravity = cb;
+  //  cbGravity = cb;
   activeRung = am;
   theta = myTheta;
   thetaMono = theta*theta*theta*theta;
@@ -6081,7 +6081,7 @@ void TreePiece::finishWalk()
   
 #endif
 
-  gravityProxy[thisIndex.data[0]].ckLocal()->contribute(cbGravity);
+  // gravityProxy[thisIndex.data[0]].ckLocal()->contribute(cbGravity);
   //  ((ArrayMeshStreamer<CkCacheRequest, int> *)aggregator.ckLocalBranch())->done();
   aggregator.ckLocalBranch()->done();
   //  ((GroupChunkMeshStreamer<ExternalGravityParticle> *) cacheAggregator.ckLocalBranch())->done();

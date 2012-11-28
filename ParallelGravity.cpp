@@ -1526,7 +1526,7 @@ void Main::advanceBigStep(int iStep) {
     aggregator.init(treeProxy, CkCallbackResumeThread(), 
                     CkCallback(), INT_MIN, true); 
     cacheAggregator.init(treeProxy, CkCallbackResumeThread(), 
-                         CkCallback(), INT_MIN, true); 
+                         cbGravity, INT_MIN, true); 
     if(verbosity)
 	memoryStats();
     if(param.bDoGravity) {
@@ -1553,7 +1553,7 @@ void Main::advanceBigStep(int iStep) {
             }
 	    else{ 
 #endif
-              treeProxy.startGravity(activeRung, theta, cbGravity);
+              treeProxy.startGravity(activeRung, theta);
 #ifdef PUSH_GRAVITY
             }
 #endif
@@ -1571,7 +1571,8 @@ void Main::advanceBigStep(int iStep) {
             }
 	    else{
 #endif
-              treeProxy.startGravity(activeRung, theta, CkCallbackResumeThread());
+              treeProxy.startGravity(activeRung, theta);
+              CkFreeMsg(cbGravity.thread_delay());              
 #ifdef PUSH_GRAVITY
             }
 #endif
@@ -2067,7 +2068,7 @@ Main::initialForces()
     aggregator.init(treeProxy, CkCallbackResumeThread(), 
                     CkCallback(), INT_MIN, true); 
     cacheAggregator.init(treeProxy, CkCallbackResumeThread(), 
-                         CkCallback(), INT_MIN, true); 
+                         cbGravity, INT_MIN, true); 
       
   if(param.bDoGravity) {
       updateSoft();
@@ -2085,15 +2086,15 @@ Main::initialForces()
       startTime = CkWallTimer();
       if(param.bConcurrentSph) {
 
-	  treeProxy.startGravity(0, theta, cbGravity);
+	  treeProxy.startGravity(0, theta);
 
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(cbGravity);
 #endif
 	  }
       else {
-	  treeProxy.startGravity(0, theta, CkCallbackResumeThread());
-
+	  treeProxy.startGravity(0, theta);
+          CkFreeMsg(cbGravity.thread_delay());          
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif

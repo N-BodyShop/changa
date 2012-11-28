@@ -338,7 +338,7 @@ mainmodule ParallelGravity {
 
     entry void startORBTreeBuild(CkReductionMsg* m);
 
-    entry void startGravity(int activeRung, double myTheta, CkCallback &cb);
+    entry void startGravity(int activeRung, double myTheta);
 #ifdef PUSH_GRAVITY
     entry void startPushGravity(int am, double myTheta);
     entry void recvPushBuckets(BucketMsg *);
