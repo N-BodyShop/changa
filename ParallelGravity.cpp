@@ -1469,7 +1469,7 @@ void Main::advanceBigStep(int iStep) {
     shuffleAggregator.init(treeProxy, CkCallbackResumeThread(), 
                            sortingCallback, INT_MIN, false); 
     sorter.startSorting(dataManagerID, ddTolerance, bDoDD);
-    sortingCallback.thread_delay();
+    CkFreeMsg(sortingCallback.thread_delay());
 
     /*
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -2009,7 +2009,7 @@ Main::initialForces()
                          sortingCallback, INT_MIN, false); 
 
   sorter.startSorting(dataManagerID, ddTolerance, true);
-  sortingCallback.thread_delay();
+  CkFreeMsg(sortingCallback.thread_delay());
 
   CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
 
@@ -2372,7 +2372,7 @@ Main::doSimulation()
                                  sortingCallback, INT_MIN, false); 	  
 
           sorter.startSorting(dataManagerID, ddTolerance, true);
-          sortingCallback.thread_delay();
+          CkFreeMsg(sortingCallback.thread_delay());
           
 #ifdef PUSH_GRAVITY
 	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
@@ -2569,7 +2569,7 @@ void Main::writeOutput(int iStep)
                                sortingCallback, INT_MIN, false); 	  
 
         sorter.startSorting(dataManagerID, ddTolerance, true);
-        sortingCallback.thread_delay();
+        CkFreeMsg(sortingCallback.thread_delay());
 
 #ifdef PUSH_GRAVITY
 	treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
@@ -2618,7 +2618,7 @@ void Main::writeOutput(int iStep)
                                    sortingCallback, INT_MIN, false);
 
 	    sorter.startSorting(dataManagerID, ddTolerance, true);
-            sortingCallback.thread_delay();
+            CkFreeMsg(sortingCallback.thread_delay());
 
 #ifdef PUSH_GRAVITY
 	    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
@@ -2915,7 +2915,7 @@ void Main::addDelParticles()
 	CkPrintf("New numbers of particles: %d gas %d dark %d star\n",
 		 nTotalSPH, nTotalDark, nTotalStar);
     
-    cb.thread_delay();
+    CkFreeMsg(cb.thread_delay());
     treeProxy.setNParts(nTotalSPH, nTotalDark, nTotalStar,
 			CkCallbackResumeThread());
     }

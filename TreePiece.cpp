@@ -4358,8 +4358,8 @@ void TreePiece::recvTotalMass(CkReductionMsg *msg){
 /// the particle acceleration by calling initBucket().
 
 void TreePiece::startGravity(int am, // the active mask for multistepping
-			       double myTheta, // opening criterion
-			       const CkCallback& cb) {
+                              double myTheta, // opening criterion
+			      const CkCallback& cb) {
   LBTurnInstrumentOn();
   iterationNo++;
 
@@ -6086,7 +6086,7 @@ void TreePiece::finishWalk()
   aggregator.ckLocalBranch()->done();
   //  ((GroupChunkMeshStreamer<ExternalGravityParticle> *) cacheAggregator.ckLocalBranch())->done();
   cacheAggregator.ckLocalBranch()->done();
-  CmiMemoryCheck();
+  //  CmiMemoryCheck();
 }
 
 #if INTERLIST_VER > 0

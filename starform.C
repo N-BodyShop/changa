@@ -145,7 +145,7 @@ void Main::FormStars(double dTime, double dDelta)
                            sortingCallback, INT_MIN, false); 	  
 
     sorter.startSorting(dataManagerID, tolerance, true);
-    sortingCallback.thread_delay();
+    CkFreeMsg(sortingCallback.thread_delay());
 
 #ifdef PUSH_GRAVITY
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
