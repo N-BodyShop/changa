@@ -295,7 +295,7 @@ Tree::GenericTreeNode *DataManager::pickNodeFromMergeList(int n, GenericTreeNode
       // we can use this directly, noone else can have it other than NL
       CkAssert(nUnresolved == 0);
 #if COSMO_DEBUG > 0
-      (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(gtn[i]->getKey(),63)<<" using Internal node"<<endl;
+      (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(gtn[i]->getKey(),KeyBits)<<" using Internal node"<<endl;
 #endif
       pickedIndex = i;
       return gtn[i];
@@ -313,7 +313,7 @@ Tree::GenericTreeNode *DataManager::pickNodeFromMergeList(int n, GenericTreeNode
     CkAssert(pick < 0);
     // only NonLocal (or Empty). any is good
 #if COSMO_DEBUG > 0
-    (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(gtn[0]->getKey(),63)<<" using NonLocal node"<<endl;
+    (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(gtn[0]->getKey(),KeyBits)<<" using NonLocal node"<<endl;
 #endif
     pickedIndex = 0;
     return gtn[0];
@@ -321,7 +321,7 @@ Tree::GenericTreeNode *DataManager::pickNodeFromMergeList(int n, GenericTreeNode
   else{
     // multiple boundary nodes: return anyone of them
 #if COSMO_DEBUG > 0
-    (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(gtn[pick]->getKey(),63)<<" using Boundary node"<<endl;
+    (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(gtn[pick]->getKey(),KeyBits)<<" using Boundary node"<<endl;
 #endif
     pickedIndex = pick;
     return gtn[pick];
@@ -378,7 +378,7 @@ Tree::GenericTreeNode *DataManager::buildProcessorTree(int n, Tree::GenericTreeN
     // change this node type too from boundary to internal
     bool isInternal = true;
 #if COSMO_DEBUG > 0
-    (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(newNode->getKey(),63)<<" duplicating node"<<endl;
+    (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(newNode->getKey(),KeyBits)<<" duplicating node"<<endl;
 #endif
     nodeTable.push_back(newNode);
     CkVec<Tree::GenericTreeNode*> newgtn;
@@ -399,7 +399,7 @@ Tree::GenericTreeNode *DataManager::buildProcessorTree(int n, Tree::GenericTreeN
     if (isInternal) {
       newNode->setType(Internal);
 #if COSMO_DEBUG > 0
-      (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(newNode->getKey(),63)<<" converting to Internal"<<endl;
+      (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(newNode->getKey(),KeyBits)<<" converting to Internal"<<endl;
 #endif
     }
     return newNode;
@@ -411,7 +411,7 @@ int DataManager::createLookupRoots(Tree::GenericTreeNode *node, Tree::NodeKey *k
   // assumes that the keys are ordered in tree depth first!
   if (node->getKey() == *keys) {
     // ok, found a chunk root, we can end the recursion
-    //CkPrintf("mapping key %s\n",keyBits(*keys,63).c_str());
+    //CkPrintf("mapping key %s\n",keyBits(*keys,KeyBits).c_str());
     chunkRootTable[*keys] = node;
     return 1;
   }
@@ -429,11 +429,10 @@ int DataManager::createLookupRoots(Tree::GenericTreeNode *node, Tree::NodeKey *k
       Tree::NodeKey childKey = node->getChildKey(i);
       for (partial=0; ; ++partial, ++keys) {
         int k;
-        for (k=0; k<63; ++k) {
+        for (k=0; k<NodeKeyBits-1; ++k) {
           if (childKey == ((*keys)>>k)) break;
         }
         if (((*keys)|(~0 << k)) == ~0) break;
-        //if (k==63) break;
       }
       // add the last key found to the count
       ++partial;
@@ -469,6 +468,7 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
      */
     _cacheLineDepth = param.cacheLineDepth;
     dExtraStore = param.dExtraStore;
+    dMaxBalance = param.dMaxBalance;
     nIOProcessor = param.nIOProcessor;
     contribute(cb);
     delete param.stfm;

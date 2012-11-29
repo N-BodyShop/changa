@@ -61,9 +61,9 @@ CProxy_ReductionHelper reductionHelperProxy;
 CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 CProxy_LvArray smoothProxy; // Proxy for smooth reductions
 CProxy_LvArray gravityProxy; // Proxy for gravity reductions
-CProxy_CkCacheManager cacheGravPart;
-CProxy_CkCacheManager cacheSmoothPart;
-CProxy_CkCacheManager cacheNode;
+CProxy_CkCacheManager<KeyType> cacheGravPart;
+CProxy_CkCacheManager<KeyType> cacheSmoothPart;
+CProxy_CkCacheManager<KeyType> cacheNode;
 CProxy_DataManager dMProxy;
 
 CProxy_PETreeMerger peTreeMergerProxy;
@@ -79,6 +79,7 @@ DomainsDec domainDecomposition;
 /// tolerance for unequal pieces in SFC based decompositions.
 const double ddTolerance = 0.1;
 double dExtraStore;		// fraction of extra particle storage
+double dMaxBalance;		// Max piece imbalance for load balancing
 int iGasModel; 			// For backward compatibility
 int peanoKey;
 GenericTrees useTree;
@@ -515,6 +516,10 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dExtraStore",paramDouble,&param.dExtraStore,
 		    sizeof(double), "estore",
 		    "Extra memory for new particles");
+	param.dMaxBalance = 1e10;
+	prmAddParam(prm,"dMaxBalance",paramDouble,&param.dMaxBalance,
+		    sizeof(double), "maxbal",
+		    "Maximum piece ratio for load balancing");
 	
 	bDumpFrame = 0;
 	df = NULL;
@@ -719,6 +724,7 @@ Main::Main(CkArgMsg* m) {
 	theta = param.dTheta;
         thetaMono = theta*theta*theta*theta;
 	dExtraStore = param.dExtraStore;
+	dMaxBalance = param.dMaxBalance;
 	_cacheLineDepth = param.cacheLineDepth;
 	nIOProcessor = param.nIOProcessor;
 	if(prmSpecified(prm, "bCannonical")) {
@@ -890,6 +896,8 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "Enabling SPH" << endl;
 	    param.bDoGas = 1;
 	    }
+	if(!param.bDoGas)
+		param.bSphStep = 0;
 #include "physconst.h"
 	/*
 	 ** Convert kboltz/mhydrogen to system units, assuming that
@@ -911,7 +919,7 @@ Main::Main(CkArgMsg* m) {
 		param.dComovingGmPerCcUnit = param.dGmPerCcUnit;
 		}
 
-        if (domainDecomposition == SFC_peano_dec) peanoKey = 1;
+        if (domainDecomposition == SFC_peano_dec) peanoKey = 3;
         if (domainDecomposition == SFC_peano_dec_2D) peanoKey = 2;
         if (domainDecomposition == SFC_peano_dec_3D) peanoKey = 3;
 
@@ -992,10 +1000,12 @@ Main::Main(CkArgMsg* m) {
 	  opts.setMap(myMap);
 	} else {
 #endif
-          /*
-	  CProxy_BlockMap myMap=CProxy_BlockMap::ckNew(); 
+#ifdef DEFAULT_ARRAY_MAP
+          CProxy_DefaultArrayMap myMap = CProxy_DefaultArrayMap::ckNew();
+#else
+	  CProxy_BlockMap myMap = CProxy_BlockMap::ckNew(); 
+#endif
 	  opts.setMap(myMap);
-          */
 #ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	}
 #endif
@@ -1024,11 +1034,11 @@ Main::Main(CkArgMsg* m) {
 	
 	// create CacheManagers
 	// Gravity particles
-	cacheGravPart = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+	cacheGravPart = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 	// Smooth particles
-	cacheSmoothPart = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+	cacheSmoothPart = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 	// Nodes
-	cacheNode = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+	cacheNode = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 
 	//create the DataManager
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
@@ -1089,34 +1099,26 @@ void Main::getStartTime()
 		ckout << "Input file, Time:" << dTime << " Redshift:" << z
 		      << " Expansion factor:" << dAStart << endl;
 	    if (prmSpecified(prm,"dRedTo")) {
+
+                aTo = 1.0/(param.dRedTo + 1.0);
+                tTo = csmExp2Time(param.csm,aTo);
+                if (verbosity > 0)
+                    ckout << "Simulation to Time:" << tTo << " Redshift:"
+                          << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
+                          << endl;
+                if (tTo < dTime) {
+                    ckerr << "Badly specified final redshift, check -zto parameter."
+                          << endl;
+                    CkExit();
+                    } 
+
 		if (!prmArgSpecified(prm,"nSteps") &&
 		    prmArgSpecified(prm,"dDelta")) {
-		    aTo = 1.0/(param.dRedTo + 1.0);
-		    tTo = csmExp2Time(param.csm,aTo);
-		    if (verbosity > 0)
-			ckout << "Simulation to Time:" << tTo << " Redshift:"
-			      << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
-			      << endl;
-		    if (tTo < dTime) {
-			ckerr << "Badly specified final redshift, check -zto parameter."
-			      << endl;
-			CkExit();
-			}
+
 		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta)+param.iStartStep;
 		    }
 		else if (!prmArgSpecified(prm,"dDelta") &&
 			 prmArgSpecified(prm,"nSteps")) {
-		    aTo = 1.0/(param.dRedTo + 1.0);
-		    tTo = csmExp2Time(param.csm,aTo);
-		    if (verbosity > 0)
-			ckout << "Simulation to Time:" << tTo << " Redshift:"
-			      << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
-			      << endl;
-		    if (tTo < dTime) {
-			ckerr << "Badly specified final redshift, check -zto parameter."
-			      << endl;
-			CkExit();
-			}
 		    if(param.nSteps != 0)
 			param.dDelta =
 				(tTo-dTime)/(param.nSteps - param.iStartStep);
@@ -1125,32 +1127,10 @@ void Main::getStartTime()
 		    }
 		else if (!prmSpecified(prm,"nSteps") &&
 			 prmFileSpecified(prm,"dDelta")) {
-		    aTo = 1.0/(param.dRedTo + 1.0);
-		    tTo = csmExp2Time(param.csm,aTo);
-		    if (verbosity > 0)
-			ckout << "Simulation to Time:" << tTo << " Redshift:"
-			      << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
-			      << endl;
-		    if (tTo < dTime) {
-			ckerr << "Badly specified final redshift, check -zto parameter."
-			      << endl;
-			CkExit();
-			}
 		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta) + param.iStartStep;
 		    }
 		else if (!prmSpecified(prm,"dDelta") &&
 			 prmFileSpecified(prm,"nSteps")) {
-		    aTo = 1.0/(param.dRedTo + 1.0);
-		    tTo = csmExp2Time(param.csm,aTo);
-		    if (verbosity > 0)
-			ckout << "Simulation to Time:" << tTo << " Redshift:"
-			      << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
-			      << endl;
-		    if (tTo < dTime) {
-			ckerr << "Badly specified final redshift, check -zto parameter."
-			      << endl;
-			CkExit();
-			}
 		    if(param.nSteps != 0)
 			param.dDelta =	(tTo-dTime)/(param.nSteps
 							 - param.iStartStep);
@@ -1363,8 +1343,9 @@ void Main::advanceBigStep(int iStep) {
 	      
 	      double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
 	      double dKickFac = csmComoveKickFac(param.csm, dTime, dTimeSub);
+	      bool buildTree = (iSub + 1 == driftSteps);
 	      treeProxy.drift(dDriftFac, param.bDoGas, param.bGasIsothermal,
-			      dKickFac, dTimeSub, nGrowMassDrift,
+			      dKickFac, dTimeSub, nGrowMassDrift, buildTree,
 			      CkCallbackResumeThread());
 
 	      // Advance time to end of smallest step
@@ -1819,7 +1800,7 @@ void Main::setupICs() {
 	
   if(param.bPeriodic) {	// puts all particles within the boundary
       ckout << "drift particles to reset" << endl;
-      treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+      treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
       ckout << "end drift particles to reset" << endl;
 
   }
@@ -1901,13 +1882,16 @@ Main::restart()
 	prmAddParam(prm,"dExtraStore",paramDouble,&param.dExtraStore,
 		    sizeof(double), "estore",
 		    "Extra memory for new particles");
+	prmAddParam(prm,"dMaxBalance",paramDouble,&param.dMaxBalance,
+		    sizeof(double), "maxbal",
+		    "Maximum piece ratio for load balancing");
 	
 	if(!prmArgOnlyProc(prm,CmiGetArgc(args->argv),args->argv)) {
 	    CkExit();
 	}
 	
 	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
-	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 	if(param.bGasCooling) 
 	    initCooling();
 	mainChare.initialForces();
@@ -2185,7 +2169,7 @@ Main::doSimulation()
 	    }
 	// The following drift is called because it deletes the tree
 	// so it won't be saved on disk.
-	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, false, CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
 	bIsRestarting = 0;
 	CkCallback cb(CkIndex_TreePiece::restart(), treeProxy[0]);
@@ -2288,10 +2272,12 @@ Main::doSimulation()
 #endif
       RungOutputParams pRung(string(achFile) + ".rung");
       treeProxy[0].outputIntASCII(pRung, param.bParaWrite, CkCallbackResumeThread());
+      KeyOutputParams pKey(string(achFile) + ".key");
+      treeProxy[0].outputASCII(pKey, param.bParaWrite, CkCallbackResumeThread());
       if(param.bDoGas && param.bDoDensity) {
 	  // The following call is to get the particles in key order
 	  // before the sort.
-	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 	  sorter.startSorting(dataManagerID, ddTolerance,
 			      CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
@@ -2482,7 +2468,7 @@ void Main::writeOutput(int iStep)
     if(param.nSteps != 0 && param.bDoDensity) {
 	// The following call is to get the particles in key order
 	// before the sort.
-	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 	sorter.startSorting(dataManagerID, ddTolerance,
 			    CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
@@ -2524,7 +2510,7 @@ void Main::writeOutput(int iStep)
 	    startTime = CkWallTimer();
 	    // The following call is to get the particles in key order
 	    // before the sort.
-	    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+	    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 	    sorter.startSorting(dataManagerID, ddTolerance,
 				CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
@@ -2564,6 +2550,7 @@ int Main::adjust(int iKickRung)
 		     param.dEtauDot, param.dDelta, 1.0/(a*a*a), a,
 		     0.0,  /* set to dhMinOverSoft if we implement
 			      Gasoline's LowerSoundSpeed. */
+		     param.bDoGas,
 		     CkCallbackResumeThread((void*&)msg));
 
     int iCurrMaxRung = ((int *)msg->getData())[0];
@@ -2994,8 +2981,15 @@ void Main::turnProjectionsOff(){
 const char *typeString(NodeType type);
 
 void GenericTreeNode::getGraphViz(std::ostream &out){
+#ifdef BIGKEYS
+  uint64_t lower = getKey();
+  uint64_t upper = getKey() >> 64;
+  out << upper << lower
+    << "[label=\"" << upper << lower
+#else    
   out << getKey()
     << "[label=\"" << getKey()
+#endif
     << " " 
     << typeString(getType())
     << "\\n"
@@ -3009,7 +3003,13 @@ void GenericTreeNode::getGraphViz(std::ostream &out){
   if(getType() == Boundary){
     for(int i = 0; i < numChildren(); i++){
       GenericTreeNode *child = getChildren(i);
+#ifdef BIGKEYS
+      uint64_t ch_lower = getKey();
+      uint64_t ch_upper = getKey() >> 64;
+      out << upper << lower << "->" << ch_upper << ch_lower << ";" << std::endl;
+#else
       out << getKey() << "->" << child->getKey() << ";" << std::endl;
+#endif
     }
   }
 }

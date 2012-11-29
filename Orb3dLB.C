@@ -76,31 +76,14 @@ void Orb3dLB::receiveCentroids(CkReductionMsg *msg){
   if(haveTPCentroids){
     delete tpmsg;
   }
-  tpCentroids = (CkReduction::setElement *)msg->getData();
-  CkReduction::setElement *cur = tpCentroids;
-  nrecvd = 0;
-  while(cur != NULL){
-    CkAssert(cur->dataSize == sizeof(TaggedVector3D));
-    nrecvd++;
-    cur = cur->next();
-  }
+  tpCentroids = (TaggedVector3D *)msg->getData();
+  nrecvd = msg->getSize()/sizeof(TaggedVector3D);
   tpmsg = msg;
   haveTPCentroids = true;
-  // TaggedVector3D * cur = (TaggedVector3D *)msg->getData();
   CkPrintf("Orb3dLB: receiveCentroids started: %d elements, msg length: %d\n", nrecvd, msg->getLength()); 
-  //tpCentroids.free();
-  
-  /*
-  while(i < msg->getGcount()){
-     tpCentroids.push_back(*cur);
-     cur = cur + 1;
-     i++;
-  }
-  */
   treeProxy.doAtSync();
   CkPrintf("Orb3dLB: receiveCentroids done\n");  
   // delete msg later
-  //delete msg;
 }
 
 //jetley
@@ -143,9 +126,9 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
   CkPrintf("[orb3dlb] ready tp data structure\n");
   CkAssert(nrecvd == numobjs);
 
-  CkReduction::setElement *cur = tpCentroids;
-  while(cur != NULL){
-    TaggedVector3D *data = (TaggedVector3D *) cur->data;
+  for(int i = 0; i < numobjs; i++){
+
+    TaggedVector3D *data = tpCentroids + i;
     LDObjHandle &handle = data->handle;
     int tag = stats->getHash(handle.id,handle.omhandle.id);
     tps[tag].centroid.x = data->vec.x;
@@ -180,7 +163,7 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
     }
     */
 
-    cur = cur->next();
+
   }
 
   mapping = &stats->to_proc;
