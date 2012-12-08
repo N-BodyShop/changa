@@ -19,20 +19,9 @@ EntryTypeGravityParticle::EntryTypeGravityParticle() {
 /// Calls TreePiece::fillRequestParticles() to fullfill the request.
 void * EntryTypeGravityParticle::request(CkArrayIndexMax& idx, KeyType key) {
   CkCacheRequest req(key, CkMyPe(), particleRequest);
-  //  ((ArrayMeshStreamer<CkCacheRequest, int> *)  aggregator.ckLocalBranch())->insertData(req, *idx.data());
   aggregator.ckLocalBranch()->insertData(req, *idx.data());
   return NULL;
 
-  /*
-  CkCacheRequestMsg<KeyType> *msg = new (32) CkCacheRequestMsg<KeyType>(key, CkMyPe());
-
-  // This is a high priority message
-  *(int*)CkPriorityPtr(msg) = -100000000;
-  CkSetQueueing(msg, CK_QUEUEING_IFIFO);
-  treeProxy[*idx.data()].fillRequestParticles(msg);
-  
-  return NULL;
-  */
 }
 
 /// @param msg Message containing requested data.
@@ -40,11 +29,7 @@ void * EntryTypeGravityParticle::request(CkArrayIndexMax& idx, KeyType key) {
 /// @param from Index of TreePiece which supplied the data
 /// @return pointer to cached data
 void * EntryTypeGravityParticle::unpack(CkCacheFillMsg<KeyType> *msg, int chunk, CkArrayIndexMax &from) {
-  /*
-  CacheParticle *data = (CacheParticle*) msg->data;
-  data->msg = msg;
-  return (void*) data;
-  */
+  CkAbort("unpack should not be called when using Mesh Streamer");
 }
 
 void EntryTypeGravityParticle::writeback(CkArrayIndexMax& idx, KeyType k, void *data) { }
@@ -53,13 +38,11 @@ void EntryTypeGravityParticle::free(void *data) {
   CacheParticle *wrapper = (CacheParticle *) data; 
   delete [] wrapper->part; 
   delete wrapper; 
-
-  //  CkFreeMsg(((CacheParticle*)data)->msg);
 }
 
 int EntryTypeGravityParticle::size(void * data) {
   CacheParticle *p = (CacheParticle *) data;
-  return sizeof(CacheParticle) + (p->end - p->begin) * sizeof(ExternalGravityParticle);
+  return sizeof(CacheParticle) + (p->end - p->begin + 1) * sizeof(ExternalGravityParticle);
 }
 
 /// @param requestorID ID of TreePiece CkArray
@@ -122,16 +105,8 @@ EntryTypeSmoothParticle::EntryTypeSmoothParticle() {
 
 void * EntryTypeSmoothParticle::request(CkArrayIndexMax& idx, KeyType key) {
   CkCacheRequest req(key, CkMyPe(), smoothParticleRequest);
-  //  ((ArrayMeshStreamer<CkCacheRequest, int> *)  aggregator.ckLocalBranch())->insertData(req, *idx.data());
   aggregator.ckLocalBranch()->insertData(req, *idx.data());
   return NULL;
-  /*
-  CkCacheRequestMsg<KeyType> *msg = new (32) CkCacheRequestMsg<KeyType>(key, CkMyPe());
-  *(int*)CkPriorityPtr(msg) = -100000000;
-  CkSetQueueing(msg, CK_QUEUEING_IFIFO);
-  treeProxy[*idx.data()].fillRequestSmoothParticles(msg);
-  return NULL;
-  */
 }
 
 void * EntryTypeSmoothParticle::unpack(CkCacheFillMsg<KeyType> *msg, int chunk, CkArrayIndexMax &from) {
@@ -305,14 +280,7 @@ EntryTypeGravityNode::EntryTypeGravityNode() {
 }
 
 void * EntryTypeGravityNode::request(CkArrayIndexMax& idx, KeyType key) {
-  /*
-  CkCacheRequestMsg<KeyType> *msg = new (32) CkCacheRequestMsg<KeyType>(key, CkMyPe());
-  *(int*)CkPriorityPtr(msg) = -110000000;
-  CkSetQueueing(msg, CK_QUEUEING_IFIFO);
-  treeProxy[*idx.data()].fillRequestNode(msg);
-  */
   CkCacheRequest req(key, CkMyPe(), nodeRequest);
-  //  ((ArrayMeshStreamer<CkCacheRequest, int> *)  aggregator.ckLocalBranch())->insertData(req, *idx.data());
   aggregator.ckLocalBranch()->insertData(req, *idx.data());
   return NULL;
 }
@@ -455,8 +423,8 @@ void CacheMessageSequencer::receiveArray(ExternalGravityParticle *data,
   CacheParticle *cachePart = new CacheParticle(); 
   cachePart->begin = extras->begin; 
   cachePart->end = extras->end; 
-  cachePart->part = data;   
-  
+  cachePart->part = data;
+
   cacheGravPart.ckLocalBranch()->recvData(extras->key, cachePart); 
 
 }

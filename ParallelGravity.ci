@@ -446,7 +446,6 @@ mainmodule ParallelGravity {
 
   group CacheMessageSequencer: MeshStreamerGroupClient<ExternalGravityParticle> {
     entry CacheMessageSequencer();
-    entry void receiveArray(ExternalGravityParticle data[numItems], int numItems, int sourcePe); 
   }
 
   group [migratable] PETreeMerger {
