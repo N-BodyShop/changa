@@ -113,6 +113,7 @@ typedef struct parameters {
     int bDoCSound;
     int cacheLineDepth;
     double dExtraStore;
+    double dMaxBalance;
     double dDumpFrameStep;
     double dDumpFrameTime;
     int iDirector;
@@ -217,6 +218,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.bDoCSound;
     p|param.cacheLineDepth;
     p|param.dExtraStore;
+    p|param.dMaxBalance;
     p|param.dDumpFrameStep;
     p|param.dDumpFrameTime;
     p|param.iDirector;
