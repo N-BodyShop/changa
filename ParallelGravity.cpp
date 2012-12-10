@@ -80,6 +80,7 @@ DomainsDec domainDecomposition;
 /// tolerance for unequal pieces in SFC based decompositions.
 const double ddTolerance = 0.1;
 double dExtraStore;		// fraction of extra particle storage
+double dMaxBalance;		// Max piece imbalance for load balancing
 int iGasModel; 			// For backward compatibility
 int peanoKey;
 GenericTrees useTree;
@@ -543,6 +544,10 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dExtraStore",paramDouble,&param.dExtraStore,
 		    sizeof(double), "estore",
 		    "Extra memory for new particles");
+	param.dMaxBalance = 1e10;
+	prmAddParam(prm,"dMaxBalance",paramDouble,&param.dMaxBalance,
+		    sizeof(double), "maxbal",
+		    "Maximum piece ratio for load balancing");
 	
 	bDumpFrame = 0;
 	df = NULL;
@@ -747,6 +752,7 @@ Main::Main(CkArgMsg* m) {
 	theta = param.dTheta;
         thetaMono = theta*theta*theta*theta;
 	dExtraStore = param.dExtraStore;
+	dMaxBalance = param.dMaxBalance;
 	_cacheLineDepth = param.cacheLineDepth;
 	nIOProcessor = param.nIOProcessor;
 	if(prmSpecified(prm, "bCannonical")) {
@@ -1921,6 +1927,9 @@ Main::restart()
 	prmAddParam(prm,"dExtraStore",paramDouble,&param.dExtraStore,
 		    sizeof(double), "estore",
 		    "Extra memory for new particles");
+	prmAddParam(prm,"dMaxBalance",paramDouble,&param.dMaxBalance,
+		    sizeof(double), "maxbal",
+		    "Maximum piece ratio for load balancing");
 	
 	if(!prmArgOnlyProc(prm,CmiGetArgc(args->argv),args->argv)) {
 	    CkExit();
@@ -2918,7 +2927,7 @@ void Main::addDelParticles()
 	CkPrintf("New numbers of particles: %d gas %d dark %d star\n",
 		 nTotalSPH, nTotalDark, nTotalStar);
     
-    cb.thread_delay();
+    CkFreeMsg(cb.thread_delay());
     treeProxy.setNParts(nTotalSPH, nTotalDark, nTotalStar,
 			CkCallbackResumeThread());
     }

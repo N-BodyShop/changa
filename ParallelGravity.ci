@@ -29,6 +29,7 @@ mainmodule ParallelGravity {
   readonly unsigned int _yieldPeriod;
   readonly DomainsDec domainDecomposition;
   readonly double dExtraStore;
+  readonly double dMaxBalance;
   readonly int peanoKey;
   readonly GenericTrees useTree;
   readonly int _prefetch;
