@@ -1646,13 +1646,7 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
   callback = cb;
   myTreeParticles = myNumParticles;
 
-  if (root != NULL) {
-    // Delete the tree if we are about to rebuild it
-    root->fullyDelete();
-    delete root;
-    root = NULL;
-    nodeLookupTable.clear();
-  }
+  deleteTree();
   if(bucketReqs != NULL) {
     delete[] bucketReqs;
     bucketReqs = NULL;
