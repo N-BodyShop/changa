@@ -4,6 +4,7 @@
 extern CProxy_TreePiece treeProxy; 
 const char *typeString(NodeType type);
 
+/// @brief Obtain each TreePieces on this processor, and perform mergeWalk().
 void PETreeMerger::mergeNonLocalRequests(GenericTreeNode *root, TreePiece *treePiece){
   submittedRoots.push_back(root);
   submittedTreePieces.push_back(treePiece);

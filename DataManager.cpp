@@ -277,21 +277,14 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
   delete msg;
 }
 
-/**
- * \brief Build common tree for all pieces in a node.
- *
- * Given an array of pointers to an identical treenode in multiple
- * treepieces, return a node whose decendents will contain the union
- * of all those trees.  This is done recursively by calling this
- * function on each of the children of the treenode.  The recursion
- * stops if we hit an node that is totally contained in a single
- * processor, or there is only one copy of the node, or we have a node
- * that is non-local to all the treepieces.
- *
- * @param n number of nodes to process.
- * @param gtn array of nodes to process.  This contains the pointers
- * to the copies in each treepiece of an identical node.
- */
+/// @brief Pick a node out of equivalent nodes on different
+/// TreePieces.
+/// If one of the nodes is internal to a TreePiece, return that one.
+/// Otherwise pick from among the others.
+/// @param n Number of equivalent nodes.
+/// @param gtn Array of equivalent nodes.
+/// @param nUnresolved Count of boundary nodes in the array (returned).
+/// @param pickedIndex Index of picked Node.
 Tree::GenericTreeNode *DataManager::pickNodeFromMergeList(int n, GenericTreeNode **gtn, int &nUnresolved, int &pickedIndex){
   int pick = -1;
   nUnresolved = 0;
@@ -300,6 +293,7 @@ Tree::GenericTreeNode *DataManager::pickNodeFromMergeList(int n, GenericTreeNode
     Tree::NodeType nt = gtn[i]->getType();
     if (nt == Tree::Internal || nt == Tree::Bucket) {
       // we can use this directly, noone else can have it other than NL
+      CkAssert(nUnresolved == 0);
 #if COSMO_DEBUG > 0
       (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(gtn[i]->getKey(),KeyBits)<<" using Internal node"<<endl;
 #endif
@@ -335,6 +329,21 @@ Tree::GenericTreeNode *DataManager::pickNodeFromMergeList(int n, GenericTreeNode
 }
 
 const char *typeString(NodeType type);
+/**
+ * \brief Build common tree for all pieces in a node.
+ *
+ * Given an array of pointers to an identical treenode in multiple
+ * treepieces, return a node whose decendents will contain the union
+ * of all those trees.  This is done recursively by calling this
+ * function on each of the children of the treenode.  The recursion
+ * stops if we hit an node that is totally contained in a single
+ * processor, or there is only one copy of the node, or we have a node
+ * that is non-local to all the treepieces.
+ *
+ * @param n number of nodes to process.
+ * @param gtn array of nodes to process.  This contains the pointers
+ * to the copies in each treepiece of an identical node.
+ */
 Tree::GenericTreeNode *DataManager::buildProcessorTree(int n, Tree::GenericTreeNode **gtn) {
 #ifdef CUDA
   cumNumReplicatedNodes += (n-1);

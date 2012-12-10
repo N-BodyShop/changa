@@ -568,6 +568,7 @@ class SmoothCompute;
 template<typename T> class GenericList;
 #endif
 
+/// @brief client that has requested a moment.
 struct NonLocalMomentsClient {
   TreePiece *clientTreePiece;
   GenericTreeNode *clientNode;

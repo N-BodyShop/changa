@@ -127,6 +127,9 @@ class LocalTreeTraversal {
 
   public:
   /// Depth First Treewalk.
+  /// @param node Node on which we are working.
+  /// @param worker Describes work to be done on each node.
+  /// @param level Level of the tree we are on.
   void dft(GenericTreeNode *node, TreeNodeWorker *worker, int level){
     if(worker->work(node,level)){
       for(int i = 0; i < node->numChildren(); i++){
