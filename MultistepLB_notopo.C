@@ -80,20 +80,38 @@ void MultistepLB_notopo::mergeInstrumentedData(int phase, BaseLB::LDStats *stats
     phase = 0;
   }
 
-  /*
-  CkPrintf("**********************************************\n");
-  CkPrintf("Actual object loads phase %d\n", phase);
-  CkPrintf("**********************************************\n");
-  for(int i = 0; i < stats->n_objs; i++){
-    int tp = tpCentroids[i].tp;
-    int lb = tpCentroids[i].tag;
-    CkPrintf("tp %d load %f\n",tp,stats->objData[lb].wallTime);
-  }
-  CkPrintf("**********************************************\n");
-  CkPrintf("Done actual object loads phase %d\n", phase);
-  CkPrintf("**********************************************\n");
-  */
-  
+  if (_lb_args.debug()>=2) {
+      CkPrintf("**********************************************\n");
+      CkPrintf("Actual object loads phase %d\n", phase);
+      CkPrintf("**********************************************\n");
+      for(int i = 0; i < stats->n_objs; i++){
+	int tp = tpCentroids[i].tp;
+	int lb = tpCentroids[i].tag;
+	CkPrintf("tp %d load %f\n",tp,stats->objData[lb].wallTime);
+	}
+
+      CkPrintf("Processor stats\n");
+      for(int i = 0; i < stats->count; i++){
+	  CkPrintf("Proc %d with %d tps: wall %g idle %g busy %g bg_wall %g\n",
+		   stats->procs[i].pe,
+		   stats->procs[i].n_objs, stats->procs[i].total_walltime,
+		   stats->procs[i].idletime,
+		   stats->procs[i].total_walltime-stats->procs[i].idletime,
+		   stats->procs[i].bg_walltime);
+	  }
+      }
+      
+  // Attribute background load to pieces.
+  float *tp_bg = new float[stats->count];
+  for(int i = 0; i < stats->count; i++){
+      if(stats->procs[i].n_objs != 0)
+	  tp_bg[stats->procs[i].pe] = stats->procs[i].bg_walltime
+	      /stats->procs[i].n_objs;
+      }
+  for(int i = 0; i < stats->n_objs; i++)
+      stats->objData[i].wallTime += tp_bg[stats->from_proc[i]];
+  delete[] tp_bg;
+
   len = savedPhaseStats.length();
   
   if(phase > len-1){
@@ -465,6 +483,11 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
   }
   CkAssert(numProcessed==nmig);
 
+  if(dMaxBalance < 1.0)
+    dMaxBalance = 1.0;
+  maxPieceProc = dMaxBalance*nmig/stats->count;
+  if(maxPieceProc < 1.0)
+    maxPieceProc = 1.01;
   
   orbPrepare(tpEvents, box, nmig, stats);
   orbPartition(tpEvents,box,stats->count,tp_array, stats);

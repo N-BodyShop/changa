@@ -3,6 +3,13 @@
 
 #include "ParallelGravity.h"
 
+/// @addtogroup TreeBuild
+/// @{
+
+/// @brief Group to coordinate requests for remote moments during the
+/// tree build
+///
+/// This group is used if MERGE_REMOTE_REQUESTS is defined.
 class PETreeMerger : public CBase_PETreeMerger {
 
   CkVec<GenericTreeNode*> submittedRoots;
@@ -24,5 +31,5 @@ class PETreeMerger : public CBase_PETreeMerger {
   void requestNonLocalMoments(GenericTreeNode *pickedNode, TreePiece *pickedTreePiece);
 
 };
-
+/// @}
 #endif
