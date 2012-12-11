@@ -79,6 +79,7 @@ DomainsDec domainDecomposition;
 /// tolerance for unequal pieces in SFC based decompositions.
 const double ddTolerance = 0.1;
 double dExtraStore;		// fraction of extra particle storage
+double dMaxBalance;		// Max piece imbalance for load balancing
 int iGasModel; 			// For backward compatibility
 int peanoKey;
 GenericTrees useTree;
@@ -515,6 +516,10 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dExtraStore",paramDouble,&param.dExtraStore,
 		    sizeof(double), "estore",
 		    "Extra memory for new particles");
+	param.dMaxBalance = 1e10;
+	prmAddParam(prm,"dMaxBalance",paramDouble,&param.dMaxBalance,
+		    sizeof(double), "maxbal",
+		    "Maximum piece ratio for load balancing");
 	
 	bDumpFrame = 0;
 	df = NULL;
@@ -719,6 +724,7 @@ Main::Main(CkArgMsg* m) {
 	theta = param.dTheta;
         thetaMono = theta*theta*theta*theta;
 	dExtraStore = param.dExtraStore;
+	dMaxBalance = param.dMaxBalance;
 	_cacheLineDepth = param.cacheLineDepth;
 	nIOProcessor = param.nIOProcessor;
 	if(prmSpecified(prm, "bCannonical")) {
@@ -1093,34 +1099,26 @@ void Main::getStartTime()
 		ckout << "Input file, Time:" << dTime << " Redshift:" << z
 		      << " Expansion factor:" << dAStart << endl;
 	    if (prmSpecified(prm,"dRedTo")) {
+
+                aTo = 1.0/(param.dRedTo + 1.0);
+                tTo = csmExp2Time(param.csm,aTo);
+                if (verbosity > 0)
+                    ckout << "Simulation to Time:" << tTo << " Redshift:"
+                          << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
+                          << endl;
+                if (tTo < dTime) {
+                    ckerr << "Badly specified final redshift, check -zto parameter."
+                          << endl;
+                    CkExit();
+                    } 
+
 		if (!prmArgSpecified(prm,"nSteps") &&
 		    prmArgSpecified(prm,"dDelta")) {
-		    aTo = 1.0/(param.dRedTo + 1.0);
-		    tTo = csmExp2Time(param.csm,aTo);
-		    if (verbosity > 0)
-			ckout << "Simulation to Time:" << tTo << " Redshift:"
-			      << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
-			      << endl;
-		    if (tTo < dTime) {
-			ckerr << "Badly specified final redshift, check -zto parameter."
-			      << endl;
-			CkExit();
-			}
+
 		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta)+param.iStartStep;
 		    }
 		else if (!prmArgSpecified(prm,"dDelta") &&
 			 prmArgSpecified(prm,"nSteps")) {
-		    aTo = 1.0/(param.dRedTo + 1.0);
-		    tTo = csmExp2Time(param.csm,aTo);
-		    if (verbosity > 0)
-			ckout << "Simulation to Time:" << tTo << " Redshift:"
-			      << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
-			      << endl;
-		    if (tTo < dTime) {
-			ckerr << "Badly specified final redshift, check -zto parameter."
-			      << endl;
-			CkExit();
-			}
 		    if(param.nSteps != 0)
 			param.dDelta =
 				(tTo-dTime)/(param.nSteps - param.iStartStep);
@@ -1129,32 +1127,10 @@ void Main::getStartTime()
 		    }
 		else if (!prmSpecified(prm,"nSteps") &&
 			 prmFileSpecified(prm,"dDelta")) {
-		    aTo = 1.0/(param.dRedTo + 1.0);
-		    tTo = csmExp2Time(param.csm,aTo);
-		    if (verbosity > 0)
-			ckout << "Simulation to Time:" << tTo << " Redshift:"
-			      << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
-			      << endl;
-		    if (tTo < dTime) {
-			ckerr << "Badly specified final redshift, check -zto parameter."
-			      << endl;
-			CkExit();
-			}
 		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta) + param.iStartStep;
 		    }
 		else if (!prmSpecified(prm,"dDelta") &&
 			 prmFileSpecified(prm,"nSteps")) {
-		    aTo = 1.0/(param.dRedTo + 1.0);
-		    tTo = csmExp2Time(param.csm,aTo);
-		    if (verbosity > 0)
-			ckout << "Simulation to Time:" << tTo << " Redshift:"
-			      << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
-			      << endl;
-		    if (tTo < dTime) {
-			ckerr << "Badly specified final redshift, check -zto parameter."
-			      << endl;
-			CkExit();
-			}
 		    if(param.nSteps != 0)
 			param.dDelta =	(tTo-dTime)/(param.nSteps
 							 - param.iStartStep);
@@ -1906,6 +1882,9 @@ Main::restart()
 	prmAddParam(prm,"dExtraStore",paramDouble,&param.dExtraStore,
 		    sizeof(double), "estore",
 		    "Extra memory for new particles");
+	prmAddParam(prm,"dMaxBalance",paramDouble,&param.dMaxBalance,
+		    sizeof(double), "maxbal",
+		    "Maximum piece ratio for load balancing");
 	
 	if(!prmArgOnlyProc(prm,CmiGetArgc(args->argv),args->argv)) {
 	    CkExit();
@@ -2829,7 +2808,7 @@ void Main::addDelParticles()
 	CkPrintf("New numbers of particles: %d gas %d dark %d star\n",
 		 nTotalSPH, nTotalDark, nTotalStar);
     
-    cb.thread_delay();
+    CkFreeMsg(cb.thread_delay());
     treeProxy.setNParts(nTotalSPH, nTotalDark, nTotalStar,
 			CkCallbackResumeThread());
     }

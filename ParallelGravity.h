@@ -126,6 +126,7 @@ extern int _cacheLineDepth;
 extern unsigned int _yieldPeriod;
 extern DomainsDec domainDecomposition;
 extern double dExtraStore;
+extern double dMaxBalance;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
 #ifdef REDUCTION_HELPER
@@ -567,6 +568,7 @@ class SmoothCompute;
 template<typename T> class GenericList;
 #endif
 
+/// @brief client that has requested a moment.
 struct NonLocalMomentsClient {
   TreePiece *clientTreePiece;
   GenericTreeNode *clientNode;
