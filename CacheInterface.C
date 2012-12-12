@@ -295,7 +295,7 @@ void * EntryTypeGravityNode::unpack(CkCacheFillMsg<KeyType> *msg, int chunk, CkA
   
   // link node to its parent if present in the cache
   KeyType ckey(node->getParentKey());
-  Tree::BinaryTreeNode *parent = (Tree::BinaryTreeNode *) ((CkCacheManager<KeyType> *)cacheNode.ckLocalBranch())->requestDataNoFetch(ckey, chunk);
+  Tree::BinaryTreeNode *parent = (Tree::BinaryTreeNode *) cacheNode.ckLocalBranch()->requestDataNoFetch(ckey, chunk);
   if (parent != NULL) {
     node->parent = parent;
     parent->setChildren(parent->whichChild(node->getKey()), node);
@@ -323,7 +323,7 @@ void EntryTypeGravityNode::unpackSingle(CkCacheFillMsg<KeyType> *msg, Tree::Bina
       unpackSingle(msg, node->children[i], chunk, from, false);
     } else {
       KeyType ckey = node->getChildKey(i);
-      Tree::BinaryTreeNode *child = (Tree::BinaryTreeNode *) ((CkCacheManager<KeyType> *)cacheNode.ckLocalBranch())->requestDataNoFetch(ckey, chunk);
+      Tree::BinaryTreeNode *child = (Tree::BinaryTreeNode *) cacheNode.ckLocalBranch()->requestDataNoFetch(ckey, chunk);
       if (child != NULL) {
         child->parent = node;
         node->setChildren(node->whichChild(child->getKey()), child);
@@ -344,7 +344,7 @@ void EntryTypeGravityNode::unpackSingle(CkCacheFillMsg<KeyType> *msg, Tree::Bina
     node->setType(Tree::Cached);
   }
   KeyType ckey(node->getKey());
-  if (!isRoot) ((CkCacheManager<KeyType>*)cacheNode.ckLocalBranch())->recvData(ckey, from, (EntryTypeGravityNode*)this, chunk, (void*)node);
+  if (!isRoot) cacheNode.ckLocalBranch()->recvData(ckey, from, (EntryTypeGravityNode*)this, chunk, (void*)node);
 }
 
 void EntryTypeGravityNode::writeback(CkArrayIndexMax& idx, KeyType k, void *data) { }

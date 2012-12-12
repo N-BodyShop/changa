@@ -60,6 +60,7 @@ typedef struct CoolingParticleStruct {
 	double Y_HI,Y_HeI,Y_HeII;	/* Abundance of ions */
 	} COOLPARTICLE;
 
+/** @brief abundance of various species in particles/baryon */
 typedef struct { 
   double e,Total;
   double HI,HII,HeI,HeII,HeIII;
@@ -96,6 +97,7 @@ typedef struct {
 
 } RATES_NO_T;
 
+/** @brief structure to hold Temperature dependent cooling rates */
 typedef struct { 
   CL_RT_FLOAT   Rate_Coll_HI;
   CL_RT_FLOAT   Rate_Coll_HeI;

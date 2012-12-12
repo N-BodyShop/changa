@@ -14,6 +14,7 @@
 #include "Vector3D.h"
 #include "CentralLB.h"
 #define  ORB3DLB_NOTOPO_DEBUG 
+// #define  ORB3DLB_NOTOPO_DEBUG CkPrintf
 class Orb3dCommon{
   // pointer to stats->to_proc
   protected:		
@@ -25,6 +26,9 @@ class Orb3dCommon{
 
     int nrecvd;
     bool haveTPCentroids;
+    /// Take into account memory constraints by limiting the number of pieces
+    /// per processor.
+    double maxPieceProc;
 
     int nextProc;
 
@@ -114,6 +118,17 @@ class Orb3dCommon{
         CkAssert(nright >= nrprocs);
       }
 #endif
+      if(nleft > nlprocs*maxPieceProc) {
+	  nleft = splitIndex = (int) (nlprocs*maxPieceProc);
+	  nright = numEvents-nleft;
+	  }
+      else if (nright > nrprocs*maxPieceProc) {
+	  nright = (int) (nrprocs*maxPieceProc);
+	  nleft = splitIndex = numEvents-nright;
+	  }
+      CkAssert(splitIndex >= 0);
+      CkAssert(splitIndex < numEvents);
+
       OrientedBox<float> leftBox;
       OrientedBox<float> rightBox;
 
