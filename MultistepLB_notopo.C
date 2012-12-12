@@ -482,12 +482,6 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
     numProcessed++;
   }
   CkAssert(numProcessed==nmig);
-
-  if(dMaxBalance < 1.0)
-    dMaxBalance = 1.0;
-  maxPieceProc = dMaxBalance*nmig/stats->count;
-  if(maxPieceProc < 1.0)
-    maxPieceProc = 1.01;
   
   orbPrepare(tpEvents, box, nmig, stats);
   orbPartition(tpEvents,box,stats->count,tp_array, stats);
