@@ -326,6 +326,7 @@ public:
 
 #define TYPE_PHOTOGENIC        (1<<4)
 #define TYPE_NbrOfACTIVE       (1<<5)
+#define TYPE_MAXTYPE           (1<<6)
 
 	inline bool isDark() { return TYPETest(this, TYPE_DARK);}
 	inline bool isGas() { return TYPETest(this, TYPE_GAS);}

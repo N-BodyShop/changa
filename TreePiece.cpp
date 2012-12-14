@@ -136,7 +136,7 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 	      // Make the bounding box cubical.
 	      //
 	      Vector3D<float> bcenter = boundingBox.center();
-	      const float fEps = 1.0 + 2.0e-7;  // slop to ensure keys fall
+	      const float fEps = 1.0 + 3.0e-7;  // slop to ensure keys fall
 						// between 0 and 1.
 	      bsize = Vector3D<float>(fEps*0.5*max);
 	      boundingBox = OrientedBox<float>(bcenter-bsize, bcenter+bsize);
@@ -5082,6 +5082,18 @@ void TreePiece::outputStatistics(const CkCallback& cb) {
   if(thisIndex == (int) numTreePieces - 1) cb.send();
 }
 
+/// @brief Sanity check on particle data
+inline void checkParticle(GravityParticle *p) 
+{
+    CkAssert(p->mass >= 0.0);
+    CkAssert(p->soft >= 0.0);
+    CkAssert(p->fBall >= 0.0);
+    CkAssert(p->fDensity >= 0.0);
+    CkAssert(p->iOrder >= 0);
+    CkAssert(p->rung >= 0 && p->rung <= MAXRUNG);
+    CkAssert(p->iType > 0 && p->iType < TYPE_MAXTYPE);
+    }
+
 /// @TODO Fix pup routine to handle correctly the tree
 void TreePiece::pup(PUP::er& p) {
   CBase_TreePiece::pup(p);
@@ -5115,6 +5127,7 @@ void TreePiece::pup(PUP::er& p) {
   }
   for(unsigned int i=1;i<=myNumParticles;i++){
     p | myParticles[i];
+    checkParticle(&myParticles[i]);
     if(myParticles[i].isGas()) {
 	int iSPH;
 	if(!p.isUnpacking()) {
@@ -5124,6 +5137,8 @@ void TreePiece::pup(PUP::er& p) {
 	    }
 	else {
 	    p | iSPH;
+	    if(iSPH >= myNumSPH)
+		CkError("Too many SPH: %d vs %d\n", iSPH, myNumSPH);
 	    myParticles[i].extraData = mySPHParticles + iSPH;
 	    CkAssert(iSPH < myNumSPH);
 	    }
