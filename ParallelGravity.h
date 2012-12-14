@@ -482,7 +482,7 @@ public:
 	int adjust(int iKickRung);
 	void rungStats();
 	void countActive(int activeRung);
-	void calcEnergy(double, double, char *);
+	void calcEnergy(double, double, const char *);
 	void getStartTime();
 	void getOutTimes();
 	int bOutTime();
