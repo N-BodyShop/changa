@@ -118,6 +118,7 @@ class Orb3dCommon{
         CkAssert(nright >= nrprocs);
       }
 #endif
+
       if(nleft > nlprocs*maxPieceProc) {
 	  nleft = splitIndex = (int) (nlprocs*maxPieceProc);
 	  nright = numEvents-nleft;
@@ -207,17 +208,21 @@ class Orb3dCommon{
     }
 
     void orbPrepare(vector<Event> *tpEvents, OrientedBox<float> &box, int numobjs, BaseLB::LDStats * stats){
+
+      int nmig = stats->n_migrateobjs;
+      if(dMaxBalance < 1.0)
+        dMaxBalance = 1.0;
+      maxPieceProc = dMaxBalance*nmig/stats->count;
+      if(maxPieceProc < 1.0)
+        maxPieceProc = 1.01;
+
       CkAssert(tpEvents[XDIM].size() == numobjs);
       CkAssert(tpEvents[YDIM].size() == numobjs);
       CkAssert(tpEvents[ZDIM].size() == numobjs);
 
-
       mapping = &stats->to_proc;
       from = &stats->from_proc;
       int dim = 0;
-
-
-
 
       CkPrintf("[Orb3dLB_notopo] sorting\n");
       for(int i = 0; i < NDIMS; i++){
@@ -240,9 +245,6 @@ class Orb3dCommon{
       for(int i = 0; i < stats->count; i++){
         procload[i] = 0.0;
       }
-
-
-
 
     }
 
