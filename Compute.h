@@ -255,6 +255,7 @@ class ActiveWalk {
   ActiveWalk(){}
 };
 
+/// @brief Interface for work in LocalTreeTraversal.
 class TreeNodeWorker {
 
   public:
@@ -262,6 +263,8 @@ class TreeNodeWorker {
   virtual void doneChildren(GenericTreeNode *node, int level) {}
 };
 
+/// @brief Class to build the remote part of the tree.  Fills in
+/// Boundary and NonLocal nodes.
 class RemoteTreeBuilder : public TreeNodeWorker {
   TreePiece *tp;
   bool requestNonLocalMoments; 
@@ -280,6 +283,7 @@ class RemoteTreeBuilder : public TreeNodeWorker {
 
 };
 
+/// @brief Class to build the local part of the tree.  Builds Internal nodes.
 class LocalTreeBuilder : public TreeNodeWorker {
   TreePiece *tp;
 
