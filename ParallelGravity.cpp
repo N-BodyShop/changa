@@ -2802,7 +2802,7 @@ void Main::addDelParticles()
 	CkPrintf("New numbers of particles: %d gas %d dark %d star\n",
 		 nTotalSPH, nTotalDark, nTotalStar);
     
-    CkFreeMsg(cb.thread_delay());
+    cb.thread_delay();
     treeProxy.setNParts(nTotalSPH, nTotalDark, nTotalStar,
 			CkCallbackResumeThread());
     }
