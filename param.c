@@ -101,7 +101,7 @@ void prmArgUsage(PRM prm)
 	if (prm->fcnTrailer) (*prm->fcnTrailer)();
 	}
 
-void prmLogParam(PRM prm, char *pszFile)
+void prmLogParam(PRM prm, const char *pszFile)
 {
     FILE *fpLog;
     PRM_NODE *pn;

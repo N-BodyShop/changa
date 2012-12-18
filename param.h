@@ -47,7 +47,7 @@ void prmInitialize(PRM *,void (*)(void),void (*)(void));
 void prmFinish(PRM);
 void prmAddParam(PRM,const char *,int,void *,int,const char *,const char *);
 void prmArgUsage(PRM prm);
-void prmLogParam(PRM prm, char *pszFile);
+void prmLogParam(PRM prm, const char *pszFile);
 int prmParseParam(PRM,char *);
 int prmArgProc(PRM,int,char **);
 int prmArgOnlyProc(PRM prm,int argc,char **argv);
