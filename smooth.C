@@ -451,6 +451,7 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 	  bucketActive++;
       }
 
+  myNode->cpStart = NULL;
   if(!bucketActive) // No particles in this bucket are active.
       return;
   
@@ -545,23 +546,29 @@ void TreePiece::smoothBucketComputation() {
 
   // start the tree walk from the tree built in the cache
   if (bucketActive) {
-    for(int cr = 0; cr < numChunks; cr++){
-      GenericTreeNode *chunkRoot = dm->chunkRootToNode(prefetchRoots[cr]);
-      if(!chunkRoot){
-        continue;
-	}
-      twSmooth->walk(chunkRoot, sSmoothState, cr,
-		     encodeOffset(currentBucket, 0,0,0), smoothAwi);
-      for(int x = -nReplicas; x <= nReplicas; x++) {
-        for(int y = -nReplicas; y <= nReplicas; y++) {
-          for(int z = -nReplicas; z <= nReplicas; z++) {
-	      if(x || y || z)
-		  twSmooth->walk(chunkRoot, sSmoothState, cr,
-				 encodeOffset(currentBucket, x,y,z), smoothAwi);
+      if(myNode->cpStart) { // a containing node has been discovered.
+	  twSmooth->walk(myNode->cpStart, sSmoothState, 0,
+			 encodeOffset(currentBucket, 0,0,0), smoothAwi);
+	  }
+      else {
+	for(int cr = 0; cr < numChunks; cr++){
+	  GenericTreeNode *chunkRoot = dm->chunkRootToNode(prefetchRoots[cr]);
+	  if(!chunkRoot){
+	    continue;
+	    }
+	  twSmooth->walk(chunkRoot, sSmoothState, cr,
+			 encodeOffset(currentBucket, 0,0,0), smoothAwi);
+	  for(int x = -nReplicas; x <= nReplicas; x++) {
+	    for(int y = -nReplicas; y <= nReplicas; y++) {
+	      for(int z = -nReplicas; z <= nReplicas; z++) {
+		  if(x || y || z)
+		      twSmooth->walk(chunkRoot, sSmoothState, cr,
+				     encodeOffset(currentBucket, x,y,z), smoothAwi);
+		  }
+		}
 	      }
 	    }
 	  }
-	}
       }
   sSmoothState->counterArrays[0][currentBucket]--;
 } 

@@ -224,6 +224,8 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
     bool isRoot = false;
     GenericTreeNode *node;
 
+    if(reqnode->cpStart != NULL) return;
+    
     node = startNode;
     if(bIsReplica(reqID) || node->getKey() != ownerTP->root->getKey()) {
 	// Do standard top-down walk.
@@ -270,6 +272,7 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
 	return;
 	}
     std::stack<GenericTreeNode *> nodeStack;
+    std::stack<GenericTreeNode *> parentStack;
     // go down the tree toward the bucket, push all siblings of the
     // ancestor onto the stack.
     while(node != reqnode) {
@@ -277,6 +280,7 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
 	for(int iChild = 0; iChild < node->numChildren(); iChild++) {
 	    if(iChild != which)
 		nodeStack.push(node->getChildren(iChild));
+		parentStack.push(node);
 	    }
 	node = node->getChildren(which);
 	}
@@ -287,7 +291,22 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
     while(!nodeStack.empty()) {
 	node = nodeStack.top();
 	walk(node, state, chunk, reqID, awi);
+	// Sphere containing search radii of all particles in bucket
+	Sphere<cosmoType> s(reqnode->centerSm, reqnode->sizeSm + reqnode->fKeyMax);
+	// XXX This test should be done inside the KNearestNeighbor
+	// class for a cleaner interface.
+	if(Space::contains(node->parent->boundingBox, s)) {
+	    reqnode->cpStart = node->parent; // found containing node
+	    reqnode->cpStart = parentStack.top();
+	    CkAssert(node->parent->numChildren() <= 2);  // Assumes binary tree
+	    if(verbosity > 3)
+		CkPrintf("[%d] Bucket %d is contained in node %lx\n", ownerTP->thisIndex,
+			 reqIDlist, reqnode->cpStart->getKey());
+	    // clear stack
+	    return;
+	    }
 	nodeStack.pop();
+	parentStack.pop();
 	}
 }
 /**

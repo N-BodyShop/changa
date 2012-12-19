@@ -105,7 +105,6 @@ class NodePool;
     /// Mask of particle types contatained in this node
     unsigned int iParticleTypes;
     /// An index for the first particle contained by this node, 0 means outside the node
-    /// An index for the first particle contained by this node, 0 means outside the node
     int firstParticle;
     /// An index to the last particle contained by this node, myNumParticles+1 means outside the node
     int lastParticle;
@@ -141,6 +140,8 @@ class NodePool;
     double sizeSm;
     /// Maximum smoothing radius of smoothActive particles
     double fKeyMax;
+    /// Starting search node for resmooth
+    GenericTreeNode *cpStart;
     /// SMP rank of node owner
     int iRank;
 
