@@ -1920,7 +1920,7 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
               child->makeEmpty();
 	      child->remoteIndex = thisIndex;
       } else {
-	      child->remoteIndex = dm->responsibleIndex[first + (thisIndex & (last-first))];
+	      child->remoteIndex = getResponsibleIndex(first, last);
 	      // if we have a remote child, the node is a Boundary. Thus count that we
 	      // have to receive one more message for the NonLocal node
 	      node->remoteIndex --;
@@ -2393,10 +2393,7 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
 	child->makeEmpty();
 	child->remoteIndex = thisIndex;
       } else {
-	  // Choose a piece from among the owners from which to
-	  // request moments in such a way that if I am a piece with a
-	  // higher index, I request from a higher indexed treepiece.
-	child->remoteIndex = dm->responsibleIndex[first + (thisIndex & (last-first))];
+	child->remoteIndex = getResponsibleIndex(first, last);
 	// if we have a remote child, the node is a Boundary. Thus count that we
 	// have to receive one more message for the NonLocal node
 	node->remoteIndex --;
@@ -3593,6 +3590,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
   ((DoubleWalkState *)sInterListStateRemoteResume)->partListConstructionTimeStart();
 #endif
     // OK to pass bogus arguments because we don't expect to miss on this anyway (see CkAssert(chunkRoot) below.)
+  CkAssert(chunkRoot != NULL);
   if (chunkRoot == NULL) {
     int first, last;
     nodeOwnership(prefetchRoots[msg->chunkNum], first, last);
@@ -4531,6 +4529,7 @@ void TreePiece::initiatePrefetch(int chunk){
 #else
   GenericTreeNode *child = dm->chunkRootToNode(prefetchRoots[chunk]);
 #endif
+  CmiAssert(child != NULL);
 
   int first, last;
   for(int x = -nReplicas; x <= nReplicas; x++) {
@@ -6119,7 +6118,15 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   callback = cb;
 }
 
+// Choose a piece from among the owners from which to
+// request moments in such a way that if I am a piece with a
+// higher index, I request from a higher indexed treepiece.
 int TreePiece::getResponsibleIndex(int first, int last){
+    if(verbosity > 3) 
+	CkPrintf("[tp %d] choosing responsible index %d from %d to %d\n",
+		 thisIndex,
+		 dm->responsibleIndex[first + (thisIndex & (last-first))],
+		 first, last);
   return dm->responsibleIndex[first + (thisIndex & (last-first))];
 }
 
