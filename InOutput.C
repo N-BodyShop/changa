@@ -1215,7 +1215,7 @@ void TreePiece::oneNodeOutVec(OutputParams& params,
 			      int bDone, // Last call
 			      CkCallback& cb) 
 {
-    FILE* outfile = fopen(params.fileName.c_str(), "r+");
+    FILE* outfile = CmiFopen(params.fileName.c_str(), "r+");
     if(outfile == NULL)
 	ckerr << "Treepiece " << thisIndex << " failed to open "
 	      << params.fileName.c_str() << " : " << errno << endl;
@@ -1264,7 +1264,7 @@ void TreePiece::oneNodeOutArr(OutputParams& params,
 			      int bDone, // Last call
 			      CkCallback& cb) 
 {
-    FILE* outfile = fopen(params.fileName.c_str(), "r+");
+    FILE* outfile = CmiFopen(params.fileName.c_str(), "r+");
     if(outfile == NULL)
 	ckerr << "Treepiece " << thisIndex << " failed to open "
 	      << params.fileName.c_str() << " : " << errno << endl;
@@ -1321,7 +1321,7 @@ void TreePiece::outputIntASCII(OutputIntParams& params, // specifies
     ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
 	
   if(bParaWrite) {
-      outfile = fopen(params.fileName.c_str(), "r+");
+      outfile = CmiFopen(params.fileName.c_str(), "r+");
       if(outfile == NULL)
 	    ckerr << "Treepiece " << thisIndex << " failed to open "
 		  << params.fileName.c_str() << " : " << errno << endl;
@@ -1377,7 +1377,11 @@ void TreePiece::oneNodeOutIntArr(OutputIntParams& params,
 			      int iIndex, // treepiece which called me
 			      CkCallback& cb) 
 {
-    FILE* outfile = fopen(params.fileName.c_str(), "r+");
+    FILE* outfile = CmiFopen(params.fileName.c_str(), "r+");
+    if(outfile == NULL)
+	ckerr << "Treepiece " << thisIndex << " failed to open "
+	      << params.fileName.c_str() << " : " << errno << endl;
+    CkAssert(outfile != NULL);
     int result = fseek(outfile, 0L, SEEK_END);
     CkAssert(result == 0);
     for(int i = 0; i < nPart; ++i) {
@@ -1419,7 +1423,7 @@ void TreePiece::outputBinary(OutputParams& params, // specifies
     if((thisIndex==0 && packed) || (thisIndex==0 && !packed && cnt==0)) {
 	if(verbosity > 2)
 	    ckout << "TreePiece " << thisIndex << ": Writing header for output file" << endl;
-	outfile = fopen(params.fileName.c_str(), "w");
+	outfile = CmiFopen(params.fileName.c_str(), "w");
 	CkAssert(outfile != NULL);
 	xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
 	iDum = (int)nTotalParticles;
@@ -1432,7 +1436,7 @@ void TreePiece::outputBinary(OutputParams& params, // specifies
 	ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
     
     if(bParaWrite) {
-	outfile = fopen(params.fileName.c_str(), "r+");
+	outfile = CmiFopen(params.fileName.c_str(), "r+");
 	if(outfile == NULL)
 	    ckerr << "Treepiece " << thisIndex << " failed to open "
 		  << params.fileName.c_str() << " : " << errno << endl;
@@ -1541,7 +1545,7 @@ void TreePiece::oneNodeOutBinVec(OutputParams& params,
 				 int bDone, // Last call
 				 CkCallback& cb) 
 {
-    FILE* outfile = fopen(params.fileName.c_str(), "r+");
+    FILE* outfile = CmiFopen(params.fileName.c_str(), "r+");
     XDR xdrs;
     if(outfile == NULL)
 	ckerr << "Treepiece " << thisIndex << " failed to open "
@@ -1593,7 +1597,7 @@ void TreePiece::oneNodeOutBinArr(OutputParams& params,
 			      int bDone, // Last call
 			      CkCallback& cb) 
 {
-    FILE* outfile = fopen(params.fileName.c_str(), "r+");
+    FILE* outfile = CmiFopen(params.fileName.c_str(), "r+");
     XDR xdrs;
     if(outfile == NULL)
 	ckerr << "Treepiece " << thisIndex << " failed to open "
@@ -1634,7 +1638,8 @@ void TreePiece::outputIOrderBinary(const string& fileName, const CkCallback& cb)
 	if(verbosity > 2)
 	    ckerr << "TreePiece " << thisIndex << ": Writing header for iOrder file"
 		  << endl;
-	FILE* outfile = fopen(fileName.c_str(), "w");
+	FILE* outfile = CmiFopen(fileName.c_str(), "w");
+	CkAssert(outfile != NULL);
 	xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
 	iDum = (int) nTotalParticles;
 	xdr_int(&xdrs,&iDum);
@@ -1645,7 +1650,8 @@ void TreePiece::outputIOrderBinary(const string& fileName, const CkCallback& cb)
     if(verbosity > 3)
 	ckerr << "TreePiece " << thisIndex << ": Writing iOrder to disk" << endl;
     
-    FILE* outfile = fopen(fileName.c_str(), "r+");
+    FILE* outfile = CmiFopen(fileName.c_str(), "r+");
+    CkAssert(outfile != NULL);
     xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
     fseek(outfile, 0, SEEK_END);
     
