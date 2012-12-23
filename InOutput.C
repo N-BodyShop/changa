@@ -309,11 +309,35 @@ void TreePiece::loadTipsy(const std::string& filename,
 #ifdef ROUND_ROBIN_WITH_OCT_DECOMP 
         if(thisIndex >= numLoadingPEs) skipLoad = true;
 #else
-        // this is not the best way to divide objects among PEs, 
-        // but it is how charm++ does it.
         int numTreePiecesPerPE = numTreePieces/numLoadingPEs;
         int rem = numTreePieces-numTreePiecesPerPE*numLoadingPEs;
 
+#ifdef DEFAULT_ARRAY_MAP
+        if (rem > 0) {
+          int sizeSmallBlock = numTreePiecesPerPE; 
+          int numLargeBlocks = rem; 
+          int sizeLargeBlock = numTreePiecesPerPE + 1; 
+          int largeBlockBound = numLargeBlocks * sizeLargeBlock; 
+          
+          if (thisIndex < largeBlockBound) {
+            if (thisIndex % sizeLargeBlock > 0) {
+              skipLoad = true; 
+            }
+          }
+          else {
+            if ((thisIndex - largeBlockBound) % sizeSmallBlock > 0) {
+              skipLoad = true; 
+            }
+          }
+        }
+        else {
+          if ( (thisIndex % numTreePiecesPerPE) > 0) {
+            skipLoad = true; 
+          }
+        }
+#else
+        // this is not the best way to divide objects among PEs, 
+        // but it is how charm++ BlockMap does it.
         if(rem > 0){
           numTreePiecesPerPE++;
           numLoadingPEs = numTreePieces/numTreePiecesPerPE;
@@ -321,6 +345,7 @@ void TreePiece::loadTipsy(const std::string& filename,
         }
 
         if(thisIndex % numTreePiecesPerPE > 0) skipLoad = true;
+#endif
 #endif
 
         /*
@@ -350,7 +375,11 @@ void TreePiece::loadTipsy(const std::string& filename,
 	else {
 	    startParticle += excess;
 	    }
-
+	if(startParticle > nTotalParticles) {
+	    CkError("Bad startParticle: %d, nPart: %d, myIndex: %d, nLoading: %d\n",
+		    startParticle, nTotalParticles, myIndex, numLoadingPEs);
+	    }
+	CkAssert(startParticle <= nTotalParticles);
 	
 	if(verbosity > 2)
 		cerr << "TreePiece " << thisIndex << " PE " << CkMyPe() << " Taking " << myNumParticles
@@ -994,12 +1023,7 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     if(verbosity>1) ckout << thisIndex <<" contributing to ioAccept particles"
 			  <<endl;
 
-    if (root != NULL) {
-      root->fullyDelete();
-      delete root;
-      root = NULL;
-      nodeLookupTable.clear();
-    }
+    deleteTree();
     contribute(0, 0, CkReduction::concat, callback);
   }
 }
@@ -1074,7 +1098,7 @@ void TreePiece::outputASCII(OutputParams& params, // specifies
   if((thisIndex==0 && packed) || (thisIndex==0 && !packed && cnt==0)) {
     if(verbosity > 2)
       ckout << "TreePiece " << thisIndex << ": Writing header for output file" << endl;
-    outfile = fopen(params.fileName.c_str(), "w");
+    outfile = CmiFopen(params.fileName.c_str(), "w");
     CkAssert(outfile != NULL);
     fprintf(outfile,"%d\n",(int) nTotalParticles);
     fclose(outfile);
@@ -1084,7 +1108,7 @@ void TreePiece::outputASCII(OutputParams& params, // specifies
     ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
 	
   if(bParaWrite) {
-      outfile = fopen(params.fileName.c_str(), "r+");
+      outfile = CmiFopen(params.fileName.c_str(), "r+");
       if(outfile == NULL)
 	    ckerr << "Treepiece " << thisIndex << " failed to open "
 		  << params.fileName.c_str() << " : " << errno << endl;
@@ -1191,7 +1215,7 @@ void TreePiece::oneNodeOutVec(OutputParams& params,
 			      int bDone, // Last call
 			      CkCallback& cb) 
 {
-    FILE* outfile = fopen(params.fileName.c_str(), "r+");
+    FILE* outfile = CmiFopen(params.fileName.c_str(), "r+");
     if(outfile == NULL)
 	ckerr << "Treepiece " << thisIndex << " failed to open "
 	      << params.fileName.c_str() << " : " << errno << endl;
@@ -1240,7 +1264,7 @@ void TreePiece::oneNodeOutArr(OutputParams& params,
 			      int bDone, // Last call
 			      CkCallback& cb) 
 {
-    FILE* outfile = fopen(params.fileName.c_str(), "r+");
+    FILE* outfile = CmiFopen(params.fileName.c_str(), "r+");
     if(outfile == NULL)
 	ckerr << "Treepiece " << thisIndex << " failed to open "
 	      << params.fileName.c_str() << " : " << errno << endl;
@@ -1287,7 +1311,7 @@ void TreePiece::outputIntASCII(OutputIntParams& params, // specifies
   if(thisIndex==0) {
     if(verbosity > 2)
       ckout << "TreePiece " << thisIndex << ": Writing header for output file" << endl;
-    outfile = fopen(params.fileName.c_str(), "w");
+    outfile = CmiFopen(params.fileName.c_str(), "w");
     CkAssert(outfile != NULL);
     fprintf(outfile,"%d\n",(int) nTotalParticles);
     fclose(outfile);
@@ -1297,7 +1321,7 @@ void TreePiece::outputIntASCII(OutputIntParams& params, // specifies
     ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
 	
   if(bParaWrite) {
-      outfile = fopen(params.fileName.c_str(), "r+");
+      outfile = CmiFopen(params.fileName.c_str(), "r+");
       if(outfile == NULL)
 	    ckerr << "Treepiece " << thisIndex << " failed to open "
 		  << params.fileName.c_str() << " : " << errno << endl;
@@ -1353,7 +1377,11 @@ void TreePiece::oneNodeOutIntArr(OutputIntParams& params,
 			      int iIndex, // treepiece which called me
 			      CkCallback& cb) 
 {
-    FILE* outfile = fopen(params.fileName.c_str(), "r+");
+    FILE* outfile = CmiFopen(params.fileName.c_str(), "r+");
+    if(outfile == NULL)
+	ckerr << "Treepiece " << thisIndex << " failed to open "
+	      << params.fileName.c_str() << " : " << errno << endl;
+    CkAssert(outfile != NULL);
     int result = fseek(outfile, 0L, SEEK_END);
     CkAssert(result == 0);
     for(int i = 0; i < nPart; ++i) {
@@ -1395,7 +1423,7 @@ void TreePiece::outputBinary(OutputParams& params, // specifies
     if((thisIndex==0 && packed) || (thisIndex==0 && !packed && cnt==0)) {
 	if(verbosity > 2)
 	    ckout << "TreePiece " << thisIndex << ": Writing header for output file" << endl;
-	outfile = fopen(params.fileName.c_str(), "w");
+	outfile = CmiFopen(params.fileName.c_str(), "w");
 	CkAssert(outfile != NULL);
 	xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
 	iDum = (int)nTotalParticles;
@@ -1408,7 +1436,7 @@ void TreePiece::outputBinary(OutputParams& params, // specifies
 	ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
     
     if(bParaWrite) {
-	outfile = fopen(params.fileName.c_str(), "r+");
+	outfile = CmiFopen(params.fileName.c_str(), "r+");
 	if(outfile == NULL)
 	    ckerr << "Treepiece " << thisIndex << " failed to open "
 		  << params.fileName.c_str() << " : " << errno << endl;
@@ -1517,7 +1545,7 @@ void TreePiece::oneNodeOutBinVec(OutputParams& params,
 				 int bDone, // Last call
 				 CkCallback& cb) 
 {
-    FILE* outfile = fopen(params.fileName.c_str(), "r+");
+    FILE* outfile = CmiFopen(params.fileName.c_str(), "r+");
     XDR xdrs;
     if(outfile == NULL)
 	ckerr << "Treepiece " << thisIndex << " failed to open "
@@ -1569,7 +1597,7 @@ void TreePiece::oneNodeOutBinArr(OutputParams& params,
 			      int bDone, // Last call
 			      CkCallback& cb) 
 {
-    FILE* outfile = fopen(params.fileName.c_str(), "r+");
+    FILE* outfile = CmiFopen(params.fileName.c_str(), "r+");
     XDR xdrs;
     if(outfile == NULL)
 	ckerr << "Treepiece " << thisIndex << " failed to open "
@@ -1610,7 +1638,8 @@ void TreePiece::outputIOrderBinary(const string& fileName, const CkCallback& cb)
 	if(verbosity > 2)
 	    ckerr << "TreePiece " << thisIndex << ": Writing header for iOrder file"
 		  << endl;
-	FILE* outfile = fopen(fileName.c_str(), "w");
+	FILE* outfile = CmiFopen(fileName.c_str(), "w");
+	CkAssert(outfile != NULL);
 	xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
 	iDum = (int) nTotalParticles;
 	xdr_int(&xdrs,&iDum);
@@ -1621,7 +1650,8 @@ void TreePiece::outputIOrderBinary(const string& fileName, const CkCallback& cb)
     if(verbosity > 3)
 	ckerr << "TreePiece " << thisIndex << ": Writing iOrder to disk" << endl;
     
-    FILE* outfile = fopen(fileName.c_str(), "r+");
+    FILE* outfile = CmiFopen(fileName.c_str(), "r+");
+    CkAssert(outfile != NULL);
     xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
     fseek(outfile, 0, SEEK_END);
     

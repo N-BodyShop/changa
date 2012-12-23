@@ -14,6 +14,7 @@
 #include "Vector3D.h"
 #include "CentralLB.h"
 #define  ORB3DLB_NOTOPO_DEBUG 
+// #define  ORB3DLB_NOTOPO_DEBUG CkPrintf
 class Orb3dCommon{
   // pointer to stats->to_proc
   protected:		
@@ -25,6 +26,9 @@ class Orb3dCommon{
 
     int nrecvd;
     bool haveTPCentroids;
+    /// Take into account memory constraints by limiting the number of pieces
+    /// per processor.
+    double maxPieceProc;
 
     int nextProc;
 
@@ -40,6 +44,9 @@ class Orb3dCommon{
       int numEvents = events[XDIM].size();
       CkAssert(numEvents == events[YDIM].size());
       CkAssert(numEvents == events[ZDIM].size());
+
+      if(numEvents == 0)
+	return;
 
       if(nprocs == 1){
         ORB3DLB_NOTOPO_DEBUG("base: assign %d tps to proc %d\n", numEvents, nextProc);
@@ -99,6 +106,7 @@ class Orb3dCommon{
       int nleft = splitIndex;
       int nright = numEvents-nleft;
 
+#if 0
       if(nright < nrprocs) {  // at least one piece per processor
         nright = nrprocs;
         nleft = splitIndex = numEvents-nright;
@@ -109,6 +117,19 @@ class Orb3dCommon{
         nright = numEvents-nleft;
         CkAssert(nright >= nrprocs);
       }
+#endif
+
+      if(nleft > nlprocs*maxPieceProc) {
+	  nleft = splitIndex = (int) (nlprocs*maxPieceProc);
+	  nright = numEvents-nleft;
+	  }
+      else if (nright > nrprocs*maxPieceProc) {
+	  nright = (int) (nrprocs*maxPieceProc);
+	  nleft = splitIndex = numEvents-nright;
+	  }
+      CkAssert(splitIndex >= 0);
+      CkAssert(splitIndex < numEvents);
+
       OrientedBox<float> leftBox;
       OrientedBox<float> rightBox;
 
@@ -187,17 +208,21 @@ class Orb3dCommon{
     }
 
     void orbPrepare(vector<Event> *tpEvents, OrientedBox<float> &box, int numobjs, BaseLB::LDStats * stats){
+
+      int nmig = stats->n_migrateobjs;
+      if(dMaxBalance < 1.0)
+        dMaxBalance = 1.0;
+      maxPieceProc = dMaxBalance*nmig/stats->count;
+      if(maxPieceProc < 1.0)
+        maxPieceProc = 1.01;
+
       CkAssert(tpEvents[XDIM].size() == numobjs);
       CkAssert(tpEvents[YDIM].size() == numobjs);
       CkAssert(tpEvents[ZDIM].size() == numobjs);
 
-
       mapping = &stats->to_proc;
       from = &stats->from_proc;
       int dim = 0;
-
-
-
 
       CkPrintf("[Orb3dLB_notopo] sorting\n");
       for(int i = 0; i < NDIMS; i++){
@@ -220,9 +245,6 @@ class Orb3dCommon{
       for(int i = 0; i < stats->count; i++){
         procload[i] = 0.0;
       }
-
-
-
 
     }
 
@@ -255,14 +277,17 @@ class Orb3dCommon{
 #endif
 
       double *predLoad = new double[stats->count];
+      double *predCount = new double[stats->count];
       for(int i = 0; i < stats->count; i++){
         predLoad[i] = 0.0;
+        predCount[i] = 0.0;
       }
 
       for(int i = 0; i < numobjs; i++){
         double ld = stats->objData[i].wallTime;
         int proc = stats->to_proc[i];
         predLoad[proc] += ld; 
+        predCount[proc] += 1.0; 
       }
 
       double minWall = 0.0;
@@ -281,15 +306,18 @@ class Orb3dCommon{
       double minPred = 0.0;
       double maxPred = 0.0;
 
+      double avgPiece = 0.0;
+      double minPiece = 0.0;
+      double maxPiece = 0.0;
+
       CkPrintf("***************************\n");
       //  CkPrintf("Before LB step %d\n", step());
-      CkPrintf("***************************\n");
-      CkPrintf("i pe wall idle bg_wall objload\n");
       for(int i = 0; i < stats->count; i++){
         double wallTime = stats->procs[i].total_walltime;
         double idleTime = stats->procs[i].idletime;
         double bgTime = stats->procs[i].bg_walltime;
         double pred = predLoad[i];
+        double npiece = predCount[i];
         /*
            CkPrintf("[pestats] %d %d %f %f %f %f\n", 
            i,
@@ -304,6 +332,7 @@ class Orb3dCommon{
         avgIdle += idleTime; 
         avgBg += bgTime;
         avgPred += pred;
+        avgPiece += npiece;
 
         if(i==0 || minWall > wallTime) minWall = wallTime;
         if(i==0 || maxWall < wallTime) maxWall = wallTime;
@@ -317,15 +346,20 @@ class Orb3dCommon{
         if(i==0 || minPred > pred) minPred = pred;
         if(i==0 || maxPred < pred) maxPred = pred;
 
+        if(i==0 || minPiece > npiece) minPiece = npiece;
+        if(i==0 || maxPiece < npiece) maxPiece = npiece;
+
       }
 
       avgWall /= stats->count;
       avgIdle /= stats->count;
       avgBg /= stats->count;
       avgPred /= stats->count;
+      avgPiece /= stats->count;
 
 
       delete[] predLoad;
+      delete[] predCount;
 
 #if 0
       float minload, maxload, avgload;
@@ -354,6 +388,7 @@ class Orb3dCommon{
       CkPrintf("Orb3dLB_notopo stats: minWall %f maxWall %f avgWall %f maxWall/avgWall %f\n", minWall, maxWall, avgWall, maxWall/avgWall);
       CkPrintf("Orb3dLB_notopo stats: minIdle %f maxIdle %f avgIdle %f minIdle/avgIdle %f\n", minIdle, maxIdle, avgIdle, minIdle/avgIdle);
       CkPrintf("Orb3dLB_notopo stats: minPred %f maxPred %f avgPred %f maxPred/avgPred %f\n", minPred, maxPred, avgPred, maxPred/avgPred);
+      CkPrintf("Orb3dLB_notopo stats: minPiece %f maxPiece %f avgPiece %f maxPiece/avgPiece %f\n", minPiece, maxPiece, avgPiece, maxPiece/avgPiece);
 
       CkPrintf("Orb3dLB_notopo stats: minBg %f maxBg %f avgBg %f maxBg/avgBg %f\n", minBg, maxBg, avgBg, maxBg/avgBg);
       CkPrintf("Orb3dLB_notopo stats: orb migrated %d refine migrated %d objects\n", migr, numRefineMigrated);

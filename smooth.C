@@ -319,8 +319,8 @@ void TreePiece::setupSmooth() {
   dm->getChunks(numChunks, prefetchRoots);
   CkArrayIndexMax idxMax = CkArrayIndex1D(thisIndex);
   if (numChunks == 0 && myNumParticles == 0) numChunks = 1;
-  ((CkCacheManager*)cacheSmoothPart.ckLocalBranch())->cacheSync(numChunks, idxMax, localIndex);
-  ((CkCacheManager*)cacheNode.ckLocalBranch())->cacheSync(numChunks, idxMax, localIndex);
+  cacheSmoothPart.ckLocalBranch()->cacheSync(numChunks, idxMax, localIndex);
+  cacheNode.ckLocalBranch()->cacheSync(numChunks, idxMax, localIndex);
   
   // The following if is necessary to prevent nodes containing only TreePieces
   // without particles from getting stuck and crashing.
@@ -588,8 +588,8 @@ void NearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
     if(started && nParticlesPending == 0) {
       started = false;
       tp->memWithCache = CmiMemoryUsage()/(1024*1024);
-      tp->nNodeCacheEntries = ((CkCacheManager*)cacheNode.ckLocalBranch())->getCache()->size();
-      tp->nPartCacheEntries = ((CkCacheManager*)cacheSmoothPart.ckLocalBranch())->getCache()->size();
+      tp->nNodeCacheEntries = cacheNode.ckLocalBranch()->getCache()->size();
+      tp->nPartCacheEntries = cacheSmoothPart.ckLocalBranch()->getCache()->size();
       cacheSmoothPart[CkMyPe()].finishedChunk(0, 0);
 #ifdef CHECK_WALK_COMPLETIONS
       CkPrintf("[%d] markWalkDone NearNeighborState\n", tp->getIndex());
@@ -742,11 +742,13 @@ void ReSmoothCompute::bucketCompare(TreePiece *ownerTP,
                                   State *state
 				  ) 
 {
+    const double dSearchEps = 1e-7;  // Slop to insure farthest neighbor is
+				     // found.
     ReNearNeighborState *nstate = (ReNearNeighborState *)state;
     Vector3D<double> rp = offset + p->position;
 
     Vector3D<double> drBucket = node->centerSm - rp;
-    if(sqr(node->sizeSm + node->fKeyMax) < drBucket.lengthSquared())
+    if(sqr(node->sizeSm + node->fKeyMax)*(1.+dSearchEps) < drBucket.lengthSquared())
 	return;		// particle is outside all smoothing radii
 
     for(int j = node->firstParticle; j <= node->lastParticle; ++j) {
@@ -756,7 +758,7 @@ void ReSmoothCompute::bucketCompare(TreePiece *ownerTP,
 	double rOld = particles[j].fBall; // Ball radius
 	Vector3D<double> dr = particles[j].position - rp;
 	
-	if(rOld*rOld >= dr.lengthSquared()) {  // Add to list
+	if(rOld*rOld*(1.+dSearchEps) >= dr.lengthSquared()) {  // Add to list
 	    pqSmoothNode pqNew;
 	    pqNew.fKey = dr.lengthSquared();
 	    pqNew.dx = dr;

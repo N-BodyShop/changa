@@ -392,6 +392,29 @@ class coolontimeOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output Supernova heating rate
+class ESNRateOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+	if (p->isGas()) return p->fESNrate();
+	else if(p->isStar()) return p->fStarESNrate();
+	else return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+    {CkAssert(0); return 0.0;}
+ public:
+    ESNRateOutputParams() {}
+    ESNRateOutputParams(std::string achFileName) { 
+	bVector = 0; 
+	fileName = achFileName+".ESNRate";
+	}
+    PUPable_decl(ESNRateOutputParams);
+    ESNRateOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
 /// @brief Output timesteps.
 class DtOutputParams : public OutputParams
 {
@@ -410,6 +433,25 @@ class DtOutputParams : public OutputParams
     DtOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
     PUPable_decl(DtOutputParams);
     DtOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+/// @brief Output timesteps.
+class KeyOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p)
+    {
+	return p->key;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    KeyOutputParams() {}
+    KeyOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    PUPable_decl(KeyOutputParams);
+    KeyOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
         OutputParams::pup(p);//Call base class
 	}

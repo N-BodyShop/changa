@@ -60,11 +60,11 @@ FLAG_COOLING = @FLAG_COOLING@
 # -DMERGE_REMOTE_REQUESTS : merges remote requests before sending; local trees built after requests sent
 # -DSPLIT_PHASE_TREE_BUILD : no merging of remote requests on PE; local trees built after requests sent
 # debug with -DPRINT_MERGED_TREE
-FLAG_TREE_BUILD = 
+FLAG_TREE_BUILD = -DMERGE_REMOTE_REQUESTS
 
 #MULTISTEP_LOADBALANCING_VERBOSE = -DCOSMO_MCLB=2 -DMCLBMSV
 #ORB3DLB_LOADBALANCING_VERBOSE = -DORB3DLBV
-DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST) $(HEXADECAPOLE) $(FLAG_COOLING) $(CELL) $(FLAG_REFACTOR) $(MULTISTEP_LOADBALANCING_VERBOSE) $(ORB3DLB_LOADBALANCING_VERBOSE) $(CUDA) -DREDUCTION_HELPER $(FLAG_TREE_BUILD)  
+DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST) $(HEXADECAPOLE) $(FLAG_COOLING) $(CELL) $(FLAG_REFACTOR) $(MULTISTEP_LOADBALANCING_VERBOSE) $(ORB3DLB_LOADBALANCING_VERBOSE) $(CUDA) -DREDUCTION_HELPER $(FLAG_TREE_BUILD) -DCHANGESOFT
 
 CHARM_PATH = @CHARM_PATH@
 STRUCTURES_PATH = ../utility/structures
@@ -87,7 +87,7 @@ NVCC_LIBS = -lcuda -lcudart -lGL
 #OPTS = -g -memory charmdebug
 OPTS = -O3
 CXXFLAGS += $(OPTS) -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) @CPPFLAGS@
-LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache -module commlib -module CkMulticast -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MultistepLB -module MultistepLB_notopo -module Orb3dLB -module Orb3dLB_notopo -module liveViz #-tracemode projections -memory charmdebug -memory paranoid
+LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache -module commlib -module CkMulticast -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MultistepLB -module MultistepLB_notopo -module MultistepOrbLB -module Orb3dLB -module Orb3dLB_notopo -module liveViz #-tracemode projections -memory charmdebug -memory paranoid
 XDR_DIR = ../rpc
 XDR_OBJS = $(XDR_DIR)/xdr.o $(XDR_DIR)/xdr_float.o $(XDR_DIR)/xdr_mem.o $(XDR_DIR)/xdr_stdio.o
 LDLIBS += $(STRUCTURES_PATH)/libTipsy.a  @LIBS@
@@ -105,17 +105,18 @@ OBJECTS = Reductions.o DataManager.o TreePiece.o Sorter.o \
 	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
 	  InOutput.o cosmo.o romberg.o runge.o dumpframe.o dffuncs.o \
 	  moments.o MultistepLB.o Orb3dLB.o Orb3dLB_notopo.o \
-	  MultistepLB_notopo.o PETreeMerger.o \
+	  MultistepLB_notopo.o MultistepOrbLB.o PETreeMerger.o \
 	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
 	  feedback.o imf.o supernova.o supernovaia.o starlifetime.o \
 	  sinks.o \
+	  cha_commitid.o \
 	  @OBJECTS_COOLING@
 
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \
 	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
 	InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c \
 	moments.c MultistepLB.C Orb3dLB.C Orb3dLB_notopo.C starform.C \
-	MultistepLB_notopo.C PETreeMerger.cpp \
+	MultistepLB_notopo.C MultistepOrbLB.C PETreeMerger.cpp \
 	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C \
 	starform.C feedback.C imf.C supernova.C supernovaia.C starlifetime.C \
 	sinks.C
@@ -136,18 +137,29 @@ TARGET = ChaNGa
 VERSION = 1.0
 all: $(TARGET)
 
-$(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleMultistepLB_notopo.a 
+$(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleMultistepLB_notopo.a libmoduleMultistepOrbLB.a
 	$(CHARMC) -o $(TARGET) $(LDFLAGS) $(OBJECTS) $(LDLIBS)
 
 $(TARGET).%: $(TARGET)
 	mv $(TARGET) $@
 	mv charmrun charmrun.$*
 
+
+VERSION: VERSION.new
+	./commitid.sh
+
+cha_commitid.c: VERSION
+	echo "const char * const Cha_CommitID = \"`cat VERSION`\";" > $@
+cha_commitid.o: CC=$(CHARMC)
+
 $(STRUCTURES_PATH)/libTipsy.a:
 	cd $(STRUCTURES_PATH); $(MAKE) libTipsy.a
 
 libmoduleMultistepLB.a: MultistepLB.o
 	$(CHARMC) -o libmoduleMultistepLB.a MultistepLB.o 
+
+libmoduleMultistepOrbLB.a: MultistepOrbLB.o
+	$(CHARMC) -o libmoduleMultistepOrbLB.a MultistepOrbLB.o 
 
 libmoduleMultistepLB_notopo.a: MultistepLB_notopo.o
 	$(CHARMC) -o libmoduleMultistepLB_notopo.a MultistepLB_notopo.o 
@@ -210,6 +222,6 @@ depends:
 # without the inclusion of charm headers.
 # $CHARM_DIR/bin/charmc  -M -MM -MG -O3 -I../utility/structures -I../ParallelGravity -Wall  -DCOSMO_STATS=1   -DCOSMO_DEBUG=2  -DINTERLIST_VER=2 -DHEXADECAPOLE     -DCACHE_TREE -DCOOLING_NONE  Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c moments.c MultistepLB.C Orb3dLB.C TreeWalk.C Compute.C | while read i;do echo $i| awk -F' ' '{for (i=1;i<NF;++i) print $i" \\"}';echo;done|grep -v "charm/bin" > Makefile.dep
 
-.PHONY: all docs dist clean depend test
+.PHONY: all docs dist clean depend test VERSION.new
 
 include Makefile.dep
