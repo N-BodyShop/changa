@@ -1120,18 +1120,20 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	int i,iRung,naccreted, ieat, ivmin;
 	double mdotsum, weat;
 	double weight,wrs;
-	double aFac, dCosmoDenFac,dCosmoVel2Fac;
-	double dvmin,dvx,dvy,dvz;
-	double ddvx,ddvy,ddvz,dvv; /* measure mindeltav */
+	double aFac, dCosmoDenFac,dCosmoVel2Fac,aDot;
+	double dvmin,dvx,dvy,dvz,dvcosmo; /* measure mindeltav */
 
 	assert(p->rung >= s.iSinkCurrentRung);
 	p->dDeltaM() = 0.0;
 	naccreted = 0;
 	aFac = a;
 	dCosmoDenFac = aFac*aFac*aFac;
-	// XXX The following line will introduce bugs.  Because the
-	// expansion velocity is not accounted for.
-	dCosmoVel2Fac = aFac*aFac; // rdot^2 = velocity^2/dCosmoVel2Fac
+	dCosmoVel2Fac = aFac*aFac;
+	aDot = aFac*H;  /* da/dt */
+	/* CosmoVel2Fac converts cannonical velocity^2 to physical velocity^2
+	   Cosmo sims tend to use cannonical velocities 
+	   v_phys = v_cannonical/a + adot*r
+	   JMB 9/1/12*/
 
         mdotsum = 0.;
         weat = -1e37;
@@ -1144,12 +1146,12 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	if(s.bBHMindv == 1){
 	  dvmin = FLT_MAX;
 	  for (i=0;i<nSmooth;++i) {
-	    ddvx = p->velocity[0] - nnList[i].p->velocity[0];
-	    ddvy = p->velocity[1] - nnList[i].p->velocity[1];
-	    ddvz = p->velocity[2] - nnList[i].p->velocity[2];
-	    dvv = sqrt(ddvx*ddvx + ddvy*ddvy + ddvz*ddvz);
-	    if (dvv < dvmin) {
-	      dvmin=dvv;
+	    dvx = (-p->vPred()[0] + nnList[i].p->vPred()[0])/aFac - aDot*nnList[i].dx.x;
+	    dvy = (-p->vPred()[1] + nnList[i].p->vPred()[1])/aFac - aDot*nnList[i].dx.y;
+	    dvz = (-p->vPred()[2] + nnList[i].p->vPred()[2])/aFac - aDot*nnList[i].dx.z;
+	    dvcosmo = sqrt(dvx*dvx + dvy*dvy + dvz*dvz);
+	    if (dvcosmo < dvmin) {
+	      dvmin=dvcosmo;
 	      ivmin = i;
 	    }
 	  }
@@ -1168,12 +1170,14 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	    assert(TYPETest(q,TYPE_GAS));
 	    fW = rs*q->mass;
 
-	    if(s.bBHMindv == 1) weight = rs*pow(q->c()*q->c()+(dvmin*dvmin/dCosmoVel2Fac),-1.5)/dCosmoDenFac;
+	    if(s.bBHMindv == 1) weight = rs*pow(q->c()*q->c()+(dvmin*dvmin),-1.5)/dCosmoDenFac;
 	    else {
-	      dvx = p->velocity[0]-q->velocity[0];
-	      dvy = p->velocity[1]-q->velocity[1];
-	      dvz = p->velocity[2]-q->velocity[2];
 	      weight = rs*pow(q->c()*q->c()+(dvx*dvx+dvy*dvy+dvz*dvz)/dCosmoVel2Fac,-1.5)/dCosmoDenFac; /* weight particles by mdot quantities */
+	      dvx = (-p->vPred()[0]+q->vPred()[0])/aFac - aDot*nnList[i].dx.x;
+	      dvy = (-p->vPred()[1]+q->vPred()[1])/aFac - aDot*nnList[i].dx.y;
+	      dvz = (-p->vPred()[2]+q->vPred()[2])/aFac - aDot*nnList[i].dx.z;
+	      dvcosmo = sqrt(dvx*dvx+dvy*dvy+dvz*dvz);
+	      weight = rs*pow(q->c()*q->c()+dvcosmo*dvcosmo,-1.5)/dCosmoDenFac; /* weight particles by mdot quantities */
 	    /* cosmo factors put in 7/7/09  JMB */
 	    }
 	      if (weight > weat)  {   
@@ -1233,7 +1237,6 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	weat = -1e37;
 
 	for (;;) {
-	    double r2min = FLT_MAX;
 	    q = NULL;
 	    for (i=0;i<nSmooth;++i) {
 		double fDist2 = nnList[i].fKey;
@@ -1248,12 +1251,13 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		 * in its smoothing length  JMB 10/22/08 */
 		if (nnList[i].p->rung < s.iSinkCurrentRung) continue; /* JMB 7/9/09 */
 
-		if(s.bBHMindv == 1) weight = rs*pow(nnList[i].p->c()*nnList[i].p->c()+(dvmin*dvmin/dCosmoVel2Fac),-1.5)/dCosmoDenFac;
+		if(s.bBHMindv == 1) weight = rs*pow(nnList[i].p->c()*nnList[i].p->c()+(dvmin*dvmin),-1.5)/dCosmoDenFac;
 		else {
-		  dvx = p->velocity[0]-nnList[i].p->velocity[0];
-		  dvy = p->velocity[1]-nnList[i].p->velocity[1];
-		  dvz = p->velocity[2]-nnList[i].p->velocity[2];
-		  weight = rs*pow(nnList[i].p->c()*nnList[i].p->c()+(dvx*dvx+dvy*dvy+dvz*dvz)/dCosmoVel2Fac,-1.5)/dCosmoDenFac; /* weight particles by mdot quantities */
+		  dvx = (-p->vPred()[0]+nnList[i].p->vPred()[0])/aFac - nnList[i].dx.x*aDot;
+		  dvy = (-p->vPred()[1]+nnList[i].p->vPred()[1])/aFac - nnList[i].dx.y*aDot;
+		  dvz = (-p->vPred()[2]+nnList[i].p->vPred()[2])/aFac - nnList[i].dx.z*aDot;
+		  dvcosmo = sqrt(dvx*dvx+dvy*dvy+dvz*dvz);
+		  weight = rs*pow(nnList[i].p->c()*nnList[i].p->c()+dvcosmo*dvcosmo,-1.5)/dCosmoDenFac; /* weight particles by mdot quantities */
 	    /* cosmo factors put in 7/7/09  JMB */
 		}
 	
@@ -1387,22 +1391,21 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 {
 	GravityParticle *q = NULL;
 
-	double ih2,r2,rs,fDensity;
-	double fW;
-	double mdot, mdotCurr, dmAvg, dm, dmq, dE, ifMass, dtEff, dEwave;
-	double fNorm,rstot,fNorm_new,fNorm_Pres,fAveDens, f2h2;
-        double fBHBlastRadius,fBHShutoffTime,fmind;
-	int i,iRung,counter,imind,naccreted,ieat;
+	double ih2,r2,rs;
+	double mdot, mdotCurr, dmAvg, dm, dmq, dE, ifMass, dtEff;
+	double fNorm,fNorm_new,f2h2;
+	int i,iRung,counter,naccreted,ieat;
 	double weat;
 	double weight,fbweight; /* weight is for accretion, fbweight is for FB  */
-	double aFac, dCosmoDenFac,dCosmoVel2Fac;
-	double dvmin, dvx,dvy,dvz,dvv;
+	double aFac, dCosmoDenFac,dCosmoVel2Fac,aDot;
+	double dvmin, dvx,dvy,dvz,dvv,dvcosmo;
 	int ivmin;
 
         weat = -1e37;
 	aFac = a;
 	dCosmoDenFac = aFac*aFac*aFac;
         dCosmoVel2Fac = aFac*aFac;
+	aDot = aFac*H;
 
 	mdot = p->dMDot();	
 	if (p->dDeltaM() == 0.0) {
@@ -1506,12 +1509,12 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	  if(s.bBHMindv == 1){
 	    dvmin = FLT_MAX;
 	    for (i=0;i<nSmooth;++i) {
-	      dvx = p->velocity[0] - nnList[i].p->velocity[0];
-	      dvy = p->velocity[1] - nnList[i].p->velocity[1];
-	      dvz = p->velocity[2] - nnList[i].p->velocity[2];
-	      dvv = sqrt(dvx*dvx + dvy*dvy + dvz*dvz);
-	      if (dvv < dvmin) {
-		dvmin=dvv;
+	      dvx = (-p->vPred()[0] + nnList[i].p->vPred()[0])-aDot*nnList[i].dx.x;
+	      dvy = (-p->vPred()[1] + nnList[i].p->vPred()[1])-aDot*nnList[i].dx.y;
+	      dvz = (-p->vPred()[2] + nnList[i].p->vPred()[2])-aDot*nnList[i].dx.z;
+	      dvcosmo = sqrt(dvx*dvx + dvy*dvy + dvz*dvz);
+	      if (dvcosmo < dvmin) {
+		dvmin=dvcosmo;
 		ivmin = i;
 	      }
 	    }
@@ -1535,14 +1538,14 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 
 	      if(s.bBHMindv == 1)
 		  weight = rs*pow(nnList[i].p->c()*nnList[i].p->c()
-				  +(dvmin*dvmin/dCosmoVel2Fac),-1.5)/dCosmoDenFac;
+				  +(dvmin*dvmin),-1.5)/dCosmoDenFac;
 	      else {
-		dvx = p->velocity[0]-nnList[i].p->velocity[0];
-		dvy = p->velocity[1]-nnList[i].p->velocity[1];
-		dvz = p->velocity[2]-nnList[i].p->velocity[2];
+		dvx = (-p->vPred()[0]+nnList[i].p->vPred()[0])-aDot*nnList[i].dx.x;
+		dvy = (-p->vPred()[1]+nnList[i].p->vPred()[1])-aDot*nnList[i].dx.y;
+		dvz = (-p->vPred()[2]+nnList[i].p->vPred()[2])-aDot*nnList[i].dx.z;
+		dvcosmo = sqrt(dvx*dvx+dvy*dvy+dvz*dvz);
 		weight = rs*pow(nnList[i].p->c()*nnList[i].p->c()
-				+(dvx*dvx+dvy*dvy+dvz*dvz)/dCosmoVel2Fac,-1.5)
-		    /dCosmoDenFac; /* weight particles by mdot quantities */
+				+dvcosmo*dvcosmo,-1.5)/dCosmoDenFac; /* weight particles by mdot quantities */
 		/* cosmo factors put in 7/7/09  JMB */
 	      }	    	      
 	      if (weight > weat) {
@@ -1637,9 +1640,8 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 
 	if(s.dBHSinkFeedbackFactor != 0.0) {  /* allows FB to be turned off JMB 7/20/09 */
 	  dE = s.dBHSinkFeedbackFactor*dm; /* dE based on actual mass eaten */
-	  dEwave =  dE / s.dBHSinkFeedbackEff; /* dE for blastwave equations.  assume excess is radiated away. JMB 9/10/09 */
 
-	  dtEff = s.dSinkCurrentDelta*pow(0.5,p->rung-s.iSinkCurrentRung);
+	  dtEff = s.dSinkCurrentDelta;
 	  dmAvg = mdot*dtEff;    
 	  CkPrintf("BHSink %d:  Delta: %g Time: %.8f dm: %g dE %g\n",
 		   p->iOrder,dtEff,dTime,dm,dE);
@@ -1728,7 +1730,8 @@ void BHIdentifySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
     GravityParticle *q = NULL;
     int i;
-    double ifMass, deltaa, deltar, deltav;
+    double deltaa, deltar, deltav;
+    double aFac = a;
 
     for (i=0;i<nSmooth;++i) {
 	q = nnList[i].p;
@@ -1747,7 +1750,7 @@ void BHIdentifySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		    + sqr(p->velocity[1] - q->velocity[1])
 		    + sqr(p->velocity[2] - q->velocity[2]));
 	  
-	if ( deltaa*deltar < 0.5*deltav*deltav ) continue;
+	if ( deltaa*deltar*aFac < 0.5*deltav*deltav ) continue;
 	/* Selects other BH particles that are 
 	 * within  the criteria 
 	 * delta_a*delta_r < .5*delta_v^2  
@@ -1782,7 +1785,7 @@ void BHSinkMergeSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
      set in BHSinkIdentify above  */
 
     GravityParticle *q = NULL;
-    double ifMass, deltaa, deltar, deltav;
+    double ifMass;
     int i;
     /*  for kicks */
     const double A = 12000.0;
@@ -1845,7 +1848,7 @@ void BHSinkMergeSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	      vkick = sqrt ( (vm + vperp*cos(xi))*(vm + vperp*cos(xi)) + (vperp*sin(xi))*(vperp*sin(xi)) + vpar*vpar);
 	      vkick = vkick / s.dKmPerSecUnit;
 	      /* comoving coords are important JMB 5/15/09 */
-	      vkick = vkick*a*a;
+	      vkick = vkick*a;
 	    
 	      /* random direction */
 
