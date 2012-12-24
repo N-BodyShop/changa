@@ -1024,5 +1024,9 @@ ParallelGravity.decl.h
 sinks.o: \
 ParallelGravity.h \
 ParallelGravity.decl.h \
+MultistepLB.decl.h \
+Orb3dLB.decl.h \
+MultistepOrbLB.decl.h \
+Reductions.decl.h \
 smooth.h \
 sinks.h
