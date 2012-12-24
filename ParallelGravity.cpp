@@ -957,8 +957,6 @@ Main::Main(CkArgMsg* m) {
 		param.dComovingGmPerCcUnit = param.dGmPerCcUnit;
 		}
 
-	param.sinks.CheckParams(prm, param);
-
         if (domainDecomposition == SFC_peano_dec) peanoKey = 3;
         if (domainDecomposition == SFC_peano_dec_2D) peanoKey = 2;
         if (domainDecomposition == SFC_peano_dec_3D) peanoKey = 3;
@@ -1782,6 +1780,7 @@ void Main::setupICs() {
   if(param.bFeedback)
       param.feedback->CheckParams(prm, param);
 
+  param.sinks.CheckParams(prm, param);
   SetSink();
   
   string achLogFileName = string(param.achOutName) + ".log";
