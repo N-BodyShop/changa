@@ -229,7 +229,7 @@ void Main::outputBlackHoles(double dTime)
 
 	fp = fopen(achOutFile,"a");
 	CkAssert(fp != NULL);
-	fprintf(fp, "%d %g\n", nSink, dTime);
+	fprintf(fp, "%ld %g\n", nSink, dTime);
 	fclose(fp);
 	
 	if(param.csm->bComove) {
@@ -301,7 +301,7 @@ void Main::SetSink()
 ///
 void TreePiece::SetSink(double dSinkMassMin, const CkCallback &cb)
 {
-    int i,nSink = 0;
+    int nSink = 0;
 
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
@@ -399,7 +399,6 @@ void TreePiece::formSinks(int bJeans, double dJConst2, int bDensity,
 			  int bSimple, const CkCallback &cb)
 {
     int i;
-    GravityParticle *p;
     int n = myNumParticles;
     double Jval, Jvalmin = FLT_MAX;
     int nCandidates = 0;
@@ -977,8 +976,8 @@ void Main::doSinks(double dTime, double dDelta, int iKickRung)
    This call is timed for just after those particles have completed a full KDK
 */
 {
-   double sec,sec1,dsec,dMass;
-   int nAccreted,nSmoothTemp;
+   double sec,sec1,dsec;
+   int nAccreted;
 
     /* I assume sink creation is rarer so the tree will be ok after this call most of the time */
     FormSinks(dTime, dDelta, iKickRung ); 
@@ -1116,8 +1115,8 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
 	double ih2,r2,rs,fDensity;
 	double v[3],cs,fW,dv2,dv;
-	double mdot, mdotEdd, mdotCurr, dm, dmq, dE, ifMass, dtEff;
-	int i,iRung,naccreted, ieat, ivmin;
+	double mdot, mdotEdd, mdotCurr, dmq, dtEff;
+	int i, naccreted, ieat, ivmin;
 	double mdotsum, weat;
 	double weight,wrs;
 	double aFac, dCosmoDenFac,dCosmoVel2Fac,aDot;
@@ -1270,14 +1269,24 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 			       tree */
 
 	    if(q != NULL) {	    
+#if 0
 	      /* Timestep for accretion is larger of sink and victim timestep */
 	      iRung = q->rung; 
 	      if (iRung > p->rung) iRung = p->rung;
-	      dtEff = s.dSinkCurrentDelta*pow(0.5,iRung-s.iSinkCurrentRung);
+#endif
+	      dtEff = s.dSinkCurrentDelta;
 	      /* If victim has unclosed kick -- don't actually take the mass
 	       If sink has unclosed kick we shouldn't even be here!
 	       When victim is active use his timestep if longer 
 	       Statistically expect to get right effective mdot on average */
+	      /* JMB 9/18/12 -- Actually, the method described above
+		 does NOT get the right mdot on average, it
+		 underestimates mdot.  Instead I have removed all
+		 timestep criteria from BH accretion.  Thus, momentum
+		 is no longer strictly conserved.  HOWEVER, the
+		 amounts of momentum involved are tiny, likely
+		 comparable to the errors intrinsic to the code.
+		 Thus, we shall not stress about it. */
 	      dmq = mdotCurr*dtEff;
 	      }
 	    else {
@@ -1288,9 +1297,6 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	    }
 	    assert(q != NULL);
 	    /* We have our victim */
-
-	    if (q->rung >= s.iSinkCurrentRung) { /* moved up from below JMB 5/4/09 */
-	                                             /* no longer needed, moved above */
 
 	      if (dmq < q->mass) {
 		mdotCurr = 0.0;
@@ -1309,7 +1315,6 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
 	      CkPrintf("BHSink %d:  Time %g %d dmq %g %g %g\n",p->iOrder,dTime,q->iOrder,dmq,q->curlv()[1],p->dDeltaM());
 
-		}
 	    
 	    if (mdotCurr == 0.0) break;
 	    }
@@ -1394,11 +1399,11 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	double ih2,r2,rs;
 	double mdot, mdotCurr, dmAvg, dm, dmq, dE, ifMass, dtEff;
 	double fNorm,fNorm_new,f2h2;
-	int i,iRung,counter,naccreted,ieat;
+	int i, counter,naccreted,ieat;
 	double weat;
 	double weight,fbweight; /* weight is for accretion, fbweight is for FB  */
 	double aFac, dCosmoDenFac,dCosmoVel2Fac,aDot;
-	double dvmin, dvx,dvy,dvz,dvv,dvcosmo;
+	double dvmin, dvx,dvy,dvz,dvcosmo;
 	int ivmin;
 
         weat = -1e37;
@@ -1408,12 +1413,14 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	aDot = aFac*H;
 
 	mdot = p->dMDot();	
+#if 0
 	if (p->dDeltaM() == 0.0) {
 	    dtEff = s.dSinkCurrentDelta*pow(0.5,p->rung-s.iSinkCurrentRung);
 	    dmAvg = mdot*dtEff;
 	    CkPrintf("BHSink %d:  Delta: %g dm: 0 ( %g ) (victims on wrong step)\n",p->iOrder,dtEff,dmAvg);
 	    return;
 	    }
+#endif
 
 	mdotCurr = mdot;
 	dm = 0;
@@ -1430,14 +1437,19 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	    assert(q != NULL);
 	    r2min = nnList[i].fKey;
 
+#if 0
 	    /* Timestep for accretion is larger of sink and victim timestep */
 	    iRung = q->rung;
 	    if (iRung > p->rung) iRung = p->rung;
-	    dtEff = s.dSinkCurrentDelta*pow(0.5,iRung-s.iSinkCurrentRung);
+#endif
+	    dtEff = s.dSinkCurrentDelta;
 	      /* If victim has unclosed kick -- don't actually take the mass
 	       If sink has unclosed kick we shouldn't even be here!
 	       When victim is active use his timestep if longer 
 	       Statistically expect to get right effective mdot on average */
+
+	    /* JMB 9/18/12 - see comment in BHSinkDensity above for
+	       why the previous comment is not actually what is done. */
 	    dmq = mdotCurr*dtEff;
 
 	    /* update mdotCurr */
@@ -1451,7 +1463,6 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 
 	    CkPrintf("BHSink %d:  Time %g %d dmq %g %g %g\n",p->iOrder, dTime,
 		     q->iOrder,dmq,q->curlv()[1],p->dDeltaM());
-	    if (q->rung >= s.iSinkCurrentRung) {
 		ifMass = 1./(p->mass + dmq);
 		/* to record angular momentum JMB 11/9/10 */
 		CkPrintf("BHSink %d:  Gas: %d  dx: %g dy: %g dz: %g \n",
@@ -1497,8 +1508,6 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		      deleted once.  JMB 9/23/08*/
 		    }
 
-		}
-
 	}
 
 	if (mdotCurr == 0.0) goto dofeedback;
@@ -1528,8 +1537,10 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	      if(nnList[i].p->curlv()[2] == p->iOrder) continue;
 	      /* don't choose a pre-accreted particle 
 	         but it can have been accreted by another BH */
+#if 0
 	      if(nnList[i].p->rung < s.iSinkCurrentRung) continue;
 	      /* has to be on the right timestep */
+#endif
 	      r2 = nnList[i].fKey;
 	      if(r2 > 0.25*(nnList[i].p->fBall)*(nnList[i].p->fBall))
 		  continue;
@@ -1567,10 +1578,11 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	    else {
 	      assert(q != NULL);
 	      /* Timestep for accretion is larger of sink and victim timestep */
+#if 0
 	      iRung = q->rung;
 	      if (iRung > p->rung) iRung = p->rung;
-	      dtEff = s.dSinkCurrentDelta
-		  *pow(0.5,iRung-s.iSinkCurrentRung);
+#endif
+	      dtEff = s.dSinkCurrentDelta;
 	      dmq = mdotCurr*dtEff;
 
 
@@ -1584,7 +1596,6 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	    CkPrintf("BHSink %d:  Time: %g %d dmq %g %g %g sharing \n",
 		     p->iOrder,dTime,q->iOrder,dmq,q->curlv()[1],
 		     p->dDeltaM());
-	      if (q->rung >= s.iSinkCurrentRung) {
 		ifMass = 1./(p->mass + dmq);
 		/* to record angular momentum JMB 11/9/10 */
 		CkPrintf("BHSink %d:  Gas: %d  dx: %g dy: %g dz: %g \n",
@@ -1632,7 +1643,6 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	    if (mdotCurr == 0.0) break;
 
 	    }
-	  }
 	}
 
 	/********************************************************************/
@@ -1939,7 +1949,7 @@ void SinkAccreteTestSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 {
 	int i;
 	double dSinkRadius2 = s.dSinkRadius*s.dSinkRadius, 
-	       EBO,Eq,r2,dvx,dv2,ifMass;
+	       EBO,Eq,r2,dvx,dv2;
 	GravityParticle *q;
 
 #ifdef SINKING
