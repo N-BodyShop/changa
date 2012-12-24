@@ -211,7 +211,7 @@ void Sinks::CheckParams(PRM prm, struct parameters &param)
 	    testDelta = param.dDelta;
 	    iSinkRung = 0;
 	    }
-	CkPrintf("dDeltaSink (set): %g, effectively: %g = %g yrs, iSinkRung: %i",
+	CkPrintf("dDeltaSink (set): %g, effectively: %g = %g yrs, iSinkRung: %i\n",
 		 dDeltaSink, testDelta,
 		 testDelta*param.dSecUnit/SECONDSPERYEAR, iSinkRung );
 	dDeltaSink = testDelta;
