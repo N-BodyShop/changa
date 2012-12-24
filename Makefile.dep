@@ -1023,5 +1023,6 @@ ParallelGravity.decl.h
 
 sinks.o: \
 ParallelGravity.h \
+ParallelGravity.decl.h \
 smooth.h \
 sinks.h
