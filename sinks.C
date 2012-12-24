@@ -1177,7 +1177,6 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
 	    if(s.bBHMindv == 1) weight = rs*pow(q->c()*q->c()+(dvmin*dvmin),-1.5)/dCosmoDenFac;
 	    else {
-	      weight = rs*pow(q->c()*q->c()+(dvx*dvx+dvy*dvy+dvz*dvz)/dCosmoVel2Fac,-1.5)/dCosmoDenFac; /* weight particles by mdot quantities */
 	      dvx = (-p->vPred()[0]+q->vPred()[0])/aFac - aDot*nnList[i].dx.x;
 	      dvy = (-p->vPred()[1]+q->vPred()[1])/aFac - aDot*nnList[i].dx.y;
 	      dvz = (-p->vPred()[2]+q->vPred()[2])/aFac - aDot*nnList[i].dx.z;
@@ -1255,7 +1254,7 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		/* don't accrete gas that doesn't have the BH
 		 * in its smoothing length  JMB 10/22/08 */
 		/* make this an optional parameter JMB 9/21/12 */
-		if (nnList[i].p->rung < s.iSinkCurrentRung) continue; /* JMB 7/9/09 */
+		/* if (nnList[i].p->rung < s.iSinkCurrentRung) continue; /* JMB 7/9/09 */
 
 		if(s.bBHMindv == 1) weight = rs*pow(nnList[i].p->c()*nnList[i].p->c()+(dvmin*dvmin),-1.5)/dCosmoDenFac;
 		else {
@@ -1506,7 +1505,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		/*assert(q->mass >= 0.0);*/
 		naccreted += 1;  /* running tally of how many are accreted JMB 10/23/08 */
 		CkPrintf("BHSink %d:  Time %g dist2: %d %g gas smooth: %g eatenmass %g \n",
-			 p->iOrder,dTime,q->iOrder,r2min,q->fBall,dmq);
+			 p->iOrder,dTime,q->iOrder,r2min,q->fBall*q->fBall,dmq);
 		if (q->mass <= 1e-3*dmq) { /* = added 8/21/08 */
 		    q->mass = 0;
 		    if(!(TYPETest(q,TYPE_DELETED))) deleteParticle(q);
@@ -1639,7 +1638,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		q->mass -= dmq;		   
 		naccreted += 1;  /* running tally of how many are accreted JMB 10/23/08 */
 		CkPrintf("BHSink %d:  Time %g dist2 %d %g gas smooth: %g eatenmass %g\n",
-			 p->iOrder,dTime,q->iOrder,r2min,q->fBall,dmq);
+			 p->iOrder,dTime,q->iOrder,r2min,q->fBall*q->fBall,dmq);
 		if (q->mass <= 1e-3*dmq) { /* = added 8/21/08 */
 		    q->mass = 0;
 		    if(!(TYPETest(q,TYPE_DELETED))) deleteParticle(q);
@@ -1703,7 +1702,6 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	      if(s.bBHTurnOffCooling)
 		  CkAssert(nnList[i].p->fTimeCoolIsOffUntil() > dTime);
 	      nnList[i].p->dTimeFB() = dTime;
-	      /* track BHFB time in MassForm  JMB 11/19/08 */
 	      }
 	    }
 }
@@ -1731,7 +1729,6 @@ int BHIdentifySmoothParams::isSmoothActive(GravityParticle *p)
 void BHIdentifySmoothParams::initSmoothCache(GravityParticle *p)
 {
     p->iEaterOrder() = 0;
-    /*  fNSNtot is a placeholder for merging info*/
 }
 
 void BHIdentifySmoothParams::combSmoothCache(GravityParticle *p1,
