@@ -58,6 +58,12 @@ void Sinks::AddParams(PRM prm, Parameters &params)
 	bBHMindv = 0;
 	prmAddParam(prm,"bBHMindv",paramBool,&bBHMindv,sizeof(int),
 		    "bhmindv","use mindeltav for BH accretion = -bhmindv");
+
+        bBHAccreteAll = 1;
+        prmAddParam(prm,"bBHAccreteAll",paramBool,&bBHAccreteAll,
+		    sizeof(int),"bhaccreteall",
+		    "BHs can accrete any particle = -bhaccreteall");
+
 	bDoSinksAtStart = 0;
 	prmAddParam(prm,"bDoSinksAtStart",paramBool,&bDoSinksAtStart,
 		    sizeof(int),
@@ -1245,9 +1251,10 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		rs = KERNEL(r2);
 		fW = rs*nnList[i].p->mass;
 		double fBall = nnList[i].p->fBall;
-		if(r2 > 0.25*fBall*fBall) continue; 
+		if(!s.bBHAccreteAll && r2 > 0.25*fBall*fBall) continue; 
 		/* don't accrete gas that doesn't have the BH
 		 * in its smoothing length  JMB 10/22/08 */
+		/* make this an optional parameter JMB 9/21/12 */
 		if (nnList[i].p->rung < s.iSinkCurrentRung) continue; /* JMB 7/9/09 */
 
 		if(s.bBHMindv == 1) weight = rs*pow(nnList[i].p->c()*nnList[i].p->c()+(dvmin*dvmin),-1.5)/dCosmoDenFac;
@@ -1542,7 +1549,8 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	      /* has to be on the right timestep */
 #endif
 	      r2 = nnList[i].fKey;
-	      if(r2 > 0.25*(nnList[i].p->fBall)*(nnList[i].p->fBall))
+	      if(!s.bBHAccreteAll
+		 && r2 > 0.25*(nnList[i].p->fBall)*(nnList[i].p->fBall))
 		  continue;
 	      /* has to be nearby! */
 	      rs = KERNEL(r2);

@@ -20,6 +20,7 @@ class Sinks
     double dBHSinkEddFactor;
     double dBHSinkFeedbackFactor;
     int bBHMindv;
+    int bBHAccreteAll;
     int bDoSinksAtStart;
     int bSinkThermal;
     double dSinkRadius;
@@ -64,6 +65,7 @@ inline void Sinks::pup(PUP::er &p) {
     p|dBHSinkEddFactor;
     p|dBHSinkFeedbackFactor;
     p|bBHMindv;
+    p|bBHAccreteAll;
     p|bDoSinksAtStart;
     p|bSinkThermal;
     p|dSinkRadius;
