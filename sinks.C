@@ -1207,10 +1207,8 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	dv2 /= dCosmoVel2Fac;
 	/*
 	 * Store results in particle.
-	 * XXX NB overloading "curlv" field of the BH particle.  I am
-	 * assuming it is not used.
 	 */
-	p->c() = cs = cs/fDensity;
+	cs = cs/fDensity;
 	p->fDensity = fDensity = M_1_PI*sqrt(ih2)*ih2*fDensity; 
 	fDensity /= dCosmoDenFac;
 
