@@ -1340,16 +1340,14 @@ void BHAccreteSmoothParams::initTreeParticle(GravityParticle *p1)
      */
     
     if(TYPETest(p1, TYPE_GAS))  p1->u() *= p1->mass;    
-    if(TYPETest(p1, TYPE_GAS))  p1->fNSN() = 0.0;
-    /* fNSN will hold the place of FB energy because uPred is needed for
-     *  calculations. it should be zero anyways.  JMB 10/5/09  */
+    if(TYPETest(p1, TYPE_GAS))  p1->uPred() *= p1->mass;
     }
 
 /* Cached Tree Active particles */
 void BHAccreteSmoothParams::initSmoothCache(GravityParticle *p)
 {
     if (TYPETest(p, iType)) p->u() = 0.0; /*added 6/10/08*/    
-    if (TYPETest(p, iType)) p->fNSN() = 0.0; 
+    if (TYPETest(p, iType)) p->uPred() = 0.0; 
     }
 
 static inline double max(double x, double y) 
@@ -1389,7 +1387,7 @@ void BHAccreteSmoothParams::combSmoothCache(GravityParticle *p1,
 	    CkAssert(p1->mass > 0.0); 
 	    }
 	p1->u() += p2->u; /*added 6/10/08 for BH blastwave FB*/
-	p1->fNSN() += p2->fNSN;  /* (this is uPred) JMB 10/5/09  */
+	p1->uPred() += p2->uPred;
         p1->fTimeCoolIsOffUntil() = max( p1->fTimeCoolIsOffUntil(),
 					 p2->fTimeCoolIsOffUntil );
 	/* propagate FB time JMB 2/24/10 */
@@ -1689,7 +1687,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 
 	      fbweight = rs*fNorm_new;
 	      nnList[i].p->u() += fbweight*dE;
-	      nnList[i].p->fNSN() += fbweight*dE;
+	      nnList[i].p->uPred() += fbweight*dE;
 	      counter ++;
             /* now turn off cooling */
 	      if(  s.bBHTurnOffCooling)
@@ -1713,9 +1711,7 @@ void BHAccreteSmoothParams::postTreeParticle(GravityParticle *p1)
     if(TYPETest(p1, TYPE_GAS) && p1->mass != 0
        && !(TYPETest(p1,TYPE_DELETED))) {
 	p1->u() /= p1->mass;  
-	p1->fNSN() /= p1->mass;
-	p1->uPred() += p1->fNSN(); /* now combine fNSN to uPred.  JMB
-				      10/5/09  */
+	p1->uPred() /= p1->mass;
 	}  
 }
 
