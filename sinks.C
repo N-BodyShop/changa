@@ -1494,7 +1494,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 						 +dmq*q->treeAcceleration[1]);
 		p->treeAcceleration[2] = ifMass*(p->mass*p->treeAcceleration[2]
 						 +dmq*q->treeAcceleration[2]);
-		p->fMetals() = ifMass*(p->mass*p->fMetals()+dmq*q->fMetals());
+		p->fStarMetals() = ifMass*(p->mass*p->fStarMetals()+dmq*q->fMetals());
 		p->mass += dmq;
 		dm += dmq;
 		q->mass -= dmq;
@@ -1628,7 +1628,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 						 +dmq*q->treeAcceleration[1]);
 		p->treeAcceleration[2] = ifMass*(p->mass*p->treeAcceleration[2]
 						 +dmq*q->treeAcceleration[2]);
-		p->fMetals() = ifMass*(p->mass*p->fMetals()+dmq*q->fMetals());
+		p->fStarMetals() = ifMass*(p->mass*p->fStarMetals()+dmq*q->fMetals());
 		p->mass += dmq;
 		dm += dmq;
 		q->mass -= dmq;		   

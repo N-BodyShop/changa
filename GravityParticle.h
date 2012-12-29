@@ -373,6 +373,7 @@ class ExternalSmoothParticle {
   double fDensity;
   Vector3D<double> position;
   Vector3D<double> velocity;
+  int iOrder;
   unsigned int iType;	// Bitmask to hold particle type information
   int rung;
   Vector3D<double> vPred;
@@ -405,6 +406,7 @@ class ExternalSmoothParticle {
 	  fDensity = p->fDensity;
 	  position = p->position;
 	  velocity = p->velocity;
+	  iOrder = p->iOrder;
 	  iType = p->iType;
 	  rung = p->rung;
 	  treeAcceleration = p->treeAcceleration;
@@ -442,6 +444,7 @@ class ExternalSmoothParticle {
       tmp->fDensity = fDensity;
       tmp->position = position;
       tmp->velocity = velocity;
+      tmp->iOrder = iOrder;
       tmp->iType = iType;
       tmp->rung = rung;
       tmp->treeAcceleration = treeAcceleration;
@@ -478,6 +481,7 @@ class ExternalSmoothParticle {
     p | mass;
     p | fBall;
     p | fDensity;
+    p | iOrder;
     p | iType;
     p | rung;
     p | treeAcceleration;
