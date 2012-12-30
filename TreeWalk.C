@@ -295,7 +295,8 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
 	Sphere<cosmoType> s(reqnode->centerSm, reqnode->sizeSm + reqnode->fKeyMax);
 	// XXX This test should be done inside the KNearestNeighbor
 	// class for a cleaner interface.
-	if(Space::contains(node->parent->boundingBox, s)) {
+	if(parentStack.top()->getType() == Internal
+	   && Space::contains(parentStack.top()->boundingBox, s)) {
 	    reqnode->cpStart = node->parent; // found containing node
 	    reqnode->cpStart = parentStack.top();
 	    CkAssert(node->parent->numChildren() <= 2);  // Assumes binary tree

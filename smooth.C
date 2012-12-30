@@ -558,6 +558,15 @@ void TreePiece::smoothBucketComputation() {
 	    }
 	  twSmooth->walk(chunkRoot, sSmoothState, cr,
 			 encodeOffset(currentBucket, 0,0,0), smoothAwi);
+	  if(nReplicas > 0 && myNode->cpStart != NULL) {
+	      // If the search sphere sticks out of the periodic box,
+	      // then we still need to search replicas
+	      OrientedBox<double> boxP(fPeriod*(-.5), fPeriod*.5);
+	      Sphere<cosmoType> s(myNode->centerSm, myNode->sizeSm + myNode->fKeyMax);
+	      if(!Space::contains(boxP, s))
+		  myNode->cpStart = NULL;
+	      }
+					   
 	  for(int x = -nReplicas; x <= nReplicas; x++) {
 	    for(int y = -nReplicas; y <= nReplicas; y++) {
 	      for(int z = -nReplicas; z <= nReplicas; z++) {
