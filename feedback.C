@@ -6,6 +6,12 @@
  * modified.  Contributers include Neal Katz, Eric Hayashi, Greg Stinson
  */
 #include <math.h>
+#ifdef HAVE_VALUES_H
+#include <values.h>
+#else
+#include <float.h>
+#endif
+
 #include "ParallelGravity.h"
 #include "feedback.h"
 #include "smooth.h"
@@ -40,6 +46,10 @@ void Fdbk::AddParams(PRM prm)
     dExtraCoolShutoff = 1.0;
     prmAddParam(prm,"dExtraCoolShutoff", paramDouble, &dExtraCoolShutoff,
 		sizeof(double), "dExtraCoolShutoff", "<Extend shutoff time> = 1.0");
+    dMaxGasMass = FLT_MAX;
+    prmAddParam(prm,"dMaxGasMass", paramDouble, &dMaxGasMass,
+		sizeof(double), "stMaxGas",
+		"<Maximum mass of a gas particle> = FLT_MAX");
     bSNTurnOffCooling = 1;
     prmAddParam(prm,"bSNTurnOffCooling", paramBool, &bSNTurnOffCooling,
 		sizeof(int), "bSNTurnOffCooling", "<Do SN turn off cooling> = 1");
@@ -447,12 +457,16 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
 	r2 = fDist2*ih2;            
 	rs = KERNEL(r2);
 	q = nList[i].p;
+	if(q->mass > fb.dMaxGasMass) {
+	    continue; /* Skip heavy particles */
+	    }
 	fNorm_u += q->mass*rs;
         CkAssert(TYPETest(q, TYPE_GAS));
 	rs *= fNorm;
 	fAveDens += q->mass*rs;
 	fNorm_Pres += q->mass*q->uPred()*rs;
 	}
+    CkAssert(fNorm_u > 0.0);  	/* be sure we have at least one neighbor */
     fNorm_Pres *= (gamma-1.0);
     
     assert(fNorm_u != 0.0);
@@ -461,6 +475,9 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
     for (i=0;i<nSmooth;++i) {
 	double weight;
 	q = nList[i].p;
+	if(q->mass > fb.dMaxGasMass) {
+	    continue; /* Skip heavy particles */
+	    }
 	double fDist2 = nList[i].fKey;
 	r2 = fDist2*ih2;            
 	rs = KERNEL(r2);
