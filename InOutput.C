@@ -1101,20 +1101,18 @@ void TreePiece::outputASCII(OutputParams& params, // specifies
     outfile = CmiFopen(params.fileName.c_str(), "w");
     CkAssert(outfile != NULL);
     fprintf(outfile,"%d\n",(int) nTotalParticles);
-    fclose(outfile);
+    CmiFclose(outfile);
   }
 	
   if(verbosity > 3)
     ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
 	
   if(bParaWrite) {
-      outfile = CmiFopen(params.fileName.c_str(), "r+");
+      outfile = CmiFopen(params.fileName.c_str(), "a");
       if(outfile == NULL)
 	    ckerr << "Treepiece " << thisIndex << " failed to open "
 		  << params.fileName.c_str() << " : " << errno << endl;
       CkAssert(outfile != NULL);
-      int result = fseek(outfile, 0L, SEEK_END);
-      CkAssert(result == 0);
       }
   else {
       if(params.bVector && packed)
@@ -1173,7 +1171,7 @@ void TreePiece::outputASCII(OutputParams& params, // specifies
       cnt = 0;
   
   if(bParaWrite) {
-      int result = fclose(outfile);
+      int result = CmiFclose(outfile);
       if(result != 0)
 	    ckerr << "Bad close: " << strerror(errno) << endl;
       CkAssert(result == 0);
@@ -1215,13 +1213,11 @@ void TreePiece::oneNodeOutVec(OutputParams& params,
 			      int bDone, // Last call
 			      CkCallback& cb) 
 {
-    FILE* outfile = CmiFopen(params.fileName.c_str(), "r+");
+    FILE* outfile = CmiFopen(params.fileName.c_str(), "a");
     if(outfile == NULL)
 	ckerr << "Treepiece " << thisIndex << " failed to open "
 	      << params.fileName.c_str() << " : " << errno << endl;
     CkAssert(outfile != NULL);
-    int result = fseek(outfile, 0L, SEEK_END);
-    CkAssert(result == 0);
     for(int i = 0; i < nPart; ++i) {
 	if(fprintf(outfile,"%.14g\n",avOut[i].x) < 0) {
 	  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
@@ -1236,7 +1232,7 @@ void TreePiece::oneNodeOutVec(OutputParams& params,
 	  CkAbort("Badness");
 	  }
 	}
-    result = fclose(outfile);
+    int result = CmiFclose(outfile);
     if(result != 0)
 	ckerr << "Bad close: " << strerror(errno) << endl;
     CkAssert(result == 0);
@@ -1264,20 +1260,18 @@ void TreePiece::oneNodeOutArr(OutputParams& params,
 			      int bDone, // Last call
 			      CkCallback& cb) 
 {
-    FILE* outfile = CmiFopen(params.fileName.c_str(), "r+");
+    FILE* outfile = CmiFopen(params.fileName.c_str(), "a");
     if(outfile == NULL)
 	ckerr << "Treepiece " << thisIndex << " failed to open "
 	      << params.fileName.c_str() << " : " << errno << endl;
     CkAssert(outfile != NULL);
-    int result = fseek(outfile, 0L, SEEK_END);
-    CkAssert(result == 0);
     for(int i = 0; i < nPart; ++i) {
 	if(fprintf(outfile,"%.14g\n",adOut[i]) < 0) {
 	  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 	    CkAbort("Badness");
 	    }
 	}
-    result = fclose(outfile);
+    int result = CmiFclose(outfile);
     if(result != 0)
 	ckerr << "Bad close: " << strerror(errno) << endl;
     CkAssert(result == 0);
@@ -1314,20 +1308,18 @@ void TreePiece::outputIntASCII(OutputIntParams& params, // specifies
     outfile = CmiFopen(params.fileName.c_str(), "w");
     CkAssert(outfile != NULL);
     fprintf(outfile,"%d\n",(int) nTotalParticles);
-    fclose(outfile);
+    CmiFclose(outfile);
   }
 	
   if(verbosity > 3)
     ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
 	
   if(bParaWrite) {
-      outfile = CmiFopen(params.fileName.c_str(), "r+");
+      outfile = CmiFopen(params.fileName.c_str(), "a");
       if(outfile == NULL)
 	    ckerr << "Treepiece " << thisIndex << " failed to open "
 		  << params.fileName.c_str() << " : " << errno << endl;
       CkAssert(outfile != NULL);
-      int result = fseek(outfile, 0L, SEEK_END);
-      CkAssert(result == 0);
       }
   else {
       aiOut = new int[myNumParticles];
@@ -1348,7 +1340,7 @@ void TreePiece::outputIntASCII(OutputIntParams& params, // specifies
       }
      
   if(bParaWrite) {
-      int result = fclose(outfile);
+      int result = CmiFclose(outfile);
       if(result != 0)
 	    ckerr << "Bad close: " << strerror(errno) << endl;
       CkAssert(result == 0);
@@ -1377,20 +1369,18 @@ void TreePiece::oneNodeOutIntArr(OutputIntParams& params,
 			      int iIndex, // treepiece which called me
 			      CkCallback& cb) 
 {
-    FILE* outfile = CmiFopen(params.fileName.c_str(), "r+");
+    FILE* outfile = CmiFopen(params.fileName.c_str(), "a");
     if(outfile == NULL)
 	ckerr << "Treepiece " << thisIndex << " failed to open "
 	      << params.fileName.c_str() << " : " << errno << endl;
     CkAssert(outfile != NULL);
-    int result = fseek(outfile, 0L, SEEK_END);
-    CkAssert(result == 0);
     for(int i = 0; i < nPart; ++i) {
 	if(fprintf(outfile,"%d\n",aiOut[i]) < 0) {
 	  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 	    CkAbort("Badness");
 	    }
 	}
-    result = fclose(outfile);
+    int result = CmiFclose(outfile);
     if(result != 0)
 	ckerr << "Bad close: " << strerror(errno) << endl;
     CkAssert(result == 0);
@@ -1429,21 +1419,19 @@ void TreePiece::outputBinary(OutputParams& params, // specifies
 	iDum = (int)nTotalParticles;
 	xdr_int(&xdrs,&iDum);
 	xdr_destroy(&xdrs);
-	fclose(outfile);
+	CmiFclose(outfile);
 	}
     
     if(verbosity > 3)
 	ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
     
     if(bParaWrite) {
-	outfile = CmiFopen(params.fileName.c_str(), "r+");
+	outfile = CmiFopen(params.fileName.c_str(), "a");
 	if(outfile == NULL)
 	    ckerr << "Treepiece " << thisIndex << " failed to open "
 		  << params.fileName.c_str() << " : " << errno << endl;
 	CkAssert(outfile != NULL);
 	xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-	int result = fseek(outfile, 0L, SEEK_END);
-	CkAssert(result == 0);
 	}
     else {
 	if(params.bVector && packed)
@@ -1503,7 +1491,7 @@ void TreePiece::outputBinary(OutputParams& params, // specifies
     
     if(bParaWrite) {
 	xdr_destroy(&xdrs);
-	int result = fclose(outfile);
+	int result = CmiFclose(outfile);
 	if(result != 0)
 	    ckerr << "Bad close: " << strerror(errno) << endl;
 	CkAssert(result == 0);
@@ -1545,15 +1533,13 @@ void TreePiece::oneNodeOutBinVec(OutputParams& params,
 				 int bDone, // Last call
 				 CkCallback& cb) 
 {
-    FILE* outfile = CmiFopen(params.fileName.c_str(), "r+");
+    FILE* outfile = CmiFopen(params.fileName.c_str(), "a");
     XDR xdrs;
     if(outfile == NULL)
 	ckerr << "Treepiece " << thisIndex << " failed to open "
 	      << params.fileName.c_str() << " : " << errno << endl;
     CkAssert(outfile != NULL);
     xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-    int result = fseek(outfile, 0L, SEEK_END);
-    CkAssert(result == 0);
     for(int i = 0; i < nPart; ++i) {
 	if(!xdr_float(&xdrs,&(avOut[i].x))) {
 	    ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
@@ -1569,7 +1555,7 @@ void TreePiece::oneNodeOutBinVec(OutputParams& params,
 	    }
 	}
     xdr_destroy(&xdrs);
-    result = fclose(outfile);
+    int result = CmiFclose(outfile);
     if(result != 0)
 	ckerr << "Bad close: " << strerror(errno) << endl;
     CkAssert(result == 0);
@@ -1597,15 +1583,13 @@ void TreePiece::oneNodeOutBinArr(OutputParams& params,
 			      int bDone, // Last call
 			      CkCallback& cb) 
 {
-    FILE* outfile = CmiFopen(params.fileName.c_str(), "r+");
+    FILE* outfile = CmiFopen(params.fileName.c_str(), "a");
     XDR xdrs;
     if(outfile == NULL)
 	ckerr << "Treepiece " << thisIndex << " failed to open "
 	      << params.fileName.c_str() << " : " << errno << endl;
     CkAssert(outfile != NULL);
     xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-    int result = fseek(outfile, 0L, SEEK_END);
-    CkAssert(result == 0);
     for(int i = 0; i < nPart; ++i) {
 	if(!xdr_float(&xdrs,&(afOut[i]))) {
 	  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
@@ -1613,7 +1597,7 @@ void TreePiece::oneNodeOutBinArr(OutputParams& params,
 	    }
 	}
     xdr_destroy(&xdrs);
-    result = fclose(outfile);
+    int result = CmiFclose(outfile);
     if(result != 0)
 	ckerr << "Bad close: " << strerror(errno) << endl;
     CkAssert(result == 0);
@@ -1644,16 +1628,15 @@ void TreePiece::outputIOrderBinary(const string& fileName, const CkCallback& cb)
 	iDum = (int) nTotalParticles;
 	xdr_int(&xdrs,&iDum);
 	xdr_destroy(&xdrs);
-	fclose(outfile);
+	CmiFclose(outfile);
 	}
     
     if(verbosity > 3)
 	ckerr << "TreePiece " << thisIndex << ": Writing iOrder to disk" << endl;
     
-    FILE* outfile = CmiFopen(fileName.c_str(), "r+");
+    FILE* outfile = CmiFopen(fileName.c_str(), "a");
     CkAssert(outfile != NULL);
     xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-    fseek(outfile, 0, SEEK_END);
     
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	iDum = myParticles[i].iOrder;
@@ -1665,7 +1648,10 @@ void TreePiece::outputIOrderBinary(const string& fileName, const CkCallback& cb)
 	}
     
     xdr_destroy(&xdrs);
-    fclose(outfile);
+    int result = CmiFclose(outfile);
+    if(result != 0)
+	ckerr << "Bad close: " << strerror(errno) << endl;
+    CkAssert(result == 0);
     if(thisIndex==(int)numTreePieces-1) {
 	cb.send();
 	}
