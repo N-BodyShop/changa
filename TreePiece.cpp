@@ -1585,19 +1585,14 @@ TreePiece::setTypeFromFile(int iSetMask, char *file, const CkCallback& cb)
   contribute(2*sizeof(int), nSetOut, CkReduction::sum_int, cb);
 }
 
+#include "DumpFrameData.h"
+
 /*
  * Render this processors portion of the image
  */
 void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump) 
 {
-    void *bufImage = malloc(sizeof(in) + in.nxPix*in.nyPix*sizeof(DFIMAGE));
-    void *Image = ((char *)bufImage) + sizeof(in);
-    int nImage;
-    *((struct inDumpFrame *)bufImage) = in; //start of reduction
-					    //message is the parameters
-
-    dfClearImage( &in, Image, &nImage);
-    
+    void *Image = dfDataProxy.ckLocalBranch()->Image;
     //
     // XXX The dump frame expects arrays of fixed structures.  This is
     // incompatible with ChaNGa's design of having gas and star data
@@ -1622,7 +1617,7 @@ void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump)
     dfRenderParticles( &in, Image, p, myNumParticles);
     
     if(!liveVizDump) 
-      contribute(sizeof(in) + nImage, bufImage, dfImageReduction, cb);
+	contribute(cb);
     else
       {
 	// this is the RGB 3-byte/pixel image created from floating point image
@@ -1643,7 +1638,6 @@ void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump)
 	savedLiveVizMsg = NULL;
 	free(gray);
       }
-    free(bufImage);
     }
 
 /**
@@ -1959,7 +1953,7 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
               child->makeEmpty();
 	      child->remoteIndex = thisIndex;
       } else {
-	      child->remoteIndex = dm->responsibleIndex[first + (thisIndex & (last-first))];
+	      child->remoteIndex = getResponsibleIndex(first, last);
 	      // if we have a remote child, the node is a Boundary. Thus count that we
 	      // have to receive one more message for the NonLocal node
 	      node->remoteIndex --;
@@ -2432,10 +2426,7 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
 	child->makeEmpty();
 	child->remoteIndex = thisIndex;
       } else {
-	  // Choose a piece from among the owners from which to
-	  // request moments in such a way that if I am a piece with a
-	  // higher index, I request from a higher indexed treepiece.
-	child->remoteIndex = dm->responsibleIndex[first + (thisIndex & (last-first))];
+	child->remoteIndex = getResponsibleIndex(first, last);
 	// if we have a remote child, the node is a Boundary. Thus count that we
 	// have to receive one more message for the NonLocal node
 	node->remoteIndex --;
@@ -3632,6 +3623,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
   ((DoubleWalkState *)sInterListStateRemoteResume)->partListConstructionTimeStart();
 #endif
     // OK to pass bogus arguments because we don't expect to miss on this anyway (see CkAssert(chunkRoot) below.)
+  CkAssert(chunkRoot != NULL);
   if (chunkRoot == NULL) {
     int first, last;
     nodeOwnership(prefetchRoots[msg->chunkNum], first, last);
@@ -4570,6 +4562,7 @@ void TreePiece::initiatePrefetch(int chunk){
 #else
   GenericTreeNode *child = dm->chunkRootToNode(prefetchRoots[chunk]);
 #endif
+  CmiAssert(child != NULL);
 
   int first, last;
   for(int x = -nReplicas; x <= nReplicas; x++) {
@@ -6158,7 +6151,15 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   callback = cb;
 }
 
+// Choose a piece from among the owners from which to
+// request moments in such a way that if I am a piece with a
+// higher index, I request from a higher indexed treepiece.
 int TreePiece::getResponsibleIndex(int first, int last){
+    if(verbosity > 3) 
+	CkPrintf("[tp %d] choosing responsible index %d from %d to %d\n",
+		 thisIndex,
+		 dm->responsibleIndex[first + (thisIndex & (last-first))],
+		 first, last);
   return dm->responsibleIndex[first + (thisIndex & (last-first))];
 }
 
