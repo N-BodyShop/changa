@@ -143,6 +143,7 @@ parameters.h \
 cosmo.h \
 starform.h \
 dumpframe.h \
+DumpFrameData.h \
 ../utility/structures/TaggedVector3D.h \
 codes.h \
 CacheInterface.h \
@@ -250,6 +251,7 @@ State.h \
 Opt.h \
 Sph.h \
 PETreeMerger.h \
+DumpFrameData.h \
 physconst.h \
 
 Ewald.o: \
