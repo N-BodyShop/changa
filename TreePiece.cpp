@@ -1582,8 +1582,9 @@ void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump)
 			   p, sizeof(*p) );
     dfRenderParticles( &in, Image, p, myNumParticles);
     
-	//      contribute(sizeof(in) + nImage, bufImage, dfImageReduction, cb);
-    if(liveVizDump) 
+    if(!liveVizDump) 
+	contribute(cb);
+    else
       {
 	// this is the RGB 3-byte/pixel image created from floating point image
 	// data in dfFinishFrame - here we just create the pointer to pass in
@@ -1603,7 +1604,6 @@ void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump)
 	savedLiveVizMsg = NULL;
 	free(gray);
       }
-    contribute(cb);
     }
 
 /**
