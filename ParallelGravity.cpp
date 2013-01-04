@@ -1621,8 +1621,6 @@ void Main::advanceBigStep(int iStep) {
     ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
 
-    treeProxy.finishNodeCache(CkCallbackResumeThread());
-
     if(!param.bStaticTest) {
       // Closing Kick
       double dKickFac[MAXRUNG+1];
@@ -1677,6 +1675,8 @@ void Main::advanceBigStep(int iStep) {
 	  }
       doSinks(dTime, RungToDt(param.dDelta, activeRung), activeRung);
       }
+
+    treeProxy.finishNodeCache(CkCallbackResumeThread());
 
 #ifdef CHECK_TIME_WITHIN_BIGSTEP
     if(param.iWallRunTime > 0 && ((CkWallTimer()-wallTimeStart) > param.iWallRunTime*60.)){
@@ -2101,9 +2101,9 @@ Main::initialForces()
 #endif
       }
   
-  treeProxy.finishNodeCache(CkCallbackResumeThread());
-
   if (param.sinks.bDoSinksAtStart) doSinks(dTime, 0.0, 0);
+
+  treeProxy.finishNodeCache(CkCallbackResumeThread());
 
   // Initial Log entry
   string achLogFileName = string(param.achOutName) + ".log";
