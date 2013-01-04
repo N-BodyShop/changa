@@ -141,6 +141,7 @@ extern unsigned int numTreePieces;
 extern unsigned int particlesPerChare;
 extern int nIOProcessor;
 
+extern CProxy_DumpFrameData dfDataProxy;
 extern CProxy_PETreeMerger peTreeMergerProxy;
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;

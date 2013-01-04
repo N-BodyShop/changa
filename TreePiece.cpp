@@ -1551,19 +1551,14 @@ TreePiece::setTypeFromFile(int iSetMask, char *file, const CkCallback& cb)
   contribute(2*sizeof(int), nSetOut, CkReduction::sum_int, cb);
 }
 
+#include "DumpFrameData.h"
+
 /*
  * Render this processors portion of the image
  */
 void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump) 
 {
-    void *bufImage = malloc(sizeof(in) + in.nxPix*in.nyPix*sizeof(DFIMAGE));
-    void *Image = ((char *)bufImage) + sizeof(in);
-    int nImage;
-    *((struct inDumpFrame *)bufImage) = in; //start of reduction
-					    //message is the parameters
-
-    dfClearImage( &in, Image, &nImage);
-    
+    void *Image = dfDataProxy.ckLocalBranch()->Image;
     //
     // XXX The dump frame expects arrays of fixed structures.  This is
     // incompatible with ChaNGa's design of having gas and star data
@@ -1587,9 +1582,8 @@ void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump)
 			   p, sizeof(*p) );
     dfRenderParticles( &in, Image, p, myNumParticles);
     
-    if(!liveVizDump) 
-      contribute(sizeof(in) + nImage, bufImage, dfImageReduction, cb);
-    else
+	//      contribute(sizeof(in) + nImage, bufImage, dfImageReduction, cb);
+    if(liveVizDump) 
       {
 	// this is the RGB 3-byte/pixel image created from floating point image
 	// data in dfFinishFrame - here we just create the pointer to pass in
@@ -1609,7 +1603,7 @@ void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump)
 	savedLiveVizMsg = NULL;
 	free(gray);
       }
-    free(bufImage);
+    contribute(cb);
     }
 
 /**
