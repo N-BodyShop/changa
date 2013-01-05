@@ -295,11 +295,9 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
 	Sphere<cosmoType> s(reqnode->centerSm, reqnode->sizeSm + reqnode->fKeyMax);
 	// XXX This test should be done inside the KNearestNeighbor
 	// class for a cleaner interface.
-	if(parentStack.top()->getType() == Internal
-	   && Space::contains(parentStack.top()->boundingBox, s)) {
-	    reqnode->cpStart = node->parent; // found containing node
+	if(Space::contains(parentStack.top()->boundingBox, s)) {
 	    reqnode->cpStart = parentStack.top();
-	    CkAssert(node->parent->numChildren() <= 2);  // Assumes binary tree
+	    CkAssert(parentStack.top()->numChildren() <= 2);  // Assumes binary tree
 	    if(verbosity > 3)
 		CkPrintf("[%d] Bucket %d is contained in node %lx\n", ownerTP->thisIndex,
 			 reqIDlist, reqnode->cpStart->getKey());
