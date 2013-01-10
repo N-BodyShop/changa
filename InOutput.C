@@ -709,7 +709,7 @@ void TreePiece::writeTipsy(const std::string& filename, const double dTime,
     
     Tipsy::TipsyWriter w(filename, tipsyHeader);
     
-    if(thisIndex == 0)
+    if(nStartWrite == 0)
 	w.writeHeader();
     if(!w.seekParticleNum(nStartWrite))
 	CkAbort("bad seek");
