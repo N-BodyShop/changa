@@ -1445,8 +1445,9 @@ public:
         void recvTotalMass(CkReductionMsg *msg);
 
 	// Write a Tipsy file
-	void writeTipsy(const std::string& filename, const double dTime,
-			const double dvFac, const double duTfac,
+	void writeTipsy(Tipsy::TipsyWriter& w,
+			const double dvFac, // scale velocities
+			const double duTFac, // convert temperature
 			const int bCool);
 	// Find position in the file to start writing
 	void setupWrite(int iStage, u_int64_t iPrevOffset,
