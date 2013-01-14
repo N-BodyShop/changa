@@ -568,8 +568,17 @@ void TreePiece::parallelWrite(int iPass, const CkCallback& cb,
 			      const double duTFac, // convert temperature
 			      const int bCool)
 {
+    Tipsy::header tipsyHeader;
+
+    tipsyHeader.time = dTime;
+    tipsyHeader.nbodies = nTotalParticles;
+    tipsyHeader.nsph = nTotalSPH;
+    tipsyHeader.nstar = nTotalStar;
+    tipsyHeader.ndark = nTotalParticles - (nTotalSPH + nTotalStar);
+
     if(nIOProcessor == 0) {	// use them all
-	writeTipsy(filename, dTime, dvFac, duTFac, bCool);
+	Tipsy::TipsyWriter wAll(filename, tipsyHeader);
+	writeTipsy(wAll, dvFac, duTFac, bCool);
 	contribute(cb);
 	return;
 	}
@@ -580,15 +589,19 @@ void TreePiece::parallelWrite(int iPass, const CkCallback& cb,
 				   // for the first pass.
 	return;
 	}
-    writeTipsy(filename, dTime, dvFac, duTFac, bCool);
+
+    Tipsy::TipsyWriter w(filename, tipsyHeader);
+    writeTipsy(w, dvFac, duTFac, bCool);
     if(iPass < (nSkip - 1) && thisIndex.data[0] < (numTreePieces - 1))
-	treeProxy[thisIndex.data[0]+1].parallelWrite(iPass + 1, cb, filename, dTime,
-					     dvFac, duTFac, bCool);
+	treeProxy[thisIndex.data[0]+1].parallelWrite(iPass + 1, cb, filename, dTime, dvFac, duTFac, bCool);
     contribute(cb);
     }
 
 
-// Serial output of tipsy file.
+/// @brief Serial output of tipsy file.
+///
+/// Send my particles to piece 0 for output.
+///
 void TreePiece::serialWrite(const u_int64_t iPrevOffset, // previously written
 							 //particles
 			    const std::string& filename,  // output file
@@ -631,6 +644,15 @@ void TreePiece::serialWrite(const u_int64_t iPrevOffset, // previously written
 	delete [] piStar;
     }
 
+/// @brief a global variable to store the tipsy writing state for
+/// serial I/O.
+///
+/// Since this is for serial I/O there are no issues for multiple
+/// cores accessing this.
+///
+Tipsy::TipsyWriter *globalTipsyWriter;
+
+/// @brief write out the particles I have been sent
 void
 TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
 			int iOutParticles, // number of particles
@@ -678,7 +700,19 @@ TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
     mySPHParticles = pGas;
     myStarParticles = pStar;
     nStartWrite = iPrevOffset;
-    writeTipsy(filename, dTime, dvFac, duTFac, bCool);
+    if(iIndex == 0) {
+	Tipsy::header tipsyHeader;
+
+	tipsyHeader.time = dTime;
+	tipsyHeader.nbodies = nTotalParticles;
+	tipsyHeader.nsph = nTotalSPH;
+	tipsyHeader.nstar = nTotalStar;
+	tipsyHeader.ndark = nTotalParticles - (nTotalSPH + nTotalStar);
+    
+	globalTipsyWriter = new Tipsy::TipsyWriter(filename, tipsyHeader);
+	}
+	    
+    writeTipsy(*globalTipsyWriter, dvFac, duTFac, bCool);
     /*
      * Restore pointers/data
      */
@@ -690,26 +724,19 @@ TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
     if(iIndex < (numTreePieces - 1))
 	treeProxy[iIndex+1].serialWrite(iPrevOffset + iOutParticles, filename,
 					dTime, dvFac, duTFac, bCool, cb);
-    else
+    else {
+	delete globalTipsyWriter;
 	cb.send();  // we are done.
+	}
     }
     
-void TreePiece::writeTipsy(const std::string& filename, const double dTime,
+void TreePiece::writeTipsy(Tipsy::TipsyWriter& w,
 			   const double dvFac, // scale velocities
 			   const double duTFac, // convert temperature
 			   const int bCool)
 {
-    Tipsy::header tipsyHeader;
-
-    tipsyHeader.time = dTime;
-    tipsyHeader.nbodies = nTotalParticles;
-    tipsyHeader.nsph = nTotalSPH;
-    tipsyHeader.nstar = nTotalStar;
-    tipsyHeader.ndark = nTotalParticles - (nTotalSPH + nTotalStar);
     
-    Tipsy::TipsyWriter w(filename, tipsyHeader);
-    
-    if(thisIndex.data[0] == 0)
+    if(nStartWrite == 0)
 	w.writeHeader();
     if(!w.seekParticleNum(nStartWrite))
 	CkAbort("bad seek");

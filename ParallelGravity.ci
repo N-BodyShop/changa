@@ -37,7 +37,7 @@ mainmodule ParallelGravity {
   readonly CProxy_CkCacheManager<KeyType> cacheSmoothPart;
   readonly CProxy_DataManager dMProxy;
   readonly CProxy_PETreeMerger peTreeMergerProxy;
-
+  readonly CProxy_DumpFrameData dfDataProxy;
 
   readonly bool _cache;
   readonly int _nocache;
@@ -458,6 +458,12 @@ mainmodule ParallelGravity {
 
   group [migratable] PETreeMerger {
     entry PETreeMerger();
+  };
+
+  group [migratable] DumpFrameData {
+    entry DumpFrameData();
+    entry void clearFrame(InDumpFrame in, const CkCallback& cb);
+    entry void combineFrame(InDumpFrame in, const CkCallback& cb);
   };
 
   initproc void registerStatistics();

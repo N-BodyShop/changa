@@ -263,7 +263,8 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 	// insignificant number of inactive objects; migrate them anyway
   	for(int i = 0; i < stats->n_objs; i++){
     	    int lb = tpCentroids[i].tag;
-            if(!stats->objData[lb].migratable){
+            if(!stats->objData[lb].migratable
+		&& tpCentroids[i].myNumParticles > 0){
         	stats->objData[lb].migratable = 1;
         	stats->n_migrateobjs++;
 		numActiveObjects++;
