@@ -141,6 +141,7 @@ extern CProxy_TreePiece streamingProxy;
 extern CProxy_ArrayMeshStreamer<ParticleShuffle,int> shuffleAggregator;  
 extern CProxy_ArrayMeshStreamer<CkCacheRequest, int> aggregator;
 extern CProxy_GroupChunkMeshStreamer<ExternalGravityParticle> cacheAggregator; 
+extern CProxy_GroupChunkMeshStreamer<PackedBinaryTreeNode> nodeCacheAggregator; 
 extern CProxy_DataManager dMProxy;
 extern unsigned int numTreePieces;
 extern unsigned int particlesPerChare;
@@ -596,6 +597,13 @@ public:
   CacheMessageSequencer() {}
   CacheMessageSequencer(CkMigrateMessage *msg) {}
   void receiveArray(ExternalGravityParticle *data, int numItems, int sourcePe);
+};
+
+class NodeCacheMessageSequencer : public CBase_NodeCacheMessageSequencer {
+public:
+  NodeCacheMessageSequencer() {}
+  NodeCacheMessageSequencer(CkMigrateMessage *msg) {}
+  void receiveArray(PackedBinaryTreeNode *data, int numItems, int sourcePe);
 };
 
 /// @brief client that has requested a moment.

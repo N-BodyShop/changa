@@ -6089,6 +6089,7 @@ void TreePiece::finishWalk()
 
   aggregator.ckLocalBranch()->done();
   cacheAggregator.ckLocalBranch()->done();
+  nodeCacheAggregator.ckLocalBranch()->done();
 }
 
 #if INTERLIST_VER > 0

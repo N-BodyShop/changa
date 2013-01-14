@@ -19,12 +19,15 @@ mainmodule ParallelGravity {
             <ParticleShuffle, int> shuffleAggregator;  
   readonly CProxy_GroupChunkMeshStreamer
             <ExternalGravityParticle> cacheAggregator;
+  readonly CProxy_GroupChunkMeshStreamer
+            <PackedBinaryTreeNode> nodeCacheAggregator;
     
 #ifdef REDUCTION_HELPER
   readonly CProxy_ReductionHelper reductionHelperProxy;
 #endif
   readonly CProxy_ShuffleShadowArray shuffleShadowProxy;
   readonly CProxy_CacheMessageSequencer cacheSequencerProxy;
+  readonly CProxy_NodeCacheMessageSequencer nodeCacheSequencerProxy;
   readonly CProxy_LvArray lvProxy;
   readonly CProxy_LvArray smoothProxy;
   readonly CProxy_LvArray gravityProxy;
@@ -449,6 +452,10 @@ mainmodule ParallelGravity {
     entry CacheMessageSequencer();
   }
 
+  group NodeCacheMessageSequencer: MeshStreamerGroupClient<PackedBinaryTreeNode> {
+    entry NodeCacheMessageSequencer();
+  }
+
   group [migratable] PETreeMerger {
     entry PETreeMerger();
   };
@@ -470,5 +477,8 @@ mainmodule ParallelGravity {
   group MeshStreamerGroupClient<ExternalGravityParticle>;
   group GroupChunkMeshStreamer<ExternalGravityParticle>;
   group MeshStreamer<ChunkDataItem>;
+
+  group MeshStreamerGroupClient<PackedBinaryTreeNode>;
+  group GroupChunkMeshStreamer<PackedBinaryTreeNode>;
 
 };

@@ -397,13 +397,20 @@ void TreePiece::fillRequestNode(const CkCacheRequest &req) {
       // 8 extra bytes are allocated to store the msg pointer at the
       // beginning of the buffer.  See the free() and the
       // unpackSingle() method above.
-      CkCacheFillMsg<KeyType> *reply = new (count * (sizeof(Tree::BinaryTreeNode)+8)) CkCacheFillMsg<KeyType>(req.key);
+      //      CkCacheFillMsg<KeyType> *reply = new (count * (sizeof(Tree::BinaryTreeNode)+8)) CkCacheFillMsg<KeyType>(req.key);
       //reply->magic[0] = 0xd98cb23a;
       //new (reply->data) BinaryTreeNode[count];
       //CkPrintf("calling packing function: starting %p, magic=%p\n",reply->nodes,reply->magic);
-      ((Tree::BinaryTreeNode*)node)->packNodes((Tree::BinaryTreeNode*)(reply->data+8), _cacheLineDepth, 8);
+      //      ((Tree::BinaryTreeNode*)node)->packNodes((Tree::BinaryTreeNode*)(reply->data+8), _cacheLineDepth, 8);
       //CkAssert(reply->magic[0] == 0xd98cb23a);
-      cacheNode[req.replyTo].recvData(reply);
+      //cacheNode[req.replyTo].recvData(reply);
+
+      KeyType key = req.key; 
+      Tree::PackedBinaryTreeNode *reply = new PackedBinaryTreeNode[count];
+      ((Tree::BinaryTreeNode*)node)->packNodes(&(reply[0].packedNode), _cacheLineDepth, 8);
+      nodeCacheAggregator.ckLocalBranch()->insertData(reply, count, req.replyTo, &key, sizeof(KeyType)); 
+      delete [] reply;
+      
     } else {
       CkAbort("Non cached version not anymore supported, feel free to fix it!");
       //copySFCTreeNode(tmp,node);
@@ -427,4 +434,17 @@ void CacheMessageSequencer::receiveArray(ExternalGravityParticle *data,
 
   cacheGravPart.ckLocalBranch()->recvData(extras->key, cachePart); 
 
+}
+
+void NodeCacheMessageSequencer::receiveArray(PackedBinaryTreeNode *data, 
+                                             int numItems, int sourcePe) {
+
+  KeyType key = *((KeyType *) &data[numItems]);
+
+  // allocate a message to reuse existing code for receiving the message and keeping track of when it can be freed
+  CkCacheFillMsg<KeyType> *reply = new (numItems * (sizeof(Tree::BinaryTreeNode)+8)) CkCacheFillMsg<KeyType>(key);
+
+  memcpy(reply->data, (char *) data, numItems * (sizeof(Tree::BinaryTreeNode)+8));
+  cacheNode.ckLocalBranch()->recvData(reply);
+  delete [] ( (char *) data);
 }

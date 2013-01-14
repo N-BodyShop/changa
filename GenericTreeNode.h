@@ -830,6 +830,21 @@ public:
       }*/
   };
 
+class PackedBinaryTreeNode {
+public:
+  void *msgPtr; 
+  BinaryTreeNode packedNode; 
+
+  // taken care of in packNodes and unpackNodes
+  void pup(PUP::er &p) {
+    CkPrintf("Shouldn't be called\n");
+    //    p | packedNode; 
+  }
+
+  ~PackedBinaryTreeNode() {};
+
+};
+
 inline
 NodePool::~NodePool() {
         while(!pools.empty()) {
