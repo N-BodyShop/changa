@@ -785,7 +785,15 @@ void TreePiece::acceptSortedParticles(const ParticleShuffle &shuffle) {
     if (myPlace == dm->responsibleIndex.size()) myPlace = -2;
   }
 
-  incomingParticles.push_back(shuffle.particle);
+  if (incomingParticles == NULL) {
+    nStore = (int)((dm->particleCounts[myPlace] + 2)*(1.0 + dExtraStore));
+    incomingParticles = new GravityParticle[nStore];
+  }
+
+  CkAssert(incomingParticlesArrived <= dm->particleCounts[myPlace]);
+  // start at 1 to conform to how myParticles is structured
+  incomingParticles[1 + incomingParticlesArrived] = shuffle.particle;
+  //  incomingParticles.push_back(shuffle.particle);
   incomingParticlesArrived++;
   treePieceLoadTmp += shuffle.load; 
 
@@ -816,7 +824,8 @@ void TreePiece::expectingNoSortedParticles(){
   myNumStar = 0;
   nStoreStar = 0;
   incomingParticlesSelf = false;
-  incomingParticles.clear();
+  //  incomingParticles.clear();
+
   if(verbosity>1) ckout << thisIndex.data[0] <<" no particles assigned"<<endl;
 
   if (root != NULL) {
@@ -840,8 +849,14 @@ void TreePiece::receivedSortedParticles(){
     //I've got all my particles
     if (myNumParticles > 0) delete[] myParticles;
     nStore = (int)((dm->particleCounts[myPlace] + 2)*(1.0 + dExtraStore));
-    myParticles = new GravityParticle[nStore];
+    if (incomingParticles != NULL) {
+      myParticles = incomingParticles;
+    }
+    else {
+      myParticles = new GravityParticle[nStore];
+    }
     myNumParticles = dm->particleCounts[myPlace];
+    incomingParticles = NULL;
     incomingParticlesArrived = 0;
     incomingParticlesSelf = false;
     treePieceLoad = treePieceLoadTmp;
@@ -870,7 +885,8 @@ void TreePiece::receivedSortedParticles(){
     int nPart = 0;
     nSPH = 0;
     nStar = 0;
-    memcpy(&myParticles[1], &incomingParticles[0], myNumParticles*sizeof(GravityParticle));
+
+    //    memcpy(&myParticles[1], &incomingParticles[0], myNumParticles*sizeof(GravityParticle));
     /*
     for(iMsg = 0; iMsg < incomingParticlesMsg.size(); iMsg++) {
       memcpy(&myParticles[nPart+1], incomingParticlesMsg[iMsg]->particles,
@@ -886,7 +902,7 @@ void TreePiece::receivedSortedParticles(){
     }
     */
 
-    incomingParticles.clear();
+    // incomingParticles.clear();
     // assign gas data pointers
     int iGas = 0;
     int iStar = 0;
@@ -5249,6 +5265,7 @@ void TreePiece::pup(PUP::er& p) {
   if(p.isUnpacking()) {
       nStore = (int)((myNumParticles + 2)*(1.0 + dExtraStore));
       myParticles = new GravityParticle[nStore];
+      incomingParticles = NULL;
       nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
       if(nStoreSPH > 0) mySPHParticles = new extraSPHData[nStoreSPH];
       nStoreStar = (int)(myNumStar*(1.0 + dExtraStore));

@@ -996,7 +996,8 @@ private:
 	/// Array with sorted Star data for domain decomposition (ORB)
 	std::vector<extraStarData> mySortedParticlesStar;
         /// Array with incoming particles messages for domain decomposition
-	std::vector<GravityParticle> incomingParticles;
+	//std::vector<GravityParticle> incomingParticles;
+        GravityParticle *incomingParticles; 
 	std::vector<ParticleShuffleMsg*> incomingParticlesMsg;
         /// How many particles have already arrived during domain decomposition
         int incomingParticlesArrived;
@@ -1357,6 +1358,7 @@ public:
           incomingParticlesArrived = 0;
           incomingParticlesSelf = false;
 
+          incomingParticles = NULL;
           myParticles = NULL;
           mySPHParticles = NULL;
           myStarParticles = NULL;
@@ -1373,6 +1375,7 @@ public:
 #endif
 
           localTreeBuildComplete = false;
+
 	}
 
 	TreePiece(CkMigrateMessage* m) {
@@ -1409,6 +1412,8 @@ public:
           incomingParticlesMsg.clear();
           incomingParticlesArrived = 0;
           incomingParticlesSelf = false;
+
+          incomingParticles = NULL; 
 
 	  cnt=0;
 	  nodeInterRemote = NULL;
