@@ -1396,6 +1396,13 @@ public:
 
         private:
         void freeWalkObjects();
+	void allocateStars() {
+	    nStoreStar = (int) (myNumStar*(1.0 + dExtraStore));
+	    // Stars tend to form out of gas, so make sure there is
+	    // enough room.
+	    nStoreStar += 12 + myNumSPH*dExtraStore;
+	    myStarParticles = new extraStarData[nStoreStar];
+	    }
 
         public:
 	~TreePiece() {
