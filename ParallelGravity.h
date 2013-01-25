@@ -1400,7 +1400,7 @@ public:
 	    nStoreStar = (int) (myNumStar*(1.0 + dExtraStore));
 	    // Stars tend to form out of gas, so make sure there is
 	    // enough room.
-	    nStoreStar += 12 + myNumSPH*dExtraStore;
+	    nStoreStar += 12 + (int) (myNumSPH*dExtraStore);
 	    myStarParticles = new extraStarData[nStoreStar];
 	    }
 
