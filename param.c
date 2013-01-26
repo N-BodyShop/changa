@@ -206,6 +206,9 @@ int prmParseParam(PRM prm,char *pszFile)
 			 ** Make sure there is enough space to handle the string.
 			 ** This is a CONSERVATIVE test.
 			 */
+			if(pn->iSize <= strlen(p))
+			    printf("Line size problem in %s line %d\n",
+				   pszFile, iLine);
 			assert(pn->iSize > strlen(p));
 			ret = sscanf(p,"%[^\n#]",(char *)pn->pValue);
 			if (ret != 1) goto syntax_error;
