@@ -37,6 +37,7 @@ typedef struct prmNode {
  */  
 typedef struct prmContext {
 	PRM_NODE *pnHead;
+        PRM_NODE *pnTail; 
 	void (*fcnLeader)(void);
 	void (*fcnTrailer)(void);
 	} * PRM;
@@ -49,8 +50,7 @@ void prmAddParam(PRM,const char *,int,void *,int,const char *,const char *);
 void prmArgUsage(PRM prm);
 void prmLogParam(PRM prm, const char *pszFile);
 int prmParseParam(PRM,char *);
-int prmArgProc(PRM,int,char **);
-int prmArgOnlyProc(PRM prm,int argc,char **argv);
+int prmArgProc(PRM,int,char **, int);
 int prmSpecified(PRM,const char *);
 int prmArgSpecified(PRM,const char *);
 int prmFileSpecified(PRM,const char *);
