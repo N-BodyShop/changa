@@ -1641,7 +1641,7 @@ void Main::advanceBigStep(int iStep) {
 /// information about the run (including starting time) isn't known
 /// until the particles are loaded, this routine also completes the
 /// specification of the run details and writes out the log file
-/// entry.  In concludes by calling initialForces()
+/// entry.  It concludes by calling initialForces()
 
 void Main::setupICs() {
   double startTime;
@@ -1652,32 +1652,30 @@ void Main::setupICs() {
   /******** Particles Loading ********/
   CkPrintf("Loading particles ...");
   startTime = CkWallTimer();
-  treeProxy.load(basefilename, CkCallbackResumeThread());
-  if(!(treeProxy[0].ckLocal()->bLoaded)) {
-    // Try loading Tipsy format; first just grab the header.
-    CkPrintf(" trying Tipsy ...");
+
+  // Try loading Tipsy format; first just grab the header.
+  CkPrintf(" trying Tipsy ...");
 	    
-    try {
-	Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
-	if(!ptf.loadedSuccessfully()) {
-	    ckerr << endl << "Couldn't load the tipsy file \""
-		  << basefilename.c_str()
-		  << "\". Maybe it's not a tipsy file?" << endl;
-	    CkExit();
-	    return;
-	    }
-	}
-    catch (std::ios_base::failure e) {
-	ckerr << "File read: " << basefilename.c_str() << ": " << e.what()
-	      << endl;
-	CkExit();
-	return;
-	}
+  try {
+    Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
+    if(!ptf.loadedSuccessfully()) {
+      ckerr << endl << "Couldn't load the tipsy file \""
+            << basefilename.c_str()
+            << "\". Maybe it's not a tipsy file?" << endl;
+      CkExit();
+      return;
+    }
+  }
+  catch (std::ios_base::failure e) {
+    ckerr << "File read: " << basefilename.c_str() << ": " << e.what()
+          << endl;
+    CkExit();
+    return;
+  }
 
-    double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
-    treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
+  double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
+  treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
 
-  }	
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
 	    

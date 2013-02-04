@@ -47,7 +47,7 @@ void prmFinish(PRM prm)
 void prmAddParam(PRM prm,const char *pszName,int iType,void *pValue,
 				 int iSize,const char *pszArg,const char *pszArgUsage)
 {
-	PRM_NODE *pn,*pnTail;
+	PRM_NODE *pn;
 
 	pn = (PRM_NODE *)malloc(sizeof(PRM_NODE));
 	assert(pn != NULL);

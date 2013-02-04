@@ -88,7 +88,7 @@ void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
 			    )
 {
     nReplicas = nRepsPar;
-    fPeriod = fPeriodPar, fPeriodPar, fPeriodPar;
+    fPeriod = fPeriodPar;
     bEwald = bEwaldPar;
     fEwCut  = fEwCutPar;
     dEwhCut = dEwhCutPar;
