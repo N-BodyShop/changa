@@ -164,17 +164,11 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 	if(verbosity >= 5)
 		cout << thisIndex << ": TreePiece: Assigned keys to all my particles" << endl;
 
-#if 0
 /*
   if(myNumParticles > 0) 
     CkPrintf("[%d] %d (%llx) - %d (%llx)\n", thisIndex, 0, myParticles[0].key, myNumParticles+1, myParticles[myNumParticles+1].key);
     */
-
-  submitParticles();
-  CkCallback decompCb(CkIndex_Decomposer::doneLoad(NULL),decomposerProxy);
-  contribute(sizeof(CkCallback),&callback,callbackReduction,decompCb);
-#endif
-  contribute(0, 0, CkReduction::concat, callback);
+  contribute(callback);
 
 }
 

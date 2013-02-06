@@ -104,9 +104,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 
         if(skipLoad){
           myNumParticles = 0;
-          contribute(sizeof(OrientedBox<float>), &boundingBox,
-                     growOrientedBox_float,
-                     replyCB);
+          contribute(replyCB);
           return;
         }
 
@@ -122,11 +120,11 @@ void TreePiece::loadTipsy(const std::string& filename,
 	else {
 	    startParticle += excess;
 	    }
-	if(startParticle > nTotalParticles) {
+	if(startParticle >= nTotalParticles) {
 	    CkError("Bad startParticle: %d, nPart: %d, myIndex: %d, nLoading: %d\n",
 		    startParticle, nTotalParticles, myIndex, numLoadingPEs);
 	    }
-	CkAssert(startParticle <= nTotalParticles);
+	CkAssert(startParticle < nTotalParticles);
 	
 	if(verbosity > 2)
 		cerr << "TreePiece " << thisIndex << " PE " << CkMyPe() << " Taking " << myNumParticles
