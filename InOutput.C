@@ -1269,7 +1269,7 @@ void TreePiece::oneNodeOutArr(OutputParams& params,
 			      int bDone, // Last call
 			      CkCallback& cb) 
 {
-    FILE* outfile = fopen(params.fileName.c_str(), "r+");
+    FILE* outfile = CmiFopen(params.fileName.c_str(), "r+");
     if(outfile == NULL)
 	ckerr << "Treepiece " << thisIndex << " failed to open "
 	      << params.fileName.c_str() << " : " << errno << endl;
@@ -1282,7 +1282,7 @@ void TreePiece::oneNodeOutArr(OutputParams& params,
 	    CkAbort("Badness");
 	    }
 	}
-    result = fclose(outfile);
+    result = CmiFclose(outfile);
     if(result != 0)
 	ckerr << "Bad close: " << strerror(errno) << endl;
     CkAssert(result == 0);
