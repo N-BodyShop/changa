@@ -421,8 +421,7 @@ void TreePiece::updateuDot(int activeRung,
 void TreePiece::ballMax(int activeRung, double dhFac, const CkCallback& cb)
 {
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
-	if (TYPETest(&myParticles[i], TYPE_GAS)
-	    && myParticles[i].rung >= activeRung) {
+	if (TYPETest(&myParticles[i], TYPE_GAS)) {
 	    myParticles[i].fBallMax() = myParticles[i].fBall*dhFac;
 	    }
 	}

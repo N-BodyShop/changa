@@ -67,6 +67,7 @@ CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 CProxy_CkCacheManager<KeyType> cacheNode;
 CProxy_DataManager dMProxy;
 
+CProxy_DumpFrameData dfDataProxy;
 CProxy_PETreeMerger peTreeMergerProxy;
 
 
@@ -1090,6 +1091,7 @@ Main::Main(CkArgMsg* m) {
 #endif
 
         peTreeMergerProxy = CProxy_PETreeMerger::ckNew();
+        dfDataProxy = CProxy_DumpFrameData::ckNew();
 	
 	// create CacheManagers
 	// Gravity particles
@@ -1924,10 +1926,11 @@ Main::restart()
 {
     if(bIsRestarting) {
 	dSimStartTime = CkWallTimer();
+	ckout << "ChaNGa version 2.0, commit " << Cha_CommitID << endl;
 	ckout << "Restarting at " << param.iStartStep << endl;
 	string achLogFileName = string(param.achOutName) + ".log";
 	ofstream ofsLog(achLogFileName.c_str(), ios_base::app);
-	ofsLog << "# ReStarting ChaNGa" << endl;
+	ofsLog << "# ReStarting ChaNGa commit " << Cha_CommitID << endl;
 	ofsLog << "#";
 	for (int i = 0; i < CmiGetArgc(args->argv); i++)
 	    ofsLog << " " << args->argv[i];
@@ -1954,6 +1957,16 @@ Main::restart()
 		    sizeof(int),"b", "Particles per Bucket (default: 12)");
 	prmAddParam(prm, "nCacheDepth", paramInt, &param.cacheLineDepth,
 		    sizeof(int),"d", "Cache Line Depth (default: 4)");
+	prmAddParam(prm, "bConcurrentSph", paramBool, &param.bConcurrentSph,
+		    sizeof(int),"consph",
+		    "Enable SPH running concurrently with Gravity");
+	prmAddParam(prm, "bFastGas", paramBool, &param.bFastGas,
+		    sizeof(int),"Fgas", "Fast Gas Method");
+	prmAddParam(prm,"dFracFastGas",paramDouble,&param.dFracFastGas,
+		    sizeof(double),"ffg",
+		    "<Fraction of Active Particles for Fast Gas>");
+	prmAddParam(prm,"ddHonHLimit",paramDouble,&param.ddHonHLimit,
+		    sizeof(double),"dhonh", "<|dH|/H Limiter> = 0.1");
 	prmAddParam(prm, "iOutInterval", paramInt, &param.iOutInterval,
 		    sizeof(int),"oi", "Output Interval");
 	prmAddParam(prm, "iCheckInterval", paramInt, &param.iCheckInterval,
@@ -2677,10 +2690,6 @@ void Main::writeOutput(int iStep)
 	    treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
-	treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
-	if(verbosity)
-	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-		  << endl;
 
 	if(param.bDoGas) {	// recalculate gas densities for timestep
 	    if(verbosity)
@@ -2870,6 +2879,8 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 	else { return 0; }
     }
 
+#include "DumpFrameData.h"
+
 void Main::DumpFrame(double dTime, double dStep)
 {
     double dExp;
@@ -2924,7 +2935,9 @@ void Main::DumpFrame(double dTime, double dStep)
 		dfSetupFrame(df[i], dTime, dStep, dExp, com, &in, 0, 0 );
 
         CkReductionMsg *msgDF;
-	treeProxy.DumpFrame(in, CkCallbackResumeThread((void*&)msgDF), false);
+	dfDataProxy.clearFrame(in, CkCallbackResumeThread());
+	treeProxy.DumpFrame(in, CkCallbackResumeThread(), false);
+	dfDataProxy.combineFrame(in, CkCallbackResumeThread((void*&)msgDF));
 		// N.B. Beginning of message contains the DumpFrame
 		// parameters needed for proper merging.
 		void *Image = ((char *)msgDF->getData())
