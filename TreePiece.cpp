@@ -252,7 +252,7 @@ void TreePiece::initBeforeORBSend(unsigned int myCount,
   mySortedParticlesStar.clear();
   mySortedParticlesStar.reserve(myExpectedCountStar);
 
-  contribute(0, 0, CkReduction::concat, nextCallback);
+  contribute(nextCallback);
 }
 
 void TreePiece::sendORBParticles(){
@@ -783,7 +783,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     deleteTree();
     // We better not have a message with particles for us
     CkAssert(shuffleMsg == NULL);
-    contribute(0, 0, CkReduction::concat, callback);
+    contribute(callback);
     return;
   }
 
@@ -873,7 +873,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 
     deleteTree();
     //CkPrintf("[%d] accepted %d particles\n", thisIndex, myNumParticles);
-    contribute(0, 0, CkReduction::concat, callback);
+    contribute(callback);
   }
 }
 
@@ -900,7 +900,7 @@ void Decomposer::checkin(){
     myNumTreePieces = -1;
 
     // return control to mainchare
-    //contribute(0,0,CkReduction::concat,callback);
+    //contribute(callback);
   }
 }
 #endif
@@ -984,7 +984,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
 	  }
       }
-  contribute(0, 0, CkReduction::concat, cb);
+  contribute(cb);
 }
 
 void TreePiece::initAccel(int iKickRung, const CkCallback& cb) 
@@ -997,7 +997,7 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
 	    }
 	}
 
-    contribute(0, 0, CkReduction::concat, cb);
+    contribute(cb);
     }
 
 /**
@@ -1381,7 +1381,7 @@ void TreePiece::physicalSoft(const double dSoftMax, const double dFac,
 	    }
 	}
 #endif
-    contribute(0, 0, CkReduction::concat, cb);
+    contribute(cb);
 }
 
 void TreePiece::growMass(int nGrowMass, double dDeltaM, const CkCallback& cb)
@@ -1390,7 +1390,7 @@ void TreePiece::growMass(int nGrowMass, double dDeltaM, const CkCallback& cb)
 	if(myParticles[i].iOrder < nGrowMass)
 	    myParticles[i].mass += dDeltaM;
 	}
-    contribute(0, 0, CkReduction::concat, cb);
+    contribute(cb);
     }
 
 /*
@@ -1652,12 +1652,12 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
       contribute(2 * sizeof(Key), bounds, CkReduction::concat, CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
     } else {
       // No particles assigned to this TreePiece
-      contribute(0, bounds, CkReduction::concat, CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
+      contribute(CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
     }
     break;
   case Binary_ORB:
     // WARNING: ORB trees do not allow TreePieces to have 0 particles!
-    contribute(0, 0, CkReduction::concat, CkCallback(CkIndex_TreePiece::startORBTreeBuild(0), thisArrayID));
+    contribute(CkCallback(CkIndex_TreePiece::startORBTreeBuild(0), thisArrayID));
     break;
   }
 }
@@ -1737,7 +1737,7 @@ GenericTreeNode *TreePiece::get3DIndex() {
   OrientedBox<float> *boxesMsg = msg->boxes;
   copy(boxesMsg,boxesMsg+numTreePieces,boxes);
 
-  contribute(0, 0, CkReduction::concat, CkCallback(CkIndex_TreePiece::startORBTreeBuild(0), thisArrayID));
+  contribute(CkCallback(CkIndex_TreePiece::startORBTreeBuild(0), thisArrayID));
 }*/
 
 void TreePiece::startORBTreeBuild(CkReductionMsg* m){
@@ -1758,7 +1758,7 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
     }
     else{
       // if not combining trees, return control to mainchare
-      contribute(0,0,CkReduction::sum_int,callback);
+      contribute(callback);
     }
 #endif
     return;
@@ -2018,7 +2018,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
     }
     else{
       // if not merging, return control to mainchare
-      contribute(0,0,CkReduction::sum_int,callback);
+      contribute(callback);
     }
 #endif
     return;
@@ -2692,7 +2692,7 @@ void TreePiece::treeBuildComplete(){
   }
   else{
     // if not merging, return control to mainchare
-    contribute(0,0,CkReduction::sum_int,callback);
+    contribute(callback);
   }
 #endif
 }
@@ -4162,7 +4162,7 @@ void TreePiece::findTotalMass(CkCallback &cb){
 
 void TreePiece::recvTotalMass(CkReductionMsg *msg){
   myTotalMass = *((double *)msg->getData());
-  contribute(0,0,CkReduction::sum_int,callback);
+  contribute(callback);
 }
 
 /// This method starts the tree walk and gravity calculation.  It
@@ -4691,7 +4691,7 @@ void TreePiece::doAtSync(){
 void TreePiece::ResumeFromSync(){
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d in ResumefromSync\n",CkMyPe(),thisIndex);
-  contribute(0, 0, CkReduction::concat, callback);
+  contribute(callback);
 }
 
 /*
@@ -5422,7 +5422,7 @@ void TreePiece::report() {
 
   //checkTree(root);
 
-  //contribute(0, 0, CkReduction::concat, cb);
+  //contribute(cb);
 }
 
 /// Print a text version of a tree

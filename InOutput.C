@@ -788,7 +788,7 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 			  <<endl;
 
     deleteTree();
-    contribute(0, 0, CkReduction::concat, callback);
+    contribute(callback);
   }
 }
 
