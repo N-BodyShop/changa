@@ -1466,11 +1466,6 @@ public:
 	// comoving coordinates.)
 	void velScale(double dScale);
 
-	// Parse NChilada description file
-	int parseNC(const std::string& fn);
-	// Load from mass and position files
-	void load(const std::string& fn, const CkCallback& cb);
-
 	// Load from Tipsy file
 	void loadTipsy(const std::string& filename, const double dTuFac,
 		       const CkCallback& cb);
