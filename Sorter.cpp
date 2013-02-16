@@ -558,6 +558,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 	    droot->combine(joinThreshold,nodeKeys,binCounts);
 
             // merge decomposition roots if they don't have enough particles
+            /*
             unsigned int shift = 1;
             while (nodeKeys.size() > 1 &&
                    nodeKeys.back() >> shift == nodeKeys[nodeKeys.size() - 2] >> shift &&
@@ -566,9 +567,9 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
               nodeKeys.pop_back();
               binCounts[binCounts.size() - 2] += binCounts.back();
               binCounts.pop_back();
-              shift <<= 1;
+              shift++;
             }
-
+            */
         }
 
 	if(binCounts.size() > numTreePieces) {
