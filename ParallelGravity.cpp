@@ -66,6 +66,7 @@ CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 CProxy_CkCacheManager<KeyType> cacheNode;
 CProxy_DataManager dMProxy;
 
+CProxy_DumpFrameData dfDataProxy;
 CProxy_PETreeMerger peTreeMergerProxy;
 
 
@@ -685,7 +686,8 @@ Main::Main(CkArgMsg* m) {
 
 #endif
 
-	if(!prmArgProc(prm,m->argc,m->argv)) {
+        int processSimfile = 1;
+	if(!prmArgProc(prm,m->argc,m->argv, processSimfile)) {
 	    CkExit();
         }
 
@@ -1031,6 +1033,7 @@ Main::Main(CkArgMsg* m) {
 #endif
 
         peTreeMergerProxy = CProxy_PETreeMerger::ckNew();
+        dfDataProxy = CProxy_DumpFrameData::ckNew();
 	
 	// create CacheManagers
 	// Gravity particles
@@ -1638,7 +1641,7 @@ void Main::advanceBigStep(int iStep) {
 /// information about the run (including starting time) isn't known
 /// until the particles are loaded, this routine also completes the
 /// specification of the run details and writes out the log file
-/// entry.  In concludes by calling initialForces()
+/// entry.  It concludes by calling initialForces()
 
 void Main::setupICs() {
   double startTime;
@@ -1649,32 +1652,30 @@ void Main::setupICs() {
   /******** Particles Loading ********/
   CkPrintf("Loading particles ...");
   startTime = CkWallTimer();
-  treeProxy.load(basefilename, CkCallbackResumeThread());
-  if(!(treeProxy[0].ckLocal()->bLoaded)) {
-    // Try loading Tipsy format; first just grab the header.
-    CkPrintf(" trying Tipsy ...");
+
+  // Try loading Tipsy format; first just grab the header.
+  CkPrintf(" trying Tipsy ...");
 	    
-    try {
-	Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
-	if(!ptf.loadedSuccessfully()) {
-	    ckerr << endl << "Couldn't load the tipsy file \""
-		  << basefilename.c_str()
-		  << "\". Maybe it's not a tipsy file?" << endl;
-	    CkExit();
-	    return;
-	    }
-	}
-    catch (std::ios_base::failure e) {
-	ckerr << "File read: " << basefilename.c_str() << ": " << e.what()
-	      << endl;
-	CkExit();
-	return;
-	}
+  try {
+    Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
+    if(!ptf.loadedSuccessfully()) {
+      ckerr << endl << "Couldn't load the tipsy file \""
+            << basefilename.c_str()
+            << "\". Maybe it's not a tipsy file?" << endl;
+      CkExit();
+      return;
+    }
+  }
+  catch (std::ios_base::failure e) {
+    ckerr << "File read: " << basefilename.c_str() << ": " << e.what()
+          << endl;
+    CkExit();
+    return;
+  }
 
-    double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
-    treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
+  double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
+  treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
 
-  }	
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
 	    
@@ -1840,10 +1841,11 @@ Main::restart()
 {
     if(bIsRestarting) {
 	dSimStartTime = CkWallTimer();
+	ckout << "ChaNGa version 2.0, commit " << Cha_CommitID << endl;
 	ckout << "Restarting at " << param.iStartStep << endl;
 	string achLogFileName = string(param.achOutName) + ".log";
 	ofstream ofsLog(achLogFileName.c_str(), ios_base::app);
-	ofsLog << "# ReStarting ChaNGa" << endl;
+	ofsLog << "# ReStarting ChaNGa commit " << Cha_CommitID << endl;
 	ofsLog << "#";
 	for (int i = 0; i < CmiGetArgc(args->argv); i++)
 	    ofsLog << " " << args->argv[i];
@@ -1882,8 +1884,9 @@ Main::restart()
 	prmAddParam(prm,"dMaxBalance",paramDouble,&param.dMaxBalance,
 		    sizeof(double), "maxbal",
 		    "Maximum piece ratio for load balancing");
-	
-	if(!prmArgOnlyProc(prm,CmiGetArgc(args->argv),args->argv)) {
+
+        int processSimfile = 0; 
+	if(!prmArgProc(prm,CmiGetArgc(args->argv),args->argv,processSimfile)) {
 	    CkExit();
 	}
 	
@@ -2686,6 +2689,8 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 	else { return 0; }
     }
 
+#include "DumpFrameData.h"
+
 void Main::DumpFrame(double dTime, double dStep)
 {
     double dExp;
@@ -2740,7 +2745,9 @@ void Main::DumpFrame(double dTime, double dStep)
 		dfSetupFrame(df[i], dTime, dStep, dExp, com, &in, 0, 0 );
 
         CkReductionMsg *msgDF;
-	treeProxy.DumpFrame(in, CkCallbackResumeThread((void*&)msgDF), false);
+	dfDataProxy.clearFrame(in, CkCallbackResumeThread());
+	treeProxy.DumpFrame(in, CkCallbackResumeThread(), false);
+	dfDataProxy.combineFrame(in, CkCallbackResumeThread((void*&)msgDF));
 		// N.B. Beginning of message contains the DumpFrame
 		// parameters needed for proper merging.
 		void *Image = ((char *)msgDF->getData())

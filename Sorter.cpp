@@ -409,10 +409,10 @@ void Sorter::convertNodesToSplitters(){
     if(partKey != 0) partKey--;
     splitters.push_back(partKey);
   }
-  //Sort here to make sure that splitters go sorted to histogramming
-  //They might be unsorted here due to sorted or unsorted node keys
-  // FILIPPO: no, by construction they must be ordered already!
-  //sort(splitters.begin(),splitters.end());
+
+  // Note: Splitters are guaranteed to be sorted.
+  // Even if nodeKeys are not completely sorted (see getChunks),
+  // by construction the left shifting will produce a sorted splitters vector
   splitters.push_back(lastPossibleKey);
 }
 
@@ -450,10 +450,8 @@ Key * Sorter::convertNodesToSplittersRefine(int num, NodeKey* keys){
     //CkPrintf("\n");
   }
 
-  //Sort here to make sure that splitters go sorted to histogramming
-  //They might be unsorted here due to sorted or unsorted node keys
-  // FILIPPO: no, by construction they must be ordered already!
-  //sort(splitters.begin(),splitters.end());
+  // Note: Splitters are guaranteed to be sorted.
+  // By construction the left shifting will produce a sorted splitters vector
 
   return result;
 }
@@ -483,7 +481,7 @@ void Sorter::collectEvaluations(CkReductionMsg* m) {
  * Examine the counts for Oct decomposition and determine if further
  * refining is needed.  Call TreePiece::evaluateBoundaries if needed,
  * else send the final keys to DataManager::acceptFinalKeys.
- * Sorter::refineOctSplitting does the new splitting choice.
+ * Sorter::refineOctSplitting perfoms splits where needed.
  */
 void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 
@@ -491,12 +489,10 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   numCounts = m->getSize() / sizeof(int);
   int* startCounts = static_cast<int *>(m->getData());
 
-
-
   //call function which will balance the bin counts: define it in GenericTreeNode
   //make it a templated function
   //Pass the bincounts as well as the nodekeys
-  
+
   if (joinThreshold == 0) {
     int total_particles = std::accumulate(startCounts, startCounts+numCounts, 0);
     joinThreshold = total_particles / (numTreePieces>>1);
@@ -560,7 +556,21 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 	for(int i = 0; i < numDecompRoots; i++){
 	    OctDecompNode *droot = &decompRoots[i];
 	    droot->combine(joinThreshold,nodeKeys,binCounts);
-	    }
+
+            // merge decomposition roots if they don't have enough particles
+
+            unsigned int shift = 1;
+            while (nodeKeys.size() > 1 &&
+                   nodeKeys.back() >> shift == nodeKeys[nodeKeys.size() - 2] >> shift &&
+                   binCounts.back() + binCounts[binCounts.size() - 2] < joinThreshold) {
+              nodeKeys.pop_back();
+              binCounts[binCounts.size() - 2] += binCounts.back();
+              binCounts.pop_back();
+              shift++;
+            }
+
+        }
+
 	if(binCounts.size() > numTreePieces) {
 	    CkPrintf("bumping joinThreshold: %d, size: %d\n", joinThreshold,
 		     binCounts.size());
@@ -584,10 +594,30 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     CkPrintf("\n");
 
     CkPrintf("final counts: ");
+    int totalAccum = 0;
+    int maxPartCount = 0;
     for(int i = 0; i < binCounts.size(); i++){
       CkPrintf("%d,", binCounts[i]);
+      totalAccum += binCounts[i];
+
+      if (binCounts[i] > maxPartCount) {
+        maxPartCount = binCounts[i];
+      }
+
     }
-    CkPrintf("\n");
+
+    int avePartCount = totalAccum / binCounts.size();
+    int numSmallCount = 0;
+    for(int i = 0; i < binCounts.size(); i++){
+      if (binCounts[i] < 0.1 * avePartCount) {
+        numSmallCount++;
+      }
+    }
+    CkPrintf("\ntotal count: %d\n", totalAccum);
+    CkPrintf("average number of particles per tree piece: %d\n", avePartCount);
+    CkPrintf("number of tree pieces of size less than 10%% of average %d\n", numSmallCount);
+    CkPrintf("maximum tree piece size: %d\n", maxPartCount);
+
 #endif
 
     if(verbosity)
