@@ -6119,15 +6119,15 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
 }
 
 // Choose a piece from among the owners from which to
-// request moments in such a way that if I am a piece with a
-// higher index, I request from a higher indexed treepiece.
+// request moments in such a way that they are evenly distributed over
+// the owners.
 int TreePiece::getResponsibleIndex(int first, int last){
+    int which = first + (thisIndex % (1 + last - first));
     if(verbosity > 3) 
 	CkPrintf("[tp %d] choosing responsible index %d from %d to %d\n",
 		 thisIndex,
-		 dm->responsibleIndex[first + (thisIndex & (last-first))],
-		 first, last);
-  return dm->responsibleIndex[first + (thisIndex & (last-first))];
+		 dm->responsibleIndex[which], first, last);
+  return dm->responsibleIndex[which];
 }
 
 std::map<NodeKey,NonLocalMomentsClientList>::iterator TreePiece::createTreeBuildMomentsEntry(GenericTreeNode *pickedNode){
