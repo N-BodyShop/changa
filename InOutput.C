@@ -10,265 +10,14 @@ using namespace TypeHandling;
 using namespace SFC;
 using namespace std;
 
-// Parse NChilada description file
-int TreePiece::parseNC(const std::string& fn)
-{
-    return 0;
-    }
-
-void TreePiece::load(const std::string& fn, const CkCallback& cb) {
-  // mark presence in the cache if we are in the first iteration (indicated by localCache==NULL)
-  LBTurnInstrumentOff();
-  
-  basefilename = fn;
-  bLoaded = 0;
-
-  if(!parseNC(fn)) {	
-      contribute(0, 0, CkReduction::concat, cb);
-      return;
-      }
-     
-  //read in particles
-  XDR xdrs;
-  FILE* infile = fopen((basefilename + ".mass").c_str(), "rb");
-  if(!infile) {
-    contribute(0, 0, CkReduction::concat, cb);
-    return;
-  }
-  xdrstdio_create(&xdrs, infile, XDR_DECODE);
-	
-  FieldHeader fh;
-  
-  if(!xdr_template(&xdrs, &fh)) {
-    ckerr << "TreePiece " << thisIndex.data[0] << ": Couldn't read header from masses file, aborting" << endl;
-    contribute(0, 0, CkReduction::concat, cb);
-    return;
-  }
-	
-  if(fh.magic != FieldHeader::MagicNumber || fh.dimensions != 1 || fh.code != float32) {
-    ckerr << "TreePiece " << thisIndex.data[0] << ": Masses file is corrupt or of incorrect type, aborting" << endl;
-    contribute(0, 0, CkReduction::concat, cb);
-    return;
-  }
-
-  // XXX two problems here: 1. Why do we need to talk about chunks at
-  // this point?
-  // 2. There is a small memory leak with startParticles and numParticlesChunk
-  // 3. Some of this functionality should be moved into a separate
-  // function so it can also be used in loadTipsy().
-
-  switch (domainDecomposition) {
-  case SFC_dec:
-  case SFC_peano_dec:
-  case SFC_peano_dec_3D:
-  case SFC_peano_dec_2D:
-    numPrefetchReq = 2;
-  case Oct_dec:
-  case ORB_dec:
-  case ORB_space_dec:
-    numPrefetchReq = 1;
-    break;
-  default:
-      CkAbort("Invalid domain decomposition requested");
-  }
-
-  unsigned int numLoadingTreePieces;
-  if (domainDecomposition == Oct_dec) {
-    numLoadingTreePieces = CkNumPes();
-    if (thisIndex.data[0] >= CkNumPes()) {
-      myNumParticles = 0;
-      contribute(0, 0, CkReduction::concat, cb);
-      return;
-    }
-  }
-  else numLoadingTreePieces = numTreePieces;
-  
-  unsigned int *startParticles;
-  unsigned int *numParticlesChunk;
-  unsigned int excess;
-    numParticlesChunk = new unsigned int[2];
-    startParticles = new unsigned int[1];
-    numParticlesChunk[0] = fh.numParticles / numLoadingTreePieces;
-    numParticlesChunk[1] = 0; // sentinel for end chunks
-    
-    excess = fh.numParticles % numLoadingTreePieces;
-    startParticles[0] = numParticlesChunk[0] * thisIndex.data[0];
-    if(thisIndex.data[0] < (int) excess) {
-      numParticlesChunk[0]++;
-      startParticles[0] += thisIndex.data[0];
-    } else {
-      startParticles[0] += excess;
-    }
-    myNumParticles = numParticlesChunk[0];
-
-  /* At this point myNumParticles contain the number of particles to be loaded
-     into this processor, startParticles and numParticlesChunk are newly
-     allocated array containing the first particle and the count of each
-     contiguous chunk of particles that has to be loaded. */
-
-  // allocate an array for myParticles
-  nStore = (int)((myNumParticles + 2)*(1.0 + dExtraStore));
-  myParticles = new GravityParticle[nStore];
-  assert(myParticles != NULL);
-
-  if(thisIndex.data[0] == 0)
-    ckout << " (" << fh.numParticles << ")";
-
-  if(verbosity > 3)
-    ckout << "TreePiece " << thisIndex.data[0] << ": Of " << fh.numParticles << " particles, taking " << startParticles[0] << " through " << (startParticles[0] + numParticlesChunk[0] - 1) << endl;
-
-  float mass;
-  float maxMass;
-  if(!xdr_template(&xdrs, &mass) || !xdr_template(&xdrs, &maxMass)) {
-    ckerr << "TreePiece " << thisIndex.data[0] << ": Problem reading beginning of the mass file, aborting" << endl;
-    CkAbort("Badness");
-  }
-  
-  if(mass == maxMass) { //all the same mass
-    for(u_int64_t i = 0; i < myNumParticles; ++i){
-      myParticles[i + 1].mass = mass;
-#if COSMO_STATS > 1
-      myParticles[i + 1].intcellmass = 0;
-      myParticles[i + 1].intpartmass = 0;
-      myParticles[i + 1].extcellmass = 0;
-      myParticles[i + 1].extpartmass = 0;
-#endif
-    }
-#if COSMO_STATS > 0
-    piecemass = myNumParticles*mass;
-    //ckerr << "In a tree piece....mass of tree piece particles: " << piecemass << ", single particle; " << mass;
-#endif
-  } else {
-
-    unsigned int myPart = 0;
-    for (int chunkNum = 0; numParticlesChunk[chunkNum] > 0; ++chunkNum) {
-      if(!seekField(fh, &xdrs, startParticles[chunkNum])) {
-	ckerr << "TreePiece " << thisIndex.data[0] << ": Could not seek to my part of the mass file, aborting" << endl;
-	CkAbort("Badness");
-      }
-
-      for(unsigned int i = 0; i < numParticlesChunk[chunkNum]; ++i) {
-	if(!xdr_template(&xdrs, &mass)) {
-	  ckerr << "TreePiece " << thisIndex.data[0] << ": Problem reading my part of the mass file, aborting" << endl;
-	  CkAbort("Badness");
-	}
-	myParticles[++myPart].mass = mass;
-#if COSMO_STATS > 1
-	myParticles[myPart].intcellmass = 0;
-	myParticles[myPart].intpartmass = 0;
-	myParticles[myPart].extcellmass = 0;
-	myParticles[myPart].extpartmass = 0;
-#endif
-#if COSMO_STATS > 0
-	piecemass += mass;
-#endif
-      }
-    }
-    CkAssert(myPart == myNumParticles);
-  }
-  
-  xdr_destroy(&xdrs);
-  fclose(infile);
-  
-  for(u_int64_t i = 0; i < myNumParticles; ++i)
-    myParticles[i + 1].soft = 0.0;
-
-  infile = fopen((basefilename + ".pos").c_str(), "rb");
-  if(!infile) {
-    ckerr << "TreePiece " << thisIndex.data[0] << ": Couldn't open positions file, aborting" << endl;
-    CkAbort("Badness");
-  }
-  xdrstdio_create(&xdrs, infile, XDR_DECODE);
-  
-  FieldHeader posHeader;
-  if(!xdr_template(&xdrs, &posHeader)) {
-    ckerr << "TreePiece " << thisIndex.data[0] << ": Couldn't read header from positions file, aborting" << endl;
-    CkAbort("Badness");
-  }
-  
-  if(posHeader.magic != FieldHeader::MagicNumber || posHeader.dimensions != 3 || posHeader.code != float32) {
-    ckerr << "TreePiece " << thisIndex.data[0] << ": Positions file is corrupt or of incorrect type, aborting" << endl;
-    CkAbort("Badness");
-  }
-  
-  if(posHeader.time != fh.time || posHeader.numParticles != fh.numParticles) {
-    ckerr << "TreePiece " << thisIndex.data[0] << ": Positions file doesn't match masses file, aborting" << endl;
-    CkAbort("Badness");
-  }
-  
-  Vector3D<float> pos;
-  Vector3D<float> maxPos;
-  if(!xdr_template(&xdrs, &pos) || !xdr_template(&xdrs, &maxPos)) {
-    ckerr << "TreePiece " << thisIndex.data[0] << ": Problem reading beginning of the positions file, aborting" << endl;
-    CkAbort("Badness");
-  }
-  
-  boundingBox.lesser_corner = pos;
-  boundingBox.greater_corner = maxPos;
- 
-  //curBoundingBox = boundingBox;
-
-  if(pos == maxPos) { //all the same position
-    //XXX This would be bad!
-    Key k;
-    if((domainDecomposition!=ORB_dec) && (domainDecomposition!=ORB_space_dec)){
-      k = generateKey(pos, boundingBox);
-    }
-    for(u_int64_t i = 0; i < myNumParticles; ++i) {
-      myParticles[i + 1].position = pos;
-      if((domainDecomposition!=ORB_dec)
-	 && (domainDecomposition!=ORB_space_dec)){
-        myParticles[i + 1].key = k;
-      }
-    }
-  } else {
-
-    unsigned int myPart = 0;
-    for (int chunkNum = 0; numParticlesChunk[chunkNum] > 0; ++chunkNum) {
-      if(!seekField(posHeader, &xdrs, startParticles[chunkNum])) {
-	ckerr << "TreePiece " << thisIndex.data[0] << ": Could not seek to my part of the positions file, aborting" << endl;
-	CkAbort("Badness");
-      }
-
-      Key current;
-      //read all my particles' positions and make keys
-      for(unsigned int i = 0; i < numParticlesChunk[chunkNum]; ++i) {
-	      if(!xdr_template(&xdrs, &pos)) {
-	        ckerr << "TreePiece " << thisIndex.data[0] << ": Problem reading my part of the positions file, aborting" << endl;
-	        CkAbort("Badness");
-	      }
-	      myParticles[++myPart].position = pos;
-	      if((domainDecomposition!=ORB_dec)
-		 && (domainDecomposition!=ORB_space_dec)){
-	        current = generateKey(pos, boundingBox);
-	        myParticles[myPart].key = current;
-        }
-      }
-    }
-    CkAssert(myPart == myNumParticles);
-  }
-	
-  xdr_destroy(&xdrs);
-  fclose(infile);
-	
-  if(verbosity > 3)
-    ckerr << "TreePiece " << thisIndex.data[0] << ": Read in masses and positions" << endl;
-	
-  bLoaded = 1;
-
-  if((domainDecomposition!=ORB_dec) && (domainDecomposition!=ORB_space_dec)){
-    sort(myParticles+1, myParticles+myNumParticles+1);
-  }
-
-  contribute(0, 0, CkReduction::concat, cb);
-}
-
 void TreePiece::loadTipsy(const std::string& filename,
 			  const double dTuFac, // Convert Temperature
 			  const CkCallback& cb) {
+        LBTurnInstrumentOff();       
 	callback = cb;
         CkCallback replyCB(CkIndex_TreePiece::assignKeys(0), pieces);
 	
+        basefilename = filename;
 	bLoaded = 0;
 
 	Tipsy::TipsyReader r(filename);
@@ -284,8 +33,6 @@ void TreePiece::loadTipsy(const std::string& filename,
 	nTotalDark = tipsyHeader.ndark;
 	nTotalStar = tipsyHeader.nstar;
 	dStartTime = tipsyHeader.time;
-	int excess;
-	unsigned int startParticle;
 
 	switch (domainDecomposition) {
 	case SFC_dec:
@@ -344,7 +91,7 @@ void TreePiece::loadTipsy(const std::string& filename,
           if(numTreePieces % numTreePiecesPerPE > 0) numLoadingPEs++;
         }
 
-        if(thisIndex.data[0] % numTreePiecesPerPE > 0) skipLoad = true;
+        if(thisIndex.data[0] % numTreePiecesPerPE > 0 || thisIndex.data[0] >= numLoadingPEs * numTreePiecesPerPE) skipLoad = true;
 #endif
 #endif
 
@@ -357,29 +104,27 @@ void TreePiece::loadTipsy(const std::string& filename,
 
         if(skipLoad){
           myNumParticles = 0;
-          contribute(sizeof(OrientedBox<float>), &boundingBox,
-                     growOrientedBox_float,
-                     replyCB);
+          contribute(replyCB);
           return;
         }
 
         // find your load offset into input file
         int myIndex = CkMyPe();
 	myNumParticles = nTotalParticles / numLoadingPEs;
-	excess = nTotalParticles % numLoadingPEs;
-	startParticle = myNumParticles * myIndex;
-	if(myIndex < (int) excess) {
+	int excess = nTotalParticles % numLoadingPEs;
+	unsigned int startParticle = myNumParticles * myIndex;
+	if(myIndex < excess) {
 	    myNumParticles++;
 	    startParticle += myIndex;
 	    }
 	else {
 	    startParticle += excess;
 	    }
-	if(startParticle > nTotalParticles) {
+	if(startParticle >= nTotalParticles) {
 	    CkError("Bad startParticle: %d, nPart: %d, myIndex: %d, nLoading: %d\n",
 		    startParticle, nTotalParticles, myIndex, numLoadingPEs);
 	    }
-	CkAssert(startParticle <= nTotalParticles);
+	CkAssert(startParticle < nTotalParticles);
 	
 	if(verbosity > 2)
 		cerr << "TreePiece " << thisIndex.data[0] << " PE " << CkMyPe() << " Taking " << myNumParticles
@@ -568,8 +313,17 @@ void TreePiece::parallelWrite(int iPass, const CkCallback& cb,
 			      const double duTFac, // convert temperature
 			      const int bCool)
 {
+    Tipsy::header tipsyHeader;
+
+    tipsyHeader.time = dTime;
+    tipsyHeader.nbodies = nTotalParticles;
+    tipsyHeader.nsph = nTotalSPH;
+    tipsyHeader.nstar = nTotalStar;
+    tipsyHeader.ndark = nTotalParticles - (nTotalSPH + nTotalStar);
+
     if(nIOProcessor == 0) {	// use them all
-	writeTipsy(filename, dTime, dvFac, duTFac, bCool);
+	Tipsy::TipsyWriter wAll(filename, tipsyHeader);
+	writeTipsy(wAll, dvFac, duTFac, bCool);
 	contribute(cb);
 	return;
 	}
@@ -580,15 +334,20 @@ void TreePiece::parallelWrite(int iPass, const CkCallback& cb,
 				   // for the first pass.
 	return;
 	}
-    writeTipsy(filename, dTime, dvFac, duTFac, bCool);
+
+    Tipsy::TipsyWriter w(filename, tipsyHeader);
+    writeTipsy(w, dvFac, duTFac, bCool);
     if(iPass < (nSkip - 1) && thisIndex.data[0] < (numTreePieces - 1))
 	treeProxy[thisIndex.data[0]+1].parallelWrite(iPass + 1, cb, filename, dTime,
-					     dvFac, duTFac, bCool);
+						     dvFac, duTFac, bCool);
     contribute(cb);
     }
 
 
-// Serial output of tipsy file.
+/// @brief Serial output of tipsy file.
+///
+/// Send my particles to piece 0 for output.
+///
 void TreePiece::serialWrite(const u_int64_t iPrevOffset, // previously written
 							 //particles
 			    const std::string& filename,  // output file
@@ -631,6 +390,15 @@ void TreePiece::serialWrite(const u_int64_t iPrevOffset, // previously written
 	delete [] piStar;
     }
 
+/// @brief a global variable to store the tipsy writing state for
+/// serial I/O.
+///
+/// Since this is for serial I/O there are no issues for multiple
+/// cores accessing this.
+///
+Tipsy::TipsyWriter *globalTipsyWriter;
+
+/// @brief write out the particles I have been sent
 void
 TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
 			int iOutParticles, // number of particles
@@ -678,7 +446,19 @@ TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
     mySPHParticles = pGas;
     myStarParticles = pStar;
     nStartWrite = iPrevOffset;
-    writeTipsy(filename, dTime, dvFac, duTFac, bCool);
+    if(iIndex == 0) {
+	Tipsy::header tipsyHeader;
+
+	tipsyHeader.time = dTime;
+	tipsyHeader.nbodies = nTotalParticles;
+	tipsyHeader.nsph = nTotalSPH;
+	tipsyHeader.nstar = nTotalStar;
+	tipsyHeader.ndark = nTotalParticles - (nTotalSPH + nTotalStar);
+    
+	globalTipsyWriter = new Tipsy::TipsyWriter(filename, tipsyHeader);
+	}
+	    
+    writeTipsy(*globalTipsyWriter, dvFac, duTFac, bCool);
     /*
      * Restore pointers/data
      */
@@ -690,26 +470,19 @@ TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
     if(iIndex < (numTreePieces - 1))
 	treeProxy[iIndex+1].serialWrite(iPrevOffset + iOutParticles, filename,
 					dTime, dvFac, duTFac, bCool, cb);
-    else
+    else {
+	delete globalTipsyWriter;
 	cb.send();  // we are done.
+	}
     }
     
-void TreePiece::writeTipsy(const std::string& filename, const double dTime,
+void TreePiece::writeTipsy(Tipsy::TipsyWriter& w,
 			   const double dvFac, // scale velocities
 			   const double duTFac, // convert temperature
 			   const int bCool)
 {
-    Tipsy::header tipsyHeader;
-
-    tipsyHeader.time = dTime;
-    tipsyHeader.nbodies = nTotalParticles;
-    tipsyHeader.nsph = nTotalSPH;
-    tipsyHeader.nstar = nTotalStar;
-    tipsyHeader.ndark = nTotalParticles - (nTotalSPH + nTotalStar);
     
-    Tipsy::TipsyWriter w(filename, tipsyHeader);
-    
-    if(thisIndex.data[0] == 0)
+    if(nStartWrite == 0)
 	w.writeHeader();
     if(!w.seekParticleNum(nStartWrite))
 	CkAbort("bad seek");
@@ -1015,7 +788,7 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 			  <<endl;
 
     deleteTree();
-    contribute(0, 0, CkReduction::concat, callback);
+    contribute(callback);
   }
 }
 

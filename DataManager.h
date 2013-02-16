@@ -252,7 +252,7 @@ class ProjectionsControl : public CBase_ProjectionsControl {
       CkPrintf("\n\n**** PROJECTIONS ON *****\n\n"); 
     } 
     traceBegin();  
-    contribute(0,0,CkReduction::sum_int,cb); 
+    contribute(cb); 
   } 
  
   void off(CkCallback cb) { 
@@ -260,7 +260,7 @@ class ProjectionsControl : public CBase_ProjectionsControl {
       CkPrintf("\n\n**** PROJECTIONS OFF *****\n\n"); 
     } 
     traceEnd();  
-    contribute(0,0,CkReduction::sum_int,cb); 
+    contribute(cb); 
   } 
 
   void pup(PUP::er &p){

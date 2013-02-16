@@ -158,7 +158,7 @@ void DataManager::collectSplitters(CkReductionMsg *m) {
     }
   }
   splitters[0] = SFC::firstPossibleKey;
-  contribute(0, 0, CkReduction::concat, CkCallback(CkIndex_TreePiece::startOctTreeBuild(0), treePieces));
+  contribute(CkCallback(CkIndex_TreePiece::startOctTreeBuild(0), treePieces));
   delete m;
   if(verbosity > 3)
     ckerr << "DataManager " << CkMyNode() << ": Collected splitters" << endl;
@@ -272,7 +272,7 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
 #ifdef CUDA
   gpuFree = true;
 #endif
-  contribute(0, 0, CkReduction::random, *(CkCallback*)msg->getData());
+  contribute(*(CkCallback*)msg->getData());
   delete msg;
 }
 
@@ -1057,7 +1057,7 @@ void updateParticlesCallback(void *param, void *msg){
 void DataManager::clearInstrument(CkCallback &cb){
 #ifdef CUDA_INSTRUMENT_WRS
   hapi_clearInstrument();
-  contribute(0,0,CkReduction::concat,cb);
+  contribute(cb);
 #endif
 }
 

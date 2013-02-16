@@ -146,6 +146,7 @@ extern unsigned int numTreePieces;
 extern unsigned int particlesPerChare;
 extern int nIOProcessor;
 
+extern CProxy_DumpFrameData dfDataProxy;
 extern CProxy_PETreeMerger peTreeMergerProxy;
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
@@ -498,7 +499,7 @@ public:
 	int adjust(int iKickRung);
 	void rungStats();
 	void countActive(int activeRung);
-	void calcEnergy(double, double, char *);
+	void calcEnergy(double, double, const char *);
 	void getStartTime();
 	void getOutTimes();
 	int bOutTime();
@@ -1460,11 +1461,6 @@ public:
 	// comoving coordinates.)
 	void velScale(double dScale);
 
-	// Parse NChilada description file
-	int parseNC(const std::string& fn);
-	// Load from mass and position files
-	void load(const std::string& fn, const CkCallback& cb);
-
 	// Load from Tipsy file
 	void loadTipsy(const std::string& filename, const double dTuFac,
 		       const CkCallback& cb);
@@ -1473,8 +1469,9 @@ public:
         void recvTotalMass(CkReductionMsg *msg);
 
 	// Write a Tipsy file
-	void writeTipsy(const std::string& filename, const double dTime,
-			const double dvFac, const double duTfac,
+	void writeTipsy(Tipsy::TipsyWriter& w,
+			const double dvFac, // scale velocities
+			const double duTFac, // convert temperature
 			const int bCool);
 	// Find position in the file to start writing
 	void setupWrite(int iStage, u_int64_t iPrevOffset,

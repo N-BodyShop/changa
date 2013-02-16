@@ -607,8 +607,7 @@ void TreePiece::markSmoothWalkDone()
 	CkCallback cb = CkCallback(CkIndex_TreePiece::finishSmoothWalk(),
 				   pieces);
 	// Use shadow array to avoid reduction conflict
-	smoothProxy[thisIndex.data[0]].ckLocal()->contribute(0, 0,
-						     CkReduction::concat, cb);
+	smoothProxy[thisIndex.data[0]].ckLocal()->contribute(cb);
     }
 
 void TreePiece::finishSmoothWalk()
