@@ -740,8 +740,10 @@ void TreePiece::writeTipsy(const std::string& filename, const double dTime,
 	    else 
 		gp.temp = duTFac*myParticles[i+1].u();
 
-	    if(!w.putNextGasParticle(gp))
+	    if(!w.putNextGasParticle(gp)) {
+		CkError("[%d] Write gas failed, errno %d\n", CkMyPe(), errno);
 		CkAbort("Bad Write");
+		}
 	    }
 	else if(myParticles[i+1].isDark()) {
 	    Tipsy::dark_particle dp;
@@ -755,8 +757,10 @@ void TreePiece::writeTipsy(const std::string& filename, const double dTime,
 #endif
 	    dp.phi = myParticles[i+1].potential;
 
-	    if(!w.putNextDarkParticle(dp))
+	    if(!w.putNextDarkParticle(dp)) {
+		CkError("[%d] Write dark failed, errno %d\n", CkMyPe(), errno);
 		CkAbort("Bad Write");
+		}
 	    }
 	else if(myParticles[i+1].isStar()) {
 	    Tipsy::star_particle sp;
@@ -772,8 +776,10 @@ void TreePiece::writeTipsy(const std::string& filename, const double dTime,
 	    sp.metals = myParticles[i+1].fStarMetals();
 	    sp.tform = myParticles[i+1].fTimeForm();
 
-	    if(!w.putNextStarParticle(sp))
+	    if(!w.putNextStarParticle(sp)) {
+		CkError("[%d] Write star failed, errno %d\n", CkMyPe(), errno);
 		CkAbort("Bad Write");
+		}
 	    }
 	else {
 	    CkAbort("Bad particle type in tipsyWrite");
