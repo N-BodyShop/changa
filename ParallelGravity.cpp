@@ -1029,14 +1029,29 @@ Main::Main(CkArgMsg* m) {
         int NUM_MESSAGES_BUFFERED = 1024;
 
         TopoManager tmgr;
+
+#if CMK_BLUEGENEQ
+	int NUM_ROWS = tmgr.getDimNC() * tmgr.getDimND() * tmgr.getDimNE();
+	int NUM_COLUMNS = tmgr.getDimNA() * tmgr.getDimNB();
+	int NUM_PLANES = tmgr.getDimNT();
+	int nDims = 3;
+        int dims[] = {NUM_ROWS, NUM_COLUMNS, NUM_PLANES};
+	// alternative specification, although 3D appears to be working better
+	//	int dims[] = {tmgr.getDimNA(), tmgr.getDimNB(), tmgr.getDimNC(), tmgr.getDimND() * tmgr.getDimNE(), tmgr.getDimNT()}; 
+#elif 1 //CMK_BLUEGENEP 
         int NUM_ROWS = tmgr.getDimNX()*tmgr.getDimNT();
         int NUM_COLUMNS = tmgr.getDimNY();
         int NUM_PLANES = tmgr.getDimNZ();
-
+	int nDims = 3; 
         int dims[] = {NUM_ROWS, NUM_COLUMNS, NUM_PLANES};
-
+#endif
+	CkPrintf("Topology Dimensions for Mesh Streamer: "); 
+	for (int i = 0; i < nDims; i++) {
+	  CkPrintf("%d ", dims[i]);
+	}
+	CkPrintf("\n");
         aggregator = CProxy_ArrayMeshStreamer<CkCacheRequest, int>::
-          ckNew(NUM_MESSAGES_BUFFERED, 3, dims, treeProxy, false, 10.0);
+          ckNew(NUM_MESSAGES_BUFFERED, nDims, dims, treeProxy, false, 10.0);
 
         //        detector = CProxy_CompletionDetector::ckNew();
         //shuffleDetector = CProxy_CompletionDetector::ckNew();
@@ -1055,10 +1070,10 @@ Main::Main(CkArgMsg* m) {
         cacheSequencerProxy = CProxy_CacheMessageSequencer::ckNew();
 
         shuffleAggregator = CProxy_ArrayMeshStreamer<ParticleShuffle, int>::
-          ckNew(NUM_MESSAGES_BUFFERED, 3, dims, shuffleShadowProxy, false, 10.0);
+          ckNew(NUM_MESSAGES_BUFFERED, nDims, dims, shuffleShadowProxy, false, 10.0);
 
         cacheAggregator = CProxy_GroupChunkMeshStreamer<ExternalGravityParticle>::
-          ckNew(NUM_MESSAGES_BUFFERED, 3, dims, cacheSequencerProxy, false, 10.0, 
+          ckNew(NUM_MESSAGES_BUFFERED, nDims, dims, cacheSequencerProxy, false, 10.0, 
                 true); 
 
 #ifdef PUSH_GRAVITY
