@@ -310,7 +310,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
     case Oct_dec:
       {
 
-        refineLevel = 1;
+        refineLevel = 3;
 
         rt = new BinaryTreeNode();
         int numInitialBins = numInitDecompBins;
@@ -321,10 +321,9 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
         rt->getChunks(nodeKeys.size(),tmp);
         delete rt;
 
-        if(numDecompRoots > 0){
-          for(int i = 0; i < numDecompRoots; i++){
-            decompRoots[i].deleteBeneath();
-          }
+        if (numDecompRoots > 0){
+          root->deleteBeneath();
+          delete root;
           delete[] decompRoots;
         }
         
@@ -532,7 +531,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     CkPrintf("\n");
   }
   if(histogram){
-    refineLevel = 1;
+    refineLevel = 3;
     int arraySize = (1<<refineLevel)+1;
     startTimer = CmiWallTimer();
     Key *array = convertNodesToSplittersRefine(nodesOpened.size(),nodesOpened.getVec());
@@ -548,28 +547,38 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   else{
     sorted=true;
     splitters.clear();
+
+    // build a tree out of decompRoots
+    // requires numDecompRoots to be a power of OctDecompNode::maxNumChildren
+    CkVec<OctDecompNode*> *leaves = new CkVec<OctDecompNode*>;
+    root = new OctDecompNode;
+    root->key = 1;
+    int depth = 0;
+    for (int numLeaves = numDecompRoots; numLeaves > OctDecompNode::maxNumChildren; numLeaves /= OctDecompNode::maxNumChildren) {
+      depth++;
+    }
+
+    root->makeSubTree(depth, leaves);
+    // CkPrintf("num leaves: %d numDecompRoots: %d\n", leaves->length(), numDecompRoots);
+
+    for (int i = 0; i < leaves->length(); i++) {
+      (*leaves)[i]->nchildren = OctDecompNode::maxNumChildren;
+      (*leaves)[i]->children = new OctDecompNode[OctDecompNode::maxNumChildren];
+      for (int j = 0; j < OctDecompNode::maxNumChildren; j++) {
+        (*leaves)[i]->children[j] = decompRoots[i * OctDecompNode::maxNumChildren + j];
+      }
+    }
+
+    delete leaves;
+    int total = root->buildCounts();
+    // CkPrintf("total number of particles: %d\n", total);
     do {
 	// Convert Oct domains to splitters, ensuring that we do not exceed
 	// the number of available TreePieces.
 	nodeKeys.clear();
 	binCounts.clear();
-	for(int i = 0; i < numDecompRoots; i++){
-	    OctDecompNode *droot = &decompRoots[i];
-	    droot->combine(joinThreshold,nodeKeys,binCounts);
 
-            // merge decomposition roots if they don't have enough particles
-
-            unsigned int shift = 1;
-            while (nodeKeys.size() > 1 &&
-                   nodeKeys.back() >> shift == nodeKeys[nodeKeys.size() - 2] >> shift &&
-                   binCounts.back() + binCounts[binCounts.size() - 2] < joinThreshold) {
-              nodeKeys.pop_back();
-              binCounts[binCounts.size() - 2] += binCounts.back();
-              binCounts.pop_back();
-              shift++;
-            }
-
-        }
+        root->combine(joinThreshold, nodeKeys, binCounts);
 
 	if(binCounts.size() > numTreePieces) {
 	    CkPrintf("bumping joinThreshold: %d, size: %d\n", joinThreshold,
@@ -620,34 +629,11 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 
 #endif
 
-    if(verbosity)
-      ckout << "Sorter: Histograms balanced after " << numIterations
-	    << " iterations. Using " << nodeKeys.size() << " chares." << endl;
+    ckout << "Sorter: Histograms balanced after " << numIterations
+          << " iterations. Using " << nodeKeys.size() << " chares." << endl;
     //We have the splitters here because weight balancer didn't change any node keys
     //We also have the final bin counts
 		
-    //determine which TreePiece is responsible for each interval
-    //vector<int> chareIDs(numChares, 1);
-    //chareIDs[0] = 0;
-    //partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
-	
-    //send out the final splitters and responsibility table
-    //convertNodesToSplittersNoZeros(numKeys,nodeKeys,zeros);
-    //convertNodesToSplitters(); // Filippo: not needed anymore since splitters is kept in sync with
-                                 // the other arrays by the function refileOctSplitting.
-    
-    /*
-    ostringstream oss;
-    oss << "final chares: ";
-    for(int i = 0; i < chareIDs.size(); i++){
-      oss << chareIDs[i] << ",";
-    }
-    oss << endl;
-    CkPrintf("sorter: %s",oss.str().c_str());
-
-    CkPrintf("sorter: %d splitters %d binCounts\n", splitters.size(), binCounts.size());
-    */
-
     if(binCounts.size() > numTreePieces){
       CkPrintf("Need %d tree pieces, available %d\n", binCounts.size(), numTreePieces);
       CkAbort("too few tree pieces\n");
@@ -659,8 +645,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     return;
     */
 
-
-    CkPrintf(" histogramming %g sec ... used chares %d ... \n", CmiWallTimer()-decompTime, nodeKeys.size());
+    CkPrintf(" histogramming %g sec ... \n", CmiWallTimer()-decompTime);
     
     dm.acceptFinalKeys(&(*splitters.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), splitters.size(), sortingCallback);
     numIterations = 0;
@@ -691,6 +676,19 @@ void OctDecompNode::makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active){
   }
 }
 
+int OctDecompNode::buildCounts() {
+  if (children == NULL) {
+    return nparticles;
+  }
+  else {
+    nparticles = 0;
+    for (int i = 0; i < nchildren; i++) {
+      nparticles += children[i].buildCounts();
+    }
+    return nparticles;
+  }
+}
+
 void OctDecompNode::combine(int joinThreshold, vector<NodeKey> &finalKeys, vector<unsigned int> &counts){
   if(nparticles < joinThreshold || nchildren == 0){
     finalKeys.push_back(key);
@@ -702,6 +700,7 @@ void OctDecompNode::combine(int joinThreshold, vector<NodeKey> &finalKeys, vecto
   for(int i = 0; i < nchildren; i++){
     children[i].combine(joinThreshold, finalKeys, counts);
   }
+
 }
 
 void OctDecompNode::deleteBeneath(){
