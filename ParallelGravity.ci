@@ -74,6 +74,9 @@ mainmodule ParallelGravity {
   // iteration of every decomposition step
   readonly int numInitDecompBins;
 
+  // Specifies the number of sub-bins a bin is split into
+  //  for Oct decomposition
+  readonly int octRefineLevel;
   readonly bool doDumpLB;
   readonly int lbDumpIteration;
   readonly bool doSimulateLB;

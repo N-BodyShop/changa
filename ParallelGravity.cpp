@@ -139,6 +139,10 @@ bool doSimulateLB;
 // of every Oct decomposition step
 int numInitDecompBins;
 
+// Specifies the number of sub-bins a bin is split into
+//  for Oct decomposition
+int octRefineLevel;
+
 void _Leader(void) {
     puts("USAGE: ChaNGa [SETTINGS | FLAGS] [PARAM_FILE]");
     puts("PARAM_FILE: Configuration file of a particular simulation, which");
@@ -638,6 +642,10 @@ Main::Main(CkArgMsg* m) {
         prmAddParam(prm, "iInitDecompBins", paramInt, &numInitDecompBins,
               sizeof(int),"initDecompBins", "Number of bins to use for the first iteration of every Oct decomposition step");
 
+        octRefineLevel = 1;
+        prmAddParam(prm, "iOctRefineLevel", paramInt, &octRefineLevel,
+                    sizeof(int),"octRefineLevel", "Binary logarithm of the number of sub-bins a bin is split into for Oct decomposition (e.g. octRefineLevel 3 splits into 8 sub-bins) (default: 1)");
+
         doDumpLB = false;
         prmAddParam(prm, "bdoDumpLB", paramBool, &doDumpLB,
               sizeof(bool),"doDumpLB", "Should Orb3dLB dump LB database to text file and stop?");
@@ -691,7 +699,14 @@ Main::Main(CkArgMsg* m) {
 	    CkExit();
         }
 
-        if(numInitDecompBins > numTreePieces) numInitDecompBins = numTreePieces;
+        // ensure that number of bins is a power of 2
+        if (numInitDecompBins > numTreePieces) {
+          unsigned int numBins = 1;
+          while (numBins < numTreePieces) {
+            numBins <<= 1;
+          }
+          numInitDecompBins = numBins;
+        }
 	
 	if(bVDetails && !verbosity)
 	    verbosity = 1;

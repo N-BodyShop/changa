@@ -310,7 +310,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
     case Oct_dec:
       {
 
-        refineLevel = 3;
+        refineLevel = octRefineLevel;
 
         rt = new BinaryTreeNode();
         int numInitialBins = numInitDecompBins;
@@ -531,7 +531,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     CkPrintf("\n");
   }
   if(histogram){
-    refineLevel = 3;
+    refineLevel = octRefineLevel;
     int arraySize = (1<<refineLevel)+1;
     startTimer = CmiWallTimer();
     Key *array = convertNodesToSplittersRefine(nodesOpened.size(),nodesOpened.getVec());

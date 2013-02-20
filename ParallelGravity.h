@@ -182,6 +182,7 @@ extern double theta;
 extern double thetaMono;
 
 extern int numInitDecompBins;
+extern int octRefineLevel;
 
 class dummyMsg : public CMessage_dummyMsg{
 public:
