@@ -1070,7 +1070,9 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 
 	  if (dEtauDot > 0.0 && p->PdV() < 0.0) { /* Prevent rapid adiabatic cooling */
 	      assert(p->u() > 0.0);
-	      dt = dEtauDot*p->u()/fabs(p->PdV());
+	      // Use P/rho as internal energy estimate since "u" may
+	      // be driven to 0 with cooling.
+	      dt = dEtauDot*p->fDensity*p->PoverRho2()/fabs(p->PdV());
 	      if (dt < dTIdeal) 
 		  dTIdeal = dt;
 	      }
