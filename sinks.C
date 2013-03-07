@@ -993,7 +993,6 @@ void Main::doSinks(double dTime, double dDelta, int iKickRung)
     if (param.sinks.bBHSink && dDelta <= 0.0) return;
 
     sec = CkWallTimer();
-    // dMass = msrMassCheck(msr, -1, "Accrete onto Sinks: Initial Value");
 
     nAccreted = nTotalSPH;
     if(nActiveGrav > 0) {
@@ -1011,7 +1010,6 @@ void Main::doSinks(double dTime, double dDelta, int iKickRung)
 					 dTime, param.dDelta, param.sinks,
 					 param.dConstGamma);
 	    treeProxy.startReSmooth(&pBHAcc, CkCallbackResumeThread());
-	    /* build new tree of BHs for merging JMB 11/14/08  */
 	    /* Search for BHs that need merging */
 	    CkReductionMsg *msgCnt;
 	    treeProxy.countType(TYPE_SINK,
@@ -1022,7 +1020,7 @@ void Main::doSinks(double dTime, double dDelta, int iKickRung)
 		BHIdentifySmoothParams pBHID(TYPE_SINK, iKickRung, param.csm,
 					     dTime, param.sinks);
 		int nSmooth = nSink < 4 ? nSink : 4;
-		treeProxy.startSmooth(&pBHDen, 1, nSmooth, dfBall2OverSoft2,
+		treeProxy.startSmooth(&pBHID, 1, nSmooth, dfBall2OverSoft2,
 					       CkCallbackResumeThread());
 		BHSinkMergeSmoothParams pBHM(TYPE_SINK, iKickRung, param.csm,
 					     dTime, param.sinks,
