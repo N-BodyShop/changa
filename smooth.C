@@ -668,6 +668,9 @@ void KNearestSmoothCompute::walkDone(State *state) {
 	 && params->bUseBallMax && p->isGas() && p->fBallMax() > 0.0
 	 && h > p->fBallMax()) {
 	  h = p->fBallMax();
+	  // With round-off, we might be in the LowhFix regime and
+	  // Q might not be in heap order.
+	  std::make_heap(&(Q[0]) + 0, &(Q[0]) + nCnt);
 	  while(Q[0].fKey > h*h) {
 	      std::pop_heap(&(Q[0]) + 0, &(Q[0]) + nCnt);
 	      nCnt--;
