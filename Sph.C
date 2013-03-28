@@ -757,7 +757,7 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	double pPoverRho2,pPoverRho2f,pMass;
 	double qPoverRho2,qPoverRho2f;
 	double ph,pc,pDensity,visc,hav,absmu,Accp,Accq;
-	double fNorm,fNorm1,aFac,vFac, divvbad;
+	double fNorm,fNorm1,aFac,vFac, divvi, divvj;
 	double fDivv_Corrector;
 	int i;
 
@@ -775,20 +775,22 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	aFac = a;        /* comoving acceleration factor */
 	vFac = 1./(a*a); /* converts v to xdot */
 
-	divvbad = 0;
+	divvi = 0;
+	divvj = 0;
 	for (i=0;i<nSmooth;++i) {
 	    double fDist2 = nnList[i].fKey;
 	    r2 = fDist2*ih2;
 	    q = nnList[i].p;
 	    rs1 = DKERNEL(r2);
-	    rs1 *= q->mass;
-#ifdef RTFORCE
-	    divvbad += fDist2*rs1/q->fDensity;
-#else
-	    divvbad += fDist2*rs1/p->fDensity;
-#endif
+	    rs1 *= fDist2*q->mass;
+	    divvi += rs1/p->fDensity;
+	    divvj += rs1/q->fDensity;
 	    }
-        fDivv_Corrector = -(3/2.)/(divvbad*fNorm1); /* fNorm1 normalization */
+#ifdef RTFORCE
+	fDivv_Corrector = (divvj != 0.0 ? divvi/divvj : 1.0);
+#else
+	fDivv_Corrector = 1.0;
+#endif
 
 	for (i=0;i<nSmooth;++i) {
 	    q = nnList[i].p;
