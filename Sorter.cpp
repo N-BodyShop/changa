@@ -291,8 +291,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
     case SFC_peano_dec_3D:
     case SFC_peano_dec_2D:
         numKeys = 0;
-        if (splitters.size() == 0) {
-          // reuse the existing splitters from the previous decomposition
+        if (keyBoundaries.size() == 0) {
 	    splitters.clear();
 	    int nSplitters = 4*numChares + 1;
 	    splitters.reserve(nSplitters);
@@ -304,7 +303,10 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
 		splitters.push_back(k);
 		}
 	    splitters.push_back(lastPossibleKey);
-        }
+            }
+	else { // reuse the existing splitters from the previous decomposition
+	    splitters.assign(keyBoundaries.begin(), keyBoundaries.end());
+	    }
         break;
 
     case Oct_dec:

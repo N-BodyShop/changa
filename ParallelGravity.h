@@ -1794,11 +1794,9 @@ public:
         GenericTreeNode *boundaryParentReady(GenericTreeNode *parent);
         void accumulateMomentsFromChild(GenericTreeNode *parent, GenericTreeNode *child);
 
-        //void flushNonLocalMomentsClients();
         void deliverMomentsToClients(GenericTreeNode *);
         void deliverMomentsToClients(const std::map<NodeKey,NonLocalMomentsClientList>::iterator &it);
         void treeBuildComplete();
-        void saveCentroid();
         void processRemoteRequestsForMoments();
 
 };
