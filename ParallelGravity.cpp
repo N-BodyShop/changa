@@ -61,11 +61,12 @@ CProxy_ReductionHelper reductionHelperProxy;
 CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 CProxy_LvArray smoothProxy; // Proxy for smooth reductions
 CProxy_LvArray gravityProxy; // Proxy for gravity reductions
-CProxy_CkCacheManager cacheGravPart;
-CProxy_CkCacheManager cacheSmoothPart;
-CProxy_CkCacheManager cacheNode;
+CProxy_CkCacheManager<KeyType> cacheGravPart;
+CProxy_CkCacheManager<KeyType> cacheSmoothPart;
+CProxy_CkCacheManager<KeyType> cacheNode;
 CProxy_DataManager dMProxy;
 
+CProxy_DumpFrameData dfDataProxy;
 CProxy_PETreeMerger peTreeMergerProxy;
 
 
@@ -79,6 +80,7 @@ DomainsDec domainDecomposition;
 /// tolerance for unequal pieces in SFC based decompositions.
 const double ddTolerance = 0.1;
 double dExtraStore;		// fraction of extra particle storage
+double dMaxBalance;		// Max piece imbalance for load balancing
 int iGasModel; 			// For backward compatibility
 int peanoKey;
 GenericTrees useTree;
@@ -136,6 +138,10 @@ bool doSimulateLB;
 // Number of bins to use for the first iteration
 // of every Oct decomposition step
 int numInitDecompBins;
+
+// Specifies the number of sub-bins a bin is split into
+//  for Oct decomposition
+int octRefineLevel;
 
 void _Leader(void) {
     puts("USAGE: ChaNGa [SETTINGS | FLAGS] [PARAM_FILE]");
@@ -515,6 +521,10 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dExtraStore",paramDouble,&param.dExtraStore,
 		    sizeof(double), "estore",
 		    "Extra memory for new particles");
+	param.dMaxBalance = 1e10;
+	prmAddParam(prm,"dMaxBalance",paramDouble,&param.dMaxBalance,
+		    sizeof(double), "maxbal",
+		    "Maximum piece ratio for load balancing");
 	
 	bDumpFrame = 0;
 	df = NULL;
@@ -632,6 +642,10 @@ Main::Main(CkArgMsg* m) {
         prmAddParam(prm, "iInitDecompBins", paramInt, &numInitDecompBins,
               sizeof(int),"initDecompBins", "Number of bins to use for the first iteration of every Oct decomposition step");
 
+        octRefineLevel = 1;
+        prmAddParam(prm, "iOctRefineLevel", paramInt, &octRefineLevel,
+                    sizeof(int),"octRefineLevel", "Binary logarithm of the number of sub-bins a bin is split into for Oct decomposition (e.g. octRefineLevel 3 splits into 8 sub-bins) (default: 1)");
+
         doDumpLB = false;
         prmAddParam(prm, "bdoDumpLB", paramBool, &doDumpLB,
               sizeof(bool),"doDumpLB", "Should Orb3dLB dump LB database to text file and stop?");
@@ -680,11 +694,19 @@ Main::Main(CkArgMsg* m) {
 
 #endif
 
-	if(!prmArgProc(prm,m->argc,m->argv)) {
+        int processSimfile = 1;
+	if(!prmArgProc(prm,m->argc,m->argv, processSimfile)) {
 	    CkExit();
         }
 
-        if(numInitDecompBins > numTreePieces) numInitDecompBins = numTreePieces;
+        // ensure that number of bins is a power of 2
+        if (numInitDecompBins > numTreePieces) {
+          unsigned int numBins = 1;
+          while (numBins < numTreePieces) {
+            numBins <<= 1;
+          }
+          numInitDecompBins = numBins;
+        }
 	
 	if(bVDetails && !verbosity)
 	    verbosity = 1;
@@ -719,6 +741,7 @@ Main::Main(CkArgMsg* m) {
 	theta = param.dTheta;
         thetaMono = theta*theta*theta*theta;
 	dExtraStore = param.dExtraStore;
+	dMaxBalance = param.dMaxBalance;
 	_cacheLineDepth = param.cacheLineDepth;
 	nIOProcessor = param.nIOProcessor;
 	if(prmSpecified(prm, "bCannonical")) {
@@ -1025,14 +1048,15 @@ Main::Main(CkArgMsg* m) {
 #endif
 
         peTreeMergerProxy = CProxy_PETreeMerger::ckNew();
+        dfDataProxy = CProxy_DumpFrameData::ckNew();
 	
 	// create CacheManagers
 	// Gravity particles
-	cacheGravPart = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+	cacheGravPart = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 	// Smooth particles
-	cacheSmoothPart = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+	cacheSmoothPart = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 	// Nodes
-	cacheNode = CProxy_CkCacheManager::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+	cacheNode = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 
 	//create the DataManager
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
@@ -1093,34 +1117,26 @@ void Main::getStartTime()
 		ckout << "Input file, Time:" << dTime << " Redshift:" << z
 		      << " Expansion factor:" << dAStart << endl;
 	    if (prmSpecified(prm,"dRedTo")) {
+
+                aTo = 1.0/(param.dRedTo + 1.0);
+                tTo = csmExp2Time(param.csm,aTo);
+                if (verbosity > 0)
+                    ckout << "Simulation to Time:" << tTo << " Redshift:"
+                          << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
+                          << endl;
+                if (tTo < dTime) {
+                    ckerr << "Badly specified final redshift, check -zto parameter."
+                          << endl;
+                    CkExit();
+                    } 
+
 		if (!prmArgSpecified(prm,"nSteps") &&
 		    prmArgSpecified(prm,"dDelta")) {
-		    aTo = 1.0/(param.dRedTo + 1.0);
-		    tTo = csmExp2Time(param.csm,aTo);
-		    if (verbosity > 0)
-			ckout << "Simulation to Time:" << tTo << " Redshift:"
-			      << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
-			      << endl;
-		    if (tTo < dTime) {
-			ckerr << "Badly specified final redshift, check -zto parameter."
-			      << endl;
-			CkExit();
-			}
+
 		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta)+param.iStartStep;
 		    }
 		else if (!prmArgSpecified(prm,"dDelta") &&
 			 prmArgSpecified(prm,"nSteps")) {
-		    aTo = 1.0/(param.dRedTo + 1.0);
-		    tTo = csmExp2Time(param.csm,aTo);
-		    if (verbosity > 0)
-			ckout << "Simulation to Time:" << tTo << " Redshift:"
-			      << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
-			      << endl;
-		    if (tTo < dTime) {
-			ckerr << "Badly specified final redshift, check -zto parameter."
-			      << endl;
-			CkExit();
-			}
 		    if(param.nSteps != 0)
 			param.dDelta =
 				(tTo-dTime)/(param.nSteps - param.iStartStep);
@@ -1129,32 +1145,10 @@ void Main::getStartTime()
 		    }
 		else if (!prmSpecified(prm,"nSteps") &&
 			 prmFileSpecified(prm,"dDelta")) {
-		    aTo = 1.0/(param.dRedTo + 1.0);
-		    tTo = csmExp2Time(param.csm,aTo);
-		    if (verbosity > 0)
-			ckout << "Simulation to Time:" << tTo << " Redshift:"
-			      << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
-			      << endl;
-		    if (tTo < dTime) {
-			ckerr << "Badly specified final redshift, check -zto parameter."
-			      << endl;
-			CkExit();
-			}
 		    param.nSteps = (int)ceil((tTo-dTime)/param.dDelta) + param.iStartStep;
 		    }
 		else if (!prmSpecified(prm,"dDelta") &&
 			 prmFileSpecified(prm,"nSteps")) {
-		    aTo = 1.0/(param.dRedTo + 1.0);
-		    tTo = csmExp2Time(param.csm,aTo);
-		    if (verbosity > 0)
-			ckout << "Simulation to Time:" << tTo << " Redshift:"
-			      << 1.0/aTo - 1.0 << " Expansion factor:" << aTo
-			      << endl;
-		    if (tTo < dTime) {
-			ckerr << "Badly specified final redshift, check -zto parameter."
-			      << endl;
-			CkExit();
-			}
 		    if(param.nSteps != 0)
 			param.dDelta =	(tTo-dTime)/(param.nSteps
 							 - param.iStartStep);
@@ -1212,10 +1206,9 @@ void Main::getOutTimes()
     int ret;
     double z,a,n,t;
     char achIn[80];
-    char achFileName[MAXPATHLEN];
-    sprintf(achFileName, "%s.red", param.achOutName);
+    string achFileName = string(param.achOutName) + ".red";
 	
-    fp = fopen(achFileName,"r");
+    fp = fopen(achFileName.c_str(),"r");
     if (!fp) {
 	if (verbosity)
 	    cerr << "WARNING: Could not open redshift input file: "
@@ -1367,8 +1360,9 @@ void Main::advanceBigStep(int iStep) {
 	      
 	      double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
 	      double dKickFac = csmComoveKickFac(param.csm, dTime, dTimeSub);
+	      bool buildTree = (iSub + 1 == driftSteps);
 	      treeProxy.drift(dDriftFac, param.bDoGas, param.bGasIsothermal,
-			      dKickFac, dTimeSub, nGrowMassDrift,
+			      dKickFac, dTimeSub, nGrowMassDrift, buildTree,
 			      CkCallbackResumeThread());
 
 	      // Advance time to end of smallest step
@@ -1662,7 +1656,7 @@ void Main::advanceBigStep(int iStep) {
 /// information about the run (including starting time) isn't known
 /// until the particles are loaded, this routine also completes the
 /// specification of the run details and writes out the log file
-/// entry.  In concludes by calling initialForces()
+/// entry.  It concludes by calling initialForces()
 
 void Main::setupICs() {
   double startTime;
@@ -1673,32 +1667,30 @@ void Main::setupICs() {
   /******** Particles Loading ********/
   CkPrintf("Loading particles ...");
   startTime = CkWallTimer();
-  treeProxy.load(basefilename, CkCallbackResumeThread());
-  if(!(treeProxy[0].ckLocal()->bLoaded)) {
-    // Try loading Tipsy format; first just grab the header.
-    CkPrintf(" trying Tipsy ...");
+
+  // Try loading Tipsy format; first just grab the header.
+  CkPrintf(" trying Tipsy ...");
 	    
-    try {
-	Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
-	if(!ptf.loadedSuccessfully()) {
-	    ckerr << endl << "Couldn't load the tipsy file \""
-		  << basefilename.c_str()
-		  << "\". Maybe it's not a tipsy file?" << endl;
-	    CkExit();
-	    return;
-	    }
-	}
-    catch (std::ios_base::failure e) {
-	ckerr << "File read: " << basefilename.c_str() << ": " << e.what()
-	      << endl;
-	CkExit();
-	return;
-	}
+  try {
+    Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
+    if(!ptf.loadedSuccessfully()) {
+      ckerr << endl << "Couldn't load the tipsy file \""
+            << basefilename.c_str()
+            << "\". Maybe it's not a tipsy file?" << endl;
+      CkExit();
+      return;
+    }
+  }
+  catch (std::ios_base::failure e) {
+    ckerr << "File read: " << basefilename.c_str() << ": " << e.what()
+          << endl;
+    CkExit();
+    return;
+  }
 
-    double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
-    treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
+  double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
+  treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
 
-  }	
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
 	    
@@ -1737,9 +1729,8 @@ void Main::setupICs() {
   if(param.bStarForm)
       param.stfm->CheckParams(prm, param);
 	
-  char achLogFileName[MAXPATHLEN];
-  sprintf(achLogFileName, "%s.log", param.achOutName);
-  ofstream ofsLog(achLogFileName, ios_base::trunc);
+  string achLogFileName = string(param.achOutName) + ".log";
+  ofstream ofsLog(achLogFileName.c_str(), ios_base::trunc);
   if(!ofsLog)
       CkAbort("Error opening log file.");
       
@@ -1793,9 +1784,9 @@ void Main::setupICs() {
   
   ofsLog.close();
 	
-  prmLogParam(prm, achLogFileName);
+  prmLogParam(prm, achLogFileName.c_str());
 	
-  ofsLog.open(achLogFileName, ios_base::app);
+  ofsLog.open(achLogFileName.c_str(), ios_base::app);
   if(param.csm->bComove) {
       ofsLog << "# RedOut:";
       if(vdOutTime.size() == 0) ofsLog << " none";
@@ -1823,7 +1814,7 @@ void Main::setupICs() {
 	
   if(param.bPeriodic) {	// puts all particles within the boundary
       ckout << "drift particles to reset" << endl;
-      treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+      treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
       ckout << "end drift particles to reset" << endl;
 
   }
@@ -1865,11 +1856,11 @@ Main::restart()
 {
     if(bIsRestarting) {
 	dSimStartTime = CkWallTimer();
+	ckout << "ChaNGa version 2.0, commit " << Cha_CommitID << endl;
 	ckout << "Restarting at " << param.iStartStep << endl;
-	char achLogFileName[MAXPATHLEN];
-	sprintf(achLogFileName, "%s.log", param.achOutName);
-	ofstream ofsLog(achLogFileName, ios_base::app);
-	ofsLog << "# ReStarting ChaNGa" << endl;
+	string achLogFileName = string(param.achOutName) + ".log";
+	ofstream ofsLog(achLogFileName.c_str(), ios_base::app);
+	ofsLog << "# ReStarting ChaNGa commit " << Cha_CommitID << endl;
 	ofsLog << "#";
 	for (int i = 0; i < CmiGetArgc(args->argv); i++)
 	    ofsLog << " " << args->argv[i];
@@ -1905,13 +1896,17 @@ Main::restart()
 	prmAddParam(prm,"dExtraStore",paramDouble,&param.dExtraStore,
 		    sizeof(double), "estore",
 		    "Extra memory for new particles");
-	
-	if(!prmArgOnlyProc(prm,CmiGetArgc(args->argv),args->argv)) {
+	prmAddParam(prm,"dMaxBalance",paramDouble,&param.dMaxBalance,
+		    sizeof(double), "maxbal",
+		    "Maximum piece ratio for load balancing");
+
+        int processSimfile = 0; 
+	if(!prmArgProc(prm,CmiGetArgc(args->argv),args->argv,processSimfile)) {
 	    CkExit();
 	}
 	
 	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
-	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 	if(param.bGasCooling) 
 	    initCooling();
 	mainChare.initialForces();
@@ -2057,9 +2052,8 @@ Main::initialForces()
   treeProxy.finishNodeCache(CkCallbackResumeThread());
 
   // Initial Log entry
-  char achLogFileName[MAXPATHLEN];
-  sprintf(achLogFileName, "%s.log", param.achOutName);
-  calcEnergy(dTime, CkWallTimer() - startTime, achLogFileName);
+  string achLogFileName = string(param.achOutName) + ".log";
+  calcEnergy(dTime, CkWallTimer() - startTime, achLogFileName.c_str());
 
 #if COSMO_STATS > 0
   /********* TreePiece Statistics ********/
@@ -2132,8 +2126,7 @@ void
 Main::doSimulation()
 {
   double startTime;
-  char achLogFileName[MAXPATHLEN];
-  sprintf(achLogFileName, "%s.log", param.achOutName);
+  string achLogFileName = string(param.achOutName) + ".log";
 
 #ifdef CHECK_TIME_WITHIN_BIGSTEP
   wallTimeStart = CkWallTimer();
@@ -2153,7 +2146,7 @@ Main::doSimulation()
 	  << endl;
 
     if(iStep%param.iLogInterval == 0) {
-	calcEnergy(dTime, stepTime, achLogFileName);
+	calcEnergy(dTime, stepTime, achLogFileName.c_str());
     }
     iStop = CheckForStop();
     /*
@@ -2178,22 +2171,22 @@ Main::doSimulation()
     
     if((param.bBenchmark == 0)
        && (iStop || iStep%param.iCheckInterval == 0)) {
-	char achCheckFileName[MAXPATHLEN];
+	string achCheckFileName(param.achOutName);
 	if(bChkFirst) {
-	    sprintf(achCheckFileName, "%s.chk0", param.achOutName);
+	    achCheckFileName += ".chk0";
 	    bChkFirst = 0;
 	    }
 	else {
-	    sprintf(achCheckFileName, "%s.chk1", param.achOutName);
+	    achCheckFileName += ".chk1";
 	    bChkFirst = 1;
 	    }
 	// The following drift is called because it deletes the tree
 	// so it won't be saved on disk.
-	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, false, CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
 	bIsRestarting = 0;
 	CkCallback cb(CkIndex_TreePiece::restart(), treeProxy[0]);
-	CkStartCheckpoint(achCheckFileName, cb);
+	CkStartCheckpoint(achCheckFileName.c_str(), cb);
 	return;
     }
     if (iStop) break;
@@ -2203,9 +2196,8 @@ Main::doSimulation()
   /******** Shutdown process ********/
 
   if(param.nSteps == 0) {
-      char achFile[256];
-    
-      sprintf(achFile,"%s.%06i",param.achOutName,0);
+      string achFile = string(param.achOutName) + ".000000";
+
       if((!param.bDoGas) && param.bDoDensity) {
 	  // If gas isn't being calculated, we can do the total
 	  // densities before we start the output.
@@ -2233,12 +2225,12 @@ Main::doSimulation()
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	  ckout << "Outputting densities ...";
 	  startTime = CkWallTimer();
-	  DenOutputParams pDenOut(string(achFile) + ".den");
+	  DenOutputParams pDenOut(achFile + ".den");
 	  treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
 	  ckout << "Outputting hsmooth ...";
-	  HsmOutputParams pHsmOut(string(achFile) + ".hsmall");
+	  HsmOutputParams pHsmOut(achFile + ".hsmall");
 	  treeProxy[0].outputASCII(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
 	  }
       else {
@@ -2251,25 +2243,25 @@ Main::doSimulation()
 	  if(printBinaryAcc)
 	      CkAssert(0);
 	  else {
-	      DenOutputParams pDenOut(string(achFile) + ".gasden");
+	      DenOutputParams pDenOut(achFile + ".gasden");
 	      treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
-	      PresOutputParams pPresOut(string(achFile) + ".pres");
+	      PresOutputParams pPresOut(achFile + ".pres");
 	      treeProxy[0].outputASCII(pPresOut, param.bParaWrite, CkCallbackResumeThread());
-	      HsmOutputParams pSphHOut(string(achFile) + ".SphH");
+	      HsmOutputParams pSphHOut(achFile + ".SphH");
 	      treeProxy[0].outputASCII(pSphHOut, param.bParaWrite, CkCallbackResumeThread());
-	      DivVOutputParams pDivVOut(string(achFile) + ".divv");
+	      DivVOutputParams pDivVOut(achFile + ".divv");
 	      treeProxy[0].outputASCII(pDivVOut, param.bParaWrite, CkCallbackResumeThread());
-	      PDVOutputParams pPDVOut(string(achFile) + ".PdV");
+	      PDVOutputParams pPDVOut(achFile + ".PdV");
 	      treeProxy[0].outputASCII(pPDVOut, param.bParaWrite, CkCallbackResumeThread());
-	      MuMaxOutputParams pMuMaxOut(string(achFile) + ".mumax");
+	      MuMaxOutputParams pMuMaxOut(achFile + ".mumax");
 	      treeProxy[0].outputASCII(pMuMaxOut, param.bParaWrite, CkCallbackResumeThread());
-	      BSwOutputParams pBSwOut(string(achFile) + ".BSw");
+	      BSwOutputParams pBSwOut(achFile + ".BSw");
 	      treeProxy[0].outputASCII(pBSwOut, param.bParaWrite, CkCallbackResumeThread());
-	      CsOutputParams pCsOut(string(achFile) + ".c");
+	      CsOutputParams pCsOut(achFile + ".c");
 	      treeProxy[0].outputASCII(pCsOut, param.bParaWrite, CkCallbackResumeThread());
 #ifndef COOLING_NONE
 	      if(param.bGasCooling) {
-		  EDotOutputParams pEDotOut(string(achFile) + ".eDot");
+		  EDotOutputParams pEDotOut(achFile + ".eDot");
 		  treeProxy[0].outputASCII(pEDotOut, param.bParaWrite,
 					   CkCallbackResumeThread());
 		  }
@@ -2281,21 +2273,23 @@ Main::doSimulation()
 	  treeProxy[0].outputAccelerations(OrientedBox<double>(),
 					   "acc2", CkCallbackResumeThread());
       else {
-	  AccOutputParams pAcc(string(achFile) + ".acc2");
+	  AccOutputParams pAcc(achFile + ".acc2");
 	  treeProxy[0].outputASCII(pAcc, param.bParaWrite, CkCallbackResumeThread());
 	  }
 #ifdef NEED_DT
       ckout << "Outputting dt ...";
       adjust(0);
-      DtOutputParams pDt(string(achFile) + ".dt");
+      DtOutputParams pDt(achFile + ".dt");
       treeProxy[0].outputASCII(pDt, param.bParaWrite, CkCallbackResumeThread());
 #endif
-      RungOutputParams pRung(string(achFile) + ".rung");
+      RungOutputParams pRung(achFile + ".rung");
       treeProxy[0].outputIntASCII(pRung, param.bParaWrite, CkCallbackResumeThread());
+      KeyOutputParams pKey(achFile + ".key");
+      treeProxy[0].outputASCII(pKey, param.bParaWrite, CkCallbackResumeThread());
       if(param.bDoGas && param.bDoDensity) {
 	  // The following call is to get the particles in key order
 	  // before the sort.
-	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 	  sorter.startSorting(dataManagerID, ddTolerance,
 			      CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
@@ -2323,15 +2317,15 @@ Main::doSimulation()
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	  ckout << "Outputting densities ...";
 	  startTime = CkWallTimer();
-	  DenOutputParams pDenOut(string(achFile) + ".den");
+	  DenOutputParams pDenOut(achFile + ".den");
 	  treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
 	  ckout << "Outputting hsmooth ...";
-	  HsmOutputParams pHsmOut(string(achFile) + ".hsmall");
+	  HsmOutputParams pHsmOut(achFile + ".hsmall");
 	  treeProxy[0].outputASCII(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
 	  }
-      IOrderOutputParams pIOrdOut(string(achFile) + ".iord");
+      IOrderOutputParams pIOrdOut(achFile + ".iord");
       treeProxy[0].outputIntASCII(pIOrdOut, param.bParaWrite,
 				  CkCallbackResumeThread());
   }
@@ -2364,7 +2358,7 @@ Main::doSimulation()
 ///
 
 void
-Main::calcEnergy(double dTime, double wallTime, char *achLogFileName)
+Main::calcEnergy(double dTime, double wallTime, const char *achLogFileName)
 {
     CkReductionMsg *msg;
     treeProxy.calcEnergy(CkCallbackResumeThread((void*&)msg));
@@ -2486,7 +2480,7 @@ void Main::writeOutput(int iStep)
     if(param.nSteps != 0 && param.bDoDensity) {
 	// The following call is to get the particles in key order
 	// before the sort.
-	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 	sorter.startSorting(dataManagerID, ddTolerance,
 			    CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
@@ -2528,7 +2522,7 @@ void Main::writeOutput(int iStep)
 	    startTime = CkWallTimer();
 	    // The following call is to get the particles in key order
 	    // before the sort.
-	    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, CkCallbackResumeThread());
+	    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 	    sorter.startSorting(dataManagerID, ddTolerance,
 				CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
@@ -2710,6 +2704,8 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 	else { return 0; }
     }
 
+#include "DumpFrameData.h"
+
 void Main::DumpFrame(double dTime, double dStep)
 {
     double dExp;
@@ -2764,7 +2760,9 @@ void Main::DumpFrame(double dTime, double dStep)
 		dfSetupFrame(df[i], dTime, dStep, dExp, com, &in, 0, 0 );
 
         CkReductionMsg *msgDF;
-	treeProxy.DumpFrame(in, CkCallbackResumeThread((void*&)msgDF), false);
+	dfDataProxy.clearFrame(in, CkCallbackResumeThread());
+	treeProxy.DumpFrame(in, CkCallbackResumeThread(), false);
+	dfDataProxy.combineFrame(in, CkCallbackResumeThread((void*&)msgDF));
 		// N.B. Beginning of message contains the DumpFrame
 		// parameters needed for proper merging.
 		void *Image = ((char *)msgDF->getData())

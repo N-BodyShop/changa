@@ -373,7 +373,7 @@ void TreePiece::EwaldInit()
 		}
 	nEwhLoop = i;
 
-	//contribute(0, 0, CkReduction::concat, cb);
+	//contribute(cb);
 #ifdef CELL
 	dummyMsg *msg = new dummyMsg;
 #else

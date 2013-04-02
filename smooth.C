@@ -319,8 +319,8 @@ void TreePiece::setupSmooth() {
   dm->getChunks(numChunks, prefetchRoots);
   CkArrayIndexMax idxMax = CkArrayIndex1D(thisIndex);
   if (numChunks == 0 && myNumParticles == 0) numChunks = 1;
-  ((CkCacheManager*)cacheSmoothPart.ckLocalBranch())->cacheSync(numChunks, idxMax, localIndex);
-  ((CkCacheManager*)cacheNode.ckLocalBranch())->cacheSync(numChunks, idxMax, localIndex);
+  cacheSmoothPart.ckLocalBranch()->cacheSync(numChunks, idxMax, localIndex);
+  cacheNode.ckLocalBranch()->cacheSync(numChunks, idxMax, localIndex);
   
   // The following if is necessary to prevent nodes containing only TreePieces
   // without particles from getting stuck and crashing.
@@ -588,8 +588,8 @@ void NearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
     if(started && nParticlesPending == 0) {
       started = false;
       tp->memWithCache = CmiMemoryUsage()/(1024*1024);
-      tp->nNodeCacheEntries = ((CkCacheManager*)cacheNode.ckLocalBranch())->getCache()->size();
-      tp->nPartCacheEntries = ((CkCacheManager*)cacheSmoothPart.ckLocalBranch())->getCache()->size();
+      tp->nNodeCacheEntries = cacheNode.ckLocalBranch()->getCache()->size();
+      tp->nPartCacheEntries = cacheSmoothPart.ckLocalBranch()->getCache()->size();
       cacheSmoothPart[CkMyPe()].finishedChunk(0, 0);
 #ifdef CHECK_WALK_COMPLETIONS
       CkPrintf("[%d] markWalkDone NearNeighborState\n", tp->getIndex());
@@ -607,8 +607,7 @@ void TreePiece::markSmoothWalkDone()
 	CkCallback cb = CkCallback(CkIndex_TreePiece::finishSmoothWalk(),
 				   pieces);
 	// Use shadow array to avoid reduction conflict
-	smoothProxy[thisIndex].ckLocal()->contribute(0, 0,
-						     CkReduction::concat, cb);
+	smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
 void TreePiece::finishSmoothWalk()

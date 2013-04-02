@@ -20,6 +20,7 @@ extern "C" {
 #include "writepng.h"   /* typedefs, common macros, public prototypes */
 #endif
 
+/** @brief pixel of a dumpframe image */
 typedef struct dfImage {
 	float r,g,b;
 	} DFIMAGE;

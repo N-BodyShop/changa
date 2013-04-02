@@ -12,8 +12,8 @@ typedef long double momFloat;
 typedef double momFloat;
 #endif
 
-/*
- ** moment tensor components for reduced multipoles.
+/**
+ ** @brief moment tensor components for reduced multipoles.
  */
 typedef struct momReduced {
 	momFloat m;
@@ -22,8 +22,8 @@ typedef struct momReduced {
 	momFloat xxxx,xyyy,xxxy,yyyy,xxxz,yyyz,xxyy,xxyz,xyyz;
 	} MOMR;
 
-/*
- ** moment tensor components for complete multipoles.
+/**
+ ** @brief moment tensor components for complete multipoles.
  */
 typedef struct momComplete {
 	momFloat m;
@@ -35,8 +35,8 @@ typedef struct momComplete {
 	momFloat xxzz,xyzz,xzzz,yyzz,yzzz,zzzz;
 	} MOMC;
 
-/*
- ** moment tensor components for reduced local expansion.
+/**
+ ** @brief moment tensor components for reduced local expansion.
  ** note that we have the 5th-order terms here now!
  */
 typedef struct locReduced {

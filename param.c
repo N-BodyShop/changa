@@ -21,6 +21,7 @@ void prmInitialize(PRM *pprm,void (*fcnLeader)(void),void (*fcnTrailer)(void))
 	assert(prm != NULL);
 	*pprm = prm;
 	prm->pnHead = NULL;
+	prm->pnTail = NULL;
 	prm->fcnLeader = fcnLeader;
 	prm->fcnTrailer = fcnTrailer;
 	}
@@ -46,7 +47,7 @@ void prmFinish(PRM prm)
 void prmAddParam(PRM prm,const char *pszName,int iType,void *pValue,
 				 int iSize,const char *pszArg,const char *pszArgUsage)
 {
-	PRM_NODE *pn,*pnTail;
+	PRM_NODE *pn;
 
 	pn = (PRM_NODE *)malloc(sizeof(PRM_NODE));
 	assert(pn != NULL);
@@ -71,11 +72,13 @@ void prmAddParam(PRM prm,const char *pszName,int iType,void *pValue,
 		}
 	else pn->pszArgUsage = NULL;
 	pn->pnNext = NULL;
-	if (!prm->pnHead) prm->pnHead = pn;
+	if (!prm->pnHead) {
+	        prm->pnHead = pn;
+		prm->pnTail = pn; 
+	        }
 	else {	
-		pnTail = prm->pnHead;
-		while (pnTail->pnNext) pnTail = pnTail->pnNext;
-		pnTail->pnNext = pn;
+		prm->pnTail->pnNext = pn;
+		prm->pnTail = pn; 
 		}
 	}
 
@@ -101,7 +104,7 @@ void prmArgUsage(PRM prm)
 	if (prm->fcnTrailer) (*prm->fcnTrailer)();
 	}
 
-void prmLogParam(PRM prm, char *pszFile)
+void prmLogParam(PRM prm, const char *pszFile)
 {
     FILE *fpLog;
     PRM_NODE *pn;
@@ -139,12 +142,17 @@ int prmParseParam(PRM prm,char *pszFile)
 	char *p,*q,*pszCmd,t;
 	int iLine,ret;
 
+	// mark the end of the buffer with a special character
+	//  if it gets overwritten, we will know the buffer was not large enough
+	achBuf[PRM_LINE_SIZE - 1] = '\a'; 
+
 	fpParam = fopen(pszFile,"r");
 	if (!fpParam) {
 		printf("Could not open file:%s\n",pszFile);
 		return(0);
 		}
 	p = fgets(achBuf,PRM_LINE_SIZE,fpParam);
+	assert(achBuf[PRM_LINE_SIZE - 1] == '\a'); 
 	iLine = 1;
 	while (p) {
 		if (*p == 0) goto new_line;
@@ -206,6 +214,9 @@ int prmParseParam(PRM prm,char *pszFile)
 			 ** Make sure there is enough space to handle the string.
 			 ** This is a CONSERVATIVE test.
 			 */
+			if(pn->iSize <= strlen(p))
+			    printf("Line size problem in %s line %d\n",
+				   pszFile, iLine);
 			assert(pn->iSize > strlen(p));
 			ret = sscanf(p,"%[^\n#]",(char *)pn->pValue);
 			if (ret != 1) goto syntax_error;
@@ -224,6 +235,7 @@ int prmParseParam(PRM prm,char *pszFile)
 		pn->bFile = 1;
 	new_line:
 		p = fgets(achBuf,PRM_LINE_SIZE,fpParam);
+		assert(achBuf[PRM_LINE_SIZE - 1] == '\a'); 
 		++iLine;
 		}
 	fclose(fpParam);
@@ -249,20 +261,22 @@ int prmParseParam(PRM prm,char *pszFile)
 	}
 
 
-int prmArgProc(PRM prm,int argc,char **argv)
+int prmArgProc(PRM prm,int argc,char **argv,int processSimfile)
 {
 	int i,ret;
 	PRM_NODE *pn;
 
     if (argc < 2) return(1);
     /*
-     ** Look for the sim_file name and process it first. If no
+     ** Look for the sim_file name and process it first if requested. If no
      ** sim_file name then ignore and look at command line settings
      ** and options. The cases are a bit tricky.
      */
 	if (*argv[argc-1] != '-' && *argv[argc-1] != '+') {
 		if (*argv[argc-2] != '-') {
-			if (!prmParseParam(prm,argv[argc-1])) return(0);
+		        if (processSimfile) {
+			       if (!prmParseParam(prm,argv[argc-1])) return(0);
+			       }
 			--argc;
 			}
 		else {
@@ -277,139 +291,16 @@ int prmArgProc(PRM prm,int argc,char **argv)
 					/*
 					 ** It's a boolean flag.
 					 */
-					if (!prmParseParam(prm,argv[argc-1])) return(0);
+				        if (processSimfile) {
+			                        if (!prmParseParam(prm,argv[argc-1])) return(0);
+			                        }
 					--argc;
 					}
 				}
 			else {
-				if (!prmParseParam(prm,argv[argc-1])) return(0);
-				--argc;
-				}
-			}
-		}
-	for (i=1;i<argc;++i) {
-		if (*argv[i] == '-' || *argv[i] == '+') {
-			pn = prm->pnHead;
-			while (pn) {
-				if (pn->pszArg)
-					if (!strcmp(&argv[i][1],pn->pszArg)) break;
-				pn = pn->pnNext;
-				}
-			if (!pn) {
-				printf("Unrecognized command line argument:%s\n",argv[i]);
-				prmArgUsage(prm);
-				return(0);
-				}
-			}
-		else if (i == argc-1) return(1);
-		else {
-			printf("Unrecognized command line argument:%s\n",argv[i]);
-			prmArgUsage(prm);
-			return(0);
-			}
-		switch (pn->iType) {
-		case paramBool:
-			/*
-			 ** It's a boolean.
-			 */
-			if (argv[i][0] == '-') *((int *)pn->pValue) = 0;
-			else *((int *)pn->pValue) = 1;
-			break;
-		case paramInt:
-			/*
-			 ** It's an int
-			 */
-			++i;
-			if (i == argc) {
-				printf("Missing integer value after command line ");
-			    printf("argument:%s\n",argv[i-1]);
-				prmArgUsage(prm);
-				return(0);
-				}
-			ret = sscanf(argv[i],"%d",(int *) pn->pValue);
-			if (ret != 1) {
-				printf("Expected integer after command line ");
-			    printf("argument:%s\n",argv[i-1]);
-				prmArgUsage(prm);
-				return(0);
-				}
-			break;
-		case paramDouble:
-			/*
-			 ** It's a DOUBLE
-			 */
-			++i;
-			if (i == argc) {
-				printf("Missing double value after command line ");
-			    printf("argument:%s\n",argv[i-1]);
-				prmArgUsage(prm);
-				return(0);
-				}
-			ret = sscanf(argv[i],"%lf",(double *)pn->pValue);
-			if (ret != 1) {
-				printf("Expected double after command line ");
-			    printf("argument:%s\n",argv[i-1]);
-				prmArgUsage(prm);
-				return(0);
-				}
-			break;
-		case paramString:
-			/*
-			 ** It's a string
-			 */
-			++i;
-			if (i == argc) {
-				printf("Missing string after command line ");
-			    printf("argument:%s\n",argv[i-1]);
-				prmArgUsage(prm);
-				return(0);
-				}
-			assert(pn->iSize > strlen(argv[i]));
-			strcpy((char *)pn->pValue,argv[i]);
-			break;
-		default:
-			assert(0);
-			}
-		pn->bArg = 1;
-		}
-	return(1);
-	}
-
-/*
- * Like the above, but only parses the comand line parameters
- */
-
-int prmArgOnlyProc(PRM prm,int argc,char **argv)
-{
-	int i,ret;
-	PRM_NODE *pn;
-
-    if (argc < 2) return(1);
-    /*
-     ** Look for the sim_file name and IGNORE it. If no
-     ** sim_file name then ignore and look at command line settings
-     ** and options. The cases are a bit tricky.
-     */
-	if (*argv[argc-1] != '-' && *argv[argc-1] != '+') {
-		if (*argv[argc-2] != '-') {
-			--argc;
-			}
-		else {
-			pn = prm->pnHead;
-			while (pn) {
-				if (pn->pszArg) 
-					if (!strcmp(&argv[argc-2][1],pn->pszArg)) break;
-				pn = pn->pnNext;
-				}
-			if (pn) {
-				if (pn->iType == paramBool) {
-					/*
-					 ** It's a boolean flag.
-					 */
-					--argc;
-					}
-				}
-			else {
+				if (processSimfile) {
+			                if (!prmParseParam(prm,argv[argc-1])) return(0);
+			                }
 				--argc;
 				}
 			}

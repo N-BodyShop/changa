@@ -50,6 +50,8 @@
 #include "cuda_typedef.h"
 #endif
 
+#include "keytype.h"
+
 PUPbytes(InDumpFrame);
 PUPbytes(COOL);
 PUPbytes(COOLPARAM);
@@ -124,6 +126,7 @@ extern int _cacheLineDepth;
 extern unsigned int _yieldPeriod;
 extern DomainsDec domainDecomposition;
 extern double dExtraStore;
+extern double dMaxBalance;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
 #ifdef REDUCTION_HELPER
@@ -138,10 +141,11 @@ extern unsigned int numTreePieces;
 extern unsigned int particlesPerChare;
 extern int nIOProcessor;
 
+extern CProxy_DumpFrameData dfDataProxy;
 extern CProxy_PETreeMerger peTreeMergerProxy;
-extern CProxy_CkCacheManager cacheGravPart;
-extern CProxy_CkCacheManager cacheSmoothPart;
-extern CProxy_CkCacheManager cacheNode;
+extern CProxy_CkCacheManager<KeyType> cacheGravPart;
+extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
+extern CProxy_CkCacheManager<KeyType> cacheNode;
 
 extern ComlibInstanceHandle cinst1, cinst2;
 
@@ -178,6 +182,7 @@ extern cosmoType theta;
 extern cosmoType thetaMono;
 
 extern int numInitDecompBins;
+extern int octRefineLevel;
 
 class dummyMsg : public CMessage_dummyMsg{
 public:
@@ -479,7 +484,7 @@ public:
 	int adjust(int iKickRung);
 	void rungStats();
 	void countActive(int activeRung);
-	void calcEnergy(double, double, char *);
+	void calcEnergy(double, double, const char *);
 	void getStartTime();
 	void getOutTimes();
 	int bOutTime();
@@ -565,6 +570,7 @@ class SmoothCompute;
 template<typename T> class GenericList;
 #endif
 
+/// @brief client that has requested a moment.
 struct NonLocalMomentsClient {
   TreePiece *clientTreePiece;
   GenericTreeNode *clientNode;
@@ -635,7 +641,7 @@ class TreePiece : public CBase_TreePiece {
    State *sPrefetchState;
    /// Keeps track of the gravity walks over the local tree.
    State *sLocalGravityState, *sRemoteGravityState, *sSmoothState;
-   typedef std::map<CkCacheKey, CkVec<int>* > SmPartRequestType;
+   typedef std::map<KeyType, CkVec<int>* > SmPartRequestType;
    // buffer of requests for smoothParticles.
    SmPartRequestType smPartRequests;
 
@@ -1425,11 +1431,6 @@ public:
 	// comoving coordinates.)
 	void velScale(double dScale);
 
-	// Parse NChilada description file
-	int parseNC(const std::string& fn);
-	// Load from mass and position files
-	void load(const std::string& fn, const CkCallback& cb);
-
 	// Load from Tipsy file
 	void loadTipsy(const std::string& filename, const double dTuFac,
 		       const CkCallback& cb);
@@ -1438,8 +1439,9 @@ public:
         void recvTotalMass(CkReductionMsg *msg);
 
 	// Write a Tipsy file
-	void writeTipsy(const std::string& filename, const double dTime,
-			const double dvFac, const double duTfac,
+	void writeTipsy(Tipsy::TipsyWriter& w,
+			const double dvFac, // scale velocities
+			const double duTFac, // convert temperature
 			const int bCool);
 	// Find position in the file to start writing
 	void setupWrite(int iStage, u_int64_t iPrevOffset,
@@ -1509,7 +1511,8 @@ public:
 	    int bNeedVPred, int bGasIsothermal, double duDelta[MAXRUNG+1],
 	    const CkCallback& cb);
   void drift(double dDelta, int bNeedVPred, int bGasIsothermal, double dvDelta,
-	     double duDelta, int nGrowMass, const CkCallback& cb);
+	     double duDelta, int nGrowMass, bool buildTree,
+	     const CkCallback& cb);
   void initAccel(int iKickRung, const CkCallback& cb);
 /**
  * Adjust timesteps of active particles.
@@ -1666,7 +1669,7 @@ public:
         GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk, int reqID, int awi, void *source, bool isPrefetch);
 	/// @brief Receive a request for Nodes from a remote processor, copy the
 	/// data into it, and send back a message.
-	void fillRequestNode(CkCacheRequestMsg *msg);
+	void fillRequestNode(CkCacheRequestMsg<KeyType> *msg);
 	/** @brief Receive the node from the cache as following a previous
 	 * request which returned NULL, and continue the treewalk of the bucket
 	 * which requested it with this new node.
@@ -1704,9 +1707,9 @@ public:
 	GravityParticle *requestSmoothParticles(Tree::NodeKey key, int chunk,
 				    int remoteIndex, int begin,int end,
 				    int reqID, int awi, void *source, bool isPrefetch);
-	void fillRequestParticles(CkCacheRequestMsg *msg);
-	void fillRequestSmoothParticles(CkCacheRequestMsg *msg);
-	void flushSmoothParticles(CkCacheFillMsg *msg);
+	void fillRequestParticles(CkCacheRequestMsg<KeyType> *msg);
+	void fillRequestSmoothParticles(CkCacheRequestMsg<KeyType> *msg);
+	void flushSmoothParticles(CkCacheFillMsg<KeyType> *msg);
 	void processReqSmoothParticles();
 
 	//void startlb(CkCallback &cb);
@@ -1791,11 +1794,9 @@ public:
         GenericTreeNode *boundaryParentReady(GenericTreeNode *parent);
         void accumulateMomentsFromChild(GenericTreeNode *parent, GenericTreeNode *child);
 
-        //void flushNonLocalMomentsClients();
         void deliverMomentsToClients(GenericTreeNode *);
         void deliverMomentsToClients(const std::map<NodeKey,NonLocalMomentsClientList>::iterator &it);
         void treeBuildComplete();
-        void saveCentroid();
         void processRemoteRequestsForMoments();
 
 };
