@@ -848,10 +848,12 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     }
 
     incomingParticlesMsg.clear();
-    // assign gas data pointers
+    // assign gas data pointers and determine centroid
     int iGas = 0;
     int iStar = 0;
+    Vector3D<double> vCenter(0.0, 0.0, 0.0);
     for(int iPart = 0; iPart < myNumParticles; iPart++) {
+      vCenter += myParticles[iPart+1].position;
       if(myParticles[iPart+1].isGas()) {
         myParticles[iPart+1].extraData
           = (extraSPHData *)&mySPHParticles[iGas];
@@ -867,6 +869,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     }
 
     sort(myParticles+1, myParticles+myNumParticles+1);
+    savedCentroid = vCenter/(double)myNumParticles;
     //signify completion with a reduction
     if(verbosity>1) ckout << thisIndex <<" contributing to accept particles"
       <<endl;
@@ -2118,7 +2121,6 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
 	CkAbort("Out of memory in treebuild");
 	}
 
-  saveCentroid();
   processRemoteRequestsForMoments();
 
   if(verbosity > 3){
@@ -2147,34 +2149,6 @@ void TreePiece::sendRequestForNonLocalMoments(GenericTreeNode *pickedNode){
     //CkPrintf("[%d] phase I request moments for %llu from %d\n", tp->thisIndex, node->getKey(), node->remoteIndex);
     treeProxy[pickedNode->remoteIndex].requestRemoteMoments(pickedNode->getKey(), thisIndex, &opts);
   }
-}
-
-void TreePiece::saveCentroid(){
-/* jetley - save the treepiece bounding box for use later.
-   Needed because each treepiece must, for oct decomposition, send its
-   centroid to a load balancing strategy object. The previous tree
-   will have been deleted at that point.
-   */
-  CkVec <GenericTreeNode *> queue;
-  GenericTreeNode *child, *temp;
-
-  OrientedBox<float> box;
-  queue.push_back(root);
-  while(queue.size() != 0){
-    temp = queue[queue.size()-1];
-    CkAssert(temp != NULL);
-    queue.remove(queue.size()-1);
-    for(int i = 0; i < temp->numChildren(); i++){
-      child = temp->getChildren(i);
-      CkAssert(child != NULL);
-      if(child->getType() == Boundary)
-        queue.push_back(child);   // might have child that is an Internal node
-      else if(child->getType() == Internal || child->getType() == Bucket){
-        box.grow(child->boundingBox);
-      }
-    }
-  }
-  savedCentroid = box.center();
 }
 
 void TreePiece::processRemoteRequestsForMoments(){
@@ -2234,8 +2208,6 @@ void TreePiece::mergeNonLocalRequestsDone(){
   // (b) I might have received all the moments for
   //     which I was a client
   
-  saveCentroid();
-
   // 4. Respond to remote requests for local moments
   processRemoteRequestsForMoments();
 
