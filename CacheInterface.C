@@ -279,8 +279,14 @@ void * EntryTypeGravityNode::request(CkArrayIndexMax& idx, KeyType key) {
   *(int*)CkPriorityPtr(msg) = -110000000;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
 
-  treeProxy[*idx.data()].fillRequestNode(msg);
-  return NULL;
+	int hash_pe = (*idx.data()) % CkNumPes();
+	//CkPrintf(" requesting gravityNode %d key %d to pe %d\n", *idx.data(), key, hash_pe);
+	//treeProxy[*idx.data()].fillRequestNode(msg);
+	hash_pe += (rand() % 4) * 23;
+	hash_pe %= CkNumPes();
+	tpReplicaProxy[hash_pe].fillRequestNodeFromReplica(msg);
+
+	return NULL;
 }
 
 void * EntryTypeGravityNode::unpack(CkCacheFillMsg<KeyType> *msg, int chunk, CkArrayIndexMax &from) {
