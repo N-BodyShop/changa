@@ -32,6 +32,7 @@
 #include "Sorter.h"
 #include "ParallelGravity.h"
 #include "DataManager.h"
+#include "TreePieceReplica.h"
 #include "TipsyFile.h"
 #include "param.h"
 #include "smooth.h"
@@ -76,6 +77,7 @@ CProxy_CkCacheManager<KeyType> cacheGravPart;
 CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 CProxy_CkCacheManager<KeyType> cacheNode;
 CProxy_DataManager dMProxy;
+CProxy_TreePieceReplica tpReplicaProxy;
 
 CProxy_DumpFrameData dfDataProxy;
 CProxy_PETreeMerger peTreeMergerProxy;
@@ -147,6 +149,10 @@ bool doSimulateLB;
 // Number of bins to use for the first iteration
 // of every Oct decomposition step
 int numInitDecompBins;
+
+// Specifies the number of sub-bins a bin is split into
+//  for Oct decomposition
+int octRefineLevel;
 
 void _Leader(void) {
     puts("USAGE: ChaNGa [SETTINGS | FLAGS] [PARAM_FILE]");
@@ -647,6 +653,10 @@ Main::Main(CkArgMsg* m) {
         prmAddParam(prm, "iInitDecompBins", paramInt, &numInitDecompBins,
               sizeof(int),"initDecompBins", "Number of bins to use for the first iteration of every Oct decomposition step");
 
+        octRefineLevel = 1;
+        prmAddParam(prm, "iOctRefineLevel", paramInt, &octRefineLevel,
+                    sizeof(int),"octRefineLevel", "Binary logarithm of the number of sub-bins a bin is split into for Oct decomposition (e.g. octRefineLevel 3 splits into 8 sub-bins) (default: 1)");
+
         doDumpLB = false;
         prmAddParam(prm, "bdoDumpLB", paramBool, &doDumpLB,
               sizeof(bool),"doDumpLB", "Should Orb3dLB dump LB database to text file and stop?");
@@ -700,7 +710,14 @@ Main::Main(CkArgMsg* m) {
 	    CkExit();
         }
 
-        if(numInitDecompBins > numTreePieces) numInitDecompBins = numTreePieces;
+        // ensure that number of bins is a power of 2
+        if (numInitDecompBins > numTreePieces) {
+          unsigned int numBins = 1;
+          while (numBins < numTreePieces) {
+            numBins <<= 1;
+          }
+          numInitDecompBins = numBins;
+        }
 	
 	if(bVDetails && !verbosity)
 	    verbosity = 1;
@@ -1095,6 +1112,8 @@ Main::Main(CkArgMsg* m) {
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
 	dataManagerID = dataManager;
         dMProxy = dataManager;
+	CProxy_TreePieceReplica tpReplica = CProxy_TreePieceReplica::ckNew();
+	tpReplicaProxy = tpReplica;
 
 	streamingProxy = pieces;
 
@@ -1514,6 +1533,9 @@ void Main::advanceBigStep(int iStep) {
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
     CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+
+		tpReplicaProxy.clearTable(CkCallbackResumeThread());
+		treeProxy.replicateTreePieces(CkCallbackResumeThread());
 
     CkCallback cbGravity(CkCallback::resumeThread);
     aggregator.init(treeProxy, CkCallbackResumeThread(), 
@@ -2048,6 +2070,9 @@ Main::initialForces()
 #endif
   CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
+	tpReplicaProxy.clearTable(CkCallbackResumeThread());
+	treeProxy.replicateTreePieces(CkCallbackResumeThread());
+	
   if(verbosity)
       memoryStats();
   

@@ -35,6 +35,7 @@ mainmodule ParallelGravity {
   readonly CProxy_DataManager dMProxy;
   readonly CProxy_PETreeMerger peTreeMergerProxy;
   readonly CProxy_DumpFrameData dfDataProxy;
+  readonly CProxy_TreePieceReplica tpReplicaProxy;
 
   readonly bool _cache;
   readonly int _nocache;
@@ -87,6 +88,9 @@ mainmodule ParallelGravity {
   // iteration of every decomposition step
   readonly int numInitDecompBins;
 
+  // Specifies the number of sub-bins a bin is split into
+  //  for Oct decomposition
+  readonly int octRefineLevel;
   readonly bool doDumpLB;
   readonly int lbDumpIteration;
   readonly bool doSimulateLB;
@@ -162,6 +166,12 @@ mainmodule ParallelGravity {
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
   };
 #endif
+  group [migratable] TreePieceReplica {
+    entry TreePieceReplica();
+    entry [expedited] void fillRequestNodeFromReplica(CkCacheRequestMsg<KeyType> *msg);
+    entry [expedited] void recvTreePiece(CkCacheFillMsg<KeyType> *msg);
+    entry void clearTable(CkCallback &cb);
+  };
 
   chare [migratable] Sorter {
     entry Sorter();
@@ -391,8 +401,11 @@ mainmodule ParallelGravity {
     //				BucketGravityRequest &req);
     //entry void receiveParticle(GravityParticle part,
     //			   BucketGravityRequest &req);
-    //    entry [expedited] void fillRequestParticles(CkCacheRequestMsg<KeyType> *msg);
-    //    entry [expedited] void fillRequestSmoothParticles(CkCacheRequestMsg<KeyType> *msg);
+    entry void replicateTreePieces(CkCallback& cb);
+    entry void recvAck();
+
+    entry [expedited] void fillRequestParticles(const CkCacheRequest &req);
+    entry [expedited] void fillRequestSmoothParticles(const CkCacheRequest &req);
     entry void flushSmoothParticles(CkCacheFillMsg<KeyType> *msg);
     //entry [local] void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
     //entry [local] void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);

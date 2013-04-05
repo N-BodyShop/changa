@@ -2323,6 +2323,8 @@ void printUndlist(DoubleWalkState *state, int level, TreePiece *tp){
 }
 #endif
 
+#endif // INTERLIST_VER > 0
+
 void RemoteTreeBuilder::registerNode(GenericTreeNode *node){
   tp->nodeLookupTable[node->getKey()] = node;
 }
@@ -2591,5 +2593,3 @@ void LocalTreePrinter::openFile(){
   CkAssert(file.is_open());
   file << "digraph " << description << index << "{" << std::endl;
 }
-
-#endif // INTERLIST_VER > 0

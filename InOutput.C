@@ -513,8 +513,10 @@ void TreePiece::writeTipsy(Tipsy::TipsyWriter& w,
 	    else 
 		gp.temp = duTFac*myParticles[i+1].u();
 
-	    if(!w.putNextGasParticle(gp))
+	    if(!w.putNextGasParticle(gp)) {
+		CkError("[%d] Write gas failed, errno %d\n", CkMyPe(), errno);
 		CkAbort("Bad Write");
+		}
 	    }
 	else if(myParticles[i+1].isDark()) {
 	    Tipsy::dark_particle dp;
@@ -528,8 +530,10 @@ void TreePiece::writeTipsy(Tipsy::TipsyWriter& w,
 #endif
 	    dp.phi = myParticles[i+1].potential;
 
-	    if(!w.putNextDarkParticle(dp))
+	    if(!w.putNextDarkParticle(dp)) {
+		CkError("[%d] Write dark failed, errno %d\n", CkMyPe(), errno);
 		CkAbort("Bad Write");
+		}
 	    }
 	else if(myParticles[i+1].isStar()) {
 	    Tipsy::star_particle sp;
@@ -545,8 +549,10 @@ void TreePiece::writeTipsy(Tipsy::TipsyWriter& w,
 	    sp.metals = myParticles[i+1].fStarMetals();
 	    sp.tform = myParticles[i+1].fTimeForm();
 
-	    if(!w.putNextStarParticle(sp))
+	    if(!w.putNextStarParticle(sp)) {
+		CkError("[%d] Write star failed, errno %d\n", CkMyPe(), errno);
 		CkAbort("Bad Write");
+		}
 	    }
 	else {
 	    CkAbort("Bad particle type in tipsyWrite");

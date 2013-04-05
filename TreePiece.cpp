@@ -1027,10 +1027,12 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     }
 
     incomingParticlesMsg.clear();
-    // assign gas data pointers
+    // assign gas data pointers and determine centroid
     int iGas = 0;
     int iStar = 0;
+    Vector3D<double> vCenter(0.0, 0.0, 0.0);
     for(int iPart = 0; iPart < myNumParticles; iPart++) {
+      vCenter += myParticles[iPart+1].position;
       if(myParticles[iPart+1].isGas()) {
         myParticles[iPart+1].extraData
           = (extraSPHData *)&mySPHParticles[iGas];
@@ -1046,6 +1048,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     }
 
     sort(myParticles+1, myParticles+myNumParticles+1);
+    savedCentroid = vCenter/(double)myNumParticles;
     //signify completion with a reduction
     if(verbosity>1) ckout << thisIndex.data[0] <<" contributing to accept particles"
       <<endl;
@@ -2298,7 +2301,6 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
 	CkAbort("Out of memory in treebuild");
 	}
 
-  saveCentroid();
   processRemoteRequestsForMoments();
 
   if(verbosity > 3){
@@ -2327,34 +2329,6 @@ void TreePiece::sendRequestForNonLocalMoments(GenericTreeNode *pickedNode){
     //CkPrintf("[%d] phase I request moments for %llu from %d\n", tp->thisIndex.data[0], node->getKey(), node->remoteIndex);
     treeProxy[pickedNode->remoteIndex].requestRemoteMoments(pickedNode->getKey(), thisIndex.data[0], &opts);
   }
-}
-
-void TreePiece::saveCentroid(){
-/* jetley - save the treepiece bounding box for use later.
-   Needed because each treepiece must, for oct decomposition, send its
-   centroid to a load balancing strategy object. The previous tree
-   will have been deleted at that point.
-   */
-  CkVec <GenericTreeNode *> queue;
-  GenericTreeNode *child, *temp;
-
-  OrientedBox<float> box;
-  queue.push_back(root);
-  while(queue.size() != 0){
-    temp = queue[queue.size()-1];
-    CkAssert(temp != NULL);
-    queue.remove(queue.size()-1);
-    for(int i = 0; i < temp->numChildren(); i++){
-      child = temp->getChildren(i);
-      CkAssert(child != NULL);
-      if(child->getType() == Boundary)
-        queue.push_back(child);   // might have child that is an Internal node
-      else if(child->getType() == Internal || child->getType() == Bucket){
-        box.grow(child->boundingBox);
-      }
-    }
-  }
-  savedCentroid = box.center();
 }
 
 void TreePiece::processRemoteRequestsForMoments(){
@@ -2414,8 +2388,6 @@ void TreePiece::mergeNonLocalRequestsDone(){
   // (b) I might have received all the moments for
   //     which I was a client
   
-  saveCentroid();
-
   // 4. Respond to remote requests for local moments
   processRemoteRequestsForMoments();
 
@@ -6288,15 +6260,55 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
 }
 
 // Choose a piece from among the owners from which to
-// request moments in such a way that if I am a piece with a
-// higher index, I request from a higher indexed treepiece.
+// request moments in such a way that they are evenly distributed over
+// the owners.
 int TreePiece::getResponsibleIndex(int first, int last){
+    int which = first + (thisIndex.data[0] % (1 + last - first));
     if(verbosity > 3) 
 	CkPrintf("[tp %d] choosing responsible index %d from %d to %d\n",
 		 thisIndex.data[0],
-		 dm->responsibleIndex[first + (thisIndex.data[0] & (last-first))],
-		 first, last);
-  return dm->responsibleIndex[first + (thisIndex.data[0] & (last-first))];
+		 dm->responsibleIndex[which], first, last);
+  return dm->responsibleIndex[which];
+}
+
+void TreePiece::replicateTreePieces(CkCallback& cb) {
+	acks_count = 0;
+	if (root == NULL) {
+		contribute(cb);
+		return;
+	}
+
+	int depth_count = ((Tree::BinaryTreeNode*)root)->countDepth(100000000);
+	//CkPrintf("[%d] Depth %d ^^^^ root key %d\n", thisIndex.data[0], depth_count, root->getKey());
+
+	CkCacheFillMsg<KeyType> *reply = new (depth_count * (sizeof(Tree::BinaryTreeNode)))
+		CkCacheFillMsg<KeyType>(root->getKey(), thisIndex.data[0]);
+
+	((Tree::BinaryTreeNode*)root)->packNodes((Tree::BinaryTreeNode*)reply->data, depth_count, 0);
+	int hash_pe = thisIndex.data[0] % CkNumPes();
+	int k;
+	for (int i = 0; i < 4; i++) {
+		k = hash_pe;
+		k += i*23;
+		k %= CkNumPes();
+
+		CkCacheFillMsg<KeyType> *reply = new (depth_count * (sizeof(Tree::BinaryTreeNode)))
+			CkCacheFillMsg<KeyType>(root->getKey(), thisIndex.data[0]);
+
+
+		((Tree::BinaryTreeNode*)root)->packNodes((Tree::BinaryTreeNode*)reply->data, depth_count, 0);
+		tpReplicaProxy[k].recvTreePiece(reply);
+
+		acks_count++;
+	}
+	cbrepl = cb;
+}
+
+void TreePiece::recvAck() {
+	acks_count--;
+	if (acks_count == 0) {
+		contribute(cbrepl);
+	}
 }
 
 std::map<NodeKey,NonLocalMomentsClientList>::iterator TreePiece::createTreeBuildMomentsEntry(GenericTreeNode *pickedNode){
