@@ -1,5 +1,5 @@
 # Change the N here to make a new size dataset.
-N=1000
+N=10000
 
 testdata.tbin: ppartt Makefile
 	./ppartt $N -.5 .5 -1 > testdata.tbin

@@ -61,9 +61,17 @@ CProxy_ReductionHelper reductionHelperProxy;
 CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 CProxy_LvArray smoothProxy; // Proxy for smooth reductions
 CProxy_LvArray gravityProxy; // Proxy for gravity reductions
-CProxy_CkCacheManager<KeyType> cacheGravPart;
-CProxy_CkCacheManager<KeyType> cacheSmoothPart;
-CProxy_CkCacheManager<KeyType> cacheNode;
+
+#ifndef USE_SMP_CACHE
+CProxy_CkNonSmpCacheManager<KeyType> cacheNode;
+CProxy_CkNonSmpCacheManager<KeyType> cacheGravPart;
+CProxy_CkNonSmpCacheManager<KeyType> cacheSmoothPart;
+#else
+CProxy_CkSmpCacheManager<KeyType> cacheNode;
+CProxy_CkSmpCacheManager<KeyType> cacheGravPart;
+CProxy_CkNonSmpCacheManager<KeyType> cacheSmoothPart;
+#endif
+
 CProxy_DataManager dMProxy;
 
 CProxy_DumpFrameData dfDataProxy;
@@ -1052,11 +1060,24 @@ Main::Main(CkArgMsg* m) {
 	
 	// create CacheManagers
 	// Gravity particles
-	cacheGravPart = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
-	// Smooth particles
-	cacheSmoothPart = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+#ifndef USE_SMP_CACHE
 	// Nodes
-	cacheNode = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+        nodeCacheHandle_ = CkNonSmpCacheFactory<KeyType>::instantiate(cacheSize, pieces.ckLocMgr()->getGroupID());
+        // Particles
+        partCacheHandle_ = CkNonSmpCacheFactory<KeyType>::instantiate(cacheSize, pieces.ckLocMgr()->getGroupID());
+        cacheNode = nodeCacheHandle_.getCacheProxy();
+        cacheGravPart = partCacheHandle_.getCacheProxy();
+#else
+	// Nodes
+        nodeCacheHandle_ = CkOnefetchSmpCacheFactory<KeyType>::instantiate(cacheSize, pieces.ckLocMgr()->getGroupID());
+        // Particles
+        partCacheHandle_ = CkOnefetchSmpCacheFactory<KeyType>::instantiate(cacheSize, pieces.ckLocMgr()->getGroupID());
+        cacheNode = nodeCacheHandle_.getCacheProxy();
+        cacheGravPart = partCacheHandle_.getCacheProxy();
+
+#endif
+	// Smooth particles
+        smoothCacheHandle_ = CkNonSmpCacheFactory<KeyType>::instantiate(cacheSize, pieces.ckLocMgr()->getGroupID());
 
 	//create the DataManager
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
@@ -1660,6 +1681,23 @@ void Main::advanceBigStep(int iStep) {
 
 void Main::setupICs() {
   double startTime;
+
+#ifdef USE_SMP_CACHE
+  // smp cache require extra initialization 
+  cacheNode.setup(nodeCacheHandle_, CkCallbackResumeThread());
+  // register objects on individual PEs with cache,
+  // and decide leader PE for each SMP node
+  cacheNode.registration(CkCallbackResumeThread());
+
+  cacheGravPart.setup(partCacheHandle_, CkCallbackResumeThread());
+  // register objects on individual PEs with cache,
+  // and decide leader PE for each SMP node
+  cacheGravPart.registration(CkCallbackResumeThread());
+
+  // smooth cache is never SMP, so no extra initialization
+  // required for it.
+#endif
+
 
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic);
