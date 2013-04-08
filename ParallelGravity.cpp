@@ -1480,6 +1480,13 @@ void Main::advanceBigStep(int iStep) {
     if(verbosity)
 	memoryStats();
 
+    // after load balancing, objects may have moved around
+    // and if we have smp-aware caches, they must know whether
+    // there are empty PEs on an SMP node, and decide upon a
+    // leader accordingly.
+    registerCaches();
+
+
 
 #ifdef PUSH_GRAVITY
     bool bDoPush = param.dFracPushParticles*nTotalParticles > nActiveGrav;
@@ -1700,8 +1707,11 @@ void Main::registerCaches(){
 #ifdef USE_SMP_CACHE
   // register objects on individual PEs with cache,
   // and decide leader PE for each SMP node
+  CkPrintf("SmpCache registration ... ");
+  double startTime = CkWallTimer();
   cacheNode.registration(CkCallbackResumeThread());
   cacheGravPart.registration(CkCallbackResumeThread());
+  CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 #endif
 }
 
