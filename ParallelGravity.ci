@@ -19,12 +19,12 @@ mainmodule ParallelGravity {
 #ifndef USE_SMP_CACHE
   readonly CProxy_CkNonSmpCacheManager<KeyType> cacheNode;
   readonly CProxy_CkNonSmpCacheManager<KeyType> cacheGravPart;
-  readonly CProxy_CkNonSmpCacheManager<KeyType> cacheSmoothPart;
 #else
   readonly CProxy_CkSmpCacheManager<KeyType> cacheNode;
   readonly CProxy_CkSmpCacheManager<KeyType> cacheGravPart;
-  readonly CProxy_CkNonSmpCacheManager<KeyType> cacheSmoothPart;
 #endif
+  readonly CProxy_CkNonSmpCacheManager<KeyType> cacheSmoothPart;
+
   readonly CProxy_DataManager dMProxy;
   readonly CProxy_PETreeMerger peTreeMergerProxy;
   readonly CProxy_DumpFrameData dfDataProxy;

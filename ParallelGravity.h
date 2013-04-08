@@ -520,6 +520,10 @@ public:
 	void memoryStatsCache();
 	void pup(PUP::er& p);
 	void liveVizImagePrep(liveVizRequestMsg *msg);
+
+        private:
+        void setupCaches();
+        void registerCaches();
 };
 
 /* IBM brain damage */

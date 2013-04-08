@@ -65,12 +65,11 @@ CProxy_LvArray gravityProxy; // Proxy for gravity reductions
 #ifndef USE_SMP_CACHE
 CProxy_CkNonSmpCacheManager<KeyType> cacheNode;
 CProxy_CkNonSmpCacheManager<KeyType> cacheGravPart;
-CProxy_CkNonSmpCacheManager<KeyType> cacheSmoothPart;
 #else
 CProxy_CkSmpCacheManager<KeyType> cacheNode;
 CProxy_CkSmpCacheManager<KeyType> cacheGravPart;
-CProxy_CkNonSmpCacheManager<KeyType> cacheSmoothPart;
 #endif
+CProxy_CkNonSmpCacheManager<KeyType> cacheSmoothPart;
 
 CProxy_DataManager dMProxy;
 
@@ -1068,16 +1067,24 @@ Main::Main(CkArgMsg* m) {
         cacheNode = nodeCacheHandle_.getCacheProxy();
         cacheGravPart = partCacheHandle_.getCacheProxy();
 #else
+#ifndef USE_MULTIFETCH_SMP_CACHE
 	// Nodes
         nodeCacheHandle_ = CkOnefetchSmpCacheFactory<KeyType>::instantiate(cacheSize, pieces.ckLocMgr()->getGroupID());
         // Particles
         partCacheHandle_ = CkOnefetchSmpCacheFactory<KeyType>::instantiate(cacheSize, pieces.ckLocMgr()->getGroupID());
+#else
+	// Nodes
+        nodeCacheHandle_ = CkMultifetchSmpCacheFactory<KeyType>::instantiate(cacheSize, pieces.ckLocMgr()->getGroupID());
+        // Particles
+        partCacheHandle_ = CkMultifetchSmpCacheFactory<KeyType>::instantiate(cacheSize, pieces.ckLocMgr()->getGroupID());
+#endif
         cacheNode = nodeCacheHandle_.getCacheProxy();
         cacheGravPart = partCacheHandle_.getCacheProxy();
 
 #endif
 	// Smooth particles
         smoothCacheHandle_ = CkNonSmpCacheFactory<KeyType>::instantiate(cacheSize, pieces.ckLocMgr()->getGroupID());
+        cacheSmoothPart = smoothCacheHandle_.getCacheProxy();
 
 	//create the DataManager
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
@@ -1679,25 +1686,30 @@ void Main::advanceBigStep(int iStep) {
 /// specification of the run details and writes out the log file
 /// entry.  It concludes by calling initialForces()
 
-void Main::setupICs() {
-  double startTime;
-
+void Main::setupCaches(){
 #ifdef USE_SMP_CACHE
-  // smp cache require extra initialization 
+  // smp caches require extra initialization 
   cacheNode.setup(nodeCacheHandle_, CkCallbackResumeThread());
-  // register objects on individual PEs with cache,
-  // and decide leader PE for each SMP node
-  cacheNode.registration(CkCallbackResumeThread());
-
   cacheGravPart.setup(partCacheHandle_, CkCallbackResumeThread());
-  // register objects on individual PEs with cache,
-  // and decide leader PE for each SMP node
-  cacheGravPart.registration(CkCallbackResumeThread());
-
   // smooth cache is never SMP, so no extra initialization
   // required for it.
 #endif
+}
 
+void Main::registerCaches(){
+#ifdef USE_SMP_CACHE
+  // register objects on individual PEs with cache,
+  // and decide leader PE for each SMP node
+  cacheNode.registration(CkCallbackResumeThread());
+  cacheGravPart.registration(CkCallbackResumeThread());
+#endif
+}
+
+void Main::setupICs() {
+  double startTime;
+
+  setupCaches();
+  registerCaches();
 
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic);
@@ -1892,6 +1904,8 @@ int CheckForStop()
 void
 Main::restart() 
 {
+    registerCaches();
+
     if(bIsRestarting) {
 	dSimStartTime = CkWallTimer();
 	ckout << "ChaNGa version 2.0, commit " << Cha_CommitID << endl;
@@ -2931,7 +2945,12 @@ void Main::pup(PUP::er& p)
     p | bDumpFrame;
     p | bChkFirst;
     p | sorter;
-    }
+
+
+    p | nodeCacheHandle_;
+    p | partCacheHandle_;
+    p | smoothCacheHandle_;
+}
 
 
 void Main::liveVizImagePrep(liveVizRequestMsg *msg) 
