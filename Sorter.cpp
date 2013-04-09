@@ -311,33 +311,33 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
 
     case Oct_dec:
       {
-
         refineLevel = octRefineLevel;
 
         rt = new BinaryTreeNode();
         int numInitialBins = numInitDecompBins;
 
-        nodeKeys.reserve(numInitialBins);
-        nodeKeys.resize(numInitialBins>>1, 0);
-        NodeKey *tmp = &(*nodeKeys.begin());
-        rt->getChunks(nodeKeys.size(),tmp);
+        if (nodeKeys.size() == 0) {
+          nodeKeys.reserve(numInitialBins);
+          nodeKeys.resize(numInitialBins>>1, 0);
+          NodeKey *tmp = &(*nodeKeys.begin());
+          rt->getChunks(nodeKeys.size(),tmp);
+        }
         delete rt;
 
-        if (numDecompRoots > 0){
-          root->deleteBeneath();
-          delete root;
-          delete[] decompRoots;
-        }
-        
         activeNodes->clear();
         tmpActiveNodes->clear();
 
         numDecompRoots = nodeKeys.size();
-        decompRoots = new OctDecompNode[numDecompRoots];
-        for(int i = 0; i < nodeKeys.size(); i++){
-          decompRoots[i].key = nodeKeys[i];
-          //CkPrintf("init add %llu to activeNodes\n", decompRoots[i].key);
-          activeNodes->push_back(&decompRoots[i]);
+        if (decompRoots == NULL) {
+          decompRoots = new OctDecompNode[numDecompRoots];
+          for(int i = 0; i < nodeKeys.size(); i++){
+            decompRoots[i].key = nodeKeys[i];
+            //CkPrintf("init add %llu to activeNodes\n", decompRoots[i].key);
+            activeNodes->push_back(&decompRoots[i]);
+          }
+        }
+        else {
+          root->getLeafNodes(activeNodes);
         }
 
         //CkPrintf("Sorter: initially %d keys\n", activeNodes->length());
@@ -550,28 +550,31 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     sorted=true;
     splitters.clear();
 
-    // build a tree out of decompRoots
-    // requires numDecompRoots to be a power of OctDecompNode::maxNumChildren
-    CkVec<OctDecompNode*> *leaves = new CkVec<OctDecompNode*>;
-    root = new OctDecompNode;
-    root->key = 1;
-    int depth = 0;
-    for (int numLeaves = numDecompRoots; numLeaves > OctDecompNode::maxNumChildren; numLeaves /= OctDecompNode::maxNumChildren) {
-      depth++;
-    }
-
-    root->makeSubTree(depth, leaves);
-    // CkPrintf("num leaves: %d numDecompRoots: %d\n", leaves->length(), numDecompRoots);
-
-    for (int i = 0; i < leaves->length(); i++) {
-      (*leaves)[i]->nchildren = OctDecompNode::maxNumChildren;
-      (*leaves)[i]->children = new OctDecompNode[OctDecompNode::maxNumChildren];
-      for (int j = 0; j < OctDecompNode::maxNumChildren; j++) {
-        (*leaves)[i]->children[j] = decompRoots[i * OctDecompNode::maxNumChildren + j];
+    if (root == NULL) {
+      // build a tree out of decompRoots
+      // requires numDecompRoots to be a power of OctDecompNode::maxNumChildren
+      CkVec<OctDecompNode*> *leaves = new CkVec<OctDecompNode*>;
+      root = new OctDecompNode;
+      root->key = 1;
+      int depth = 0;
+      for (int numLeaves = numDecompRoots; numLeaves > OctDecompNode::maxNumChildren; numLeaves /= OctDecompNode::maxNumChildren) {
+        depth++;
       }
+
+      root->makeSubTree(depth, leaves);
+      // CkPrintf("num leaves: %d numDecompRoots: %d\n", leaves->length(), numDecompRoots);
+
+      for (int i = 0; i < leaves->length(); i++) {
+        (*leaves)[i]->nchildren = OctDecompNode::maxNumChildren;
+        (*leaves)[i]->children = new OctDecompNode[OctDecompNode::maxNumChildren];
+        for (int j = 0; j < OctDecompNode::maxNumChildren; j++) {
+          (*leaves)[i]->children[j] = decompRoots[i * OctDecompNode::maxNumChildren + j];
+        }
+      }
+
+      delete leaves;
     }
 
-    delete leaves;
     int total = root->buildCounts();
     // CkPrintf("total number of particles: %d\n", total);
     do {
@@ -716,6 +719,17 @@ void OctDecompNode::deleteBeneath(){
   children = NULL;
   nchildren = 0;
 }
+
+ void OctDecompNode::getLeafNodes(CkVec<OctDecompNode*> *activeNodes) {
+   if (nchildren == 0) {
+     activeNodes->push_back(this); 
+   }
+   else {
+     for(int i = 0; i < nchildren; i++){
+       children[i].getLeafNodes(activeNodes);
+     }
+   }
+ }
 
 /**
  * This function uses nodeKeys as tree holding the current status of
