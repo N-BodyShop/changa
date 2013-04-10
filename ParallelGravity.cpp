@@ -1785,6 +1785,9 @@ void Main::setupICs() {
 #ifdef CHANGESOFT
   ofsLog << " CHANGESOFT";
 #endif
+#ifdef EPSACCH
+  ofsLog << " EPSACCH";
+#endif
 #ifdef COOLING_NONE
   ofsLog << " COOLING_NONE";
 #endif
