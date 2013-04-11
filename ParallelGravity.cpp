@@ -1079,7 +1079,7 @@ Main::Main(CkArgMsg* m) {
 ///
 /// This is only called when restarting from a checkpoint.
 ///
-Main::Main(CkMigrateMessage* m) {
+Main::Main(CkMigrateMessage* m) : CBase_Main(m) {
     args = (CkArgMsg *)malloc(sizeof(*args));
     args->argv = CmiCopyArgs(((CkArgMsg *) m)->argv);
     mainChare = thishandle;
