@@ -24,9 +24,12 @@ CkReduction::reducerType dfImageReduction;
 /// Combine reduction messages to grow a box
 template <typename T>
 CkReductionMsg* boxGrowth(int nMsg, CkReductionMsg** msgs) {
+
+  CkAssert(msgs[0]->getSize() == sizeof(OrientedBox<T>)); 
 	OrientedBox<T>* pbox = static_cast<OrientedBox<T> *>(msgs[0]->getData());
 	OrientedBox<T>* msgpbox;
 	for(int i = 1; i < nMsg; i++) {
+          CkAssert(msgs[i]->getSize() == sizeof(OrientedBox<T>)); 
 		msgpbox = static_cast<OrientedBox<T> *>(msgs[i]->getData());
 		pbox->grow(*msgpbox);
 	}

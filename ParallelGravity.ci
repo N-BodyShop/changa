@@ -74,6 +74,9 @@ mainmodule ParallelGravity {
   // iteration of every decomposition step
   readonly int numInitDecompBins;
 
+  // Specifies the number of sub-bins a bin is split into
+  //  for Oct decomposition
+  readonly int octRefineLevel;
   readonly bool doDumpLB;
   readonly int lbDumpIteration;
   readonly bool doSimulateLB;
@@ -143,7 +146,7 @@ mainmodule ParallelGravity {
     entry [threaded] void setupICs();
     entry [threaded] void initialForces();
     entry [threaded] void doSimulation();
-    entry void restart();
+    entry [threaded] void restart();
     entry void niceExit();
     entry void liveVizImagePrep(liveVizRequestMsg *msg);
   };
@@ -224,7 +227,6 @@ mainmodule ParallelGravity {
     entry [notrace] void EwaldGPU(); 
     entry [notrace] void velScale(double dScale);
     //entry void markPresence(const CkCallback& cb);
-    entry void load(const std::string& fn, const CkCallback& cb);
     entry void loadTipsy(const std::string& filename,
         const double dTuFac,
         const CkCallback& cb);

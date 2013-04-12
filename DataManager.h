@@ -13,6 +13,10 @@
 #include "GenericTreeNode.h"
 #include "ParallelGravity.decl.h"
 
+#if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
+#include "ckBIconfig.h"
+#endif
+
 
 struct TreePieceDescriptor{
 	TreePiece *treePiece;
@@ -254,7 +258,11 @@ public:
 
 class ProjectionsControl : public CBase_ProjectionsControl { 
   public: 
-  ProjectionsControl() {} 
+  ProjectionsControl() {
+#if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
+    if (CkMyRank()==0) ck_set_GNI_BIConfig(64);
+#endif
+  } 
   ProjectionsControl(CkMigrateMessage *m) : CBase_ProjectionsControl(m) {} 
  
   void on(CkCallback cb) { 
@@ -262,7 +270,7 @@ class ProjectionsControl : public CBase_ProjectionsControl {
       CkPrintf("\n\n**** PROJECTIONS ON *****\n\n"); 
     } 
     traceBegin();  
-    contribute(0,0,CkReduction::sum_int,cb); 
+    contribute(cb); 
   } 
  
   void off(CkCallback cb) { 
@@ -270,7 +278,7 @@ class ProjectionsControl : public CBase_ProjectionsControl {
       CkPrintf("\n\n**** PROJECTIONS OFF *****\n\n"); 
     } 
     traceEnd();  
-    contribute(0,0,CkReduction::sum_int,cb); 
+    contribute(cb); 
   } 
 
   void pup(PUP::er &p){

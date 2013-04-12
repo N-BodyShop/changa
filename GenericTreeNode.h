@@ -743,6 +743,7 @@ public:
       for (int j=additional, k=additional*2; j<base; ++j, ++k) ret[k] = j + base;
       base <<= 1;
       for (int j=0; j<additional*2; ++j) ret[j] = j + base;
+
     }
 
     int countDepth(int depth) {
@@ -862,45 +863,25 @@ NodePool::alloc_one(NodeKey k, NodeType type, int first, int nextlast,
     OctTreeNode* children[8];
 
     OctTreeNode() : GenericTreeNode() {
-      children[0] = 0;
-      children[1] = 0;
-      children[2] = 0;
-      children[3] = 0;
-      children[4] = 0;
-      children[5] = 0;
-      children[6] = 0;
-      children[7] = 0;
+      for (int i = 0; i < 8; i++) {
+        children[i] = 0;
+      }
     }
 
   public:
     OctTreeNode(NodeKey k, NodeType type, int first, int last, BinaryTreeNode *p) : GenericTreeNode(k, type, first, last, p) {
-      children[0] = 0;
-      children[1] = 0;
-      children[2] = 0;
-      children[3] = 0;
-      children[4] = 0;
-      children[5] = 0;
-      children[6] = 0;
-      children[7] = 0;
+      for (int i = 0; i < 8; i++) {
+        children[i] = 0;
+      }
     }
 
     void fullyDelete() {
-      if (children[0] != NULL) children[0]->fullyDelete();
-      delete children[0];
-      if (children[1] != NULL) children[1]->fullyDelete();
-      delete children[1];
-      if (children[2] != NULL) children[2]->fullyDelete();
-      delete children[2];
-      if (children[3] != NULL) children[3]->fullyDelete();
-      delete children[3];
-      if (children[4] != NULL) children[4]->fullyDelete();
-      delete children[4];
-      if (children[5] != NULL) children[5]->fullyDelete();
-      delete children[5];
-      if (children[6] != NULL) children[6]->fullyDelete();
-      delete children[6];
-      if (children[7] != NULL) children[7]->fullyDelete();
-      delete children[7];
+      for (int i = 0; i < numChildren(); i++) {
+        if (children[i] != NULL) {
+          children[i]->fullyDelete();
+          delete children[i];
+        }
+      }
     }
 
     virtual unsigned int numChildren() const {
