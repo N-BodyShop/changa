@@ -36,6 +36,7 @@ struct OctDecompNode {
   int buildCounts();
   void deleteBeneath();
   void combine(int thresh, vector<NodeKey> &finalKeys, vector<unsigned int> &counts);
+  void getLeafNodes(CkVec<OctDecompNode*> *activeNodes);
 };
 
 /**

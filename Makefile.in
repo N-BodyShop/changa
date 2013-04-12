@@ -136,6 +136,9 @@ all: $(TARGET)
 $(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleMultistepLB_notopo.a libmoduleMultistepOrbLB.a
 	$(CHARMC) -o $(TARGET) $(LDFLAGS) $(OBJECTS) $(LDLIBS)
 
+$(TARGET).prj: $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleMultistepLB_notopo.a libmoduleMultistepOrbLB.a
+	$(CHARMC) -o $(TARGET).prj $(LDFLAGS) $(OBJECTS) $(LDLIBS) -tracemode projections
+
 $(TARGET).%: $(TARGET)
 	mv $(TARGET) $@
 	mv charmrun charmrun.$*

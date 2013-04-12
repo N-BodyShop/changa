@@ -148,7 +148,7 @@ mainmodule ParallelGravity {
     entry [threaded] void setupICs();
     entry [threaded] void initialForces();
     entry [threaded] void doSimulation();
-    entry void restart();
+    entry [threaded] void restart();
     entry void niceExit();
     entry void liveVizImagePrep(liveVizRequestMsg *msg);
   };
