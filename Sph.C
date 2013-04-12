@@ -710,6 +710,10 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	double fNorm,fNorm1,aFac,vFac;
 	int i;
 
+	if(nSmooth < 2) {
+	    CkError("WARNING: lonely SPH particle\n");
+	    return;
+	    }
 	pc = p->c();
 	pDensity = p->fDensity;
 	pMass = p->mass;
