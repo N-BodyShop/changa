@@ -66,7 +66,10 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     else if(strcmp(achIMF, "Kroupa93") == 0) imf = new Kroupa93();
     else if(strcmp(achIMF, "Kroupa01") == 0) imf = new Kroupa01();
     sn.imf = imf;
+
 #include "physconst.h"
+    if(!prmSpecified(prm, "nSmoothFeedback"))
+	nSmoothFeedback = param.nSmooth;
     if (sn.dESN > 0.0) bSmallSNSmooth = 1;
     else bSmallSNSmooth = 0;
     param.bDoGas = 1;
@@ -155,8 +158,8 @@ void Main::StellarFeedback(double dTime, double dDelta)
     DistStellarFeedbackSmoothParams pDSFB(TYPE_GAS, 0, param.csm, dTime, 
 					  param.dConstGamma, param.feedback);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
-    treeProxy.startSmooth(&pDSFB, 1, param.nSmooth, dfBall2OverSoft2,
-				   CkCallbackResumeThread());
+    treeProxy.startSmooth(&pDSFB, 1, param.feedback->nSmoothFeedback,
+			  dfBall2OverSoft2, CkCallbackResumeThread());
     treeProxy.finishNodeCache(CkCallbackResumeThread());
 
     CkPrintf("Stellar Feedback Calculated, Wallclock %f secs\n",
