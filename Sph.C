@@ -33,7 +33,7 @@ Main::initSph()
 			      CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
-	if(verbosity)
+	if(verbosity > 1)
 	    memoryStatsCache();
 	double dTuFac = param.dGasConst/(param.dConstGamma-1)
 	    /param.dMeanMolWeight;
@@ -288,7 +288,7 @@ Main::doSph(int activeRung, int bNeedDensity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 
-	if(verbosity)
+	if(verbosity > 1)
 	    memoryStatsCache();
 	}
       }

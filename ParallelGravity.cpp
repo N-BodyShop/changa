@@ -169,7 +169,8 @@ int cacheSize;
 /// This routine parses the command line and file specified parameters,
 /// and allocates the charm structures.  The charm "readonly" variables
 /// are writable in this method, and are broadcast globally once this
-/// method exits.
+/// method exits.  Note that the method finishes with an asynchronous
+/// call to setupICs().
 ///
 Main::Main(CkArgMsg* m) {
 	args = m;
@@ -1309,8 +1310,6 @@ void Main::advanceBigStep(int iStep) {
         duKick[iRung] = 0.5*dTimeSub;
         dKickFac[iRung] = csmComoveKickFac(param.csm, dTime, 0.5*dTimeSub);
       }
-      if(verbosity)
-	  memoryStats();
       if(param.bDoGas) {
 	  double startTime = CkWallTimer();
 	  if(verbosity)
@@ -1326,7 +1325,7 @@ void Main::advanceBigStep(int iStep) {
       treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas,
 		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
 
-      if(verbosity)
+      if(verbosity > 1)
 	  memoryStats();
       // Dump frame may require a smaller step
       int driftRung = nextMaxRungIncDF(nextMaxRung);
@@ -1416,7 +1415,7 @@ void Main::advanceBigStep(int iStep) {
 
     countActive(activeRung);
     
-    if(verbosity)
+    if(verbosity > 1)
 	memoryStats();
 
     /***** Resorting of particles and Domain Decomposition *****/
@@ -1436,7 +1435,7 @@ void Main::advanceBigStep(int iStep) {
     if(verbosity && !bDoDD)
 	CkPrintf("Skipped DD\n");
 
-    if(verbosity)
+    if(verbosity > 1)
 	memoryStats();
     /********* Load balancer ********/
     //ckout << "Load balancer ...";
@@ -1449,7 +1448,7 @@ void Main::advanceBigStep(int iStep) {
              */
     CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
-    if(verbosity)
+    if(verbosity > 1)
 	memoryStats();
 
 
@@ -1536,7 +1535,7 @@ void Main::advanceBigStep(int iStep) {
     else {
 	treeProxy.initAccel(activeRung, CkCallbackResumeThread());
 	}
-    if(verbosity)
+    if(verbosity > 1)
 	memoryStats();
     if(param.bDoGas) {
 	doSph(activeRung);
@@ -1595,7 +1594,7 @@ void Main::advanceBigStep(int iStep) {
       for (int iRung=0; iRung<=MAXRUNG; iRung++) {
         duKick[iRung]=dKickFac[iRung]=0;
       }
-      if(verbosity)
+      if(verbosity > 1)
 	  memoryStats();
       if(verbosity)
 	  ckout << "Kick Close:" << endl;
