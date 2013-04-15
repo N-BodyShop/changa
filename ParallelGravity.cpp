@@ -179,7 +179,8 @@ int cacheSize;
 /// This routine parses the command line and file specified parameters,
 /// and allocates the charm structures.  The charm "readonly" variables
 /// are writable in this method, and are broadcast globally once this
-/// method exits.
+/// method exits.  Note that the method finishes with an asynchronous
+/// call to setupICs().
 ///
 Main::Main(CkArgMsg* m) {
 	args = m;
@@ -1113,7 +1114,7 @@ Main::Main(CkArgMsg* m) {
 ///
 /// This is only called when restarting from a checkpoint.
 ///
-Main::Main(CkMigrateMessage* m) {
+Main::Main(CkMigrateMessage* m) : CBase_Main(m) {
     args = (CkArgMsg *)malloc(sizeof(*args));
     args->argv = CmiCopyArgs(((CkArgMsg *) m)->argv);
     mainChare = thishandle;
@@ -1344,7 +1345,7 @@ void Main::advanceBigStep(int iStep) {
         duKick[iRung] = 0.5*dTimeSub;
         dKickFac[iRung] = csmComoveKickFac(param.csm, dTime, 0.5*dTimeSub);
 	dStartTime[iRung] = dTime;
-      }
+        }
       if(verbosity > 1)
 	  memoryStats();
       if(param.bDoGas) {

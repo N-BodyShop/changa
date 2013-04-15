@@ -282,6 +282,7 @@ class ProjectionsControl : public CBase_ProjectionsControl {
   } 
 
   void pup(PUP::er &p){
+    CBase_ProjectionsControl::pup(p);
   }
 }; 
 
