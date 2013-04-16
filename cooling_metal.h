@@ -224,7 +224,6 @@ typedef struct {
 
 struct clDerivsDataStruct {
   STIFF *IntegratorContext;
-  ROOTFIND *RootFindContext;
   COOL *cl;
   double rho,ExternalHeating,E,ZMetal;
 /*  double Y_H, Y_He; */  /* will be needed -- also for temperature , Y_MetalIon, Y_eMetal */

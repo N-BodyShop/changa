@@ -118,7 +118,6 @@ clDerivsData *CoolDerivsInit(COOL *cl)
     Data = malloc(sizeof(clDerivsData));
     assert(Data != NULL);
     Data->IntegratorContext = StiffInit(EPSINTEG, 4, Data, clDerivs);
-    Data->RootFindContext = RootFindInit();
     Data->cl = cl;
 
     return Data;
@@ -139,7 +138,6 @@ void CoolFinalize(COOL *cl )
 void CoolDerivsFinalize(clDerivsData *clData)
 {
     StiffFinalize(clData->IntegratorContext );
-    RootFindFinalize(clData->RootFindContext );
     free(clData);
     }
 
@@ -1849,7 +1847,7 @@ double clEdotInstant( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
  * 
  */
 
-double clfTemp(double T,  void *Data) 
+double clfTemp(void *Data, double T) 
 {
   clDerivsData *d = Data; 
   d->its++;
@@ -1873,7 +1871,7 @@ void clTempIteration( clDerivsData *d )
    TA = clTemperature( Y_Total1, d->E );
    if (TA > TB) { T=TA; TA=TB; TB=T; }
 
-   T = RootFind(d->RootFindContext, clfTemp, d, TA, TB, EPSTEMP*TA ); 
+   T = RootFind(clfTemp, d, TA, TB, EPSTEMP*TA ); 
  } 
  d->its++;
  CLRATES( d->cl, &d->Rate, T, d->rho );
