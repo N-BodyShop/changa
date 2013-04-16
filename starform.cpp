@@ -60,6 +60,12 @@ void Stfm::AddParams(PRM prm)
     iStarFormRung = 0;
     prmAddParam(prm,"iStarFormRung", paramInt, &iStarFormRung,
 		sizeof(int), "iStarFormRung", "<Star Formation Rung> = 0");
+#ifdef COOLING_MOLECULARH
+    dStarFormEfficiencyH2 = 1.0; /* Set such that SF depends on H2 abundance. Usually 1 to make SF efficiency based off of H2 abundance.  Set to zero for standard, non-H2 SF recipe.*/
+    prmAddParam(prm,"dStarFormEfficiencyH2", paramDouble, &dStarFormEfficiencyH2,
+		sizeof(double), "dStarFormEfficiencyH2",
+		"<Star Formation efficiency as a function of H2> = 0");
+#endif
     // Blackhole formation parameters
     bBHForm = 0;
     prmAddParam(prm,"bBHForm",paramBool,&bBHForm,
@@ -164,7 +170,7 @@ void Main::FormStars(double dTime, double dDelta)
 
     CkReductionMsg *msgCounts;
     treeProxy.FormStars(*(param.stfm), dTime, dDelta,
-			pow(csmTime2Exp(param.csm, dTime), 3.0),
+			pow(csmTime2Exp(param.csm, dTime), 3.0), 0,
 			CkCallbackResumeThread((void*&)msgCounts));
     int *dCounts = (int *)msgCounts->getData();
     
@@ -200,7 +206,7 @@ void Main::FormStars(double dTime, double dDelta)
 /// 
 
 void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
-			  double dCosmoFac, const CkCallback& cb) 
+			  double dCosmoFac, double H2FractionForm, const CkCallback& cb) 
 {
     int nFormed = 0;
     int nDeleted = 0;
@@ -216,7 +222,7 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 	if(p->isGas()) {
 	    GravityParticle *starp = stfm.FormStar(p, dm->Cool, dTime,
 						   dDelta, dCosmoFac, 
-						   &TempForm);
+						   H2FractionForm, &TempForm);
 	    
 	    if(starp != NULL) {
 		nFormed++;
@@ -226,7 +232,7 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 		CmiLock(dm->lockStarLog);
                 // Record current spot in seTab
                 iSeTab.push_back(dm->starLog->seTab.size());
-		dm->starLog->seTab.push_back(StarLogEvent(starp,dCosmoFac,TempForm));
+		dm->starLog->seTab.push_back(StarLogEvent(starp,dCosmoFac,H2FractionForm,TempForm));
 		CmiUnlock(dm->lockStarLog);
 		delete (extraStarData *)starp->extraData;
 		delete starp;
@@ -251,7 +257,7 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 */
 GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 				double dDelta,  // drift timestep
-				double dCosmoFac, double *T) 
+				double dCosmoFac, double H2FractionForm, double *T) 
 {
     /*
      * Determine dynamical time.
@@ -282,7 +288,21 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 
     double tform = tdyn;
     double dTimeStarForm = (dDelta > dDeltaStarForm ? dDelta : dDeltaStarForm);
+
+#ifdef COOLING_MOLECULARH
+    double yH;
+    if (p->fMetals <= 0.1) yH = 1.0 - 4.0*((0.236 + 2.1*p->fMetals)/4.0) - p->fMetals;
+    else yH = 1.0 - 4.0*((-0.446*(p->fMetals - 0.1)/0.9 + 0.446)/4.0) - p->fMetals;
+    double columnL = sqrt(0.25*p->fBall2);/*correlation length used for H2 shielding, CC*/
+    double dMprob;
+    if (dStarFormEfficiencyH2 == 0) dMprob  = 1.0 - exp(-dCStar*dTimeStarForm/tform);
+    else dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform*
+			   dStarFormEfficiencyH2*(2.0*p->CoolParticle.f_H2/yH));    
+    H2FractionForm = 2.0*p->CoolParticle.f_H2/yH;
+#else /* COOLING_MOLECULARH */ 
     double dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform);
+    H2FractionForm = 0;   
+#endif /* COOLING_MOLECULARH */ 
 
     /*
      * Decrement mass of particle.
@@ -444,6 +464,9 @@ void StarLog::flush(void) {
 	    xdr_double(&xdrs, &(pSfEv->massForm));
 	    xdr_double(&xdrs, &(pSfEv->rhoForm));
 	    xdr_double(&xdrs, &(pSfEv->TForm));
+#ifdef COOLING_MOLECULARH
+	    xdr_double(&xdrs, &(pSfEv->H2fracForm));
+#endif
 	    }
 	xdr_destroy(&xdrs);
 	int result = CmiFclose(outfile);

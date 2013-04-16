@@ -801,9 +801,16 @@ void TreePiece::updateuDot(int activeRung,
 		    p->uDot() = ExternalHeating;
 		    }
 
+#ifdef COOLING_MOLECULARH
+		double columnL = sqrt(0.25)*p->fBall;
+		CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
+					ExternalHeating, fDensity,
+					p->fMetals(), r, dtUse, columnL);
+#else /*COOLING_MOLECULARH*/
 		CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
 					ExternalHeating, p->fDensity,
 					p->fMetals(), r, dtUse);
+#endif /*COOLING_MOLECULARH*/
 		CkAssert(E > 0.0);
 		if(dtUse > 0 || ExternalHeating*duDelta[p->rung] + p->u() < 0)
 		    // linear interpolation over interval

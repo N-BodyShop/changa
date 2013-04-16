@@ -1795,7 +1795,7 @@ public:
         /// @brief initialize random seed for star formation
         void initRand(int iRand, const CkCallback &cb);
 	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
-		       const CkCallback& cb);
+		       double H2FractionForm, const CkCallback& cb);
 	void flushStarLog(const CkCallback& cb);
         void Feedback(const Fdbk &fb, double dTime, double dDelta,
                       const CkCallback& cb);
