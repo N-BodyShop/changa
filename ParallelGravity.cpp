@@ -2197,6 +2197,8 @@ Main::doSimulation()
 
   if(param.nSteps == 0) {
       string achFile = string(param.achOutName) + ".000000";
+      // assign each particle its domain for diagnostic.
+      treeProxy.assignDomain(CkCallbackResumeThread());
 
       if((!param.bDoGas) && param.bDoDensity) {
 	  // If gas isn't being calculated, we can do the total
@@ -2286,6 +2288,8 @@ Main::doSimulation()
       treeProxy[0].outputIntASCII(pRung, param.bParaWrite, CkCallbackResumeThread());
       KeyOutputParams pKey(achFile + ".key");
       treeProxy[0].outputASCII(pKey, param.bParaWrite, CkCallbackResumeThread());
+      DomainOutputParams pDomain(achFile + ".dom");
+      treeProxy[0].outputASCII(pDomain, param.bParaWrite, CkCallbackResumeThread());
       if(param.bDoGas && param.bDoDensity) {
 	  // The following call is to get the particles in key order
 	  // before the sort.
