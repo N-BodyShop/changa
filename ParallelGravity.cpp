@@ -3268,6 +3268,9 @@ void Main::writeOutput(int iStep)
     Cool0OutputParams pCool0Out(achFile, param.iBinaryOut, dOutTime);
     Cool1OutputParams pCool1Out(achFile, param.iBinaryOut, dOutTime);
     Cool2OutputParams pCool2Out(achFile, param.iBinaryOut, dOutTime);
+#ifdef COOLING_MOLECULARH
+    Cool3OutputParams pCool3Out(achFile, param.iBinaryOut, dOutTime); 
+#endif
 #endif
 #ifdef DIFFUSION
     MetalsDotOutputParams pMetalsDotOut(achFile, param.iBinaryOut, dOutTime);
@@ -3295,6 +3298,9 @@ void Main::writeOutput(int iStep)
 	    outputBinary(pCool0Out, param.bParaWrite, CkCallbackResumeThread());
 	    outputBinary(pCool1Out, param.bParaWrite, CkCallbackResumeThread());
 	    outputBinary(pCool2Out, param.bParaWrite, CkCallbackResumeThread());
+#ifdef COOLING_MOLECULARH
+	    outputBinary(pCool3Out, param.bParaWrite, CkCallbackResumeThread());
+#endif
 	    }
 #endif
 	if(param.bDoSoftOutput && param.iBinaryOut != 6) {
@@ -3352,6 +3358,10 @@ void Main::writeOutput(int iStep)
 				     CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pCool2Out, param.bParaWrite,
 				     CkCallbackResumeThread());
+#ifdef COOLING_MOLECULARH
+	    treeProxy[0].outputASCII(pCool3Out, param.bParaWrite,
+				     CkCallbackResumeThread());	    
+#endif
 	    }
 #endif
 #ifdef DIFFUSION

@@ -607,7 +607,11 @@ class EDotOutputParams : public OutputParams
 	if (TYPETest(p, TYPE_GAS)) {
 	    double r[3];  // For conversion to C
 	    p->position.array_form(r);
+#ifdef COOLING_MOLECULARH
+	    return (COOL_EDOT(dm->Cool, &p->CoolParticle(), p->u(), p->fDensity, p->fMetals(), r, sqrt(0.25*(&p->fBall2))));	    
+#else
 	    return (COOL_EDOT(dm->Cool, &p->CoolParticle(), p->u(), p->fDensity, p->fMetals(), r));
+#endif
 	    }
 	else
 #endif

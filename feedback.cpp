@@ -430,10 +430,25 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     p->fSNMetals() = dTotMetals;
     p->fMIronOut() = dTotMIron;
     p->fMOxygenOut() = dTotMOxygen;
-
    // Convert to a rate, except if we are using AGORA feedback   
    if (!bAGORAFeedback)
         p->fStarESNrate() /= dDelta;
+
+#ifdef  RADIATIVEBOX /* Calculates LW radiation from a stellar particle of a given age and mass (assumes Kroupa IMF), CC */
+    double dAge1, dAge2, dLW1, dLW2;
+    if (dStarAge != 0) {
+      dAge1 = dStarAge;
+    }
+    else {
+      /*Avoids log of zero error*/
+      dAge1 = dDeltaYr;
+    }
+    dAge2 = dStarAge + dDeltaYr;
+    dLW1 = CoolLymanWerner(pkd->Cool, dAge1);
+    dLW2 = CoolLymanWerner(pkd->Cool, dAge2);
+    
+    p->CoolParticle.dLymanWerner = (dLW1 + dLW2)/2;
+#endif
 }
 
 void Fdbk::CalcWindFeedback(SFEvent *sfEvent, double dTime, /* current time in years */
