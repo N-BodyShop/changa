@@ -1696,8 +1696,11 @@ void Main::advanceBigStep(int iStep) {
 void Main::setupCaches(){
 #ifdef USE_SMP_CACHE
   // smp caches require extra initialization 
+  CkPrintf("SmpCache setup ... ");
+  double startTime = CkWallTimer();
   cacheNode.setup(nodeCacheHandle_, CkCallbackResumeThread());
   cacheGravPart.setup(partCacheHandle_, CkCallbackResumeThread());
+  CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
   // smooth cache is never SMP, so no extra initialization
   // required for it.
 #endif
@@ -1717,9 +1720,6 @@ void Main::registerCaches(){
 
 void Main::setupICs() {
   double startTime;
-
-  setupCaches();
-  registerCaches();
 
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic);
@@ -2007,6 +2007,10 @@ Main::initialForces()
   // CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
 
   /***** Initial sorting of particles and Domain Decomposition *****/
+
+  setupCaches();
+  registerCaches();
+
   CkPrintf("Initial domain decomposition ... ");
 
   startTime = CkWallTimer();
