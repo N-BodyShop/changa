@@ -818,6 +818,12 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 		
 		//each splitter key will split the keys near a goal number of keys
 		goals.assign(numChares - 1, avgValue);
+		// evenly distribute extra particles.
+		int rem = numKeys % numChares;
+		int j = 0;
+		for(list<int>::iterator i = goals.begin(); j < rem; j++, ++i) {
+		    *i = avgValue + 1;
+		    }
 		partial_sum(goals.begin(), goals.end(), goals.begin());
 		
 		if(verbosity >= 3)

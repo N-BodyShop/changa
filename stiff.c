@@ -58,7 +58,8 @@ STIFF *StiffInit( double eps, int nv, void *Data,
   s->epscl = 1.0/eps;
   s->epsmax = 10.0;
   s->dtmin = 1e-15;
-  s->itermax = 1;
+  s->itermax = 3; /*Increased from 1 to 3 to speed integration by
+		    calculating more correctors.  Adjustable parameter*/ 
   s->ymin = malloc(nv*sizeof(*(s->ymin)));
   for(i = 0; i < nv; i++)
       s->ymin[i] = 1e-300;
@@ -222,6 +223,7 @@ cd
     const double tfd = 1.000008; /* fudge for completion of timestep */
     double rteps;		/* estimate of sqrt(eps) */
     double dto;			/* old timestep; to rescale rtaus */
+    double temp;                
     
     tn = 0.0;
     for(i = 0; i < n; i++) {
@@ -251,7 +253,11 @@ cd
 	ascr = fabs(q[i]);
 	scr2 = sign(1./y[i],.1*epsmin*ascr - d[i]);
 	scr1 = scr2 * d[i];
-	scrtch = max(scr1,max(-fabs(ascr-d[i])*scr2,scrtch));
+	temp = -fabs(ascr-d[i])*scr2;
+	/* If the species is already at the minimum, disregard
+	   destruction when calculating step size */
+	if (y[i] == ymin[i]) temp = 0.0;
+	scrtch = max(scr1,max(temp,scrtch));
 	}
     dt = min(sqreps/scrtch,dtg);
     while(1) {
@@ -309,7 +315,9 @@ cd
 		*/
 		y[i] = max(ys[i] + dt*scrarray[i], ymin[i]);
 		}
-	    if(iter == 1) {
+	    /*	    if(iter == 1) {  Removed from original algorithm
+		    so that previous, rather than first, corrector is
+		    compared to.  Results in faster integration. */
 		/*
 		c the first corrector step advances the time (tentatively) and
 		c saves the initial predictor value as y1 for the timestep
@@ -318,7 +326,7 @@ cd
 		tn = ts + dt;
 		for(i = 0; i < n; i++)
 		    y1[i] = y[i];
-		}
+		/*		} Close for "if(iter == 1)" above */
 	    /*
 	      evaluate the derivitives for the corrector.
 	    */

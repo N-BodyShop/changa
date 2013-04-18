@@ -61,7 +61,7 @@ struct OctDecompNode {
  to DataManager::acceptFinalKeys(), which coordinates the
  shuffling of the particles to the correct owners.
  */
-class Sorter : public Chare {
+class Sorter : public CBase_Sorter {
 
         double decompTime;
 	/// The total number of keys we're sorting.
@@ -159,7 +159,7 @@ public:
           chareIDs[0] = 0;
           partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
 	};
-	Sorter(CkMigrateMessage* m) {
+	Sorter(CkMigrateMessage* m) : CBase_Sorter(m) {
           root = NULL;
           decompRoots = NULL;
           numDecompRoots = 0;
