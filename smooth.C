@@ -667,6 +667,9 @@ void KNearestSmoothCompute::walkDone(State *state) {
 	 && params->bUseBallMax && p->isGas() && p->fBallMax() > 0.0
 	 && h > p->fBallMax()) {
 	  h = p->fBallMax();
+	  // With round-off, we might be in the LowhFix regime and
+	  // Q might not be in heap order.
+	  std::make_heap(&(Q[0]) + 0, &(Q[0]) + nCnt);
 	  while(Q[0].fKey > h*h) {
 	      std::pop_heap(&(Q[0]) + 0, &(Q[0]) + nCnt);
 	      nCnt--;
@@ -741,11 +744,13 @@ void ReSmoothCompute::bucketCompare(TreePiece *ownerTP,
                                   State *state
 				  ) 
 {
+    const double dSearchEps = 1e-7;  // Slop to insure farthest neighbor is
+				     // found.
     ReNearNeighborState *nstate = (ReNearNeighborState *)state;
     Vector3D<double> rp = offset + p->position;
 
     Vector3D<double> drBucket = node->centerSm - rp;
-    if(sqr(node->sizeSm + node->fKeyMax) < drBucket.lengthSquared())
+    if(sqr(node->sizeSm + node->fKeyMax)*(1.+dSearchEps) < drBucket.lengthSquared())
 	return;		// particle is outside all smoothing radii
 
     for(int j = node->firstParticle; j <= node->lastParticle; ++j) {
@@ -755,7 +760,7 @@ void ReSmoothCompute::bucketCompare(TreePiece *ownerTP,
 	double rOld = particles[j].fBall; // Ball radius
 	Vector3D<double> dr = particles[j].position - rp;
 	
-	if(rOld*rOld >= dr.lengthSquared()) {  // Add to list
+	if(rOld*rOld*(1.+dSearchEps) >= dr.lengthSquared()) {  // Add to list
 	    pqSmoothNode pqNew;
 	    pqNew.fKey = dr.lengthSquared();
 	    pqNew.dx = dr;

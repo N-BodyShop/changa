@@ -331,9 +331,7 @@ void TreePiece::sendORBParticles(){
 
   if(myExpectedCountStar > (int) myNumStar){
     delete [] myStarParticles;
-    nStoreStar = (int)(myExpectedCountStar*(1.0 + dExtraStore));
-    nStoreStar += 12;  // In case we start with 0
-    myStarParticles = new extraStarData[nStoreStar];
+    allocateStars();
   }
   myNumStar = myExpectedCountStar;
 
@@ -827,9 +825,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 
     if (nStoreStar > 0) delete[] myStarParticles;
     myNumStar = nStar;
-    nStoreStar = (int)(myNumStar*(1.0 + dExtraStore));
-    nStoreStar += 12;  // In case we start with 0
-    myStarParticles = new extraStarData[nStoreStar];
+    allocateStars();
 
     int nPart = 0;
     nSPH = 0;
@@ -1071,7 +1067,9 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 
 	  if (dEtauDot > 0.0 && p->PdV() < 0.0) { /* Prevent rapid adiabatic cooling */
 	      assert(p->u() > 0.0);
-	      dt = dEtauDot*p->u()/fabs(p->PdV());
+	      // Use P/rho as internal energy estimate since "u" may
+	      // be driven to 0 with cooling.
+	      dt = dEtauDot*p->fDensity*p->PoverRho2()/fabs(p->PdV());
 	      if (dt < dTIdeal) 
 		  dTIdeal = dt;
 	      }
@@ -1326,8 +1324,14 @@ void TreePiece::newOrder(int64_t nStartSPH, int64_t nStartDark,
 		p->iOrder = nStartSPH++;
 	    else if (p->isDark()) 
 		p->iOrder = nStartDark++;
-	    else 
+	    else {
+		/* Also record iOrder in the starLog table. */
+		CmiLock(dm->lockStarLog);
+		dm->starLog->seTab[dm->starLog->nOrdered].iOrdStar = nStartStar;
+		dm->starLog->nOrdered++;
+		CmiUnlock(dm->lockStarLog);
 		p->iOrder = nStartStar++;
+		}
 	    }
 	}
     callback = cb;		// called by assignKeys()
@@ -1500,12 +1504,16 @@ void TreePiece::SetTypeFromFileSweep(int iSetMask, char *file,
   }
 
 DoneSS:
+#if 0
+  /* The following should only be done for debugging.  It doubles the
+     amount of file reading. */
   /* Finish reading file to verify consistency across processors */
   while ( (nRet=fscanf( fp, "%d\n", &iOrder )) == 1 ) {
 	niOrder++;
 	assert( iOrder > iOrderOld );
 	iOrderOld = iOrder;
 	}
+#endif
   fclose(fp);
 
   *pniOrder += niOrder;
@@ -1631,6 +1639,11 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
   callback = cb;
   myTreeParticles = myNumParticles;
 
+  deleteTree();
+  if(bucketReqs != NULL) {
+    delete[] bucketReqs;
+    bucketReqs = NULL;
+  }
 #ifdef PUSH_GRAVITY
   // used to indicate whether trees on SMP node should be
   // merged or not: we do not merge trees when pushing, to
@@ -5037,9 +5050,7 @@ void TreePiece::pup(PUP::er& p) {
       myParticles = new GravityParticle[nStore];
       nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
       if(nStoreSPH > 0) mySPHParticles = new extraSPHData[nStoreSPH];
-      nStoreStar = (int)(myNumStar*(1.0 + dExtraStore));
-      nStoreStar += 12;  // In case we start with 0
-      myStarParticles = new extraStarData[nStoreStar];
+      allocateStars();
   }
   for(unsigned int i=1;i<=myNumParticles;i++){
     p | myParticles[i];
