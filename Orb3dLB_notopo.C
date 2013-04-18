@@ -50,13 +50,13 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
   int nmig = stats->n_migrateobjs;
 
   stats->makeCommHash();
-  CkAssert(nrecvd == numobjs);
+  CkAssert(nrecvd == nmig);
 
   vector<Event> tpEvents[NDIMS];
   for(int i = 0; i < NDIMS; i++){
-    tpEvents[i].reserve(numobjs);
+    tpEvents[i].reserve(nrecvd);
   }
-  tps.resize(numobjs);
+  tps.resize(nrecvd);
 
   OrientedBox<float> box;
 
@@ -73,7 +73,7 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
     fclose(dumpFile);
   }
   else{
-    for(int i = 0; i < numobjs; i++){
+    for(int i = 0; i < nrecvd; i++){
       TaggedVector3D *data = tpCentroids+i;
       LDObjHandle &handle = data->handle;
       int tag = stats->getHash(handle.id,handle.omhandle.id);
@@ -119,7 +119,7 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
     return;
   }
 
-  orbPrepare(tpEvents, box, numobjs, stats);
+  orbPrepare(tpEvents, box, nrecvd, stats);
   orbPartition(tpEvents,box,stats->count, tps, stats);
 
   refine(stats, numobjs);
@@ -130,8 +130,8 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
 	sprintf(achFileName, "lb.%d.sim", step());
 	FILE *fp = fopen(achFileName, "w");
 	CkAssert(fp != NULL);
-	fprintf(fp, "%d %d 0\n", numobjs, numobjs);
-	for(int i = 0; i < numobjs; i++) {
+	fprintf(fp, "%d %d 0\n", nrecvd, nrecvd);
+	for(int i = 0; i < nrecvd; i++) {
 	    CkAssert(tps[i].lbindex < stats->n_objs);
 	    CkAssert(tps[i].lbindex >= 0);
 	    fprintf(fp, "%g %g %g %g 0.0 0.0 0.0 %d 0.0\n",
