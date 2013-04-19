@@ -5,6 +5,7 @@
 #include "Reductions.h"
 #include "InOutput.h"
 #include <errno.h>
+#include <float.h>
 
 using namespace TypeHandling;
 using namespace SFC;
@@ -451,6 +452,10 @@ void TreePiece::loadTipsy(const std::string& filename,
 			mySPHParticles[iSPH].fBallMax() = HUGE;
 			mySPHParticles[iSPH].fESNrate() = 0.0;
 			mySPHParticles[iSPH].fTimeCoolIsOffUntil() = 0.0;
+#ifdef DTADJUST
+			myParticles[i+1].dt = FLT_MAX;
+			mySPHParticles[iSPH].dtNew() = FLT_MAX;
+#endif
 			iSPH++;
 		} else if(i + startParticle < (unsigned int) tipsyHeader.nsph
 			  + tipsyHeader.ndark) {

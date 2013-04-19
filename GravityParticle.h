@@ -9,6 +9,10 @@
 #include "SFC.h"
 #include <vector>
 
+#ifdef DTADJUST
+#define NEED_DT
+#endif
+
 /// @brief Object to bookkeep a Bucket Walk.
 class BucketGravityRequest {
 public:
@@ -60,6 +64,9 @@ class extraSPHData
     double _PoverRho2;		/* Pressure/rho^2 */
     double _BalsaraSwitch;	/* Pressure/rho^2 */
     double _fBallMax;		/* Radius for inverse neighbor finding */
+#ifdef DTADJUST
+    double _dtNew;		/* New timestep from gas pressure */
+#endif
 #ifndef COOLING_NONE
     double _uDot;		/* Rate of change of u, for
 				   predicting u */
@@ -84,6 +91,9 @@ class extraSPHData
     inline double& PoverRho2() {return _PoverRho2;}
     inline double& BalsaraSwitch() {return _BalsaraSwitch;}
     inline double& fBallMax() {return _fBallMax;}
+#ifdef DTADJUST
+    inline double& dtNew() {return _dtNew;}
+#endif
 #ifndef COOLING_NONE
     inline double& uDot() {return _uDot;}
     inline COOLPARTICLE& CoolParticle() {return _CoolParticle;}
@@ -105,6 +115,9 @@ class extraSPHData
 	p | _PoverRho2;
 	p | _BalsaraSwitch;
 	p | _fBallMax;
+#ifdef DTADJUST
+        p | _dtNew;
+#endif
 #ifndef COOLING_NONE
 	p | _uDot;
 	p((char *) &_CoolParticle, sizeof(_CoolParticle)); /* PUPs as bytes */
@@ -256,6 +269,9 @@ public:
 	inline double& PoverRho2() { IMAGAS; return (((extraSPHData*)extraData)->PoverRho2());}
 	inline double& BalsaraSwitch() { IMAGAS; return (((extraSPHData*)extraData)->BalsaraSwitch());}
 	inline double& fBallMax() { IMAGAS; return (((extraSPHData*)extraData)->fBallMax());}
+#ifdef DTADJUST
+        inline double& dtNew() { IMAGAS; return (((extraSPHData*)extraData)->dtNew());}
+#endif
 #ifndef COOLING_NONE
 	inline double& uDot() { IMAGAS; return (((extraSPHData*)extraData)->uDot());}
 	inline COOLPARTICLE& CoolParticle() { IMAGAS; return (((extraSPHData*)extraData)->CoolParticle());}
@@ -351,6 +367,10 @@ class ExternalSmoothParticle {
   Vector3D<double> velocity;
   unsigned int iType;	// Bitmask to hold particle type information
   int rung;
+#ifdef DTADJUST
+  double dt;
+  double dtNew;
+#endif
   Vector3D<double> vPred;
   Vector3D<double> treeAcceleration;
   double mumax;
@@ -400,6 +420,10 @@ class ExternalSmoothParticle {
 	      fMFracOxygen = p->fMFracOxygen();
 	      fMFracIron = p->fMFracIron();
 	      fTimeCoolIsOffUntil = p->fTimeCoolIsOffUntil();
+#ifdef DTADJUST
+              dt = p->dt;
+              dtNew = p->dtNew();
+#endif
 	      }
 	  }
   
@@ -432,6 +456,10 @@ class ExternalSmoothParticle {
 	  tmp->fMFracOxygen() = fMFracOxygen;
 	  tmp->fMFracIron() = fMFracIron;
 	  tmp->fTimeCoolIsOffUntil() = fTimeCoolIsOffUntil;
+#ifdef DTADJUST
+          tmp->dt = dt;
+          tmp->dtNew() = dtNew;
+#endif
 	  }
       }
 	  
@@ -443,6 +471,10 @@ class ExternalSmoothParticle {
     p | fDensity;
     p | iType;
     p | rung;
+#ifdef DTADJUST
+    p | dt;
+    p | dtNew;
+#endif
     p | treeAcceleration;
     p | vPred;
     p | mumax;

@@ -30,6 +30,7 @@ typedef struct parameters {
     int iMaxRung;
     int bCannonical;
     int bKDK;
+    int bDtAdjust;
     int bPeriodic;
     int nReplicas;
     double fPeriod;
@@ -138,6 +139,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.iMaxRung;
     p|param.bCannonical;
     p|param.bKDK;
+    p|param.bDtAdjust;
     p|param.bPeriodic;
     p|param.nReplicas;
     p|param.fPeriod;

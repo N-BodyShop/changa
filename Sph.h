@@ -118,6 +118,7 @@ class PressureSmoothParams : public SmoothParams
 {
     double a, H; // Cosmological parameters
     double alpha, beta; // SPH viscosity parameters
+    double dtFacCourant; // Courant timestep factor
     
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
@@ -137,7 +138,7 @@ class PressureSmoothParams : public SmoothParams
     /// @param _alpha Artificial viscosity parameter
     /// @param _beta Artificial viscosity parameter
     PressureSmoothParams(int _iType, int am, CSM csm, double dTime,
-			 double _alpha, double _beta) {
+			 double _alpha, double _beta, double dEtaCourant) {
 	iType = _iType;
 	activeRung = am;
 	if(csm->bComove) {
@@ -150,6 +151,7 @@ class PressureSmoothParams : public SmoothParams
 	    }
 	alpha = _alpha;
 	beta = _beta;
+	dtFacCourant = dEtaCourant*a*2.0/1.6;
     }
     PUPable_decl(PressureSmoothParams);
     PressureSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
@@ -159,6 +161,7 @@ class PressureSmoothParams : public SmoothParams
 	p|H;
 	p|alpha;
 	p|beta;
+	p|dtFacCourant;
 	}
     };
 

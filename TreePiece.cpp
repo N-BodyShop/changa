@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <fstream>
 #include <assert.h>
+#include <float.h>
 // jetley
 #include "limits.h"
 
@@ -1065,6 +1066,10 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
       if(bSphStep && TYPETest(p, TYPE_GAS)) {
 	  double dt;
 	  double ph = sqrt(0.25*p->fBall*p->fBall);
+#ifdef DTADJUST
+	  dt = p->dtNew();
+	  p->dtNew() = FLT_MAX;
+#else	  
 	  if (p->mumax() > 0.0) {
 	      if (bViscosityLimitdt) 
 		  dt = dEtaCourant*dCosmoFac*(ph /(p->c() + 0.6*(p->c() + 2*p->BalsaraSwitch()*p->mumax())));
@@ -1073,6 +1078,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      }
 	  else
 	      dt = dEtaCourant*dCosmoFac*(ph/(1.6*p->c()));
+#endif
 	  if(dt < dTIdeal)
 	      dTIdeal = dt;
 
@@ -1146,6 +1152,51 @@ void TreePiece::countActive(int activeRung, const CkCallback& cb) {
       }
   contribute(2*sizeof(int), nActive, CkReduction::sum_int, cb);
 }
+
+///
+/// @brief Look for gas particles reporting small new timesteps and
+/// move their timesteps down, appropriately adjusting
+/// predicted quantities.
+///
+/// @param iRung        Current rung
+/// @param dDelta       Base timestep for rungs.
+/// @param dDeltaThresh Threshold timestep to adjust timestep.
+///
+void TreePiece::emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
+				const CkCallback &cb)
+{
+#ifdef DTADJUST
+    CkAssert(dDeltaThresh < dDelta);
+    int nUn = 0;        	// count of adjusted particles
+
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+        GravityParticle *p = &myParticles[i];
+        if(p->isGas() && p->rung < iRung && p->dtNew() < dDeltaThresh) {
+            nUn++;
+            p->dt = p->dtNew();
+            int iTempRung = DtToRung(dDelta, p->dt);
+            CkAssert(iTempRung > iRung);
+            if(iTempRung > MAXRUNG) {
+                CkAbort("Timestep too small");
+                }
+            p->rung = iTempRung;
+            /* UnKick -- revert to predicted values -- low order, non
+               symplectic :( */  
+
+            p->velocity = p->vPred();
+#ifndef COOLING_NONE
+            p->u() = p->uPred();
+#endif
+#ifdef DIFFUSION
+            p->fMetals() = p->fMetalsPred();
+            p->fMFracOxygen() = p->fMFracOxygenPred();
+            p->fMFracIron() = p->fMFracIronPred();
+#endif
+            }
+        }
+    contribute(sizeof(nUn), &nUn, CkReduction::sum_int, cb);
+#endif
+    }
 
 void TreePiece::drift(double dDelta,  // time step in x containing
 				      // cosmo scaling

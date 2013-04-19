@@ -15,6 +15,8 @@
 #define MAXPATHLEN PATH_MAX
 #endif
 
+#include <float.h>
+
 ///
 /// @brief initialize SPH quantities
 ///
@@ -309,7 +311,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 
     ckout << "Calculating pressure gradients ...";
     PressureSmoothParams pPressure(TYPE_GAS, activeRung, param.csm, dTime,
-				   param.dConstAlpha, param.dConstBeta);
+                                   param.dConstAlpha, param.dConstBeta,
+                                   param.dEtaCourant);
     double startTime = CkWallTimer();
     treeProxy.startReSmooth(&pPressure, CkCallbackResumeThread());
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -673,6 +676,9 @@ void PressureSmoothParams::initSmoothParticle(GravityParticle *p)
 {
 	if (p->rung >= activeRung) {
 	    p->mumax() = 0.0;
+#ifdef DTADJUST
+            p->dtNew() = FLT_MAX;
+#endif
 	    p->PdV() = 0.0;
 	    }
 	}
@@ -682,6 +688,9 @@ void PressureSmoothParams::initSmoothCache(GravityParticle *p)
 {
 	if (p->rung >= activeRung) {
 	    p->mumax() = 0.0;
+#ifdef DTADJUST
+            p->dtNew() = FLT_MAX;
+#endif
 	    p->PdV() = 0.0;
 	    p->treeAcceleration = 0.0;
 	    }
@@ -694,6 +703,10 @@ void PressureSmoothParams::combSmoothCache(GravityParticle *p1,
 	    p1->PdV() += p2->PdV;
 	    if (p2->mumax > p1->mumax())
 		p1->mumax() = p2->mumax;
+#ifdef DTADJUST
+            if (p2->dtNew < p1->dtNew())
+                p1->dtNew() = p2->dtNew;
+#endif
 	    p1->treeAcceleration += p2->treeAcceleration;
 	    }
 	}
@@ -708,6 +721,7 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	double qPoverRho2,qPoverRho2f;
 	double ph,pc,pDensity,visc,hav,absmu,Accp,Accq;
 	double fNorm,fNorm1,aFac,vFac;
+	double dt;
 	int i;
 
 	pc = p->c();
@@ -743,6 +757,16 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	    qPoverRho2 = q->PoverRho2();
 	    qPoverRho2f = qPoverRho2;
 
+#ifdef DTADJUST
+#define SETDTNEW_PQ()					       \
+	    if (dt < p->dtNew()) p->dtNew()=dt;			\
+	    if (dt < q->dtNew()) q->dtNew()=dt;			\
+	    if (4*q->dt < p->dtNew()) p->dtNew() = 4*q->dt;	\
+	    if (4*p->dt < q->dtNew()) q->dtNew() = 4*p->dt;
+#else
+#define SETDTNEW_PQ()	{}
+#endif
+	    
 #define PRES_PDV(a,b) (a)
 #define PRES_ACC(a,b) (a+b)
 #define SWITCHCOMBINE(a,b) (0.5*(a->BalsaraSwitch()+b->BalsaraSwitch()))
@@ -754,6 +778,7 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		QACTIVE( q->PdV() += rp*PRES_PDV(qPoverRho2,pPoverRho2)*dvdotdr; ); \
 		PACTIVE( Accp = (PRES_ACC(pPoverRho2f,qPoverRho2f)); ); \
 		QACTIVE( Accq = (PRES_ACC(qPoverRho2f,pPoverRho2f)); ); \
+		dt = dtFacCourant*ph/(2*(pc > q->c() ? pc : q->c()));	\
 		} \
 	    else {  \
 		hav=0.5*(ph+sqrt(0.25*q->fBall*q->fBall));  /* h mean - using just hp probably ok */  \
@@ -762,14 +787,16 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		if (absmu>p->mumax()) p->mumax()=absmu; /* mu terms for gas time step */ \
 		if (absmu>q->mumax()) q->mumax()=absmu; \
 		/* viscosity term */ \
-		visc = SWITCHCOMBINE(p,q)* \
-		    (alpha*(pc + q->c()) + beta*2*absmu)	\
+		visc = (alpha*(pc + q->c()) + beta*2*absmu);	\
+		dt = dtFacCourant*hav/(0.625*(pc + q->c())+0.375*visc); \
+		visc = SWITCHCOMBINE(p,q)*visc \
 		    *absmu/(pDensity + q->fDensity); \
 		PACTIVE( p->PdV() += rq*(PRES_PDV(pPoverRho2,q->PoverRho2()) + 0.5*visc)*dvdotdr; ); \
 		QACTIVE( q->PdV() += rp*(PRES_PDV(q->PoverRho2(),pPoverRho2) + 0.5*visc)*dvdotdr; ); \
 		PACTIVE( Accp = (PRES_ACC(pPoverRho2f,qPoverRho2f) + visc); ); \
 		QACTIVE( Accq = (PRES_ACC(qPoverRho2f,pPoverRho2f) + visc); ); \
-		} \
+		}							\
+	    SETDTNEW_PQ();						\
 	    PACTIVE( Accp *= rq*aFac; );/* aFac - convert to comoving acceleration */ \
 	    QACTIVE( Accq *= rp*aFac; ); \
 	    PACTIVE( p->treeAcceleration.x -= Accp * dx; ); \
