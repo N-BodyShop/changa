@@ -13,6 +13,7 @@
 #include "TaggedVector3D.h"
 #include "Vector3D.h"
 #include "CentralLB.h"
+#define  ORB3DLB_NOTOPO_DEBUG
 // #define  ORB3DLB_NOTOPO_DEBUG CkPrintf
 class Orb3dCommon{
   // pointer to stats->to_proc
