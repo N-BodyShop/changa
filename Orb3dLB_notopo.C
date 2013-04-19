@@ -56,7 +56,7 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
   for(int i = 0; i < NDIMS; i++){
     tpEvents[i].reserve(nrecvd);
   }
-  tps.resize(nrecvd);
+  tps.resize(numobjs);
 
   OrientedBox<float> box;
 
