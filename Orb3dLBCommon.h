@@ -243,7 +243,7 @@ class Orb3dCommon{
       procload.resize(stats->count);
       procbox.resize(stats->count);
       for(int i = 0; i < stats->count; i++){
-        procload[i] = 0.0;
+        procload[i] = stats->procs[i].bg_walltime;
       }
 
     }
