@@ -149,7 +149,7 @@ mainmodule ParallelGravity {
   group [migratable] ReductionHelper {
     entry ReductionHelper();
     entry void countTreePieces(CkCallback &cb);
-    entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
+    entry [nokeep] void evaluateBoundaries(bool convertToLoad, SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
   };
 #endif
 
@@ -165,6 +165,8 @@ mainmodule ParallelGravity {
     entry void finishPhase(CkReductionMsg* m);
     entry void doORBDecomposition(CkReductionMsg* m);
     entry void readytoSendORB(CkReductionMsg* m);
+
+    entry void receiveParticleCounts(CkReductionMsg *m);
   };
 
   nodegroup [migratable] DataManager {
@@ -253,7 +255,7 @@ mainmodule ParallelGravity {
     entry void ioShuffle(CkReductionMsg *msg);
     entry void ioAcceptSortedParticles(ParticleShuffleMsg *);
     entry void assignKeys(CkReductionMsg* m);
-    entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
+    entry [nokeep] void evaluateBoundaries(bool convertToLoad, SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
     entry void unshuffleParticles(CkReductionMsg* m);
     entry void acceptSortedParticles(ParticleShuffleMsg *);
     //ORB

@@ -21,7 +21,7 @@ struct OctDecompNode {
   static int maxNumChildren;
   static int lgMaxNumChildren;
 
-  OctDecompNode() : children(NULL), nchildren(0), nparticles(0) 
+  OctDecompNode() : children(NULL), nchildren(0), load(0.0) 
   {
   }
 
@@ -30,12 +30,12 @@ struct OctDecompNode {
   OctDecompNode *children;
   int nchildren;
 
-  int nparticles;
+  float load;
 
   void makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active);
-  int buildCounts();
+  float reduceLoads();
   void deleteBeneath();
-  void combine(int thresh, vector<NodeKey> &finalKeys, vector<unsigned int> &counts);
+  void combine(float joinThreshold, vector<NodeKey> &finalKeys, vector<float> &binLoads);
   void getLeafNodes(CkVec<OctDecompNode*> *activeNodes);
 };
 
@@ -88,11 +88,14 @@ class Sorter : public Chare {
 
 	std::vector<NodeKey> nodeKeys;
 	/// The histogram of counts for the last round of splitter keys.
-	std::vector<unsigned int> binCounts;
-	std::vector<unsigned int> binCountsGas;
-	std::vector<unsigned int> binCountsStar;
+        std::vector<unsigned int> binCounts;
+        std::vector<unsigned int> binCountsGas;
+        std::vector<unsigned int> binCountsStar;
+        std::vector<float> binLoads;
+	std::vector<float> binLoadsGas;
+	std::vector<float> binLoadsStar;
 	/// The number of bins in the histogram.
-	int numCounts;
+	int numBins;
 	/// The keys I've decided on that divide the objects evenly (within the tolerance).
 	std::vector<SFC::Key> keyBoundaries;
 	/// The keys I'm sending out to be evaluated.
@@ -106,7 +109,7 @@ class Sorter : public Chare {
 	CkCallback sortingCallback;
 
 	/// Variables to decide when to split or join a TreePiece in the Oct decomposition
-	int joinThreshold, splitThreshold;
+	float joinThreshold, splitThreshold;
 	/// Specify what is the level of refinement of nodes sent out
 	/// for histogramming in Oct decomposition.
 	int refineLevel;
@@ -142,7 +145,7 @@ class Sorter : public Chare {
   Compare comp;
 
 	void adjustSplitters();
-	bool refineOctSplitting(int n, int *count);
+        bool refineOctSplitting(int n, float *loads);
 	
 public:
 	
@@ -187,6 +190,7 @@ public:
 	void collectEvaluations(CkReductionMsg* m);
 	void collectEvaluationsSFC(CkReductionMsg* m);
 	void collectEvaluationsOct(CkReductionMsg* m);
+        void receiveParticleCounts(CkReductionMsg* m);
 
   //ORB Decomposition
   void doORBDecomposition(CkReductionMsg* m);

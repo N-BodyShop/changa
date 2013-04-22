@@ -1490,7 +1490,7 @@ public:
 	 */
 	// Assign keys after loading tipsy file and finding Bounding box
 	void assignKeys(CkReductionMsg* m);
-	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
+        void evaluateBoundaries(bool convertToLoad, SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
 	void unshuffleParticles(CkReductionMsg* m);
 	void acceptSortedParticles(ParticleShuffleMsg *);
   /*****ORB Decomposition*******/
@@ -1836,7 +1836,8 @@ class ReductionHelper : public CBase_ReductionHelper {
 
   void countTreePieces(const CkCallback &cb);
   void reduceBinCounts(int nBins, int *binCounts, const CkCallback &cb);
-  void evaluateBoundaries(SFC::Key *keys, const int n, int isRefine, const CkCallback& cb);
+  void reduceBinLoads(int nBins, float *binLoads, const CkCallback &cb);
+  void evaluateBoundaries(bool convertToLoad, SFC::Key *keys, const int n, int isRefine, const CkCallback& cb);
 
   private:
   void senseLocalTreePieces();
@@ -1844,6 +1845,7 @@ class ReductionHelper : public CBase_ReductionHelper {
   private:
 
   CkVec<int> myBinCounts;
+  CkVec<float> myBinLoads;
   int numTreePiecesCheckedIn;
 
   TreePieceCounter localTreePieces;
