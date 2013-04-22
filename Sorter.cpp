@@ -502,8 +502,8 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 
   if (joinThreshold == 0) {
     float total_load = std::accumulate(startLoads, startLoads+numBins, 0.0f);
-    joinThreshold = total_load / (numTreePieces>>1);
-    splitThreshold = joinThreshold * 1.5;
+    joinThreshold = 1.25 * total_load / numTreePieces;
+    splitThreshold = 1.5 * total_load / numTreePieces;
   }
   
   if(verbosity>=3){

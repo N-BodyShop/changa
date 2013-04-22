@@ -549,7 +549,11 @@ void ReductionHelper::evaluateBoundaries(bool convertToLoad, SFC::Key* keys, con
 /// by the Oct decomposition.
 void TreePiece::evaluateBoundaries(bool convertToLoad, SFC::Key* keys, const int n, int skipEvery, const CkCallback& cb){
 
-  if (treePieceLoadTmp == 0) {
+  if (!warmupFinished) {
+    treePieceLoadTmp = (float) myNumParticles;
+    warmupFinished;
+  }
+  else if (treePieceLoadTmp == 0) {
     treePieceLoadTmp = getObjTime();
   }
 #ifdef COSMO_EVENT
@@ -5038,6 +5042,7 @@ void TreePiece::outputStatistics(const CkCallback& cb) {
 void TreePiece::pup(PUP::er& p) {
   CBase_TreePiece::pup(p);
 
+  p | warmupFinished;
   p | treePieceLoad; 
 
   // jetley
