@@ -195,20 +195,20 @@ void Sorter::collectORBCounts(CkReductionMsg* m){
   std::list<ORBData>::iterator iter;
   int i;
   
-  numCounts = m->getSize() / (3*sizeof(int)); // three separate arrays for
+  numBins = m->getSize() / (3*sizeof(int)); // three separate arrays for
 					    // total, gas and stars
-  binCounts.resize(numCounts);
-  binCountsGas.resize(numCounts);
-  binCountsStar.resize(numCounts);
+  binCounts.resize(numBins);
+  binCountsGas.resize(numBins);
+  binCountsStar.resize(numBins);
   int* startCounts = static_cast<int *>(m->getData());
-  copy(startCounts, startCounts + numCounts, binCounts.begin());
-  copy(startCounts + numCounts, startCounts + 2*numCounts,
+  copy(startCounts, startCounts + numBins, binCounts.begin());
+  copy(startCounts + numBins, startCounts + 2*numBins,
        binCountsGas.begin());
-  copy(startCounts + 2*numCounts, startCounts + 3*numCounts,
+  copy(startCounts + 2*numBins, startCounts + 3*numBins,
        binCountsStar.begin());
   delete m;
 
-  CkAssert(numCounts == 2*orbData.size());
+  CkAssert(numBins == 2*orbData.size());
   
   ORBSplittersMsg *splittersMsg;
   float TOLER=0.05;
@@ -340,11 +340,9 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
 
         //CkPrintf("Sorter: initially %d keys\n", activeNodes->length());
 
-	if(!joinThreshold) {
-	    joinThreshold = particlesPerChare;
-	    splitThreshold = (int)(joinThreshold * 1.5);
-	    }
-        
+        joinThreshold = 0;
+        splitThreshold = 0;
+
         //Convert the Node Keys to the splitter keys which will be sent to histogram
         convertNodesToSplitters();
         break;
@@ -358,7 +356,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
       default:
     CkAbort("Invalid domain decomposition requested");
   }
-  
+
   if(verbosity >= 3)
     ckout << "Sorter: Initially have " << splitters.size() << " splitters" << endl;
   
@@ -385,8 +383,16 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
       keys = &keyBoundaries; 
     }
 
-    boundariesTargetProxy.evaluateBoundaries(&(*keys->begin()), keys->size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+    bool decomposeByLoad;
+    if (domainDecomposition == Oct_dec) {
+      decomposeByLoad = true;
+    }
+    else {
+      decomposeByLoad = false;
+    }
+    boundariesTargetProxy.evaluateBoundaries(decomposeByLoad, &(*keys->begin()), keys->size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
   }
+
 }
 
 /**
@@ -397,7 +403,7 @@ void Sorter::convertNodesToSplitters(){
 
   splitters.clear();
   splitters.reserve(nodeKeys.size() + 1);
-  //binCounts.reserve(nodeKeys.size());
+  binLoads.reserve(nodeKeys.size());
   const Key mask = Key(1) << KeyBits;
   for(unsigned int i=0;i<nodeKeys.size();i++){
     partKey=Key(nodeKeys[i]);
@@ -485,24 +491,24 @@ void Sorter::collectEvaluations(CkReductionMsg* m) {
 void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 
   numIterations++;
-  numCounts = m->getSize() / sizeof(int);
-  int* startCounts = static_cast<int *>(m->getData());
+  numBins = m->getSize() / sizeof(float);
+  float* startLoads = static_cast<float *>(m->getData());
 
   //call function which will balance the bin counts: define it in GenericTreeNode
   //make it a templated function
   //Pass the bincounts as well as the nodekeys
 
   if (joinThreshold == 0) {
-    int total_particles = std::accumulate(startCounts, startCounts+numCounts, 0);
-    joinThreshold = total_particles / (numTreePieces>>1);
-    splitThreshold = (int) (joinThreshold * 1.5);
+    float total_load = std::accumulate(startLoads, startLoads+numBins, 0.0f);
+    joinThreshold = 1.25 * total_load / numTreePieces;
+    splitThreshold = 1.5 * total_load / numTreePieces;
   }
   
   if(verbosity>=3){
     int i=0;
-    CkPrintf("Bin Counts in collect eval (%d):",numCounts);
-    for ( ; i<numCounts; i++) {
-      CkPrintf("%d,",startCounts[i]);
+    CkPrintf("Bin loads in collect eval (%d):",numBins);
+    for ( ; i<numBins; i++) {
+      CkPrintf("%d,",startLoads[i]);
     }
     CkPrintf("\n");
     CkPrintf("Nodekeys:");
@@ -518,7 +524,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   }
 
   double startTimer = CmiWallTimer();
-  bool histogram = refineOctSplitting(numCounts, startCounts);
+  bool histogram = refineOctSplitting(numBins, startLoads);
   traceUserBracketEvent(weightBalanceUE, startTimer, CmiWallTimer());
 
   //CkPrintf("refineOctSplitting nodesOpened %d took %g s\n", nodesOpened.size(), CmiWallTimer()-startTimer);
@@ -537,11 +543,11 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     Key *array = convertNodesToSplittersRefine(nodesOpened.size(),nodesOpened.getVec());
     //CkPrintf("convertNodesToSplittersRefine elts %d took %g s\n", nodesOpened.size()*arraySize, CmiWallTimer()-startTimer);
 #ifdef REDUCTION_HELPER
-    CProxy_ReductionHelper boundariesTargetProxy = reductionHelperProxy; 
+    CProxy_ReductionHelper boundariesTargetProxy = reductionHelperProxy;
 #else
-    CProxy_TreePiece boundariesTargetProxy = treeProxy; 
+    CProxy_TreePiece boundariesTargetProxy = treeProxy;
 #endif
-    boundariesTargetProxy.evaluateBoundaries(array, nodesOpened.size()*arraySize, 1<<refineLevel, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+    boundariesTargetProxy.evaluateBoundaries(true, array, nodesOpened.size()*arraySize, 1<<refineLevel, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
     delete[] array;
   }
   else{
@@ -573,23 +579,23 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
       delete leaves;
     }
 
-    int total = root->buildCounts();
+    float total = root->reduceLoads();
     // CkPrintf("total number of particles: %d\n", total);
     do {
 	// Convert Oct domains to splitters, ensuring that we do not exceed
 	// the number of available TreePieces.
 	nodeKeys.clear();
-	binCounts.clear();
+	binLoads.clear();
 
-        root->combine(joinThreshold, nodeKeys, binCounts);
+        root->combine(joinThreshold, nodeKeys, binLoads);
 
-	if(binCounts.size() > numTreePieces) {
-	    CkPrintf("bumping joinThreshold: %d, size: %d\n", joinThreshold,
-		     binCounts.size());
-	    joinThreshold = (int) (1.1*joinThreshold);
+	if(binLoads.size() > numTreePieces) {
+	    CkPrintf("bumping joinThreshold: %f, size: %d\n", joinThreshold,
+		     binLoads.size());
+	    joinThreshold = 1.1*joinThreshold;
 	    }
 	}
-    while(binCounts.size() > numTreePieces);
+    while(binLoads.size() > numTreePieces);
     convertNodesToSplitters();
 
 #if 0
@@ -605,30 +611,30 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     }
     CkPrintf("\n");
 
-    CkPrintf("final counts: ");
-    int totalAccum = 0;
-    int maxPartCount = 0;
-    for(int i = 0; i < binCounts.size(); i++){
-      CkPrintf("%d,", binCounts[i]);
-      totalAccum += binCounts[i];
+    CkPrintf("final loads: ");
+    float totalAccum = 0;
+    float maxLoad = 0;
+    for(int i = 0; i < binLoads.size(); i++){
+      CkPrintf("%.2g,", binLoads[i]);
+      totalAccum += binLoads[i];
 
-      if (binCounts[i] > maxPartCount) {
-        maxPartCount = binCounts[i];
+      if (binLoads[i] > maxLoad) {
+        maxLoad = binLoads[i];
       }
 
     }
 
-    int avePartCount = totalAccum / binCounts.size();
+    float aveLoad = totalAccum / binLoads.size();
     int numSmallCount = 0;
-    for(int i = 0; i < binCounts.size(); i++){
-      if (binCounts[i] < 0.1 * avePartCount) {
+    for(int i = 0; i < binLoads.size(); i++){
+      if (binLoads[i] < 0.1 * aveLoad) {
         numSmallCount++;
       }
     }
-    CkPrintf("\ntotal count: %d\n", totalAccum);
-    CkPrintf("average number of particles per tree piece: %d\n", avePartCount);
-    CkPrintf("number of tree pieces of size less than 10%% of average %d\n", numSmallCount);
-    CkPrintf("maximum tree piece size: %d\n", maxPartCount);
+    CkPrintf("\ntotal load: %.2g\n", totalAccum);
+    CkPrintf("average load per tree piece: %.2g\n", aveLoad);
+    CkPrintf("number of tree pieces with load less than 10%% of average %d\n", numSmallCount);
+    CkPrintf("maximum load: %.2g\n", maxLoad);
 
 #endif
 
@@ -637,8 +643,8 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     //We have the splitters here because weight balancer didn't change any node keys
     //We also have the final bin counts
 		
-    if(binCounts.size() > numTreePieces){
-      CkPrintf("Need %d tree pieces, available %d\n", binCounts.size(), numTreePieces);
+    if(binLoads.size() > numTreePieces){
+      CkPrintf("Need %d tree pieces, available %d\n", binLoads.size(), numTreePieces);
       CkAbort("too few tree pieces\n");
     }
 
@@ -649,13 +655,38 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     */
 
     CkPrintf(" histogramming %g sec ... \n", CmiWallTimer()-decompTime);
+
+    // get final particle counts
+#ifdef REDUCTION_HELPER
+    CProxy_ReductionHelper boundariesTargetProxy = reductionHelperProxy;
+#else
+    CProxy_TreePiece boundariesTargetProxy = treeProxy;
+#endif
+    boundariesTargetProxy.evaluateBoundaries(false, &(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::receiveParticleCounts(0), thishandle));    
     
-    dm.acceptFinalKeys(&(*splitters.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), splitters.size());
-    numIterations = 0;
-    sorted = false;
-    return;
   }
 
+}
+
+void Sorter::receiveParticleCounts(CkReductionMsg* m) {
+
+  // original data was ints but it should be safe to cast it
+  unsigned int *binCounts = static_cast<unsigned int *>(m->getData());
+  int numBins = m->getSize() / sizeof(int);
+
+#if 0
+  CkPrintf("final bin counts: \n");
+  int accum = 0;
+  for (int i = 0; i < m->getSize()/sizeof(int); i++) {
+    accum += binCounts[i];
+    CkPrintf("%d ", binCounts[i]);
+  }
+  CkPrintf("\n total count: %d\n", accum);
+#endif
+  dm.acceptFinalKeys(&(*splitters.begin()), &(*chareIDs.begin()), binCounts, splitters.size());
+
+  numIterations = 0;
+  sorted = false;
 }
 
 int OctDecompNode::maxNumChildren = 2;
@@ -679,29 +710,29 @@ void OctDecompNode::makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active){
   }
 }
 
-int OctDecompNode::buildCounts() {
+float OctDecompNode::reduceLoads() {
   if (children == NULL) {
-    return nparticles;
+    return load;
   }
   else {
-    nparticles = 0;
+    load = 0;
     for (int i = 0; i < nchildren; i++) {
-      nparticles += children[i].buildCounts();
+      load += children[i].reduceLoads();
     }
-    return nparticles;
+    return load;
   }
 }
 
-void OctDecompNode::combine(int joinThreshold, vector<NodeKey> &finalKeys, vector<unsigned int> &counts){
-  if(nparticles < joinThreshold || nchildren == 0){
+void OctDecompNode::combine(float joinThreshold, vector<NodeKey> &finalKeys, vector<float> &binLoads){
+  if(load < joinThreshold || nchildren == 0){
     finalKeys.push_back(key);
-    counts.push_back(nparticles);
+    binLoads.push_back(load);
     deleteBeneath();
     return;
   }
 
   for(int i = 0; i < nchildren; i++){
-    children[i].combine(joinThreshold, finalKeys, counts);
+    children[i].combine(joinThreshold, finalKeys, binLoads);
   }
 
 }
@@ -734,12 +765,12 @@ void OctDecompNode::deleteBeneath(){
  * the decomposition. It modifies it to decide when it is time to join two nodes,
  * or to split a node (meaning a TreePiece holding that part of the tree rooted
  * at "node").
- * As a consequence of this modification, "splitters" "chareIDs" and "binCounts"
+ * As a consequence of this modification, "splitters" "chareIDs" and "binLoads"
  * are updated accordingly to reflect the changes. If some node requires extra
  * refinement, "nodesOpened" will be changed to reflect this request for more data.
  * Returns true if more refinement is requested.
  */
-bool Sorter::refineOctSplitting(int n, int *count) {
+bool Sorter::refineOctSplitting(int n, float *loads) {
   unsigned int nprocess = 0;
   unsigned int nopen = 0;
   unsigned int njoin = 0;
@@ -750,8 +781,8 @@ bool Sorter::refineOctSplitting(int n, int *count) {
 
   for(int i = 0; i < n; i++){
     OctDecompNode *parent = (*activeNodes)[i];
-    parent->nparticles = count[i];
-    if(parent->nparticles > splitThreshold){
+    parent->load = loads[i];
+    if(parent->load > splitThreshold){
       // create a subtree of depth 'refineLevel' underneath 'parent'
       // newly created children are pushed into 'tmpActiveNodes'
       // the key of the parent is placed in 'nodesOpened' so that we 
@@ -783,11 +814,11 @@ bool Sorter::refineOctSplitting(int n, int *count) {
  */
 void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	numIterations++;
-	numCounts = m->getSize() / sizeof(int);
-	binCounts.resize(numCounts + 1);
+	numBins = m->getSize() / sizeof(int);
+	binCounts.resize(numBins + 1);
 	binCounts[0] = 0;
 	int* startCounts = static_cast<int *>(m->getData());
-	copy(startCounts, startCounts + numCounts, binCounts.begin() + 1);
+	copy(startCounts, startCounts + numBins, binCounts.begin() + 1);
 	delete m;
 	
 	if(sorted) { //true after the final keys have been binned
@@ -852,7 +883,7 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 #else
         CProxy_TreePiece boundariesTargetProxy = treeProxy; 
 #endif
-        boundariesTargetProxy.evaluateBoundaries(&(*keys->begin()), keys->size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+        boundariesTargetProxy.evaluateBoundaries(false, &(*keys->begin()), keys->size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 }
 
 /** Generate new guesses for splitter keys based on the histograms that came

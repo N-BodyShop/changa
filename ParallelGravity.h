@@ -686,6 +686,8 @@ class TreePiece : public CBase_TreePiece {
    
    double treePieceLoad; // used to store CPU load data for incoming particles
    double treePieceLoadTmp; // temporary accumulator for above
+   bool warmupFinished;
+
    int memWithCache, memPostCache;  // store memory usage.
    int nNodeCacheEntries, nPartCacheEntries;  // store memory usage.
 
@@ -1299,8 +1301,8 @@ public:
  TreePiece() : pieces(thisArrayID), root(0), proxyValid(false),
 	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
 	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
-	  treePieceLoad(0.0), treePieceLoadTmp(0.0) {
-	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex.data[0], CkMyPe());
+               treePieceLoad(0.0), treePieceLoadTmp(0.0), warmupFinished(false) {
+	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
 	  dm = NULL;
 	  foundLB = Null; 
@@ -1526,7 +1528,7 @@ public:
 	 */
 	// Assign keys after loading tipsy file and finding Bounding box
 	void assignKeys(CkReductionMsg* m);
-	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
+        void evaluateBoundaries(bool convertToLoad, SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
 	void unshuffleParticles(CkReductionMsg* m);
 	//void acceptSortedParticles(ParticleShuffleMsg *);
 
@@ -1887,7 +1889,8 @@ class ReductionHelper : public CBase_ReductionHelper {
 
   void countTreePieces(const CkCallback &cb);
   void reduceBinCounts(int nBins, int *binCounts, const CkCallback &cb);
-  void evaluateBoundaries(SFC::Key *keys, const int n, int isRefine, const CkCallback& cb);
+  void reduceBinLoads(int nBins, float *binLoads, const CkCallback &cb);
+  void evaluateBoundaries(bool convertToLoad, SFC::Key *keys, const int n, int isRefine, const CkCallback& cb);
 
   private:
   void senseLocalTreePieces();
@@ -1895,6 +1898,7 @@ class ReductionHelper : public CBase_ReductionHelper {
   private:
 
   CkVec<int> myBinCounts;
+  CkVec<float> myBinLoads;
   int numTreePiecesCheckedIn;
 
   TreePieceCounter localTreePieces;
