@@ -6274,7 +6274,7 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
 // request moments in such a way that they are evenly distributed over
 // the owners.
 int TreePiece::getResponsibleIndex(int first, int last){
-    int which = first + (thisIndex % (1 + last - first));
+    int which = first + (thisIndex.data[0] % (1 + last - first));
     if(verbosity > 3) 
 	CkPrintf("[tp %d] choosing responsible index %d from %d to %d\n",
 		 thisIndex.data[0],

@@ -364,13 +364,13 @@ void DataManager::initStarLog(std::string _fileName, const CkCallback &cb) {
 void TreePiece::flushStarLog(const CkCallback& cb) {
 
     if(verbosity > 3)
-	ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
+	ckout << "TreePiece " << thisIndex.data[0] << ": Writing output to disk" << endl;
     CmiLock(dm->lockStarLog);
     dm->starLog->flush();
     CmiUnlock(dm->lockStarLog);
 
-    if(thisIndex!=(int)numTreePieces-1) {
-	pieces[thisIndex + 1].flushStarLog(cb);
+    if(thisIndex.data[0]!=(int)numTreePieces-1) {
+	pieces[thisIndex.data[0] + 1].flushStarLog(cb);
 	return;
 	}
 

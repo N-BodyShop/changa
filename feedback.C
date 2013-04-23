@@ -147,8 +147,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
     // not enabled
     if(!param.bStarForm) {
 	double tolerance = 0.01;    // tolerance for domain decomposition
-	sorter.startSorting(dataManagerID, tolerance,
-			    CkCallbackResumeThread(), true);
+	sorter.startSorting(dataManagerID, tolerance, true);
 	}
     // Need to build tree since we just did addDelParticle.
     // XXX need to check whether a treebuild needs the domain
