@@ -444,8 +444,8 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
       dAge1 = dDeltaYr;
     }
     dAge2 = dStarAge + dDeltaYr;
-    dLW1 = CoolLymanWerner(pkd->Cool, dAge1);
-    dLW2 = CoolLymanWerner(pkd->Cool, dAge2);
+    dLW1 = CoolLymanWerner(pkd->Cool, dAge1)*p->fMassForm()*dGmUnit/MSOLG;
+    dLW2 = CoolLymanWerner(pkd->Cool, dAge2)*p->fMassForm()*dGmUnit/MSOLG;
     
     p->CoolParticle.dLymanWerner = (dLW1 + dLW2)/2;
 #endif
