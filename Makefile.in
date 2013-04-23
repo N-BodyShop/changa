@@ -107,8 +107,9 @@ OBJECTS = Reductions.o DataManager.o TreePiece.o Sorter.o \
 	  moments.o MultistepLB.o Orb3dLB.o Orb3dLB_notopo.o \
 	  MultistepLB_notopo.o MultistepOrbLB.o PETreeMerger.o \
 	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
+	  feedback.o imf.o supernova.o supernovaia.o starlifetime.o \
 	  cha_commitid.o \
-	@OBJECTS_COOLING@
+	  @OBJECTS_COOLING@
 
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \
 	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
@@ -135,6 +136,9 @@ all: $(TARGET)
 
 $(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleMultistepLB_notopo.a libmoduleMultistepOrbLB.a
 	$(CHARMC) -o $(TARGET) $(LDFLAGS) $(OBJECTS) $(LDLIBS)
+
+$(TARGET).prj: $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleMultistepLB_notopo.a libmoduleMultistepOrbLB.a
+	$(CHARMC) -o $(TARGET).prj $(LDFLAGS) $(OBJECTS) $(LDLIBS) -tracemode projections
 
 $(TARGET).%: $(TARGET)
 	mv $(TARGET) $@

@@ -7,6 +7,7 @@
 #include <math.h>
 #include <assert.h>
 #include <string.h>
+#include <errno.h>
 #include "config.h"
 #ifdef HAVE_VALUES_H
 #include <values.h>
@@ -1822,6 +1823,7 @@ void dfFinishFrame( struct DumpFrameContext *df, double dTime, double dStep, str
 
 	CmiFclose(fp);
 
+Done:
 	if (df->dDumpFrameTime > 0 && dTime >= df->dTime)
 	  df->dTime = df->dTime + df->dDumpFrameTime;
 	

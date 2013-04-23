@@ -1004,3 +1004,21 @@ smooth.h \
 State.h \
 Opt.h \
 
+feedback.o: \
+ParallelGravity.decl.h \
+feedback.h \
+supernova.h
+
+imf.o: \
+ParallelGravity.decl.h
+
+supernova.o: \
+ParallelGravity.decl.h \
+supernova.h
+
+supernovaia.o: \
+ParallelGravity.decl.h \
+supernova.h
+
+starlifetime.o: \
+ParallelGravity.decl.h

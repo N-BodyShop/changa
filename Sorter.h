@@ -33,8 +33,10 @@ struct OctDecompNode {
   int nparticles;
 
   void makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active);
+  int buildCounts();
   void deleteBeneath();
   void combine(int thresh, vector<NodeKey> &finalKeys, vector<unsigned int> &counts);
+  void getLeafNodes(CkVec<OctDecompNode*> *activeNodes);
 };
 
 /**
@@ -59,7 +61,7 @@ struct OctDecompNode {
  to DataManager::acceptFinalKeys(), which coordinates the
  shuffling of the particles to the correct owners.
  */
-class Sorter : public Chare {
+class Sorter : public CBase_Sorter {
 
         double decompTime;
 	/// The total number of keys we're sorting.
@@ -109,6 +111,9 @@ class Sorter : public Chare {
 	/// for histogramming in Oct decomposition.
 	int refineLevel;
 
+        // root of the full tree of node keys for decomposition
+        OctDecompNode *root;
+        // node keys for the initial bins
         OctDecompNode *decompRoots;
         int numDecompRoots;
         CkVec<OctDecompNode*> *activeNodes;
@@ -142,6 +147,7 @@ class Sorter : public Chare {
 public:
 	
 	Sorter() {
+          root = NULL;
           decompRoots = NULL;
           numDecompRoots = 0;
 	  joinThreshold = 0;
@@ -153,7 +159,8 @@ public:
           chareIDs[0] = 0;
           partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
 	};
-	Sorter(CkMigrateMessage* m) {
+	Sorter(CkMigrateMessage* m) : CBase_Sorter(m) {
+          root = NULL;
           decompRoots = NULL;
           numDecompRoots = 0;
 	  joinThreshold = 0;

@@ -405,6 +405,8 @@ void clRates( COOL *cl, RATE *Rate, double T, double rho ) {
 
   xTln = (Tln-cl->TlnMin)*cl->rDeltaTln;
   iTln = xTln;
+  assert(iTln >= 0);
+  assert(iTln < cl->nTable - 1);
   RT0 = (cl->RT+iTln);
   RT1 = RT0+1; 
   wTln1 = xTln-iTln;
@@ -465,6 +467,8 @@ double clCoolTotal ( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMet
 
   xTln = (Rate->Tln-cl->TlnMin)*cl->rDeltaTln;
   iTln = xTln;
+  assert(iTln >= 0);
+  assert(iTln < cl->nTable - 1);
   RT0 = (cl->RT+iTln);
   RT1 = RT0+1; 
   wTln1 = xTln-iTln;
@@ -511,6 +515,8 @@ COOL_ERGPERSPERGM  clTestCool ( COOL *cl, PERBARYON *Y, RATE *Rate, double rho )
 
   xTln = (Rate->Tln-cl->TlnMin)*cl->rDeltaTln;
   iTln = xTln;
+  assert(iTln >= 0);
+  assert(iTln < cl->nTable - 1);
   RT0 = (cl->RT+iTln);
   RT1 = RT0+1; 
   wTln1 = xTln-iTln;
@@ -562,6 +568,8 @@ void clPrintCool ( COOL *cl, PERBARYON *Y, RATE *Rate, double rho ) {
 
   xTln = (Rate->Tln-cl->TlnMin)*cl->rDeltaTln;
   iTln = xTln;
+  assert(iTln >= 0);
+  assert(iTln < cl->nTable - 1);
   RT0 = (cl->RT+iTln);
   RT1 = RT0+1; 
   wTln1 = xTln-iTln;
@@ -626,6 +634,8 @@ void clPrintCoolFile( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, FILE *fp )
 
   xTln = (Rate->Tln-cl->TlnMin)*cl->rDeltaTln;
   iTln = xTln;
+  assert(iTln >= 0);
+  assert(iTln < cl->nTable - 1);
   RT0 = (cl->RT+iTln);
   RT1 = RT0+1; 
   wTln1 = xTln-iTln;
@@ -998,6 +1008,8 @@ double clEdotInstant( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
 
   xTln = (Rate->Tln-cl->TlnMin)*cl->rDeltaTln;
   iTln = xTln;
+  assert(iTln >= 0);
+  assert(iTln < cl->nTable - 1);
   RT0 = (cl->RT+iTln);
   RT1 = RT0+1; 
   wTln1 = (xTln-iTln);
