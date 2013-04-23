@@ -119,7 +119,6 @@ clDerivsData *CoolDerivsInit(COOL *cl)
     Data = malloc(sizeof(clDerivsData));
     assert(Data != NULL);
     Data->IntegratorContext = StiffInit(EPSINTEG, 5, Data, clDerivs); /*Change array length to 5 to include H2*/
-    Data->RootFindContext = RootFindInit();
     Data->cl = cl;
 
     return Data;
@@ -140,12 +139,11 @@ void CoolFinalize(COOL *cl )
 void CoolDerivsFinalize(clDerivsData *clData)
 {
     StiffFinalize(clData->IntegratorContext );
-    RootFindFinalize(clData->RootFindContext );
     free(clData);
     }
 
 void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit, 
-		      double dErgPerGmUnit, double dSecUnit, double dKpcUnit, double dMsolUnit,  double dInitStarMass, COOLPARAM CoolParam) 
+		      double dErgPerGmUnit, double dSecUnit, double dKpcUnit, COOLPARAM CoolParam) 
 {
   assert(cl!=NULL);
   cl->dGmPerCcUnit = dGmPerCcUnit;
@@ -155,9 +153,7 @@ void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit
   cl->dErgPerGmPerSecUnit = cl->dErgPerGmUnit / cl->dSecUnit;
   cl->diErgPerGmUnit = 1./dErgPerGmUnit;
   cl->dKpcUnit = dKpcUnit;
-  cl->dMsolUnit = dMsolUnit;
   cl->dMassFracHelium = CoolParam.dMassFracHelium;
-  cl->dInitStarMass = dInitStarMass;
 
   cl->bUV = CoolParam.bUV;
   cl->bUVTableUsesTime = CoolParam.bUVTableUsesTime;
@@ -2343,22 +2339,7 @@ double clCoolLowT( double T ) {
 
 /*----  Lyman-Warner Radiation from young stars ------gasoline.metal.mh.rad.gdb*/
 #ifdef  RADIATIVEBOX
-/*---- If the ages of stars are not already set, this will estimate them from the mass */
-double CoolAgeFromMass(COOL *cl, double fMassStar){
-  double dAlog10, dLogMassFrac;
-  dLogMassFrac = log10(fMassStar/cl->dInitStarMass);
-  if (dLogMassFrac > 0) dLogMassFrac = 0;
-  dAlog10 = 6.53429 - 
-    49.4558*dLogMassFrac - 
-    475.707*dLogMassFrac*dLogMassFrac - 
-    3145.14*dLogMassFrac*dLogMassFrac*dLogMassFrac -
-    7936.82*dLogMassFrac*dLogMassFrac*dLogMassFrac*dLogMassFrac;
- 
-  return pow(10,dAlog10);
-}
-
-
-double CoolLymanWerner(COOL *cl, double dAge){
+double CoolLymanWerner(COOL *cl, double dAge, double initStarMass){
     double  a0 = -84550.812,
       a1 =  54346.066,
       a2 = -13934.144,
@@ -2380,8 +2361,7 @@ double CoolLymanWerner(COOL *cl, double dAge){
 	       + a4*dAlog10*dAlog10*dAlog10*dAlog10
 	       + a5*dAlog10*dAlog10*dAlog10*dAlog10*dAlog10 - 30.0); /*Divide by 1e30 to keep things in bounds*/
 
-    else temp = pow(10,dA0old + dA1old*dAlog10 - 30.0); /*Close to zero*/
-    return cl->dMsolUnit*cl->dInitStarMass*temp;
+    return temp = pow(10,dA0old + dA1old*dAlog10 - 30.0); /*Close to zero*/
 }
 #endif
 
@@ -2640,7 +2620,7 @@ double clEdotInstant( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
  * 
  */
 
-double clfTemp(double T,  void *Data) 
+double clfTemp(void *Data, double T) 
 {
   clDerivsData *d = Data; 
   d->its++;
@@ -2664,7 +2644,7 @@ void clTempIteration( clDerivsData *d )
    TA = clTemperature( Y_Total1, d->E );
    if (TA > TB) { T=TA; TA=TB; TB=T; }
 
-   T = RootFind(d->RootFindContext, clfTemp, d, TA, TB, EPSTEMP*TA ); 
+   T = RootFind(clfTemp, d, TA, TB, EPSTEMP*TA );
  } 
  d->its++;
  CLRATES( d->cl, &d->Rate, T, d->rho, d->ZMetal, d->Rate.CorreLength/(d->cl->dKpcUnit * 3.08568025e21 * d->cl->dExpand), d->Rate.LymanWernerCode );
@@ -3128,19 +3108,19 @@ void CoolAddParams( COOLPARAM *CoolParam, PRM prm ) {
 	prmAddParam(prm,"nCoolingTable",paramInt,&CoolParam->nCoolingTable,
 				sizeof(int),"nctable","<# Cooling table elements> = 15001");
 	CoolParam->bDoIonOutput = 1;
-	prmAddParam(prm,"bDoIonOutput"paramBool,&CoolParam->bDoIonOutput,sizeof(int),
+	prmAddParam(prm,"bDoIonOutput",paramBool,&CoolParam->bDoIonOutput,sizeof(int),
 				"Iout","enable/disable Ion outputs (cooling only) = +Iout");
 	CoolParam->bLowTCool = 0;
-	prmAddParam(prm,"bLowTCool"paramBool,&CoolParam->bLowTCool,sizeof(int),
+	prmAddParam(prm,"bLowTCool",paramBool,&CoolParam->bLowTCool,sizeof(int),
 				"ltc","enable/disable low T cooling = +ltc");
 	CoolParam->bSelfShield = 0;
-	prmAddParam(prm,"bSelfShield"paramBool,&CoolParam->bSelfShield,sizeof(int),
+	prmAddParam(prm,"bSelfShield",paramBool,&CoolParam->bSelfShield,sizeof(int),
 				"ssc","enable/disable Self Shielded Cooling = +ssc");
 	CoolParam->bMetal = 1; 
-	prmAddParam(prm,"bMetal"paramBool,&CoolParam->bMetal,sizeof(int),
+	prmAddParam(prm,"bMetal",paramBool,&CoolParam->bMetal,sizeof(int),
 				"mtc","enable/disable Metal heating/cooling = +mtc");
 	CoolParam->bShieldHI = 1; /*Whether or not to shield HI by dust*/
-	prmAddParam(prm,"bShieldHI"paramBool,&CoolParam->bShieldHI,sizeof(int),
+	prmAddParam(prm,"bShieldHI",paramBool,&CoolParam->bShieldHI,sizeof(int),
 				"shI","enable/disable Dust Shielding of HI = +shI");
 	CoolParam->dClump = 10;
 	prmAddParam(prm,"dClump",paramDouble,&CoolParam->dClump, /* Sub-grid clumping factor used to calculate H2 formation on dust */
@@ -3326,7 +3306,7 @@ void CoolIntegrateEnergy(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
 	double dLymanWerner = 0;
 #endif       
         CoolPARTICLEtoPERBARYON(cl, &Y,cp, ZMetal);
-        clIntegrateEnergy(cl, &Y, E, ExternalHeating, rho, ZMetal, tStep, columnL, dLymanWerner);
+        clIntegrateEnergy(cl, clData, &Y, E, ExternalHeating, rho, ZMetal, tStep, columnL, dLymanWerner);
         CoolPERBARYONtoPARTICLE(cl, &Y, cp, ZMetal);
         }
 
@@ -3353,7 +3333,7 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
 #ifdef NOEXTHEAT
 	ExternalHeatingCode = 0;
 #endif
-	clIntegrateEnergy(cl, &Y, &E,
+	clIntegrateEnergy(cl, clData, &Y, &E,
 			  CoolCodeWorkToErgPerGmPerSec( cl, ExternalHeatingCode ), 
 			  CodeDensityToComovingGmPerCc(cl, rhoCode), ZMetal, tStep, columnL,dLymanWerner );
 	CoolPERBARYONtoPARTICLE(cl, &Y, cp, ZMetal);

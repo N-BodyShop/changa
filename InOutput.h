@@ -608,7 +608,7 @@ class EDotOutputParams : public OutputParams
 	    double r[3];  // For conversion to C
 	    p->position.array_form(r);
 #ifdef COOLING_MOLECULARH
-	    return (COOL_EDOT(dm->Cool, &p->CoolParticle(), p->u(), p->fDensity, p->fMetals(), r, sqrt(0.25*(&p->fBall2))));	    
+	    return (COOL_EDOT(dm->Cool, &p->CoolParticle(), p->u(), p->fDensity, p->fMetals(), r, sqrt(0.25)*(p->fBall)));	    
 #else
 	    return (COOL_EDOT(dm->Cool, &p->CoolParticle(), p->u(), p->fDensity, p->fMetals(), r));
 #endif
@@ -765,6 +765,7 @@ class Cool3OutputParams : public OutputParams
     virtual double dValue(GravityParticle *p)
     {
 #ifndef COOLING_NONE
+	CkAssert(dm != NULL);
 	if (TYPETest(p, TYPE_GAS))
 	    return COOL_ARRAY3(dm->Cool, &p->CoolParticle(), p->fMetals());
 	else

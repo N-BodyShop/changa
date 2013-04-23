@@ -291,14 +291,14 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 
 #ifdef COOLING_MOLECULARH
     double yH;
-    if (p->fMetals <= 0.1) yH = 1.0 - 4.0*((0.236 + 2.1*p->fMetals)/4.0) - p->fMetals;
-    else yH = 1.0 - 4.0*((-0.446*(p->fMetals - 0.1)/0.9 + 0.446)/4.0) - p->fMetals;
-    double columnL = sqrt(0.25*p->fBall2);/*correlation length used for H2 shielding, CC*/
+    if (p->fMetals() <= 0.1) yH = 1.0 - 4.0*((0.236 + 2.1*(p->fMetals()))/4.0) - p->fMetals();
+    else yH = 1.0 - 4.0*((-0.446*(p->fMetals() - 0.1)/0.9 + 0.446)/4.0) - p->fMetals();
+    double columnL = sqrt(0.25)*p->fBall;/*correlation length used for H2 shielding, CC*/
     double dMprob;
     if (dStarFormEfficiencyH2 == 0) dMprob  = 1.0 - exp(-dCStar*dTimeStarForm/tform);
     else dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform*
-			   dStarFormEfficiencyH2*(2.0*p->CoolParticle.f_H2/yH));    
-    H2FractionForm = 2.0*p->CoolParticle.f_H2/yH;
+    			    dStarFormEfficiencyH2*(2.0*(p->CoolParticle().f_H2)/yH));    
+    H2FractionForm = 1.0*p->CoolParticle().f_H2/yH;
 #else /* COOLING_MOLECULARH */ 
     double dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform);
     H2FractionForm = 0;   
@@ -464,8 +464,8 @@ void StarLog::flush(void) {
 	    xdr_double(&xdrs, &(pSfEv->massForm));
 	    xdr_double(&xdrs, &(pSfEv->rhoForm));
 	    xdr_double(&xdrs, &(pSfEv->TForm));
-#ifdef COOLING_MOLECULARH
-	    xdr_double(&xdrs, &(pSfEv->H2fracForm));
+#ifdef COOLING_MOLECULARH 
+	    xdr_double(&xdrs, &(pSfEv->H2FracForm));
 #endif
 	    }
 	xdr_destroy(&xdrs);

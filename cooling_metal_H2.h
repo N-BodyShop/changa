@@ -291,7 +291,6 @@ typedef struct {
 
 struct clDerivsDataStruct {
   STIFF *IntegratorContext;
-  ROOTFIND *RootFindContext;  
   COOL *cl;
   double rho,ExternalHeating,E,ZMetal,dLymanWerner, columnL;
 /*  double Y_H, Y_He; */  /* will be needed -- also for temperature , Y_MetalIon, Y_eMetal */
@@ -310,7 +309,7 @@ clDerivsData *CoolDerivsInit(COOL *cl);
 void CoolDerivsFinalize(clDerivsData *cld ) ;
 
 void clInitConstants( COOL *cl, double dGMPerCcunit, double dComovingGmPerCcUnit,
-		      double dErgPerGmUnit, double dSecUnit, double dKpcUnit, double dMsolUnit,  double dInitStarMass, COOLPARAM CoolParam);
+		      double dErgPerGmUnit, double dSecUnit, double dKpcUnit, COOLPARAM CoolParam);
 void clInitUV(COOL *cl, int nTableColumns, int nTableRows, double *dTableData );
 void clInitRatesTable( COOL *cl, double TMin, double TMax, int nTable );
 void clReadMetalTable(COOL *cl, COOLPARAM clParam);

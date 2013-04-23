@@ -111,7 +111,7 @@ class StarLogEvent
 	p | rhoForm;
 	p | TForm;
 #ifdef COOLING_MOLECULARH
-	p | H2FracForm
+	p | H2FracForm;
 #endif
 	}
     };
