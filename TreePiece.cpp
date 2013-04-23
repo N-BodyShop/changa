@@ -89,7 +89,7 @@ void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
 			    )
 {
     nReplicas = nRepsPar;
-    fPeriod = fPeriodPar, fPeriodPar, fPeriodPar;
+    fPeriod = fPeriodPar;
     bEwald = bEwaldPar;
     fEwCut  = fEwCutPar;
     dEwhCut = dEwhCutPar;
@@ -165,17 +165,11 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 	if(verbosity >= 5)
 		cout << thisIndex << ": TreePiece: Assigned keys to all my particles" << endl;
 
-#if 0
 /*
   if(myNumParticles > 0) 
     CkPrintf("[%d] %d (%llx) - %d (%llx)\n", thisIndex, 0, myParticles[0].key, myNumParticles+1, myParticles[myNumParticles+1].key);
     */
-
-  submitParticles();
-  CkCallback decompCb(CkIndex_Decomposer::doneLoad(NULL),decomposerProxy);
-  contribute(sizeof(CkCallback),&callback,callbackReduction,decompCb);
-#endif
-  contribute(0, 0, CkReduction::concat, callback);
+  contribute(callback);
 
 }
 
@@ -259,7 +253,7 @@ void TreePiece::initBeforeORBSend(unsigned int myCount,
   mySortedParticlesStar.clear();
   mySortedParticlesStar.reserve(myExpectedCountStar);
 
-  contribute(0, 0, CkReduction::concat, nextCallback);
+  contribute(nextCallback);
 }
 
 void TreePiece::sendORBParticles(){
@@ -788,7 +782,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     deleteTree();
     // We better not have a message with particles for us
     CkAssert(shuffleMsg == NULL);
-    contribute(0, 0, CkReduction::concat, callback);
+    contribute(callback);
     return;
   }
 
@@ -851,10 +845,12 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     }
 
     incomingParticlesMsg.clear();
-    // assign gas data pointers
+    // assign gas data pointers and determine centroid
     int iGas = 0;
     int iStar = 0;
+    Vector3D<double> vCenter(0.0, 0.0, 0.0);
     for(int iPart = 0; iPart < myNumParticles; iPart++) {
+      vCenter += myParticles[iPart+1].position;
       if(myParticles[iPart+1].isGas()) {
         myParticles[iPart+1].extraData
           = (extraSPHData *)&mySPHParticles[iGas];
@@ -870,13 +866,14 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     }
 
     sort(myParticles+1, myParticles+myNumParticles+1);
+    savedCentroid = vCenter/(double)myNumParticles;
     //signify completion with a reduction
     if(verbosity>1) ckout << thisIndex <<" contributing to accept particles"
       <<endl;
 
     deleteTree();
     //CkPrintf("[%d] accepted %d particles\n", thisIndex, myNumParticles);
-    contribute(0, 0, CkReduction::concat, callback);
+    contribute(callback);
   }
 }
 
@@ -903,7 +900,7 @@ void Decomposer::checkin(){
     myNumTreePieces = -1;
 
     // return control to mainchare
-    //contribute(0,0,CkReduction::concat,callback);
+    //contribute(callback);
   }
 }
 #endif
@@ -987,7 +984,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
 	  }
       }
-  contribute(0, 0, CkReduction::concat, cb);
+  contribute(cb);
 }
 
 void TreePiece::initAccel(int iKickRung, const CkCallback& cb) 
@@ -1000,7 +997,7 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
 	    }
 	}
 
-    contribute(0, 0, CkReduction::concat, cb);
+    contribute(cb);
     }
 
 /**
@@ -1450,7 +1447,7 @@ void TreePiece::physicalSoft(const double dSoftMax, const double dFac,
 	    }
 	}
 #endif
-    contribute(0, 0, CkReduction::concat, cb);
+    contribute(cb);
 }
 
 void TreePiece::growMass(int nGrowMass, double dDeltaM, const CkCallback& cb)
@@ -1459,7 +1456,7 @@ void TreePiece::growMass(int nGrowMass, double dDeltaM, const CkCallback& cb)
 	if(myParticles[i].iOrder < nGrowMass)
 	    myParticles[i].mass += dDeltaM;
 	}
-    contribute(0, 0, CkReduction::concat, cb);
+    contribute(cb);
     }
 
 /*
@@ -1726,12 +1723,12 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
       contribute(2 * sizeof(Key), bounds, CkReduction::concat, CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
     } else {
       // No particles assigned to this TreePiece
-      contribute(0, bounds, CkReduction::concat, CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
+      contribute(CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
     }
     break;
   case Binary_ORB:
     // WARNING: ORB trees do not allow TreePieces to have 0 particles!
-    contribute(0, 0, CkReduction::concat, CkCallback(CkIndex_TreePiece::startORBTreeBuild(0), thisArrayID));
+    contribute(CkCallback(CkIndex_TreePiece::startORBTreeBuild(0), thisArrayID));
     break;
   }
 }
@@ -1811,7 +1808,7 @@ GenericTreeNode *TreePiece::get3DIndex() {
   OrientedBox<float> *boxesMsg = msg->boxes;
   copy(boxesMsg,boxesMsg+numTreePieces,boxes);
 
-  contribute(0, 0, CkReduction::concat, CkCallback(CkIndex_TreePiece::startORBTreeBuild(0), thisArrayID));
+  contribute(CkCallback(CkIndex_TreePiece::startORBTreeBuild(0), thisArrayID));
 }*/
 
 void TreePiece::startORBTreeBuild(CkReductionMsg* m){
@@ -1832,7 +1829,7 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
     }
     else{
       // if not combining trees, return control to mainchare
-      contribute(0,0,CkReduction::sum_int,callback);
+      contribute(callback);
     }
 #endif
     return;
@@ -2092,7 +2089,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
     }
     else{
       // if not merging, return control to mainchare
-      contribute(0,0,CkReduction::sum_int,callback);
+      contribute(callback);
     }
 #endif
     return;
@@ -2192,7 +2189,6 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
 	CkAbort("Out of memory in treebuild");
 	}
 
-  saveCentroid();
   processRemoteRequestsForMoments();
 
   if(verbosity > 3){
@@ -2221,34 +2217,6 @@ void TreePiece::sendRequestForNonLocalMoments(GenericTreeNode *pickedNode){
     //CkPrintf("[%d] phase I request moments for %llu from %d\n", tp->thisIndex, node->getKey(), node->remoteIndex);
     treeProxy[pickedNode->remoteIndex].requestRemoteMoments(pickedNode->getKey(), thisIndex, &opts);
   }
-}
-
-void TreePiece::saveCentroid(){
-/* jetley - save the treepiece bounding box for use later.
-   Needed because each treepiece must, for oct decomposition, send its
-   centroid to a load balancing strategy object. The previous tree
-   will have been deleted at that point.
-   */
-  CkVec <GenericTreeNode *> queue;
-  GenericTreeNode *child, *temp;
-
-  OrientedBox<float> box;
-  queue.push_back(root);
-  while(queue.size() != 0){
-    temp = queue[queue.size()-1];
-    CkAssert(temp != NULL);
-    queue.remove(queue.size()-1);
-    for(int i = 0; i < temp->numChildren(); i++){
-      child = temp->getChildren(i);
-      CkAssert(child != NULL);
-      if(child->getType() == Boundary)
-        queue.push_back(child);   // might have child that is an Internal node
-      else if(child->getType() == Internal || child->getType() == Bucket){
-        box.grow(child->boundingBox);
-      }
-    }
-  }
-  savedCentroid = box.center();
 }
 
 void TreePiece::processRemoteRequestsForMoments(){
@@ -2308,8 +2276,6 @@ void TreePiece::mergeNonLocalRequestsDone(){
   // (b) I might have received all the moments for
   //     which I was a client
   
-  saveCentroid();
-
   // 4. Respond to remote requests for local moments
   processRemoteRequestsForMoments();
 
@@ -2766,7 +2732,7 @@ void TreePiece::treeBuildComplete(){
   }
   else{
     // if not merging, return control to mainchare
-    contribute(0,0,CkReduction::sum_int,callback);
+    contribute(callback);
   }
 #endif
 }
@@ -4236,7 +4202,7 @@ void TreePiece::findTotalMass(CkCallback &cb){
 
 void TreePiece::recvTotalMass(CkReductionMsg *msg){
   myTotalMass = *((double *)msg->getData());
-  contribute(0,0,CkReduction::sum_int,callback);
+  contribute(callback);
 }
 
 /// This method starts the tree walk and gravity calculation.  It
@@ -4765,7 +4731,7 @@ void TreePiece::doAtSync(){
 void TreePiece::ResumeFromSync(){
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d in ResumefromSync\n",CkMyPe(),thisIndex);
-  contribute(0, 0, CkReduction::concat, callback);
+  contribute(callback);
 }
 
 /*
@@ -5494,7 +5460,7 @@ void TreePiece::report() {
 
   //checkTree(root);
 
-  //contribute(0, 0, CkReduction::concat, cb);
+  //contribute(cb);
 }
 
 /// Print a text version of a tree
@@ -6179,15 +6145,15 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
 }
 
 // Choose a piece from among the owners from which to
-// request moments in such a way that if I am a piece with a
-// higher index, I request from a higher indexed treepiece.
+// request moments in such a way that they are evenly distributed over
+// the owners.
 int TreePiece::getResponsibleIndex(int first, int last){
+    int which = first + (thisIndex % (1 + last - first));
     if(verbosity > 3) 
 	CkPrintf("[tp %d] choosing responsible index %d from %d to %d\n",
 		 thisIndex,
-		 dm->responsibleIndex[first + (thisIndex & (last-first))],
-		 first, last);
-  return dm->responsibleIndex[first + (thisIndex & (last-first))];
+		 dm->responsibleIndex[which], first, last);
+  return dm->responsibleIndex[which];
 }
 
 std::map<NodeKey,NonLocalMomentsClientList>::iterator TreePiece::createTreeBuildMomentsEntry(GenericTreeNode *pickedNode){

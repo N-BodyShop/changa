@@ -149,6 +149,10 @@ bool doSimulateLB;
 // of every Oct decomposition step
 int numInitDecompBins;
 
+// Specifies the number of sub-bins a bin is split into
+//  for Oct decomposition
+int octRefineLevel;
+
 void _Leader(void) {
     puts("USAGE: ChaNGa [SETTINGS | FLAGS] [PARAM_FILE]");
     puts("PARAM_FILE: Configuration file of a particular simulation, which");
@@ -175,7 +179,8 @@ int cacheSize;
 /// This routine parses the command line and file specified parameters,
 /// and allocates the charm structures.  The charm "readonly" variables
 /// are writable in this method, and are broadcast globally once this
-/// method exits.
+/// method exits.  Note that the method finishes with an asynchronous
+/// call to setupICs().
 ///
 Main::Main(CkArgMsg* m) {
 	args = m;
@@ -670,6 +675,10 @@ Main::Main(CkArgMsg* m) {
         prmAddParam(prm, "iInitDecompBins", paramInt, &numInitDecompBins,
               sizeof(int),"initDecompBins", "Number of bins to use for the first iteration of every Oct decomposition step");
 
+        octRefineLevel = 1;
+        prmAddParam(prm, "iOctRefineLevel", paramInt, &octRefineLevel,
+                    sizeof(int),"octRefineLevel", "Binary logarithm of the number of sub-bins a bin is split into for Oct decomposition (e.g. octRefineLevel 3 splits into 8 sub-bins) (default: 1)");
+
         doDumpLB = false;
         prmAddParam(prm, "bdoDumpLB", paramBool, &doDumpLB,
               sizeof(bool),"doDumpLB", "Should Orb3dLB dump LB database to text file and stop?");
@@ -718,11 +727,19 @@ Main::Main(CkArgMsg* m) {
 
 #endif
 
-	if(!prmArgProc(prm,m->argc,m->argv)) {
+        int processSimfile = 1;
+	if(!prmArgProc(prm,m->argc,m->argv, processSimfile)) {
 	    CkExit();
         }
 
-        if(numInitDecompBins > numTreePieces) numInitDecompBins = numTreePieces;
+        // ensure that number of bins is a power of 2
+        if (numInitDecompBins > numTreePieces) {
+          unsigned int numBins = 1;
+          while (numBins < numTreePieces) {
+            numBins <<= 1;
+          }
+          numInitDecompBins = numBins;
+        }
 	
 	if(bVDetails && !verbosity)
 	    verbosity = 1;
@@ -1101,7 +1118,7 @@ Main::Main(CkArgMsg* m) {
 ///
 /// This is only called when restarting from a checkpoint.
 ///
-Main::Main(CkMigrateMessage* m) {
+Main::Main(CkMigrateMessage* m) : CBase_Main(m) {
     args = (CkArgMsg *)malloc(sizeof(*args));
     args->argv = CmiCopyArgs(((CkArgMsg *) m)->argv);
     mainChare = thishandle;
@@ -1333,7 +1350,7 @@ void Main::advanceBigStep(int iStep) {
         duKick[iRung] = 0.5*dTimeSub;
         dKickFac[iRung] = csmComoveKickFac(param.csm, dTime, 0.5*dTimeSub);
 	dStartTime[iRung] = dTime;
-      }
+        }
       if(verbosity > 1)
 	  memoryStats();
       if(param.bDoGas) {
@@ -1689,7 +1706,7 @@ void Main::advanceBigStep(int iStep) {
 /// information about the run (including starting time) isn't known
 /// until the particles are loaded, this routine also completes the
 /// specification of the run details and writes out the log file
-/// entry.  In concludes by calling initialForces()
+/// entry.  It concludes by calling initialForces()
 
 void Main::setupICs() {
   double startTime;
@@ -1700,32 +1717,30 @@ void Main::setupICs() {
   /******** Particles Loading ********/
   CkPrintf("Loading particles ...");
   startTime = CkWallTimer();
-  treeProxy.load(basefilename, CkCallbackResumeThread());
-  if(!(treeProxy[0].ckLocal()->bLoaded)) {
-    // Try loading Tipsy format; first just grab the header.
-    CkPrintf(" trying Tipsy ...");
+
+  // Try loading Tipsy format; first just grab the header.
+  CkPrintf(" trying Tipsy ...");
 	    
-    try {
-	Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
-	if(!ptf.loadedSuccessfully()) {
-	    ckerr << endl << "Couldn't load the tipsy file \""
-		  << basefilename.c_str()
-		  << "\". Maybe it's not a tipsy file?" << endl;
-	    CkExit();
-	    return;
-	    }
-	}
-    catch (std::ios_base::failure e) {
-	ckerr << "File read: " << basefilename.c_str() << ": " << e.what()
-	      << endl;
-	CkExit();
-	return;
-	}
+  try {
+    Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
+    if(!ptf.loadedSuccessfully()) {
+      ckerr << endl << "Couldn't load the tipsy file \""
+            << basefilename.c_str()
+            << "\". Maybe it's not a tipsy file?" << endl;
+      CkExit();
+      return;
+    }
+  }
+  catch (std::ios_base::failure e) {
+    ckerr << "File read: " << basefilename.c_str() << ": " << e.what()
+          << endl;
+    CkExit();
+    return;
+  }
 
-    double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
-    treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
+  double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
+  treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
 
-  }	
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
 	    
@@ -1953,8 +1968,9 @@ Main::restart()
 	prmAddParam(prm,"dMaxBalance",paramDouble,&param.dMaxBalance,
 		    sizeof(double), "maxbal",
 		    "Maximum piece ratio for load balancing");
-	
-	if(!prmArgOnlyProc(prm,CmiGetArgc(args->argv),args->argv)) {
+
+        int processSimfile = 0; 
+	if(!prmArgProc(prm,CmiGetArgc(args->argv),args->argv,processSimfile)) {
 	    CkExit();
 	}
 	
