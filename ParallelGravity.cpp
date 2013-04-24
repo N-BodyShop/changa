@@ -1779,6 +1779,8 @@ void Main::setupICs() {
 	
   if(param.bFeedback)
       param.feedback->CheckParams(prm, param);
+  else
+      param.feedback->NullFeedback();
 
   string achLogFileName = string(param.achOutName) + ".log";
   ofstream ofsLog(achLogFileName.c_str(), ios_base::trunc);
