@@ -486,6 +486,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	double ih2,r2,rs,rs1,fDensity,fNorm,fNorm1,vFac;
 	double dvxdx, dvxdy, dvxdz, dvydx, dvydy, dvydz, dvzdx, dvzdy, dvzdz;
 	double dvx,dvy,dvz,dx,dy,dz,trace;
+        double divvnorm = 0.0;
 	GravityParticle *q;
 	int i;
 	unsigned int qiActive;
@@ -493,7 +494,6 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	ih2 = invH2(p);
 	vFac = 1./(a*a); /* converts v to xdot */
 	fNorm = M_1_PI*ih2*sqrt(ih2);
-	fNorm1 = fNorm*ih2;	
 	fDensity = 0.0;
 	dvxdx = 0; dvxdy = 0; dvxdz= 0;
 	dvydx = 0; dvydy = 0; dvydz= 0;
@@ -514,12 +514,12 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		fDensity += rs*q->mass;
 		rs1 = DKERNEL(r2);
 		rs1 *= q->mass;
-		dx = nnList[i].dx.x;
+		dx = nnList[i].dx.x; /* NB: dx = px - qx */
 		dy = nnList[i].dx.y;
 		dz = nnList[i].dx.z;
-		dvx = (-p->vPred().x + q->vPred().x)*vFac - dx*H; /* NB: dx = px - qx */
-		dvy = (-p->vPred().y + q->vPred().y)*vFac - dy*H;
-		dvz = (-p->vPred().z + q->vPred().z)*vFac - dz*H;
+		dvx = (-p->vPred().x + q->vPred().x)*vFac;
+		dvy = (-p->vPred().y + q->vPred().y)*vFac;
+		dvz = (-p->vPred().z + q->vPred().z)*vFac;
 		dvxdx += dvx*dx*rs1;
 		dvxdy += dvx*dy*rs1;
 		dvxdz += dvx*dz*rs1;
@@ -529,14 +529,16 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		dvzdx += dvz*dx*rs1;
 		dvzdy += dvz*dy*rs1;
 		dvzdz += dvz*dz*rs1;
+                divvnorm += (dx*dx+dy*dy+dz*dz)*rs1;
 		}
 	if (qiActive)
 	    TYPESet(p,TYPE_NbrOfACTIVE);
 		
 	p->fDensity = fNorm*fDensity; 
-	fNorm1 /= p->fDensity;
 	trace = dvxdx+dvydy+dvzdz;
-	p->divv() =  fNorm1*trace; /* physical */
+        /* keep Norm positive consistent w/ std 1/rho norm */
+        fNorm1 = (divvnorm != 0 ? 3.0/fabs(divvnorm) : 0.0);
+	p->divv() =  fNorm1*trace + 3.0*H; /* physical */
 	p->curlv().x = fNorm1*(dvzdy - dvydz); 
 	p->curlv().y = fNorm1*(dvxdz - dvzdx);
 	p->curlv().z = fNorm1*(dvydx - dvxdy);
