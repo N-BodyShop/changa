@@ -101,17 +101,6 @@ void MultistepLB_notopo::mergeInstrumentedData(int phase, BaseLB::LDStats *stats
 	  }
       }
       
-  // Attribute background load to pieces.
-  float *tp_bg = new float[stats->count];
-  for(int i = 0; i < stats->count; i++){
-      if(stats->procs[i].n_objs != 0)
-	  tp_bg[stats->procs[i].pe] = stats->procs[i].bg_walltime
-	      /stats->procs[i].n_objs;
-      }
-  for(int i = 0; i < stats->n_objs; i++)
-      stats->objData[i].wallTime += tp_bg[stats->from_proc[i]];
-  delete[] tp_bg;
-
   len = savedPhaseStats.length();
   
   if(phase > len-1){

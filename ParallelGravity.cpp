@@ -1570,20 +1570,20 @@ void Main::advanceBigStep(int iStep) {
 #ifdef SELECTIVE_TRACING
             turnProjectionsOff();
 #endif
+            if(verbosity)
+                memoryStatsCache();
 	    }
-	if(verbosity)
-	    memoryStatsCache();
-    }
+        }
     else {
 	treeProxy.initAccel(activeRung, CkCallbackResumeThread());
 	}
     if(verbosity > 1)
 	memoryStats();
     if(param.bDoGas) {
-	doSph(activeRung);
-	if(verbosity)
-	    memoryStatsCache();
-	}
+        doSph(activeRung);
+        if(verbosity && !param.bConcurrentSph)
+            memoryStatsCache();
+        }
     
     if(param.bConcurrentSph && param.bDoGravity) {
 #ifdef PUSH_GRAVITY
@@ -1779,6 +1779,8 @@ void Main::setupICs() {
 	
   if(param.bFeedback)
       param.feedback->CheckParams(prm, param);
+  else
+      param.feedback->NullFeedback();
 
   string achLogFileName = string(param.achOutName) + ".log";
   ofstream ofsLog(achLogFileName.c_str(), ios_base::trunc);
@@ -2416,6 +2418,10 @@ Main::doSimulation()
   cacheSmoothPart.stopHPM(CkCallbackResumeThread());
 #endif
   ckout << endl << "******************" << endl << endl; 
+  // Some memory cleanup
+  delete param.stfm;
+  treeProxy.ckDestroy();
+  CkWaitQD();
   CkExit();
 }
 
