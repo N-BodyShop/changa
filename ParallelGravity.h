@@ -182,6 +182,7 @@ extern double theta;
 extern double thetaMono;
 
 extern int numInitDecompBins;
+extern int octRefineLevel;
 
 class dummyMsg : public CMessage_dummyMsg{
 public:
@@ -406,6 +407,11 @@ inline double RungToDt(double dDelta, int iRung) {
 ///
 /// As well as controlling the overall flow of the simulation, the
 /// constructors are the main entry points into the program.
+/// The sequence of tasks is: read the simulation parameters (Main()),
+/// read in the initial conditions (setupICs()), calculate the initial
+/// forces (initialForces()), then iterate across timesteps and write
+/// the final output (doSimulation()).
+///
 class Main : public CBase_Main {
 	CkArgMsg *args;
 	std::string basefilename;
@@ -1439,11 +1445,6 @@ public:
 	// comoving coordinates.)
 	void velScale(double dScale);
 
-	// Parse NChilada description file
-	int parseNC(const std::string& fn);
-	// Load from mass and position files
-	void load(const std::string& fn, const CkCallback& cb);
-
 	// Load from Tipsy file
 	void loadTipsy(const std::string& filename, const double dTuFac,
 		       const CkCallback& cb);
@@ -1819,11 +1820,9 @@ public:
         GenericTreeNode *boundaryParentReady(GenericTreeNode *parent);
         void accumulateMomentsFromChild(GenericTreeNode *parent, GenericTreeNode *child);
 
-        //void flushNonLocalMomentsClients();
         void deliverMomentsToClients(GenericTreeNode *);
         void deliverMomentsToClients(const std::map<NodeKey,NonLocalMomentsClientList>::iterator &it);
         void treeBuildComplete();
-        void saveCentroid();
         void processRemoteRequestsForMoments();
 
 };

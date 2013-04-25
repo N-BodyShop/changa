@@ -13,7 +13,7 @@
 #include "TaggedVector3D.h"
 #include "Vector3D.h"
 #include "CentralLB.h"
-#define  ORB3DLB_NOTOPO_DEBUG 
+#define  ORB3DLB_NOTOPO_DEBUG
 // #define  ORB3DLB_NOTOPO_DEBUG CkPrintf
 class Orb3dCommon{
   // pointer to stats->to_proc
@@ -22,7 +22,6 @@ class Orb3dCommon{
     CkVec<int> *from;
 
     CkVec<float> procload;
-    CkVec<OrientedBox<float> > procbox;
 
     int nrecvd;
     bool haveTPCentroids;
@@ -30,6 +29,7 @@ class Orb3dCommon{
     /// per processor.
     double maxPieceProc;
 
+    /// index of first processor of the group we are considering
     int nextProc;
 
 
@@ -59,7 +59,6 @@ class Orb3dCommon{
           if(orb.numParticles > 0){
             (*mapping)[orb.lbindex] = nextProc;
             totalLoad += ev.load;
-            procbox[nextProc].grow(orb.centroid);
           }
           else{
             int fromPE = (*from)[orb.lbindex];
@@ -95,10 +94,19 @@ class Orb3dCommon{
       int nrprocs = nprocs-nlprocs;
 
       float ratio = (1.0*nlprocs)/(1.0*nrprocs);
+      
+      // sum background load on each side of the processor split
+      float bglprocs = 0.0;
+      for(int np = nextProc; np < nlprocs; np++)
+          bglprocs += procload[np];
+      float bgrprocs = 0.0;
+      for(int np = nextProc+nlprocs; np < nextProc+nlprocs+nrprocs; np++)
+          bgrprocs += procload[np];
 
       ORB3DLB_NOTOPO_DEBUG("nlprocs %d nrprocs %d ratio %f\n", nlprocs, nrprocs, ratio);
 
-      int splitIndex = partitionRatioLoad(events[longestDim],ratio);
+      int splitIndex = partitionRatioLoad(events[longestDim],ratio,bglprocs,
+                                          bgrprocs);
       if(splitIndex == numEvents) {
         ORB3DLB_NOTOPO_DEBUG("evenly split 0 load\n");
         splitIndex = splitIndex/2;
@@ -241,9 +249,8 @@ class Orb3dCommon{
       nextProc = 0;
 
       procload.resize(stats->count);
-      procbox.resize(stats->count);
       for(int i = 0; i < stats->count; i++){
-        procload[i] = 0.0;
+        procload[i] = stats->procs[i].bg_walltime;
       }
 
     }
@@ -402,19 +409,22 @@ class Orb3dCommon{
     }
 
 #define LOAD_EQUAL_TOLERANCE 1.02
-    int partitionRatioLoad(vector<Event> &events, float ratio){
-      float totalLoad = 0.0;
+    int partitionRatioLoad(vector<Event> &events, float ratio, float bglp,
+                           float bgrp){
+      float totalLoad = bglp + bgrp;
       for(int i = 0; i < events.size(); i++){
         totalLoad += events[i].load;
       }
       //CkPrintf("************************************************************\n");
       //CkPrintf("partitionEvenLoad start %d end %d total %f\n", tpstart, tpend, totalLoad);
-      float lload = 0.0;
+      float lload = bglp;
       float rload = totalLoad;
       float prevDiff = lload-ratio*rload;
       if(prevDiff < 0.0){
         prevDiff = -prevDiff;
       }
+      ORB3DLB_NOTOPO_DEBUG("partitionRatioLoad bgl %f bgr %f\n",
+                           bglp, bgrp);
 
       int consider;
       for(consider = 0; consider < events.size();){
