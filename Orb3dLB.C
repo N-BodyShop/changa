@@ -87,7 +87,7 @@ void Orb3dLB::receiveCentroids(CkReductionMsg *msg){
 }
 
 //jetley
-CmiBool Orb3dLB::QueryBalanceNow(int step){
+bool Orb3dLB::QueryBalanceNow(int step){
   /*
   if(step == 0){
     if(CkMyPe() == 0){                          // only one group member need broadcast

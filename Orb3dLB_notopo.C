@@ -39,7 +39,7 @@ void Orb3dLB_notopo::receiveCentroids(CkReductionMsg *msg){
 }
 
 
-CmiBool Orb3dLB_notopo::QueryBalanceNow(int step){
+bool Orb3dLB_notopo::QueryBalanceNow(int step){
   if(step == 0) return false;
   return true;
 }

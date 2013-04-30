@@ -51,7 +51,7 @@ class LightweightLDStats {
 ///
 class MultistepLB_notopo : public CentralLB, public Orb3dCommon {
 private:
-  CmiBool firstRound; 
+  bool firstRound;
   // things are stored in here before work
   // is ever called.
   TaggedVector3D *tpCentroids;
@@ -62,7 +62,7 @@ private:
 
   CkVec<LightweightLDStats> savedPhaseStats;      /// stats saved from previous phases
   
-  CmiBool QueryBalanceNow(int step);
+  bool QueryBalanceNow(int step);
   //int prevPhase;
 
   unsigned int determinePhase(unsigned int activeRung);

@@ -914,10 +914,10 @@ private:
         CkGroupID proxy;
         LBStrategy foundLB;
         // jetley - whether proxy is valid or not
-        CmiBool proxyValid;
+        bool proxyValid;
         // jetley - saved first internal node
         Vector3D<float> savedCentroid;
-        CmiBool proxySet;
+        bool proxySet;
         // jetley - multistep load balancing
         int prevLARung;
 

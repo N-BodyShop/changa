@@ -65,7 +65,7 @@ void MultistepLB::receiveCentroids(CkReductionMsg *msg){
   }
 }
 
-CmiBool MultistepLB::QueryBalanceNow(int step){
+bool MultistepLB::QueryBalanceNow(int step){
   if(step == 0){
     return false; 
   }
