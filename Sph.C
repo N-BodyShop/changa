@@ -9,9 +9,10 @@
 #include "DataManager.h"
 #include "smooth.h"
 #include "Sph.h"
+#include "physconst.h"
 
 #ifndef MAXPATHLEN
-#define MAXPATHLEN 1024
+#define MAXPATHLEN PATH_MAX
 #endif
 
 ///
@@ -33,8 +34,8 @@ Main::initSph()
 			      CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
-	if(verbosity)
-	    memoryStatsCache();
+        if(verbosity > 1 && !param.bConcurrentSph)
+            memoryStatsCache();
 	double dTuFac = param.dGasConst/(param.dConstGamma-1)
 	    /param.dMeanMolWeight;
 	double z = 1.0/csmTime2Exp(param.csm, dTime) - 1.0;
@@ -48,9 +49,12 @@ Main::initSph()
 	nActiveSPH = nTotalSPH;
 	doSph(0, 0);
 	double duDelta[MAXRUNG+1];
-	for(int iRung = 0; iRung <= MAXRUNG; iRung++)
+	double dStartTime[MAXRUNG+1];
+	for(int iRung = 0; iRung <= MAXRUNG; iRung++) {
 	    duDelta[iRung] = 0.5e-7*param.dDelta;
-	treeProxy.updateuDot(0, duDelta, dTime, z, param.bGasCooling, 0, 1,
+	    dStartTime[iRung] = dTime;
+	    }
+	treeProxy.updateuDot(0, duDelta, dStartTime, param.bGasCooling, 0, 1,
 			     CkCallbackResumeThread());
 	}
     }
@@ -108,7 +112,7 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     
     CoolInitRatesTable(Cool,inParam);
 #endif
-    contribute(0, 0, CkReduction::concat, cb);
+    contribute(cb);
     }
 
 /**
@@ -122,7 +126,7 @@ TreePiece::initCoolingData(const CkCallback& cb)
     dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
     CoolData = CoolDerivsInit(dm->Cool);
 #endif
-    contribute(0, 0, CkReduction::concat, cb);
+    contribute(cb);
     }
 
 void
@@ -131,7 +135,7 @@ DataManager::dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb
 #ifndef COOLING_NONE
     CoolTableRead(Cool, nData*sizeof(double), (void *) dTableData);
 #endif
-    contribute(0, 0, CkReduction::concat, cb);
+    contribute(cb);
     }
 
 ///
@@ -234,7 +238,7 @@ DataManager::CoolingSetTime(double z, // redshift
     CoolSetTime( Cool, dTime, z  );
 #endif
 
-    contribute(0, 0, CkReduction::concat, cb);
+    contribute(cb);
     }
 
 /**
@@ -288,7 +292,7 @@ Main::doSph(int activeRung, int bNeedDensity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 
-	if(verbosity)
+	if(verbosity > 1 && !param.bConcurrentSph)
 	    memoryStatsCache();
 	}
       }
@@ -343,16 +347,24 @@ void TreePiece::InitEnergy(double dTuFac, // T to internal energy
 	    p->uPred() = p->u();
 	    }
 	}
-    contribute(0, 0, CkReduction::concat, cb);
+    // Use shadow array to avoid reduction conflict
+    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
 /**
- * Update the cooling rate (uDot)
+ * @brief Update the cooling rate (uDot)
+ *
+ * @param activeRung (minimum) rung being updated
+ * @param duDelta    array of timesteps of length MAXRUNG+1
+ * @param dStartTime array of start times of length MAXRUNG+1
+ * @param bCool      Whether cooling is on
+ * @param bUpdateState Whether the ionization factions need updating
+ * @param bAll	     Do all rungs below activeRung
+ * @param cb	     Callback.
  */
 void TreePiece::updateuDot(int activeRung,
 			   double duDelta[MAXRUNG+1], // timesteps
-			   double dTime, // current time
-			   double z, // current redshift
+			   double dStartTime[MAXRUNG+1],
 			   int bCool, // select equation of state
 			   int bUpdateState, // update ionization fractions
 			   int bAll, // update all rungs below activeRung
@@ -366,18 +378,30 @@ void TreePiece::updateuDot(int activeRung,
 	if (TYPETest(p, TYPE_GAS)
 	    && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
 	    dt = CoolCodeTimeToSeconds(dm->Cool, duDelta[p->rung] );
-	    double ExternalHeating = p->PdV(); // Will change with star formation
+	    double ExternalHeating = p->PdV();
+	    ExternalHeating += p->fESNrate();
 	    if ( bCool ) {
 		COOLPARTICLE cp = p->CoolParticle();
 		double E = p->u();
 		double r[3];  // For conversion to C
 		p->position.array_form(r);
+		double dtUse = dt;
+		
+		if(dStartTime[p->rung] + 0.5*duDelta[p->rung]
+		   < p->fTimeCoolIsOffUntil()) {
+		    /* This flags cooling shutoff (e.g., from SNe) to
+		       the cooling functions. */
+		    dtUse = -dt;
+		    p->uDot() = ExternalHeating;
+		    }
 
 		CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
 					ExternalHeating, p->fDensity,
-					p->fMetals(), r, dt);
+					p->fMetals(), r, dtUse);
 		CkAssert(E > 0.0);
-		p->uDot() = (E - p->u())/duDelta[p->rung]; // linear interpolation over interval
+		if(dtUse > 0 || ExternalHeating*duDelta[p->rung] + p->u() < 0)
+		    // linear interpolation over interval
+		    p->uDot() = (E - p->u())/duDelta[p->rung];
 		if (bUpdateState) p->CoolParticle() = cp;
 		}
 	    else { 
@@ -386,19 +410,20 @@ void TreePiece::updateuDot(int activeRung,
 	    }
 	}
 #endif
-    contribute(0, 0, CkReduction::concat, cb);
+    // Use shadow array to avoid reduction conflict
+    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
 /* Set a maximum ball for inverse Nearest Neighbor searching */
 void TreePiece::ballMax(int activeRung, double dhFac, const CkCallback& cb)
 {
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
-	if (TYPETest(&myParticles[i], TYPE_GAS)
-	    && myParticles[i].rung >= activeRung) {
+	if (TYPETest(&myParticles[i], TYPE_GAS)) {
 	    myParticles[i].fBallMax() = myParticles[i].fBall*dhFac;
 	    }
 	}
-    contribute(0, 0, CkReduction::concat, cb);
+    // Use shadow array to avoid reduction conflict
+    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
     
 int DenDvDxSmoothParams::isSmoothActive(GravityParticle *p) 
@@ -595,7 +620,8 @@ TreePiece::sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb)
 		}
 	    }
         }
-    contribute(0, 0, CkReduction::concat, cb);
+    // Use shadow array to avoid reduction conflict
+    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
 /* Note: Uses uPred */
@@ -614,7 +640,8 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1,
 	    p->c() = sqrt(gamma*PoverRho);
 	    }
 	}
-    contribute(0, 0, CkReduction::concat, cb);
+    // Use shadow array to avoid reduction conflict
+    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
 /* Note: Uses uPred */
@@ -638,7 +665,8 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
 	    }
 	}
 #endif
-    contribute(0, 0, CkReduction::concat, cb);
+    // Use shadow array to avoid reduction conflict
+    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
 int PressureSmoothParams::isSmoothActive(GravityParticle *p) 
@@ -803,6 +831,8 @@ void DistDeletedGasSmoothParams::initSmoothCache(GravityParticle *p)
 	p->uDot() = 0.0;
 #endif
 	p->fMetals() = 0.0;
+	p->fMFracIron() = 0.0;
+	p->fMFracOxygen() = 0.0;
 	}
     }
 
@@ -824,6 +854,8 @@ void DistDeletedGasSmoothParams::combSmoothCache(GravityParticle *p1,
 	    p1->mass = m_new;
 	    p1->velocity = f1*p1->velocity + f2*p2->velocity;            
 	    p1->fMetals() = f1*p1->fMetals() + f2*p2->fMetals;
+	    p1->fMFracIron() = f1*p1->fMFracIron() + f2*p2->fMFracIron;
+	    p1->fMFracOxygen() = f1*p1->fMFracOxygen() + f2*p2->fMFracOxygen;
 #ifndef COOLING_NONE
 	    if(p1->uDot() < 0.0) /* margin of 1% to avoid roundoff
 				  * problems */
@@ -888,6 +920,8 @@ void DistDeletedGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	q->mass = m_new;
 	q->velocity = f1*q->velocity + f2*p->velocity;            
 	q->fMetals() = f1*q->fMetals() + f2*p->fMetals();
+	q->fMFracIron() = f1*q->fMFracIron() + f2*p->fMFracIron();
+	q->fMFracOxygen() = f1*q->fMFracOxygen() + f2*p->fMFracOxygen();
 #ifndef COOLING_NONE
 	if(q->uDot() < 0.0) /* margin of 1% to avoid roundoff error */
 	    fTCool = 1.01*q->uPred()/q->uDot(); 

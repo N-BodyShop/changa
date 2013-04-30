@@ -1,3 +1,38 @@
+What's new in ChaNGa 3.0 (Since 2.0)
+
+===============================================================================
+
+Physics Changes:
+
+- Gas Cooling: primordial hydrogen and helium, planetary disk cooling with
+  cooling time proportional to orbital time.
+
+- More efficient thermal energy equation solver.
+
+- Star formation and feedback
+
+- Timestepping fixes
+
+-------------------------------------------------------------------------------
+
+Hardware support changes:
+
+- SMP aware: cores on an SMP node share tree data
+
+- Use of 128 key type for deeper trees: enable with -DBIGKEYS
+
+-------------------------------------------------------------------------------
+
+Parallel Infrastructure Changes:
+
+- Improved parallel treebuild
+
+- Improved neighbor search algorithms
+
+- Improved spatially aware load balancers
+
+===============================================================================
+
 What's new in ChaNGa 2.0 (Since 1.0)
 
 ===============================================================================

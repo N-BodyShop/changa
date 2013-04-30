@@ -101,17 +101,6 @@ void MultistepLB_notopo::mergeInstrumentedData(int phase, BaseLB::LDStats *stats
 	  }
       }
       
-  // Attribute background load to pieces.
-  float *tp_bg = new float[stats->count];
-  for(int i = 0; i < stats->count; i++){
-      if(stats->procs[i].n_objs != 0)
-	  tp_bg[stats->procs[i].pe] = stats->procs[i].bg_walltime
-	      /stats->procs[i].n_objs;
-      }
-  for(int i = 0; i < stats->n_objs; i++)
-      stats->objData[i].wallTime += tp_bg[stats->from_proc[i]];
-  delete[] tp_bg;
-
   len = savedPhaseStats.length();
   
   if(phase > len-1){
@@ -263,7 +252,8 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 	// insignificant number of inactive objects; migrate them anyway
   	for(int i = 0; i < stats->n_objs; i++){
     	    int lb = tpCentroids[i].tag;
-            if(!stats->objData[lb].migratable){
+            if(!stats->objData[lb].migratable
+		&& tpCentroids[i].myNumParticles > 0){
         	stats->objData[lb].migratable = 1;
         	stats->n_migrateobjs++;
 		numActiveObjects++;
@@ -482,12 +472,6 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
     numProcessed++;
   }
   CkAssert(numProcessed==nmig);
-
-  if(dMaxBalance < 1.0)
-    dMaxBalance = 1.0;
-  maxPieceProc = dMaxBalance*nmig/stats->count;
-  if(maxPieceProc < 1.0)
-    maxPieceProc = 1.01;
   
   orbPrepare(tpEvents, box, nmig, stats);
   orbPartition(tpEvents,box,stats->count,tp_array, stats);

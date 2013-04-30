@@ -21,7 +21,7 @@ mainmodule ParallelGravity {
   readonly CProxy_CkCacheManager<KeyType> cacheSmoothPart;
   readonly CProxy_DataManager dMProxy;
   readonly CProxy_PETreeMerger peTreeMergerProxy;
-
+  readonly CProxy_DumpFrameData dfDataProxy;
 
   readonly bool _cache;
   readonly int _nocache;
@@ -74,6 +74,9 @@ mainmodule ParallelGravity {
   // iteration of every decomposition step
   readonly int numInitDecompBins;
 
+  // Specifies the number of sub-bins a bin is split into
+  //  for Oct decomposition
+  readonly int octRefineLevel;
   readonly bool doDumpLB;
   readonly int lbDumpIteration;
   readonly bool doSimulateLB;
@@ -106,10 +109,18 @@ mainmodule ParallelGravity {
   PUPable MarkSmoothParams;
   PUPable PressureSmoothParams;
   PUPable DistDeletedGasSmoothParams;
+  PUPable DistStellarFeedbackSmoothParams;
+  PUPable Fdbk;
+  PUPable StarLog;
+  PUPable Chabrier;
+  PUPable MillerScalo;
+  PUPable Kroupa93;
+  PUPable Kroupa01;
 
   PUPable AccOutputParams;
   PUPable DenOutputParams;
   PUPable HsmOutputParams;
+  PUPable SoftOutputParams;
   PUPable PresOutputParams;
   PUPable DivVOutputParams;
   PUPable PDVOutputParams;
@@ -120,6 +131,10 @@ mainmodule ParallelGravity {
   PUPable Cool0OutputParams;
   PUPable Cool1OutputParams;
   PUPable Cool2OutputParams;
+  PUPable OxOutputParams;
+  PUPable FeOutputParams;
+  PUPable coolontimeOutputParams;
+  PUPable ESNRateOutputParams;
   PUPable DtOutputParams;
   PUPable KeyOutputParams;
   PUPable RungOutputParams;
@@ -131,7 +146,7 @@ mainmodule ParallelGravity {
     entry [threaded] void setupICs();
     entry [threaded] void initialForces();
     entry [threaded] void doSimulation();
-    entry void restart();
+    entry [threaded] void restart();
     entry void niceExit();
     entry void liveVizImagePrep(liveVizRequestMsg *msg);
   };
@@ -184,6 +199,7 @@ mainmodule ParallelGravity {
     entry void CoolingSetTime(double z, double dTime, const CkCallback& cb);
     entry void memoryStats(const CkCallback& cb);
     entry void resetReadOnly(Parameters param, const CkCallback &cb);
+    entry void initStarLog(std::string _fileName, const CkCallback &cb);
   };
 
   array [1D] TreePiece {
@@ -211,7 +227,6 @@ mainmodule ParallelGravity {
     entry [notrace] void EwaldGPU(); 
     entry [notrace] void velScale(double dScale);
     //entry void markPresence(const CkCallback& cb);
-    entry void load(const std::string& fn, const CkCallback& cb);
     entry void loadTipsy(const std::string& filename,
         const double dTuFac,
         const CkCallback& cb);
@@ -299,7 +314,7 @@ mainmodule ParallelGravity {
     entry void InitEnergy(double dTuFac, double z, double dTime,
 			const CkCallback& cb);
     entry void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
-    	       		double dTime, double z, int bCool, int bAll,
+    	       		double dStartTime[MAXRUNG+1], int bCool, int bAll,
 			int bUpdateState, const CkCallback& cb);
     entry void ballMax(int activeRung, double dFac, const CkCallback& cb);
     entry void sphViscosityLimiter(int bOn, int activeRung,
@@ -308,8 +323,12 @@ mainmodule ParallelGravity {
 					const CkCallback &cb);
     entry void getCoolingGasPressure(double gamma, double gammam1,
 				   const CkCallback &cb);
-    entry void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
-		       const CkCallback& cb);
+    entry void FormStars(Stfm param, double dTime, double dDelta, 
+    	       		 double dCosmoFac, const CkCallback& cb);
+    entry void flushStarLog(const CkCallback& cb);
+    entry void Feedback(Fdbk &fb, double dTime, double dDelta, 
+    	       		const CkCallback& cb);
+    entry void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
     entry void setTypeFromFile(int iSetMask, char file[256],
         const CkCallback& cb);
     entry void getCOM(const CkCallback& cb, int bLiveViz);
@@ -409,6 +428,16 @@ mainmodule ParallelGravity {
     entry void oneNodeOutArr(CkReference<OutputParams>, double adOut[nPart],
 			   int nPart, int iIndex, int bDone,
 			   CkCallback& cb) ;
+    entry void outputBinary(CkReference<OutputParams>, int bParaWrite,
+			   			       const CkCallback& cb);
+    entry void oneNodeOutBinVec(CkReference<OutputParams>, 
+				Vector3D<float> avOut[nPart],
+    		     		int nPart, int iIndex, int bDone,
+			   	CkCallback& cb) ;
+    entry void oneNodeOutBinArr(CkReference<OutputParams>, float adOut[nPart],
+			     int nPart, int iIndex, int bDone,
+			     CkCallback& cb) ;
+    entry void outputIOrderBinary(const std::string& suffix, const CkCallback& cb);
     entry void outputIntASCII(CkReference<OutputIntParams>, int bParaWrite,
 			      const CkCallback& cb);
     entry void oneNodeOutIntArr(CkReference<OutputIntParams>, int aiOut[nPart],
@@ -432,6 +461,12 @@ mainmodule ParallelGravity {
 
   group [migratable] PETreeMerger {
     entry PETreeMerger();
+  };
+
+  group [migratable] DumpFrameData {
+    entry DumpFrameData();
+    entry void clearFrame(InDumpFrame in, const CkCallback& cb);
+    entry void combineFrame(InDumpFrame in, const CkCallback& cb);
   };
 
   initproc void registerStatistics();

@@ -141,6 +141,7 @@ extern unsigned int numTreePieces;
 extern unsigned int particlesPerChare;
 extern int nIOProcessor;
 
+extern CProxy_DumpFrameData dfDataProxy;
 extern CProxy_PETreeMerger peTreeMergerProxy;
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
@@ -181,6 +182,7 @@ extern double theta;
 extern double thetaMono;
 
 extern int numInitDecompBins;
+extern int octRefineLevel;
 
 class dummyMsg : public CMessage_dummyMsg{
 public:
@@ -405,6 +407,11 @@ inline double RungToDt(double dDelta, int iRung) {
 ///
 /// As well as controlling the overall flow of the simulation, the
 /// constructors are the main entry points into the program.
+/// The sequence of tasks is: read the simulation parameters (Main()),
+/// read in the initial conditions (setupICs()), calculate the initial
+/// forces (initialForces()), then iterate across timesteps and write
+/// the final output (doSimulation()).
+///
 class Main : public CBase_Main {
 	CkArgMsg *args;
 	std::string basefilename;
@@ -482,7 +489,7 @@ public:
 	int adjust(int iKickRung);
 	void rungStats();
 	void countActive(int activeRung);
-	void calcEnergy(double, double, char *);
+	void calcEnergy(double, double, const char *);
 	void getStartTime();
 	void getOutTimes();
 	int bOutTime();
@@ -491,9 +498,11 @@ public:
 	void growMass(double dTime, double dDelta);
 	void initSph();
 	void initCooling();
+	void initStarLog();
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
 	void doSph(int activeRung, int bNeedDensity = 1);
 	void FormStars(double dTime, double dDelta);
+	void StellarFeedback(double dTime, double dDelta);
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
 	int nextMaxRungIncDF(int nextMaxRung);
@@ -1393,6 +1402,13 @@ public:
 
         private:
         void freeWalkObjects();
+	void allocateStars() {
+	    nStoreStar = (int) (myNumStar*(1.0 + dExtraStore));
+	    // Stars tend to form out of gas, so make sure there is
+	    // enough room.
+	    nStoreStar += 12 + (int) (myNumSPH*dExtraStore);
+	    myStarParticles = new extraStarData[nStoreStar];
+	    }
 
         public:
 	~TreePiece() {
@@ -1429,11 +1445,6 @@ public:
 	// comoving coordinates.)
 	void velScale(double dScale);
 
-	// Parse NChilada description file
-	int parseNC(const std::string& fn);
-	// Load from mass and position files
-	void load(const std::string& fn, const CkCallback& cb);
-
 	// Load from Tipsy file
 	void loadTipsy(const std::string& filename, const double dTuFac,
 		       const CkCallback& cb);
@@ -1442,8 +1453,9 @@ public:
         void recvTotalMass(CkReductionMsg *msg);
 
 	// Write a Tipsy file
-	void writeTipsy(const std::string& filename, const double dTime,
-			const double dvFac, const double duTfac,
+	void writeTipsy(Tipsy::TipsyWriter& w,
+			const double dvFac, // scale velocities
+			const double duTFac, // convert temperature
 			const int bCool);
 	// Find position in the file to start writing
 	void setupWrite(int iStage, u_int64_t iPrevOffset,
@@ -1568,7 +1580,7 @@ public:
 	void InitEnergy(double dTuFac, double z, double dTime,
 			const CkCallback& cb);
 	void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
-			double dTime, double z, int bCool, int bAll,
+			double dStartTime[MAXRUNG+1], int bCool, int bAll,
 			int bUpdateState, const CkCallback& cb);
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
@@ -1578,6 +1590,10 @@ public:
 				   const CkCallback &cb);
 	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
 		       const CkCallback& cb);
+	void flushStarLog(const CkCallback& cb);
+	void Feedback(Fdbk &fb, double dTime, double dDelta,
+		       const CkCallback& cb);
+	void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
 	void setTypeFromFile(int iSetMask, char *file, const CkCallback& cb);
@@ -1731,9 +1747,17 @@ public:
 			   CkCallback& cb) ;
 	void oneNodeOutIntArr(OutputIntParams& params, int *aiOut,
 			      int nPart, int iIndex, CkCallback& cb);
-	
-	void outputStatistics(const CkCallback& cb);
+	void outputBinary(OutputParams& params, int bParaWrite,
+			 const CkCallback& cb);
+	void oneNodeOutBinVec(OutputParams& params, Vector3D<float>* avOut,
+			      int nPart, int iIndex, int bDone,
+			      CkCallback& cb) ;
+	void oneNodeOutBinArr(OutputParams& params, float* adOut,
+			      int nPart, int iIndex, int bDone,
+			      CkCallback& cb) ;
+	void outputIOrderBinary(const std::string& suffix, const CkCallback& cb);
 
+	void outputStatistics(const CkCallback& cb);
 	/// Collect the total statistics from the various chares
 	void collectStatistics(CkCallback &cb);
 	//void getPieceValues(piecedata *totaldata);
@@ -1796,11 +1820,9 @@ public:
         GenericTreeNode *boundaryParentReady(GenericTreeNode *parent);
         void accumulateMomentsFromChild(GenericTreeNode *parent, GenericTreeNode *child);
 
-        //void flushNonLocalMomentsClients();
         void deliverMomentsToClients(GenericTreeNode *);
         void deliverMomentsToClients(const std::map<NodeKey,NonLocalMomentsClientList>::iterator &it);
         void treeBuildComplete();
-        void saveCentroid();
         void processRemoteRequestsForMoments();
 
 };
