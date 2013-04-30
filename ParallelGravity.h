@@ -1276,7 +1276,7 @@ public:
 	  dm = NULL;
 	  foundLB = Null; 
 	  iterationNo=0;
-	  usesAtSync=CmiTrue;
+	  usesAtSync = true;
 	  pTreeNodes = NULL;
 	  bucketReqs=NULL;
 	  nCacheAccesses = 0;
@@ -1358,7 +1358,7 @@ public:
           proxyValid = false;
           proxySet = false;
 
-	  usesAtSync = CmiTrue;
+	  usesAtSync = true;
 	  //localCache = NULL;
 	  dm = NULL;
 	  bucketReqs = NULL;
