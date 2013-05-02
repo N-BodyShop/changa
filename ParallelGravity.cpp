@@ -179,7 +179,8 @@ int cacheSize;
 /// This routine parses the command line and file specified parameters,
 /// and allocates the charm structures.  The charm "readonly" variables
 /// are writable in this method, and are broadcast globally once this
-/// method exits.
+/// method exits.  Note that the method finishes with an asynchronous
+/// call to setupICs().
 ///
 Main::Main(CkArgMsg* m) {
 	args = m;
@@ -1113,7 +1114,7 @@ Main::Main(CkArgMsg* m) {
 ///
 /// This is only called when restarting from a checkpoint.
 ///
-Main::Main(CkMigrateMessage* m) {
+Main::Main(CkMigrateMessage* m) : CBase_Main(m) {
     args = (CkArgMsg *)malloc(sizeof(*args));
     args->argv = CmiCopyArgs(((CkArgMsg *) m)->argv);
     mainChare = thishandle;
@@ -1344,7 +1345,7 @@ void Main::advanceBigStep(int iStep) {
         duKick[iRung] = 0.5*dTimeSub;
         dKickFac[iRung] = csmComoveKickFac(param.csm, dTime, 0.5*dTimeSub);
 	dStartTime[iRung] = dTime;
-      }
+        }
       if(verbosity > 1)
 	  memoryStats();
       if(param.bDoGas) {
@@ -1569,20 +1570,20 @@ void Main::advanceBigStep(int iStep) {
 #ifdef SELECTIVE_TRACING
             turnProjectionsOff();
 #endif
+            if(verbosity)
+                memoryStatsCache();
 	    }
-	if(verbosity)
-	    memoryStatsCache();
-    }
+        }
     else {
 	treeProxy.initAccel(activeRung, CkCallbackResumeThread());
 	}
     if(verbosity > 1)
 	memoryStats();
     if(param.bDoGas) {
-	doSph(activeRung);
-	if(verbosity)
-	    memoryStatsCache();
-	}
+        doSph(activeRung);
+        if(verbosity && !param.bConcurrentSph)
+            memoryStatsCache();
+        }
     
     if(param.bConcurrentSph && param.bDoGravity) {
 #ifdef PUSH_GRAVITY
@@ -1778,6 +1779,8 @@ void Main::setupICs() {
 	
   if(param.bFeedback)
       param.feedback->CheckParams(prm, param);
+  else
+      param.feedback->NullFeedback();
 
   string achLogFileName = string(param.achOutName) + ".log";
   ofstream ofsLog(achLogFileName.c_str(), ios_base::trunc);
@@ -1798,6 +1801,9 @@ void Main::setupICs() {
   ofsLog << "# Preprocessor macros:";
 #ifdef CHANGESOFT
   ofsLog << " CHANGESOFT";
+#endif
+#ifdef EPSACCH
+  ofsLog << " EPSACCH";
 #endif
 #ifdef COOLING_NONE
   ofsLog << " COOLING_NONE";
@@ -1930,6 +1936,8 @@ Main::restart()
 	prmAddParam(prm,"iWallRunTime",paramInt,&param.iWallRunTime,
 		    sizeof(int),"wall",
 		    "<Maximum Wallclock time (in minutes) to run> = 0 = infinite");
+        prmAddParam(prm, "dEta", paramDouble, &param.dEta,
+                    sizeof(double),"eta", "Time integration accuracy");
 	prmAddParam(prm,"nIOProcessor",paramInt,&param.nIOProcessor,
 		    sizeof(int), "npio",
 		    "number of simultaneous I/O processors = 0 (all)");
@@ -2412,6 +2420,10 @@ Main::doSimulation()
   cacheSmoothPart.stopHPM(CkCallbackResumeThread());
 #endif
   ckout << endl << "******************" << endl << endl; 
+  // Some memory cleanup
+  delete param.stfm;
+  treeProxy.ckDestroy();
+  CkWaitQD();
   CkExit();
 }
 

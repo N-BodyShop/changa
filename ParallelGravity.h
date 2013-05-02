@@ -407,6 +407,11 @@ inline double RungToDt(double dDelta, int iRung) {
 ///
 /// As well as controlling the overall flow of the simulation, the
 /// constructors are the main entry points into the program.
+/// The sequence of tasks is: read the simulation parameters (Main()),
+/// read in the initial conditions (setupICs()), calculate the initial
+/// forces (initialForces()), then iterate across timesteps and write
+/// the final output (doSimulation()).
+///
 class Main : public CBase_Main {
 	CkArgMsg *args;
 	std::string basefilename;
@@ -909,10 +914,10 @@ private:
         CkGroupID proxy;
         LBStrategy foundLB;
         // jetley - whether proxy is valid or not
-        CmiBool proxyValid;
+        bool proxyValid;
         // jetley - saved first internal node
         Vector3D<float> savedCentroid;
-        CmiBool proxySet;
+        bool proxySet;
         // jetley - multistep load balancing
         int prevLARung;
 
@@ -1271,7 +1276,7 @@ public:
 	  dm = NULL;
 	  foundLB = Null; 
 	  iterationNo=0;
-	  usesAtSync=CmiTrue;
+	  usesAtSync = true;
 	  pTreeNodes = NULL;
 	  bucketReqs=NULL;
 	  nCacheAccesses = 0;
@@ -1353,7 +1358,7 @@ public:
           proxyValid = false;
           proxySet = false;
 
-	  usesAtSync = CmiTrue;
+	  usesAtSync = true;
 	  //localCache = NULL;
 	  dm = NULL;
 	  bucketReqs = NULL;

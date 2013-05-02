@@ -38,7 +38,7 @@ void MultistepOrbLB::receiveCentroids(CkReductionMsg *msg){
   CkPrintf("MultistepOrbLB: receiveCentroids %d elements, msg length: %d\n", nrecvd, msg->getLength()); 
 }
 
-CmiBool MultistepOrbLB::QueryBalanceNow(int step){
+bool MultistepOrbLB::QueryBalanceNow(int step){
  if(CkMyPe() == 0) CkPrintf("Orb3dOrbLB: Step %d\n", step);
   if(step == 0) return false;
   return true;

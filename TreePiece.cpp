@@ -1034,6 +1034,13 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
       if(bEpsAccStep) {
 	  double acc = dAccFac*p->treeAcceleration.length();
 	  double dt;
+#ifdef EPSACCH
+	  // Set gas timestep based on SPH smoothing.
+	  if(bDoGas && p->isGas()) {
+	      dt = dEta*sqrt(0.5*p->fBall/acc);
+	      }
+#else
+	  // Set gas timestep based on gravity softening and SPH smoothing.
 	  if(bDoGas && p->isGas() && dhMinOverSoft < 1
 	     && p->fBall < 2.0*p->soft) {
 	      if(p->fBall > 2.0*dhMinOverSoft*p->soft)
@@ -1041,6 +1048,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      else
 		  dt = dEta*sqrt(dhMinOverSoft*p->soft/acc);
 	      }
+#endif
 	  else
 	      dt = dEta*sqrt(p->soft/acc);
 	  if(dt < dTIdeal)
@@ -1504,12 +1512,16 @@ void TreePiece::SetTypeFromFileSweep(int iSetMask, char *file,
   }
 
 DoneSS:
+#if 0
+  /* The following should only be done for debugging.  It doubles the
+     amount of file reading. */
   /* Finish reading file to verify consistency across processors */
   while ( (nRet=fscanf( fp, "%d\n", &iOrder )) == 1 ) {
 	niOrder++;
 	assert( iOrder > iOrderOld );
 	iOrderOld = iOrder;
 	}
+#endif
   fclose(fp);
 
   *pniOrder += niOrder;
@@ -2916,7 +2928,9 @@ void TreePiece::continueWrapUp(){
   CkPrintf("[%d] markWalkDone TreePiece::continueWrapUp\n", thisIndex);
 #endif
 
+#ifdef CACHE_MEM_STATS
   memWithCache = CmiMemoryUsage()/(1024*1024);
+#endif
   nNodeCacheEntries = cacheNode.ckLocalBranch()->getCache()->size();
   nPartCacheEntries = cacheGravPart.ckLocalBranch()->getCache()->size();
 
@@ -5751,7 +5765,9 @@ void TreePiece::finishWalk()
 	       getObjTime(), myNumParticles);
   completedActiveWalks = 0;
   freeWalkObjects();
+#ifdef CACHE_MEM_STATS
   memPostCache = CmiMemoryUsage()/(1024*1024);
+#endif
 #ifdef CHECK_WALK_COMPLETIONS
   CkPrintf("[%d] inside finishWalk contrib callback\n", thisIndex);
 #endif
