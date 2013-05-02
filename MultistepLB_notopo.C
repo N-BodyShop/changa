@@ -42,7 +42,7 @@ void MultistepLB_notopo::receiveCentroids(CkReductionMsg *msg){
 
 
 
-CmiBool MultistepLB_notopo::QueryBalanceNow(int step){
+bool MultistepLB_notopo::QueryBalanceNow(int step){
  if(CkMyPe() == 0) CkPrintf("Orb3dLB_notopo: Step %d\n", step);
   if(step == 0) return false;
   return true;
