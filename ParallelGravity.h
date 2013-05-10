@@ -1445,8 +1445,15 @@ public:
 	// comoving coordinates.)
 	void velScale(double dScale);
 
-	// Load from Tipsy file
+	/// @brief Load I.C. from Tipsy file
+        /// @param filename tipsy file
+        /// @param dTuFac conversion factor from temperature to
+        /// internal energy
+        /// @param bDoublePos Positions are in double precision
+        /// @param bDoubleVel Velocities are in double precision
 	void loadTipsy(const std::string& filename, const double dTuFac,
+                       const bool bDoublePos,
+                       const bool bDoubleVel,
 		       const CkCallback& cb);
 
         void findTotalMass(CkCallback &cb);
@@ -1456,22 +1463,30 @@ public:
 	void writeTipsy(Tipsy::TipsyWriter& w,
 			const double dvFac, // scale velocities
 			const double duTFac, // convert temperature
+                        const bool bDoublePos,
+                        const bool bDoubleVel,
 			const int bCool);
 	// Find position in the file to start writing
 	void setupWrite(int iStage, u_int64_t iPrevOffset,
 			const std::string& filename, const double dTime,
 			const double dvFac, const double duTFac,
+                        const bool bDoublePos,
+                        const bool bDoubleVel,
 			const int bCool, const CkCallback& cb);
 	// control parallelism in the write
 	void parallelWrite(int iPass, const CkCallback& cb,
 			   const std::string& filename, const double dTime,
 			   const double dvFac, // scale velocities
 			   const double duTFac, // convert temperature
+                           const bool bDoublePos,
+                           const bool bDoubleVel,
 			   const int bCool);
 	// serial output
 	void serialWrite(u_int64_t iPrevOffset, const std::string& filename,
 			 const double dTime,
 			 const double dvFac, const double duTFac,
+                         const bool bDoublePos,
+                         const bool bDoubleVel,
 			 const int bCool, const CkCallback& cb);
 	// setup for serial output
 	void oneNodeWrite(int iIndex,
@@ -1490,6 +1505,8 @@ public:
 			       const double dvFac,  // velocity conversion
 			     const double duTFac, // temperature
 						  // conversion
+                           const bool bDoublePos,
+                           const bool bDoubleVel,
 			  const int bCool,
 			  const CkCallback &cb);
 	// Reorder for output

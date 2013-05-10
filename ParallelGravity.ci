@@ -229,22 +229,32 @@ mainmodule ParallelGravity {
     //entry void markPresence(const CkCallback& cb);
     entry void loadTipsy(const std::string& filename,
         const double dTuFac,
+        const bool bDoublePos,
+        const bool bDoubleVel,
         const CkCallback& cb);
     entry void findTotalMass(CkCallback &cb);
     entry void recvTotalMass(CkReductionMsg *msg);
     entry void setupWrite(int iStage, u_int64_t iPrevOffset,
         const std::string& filename,
         const double dTime, const double dvFac,
-        const double duTfac, const int bCool,
+        const double duTfac,
+        const bool bDoublePos,
+        const bool bDoubleVel,
+        const int bCool,
         const CkCallback& cb);
     entry void parallelWrite(int iPass, const CkCallback& cb,
 			   const std::string& filename, const double dTime,
 			   const double dvFac, // scale velocities
 			   const double duTFac, // convert temperature
+                           const bool bDoublePos,
+                           const bool bDoubleVel,
 			   const int bCool);
     entry void serialWrite(u_int64_t iPrevOffset, const std::string& filename,
         const double dTime, const double dvFac,
-        const double duTfac, const int bCool,
+        const double duTfac,
+        const bool bDoublePos,
+        const bool bDoubleVel,
+        const int bCool,
         const CkCallback& cb);
     entry void oneNodeWrite(int iIndex,
 			       int iOutParticles,
@@ -261,6 +271,8 @@ mainmodule ParallelGravity {
 			       const double dTime,      // time or expansion
 			       const double dvFac,  // velocity conversion
 			     const double duTFac, // temperature conversion
+                             const bool bDoublePos,
+                             const bool bDoubleVel,
 			     const int bCool, const CkCallback& cb);
     entry void reOrder(int64_t nMaxOrder, CkCallback& cb);
     entry void ioShuffle(CkReductionMsg *msg);
