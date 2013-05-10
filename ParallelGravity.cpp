@@ -1810,6 +1810,9 @@ void Main::setupICs() {
 #ifdef CHANGESOFT
   ofsLog << " CHANGESOFT";
 #endif
+#ifdef EPSACCH
+  ofsLog << " EPSACCH";
+#endif
 #ifdef COOLING_NONE
   ofsLog << " COOLING_NONE";
 #endif
@@ -1941,6 +1944,8 @@ Main::restart()
 	prmAddParam(prm,"iWallRunTime",paramInt,&param.iWallRunTime,
 		    sizeof(int),"wall",
 		    "<Maximum Wallclock time (in minutes) to run> = 0 = infinite");
+        prmAddParam(prm, "dEta", paramDouble, &param.dEta,
+                    sizeof(double),"eta", "Time integration accuracy");
 	prmAddParam(prm,"nIOProcessor",paramInt,&param.nIOProcessor,
 		    sizeof(int), "npio",
 		    "number of simultaneous I/O processors = 0 (all)");

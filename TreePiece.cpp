@@ -1034,6 +1034,13 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
       if(bEpsAccStep) {
 	  double acc = dAccFac*p->treeAcceleration.length();
 	  double dt;
+#ifdef EPSACCH
+	  // Set gas timestep based on SPH smoothing.
+	  if(bDoGas && p->isGas()) {
+	      dt = dEta*sqrt(0.5*p->fBall/acc);
+	      }
+#else
+	  // Set gas timestep based on gravity softening and SPH smoothing.
 	  if(bDoGas && p->isGas() && dhMinOverSoft < 1
 	     && p->fBall < 2.0*p->soft) {
 	      if(p->fBall > 2.0*dhMinOverSoft*p->soft)
@@ -1041,6 +1048,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      else
 		  dt = dEta*sqrt(dhMinOverSoft*p->soft/acc);
 	      }
+#endif
 	  else
 	      dt = dEta*sqrt(p->soft/acc);
 	  if(dt < dTIdeal)
