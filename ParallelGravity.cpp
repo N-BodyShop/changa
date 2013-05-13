@@ -78,8 +78,6 @@ int _nocache;
 int _cacheLineDepth;
 unsigned int _yieldPeriod;
 DomainsDec domainDecomposition;
-/// tolerance for unequal pieces in SFC based decompositions.
-const double ddTolerance = 0.1;
 double dExtraStore;		// fraction of extra particle storage
 double dMaxBalance;		// Max piece imbalance for load balancing
 int iGasModel; 			// For backward compatibility

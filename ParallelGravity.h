@@ -95,6 +95,9 @@ enum DomainsDec {
     ORB_space_dec=6		// Bisect space
 };
 
+/// tolerance for unequal pieces in SFC based decompositions.
+const double ddTolerance = 0.1;
+
 inline void operator|(PUP::er &p,DomainsDec &d) {
   int di;
   if (p.isUnpacking()) {
