@@ -64,10 +64,6 @@ void MultistepOrbLB::mergeInstrumentedData(int phase, BaseLB::LDStats *stats){
   int whichPos;
   int numAdditional;
 
-  // tune alpha as needed - this is the merge parameter
-  double alpha = 0.0;
-  double savedWall;
-  
   if(phase == -1){
 #ifdef MCLBMSV
     CkPrintf("phase = -1, discarding\n");

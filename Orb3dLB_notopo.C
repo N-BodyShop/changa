@@ -86,8 +86,7 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
         load = stats->objData[tag].wallTime;
       }
 
-      int pe = stats->from_proc[tag];
-
+      // int pe = stats->from_proc[tag];
       //CkPrintf("[mydebug] %d tag %d np %d pe %d load %f vec %f %f %f\n", i, tag, data->myNumParticles, pe, load, data->vec.x, data->vec.y, data->vec.z);
 
       tpEvents[XDIM].push_back(Event(data->vec.x,load,tag));

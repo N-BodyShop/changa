@@ -89,7 +89,7 @@ GenericTreeNode *PETreeMerger::mergeWalk(CkVec<GenericTreeNode*> &mergeList, CkV
         }
       }
 
-      GenericTreeNode *mergedChild = mergeWalk(nextLevelMergeList,nextLevelTreePieceList);
+      // GenericTreeNode *mergedChild = mergeWalk(nextLevelMergeList,nextLevelTreePieceList);
       nextLevelMergeList.length() = 0;
       nextLevelTreePieceList.length() = 0;
       /*

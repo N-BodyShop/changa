@@ -230,11 +230,9 @@ class Orb3dCommon{
 
       mapping = &stats->to_proc;
       from = &stats->from_proc;
-      int dim = 0;
 
       CkPrintf("[Orb3dLB_notopo] sorting\n");
       for(int i = 0; i < NDIMS; i++){
-        //tpEvents[i].quickSort();
         sort(tpEvents[i].begin(),tpEvents[i].end());
       }
 

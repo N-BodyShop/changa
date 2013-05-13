@@ -387,7 +387,6 @@ void TreePiece::initBucketsSmooth(Tsmooth tSmooth) {
   tSmooth->nActive = 0;
   for (unsigned int j=0; j<numBuckets; ++j) {
     GenericTreeNode* node = bucketList[j];
-    int numParticlesInBucket = node->particleCount;
 
     // TODO: active bounds may give a performance boost in the
     // multi-timstep regime.
