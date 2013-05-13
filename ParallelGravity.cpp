@@ -527,6 +527,13 @@ Main::Main(CkArgMsg* m) {
 	param.bStandard = 1;
 	prmAddParam(prm, "bStandard", paramBool, &param.bStandard,sizeof(int),
 		    "std", "output in standard TIPSY binary format (IGNORED)");
+        param.bDoublePos = 0;
+        prmAddParam(prm, "bDoublePos", paramBool, &param.bDoublePos,
+                    sizeof(int), "dp",
+                    "input/output double precision positions = -dp");
+        param.bDoubleVel = 0;
+        prmAddParam(prm,"bDoubleVel", paramBool, &param.bDoublePos,sizeof(int),
+                    "dv", "input/output double precision velocities = -dv");
 	param.bOverwrite = 1;
 	prmAddParam(prm, "bOverwrite", paramBool, &param.bOverwrite,sizeof(int),
 		    "overwrite", "overwrite outputs (IGNORED)");
@@ -1730,7 +1737,8 @@ void Main::setupICs() {
   }
 
   double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
-  treeProxy.loadTipsy(basefilename, dTuFac, CkCallbackResumeThread());
+  treeProxy.loadTipsy(basefilename, dTuFac, param.bDoublePos,
+                      param.bDoubleVel, CkCallbackResumeThread());
 
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
@@ -2515,9 +2523,11 @@ void Main::writeOutput(int iStep)
     double duTFac = (param.dConstGamma-1)*param.dMeanMolWeight/param.dGasConst;
     if(param.bParaWrite)
     	treeProxy.setupWrite(0, 0, achFile, dOutTime, dvFac, duTFac,
+                             param.bDoublePos, param.bDoubleVel,
 			     param.bGasCooling, CkCallbackResumeThread());
     else
 	treeProxy[0].serialWrite(0, achFile, dOutTime, dvFac, duTFac,
+                                 param.bDoublePos, param.bDoubleVel,
 				 param.bGasCooling, CkCallbackResumeThread());
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
