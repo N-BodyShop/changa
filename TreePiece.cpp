@@ -5150,9 +5150,11 @@ void TreePiece::pup(PUP::er& p) {
   if(p.isUnpacking()){
     dm = NULL;
 #ifndef COOLING_NONE
-    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
-    if(bGasCooling)
-	CoolData = CoolDerivsInit(dm->Cool);
+    if(!_inrestart) {           // not restarting from checkpoint
+        dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+        if(bGasCooling)
+            CoolData = CoolDerivsInit(dm->Cool);
+        }
 #endif
   }
 
