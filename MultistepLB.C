@@ -65,7 +65,7 @@ void MultistepLB::receiveCentroids(CkReductionMsg *msg){
   }
 }
 
-CmiBool MultistepLB::QueryBalanceNow(int step){
+bool MultistepLB::QueryBalanceNow(int step){
   if(step == 0){
     return false; 
   }
@@ -97,10 +97,6 @@ void MultistepLB::mergeInstrumentedData(int phase, BaseLB::LDStats *stats){
   int whichPos;
   int numAdditional;
 
-  // tune alpha as needed - this is the merge parameter
-  double alpha = 0.0;
-  double savedWall;
-  
   if(phase == -1){
 #ifdef MCLBMSV
     CkPrintf("phase = -1, discarding\n");
@@ -358,7 +354,6 @@ void MultistepLB::greedy(BaseLB::LDStats *stats, int count, int phase, int prevP
   TPObject *tp_array = new TPObject[nmig];
   int j = 0;
   for(int i = 0; i < stats->n_objs; i++){
-    int tp = tpCentroids[i].tag;
     int lb = tpCentroids[i].tag;
 
     if(!stats->objData[lb].migratable) continue;
@@ -448,7 +443,6 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count, int phase, int prevPh
 
   int j = 0;
   for(int i = 0; i < numobjs; i++){
-    int tp = tpCentroids[i].tp;
     int lb = tpCentroids[i].tag;
 
     if(!stats->objData[lb].migratable) continue;

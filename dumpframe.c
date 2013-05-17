@@ -1823,7 +1823,6 @@ void dfFinishFrame( struct DumpFrameContext *df, double dTime, double dStep, str
 
 	CmiFclose(fp);
 
-Done:
 	if (df->dDumpFrameTime > 0 && dTime >= df->dTime)
 	  df->dTime = df->dTime + df->dDumpFrameTime;
 	
