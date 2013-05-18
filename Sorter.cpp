@@ -575,7 +575,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
       delete leaves;
     }
 
-    // int total = root->buildCounts();
+    int total = root->buildCounts();
     // CkPrintf("total number of particles: %d\n", total);
     do {
 	// Convert Oct domains to splitters, ensuring that we do not exceed
