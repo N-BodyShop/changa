@@ -1675,7 +1675,7 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
       contribute(2 * sizeof(Key), bounds, CkReduction::concat, CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
     } else {
       // No particles assigned to this TreePiece
-      contribute(CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
+      contribute(0, NULL, CkReduction::concat, CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
     }
     break;
   case Binary_ORB:
