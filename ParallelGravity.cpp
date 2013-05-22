@@ -1822,7 +1822,12 @@ void Main::setupICs() {
 #ifdef INTERLIST_VER
   ofsLog << " INTERLIST_VER:" << INTERLIST_VER;
 #endif
+#ifdef BIGKEYS
+  ofsLog << " BIGKEYS";
+#endif
   ofsLog << endl;
+  ofsLog << "# Key sizes: " << sizeof(KeyType) << " bytes particle "
+         << sizeof(NodeKey) << " bytes node" << endl;
 
   // Print out load balance information
   LBDatabase *lbdb = LBDatabaseObj();
