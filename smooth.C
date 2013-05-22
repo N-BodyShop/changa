@@ -493,7 +493,8 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
   for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
       if(!params->isSmoothActive(&tp->myParticles[j]))
 	  continue;
-      bndSmoothAct.grow(tp->myParticles[j].position);
+      GravityParticle *p = &tp->myParticles[j];
+      bndSmoothAct.grow(p->position);
 
       CkVec<pqSmoothNode> *Q = &nstate->Qs[j];
       Q->reserve(nSmooth);
@@ -505,8 +506,7 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 	  {
 	      if(!TYPETest(&tp->myParticles[k], params->iType))
 		  continue;
-	      Vector3D<double> dr = tp->myParticles[k].position
-		  - tp->myParticles[j].position;
+              Vector3D<double> dr = tp->myParticles[k].position - p->position;
 	      if(dr.lengthSquared() > drMax2) {
 		  drMax2 = dr.lengthSquared();
 		  }
@@ -517,8 +517,15 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 	  pqNew.fKey = drMax2;
       else
 	  pqNew.fKey = DBL_MAX;
-      if(iLowhFix && pqNew.fKey < dfBall2OverSoft2*tp->myParticles[j].soft*tp->myParticles[j].soft)
-	  pqNew.fKey = dfBall2OverSoft2*tp->myParticles[j].soft*tp->myParticles[j].soft;
+      //
+      // For FastGas, we have a limit on the size of the search ball.
+      //
+      if(params->bUseBallMax && p->isGas() && p->fBallMax() > 0.0
+         && pqNew.fKey > p->fBallMax()*p->fBallMax())
+          pqNew.fKey = p->fBallMax()*p->fBallMax();
+      
+      if(iLowhFix && pqNew.fKey < dfBall2OverSoft2*p->soft*p->soft)
+          pqNew.fKey = dfBall2OverSoft2*p->soft*p->soft;
 
       if(pqNew.fKey > dKeyMaxBucket)
 	  dKeyMaxBucket = pqNew.fKey;
