@@ -671,7 +671,8 @@ void KNearestSmoothCompute::walkDone(State *state) {
 	  std::pop_heap(&(Q[0]) + 0, &(Q[0]) + nCnt);
 	  nCnt--;
 	  }
-      CkAssert(nCnt >= nSmooth);
+      // The following assert() is not valid with the FastGas optimization.
+      // CkAssert(nCnt >= nSmooth);
       // Limit fBall growth to help stability and inverse neighbor finding.
       if(!(iLowhFix && h*h <= dfBall2OverSoft2*p->soft*p->soft)
 	 && params->bUseBallMax && p->isGas() && p->fBallMax() > 0.0
