@@ -93,7 +93,7 @@ void TreePiece::loadTipsy(const std::string& filename,
         basefilename = filename;
 	bLoaded = 0;
 
-	Tipsy::TipsyReader r(filename);
+	Tipsy::TipsyReader r(filename, bDoublePos, bDoubleVel);
 	if(!r.status()) {
 		cerr << thisIndex << ": TreePiece: Fatal: Couldn't open tipsy file!" << endl;
 		cb.send(0);	// Fire off callback
@@ -380,7 +380,8 @@ void TreePiece::parallelWrite(int iPass, const CkCallback& cb,
     tipsyHeader.ndark = nTotalParticles - (nTotalSPH + nTotalStar);
 
     if(nIOProcessor == 0) {	// use them all
-	Tipsy::TipsyWriter wAll(filename, tipsyHeader);
+	Tipsy::TipsyWriter wAll(filename, tipsyHeader, false, bDoublePos,
+                                bDoubleVel);
 	writeTipsy(wAll, dvFac, duTFac, bDoublePos, bDoubleVel, bCool);
 	contribute(cb);
 	return;
@@ -393,7 +394,7 @@ void TreePiece::parallelWrite(int iPass, const CkCallback& cb,
 	return;
 	}
 
-    Tipsy::TipsyWriter w(filename, tipsyHeader);
+    Tipsy::TipsyWriter w(filename, tipsyHeader, false, bDoublePos, bDoubleVel);
     writeTipsy(w, dvFac, duTFac, bDoublePos, bDoubleVel, bCool);
     if(iPass < (nSkip - 1) && thisIndex < (numTreePieces - 1))
 	treeProxy[thisIndex+1].parallelWrite(iPass + 1, cb, filename, dTime,
@@ -518,7 +519,9 @@ TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
 	tipsyHeader.nstar = nTotalStar;
 	tipsyHeader.ndark = nTotalParticles - (nTotalSPH + nTotalStar);
     
-	globalTipsyWriter = new Tipsy::TipsyWriter(filename, tipsyHeader);
+	globalTipsyWriter = new Tipsy::TipsyWriter(filename, tipsyHeader,
+                                                   false, bDoublePos,
+                                                   bDoubleVel);
 	}
 	    
     writeTipsy(*globalTipsyWriter, dvFac, duTFac, bDoublePos, bDoubleVel,
