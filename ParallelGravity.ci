@@ -225,7 +225,7 @@ mainmodule ParallelGravity {
     entry void calculateEwald(dummyMsg *m);
     entry [notrace] void EwaldGPUComplete(); 
     entry [notrace] void EwaldGPU(); 
-    entry [notrace] void velScale(double dScale);
+    entry void velScale(double dScale, const CkCallback& cb);
     //entry void markPresence(const CkCallback& cb);
     entry void loadTipsy(const std::string& filename,
         const double dTuFac,

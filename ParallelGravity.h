@@ -1443,7 +1443,7 @@ public:
 	void initCoolingData(const CkCallback& cb);
 	// Scale velocities (needed to convert to canonical momenta for
 	// comoving coordinates.)
-	void velScale(double dScale);
+	void velScale(double dScale, const CkCallback& cb);
 
 	// Load from Tipsy file
 	void loadTipsy(const std::string& filename, const double dTuFac,
