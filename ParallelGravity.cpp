@@ -530,7 +530,7 @@ Main::Main(CkArgMsg* m) {
                     sizeof(int), "dp",
                     "input/output double precision positions = -dp");
         param.bDoubleVel = 0;
-        prmAddParam(prm,"bDoubleVel", paramBool, &param.bDoublePos,sizeof(int),
+        prmAddParam(prm,"bDoubleVel", paramBool, &param.bDoubleVel,sizeof(int),
                     "dv", "input/output double precision velocities = -dv");
 	param.bOverwrite = 1;
 	prmAddParam(prm, "bOverwrite", paramBool, &param.bOverwrite,sizeof(int),
@@ -1717,8 +1717,11 @@ void Main::setupICs() {
   // Try loading Tipsy format; first just grab the header.
   CkPrintf(" trying Tipsy ...");
 	    
+  bool bInDPos = false;
+  bool bInDVel = false;
+  
   try {
-    Tipsy::PartialTipsyFile ptf(basefilename, 0, 1);
+    Tipsy::PartialTipsyFile ptf(basefilename, 0, 0);
     if(!ptf.loadedSuccessfully()) {
       ckerr << endl << "Couldn't load the tipsy file \""
             << basefilename.c_str()
@@ -1726,6 +1729,10 @@ void Main::setupICs() {
       CkExit();
       return;
     }
+    bInDPos = ptf.isDoublePos();
+    bInDVel = ptf.isDoubleVel();
+    if(bInDPos) CkPrintf("assumed double positions...");
+    if(bInDVel) CkPrintf("assumed double velocities...");
   }
   catch (std::ios_base::failure e) {
     ckerr << "File read: " << basefilename.c_str() << ": " << e.what()
@@ -1735,8 +1742,8 @@ void Main::setupICs() {
   }
 
   double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
-  treeProxy.loadTipsy(basefilename, dTuFac, param.bDoublePos,
-                      param.bDoubleVel, CkCallbackResumeThread());
+  treeProxy.loadTipsy(basefilename, dTuFac, bInDPos, bInDVel,
+                      CkCallbackResumeThread());
 
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
