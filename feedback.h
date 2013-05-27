@@ -71,12 +71,11 @@ class Fdbk : public PUP::able {
 
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
+    void NullFeedback() { imf = new Kroupa01(); } /* Place holder */
     void DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
 		    FBEffects *fbTotals);
     double NSNIa (double dMassT1, double dMassT2);
-    Fdbk() {
-	imf = new Kroupa01(); /* a default placeholder */
-	}
+    Fdbk() { }
 
     PUPable_decl(Fdbk);
     Fdbk(const Fdbk& fb);

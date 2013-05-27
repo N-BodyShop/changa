@@ -95,6 +95,9 @@ enum DomainsDec {
     ORB_space_dec=6		// Bisect space
 };
 
+/// tolerance for unequal pieces in SFC based decompositions.
+const double ddTolerance = 0.1;
+
 inline void operator|(PUP::er &p,DomainsDec &d) {
   int di;
   if (p.isUnpacking()) {
@@ -914,10 +917,10 @@ private:
         CkGroupID proxy;
         LBStrategy foundLB;
         // jetley - whether proxy is valid or not
-        CmiBool proxyValid;
+        bool proxyValid;
         // jetley - saved first internal node
         Vector3D<float> savedCentroid;
-        CmiBool proxySet;
+        bool proxySet;
         // jetley - multistep load balancing
         int prevLARung;
 
@@ -1276,7 +1279,7 @@ public:
 	  dm = NULL;
 	  foundLB = Null; 
 	  iterationNo=0;
-	  usesAtSync=CmiTrue;
+	  usesAtSync = true;
 	  pTreeNodes = NULL;
 	  bucketReqs=NULL;
 	  nCacheAccesses = 0;
@@ -1358,7 +1361,7 @@ public:
           proxyValid = false;
           proxySet = false;
 
-	  usesAtSync = CmiTrue;
+	  usesAtSync = true;
 	  //localCache = NULL;
 	  dm = NULL;
 	  bucketReqs = NULL;
@@ -1445,8 +1448,15 @@ public:
 	// comoving coordinates.)
 	void velScale(double dScale, const CkCallback& cb);
 
-	// Load from Tipsy file
+	/// @brief Load I.C. from Tipsy file
+        /// @param filename tipsy file
+        /// @param dTuFac conversion factor from temperature to
+        /// internal energy
+        /// @param bDoublePos Positions are in double precision
+        /// @param bDoubleVel Velocities are in double precision
 	void loadTipsy(const std::string& filename, const double dTuFac,
+                       const bool bDoublePos,
+                       const bool bDoubleVel,
 		       const CkCallback& cb);
 
         void findTotalMass(CkCallback &cb);
@@ -1456,22 +1466,30 @@ public:
 	void writeTipsy(Tipsy::TipsyWriter& w,
 			const double dvFac, // scale velocities
 			const double duTFac, // convert temperature
+                        const bool bDoublePos,
+                        const bool bDoubleVel,
 			const int bCool);
 	// Find position in the file to start writing
 	void setupWrite(int iStage, u_int64_t iPrevOffset,
 			const std::string& filename, const double dTime,
 			const double dvFac, const double duTFac,
+                        const bool bDoublePos,
+                        const bool bDoubleVel,
 			const int bCool, const CkCallback& cb);
 	// control parallelism in the write
 	void parallelWrite(int iPass, const CkCallback& cb,
 			   const std::string& filename, const double dTime,
 			   const double dvFac, // scale velocities
 			   const double duTFac, // convert temperature
+                           const bool bDoublePos,
+                           const bool bDoubleVel,
 			   const int bCool);
 	// serial output
 	void serialWrite(u_int64_t iPrevOffset, const std::string& filename,
 			 const double dTime,
 			 const double dvFac, const double duTFac,
+                         const bool bDoublePos,
+                         const bool bDoubleVel,
 			 const int bCool, const CkCallback& cb);
 	// setup for serial output
 	void oneNodeWrite(int iIndex,
@@ -1490,6 +1508,8 @@ public:
 			       const double dvFac,  // velocity conversion
 			     const double duTFac, // temperature
 						  // conversion
+                           const bool bDoublePos,
+                           const bool bDoubleVel,
 			  const int bCool,
 			  const CkCallback &cb);
 	// Reorder for output

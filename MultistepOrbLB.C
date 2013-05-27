@@ -38,7 +38,7 @@ void MultistepOrbLB::receiveCentroids(CkReductionMsg *msg){
   CkPrintf("MultistepOrbLB: receiveCentroids %d elements, msg length: %d\n", nrecvd, msg->getLength()); 
 }
 
-CmiBool MultistepOrbLB::QueryBalanceNow(int step){
+bool MultistepOrbLB::QueryBalanceNow(int step){
  if(CkMyPe() == 0) CkPrintf("Orb3dOrbLB: Step %d\n", step);
   if(step == 0) return false;
   return true;
@@ -64,10 +64,6 @@ void MultistepOrbLB::mergeInstrumentedData(int phase, BaseLB::LDStats *stats){
   int whichPos;
   int numAdditional;
 
-  // tune alpha as needed - this is the merge parameter
-  double alpha = 0.0;
-  double savedWall;
-  
   if(phase == -1){
 #ifdef MCLBMSV
     CkPrintf("phase = -1, discarding\n");

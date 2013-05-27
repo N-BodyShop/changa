@@ -60,7 +60,6 @@ void Fdbk::AddParams(PRM prm)
 
 void Fdbk::CheckParams(PRM prm, struct parameters &param)
 {
-    delete imf;
     if(strcmp(achIMF, "MillerScalo") == 0) imf = new MillerScalo();
     else if(strcmp(achIMF, "Chabrier") == 0) imf = new Chabrier();
     else if(strcmp(achIMF, "Kroupa93") == 0) imf = new Kroupa93();
@@ -146,8 +145,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
     // particles need sorting before tree build when star formation
     // not enabled
     if(!param.bStarForm) {
-	double tolerance = 0.01;    // tolerance for domain decomposition
-	sorter.startSorting(dataManagerID, tolerance,
+	sorter.startSorting(dataManagerID, ddTolerance,
 			    CkCallbackResumeThread(), true);
 	}
     // Need to build tree since we just did addDelParticle.

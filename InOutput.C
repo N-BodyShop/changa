@@ -10,8 +10,81 @@ using namespace TypeHandling;
 using namespace SFC;
 using namespace std;
 
+template <typename TPos, typename TVel>
+void load_tipsy_gas(Tipsy::TipsyReader &r, GravityParticle &p, double dTuFac) 
+{
+    Tipsy::gas_particle_t<TPos, TVel> gp;
+    
+    if(!r.getNextGasParticle_t(gp)) {
+        CkAbort("failed to read gas particle!");
+        }
+    p.mass = gp.mass;
+    p.position = gp.pos;
+    p.velocity = gp.vel;
+    p.soft = gp.hsmooth;
+#ifdef CHANGESOFT
+    p.fSoft0 = gp.hsmooth;
+#endif
+    p.iType = TYPE_GAS;
+    p.fDensity = gp.rho;
+    p.fMetals() = gp.metals;
+    // O and Fe ratio based on Asplund et al 2009
+    p.fMFracOxygen() = 0.43*gp.metals;
+    p.fMFracIron() = 0.098*gp.metals;
+    p.u() = dTuFac*gp.temp;
+    p.uPred() = dTuFac*gp.temp;
+    p.vPred() = gp.vel;
+    p.fBallMax() = HUGE;
+    p.fESNrate() = 0.0;
+    p.fTimeCoolIsOffUntil() = 0.0;
+}
+
+template <typename TPos, typename TVel>
+void load_tipsy_dark(Tipsy::TipsyReader &r, GravityParticle &p) 
+{
+    Tipsy::dark_particle_t<TPos, TVel> dp;
+    if(!r.getNextDarkParticle_t(dp)) {
+        CkAbort("failed to read dark particle!");
+        }
+	p.mass = dp.mass;
+	p.position = dp.pos;
+	p.velocity = dp.vel;
+	p.soft = dp.eps;
+#ifdef CHANGESOFT
+	p.fSoft0 = dp.eps;
+#endif
+	p.iType = TYPE_DARK;
+}
+
+template <typename TPos, typename TVel>
+void load_tipsy_star(Tipsy::TipsyReader &r, GravityParticle &p) 
+{
+    Tipsy::star_particle_t<TPos, TVel> sp;
+
+    if(!r.getNextStarParticle_t(sp)) {
+        CkAbort("failed to read star particle!");
+        }
+    p.mass = sp.mass;
+    p.position = sp.pos;
+    p.velocity = sp.vel;
+    p.soft = sp.eps;
+#ifdef CHANGESOFT
+    p.fSoft0 = sp.eps;
+#endif
+    p.iType = TYPE_STAR;
+    p.fStarMetals() = sp.metals;
+    // Metals to O and Fe based on Asplund et al 2009
+    p.fStarMFracOxygen() = 0.43*sp.metals;
+    p.fStarMFracIron() = 0.098*sp.metals;
+    p.fMassForm() = sp.mass;
+    p.fTimeForm() = sp.tform;
+}
+
+
 void TreePiece::loadTipsy(const std::string& filename,
 			  const double dTuFac, // Convert Temperature
+                          const bool bDoublePos,
+                          const bool bDoubleVel,
 			  const CkCallback& cb) {
         LBTurnInstrumentOff();       
 	callback = cb;
@@ -20,7 +93,7 @@ void TreePiece::loadTipsy(const std::string& filename,
         basefilename = filename;
 	bLoaded = 0;
 
-	Tipsy::TipsyReader r(filename);
+	Tipsy::TipsyReader r(filename, bDoublePos, bDoubleVel);
 	if(!r.status()) {
 		cerr << thisIndex << ": TreePiece: Fatal: Couldn't open tipsy file!" << endl;
 		cb.send(0);	// Fire off callback
@@ -173,63 +246,34 @@ void TreePiece::loadTipsy(const std::string& filename,
 	int iStar = 0;
 	for(unsigned int i = 0; i < myNumParticles; ++i) {
 		if(i + startParticle < (unsigned int) tipsyHeader.nsph) {
-			if(!r.getNextGasParticle(gp)) {
-			    CkAbort("failed to read gas particle!");
-			    }
-			myParticles[i+1].mass = gp.mass;
-			myParticles[i+1].position = gp.pos;
-			myParticles[i+1].velocity = gp.vel;
-			myParticles[i+1].soft = gp.hsmooth;
-#ifdef CHANGESOFT
-			myParticles[i+1].fSoft0 = gp.hsmooth;
-#endif
-			myParticles[i+1].iType = TYPE_GAS;
-			myParticles[i+1].fDensity = gp.rho;
-			myParticles[i+1].extraData = &mySPHParticles[iSPH];
-			mySPHParticles[iSPH].fMetals() = gp.metals;
-			// O and Fe ratio based on Asplund et al 2009
-			mySPHParticles[iSPH].fMFracOxygen() = 0.43*gp.metals;
-			mySPHParticles[iSPH].fMFracIron() = 0.098*gp.metals;
-			mySPHParticles[iSPH].u() = dTuFac*gp.temp;
-			mySPHParticles[iSPH].uPred() = dTuFac*gp.temp;
-			mySPHParticles[iSPH].vPred() = gp.vel;
-			mySPHParticles[iSPH].fBallMax() = HUGE;
-			mySPHParticles[iSPH].fESNrate() = 0.0;
-			mySPHParticles[iSPH].fTimeCoolIsOffUntil() = 0.0;
-			iSPH++;
+                    myParticles[i+1].extraData = &mySPHParticles[iSPH];
+                    if(!bDoublePos)
+                        load_tipsy_gas<float,float>(r, myParticles[i+1],
+                                                    dTuFac) ;
+                    else if(!bDoubleVel)
+                        load_tipsy_gas<double,float>(r, myParticles[i+1],
+                                                     dTuFac) ;
+                    else
+                        load_tipsy_gas<double,double>(r, myParticles[i+1],
+                                                      dTuFac) ;
+                    iSPH++;
 		} else if(i + startParticle < (unsigned int) tipsyHeader.nsph
 			  + tipsyHeader.ndark) {
-			if(!r.getNextDarkParticle(dp)) {
-			    CkAbort("failed to read dark particle!");
-			    }
-			myParticles[i+1].mass = dp.mass;
-			myParticles[i+1].position = dp.pos;
-			myParticles[i+1].velocity = dp.vel;
-			myParticles[i+1].soft = dp.eps;
-#ifdef CHANGESOFT
-			myParticles[i+1].fSoft0 = dp.eps;
-#endif
-			myParticles[i+1].iType = TYPE_DARK;
+                    if(!bDoublePos)
+                        load_tipsy_dark<float,float>(r, myParticles[i+1]);
+                    else if(!bDoubleVel)
+                        load_tipsy_dark<double,float>(r, myParticles[i+1]);
+                    else
+                        load_tipsy_dark<double,double>(r, myParticles[i+1]);
 		} else {
-			if(!r.getNextStarParticle(sp)) {
-			    CkAbort("failed to read star particle!");
-			    }
-			myParticles[i+1].mass = sp.mass;
-			myParticles[i+1].position = sp.pos;
-			myParticles[i+1].velocity = sp.vel;
-			myParticles[i+1].soft = sp.eps;
-#ifdef CHANGESOFT
-			myParticles[i+1].fSoft0 = sp.eps;
-#endif
-			myParticles[i+1].iType = TYPE_STAR;
-			myParticles[i+1].extraData = &myStarParticles[iStar];
-			myParticles[i+1].fStarMetals() = sp.metals;
-			// Metals to O and Fe based on Asplund et al 2009
-			myParticles[i+1].fStarMFracOxygen() = 0.43*sp.metals;
-			myParticles[i+1].fStarMFracIron() = 0.098*sp.metals;
-			myParticles[i+1].fMassForm() = sp.mass;
-			myParticles[i+1].fTimeForm() = sp.tform;
-			iStar++;
+                    myParticles[i+1].extraData = &myStarParticles[iStar];
+                    if(!bDoublePos)
+                        load_tipsy_star<float,float>(r, myParticles[i+1]);
+                    else if(!bDoubleVel)
+                        load_tipsy_star<double,float>(r, myParticles[i+1]);
+                    else
+                        load_tipsy_star<double,double>(r, myParticles[i+1]);
+                    iStar++;
 		}
 		myParticles[i+1].iOrder = i + startParticle;
 #if COSMO_STATS > 1
@@ -261,13 +305,16 @@ void TreePiece::setupWrite(int iStage, // stage of scan
 			   const double dTime,
 			   const double dvFac,
 			   const double duTFac,
+                           const bool bDoublePos,
+                           const bool bDoubleVel,
 			   const int bCool,
 			   const CkCallback& cb)
 {
     if(iStage > nSetupWriteStage + 1) {
 	// requeue message
 	pieces[thisIndex].setupWrite(iStage, iPrevOffset, filename,
-				     dTime, dvFac, duTFac, bCool, cb);
+				     dTime, dvFac, duTFac, bDoublePos,
+                                     bDoubleVel, bCool, cb);
 	return;
 	}
     nSetupWriteStage++;
@@ -285,7 +332,7 @@ void TreePiece::setupWrite(int iStage, // stage of scan
 	pieces[thisIndex+iOffset].setupWrite(iStage+1,
 					     nStartWrite+myNumParticles,
 					     filename, dTime, dvFac, duTFac,
-					     bCool, cb);
+					     bDoublePos, bDoubleVel, bCool, cb);
 	}
     if(thisIndex < iOffset) { // No more messages are coming my way
 	// send out all the messages
@@ -300,12 +347,14 @@ void TreePiece::setupWrite(int iStage, // stage of scan
 	    pieces[thisIndex+iOffset].setupWrite(iStage+1,
 						 nStartWrite+myNumParticles,
 						 filename, dTime, dvFac,
-						 duTFac, bCool, cb);
+						 duTFac, bDoublePos,
+                                                 bDoubleVel, bCool, cb);
 	    }
 	if(thisIndex == (int) numTreePieces-1)
 	    assert(nStartWrite+myNumParticles == nTotalParticles);
 	nSetupWriteStage = -1;	// reset for next time.
-	parallelWrite(0, cb, filename, dTime, dvFac, duTFac, bCool);
+	parallelWrite(0, cb, filename, dTime, dvFac, duTFac, bDoublePos,
+                      bDoubleVel, bCool);
 	}
     }
 
@@ -318,6 +367,8 @@ void TreePiece::parallelWrite(int iPass, const CkCallback& cb,
 			      const std::string& filename, const double dTime,
 			      const double dvFac, // scale velocities
 			      const double duTFac, // convert temperature
+                              const bool bDoublePos,
+                              const bool bDoubleVel,
 			      const int bCool)
 {
     Tipsy::header tipsyHeader;
@@ -329,8 +380,9 @@ void TreePiece::parallelWrite(int iPass, const CkCallback& cb,
     tipsyHeader.ndark = nTotalParticles - (nTotalSPH + nTotalStar);
 
     if(nIOProcessor == 0) {	// use them all
-	Tipsy::TipsyWriter wAll(filename, tipsyHeader);
-	writeTipsy(wAll, dvFac, duTFac, bCool);
+	Tipsy::TipsyWriter wAll(filename, tipsyHeader, false, bDoublePos,
+                                bDoubleVel);
+	writeTipsy(wAll, dvFac, duTFac, bDoublePos, bDoubleVel, bCool);
 	contribute(cb);
 	return;
 	}
@@ -342,11 +394,12 @@ void TreePiece::parallelWrite(int iPass, const CkCallback& cb,
 	return;
 	}
 
-    Tipsy::TipsyWriter w(filename, tipsyHeader);
-    writeTipsy(w, dvFac, duTFac, bCool);
+    Tipsy::TipsyWriter w(filename, tipsyHeader, false, bDoublePos, bDoubleVel);
+    writeTipsy(w, dvFac, duTFac, bDoublePos, bDoubleVel, bCool);
     if(iPass < (nSkip - 1) && thisIndex < (numTreePieces - 1))
 	treeProxy[thisIndex+1].parallelWrite(iPass + 1, cb, filename, dTime,
-					     dvFac, duTFac, bCool);
+					     dvFac, duTFac, bDoublePos,
+                                             bDoubleVel, bCool);
     contribute(cb);
     }
 
@@ -361,6 +414,8 @@ void TreePiece::serialWrite(const u_int64_t iPrevOffset, // previously written
 			    const double dTime,	 // time or expansion
 			    const double dvFac,  // velocity conversion
 			    const double duTFac, // temperature conversion
+                            const bool bDoublePos,
+                            const bool bDoubleVel,
 			    const int bCool,
 			    const CkCallback& cb)
 {
@@ -390,7 +445,7 @@ void TreePiece::serialWrite(const u_int64_t iPrevOffset, // previously written
     pieces[0].oneNodeWrite(thisIndex, myNumParticles, myNumSPH, myNumStar,
 			   myParticles, mySPHParticles, myStarParticles,
 			   piSph, piStar, iPrevOffset, filename, dTime,
-			   dvFac, duTFac, bCool, cb);
+			   dvFac, duTFac, bDoublePos, bDoubleVel, bCool, cb);
     if(myNumSPH > 0)
 	delete [] piSph;
     if(myNumStar > 0)
@@ -422,6 +477,8 @@ TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
 			const double dTime,	 // time or expansion
 			const double dvFac,  // velocity conversion
 			const double duTFac, // temperature conversion
+                        const bool bDoublePos,
+                        const bool bDoubleVel,
 			const int bCool,
 			const CkCallback& cb)
 {
@@ -462,10 +519,13 @@ TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
 	tipsyHeader.nstar = nTotalStar;
 	tipsyHeader.ndark = nTotalParticles - (nTotalSPH + nTotalStar);
     
-	globalTipsyWriter = new Tipsy::TipsyWriter(filename, tipsyHeader);
+	globalTipsyWriter = new Tipsy::TipsyWriter(filename, tipsyHeader,
+                                                   false, bDoublePos,
+                                                   bDoubleVel);
 	}
 	    
-    writeTipsy(*globalTipsyWriter, dvFac, duTFac, bCool);
+    writeTipsy(*globalTipsyWriter, dvFac, duTFac, bDoublePos, bDoubleVel,
+               bCool);
     /*
      * Restore pointers/data
      */
@@ -476,16 +536,102 @@ TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
     
     if(iIndex < (numTreePieces - 1))
 	treeProxy[iIndex+1].serialWrite(iPrevOffset + iOutParticles, filename,
-					dTime, dvFac, duTFac, bCool, cb);
+					dTime, dvFac, duTFac, 
+                                        bDoublePos, bDoubleVel, bCool, cb);
     else {
 	delete globalTipsyWriter;
 	cb.send();  // we are done.
 	}
     }
     
+template <typename TPos, typename TVel>
+void write_tipsy_gas(Tipsy::TipsyWriter &w, GravityParticle &p,
+                     const double dvFac,
+                     const double duTFac,
+                     const int bCool,
+                     COOL *Cool) 
+{
+    Tipsy::gas_particle_t<TPos, TVel> gp;
+
+    gp.mass = p.mass;
+    gp.pos = p.position;
+    gp.vel = p.velocity*dvFac;
+#ifdef CHANGESOFT
+    gp.hsmooth = p.fSoft0;
+#else
+    gp.hsmooth = p.soft;
+#endif
+    gp.phi = p.potential;
+    gp.rho = p.fDensity;
+    gp.metals = p.fMetals();
+    if(bCool) {
+#ifndef COOLING_NONE
+        gp.temp = CoolCodeEnergyToTemperature(Cool, &p.CoolParticle(), p.u(),
+                                              p.fMetals());
+#else
+        CkAbort("cooling output without cooling code");
+#endif
+        }
+    else 
+        gp.temp = duTFac*p.u();
+
+    if(!w.putNextGasParticle_t(gp)) {
+        CkError("[%d] Write gas failed, errno %d\n", CkMyPe(), errno);
+        CkAbort("Bad Write");
+        }
+}
+
+template <typename TPos, typename TVel>
+void write_tipsy_dark(Tipsy::TipsyWriter &w, GravityParticle &p,
+                     const double dvFac) 
+{
+    Tipsy::dark_particle_t<TPos, TVel> dp;
+
+    dp.mass = p.mass;
+    dp.pos = p.position;
+    dp.vel = p.velocity*dvFac;
+#ifdef CHANGESOFT
+    dp.eps = p.fSoft0;
+#else
+    dp.eps = p.soft;
+#endif
+    dp.phi = p.potential;
+
+    if(!w.putNextDarkParticle_t(dp)) {
+        CkError("[%d] Write dark failed, errno %d\n", CkMyPe(), errno);
+        CkAbort("Bad Write");
+    }
+}
+
+template <typename TPos, typename TVel>
+void write_tipsy_star(Tipsy::TipsyWriter &w, GravityParticle &p,
+                     const double dvFac) 
+{
+    Tipsy::star_particle_t<TPos, TVel> sp;
+
+    sp.mass = p.mass;
+    sp.pos = p.position;
+    sp.vel = p.velocity*dvFac;
+#ifdef CHANGESOFT
+    sp.eps = p.fSoft0;
+#else
+    sp.eps = p.soft;
+#endif
+    sp.phi = p.potential;
+    sp.metals = p.fStarMetals();
+    sp.tform = p.fTimeForm();
+
+    if(!w.putNextStarParticle_t(sp)) {
+        CkError("[%d] Write dark failed, errno %d\n", CkMyPe(), errno);
+        CkAbort("Bad Write");
+    }
+}
+
 void TreePiece::writeTipsy(Tipsy::TipsyWriter& w,
 			   const double dvFac, // scale velocities
 			   const double duTFac, // convert temperature
+                           const bool bDoublePos,
+                           const bool bDoubleVel,
 			   const int bCool)
 {
     
@@ -495,71 +641,32 @@ void TreePiece::writeTipsy(Tipsy::TipsyWriter& w,
 	CkAbort("bad seek");
     for(unsigned int i = 0; i < myNumParticles; i++) {
 	if(myParticles[i+1].isGas()) {
-	    Tipsy::gas_particle gp;
-	    gp.mass = myParticles[i+1].mass;
-	    gp.pos = myParticles[i+1].position;
-	    gp.vel = myParticles[i+1].velocity*dvFac;
-#ifdef CHANGESOFT
-	    gp.hsmooth = myParticles[i+1].fSoft0;
-#else
-	    gp.hsmooth = myParticles[i+1].soft;
-#endif
-	    gp.phi = myParticles[i+1].potential;
-	    gp.rho = myParticles[i+1].fDensity;
-	    gp.metals = myParticles[i+1].fMetals();
-	    if(bCool) {
-#ifndef COOLING_NONE
-		gp.temp = CoolCodeEnergyToTemperature(dm->Cool,
-						      &myParticles[i+1].CoolParticle(),
-						      myParticles[i+1].u(),
-						      myParticles[i+1].fMetals());
-#else
-		CkAbort("cooling output without cooling code");
-#endif
-		}
-	    else 
-		gp.temp = duTFac*myParticles[i+1].u();
-
-	    if(!w.putNextGasParticle(gp)) {
-		CkError("[%d] Write gas failed, errno %d\n", CkMyPe(), errno);
-		CkAbort("Bad Write");
-		}
+            if(!bDoublePos)
+                write_tipsy_gas<float,float>(w, myParticles[i+1], dvFac,
+                                             duTFac, bCool, dm->Cool);
+            else if(!bDoubleVel)
+                write_tipsy_gas<double,float>(w, myParticles[i+1], dvFac,
+                                              duTFac, bCool, dm->Cool);
+            else
+                write_tipsy_gas<double,double>(w, myParticles[i+1], dvFac,
+                                               duTFac, bCool, dm->Cool);
+                
 	    }
 	else if(myParticles[i+1].isDark()) {
-	    Tipsy::dark_particle dp;
-	    dp.mass = myParticles[i+1].mass;
-	    dp.pos = myParticles[i+1].position;
-	    dp.vel = myParticles[i+1].velocity*dvFac;
-#ifdef CHANGESOFT
-	    dp.eps = myParticles[i+1].fSoft0;
-#else
-	    dp.eps = myParticles[i+1].soft;
-#endif
-	    dp.phi = myParticles[i+1].potential;
-
-	    if(!w.putNextDarkParticle(dp)) {
-		CkError("[%d] Write dark failed, errno %d\n", CkMyPe(), errno);
-		CkAbort("Bad Write");
-		}
+            if(!bDoublePos)
+                write_tipsy_dark<float,float>(w, myParticles[i+1], dvFac);
+            else if(!bDoubleVel)
+                write_tipsy_dark<double,float>(w, myParticles[i+1], dvFac);
+            else
+                write_tipsy_dark<double,double>(w, myParticles[i+1], dvFac);
 	    }
 	else if(myParticles[i+1].isStar()) {
-	    Tipsy::star_particle sp;
-	    sp.mass = myParticles[i+1].mass;
-	    sp.pos = myParticles[i+1].position;
-	    sp.vel = myParticles[i+1].velocity*dvFac;
-#ifdef CHANGESOFT
-	    sp.eps = myParticles[i+1].fSoft0;
-#else
-	    sp.eps = myParticles[i+1].soft;
-#endif
-	    sp.phi = myParticles[i+1].potential;
-	    sp.metals = myParticles[i+1].fStarMetals();
-	    sp.tform = myParticles[i+1].fTimeForm();
-
-	    if(!w.putNextStarParticle(sp)) {
-		CkError("[%d] Write star failed, errno %d\n", CkMyPe(), errno);
-		CkAbort("Bad Write");
-		}
+            if(!bDoublePos)
+                write_tipsy_star<float,float>(w, myParticles[i+1], dvFac);
+            else if(!bDoubleVel)
+                write_tipsy_star<double,float>(w, myParticles[i+1], dvFac);
+            else
+                write_tipsy_star<double,double>(w, myParticles[i+1], dvFac);
 	    }
 	else {
 	    CkAbort("Bad particle type in tipsyWrite");
@@ -753,7 +860,10 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     myNumSPH = nSPH;
     if (nStoreSPH > 0) delete[] mySPHParticles;
     nStoreSPH = (int) (myNumSPH*(1.0 + dExtraStore));
-    mySPHParticles = new extraSPHData[nStoreSPH];
+    if(nStoreSPH > 0)
+        mySPHParticles = new extraSPHData[nStoreSPH];
+    else
+        mySPHParticles = NULL;
 
     myNumStar = nStar;
     if(nStoreStar > 0) delete[] myStarParticles;

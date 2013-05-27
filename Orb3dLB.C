@@ -87,7 +87,7 @@ void Orb3dLB::receiveCentroids(CkReductionMsg *msg){
 }
 
 //jetley
-CmiBool Orb3dLB::QueryBalanceNow(int step){
+bool Orb3dLB::QueryBalanceNow(int step){
   /*
   if(step == 0){
     if(CkMyPe() == 0){                          // only one group member need broadcast
@@ -117,7 +117,6 @@ CmiBool Orb3dLB::QueryBalanceNow(int step){
 void Orb3dLB::work(BaseLB::LDStats* stats)
 {
   int numobjs = stats->n_objs;
-  int nmig = stats->n_migrateobjs;
 
   CkPrintf("[orb3dlb] %d objects allocating %d bytes for tp\n", numobjs, numobjs*sizeof(TPObject));
   tps.resize(numobjs);
@@ -317,7 +316,7 @@ void Orb3dLB::directMap(int tpstart, int tpend, int nodestart, int nodeend){
     pq_proc.push(p);
   }
 
-  int currentZeroProc = 0;
+  // int currentZeroProc = 0;
   while(!pq_obj.empty()){
     TPObject tp = pq_obj.top();
     pq_obj.pop();
