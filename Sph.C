@@ -242,6 +242,135 @@ DataManager::CoolingSetTime(double z, // redshift
     }
 
 /**
+ *  @brief utility for checking array files
+ */
+bool
+arrayFileExists(const std::string filename, const int64_t count) 
+{
+    FILE *fp = CmiFopen(filename.c_str(), "r");
+    if(fp != NULL) {
+        int64_t nIOrd;
+        fscanf(fp, "%ld", &nIOrd);
+        CkAssert(nIOrd == count);
+        fclose(fp);
+        return true;
+    }
+    return false;
+}
+
+/**
+ *  @brief Read in array files for complete gas information.
+ */
+void
+Main::restartGas() 
+{
+    if(verbosity)
+        CkPrintf("Restarting Gas Simulation with array files.\n");
+    
+    // read iOrder
+    if(arrayFileExists(basefilename + ".iord", nTotalParticles)) {
+        CkReductionMsg *msg;
+        treeProxy.readIOrd(basefilename + ".iord",
+                           CkCallbackResumeThread((void*&)msg));
+        CmiInt8 *maxIOrds = (CmiInt8 *)msg->getData();
+        nMaxOrderGas = maxIOrds[0];
+        nMaxOrderDark = maxIOrds[1];
+        nMaxOrder = maxIOrds[2];
+        delete msg;
+        }
+    else
+        CkError("WARNING: no iOrder file for restart\n");
+    // read iGasOrder
+    if(arrayFileExists(basefilename + ".igasorder", nTotalParticles))
+        treeProxy.readIGasOrd(basefilename + ".igasorder",
+                           CkCallbackResumeThread());
+    else {
+        CkError("WARNING: no igasorder file for restart\n");
+        }
+    if(param.bFeedback) {
+        if(arrayFileExists(basefilename + ".ESNRate", nTotalParticles))
+            treeProxy.readESNrate(basefilename + ".ESNRate",
+                               CkCallbackResumeThread());
+        if(arrayFileExists(basefilename + ".OxMassFrac", nTotalParticles))
+            treeProxy.readOxMassFrac(basefilename + ".OxMassFrac",
+                               CkCallbackResumeThread());
+        if(arrayFileExists(basefilename + ".FeMassFrac", nTotalParticles))
+            treeProxy.readFeMassFrac(basefilename + ".FeMassFrac",
+                               CkCallbackResumeThread());
+        }
+#ifndef COOLING_NONE
+    if(param.bGasCooling) {
+        // read coolontime
+        if(arrayFileExists(basefilename + ".coolontime", nTotalParticles))
+            treeProxy.readCoolOnTime(basefilename + ".coolontime",
+                               CkCallbackResumeThread());
+        else {
+            CkError("WARNING: no coolontime file for restart\n");
+            }
+        // read ionization fractions
+        if(arrayFileExists(basefilename + "." + COOL_ARRAY0_EXT, nTotalParticles))
+            treeProxy.readCoolArray0(basefilename + "." + COOL_ARRAY0_EXT,
+                                     CkCallbackResumeThread());
+        else {
+            CkError("WARNING: no CoolArray0 file for restart\n");
+            }
+        if(arrayFileExists(basefilename + "." + COOL_ARRAY1_EXT, nTotalParticles))
+            treeProxy.readCoolArray1(basefilename + "." + COOL_ARRAY1_EXT,
+                                     CkCallbackResumeThread());
+        else {
+            CkError("WARNING: no CoolArray1 file for restart\n");
+            }
+        if(arrayFileExists(basefilename + "." + COOL_ARRAY2_EXT, nTotalParticles))
+            treeProxy.readCoolArray2(basefilename + "." + COOL_ARRAY2_EXT,
+                                     CkCallbackResumeThread());
+        else {
+            CkError("WARNING: no CoolArray2 file for restart\n");
+            }
+        if(arrayFileExists(basefilename + "." + COOL_ARRAY3_EXT, nTotalParticles))
+            treeProxy.readCoolArray3(basefilename + "." + COOL_ARRAY3_EXT,
+                                     CkCallbackResumeThread());
+        else {
+            CkError("WARNING: no CoolArray3 file for restart\n");
+            }
+        // reset thermal energy with ionization fractions
+        double dTuFac = param.dGasConst/(param.dConstGamma-1)
+            /param.dMeanMolWeight;
+        treeProxy.RestartEnergy(dTuFac, CkCallbackResumeThread());
+        }
+#endif
+    }
+
+/*
+ * Initialize energy on restart
+ */
+void TreePiece::RestartEnergy(double dTuFac, // T to internal energy
+                              const CkCallback& cb)
+{
+#ifndef COOLING_NONE
+    COOL *cl;
+
+    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+    cl = dm->Cool;
+#endif
+
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+	if (p->isGas()) {
+	    double T,E;
+#ifndef COOLING_NONE
+	    T = p->u() / dTuFac;
+            PERBARYON Y;
+            CoolPARTICLEtoPERBARYON(cl, &Y, &p->CoolParticle());
+            
+	    p->u() = clThermalEnergy(Y.Total,T)*cl->diErgPerGmUnit;
+#endif
+	    p->uPred() = p->u();
+	    }
+	}
+    contribute(cb);
+    }
+
+/**
  *  @brief Perform the SPH force calculation.
  *  @param activeRung Timestep rung (and above) on which to perform
  *  SPH

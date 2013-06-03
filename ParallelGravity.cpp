@@ -1770,8 +1770,12 @@ void Main::setupICs() {
       if(dTime < vdOutTime[iOut]) break;
       }
 	
-  if(param.bGasCooling || param.bStarForm) 
+  if(param.iStartStep) bIsRestarting = true;
+
+  if(param.bGasCooling || param.bStarForm) {
       initCooling();
+      if(param.iStartStep) restartGas();
+      }
   
   if(param.bStarForm || param.bFeedback)
       param.stfm->CheckParams(prm, param);
@@ -1785,7 +1789,11 @@ void Main::setupICs() {
       param.feedback->NullFeedback();
 
   string achLogFileName = string(param.achOutName) + ".log";
-  ofstream ofsLog(achLogFileName.c_str(), ios_base::trunc);
+  ofstream ofsLog;
+  if(bIsRestarting)
+      ofsLog.open(achLogFileName.c_str(), ios_base::app);
+  else
+      ofsLog.open(achLogFileName.c_str(), ios_base::trunc);
   if(!ofsLog)
       CkAbort("Error opening log file.");
       
@@ -1875,12 +1883,9 @@ void Main::setupICs() {
     treeProxy.setSoft(param.dSoft, CkCallbackResumeThread());
   }
 	
-  if(param.bPeriodic) {	// puts all particles within the boundary
-      ckout << "drift particles to reset" << endl;
-      treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
-      ckout << "end drift particles to reset" << endl;
-
-  }
+// for periodic, puts all particles within the boundary
+// Also assigns keys and sorts.
+  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 
   initialForces();
 }

@@ -503,6 +503,7 @@ public:
 	void initCooling();
 	void initStarLog();
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
+        void restartGas();
 	void doSph(int activeRung, int bNeedDensity = 1);
 	void FormStars(double dTime, double dDelta);
 	void StellarFeedback(double dTime, double dDelta);
@@ -964,6 +965,8 @@ private:
 	int nStoreStar;
 	/// MaxIOrder for output
 	int64_t nMaxOrder;
+        /// Start particle for reading
+        int64_t nStartRead;
 	/// particle count for output
 	int myIOParticles;
 
@@ -1459,6 +1462,17 @@ public:
                        const bool bDoubleVel,
 		       const CkCallback& cb);
 
+        void readIOrd(const std::string& filename, const CkCallback& cb);
+        void readIGasOrd(const std::string& filename, const CkCallback& cb);
+        void readESNrate(const std::string& filename, const CkCallback& cb);
+        void readOxMassFrac(const std::string& filename, const CkCallback& cb);
+        void readFeMassFrac(const std::string& filename, const CkCallback& cb);
+        void readCoolOnTime(const std::string& filename, const CkCallback& cb);
+        void readCoolArray0(const std::string& filename, const CkCallback& cb);
+        void readCoolArray1(const std::string& filename, const CkCallback& cb);
+        void readCoolArray2(const std::string& filename, const CkCallback& cb);
+        void readCoolArray3(const std::string& filename, const CkCallback& cb);
+        void RestartEnergy(double dTuFac, const CkCallback& cb);
         void findTotalMass(CkCallback &cb);
         void recvTotalMass(CkReductionMsg *msg);
 
