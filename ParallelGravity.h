@@ -1449,7 +1449,7 @@ public:
 	void initCoolingData(const CkCallback& cb);
 	// Scale velocities (needed to convert to canonical momenta for
 	// comoving coordinates.)
-	void velScale(double dScale);
+	void velScale(double dScale, const CkCallback& cb);
 
 	/// @brief Load I.C. from Tipsy file
         /// @param filename tipsy file
@@ -1728,8 +1728,6 @@ public:
 	*/
 #if 0
 	void receiveNode(GenericTreeNode &node, int chunk, unsigned int reqID);
-	/// Just and inline version of receiveNode
-	void receiveNode_inline(GenericTreeNode &node, int chunk, unsigned int reqID);
 #endif
 	/// @brief Find the key in the KeyTable, and copy the node over the passed pointer
 	const GenericTreeNode* lookupNode(Tree::NodeKey key);
