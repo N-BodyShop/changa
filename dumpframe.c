@@ -1775,16 +1775,12 @@ void dfFinishFrame( struct DumpFrameContext *df, double dTime, double dStep, str
 	  }
 
 	df->nFrame++; /* NB: need to sort out something for restarts */
-	  fp = fopen(fileout,"w");
-	  /* assert(fp!=NULL); */
-	if(fp == NULL) {
-		CkError("DumpFrame open failed: %d; abandoning frame\n", errno);
-		goto Done;
-		}
+	  fp = CmiFopen(fileout,"w");
+	  assert(fp!=NULL);
 
 	  if (df->iEncode == DF_ENCODE_PPM) {
 		fprintf(fp,"P6\n#T=%20.10f\n%5i %5i\n255\n",dTime,in->nxPix,in->nyPix);
-		fwrite( gray, 3*iMax, sizeof(char), fp);
+		CmiFwrite( gray, 3*iMax, sizeof(char), fp);
 		}
 
 	else if (df->iEncode == DF_ENCODE_PNG) {
@@ -1825,9 +1821,8 @@ void dfFinishFrame( struct DumpFrameContext *df, double dTime, double dStep, str
 #endif
 	}
 
-	fclose(fp);
+	CmiFclose(fp);
 
-Done:
 	if (df->dDumpFrameTime > 0 && dTime >= df->dTime)
 	  df->dTime = df->dTime + df->dDumpFrameTime;
 	

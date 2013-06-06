@@ -18,8 +18,8 @@ BaseLB * AllocateOrb3dLB();
 class Orb3dLB : public CentralLB {
   friend class MultistepLB;
 private:
-  CmiBool firstRound; 
-  CmiBool centroidsAllocated;
+  bool firstRound;
+  bool centroidsAllocated;
   ComparatorFn compares[NDIMS];
   ComparatorFn pc[NDIMS];
   // pointer to stats->to_proc
@@ -37,7 +37,7 @@ private:
   CkVec<TPObject> tps;
   CkVec<Node> nodes;
 
-  CmiBool QueryBalanceNow(int step);
+  bool QueryBalanceNow(int step);
 
   void printData(BaseLB::LDStats &stats, int phase, int *revObjMap);
 

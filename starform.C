@@ -150,8 +150,7 @@ void Main::FormStars(double dTime, double dDelta)
     // XXX need to check whether a treebuild needs the domain
     // decomposition.  If not, this could be avoided.
     //
-    double tolerance = 0.01;	// tolerance for domain decomposition
-    sorter.startSorting(dataManagerID, tolerance,
+    sorter.startSorting(dataManagerID, ddTolerance,
                         CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);

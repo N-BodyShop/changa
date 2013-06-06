@@ -42,7 +42,7 @@ void MultistepLB_notopo::receiveCentroids(CkReductionMsg *msg){
 
 
 
-CmiBool MultistepLB_notopo::QueryBalanceNow(int step){
+bool MultistepLB_notopo::QueryBalanceNow(int step){
  if(CkMyPe() == 0) CkPrintf("Orb3dLB_notopo: Step %d\n", step);
   if(step == 0) return false;
   return true;
@@ -68,10 +68,6 @@ void MultistepLB_notopo::mergeInstrumentedData(int phase, BaseLB::LDStats *stats
   int whichPos;
   int numAdditional;
 
-  // tune alpha as needed - this is the merge parameter
-  double alpha = 0.0;
-  double savedWall;
-  
   if(phase == -1){
 #ifdef MCLBMSV
     CkPrintf("phase = -1, discarding\n");
@@ -101,17 +97,6 @@ void MultistepLB_notopo::mergeInstrumentedData(int phase, BaseLB::LDStats *stats
 	  }
       }
       
-  // Attribute background load to pieces.
-  float *tp_bg = new float[stats->count];
-  for(int i = 0; i < stats->count; i++){
-      if(stats->procs[i].n_objs != 0)
-	  tp_bg[stats->procs[i].pe] = stats->procs[i].bg_walltime
-	      /stats->procs[i].n_objs;
-      }
-  for(int i = 0; i < stats->n_objs; i++)
-      stats->objData[i].wallTime += tp_bg[stats->from_proc[i]];
-  delete[] tp_bg;
-
   len = savedPhaseStats.length();
   
   if(phase > len-1){
@@ -263,7 +248,8 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 	// insignificant number of inactive objects; migrate them anyway
   	for(int i = 0; i < stats->n_objs; i++){
     	    int lb = tpCentroids[i].tag;
-            if(!stats->objData[lb].migratable){
+            if(!stats->objData[lb].migratable
+		&& tpCentroids[i].myNumParticles > 0){
         	stats->objData[lb].migratable = 1;
         	stats->n_migrateobjs++;
 		numActiveObjects++;
@@ -360,7 +346,6 @@ void MultistepLB_notopo::greedy(BaseLB::LDStats *stats, int count, int phase, in
   TPObject *tp_array = new TPObject[nmig];
   int j = 0;
   for(int i = 0; i < stats->n_objs; i++){
-    int tp = tpCentroids[i].tag;
     int lb = tpCentroids[i].tag;
 
     if(!stats->objData[lb].migratable) continue;
@@ -454,7 +439,6 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
   int numProcessed = 0;
 
   for(int i = 0; i < numobjs; i++){
-    int tp = tpCentroids[i].tp;
     int lb = tpCentroids[i].tag;
 
 

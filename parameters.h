@@ -102,6 +102,8 @@ typedef struct parameters {
     // Output parameters
     //
     int bStandard;
+    int bDoublePos;
+    int bDoubleVel;
     int bOverwrite;
     int bParaRead;
     int bParaWrite;
@@ -209,6 +211,8 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.iRandomSeed;
     p|param.sinks;
     p|param.bStandard;
+    p|param.bDoublePos;
+    p|param.bDoubleVel;
     p|param.bOverwrite;
     p|param.bParaRead;
     p|param.bParaWrite;
