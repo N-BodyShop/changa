@@ -813,6 +813,8 @@ Main::Main(CkArgMsg* m) {
 #endif
 	    }
 	
+        dTimeOld = 0.0; // Reset if this is restarting from an output.
+
 	/*
 	 ** Make sure that we have some setting for nReplicas if
 	 ** bPeriodic is set.
@@ -2462,7 +2464,7 @@ Main::calcEnergy(double dTime, double wallTime, const char *achLogFileName)
     
     double a = csmTime2Exp(param.csm, dTime);
     
-    if(first && !bIsRestarting) {
+    if(first && (!bIsRestarting || dTimeOld == 0.0)) {
 	fprintf(fpLog, "# time redshift TotalEVir TotalE Kinetic Virial Potential TotalECosmo Ethermal Lx Ly Lz Wallclock\n");
 	dEcosmo = 0.0;
 	first = 0;
