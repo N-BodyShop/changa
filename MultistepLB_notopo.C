@@ -44,7 +44,7 @@ void MultistepLB_notopo::receiveCentroids(CkReductionMsg *msg){
 
 bool MultistepLB_notopo::QueryBalanceNow(int step){
  if(CkMyPe() == 0) CkPrintf("Orb3dLB_notopo: Step %d\n", step);
-  if(step == 0) return false;
+ //  if(step == 0) return false;
   return true;
 
 }
@@ -423,7 +423,7 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
   // there are as many entries in it as there are
   // migratable (active) tree pieces
  vector<OrbObject> tp_array;
- tp_array.reserve(nmig);
+ tp_array.resize(nmig);
 
   if (_lb_args.debug()>=2) {
     CkPrintf("[work2] ready tp_array data structure\n");
@@ -471,6 +471,27 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
   orbPartition(tpEvents,box,stats->count,tp_array, stats);
 
   refine(stats, numobjs);
+
+  if(_lb_args.debug() >= 2) {
+      // Write out "particle file" of load balance information
+      char achFileName[1024];
+      sprintf(achFileName, "lb.%d.sim", step());
+      FILE *fp = fopen(achFileName, "w");
+      CkAssert(fp != NULL);
+      fprintf(fp, "%d %d 0\n", nrecvd, nrecvd);
+      for(int i = 0; i < nrecvd; i++) {
+	  CkAssert(tpCentroids[i].tag < numobjs);
+	  CkAssert(tpCentroids[i].tag >= 0);
+	  fprintf(fp, "%g %g %g %g 0.0 0.0 0.0 %d %d\n",
+		  stats->objData[tpCentroids[i].tag].wallTime,
+		  tpCentroids[i].vec.x,
+		  tpCentroids[i].vec.y,
+		  tpCentroids[i].vec.z,
+		  stats->to_proc[tpCentroids[i].tag],
+		  tpCentroids[i].tp);
+	  }
+      fclose(fp);
+      }
 }
 
 
