@@ -171,6 +171,7 @@ class BHDensitySmoothParams : public SmoothParams
 {
  protected:
     double dTime;
+    double dDelta;
     double a, H; // Cosmological parameters
     Sinks s;
     
@@ -186,10 +187,11 @@ class BHDensitySmoothParams : public SmoothParams
  public:
     BHDensitySmoothParams() {}
     BHDensitySmoothParams(int _iType, int am, CSM csm, double _dTime,
-			  Sinks _s) {
+			  double _dDelta, Sinks _s) {
 	iType = _iType;
 	activeRung = am;
 	dTime = _dTime;
+	dDelta = _dDelta;
 	if(csm->bComove) {
 	    H = csmTime2Hub(csm,dTime);
 	    a = csmTime2Exp(csm,dTime);
@@ -205,6 +207,7 @@ class BHDensitySmoothParams : public SmoothParams
     virtual void pup(PUP::er &p) {
         SmoothParams::pup(p);//Call base class
 	p|dTime;
+	p|dDelta;
 	p|a;
 	p|H;
 	p|s;

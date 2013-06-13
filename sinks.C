@@ -1003,7 +1003,7 @@ void Main::doSinks(double dTime, double dDelta, int iKickRung)
 	if (param.sinks.bBHSink) {
 	    /* Smooth Bondi-Hoyle Accretion: radius set by nSmooth */
 	    BHDensitySmoothParams pBHDen(TYPE_GAS, iKickRung, param.csm,
-					 dTime, param.sinks);
+					 dTime, param.dDelta, param.sinks);
 	    treeProxy.startSmooth(&pBHDen, 1, param.nSmooth, dfBall2OverSoft2,
 				  CkCallbackResumeThread());
 	    BHAccreteSmoothParams pBHAcc(TYPE_GAS, iKickRung, param.csm,
@@ -1276,7 +1276,8 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	      iRung = q->rung; 
 	      if (iRung > p->rung) iRung = p->rung;
 #endif
-	      dtEff = s.dSinkCurrentDelta;
+	      // dtEff = s.dSinkCurrentDelta;
+	      dtEff = RungToDt(dDelta, p->rung);
 	      /* If victim has unclosed kick -- don't actually take the mass
 	       If sink has unclosed kick we shouldn't even be here!
 	       When victim is active use his timestep if longer 
@@ -1442,7 +1443,8 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	    iRung = q->rung;
 	    if (iRung > p->rung) iRung = p->rung;
 #endif
-	    dtEff = s.dSinkCurrentDelta;
+	    // dtEff = s.dSinkCurrentDelta;
+	    dtEff = RungToDt(dDelta, p->rung);
 	      /* If victim has unclosed kick -- don't actually take the mass
 	       If sink has unclosed kick we shouldn't even be here!
 	       When victim is active use his timestep if longer 
@@ -1571,7 +1573,8 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	    weat = -1e37; /* reset so other particles can be selected JMB 7/9/09 */
 
 	    if(q == NULL) {
-	      dtEff = s.dSinkCurrentDelta; /**pow(0.5,iRung-smf->iSinkCurrentRung);*/
+                // dtEff = s.dSinkCurrentDelta; /**pow(0.5,iRung-smf->iSinkCurrentRung);*/
+	      dtEff = RungToDt(dDelta, p->rung);
 	      CkPrintf("BHSink %d:  WARNING!! Not enough edible particles.  Time: %g Mass not eaten: %g \n",p->iOrder,dTime,mdotCurr*dtEff);
 	      if(naccreted == 0) return;
 	      else goto dofeedback;
@@ -1583,7 +1586,8 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	      iRung = q->rung;
 	      if (iRung > p->rung) iRung = p->rung;
 #endif
-	      dtEff = s.dSinkCurrentDelta;
+	      // dtEff = s.dSinkCurrentDelta;
+	      dtEff = RungToDt(dDelta, p->rung);
 	      dmq = mdotCurr*dtEff;
 
 
@@ -1652,7 +1656,8 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	if(s.dBHSinkFeedbackFactor != 0.0) {  /* allows FB to be turned off JMB 7/20/09 */
 	  dE = s.dBHSinkFeedbackFactor*dm; /* dE based on actual mass eaten */
 
-	  dtEff = s.dSinkCurrentDelta;
+	  // dtEff = s.dSinkCurrentDelta;
+	  dtEff = RungToDt(dDelta, p->rung);
 	  dmAvg = mdot*dtEff;    
 	  CkPrintf("BHSink %d:  Delta: %g Time: %.8f dm: %g dE %g\n",
 		   p->iOrder,dtEff,dTime,dm,dE);
