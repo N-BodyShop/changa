@@ -1606,6 +1606,8 @@ public:
 			const CkCallback &cb);
   /// @brief set sink type based on formation time.
   void SetSink(double dSinkMassMin, const CkCallback &cb);
+  /// @brief set sink timesteps.
+  void SinkStep(int iCurrSinkRung, int iKickRung, const CkCallback &cb);
   void formSinks(int bJeans, double dJConst2, int bDensity,
 		 double dDensityCut, double dTime, int iKickRung, int bSimple,
 		 const CkCallback &cb);

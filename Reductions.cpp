@@ -60,6 +60,7 @@ CkReductionMsg* max_count_reduce(int nMsg, CkReductionMsg** msgs) {
     int* pmaxcount = static_cast<int *>(msgs[0]->getData());
     int iMaxRung = pmaxcount[0];  // maxmimum rung
     int nMaxRung = pmaxcount[1];  // count in maximum rung
+    int iMaxRungGas = pmaxcount[2];  // maximum rung for gas
     for(int i = 1; i < nMsg; i++) {
 	pmaxcount = static_cast<int *>(msgs[i]->getData());
 	if(pmaxcount[0] > iMaxRung) {
@@ -69,11 +70,15 @@ CkReductionMsg* max_count_reduce(int nMsg, CkReductionMsg** msgs) {
 	else if(pmaxcount[0] == iMaxRung) {
 	    nMaxRung += pmaxcount[1];
 	    }
+	if(pmaxcount[2] > iMaxRungGas) {
+	    iMaxRungGas = pmaxcount[2];
+            }
 	}
-    int newcount[2];
+    int newcount[3];
     newcount[0] = iMaxRung;
     newcount[1] = nMaxRung;
-    return CkReductionMsg::buildNew(2 * sizeof(int), newcount);
+    newcount[2] = iMaxRungGas;
+    return CkReductionMsg::buildNew(3 * sizeof(int), newcount);
 }
 
 /// Return a single object, given many copies of it

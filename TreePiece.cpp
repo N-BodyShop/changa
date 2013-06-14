@@ -1025,6 +1025,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 		       const CkCallback& cb) {
   int iCurrMaxRung = 0;
   int nMaxRung = 0;  // number of particles in maximum rung
+  int iCurrMaxRungGas = 0;
   
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
     GravityParticle *p = &myParticles[i];
@@ -1096,6 +1097,8 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	  }
       else if(iNewRung == iCurrMaxRung)
 	  nMaxRung++;
+      if(iNewRung > iCurrMaxRungGas && myParticles[i].isGas())
+          iCurrMaxRungGas = iNewRung;
       myParticles[i].rung = iNewRung;
 #ifdef NEED_DT
       myParticles[i].dt = dTIdeal;
@@ -1103,10 +1106,11 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
     }
   }
   // Pack into array for reduction
-  int newcount[2];
+  int newcount[3];
   newcount[0] = iCurrMaxRung;
   newcount[1] = nMaxRung;
-  contribute(2*sizeof(int), newcount, max_count, cb);
+  newcount[2] = iCurrMaxRungGas;
+  contribute(3*sizeof(int), newcount, max_count, cb);
 }
 
 void TreePiece::truncateRung(int iCurrMaxRung, const CkCallback& cb) {

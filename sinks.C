@@ -325,6 +325,18 @@ void TreePiece::SetSink(double dSinkMassMin, const CkCallback &cb)
     contribute(sizeof(int), &nSink, CkReduction::sum_int, cb);
     }
     
+void TreePiece::SinkStep(int iCurrSinkRung, int iKickRung,
+                         const CkCallback &cb)
+{
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+        if(p->rung >= iKickRung && TYPETest(p, TYPE_SINK|TYPE_SINKING)) {
+           if(iCurrSinkRung > p->rung) p->rung = iCurrSinkRung;
+           }
+        }
+    contribute(cb);
+    }
+
 ///
 /// @brief Form sink particles; main routine
 /// @param dTime Current time.
