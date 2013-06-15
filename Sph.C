@@ -297,6 +297,9 @@ Main::restartGas()
         if(arrayFileExists(basefilename + ".FeMassFrac", nTotalParticles))
             treeProxy.readFeMassFrac(basefilename + ".FeMassFrac",
                                CkCallbackResumeThread());
+        if(arrayFileExists(basefilename + ".massform", nTotalParticles))
+            treeProxy.readMassForm(basefilename + ".massform",
+                               CkCallbackResumeThread());
         }
 #ifndef COOLING_NONE
     if(param.bGasCooling) {

@@ -2555,6 +2555,7 @@ void Main::writeOutput(int iStep)
 
     OxOutputParams pOxOut(string(achFile)+"");
     FeOutputParams pFeOut(string(achFile)+"");
+    MFormOutputParams pMFormOut(string(achFile)+"");
     coolontimeOutputParams pcoolontimeOut(string(achFile)+"");
     ESNRateOutputParams pESNRateOut(string(achFile)+"");
 #ifndef COOLING_NONE
@@ -2571,6 +2572,8 @@ void Main::writeOutput(int iStep)
 	    treeProxy[0].outputBinary(pOxOut, param.bParaWrite,
 				      CkCallbackResumeThread());
 	    treeProxy[0].outputBinary(pFeOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	    treeProxy[0].outputBinary(pMFormOut, param.bParaWrite,
 				      CkCallbackResumeThread());
 	    treeProxy[0].outputBinary(pcoolontimeOut, param.bParaWrite,
 				      CkCallbackResumeThread());
@@ -2603,6 +2606,8 @@ void Main::writeOutput(int iStep)
 				     CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pFeOut, param.bParaWrite,
 				     CkCallbackResumeThread());
+	    treeProxy[0].outputASCII(pMFormOut, param.bParaWrite,
+				      CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pcoolontimeOut, param.bParaWrite,
 				     CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pESNRateOut, param.bParaWrite,

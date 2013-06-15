@@ -440,6 +440,33 @@ void TreePiece::readESNrate(const std::string& filename, const CkCallback& cb)
     contribute(cb);
     }
 
+/// @brief read Formation Mass file
+void TreePiece::readMassForm(const std::string& filename, const CkCallback& cb)
+{
+    if(nStartRead >= 0 && myNumStar > 0) {
+        FILE *fp = CmiFopen(filename.c_str(), "r");
+        CkAssert(fp != NULL);
+        int64_t nTot;
+        int nread;
+        nread = fscanf(fp, "%ld\n", &nTot);
+        CkAssert(nread == 1);
+        for(int i = 0; i < nStartRead; i++) {
+            double dummy;
+            nread = fscanf(fp, "%lf\n", &dummy);
+            CkAssert(nread == 1);
+            }
+        for(int i = 0; i < myNumParticles; i++) {
+            double dummy;
+            nread = fscanf(fp, "%lf\n", &dummy);
+            CkAssert(nread == 1);
+            if(myParticles[i+1].isStar())
+                myParticles[i+1].fMassForm() = dummy;
+            }
+        CmiFclose(fp);
+        }
+    contribute(cb);
+    }
+
 /// @brief read coolontime file
 void TreePiece::readCoolOnTime(const std::string& filename, const CkCallback& cb)
 {

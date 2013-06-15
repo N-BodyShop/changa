@@ -133,6 +133,7 @@ mainmodule ParallelGravity {
   PUPable Cool2OutputParams;
   PUPable OxOutputParams;
   PUPable FeOutputParams;
+  PUPable MFormOutputParams;
   PUPable coolontimeOutputParams;
   PUPable ESNRateOutputParams;
   PUPable DtOutputParams;
@@ -237,6 +238,7 @@ mainmodule ParallelGravity {
     entry void readESNrate(const std::string& filename, const CkCallback& cb);
     entry void readOxMassFrac(const std::string& filename, const CkCallback& cb);
     entry void readFeMassFrac(const std::string& filename, const CkCallback& cb);
+    entry void readMassForm(const std::string& filename, const CkCallback& cb);
     entry void readCoolOnTime(const std::string& filename, const CkCallback& cb);
     entry void readCoolArray0(const std::string& filename, const CkCallback& cb);
     entry void readCoolArray1(const std::string& filename, const CkCallback& cb);

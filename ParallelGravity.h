@@ -1467,6 +1467,7 @@ public:
         void readESNrate(const std::string& filename, const CkCallback& cb);
         void readOxMassFrac(const std::string& filename, const CkCallback& cb);
         void readFeMassFrac(const std::string& filename, const CkCallback& cb);
+        void readMassForm(const std::string& filename, const CkCallback& cb);
         void readCoolOnTime(const std::string& filename, const CkCallback& cb);
         void readCoolArray0(const std::string& filename, const CkCallback& cb);
         void readCoolArray1(const std::string& filename, const CkCallback& cb);
