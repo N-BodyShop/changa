@@ -409,7 +409,8 @@ void TreePiece::initBucketsSmooth(Tsmooth tSmooth) {
 
 void TreePiece::calculateSmoothLocal() {
     dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-    *((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + thisIndex + 1;
+    // Give smooths higher priority than gravity
+    *((int *)CkPriorityPtr(msg)) = thisIndex + 1;
     CkSetQueueing(msg,CK_QUEUEING_IFIFO);
     msg->val=0;
     thisProxy[thisIndex].nextBucketSmooth(msg);
@@ -423,7 +424,9 @@ void TreePiece::nextBucketSmooth(dummyMsg *msg){
 
   int currentBucket = sSmoothState->currentBucket;
   
-  while(i<_yieldPeriod && currentBucket<numBuckets){
+  // smooths are faster than gravity, and they need cache messages to
+  // get through.  Therefore yield after every bucket.
+  while(i<1 && currentBucket<numBuckets){
     smoothNextBucket();
     currentBucket++;
     sSmoothState->currentBucket++;

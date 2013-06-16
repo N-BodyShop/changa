@@ -388,7 +388,7 @@ mainmodule ParallelGravity {
     entry void finishSmoothWalk();
 
     entry [expedited] void fillRequestNode(CkCacheRequestMsg<KeyType> *msg);
-    //entry [local] void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source);
+    entry [local] void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source);
     //entry void receiveNode(GenericTreeNode node[1],
     //	       unsigned int reqID);
     //entry void receiveParticle(GravityParticle part,
@@ -396,8 +396,8 @@ mainmodule ParallelGravity {
     entry [expedited] void fillRequestParticles(CkCacheRequestMsg<KeyType> *msg);
     entry [expedited] void fillRequestSmoothParticles(CkCacheRequestMsg<KeyType> *msg);
     entry void flushSmoothParticles(CkCacheFillMsg<KeyType> *msg);
-    //entry [local] void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
-    //entry [local] void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
+    entry [local] void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
+    entry [local] void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
 
     // jetley
     entry void startlb(CkCallback &cb, int activeRung);
