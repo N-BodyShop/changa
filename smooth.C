@@ -852,7 +852,7 @@ void TreePiece::startReSmooth(SmoothParams* params,
 
 void TreePiece::calculateReSmoothLocal() {
     dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-    *((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + thisIndex + 1;
+    *((int *)CkPriorityPtr(msg)) = /* numTreePieces * numChunks + */ thisIndex + 1;
     CkSetQueueing(msg,CK_QUEUEING_IFIFO);
     msg->val=0;
     thisProxy[thisIndex].nextBucketReSmooth(msg);
