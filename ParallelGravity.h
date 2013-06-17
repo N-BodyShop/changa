@@ -488,6 +488,7 @@ public:
 	void initialForces();
 	void doSimulation();
 	void restart();
+	void waitForGravity(const CkCallback &cb, double startTime);
         void advanceBigStep(int);
 	int adjust(int iKickRung);
 	void rungStats();

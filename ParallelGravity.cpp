@@ -1306,6 +1306,28 @@ inline int Main::nextMaxRungIncDF(int nextMaxRung)
     return nextMaxRung;
 }
 
+/// @brief wait for gravity in the case of concurrent SPH
+inline void Main::waitForGravity(const CkCallback &cb, double startTime) 
+{
+    if(param.bConcurrentSph && param.bDoGravity) {
+#ifdef PUSH_GRAVITY
+      if(bDoPush){
+        CkWaitQD();
+      }
+      else{
+#endif
+        CkFreeMsg(cb.thread_delay());
+#ifdef PUSH_GRAVITY
+      }
+#endif
+        CkPrintf("Calculating gravity and SPH took %g seconds.\n",
+		 CkWallTimer()-startTime);
+#ifdef SELECTIVE_TRACING
+        turnProjectionsOff();
+#endif
+	}
+    }
+
 ///
 /// @brief Take one base timestep of the simulation.
 /// @param iStep The current step number.
@@ -1587,50 +1609,6 @@ void Main::advanceBigStep(int iStep) {
             memoryStatsCache();
         }
     
-    if(param.bConcurrentSph && param.bDoGravity) {
-#ifdef PUSH_GRAVITY
-      if(bDoPush){
-        CkWaitQD();
-      }
-      else{
-#endif
-        CkFreeMsg(cbGravity.thread_delay());
-#ifdef PUSH_GRAVITY
-      }
-#endif
-	//ckout << "Calculating gravity and SPH took "
-	//      << (CkWallTimer() - startTime) << " seconds." << endl;
-        CkPrintf("Calculating gravity and SPH took %g seconds.\n", CkWallTimer()-startTime);
-#ifdef SELECTIVE_TRACING
-        turnProjectionsOff();
-#endif
-	}
-    
-#if COSMO_STATS > 0
-    /********* TreePiece Statistics ********/
-    ckerr << "Total statistics iteration " << iStep << "/";
-    int printingStep = currentStep;
-    while (printingStep) {
-      ckerr << ((printingStep & MAXSUBSTEPS) ? "1" : "0");
-      printingStep = (printingStep & ~MAXSUBSTEPS) << 1;
-    }
-    //ckerr << " (rungs " << activeRung << "-" << nextMaxRung << ")" << ":" << endl;
-    CkReductionMsg *tps;
-    treeProxy.collectStatistics(CkCallbackResumeThread((void*&)tps));
-    ((TreePieceStatistics*)tps->getData())->printTo(ckerr);
-
-    /********* Cache Statistics ********/
-    CkReductionMsg *cs;
-    cacheNode.collectStatistics(CkCallbackResumeThread((void*&)cs));
-    ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
-    cacheGravPart.collectStatistics(CkCallbackResumeThread((void*&)cs));
-    ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
-    cacheSmoothPart.collectStatistics(CkCallbackResumeThread((void*&)cs));
-    ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
-#endif
-
-    treeProxy.finishNodeCache(CkCallbackResumeThread());
-
     if(!param.bStaticTest) {
       // Closing Kick
       double dKickFac[MAXRUNG+1];
@@ -1667,6 +1645,7 @@ void Main::advanceBigStep(int iStep) {
 	  if(verbosity)
 	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
+      waitForGravity(cbGravity, startTime);
       treeProxy.kick(activeRung, dKickFac, 1, param.bDoGas,
 		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
       // 1/2 step uDot update
@@ -1683,6 +1662,33 @@ void Main::advanceBigStep(int iStep) {
 	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
     }
+    else
+	waitForGravity(cbGravity, startTime);
+
+#if COSMO_STATS > 0
+    /********* TreePiece Statistics ********/
+    ckerr << "Total statistics iteration " << iStep << "/";
+    int printingStep = currentStep;
+    while (printingStep) {
+      ckerr << ((printingStep & MAXSUBSTEPS) ? "1" : "0");
+      printingStep = (printingStep & ~MAXSUBSTEPS) << 1;
+    }
+    //ckerr << " (rungs " << activeRung << "-" << nextMaxRung << ")" << ":" << endl;
+    CkReductionMsg *tps;
+    treeProxy.collectStatistics(CkCallbackResumeThread((void*&)tps));
+    ((TreePieceStatistics*)tps->getData())->printTo(ckerr);
+
+    /********* Cache Statistics ********/
+    CkReductionMsg *cs;
+    cacheNode.collectStatistics(CkCallbackResumeThread((void*&)cs));
+    ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
+    cacheGravPart.collectStatistics(CkCallbackResumeThread((void*&)cs));
+    ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
+    cacheSmoothPart.collectStatistics(CkCallbackResumeThread((void*&)cs));
+    ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
+#endif
+
+    treeProxy.finishNodeCache(CkCallbackResumeThread());
 
 #ifdef CHECK_TIME_WITHIN_BIGSTEP
     if(param.iWallRunTime > 0 && ((CkWallTimer()-wallTimeStart) > param.iWallRunTime*60.)){
