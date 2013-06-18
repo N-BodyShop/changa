@@ -813,6 +813,8 @@ Main::Main(CkArgMsg* m) {
 #endif
 	    }
 	
+        dTimeOld = 0.0; // Reset if this is restarting from an output.
+
 	/*
 	 ** Make sure that we have some setting for nReplicas if
 	 ** bPeriodic is set.
@@ -1469,10 +1471,11 @@ void Main::advanceBigStep(int iStep) {
     /*
      * Form stars at user defined intervals
      */
+    double dTimeSF = RungToDt(param.dDelta, nextMaxRung);
     if(param.bStarForm && param.stfm->isStarFormRung(activeRung))
-	FormStars(dTime, param.stfm->dDeltaStarForm);
+	FormStars(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
     if(param.bFeedback && param.stfm->isStarFormRung(activeRung)) 
-	StellarFeedback(dTime, param.stfm->dDeltaStarForm);
+	StellarFeedback(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
 
     ckout << "\nStep: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
           << " Time: " << dTime
@@ -1783,8 +1786,12 @@ void Main::setupICs() {
       if(dTime < vdOutTime[iOut]) break;
       }
 	
-  if(param.bGasCooling || param.bStarForm) 
+  if(param.iStartStep) bIsRestarting = true;
+
+  if(param.bGasCooling || param.bStarForm) {
       initCooling();
+      if(param.iStartStep) restartGas();
+      }
   
   if(param.bStarForm || param.bFeedback)
       param.stfm->CheckParams(prm, param);
@@ -1798,7 +1805,11 @@ void Main::setupICs() {
       param.feedback->NullFeedback();
 
   string achLogFileName = string(param.achOutName) + ".log";
-  ofstream ofsLog(achLogFileName.c_str(), ios_base::trunc);
+  ofstream ofsLog;
+  if(bIsRestarting)
+      ofsLog.open(achLogFileName.c_str(), ios_base::app);
+  else
+      ofsLog.open(achLogFileName.c_str(), ios_base::trunc);
   if(!ofsLog)
       CkAbort("Error opening log file.");
       
@@ -1888,12 +1899,9 @@ void Main::setupICs() {
     treeProxy.setSoft(param.dSoft, CkCallbackResumeThread());
   }
 	
-  if(param.bPeriodic) {	// puts all particles within the boundary
-      ckout << "drift particles to reset" << endl;
-      treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
-      ckout << "end drift particles to reset" << endl;
-
-  }
+// for periodic, puts all particles within the boundary
+// Also assigns keys and sorts.
+  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 
   initialForces();
 }
@@ -2463,7 +2471,7 @@ Main::calcEnergy(double dTime, double wallTime, const char *achLogFileName)
     
     double a = csmTime2Exp(param.csm, dTime);
     
-    if(first && !bIsRestarting) {
+    if(first && (!bIsRestarting || dTimeOld == 0.0)) {
 	fprintf(fpLog, "# time redshift TotalEVir TotalE Kinetic Virial Potential TotalECosmo Ethermal Lx Ly Lz Wallclock\n");
 	dEcosmo = 0.0;
 	first = 0;
@@ -2554,6 +2562,7 @@ void Main::writeOutput(int iStep)
 
     OxOutputParams pOxOut(string(achFile)+"");
     FeOutputParams pFeOut(string(achFile)+"");
+    MFormOutputParams pMFormOut(string(achFile)+"");
     coolontimeOutputParams pcoolontimeOut(string(achFile)+"");
     ESNRateOutputParams pESNRateOut(string(achFile)+"");
 #ifndef COOLING_NONE
@@ -2570,6 +2579,8 @@ void Main::writeOutput(int iStep)
 	    treeProxy[0].outputBinary(pOxOut, param.bParaWrite,
 				      CkCallbackResumeThread());
 	    treeProxy[0].outputBinary(pFeOut, param.bParaWrite,
+				      CkCallbackResumeThread());
+	    treeProxy[0].outputBinary(pMFormOut, param.bParaWrite,
 				      CkCallbackResumeThread());
 	    treeProxy[0].outputBinary(pcoolontimeOut, param.bParaWrite,
 				      CkCallbackResumeThread());
@@ -2602,6 +2613,8 @@ void Main::writeOutput(int iStep)
 				     CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pFeOut, param.bParaWrite,
 				     CkCallbackResumeThread());
+	    treeProxy[0].outputASCII(pMFormOut, param.bParaWrite,
+				      CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pcoolontimeOut, param.bParaWrite,
 				     CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pESNRateOut, param.bParaWrite,
