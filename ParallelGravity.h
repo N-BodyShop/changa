@@ -406,6 +406,9 @@ inline double RungToDt(double dDelta, int iRung) {
   return dDelta*RungToSubsteps(iRung)*MAXSUBSTEPS_INV;
 }
 
+/// @brief slot in MultistepLB to hold feedback phase load information
+const int PHASE_FEEDBACK = MAXRUNG + 1;
+
 /// @brief Overall flow control of the simulation.
 ///
 /// As well as controlling the overall flow of the simulation, the

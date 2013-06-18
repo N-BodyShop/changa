@@ -4623,6 +4623,9 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   if(activeRung == 0){
     numActiveParticles = myNumParticles;
   }
+  else if(activeRung == PHASE_FEEDBACK) {
+      numActiveParticles = myNumStar;
+      }
   else{
     for(numActiveParticles = 0, i = 1; i <= myNumParticles; i++)
       if(myParticles[i].rung >= activeRung)
