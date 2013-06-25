@@ -100,7 +100,7 @@ void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
 
 // Scale velocities (needed to convert to canonical momenta for
 // comoving coordinates.
-void TreePiece::velScale(double dScale)
+void TreePiece::velScale(double dScale, const CkCallback& cb)
 {
     for(unsigned int i = 0; i < myNumParticles; ++i) 
 	{
@@ -108,6 +108,7 @@ void TreePiece::velScale(double dScale)
 	    if(TYPETest(&myParticles[i+1], TYPE_GAS))
 		myParticles[i+1].vPred() *= dScale;
 	    }
+    contribute(cb);
     }
 
 /// After the bounding box has been found, we can assign keys to the particles
@@ -425,7 +426,6 @@ void TreePiece::finalizeBoundaries(ORBSplittersMsg *splittersMsg){
     //Evaluate the number of particles in each division
 
     GravityParticle dummy;
-    GravityParticle* divStart = *iter;
     Vector3D<double> divide(0.0,0.0,0.0);
     divide[dimen] = splittersMsg->pos[i];
     dummy.position = divide;
@@ -1704,7 +1704,7 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
       contribute(2 * sizeof(Key), bounds, CkReduction::concat, CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
     } else {
       // No particles assigned to this TreePiece
-      contribute(CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
+      contribute(0, NULL, CkReduction::concat, CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
     }
     break;
   case Binary_ORB:
@@ -2766,7 +2766,6 @@ void TreePiece::initBuckets() {
   int ewaldCondition = (bEwald ? 0 : 1);
   for (unsigned int j=0; j<numBuckets; ++j) {
     GenericTreeNode* node = bucketList[j];
-    int numParticlesInBucket = node->particleCount;
 
     // TODO: active bounds may give a performance boost in the
     // multi-timstep regime.
@@ -2799,8 +2798,6 @@ void TreePiece::startNextBucket() {
   if(currentBucket >= numBuckets)
     return;
 
-  GenericTreeNode *target = bucketList[currentBucket];
-
 #if INTERLIST_VER > 0
   // no need to do the following, because interlist walk and interlist compute are only
   // ever associated with each other, unlike the topdown walk, which may be associated
@@ -2824,6 +2821,8 @@ void TreePiece::startNextBucket() {
 #endif
 
 #else
+  GenericTreeNode *target = bucketList[currentBucket];
+
   sTopDown->init(sGravity, this);
   sGravity->init(target, activeRung, sLocal);
 #endif
@@ -2902,7 +2901,6 @@ void TreePiece::startNextBucket() {
 /*inline*/
 void TreePiece::finishBucket(int iBucket) {
   BucketGravityRequest *req = &bucketReqs[iBucket];
-  GenericTreeNode *node = bucketList[iBucket];
   int remaining;
 
   remaining = sRemoteGravityState->counterArrays[0][iBucket]
@@ -2956,7 +2954,9 @@ void TreePiece::continueWrapUp(){
   CkPrintf("[%d] markWalkDone TreePiece::continueWrapUp\n", thisIndex);
 #endif
 
+#ifdef CACHE_MEM_STATS
   memWithCache = CmiMemoryUsage()/(1024*1024);
+#endif
   nNodeCacheEntries = cacheNode.ckLocalBranch()->getCache()->size();
   nPartCacheEntries = cacheGravPart.ckLocalBranch()->getCache()->size();
 
@@ -3107,7 +3107,6 @@ void TreePiece::nextBucket(dummyMsg *msg){
       CkPrintf("[%d] inactive local bucket book-keep\n", thisIndex);
 #endif
       while(currentBucket < numBuckets && bucketList[currentBucket]->rungs < activeRung){
-        GenericTreeNode *bucket = bucketList[currentBucket];
 
         sLocalGravityState->counterArrays[0][currentBucket]--;
 #if COSMO_PRINT_BK > 1
@@ -3797,8 +3796,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       CkPrintf("[%d] inactive remote bucket book-keep chunk: %d\n", thisIndex, msg->chunkNum);
 #endif
       while(sRemoteGravityState->currentBucket < numBuckets && bucketList[sRemoteGravityState->currentBucket]->rungs < activeRung){
-        GenericTreeNode *bucket = bucketList[sRemoteGravityState->currentBucket];
-
         sRemoteGravityState->counterArrays[0][sRemoteGravityState->currentBucket]--;
 #if COSMO_PRINT_BK > 1
         CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", thisIndex, sRemoteGravityState->currentBucket, sRemoteGravityState->counterArrays[0][sRemoteGravityState->currentBucket], sLocalGravityState->counterArrays[0][sRemoteGravityState->currentBucket]);
@@ -4606,8 +4603,6 @@ void TreePiece::continueStartRemoteChunk(int chunk){
 
   // start prefetching next chunk
   if (++sPrefetchState->currentBucket < numChunks) {
-    int first, last;
-
     // Nothing needs to be changed for this chunk -
     // the prefetchReqs and their number remains the same
     // We only need to reassociate the tree walk with the
@@ -4656,6 +4651,9 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   if(activeRung == 0){
     numActiveParticles = myNumParticles;
   }
+  else if(activeRung == PHASE_FEEDBACK) {
+      numActiveParticles = myNumStar;
+      }
   else{
     for(numActiveParticles = 0, i = 1; i <= myNumParticles; i++)
       if(myParticles[i].rung >= activeRung)
@@ -4788,7 +4786,7 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, int reqID) {
 #endif
     nodeInterLocal += computed;
   } else if(node->getType() == Bucket) {
-    int computed;
+    int computed = 0;
     for(int i = node->firstParticle; i <= node->lastParticle; ++i) {
 #if COSMO_STATS > 1
       for(int j = reqnode->firstParticle; j <= reqnode->lastParticle; ++j) {
@@ -5199,9 +5197,11 @@ void TreePiece::pup(PUP::er& p) {
   if(p.isUnpacking()){
     dm = NULL;
 #ifndef COOLING_NONE
-    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
-    if(bGasCooling)
-	CoolData = CoolDerivsInit(dm->Cool);
+    if(!_inrestart) {           // not restarting from checkpoint
+        dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+        if(bGasCooling)
+            CoolData = CoolDerivsInit(dm->Cool);
+        }
 #endif
   }
 
@@ -5806,7 +5806,9 @@ void TreePiece::finishWalk()
 	       getObjTime(), myNumParticles);
   completedActiveWalks = 0;
   freeWalkObjects();
+#ifdef CACHE_MEM_STATS
   memPostCache = CmiMemoryUsage()/(1024*1024);
+#endif
 #ifdef CHECK_WALK_COMPLETIONS
   CkPrintf("[%d] inside finishWalk contrib callback\n", thisIndex);
 #endif

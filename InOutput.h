@@ -371,6 +371,27 @@ class FeOutputParams : public OutputParams
 	}
     };
 
+class MFormOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+	if (TYPETest(p, TYPE_STAR)) return p->fMassForm();
+	else return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    MFormOutputParams() {}
+    MFormOutputParams(std::string achFileName) { 
+	bVector = 0; 
+	fileName = achFileName+".massform";
+	}
+    PUPable_decl(MFormOutputParams);
+    MFormOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
 class MetalsDotOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p) {

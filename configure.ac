@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([ChaNGa], [2.0], [changa-users@u.washington.edu])
+AC_INIT([ChaNGa], [3.0], [changa-users@u.washington.edu])
 AC_CONFIG_SRCDIR([Reductions.h])
 AC_CONFIG_HEADER([config.h
 		  ../utility/structures/config.h])
@@ -60,6 +60,19 @@ if test "${MISSING_XDR}" = "yes" ; then
    CPPFLAGS="$CPPFLAGS -I.."
    LDFLAGS="$LDFLAGS -L../xdr"
 fi
+
+# 128 bit keys:
+AC_ARG_ENABLE([bigkeys],
+	[AS_HELP_STRING([--enable-bigkeys], [enable 128 bit hash keys])],
+	[bigkeys=yes], [bigkeys=no])
+if test "$bigkeys" = "yes" ; then
+    echo "BIGKEYS selected"
+    FLAG_BIGKEYS="-DBIGKEYS"
+else
+    FLAG_BIGKEYS=""
+fi
+
+AC_SUBST([FLAG_BIGKEYS])
 
 # Cooling:
 AC_ARG_ENABLE([cooling],
