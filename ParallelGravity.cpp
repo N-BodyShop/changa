@@ -2755,7 +2755,6 @@ int Main::adjust(int iKickRung)
 
     int iCurrMaxRung = ((int *)msg->getData())[0];
     int nMaxRung = ((int *)msg->getData())[1];
-    delete msg;
     if(nMaxRung <= param.nTruncateRung && iCurrMaxRung > iKickRung) {
 	if(verbosity)
 	    CkPrintf("n_CurrMaxRung = %d, iCurrMaxRung = %d: promoting particles\n", nMaxRung, iCurrMaxRung);
@@ -2769,6 +2768,7 @@ int Main::adjust(int iKickRung)
             iCurrSinkRung = iCurrMaxRungGas;
         treeProxy.SinkStep(iCurrSinkRung, iKickRung, CkCallbackResumeThread());
         }
+    delete msg;
     return iCurrMaxRung;
     }
 
