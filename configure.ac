@@ -99,6 +99,32 @@ fi
 AC_SUBST([FLAG_COOLING])
 AC_SUBST([OBJECTS_COOLING])
  
+# diffusion (thermal and metal)
+AC_ARG_ENABLE([diffusion],
+	[AS_HELP_STRING([--enable-diffusion], [enable diffusion])],
+	[diffusion=yes], [diffusion=no])
+if test "$diffusion" = "yes" ; then
+    echo "DIFFUSION selected"
+    FLAG_DIFFUSION="-DDIFFUSION -DDIFFUSIONTHERMAL"
+else
+    FLAG_DIFFUSION=""
+fi
+
+AC_SUBST([FLAG_DIFFUSION])
+
+# Richie-Thomas forces (Pressure SPH)
+AC_ARG_ENABLE([rtforce],
+	[AS_HELP_STRING([--enable-rtforce], [enable Richie-Thomas forces])],
+	[rtforce=yes], [rtforce=no])
+if test "$rtforce" = "yes" ; then
+    echo "RTFORCE selected"
+    FLAG_RTFORCE="-DRTFORCE"
+else
+    FLAG_RTFORCE=""
+fi
+
+AC_SUBST([FLAG_RTFORCE])
+
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
 AC_C_CONST

@@ -311,7 +311,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS CHARMC CHARM_PATH AR CXX CXXFLAGS LDFLAGS CPPFLAGS ac_ct_CXX EXEEXT OBJEXT CC CFLAGS ac_ct_CC CPP EGREP FLAG_BIGKEYS FLAG_COOLING OBJECTS_COOLING LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS CHARMC CHARM_PATH AR CXX CXXFLAGS LDFLAGS CPPFLAGS ac_ct_CXX EXEEXT OBJEXT CC CFLAGS ac_ct_CC CPP EGREP FLAG_BIGKEYS FLAG_COOLING OBJECTS_COOLING FLAG_DIFFUSION FLAG_RTFORCE LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -858,6 +858,8 @@ Optional Features:
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-bigkeys        enable 128 bit hash keys
   --enable-cooling        enable gas cooling (planet,cosmo)
+  --enable-diffusion      enable diffusion
+  --enable-rtforce        enable Richie-Thomas forces
 
 Some influential environment variables:
   CHARMC      "Charm compiler"
@@ -3890,6 +3892,40 @@ fi
 
 
 
+# diffusion (thermal and metal)
+# Check whether --enable-diffusion or --disable-diffusion was given.
+if test "${enable_diffusion+set}" = set; then
+  enableval="$enable_diffusion"
+  diffusion=yes
+else
+  diffusion=no
+fi;
+if test "$diffusion" = "yes" ; then
+    echo "DIFFUSION selected"
+    FLAG_DIFFUSION="-DDIFFUSION -DDIFFUSIONTHERMAL"
+else
+    FLAG_DIFFUSION=""
+fi
+
+
+
+# Richie-Thomas forces (Pressure SPH)
+# Check whether --enable-rtforce or --disable-rtforce was given.
+if test "${enable_rtforce+set}" = set; then
+  enableval="$enable_rtforce"
+  rtforce=yes
+else
+  rtforce=no
+fi;
+if test "$rtforce" = "yes" ; then
+    echo "RTFORCE selected"
+    FLAG_RTFORCE="-DRTFORCE"
+else
+    FLAG_RTFORCE=""
+fi
+
+
+
 # Checks for typedefs, structures, and compiler characteristics.
 echo "$as_me:$LINENO: checking for stdbool.h that conforms to C99" >&5
 echo $ECHO_N "checking for stdbool.h that conforms to C99... $ECHO_C" >&6
@@ -5993,6 +6029,8 @@ s,@EGREP@,$EGREP,;t t
 s,@FLAG_BIGKEYS@,$FLAG_BIGKEYS,;t t
 s,@FLAG_COOLING@,$FLAG_COOLING,;t t
 s,@OBJECTS_COOLING@,$OBJECTS_COOLING,;t t
+s,@FLAG_DIFFUSION@,$FLAG_DIFFUSION,;t t
+s,@FLAG_RTFORCE@,$FLAG_RTFORCE,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t
 CEOF
