@@ -2,6 +2,14 @@
 #ifndef __SPH_H
 #define __SPH_H
 
+#ifdef DIFFUSION
+
+#if defined(FEEDBACKDIFFLIMIT) && !defined(DIFFUSIONHARMONIC)
+#define DIFFUSIONHARMONIC
+#endif
+
+#endif
+
 /// @brief Parameters and functions for the first SPH smooth: density
 /// and velocity derivatives.
 class DenDvDxSmoothParams : public SmoothParams
@@ -120,6 +128,7 @@ class MarkSmoothParams : public SmoothParams
 /// @brief Second pass in SPH: calculate pressure forces.
 class PressureSmoothParams : public SmoothParams
 {
+    double dTime;
     double a, H; // Cosmological parameters
     double alpha, beta; // SPH viscosity parameters
     double dThermalDiffusionCoeff;
@@ -142,10 +151,11 @@ class PressureSmoothParams : public SmoothParams
     /// @param dTime Current time
     /// @param _alpha Artificial viscosity parameter
     /// @param _beta Artificial viscosity parameter
-    PressureSmoothParams(int _iType, int am, CSM csm, double dTime,
+    PressureSmoothParams(int _iType, int am, CSM csm, double _dTime,
 			 double _alpha, double _beta, double _dThermalDiff, double _dMetalDiff) {
 	iType = _iType;
 	activeRung = am;
+        dTime = _dTime;
 	if(csm->bComove) {
 	    H = csmTime2Hub(csm,dTime);
 	    a = csmTime2Exp(csm,dTime);
@@ -163,6 +173,7 @@ class PressureSmoothParams : public SmoothParams
     PressureSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
     virtual void pup(PUP::er &p) {
         SmoothParams::pup(p);//Call base class
+        p|dTime;
 	p|a;
 	p|H;
 	p|alpha;

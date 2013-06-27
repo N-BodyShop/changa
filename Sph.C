@@ -964,90 +964,16 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	    qPoverRho2f = qPoverRho2;
 #endif
 
-#define PRES_PDV(a,b) (a)
-#define PRES_ACC(a,b) (a+b)
-#define SWITCHCOMBINE(a,b) (0.5*(a->BalsaraSwitch()+b->BalsaraSwitch()))
-
-#ifdef DIFFUSION
-#ifdef DIFFUSIONTHERMAL
-#define DIFFUSIONThermal() \
-	    { double diff = 2*dThermalDiffusionCoeff*(p->diff()+q->diff())*(p->uPred()-q->uPred()) \
-		/(pDensity+q->fDensity); \
-		PACTIVE( p->PdV() += diff*rq );	\
-		QACTIVE( q->PdV() -= diff*rp ); }
-#else
-/* Default -- no thermal diffusion */
-#define DIFFUSIONThermal()
-#endif
-#define DIFFUSIONMetals() \
-	    { double diff = 2*dMetalDiffusionCoeff*(p->diff()+q->diff())*(p->fMetals() - q->fMetals()) \
-		/(pDensity+q->fDensity); \
-		PACTIVE( p->fMetalsDot() += diff*rq );	\
-		QACTIVE( q->fMetalsDot() -= diff*rp ); }
-#define DIFFUSIONMetalsOxygen() \
-	    { double diff = 2*dMetalDiffusionCoeff*(p->diff()+q->diff())*(p->fMFracOxygen() - q->fMFracOxygen()) \
-		/(pDensity+q->fDensity); \
-		PACTIVE( p->fMFracOxygenDot() += diff*rq );	\
-		QACTIVE( q->fMFracOxygenDot() -= diff*rp ); }
-#define DIFFUSIONMetalsIron() \
-	    { double diff = 2*dMetalDiffusionCoeff*(p->diff()+q->diff())*(p->fMFracIron() - q->fMFracIron()) \
-		/(pDensity+q->fDensity); \
-      PACTIVE( p->fMFracIronDot() += diff*rq ); \
-      QACTIVE( q->fMFracIronDot() -= diff*rp ); }
-#else /* No diffusion */
-#define DIFFUSIONThermal()
-#define DIFFUSIONMetals() 
-#define DIFFUSIONMetalsOxygen() 
-#define DIFFUSIONMetalsIron() 
-#endif
-
-	    // Macro to simplify the active/inactive logic
-#define SphPressureTermsSymACTIVECODE() \
-	    if (dvdotdr>0.0) { \
-		PACTIVE( p->PdV() += rq*PRES_PDV(pPoverRho2,qPoverRho2)*dvdotdr; ); \
-		QACTIVE( q->PdV() += rp*PRES_PDV(qPoverRho2,pPoverRho2)*dvdotdr; ); \
-		PACTIVE( Accp = (PRES_ACC(pPoverRho2f,qPoverRho2f)); ); \
-		QACTIVE( Accq = (PRES_ACC(qPoverRho2f,pPoverRho2f)); ); \
-		} \
-	    else {  \
-		hav=0.5*(ph+sqrt(0.25*q->fBall*q->fBall));  /* h mean - using just hp probably ok */  \
-		absmu = -hav*dvdotdr*a  \
-		    /(fDist2+0.01*hav*hav); /* mu multiply by a to be consistent with physical c */ \
-		if (absmu>p->mumax()) p->mumax()=absmu; /* mu terms for gas time step */ \
-		if (absmu>q->mumax()) q->mumax()=absmu; \
-		/* viscosity term */ \
-		visc = SWITCHCOMBINE(p,q)* \
-		    (alpha*(pc + q->c()) + beta*2*absmu)	\
-		    *absmu/(pDensity + q->fDensity); \
-		PACTIVE( p->PdV() += rq*(PRES_PDV(pPoverRho2,qPoverRho2) + 0.5*visc)*dvdotdr; ); \
-		QACTIVE( q->PdV() += rp*(PRES_PDV(qPoverRho2,pPoverRho2) + 0.5*visc)*dvdotdr; ); \
-		PACTIVE( Accp = (PRES_ACC(pPoverRho2f,qPoverRho2f) + visc); ); \
-		QACTIVE( Accq = (PRES_ACC(qPoverRho2f,pPoverRho2f) + visc); ); \
-		} \
-	    PACTIVE( Accp *= rq*aFac; );/* aFac - convert to comoving acceleration */ \
-	    QACTIVE( Accq *= rp*aFac; ); \
-	    PACTIVE( p->treeAcceleration.x -= Accp * dx; ); \
-	    PACTIVE( p->treeAcceleration.y -= Accp * dy; ); \
-	    PACTIVE( p->treeAcceleration.z -= Accp * dz; ); \
-	    QACTIVE( q->treeAcceleration.x += Accq * dx; ); \
-	    QACTIVE( q->treeAcceleration.y += Accq * dy; ); \
-	    QACTIVE( q->treeAcceleration.z += Accq * dz; ); \
-            DIFFUSIONThermal(); \
-            DIFFUSIONMetals(); \
-            DIFFUSIONMetalsOxygen(); \
-            DIFFUSIONMetalsIron(); 
-
-
 	    if (p->rung >= activeRung) {
 		if (q->rung >= activeRung) {
 #define PACTIVE(xxx) xxx
 #define QACTIVE(xxx) xxx
-		    SphPressureTermsSymACTIVECODE();    
+#include "SphPressureTerms.h"
 		    }
 		else {
 #undef QACTIVE
 #define QACTIVE(xxx) 
-		    SphPressureTermsSymACTIVECODE();    
+#include "SphPressureTerms.h"
 		    }
 		}
 	    else if (q->rung >= activeRung) {
@@ -1055,7 +981,7 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 #define PACTIVE(xxx) 
 #undef QACTIVE
 #define QACTIVE(xxx) xxx
-		SphPressureTermsSymACTIVECODE();    
+#include "SphPressureTerms.h"
 		}
 	    }
 }

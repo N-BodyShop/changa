@@ -998,9 +998,9 @@ Main::Main(CkArgMsg* m) {
 	    CkAbort("Metal Diffusion Rate specified but not compiled for\nUse -DDIFFUSION during compilation\n");
 	    }
 #endif
-#ifndef DIFFUSIONTHERMAL
+#ifdef NODIFFUSIONTHERMAL
 	if (prmSpecified(prm,"dThermalDiffusionCoeff")) {
-	    CkAbort("Thermal Diffusion Rate specified but not compiled for\nUse -DDIFFUSIONTHERMAL during compilation\n");
+	    CkAbort("Thermal Diffusion Rate specified but not compiled for\n");
 	    }
 #endif
         if (domainDecomposition == SFC_peano_dec) peanoKey = 3;
@@ -1868,8 +1868,14 @@ void Main::setupICs() {
 #ifdef DIFFUSION
   ofsLog << " DIFFUSION";
 #endif
-#ifdef DIFFUSIONTHERMAL
-  ofsLog << " DIFFUSIONTHERMAL";
+#ifdef NODIFFUSIONTHERMAL
+  ofsLog " NODIFFUSIONTHERMAL";
+#endif
+#ifdef DIFFUSIONHARMONIC
+  ofsLog << " DIFFUSIONHARMONIC";
+#endif
+#ifdef FEEDBACKDIFFLIMIT
+  ofsLog << " FEEDBACKDIFFLIMIT";
 #endif
 #ifdef RTFORCE
   ofsLog << " RTFORCE";

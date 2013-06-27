@@ -105,7 +105,7 @@ AC_ARG_ENABLE([diffusion],
 	[diffusion=yes], [diffusion=no])
 if test "$diffusion" = "yes" ; then
     echo "DIFFUSION selected"
-    FLAG_DIFFUSION="-DDIFFUSION -DDIFFUSIONTHERMAL"
+    FLAG_DIFFUSION="-DDIFFUSION"
 else
     FLAG_DIFFUSION=""
 fi
