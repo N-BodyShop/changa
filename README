@@ -6,8 +6,9 @@ http://librarian.phys.washington.edu/astro/index.php/Research:ChaNGa
 
 For more help, subscribe to the list changa-users@u.washington.edu.
 
-To compile ChaNGa first compile Charm++ or get a precompiled version.  Also
-build the "cache" module and the "liveViz" module in charm++, then run:
+To compile ChaNGa first compile Charm++ or get a precompiled version.  When
+building Charm++, there is a special target "ChaNGa" which will build all the
+necessary libraries.  Then to compile ChaNGa itself, run:
 
 ./configure
 make (or gmake)
@@ -51,7 +52,7 @@ ACKNOWLEDGEMENTS
 The development of ChaNGa was supported by a National Science
 Foundation ITR grant PHY-0205413 to the University of Washington, and
 NSF ITR grant NSF-0205611 to the University of Illinois.  Contributors
-to the program include Graeme Lufkin, Tom Quinn, Rok Roskar, Filippo
-Gioachin, Sayantan Chakravorty, Amit Sharma, Pritish Jetley, Lukasz
+to the program include Graeme Lufkin, Tom Quinn, Rok Roskar, Greg Stinson,
+Filippo Gioachin, Sayantan Chakravorty, Amit Sharma, Pritish Jetley, Lukasz
 Wesolowski, Edgar Solomonik, Celso Mendes, Joachim Stadel, and James
 Wadsley.

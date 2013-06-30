@@ -145,6 +145,13 @@ public:
 	 ** Cooling 
 	 */
 	COOL *Cool;
+	/// @brief log of star formation events.
+	///
+	/// Star formation events are stored on the data manager since there
+	/// is no need to migrate them with the TreePiece.
+	StarLog *starLog;
+	/// @brief Lock for accessing starlog from TreePieces
+	CmiNodeLock lockStarLog;
 
 	DataManager(const CkArrayID& treePieceID);
 	DataManager(CkMigrateMessage *);
@@ -182,6 +189,8 @@ public:
     	    nodeTable.clear();
 
 	    CoolFinalize(Cool);
+	    delete starLog;
+	    CmiDestroyLock(lockStarLog);
 	    }
 
 	/// \brief Collect the boundaries of all TreePieces, and
@@ -235,6 +244,7 @@ public:
     void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		     double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 		     COOLPARAM inParam, const CkCallback& cb);
+    void initStarLog(std::string _fileName, const CkCallback &cb);
     void dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb);
     void CoolingSetTime(double z, // redshift
 			double dTime, // Time

@@ -7,6 +7,7 @@
 #include <math.h>
 #include <assert.h>
 #include <string.h>
+#include <errno.h>
 #include "config.h"
 #ifdef HAVE_VALUES_H
 #include <values.h>

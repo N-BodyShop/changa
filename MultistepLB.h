@@ -77,7 +77,7 @@ class LightweightLDStats1 {
 
 class MultistepLB : public CentralLB {
 private:
-  CmiBool firstRound; 
+  bool firstRound;
   bool haveTPCentroids;
   ComparatorFn compares[NDIMS];
   ComparatorFn pc[NDIMS];
@@ -91,7 +91,7 @@ private:
 
   CkVec<LightweightLDStats1> savedPhaseStats;       // stats saved from previous phases
   
-  CmiBool QueryBalanceNow(int step);
+  bool QueryBalanceNow(int step);
   //int prevPhase;
 
   unsigned int determinePhase(unsigned int activeRung);

@@ -53,6 +53,8 @@ void DataManager::init() {
   gpuFree = true;
 #endif
   Cool = CoolInit();
+  starLog = new StarLog();
+  lockStarLog = CmiCreateLock();
 }
 
 /**
@@ -471,7 +473,10 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
     dMaxBalance = param.dMaxBalance;
     nIOProcessor = param.nIOProcessor;
     contribute(cb);
+    // parameter structure requires some cleanup
     delete param.stfm;
+    free(param.csm);
+    delete param.feedback;
     }
   
 	 

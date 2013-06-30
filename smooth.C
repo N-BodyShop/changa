@@ -387,7 +387,6 @@ void TreePiece::initBucketsSmooth(Tsmooth tSmooth) {
   tSmooth->nActive = 0;
   for (unsigned int j=0; j<numBuckets; ++j) {
     GenericTreeNode* node = bucketList[j];
-    int numParticlesInBucket = node->particleCount;
 
     // TODO: active bounds may give a performance boost in the
     // multi-timstep regime.
@@ -587,7 +586,9 @@ void NearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
     nParticlesPending -= node->particleCount;
     if(started && nParticlesPending == 0) {
       started = false;
+#ifdef CACHE_MEM_STATS
       tp->memWithCache = CmiMemoryUsage()/(1024*1024);
+#endif
       tp->nNodeCacheEntries = cacheNode.ckLocalBranch()->getCache()->size();
       tp->nPartCacheEntries = cacheSmoothPart.ckLocalBranch()->getCache()->size();
       cacheSmoothPart[CkMyPe()].finishedChunk(0, 0);
@@ -626,7 +627,9 @@ void TreePiece::finishSmoothWalk()
   for(int i = 0; i < myNumParticles; i++) {
       sSmooth->params->postTreeParticle(&myParticles[i+1]);
       }
+#ifdef CACHE_MEM_STATS
   memPostCache = CmiMemoryUsage()/(1024*1024);
+#endif
   nCacheAccesses = 0; // reset for next walk.
 
   if(myNumParticles != 0) {
@@ -667,6 +670,9 @@ void KNearestSmoothCompute::walkDone(State *state) {
 	 && params->bUseBallMax && p->isGas() && p->fBallMax() > 0.0
 	 && h > p->fBallMax()) {
 	  h = p->fBallMax();
+	  // With round-off, we might be in the LowhFix regime and
+	  // Q might not be in heap order.
+	  std::make_heap(&(Q[0]) + 0, &(Q[0]) + nCnt);
 	  while(Q[0].fKey > h*h) {
 	      std::pop_heap(&(Q[0]) + 0, &(Q[0]) + nCnt);
 	      nCnt--;
@@ -741,11 +747,13 @@ void ReSmoothCompute::bucketCompare(TreePiece *ownerTP,
                                   State *state
 				  ) 
 {
+    const double dSearchEps = 1e-7;  // Slop to insure farthest neighbor is
+				     // found.
     ReNearNeighborState *nstate = (ReNearNeighborState *)state;
     Vector3D<double> rp = offset + p->position;
 
     Vector3D<double> drBucket = node->centerSm - rp;
-    if(sqr(node->sizeSm + node->fKeyMax) < drBucket.lengthSquared())
+    if(sqr(node->sizeSm + node->fKeyMax)*(1.+dSearchEps) < drBucket.lengthSquared())
 	return;		// particle is outside all smoothing radii
 
     for(int j = node->firstParticle; j <= node->lastParticle; ++j) {
@@ -755,7 +763,7 @@ void ReSmoothCompute::bucketCompare(TreePiece *ownerTP,
 	double rOld = particles[j].fBall; // Ball radius
 	Vector3D<double> dr = particles[j].position - rp;
 	
-	if(rOld*rOld >= dr.lengthSquared()) {  // Add to list
+	if(rOld*rOld*(1.+dSearchEps) >= dr.lengthSquared()) {  // Add to list
 	    pqSmoothNode pqNew;
 	    pqNew.fKey = dr.lengthSquared();
 	    pqNew.dx = dr;
@@ -898,7 +906,9 @@ void ReNearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
 		 tp->thisIndex,iBucket,nParticlesPending);
     if(started && nParticlesPending == 0) {
       started = false;
+#ifdef CACHE_MEM_STATS
       tp->memWithCache = CmiMemoryUsage()/(1024*1024);
+#endif
       cacheSmoothPart[CkMyPe()].finishedChunk(0, 0);
 #ifdef CHECK_WALK_COMPLETIONS
       CkPrintf("[%d] markWalkDone ReNearNeighborState\n", tp->getIndex());
@@ -1105,7 +1115,9 @@ void MarkNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
     nParticlesPending -= node->particleCount;
     if(started && nParticlesPending == 0) {
       started = false;
+#ifdef CACHE_MEM_STATS
       tp->memWithCache = CmiMemoryUsage()/(1024*1024);
+#endif
       cacheSmoothPart[CkMyPe()].finishedChunk(0, 0);
 #ifdef CHECK_WALK_COMPLETIONS
       CkPrintf("[%d] markWalkDone ReNearNeighborState\n", tp->getIndex());

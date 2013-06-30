@@ -564,7 +564,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
       root->makeSubTree(depth, leaves);
       // CkPrintf("num leaves: %d numDecompRoots: %d\n", leaves->length(), numDecompRoots);
 
-      for (int i = 0; i < leaves->length(); i++) {
+      for (unsigned int i = 0; i < leaves->length(); i++) {
         (*leaves)[i]->nchildren = OctDecompNode::maxNumChildren;
         (*leaves)[i]->children = new OctDecompNode[OctDecompNode::maxNumChildren];
         for (int j = 0; j < OctDecompNode::maxNumChildren; j++) {
@@ -742,9 +742,6 @@ void OctDecompNode::deleteBeneath(){
  * Returns true if more refinement is requested.
  */
 bool Sorter::refineOctSplitting(int n, int *count) {
-  unsigned int nprocess = 0;
-  unsigned int nopen = 0;
-  unsigned int njoin = 0;
 
   CkAssert(activeNodes->length() == n);
 
@@ -818,6 +815,12 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 		
 		//each splitter key will split the keys near a goal number of keys
 		goals.assign(numChares - 1, avgValue);
+		// evenly distribute extra particles.
+		int rem = numKeys % numChares;
+		int j = 0;
+		for(list<int>::iterator i = goals.begin(); j < rem; j++, ++i) {
+		    *i = avgValue + 1;
+		    }
 		partial_sum(goals.begin(), goals.end(), goals.begin());
 		
 		if(verbosity >= 3)
