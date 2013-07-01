@@ -497,6 +497,7 @@ void TreePiece::readCoolOnTime(const std::string& filename, const CkCallback& cb
 /// @brief read CoolArray file
 void TreePiece::readCoolArray0(const std::string& filename, const CkCallback& cb)
 {
+#ifndef COOLING_NONE
     if(nStartRead >= 0 && myNumSPH > 0) {
         FILE *fp = CmiFopen(filename.c_str(), "r");
         CkAssert(fp != NULL);
@@ -519,12 +520,14 @@ void TreePiece::readCoolArray0(const std::string& filename, const CkCallback& cb
             }
         CmiFclose(fp);
         }
+#endif
     contribute(cb);
     }
 
 /// @brief read CoolArray file
 void TreePiece::readCoolArray1(const std::string& filename, const CkCallback& cb)
 {
+#ifndef COOLING_NONE
     if(nStartRead >= 0 && myNumSPH > 0) {
         FILE *fp = CmiFopen(filename.c_str(), "r");
         CkAssert(fp != NULL);
@@ -547,11 +550,13 @@ void TreePiece::readCoolArray1(const std::string& filename, const CkCallback& cb
             }
         CmiFclose(fp);
         }
+#endif
     contribute(cb);
     }
 /// @brief read CoolArray file
 void TreePiece::readCoolArray2(const std::string& filename, const CkCallback& cb)
 {
+#ifndef COOLING_NONE
     if(nStartRead >= 0 && myNumSPH > 0) {
         FILE *fp = CmiFopen(filename.c_str(), "r");
         CkAssert(fp != NULL);
@@ -574,12 +579,14 @@ void TreePiece::readCoolArray2(const std::string& filename, const CkCallback& cb
             }
         CmiFclose(fp);
         }
+#endif
     contribute(cb);
     }
 
 /// @brief read CoolArray file
 void TreePiece::readCoolArray3(const std::string& filename, const CkCallback& cb)
 {
+#ifndef COOLING_NONE
     if(nStartRead >= 0 && myNumSPH > 0) {
         FILE *fp = CmiFopen(filename.c_str(), "r");
         CkAssert(fp != NULL);
@@ -604,6 +611,7 @@ void TreePiece::readCoolArray3(const std::string& filename, const CkCallback& cb
             }
         CmiFclose(fp);
         }
+#endif
     contribute(cb);
     }
 
