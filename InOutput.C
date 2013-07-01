@@ -5,6 +5,7 @@
 #include "Reductions.h"
 #include "InOutput.h"
 #include <errno.h>
+#include <float.h>
 
 using namespace TypeHandling;
 using namespace SFC;
@@ -42,6 +43,10 @@ void load_tipsy_gas(Tipsy::TipsyReader &r, GravityParticle &p, double dTuFac)
     p.fBallMax() = HUGE;
     p.fESNrate() = 0.0;
     p.fTimeCoolIsOffUntil() = 0.0;
+#ifdef DTADJUST
+    p.dt = FLT_MAX;
+    p.dtNew() = FLT_MAX;
+#endif
 }
 
 template <typename TPos, typename TVel>

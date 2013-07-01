@@ -133,6 +133,8 @@ class PressureSmoothParams : public SmoothParams
     double alpha, beta; // SPH viscosity parameters
     double dThermalDiffusionCoeff;
     double dMetalDiffusionCoeff;
+    double dtFacCourant; // Courant timestep factor
+    double dtFacDiffusion; // Diffusion timestep factor
     
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
@@ -152,7 +154,9 @@ class PressureSmoothParams : public SmoothParams
     /// @param _alpha Artificial viscosity parameter
     /// @param _beta Artificial viscosity parameter
     PressureSmoothParams(int _iType, int am, CSM csm, double _dTime,
-			 double _alpha, double _beta, double _dThermalDiff, double _dMetalDiff) {
+			 double _alpha, double _beta,
+                         double _dThermalDiff, double _dMetalDiff,
+                         double dEtaCourant, double dEtaDiffusion) {
 	iType = _iType;
 	activeRung = am;
         dTime = _dTime;
@@ -168,6 +172,8 @@ class PressureSmoothParams : public SmoothParams
 	beta = _beta;
 	dThermalDiffusionCoeff = _dThermalDiff;
 	dMetalDiffusionCoeff = _dMetalDiff;
+	dtFacCourant = dEtaCourant*a*2.0/1.6;
+	dtFacDiffusion = 2.0*dEtaDiffusion*a*a;
     }
     PUPable_decl(PressureSmoothParams);
     PressureSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
@@ -180,6 +186,8 @@ class PressureSmoothParams : public SmoothParams
 	p|beta;
 	p|dThermalDiffusionCoeff;
 	p|dMetalDiffusionCoeff;
+	p|dtFacCourant;
+	p|dtFacDiffusion;
 	}
     };
 

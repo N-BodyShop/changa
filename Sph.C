@@ -15,6 +15,8 @@
 #define MAXPATHLEN PATH_MAX
 #endif
 
+#include <float.h>
+
 ///
 /// @brief initialize SPH quantities
 ///
@@ -445,8 +447,9 @@ Main::doSph(int activeRung, int bNeedDensity)
 
     ckout << "Calculating pressure gradients ...";
     PressureSmoothParams pPressure(TYPE_GAS, activeRung, param.csm, dTime,
-				   param.dConstAlpha, param.dConstBeta,
-				   param.dThermalDiffusionCoeff, param.dMetalDiffusionCoeff);
+                                   param.dConstAlpha, param.dConstBeta,
+                                   param.dThermalDiffusionCoeff, param.dMetalDiffusionCoeff,
+                                   param.dEtaCourant, param.dEtaDiffusion);
     double startTime = CkWallTimer();
     treeProxy.startReSmooth(&pPressure, CkCallbackResumeThread());
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -848,6 +851,9 @@ void PressureSmoothParams::initSmoothParticle(GravityParticle *p)
 {
 	if (p->rung >= activeRung) {
 	    p->mumax() = 0.0;
+#ifdef DTADJUST
+            p->dtNew() = FLT_MAX;
+#endif
 	    p->PdV() = 0.0;
 #ifdef DIFFUSION
 	    p->fMetalsDot() = 0.0;
@@ -862,6 +868,9 @@ void PressureSmoothParams::initSmoothCache(GravityParticle *p)
 {
 	if (p->rung >= activeRung) {
 	    p->mumax() = 0.0;
+#ifdef DTADJUST
+            p->dtNew() = FLT_MAX;
+#endif
 	    p->PdV() = 0.0;
 	    p->treeAcceleration = 0.0;
 #ifdef DIFFUSION
@@ -879,6 +888,10 @@ void PressureSmoothParams::combSmoothCache(GravityParticle *p1,
 	    p1->PdV() += p2->PdV;
 	    if (p2->mumax > p1->mumax())
 		p1->mumax() = p2->mumax;
+#ifdef DTADJUST
+            if (p2->dtNew < p1->dtNew())
+                p1->dtNew() = p2->dtNew;
+#endif
 	    p1->treeAcceleration += p2->treeAcceleration;
 #ifdef DIFFUSION
 	    p1->fMetalsDot() += p2->fMetalsDot;
@@ -899,6 +912,7 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	double ph,pc,pDensity,visc,hav,absmu,Accp,Accq;
 	double fNorm,fNorm1,aFac,vFac, divvi, divvj;
 	double fDivv_Corrector;
+	double dt;
 	int i;
 
 	if(nSmooth < 2) {

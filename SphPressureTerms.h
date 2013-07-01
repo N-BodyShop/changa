@@ -116,17 +116,21 @@
     double dThermalCond = ( dThermalCondSum <= 0 ? 0 : 4*p->fThermalCond*q->fThermalCond/(dThermalCondSum*p->fDensity*q->fDensity) );
 #else
 /* Arithmetic average coeff */
-#define DIFFUSIONThermalCondBase() double dThermalCond = (p->fThermalCond + q->fThermalCond)/(p->fDensity*q->fDensity); 
+#define DIFFUSIONThermalCondBase(dt_) \
+      double dThermalCond = (p->fThermalCond + q->fThermalCond)/(p->fDensity*q->fDensity); \
+      if (dThermalCond > 0 && (dt_diff = dtFacDiffusion*ph*p->fThermalLength/(dThermalCond*p->fDensity)) < dt_) dt_ = dt_diff; 
+
 #endif
 #else
-#define DIFFUSIONThermalCondBase() double dThermalCond=0;
+#define DIFFUSIONThermalCondBase(dt_) double dThermalCond=0;
 #endif
 
-#define DIFFUSIONThermal() \
-    { DIFFUSIONThermalCondBase(); \
-      double diffTh = dThermalCond + \
-          (2*dThermalDiffusionCoeff*diffBase/(p->fDensity+q->fDensity)); \
-      double dt_diff, diffu = diffTh*(p->uPred()-q->uPred());             \
+#define DIFFUSIONThermal(dt_) \
+    { double diffTh = (2*dThermalDiffusionCoeff*diffBase/(p->fDensity+q->fDensity)); \
+      double dt_diff, diffu;                                                  \
+      DIFFUSIONThermalCondBase(dt_);          \
+      if (diffTh > 0 && (dt_diff= dtFacDiffusion*ph*ph/(diffTh*p->fDensity)) < dt_) dt_ = dt_diff; \
+      diffu = (diffTh+dThermalCond)*(p->uPred()-q->uPred());            \
       PACTIVE( p->PdV() += diffu*rq*MASSDIFFFAC(q) );                   \
       QACTIVE( q->PdV() -= diffu*rp*MASSDIFFFAC(p) );                \
       DIFFUSIONThermaluNoncool(); }
@@ -148,7 +152,7 @@
       PACTIVE( p->fMFracIronDot() += diff*rq*MASSDIFFFAC(q) ); \
       QACTIVE( q->fMFracIronDot() -= diff*rp*MASSDIFFFAC(p) ); }
 #else /* No diffusion */
-#define DIFFUSIONThermal()
+#define DIFFUSIONThermal(dt_)
 #define DIFFUSIONMetals() 
 #define DIFFUSIONMetalsOxygen() 
 #define DIFFUSIONMetalsIron() 
@@ -161,26 +165,28 @@
 #define ALPHA (alpha)
 #define BETA  (beta)
 #endif
-#define SETDTNEW_PQ(dt_)  { if (dt_ < p->dtNew) p->dtNew=dt_; \
-                            if (dt_ < q->dtNew) q->dtNew=dt_; \
-                            if (4*q->dt < p->dtNew) p->dtNew = 4*q->dt; \
-                            if (4*p->dt < q->dtNew) q->dtNew = 4*p->dt; }
+#define SETDTNEW_PQ(dt_)  { if (dt_ < p->dtNew()) p->dtNew()=dt_; \
+                            if (dt_ < q->dtNew()) q->dtNew()=dt_; \
+                            if (4*q->dt < p->dtNew()) p->dtNew() = 4*q->dt; \
+                            if (4*p->dt < q->dtNew()) q->dtNew() = 4*p->dt; }
           
 #ifdef VSIGVISC
-#define ARTIFICIALVISCOSITY(visc_) { absmu = -dvdotdr*smf->a            \
+#define ARTIFICIALVISCOSITY(visc_,dt_) { absmu = -dvdotdr*smf->a           \
             /sqrt(nnList[i].fDist2); /* mu multiply by a to be consistent with physical c */ \
         if (absmu>p->mumax) p->mumax=absmu; /* mu terms for gas time step */ \
 		if (absmu>q->mumax) q->mumax=absmu; \
 		visc_ = (ALPHA*(pc + q->c) + BETA*1.5*absmu); \
+		dt_ = dtFacCourant*ph/(0.625*(pc + q->c())+0.375*visc_); \
 		visc_ = SWITCHCOMBINE(p,q)*visc_ \
 		    *absmu/(pDensity + q->fDensity); }
 #else
-#define ARTIFICIALVISCOSITY(visc_) { double hav=0.5*(ph+0.5*q->fBall);  /* h mean */ \
+#define ARTIFICIALVISCOSITY(visc_,dt_) { double hav=0.5*(ph+0.5*q->fBall);  /* h mean */ \
 		absmu = -hav*dvdotdr*a  \
 		    /(fDist2+0.01*hav*hav); /* mu multiply by a to be consistent with physical c */ \
 		if (absmu>p->mumax()) p->mumax()=absmu; /* mu terms for gas time step */ \
 		if (absmu>q->mumax()) q->mumax()=absmu;                 \
 		visc_ = (ALPHA*(pc + q->c()) + BETA*2*absmu);           \
+		dt_ = dtFacCourant*hav/(0.625*(pc + q->c())+0.375*visc_); \
 		visc_ = SWITCHCOMBINE(p,q)*visc_ \
 		    *absmu/(pDensity + q->fDensity); }
 #endif
@@ -198,7 +204,7 @@
                 /* dt = smf->dtFacCourant*ph/(2*(pc > q->c ? pc : * q->c)); */
             }
         else {  
-            ARTIFICIALVISCOSITY(visc); /* Calculate Artificial viscosity terms */		
+            ARTIFICIALVISCOSITY(visc,dt); /* Calculate Artificial viscosity terms */		
             PACTIVE( p->PdV() += rq*(0.5*visc)*dvdotdr; );
             QACTIVE( q->PdV() += rp*(0.5*visc)*dvdotdr; );
             PACTIVE( Accp += visc; );
@@ -214,10 +220,13 @@
         QACTIVE( q->treeAcceleration.z += Accq * dz; );
 
         DIFFUSIONBase();
-        DIFFUSIONThermal();
+        DIFFUSIONThermal(dt);
         DIFFUSIONMetalsBase();
         DIFFUSIONMetals();
         DIFFUSIONMetalsOxygen();
         DIFFUSIONMetalsIron();
         DIFFUSIONMass();
         DIFFUSIONVelocity(); 
+#ifdef DTADJUST
+        SETDTNEW_PQ(dt);
+#endif

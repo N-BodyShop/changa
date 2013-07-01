@@ -253,6 +253,10 @@ Main::Main(CkArgMsg* m) {
 	param.bKDK = 1;
 	prmAddParam(prm, "bKDK", paramBool, &param.bKDK,
 		    sizeof(int),"kdk", "KDK timestepping (IGNORED)");
+	param.bDtAdjust = 0;
+	prmAddParam(prm, "bDtAdjust", paramBool, &param.bDtAdjust,
+		    sizeof(int),"dtadj", "Emergency adjust of timesteps");
+	
 	param.bBenchmark = 0;
 	prmAddParam(prm, "bBenchmark", paramBool, &param.bBenchmark,
 		    sizeof(int),"bench", "Benchmark only; no output or checkpoints");
@@ -492,6 +496,9 @@ Main::Main(CkArgMsg* m) {
 	param.bConstantDiffusion = 0;
 	prmAddParam(prm,"bConstantDiffusion",paramBool,&param.bConstantDiffusion,
 				sizeof(int),"constdiff", "<Constant Diffusion BC> = +constdiff");
+	param.dEtaDiffusion = 0.1;
+	prmAddParam(prm,"dEtaDiffusion",paramDouble,&param.dEtaDiffusion,sizeof(double),
+                    "etadiff", "<Diffusion dt criterion> = 0.1");
 	// SPH timestepping
 	param.bSphStep = 1;
 	prmAddParam(prm,"bSphStep",paramBool,&param.bSphStep,sizeof(int),
@@ -1373,6 +1380,7 @@ void Main::advanceBigStep(int iStep) {
 
     if(!param.bStaticTest) {
       CkAssert(param.dDelta != 0.0);
+      emergencyAdjust(activeRung);
       // Find new rung for active particles
       nextMaxRung = adjust(activeRung);
       if(currentStep == 0) rungStats();
@@ -2858,6 +2866,33 @@ void Main::countActive(int activeRung)
 	  << ", Gas Active: " << nActive[1] << endl ;
     
     delete msg;
+    }
+
+///
+/// @brief Change timesteps of particles experiencing sudden gas
+/// forces.
+/// @param iRung The rung on which we are calculating forces.
+///
+/// For gas simulations, find particles who are are in the middle of
+/// too large a timestep and adjust their velocities to a smaller
+/// timestep.
+///
+void Main::emergencyAdjust(int iRung)
+{
+    if(!param.bDtAdjust || iRung == 0) return;
+    
+    if(verbosity) CkPrintf("Check for Emergency Adjust, Rung: %d\n", iRung);
+    double dDelta = RungToDt(param.dDelta, iRung);
+    double dDeltaThresh = 0.5*dDelta;
+    
+    CkReductionMsg *msg;
+    treeProxy.emergencyAdjust(iRung, param.dDelta, dDeltaThresh,
+                              CkCallbackResumeThread((void*&)msg));
+    int *nUnKicked = (int *)msg->getData();
+    if(*nUnKicked) {
+        CkPrintf("WARNING, %d particles needed emergency rung changes\n",
+                 *nUnKicked);
+        }
     }
 
 /**
