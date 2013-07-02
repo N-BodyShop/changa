@@ -1026,6 +1026,8 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
  * @param dEta Factor to use in determing timestep
  * @param dEtaCourant Courant factor to use in determing timestep
  * @param dEtauDot Factor to use in uDot based timestep
+ * @param dDiffCoeff Diffusion coefficent
+ * @param dEtaDiffusion Factor to use in diffusion based timestep
  * @param dDelta Base timestep
  * @param dAccFac Acceleration scaling for cosmology
  * @param dCosmoFac Cosmo scaling for Courant
@@ -1036,6 +1038,7 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
 void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 		       int bSphStep, int bViscosityLimitdt,
 		       double dEta, double dEtaCourant, double dEtauDot,
+                       double dDiffCoeff, double dEtaDiffusion,
 		       double dDelta, double dAccFac,
 		       double dCosmoFac, double dhMinOverSoft,
 		       int bDoGas,
@@ -1105,8 +1108,8 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      }
 #ifdef DIFFUSION
 	  /* h^2/(2.77Q) Linear stability from Brookshaw */
-	  if (p->diff() > 0) {
-	      dt = (1/2.8*(dEtaCourant/0.4))*ph*ph/(p->diff());  
+	  if (p->diff() > 0 && dDiffCoeff > 0) {
+	      dt = dEtaDiffusion*ph*ph*dCosmoFac*dCosmoFac/(dDiffCoeff*p->diff());  
 	      if (dt < dTIdeal) dTIdeal = dt;
 	      }
 #endif
