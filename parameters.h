@@ -92,6 +92,7 @@ typedef struct parameters {
     int iViscosityLimiter;
     int bViscosityLimitdt;
     double dEtaCourant;
+    double dEtaDiffusion;
     double dEtauDot;
     int bStarForm;
     Stfm *stfm;
@@ -201,6 +202,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.bSphStep;
     p|param.bViscosityLimitdt;
     p|param.dEtaCourant;
+    p|param.dEtaDiffusion;
     p|param.dEtauDot;
     p|param.bStarForm;
     if(p.isUnpacking())
