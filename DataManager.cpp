@@ -582,7 +582,7 @@ void DataManager::donePrefetch(int chunk){
   CmiUnlock(__nodelock);
 }
 
-typedef std::map<CkCacheKey, CkCacheEntry*> cacheType;
+typedef std::map<KeyType, CkCacheEntry<KeyType>*> cacheType;
 
 #ifdef CUDA_DM_PRINT_TREES 
 #define addNodeToList(nd, list, index) \
@@ -634,9 +634,9 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
   int numCachedParticles = 0;
   int totalNumBuckets = 0;
 
-  cacheType *wholeNodeCache = cacheNode[CkMyPe()].getCache();
+  cacheType *wholeNodeCache = cacheNode.ckLocalBranch()->getCache();
   cacheType *ctNode = &wholeNodeCache[chunk];
-  cacheType *wholePartCache = cacheGravPart[CkMyPe()].getCache();
+  cacheType *wholePartCache = cacheGravPart.ckLocalBranch()->getCache();
   cacheType *ctPart = &wholePartCache[chunk];
 
   // find out number of particles and nodes cached
