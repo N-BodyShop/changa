@@ -233,7 +233,9 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
     }
     root = buildProcessorTree(totalChares, &gtn[0]);
 
+#ifndef CUDA
     registeredTreePieces.removeAll();
+#endif
 
 #ifdef PRINT_MERGED_TREE
     ostringstream dmName;
