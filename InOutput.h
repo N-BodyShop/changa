@@ -438,7 +438,7 @@ class DtOutputParams : public OutputParams
 	}
     };
 
-/// @brief Output timesteps.
+/// @brief Output Keys.
 class KeyOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -452,6 +452,26 @@ class KeyOutputParams : public OutputParams
     KeyOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
     PUPable_decl(KeyOutputParams);
     KeyOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+/// @brief Output Domains.
+class DomainOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p)
+    {
+	return p->interMass; // Hack: this gets assigned in assignDomain()
+			     // just for this diagnostic.
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    DomainOutputParams() {}
+    DomainOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    PUPable_decl(DomainOutputParams);
+    DomainOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
         OutputParams::pup(p);//Call base class
 	}

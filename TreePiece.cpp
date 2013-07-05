@@ -1144,6 +1144,15 @@ void TreePiece::countActive(int activeRung, const CkCallback& cb) {
   contribute(2*sizeof(int), nActive, CkReduction::sum_int, cb);
 }
 
+/// @brief assign domain number to each particle for diagnostic
+void TreePiece::assignDomain(const CkCallback &cb)
+{
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+        myParticles[i].interMass = thisIndex;
+	}
+    contribute(cb);
+    }
+
 void TreePiece::drift(double dDelta,  // time step in x containing
 				      // cosmo scaling
 		      int bNeedVpred, // Update predicted velocities
