@@ -201,7 +201,7 @@
         PACTIVE( Accp = (PRES_ACC(pPoverRho2f,qPoverRho2f)); );
         QACTIVE( Accq = (PRES_ACC(qPoverRho2f,pPoverRho2f)); );
         if (dvdotdr>=0.0) {
-                /* dt = smf->dtFacCourant*ph/(2*(pc > q->c ? pc : * q->c)); */
+            dt = dtFacCourant*ph/(2*(pc > q->c() ? pc : q->c()));
             }
         else {  
             ARTIFICIALVISCOSITY(visc,dt); /* Calculate Artificial viscosity terms */		
