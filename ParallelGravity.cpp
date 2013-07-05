@@ -259,7 +259,11 @@ Main::Main(CkArgMsg* m) {
 	param.bKDK = 1;
 	prmAddParam(prm, "bKDK", paramBool, &param.bKDK,
 		    sizeof(int),"kdk", "KDK timestepping (IGNORED)");
+#ifdef DTADJUST
 	param.bDtAdjust = 1;
+#else
+	param.bDtAdjust = 0;
+#endif
 	prmAddParam(prm, "bDtAdjust", paramBool, &param.bDtAdjust,
 		    sizeof(int),"dtadj", "Emergency adjust of timesteps");
 	
