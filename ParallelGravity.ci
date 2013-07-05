@@ -332,7 +332,7 @@ mainmodule ParallelGravity {
     entry void countActive(int activeRung, const CkCallback& cb);
     entry void countType(int iType, const CkCallback& cb);
     entry void outputBlackHoles(const std::string& pszFileName, double dvFac,
-				const CkCallback &cb);
+                                long lFPos, const CkCallback &cb);
     entry void SetSink(double dSinkMassMin, const CkCallback &cb);
     entry void SinkStep(int iCurrSinkRung, int iKickRung, const CkCallback &cb);
     entry void formSinks(int bJeans, double dJConst2, int bDensity,

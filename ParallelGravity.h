@@ -1603,7 +1603,7 @@ public:
   /// @brief count total number of particles of given type
   void countType(int iType, const CkCallback& cb);
   void outputBlackHoles(const std::string& pszFileName, double dvFac,
-			const CkCallback &cb);
+                        long lFPos, const CkCallback &cb);
   /// @brief set sink type based on formation time.
   void SetSink(double dSinkMassMin, const CkCallback &cb);
   /// @brief set sink timesteps.

@@ -233,10 +233,11 @@ void Main::outputBlackHoles(double dTime)
     if (param.sinks.bBHSink) {
 	sprintf(achOutFile,"%s.orbit", param.achOutName);
 
-	fp = fopen(achOutFile,"a");
+	fp = CmiFopen(achOutFile,"a");
 	CkAssert(fp != NULL);
 	fprintf(fp, "%ld %g\n", nSink, dTime);
-	fclose(fp);
+        long lFPos = ftell(fp);
+	CmiFclose(fp);
 	
 	if(param.csm->bComove) {
 	    dOutTime = csmTime2Exp(param.csm, dTime);
@@ -247,7 +248,7 @@ void Main::outputBlackHoles(double dTime)
 	    dvFac = 1.0;
 	    }
 	
-	treeProxy[0].outputBlackHoles(achOutFile, dvFac,
+	treeProxy[0].outputBlackHoles(achOutFile, dvFac, lFPos,
 				      CkCallbackResumeThread());
 	}
     }
@@ -259,13 +260,15 @@ void Main::outputBlackHoles(double dTime)
 ///
 void
 TreePiece::outputBlackHoles(const std::string& pszFileName, double dvFac,
-				 const CkCallback &cb)
+                            long lFPos, const CkCallback &cb)
 {
     FILE *fp;
     int nout;
 
-    fp = fopen(pszFileName.c_str(),"a");
+    fp = CmiFopen(pszFileName.c_str(),"a");
     CkAssert(fp != NULL);
+    int ret = fseek(fp, lFPos, SEEK_SET);
+    CkAssert(ret == 0);
     
     /*
     ** Write Stuff!
@@ -279,10 +282,11 @@ TreePiece::outputBlackHoles(const std::string& pszFileName, double dvFac,
 		    dvFac*p->velocity.x, dvFac*p->velocity.y,
 		    dvFac*p->velocity.z, p->potential);
 	}
-    nout = fclose(fp);
+    lFPos = ftell(fp);
+    nout = CmiFclose(fp);
     CkAssert(nout == 0);
     if(thisIndex != (int) numTreePieces - 1)
-	pieces[thisIndex + 1].outputBlackHoles(pszFileName, dvFac, cb);
+	pieces[thisIndex + 1].outputBlackHoles(pszFileName, dvFac, lFPos, cb);
     else
 	cb.send();
     }
