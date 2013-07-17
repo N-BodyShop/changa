@@ -138,6 +138,7 @@ mainmodule ParallelGravity {
   PUPable ESNRateOutputParams;
   PUPable DtOutputParams;
   PUPable KeyOutputParams;
+  PUPable DomainOutputParams;
   PUPable RungOutputParams;
   PUPable IOrderOutputParams;
   PUPable IGasOrderOutputParams;
@@ -323,6 +324,7 @@ mainmodule ParallelGravity {
     entry void truncateRung(int iCurrMaxRung, const CkCallback& cb);
     entry void rungStats(const CkCallback& cb);
     entry void countActive(int activeRung, const CkCallback& cb);
+    entry void assignDomain(const CkCallback &cb);
     entry void drift(double dDelta, int bNeedVPred, int bGasIsoThermal,
 		     double dvDelta, double duDelta, int nGrowMass,
 		     bool buildTree, const CkCallback& cb);
