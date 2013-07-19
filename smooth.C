@@ -317,7 +317,7 @@ void TreePiece::setupSmooth() {
 
   // XXX I don't believe any of the Chunks are used in the smooth walk.
   dm->getChunks(numChunks, prefetchRoots);
-  CkArrayIndexMax idxMax = CkArrayIndex1D(thisIndex.data[0]);
+  CkArrayIndexMax idxMax = CkArrayIndex1D(thisIndex);
   if (numChunks == 0 && myNumParticles == 0) numChunks = 1;
   cacheSmoothPart.ckLocalBranch()->cacheSync(numChunks, idxMax, localIndex);
   cacheNode.ckLocalBranch()->cacheSync(numChunks, idxMax, localIndex);
@@ -369,7 +369,7 @@ void TreePiece::startSmooth(// type of smoothing and parameters
   activeWalks.reserve(maxAwi);
   addActiveWalk(smoothAwi, twSmooth,sSmooth,optSmooth,sSmoothState);
 #ifdef CHECK_WALK_COMPLETIONS
-  CkPrintf("[%d] addActiveWalk smooth (%d)\n", thisIndex.data[0], activeWalks.length());
+  CkPrintf("[%d] addActiveWalk smooth (%d)\n", thisIndex, activeWalks.length());
 #endif
 
   calculateSmoothLocal();
@@ -410,10 +410,10 @@ void TreePiece::initBucketsSmooth(Tsmooth tSmooth) {
 
 void TreePiece::calculateSmoothLocal() {
     dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-    *((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + thisIndex.data[0] + 1;
+    *((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + thisIndex + 1;
     CkSetQueueing(msg,CK_QUEUEING_IFIFO);
     msg->val=0;
-    thisProxy[thisIndex.data[0]].nextBucketSmooth(msg);
+    thisProxy[thisIndex].nextBucketSmooth(msg);
     }
 
 //
@@ -432,7 +432,7 @@ void TreePiece::nextBucketSmooth(dummyMsg *msg){
   }
 
   if (currentBucket<numBuckets) {	// Queue up the next set
-    thisProxy[thisIndex.data[0]].nextBucketSmooth(msg);
+    thisProxy[thisIndex].nextBucketSmooth(msg);
   } else {
     delete msg;
   }
@@ -583,7 +583,7 @@ void NearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
     tp->sSmooth->walkDone(this);
     if(verbosity>4)
 	CkPrintf("[%d] TreePiece %d finished smooth with bucket %d\n",CkMyPe(),
-		 tp->thisIndex.data[0],iBucket);
+		 tp->thisIndex,iBucket);
     nParticlesPending -= node->particleCount;
     if(started && nParticlesPending == 0) {
       started = false;
@@ -596,7 +596,7 @@ void NearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
 #endif
       tp->markSmoothWalkDone();
       if(verbosity > 1)
-	ckerr << "TreePiece " << tp->thisIndex.data[0] << ": My particles are done"
+	ckerr << "TreePiece " << tp->thisIndex << ": My particles are done"
 	     << endl;
     }
   }
@@ -607,7 +607,7 @@ void TreePiece::markSmoothWalkDone()
 	CkCallback cb = CkCallback(CkIndex_TreePiece::finishSmoothWalk(),
 				   pieces);
 	// Use shadow array to avoid reduction conflict
-	smoothProxy[thisIndex.data[0]].ckLocal()->contribute(cb);
+	smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
 void TreePiece::finishSmoothWalk()
@@ -638,9 +638,9 @@ void TreePiece::finishSmoothWalk()
       }
   
 #ifdef CHECK_WALK_COMPLETIONS
-  CkPrintf("[%d] inside finishSmoothWalk contrib callback\n", thisIndex.data[0]);
+  CkPrintf("[%d] inside finishSmoothWalk contrib callback\n", thisIndex);
 #endif
-  smoothProxy[thisIndex.data[0]].ckLocal()->contribute(cbSmooth);
+  smoothProxy[thisIndex].ckLocal()->contribute(cbSmooth);
 }
 
 void KNearestSmoothCompute::walkDone(State *state) {
@@ -828,20 +828,20 @@ void TreePiece::startReSmooth(SmoothParams* params,
   activeWalks.reserve(maxAwi);
   addActiveWalk(smoothAwi, twSmooth,sSmooth,optSmooth,sSmoothState);
 #ifdef CHECK_WALK_COMPLETIONS
-  CkPrintf("[%d] addActiveWalk reSmooth (%d)\n", thisIndex.data[0], activeWalks.length());
+  CkPrintf("[%d] addActiveWalk reSmooth (%d)\n", thisIndex, activeWalks.length());
 #endif
 
-  thisProxy[thisIndex.data[0]].calculateReSmoothLocal();
+  thisProxy[thisIndex].calculateReSmoothLocal();
 }
 
 // Start the smoothing
 
 void TreePiece::calculateReSmoothLocal() {
     dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-    *((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + thisIndex.data[0] + 1;
+    *((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + thisIndex + 1;
     CkSetQueueing(msg,CK_QUEUEING_IFIFO);
     msg->val=0;
-    thisProxy[thisIndex.data[0]].nextBucketReSmooth(msg);
+    thisProxy[thisIndex].nextBucketReSmooth(msg);
     }
 
 //
@@ -859,7 +859,7 @@ void TreePiece::nextBucketReSmooth(dummyMsg *msg){
   }
 
   if (currentBucket<numBuckets) {	// Queue up the next set
-    thisProxy[thisIndex.data[0]].nextBucketReSmooth(msg);
+    thisProxy[thisIndex].nextBucketReSmooth(msg);
   } else {
     delete msg;
   }
@@ -900,7 +900,7 @@ void ReNearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
     nParticlesPending -= node->particleCount;
   if(verbosity>4)
 	CkPrintf("[%d] TreePiece %d finished resmooth with bucket %d, %d Pending\n",CkMyPe(),
-		 tp->thisIndex.data[0],iBucket,nParticlesPending);
+		 tp->thisIndex,iBucket,nParticlesPending);
     if(started && nParticlesPending == 0) {
       started = false;
       tp->memWithCache = CmiMemoryUsage()/(1024*1024);
@@ -910,7 +910,7 @@ void ReNearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
 #endif
       tp->markSmoothWalkDone();
       if(verbosity > 1)
-	ckerr << "TreePiece " << tp->thisIndex.data[0] << ": My particles are done"
+	ckerr << "TreePiece " << tp->thisIndex << ": My particles are done"
 	     << endl;
     }
   }
@@ -1054,20 +1054,20 @@ void TreePiece::startMarkSmooth(SmoothParams* params,
 
   addActiveWalk(smoothAwi, twSmooth,sSmooth,optSmooth,sSmoothState);
 #ifdef CHECK_WALK_COMPLETIONS
-  CkPrintf("[%d] addActiveWalk reSmooth (%d)\n", thisIndex.data[0], activeWalks.length());
+  CkPrintf("[%d] addActiveWalk reSmooth (%d)\n", thisIndex, activeWalks.length());
 #endif
 
-  thisProxy[thisIndex.data[0]].calculateMarkSmoothLocal();
+  thisProxy[thisIndex].calculateMarkSmoothLocal();
 }
 
 // Start the smoothing
 
 void TreePiece::calculateMarkSmoothLocal() {
     dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-    *((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + thisIndex.data[0] + 1;
+    *((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + thisIndex + 1;
     CkSetQueueing(msg,CK_QUEUEING_IFIFO);
     msg->val=0;
-    thisProxy[thisIndex.data[0]].nextBucketMarkSmooth(msg);
+    thisProxy[thisIndex].nextBucketMarkSmooth(msg);
     }
 
 //
@@ -1085,7 +1085,7 @@ void TreePiece::nextBucketMarkSmooth(dummyMsg *msg){
   }
 
   if (currentBucket<numBuckets) {	// Queue up the next set
-    thisProxy[thisIndex.data[0]].nextBucketMarkSmooth(msg);
+    thisProxy[thisIndex].nextBucketMarkSmooth(msg);
   } else {
     delete msg;
   }
@@ -1106,7 +1106,7 @@ void MarkNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
       tp->sSmooth->walkDone(this);
   if(verbosity>4)
 	CkPrintf("[%d] TreePiece %d finished smooth with bucket %d\n",CkMyPe(),
-		 tp->thisIndex.data[0],iBucket);
+		 tp->thisIndex,iBucket);
     nParticlesPending -= node->particleCount;
     if(started && nParticlesPending == 0) {
       started = false;
@@ -1118,9 +1118,9 @@ void MarkNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
       tp->markSmoothWalkDone();
       if(verbosity>1)
 	CkPrintf("[%d] TreePiece %d finished smooth with bucket %d\n",CkMyPe(),
-		 tp->thisIndex.data[0],iBucket);
+		 tp->thisIndex,iBucket);
       if(verbosity > 1)
-	ckerr << "TreePiece " << tp->thisIndex.data[0] << ": My particles are done"
+	ckerr << "TreePiece " << tp->thisIndex << ": My particles are done"
 	     << endl;
     }
   }

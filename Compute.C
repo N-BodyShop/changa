@@ -2350,7 +2350,7 @@ bool RemoteTreeBuilder::work(GenericTreeNode *node, int level){
       if (last < first) {
         // the node is really empty because falling between two TreePieces
         node->makeEmpty();
-        node->remoteIndex = tp->thisIndex.data[0];
+        node->remoteIndex = tp->thisIndex;
       } 
       else{
         // Choose a piece from among the owners from which to
@@ -2362,7 +2362,7 @@ bool RemoteTreeBuilder::work(GenericTreeNode *node, int level){
           CkEntryOptions opts;
 
           opts.setPriority((unsigned int) -110000000);
-          streamingProxy[node->remoteIndex].requestRemoteMoments(node->getKey(), tp->thisIndex.data[0], &opts);
+          streamingProxy[node->remoteIndex].requestRemoteMoments(node->getKey(), tp->thisIndex, &opts);
         }
       }
       registerNode(node);
@@ -2405,7 +2405,7 @@ void RemoteTreeBuilder::doneChildren(GenericTreeNode *node, int level){
 
 bool LocalTreeBuilder::work(GenericTreeNode *node, int level){
   if (level == NodeKeyBits-2) {
-    ckerr << tp->thisIndex.data[0] << ": TreePiece: This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
+    ckerr << tp->thisIndex << ": TreePiece: This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
     ckerr << "Left particle: " << (node->firstParticle) << " Right particle: " << (node->lastParticle) << endl;
     ckerr << "Left key : " << keyBits((tp->myParticles[node->firstParticle]).key, KeyBits).c_str() << endl;
     ckerr << "Right key: " << keyBits((tp->myParticles[node->lastParticle]).key, KeyBits).c_str() << endl;
@@ -2419,7 +2419,7 @@ bool LocalTreeBuilder::work(GenericTreeNode *node, int level){
   node->startBucket = tp->numBuckets; 
 #endif
 
-  //CkPrintf("[%d] phase II visit node %llu type %d\n", tp->thisIndex.data[0], node->getKey(), node->getType());
+  //CkPrintf("[%d] phase II visit node %llu type %d\n", tp->thisIndex, node->getKey(), node->getType());
 
   if(node->getType() == NonLocal || node->getType() == NonLocalBucket){
     // don't deliver moments of this node to clients
@@ -2449,7 +2449,7 @@ bool LocalTreeBuilder::work(GenericTreeNode *node, int level){
                  << " particle bucket" << endl;
        
       CkAssert(node->firstParticle != 0 && node->lastParticle != tp->myNumParticles+1);
-      node->remoteIndex = tp->thisIndex.data[0];
+      node->remoteIndex = tp->thisIndex;
       node->makeBucket(tp->myParticles);
       tp->bucketList.push_back(node);
       tp->numBuckets++;
@@ -2461,7 +2461,7 @@ bool LocalTreeBuilder::work(GenericTreeNode *node, int level){
       return false;
   }
   else if(node->getType() == Empty){
-    node->remoteIndex = tp->thisIndex.data[0];
+    node->remoteIndex = tp->thisIndex;
 
     registerNode(node);
     // deliver MomentsToClients, since remote pieces don't know its
@@ -2476,7 +2476,7 @@ bool LocalTreeBuilder::work(GenericTreeNode *node, int level){
     // split between the children.  Now reset it so it can be calculated
     // from the particle positions.
     node->boundingBox.reset();
-    node->remoteIndex = tp->thisIndex.data[0];
+    node->remoteIndex = tp->thisIndex;
 
     registerNode(node);
     // don't deliver MomentsToClients, since we
@@ -2505,7 +2505,7 @@ void LocalTreeBuilder::doneChildren(GenericTreeNode *node, int level){
   node->numBucketsBeneath = 0;
 #endif
 
-  //CkPrintf("[%d] phase II doneChildren node %llu type %d\n", tp->thisIndex.data[0], node->getKey(), node->getType());
+  //CkPrintf("[%d] phase II doneChildren node %llu type %d\n", tp->thisIndex, node->getKey(), node->getType());
   if(node->getType() == Boundary){
     for(int i = 0; i < node->numChildren(); i++){
       GenericTreeNode *child = node->getChildren(i);

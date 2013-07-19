@@ -374,11 +374,11 @@ void TreePiece::EwaldInit()
 	dummyMsg *msg = new dummyMsg;
 #else
 	dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-	*((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + numTreePieces + thisIndex.data[0] + 1;
+	*((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + numTreePieces + thisIndex + 1;
 	CkSetQueueing(msg,CK_QUEUEING_IFIFO);
 #endif
 	msg->val=0;
-	thisProxy[thisIndex.data[0]].calculateEwald(msg);
+	thisProxy[thisIndex].calculateEwald(msg);
 }
 
 
@@ -451,16 +451,16 @@ void TreePiece::EwaldGPU() {
   roData->fInner2 = (float) 1.2e-3*L*L;
 
   CkCallback *cb; 
-  CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex.data[0]); 
+  CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex); 
   cb = new CkCallback(CkIndex_TreePiece::EwaldGPUComplete(), myIndex, 
 		      thisArrayID); 
 
   
-  //CkPrintf("[%d] in EwaldGPU, calling EwaldHost\n", thisIndex.data[0]);
+  //CkPrintf("[%d] in EwaldGPU, calling EwaldHost\n", thisIndex);
 #ifdef CUDA_INSTRUMENT_WRS
   EwaldHost(h_idata, (void *) cb, instrumentId, activeRung); 
 #else
-  EwaldHost(h_idata, (void *) cb, thisIndex.data[0]); 
+  EwaldHost(h_idata, (void *) cb, thisIndex); 
 #endif
 
 #endif
@@ -485,7 +485,7 @@ void TreePiece::EwaldGPUComplete() {
     myParticles[i].potential += particleTable[i].potential;
   }
 
-  //CkPrintf("[%d] in EwaldGPUComplete, calling EwaldHostMemoryFree\n", thisIndex.data[0]);
+  //CkPrintf("[%d] in EwaldGPUComplete, calling EwaldHostMemoryFree\n", thisIndex);
   EwaldHostMemoryFree(h_idata); 
   free(h_idata); 
 
@@ -495,7 +495,7 @@ void TreePiece::EwaldGPUComplete() {
     bucketReqs[i].finished = 1; 
     finishBucket(i); 
   }
-  //CkPrintf("[%d] in EwaldGPUComplete, completed book-keeping\n", thisIndex.data[0]);
+  //CkPrintf("[%d] in EwaldGPUComplete, completed book-keeping\n", thisIndex);
 #endif 
 }
 

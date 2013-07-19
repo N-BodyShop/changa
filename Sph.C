@@ -348,7 +348,7 @@ void TreePiece::InitEnergy(double dTuFac, // T to internal energy
 	    }
 	}
     // Use shadow array to avoid reduction conflict
-    smoothProxy[thisIndex.data[0]].ckLocal()->contribute(cb);
+    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
 /**
@@ -411,7 +411,7 @@ void TreePiece::updateuDot(int activeRung,
 	}
 #endif
     // Use shadow array to avoid reduction conflict
-    smoothProxy[thisIndex.data[0]].ckLocal()->contribute(cb);
+    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
 /* Set a maximum ball for inverse Nearest Neighbor searching */
@@ -423,7 +423,7 @@ void TreePiece::ballMax(int activeRung, double dhFac, const CkCallback& cb)
 	    }
 	}
     // Use shadow array to avoid reduction conflict
-    smoothProxy[thisIndex.data[0]].ckLocal()->contribute(cb);
+    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
     
 int DenDvDxSmoothParams::isSmoothActive(GravityParticle *p) 
@@ -621,7 +621,7 @@ TreePiece::sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb)
 	    }
         }
     // Use shadow array to avoid reduction conflict
-    smoothProxy[thisIndex.data[0]].ckLocal()->contribute(cb);
+    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
 /* Note: Uses uPred */
@@ -641,7 +641,7 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1,
 	    }
 	}
     // Use shadow array to avoid reduction conflict
-    smoothProxy[thisIndex.data[0]].ckLocal()->contribute(cb);
+    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
 /* Note: Uses uPred */
@@ -666,7 +666,7 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
 	}
 #endif
     // Use shadow array to avoid reduction conflict
-    smoothProxy[thisIndex.data[0]].ckLocal()->contribute(cb);
+    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
 int PressureSmoothParams::isSmoothActive(GravityParticle *p) 

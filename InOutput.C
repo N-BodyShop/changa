@@ -22,7 +22,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 
 	Tipsy::TipsyReader r(filename);
 	if(!r.status()) {
-		cerr << thisIndex.data[0] << ": TreePiece: Fatal: Couldn't open tipsy file!" << endl;
+		cerr << thisIndex << ": TreePiece: Fatal: Couldn't open tipsy file!" << endl;
 		cb.send(0);	// Fire off callback
 		return;
 	}
@@ -54,7 +54,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 
         // check whether this tree piece should load from file
 #ifdef ROUND_ROBIN_WITH_OCT_DECOMP 
-        if(thisIndex.data[0] >= numLoadingPEs) skipLoad = true;
+        if(thisIndex >= numLoadingPEs) skipLoad = true;
 #else
         int numTreePiecesPerPE = numTreePieces/numLoadingPEs;
         int rem = numTreePieces-numTreePiecesPerPE*numLoadingPEs;
@@ -66,19 +66,19 @@ void TreePiece::loadTipsy(const std::string& filename,
           int sizeLargeBlock = numTreePiecesPerPE + 1; 
           int largeBlockBound = numLargeBlocks * sizeLargeBlock; 
           
-          if (thisIndex.data[0] < largeBlockBound) {
-            if (thisIndex.data[0] % sizeLargeBlock > 0) {
+          if (thisIndex < largeBlockBound) {
+            if (thisIndex % sizeLargeBlock > 0) {
               skipLoad = true; 
             }
           }
           else {
-            if ((thisIndex.data[0] - largeBlockBound) % sizeSmallBlock > 0) {
+            if ((thisIndex - largeBlockBound) % sizeSmallBlock > 0) {
               skipLoad = true; 
             }
           }
         }
         else {
-          if ( (thisIndex.data[0] % numTreePiecesPerPE) > 0) {
+          if ( (thisIndex % numTreePiecesPerPE) > 0) {
             skipLoad = true; 
           }
         }
@@ -91,13 +91,13 @@ void TreePiece::loadTipsy(const std::string& filename,
           if(numTreePieces % numTreePiecesPerPE > 0) numLoadingPEs++;
         }
 
-        if(thisIndex.data[0] % numTreePiecesPerPE > 0 || thisIndex.data[0] >= numLoadingPEs * numTreePiecesPerPE) skipLoad = true;
+        if(thisIndex % numTreePiecesPerPE > 0 || thisIndex >= numLoadingPEs * numTreePiecesPerPE) skipLoad = true;
 #endif
 #endif
 
         /*
-        if(thisIndex.data[0] == 0){
-          CkPrintf("[%d] numTreePieces %d numTreePiecesPerPE %d numLoadingPEs %d\n", thisIndex.data[0], numTreePieces, numTreePiecesPerPE, numLoadingPEs);
+        if(thisIndex == 0){
+          CkPrintf("[%d] numTreePieces %d numTreePiecesPerPE %d numLoadingPEs %d\n", thisIndex, numTreePieces, numTreePiecesPerPE, numLoadingPEs);
         }
         */
 
@@ -127,7 +127,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 	CkAssert(startParticle < nTotalParticles);
 	
 	if(verbosity > 2)
-		cerr << "TreePiece " << thisIndex.data[0] << " PE " << CkMyPe() << " Taking " << myNumParticles
+		cerr << "TreePiece " << thisIndex << " PE " << CkMyPe() << " Taking " << myNumParticles
 		     << " of " << nTotalParticles
 		     << " particles: [" << startParticle << "," << startParticle+myNumParticles << ")" << endl;
 
@@ -266,7 +266,7 @@ void TreePiece::setupWrite(int iStage, // stage of scan
 {
     if(iStage > nSetupWriteStage + 1) {
 	// requeue message
-	pieces[thisIndex.data[0]].setupWrite(iStage, iPrevOffset, filename,
+	pieces[thisIndex].setupWrite(iStage, iPrevOffset, filename,
 				     dTime, dvFac, duTFac, bCool, cb);
 	return;
 	}
@@ -276,33 +276,33 @@ void TreePiece::setupWrite(int iStage, // stage of scan
     
     int iOffset = 1 << nSetupWriteStage;
     nStartWrite += iPrevOffset;
-    if(thisIndex.data[0]+iOffset < (int) numTreePieces) { // Scan on
+    if(thisIndex+iOffset < (int) numTreePieces) { // Scan on
 	if(verbosity > 1) {
-	    ckerr << thisIndex.data[0] << ": stage " << iStage << " sending "
-		  << nStartWrite+myNumParticles << " to " << thisIndex.data[0]+iOffset
+	    ckerr << thisIndex << ": stage " << iStage << " sending "
+		  << nStartWrite+myNumParticles << " to " << thisIndex+iOffset
 		  << endl;
 	    }
-	pieces[thisIndex.data[0]+iOffset].setupWrite(iStage+1,
+	pieces[thisIndex+iOffset].setupWrite(iStage+1,
 					     nStartWrite+myNumParticles,
 					     filename, dTime, dvFac, duTFac,
 					     bCool, cb);
 	}
-    if(thisIndex.data[0] < iOffset) { // No more messages are coming my way
+    if(thisIndex < iOffset) { // No more messages are coming my way
 	// send out all the messages
-	for(iStage = iStage+1; (1 << iStage) + thisIndex.data[0] < (int)numTreePieces;
+	for(iStage = iStage+1; (1 << iStage) + thisIndex < (int)numTreePieces;
 	    iStage++) {
 	    iOffset = 1 << iStage;
 	    if(verbosity > 1) {
-		ckerr << thisIndex.data[0] << ": stage " << iStage << " sending "
+		ckerr << thisIndex << ": stage " << iStage << " sending "
 		      << nStartWrite+myNumParticles << " to "
-		      << thisIndex.data[0]+iOffset << endl;
+		      << thisIndex+iOffset << endl;
 		}
-	    pieces[thisIndex.data[0]+iOffset].setupWrite(iStage+1,
+	    pieces[thisIndex+iOffset].setupWrite(iStage+1,
 						 nStartWrite+myNumParticles,
 						 filename, dTime, dvFac,
 						 duTFac, bCool, cb);
 	    }
-	if(thisIndex.data[0] == (int) numTreePieces-1)
+	if(thisIndex == (int) numTreePieces-1)
 	    assert(nStartWrite+myNumParticles == nTotalParticles);
 	nSetupWriteStage = -1;	// reset for next time.
 	parallelWrite(0, cb, filename, dTime, dvFac, duTFac, bCool);
@@ -337,15 +337,15 @@ void TreePiece::parallelWrite(int iPass, const CkCallback& cb,
     int nSkip = numTreePieces/nIOProcessor;
     if(nSkip == 0)
 	nSkip = 1;
-    if(thisIndex.data[0]%nSkip != iPass) { // N.B. this will only be the case
+    if(thisIndex%nSkip != iPass) { // N.B. this will only be the case
 				   // for the first pass.
 	return;
 	}
 
     Tipsy::TipsyWriter w(filename, tipsyHeader);
     writeTipsy(w, dvFac, duTFac, bCool);
-    if(iPass < (nSkip - 1) && thisIndex.data[0] < (numTreePieces - 1))
-	treeProxy[thisIndex.data[0]+1].parallelWrite(iPass + 1, cb, filename, dTime,
+    if(iPass < (nSkip - 1) && thisIndex < (numTreePieces - 1))
+	treeProxy[thisIndex+1].parallelWrite(iPass + 1, cb, filename, dTime,
 						     dvFac, duTFac, bCool);
     contribute(cb);
     }
@@ -387,7 +387,7 @@ void TreePiece::serialWrite(const u_int64_t iPrevOffset, // previously written
 	    iStarOut++;
 	    }
 	}
-    pieces[0].oneNodeWrite(thisIndex.data[0], myNumParticles, myNumSPH, myNumStar,
+    pieces[0].oneNodeWrite(thisIndex, myNumParticles, myNumSPH, myNumStar,
 			   myParticles, mySPHParticles, myStarParticles,
 			   piSph, piStar, iPrevOffset, filename, dTime,
 			   dvFac, duTFac, bCool, cb);
@@ -645,7 +645,7 @@ void TreePiece::reOrder(int64_t _nMaxOrder, CkCallback& cb)
 void TreePiece::ioShuffle(CkReductionMsg *msg) 
 {
     int *counts = (int *)msg->getData();
-    myIOParticles = counts[thisIndex.data[0]];
+    myIOParticles = counts[thisIndex];
     delete msg;
     
     int iPiece;
@@ -694,9 +694,9 @@ void TreePiece::ioShuffle(CkReductionMsg *msg)
 		    }
 		}
 	    if (verbosity>=3)
-		CkPrintf("me:%d to:%d how many:%d\n",thisIndex.data[0], iPiece,
+		CkPrintf("me:%d to:%d how many:%d\n",thisIndex, iPiece,
 			 (binEnd-binBegin));
-	    if(iPiece == thisIndex.data[0]) {
+	    if(iPiece == thisIndex) {
 		ioAcceptSortedParticles(shuffleMsg);
 		}
 	    else {
@@ -725,12 +725,12 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 	}
 
     if(verbosity > 2)
-	ckout << thisIndex.data[0] << ": incoming: " << incomingParticlesArrived
+	ckout << thisIndex << ": incoming: " << incomingParticlesArrived
 	      << " myIO: " << myIOParticles << endl;
     
   if(myIOParticles == incomingParticlesArrived && incomingParticlesSelf) {
       //I've got all my particles, now count them
-    if(verbosity>1) ckout << thisIndex.data[0] <<" got ioParticles"
+    if(verbosity>1) ckout << thisIndex <<" got ioParticles"
 			  <<endl;
     int nTotal = 0;
     int nSPH = 0;
@@ -795,7 +795,7 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 
     sort(myParticles+1, myParticles+myNumParticles+1, compIOrder);
     //signify completion with a reduction
-    if(verbosity>1) ckout << thisIndex.data[0] <<" contributing to ioAccept particles"
+    if(verbosity>1) ckout << thisIndex <<" contributing to ioAccept particles"
 			  <<endl;
 
     deleteTree();
@@ -805,16 +805,16 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 
 void TreePiece::outputAccelerations(OrientedBox<double> accelerationBox, const string& suffix, const CkCallback& cb) {
   FieldHeader fh;
-  if(thisIndex.data[0] == 0) {
+  if(thisIndex == 0) {
     if(verbosity > 2)
-      ckerr << "TreePiece " << thisIndex.data[0] << ": Writing header for accelerations file" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Writing header for accelerations file" << endl;
     FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "wb");
     XDR xdrs;
     xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
     fh.code = float64;
     fh.dimensions = 3;
     if(!xdr_template(&xdrs, &fh) || !xdr_template(&xdrs, &accelerationBox.lesser_corner) || !xdr_template(&xdrs, &accelerationBox.greater_corner)) {
-      ckerr << "TreePiece " << thisIndex.data[0] << ": Could not write header to accelerations file, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Could not write header to accelerations file, aborting" << endl;
       CkAbort("Badness");
     }
     xdr_destroy(&xdrs);
@@ -822,7 +822,7 @@ void TreePiece::outputAccelerations(OrientedBox<double> accelerationBox, const s
   }
 	
   if(verbosity > 3)
-    ckerr << "TreePiece " << thisIndex.data[0] << ": Writing my accelerations to disk" << endl;
+    ckerr << "TreePiece " << thisIndex << ": Writing my accelerations to disk" << endl;
 	
   FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "r+b");
   fseek(outfile, 0, SEEK_END);
@@ -832,26 +832,26 @@ void TreePiece::outputAccelerations(OrientedBox<double> accelerationBox, const s
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
     accelerationBox.grow(myParticles[i].treeAcceleration);
     if(!xdr_template(&xdrs, &(myParticles[i].treeAcceleration))) {
-      ckerr << "TreePiece " << thisIndex.data[0] << ": Error writing accelerations to disk, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
       CkAbort("Badness");
     }
   }
 	
-  if(thisIndex.data[0] == (int) numTreePieces - 1) {
+  if(thisIndex == (int) numTreePieces - 1) {
     if(!xdr_setpos(&xdrs, FieldHeader::sizeBytes) || !xdr_template(&xdrs, &accelerationBox.lesser_corner) || !xdr_template(&xdrs, &accelerationBox.greater_corner)) {
-      ckerr << "TreePiece " << thisIndex.data[0] << ": Error going back to write the acceleration bounds, aborting" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Error going back to write the acceleration bounds, aborting" << endl;
       CkAbort("Badness");
     }
     if(verbosity > 2)
-      ckerr << "TreePiece " << thisIndex.data[0] << ": Wrote the acceleration bounds" << endl;
+      ckerr << "TreePiece " << thisIndex << ": Wrote the acceleration bounds" << endl;
     cb.send();
   }
 	
   xdr_destroy(&xdrs);
   fclose(outfile);
 	
-  if(thisIndex.data[0] != (int) numTreePieces - 1)
-    pieces[thisIndex.data[0] + 1].outputAccelerations(accelerationBox, suffix, cb);
+  if(thisIndex != (int) numTreePieces - 1)
+    pieces[thisIndex + 1].outputAccelerations(accelerationBox, suffix, cb);
 }
 
 // Output a Tipsy ASCII array file.
@@ -870,9 +870,9 @@ void TreePiece::outputASCII(OutputParams& params, // specifies
   Vector3D<double> *avOut;	// array for one node I/O
   params.dm = dm; // pass cooling information
   
-  if((thisIndex.data[0]==0 && packed) || (thisIndex.data[0]==0 && !packed && cnt==0)) {
+  if((thisIndex==0 && packed) || (thisIndex==0 && !packed && cnt==0)) {
     if(verbosity > 2)
-      ckout << "TreePiece " << thisIndex.data[0] << ": Writing header for output file" << endl;
+      ckout << "TreePiece " << thisIndex << ": Writing header for output file" << endl;
     outfile = CmiFopen(params.fileName.c_str(), "w");
     CkAssert(outfile != NULL);
     fprintf(outfile,"%d\n",(int) nTotalParticles);
@@ -880,12 +880,12 @@ void TreePiece::outputASCII(OutputParams& params, // specifies
   }
 	
   if(verbosity > 3)
-    ckout << "TreePiece " << thisIndex.data[0] << ": Writing output to disk" << endl;
+    ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
 	
   if(bParaWrite) {
       outfile = CmiFopen(params.fileName.c_str(), "a");
       if(outfile == NULL)
-	    ckerr << "Treepiece " << thisIndex.data[0] << " failed to open "
+	    ckerr << "Treepiece " << thisIndex << " failed to open "
 		  << params.fileName.c_str() << " : " << errno << endl;
       CkAssert(outfile != NULL);
       }
@@ -915,21 +915,21 @@ void TreePiece::outputASCII(OutputParams& params, // specifies
       if(bParaWrite) {
 	  if(params.bVector && packed){
 	      if(fprintf(outfile,"%.14g\n",vOut.x) < 0) {
-		  ckerr << "TreePiece " << thisIndex.data[0] << ": Error writing array to disk, aborting" << endl;
+		  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 		    CkAbort("Badness");
 		    }
 	      if(fprintf(outfile,"%.14g\n",vOut.y) < 0) {
-		  ckerr << "TreePiece " << thisIndex.data[0] << ": Error writing array to disk, aborting" << endl;
+		  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 		  CkAbort("Badness");
 		  }
 	      if(fprintf(outfile,"%.14g\n",vOut.z) < 0) {
-		  ckerr << "TreePiece " << thisIndex.data[0] << ": Error writing array to disk, aborting" << endl;
+		  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 		  CkAbort("Badness");
 		  }
 	      }
 	  else {
 	      if(fprintf(outfile,"%.14g\n",dOut) < 0) {
-		  ckerr << "TreePiece " << thisIndex.data[0] << ": Error writing array to disk, aborting" << endl;
+		  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 		  CkAbort("Badness");
 		  }
 	      }
@@ -951,8 +951,8 @@ void TreePiece::outputASCII(OutputParams& params, // specifies
 	    ckerr << "Bad close: " << strerror(errno) << endl;
       CkAssert(result == 0);
 
-      if(thisIndex.data[0]!=(int)numTreePieces-1) {
-	  pieces[thisIndex.data[0] + 1].outputASCII(params, bParaWrite, cb);
+      if(thisIndex!=(int)numTreePieces-1) {
+	  pieces[thisIndex + 1].outputASCII(params, bParaWrite, cb);
 	  return;
 	  }
 
@@ -966,12 +966,12 @@ void TreePiece::outputASCII(OutputParams& params, // specifies
   else {
       int bDone = packed || !params.bVector || (!packed && cnt==0); // flag for last time
       if(params.bVector && packed) {
-	  pieces[0].oneNodeOutVec(params, avOut, myNumParticles, thisIndex.data[0],
+	  pieces[0].oneNodeOutVec(params, avOut, myNumParticles, thisIndex,
 				  bDone, cb);
 	  delete [] avOut;
 	  }
       else {
-	  pieces[0].oneNodeOutArr(params, adOut, myNumParticles, thisIndex.data[0],
+	  pieces[0].oneNodeOutArr(params, adOut, myNumParticles, thisIndex,
 				  bDone, cb);
 	  delete [] adOut;
 	  }
@@ -990,20 +990,20 @@ void TreePiece::oneNodeOutVec(OutputParams& params,
 {
     FILE* outfile = CmiFopen(params.fileName.c_str(), "a");
     if(outfile == NULL)
-	ckerr << "Treepiece " << thisIndex.data[0] << " failed to open "
+	ckerr << "Treepiece " << thisIndex << " failed to open "
 	      << params.fileName.c_str() << " : " << errno << endl;
     CkAssert(outfile != NULL);
     for(int i = 0; i < nPart; ++i) {
 	if(fprintf(outfile,"%.14g\n",avOut[i].x) < 0) {
-	  ckerr << "TreePiece " << thisIndex.data[0] << ": Error writing array to disk, aborting" << endl;
+	  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 	    CkAbort("Badness");
 	    }
 	if(fprintf(outfile,"%.14g\n",avOut[i].y) < 0) {
-	  ckerr << "TreePiece " << thisIndex.data[0] << ": Error writing array to disk, aborting" << endl;
+	  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 	  CkAbort("Badness");
 	  }
 	if(fprintf(outfile,"%.14g\n",avOut[i].z) < 0) {
-	  ckerr << "TreePiece " << thisIndex.data[0] << ": Error writing array to disk, aborting" << endl;
+	  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 	  CkAbort("Badness");
 	  }
 	}
@@ -1037,12 +1037,12 @@ void TreePiece::oneNodeOutArr(OutputParams& params,
 {
     FILE* outfile = CmiFopen(params.fileName.c_str(), "a");
     if(outfile == NULL)
-	ckerr << "Treepiece " << thisIndex.data[0] << " failed to open "
+	ckerr << "Treepiece " << thisIndex << " failed to open "
 	      << params.fileName.c_str() << " : " << errno << endl;
     CkAssert(outfile != NULL);
     for(int i = 0; i < nPart; ++i) {
 	if(fprintf(outfile,"%.14g\n",adOut[i]) < 0) {
-	  ckerr << "TreePiece " << thisIndex.data[0] << ": Error writing array to disk, aborting" << endl;
+	  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 	    CkAbort("Badness");
 	    }
 	}
@@ -1077,9 +1077,9 @@ void TreePiece::outputIntASCII(OutputIntParams& params, // specifies
   FILE* outfile;
   int *aiOut;	// array for oneNode I/O
   
-  if(thisIndex.data[0]==0) {
+  if(thisIndex==0) {
     if(verbosity > 2)
-      ckout << "TreePiece " << thisIndex.data[0] << ": Writing header for output file" << endl;
+      ckout << "TreePiece " << thisIndex << ": Writing header for output file" << endl;
     outfile = CmiFopen(params.fileName.c_str(), "w");
     CkAssert(outfile != NULL);
     fprintf(outfile,"%d\n",(int) nTotalParticles);
@@ -1087,12 +1087,12 @@ void TreePiece::outputIntASCII(OutputIntParams& params, // specifies
   }
 	
   if(verbosity > 3)
-    ckout << "TreePiece " << thisIndex.data[0] << ": Writing output to disk" << endl;
+    ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
 	
   if(bParaWrite) {
       outfile = CmiFopen(params.fileName.c_str(), "a");
       if(outfile == NULL)
-	    ckerr << "Treepiece " << thisIndex.data[0] << " failed to open "
+	    ckerr << "Treepiece " << thisIndex << " failed to open "
 		  << params.fileName.c_str() << " : " << errno << endl;
       CkAssert(outfile != NULL);
       }
@@ -1105,7 +1105,7 @@ void TreePiece::outputIntASCII(OutputIntParams& params, // specifies
       
       if(bParaWrite) {
 	  if(fprintf(outfile,"%d\n", iOut) < 0) {
-	      ckerr << "TreePiece " << thisIndex.data[0] << ": Error writing array to disk, aborting" << endl;
+	      ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 	      CkAbort("Badness");
 	      }
 	  }
@@ -1120,8 +1120,8 @@ void TreePiece::outputIntASCII(OutputIntParams& params, // specifies
 	    ckerr << "Bad close: " << strerror(errno) << endl;
       CkAssert(result == 0);
 
-      if(thisIndex.data[0]!=(int)numTreePieces-1) {
-	  pieces[thisIndex.data[0] + 1].outputIntASCII(params, bParaWrite, cb);
+      if(thisIndex!=(int)numTreePieces-1) {
+	  pieces[thisIndex + 1].outputIntASCII(params, bParaWrite, cb);
 	  return;
 	  }
 
@@ -1129,7 +1129,7 @@ void TreePiece::outputIntASCII(OutputIntParams& params, // specifies
       return;
       }
   else {
-      pieces[0].oneNodeOutIntArr(params, aiOut, myNumParticles, thisIndex.data[0], cb);
+      pieces[0].oneNodeOutIntArr(params, aiOut, myNumParticles, thisIndex, cb);
       delete [] aiOut;
       }
 }
@@ -1146,12 +1146,12 @@ void TreePiece::oneNodeOutIntArr(OutputIntParams& params,
 {
     FILE* outfile = CmiFopen(params.fileName.c_str(), "a");
     if(outfile == NULL)
-	ckerr << "Treepiece " << thisIndex.data[0] << " failed to open "
+	ckerr << "Treepiece " << thisIndex << " failed to open "
 	      << params.fileName.c_str() << " : " << errno << endl;
     CkAssert(outfile != NULL);
     for(int i = 0; i < nPart; ++i) {
 	if(fprintf(outfile,"%d\n",aiOut[i]) < 0) {
-	  ckerr << "TreePiece " << thisIndex.data[0] << ": Error writing array to disk, aborting" << endl;
+	  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 	    CkAbort("Badness");
 	    }
 	}
@@ -1185,9 +1185,9 @@ void TreePiece::outputBinary(OutputParams& params, // specifies
     params.dm = dm; // pass cooling information
     int iDum;
     
-    if((thisIndex.data[0]==0 && packed) || (thisIndex.data[0]==0 && !packed && cnt==0)) {
+    if((thisIndex==0 && packed) || (thisIndex==0 && !packed && cnt==0)) {
 	if(verbosity > 2)
-	    ckout << "TreePiece " << thisIndex.data[0] << ": Writing header for output file" << endl;
+	    ckout << "TreePiece " << thisIndex << ": Writing header for output file" << endl;
 	outfile = CmiFopen(params.fileName.c_str(), "w");
 	CkAssert(outfile != NULL);
 	xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
@@ -1198,12 +1198,12 @@ void TreePiece::outputBinary(OutputParams& params, // specifies
 	}
     
     if(verbosity > 3)
-	ckout << "TreePiece " << thisIndex.data[0] << ": Writing output to disk" << endl;
+	ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
     
     if(bParaWrite) {
 	outfile = CmiFopen(params.fileName.c_str(), "a");
 	if(outfile == NULL)
-	    ckerr << "Treepiece " << thisIndex.data[0] << " failed to open "
+	    ckerr << "Treepiece " << thisIndex << " failed to open "
 		  << params.fileName.c_str() << " : " << errno << endl;
 	CkAssert(outfile != NULL);
 	xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
@@ -1234,21 +1234,21 @@ void TreePiece::outputBinary(OutputParams& params, // specifies
 	if(bParaWrite) {
 	    if(params.bVector && packed){
 		if(!xdr_float(&xdrs,&vOut.x)) {
-		    ckerr << "TreePiece " << thisIndex.data[0] << ": Error writing array to disk, aborting" << endl;
+		    ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 		    CkAbort("Badness");
 		    }
 		if(!xdr_float(&xdrs,&vOut.y)) {
-		    ckerr << "TreePiece " << thisIndex.data[0] << ": Error writing array to disk, aborting" << endl;
+		    ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 		    CkAbort("Badness");
 		    }
 		if(!xdr_float(&xdrs,&vOut.z)) {
-		    ckerr << "TreePiece " << thisIndex.data[0] << ": Error writing array to disk, aborting" << endl;
+		    ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 		    CkAbort("Badness");
 		    }
 		}
 	    else {
 		if(!xdr_float(&xdrs,&vOut.y)) {
-		    ckerr << "TreePiece " << thisIndex.data[0] << ": Error writing array to disk, aborting" << endl;
+		    ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 		    CkAbort("Badness");
 		    }
 		}
@@ -1271,8 +1271,8 @@ void TreePiece::outputBinary(OutputParams& params, // specifies
 	    ckerr << "Bad close: " << strerror(errno) << endl;
 	CkAssert(result == 0);
 	
-	if(thisIndex.data[0]!=(int)numTreePieces-1) {
-	    pieces[thisIndex.data[0] + 1].outputBinary(params, bParaWrite, cb);
+	if(thisIndex!=(int)numTreePieces-1) {
+	    pieces[thisIndex + 1].outputBinary(params, bParaWrite, cb);
 	    return;
 	    }
 	
@@ -1286,12 +1286,12 @@ void TreePiece::outputBinary(OutputParams& params, // specifies
     else {
 	int bDone = packed || !params.bVector || (!packed && cnt==0); // flag for last time
 	if(params.bVector && packed) {
-	    pieces[0].oneNodeOutBinVec(params, avOut, myNumParticles, thisIndex.data[0],
+	    pieces[0].oneNodeOutBinVec(params, avOut, myNumParticles, thisIndex,
 				       bDone, cb);
 	    delete [] avOut;
 	    }
 	else {
-	    pieces[0].oneNodeOutBinArr(params, afOut, myNumParticles, thisIndex.data[0],
+	    pieces[0].oneNodeOutBinArr(params, afOut, myNumParticles, thisIndex,
 				       bDone, cb);
 	    delete [] afOut;
 	    }
@@ -1311,21 +1311,21 @@ void TreePiece::oneNodeOutBinVec(OutputParams& params,
     FILE* outfile = CmiFopen(params.fileName.c_str(), "a");
     XDR xdrs;
     if(outfile == NULL)
-	ckerr << "Treepiece " << thisIndex.data[0] << " failed to open "
+	ckerr << "Treepiece " << thisIndex << " failed to open "
 	      << params.fileName.c_str() << " : " << errno << endl;
     CkAssert(outfile != NULL);
     xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
     for(int i = 0; i < nPart; ++i) {
 	if(!xdr_float(&xdrs,&(avOut[i].x))) {
-	    ckerr << "TreePiece " << thisIndex.data[0] << ": Error writing array to disk, aborting" << endl;
+	    ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 	    CkAbort("Badness");
 	    }
 	if(!xdr_float(&xdrs,&(avOut[i].y))) {
-	    ckerr << "TreePiece " << thisIndex.data[0] << ": Error writing array to disk, aborting" << endl;
+	    ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 	    CkAbort("Badness");
 	    }
 	if(!xdr_float(&xdrs,&(avOut[i].z))) {
-	    ckerr << "TreePiece " << thisIndex.data[0] << ": Error writing array to disk, aborting" << endl;
+	    ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 	    CkAbort("Badness");
 	    }
 	}
@@ -1361,13 +1361,13 @@ void TreePiece::oneNodeOutBinArr(OutputParams& params,
     FILE* outfile = CmiFopen(params.fileName.c_str(), "a");
     XDR xdrs;
     if(outfile == NULL)
-	ckerr << "Treepiece " << thisIndex.data[0] << " failed to open "
+	ckerr << "Treepiece " << thisIndex << " failed to open "
 	      << params.fileName.c_str() << " : " << errno << endl;
     CkAssert(outfile != NULL);
     xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
     for(int i = 0; i < nPart; ++i) {
 	if(!xdr_float(&xdrs,&(afOut[i]))) {
-	  ckerr << "TreePiece " << thisIndex.data[0] << ": Error writing array to disk, aborting" << endl;
+	  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 	    CkAbort("Badness");
 	    }
 	}
@@ -1393,9 +1393,9 @@ void TreePiece::oneNodeOutBinArr(OutputParams& params,
 void TreePiece::outputIOrderBinary(const string& fileName, const CkCallback& cb) {
     XDR xdrs;
     int iDum;
-    if(thisIndex.data[0]==0) {
+    if(thisIndex==0) {
 	if(verbosity > 2)
-	    ckerr << "TreePiece " << thisIndex.data[0] << ": Writing header for iOrder file"
+	    ckerr << "TreePiece " << thisIndex << ": Writing header for iOrder file"
 		  << endl;
 	FILE* outfile = CmiFopen(fileName.c_str(), "w");
 	CkAssert(outfile != NULL);
@@ -1407,7 +1407,7 @@ void TreePiece::outputIOrderBinary(const string& fileName, const CkCallback& cb)
 	}
     
     if(verbosity > 3)
-	ckerr << "TreePiece " << thisIndex.data[0] << ": Writing iOrder to disk" << endl;
+	ckerr << "TreePiece " << thisIndex << ": Writing iOrder to disk" << endl;
     
     FILE* outfile = CmiFopen(fileName.c_str(), "a");
     CkAssert(outfile != NULL);
@@ -1416,7 +1416,7 @@ void TreePiece::outputIOrderBinary(const string& fileName, const CkCallback& cb)
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	iDum = myParticles[i].iOrder;
 	if(!xdr_int(&xdrs,&iDum)) {
-	    ckerr << "TreePiece " << thisIndex.data[0]
+	    ckerr << "TreePiece " << thisIndex
 		  << ": Error writing iOrder to disk, aborting" << endl;
 	    CkAbort("IO Badness");
 	    }
@@ -1427,9 +1427,9 @@ void TreePiece::outputIOrderBinary(const string& fileName, const CkCallback& cb)
     if(result != 0)
 	ckerr << "Bad close: " << strerror(errno) << endl;
     CkAssert(result == 0);
-    if(thisIndex.data[0]==(int)numTreePieces-1) {
+    if(thisIndex==(int)numTreePieces-1) {
 	cb.send();
 	}
     else
-	pieces[thisIndex.data[0] + 1].outputIOrderBinary(fileName, cb);
+	pieces[thisIndex + 1].outputIOrderBinary(fileName, cb);
   }
