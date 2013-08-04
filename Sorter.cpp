@@ -562,7 +562,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
       root->makeSubTree(depth, leaves);
       // CkPrintf("num leaves: %d numDecompRoots: %d\n", leaves->length(), numDecompRoots);
 
-      for (int i = 0; i < leaves->length(); i++) {
+      for (unsigned int i = 0; i < leaves->length(); i++) {
         (*leaves)[i]->nchildren = OctDecompNode::maxNumChildren;
         (*leaves)[i]->children = new OctDecompNode[OctDecompNode::maxNumChildren];
         for (int j = 0; j < OctDecompNode::maxNumChildren; j++) {
@@ -740,9 +740,6 @@ void OctDecompNode::deleteBeneath(){
  * Returns true if more refinement is requested.
  */
 bool Sorter::refineOctSplitting(int n, int *count) {
-  unsigned int nprocess = 0;
-  unsigned int nopen = 0;
-  unsigned int njoin = 0;
 
   CkAssert(activeNodes->length() == n);
 

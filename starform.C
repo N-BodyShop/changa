@@ -140,13 +140,12 @@ void Main::FormStars(double dTime, double dDelta)
     // XXX need to check whether a treebuild needs the domain
     // decomposition.  If not, this could be avoided.
     //
-    double tolerance = 0.01;	// tolerance for domain decomposition
 
     CkCallback sortingCallback(CkCallback::resumeThread); 
     shuffleAggregator.init(treeProxy, CkCallbackResumeThread(), 
                            sortingCallback, INT_MIN, false); 	  
 
-    sorter.startSorting(dataManagerID, tolerance, true);
+    sorter.startSorting(dataManagerID, ddTolerance, true);
     CkFreeMsg(sortingCallback.thread_delay());
 
 #ifdef PUSH_GRAVITY

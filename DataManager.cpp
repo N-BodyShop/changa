@@ -232,7 +232,9 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
     }
     root = buildProcessorTree(totalChares, &gtn[0]);
 
+#ifndef CUDA
     registeredTreePieces.removeAll();
+#endif
 
 #ifdef PRINT_MERGED_TREE
     ostringstream dmName;
@@ -472,7 +474,10 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
     dMaxBalance = param.dMaxBalance;
     nIOProcessor = param.nIOProcessor;
     contribute(cb);
+    // parameter structure requires some cleanup
     delete param.stfm;
+    free(param.csm);
+    delete param.feedback;
     }
   
 	 
@@ -578,7 +583,7 @@ void DataManager::donePrefetch(int chunk){
   CmiUnlock(__nodelock);
 }
 
-typedef std::map<CkCacheKey, CkCacheEntry*> cacheType;
+typedef std::map<KeyType, CkCacheEntry<KeyType>*> cacheType;
 
 #ifdef CUDA_DM_PRINT_TREES 
 #define addNodeToList(nd, list, index) \
@@ -630,9 +635,9 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
   int numCachedParticles = 0;
   int totalNumBuckets = 0;
 
-  cacheType *wholeNodeCache = cacheNode[CkMyPe()].getCache();
+  cacheType *wholeNodeCache = cacheNode.ckLocalBranch()->getCache();
   cacheType *ctNode = &wholeNodeCache[chunk];
-  cacheType *wholePartCache = cacheGravPart[CkMyPe()].getCache();
+  cacheType *wholePartCache = cacheGravPart.ckLocalBranch()->getCache();
   cacheType *ctPart = &wholePartCache[chunk];
 
   // find out number of particles and nodes cached
