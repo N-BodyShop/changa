@@ -61,8 +61,9 @@ CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
 CProxy_ArrayMeshStreamer<CkCacheRequest, int, TreePiece> aggregator;
 CProxy_ArrayMeshStreamer<ParticleShuffle, int, ShuffleShadowArray> shuffleAggregator;
 CProxy_GroupChunkMeshStreamer <ExternalGravityParticle, CacheMessageSequencer> cacheAggregator;
-//CProxy_CompletionDetector detector; 
-//CProxy_CompletionDetector shuffleDetector; 
+CProxy_CompletionDetector detector; 
+CProxy_CompletionDetector shuffleDetector; 
+CProxy_CompletionDetector sequencerDetector; 
 
 #ifdef REDUCTION_HELPER
 CProxy_ReductionHelper reductionHelperProxy;
@@ -1110,8 +1111,9 @@ Main::Main(CkArgMsg* m) {
         aggregator = CProxy_ArrayMeshStreamer<CkCacheRequest, int, TreePiece>::
           ckNew(NUM_MESSAGES_BUFFERED, nDims, dims, treeProxy, false, 10.0);
 
-        //        detector = CProxy_CompletionDetector::ckNew();
-        //shuffleDetector = CProxy_CompletionDetector::ckNew();
+        detector = CProxy_CompletionDetector::ckNew();
+        shuffleDetector = CProxy_CompletionDetector::ckNew();
+        sequencerDetector = CProxy_CompletionDetector::ckNew();
 
 #ifdef REDUCTION_HELPER
         reductionHelperProxy = CProxy_ReductionHelper::ckNew();
@@ -1542,8 +1544,8 @@ void Main::advanceBigStep(int iStep) {
 
     CkCallback sortingCallback(CkCallback::resumeThread); 
     startTime = CkWallTimer();
-    shuffleAggregator.init(treeProxy, CkCallbackResumeThread(), 
-                           sortingCallback, INT_MIN, false); 
+    shuffleAggregator.init(numTreePieces, CkCallbackResumeThread(), 
+                           sortingCallback, shuffleDetector, INT_MIN, false); 
     sorter.startSorting(dataManagerID, ddTolerance, bDoDD);
     CkFreeMsg(sortingCallback.thread_delay());
 
@@ -1599,10 +1601,10 @@ void Main::advanceBigStep(int iStep) {
     CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
     CkCallback cbGravity(CkCallback::resumeThread);
-    aggregator.init(treeProxy, CkCallbackResumeThread(), 
-                    CkCallback(), INT_MIN, true); 
-    cacheAggregator.init(treeProxy, CkCallbackResumeThread(), 
-                         cbGravity, INT_MIN, true); 
+    aggregator.init(numTreePieces, CkCallbackResumeThread(), 
+                    CkCallback(), detector, INT_MIN, true); 
+    cacheAggregator.init(numTreePieces, CkCallbackResumeThread(), 
+                         cbGravity, sequencerDetector, INT_MIN, true); 
     if(verbosity > 1)
 	memoryStats();
     if(param.bDoGravity) {
@@ -2113,8 +2115,8 @@ Main::initialForces()
   startTime = CkWallTimer();
 
   CkCallback sortingCallback(CkCallback::resumeThread); 
-  shuffleAggregator.init(treeProxy, CkCallbackResumeThread(), 
-                         sortingCallback, INT_MIN, false); 
+  shuffleAggregator.init(numTreePieces, CkCallbackResumeThread(), 
+                         sortingCallback, shuffleDetector, INT_MIN, false); 
 
   sorter.startSorting(dataManagerID, ddTolerance, true);
   CkFreeMsg(sortingCallback.thread_delay());
@@ -2172,10 +2174,10 @@ Main::initialForces()
 #endif
 
     CkCallback cbGravity(CkCallback::resumeThread);
-    aggregator.init(treeProxy, CkCallbackResumeThread(), 
-                    CkCallback(), INT_MIN, true); 
-    cacheAggregator.init(treeProxy, CkCallbackResumeThread(), 
-                         cbGravity, INT_MIN, true); 
+    aggregator.init(numTreePieces, CkCallbackResumeThread(), 
+                    CkCallback(), detector, INT_MIN, true); 
+    cacheAggregator.init(numTreePieces, CkCallbackResumeThread(), 
+                         cbGravity, sequencerDetector, INT_MIN, true); 
       
   if(param.bDoGravity) {
       updateSoft();
@@ -2478,7 +2480,7 @@ Main::doSimulation()
 	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
           
           CkCallback sortingCallback(CkCallback::resumeThread); 
-          shuffleAggregator.init(treeProxy, CkCallbackResumeThread(), 
+          shuffleAggregator.init(numTreePieces, CkCallbackResumeThread(), 
                                  sortingCallback, INT_MIN, false); 	  
 
           sorter.startSorting(dataManagerID, ddTolerance, true);
@@ -2753,7 +2755,7 @@ void Main::writeOutput(int iStep)
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 	
         CkCallback sortingCallback(CkCallback::resumeThread); 
-        shuffleAggregator.init(treeProxy, CkCallbackResumeThread(), 
+        shuffleAggregator.init(numTreePieces, CkCallbackResumeThread(), 
                                sortingCallback, INT_MIN, false); 	  
 
         sorter.startSorting(dataManagerID, ddTolerance, true);
@@ -2804,7 +2806,7 @@ void Main::writeOutput(int iStep)
             treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 
             CkCallback sortingCallback(CkCallback::resumeThread); 
-            shuffleAggregator.init(treeProxy, CkCallbackResumeThread(), 
+            shuffleAggregator.init(numTreePieces, CkCallbackResumeThread(), 
                                    sortingCallback, INT_MIN, false);
 
 	    sorter.startSorting(dataManagerID, ddTolerance, true);

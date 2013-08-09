@@ -134,6 +134,9 @@ extern double dExtraStore;
 extern double dMaxBalance;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
+extern CProxy_CompletionDetector detector;
+extern CProxy_CompletionDetector shuffleDetector;
+extern CProxy_CompletionDetector sequencerDetector;
 #ifdef REDUCTION_HELPER
 extern CProxy_ReductionHelper reductionHelperProxy;
 #endif

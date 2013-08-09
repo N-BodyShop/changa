@@ -2360,7 +2360,6 @@ bool RemoteTreeBuilder::work(GenericTreeNode *node, int level){
         // request the remote chare to fill this node with the Moments
         if(requestNonLocalMoments){
           CkEntryOptions opts;
-
           opts.setPriority((unsigned int) -110000000);
           streamingProxy[node->remoteIndex].requestRemoteMoments(node->getKey(), tp->thisIndex, &opts);
         }

@@ -63,6 +63,7 @@ void EntryTypeGravityParticle::callback(CkArrayID requestorID, CkArrayIndexMax &
   elem.receiveParticlesCallback(cp->part, cp->end - cp->begin + 1, chunk, reqID, key, awi, source);
 }
 
+
 void TreePiece::fillRequestParticles(const CkCacheRequest &req) {
   // the key used in the cache is shifted to the left of 1, this makes
   // a clear distinction between nodes and particles

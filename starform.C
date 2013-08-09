@@ -142,8 +142,8 @@ void Main::FormStars(double dTime, double dDelta)
     //
 
     CkCallback sortingCallback(CkCallback::resumeThread); 
-    shuffleAggregator.init(treeProxy, CkCallbackResumeThread(), 
-                           sortingCallback, INT_MIN, false); 	  
+    shuffleAggregator.init(numTreePieces, CkCallbackResumeThread(), 
+                           sortingCallback, shuffleDetector, INT_MIN, false); 	  
 
     sorter.startSorting(dataManagerID, ddTolerance, true);
     CkFreeMsg(sortingCallback.thread_delay());
