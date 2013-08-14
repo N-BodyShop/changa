@@ -9,9 +9,10 @@
 #include "DataManager.h"
 #include "smooth.h"
 #include "Sph.h"
+#include "physconst.h"
 
 #ifndef MAXPATHLEN
-#define MAXPATHLEN 1024
+#define MAXPATHLEN PATH_MAX
 #endif
 
 ///
@@ -33,8 +34,8 @@ Main::initSph()
 			      CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
-	if(verbosity)
-	    memoryStatsCache();
+        if(verbosity > 1 && !param.bConcurrentSph)
+            memoryStatsCache();
 	double dTuFac = param.dGasConst/(param.dConstGamma-1)
 	    /param.dMeanMolWeight;
 	double z = 1.0/csmTime2Exp(param.csm, dTime) - 1.0;
@@ -48,9 +49,12 @@ Main::initSph()
 	nActiveSPH = nTotalSPH;
 	doSph(0, 0);
 	double duDelta[MAXRUNG+1];
-	for(int iRung = 0; iRung <= MAXRUNG; iRung++)
+	double dStartTime[MAXRUNG+1];
+	for(int iRung = 0; iRung <= MAXRUNG; iRung++) {
 	    duDelta[iRung] = 0.5e-7*param.dDelta;
-	treeProxy.updateuDot(0, duDelta, dTime, z, param.bGasCooling, 0, 1,
+	    dStartTime[iRung] = dTime;
+	    }
+	treeProxy.updateuDot(0, duDelta, dStartTime, param.bGasCooling, 0, 1,
 			     CkCallbackResumeThread());
 	}
     }
@@ -238,6 +242,138 @@ DataManager::CoolingSetTime(double z, // redshift
     }
 
 /**
+ *  @brief utility for checking array files
+ */
+bool
+arrayFileExists(const std::string filename, const int64_t count) 
+{
+    FILE *fp = CmiFopen(filename.c_str(), "r");
+    if(fp != NULL) {
+        int64_t nIOrd;
+        fscanf(fp, "%ld", &nIOrd);
+        CkAssert(nIOrd == count);
+        fclose(fp);
+        return true;
+    }
+    return false;
+}
+
+/**
+ *  @brief Read in array files for complete gas information.
+ */
+void
+Main::restartGas() 
+{
+    if(verbosity)
+        CkPrintf("Restarting Gas Simulation with array files.\n");
+    
+    // read iOrder
+    if(arrayFileExists(basefilename + ".iord", nTotalParticles)) {
+        CkReductionMsg *msg;
+        treeProxy.readIOrd(basefilename + ".iord",
+                           CkCallbackResumeThread((void*&)msg));
+        CmiInt8 *maxIOrds = (CmiInt8 *)msg->getData();
+        nMaxOrderGas = maxIOrds[0];
+        nMaxOrderDark = maxIOrds[1];
+        nMaxOrder = maxIOrds[2];
+        delete msg;
+        }
+    else
+        CkError("WARNING: no iOrder file for restart\n");
+    // read iGasOrder
+    if(arrayFileExists(basefilename + ".igasorder", nTotalParticles))
+        treeProxy.readIGasOrd(basefilename + ".igasorder",
+                           CkCallbackResumeThread());
+    else {
+        CkError("WARNING: no igasorder file for restart\n");
+        }
+    if(param.bFeedback) {
+        if(arrayFileExists(basefilename + ".ESNRate", nTotalParticles))
+            treeProxy.readESNrate(basefilename + ".ESNRate",
+                               CkCallbackResumeThread());
+        if(arrayFileExists(basefilename + ".OxMassFrac", nTotalParticles))
+            treeProxy.readOxMassFrac(basefilename + ".OxMassFrac",
+                               CkCallbackResumeThread());
+        if(arrayFileExists(basefilename + ".FeMassFrac", nTotalParticles))
+            treeProxy.readFeMassFrac(basefilename + ".FeMassFrac",
+                               CkCallbackResumeThread());
+        if(arrayFileExists(basefilename + ".massform", nTotalParticles))
+            treeProxy.readMassForm(basefilename + ".massform",
+                               CkCallbackResumeThread());
+        }
+#ifndef COOLING_NONE
+    if(param.bGasCooling) {
+        // read coolontime
+        if(arrayFileExists(basefilename + ".coolontime", nTotalParticles))
+            treeProxy.readCoolOnTime(basefilename + ".coolontime",
+                               CkCallbackResumeThread());
+        else {
+            CkError("WARNING: no coolontime file for restart\n");
+            }
+        // read ionization fractions
+        if(arrayFileExists(basefilename + "." + COOL_ARRAY0_EXT, nTotalParticles))
+            treeProxy.readCoolArray0(basefilename + "." + COOL_ARRAY0_EXT,
+                                     CkCallbackResumeThread());
+        else {
+            CkError("WARNING: no CoolArray0 file for restart\n");
+            }
+        if(arrayFileExists(basefilename + "." + COOL_ARRAY1_EXT, nTotalParticles))
+            treeProxy.readCoolArray1(basefilename + "." + COOL_ARRAY1_EXT,
+                                     CkCallbackResumeThread());
+        else {
+            CkError("WARNING: no CoolArray1 file for restart\n");
+            }
+        if(arrayFileExists(basefilename + "." + COOL_ARRAY2_EXT, nTotalParticles))
+            treeProxy.readCoolArray2(basefilename + "." + COOL_ARRAY2_EXT,
+                                     CkCallbackResumeThread());
+        else {
+            CkError("WARNING: no CoolArray2 file for restart\n");
+            }
+        if(arrayFileExists(basefilename + "." + COOL_ARRAY3_EXT, nTotalParticles))
+            treeProxy.readCoolArray3(basefilename + "." + COOL_ARRAY3_EXT,
+                                     CkCallbackResumeThread());
+        else {
+            CkError("WARNING: no CoolArray3 file for restart\n");
+            }
+        // reset thermal energy with ionization fractions
+        double dTuFac = param.dGasConst/(param.dConstGamma-1)
+            /param.dMeanMolWeight;
+        treeProxy.RestartEnergy(dTuFac, CkCallbackResumeThread());
+        }
+#endif
+    }
+
+/*
+ * Initialize energy on restart
+ */
+void TreePiece::RestartEnergy(double dTuFac, // T to internal energy
+                              const CkCallback& cb)
+{
+#ifndef COOLING_NONE
+    COOL *cl;
+
+    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+    cl = dm->Cool;
+#endif
+
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+	if (p->isGas()) {
+	    double T,E;
+#ifndef COOLING_NONE
+	    T = p->u() / dTuFac;
+            PERBARYON Y;
+            CoolPARTICLEtoPERBARYON(cl, &Y, &p->CoolParticle());
+            
+	    p->u() = clThermalEnergy(Y.Total,T)*cl->diErgPerGmUnit;
+#endif
+	    p->uPred() = p->u();
+	    }
+	}
+    contribute(cb);
+    }
+
+/**
  *  @brief Perform the SPH force calculation.
  *  @param activeRung Timestep rung (and above) on which to perform
  *  SPH
@@ -288,7 +424,7 @@ Main::doSph(int activeRung, int bNeedDensity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 
-	if(verbosity)
+	if(verbosity > 1 && !param.bConcurrentSph)
 	    memoryStatsCache();
 	}
       }
@@ -343,16 +479,24 @@ void TreePiece::InitEnergy(double dTuFac, // T to internal energy
 	    p->uPred() = p->u();
 	    }
 	}
-    contribute(cb);
+    // Use shadow array to avoid reduction conflict
+    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
 /**
- * Update the cooling rate (uDot)
+ * @brief Update the cooling rate (uDot)
+ *
+ * @param activeRung (minimum) rung being updated
+ * @param duDelta    array of timesteps of length MAXRUNG+1
+ * @param dStartTime array of start times of length MAXRUNG+1
+ * @param bCool      Whether cooling is on
+ * @param bUpdateState Whether the ionization factions need updating
+ * @param bAll	     Do all rungs below activeRung
+ * @param cb	     Callback.
  */
 void TreePiece::updateuDot(int activeRung,
 			   double duDelta[MAXRUNG+1], // timesteps
-			   double dTime, // current time
-			   double z, // current redshift
+			   double dStartTime[MAXRUNG+1],
 			   int bCool, // select equation of state
 			   int bUpdateState, // update ionization fractions
 			   int bAll, // update all rungs below activeRung
@@ -366,18 +510,30 @@ void TreePiece::updateuDot(int activeRung,
 	if (TYPETest(p, TYPE_GAS)
 	    && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
 	    dt = CoolCodeTimeToSeconds(dm->Cool, duDelta[p->rung] );
-	    double ExternalHeating = p->PdV(); // Will change with star formation
+	    double ExternalHeating = p->PdV();
+	    ExternalHeating += p->fESNrate();
 	    if ( bCool ) {
 		COOLPARTICLE cp = p->CoolParticle();
 		double E = p->u();
 		double r[3];  // For conversion to C
 		p->position.array_form(r);
+		double dtUse = dt;
+		
+		if(dStartTime[p->rung] + 0.5*duDelta[p->rung]
+		   < p->fTimeCoolIsOffUntil()) {
+		    /* This flags cooling shutoff (e.g., from SNe) to
+		       the cooling functions. */
+		    dtUse = -dt;
+		    p->uDot() = ExternalHeating;
+		    }
 
 		CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
 					ExternalHeating, p->fDensity,
-					p->fMetals(), r, dt);
+					p->fMetals(), r, dtUse);
 		CkAssert(E > 0.0);
-		p->uDot() = (E - p->u())/duDelta[p->rung]; // linear interpolation over interval
+		if(dtUse > 0 || ExternalHeating*duDelta[p->rung] + p->u() < 0)
+		    // linear interpolation over interval
+		    p->uDot() = (E - p->u())/duDelta[p->rung];
 		if (bUpdateState) p->CoolParticle() = cp;
 		}
 	    else { 
@@ -386,19 +542,20 @@ void TreePiece::updateuDot(int activeRung,
 	    }
 	}
 #endif
-    contribute(cb);
+    // Use shadow array to avoid reduction conflict
+    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
 /* Set a maximum ball for inverse Nearest Neighbor searching */
 void TreePiece::ballMax(int activeRung, double dhFac, const CkCallback& cb)
 {
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
-	if (TYPETest(&myParticles[i], TYPE_GAS)
-	    && myParticles[i].rung >= activeRung) {
+	if (TYPETest(&myParticles[i], TYPE_GAS)) {
 	    myParticles[i].fBallMax() = myParticles[i].fBall*dhFac;
 	    }
 	}
-    contribute(cb);
+    // Use shadow array to avoid reduction conflict
+    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
     
 int DenDvDxSmoothParams::isSmoothActive(GravityParticle *p) 
@@ -595,7 +752,8 @@ TreePiece::sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb)
 		}
 	    }
         }
-    contribute(cb);
+    // Use shadow array to avoid reduction conflict
+    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
 /* Note: Uses uPred */
@@ -614,7 +772,8 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1,
 	    p->c() = sqrt(gamma*PoverRho);
 	    }
 	}
-    contribute(cb);
+    // Use shadow array to avoid reduction conflict
+    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
 /* Note: Uses uPred */
@@ -638,7 +797,8 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
 	    }
 	}
 #endif
-    contribute(cb);
+    // Use shadow array to avoid reduction conflict
+    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
 int PressureSmoothParams::isSmoothActive(GravityParticle *p) 
@@ -688,6 +848,10 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	double fNorm,fNorm1,aFac,vFac;
 	int i;
 
+	if(nSmooth < 2) {
+	    CkError("WARNING: lonely SPH particle\n");
+	    return;
+	    }
 	pc = p->c();
 	pDensity = p->fDensity;
 	pMass = p->mass;
@@ -803,6 +967,8 @@ void DistDeletedGasSmoothParams::initSmoothCache(GravityParticle *p)
 	p->uDot() = 0.0;
 #endif
 	p->fMetals() = 0.0;
+	p->fMFracIron() = 0.0;
+	p->fMFracOxygen() = 0.0;
 	}
     }
 
@@ -824,6 +990,8 @@ void DistDeletedGasSmoothParams::combSmoothCache(GravityParticle *p1,
 	    p1->mass = m_new;
 	    p1->velocity = f1*p1->velocity + f2*p2->velocity;            
 	    p1->fMetals() = f1*p1->fMetals() + f2*p2->fMetals;
+	    p1->fMFracIron() = f1*p1->fMFracIron() + f2*p2->fMFracIron;
+	    p1->fMFracOxygen() = f1*p1->fMFracOxygen() + f2*p2->fMFracOxygen;
 #ifndef COOLING_NONE
 	    if(p1->uDot() < 0.0) /* margin of 1% to avoid roundoff
 				  * problems */
@@ -888,6 +1056,8 @@ void DistDeletedGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	q->mass = m_new;
 	q->velocity = f1*q->velocity + f2*p->velocity;            
 	q->fMetals() = f1*q->fMetals() + f2*p->fMetals();
+	q->fMFracIron() = f1*q->fMFracIron() + f2*p->fMFracIron();
+	q->fMFracOxygen() = f1*q->fMFracOxygen() + f2*p->fMFracOxygen();
 #ifndef COOLING_NONE
 	if(q->uDot() < 0.0) /* margin of 1% to avoid roundoff error */
 	    fTCool = 1.01*q->uPred()/q->uDot(); 

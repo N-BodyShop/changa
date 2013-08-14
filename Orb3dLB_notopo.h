@@ -24,7 +24,7 @@ private:
   TaggedVector3D *tpCentroids;
   CkReductionMsg *tpmsg;
  
-  CmiBool QueryBalanceNow(int step);
+  bool QueryBalanceNow(int step);
   void printData(BaseLB::LDStats &stats, int phase, int *revObjMap);
 
   void pupDump(PUP::er &, BaseLB::LDStats *, vector<Event> *);

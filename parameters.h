@@ -4,6 +4,7 @@
 #include "cosmo.h"
 #include "cooling.h"
 #include "starform.h"
+#include "feedback.h"
 
 /** @brief Hold parameters of the run.
  */
@@ -90,8 +91,12 @@ typedef struct parameters {
     double dEtauDot;
     int bStarForm;
     Stfm *stfm;
+    int bFeedback;
+    Fdbk *feedback;
     int iRandomSeed;
     int bStandard;
+    int bDoublePos;
+    int bDoubleVel;
     int bOverwrite;
     int bParaRead;
     int bParaWrite;
@@ -100,11 +105,14 @@ typedef struct parameters {
     char achOutName[256];
     int bStaticTest;
     int bBenchmark;
+    int iBinaryOut;
     int iOutInterval;
     int iCheckInterval;
     int iLogInterval;
-    int iBinaryOutput;
     int bDoIOrderOutput;
+    int bDoSoftOutput;
+    int bDohOutput;
+    int bDoCSound;
     int cacheLineDepth;
     double dExtraStore;
     double dMaxBalance;
@@ -190,8 +198,12 @@ inline void operator|(PUP::er &p, Parameters &param) {
     if(p.isUnpacking())
  	param.stfm = new Stfm();
     p|*param.stfm;
+    p|param.bFeedback;
+    p|param.feedback;
     p|param.iRandomSeed;
     p|param.bStandard;
+    p|param.bDoublePos;
+    p|param.bDoubleVel;
     p|param.bOverwrite;
     p|param.bParaRead;
     p|param.bParaWrite;
@@ -200,11 +212,14 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p(param.achOutName, 256);
     p|param.bStaticTest;
     p|param.bBenchmark;
+    p|param.iBinaryOut;
     p|param.iOutInterval;
     p|param.iCheckInterval;
     p|param.iLogInterval;
-    p|param.iBinaryOutput;
     p|param.bDoIOrderOutput;
+    p|param.bDoSoftOutput;
+    p|param.bDohOutput;
+    p|param.bDoCSound;
     p|param.cacheLineDepth;
     p|param.dExtraStore;
     p|param.dMaxBalance;

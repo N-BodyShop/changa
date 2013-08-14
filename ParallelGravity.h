@@ -95,6 +95,9 @@ enum DomainsDec {
     ORB_space_dec=6		// Bisect space
 };
 
+/// tolerance for unequal pieces in SFC based decompositions.
+const double ddTolerance = 0.1;
+
 inline void operator|(PUP::er &p,DomainsDec &d) {
   int di;
   if (p.isUnpacking()) {
@@ -403,10 +406,18 @@ inline double RungToDt(double dDelta, int iRung) {
   return dDelta*RungToSubsteps(iRung)*MAXSUBSTEPS_INV;
 }
 
+/// @brief slot in MultistepLB to hold feedback phase load information
+const int PHASE_FEEDBACK = MAXRUNG + 1;
+
 /// @brief Overall flow control of the simulation.
 ///
 /// As well as controlling the overall flow of the simulation, the
 /// constructors are the main entry points into the program.
+/// The sequence of tasks is: read the simulation parameters (Main()),
+/// read in the initial conditions (setupICs()), calculate the initial
+/// forces (initialForces()), then iterate across timesteps and write
+/// the final output (doSimulation()).
+///
 class Main : public CBase_Main {
 	CkArgMsg *args;
 	std::string basefilename;
@@ -480,6 +491,7 @@ public:
 	void initialForces();
 	void doSimulation();
 	void restart();
+	void waitForGravity(const CkCallback &cb, double startTime);
         void advanceBigStep(int);
 	int adjust(int iKickRung);
 	void rungStats();
@@ -493,9 +505,12 @@ public:
 	void growMass(double dTime, double dDelta);
 	void initSph();
 	void initCooling();
+	void initStarLog();
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
+        void restartGas();
 	void doSph(int activeRung, int bNeedDensity = 1);
 	void FormStars(double dTime, double dDelta);
+	void StellarFeedback(double dTime, double dDelta);
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
 	int nextMaxRungIncDF(int nextMaxRung);
@@ -909,10 +924,10 @@ private:
         CkGroupID proxy;
         LBStrategy foundLB;
         // jetley - whether proxy is valid or not
-        CmiBool proxyValid;
+        bool proxyValid;
         // jetley - saved first internal node
         Vector3D<float> savedCentroid;
-        CmiBool proxySet;
+        bool proxySet;
         // jetley - multistep load balancing
         int prevLARung;
 
@@ -956,6 +971,8 @@ private:
 	int nStoreStar;
 	/// MaxIOrder for output
 	int64_t nMaxOrder;
+        /// Start particle for reading
+        int64_t nStartRead;
 	/// particle count for output
 	int myIOParticles;
 
@@ -1271,7 +1288,7 @@ public:
 	  dm = NULL;
 	  foundLB = Null; 
 	  iterationNo=0;
-	  usesAtSync=CmiTrue;
+	  usesAtSync = true;
 	  pTreeNodes = NULL;
 	  bucketReqs=NULL;
 	  nCacheAccesses = 0;
@@ -1353,7 +1370,7 @@ public:
           proxyValid = false;
           proxySet = false;
 
-	  usesAtSync = CmiTrue;
+	  usesAtSync = true;
 	  //localCache = NULL;
 	  dm = NULL;
 	  bucketReqs = NULL;
@@ -1397,6 +1414,13 @@ public:
 
         private:
         void freeWalkObjects();
+	void allocateStars() {
+	    nStoreStar = (int) (myNumStar*(1.0 + dExtraStore));
+	    // Stars tend to form out of gas, so make sure there is
+	    // enough room.
+	    nStoreStar += 12 + (int) (myNumSPH*dExtraStore);
+	    myStarParticles = new extraStarData[nStoreStar];
+	    }
 
         public:
 	~TreePiece() {
@@ -1431,12 +1455,31 @@ public:
 	void initCoolingData(const CkCallback& cb);
 	// Scale velocities (needed to convert to canonical momenta for
 	// comoving coordinates.)
-	void velScale(double dScale);
+	void velScale(double dScale, const CkCallback& cb);
 
-	// Load from Tipsy file
+	/// @brief Load I.C. from Tipsy file
+        /// @param filename tipsy file
+        /// @param dTuFac conversion factor from temperature to
+        /// internal energy
+        /// @param bDoublePos Positions are in double precision
+        /// @param bDoubleVel Velocities are in double precision
 	void loadTipsy(const std::string& filename, const double dTuFac,
+                       const bool bDoublePos,
+                       const bool bDoubleVel,
 		       const CkCallback& cb);
 
+        void readIOrd(const std::string& filename, const CkCallback& cb);
+        void readIGasOrd(const std::string& filename, const CkCallback& cb);
+        void readESNrate(const std::string& filename, const CkCallback& cb);
+        void readOxMassFrac(const std::string& filename, const CkCallback& cb);
+        void readFeMassFrac(const std::string& filename, const CkCallback& cb);
+        void readMassForm(const std::string& filename, const CkCallback& cb);
+        void readCoolOnTime(const std::string& filename, const CkCallback& cb);
+        void readCoolArray0(const std::string& filename, const CkCallback& cb);
+        void readCoolArray1(const std::string& filename, const CkCallback& cb);
+        void readCoolArray2(const std::string& filename, const CkCallback& cb);
+        void readCoolArray3(const std::string& filename, const CkCallback& cb);
+        void RestartEnergy(double dTuFac, const CkCallback& cb);
         void findTotalMass(CkCallback &cb);
         void recvTotalMass(CkReductionMsg *msg);
 
@@ -1444,22 +1487,30 @@ public:
 	void writeTipsy(Tipsy::TipsyWriter& w,
 			const double dvFac, // scale velocities
 			const double duTFac, // convert temperature
+                        const bool bDoublePos,
+                        const bool bDoubleVel,
 			const int bCool);
 	// Find position in the file to start writing
 	void setupWrite(int iStage, u_int64_t iPrevOffset,
 			const std::string& filename, const double dTime,
 			const double dvFac, const double duTFac,
+                        const bool bDoublePos,
+                        const bool bDoubleVel,
 			const int bCool, const CkCallback& cb);
 	// control parallelism in the write
 	void parallelWrite(int iPass, const CkCallback& cb,
 			   const std::string& filename, const double dTime,
 			   const double dvFac, // scale velocities
 			   const double duTFac, // convert temperature
+                           const bool bDoublePos,
+                           const bool bDoubleVel,
 			   const int bCool);
 	// serial output
 	void serialWrite(u_int64_t iPrevOffset, const std::string& filename,
 			 const double dTime,
 			 const double dvFac, const double duTFac,
+                         const bool bDoublePos,
+                         const bool bDoubleVel,
 			 const int bCool, const CkCallback& cb);
 	// setup for serial output
 	void oneNodeWrite(int iIndex,
@@ -1478,6 +1529,8 @@ public:
 			       const double dvFac,  // velocity conversion
 			     const double duTFac, // temperature
 						  // conversion
+                           const bool bDoublePos,
+                           const bool bDoubleVel,
 			  const int bCool,
 			  const CkCallback &cb);
 	// Reorder for output
@@ -1548,6 +1601,7 @@ public:
   void truncateRung(int iCurrMaxRung, const CkCallback& cb);
   void rungStats(const CkCallback& cb);
   void countActive(int activeRung, const CkCallback& cb);
+  void assignDomain(const CkCallback& cb);
   void calcEnergy(const CkCallback& cb);
   /// add new particle
   void newParticle(GravityParticle *p);
@@ -1568,7 +1622,7 @@ public:
 	void InitEnergy(double dTuFac, double z, double dTime,
 			const CkCallback& cb);
 	void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
-			double dTime, double z, int bCool, int bAll,
+			double dStartTime[MAXRUNG+1], int bCool, int bAll,
 			int bUpdateState, const CkCallback& cb);
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
@@ -1578,6 +1632,10 @@ public:
 				   const CkCallback &cb);
 	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
 		       const CkCallback& cb);
+	void flushStarLog(const CkCallback& cb);
+	void Feedback(Fdbk &fb, double dTime, double dDelta,
+		       const CkCallback& cb);
+	void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
 	void setTypeFromFile(int iSetMask, char *file, const CkCallback& cb);
@@ -1678,8 +1736,6 @@ public:
 	*/
 #if 0
 	void receiveNode(GenericTreeNode &node, int chunk, unsigned int reqID);
-	/// Just and inline version of receiveNode
-	void receiveNode_inline(GenericTreeNode &node, int chunk, unsigned int reqID);
 #endif
 	/// @brief Find the key in the KeyTable, and copy the node over the passed pointer
 	const GenericTreeNode* lookupNode(Tree::NodeKey key);
@@ -1731,9 +1787,17 @@ public:
 			   CkCallback& cb) ;
 	void oneNodeOutIntArr(OutputIntParams& params, int *aiOut,
 			      int nPart, int iIndex, CkCallback& cb);
-	
-	void outputStatistics(const CkCallback& cb);
+	void outputBinary(OutputParams& params, int bParaWrite,
+			 const CkCallback& cb);
+	void oneNodeOutBinVec(OutputParams& params, Vector3D<float>* avOut,
+			      int nPart, int iIndex, int bDone,
+			      CkCallback& cb) ;
+	void oneNodeOutBinArr(OutputParams& params, float* adOut,
+			      int nPart, int iIndex, int bDone,
+			      CkCallback& cb) ;
+	void outputIOrderBinary(const std::string& suffix, const CkCallback& cb);
 
+	void outputStatistics(const CkCallback& cb);
 	/// Collect the total statistics from the various chares
 	void collectStatistics(CkCallback &cb);
 	//void getPieceValues(piecedata *totaldata);
