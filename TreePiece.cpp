@@ -549,7 +549,7 @@ void TreePiece::evaluateBoundaries(bool convertToLoad, SFC::Key* keys, const int
 
   if (!warmupFinished) {
     treePieceLoadTmp = (float) myNumParticles;
-    warmupFinished;
+    warmupFinished = true;
   }
   else if (treePieceLoadTmp == 0) {
     treePieceLoadTmp = getObjTime();
@@ -4717,6 +4717,7 @@ void TreePiece::doAtSync(){
 }
 
 void TreePiece::ResumeFromSync(){
+  setObjTime(0.0); 
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d in ResumefromSync\n",CkMyPe(),thisIndex);
   contribute(callback);
