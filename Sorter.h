@@ -98,7 +98,8 @@ class Sorter : public CBase_Sorter {
 	/// The keys I'm sending out to be evaluated.
 	std::vector<SFC::Key> splitters;
 	/// The list of object number splits not yet met.
-	std::list<int> goals;
+	int *goals;
+        int numGoalsPending;
 	
 	/// The DataManager I broadcast candidate keys to.
 	CProxy_DataManager dm;

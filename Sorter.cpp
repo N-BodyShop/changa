@@ -814,14 +814,20 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 		}
 		
 		//each splitter key will split the keys near a goal number of keys
-		goals.assign(numChares - 1, avgValue);
-		// evenly distribute extra particles.
+                numGoalsPending = numChares - 1;
+                goals = new int[numGoalsPending];
+
 		int rem = numKeys % numChares;
-		int j = 0;
-		for(list<int>::iterator i = goals.begin(); j < rem; j++, ++i) {
-		    *i = avgValue + 1;
-		    }
-		partial_sum(goals.begin(), goals.end(), goals.begin());
+                int prev = 0;
+		// evenly distribute extra particles.
+                for (int i = 0; i < rem; i++) {
+                  goals[i] = prev + avgValue + 1;
+                  prev = goals[i];
+                }
+                for (int i = rem; i < numGoalsPending; i++) {
+                  goals[i] = prev + avgValue;
+                  prev = goals[i];
+                }
 		
 		if(verbosity >= 3)
 			ckout << "Sorter: Target keys per chare: " << avgValue << " plus/minus " << (2 * closeEnough) << endl;
@@ -868,75 +874,69 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
  for each splitter key not yet found.
  */
 void Sorter::adjustSplitters() {
-	
-	set<Key> newSplitters;
+
+  std::vector<SFC::Key> newSplitters;
+  newSplitters.reserve(splitters.size() * 5);
+  newSplitters.push_back(firstPossibleKey);
 	
 	Key leftBound, rightBound;
 	vector<unsigned int>::iterator numLeftKey, numRightKey = binCounts.begin();
 	
+        int numActiveGoals = 0;
 	//for each goal not yet met (each splitter key not yet found)
-	for(list<int>::iterator Ngoal = goals.begin(); Ngoal != goals.end(); ) {
+	for(int i = 0; i < numGoalsPending - 1; i++) {
 
 		//find the positions that bracket the goal
-		numRightKey = lower_bound(numRightKey, binCounts.end(), *Ngoal);
+		numRightKey = lower_bound(numRightKey, binCounts.end(), goals[i]);
 		numLeftKey = numRightKey - 1;
 		
 		if(numRightKey == binCounts.begin())
-			ckerr << "Sorter: Looking for " << *Ngoal << " How could this happen at the beginning?" << endl;
+			ckerr << "Sorter: Looking for " << goals[i] << " How could this happen at the beginning?" << endl;
 		if(numRightKey == binCounts.end())
-			ckerr << "Sorter: Looking for " << *Ngoal << " How could this happen at the end?" << endl;
+			ckerr << "Sorter: Looking for " << goals[i] << " How could this happen at the end?" << endl;
 		
 		//translate the positions into the bracketing keys
 		leftBound = splitters[numLeftKey - binCounts.begin()];
 		rightBound = splitters[numRightKey - binCounts.begin()];
 		
 		//check if one of the bracketing keys is close enough to the goal
-		if(abs((int)*numLeftKey - *Ngoal) <= closeEnough) {
+		if(abs((int)*numLeftKey - goals[i]) <= closeEnough) {
 			//add this key to the list of decided splitter keys
 			keyBoundaries.push_back(leftBound);
-			//the goal has been met, delete it
-			list<int>::iterator temp = Ngoal;
-			++Ngoal;
-			goals.erase(temp);
-		} else if(abs((int)*numRightKey - *Ngoal) <= closeEnough) {
+		} else if(abs((int)*numRightKey - goals[i]) <= closeEnough) {
 			keyBoundaries.push_back(rightBound);
-			list<int>::iterator temp = Ngoal;
-			++Ngoal;
-			goals.erase(temp);
 		} else {
 			// not close enough yet, add the bracketing keys and
 			// the middle to the guesses
 			// Set bottom bits to avoid trees to deep.
-			newSplitters.insert(leftBound | 7L);
-			newSplitters.insert((leftBound / 4 * 3 + rightBound / 4)
-					    | 7L);
-			newSplitters.insert((leftBound / 2 + rightBound / 2)
-					    | 7L);
-			newSplitters.insert((leftBound / 4 + rightBound / 4 * 3)
-					    | 7L);
-			newSplitters.insert(rightBound | 7L);
-			++Ngoal;
+		        if (newSplitters.back() != (rightBound | 7L) ) {
+			    newSplitters.push_back(leftBound | 7L);
+			    newSplitters.push_back((leftBound / 4 * 3 + rightBound / 4) | 7L);
+			    newSplitters.push_back((leftBound / 2 + rightBound / 2) | 7L);
+			    newSplitters.push_back((leftBound / 4 + rightBound / 4 * 3) | 7L);
+			    newSplitters.push_back(rightBound | 7L);
+			}
+			goals[numActiveGoals++] = goals[i];
 		}
 	}
-	
-	//if we don't have any new keys to probe, then we're done
-	if(newSplitters.empty())
+	numGoalsPending = numActiveGoals;
+
+	if(numGoalsPending == 0) {
 		sorted = true;
+                delete [] goals;
+        }
 	else {
 		//evaluate the new set of splitters
-		newSplitters.insert(firstPossibleKey);
-		newSplitters.insert(lastPossibleKey);
-		// The following statement breaks with the PGI
-		// compiler.  (version PGCC/x86 Linux/x86-64 6.1-2)
-		// The following loop is a work around.
-		// splitters.assign(newSplitters.begin(), newSplitters.end());
-		splitters.clear();
-		if(verbosity >=4 ) CkPrintf("Keys:");
-		for(set<Key>::iterator iterNew = newSplitters.begin();
-		    iterNew != newSplitters.end(); iterNew++) {
-		    if(verbosity >= 4) CkPrintf("%lx,", *iterNew);
-		    splitters.push_back(*iterNew);
-		    }
-		if(verbosity >=4 ) CkPrintf("\n");
+		newSplitters.push_back(lastPossibleKey);
+		splitters.reserve(newSplitters.size());
+		splitters.assign(newSplitters.begin(), newSplitters.end());
+
+		if(verbosity >=4 ) {
+                  CkPrintf("Keys:");
+                  for (std::vector<Key>::iterator  it = splitters.begin(); it < splitters.end(); it++) {
+                    CkPrintf("%lx,", *it);
+                  }
+                  CkPrintf("\n");
+                }
 	}
 }
