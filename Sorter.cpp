@@ -876,7 +876,7 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 void Sorter::adjustSplitters() {
 
   std::vector<SFC::Key> newSplitters;
-  newSplitters.reserve(splitters.size() * 5);
+  newSplitters.reserve(splitters.size() * 4);
   newSplitters.push_back(firstPossibleKey);
 	
 	Key leftBound, rightBound;
@@ -910,7 +910,9 @@ void Sorter::adjustSplitters() {
 			// the middle to the guesses
 			// Set bottom bits to avoid trees to deep.
 		        if (newSplitters.back() != (rightBound | 7L) ) {
-			    newSplitters.push_back(leftBound | 7L);
+                            if (newSplitters.back() != (leftBound | 7L)) {
+                              newSplitters.push_back(leftBound | 7L);
+                            }
 			    newSplitters.push_back((leftBound / 4 * 3 + rightBound / 4) | 7L);
 			    newSplitters.push_back((leftBound / 2 + rightBound / 2) | 7L);
 			    newSplitters.push_back((leftBound / 4 + rightBound / 4 * 3) | 7L);
@@ -931,7 +933,7 @@ void Sorter::adjustSplitters() {
 		splitters.reserve(newSplitters.size());
 		splitters.assign(newSplitters.begin(), newSplitters.end());
 
-		if(verbosity >=4 ) {
+               if(verbosity >=4 ) {
                   CkPrintf("Keys:");
                   for (std::vector<Key>::iterator  it = splitters.begin(); it < splitters.end(); it++) {
                     CkPrintf("%lx,", *it);
