@@ -448,9 +448,11 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
     GravityParticle *q;
     double fNorm,ih2,r2,rs,rstot,fNorm_u,fNorm_Pres,fAveDens;
     int i,counter;
+    int nHeavy = 0;
     
     if ( p->fMSN() == 0.0 ){return;} /* Is there any feedback mass? */
     CkAssert(TYPETest(p, TYPE_STAR));
+    CkAssert(nSmooth > 0);
     ih2 = invH2(p);
     rstot = 0.0;  
     fNorm_u = 0.0;
@@ -464,6 +466,7 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
 	rs = KERNEL(r2);
 	q = nList[i].p;
 	if(q->mass > fb.dMaxGasMass) {
+	    nHeavy++;
 	    continue; /* Skip heavy particles */
 	    }
 	fNorm_u += q->mass*rs;
@@ -472,10 +475,13 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
 	fAveDens += q->mass*rs;
 	fNorm_Pres += q->mass*q->uPred()*rs;
 	}
+    if(fNorm_u == 0.0) {
+        CkError("Got %d heavies: no feedback\n", nHeavy);
+	}
+	    
     CkAssert(fNorm_u > 0.0);  	/* be sure we have at least one neighbor */
     fNorm_Pres *= (gamma-1.0);
     
-    assert(fNorm_u != 0.0);
     fNorm_u = 1./fNorm_u;
     counter=0;
     for (i=0;i<nSmooth;++i) {
