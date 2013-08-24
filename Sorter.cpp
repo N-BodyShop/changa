@@ -884,7 +884,7 @@ void Sorter::adjustSplitters() {
 	
         int numActiveGoals = 0;
 	//for each goal not yet met (each splitter key not yet found)
-	for(int i = 0; i < numGoalsPending - 1; i++) {
+	for(int i = 0; i < numGoalsPending; i++) {
 
 		//find the positions that bracket the goal
 		numRightKey = lower_bound(numRightKey, binCounts.end(), goals[i]);
@@ -929,7 +929,9 @@ void Sorter::adjustSplitters() {
         }
 	else {
 		//evaluate the new set of splitters
-		newSplitters.push_back(lastPossibleKey);
+                if (newSplitters.back() != lastPossibleKey) {
+		    newSplitters.push_back(lastPossibleKey);
+                }
 		splitters.reserve(newSplitters.size());
 		splitters.assign(newSplitters.begin(), newSplitters.end());
 
