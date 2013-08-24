@@ -372,7 +372,9 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
       // XXX: Optimizations available if sort has been done before!
       //create initial evenly distributed guesses for splitter keys
       keyBoundaries.clear();
+      accumulatedBinCounts.clear();
       keyBoundaries.reserve(numChares + 1);
+      accumulatedBinCounts.reserve(numChares + 1);
       keyBoundaries.push_back(firstPossibleKey);      
     } else {
       //send out all the decided keys to get final bin counts
@@ -788,15 +790,6 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	int* startCounts = static_cast<int *>(m->getData());
 	copy(startCounts, startCounts + numCounts, binCounts.begin() + 1);
 	delete m;
-	
-	if(sorted) { //true after the final keys have been binned
-		//send out the final splitters and responsibility table
-		dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()) + 1, keyBoundaries.size(), sortingCallback);
-		numIterations = 0;
-		sorted = false;
-		return;
-	}
-	
 	if(verbosity >= 4)
 		ckout << "Sorter: On iteration " << numIterations << endl;
 	CkAssert(numIterations < 1000);  // Sorter has not converged.
@@ -836,34 +829,39 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	//make adjustments to the splitter keys based on the results of the previous iteration
 	adjustSplitters();
 
-	if(verbosity >= 4) {
+        if(verbosity >= 4) {
 		ckout << "Sorter: Probing " << splitters.size() << " splitter keys" << endl;
 		ckout << "Sorter: Decided on " << (keyBoundaries.size() - 1) << " splitting keys" << endl;
-	}
+        }
 
-        std::vector<SFC::Key>* keys; 
 	//check if we have found all the splitters
 	if(sorted) {
           
 		if(verbosity)
 			ckout << "Sorter: Histograms balanced after " << numIterations << " iterations." << endl;
-		
+
 		sort(keyBoundaries.begin() + 1, keyBoundaries.end());
 		keyBoundaries.push_back(lastPossibleKey);
-		
-		//send out all the decided keys to get final bin counts
-                keys = &keyBoundaries; 
+                accumulatedBinCounts.push_back(binCounts.back());
+                sort(accumulatedBinCounts.begin(), accumulatedBinCounts.end());
+                binCounts.resize(accumulatedBinCounts.size());
+                std::adjacent_difference(accumulatedBinCounts.begin(), accumulatedBinCounts.end(), binCounts.begin());
+
+                //send out the final splitters and responsibility table
+                dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), keyBoundaries.size(), sortingCallback);
+		numIterations = 0;
+		sorted = false;
+
 	} else {
           //send out the new guesses to be evaluated
-          keys = &splitters; 
+#ifdef REDUCTION_HELPER
+          CProxy_ReductionHelper boundariesTargetProxy = reductionHelperProxy;
+#else
+          CProxy_TreePiece boundariesTargetProxy = treeProxy;
+#endif
+          boundariesTargetProxy.evaluateBoundaries(&splitters[0], splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
         }
 
-#ifdef REDUCTION_HELPER
-        CProxy_ReductionHelper boundariesTargetProxy = reductionHelperProxy; 
-#else
-        CProxy_TreePiece boundariesTargetProxy = treeProxy; 
-#endif
-        boundariesTargetProxy.evaluateBoundaries(&(*keys->begin()), keys->size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 }
 
 /** Generate new guesses for splitter keys based on the histograms that came
@@ -876,6 +874,7 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 void Sorter::adjustSplitters() {
 
   std::vector<SFC::Key> newSplitters;
+
   newSplitters.reserve(splitters.size() * 4);
   newSplitters.push_back(firstPossibleKey);
 	
@@ -898,13 +897,15 @@ void Sorter::adjustSplitters() {
 		//translate the positions into the bracketing keys
 		leftBound = splitters[numLeftKey - binCounts.begin()];
 		rightBound = splitters[numRightKey - binCounts.begin()];
-		
+
 		//check if one of the bracketing keys is close enough to the goal
 		if(abs((int)*numLeftKey - goals[i]) <= closeEnough) {
 			//add this key to the list of decided splitter keys
 			keyBoundaries.push_back(leftBound);
+                        accumulatedBinCounts.push_back(*numLeftKey);
 		} else if(abs((int)*numRightKey - goals[i]) <= closeEnough) {
 			keyBoundaries.push_back(rightBound);
+                        accumulatedBinCounts.push_back(*numRightKey);
 		} else {
 			// not close enough yet, add the bracketing keys and
 			// the middle to the guesses
@@ -928,7 +929,6 @@ void Sorter::adjustSplitters() {
                 delete [] goals;
         }
 	else {
-		//evaluate the new set of splitters
                 if (newSplitters.back() != lastPossibleKey) {
 		    newSplitters.push_back(lastPossibleKey);
                 }
