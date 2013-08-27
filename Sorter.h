@@ -95,10 +95,12 @@ class Sorter : public CBase_Sorter {
 	int numCounts;
 	/// The keys I've decided on that divide the objects evenly (within the tolerance).
 	std::vector<SFC::Key> keyBoundaries;
+        std::vector<unsigned int> accumulatedBinCounts;
 	/// The keys I'm sending out to be evaluated.
 	std::vector<SFC::Key> splitters;
 	/// The list of object number splits not yet met.
-	std::list<int> goals;
+	int *goals;
+        int numGoalsPending;
 	
 	/// The DataManager I broadcast candidate keys to.
 	CProxy_DataManager dm;
