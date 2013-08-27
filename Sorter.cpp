@@ -856,10 +856,11 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
           //send out the new guesses to be evaluated
 #ifdef REDUCTION_HELPER
           CProxy_ReductionHelper boundariesTargetProxy = reductionHelperProxy;
+          boundariesTargetProxy.evaluateBoundaries(binsToSplit, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 #else
           CProxy_TreePiece boundariesTargetProxy = treeProxy;
-#endif
           boundariesTargetProxy.evaluateBoundaries(&splitters[0], splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#endif
         }
 
 }
@@ -874,7 +875,8 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 void Sorter::adjustSplitters() {
 
   std::vector<SFC::Key> newSplitters;
-
+  binsToSplit.Resize(splitters.size() -1 );
+  binsToSplit.Zero();
   newSplitters.reserve(splitters.size() * 4);
   newSplitters.push_back(firstPossibleKey);
 	
@@ -920,6 +922,7 @@ void Sorter::adjustSplitters() {
 			    newSplitters.push_back(rightBound | 7L);
 			}
 			goals[numActiveGoals++] = goals[i];
+                        binsToSplit.Set(numLeftKey - binCounts.begin());
 		}
 	}
 	numGoalsPending = numActiveGoals;

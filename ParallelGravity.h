@@ -1007,7 +1007,7 @@ private:
           int localIndex;
 
 	//unsigned int numSplitters;
-	//SFC::Key* splitters;
+        //SFC::Key* splitters;
 	CProxy_TreePiece pieces;
 	/// A proxy to the DataManager.
 	//CProxy_DataManager dataManager; // unused...
@@ -1901,6 +1901,7 @@ class ReductionHelper : public CBase_ReductionHelper {
   void countTreePieces(const CkCallback &cb);
   void reduceBinCounts(int nBins, int *binCounts, const CkCallback &cb);
   void evaluateBoundaries(SFC::Key *keys, const int n, int isRefine, const CkCallback& cb);
+  void evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb);
 
   private:
   void senseLocalTreePieces();
@@ -1911,6 +1912,7 @@ class ReductionHelper : public CBase_ReductionHelper {
   int numTreePiecesCheckedIn;
 
   TreePieceCounter localTreePieces;
+  std::vector<SFC::Key> splitters;
 };
 #endif
 

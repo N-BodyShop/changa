@@ -98,6 +98,8 @@ class Sorter : public CBase_Sorter {
         std::vector<unsigned int> accumulatedBinCounts;
 	/// The keys I'm sending out to be evaluated.
 	std::vector<SFC::Key> splitters;
+
+        CkBitVector binsToSplit;
 	/// The list of object number splits not yet met.
 	int *goals;
         int numGoalsPending;

@@ -522,6 +522,7 @@ void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg)
 
 #ifdef REDUCTION_HELPER
 void ReductionHelper::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, const CkCallback& cb){
+  splitters.assign(keys, keys + n);
   if(localTreePieces.presentTreePieces.size() == 0){
     int numBins = skipEvery ? n - (n-1)/(skipEvery+1) - 1 : n - 1;
     int *dummy = new int[numBins];
@@ -534,6 +535,36 @@ void ReductionHelper::evaluateBoundaries(SFC::Key* keys, const int n, int skipEv
     localTreePieces.presentTreePieces[i]->evaluateBoundaries(keys, n, skipEvery, cb);
   }
 }
+
+void ReductionHelper::evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb) {
+  std::vector<SFC::Key> newSplitters;
+  SFC::Key leftBound, rightBound;
+
+  newSplitters.reserve(splitters.size() * 4);
+  newSplitters.push_back(SFC::firstPossibleKey);
+  for (int i = 0; i < binsToSplit.Length(); i++) {
+
+    if (binsToSplit.Test(i) == true) {
+      leftBound = splitters[i];
+      rightBound = splitters[i + 1];
+      if (newSplitters.back() != (rightBound | 7L) ) {
+        if (newSplitters.back() != (leftBound | 7L)) {
+          newSplitters.push_back(leftBound | 7L);
+        }
+        newSplitters.push_back((leftBound / 4 * 3 + rightBound / 4) | 7L);
+        newSplitters.push_back((leftBound / 2 + rightBound / 2) | 7L);
+        newSplitters.push_back((leftBound / 4 + rightBound / 4 * 3) | 7L);
+        newSplitters.push_back(rightBound | 7L);
+      }
+
+    }
+  }
+  if (newSplitters.back() != lastPossibleKey) {
+    newSplitters.push_back(lastPossibleKey);
+  }
+  evaluateBoundaries(&newSplitters[0], newSplitters.size(), 0, cb);
+}
+
 #endif
 
 /// Determine my part of the sorting histograms by counting the number
