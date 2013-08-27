@@ -1219,7 +1219,9 @@ void Main::getStartTime()
 			param.dDelta =
 				(tTo-dTime)/(param.nSteps - param.iStartStep);
 		    else
-			param.dDelta = 0.0;
+			/* set dDelta to a non-zero value so timestep
+			 * adjustment works. */
+			param.dDelta = 1.0;
 		    }
 		else if (!prmSpecified(prm,"nSteps") &&
 			 prmFileSpecified(prm,"dDelta")) {
@@ -1231,7 +1233,9 @@ void Main::getStartTime()
 			param.dDelta =	(tTo-dTime)/(param.nSteps
 							 - param.iStartStep);
 		    else
-			param.dDelta = 0.0;
+			/* set dDelta to a non-zero value so timestep
+			 * adjustment works. */
+			param.dDelta = 1.0;
 		    }
 		}
 	    else {
