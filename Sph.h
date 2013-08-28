@@ -173,7 +173,7 @@ class PressureSmoothParams : public SmoothParams
 	dThermalDiffusionCoeff = _dThermalDiff;
 	dMetalDiffusionCoeff = _dMetalDiff;
 	dtFacCourant = dEtaCourant*a*2.0/1.6;
-	dtFacDiffusion = 2.0*dEtaDiffusion*a*a;
+	dtFacDiffusion = 2.0*dEtaDiffusion;
     }
     PUPable_decl(PressureSmoothParams);
     PressureSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}

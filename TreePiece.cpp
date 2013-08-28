@@ -1109,7 +1109,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 #ifdef DIFFUSION
 	  /* h^2/(2.77Q) Linear stability from Brookshaw */
 	  if (p->diff() > 0 && dDiffCoeff > 0) {
-	      dt = dEtaDiffusion*ph*ph*dCosmoFac*dCosmoFac/(dDiffCoeff*p->diff());  
+	      dt = dEtaDiffusion*ph*ph/(dDiffCoeff*p->diff());  
 	      if (dt < dTIdeal) dTIdeal = dt;
 	      }
 #endif
