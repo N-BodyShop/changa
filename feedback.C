@@ -56,6 +56,10 @@ void Fdbk::AddParams(PRM prm)
     nSmoothFeedback = 64;
     prmAddParam(prm,"nSmoothFeedback", paramInt,&nSmoothFeedback, sizeof(int),
 		"s", "<number of particles to smooth feedback over> = 64");
+    dMaxCoolShutoff = 3.0e7;
+    prmAddParam(prm,"dMaxCoolShutoff", paramDouble, &dMaxCoolShutoff,
+		sizeof(double), "fbMaxCoolOff",
+		"<Maximum time to shutoff cooling in years> = 3e7");
 }
 
 void Fdbk::CheckParams(PRM prm, struct parameters &param)
@@ -108,7 +112,7 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
 	    pow(MSOLG*param.dMsolUnit/(param.dMeanMolWeight*MHYDR*pow(KPCCM*param.dKpcUnit,3)),0.32)*
 	    pow(0.0001*GCGS*pow(MSOLG*param.dMsolUnit,2)/(pow(KPCCM*param.dKpcUnit,4)*KBOLTZ),-0.70);
 	}
-    
+    dMaxCoolShutoff *= SECONDSPERYEAR/param.dSecUnit;
     }
 
 ///
@@ -569,6 +573,9 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
     /* Shut off cooling for 3 Myr for stellar wind */
     if (p->fNSN() < fb.sn.iNSNIIQuantum)
 	fShutoffTime= 3e6 * SECONDSPERYEAR / fb.dSecUnit;
+    /* Limit cooling shutoff time */
+    if(fShutoffTime > fb.dMaxCoolShutoff)
+        fShutoffTime = fb.dMaxCoolShutoff;
     
     fmind = p->fBall*p->fBall;
     imind = 0;
