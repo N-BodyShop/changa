@@ -75,7 +75,7 @@ class LightweightLDStats1 {
 };
 
 
-class MultistepLB : public CentralLB {
+class MultistepLB : public CBase_MultistepLB {
 private:
   bool firstRound;
   bool haveTPCentroids;
@@ -101,7 +101,7 @@ private:
   void printData(BaseLB::LDStats &stats, int phase, int *revObjMap);
 public:
   MultistepLB(const CkLBOptions &);
-  MultistepLB(CkMigrateMessage *m):CentralLB(m) { 
+  MultistepLB(CkMigrateMessage *m) : CBase_MultistepLB(m) { 
     lbname = "MultistepLB"; 
     compares[0] = comparx;
     compares[1] = compary;

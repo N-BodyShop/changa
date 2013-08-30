@@ -12,7 +12,7 @@ using namespace std;
 CreateLBFunc_Def(MultistepLB, "Works best with multistepped runs; uses Orb3D for larger steps, greedy otherwise");
 
 
-MultistepLB::MultistepLB(const CkLBOptions &opt): CentralLB(opt)
+MultistepLB::MultistepLB(const CkLBOptions &opt): CBase_MultistepLB(opt)
 {
   lbname = "MultistepLB";
 
