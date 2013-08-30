@@ -786,7 +786,6 @@ Node *MultistepLB::halveNodes(Node *start, int np){
 }
 
 void MultistepLB::pup(PUP::er &p){
-  CentralLB::pup(p);
   if(p.isPacking() && haveTPCentroids){
     // if checkpointing, no need to 
     // keep around the centroid message

@@ -20,7 +20,7 @@ class PETreeMerger : public CBase_PETreeMerger {
   public:
   PETreeMerger() {}
   PETreeMerger(CkMigrateMessage *m) : CBase_PETreeMerger(m) {}
-  void pup(PUP::er &p) { CBase_PETreeMerger::pup(p); }
+  void pup(PUP::er &p) { }
 
   void mergeNonLocalRequests(GenericTreeNode *root, TreePiece *treePiece);
   void freeTree();

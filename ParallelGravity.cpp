@@ -3055,7 +3055,6 @@ void registerStatistics() {
 
 void Main::pup(PUP::er& p) 
 {
-    CBase_Main::pup(p);
     p | basefilename;
     p | nTotalParticles;
     p | nTotalSPH;

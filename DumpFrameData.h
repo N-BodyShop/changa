@@ -14,7 +14,7 @@ class DumpFrameData : public CBase_DumpFrameData
 
     DumpFrameData() { bufImage = NULL; }
     DumpFrameData(CkMigrateMessage *m) : CBase_DumpFrameData(m) { bufImage = NULL;}
-    void pup(PUP::er &p) { CBase_DumpFrameData::pup(p); }
+    void pup(PUP::er &p) { }
     ~DumpFrameData() { if(bufImage) free(bufImage); }
     /// @brief
     void clearFrame(InDumpFrame in, const CkCallback& cb) {
