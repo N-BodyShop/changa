@@ -13,7 +13,7 @@ using namespace std;
 CreateLBFunc_Def(MultistepOrbLB, "Works best with multistepped runs; uses Orb3D_notopo for larger steps, greedy otherwise");
 
 
-MultistepOrbLB::MultistepOrbLB(const CkLBOptions &opt): OrbLB(opt)
+MultistepOrbLB::MultistepOrbLB(const CkLBOptions &opt): CBase_MultistepOrbLB(opt)
 {
   lbname = "MultistepOrbLB";
 
@@ -307,7 +307,6 @@ void MultistepOrbLB::work(BaseLB::LDStats* stats)
 }
 
 void MultistepOrbLB::pup(PUP::er &p){
-  CentralLB::pup(p);
   if(p.isPacking() && haveTPCentroids) {
     // if checkpointing, no need to 
     // keep around the centroid message

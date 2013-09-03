@@ -48,7 +48,7 @@ class LightweightLDStats {
 /// by 3 dimensional ORB based on the centroids of the TreePieces.
 /// For small phases, a greedy algorithm is used.
 ///
-class MultistepOrbLB : public OrbLB {
+class MultistepOrbLB : public CBase_MultistepOrbLB {
 private:
   bool firstRound;
   // things are stored in here before work
@@ -79,9 +79,9 @@ private:
 
 public:
   MultistepOrbLB(const CkLBOptions &);
-  MultistepOrbLB(CkMigrateMessage *m):OrbLB(m) { 
+  MultistepOrbLB(CkMigrateMessage *m) : CBase_MultistepOrbLB(m) { 
     lbname = "MultistepOrbLB"; 
-     }
+  }
     
   void work(BaseLB::LDStats* stats);
   void receiveCentroids(CkReductionMsg *msg);

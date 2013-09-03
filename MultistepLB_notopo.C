@@ -13,7 +13,7 @@ using namespace std;
 CreateLBFunc_Def(MultistepLB_notopo, "Works best with multistepped runs; uses Orb3D_notopo for larger steps, greedy otherwise");
 
 
-MultistepLB_notopo::MultistepLB_notopo(const CkLBOptions &opt): CentralLB(opt)
+MultistepLB_notopo::MultistepLB_notopo(const CkLBOptions &opt): CBase_MultistepLB_notopo(opt)
 {
   lbname = "MultistepLB_notopo";
 
@@ -496,7 +496,6 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
 
 
 void MultistepLB_notopo::pup(PUP::er &p){
-  CentralLB::pup(p);
   if(p.isPacking() && haveTPCentroids) {
     // if checkpointing, no need to 
     // keep around the centroid message

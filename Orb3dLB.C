@@ -43,7 +43,7 @@ static int pcz(const void *a, const void *b){
   return ta->z < tb->z ? -1 : ta->z > tb->z ? 1 : 0;
 }
 
-Orb3dLB::Orb3dLB(const CkLBOptions &opt): CentralLB(opt)
+Orb3dLB::Orb3dLB(const CkLBOptions &opt): CBase_Orb3dLB(opt)
 {
   lbname = "Orb3dLB";
   centroidsAllocated = false;

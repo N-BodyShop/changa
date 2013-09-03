@@ -15,7 +15,7 @@
 void CreateOrb3dLB_notopo();
 BaseLB * AllocateOrb3dLB_notopo();
 
-class Orb3dLB_notopo : public CentralLB, public Orb3dCommon {
+class Orb3dLB_notopo : public CBase_Orb3dLB_notopo, public Orb3dCommon {
 private:
 
   vector<OrbObject> tps;
@@ -34,7 +34,8 @@ private:
 
 public:
   Orb3dLB_notopo(const CkLBOptions &);
-  Orb3dLB_notopo(CkMigrateMessage *m):CentralLB(m) { lbname = "Orb3dLB_notopo"; }
+  Orb3dLB_notopo(CkMigrateMessage *m) : CBase_Orb3dLB_notopo(m)
+    { lbname = "Orb3dLB_notopo"; }
   void work(BaseLB::LDStats* stats);
   void receiveCentroids(CkReductionMsg *msg);
 
