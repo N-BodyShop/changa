@@ -288,11 +288,15 @@ class Orb3dCommon{
         predCount[i] = 0.0;
       }
 
+      double maxObjLoad = 0.0;
+      
       for(int i = 0; i < numobjs; i++){
         double ld = stats->objData[i].wallTime;
         int proc = stats->to_proc[i];
         predLoad[proc] += ld; 
         predCount[proc] += 1.0; 
+        if(ld > maxObjLoad)
+            maxObjLoad = ld;
       }
 
       double minWall = 0.0;
@@ -390,6 +394,7 @@ class Orb3dCommon{
 #endif
 
 
+      CkPrintf("Orb3dLB_notopo stats: maxObjLoad %f\n", maxObjLoad);
       CkPrintf("Orb3dLB_notopo stats: minWall %f maxWall %f avgWall %f maxWall/avgWall %f\n", minWall, maxWall, avgWall, maxWall/avgWall);
       CkPrintf("Orb3dLB_notopo stats: minIdle %f maxIdle %f avgIdle %f minIdle/avgIdle %f\n", minIdle, maxIdle, avgIdle, minIdle/avgIdle);
       CkPrintf("Orb3dLB_notopo stats: minPred %f maxPred %f avgPred %f maxPred/avgPred %f\n", minPred, maxPred, avgPred, maxPred/avgPred);

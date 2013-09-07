@@ -9,6 +9,9 @@
 #include "Compute.h"
 #include "TreeWalk.h"
 
+static const int PAD_reply = sizeof(NodeKey);  // Assume this is bigger
+                                           // than a pointer
+
 EntryTypeGravityParticle::EntryTypeGravityParticle() {
   CkCacheFillMsg<KeyType> msg(0);
 }
@@ -294,7 +297,7 @@ void * EntryTypeGravityNode::request(CkArrayIndexMax& idx, KeyType key) {
 
 void * EntryTypeGravityNode::unpack(CkCacheFillMsg<KeyType> *msg, int chunk, CkArrayIndexMax &from) {
   // recreate the entire tree inside this message
-  Tree::BinaryTreeNode *node = (Tree::BinaryTreeNode *) (((char*)msg->data) + 8);
+  Tree::BinaryTreeNode *node = (Tree::BinaryTreeNode *) (((char*)msg->data) + PAD_reply);
   node->unpackNodes();
   // recursively add all the nodes in this message to the cache
   // and link the leaves of this message to nodes in the cache (if present)
@@ -316,7 +319,7 @@ void EntryTypeGravityNode::unpackSingle(CkCacheFillMsg<KeyType> *msg, Tree::Bina
   // Store pointer to message in front of node storage so it can be
   // freed when we are done.  See free() method below.
 
-  *(CkCacheFillMsg<KeyType> **) (((char*)node)-8) = msg;
+  *(CkCacheFillMsg<KeyType> **) (((char*)node)-PAD_reply) = msg;
 
   // Overwrite virtual pointer table.  Something like this will be
   // needed for heterogeneous architectures.  Commented out for now
@@ -358,7 +361,7 @@ void EntryTypeGravityNode::writeback(CkArrayIndexMax& idx, KeyType k, void *data
 
 void EntryTypeGravityNode::free(void *data) {
     // msg pointer is stored in front of the node data.
-  CkFreeMsg(*(void **)(((char*)data)-8));
+  CkFreeMsg(*(void **)(((char*)data)-PAD_reply));
 }
 
 int EntryTypeGravityNode::size(void * data) {
@@ -400,16 +403,12 @@ void TreePiece::fillRequestNode(const CkCacheRequest &req) {
   if(node != NULL) {
     if(_cache) {
       int count = ((Tree::BinaryTreeNode*)node)->countDepth(_cacheLineDepth);
-      //FillBinaryNodeMsg *reply = new (count, 0) FillBinaryNodeMsg(thisIndex);
-      // 8 extra bytes are allocated to store the msg pointer at the
+      // Extra bytes are allocated to store the msg pointer at the
       // beginning of the buffer.  See the free() and the
       // unpackSingle() method above.
-      CkCacheFillMsg<KeyType> *reply = new (count * (sizeof(Tree::BinaryTreeNode)+8), 8*sizeof(int)) CkCacheFillMsg<KeyType>(req.key);
-      //reply->magic[0] = 0xd98cb23a;
-      //new (reply->data) BinaryTreeNode[count];
-      //CkPrintf("calling packing function: starting %p, magic=%p\n",reply->nodes,reply->magic);
-      ((Tree::BinaryTreeNode*)node)->packNodes((Tree::BinaryTreeNode*)(reply->data+8), _cacheLineDepth, 8);
-      //CkAssert(reply->magic[0] == 0xd98cb23a);
+      CkCacheFillMsg<KeyType> *reply = new (count * (sizeof(Tree::BinaryTreeNode)+PAD_reply), 8*sizeof(int)) CkCacheFillMsg<KeyType>(req.key);
+      ((Tree::BinaryTreeNode*)node)->packNodes((Tree::BinaryTreeNode*)(reply->data+PAD_reply), _cacheLineDepth, PAD_reply);
+
       *(int*)CkPriorityPtr(reply) = -10000000;
       CkSetQueueing(reply, CK_QUEUEING_IFIFO);
       cacheNode[req.replyTo].recvData(reply);
