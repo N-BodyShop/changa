@@ -53,6 +53,7 @@ void load_tipsy_dark(Tipsy::TipsyReader &r, GravityParticle &p)
 #ifdef CHANGESOFT
 	p.fSoft0 = dp.eps;
 #endif
+	p.fDensity = 0.0;
 	p.iType = TYPE_DARK;
 }
 
@@ -71,6 +72,7 @@ void load_tipsy_star(Tipsy::TipsyReader &r, GravityParticle &p)
 #ifdef CHANGESOFT
     p.fSoft0 = sp.eps;
 #endif
+    p.fDensity = 0.0;
     p.iType = TYPE_STAR;
     p.fStarMetals() = sp.metals;
     // Metals to O and Fe based on Asplund et al 2009
@@ -274,6 +276,8 @@ void TreePiece::loadTipsy(const std::string& filename,
                         load_tipsy_star<double,double>(r, myParticles[i+1]);
                     iStar++;
 		}
+		myParticles[i+1].rung = 0;
+		myParticles[i+1].fBall = 0.0;
 		myParticles[i+1].iOrder = i + startParticle;
 #if COSMO_STATS > 1
 		myParticles[i+1].intcellmass = 0;
