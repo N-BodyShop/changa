@@ -32,6 +32,7 @@
 #include "Sorter.h"
 #include "ParallelGravity.h"
 #include "DataManager.h"
+#include "TreePieceReplica.h"
 #include "TipsyFile.h"
 #include "param.h"
 #include "smooth.h"
@@ -77,6 +78,7 @@ CProxy_CkCacheManager<KeyType> cacheGravPart;
 CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 CProxy_CkCacheManager<KeyType> cacheNode;
 CProxy_DataManager dMProxy;
+CProxy_TreePieceReplica tpReplicaProxy;
 
 CProxy_DumpFrameData dfDataProxy;
 CProxy_PETreeMerger peTreeMergerProxy;
@@ -1152,6 +1154,8 @@ Main::Main(CkArgMsg* m) {
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
 	dataManagerID = dataManager;
         dMProxy = dataManager;
+	CProxy_TreePieceReplica tpReplica = CProxy_TreePieceReplica::ckNew();
+	tpReplicaProxy = tpReplica;
 
 	streamingProxy = pieces;
 
@@ -1597,6 +1601,9 @@ void Main::advanceBigStep(int iStep) {
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
     CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+
+		tpReplicaProxy.clearTable(CkCallbackResumeThread());
+		treeProxy.replicateTreePieces(CkCallbackResumeThread());
 
     CkCallback cbGravity(CkCallback::resumeThread);
     aggregator.init(treeProxy, CkCallbackResumeThread(), 
@@ -2161,6 +2168,9 @@ Main::initialForces()
 #endif
   CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
+	tpReplicaProxy.clearTable(CkCallbackResumeThread());
+	treeProxy.replicateTreePieces(CkCallbackResumeThread());
+	
   if(verbosity)
       memoryStats();
   

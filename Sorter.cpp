@@ -791,7 +791,7 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 
         if (sorted) { // needed only when skipping decomposition
 
-          dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()) + 1, keyBoundaries.size(), sortingCallback);
+          dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()) + 1, keyBoundaries.size());
           numIterations = 0;
           sorted = false;
           return;
@@ -856,7 +856,7 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
                 accumulatedBinCounts.clear();
 
                 //send out the final splitters and responsibility table
-                dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), keyBoundaries.size(), sortingCallback);
+                dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), keyBoundaries.size());
 		numIterations = 0;
 		sorted = false;
 

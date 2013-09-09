@@ -289,9 +289,18 @@ EntryTypeGravityNode::EntryTypeGravityNode() {
 }
 
 void * EntryTypeGravityNode::request(CkArrayIndexMax& idx, KeyType key) {
-  CkCacheRequest req(key, CkMyPe(), nodeRequest);
-  aggregator.ckLocalBranch()->insertData(req, *idx.data());
-  return NULL;
+  CkCacheRequestMsg<KeyType> *msg = new (32) CkCacheRequestMsg<KeyType>(key, CkMyPe());
+  *(int*)CkPriorityPtr(msg) = -110000000;
+  CkSetQueueing(msg, CK_QUEUEING_IFIFO);
+
+	int hash_pe = (*idx.data()) % CkNumPes();
+	//CkPrintf(" requesting gravityNode %d key %d to pe %d\n", *idx.data(), key, hash_pe);
+	//treeProxy[*idx.data()].fillRequestNode(msg);
+	hash_pe += (rand() % 4) * 23;
+	hash_pe %= CkNumPes();
+	tpReplicaProxy[hash_pe].fillRequestNodeFromReplica(msg);
+
+	return NULL;
 }
 
 void * EntryTypeGravityNode::unpack(CkCacheFillMsg<KeyType> *msg, int chunk, CkArrayIndexMax &from) {
@@ -405,7 +414,6 @@ void TreePiece::fillRequestNode(const CkCacheRequest &req) {
       // Extra bytes are allocated to store the msg pointer at the
       // beginning of the buffer.  See the free() and the
       // unpackSingle() method above.
-      CkAssert(sizeof(msg) <= PAD_reply);  // be sure there is enough rooom
       CkCacheFillMsg<KeyType> *reply = new (count * (sizeof(Tree::BinaryTreeNode)+PAD_reply), 8*sizeof(int)) CkCacheFillMsg<KeyType>(req.key);
       ((Tree::BinaryTreeNode*)node)->packNodes((Tree::BinaryTreeNode*)(reply->data+PAD_reply), _cacheLineDepth, PAD_reply);
       *(int*)CkPriorityPtr(reply) = -10000000;
