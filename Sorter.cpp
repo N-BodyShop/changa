@@ -790,6 +790,15 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	int* startCounts = static_cast<int *>(m->getData());
 	copy(startCounts, startCounts + numCounts, binCounts.begin() + 1);
 	delete m;
+
+        if (sorted) { // needed only when skipping decomposition
+
+          dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()) + 1, keyBoundaries.size(), sortingCallback);
+          numIterations = 0;
+          sorted = false;
+          return;
+        }
+
 	if(verbosity >= 4)
 		ckout << "Sorter: On iteration " << numIterations << endl;
 	CkAssert(numIterations < 1000);  // Sorter has not converged.
@@ -846,6 +855,7 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
                 sort(accumulatedBinCounts.begin(), accumulatedBinCounts.end());
                 binCounts.resize(accumulatedBinCounts.size());
                 std::adjacent_difference(accumulatedBinCounts.begin(), accumulatedBinCounts.end(), binCounts.begin());
+                accumulatedBinCounts.clear();
 
                 //send out the final splitters and responsibility table
                 dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), keyBoundaries.size(), sortingCallback);
