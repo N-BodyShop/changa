@@ -1097,12 +1097,21 @@ Main::Main(CkArgMsg* m) {
         int dims[] = {NUM_ROWS, NUM_COLUMNS, NUM_PLANES};
 	// alternative specification, although 3D appears to be working better
 	//	int dims[] = {tmgr.getDimNA(), tmgr.getDimNB(), tmgr.getDimNC(), tmgr.getDimND() * tmgr.getDimNE(), tmgr.getDimNT()}; 
-#elif 1 //CMK_BLUEGENEP 
+#elif CMK_BLUEGENEP 
         int NUM_ROWS = tmgr.getDimNX()*tmgr.getDimNT();
         int NUM_COLUMNS = tmgr.getDimNY();
         int NUM_PLANES = tmgr.getDimNZ();
 	int nDims = 3; 
         int dims[] = {NUM_ROWS, NUM_COLUMNS, NUM_PLANES};
+#else
+	int NUM_ROWS = CkNumNodes();
+	int NUM_COLUMNS = CkNodeSize(0); 
+	if (NUM_ROWS * NUM_COLUMNS != CkNumPes()) {
+          CkAbort("The number of PEs per node needs to be the same everywhere.");
+        }
+        int nDims = 2;
+        int dims[] = {NUM_ROWS, NUM_COLUMNS};
+
 #endif
 	CkPrintf("Topology Dimensions for Mesh Streamer: "); 
 	for (int i = 0; i < nDims; i++) {
