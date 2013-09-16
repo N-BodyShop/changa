@@ -154,7 +154,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
     // particles need sorting before tree build when star formation
     // not enabled
     if(!param.bStarForm) {
-	sorter.startSorting(dataManagerID, ddTolerance, true);
+      sorter.startSorting(dataManagerID, ddTolerance, true, CkCallbackResumeThread());
 	}
     // Need to build tree since we just did addDelParticle.
     // XXX need to check whether a treebuild needs the domain

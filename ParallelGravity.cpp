@@ -1550,12 +1550,8 @@ void Main::advanceBigStep(int iStep) {
     double startTime;
     bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
 
-    CkCallback sortingCallback(CkCallback::resumeThread); 
     startTime = CkWallTimer();
-    shuffleAggregator.init(numTreePieces, CkCallbackResumeThread(), 
-                           sortingCallback, shuffleDetector, INT_MIN, false); 
-    sorter.startSorting(dataManagerID, ddTolerance, bDoDD);
-    CkFreeMsg(sortingCallback.thread_delay());
+    sorter.startSorting(dataManagerID, ddTolerance, bDoDD, CkCallbackResumeThread());
 
     /*
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -2122,12 +2118,7 @@ Main::initialForces()
 
   startTime = CkWallTimer();
 
-  CkCallback sortingCallback(CkCallback::resumeThread); 
-  shuffleAggregator.init(numTreePieces, CkCallbackResumeThread(), 
-                         sortingCallback, shuffleDetector, INT_MIN, false); 
-
-  sorter.startSorting(dataManagerID, ddTolerance, true);
-  CkFreeMsg(sortingCallback.thread_delay());
+sorter.startSorting(dataManagerID, ddTolerance, true, CkCallbackResumeThread());
 
   CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
 
@@ -2486,13 +2477,7 @@ Main::doSimulation()
 	  // The following call is to get the particles in key order
 	  // before the sort.
 	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
-          
-          CkCallback sortingCallback(CkCallback::resumeThread); 
-          shuffleAggregator.init(numTreePieces, CkCallbackResumeThread(), 
-                                 sortingCallback, INT_MIN, false); 	  
-
-          sorter.startSorting(dataManagerID, ddTolerance, true);
-          CkFreeMsg(sortingCallback.thread_delay());
+          sorter.startSorting(dataManagerID, ddTolerance, true, CkCallbackResumeThread());
           
 #ifdef PUSH_GRAVITY
 	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
@@ -2762,12 +2747,7 @@ void Main::writeOutput(int iStep)
 	// before the sort.
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 	
-        CkCallback sortingCallback(CkCallback::resumeThread); 
-        shuffleAggregator.init(numTreePieces, CkCallbackResumeThread(), 
-                               sortingCallback, INT_MIN, false); 	  
-
-        sorter.startSorting(dataManagerID, ddTolerance, true);
-        CkFreeMsg(sortingCallback.thread_delay());
+        sorter.startSorting(dataManagerID, ddTolerance, true, CkCallbackResumeThread());
 
 #ifdef PUSH_GRAVITY
 	treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
@@ -2813,12 +2793,7 @@ void Main::writeOutput(int iStep)
 
             treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 
-            CkCallback sortingCallback(CkCallback::resumeThread); 
-            shuffleAggregator.init(numTreePieces, CkCallbackResumeThread(), 
-                                   sortingCallback, INT_MIN, false);
-
-	    sorter.startSorting(dataManagerID, ddTolerance, true);
-            CkFreeMsg(sortingCallback.thread_delay());
+	    sorter.startSorting(dataManagerID, ddTolerance, true, CkCallbackResumeThread());
 
 #ifdef PUSH_GRAVITY
 	    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);

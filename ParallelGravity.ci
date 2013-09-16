@@ -185,7 +185,8 @@ mainmodule ParallelGravity {
 
     entry [threaded]
 	void startSorting(const CkGroupID& dataManagerID,
-        		const double toler, bool decompose);
+			  const double toler, bool decompose,
+			  const CkCallback &cb);
     entry void collectEvaluations(CkReductionMsg* m);
     entry void collectORBCounts(CkReductionMsg* m);
     entry void finishPhase(CkReductionMsg* m);
@@ -200,7 +201,8 @@ mainmodule ParallelGravity {
 				      const CkCallback& cb);
     entry void acceptFinalKeys(const SFC::Key keys[n],
         const int responsible[n - 1],
-        unsigned int bins[n - 1], const int n);
+        unsigned int bins[n - 1], const int n,
+	const CkCallback &cb);
     entry void collectSplitters(CkReductionMsg* m);
     //entry [local,exclusive] void notifyPresence(int index, Tree::GenericTreeNode *root);
     entry void combineLocalTrees(CkReductionMsg *m);

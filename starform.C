@@ -141,12 +141,7 @@ void Main::FormStars(double dTime, double dDelta)
     // decomposition.  If not, this could be avoided.
     //
 
-    CkCallback sortingCallback(CkCallback::resumeThread); 
-    shuffleAggregator.init(numTreePieces, CkCallbackResumeThread(), 
-                           sortingCallback, shuffleDetector, INT_MIN, false); 	  
-
-    sorter.startSorting(dataManagerID, ddTolerance, true);
-    CkFreeMsg(sortingCallback.thread_delay());
+    sorter.startSorting(dataManagerID, ddTolerance, true, CkCallbackResumeThread());
 
 #ifdef PUSH_GRAVITY
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);

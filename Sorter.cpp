@@ -261,7 +261,9 @@ void Sorter::collectORBCounts(CkReductionMsg* m){
  * @param decompose Are we still deciding on decomposition?
  */
 void Sorter::startSorting(const CkGroupID& dataManagerID,
-			  const double toler, bool decompose) {
+			  const double toler, bool decompose,
+                          const CkCallback &cb) {
+  sortingCallback = cb;
 	numChares = numTreePieces;
 	dm = CProxy_DataManager(dataManagerID);
 	tolerance = toler;
@@ -652,7 +654,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 
     CkPrintf(" histogramming %g sec ... \n", CmiWallTimer()-decompTime);
     
-    dm.acceptFinalKeys(&(*splitters.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), splitters.size());
+    dm.acceptFinalKeys(&(*splitters.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), splitters.size(), sortingCallback);
     numIterations = 0;
     sorted = false;
     return;
@@ -791,7 +793,7 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 
         if (sorted) { // needed only when skipping decomposition
 
-          dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()) + 1, keyBoundaries.size());
+          dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()) + 1, keyBoundaries.size(), sortingCallback);
           numIterations = 0;
           sorted = false;
           return;
@@ -856,7 +858,7 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
                 accumulatedBinCounts.clear();
 
                 //send out the final splitters and responsibility table
-                dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), keyBoundaries.size());
+                dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), keyBoundaries.size(), sortingCallback);
 		numIterations = 0;
 		sorted = false;
 

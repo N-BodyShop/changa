@@ -67,7 +67,7 @@ void DataManager::acceptResponsibleIndex(const int* responsible, const int n,
     contribute(cb);
     }
 
-void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n) {
+void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback &cb) {
 
   //should not assign responsibility or place to a treepiece that will get no particles
   int ignored = 0;
@@ -120,7 +120,8 @@ void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, 
   }
 
   CkCallback unshuffleCallback(CkIndex_TreePiece::unshuffleParticles(0),treePieces);
-  contribute(0, 0, CkReduction::nop, unshuffleCallback);
+
+  shuffleAggregator.init(numTreePieces, unshuffleCallback, cb, shuffleDetector, INT_MIN, false);
 }
 
 ///
