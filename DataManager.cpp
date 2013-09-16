@@ -121,7 +121,7 @@ void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, 
 
   CkCallback unshuffleCallback(CkIndex_TreePiece::unshuffleParticles(0),treePieces);
 
-  shuffleAggregator.init(numTreePieces, unshuffleCallback, cb, shuffleDetector, INT_MIN, false);
+  shuffleAggregator.ckLocalBranch()->init(numTreePieces, unshuffleCallback, cb, shuffleDetector, INT_MIN, false);
 }
 
 ///
