@@ -190,6 +190,12 @@ class NodePool;
               myType == CachedEmpty);
     }
 
+    bool isBucket(){
+      return (myType == Bucket ||
+              myType == CachedBucket ||
+              myType == NonLocalBucket);
+    }
+
     // these two functions are used to track the communication between objects:
     // a nodes is marked usedBy when a local TreePiece has touched it
     void markUsedBy(int index) { usedBy |= (((CmiUInt8)1) << index); }
