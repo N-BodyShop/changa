@@ -387,7 +387,7 @@ class Orb3dCommon{
         index += increment;
         CkPrintf("%d: %.3f\n", j, objectWallTimes[(int) index]);
       }
-      CkPrintf("100: %.3f\n", objectWallTimes.end());
+      CkPrintf("100: %.3f\n", objectWallTimes.back());
 #endif
 
       delete[] predLoad;
