@@ -59,6 +59,9 @@ Main::initSph()
 	}
     }
 
+// see below for definition.
+bool arrayFileExists(const std::string filename, const int64_t count) ;
+
 ///
 /// @brief Initialize cooling constants and integration data structures.
 ///
@@ -94,6 +97,11 @@ void Main::initCooling()
 	    }
 	}
     treeProxy.initCoolingData(CkCallbackResumeThread());
+    string achCoolOnFileName = string(param.achOutName) + ".coolontime";
+    if(arrayFileExists(achCoolOnFileName, nTotalParticles)) {
+        CkPrintf("Reading coolontime\n");
+        treeProxy.readCoolOnTime(achCoolOnFileName, CkCallbackResumeThread());
+        }
 #endif
     }
 
