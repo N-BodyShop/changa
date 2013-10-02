@@ -2665,12 +2665,15 @@ void Main::writeOutput(int iStep)
 	    treeProxy[0].outputBinary(pCSOut, param.bParaWrite,
 				      CkCallbackResumeThread());
 #ifdef DIFFUSION
-	treeProxy[0].outputBinary(pMetalsDotOut, param.bParaWrite,
-				 CkCallbackResumeThread());
-	treeProxy[0].outputBinary(pOxDotOut, param.bParaWrite,
-				 CkCallbackResumeThread());
-	treeProxy[0].outputBinary(pFeDotOut, param.bParaWrite,
-				 CkCallbackResumeThread());
+        if(param.bDoGas)
+            treeProxy[0].outputBinary(pMetalsDotOut, param.bParaWrite,
+                                      CkCallbackResumeThread());
+        if (param.bStarForm || param.bFeedback) {
+            treeProxy[0].outputBinary(pOxDotOut, param.bParaWrite,
+                                      CkCallbackResumeThread());
+            treeProxy[0].outputBinary(pFeDotOut, param.bParaWrite,
+                                      CkCallbackResumeThread());
+            }
 #endif
 	} else {
 	if (param.bStarForm || param.bFeedback) {
@@ -2696,8 +2699,9 @@ void Main::writeOutput(int iStep)
 	    }
 #endif
 #ifdef DIFFUSION
-	treeProxy[0].outputASCII(pMetalsDotOut, param.bParaWrite,
-				 CkCallbackResumeThread());
+        if(param.bDoGas)
+            treeProxy[0].outputASCII(pMetalsDotOut, param.bParaWrite,
+                                     CkCallbackResumeThread());
 	if (param.bStarForm || param.bFeedback) {
 	    treeProxy[0].outputASCII(pOxDotOut, param.bParaWrite,
 				     CkCallbackResumeThread());
