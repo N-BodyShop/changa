@@ -479,7 +479,7 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
     delete param.stfm;
     free(param.csm);
     delete param.feedback;
-    }
+}
   
 	 
 const char *typeString(NodeType type);
