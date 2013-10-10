@@ -166,7 +166,8 @@ OBJECTS = Reductions.o DataManager.o TreePiece.o IntraNodeLBManager.o Sorter.o \
 	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
 	  feedback.o imf.o supernova.o supernovaia.o starlifetime.o \
 	  sinks.o \
-	  cha_commitid.o externalGravity.o \
+          SIDM.o externalGravity.o \
+	  cha_commitid.o \
 	  @OBJECTS_COOLING@
 
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp IntraNodeLBManager.cpp \
@@ -176,7 +177,8 @@ SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp IntraNodeLBManage
 	MultistepLB_notopo.cpp MultistepNodeLB_notopo.cpp MultistepOrbLB.cpp PETreeMerger.cpp \
 	TreeWalk.cpp Compute.cpp CacheInterface.cpp smooth.cpp Sph.cpp externalGravity.cpp \
 	starform.cpp feedback.cpp imf.cpp supernova.cpp supernovaia.cpp starlifetime.cpp \
-	sinks.cpp
+	sinks.cpp \
+        SIDM.C
 
 ifneq (,$(ENABLE_CUDA))
   CXXFLAGS += $(NVCC_INC)

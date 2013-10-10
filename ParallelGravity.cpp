@@ -602,6 +602,17 @@ Main::Main(CkArgMsg* m) {
 		    sizeof(int), "iRand", "<Feedback random Seed> = 1");
 	
 	param.sinks.AddParams(prm, param);
+
+        //SIDM
+        //add similar to gasoline, note: no msr
+        param.dSIDMSigma=0;
+        prmAddParam(prm,"dSIDMSigma",paramDouble,&param.dSIDMSigma,sizeof(double),
+                    "dsidmsigma","<dark matter cross section> = 1"); 
+	
+        param.bSIDM=0;
+        prmAddParam(prm,"bSIDM",paramBool, &param.bSIDM, sizeof(int),
+                 "bsidm","<turn on or off SIDM>=1");
+
 	
 	//
 	// Output parameters
@@ -1981,6 +1992,12 @@ void Main::advanceBigStep(int iStep) {
         // Closing Kick
         kick(true, activeRung, nextMaxRung, cbGravity, gravStartTime);
         doSinks(dTime, RungToDt(param.dDelta, activeRung), activeRung);
+      //SIDM
+      //need to do a test on active rung?
+      if (activeRung == 0 ) {
+	doSIDM(dTime,RungToDt(param.dDelta, activeRung), activeRung);
+	}
+
     }
     else
         waitForGravity(cbGravity, gravStartTime, activeRung);
