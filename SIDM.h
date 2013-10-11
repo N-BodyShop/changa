@@ -3,6 +3,9 @@ class SIDMSmoothParams : public SmoothParams
 {
   protected:
   	double a, H; // Cosmological parameters
+        double dTime;
+        double dDelta;
+        double dSIDMSigma;
   	virtual void fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *nList);
     	virtual int isSmoothActive(GravityParticle *p);
     	virtual void initTreeParticle(GravityParticle *p);
@@ -13,8 +16,13 @@ class SIDMSmoothParams : public SmoothParams
 
   public:
     SIDMSmoothParams() {} //empty constructor
-    SIDMSmoothParams(int _iType, int am, CSM csm, double dTime) {
+    SIDMSmoothParams(int _iType, int am, CSM csm, double _dTime, double _dSIDMSigma, double _dDelta) {
     iType = _iType;
+    activeRung = am;
+    dTime = _dTime;
+    dDelta = _dDelta;
+    dSIDMSigma= _dSIDMSigma;
+
 
         if(csm->bComove) {
             H = csmTime2Hub(csm,dTime);
@@ -29,7 +37,10 @@ class SIDMSmoothParams : public SmoothParams
     PUPable_decl(SIDMSmoothParams);
     SIDMSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
     virtual void pup(PUP::er &p) {
-        SmoothParams::pup(p);//Call base class
+        SmoothParams::pup(p);//Call  base class
+        p|dTime;
+        p|dDelta;
+        p|dSIDMSigma;
         p|a;
         p|H;
         }
