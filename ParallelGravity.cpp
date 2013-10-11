@@ -41,6 +41,7 @@
 #include "Sph.h"
 #include "starform.h"
 #include "feedback.h"
+#include "SIDM.h" //SIDM
 #include "externalGravity.h"
 
 #include "PETreeMerger.h"

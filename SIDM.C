@@ -14,16 +14,16 @@
 void Main::doSIDM(double dTime,double dDelta, int activeRung)
 {
 //construct bSIDM, dSIDMsigma
-if param.bSIDM {
-	SIDMSmoothParams pSIDM(TYPE_DARK, activeRung, param.csm, dTime,dSIDMSigma, dDelta ); //things needs to be in constructor?? 
-        treeProxy.startSmooth(&pSIDM, 1, param.Nsmooth, 0, CkCallbackResumeThread());         
+if (param.bSIDM) {
+	SIDMSmoothParams pSIDM(TYPE_DARK, activeRung, param.csm, dTime,param.dSIDMSigma, param.dDelta ); //things needs to be in constructor?? 
+        treeProxy.startSmooth(&pSIDM, 1, param.nSmooth, 0, CkCallbackResumeThread());         
 	}
 }
 
 int SIDMSmoothParams::isSmoothActive(GravityParticle *p) //is a particle active is it the right type?
 {
-    if(bActiveOnly && p->rung < activeRung)
-        return 0;               // not active
+//    if(bActiveOnly && p->rung < activeRung)
+//        return 0;               // not active
     return (TYPETest(p, iType));
     }
 
@@ -31,34 +31,35 @@ int SIDMSmoothParams::isSmoothActive(GravityParticle *p) //is a particle active 
 //what about  postTreeParticle(GravityParticle *p) {}
 //and  initSmoothParticle(GravityParticle *p);
 
-//void SIDMSmoothParams::initSmoothParticle(GravityParticle *p)
-//{
+void SIDMSmoothParams::initSmoothParticle(GravityParticle *p)
+{
 //    TYPEReset(p, TYPE_NbrOfACTIVE);
-//    }
+    }
 
-//void SIDMSmoothParams::initTreeParticle(GravityParticle *p)
-//{
+void SIDMSmoothParams::initTreeParticle(GravityParticle *p)
+{
 //   TYPEReset(p, TYPE_NbrOfACTIVE);
-//   }
+   }
 
 void SIDMSmoothParams::initSmoothCache(GravityParticle *p)
 {
 //        p->nSIDMCollisionCount = 0;
-//        ((PARTICLE *)p)->curlv[0] = 0;
-//        ((PARTICLE *)p)->curlv[1] = 0;
-//        ((PARTICLE *)p)->curlv[2] = 0;
-        }
+    p->curlv()[1] = 0.0;
+    p->curlv()[0] = 0.0; 
+    p->curlv()[2] = 0.0; 
+    }
 
 void SIDMSmoothParams::combSmoothCache(GravityParticle *p1, ExternalSmoothParticle *p2)
 {
+    //p1->curlv()[0] = p2->curlv[0];
+    //p1->curlv()[1] = p2->curlv[1];
+    //p1->curlv()[2] = p2->curlv[2];
     //p1->nSIDMCollisionCount += p2->nSIDMCollisionCount;
-    //((PARTICLE *)p1)->v[0] += ((PARTICLE *)p2)->curlv[0];//we are hijacking the curlv variable and accumulating q->v to send back to home node
-    //((PARTICLE *)p1)->v[1] += ((PARTICLE *)p2)->curlv[1];
-    //((PARTICLE *)p1)->v[2] += ((PARTICLE *)p2)->curlv[2];
     //p1->iType |= p2->iType;
     }
 
 
+//void SIDMSmoothParams::doSIDM(GravityParticle *p, int nSmooth, pqSmoothNode *nnList)
 void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *nnList)
     {
     GravityParticle *q;
@@ -90,11 +91,12 @@ void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *
     for (i=0;i<nSmooth;++i)
         {
         q = nnList[i].p;
-        ran=rand()/((FLOAT)RAND_MAX); /* generate random number between 0 and 1 */
+        //ran=rand()/((double)RAND_MAX); /* generate random number between 0 and 1 */
+        ran=rand()/RAND_MAX; /* generate random number between 0 and 1 */
 
-        dvx = (-p->velocity.x + q->velocity.x/a - aDot*nnList[i].dx.x; //could reduce these to one statment using vector arithmetic
-        dvy = (-p->velocity.y + q->velocity.y/a - aDot*nnList[i].dx.y; //v or vpred?
-        dvz = (-p->velocity.z + q->velocity.z/a - aDot*nnList[i].dx.z;  //units? H? or adot?
+        dvx = (-p->velocity.x + q->velocity.x)/a - aDot*nnList[i].dx.x; //could reduce these to one statment using vector arithmetic
+        dvy = (-p->velocity.y + q->velocity.y)/a - aDot*nnList[i].dx.y; //v or vpred?
+        dvz = (-p->velocity.z + q->velocity.z)/a - aDot*nnList[i].dx.z;  //units? H? or adot?
         dvcosmo = sqrt(dvx*dvx + dvy*dvy + dvz*dvz); /*relative velocity between particles */
         probability=dSIDMSigma*dvcosmo*dDelta*fPhyDensity/2.0;
                 /* units: (cm^2 g^-1) (cm s^-1) (s) (g cm^-3) =  none, however in reality these are all sim units...

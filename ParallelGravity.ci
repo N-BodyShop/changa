@@ -128,6 +128,8 @@ mainmodule ParallelGravity {
   PUPable Kroupa93;
   PUPable Kroupa01;
 
+  //SIDM
+  PUPable SIDMSmoothParams;
   PUPable MassOutputParams;
   PUPable PosOutputParams;
   PUPable VelOutputParams;
