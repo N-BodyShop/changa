@@ -1682,7 +1682,7 @@ void TreePiece::outputBinary(OutputParams& params, // specifies
 		    }
 		}
 	    else {
-		if(!xdr_float(&xdrs,&vOut.y)) {
+		if(!xdr_float(&xdrs,&fOut)) {
 		    ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
 		    CkAbort("Badness");
 		    }
@@ -1825,46 +1825,116 @@ void TreePiece::oneNodeOutBinArr(OutputParams& params,
     pieces[0].outputBinary(params, 0, cb);
     }
 
-void TreePiece::outputIOrderBinary(const string& fileName, const CkCallback& cb) {
+void TreePiece::outputIntBinary(OutputIntParams& params, // specifies
+						  // filename, format,
+						  // and quantity to
+						  // be output
+			    int bParaWrite,	  // Every processor
+						  // can write.  If
+						  // false, all output
+						  // gets sent to
+						  // treepiece "0" for writing.
+			    const CkCallback& cb) {
+    FILE* outfile;
+    int *aiOut;	// array for oneNode I/O
     XDR xdrs;
-    int iDum;
+  
     if(thisIndex==0) {
-	if(verbosity > 2)
-	    ckerr << "TreePiece " << thisIndex << ": Writing header for iOrder file"
-		  << endl;
-	FILE* outfile = CmiFopen(fileName.c_str(), "w");
-	CkAssert(outfile != NULL);
+        int iDum;
+        
+        if(verbosity > 2)
+            ckout << "TreePiece " << thisIndex << ": Writing header for output file" << endl;
+        outfile = CmiFopen(params.fileName.c_str(), "wb");
+        CkAssert(outfile != NULL);
 	xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-	iDum = (int) nTotalParticles;
+	iDum = (int)nTotalParticles;
 	xdr_int(&xdrs,&iDum);
 	xdr_destroy(&xdrs);
-	CmiFclose(outfile);
-	}
-    
+        CmiFclose(outfile);
+    }
+	
     if(verbosity > 3)
-	ckerr << "TreePiece " << thisIndex << ": Writing iOrder to disk" << endl;
-    
-    FILE* outfile = CmiFopen(fileName.c_str(), "a");
+        ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
+	
+    if(bParaWrite) {
+        outfile = CmiFopen(params.fileName.c_str(), "a");
+        if(outfile == NULL)
+	    ckerr << "Treepiece " << thisIndex << " failed to open "
+		  << params.fileName.c_str() << " : " << errno << endl;
+        CkAssert(outfile != NULL);
+	xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
+        }
+    else {
+        aiOut = new int[myNumParticles];
+        }
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+        int iOut;
+        iOut = params.iValue(&myParticles[i]);
+      
+        if(bParaWrite) {
+            if(!xdr_int(&xdrs,&iOut)) {
+                ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
+                CkAbort("Badness");
+                }
+            }
+        else {
+            aiOut[i-1] = iOut;
+            }
+          }
+     
+    if(bParaWrite) {
+	xdr_destroy(&xdrs);
+        int result = CmiFclose(outfile);
+        if(result != 0)
+	    ckerr << "Bad close: " << strerror(errno) << endl;
+        CkAssert(result == 0);
+
+        if(thisIndex!=(int)numTreePieces-1) {
+            pieces[thisIndex + 1].outputIntBinary(params, bParaWrite, cb);
+            return;
+            }
+
+        cb.send(); // We are done.
+        return;
+        }
+    else {
+        pieces[0].oneNodeOutBinInt(params, aiOut, myNumParticles, thisIndex,
+                                   cb);
+        delete [] aiOut;
+      }
+}
+
+// Receives an array of ints to write out in binary format
+// Assumed to be called from outputIntBinary() and will continue with the
+// next tree piece.
+
+void TreePiece::oneNodeOutBinInt(OutputIntParams& params,
+			      int *aiOut, // array to be output
+			      int nPart, // length of adOut
+			      int iIndex, // treepiece which called me
+			      CkCallback& cb) 
+{
+    FILE* outfile = CmiFopen(params.fileName.c_str(), "a");
+    XDR xdrs;
+    if(outfile == NULL)
+	ckerr << "Treepiece " << thisIndex << " failed to open "
+	      << params.fileName.c_str() << " : " << errno << endl;
     CkAssert(outfile != NULL);
     xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-    
-    for(unsigned int i = 1; i <= myNumParticles; ++i) {
-	iDum = myParticles[i].iOrder;
-	if(!xdr_int(&xdrs,&iDum)) {
-	    ckerr << "TreePiece " << thisIndex
-		  << ": Error writing iOrder to disk, aborting" << endl;
-	    CkAbort("IO Badness");
+    for(int i = 0; i < nPart; ++i) {
+	if(!xdr_int(&xdrs,&(aiOut[i]))) {
+            ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
+	    CkAbort("Badness");
 	    }
-	}
-    
+        }
     xdr_destroy(&xdrs);
     int result = CmiFclose(outfile);
     if(result != 0)
 	ckerr << "Bad close: " << strerror(errno) << endl;
     CkAssert(result == 0);
-    if(thisIndex==(int)numTreePieces-1) {
-	cb.send();
-	}
-    else
-	pieces[thisIndex + 1].outputIOrderBinary(fileName, cb);
-  }
+    if(iIndex!=(int)numTreePieces-1) {
+	  pieces[iIndex + 1].outputIntBinary(params, 0, cb);
+	  return;
+	  }
+    cb.send(); // We are done.
+    }

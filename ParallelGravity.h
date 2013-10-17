@@ -1793,7 +1793,10 @@ public:
 	void oneNodeOutBinArr(OutputParams& params, float* adOut,
 			      int nPart, int iIndex, int bDone,
 			      CkCallback& cb) ;
-	void outputIOrderBinary(const std::string& suffix, const CkCallback& cb);
+        void outputIntBinary(OutputIntParams& params, int bParaWrite,
+                             const CkCallback& cb);
+        void oneNodeOutBinInt(OutputIntParams& params, int *aiOut,
+                              int nPart, int iIndex, CkCallback& cb) ;
 
 	void outputStatistics(const CkCallback& cb);
 	/// Collect the total statistics from the various chares

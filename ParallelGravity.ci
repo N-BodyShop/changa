@@ -441,11 +441,14 @@ mainmodule ParallelGravity {
     entry void oneNodeOutBinArr(CkReference<OutputParams>, float adOut[nPart],
 			     int nPart, int iIndex, int bDone,
 			     CkCallback& cb) ;
-    entry void outputIOrderBinary(const std::string& suffix, const CkCallback& cb);
     entry void outputIntASCII(CkReference<OutputIntParams>, int bParaWrite,
 			      const CkCallback& cb);
     entry void oneNodeOutIntArr(CkReference<OutputIntParams>, int aiOut[nPart],
 				int nPart, int iIndex, CkCallback& cb);
+    entry void outputIntBinary(CkReference<OutputIntParams>, int bParaWrite,
+			      const CkCallback& cb);
+    entry void oneNodeOutBinInt(CkReference<OutputIntParams>, int aiOut[nPart],
+			     int nPart, int iIndex, CkCallback& cb) ;
     entry void outputStatistics(const CkCallback& cb);
     //entry void getPieceValues(piecedata *totaldata);
     entry void collectStatistics(CkCallback &cb);

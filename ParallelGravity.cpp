@@ -2611,6 +2611,16 @@ void Main::writeOutput(int iStep)
 	if(param.bDoCSound)
 	    treeProxy[0].outputBinary(pCSOut, param.bParaWrite,
 				      CkCallbackResumeThread());
+	if(param.bDoIOrderOutput || param.bStarForm || param.bFeedback) {
+	    IOrderOutputParams pIOrdOut(string(achFile) + ".iord");
+	    treeProxy[0].outputIntBinary(pIOrdOut, param.bParaWrite,
+                                         CkCallbackResumeThread());
+	    if(param.bStarForm) {
+		IGasOrderOutputParams pIGasOrdOut(string(achFile) + ".igasorder");
+		treeProxy[0].outputIntBinary(pIGasOrdOut, param.bParaWrite,
+                                             CkCallbackResumeThread());
+                }
+            }
 	} else {
 	if (param.bStarForm || param.bFeedback) {
 	    treeProxy[0].outputASCII(pOxOut, param.bParaWrite,
