@@ -1985,6 +1985,9 @@ Main::restart()
 		    sizeof(double),"dhonh", "<|dH|/H Limiter> = 0.1");
 	prmAddParam(prm, "iOutInterval", paramInt, &param.iOutInterval,
 		    sizeof(int),"oi", "Output Interval");
+	prmAddParam(prm, "iBinaryOutput", paramInt, &param.iBinaryOut,
+		    sizeof(int), "binout",
+		    "<array outputs 0 ascii, 1 float, 2 double, 3 FLOAT(internal)> = 0");
 	prmAddParam(prm, "iCheckInterval", paramInt, &param.iCheckInterval,
 		    sizeof(int),"oc", "Checkpoint Interval");
 	prmAddParam(prm, "iVerbosity", paramInt, &verbosity,
