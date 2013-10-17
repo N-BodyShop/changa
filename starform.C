@@ -137,11 +137,6 @@ void Main::FormStars(double dTime, double dDelta)
     double startTime = CkWallTimer();
     //
     // Need to build tree since we just did a drift.
-    // XXX need to check whether a treebuild needs the domain
-    // decomposition.  If not, this could be avoided.
-    //
-    sorter.startSorting(dataManagerID, ddTolerance,
-                        CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
 #else

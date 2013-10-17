@@ -1472,10 +1472,22 @@ void Main::advanceBigStep(int iStep) {
      * Form stars at user defined intervals
      */
     double dTimeSF = RungToDt(param.dDelta, nextMaxRung);
-    if(param.bStarForm && param.stfm->isStarFormRung(activeRung))
-	FormStars(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
-    if(param.bFeedback && param.stfm->isStarFormRung(activeRung)) 
-	StellarFeedback(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
+    if((param.bStarForm || param.bFeedback)
+       && param.stfm->isStarFormRung(activeRung)) {
+        double startTime = CkWallTimer();
+        CkPrintf("Domain decomposition for star formation/feedback... ");
+        sorter.startSorting(dataManagerID, ddTolerance,
+                            CkCallbackResumeThread(), true);
+        CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+        CkPrintf("Load balancer for star formation/feedback... ");
+        startTime = CkWallTimer();
+        treeProxy.startlb(CkCallbackResumeThread(), PHASE_FEEDBACK);
+        CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+        if(param.bStarForm)
+            FormStars(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
+        if(param.bFeedback) 
+            StellarFeedback(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
+        }
 
     ckout << "\nStep: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
           << " Time: " << dTime
