@@ -505,7 +505,7 @@ Main::Main(CkArgMsg* m) {
 
 	param.bFeedback = 0;
 	prmAddParam(prm,"bFeedBack",paramBool,&param.bFeedback,sizeof(int),
-		    "stfm","<Star Forming> = 0");
+		    "fdbk","<Stars provide feedback> = 0");
 
 	param.feedback = new Fdbk();
 	param.feedback->AddParams(prm);
