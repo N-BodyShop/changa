@@ -14,49 +14,39 @@
 #include "TreeWalk.h"
 #include "Opt.h"
 #include "moments.h"
+#include "FastMultipole.h"
 
 enum FMMOpenType {UNDECIDED, ACCEPT_PARTICLES, OPEN_BUCKET, OPEN_CHECK,
                   ACCEPT_MULTIPOLE, ACCEPT_MONO, ACCEPT_LOCAL_PARTICLES,
                   ACCEPT_SOFTENED_LOCAL_PARTICLES, ACCEPT_LOCAL,
                   ACCEPT_LOCAL_MONO, IGNORE};
         
-class FMMCompute : public Compute {
-  public:
-  FMMCompute() : Compute(FMM) {}
+/// @brief Calculate forces from local expansion on particles in a bucket
+inline
+int localBucketForce(LocalMoments &L,
+		    Tree::GenericTreeNode *req,  
+		    GravityParticle *particles, 
+		    int activeRung)
 
-  int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi);
+{
+    int computed = 0;
+    Vector3D<cosmoType> r;
 
-  int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqID, State *state);
-
-  // book keeping on notifications
-  void nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);
-  void nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket);
-  void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket);
-
-  void initState(State *state);
-  void stateReady(State *, TreePiece *, int chunk, int start, int end);
-//  void printUndlist(DoubleWalkState *state, int level, TreePiece *tp);
-//  void printClist(DoubleWalkState *state, int level, TreePiece *tp);
-  void reassoc(void *cE, int activeRung, Opt *o);
-  State *getNewState(int d1, int d2);
-  State *getNewState(int d1);
-  State *getNewState();
-  void freeState(State *state);
-  void freeDoubleWalkState(DoubleWalkState *state);
-
-  private:
-
-  void addChildrenToCheckList(GenericTreeNode *node, int reqID, int chunk, int awi, State *s, CheckList &chklist, TreePiece *tp);
-  void addNodeToInt(GenericTreeNode *node, int offsetID, DoubleWalkState *s);
-  void addLocalParticlesToInt(GravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s);
-  void addRemoteParticlesToInt(ExternalGravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s);
-  template <typename ParticleT>
-  void addParticlesToChkList(ParticleT *part,
-                               int nPart, int reqID,
-                               CheckList &chklist, TreePiece *tp);
-  DoubleWalkState *allocDoubleWalkState();
-};
-
+    for(int j = req->firstParticle; j <= req->lastParticle; ++j) {
+        if (particles[j].rung >= activeRung) {
+            particles[j].interMass += L.totalMass;
+            computed++;
+            r.x = particles[j].position.x - req->moments.cm.x;
+            r.y = particles[j].position.y - req->moments.cm.y;
+            r.z = particles[j].position.z - req->moments.cm.z;
+            momEvalLocr(&L.mom, r.x, r.y, r.z, &particles[j].potential,
+                        &particles[j].treeAcceleration.x,
+                        &particles[j].treeAcceleration.y,
+                        &particles[j].treeAcceleration.z);
+            }
+        }
+    return computed;
+}
 /*
  * Summary of PKDGRAV2M walk:
  *
@@ -190,7 +180,7 @@ FMMOpenType openCriterionFMM(Tree::GenericTreeNode *node, // "source" node
           iOpenB = iOpenA;
           }
       }
-      if(myNode->isBucket())
+      if(!myNode->isBucket())
           return UNDECIDED;
       else
           return iOpenB;
@@ -215,7 +205,7 @@ int FMMCompute::doWork(GenericTreeNode *node,
     int level = s->level;
     CheckList &chklist = s->chklists[level];
     UndecidedList &undlist = s->undlists[level];
-    LOCR &L = s->momLocal;
+    LocalMoments &L = s->momLocal[level];
 
     TreePiece *tp = tw->getOwnerTP();
     Vector3D<double> offset = tp->decodeOffset(reqID);
@@ -231,7 +221,7 @@ int FMMCompute::doWork(GenericTreeNode *node,
     // only knows about two (true, open and false, no need to open).
     // Catch the ones that involve opening.
     if(open == ACCEPT_PARTICLES || open == OPEN_BUCKET
-       || open == OPEN_CHECK) {
+       || open == OPEN_CHECK || open == UNDECIDED) {
         fakeOpen = 1;
         }
     else{
@@ -241,11 +231,14 @@ int FMMCompute::doWork(GenericTreeNode *node,
     int action = opt->action(fakeOpen, node);
     switch(open) {
     case UNDECIDED:
-        OffsetNode on;
-        on.node = node;
-        on.offsetID = reqID;
-        undlist.push_back(on);                /// Is this the right list?
-        return KEEP;
+        if(action == KEEP || action == KEEP_LOCAL_BUCKET
+           || action == KEEP_REMOTE_BUCKET) {
+            OffsetNode on;
+            on.node = node;
+            on.offsetID = reqID;
+            undlist.push_back(on);                /// Is this the right list?
+            return DUMP;
+            }
         break;
     case ACCEPT_PARTICLES:
         if(action == KEEP_LOCAL_BUCKET){
@@ -293,8 +286,9 @@ int FMMCompute::doWork(GenericTreeNode *node,
             GravityParticle *part = node->particlePointer;
             CkAssert(part);
             int computed = node->lastParticle-node->firstParticle+1;
-            addParticlesToChkList<GravityParticle>(part, computed, reqID,
-                                                   chklist, tp);
+            // XXX the following is dangerous
+            addParticlesToChkList(part, computed,
+                                  reqID, chklist, tp);
             return DUMP;
             }
         else if(action == KEEP_REMOTE_BUCKET){
@@ -351,8 +345,9 @@ int FMMCompute::doWork(GenericTreeNode *node,
             cosmoType rsq = r.lengthSquared();
             cosmoType dir = COSMO_CONST(1.0)/sqrt(rsq);
             double tax, tay, taz;   // Used for gravstep.
-            momLocrAddMomr5(&L,node->moments.mom,dir,-r.x,-r.y,-r.z,
+            momLocrAddMomr5(&L.mom,&node->moments.mom,dir,r.x,r.y,r.z,
                              &tax,&tay,&taz);
+            L.totalMass += node->moments.totalMass;
             return DUMP;
             }
         break;
@@ -381,11 +376,365 @@ void FMMCompute::addParticlesToChkList(ParticleT *part,
     for(int i = 0; i < nPart; i++) {
         // Create a bucket with one particle.
         GenericTreeNode *node = tp->pTreeNodes->alloc_one(0, Bucket, 0, 0, NULL);
-        node->makeBucket(&part[i]);
+        node->makeEmpty();
+        // XXX This should be moved into a special creation interface
+        // The following cast is dangerous, but we are only using the
+        // External parts of Gravity particle.
+        node->particlePointer = (GravityParticle *) part;
+        node->moments += *part;
+        node->boundingBox.grow(part->position);
+        node->moments.radius = 0.0;
+        
         OffsetNode on;
         on.node = node;
         on.offsetID = reqID;
         chklist.enq(on);
         }
     }
+
+void FMMCompute::addRemoteParticlesToInt(ExternalGravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s){
+  RemotePartInfo rpi;
+  int level = s->level;
+
+  rpi.particles = parts;
+  rpi.numParticles = n;
+  rpi.offset = offset;
+
+  s->rplists[level].push_back(rpi);
+}
+
+void FMMCompute::addLocalParticlesToInt(GravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s){
+  LocalPartInfo lpi;
+  int level = s->level;
+
+  lpi.particles = parts;
+  lpi.numParticles = n;
+  lpi.offset = offset;
+
+  s->lplists[level].push_back(lpi);
+
+}
+
+void FMMCompute::addNodeToInt(GenericTreeNode *node, int offsetID, DoubleWalkState *s){
+  OffsetNode nd;
+  int level = s->level;
+  nd.node = node;
+  nd.offsetID = offsetID;
+
+  s->clists[level].push_back(nd);
+}
+
+void FMMCompute::addChildrenToCheckList(GenericTreeNode *node, int reqID, int chunk, int awi, State *s, CheckList &chklist, TreePiece *tp){
+
+  Vector3D<double> vec = tp->decodeOffset(reqID);
+
+  for(int i = 0; i < node->numChildren(); i++)
+  {
+    GenericTreeNode *child = node->getChildren(i);
+    if(!child)
+    {
+      Tree::NodeKey childKey = node->getChildKey(i);
+      // child not in my tree, look in cache
+      child = tp->nodeMissed(reqID,
+                             node->remoteIndex,
+                             childKey,
+                             chunk,
+                             false,
+                             awi, computeEntity);
+      if(!child)
+      {
+
+        nodeMissedEvent(reqID, chunk, s, tp);
+        continue;
+      }
+    }
+    // child available, enqueue
+    OffsetNode on;
+    on.node = child;
+    on.offsetID = reqID;
+    chklist.enq(on);
+  }
+}
+
+void FMMCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start, int end){
+  int thisIndex = tp->getIndex();
+  GravityParticle *particles = tp->getParticles();
+
+  DoubleWalkState *state = (DoubleWalkState *)state_;
+
+  GenericTreeNode *lowestNode = state->lowestNode;
+  int maxlevel = lowestNode->getLevel(lowestNode->getKey());
+
+  bool hasRemoteLists = state->rplists.length() > 0 ? true : false;
+  bool hasLocalLists = state->lplists.length() > 0 ? true : false;
+
+  for(int b = start; b < end; b++){
+    if(tp->bucketList[b]->rungs >= activeRung){
+      if(start + 1 == end)
+          localBucketForce(state->momLocal[maxlevel], tp->getBucket(b),
+                         particles, activeRung);
+        
+      for(int level = 0; level <= maxlevel; level++){
+        CkVec<OffsetNode> &clist = state->clists[level];
+        for(unsigned int i = 0; i < clist.length(); i++){
+
+          int computed = 0;
+          computed =  nodeBucketForce(clist[i].node,
+              tp->getBucket(b),
+              particles,
+              tp->decodeOffset(clist[i].offsetID), activeRung);
+          if(getOptType() == Remote){
+            tp->addToNodeInterRemote(chunk, computed);
+          }
+          else if(getOptType() == Local){
+            tp->addToNodeInterLocal(computed);
+          }
+
+        }
+
+        // remote particles
+        if(hasRemoteLists){
+          CkVec<RemotePartInfo> &rpilist = state->rplists[level];
+          // for each bunch of particles in list
+          for(unsigned int i = 0; i < rpilist.length(); i++){
+            RemotePartInfo &rpi = rpilist[i];
+
+            // for each particle in a bunch
+            for(int j = 0; j < rpi.numParticles; j++){
+              int computed = 0;
+              computed = partBucketForce(&rpi.particles[j],
+                  tp->getBucket(b),
+                  particles,
+                  rpi.offset, activeRung);
+              if(getOptType() == Remote){// don't really have to perform this check
+                tp->addToParticleInterRemote(chunk, computed);
+              }
+            }
+
+          }
+        }
+
+        // local particles
+        if(hasLocalLists){
+          CkVec<LocalPartInfo> &lpilist = state->lplists[level];
+          for(unsigned int i = 0; i < lpilist.length(); i++){
+            LocalPartInfo &lpi = lpilist[i];
+
+            // for each particle in a bunch
+            for(int j = 0; j < lpi.numParticles; j++){
+              int computed = partBucketForce(&lpi.particles[j],
+                  tp->getBucket(b),
+                  particles,
+                  lpi.offset, activeRung);
+              tp->addToParticleInterLocal(computed);
+            }
+
+          }
+        }
+      }// level
+
+    }// active
+  }// bucket
+}
+
+void FMMCompute::reassoc(void *ce, int ar, Opt *o){
+  computeEntity = ce;
+  activeRung = ar;
+  opt = o;
+}
+
+void FMMCompute::initState(State *state){
+
+  DoubleWalkState *s = (DoubleWalkState *)state;
+  int level = s->level;
+  UndecidedList &myUndlist = s->undlists[level];
+
+  // *my* undecided list:
+  myUndlist.length() = 0;
+  // interaction lists:
+  s->clists[level].length() = 0;
+  s->clists[level].reserve(1000);
+  s->momLocal[level].totalMass = 0.0;
+  momClearLocr(&s->momLocal[level].mom);
+  if(getOptType() == Local){
+    s->lplists[level].length() = 0;
+    s->lplists[level].reserve(100);
+  }
+  else if(getOptType() == Remote){
+    s->rplists[level].length() = 0;
+    s->rplists[level].reserve(100);
+  }
+  else{
+    CkAbort("Invalid Opt type for ListCompute");
+  }
+}
+
+void FMMCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp){
+  CkAssert(getOptType() == Remote);
+  int startBucket;
+  int end;
+  GenericTreeNode *source = (GenericTreeNode *)computeEntity;
+  tp->getBucketsBeneathBounds(source, startBucket, end);
+  tp->updateUnfinishedBucketState(startBucket, end, 1, chunk, state);
+}
+
+void FMMCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int reqIDlist){
+  int start, end;
+  GenericTreeNode *source = (GenericTreeNode *)computeEntity;
+  owner->getBucketsBeneathBounds(source, start, end);
+  owner->updateBucketState(start, end, 1, chunk, state);
+
+  CkAssert(chunk >= 0);
+  int remainingChunk;
+  remainingChunk = state->counterArrays[1][chunk];
+  CkAssert(remainingChunk >= 0);
+  if (remainingChunk == 0) {
+    cacheGravPart[CkMyPe()].finishedChunk(chunk, owner->particleInterRemote[chunk]);
+    owner->finishedChunk(chunk);
+  }// end if finished with chunk
+}
+
+/// XXX here need to distinguish between interaction particles and
+/// "multipole particles".
+void FMMCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk,int reqID,State *state_,TreePiece *tp, Tree::NodeKey &remoteBucket){
+
+  Vector3D<double> offset = tp->decodeOffset(reqID);
+  CkAssert(num > 0);
+  GenericTreeNode *source = (GenericTreeNode *)computeEntity;
+
+  int startBucket;
+  int end;
+
+  DoubleWalkState *state  = (DoubleWalkState *)state_;
+  tp->getBucketsBeneathBounds(source, startBucket, end);
+
+  // init state
+  bool remoteLists = state->rplists.length() > 0;
+
+  int level = source->getLevel(source->getKey());
+  for(int i = 0; i <= level; i++){
+      state->clists[i].length() = 0;
+      state->momLocal[i].totalMass = 0.0;
+      momClearLocr(&state->momLocal[i].mom);
+      }
+
+  if(remoteLists)
+    for(int i = 0; i <= level; i++){
+        state->rplists[i].length() = 0;
+        }
+
+  // put particles in list at correct level
+  // (key) here.
+  state->level = level;
+  addRemoteParticlesToInt(part, num, offset, state);
+
+  state->lowestNode = source;
+
+  stateReady(state, tp, chunk, startBucket, end);
+
+  tp->updateBucketState(startBucket, end, 1, chunk, state);
+
+  int remainingChunk;
+  remainingChunk = state->counterArrays[1][chunk];
+  CkAssert(remainingChunk >= 0);
+  if (remainingChunk == 0) {
+    cacheGravPart[CkMyPe()].finishedChunk(chunk, tp->particleInterRemote[chunk]);
+    tp->finishedChunk(chunk);
+  }
+}
+
+State *FMMCompute::getNewState(){
+  DoubleWalkState *s = allocDoubleWalkState();
+  s->counterArrays[0] = 0;
+  s->counterArrays[1] = 0;
+  // this function used for remote-resume states, 
+  // no placedRoots vars required
+  s->placedRoots = 0;
+  s->currentBucket = 0;
+  s->bWalkDonePending = 0;
+
+  s->myNumParticlesPending = -1;
+  return s;
+}
+
+void FMMCompute::freeState(State *s){
+  freeDoubleWalkState((DoubleWalkState *)s);
+  Compute::freeState(s);
+}
+
+void FMMCompute::freeDoubleWalkState(DoubleWalkState *state){
+  for(int i = 0; i < INTERLIST_LEVELS; i++){
+    state->undlists[i].free();
+    state->clists[i].free();
+  }
+  delete [] state->chklists;
+  state->undlists.free();
+  state->clists.free();
+
+  if(state->rplists.length() > 0){
+    for(int i = 0; i < INTERLIST_LEVELS; i++){
+      state->rplists[i].free();
+    }
+    state->rplists.free();
+  }
+  else if(state->lplists.length() > 0){
+    for(int i = 0; i < INTERLIST_LEVELS; i++){
+      state->lplists[i].free();
+    }
+    state->lplists.free();
+  }
+  if(state->momLocal.length() > 0) {
+      state->momLocal.free();
+      }
+  
+  if(state->placedRoots){
+    delete [] state->placedRoots;
+    state->placedRoots = 0;
+  }
+}
+
+
+DoubleWalkState *FMMCompute::allocDoubleWalkState(){
+  DoubleWalkState *s = new DoubleWalkState;
+  s->level = 0;
+  s->chklists = new CheckList[INTERLIST_LEVELS];
+  s->undlists.resize(INTERLIST_LEVELS);
+  s->clists.resize(INTERLIST_LEVELS);
+
+  if(getOptType() == Remote){
+    s->rplists.resize(INTERLIST_LEVELS);
+  }
+  else if(getOptType() == Local){
+    s->lplists.resize(INTERLIST_LEVELS);
+  }
+
+  s->momLocal.resize(INTERLIST_LEVELS);
+  return s;
+}
+
+State *FMMCompute::getNewState(int d1, int d2){
+  DoubleWalkState *s = allocDoubleWalkState();
+  s->counterArrays[0] = new int [d1];
+  s->counterArrays[1] = new int [d2];
+  // one boolean for each chunk
+  s->placedRoots = new bool [d2];
+  s->currentBucket = 0;
+  s->bWalkDonePending = 0;
+
+  s->myNumParticlesPending = -1;
+  return s;
+}
+
+State *FMMCompute::getNewState(int d1){
+  DoubleWalkState *s = allocDoubleWalkState();
+  s->counterArrays[0] = new int [d1];
+  s->counterArrays[1] = 0;
+  // no concept of chunks in local computation
+  s->placedRoots = new bool [1];
+  s->currentBucket = 0;
+  s->bWalkDonePending = 0;
+
+  s->myNumParticlesPending = d1;
+  return s;
+}
 
