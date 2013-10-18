@@ -299,4 +299,15 @@ inline void calculateRadiusFarthestParticle(MultipoleMoments& m, ParticleType* b
 	m.radius = sqrt(m.radius);
 }
 
+/// Representation of a local multipole expansion
+class LocalMoments {
+ public:
+    /// The total mass represented by this expansion
+    double totalMass;
+    LOCR mom;
+    LocalMoments() : totalMass(0.0) { 
+        momClearLocr(&mom);
+        }
+    };
+
 #endif //MULTIPOLEMOMENTS_H
