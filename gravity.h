@@ -285,6 +285,7 @@ inline int partBucketForce(ExternalGravityParticle *part,
       }
 #endif
       computed++;
+      particles[j].interMass += part->mass;
       r = offset + part->position - particles[j].position;
       rsq = r.lengthSquared();
       twoh = part->soft + particles[j].soft;
@@ -356,6 +357,9 @@ inline int partBucketForce(ExternalGravityParticle *part,
       SSEStore(packedAcc.z, activeParticles, i, ->treeAcceleration.z);
       SSEStore(packedPotential, activeParticles, i, ->potential);
       SSEStore(idt2, activeParticles, i, ->dtGrav); 
+      SSEcosmoType SSELoad(packedInterMass, activeParticles, i, ->interMass);  
+      packedInterMass += part->mass;
+      SSEStore(packedInterMass, activeParticles, i, ->interMass); 
     }
   }
   return nActiveParts;
@@ -576,6 +580,9 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
     SSEStore(packedPotential, activeParticles, i, ->potential);
     idt2 = max(idt2, packedDtGrav);   
     SSEStore(idt2, activeParticles, i, ->dtGrav); 
+    SSEcosmoType SSELoad(packedInterMass, activeParticles, i, ->interMass);  
+    packedInterMass += m.totalMass;
+    SSEStore(packedInterMass, activeParticles, i, ->interMass);
   }
   return nActiveParts;
 }
