@@ -26,6 +26,7 @@ class Stfm {
 				 star mass per timestep. */
     double dInitStarMass;       /* Fixed Initial Star Mass */
     double dMinSpawnStarMass;   /* Minimum Initial Star Mass */
+ public:
     double dMinGasMass;		/* minimum mass gas before we delete
 				   the particle. */
     double dMaxStarMass;	/* maximum mass star particle to form */

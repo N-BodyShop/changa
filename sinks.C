@@ -1024,7 +1024,8 @@ void Main::doSinks(double dTime, double dDelta, int iKickRung)
 				  CkCallbackResumeThread());
 	    BHAccreteSmoothParams pBHAcc(TYPE_GAS, iKickRung, param.csm,
 					 dTime, param.dDelta, param.sinks,
-					 param.dConstGamma);
+					 param.dConstGamma,
+                                         param.stfm->dMinGasMass);
 	    treeProxy.startReSmooth(&pBHAcc, CkCallbackResumeThread());
 	    /* Search for BHs that need merging */
 	    CkReductionMsg *msgCnt;
@@ -1518,7 +1519,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		naccreted += 1;  /* running tally of how many are accreted JMB 10/23/08 */
 		CkPrintf("BHSink %d:  Time %g dist2: %d %g gas smooth: %g eatenmass %g \n",
 			 p->iOrder,dTime,q->iOrder,r2min,q->fBall*q->fBall,dmq);
-		if (q->mass <= 1e-3*dmq) { /* = added 8/21/08 */
+		if (q->mass <= dMinGasMass) {
 		    q->mass = 0;
 		    if(!(TYPETest(q,TYPE_DELETED))) deleteParticle(q);
 		    /* Particles are getting deleted twice, which is messing

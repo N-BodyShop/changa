@@ -223,6 +223,7 @@ class BHAccreteSmoothParams : public SmoothParams
     double dDelta;
     Sinks s;
     double gamma;	// Adiabatic index for pressure
+    double dMinGasMass;
     
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
@@ -236,7 +237,8 @@ class BHAccreteSmoothParams : public SmoothParams
  public:
     BHAccreteSmoothParams() {}
     BHAccreteSmoothParams(int _iType, int am, CSM csm, double _dTime,
-			  double _dDelta, Sinks _s, double _gamma) {
+			  double _dDelta, Sinks _s, double _gamma,
+                          double _dMinGasMass) {
 	iType = _iType;
 	activeRung = am;
 	dTime = _dTime;
@@ -251,6 +253,7 @@ class BHAccreteSmoothParams : public SmoothParams
 	    }
 	s = _s;
 	gamma = _gamma;
+	dMinGasMass = _dMinGasMass;
     }
     PUPable_decl(BHAccreteSmoothParams);
     BHAccreteSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
@@ -262,6 +265,7 @@ class BHAccreteSmoothParams : public SmoothParams
 	p|dDelta;
 	p|s;
 	p|gamma;
+	p|dMinGasMass;
 	}
     };
 
@@ -323,7 +327,7 @@ class BHSinkMergeSmoothParams : public SmoothParams
  public:
     BHSinkMergeSmoothParams() {}
     BHSinkMergeSmoothParams(int _iType, int am, CSM csm, double _dTime,
-			  Sinks _s, double _gamma) {
+                            Sinks _s, double _gamma) {
 	iType = _iType;
 	activeRung = am;
 	dTime = _dTime;
