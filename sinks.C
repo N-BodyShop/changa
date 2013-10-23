@@ -12,6 +12,7 @@
 #include "ParallelGravity.h"
 #include "smooth.h"
 #include "sinks.h"
+#include "Sph.h"
 
 /// Utility function
 static inline double sqr(double x) 
@@ -1033,6 +1034,13 @@ void Main::doSinks(double dTime, double dDelta, int iKickRung)
 				CkCallbackResumeThread((void *&)msgCnt));
 	    nSink = *(int *) msgCnt->getData();
 	    delete msgCnt;
+            if(nSink > 0) {
+                if(verbosity)
+                    CkPrintf("Distribute Deleted gas\n");
+                DistDeletedGasSmoothParams pDGas(TYPE_GAS, 0);
+                treeProxy.startReSmooth(&pDGas, CkCallbackResumeThread());
+                }
+            
 	    if (nSink > 1) { /* no need to merge if there is only one! */
 		BHIdentifySmoothParams pBHID(TYPE_SINK, iKickRung, param.csm,
 					     dTime, param.sinks);
@@ -1520,7 +1528,6 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		CkPrintf("BHSink %d:  Time %g dist2: %d %g gas smooth: %g eatenmass %g \n",
 			 p->iOrder,dTime,q->iOrder,r2min,q->fBall*q->fBall,dmq);
 		if (q->mass <= dMinGasMass) {
-		    q->mass = 0;
 		    if(!(TYPETest(q,TYPE_DELETED))) deleteParticle(q);
 		    /* Particles are getting deleted twice, which is messing
 		      up the bookkeeping.  I think this will make them only be 
@@ -1654,8 +1661,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		naccreted += 1;  /* running tally of how many are accreted JMB 10/23/08 */
 		CkPrintf("BHSink %d:  Time %g dist2 %d %g gas smooth: %g eatenmass %g\n",
 			 p->iOrder,dTime,q->iOrder,r2min,q->fBall*q->fBall,dmq);
-		if (q->mass <= 1e-3*dmq) { /* = added 8/21/08 */
-		    q->mass = 0;
+		if (q->mass <= dMinGasMass) {
 		    if(!(TYPETest(q,TYPE_DELETED))) deleteParticle(q);
 		    /* Particles are getting deleted twice, which is messing
 		      up the bookkeeping.  I think this will make them only be 
