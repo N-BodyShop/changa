@@ -109,8 +109,6 @@ double largePhaseThreshold;
 double theta;
 double thetaMono;
 
-ComlibInstanceHandle cinst1, cinst2;
-
 int boundaryEvaluationUE;
 int weightBalanceUE;
 int networkProgressUE;
@@ -2724,7 +2722,7 @@ void Main::writeOutput(int iStep)
             CkError("WARNING: overwriting existing directory\n");
             delete_dir_tree(achFile);
             }
-            
+
         if(param.bParaWrite)
             treeProxy.setupWrite(0, 0, achFile, dOutTime, dvFac, duTFac,
                                  param.bDoublePos, param.bDoubleVel,
