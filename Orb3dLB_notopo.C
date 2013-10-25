@@ -12,12 +12,12 @@ extern bool doDumpLB;
 extern int lbDumpIteration;
 extern bool doSimulateLB;
 
-extern int _lb_obj_index;
+CkpvExtern(int, _lb_obj_index);
 
 void Orb3dLB_notopo::init() {
   lbname = "Orb3dLB_notopo";
-  if (_lb_obj_index == -1)
-    _lb_obj_index = LBRegisterObjUserData(sizeof(TaggedVector3D));
+  if (CkpvAccess(_lb_obj_index) == -1)
+    CkpvAccess(_lb_obj_index) = LBRegisterObjUserData(sizeof(TaggedVector3D));
 }
 
 //#define ORB3DLB_NOTOPO_DEBUG CkPrintf 
@@ -88,7 +88,7 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
       load = stats->objData[i].wallTime;
 
       LDObjData &odata = stats->objData[i];
-      TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(_lb_obj_index);
+      TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
 
       tpEvents[XDIM].push_back(Event(udata->vec.x,load,i));
       tpEvents[YDIM].push_back(Event(udata->vec.y,load,i));
