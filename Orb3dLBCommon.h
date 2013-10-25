@@ -23,8 +23,6 @@ class Orb3dCommon{
 
     CkVec<float> procload;
 
-    int nrecvd;
-    bool haveTPCentroids;
     /// Take into account memory constraints by limiting the number of pieces
     /// per processor.
     double maxPieceProc;
@@ -50,6 +48,10 @@ class Orb3dCommon{
 
       if(nprocs == 1){
         ORB3DLB_NOTOPO_DEBUG("base: assign %d tps to proc %d\n", numEvents, nextProc);
+        if (!stats->procs[nextProc].available) {
+          nextProc++;
+          return;
+        }
         // direct assignment of tree pieces to processors
         //if(numEvents > 0) CkAssert(nprocs != 0);
         float totalLoad = 0.0;
@@ -62,6 +64,10 @@ class Orb3dCommon{
           }
           else{
             int fromPE = (*from)[orb.lbindex];
+            if (fromPE < 0 || fromPE >= procload.size()) {
+              CkPrintf("[%d] trying to access fromPe %d nprocs %d\n", CkMyPe(), fromPE, procload.size());
+              CkAbort("Trying to access a PE which is outside the range\n");
+            }
             procload[fromPE] += ev.load;
           }
         }
