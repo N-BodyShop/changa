@@ -23,7 +23,7 @@
 #include <algorithm>
 
 #include "pup_stl.h"
-#include "comlib.h"
+//#include "comlib.h"
 
 #include "Vector3D.h"
 #include "tree_xdr.h"
@@ -74,7 +74,8 @@ enum LBStrategy{
   Orb3d,
   Multistep_notopo,
   Orb3d_notopo,
-  MultistepOrb
+  MultistepOrb,
+  HierarchOrb
 };
 PUPbytes(LBStrategy);
 
@@ -149,8 +150,6 @@ extern CProxy_PETreeMerger peTreeMergerProxy;
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 extern CProxy_CkCacheManager<KeyType> cacheNode;
-
-extern ComlibInstanceHandle cinst1, cinst2;
 
 /// The group ID of your DataManager.  You must set this!
 extern CkGroupID dataManagerID;
