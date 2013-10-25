@@ -18,6 +18,7 @@
 #include "MultistepLB_notopo.h"
 #include "Orb3dLB.h"
 #include "Orb3dLB_notopo.h"
+#include "HierarchOrbLB.h"
 // jetley - refactoring
 //#include "codes.h"
 #include "Opt.h"
@@ -69,6 +70,8 @@ extern CkGroupID ckMulticastGrpId;
 int workRequestOut = 0;
 CkVec<CellComputation> ewaldMessages;
 #endif
+
+extern int _lb_obj_index;
 
 //forward declaration
 string getColor(GenericTreeNode*);
@@ -4363,12 +4366,19 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
   }
   else if(foundLB == Orb3d_notopo){
+    void *data = getObjUserData(_lb_obj_index);
+    *(TaggedVector3D *) data = tv;
     CkCallback cbk(CkIndex_Orb3dLB_notopo::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
   }
   else if(foundLB == MultistepOrb){
     CkCallback lbcb(CkIndex_MultistepOrbLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+  }
+  else if(foundLB == HierarchOrb){
+    void *data = getObjUserData(_lb_obj_index);
+    *(TaggedVector3D *) data = tv;
+    thisProxy[thisIndex].doAtSync();
   }
   else if(activeRung == 0) {
     doAtSync();
@@ -5539,6 +5549,7 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   string ms_notoponame("MultistepLB_notopo");
   string orb3d_notoponame("Orb3dLB_notopo");
   string msorb_name("MultistepOrbLB");
+  string hierarch_name("HierarchOrbLB");
 
   BaseLB **lbs = lbdb->getLoadBalancers();
   int i;
@@ -5569,7 +5580,10 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
       else if(orb3d_notoponame == string(lbs[i]->lbName())){
       	proxy = lbs[i]->getGroupID();
         foundLB = Orb3d_notopo;
-	proxy = lbs[i]->getGroupID();
+        break;
+      } else if(hierarch_name == string(lbs[i]->lbName())) {
+        proxy = lbs[i]->getGroupID();
+        foundLB = HierarchOrb;
         break;
       }
     }
@@ -5588,12 +5602,18 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
   }
   else if(foundLB == Orb3d_notopo){
+    void *data = getObjUserData(_lb_obj_index);
+    *(TaggedVector3D *) data = tv;
     CkCallback lbcb(CkIndex_Orb3dLB_notopo::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
   }
   else if(foundLB == MultistepOrb){
     CkCallback lbcb(CkIndex_MultistepOrbLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+  } else if (foundLB == HierarchOrb) {
+    void *data = getObjUserData(_lb_obj_index);
+    *(TaggedVector3D *) data = tv;
+    thisProxy[thisIndex].doAtSync();
   }
   else if(foundLB == Null){ 
     // none of the balancers requiring centroids found; go

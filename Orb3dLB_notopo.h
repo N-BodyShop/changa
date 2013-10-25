@@ -24,6 +24,7 @@ private:
   TaggedVector3D *tpCentroids;
   CkReductionMsg *tpmsg;
  
+  void init();
   bool QueryBalanceNow(int step);
   void printData(BaseLB::LDStats &stats, int phase, int *revObjMap);
 
@@ -34,7 +35,7 @@ private:
 
 public:
   Orb3dLB_notopo(const CkLBOptions &);
-  Orb3dLB_notopo(CkMigrateMessage *m):CentralLB(m) { lbname = "Orb3dLB_notopo"; }
+  Orb3dLB_notopo(CkMigrateMessage *m):CentralLB(m) {init();}
   void work(BaseLB::LDStats* stats);
   void receiveCentroids(CkReductionMsg *msg);
 
