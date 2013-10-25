@@ -31,6 +31,10 @@
 
 #include "PETreeMerger.h"
 
+#if !CMK_LB_USER_DATA
+#error "Please recompile charm with --enable-lbuserdata"
+#endif
+
 #ifdef CUDA
 #ifdef CUDA_INSTRUMENT_WRS
 #define GPU_INSTRUMENT_WRS
@@ -59,6 +63,8 @@ int TreeStuff::maxBucketSize;
 #ifdef PUSH_GRAVITY
 extern CkGroupID ckMulticastGrpId;
 #endif
+
+CkpvExtern(int, _lb_obj_index);
 
 //forward declaration
 string getColor(GenericTreeNode*);
@@ -4518,32 +4524,12 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
                       );
   */
 
-  if(foundLB == Multistep){
-    CkCallback cbk(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
+  if (CkpvAccess(_lb_obj_index) != -1) {
+    void *data = getObjUserData(CkpvAccess(_lb_obj_index));
+    *(TaggedVector3D *) data = tv;
   }
-  else if(foundLB == Orb3d){
-    CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
-  }
-  else if(foundLB == Multistep_notopo){
-    CkCallback lbcb(CkIndex_MultistepLB_notopo::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-  }
-  else if(foundLB == Orb3d_notopo){
-    CkCallback cbk(CkIndex_Orb3dLB_notopo::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
-  }
-  else if(foundLB == MultistepOrb){
-    CkCallback lbcb(CkIndex_MultistepOrbLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-  }
-  else if(activeRung == 0) {
-    doAtSync();
-  }
-  else {
-    contribute(cb);  // Skip the load balancer
-  }
+  thisProxy[thisIndex].doAtSync();
+
   prevLARung = activeRung;
 }
 
@@ -5736,41 +5722,17 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
       else if(orb3d_notoponame == string(lbs[i]->lbName())){
       	proxy = lbs[i]->getGroupID();
         foundLB = Orb3d_notopo;
-	proxy = lbs[i]->getGroupID();
         break;
       }
     }
   }
 
-  if(foundLB == Multistep){
-    CkCallback lbcb(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+  if (CkpvAccess(_lb_obj_index) != -1) {
+    void *data = getObjUserData(CkpvAccess(_lb_obj_index));
+    *(TaggedVector3D *)data = tv;
   }
-  else if(foundLB == Orb3d){
-    CkCallback lbcb(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-  }
-  else if(foundLB == Multistep_notopo){
-    CkCallback lbcb(CkIndex_MultistepLB_notopo::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-  }
-  else if(foundLB == Orb3d_notopo){
-    CkCallback lbcb(CkIndex_Orb3dLB_notopo::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-  }
-  else if(foundLB == MultistepOrb){
-    CkCallback lbcb(CkIndex_MultistepOrbLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-  }
-  else if(foundLB == Null){ 
-    // none of the balancers requiring centroids found; go
-    // straight to AtSync()
-    // At the moment there is no load data: we would have to supply
-    // some load data (like particle count) if we want this to work well.
-    //  doAtSync();
-      contribute(cb);
-      return;
-  }
+  thisProxy[thisIndex].doAtSync();
+
   // this will be called in resumeFromSync()
   callback = cb;
 }
