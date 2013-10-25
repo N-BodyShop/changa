@@ -71,7 +71,7 @@ int workRequestOut = 0;
 CkVec<CellComputation> ewaldMessages;
 #endif
 
-extern int _lb_obj_index;
+CkpvExtern(int, _lb_obj_index);
 
 //forward declaration
 string getColor(GenericTreeNode*);
@@ -4700,7 +4700,7 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
   }
   else if(foundLB == Orb3d_notopo){
-    void *data = getObjUserData(_lb_obj_index);
+    void *data = getObjUserData(CkpvAccess(_lb_obj_index));
     *(TaggedVector3D *) data = tv;
     CkCallback cbk(CkIndex_Orb3dLB_notopo::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
@@ -4710,7 +4710,7 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
   }
   else if(foundLB == HierarchOrb){
-    void *data = getObjUserData(_lb_obj_index);
+    void *data = getObjUserData(CkpvAccess(_lb_obj_index));
     *(TaggedVector3D *) data = tv;
     thisProxy[thisIndex].doAtSync();
   }
@@ -6133,7 +6133,7 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
   }
   else if(foundLB == Orb3d_notopo){
-    void *data = getObjUserData(_lb_obj_index);
+    void *data = getObjUserData(CkpvAccess(_lb_obj_index));
     *(TaggedVector3D *) data = tv;
     CkCallback lbcb(CkIndex_Orb3dLB_notopo::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
@@ -6142,7 +6142,7 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
     CkCallback lbcb(CkIndex_MultistepOrbLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
   } else if (foundLB == HierarchOrb) {
-    void *data = getObjUserData(_lb_obj_index);
+    void *data = getObjUserData(CkpvAccess(_lb_obj_index));
     *(TaggedVector3D *) data = tv;
     thisProxy[thisIndex].doAtSync();
   }
