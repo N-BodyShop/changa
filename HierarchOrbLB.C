@@ -16,7 +16,7 @@
 
 CreateLBFunc_Def(HierarchOrbLB, "Hybrid load balancer")
 
-extern int _lb_obj_index;
+CkpvExtern(int, _lb_obj_index);
 extern BaseLB* AllocateOrb3dLB_notopo();
 
 void HierarchOrbLB::init() {
@@ -47,7 +47,7 @@ void HierarchOrbLB::GetObjsToMigrate(int toPe, double load, LDStats *stats,
     int atlevel, CkVec<LDCommData>& comms, CkVec<LDObjData>& objs) {
   for (int obj=stats->n_objs-1; obj>=0; obj--) {
     LDObjData &objData = stats->objData[obj];
-    TaggedVector3D* udata = (TaggedVector3D *)objData.getUserData(_lb_obj_index);
+    TaggedVector3D* udata = (TaggedVector3D *)objData.getUserData(CkpvAccess(_lb_obj_index));
 
     if (!objData.migratable || udata->myNumParticles <= 0) continue;
     if (objData.wallTime <= load) {
