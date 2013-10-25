@@ -6,6 +6,7 @@
 #include "Vector3D.h"
 
 extern CProxy_TreePiece treeProxy;
+CkpvExtern(int, _lb_obj_index);
 
 using namespace std;
 
@@ -43,10 +44,22 @@ static int pcz(const void *a, const void *b){
   return ta->z < tb->z ? -1 : ta->z > tb->z ? 1 : 0;
 }
 
-Orb3dLB::Orb3dLB(const CkLBOptions &opt): CentralLB(opt)
-{
+void Orb3dLB::init() {
   lbname = "Orb3dLB";
-  centroidsAllocated = false;
+  if (CkpvAccess(_lb_obj_index) == -1)
+    CkpvAccess(_lb_obj_index) = LBRegisterObjUserData(sizeof(TaggedVector3D));
+
+  compares[0] = comparx;
+  compares[1] = compary;
+  compares[2] = comparz;
+
+  pc[0] = pcx;
+  pc[1] = pcy;
+  pc[2] = pcz;
+}
+
+Orb3dLB::Orb3dLB(const CkLBOptions &opt): CentralLB(opt) {
+  init();
   if (CkMyPe() == 0){
     CkPrintf("[%d] Orb3dLB created\n",CkMyPe());
     TopoManager tmgr;
@@ -60,30 +73,6 @@ Orb3dLB::Orb3dLB(const CkLBOptions &opt): CentralLB(opt)
 
     CkPrintf("[%d] Orb3dLB Topo %d %d %d %d %d \n",CkMyPe(), nx, ny, nz, numnodes, ppn);
   }
-  compares[0] = comparx;
-  compares[1] = compary;
-  compares[2] = comparz;
-
-  pc[0] = pcx;
-  pc[1] = pcy;
-  pc[2] = pcz;
-
-  haveTPCentroids = false;
-
-}
-
-void Orb3dLB::receiveCentroids(CkReductionMsg *msg){
-  if(haveTPCentroids){
-    delete tpmsg;
-  }
-  tpCentroids = (TaggedVector3D *)msg->getData();
-  nrecvd = msg->getSize()/sizeof(TaggedVector3D);
-  tpmsg = msg;
-  haveTPCentroids = true;
-  CkPrintf("Orb3dLB: receiveCentroids started: %d elements, msg length: %d\n", nrecvd, msg->getLength()); 
-  treeProxy.doAtSync();
-  CkPrintf("Orb3dLB: receiveCentroids done\n");  
-  // delete msg later
 }
 
 //jetley
@@ -121,18 +110,12 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
   CkPrintf("[orb3dlb] %d objects allocating %d bytes for tp\n", numobjs, numobjs*sizeof(TPObject));
   tps.resize(numobjs);
 
-  stats->makeCommHash();
-  CkPrintf("[orb3dlb] ready tp data structure\n");
-  CkAssert(nrecvd == numobjs);
-
   for(int i = 0; i < numobjs; i++){
 
-    TaggedVector3D *data = tpCentroids + i;
-    LDObjHandle &handle = data->handle;
-    int tag = stats->getHash(handle.id,handle.omhandle.id);
-    tps[tag].centroid.x = data->vec.x;
-    tps[tag].centroid.y = data->vec.y;
-    tps[tag].centroid.z = data->vec.z;
+    LDObjData &odata = stats->objData[i];
+    TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
+
+    tps[i].centroid = udata->vec;
     /*
     CkPrintf("[orb3dlb] tree piece %d centroid %f %f %f\n", 
                                       data->tag,
@@ -141,14 +124,14 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
                                       data->vec.z
                                       );
     */
-    tps[tag].migratable = stats->objData[tag].migratable;
+    tps[i].migratable = stats->objData[i].migratable;
     if(step() == 0){
-      tps[tag].load = data->myNumParticles;
+      tps[i].load = udata->myNumParticles;
     }
     else{
-      tps[tag].load = stats->objData[tag].wallTime;
+      tps[i].load = stats->objData[i].wallTime;
     }
-    tps[tag].lbindex = tag;
+    tps[i].lbindex = i;
     /*
     if(step() == 1){
       CkPrintf("[tpinfo] %f %f %f %f %d %d\n",
