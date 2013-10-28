@@ -170,6 +170,8 @@ mainmodule ParallelGravity {
   PUPable RungOutputParams;
   PUPable IOrderOutputParams;
   PUPable IGasOrderOutputParams;
+  PUPable iNSIDMIntOutputParams;
+
 
   mainchare [migratable] Main {
     entry Main(CkArgMsg*);

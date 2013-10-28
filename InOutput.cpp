@@ -303,6 +303,7 @@ void TreePiece::loadTipsy(const std::string& filename,
                         load_tipsy_star<double,double>(r, myParticles[i+1]);
                     iStar++;
 		}
+		myParticles[i+1].iNSIDMInteractions = 0;
 		myParticles[i+1].rung = 0;
 		myParticles[i+1].fBall = 0.0;
 		myParticles[i+1].iOrder = i + startParticle;

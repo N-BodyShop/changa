@@ -615,6 +615,7 @@ Main::Main(CkArgMsg* m) {
                  "bsidm","<turn on or off SIDM>=1");
 
 	
+	//param.SIDM.AddParams(prm, param);
 	//
 	// Output parameters
 	//
@@ -2188,7 +2189,14 @@ void Main::setupICs() {
 
   param.sinks.CheckParams(prm, param);
   SetSink();
-  
+ 
+  //SIDM
+  if (param.bSIDM){
+      CkAssert (prmSpecified(prm, "dMsolUnit") &&
+                prmSpecified(prm, "dKpcUnit"));
+      param.dSIDMSigma=param.dSIDMSigma*param.dMsolUnit*MSOLG/(param.dKpcUnit*KPCCM*param.dKpcUnit*KPCCM);
+      } 
+
   param.externalGravity.CheckParams(prm, param);
 
   string achLogFileName = string(param.achOutName) + ".log";
@@ -3376,7 +3384,16 @@ void Main::writeOutput(int iStep)
 		treeProxy[0].outputASCII(pIGasOrdOut, param.bParaWrite,
 					    CkCallbackResumeThread());
 	      }
+	
+
 	  }
+        //SIDM
+        if(param.bSIDM) {
+            iNSIDMIntOutputParams pNSIDMOut(string(achFile) + ".nsidm");
+            treeProxy[0].outputIntASCII(pNSIDMOut, param.bParaWrite,
+                                          CkCallbackResumeThread());
+
+            }
 	}
       
     if(verbosity)

@@ -1224,6 +1224,23 @@ class DomainOutputParams : public OutputParams
 	}
     };
 
+//SIDM
+class iNSIDMIntOutputParams : public OutputParams
+{
+    virtual int iValue(GravityParticle *p)
+    {
+        return p->iNSIDMInteractions;
+        }
+ public:
+    iNSIDMIntOutputParams() {}
+    iNSIDMIntOutputParams(std::string _fileName) { fileName = _fileName;}
+    PUPable_decl(iNSIDMIntOutputParams);
+    iNSIDMIntOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+        }
+    };
+
 /// @brief Output iOrder.
 class IOrderOutputParams : public OutputParams
 {
