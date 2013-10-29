@@ -131,7 +131,7 @@ void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *
             vzcm=-pzcm/m1;
 
             ecm0=sqrt(pxcm*pxcm+pycm*pycm+pzcm*pzcm);
-            if (ran < 0.00000000000001) {
+            if (ran < 0.000001) {
                 CkPrintf("<SIDM> i: %i,  dvcosmo: %g \n",i,dvcosmo);
                 CkPrintf("<SIDM> ran: %g,  probability: %g \n",ran, probability);
                 CkPrintf("<SIDM> dSIDMSigma: %g,  dDelta: %g \n",dSIDMSigma,dDelta);
@@ -165,7 +165,7 @@ void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *
 
 
 
-            if (ran < 0.00000000000001) {
+            if (ran < 0.000001) {
                 dvx = (-p->velocity.x + q->velocity.x)/a - aDot*nnList[i].dx.x; 
                 dvy = (-p->velocity.y + q->velocity.y)/a - aDot*nnList[i].dx.y;
                 dvz = (-p->velocity.z + q->velocity.z)/a - aDot*nnList[i].dx.z;
