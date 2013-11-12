@@ -1775,10 +1775,15 @@ void dfFinishFrame( struct DumpFrameContext *df, double dTime, double dStep, str
 	  }
 
 	df->nFrame++; /* NB: need to sort out something for restarts */
-	  fp = CmiFopen(fileout,"w");
-	  assert(fp!=NULL);
+        fp = CmiFopen(fileout,"w");
+        if(fp == NULL) {
+            fprintf(stderr, "Bad Frame file open: %s\n", fileout);
+            if(errno == ENOENT)
+                fprintf(stderr, "directory of %s does not exist\n", fileout);
+            }
+        assert(fp!=NULL);
 
-	  if (df->iEncode == DF_ENCODE_PPM) {
+        if (df->iEncode == DF_ENCODE_PPM) {
 		fprintf(fp,"P6\n#T=%20.10f\n%5i %5i\n255\n",dTime,in->nxPix,in->nyPix);
 		CmiFwrite( gray, 3*iMax, sizeof(char), fp);
 		}

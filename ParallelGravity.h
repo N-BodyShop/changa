@@ -384,6 +384,9 @@ inline double RungToDt(double dDelta, int iRung) {
   return dDelta*RungToSubsteps(iRung)*MAXSUBSTEPS_INV;
 }
 
+/// @brief slot in MultistepLB to hold feedback phase load information
+const int PHASE_FEEDBACK = MAXRUNG + 1;
+
 /// @brief Overall flow control of the simulation.
 ///
 /// As well as controlling the overall flow of the simulation, the
@@ -466,6 +469,7 @@ public:
 	void initialForces();
 	void doSimulation();
 	void restart();
+	void waitForGravity(const CkCallback &cb, double startTime);
         void advanceBigStep(int);
 	int adjust(int iKickRung);
 	void rungStats();
@@ -481,6 +485,7 @@ public:
 	void initCooling();
 	void initStarLog();
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
+        void restartGas();
 	void doSph(int activeRung, int bNeedDensity = 1);
 	void FormStars(double dTime, double dDelta);
 	void StellarFeedback(double dTime, double dDelta);
@@ -947,6 +952,8 @@ private:
 	int nStoreStar;
 	/// MaxIOrder for output
 	int64_t nMaxOrder;
+        /// Start particle for reading
+        int64_t nStartRead;
 	/// particle count for output
 	int myIOParticles;
 
@@ -983,7 +990,7 @@ private:
           int localIndex;
 
 	//unsigned int numSplitters;
-	//SFC::Key* splitters;
+        //SFC::Key* splitters;
 	CProxy_TreePiece pieces;
 	/// A proxy to the DataManager.
 	//CProxy_DataManager dataManager; // unused...
@@ -1445,6 +1452,18 @@ public:
                        const bool bDoubleVel,
 		       const CkCallback& cb);
 
+        void readIOrd(const std::string& filename, const CkCallback& cb);
+        void readIGasOrd(const std::string& filename, const CkCallback& cb);
+        void readESNrate(const std::string& filename, const CkCallback& cb);
+        void readOxMassFrac(const std::string& filename, const CkCallback& cb);
+        void readFeMassFrac(const std::string& filename, const CkCallback& cb);
+        void readMassForm(const std::string& filename, const CkCallback& cb);
+        void readCoolOnTime(const std::string& filename, const CkCallback& cb);
+        void readCoolArray0(const std::string& filename, const CkCallback& cb);
+        void readCoolArray1(const std::string& filename, const CkCallback& cb);
+        void readCoolArray2(const std::string& filename, const CkCallback& cb);
+        void readCoolArray3(const std::string& filename, const CkCallback& cb);
+        void RestartEnergy(double dTuFac, const CkCallback& cb);
         void findTotalMass(CkCallback &cb);
         void recvTotalMass(CkReductionMsg *msg);
 
@@ -1566,6 +1585,7 @@ public:
   void truncateRung(int iCurrMaxRung, const CkCallback& cb);
   void rungStats(const CkCallback& cb);
   void countActive(int activeRung, const CkCallback& cb);
+  void assignDomain(const CkCallback& cb);
   void calcEnergy(const CkCallback& cb);
   /// add new particle
   void newParticle(GravityParticle *p);
@@ -1870,6 +1890,7 @@ class ReductionHelper : public CBase_ReductionHelper {
   void countTreePieces(const CkCallback &cb);
   void reduceBinCounts(int nBins, int *binCounts, const CkCallback &cb);
   void evaluateBoundaries(SFC::Key *keys, const int n, int isRefine, const CkCallback& cb);
+  void evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb);
 
   private:
   void senseLocalTreePieces();
@@ -1880,6 +1901,7 @@ class ReductionHelper : public CBase_ReductionHelper {
   int numTreePiecesCheckedIn;
 
   TreePieceCounter localTreePieces;
+  std::vector<SFC::Key> splitters;
 };
 #endif
 

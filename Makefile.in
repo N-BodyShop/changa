@@ -209,6 +209,7 @@ dist:
 
 clean:
 	rm -f core* $(OBJECTS) *~ $(TARGET) *.decl.h *.def.h charmrun conv-host 
+	cd $(STRUCTURES_PATH); $(MAKE) clean
 
 ref-clean:
 	rm -f $(TARGET) Compute.o TreeWalk.o

@@ -262,6 +262,7 @@ class ProjectionsControl : public CBase_ProjectionsControl {
 #if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
     if (CkMyRank()==0) ck_set_GNI_BIConfig(64);
 #endif
+    LBTurnCommOff();
   } 
   ProjectionsControl(CkMigrateMessage *m) : CBase_ProjectionsControl(m) {} 
  
