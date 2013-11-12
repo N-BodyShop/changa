@@ -81,7 +81,6 @@ mainmodule ParallelGravity {
   readonly int lbDumpIteration;
   readonly bool doSimulateLB;
 
-  //message piecedata;
   message dummyMsg;
   message ComputeChunkMsg;
 
@@ -430,7 +429,6 @@ mainmodule ParallelGravity {
     entry void oneNodeOutIntArr(CkReference<OutputIntParams>, int aiOut[nPart],
 				int nPart, int iIndex, CkCallback& cb);
     entry void outputStatistics(const CkCallback& cb);
-    //entry void getPieceValues(piecedata *totaldata);
     entry void collectStatistics(CkCallback &cb);
 
     // jetley - cuda

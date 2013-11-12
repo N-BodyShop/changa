@@ -253,28 +253,6 @@ class TreePieceStatistics {
   }
 };
 
-/********************************************
-class piecedata : public CMessage_piecedata {
-public:
-	int CellInteractions;
-	int ParticleInteractions;
-	int MACChecks;
-	double totalmass;
-	CkCallback cb;
-
-	piecedata():CellInteractions(0),ParticleInteractions(0),MACChecks(0),totalmass(0.0) { }
-	void modifypiecedata(int cell,int particle,int mac,double mass){
-		CellInteractions += cell;
-		ParticleInteractions += particle;
-		MACChecks += mac;
-		totalmass += mass;
-	}
-	void reset(){ CellInteractions=0;ParticleInteractions=0;MACChecks=0;totalmass=0.0; }
-	void setcallback(CkCallback& cback) { cb = cback; }
-	CkCallback& getcallback() { return cb; }
-};
-********************************************/
-
 class ComputeChunkMsg : public CMessage_ComputeChunkMsg {
   ComputeChunkMsg() {} // not available
  public:
@@ -635,6 +613,7 @@ class TreePiece : public CBase_TreePiece {
    friend class RemoteTreeBuilder; 
    friend class LocalTreeBuilder; 
 
+   /// @brief Walk for gravity prefetch
    TreeWalk *sTopDown;
    TreeWalk *twSmooth;
 #if INTERLIST_VER > 0
@@ -710,18 +689,22 @@ class TreePiece : public CBase_TreePiece {
     return localIndex;
   }
 
+  /// @brief accumulate node interaction count for statistics
   void addToNodeInterRemote(int chunk, int howmany){
     nodeInterRemote[chunk] += howmany;
   }
 
+  /// @brief accumulate particle interaction count for statistics
   void addToParticleInterRemote(int chunk, int howmany){
     particleInterRemote[chunk] += howmany;
   }
 
+  /// @brief accumulate node interaction count for statistics
   void addToNodeInterLocal(int howmany){
     nodeInterLocal += howmany;
   }
 
+  /// @brief accumulate particle interaction count for statistics
   void addToParticleInterLocal(int howmany){
     particleInterLocal += howmany;
   }
@@ -1084,20 +1067,23 @@ private:
 	u_int64_t nodesOpenedRemote;
 	u_int64_t numOpenCriterionCalls;
 #endif
+	/// node interaction count for statistics
 	u_int64_t nodeInterLocal;
+	/// node interaction count for statistics
 	u_int64_t *nodeInterRemote;
+	/// particle interaction count for statistics
 	u_int64_t particleInterLocal;
+	/// particle interaction count for statistics
 	u_int64_t *particleInterRemote;
 
 	int nActive;		// number of particles that are active
 
 	/// Size of bucketList, total number of buckets present
 	unsigned int numBuckets;
-	/// Used to start the remote computation for a particular chunk for all
-	/// buckets, one after the other
-	//unsigned int currentRemote Bucket;
 #if INTERLIST_VER > 0
+	/// Completed buckets, remote gravity walk
 	int prevRemoteBucket;
+	/// Completed buckets, local gravity walk
 	int prevBucket;
 #endif
 	/// Used to start the Ewald computation for all buckets, one after the other
@@ -1647,8 +1633,10 @@ public:
 	/// Entry point for the local computation: for each bucket compute the
 	/// force that its particles see due to the other particles hosted in
 	/// this TreePiece. The opening angle theta has already been passed
-	/// through startGravity()
+	/// through startGravity().  This function just calls doAllBuckets().
 	void calculateGravityLocal();
+	/// Do some minor preparation for the local walkk then
+	/// calculateGravityLocal().
 	void commenceCalculateGravityLocal();
 
 	/// Entry point for the remote computation: for each bucket compute the
@@ -1676,7 +1664,7 @@ public:
 #endif
 #endif
 
-  /// Start a tree based gravity computation.
+  /// @brief Start a tree based gravity computation.
   /// @param am the active rung for the computation
   /// @param theta the opening angle
   /// @param cb the callback to use after all the computation has finished
@@ -1778,12 +1766,13 @@ public:
 	void outputStatistics(const CkCallback& cb);
 	/// Collect the total statistics from the various chares
 	void collectStatistics(CkCallback &cb);
-	//void getPieceValues(piecedata *totaldata);
 
         /** @brief Entry method used to split the processing of all the buckets
          * in small pieces. It calls startNextBucket() _yieldPeriod number of
          * times, and then it returns to the scheduler after enqueuing a message
-         * for itself.
+         * for itself.  After each startNextBucket() call, the state
+         * is checked for completed walks (and forces calculated, and
+         * finishBucket() is called to clean up.
 	 */
         void nextBucket(dummyMsg *m);
 

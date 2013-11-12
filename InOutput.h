@@ -327,6 +327,7 @@ class Cool2OutputParams : public OutputParams
 	}
     };
 
+/// @brief Output Oxygen mass fraction.
 class OxOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p) {
@@ -349,6 +350,7 @@ class OxOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output Iron mass fraction.
 class FeOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p) {
@@ -371,6 +373,7 @@ class FeOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output "cool on time" (time cooling is off until)
 class coolontimeOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p) {

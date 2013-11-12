@@ -41,6 +41,7 @@ class SFEvent {
     dMass(mass), dTimeForm(tform), dMetals(mets), dMFracIron(fefrac), dMFracOxygen(oxfrac) { }
     };
 
+/// @brief Stellar/Supernova feedback parameters and routines.
 class Fdbk : public PUP::able {
  private:
     Fdbk& operator=(const Fdbk& fb);

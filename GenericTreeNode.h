@@ -247,6 +247,7 @@ class NodePool;
 
     void getGraphViz(std::ostream &out);
 
+    /// @brief return the NodeKey of the lowest common ancestor.
     virtual NodeKey getLongestCommonPrefix(NodeKey k1, NodeKey k2)
     {
       CkAbort("getLongestCommonPrefix not implemented\n");
