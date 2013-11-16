@@ -1320,6 +1320,10 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+cat >>confdefs.h <<_ACEOF
+#define NBODY_PACKAGE_VERSION $PACKAGE_VERSION
+_ACEOF
+
 
                     ac_config_headers="$ac_config_headers config.h ../utility/structures/config.h"
 
