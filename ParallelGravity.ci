@@ -117,6 +117,12 @@ mainmodule ParallelGravity {
   PUPable Kroupa93;
   PUPable Kroupa01;
 
+  PUPable MassOutputParams;
+  PUPable PosOutputParams;
+  PUPable VelOutputParams;
+  PUPable PotOutputParams;
+  PUPable GasDenOutputParams;
+  PUPable TempOutputParams;
   PUPable AccOutputParams;
   PUPable DenOutputParams;
   PUPable HsmOutputParams;
@@ -426,6 +432,24 @@ mainmodule ParallelGravity {
     entry void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
     entry void outputASCII(CkReference<OutputParams>, int bParaWrite,
 			   const CkCallback& cb);
+    entry void oneNodeOutNCVec(CkReference<OutputParams>,
+                            Vector3D<float> avOutGas[nGas],
+                            Vector3D<float> avOutDark[nDark],
+                            Vector3D<float> avOutStar[nStar],
+                            int nGas, int nDark, int nStar,
+                            int iIndex, CkCallback& cb) ;
+    entry void oneNodeOutNCArr(CkReference<OutputParams>,
+                                float afOutGas[nGas],
+                                float afOutDark[nDark],
+                                float afOutStar[nStar],
+                                int nGas, int nDark, int nStar,
+                                int iIndex, CkCallback& cb);
+    entry void oneNodeOutNCInt(CkReference<OutputIntParams>,
+                                int aiOutGas[nGas],
+                                int aiOutDark[nDark],
+                                int aiOutStar[nStar],
+                                int nGas, int nDark, int nStar,
+                                int iIndex, CkCallback& cb);
     entry void oneNodeOutVec(CkReference<OutputParams>, Vector3D<double> avOut[nPart],
 			   int nPart, int iIndex, int bDone,
 			   CkCallback& cb) ;

@@ -1777,6 +1777,33 @@ public:
 			 const CkCallback& cb);
 	void outputIntASCII(OutputIntParams& params, int bParaWrite,
 			 const CkCallback& cb);
+        void oneNodeOutNCVec(OutputParams& params,
+                            Vector3D<float>* avOutGas, // array to be output
+                            Vector3D<float>* avOutDark, // array to be output
+                            Vector3D<float>* avOutStar, // array to be output
+                            int nGas, // number of elements in avOut
+                            int nDark, // number of elements in avOut
+                            int nStar, // number of elements in avOut
+                            int iIndex, // treepiece which called me
+                            CkCallback& cb) ;
+        void oneNodeOutNCArr(OutputParams& params,
+                                float* afOutGas, // array to be output
+                                float* afOutDark, // array to be output
+                                float* afOutStar, // array to be output
+                                int nGas, // number of elements in avOut
+                                int nDark, // number of elements in avOut
+                                int nStar, // number of elements in avOut
+                                int iIndex, // treepiece which called me
+                                CkCallback& cb) ;
+        void oneNodeOutNCInt(OutputIntParams& params,
+                                int* aiOutGas, // array to be output
+                                int* aiOutDark, // array to be output
+                                int* aiOutStar, // array to be output
+                                int nGas, // number of elements in avOut
+                                int nDark, // number of elements in avOut
+                                int nStar, // number of elements in avOut
+                                int iIndex, // treepiece which called me
+                                CkCallback& cb) ;
 	void oneNodeOutVec(OutputParams& params, Vector3D<double>* avOut,
 			   int nPart, int iIndex, int bDone,
 			   CkCallback& cb) ;
