@@ -990,7 +990,12 @@ Main::Main(CkArgMsg* m) {
 	    }
 	else { useTree = Binary_Oct; }
 
-	ckerr << "ChaNGa version 2.0, commit " << Cha_CommitID << endl;
+#define xstr(s) str(s)
+#define str(s) #s
+	ckerr << "ChaNGa version " << xstr(NBODY_PACKAGE_VERSION) << ", commit "
+              << Cha_CommitID << endl;
+#undef str
+#undef xstr
         ckerr << "Running on " << CkNumPes() << " processors/ "<< CkNumNodes() <<" nodes with " << numTreePieces << " TreePieces" << endl;
 
 	if (verbosity) 

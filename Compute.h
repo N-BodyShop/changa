@@ -48,12 +48,8 @@ class Compute{
                             GenericTreeNode *node, int reqID, State *state) = 0;
 
   virtual void stateReady(State *state, TreePiece *owner, int chunk, int start, int end) {}
-  // TreeWalk will call this when a request is sent to the CacheManager for
-  // a tree node on the Compute's behalf
-  // By default, nothing is done.
-  // Objects of type PrefetchCompute also call this when they request
-  // particles
-  // virtual void nodeRequestSent(TreePiece *owner) {};
+  /// @brief Associate computeEntity (target bucket or node),
+  /// activeRung and Optimization with this Compute object.
   virtual void init(void *cE, int activeRung, Opt *opt);
   virtual void reassoc(void *cE, int aR, Opt *opt){}
   ComputeType getSelfType(){ return type;}
