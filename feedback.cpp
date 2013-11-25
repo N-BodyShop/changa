@@ -723,6 +723,7 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
     int nHeavy = 0;
     
     if ( p->fMSN() == 0.0 ){return;} /* Is there any feedback mass? */
+    if ( p->fTimeForm() < 0 ){return;} /*Check if star particle is a black hole. We store values for BHs in fMSN,FESN,etc that are unrelated so this check is important -- MJT 11/7/13 */
     CkAssert(TYPETest(p, TYPE_STAR));
     CkAssert(nSmooth > 0);
     ih2 = invH2(p);
@@ -829,12 +830,13 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
     int i,counter,imind;
     
     if ( p->fMSN() == 0.0 ){return;}
-    
+    if ( p->fTimeForm() < 0.0) {return;}  //don't want to do this calculatino for a BH
+ 
     /* "Simple" ejecta distribution (see function above) */
     DistFBMME(p,nSmooth,nList);
     
     if (p->fNSN() == 0) {return;}
-    if ( p->fTimeForm() < 0.0) {return;}
+    //if ( p->fTimeForm() < 0.0) {return;}
     
     /* The following ONLY deals with SNII Energy distribution */
     CkAssert(TYPETest(p, TYPE_STAR));
