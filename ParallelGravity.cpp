@@ -3560,10 +3560,9 @@ void Main::writeOutput(int iStep)
 #endif /*COOLING_MOLECULARH*/
 #endif
 #ifdef DIFFUSION
-        if(param.bDoGas)
+        if (param.bStarForm || param.bFeedback) {
             treeProxy[0].outputASCII(pMetalsDotOut, param.bParaWrite,
                                      CkCallbackResumeThread());
-	if (param.bStarForm || param.bFeedback) {
 	    treeProxy[0].outputASCII(pOxDotOut, param.bParaWrite,
 				     CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pFeDotOut, param.bParaWrite,
