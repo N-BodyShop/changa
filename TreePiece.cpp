@@ -1257,7 +1257,7 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 		  p->uPred() = uold*exp(p->PdV()*duDelta/uold);
 		  }
 #endif
-	      CkAssert(p->uPred() > 0.0);
+              CkAssert(p->uPred() >= 0.0);
 	      }
 	  }
       }
