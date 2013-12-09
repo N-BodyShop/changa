@@ -778,7 +778,7 @@ public:
       int used = 1;
       if (depth != 0) {
         if (children[0] != NULL) {
-          BinaryTreeNode *nextBuf = (BinaryTreeNode *) (((char*)buffer) + used * (sizeof(BinaryTreeNode)+extraSpace));
+          BinaryTreeNode *nextBuf = (BinaryTreeNode *) (((char*)buffer) + used * ALIGN_DEFAULT(sizeof(BinaryTreeNode)+extraSpace));
           buffer->children[0] = (BinaryTreeNode*)(((char*)nextBuf) - ((char*)buffer));
           //CkPrintf("Entering child 0: offset %ld\n",buffer->children[0]);
           used += children[0]->packNodes(nextBuf, depth-1, extraSpace);
@@ -787,7 +787,7 @@ public:
           buffer->children[0] = NULL;
         }
         if (children[1] != NULL) {
-          BinaryTreeNode *nextBuf = (BinaryTreeNode *) (((char*)buffer) + used * (sizeof(BinaryTreeNode)+extraSpace));
+          BinaryTreeNode *nextBuf = (BinaryTreeNode *) (((char*)buffer) + used * ALIGN_DEFAULT(sizeof(BinaryTreeNode)+extraSpace));
           buffer->children[1] = (BinaryTreeNode*)(((char*)nextBuf) - ((char*)buffer));
           //CkPrintf("Entering child 1: offset %ld\n",buffer->children[1]);
           used += children[1]->packNodes(nextBuf, depth-1, extraSpace);
