@@ -57,6 +57,11 @@ void Fdbk::AddParams(PRM prm)
     prmAddParam(prm,"dMaxCoolShutoff", paramDouble, &dMaxCoolShutoff,
 		sizeof(double), "fbMaxCoolOff",
 		"<Maximum time to shutoff cooling in years> = 3e7");
+    dEarlyFeedbackFrac = 0.0;
+    prmAddParam(prm,"dEarlyFeedbackFrac", paramDouble, &dEarlyFeedbackFrac,
+		sizeof(double), "fbEarlyFrac",
+		"<Fraction of SNII energy to put in early feedback> = 0.0");
+    
     bAGORAFeedback = 0;
     prmAddParam(prm, "bAGORAFeedback", paramBool, &bAGORAFeedback, sizeof(int),
             "bAGORAFeedback", "<Replace Type II and Ia supernovae with AGORA perscription> = 0");
@@ -114,6 +119,13 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
 	    pow(0.0001*GCGS*pow(MSOLG*param.dMsolUnit,2)/(pow(KPCCM*param.dKpcUnit,4)*KBOLTZ),-0.70);
 	}
     dMaxCoolShutoff *= SECONDSPERYEAR/param.dSecUnit;
+    // Normalization of Early Feedback
+    /// Total SNe ergs/solar mass of stars
+    double dSNETotal = sn.dESN*(imf->CumNumber(sn.dMSNIImin)
+                         - imf->CumNumber(sn.dMSNIImax))/imf->CumMass(0.0);
+    
+    CkPrintf("SNII feedback: %g ergs/solar mass\n", dSNETotal);
+    dEarlyETotal = dSNETotal*dEarlyFeedbackFrac;
 #ifndef DTADJUST
     if (bAGORAFeedback) {
         CkAbort("DTADJUST must be enabled to use AGORA feedback\n");
@@ -373,7 +385,7 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
 	    break;
 	case FB_UV:
 	    if (bAGORAFeedback) break;
-	    CalcUVFeedback(dTime, dDeltaYr, &fbEffects);
+	    CalcUVFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
 	break;
 	case FB_AGORA:
 	    if (!bAGORAFeedback) break;
@@ -477,15 +489,40 @@ void Fdbk::CalcWindFeedback(SFEvent *sfEvent, double dTime, /* current time in y
 	    }
     }
 
-void Fdbk::CalcUVFeedback(double dTime, /* current time in years */
-			  double dDelta, /* length of timestep (years) */
-			  FBEffects *fbEffects) const
+/// This is currently used for the early feedback scheme: energy is
+/// injected before the first SNII go off.
+void Fdbk::CalcUVFeedback(SFEvent *sfEvent, /**< Star to process */
+                          double dTime, /**< current time in years */
+			  double dDelta, /**< length of timestep (years) */
+			  FBEffects *fbEffects /**< [out] effects */)
 {
     fbEffects->dMassLoss = 0.0;
     fbEffects->dEnergy = 0.0;
     fbEffects->dMetals = 0.0;
     fbEffects->dMIron = 0.0;
     fbEffects->dMOxygen = 0.0;
+    /* stellar lifetimes corresponding to beginning and end of 
+       current timestep with respect to starbirth time in yrs */
+    double dStarLtimeMin = dTime - sfEvent->dTimeForm; 
+    double dStarLtimeMax = dStarLtimeMin + dDelta;
+    /* masses corresponding to these stellar lifetimes in solar masses */
+    double dMStarMin = pdva.StarMass(dStarLtimeMax, sfEvent->dMetals); 
+    double dMStarMax = pdva.StarMass(dStarLtimeMin, sfEvent->dMetals); 
+    
+    if(dMStarMax < sn.dMSNIImax)
+        return;                 // Supernove are going off.
+    double dEndEarlyTime = pdva.Lifetime(sn.dMSNIImax, sfEvent->dMetals);
+    if(dMStarMin < sn.dMSNIImax)
+        dStarLtimeMax = dEndEarlyTime;
+
+    double dEarlyRate = dEarlyETotal*sfEvent->dMass/dEndEarlyTime;
+    /// Energy injected during this step (in ergs)
+    double dEEarly = dEarlyRate*(dStarLtimeMax - dStarLtimeMin);
+    /// no mass is lost: use E = m c^2 and convert to Solar Masses
+    if(dEEarly > 0.0) {
+        fbEffects->dMassLoss = dEEarly/(MSOLG*LIGHTSPEED*LIGHTSPEED);
+        fbEffects->dEnergy = dEEarly/(MSOLG*fbEffects->dMassLoss);
+        }
     }
 
 
