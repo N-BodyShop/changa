@@ -47,9 +47,11 @@ class Fdbk : public PUP::able {
     Fdbk& operator=(const Fdbk& fb);
     void CalcWindFeedback(SFEvent *sfEvent, double dTime, 
                           double dDelta, FBEffects *fbEffects) const;
-    void CalcUVFeedback(double dTime, double dDelta, FBEffects *fbEffects) const;
+    void CalcUVFeedback(SFEvent *sfEvent, double dTime, double dDelta,
+                        FBEffects *fbEffects);
 
     char achIMF[32];	        /* initial mass function */
+    int iRandomSeed;		/* seed for stochastic quantized feedback */
     double dErgPerGmUnit;	/* system specific energy in ergs/gm */
     double dGmUnit;		/* system mass in grams */
     double dGmPerCcUnit;	/* system density in gm/cc */
@@ -69,6 +71,8 @@ class Fdbk : public PUP::able {
     double dTimePreFactor;      /* McKee + Ostriker time constant in system units */
     int nSmoothFeedback;	/* number of particles to smooth feedback over*/
     double dMaxCoolShutoff;     /* Maximum length of time to shutoff cooling */
+    double dEarlyFeedbackFrac;  /* Fraction of SNe II to put in early feedback */
+    double dEarlyETotal;  /* Total E in early FB per solar mass of stars */
     IMF *imf;
 
     void AddParams(PRM prm);
@@ -107,6 +111,8 @@ inline Fdbk::Fdbk(const Fdbk& fb) {
     dTimePreFactor = fb.dTimePreFactor;
     nSmoothFeedback = fb.nSmoothFeedback;
     dMaxCoolShutoff = fb.dMaxCoolShutoff;
+    dEarlyFeedbackFrac = fb.dEarlyFeedbackFrac;
+    dEarlyETotal = fb.dEarlyETotal;
     sn = fb.sn;
     pdva = fb.pdva;
     imf = fb.imf->clone();
@@ -130,6 +136,8 @@ inline void Fdbk::pup(PUP::er &p) {
     p | dTimePreFactor;
     p | nSmoothFeedback;
     p | dMaxCoolShutoff;
+    p | dEarlyFeedbackFrac;
+    p | dEarlyETotal;
     p | sn;
     p | pdva;
     p | imf;
