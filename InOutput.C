@@ -1760,7 +1760,7 @@ void TreePiece::outputBinary(OutputParams& params, // specifies
                       nOutDark++;
                       }
                   if(myParticles[i].iType & TYPE_STAR) {
-                      avOutDark[nOutStar] = params.vValue(&myParticles[i]);
+                      avOutStar[nOutStar] = params.vValue(&myParticles[i]);
                       nOutStar++;
                       }
                   }
