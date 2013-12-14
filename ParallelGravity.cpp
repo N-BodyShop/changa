@@ -2637,6 +2637,16 @@ void Main::writeOutput(int iStep)
             treeProxy[0].outputBinary(pHsmOut, param.bParaWrite,
                                       CkCallbackResumeThread());
             }
+        if(nTotalSPH > 0 || nTotalStar > 0) {
+            MetalsOutputParams pMetalsOut(achFile, param.iBinaryOut, dOutTime);
+            treeProxy[0].outputBinary(pMetalsOut, param.bParaWrite,
+                                      CkCallbackResumeThread());
+            }
+        if(nTotalStar > 0) {
+            TimeFormOutputParams pTimeFormOut(achFile, param.iBinaryOut, dOutTime);
+            treeProxy[0].outputBinary(pTimeFormOut, param.bParaWrite,
+                                      CkCallbackResumeThread());
+            }
         }
     
     if(verbosity) {
