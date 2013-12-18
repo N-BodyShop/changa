@@ -2616,7 +2616,7 @@ void Main::writeOutput(int iStep)
         PosOutputParams pPosOut(achFile, param.iBinaryOut, dOutTime);
         treeProxy[0].outputBinary(pPosOut, param.bParaWrite,
                                   CkCallbackResumeThread());
-        VelOutputParams pVelOut(achFile, param.iBinaryOut, dOutTime);
+        VelOutputParams pVelOut(achFile, param.iBinaryOut, dOutTime, dvFac);
         treeProxy[0].outputBinary(pVelOut, param.bParaWrite,
                                   CkCallbackResumeThread());
         SoftOutputParams pSoftOut(achFile, param.iBinaryOut, dOutTime);
