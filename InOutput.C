@@ -1709,7 +1709,7 @@ void Main::cbOpen(Ck::IO::FileReadyMsg *msg)
     // XXX This would be better as a parallel prefix operation       
     treeProxy[0].outputBinaryStart(*pOutput, 0, CkCallbackResumeThread());
     fIOFile = msg->file;
-    Ck::IO::startSession(msg->file, nBytes, nHeader,
+    Ck::IO::startSession(msg->file, nBytes + nHeader, 0,
                          CkCallback(CkIndex_Main::cbIOReady(NULL), thishandle),
                          CkCallback(CkIndex_Main::cbIOComplete(NULL), thishandle));
     delete msg;
@@ -1910,12 +1910,42 @@ void TreePiece::outputBinary(Ck::IO::Session session, OutputParams& params)
         iOffset *= 3;
         }
     iOffset += nHeader;
+
+    // CkIO Offset seems to have problems; hence the following work-around:
+    if(thisIndex == 0) {
+        iOffset = 0;
+        nBytes += nHeader;
+        }
     
     char *buf = new char[nBytes];
     CkAssert(nBytes < UINT_MAX); // Documentation for xdrmem_create()
                                  // specifies unsigned int.  Could be
                                  // a problem.
     xdrmem_create(&xdrs, buf, nBytes, XDR_ENCODE);
+
+    // CkIO Offset seems to have problems; hence more work-around:
+    // write a dummy header
+    if(thisIndex == 0) {
+        if(params.iBinaryOut != 6) {
+            int iDum = 0;
+            xdr_int(&xdrs, &iDum);
+            }
+        else {
+            FieldHeader fh;
+            xdr_template(&xdrs, &fh);
+            if(params.bVector) {
+                Vector3D<float> vMin(0.0);
+                xdr_template(&xdrs, &vMin);
+                xdr_template(&xdrs, &vMin);
+                }
+            else {
+                float fMin = 0.0;
+                xdr_float(&xdrs, &fMin);
+                xdr_float(&xdrs, &fMin);
+                }
+            }
+        }
+    // end of CkIO Offset workaround.
     
     int nOut = 0;
 
