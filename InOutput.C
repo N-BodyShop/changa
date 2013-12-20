@@ -1,9 +1,17 @@
+/// IO routines
+#ifdef HAVE_VALUES_H
+#include <values.h>
+#else
+#include <float.h>
+#endif
+
 #include "ParallelGravity.h"
 #include "DataManager.h"
 #include "TipsyFile.h"
 #include "OrientedBox.h"
 #include "Reductions.h"
 #include "InOutput.h"
+#include "ckio.h"
 #include <errno.h>
 
 using namespace TypeHandling;
@@ -1602,445 +1610,334 @@ void TreePiece::oneNodeOutIntArr(OutputIntParams& params,
     cb.send(); // We are done.
     }
 
-// Output a Tipsy XDR binary float array file.
-void TreePiece::outputBinary(OutputParams& params, // specifies
-						  // filename, format,
-						  // and quantity to
-						  // be output
-			     int bParaWrite,	  // Every processor
-						  // can write.  If
-						  // false, all output
-						  // gets sent to
-						  // treepiece "0" for writing.
-			     const CkCallback& cb) {
-    FILE* outfile;
+/// Output a Tipsy or NChilada XDR binary float array file.
+void Main::outputBinary(OutputParams& params, // specifies
+                                              // filename, format,
+                                              // and quantity to
+                                              // be output
+                        int bParaWrite,	      // Every processor can write.
+                        const CkCallback& cb) {
+
+    // Save params and callback
+    pOutput = &params;
+    cbIO = cb;
+    Ck::IO::Options opts;
+        opts.basePE = 0;
+    if(bParaWrite) {
+        if(param.nIOProcessor = 0) {
+            opts.activePEs = CkNumNodes();
+            }
+        else {
+            opts.activePEs = param.nIOProcessor;
+            }
+        }
+    else {
+        opts.activePEs = 1;
+        }
+    
+    if(params.iBinaryOut != 6) {
+        Ck::IO::open(params.fileName+"."+params.sTipsyExt,
+                     CkCallback(CkIndex_Main::cbOpen(0), thishandle),
+                     opts);
+        }
+    else {
+        params.iTypeWriting = 0;
+        std::string strFile = getNCNextOutput(params);
+        if(strFile.empty()) { // No data to write
+            cb.send();
+            return;
+            }
+        Ck::IO::open(strFile,
+                     CkCallback(CkIndex_Main::cbOpen(0), thishandle),
+                     opts);
+        }
+}
+
+/// Return the file name of the next nchilada output to write (gas,
+/// dark or star).  Returns empty if we are done.  Also advances the
+/// iTypeWriting in params.
+std::string Main::getNCNextOutput(OutputParams& params) 
+{
+    if(params.iTypeWriting == 0) {
+        params.iTypeWriting = TYPE_GAS;
+        if((params.iType & TYPE_GAS) && (nTotalSPH > 0)) {
+            return params.fileName+"/gas/"+params.sNChilExt;
+            }
+        }
+    if(params.iTypeWriting == TYPE_GAS) {
+        params.iTypeWriting = TYPE_DARK;
+        if((params.iType & TYPE_DARK) && (nTotalDark > 0)) {
+            return params.fileName+"/dark/"+params.sNChilExt;
+            }
+        }
+    if(params.iTypeWriting == TYPE_DARK) {
+        params.iTypeWriting = TYPE_STAR;
+        if((params.iType & TYPE_STAR) && (nTotalStar > 0)) {
+            return params.fileName+"/star/"+params.sNChilExt;
+            }
+        }
+    return "";
+}
+
+/// Determine offsets for all pieces, then start the write session.
+/// This needs to be a threaded entry method.
+void Main::cbOpen(Ck::IO::FileReadyMsg *msg)
+{
+    size_t nHeader;
+    size_t nBytes;
+    int64_t nParts;
+    if(pOutput->iBinaryOut != 6) {
+        nHeader = sizeof(int);
+        nParts = nTotalParticles;
+    }
+    else {
+        nHeader = FieldHeader::sizeBytes;
+        if(pOutput->bVector) 
+            nHeader += 6*sizeof(float);
+        else
+            nHeader += 2*sizeof(float);
+        if(pOutput->iTypeWriting == TYPE_GAS)
+            nParts = nTotalSPH;
+        else if(pOutput->iTypeWriting == TYPE_DARK)
+            nParts = nTotalDark;
+        else if(pOutput->iTypeWriting == TYPE_STAR)
+            nParts = nTotalStar;
+        }
+    nBytes = nParts*sizeof(float);
+    if(pOutput->bVector) 
+        nBytes *= 3;
+    // XXX This would be better as a parallel prefix operation       
+    treeProxy[0].outputBinaryStart(*pOutput, 0, CkCallbackResumeThread());
+    fIOFile = msg->file;
+    Ck::IO::startSession(msg->file, nBytes, nHeader,
+                         CkCallback(CkIndex_Main::cbIOReady(NULL), thishandle),
+                         CkCallback(CkIndex_Main::cbIOComplete(NULL), thishandle));
+    delete msg;
+}
+
+/// Determine start offsets for this piece based on previous pieces.
+void TreePiece::outputBinaryStart(OutputParams& params, int64_t nStart,
+                                  const CkCallback& cb)
+{
+    nStartWrite = nStart;
+
+    if(thisIndex == numTreePieces - 1) {
+        cb.send();
+        return;
+        }
+
+    int64_t nMyParts;
+    if(params.iBinaryOut != 6) {
+        nMyParts = myNumParticles;
+    }
+    else {
+        if(params.iTypeWriting == TYPE_GAS)
+            nMyParts = myNumSPH;
+        else if(params.iTypeWriting == TYPE_DARK)
+            nMyParts = myNumParticles - myNumSPH - myNumStar;
+        else if(params.iTypeWriting == TYPE_STAR)
+            nMyParts = myNumStar;
+        else
+            CkAbort("Bad writing type.");
+        }
+    pieces[thisIndex+1].outputBinaryStart(params, nStart + nMyParts, cb);
+}
+
+/// Session is ready; write my data.
+void Main::cbIOReady(Ck::IO::SessionReadyMsg *msg)
+{
+    treeProxy.outputBinary(msg->session, *pOutput);
+    delete msg;
+}
+
+/// All IO has completed.  Close the file
+void Main::cbIOComplete(CkReductionMsg *msg) 
+{
+    Ck::IO::close(fIOFile, CkCallback(CkIndex_Main::cbIOClosed(NULL),
+                                      thishandle));
+    delete msg;
+}
+
+/// File is closed.  Update header for NChilada.  Resume main program
+void Main::cbIOClosed(CkReductionMsg *msg) 
+{
+    FILE *outfile;
     XDR xdrs;
-    float *afOut;	// array for oneNode I/O
-    Vector3D<float> *avOut;	// array for one node I/O
+    
+    delete msg;
+    
+    if(pOutput->iBinaryOut != 6) {
+        int iDum;
+        outfile = CmiFopen((pOutput->fileName+"."+pOutput->sTipsyExt).c_str(),
+                           "r+");
+        CkAssert(outfile != NULL);
+        xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
+        iDum = (int)nTotalParticles;
+        xdr_int(&xdrs,&iDum);
+        xdr_destroy(&xdrs);
+        CmiFclose(outfile);
+    }
+    else {
+        CkReductionMsg *msgMinMax;
+        treeProxy.minmaxNCOut(*pOutput,
+                           CkCallbackResumeThread((void *&)msgMinMax));
+        pOutput->iTypeWriting >>= 1;  // Kludge quickly get the
+                                         // current filename from
+                                         // getNCNextOutput()
+        
+        FieldHeader fh;
+        std::string sOutFile = getNCNextOutput(*pOutput);
+        CkAssert(!sOutFile.empty());
+        if(pOutput->iTypeWriting == TYPE_GAS)
+            fh.numParticles = nTotalSPH;
+        else if(pOutput->iTypeWriting == TYPE_DARK)
+            fh.numParticles = nTotalDark;
+        else if(pOutput->iTypeWriting == TYPE_STAR)
+            fh.numParticles = nTotalStar;
+        
+        fh.time = pOutput->dTime;
+        fh.code = Type2Code<float>::code;
+        if(pOutput->bVector)
+            fh.dimensions = 3;
+        else
+            fh.dimensions = 1;
+
+        outfile = CmiFopen(sOutFile.c_str(), "r+");
+        CkAssert(outfile != NULL);
+        xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
+        xdr_template(&xdrs, &fh);
+        if(pOutput->bVector) {
+            OrientedBox<float> bbVec = *((OrientedBox<float>*)
+                                         msgMinMax->getData());
+            xdr_template(&xdrs, &bbVec.lesser_corner);
+            xdr_template(&xdrs, &bbVec.greater_corner);
+            }
+        else {
+            float* minmax = (float *) msgMinMax->getData();
+            xdr_float(&xdrs, &minmax[0]);
+            xdr_float(&xdrs, &minmax[1]);
+            }
+        delete msgMinMax;
+        /// Continue to next particle type
+        sOutFile = getNCNextOutput(*pOutput);
+        if(!sOutFile.empty()) {
+            Ck::IO::Options opts;
+            if(param.bParaWrite) {
+                if(param.nIOProcessor = 0) {
+                    opts.activePEs = CkNumNodes();
+                    }
+                else {
+                    opts.activePEs = param.nIOProcessor;
+                    }
+                }
+            else {
+                opts.activePEs = 1;
+                }
+            Ck::IO::open(sOutFile,
+                         CkCallback(CkIndex_Main::cbOpen(0), thishandle),
+                         opts);
+        
+            return;
+            }
+        }
+    // Finally: resume the main program.
+    cbIO.send();
+}
+
+void TreePiece::minmaxNCOut(OutputParams& params, const CkCallback& cb)
+{
+    OrientedBox<float> bbVec;
+    float minmax[2] = {FLT_MAX, -FLT_MAX};
     params.dm = dm; // pass cooling information
-    int iDum;
-    
-    if(thisIndex==0) {
-	if(verbosity > 2)
-	    ckout << "TreePiece " << thisIndex << ": Writing header for output file" << endl;
-        if(params.iBinaryOut != 6) {
-            outfile = CmiFopen((params.fileName+"."+params.sTipsyExt).c_str(), "w");
-            CkAssert(outfile != NULL);
-            xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-            iDum = (int)nTotalParticles;
-            xdr_int(&xdrs,&iDum);
-            xdr_destroy(&xdrs);
-            CmiFclose(outfile);
-            }
-	}
-    
-    if(verbosity > 3)
-	ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
-    
-  if(params.iBinaryOut != 6) {
-    if(bParaWrite) {
-        outfile = CmiFopen((params.fileName+"."+params.sTipsyExt).c_str(), "a");
-	if(outfile == NULL)
-	    ckerr << "Treepiece " << thisIndex << " failed to open "
-		  << params.fileName.c_str() << " : " << errno << endl;
-	CkAssert(outfile != NULL);
-	xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-	}
-    else {
-	if(params.bVector && packed)
-	    avOut = new Vector3D<float>[myNumParticles];
-	else
-	    afOut = new float[myNumParticles];
-	}
+
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
-	Vector3D<float> vOut;
-	float fOut;
-	if(params.bVector) {
-	    vOut = params.vValue(&myParticles[i]);
-	    if(!packed){
-		if(cnt==0)
-		    fOut = vOut.x;
-		if(cnt==1)
-		    fOut = vOut.y;
-		if(cnt==2)
-		    fOut = vOut.z;
-		}
-	    }
-	else
-	    fOut = params.dValue(&myParticles[i]);
-	
-	if(bParaWrite) {
-	    if(params.bVector && packed){
-		if(!xdr_float(&xdrs,&vOut.x)) {
-		    ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
-		    CkAbort("Badness");
-		    }
-		if(!xdr_float(&xdrs,&vOut.y)) {
-		    ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
-		    CkAbort("Badness");
-		    }
-		if(!xdr_float(&xdrs,&vOut.z)) {
-		    ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
-		    CkAbort("Badness");
-		    }
-		}
-	    else {
-		if(!xdr_float(&xdrs,&fOut)) {
-		    ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
-		    CkAbort("Badness");
-		    }
-		}
-	    }
-	else {
-	    if(params.bVector && packed)
-		avOut[i-1] = vOut;
-	    else
-		afOut[i-1] = fOut;
-	    }
-	}
-    cnt++;
-    if(cnt == 3 || !params.bVector)
-	cnt = 0;
+        if(TYPETest(&myParticles[i], params.iType)
+           && (TYPETest(&myParticles[i], params.iTypeWriting)
+               || params.iBinaryOut != 6)) {
+            if(params.bVector)
+                bbVec.grow(params.vValue(&myParticles[i]));
+            else {
+                float dValue = params.dValue(&myParticles[i]);
+                if(dValue < minmax[0])
+                    minmax[0] = dValue;
+                if(dValue > minmax[1])
+                    minmax[1] = dValue;
+                }
+            }
+        }
+    if(params.bVector)
+        contribute(sizeof(OrientedBox<float>), &bbVec,
+                   growOrientedBox_float, cb);
+    else
+        contribute(2*sizeof(float), minmax, minmax_float, cb);
+}
+ 
+/// Output a Tipsy XDR binary float array file.
+void TreePiece::outputBinary(Ck::IO::Session session, OutputParams& params)
+{
+    XDR xdrs;
+    params.dm = dm; // pass cooling information
+
+    if(verbosity > 3)
+	CkPrintf("TreePiece %d: Writing output to disk\n", thisIndex);
     
-    if(bParaWrite) {
-	xdr_destroy(&xdrs);
-	int result = CmiFclose(outfile);
-	if(result != 0)
-	    ckerr << "Bad close: " << strerror(errno) << endl;
-	CkAssert(result == 0);
-	
-	if(thisIndex!=(int)numTreePieces-1) {
-	    pieces[thisIndex + 1].outputBinary(params, bParaWrite, cb);
-	    return;
-	    }
-	
-	if(packed || !params.bVector || (!packed && cnt==0)) {
-	    cb.send(); // We are done.
-	    return;
-	    }
-	// go through pieces again for unpacked vector.
-	pieces[0].outputBinary(params, bParaWrite, cb);
-	}
-    else {
-	int bDone = packed || !params.bVector || (!packed && cnt==0); // flag for last time
-	if(params.bVector && packed) {
-	    pieces[0].oneNodeOutBinVec(params, avOut, myNumParticles, thisIndex,
-				       bDone, cb);
-	    delete [] avOut;
-	    }
-	else {
-	    pieces[0].oneNodeOutBinArr(params, afOut, myNumParticles, thisIndex,
-				       bDone, cb);
-	    delete [] afOut;
-	    }
-	}
+    int64_t nMyParts;
+    size_t nHeader;
+    if(params.iBinaryOut != 6) {
+        nMyParts = myNumParticles;
+        nHeader = sizeof(int);
     }
-  else { // N-Chilada output
-      int nOutDark = 0;
-      int nOutGas = 0;
-      int nOutStar = 0;
-      if(params.bVector) {
-          Vector3D<float> *avOutGas;
-          Vector3D<float> *avOutDark;
-          Vector3D<float> *avOutStar;
-          if(params.iType & TYPE_GAS)
-              avOutGas = new Vector3D<float>[myNumSPH];
-          if(params.iType & TYPE_DARK)
-              avOutDark = new Vector3D<float>[myNumParticles - myNumSPH - myNumStar];
-          if(params.iType & TYPE_STAR)
-              avOutStar = new Vector3D<float>[myNumStar];
-          for(unsigned int i = 1; i <= myNumParticles; ++i) {
-              if(TYPETest(&myParticles[i], params.iType)) {
-                  if(myParticles[i].iType & TYPE_GAS) {
-                      avOutGas[nOutGas] = params.vValue(&myParticles[i]);
-                      nOutGas++;
-                      }
-                  if(myParticles[i].iType & TYPE_DARK) {
-                      avOutDark[nOutDark] = params.vValue(&myParticles[i]);
-                      nOutDark++;
-                      }
-                  if(myParticles[i].iType & TYPE_STAR) {
-                      avOutDark[nOutStar] = params.vValue(&myParticles[i]);
-                      nOutStar++;
-                      }
-                  }
-              }
-          pieces[0].oneNodeOutNCVec(params, avOutGas, avOutDark, avOutStar,
-                                    nOutGas, nOutDark, nOutStar, thisIndex, cb);
-          if(params.iType & TYPE_GAS)
-              delete [] avOutGas;
-          if(params.iType & TYPE_DARK)
-              delete [] avOutDark;
-          if(params.iType & TYPE_STAR)
-              delete[] avOutStar;
-          }
-      else {
-          float *afOutGas;
-          float *afOutDark;
-          float *afOutStar;
-          if(params.iType & TYPE_GAS)
-              afOutGas = new float[myNumSPH];
-          if(params.iType & TYPE_DARK)
-              afOutDark = new float[myNumParticles - myNumSPH - myNumStar];
-          if(params.iType & TYPE_STAR)
-              afOutStar = new float[myNumStar];
-          for(unsigned int i = 1; i <= myNumParticles; ++i) {
-              if(TYPETest(&myParticles[i], params.iType)) {
-                  if(myParticles[i].iType & TYPE_GAS) {
-                      afOutGas[nOutGas] = params.dValue(&myParticles[i]);
-                      nOutGas++;
-                      }
-                  if(myParticles[i].iType & TYPE_DARK) {
-                      afOutDark[nOutDark] = params.dValue(&myParticles[i]);
-                      nOutDark++;
-                      }
-                  if(myParticles[i].iType & TYPE_STAR) {
-                      afOutStar[nOutStar] = params.dValue(&myParticles[i]);
-                      nOutStar++;
-                      }
-                  }
-              }
-          pieces[0].oneNodeOutNCArr(params, afOutGas, afOutDark, afOutStar,
-                                    nOutGas, nOutDark, nOutStar, thisIndex, cb);
-          if(params.iType & TYPE_GAS)
-              delete [] afOutGas;
-          if(params.iType & TYPE_DARK)
-              delete [] afOutDark;
-          if(params.iType & TYPE_STAR)
-              delete [] afOutStar;
-          }
-      }
-}
+    else {
+        nHeader = FieldHeader::sizeBytes;
+        if(params.bVector) 
+            nHeader += 6*sizeof(float);
+        else
+            nHeader += 2*sizeof(float);
+        if(params.iTypeWriting == TYPE_GAS)
+            nMyParts = myNumSPH;
+        else if(params.iTypeWriting == TYPE_DARK)
+            nMyParts = myNumParticles - myNumSPH - myNumStar;
+        else if(params.iTypeWriting == TYPE_STAR)
+            nMyParts = myNumStar;
+        else
+            CkAbort("Bad writing type.");
+        }
 
-/// @brief Receives an array of vectors to write out in NChilada format.
-///
-/// Assumes we are working on one node and will keep the file open
-/// from one array call to the next for efficiency's sake.
-void TreePiece::oneNodeOutNCVec(OutputParams& params,
-                                Vector3D<float>* avOutGas, // array to be output
-                                Vector3D<float>* avOutDark, // array to be output
-                                Vector3D<float>* avOutStar, // array to be output
-                                int nGas, // number of elements in avOut
-                                int nDark, // number of elements in avOut
-                                int nStar, // number of elements in avOut
-                                int iIndex, // treepiece which called me
-                                CkCallback& cb) 
-{
-    static FILE *outfileGas;
-    static XDR xdrsGas;
-    static OrientedBox<float> bbGas;
-    static FILE *outfileDark;
-    static XDR xdrsDark;
-    static OrientedBox<float> bbDark;
-    static FILE *outfileStar;
-    static XDR xdrsStar;
-    static OrientedBox<float> bbStar;
-    FieldHeader fh;
-    if(iIndex == 0) { // first time
-        fh.time = params.dTime;
-        fh.dimensions = 3;
-        fh.code = Type2Code<float>::code;
-        if((params.iType & TYPE_GAS) && (nTotalSPH > 0)) {
-            outfileGas = CmiFopen((params.fileName+"/gas/"+params.sNChilExt).c_str(), "w");
-            CkAssert(outfileGas != NULL);
-            xdrstdio_create(&xdrsGas, outfileGas, XDR_ENCODE);
-            fh.numParticles = nTotalSPH;
-            xdr_template(&xdrsGas, &fh);
-            bbGas.reset();
-            xdr_template(&xdrsGas, &bbGas.lesser_corner);
-            xdr_template(&xdrsGas, &bbGas.greater_corner);
-            }
-        if((params.iType & TYPE_DARK) && (nTotalDark > 0)) {
-            outfileDark = CmiFopen((params.fileName+"/dark/"+params.sNChilExt).c_str(), "w");
-            CkAssert(outfileDark != NULL);
-            xdrstdio_create(&xdrsDark, outfileDark, XDR_ENCODE);
-            fh.numParticles = nTotalDark;
-            xdr_template(&xdrsDark, &fh);
-            bbDark.reset();
-            xdr_template(&xdrsDark, &bbDark.lesser_corner);
-            xdr_template(&xdrsDark, &bbDark.greater_corner);
-            }
-        if((params.iType & TYPE_STAR) && (nTotalStar > 0)) {
-            outfileStar = CmiFopen((params.fileName+"/star/"+params.sNChilExt).c_str(), "w");
-            CkAssert(outfileStar != NULL);
-            xdrstdio_create(&xdrsStar, outfileStar, XDR_ENCODE);
-            fh.numParticles = nTotalStar;
-            xdr_template(&xdrsStar, &fh);
-            bbStar.reset();
-            xdr_template(&xdrsStar, &bbStar.lesser_corner);
-            xdr_template(&xdrsStar, &bbStar.greater_corner);
+    size_t nBytes = nMyParts*sizeof(float);
+    size_t iOffset = nStartWrite*sizeof(float);
+    if(params.bVector) {
+        nBytes *= 3;
+        iOffset *= 3;
         }
-    }
-    if(params.iType & TYPE_GAS) {
-        bool result = writeField(&xdrsGas, nGas, avOutGas);
-        for(u_int64_t i = 0; i < nGas; ++i)
-            bbGas.grow(avOutGas[i]);
-        CkAssert(result);
-        }
-    if(params.iType & TYPE_DARK) {
-        bool result = writeField(&xdrsDark, nDark, avOutDark);
-        for(u_int64_t i = 0; i < nDark; ++i)
-            bbDark.grow(avOutDark[i]);
-        CkAssert(result);
-        }
-    if(params.iType & TYPE_STAR) {
-        bool result = writeField(&xdrsStar, nStar, avOutStar);
-        for(u_int64_t i = 0; i < nStar; ++i)
-            bbStar.grow(avOutStar[i]);
-        CkAssert(result);
-        }
-    if(iIndex!=(int)numTreePieces-1) {
-	  pieces[iIndex + 1].outputBinary(params, 0, cb);
-	  return;
-	  }
-    else {
-        if((params.iType & TYPE_GAS) && (nTotalSPH > 0)) {
-            xdr_setpos(&xdrsGas, fh.sizeBytes);
-            xdr_template(&xdrsGas, &bbGas.lesser_corner);
-            xdr_template(&xdrsGas, &bbGas.greater_corner);
-            xdr_destroy(&xdrsGas);
-            CmiFclose(outfileGas);
-            }
-        if((params.iType & TYPE_DARK) && (nTotalDark > 0)) {
-            xdr_setpos(&xdrsDark, fh.sizeBytes);
-            xdr_template(&xdrsDark, &bbDark.lesser_corner);
-            xdr_template(&xdrsDark, &bbDark.greater_corner);
-            xdr_destroy(&xdrsDark);
-            CmiFclose(outfileDark);
-            }
-        if((params.iType & TYPE_STAR) && (nTotalStar > 0)) {
-            xdr_setpos(&xdrsStar, fh.sizeBytes);
-            xdr_template(&xdrsStar, &bbStar.lesser_corner);
-            xdr_template(&xdrsStar, &bbStar.greater_corner);
-            xdr_destroy(&xdrsStar);
-            CmiFclose(outfileStar);
-            }
-        cb.send(); // We are done.
-        return;
-    }
-}
+    iOffset += nHeader;
+    
+    char *buf = new char[nBytes];
+    CkAssert(nBytes < UINT_MAX); // Documentation for xdrmem_create()
+                                 // specifies unsigned int.  Could be
+                                 // a problem.
+    xdrmem_create(&xdrs, buf, nBytes, XDR_ENCODE);
+    
+    int nOut = 0;
 
-/// @brief Receives an array of floats to write out in NChilada format.
-///
-/// Assumes we are working on one node and will keep the file open
-/// from one array call to the next for efficiency's sake.
-void TreePiece::oneNodeOutNCArr(OutputParams& params,
-                                float* afOutGas, // array to be output
-                                float* afOutDark, // array to be output
-                                float* afOutStar, // array to be output
-                                int nGas, // number of elements in avOut
-                                int nDark, // number of elements in avOut
-                                int nStar, // number of elements in avOut
-                                int iIndex, // treepiece which called me
-                                CkCallback& cb) 
-{
-    static FILE *outfileGas;
-    static XDR xdrsGas;
-    static float bbGas[2];
-    static FILE *outfileDark;
-    static XDR xdrsDark;
-    static float bbDark[2];
-    static FILE *outfileStar;
-    static XDR xdrsStar;
-    static float bbStar[2];
-    FieldHeader fh;
-    if(iIndex == 0) { // first time
-        fh.time = params.dTime;
-        fh.dimensions = 1;
-        fh.code = Type2Code<float>::code;
-        if((params.iType & TYPE_GAS) && (nTotalSPH > 0)) {
-            outfileGas = CmiFopen((params.fileName+"/gas/"+params.sNChilExt).c_str(), "w");
-            CkAssert(outfileGas != NULL);
-            xdrstdio_create(&xdrsGas, outfileGas, XDR_ENCODE);
-            fh.numParticles = nTotalSPH;
-            xdr_template(&xdrsGas, &fh);
-            bbGas[0] = HUGE_VAL;
-            bbGas[1] = -HUGE_VAL;
-            xdr_template(&xdrsGas, &bbGas[0]);
-            xdr_template(&xdrsGas, &bbGas[1]);
-            }
-        if((params.iType & TYPE_DARK) && (nTotalDark > 0)) {
-            outfileDark = CmiFopen((params.fileName+"/dark/"+params.sNChilExt).c_str(), "w");
-            CkAssert(outfileDark != NULL);
-            xdrstdio_create(&xdrsDark, outfileDark, XDR_ENCODE);
-            fh.numParticles = nTotalDark;
-            xdr_template(&xdrsDark, &fh);
-            bbDark[0] = HUGE_VAL;
-            bbDark[1] = -HUGE_VAL;
-            xdr_template(&xdrsDark, &bbDark[0]);
-            xdr_template(&xdrsDark, &bbDark[1]);
-            }
-        if((params.iType & TYPE_STAR) && (nTotalStar > 0)) {
-            outfileStar = CmiFopen((params.fileName+"/star/"+params.sNChilExt).c_str(), "w");
-            CkAssert(outfileStar != NULL);
-            xdrstdio_create(&xdrsStar, outfileStar, XDR_ENCODE);
-            fh.numParticles = nTotalStar;
-            xdr_template(&xdrsStar, &fh);
-            bbStar[0] = HUGE_VAL;
-            bbStar[1] = -HUGE_VAL;
-            xdr_template(&xdrsStar, &bbStar[0]);
-            xdr_template(&xdrsStar, &bbStar[1]);
-        }
-    }
-    if(params.iType & TYPE_GAS) {
-        bool result = writeField(&xdrsGas, nGas, afOutGas);
-        CkAssert(result);
-        for(u_int64_t i = 0; i < nGas; ++i) {
-            if(afOutGas[i] < bbGas[0])
-                bbGas[0] = afOutGas[i];
-            if(afOutGas[i] > bbGas[1])
-                bbGas[1] = afOutGas[i];
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+        if(TYPETest(&myParticles[i], params.iType)
+           && (TYPETest(&myParticles[i], params.iTypeWriting)
+               || params.iBinaryOut != 6)) {
+            if(params.bVector) {
+                Vector3D<float> vec = params.vValue(&myParticles[i]);
+                xdr_template(&xdrs, &vec);
+                }
+            else {
+                float dValue = params.dValue(&myParticles[i]);
+                xdr_float(&xdrs, &dValue);
+                }
+            nOut++;
             }
         }
-    if(params.iType & TYPE_DARK) {
-        bool result = writeField(&xdrsDark, nDark, afOutDark);
-        CkAssert(result);
-        for(u_int64_t i = 0; i < nDark; ++i) {
-            if(afOutDark[i] < bbDark[0])
-                bbDark[0] = afOutDark[i];
-            if(afOutDark[i] > bbDark[1])
-                bbDark[1] = afOutDark[i];
-            }
-        }
-    if(params.iType & TYPE_STAR) {
-        bool result = writeField(&xdrsStar, nStar, afOutStar);
-        CkAssert(result);
-        for(u_int64_t i = 0; i < nStar; ++i) {
-            if(afOutStar[i] < bbStar[0])
-                bbStar[0] = afOutStar[i];
-            if(afOutStar[i] > bbStar[1])
-                bbStar[1] = afOutStar[i];
-            }
-        }
-    if(iIndex!=(int)numTreePieces-1) {
-	  pieces[iIndex + 1].outputBinary(params, 0, cb);
-	  return;
-	  }
-    else {
-        if((params.iType & TYPE_GAS) && (nTotalSPH > 0)) {
-            xdr_setpos(&xdrsGas, fh.sizeBytes);
-            xdr_template(&xdrsGas, &bbGas[0]);
-            xdr_template(&xdrsGas, &bbGas[1]);
-            xdr_destroy(&xdrsGas);
-            CmiFclose(outfileGas);
-            }
-        if((params.iType & TYPE_DARK) && (nTotalDark > 0)) {
-            xdr_setpos(&xdrsDark, fh.sizeBytes);
-            xdr_template(&xdrsDark, &bbDark[0]);
-            xdr_template(&xdrsDark, &bbDark[1]);
-            xdr_destroy(&xdrsDark);
-            CmiFclose(outfileDark);
-            }
-        if((params.iType & TYPE_STAR) && (nTotalStar > 0)) {
-            xdr_setpos(&xdrsStar, fh.sizeBytes);
-            xdr_template(&xdrsStar, &bbStar[0]);
-            xdr_template(&xdrsStar, &bbStar[1]);
-            xdr_destroy(&xdrsStar);
-            CmiFclose(outfileStar);
-            }
-        cb.send(); // We are done.
-        return;
-    }
+    CkAssert(nOut == nMyParts);
+    xdr_destroy(&xdrs);
+    Ck::IO::write(session, buf, nBytes, iOffset);
+    delete [] buf;
 }
 
 /// @brief Receives an array of ints to write out in NChilada format.
@@ -2165,98 +2062,6 @@ void TreePiece::oneNodeOutNCInt(OutputIntParams& params,
         return;
     }
 }
-
-// Receives an array of vectors to write out in Binary format
-// Assumed to be called from outputBinary() and will continue with the
-// next tree piece unless "bDone".
-void TreePiece::oneNodeOutBinVec(OutputParams& params,
-				 Vector3D<float>* avOut, // array to be output
-				 int nPart, // number of elements in avOut
-				 int iIndex, // treepiece which called me
-				 int bDone, // Last call
-				 CkCallback& cb) 
-{
-    FILE* outfile = CmiFopen((params.fileName+"."+params.sTipsyExt).c_str(), "a");
-    XDR xdrs;
-    if(outfile == NULL)
-	ckerr << "Treepiece " << thisIndex << " failed to open "
-	      << params.fileName.c_str() << " : " << errno << endl;
-    CkAssert(outfile != NULL);
-    xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-    for(int i = 0; i < nPart; ++i) {
-	if(!xdr_float(&xdrs,&(avOut[i].x))) {
-	    ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
-	    CkAbort("Badness");
-	    }
-	if(!xdr_float(&xdrs,&(avOut[i].y))) {
-	    ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
-	    CkAbort("Badness");
-	    }
-	if(!xdr_float(&xdrs,&(avOut[i].z))) {
-	    ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
-	    CkAbort("Badness");
-	    }
-	}
-    xdr_destroy(&xdrs);
-    int result = CmiFclose(outfile);
-    if(result != 0)
-	ckerr << "Bad close: " << strerror(errno) << endl;
-    CkAssert(result == 0);
-
-    if(iIndex!=(int)numTreePieces-1) {
-	  pieces[iIndex + 1].outputBinary(params, 0, cb);
-	  return;
-	  }
-
-    if(bDone) {
-	  cb.send(); // We are done.
-	  return;
-	  }
-    CkAbort("packed array Done logic wrong");
-    }
-
-// Receives an array of floats to write out in Binary format
-// Assumed to be called from outputBinary() and will continue with the
-// next tree piece unless "bDone"
-
-void TreePiece::oneNodeOutBinArr(OutputParams& params,
-			      float *afOut, // array to be output
-			      int nPart, // length of afOut
-			      int iIndex, // treepiece which called me
-			      int bDone, // Last call
-			      CkCallback& cb) 
-{
-    FILE* outfile = CmiFopen((params.fileName+"."+params.sTipsyExt).c_str(), "a");
-    XDR xdrs;
-    if(outfile == NULL)
-	ckerr << "Treepiece " << thisIndex << " failed to open "
-	      << params.fileName.c_str() << " : " << errno << endl;
-    CkAssert(outfile != NULL);
-    xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-    for(int i = 0; i < nPart; ++i) {
-	if(!xdr_float(&xdrs,&(afOut[i]))) {
-	  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
-	    CkAbort("Badness");
-	    }
-	}
-    xdr_destroy(&xdrs);
-    int result = CmiFclose(outfile);
-    if(result != 0)
-	ckerr << "Bad close: " << strerror(errno) << endl;
-    CkAssert(result == 0);
-
-    if(iIndex!=(int)numTreePieces-1) {
-	  pieces[iIndex + 1].outputBinary(params, 0, cb);
-	  return;
-	  }
-
-    if(bDone) {
-	  cb.send(); // We are done.
-	  return;
-	  }
-    // go through pieces again for unpacked vector.
-    pieces[0].outputBinary(params, 0, cb);
-    }
 
 void TreePiece::outputIntBinary(OutputIntParams& params, // specifies
 						  // filename, format,

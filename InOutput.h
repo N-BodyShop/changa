@@ -24,6 +24,7 @@ class OutputParams : public PUP::able
     std::string sTipsyExt;      // Extension for tipsy output
     std::string sNChilExt;      // file name for NChilada output
     unsigned int iType;         // mask of families containing this attribute
+    unsigned int iTypeWriting;  // family being written in NC format
     DataManager *dm;	// For extra state information (e.g. cooling)
 
     OutputParams() {dm = NULL;}
@@ -38,6 +39,7 @@ class OutputParams : public PUP::able
         p|iBinaryOut;
         p|dTime;
         p|iType;
+        p|iTypeWriting;
 	}
     };
 

@@ -2611,31 +2611,24 @@ void Main::writeOutput(int iStep)
             CkAssert(safeMkdir(dirname.c_str()) == 0);
             }
         MassOutputParams pMassOut(achFile, param.iBinaryOut, dOutTime);
-        treeProxy[0].outputBinary(pMassOut, param.bParaWrite,
-                                  CkCallbackResumeThread());
+        outputBinary(pMassOut, param.bParaWrite, CkCallbackResumeThread());
         PosOutputParams pPosOut(achFile, param.iBinaryOut, dOutTime);
-        treeProxy[0].outputBinary(pPosOut, param.bParaWrite,
-                                  CkCallbackResumeThread());
+        outputBinary(pPosOut, param.bParaWrite, CkCallbackResumeThread());
         VelOutputParams pVelOut(achFile, param.iBinaryOut, dOutTime);
-        treeProxy[0].outputBinary(pVelOut, param.bParaWrite,
-                                  CkCallbackResumeThread());
+        outputBinary(pVelOut, param.bParaWrite, CkCallbackResumeThread());
         SoftOutputParams pSoftOut(achFile, param.iBinaryOut, dOutTime);
-        treeProxy[0].outputBinary(pSoftOut, param.bParaWrite,
-                                  CkCallbackResumeThread());
+        outputBinary(pSoftOut, param.bParaWrite, CkCallbackResumeThread());
         PotOutputParams pPotOut(achFile, param.iBinaryOut, dOutTime);
-        treeProxy[0].outputBinary(pPotOut, param.bParaWrite,
-                                  CkCallbackResumeThread());
+        outputBinary(pPotOut, param.bParaWrite, CkCallbackResumeThread());
         if(nTotalSPH > 0) {
             GasDenOutputParams pGasDenOut(achFile, param.iBinaryOut, dOutTime);
-            treeProxy[0].outputBinary(pGasDenOut, param.bParaWrite,
-                                      CkCallbackResumeThread());
+            outputBinary(pGasDenOut, param.bParaWrite,
+                CkCallbackResumeThread());
             TempOutputParams pTempOut(achFile, param.iBinaryOut, dOutTime,
                 param.bGasCooling, duTFac);
-            treeProxy[0].outputBinary(pTempOut, param.bParaWrite,
-                                      CkCallbackResumeThread());
+            outputBinary(pTempOut, param.bParaWrite, CkCallbackResumeThread());
             HsmOutputParams pHsmOut(achFile, param.iBinaryOut, dOutTime);
-            treeProxy[0].outputBinary(pHsmOut, param.bParaWrite,
-                                      CkCallbackResumeThread());
+            outputBinary(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
             }
         }
     
@@ -2660,39 +2653,28 @@ void Main::writeOutput(int iStep)
 
     if (param.iBinaryOut) {
 	if (param.bStarForm || param.bFeedback) {
-	    treeProxy[0].outputBinary(pOxOut, param.bParaWrite,
-				      CkCallbackResumeThread());
-	    treeProxy[0].outputBinary(pFeOut, param.bParaWrite,
-				      CkCallbackResumeThread());
-	    treeProxy[0].outputBinary(pMFormOut, param.bParaWrite,
-				      CkCallbackResumeThread());
-	    treeProxy[0].outputBinary(pcoolontimeOut, param.bParaWrite,
-				      CkCallbackResumeThread());
-	    treeProxy[0].outputBinary(pESNRateOut, param.bParaWrite,
-				      CkCallbackResumeThread());
+	    outputBinary(pOxOut, param.bParaWrite, CkCallbackResumeThread());
+	    outputBinary(pFeOut, param.bParaWrite, CkCallbackResumeThread());
+	    outputBinary(pMFormOut, param.bParaWrite, CkCallbackResumeThread());
+	    outputBinary(pcoolontimeOut, param.bParaWrite, CkCallbackResumeThread());
+	    outputBinary(pESNRateOut, param.bParaWrite, CkCallbackResumeThread());
 	    }
 #ifndef COOLING_NONE
 	if(param.bGasCooling) {
-	    treeProxy[0].outputBinary(pCool0Out, param.bParaWrite,
-				     CkCallbackResumeThread());
-	    treeProxy[0].outputBinary(pCool1Out, param.bParaWrite,
-				     CkCallbackResumeThread());
-	    treeProxy[0].outputBinary(pCool2Out, param.bParaWrite,
-				      CkCallbackResumeThread());
+	    outputBinary(pCool0Out, param.bParaWrite, CkCallbackResumeThread());
+	    outputBinary(pCool1Out, param.bParaWrite, CkCallbackResumeThread());
+	    outputBinary(pCool2Out, param.bParaWrite, CkCallbackResumeThread());
 	    }
 #endif
 	if(param.bDoSoftOutput && param.iBinaryOut != 6) {
-	    treeProxy[0].outputBinary(pSoftOut, param.bParaWrite,
-				      CkCallbackResumeThread());
+	    outputBinary(pSoftOut, param.bParaWrite, CkCallbackResumeThread());
             }
 	    
 	if(param.bDohOutput && param.iBinaryOut != 6) {
-	    treeProxy[0].outputBinary(pHsmOut, param.bParaWrite,
-				      CkCallbackResumeThread());
+	    outputBinary(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
             }
 	if(param.bDoCSound)
-	    treeProxy[0].outputBinary(pCSOut, param.bParaWrite,
-				      CkCallbackResumeThread());
+	    outputBinary(pCSOut, param.bParaWrite, CkCallbackResumeThread());
 	if(param.bDoIOrderOutput || param.bStarForm || param.bFeedback) {
 	    IOrderOutputParams pIOrdOut(achFile, param.iBinaryOut, dOutTime);
 	    treeProxy[0].outputIntBinary(pIOrdOut, param.bParaWrite,
@@ -2787,7 +2769,7 @@ void Main::writeOutput(int iStep)
 	startTime = CkWallTimer();
 	DenOutputParams pDenOut(string(achFile), param.iBinaryOut, dOutTime);
 	if (param.iBinaryOut)
-	    treeProxy[0].outputBinary(pDenOut, param.bParaWrite, CkCallbackResumeThread());
+	    outputBinary(pDenOut, param.bParaWrite, CkCallbackResumeThread());
 	else
 	    treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."

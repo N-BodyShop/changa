@@ -154,6 +154,10 @@ mainmodule ParallelGravity {
     entry [threaded] void initialForces();
     entry [threaded] void doSimulation();
     entry [threaded] void restart();
+    entry void cbOpen(Ck::IO::FileReadyMsg *msg);
+    entry void cbIOReady(Ck::IO::SessionReadyMsg *msg);
+    entry void cbIOComplete(CkReductionMsg *msg);
+    entry void cbIOClosed(CkReductionMsg *msg);
     entry void niceExit();
     entry void liveVizImagePrep(liveVizRequestMsg *msg);
   };
@@ -431,18 +435,6 @@ mainmodule ParallelGravity {
     entry void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
     entry void outputASCII(CkReference<OutputParams>, int bParaWrite,
 			   const CkCallback& cb);
-    entry void oneNodeOutNCVec(CkReference<OutputParams>,
-                            Vector3D<float> avOutGas[nGas],
-                            Vector3D<float> avOutDark[nDark],
-                            Vector3D<float> avOutStar[nStar],
-                            int nGas, int nDark, int nStar,
-                            int iIndex, CkCallback& cb) ;
-    entry void oneNodeOutNCArr(CkReference<OutputParams>,
-                                float afOutGas[nGas],
-                                float afOutDark[nDark],
-                                float afOutStar[nStar],
-                                int nGas, int nDark, int nStar,
-                                int iIndex, CkCallback& cb);
     entry void oneNodeOutNCInt(CkReference<OutputIntParams>,
                                 int aiOutGas[nGas],
                                 int aiOutDark[nDark],
@@ -455,15 +447,10 @@ mainmodule ParallelGravity {
     entry void oneNodeOutArr(CkReference<OutputParams>, double adOut[nPart],
 			   int nPart, int iIndex, int bDone,
 			   CkCallback& cb) ;
-    entry void outputBinary(CkReference<OutputParams>, int bParaWrite,
-			   			       const CkCallback& cb);
-    entry void oneNodeOutBinVec(CkReference<OutputParams>, 
-				Vector3D<float> avOut[nPart],
-    		     		int nPart, int iIndex, int bDone,
-			   	CkCallback& cb) ;
-    entry void oneNodeOutBinArr(CkReference<OutputParams>, float adOut[nPart],
-			     int nPart, int iIndex, int bDone,
-			     CkCallback& cb) ;
+    entry void outputBinary(Ck::IO::Session, CkReference<OutputParams>);
+    entry void minmaxNCOut(CkReference<OutputParams> params, const CkCallback& cb);
+    entry void outputBinaryStart(CkReference<OutputParams> params,
+                                 int64_t nStart, const CkCallback& cb);
     entry void outputIntASCII(CkReference<OutputIntParams>, int bParaWrite,
 			      const CkCallback& cb);
     entry void oneNodeOutIntArr(CkReference<OutputIntParams>, int aiOut[nPart],

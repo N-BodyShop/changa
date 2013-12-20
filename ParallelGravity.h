@@ -24,6 +24,7 @@
 
 #include "pup_stl.h"
 #include "comlib.h"
+#include "ckio.h"
 
 #include "Vector3D.h"
 #include "tree_xdr.h"
@@ -399,6 +400,12 @@ const int PHASE_FEEDBACK = MAXRUNG + 1;
 class Main : public CBase_Main {
 	CkArgMsg *args;
 	std::string basefilename;
+        /// Save parameters for output
+        OutputParams *pOutput;
+	/// globally finished IO
+	CkCallback cbIO;
+        /// Save file token for CkIO
+        Ck::IO::File fIOFile;
 	CProxy_Sorter sorter;
 	int64_t nTotalParticles;
 	int64_t nTotalSPH;
@@ -479,6 +486,13 @@ public:
 	void getOutTimes();
 	int bOutTime();
 	void writeOutput(int iStep) ;
+        void outputBinary(OutputParams& params, int bParaWrite,
+                          const CkCallback& cb);
+        void cbOpen(Ck::IO::FileReadyMsg *msg);
+        void cbIOReady(Ck::IO::SessionReadyMsg *msg);
+        void cbIOComplete(CkReductionMsg *msg);
+        void cbIOClosed(CkReductionMsg *msg);
+        std::string getNCNextOutput(OutputParams& params);
 	void updateSoft();
 	void growMass(double dTime, double dDelta);
 	void initSph();
@@ -1765,24 +1779,6 @@ public:
 			 const CkCallback& cb);
 	void outputIntASCII(OutputIntParams& params, int bParaWrite,
 			 const CkCallback& cb);
-        void oneNodeOutNCVec(OutputParams& params,
-                            Vector3D<float>* avOutGas, // array to be output
-                            Vector3D<float>* avOutDark, // array to be output
-                            Vector3D<float>* avOutStar, // array to be output
-                            int nGas, // number of elements in avOut
-                            int nDark, // number of elements in avOut
-                            int nStar, // number of elements in avOut
-                            int iIndex, // treepiece which called me
-                            CkCallback& cb) ;
-        void oneNodeOutNCArr(OutputParams& params,
-                                float* afOutGas, // array to be output
-                                float* afOutDark, // array to be output
-                                float* afOutStar, // array to be output
-                                int nGas, // number of elements in avOut
-                                int nDark, // number of elements in avOut
-                                int nStar, // number of elements in avOut
-                                int iIndex, // treepiece which called me
-                                CkCallback& cb) ;
         void oneNodeOutNCInt(OutputIntParams& params,
                                 int* aiOutGas, // array to be output
                                 int* aiOutDark, // array to be output
@@ -1800,14 +1796,10 @@ public:
 			   CkCallback& cb) ;
 	void oneNodeOutIntArr(OutputIntParams& params, int *aiOut,
 			      int nPart, int iIndex, CkCallback& cb);
-	void outputBinary(OutputParams& params, int bParaWrite,
-			 const CkCallback& cb);
-	void oneNodeOutBinVec(OutputParams& params, Vector3D<float>* avOut,
-			      int nPart, int iIndex, int bDone,
-			      CkCallback& cb) ;
-	void oneNodeOutBinArr(OutputParams& params, float* adOut,
-			      int nPart, int iIndex, int bDone,
-			      CkCallback& cb) ;
+        void outputBinaryStart(OutputParams& params, int64_t nStart,
+                               const CkCallback& cb);
+	void outputBinary(Ck::IO::Session, OutputParams& params);
+        void minmaxNCOut(OutputParams& params, const CkCallback& cb);
         void outputIntBinary(OutputIntParams& params, int bParaWrite,
                              const CkCallback& cb);
         void oneNodeOutBinInt(OutputIntParams& params, int *aiOut,
