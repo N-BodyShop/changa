@@ -1916,7 +1916,10 @@ void TreePiece::outputBinary(Ck::IO::Session session, OutputParams& params)
         iOffset = 0;
         nBytes += nHeader;
         }
-    
+
+    if(nBytes == 0)     // nothing for this piece to do.
+        return;
+
     char *buf = new char[nBytes];
     CkAssert(nBytes < UINT_MAX); // Documentation for xdrmem_create()
                                  // specifies unsigned int.  Could be
@@ -1932,6 +1935,10 @@ void TreePiece::outputBinary(Ck::IO::Session session, OutputParams& params)
             }
         else {
             FieldHeader fh;
+            fh.time = 0.0;
+            fh.numParticles = 0;
+            fh.dimensions = 0;
+            fh.code = Type2Code<float>::code;
             xdr_template(&xdrs, &fh);
             if(params.bVector) {
                 Vector3D<float> vMin(0.0);
