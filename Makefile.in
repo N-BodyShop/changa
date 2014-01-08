@@ -12,10 +12,15 @@ BUILD_DIR=@builddir@
 #FLAG_DEBUG = -DCOSMO_DEBUG=2       # enable debugging information
 #CACHE_TREE = -DCACHE_TREE          # enable processor tree inside the cache
 INTERLIST = -DINTERLIST_VER=2      # enable interaction lists
+ENABLE_CUDA = @ENABLE_CUDA@
+
+ifeq ($(ENABLE_CUDA),)
 HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
 FLAG_SSE = @FLAG_SSE@
 FLAG_AVX = @FLAG_AVX@
 FLAG_CHANGESOFT = @FLAG_CHANGESOFT@
+endif
+
 FLAG_BIGKEYS = @FLAG_BIGKEYS@
 FLAG_KERNEL = @FLAG_KERNEL@
 FLAG_COOLING = @FLAG_COOLING@
@@ -50,7 +55,9 @@ FLAG_COOLING = @FLAG_COOLING@
 #
 # Uncomment definition of CUDA for make benefit CUDA version
 # Currently requires that HEXADECAPOLE be disabled 
-# CUDA = -DINTERLIST_VER=2 -DCUDA -DCUDA_USE_CUDAMALLOCHOST -DSPCUDA -DCUDA_2D_TB_KERNEL -DCUDA_MEMPOOL #-DCUDA_STATS #-DCUDA_INSTRUMENT_WRS -DCUDA_2D_FLAT 
+ifneq ($(ENABLE_CUDA),)
+CUDA = -DINTERLIST_VER=2 -DCUDA -DCUDA_USE_CUDAMALLOCHOST -DSPCUDA -DCUDA_2D_TB_KERNEL -DCUDA_MEMPOOL #-DCUDA_STATS #-DCUDA_INSTRUMENT_WRS -DCUDA_2D_FLAT
+endif
 
 # useful refactor flag combinations:
 # -DCHANGA_REFACTOR_WALKCHECK
@@ -84,13 +91,15 @@ METIS_SRC_PATH = $(CHARM_PATH)/src/libs/ck-libs/parmetis/METISLib
 CACHE_LIB_PATH = $(CHARM_PATH)/tmp/libs/ck-libs/cache
 THREADSAFE_HT_PATH = $(CACHE_LIB_PATH)/threadsafe_hashtable
 
+ifneq (,$(ENABLE_CUDA))
 NVIDIA_CUDA_SDK = $(HOME)/NVIDIA_CUDA_SDK
-CUDA_DIR = /usr/local/cuda
-NVCC = $(CUDA_DIR)/bin/nvcc
+CUDA_DIR = @CUDA_DIR_PATH@
+NVCC = @NVCC_PATH@
 NVCC_FLAGS = -c -use_fast_math --ptxas-options=-v #-deviceemu -device-debug 
-NVCC_INC = -I$(CUDA_DIR)/include -I$(NVIDIA_CUDA_SDK)/common/inc -I$(CHARM_PATH)/tmp/hybridAPI
+NVCC_INC = -I$(CUDA_DIR)/include -I$(NVIDIA_CUDA_SDK)/common/inc -I$(CHARM_PATH)/tmp/hybridAPI -I$(CHARM_PATH)/src/arch/cuda/hybridAPI
 # add $(NVCC_LIBS) to LDLIBS when compiling for cuda
 NVCC_LIBS = -lcuda -lcudart -lGL
+endif
 
 # add -module Orb3dLB here for load balancing during singlestepped runs
 #OPTS = -g -memory charmdebug
@@ -127,7 +136,7 @@ SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp IntraNodeLBManage
 	MultistepLB_notopo.C MultistepNodeLB_notopo.C MultistepOrbLB.C PETreeMerger.cpp \
 	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C 
 
-ifdef CUDA
+ifneq (,$(ENABLE_CUDA))
   CXXFLAGS += $(NVCC_INC)
   OBJECTS += HostCUDA.o 
   SRSC += HostCUDA.cu 
