@@ -91,7 +91,7 @@ THREADSAFE_HT_PATH = $(CACHE_LIB_PATH)/threadsafe_hashtable
 
 ifneq (,$(ENABLE_CUDA))
 NVIDIA_CUDA_SDK = $(HOME)/NVIDIA_CUDA_SDK
-CUDA_DIR = @CUDA_DIR_PATH@
+CUDA_DIR = @CUDA_DIR@
 NVCC = @NVCC_PATH@
 NVCC_FLAGS = -c -use_fast_math --ptxas-options=-v #-deviceemu -device-debug 
 NVCC_INC = -I$(CUDA_DIR)/include -I$(NVIDIA_CUDA_SDK)/common/inc -I$(CHARM_PATH)/tmp/hybridAPI -I$(CHARM_PATH)/src/arch/cuda/hybridAPI
