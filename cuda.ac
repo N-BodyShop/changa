@@ -16,19 +16,16 @@
 # is intentional (it produces nice, readable output in the generated `configure`
 # script).
 #
-# To disable automatic use of CUDA, change the assigned value of `ENABLE_CUDA`
-# in the line directly below this comment to "no".  (You should also change the
-# default-argument value in the docstring passed to `AS_HELP_STRING` to match.)
+# To disable automatic "use" of CUDA (i.e., setting ENABLE_CUDA to "yes" if CUDA
+# is found), change the assigned value of `ENABLE_CUDA` in the line directly
+# below this comment to "no".  (You should also change the default-argument
+# value in the docstring passed to `AS_HELP_STRING` to match.)
 ENABLE_CUDA="auto"
 
 AC_ARG_VAR([CUDA_DIR], [CUDA toolkit install directory])
-
-dnl Because of problems with quadrigraphs (M4 escape sequences) adding newlines
-dnl unexpectedly, I've used excessive quoting instead to create literal brackets
-dnl in these docstrings.
 AC_ARG_WITH([cuda],
-        [AS_HELP_STRING([[[[--with-cuda[=PATH]]]]],
-                [Use CUDA (installed in PATH) [auto]])],
+        [AS_HELP_STRING([--with-cuda@<:@=PATH@:>@],
+                [use CUDA (installed in PATH) @<:@auto@:>@])],
         [CUDA_DIR=$withval],[CUDA_DIR=""])
 
 # Interpret "--with-cuda" (i.e. no argument) as "enable CUDA support, please."
