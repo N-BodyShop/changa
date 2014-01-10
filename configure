@@ -866,7 +866,8 @@ Optional Features:
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
-  --with-cuda[=PATH] Use CUDA (installed in PATH) [auto]
+  --with-cuda[=PATH]
+                          use CUDA (installed in PATH) [auto]
 
 Some influential environment variables:
   CHARMC      "Charm compiler"
@@ -5394,11 +5395,11 @@ done
 # is intentional (it produces nice, readable output in the generated `configure`
 # script).
 #
-# To disable automatic use of CUDA, change the assigned value of `ENABLE_CUDA`
-# in the line directly below this comment to "no".  (You should also change the
-# default-argument value in the docstring passed to `AS_HELP_STRING` to match.)
+# To disable automatic "use" of CUDA (i.e., setting ENABLE_CUDA to "yes" if CUDA
+# is found), change the assigned value of `ENABLE_CUDA` in the line directly
+# below this comment to "no".  (You should also change the default-argument
+# value in the docstring passed to `AS_HELP_STRING` to match.)
 ENABLE_CUDA="auto"
-
 
 
 
