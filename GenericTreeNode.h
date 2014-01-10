@@ -8,7 +8,6 @@
 #define GENERICTREENODE_H
 
 #include "pup.h"
-#include "ckpool.h"
 
 #include <map>
 #include <vector>
