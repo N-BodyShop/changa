@@ -114,7 +114,7 @@ AC_CHECK_LIB([xdr], [xdr_hyper])
 AC_CHECK_FUNCS([xdr_hyper])
 
 ####################### CUDA #######################
-m4_include([cuda.ac])           # include CUDA detection script
+m4_include([cuda.ac])
 ##################### END CUDA #####################
 
 

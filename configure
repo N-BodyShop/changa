@@ -5538,7 +5538,7 @@ fi
 
 
 
-           # include CUDA detection script
+
 ##################### END CUDA #####################
 
 
