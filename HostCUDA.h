@@ -7,6 +7,16 @@
 /* Boolean defines */
 enum boolean {NO, YES};
 
+#ifdef CUDA_USE_CUDAMALLOCHOST
+# ifdef CUDA_MEMPOOL
+#  define CUDA_MALLOC(ptr,sz) ptr = hapi_poolMalloc(size)
+# else
+#  define CUDA_MALLOC(ptr,sz) cudaMallocHost(&(ptr), size)
+# endif
+#else
+# define CUDA_MALLOC(ptr,sz) ptr = malloc(sz)
+#endif
+
 #define THREADS_PER_BLOCK 128
 
 #ifdef CUDA_2D_TB_KERNEL
