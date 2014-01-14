@@ -248,15 +248,7 @@ void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments,
   //printf("DM remote moments: %f mbytes\n", 1.0*size/mill);
   
   if(size > 0){
-#ifdef CUDA_USE_CUDAMALLOCHOST
-#ifdef CUDA_MEMPOOL
-    buf->hostBuffer = hapi_poolMalloc(size);
-#else
-    cudaMallocHost(&buf->hostBuffer, size);
-#endif
-#else
-    buf->hostBuffer = malloc(size);
-#endif
+    CUDA_MALLOC(buf->hostBuffer, size);
 #ifdef CUDA_PRINT_ERRORS
     printf("DMRemote 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
@@ -273,15 +265,7 @@ void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments,
   //printf("DM remote cores: %f mbytes\n", 1.0*size/mill);
 
   if(size > 0){
-#ifdef CUDA_USE_CUDAMALLOCHOST
-#ifdef CUDA_MEMPOOL
-    buf->hostBuffer = hapi_poolMalloc(size);
-#else
-    cudaMallocHost(&buf->hostBuffer, size);
-#endif
-#else
-    buf->hostBuffer = malloc(size);
-#endif
+    CUDA_MALLOC(buf->hostBuffer, size);
 #ifdef CUDA_PRINT_ERRORS
     printf("DMRemote 1: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
@@ -412,15 +396,7 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleM
   buffer->transferFromDevice = NO;
 
   if(transfer){
-#ifdef CUDA_USE_CUDAMALLOCHOST
-#ifdef CUDA_MEMPOOL
-    buffer->hostBuffer = hapi_poolMalloc(size);
-#else
-    cudaMallocHost(&buffer->hostBuffer, size);
-#endif
-#else
-    buffer->hostBuffer = malloc(size);
-#endif
+    CUDA_MALLOC(buffer->hostBuffer, size);
 #ifdef CUDA_PRINT_ERRORS
     printf("TPRR 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
@@ -551,15 +527,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 #endif
 
         if(transfer){
-#ifdef CUDA_USE_CUDAMALLOCHOST
-#ifdef CUDA_MEMPOOL
-          buffer->hostBuffer = hapi_poolMalloc(size);
-#else
-          cudaMallocHost(&buffer->hostBuffer, size);
-#endif
-#else
-          buffer->hostBuffer = malloc(size);
-#endif
+          CUDA_MALLOC(buffer->hostBuffer, size);
 #ifdef CUDA_PRINT_ERRORS
           printf("TPPartSmallPhase 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
@@ -687,15 +655,7 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartDat
 #endif
 
         if(transfer){
-#ifdef CUDA_USE_CUDAMALLOCHOST
-#ifdef CUDA_MEMPOOL
-          buffer->hostBuffer = hapi_poolMalloc(size);
-#else
-          cudaMallocHost(&buffer->hostBuffer, size);
-#endif
-#else
-          buffer->hostBuffer = malloc(size);
-#endif
+          CUDA_MALLOC(buffer->hostBuffer, size);
 #ifdef CUDA_PRINT_ERRORS
           printf("TPPartRR 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
