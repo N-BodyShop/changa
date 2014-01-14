@@ -288,11 +288,15 @@ class Orb3dCommon{
         predCount[i] = 0.0;
       }
 
+      double maxObjLoad = 0.0;
+      
       for(int i = 0; i < numobjs; i++){
         double ld = stats->objData[i].wallTime;
         int proc = stats->to_proc[i];
         predLoad[proc] += ld; 
         predCount[proc] += 1.0; 
+        if(ld > maxObjLoad)
+            maxObjLoad = ld;
       }
 
       double minWall = 0.0;
@@ -362,6 +366,29 @@ class Orb3dCommon{
       avgPred /= stats->count;
       avgPiece /= stats->count;
 
+#ifdef PRINT_LOAD_PERCENTILES
+      double accumVar = 0;
+      vector<double> objectWallTimes;
+      for(int i = 0; i < stats->count; i++){
+        double wallTime = stats->procs[i].total_walltime;
+        objectWallTimes.push_back(wallTime);
+        accumVar += (wallTime - avgWall) * (wallTime - avgWall);
+      }
+      double stdDev = sqrt(accumVar / stats->count);
+      CkPrintf("Average load: %.3f\n", avgWall);
+      CkPrintf("Standard deviation: %.3f\n", stdDev);
+
+      std::sort(objectWallTimes.begin(), objectWallTimes.end());
+      CkPrintf("Object load percentiles: \n");
+      double increment = (double) objectWallTimes.size() / 10;
+      int j = 0;
+      double index = 0;
+      for (int j = 0; j < 100; j += 10) {
+        index += increment;
+        CkPrintf("%d: %.3f\n", j, objectWallTimes[(int) index]);
+      }
+      CkPrintf("100: %.3f\n", objectWallTimes.back());
+#endif
 
       delete[] predLoad;
       delete[] predCount;
@@ -390,6 +417,7 @@ class Orb3dCommon{
 #endif
 
 
+      CkPrintf("Orb3dLB_notopo stats: maxObjLoad %f\n", maxObjLoad);
       CkPrintf("Orb3dLB_notopo stats: minWall %f maxWall %f avgWall %f maxWall/avgWall %f\n", minWall, maxWall, avgWall, maxWall/avgWall);
       CkPrintf("Orb3dLB_notopo stats: minIdle %f maxIdle %f avgIdle %f minIdle/avgIdle %f\n", minIdle, maxIdle, avgIdle, minIdle/avgIdle);
       CkPrintf("Orb3dLB_notopo stats: minPred %f maxPred %f avgPred %f maxPred/avgPred %f\n", minPred, maxPred, avgPred, maxPred/avgPred);

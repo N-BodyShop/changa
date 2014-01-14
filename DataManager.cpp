@@ -448,6 +448,14 @@ int DataManager::createLookupRoots(Tree::GenericTreeNode *node, Tree::NodeKey *k
   return count;
 }
 
+/// @brief return the number of chunks and the roots of the remote
+/// walk subtrees.
+/// @param num number of chunks (returned)
+/// @param roots roots of the chunks (returned)
+/// The remote walk is broken up into "chunks", which are subtrees.
+/// This method returns the number of these chunks and the roots of
+/// the corresponding subtrees.
+
 void DataManager::getChunks(int &num, Tree::NodeKey *&roots) {
   num = oldNumChunks;
   roots = chunkRoots;
@@ -479,7 +487,7 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
     delete param.stfm;
     free(param.csm);
     delete param.feedback;
-    }
+}
   
 	 
 const char *typeString(NodeType type);

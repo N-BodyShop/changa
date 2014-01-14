@@ -522,6 +522,7 @@ void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg)
 
 #ifdef REDUCTION_HELPER
 void ReductionHelper::evaluateBoundaries(bool convertToLoad, SFC::Key* keys, const int n, int skipEvery, const CkCallback& cb){
+  splitters.assign(keys, keys + n);
   if(localTreePieces.presentTreePieces.size() == 0){
     int numBins = skipEvery ? n - (n-1)/(skipEvery+1) - 1 : n - 1;
     float *dummy = new float[numBins];
@@ -534,6 +535,36 @@ void ReductionHelper::evaluateBoundaries(bool convertToLoad, SFC::Key* keys, con
     localTreePieces.presentTreePieces[i]->evaluateBoundaries(convertToLoad, keys, n, skipEvery, cb);
   }
 }
+
+void ReductionHelper::evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb) {
+  std::vector<SFC::Key> newSplitters;
+  SFC::Key leftBound, rightBound;
+
+  newSplitters.reserve(splitters.size() * 4);
+  newSplitters.push_back(SFC::firstPossibleKey);
+  for (int i = 0; i < binsToSplit.Length(); i++) {
+
+    if (binsToSplit.Test(i) == true) {
+      leftBound = splitters[i];
+      rightBound = splitters[i + 1];
+      if (newSplitters.back() != (rightBound | 7L) ) {
+        if (newSplitters.back() != (leftBound | 7L)) {
+          newSplitters.push_back(leftBound | 7L);
+        }
+        newSplitters.push_back((leftBound / 4 * 3 + rightBound / 4) | 7L);
+        newSplitters.push_back((leftBound / 2 + rightBound / 2) | 7L);
+        newSplitters.push_back((leftBound / 4 + rightBound / 4 * 3) | 7L);
+        newSplitters.push_back(rightBound | 7L);
+      }
+
+    }
+  }
+  if (newSplitters.back() != lastPossibleKey) {
+    newSplitters.push_back(lastPossibleKey);
+  }
+  evaluateBoundaries(false, &newSplitters[0], newSplitters.size(), 0, cb);
+}
+
 #endif
 
 /// Determine my part of the sorting histograms by counting the number
@@ -1254,7 +1285,7 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 		  p->uPred() = uold*exp(p->PdV()*duDelta/uold);
 		  }
 #endif
-	      CkAssert(p->uPred() > 0.0);
+              CkAssert(p->uPred() >= 0.0);
 	      }
 	  }
       }
@@ -2770,6 +2801,7 @@ int reEncodeOffset(int reqID, int offsetID)
 
 /**
  * Initialize all particles for gravity force calculation.
+ * This includes zeroing out the acceleration and potential.
  */
 void TreePiece::initBuckets() {
   int ewaldCondition = (bEwald ? 0 : 1);
@@ -2816,7 +2848,7 @@ void TreePiece::startNextBucket() {
   GenericTreeNode *lca;		// Least Common Ancestor
   // check whether we have a valid lca. for the first bucket
   // (currentBucket == 0) the lca must be set to the highest point
-  // in the local tree that contains bucket 0.
+  // in the local tree that contains bucket 0 (i.e., root).
   lca = getStartAncestor(currentBucket, prevBucket, root);
 
   int lcaLevel = lca->getLevel(lca->getKey());
@@ -2835,10 +2867,7 @@ void TreePiece::startNextBucket() {
   sTopDown->init(sGravity, this);
   sGravity->init(target, activeRung, sLocal);
 #endif
-  // no need to save this combination in activeWalks list (local walks never miss)
 
-  // start the tree walk from the tree built in the cache
-  //if (target->rungs >= activeRung) {
 #if INTERLIST_VER > 0
     DoubleWalkState *lstate = (DoubleWalkState *)sLocalGravityState;
     if(!lstate->placedRoots[0]){
@@ -2849,7 +2878,6 @@ void TreePiece::startNextBucket() {
         GenericTreeNode *chunkRoot = keyToNode(prefetchRoots[cr]);
 #else
         GenericTreeNode *chunkRoot = dm->chunkRootToNode(prefetchRoots[cr]);
-        //CkPrintf("[%d] startNextBucket cr %d: %ld\n", thisIndex, cr, chunkRoot->getKey());
 #endif
         if(chunkRoot != 0){
           for(int x = -nReplicas; x <= nReplicas; x++) {
@@ -2862,7 +2890,6 @@ void TreePiece::startNextBucket() {
                 // value of currentBucket doesn't matter
                 on.offsetID = encodeOffset(0, x,y,z);
                 lstate->chklists[lcaLevel].enq(on);
-                //CkPrintf("[%d] SNB: placing chunkroot %d(%ld) (%d,%d,%d)\n", thisIndex, cr, chunkRoot->getKey(), x,y,z);
 #else
                 // last -1 arg is the activeWalkIndex
                 sTopDown->walk(chunkRoot, sLocalGravityState, -1, encodeOffset(currentBucket, x,y,z), -1);
@@ -2888,16 +2915,6 @@ void TreePiece::startNextBucket() {
     // second last -1 arg is reqID. Because it doesn't make sense in this case,
     // we send the currentBucket number instead (as target)
     // third last -1 arg is chunk
-    /*
-    CkPrintf("[%d] local walk: lca: %d (%d), cur: %d, prev: %d\n", thisIndex,
-                                                       lca->getKey(),
-                                                       lcaLevel,
-                                                       currentBucket,
-                                                       prevBucket);
-    if(currentBucket == 9722){
-      CkPrintf("here\n");
-    }
-    */
     sInterListWalk->walk(lca, sLocalGravityState, -1, currentBucket, -1);
 #ifdef CHANGA_REFACTOR_MEMCHECK
     CkPrintf("startNextBucket memcheck after walk\n");
@@ -3172,6 +3189,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
   }
 }
 
+/// This function could be replaced by the doAllBuckets() call.
 void TreePiece::calculateGravityLocal() {
   doAllBuckets();
 }
@@ -3606,13 +3624,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
   ((DoubleWalkState *)sInterListStateRemoteResume)->nodeListConstructionTimeStart();
   ((DoubleWalkState *)sInterListStateRemoteResume)->partListConstructionTimeStart();
 #endif
-    // OK to pass bogus arguments because we don't expect to miss on this anyway (see CkAssert(chunkRoot) below.)
-  CkAssert(chunkRoot != NULL);
-  if (chunkRoot == NULL) {
-    int first, last;
-    nodeOwnership(prefetchRoots[msg->chunkNum], first, last);
-    chunkRoot = requestNode(dm->responsibleIndex[(first+last)>>1], prefetchRoots[msg->chunkNum], msg->chunkNum, -1, -78, (void *)0, true);
-  }
   CkAssert(chunkRoot != NULL);
 
 #if INTERLIST_VER > 0
@@ -3677,7 +3688,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 
 #endif
 
-        //CkPrintf("[%d] calculateGravityRemote cr %d: %ld\n", thisIndex, msg->chunkNum, chunkRoot->getKey());
         for(int x = -nReplicas; x <= nReplicas; x++) {
           for(int y = -nReplicas; y <= nReplicas; y++) {
     	    for(int z = -nReplicas; z <= nReplicas; z++) {
@@ -3685,8 +3695,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
     	      CkPrintf("[%d]: starting remote walk with chunk=%d, current remote bucket=%d, (%d,%d,%d)\n", thisIndex, msg->chunkNum, sRemoteGravityState->currentBucket, x, y, z);
 #endif
 #if INTERLIST_VER > 0
-    	      // correct level is maintained in dft, so no need to do this:
-              // sRemoteGravityState->level = lcaLevel;
               // put chunk root in correct checklist
               // the currentRemote Bucket argument to encodeOffset doesn't really
               // matter; only the offset is of consequence
@@ -3694,7 +3702,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
               on.node = chunkRoot;
               on.offsetID = encodeOffset(0, x,y,z);
               rstate->chklists[lcaLevel].enq(on);
-              //CkPrintf("[%d] CGR: placing chunkroot %d(%ld) (%d,%d,%d)\n", thisIndex, msg->chunkNum, chunkRoot->getKey(), x,y,z);
 
 #else
     	      sTopDown->walk(chunkRoot, sRemoteGravityState, msg->chunkNum,encodeOffset(sRemoteGravityState->currentBucket,x, y, z), remoteGravityAwi);
@@ -3712,16 +3719,10 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       // now that all the nodes to walk on have been enqueued in the chklist of the lca, we can call
       // the walk function.
       // lca is the node the dft starts from.
-      // sIntersListStateRemote contains the nodes to be walked on
+      // sRemoteGravityState contains the nodes to be walked on
       // target for walk has already been set
       // the offset doesn't really matter, so send target bucket number (currentBucketRemote), which is needed to construct the reqID
       // in case nodes are missed and walks need to be resumed.
-      /*
-      CkPrintf("remote walk: lca: %d (%d), cur: %d, prev: %d\n", lca->getKey(),
-                                                       lcaLevel,
-                                                       currentRemote Bucket,
-                                                       prevRemoteBucket);
-      */
       sInterListWalk->walk(lca, sRemoteGravityState, msg->chunkNum, sRemoteGravityState->currentBucket, interListAwi);
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("active: memcheck after walk\n");
@@ -3733,7 +3734,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       // and that all particles under lowest node have used this chunk.
       GenericTreeNode *lowestNode = rstate->lowestNode;
       int startBucket, end;
-      //int particlesDone = 0;
       int numActualBuckets = 0;
 
       getBucketsBeneathBounds(lowestNode, startBucket, end);
@@ -3770,10 +3770,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
           numActualBuckets++;
         }
       }
-      //remaining Chunk[msg->chunkNum] -= bucketList[currentRemote Bucket]->particleCount;
       sRemoteGravityState->counterArrays[1][msg->chunkNum] -= (end-sRemoteGravityState->currentBucket);
-      //CkPrintf("[%d] cgr %d active remaining: %d done: %d lowestNode: %ld\n", thisIndex,  currentRemote Bucket, sRemoteGravityState->counterArrays[1][msg->chunkNum], end-currentRemote Bucket, lowestNode->getKey());
-      //addMisses(-particlesDone);
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("active: memcheck after book-keeping\n");
       CmiMemoryCheck();
@@ -3796,11 +3793,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       // prevRemoteBucket keeps track of last *active* bucket
       // if it is -1, the lca turns out to be chunkroot
       // otherwise, the lca is some other valid node
-      /*
-      if(currentRemote Bucket != 0){
-        prevRemoteBucket = currentRemote Bucket;
-      }
-      */
 #if COSMO_PRINT_BK > 1 
       CkPrintf("[%d] inactive remote bucket book-keep chunk: %d\n", thisIndex, msg->chunkNum);
 #endif
@@ -3811,12 +3803,9 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 #endif
         finishBucket(sRemoteGravityState->currentBucket);
         bucketsSkipped++;
-        //particlesDone += (bucket->lastParticle - bucket->firstParticle + 1);
         sRemoteGravityState->currentBucket++;
       }
       sRemoteGravityState->counterArrays[1][msg->chunkNum] -= bucketsSkipped;
-      //CkPrintf("[%d] cgr not active remaining: %d bucketsSkipped: %d\n", thisIndex,  sRemoteGravityState->counterArrays[1][msg->chunkNum], bucketsSkipped);
-      //addMisses(-particlesDone);
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("inactive: memcheck after book-keeping (prevRemote: %d, current: %d, chunk: %d)\n", prevRemoteBucket, sRemoteGravityState->currentBucket, msg->chunkNum);
       CmiMemoryCheck();
@@ -3830,7 +3819,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 #else
     sRemoteGravityState->counterArrays[0][sRemoteGravityState->currentBucket]--;
     finishBucket(sRemoteGravityState->currentBucket);
-    //remaining Chunk[msg->chunkNum] -= bucketList[currentRemote Bucket]->particleCount;
     sRemoteGravityState->counterArrays[1][msg->chunkNum] --;
     sRemoteGravityState->currentBucket++;
     i++;
@@ -3936,6 +3924,9 @@ void TreePiece::callFreeRemoteChunkMemory(int chunk){
 #endif
 
 #if INTERLIST_VER > 0
+/// @brief return the largest node which contains current bucket, but
+/// which does not contain previous bucket.  If previous is -1 then
+/// return the root.
 GenericTreeNode *TreePiece::getStartAncestor(int current, int previous, GenericTreeNode *chunkroot){
   GenericTreeNode *lca = 0;
 
@@ -4194,7 +4185,11 @@ void TreePiece::recvTotalMass(CkReductionMsg *msg){
 
 /// This method starts the tree walk and gravity calculation.  It
 /// first registers with the node and particle caches.  It initializes
-/// the particle acceleration by calling initBucket().
+/// the particle acceleration by calling initBucket().  It initializes
+/// treewalk bookkeeping, and starts a prefetch walk which will
+/// eventually call a remote walk (a walk on non-local nodes).  It
+/// then starts the Ewald initialization, and finally starts the local
+/// gravity walk.
 
 void TreePiece::startGravity(int am, // the active mask for multistepping
 			       double myTheta, // opening criterion
@@ -4225,14 +4220,10 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
     }
     CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
     gravityProxy[thisIndex].ckLocal()->contribute(cbf);
-    // XXX May need another way to take care of particles moving into
-    // this piece.  numChunks gets reset anyway by setupSmooth(), so
-    // this breaks SPH.
-    // numChunks = -1; // numchunks needs to get reset next iteration in
-		    // case particles move into this treepiece.
     return;
   }
   
+  // allocate and zero out statistics counters
   if (oldNumChunks != numChunks ) {
     delete[] nodeInterRemote;
     delete[] particleInterRemote;
@@ -4271,9 +4262,6 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 #endif
 
   initBuckets();
-
-#if INTERLIST_VER > 0
-#endif
 
   switch(domainDecomposition){
     case Oct_dec:
@@ -4457,7 +4445,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
           
           state->partMap.clear();
   }
-#endif
+#endif // CUDA
 
 #if CUDA_STATS
   localNodeInteractions = 0;
@@ -4469,7 +4457,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 #endif
 
 
-#endif
+#endif // INTERLIST_VER
 
   sLocalGravityState->myNumParticlesPending = numBuckets; 
   sRemoteGravityState->numPendingChunks = numChunks;
@@ -4482,10 +4470,6 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   sPrefetchState = sPrefetch->getNewState(1);
   // instead of prefetchWaiting, we count through state->counters[0]
   sPrefetchState->counterArrays[0][0] = (2*nReplicas + 1)*(2*nReplicas + 1)*(2*nReplicas + 1);
-  // done inside constructor
-  //sPrefetchState->current Bucket = 0;
-
-  //CkPrintf("%d replicas\n", nReplicas);
 
   activeWalks.reserve(maxAwi);
   addActiveWalk(prefetchAwi, sTopDown,sPrefetch,sPref,sPrefetchState);
@@ -4597,6 +4581,9 @@ void TreePiece::startRemoteChunk() {
 #endif
 }
 
+/// @brief Main work of StartRemoteChunk()
+/// Schedule a TreePiece::calculateGravityRemote() then start
+/// prefetching for the next chunk.
 void TreePiece::continueStartRemoteChunk(int chunk){
   // FIXME - can value of chunk be different from current Prefetch?
   //CkPrintf("[%d] continueStartRemoteChunk chunk: %d, current Prefetch: %d\n", thisIndex, chunk, current Prefetch);
@@ -4661,7 +4648,7 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
     numActiveParticles = myNumParticles;
   }
   else if(activeRung == PHASE_FEEDBACK) {
-      numActiveParticles = myNumStar;
+      numActiveParticles = myNumSPH + myNumStar;
       }
   else{
     for(numActiveParticles = 0, i = 1; i <= myNumParticles; i++)
@@ -5507,20 +5494,6 @@ void printGenericTree(GenericTreeNode* node, ostream& os) {
     }
   }
 }
-
-/*
-void TreePiece::getPieceValues(piecedata *totaldata){
-#if COSMO_STATS > 0
-  totaldata->modifypiecedata(myNumCellInteractions,myNumParticleInteractions,myNumMACChecks,piecemass);
-  if(thisIndex != (int) numTreePieces - 1)
-  	pieces[thisIndex + 1].getPieceValues(totaldata);
-  else {
-    CkCallback& cb= totaldata->getcallback();
-    cb.send(totaldata);
-  }
-#endif
-}
-*/
 
 CkReduction::reducerType TreePieceStatistics::sum;
 

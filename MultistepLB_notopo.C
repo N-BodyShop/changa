@@ -195,6 +195,26 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
     LDObjHandle &handle = tpCentroids[i].handle;
     tpCentroids[i].tag = stats->getHash(handle.id, handle.omhandle.id);
   }
+  if(_lb_args.debug() >= 2 && step() > 0) {
+      // Write out "particle file" of measured load balance information
+      char achFileName[1024];
+      sprintf(achFileName, "lb_a.%d.sim", step()-1);
+      FILE *fp = fopen(achFileName, "w");
+      CkAssert(fp != NULL);
+      fprintf(fp, "%d %d 0\n", stats->n_objs, stats->n_objs);
+      for(int i = 0; i < stats->n_objs; i++) {
+	  CkAssert(tpCentroids[i].tag < stats->n_objs);
+	  CkAssert(tpCentroids[i].tag >= 0);
+	  fprintf(fp, "%g %g %g %g 0.0 0.0 0.0 %d %d\n",
+		  stats->objData[tpCentroids[i].tag].wallTime,
+		  tpCentroids[i].vec.x,
+		  tpCentroids[i].vec.y,
+		  tpCentroids[i].vec.z,
+		  stats->from_proc[tpCentroids[i].tag],
+		  tpCentroids[i].tp);
+	  }
+      fclose(fp);
+      }
   int phase = determinePhase(tpCentroids[0].activeRung);
   int prevPhase = tpCentroids[0].prevActiveRung;
   float *ratios = new float[stats->n_objs];

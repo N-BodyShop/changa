@@ -45,6 +45,7 @@ class TreeWalk{
   // must tell compute the ownerTP so it can perform its openCriterion() test
   TreePiece *getOwnerTP(){return ownerTP;}
   Compute *getCompute(){return comp;}
+  /// @brief Associate a compute object and a treepiece with this walk.
   virtual void init(Compute *c, TreePiece *owner);
   void reassoc(Compute *c);
 
@@ -90,22 +91,32 @@ class BottomUpTreeWalk : public TreeWalk{
 
 
 #if INTERLIST_VER > 0
-// Traverses local tree instead of global one.
-// Heads towards a target local bucket until told to DUMP.
-// The class is used in the local tree part of the 
-// double (interaction list) walk. 
-// It is given a new target node and a DoubleWalkState object
-// whose checklists and undecidedlists it uses while walking 
-// down toward the new target node.
-// When it returns, the walk function will have modified 
-// the state object to reflect what the next target bucket
-// should be.
+/// Traverses local tree instead of global one.
+/// Heads towards a target local bucket until told to DUMP.
+/// The class is used in the local tree part of the 
+/// double (interaction list) walk. 
+/// It is given a new target node and a DoubleWalkState object
+/// whose checklists and undecidedlists it uses while walking 
+/// down toward the new target node.
+/// When it returns, the walk function will have modified 
+/// the state object to reflect what the next target bucket
+/// should be.
 class LocalTargetWalk : public TreeWalk {
 
   NodeKey targetKey;
   private:
+  /// @brief Depth First TreeWalk
+  /// @param localNode Node to work on.
+  /// @param state DoubleWalkState containing check lists.
+  /// @param chunk Chunk of remote tree we are working on.
+  /// @param reqID Target bucket index
+  /// @param isRoot Is localNode the root.
+  /// @param awi Active Walk Index.
+  /// @param level Level in the tree.
   void dft(GenericTreeNode *localNode, State *state, int chunk, int reqID, 
                                               bool isRoot, int awi, int level);
+  /// @brief process a node from the check list
+  /// @brief glblNode Source node to be checked.
   bool processNode(
                    GenericTreeNode *glblNode,
                    State *state, 

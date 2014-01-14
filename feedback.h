@@ -41,6 +41,7 @@ class SFEvent {
     dMass(mass), dTimeForm(tform), dMetals(mets), dMFracIron(fefrac), dMFracOxygen(oxfrac) { }
     };
 
+/// @brief Stellar/Supernova feedback parameters and routines.
 class Fdbk : public PUP::able {
  private:
     Fdbk& operator=(const Fdbk& fb);
@@ -67,6 +68,7 @@ class Fdbk : public PUP::able {
     double dRadPreFactor;       /* McKee + Ostriker size constant in system units */
     double dTimePreFactor;      /* McKee + Ostriker time constant in system units */
     int nSmoothFeedback;	/* number of particles to smooth feedback over*/
+    double dMaxCoolShutoff;     /* Maximum length of time to shutoff cooling */
     IMF *imf;
 
     void AddParams(PRM prm);
@@ -104,6 +106,7 @@ inline Fdbk::Fdbk(const Fdbk& fb) {
     dRadPreFactor = fb.dRadPreFactor;
     dTimePreFactor = fb.dTimePreFactor;
     nSmoothFeedback = fb.nSmoothFeedback;
+    dMaxCoolShutoff = fb.dMaxCoolShutoff;
     sn = fb.sn;
     pdva = fb.pdva;
     imf = fb.imf->clone();
@@ -126,6 +129,7 @@ inline void Fdbk::pup(PUP::er &p) {
     p | dRadPreFactor;
     p | dTimePreFactor;
     p | nSmoothFeedback;
+    p | dMaxCoolShutoff;
     p | sn;
     p | pdva;
     p | imf;
