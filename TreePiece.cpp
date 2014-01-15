@@ -562,7 +562,7 @@ void ReductionHelper::evaluateBoundaries(const CkBitVector &binsToSplit, const C
   if (newSplitters.back() != lastPossibleKey) {
     newSplitters.push_back(lastPossibleKey);
   }
-  evaluateBoundaries(false, &newSplitters[0], newSplitters.size(), 0, cb);
+  evaluateBoundaries(true, &newSplitters[0], newSplitters.size(), 0, cb);
 }
 
 #endif

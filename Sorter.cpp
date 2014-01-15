@@ -290,7 +290,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
     case SFC_peano_dec:
     case SFC_peano_dec_3D:
     case SFC_peano_dec_2D:
-        numKeys = 0;
+        totalLoad = 0;
         if (keyBoundaries.size() == 0) {
 	    splitters.clear();
 	    int nSplitters = 4*numChares + 1;
@@ -352,7 +352,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
 
     case ORB_dec:
     case ORB_space_dec:
-	numKeys = 0;
+	totalLoad = 0;
       treeProxy.initORBPieces(CkCallback(CkIndex_Sorter::doORBDecomposition(0), thishandle));
     break;
       default:
@@ -363,6 +363,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
     ckout << "Sorter: Initially have " << splitters.size() << " splitters" << endl;
   
 
+  bool decomposeByLoad;
   //send out the first guesses to be evaluated
   if((domainDecomposition!=ORB_dec) && (domainDecomposition!=ORB_space_dec)) {
 
@@ -370,9 +371,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
       // XXX: Optimizations available if sort has been done before!
       //create initial evenly distributed guesses for splitter keys
       keyBoundaries.clear();
-      accumulatedBinCounts.clear();
       keyBoundaries.reserve(numChares + 1);
-      accumulatedBinCounts.reserve(numChares + 1);
       keyBoundaries.push_back(firstPossibleKey);      
     } else {
       //send out all the decided keys to get final bin counts
@@ -387,20 +386,18 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
       keys = &keyBoundaries; 
     }
 
-    bool decomposeByLoad;
-    if (domainDecomposition == Oct_dec) {
-      decomposeByLoad = true;
+    if (decompose) {
+      boundariesTargetProxy.evaluateBoundaries(true, &(*keys->begin()), keys->size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
     }
     else {
-      decomposeByLoad = false;
+      boundariesTargetProxy.evaluateBoundaries(false, &(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::receiveParticleCounts(0), thishandle));    
     }
-    boundariesTargetProxy.evaluateBoundaries(decomposeByLoad, &(*keys->begin()), keys->size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
   }
 
 }
 
 /**
- * Given "numKeys" node keys ("nodeKeys"), convert these keys into splitters.
+ * Convert node keys into splitters.
  */
 void Sorter::convertNodesToSplitters(){
   Key partKey;
@@ -687,8 +684,12 @@ void Sorter::receiveParticleCounts(CkReductionMsg* m) {
   }
   CkPrintf("\n total count: %d\n", accum);
 #endif
-  dm.acceptFinalKeys(&(*splitters.begin()), &(*chareIDs.begin()), binCounts, splitters.size(), sortingCallback);
-
+  if (domainDecomposition == Oct_dec) {
+    dm.acceptFinalKeys(&(*splitters.begin()), &(*chareIDs.begin()), binCounts, splitters.size(), sortingCallback);
+  }
+  else {
+    dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), binCounts, keyBoundaries.size(), sortingCallback);
+  }
   numIterations = 0;
   sorted = false;
 }
@@ -815,13 +816,14 @@ bool Sorter::refineOctSplitting(int n, float *loads) {
  */
 void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	numIterations++;
-	numBins = m->getSize() / sizeof(int);
-	binCounts.resize(numBins + 1);
-	binCounts[0] = 0;
-	int* startCounts = static_cast<int *>(m->getData());
-	copy(startCounts, startCounts + numBins, binCounts.begin() + 1);
+	numBins = m->getSize() / sizeof(float);
+	binLoads.resize(numBins + 1);
+	binLoads[0] = 0;
+	float* startLoads = static_cast<float *>(m->getData());
+	copy(startLoads, startLoads + numBins, binLoads.begin() + 1);
 	delete m;
 
+        /*
         if (sorted) { // needed only when skipping decomposition
 
           dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()) + 1, keyBoundaries.size(), sortingCallback);
@@ -829,18 +831,18 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
           sorted = false;
           return;
         }
+        */
 
 	if(verbosity >= 4)
 		ckout << "Sorter: On iteration " << numIterations << endl;
 	CkAssert(numIterations < 1000);  // Sorter has not converged.
 	
-	//sum up the individual bin counts, so each bin has the count of it and all preceding
-	partial_sum(binCounts.begin(), binCounts.end(), binCounts.begin());
+	partial_sum(binLoads.begin(), binLoads.end(), binLoads.begin());
 	
-	if(!numKeys) {
-		numKeys = binCounts.back();
-		int avgValue = numKeys / numChares;
-		closeEnough = static_cast<int>(avgValue * tolerance);
+	if(totalLoad == 0) {
+		totalLoad = binLoads.back();
+		float avgValue = totalLoad / numChares;
+		closeEnough = static_cast<float>(avgValue * tolerance);
 		if(closeEnough < 0 || closeEnough >= avgValue) {
 			ckerr << "Sorter: Unacceptable tolerance, requiring exact fit." << endl;
 			closeEnough = 0;
@@ -848,22 +850,14 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 		
 		//each splitter key will split the keys near a goal number of keys
                 numGoalsPending = numChares - 1;
-                goals = new int[numGoalsPending];
+                goals = new float[numGoalsPending];
 
-		int rem = numKeys % numChares;
-                int prev = 0;
-		// evenly distribute extra particles.
-                for (int i = 0; i < rem; i++) {
-                  goals[i] = prev + avgValue + 1;
-                  prev = goals[i];
-                }
-                for (int i = rem; i < numGoalsPending; i++) {
-                  goals[i] = prev + avgValue;
-                  prev = goals[i];
+                for (int i = 0; i < numGoalsPending; i++) {
+                  goals[i] = (i + 1) * avgValue;
                 }
 		
 		if(verbosity >= 3)
-			ckout << "Sorter: Target keys per chare: " << avgValue << " plus/minus " << (2 * closeEnough) << endl;
+			ckout << "Sorter: Target load per chare: " << avgValue << " plus/minus " << (2 * closeEnough) << endl;
 	}
 
 	//make adjustments to the splitter keys based on the results of the previous iteration
@@ -882,16 +876,13 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 
 		sort(keyBoundaries.begin() + 1, keyBoundaries.end());
 		keyBoundaries.push_back(lastPossibleKey);
-                accumulatedBinCounts.push_back(binCounts.back());
-                sort(accumulatedBinCounts.begin(), accumulatedBinCounts.end());
-                binCounts.resize(accumulatedBinCounts.size());
-                std::adjacent_difference(accumulatedBinCounts.begin(), accumulatedBinCounts.end(), binCounts.begin());
-                accumulatedBinCounts.clear();
 
-                //send out the final splitters and responsibility table
-                dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), keyBoundaries.size(), sortingCallback);
-		numIterations = 0;
-		sorted = false;
+#ifdef REDUCTION_HELPER
+                CProxy_ReductionHelper boundariesTargetProxy = reductionHelperProxy;
+#else
+                CProxy_TreePiece boundariesTargetProxy = treeProxy;
+#endif
+                boundariesTargetProxy.evaluateBoundaries(false, &keyBoundaries[0], keyBoundaries.size(), 0, CkCallback(CkIndex_Sorter::receiveParticleCounts(0), thishandle));
 
 	} else {
           //send out the new guesses to be evaluated
@@ -900,7 +891,7 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
           boundariesTargetProxy.evaluateBoundaries(binsToSplit, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 #else
           CProxy_TreePiece boundariesTargetProxy = treeProxy;
-          boundariesTargetProxy.evaluateBoundaries(false, &splitters[0], splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+          boundariesTargetProxy.evaluateBoundaries(true, &splitters[0], splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 #endif
         }
 }
@@ -921,33 +912,31 @@ void Sorter::adjustSplitters() {
   newSplitters.push_back(firstPossibleKey);
 	
 	Key leftBound, rightBound;
-	vector<unsigned int>::iterator numLeftKey, numRightKey = binCounts.begin();
+	vector<float>::iterator numLeftKey, numRightKey = binLoads.begin();
 	
         int numActiveGoals = 0;
 	//for each goal not yet met (each splitter key not yet found)
 	for(int i = 0; i < numGoalsPending; i++) {
 
 		//find the positions that bracket the goal
-		numRightKey = lower_bound(numRightKey, binCounts.end(), goals[i]);
+		numRightKey = lower_bound(numRightKey, binLoads.end(), goals[i]);
 		numLeftKey = numRightKey - 1;
 		
-		if(numRightKey == binCounts.begin())
+		if(numRightKey == binLoads.begin())
 			ckerr << "Sorter: Looking for " << goals[i] << " How could this happen at the beginning?" << endl;
-		if(numRightKey == binCounts.end())
+		if(numRightKey == binLoads.end())
 			ckerr << "Sorter: Looking for " << goals[i] << " How could this happen at the end?" << endl;
 		
 		//translate the positions into the bracketing keys
-		leftBound = splitters[numLeftKey - binCounts.begin()];
-		rightBound = splitters[numRightKey - binCounts.begin()];
+		leftBound = splitters[numLeftKey - binLoads.begin()];
+		rightBound = splitters[numRightKey - binLoads.begin()];
 
 		//check if one of the bracketing keys is close enough to the goal
-		if(abs((int)*numLeftKey - goals[i]) <= closeEnough) {
+		if(abs(*numLeftKey - goals[i]) <= closeEnough) {
 			//add this key to the list of decided splitter keys
 			keyBoundaries.push_back(leftBound);
-                        accumulatedBinCounts.push_back(*numLeftKey);
-		} else if(abs((int)*numRightKey - goals[i]) <= closeEnough) {
+		} else if(abs(*numRightKey - goals[i]) <= closeEnough) {
 			keyBoundaries.push_back(rightBound);
-                        accumulatedBinCounts.push_back(*numRightKey);
 		} else {
 			// not close enough yet, add the bracketing keys and
 			// the middle to the guesses
@@ -962,7 +951,7 @@ void Sorter::adjustSplitters() {
 			    newSplitters.push_back(rightBound | 7L);
 			}
 			goals[numActiveGoals++] = goals[i];
-                        binsToSplit.Set(numLeftKey - binCounts.begin());
+                        binsToSplit.Set(numLeftKey - binLoads.begin());
 		}
 	}
 	numGoalsPending = numActiveGoals;

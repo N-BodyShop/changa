@@ -64,8 +64,8 @@ struct OctDecompNode {
 class Sorter : public CBase_Sorter {
 
         double decompTime;
-	/// The total number of keys we're sorting.
-	int numKeys;
+	/// The sum of all object loads
+	float totalLoad;
 	/// The number of chares to sort into.
 	int numChares;
 	// The number of chares currently with assigned data.
@@ -79,8 +79,8 @@ class Sorter : public CBase_Sorter {
 
 	/// The percent tolerance to sort keys within.
 	double tolerance;
-	/// The number of particles on either side of a splitter that corresponds to the requested tolerance.
-	int closeEnough;
+	/// The load on either side of a splitter that corresponds to the requested tolerance.
+	float closeEnough;
 	/// The number of iterations completed.
 	int numIterations;
 	/// A flag telling if we're done yet.
@@ -98,13 +98,12 @@ class Sorter : public CBase_Sorter {
 	int numBins;
 	/// The keys I've decided on that divide the objects evenly (within the tolerance).
 	std::vector<SFC::Key> keyBoundaries;
-        std::vector<unsigned int> accumulatedBinCounts;
 	/// The keys I'm sending out to be evaluated.
 	std::vector<SFC::Key> splitters;
 
         CkBitVector binsToSplit;
 	/// The list of object number splits not yet met.
-	int *goals;
+	float *goals;
         int numGoalsPending;
 	
 	/// The DataManager I broadcast candidate keys to.
