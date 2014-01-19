@@ -211,7 +211,7 @@ void Sorter::collectORBCounts(CkReductionMsg* m){
   CkAssert(numBins == 2*orbData.size());
   
   ORBSplittersMsg *splittersMsg;
-  float TOLER=0.05;
+  double TOLER=0.05;
   int doneCount=0;
   
   for(i=0,iter=orbData.begin(); iter!=orbData.end(); i++,iter++){
@@ -390,7 +390,7 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
       boundariesTargetProxy.evaluateBoundaries(true, &(*keys->begin()), keys->size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
     }
     else {
-      boundariesTargetProxy.evaluateBoundaries(false, &(*splitters.begin()), splitters.size(), 0, CkCallback(CkIndex_Sorter::receiveParticleCounts(0), thishandle));    
+      boundariesTargetProxy.evaluateBoundaries(false, &(*keys->begin()), keys->size(), 0, CkCallback(CkIndex_Sorter::receiveParticleCounts(0), thishandle));    
     }
   }
 
@@ -492,15 +492,15 @@ void Sorter::collectEvaluations(CkReductionMsg* m) {
 void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 
   numIterations++;
-  numBins = m->getSize() / sizeof(float);
-  float* startLoads = static_cast<float *>(m->getData());
+  numBins = m->getSize() / sizeof(double);
+  double* startLoads = static_cast<double *>(m->getData());
 
   //call function which will balance the bin counts: define it in GenericTreeNode
   //make it a templated function
   //Pass the bincounts as well as the nodekeys
 
   if (joinThreshold == 0) {
-    float total_load = std::accumulate(startLoads, startLoads+numBins, 0.0f);
+    double total_load = std::accumulate(startLoads, startLoads+numBins, 0.0f);
     joinThreshold = 1.25 * total_load / numTreePieces;
     splitThreshold = 1.5 * total_load / numTreePieces;
   }
@@ -580,7 +580,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
       delete leaves;
     }
 
-    float total = root->reduceLoads();
+    double total = root->reduceLoads();
     // CkPrintf("total number of particles: %d\n", total);
     do {
 	// Convert Oct domains to splitters, ensuring that we do not exceed
@@ -613,8 +613,8 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     CkPrintf("\n");
 
     CkPrintf("final loads: ");
-    float totalAccum = 0;
-    float maxLoad = 0;
+    double totalAccum = 0;
+    double maxLoad = 0;
     for(int i = 0; i < binLoads.size(); i++){
       CkPrintf("%.2g,", binLoads[i]);
       totalAccum += binLoads[i];
@@ -625,7 +625,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 
     }
 
-    float aveLoad = totalAccum / binLoads.size();
+    double aveLoad = totalAccum / binLoads.size();
     int numSmallCount = 0;
     for(int i = 0; i < binLoads.size(); i++){
       if (binLoads[i] < 0.1 * aveLoad) {
@@ -692,6 +692,8 @@ void Sorter::receiveParticleCounts(CkReductionMsg* m) {
   }
   numIterations = 0;
   sorted = false;
+
+  delete m;
 }
 
 int OctDecompNode::maxNumChildren = 2;
@@ -715,7 +717,7 @@ void OctDecompNode::makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active){
   }
 }
 
-float OctDecompNode::reduceLoads() {
+double OctDecompNode::reduceLoads() {
   if (children == NULL) {
     return load;
   }
@@ -728,7 +730,7 @@ float OctDecompNode::reduceLoads() {
   }
 }
 
-void OctDecompNode::combine(float joinThreshold, vector<NodeKey> &finalKeys, vector<float> &binLoads){
+void OctDecompNode::combine(double joinThreshold, vector<NodeKey> &finalKeys, vector<double> &binLoads){
   if(load < joinThreshold || nchildren == 0){
     finalKeys.push_back(key);
     binLoads.push_back(load);
@@ -775,7 +777,7 @@ void OctDecompNode::deleteBeneath(){
  * refinement, "nodesOpened" will be changed to reflect this request for more data.
  * Returns true if more refinement is requested.
  */
-bool Sorter::refineOctSplitting(int n, float *loads) {
+bool Sorter::refineOctSplitting(int n, double *loads) {
 
   CkAssert(activeNodes->length() == n);
 
@@ -816,10 +818,10 @@ bool Sorter::refineOctSplitting(int n, float *loads) {
  */
 void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	numIterations++;
-	numBins = m->getSize() / sizeof(float);
+	numBins = m->getSize() / sizeof(double);
 	binLoads.resize(numBins + 1);
 	binLoads[0] = 0;
-	float* startLoads = static_cast<float *>(m->getData());
+	double* startLoads = static_cast<double *>(m->getData());
 	copy(startLoads, startLoads + numBins, binLoads.begin() + 1);
 	delete m;
 
@@ -836,13 +838,14 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	if(verbosity >= 4)
 		ckout << "Sorter: On iteration " << numIterations << endl;
 	CkAssert(numIterations < 1000);  // Sorter has not converged.
+
 	
 	partial_sum(binLoads.begin(), binLoads.end(), binLoads.begin());
 	
 	if(totalLoad == 0) {
 		totalLoad = binLoads.back();
-		float avgValue = totalLoad / numChares;
-		closeEnough = static_cast<float>(avgValue * tolerance);
+		double avgValue = totalLoad / numChares;
+		closeEnough = static_cast<double>(avgValue * tolerance);
 		if(closeEnough < 0 || closeEnough >= avgValue) {
 			ckerr << "Sorter: Unacceptable tolerance, requiring exact fit." << endl;
 			closeEnough = 0;
@@ -850,12 +853,11 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 		
 		//each splitter key will split the keys near a goal number of keys
                 numGoalsPending = numChares - 1;
-                goals = new float[numGoalsPending];
+                goals = new double[numGoalsPending];
 
                 for (int i = 0; i < numGoalsPending; i++) {
                   goals[i] = (i + 1) * avgValue;
                 }
-		
 		if(verbosity >= 3)
 			ckout << "Sorter: Target load per chare: " << avgValue << " plus/minus " << (2 * closeEnough) << endl;
 	}
@@ -863,7 +865,7 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	//make adjustments to the splitter keys based on the results of the previous iteration
 	adjustSplitters();
 
-        if(verbosity >= 4) {
+	if(verbosity >= 4) {
 		ckout << "Sorter: Probing " << splitters.size() << " splitter keys" << endl;
 		ckout << "Sorter: Decided on " << (keyBoundaries.size() - 1) << " splitting keys" << endl;
         }
@@ -871,7 +873,7 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	//check if we have found all the splitters
 	if(sorted) {
           
-		if(verbosity)
+	  // if(verbosity)
 			ckout << "Sorter: Histograms balanced after " << numIterations << " iterations." << endl;
 
 		sort(keyBoundaries.begin() + 1, keyBoundaries.end());
@@ -906,13 +908,13 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 void Sorter::adjustSplitters() {
 
   std::vector<SFC::Key> newSplitters;
-  binsToSplit.Resize(splitters.size() -1 );
+  binsToSplit.Resize(splitters.size() - 1);
   binsToSplit.Zero();
   newSplitters.reserve(splitters.size() * 4);
   newSplitters.push_back(firstPossibleKey);
 	
 	Key leftBound, rightBound;
-	vector<float>::iterator numLeftKey, numRightKey = binLoads.begin();
+	vector<double>::iterator numLeftKey, numRightKey = binLoads.begin();
 	
         int numActiveGoals = 0;
 	//for each goal not yet met (each splitter key not yet found)
@@ -932,10 +934,10 @@ void Sorter::adjustSplitters() {
 		rightBound = splitters[numRightKey - binLoads.begin()];
 
 		//check if one of the bracketing keys is close enough to the goal
-		if(abs(*numLeftKey - goals[i]) <= closeEnough) {
+		if(fabs(*numLeftKey - goals[i]) <= closeEnough) {
 			//add this key to the list of decided splitter keys
 			keyBoundaries.push_back(leftBound);
-		} else if(abs(*numRightKey - goals[i]) <= closeEnough) {
+		} else if(fabs(*numRightKey - goals[i]) <= closeEnough) {
 			keyBoundaries.push_back(rightBound);
 		} else {
 			// not close enough yet, add the bracketing keys and
@@ -967,12 +969,24 @@ void Sorter::adjustSplitters() {
 		splitters.reserve(newSplitters.size());
 		splitters.assign(newSplitters.begin(), newSplitters.end());
 
-               if(verbosity >=4 ) {
+		if(verbosity >=4) {
                   CkPrintf("Keys:");
                   for (std::vector<Key>::iterator  it = splitters.begin(); it < splitters.end(); it++) {
                     CkPrintf("%lx,", *it);
                   }
                   CkPrintf("\n");
-                }
+
+                  CkPrintf("Goals:");
+                  for (int i = 0; i < numGoalsPending; i++) {
+		    CkPrintf("%f, ", goals[i]);
+		  }
+                  CkPrintf("\n");
+
+		  CkPrintf("Bin loads:");
+		  for (int i = 0; i < binLoads.size(); i++) {
+		    CkPrintf("%f, ", binLoads[i]);
+		  }
+		  CkPrintf("\n");
+		}
 	}
 }

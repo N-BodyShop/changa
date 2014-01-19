@@ -1921,7 +1921,7 @@ class ReductionHelper : public CBase_ReductionHelper {
 
   void countTreePieces(const CkCallback &cb);
   void reduceBinCounts(int nBins, int *binCounts, const CkCallback &cb);
-  void reduceBinLoads(int nBins, float *binLoads, const CkCallback &cb);
+  void reduceBinLoads(int nBins, double *binLoads, const CkCallback &cb);
   void evaluateBoundaries(bool convertToLoad, SFC::Key *keys, const int n, int isRefine, const CkCallback& cb);
   void evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb);
 
@@ -1931,7 +1931,7 @@ class ReductionHelper : public CBase_ReductionHelper {
   private:
 
   CkVec<int> myBinCounts;
-  CkVec<float> myBinLoads;
+  CkVec<double> myBinLoads;
   int numTreePiecesCheckedIn;
 
   TreePieceCounter localTreePieces;

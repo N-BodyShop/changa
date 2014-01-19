@@ -30,12 +30,12 @@ struct OctDecompNode {
   OctDecompNode *children;
   int nchildren;
 
-  float load;
+  double load;
 
   void makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active);
-  float reduceLoads();
+  double reduceLoads();
   void deleteBeneath();
-  void combine(float joinThreshold, vector<NodeKey> &finalKeys, vector<float> &binLoads);
+  void combine(double joinThreshold, vector<NodeKey> &finalKeys, vector<double> &binLoads);
   void getLeafNodes(CkVec<OctDecompNode*> *activeNodes);
 };
 
@@ -65,7 +65,7 @@ class Sorter : public CBase_Sorter {
 
         double decompTime;
 	/// The sum of all object loads
-	float totalLoad;
+	double totalLoad;
 	/// The number of chares to sort into.
 	int numChares;
 	// The number of chares currently with assigned data.
@@ -80,7 +80,7 @@ class Sorter : public CBase_Sorter {
 	/// The percent tolerance to sort keys within.
 	double tolerance;
 	/// The load on either side of a splitter that corresponds to the requested tolerance.
-	float closeEnough;
+	double closeEnough;
 	/// The number of iterations completed.
 	int numIterations;
 	/// A flag telling if we're done yet.
@@ -91,9 +91,9 @@ class Sorter : public CBase_Sorter {
         std::vector<unsigned int> binCounts;
         std::vector<unsigned int> binCountsGas;
         std::vector<unsigned int> binCountsStar;
-        std::vector<float> binLoads;
-	std::vector<float> binLoadsGas;
-	std::vector<float> binLoadsStar;
+        std::vector<double> binLoads;
+	std::vector<double> binLoadsGas;
+	std::vector<double> binLoadsStar;
 	/// The number of bins in the histogram.
 	int numBins;
 	/// The keys I've decided on that divide the objects evenly (within the tolerance).
@@ -103,7 +103,7 @@ class Sorter : public CBase_Sorter {
 
         CkBitVector binsToSplit;
 	/// The list of object number splits not yet met.
-	float *goals;
+	double *goals;
         int numGoalsPending;
 	
 	/// The DataManager I broadcast candidate keys to.
@@ -112,7 +112,7 @@ class Sorter : public CBase_Sorter {
 	CkCallback sortingCallback;
 
 	/// Variables to decide when to split or join a TreePiece in the Oct decomposition
-	float joinThreshold, splitThreshold;
+	double joinThreshold, splitThreshold;
 	/// Specify what is the level of refinement of nodes sent out
 	/// for histogramming in Oct decomposition.
 	int refineLevel;
@@ -148,7 +148,7 @@ class Sorter : public CBase_Sorter {
   Compare comp;
 
 	void adjustSplitters();
-        bool refineOctSplitting(int n, float *loads);
+        bool refineOctSplitting(int n, double *loads);
 	
 public:
 	

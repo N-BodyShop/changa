@@ -525,9 +525,10 @@ void ReductionHelper::evaluateBoundaries(bool convertToLoad, SFC::Key* keys, con
   splitters.assign(keys, keys + n);
   if(localTreePieces.presentTreePieces.size() == 0){
     int numBins = skipEvery ? n - (n-1)/(skipEvery+1) - 1 : n - 1;
-    float *dummy = new float[numBins];
+    double *dummy = new double[numBins];
     for(int i = 0; i < numBins; i++) dummy[i] = 0;
-    contribute(sizeof(float)*numBins, dummy, CkReduction::sum_float, cb);
+    contribute(sizeof(double)*numBins, dummy, CkReduction::sum_double, cb);
+    delete [] dummy;
     return;
   }
 
@@ -579,8 +580,7 @@ void ReductionHelper::evaluateBoundaries(const CkBitVector &binsToSplit, const C
 void TreePiece::evaluateBoundaries(bool convertToLoad, SFC::Key* keys, const int n, int skipEvery, const CkCallback& cb){
 
   if (!warmupFinished) {
-    treePieceLoadTmp = (float) myNumParticles;
-    warmupFinished = true;
+    treePieceLoadTmp = (double) myNumParticles;
   }
   else if (treePieceLoadTmp == 0) {
     treePieceLoadTmp = getObjTime();
@@ -600,7 +600,7 @@ void TreePiece::evaluateBoundaries(bool convertToLoad, SFC::Key* keys, const int
   //this array will contain the number of particles I own in each bin
   int *myCounts;  
   
-  float *myLoads; 
+  double *myLoads; 
 
 #ifdef REDUCTION_HELPER
   myCounts = new int[numBins];
@@ -610,8 +610,8 @@ void TreePiece::evaluateBoundaries(bool convertToLoad, SFC::Key* keys, const int
   myCounts = myBinCounts.getVec();
 #endif
   if (convertToLoad) {
-    myLoads = new float[numBins];
-    memset(myLoads, 0, numBins * sizeof(float));
+    myLoads = new double[numBins];
+    memset(myLoads, 0, numBins * sizeof(double));
   }
 
   memset(myCounts, 0, numBins*sizeof(int));
@@ -644,7 +644,7 @@ void TreePiece::evaluateBoundaries(bool convertToLoad, SFC::Key* keys, const int
       if (skip != 0) {
         myCounts[binIter] = (binEnd - binBegin);
         if (convertToLoad) {
-          myLoads[binIter] = treePieceLoadTmp * myCounts[binIter] / myNumParticles;
+          myLoads[binIter] = treePieceLoadTmp / myNumParticles * myCounts[binIter];
         }
         ++binIter;
         --skip;
@@ -675,18 +675,20 @@ void TreePiece::evaluateBoundaries(bool convertToLoad, SFC::Key* keys, const int
   */
   if (convertToLoad) {
     reductionHelperProxy.ckLocalBranch()->reduceBinLoads(numBins, myLoads, cb);
+    delete [] myLoads;
   }
   else {
     treePieceLoadTmp = 0.0;
     reductionHelperProxy.ckLocalBranch()->reduceBinCounts(numBins, myCounts, cb);
   }
-  delete[] myCounts;
+  delete [] myCounts;
 #else
   if (!convertToLoad) {
     contribute(numBins * sizeof(int), myCounts, CkReduction::sum_int, cb);
   }
   else {
-    contribute(numBins * sizeof(float), myLoads, CkReduction::sum_float, cb); 
+    contribute(numBins * sizeof(double), myLoads, CkReduction::sum_double, cb); 
+    delete [] myLoads;
   }
 #endif
 }
@@ -697,6 +699,8 @@ void TreePiece::evaluateBoundaries(bool convertToLoad, SFC::Key* keys, const int
 void TreePiece::unshuffleParticles(CkReductionMsg* m){
   double tpLoad;
   double partialLoad; 
+
+  warmupFinished = true;
 
   if (dm == NULL) {
     dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
@@ -6201,7 +6205,7 @@ void ReductionHelper::reduceBinCounts(int nBins, int *binCounts, const CkCallbac
   }
 }
 
-void ReductionHelper::reduceBinLoads(int nBins, float *binLoads, const CkCallback &cb){
+void ReductionHelper::reduceBinLoads(int nBins, double *binLoads, const CkCallback &cb){
 
   numTreePiecesCheckedIn++;
 
@@ -6209,7 +6213,7 @@ void ReductionHelper::reduceBinLoads(int nBins, float *binLoads, const CkCallbac
 
     myBinLoads.resize(nBins);
     // initialize to contribution to reduction from first tree piece
-    memcpy(&myBinLoads[0], binLoads, nBins*sizeof(float));
+    memcpy(&myBinLoads[0], binLoads, nBins*sizeof(double));
   }
   else{
     CkAssert(nBins == myBinLoads.size());
@@ -6222,7 +6226,7 @@ void ReductionHelper::reduceBinLoads(int nBins, float *binLoads, const CkCallbac
   if(numTreePiecesCheckedIn == localTreePieces.presentTreePieces.size()){
     //CkPrintf("ReductionHelper %d contributing to PE-level reduction\n", CkMyPe());
     numTreePiecesCheckedIn = 0;
-    contribute(sizeof(float)*myBinLoads.size(), &myBinLoads[0], CkReduction::sum_float, cb);
+    contribute(sizeof(double)*myBinLoads.size(), &myBinLoads[0], CkReduction::sum_double, cb);
   }
 }
 
