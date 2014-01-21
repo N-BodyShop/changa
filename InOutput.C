@@ -1106,8 +1106,8 @@ void TreePiece::ioShuffle(CkReductionMsg *msg)
 		    nStarOut++;
 		}
 	    ParticleShuffleMsg *shuffleMsg
-		= new (nPartOut, nGasOut, nStarOut)
-		ParticleShuffleMsg(nPartOut, nGasOut, nStarOut, 0.0);
+		= new (0, 0, nPartOut, nGasOut, nStarOut)
+		ParticleShuffleMsg(0, nPartOut, nGasOut, nStarOut, 0.0);
 	    int iGasOut = 0;
 	    int iStarOut = 0;
 	    GravityParticle *pPartOut = shuffleMsg->particles;
