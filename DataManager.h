@@ -263,6 +263,7 @@ class ProjectionsControl : public CBase_ProjectionsControl {
     if (CkMyRank()==0) ck_set_GNI_BIConfig(64);
 #endif
     LBTurnCommOff();
+    LBSetPeriod(0.0); // no need for LB interval: we are using Sync Mode
   } 
   ProjectionsControl(CkMigrateMessage *m) : CBase_ProjectionsControl(m) {} 
  
