@@ -709,16 +709,6 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
   tpLoad = getObjTime();
   callback = *static_cast<CkCallback *>(m->getData());
 
-  //find my responsibility
-  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
-  if (myPlace == dm->responsibleIndex.size()) {
-    myPlace = -2;
-  } else {
-    //assign my bounding keys
-    leftSplitter = dm->boundaryKeys[myPlace];
-    rightSplitter = dm->boundaryKeys[myPlace + 1];
-  }
-
   // CkPrintf("[%d] myplace %d\n", thisIndex, myPlace);
 
   /*
@@ -729,13 +719,24 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
   }
   */
 
-  vector<Key>::iterator iter = dm->boundaryKeys.begin();
-  vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
-  vector<int>::iterator responsibleIter = dm->responsibleIndex.begin();
+  if (myNumParticles == 0) {
+    incomingParticlesSelf = true;
+    acceptSortedParticles(NULL);
+    delete m;
+    return;
+  }
+
   GravityParticle *binBegin = &myParticles[1];
+  vector<Key>::iterator iter =
+    lower_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(),
+                binBegin->key);
+  vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
+  int offset = iter - dm->boundaryKeys.begin() - 1;
+  vector<int>::iterator responsibleIter = dm->responsibleIndex.begin() + offset;
+
   GravityParticle *binEnd;
   GravityParticle dummy;
-  for(++iter; iter != endKeys; ++iter, ++responsibleIter) {
+  for( ; iter != endKeys; ++iter, ++responsibleIter) {
     dummy.key = *iter;
     //find particles between this and the last key
     binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1],
