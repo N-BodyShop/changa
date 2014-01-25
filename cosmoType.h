@@ -1,7 +1,7 @@
 #ifndef __COSMOTYPE_H__
 #define __COSMOTYPE_H__
 
-/* #define COSMO_FLOAT */
+#define COSMO_FLOAT
 
 #ifdef COSMO_FLOAT
 #define CONVERT_TO_COSMO_TYPE (float)

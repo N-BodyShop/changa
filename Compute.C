@@ -178,6 +178,7 @@ State *ListCompute::getNewState(){
   return s;
 }
 
+/// @brief Clear lists.
 void ListCompute::initState(State *state){
 
   DoubleWalkState *s = (DoubleWalkState *)state;
@@ -216,16 +217,7 @@ void ListCompute::reassoc(void *ce, int ar, Opt *o){
   opt = o;
 }
 #endif
-/*
-void PrefetchCompute::init(void *buck, int ar, Opt *o){
 
-  // buck is actually the TreePiece this PrefetchCompute
-  // will query when it needs a prefetchRequestStruct
-  computeEntity = buck;
-  activeRung = ar;
-  opt = o;
-}
-*/
 void GravityCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp){
   if(getOptType() == Remote){
     state->counterArrays[0][decodeReqID(reqID)]++;

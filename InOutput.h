@@ -18,7 +18,12 @@ class OutputParams : public PUP::able
     virtual double dValue(GravityParticle *p) = 0;
     virtual Vector3D<double> vValue(GravityParticle *p) = 0;
     int bVector;	// Is a vector, as opposed to a scalar
+    int iBinaryOut;     // Type of binary output
+    double dTime;
     std::string fileName;	// output file
+    std::string sTipsyExt;      // Extension for tipsy output
+    std::string sNChilExt;      // file name for NChilada output
+    unsigned int iType;         // mask of families containing this attribute
     DataManager *dm;	// For extra state information (e.g. cooling)
 
     OutputParams() {dm = NULL;}
@@ -27,9 +32,150 @@ class OutputParams : public PUP::able
     virtual void pup(PUP::er &p) {
         PUP::able::pup(p);//Call base class
         p|fileName;
+        p|sTipsyExt;
+        p|sNChilExt;
         p|bVector;
+        p|iBinaryOut;
+        p|dTime;
+        p|iType;
 	}
     };
+
+/// @brief Output particle masses
+class MassOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {return p->mass;}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    MassOutputParams() {}
+    MassOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "mass"; sNChilExt = "mass";
+        dTime = _dTime;
+        iType = TYPE_GAS | TYPE_DARK | TYPE_STAR; }
+    PUPable_decl(MassOutputParams);
+    MassOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+/// @brief Output particle positions
+class PosOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+				{return p->position;}
+    PosOutputParams() {}
+    PosOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 1; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "pos"; sNChilExt = "pos";
+        dTime = _dTime;
+        iType = TYPE_GAS | TYPE_DARK | TYPE_STAR; }
+    PUPable_decl(PosOutputParams);
+    PosOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+/// @brief Output particle velocities
+class VelOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+				{return p->velocity;}
+    VelOutputParams() {}
+    VelOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 1; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "vel"; sNChilExt = "vel";
+        dTime = _dTime;
+        iType = TYPE_GAS | TYPE_DARK | TYPE_STAR; }
+    PUPable_decl(VelOutputParams);
+    VelOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+/// @brief Output particle gravitational potential
+class PotOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {return p->potential;}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    PotOutputParams() {}
+    PotOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "pot"; sNChilExt = "pot";
+        dTime = _dTime;
+        iType = TYPE_GAS | TYPE_DARK | TYPE_STAR; }
+    PUPable_decl(PotOutputParams);
+    PotOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+/// @brief Output particle gas density
+class GasDenOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {return p->fDensity;}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    GasDenOutputParams() {}
+    GasDenOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "gasden"; sNChilExt = "GasDensity";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
+    PUPable_decl(GasDenOutputParams);
+    GasDenOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+/// @brief Output particle gas temperature
+class TempOutputParams : public OutputParams
+{
+ public:
+    double duTFac;
+    bool bGasCooling;
+    virtual double dValue(GravityParticle *p) {
+        if(bGasCooling) {
+#ifndef COOLING_NONE
+            return CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(),
+                                               p->u(), p->fMetals());
+#else
+            CkAssert(0);
+#endif
+            }
+        return duTFac*p->u();
+        }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    TempOutputParams() {}
+    TempOutputParams(std::string _fileName, int _iBinaryOut, double _dTime,
+                     bool _bGasCooling, double _duTFac) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "temp"; sNChilExt = "temperature";
+        dTime = _dTime; bGasCooling = _bGasCooling; duTFac = _duTFac;
+        iType = TYPE_GAS; }
+    PUPable_decl(TempOutputParams);
+    TempOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+        p|bGasCooling;
+        p|duTFac;
+	}
+    };
+
 
 /// @brief Output accelerations.
 class AccOutputParams : public OutputParams
@@ -40,6 +186,11 @@ class AccOutputParams : public OutputParams
 				{return p->treeAcceleration;}
     AccOutputParams() {}
     AccOutputParams(std::string _fileName) { bVector = 1; fileName = _fileName;}
+    AccOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 1; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "acc2"; sNChilExt = "acc";
+        dTime = _dTime;
+        iType = TYPE_GAS | TYPE_DARK | TYPE_STAR; }
     PUPable_decl(AccOutputParams);
     AccOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -56,6 +207,11 @@ class DenOutputParams : public OutputParams
  public:
     DenOutputParams() {}
     DenOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    DenOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "den"; sNChilExt = "den";
+        dTime = _dTime;
+        iType = TYPE_GAS | TYPE_DARK | TYPE_STAR; }
     PUPable_decl(DenOutputParams);
     DenOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -71,9 +227,33 @@ class HsmOutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
  public:
     HsmOutputParams() {}
-    HsmOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    HsmOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "smoothlength"; sNChilExt = "smoothlength";
+        dTime = _dTime;
+        iType = TYPE_GAS | TYPE_DARK | TYPE_STAR; }
     PUPable_decl(HsmOutputParams);
     HsmOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+/// @brief Output particle gravitational softenings
+class SoftOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {return p->soft;}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    SoftOutputParams() {}
+    SoftOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "soft"; sNChilExt = "soft";
+        dTime = _dTime;
+        iType = TYPE_GAS | TYPE_DARK | TYPE_STAR; }
+    PUPable_decl(SoftOutputParams);
+    SoftOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
         OutputParams::pup(p);//Call base class
 	}
@@ -94,6 +274,11 @@ class PresOutputParams : public OutputParams
  public:
     PresOutputParams() {}
     PresOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    PresOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "pres"; sNChilExt = "pres";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
     PUPable_decl(PresOutputParams);
     PresOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -115,7 +300,11 @@ class DivVOutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
  public:
     DivVOutputParams() {}
-    DivVOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    DivVOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "divv"; sNChilExt = "divv";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
     PUPable_decl(DivVOutputParams);
     DivVOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -138,6 +327,11 @@ class PDVOutputParams : public OutputParams
  public:
     PDVOutputParams() {}
     PDVOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    PDVOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "PdV"; sNChilExt = "PdV";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
     PUPable_decl(PDVOutputParams);
     PDVOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -160,6 +354,11 @@ class MuMaxOutputParams : public OutputParams
  public:
     MuMaxOutputParams() {}
     MuMaxOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    MuMaxOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "mumax"; sNChilExt = "mumax";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
     PUPable_decl(MuMaxOutputParams);
     MuMaxOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -181,7 +380,11 @@ class BSwOutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
  public:
     BSwOutputParams() {}
-    BSwOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    BSwOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "BSw"; sNChilExt = "BSw";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
     PUPable_decl(BSwOutputParams);
     BSwOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -203,7 +406,11 @@ class CsOutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
  public:
     CsOutputParams() {}
-    CsOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    CsOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "c"; sNChilExt = "c";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
     PUPable_decl(CsOutputParams);
     CsOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -232,6 +439,11 @@ class EDotOutputParams : public OutputParams
  public:
     EDotOutputParams() {}
     EDotOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    EDotOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "eDot"; sNChilExt = "eDot";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
     PUPable_decl(EDotOutputParams);
     EDotOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -255,7 +467,13 @@ class Cool0OutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
  public:
     Cool0OutputParams() {}
-    Cool0OutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    Cool0OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+#ifndef COOLING_NONE
+        sTipsyExt = COOL_ARRAY0_EXT; sNChilExt = COOL_ARRAY0_EXT;
+#endif
+        dTime = _dTime;
+        iType = TYPE_GAS; }
     PUPable_decl(Cool0OutputParams);
     Cool0OutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -279,7 +497,13 @@ class Cool1OutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
  public:
     Cool1OutputParams() {}
-    Cool1OutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    Cool1OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+#ifndef COOLING_NONE
+        sTipsyExt = COOL_ARRAY1_EXT; sNChilExt = COOL_ARRAY1_EXT;
+#endif
+        dTime = _dTime;
+        iType = TYPE_GAS; }
     PUPable_decl(Cool1OutputParams);
     Cool1OutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -303,9 +527,132 @@ class Cool2OutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
  public:
     Cool2OutputParams() {}
-    Cool2OutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    Cool2OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+#ifndef COOLING_NONE
+        sTipsyExt = COOL_ARRAY2_EXT; sNChilExt = COOL_ARRAY2_EXT;
+#endif
+        dTime = _dTime;
+        iType = TYPE_GAS; }
     PUPable_decl(Cool2OutputParams);
     Cool2OutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+/// @brief Output Oxygen mass fraction.
+class OxOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+	if (TYPETest(p, TYPE_STAR)) return p->fStarMFracOxygen();
+	if (TYPETest(p, TYPE_GAS)) return p->fMFracOxygen();
+	else return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    OxOutputParams() {}
+    OxOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "OxMassFrac"; sNChilExt = "OxMassFrac";
+        dTime = _dTime;
+        iType = TYPE_GAS | TYPE_STAR; }
+    PUPable_decl(OxOutputParams);
+    OxOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+/// @brief Output Iron mass fraction.
+class FeOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+	if (TYPETest(p, TYPE_STAR)) return p->fStarMFracIron();
+	if (TYPETest(p, TYPE_GAS)) return p->fMFracIron();
+	else return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    FeOutputParams() {}
+    FeOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "FeMassFrac"; sNChilExt = "FeMassFrac";
+        dTime = _dTime;
+        iType = TYPE_GAS | TYPE_STAR; }
+    PUPable_decl(FeOutputParams);
+    FeOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class MFormOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+	if (TYPETest(p, TYPE_STAR)) return p->fMassForm();
+	else return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    MFormOutputParams() {}
+    MFormOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "massform"; sNChilExt = "massform";
+        dTime = _dTime;
+        iType = TYPE_STAR; }
+    PUPable_decl(MFormOutputParams);
+    MFormOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+/// @brief Output "cool on time" (time cooling is off until)
+class coolontimeOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+	if (TYPETest(p, TYPE_GAS)) return p->fTimeCoolIsOffUntil();
+	else return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+    {CkAssert(0); return 0.0;}
+ public:
+    coolontimeOutputParams() {}
+    coolontimeOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "coolontime"; sNChilExt = "coolontime";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
+    PUPable_decl(coolontimeOutputParams);
+    coolontimeOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+/// @brief Output Supernova heating rate
+class ESNRateOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+	if (p->isGas()) return p->fESNrate();
+	else if(p->isStar()) return p->fStarESNrate();
+	else return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+    {CkAssert(0); return 0.0;}
+ public:
+    ESNRateOutputParams() {}
+    ESNRateOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "ESNRate"; sNChilExt = "ESNRate";
+        dTime = _dTime;
+        iType = TYPE_GAS | TYPE_STAR; }
+    PUPable_decl(ESNRateOutputParams);
+    ESNRateOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
         OutputParams::pup(p);//Call base class
 	}
@@ -326,7 +673,11 @@ class DtOutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
  public:
     DtOutputParams() {}
-    DtOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    DtOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "dt"; sNChilExt = "dt";
+        dTime = _dTime;
+        iType = TYPE_GAS | TYPE_DARK | TYPE_STAR; }
     PUPable_decl(DtOutputParams);
     DtOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -334,7 +685,7 @@ class DtOutputParams : public OutputParams
 	}
     };
 
-/// @brief Output timesteps.
+/// @brief Output Keys.
 class KeyOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -345,9 +696,38 @@ class KeyOutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
  public:
     KeyOutputParams() {}
-    KeyOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    KeyOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "key"; sNChilExt = "key";
+        dTime = _dTime;
+        iType = TYPE_GAS | TYPE_DARK | TYPE_STAR; }
     PUPable_decl(KeyOutputParams);
     KeyOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+/// @brief Output Domains.
+class DomainOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p)
+    {
+	return p->interMass; // Hack: this gets assigned in assignDomain()
+			     // just for this diagnostic.
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    DomainOutputParams() {}
+    DomainOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    DomainOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "dom"; sNChilExt = "dom";
+        dTime = _dTime;
+        iType = TYPE_GAS | TYPE_DARK | TYPE_STAR; }
+    PUPable_decl(DomainOutputParams);
+    DomainOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
         OutputParams::pup(p);//Call base class
 	}
@@ -362,7 +742,12 @@ class OutputIntParams : public PUP::able
 {
  public:
     virtual int iValue(GravityParticle *p) = 0;
+    int iBinaryOut;     // Type of binary output
+    double dTime;
     std::string fileName;	// output file
+    std::string sTipsyExt;      // Extension for tipsy output
+    std::string sNChilExt;      // file name for NChilada output
+    unsigned int iType;         // mask of families containing this attribute
 
     OutputIntParams() {}
     PUPable_abstract(OutputIntParams);
@@ -370,6 +755,11 @@ class OutputIntParams : public PUP::able
     virtual void pup(PUP::er &p) {
         PUP::able::pup(p);//Call base class
         p|fileName;
+        p|sTipsyExt;
+        p|sNChilExt;
+        p|iBinaryOut;
+        p|dTime;
+        p|iType;
 	}
     };
 
@@ -382,7 +772,11 @@ class IOrderOutputParams : public OutputIntParams
 	}
  public:
     IOrderOutputParams() {}
-    IOrderOutputParams(std::string _fileName) { fileName = _fileName;}
+    IOrderOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "iord"; sNChilExt = "iord";
+        dTime = _dTime;
+        iType = TYPE_GAS | TYPE_DARK | TYPE_STAR; }
     PUPable_decl(IOrderOutputParams);
     IOrderOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -402,7 +796,11 @@ class IGasOrderOutputParams : public OutputIntParams
 	}
  public:
     IGasOrderOutputParams() {}
-    IGasOrderOutputParams(std::string _fileName) { fileName = _fileName;}
+    IGasOrderOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "igasord"; sNChilExt = "igasord";
+        dTime = _dTime;
+        iType = TYPE_STAR; }
     PUPable_decl(IGasOrderOutputParams);
     IGasOrderOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -419,7 +817,11 @@ class RungOutputParams : public OutputIntParams
 	}
  public:
     RungOutputParams() {}
-    RungOutputParams(std::string _fileName) { fileName = _fileName;}
+    RungOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "rung"; sNChilExt = "rung";
+        dTime = _dTime;
+        iType = TYPE_GAS| TYPE_DARK | TYPE_STAR; }
     PUPable_decl(RungOutputParams);
     RungOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {

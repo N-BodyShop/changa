@@ -18,7 +18,7 @@
 
 #include "SSEdefs.h"
 
-#if defined(__SSE2__) && defined(HEXADECAPOLE) 
+#if CMK_SSE && defined(HEXADECAPOLE) 
 /*
  ** This is a new fast version of QEVAL which evaluates
  ** the interaction due to the reduced moment 'm'.
