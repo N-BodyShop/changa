@@ -1532,6 +1532,12 @@ public:
 	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
 	void unshuffleParticles(CkReductionMsg* m);
 	void acceptSortedParticles(ParticleShuffleMsg *);
+
+  void shuffleAfterQD();
+  void unshuffleParticlesWoDD(const CkCallback& cb);
+  void unshuffleParticlesWoDDCB();
+  void acceptSortedParticlesQD(ParticleShuffleMsg *);
+
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);
   void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,

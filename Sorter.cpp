@@ -654,7 +654,8 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 
     CkPrintf(" histogramming %g sec ... \n", CmiWallTimer()-decompTime);
     
-    dm.acceptFinalKeys(&(*splitters.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), splitters.size(), sortingCallback);
+    dm.acceptFinalKeysNew(&(*splitters.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), splitters.size(), sortingCallback);
+    //dm.acceptFinalKeys(&(*splitters.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), splitters.size(), sortingCallback);
     numIterations = 0;
     sorted = false;
     return;

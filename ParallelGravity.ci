@@ -197,6 +197,10 @@ mainmodule ParallelGravity {
         const int responsible[n - 1],
         unsigned int bins[n - 1], const int n,
         const CkCallback& cb);
+    entry void acceptFinalKeysNew(const SFC::Key keys[n],
+        const int responsible[n - 1],
+        unsigned int bins[n - 1], const int n,
+        const CkCallback& cb);
     entry void collectSplitters(CkReductionMsg* m);
     //entry [local,exclusive] void notifyPresence(int index, Tree::GenericTreeNode *root);
     entry void combineLocalTrees(CkReductionMsg *m);
@@ -302,6 +306,11 @@ mainmodule ParallelGravity {
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
     entry void unshuffleParticles(CkReductionMsg* m);
     entry void acceptSortedParticles(ParticleShuffleMsg *);
+
+    entry void shuffleAfterQD();
+    entry void unshuffleParticlesWoDD(const CkCallback& cb);
+    entry void acceptSortedParticlesQD(ParticleShuffleMsg *);
+
     //ORB
     entry void initORBPieces(const CkCallback& cb);
     entry void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,
