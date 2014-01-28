@@ -101,11 +101,11 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
 
 	buf = &(transferKernel.bufferInfo[LOCAL_MOMENTS_IDX]);
 	buf->bufferID = LOCAL_MOMENTS;
-	buf->freeBuffer = NO;
+	buf->freeBuffer = false;
         size = (nMoments) * sizeof(CudaMultipoleMoments);
 	buf->size = size;
-	buf->transferToDevice = size > 0 ? YES : NO;
-	buf->transferFromDevice = NO;
+	buf->transferToDevice = size > 0;
+	buf->transferFromDevice = false;
 
         //double mill = 1e6;
         //printf("(%d) DM local moments: %f mbytes\n", mype, 1.0*size/mill);
@@ -135,11 +135,11 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
 
 	buf = &(transferKernel.bufferInfo[LOCAL_PARTICLE_CORES_IDX]);
 	buf->bufferID = LOCAL_PARTICLE_CORES;
-	buf->freeBuffer = NO;
+	buf->freeBuffer = false;
         size = (nCompactParts)*sizeof(CompactPartData);
         buf->size = size;
-	buf->transferToDevice = size > 0 ? YES : NO;
-	buf->transferFromDevice = NO;
+	buf->transferToDevice = size > 0;
+	buf->transferFromDevice = false;
 
         if(size > 0){
 #ifdef CUDA_USE_CUDAMALLOCHOST
@@ -164,11 +164,11 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
 
 	buf = &(transferKernel.bufferInfo[LOCAL_PARTICLE_VARS_IDX]);
 	buf->bufferID = LOCAL_PARTICLE_VARS;
-	buf->freeBuffer = NO;
+	buf->freeBuffer = false;
         size = (nCompactParts)*sizeof(VariablePartData);
 	buf->size = size;
-	buf->transferToDevice = size > 0 ? YES : NO;
-	buf->transferFromDevice = NO;
+	buf->transferToDevice = size > 0;
+	buf->transferFromDevice = false;
 
         if(size > 0){
 #ifdef CUDA_USE_CUDAMALLOCHOST
@@ -238,11 +238,11 @@ void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments,
 
   buf = &(transferKernel.bufferInfo[REMOTE_MOMENTS_IDX]);
   buf->bufferID = REMOTE_MOMENTS;
-  buf->transferFromDevice = NO;
-  buf->freeBuffer = NO;
+  buf->transferFromDevice = false;
+  buf->freeBuffer = false;
   size = (nMoments) * sizeof(CudaMultipoleMoments);
   buf->size = size;
-  buf->transferToDevice = (size > 0 ? YES : NO);
+  buf->transferToDevice = (size > 0);
   
   //double mill = 1e6;
   //printf("DM remote moments: %f mbytes\n", 1.0*size/mill);
@@ -257,11 +257,11 @@ void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments,
 
   buf = &(transferKernel.bufferInfo[REMOTE_PARTICLE_CORES_IDX]);
   buf->bufferID = REMOTE_PARTICLE_CORES;
-  buf->transferFromDevice = NO;
-  buf->freeBuffer = NO;
+  buf->transferFromDevice = false;
+  buf->freeBuffer = false;
   size = (nCompactParts)*sizeof(CompactPartData);  
   buf->size = size;
-  buf->transferToDevice = (size > 0 ? YES : NO);
+  buf->transferToDevice = (size > 0);
   //printf("DM remote cores: %f mbytes\n", 1.0*size/mill);
 
   if(size > 0){
@@ -385,15 +385,15 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleM
   gravityKernel.bufferInfo = (dataInfo *) malloc(gravityKernel.nBuffers * sizeof(dataInfo));
 
   TreePieceCellListDataTransferBasic(data, &gravityKernel);
-  transfer = gravityKernel.bufferInfo[ILCELL_IDX].transferToDevice == YES;
+  transfer = gravityKernel.bufferInfo[ILCELL_IDX].transferToDevice;
 
   buffer = &(gravityKernel.bufferInfo[MISSED_MOMENTS_IDX]);
   buffer->bufferID = -1;
   size = (numMissedMoments) * sizeof(CudaMultipoleMoments);
   buffer->size = size;
-  buffer->transferToDevice = transfer ? YES : NO;
-  buffer->freeBuffer = transfer ? YES : NO;
-  buffer->transferFromDevice = NO;
+  buffer->transferToDevice = transfer;
+  buffer->freeBuffer = transfer;
+  buffer->transferFromDevice = false;
 
   if(transfer){
     CUDA_MALLOC(buffer->hostBuffer, size);
@@ -424,43 +424,41 @@ void TreePieceCellListDataTransferBasic(CudaRequest *data, workRequest *gravityK
 	dataInfo *buffer;
 	int numBucketsPlusOne = data->numBucketsPlusOne;
         int numBuckets = numBucketsPlusOne-1;
-        int size;
-        bool transfer;
+        int size = (data->numInteractions) * sizeof(ILCell);
+        bool transfer = size > 0;
 
 	buffer = &(gravityKernel->bufferInfo[ILCELL_IDX]);
 	buffer->bufferID = -1;
-        size = (data->numInteractions) * sizeof(ILCell);
 	buffer->size = size;
-        transfer = size > 0;
-	buffer->transferToDevice = transfer ? YES : NO;
-	buffer->freeBuffer = transfer ? YES : NO;
-	buffer->transferFromDevice = NO;
+	buffer->transferToDevice = transfer;
+	buffer->freeBuffer = transfer;
+	buffer->transferFromDevice = false;
         buffer->hostBuffer = data->list;
 
 	buffer = &(gravityKernel->bufferInfo[NODE_BUCKET_MARKERS_IDX]);
 	buffer->bufferID = -1;
         size = (numBucketsPlusOne) * sizeof(int);
         buffer->size = transfer ? size : 0;
-	buffer->transferToDevice = transfer ? YES : NO;
-	buffer->freeBuffer = transfer ? YES : NO;
-	buffer->transferFromDevice = NO;
+	buffer->transferToDevice = transfer;
+	buffer->freeBuffer = transfer;
+	buffer->transferFromDevice = false;
         buffer->hostBuffer = data->bucketMarkers;
 
 	buffer = &(gravityKernel->bufferInfo[NODE_BUCKET_START_MARKERS_IDX]);
 	buffer->bufferID = -1;
 	size = (numBuckets) * sizeof(int);
         buffer->size = size;
-	buffer->transferToDevice = transfer ? YES : NO;
-	buffer->freeBuffer = transfer ? YES : NO;
-	buffer->transferFromDevice = NO;
+	buffer->transferToDevice = transfer;
+	buffer->freeBuffer = transfer;
+	buffer->transferFromDevice = false;
         buffer->hostBuffer = data->bucketStarts;
 
 	buffer = &(gravityKernel->bufferInfo[NODE_BUCKET_SIZES_IDX]);
 	buffer->bufferID = -1;
         buffer->size = size;
-	buffer->transferToDevice = transfer ? YES : NO;
-	buffer->freeBuffer = transfer ? YES : NO;
-	buffer->transferFromDevice = NO;
+	buffer->transferToDevice = transfer;
+	buffer->freeBuffer = transfer;
+	buffer->transferFromDevice = false;
         buffer->hostBuffer = data->bucketSizes;
 
         ParameterStruct *ptr = (ParameterStruct *)malloc(sizeof(ParameterStruct));
@@ -508,15 +506,15 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 	gravityKernel.bufferInfo = (dataInfo *) malloc(gravityKernel.nBuffers * sizeof(dataInfo));
 
 	TreePiecePartListDataTransferBasic(data, &gravityKernel);
-        transfer = gravityKernel.bufferInfo[ILPART_IDX].transferToDevice == YES;
+        transfer = gravityKernel.bufferInfo[ILPART_IDX].transferToDevice;
 
 	buffer = &(gravityKernel.bufferInfo[MISSED_PARTS_IDX]);
 	buffer->bufferID = -1;
         size = (len) * sizeof(CompactPartData);
         buffer->size = size;
-	buffer->transferToDevice = transfer ? YES : NO;
-	buffer->freeBuffer = transfer ? YES : NO;
-	buffer->transferFromDevice = NO;
+	buffer->transferToDevice = transfer;
+	buffer->freeBuffer = transfer;
+	buffer->transferFromDevice = false;
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("(%d) TRANSFER LOCAL SMALL PHASE  %d (%d)\n",
@@ -636,15 +634,15 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartDat
 	gravityKernel.bufferInfo = (dataInfo *) malloc(gravityKernel.nBuffers * sizeof(dataInfo));
 
 	TreePiecePartListDataTransferBasic(data, &gravityKernel);
-        transfer = gravityKernel.bufferInfo[ILPART_IDX].transferToDevice == YES;
+        transfer = gravityKernel.bufferInfo[ILPART_IDX].transferToDevice;
 
 	buffer = &(gravityKernel.bufferInfo[MISSED_PARTS_IDX]);
 	buffer->bufferID = -1;
         size = (numMissedParts) * sizeof(CompactPartData);
         buffer->size = size;
-	buffer->transferToDevice = transfer ? YES : NO;
-	buffer->freeBuffer = transfer ? YES : NO;
-	buffer->transferFromDevice = NO;
+	buffer->transferToDevice = transfer;
+	buffer->freeBuffer = transfer;
+	buffer->transferFromDevice = false;
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("(%d) TRANSFER REMOTE RESUME PART %d (%d)\n",
@@ -689,18 +687,18 @@ void TreePiecePartListDataTransferBasic(CudaRequest *data, workRequest *gravityK
 	size = (numInteractions) * sizeof(ILCell);
         buffer->size = size;
         transfer = size > 0;
-	buffer->transferToDevice = transfer ? YES : NO;
-	buffer->freeBuffer = transfer ? YES : NO;
-	buffer->transferFromDevice = NO;
+	buffer->transferToDevice = transfer;
+	buffer->freeBuffer = transfer;
+	buffer->transferFromDevice = false;
         buffer->hostBuffer = data->list;
 
 	buffer = &(gravityKernel->bufferInfo[PART_BUCKET_MARKERS_IDX]);
 	buffer->bufferID = -1;
 	size = (numBucketsPlusOne) * sizeof(int);
         buffer->size = transfer ? size : 0;
-	buffer->transferToDevice = transfer ? YES : NO;
-	buffer->freeBuffer = transfer ? YES : NO;
-	buffer->transferFromDevice = NO;
+	buffer->transferToDevice = transfer;
+	buffer->freeBuffer = transfer;
+	buffer->transferFromDevice = false;
         buffer->hostBuffer = data->bucketMarkers;
 
 	buffer = &(gravityKernel->bufferInfo[PART_BUCKET_START_MARKERS_IDX]);
@@ -708,17 +706,17 @@ void TreePiecePartListDataTransferBasic(CudaRequest *data, workRequest *gravityK
 	buffer->hostBuffer = data->bucketStarts;
 	size = (numBuckets) * sizeof(int);
         buffer->size = size;
-	buffer->transferToDevice = transfer ? YES : NO;
-	buffer->freeBuffer = transfer ? YES : NO;
-	buffer->transferFromDevice = NO;
+	buffer->transferToDevice = transfer;
+	buffer->freeBuffer = transfer;
+	buffer->transferFromDevice = false;
         buffer->hostBuffer = data->bucketStarts;
 
 	buffer = &(gravityKernel->bufferInfo[PART_BUCKET_SIZES_IDX]);
 	buffer->bufferID = -1;
         buffer->size = size;
-	buffer->transferToDevice = transfer ? YES : NO;
-	buffer->freeBuffer = transfer ? YES : NO;
-	buffer->transferFromDevice = NO;
+	buffer->transferToDevice = transfer;
+	buffer->freeBuffer = transfer;
+	buffer->transferFromDevice = false;
         buffer->hostBuffer = data->bucketSizes;
         
         ParameterStruct *ptr = (ParameterStruct *)malloc(sizeof(ParameterStruct));
@@ -778,17 +776,17 @@ void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart){
 
   buffer = &(gravityKernel.bufferInfo[LOCAL_MOMENTS_IDX]);
   buffer->bufferID = LOCAL_MOMENTS;
-  buffer->transferToDevice = NO ;
-  buffer->transferFromDevice = NO;
-  buffer->freeBuffer = freemom ? YES : NO;
+  buffer->transferToDevice = false ;
+  buffer->transferFromDevice = false;
+  buffer->freeBuffer = freemom;
   buffer->hostBuffer = 0;
   buffer->size = 0;
 
   buffer = &(gravityKernel.bufferInfo[LOCAL_PARTICLE_CORES_IDX]);
   buffer->bufferID = LOCAL_PARTICLE_CORES;
-  buffer->transferToDevice = NO ;
-  buffer->transferFromDevice = NO;
-  buffer->freeBuffer = freepart ? YES : NO;
+  buffer->transferToDevice = false ;
+  buffer->transferFromDevice = false;
+  buffer->freeBuffer = freepart;
   buffer->hostBuffer = 0;
   buffer->size = 0;
 
@@ -829,16 +827,16 @@ void FreeDataManagerRemoteChunkMemory(int chunk, void *dm, bool freemom, bool fr
 
   buffer = &(gravityKernel.bufferInfo[REMOTE_MOMENTS_IDX]);
   buffer->bufferID = REMOTE_MOMENTS;
-  buffer->transferToDevice = NO ;
-  buffer->transferFromDevice = NO;
-  buffer->freeBuffer = (freemom ? YES : NO);
+  buffer->transferToDevice = false;
+  buffer->transferFromDevice = false;
+  buffer->freeBuffer = freemom;
   buffer->size = 0;
 
   buffer = &(gravityKernel.bufferInfo[REMOTE_PARTICLE_CORES_IDX]);
   buffer->bufferID = REMOTE_PARTICLE_CORES;
-  buffer->transferToDevice = NO ;
-  buffer->transferFromDevice = NO;
-  buffer->freeBuffer = (freepart ? YES : NO);
+  buffer->transferToDevice = false;
+  buffer->transferFromDevice = false;
+  buffer->freeBuffer = freepart;
   buffer->size = 0;
 
   gravityKernel.callbackFn = 0;
@@ -880,25 +878,25 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, 
 
   buffer = &(gravityKernel.bufferInfo[LOCAL_PARTICLE_VARS_IDX]);
   buffer->bufferID = LOCAL_PARTICLE_VARS;
-  buffer->transferToDevice = NO ;
+  buffer->transferToDevice = false;
   buffer->hostBuffer = hostBuffer;
   buffer->size = size;
-  buffer->transferFromDevice = size > 0 ? YES : NO;
-  buffer->freeBuffer = size > 0 ? YES : NO;
+  buffer->transferFromDevice = size > 0;
+  buffer->freeBuffer = size > 0;
 
   buffer = &(gravityKernel.bufferInfo[LOCAL_MOMENTS_IDX]);
   buffer->bufferID = LOCAL_MOMENTS;
-  buffer->transferToDevice = NO ;
-  buffer->transferFromDevice = NO;
-  buffer->freeBuffer = freemom ? YES : NO;
+  buffer->transferToDevice = false;
+  buffer->transferFromDevice = false;
+  buffer->freeBuffer = freemom;
   buffer->hostBuffer = NULL;
   buffer->size = 0;
 
   buffer = &(gravityKernel.bufferInfo[LOCAL_PARTICLE_CORES_IDX]);
   buffer->bufferID = LOCAL_PARTICLE_CORES;
-  buffer->transferToDevice = NO ;
-  buffer->transferFromDevice = NO;
-  buffer->freeBuffer = freepart ? YES : NO;
+  buffer->transferToDevice = false ;
+  buffer->transferFromDevice = false;
+  buffer->freeBuffer = freepart;
   buffer->hostBuffer = NULL;
   buffer->size = 0;
 
@@ -951,7 +949,7 @@ void kernelSelect(workRequest *wr) {
       printf("vars: 0x%x\n", devBuffers[LOCAL_PARTICLE_VARS]);
 #endif
 #ifdef CUDA_USE_CUDAMALLOCHOST
-      if(wr->bufferInfo[LOCAL_MOMENTS_IDX].transferToDevice == YES){
+      if( wr->bufferInfo[LOCAL_MOMENTS_IDX].transferToDevice ){
 #ifdef CUDA_MEMPOOL
         hapi_poolFree(wr->bufferInfo[LOCAL_MOMENTS_IDX].hostBuffer);
 #else
@@ -961,7 +959,7 @@ void kernelSelect(workRequest *wr) {
 #ifdef CUDA_PRINT_ERRORS
       printf("DM_TRANSFER_LOCAL 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
-      if(wr->bufferInfo[LOCAL_PARTICLE_CORES_IDX].transferToDevice == YES){
+      if( wr->bufferInfo[LOCAL_PARTICLE_CORES_IDX].transferToDevice ){
 #ifdef CUDA_MEMPOOL
         hapi_poolFree(wr->bufferInfo[LOCAL_PARTICLE_CORES_IDX].hostBuffer);
 #else
@@ -971,7 +969,7 @@ void kernelSelect(workRequest *wr) {
 #ifdef CUDA_PRINT_ERRORS
       printf("DM_TRANSFER_LOCAL 1: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
-      if(wr->bufferInfo[LOCAL_PARTICLE_VARS_IDX].transferToDevice == YES){
+      if( wr->bufferInfo[LOCAL_PARTICLE_VARS_IDX].transferToDevice ){
 #ifdef CUDA_MEMPOOL
         hapi_poolFree(wr->bufferInfo[LOCAL_PARTICLE_VARS_IDX].hostBuffer);
 #else
@@ -982,13 +980,13 @@ void kernelSelect(workRequest *wr) {
       printf("DM_TRANSFER_LOCAL 2: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
 #else
-      if(wr->bufferInfo[LOCAL_MOMENTS_IDX].transferToDevice == YES){
+      if( wr->bufferInfo[LOCAL_MOMENTS_IDX].transferToDevice ){
         free(wr->bufferInfo[LOCAL_MOMENTS_IDX].hostBuffer);
       }
-      if(wr->bufferInfo[LOCAL_PARTICLE_CORES_IDX].transferToDevice == YES){
+      if( wr->bufferInfo[LOCAL_PARTICLE_CORES_IDX].transferToDevice ){
         free(wr->bufferInfo[LOCAL_PARTICLE_CORES_IDX].hostBuffer);
       }
-      if(wr->bufferInfo[LOCAL_PARTICLE_VARS_IDX].transferToDevice == YES){
+      if( wr->bufferInfo[LOCAL_PARTICLE_VARS_IDX].transferToDevice ){
         free(wr->bufferInfo[LOCAL_PARTICLE_VARS_IDX].hostBuffer);
       }
 #endif
@@ -996,9 +994,9 @@ void kernelSelect(workRequest *wr) {
 
     case DM_TRANSFER_REMOTE_CHUNK:
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-      printf("DM_TRANSFER_REMOTE_CHUNK, %d KERNELSELECT\n", wr->bufferInfo[REMOTE_MOMENTS_IDX].transferToDevice == YES);
+      printf("DM_TRANSFER_REMOTE_CHUNK, %d KERNELSELECT\n", wr->bufferInfo[REMOTE_MOMENTS_IDX].transferToDevice);
 #endif
-      if(wr->bufferInfo[REMOTE_MOMENTS_IDX].transferToDevice == YES){
+      if( wr->bufferInfo[REMOTE_MOMENTS_IDX].transferToDevice ){
 #ifdef CUDA_USE_CUDAMALLOCHOST
 #ifdef CUDA_MEMPOOL
         hapi_poolFree(wr->bufferInfo[REMOTE_MOMENTS_IDX].hostBuffer);
@@ -1013,7 +1011,7 @@ void kernelSelect(workRequest *wr) {
 #endif
       }
 
-      if(wr->bufferInfo[REMOTE_PARTICLE_CORES_IDX].transferToDevice == YES){
+      if( wr->bufferInfo[REMOTE_PARTICLE_CORES_IDX].transferToDevice ){
 #ifdef CUDA_USE_CUDAMALLOCHOST
 #ifdef CUDA_MEMPOOL
         hapi_poolFree(wr->bufferInfo[REMOTE_PARTICLE_CORES_IDX].hostBuffer);
@@ -1066,7 +1064,7 @@ void kernelSelect(workRequest *wr) {
           devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID]
           );
 #endif
-      if(wr->bufferInfo[ILCELL_IDX].transferToDevice == YES){
+      if( wr->bufferInfo[ILCELL_IDX].transferToDevice ){
 #ifndef CUDA_NO_KERNELS
         nodeGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
           (
@@ -1124,7 +1122,7 @@ void kernelSelect(workRequest *wr) {
           devBuffers[wr->bufferInfo[ILPART_IDX].bufferID]
           );
 #endif
-      if(wr->bufferInfo[ILPART_IDX].transferToDevice == YES){
+      if( wr->bufferInfo[ILPART_IDX].transferToDevice ){
 #ifndef CUDA_NO_KERNELS
 #ifdef CUDA_2D_TB_KERNEL
         particleGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
@@ -1200,7 +1198,7 @@ void kernelSelect(workRequest *wr) {
           devBuffers[wr->bufferInfo[ILPART_IDX].bufferID]
           );
 #endif
-      if(wr->bufferInfo[ILPART_IDX].transferToDevice == YES){
+      if( wr->bufferInfo[ILPART_IDX].transferToDevice ){
 #ifndef CUDA_NO_KERNELS
 #ifdef CUDA_2D_TB_KERNEL
         particleGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
@@ -1273,7 +1271,7 @@ void kernelSelect(workRequest *wr) {
           devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID]
           );
 #endif
-      if(wr->bufferInfo[ILCELL_IDX].transferToDevice == YES){
+      if( wr->bufferInfo[ILCELL_IDX].transferToDevice ){
 #ifndef CUDA_NO_KERNELS
         nodeGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
           (
@@ -1331,7 +1329,7 @@ void kernelSelect(workRequest *wr) {
           devBuffers[wr->bufferInfo[ILPART_IDX].bufferID]
           );
 #endif
-      if(wr->bufferInfo[ILPART_IDX].transferToDevice == YES){
+      if( wr->bufferInfo[ILPART_IDX].transferToDevice ){
 #ifndef CUDA_NO_KERNELS
 #ifdef CUDA_2D_TB_KERNEL
         particleGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
@@ -1405,7 +1403,7 @@ void kernelSelect(workRequest *wr) {
           devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID]
           );
 #endif
-      if(wr->bufferInfo[ILCELL_IDX].transferToDevice == YES){
+      if( wr->bufferInfo[ILCELL_IDX].transferToDevice ){
 #ifndef CUDA_NO_KERNELS
         nodeGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
           (
@@ -1468,7 +1466,7 @@ void kernelSelect(workRequest *wr) {
           devBuffers[wr->bufferInfo[ILPART_IDX].bufferID]
           );
 #endif
-      if(wr->bufferInfo[ILPART_IDX].transferToDevice == YES){
+      if( wr->bufferInfo[ILPART_IDX].transferToDevice ){
 #ifndef CUDA_NO_KERNELS
 #ifdef CUDA_2D_TB_KERNEL
         particleGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
@@ -2471,17 +2469,17 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
 
   particleTableInfo = &(topKernel.bufferInfo[0]);
   particleTableInfo->bufferID = NUM_GRAVITY_BUFS + BUFFERS_PER_CHARE * myIndex + PARTICLE_TABLE; 
-  particleTableInfo->transferToDevice = YES; 
-  particleTableInfo->transferFromDevice = NO; 
-  particleTableInfo->freeBuffer = NO; 
+  particleTableInfo->transferToDevice = true; 
+  particleTableInfo->transferFromDevice = false; 
+  particleTableInfo->freeBuffer = false; 
   particleTableInfo->hostBuffer = h_idata->p; 
   particleTableInfo->size = (n+1) * sizeof(GravityParticleData); 
 
   cachedDataInfo = &(topKernel.bufferInfo[1]); 
   cachedDataInfo->bufferID = NUM_GRAVITY_BUFS + BUFFERS_PER_CHARE * myIndex + EWALD_READ_ONLY_DATA;
-  cachedDataInfo->transferToDevice = NO; 
-  cachedDataInfo->transferFromDevice = NO; 
-  cachedDataInfo->freeBuffer = NO; 
+  cachedDataInfo->transferToDevice = false; 
+  cachedDataInfo->transferFromDevice = false; 
+  cachedDataInfo->freeBuffer = false; 
   cachedDataInfo->hostBuffer = h_idata->cachedData; 
   cachedDataInfo->size = sizeof(EwaldReadOnlyData); 
 
@@ -2510,25 +2508,25 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
 
   particleTableInfo = &(bottomKernel.bufferInfo[0]);
   particleTableInfo->bufferID = NUM_GRAVITY_BUFS + BUFFERS_PER_CHARE * myIndex + PARTICLE_TABLE; 
-  particleTableInfo->transferToDevice = NO; 
-  particleTableInfo->transferFromDevice = YES; 
-  particleTableInfo->freeBuffer = YES; 
+  particleTableInfo->transferToDevice = false; 
+  particleTableInfo->transferFromDevice = true; 
+  particleTableInfo->freeBuffer = true; 
   particleTableInfo->hostBuffer = h_idata->p; 
   particleTableInfo->size = (n+1) * sizeof(GravityParticleData); 
 
   cachedDataInfo = &(bottomKernel.bufferInfo[1]); 
   cachedDataInfo->bufferID = NUM_GRAVITY_BUFS + BUFFERS_PER_CHARE * myIndex + EWALD_READ_ONLY_DATA; 
-  cachedDataInfo->transferToDevice = NO; 
-  cachedDataInfo->transferFromDevice = NO; 
-  cachedDataInfo->freeBuffer = NO; 
+  cachedDataInfo->transferToDevice = false; 
+  cachedDataInfo->transferFromDevice = false; 
+  cachedDataInfo->freeBuffer = false; 
   cachedDataInfo->hostBuffer = h_idata->cachedData; 
   cachedDataInfo->size = sizeof(EwaldReadOnlyData); 
 
   ewtInfo = &(bottomKernel.bufferInfo[2]); 
   ewtInfo->bufferID = NUM_GRAVITY_BUFS + BUFFERS_PER_CHARE * myIndex + EWALD_TABLE; 
-  ewtInfo->transferToDevice = NO; 
-  ewtInfo->transferFromDevice = NO; 
-  ewtInfo->freeBuffer = NO; 
+  ewtInfo->transferToDevice = false; 
+  ewtInfo->transferFromDevice = false; 
+  ewtInfo->freeBuffer = false; 
   ewtInfo->hostBuffer = h_idata->ewt; 
   ewtInfo->size = nEwhLoop * sizeof(EwtData); 
 

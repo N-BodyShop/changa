@@ -4,8 +4,6 @@
 
 #include <cuda_runtime.h>
 #include "cuda_typedef.h"
-/* Boolean defines */
-enum boolean {NO, YES};
 
 #ifdef CUDA_USE_CUDAMALLOCHOST
 # ifdef CUDA_MEMPOOL
