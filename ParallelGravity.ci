@@ -384,6 +384,7 @@ mainmodule ParallelGravity {
 
     entry void startORBTreeBuild(CkReductionMsg* m);
 
+    entry void recvActiveRung(int activeRung, const CkCallback& cb);
     entry void startGravity(int activeRung, double myTheta, CkCallback &cb);
 #ifdef PUSH_GRAVITY
     entry void startPushGravity(int am, double myTheta);
