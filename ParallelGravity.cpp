@@ -1501,6 +1501,8 @@ void Main::advanceBigStep(int iStep) {
           << nextMaxRung << ". ";
 
     countActive(activeRung);
+
+    treeProxy.recvActiveRung(activeRung, CkCallbackResumeThread());
     
     if(verbosity > 1)
 	memoryStats();

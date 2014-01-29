@@ -1658,6 +1658,8 @@ public:
   void buildORBTree(GenericTreeNode * node, int level);
   /**************************/
 
+  void recvActiveRung(int activeRung, const CkCallback& cb);
+
 	/// Request the moments for this node.
 	void requestRemoteMoments(const Tree::NodeKey key, int sender);
 	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments, const OrientedBox<double>& box, const OrientedBox<double>& boxBall, const unsigned int iParticleTypes);

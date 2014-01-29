@@ -645,9 +645,16 @@ void TreePiece::evaluateBoundaries(bool convertToLoad, SFC::Key* keys, const int
         myCounts[binIter] = (binEnd - binBegin);
         if (convertToLoad) {
           myLoads[binIter] = treePieceLoadTmp / myNumParticles * myCounts[binIter];
+
           if (havePhaseData(activeRung) && savedPhaseParticle[activeRung] != 0) {
+            int activerungbincount = 0;
+            for(GravityParticle *pPart = binBegin; pPart < binEnd; pPart++) {
+              if (pPart->rung >= activeRung) {
+                activerungbincount++;
+              }
+            }
             myLoads[binIter] = savedPhaseLoad[activeRung] * 
-              (myCounts[binIter] / (float) savedPhaseParticle[activeRung]);
+              (activerungbincount / (float) savedPhaseParticle[activeRung]);
           } else if (havePhaseData(0) && myNumParticles != 0) {
             myLoads[binIter] = savedPhaseLoad[0] * 
               (myCounts[binIter] / (float) myNumParticles);
@@ -2316,6 +2323,11 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   if (numTreePieces == 1) {
     treeBuildComplete();
   }
+}
+
+void TreePiece::recvActiveRung(int arung, const CkCallback& cb) {
+  activeRung = arung;
+  contribute(cb);
 }
 
 void TreePiece::sendRequestForNonLocalMoments(GenericTreeNode *pickedNode){
