@@ -102,6 +102,10 @@ mainmodule ParallelGravity {
   };
 #endif
 
+  message CreateMsg {
+    GravityParticle particles[];
+  };
+
   PUPable DensitySmoothParams;
   PUPable DenDvDxSmoothParams;
   PUPable DenDvDxNeighborSmParams;

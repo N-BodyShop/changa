@@ -667,8 +667,14 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
 /// particles out to the TreePiece responsible for them
 
 void TreePiece::unshuffleParticles(CkReductionMsg* m){
+
   double tpLoad;
   double partialLoad; 
+
+  if (thisIndex == 0 && getObjTime() > 0.1) {
+    CkPrintf("Creating treepiece index %d\n", numTreePiecesCount);
+    thisProxy[numTreePiecesCount++].insert();
+  }
 
   if (dm == NULL) {
     dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
@@ -5028,6 +5034,8 @@ void TreePiece::outputStatistics(const CkCallback& cb) {
 /// @TODO Fix pup routine to handle correctly the tree
 void TreePiece::pup(PUP::er& p) {
   CBase_TreePiece::pup(p);
+
+  p | numTreePiecesCount;
 
   p | treePieceLoad; 
 

@@ -898,6 +898,7 @@ class TreePiece : public CBase_TreePiece {
 	double dStartTime;
 
 private:        
+  int numTreePiecesCount;
 	// liveViz 
 	liveVizRequestMsg * savedLiveVizMsg;
 
@@ -1267,8 +1268,12 @@ public:
 	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
 	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
 	  treePieceLoad(0.0), treePieceLoadTmp(0.0) {
+   if (thisIndex == 32) {
+      CkPrintf("Index 32 tps created^^^^^^^^^^\n");
+    }
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
+    numTreePiecesCount = numTreePieces;
 	  dm = NULL;
 	  foundLB = Null; 
 	  iterationNo=0;
@@ -1349,6 +1354,9 @@ public:
 	}
 
 	TreePiece(CkMigrateMessage* m) {
+    if (thisIndex == 32) {
+      CkPrintf("Index 32 tps created  migratemsg^^^^^^^^^^\n");
+    }
 	  treePieceLoadTmp = 0.0;
           // jetley
           proxyValid = false;
