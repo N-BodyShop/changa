@@ -285,15 +285,18 @@ public:
 /// Message for shuffling particles during domain decomposition
 class ParticleShuffleMsg : public CMessage_ParticleShuffleMsg{
 public:
+    int nloads;
     int n;
     int nSPH;
     int nStar;
     double load;
+    double *loads;
+    unsigned int *parts_per_phase;
     GravityParticle *particles;
     extraSPHData *pGas;
     extraStarData *pStar;
-    ParticleShuffleMsg(int npart, int nsph, int nstar, double pload): n(npart),
-	nSPH(nsph), nStar(nstar), load(pload) {}
+    ParticleShuffleMsg(int nload, int npart, int nsph, int nstar, double pload): 
+      nloads(nload), n(npart), nSPH(nsph), nStar(nstar), load(pload) {}
 };
 
 class CreateMsg : public CMessage_CreateMsg {
@@ -655,6 +658,14 @@ class TreePiece : public CBase_TreePiece {
    
    double treePieceLoad; // used to store CPU load data for incoming particles
    double treePieceLoadTmp; // temporary accumulator for above
+   bool warmupFinished;
+   double treePieceLoadExp;
+   unsigned int treePieceActivePartsTmp;
+   std::vector<double> savedPhaseLoad;
+   std::vector<unsigned int> savedPhaseParticle;
+   std::vector<double> savedPhaseLoadTmp;
+   std::vector<unsigned int> savedPhaseParticleTmp;
+
    int memWithCache, memPostCache;  // store memory usage.
    int nNodeCacheEntries, nPartCacheEntries;  // store memory usage.
 
@@ -905,7 +916,6 @@ class TreePiece : public CBase_TreePiece {
 	double dStartTime;
 
 private:        
-  int numTreePiecesCount;
 	// liveViz 
 	liveVizRequestMsg * savedLiveVizMsg;
 
@@ -1274,11 +1284,10 @@ public:
  TreePiece() : pieces(thisArrayID), root(0), proxyValid(false),
 	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
 	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
-	  treePieceLoad(0.0), treePieceLoadTmp(0.0) {
-   
+	  treePieceLoad(0.0), treePieceLoadTmp(0.0), treePieceLoadExp(0.0),
+    treePieceActivePartsTmp(0), warmupFinished(false) {
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
-    numTreePiecesCount = numTreePieces;
 	  dm = NULL;
 	  foundLB = Null; 
 	  iterationNo=0;
@@ -1633,7 +1642,7 @@ public:
 	 */
 	// Assign keys after loading tipsy file and finding Bounding box
 	void assignKeys(CkReductionMsg* m);
-	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
+        void evaluateBoundaries(bool convertToLoad, SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
 	void unshuffleParticles(CkReductionMsg* m);
 	void acceptSortedParticles(ParticleShuffleMsg *);
   void sendNumTpsContribute();
@@ -1752,6 +1761,8 @@ public:
   void buildORBTree(GenericTreeNode * node, int level);
   /**************************/
 
+  void recvActiveRung(int activeRung, const CkCallback& cb);
+
 	/// Request the moments for this node.
 	void requestRemoteMoments(const Tree::NodeKey key, int sender);
 	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments, const OrientedBox<double>& box, const OrientedBox<double>& boxBall, const unsigned int iParticleTypes);
@@ -1864,6 +1875,11 @@ public:
 
 	//void startlb(CkCallback &cb);
 	void startlb(CkCallback &cb, int activeRung);
+  void populateSavedPhaseData(int phase, double tpload, unsigned int activeparts);
+  bool havePhaseData(int phase);
+  void savePhaseData(std::vector<double> &loads, std::vector<unsigned int>
+    &parts_per_phase, double* shuffleloads, unsigned int *shuffleparts,
+    int shufflelen);
 	void ResumeFromSync();
 
 	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
@@ -2025,7 +2041,8 @@ class ReductionHelper : public CBase_ReductionHelper {
 
   void countTreePieces(const CkCallback &cb);
   void reduceBinCounts(int nBins, int *binCounts, const CkCallback &cb);
-  void evaluateBoundaries(SFC::Key *keys, const int n, int isRefine, const CkCallback& cb);
+  void reduceBinLoads(int nBins, double *binLoads, const CkCallback &cb);
+  void evaluateBoundaries(bool convertToLoad, SFC::Key *keys, const int n, int isRefine, const CkCallback& cb);
   void evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb);
 
   private:
@@ -2034,6 +2051,7 @@ class ReductionHelper : public CBase_ReductionHelper {
   private:
 
   CkVec<int> myBinCounts;
+  CkVec<double> myBinLoads;
   int numTreePiecesCheckedIn;
 
   TreePieceCounter localTreePieces;
