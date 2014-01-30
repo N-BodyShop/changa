@@ -1137,6 +1137,11 @@ Main::Main(CkMigrateMessage* m) : CBase_Main(m) {
     }
 
 
+void Main::updateNumChares(int numchares) {
+  numTreePieces = numchares;
+  treeProxy.updateNumChares(numTreePieces);
+}
+
 /// @brief entry method to cleanly shutdown.  Only used for debugging.
 void Main::niceExit() {
   static unsigned int count = 0;
@@ -1483,7 +1488,7 @@ void Main::advanceBigStep(int iStep) {
         double startTime = CkWallTimer();
         CkPrintf("Domain decomposition for star formation/feedback... ");
         sorter.startSorting(dataManagerID, ddTolerance,
-                            CkCallbackResumeThread(), true);
+                            CkCallbackResumeThread(), true, numTreePieces);
         CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
         CkPrintf("Load balancer for star formation/feedback... ");
         startTime = CkWallTimer();
@@ -1512,7 +1517,7 @@ void Main::advanceBigStep(int iStep) {
 
     startTime = CkWallTimer();
     sorter.startSorting(dataManagerID, ddTolerance,
-                        CkCallbackResumeThread(), bDoDD);
+                        CkCallbackResumeThread(), bDoDD, numTreePieces);
     /*
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
@@ -2080,7 +2085,7 @@ Main::initialForces()
 
   startTime = CkWallTimer();
   sorter.startSorting(dataManagerID, ddTolerance,
-	 	      CkCallbackResumeThread(), true);
+	 	      CkCallbackResumeThread(), true, numTreePieces);
   CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
   /*
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -2426,7 +2431,7 @@ Main::doSimulation()
 	  // before the sort.
 	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 	  sorter.startSorting(dataManagerID, ddTolerance,
-			      CkCallbackResumeThread(), true);
+			      CkCallbackResumeThread(), true, numTreePieces);
 #ifdef PUSH_GRAVITY
 	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
 #else
@@ -2768,7 +2773,7 @@ void Main::writeOutput(int iStep)
 	// before the sort.
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 	sorter.startSorting(dataManagerID, ddTolerance,
-			    CkCallbackResumeThread(), true);
+			    CkCallbackResumeThread(), true, numTreePieces);
 #ifdef PUSH_GRAVITY
 	treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
 #else
@@ -2812,7 +2817,7 @@ void Main::writeOutput(int iStep)
 	    // before the sort.
 	    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 	    sorter.startSorting(dataManagerID, ddTolerance,
-				CkCallbackResumeThread(), true);
+				CkCallbackResumeThread(), true, numTreePieces);
 #ifdef PUSH_GRAVITY
 	    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
 #else

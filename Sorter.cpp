@@ -262,8 +262,8 @@ void Sorter::collectORBCounts(CkReductionMsg* m){
  * @param decompose Are we still deciding on decomposition?
  */
 void Sorter::startSorting(const CkGroupID& dataManagerID,
-			  const double toler, const CkCallback& cb, bool decompose) {
-	numChares = numTreePieces;
+			  const double toler, const CkCallback& cb, bool decompose, int numtps) {
+	numChares = numtps;
 	dm = CProxy_DataManager(dataManagerID);
 	tolerance = toler;
 	sorted = false;
@@ -498,7 +498,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 
   if (joinThreshold == 0) {
     int total_particles = std::accumulate(startCounts, startCounts+numCounts, 0);
-    joinThreshold = total_particles / (numTreePieces>>1);
+    joinThreshold = total_particles / (numChares>>1);
     splitThreshold = (int) (joinThreshold * 1.5);
   }
   
@@ -587,13 +587,13 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 
         root->combine(joinThreshold, nodeKeys, binCounts);
 
-	if(binCounts.size() > numTreePieces) {
+	if(binCounts.size() > numChares) {
 	    CkPrintf("bumping joinThreshold: %d, size: %d\n", joinThreshold,
 		     binCounts.size());
 	    joinThreshold = (int) (1.1*joinThreshold);
 	    }
 	}
-    while(binCounts.size() > numTreePieces);
+    while(binCounts.size() > numChares);
     convertNodesToSplitters();
 
 #if 0
@@ -641,8 +641,9 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     //We have the splitters here because weight balancer didn't change any node keys
     //We also have the final bin counts
 		
-    if(binCounts.size() > numTreePieces){
-      CkPrintf("Need %d tree pieces, available %d\n", binCounts.size(), numTreePieces);
+    if(binCounts.size() > numChares){
+      CkPrintf("Need %d tree pieces, available %d\n", binCounts.size(),
+      numChares);
       CkAbort("too few tree pieces\n");
     }
 

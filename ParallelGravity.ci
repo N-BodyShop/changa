@@ -160,6 +160,7 @@ mainmodule ParallelGravity {
     entry [threaded] void restart();
     entry void niceExit();
     entry void liveVizImagePrep(liveVizRequestMsg *msg);
+    entry [reductiontarget] void updateNumChares(int numchares);
   };
 
   group [migratable] ProjectionsControl {
@@ -184,7 +185,7 @@ mainmodule ParallelGravity {
     entry [threaded]
 	void startSorting(const CkGroupID& dataManagerID,
         		const double toler,
-        		const CkCallback& cb, bool decompose);
+        		const CkCallback& cb, bool decompose, bool numtps);
     entry void collectEvaluations(CkReductionMsg* m);
     entry void collectORBCounts(CkReductionMsg* m);
     entry void finishPhase(CkReductionMsg* m);
@@ -216,6 +217,7 @@ mainmodule ParallelGravity {
   };
 
   array [1D] TreePiece {
+    entry TreePiece(CreateMsg *m);
     entry TreePiece();
     entry void restart();
 
@@ -304,6 +306,7 @@ mainmodule ParallelGravity {
     entry void ioAcceptSortedParticles(ParticleShuffleMsg *);
     entry void assignKeys(CkReductionMsg* m);
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
+    entry void updateNumChares(int numchares);
     entry void unshuffleParticles(CkReductionMsg* m);
     entry void acceptSortedParticles(ParticleShuffleMsg *);
     //ORB

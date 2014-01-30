@@ -296,6 +296,12 @@ public:
 	nSPH(nsph), nStar(nstar), load(pload) {}
 };
 
+class CreateMsg : public CMessage_CreateMsg {
+  public:
+  CkCallback callback;
+  GravityParticle *particles;
+};
+
 #ifdef PUSH_GRAVITY
 #include "ckmulticast.h"
 
@@ -464,6 +470,7 @@ public:
 	Main(CkArgMsg* m);
 	Main(CkMigrateMessage *m);
 
+  void updateNumChares(int numchares);
 	void niceExit();
 	void setupICs();
 	void initialForces();
@@ -1268,9 +1275,7 @@ public:
 	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
 	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
 	  treePieceLoad(0.0), treePieceLoadTmp(0.0) {
-   if (thisIndex == 32) {
-      CkPrintf("Index 32 tps created^^^^^^^^^^\n");
-    }
+   
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
     numTreePiecesCount = numTreePieces;
@@ -1403,6 +1408,97 @@ public:
 
           localTreeBuildComplete = false;
 	}
+
+  TreePiece(CreateMsg *m) : pieces(thisArrayID), root(0), proxyValid(false),
+	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
+	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
+	  treePieceLoad(0.0), treePieceLoadTmp(0.0) { 
+    if (thisIndex == 32) {
+      CkPrintf("Index 32 tps created PE %d^^^^^^^^^^\n", CkMyPe());
+    }
+    callback = m->callback;
+
+    dm = NULL;
+	  foundLB = Null; 
+	  iterationNo=0;
+	  usesAtSync = true;
+	  pTreeNodes = NULL;
+	  bucketReqs=NULL;
+	  nCacheAccesses = 0;
+	  memWithCache = 0;
+	  memPostCache = 0;
+	  nNodeCacheEntries = 0;
+	  nPartCacheEntries = 0;
+	  completedActiveWalks = 0;
+	  myPlace = -1;
+	  nSetupWriteStage = -1;
+    //openingDiffCount=0;
+    chunkRootLevel=0;
+    //splitters = NULL;
+#if COSMO_STATS > 0
+	  nodesOpenedLocal = 0;
+	  nodesOpenedRemote = 0;
+	  nodeInterLocal = 0;
+	  particleInterLocal = 0;
+
+	  numOpenCriterionCalls=0;
+
+	  piecemass = 0.0;
+#endif
+	  packed=0;			/* output accelerations in x,y,z
+					   packed format */
+	  cnt=0;			/* Counter over x,y,z when not packed */
+	  particleInterRemote = NULL;
+	  nodeInterRemote = NULL;
+
+#if INTERLIST_VER > 0
+	  sInterListWalk = NULL;
+#endif
+#ifdef CUDA
+          numActiveBuckets = -1;
+#ifdef CUDA_STATS
+          localNodeInteractions = 0;
+          localPartInteractions = 0;
+          remoteNodeInteractions = 0;
+          remotePartInteractions = 0;
+          remoteResumeNodeInteractions = 0;
+          remoteResumePartInteractions = 0;
+#endif
+#endif
+
+	  tmpTime=0.0;
+	  totalTime=0.0;
+	  // temporarely set to -1, it will updated after the tree is built
+	  numChunks=-1;
+	  prefetchRoots = NULL;
+	  numPrefetchReq = 0;
+	  ewt = NULL;
+	  nMaxEwhLoop = 100;
+
+          incomingParticlesMsg.clear();
+          incomingParticlesArrived = 0;
+          incomingParticlesSelf = false;
+
+          myParticles = NULL;
+          mySPHParticles = NULL;
+          myStarParticles = NULL;
+	  myNumParticles = myNumSPH = myNumStar = 0;
+	  nStore = nStoreSPH = nStoreStar = 0;
+	  myTreeParticles = -1;
+	  orbBoundaries.clear();
+	  boxes = NULL;
+	  splitDims = NULL;
+	  bGasCooling = 0;
+
+#ifdef PUSH_GRAVITY
+          createdSpanningTree = false;
+#endif
+
+          localTreeBuildComplete = false;
+
+    
+    acceptSortedParticles(NULL);
+  }
 
         private:
         void freeWalkObjects();
@@ -1540,6 +1636,8 @@ public:
 	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
 	void unshuffleParticles(CkReductionMsg* m);
 	void acceptSortedParticles(ParticleShuffleMsg *);
+  void sendNumTpsContribute();
+  void updateNumChares(int numchares);
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);
   void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,

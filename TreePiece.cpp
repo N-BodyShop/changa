@@ -671,10 +671,6 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
   double tpLoad;
   double partialLoad; 
 
-  if (thisIndex == 0 && getObjTime() > 0.1) {
-    CkPrintf("Creating treepiece index %d\n", numTreePiecesCount);
-    thisProxy[numTreePiecesCount++].insert();
-  }
 
   if (dm == NULL) {
     dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
@@ -682,6 +678,18 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
 
   tpLoad = getObjTime();
   callback = *static_cast<CkCallback *>(m->getData());
+  CkPrintf("[%d] TP has load %f and particles %d\n", thisIndex,
+  getObjTime(),myNumParticles);
+
+  if (thisIndex == 0 && getObjTime() > 0.1) {
+    CkPrintf("Creating treepiece index %d\n", numTreePieces);
+    CreateMsg *msg = new (0) CreateMsg;
+    msg->callback = callback;
+    thisProxy[numTreePieces].insert(msg);
+    lvProxy[numTreePieces].insert();
+    gravityProxy[numTreePieces].insert();
+    smoothProxy[numTreePieces].insert();
+  }
 
   //find my responsibility
   myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
@@ -778,6 +786,16 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
   delete m;
 }
 
+void TreePiece::sendNumTpsContribute() {
+  int num=1;
+  contribute(1*sizeof(int),&num, CkReduction::sum_int, CkCallback(CkReductionTarget(Main,updateNumChares),mainChare));
+}
+
+void TreePiece::updateNumChares(int numchares) {
+  numTreePieces = numchares;
+  contribute(callback);
+}
+
 /// Accept particles from other TreePieces once the sorting has finished
 void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
   //Need to get the place here again.  Getting the place in
@@ -818,7 +836,8 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     deleteTree();
     // We better not have a message with particles for us
     CkAssert(shuffleMsg == NULL);
-    contribute(callback);
+    //contribute(callback);
+    sendNumTpsContribute();
     return;
   }
 
@@ -909,7 +928,8 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 
     deleteTree();
     //CkPrintf("[%d] accepted %d particles\n", thisIndex, myNumParticles);
-    contribute(callback);
+    //contribute(callback);
+    sendNumTpsContribute();
   }
 }
 
