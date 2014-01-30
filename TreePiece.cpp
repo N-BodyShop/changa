@@ -727,15 +727,15 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
   CkPrintf("[%d] TP has load %f and particles %d\n", thisIndex,
   getObjTime(),myNumParticles);
 
-  if (thisIndex == 0 && getObjTime() > 0.1) {
-    CkPrintf("Creating treepiece index %d\n", numTreePieces);
-    CreateMsg *msg = new (0) CreateMsg;
-    msg->callback = callback;
-    thisProxy[numTreePieces].insert(msg);
-    lvProxy[numTreePieces].insert();
-    gravityProxy[numTreePieces].insert();
-    smoothProxy[numTreePieces].insert();
-  }
+  //if (thisIndex == 0 && getObjTime() > 0.1) {
+  //  CkPrintf("Creating treepiece index %d\n", numTreePieces);
+  //  CreateMsg *msg = new (0) CreateMsg;
+  //  msg->callback = callback;
+  //  thisProxy[numTreePieces].insert(msg);
+  //  lvProxy[numTreePieces].insert();
+  //  gravityProxy[numTreePieces].insert();
+  //  smoothProxy[numTreePieces].insert();
+  //}
 
   // CkPrintf("[%d] myplace %d\n", thisIndex, myPlace);
 

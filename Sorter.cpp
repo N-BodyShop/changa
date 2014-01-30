@@ -264,6 +264,7 @@ void Sorter::collectORBCounts(CkReductionMsg* m){
 void Sorter::startSorting(const CkGroupID& dataManagerID,
 			  const double toler, const CkCallback& cb, bool decompose, int numtps) {
 	numChares = numtps;
+  CkPrintf("Sorter numtps %d\n", numtps);
 	dm = CProxy_DataManager(dataManagerID);
 	tolerance = toler;
 	sorted = false;

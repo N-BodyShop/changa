@@ -638,6 +638,7 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
   int chunk = savedChunk;
 
   int numTreePieces = registeredTreePieces.length();
+  CkPrintf("[%d] total registered tps in DataManger %d\n", thisIndex, numTreePieces);
   int numNodes = 0;
   int numParticles = 0;
   int numCachedNodes = 0;

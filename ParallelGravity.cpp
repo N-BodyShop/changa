@@ -1139,6 +1139,7 @@ Main::Main(CkMigrateMessage* m) : CBase_Main(m) {
 
 void Main::updateNumChares(int numchares) {
   numTreePieces = numchares;
+  CkPrintf("Main updateNumChares %d %d\n", numTreePieces, numchares);
   treeProxy.updateNumChares(numTreePieces);
 }
 
@@ -1513,7 +1514,7 @@ void Main::advanceBigStep(int iStep) {
 	memoryStats();
 
     /***** Resorting of particles and Domain Decomposition *****/
-    CkPrintf("Domain decomposition ... ");
+    CkPrintf("Domain decomposition totaltps %d... ", numTreePieces);
     double startTime;
     bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
 
