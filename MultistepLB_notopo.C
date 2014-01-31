@@ -189,6 +189,7 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 #if CMK_LBDB_ON
   // find active objects - mark the inactive ones as non-migratable
   int count;
+  return;
   
   stats->makeCommHash();
   for(int i = 0; i < stats->n_objs; i++){

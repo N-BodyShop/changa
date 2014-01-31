@@ -836,15 +836,21 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
         }
         */
 
-	if(verbosity >= 4)
+	//if(verbosity >= 4)
 		ckout << "Sorter: On iteration " << numIterations << endl;
-	CkAssert(numIterations < 1000);  // Sorter has not converged.
+	CkAssert(numIterations < 100);  // Sorter has not converged.
 
 	
 	partial_sum(binLoads.begin(), binLoads.end(), binLoads.begin());
 	
 	if(totalLoad == 0) {
 		totalLoad = binLoads.back();
+
+    chareIDs.clear();
+    chareIDs.resize(numChares, 1);
+    chareIDs[0] = 0;
+    partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
+
 		double avgValue = totalLoad / numChares;
 		closeEnough = static_cast<double>(avgValue * tolerance);
 		if(closeEnough < 0 || closeEnough >= avgValue) {
@@ -859,7 +865,7 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
                 for (int i = 0; i < numGoalsPending; i++) {
                   goals[i] = (i + 1) * avgValue;
                 }
-		if(verbosity >= 3)
+		//if(verbosity >= 3)
 			ckout << "Sorter: Target load per chare: " << avgValue << " plus/minus " << (2 * closeEnough) << endl;
 	}
 
@@ -938,7 +944,7 @@ void Sorter::adjustSplitters() {
 		if(fabs(*numLeftKey - goals[i]) <= closeEnough) {
 			//add this key to the list of decided splitter keys
 			keyBoundaries.push_back(leftBound);
-		} else if(fabs(*numRightKey - goals[i]) <= closeEnough) {
+		} else if(fabs(*numRightKey - goals[i]) <= closeEnough || numIterations == 10) {
 			keyBoundaries.push_back(rightBound);
 		} else {
 			// not close enough yet, add the bracketing keys and
@@ -958,6 +964,7 @@ void Sorter::adjustSplitters() {
 		}
 	}
 	numGoalsPending = numActiveGoals;
+  CkPrintf("NumPendingGoals %d***\n", numGoalsPending);
 
 	if(numGoalsPending == 0) {
 		sorted = true;

@@ -724,18 +724,50 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
   tpLoad = getObjTime();
   populateSavedPhaseData(prevLARung, tpLoad, treePieceActivePartsTmp);
   callback = *static_cast<CkCallback *>(m->getData());
-  CkPrintf("[%d] TP has load %f and particles %d\n", thisIndex,
-  getObjTime(),myNumParticles);
 
-  //if (thisIndex == 0 && getObjTime() > 0.1) {
-  //  CkPrintf("Creating treepiece index %d\n", numTreePieces);
-  //  CreateMsg *msg = new (0) CreateMsg;
-  //  msg->callback = callback;
-  //  thisProxy[numTreePieces].insert(msg);
-  //  lvProxy[numTreePieces].insert();
-  //  gravityProxy[numTreePieces].insert();
-  //  smoothProxy[numTreePieces].insert();
-  //}
+//  if (thisIndex == 0 && getObjTime() > 0.1 && numTreePieces < 34) {
+//    CkPrintf("************** Creating treepiece index %d dMaxBalance %f\n",
+//    numTreePieces, dMaxBalance);
+//    CreateMsg *msg = new (1) CreateMsg;
+//
+//    msg->numParts = 0;
+//
+//    msg->fPeriodParX = fPeriod[0];
+//    msg->fPeriodParY = fPeriod[1];
+//    msg->fPeriodParZ = fPeriod[2];
+//
+//    msg->callback = callback;
+//    msg->nRepsPar = nReplicas;
+//    msg->bEwaldPar = bEwald;
+//    msg->fEwCutPar = fEwCut;
+//    msg->dEwhCutPar = dEwhCut;
+//    msg->bPeriodPar = bPeriodic;
+//
+//    msg->warmupFinPar = warmupFinished;
+//    msg->proxyPar = proxy;
+//    msg->foundLBPar = foundLB;
+//    msg->proxyValidPar = proxyValid;
+//    msg->proxySetPar = proxySet;
+//    msg->prevLARungPar = prevLARung;
+//    
+//    //msg->basefilenamePar = basefilename;
+//    msg->iterationNoPar = iterationNo;
+//    msg->nSetupWriteStagePar = nSetupWriteStage;
+//
+//
+//
+//
+//    thisProxy[numTreePieces].insert(msg);
+//    lvProxy[numTreePieces].insert();
+//    gravityProxy[numTreePieces].insert();
+//    smoothProxy[numTreePieces].insert();
+//  }
+
+  if (thisIndex == 0) {
+    CkCallback cbqd(CkIndex_TreePiece::sendNumTpsContribute(), thisProxy);
+    CkStartQD(cbqd);
+  }
+
 
   // CkPrintf("[%d] myplace %d\n", thisIndex, myPlace);
 
@@ -859,6 +891,8 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
 }
 
 void TreePiece::sendNumTpsContribute() {
+
+  CkPrintf("[%d] TP has load %f and particles %d\n", thisIndex, getObjTime(), myNumParticles);
   int num=1;
   contribute(1*sizeof(int),&num, CkReduction::sum_int, CkCallback(CkReductionTarget(Main,updateNumChares),mainChare));
 }
@@ -877,6 +911,10 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
   myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(),
       thisIndex) - dm->responsibleIndex.begin();
   if (myPlace == dm->responsibleIndex.size()) myPlace = -2;
+
+  if (thisIndex == 32) {
+    CkPrintf("*************[%d] myplace %d particlecount %d\n", thisIndex, myPlace, dm->particleCounts[myPlace]);
+  }
 
   // The following assert does not work anymore when TreePieces can
   //have 0 particles assigned
@@ -909,7 +947,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     // We better not have a message with particles for us
     CkAssert(shuffleMsg == NULL);
     //contribute(callback);
-    sendNumTpsContribute();
+    //sendNumTpsContribute();
     return;
   }
 
@@ -1009,7 +1047,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     deleteTree();
     //CkPrintf("[%d] accepted %d particles\n", thisIndex, myNumParticles);
     //contribute(callback);
-    sendNumTpsContribute();
+    //sendNumTpsContribute();
   }
 }
 
@@ -2260,6 +2298,9 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
     myParticles[myNumParticles + 1].key = dm->splitters[2 * myPlace + 2];
 
   CkAssert(myParticles[1].key >= myParticles[0].key);
+  //if (myParticles[myNumParticles + 1].key < myParticles[myNumParticles].key) {
+    //CkPrintf("[%d] TPS going to abort %lx %lx\n", thisIndex, myParticles[myNumParticles+1].key, myParticles[myNumParticles].key);
+  //}
   CkAssert(myParticles[myNumParticles + 1].key >= myParticles[myNumParticles].key);
 
   // create the root of the global tree
@@ -4632,7 +4673,9 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   CkPrintf("[%d]sending message to commence local gravity calculation\n", thisIndex);
 #endif
 
-  if (bEwald) thisProxy[thisIndex].EwaldInit();
+  if (bEwald) {
+    thisProxy[thisIndex].EwaldInit();
+  }
 #if defined CUDA
   // ask datamanager to serialize local trees
   // prefetch can occur concurrently with this, 

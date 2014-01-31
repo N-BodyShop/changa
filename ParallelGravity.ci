@@ -309,6 +309,7 @@ mainmodule ParallelGravity {
     entry void ioShuffle(CkReductionMsg *msg);
     entry void ioAcceptSortedParticles(ParticleShuffleMsg *);
     entry void assignKeys(CkReductionMsg* m);
+    entry void sendNumTpsContribute();
     entry void updateNumChares(int numchares);
     entry [nokeep] void evaluateBoundaries(bool convertToLoad, SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
     entry void unshuffleParticles(CkReductionMsg* m);

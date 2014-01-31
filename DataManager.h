@@ -66,6 +66,8 @@ class DataManager : public CBase_DataManager {
 
 protected:
 
+  int currentCountTPs;
+
 	/// The array of splitter keys for the sort.
 	std::vector<SFC::Key> boundaryKeys;
 

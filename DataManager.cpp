@@ -35,6 +35,7 @@ DataManager::DataManager(CkMigrateMessage *m) : CBase_DataManager(m) {
 }
 
 void DataManager::init() {
+  currentCountTPs = 0;
   splitters = NULL;
   numSplitters = 0;
   root = NULL;
@@ -68,6 +69,7 @@ void DataManager::acceptResponsibleIndex(const int* responsible, const int n,
     }
 
 void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb) {
+    CkPrintf("^^^^^ DataManager AcceptFinalKeys count %d\n", n);
 
   //should not assign responsibility or place to a treepiece that will get no particles
   int ignored = 0;
@@ -78,12 +80,18 @@ void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, 
   boundaryKeys.resize(n - ignored);
   responsibleIndex.resize(n - 1 - ignored);
   particleCounts.resize(n - 1 - ignored);
+  currentCountTPs = n - 1;
 
   //if all treepieces receiving particles, copy everything
   if (ignored == 0){
     copy(keys, keys + n, boundaryKeys.begin());
     copy(responsible, responsible + n - 1, responsibleIndex.begin());
     copy(bins, bins + n - 1, particleCounts.begin());
+    //if (CkMyPe()==0) {
+    //  for (int i = 0; i < responsibleIndex.size(); i++) {
+    //    CkPrintf("\t responsibleIdx[%d] %d\n", i, responsibleIndex[i]);
+    //  }
+    //}
   } else {
     boundaryKeys[0] = keys[0];
     int idx = 0;
@@ -171,6 +179,7 @@ void DataManager::collectSplitters(CkReductionMsg *m) {
 void DataManager::pup(PUP::er& p) {
     CBase_DataManager::pup(p);
     p | treePieces;
+    p | currentCountTPs;
 }
 
 void DataManager::notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp) {

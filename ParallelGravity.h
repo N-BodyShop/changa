@@ -301,8 +301,32 @@ public:
 
 class CreateMsg : public CMessage_CreateMsg {
   public:
-  CkCallback callback;
   GravityParticle *particles;
+  double fPeriodParX;
+  double fPeriodParY;
+  double fPeriodParZ;
+//	std::string basefilenamePar;
+
+
+  int numParts;
+
+  CkCallback callback;
+  int nRepsPar;
+  int bEwaldPar;
+  double fEwCutPar;
+  double dEwhCutPar;
+  int bPeriodPar;
+  bool warmupFinPar;
+  CkGroupID proxyPar;
+  LBStrategy foundLBPar;
+  // jetley - whether proxy is valid or not
+  bool proxyValidPar;
+  bool proxySetPar;
+  int prevLARungPar;
+
+  unsigned iterationNoPar;
+  int nSetupWriteStagePar;
+
 };
 
 #ifdef PUSH_GRAVITY
@@ -1418,18 +1442,42 @@ public:
           localTreeBuildComplete = false;
 	}
 
-  TreePiece(CreateMsg *m) : pieces(thisArrayID), root(0), proxyValid(false),
-	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
+  TreePiece(CreateMsg *m) : pieces(thisArrayID), root(0),
+	    sTopDown(0), sGravity(0),
 	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
 	  treePieceLoad(0.0), treePieceLoadTmp(0.0) { 
-    if (thisIndex == 32) {
-      CkPrintf("Index 32 tps created PE %d^^^^^^^^^^\n", CkMyPe());
+    if (thisIndex >= 32) {
+      CkPrintf("Index [%d] tps created PE %d dExtraStore %d dMaxBalance %f^^^^^^^^^^\n",
+      thisIndex, CkMyPe(), dExtraStore, dMaxBalance);
     }
+
+	  nMaxEwhLoop = 100;
+
+    fPeriod[0] = m->fPeriodParX;
+    fPeriod[1] = m->fPeriodParY;
+    fPeriod[2] = m->fPeriodParZ;
+
     callback = m->callback;
+    nReplicas = m->nRepsPar;
+    bEwald = m->bEwaldPar;
+    fEwCut  = m->fEwCutPar;
+    dEwhCut = m->dEwhCutPar;
+    bPeriodic = m->bPeriodPar;
+    ewt = new EWT[nMaxEwhLoop];
+
+    warmupFinished = m->warmupFinPar;
+    proxy = m->proxyPar;
+    foundLB = m->foundLBPar;
+    proxyValid = m->proxyValidPar;
+    proxySet = m->proxySetPar;
+    prevLARung = m->prevLARungPar;
+
+    //basefilename = m->basefilenamePar;
+    iterationNo = m->iterationNoPar;
+    nSetupWriteStage = m->nSetupWriteStagePar;
+
 
     dm = NULL;
-	  foundLB = Null; 
-	  iterationNo=0;
 	  usesAtSync = true;
 	  pTreeNodes = NULL;
 	  bucketReqs=NULL;
@@ -1440,7 +1488,6 @@ public:
 	  nPartCacheEntries = 0;
 	  completedActiveWalks = 0;
 	  myPlace = -1;
-	  nSetupWriteStage = -1;
     //openingDiffCount=0;
     chunkRootLevel=0;
     //splitters = NULL;
@@ -1481,8 +1528,6 @@ public:
 	  numChunks=-1;
 	  prefetchRoots = NULL;
 	  numPrefetchReq = 0;
-	  ewt = NULL;
-	  nMaxEwhLoop = 100;
 
           incomingParticlesMsg.clear();
           incomingParticlesArrived = 0;
@@ -1506,6 +1551,26 @@ public:
           localTreeBuildComplete = false;
 
     
+    /*
+    */
+    switch(domainDecomposition) {
+    case SFC_dec:
+    case SFC_peano_dec:
+    case SFC_peano_dec_3D:
+    case SFC_peano_dec_2D:
+      numPrefetchReq = 2;
+      break;
+    case Oct_dec:
+    case ORB_dec:
+    case ORB_space_dec:
+      numPrefetchReq = 1;
+      break;
+    default:
+      CmiAbort("Pupper has wrong domain decomposition type!\n");
+    }
+
+    delete m;
+
     acceptSortedParticles(NULL);
   }
 
