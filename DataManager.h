@@ -82,6 +82,10 @@ protected:
 	/// The size of the array splitters
 	int numSplitters;
 
+  std::vector<SFC::Key> tmpNewBoundaryKeys;
+  std::vector<int> newBoundaryIds;
+  std::vector<int> newBoundaryPartCounts;
+
 	/// A list of roots of the TreePieces in this node
 	// holds chare array indices of registered treepieces
 	CkVec<TreePieceDescriptor> registeredTreePieces;
@@ -211,6 +215,10 @@ public:
 	/// for which interval
 	/// @param bins number of particles in each interval.
 	void acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb);
+
+  void registerNewBoundaryKeys(const SFC::Key* keys, const int* responsible,
+    const int* partcounts, const int n);
+  void allRegisteringDone();
 	void pup(PUP::er& p);
 
 #ifdef CUDA

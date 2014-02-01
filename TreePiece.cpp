@@ -723,50 +723,15 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
 
   tpLoad = getObjTime();
   populateSavedPhaseData(prevLARung, tpLoad, treePieceActivePartsTmp);
-  callback = *static_cast<CkCallback *>(m->getData());
-
-//  if (thisIndex == 0 && getObjTime() > 0.1 && numTreePieces < 34) {
-//    CkPrintf("************** Creating treepiece index %d dMaxBalance %f\n",
-//    numTreePieces, dMaxBalance);
-//    CreateMsg *msg = new (1) CreateMsg;
-//
-//    msg->numParts = 0;
-//
-//    msg->fPeriodParX = fPeriod[0];
-//    msg->fPeriodParY = fPeriod[1];
-//    msg->fPeriodParZ = fPeriod[2];
-//
-//    msg->callback = callback;
-//    msg->nRepsPar = nReplicas;
-//    msg->bEwaldPar = bEwald;
-//    msg->fEwCutPar = fEwCut;
-//    msg->dEwhCutPar = dEwhCut;
-//    msg->bPeriodPar = bPeriodic;
-//
-//    msg->warmupFinPar = warmupFinished;
-//    msg->proxyPar = proxy;
-//    msg->foundLBPar = foundLB;
-//    msg->proxyValidPar = proxyValid;
-//    msg->proxySetPar = proxySet;
-//    msg->prevLARungPar = prevLARung;
-//    
-//    //msg->basefilenamePar = basefilename;
-//    msg->iterationNoPar = iterationNo;
-//    msg->nSetupWriteStagePar = nSetupWriteStage;
-//
-//
-//
-//
-//    thisProxy[numTreePieces].insert(msg);
-//    lvProxy[numTreePieces].insert();
-//    gravityProxy[numTreePieces].insert();
-//    smoothProxy[numTreePieces].insert();
-//  }
-
-  if (thisIndex == 0) {
-    CkCallback cbqd(CkIndex_TreePiece::sendNumTpsContribute(), thisProxy);
-    CkStartQD(cbqd);
+  if (m != NULL) {
+    callback = *static_cast<CkCallback *>(m->getData());
   }
+
+
+//  if (thisIndex == 0) {
+//    CkCallback cbqd(CkIndex_TreePiece::sendNumTpsContribute(), thisProxy);
+//    CkStartQD(cbqd);
+//  }
 
 
   // CkPrintf("[%d] myplace %d\n", thisIndex, myPlace);
@@ -782,7 +747,9 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
   if (myNumParticles == 0) {
     incomingParticlesSelf = true;
     acceptSortedParticles(NULL);
-    delete m;
+    if (m != NULL) {
+      delete m;
+    }
     return;
   }
 
@@ -887,12 +854,284 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
   incomingParticlesSelf = true;
   acceptSortedParticles(NULL);
 
-  delete m;
+  if (m != NULL) {
+    delete m;
+  }
+}
+
+
+void TreePiece::unshuffleLocal() {
+  double tpLoad;
+  warmupFinished = true;
+
+
+  if (dm == NULL) {
+    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+  }
+
+  tpLoad = getObjTime();
+//  populateSavedPhaseData(prevLARung, tpLoad, treePieceActivePartsTmp);
+
+
+  if (myNumParticles == 0) {
+    incomingParticlesSelf = true;
+    acceptParticlesBasedOnPrevSplitter(NULL);
+    return;
+  }
+
+  GravityParticle *binBegin = &myParticles[1];
+  vector<Key>::iterator iter =
+    lower_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(),
+                binBegin->key);
+  vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
+  int offset = iter - dm->boundaryKeys.begin() - 1;
+  vector<int>::iterator responsibleIter = dm->responsibleIndex.begin() + offset;
+
+  GravityParticle *binEnd;
+  GravityParticle dummy;
+  for( ; iter != endKeys; ++iter, ++responsibleIter) {
+    dummy.key = *iter;
+    //find particles between this and the last key
+    binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1],
+        dummy);
+    // If I have any particles in this bin, send them to
+    // the responsible TreePiece
+    int nPartOut = binEnd - binBegin;
+    int saved_phase_len = savedPhaseLoad.size();
+
+    if(nPartOut > 0) {
+      int nGasOut = 0;
+      int nStarOut = 0;
+      for(GravityParticle *pPart = binBegin; pPart < binEnd;
+          pPart++) {
+        if(pPart->isGas())
+          nGasOut++;
+        if(pPart->isStar())
+          nStarOut++;
+      }
+
+      ParticleShuffleMsg *shuffleMsg
+        = new (saved_phase_len, saved_phase_len, nPartOut, nGasOut, nStarOut)
+        ParticleShuffleMsg(saved_phase_len, nPartOut, nGasOut, nStarOut, 0.0);
+      memset(shuffleMsg->parts_per_phase, 0, saved_phase_len*sizeof(unsigned int));
+
+      // Calculate the number of particles leaving the treepiece per phase
+      for(GravityParticle *pPart = binBegin; pPart < binEnd; pPart++) {
+        for(int i = 0; i < saved_phase_len; i++) {
+          if (pPart->rung >= i) {
+            shuffleMsg->parts_per_phase[i] = shuffleMsg->parts_per_phase[i] + 1;
+          }
+        }
+      }
+
+      shuffleMsg->load = tpLoad * nPartOut / myNumParticles;
+      memset(shuffleMsg->loads, shuffleMsg->load, saved_phase_len*sizeof(double));
+
+      // Calculate the partial load per phase
+      for (int i = 0; i < saved_phase_len; i++) {
+        if (havePhaseData(i) && savedPhaseParticle[i] != 0) {
+          shuffleMsg->loads[i] = savedPhaseLoad[i] *
+            (shuffleMsg->parts_per_phase[i] / (float) savedPhaseParticle[i]);
+        } else if (havePhaseData(0) && myNumParticles != 0) {
+          shuffleMsg->loads[i] = savedPhaseLoad[0] *
+            (shuffleMsg->parts_per_phase[i] / (float) myNumParticles);
+        }
+      }
+
+      if (verbosity>=3)
+        CkPrintf("me:%d to:%d nPart :%d, nGas:%d, nStar: %d\n",
+            thisIndex, *responsibleIter,nPartOut, nGasOut,
+            nStarOut);
+
+      int iGasOut = 0;
+      int iStarOut = 0;
+      GravityParticle *pPartOut = shuffleMsg->particles;
+      for(GravityParticle *pPart = binBegin; pPart < binEnd;
+          pPart++, pPartOut++) {
+        *pPartOut = *pPart;
+        if(pPart->isGas()) {
+          shuffleMsg->pGas[iGasOut]
+            = *(extraSPHData *)pPart->extraData;
+          iGasOut++;
+        }
+        if(pPart->isStar()) {
+          shuffleMsg->pStar[iStarOut]
+            = *(extraStarData *)pPart->extraData;
+          iStarOut++;
+        }
+      }
+
+      if(*responsibleIter == thisIndex) {
+        if (verbosity > 1)
+          CkPrintf("TreePiece %d: keeping %d / %d particles: %d\n",
+              thisIndex, nPartOut, myNumParticles,
+              nPartOut*10000/myNumParticles);
+        acceptParticlesBasedOnPrevSplitter(shuffleMsg);
+      }
+      else {
+        treeProxy[*responsibleIter].acceptParticlesBasedOnPrevSplitter(shuffleMsg);
+      }
+    }
+    if(&myParticles[myNumParticles + 1] <= binEnd)
+      break;
+    binBegin = binEnd;
+  }
+
+  incomingParticlesSelf = true;
+  acceptParticlesBasedOnPrevSplitter(NULL);
+}
+
+void TreePiece::sortAllRecvdParticlesLocal() {
+  if (dm == NULL)
+    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(),
+      thisIndex) - dm->responsibleIndex.begin();
+  if (myPlace == dm->responsibleIndex.size()) myPlace = -2;
+
+  if (myPlace != -2) {
+    dm->particleCounts[myPlace] = incomingParticlesArrived;
+  }
+
+
+  // The following assert does not work anymore when TreePieces can
+  //have 0 particles assigned
+  //assert(myPlace >= 0 && myPlace < dm->particleCounts.size());
+  if (myPlace == -2 || dm->particleCounts[myPlace] == 0) {
+    // Special case where no particle is assigned to this TreePiece
+    if (myNumParticles > 0){
+      delete[] myParticles;
+      myParticles = NULL;
+    }
+    myNumParticles = 0;
+    nStore = 0;
+    if (nStoreSPH > 0){
+      delete[] mySPHParticles;
+      mySPHParticles = NULL;
+    }
+    myNumSPH = 0;
+    nStoreSPH = 0;
+    if (nStoreStar > 0){
+      delete[] myStarParticles;
+      myStarParticles = NULL;
+    }
+    myNumStar = 0;
+    nStoreStar = 0;
+    incomingParticlesSelf = false;
+    incomingParticlesMsg.clear();
+    if(verbosity>1) ckout << thisIndex <<" no particles assigned"<<endl;
+
+    deleteTree();
+    return;
+  }
+
+  if(dm->particleCounts[myPlace] == incomingParticlesArrived && incomingParticlesSelf) {
+    //I've got all my particles
+    if (myNumParticles > 0) delete[] myParticles;
+
+    nStore = (int)((dm->particleCounts[myPlace] + 2)*(1.0 + dExtraStore));
+    myParticles = new GravityParticle[nStore];
+    myNumParticles = dm->particleCounts[myPlace];
+    incomingParticlesArrived = 0;
+    incomingParticlesSelf = false;
+    treePieceLoad = treePieceLoadTmp;
+    treePieceLoadTmp = 0.0;
+
+    savedPhaseLoad.swap(savedPhaseLoadTmp);
+    savedPhaseParticle.swap(savedPhaseParticleTmp);
+    savedPhaseLoadTmp.clear();
+    savedPhaseParticleTmp.clear();
+
+    int nSPH = 0;
+    int nStar = 0;
+    int iMsg;
+    for(iMsg = 0; iMsg < incomingParticlesMsg.size(); iMsg++) {
+      nSPH += incomingParticlesMsg[iMsg]->nSPH;
+      nStar += incomingParticlesMsg[iMsg]->nStar;
+    }
+    if (nStoreSPH > 0) delete[] mySPHParticles;
+    myNumSPH = nSPH;
+    nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
+    if(nStoreSPH > 0) mySPHParticles = new extraSPHData[nStoreSPH];
+    else mySPHParticles = NULL;
+
+    if (nStoreStar > 0) delete[] myStarParticles;
+    myNumStar = nStar;
+    allocateStars();
+
+    int nPart = 0;
+    nSPH = 0;
+    nStar = 0;
+    for(iMsg = 0; iMsg < incomingParticlesMsg.size(); iMsg++) {
+      memcpy(&myParticles[nPart+1], incomingParticlesMsg[iMsg]->particles,
+          incomingParticlesMsg[iMsg]->n*sizeof(GravityParticle));
+      nPart += incomingParticlesMsg[iMsg]->n;
+      memcpy(&mySPHParticles[nSPH], incomingParticlesMsg[iMsg]->pGas,
+          incomingParticlesMsg[iMsg]->nSPH*sizeof(extraSPHData));
+      nSPH += incomingParticlesMsg[iMsg]->nSPH;
+      memcpy(&myStarParticles[nStar], incomingParticlesMsg[iMsg]->pStar,
+          incomingParticlesMsg[iMsg]->nStar*sizeof(extraStarData));
+      nStar += incomingParticlesMsg[iMsg]->nStar;
+      delete incomingParticlesMsg[iMsg];
+    }
+
+    incomingParticlesMsg.clear();
+    // assign gas data pointers and determine centroid
+    int iGas = 0;
+    int iStar = 0;
+    Vector3D<double> vCenter(0.0, 0.0, 0.0);
+    for(int iPart = 0; iPart < myNumParticles; iPart++) {
+      vCenter += myParticles[iPart+1].position;
+      if(myParticles[iPart+1].isGas()) {
+        myParticles[iPart+1].extraData
+          = (extraSPHData *)&mySPHParticles[iGas];
+        iGas++;
+      }
+      else if(myParticles[iPart+1].isStar()) {
+        myParticles[iPart+1].extraData
+          = (extraStarData *)&myStarParticles[iStar];
+        iStar++;
+      }
+      else
+        myParticles[iPart+1].extraData = NULL;
+    }
+
+    sort(myParticles+1, myParticles+myNumParticles+1);
+    savedCentroid = vCenter/(double)myNumParticles;
+    //signify completion with a reduction
+    if(verbosity>1) ckout << thisIndex <<" contributing to accept particles"
+      <<endl;
+
+    deleteTree();
+  }
+}
+
+
+void TreePiece::unshuffleBasedOnPrevSplitter() {
+  if (thisIndex == 0) {
+    CkCallback cbqd(CkIndex_TreePiece::sortAllRecvdParticles(), thisProxy);
+    CkStartQD(cbqd);
+  }
+  unshuffleLocal();
+}
+
+void TreePiece::acceptParticlesBasedOnPrevSplitter(ParticleShuffleMsg *shuffleMsg) {
+  if(shuffleMsg != NULL) {
+    incomingParticlesMsg.push_back(shuffleMsg);
+    incomingParticlesArrived += shuffleMsg->n;
+    treePieceLoadTmp += shuffleMsg->load; 
+    savePhaseData(savedPhaseLoadTmp, savedPhaseParticleTmp, shuffleMsg->loads,
+        shuffleMsg->parts_per_phase, shuffleMsg->nloads);
+  }
+}
+
+void TreePiece::sortAllRecvdParticles() {
+  sortAllRecvdParticlesLocal();
+  sendAvgTpLoad();
 }
 
 void TreePiece::sendNumTpsContribute() {
 
-  CkPrintf("[%d] TP has load %f and particles %d\n", thisIndex, getObjTime(), myNumParticles);
+  //CkPrintf("[%d] TP has load %f and particles %d\n", thisIndex, getObjTime(), myNumParticles);
   int num=1;
   contribute(1*sizeof(int),&num, CkReduction::sum_int, CkCallback(CkReductionTarget(Main,updateNumChares),mainChare));
 }
@@ -900,6 +1139,416 @@ void TreePiece::sendNumTpsContribute() {
 void TreePiece::updateNumChares(int numchares) {
   numTreePieces = numchares;
   contribute(callback);
+}
+
+void TreePiece::startDistributedDD(CkCallback &cb) {
+  double tpLoad = getObjTime();
+  populateSavedPhaseData(prevLARung, tpLoad, treePieceActivePartsTmp);
+  callback = cb;
+  unshuffleBasedOnPrevSplitter();
+}
+
+void TreePiece::sendAvgTpLoad() {
+
+  double ld;
+  if (havePhaseData(activeRung)) {
+    ld = savedPhaseLoad[activeRung];
+  } else if (havePhaseData(0)) {
+    ld = savedPhaseLoad[0];
+  }
+
+  contribute(1*sizeof(double), &ld, CkReduction::sum_double,
+    CkCallback(CkReductionTarget(TreePiece, getSumTPLoad), thisProxy));
+}
+
+void TreePiece::getSumTPLoad(double ld) {
+  double avgtpload = ld / (double) numTreePieces;
+  splitTPsBasedOnLoad(avgtpload);
+}
+
+void TreePiece::splitTPsBasedOnLoad(double avgtpload) {
+  if (thisIndex == 0) {
+    // Start QD and callback being createNewTPs
+    CkCallback cbqd(CkIndex_DataManager::allRegisteringDone(), CProxy_DataManager(dataManagerID));
+    CkStartQD(cbqd);
+  }
+
+  // My load is within the avg, then don't split
+  double myld;
+  if (havePhaseData(activeRung)) {
+    myld = savedPhaseLoad[activeRung];
+  } else if (havePhaseData(0)) {
+    myld = savedPhaseLoad[0];
+  }
+
+  // Set a bool to indicate whether to split or not
+  if (myld <= avgtpload*1.3) {
+    doSplitting = false;
+    //CkPrintf("[%d] No need to do splitting ld %f avgld %f\n", thisIndex, myld, avgtpload);
+    return;
+  }
+
+  doSplitting = true;
+
+  // Split and store the new splitter keys
+  int numSplits = myld/avgtpload;
+  int splitParticle = myNumParticles;
+  Key splitterkey;
+  newChareSplitterKeys.clear();
+  idsForSplitters.clear();
+  newCharePartsCount.clear();
+  if (myNumParticles > 1) {
+    splitParticle = myNumParticles/2;
+    splitterkey = myParticles[splitParticle].key;
+    newChareSplitterKeys.push_back(splitterkey);
+    newCharePartsCount.push_back(myNumParticles-splitParticle);
+  }
+  //CkPrintf("[%d] Need to do %d splitting ld %f avgld %f splitterKey %lx\n", thisIndex, numSplits, myld, avgtpload, splitterkey);
+  //if (myPlace != -2) {
+  //  CkPrintf("\t[%d] My current place %d is %lx to %lx with parts %d\n", thisIndex, myPlace,
+  //  dm->boundaryKeys[myPlace], dm->boundaryKeys[myPlace+1], myNumParticles);
+  //  CkPrintf("\t[%d] Splitter key %lx >= %lx == %d (%d parts)\n", thisIndex, splitterkey,
+  //    dm->boundaryKeys[myPlace], (splitterkey>dm->boundaryKeys[myPlace]), splitParticle);
+  //  CkPrintf("\t[%d] Splitter key %lx <= %lx == %d (%d parts)\n", thisIndex, splitterkey,
+  //  dm->boundaryKeys[myPlace+1], (splitterkey<dm->boundaryKeys[myPlace+1]),
+  //  myNumParticles-splitParticle);
+  //}
+
+  mainChare.getNextTPIds(1, thisIndex);
+}
+
+void TreePiece::nextTPIdx(int* ids, int n) {
+  SFC::Key* keys = new SFC::Key[n+1];
+  int* responsibleIds = new int[n+1];
+  int* partcounts = new int[n+1];
+  int totalpartsplit = 0;
+  // Store these ids somewhere and wait for QD
+  for (int i = 0; i < n; i++) {
+  //  CkPrintf("\t[%d]^^^ Recvd id[%d] for new TPS %d with parts %d\n", thisIndex, i, ids[i], newCharePartsCount[i]);
+    idsForSplitters.push_back(ids[i]);
+
+    keys[i] = newChareSplitterKeys[i];
+    responsibleIds[i] = idsForSplitters[i];
+    partcounts[i] = newCharePartsCount[i];
+    totalpartsplit += partcounts[i];
+  }
+  keys[n] = dm->boundaryKeys[myPlace];
+  responsibleIds[n] = thisIndex;
+  partcounts[n] =  myNumParticles - totalpartsplit;
+
+
+//  for (int i = 0; i <= n; i++) {
+//    CkPrintf("At TP %d (currentparts %d) sent ids[%d] = %lx count %d responsible %d\n", thisIndex, myNumParticles,
+//    i, keys[i], partcounts[i], responsibleIds[i]);
+//  }
+
+
+  // Inform datamanger via broadcast
+  dMProxy.registerNewBoundaryKeys(keys, responsibleIds, partcounts, n+1);
+  delete[] keys;
+  delete[] responsibleIds;
+  delete[] partcounts;
+}
+
+void TreePiece::createNewTPs() {
+
+  if (thisIndex == 0) {
+    //Start QD to indicate whether all the creations are done. That QD should
+    //call unshuffle
+    CkCallback cbqd(CkIndex_TreePiece::finallySortParticles(), thisProxy);
+    CkStartQD(cbqd);
+  }
+
+  // If I don't need to create, then do nothing and wait for next QD
+  if (!doSplitting) {
+    return;
+  }
+  createNewTPsLocal();
+}
+
+void TreePiece::finallySortParticles() {
+  sendNumTpsContribute();
+}
+
+void TreePiece::createNewTPsLocal() {
+//  CkPrintf("[%d] Need to do Splitting hence createNewTPsLocal\n", thisIndex);
+  GravityParticle *binBegin = &myParticles[1];
+  vector<Key>::iterator iter =
+    lower_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(),
+                binBegin->key);
+  vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
+  int offset = iter - dm->boundaryKeys.begin() - 1;
+  vector<int>::iterator responsibleIter = dm->responsibleIndex.begin() + offset;
+
+  GravityParticle *binEnd;
+  GravityParticle dummy;
+
+  int self_saved_phase_len;
+  int self_nPartOut;
+  int self_nGasOut;
+  int self_nStarOut;
+  double load;
+  double* loads;
+  unsigned int* parts_per_phase;
+  GravityParticle* particles;
+  extraSPHData* pGas;
+  extraStarData* pStar;
+  bool selfMigrate = false;
+
+  for( ; iter != endKeys; ++iter, ++responsibleIter) {
+    dummy.key = *iter;
+    //find particles between this and the last key
+    binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1], dummy);
+
+    // If I have any particles in this bin, send them to
+    // the responsible TreePiece
+    int nPartOut = binEnd - binBegin;
+    int saved_phase_len = savedPhaseLoad.size();
+
+    if(nPartOut > 0) {
+      int nGasOut = 0;
+      int nStarOut = 0;
+      for(GravityParticle *pPart = binBegin; pPart < binEnd; pPart++) {
+        if(pPart->isGas()) nGasOut++;
+        if(pPart->isStar()) nStarOut++;
+      }
+
+      if(*responsibleIter == thisIndex) {
+//        continue;
+        self_saved_phase_len = saved_phase_len;
+        self_nPartOut = nPartOut;
+        self_nGasOut = nGasOut;
+        self_nStarOut = nStarOut;
+        loads = new double[saved_phase_len];
+        parts_per_phase = new unsigned int[saved_phase_len];
+        particles = new GravityParticle[nPartOut];
+        pGas = new extraSPHData[nGasOut];
+        pStar = new extraStarData[nStarOut];
+        selfMigrate = true;
+
+        //CkPrintf("[%d] Splitting itself and filling itself nParts %d nSPH %d nStarOut %d\n", thisIndex, *binBegin, *binEnd, nPartOut, nGasOut, nStarOut);
+
+        fillInSplitParticleDetails(binBegin, binEnd, saved_phase_len, nPartOut,
+          nGasOut, nStarOut, load, loads, parts_per_phase, particles, pGas, pStar);
+        
+        //CkPrintf("[%d] Splitting itself and filling itself DONE!!! \n", thisIndex);
+      } else {
+        //CkPrintf("[%d] Splitting newformed chare and filling dExtraStore %f\n", thisIndex, dExtraStore);
+        CreateMsg *msg = new (saved_phase_len, saved_phase_len, nPartOut,
+          nGasOut, nStarOut) CreateMsg;
+
+        msg->nloads = saved_phase_len;
+        msg->numParts = nPartOut;
+        msg->nSPH = nGasOut;
+        msg->nStar = nStarOut;
+
+        msg->fPeriodParX = fPeriod[0];
+        msg->fPeriodParY = fPeriod[1];
+        msg->fPeriodParZ = fPeriod[2];
+
+        msg->callback = callback;
+        msg->nRepsPar = nReplicas;
+        msg->bEwaldPar = bEwald;
+        msg->fEwCutPar = fEwCut;
+        msg->dEwhCutPar = dEwhCut;
+        msg->bPeriodPar = bPeriodic;
+
+        msg->warmupFinPar = warmupFinished;
+        msg->proxyPar = proxy;
+        msg->foundLBPar = foundLB;
+        msg->proxyValidPar = proxyValid;
+        msg->proxySetPar = proxySet;
+        msg->prevLARungPar = prevLARung;
+
+        //msg->basefilenamePar = basefilename;
+        msg->iterationNoPar = iterationNo;
+        msg->nSetupWriteStagePar = nSetupWriteStage;
+
+        //CkPrintf("New TP [%d] has %d parts, %d nSPH, %d nStarOut\n", *responsibleIter, nPartOut, nGasOut, nStarOut);
+
+        fillInSplitParticleDetails(binBegin, binEnd, saved_phase_len, nPartOut,
+          nGasOut, nStarOut, msg->load, msg->loads, msg->parts_per_phase,
+          msg->particles, msg->pGas, msg->pStar);
+
+        thisProxy[*responsibleIter].insert(msg);
+        lvProxy[*responsibleIter].insert();
+        gravityProxy[*responsibleIter].insert();
+        smoothProxy[*responsibleIter].insert();
+      }
+    }
+    if(&myParticles[myNumParticles + 1] <= binEnd)
+      break;
+    binBegin = binEnd;
+  }
+
+  if (selfMigrate) {
+    acceptSplitSortedParticles(self_saved_phase_len, self_nPartOut,
+      self_nGasOut, self_nStarOut, load, loads, parts_per_phase, particles,
+      pGas, pStar);
+    delete[] loads;
+    delete[] parts_per_phase;
+    delete[] particles;
+    delete[] pGas;
+    delete[] pStar;
+  }
+}
+
+void TreePiece::fillInSplitParticleDetails(GravityParticle* binBegin,
+  GravityParticle* binEnd, int saved_phase_len, int nPartOut, int nGasOut,
+  int nStarOut, double &load, double* loads, unsigned int *parts_per_phase,
+  GravityParticle* particles, extraSPHData *pGas, extraStarData* pStar) {
+
+  memset(parts_per_phase, 0, saved_phase_len*sizeof(unsigned int));
+
+  // Calculate the number of particles leaving the treepiece per phase
+  for(GravityParticle *pPart = binBegin; pPart < binEnd; pPart++) {
+    for(int i = 0; i < saved_phase_len; i++) {
+      if (pPart->rung >= i) {
+        parts_per_phase[i] = parts_per_phase[i] + 1;
+      }
+    }
+  }
+
+  load = getObjTime() * nPartOut / myNumParticles;
+  memset(loads, load, saved_phase_len*sizeof(double));
+
+  // Calculate the partial load per phase
+  for (int i = 0; i < saved_phase_len; i++) {
+    if (havePhaseData(i) && savedPhaseParticle[i] != 0) {
+      loads[i] = savedPhaseLoad[i] * (parts_per_phase[i] /
+        (double) savedPhaseParticle[i]);
+    } else if (havePhaseData(0) && myNumParticles != 0) {
+      loads[i] = savedPhaseLoad[0] *
+        (parts_per_phase[i] / (double) myNumParticles);
+    }
+  }
+
+  int iGasOut = 0;
+  int iStarOut = 0;
+  GravityParticle *pPartOut = particles;
+  for(GravityParticle *pPart = binBegin; pPart < binEnd; pPart++, pPartOut++) {
+    *pPartOut = *pPart;
+    if(pPart->isGas()) {
+      pGas[iGasOut] = *(extraSPHData *)pPart->extraData;
+      iGasOut++;
+    }
+    if(pPart->isStar()) {
+      pStar[iStarOut] = *(extraStarData *)pPart->extraData;
+      iStarOut++;
+    }
+  }
+  CkAssert(iGasOut == nGasOut);
+  CkAssert(iStarOut == nStarOut);
+}
+
+void TreePiece::acceptSplitSortedParticles(int nloads, int npart, int nsph, 
+    int nstar, double pload, double* loads, unsigned int *parts_per_phase,
+    GravityParticle* particles, extraSPHData *pGas, extraStarData *pStar) { 
+
+  if (dm == NULL)
+    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(),
+      thisIndex) - dm->responsibleIndex.begin();
+  if (myPlace == dm->responsibleIndex.size()) myPlace = -2;
+
+  // The following assert does not work anymore when TreePieces can
+  //have 0 particles assigned
+  //CkPrintf("[%d] myPlace %d\n", thisIndex, myPlace);
+
+  //assert(myPlace >= 0 && myPlace < dm->particleCounts.size());
+  if (myPlace == -2 || dm->particleCounts[myPlace] == 0) {
+    // Special case where no particle is assigned to this TreePiece
+    if (myNumParticles > 0){
+      delete[] myParticles;
+      myParticles = NULL;
+    }
+    myNumParticles = 0;
+    nStore = 0;
+    if (nStoreSPH > 0){
+      delete[] mySPHParticles;
+      mySPHParticles = NULL;
+    }
+    myNumSPH = 0;
+    nStoreSPH = 0;
+    if (nStoreStar > 0){
+      delete[] myStarParticles;
+      myStarParticles = NULL;
+    }
+    myNumStar = 0;
+    nStoreStar = 0;
+    incomingParticlesSelf = false;
+    incomingParticlesMsg.clear();
+    if(verbosity>1) ckout << thisIndex <<" no particles assigned"<<endl;
+
+    deleteTree();
+    return;
+  }
+  if (dm->particleCounts[myPlace] != npart) {
+    CkPrintf("[%d] has %d but datamanger thinks %d myplace %d\n", thisIndex,
+    npart, dm->particleCounts[myPlace], myPlace);
+  }
+  CkAssert(dm->particleCounts[myPlace] == npart);
+  //I've got all my particles
+  if (myNumParticles > 0) delete[] myParticles;
+
+  nStore = (int)((dm->particleCounts[myPlace] + 2)*(1.0 + dExtraStore));
+  myParticles = new GravityParticle[nStore];
+  myNumParticles = dm->particleCounts[myPlace];
+  incomingParticlesArrived = 0;
+  incomingParticlesSelf = false;
+  treePieceLoad = treePieceLoadTmp;
+  treePieceLoadTmp = 0.0;
+
+  treePieceLoadTmp = pload; 
+  savePhaseData(savedPhaseLoadTmp, savedPhaseParticleTmp, loads, parts_per_phase,
+    nloads);
+
+  savedPhaseLoad.swap(savedPhaseLoadTmp);
+  savedPhaseParticle.swap(savedPhaseParticleTmp);
+  savedPhaseLoadTmp.clear();
+  savedPhaseParticleTmp.clear();
+
+  if (nStoreSPH > 0) delete[] mySPHParticles;
+  myNumSPH = nsph;
+  nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
+  if(nStoreSPH > 0) mySPHParticles = new extraSPHData[nStoreSPH];
+  else mySPHParticles = NULL;
+
+  if (nStoreStar > 0) delete[] myStarParticles;
+  myNumStar = nstar;
+  allocateStars();
+
+  memcpy(&myParticles[1], particles,npart*sizeof(GravityParticle));
+  memcpy(&mySPHParticles[0], pGas, nsph*sizeof(extraSPHData));
+  memcpy(&myStarParticles[0], pStar, nstar*sizeof(extraStarData));
+
+  // assign gas data pointers and determine centroid
+  int iGas = 0;
+  int iStar = 0;
+  Vector3D<double> vCenter(0.0, 0.0, 0.0);
+  for(int iPart = 0; iPart < myNumParticles; iPart++) {
+    vCenter += myParticles[iPart+1].position;
+    if(myParticles[iPart+1].isGas()) {
+      myParticles[iPart+1].extraData
+        = (extraSPHData *)&mySPHParticles[iGas];
+      iGas++;
+    }
+    else if(myParticles[iPart+1].isStar()) {
+      myParticles[iPart+1].extraData
+        = (extraStarData *)&myStarParticles[iStar];
+      iStar++;
+    }
+    else
+      myParticles[iPart+1].extraData = NULL;
+  }
+
+  sort(myParticles+1, myParticles+myNumParticles+1);
+  savedCentroid = vCenter/(double)myNumParticles;
+  //signify completion with a reduction
+  if(verbosity>1) ckout << thisIndex <<" contributing to accept particles"
+    <<endl;
+
+  deleteTree();
 }
 
 /// Accept particles from other TreePieces once the sorting has finished
@@ -911,10 +1560,6 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
   myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(),
       thisIndex) - dm->responsibleIndex.begin();
   if (myPlace == dm->responsibleIndex.size()) myPlace = -2;
-
-  if (thisIndex == 32) {
-    CkPrintf("*************[%d] myplace %d particlecount %d\n", thisIndex, myPlace, dm->particleCounts[myPlace]);
-  }
 
   // The following assert does not work anymore when TreePieces can
   //have 0 particles assigned
@@ -947,7 +1592,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     // We better not have a message with particles for us
     CkAssert(shuffleMsg == NULL);
     //contribute(callback);
-    //sendNumTpsContribute();
+    sendNumTpsContribute();
     return;
   }
 
@@ -1047,7 +1692,7 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     deleteTree();
     //CkPrintf("[%d] accepted %d particles\n", thisIndex, myNumParticles);
     //contribute(callback);
-    //sendNumTpsContribute();
+    sendNumTpsContribute();
   }
 }
 
@@ -5280,12 +5925,16 @@ void TreePiece::pup(PUP::er& p) {
       if(nStoreSPH > 0) mySPHParticles = new extraSPHData[nStoreSPH];
       allocateStars();
   }
+//     CkPrintf("PE %d Id[%d] in packing myNumParticles %d\n",CkMyPe(), thisIndex, myNumParticles);
   for(unsigned int i=1;i<=myNumParticles;i++){
     p | myParticles[i];
     if(myParticles[i].isGas()) {
 	int iSPH;
 	if(!p.isUnpacking()) {
 	    iSPH = (extraSPHData *)myParticles[i].extraData - mySPHParticles;
+     // if (iSPH >= myNumSPH) {
+     //CkPrintf("[%d] Id in packing %d and %d particle %d\n", thisIndex, iSPH, myNumSPH, i);
+     // }
 	    CkAssert(iSPH < myNumSPH);
 	    p | iSPH;
 	    }

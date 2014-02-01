@@ -105,7 +105,11 @@ mainmodule ParallelGravity {
 #endif
 
   message CreateMsg {
+    double loads[];
+    unsigned int parts_per_phase[];
     GravityParticle particles[];
+    extraSPHData pGas[];
+    extraStarData pStar[];
   };
 
   PUPable DensitySmoothParams;
@@ -163,6 +167,7 @@ mainmodule ParallelGravity {
     entry void niceExit();
     entry void liveVizImagePrep(liveVizRequestMsg *msg);
     entry [reductiontarget] void updateNumChares(int numchares);
+    entry void getNextTPIds(int n, int towhom);
   };
 
   group [migratable] ProjectionsControl {
@@ -218,6 +223,10 @@ mainmodule ParallelGravity {
     entry void memoryStats(const CkCallback& cb);
     entry void resetReadOnly(Parameters param, const CkCallback &cb);
     entry void initStarLog(std::string _fileName, const CkCallback &cb);
+
+    entry void registerNewBoundaryKeys(const SFC::Key keys[n], const int
+      responsible[n], const int partcounds[n], const int n); 
+    entry void allRegisteringDone();
   };
 
   array [1D] TreePiece {
@@ -495,6 +504,15 @@ mainmodule ParallelGravity {
     // jetley - balancing before initial forces
     entry void balanceBeforeInitialForces(CkCallback &cb); 
 
+    entry void unshuffleBasedOnPrevSplitter();
+    entry void acceptParticlesBasedOnPrevSplitter(ParticleShuffleMsg *msg);
+    entry void sortAllRecvdParticles();
+    entry void startDistributedDD(CkCallback &cb);
+    entry [reductiontarget] void getSumTPLoad(double ld);
+    entry void splitTPsBasedOnLoad(double avgload);
+    entry void nextTPIdx(int ids[n], int n);
+    entry void createNewTPs();
+    entry void finallySortParticles();
   };
 
   array [1D] LvArray {

@@ -301,31 +301,38 @@ public:
 
 class CreateMsg : public CMessage_CreateMsg {
   public:
-  GravityParticle *particles;
-  double fPeriodParX;
-  double fPeriodParY;
-  double fPeriodParZ;
-//	std::string basefilenamePar;
+    int nloads;
+    int numParts;
+    int nSPH;
+    int nStar;
+    double load;
+    double *loads;
+    unsigned int *parts_per_phase;
+    GravityParticle *particles;
+    extraSPHData *pGas;
+    extraStarData *pStar;
 
+    double fPeriodParX;
+    double fPeriodParY;
+    double fPeriodParZ;
+    //	std::string basefilenamePar;
 
-  int numParts;
+    CkCallback callback;
+    int nRepsPar;
+    int bEwaldPar;
+    double fEwCutPar;
+    double dEwhCutPar;
+    int bPeriodPar;
+    bool warmupFinPar;
+    CkGroupID proxyPar;
+    LBStrategy foundLBPar;
+    // jetley - whether proxy is valid or not
+    bool proxyValidPar;
+    bool proxySetPar;
+    int prevLARungPar;
 
-  CkCallback callback;
-  int nRepsPar;
-  int bEwaldPar;
-  double fEwCutPar;
-  double dEwhCutPar;
-  int bPeriodPar;
-  bool warmupFinPar;
-  CkGroupID proxyPar;
-  LBStrategy foundLBPar;
-  // jetley - whether proxy is valid or not
-  bool proxyValidPar;
-  bool proxySetPar;
-  int prevLARungPar;
-
-  unsigned iterationNoPar;
-  int nSetupWriteStagePar;
+    unsigned iterationNoPar;
+    int nSetupWriteStagePar;
 
 };
 
@@ -498,6 +505,7 @@ public:
 	Main(CkMigrateMessage *m);
 
   void updateNumChares(int numchares);
+  void getNextTPIds(int n, int towhom);
 	void niceExit();
 	void setupICs();
 	void initialForces();
@@ -970,6 +978,13 @@ private:
 	/// Number of particles in my tree.  Can be different from
 	/// myNumParticles when particles are created.
 	int myTreeParticles;
+  /**** Dynamic insertion ******/
+  bool doSplitting;
+  std::vector<SFC::Key> newChareSplitterKeys;
+  std::vector<int> idsForSplitters;
+  std::vector<int> newCharePartsCount;
+  /*****************************/
+
  public:
 	/// Total Particles in the simulation
 	int64_t nTotalParticles;
@@ -1392,9 +1407,6 @@ public:
 	}
 
 	TreePiece(CkMigrateMessage* m) {
-    if (thisIndex == 32) {
-      CkPrintf("Index 32 tps created  migratemsg^^^^^^^^^^\n");
-    }
 	  treePieceLoadTmp = 0.0;
           // jetley
           proxyValid = false;
@@ -1446,10 +1458,10 @@ public:
 	    sTopDown(0), sGravity(0),
 	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
 	  treePieceLoad(0.0), treePieceLoadTmp(0.0) { 
-    if (thisIndex >= 32) {
-      CkPrintf("Index [%d] tps created PE %d dExtraStore %d dMaxBalance %f^^^^^^^^^^\n",
-      thisIndex, CkMyPe(), dExtraStore, dMaxBalance);
-    }
+    //if (thisIndex >= 32) {
+      CkPrintf("******Index [%d] tps created PE %d numParts %d****\n",
+      thisIndex, CkMyPe(), m->numParts);
+    //}
 
 	  nMaxEwhLoop = 100;
 
@@ -1569,9 +1581,11 @@ public:
       CmiAbort("Pupper has wrong domain decomposition type!\n");
     }
 
+    acceptSplitSortedParticles(m->nloads, m->numParts, m->nSPH, m->nStar, m->load,
+      m->loads, m->parts_per_phase, m->particles, m->pGas, m->pStar);
+    //acceptSortedParticles(NULL);
     delete m;
 
-    acceptSortedParticles(NULL);
   }
 
         private:
@@ -1712,6 +1726,32 @@ public:
 	void acceptSortedParticles(ParticleShuffleMsg *);
   void sendNumTpsContribute();
   void updateNumChares(int numchares);
+  
+  /*******Dynamic insertion********/
+  void unshuffleBasedOnPrevSplitter();
+  void unshuffleLocal();
+  void acceptParticlesBasedOnPrevSplitter(ParticleShuffleMsg *);
+  void sortAllRecvdParticles();
+  void sortAllRecvdParticlesLocal();
+  void sendAvgTpLoad();
+  void startDistributedDD(CkCallback &cb);
+  void getSumTPLoad(double ld);
+  void splitTPsBasedOnLoad(double avgtpload);
+  void nextTPIdx(int* ids, int n);
+  void createNewTPs();
+  void createNewTPsLocal();
+  void finallySortParticles();
+  void acceptSplitSortedParticles(int nloads, int npart, int nsph, int nstar, double
+    pload, double* loads, unsigned int *parts_per_phase, GravityParticle*
+    particles, extraSPHData *pGas, extraStarData *pStar); 
+  void fillInSplitParticleDetails(GravityParticle* binBegin,
+    GravityParticle* binEnd, int saved_phase_len, int nPartOut, int nGasOut,
+    int nStarOut, double &load, double* loads, unsigned int *parts_per_phase,
+    GravityParticle* particles, extraSPHData *pGas, extraStarData* pStar);
+
+  /*******************************/
+
+
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);
   void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,

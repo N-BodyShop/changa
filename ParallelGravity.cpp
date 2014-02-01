@@ -1143,6 +1143,15 @@ void Main::updateNumChares(int numchares) {
   treeProxy.updateNumChares(numTreePieces);
 }
 
+void Main::getNextTPIds(int n, int towhom) {
+  int* ids = new int[n];
+  for (int i = 0; i < n; i++) {
+    ids[i] = numTreePieces;
+    numTreePieces++;
+  }
+  treeProxy[towhom].nextTPIdx(ids, n);
+}
+
 /// @brief entry method to cleanly shutdown.  Only used for debugging.
 void Main::niceExit() {
   static unsigned int count = 0;
@@ -1519,8 +1528,9 @@ void Main::advanceBigStep(int iStep) {
     bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
 
     startTime = CkWallTimer();
-    sorter.startSorting(dataManagerID, ddTolerance,
-                        CkCallbackResumeThread(), bDoDD, numTreePieces);
+    //sorter.startSorting(dataManagerID, ddTolerance,
+    //                    CkCallbackResumeThread(), bDoDD, numTreePieces);
+    treeProxy.startDistributedDD(CkCallbackResumeThread());
     /*
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;

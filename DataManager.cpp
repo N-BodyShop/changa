@@ -69,7 +69,6 @@ void DataManager::acceptResponsibleIndex(const int* responsible, const int n,
     }
 
 void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb) {
-    CkPrintf("^^^^^ DataManager AcceptFinalKeys count %d\n", n);
 
   //should not assign responsibility or place to a treepiece that will get no particles
   int ignored = 0;
@@ -130,6 +129,62 @@ void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, 
   CkCallback unshuffleCallback(CkIndex_TreePiece::unshuffleParticles(0),treePieces);
 
   contribute(sizeof(CkCallback), &cb, callbackReduction, unshuffleCallback);
+}
+
+void DataManager::registerNewBoundaryKeys(const SFC::Key* keys, const int*
+  responsible, const int* partcount, const int n) {
+  // push into temporary vector
+  for(int i = 0; i < n; i++) {
+    tmpNewBoundaryKeys.push_back(keys[i]);
+    newBoundaryIds.push_back(responsible[i]);
+    newBoundaryPartCounts.push_back(partcount[i]);
+  }
+
+}
+
+void DataManager::allRegisteringDone() {
+  // Merge the temporary vector
+  int n;
+  for (int i = 0; i < tmpNewBoundaryKeys.size(); i++) {
+   // if (CkMyPe() == 0) {
+   // CkPrintf("((((((((((DM[%d] New tp %d with boundary %lx count %d\n", CkMyPe(),
+   // newBoundaryIds[i], tmpNewBoundaryKeys[i], newBoundaryPartCounts[i]);
+   // }
+
+    std::vector<SFC::Key>::iterator it;
+    std::vector<int>::iterator itids = responsibleIndex.begin();
+    std::vector<int>::iterator itparts = particleCounts.begin();
+    for (it = boundaryKeys.begin(); it != boundaryKeys.end(); it++, itids++, itparts++) {
+      if (*it == tmpNewBoundaryKeys[i]) {
+        *it = tmpNewBoundaryKeys[i];
+        *itids = newBoundaryIds[i];
+        *itparts = newBoundaryPartCounts[i];
+       // CkPrintf("^^^ DM[%d] updating numparticles in existing %d to %d\n",
+       // CkMyPe(), *itids, *itparts);
+        break;
+      }
+      if (*it > tmpNewBoundaryKeys[i]) {
+        boundaryKeys.insert(it, tmpNewBoundaryKeys[i]);
+        responsibleIndex.insert(itids, newBoundaryIds[i]);
+        particleCounts.insert(itparts, newBoundaryPartCounts[i]);
+        break;
+      }
+    }
+  }
+  tmpNewBoundaryKeys.clear();
+  newBoundaryIds.clear();
+  newBoundaryPartCounts.clear();
+  contribute(0, &n, CkReduction::nop,
+    CkCallback(CkIndex_TreePiece::createNewTPs(), treePieces));
+ // if (CkMyPe() == 0) {
+ //   std::vector<SFC::Key>::iterator it;
+ //   std::vector<int>::iterator itids = responsibleIndex.begin();
+ //   std::vector<int>::iterator itparts = particleCounts.begin();
+ //   for (it = boundaryKeys.begin(); it != boundaryKeys.end(); it++, itids++, itparts++) {
+ //     CkPrintf("[%d] responsible for %lx count %d\n", *itids, *it, *itparts);
+ //   }
+ // }
+
 }
 
 ///
