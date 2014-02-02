@@ -134,11 +134,13 @@ void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, 
 void DataManager::registerNewBoundaryKeys(const SFC::Key* keys, const int*
   responsible, const int* partcount, const int n) {
   // push into temporary vector
+  CmiLock(__nodelock);
   for(int i = 0; i < n; i++) {
     tmpNewBoundaryKeys.push_back(keys[i]);
     newBoundaryIds.push_back(responsible[i]);
     newBoundaryPartCounts.push_back(partcount[i]);
   }
+  CmiUnlock(__nodelock);
 
 }
 
@@ -164,9 +166,9 @@ void DataManager::allRegisteringDone() {
         break;
       }
       if (*it > tmpNewBoundaryKeys[i]) {
-        boundaryKeys.insert(it, tmpNewBoundaryKeys[i]);
-        responsibleIndex.insert(itids, newBoundaryIds[i]);
-        particleCounts.insert(itparts, newBoundaryPartCounts[i]);
+        it = boundaryKeys.insert(it, tmpNewBoundaryKeys[i]);
+        itids = responsibleIndex.insert(itids, newBoundaryIds[i]);
+        itparts = particleCounts.insert(itparts, newBoundaryPartCounts[i]);
         break;
       }
     }
