@@ -178,6 +178,9 @@ libmoduleOrb3dLB_notopo.a: Orb3dLB_notopo.o
 HostCUDA.o: HostCUDA.cu HostCUDA.h
 	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) HostCUDA.cu
 
+Makefile: Makefile.in
+	@echo 'Makefile.in changed; re-running `configure`'
+	$(CURDIR)/config.status
 %.o: Makefile
 
 # CELL specific
