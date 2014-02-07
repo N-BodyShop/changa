@@ -2535,12 +2535,15 @@ Main::calcEnergy(double dTime, double wallTime, const char *achLogFileName)
 #include <errno.h>
 /// @brief mkdir with error checking
 inline int safeMkdir(const char *achFile) {
-    int ret = mkdir(achFile, 0755);
-    if(ret != 0 && errno == EEXIST) {
-        CkError("WARNING: overwriting existing directory or file\n");
-        ret = 0;
-        }
-    return ret;
+    struct stat buf;
+    int ret = stat(achFile, &buf);
+    if(ret != 0 && errno == ENOENT)
+        return mkdir(achFile, 0755);
+    CkError("WARNING: overwriting existing directory or file\n");
+    if(S_ISDIR(buf.st_mode))
+        return 0;
+    unlink(achFile);
+    return mkdir(achFile, 0755);
     }
 
 ///
