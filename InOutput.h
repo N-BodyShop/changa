@@ -799,6 +799,53 @@ class Cool3OutputParams : public OutputParams
 	}
     };
 
+/// @brief Output the value in cool_array4.
+class Cool4OutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p)
+    {
+#ifndef COOLING_NONE
+	CkAssert(dm != NULL);
+	if (TYPETest(p, TYPE_GAS))
+	    return COOL_ARRAY4(dm->Cool, &p->CoolParticle(), p->fMetals());
+	else
+#endif
+	    return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    Cool4OutputParams() {}
+    Cool4OutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    PUPable_decl(Cool4OutputParams);
+    Cool4OutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class LWOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+      if (TYPETest(p, TYPE_STAR)) return p->CoolParticle().dLymanWerner;
+      if (TYPETest(p, TYPE_GAS)) return p->CoolParticle().dLymanWerner;
+	else return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    LWOutputParams() {}
+    LWOutputParams(std::string achFileName) { 
+	bVector = 0; 
+	fileName = achFileName+".lw";
+	}
+    PUPable_decl(LWOutputParams);
+    LWOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
 /// @brief Output Oxygen mass fraction.
 class OxOutputParams : public OutputParams
 {

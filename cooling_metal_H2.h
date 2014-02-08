@@ -63,18 +63,13 @@ typedef struct CoolingParametersStruct {
   double dCoolingTmin;     
   double dCoolingTmax;
   double dClump;
-#ifdef  RADIATIVEBOX       
   double dLymanWernerFrac; /* Fraction of Lyman Werner radiation that escapes birth cloud.  0.5 is a good value.*/
-  int bAgeFromMass; /*  Set to true to determine age of star particle from mass compared to formation mass when calculating LW radiation.  Useful in running ICs which already have stars*/
-#endif        
 } COOLPARAM;
 
 typedef struct CoolingParticleStruct {
   double f_HI,f_HeI,f_HeII;
   double f_H2;	/* Abundance of ions */
-#ifdef  RADIATIVEBOX
   double     dLymanWerner; /* Flux of Lyman Werner radiation at the gas particle */
-#endif
 } COOLPARTICLE;
 
 typedef struct { 
@@ -206,10 +201,7 @@ typedef struct CoolingPKDStruct {
   
   int        bShieldHI;
   double     dClump; /* Subgrid clumping factor for determining rate of H2 formation on dust.  10 is a good value*/
-#ifdef  RADIATIVEBOX
-  int        bAgeFromMass; /*Set to true to determine age of star particle from mass compared to formation mass when calculating LW radiation.  Useful in running ICs which already have stars*/
   double     dLymanWernerFrac; /*  Set to true to determine age of star particle from mass compared to formation mass when calculating LW radiation.  Useful in running ICs which already have stars*/
-#endif
   double     dGmPerCcUnit;
   double     dComovingGmPerCcUnit;
   double     dExpand; /*cosmological expansion factor*/
@@ -218,9 +210,7 @@ typedef struct CoolingPKDStruct {
   double     dErgPerGmPerSecUnit;
   double     diErgPerGmUnit;
   double     dKpcUnit;
-  double     dMsolUnit;
   double     dMassFracHelium;
-  double     dInitStarMass; /* Mass of star particle at formation time,  Used when calculating LW radiation*/
 
 /* Diagnostic */
   int       its;
@@ -259,9 +249,7 @@ typedef struct {
   double   Phot_H2;  /*Photon dissociation of H2*/
   double   DustForm_H2; /* Formation of H2 on dust */
   double   CorreLength; /* The correlation length of subgrid turbulence, used when calculating shielding*/
-  /*#ifdef  RADIATIVEBOX*/
   double   LymanWernerCode;
-  /*#endif*/
 } RATE;
 
 typedef struct {
@@ -391,6 +379,9 @@ double COOL_ARRAY2(COOL *cl, COOLPARTICLE *cp, double ZMetal);
 #define COOL_ARRAY3_EXT  "H2"
 double COOL_ARRAY3(COOL *cl, COOLPARTICLE *cp, double ZMetal);
 
+#define COOL_ARRAY4_EXT  "lw"
+double COOL_ARRAY4(COOL *cl, COOLPARTICLE *cp, double ZMetal);
+
 double COOL_EDOT( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode_, double ZMetal_, double *posCode_, double columnL_ );
 #define COOL_EDOT( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_, columnL_) (CoolCodeWorkToErgPerGmPerSec( cl_, CoolEdotInstantCode( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_ , columnL_)))
 
@@ -404,8 +395,7 @@ void clSetAbundanceTotals(COOL *cl, double ZMetal, double *Y_H, double *Y_He, do
 void CoolPARTICLEtoPERBARYON(COOL *cl_, PERBARYON *Y, COOLPARTICLE *cp, double ZMetal);
 void CoolPERBARYONtoPARTICLE(COOL *cl_, PERBARYON *Y, COOLPARTICLE *cp, double ZMetal);
 
-double CoolAgeFromMass(COOL *cl, double fMassStar);
-double CoolLymanWerner(COOL *cl, double dAge);
+double CoolLymanWerner(double dAge);
 
 double CoolEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E, double ZMetal);
 double CoolCodeEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E, double ZMetal);

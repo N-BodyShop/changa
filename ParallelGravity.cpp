@@ -3270,6 +3270,9 @@ void Main::writeOutput(int iStep)
     Cool2OutputParams pCool2Out(achFile, param.iBinaryOut, dOutTime);
 #ifdef COOLING_MOLECULARH
     Cool3OutputParams pCool3Out(achFile, param.iBinaryOut, dOutTime); 
+#ifdef MOLECULARH
+    Cool4OutputParams pCool4Out(string(achFile) + "." + COOL_ARRAY4_EXT);     
+#endif   
 #endif
 #endif
 #ifdef DIFFUSION
