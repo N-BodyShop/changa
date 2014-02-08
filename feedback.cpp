@@ -434,20 +434,8 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
    if (!bAGORAFeedback)
         p->fStarESNrate() /= dDelta;
 
-#ifdef  RADIATIVEBOX /* Calculates LW radiation from a stellar particle of a given age and mass (assumes Kroupa IMF), CC */
-    double dAge1, dAge2, dLW1, dLW2;
-    if (dStarAge != 0) {
-      dAge1 = dStarAge;
-    }
-    else {
-      /*Avoids log of zero error*/
-      dAge1 = dDeltaYr;
-    }
-    dAge2 = dStarAge + dDeltaYr;
-    dLW1 = CoolLymanWerner(pkd->Cool, dAge1)*p->fMassForm()*dGmUnit/MSOLG;
-    dLW2 = CoolLymanWerner(pkd->Cool, dAge2)*p->fMassForm()*dGmUnit/MSOLG;
-    
-    p->CoolParticle.dLymanWerner = (dLW1 + dLW2)/2;
+#ifdef COOLING_MOLECULARH /* Calculates LW radiation from a stellar particle of a given age and mass (assumes Kroupa IMF), CC */
+    p->CoolParticle().dLymanWerner = CalcLWFeedback(&sfEvent, dTime, dDeltaYr);
 #endif
 }
 
@@ -540,6 +528,59 @@ void Fdbk::CalcUVFeedback(SFEvent *sfEvent, /**< Star to process */
         }
     }
 
+#ifdef COOLING_MOLECULARH
+/*----  Lyman-Warner Radiation from young stars*/
+double Fdbk::CalcLWFeedback(SFEvent *sfEvent, double dTime, /* current time in years */
+			    double dDelta /* length of timestep (years) */ )
+{
+    double dAge1log, dAge2log, dLW1log, dLW2log, dStarAge;
+    double  a0 = -84550.812,
+      a1 =  54346.066,
+      a2 = -13934.144,
+      a3 =  1782.1741,
+      a4 = -113.68717,
+      a5 =  2.8930795;
+
+    double dA0old =  70.908586,
+      dA1old = -4.0643123;
+
+    double temp, dAlog10;
+
+    dStarAge = dTime - sfEvent->dTimeForm;
+    if (dStarAge >= 0 ) { /*Test that it is not a Black Hole */
+      if (dStarAge != 0) {
+	dAge1log = log10(dStarAge);
+      }
+      else {
+	/*Avoids log of zero error*/
+	dAge1log = log10(dDelta);
+      }
+      if (dAge1log < 7) dAge1log = 7.0;
+      dAge2log = log10(dStarAge + dDelta);
+      if (dAge2log < 7) dAge2log = 7.0;
+      
+
+      if (dAge1log < 9.0) dLW1log = a0
+			    + a1*dAge1log
+			    + a2*dAge1log*dAge1log
+			    + a3*dAge1log*dAge1log*dAge1log
+			    + a4*dAge1log*dAge1log*dAge1log*dAge1log
+			    + a5*dAge1log*dAge1log*dAge1log*dAge1log*dAge1log + log10(sfEvent->dMass);
+      else dLW1log = dA0old + dA1old*dAlog10 + log10(sfEvent->dMass); /*Close to zero*/
+
+      if (dAge2log < 9.0) dLW2log = a0
+			    + a1*dAge2log
+			    + a2*dAge2log*dAge2log
+			    + a3*dAge2log*dAge2log*dAge2log
+			    + a4*dAge2log*dAge2log*dAge2log*dAge2log
+			    + a5*dAge2log*dAge2log*dAge2log*dAge2log*dAge2log + log10(sfEvent->dMass); 
+      else dLW2log = dA0old + dA1old*dAlog10 + log10(sfEvent->dMass); /*Close to zero*/
+      
+      return log10((pow(10,dLW1log + dLW2log)/2));
+    }
+    else return 0;
+}
+#endif
 
 /*
  * Methods to distribute stellar feedback

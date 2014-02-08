@@ -2700,3 +2700,25 @@ void LocalTreePrinter::openFile(){
   CkAssert(file.is_open());
   file << "digraph " << description << index << "{" << std::endl;
 }
+
+#ifdef COOLING_MOLECULAR
+const char *typeString(NodeType type);
+bool LocalTreeLWCalc::work(GenericTreeNode *node, int level){
+  CkAssert(node != NULL);
+
+  if(node->getType() == Internal ||
+     node->getType() == Boundary)
+    return true;
+  else 
+    return false;
+}
+
+void LocalTreeLWCalc::doneChildren(GenericTreeNode *node, int level){
+
+  for(int i = 0; i < node->numChildren(); i++){
+    CkAssert(node->getChildren(i) != NULL);
+  }
+}
+#endif
+
+#endif // INTERLIST_VER > 0

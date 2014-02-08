@@ -350,4 +350,18 @@ class LocalTreePrinter : public TreeNodeWorker {
   void doneChildren(GenericTreeNode *node, int level);
 };
 
+#ifdef COOLING_MOLECULARH
+class LocalTreeLWCalc : public TreeNodeWorker {
+
+  public:
+  LocalTreeLWCalc(string d, int idx) : 
+    index(idx),
+    description(d)
+    {}
+
+  bool work(GenericTreeNode *node, int level);
+  void doneChildren(GenericTreeNode *node, int level);
+};
+#endif
+
 #endif

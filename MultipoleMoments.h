@@ -172,21 +172,43 @@ public:
 	cosmoType totalMass;
 	/// The center of mass (zeroth order multipole)
 	Vector3D<cosmoType> cm;
+
+#ifdef COOLING_MOLECULARH
+	double totalLW;
+	Vector3D<double> cLW;
+#endif
+
 #ifdef HEXADECAPOLE
 	FMOMR mom;
+#ifdef COOLING_MOLECULARH
+	MOMR momLW;
+#endif
 #else						\
 	//Tensor for higher order moments goes here
 	double xx, xy, xz, yy, yz, zz;
+#ifdef COOLING_MOLECULARH
+	double xxLW, xyLW, xzLW, yyLW, yzLW, zzLW;
+#endif
 #endif
 	
 	MultipoleMoments() : radius(0), totalMass(0) { 
 	    soft = 0;
 		cm.x = cm.y = cm.z = 0;
+#ifdef COOLING_MOLECULARH
+		totalLW = 0;
+		cLW.x = cLW.y = cLW.z = 0;		
+#endif
 		//clear higher order components here
 #ifdef HEXADECAPOLE
 		momClearFmomr(&mom);
+#ifdef COOLING_MOLECULARH
+		momClearMomr(&momLW);
+#endif
 #else
 		xx = xy = xz = yy = yz = zz = 0;
+#ifdef COOLING_MOLECULARH
+		xxLW = xyLW = xzLW = yyLW = yzLW = zzLW = 0;
+#endif
 #endif
 	    }
 	
@@ -209,6 +231,12 @@ public:
 		soft = (m1*soft + m.totalMass*m.soft)/totalMass;
 		Vector3D<cosmoType> cm1 = cm;
 		cm = (m1*cm + m.totalMass*m.cm)/totalMass;
+#ifdef COOLING_MOLECULARH
+		double totalLW1 = totalLW;
+		totalLW += m.totalLW;
+		Vector3D<double> cLW1 = cLW;
+		cLW = (totalLW1*cLW + m.totalLW*m.cLW)/totalLW;
+#endif
 #ifdef HEXADECAPOLE
 		Vector3D<cosmoType> dr = cm1 - cm;
 		momShiftFmomr(&mom, radius, dr.x, dr.y, dr.z);
@@ -216,6 +244,14 @@ public:
 		dr = m.cm - cm;
 		momShiftFmomr(&mom2, m.radius, dr.x, dr.y, dr.z);
 		momScaledAddFmomr(&mom, radius, &mom2, m.radius);
+#ifdef COOLING_MOLECULARH
+		Vector3D<double> drLW = cLW1 - cLW;
+		momShiftMomr(&mom, drLW.x, drLW.y, drLW.z);
+		MOMR momLW2 = m.momLW;
+		drLW = m.cLW - cLW;
+		momShiftMomr(&momLW2, drLW.x, drLW.y, drLW.z);
+		momAddMomr(&momLW, &momLW2);		
+#endif
 #else
 		//add higher order components here
 		Vector3D<double> dr = cm1 - cm;
@@ -232,6 +268,22 @@ public:
 		xy += m.xy + m.totalMass*dr[0]*dr[1];
 		xz += m.xz + m.totalMass*dr[0]*dr[2];
 		yz += m.yz + m.totalMass*dr[1]*dr[2];
+#ifdef COOLING_MOLECULARH
+		Vector3D<double> drLW = cLW1 - cLW;
+		xxLW += totalLW1*drLW[0]*drLW[0];
+		yyLW += totalLW1*drLW[1]*drLW[1];
+		zzLW += totalLW1*drLW[2]*drLW[2];
+		xyLW += totalLW1*drLW[0]*drLW[1];
+		xzLW += totalLW1*drLW[0]*drLW[2];
+		yzLW += totalLW1*drLW[1]*drLW[2];
+		drLW = m.cLW - cLW;
+		xxLW += m.xxLW + m.totalLW*drLW[0]*drLW[0];
+		yyLW += m.yyLW + m.totalLW*drLW[1]*drLW[1];
+		zzLW += m.zzLW + m.totalLW*drLW[2]*drLW[2];
+		xyLW += m.xyLW + m.totalLW*drLW[0]*drLW[1];
+		xzLW += m.xzLW + m.totalLW*drLW[0]*drLW[2];
+		yzLW += m.yzLW + m.totalLW*drLW[1]*drLW[2];
+#endif
 #endif
 		return *this;
 	}
@@ -249,6 +301,14 @@ public:
 		soft = (m1*soft + p.mass*p.soft)/totalMass;
 		Vector3D<cosmoType> cm1 = cm;
 		cm = (m1*cm + p.mass * p.position)/totalMass;
+#ifdef COOLING_MOLECULARH
+		double totalLW1 = totalLW;
+		Vector3D<double> cLW1 = cLW;
+		if (p.isStar()) {
+		    totalLW += p.CoolParticle().dLymanWerner;
+		    cLW = (totalLW1*cLW + p.CoolParticle().dLymanWerner * p.position)/totalLW;		    
+		  }
+#endif
 #ifdef HEXADECAPOLE
 		// XXX this isn't the most efficient way, but it
 		// retains the semantics of this function.  It would
@@ -261,6 +321,16 @@ public:
 		FMOMR momPart;
 		momMakeFmomr(&momPart, p.mass, radius, dr.x, dr.y, dr.z);
 		momAddFmomr(&mom, &momPart);
+#ifdef COOLING_MOLECULARH
+		if (p.isStar()) {
+		    Vector3D<double> drLW = cLW1 - cLW;
+		    momShiftMomr(&mom, drLW.x, drLW.y, drLW.z);
+		    drLW = p.position - cLW;
+		    MOMR momLWPart;
+		    momMakeMomr(&momLWPart, p.CoolParticle().dLymanWerner, drLW.x, drLW.y, drLW.z);
+		    momAddMomr(&momLW, &momLWPart);			
+		  }
+#endif
 #else
 		//add higher order components here
 		Vector3D<double> dr = cm1 - cm;
@@ -280,6 +350,27 @@ public:
 		xy += p.mass*dr[0]*dr[1];
 		xz += p.mass*dr[0]*dr[2];
 		yz += p.mass*dr[1]*dr[2];
+#ifdef COOLING_MOLECULARH
+		if (p->isStar()) {
+		    Vector3D<double> drLW = cLW1 - cLW;
+
+		    xx += totalLW1*drLW[0]*drLW[0];
+		    yy += totalLW1*drLW[1]*drLW[1];
+		    zz += totalLW1*drLW[2]*drLW[2];
+		    xy += totalLW1*drLW[0]*drLW[1];
+		    xz += totalLW1*drLW[0]*drLW[2];
+		    yz += totalLW1*drLW[1]*drLW[2];
+		    
+		    drLW = p.position - cLW;
+		    
+		    xx += p->CoolParticle().dLymanWerner*drLW[0]*drLW[0];
+		    yy += p->CoolParticle().dLymanWerner*drLW[1]*drLW[1];
+		    zz += p->CoolParticle().dLymanWerner*drLW[2]*drLW[2];
+		    xy += p->CoolParticle().dLymanWerner*drLW[0]*drLW[1];
+		    xz += p->CoolParticle().dLymanWerner*drLW[0]*drLW[2];
+		    yz += p->CoolParticle().dLymanWerner*drLW[1]*drLW[2];
+		  }
+#endif
 #endif
 		
 		return *this;
