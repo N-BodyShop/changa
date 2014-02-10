@@ -133,25 +133,30 @@ void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, 
 
 void DataManager::registerNewBoundaryKeys(const SFC::Key* keys, const int*
   responsible, const int* partcount, const int n) {
-  // push into temporary vector
+
   CmiLock(__nodelock);
+  //CkPrintf("^^^^^^^^^^^^^^PE %d Node %d Registering %d keys^^^^^^^^^^^^^^^^\n", CkMyPe(), CkMyNode(), n);
+  // push into temporary vector
   for(int i = 0; i < n; i++) {
     tmpNewBoundaryKeys.push_back(keys[i]);
     newBoundaryIds.push_back(responsible[i]);
     newBoundaryPartCounts.push_back(partcount[i]);
+   // if (CkMyNode() == 0) {
+   // CkPrintf("Node %d %lx key registered to %d TP with count %d\n", CkMyNode(), keys[i], responsible[i], partcount[i]);
+   // }
   }
-  CmiUnlock(__nodelock);
 
+  CmiUnlock(__nodelock);
 }
 
 void DataManager::allRegisteringDone() {
   // Merge the temporary vector
   int n;
   for (int i = 0; i < tmpNewBoundaryKeys.size(); i++) {
-   // if (CkMyPe() == 0) {
-   // CkPrintf("((((((((((DM[%d] New tp %d with boundary %lx count %d\n", CkMyPe(),
-   // newBoundaryIds[i], tmpNewBoundaryKeys[i], newBoundaryPartCounts[i]);
-   // }
+    if (CkMyPe() == 0) {
+    CkPrintf("((((((((((DM[%d] New tp %d with boundary %lx count %d\n", CkMyPe(),
+    newBoundaryIds[i], tmpNewBoundaryKeys[i], newBoundaryPartCounts[i]);
+    }
 
     std::vector<SFC::Key>::iterator it;
     std::vector<int>::iterator itids = responsibleIndex.begin();

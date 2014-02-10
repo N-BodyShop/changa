@@ -1523,19 +1523,20 @@ void Main::advanceBigStep(int iStep) {
 	memoryStats();
 
     /***** Resorting of particles and Domain Decomposition *****/
-    CkPrintf("Domain decomposition totaltps %d... ", numTreePieces);
+    CkPrintf("Domain decomposition totaltps %d... \n", numTreePieces);
     double startTime;
     bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
 
     startTime = CkWallTimer();
     //sorter.startSorting(dataManagerID, ddTolerance,
     //                    CkCallbackResumeThread(), bDoDD, numTreePieces);
-    treeProxy.startDistributedDD(CkCallbackResumeThread());
+    //treeProxy.startDistributedDD(CkCallbackResumeThread(), bDoDD);
+    treeProxy.startDistributedDD(CkCallbackResumeThread(), false);
     /*
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
           */
-    CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
+    CkPrintf("DD took %g seconds.\n", CkWallTimer()-startTime);
 
     if(verbosity && !bDoDD)
 	CkPrintf("Skipped DD\n");
@@ -1544,14 +1545,14 @@ void Main::advanceBigStep(int iStep) {
 	memoryStats();
     /********* Load balancer ********/
     //ckout << "Load balancer ...";
-    CkPrintf("Load balancer ... ");
+    CkPrintf("Load balancer ... \n");
     startTime = CkWallTimer();
     treeProxy.startlb(CkCallbackResumeThread(), activeRung);
     /*
     ckout << " took "<<(CkWallTimer() - startTime) << " seconds."
 	     << endl;
              */
-    CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+    CkPrintf("LB took %g seconds.\n", CkWallTimer()-startTime);
 
     if(verbosity > 1)
 	memoryStats();
@@ -1564,14 +1565,14 @@ void Main::advanceBigStep(int iStep) {
 
     /******** Tree Build *******/
     //ckout << "Building trees ...";
-    CkPrintf("Building trees ... ");
+    CkPrintf("Building trees ... \n");
     startTime = CkWallTimer();
 #ifdef PUSH_GRAVITY
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),!bDoPush);
 #else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
-    CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+    CkPrintf("TB took %g seconds.\n", CkWallTimer()-startTime);
 
     CkCallback cbGravity(CkCallback::resumeThread);
 
@@ -1590,7 +1591,7 @@ void Main::advanceBigStep(int iStep) {
         turnProjectionsOn(activeRung);
 #endif
 
-        CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
+        CkPrintf("Calculating gravity (tree bucket, theta = %f) ... \n", theta);
 	startTime = CkWallTimer();
 	if(param.bConcurrentSph) {
 	    ckout << endl;
@@ -1629,7 +1630,7 @@ void Main::advanceBigStep(int iStep) {
 #endif
 	    //ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	    //	  << endl;
-            CkPrintf("took %g seconds\n", CkWallTimer()-startTime);
+            CkPrintf("CG took %g seconds\n", CkWallTimer()-startTime);
 #ifdef SELECTIVE_TRACING
             turnProjectionsOff();
 #endif
@@ -2293,6 +2294,8 @@ Main::doSimulation()
     ckout << "Big step " << iStep << " took " << stepTime << " seconds."
 	  << endl;
 
+  CkPrintf("bBenchmark %d iCheckInterval %d iStep %d\n", param.bBenchmark,
+  param.iCheckInterval, iStep);
     if(iStep%param.iLogInterval == 0) {
 	calcEnergy(dTime, stepTime, achLogFileName.c_str());
     }
@@ -3249,46 +3252,55 @@ void Main::liveVizImagePrep(liveVizRequestMsg *msg)
 
 #ifdef SELECTIVE_TRACING
 void Main::turnProjectionsOn(int activeRung){
-  CkAssert(!projectionsOn);
-  if(numMaxTrace <= 0) return;
-  if(traceState == TraceNormal){
-    if(activeRung != monitorRung){
-    }
-    else if(traceIteration < numTraceIterations){
-      if(monitorStart == 0){
-        prjgrp.on(CkCallbackResumeThread());
-        projectionsOn = true;
-        traceIteration++;
-        numMaxTrace--;
-      }
-      else{
-        monitorStart--;
-      }
-    }
-    else{
-      traceState = TraceSkip;
-      traceIteration = 1;
-    }
+  traceIteration++;
+//  if (traceIteration > 4) {
+//    CkPrintf("Forcefully exiting\n");
+//    CkExit();
+//  }
+  if (traceIteration == 7) {
+    prjgrp.on(CkCallbackResumeThread());
+    projectionsOn = true;
   }
-  else if(traceState == TraceSkip){
-    if(activeRung != monitorRung){
-    }
-    else if(traceIteration < numSkipIterations){
-      traceIteration++;
-    }
-    else{
-      traceState = TraceNormal;
-      if(monitorStart == 0){
-        prjgrp.on(CkCallbackResumeThread());
-        projectionsOn = true;
-        traceIteration = 1;
-        numMaxTrace--;
-      }
-      else{
-        monitorStart--;
-      }
-    }
-  }
+  //CkAssert(!projectionsOn);
+  //if(numMaxTrace <= 0) return;
+  //if(traceState == TraceNormal){
+  //  if(activeRung != monitorRung){
+  //  }
+  //  else if(traceIteration < numTraceIterations){
+  //    if(monitorStart == 0){
+  //      prjgrp.on(CkCallbackResumeThread());
+  //      projectionsOn = true;
+  //      traceIteration++;
+  //      numMaxTrace--;
+  //    }
+  //    else{
+  //      monitorStart--;
+  //    }
+  //  }
+  //  else{
+  //    traceState = TraceSkip;
+  //    traceIteration = 1;
+  //  }
+  //}
+  //else if(traceState == TraceSkip){
+  //  if(activeRung != monitorRung){
+  //  }
+  //  else if(traceIteration < numSkipIterations){
+  //    traceIteration++;
+  //  }
+  //  else{
+  //    traceState = TraceNormal;
+  //    if(monitorStart == 0){
+  //      prjgrp.on(CkCallbackResumeThread());
+  //      projectionsOn = true;
+  //      traceIteration = 1;
+  //      numMaxTrace--;
+  //    }
+  //    else{
+  //      monitorStart--;
+  //    }
+  //  }
+  //}
 }
 
 

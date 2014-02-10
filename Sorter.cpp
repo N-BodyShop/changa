@@ -944,7 +944,7 @@ void Sorter::adjustSplitters() {
 		if(fabs(*numLeftKey - goals[i]) <= closeEnough) {
 			//add this key to the list of decided splitter keys
 			keyBoundaries.push_back(leftBound);
-		} else if(fabs(*numRightKey - goals[i]) <= closeEnough || numIterations == 10) {
+		} else if(fabs(*numRightKey - goals[i]) <= closeEnough || numIterations == 20) {
 			keyBoundaries.push_back(rightBound);
 		} else {
 			// not close enough yet, add the bracketing keys and

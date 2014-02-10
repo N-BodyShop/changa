@@ -70,6 +70,8 @@ int workRequestOut = 0;
 CkVec<CellComputation> ewaldMessages;
 #endif
 
+CkpvExtern(int, _lb_obj_index);
+
 //forward declaration
 string getColor(GenericTreeNode*);
 
@@ -211,7 +213,7 @@ void TreePiece::initORBPieces(const CkCallback& cb){
   //Find out how many levels will be there before we go into the tree owned
   //completely by the TreePiece
   chunkRootLevel=0;
-  unsigned int tmp = numTreePieces;
+  unsigned int tmp = numTPTreePieces;
   while(tmp){
     tmp >>= 1;
     chunkRootLevel++;
@@ -237,7 +239,7 @@ void TreePiece::initBeforeORBSend(unsigned int myCount,
 
   callback = cb;
   CkCallback nextCallback = cback;
-  if(numTreePieces == 1) {
+  if(numTPTreePieces == 1) {
       myCount = myNumParticles;
       myCountGas = myNumSPH;
       myCountStar = myNumStar;
@@ -929,7 +931,8 @@ void TreePiece::unshuffleLocal() {
 
       // Calculate the partial load per phase
       for (int i = 0; i < saved_phase_len; i++) {
-        if (havePhaseData(i) && savedPhaseParticle[i] != 0) {
+        if (havePhaseData(i) && savedPhaseParticle[i] != 0 &&
+          (shuffleMsg->parts_per_phase[i] <= savedPhaseParticle[i])) {
           shuffleMsg->loads[i] = savedPhaseLoad[i] *
             (shuffleMsg->parts_per_phase[i] / (float) savedPhaseParticle[i]);
         } else if (havePhaseData(0) && myNumParticles != 0) {
@@ -960,7 +963,7 @@ void TreePiece::unshuffleLocal() {
           iStarOut++;
         }
       }
-
+   
       if(*responsibleIter == thisIndex) {
         if (verbosity > 1)
           CkPrintf("TreePiece %d: keeping %d / %d particles: %d\n",
@@ -1040,7 +1043,7 @@ void TreePiece::sortAllRecvdParticlesLocal() {
     savedPhaseParticle.swap(savedPhaseParticleTmp);
     savedPhaseLoadTmp.clear();
     savedPhaseParticleTmp.clear();
-
+    
     int nSPH = 0;
     int nStar = 0;
     int iMsg;
@@ -1137,14 +1140,15 @@ void TreePiece::sendNumTpsContribute() {
 }
 
 void TreePiece::updateNumChares(int numchares) {
-  numTreePieces = numchares;
+  numTPTreePieces = numchares;
   contribute(callback);
 }
 
-void TreePiece::startDistributedDD(CkCallback &cb) {
+void TreePiece::startDistributedDD(CkCallback &cb, bool doDD) {
   double tpLoad = getObjTime();
   populateSavedPhaseData(prevLARung, tpLoad, treePieceActivePartsTmp);
   callback = cb;
+  bDoDD = doDD;
   unshuffleBasedOnPrevSplitter();
 }
 
@@ -1162,7 +1166,7 @@ void TreePiece::sendAvgTpLoad() {
 }
 
 void TreePiece::getSumTPLoad(double ld) {
-  double avgtpload = ld / (double) numTreePieces;
+  double avgtpload = ld / (double) numTPTreePieces;
   splitTPsBasedOnLoad(avgtpload);
 }
 
@@ -1181,8 +1185,13 @@ void TreePiece::splitTPsBasedOnLoad(double avgtpload) {
     myld = savedPhaseLoad[0];
   }
 
+
+  if (thisIndex ==  0) {
+  CkPrintf("[%d] havePhaseData %d ? %d avgload %f\n", thisIndex, havePhaseData(activeRung), activeRung, avgtpload);
+  }
+
   // Set a bool to indicate whether to split or not
-  if (myld <= avgtpload*1.3) {
+  if (myld <= avgtpload*5 || !bDoDD) {
     doSplitting = false;
     //CkPrintf("[%d] No need to do splitting ld %f avgld %f\n", thisIndex, myld, avgtpload);
     return;
@@ -1203,16 +1212,16 @@ void TreePiece::splitTPsBasedOnLoad(double avgtpload) {
     newChareSplitterKeys.push_back(splitterkey);
     newCharePartsCount.push_back(myNumParticles-splitParticle);
   }
-  //CkPrintf("[%d] Need to do %d splitting ld %f avgld %f splitterKey %lx\n", thisIndex, numSplits, myld, avgtpload, splitterkey);
-  //if (myPlace != -2) {
-  //  CkPrintf("\t[%d] My current place %d is %lx to %lx with parts %d\n", thisIndex, myPlace,
-  //  dm->boundaryKeys[myPlace], dm->boundaryKeys[myPlace+1], myNumParticles);
-  //  CkPrintf("\t[%d] Splitter key %lx >= %lx == %d (%d parts)\n", thisIndex, splitterkey,
-  //    dm->boundaryKeys[myPlace], (splitterkey>dm->boundaryKeys[myPlace]), splitParticle);
-  //  CkPrintf("\t[%d] Splitter key %lx <= %lx == %d (%d parts)\n", thisIndex, splitterkey,
-  //  dm->boundaryKeys[myPlace+1], (splitterkey<dm->boundaryKeys[myPlace+1]),
-  //  myNumParticles-splitParticle);
-  //}
+  CkPrintf("[%d] PE %d Need to do %d splitting ld %f avgld %f splitterKey %lx\n", thisIndex, CkMyPe(), numSplits, myld, avgtpload, splitterkey);
+//  if (myPlace != -2) {
+//    CkPrintf("\t[%d] My current place %d is %lx to %lx with parts %d\n", thisIndex, myPlace,
+//    dm->boundaryKeys[myPlace], dm->boundaryKeys[myPlace+1], myNumParticles);
+//    CkPrintf("\t[%d] Splitter key %lx >= %lx == %d (%d parts)\n", thisIndex, splitterkey,
+//      dm->boundaryKeys[myPlace], (splitterkey>dm->boundaryKeys[myPlace]), splitParticle);
+//    CkPrintf("\t[%d] Splitter key %lx <= %lx == %d (%d parts)\n", thisIndex, splitterkey,
+//    dm->boundaryKeys[myPlace+1], (splitterkey<dm->boundaryKeys[myPlace+1]),
+//    myNumParticles-splitParticle);
+//  }
 
   mainChare.getNextTPIds(1, thisIndex);
 }
@@ -1224,7 +1233,7 @@ void TreePiece::nextTPIdx(int* ids, int n) {
   int totalpartsplit = 0;
   // Store these ids somewhere and wait for QD
   for (int i = 0; i < n; i++) {
-  //  CkPrintf("\t[%d]^^^ Recvd id[%d] for new TPS %d with parts %d\n", thisIndex, i, ids[i], newCharePartsCount[i]);
+   // CkPrintf("\t[%d]^^^ Recvd id[%d] for new TPS %d with parts %d\n", thisIndex, i, ids[i], newCharePartsCount[i]);
     idsForSplitters.push_back(ids[i]);
 
     keys[i] = newChareSplitterKeys[i];
@@ -1242,15 +1251,21 @@ void TreePiece::nextTPIdx(int* ids, int n) {
 //    i, keys[i], partcounts[i], responsibleIds[i]);
 //  }
 
+  CProxy_DataManager dm = CProxy_DataManager(dataManagerID);
 
   // Inform datamanger via broadcast
-  dMProxy.registerNewBoundaryKeys(keys, responsibleIds, partcounts, n+1);
+  dm.registerNewBoundaryKeys(keys, responsibleIds, partcounts, n+1);
   delete[] keys;
   delete[] responsibleIds;
   delete[] partcounts;
 }
 
 void TreePiece::createNewTPs() {
+  if (dm == NULL)
+    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(),
+      thisIndex) - dm->responsibleIndex.begin();
+  if (myPlace == dm->responsibleIndex.size()) myPlace = -2;
 
   if (thisIndex == 0) {
     //Start QD to indicate whether all the creations are done. That QD should
@@ -1271,7 +1286,7 @@ void TreePiece::finallySortParticles() {
 }
 
 void TreePiece::createNewTPsLocal() {
-//  CkPrintf("[%d] Need to do Splitting hence createNewTPsLocal\n", thisIndex);
+  CkPrintf("[%d] Need to do Splitting hence createNewTPsLocal\n", thisIndex);
   GravityParticle *binBegin = &myParticles[1];
   vector<Key>::iterator iter =
     lower_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(),
@@ -1326,14 +1341,17 @@ void TreePiece::createNewTPsLocal() {
         pStar = new extraStarData[nStarOut];
         selfMigrate = true;
 
-        //CkPrintf("[%d] Splitting itself and filling itself nParts %d nSPH %d nStarOut %d\n", thisIndex, *binBegin, *binEnd, nPartOut, nGasOut, nStarOut);
+        CkPrintf("[%d] Splitting itself and filling itself nParts %d nSPH %d nStarOut %d\n", thisIndex, *binBegin, *binEnd, nPartOut, nGasOut, nStarOut);
 
         fillInSplitParticleDetails(binBegin, binEnd, saved_phase_len, nPartOut,
           nGasOut, nStarOut, load, loads, parts_per_phase, particles, pGas, pStar);
         
-        //CkPrintf("[%d] Splitting itself and filling itself DONE!!! \n", thisIndex);
+        CkPrintf("[%d] Splitting itself and filling itself DONE!!! \n", thisIndex);
       } else {
-        //CkPrintf("[%d] Splitting newformed chare and filling dExtraStore %f\n", thisIndex, dExtraStore);
+        CkPrintf("[%d] Splitting newformed chare with particles %d\n", thisIndex, nPartOut);
+
+        //int saved_phase_len, nPartOut, nGasOut, nStarOut;
+        //saved_phase_len = nPartOut = nGasOut = nStarOut = 0;
         CreateMsg *msg = new (saved_phase_len, saved_phase_len, nPartOut,
           nGasOut, nStarOut) CreateMsg;
 
@@ -1359,21 +1377,29 @@ void TreePiece::createNewTPsLocal() {
         msg->proxyValidPar = proxyValid;
         msg->proxySetPar = proxySet;
         msg->prevLARungPar = prevLARung;
+        msg->activeRungPar = activeRung;
+        msg->numTPTreePiecesPar = numTPTreePieces;
 
         //msg->basefilenamePar = basefilename;
         msg->iterationNoPar = iterationNo;
         msg->nSetupWriteStagePar = nSetupWriteStage;
 
-        //CkPrintf("New TP [%d] has %d parts, %d nSPH, %d nStarOut\n", *responsibleIter, nPartOut, nGasOut, nStarOut);
+        CkPrintf("New TP [%d] has %d parts, %d nSPH, %d nStarOut\n", *responsibleIter, nPartOut, nGasOut, nStarOut);
 
         fillInSplitParticleDetails(binBegin, binEnd, saved_phase_len, nPartOut,
           nGasOut, nStarOut, msg->load, msg->loads, msg->parts_per_phase,
           msg->particles, msg->pGas, msg->pStar);
 
+//        thisProxy[idsForSplitters[0]].insert(msg);
+//        lvProxy[idsForSplitters[0]].insert();
+//        gravityProxy[idsForSplitters[0]].insert();
+//        smoothProxy[idsForSplitters[0]].insert();
+
         thisProxy[*responsibleIter].insert(msg);
         lvProxy[*responsibleIter].insert();
         gravityProxy[*responsibleIter].insert();
         smoothProxy[*responsibleIter].insert();
+        CkPrintf("New TP [%d] inserted\n", *responsibleIter);
       }
     }
     if(&myParticles[myNumParticles + 1] <= binEnd)
@@ -1382,14 +1408,16 @@ void TreePiece::createNewTPsLocal() {
   }
 
   if (selfMigrate) {
+    CkPrintf("[%d] SelfMigrate Started!!!\n", thisIndex);
     acceptSplitSortedParticles(self_saved_phase_len, self_nPartOut,
       self_nGasOut, self_nStarOut, load, loads, parts_per_phase, particles,
       pGas, pStar);
-    delete[] loads;
-    delete[] parts_per_phase;
-    delete[] particles;
-    delete[] pGas;
-    delete[] pStar;
+//    delete[] loads;
+//    delete[] parts_per_phase;
+//    delete[] particles;
+//    delete[] pGas;
+//    delete[] pStar;
+    CkPrintf("[%d] SelfMigrate Done!!!\n", thisIndex);
   }
 }
 
@@ -1453,7 +1481,7 @@ void TreePiece::acceptSplitSortedParticles(int nloads, int npart, int nsph,
 
   // The following assert does not work anymore when TreePieces can
   //have 0 particles assigned
-  //CkPrintf("[%d] myPlace %d\n", thisIndex, myPlace);
+  CkPrintf("[%d] myPlace %d\n", thisIndex, myPlace);
 
   //assert(myPlace >= 0 && myPlace < dm->particleCounts.size());
   if (myPlace == -2 || dm->particleCounts[myPlace] == 0) {
@@ -1500,13 +1528,14 @@ void TreePiece::acceptSplitSortedParticles(int nloads, int npart, int nsph,
   treePieceLoadTmp = 0.0;
 
   treePieceLoadTmp = pload; 
-  savePhaseData(savedPhaseLoadTmp, savedPhaseParticleTmp, loads, parts_per_phase,
-    nloads);
+  savedPhaseLoad.clear();
+  savedPhaseParticle.clear();
+  savePhaseData(savedPhaseLoad, savedPhaseParticle, loads, parts_per_phase, nloads);
 
-  savedPhaseLoad.swap(savedPhaseLoadTmp);
-  savedPhaseParticle.swap(savedPhaseParticleTmp);
-  savedPhaseLoadTmp.clear();
-  savedPhaseParticleTmp.clear();
+//  savedPhaseLoad.swap(savedPhaseLoadTmp);
+//  savedPhaseParticle.swap(savedPhaseParticleTmp);
+//  savedPhaseLoadTmp.clear();
+//  savedPhaseParticleTmp.clear();
 
   if (nStoreSPH > 0) delete[] mySPHParticles;
   myNumSPH = nsph;
@@ -1757,15 +1786,15 @@ void TreePiece::checkin(){
 }
 
 void Decomposer::checkin(){
-  numTreePiecesCheckedIn++;
+  numTPTreePiecesCheckedIn++;
   // +1 for self checkin(), since Decomposer::unshuffleParticles
   // (in which myNumTreePieces is set) may be called
   // after all local TreePieces have called Decomposer::checkin()
   // through TreePiece::acceptSortedParticles();
   CkPrintf("decomposer %d checked in %d/%d\n", CkMyPe(),
-  numTreePiecesCheckedIn, myNumTreePieces);
-  if(numTreePiecesCheckedIn == myNumTreePieces){
-    numTreePiecesCheckedIn = 0;
+  numTPTreePiecesCheckedIn, myNumTreePieces);
+  if(numTPTreePiecesCheckedIn == myNumTreePieces){
+    numTPTreePiecesCheckedIn = 0;
     myNumTreePieces = -1;
 
     // return control to mainchare
@@ -1895,6 +1924,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 		       const CkCallback& cb) {
   int iCurrMaxRung = 0;
   int nMaxRung = 0;  // number of particles in maximum rung
+  unsigned int c = 0;
   
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
     GravityParticle *p = &myParticles[i];
@@ -1966,7 +1996,13 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	  }
       else if(iNewRung == iCurrMaxRung)
 	  nMaxRung++;
+      if (iNewRung != myParticles[i].rung) {
+      //  CkPrintf("**********[%d] particle %d moved from rung %d to rung %d\n", thisIndex,
+      //      i, myParticles[i].rung, iNewRung);
+       c++;
+      }
       myParticles[i].rung = iNewRung;
+      
 #ifdef NEED_DT
       myParticles[i].dt = dTIdeal;
 #endif
@@ -2635,10 +2671,10 @@ GenericTreeNode *TreePiece::get3DIndex() {
 /*void TreePiece::receiveBoundingBoxes(BoundingBoxes *msg){
 
   //OrientedBox<float> *boxesMsg = static_cast<OrientedBox<float>* >(msg->getData())
-  //boxes = new OrientedBox<float>[numTreePieces];
+  //boxes = new OrientedBox<float>[numTPTreePieces];
 
   OrientedBox<float> *boxesMsg = msg->boxes;
-  copy(boxesMsg,boxesMsg+numTreePieces,boxes);
+  copy(boxesMsg,boxesMsg+numTPTreePieces,boxes);
 
   contribute(CkCallback(CkIndex_TreePiece::startORBTreeBuild(0), thisArrayID));
 }*/
@@ -2674,11 +2710,11 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
   compFuncPtr[2]= &comp_dim2;
 
   pTreeNodes = new NodePool();
-  root = pTreeNodes->alloc_one(1, numTreePieces>1?Tree::Boundary:Tree::Internal,
+  root = pTreeNodes->alloc_one(1, numTPTreePieces>1?Tree::Boundary:Tree::Internal,
 			       0, myNumParticles+1, 0);
 
   if (thisIndex == 0) root->firstParticle ++;
-  if (thisIndex == (int)numTreePieces-1) root->lastParticle --;
+  if (thisIndex == (int)numTPTreePieces-1) root->lastParticle --;
   root->particleCount = myNumParticles;
   nodeLookupTable[(Tree::NodeKey)1] = root;
 
@@ -2730,7 +2766,7 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
   if(verbosity > 3)
     ckerr << "TreePiece " << thisIndex << ": Finished tree build, resolving boundary nodes" << endl;
 
-  if (numTreePieces == 1) {
+  if (numTPTreePieces == 1) {
     treeBuildComplete();
   }
 
@@ -2757,7 +2793,7 @@ OrientedBox<float> TreePiece::constructBoundingBox(GenericTreeNode* node,int lev
   /*SFC::Key tmp = 1 << (level+1);
   tmp = key - tmp;
 
-  for(int i=0;i<numTreePieces;i++){
+  for(int i=0;i<numTPTreePieces;i++){
     if(tmp==(i>>(chunkRootLevel-level-1))){
       tmpBox.grow(boxes[i].lesser_corner);
       tmpBox.grow(boxes[i].greater_corner);
@@ -2952,7 +2988,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   switch (useTree) {
   case Binary_Oct:
     pTreeNodes = new NodePool;
-    root = pTreeNodes->alloc_one(1, numTreePieces>1?Tree::Boundary:Tree::Internal, 0, myNumParticles+1, 0);
+    root = pTreeNodes->alloc_one(1, numTPTreePieces>1?Tree::Boundary:Tree::Internal, 0, myNumParticles+1, 0);
     break;
   case Oct_Oct:
     //root = new OctTreeNode(1, Tree::Boundary, 0, myNumParticles+1, 0);
@@ -3032,7 +3068,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   }
 
   //CmiUnlock(dm->__nodelock);
-  if (numTreePieces == 1) {
+  if (numTPTreePieces == 1) {
     treeBuildComplete();
   }
 }
@@ -3824,7 +3860,7 @@ void TreePiece::doAllBuckets(){
 #endif
 
   dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-  *((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + thisIndex + 1;
+  *((int *)CkPriorityPtr(msg)) = numTPTreePieces * numChunks + thisIndex + 1;
   CkSetQueueing(msg,CK_QUEUEING_IFIFO);
   msg->val=0;
 
@@ -4798,7 +4834,7 @@ void TreePiece::startPushGravity(int am, double myTheta){
   CkAssert(!doMerge);
   if(!createdSpanningTree){
     createdSpanningTree = true;
-    allTreePieceSection = CProxySection_TreePiece::ckNew(thisProxy,0,numTreePieces-1,1);
+    allTreePieceSection = CProxySection_TreePiece::ckNew(thisProxy,0,numTPTreePieces-1,1);
     CkMulticastMgr *mgr = CProxy_CkMulticastMgr(ckMulticastGrpId).ckLocalBranch();
     allTreePieceSection.ckSectionDelegate(mgr);
   }
@@ -5333,7 +5369,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 
 
 #ifdef CHANGA_PRINT_MEMUSAGE
-      int piecesPerPe = numTreePieces/CmiNumPes();
+      int piecesPerPe = numTPTreePieces/CmiNumPes();
       if(thisIndex % piecesPerPe == 0)
 	CkPrintf("[%d]: CmiMaxMemoryUsage: %f M\n", CmiMyPe(),
 		 (float)CmiMaxMemoryUsage()/(1 << 20));
@@ -5409,7 +5445,7 @@ void TreePiece::continueStartRemoteChunk(int chunk){
   // FIXME - can value of chunk be different from current Prefetch?
   //CkPrintf("[%d] continueStartRemoteChunk chunk: %d, current Prefetch: %d\n", thisIndex, chunk, current Prefetch);
   ComputeChunkMsg *msg = new (8*sizeof(int)) ComputeChunkMsg(sPrefetchState->currentBucket);
-  *(int*)CkPriorityPtr(msg) = numTreePieces * sPrefetchState->currentBucket + thisIndex + 1;
+  *(int*)CkPriorityPtr(msg) = numTPTreePieces * sPrefetchState->currentBucket + thisIndex + 1;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
 
 #if INTERLIST_VER > 0
@@ -5483,15 +5519,26 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   treePieceActivePartsTmp = numActiveParticles;
   if (havePhaseData(activeRung)) {
     treePieceLoadExp = savedPhaseLoad[activeRung];
+    if (treePieceLoadExp > 6) {
+      CkPrintf("[%d] from activerung %d ld %f\n", thisIndex, activeRung,
+      treePieceLoadExp);
+    }
   } else if (havePhaseData(0)) {
-    float ratio = 1.0;
+    float ratio = 0.0;
     if(myNumParticles != 0){
       ratio = numActiveParticles/(float)myNumParticles;
     }
 
     treePieceLoadExp  = ratio * savedPhaseLoad[0];
+   if (treePieceLoadExp > 6) {
+      CkPrintf("[%d] from rung %d ld %f numActiveParticles %d myParticles %d svedPhasdLd %f\n", thisIndex, 0,
+      treePieceLoadExp, numActiveParticles, myNumParticles, savedPhaseLoad[0]);
+    }
   } else {
-    treePieceLoadExp =  treePieceLoad;
+    treePieceLoadExp =  treePieceLoad; 
+    if (treePieceLoadExp > 6) {
+      CkPrintf("[%d] no data found for rungs ld %f\n", thisIndex, treePieceLoadExp);
+    }
   }
   setObjTime(treePieceLoadExp);
   treePieceLoad = 0;
@@ -5514,8 +5561,11 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
   }
   else if(foundLB == Multistep_notopo){
-    CkCallback lbcb(CkIndex_MultistepLB_notopo::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+    //CkCallback lbcb(CkIndex_MultistepLB_notopo::receiveCentroids(NULL), 0, proxy);
+    //contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+    void *data = getObjUserData(CkpvAccess(_lb_obj_index));
+    *(TaggedVector3D *) data = tv;
+    thisProxy[thisIndex].doAtSync();
   }
   else if(foundLB == Orb3d_notopo){
     CkCallback cbk(CkIndex_Orb3dLB_notopo::receiveCentroids(NULL), 0, proxy);
@@ -5524,6 +5574,9 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   else if(foundLB == MultistepOrb){
     CkCallback lbcb(CkIndex_MultistepOrbLB::receiveCentroids(NULL), 0, proxy);
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+    //void *data = getObjUserData(CkpvAccess(_lb_obj_index));
+    //*(TaggedVector3D *) data = tv;
+    //thisProxy[thisIndex].doAtSync();
   }
   else if(activeRung == 0) {
     doAtSync();
@@ -5679,7 +5732,10 @@ void TreePiece::walkBucketTree(GenericTreeNode* node, int reqID) {
 
 GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key, int chunk, int reqID, int awi, void *source, bool isPrefetch) {
 
-  CkAssert(remoteIndex < (int) numTreePieces);
+  if (remoteIndex >= (int) numTPTreePieces) {
+    CkPrintf("[%d] PE %d somethignworng requesting remoteIdx %d when numTPTreePieces %d\n", thisIndex, CkMyPe(), remoteIndex, (int) numTPTreePieces);
+  }
+  CkAssert(remoteIndex < (int) numTPTreePieces);
   CkAssert(chunk < numChunks);
 
   if(_cache){
@@ -5886,9 +5942,9 @@ void TreePiece::outputStatistics(const CkCallback& cb) {
   }
 #endif
 
-  if(thisIndex != (int) numTreePieces - 1)
+  if(thisIndex != (int) numTPTreePieces - 1)
     pieces[thisIndex + 1].outputStatistics(cb);
-  if(thisIndex == (int) numTreePieces - 1) cb.send();
+  if(thisIndex == (int) numTPTreePieces - 1) cb.send();
 }
 
 /// @TODO Fix pup routine to handle correctly the tree
@@ -5909,6 +5965,7 @@ void TreePiece::pup(PUP::er& p) {
   p | proxySet;
   p | savedCentroid;
   p | prevLARung;
+  p | numTPTreePieces;
 
   p | callback;
   p | nTotalParticles;
@@ -6932,8 +6989,12 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
   }
   else if(foundLB == Multistep_notopo){
-    CkCallback lbcb(CkIndex_MultistepLB_notopo::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+    //CkCallback lbcb(CkIndex_MultistepLB_notopo::receiveCentroids(NULL), 0, proxy);
+    //contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+
+    void *data = getObjUserData(CkpvAccess(_lb_obj_index));
+    *(TaggedVector3D *) data = tv;
+    thisProxy[thisIndex].doAtSync();
   }
   else if(foundLB == Orb3d_notopo){
     CkCallback lbcb(CkIndex_Orb3dLB_notopo::receiveCentroids(NULL), 0, proxy);

@@ -507,7 +507,7 @@ mainmodule ParallelGravity {
     entry void unshuffleBasedOnPrevSplitter();
     entry void acceptParticlesBasedOnPrevSplitter(ParticleShuffleMsg *msg);
     entry void sortAllRecvdParticles();
-    entry void startDistributedDD(CkCallback &cb);
+    entry void startDistributedDD(CkCallback &cb, bool bDoDD);
     entry [reductiontarget] void getSumTPLoad(double ld);
     entry void splitTPsBasedOnLoad(double avgload);
     entry void nextTPIdx(int ids[n], int n);

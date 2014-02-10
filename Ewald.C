@@ -374,7 +374,7 @@ void TreePiece::EwaldInit()
 	dummyMsg *msg = new dummyMsg;
 #else
 	dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-	*((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + numTreePieces + thisIndex + 1;
+	*((int *)CkPriorityPtr(msg)) = numTPTreePieces * numChunks + numTPTreePieces + thisIndex + 1;
 	CkSetQueueing(msg,CK_QUEUEING_IFIFO);
 #endif
 	msg->val=0;

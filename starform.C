@@ -357,7 +357,7 @@ void TreePiece::flushStarLog(const CkCallback& cb) {
     dm->starLog->flush();
     CmiUnlock(dm->lockStarLog);
 
-    if(thisIndex!=(int)numTreePieces-1) {
+    if(thisIndex!=(int)numTPTreePieces-1) {
 	pieces[thisIndex + 1].flushStarLog(cb);
 	return;
 	}

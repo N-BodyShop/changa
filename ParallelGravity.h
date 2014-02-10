@@ -78,6 +78,7 @@ enum LBStrategy{
 };
 PUPbytes(LBStrategy);
 
+#define SELECTIVE_TRACING 1
 #ifdef SELECTIVE_TRACING
 enum TraceState {
   TraceNormal = 0,
@@ -330,6 +331,8 @@ class CreateMsg : public CMessage_CreateMsg {
     bool proxyValidPar;
     bool proxySetPar;
     int prevLARungPar;
+    int activeRungPar;
+    unsigned int numTPTreePiecesPar;
 
     unsigned iterationNoPar;
     int nSetupWriteStagePar;
@@ -979,7 +982,9 @@ private:
 	/// myNumParticles when particles are created.
 	int myTreeParticles;
   /**** Dynamic insertion ******/
+  unsigned int numTPTreePieces;
   bool doSplitting;
+  bool bDoDD;
   std::vector<SFC::Key> newChareSplitterKeys;
   std::vector<int> idsForSplitters;
   std::vector<int> newCharePartsCount;
@@ -1327,6 +1332,7 @@ public:
     treePieceActivePartsTmp(0), warmupFinished(false) {
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
+    numTPTreePieces = numTreePieces;
 	  dm = NULL;
 	  foundLB = Null; 
 	  iterationNo=0;
@@ -1407,6 +1413,7 @@ public:
 	}
 
 	TreePiece(CkMigrateMessage* m) {
+    numTPTreePieces = numTreePieces;
 	  treePieceLoadTmp = 0.0;
           // jetley
           proxyValid = false;
@@ -1465,6 +1472,7 @@ public:
 
 	  nMaxEwhLoop = 100;
 
+
     fPeriod[0] = m->fPeriodParX;
     fPeriod[1] = m->fPeriodParY;
     fPeriod[2] = m->fPeriodParZ;
@@ -1483,6 +1491,8 @@ public:
     proxyValid = m->proxyValidPar;
     proxySet = m->proxySetPar;
     prevLARung = m->prevLARungPar;
+    activeRung = m->activeRungPar;
+    numTPTreePieces = m->numTPTreePiecesPar;
 
     //basefilename = m->basefilenamePar;
     iterationNo = m->iterationNoPar;
@@ -1734,7 +1744,7 @@ public:
   void sortAllRecvdParticles();
   void sortAllRecvdParticlesLocal();
   void sendAvgTpLoad();
-  void startDistributedDD(CkCallback &cb);
+  void startDistributedDD(CkCallback &cb, bool bDoDD);
   void getSumTPLoad(double ld);
   void splitTPsBasedOnLoad(double avgtpload);
   void nextTPIdx(int* ids, int n);

@@ -7,23 +7,29 @@
 #include <queue>
 
 extern CProxy_TreePiece treeProxy;
+
+CkpvExtern(int, _lb_obj_index);
+
 using namespace std;
 //#define ORB3DLB_NOTOPO_DEBUG CkPrintf
 
 CreateLBFunc_Def(MultistepLB_notopo, "Works best with multistepped runs; uses Orb3D_notopo for larger steps, greedy otherwise");
 
+void MultistepLB_notopo::init() {
+  lbname = "MultistepLB_notopo";
+  if(CkpvAccess(_lb_obj_index) == -1) {
+    CkpvAccess(_lb_obj_index) = LBRegisterObjUserData(sizeof(TaggedVector3D));
+  }
+  haveTPCentroids = false;
+}
 
 MultistepLB_notopo::MultistepLB_notopo(const CkLBOptions &opt): CentralLB(opt)
 {
-  lbname = "MultistepLB_notopo";
 
   if (CkMyPe() == 0){
     CkPrintf("[%d] MultistepLB_notopo created\n",CkMyPe());
   }
-
-  
-  haveTPCentroids = false;
-
+  init();
 }
 
 /// @brief Get position centroids of all TreePieces
@@ -189,70 +195,35 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 #if CMK_LBDB_ON
   // find active objects - mark the inactive ones as non-migratable
   int count;
-  return;
-  
-  stats->makeCommHash();
-  for(int i = 0; i < stats->n_objs; i++){
-    LDObjHandle &handle = tpCentroids[i].handle;
-    tpCentroids[i].tag = stats->getHash(handle.id, handle.omhandle.id);
-  }
-  if(_lb_args.debug() >= 2 && step() > 0) {
-      // Write out "particle file" of measured load balance information
-      char achFileName[1024];
-      sprintf(achFileName, "lb_a.%d.sim", step()-1);
-      FILE *fp = fopen(achFileName, "w");
-      CkAssert(fp != NULL);
-      fprintf(fp, "%d %d 0\n", stats->n_objs, stats->n_objs);
-      for(int i = 0; i < stats->n_objs; i++) {
-	  CkAssert(tpCentroids[i].tag < stats->n_objs);
-	  CkAssert(tpCentroids[i].tag >= 0);
-	  fprintf(fp, "%g %g %g %g 0.0 0.0 0.0 %d %d\n",
-		  stats->objData[tpCentroids[i].tag].wallTime,
-		  tpCentroids[i].vec.x,
-		  tpCentroids[i].vec.y,
-		  tpCentroids[i].vec.z,
-		  stats->from_proc[tpCentroids[i].tag],
-		  tpCentroids[i].tp);
-	  }
-      fclose(fp);
-      }
-  int phase = determinePhase(tpCentroids[0].activeRung);
-  int prevPhase = tpCentroids[0].prevActiveRung;
-  float *ratios = new float[stats->n_objs];
-  // save pointers to centroids of treepieces
-
+  CkPrintf("Doing LB nobjs %d and nrecvd %d\n", stats->n_objs, nrecvd);
+//    return;
+//  if (nrecvd != stats->n_objs) {
+//    CkPrintf("Warning!!! Not doing LB nobjs %d and nrecvd %d\n", stats->n_objs, nrecvd);
+//    return;
+//  }
   int numActiveObjects = 0;
   int numInactiveObjects = 0;
-
-  // to calculate ratio of active particles in phase
   int numActiveParticles = 0;
   int totalNumParticles = 0;
-  
+
+  int phase;
+
   for(int i = 0; i < stats->n_objs; i++){
     stats->to_proc[i] = stats->from_proc[i];
   }
-  // update phase data 
-  if (_lb_args.debug()>=2) {
-    CkPrintf("merging previous phase %d data; current phase: %d\n", prevPhase, phase);
-  }
-  mergeInstrumentedData(prevPhase, stats); 
-  
-  for(int i = 0; i < stats->n_objs; i++){
-    int tp = tpCentroids[i].tp;
-    int lb = tpCentroids[i].tag;
-    if(tpCentroids[i].myNumParticles != 0){
-      ratios[tp] = tpCentroids[i].numActiveParticles/(float)tpCentroids[i].myNumParticles;
-    }
-    else{
-      ratios[tp] = 1.0;
-    }
-    numActiveParticles += tpCentroids[i].numActiveParticles;
-    totalNumParticles += tpCentroids[i].myNumParticles;
 
-    if(tpCentroids[i].numActiveParticles == 0){
+  for(int i = 0; i < stats->n_objs; i++){
+    LDObjData &odata = stats->objData[i];
+    TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
+//    if (i = 0) {
+//      phase = determinePhase(udata->activeRung);
+//    }
+    numActiveParticles += udata->numActiveParticles;
+    totalNumParticles += udata->myNumParticles;
+    if(udata->numActiveParticles == 0){
       numInactiveObjects++;
-      if(stats->objData[lb].migratable){
-        stats->objData[lb].migratable = 0;
+      if(stats->objData[i].migratable){
+        stats->objData[i].migratable = 0;
 #ifdef MCLBMSV
         CkPrintf("marking object %d non-migratable (inactive)\n", tpCentroids[i].tag);
 #endif
@@ -263,22 +234,113 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
       numActiveObjects++;
     }
   }
+
   CkPrintf("numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects,
 	   numInactiveObjects);
   if(numInactiveObjects < 1.0*numActiveObjects) {
-	// insignificant number of inactive objects; migrate them anyway
-  	for(int i = 0; i < stats->n_objs; i++){
-    	    int lb = tpCentroids[i].tag;
-            if(!stats->objData[lb].migratable
-		&& tpCentroids[i].myNumParticles > 0){
-        	stats->objData[lb].migratable = 1;
-        	stats->n_migrateobjs++;
-		numActiveObjects++;
-		numInactiveObjects--;
-		}
-	    }
-  	CkPrintf("Migrating all: numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects, numInactiveObjects);
-	}
+    // insignificant number of inactive objects; migrate them anyway
+    for(int i = 0; i < stats->n_objs; i++){
+      if(!stats->objData[i].migratable && tpCentroids[i].myNumParticles > 0){
+        stats->objData[i].migratable = 1;
+        stats->n_migrateobjs++;
+        numActiveObjects++;
+        numInactiveObjects--;
+      }
+    }
+    CkPrintf("Migrating all: numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects, numInactiveObjects);
+  }
+
+
+
+//  stats->makeCommHash();
+//  for(int i = 0; i < stats->n_objs; i++){
+//    LDObjHandle &handle = tpCentroids[i].handle;
+//    tpCentroids[i].tag = stats->getHash(handle.id, handle.omhandle.id);
+//  }
+//  if(_lb_args.debug() >= 2 && step() > 0) {
+//      // Write out "particle file" of measured load balance information
+//      char achFileName[1024];
+//      sprintf(achFileName, "lb_a.%d.sim", step()-1);
+//      FILE *fp = fopen(achFileName, "w");
+//      CkAssert(fp != NULL);
+//      fprintf(fp, "%d %d 0\n", stats->n_objs, stats->n_objs);
+//      for(int i = 0; i < stats->n_objs; i++) {
+//	  CkAssert(tpCentroids[i].tag < stats->n_objs);
+//	  CkAssert(tpCentroids[i].tag >= 0);
+//	  fprintf(fp, "%g %g %g %g 0.0 0.0 0.0 %d %d\n",
+//		  stats->objData[tpCentroids[i].tag].wallTime,
+//		  tpCentroids[i].vec.x,
+//		  tpCentroids[i].vec.y,
+//		  tpCentroids[i].vec.z,
+//		  stats->from_proc[tpCentroids[i].tag],
+//		  tpCentroids[i].tp);
+//	  }
+//      fclose(fp);
+//      }
+//  int phase = determinePhase(tpCentroids[0].activeRung);
+//  int prevPhase = tpCentroids[0].prevActiveRung;
+//  //float *ratios = new float[stats->n_objs];
+//  // save pointers to centroids of treepieces
+//  //CkPrintf("Created ratios of size %d\n", stats->n_objs);
+//
+//  int numActiveObjects = 0;
+//  int numInactiveObjects = 0;
+//
+//  // to calculate ratio of active particles in phase
+//  int numActiveParticles = 0;
+//  int totalNumParticles = 0;
+//  
+//  for(int i = 0; i < stats->n_objs; i++){
+//    stats->to_proc[i] = stats->from_proc[i];
+//  }
+//  // update phase data 
+//  if (_lb_args.debug()>=2) {
+//    CkPrintf("merging previous phase %d data; current phase: %d\n", prevPhase, phase);
+//  }
+////  mergeInstrumentedData(prevPhase, stats); 
+//  
+//  for(int i = 0; i < stats->n_objs; i++){
+//    int tp = tpCentroids[i].tp;
+//    int lb = tpCentroids[i].tag;
+////    if(tpCentroids[i].myNumParticles != 0){
+////      ratios[tp] = tpCentroids[i].numActiveParticles/(float)tpCentroids[i].myNumParticles;
+////    }
+////    else{
+////      ratios[tp] = 1.0;
+////    }
+//    numActiveParticles += tpCentroids[i].numActiveParticles;
+//    totalNumParticles += tpCentroids[i].myNumParticles;
+//
+//    if(tpCentroids[i].numActiveParticles == 0){
+//      numInactiveObjects++;
+//      if(stats->objData[lb].migratable){
+//        stats->objData[lb].migratable = 0;
+//#ifdef MCLBMSV
+//        CkPrintf("marking object %d non-migratable (inactive)\n", tpCentroids[i].tag);
+//#endif
+//        stats->n_migrateobjs--;
+//      }
+//    }
+//    else{
+//      numActiveObjects++;
+//    }
+//  }
+//  CkPrintf("numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects,
+//	   numInactiveObjects);
+//  if(numInactiveObjects < 1.0*numActiveObjects) {
+//	// insignificant number of inactive objects; migrate them anyway
+//  	for(int i = 0; i < stats->n_objs; i++){
+//    	    int lb = tpCentroids[i].tag;
+//            if(!stats->objData[lb].migratable
+//		&& tpCentroids[i].myNumParticles > 0){
+//        	stats->objData[lb].migratable = 1;
+//        	stats->n_migrateobjs++;
+//		numActiveObjects++;
+//		numInactiveObjects--;
+//		}
+//	    }
+//  	CkPrintf("Migrating all: numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects, numInactiveObjects);
+//	}
 
   /*
   CkPrintf("**********************************************\n");
@@ -299,21 +361,25 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
   //printData(*stats, phase, NULL);
   CkPrintf("making active processor list\n");
 #endif
+  CkPrintf("making active processor list\n");
   makeActiveProcessorList(stats, numActiveObjects);
   count = stats->count;
 
-  delete []ratios;
+  CkPrintf("Going to delete ratios\n");
+//  delete []ratios;
 
+      CkPrintf("******** Going to do WORK *********!\n");
   // let the strategy take over on this modified instrumented data and processor information
   if((float)numActiveParticles/totalNumParticles > LARGE_PHASE_THRESHOLD){
-    if (_lb_args.debug()>=2) {
-      CkPrintf("******** BIG STEP *********!\n");
-    }
-    work2(stats,count,phase,prevPhase);
+  //  if (_lb_args.debug()>=2) {
+      CkPrintf("******** work2 *********!\n");
+  //  }
+    work2(stats,count);
   }     // end if phase == 0
   else{
     // greedy(stats,count,phase,prevPhase);
   }
+      CkPrintf("******** END of work *********!\n");
 #endif //CMK_LDB_ON
 
 }
@@ -399,10 +465,11 @@ void MultistepLB_notopo::greedy(BaseLB::LDStats *stats, int count, int phase, in
 }
 
 /// @brief ORB3D load balance.
-void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int prevPhase){
+void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count){
   int numobjs = stats->n_objs;
   int nmig = stats->n_migrateobjs;
 
+  CkPrintf("Work2 nmig %d numobjs %d\n", nmig, numobjs);
   // this data structure is used by the orb3d strategy
   // to balance objects. it is NOT indexed by tree piece index
   // there are as many entries in it as there are
@@ -410,6 +477,7 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
  vector<OrbObject> tp_array;
  tp_array.resize(nmig);
 
+CkPrintf("Done array rezie\n");
   if (_lb_args.debug()>=2) {
     CkPrintf("[work2] ready tp_array data structure\n");
   }
@@ -418,44 +486,74 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
   for(int i = 0; i < NDIMS; i++){
     tpEvents[i].reserve(nmig);
   }
+  CkPrintf("Done tpEvents reserve\n");
 
   OrientedBox<float> box;
 
   int numProcessed = 0;
 
+  CkPrintf("Starting filling in\n");
   for(int i = 0; i < numobjs; i++){
-    int lb = tpCentroids[i].tag;
+    LDObjData &odata = stats->objData[i]; 
+    TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
 
-
-    if(!stats->objData[lb].migratable) continue;
+    if(!stats->objData[i].migratable) continue;
  
+    if (numProcessed >= nmig) {
+      CkPrintf("something wrong numProcessed %d and nmig %d\n", numProcessed, nmig);
+    }
     float load;
     if(step() == 0){
-      load = tpCentroids[i].myNumParticles;
+      load = udata->myNumParticles;
     }
     else{
-      load = stats->objData[lb].wallTime;
+      load = stats->objData[i].wallTime;
     }
 
     // CkPrintf("Before calling Orb %d %f \n",lb, load);
 
-    tpEvents[XDIM].push_back(Event(tpCentroids[i].vec.x,load,numProcessed));
-    tpEvents[YDIM].push_back(Event(tpCentroids[i].vec.y,load,numProcessed));
-    tpEvents[ZDIM].push_back(Event(tpCentroids[i].vec.z,load,numProcessed));
+    tpEvents[XDIM].push_back(Event(udata->vec.x,load,numProcessed));
+    tpEvents[YDIM].push_back(Event(udata->vec.y,load,numProcessed));
+    tpEvents[ZDIM].push_back(Event(udata->vec.z,load,numProcessed));
 
-    tp_array[numProcessed]= OrbObject(lb,tpCentroids[i].myNumParticles);
-    tp_array[numProcessed].centroid = tpCentroids[i].vec;
+    tp_array[numProcessed]= OrbObject(i,udata->myNumParticles);
+    tp_array[numProcessed].centroid = udata->vec;
 
    
-    tp_array[numProcessed].lbindex = lb;
+    tp_array[numProcessed].lbindex = i;
     numProcessed++;
   }
+  CkPrintf("numProcessed %d and nmig %d\n", numProcessed, nmig);
   CkAssert(numProcessed==nmig);
   
+  CkPrintf("orbPrepare !\n");
   orbPrepare(tpEvents, box, nmig, stats);
+  CkPrintf("orbPrepare done!\n");
   orbPartition(tpEvents,box,stats->count,tp_array, stats);
+  CkPrintf("orbPartition done!\n");
 
   refine(stats, numobjs);
+  double maxObjLd = 0.0;
+  int maxObjId;
+  for(int i = 0; i < numobjs; i++){
+    LDObjData &odata = stats->objData[i]; 
+    TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
+    if (udata->tp >= 262144) {
+      if (stats->from_proc[i] != stats->to_proc[i] && stats->from_proc[i] ==
+          0) {
+        CkPrintf("[%d] Is migrating from %d to %d\n", udata->tp, stats->from_proc[i],
+            stats->to_proc[i]);
+      }
+    }
+    if (stats->objData[i].wallTime > maxObjLd) {
+      maxObjId = udata->tp;
+      maxObjLd = stats->objData[i].wallTime;
+    }
+   // if (stats->from_proc[i] == 0 && stats->to_proc[i] == 0) {
+   //   stats->to_proc[i] = 1;
+   // }
+  }
+  CkPrintf("OrbLB_notopo> maxObjLd %f for tp %d\n", maxObjLd, maxObjId);
 
   if(_lb_args.debug() >= 2) {
       // Write out "particle file" of load balance information

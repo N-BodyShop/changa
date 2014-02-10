@@ -79,8 +79,10 @@ private:
 public:
   MultistepLB_notopo(const CkLBOptions &);
   MultistepLB_notopo(CkMigrateMessage *m):CentralLB(m) { 
-    lbname = "MultistepLB_notopo"; 
-     }
+    init();
+  }
+
+  void init();
     
   void work(BaseLB::LDStats* stats);
   void receiveCentroids(CkReductionMsg *msg);
@@ -125,7 +127,7 @@ public:
 // ORB3DLB functions
 //**************************************
 //
-  void work2(BaseLB::LDStats* stats, int count, int phase, int prevPhase);
+  void work2(BaseLB::LDStats* stats, int count);
   void greedy(BaseLB::LDStats* stats, int count, int phase, int prevPhase);
  
   void pup(PUP::er &p);
