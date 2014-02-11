@@ -1090,10 +1090,9 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 #endif /* COOLING_NONE */
 		      }
 		  }
-	      CkAssert(p->u() > 0.0);
-	      CkAssert(p->uPred() > 0.0);
+	      CkAssert(p->u() >= 0.0);
+	      CkAssert(p->uPred() >= 0.0);
 	      }
-          //CkPrintf("[%d] particle %d acc %f %f %f\n", thisIndex, i, p->treeAcceleration.x, p->treeAcceleration.y, p->treeAcceleration.z);
 	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
 	  }
       }
