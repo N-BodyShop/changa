@@ -5435,8 +5435,9 @@ echo $ECHO_N "checking for CUDA toolkit directory... $ECHO_C" >&6
         done
         if test -z "$CUDA_DIR"; then
             if test "$ENABLE_CUDA" = "yes"; then
-                # User explicitly requested CUDA support; being unable to find a
-                # toolkit directory is an error.
+                # User explicitly requested CUDA support but did not provide a
+                # directory argument; being unable to find a toolkit directory
+                # is an error.
                 echo "$as_me:$LINENO: result: not found" >&5
 echo "${ECHO_T}not found" >&6
                 { { echo "$as_me:$LINENO: error: \
@@ -5446,7 +5447,6 @@ echo "$as_me: error: \
 CUDA support explicitly enabled but the toolkit was not found by automatic path
     search.  Specify CUDA toolkit location with \`--with-cuda=PATH\`." >&2;}
    { (exit 1); exit 1; }; }
-
             else
                 echo "$as_me:$LINENO: result: not found.  CUDA support will be disabled." >&5
 echo "${ECHO_T}not found.  CUDA support will be disabled." >&6
@@ -5459,6 +5459,8 @@ echo "${ECHO_T}$CUDA_DIR" >&6
     fi
 fi
 
+# Make sure we have the nVidia CUDA compiler available.  We give different
+# messages depending on how the `--with-cuda` option was passed to configure.
 if test "$ENABLE_CUDA" != "no"; then
     # Extract the first word of "nvcc", so it can be a program name with args.
 set dummy nvcc; ac_word=$2
@@ -5509,7 +5511,6 @@ echo "$as_me: error: \
 \`bin/nvcc\` not found in automatically-selected CUDA toolkit directory.  Specify
     CUDA toolkit location with \`--with-cuda=PATH\`." >&2;}
    { (exit 1); exit 1; }; }
-
             else
                 { { echo "$as_me:$LINENO: error: \`bin/nvcc\` not found in specified CUDA install prefix." >&5
 echo "$as_me: error: \`bin/nvcc\` not found in specified CUDA install prefix." >&2;}
