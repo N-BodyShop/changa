@@ -5,7 +5,7 @@ AC_PREREQ(2.59)
 AC_INIT([ChaNGa], [3.0], [changa-users@u.washington.edu])
 AC_DEFINE_UNQUOTED([NBODY_PACKAGE_VERSION], [$PACKAGE_VERSION])
 AC_CONFIG_SRCDIR([Reductions.h])
-AC_CONFIG_HEADER([config.h ../utility/structures/config.h])
+AC_CONFIG_HEADER([config.h $srcdir/../utility/structures/config.h])
 
 AC_ARG_VAR([CHARMC], "Charm compiler")
 # Checks for programs.
@@ -114,6 +114,6 @@ AC_CHECK_LIB([xdr], [xdr_hyper])
 AC_CHECK_FUNCS([xdr_hyper])
 
 AC_CONFIG_FILES([Makefile
-		 ../utility/structures/Makefile
+		 $srcdir/../utility/structures/Makefile
 		])
 AC_OUTPUT
