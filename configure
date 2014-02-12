@@ -1816,7 +1816,11 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 
+<<<<<<< Upstream, based on master
 ac_config_headers="$ac_config_headers config.h ../utility/structures/config.h"
+=======
+                    ac_config_headers="$ac_config_headers config.h $srcdir/../utility/structures/config.h"
+>>>>>>> f16b454 configure{,.ac}, Makefile.in: added support for out-of-source builds
 
 
 
@@ -6586,7 +6590,11 @@ fi
 done
 
 
+<<<<<<< Upstream, based on master
 ac_config_files="$ac_config_files Makefile ../utility/structures/Makefile"
+=======
+                    ac_config_files="$ac_config_files Makefile $srcdir/../utility/structures/Makefile"
+>>>>>>> f16b454 configure{,.ac}, Makefile.in: added support for out-of-source builds
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -7180,6 +7188,7 @@ cat >>$CONFIG_STATUS <<\_ACEOF || ac_write_fail=1
 # Handling of arguments.
 for ac_config_target in $ac_config_targets
 do
+<<<<<<< Upstream, based on master
   case $ac_config_target in
     "config.h") CONFIG_HEADERS="$CONFIG_HEADERS config.h" ;;
     "../utility/structures/config.h") CONFIG_HEADERS="$CONFIG_HEADERS ../utility/structures/config.h" ;;
@@ -7188,6 +7197,16 @@ do
 
   *) { { $as_echo "$as_me:$LINENO: error: invalid argument: $ac_config_target" >&5
 $as_echo "$as_me: error: invalid argument: $ac_config_target" >&2;}
+=======
+  case "$ac_config_target" in
+  # Handling of arguments.
+  "Makefile" ) CONFIG_FILES="$CONFIG_FILES Makefile" ;;
+  "$srcdir/../utility/structures/Makefile" ) CONFIG_FILES="$CONFIG_FILES $srcdir/../utility/structures/Makefile" ;;
+  "config.h" ) CONFIG_HEADERS="$CONFIG_HEADERS config.h" ;;
+  "$srcdir/../utility/structures/config.h" ) CONFIG_HEADERS="$CONFIG_HEADERS $srcdir/../utility/structures/config.h" ;;
+  *) { { echo "$as_me:$LINENO: error: invalid argument: $ac_config_target" >&5
+echo "$as_me: error: invalid argument: $ac_config_target" >&2;}
+>>>>>>> f16b454 configure{,.ac}, Makefile.in: added support for out-of-source builds
    { (exit 1); exit 1; }; };;
   esac
 done
