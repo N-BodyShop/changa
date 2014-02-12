@@ -88,6 +88,8 @@ mainmodule ParallelGravity {
   };
 
   message ParticleShuffleMsg {
+    double loads[];
+    unsigned int parts_per_phase[];
     GravityParticle particles[];
     extraSPHData pGas[];
     extraStarData pStar[];
@@ -189,6 +191,10 @@ mainmodule ParallelGravity {
         const int responsible[n - 1],
         unsigned int bins[n - 1], const int n,
         const CkCallback& cb);
+    entry void acceptFinalKeysNew(const SFC::Key keys[n],
+        const int responsible[n - 1],
+        unsigned int bins[n - 1], const int n,
+        const CkCallback& cb);
     entry void collectSplitters(CkReductionMsg* m);
     //entry [local,exclusive] void notifyPresence(int index, Tree::GenericTreeNode *root);
     entry void combineLocalTrees(CkReductionMsg *m);
@@ -206,6 +212,7 @@ mainmodule ParallelGravity {
   array [1D] TreePiece {
     entry TreePiece();
     entry void restart();
+    entry void turnoffthelb(CkCallback &cb);
 
     // DEBUGGING
     entry void quiescence();
@@ -214,6 +221,8 @@ mainmodule ParallelGravity {
     // entry void report();
 
     entry void nextBucket(dummyMsg *m);	
+    entry void nextBucketCk(); 
+    entry void ckLoopParallelFunction(dummyMsg *m);
     entry void nextBucketSmooth(dummyMsg *msg);
     entry void nextBucketReSmooth(dummyMsg *msg);
     entry void nextBucketMarkSmooth(dummyMsg *msg);
@@ -294,6 +303,12 @@ mainmodule ParallelGravity {
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
     entry void unshuffleParticles(CkReductionMsg* m);
     entry void acceptSortedParticles(ParticleShuffleMsg *);
+
+    entry void migrateAndUnshuffle(const CkCallback& cb);
+    entry void shuffleAfterQD();
+    entry void unshuffleParticlesWoDD(const CkCallback& cb);
+    entry void acceptSortedParticlesQD(ParticleShuffleMsg *);
+
     //ORB
     entry void initORBPieces(const CkCallback& cb);
     entry void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,
@@ -394,6 +409,7 @@ mainmodule ParallelGravity {
 
     entry void commenceCalculateGravityLocal();
     entry void calculateGravityRemote(ComputeChunkMsg *msg);
+    entry void calculateGravityRemoteCk(ComputeChunkMsg *msg);
 
     entry [notrace] void calculateReSmoothLocal();
     entry [notrace] void calculateMarkSmoothLocal();

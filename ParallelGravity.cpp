@@ -28,6 +28,7 @@
 // #include <fenv.h>
 
 #include "BaseLB.h"
+#include "CkLoopAPI.h"
 
 #include "Sorter.h"
 #include "ParallelGravity.h"
@@ -185,6 +186,9 @@ Main::Main(CkArgMsg* m) {
 	bIsRestarting = 0;
 	bChkFirst = 1;
 	dSimStartTime = CkWallTimer();
+
+  int threadNum;
+  CkLoop_Init(threadNum);
 
 	// Floating point exceptions.
 	// feenableexcept(FE_OVERFLOW | FE_DIVBYZERO | FE_INVALID);
@@ -1474,7 +1478,9 @@ void Main::advanceBigStep(int iStep) {
 	FormStars(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
     if(param.bFeedback && param.stfm->isStarFormRung(activeRung)) 
 	StellarFeedback(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
-
+#ifdef SELECTIVE_TRACING
+        turnProjectionsOn(activeRung);
+#endif
     ckout << "\nStep: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
           << " Time: " << dTime
           << " Rungs " << activeRung << " to "
@@ -1486,18 +1492,26 @@ void Main::advanceBigStep(int iStep) {
 	memoryStats();
 
     /***** Resorting of particles and Domain Decomposition *****/
-    CkPrintf("Domain decomposition ... ");
+    CkPrintf("Domain decomposition ... \n");
     double startTime;
     bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
+    //bDoDD = false;
 
     startTime = CkWallTimer();
+    if (bDoDD) {
     sorter.startSorting(dataManagerID, ddTolerance,
                         CkCallbackResumeThread(), bDoDD);
+    } else if((iStep + ((double) currentStep)/MAXSUBSTEPS) == 1016.375) {
+      //treeProxy.unshuffleParticlesWoDD(CkCallbackResumeThread());
+      treeProxy.migrateAndUnshuffle(CkCallbackResumeThread());
+    } else {
+      treeProxy.unshuffleParticlesWoDD(CkCallbackResumeThread());
+    }
     /*
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
           */
-    CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
+    CkPrintf("DD ending at %g took total %g ................\n", CkWallTimer(), CkWallTimer()-startTime);
 
     if(verbosity && !bDoDD)
 	CkPrintf("Skipped DD\n");
@@ -1506,14 +1520,15 @@ void Main::advanceBigStep(int iStep) {
 	memoryStats();
     /********* Load balancer ********/
     //ckout << "Load balancer ...";
-    CkPrintf("Load balancer ... ");
+    CkPrintf("Load balancer ... starting at %g\n", CkWallTimer());
     startTime = CkWallTimer();
+    //if (bDoDD || (iStep + ((double) currentStep)/MAXSUBSTEPS) == 1016.0625)
     treeProxy.startlb(CkCallbackResumeThread(), activeRung);
     /*
     ckout << " took "<<(CkWallTimer() - startTime) << " seconds."
 	     << endl;
              */
-    CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+    CkPrintf("LB ending at %g took total %g.......\n", CkWallTimer(), CkWallTimer()-startTime);
 
     if(verbosity > 1)
 	memoryStats();
@@ -1526,14 +1541,14 @@ void Main::advanceBigStep(int iStep) {
 
     /******** Tree Build *******/
     //ckout << "Building trees ...";
-    CkPrintf("Building trees ... ");
+    CkPrintf("Building trees \n");
     startTime = CkWallTimer();
 #ifdef PUSH_GRAVITY
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),!bDoPush);
 #else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
-    CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+    CkPrintf("TB ending at %g took total %g ......\n", CkWallTimer(), CkWallTimer()-startTime);
 
     CkCallback cbGravity(CkCallback::resumeThread);
 
@@ -1548,11 +1563,11 @@ void Main::advanceBigStep(int iStep) {
 	/******** Force Computation ********/
 	//ckout << "Calculating gravity (tree bucket, theta = " << theta
 	//      << ") ...";
-#ifdef SELECTIVE_TRACING
-        turnProjectionsOn(activeRung);
-#endif
+//#ifdef SELECTIVE_TRACING
+//        turnProjectionsOn(activeRung);
+//#endif
 
-        CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
+        CkPrintf("Calculating gravity (tree bucket, theta = %f)\n", theta);
 	startTime = CkWallTimer();
 	if(param.bConcurrentSph) {
 	    ckout << endl;
@@ -1591,10 +1606,11 @@ void Main::advanceBigStep(int iStep) {
 #endif
 	    //ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	    //	  << endl;
-            CkPrintf("took %g seconds\n", CkWallTimer()-startTime);
+            CkPrintf("CG ending at %g took total %g ........\n", CkWallTimer(), CkWallTimer()-startTime);
 #ifdef SELECTIVE_TRACING
             turnProjectionsOff();
 #endif
+            //treeProxy.turnoffthelb(CkCallbackResumeThread());
             if(verbosity)
                 memoryStatsCache();
 	    }
@@ -3124,46 +3140,52 @@ void Main::liveVizImagePrep(liveVizRequestMsg *msg)
 
 #ifdef SELECTIVE_TRACING
 void Main::turnProjectionsOn(int activeRung){
-  CkAssert(!projectionsOn);
-  if(numMaxTrace <= 0) return;
-  if(traceState == TraceNormal){
-    if(activeRung != monitorRung){
-    }
-    else if(traceIteration < numTraceIterations){
-      if(monitorStart == 0){
+
+    traceIteration++;
+    if (traceIteration == 7) {
         prjgrp.on(CkCallbackResumeThread());
         projectionsOn = true;
-        traceIteration++;
-        numMaxTrace--;
-      }
-      else{
-        monitorStart--;
-      }
     }
-    else{
-      traceState = TraceSkip;
-      traceIteration = 1;
-    }
-  }
-  else if(traceState == TraceSkip){
-    if(activeRung != monitorRung){
-    }
-    else if(traceIteration < numSkipIterations){
-      traceIteration++;
-    }
-    else{
-      traceState = TraceNormal;
-      if(monitorStart == 0){
-        prjgrp.on(CkCallbackResumeThread());
-        projectionsOn = true;
-        traceIteration = 1;
-        numMaxTrace--;
-      }
-      else{
-        monitorStart--;
-      }
-    }
-  }
+//  CkAssert(!projectionsOn);
+//  if(numMaxTrace <= 0) return;
+//  if(traceState == TraceNormal){
+//    if(activeRung != monitorRung){
+//    }
+//    else if(traceIteration < numTraceIterations){
+//      if(monitorStart == 0){
+//        prjgrp.on(CkCallbackResumeThread());
+//        projectionsOn = true;
+//        traceIteration++;
+//        numMaxTrace--;
+//      }
+//      else{
+//        monitorStart--;
+//      }
+//    }
+//    else{
+//      traceState = TraceSkip;
+//      traceIteration = 1;
+//    }
+//  }
+//  else if(traceState == TraceSkip){
+//    if(activeRung != monitorRung){
+//    }
+//    else if(traceIteration < numSkipIterations){
+//      traceIteration++;
+//    }
+//    else{
+//      traceState = TraceNormal;
+//      if(monitorStart == 0){
+//        prjgrp.on(CkCallbackResumeThread());
+//        projectionsOn = true;
+//        traceIteration = 1;
+//        numMaxTrace--;
+//      }
+//      else{
+//        monitorStart--;
+//      }
+//    }
+//  }
 }
 
 

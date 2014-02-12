@@ -79,6 +79,8 @@ enum LBStrategy{
 };
 PUPbytes(LBStrategy);
 
+#define SELECTIVE_TRACING 1
+#define CHECK_TIME_WITHIN_BIGSTEP 1
 #ifdef SELECTIVE_TRACING
 enum TraceState {
   TraceNormal = 0,
@@ -306,15 +308,18 @@ public:
 /// Message for shuffling particles during domain decomposition
 class ParticleShuffleMsg : public CMessage_ParticleShuffleMsg{
 public:
+    int nloads;
     int n;
     int nSPH;
     int nStar;
     double load;
+    double *loads;
+    unsigned int *parts_per_phase;
     GravityParticle *particles;
     extraSPHData *pGas;
     extraStarData *pStar;
-    ParticleShuffleMsg(int npart, int nsph, int nstar, double pload): n(npart),
-	nSPH(nsph), nStar(nstar), load(pload) {}
+    ParticleShuffleMsg(int nload, int npart, int nsph, int nstar, double pload):
+      nloads(nload), n(npart), nSPH(nsph), nStar(nstar), load(pload) {}
 };
 
 #ifdef PUSH_GRAVITY
@@ -569,6 +574,16 @@ typedef struct particlesInfoL{
 #endif
 } LocalPartInfo;
 
+typedef struct LoopParDataStruct {
+  CkVec<GenericTreeNode*> lowNodes;
+  CkVec<int> bucketids;
+  CkVec<int> chunkids;
+  CkVec<CkVec<OffsetNode> > clists;
+  CkVec<CkVec<RemotePartInfo> > rpilists;
+  CkVec<CkVec<LocalPartInfo> > lpilists;
+  TreePiece* tp;
+} LoopParData;
+
 
 #ifdef CUDA
 struct BucketActiveInfo{
@@ -668,6 +683,15 @@ class TreePiece : public CBase_TreePiece {
    
    double treePieceLoad; // used to store CPU load data for incoming particles
    double treePieceLoadTmp; // temporary accumulator for above
+   double treePieceLoadExp;
+   double treePieceDDLoad;
+   bool tploadset;
+   int numPartsMoved;
+   unsigned int treePieceActivePartsTmp;
+   std::vector<double> savedPhaseLoad;
+   std::vector<unsigned int> savedPhaseParticle;
+   std::vector<double> savedPhaseLoadTmp;
+   std::vector<unsigned int> savedPhaseParticleTmp;
    int memWithCache, memPostCache;  // store memory usage.
    int nNodeCacheEntries, nPartCacheEntries;  // store memory usage.
 
@@ -935,6 +959,7 @@ private:
 	CkCallback cbGravity;
 	/// smooth globally finished
 	CkCallback cbSmooth;
+  CkCallback after_dd_callback;
 	/// Total number of particles contained in this chare
 	unsigned int myNumParticles;
 	/// Array with the particles in this chare
@@ -1268,10 +1293,13 @@ private:
 	 * to me. The buckets are simply ordered in a vector.
 	 */
 	void startNextBucket();
+	void startNextBucketRemote(int chunkNum);
 	/** @brief Start a full step of bucket computation, it sends a message
 	 * to trigger nextBucket() which will loop over all the buckets.
 	 */
 	void doAllBuckets();
+  void ckLoopParallelFunction(dummyMsg *msg);
+  void doParallelWork(int idx, LoopParData* lpdata);
 	void reconstructNodeLookup(GenericTreeNode *node);
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 
@@ -1279,7 +1307,7 @@ public:
  TreePiece() : pieces(thisArrayID), root(0), proxyValid(false),
 	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
 	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
-	  treePieceLoad(0.0), treePieceLoadTmp(0.0) {
+	  treePieceLoad(0.0), treePieceLoadTmp(0.0), treePieceLoadExp(0.0), treePieceActivePartsTmp(0) {
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
 	  dm = NULL;
@@ -1443,6 +1471,7 @@ public:
 	}
 
 	void restart();
+  void turnoffthelb(CkCallback& cb) {LBTurnInstrumentOff(); contribute(cb);};
 
 	void setPeriodic(int nReplicas, Vector3D<double> fPeriod, int bEwald,
 			 double fEwCut, double fEwhCut, int bPeriod);
@@ -1545,6 +1574,12 @@ public:
 	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
 	void unshuffleParticles(CkReductionMsg* m);
 	void acceptSortedParticles(ParticleShuffleMsg *);
+
+  void migrateAndUnshuffle(const CkCallback& cb);
+  void shuffleAfterQD();
+  void unshuffleParticlesWoDD(const CkCallback& cb);
+  void unshuffleParticlesWoDDCb();
+  void acceptSortedParticlesQD(ParticleShuffleMsg *);
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);
   void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,
@@ -1675,6 +1710,7 @@ public:
 	/// by this TreePiece, and belonging to a subset of the global tree
 	/// (specified by chunkNum).
 	void calculateGravityRemote(ComputeChunkMsg *msg);
+	void calculateGravityRemoteCk(ComputeChunkMsg *msg);
 
 	/// Temporary function to recurse over all the buckets like in
 	/// walkBucketTree, only that NonLocal nodes are the only one for which
@@ -1769,6 +1805,10 @@ public:
 
 	//void startlb(CkCallback &cb);
 	void startlb(CkCallback &cb, int activeRung);
+  void populateSavedPhaseData(int phase, double tpload, unsigned int activeparts);
+  bool havePhaseData(int phase);
+  void savePhaseData(std::vector<double> &loads, std::vector<unsigned int>
+  &parts_per_phase, double* shuffleloads, unsigned int *shuffleparts, int shufflelen);
 	void ResumeFromSync();
 
 	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
@@ -1805,6 +1845,7 @@ public:
          * for itself.
 	 */
         void nextBucket(dummyMsg *m);
+        void nextBucketCk();
 
 	void report();
 	void printTreeViz(GenericTreeNode* node, std::ostream& os);

@@ -16,12 +16,15 @@
 #define  ORB3DLB_NOTOPO_DEBUG
 // #define  ORB3DLB_NOTOPO_DEBUG CkPrintf
 class Orb3dCommon{
+  public:
+    //int* existing_tps_on_pe;
   // pointer to stats->to_proc
   protected:		
     CkVec<int> *mapping;
     CkVec<int> *from;
 
     CkVec<float> procload;
+    CkVec<int> procpart;
 
     int nrecvd;
     bool haveTPCentroids;
@@ -31,6 +34,8 @@ class Orb3dCommon{
 
     /// index of first processor of the group we are considering
     int nextProc;
+
+    int procStride;
 
 
     void orbPartition(vector<Event> *events, OrientedBox<float> &box, int nprocs, vector<OrbObject> & tp, BaseLB::LDStats *stats){
@@ -51,18 +56,21 @@ class Orb3dCommon{
       if(nprocs == 1){
         ORB3DLB_NOTOPO_DEBUG("base: assign %d tps to proc %d\n", numEvents, nextProc);
         if (!stats->procs[nextProc].available) {
-          nextProc++;
+          CkPrintf("[%d] %d Not available proc!!\n", CkMyPe(), nextProc);
+          nextProc += procStride;
           return;
         }
         // direct assignment of tree pieces to processors
         //if(numEvents > 0) CkAssert(nprocs != 0);
         float totalLoad = 0.0;
+        int totalPart = 0;
         for(int i = 0; i < events[XDIM].size(); i++){
           Event &ev = events[XDIM][i];
           OrbObject &orb = tp[ev.owner];
           if(orb.numParticles > 0){
             (*mapping)[orb.lbindex] = nextProc;
             totalLoad += ev.load;
+            totalPart += orb.numParticles;
           }
           else{
             int fromPE = (*from)[orb.lbindex];
@@ -71,11 +79,13 @@ class Orb3dCommon{
               CkAbort("Trying to access a PE which is outside the range\n");
             }
             procload[fromPE] += ev.load;
+            procpart[fromPE] += orb.numParticles;
           }
         }
         procload[nextProc] += totalLoad;
+        procpart[nextProc] += totalPart;
 
-        if(numEvents > 0) nextProc++;
+        if(numEvents > 0) nextProc += procStride;
         return;
       }
 
@@ -105,11 +115,11 @@ class Orb3dCommon{
 
       // sum background load on each side of the processor split
       float bglprocs = 0.0;
-      for(int np = nextProc; np < nextProc + nlprocs; np++)
-        bglprocs += stats->procs[np].bg_walltime;
+      //for(int np = nextProc; np < nextProc + nlprocs; np++)
+      //  bglprocs += stats->procs[np].bg_walltime;
       float bgrprocs = 0.0;
-      for(int np = nextProc + nlprocs; np < nextProc + nlprocs + nrprocs; np++)
-        bgrprocs += stats->procs[np].bg_walltime;
+      //for(int np = nextProc + nlprocs; np < nextProc + nlprocs + nrprocs; np++)
+      //  bgrprocs += stats->procs[np].bg_walltime;
 
       ORB3DLB_NOTOPO_DEBUG("nlprocs %d nrprocs %d ratio %f\n", nlprocs, nrprocs, ratio);
 
@@ -134,13 +144,35 @@ class Orb3dCommon{
         CkAssert(nright >= nrprocs);
       }
 #endif
+      // If existing TPs (non migratable) + nleft > nlprocs*maxPieceProc, then
+      // we need to find a new splitIndex. Find the splitter such that nleft =
+      // nlprocs*maxPieceProc - (total nonmig).
+      //int ctps;
+      //if (nextProc <= 0) {
+      //  ctps = 0;
+      //} else {
+      //  ctps = existing_tps_on_pe[nextProc - 1];
+      //}
 
-      if(nleft > nlprocs*maxPieceProc) {
-	  nleft = splitIndex = (int) (nlprocs*maxPieceProc);
+      //int existing_tps_lprocs = existing_tps_on_pe[nextProc + nlprocs - 1] - ctps;
+      //if (nextProc + nlprocs <= 0) {
+      //  ctps = 0;
+      //} else {
+      //  ctps = existing_tps_on_pe[nextProc + nlprocs - 1];
+      //}
+      //int existing_tps_rprocs = existing_tps_on_pe[nextProc + nlprocs + nrprocs - 1] - ctps;
+
+    int existing_tps_lprocs, existing_tps_rprocs;
+      existing_tps_lprocs = existing_tps_rprocs = 0;
+
+      if(nleft > (nlprocs*maxPieceProc - existing_tps_lprocs)) {
+    CkPrintf("Had to split nleft %d nlprocs %d maxPieceProc %f\n", nleft, nlprocs, maxPieceProc);
+	  nleft = splitIndex = (int) (nlprocs*maxPieceProc - existing_tps_lprocs);
 	  nright = numEvents-nleft;
 	  }
-      else if (nright > nrprocs*maxPieceProc) {
-	  nright = (int) (nrprocs*maxPieceProc);
+      else if (nright > (nrprocs*maxPieceProc - existing_tps_rprocs)) {
+    CkPrintf("Had to split nright %d nrprocs %d maxPieceProc %f\n", nright, nrprocs, maxPieceProc);
+	  nright = (int) (nrprocs*maxPieceProc - existing_tps_rprocs);
 	  nleft = splitIndex = numEvents-nright;
 	  }
       CkAssert(splitIndex >= 0);
@@ -224,11 +256,17 @@ class Orb3dCommon{
     }
 
     void orbPrepare(vector<Event> *tpEvents, OrientedBox<float> &box, int numobjs, BaseLB::LDStats * stats){
+      dMaxBalance = 10.0;
 
-      int nmig = stats->n_migrateobjs;
+      int nmig = stats->n_objs;
+      procStride = 1;
+      //if (nmig < stats->count) {
+      //  procStride = stats->count / nmig;
+      //}
       if(dMaxBalance < 1.0)
         dMaxBalance = 1.0;
       maxPieceProc = dMaxBalance*nmig/stats->count;
+      CkPrintf("OrbPrepare> dMaxBalance %f maxPieceProc %f\n", dMaxBalance, maxPieceProc);
       if(maxPieceProc < 1.0)
         maxPieceProc = 1.01;
 
@@ -255,13 +293,15 @@ class Orb3dCommon{
       nextProc = 0;
 
       procload.resize(stats->count);
+      procpart.resize(stats->count);
       for(int i = 0; i < stats->count; i++){
         procload[i] = stats->procs[i].bg_walltime;
+        procpart[i] = 0.0;
       }
 
     }
 
-    void refine(BaseLB::LDStats *stats, int numobjs){
+    void refine(BaseLB::LDStats *stats, int numobjs, int* prevMaxPredPe = NULL){
 #ifdef DO_REFINE
       int *from_procs = Refiner::AllocProcs(stats->count, stats);
       int *to_procs = Refiner::AllocProcs(stats->count, stats);
@@ -322,10 +362,15 @@ class Orb3dCommon{
       double avgPred = 0.0;
       double minPred = 0.0;
       double maxPred = 0.0;
+      int maxPredPe;
 
       double avgPiece = 0.0;
       double minPiece = 0.0;
       double maxPiece = 0.0;
+
+      int avgPart = 0;
+      int maxPart = 0;
+      int maxPartPe;
 
       CkPrintf("***************************\n");
       //  CkPrintf("Before LB step %d\n", step());
@@ -335,6 +380,7 @@ class Orb3dCommon{
         double bgTime = stats->procs[i].bg_walltime;
         double pred = predLoad[i];
         double npiece = predCount[i];
+        double npart = procpart[i];
         /*
            CkPrintf("[pestats] %d %d %f %f %f %f\n", 
            i,
@@ -350,6 +396,7 @@ class Orb3dCommon{
         avgBg += bgTime;
         avgPred += pred;
         avgPiece += npiece;
+        avgPart += npart;
 
         if(i==0 || minWall > wallTime) minWall = wallTime;
         if(i==0 || maxWall < wallTime) maxWall = wallTime;
@@ -361,10 +408,11 @@ class Orb3dCommon{
         if(i==0 || maxBg < bgTime) maxBg = bgTime;
 
         if(i==0 || minPred > pred) minPred = pred;
-        if(i==0 || maxPred < pred) maxPred = pred;
+        if(i==0 || maxPred < pred) { maxPred = pred; maxPredPe = i;}
 
         if(i==0 || minPiece > npiece) minPiece = npiece;
         if(i==0 || maxPiece < npiece) maxPiece = npiece;
+        if(i==0 || maxPart < npart) { maxPartPe = i; maxPart = npart;}
 
       }
 
@@ -428,11 +476,15 @@ class Orb3dCommon{
       CkPrintf("Orb3dLB_notopo stats: maxObjLoad %f\n", maxObjLoad);
       CkPrintf("Orb3dLB_notopo stats: minWall %f maxWall %f avgWall %f maxWall/avgWall %f\n", minWall, maxWall, avgWall, maxWall/avgWall);
       CkPrintf("Orb3dLB_notopo stats: minIdle %f maxIdle %f avgIdle %f minIdle/avgIdle %f\n", minIdle, maxIdle, avgIdle, minIdle/avgIdle);
-      CkPrintf("Orb3dLB_notopo stats: minPred %f maxPred %f avgPred %f maxPred/avgPred %f\n", minPred, maxPred, avgPred, maxPred/avgPred);
+      CkPrintf("Orb3dLB_notopo stats: minPred %f maxPred %f avgPred %f maxPred/avgPred %f maxPredPE %d \n", minPred, maxPred, avgPred, maxPred/avgPred, maxPredPe);
+      CkPrintf("Orb3dLB_notopo stats: maxPart %d maxPartPE %d \n", maxPart, maxPartPe);
       CkPrintf("Orb3dLB_notopo stats: minPiece %f maxPiece %f avgPiece %f maxPiece/avgPiece %f\n", minPiece, maxPiece, avgPiece, maxPiece/avgPiece);
 
       CkPrintf("Orb3dLB_notopo stats: minBg %f maxBg %f avgBg %f maxBg/avgBg %f\n", minBg, maxBg, avgBg, maxBg/avgBg);
       CkPrintf("Orb3dLB_notopo stats: orb migrated %d refine migrated %d objects\n", migr, numRefineMigrated);
+      if (prevMaxPredPe != NULL) {
+        *prevMaxPredPe = maxPredPe;
+      }
 
 #ifdef DO_REFINE
       // Free the refine buffers

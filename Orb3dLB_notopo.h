@@ -38,6 +38,7 @@ public:
   Orb3dLB_notopo(CkMigrateMessage *m):CentralLB(m) {init();}
   void work(BaseLB::LDStats* stats);
   void receiveCentroids(CkReductionMsg *msg);
+  void setCentroid(CkReductionMsg *msg);
 
 };
 

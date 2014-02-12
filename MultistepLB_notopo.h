@@ -33,6 +33,7 @@ class LightweightLDStats {
   public:
   int n_objs;
   int n_migrateobjs;
+  CkVec<int> n_activeparticles;
   CkVec<LDObjData> objData;
 
   void pup(PUP::er &p);
@@ -59,8 +60,21 @@ private:
 
  // CkVec<OrbObject> tps;
   int procsPerNode;
+  int prevMaxPredPe;
+
+  double avg_load_after_lb;
+  double my_load_after_lb;
+
+  int tpscount;
+  std::vector<TreePiece*> tpsonpe;
+
+//  int* existing_tps_on_pe;
 
   CkVec<LightweightLDStats> savedPhaseStats;      /// stats saved from previous phases
+  CkVec<double> objDataPrevPred;
+  CkVec<int> objDataPrevPredPart;
+  CkVec<int> prevNumActiveParts;
+  double* peddloads;
   
   bool QueryBalanceNow(int step);
   //int prevPhase;
@@ -68,6 +82,7 @@ private:
   unsigned int determinePhase(unsigned int activeRung);
   void makeActiveProcessorList(BaseLB::LDStats *stats, int numActiveObjs);
   void mergeInstrumentedData(int phase, BaseLB::LDStats *phaseStats);
+  void saveStatsData(int phase, BaseLB::LDStats *phaseStats);
   bool havePhaseData(int phase); 
   void printData(BaseLB::LDStats &stats, int phase, int *revObjMap);
 
@@ -84,7 +99,14 @@ public:
     
   void work(BaseLB::LDStats* stats);
   void receiveCentroids(CkReductionMsg *msg);
+  void balanceTPs(BaseLB::LDStats* stats);
   //ScaleTranMapBG map;
+  void receiveAvgLoad(double avgload);
+  void getLoadInfo(double &avgload, double &myload);
+  void addToPeLoad(double tpload);
+  void addTpCount();
+  void addTpForDD(TreePiece* tp);
+  void clearPeLoad();
 
 public:/* <- Sun CC demands Partition be public for ComputeLoad to access it. */
 

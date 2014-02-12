@@ -67,6 +67,22 @@ void DataManager::acceptResponsibleIndex(const int* responsible, const int n,
     contribute(cb);
     }
 
+void DataManager::acceptFinalKeysNew(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb) {
+  boundaryKeys.resize(n);
+  responsibleIndex.resize(n - 1);
+  particleCounts.resize(n - 1);
+
+  //if all treepieces receiving particles, copy everything
+  copy(keys, keys + n, boundaryKeys.begin());
+  copy(responsible, responsible + n - 1, responsibleIndex.begin());
+  copy(bins, bins + n - 1, particleCounts.begin());
+
+  CkCallback unshuffleCallback(CkIndex_TreePiece::unshuffleParticles(0),treePieces);
+
+  contribute(sizeof(CkCallback), &cb, callbackReduction, unshuffleCallback);
+}
+
+
 void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb) {
 
   //should not assign responsibility or place to a treepiece that will get no particles

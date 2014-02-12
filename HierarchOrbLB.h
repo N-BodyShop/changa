@@ -18,6 +18,11 @@ public:
   HierarchOrbLB(const CkLBOptions &);
   HierarchOrbLB(CkMigrateMessage *m): HybridBaseLB(m) {init();}
   ~HierarchOrbLB();
+  void StartLBOnAllPe(CkReductionMsg *msg);
+
+  void getLoadInfo(double &avgload, double &myload);
+  void addToPeLoad(double tpload);
+  void clearPeLoad();
 
 protected:
   CentralLB *orblb;
@@ -35,6 +40,8 @@ protected:
 
 private:
   CProxy_HierarchOrbLB  thisProxy;
+  double avg_load_after_lb;
+  double my_load_after_lb;
 
 };
 
