@@ -51,13 +51,13 @@ if test "$ENABLE_CUDA" != "no"; then
         done
         if test -z "$CUDA_DIR"; then
             if test "$ENABLE_CUDA" = "yes"; then
-                # User explicitly requested CUDA support; being unable to find a
-                # toolkit directory is an error.
+                # User explicitly requested CUDA support but did not provide a
+                # directory argument; being unable to find a toolkit directory
+                # is an error.
                 AC_MSG_RESULT(not found)
                 AC_MSG_ERROR(\
 [CUDA support explicitly enabled but the toolkit was not found by automatic path
     search.  Specify CUDA toolkit location with `--with-cuda=PATH`.])
-
             else
                 AC_MSG_RESULT([not found.  CUDA support will be disabled.])
                 ENABLE_CUDA=no
@@ -68,6 +68,8 @@ if test "$ENABLE_CUDA" != "no"; then
     fi
 fi
 
+# Make sure we have the nVidia CUDA compiler available.  We give different
+# messages depending on how the `--with-cuda` option was passed to configure.
 if test "$ENABLE_CUDA" != "no"; then
     AC_PATH_PROG([NVCC_PATH],nvcc,[],[$CUDA_DIR/bin])
     if test -z "$NVCC_PATH" ; then
@@ -76,7 +78,6 @@ if test "$ENABLE_CUDA" != "no"; then
                 AC_MSG_ERROR(\
 [`bin/nvcc` not found in automatically-selected CUDA toolkit directory.  Specify
     CUDA toolkit location with `--with-cuda=PATH`.])
-
             else
                 AC_MSG_ERROR([`bin/nvcc` not found in specified CUDA install prefix.])
             fi
