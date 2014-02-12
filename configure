@@ -867,7 +867,7 @@ Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-cuda[=PATH]
-                          use CUDA (installed in PATH) [auto]
+                          use CUDA (installed in PATH) [no]
 
 Some influential environment variables:
   CHARMC      "Charm compiler"
@@ -5380,10 +5380,12 @@ done
 # ----------------------------------------------------------------
 # CUDA support
 #
-# Here we define and process a `--with-cuda[=PREFIX]` option.
+# Here we define and process a `--with-cuda[=PREFIX]` option.  By default CUDA
+# support is disabled: no automatic search for for the nVidia CUDA toolkit is
+# done.
 #
-# If the option is not given, or is given without an argument or with an
-# argument of "yes", we search for CUDA in the following locations:
+# If the option is given without an argument or with an argument of "yes", we
+# search for CUDA in the following locations:
 #
 #   /usr/local/cuda			standard CUDA install directory
 #
@@ -5395,11 +5397,11 @@ done
 # is intentional (it produces nice, readable output in the generated `configure`
 # script).
 #
-# To disable automatic "use" of CUDA (i.e., setting ENABLE_CUDA to "yes" if CUDA
+# To enable automatic "use" of CUDA (i.e., setting ENABLE_CUDA to "yes" if CUDA
 # is found), change the assigned value of `ENABLE_CUDA` in the line directly
-# below this comment to "no".  (You should also change the default-argument
+# below this comment to "auto".  (You should also change the default-argument
 # value in the docstring passed to `AS_HELP_STRING` to match.)
-ENABLE_CUDA="auto"
+ENABLE_CUDA="no"
 
 
 
