@@ -105,7 +105,7 @@ CXX = $(CHARMC)
 CC = $(CXX)
 AR = @AR@ 
 CXX_DEPEND = $(CXX) -M -MM -MG $(CXXFLAGS)
-CFLAGS = $(OPTS) $(DEFINE_FLAGS) @CFLAGS@ @CPPFLAGS@
+CFLAGS = $(OPTS) $(DEFINE_FLAGS) -I$(SOURCE_DIR) -I$(BUILD_DIR) @CFLAGS@ @CPPFLAGS@
 
 # Orb3dLB.{o,C} below
 OBJECTS = Reductions.o DataManager.o TreePiece.o Sorter.o \
