@@ -35,7 +35,7 @@
 #include "parameters.h"
 #include "param.h"
 #include "dumpframe.h"
-#include "liveViz.h"
+#include <liveViz.h>
 
 #include "TaggedVector3D.h"
 
