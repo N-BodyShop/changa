@@ -60,6 +60,7 @@ struct PendingBuffers {
 class DataManager : public CBase_DataManager {
 	friend class TreePiece;
         friend class OctTreeBuildPhaseIWorker;
+        friend class ReductionHelper;
 
 	/// The array of TreePieces I hold data for.
 	CProxy_TreePiece treePieces;
@@ -176,6 +177,8 @@ public:
         DataManager(){} 
 #endif
         void clearInstrument(CkCallback &cb);
+
+        bool boundaryKeysValid() { return boundaryKeys.size() != 0; }
 
 private:
         void init();
