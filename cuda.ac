@@ -14,15 +14,37 @@
 #					installed CUDA toolkit package on Debian
 #                                       and Debian-based systems
 #
+# On successful search, these variables are set in the generated cuda.mk:
+#
+#   * HAVE_CUDA and ENABLE_CUDA: set to "yes"
+#   * CUDA_DIR: set to the found CUDA toolkit directory
+#   * NVCC: set to the location of the `nvcc` binary in the CUDA toolkit
+#     directory
+#
+# We also define a `--with-cuda-sdk=PATH` option, which allows the user to
+# specify the install location of nVidia's CUDA SDK.  Unlike the `--with-cuda`
+# option, `--with-cuda-sdk` does no automatic search and requires an argument.
+# If the argument exists and is a directory, the following variables are set in
+# the generated cuda.mk.
+#
+#   * HAVE_CUDA_SDK: set to "yes"
+#   * CUDA_SDK_DIR: set to the path given as an argument to `--with-cuda-sdk`.
+#
+#
 # There are some arguments to AC_MSG_* with ugly formatting here; the formatting
 # is intentional (it produces nice, readable output in the generated `configure`
-# script).
+# script, and keeps lines under 80 characters in length).
 #
-# To enable automatic "use" of CUDA (i.e., setting ENABLE_CUDA to "yes" if CUDA
-# is found), change the assigned value of `ENABLE_CUDA` in the line directly
-# below this comment to "auto".  (You should also change the default-argument
-# value in the docstring passed to `AS_HELP_STRING` to match.)
+# To enable automatic "use" of CUDA (i.e., setting ENABLE_CUDA to "yes" if the
+# CUDA toolkit is found), change the assigned value of `ENABLE_CUDA` in the
+# line directly below this comment to "auto".  (You should also change the
+# default-argument value in the docstring passed to `AS_HELP_STRING` for
+# `--with-cuda` to match.)
 ENABLE_CUDA="no"
+
+HAVE_CUDA="no"
+HAVE_CUDA_SDK="no"
+
 
 AC_ARG_VAR([CUDA_DIR], [CUDA toolkit install directory])
 AC_ARG_WITH([cuda],
@@ -30,22 +52,29 @@ AC_ARG_WITH([cuda],
                 [use CUDA (installed in PATH) @<:@no@:>@])],
         [CUDA_DIR=$withval],[CUDA_DIR=""])
 
+# If CUDA_DIR is set, it's because the user gave the --with-cuda option in at
+# least _one_ of the valid forms.
+if test -n "$CUDA_DIR"; then
+    ENABLE_CUDA="yes"
+fi
+
 # Interpret "--with-cuda" (i.e. no argument) as "enable CUDA support, please."
 # We also support using the argument "auto" for this purpose.
 if test "$CUDA_DIR" = "yes" || test "$CUDA_DIR" = "auto"; then
-    ENABLE_CUDA="yes"
     CUDA_DIR=""
 fi
 
 if test "$ENABLE_CUDA" != "no"; then
+    AC_MSG_CHECKING([for CUDA toolkit directory])
     if test -z "$CUDA_DIR"; then
         CUDA_DIR_AUTOMATIC=yes
-        AC_MSG_CHECKING([for CUDA toolkit directory])
         CUDA_CANDIDATE_DIRS="/usr/local/cuda /usr/lib/nvidia-cuda-toolkit"
 
         for dir in $CUDA_CANDIDATE_DIRS; do
             if test -d "$dir"; then
                 CUDA_DIR="$dir"
+                HAVE_CUDA="yes"
+                AC_MSG_RESULT($CUDA_DIR)
                 break
             fi
         done
@@ -60,10 +89,17 @@ if test "$ENABLE_CUDA" != "no"; then
     search.  Specify CUDA toolkit location with `--with-cuda=PATH`.])
             else
                 AC_MSG_RESULT([not found.  CUDA support will be disabled.])
-                ENABLE_CUDA=no
+                ENABLE_CUDA="no"
+                HAVE_CUDA="no"
             fi
-        else
+        fi
+    else                    # User gave explicit toolkit location.
+        if test -d "$CUDA_DIR"; then
             AC_MSG_RESULT($CUDA_DIR)
+            HAVE_CUDA="yes"
+        else
+            AC_MSG_RESULT(not found)
+            AC_MSG_ERROR([specified CUDA toolkit directory not found.])
         fi
     fi
 fi
@@ -79,7 +115,8 @@ if test "$ENABLE_CUDA" != "no"; then
 [`bin/nvcc` not found in automatically-selected CUDA toolkit directory.  Specify
     CUDA toolkit location with `--with-cuda=PATH`.])
             else
-                AC_MSG_ERROR([`bin/nvcc` not found in specified CUDA install prefix.])
+                AC_MSG_ERROR(\
+[`bin/nvcc` not found in specified CUDA toolkit install prefix.])
             fi
         else                    # ENABLE_CUDA is "auto"
             AC_MSG_NOTICE(\
@@ -87,18 +124,43 @@ if test "$ENABLE_CUDA" != "no"; then
     support will be disabled.  If this is not what you want, try specifying a
     valid CUDA toolkit install prefix using `--with-cuda=PATH`.])
             ENABLE_CUDA="no"
+            HAVE_CUDA="no"
         fi
     fi
 fi
 
-# Set up `ENABLE_CUDA` for use by Make.
-if test "$ENABLE_CUDA" = "no"; then
-    ENABLE_CUDA=""
-else
-    ENABLE_CUDA="yes"
+
+# Check for the CUDA SDK.
+AC_ARG_VAR([CUDA_SDK_DIR], [CUDA SDK install directory])
+AC_ARG_WITH([cuda-sdk],
+        [AS_HELP_STRING([--with-cuda-sdk=PATH],
+                [specify the CUDA SDK install directory])],
+                [CUDA_SDK_DIR=$withval],[CUDA_SDK_DIR=""])
+
+if test -n "$CUDA_SDK_DIR"; then
+    AC_MSG_CHECKING([for CUDA SDK directory])
+    if test -d "$CUDA_SDK_DIR"; then
+        AC_MSG_RESULT($CUDA_SDK_DIR)
+        HAVE_CUDA_SDK=yes
+    else
+        AC_MSG_RESULT(not found)
+        AC_MSG_ERROR([specified CUDA SDK directory not found.])
+    fi
 fi
 
-AC_SUBST([CUDA_DIR])
-AC_SUBST([NVCC_PATH])
-AC_SUBST([ENABLE_CUDA])
+# Set up boolean AC_SUBST variables for use in Make.
+for var in HAVE_CUDA HAVE_CUDA_SDK ENABLE_CUDA; do
+    eval value='$'"$var"
+    if test "$value" = "no"; then
+        eval "$var=''"
+    fi
+done
 
+AC_SUBST([ENABLE_CUDA])
+AC_SUBST([HAVE_CUDA])
+AC_SUBST([HAVE_CUDA_SDK])
+AC_SUBST([CUDA_DIR])
+AC_SUBST([CUDA_SDK_DIR])
+AC_SUBST([NVCC_PATH])
+
+AC_CONFIG_FILES([cuda.mk])
