@@ -1,3 +1,9 @@
+### Build information
+# ChaNGa source directory
+SOURCE_DIR=@srcdir@
+# Directory from which `configure` was called.
+BUILD_DIR=@builddir@
+
 # Flags that can be passed during compilation
 #FLAG_PRINT = -DCOSMO_PRINT=1       #enable really verbose prints
 #FLAG_PRINT = -DCOSMO_PRINT_BK=2       #enable verbose book-keeping prints
@@ -68,7 +74,7 @@ FLAG_TREE_BUILD = -DMERGE_REMOTE_REQUESTS
 DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST) $(HEXADECAPOLE) $(FLAG_COOLING) $(FLAG_BIGKEYS) $(CELL) $(FLAG_REFACTOR) $(MULTISTEP_LOADBALANCING_VERBOSE) $(ORB3DLB_LOADBALANCING_VERBOSE) $(CUDA) -DREDUCTION_HELPER $(FLAG_TREE_BUILD) -DCHANGESOFT
 
 CHARM_PATH = @CHARM_PATH@
-STRUCTURES_PATH = ../utility/structures
+STRUCTURES_PATH = $(SOURCE_DIR)/../utility/structures
 CHARM_LDB_PATH = $(CHARM_PATH)/src/ck-ldb
 CHARM_UTIL_PATH = $(CHARM_PATH)/src/util
 CHARM_LIB_PATH = $(CHARM_PATH)/lib
@@ -87,7 +93,7 @@ NVCC_LIBS = -lcuda -lcudart -lGL
 # add -module Orb3dLB here for load balancing during singlestepped runs
 #OPTS = -g -memory charmdebug
 OPTS = -O3
-CXXFLAGS += $(OPTS) -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) @CPPFLAGS@
+CXXFLAGS += $(OPTS) -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) -I$(SOURCE_DIR) -I$(BUILD_DIR) @CPPFLAGS@
 LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache -module commlib -module CkMulticast -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MultistepLB -module MultistepLB_notopo -module MultistepOrbLB -module Orb3dLB -module Orb3dLB_notopo -module liveViz #-tracemode projections -memory charmdebug -memory paranoid
 XDR_DIR = ../rpc
 XDR_OBJS = $(XDR_DIR)/xdr.o $(XDR_DIR)/xdr_float.o $(XDR_DIR)/xdr_mem.o $(XDR_DIR)/xdr_stdio.o
@@ -99,7 +105,7 @@ CXX = $(CHARMC)
 CC = $(CXX)
 AR = @AR@ 
 CXX_DEPEND = $(CXX) -M -MM -MG $(CXXFLAGS)
-CFLAGS = $(OPTS) $(DEFINE_FLAGS) @CFLAGS@ @CPPFLAGS@
+CFLAGS = $(OPTS) $(DEFINE_FLAGS) -I$(SOURCE_DIR) -I$(BUILD_DIR) @CFLAGS@ @CPPFLAGS@
 
 # Orb3dLB.{o,C} below
 OBJECTS = Reductions.o DataManager.o TreePiece.o Sorter.o \
@@ -135,6 +141,18 @@ TARGET = ChaNGa
 VERSION = 1.0
 all: $(TARGET)
 
+# Make's built-in database doesn't provide pattern rules for out-of-source
+# builds, so we provide them here.
+%.o: $(SOURCE_DIR)/%.C
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+%.o: $(SOURCE_DIR)/%.cpp
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+%.o: $(SOURCE_DIR)/%.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+
 $(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleMultistepLB_notopo.a libmoduleMultistepOrbLB.a
 	$(CHARMC) -o $(TARGET) $(LDFLAGS) $(OBJECTS) $(LDLIBS)
 
@@ -147,10 +165,10 @@ $(TARGET).%: $(TARGET)
 
 
 VERSION: VERSION.new
-	./commitid.sh
+	$(SOURCE_DIR)/commitid.sh
 
 cha_commitid.c: VERSION
-	echo "const char * const Cha_CommitID = \"`cat VERSION`\";" > $@
+	echo "const char * const Cha_CommitID = \"`cat $<`\";" > $@
 cha_commitid.o: CC=$(CHARMC)
 
 $(STRUCTURES_PATH)/libTipsy.a:
@@ -172,12 +190,15 @@ libmoduleOrb3dLB.a: Orb3dLB.o
 libmoduleOrb3dLB_notopo.a: Orb3dLB_notopo.o
 	$(CHARMC) -o libmoduleOrb3dLB_notopo.a Orb3dLB_notopo.o 
 
-%.decl.h %.def.h : %.ci
+%.decl.h %.def.h : $(SOURCE_DIR)/%.ci
 	$(CHARMC) -E $(DEFINE_FLAGS) $<
 
-HostCUDA.o: HostCUDA.cu HostCUDA.h
-	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) HostCUDA.cu
+HostCUDA.o: $(SOURCE_DIR)/HostCUDA.cu $(SOURCE_DIR)/HostCUDA.h
+	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) $<
 
+Makefile: $(SOURCE_DIR)/Makefile.in
+	@echo 'Makefile.in changed; re-running `configure`'
+	@$(BUILD_DIR)/config.status
 %.o: Makefile
 
 # CELL specific
@@ -192,7 +213,7 @@ HostCUDA.o: HostCUDA.cu HostCUDA.h
 # End CELL specific
 
 docs:
-	doxygen Doxyfile
+	doxygen $(SOURCE_DIR)/Doxyfile
 
 DIRS = teststep
 
@@ -214,8 +235,10 @@ clean:
 ref-clean:
 	rm -f $(TARGET) Compute.o TreeWalk.o
 
-depends:
-	$(CXX_DEPEND) $(SRSC) | while read i;do echo $$i| awk -F' ' '{for (i=1;i<NF;++i) print $$i" \\"}';echo;done|grep -v "$(CHARM_PATH)/bin" | grep -v "hashtable_mt.h" > Makefile.dep
+depends: $(SOURCE_DIR)/Makefile.dep
+$(BUILD_DIR)/Makefile.dep:
+	FULLPATHS=""; for file in $(SRSC); do FULLPATHS="$(SOURCE_DIR)/$$file $$FULLPATHS"; done; \
+	$(CXX_DEPEND) $$FULLPATHS | while read i;do echo $$i| awk -F' ' '{for (i=1;i<NF;++i) print $$i" \\"}';echo;done|grep -v "$(CHARM_PATH)/bin" | grep -v "hashtable_mt.h" > $@
 
 # depend:
 # 	$(CXX_DEPEND) $(SRSC) > Makefile.dep
