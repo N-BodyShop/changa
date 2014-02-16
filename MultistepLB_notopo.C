@@ -669,11 +669,11 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
       maxldidx = lb;
       maxldpart = tpCentroids[i].numActiveParticles;
     }
-    if (tpCentroids[i].numActiveParticles > 1.3*7560) {
-      CkPrintf("[%d] overloaded TP on PE %d with ld %f and activeParticles %u\n",
-      tpCentroids[i].tp, stats->from_proc[lb], stats->objData[lb].wallTime,
-      tpCentroids[i].numActiveParticles);
-    }
+    //if (tpCentroids[i].numActiveParticles > 1.3*7560) {
+    //  CkPrintf("[%d] overloaded TP on PE %d with ld %f and activeParticles %u\n",
+    //  tpCentroids[i].tp, stats->from_proc[lb], stats->objData[lb].wallTime,
+    //  tpCentroids[i].numActiveParticles);
+    //}
     
 
     tpEvents[XDIM].push_back(Event(tpCentroids[i].vec.x,load,numProcessed));
@@ -950,10 +950,10 @@ void MultistepLB_notopo::addTpForAcceptSorted(TreePiece *tp) {
   if (tpsregisteredforacc == 0) {
     timestart = CkWallTimer();
 
-    if (CkMyPe()%1111 == 0) {
-      CkPrintf("[%d] has Memory %f MB tpsregisteredforacc %d\n", CkMyPe(),
-          CmiMemoryUsage()/(1024.0*1024.0), tpsregisteredforacc);
-    }
+   // if (CkMyPe()%1111 == 0) {
+   //   CkPrintf("[%d] has Memory %f MB tpsregisteredforacc %d\n", CkMyPe(),
+   //       CmiMemoryUsage()/(1024.0*1024.0), tpsregisteredforacc);
+   // }
   }
   tpsregisteredforacc++;
   if (tpsregisteredforacc <= 10) {

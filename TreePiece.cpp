@@ -542,6 +542,11 @@ void ReductionHelper::evaluateBoundaries(SFC::Key* keys, const int n, int skipEv
   }
 }
 
+void ReductionHelper::evaluateBoundaries(int skipEvery, const CkCallback& cb) {
+  DataManager *localDmObj = dMProxy.ckLocalBranch();
+  evaluateBoundaries(&(localDmObj->boundaryKeys.front()), localDmObj->boundaryKeys.size(), skipEvery, cb);
+}
+
 void ReductionHelper::evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb) {
   std::vector<SFC::Key> newSplitters;
   SFC::Key leftBound, rightBound;
@@ -696,9 +701,6 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
 
 void TreePiece::migrateAndUnshuffle(const CkCallback& cb) {
   double tpLoad;
-  tpLoad = getObjTime();
-//  populateSavedPhaseData(prevLARung, tpLoad, treePieceActivePartsTmp);
-  //thisProxy[thisIndex].unshuffleParticlesWoDD(cb);
   after_dd_callback = cb;
   doDDCk = true;
   MultistepLB_notopo* lbptr = (MultistepLB_notopo *) CkLocalBranch(proxy);
@@ -709,153 +711,6 @@ void TreePiece::migrateAndUnshuffle(const CkCallback& cb) {
 void TreePiece::unshuffleParticlesWoDDCb() {
   this->unshuffleParticlesWoDD(after_dd_callback);
   return;
-
-  double tbeg = CkWallTimer();
-  if (!tploadset) {
-    //treePieceDDLoad = getObjTime();
-    treePieceDDLoad = 0.0;
-    tploadset = true;
-  }
-  double tpLoad = getObjTime();
-
-  if (dm == NULL) {
-    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
-  }
-
-
-   //find my responsibility
-//  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
-//  if (myPlace == dm->responsibleIndex.size()) {
-//    myPlace = -2;
-//  } else {
-//    //assign my bounding keys
-//    leftSplitter = dm->boundaryKeys[myPlace];
-//    rightSplitter = dm->boundaryKeys[myPlace + 1];
-//  }
-
-//  vector<Key>::iterator iter = dm->boundaryKeys.begin();
-//  vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
-//  vector<int>::iterator responsibleIter = dm->responsibleIndex.begin();
-  if (myNumParticles == 0) {
-    incomingParticlesSelf = true;
-    acceptSortedParticles(NULL);
-    return;
-  }
-  GravityParticle *binBegin = &myParticles[1];
-
-  vector<Key>::iterator iter =
-    lower_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(),
-        binBegin->key);
-  vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
-  int offset = iter - dm->boundaryKeys.begin() - 1;
-  vector<int>::iterator responsibleIter = dm->responsibleIndex.begin() + offset;
-
-  GravityParticle *binEnd;
-  GravityParticle dummy;
-  for( ; iter != endKeys; ++iter, ++responsibleIter) {
-  //for(++iter; iter != endKeys; ++iter, ++responsibleIter) {
-    dummy.key = *iter;
-    //find particles between this and the last key
-    binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1],
-        dummy);
-    // If I have any particles in this bin, send them to
-    // the responsible TreePiece
-    int nPartOut = binEnd - binBegin;
-    int saved_phase_len = savedPhaseLoad.size();
-
-    if(nPartOut > 0) {
-      int nGasOut = 0;
-      int nStarOut = 0;
-      for(GravityParticle *pPart = binBegin; pPart < binEnd;
-          pPart++) {
-        if(pPart->isGas())
-          nGasOut++;
-        if(pPart->isStar())
-          nStarOut++;
-      }
-
-      ParticleShuffleMsg *shuffleMsg
-        = new (saved_phase_len, saved_phase_len, nPartOut, nGasOut, nStarOut)
-        ParticleShuffleMsg(saved_phase_len, nPartOut, nGasOut, nStarOut, 0.0);
-      memset(shuffleMsg->parts_per_phase, 0, saved_phase_len*sizeof(unsigned int));
-
-      // Calculate the number of particles leaving the treepiece per phase
-      for(GravityParticle *pPart = binBegin; pPart < binEnd; pPart++) {
-        for(int i = 0; i < saved_phase_len; i++) {
-          if (pPart->rung >= i) {
-            shuffleMsg->parts_per_phase[i] = shuffleMsg->parts_per_phase[i] + 1;
-          }
-        }
-      }
-
-      shuffleMsg->load = tpLoad * nPartOut / myNumParticles;
-      memset(shuffleMsg->loads, shuffleMsg->load, saved_phase_len*sizeof(double));
-
-      // Calculate the partial load per phase
-      for (int i = 0; i < saved_phase_len; i++) {
-        if (havePhaseData(i) && savedPhaseParticle[i] != 0) {
-          shuffleMsg->loads[i] = savedPhaseLoad[i] *
-            (shuffleMsg->parts_per_phase[i] / (float) savedPhaseParticle[i]);
-            if (shuffleMsg->parts_per_phase[i] > savedPhaseParticle[i]) {
-              CkPrintf("[%d] For rung %d tpload is wrong in shufflemsg parts %d and saved %d ld %f\n", thisIndex, i, shuffleMsg->parts_per_phase[i],
-              savedPhaseParticle[i], shuffleMsg->loads[i]);
-            }
-        } else if (havePhaseData(0) && myNumParticles != 0) {
-          shuffleMsg->loads[i] = savedPhaseLoad[0] *
-            (shuffleMsg->parts_per_phase[i] / (float) myNumParticles);
-        }
-      }
-
-      if (verbosity>=3)
-        CkPrintf("me:%d to:%d nPart :%d, nGas:%d, nStar: %d\n",
-            thisIndex, *responsibleIter,nPartOut, nGasOut,
-            nStarOut);
-
-      int iGasOut = 0;
-      int iStarOut = 0;
-      GravityParticle *pPartOut = shuffleMsg->particles;
-      for(GravityParticle *pPart = binBegin; pPart < binEnd;
-          pPart++, pPartOut++) {
-        *pPartOut = *pPart;
-        if(pPart->isGas()) {
-          shuffleMsg->pGas[iGasOut]
-            = *(extraSPHData *)pPart->extraData;
-          iGasOut++;
-        }
-        if(pPart->isStar()) {
-          shuffleMsg->pStar[iStarOut]
-            = *(extraStarData *)pPart->extraData;
-          iStarOut++;
-        }
-      }
-
-      if(*responsibleIter == thisIndex) {
-        if (verbosity > 1)
-          CkPrintf("TreePiece %d: keeping %d / %d particles: %d\n",
-              thisIndex, nPartOut, myNumParticles,
-              nPartOut*10000/myNumParticles);
-        //treeProxy[thisIndex].acceptSortedParticlesQD(shuffleMsg);
-        acceptSortedParticlesQD(shuffleMsg);
-        numPartsMoved -= nPartOut;
-        numPartsMovedWithin += nPartOut;
-      }
-      else {
-        treeProxy[*responsibleIter].acceptSortedParticlesQD(shuffleMsg);
-        numPartsMoved += nPartOut;
-      }
-    }
-    if(&myParticles[myNumParticles + 1] <= binEnd)
-      break;
-    binBegin = binEnd;
-  }
-
-  incomingParticlesSelf = true;
-  treePieceDDLoad += CkWallTimer() - tbeg;
-  if (thisIndex == 0) {
-    CkPrintf("^^^ QD Starting ^^^\n");
-    CkCallback cbqd(CkIndex_TreePiece::shuffleAfterQD(), thisProxy);
-    CkStartQD(cbqd);
-  }
 }
 
 
@@ -868,9 +723,6 @@ void TreePiece::unshuffleParticlesWoDD(const CkCallback& callback) {
   if (!tploadset) {
     //treePieceDDLoad = getObjTime();
     treePieceDDLoad = 0.0;
-    if (thisIndex == 253037) {
-      CkPrintf("[%d] treePieceDDLoad set to objTime %f\n", thisIndex , treePieceDDLoad);
-    }
     tploadset = true;
   }
 
@@ -881,20 +733,12 @@ void TreePiece::unshuffleParticlesWoDD(const CkCallback& callback) {
   tpLoad = getObjTime();
   populateSavedPhaseData(prevLARung, tpLoad, treePieceActivePartsTmp);
 
-   //find my responsibility
+  //find my responsibility
   myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
   if (myPlace == dm->responsibleIndex.size()) {
     myPlace = -2;
   } 
-//  else {
-//    //assign my bounding keys
-//    leftSplitter = dm->boundaryKeys[myPlace];
-//    rightSplitter = dm->boundaryKeys[myPlace + 1];
-//  }
 
-//  vector<Key>::iterator iter = dm->boundaryKeys.begin();
-//  vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
-//  vector<int>::iterator responsibleIter = dm->responsibleIndex.begin();
   if (myNumParticles == 0) {
     incomingParticlesSelf = true;
     // TODO: Changed here OPTS
@@ -1067,6 +911,7 @@ void TreePiece::acceptSortedParticlesFromOther(ParticleShuffleMsg *shuffleMsg) {
   }
   //Need to get the place here again.  Getting the place in
   //unshuffleParticles and using it here results in a race condition.
+  // TODO: Really? why?
 //  if (dm == NULL)
 //    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
 //  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(),
@@ -1155,68 +1000,32 @@ void TreePiece::acceptSortedParticlesFromOther(ParticleShuffleMsg *shuffleMsg) {
 //  treePieceDDLoad += CkWallTimer() - tbeg;
 }
 
-/// Accept particles from other TreePieces once the sorting has finished
-void TreePiece::acceptSortedParticlesQD(ParticleShuffleMsg *shuffleMsg) {
-//  double tbeg = CkWallTimer();
-  if (!tploadset) {
-    //treePieceDDLoad = getObjTime();
-    treePieceDDLoad = 0.0;
-    if (thisIndex == 253037) {
-      CkPrintf("[%d] treePieceDDLoad set to objTime %f in accept\n", thisIndex , treePieceDDLoad);
-    }
-    tploadset = true;
-  }
-  //Need to get the place here again.  Getting the place in
-  //unshuffleParticles and using it here results in a race condition.
-  if (dm == NULL)
-    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
-  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(),
-      thisIndex) - dm->responsibleIndex.begin();
-  if (myPlace == dm->responsibleIndex.size()) myPlace = -2;
-
-
-  if(shuffleMsg != NULL) {
-    incomingParticlesMsg.push_back(shuffleMsg);
-    incomingParticlesArrived += shuffleMsg->n;
-    numPartsMoved += shuffleMsg->n;
-    treePieceLoadTmp += shuffleMsg->load; 
-    savePhaseData(savedPhaseLoadTmp, savedPhaseParticleTmp, shuffleMsg->loads,
-      shuffleMsg->parts_per_phase, shuffleMsg->nloads);
-  }
-//  treePieceDDLoad += CkWallTimer() - tbeg;
-}
-
 void TreePiece::shuffleAfterQDRegisterWithCk() {
-  //MultistepLB_notopo* lbptr = (MultistepLB_notopo *) CkLocalBranch(proxy);
-  //lbptr->addTpForAcceptSorted(this);
-
- // if (CkMyNode() == 0) {
- //   CkPrintf("[%d] on PE %d registering with DataManager to do ckloop\n",
- //   thisIndex, CkMyPe());
- // }
-//  DataManager* dmptr = (DataManager*)CkLocalNodeBranch(dataManagerID);
-//  dmptr->addTpForAcceptSorted(this);
-
   MultistepLB_notopo* lbptr = (MultistepLB_notopo *) CkLocalBranch(proxy);
   lbptr->addTpForAcceptSorted(this);
+  // If we don't want to call ckloop, uncomment the below line. Also check in
+  // the MultistepLB_notopo.C to see when to do ckloop
 //  this->shuffleAfterQDSpecificOpt();
 }
 
 void TreePiece::doneDDWithCkLoop() {
+  // This is so that if the acceptSorted is done in a separate PE then reduction
+  // no gets screwed
   contribute(after_dd_callback);
 }
 
 void TreePiece::shuffleAfterQDSpecificOpt() {
 //  double tbeg = CkWallTimer();
-  //CkPrintf("[%d] PE %d QD Detected\n", thisIndex, CkMyPe());
-
   if (myShuffleMsg != NULL) {
     incomingParticlesArrived += myShuffleMsg->n;
+    treePieceLoadTmp += myShuffleMsg->load; 
+    savePhaseData(savedPhaseLoadTmp, savedPhaseParticleTmp, myShuffleMsg->loads,
+        myShuffleMsg->parts_per_phase, myShuffleMsg->nloads);
   }
 
-//  if (thisIndex == 253037) {
-//    CkPrintf("[%d] PE %d before finalShuffle treePieceDDLoad %f \n", thisIndex , CkMyPe(), treePieceDDLoad);
-//  }
+
+// There was a comment left which said there could be a race condition. Can
+// there be?
 //  if (dm == NULL)
 //    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
 //  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(),
@@ -1253,8 +1062,16 @@ void TreePiece::shuffleAfterQDSpecificOpt() {
     nStoreStar = 0;
     incomingParticlesSelf = false;
     incomingParticlesMsg.clear();
-    if(verbosity>1) ckout << thisIndex <<" no particles assigned"<<endl;
 
+    treePieceLoad = treePieceLoadTmp;
+    treePieceLoadTmp = 0.0;
+
+    savedPhaseLoad.swap(savedPhaseLoadTmp);
+    savedPhaseParticle.swap(savedPhaseParticleTmp);
+    savedPhaseLoadTmp.clear();
+    savedPhaseParticleTmp.clear();
+
+    if(verbosity>1) ckout << thisIndex <<" no particles assigned"<<endl;
 
     deleteTree();
     // TODO: OPTS for ck
@@ -1263,17 +1080,12 @@ void TreePiece::shuffleAfterQDSpecificOpt() {
     //treePieceDDLoad = getObjTime() - treePieceDDLoad;
 //    treePieceDDLoad += CkWallTimer() - tbeg;
     myShuffleLocG = myShuffleLocSph = myShuffleLocStar = -1;
-
- //   if (thisIndex == 253037) {
- //     CkPrintf("[%d] PE %d no particles for me finalValue of treePieceDDLoad set to objTime %f in shuffleAfterQD\n", thisIndex , CkMyPe(), treePieceDDLoad);
- //   }
     if (myShuffleMsg != NULL) {
       delete myShuffleMsg;
     }
     return;
   }
 //  double sttime1 = CkWallTimer() - tbeg;
-  //CkPrintf("[%d] PE %d into opt 1)*********** myNumParticles %d myplace part %d\n", thisIndex, CkMyPe(), myNumParticles, dm->particleCounts[myPlace]); 
 
   //I've got all my particles
   if (myNumParticles > 0) delete[] myParticles;
@@ -1285,11 +1097,6 @@ void TreePiece::shuffleAfterQDSpecificOpt() {
   incomingParticlesSelf = false;
   treePieceLoad = treePieceLoadTmp;
   treePieceLoadTmp = 0.0;
-
-  if (myShuffleMsg != NULL) {
-    savePhaseData(savedPhaseLoadTmp, savedPhaseParticleTmp, myShuffleMsg->loads,
-        myShuffleMsg->parts_per_phase, myShuffleMsg->nloads);
-  }
 
   savedPhaseLoad.swap(savedPhaseLoadTmp);
   savedPhaseParticle.swap(savedPhaseParticleTmp);
@@ -1318,11 +1125,8 @@ void TreePiece::shuffleAfterQDSpecificOpt() {
 
   nSPH = 0;
   nStar = 0;
-  //CkPrintf("[%d] PE %d into opt 1.5)*********** myNumParticles %d myplace part %d myShuffleLocSph %d myShuffleLocStar %d\n", thisIndex, CkMyPe(), myNumParticles, dm->particleCounts[myPlace], myShuffleLocSph, myShuffleLocStar); 
 
-  //memcpy(&myParticles[nPart+1], myTmpShuffleStarParticle,
-  //    (myShuffleLocG+1)*sizeof(GravityParticle));
-  //nPart += (myShuffleLocG+1);
+  // Copy the gas and star data from the tmpshufflemsg array
   memcpy(&mySPHParticles[nSPH], myTmpShuffleSphParticle,
       (myShuffleLocSph+1)*sizeof(extraSPHData));
   nSPH += (myShuffleLocSph+1);
@@ -1330,10 +1134,11 @@ void TreePiece::shuffleAfterQDSpecificOpt() {
       (myShuffleLocStar+1)*sizeof(extraStarData));
   nStar += (myShuffleLocStar+1);
 
-  //CkPrintf("[%d] PE %d into opt 2)***********\n", thisIndex, CkMyPe()); 
 
   int iGas = 0;
   int iStar = 0;
+  // Set the location of the star data in the particle data for the ones that
+  // came in
   for (int i = 0; i <= myShuffleLocG; i++) {
     if (myTmpShuffleParticle[i].isGas()) {
       myTmpShuffleParticle[i].extraData = 
@@ -1348,7 +1153,7 @@ void TreePiece::shuffleAfterQDSpecificOpt() {
     }
   }
 
-  //CkPrintf("[%d] PE %d into opt 3)***********\n", thisIndex, CkMyPe()); 
+  // Now copy the within moved particles
   if (myShuffleMsg != NULL) {
     memcpy(&mySPHParticles[nSPH], myShuffleMsg->pGas,
         (myShuffleMsg->nSPH)*sizeof(extraSPHData));
@@ -1363,15 +1168,15 @@ void TreePiece::shuffleAfterQDSpecificOpt() {
 //    CkPrintf("[%d] PE %d before sorting inside accept %f treePieceDDLoad %f moved %d movedWithiin %d\n", thisIndex , CkMyPe(),
 //    CkWallTimer() - tbeg, treePieceDDLoad, numPartsMoved, numPartsMovedWithin);
 //  }
-  //CkPrintf("[%d] PE %d into opt 4)***********\n", thisIndex, CkMyPe()); 
 //  double tsortbeg = CkWallTimer();
 
   if (myShuffleLocG > 0) {
     // sort is [first, last)
+    // Sort the items that came from outside. Since we expect them to be a small
+    // number this sort is used
     sort(myTmpShuffleParticle, myTmpShuffleParticle + myShuffleLocG + 1); 
   }
 //  double incomsorttime = CkWallTimer() - tsortbeg;
-  //CkPrintf("[%d] PE %d into opt 5)***********\n", thisIndex, CkMyPe()); 
   int left, right, tmp;
   left = right = 0;
   tmp = 1;
@@ -1383,7 +1188,9 @@ void TreePiece::shuffleAfterQDSpecificOpt() {
   Vector3D<double> vCenter(0.0, 0.0, 0.0);
 //  tsortbeg = CkWallTimer();
  
-  //CkPrintf("[%d] PE %d into opt 6)*********** left %d leftend %d right %d rightend %d \n", thisIndex, CkMyPe(), left, leftend, right, rightend); 
+  // merge.
+  // when merging the pointer to the star data has to be set for the particles
+  // that moved within.
   while (left < leftend && right < rightend) {
     if (myShuffleMsg->particles[left] < myTmpShuffleParticle[right]) {
       myParticles[tmp] = myShuffleMsg->particles[left++];
@@ -1401,7 +1208,6 @@ void TreePiece::shuffleAfterQDSpecificOpt() {
     tmp++;
   }
 
-  //CkPrintf("[%d] PE %d into opt 7)***********\n", thisIndex, CkMyPe()); 
   while (left < leftend) {
     myParticles[tmp] = myShuffleMsg->particles[left++];
     if (myParticles[tmp].isGas()) {
@@ -1415,15 +1221,12 @@ void TreePiece::shuffleAfterQDSpecificOpt() {
     tmp++;
   }
 
-  //CkPrintf("[%d] PE %d into opt 8)***********\n", thisIndex, CkMyPe()); 
   while (right < rightend) {
     myParticles[tmp] = myTmpShuffleParticle[right++];
     vCenter += myParticles[tmp].position;
     tmp++;
   }
 
-  //CkPrintf("[%d] PE %d into opt 9)***********\n", thisIndex, CkMyPe()); 
-  //sort(myParticles+1, myParticles+myNumParticles+1);
 //  double sorttime = CkWallTimer() - tsortbeg;
 
   savedCentroid = vCenter/(double)myNumParticles;
@@ -1438,7 +1241,6 @@ void TreePiece::shuffleAfterQDSpecificOpt() {
     }
     delete myShuffleMsg;
   }
-  //CkPrintf("[%d] PE %d into opt 10)***********\n", thisIndex, CkMyPe()); 
 //  if (thisIndex == 253037 || (CkWallTimer() -tbeg) > 0.9 || treePieceDDLoad > 0.9) {
 //    CkPrintf("[%d] PE %d After sorting finalValue of treePieceDDLoad set to objTime %f time %f in shuffleAfterQD moved %d movedWithiin %d\n", thisIndex , CkMyPe(),
 //    CkWallTimer() -tbeg, treePieceDDLoad, numPartsMoved, numPartsMovedWithin);
@@ -1446,12 +1248,11 @@ void TreePiece::shuffleAfterQDSpecificOpt() {
 
     //treePieceDDLoad = 0.0;
   deleteTree();
-  //CkPrintf("[%d] PE %d into opt 11)***********\n", thisIndex, CkMyPe()); 
-  //CkPrintf("[%d] accepted %d particles\n", thisIndex, myNumParticles);
   // TODO: OPTS ck
+  // contribute cannot be called because if we are using ckloop, then it will
+  // interfere with the reduction count
   //contribute(after_dd_callback);
   thisProxy[thisIndex].doneDDWithCkLoop();
-  //CkPrintf("[%d] PE %d into opt 12)***********\n", thisIndex, CkMyPe()); 
 //  treePieceDDLoad += CkWallTimer() - tbeg;
   //treePieceDDLoad = getObjTime() - treePieceDDLoad;
 
@@ -1461,167 +1262,6 @@ void TreePiece::shuffleAfterQDSpecificOpt() {
 //    incomsorttime, sorttime, incomsorttime + sorttime, sttime1, sttime2);
 //  }
 }
-
-void TreePiece::shuffleAfterQD(){
-
-  double tbeg = CkWallTimer();
-
-  if (thisIndex == 253037) {
-    CkPrintf("[%d] PE %d finalValue of treePieceDDLoad set to objTime %f \n", thisIndex , CkMyPe(), CkWallTimer() -tbeg);
-  }
-  if (dm == NULL)
-    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
-  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(),
-      thisIndex) - dm->responsibleIndex.begin();
-  if (myPlace == dm->responsibleIndex.size()) myPlace = -2;
-
-  if (myPlace != -2) {
-    dm->particleCounts[myPlace] = incomingParticlesArrived;
-  }
-if (thisIndex == 253037) {
-      CkPrintf("[%d] PE %d treePieceDDLoad objTime %f \n", thisIndex , CkMyPe(), CkWallTimer() -tbeg);
-    }
-
-
-  // The following assert does not work anymore when TreePieces can
-  //have 0 particles assigned
-  //assert(myPlace >= 0 && myPlace < dm->particleCounts.size());
-  if (myPlace == -2 || dm->particleCounts[myPlace] == 0) {
-    // Special case where no particle is assigned to this TreePiece
-    if (myNumParticles > 0){
-      delete[] myParticles;
-      myParticles = NULL;
-    }
-    myNumParticles = 0;
-    nStore = 0;
-    if (nStoreSPH > 0){
-      delete[] mySPHParticles;
-      mySPHParticles = NULL;
-    }
-    myNumSPH = 0;
-    nStoreSPH = 0;
-    if (nStoreStar > 0){
-      delete[] myStarParticles;
-      myStarParticles = NULL;
-    }
-    myNumStar = 0;
-    nStoreStar = 0;
-    incomingParticlesSelf = false;
-    incomingParticlesMsg.clear();
-    if(verbosity>1) ckout << thisIndex <<" no particles assigned"<<endl;
-
-
-    deleteTree();
-    contribute(after_dd_callback);
-    //treePieceDDLoad = getObjTime() - treePieceDDLoad;
-    treePieceDDLoad += CkWallTimer() - tbeg;
-
-    if (thisIndex == 253037) {
-      CkPrintf("[%d] PE %d no particles for me finalValue of treePieceDDLoad set to objTime %f in shuffleAfterQD\n", thisIndex , CkMyPe(), treePieceDDLoad);
-    }
-    return;
-  }
-
-  //I've got all my particles
-  if (myNumParticles > 0) delete[] myParticles;
-
-  nStore = (int)((dm->particleCounts[myPlace] + 2)*(1.0 + dExtraStore));
-  myParticles = new GravityParticle[nStore];
-  myNumParticles = dm->particleCounts[myPlace];
-  incomingParticlesArrived = 0;
-  incomingParticlesSelf = false;
-  treePieceLoad = treePieceLoadTmp;
-  treePieceLoadTmp = 0.0;
-
-  savedPhaseLoad.swap(savedPhaseLoadTmp);
-  savedPhaseParticle.swap(savedPhaseParticleTmp);
-  savedPhaseLoadTmp.clear();
-  savedPhaseParticleTmp.clear();
-
-  int nSPH = 0;
-  int nStar = 0;
-  int iMsg;
-  for(iMsg = 0; iMsg < incomingParticlesMsg.size(); iMsg++) {
-    nSPH += incomingParticlesMsg[iMsg]->nSPH;
-    nStar += incomingParticlesMsg[iMsg]->nStar;
-  }
-  if (nStoreSPH > 0) delete[] mySPHParticles;
-  myNumSPH = nSPH;
-  nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
-  if(nStoreSPH > 0) mySPHParticles = new extraSPHData[nStoreSPH];
-  else mySPHParticles = NULL;
-
-  if (nStoreStar > 0) delete[] myStarParticles;
-  myNumStar = nStar;
-  allocateStars();
-
-  int nPart = 0;
-  nSPH = 0;
-  nStar = 0;
-  for(iMsg = 0; iMsg < incomingParticlesMsg.size(); iMsg++) {
-    memcpy(&myParticles[nPart+1], incomingParticlesMsg[iMsg]->particles,
-        incomingParticlesMsg[iMsg]->n*sizeof(GravityParticle));
-    nPart += incomingParticlesMsg[iMsg]->n;
-    memcpy(&mySPHParticles[nSPH], incomingParticlesMsg[iMsg]->pGas,
-        incomingParticlesMsg[iMsg]->nSPH*sizeof(extraSPHData));
-    nSPH += incomingParticlesMsg[iMsg]->nSPH;
-    memcpy(&myStarParticles[nStar], incomingParticlesMsg[iMsg]->pStar,
-        incomingParticlesMsg[iMsg]->nStar*sizeof(extraStarData));
-    nStar += incomingParticlesMsg[iMsg]->nStar;
-    delete incomingParticlesMsg[iMsg];
-  }
-
-  incomingParticlesMsg.clear();
-  // assign gas data pointers and determine centroid
-  int iGas = 0;
-  int iStar = 0;
-  Vector3D<double> vCenter(0.0, 0.0, 0.0);
-  for(int iPart = 0; iPart < myNumParticles; iPart++) {
-    vCenter += myParticles[iPart+1].position;
-    if(myParticles[iPart+1].isGas()) {
-      myParticles[iPart+1].extraData
-        = (extraSPHData *)&mySPHParticles[iGas];
-      iGas++;
-    }
-    else if(myParticles[iPart+1].isStar()) {
-      myParticles[iPart+1].extraData
-        = (extraStarData *)&myStarParticles[iStar];
-      iStar++;
-    }
-    else
-      myParticles[iPart+1].extraData = NULL;
-  }
-
-  if (thisIndex == 253037 || (CkWallTimer() -tbeg) > 0.9 || treePieceDDLoad > 0.9) {
-    CkPrintf("[%d] PE %d finalValue of treePieceDDLoad set to objTime %f before sortmoved %d movedWithiin %d\n", thisIndex , CkMyPe(), CkWallTimer() -tbeg,
-    numPartsMoved, numPartsMovedWithin);
-  }
-  double tsortbeg = CkWallTimer();
-  sort(myParticles+1, myParticles+myNumParticles+1);
-  double sorttime = CkWallTimer() - tsortbeg;
-  savedCentroid = vCenter/(double)myNumParticles;
-  //signify completion with a reduction
-  if(verbosity>1) ckout << thisIndex <<" contributing to accept particles"
-    <<endl;
-
-  if (thisIndex == 253037 || (CkWallTimer() -tbeg) > 0.9 || treePieceDDLoad > 0.9) {
-    CkPrintf("[%d] PE %d After sorting finalValue of treePieceDDLoad set to objTime %f time %f in shuffleAfterQD moved %d movedWithiin %d\n", thisIndex , CkMyPe(),
-    CkWallTimer() -tbeg, treePieceDDLoad, numPartsMoved, numPartsMovedWithin);
-  }
-
-    //treePieceDDLoad = 0.0;
-  deleteTree();
-  //CkPrintf("[%d] accepted %d particles\n", thisIndex, myNumParticles);
-  contribute(after_dd_callback);
-  treePieceDDLoad += CkWallTimer() - tbeg;
-  //treePieceDDLoad = getObjTime() - treePieceDDLoad;
-
-  if (thisIndex == 253037 || (CkWallTimer() -tbeg) > 0.9 || treePieceDDLoad > 0.9) {
-    CkPrintf("[%d] PE %d finalValue of treePieceDDLoad set to objTime %f time %f in shuffleAfterQD moved %d movedWithiin %d sort time %f\n", thisIndex , CkMyPe(),
-    CkWallTimer() - tbeg, treePieceDDLoad, numPartsMoved, numPartsMovedWithin, sorttime);
-  }
-}
-
 
 /// Once final splitter keys have been decided, I need to give my
 /// particles out to the TreePiece responsible for them
@@ -1817,6 +1457,13 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     nStoreStar = 0;
     incomingParticlesSelf = false;
     incomingParticlesMsg.clear();
+
+    treePieceLoadTmp = 0.0;
+    savedPhaseLoad.swap(savedPhaseLoadTmp);
+    savedPhaseParticle.swap(savedPhaseParticleTmp);
+    savedPhaseLoadTmp.clear();
+    savedPhaseParticleTmp.clear();
+
     if(verbosity>1) ckout << thisIndex <<" no particles assigned"<<endl;
 
     deleteTree();

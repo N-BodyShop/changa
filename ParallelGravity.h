@@ -1594,13 +1594,11 @@ public:
 	void acceptSortedParticles(ParticleShuffleMsg *);
 
   void migrateAndUnshuffle(const CkCallback& cb);
-  void shuffleAfterQD();
   void shuffleAfterQDRegisterWithCk();
   void shuffleAfterQDSpecificOpt();
   void doneDDWithCkLoop();
   void unshuffleParticlesWoDD(const CkCallback& cb);
   void unshuffleParticlesWoDDCb();
-  void acceptSortedParticlesQD(ParticleShuffleMsg *);
   void acceptSortedParticlesFromOther(ParticleShuffleMsg *);
   int myPeIs() {return my_pe;};
   /*****ORB Decomposition*******/
@@ -1963,7 +1961,10 @@ class ReductionHelper : public CBase_ReductionHelper {
 
   void countTreePieces(const CkCallback &cb);
   void reduceBinCounts(int nBins, int *binCounts, const CkCallback &cb);
-  void evaluateBoundaries(SFC::Key *keys, const int n, int isRefine, const CkCallback& cb);
+  void evaluateBoundaries(SFC::Key *keys, const int n, int skipEvery, const CkCallback& cb);
+  void evaluateBoundaries(int skipEvery, const CkCallback& cb);
+  //void evaluateBoundaries(bool convertToLoad, int skipEvery, const CkCallback& cb);
+  //void evaluateBoundaries(bool convertToLoad, SFC::Key *keys, const int n, int skipEvery, const CkCallback& cb);
   void evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb);
 
   private:

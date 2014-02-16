@@ -389,7 +389,13 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
       keys = &keyBoundaries; 
     }
 
-    boundariesTargetProxy.evaluateBoundaries(&(*keys->begin()), keys->size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+    //boundariesTargetProxy.evaluateBoundaries(&(*keys->begin()), keys->size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+    if (dm.ckLocalBranch()->boundaryKeysValid()) {
+      boundariesTargetProxy.evaluateBoundaries(0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+      CkPrintf("Sorter has valid boundarykeys\n");
+    } else {
+      boundariesTargetProxy.evaluateBoundaries(&(*keys->begin()), keys->size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+    }
   }
 }
 

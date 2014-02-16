@@ -1498,9 +1498,9 @@ void Main::advanceBigStep(int iStep) {
     //bDoDD = false;
 
     startTime = CkWallTimer();
-    if (activeRung == 1) {
-      bDoDD = false;
-    }
+    //if (activeRung == 1) {
+    //  bDoDD = false;
+    //}
     if (bDoDD) {
     sorter.startSorting(dataManagerID, ddTolerance,
                         CkCallbackResumeThread(), bDoDD);

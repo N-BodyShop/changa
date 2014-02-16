@@ -162,9 +162,11 @@ mainmodule ParallelGravity {
   group [migratable] ReductionHelper {
     entry ReductionHelper();
     entry void countTreePieces(CkCallback &cb);
-    entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
+    //entry void evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb);
 
-    entry void evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb);
+    entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int skipEvery, const CkCallback& cb);
+    entry [nokeep] void evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb);
+    entry void evaluateBoundaries(int skipEvery, const CkCallback& cb);
   };
 #endif
 
@@ -305,11 +307,9 @@ mainmodule ParallelGravity {
     entry void acceptSortedParticles(ParticleShuffleMsg *);
 
     entry void migrateAndUnshuffle(const CkCallback& cb);
-    entry void shuffleAfterQD();
     entry void shuffleAfterQDRegisterWithCk();
     entry void shuffleAfterQDSpecificOpt();
     entry void unshuffleParticlesWoDD(const CkCallback& cb);
-    entry void acceptSortedParticlesQD(ParticleShuffleMsg *);
     entry void acceptSortedParticlesFromOther(ParticleShuffleMsg *);
     entry void doneDDWithCkLoop();
 
