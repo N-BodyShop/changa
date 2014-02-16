@@ -24,7 +24,7 @@ MultistepLB_notopo::MultistepLB_notopo(const CkLBOptions &opt): CentralLB(opt)
 
   
   haveTPCentroids = false;
-
+  clearPeLoad();
 }
 
 /// @brief Get position centroids of all TreePieces
@@ -385,7 +385,12 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
   for (int i = 0; i < stats->count; i++) {
     peddloads[i] = 0.0;
   }
-  
+ 
+  unsigned int maxMovedWithin = 0;
+  unsigned int maxMoved = 0;
+  int maxMovedPe, maxMovedWithinPe;
+  unsigned int totalMoved = 0;
+  unsigned int totalMovedWithin = 0;
   for(int i = 0; i < stats->n_objs; i++){
     int tp = tpCentroids[i].tp;
     int lb = tpCentroids[i].tag;
@@ -405,6 +410,16 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
       CkPrintf("In LB TP %d has numActiveParticles %d\n", tp,
       tpCentroids[i].numActiveParticles);
     }
+    if (maxMovedWithin < tpCentroids[i].numMovedParticlesWithin) {
+      maxMovedWithin = tpCentroids[i].numMovedParticlesWithin;
+      maxMovedWithinPe = stats->from_proc[lb];
+    }
+    if (maxMoved< tpCentroids[i].numMovedParticles) {
+      maxMoved= tpCentroids[i].numMovedParticles;
+      maxMovedPe = stats->from_proc[lb];
+    }
+    totalMoved += tpCentroids[i].numMovedParticles;
+    totalMovedWithin += tpCentroids[i].numMovedParticlesWithin;
 
     if(tpCentroids[i].numActiveParticles == 0){
       numInactiveObjects++;
@@ -424,6 +439,8 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
       numActiveObjects++;
     }
   }
+  CkPrintf("maxParticlesMovedWithin %u (PE %d) maxParticlesMoved %u (PE %d) totalMovedWithin %u totalMoved %u\n", maxMovedWithin, maxMovedWithinPe,
+  maxMoved, maxMovedPe, totalMovedWithin, totalMoved);
 
   // Do a prefix sum
 //  for (int i = 1; i < stats->count; i++) {
@@ -630,9 +647,10 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
     }
 
     if (stats->from_proc[lb] == pewithmaxddload) {
-      CkPrintf("** [%d] DD load of %f for tp %d migs %d total parts %d\n", pewithmaxddload,
+      CkPrintf("** [%d] DD load of %f for tp %d migs %u mig within %u total parts %u\n", pewithmaxddload,
         tpCentroids[i].ddtime, tpCentroids[i].tp,
-        tpCentroids[i].numMovedParticles, tpCentroids[i].myNumParticles);
+        tpCentroids[i].numMovedParticles,
+        tpCentroids[i].numMovedParticlesWithin, tpCentroids[i].myNumParticles);
     }
     if(!stats->objData[lb].migratable) continue;
  
@@ -650,6 +668,11 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
       maxldtp = tpCentroids[i].tp;
       maxldidx = lb;
       maxldpart = tpCentroids[i].numActiveParticles;
+    }
+    if (tpCentroids[i].numActiveParticles > 1.3*7560) {
+      CkPrintf("[%d] overloaded TP on PE %d with ld %f and activeParticles %u\n",
+      tpCentroids[i].tp, stats->from_proc[lb], stats->objData[lb].wallTime,
+      tpCentroids[i].numActiveParticles);
     }
     
 
@@ -671,7 +694,9 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
   CkAssert(numProcessed==nmig);
   
   orbPrepare(tpEvents, box, nmig, stats);
-  orbPartition(tpEvents,box,stats->count,tp_array, stats);
+  orbPartition(tpEvents,box,CkNumNodes(),tp_array, stats);
+  CkPrintf("MultistepLB> Done OrbPartition\n");
+  //orbPartition(tpEvents,box,stats->count,tp_array, stats);
   balanceTPs(stats);
 
   CkPrintf("MultistepLB> stats: maxldtptag: %d maxldidx: %d ld: %f particles: %d PE: %d\n", maxldtp,
@@ -715,6 +740,71 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
       }
 }
 
+void MultistepLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
+  double* counts = new double[stats->count];
+  memset(counts, 0.0, stats->count * sizeof(double));
+  double totalld = 0.0;
+  for (int i = 0; i < stats->n_objs; i++) {
+    counts[stats->to_proc[i]] += stats->objData[i].wallTime;
+    totalld += stats->objData[i].wallTime;
+  }
+  double avgldperpe = totalld / stats->count;
+  vector<int> unldpes;
+  vector<int> ovldpes;
+  
+  int maxcountoftps = 0;
+  int pewithmax = -1;
+  for (int i = (stats->count-1); i >= 0; i--) {
+    if (counts[i] > 1.5*avgldperpe) {
+      ovldpes.push_back(i);
+    } else if (counts[i] < (0.7*avgldperpe)) {
+      unldpes.push_back(i);
+    }
+   // if (counts[i] > maxcountoftps) {
+   //   maxcountoftps = counts[i];
+   //   pewithmax = i;
+   // }
+  }
+  //CkPrintf("[%d] Maxpewithtps %d thresholds %d and %d\n", pewithmax, maxcountoftps, threshold1, threshold2);
+  int undcount = 0;
+
+  int* tmpcounts = new int[stats->count];
+  memcpy(tmpcounts, counts, stats->count * sizeof(int));
+
+  for (int i = stats->n_objs-1; i >=0 ; i--) {
+    if (undcount > unldpes.size()) {
+      break;
+    }
+    int to_proc = stats->to_proc[i];
+    int n_proc = -1;
+   // if (counts[to_proc] > 70) {
+   //   CkPrintf("TP %d is on big proc %d ismigr? %d ld %f\n", i, to_proc,
+   //   stats->objData[i].migratable, stats->objData[i].wallTime);
+   // }
+    if (counts[to_proc] > 1.5*avgldperpe  && stats->objData[i].wallTime > 1.0) {
+      n_proc = unldpes[undcount];
+      stats->to_proc[i] = n_proc;
+      counts[to_proc] = counts[to_proc] - stats->objData[i].wallTime;
+      counts[n_proc] = counts[n_proc] + stats->objData[i].wallTime;
+      if (counts[n_proc] > 0.8*avgldperpe) {
+        undcount++;
+      }
+    }
+  }
+
+//  maxcountoftps = 0;
+//  pewithmax = -1;
+//  for (int i = (stats->count-1); i >= 0; i--) {
+//    if (counts[i] > maxcountoftps) {
+//      maxcountoftps = counts[i];
+//      pewithmax = i;
+//    }
+//  }
+//  CkPrintf("[%d] Afterwards Maxpewithtps %d previously %d\n", pewithmax, maxcountoftps, tmpcounts[pewithmax]);
+  delete[] counts;
+  delete[] tmpcounts;
+}
+/*
 void MultistepLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
   int* counts = new int[stats->count];
   memset(counts, 0, stats->count * sizeof(int));
@@ -780,7 +870,7 @@ void MultistepLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
   delete[] counts;
   delete[] tmpcounts;
 }
-
+*/
 void MultistepLB_notopo::receiveAvgLoad(double avg_load) {
   avg_load_after_lb = avg_load;
 }
@@ -793,7 +883,10 @@ void MultistepLB_notopo::getLoadInfo(double& avg_load, double& my_load) {
 void MultistepLB_notopo::clearPeLoad() {
   my_load_after_lb = 0.0;
   tpscount = 0;
+  tpsregisteredfordd = 0;
+  tpsregisteredforacc = 0;
   tpsonpe.clear();
+  tpsonpeforacc.clear();
 }
 
 void MultistepLB_notopo::addToPeLoad(double tpload) {
@@ -813,14 +906,72 @@ void tpPar(int start, int end, void *result, int pnum, void * param) {
   }
 }
 
+void tpParForAcc(int start, int end, void *result, int pnum, void * param) {
+  std::vector<TreePiece*> *tps = (std::vector<TreePiece*> *) param;
+
+  for (int i = start; i <= end; i++) {
+    (*tps)[i]->shuffleAfterQDSpecificOpt();
+    //if ((*tps)[i]->myPeIs() == 24645) {
+   // if ((*tps)[i]->myPeIs() != CkMyPe()) {
+   //   CkPrintf("[%d] I am from %d but running on %d\n", (*tps)[i]->thisIndex,
+   //   (*tps)[i]->myPeIs(), CkMyPe());
+   // }
+  }
+    //if (CkMyPe() == 0 || (CkMyPe() >= 24645 && CkMyPe() < 24676)) {
+    //  CkPrintf("[%d] ^^^^ Got %d TPs ^^^^\n", CkMyPe(), (end-start+1));
+    //}
+}
+
 void MultistepLB_notopo::addTpForDD(TreePiece *tp) {
+//  if (tpsregisteredfordd == 0) {
+//    timestart = CkWallTimer();
+//  }
+  tpsregisteredfordd++;
+  if (tpsregisteredfordd <= 10) {
+    tp->unshuffleParticlesWoDDCb();
+    return;
+  }
   tpsonpe.push_back(tp);
-  if (tpsonpe.size() == tpscount) {
+  if (tpsregisteredfordd == tpscount) {
+    // CkLoopstuff
+   // if (CkMyPe() == 0) {
+   //   CkPrintf("**Time to do CkLoop count %d  ckloop done on %d on PE %d******\n", tpscount, tpsonpe.size(), CkMyPe());
+   // }
+//    double endtime = CkWallTimer();
+    //if (CkMyPe()%1024 == 0) {
+    //  CkPrintf("time taken in before starting loop %f\n", endtime - timestart);
+    //}
+    CkLoop_Parallelize(tpPar, 1, &tpsonpe, tpsonpe.size(), 0, tpsonpe.size()-1, 1, NULL, CKLOOP_NONE);
+    tpsregisteredfordd = 0;
+  }
+}
+
+void MultistepLB_notopo::addTpForAcceptSorted(TreePiece *tp) {
+  if (tpsregisteredforacc == 0) {
+    timestart = CkWallTimer();
+
+    if (CkMyPe()%1111 == 0) {
+      CkPrintf("[%d] has Memory %f MB tpsregisteredforacc %d\n", CkMyPe(),
+          CmiMemoryUsage()/(1024.0*1024.0), tpsregisteredforacc);
+    }
+  }
+  tpsregisteredforacc++;
+  if (tpsregisteredforacc <= 10) {
+    tp->shuffleAfterQDSpecificOpt();
+    return;
+  }
+  tpsonpeforacc.push_back(tp);
+  if (tpsregisteredforacc == tpscount) {
     // CkLoopstuff
     if (CkMyPe() == 0) {
-      CkPrintf("**Time to do CkLoop count %d on PE %d******\n", tpscount, CkMyPe());
+      CkPrintf("**Time to do CkLoop count %d  ckloop done on %d on PE %d******\n", tpscount, tpsonpeforacc.size(), CkMyPe());
     }
-    CkLoop_Parallelize(tpPar, 1, &tpsonpe, 31, 0, tpsonpe.size()-1, 1, NULL, CKLOOP_NONE);
+    double endtime = CkWallTimer();
+    CkLoop_Parallelize(tpParForAcc, 1, &tpsonpeforacc, tpsonpeforacc.size(), 0, tpsonpeforacc.size()-1, 1, NULL, CKLOOP_NONE);
+   // for (int i = 0; i < tpsonpeforacc.size(); i++) {
+   //   tpsonpeforacc[i]->shuffleAfterQDSpecificOpt();
+   // }
+    tpsregisteredforacc = 0;
   }
 }
 

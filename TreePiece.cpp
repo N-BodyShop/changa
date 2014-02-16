@@ -697,19 +697,25 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
 void TreePiece::migrateAndUnshuffle(const CkCallback& cb) {
   double tpLoad;
   tpLoad = getObjTime();
-  populateSavedPhaseData(prevLARung, tpLoad, treePieceActivePartsTmp);
+//  populateSavedPhaseData(prevLARung, tpLoad, treePieceActivePartsTmp);
   //thisProxy[thisIndex].unshuffleParticlesWoDD(cb);
   after_dd_callback = cb;
+  doDDCk = true;
   MultistepLB_notopo* lbptr = (MultistepLB_notopo *) CkLocalBranch(proxy);
   lbptr->addTpForDD(this);
 //  this->unshuffleParticlesWoDDCb();
 }
 
 void TreePiece::unshuffleParticlesWoDDCb() {
-  //if (!tploadset) {
-  //treePieceDDLoad = getObjTime();
-  //tploadset = true;
-  //}
+  this->unshuffleParticlesWoDD(after_dd_callback);
+  return;
+
+  double tbeg = CkWallTimer();
+  if (!tploadset) {
+    //treePieceDDLoad = getObjTime();
+    treePieceDDLoad = 0.0;
+    tploadset = true;
+  }
   double tpLoad = getObjTime();
 
   if (dm == NULL) {
@@ -790,6 +796,10 @@ void TreePiece::unshuffleParticlesWoDDCb() {
         if (havePhaseData(i) && savedPhaseParticle[i] != 0) {
           shuffleMsg->loads[i] = savedPhaseLoad[i] *
             (shuffleMsg->parts_per_phase[i] / (float) savedPhaseParticle[i]);
+            if (shuffleMsg->parts_per_phase[i] > savedPhaseParticle[i]) {
+              CkPrintf("[%d] For rung %d tpload is wrong in shufflemsg parts %d and saved %d ld %f\n", thisIndex, i, shuffleMsg->parts_per_phase[i],
+              savedPhaseParticle[i], shuffleMsg->loads[i]);
+            }
         } else if (havePhaseData(0) && myNumParticles != 0) {
           shuffleMsg->loads[i] = savedPhaseLoad[0] *
             (shuffleMsg->parts_per_phase[i] / (float) myNumParticles);
@@ -824,10 +834,14 @@ void TreePiece::unshuffleParticlesWoDDCb() {
           CkPrintf("TreePiece %d: keeping %d / %d particles: %d\n",
               thisIndex, nPartOut, myNumParticles,
               nPartOut*10000/myNumParticles);
-        treeProxy[thisIndex].acceptSortedParticlesQD(shuffleMsg);
+        //treeProxy[thisIndex].acceptSortedParticlesQD(shuffleMsg);
+        acceptSortedParticlesQD(shuffleMsg);
+        numPartsMoved -= nPartOut;
+        numPartsMovedWithin += nPartOut;
       }
       else {
         treeProxy[*responsibleIter].acceptSortedParticlesQD(shuffleMsg);
+        numPartsMoved += nPartOut;
       }
     }
     if(&myParticles[myNumParticles + 1] <= binEnd)
@@ -836,6 +850,7 @@ void TreePiece::unshuffleParticlesWoDDCb() {
   }
 
   incomingParticlesSelf = true;
+  treePieceDDLoad += CkWallTimer() - tbeg;
   if (thisIndex == 0) {
     CkPrintf("^^^ QD Starting ^^^\n");
     CkCallback cbqd(CkIndex_TreePiece::shuffleAfterQD(), thisProxy);
@@ -846,10 +861,18 @@ void TreePiece::unshuffleParticlesWoDDCb() {
 
 void TreePiece::unshuffleParticlesWoDD(const CkCallback& callback) {
   double tpLoad;
-  //if (!tploadset) {
-  //treePieceDDLoad = getObjTime();
-  //tploadset = true;
-  //}
+//  double tbeg = CkWallTimer();
+  myShuffleMsg = NULL;
+  after_dd_callback = callback;
+  my_pe = CkMyPe();
+  if (!tploadset) {
+    //treePieceDDLoad = getObjTime();
+    treePieceDDLoad = 0.0;
+    if (thisIndex == 253037) {
+      CkPrintf("[%d] treePieceDDLoad set to objTime %f\n", thisIndex , treePieceDDLoad);
+    }
+    tploadset = true;
+  }
 
   if (dm == NULL) {
     dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
@@ -859,10 +882,11 @@ void TreePiece::unshuffleParticlesWoDD(const CkCallback& callback) {
   populateSavedPhaseData(prevLARung, tpLoad, treePieceActivePartsTmp);
 
    //find my responsibility
-//  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
-//  if (myPlace == dm->responsibleIndex.size()) {
-//    myPlace = -2;
-//  } else {
+  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
+  if (myPlace == dm->responsibleIndex.size()) {
+    myPlace = -2;
+  } 
+//  else {
 //    //assign my bounding keys
 //    leftSplitter = dm->boundaryKeys[myPlace];
 //    rightSplitter = dm->boundaryKeys[myPlace + 1];
@@ -873,7 +897,23 @@ void TreePiece::unshuffleParticlesWoDD(const CkCallback& callback) {
 //  vector<int>::iterator responsibleIter = dm->responsibleIndex.begin();
   if (myNumParticles == 0) {
     incomingParticlesSelf = true;
-    acceptSortedParticles(NULL);
+    // TODO: Changed here OPTS
+    //acceptSortedParticles(NULL);
+
+    if (thisIndex == 0) {
+      CkPrintf("^^^ QD Starting ^^^\n");
+      // TODO: Changed here OPTS
+      //CkCallback cbqd(CkIndex_TreePiece::shuffleAfterQD(), thisProxy);
+      CkCallback cbqd(CkIndex_TreePiece::shuffleAfterQDSpecificOpt(), thisProxy);
+      if (doDDCk) {
+        CkCallback cbqd(CkIndex_TreePiece::shuffleAfterQDRegisterWithCk(), thisProxy);
+        CkStartQD(cbqd);
+        doDDCk = false;
+      } else {
+        CkCallback cbqd(CkIndex_TreePiece::shuffleAfterQDSpecificOpt(), thisProxy);
+        CkStartQD(cbqd);
+      }
+    }
     return;
   }
   GravityParticle *binBegin = &myParticles[1];
@@ -887,6 +927,7 @@ void TreePiece::unshuffleParticlesWoDD(const CkCallback& callback) {
 
   GravityParticle *binEnd;
   GravityParticle dummy;
+  int msgs_sent = 0;
   for( ; iter != endKeys; ++iter, ++responsibleIter) {
   //for(++iter; iter != endKeys; ++iter, ++responsibleIter) {
     dummy.key = *iter;
@@ -965,10 +1006,19 @@ void TreePiece::unshuffleParticlesWoDD(const CkCallback& callback) {
           CkPrintf("TreePiece %d: keeping %d / %d particles: %d\n",
               thisIndex, nPartOut, myNumParticles,
               nPartOut*10000/myNumParticles);
-        acceptSortedParticlesQD(shuffleMsg);
+
+        // TODO: Changed here OPTS
+        //acceptSortedParticlesQD(shuffleMsg);
+        //numPartsMoved -= nPartOut;
+        myShuffleMsg = shuffleMsg;
+        numPartsMovedWithin += nPartOut;
       }
       else {
-        treeProxy[*responsibleIter].acceptSortedParticlesQD(shuffleMsg);
+        // TODO: Changed here OPTS
+        //treeProxy[*responsibleIter].acceptSortedParticlesQD(shuffleMsg);
+        treeProxy[*responsibleIter].acceptSortedParticlesFromOther(shuffleMsg);
+        numPartsMoved += nPartOut;
+        msgs_sent++;
       }
     }
     if(&myParticles[myNumParticles + 1] <= binEnd)
@@ -977,20 +1027,145 @@ void TreePiece::unshuffleParticlesWoDD(const CkCallback& callback) {
   }
 
   incomingParticlesSelf = true;
-  after_dd_callback = callback;
+//  double tfrombeg = CkWallTimer() - tbeg;
+//  treePieceDDLoad += tfrombeg;
+//  if (thisIndex == 253037 || (CkWallTimer() -tbeg) > 0.009 || treePieceDDLoad > 0.9) {
+//    CkPrintf("[%d] PE %d has taken time %f in shuffle and total treePieceDDLD %f moved %d movedWithin %d total msgs sent %d\n", thisIndex, CkMyPe(), CkWallTimer() - tbeg,
+//    treePieceDDLoad, numPartsMoved, numPartsMovedWithin, msgs_sent);
+//  }
   if (thisIndex == 0) {
     CkPrintf("^^^ QD Starting ^^^\n");
-    CkCallback cbqd(CkIndex_TreePiece::shuffleAfterQD(), thisProxy);
-    CkStartQD(cbqd);
+    // TODO: Changed here OPTS
+    //CkCallback cbqd(CkIndex_TreePiece::shuffleAfterQD(), thisProxy);
+    //CkCallback cbqd(CkIndex_TreePiece::shuffleAfterQDSpecificOpt(), thisProxy);
+    //CkStartQD(cbqd);
+    if (doDDCk) {
+      CkCallback cbqd(CkIndex_TreePiece::shuffleAfterQDRegisterWithCk(), thisProxy);
+      CkStartQD(cbqd);
+      doDDCk = false;
+    } else {
+      CkCallback cbqd(CkIndex_TreePiece::shuffleAfterQDSpecificOpt(), thisProxy);
+      CkStartQD(cbqd);
+    }
   }
+
+//  if (thisIndex == 253037 || (tfrombeg) > 0.04 || treePieceDDLoad > 0.04) {
+//    CkPrintf("[%d] PE %d but realPE %d unshuffle %f treePieceDDLoad %f moved %d movedWithiin %d\n", thisIndex ,
+//    CkMyPe(), my_pe, tfrombeg, treePieceDDLoad, numPartsMoved, numPartsMovedWithin);
+//  }
+}
+
+void TreePiece::acceptSortedParticlesFromOther(ParticleShuffleMsg *shuffleMsg) {
+//  double tbeg = CkWallTimer();
+  if (!tploadset) {
+    //treePieceDDLoad = getObjTime();
+    treePieceDDLoad = 0.0;
+    if (thisIndex == 253037) {
+      CkPrintf("[%d] treePieceDDLoad set to objTime %f in accept\n", thisIndex , treePieceDDLoad);
+    }
+    tploadset = true;
+  }
+  //Need to get the place here again.  Getting the place in
+  //unshuffleParticles and using it here results in a race condition.
+//  if (dm == NULL)
+//    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+//  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(),
+//      thisIndex) - dm->responsibleIndex.begin();
+//  if (myPlace == dm->responsibleIndex.size()) myPlace = -2;
+
+  if(shuffleMsg == NULL) {
+    return;
+  }
+
+  if (totalShuffleSize < (myShuffleLocG+1+shuffleMsg->n)) {
+    GravityParticle* t = myTmpShuffleParticle;
+    int tn = myShuffleLocG+1;
+
+    int expandsize = totalShuffleSize*2;
+    if (expandsize < (myShuffleLocG+1+shuffleMsg->n)) {
+      expandsize = 1.5*(myShuffleLocG+1+shuffleMsg->n);
+    }
+
+    myTmpShuffleParticle = new GravityParticle[expandsize];
+    totalShuffleSize = expandsize;
+    myShuffleLocG = -1;
+    memcpy(&myTmpShuffleParticle[myShuffleLocG+1], t, tn *
+        sizeof(GravityParticle));
+    myShuffleLocG += tn;
+    if (tn > 0) {
+      delete[] t;
+    }
+  }
+  memcpy(&myTmpShuffleParticle[myShuffleLocG+1], shuffleMsg->particles,
+      shuffleMsg->n*sizeof(GravityParticle));
+  myShuffleLocG += shuffleMsg->n;
+
+  if (totalShuffleSphSize < (myShuffleLocSph+1+shuffleMsg->nSPH)) {
+    extraSPHData* t = myTmpShuffleSphParticle;
+    int tn = myShuffleLocSph+1;
+    int expandsize = myShuffleLocSph * 2;
+    if (expandsize < (myShuffleLocSph+1+shuffleMsg->nSPH)) {
+      expandsize = 1.5*(myShuffleLocSph+1+shuffleMsg->nSPH);
+    }
+
+    myTmpShuffleSphParticle = new extraSPHData[expandsize];
+    totalShuffleSphSize = expandsize;
+    myShuffleLocSph = -1;
+    memcpy(&myTmpShuffleSphParticle[myShuffleLocSph+1], t, tn *
+        sizeof(extraSPHData));
+    myShuffleLocSph += tn;
+    if (tn > 0) {
+      delete[] t;
+    }
+  }
+  memcpy(&myTmpShuffleSphParticle[myShuffleLocSph+1], shuffleMsg->pGas,
+      shuffleMsg->nSPH*sizeof(extraSPHData));
+  myShuffleLocSph += shuffleMsg->nSPH;
+
+  if (totalShuffleStarSize < (myShuffleLocStar+1+shuffleMsg->nStar)) {
+    extraStarData* t = myTmpShuffleStarParticle;
+    int tn = myShuffleLocStar+1;
+    int expandsize = myShuffleLocStar * 2;
+    if (expandsize < (myShuffleLocStar+1+shuffleMsg->nStar)) {
+      expandsize = 1.5*(myShuffleLocStar+1+shuffleMsg->nStar);
+    }
+
+    myTmpShuffleStarParticle = new extraStarData[expandsize];
+    totalShuffleStarSize = expandsize;
+    myShuffleLocStar = -1;
+    memcpy(&myTmpShuffleStarParticle[myShuffleLocStar+1], t, tn *
+        sizeof(extraStarData));
+    myShuffleLocStar += tn;
+    if (tn > 0) {
+      delete[] t;
+    }
+  }
+  memcpy(&myTmpShuffleStarParticle[myShuffleLocStar+1], shuffleMsg->pStar,
+      shuffleMsg->nStar*sizeof(extraStarData));
+  myShuffleLocStar += shuffleMsg->nStar;
+
+  incomingParticlesArrived += shuffleMsg->n;
+  numPartsMoved += shuffleMsg->n;
+  treePieceLoadTmp += shuffleMsg->load; 
+  savePhaseData(savedPhaseLoadTmp, savedPhaseParticleTmp, shuffleMsg->loads,
+      shuffleMsg->parts_per_phase, shuffleMsg->nloads);
+
+  delete shuffleMsg;
+
+//  treePieceDDLoad += CkWallTimer() - tbeg;
 }
 
 /// Accept particles from other TreePieces once the sorting has finished
 void TreePiece::acceptSortedParticlesQD(ParticleShuffleMsg *shuffleMsg) {
-  //if (!tploadset) {
-  //  treePieceDDLoad = getObjTime();
-  //  tploadset = true;
-  //}
+//  double tbeg = CkWallTimer();
+  if (!tploadset) {
+    //treePieceDDLoad = getObjTime();
+    treePieceDDLoad = 0.0;
+    if (thisIndex == 253037) {
+      CkPrintf("[%d] treePieceDDLoad set to objTime %f in accept\n", thisIndex , treePieceDDLoad);
+    }
+    tploadset = true;
+  }
   //Need to get the place here again.  Getting the place in
   //unshuffleParticles and using it here results in a race condition.
   if (dm == NULL)
@@ -1003,18 +1178,50 @@ void TreePiece::acceptSortedParticlesQD(ParticleShuffleMsg *shuffleMsg) {
   if(shuffleMsg != NULL) {
     incomingParticlesMsg.push_back(shuffleMsg);
     incomingParticlesArrived += shuffleMsg->n;
+    numPartsMoved += shuffleMsg->n;
     treePieceLoadTmp += shuffleMsg->load; 
     savePhaseData(savedPhaseLoadTmp, savedPhaseParticleTmp, shuffleMsg->loads,
       shuffleMsg->parts_per_phase, shuffleMsg->nloads);
   }
+//  treePieceDDLoad += CkWallTimer() - tbeg;
 }
 
-void TreePiece::shuffleAfterQD(){
-  if (dm == NULL)
-    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
-  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(),
-      thisIndex) - dm->responsibleIndex.begin();
-  if (myPlace == dm->responsibleIndex.size()) myPlace = -2;
+void TreePiece::shuffleAfterQDRegisterWithCk() {
+  //MultistepLB_notopo* lbptr = (MultistepLB_notopo *) CkLocalBranch(proxy);
+  //lbptr->addTpForAcceptSorted(this);
+
+ // if (CkMyNode() == 0) {
+ //   CkPrintf("[%d] on PE %d registering with DataManager to do ckloop\n",
+ //   thisIndex, CkMyPe());
+ // }
+//  DataManager* dmptr = (DataManager*)CkLocalNodeBranch(dataManagerID);
+//  dmptr->addTpForAcceptSorted(this);
+
+  MultistepLB_notopo* lbptr = (MultistepLB_notopo *) CkLocalBranch(proxy);
+  lbptr->addTpForAcceptSorted(this);
+//  this->shuffleAfterQDSpecificOpt();
+}
+
+void TreePiece::doneDDWithCkLoop() {
+  contribute(after_dd_callback);
+}
+
+void TreePiece::shuffleAfterQDSpecificOpt() {
+//  double tbeg = CkWallTimer();
+  //CkPrintf("[%d] PE %d QD Detected\n", thisIndex, CkMyPe());
+
+  if (myShuffleMsg != NULL) {
+    incomingParticlesArrived += myShuffleMsg->n;
+  }
+
+//  if (thisIndex == 253037) {
+//    CkPrintf("[%d] PE %d before finalShuffle treePieceDDLoad %f \n", thisIndex , CkMyPe(), treePieceDDLoad);
+//  }
+//  if (dm == NULL)
+//    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+//  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(),
+//      thisIndex) - dm->responsibleIndex.begin();
+//  if (myPlace == dm->responsibleIndex.size()) myPlace = -2;
 
   if (myPlace != -2) {
     dm->particleCounts[myPlace] = incomingParticlesArrived;
@@ -1048,9 +1255,270 @@ void TreePiece::shuffleAfterQD(){
     incomingParticlesMsg.clear();
     if(verbosity>1) ckout << thisIndex <<" no particles assigned"<<endl;
 
-    treePieceDDLoad = getObjTime() - treePieceDDLoad;
+
+    deleteTree();
+    // TODO: OPTS for ck
+    //contribute(after_dd_callback);
+    thisProxy[thisIndex].doneDDWithCkLoop();
+    //treePieceDDLoad = getObjTime() - treePieceDDLoad;
+//    treePieceDDLoad += CkWallTimer() - tbeg;
+    myShuffleLocG = myShuffleLocSph = myShuffleLocStar = -1;
+
+ //   if (thisIndex == 253037) {
+ //     CkPrintf("[%d] PE %d no particles for me finalValue of treePieceDDLoad set to objTime %f in shuffleAfterQD\n", thisIndex , CkMyPe(), treePieceDDLoad);
+ //   }
+    if (myShuffleMsg != NULL) {
+      delete myShuffleMsg;
+    }
+    return;
+  }
+//  double sttime1 = CkWallTimer() - tbeg;
+  //CkPrintf("[%d] PE %d into opt 1)*********** myNumParticles %d myplace part %d\n", thisIndex, CkMyPe(), myNumParticles, dm->particleCounts[myPlace]); 
+
+  //I've got all my particles
+  if (myNumParticles > 0) delete[] myParticles;
+
+  nStore = (int)((dm->particleCounts[myPlace] + 2)*(1.0 + dExtraStore));
+  myParticles = new GravityParticle[nStore];
+  myNumParticles = dm->particleCounts[myPlace];
+  incomingParticlesArrived = 0;
+  incomingParticlesSelf = false;
+  treePieceLoad = treePieceLoadTmp;
+  treePieceLoadTmp = 0.0;
+
+  if (myShuffleMsg != NULL) {
+    savePhaseData(savedPhaseLoadTmp, savedPhaseParticleTmp, myShuffleMsg->loads,
+        myShuffleMsg->parts_per_phase, myShuffleMsg->nloads);
+  }
+
+  savedPhaseLoad.swap(savedPhaseLoadTmp);
+  savedPhaseParticle.swap(savedPhaseParticleTmp);
+  savedPhaseLoadTmp.clear();
+  savedPhaseParticleTmp.clear();
+
+  int nSPH = 0;
+  int nStar = 0;
+
+  nSPH = myShuffleLocSph + 1;
+  nStar = myShuffleLocStar + 1;
+  if (myShuffleMsg != NULL) {
+    nSPH += myShuffleMsg->nSPH;
+    nStar += myShuffleMsg->nStar;
+  }
+
+  if (nStoreSPH > 0) delete[] mySPHParticles;
+  myNumSPH = nSPH;
+  nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
+  if(nStoreSPH > 0) mySPHParticles = new extraSPHData[nStoreSPH];
+  else mySPHParticles = NULL;
+
+  if (nStoreStar > 0) delete[] myStarParticles;
+  myNumStar = nStar;
+  allocateStars();
+
+  nSPH = 0;
+  nStar = 0;
+  //CkPrintf("[%d] PE %d into opt 1.5)*********** myNumParticles %d myplace part %d myShuffleLocSph %d myShuffleLocStar %d\n", thisIndex, CkMyPe(), myNumParticles, dm->particleCounts[myPlace], myShuffleLocSph, myShuffleLocStar); 
+
+  //memcpy(&myParticles[nPart+1], myTmpShuffleStarParticle,
+  //    (myShuffleLocG+1)*sizeof(GravityParticle));
+  //nPart += (myShuffleLocG+1);
+  memcpy(&mySPHParticles[nSPH], myTmpShuffleSphParticle,
+      (myShuffleLocSph+1)*sizeof(extraSPHData));
+  nSPH += (myShuffleLocSph+1);
+  memcpy(&myStarParticles[nStar], myTmpShuffleStarParticle,
+      (myShuffleLocStar+1)*sizeof(extraStarData));
+  nStar += (myShuffleLocStar+1);
+
+  //CkPrintf("[%d] PE %d into opt 2)***********\n", thisIndex, CkMyPe()); 
+
+  int iGas = 0;
+  int iStar = 0;
+  for (int i = 0; i <= myShuffleLocG; i++) {
+    if (myTmpShuffleParticle[i].isGas()) {
+      myTmpShuffleParticle[i].extraData = 
+          (extraSPHData *) &mySPHParticles[iGas];
+      iGas++;
+    } else if (myTmpShuffleParticle[i].isStar()) {
+      myTmpShuffleParticle[i].extraData = 
+          (extraStarData *) &myStarParticles[iStar];
+      iStar++;
+    } else {
+      myTmpShuffleParticle[i].extraData = NULL;
+    }
+  }
+
+  //CkPrintf("[%d] PE %d into opt 3)***********\n", thisIndex, CkMyPe()); 
+  if (myShuffleMsg != NULL) {
+    memcpy(&mySPHParticles[nSPH], myShuffleMsg->pGas,
+        (myShuffleMsg->nSPH)*sizeof(extraSPHData));
+    nSPH += (myShuffleMsg->nSPH);
+    memcpy(&myStarParticles[nStar], myShuffleMsg->pStar,
+        (myShuffleMsg->nStar)*sizeof(extraStarData));
+    nStar += (myShuffleMsg->nStar);
+  }
+//  double sttime2 = CkWallTimer() - tbeg;
+
+//  if (thisIndex == 253037 || (CkWallTimer() -tbeg) > 0.005 || treePieceDDLoad > 0.009) {
+//    CkPrintf("[%d] PE %d before sorting inside accept %f treePieceDDLoad %f moved %d movedWithiin %d\n", thisIndex , CkMyPe(),
+//    CkWallTimer() - tbeg, treePieceDDLoad, numPartsMoved, numPartsMovedWithin);
+//  }
+  //CkPrintf("[%d] PE %d into opt 4)***********\n", thisIndex, CkMyPe()); 
+//  double tsortbeg = CkWallTimer();
+
+  if (myShuffleLocG > 0) {
+    // sort is [first, last)
+    sort(myTmpShuffleParticle, myTmpShuffleParticle + myShuffleLocG + 1); 
+  }
+//  double incomsorttime = CkWallTimer() - tsortbeg;
+  //CkPrintf("[%d] PE %d into opt 5)***********\n", thisIndex, CkMyPe()); 
+  int left, right, tmp;
+  left = right = 0;
+  tmp = 1;
+  int leftend = 0;
+  if (myShuffleMsg != NULL) {
+    leftend = myShuffleMsg->n;
+  }
+  int rightend = myShuffleLocG + 1;
+  Vector3D<double> vCenter(0.0, 0.0, 0.0);
+//  tsortbeg = CkWallTimer();
+ 
+  //CkPrintf("[%d] PE %d into opt 6)*********** left %d leftend %d right %d rightend %d \n", thisIndex, CkMyPe(), left, leftend, right, rightend); 
+  while (left < leftend && right < rightend) {
+    if (myShuffleMsg->particles[left] < myTmpShuffleParticle[right]) {
+      myParticles[tmp] = myShuffleMsg->particles[left++];
+      if (myParticles[tmp].isGas()) {
+        myParticles[tmp].extraData = (extraSPHData *) &mySPHParticles[iGas++];
+      } else if (myParticles[tmp].isStar()) {
+        myParticles[tmp].extraData = (extraStarData *) &myStarParticles[iStar++];
+      } else {
+        myParticles[tmp].extraData = NULL;
+      }
+    } else {
+      myParticles[tmp] = myTmpShuffleParticle[right++];
+    }
+    vCenter += myParticles[tmp].position;
+    tmp++;
+  }
+
+  //CkPrintf("[%d] PE %d into opt 7)***********\n", thisIndex, CkMyPe()); 
+  while (left < leftend) {
+    myParticles[tmp] = myShuffleMsg->particles[left++];
+    if (myParticles[tmp].isGas()) {
+      myParticles[tmp].extraData = (extraSPHData *) &mySPHParticles[iGas++];
+    } else if (myParticles[tmp].isStar()) {
+      myParticles[tmp].extraData = (extraStarData *) &myStarParticles[iStar++];
+    } else {
+      myParticles[tmp].extraData = NULL;
+    }
+    vCenter += myParticles[tmp].position;
+    tmp++;
+  }
+
+  //CkPrintf("[%d] PE %d into opt 8)***********\n", thisIndex, CkMyPe()); 
+  while (right < rightend) {
+    myParticles[tmp] = myTmpShuffleParticle[right++];
+    vCenter += myParticles[tmp].position;
+    tmp++;
+  }
+
+  //CkPrintf("[%d] PE %d into opt 9)***********\n", thisIndex, CkMyPe()); 
+  //sort(myParticles+1, myParticles+myNumParticles+1);
+//  double sorttime = CkWallTimer() - tsortbeg;
+
+  savedCentroid = vCenter/(double)myNumParticles;
+  //signify completion with a reduction
+  if(verbosity>1) ckout << thisIndex <<" contributing to accept particles"
+    <<endl;
+
+  myShuffleLocG = myShuffleLocSph = myShuffleLocStar = -1;
+  if (myShuffleMsg != NULL) {
+    if (numPartsMovedWithin == 0) {
+      CkPrintf("[%d] PE %d Something terrible Wrong!!!!!!  numPartsMovedWithin %d\n", thisIndex, CkMyPe(), numPartsMovedWithin);
+    }
+    delete myShuffleMsg;
+  }
+  //CkPrintf("[%d] PE %d into opt 10)***********\n", thisIndex, CkMyPe()); 
+//  if (thisIndex == 253037 || (CkWallTimer() -tbeg) > 0.9 || treePieceDDLoad > 0.9) {
+//    CkPrintf("[%d] PE %d After sorting finalValue of treePieceDDLoad set to objTime %f time %f in shuffleAfterQD moved %d movedWithiin %d\n", thisIndex , CkMyPe(),
+//    CkWallTimer() -tbeg, treePieceDDLoad, numPartsMoved, numPartsMovedWithin);
+//  }
+
+    //treePieceDDLoad = 0.0;
+  deleteTree();
+  //CkPrintf("[%d] PE %d into opt 11)***********\n", thisIndex, CkMyPe()); 
+  //CkPrintf("[%d] accepted %d particles\n", thisIndex, myNumParticles);
+  // TODO: OPTS ck
+  //contribute(after_dd_callback);
+  thisProxy[thisIndex].doneDDWithCkLoop();
+  //CkPrintf("[%d] PE %d into opt 12)***********\n", thisIndex, CkMyPe()); 
+//  treePieceDDLoad += CkWallTimer() - tbeg;
+  //treePieceDDLoad = getObjTime() - treePieceDDLoad;
+
+//  if (thisIndex == 253037 || (CkWallTimer() -tbeg) > 0.05 || treePieceDDLoad > 0.05 || sorttime > 0.007) {
+//    CkPrintf("[%d] PE %d but realPE %d just final shuffle %f treePieceDDLoad %f moved %d movedWithiin %d incomsort %f merge %f totalsort %f 1sttime %f 2ndtime %f\n", thisIndex ,
+//    CkMyPe(), my_pe, CkWallTimer() - tbeg, treePieceDDLoad, numPartsMoved, numPartsMovedWithin,
+//    incomsorttime, sorttime, incomsorttime + sorttime, sttime1, sttime2);
+//  }
+}
+
+void TreePiece::shuffleAfterQD(){
+
+  double tbeg = CkWallTimer();
+
+  if (thisIndex == 253037) {
+    CkPrintf("[%d] PE %d finalValue of treePieceDDLoad set to objTime %f \n", thisIndex , CkMyPe(), CkWallTimer() -tbeg);
+  }
+  if (dm == NULL)
+    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(),
+      thisIndex) - dm->responsibleIndex.begin();
+  if (myPlace == dm->responsibleIndex.size()) myPlace = -2;
+
+  if (myPlace != -2) {
+    dm->particleCounts[myPlace] = incomingParticlesArrived;
+  }
+if (thisIndex == 253037) {
+      CkPrintf("[%d] PE %d treePieceDDLoad objTime %f \n", thisIndex , CkMyPe(), CkWallTimer() -tbeg);
+    }
+
+
+  // The following assert does not work anymore when TreePieces can
+  //have 0 particles assigned
+  //assert(myPlace >= 0 && myPlace < dm->particleCounts.size());
+  if (myPlace == -2 || dm->particleCounts[myPlace] == 0) {
+    // Special case where no particle is assigned to this TreePiece
+    if (myNumParticles > 0){
+      delete[] myParticles;
+      myParticles = NULL;
+    }
+    myNumParticles = 0;
+    nStore = 0;
+    if (nStoreSPH > 0){
+      delete[] mySPHParticles;
+      mySPHParticles = NULL;
+    }
+    myNumSPH = 0;
+    nStoreSPH = 0;
+    if (nStoreStar > 0){
+      delete[] myStarParticles;
+      myStarParticles = NULL;
+    }
+    myNumStar = 0;
+    nStoreStar = 0;
+    incomingParticlesSelf = false;
+    incomingParticlesMsg.clear();
+    if(verbosity>1) ckout << thisIndex <<" no particles assigned"<<endl;
+
+
     deleteTree();
     contribute(after_dd_callback);
+    //treePieceDDLoad = getObjTime() - treePieceDDLoad;
+    treePieceDDLoad += CkWallTimer() - tbeg;
+
+    if (thisIndex == 253037) {
+      CkPrintf("[%d] PE %d no particles for me finalValue of treePieceDDLoad set to objTime %f in shuffleAfterQD\n", thisIndex , CkMyPe(), treePieceDDLoad);
+    }
     return;
   }
 
@@ -1124,17 +1592,34 @@ void TreePiece::shuffleAfterQD(){
       myParticles[iPart+1].extraData = NULL;
   }
 
+  if (thisIndex == 253037 || (CkWallTimer() -tbeg) > 0.9 || treePieceDDLoad > 0.9) {
+    CkPrintf("[%d] PE %d finalValue of treePieceDDLoad set to objTime %f before sortmoved %d movedWithiin %d\n", thisIndex , CkMyPe(), CkWallTimer() -tbeg,
+    numPartsMoved, numPartsMovedWithin);
+  }
+  double tsortbeg = CkWallTimer();
   sort(myParticles+1, myParticles+myNumParticles+1);
+  double sorttime = CkWallTimer() - tsortbeg;
   savedCentroid = vCenter/(double)myNumParticles;
   //signify completion with a reduction
   if(verbosity>1) ckout << thisIndex <<" contributing to accept particles"
     <<endl;
 
-    //treePieceDDLoad = getObjTime() - treePieceDDLoad;
-    treePieceDDLoad = 0.0;
+  if (thisIndex == 253037 || (CkWallTimer() -tbeg) > 0.9 || treePieceDDLoad > 0.9) {
+    CkPrintf("[%d] PE %d After sorting finalValue of treePieceDDLoad set to objTime %f time %f in shuffleAfterQD moved %d movedWithiin %d\n", thisIndex , CkMyPe(),
+    CkWallTimer() -tbeg, treePieceDDLoad, numPartsMoved, numPartsMovedWithin);
+  }
+
+    //treePieceDDLoad = 0.0;
   deleteTree();
   //CkPrintf("[%d] accepted %d particles\n", thisIndex, myNumParticles);
   contribute(after_dd_callback);
+  treePieceDDLoad += CkWallTimer() - tbeg;
+  //treePieceDDLoad = getObjTime() - treePieceDDLoad;
+
+  if (thisIndex == 253037 || (CkWallTimer() -tbeg) > 0.9 || treePieceDDLoad > 0.9) {
+    CkPrintf("[%d] PE %d finalValue of treePieceDDLoad set to objTime %f time %f in shuffleAfterQD moved %d movedWithiin %d sort time %f\n", thisIndex , CkMyPe(),
+    CkWallTimer() - tbeg, treePieceDDLoad, numPartsMoved, numPartsMovedWithin, sorttime);
+  }
 }
 
 
@@ -1273,6 +1758,7 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
               nPartOut*10000/myNumParticles);
         acceptSortedParticles(shuffleMsg);
         numPartsMoved -= nPartOut;
+        numPartsMovedWithin += nPartOut;
       }
       else {
         treeProxy[*responsibleIter].acceptSortedParticles(shuffleMsg);
@@ -3536,12 +4022,12 @@ void TreePiece::doAllBuckets(){
   msg->val=0;
 
   double pe_exp_load, avg_pe_load;
-  //MultistepLB_notopo* lbptr = (MultistepLB_notopo *) CkLocalBranch(proxy);
+  MultistepLB_notopo* lbptr = (MultistepLB_notopo *) CkLocalBranch(proxy);
   //HierarchOrbLB* lbptr = (HierarchOrbLB *) CkLocalBranch(proxy);
-  //lbptr->getLoadInfo(avg_pe_load, pe_exp_load);
+  lbptr->getLoadInfo(avg_pe_load, pe_exp_load);
   //if (activeRung == 3 && treePieceActivePartsTmp >= 10000) {
   //if (activeRung == 3 && pe_exp_load >= 2.1 && treePieceLoadExp > 1.1) {
-  if (iterationNo == 7000 && pe_exp_load >= 2.1 && treePieceLoadExp > 1.1) {
+  if (iterationNo == 9 && pe_exp_load >= 6.0 && treePieceLoadExp > 1.1) {
     //if (activeRung == 3 && treePieceLoadExp > 3.3) {
     CkPrintf("[%d] TP %d ckLoopParallelFunction expload %f\n", CkMyPe(), thisIndex, treePieceLoadExp);
     thisProxy[thisIndex].ckLoopParallelFunction(msg);
@@ -5716,12 +6202,12 @@ void TreePiece::continueStartRemoteChunk(int chunk){
 #endif
 
   double pe_exp_load, avg_pe_load;
-  //MultistepLB_notopo* lbptr = (MultistepLB_notopo *) CkLocalBranch(proxy);
+  MultistepLB_notopo* lbptr = (MultistepLB_notopo *) CkLocalBranch(proxy);
   //HierarchOrbLB* lbptr = (HierarchOrbLB *) CkLocalBranch(proxy);
-  //lbptr->getLoadInfo(avg_pe_load, pe_exp_load);
+  lbptr->getLoadInfo(avg_pe_load, pe_exp_load);
 
   //if (activeRung == 3 && pe_exp_load >= 2.1 && treePieceLoadExp > 1.1) {
-  if (iterationNo == 7000 && pe_exp_load >= 2.1 && treePieceLoadExp > 1.1) {
+  if (iterationNo == 9 && pe_exp_load >= 6.0 && treePieceLoadExp > 1.1) {
 
     CkPrintf("[%d] TP %d calculateGravityRemoteParallel expload %f\n", CkMyPe(), thisIndex, treePieceLoadExp);
     thisProxy[thisIndex].calculateGravityRemoteCk(msg);
@@ -5856,9 +6342,15 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   tv.tp = thisIndex;
   tv.tag = thisIndex;
   tv.numMovedParticles = numPartsMoved;
+  tv.numMovedParticlesWithin = numPartsMovedWithin;
   tv.ddtime = treePieceDDLoad;
   tv.busytime = getObjTime();
+  if (numPartsMoved > 20000)  {
+    CkPrintf("[%d] Moved %u within and %u outside myNumParts %u\n", thisIndex,
+    numPartsMovedWithin, numPartsMoved, myNumParticles);
+  }
   numPartsMoved = 0;
+  numPartsMovedWithin = 0;
 
 //  populateSavedPhaseData(prevLARung, treePieceLoad, treePieceActivePartsTmp);
   treePieceActivePartsTmp = numActiveParticles;
@@ -5919,6 +6411,8 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   MultistepLB_notopo* lbptr = (MultistepLB_notopo *) CkLocalBranch(proxy);
   //HierarchOrbLB* lbptr = (HierarchOrbLB *) CkLocalBranch(proxy);
   lbptr->clearPeLoad();
+  DataManager* dmptr = (DataManager *) CkLocalNodeBranch(dataManagerID);
+  dmptr->clearTpCkDD();
   /*
   CkPrintf("[%d] centroid %f %f %f\n", 
                       thisIndex,
@@ -5976,10 +6470,14 @@ void TreePiece::doAtSync(){
 void TreePiece::ResumeFromSync(){
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d in ResumefromSync\n",CkMyPe(),thisIndex);
+  numPartsMoved = 0;
+  numPartsMovedWithin = 0;
   MultistepLB_notopo* lbptr = (MultistepLB_notopo *)CkLocalBranch(proxy);
   //HierarchOrbLB* lbptr = (HierarchOrbLB *)CkLocalBranch(proxy);
-  //lbptr->addToPeLoad(treePieceLoadExp);
+  lbptr->addToPeLoad(treePieceLoadExp);
   lbptr->addTpCount();
+  DataManager* dmptr = (DataManager *)CkLocalNodeBranch(dataManagerID);
+  dmptr->addTpCount();
   tploadset = false;
   contribute(callback);
 }
@@ -6354,12 +6852,24 @@ void TreePiece::pup(PUP::er& p) {
   p | nTotalDark;
   p | nTotalStar;
   p | myNumStar;
+  p | myShuffleLocG;
+  p | myShuffleLocSph;
+  p | myShuffleLocStar;
+  p | totalShuffleSize;
+  p | totalShuffleSphSize;
+  p | totalShuffleStarSize;
+  p | doDDCk;
+
   if(p.isUnpacking()) {
       nStore = (int)((myNumParticles + 2)*(1.0 + dExtraStore));
       myParticles = new GravityParticle[nStore];
       nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
       if(nStoreSPH > 0) mySPHParticles = new extraSPHData[nStoreSPH];
       allocateStars();
+
+      myTmpShuffleParticle = new GravityParticle[totalShuffleSize];
+      myTmpShuffleSphParticle = new extraSPHData[totalShuffleSphSize];
+      myTmpShuffleStarParticle = new extraStarData[totalShuffleStarSize];
   }
   for(unsigned int i=1;i<=myNumParticles;i++){
     p | myParticles[i];

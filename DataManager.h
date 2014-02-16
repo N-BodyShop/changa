@@ -12,6 +12,8 @@
 #include <string>
 #include "GenericTreeNode.h"
 #include "ParallelGravity.decl.h"
+#include "CkLoopAPI.h"
+
 
 #if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
 #include "ckBIconfig.h"
@@ -50,6 +52,8 @@ struct PendingBuffers {
 };
 
 #endif
+
+
 
 /** The DataManager is used to store information that all TreePieces will need,
  but will not modify.  The first example is the list of splitter keys and the
@@ -138,8 +142,14 @@ protected:
 	Tree::NodeKey *chunkRoots;
         /// Lookup table for the chunkRoots
         Tree::NodeLookupType chunkRootTable;
+  int tpscountfordd;
+  std::vector<TreePiece*> tpsonpeforacc;
+  double timestart;
+
+
 
 public:
+
 
 	/* 
 	 ** Cooling 
@@ -152,6 +162,7 @@ public:
 	StarLog *starLog;
 	/// @brief Lock for accessing starlog from TreePieces
 	CmiNodeLock lockStarLog;
+  CmiNodeLock dddmnodelock;
 
 	DataManager(const CkArrayID& treePieceID);
 	DataManager(CkMigrateMessage *);
@@ -191,6 +202,7 @@ public:
 	    CoolFinalize(Cool);
 	    delete starLog;
 	    CmiDestroyLock(lockStarLog);
+	    CmiDestroyLock(dddmnodelock);
 	    }
 
 	/// \brief Collect the boundaries of all TreePieces, and
@@ -252,6 +264,10 @@ public:
 			const CkCallback& cb);
     void memoryStats(const CkCallback& cb);
     void resetReadOnly(Parameters param, const CkCallback &cb);
+
+    void clearTpCkDD();
+    void addTpCount();
+    void addTpForAcceptSorted(TreePiece *tp);
 
   public:
   static Tree::GenericTreeNode *pickNodeFromMergeList(int n, GenericTreeNode **gtn, int &nUnresolved, int &pickedIndex);

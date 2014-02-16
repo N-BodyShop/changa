@@ -306,8 +306,12 @@ mainmodule ParallelGravity {
 
     entry void migrateAndUnshuffle(const CkCallback& cb);
     entry void shuffleAfterQD();
+    entry void shuffleAfterQDRegisterWithCk();
+    entry void shuffleAfterQDSpecificOpt();
     entry void unshuffleParticlesWoDD(const CkCallback& cb);
     entry void acceptSortedParticlesQD(ParticleShuffleMsg *);
+    entry void acceptSortedParticlesFromOther(ParticleShuffleMsg *);
+    entry void doneDDWithCkLoop();
 
     //ORB
     entry void initORBPieces(const CkCallback& cb);

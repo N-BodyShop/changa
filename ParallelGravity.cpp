@@ -1498,20 +1498,31 @@ void Main::advanceBigStep(int iStep) {
     //bDoDD = false;
 
     startTime = CkWallTimer();
+    if (activeRung == 1) {
+      bDoDD = false;
+    }
     if (bDoDD) {
     sorter.startSorting(dataManagerID, ddTolerance,
                         CkCallbackResumeThread(), bDoDD);
-    } else if((iStep + ((double) currentStep)/MAXSUBSTEPS) == 1016.375) {
+    } 
+   // else if((iStep + ((double) currentStep)/MAXSUBSTEPS) == 1016.50) {
+   //   //treeProxy.unshuffleParticlesWoDD(CkCallbackResumeThread());
+   //   CkPrintf("Doing DD with migrateAndUnshuffle\n");
+   //   treeProxy.migrateAndUnshuffle(CkCallbackResumeThread());
+   // } 
+    else {
       //treeProxy.unshuffleParticlesWoDD(CkCallbackResumeThread());
       treeProxy.migrateAndUnshuffle(CkCallbackResumeThread());
-    } else {
-      treeProxy.unshuffleParticlesWoDD(CkCallbackResumeThread());
+      CkPrintf("Doing DD with migrateAndUnshuffle\n");
     }
     /*
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
           */
     CkPrintf("DD ending at %g took total %g ................\n", CkWallTimer(), CkWallTimer()-startTime);
+#ifdef SELECTIVE_TRACING
+        turnProjectionsOff();
+#endif
 
     if(verbosity && !bDoDD)
 	CkPrintf("Skipped DD\n");
@@ -3142,7 +3153,7 @@ void Main::liveVizImagePrep(liveVizRequestMsg *msg)
 void Main::turnProjectionsOn(int activeRung){
 
     traceIteration++;
-    if (traceIteration == 7) {
+    if (traceIteration == 9) {
         prjgrp.on(CkCallbackResumeThread());
         projectionsOn = true;
     }

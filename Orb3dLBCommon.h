@@ -15,6 +15,24 @@
 #include "CentralLB.h"
 #define  ORB3DLB_NOTOPO_DEBUG
 // #define  ORB3DLB_NOTOPO_DEBUG CkPrintf
+//#define DO_REFINE 1
+
+class PeInfo {
+  public:
+  int idx;
+  double load;
+  double items;
+  PeInfo(int id, double ld, int it) : idx(id), load(ld), items(it) {}
+};
+
+class ProcLdGreater {
+  public:
+  bool operator()(PeInfo& p1, PeInfo& p2) {
+    // TODO: either do based on load of number of tps
+    return (p1.load > p2.load);
+    //return (p1.items > p2.items);
+  }
+};
 class Orb3dCommon{
   public:
     //int* existing_tps_on_pe;
@@ -37,6 +55,50 @@ class Orb3dCommon{
 
     int procStride;
 
+    void orbPePartition(vector<Event> *events, vector<OrbObject> &tp, int nproc, BaseLB::LDStats *stats) {
+      //CkPrintf("[%d] OrbPePartition\n", nproc);
+
+      std::vector<PeInfo> peinfo;
+      float totalLoad = 0.0;
+      int firstProc = CkNodeFirst(nproc);
+      int lastProc = firstProc + CkNodeSize(nproc) - 1;
+      for (int i = firstProc; i <= lastProc; i++) {
+        peinfo.push_back(PeInfo(i, 0.0, 0));
+      }
+      std::make_heap(peinfo.begin(), peinfo.end(), ProcLdGreater());
+
+      int nextProc;
+      for(int i = 0; i < events[XDIM].size(); i++){
+        Event &ev = events[XDIM][i];
+        OrbObject &orb = tp[ev.owner];
+
+        PeInfo p = peinfo.front();
+        pop_heap(peinfo.begin(), peinfo.end(), ProcLdGreater());
+        peinfo.pop_back();
+
+        nextProc = p.idx;
+
+        if(orb.numParticles > 0){
+          (*mapping)[orb.lbindex] = nextProc;
+          procload[nextProc] += ev.load;
+          p.load += ev.load;
+          p.items += 1;
+          totalLoad += ev.load;
+        } else{
+          int fromPE = (*from)[orb.lbindex];
+          procload[fromPE] += ev.load;
+        }
+
+        peinfo.push_back(p);
+        push_heap(peinfo.begin(), peinfo.end(), ProcLdGreater());
+      }
+      if (events[XDIM].size() > 200) {
+        CkPrintf("[%d] Node has %d events total load %f to accomodate pe starting from %d\n",
+            nproc, events[XDIM].size(), totalLoad, CkNodeFirst(nproc));
+      }
+
+
+    }
 
     void orbPartition(vector<Event> *events, OrientedBox<float> &box, int nprocs, vector<OrbObject> & tp, BaseLB::LDStats *stats){
 
@@ -60,30 +122,33 @@ class Orb3dCommon{
           nextProc += procStride;
           return;
         }
-        // direct assignment of tree pieces to processors
-        //if(numEvents > 0) CkAssert(nprocs != 0);
-        float totalLoad = 0.0;
-        int totalPart = 0;
-        for(int i = 0; i < events[XDIM].size(); i++){
-          Event &ev = events[XDIM][i];
-          OrbObject &orb = tp[ev.owner];
-          if(orb.numParticles > 0){
-            (*mapping)[orb.lbindex] = nextProc;
-            totalLoad += ev.load;
-            totalPart += orb.numParticles;
-          }
-          else{
-            int fromPE = (*from)[orb.lbindex];
-            if (fromPE < 0 || fromPE >= procload.size()) {
-              CkPrintf("[%d] trying to access fromPe %d nprocs %d\n", CkMyPe(), fromPE, procload.size());
-              CkAbort("Trying to access a PE which is outside the range\n");
-            }
-            procload[fromPE] += ev.load;
-            procpart[fromPE] += orb.numParticles;
-          }
-        }
-        procload[nextProc] += totalLoad;
-        procpart[nextProc] += totalPart;
+
+        orbPePartition(events, tp, nextProc, stats);
+
+//        // direct assignment of tree pieces to processors
+//        //if(numEvents > 0) CkAssert(nprocs != 0);
+//        float totalLoad = 0.0;
+//        int totalPart = 0;
+//        for(int i = 0; i < events[XDIM].size(); i++){
+//          Event &ev = events[XDIM][i];
+//          OrbObject &orb = tp[ev.owner];
+//          if(orb.numParticles > 0){
+//            (*mapping)[orb.lbindex] = nextProc;
+//            totalLoad += ev.load;
+//            totalPart += orb.numParticles;
+//          }
+//          else{
+//            int fromPE = (*from)[orb.lbindex];
+//            if (fromPE < 0 || fromPE >= procload.size()) {
+//              CkPrintf("[%d] trying to access fromPe %d nprocs %d\n", CkMyPe(), fromPE, procload.size());
+//              CkAbort("Trying to access a PE which is outside the range\n");
+//            }
+//            procload[fromPE] += ev.load;
+//            procpart[fromPE] += orb.numParticles;
+//          }
+//        }
+//        procload[nextProc] += totalLoad;
+//        procpart[nextProc] += totalPart;
 
         if(numEvents > 0) nextProc += procStride;
         return;
@@ -256,7 +321,6 @@ class Orb3dCommon{
     }
 
     void orbPrepare(vector<Event> *tpEvents, OrientedBox<float> &box, int numobjs, BaseLB::LDStats * stats){
-      dMaxBalance = 10.0;
 
       int nmig = stats->n_objs;
       procStride = 1;
@@ -265,7 +329,11 @@ class Orb3dCommon{
       //}
       if(dMaxBalance < 1.0)
         dMaxBalance = 1.0;
-      maxPieceProc = dMaxBalance*nmig/stats->count;
+
+      dMaxBalance = 3;
+      //maxPieceProc = dMaxBalance*nmig/stats->count;
+      maxPieceProc = dMaxBalance*nmig/CkNumNodes();
+
       CkPrintf("OrbPrepare> dMaxBalance %f maxPieceProc %f\n", dMaxBalance, maxPieceProc);
       if(maxPieceProc < 1.0)
         maxPieceProc = 1.01;
@@ -320,7 +388,7 @@ class Orb3dCommon{
       int numRefineMigrated = 0;
 #ifdef DO_REFINE
       CkPrintf("[orb3dlb_notopo] refine\n");
-      Refiner refiner(1.050);
+      Refiner refiner(1.200);
       refiner.Refine(stats->count,stats,from_procs,to_procs);
 
       for(int i = 0; i < numobjs; i++){

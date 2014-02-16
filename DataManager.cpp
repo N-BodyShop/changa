@@ -25,6 +25,25 @@ void hapi_clearInstrument();
 
 void printTreeGraphViz(GenericTreeNode *node, ostream &out, const string &name);
 
+void tpParForAccDM(int start, int end, void *result, int pnum, void * param) {
+  std::vector<TreePiece*> *tps = (std::vector<TreePiece*> *) param;
+
+  for (int i = start; i <= end; i++) {
+    (*tps)[i]->shuffleAfterQDSpecificOpt();
+    //if ((*tps)[i]->myPeIs() == 24645) {
+   // if ((*tps)[i]->myPeIs() != CkMyPe()) {
+   //   CkPrintf("[%d] DataManager I am from %d but running on %d\n", (*tps)[i]->thisIndex,
+   //       (*tps)[i]->myPeIs(), CkMyPe());
+   // }
+  }
+  //if (CkMyPe() == 0 || (CkMyPe() >= 24645 && CkMyPe() < 24676)) {
+    if (CkMyNode() == 863) {
+      CkPrintf("[%d] ^^^^ Running %d TPs on PE %d ^^^^\n",CkMyNode(),
+      (end-start+1), CkMyPe());
+    }
+  //}
+}
+
 DataManager::DataManager(const CkArrayID& treePieceID) {
   init();
   treePieces = CProxy_TreePiece(treePieceID);
@@ -55,6 +74,8 @@ void DataManager::init() {
   Cool = CoolInit();
   starLog = new StarLog();
   lockStarLog = CmiCreateLock();
+  dddmnodelock = CmiCreateLock();
+  tpscountfordd = 0;
 }
 
 /**
@@ -1084,5 +1105,49 @@ void DataManager::clearInstrument(CkCallback &cb){
   contribute(cb);
 #endif
 }
+
+void DataManager::clearTpCkDD() {
+  CmiLock(dddmnodelock);
+  tpsonpeforacc.clear();
+  tpscountfordd = 0;
+  CmiUnlock(dddmnodelock);
+}
+
+void DataManager::addTpCount() {
+  CmiLock(dddmnodelock);
+  tpscountfordd++;
+  CmiUnlock(dddmnodelock);
+}
+
+
+
+void DataManager::addTpForAcceptSorted(TreePiece *tp) {
+  CmiLock(dddmnodelock);
+  if (tpsonpeforacc.size() == 0) {
+    timestart = CkWallTimer();
+  }
+  //CkPrintf("[%d] Inserted myself to DataManager\n", tp->thisIndex);
+  tpsonpeforacc.push_back(tp);
+  //if (CkMyNode() == 0) {
+  //  CkPrintf("[%d] Inserted TP %d into vector tpcount exp %d and current size %d\n", CkMyNode(), tp->thisIndex, tpscountfordd, tpsonpeforacc.size()); 
+  //}
+  //tpsonpeforacc.clear();
+  
+  if (tpsonpeforacc.size() == tpscountfordd) {
+    // CkLoopstuff
+    //if (CkMyPe() == 0) {
+    //if (CkMyPe() == 0 || (CkMyPe() >= 24645 && CkMyPe() < 24676)) {
+    //  CkPrintf("**Inside DataManager Time to do CkLoop count %d on PE %d******\n",
+    //      tpscountfordd, CkMyPe());
+    //}
+    double endtime = CkWallTimer();
+    if (CkMyNode()%8 == 0) {
+      CkPrintf("[%d] time taken in before starting loop %f\n", CkMyNode(), endtime - timestart);
+    }
+    CkLoop_Parallelize(tpParForAccDM, 1, &tpsonpeforacc, 31, 0, tpsonpeforacc.size()-1, 1, NULL, CKLOOP_NONE);
+    }
+
+    CmiUnlock(dddmnodelock);
+  }
 
 

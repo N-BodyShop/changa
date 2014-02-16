@@ -66,7 +66,11 @@ private:
   double my_load_after_lb;
 
   int tpscount;
+  int tpsregisteredfordd;
+  int tpsregisteredforacc;
+  double timestart;
   std::vector<TreePiece*> tpsonpe;
+  std::vector<TreePiece*> tpsonpeforacc;
 
 //  int* existing_tps_on_pe;
 
@@ -106,6 +110,7 @@ public:
   void addToPeLoad(double tpload);
   void addTpCount();
   void addTpForDD(TreePiece* tp);
+  void addTpForAcceptSorted(TreePiece* tp);
   void clearPeLoad();
 
 public:/* <- Sun CC demands Partition be public for ComputeLoad to access it. */
