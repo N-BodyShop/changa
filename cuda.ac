@@ -1,12 +1,13 @@
 # ----------------------------------------------------------------
 # CUDA support
 #
-# Here we define and process a `--with-cuda[=PREFIX]` option.  By default CUDA
-# support is disabled: no automatic search for for the nVidia CUDA toolkit is
-# done.
+# Here we define and process several `--with-cuda`-prefixed `configure`
+# options.  By default CUDA support is disabled: no automatic search for for
+# the nVidia CUDA toolkit or SDK is done, and ENABLE_CUDA is set to "no".
 #
-# If the option is given without an argument or with an argument of "yes", we
-# search for CUDA in the following locations:
+# The option `--with-cuda` can be used to specify the location of nVidia's CUDA
+# toolkit; if the option is given without an argument or with an argument of
+# "yes", we search for the CUDA toolkit in the following locations:
 #
 #   /usr/local/cuda			standard CUDA install directory
 #
@@ -30,6 +31,9 @@
 #   * HAVE_CUDA_SDK: set to "yes"
 #   * CUDA_SDK_DIR: set to the path given as an argument to `--with-cuda-sdk`.
 #
+# Note that `ENABLE_CUDA` and all `HAVE_*` variables that are set to "no"
+# (which is the default) by configure are set to the empty string prior to
+# substitution into cuda.mk[.in].
 #
 # There are some arguments to AC_MSG_* with ugly formatting here; the formatting
 # is intentional (it produces nice, readable output in the generated `configure`
