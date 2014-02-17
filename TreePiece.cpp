@@ -5030,8 +5030,6 @@ void TreePiece::outputStatistics(const CkCallback& cb) {
 
 /// @TODO Fix pup routine to handle correctly the tree
 void TreePiece::pup(PUP::er& p) {
-    if(p.isPacking() || p.isUnpacking())
-    {
   CBase_TreePiece::pup(p);
 
   p | treePieceLoad; 
@@ -5172,7 +5170,6 @@ void TreePiece::pup(PUP::er& p) {
   }
     }
 
-  }
 
 void TreePiece::fillNodeLookupTable(Tree::BinaryTreeNode *node) {
     //CkPrintf("-----fill key %lx \n", node->getKey()); 
