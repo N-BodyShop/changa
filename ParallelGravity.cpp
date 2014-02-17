@@ -73,7 +73,7 @@ CProxy_DumpFrameData dfDataProxy;
 CProxy_PETreeMerger peTreeMergerProxy;
 
 
-
+#define USE_MIRROR  1
 
 bool _cache;
 int _nocache;
@@ -1076,10 +1076,14 @@ Main::Main(CkArgMsg* m) {
 	}
 #endif
 
+#if USE_MIRROR
     opts.setMirror(true);
+#endif
     treeProxy = CProxy_TreePiece::ckNew(opts);
 
+#if USE_MIRROR
     opts.setMirror(false);
+#endif
         prjgrp = CProxy_ProjectionsControl::ckNew();
 
 #ifdef REDUCTION_HELPER
@@ -1557,7 +1561,9 @@ void Main::advanceBigStep(int iStep) {
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
     CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+#if USE_MIRROR
     treeProxy.syncMirror(CkCallbackResumeThread());
+#endif
     CkCallback cbGravity(CkCallback::resumeThread);
 
     if(verbosity > 1)
@@ -2127,7 +2133,9 @@ Main::initialForces()
         << endl;
 #endif
       
+#if USE_MIRROR
   treeProxy.syncMirror(CkCallbackResumeThread());
+#endif
 
   CkCallback cbGravity(CkCallback::resumeThread);  // needed below to wait for gravity
 
