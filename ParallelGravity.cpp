@@ -39,7 +39,8 @@
 #include "Sph.h"
 #include "starform.h"
 #include "feedback.h"
-
+#include "picsautoperfAPI.h"
+#include "picsautoperfAPIC.h"
 #include "PETreeMerger.h"
 
 #ifdef CUDA
@@ -1075,11 +1076,12 @@ Main::Main(CkArgMsg* m) {
 	}
 #endif
 
-	CProxy_TreePiece pieces = CProxy_TreePiece::ckNew(opts);
+    opts.setMirror(true);
+    treeProxy = CProxy_TreePiece::ckNew(opts);
 
+    opts.setMirror(false);
         prjgrp = CProxy_ProjectionsControl::ckNew();
 
-	treeProxy = pieces;
 #ifdef REDUCTION_HELPER
         reductionHelperProxy = CProxy_ReductionHelper::ckNew();
 #endif
@@ -1100,18 +1102,19 @@ Main::Main(CkArgMsg* m) {
 	
 	// create CacheManagers
 	// Gravity particles
-	cacheGravPart = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+	cacheGravPart = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, treeProxy.ckLocMgr()->getGroupID());
 	// Smooth particles
-	cacheSmoothPart = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+	cacheSmoothPart = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, treeProxy.ckLocMgr()->getGroupID());
 	// Nodes
-	cacheNode = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+	cacheNode = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, treeProxy.ckLocMgr()->getGroupID());
 
 	//create the DataManager
-	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
+	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(treeProxy);
 	dataManagerID = dataManager;
         dMProxy = dataManager;
 
-	streamingProxy = pieces;
+	streamingProxy = treeProxy;
+
 
 	//create the Sorter
 	sorter = CProxy_Sorter::ckNew(0);
@@ -1554,7 +1557,7 @@ void Main::advanceBigStep(int iStep) {
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
     CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
-
+    treeProxy.syncMirror(CkCallbackResumeThread());
     CkCallback cbGravity(CkCallback::resumeThread);
 
     if(verbosity > 1)
@@ -2082,6 +2085,7 @@ Main::initialForces()
   sorter.startSorting(dataManagerID, ddTolerance,
 	 	      CkCallbackResumeThread(), true);
   CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
+
   /*
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
@@ -2122,8 +2126,9 @@ Main::initialForces()
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
 #endif
-
       
+  treeProxy.syncMirror(CkCallbackResumeThread());
+
   CkCallback cbGravity(CkCallback::resumeThread);  // needed below to wait for gravity
 
   if(param.bDoGravity) {

@@ -714,6 +714,7 @@ class TreePiece : public CBase_TreePiece {
     particleInterLocal += howmany;
   }
 
+  void fillNodeLookupTable(Tree::BinaryTreeNode *node) ;
   /// Start prefetching the specfied chunk; prefetch compute
   /// calls startRemoteChunk() once chunk prefetch is complete
   void initiatePrefetch(int chunk);
@@ -1354,7 +1355,7 @@ public:
           proxyValid = false;
           proxySet = false;
 
-	  usesAtSync = true;
+      usesAsMirror = true;
 	  //localCache = NULL;
 	  dm = NULL;
 	  bucketReqs = NULL;
@@ -1830,6 +1831,8 @@ public:
 	void printTreeViz(GenericTreeNode* node, std::ostream& os);
 	void printTree(GenericTreeNode* node, std::ostream& os);
 	void pup(PUP::er& p);
+    char* mirrorData(int *size);
+    void unmirrorData(CkMirrorSyncMessage *msg, int size);
 
         // jetley
         // need this in TreeWalk
