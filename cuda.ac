@@ -35,6 +35,15 @@
 # (which is the default) by configure are set to the empty string prior to
 # substitution into cuda.mk[.in].
 #
+# The final option we define is `--with-cuda-level`, which takes a mandatory
+# argument.  This can be used to specify the CUDA compute capability of the
+# target device(s) when the nVidia CUDA compiler is invoked; the argument
+# should be an integer value equal to ten times the documented compute
+# capability for the target device(s).  This one sets the following variable in
+# the generated cuda.mk.
+#
+#   * CUDA_LEVEL: set to the argument give to `--with-cuda-level` (default 10).
+#
 # There are some arguments to AC_MSG_* with ugly formatting here; the formatting
 # is intentional (it produces nice, readable output in the generated `configure`
 # script, and keeps lines under 80 characters in length).
@@ -152,6 +161,11 @@ if test -n "$CUDA_SDK_DIR"; then
     fi
 fi
 
+# Allow setting CUDA compute capability at `configure`-time.
+AC_ARG_WITH([cuda-level],
+        [AS_HELP_STRING([--with-cuda-level=LEVEL],[use CUDA compute capability LEVEL])],
+        [CUDA_LEVEL=$enableval],[CUDA_LEVEL=10])
+
 # Set up boolean AC_SUBST variables for use in Make.
 for var in HAVE_CUDA HAVE_CUDA_SDK ENABLE_CUDA; do
     eval value='$'"$var"
@@ -163,6 +177,7 @@ done
 AC_SUBST([ENABLE_CUDA])
 AC_SUBST([HAVE_CUDA])
 AC_SUBST([HAVE_CUDA_SDK])
+AC_SUBST([CUDA_LEVEL])
 AC_SUBST([CUDA_DIR])
 AC_SUBST([CUDA_SDK_DIR])
 AC_SUBST([NVCC_PATH])

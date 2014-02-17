@@ -639,6 +639,7 @@ ac_includes_default="\
 
 <<<<<<< Upstream, based on master
 <<<<<<< Upstream, based on master
+<<<<<<< Upstream, based on master
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
 OBJECTS_COOLING
@@ -707,6 +708,9 @@ ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION
 =======
 ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS CHARMC CHARM_PATH AR CXX CXXFLAGS LDFLAGS CPPFLAGS ac_ct_CXX EXEEXT OBJEXT CC CFLAGS ac_ct_CC CPP EGREP FLAG_BIGKEYS FLAG_COOLING OBJECTS_COOLING LIBOBJS CUDA_DIR NVCC_PATH CUDA_SDK_DIR ENABLE_CUDA HAVE_CUDA HAVE_CUDA_SDK LTLIBOBJS'
 >>>>>>> 1e7f5f9 cuda.{mk.in,ac},configure,Makefile.in: more CUDA `configure` options, docs
+=======
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS CHARMC CHARM_PATH AR CXX CXXFLAGS LDFLAGS CPPFLAGS ac_ct_CXX EXEEXT OBJEXT CC CFLAGS ac_ct_CC CPP EGREP FLAG_BIGKEYS FLAG_COOLING OBJECTS_COOLING LIBOBJS CUDA_DIR NVCC_PATH CUDA_SDK_DIR ENABLE_CUDA HAVE_CUDA HAVE_CUDA_SDK CUDA_LEVEL LTLIBOBJS'
+>>>>>>> a73a834 cuda.{ac,mk.in}: added a --with-cuda-level option
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
@@ -1423,6 +1427,7 @@ Optional Packages:
   --with-cuda[=PATH]
                           use CUDA (installed in PATH) [no]
   --with-cuda-sdk=PATH    specify the CUDA SDK install directory
+  --with-cuda-level=LEVEL use CUDA compute capability LEVEL
 
 Some influential environment variables:
   CHARMC      "Charm compiler"
@@ -6710,6 +6715,15 @@ ac_config_files="$ac_config_files Makefile ../utility/structures/Makefile"
 # (which is the default) by configure are set to the empty string prior to
 # substitution into cuda.mk[.in].
 #
+# The final option we define is `--with-cuda-level`, which takes a mandatory
+# argument.  This can be used to specify the CUDA compute capability of the
+# target device(s) when the nVidia CUDA compiler is invoked; the argument
+# should be an integer value equal to ten times the documented compute
+# capability for the target device(s).  This one sets the following variable in
+# the generated cuda.mk.
+#
+#   * CUDA_LEVEL: set to the argument give to `--with-cuda-level` (default 10).
+#
 # There are some arguments to AC_MSG_* with ugly formatting here; the formatting
 # is intentional (it produces nice, readable output in the generated `configure`
 # script, and keeps lines under 80 characters in length).
@@ -6901,6 +6915,16 @@ echo "$as_me: error: specified CUDA SDK directory not found." >&2;}
     fi
 fi
 
+# Allow setting CUDA compute capability at `configure`-time.
+
+# Check whether --with-cuda-level or --without-cuda-level was given.
+if test "${with_cuda_level+set}" = set; then
+  withval="$with_cuda_level"
+  CUDA_LEVEL=$enableval
+else
+  CUDA_LEVEL=10
+fi;
+
 # Set up boolean AC_SUBST variables for use in Make.
 for var in HAVE_CUDA HAVE_CUDA_SDK ENABLE_CUDA; do
     eval value='$'"$var"
@@ -6908,6 +6932,7 @@ for var in HAVE_CUDA HAVE_CUDA_SDK ENABLE_CUDA; do
         eval "$var=''"
     fi
 done
+
 
 
 
@@ -7658,6 +7683,7 @@ s,@CUDA_SDK_DIR@,$CUDA_SDK_DIR,;t t
 s,@ENABLE_CUDA@,$ENABLE_CUDA,;t t
 s,@HAVE_CUDA@,$HAVE_CUDA,;t t
 s,@HAVE_CUDA_SDK@,$HAVE_CUDA_SDK,;t t
+s,@CUDA_LEVEL@,$CUDA_LEVEL,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t
 CEOF
 
