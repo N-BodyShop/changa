@@ -54,9 +54,6 @@ void kernelSelect(workRequest *wr) {
 #include "ckmulticast.h"
 #endif
 
-
-static const int PAD_reply = sizeof(NodeKey);  // Assume this is bigger
-
 using namespace std;
 using namespace SFC;
 using namespace TreeStuff;
@@ -5030,8 +5027,6 @@ void TreePiece::outputStatistics(const CkCallback& cb) {
 
 /// @TODO Fix pup routine to handle correctly the tree
 void TreePiece::pup(PUP::er& p) {
-    if(p.isPacking() || p.isUnpacking())
-    {
   CBase_TreePiece::pup(p);
 
   p | treePieceLoad; 
@@ -5170,57 +5165,7 @@ void TreePiece::pup(PUP::er& p) {
       ckout << endl;
       }
   }
-    }
-
-  }
-
-void TreePiece::fillNodeLookupTable(Tree::BinaryTreeNode *node) {
-    //CkPrintf("-----fill key %lx \n", node->getKey()); 
-    NodeLookupType::iterator iter = nodeLookupTable.find(node->getKey());
-    if (iter == nodeLookupTable.end()) {
-        nodeLookupTable[node->getKey()] = node;
-    }
-    if (node->children[0] != NULL) {
-        fillNodeLookupTable(node->children[0]);
-    }
-    if (node->children[1] != NULL) {
-        fillNodeLookupTable(node->children[1]);
-    }
 }
-
-char* TreePiece::mirrorData(int *size)
-{
-    char *buffer = NULL;
-    if (root == NULL) {
-        *size = 0;
-        return buffer;
-    }
-    //int max_depth = _cacheLineDepth; 
-    int max_depth = 128;
-    int extraSpace = PAD_reply;
-    int count = ((Tree::BinaryTreeNode*)root)->countDepth(max_depth);
-    int totalsize = count * (ALIGN_DEFAULT(sizeof(Tree::BinaryTreeNode)+extraSpace)); 
-    buffer= new char[totalsize];
-    memset(buffer, 0, totalsize);
-    ((Tree::BinaryTreeNode*)root)->packNodes((Tree::BinaryTreeNode*)(buffer),  max_depth, extraSpace); 
-    *size =  totalsize;
-    return buffer; 
-}
-
-void TreePiece::unmirrorData(CkMirrorSyncMessage *msg, int size)
-{
-
-    if(root != NULL)
-    {
-       delete (CkMirrorSyncMessage*)((char*)root - sizeof(CkMirrorSyncMessage)); 
-    }
-    root = (GenericTreeNode*) (msg->packData);
-    Tree::BinaryTreeNode *node = (Tree::BinaryTreeNode *) (msg->packData);
-    node->unpackNodes();
-    nodeLookupTable.clear();
-    fillNodeLookupTable(node);
-}
-
 
 void TreePiece::reconstructNodeLookup(GenericTreeNode *node) {
   nodeLookupTable[node->getKey()] = node;
