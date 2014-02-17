@@ -10,6 +10,10 @@ HAVE_CUDA_SDK=@HAVE_CUDA_SDK@
 ENABLE_CUDA=@ENABLE_CUDA@
 
 ifneq (,$(HAVE_CUDA))
+ # CUDA compute-capability to use (times ten, to match NVCC's integer-valued
+ # `-code=` and `-arch=` options).
+ CUDA_LEVEL=@CUDA_LEVEL@
+
  # CUDA toolkit install directory
  CUDA_DIR = @CUDA_DIR@
 
