@@ -80,7 +80,7 @@ const char *typeString(NodeType type);
  */
 void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
 					  // each direction
-			    Vector3D<double> fPeriodPar, // Size of periodic box
+			    Vector3D<cosmoType> fPeriodPar, // Size of periodic box
 			    int bEwaldPar,     // Use Ewald summation
 			    double fEwCutPar,  // Cutoff on real summation
 			    double dEwhCutPar, // Cutoff on Fourier summation
@@ -3389,7 +3389,7 @@ void TreePiece::calculateForceLocalBucket(int bucketIndex){
 #endif
 #ifdef CELL_NODE
           nodesData[indexNodes] = tmp.node->moments;
-          Vector3D<double> tmpoffsetID = decodeOffset(tmp.offsetID);
+          Vector3D<cosmoType> tmpoffsetID = decodeOffset(tmp.offsetID);
           nodesData[indexNodes].cm += tmpoffsetID;
           indexNodes++;
           if (indexNodes == nodesPerRequest) {
@@ -4710,7 +4710,7 @@ const GravityParticle *TreePiece::lookupParticles(int begin) {
 // @param reqID request ID which encodes bucket to be worked on and
 // a replica offset if we are using periodic boundary conditions
 void TreePiece::walkBucketTree(GenericTreeNode* node, int reqID) {
-    Vector3D<double> offset = decodeOffset(reqID);
+    Vector3D<cosmoType> offset = decodeOffset(reqID);
     int reqIDlist = decodeReqID(reqID);
 #if COSMO_STATS > 0
   myNumMACChecks++;
@@ -5297,7 +5297,7 @@ void TreePiece::printTree(GenericTreeNode* node, ostream& os) {
   }
 #ifndef HEXADECAPOLE
   if (node->getType() == Bucket || node->getType() == Internal || node->getType() == Boundary || node->getType() == NonLocal || node->getType() == NonLocalBucket)
-    os << " V "<<node->moments.radius<<" "<<node->moments.soft<<" "<<node->moments.cm.x<<" "<<node->moments.cm.y<<" "<<node->moments.cm.z<<" "<<node->moments.xx<<" "<<node->moments.xy<<" "<<node->moments.xz<<" "<<node->moments.yy<<" "<<node->moments.yz<<" "<<node->moments.zz<<" "<<node->boundingBox;
+    os << " V "<<node->moments.soft<<" "<<node->moments.cm.x<<" "<<node->moments.cm.y<<" "<<node->moments.cm.z<<" "<<node->moments.xx<<" "<<node->moments.xy<<" "<<node->moments.xz<<" "<<node->moments.yy<<" "<<node->moments.yz<<" "<<node->moments.zz<<" "<<node->boundingBox;
 #endif
   os << "\n";
 
@@ -5441,7 +5441,7 @@ void printGenericTree(GenericTreeNode* node, ostream& os) {
   }
 #ifndef HEXADECAPOLE
   if (node->getType() == Bucket || node->getType() == Internal || node->getType() == Boundary || node->getType() == NonLocal || node->getType() == NonLocalBucket)
-    os << " V "<<node->moments.radius<<" "<<node->moments.soft<<" "<<node->moments.cm.x<<" "<<node->moments.cm.y<<" "<<node->moments.cm.z<<" "<<node->moments.xx<<" "<<node->moments.xy<<" "<<node->moments.xz<<" "<<node->moments.yy<<" "<<node->moments.yz<<" "<<node->moments.zz;
+    os << " V "<<node->moments.soft<<" "<<node->moments.cm.x<<" "<<node->moments.cm.y<<" "<<node->moments.cm.z<<" "<<node->moments.xx<<" "<<node->moments.xy<<" "<<node->moments.xz<<" "<<node->moments.yy<<" "<<node->moments.yz<<" "<<node->moments.zz;
 #endif
 
   os << "\n";
@@ -5506,7 +5506,7 @@ ExternalGravityParticle *TreePiece::particlesMissed(Tree::NodeKey &key, int chun
 // It sets up a tree walk starting at node and initiates it
 void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source){
   int targetBucket = decodeReqID(reqID);
-  Vector3D<double> offset = decodeOffset(reqID);
+  Vector3D<cosmoType> offset = decodeOffset(reqID);
 
   TreeWalk *tw;
   Compute *compute;

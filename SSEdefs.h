@@ -1,15 +1,9 @@
 #ifndef __SSEDEFS_H__
 #define __SSEDEFS_H__
 
-#ifdef COSMO_FLOAT
-#define CONVERT_TO_COSMO_TYPE (float)  
-typedef float cosmoType;
-#define COSMO_CONST(val) val##f
-#else
-#define CONVERT_TO_COSMO_TYPE
-typedef double cosmoType; 
-#define COSMO_CONST(val) val 
-#endif
+#include "cosmoType.h"
+
+#define SSE_COSMO_FLOAT
 
 #if  CMK_USE_FMA4
 #if !defined(__FMA4__)
@@ -67,6 +61,7 @@ typedef SSEFloat SSEcosmoType;
   arr[idx+2]field = p[2]; \
   arr[idx+3]field = p[3]; \
 }
+ 
 enum { cosmoMask=0xf };
 
 #else

@@ -1270,7 +1270,7 @@ void dfRenderParticle( struct inDumpFrame *in, void *vImage,
      position must be three contiguous memory locations
 */
 void dfRenderParticlesInit( struct inDumpFrame *in, int iTypeGas, int iTypeDark, int iTypeStar,
-							double *pr, double *pfMass, double *pfSoft, double *pfBall2, unsigned int *piActive, double *pfTimeForm,
+			    cosmoType *pr, cosmoType *pfMass, cosmoType *pfSoft, double *pfBall2, unsigned int *piActive, double *pfTimeForm,
 						   void *p, int sizeofp )
 {
 	in->offsetp_r = ((char *) pr)-((char *) p);
