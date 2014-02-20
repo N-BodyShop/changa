@@ -739,23 +739,55 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
       fclose(fp);
       }
 }
+class PeLdLesser {
+  private:
+  double* s;
+  public:
+  PeLdLesser(double* stats) {
+    s = stats;
+  }
+
+  bool operator()(int l, int r) {
+    return (s[l] < s[r]);
+  }
+};
+
+
+class PeLdGreater {
+  private:
+  double* s;
+  public:
+  PeLdGreater(double* stats) {
+    s = stats;
+  }
+
+  bool operator()(int l, int r) {
+    return (s[l] < s[r]);
+  }
+};
 
 void MultistepLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
+  
   double* counts = new double[stats->count];
   memset(counts, 0.0, stats->count * sizeof(double));
   double totalld = 0.0;
+  vector<vector<int> > objpemap;
+  objpemap.resize(stats->count);
+  
   for (int i = 0; i < stats->n_objs; i++) {
     counts[stats->to_proc[i]] += stats->objData[i].wallTime;
     totalld += stats->objData[i].wallTime;
+    objpemap[stats->to_proc[i]].push_back(i);
   }
   double avgldperpe = totalld / stats->count;
   vector<int> unldpes;
   vector<int> ovldpes;
+  double th = 1.2;
   
   int maxcountoftps = 0;
   int pewithmax = -1;
   for (int i = (stats->count-1); i >= 0; i--) {
-    if (counts[i] > 1.5*avgldperpe) {
+    if (counts[i] > th*avgldperpe) {
       ovldpes.push_back(i);
     } else if (counts[i] < (0.7*avgldperpe)) {
       unldpes.push_back(i);
@@ -764,31 +796,88 @@ void MultistepLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
    //   maxcountoftps = counts[i];
    //   pewithmax = i;
    // }
+  } 
+  if (ovldpes.size() == 0 || unldpes.size() == 0) {
+    CkPrintf("No underloaded or overloaded PE\n");
+    return;
   }
+  // make a max heap
+  make_heap(ovldpes.begin(), ovldpes.end(), PeLdGreater(counts));
+  sort(unldpes.begin(), unldpes.end(), PeLdLesser(counts));
+
   //CkPrintf("[%d] Maxpewithtps %d thresholds %d and %d\n", pewithmax, maxcountoftps, threshold1, threshold2);
   int undcount = 0;
+  CkPrintf("[%d] is the maxLoadedPe with ld %f ovlded %d unldpes %d\n", ovldpes.front(), counts[ovldpes.front()], ovldpes.size(), unldpes.size());
+  CkPrintf("[%d] is the minLoadedPe with ld %f\n", unldpes.front(), counts[unldpes.front()]);
 
   int* tmpcounts = new int[stats->count];
   memcpy(tmpcounts, counts, stats->count * sizeof(int));
+ 
+  while (undcount < unldpes.size() && ovldpes.size() > 0) {
+    int ovlpe = ovldpes.front();
+    pop_heap(ovldpes.begin(), ovldpes.end(), PeLdGreater(counts));
+    ovldpes.pop_back();
+    bool succ = false;
+    //for (int i = stats->n_objs-1; i >=0 ; i--) {
+    for (int k = 0; k < objpemap[ovlpe].size() ; k++) {
+      int i = objpemap[ovlpe][k];
+      if (undcount > unldpes.size()) {
+        break;
+      }
+      int to_proc = stats->to_proc[i];
+      int n_proc = -1;
+      if (to_proc != ovlpe || !stats->objData[i].migratable) {
+        continue;
+      }
+      if (stats->objData[i].wallTime < 0.6) {
+        continue;
+      }
 
-  for (int i = stats->n_objs-1; i >=0 ; i--) {
-    if (undcount > unldpes.size()) {
-      break;
-    }
-    int to_proc = stats->to_proc[i];
-    int n_proc = -1;
-   // if (counts[to_proc] > 70) {
-   //   CkPrintf("TP %d is on big proc %d ismigr? %d ld %f\n", i, to_proc,
-   //   stats->objData[i].migratable, stats->objData[i].wallTime);
-   // }
-    if (counts[to_proc] > 1.5*avgldperpe  && stats->objData[i].wallTime > 1.0) {
       n_proc = unldpes[undcount];
+      if ((counts[n_proc] + stats->objData[i].wallTime) >=
+        (counts[to_proc]-stats->objData[i].wallTime)) {
+        if(step() == 8) {
+          CkPrintf("Could not transfer to undloaded pe ld %f obj %f\n",
+          counts[n_proc], stats->objData[i].wallTime);
+        }
+        continue;
+      }
       stats->to_proc[i] = n_proc;
       counts[to_proc] = counts[to_proc] - stats->objData[i].wallTime;
       counts[n_proc] = counts[n_proc] + stats->objData[i].wallTime;
       if (counts[n_proc] > 0.8*avgldperpe) {
         undcount++;
       }
+      if (counts[to_proc] > th*avgldperpe) {
+        ovldpes.push_back(ovlpe);
+        push_heap(ovldpes.begin(), ovldpes.end(), PeLdGreater(counts));
+      }
+      succ = true;
+      if(step() == 8) {
+        CkPrintf("transfered to undloaded pe ld %f obj %f new ld for PE %d %f\n",
+            counts[n_proc], stats->objData[i].wallTime, to_proc, counts[to_proc]);
+      }
+      sort(unldpes.begin(), unldpes.end(), PeLdLesser(counts));
+      break;
+
+      // if (counts[to_proc] > 70) {
+      //   CkPrintf("TP %d is on big proc %d ismigr? %d ld %f\n", i, to_proc,
+      //   stats->objData[i].migratable, stats->objData[i].wallTime);
+      // }
+     // if (counts[to_proc] > 1.5*avgldperpe  && stats->objData[i].wallTime > 1.0) {
+     //   n_proc = unldpes[undcount];
+     //   stats->to_proc[i] = n_proc;
+     //   counts[to_proc] = counts[to_proc] - stats->objData[i].wallTime;
+     //   counts[n_proc] = counts[n_proc] + stats->objData[i].wallTime;
+     //   if (counts[n_proc] > 0.8*avgldperpe) {
+     //     undcount++;
+     //   }
+     // }
+    }
+    if (!succ && step()==8) {
+
+      CkPrintf("Couldn't find any obj to migrate from %d pe with ld %f\n",
+      ovlpe, counts[ovlpe]);
     }
   }
 
@@ -801,6 +890,7 @@ void MultistepLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
 //    }
 //  }
 //  CkPrintf("[%d] Afterwards Maxpewithtps %d previously %d\n", pewithmax, maxcountoftps, tmpcounts[pewithmax]);
+  CkPrintf("[%d] Afterwards is the maxLoadedPe with ld %f\n", ovldpes.front(), counts[ovldpes.front()]);
   delete[] counts;
   delete[] tmpcounts;
 }
@@ -927,7 +1017,7 @@ void MultistepLB_notopo::addTpForDD(TreePiece *tp) {
 //    timestart = CkWallTimer();
 //  }
   tpsregisteredfordd++;
-  if (tpsregisteredfordd <= 10) {
+  if (tpsregisteredfordd <= 5) {
     tp->unshuffleParticlesWoDDCb();
     return;
   }
@@ -956,7 +1046,7 @@ void MultistepLB_notopo::addTpForAcceptSorted(TreePiece *tp) {
    // }
   }
   tpsregisteredforacc++;
-  if (tpsregisteredforacc <= 10) {
+  if (tpsregisteredforacc <= 5) {
     tp->shuffleAfterQDSpecificOpt();
     return;
   }
