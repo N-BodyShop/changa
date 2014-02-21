@@ -848,7 +848,7 @@ class IGasOrderOutputParams : public OutputIntParams
     IGasOrderOutputParams() {}
     IGasOrderOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
         fileName = _fileName; iBinaryOut = _iBinaryOut;
-        sTipsyExt = "igasord"; sNChilExt = "igasord";
+        sTipsyExt = "igasorder"; sNChilExt = "igasorder";
         dTime = _dTime;
         iType = TYPE_STAR; }
     PUPable_decl(IGasOrderOutputParams);
