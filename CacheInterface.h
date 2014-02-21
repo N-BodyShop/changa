@@ -7,7 +7,7 @@
  *  cache for requesting off processor particle and node data.
  */
 
-#include "CkCache.h"
+#include <CkCache.h>
 #include "config.h"
 #include "gravity.h"
 #include "GenericTreeNode.h"
