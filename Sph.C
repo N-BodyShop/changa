@@ -355,6 +355,7 @@ Main::restartGas()
         }
         else {
             double z = 1.0/csmTime2Exp(param.csm, dTime) - 1.0;
+            dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
             treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
             }
         }
