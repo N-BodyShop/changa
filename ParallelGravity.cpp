@@ -2376,29 +2376,52 @@ Main::doSimulation()
 	  if(printBinaryAcc)
 	      CkAssert(0);
 	  else {
-	      GasDenOutputParams pDenOut(achFile, 0, 0.0);
-	      treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
-	      PresOutputParams pPresOut(achFile, 0, 0.0);
-	      treeProxy[0].outputASCII(pPresOut, param.bParaWrite, CkCallbackResumeThread());
-	      HsmOutputParams pSphHOut(achFile, 0, 0.0);
-	      treeProxy[0].outputASCII(pSphHOut, param.bParaWrite, CkCallbackResumeThread());
-	      DivVOutputParams pDivVOut(achFile, 0, 0.0);
-	      treeProxy[0].outputASCII(pDivVOut, param.bParaWrite, CkCallbackResumeThread());
-	      PDVOutputParams pPDVOut(achFile, 0, 0.0);
-	      treeProxy[0].outputASCII(pPDVOut, param.bParaWrite, CkCallbackResumeThread());
-	      MuMaxOutputParams pMuMaxOut(achFile, 0, 0.0);
-	      treeProxy[0].outputASCII(pMuMaxOut, param.bParaWrite, CkCallbackResumeThread());
-	      BSwOutputParams pBSwOut(achFile, 0, 0.0);
-	      treeProxy[0].outputASCII(pBSwOut, param.bParaWrite, CkCallbackResumeThread());
-	      CsOutputParams pCsOut(achFile, 0, 0.0);
-	      treeProxy[0].outputASCII(pCsOut, param.bParaWrite, CkCallbackResumeThread());
+	      GasDenOutputParams pDenOut(achFile, param.iBinaryOut, 0.0);
+	      PresOutputParams pPresOut(achFile, param.iBinaryOut, 0.0);
+	      HsmOutputParams pSphHOut(achFile, param.iBinaryOut, 0.0);
+	      DivVOutputParams pDivVOut(achFile, param.iBinaryOut, 0.0);
+	      PDVOutputParams pPDVOut(achFile, param.iBinaryOut, 0.0);
+	      MuMaxOutputParams pMuMaxOut(achFile, param.iBinaryOut, 0.0);
+	      BSwOutputParams pBSwOut(achFile, param.iBinaryOut, 0.0);
+	      CsOutputParams pCsOut(achFile, param.iBinaryOut, 0.0);
+              if (param.iBinaryOut) {
+                  treeProxy[0].outputBinary(pPresOut, param.bParaWrite,
+                      CkCallbackResumeThread());
+                  treeProxy[0].outputBinary(pDivVOut, param.bParaWrite,
+                      CkCallbackResumeThread());
+                  treeProxy[0].outputBinary(pPDVOut, param.bParaWrite,
+                      CkCallbackResumeThread());
+                  treeProxy[0].outputBinary(pMuMaxOut, param.bParaWrite,
+                      CkCallbackResumeThread());
+                  treeProxy[0].outputBinary(pBSwOut, param.bParaWrite,
+                      CkCallbackResumeThread());
+                  treeProxy[0].outputBinary(pCsOut, param.bParaWrite,
+                      CkCallbackResumeThread());
 #ifndef COOLING_NONE
-	      if(param.bGasCooling) {
-		  EDotOutputParams pEDotOut(achFile, 0, 0.0);
-		  treeProxy[0].outputASCII(pEDotOut, param.bParaWrite,
-					   CkCallbackResumeThread());
-		  }
+                  if(param.bGasCooling) {
+                      EDotOutputParams pEDotOut(achFile, param.iBinaryOut, 0.0);
+                      treeProxy[0].outputBinary(pEDotOut, param.bParaWrite,
+                          CkCallbackResumeThread());
+                      }
 #endif
+                  }
+              else {
+                  treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
+                  treeProxy[0].outputASCII(pPresOut, param.bParaWrite, CkCallbackResumeThread());
+                  treeProxy[0].outputASCII(pSphHOut, param.bParaWrite, CkCallbackResumeThread());
+                  treeProxy[0].outputASCII(pDivVOut, param.bParaWrite, CkCallbackResumeThread());
+                  treeProxy[0].outputASCII(pPDVOut, param.bParaWrite, CkCallbackResumeThread());
+                  treeProxy[0].outputASCII(pMuMaxOut, param.bParaWrite, CkCallbackResumeThread());
+                  treeProxy[0].outputASCII(pBSwOut, param.bParaWrite, CkCallbackResumeThread());
+                  treeProxy[0].outputASCII(pCsOut, param.bParaWrite, CkCallbackResumeThread());
+#ifndef COOLING_NONE
+                  if(param.bGasCooling) {
+                      EDotOutputParams pEDotOut(achFile, 0, 0.0);
+                      treeProxy[0].outputASCII(pEDotOut, param.bParaWrite,
+					   CkCallbackResumeThread());
+                      }
+#endif
+                  }
 	      }
 	  }
       ckout << "Outputting accelerations  ...";
