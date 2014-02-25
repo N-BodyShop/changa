@@ -1211,8 +1211,6 @@ private:
         }
     }
 
-  GenericTreeNode *get3DIndex();
-
 	/// Recursive call to build the subtree with root "node", level
 	/// specifies the level at which "node" resides inside the tree
 	void buildOctTree(GenericTreeNode* node, int level);
