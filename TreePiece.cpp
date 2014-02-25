@@ -1560,6 +1560,16 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
     contribute(cb);
     }
 
+#ifdef COOLING_MOLECULARH
+void TreePiece::distribLymanWerner(const CkCallback& cb) 
+{
+  /*copied more or less from startOctTreeBuild*/
+  LocalTreeTraversal traversal;
+  LocalLymanWernerDistributor localLymanWernerDistributor(this);
+  traversal.dft(root,&localLymanWernerDistributor,0);
+}
+#endif
+
 /**
  * Adjust timesteps of active particles.
  * @param iKickRung The rung we are on.

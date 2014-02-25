@@ -802,6 +802,7 @@ void TreePiece::updateuDot(int activeRung,
 		    }
 
 #ifdef COOLING_MOLECULARH
+		/*		cp.dLymanWerner = 52.0; for testing CC */
 		double columnL = sqrt(0.25)*p->fBall;
 		CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
 					ExternalHeating, fDensity,

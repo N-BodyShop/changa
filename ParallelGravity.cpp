@@ -342,6 +342,9 @@ Main::Main(CkArgMsg* m) {
 	param.bDoCSound = 0;
 	prmAddParam(prm,"bDoCSound",paramBool,&param.bDoCSound,sizeof(int),
 		    "csound","enable/disable sound speed outputs = -csound");
+	param.bDoStellarLW = 0;
+	prmAddParam(prm,"bDoStellarLW",paramBool,&param.bDoStellarLW,sizeof(int),
+		    "LWout","enable/disable Lyman Werner outputs = -LWout");
 	param.nSmooth = 32;
 	prmAddParam(prm, "nSmooth", paramInt, &param.nSmooth,
 		    sizeof(int),"s", "Number of neighbors for smooth");
@@ -1982,6 +1985,10 @@ void Main::advanceBigStep(int iStep) {
     if(param.bDoExternalGravity)
         externalGravity(activeRung);
 
+#ifdef COOLING_MOLECULARH
+    treeProxy.distribLymanWerner(CkCallbackResumeThread());
+#endif /*COOLING_MOLECULARH*/
+
     if(verbosity > 1)
 	memoryStats();
     if(param.bDoGas) {
@@ -3270,9 +3277,7 @@ void Main::writeOutput(int iStep)
     Cool2OutputParams pCool2Out(achFile, param.iBinaryOut, dOutTime);
 #ifdef COOLING_MOLECULARH
     Cool3OutputParams pCool3Out(achFile, param.iBinaryOut, dOutTime); 
-#ifdef MOLECULARH
-    Cool4OutputParams pCool4Out(string(achFile) + "." + COOL_ARRAY4_EXT);     
-#endif   
+    LWOutputParams pLWOut(achFile, param.iBinaryOut, dOutTime);
 #endif
 #endif
 #ifdef DIFFUSION
@@ -3303,6 +3308,8 @@ void Main::writeOutput(int iStep)
 	    outputBinary(pCool2Out, param.bParaWrite, CkCallbackResumeThread());
 #ifdef COOLING_MOLECULARH
 	    outputBinary(pCool3Out, param.bParaWrite, CkCallbackResumeThread());
+	    if(param.bDoStellarLW)
+                outputBinary(pLWOut, param.bParaWrite, CkCallbackResumeThread());
 #endif
 	    }
 #endif
@@ -3363,7 +3370,10 @@ void Main::writeOutput(int iStep)
 				     CkCallbackResumeThread());
 #ifdef COOLING_MOLECULARH
 	    treeProxy[0].outputASCII(pCool3Out, param.bParaWrite,
-				     CkCallbackResumeThread());	    
+				     CkCallbackResumeThread());
+	    if(param.bDoStellarLW)
+	      treeProxy[0].outputASCII(pLWOut, param.bParaWrite,
+				       CkCallbackResumeThread());  
 #endif
 	    }
 #endif

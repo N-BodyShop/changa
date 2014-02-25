@@ -435,7 +435,7 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
         p->fStarESNrate() /= dDelta;
 
 #ifdef COOLING_MOLECULARH /* Calculates LW radiation from a stellar particle of a given age and mass (assumes Kroupa IMF), CC */
-    p->CoolParticle().dLymanWerner = CalcLWFeedback(&sfEvent, dTime, dDeltaYr);
+    p->dStarLymanWerner() = CalcLWFeedback(&sfEvent, dTime, dDeltaYr);
 #endif
 }
 

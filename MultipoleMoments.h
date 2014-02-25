@@ -19,6 +19,7 @@
 #endif
 
 #include "SSEdefs.h"
+#define TYPE_STAR              (1<<2) //CC
 
 #if CMK_SSE && defined(HEXADECAPOLE) 
 /*
@@ -235,7 +236,9 @@ public:
 		double totalLW1 = totalLW;
 		totalLW += m.totalLW;
 		Vector3D<double> cLW1 = cLW;
-		cLW = (totalLW1*cLW + m.totalLW*m.cLW)/totalLW;
+		if (totalLW != 0) {
+		  cLW = (totalLW1*cLW + m.totalLW*m.cLW)/totalLW;
+		}
 #endif
 #ifdef HEXADECAPOLE
 		Vector3D<cosmoType> dr = cm1 - cm;
@@ -304,10 +307,13 @@ public:
 #ifdef COOLING_MOLECULARH
 		double totalLW1 = totalLW;
 		Vector3D<double> cLW1 = cLW;
-		if (p.isStar()) {
-		    totalLW += p.CoolParticle().dLymanWerner;
-		    cLW = (totalLW1*cLW + p.CoolParticle().dLymanWerner * p.position)/totalLW;		    
+		ParticleType p1 = p;
+		if (TYPETest(&p1, TYPE_STAR)) {
+		  totalLW += p1.dStarLymanWerner();
+		  if (totalLW != 0) {
+		    cLW = (totalLW1*cLW + p1.dStarLymanWerner() * p1.position)/totalLW;
 		  }
+		 }
 #endif
 #ifdef HEXADECAPOLE
 		// XXX this isn't the most efficient way, but it
@@ -322,15 +328,15 @@ public:
 		momMakeFmomr(&momPart, p.mass, radius, dr.x, dr.y, dr.z);
 		momAddFmomr(&mom, &momPart);
 #ifdef COOLING_MOLECULARH
-		if (p.isStar()) {
+		if (TYPETest(&p1, TYPE_STAR)) {
 		    Vector3D<double> drLW = cLW1 - cLW;
 		    momShiftMomr(&mom, drLW.x, drLW.y, drLW.z);
 		    drLW = p.position - cLW;
 		    MOMR momLWPart;
-		    momMakeMomr(&momLWPart, p.CoolParticle().dLymanWerner, drLW.x, drLW.y, drLW.z);
+		    momMakeMomr(&momLWPart, p1.dStarLymanWerner(), drLW.x, drLW.y, drLW.z);
 		    momAddMomr(&momLW, &momLWPart);			
 		  }
-#endif
+#endif /*COOLING_MOLECULARH*/
 #else
 		//add higher order components here
 		Vector3D<double> dr = cm1 - cm;
@@ -350,8 +356,8 @@ public:
 		xy += p.mass*dr[0]*dr[1];
 		xz += p.mass*dr[0]*dr[2];
 		yz += p.mass*dr[1]*dr[2];
-#ifdef COOLING_MOLECULARH
-		if (p->isStar()) {
+#ifdef COOLING_MOLECULARH 
+		if (TYPETest(&p1, TYPE_STAR)) {
 		    Vector3D<double> drLW = cLW1 - cLW;
 
 		    xx += totalLW1*drLW[0]*drLW[0];
@@ -363,12 +369,12 @@ public:
 		    
 		    drLW = p.position - cLW;
 		    
-		    xx += p->CoolParticle().dLymanWerner*drLW[0]*drLW[0];
-		    yy += p->CoolParticle().dLymanWerner*drLW[1]*drLW[1];
-		    zz += p->CoolParticle().dLymanWerner*drLW[2]*drLW[2];
-		    xy += p->CoolParticle().dLymanWerner*drLW[0]*drLW[1];
-		    xz += p->CoolParticle().dLymanWerner*drLW[0]*drLW[2];
-		    yz += p->CoolParticle().dLymanWerner*drLW[1]*drLW[2];
+		    xx += p->dStarLymanWerner()*drLW[0]*drLW[0];
+		    yy += p->dStarLymanWerner()*drLW[1]*drLW[1];
+		    zz += p->dStarLymanWerner()*drLW[2]*drLW[2];
+		    xy += p->dStarLymanWerner()*drLW[0]*drLW[1];
+		    xz += p->dStarLymanWerner()*drLW[0]*drLW[2];
+		    yz += p->dStarLymanWerner()*drLW[1]*drLW[2];
 		  }
 #endif
 #endif

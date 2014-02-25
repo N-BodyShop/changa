@@ -2702,22 +2702,35 @@ void LocalTreePrinter::openFile(){
 }
 
 #ifdef COOLING_MOLECULAR
-const char *typeString(NodeType type);
-bool LocalTreeLWCalc::work(GenericTreeNode *node, int level){
-  CkAssert(node != NULL);
-
-  if(node->getType() == Internal ||
-     node->getType() == Boundary)
+bool LocalLymanWernerDistributor::work(GenericTreeNode *node, int level){
+  if(node->getType() == Empty || node->getType() == CachedEmpty){
+    return DUMP; /*Node is empty*/
+  }
+  if(!(node->iParticleTypes & TYPE_GAS)) {
+    return DUMP; /*no gas particles in the node*/
+	}
+  if(node->getType() == Internal && node->getType() != Bucket){
+    /*The node is not a bucket so continue propagating the radiation down the tree*/
     return true;
-  else 
-    return false;
+  }
+  else if (node->getType() == Internal && node->getType() == Bucket){
+    /*The node is a bucket so assign a Lyman Werner flux to each of the gas particles*/
+    GravityParticle *part = node->particlePointer;
+    for(int i = node->firstParticle; i <= node->lastParticle; i++) {
+      /*      if(TYPETest(&part[i-node->firstParticle],TYPE_GAS)){
+	
+	      }*/
+      return true;
+  }
+  CkAbort("LocalLymanWernerDistributor called a non-local node type");
+  return false;
 }
 
-void LocalTreeLWCalc::doneChildren(GenericTreeNode *node, int level){
-
-  for(int i = 0; i < node->numChildren(); i++){
-    CkAssert(node->getChildren(i) != NULL);
-  }
+void LocalLymanWernerDistributor::doneChildren(GenericTreeNode *node, int level){
+  /*I'm honestly doubtful that anything needs to be done here.  I've added something temporary just to make sure that I'm where I think I am. C*/
+    for(int i = 0; i < node->numChildren(); i++){
+      CkAssert(node->getChildren(i) != NULL);
+    }
 }
 #endif
 
