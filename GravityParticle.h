@@ -201,6 +201,9 @@ class extraStarData
     int64_t _iEaterOrder;	/* iOrder for merging black holes */
     double _dMDot;		/* Accretion rate of black holes */
     double _dDeltaM;		/* Actual Mass Accreted on black holes */
+#ifdef COOLING_MOLECULARH
+    double _dStarLymanWerner;	/* Lyman Werner radiation emmited from star particles */
+#endif
  public:
     inline double& fMetals() {return _fMetals;}
     inline double& fTimeForm() {return _fTimeForm;}
@@ -217,6 +220,9 @@ class extraStarData
     inline int64_t& iEaterOrder() {return _iEaterOrder;}
     inline double& dMDot() {return _dMDot;}
     inline double& dDeltaM() {return _dDeltaM;}
+#ifdef COOLING_MOLECULARH
+    inline double& dStarLymanWerner() {return _dStarLymanWerner;} 
+#endif
     void pup(PUP::er &p) {
 	p | _fMetals;
 	p | _fTimeForm;
@@ -387,6 +393,9 @@ public:
 	inline int64_t& iEaterOrder() { IMASTAR; return (((extraStarData*)extraData)->iEaterOrder());}
 	inline double& dDeltaM() { IMASTAR; return (((extraStarData*)extraData)->dDeltaM());}
 	inline double& dMDot() { IMASTAR; return (((extraStarData*)extraData)->dMDot());}
+#ifdef COOLING_MOLECULARH
+	inline double& dStarLymanWerner() { IMASTAR; return (((extraStarData*)extraData)->dStarLymanWerner());} 
+#endif
 
 // See above debugging macros
 #undef IMAGAS

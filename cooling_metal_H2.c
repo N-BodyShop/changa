@@ -67,6 +67,7 @@
 #endif
 
 #include "cooling.h"
+#include "physconst.h"
 
 /* Integrator constants */
 
@@ -796,8 +797,13 @@ void clRates( COOL *cl, RATE *Rate, double T, double rho, double ZMetal, double 
   Rate->Phot_HeI = cl->R.Rate_Phot_HeI;
   Rate->Phot_HeII = cl->R.Rate_Phot_HeII;
 
-  Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10,Rate_Phot_H2_stellar - 58.9079)*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand;
-  Rate->CorreLength = columnL * cl->dKpcUnit * 3.08568025e21 * cl->dExpand; /* From system units to cm*/
+  /*(1.1d8 j(nu)/s [Abel+ '97, k27]) * (12.87 eV/photon) * (1.6021746e-12 erg/eV) * (4.135668e-15 eV*s [h]) * (4.0*pi sterradians) = 1.1787905e-16 = 10^(-15.928563)*/
+  Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10.0,Rate_Phot_H2_stellar - 58.907861)*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand;
+  if (Rate->Phot_H2 < 1e-100) {
+    Rate->Phot_H2 = 1e-100;
+  }
+  /*  Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10.0,Rate_Phot_H2_stellar - 58.9079)*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand;*/
+  Rate->CorreLength = columnL * cl->dKpcUnit * KPCCM * cl->dExpand; /* From system units to cm*/
   Rate->LymanWernerCode = Rate_Phot_H2_stellar;
   if (cl->bSelfShield) {
       double logen_B;
@@ -864,7 +870,7 @@ void clRates_Table_Lin( COOL *cl, RATE *Rate, double T, double rho, double ZMeta
   Rate->Phot_HeI = cl->R.Rate_Phot_HeI;
   Rate->Phot_HeII = cl->R.Rate_Phot_HeII;
   Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10,Rate_Phot_H2_stellar - 58.9079)*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand; 
-  Rate->CorreLength = columnL * cl->dKpcUnit * 3.08568025e21 * cl->dExpand; /* From system units to cm*/
+  Rate->CorreLength = columnL * cl->dKpcUnit * KPCCM * cl->dExpand; /* From system units to cm*/
   Rate->LymanWernerCode = Rate_Phot_H2_stellar;
   if (cl->bSelfShield) {
       double logen_B;
@@ -953,7 +959,7 @@ void clRates_Table( COOL *cl, RATE *Rate, double T, double rho, double ZMetal, d
   Rate->Phot_HeI = cl->R.Rate_Phot_HeI;
   Rate->Phot_HeII = cl->R.Rate_Phot_HeII;
   Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10,Rate_Phot_H2_stellar - 58.9079)*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand;
-  Rate->CorreLength = columnL * cl->dKpcUnit*3.08568025e21 * cl->dExpand; /* From system units to cm*/
+  Rate->CorreLength = columnL * cl->dKpcUnit*KPCCM * cl->dExpand; /* From system units to cm*/
   Rate->LymanWernerCode = Rate_Phot_H2_stellar;
   if (cl->bSelfShield) {
       double logen_B;
@@ -2575,7 +2581,7 @@ double clfTemp(void *Data, double T)
 {
   clDerivsData *d = Data; 
   d->its++;
-  CLRATES( d->cl, &d->Rate, T, d->rho, d->ZMetal, d->Rate.CorreLength/(d->cl->dKpcUnit * 3.08568025e21 * d->cl->dExpand), d->Rate.LymanWernerCode );
+  CLRATES( d->cl, &d->Rate, T, d->rho, d->ZMetal, d->Rate.CorreLength/(d->cl->dKpcUnit * KPCCM * d->cl->dExpand), d->Rate.LymanWernerCode );
   clRateMetalTable(d->cl, &d->Rate, T, d->rho, d->Y_H, d->ZMetal); 
   clAbunds( d->cl, &d->Y, &d->Rate, d->rho, d->ZMetal);
 
@@ -2598,7 +2604,7 @@ void clTempIteration( clDerivsData *d )
    T = RootFind(clfTemp, d, TA, TB, EPSTEMP*TA );
  } 
  d->its++;
- CLRATES( d->cl, &d->Rate, T, d->rho, d->ZMetal, d->Rate.CorreLength/(d->cl->dKpcUnit * 3.08568025e21 * d->cl->dExpand), d->Rate.LymanWernerCode );
+ CLRATES( d->cl, &d->Rate, T, d->rho, d->ZMetal, d->Rate.CorreLength/(d->cl->dKpcUnit * KPCCM * d->cl->dExpand), d->Rate.LymanWernerCode );
  clRateMetalTable(d->cl, &d->Rate, T, d->rho, d->Y_H, d->ZMetal); 
  clAbunds( d->cl, &d->Y, &d->Rate, d->rho, d->ZMetal);
 }
@@ -3190,7 +3196,7 @@ void CoolInitEnergyAndParticleData( COOL *cl, COOLPARTICLE *cp, double *E, doubl
 {
 	PERBARYON Y;
 	RATE r;
-	double  columnL = 1e20/cl->dKpcUnit/3.08568025e21/cl->dExpand; /*assumption to get things started before we know the energy to calculate the sound speed)*/
+	double  columnL = 1e20/cl->dKpcUnit/KPCCM/cl->dExpand; /*assumption to get things started before we know the energy to calculate the sound speed)*/
 	
 	cp->f_HI = 1.0;
 	cp->f_HeI = 1.0;

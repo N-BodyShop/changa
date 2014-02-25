@@ -150,7 +150,10 @@ mainmodule ParallelGravity {
   PUPable Cool0OutputParams;
   PUPable Cool1OutputParams;
   PUPable Cool2OutputParams;
+#ifdef COOLING_MOLECULARH
   PUPable Cool3OutputParams;
+  PUPable LWOutputParams;
+#endif
   PUPable OxOutputParams;
   PUPable FeOutputParams;
   PUPable MetalsOutputParams;
@@ -358,6 +361,9 @@ mainmodule ParallelGravity {
     entry void applyFrameAcc(int iKickRung, Vector3D<double> frameAcc, const CkCallback& cb);
     entry void externalGravity(int activeRung, const ExternalGravity exGrav,
                        const CkCallback& cb);
+#ifdef COOLING_MOLECULARH
+    entry void distribLymanWerner(const CkCallback& cb);
+#endif
     entry void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      int bSphStep, int bViscosityLimitdt,
 	      double dEta, double dEtaCourant, double dEtauDot,

@@ -311,9 +311,9 @@ class RemoteTreeBuilder : public TreeNodeWorker {
 class LocalTreeBuilder : public TreeNodeWorker {
   TreePiece *tp;
 
-  public:
-  LocalTreeBuilder(TreePiece *owner) :
-    tp(owner)
+ public:
+ LocalTreeBuilder(TreePiece *owner) :
+  tp(owner)
   {}
 
   bool work(GenericTreeNode *node, int level);
@@ -351,16 +351,20 @@ class LocalTreePrinter : public TreeNodeWorker {
 };
 
 #ifdef COOLING_MOLECULARH
-class LocalTreeLWCalc : public TreeNodeWorker {
+class LocalLymanWernerDistributor : public TreeNodeWorker {
+  /*Defining a new class inherited from TreeNodeWorker to use while distributing LW over a depth-first walk */
+  TreePiece *tp; /*Defined in ParallelGravity.h.  Fundamental structure that holds particle and tree data.*/
 
-  public:
-  LocalTreeLWCalc(string d, int idx) : 
-    index(idx),
-    description(d)
-    {}
+ public:
+ /*Constructor.  Only argment is the TreePiece*/
+ LocalLymanWernerDistributor(TreePiece *owner) :
+  tp(owner)
+  {}
 
-  bool work(GenericTreeNode *node, int level);
-  void doneChildren(GenericTreeNode *node, int level);
+  bool work(GenericTreeNode *node, int level); /*virtually defined in TreeNodeWorker Class (Compute.h)*/
+  void doneChildren(GenericTreeNode *node, int level); /*virtually defined in TreeNodeWorker Class*/
+
+  private:
 };
 #endif
 
