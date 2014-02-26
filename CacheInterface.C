@@ -414,7 +414,9 @@ void TreePiece::fillRequestNode(const CkCacheRequest &req) {
       // Extra bytes are allocated to store the msg pointer at the
       // beginning of the buffer.  See the free() and the
       // unpackSingle() method above.
-      CkCacheFillMsg<KeyType> *reply = new (count * (sizeof(Tree::BinaryTreeNode)+PAD_reply), 8*sizeof(int)) CkCacheFillMsg<KeyType>(req.key);
+
+      CkAssert(sizeof(msg) <= PAD_reply);  // be sure there is enough rooom
+      CkCacheFillMsg<KeyType> *reply = new (count * ALIGN_DEFAULT(sizeof(Tree::BinaryTreeNode)+PAD_reply), 8*sizeof(int)) CkCacheFillMsg<KeyType>(req.key);
       ((Tree::BinaryTreeNode*)node)->packNodes((Tree::BinaryTreeNode*)(reply->data+PAD_reply), _cacheLineDepth, PAD_reply);
       *(int*)CkPriorityPtr(reply) = -10000000;
       CkSetQueueing(reply, CK_QUEUEING_IFIFO);
