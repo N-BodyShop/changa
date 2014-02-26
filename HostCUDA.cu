@@ -1586,9 +1586,10 @@ __global__ void nodeGravityComputation(
   __shared__ int offsetID[NODES_PER_BLOCK];
   __shared__ CompactPartData shared_particle_cores[PARTS_PER_BLOCK];
 
-  int start = ilmarks[blockIdx.x];
-  int end = ilmarks[blockIdx.x+1];
-  int bucketStart = bucketStarts[blockIdx.x];
+  int
+    start = ilmarks[blockIdx.x],
+    end = ilmarks[blockIdx.x+1],
+    bucketStart = bucketStarts[blockIdx.x];
   char bucketSize = bucketSizes[blockIdx.x];
 
   /*
@@ -1597,8 +1598,6 @@ __global__ void nodeGravityComputation(
  __shared__ int bucketStart;
  __shared__ char bucketSize;
  */
-
-  char tx, ty;
 
 /*
   if(threadIdx.x == 0 && threadIdx.y == 0){
@@ -1610,56 +1609,58 @@ __global__ void nodeGravityComputation(
   __syncthreads();
   */
 
-  int xstart;
-  char ystart;
-  tx = threadIdx.x;
-  ty = threadIdx.y;
+  char
+    tidx = threadIdx.x,
+    tidy = threadIdx.y;
 
-  for(ystart = 0; ystart < bucketSize; ystart += PARTS_PER_BLOCK){
+  for(char ystart = 0; ystart < bucketSize; ystart += PARTS_PER_BLOCK){
   
 
-    int my_particle_idx = ystart + ty;
-    if(tx == 0 && my_particle_idx < bucketSize){
-      shared_particle_cores[ty] = particleCores[bucketStart+my_particle_idx];
+    int my_particle_idx = ystart + tidy;
+    if(tidx == 0 && my_particle_idx < bucketSize){
+      shared_particle_cores[tidy] = particleCores[bucketStart+my_particle_idx];
     }
     
     __syncthreads(); // wait for leader threads to finish using acc's, pot's of other threads
-    acc[TRANSLATE(tx,ty)].x = 0.0;
-    acc[TRANSLATE(tx,ty)].y = 0.0;
-    acc[TRANSLATE(tx,ty)].z = 0.0;
-    pot[TRANSLATE(tx,ty)] = 0.0;
+    acc[TRANSLATE(tidx,tidy)].x = 0.0;
+    acc[TRANSLATE(tidx,tidy)].y = 0.0;
+    acc[TRANSLATE(tidx,tidy)].z = 0.0;
+    pot[TRANSLATE(tidx,tidy)] = 0.0;
     
     
-    for(xstart = start; xstart < end; xstart += NODES_PER_BLOCK){
-      int my_cell_idx = xstart + tx;
+    for(int xstart = start; xstart < end; xstart += NODES_PER_BLOCK){
+      int my_cell_idx = xstart + tidx;
       ILCell ilc;
 
       __syncthreads(); // wait for all threads to finish using 
                        // previous iteration's nodes before reloading
       
-      if(ty == 0 && my_cell_idx < end){
+      if(tidy == 0 && my_cell_idx < end){
         ilc = ils[my_cell_idx];
-        m[tx] = moments[ilc.index];
-        offsetID[tx] = ilc.offsetID;
+        m[tidx] = moments[ilc.index];
+        offsetID[tidx] = ilc.offsetID;
       }
       
       __syncthreads(); // wait for nodes to be loaded before using them
       
       if(my_particle_idx < bucketSize && my_cell_idx < end){ // INTERACT
         CudaVector3D r;
-        cudatype rsq;
-        cudatype twoh, a, b, c, d;
+        cudatype twoh
 
-        r.x = shared_particle_cores[ty].position.x -
-          ((((offsetID[tx] >> 22) & 0x7)-3)*fperiod + m[tx].cm.x);
-        r.y = shared_particle_cores[ty].position.y -
-          ((((offsetID[tx] >> 25) & 0x7)-3)*fperiod + m[tx].cm.y);
-        r.z = shared_particle_cores[ty].position.z -
-          ((((offsetID[tx] >> 28) & 0x7)-3)*fperiod + m[tx].cm.z);
+        r.x = shared_particle_cores[tidy].position.x -
+          ((((offsetID[tidx] >> 22) & 0x7)-3)*fperiod + m[tidx].cm.x);
+        r.y = shared_particle_cores[tidy].position.y -
+          ((((offsetID[tidx] >> 25) & 0x7)-3)*fperiod + m[tidx].cm.y);
+        r.z = shared_particle_cores[tidy].position.z -
+          ((((offsetID[tidx] >> 28) & 0x7)-3)*fperiod + m[tidx].cm.z);
 
-        rsq = r.x*r.x + r.y*r.y + r.z*r.z;        
-        twoh = m[tx].soft + shared_particle_cores[ty].soft;
+        cudatype
+          rsq = r.x*r.x + r.y*r.y + r.z*r.z,
+          twoh = m[tidx].soft + shared_particle_cores[tidy].soft;
+
+        cudatype a, b, c, d;
         if(rsq != 0){
+#if ! defined(HEXADECAPOLE)
           cudatype dir = 1.0/sqrt(rsq);
           // SPLINEQ(dir, rsq, twoh, a, b, c, d);
           // expansion of function below:
@@ -1693,18 +1694,105 @@ __global__ void nodeGravityComputation(
             d = 5.0*c*a*a;
           }
 
-          cudatype qirx = m[tx].xx*r.x + m[tx].xy*r.y + m[tx].xz*r.z;
-          cudatype qiry = m[tx].xy*r.x + m[tx].yy*r.y + m[tx].yz*r.z;
-          cudatype qirz = m[tx].xz*r.x + m[tx].yz*r.y + m[tx].zz*r.z;
-          cudatype qir = 0.5*(qirx*r.x + qiry*r.y + qirz*r.z);
-          cudatype tr = 0.5*(m[tx].xx + m[tx].yy + m[tx].zz);
-          cudatype qir3 = b*m[tx].totalMass + d*qir - c*tr;
+          cudatype
+            qirx = m[tidx].xx*r.x + m[tidx].xy*r.y + m[tidx].xz*r.z,
+            qiry = m[tidx].xy*r.x + m[tidx].yy*r.y + m[tidx].yz*r.z,
+            qirz = m[tidx].xz*r.x + m[tidx].yz*r.y + m[tidx].zz*r.z,
+            qir = 0.5*(qirx*r.x + qiry*r.y + qirz*r.z),
+            tr = 0.5*(m[tidx].xx + m[tidx].yy + m[tidx].zz),
+            qir3 = b*m[tidx].totalMass + d*qir - c*tr;
 
-          pot[TRANSLATE(tx, ty)] -= m[tx].totalMass * a + c*qir - b*tr;
+          pot[TRANSLATE(tidx, tidy)] -= m[tidx].totalMass * a + c*qir - b*tr;
 
-          acc[TRANSLATE(tx, ty)].x -= qir3*r.x - c*qirx;
-          acc[TRANSLATE(tx, ty)].y -= qir3*r.y - c*qiry;
-          acc[TRANSLATE(tx, ty)].z -= qir3*r.z - c*qirz;
+          acc[TRANSLATE(tidx, tidy)].x -= qir3*r.x - c*qirx;
+          acc[TRANSLATE(tidx, tidy)].y -= qir3*r.y - c*qiry;
+          acc[TRANSLATE(tidx, tidy)].z -= qir3*r.z - c*qirz;
+#else
+          const cudatype onethird = 1.0 / 3.0;
+
+          /* The following code is adapted from from `momEvalFmomrcm` in
+             "moments.c"; the changes make the code work within the inputs
+             available here, and (hopefullly) make the code a little more
+             readable. */
+
+          /* -> Build the reciprocal-of-radius and scaling-factor values. */
+          /* FIXME: `momEvalFmomrcm` takes a scaling term "u", but this function
+             seems to have no equivalent.  Is the "u" in this function
+             (calculated above) the right one? */
+          cudatype
+            dir = rsqrt(rsq),
+            u = 2.0/twoh;       /* in `momEvalFmomrcm`, u *= dir so from above
+                                   definition "u = dih/dir" => u == dih here. */
+
+          /* -> Build the "g" terms, whose purpose is probably apparent to those
+                who actually understand the math...  */
+          cudatype
+            g0 = dir,
+            g2 = 3 * dir * u * u,
+            g3 = 5 * g2 * u,
+            g4 = 7 * g3 * u;
+
+
+          /* -> "Calculate the trace-free distance terms." */
+          cudatype
+            x = r.x * dir,
+            y = r.y * dir,
+            z = r.z * dir,
+            xx = 0.5 * x * x,
+            xy = x * y,
+            xz = x * z,
+            yy = 0.5 * y * y,
+            yz = y * z,
+            zz = 0.5 * z * z,
+            xxx = x * (onethird*xx - zz),
+            xxz = z * (xx - onethird * zz),
+            yyy = y * (onethird*yy - zz);
+
+          /* replace intermediates used above with their "final" values... */
+          xx -= zz;
+          yy -= zz;
+
+          /* ...and finish with the trace-free terms. */
+          cudatype
+            xxy = y * xx,
+            xyy = x * yy,
+            xyz = xy * z;
+
+          /* -> "Now calculate the interaction up to Hexadecapole order." */
+          cudatype
+            tx = g4 * ( m[tidx].xxxx*xxx + m[tidx].xyyy*yyy + m[tidx].xxxy*xxy +
+                        m[tidx].xxxz*xxz + m[tidx].xxyy*xyy + m[tidx].xxyz*xyz +
+                        m[tidx].xyyz*yyz ),
+            ty = g4 * ( m[tidx].xyyy*xyy + m[tidx].xxxy*xxx + m[tidx].yyyy*yyy +
+                        m[tidx].yyyz*yyz + m[tidx].xxyy*xxy + m[tidx].xxyz*xxz +
+                        m[tidx].xyyz*xyz ),
+            tz = g4 * (- m[tidx].xxxx*xxz - (m[tidx].xyyy + m[tidx].xxxy)*xyz
+                       - m[tidx].yyyy*yyz + m[tidx].xxxz*xxx + m[tidx].yyyz*yyy
+                       - m[tidx].xxyy*(xxz + yyz) + m[tidx].xxyz*xxy + m[tidx].xyyz*xyy);
+
+          /* Note that these variables have already been initialized; we're re-using them. */
+          xxx = g3 * (m[tidx].xxx*xx + m[tidx].xyy*yy + m[tidx].xxy*xy + m[tidx].xxz*xz + m[tidx].xyz*yz);
+          xxy = g3 * (m[tidx].xyy*xy + m[tidx].xxy*xx + m[tidx].yyy*yy + m[tidx].yyz*yz + m[tidx].xyz*xz);
+          xxz = g3 * (-(m[tidx].xxx + m[tidx].xyy)*xz - (m[tidx].xxy + m[tidx].yyy)*yz + m[tidx].xxz*xx + m[tidx].yyz*yy + m[tidx].xyz*xy);
+
+          g3 = onethird * (xxx*x + xxy*y + xxz*z);
+
+          xx = g2*(m[tidx].xx*x + m[tidx].xy*y + m[tidx].xz*z);
+          xy = g2*(m[tidx].yy*y + m[tidx].xy*x + m[tidx].yz*z);
+          xz = g2*(-(m[tidx].xx + m[tidx].yy)*z + m[tidx].xz*x + m[tidx].yz*y);
+
+          g2 = 0.5*(xx*x + xy*y + xz*z);
+          g0 *= m[tidx].m;
+
+          /* store the calculated potential  */
+          pot[TRANSLATE(tidx, tidy)] += -(g0 + g2 + g3 + g4);
+
+          g0 += 5*g2 + 7*g3 + 9*g4;
+          /* and the calculated acceleration. */
+          acc[TRANSLATE(tidx, tidy)].x += dir*(xx + xxx + tx - x*g0);
+          acc[TRANSLATE(tidx, tidy)].y += dir*(xy + xxy + ty - y*g0);
+          acc[TRANSLATE(tidx, tidy)].z += dir*(xz + xxz + tz - z*g0);
+#endif
         }// end if rsq != 0
       }// end INTERACT
     }// end for each NODE group
@@ -1714,12 +1802,12 @@ __global__ void nodeGravityComputation(
     cudatype sumx, sumy, sumz, poten;
     sumx = sumy = sumz = poten = 0.0;
     // accumulate forces, potential in global memory data structure
-    if(tx == 0 && my_particle_idx < bucketSize){
+    if(tidx == 0 && my_particle_idx < bucketSize){
       for(int i = 0; i < NODES_PER_BLOCK; i++){
-        sumx += acc[TRANSLATE(i,ty)].x;
-        sumy += acc[TRANSLATE(i,ty)].y;
-        sumz += acc[TRANSLATE(i,ty)].z;
-        poten += pot[TRANSLATE(i,ty)];
+        sumx += acc[TRANSLATE(i,tidy)].x;
+        sumy += acc[TRANSLATE(i,tidy)].y;
+        sumz += acc[TRANSLATE(i,tidy)].z;
+        poten += pot[TRANSLATE(i,tidy)];
       }
       particleVars[bucketStart+my_particle_idx].a.x += sumx;
       particleVars[bucketStart+my_particle_idx].a.y += sumy;
