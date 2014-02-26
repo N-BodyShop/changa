@@ -6,6 +6,8 @@
  * Definitions of types for the CUDA port.
  */
 
+#include "cosmoType.h"
+
 /** @brief floating point type on the GPU */
 typedef float cudatype;
 /** @brief floating point type on the host */
