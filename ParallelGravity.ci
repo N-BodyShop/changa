@@ -32,7 +32,6 @@ mainmodule ParallelGravity {
   readonly CProxy_DataManager dMProxy;
   readonly CProxy_PETreeMerger peTreeMergerProxy;
   readonly CProxy_DumpFrameData dfDataProxy;
-  readonly CProxy_TreePieceReplica tpReplicaProxy;
 
   readonly bool _cache;
   readonly int _nocache;
@@ -184,12 +183,6 @@ mainmodule ParallelGravity {
     entry void evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb);
   };
 #endif
-  group [migratable] TreePieceReplica {
-    entry TreePieceReplica();
-    entry [expedited] void fillRequestNodeFromReplica(CkCacheRequestMsg<KeyType> *msg);
-    entry [expedited] void recvTreePiece(CkCacheFillMsg<KeyType> *msg);
-    entry void clearTable(CkCallback &cb);
-  };
 
   chare [migratable] Sorter {
     entry Sorter();
@@ -432,11 +425,8 @@ mainmodule ParallelGravity {
     //	       unsigned int reqID);
     //entry void receiveParticle(GravityParticle part,
     //			   BucketGravityRequest &req);
-    entry void replicateTreePieces(CkCallback& cb);
-    entry void recvAck();
-
-    entry [expedited] void fillRequestParticles(CkCacheRequest &req);
-    entry [expedited] void fillRequestSmoothParticles(CkCacheRequest &req);
+    //    entry [expedited] void fillRequestParticles(CkCacheRequestMsg<KeyType> *msg);
+    //    entry [expedited] void fillRequestSmoothParticles(CkCacheRequestMsg<KeyType> *msg);
     entry void flushSmoothParticles(CkCacheFillMsg<KeyType> *msg);
     entry [local] void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
     entry [local] void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);

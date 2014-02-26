@@ -102,7 +102,7 @@ CXX_DEPEND = $(CXX) -M -MM -MG $(CXXFLAGS)
 CFLAGS = $(OPTS) $(DEFINE_FLAGS) @CFLAGS@ @CPPFLAGS@
 
 # Orb3dLB.{o,C} below
-OBJECTS = Reductions.o DataManager.o TreePiece.o TreePieceReplica.o Sorter.o \
+OBJECTS = Reductions.o DataManager.o TreePiece.o Sorter.o \
 	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
 	  InOutput.o cosmo.o romberg.o runge.o dumpframe.o dffuncs.o \
 	  moments.o MultistepLB.o Orb3dLB.o Orb3dLB_notopo.o \
@@ -112,12 +112,13 @@ OBJECTS = Reductions.o DataManager.o TreePiece.o TreePieceReplica.o Sorter.o \
 	  cha_commitid.o \
 	  @OBJECTS_COOLING@
 
-SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp TreePieceReplica.cpp \
-	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
-	InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c \
+SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \
+	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C feedback.C\
+	imf.C InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c \
 	moments.c MultistepLB.C Orb3dLB.C Orb3dLB_notopo.C starform.C \
 	MultistepLB_notopo.C MultistepOrbLB.C PETreeMerger.cpp \
-	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C
+	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C supernova.C \
+	supernovaia.C starlifetime.C
 
 ifdef CUDA
   CXXFLAGS += $(NVCC_INC)
