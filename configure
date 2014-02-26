@@ -6941,8 +6941,10 @@ done
 
 
 
-          ac_config_files="$ac_config_files cuda.mk"
+if test -n "$ENABLE_CUDA"; then
+             ac_config_files="$ac_config_files cuda.mk"
 
+fi
 
 ##################### END CUDA #####################
 
