@@ -2701,7 +2701,7 @@ void LocalTreePrinter::openFile(){
   file << "digraph " << description << index << "{" << std::endl;
 }
 
-#ifdef COOLING_MOLECULAR
+#ifdef COOLING_MOLECULARH
 bool LocalLymanWernerDistributor::work(GenericTreeNode *node, int level){
   if(node->getType() == Empty || node->getType() == CachedEmpty){
     return DUMP; /*Node is empty*/
@@ -2721,6 +2721,7 @@ bool LocalLymanWernerDistributor::work(GenericTreeNode *node, int level){
 	
 	      }*/
       return true;
+    }
   }
   CkAbort("LocalLymanWernerDistributor called a non-local node type");
   return false;
