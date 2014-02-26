@@ -2733,6 +2733,4 @@ void LocalLymanWernerDistributor::doneChildren(GenericTreeNode *node, int level)
       CkAssert(node->getChildren(i) != NULL);
     }
 }
-#endif
-
-#endif // INTERLIST_VER > 0
+#endif /* COOLING_MOLECULARH */
