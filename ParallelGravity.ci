@@ -13,9 +13,9 @@ mainmodule ParallelGravity {
   readonly CProxy_TreePiece treeProxy;
   //  readonly CProxy_CompletionDetector detector;
   //  readonly CProxy_CompletionDetector shuffleDetector;
-  readonly CProxy_ArrayMeshStreamer <CkCacheRequest, int, TreePiece> aggregator;
-  readonly CProxy_ArrayMeshStreamer <ParticleShuffle, int, ShuffleShadowArray> shuffleAggregator;  
-  readonly CProxy_GroupChunkMeshStreamer <ExternalGravityParticle, CacheMessageSequencer> cacheAggregator;
+  readonly CProxy_ArrayMeshStreamer <CkCacheRequest, int, TreePiece, SimpleMeshRouter> aggregator;
+  readonly CProxy_ArrayMeshStreamer <ParticleShuffle, int, ShuffleShadowArray, SimpleMeshRouter> shuffleAggregator;
+  readonly CProxy_GroupChunkMeshStreamer <ExternalGravityParticle, CacheMessageSequencer, SimpleMeshRouter> cacheAggregator;
     
 #ifdef REDUCTION_HELPER
   readonly CProxy_ReductionHelper reductionHelperProxy;
@@ -529,16 +529,16 @@ mainmodule ParallelGravity {
   initproc void registerStatistics();
 
   message MeshStreamerMessage<ArrayDataItem<CkCacheRequest, int> >;
-  group ArrayMeshStreamer<CkCacheRequest, int, TreePiece>;    
-  group MeshStreamer<ArrayDataItem<CkCacheRequest, int> >;
+  group ArrayMeshStreamer<CkCacheRequest, int, TreePiece, SimpleMeshRouter>;
+  group MeshStreamer<ArrayDataItem<CkCacheRequest, int>, SimpleMeshRouter>;
 
 
   message MeshStreamerMessage<ArrayDataItem<ParticleShuffle, int> >;
-  group ArrayMeshStreamer<ParticleShuffle, int, ShuffleShadowArray>;    
-  group MeshStreamer<ArrayDataItem<ParticleShuffle, int> >;
+  group ArrayMeshStreamer<ParticleShuffle, int, ShuffleShadowArray, SimpleMeshRouter>;
+  group MeshStreamer<ArrayDataItem<ParticleShuffle, int>, SimpleMeshRouter>;
 
   message MeshStreamerMessage<ChunkDataItem>; 
-  group GroupChunkMeshStreamer<ExternalGravityParticle, CacheMessageSequencer>;
-  group MeshStreamer<ChunkDataItem>;
+  group GroupChunkMeshStreamer<ExternalGravityParticle, CacheMessageSequencer, SimpleMeshRouter>;
+  group MeshStreamer<ChunkDataItem, SimpleMeshRouter>;
 
 };

@@ -9,9 +9,6 @@
 #include "Compute.h"
 #include "TreeWalk.h"
 
-static const int PAD_reply = sizeof(NodeKey);  // Assume this is bigger
-                                           // than a pointer
-
 EntryTypeGravityParticle::EntryTypeGravityParticle() {
   CkCacheFillMsg<KeyType> msg(0);
 }

@@ -60,9 +60,9 @@ int verbosity;
 int bVDetails;
 CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
 
-CProxy_ArrayMeshStreamer<CkCacheRequest, int, TreePiece> aggregator;
-CProxy_ArrayMeshStreamer<ParticleShuffle, int, ShuffleShadowArray> shuffleAggregator;
-CProxy_GroupChunkMeshStreamer <ExternalGravityParticle, CacheMessageSequencer> cacheAggregator;
+CProxy_ArrayMeshStreamer<CkCacheRequest, int, TreePiece, SimpleMeshRouter> aggregator;
+CProxy_ArrayMeshStreamer<ParticleShuffle, int, ShuffleShadowArray, SimpleMeshRouter> shuffleAggregator;
+CProxy_GroupChunkMeshStreamer <ExternalGravityParticle, CacheMessageSequencer, SimpleMeshRouter> cacheAggregator;
 //CProxy_CompletionDetector detector; 
 //CProxy_CompletionDetector shuffleDetector; 
 
@@ -1124,7 +1124,7 @@ Main::Main(CkArgMsg* m) {
 	  CkPrintf("%d ", dims[i]);
 	}
 	CkPrintf("\n");
-        aggregator = CProxy_ArrayMeshStreamer<CkCacheRequest, int, TreePiece>::
+        aggregator = CProxy_ArrayMeshStreamer<CkCacheRequest, int, TreePiece, SimpleMeshRouter>::
           ckNew(NUM_MESSAGES_BUFFERED, nDims, dims, treeProxy, false, 10.0);
 
         //        detector = CProxy_CompletionDetector::ckNew();
@@ -1143,10 +1143,10 @@ Main::Main(CkArgMsg* m) {
         shuffleShadowProxy = CProxy_ShuffleShadowArray::ckNew(opts);
         cacheSequencerProxy = CProxy_CacheMessageSequencer::ckNew();
 
-        shuffleAggregator = CProxy_ArrayMeshStreamer<ParticleShuffle, int, ShuffleShadowArray>::
+        shuffleAggregator = CProxy_ArrayMeshStreamer<ParticleShuffle, int, ShuffleShadowArray, SimpleMeshRouter>::
           ckNew(NUM_MESSAGES_BUFFERED, nDims, dims, shuffleShadowProxy, false, 10.0);
 
-        cacheAggregator = CProxy_GroupChunkMeshStreamer<ExternalGravityParticle, CacheMessageSequencer>::
+        cacheAggregator = CProxy_GroupChunkMeshStreamer<ExternalGravityParticle, CacheMessageSequencer, SimpleMeshRouter>::
           ckNew(NUM_MESSAGES_BUFFERED, nDims, dims, cacheSequencerProxy, false, 10.0, 
                 true); 
 
@@ -1543,8 +1543,7 @@ void Main::advanceBigStep(int iStep) {
        && param.stfm->isStarFormRung(activeRung)) {
         double startTime = CkWallTimer();
         CkPrintf("Domain decomposition for star formation/feedback... ");
-        sorter.startSorting(dataManagerID, ddTolerance,
-                            CkCallbackResumeThread(), true);
+        sorter.startSorting(dataManagerID, ddTolerance, true);
         CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
         CkPrintf("Load balancer for star formation/feedback... ");
         startTime = CkWallTimer();

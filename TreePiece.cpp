@@ -59,6 +59,8 @@ using namespace SFC;
 using namespace TreeStuff;
 using namespace TypeHandling;
 
+extern int PAD_reply;
+
 int TreeStuff::maxBucketSize;
 
 #ifdef PUSH_GRAVITY
@@ -6295,7 +6297,7 @@ void TreePiece::replicateTreePieces(CkCallback& cb) {
 		k += i*23;
 		k %= CkNumPes();
 
-		CkCacheFillMsg<KeyType> *reply = new (depth_count * (sizeof(Tree::BinaryTreeNode)))
+		CkCacheFillMsg<KeyType> *reply = new (depth_count * ALIGN_DEFAULT(sizeof(Tree::BinaryTreeNode) + PAD_reply))
 			CkCacheFillMsg<KeyType>(root->getKey(), thisIndex);
 
 

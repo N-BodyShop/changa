@@ -37,6 +37,9 @@ namespace Tree {
 #endif
   static const int NodeKeyBits = 8*sizeof(NodeKey);
 
+const int PAD_reply = sizeof(NodeKey);  // Assume this is bigger
+                                           // than a pointer
+
   /// This enumeration determines the different types of node a GenericTreeNode can be
   enum NodeType {
     Invalid = 1,
