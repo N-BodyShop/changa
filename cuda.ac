@@ -182,4 +182,6 @@ AC_SUBST([CUDA_DIR])
 AC_SUBST([CUDA_SDK_DIR])
 AC_SUBST([NVCC_PATH])
 
-AC_CONFIG_FILES([cuda.mk])
+if test -n "$ENABLE_CUDA"; then
+   AC_CONFIG_FILES([cuda.mk])
+fi
