@@ -403,7 +403,7 @@ void TreePiece::fillRequestNode(const CkCacheRequest &req) {
       // beginning of the buffer.  See the free() and the
       // unpackSingle() method above.
 
-      CkAssert(sizeof(msg) <= PAD_reply);  // be sure there is enough rooom
+      //CkAssert(sizeof(req) <= PAD_reply);  // be sure there is enough rooom
       CkCacheFillMsg<KeyType> *reply = new (count * ALIGN_DEFAULT(sizeof(Tree::BinaryTreeNode)+PAD_reply), 8*sizeof(int)) CkCacheFillMsg<KeyType>(req.key);
       ((Tree::BinaryTreeNode*)node)->packNodes((Tree::BinaryTreeNode*)(reply->data+PAD_reply), _cacheLineDepth, PAD_reply);
       *(int*)CkPriorityPtr(reply) = -10000000;
