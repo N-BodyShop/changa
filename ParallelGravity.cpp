@@ -43,6 +43,9 @@
 #include "TopoManager.h"
 #include "PETreeMerger.h"
 
+#include "picsautoperfAPI.h"
+#include "picsautoperfAPIC.h"
+
 #ifdef CUDA
 // for default per-list parameters
 #include "cuda_typedef.h"
@@ -1534,6 +1537,8 @@ void Main::advanceBigStep(int iStep) {
     /*
      * Form stars at user defined intervals
      */
+    startStep(true);
+    startPhase(true, 0);
     double dTimeSF = RungToDt(param.dDelta, nextMaxRung);
     if((param.bStarForm || param.bFeedback)
        && param.stfm->isStarFormRung(activeRung)) {
@@ -1568,6 +1573,7 @@ void Main::advanceBigStep(int iStep) {
 
     CkCallback sortingCallback(CkCallback::resumeThread); 
     startTime = CkWallTimer();
+    CkPrintf("======== testing init ==========\n");
     shuffleAggregator.init(treeProxy, CkCallbackResumeThread(), 
                            sortingCallback, INT_MIN, false); 
     sorter.startSorting(dataManagerID, ddTolerance, bDoDD);
@@ -1791,7 +1797,8 @@ void Main::advanceBigStep(int iStep) {
     }
 #endif
 
-		
+   endPhase(true);
+   endStepResume(true, CkCallbackResumeThread());
   }
 }
     
