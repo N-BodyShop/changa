@@ -1585,6 +1585,8 @@ void Main::advanceBigStep(int iStep) {
           */
     CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
     
+    endPhase(true);
+    startPhase(true, 1);
 
     if(verbosity && !bDoDD)
 	CkPrintf("Skipped DD\n");
@@ -1619,6 +1621,8 @@ void Main::advanceBigStep(int iStep) {
     if(bDoPush) CkPrintf("[main] fracActive %f PUSH_GRAVITY\n", 1.0*nActiveGrav/nTotalParticles);
 #endif
 
+    endPhase(true);
+    startPhase(true, 2);
     /******** Tree Build *******/
     //ckout << "Building trees ...";
     CkPrintf("Building trees ... ");
@@ -1630,6 +1634,8 @@ void Main::advanceBigStep(int iStep) {
 #endif
     CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
+    endPhase(true);
+    startPhase(true, 3);
     CkCallback cbGravity(CkCallback::resumeThread);
     aggregator.init(treeProxy, CkCallbackResumeThread(), 
                     CkCallback(), INT_MIN, true); 
@@ -2006,7 +2012,7 @@ void Main::setupICs() {
 // Also assigns keys and sorts.
   treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 
-  initialForces();
+  thisProxy.initialForces();
 }
 
 int CheckForStop()
@@ -2157,7 +2163,7 @@ Main::initialForces()
 
   /***** Initial sorting of particles and Domain Decomposition *****/
   CkPrintf("Initial domain decomposition ... ");
-
+  setNumOfPhases(4);
   startTime = CkWallTimer();
 
   CkCallback sortingCallback(CkCallback::resumeThread); 
