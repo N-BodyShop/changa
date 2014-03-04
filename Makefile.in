@@ -115,7 +115,8 @@ endif
 # add -module Orb3dLB here for load balancing during singlestepped runs
 #OPTS = -g -memory charmdebug
 OPTS = -O3
-CXXFLAGS += $(OPTS) -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) -I$(SOURCE_DIR) -I$(BUILD_DIR) @CPPFLAGS@
+CPPFLAGS += -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) -I$(SOURCE_DIR) -I$(BUILD_DIR) @CPPFLAGS@
+CXXFLAGS += $(OPTS) $(CPPFLAGS)
 LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache -module commlib -module CkMulticast -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MultistepLB -module MultistepLB_notopo -module MultistepOrbLB -module Orb3dLB -module Orb3dLB_notopo -module liveViz #-tracemode projections -memory charmdebug -memory paranoid
 XDR_DIR = ../rpc
 XDR_OBJS = $(XDR_DIR)/xdr.o $(XDR_DIR)/xdr_float.o $(XDR_DIR)/xdr_mem.o $(XDR_DIR)/xdr_stdio.o
@@ -152,7 +153,7 @@ ifneq (,$(ENABLE_CUDA))
   OBJECTS += HostCUDA.o 
   SRSC += HostCUDA.cu 
   LDLIBS += $(NVCC_LIBS)
-  NVCC_FLAGS += $(CXXFLAGS)
+  NVCC_FLAGS += $(CPPFLAGS)
   LDFLAGS += -L$(NVIDIA_CUDA_SDK)/lib -L$(CUDA_DIR)/lib64
 ifdef HEXADECAPOLE
   HEXADECAPOLE = #  
