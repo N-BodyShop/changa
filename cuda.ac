@@ -164,7 +164,7 @@ fi
 # Allow setting CUDA compute capability at `configure`-time.
 AC_ARG_WITH([cuda-level],
         [AS_HELP_STRING([--with-cuda-level=LEVEL],[use CUDA compute capability LEVEL])],
-        [CUDA_LEVEL=$enableval],[CUDA_LEVEL=10])
+        [CUDA_LEVEL=$withval],[CUDA_LEVEL=10])
 
 # Set up boolean AC_SUBST variables for use in Make.
 for var in HAVE_CUDA HAVE_CUDA_SDK ENABLE_CUDA; do
