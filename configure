@@ -6920,7 +6920,7 @@ fi
 # Check whether --with-cuda-level or --without-cuda-level was given.
 if test "${with_cuda_level+set}" = set; then
   withval="$with_cuda_level"
-  CUDA_LEVEL=$enableval
+  CUDA_LEVEL=$withval
 else
   CUDA_LEVEL=10
 fi;
