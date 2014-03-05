@@ -1716,13 +1716,12 @@ __global__ void nodeGravityComputation(
              readable. */
 
           /* -> Build the reciprocal-of-radius and scaling-factor values. */
-          /* FIXME: `momEvalFmomrcm` takes a scaling term "u", but this function
-             seems to have no equivalent.  Is the "u" in this function
-             (calculated above) the right one? */
           cudatype
             dir = rsqrt(rsq),
-            u = 2.0/twoh;       /* in `momEvalFmomrcm`, u *= dir so from above
-                                   definition "u = dih/dir" => u == dih here. */
+            /* in `momEvalFmomrcm`, `u` is a parameter, and the value passed a
+               MultipoleMoments::radius instance (see point(s) of call at
+               `nodeBucketForce` in "gravity.h"). */
+            u = m[tidx].radius;
 
           /* -> Build the "g" terms, whose purpose is probably apparent to those
                 who actually understand the math...  */
