@@ -1645,7 +1645,6 @@ __global__ void nodeGravityComputation(
       
       if(my_particle_idx < bucketSize && my_cell_idx < end){ // INTERACT
         CudaVector3D r;
-        cudatype twoh
 
         r.x = shared_particle_cores[tidy].position.x -
           ((((offsetID[tidx] >> 22) & 0x7)-3)*fperiod + m[tidx].cm.x);
