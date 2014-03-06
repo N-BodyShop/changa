@@ -28,6 +28,15 @@ BaseLB * AllocateMultistepLB_notopo();
 // ORB3DLB functions
 //**************************************
 
+class TpWorkMsg : public CMessage_TpWorkMsg {
+  public:
+  TreePiece *tp;
+  vector<int> buckets;
+  int chunkNum;
+  int awiFor;
+  int foreignStateIdx;
+};
+
 
 class LightweightLDStats {
   public:
@@ -63,6 +72,7 @@ private:
   CkVec<LightweightLDStats> savedPhaseStats;      /// stats saved from previous phases
   
   bool QueryBalanceNow(int step);
+  int mype;
   //int prevPhase;
 
   unsigned int determinePhase(unsigned int activeRung);
@@ -127,6 +137,9 @@ public:
 //
   void work2(BaseLB::LDStats* stats, int count, int phase, int prevPhase);
   void greedy(BaseLB::LDStats* stats, int count, int phase, int prevPhase);
+
+  void tpWork(TpWorkMsg* msg);
+  int getMyPe() { return mype;};
  
   void pup(PUP::er &p);
 };

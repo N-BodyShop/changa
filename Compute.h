@@ -33,6 +33,8 @@ class Compute{
   void *computeEntity;
   int activeRung;
   ComputeType type;
+  int starting_bucket;
+  int ending_bucket;
 
   Compute(ComputeType t) : type(t) /*state(0)*/{}
 
@@ -51,6 +53,7 @@ class Compute{
   /// @brief Associate computeEntity (target bucket or node),
   /// activeRung and Optimization with this Compute object.
   virtual void init(void *cE, int activeRung, Opt *opt);
+  virtual void init(void *cE, int activeRung, Opt *opt, int startb, int endb);
   virtual void reassoc(void *cE, int aR, Opt *opt){}
   ComputeType getSelfType(){ return type;}
   OptType getOptType();
@@ -235,7 +238,7 @@ enum WalkIndices {
     interListAwi = 1,
     remoteGravityAwi = 2,
     smoothAwi = 3,
-    maxAwi = 4
+    maxAwi = 35
 };
     
 // Object to record a type of active walk. Contains pointers to TreeWalk/Compute/Opt (T/C/O) combinations
@@ -317,6 +320,14 @@ class LocalTreePrinter : public TreeNodeWorker {
 
   bool work(GenericTreeNode *node, int level);
   void doneChildren(GenericTreeNode *node, int level);
+};
+
+class ForeignState {
+  public:
+  Compute* com;
+  TreeWalk* tw;
+  State* rs;
+  State* ls;
 };
 
 #endif

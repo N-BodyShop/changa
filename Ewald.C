@@ -284,90 +284,7 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 
 void TreePiece::EwaldInit()
 {
-	int i,hReps,hx,hy,hz,h2;
-	double alpha,k4,L;
-	double gam[6],mfacc,mfacs;
-	double ax,ay,az;
-
-#ifdef HEXADECAPOLE
-	/* convert to complete moments */
-	momMomr2Momc(&(root->moments.mom), &momcRoot);
-#endif
-	/*
-	 ** Now setup stuff for the h-loop.
-	 */
-	hReps = (int) ceil(dEwhCut);
-	L = fPeriod.x;
-	alpha = 2.0/L;
-	k4 = M_PI*M_PI/(alpha*alpha*L*L);
-	i = 0;
-	for (hx=-hReps;hx<=hReps;++hx) {
-		for (hy=-hReps;hy<=hReps;++hy) {
-			for (hz=-hReps;hz<=hReps;++hz) {
-				h2 = hx*hx + hy*hy + hz*hz;
-				if (h2 == 0) continue;
-				if (h2 > dEwhCut*dEwhCut) continue;
-				if (i == nMaxEwhLoop) {
-				    nMaxEwhLoop *= 2;
-				    /* avoid realloc() */
-				    EWT *ewtTmp = new EWT[nMaxEwhLoop];
-				    assert(ewtTmp != NULL);
-				    for(int j = 0; j < i; j++) {
-					ewtTmp[j] = ewt[j];
-					}
-				    delete[] ewt;
-				    ewt = ewtTmp;
-				    }
-				gam[0] = exp(-k4*h2)/(M_PI*h2*L);
-				gam[1] = 2*M_PI/L*gam[0];
-				gam[2] = -2*M_PI/L*gam[1];
-				gam[3] = 2*M_PI/L*gam[2];
-				gam[4] = -2*M_PI/L*gam[3];
-				gam[5] = 2*M_PI/L*gam[4];
-				gam[1] = 0.0;
-				gam[3] = 0.0;
-				gam[5] = 0.0;
-				ax = 0.0;
-				ay = 0.0;
-				az = 0.0;
-				mfacc = 0.0;
-#ifdef HEXADECAPOLE
-				QEVAL(momcRoot, gam, hx, hy, hz,
-				      ax, ay, az, mfacc);
-#else
-				QEVAL(root->moments, gam, hx, hy, hz,
-				      ax, ay, az, mfacc);
-#endif
-				gam[0] = exp(-k4*h2)/(M_PI*h2*L);
-				gam[1] = 2*M_PI/L*gam[0];
-				gam[2] = -2*M_PI/L*gam[1];
-				gam[3] = 2*M_PI/L*gam[2];
-				gam[4] = -2*M_PI/L*gam[3];
-				gam[5] = 2*M_PI/L*gam[4];
-				gam[0] = 0.0;
-				gam[2] = 0.0;
-				gam[4] = 0.0;
-				ax = 0.0;
-				ay = 0.0;
-				az = 0.0;
-				mfacs = 0.0;
-#ifdef HEXADECAPOLE
-				QEVAL(momcRoot, gam,hx,hy,hz,
-				      ax,ay,az,mfacs);
-#else
-				QEVAL(root->moments, gam,hx,hy,hz,
-				      ax,ay,az,mfacs);
-#endif
-				ewt[i].hx = 2*M_PI/L*hx;
-				ewt[i].hy = 2*M_PI/L*hy;
-				ewt[i].hz = 2*M_PI/L*hz;
-				ewt[i].hCfac = mfacc;
-				ewt[i].hSfac = mfacs;
-				++i;
-				}
-			}
-		}
-	nEwhLoop = i;
+  EwaldInitForForeign();
 
 	//contribute(cb);
 #ifdef CELL
@@ -379,6 +296,93 @@ void TreePiece::EwaldInit()
 #endif
 	msg->val=0;
 	thisProxy[thisIndex].calculateEwald(msg);
+}
+
+void TreePiece::EwaldInitForForeign() {
+  int i,hReps,hx,hy,hz,h2;
+  double alpha,k4,L;
+  double gam[6],mfacc,mfacs;
+  double ax,ay,az;
+
+#ifdef HEXADECAPOLE
+  /* convert to complete moments */
+  momMomr2Momc(&(root->moments.mom), &momcRoot);
+#endif
+  /*
+   ** Now setup stuff for the h-loop.
+   */
+  hReps = (int) ceil(dEwhCut);
+  L = fPeriod.x;
+  alpha = 2.0/L;
+  k4 = M_PI*M_PI/(alpha*alpha*L*L);
+  i = 0;
+  for (hx=-hReps;hx<=hReps;++hx) {
+    for (hy=-hReps;hy<=hReps;++hy) {
+      for (hz=-hReps;hz<=hReps;++hz) {
+        h2 = hx*hx + hy*hy + hz*hz;
+        if (h2 == 0) continue;
+        if (h2 > dEwhCut*dEwhCut) continue;
+        if (i == nMaxEwhLoop) {
+          nMaxEwhLoop *= 2;
+          /* avoid realloc() */
+          EWT *ewtTmp = new EWT[nMaxEwhLoop];
+          assert(ewtTmp != NULL);
+          for(int j = 0; j < i; j++) {
+            ewtTmp[j] = ewt[j];
+          }
+          delete[] ewt;
+          ewt = ewtTmp;
+        }
+        gam[0] = exp(-k4*h2)/(M_PI*h2*L);
+        gam[1] = 2*M_PI/L*gam[0];
+        gam[2] = -2*M_PI/L*gam[1];
+        gam[3] = 2*M_PI/L*gam[2];
+        gam[4] = -2*M_PI/L*gam[3];
+        gam[5] = 2*M_PI/L*gam[4];
+        gam[1] = 0.0;
+        gam[3] = 0.0;
+        gam[5] = 0.0;
+        ax = 0.0;
+        ay = 0.0;
+        az = 0.0;
+        mfacc = 0.0;
+#ifdef HEXADECAPOLE
+        QEVAL(momcRoot, gam, hx, hy, hz,
+            ax, ay, az, mfacc);
+#else
+        QEVAL(root->moments, gam, hx, hy, hz,
+            ax, ay, az, mfacc);
+#endif
+        gam[0] = exp(-k4*h2)/(M_PI*h2*L);
+        gam[1] = 2*M_PI/L*gam[0];
+        gam[2] = -2*M_PI/L*gam[1];
+        gam[3] = 2*M_PI/L*gam[2];
+        gam[4] = -2*M_PI/L*gam[3];
+        gam[5] = 2*M_PI/L*gam[4];
+        gam[0] = 0.0;
+        gam[2] = 0.0;
+        gam[4] = 0.0;
+        ax = 0.0;
+        ay = 0.0;
+        az = 0.0;
+        mfacs = 0.0;
+#ifdef HEXADECAPOLE
+        QEVAL(momcRoot, gam,hx,hy,hz,
+            ax,ay,az,mfacs);
+#else
+        QEVAL(root->moments, gam,hx,hy,hz,
+            ax,ay,az,mfacs);
+#endif
+        ewt[i].hx = 2*M_PI/L*hx;
+        ewt[i].hy = 2*M_PI/L*hy;
+        ewt[i].hz = 2*M_PI/L*hz;
+        ewt[i].hCfac = mfacc;
+        ewt[i].hSfac = mfacs;
+        ++i;
+      }
+    }
+  }
+  nEwhLoop = i;
 }
 
 

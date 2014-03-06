@@ -66,7 +66,12 @@ void EntryTypeGravityParticle::callback(CkArrayID requestorID, CkArrayIndexMax &
   int awi = userData.d0 >> 32;
   void *source = (void *)userData.d1;
 
-  elem.receiveParticlesCallback(cp->part, cp->end - cp->begin + 1, chunk, reqID, key, awi, source);
+  if (awi >= 4) {
+    TreePiece *tp = (TreePiece *)userData.d2;
+    tp->receiveParticlesCallback(cp->part, cp->end - cp->begin + 1, chunk, reqID, key, awi, source);
+  } else {
+    elem.receiveParticlesCallback(cp->part, cp->end - cp->begin + 1, chunk, reqID, key, awi, source);
+  }
 }
 
 
@@ -165,9 +170,16 @@ void EntryTypeSmoothParticle::callback(CkArrayID requestorID, CkArrayIndexMax &r
   void *source = (void *)userData.d1;
   CacheSmoothParticle *cPart = (CacheSmoothParticle *)data;
 
-  elem.receiveParticlesFullCallback(cPart->partCached,
-				cPart->end - cPart->begin + 1, chunk, reqID,
-				key, awi, source);
+  if (awi >= 4) {
+    TreePiece *tp = (TreePiece *)userData.d2;
+    tp->receiveParticlesFullCallback(cPart->partCached,
+        cPart->end - cPart->begin + 1, chunk, reqID,
+        key, awi, source);
+  } else {
+    elem.receiveParticlesFullCallback(cPart->partCached,
+        cPart->end - cPart->begin + 1, chunk, reqID,
+        key, awi, source);
+  }
 }
 
 // satisfy buffered requests
@@ -365,13 +377,34 @@ int EntryTypeGravityNode::size(void * data) {
   return sizeof(Tree::BinaryTreeNode);
 }
 
+void EntryTypeGravityNode::callbackForeign(CkArrayID requestorID, CkArrayIndexMax &requestorIdx, KeyType key, CkCacheUserData &userData, void *data, int chunk) {
+  CkArrayIndex1D idx(requestorIdx.data()[0]);
+  CProxyElement_TreePiece elem(requestorID, idx);
+  int reqID = (int)(userData.d0 & 0xFFFFFFFF);
+  int awi = userData.d0 >> 32;
+  void *source = (void *)userData.d1;
+  TreePiece *tp = (TreePiece *)userData.d2;
+  if (CkMyPe() == 2 && awi == 1) {
+    CkPrintf("[%d] TP %s cache calling receiveNodeCallback\n", CkMyPe(), idx2str(idx));
+  }
+  tp->receiveNodeCallback((Tree::GenericTreeNode*)data, chunk, reqID, awi, source);
+}
+
+
+
 void EntryTypeGravityNode::callback(CkArrayID requestorID, CkArrayIndexMax &requestorIdx, KeyType key, CkCacheUserData &userData, void *data, int chunk) {
   CkArrayIndex1D idx(requestorIdx.data()[0]);
   CProxyElement_TreePiece elem(requestorID, idx);
   int reqID = (int)(userData.d0 & 0xFFFFFFFF);
   int awi = userData.d0 >> 32;
   void *source = (void *)userData.d1;
-  elem.receiveNodeCallback((Tree::GenericTreeNode*)data, chunk, reqID, awi, source);
+  
+  if (awi >= 4) {
+    TreePiece *tp = (TreePiece *)userData.d2;
+    tp->receiveNodeCallback((Tree::GenericTreeNode*)data, chunk, reqID, awi, source);
+  } else {
+    elem.receiveNodeCallback((Tree::GenericTreeNode*)data, chunk, reqID, awi, source);
+  }
 }
 
 

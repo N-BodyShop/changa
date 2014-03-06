@@ -32,6 +32,16 @@ void Compute::init(void *buck, int ar, Opt *o){
   computeEntity = buck;
   activeRung = ar;
   opt = o;
+  starting_bucket = 0;
+  ending_bucket = INT_MAX;
+}
+
+void Compute::init(void *buck, int ar, Opt *o, int startb, int endb){
+  computeEntity = buck;
+  activeRung = ar;
+  opt = o;
+  starting_bucket = startb;
+  ending_bucket = endb;
 }
 
 State *Compute::getNewState(int dim1, int dim2){
@@ -185,6 +195,7 @@ void ListCompute::initState(State *state){
   int level = s->level;
   UndecidedList &myUndlist = s->undlists[level];
 
+
   // *my* undecided list:
   myUndlist.length() = 0;
   // interaction lists:
@@ -250,6 +261,9 @@ void ListCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePiece 
   int end;
   GenericTreeNode *source = (GenericTreeNode *)computeEntity;
   tp->getBucketsBeneathBounds(source, startBucket, end);
+  //if (CkMyPe() == 1) {
+  //CkPrintf("  [%d] TP %d got nodeMissedEvent startbucket %d^^^^^^^^^^^^^^^^\n", CkMyPe(), tp->getIndex(), startBucket);
+  //}
   tp->updateUnfinishedBucketState(startBucket, end, 1, chunk, state);
 #ifdef CHANGA_REFACTOR_MEMCHECK
   CkPrintf("memcheck after nodemissed\n");
@@ -357,6 +371,12 @@ void ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int 
   int start, end;
   GenericTreeNode *source = (GenericTreeNode *)computeEntity;
   owner->getBucketsBeneathBounds(source, start, end);
+  if (start < starting_bucket) {
+    start = starting_bucket;
+  }
+  if (end > ending_bucket) {
+    end = ending_bucket;
+  }
   owner->updateBucketState(start, end, 1, chunk, state);
 
   CkAssert(chunk >= 0);
@@ -914,6 +934,16 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
 #if COSMO_PRINT_BK > 1
       CkPrintf("[%d] missed parts %ld (chunk %d)\n", tp->getIndex(), keyref << 1, chunk);
 #endif
+
+  //if (CkMyPe() == 1) {
+  //CkPrintf("  [%d] TP %d send unfinished in walk startbucket %d^^^^^^^^^^^^^^^^\n", CkMyPe(), tp->getIndex(), start);
+  //}
+      if (start < starting_bucket) {
+        start = starting_bucket;
+      }
+      if (end > ending_bucket) {
+        end = ending_bucket;
+      }
       tp->updateUnfinishedBucketState(start, end, 1, chunk, state);
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("memcheck after particlesmissed (%ld)\n", keyref);
@@ -940,7 +970,12 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
 
   DoubleWalkState *state  = (DoubleWalkState *)state_;
   tp->getBucketsBeneathBounds(source, startBucket, end);
-
+  if (startBucket < starting_bucket) {
+    startBucket = starting_bucket;
+  }
+  if (end > ending_bucket) {
+    end = ending_bucket;
+  }
   // init state
   bool remoteLists = state->rplists.length() > 0;
 
@@ -1317,6 +1352,10 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
     CmiMemoryCheck();
 #endif
 #ifndef CUDA
+ // if (CkMyPe() == 1) { 
+ //   CkPrintf("[%d] StateReady bucket start %d end %d opt %s\n", CkMyPe(), start, end, getOptType() == Remote ? "Remote" : "Local");
+ // }
+
   for(int b = start; b < end; b++){
     if(tp->bucketList[b]->rungs >= activeRung){
 #if defined CELL

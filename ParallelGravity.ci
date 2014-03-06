@@ -402,6 +402,9 @@ mainmodule ParallelGravity {
 
     entry void commenceCalculateGravityLocal();
     entry void calculateGravityRemote(ComputeChunkMsg *msg);
+    entry [local] void returnBackBucketsRemote(vector<int>& foreign_buckets, int chunkNum, void* remoteForState);
+    //entry void returnBackBucketsRemote(vector<int>& foreign_buckets, int chunkNum, void* remoteForState);
+    entry void returnBackBuckets(int howmany);
 
     entry [notrace] void calculateReSmoothLocal();
     entry [notrace] void calculateMarkSmoothLocal();

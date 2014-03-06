@@ -95,6 +95,7 @@ enum DomainsDec {
     ORB_space_dec=6		// Bisect space
 };
 
+
 /// tolerance for unequal pieces in SFC based decompositions.
 const double ddTolerance = 0.1;
 
@@ -623,6 +624,7 @@ class TreePiece : public CBase_TreePiece {
    TreeWalk *twSmooth;
 #if INTERLIST_VER > 0
    TreeWalk *sInterListWalk;
+   TreeWalk *sInterListForeignWalk;
    // clearable, used for resumed walks
    State *sInterListStateRemoteResume;
 #endif
@@ -635,6 +637,9 @@ class TreePiece : public CBase_TreePiece {
    State *sPrefetchState;
    /// Keeps track of the gravity walks over the local tree.
    State *sLocalGravityState, *sRemoteGravityState, *sSmoothState;
+
+   State *sLocalGravityForeignState, *sRemoteGravityForeignState;
+
    typedef std::map<KeyType, CkVec<int>* > SmPartRequestType;
    // buffer of requests for smoothParticles.
    SmPartRequestType smPartRequests;
@@ -1085,6 +1090,11 @@ private:
 
 	int nActive;		// number of particles that are active
 
+  bool* isBucketForeign;
+  int* bucketForeignAwiIdx;
+  int* bucketForeignStateIdx;
+  vector<ForeignState*> foreign_states;
+
 	/// Size of bucketList, total number of buckets present
 	unsigned int numBuckets;
 #if INTERLIST_VER > 0
@@ -1408,7 +1418,8 @@ public:
 
         public:
 	~TreePiece() {
-	  if (verbosity>1) ckout <<"Deallocating treepiece "<<thisIndex<<endl;
+	  //if (verbosity>1) 
+    //ckout <<"**************** Deallocating treepiece  ********"<<thisIndex<<endl;
 	  if(nStore > 0) delete[] myParticles;
 	  if(nStoreSPH > 0) delete[] mySPHParticles;
 	  if(nStoreStar > 0) delete[] myStarParticles;
@@ -1664,6 +1675,8 @@ public:
 	/// by this TreePiece, and belonging to a subset of the global tree
 	/// (specified by chunkNum).
 	void calculateGravityRemote(ComputeChunkMsg *msg);
+	void calculateGravityRemoteForeign(vector<int> foreign_buckets, int chunkNum);
+  void returnBackBucketsRemote(vector<int>& foreign_buckets, int chunkNum, void* remoteForState);
 
 	/// Temporary function to recurse over all the buckets like in
 	/// walkBucketTree, only that NonLocal nodes are the only one for which
@@ -1689,6 +1702,17 @@ public:
   /// @param theta the opening angle
   /// @param cb the callback to use after all the computation has finished
   void startGravity(int am, double myTheta, const CkCallback& cb);
+  void SplitBucketsToNodes();
+
+  void doForeignBuckets(vector<int> &foreign_buckets, int chunkNum, int foreign_state_idx, int awiForeign);
+  void doForeignBucketsRemote(vector<int> &foreign_buckets, int chunkNum, int foreign_state_idx, int awiForeign);
+  void doForeignBucketsLocal(vector<int> &foreign_buckets, int chunkNum, int foreign_state_idx, int awiForeign);
+  void doForeignBucketsEwald(vector<int> &foreign_buckets, int chunkNum, int foreign_state_idx, int awiForeign);
+  void finishForeignBucket(int iBucket);
+  void returnBackBuckets(int howmany);
+  void cleanupForeignState();
+  void EwaldInitForForeign();
+
   /// Setup utility function for all the smooths.  Initializes caches.
   void setupSmooth();
   /// Start a tree based smooth computation.

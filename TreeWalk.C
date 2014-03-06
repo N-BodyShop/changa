@@ -299,9 +299,15 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
 #if INTERLIST_VER > 0
 void LocalTargetWalk::walk(GenericTreeNode *ancestor, State *state, int chunk, int targetBucketIndex, int awi){
 
+
     targetKey = ownerTP->getBucket(targetBucketIndex)->getKey();
     // construct lists
     int ancestorLevel = ancestor->getLevel(ancestor->getKey());
+
+    //if (CkMyPe() == 1) {
+    //  CkPrintf("  [%d] ownerTP %d LocalTargetWalk bucketidx %d ancestorlvel %d\n",
+    //      CkMyPe(), ownerTP->getIndex(), targetBucketIndex, ancestorLevel);
+    //}
     dft(ancestor, state, chunk, targetBucketIndex, (ancestorLevel == 0), awi, ancestorLevel);
 }
 
@@ -441,6 +447,9 @@ void LocalTargetWalk::resumeWalk(GenericTreeNode *node, State *state_, int chunk
 
     // initial target
 	int targetBucket = decodeReqID(reqID);
+  //if (CkMyPe() == 1) {
+  //CkPrintf("[%d] TP %d targetbucket resumeWalk %d\n", CkMyPe(), ownerTP->getIndex(), targetBucket);
+  //}
 	GenericTreeNode *source = (GenericTreeNode *)comp->getComputeEntity();
 	// first and last buckets beneath source
 	int startBucket, endBucket;

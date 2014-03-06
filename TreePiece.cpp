@@ -2898,6 +2898,13 @@ void TreePiece::startNextBucket() {
 
 /*inline*/
 void TreePiece::finishBucket(int iBucket) {
+  // If this is a foreign bucket, finishBucket could have been called by
+  // updateBucketState for a foreign bucket so then handle it this way.
+  if (isBucketForeign[iBucket]) {
+    finishForeignBucket(iBucket);
+    return;
+  }
+
   BucketGravityRequest *req = &bucketReqs[iBucket];
   int remaining;
 
@@ -2910,8 +2917,14 @@ void TreePiece::finishBucket(int iBucket) {
 #endif
 
   // XXX finished means Ewald is done.
+  
   if(req->finished && remaining == 0) {
     sLocalGravityState->myNumParticlesPending -= 1;
+
+    if (req->finished && remaining == 0) {
+      CkPrintf("[%d] TP %d bucket %d req finished %d remaining %d bucketspending %d\n", CkMyPe(), thisIndex,
+          iBucket, req->finished, remaining, sLocalGravityState->myNumParticlesPending);
+    }
 
 #ifdef COSMO_PRINT_BK
     CkPrintf("[%d] Finished bucket %d, %d particles remaining\n",thisIndex,iBucket, sLocalGravityState->myNumParticlesPending);
@@ -2922,9 +2935,9 @@ void TreePiece::finishBucket(int iBucket) {
 #if COSMO_STATS > 0
         CkPrintf("[%d] TreePiece %d finished with bucket %d , openCriterions:%lld\n",CkMyPe(),thisIndex,iBucket,numOpenCriterionCalls);
 #else
-        CkPrintf("[%d] TreePiece %d finished with bucket %d\n",CkMyPe(),thisIndex,iBucket);
 #endif
       }
+      CkPrintf("[%d] TreePiece %d finished with bucket %d\n",CkMyPe(),thisIndex,iBucket);
 
 #if defined CUDA
       // in cuda version, must wait till particle accels.
@@ -3053,6 +3066,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
         // for request sent to gpu: +1
         // initial walk completed: -1 (this is where we are in the code currently) 
         // for each request completed: -1 (this happens in cudaCallback)
+        
         sLocalGravityState->counterArrays[0][j]--;
 #if COSMO_PRINT_BK > 1
         CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", thisIndex, j, sRemoteGravityState->counterArrays[0][j], sLocalGravityState->counterArrays[0][j]);
@@ -3576,7 +3590,246 @@ void TreePiece::calculateForceRemoteBucket(int bucketIndex, int chunk){
 
 const char *typeString(NodeType type);
 
+void TreePiece::returnBackBucketsRemote(vector<int>& foreign_buckets, int chunkNum, void* rState) {
+  State* remoteForState = (State *) rState;
+  int len = foreign_buckets.size();
+  if (len == 0) {
+    return;
+  }
+  unsigned int j;
+  for (int i = 0; i < len; i++) {
+    j = foreign_buckets[i];
+    sRemoteGravityState->counterArrays[0][j] += remoteForState->counterArrays[0][j];
+    sRemoteGravityState->counterArrays[0][j]--;
+    finishBucket(j);
+  }
+
+  sRemoteGravityState->counterArrays[1][chunkNum] += remoteForState->counterArrays[1][chunkNum];
+  sRemoteGravityState->counterArrays[1][chunkNum] -= len;
+  // TODO: This shouldn't be done because there might be other buckets < this
+  // foreign bucket which is not yet done.
+  //if (sRemoteGravityState->currentBucket < foreign_buckets[len-1]) {
+  //  sRemoteGravityState->currentBucket = foreign_buckets[len-1] + 1;
+  //}
+  // CheckWhetherAllDone();
+
+  int chunkRemaining;
+  chunkRemaining = sRemoteGravityState->counterArrays[1][chunkNum];
+#if INTERLIST_VER > 0
+  prevRemoteBucket = -1;
+#endif
+  CkAssert(chunkRemaining >= 0);
+
+  if (chunkRemaining == 0) {
+    // we finished completely using this chunk, so we acknowledge the cache
+    // if this is not true it means we had some hard misses
+    CkPrintf("[%d] TP %d we finished completely with this chunk\n", CkMyPe(),
+        thisIndex);
+    // TODO: Commented
+    //cacheGravPart[CkMyPe()].finishedChunk(chunkNum, particleInterRemote[chunkNum]);
+    finishedChunk(chunkNum);
+  }
+/*
+  if (sRemoteGravityState->currentBucket < numBuckets) {
+    CkPrintf("[%d] TP %d handled all return buckets\n", CkMyPe(), thisIndex);
+    return;
+  } else {
+    sRemoteGravityState->currentBucket = 0;
+
+    int chunkRemaining;
+    chunkRemaining = sRemoteGravityState->counterArrays[1][chunkNum];
+#if INTERLIST_VER > 0
+    prevRemoteBucket = -1;
+#endif
+    CkAssert(chunkRemaining >= 0);
+
+    if (chunkRemaining == 0) {
+      // we finished completely using this chunk, so we acknowledge the cache
+      // if this is not true it means we had some hard misses
+      cacheGravPart[CkMyPe()].finishedChunk(chunkNum, particleInterRemote[chunkNum]);
+      finishedChunk(chunkNum);
+    }
+  }
+*/
+  CkPrintf("[%d] TP %d handled all return buckets\n", CkMyPe(), thisIndex);
+}
+
+void TreePiece::calculateGravityRemoteForeign(vector<int> foreign_buckets, int
+chunkNum) {
+  unsigned int i=0;
+
+  MultistepLB_notopo* lbptr = (MultistepLB_notopo*)CkLocalBranch(proxy);
+  //lbptr->tpWork(tpmsg);
+  CkPrintf("[%d] TP %d All Foreign buckets starting!! localbranch lbptr pe %d\n", CkMyPe(), thisIndex, lbptr->getMyPe());
+  // cache internal tree: start directly asking the CacheManager
+#ifdef DISABLE_NODE_TREE
+  GenericTreeNode *chunkRoot = keyToNode(prefetchRoots[chunkNum]);
+#else
+  GenericTreeNode *chunkRoot = dm->chunkRootToNode(prefetchRoots[chunkNum]);
+#endif
+
+  CkAssert(chunkRoot != NULL);
+
+  LocalTargetWalk interlistForWalk;
+  ListCompute lForCompute;
+  State* remoteForWalkState;
+  RemoteOpt forOpt;
+
+  lForCompute.init((void *)0, activeRung, &forOpt);
+  interlistForWalk.init(&lForCompute, this);
+  remoteForWalkState = lForCompute.getNewState(numBuckets, numChunks);
+
+  for(int i = 0; i < numBuckets; i++){
+    remoteForWalkState->counterArrays[0][i] = 0;
+  }
+  for(int i = 0; i < numChunks; i++) {
+    remoteForWalkState->counterArrays[1][i] = 0;
+  }
+
+
+
+  int len = foreign_buckets.size();
+  if (len == 0) {
+    return;
+  }
+
+  int prevBucket = -1;
+  while (i< len  && foreign_buckets[i] < numBuckets) {
+    // Interlist and normal versions both have 'target' nodes
+    remoteForWalkState->currentBucket = foreign_buckets[i];
+    GenericTreeNode *target = bucketList[remoteForWalkState->currentBucket];
+   // if (CkMyPe() == 1) {
+   //   CkPrintf("[%d] TP %d doing foreign bucket %d\n", CkMyPe(), thisIndex, i);
+   // }
+
+    GenericTreeNode *lca = 0;
+    if (target->rungs >= activeRung) {
+     // if (CkMyPe() == 1) {
+     //   CkPrintf("[%d] TP %d doing foreign bucket %d isactive currentbuck %d prevbucket %d\n",
+     //       CkMyPe(), thisIndex, i, remoteForWalkState->currentBucket, prevBucket);
+     // }
+      lca = getStartAncestor(remoteForWalkState->currentBucket, prevBucket, root);
+
+      int lcaLevel = lca->getLevel(lca->getKey());
+      // set remote opt, etc
+      lForCompute.init(lca, activeRung, &forOpt);
+
+      // need to enqueue the chunkroot replicas only once,
+      // before walking the first bucket
+      DoubleWalkState *rstate = (DoubleWalkState *)remoteForWalkState;
+      if(!rstate->placedRoots[chunkNum]){
+        rstate->placedRoots[chunkNum] = true;
+        rstate->level = 0;
+        lForCompute.initState(rstate);
+
+        for(int x = -nReplicas; x <= nReplicas; x++) {
+          for(int y = -nReplicas; y <= nReplicas; y++) {
+            for(int z = -nReplicas; z <= nReplicas; z++) {
+
+              // put chunk root in correct checklist
+              // the currentRemote Bucket argument to encodeOffset doesn't really
+              // matter; only the offset is of consequence
+              OffsetNode on;
+              on.node = chunkRoot;
+              on.offsetID = encodeOffset(0, x,y,z);
+              rstate->chklists[lcaLevel].enq(on);
+            }
+          }
+        }
+      }// if !placedRoots
+
+      //CkPrintf("[%d] TP %d interListForWalk %d\n", CkMyPe(), thisIndex, interListAwi);
+
+      interlistForWalk.walk(lca, remoteForWalkState, chunkNum,
+        remoteForWalkState->currentBucket, interListAwi);
+
+      GenericTreeNode *lowestNode = ((DoubleWalkState *)remoteForWalkState)->lowestNode;
+      int startBucket, end;
+      int numActualBuckets = 0;
+
+      getBucketsBeneathBounds(lowestNode, startBucket, end);
+      CkAssert(remoteForWalkState->currentBucket >= startBucket);
+      //if (CkMyPe() == 1) {
+      //  CkPrintf("[%d] TP %d calling calculateGravityRemote stateReady from %d to %d level of lowestnode %d counterArrays %d\n",
+      //  CkMyPe(), thisIndex, remoteForWalkState->currentBucket, end,
+      //  lowestNode->getLevel(lowestNode->getKey()),
+      //  remoteForWalkState->counterArrays[0][remoteForWalkState->currentBucket]);
+      //}
+      if (end > (foreign_buckets[len-1]+1)) {
+        end = foreign_buckets[len-1] + 1;
+        CkPrintf("[%d] TP %d end %d foreign bucket last %d\n", CkMyPe(), thisIndex, end, foreign_buckets[len-1]);
+        CkAbort("WARNING!!!!! end is not among foreign bucket\n"); 
+      }
+
+      lForCompute.stateReady(remoteForWalkState, this, chunkNum,
+        remoteForWalkState->currentBucket, end);
+
+      for(int j = remoteForWalkState->currentBucket; j < end; j++){
+        // see comment in nextBucket for the reason why
+        // this decrement is performed for the cuda version
+        // if (CkMyPe() == 1) {
+        //  CkPrintf("\t [%d] TP %d currentbucket %d counterArray value %d sRemote counterArry %d counteraay1 %d\n",
+        //  CkMyPe(), thisIndex, j, remoteForWalkState->counterArrays[0][j],
+        //  sRemoteGravityState->counterArrays[0][j],
+        //  remoteForWalkState->counterArrays[1][chunkNum]);
+        //}
+
+
+        //remoteForWalkState->counterArrays[0][j]--;
+        if(bucketList[j]->rungs >= activeRung){
+          numActualBuckets++;
+        }
+      }
+      //remoteForWalkState->counterArrays[1][msg->chunkNum] -= (end-remoteForWalkState->currentBucket);
+
+      prevBucket = remoteForWalkState->currentBucket;
+      i += (end-remoteForWalkState->currentBucket);
+      remoteForWalkState->currentBucket = end;
+    } else {
+      //if (CkMyPe() == 1) {
+      //  CkPrintf("[%d] TP %d doing foreign bucket %d isinactive\n", CkMyPe(), thisIndex, i);
+      //}
+      i++;
+    }
+  }// end while i < yieldPeriod and currentRemote Bucket < numBuckets
+
+  //lForCompute.freeState(remoteForWalkState);
+  CkPrintf("[%d] TP %d All Foreign buckets done!!\n", CkMyPe(), thisIndex);
+  //thisProxy[thisIndex].returnBackBucketsRemote(foreign_buckets, chunkNum);
+  //returnBackBucketsRemote(foreign_buckets, chunkNum, remoteForWalkState);
+}
+
 void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
+
+  //if (thisIndex != 8) {
+  //  return;
+  //}
+
+//  sInterListWalk->init(sGravity, this);
+//  vector<int> buckets;
+//  for (int i = sRemoteGravityState->currentBucket; i < numBuckets; i++) {
+//    buckets.push_back(i);
+//  }
+//
+//  TpWorkMsg *tpmsg = new TpWorkMsg();
+//  tpmsg->tp = this;
+//  tpmsg->buckets = buckets;
+//  tpmsg->chunkNum = msg->chunkNum;
+//
+//  //MultistepLB_notopo* lbptr = (MultistepLB_notopo*)CkLocalBranch(proxy);
+//  //lbptr->tpWork(tpmsg);
+//  CProxy_MultistepLB_notopo tproxy = CProxy_MultistepLB_notopo(proxy);
+//  CkPrintf("[%d] TP %d Real\n", CkMyPe(), thisIndex);
+//  if (CkMyPe() == 1) {
+//  tproxy[2].tpWork(tpmsg);
+//  } else if (CkMyPe() != 2) {
+//  tproxy[CkMyPe()].tpWork(tpmsg);
+//  } else {
+//  }
+//
+//  //proxy[CkMyPe()].tpWork(tpmsg); 
+//  return;
+
   unsigned int i=0;
   // cache internal tree: start directly asking the CacheManager
 #ifdef DISABLE_NODE_TREE
@@ -3609,8 +3862,11 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
   CmiMemoryCheck();
 #endif
 
+  CkPrintf("[%d] TP %d bucket %d Going to calculateGravityRemote %d\n", CkMyPe(),
+    thisIndex, sRemoteGravityState->currentBucket,
+    sRemoteGravityState->counterArrays[0][sRemoteGravityState->currentBucket]);
 
-  while (i<_yieldPeriod && sRemoteGravityState->currentBucket < numBuckets
+  while (i<1000*_yieldPeriod && sRemoteGravityState->currentBucket < numBuckets
 #ifdef CELL
 		&& workRequestOut < CELLTHREASHOLD
 #endif
@@ -3674,7 +3930,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
               on.node = chunkRoot;
               on.offsetID = encodeOffset(0, x,y,z);
               rstate->chklists[lcaLevel].enq(on);
-
 #else
     	      sTopDown->walk(chunkRoot, sRemoteGravityState, msg->chunkNum,encodeOffset(sRemoteGravityState->currentBucket,x, y, z), remoteGravityAwi);
 #endif
@@ -3687,6 +3942,8 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
         CmiMemoryCheck();
 #endif
       }// if !placedRoots
+      //if (CkMyPe() == 0)
+      //CkPrintf("[%d] TP %d Going to do sInterListWalk remote bucket %d\n", CkMyPe(), thisIndex, sRemoteGravityState->currentBucket);
 
       // now that all the nodes to walk on have been enqueued in the chklist of the lca, we can call
       // the walk function.
@@ -3710,7 +3967,12 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 
       getBucketsBeneathBounds(lowestNode, startBucket, end);
       CkAssert(sRemoteGravityState->currentBucket >= startBucket);
-
+      //if (CkMyPe() == 0) {
+      //  CkPrintf("[%d] TP %d calling calculateGravityRemote stateReady from %d to %d level of lowestnode %d counterArrays %d\n",
+      //  CkMyPe(), thisIndex, sRemoteGravityState->currentBucket, end,
+      //  lowestNode->getLevel(lowestNode->getKey()),
+      //  sRemoteGravityState->counterArrays[0][sRemoteGravityState->currentBucket]);
+      //}
       sGravity->stateReady(sRemoteGravityState, this, msg->chunkNum, sRemoteGravityState->currentBucket, end);
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("active: memcheck after stateReady\n");
@@ -3724,6 +3986,10 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 #if !defined CELL 
         // see comment in nextBucket for the reason why
         // this decrement is performed for the cuda version
+        // if (CkMyPe() == 0) {
+        //  CkPrintf("\t [%d] TP %d currentbucket %d counterArray value %d\n",
+        //  CkMyPe(), thisIndex, j, sRemoteGravityState->counterArrays[0][j]);
+        //}
         sRemoteGravityState->counterArrays[0][j]--;
 #if COSMO_PRINT_BK > 1
         CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", thisIndex, j, sRemoteGravityState->counterArrays[0][j], sLocalGravityState->counterArrays[0][j]);
@@ -3748,6 +4014,10 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       CmiMemoryCheck();
 #endif
 
+  CkPrintf("[%d] TP %d buckets %d-%d calculateGravityRemote %d lcalevel %d\n", CkMyPe(),
+    thisIndex, sRemoteGravityState->currentBucket, end,
+    sRemoteGravityState->counterArrays[0][sRemoteGravityState->currentBucket],
+    lcaLevel);
       prevRemoteBucket = sRemoteGravityState->currentBucket;
       sRemoteGravityState->currentBucket = end;
       i += numActualBuckets;
@@ -3876,7 +4146,8 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       }
 #endif
 
-      cacheGravPart[CkMyPe()].finishedChunk(msg->chunkNum, particleInterRemote[msg->chunkNum]);
+      // TODO: Commented
+      //cacheGravPart[CkMyPe()].finishedChunk(msg->chunkNum, particleInterRemote[msg->chunkNum]);
 #ifdef CHECK_WALK_COMPLETIONS
       CkPrintf("[%d] finishedChunk TreePiece::calculateGravityRemote\n", thisIndex);
 #endif
@@ -3927,6 +4198,7 @@ void TreePiece::finishNodeCache(const CkCallback& cb)
     int j;
     for (j = 0; j < numChunks; j++) {
 	cacheNode.ckLocalBranch()->finishedChunk(j, 0);
+      cacheGravPart.ckLocalBranch()->finishedChunk(j, 0);
 	}
     contribute(cb);
     }
@@ -4188,7 +4460,8 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   if (myNumParticles == 0) {
     // No particles assigned to this TreePiece
     for (int i=0; i< numChunks; ++i) {
-      cacheGravPart.ckLocalBranch()->finishedChunk(i, 0);
+      // TODO: Commented
+      //cacheGravPart.ckLocalBranch()->finishedChunk(i, 0);
     }
     CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
     gravityProxy[thisIndex].ckLocal()->contribute(cbf);
@@ -4471,17 +4744,53 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   CkPrintf("[%d]sending message to commence local gravity calculation\n", thisIndex);
 #endif
 
-  if (bEwald) thisProxy[thisIndex].EwaldInit();
+//  // TODO: Commented out
+//  if (bEwald) thisProxy[thisIndex].EwaldInit();
+//
+//  // TODO: For foreign comment out above and leave this
+//  if (bEwald) {
+//    EwaldInitForForeign();
+//  }
+//#if defined CUDA
+//  // ask datamanager to serialize local trees
+//  // prefetch can occur concurrently with this, 
+//  // though calculateGravityLocal can only come
+//  // afterwards.
+//  dm->serializeLocalTree();
+//#else
+//  // TODO: Commented out
+//  thisProxy[thisIndex].commenceCalculateGravityLocal();
+//#endif
+
+  // TODO: For node level work
+  if (false) {
+    // TODO: For foreign comment out above and leave this
+    if (bEwald) {
+      EwaldInitForForeign();
+    }
+
+    isBucketForeign = new bool[numBuckets];
+    memset(isBucketForeign, true, numBuckets*sizeof(bool));
+    // createbucketindices we will initialize in SplitBucketsToNodes
+    //SplitBucketsToNodes();
+  } else {
+    // createbucketindices and initialize to 0
+    isBucketForeign = new bool[numBuckets];
+    memset(isBucketForeign, false, numBuckets*sizeof(bool));
+
+    if (bEwald) thisProxy[thisIndex].EwaldInit();
 #if defined CUDA
-  // ask datamanager to serialize local trees
-  // prefetch can occur concurrently with this, 
-  // though calculateGravityLocal can only come
-  // afterwards.
-  dm->serializeLocalTree();
+    // ask datamanager to serialize local trees
+    // prefetch can occur concurrently with this, 
+    // though calculateGravityLocal can only come
+    // afterwards.
+    dm->serializeLocalTree();
 #else
-  thisProxy[thisIndex].commenceCalculateGravityLocal();
+    // TODO: Commented out
+    thisProxy[thisIndex].commenceCalculateGravityLocal();
 #endif
 
+  }
 
 #ifdef CHANGA_PRINT_MEMUSAGE
       int piecesPerPe = numTreePieces/CmiNumPes();
@@ -4489,6 +4798,446 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 	CkPrintf("[%d]: CmiMaxMemoryUsage: %f M\n", CmiMyPe(),
 		 (float)CmiMaxMemoryUsage()/(1 << 20));
 #endif
+}
+
+void TreePiece::SplitBucketsToNodes() {
+//  if (CkMyPe() != 1) {
+//    return;
+//  }
+//  if (thisIndex != 8) {
+//    return;
+//  }
+
+  // Go over all the buckets and divide it among 31 PEs on the node
+  // Set a bool array to make it to indicate foreign
+  // If using foreign buckets, then all the buckets of a TP is foreign,
+  // otherwise it is difficult to handle corner cases.
+  //isBucketForeign = new bool[numBuckets];
+  bucketForeignAwiIdx = new int[numBuckets];
+  bucketForeignStateIdx = new int[numBuckets];
+
+  int num_splits = CkMyNodeSize();
+  //int num_splits = 1;
+  int num_buckets_per_split = numBuckets/num_splits;
+  int leftover_buckets = numBuckets % num_splits;
+
+  CkPrintf("[%d] TP %d SplitBuckets num_splits %d\n", CkMyPe(), thisIndex, num_splits);
+  int forawi = 4;
+  int forstateidx = 0;
+  int pe_idx = CkNodeFirst(CkMyNode());
+  int chunkNum = sPrefetchState->currentBucket; 
+
+  foreign_states.resize(num_splits);
+
+  int i = 0;
+  for (; i < numBuckets; forawi++, forstateidx++, pe_idx++) {
+
+    // Create remote and local walk state for each and addActiveWalk(awi, walk,
+    // compute, remoteOpt, resumeState)
+    State *remoteWalkState;
+    State *localWalkState;
+    State *resumeWalkState;
+    Compute *compute;
+    TreeWalk *walk;
+
+    compute = new ListCompute;
+    walk = new LocalTargetWalk;
+
+    compute->init((void *)0, activeRung, sLocal);
+    localWalkState = compute->getNewState(numBuckets);
+
+    compute->init((void *)0, activeRung, sRemote);
+    remoteWalkState = compute->getNewState(numBuckets, numChunks);
+
+    // interaction list algo needs a separate state for walk resumption
+    resumeWalkState = compute->getNewState();
+    // remote resume and remote share counters
+    // but have separate lists
+    resumeWalkState->counterArrays[0] = remoteWalkState->counterArrays[0];
+    resumeWalkState->counterArrays[1] = remoteWalkState->counterArrays[1];
+
+    // Create resumeWalks for each and add it to active walks and also the
+    // counterArray of resumewalk should point to the corresponding state
+    // counterArray
+    // addActiveWalk(forawi, walk, compute, sRemote, resumeWalkState);
+    addActiveWalk(forawi, walk, compute, sRemote, resumeWalkState);
+
+    // Create ForeignState
+    ForeignState* foreignstate = new ForeignState();
+    foreignstate->tw = walk;
+    foreignstate->rs = remoteWalkState;
+    foreignstate->ls = localWalkState;
+    foreignstate->com = compute;
+    // Add this to the vector<ForeignState>
+    foreign_states[forstateidx] = foreignstate;
+
+    int actual_num_buckets = num_buckets_per_split;
+    if (leftover_buckets > 0) {
+      actual_num_buckets++;
+      leftover_buckets--;
+    }
+
+    vector<int> buckets_sent;
+    buckets_sent.resize(actual_num_buckets);
+    for (int j = 0; j < actual_num_buckets; j++, i++) {
+      buckets_sent[j] = i;
+
+      // In the array containing buckets to foreign_state_idx, set it for the
+      // corresponding idx
+      bucketForeignAwiIdx[i] = forawi;
+      bucketForeignStateIdx[i] = forstateidx;
+      //isBucketForeign[i] = true;
+    }
+
+    // The tp, bucketlist, awi, indextoForeignstate send it to MultistepLB_notopo
+    // (PE manager) which calls work function.
+    // NOTE: Probably we should send it only after we receive startNextChunk.
+    TpWorkMsg *tpmsg = new TpWorkMsg();
+    tpmsg->tp = this;
+    tpmsg->buckets = buckets_sent;
+    tpmsg->chunkNum = chunkNum;
+    tpmsg->awiFor = forawi;
+    tpmsg->foreignStateIdx = forstateidx;
+
+    CProxy_MultistepLB_notopo tproxy = CProxy_MultistepLB_notopo(proxy);
+    tproxy[pe_idx].tpWork(tpmsg);
+    CkPrintf("[%d] TP %d sent off to PE %d to work on endbucket %d\n", CkMyPe(),
+      thisIndex, pe_idx, i);
+  }
+  CkAssert(forstateidx == num_splits);
+  CkAssert(i == numBuckets);
+}
+
+void TreePiece::doForeignBuckets(vector<int> &foreign_buckets, int chunkNum,
+    int foreign_state_idx, int awiF) {
+
+  // Get the remote and local state and initialize it appropriately
+  ForeignState* foreignstate = foreign_states[foreign_state_idx];
+  State* remoteWalkState = foreignstate->rs;
+  State* localWalkState = foreignstate->ls;
+  int len = foreign_buckets.size();
+
+  for(int i = 0; i < numChunks; i++) {
+    //  This + 1 is so that nodeRecvdEvent does not trigger finishedChunk in the
+    //  owner TP. And in this case where numChunks is 1, finishedChunk is called
+    //  when the buckets counters are all done.
+    remoteWalkState->counterArrays[1][i] = len + 1;
+  }
+
+  for(int i = 0; i < numBuckets; i++){
+    remoteWalkState->counterArrays[0][i] = numChunks;
+    localWalkState->counterArrays[0][i] = 1;
+  }
+
+  CkPrintf("[%d] TP %d Going to doForeignBucketsRemote from %d to %d\n", CkMyPe(), thisIndex, foreign_buckets[0], foreign_buckets[len-1]);
+  // Start the remote work first
+  doForeignBucketsRemote(foreign_buckets, chunkNum, foreign_state_idx, awiF);
+  CkPrintf("[%d] TP %d doForeignBucketsRemote\n", CkMyPe(), thisIndex);
+
+  // Start the local work
+  doForeignBucketsLocal(foreign_buckets, chunkNum, foreign_state_idx, awiF);
+  
+  CkPrintf("[%d] TP %d doForeignBucketsLocal\n", CkMyPe(), thisIndex);
+  // Do the ewald work
+  doForeignBucketsEwald(foreign_buckets, chunkNum, foreign_state_idx, awiF);
+  CkPrintf("[%d] TP %d doForeignBucketsEwald\n", CkMyPe(), thisIndex);
+
+  // Check whether finishForeignBucket()
+  for (int i = 0; i < len; i++) {
+    finishForeignBucket(foreign_buckets[i]);
+  }
+}
+
+
+void TreePiece::finishForeignBucket(int iBucket) {
+  // In finishBucket, check whether this bucket is foreign and if so just call
+  // finishForeignBucket
+
+  // This checks whether there are any pending things to be done including
+  // remote, local and ewald for this bucket and if not, return back this bucket
+  BucketGravityRequest *req = &bucketReqs[iBucket];
+  int remaining;
+
+  int foreign_state_idx = bucketForeignStateIdx[iBucket];
+  ForeignState* foreignstate = foreign_states[foreign_state_idx];
+  State* remoteWalkState = foreignstate->rs;
+  State* localWalkState = foreignstate->ls;
+  remaining = remoteWalkState->counterArrays[0][iBucket]
+              + localWalkState->counterArrays[0][iBucket];
+
+  CkAssert(remaining >= 0);
+
+  // XXX finished means Ewald is done.
+  if(req->finished && remaining == 0) {
+    CkPrintf("[%d] TP %d returning bucket %d\n", CkMyPe(), thisIndex, iBucket);
+    thisProxy[thisIndex].returnBackBuckets(iBucket); 
+  }
+}
+
+void TreePiece::returnBackBuckets(int iBucket) {
+  // Decrease myNumParticlesPending
+  //sLocalGravityState->myNumParticlesPending -= howmany;
+  sLocalGravityState->myNumParticlesPending--;
+  CkPrintf("[%d] TP %d returnedBackBucket %d remaining %d\n", CkMyPe(),
+  thisIndex, iBucket, sLocalGravityState->myNumParticlesPending);
+
+  // if all the buckets are done, then continueWrapUp,
+  if(sLocalGravityState->myNumParticlesPending == 0) {
+    continueWrapUp();
+  }
+
+  int chunkNum = sPrefetchState->currentBucket; 
+  //sRemoteGravityState->counterArrays[1][chunkNum] -= howmany;
+  sRemoteGravityState->counterArrays[1][chunkNum]--;
+  int chunkRemaining;
+  chunkRemaining = sRemoteGravityState->counterArrays[1][chunkNum];
+  if (chunkRemaining == 0) {
+    cleanupForeignState();
+    finishedChunk(chunkNum);
+  }
+}
+
+void TreePiece::cleanupForeignState() {
+  // delete all the foreign state including vector, bool and int
+  // Becareful about the foreign states being deleted.
+  delete[] isBucketForeign;
+  delete[] bucketForeignAwiIdx;
+  delete[] bucketForeignStateIdx;
+  // Iterate over foreign_states and delete it
+
+  // Clear the ActiveWalks
+}
+
+void TreePiece::doForeignBucketsRemote(vector<int> &foreign_buckets,
+    int chunkNum, int foreign_state_idx, int awiForeign) {
+  unsigned int i=0;
+
+  // cache internal tree: start directly asking the CacheManager
+#ifdef DISABLE_NODE_TREE
+  GenericTreeNode *chunkRoot = keyToNode(prefetchRoots[chunkNum]);
+#else
+  GenericTreeNode *chunkRoot = dm->chunkRootToNode(prefetchRoots[chunkNum]);
+#endif
+
+  CkAssert(chunkRoot != NULL);
+
+  int len = foreign_buckets.size();
+  if (len == 0) {
+    // TODO: What do we do?
+    return;
+  }
+
+  ForeignState* foreignstate = foreign_states[foreign_state_idx];
+  State* remoteWalkState = foreignstate->rs;
+ 
+  TreeWalk* interlistForWalk = foreignstate->tw;
+  Compute* lForCompute = foreignstate->com;
+
+  // TODO: Check if the opt could be reused.
+  lForCompute->init((void *)0, activeRung, sRemote, foreign_buckets[0], foreign_buckets[len-1]+1);
+  interlistForWalk->init(lForCompute, this);
+
+
+  int prevBucket = -1;
+
+  DoubleWalkState *rstate = (DoubleWalkState *)remoteWalkState;
+  rstate->placedRoots[chunkNum] = false;
+
+  while (i< len  && foreign_buckets[i] < numBuckets) {
+    // Interlist and normal versions both have 'target' nodes
+    remoteWalkState->currentBucket = foreign_buckets[i];
+    GenericTreeNode *target = bucketList[remoteWalkState->currentBucket];
+
+    GenericTreeNode *lca = 0;
+    if (target->rungs >= activeRung) {
+      lca = getStartAncestor(remoteWalkState->currentBucket, prevBucket, root);
+
+      int lcaLevel = lca->getLevel(lca->getKey());
+      // set remote opt, etc
+      lForCompute->init(lca, activeRung, sRemote);
+
+      // need to enqueue the chunkroot replicas only once,
+      // before walking the first bucket
+      DoubleWalkState *rstate = (DoubleWalkState *)remoteWalkState;
+      if(!rstate->placedRoots[chunkNum]){
+        rstate->placedRoots[chunkNum] = true;
+        rstate->level = 0;
+        lForCompute->initState(rstate);
+
+        for(int x = -nReplicas; x <= nReplicas; x++) {
+          for(int y = -nReplicas; y <= nReplicas; y++) {
+            for(int z = -nReplicas; z <= nReplicas; z++) {
+
+              // put chunk root in correct checklist
+              // the currentRemote Bucket argument to encodeOffset doesn't really
+              // matter; only the offset is of consequence
+              OffsetNode on;
+              on.node = chunkRoot;
+              on.offsetID = encodeOffset(0, x,y,z);
+              rstate->chklists[lcaLevel].enq(on);
+            }
+          }
+        }
+      }// if !placedRoots
+
+
+      interlistForWalk->walk(lca, remoteWalkState, chunkNum,
+        remoteWalkState->currentBucket, awiForeign);
+
+      GenericTreeNode *lowestNode = ((DoubleWalkState *)remoteWalkState)->lowestNode;
+      int startBucket, end;
+      int numActualBuckets = 0;
+
+      getBucketsBeneathBounds(lowestNode, startBucket, end);
+      CkAssert(remoteWalkState->currentBucket >= startBucket);
+
+      if (end > (foreign_buckets[len-1]+1)) {
+        end = foreign_buckets[len-1] + 1;
+        CkPrintf("[%d] TP %d end %d foreign bucket last %d\n", CkMyPe(), thisIndex, end, foreign_buckets[len-1]);
+        CkAbort("WARNING!!!!! end is not among foreign bucket\n"); 
+      }
+
+      lForCompute->stateReady(remoteWalkState, this, chunkNum,
+        remoteWalkState->currentBucket, end);
+
+      for(int j = remoteWalkState->currentBucket; j < end; j++){
+        remoteWalkState->counterArrays[0][j]--;
+        if(bucketList[j]->rungs >= activeRung){
+          numActualBuckets++;
+        }
+      }
+      remoteWalkState->counterArrays[1][chunkNum] -= (end-remoteWalkState->currentBucket);
+
+      prevBucket = remoteWalkState->currentBucket;
+      i += (end-remoteWalkState->currentBucket);
+      CkPrintf("[%d] TP %d buckets %d-%d counterArry %d lcaLevel %d\n", CkMyPe(), thisIndex,
+        remoteWalkState->currentBucket, end,
+        remoteWalkState->counterArrays[0][remoteWalkState->currentBucket],
+        lcaLevel);
+    } else {
+      remoteWalkState->counterArrays[0][remoteWalkState->currentBucket]--;
+      remoteWalkState->counterArrays[1][chunkNum]--;
+      i++;
+    }
+  }// end while i < yieldPeriod and currentRemote Bucket < numBuckets
+
+  //CkPrintf("[%d] TP %d All Foreign buckets done!!\n", CkMyPe(), thisIndex);
+}
+
+void TreePiece::doForeignBucketsLocal(vector<int> &foreign_buckets,
+    int chunkNum, int foreign_state_idx, int awiForeign) {
+  unsigned int i=0;
+  ForeignState* foreignstate = foreign_states[foreign_state_idx];
+
+  State* localWalkState = foreignstate->ls;
+  TreeWalk* interlistForWalk = foreignstate->tw;
+  Compute* lForCompute = foreignstate->com;
+
+  // TODO: Check if the opt could be reused.
+  lForCompute->init((void *)0, activeRung, sLocal);
+  interlistForWalk->init(lForCompute, this);
+
+  int len = foreign_buckets.size();
+  if (len == 0) {
+    // TODO: What do we do?
+    return;
+  }
+
+  DoubleWalkState *lstate = (DoubleWalkState *)localWalkState;
+  lstate->placedRoots[0] = false;
+
+  int prevBucket = -1;
+  while (i< len  && foreign_buckets[i] < numBuckets) {
+    // Interlist and normal versions both have 'target' nodes
+    localWalkState->currentBucket = foreign_buckets[i];
+    GenericTreeNode *target = bucketList[localWalkState->currentBucket];
+
+    GenericTreeNode *lca = 0;
+    if (target->rungs >= activeRung) {
+      lca = getStartAncestor(localWalkState->currentBucket, prevBucket, root);
+
+      int lcaLevel = lca->getLevel(lca->getKey());
+      // set remote opt, etc
+      lForCompute->init(lca, activeRung, sLocal);
+
+      // need to enqueue the chunkroot replicas only once,
+      // before walking the first bucket
+      DoubleWalkState *lstate = (DoubleWalkState *)localWalkState;
+      if(!lstate->placedRoots[0]){
+        lstate->placedRoots[0] = true;
+
+        for(int cr = 0; cr < numChunks; cr++){
+#ifdef DISABLE_NODE_TREE
+          GenericTreeNode *chunkRoot = keyToNode(prefetchRoots[cr]);
+#else
+          GenericTreeNode *chunkRoot = dm->chunkRootToNode(prefetchRoots[cr]);
+#endif
+          if(chunkRoot != 0){
+
+            for(int x = -nReplicas; x <= nReplicas; x++) {
+              for(int y = -nReplicas; y <= nReplicas; y++) {
+                for(int z = -nReplicas; z <= nReplicas; z++) {
+
+                  // put chunk root in correct checklist
+                  // the currentRemote Bucket argument to encodeOffset doesn't really
+                  // matter; only the offset is of consequence
+                  OffsetNode on;
+                  on.node = chunkRoot;
+                  on.offsetID = encodeOffset(0, x,y,z);
+                  lstate->chklists[lcaLevel].enq(on);
+                }
+              }
+            }
+          }
+        }
+      }// if !placedRoots
+
+
+      interlistForWalk->walk(lca, localWalkState, -1,
+          localWalkState->currentBucket, -1);
+
+      GenericTreeNode *lowestNode = ((DoubleWalkState *)localWalkState)->lowestNode;
+      int startBucket, end;
+      int numActualBuckets = 0;
+
+      getBucketsBeneathBounds(lowestNode, startBucket, end);
+      CkAssert(localWalkState->currentBucket >= startBucket);
+
+      if (end > (foreign_buckets[len-1]+1)) {
+        end = foreign_buckets[len-1] + 1;
+        CkPrintf("[%d] TP %d end %d foreign bucket last %d\n", CkMyPe(), thisIndex, end, foreign_buckets[len-1]);
+        CkAbort("WARNING!!!!! end is not among foreign bucket\n"); 
+      }
+
+      lForCompute->stateReady(localWalkState, this, -1, localWalkState->currentBucket, end);
+
+      for(int j = localWalkState->currentBucket; j < end; j++){
+        localWalkState->counterArrays[0][j]--;
+      }
+
+      prevBucket = localWalkState->currentBucket;
+      i += (end-localWalkState->currentBucket);
+      localWalkState->currentBucket = end;
+    } else {
+      localWalkState->counterArrays[0][localWalkState->currentBucket]--;
+      i++;
+    }
+  }
+}
+
+void TreePiece::doForeignBucketsEwald(vector<int> &foreign_buckets,
+    int chunkNum, int foreign_state_idx, int awiForeign) {
+  unsigned int i = 0;
+  int len = foreign_buckets.size();
+  unsigned int ewald_foreign_bucket;
+
+  while (i< len  && foreign_buckets[i] < numBuckets) {
+    ewald_foreign_bucket = foreign_buckets[i];
+    BucketEwald(bucketList[ewald_foreign_bucket], nReplicas, fEwCut);
+
+    bucketReqs[ewald_foreign_bucket].finished = 1;
+    i++;
+  }
 }
 
 // Starts the prefetching of the specified chunk; once the 
@@ -4531,6 +5280,8 @@ void TreePiece::commenceCalculateGravityLocal(){
   DoubleWalkState *lstate = (DoubleWalkState *)sLocalGravityState;
   lstate->placedRoots[0] = false;
 #endif
+  //return;
+  CkPrintf("[%d] TP %d calculateGravityLocal\n", CkMyPe(), thisIndex);
   calculateGravityLocal();
 }
 
@@ -4539,6 +5290,11 @@ void TreePiece::startRemoteChunk() {
 #if CHANGA_REFACTOR_DEBUG > 0
   CkPrintf("[%d] sending message to commence remote gravity\n", thisIndex);
 #endif
+
+  if (isBucketForeign[0]) {
+    SplitBucketsToNodes();
+    return;
+  }
 
   traceUserEvent(prefetchDoneUE);
 
@@ -4829,13 +5585,18 @@ GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key, int 
     CkCacheUserData userData;
     userData.d0 = (((CmiUInt8) awi)<<32)+reqID;
     userData.d1 = (CmiUInt8) source;
+    userData.d2 = (CmiUInt8) this;
+    //if (CkMyPe() == 2 && awi == 1) {
+    //  CkPrintf("[%d] TP %d sending cache request element idx %s\n", CkMyPe(),
+    //  thisIndex, idx2str(thisElement.ckGetIndex()));
+    //}
 
     CkCacheRequestorData<KeyType> request(thisElement, &EntryTypeGravityNode::callback, userData);
     CkArrayIndexMax remIdx = CkArrayIndex1D(remoteIndex);
     GenericTreeNode *res = (GenericTreeNode *) cacheNode.ckLocalBranch()->requestData(key,remIdx,chunk,&gravityNodeEntry,request);
 
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_BUCKET_START_FIN
-    if(source && !res){
+    if(CkMyPe() == 1 && source && !res){
       int start, end;
       GenericTreeNode *testSource = (GenericTreeNode *)source;
       getBucketsBeneathBounds(testSource, start, end);
@@ -4865,6 +5626,7 @@ ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk
     CkCacheUserData userData;
     userData.d0 = (((CmiUInt8) awi)<<32)+reqID;
     userData.d1 = (CmiUInt8) source;
+    userData.d2 = (CmiUInt8) this;
 
     CkCacheRequestorData<KeyType> request(thisElement, &EntryTypeGravityParticle::callback, userData);
     CkArrayIndexMax remIdx = CkArrayIndex1D(remoteIndex);
@@ -4915,6 +5677,7 @@ TreePiece::requestSmoothParticles(Tree::NodeKey key,int chunk,int remoteIndex,
     CkCacheUserData userData;
     userData.d0 = (((CmiUInt8) awi)<<32)+reqID;
     userData.d1 = (CmiUInt8) source;
+    userData.d2 = (CmiUInt8) this;
 
     CkCacheRequestorData<KeyType> request(thisElement, &EntryTypeSmoothParticle::callback, userData);
     CkArrayIndexMax remIdx = CkArrayIndex1D(remoteIndex);
@@ -5494,6 +6257,17 @@ checkWalkCorrectness();
 }
 
 GenericTreeNode *TreePiece::nodeMissed(int reqID, int remoteIndex, Tree::NodeKey &key, int chunk, bool isPrefetch, int awi, void *source){
+
+//  if (CkMyPe() == 1 && awi == 1) {
+//
+//  ActiveWalk &a = activeWalks[awi];
+//  TreeWalk* tw = a.tw;
+//    CkPrintf("[%d] TP %d awi %d******** reqID %d twowner %d source key %lx\n",
+//    CkMyPe(), thisIndex, awi, reqID, tw->ownerTP->getIndex(),
+//    ((GenericTreeNode*)source)->getKey());
+// //   CkPrintf("[%d] TP %d awi %d walk owner %d\n", CkMyPe(), thisIndex, awi,
+// //   activeWalks[awi].tw->ownerTP->getIndex());
+//  }
   GenericTreeNode *gtn = requestNode(remoteIndex, key, chunk, reqID, awi, source, isPrefetch);
   return gtn;
 }
@@ -5507,6 +6281,10 @@ ExternalGravityParticle *TreePiece::particlesMissed(Tree::NodeKey &key, int chun
 void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source){
   int targetBucket = decodeReqID(reqID);
   Vector3D<double> offset = decodeOffset(reqID);
+ // if (CkMyPe() == 2 && awi == 1) {
+ //   CkPrintf("[%d] TP %d receiveNodeCallback targetbucket %d\n", CkMyPe(),
+ //   thisIndex, targetBucket);
+ // }
 
   TreeWalk *tw;
   Compute *compute;
@@ -5531,17 +6309,48 @@ void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID,
   // retrieve the activewalk record
   CkAssert(awi < activeWalks.size());
 
+   // TODO:Commented
+  // This is valid only for interlist walk
+//  if (awi == interListAwi) {
+//    int startBucket;
+//    int end;
+//    GenericTreeNode *testSource = (GenericTreeNode *)source;
+//
+//   // if (CkMyPe() == 1 && awi == 1) {
+//   //   CkPrintf("[%d] TP %d recvd Node source key %lx\n", CkMyPe(), thisIndex,
+//   //   testSource->getKey());
+//   // }
+//    getBucketsBeneathBounds(testSource, startBucket, end);
+//    // Even if the foreign particle has come back, we did not count it in
+//    // counterArrays so adjust the end accordingly.
+//    if (numPresentBucket < end) {
+//      end = numPresentBucket;
+//    }
+//    // Check whether 
+//    for (int i = startBucket; i < end; i++) {
+//      if (isBucketForeign[i]) {
+//        thisProxy[thisIndex].receiveNodeCallback(node, chunk, reqID, awi, source);
+//        return;
+//      }
+//    }
+//  }
+ 
+
   ActiveWalk &a = activeWalks[awi];
   tw = a.tw;
   compute = a.c;
   state = a.s;
+  
+
 
   // reassociate objects with each other
   tw->reassoc(compute);
   compute->reassoc(source, activeRung, a.o);
 
   // resume walk
-  //CkPrintf("[%d] RECVD NODE (%ld), resuming walk chunk %d\n", thisIndex, node->getKey(), chunk);
+  CkPrintf("[%d] TP %d RECVD NODE (%ld), resuming walk chunk %d awi %d\n",
+  CkMyPe(), thisIndex,
+  node->getKey(), chunk, awi);
   tw->resumeWalk(node, state, chunk, reqID, awi);
 
   // we need source to update the counters in all buckets
@@ -5716,6 +6525,7 @@ void TreePiece::finishedChunk(int chunk){
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d, calling markWalkDone\n", thisIndex, chunk);
 #endif
+    CkPrintf("[%d] TP %d finishedChunk %d, calling markWalkDone\n", CkMyPe(), thisIndex, chunk);
     markWalkDone();
   }
 }
@@ -5725,6 +6535,7 @@ void TreePiece::markWalkDone() {
     // There are always two walks to wait for: one saying that all
     // computation for our buckets are done and one saying that all
     // outstanding cache requests are satisfied.
+    CkPrintf("[%d] TP %d inside markWalkDone completedActiveWalks: %d\n",CkMyPe(), thisIndex, completedActiveWalks);
 
     if (++completedActiveWalks == 2) {
 	// At this point this treepiece has completed its walk.  However,
@@ -5745,9 +6556,11 @@ void TreePiece::finishWalk()
 	       getObjTime(), myNumParticles);
   completedActiveWalks = 0;
   freeWalkObjects();
+
 #ifdef CACHE_MEM_STATS
   memPostCache = CmiMemoryUsage()/(1024*1024);
 #endif
+  CkPrintf("[%d] TP %d inside finishWalk contrib callback\n", CkMyPe(), thisIndex);
 #ifdef CHECK_WALK_COMPLETIONS
   CkPrintf("[%d] inside finishWalk contrib callback\n", thisIndex);
 #endif
@@ -5895,6 +6708,8 @@ void TreePiece::updateBucketState(int start, int end, int n, int chunk, State *s
        CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", thisIndex, i, sRemoteGravityState->counterArrays[0][i], sLocalGravityState->counterArrays[0][i]);
 #endif
        //CkPrintf("[%d] bucket %d numAddReq: %d\n", thisIndex, i, state->counterArrays[0][i]);
+       CkPrintf("[%d] TP %d updateBucket %d start %d leftCounter: %d\n",
+       CkMyPe(), thisIndex, i, start, state->counterArrays[0][i]);
 #if !defined CUDA
        // updatebucketstart is only called after we have finished
        // with received nodes/particles (i.e. after stateReady in
@@ -5923,7 +6738,8 @@ void TreePiece::updateUnfinishedBucketState(int start, int end, int n, int chunk
 #if COSMO_PRINT_BK > 1
        CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", thisIndex, i, sRemoteGravityState->counterArrays[0][i], sLocalGravityState->counterArrays[0][i]);
 #endif
-       //CkPrintf("[%d] bucket %d numAddReq: %d\n", thisIndex, i, state->counterArrays[0][i]);
+       CkPrintf("[%d] TP %d updateUnfinishedBucket %d start %d numAddReq: %d\n",
+       CkMyPe(), thisIndex, i, start, state->counterArrays[0][i]);
     }
   }
   state->counterArrays[1][chunk] += n;
