@@ -20,6 +20,7 @@
 
 #include "SSEdefs.h"
 #define TYPE_STAR              (1<<2) //CC
+#define TYPE_GAS               (1<<0) //CC
 
 #if CMK_SSE && defined(HEXADECAPOLE) 
 /*
@@ -174,42 +175,38 @@ public:
 	/// The center of mass (zeroth order multipole)
 	Vector3D<cosmoType> cm;
 
-#ifdef COOLING_MOLECULARH
-	double totalLW;
-	Vector3D<double> cLW;
-#endif
+	/*#ifdef COOLING_MOLECULARH*/
+#ifdef LYMAN_WERNER
+	double totalLW, totalgas;
+	Vector3D<double> cLW, cgas;
+	double xxgas, yygas, zzgas;
+
+#endif /*LYMAN_WERNER*/
+	/*#endif*/ /*COOLING_MOLECULARH*/
 
 #ifdef HEXADECAPOLE
 	FMOMR mom;
-#ifdef COOLING_MOLECULARH
-	MOMR momLW;
-#endif
 #else						\
 	//Tensor for higher order moments goes here
 	double xx, xy, xz, yy, yz, zz;
-#ifdef COOLING_MOLECULARH
-	double xxLW, xyLW, xzLW, yyLW, yzLW, zzLW;
-#endif
 #endif
 	
 	MultipoleMoments() : radius(0), totalMass(0) { 
 	    soft = 0;
 		cm.x = cm.y = cm.z = 0;
-#ifdef COOLING_MOLECULARH
-		totalLW = 0;
-		cLW.x = cLW.y = cLW.z = 0;		
-#endif
+		/*#ifdef COOLING_MOLECULARH*/
+#ifdef LYMAN_WERNER
+		totalLW = 0, totalgas = 0;
+		cLW.x = cLW.y = cLW.z = 0;
+		cgas.x = cgas.y = cgas.z = 0;
+		xxgas = yygas = zzgas = 0;
+#endif /*LYMAN_WERNER*/		
+		/*#endif*/ /*COOLING_MOLECULARH*/
 		//clear higher order components here
 #ifdef HEXADECAPOLE
 		momClearFmomr(&mom);
-#ifdef COOLING_MOLECULARH
-		momClearMomr(&momLW);
-#endif
 #else
 		xx = xy = xz = yy = yz = zz = 0;
-#ifdef COOLING_MOLECULARH
-		xxLW = xyLW = xzLW = yyLW = yzLW = zzLW = 0;
-#endif
 #endif
 	    }
 	
@@ -232,14 +229,30 @@ public:
 		soft = (m1*soft + m.totalMass*m.soft)/totalMass;
 		Vector3D<cosmoType> cm1 = cm;
 		cm = (m1*cm + m.totalMass*m.cm)/totalMass;
-#ifdef COOLING_MOLECULARH
+		/*#ifdef COOLING_MOLECULARH*/
+#ifdef LYMAN_WERNER
 		double totalLW1 = totalLW;
 		totalLW += m.totalLW;
-		Vector3D<double> cLW1 = cLW;
 		if (totalLW != 0) {
 		  cLW = (totalLW1*cLW + m.totalLW*m.cLW)/totalLW;
 		}
-#endif
+		
+		double totalgas1 = totalgas;
+		totalgas += m.totalgas;
+		Vector3D<double> cgas1 = cgas;
+		if (totalgas != 0) {
+		  cgas = (totalgas1*cgas1 + m.totalgas*m.cgas)/totalgas;
+		}		 
+		Vector3D<double> drgas = cgas1 - cgas; /*Distance between previous center and new center*/
+		xxgas += totalgas1*drgas[0]*drgas[0];
+		yygas += totalgas1*drgas[1]*drgas[1];
+		zzgas += totalgas1*drgas[2]*drgas[2];
+		drgas = m.cgas - cgas; /*Distance between added node center and new center*/
+		xxgas += m.xxgas + m.totalgas*drgas[0]*drgas[0];
+		yygas += m.yygas + m.totalgas*drgas[1]*drgas[1];
+		zzgas += m.zzgas + m.totalgas*drgas[2]*drgas[2];
+#endif /*LYMAN_WERNER*/
+		/*#endif*/ /*COOLING_MOLECULARH*/
 #ifdef HEXADECAPOLE
 		Vector3D<cosmoType> dr = cm1 - cm;
 		momShiftFmomr(&mom, radius, dr.x, dr.y, dr.z);
@@ -247,14 +260,6 @@ public:
 		dr = m.cm - cm;
 		momShiftFmomr(&mom2, m.radius, dr.x, dr.y, dr.z);
 		momScaledAddFmomr(&mom, radius, &mom2, m.radius);
-#ifdef COOLING_MOLECULARH
-		Vector3D<double> drLW = cLW1 - cLW;
-		momShiftMomr(&mom, drLW.x, drLW.y, drLW.z);
-		MOMR momLW2 = m.momLW;
-		drLW = m.cLW - cLW;
-		momShiftMomr(&momLW2, drLW.x, drLW.y, drLW.z);
-		momAddMomr(&momLW, &momLW2);		
-#endif
 #else
 		//add higher order components here
 		Vector3D<double> dr = cm1 - cm;
@@ -271,22 +276,6 @@ public:
 		xy += m.xy + m.totalMass*dr[0]*dr[1];
 		xz += m.xz + m.totalMass*dr[0]*dr[2];
 		yz += m.yz + m.totalMass*dr[1]*dr[2];
-#ifdef COOLING_MOLECULARH
-		Vector3D<double> drLW = cLW1 - cLW;
-		xxLW += totalLW1*drLW[0]*drLW[0];
-		yyLW += totalLW1*drLW[1]*drLW[1];
-		zzLW += totalLW1*drLW[2]*drLW[2];
-		xyLW += totalLW1*drLW[0]*drLW[1];
-		xzLW += totalLW1*drLW[0]*drLW[2];
-		yzLW += totalLW1*drLW[1]*drLW[2];
-		drLW = m.cLW - cLW;
-		xxLW += m.xxLW + m.totalLW*drLW[0]*drLW[0];
-		yyLW += m.yyLW + m.totalLW*drLW[1]*drLW[1];
-		zzLW += m.zzLW + m.totalLW*drLW[2]*drLW[2];
-		xyLW += m.xyLW + m.totalLW*drLW[0]*drLW[1];
-		xzLW += m.xzLW + m.totalLW*drLW[0]*drLW[2];
-		yzLW += m.yzLW + m.totalLW*drLW[1]*drLW[2];
-#endif
 #endif
 		return *this;
 	}
@@ -304,17 +293,41 @@ public:
 		soft = (m1*soft + p.mass*p.soft)/totalMass;
 		Vector3D<cosmoType> cm1 = cm;
 		cm = (m1*cm + p.mass * p.position)/totalMass;
-#ifdef COOLING_MOLECULARH
+		/*#ifdef COOLING_MOLECULARH */
+#ifdef LYMAN_WERNER
+		ParticleType p1; /*Duplicate variable as TYPETest does not accept constants*/
+		p1 = p;
 		double totalLW1 = totalLW;
-		Vector3D<double> cLW1 = cLW;
-		ParticleType p1 = p;
 		if (TYPETest(&p1, TYPE_STAR)) {
 		  totalLW += p1.dStarLymanWerner();
 		  if (totalLW != 0) {
-		    cLW = (totalLW1*cLW + p1.dStarLymanWerner() * p1.position)/totalLW;
+		    cLW = (totalLW1*cLW + p1.dStarLymanWerner() * p.position)/totalLW;
 		  }
 		 }
-#endif
+
+		double totalgas1 = totalgas;
+		Vector3D<double> cgas1 = cgas;
+		if (TYPETest(&p1, TYPE_GAS)) {
+		  totalgas += p.mass;
+		  if (totalgas!= 0) {
+		    cgas = (totalgas1*cgas1 + p.mass * p.position)/totalgas;
+		  }
+
+		  Vector3D<double> drgas = cgas1 - cgas;
+
+		  xxgas += totalgas1*drgas[0]*drgas[0];
+		  yygas += totalgas1*drgas[1]*drgas[1];
+		  zzgas += totalgas1*drgas[2]*drgas[2];
+
+		  drgas = p.position - cgas;
+
+		  xxgas += p.mass*drgas[0]*drgas[0];
+		  yygas += p.mass*drgas[1]*drgas[1];
+		  zzgas += p.mass*drgas[2]*drgas[2];
+		 }
+
+#endif /*LYMAN_WERNER*/	
+		/*#endif*/ /*COOLING_MOLECULARH*/
 #ifdef HEXADECAPOLE
 		// XXX this isn't the most efficient way, but it
 		// retains the semantics of this function.  It would
@@ -327,16 +340,6 @@ public:
 		FMOMR momPart;
 		momMakeFmomr(&momPart, p.mass, radius, dr.x, dr.y, dr.z);
 		momAddFmomr(&mom, &momPart);
-#ifdef COOLING_MOLECULARH
-		if (TYPETest(&p1, TYPE_STAR)) {
-		    Vector3D<double> drLW = cLW1 - cLW;
-		    momShiftMomr(&mom, drLW.x, drLW.y, drLW.z);
-		    drLW = p.position - cLW;
-		    MOMR momLWPart;
-		    momMakeMomr(&momLWPart, p1.dStarLymanWerner(), drLW.x, drLW.y, drLW.z);
-		    momAddMomr(&momLW, &momLWPart);			
-		  }
-#endif /*COOLING_MOLECULARH*/
 #else
 		//add higher order components here
 		Vector3D<double> dr = cm1 - cm;
@@ -356,27 +359,6 @@ public:
 		xy += p.mass*dr[0]*dr[1];
 		xz += p.mass*dr[0]*dr[2];
 		yz += p.mass*dr[1]*dr[2];
-#ifdef COOLING_MOLECULARH 
-		if (TYPETest(&p1, TYPE_STAR)) {
-		    Vector3D<double> drLW = cLW1 - cLW;
-
-		    xx += totalLW1*drLW[0]*drLW[0];
-		    yy += totalLW1*drLW[1]*drLW[1];
-		    zz += totalLW1*drLW[2]*drLW[2];
-		    xy += totalLW1*drLW[0]*drLW[1];
-		    xz += totalLW1*drLW[0]*drLW[2];
-		    yz += totalLW1*drLW[1]*drLW[2];
-		    
-		    drLW = p.position - cLW;
-		    
-		    xx += p->dStarLymanWerner()*drLW[0]*drLW[0];
-		    yy += p->dStarLymanWerner()*drLW[1]*drLW[1];
-		    zz += p->dStarLymanWerner()*drLW[2]*drLW[2];
-		    xy += p->dStarLymanWerner()*drLW[0]*drLW[1];
-		    xz += p->dStarLymanWerner()*drLW[0]*drLW[2];
-		    yz += p->dStarLymanWerner()*drLW[1]*drLW[2];
-		  }
-#endif
 #endif
 		
 		return *this;

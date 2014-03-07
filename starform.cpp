@@ -362,7 +362,8 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     if(p->mass < dMinGasMass) {
 	deleteParticle(p);
 	}
-#ifdef COOLING_MOLECULARH /*Initialize LW radiation for a star particle of that mass and 10^7 (the minimum) years old*/
+    /*#ifdef COOLING_MOLECULARH*/ /*Initialize LW radiation for a star particle of that mass and 10^7 (the minimum) years old*/
+#ifdef LYMAN_WERNER
     double dAgelog = 7,
       a0 = -84550.812,
       a1 =  54346.066,
@@ -376,7 +377,8 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
       + a3*dAgelog*dAgelog*dAgelog
       + a4*dAgelog*dAgelog*dAgelog*dAgelog
       + a5*dAgelog*dAgelog*dAgelog*dAgelog*dAgelog + log10(dDeltaM);
-#endif
+#endif /*LYMAN_WERNER*/
+    /* #endif*/ /*COOLING_MOLECULARH*/
 
     /* NB: It is important that the star inherit special
        properties of the gas particle such as being a target

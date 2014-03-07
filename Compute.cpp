@@ -2701,36 +2701,94 @@ void LocalTreePrinter::openFile(){
   file << "digraph " << description << index << "{" << std::endl;
 }
 
-#ifdef COOLING_MOLECULARH
+/*#ifdef COOLING_MOLECULARH*/
+#ifdef LYMAN_WERNER
 bool LocalLymanWernerDistributor::work(GenericTreeNode *node, int level){
+  int j;
+  double momgas, fDistance2 = 0, fDistanceCell2 = 0, fPrev_aveLW = 0;
+
+  if (level == 0) {
+    /* You are at the root */
+    fPrev_totalLW = node->moments.totalLW;
+    fPrev_cLW = node->moments.cLW;
+  }
+  // CkAssert(node != NULL);
+  if (node == NULL) {
+    return false;
+    }
+
+
+  /*	Determine flux at center of mass of cell from average source of LW radiation in the parent cell */
+  for (j = 0; j<3; ++j){
+    fDistanceCell2 += (fPrev_cLW[j] - node->moments.cgas[j])*(fPrev_cLW[j] - node->moments.cgas[j]);
+  }
+  momgas = node->moments.xxgas + node->moments.yygas + node->moments.zzgas;
+  if (fDistanceCell2 < momgas){
+    //At minimum, this average distance between gas mass center of child cell and flux center of parent cell should be the moment of the gas in the child cell //update this to gaseous moment
+    fDistanceCell2 = momgas;
+  }
+  if (fDistanceCell2 != 0){
+ /* Calculated typical flux with radiative source being in the parent cell*/
+    fPrev_aveLW = fPrev_totalLW/fDistanceCell2;
+  }
+  else fPrev_aveLW = 0;
+
+  /* If using the radiation from the parent cell would typically provide more flux, set total luminosity and average source position equal to that in parent cell, except, reverse that */
+  if (momgas != 0 && fPrev_aveLW < node->moments.totalLW/momgas){ 
+/*Is the moment already squared?*/
+//  if (fPrev_totalLW < node->moments.totalLW){
+    fPrev_totalLW = node->moments.totalLW;
+    fPrev_cLW = node->moments.cLW;    
+  } 
+
   if(node->getType() == Empty || node->getType() == CachedEmpty){
     return DUMP; /*Node is empty*/
   }
   if(!(node->iParticleTypes & TYPE_GAS)) {
-    return DUMP; /*no gas particles in the node*/
-	}
-  if(node->getType() == Internal && node->getType() != Bucket){
-    /*The node is not a bucket so continue propagating the radiation down the tree*/
-    return true;
+    return false; /*no gas particles in the node*/
   }
-  else if (node->getType() == Internal && node->getType() == Bucket){
+  if(node->getType() != Bucket){
+    /*The node is not a bucket so continue propagating the radiation down the tree*/
+    /*    if (fPrev_totalLW < node->moments.totalLW) {
+      fPrev_totalLW = node->moments.totalLW;
+      fPrev_cLW = node->moments.cLW;
+      }*/
+  return true;
+  }
+  else if (node->getType() == Bucket){
     /*The node is a bucket so assign a Lyman Werner flux to each of the gas particles*/
     GravityParticle *part = node->particlePointer;
+    /*   if (fPrev_totalLW < node->moments.totalLW) {
+      fPrev_totalLW = node->moments.totalLW;
+      fPrev_cLW = node->moments.cLW;
+      }*/
     for(int i = node->firstParticle; i <= node->lastParticle; i++) {
-      /*      if(TYPETest(&part[i-node->firstParticle],TYPE_GAS)){
-	
-	      }*/
-      return true;
+      if(TYPETest(&part[i-node->firstParticle],TYPE_GAS)){
+	/*	fdistance2 = 0;*/
+	fDistance2 = pow(part[i-node->firstParticle].position.x - fPrev_cLW.x,2);
+	fDistance2 += pow(part[i-node->firstParticle].position.y - fPrev_cLW.y,2);
+	fDistance2 += pow(part[i-node->firstParticle].position.z - fPrev_cLW.z,2);	
+	if (fDistance2 < part[i-node->firstParticle].fSoft0*part[i-node->firstParticle].fSoft0*0.25) {
+	  fDistance2 = part[i-node->firstParticle].fSoft0*part[i-node->firstParticle].fSoft0*0.25;
+	}
+	COOLPARTICLE cp = part[i-node->firstParticle].CoolParticle();
+	cp.dLymanWerner = fPrev_totalLW/(4.0*M_PI*fDistance2);
+	part[i-node->firstParticle].CoolParticle() = cp;
+	/*	part[i-node->firstParticle].SetLymanWerner(node->moments.totalLW/(4.0*M_PI*fDistance2));*/
+	/*	p[pj].CoolParticle.dLymanWerner = node.moments.totalLW/(4.0*M_PI*fDistance2);*/
+      }
     }
+    return false;
   }
-  CkAbort("LocalLymanWernerDistributor called a non-local node type");
+  //    CkAbort("LocalLymanWernerDistributor called a non-local node type");
   return false;
 }
 
 void LocalLymanWernerDistributor::doneChildren(GenericTreeNode *node, int level){
   /*I'm honestly doubtful that anything needs to be done here.  I've added something temporary just to make sure that I'm where I think I am. C*/
     for(int i = 0; i < node->numChildren(); i++){
-      CkAssert(node->getChildren(i) != NULL);
+      //      CkAssert(node->getChildren(i) != NULL);
     }
 }
-#endif /* COOLING_MOLECULARH */
+#endif /*LYMAN_WERNER*/
+/*#endif*/ /* COOLING_MOLECULARH */
