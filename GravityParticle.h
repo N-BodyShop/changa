@@ -126,6 +126,11 @@ class extraSPHData
 #ifndef COOLING_NONE
     inline double& uDot() {return _uDot;}
     inline COOLPARTICLE& CoolParticle() {return _CoolParticle;}
+    /*#ifdef COOLING_MOLECULARH*/
+#ifdef LYMAN_WERNER
+    inline void SetLymanWerner(double dLymanWerner) {_CoolParticle.dLymanWerner = dLymanWerner;}
+#endif /*LYMAN_WERNER*/
+    /*#endif*/
 #endif
 #ifdef DIFFUSION
     inline double& diff() {return _diff;}
@@ -201,9 +206,11 @@ class extraStarData
     int64_t _iEaterOrder;	/* iOrder for merging black holes */
     double _dMDot;		/* Accretion rate of black holes */
     double _dDeltaM;		/* Actual Mass Accreted on black holes */
-#ifdef COOLING_MOLECULARH
+    /*#ifdef COOLING_MOLECULARH*/
+#ifdef LYMAN_WERNER
     double _dStarLymanWerner;	/* Lyman Werner radiation emmited from star particles */
-#endif
+#endif /*LYMAN_WERNER*/
+    /*#endif*/
  public:
     inline double& fMetals() {return _fMetals;}
     inline double& fTimeForm() {return _fTimeForm;}
@@ -220,9 +227,11 @@ class extraStarData
     inline int64_t& iEaterOrder() {return _iEaterOrder;}
     inline double& dMDot() {return _dMDot;}
     inline double& dDeltaM() {return _dDeltaM;}
-#ifdef COOLING_MOLECULARH
+    /*#ifdef COOLING_MOLECULARH*/
+#ifdef LYMAN_WERNER
     inline double& dStarLymanWerner() {return _dStarLymanWerner;} 
-#endif
+#endif /*LYMAN_WERNER*/
+    /*#endif*/
     void pup(PUP::er &p) {
 	p | _fMetals;
 	p | _fTimeForm;
@@ -393,9 +402,11 @@ public:
 	inline int64_t& iEaterOrder() { IMASTAR; return (((extraStarData*)extraData)->iEaterOrder());}
 	inline double& dDeltaM() { IMASTAR; return (((extraStarData*)extraData)->dDeltaM());}
 	inline double& dMDot() { IMASTAR; return (((extraStarData*)extraData)->dMDot());}
-#ifdef COOLING_MOLECULARH
+	/*#ifdef COOLING_MOLECULARH*/
+#ifdef LYMAN_WERNER
 	inline double& dStarLymanWerner() { IMASTAR; return (((extraStarData*)extraData)->dStarLymanWerner());} 
-#endif
+#endif /*LYMAN_WERNER*/
+	/*#endif*/
 
 // See above debugging macros
 #undef IMAGAS

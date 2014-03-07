@@ -342,7 +342,7 @@ Main::Main(CkArgMsg* m) {
 	param.bDoCSound = 0;
 	prmAddParam(prm,"bDoCSound",paramBool,&param.bDoCSound,sizeof(int),
 		    "csound","enable/disable sound speed outputs = -csound");
-	param.bDoStellarLW = 0;
+	param.bDoStellarLW = 1; /*CC */
 	prmAddParam(prm,"bDoStellarLW",paramBool,&param.bDoStellarLW,sizeof(int),
 		    "LWout","enable/disable Lyman Werner outputs = -LWout");
 	param.nSmooth = 32;
@@ -1985,9 +1985,11 @@ void Main::advanceBigStep(int iStep) {
     if(param.bDoExternalGravity)
         externalGravity(activeRung);
 
-#ifdef COOLING_MOLECULARH
+    /*#ifdef COOLING_MOLECULARH*/
+#ifdef LYMAN_WERNER
     treeProxy.distribLymanWerner(CkCallbackResumeThread());
-#endif /*COOLING_MOLECULARH*/
+#endif /*LYMAN_WERNER*/
+    /*#endif*/ /*COOLING_MOLECULARH*/
 
     if(verbosity > 1)
 	memoryStats();
@@ -3278,7 +3280,7 @@ void Main::writeOutput(int iStep)
 #ifdef COOLING_MOLECULARH
     Cool3OutputParams pCool3Out(achFile, param.iBinaryOut, dOutTime); 
     LWOutputParams pLWOut(achFile, param.iBinaryOut, dOutTime);
-#endif
+#endif /*COOLING_MOLECULARH*/
 #endif
 #ifdef DIFFUSION
     MetalsDotOutputParams pMetalsDotOut(achFile, param.iBinaryOut, dOutTime);
@@ -3308,10 +3310,13 @@ void Main::writeOutput(int iStep)
 	    outputBinary(pCool2Out, param.bParaWrite, CkCallbackResumeThread());
 #ifdef COOLING_MOLECULARH
 	    outputBinary(pCool3Out, param.bParaWrite, CkCallbackResumeThread());
+#endif /*COOLING_MOLECULARH*/
+	    }
+#ifdef LYMAN_WERNER
 	    if(param.bDoStellarLW)
                 outputBinary(pLWOut, param.bParaWrite, CkCallbackResumeThread());
-#endif
-	    }
+#endif /*LYMAN_WERNER*/
+	    /*#endif*/ /*COOLING_MOLECULARH*/
 #endif
 	if(param.bDoSoftOutput && param.iBinaryOut != 6) {
 	    outputBinary(pSoftOut, param.bParaWrite, CkCallbackResumeThread());
@@ -3371,11 +3376,14 @@ void Main::writeOutput(int iStep)
 #ifdef COOLING_MOLECULARH
 	    treeProxy[0].outputASCII(pCool3Out, param.bParaWrite,
 				     CkCallbackResumeThread());
-	    if(param.bDoStellarLW)
-	      treeProxy[0].outputASCII(pLWOut, param.bParaWrite,
-				       CkCallbackResumeThread());  
-#endif
-	    }
+#endif /*COOLING_MOLECULARH*/
+	}
+#ifdef LYMAN_WERNER
+	if(param.bDoStellarLW)
+	  treeProxy[0].outputASCII(pLWOut, param.bParaWrite,
+				   CkCallbackResumeThread());  
+#endif /*LYMAN_WERNER*/
+	    /*#endif*/ /*COOLING_MOLECULARH*/
 #endif
 #ifdef DIFFUSION
         if(param.bDoGas)
