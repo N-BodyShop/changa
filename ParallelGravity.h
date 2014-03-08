@@ -1093,6 +1093,7 @@ private:
   bool* isBucketForeign;
   int* bucketForeignAwiIdx;
   int* bucketForeignStateIdx;
+  bool* isBucketDone;
   vector<ForeignState*> foreign_states;
 
 	/// Size of bucketList, total number of buckets present

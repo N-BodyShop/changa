@@ -371,12 +371,16 @@ void ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int 
   int start, end;
   GenericTreeNode *source = (GenericTreeNode *)computeEntity;
   owner->getBucketsBeneathBounds(source, start, end);
+  //if (CkMyPe() == 2) {
+  //  CkPrintf("[%d] TP %d nodeRecvdEvent start %d starting %d end %d ending %d\n", CkMyPe(), owner->getIndex(), start, starting_bucket, end, ending_bucket);
+  //}
   if (start < starting_bucket) {
     start = starting_bucket;
   }
   if (end > ending_bucket) {
     end = ending_bucket;
   }
+
   owner->updateBucketState(start, end, 1, chunk, state);
 
   CkAssert(chunk >= 0);
