@@ -1463,6 +1463,7 @@ start, int end, CkVec<OffsetNode>& clist, CkVec<RemotePartInfo>& rpilist,
 
         // local particles
         if(hasLocalLists){
+          //double st = CkWallTimer();
           for(unsigned int i = 0; i < lpilist.length(); i++){
             LocalPartInfo &lpi = lpilist[i];
 
@@ -1470,7 +1471,7 @@ start, int end, CkVec<OffsetNode>& clist, CkVec<RemotePartInfo>& rpilist,
             for(int j = 0; j < lpi.numParticles; j++){
 
               //computed += partBucketForce(&lpi.particles[j],
-              int computed = partBucketForce(&lpi.particles[j],
+              int computed = partBucketForceDummy(&lpi.particles[j],
                   tp->getBucket(b),
                   particles,
                   lpi.offset, activeRung);
@@ -1478,6 +1479,8 @@ start, int end, CkVec<OffsetNode>& clist, CkVec<RemotePartInfo>& rpilist,
               plcomputed += computed;
             }
           }
+          //double et = CkWallTimer();
+          //CkPrintf("[%d] time in locallist %g lpsize %d\n", CkMyPe(), et-st, lpilist.size());
         }
     }// active
   }// bucket

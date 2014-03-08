@@ -161,7 +161,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
     // XXX need to check whether a treebuild needs the domain
     // decomposition.  If not, this could be avoided.
     //
-    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),false);
     DistStellarFeedbackSmoothParams pDSFB(TYPE_GAS, 0, param.csm, dTime, 
 					  param.dConstGamma, param.feedback);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;

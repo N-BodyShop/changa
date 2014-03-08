@@ -639,7 +639,7 @@ Main::Main(CkArgMsg* m) {
 		    sizeof(int),"consph", "Enable SPH running concurrently with Gravity");
 
 #ifdef PUSH_GRAVITY
-        param.dFracPushParticles = 0.0;
+        param.dFracPushParticles = 0.1;
 	prmAddParam(prm, "dFracPush", paramDouble,
 		    &param.dFracPushParticles, sizeof(double),"fPush",
 		    "Maximum proportion of active to total particles for push-based force evaluation = 0.0");
@@ -1315,6 +1315,7 @@ inline void Main::waitForGravity(const CkCallback &cb, double startTime)
 {
     if(param.bConcurrentSph && param.bDoGravity) {
 #ifdef PUSH_GRAVITY
+      bool bDoPush = param.dFracPushParticles*nTotalParticles > nActiveGrav;
       if(bDoPush){
         CkWaitQD();
       }
@@ -1478,9 +1479,9 @@ void Main::advanceBigStep(int iStep) {
 	FormStars(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
     if(param.bFeedback && param.stfm->isStarFormRung(activeRung)) 
 	StellarFeedback(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
-#ifdef SELECTIVE_TRACING
-        turnProjectionsOn(activeRung);
-#endif
+//#ifdef SELECTIVE_TRACING
+//        turnProjectionsOn(activeRung);
+//#endif
     ckout << "\nStep: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
           << " Time: " << dTime
           << " Rungs " << activeRung << " to "
@@ -1520,9 +1521,9 @@ void Main::advanceBigStep(int iStep) {
           << endl;
           */
     CkPrintf("DD ending at %g took total %g ................\n", CkWallTimer(), CkWallTimer()-startTime);
-#ifdef SELECTIVE_TRACING
-        turnProjectionsOff();
-#endif
+//#ifdef SELECTIVE_TRACING
+//        turnProjectionsOff();
+//#endif
 
     if(verbosity && !bDoDD)
 	CkPrintf("Skipped DD\n");
@@ -1547,9 +1548,12 @@ void Main::advanceBigStep(int iStep) {
 
 #ifdef PUSH_GRAVITY
     bool bDoPush = param.dFracPushParticles*nTotalParticles > nActiveGrav;
-    if(bDoPush) CkPrintf("[main] fracActive %f PUSH_GRAVITY\n", 1.0*nActiveGrav/nTotalParticles);
+    //if(bDoPush) 
+      CkPrintf("[main] fracActive %f PUSH_GRAVITY\n", 1.0*nActiveGrav/nTotalParticles);
 #endif
-
+//#ifdef SELECTIVE_TRACING
+//        turnProjectionsOn(activeRung);
+//#endif
     /******** Tree Build *******/
     //ckout << "Building trees ...";
     CkPrintf("Building trees \n");
@@ -1574,18 +1578,20 @@ void Main::advanceBigStep(int iStep) {
 	/******** Force Computation ********/
 	//ckout << "Calculating gravity (tree bucket, theta = " << theta
 	//      << ") ...";
-//#ifdef SELECTIVE_TRACING
-//        turnProjectionsOn(activeRung);
-//#endif
+#ifdef SELECTIVE_TRACING
+        turnProjectionsOn(activeRung);
+#endif
 
-        CkPrintf("Calculating gravity (tree bucket, theta = %f)\n", theta);
 	startTime = CkWallTimer();
+        CkPrintf("Calculating gravity (tree bucket, theta = %f) timer %g\n",
+        theta, startTime);
 	if(param.bConcurrentSph) {
 	    ckout << endl;
 
 #ifdef PUSH_GRAVITY
             if(bDoPush){ 
               treeProxy.startPushGravity(activeRung, theta);
+              CkPrintf("Push gravity\n");
             }
 	    else{ 
 #endif
@@ -1603,6 +1609,7 @@ void Main::advanceBigStep(int iStep) {
 #ifdef PUSH_GRAVITY
 	    if(bDoPush){
               treeProxy.startPushGravity(activeRung, theta);
+              CkPrintf("Push gravity\n");
               CkWaitQD();
             }
 	    else{
@@ -2128,9 +2135,9 @@ Main::initialForces()
       /******** Force Computation ********/
       //ckout << "Calculating gravity (theta = " << theta
       //    << ") ...";
-#ifdef SELECTIVE_TRACING
-      turnProjectionsOn(0);
-#endif
+//#ifdef SELECTIVE_TRACING
+//      turnProjectionsOn(0);
+//#endif
       CkPrintf("Calculating gravity (theta = %f) ... ", theta);
       startTime = CkWallTimer();
       if(param.bConcurrentSph) {
@@ -3153,7 +3160,7 @@ void Main::liveVizImagePrep(liveVizRequestMsg *msg)
 void Main::turnProjectionsOn(int activeRung){
 
     traceIteration++;
-    if (traceIteration == 9) {
+    if (traceIteration == 7) {
         prjgrp.on(CkCallbackResumeThread());
         projectionsOn = true;
     }

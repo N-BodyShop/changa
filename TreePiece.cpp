@@ -7,6 +7,7 @@
 #include <assert.h>
 
 #include "CkLoopAPI.h"
+#include <papi.h>
 
 // jetley
 #include "limits.h"
@@ -80,6 +81,9 @@ CkpvExtern(int, _lb_obj_index);
 string getColor(GenericTreeNode*);
 
 const char *typeString(NodeType type);
+
+int papievents[1];
+long long papivalues[1];
 
 /*
  * set periodic information in all the TreePieces
@@ -3673,10 +3677,13 @@ void TreePiece::doAllBuckets(){
   //HierarchOrbLB* lbptr = (HierarchOrbLB *) CkLocalBranch(proxy);
   lbptr->getLoadInfo(avg_pe_load, pe_exp_load);
   //if (activeRung == 3 && treePieceActivePartsTmp >= 10000) {
-  //if (activeRung == 3 && pe_exp_load >= 2.1 && treePieceLoadExp > 1.1) {
-  if (iterationNo == 9 && pe_exp_load >= 6.0 && treePieceLoadExp > 1.1) {
+  if (activeRung >= 3 && pe_exp_load >= 0.3 && treePieceLoadExp >= 0.3) {
+  //if (activeRung >= 3 && pe_exp_load >= 1.5 && treePieceLoadExp > 1.9 && iterationNo == 8) {
+  //if (activeRung >= 3 && pe_exp_load >= 1.5 && treePieceLoadExp > 1.9) {
+    didCkLoop = true;
+  //if (iterationNo == 9 && pe_exp_load >= 6.0 && treePieceLoadExp > 1.1) {
     //if (activeRung == 3 && treePieceLoadExp > 3.3) {
-    CkPrintf("[%d] TP %d ckLoopParallelFunction expload %f\n", CkMyPe(), thisIndex, treePieceLoadExp);
+    //CkPrintf("[%d] TP %d ckLoopParallelFunction expload %f\n", CkMyPe(), thisIndex, treePieceLoadExp);
     thisProxy[thisIndex].ckLoopParallelFunction(msg);
   } else {
     thisProxy[thisIndex].nextBucket(msg);
@@ -3703,11 +3710,16 @@ inline void cellEnableComputation() {
 #endif
 
 void doCalc(int start, int end, void *result, int pnum, void * param) {
+  //papievents[0] = PAPI_L3_TCM;
+
   LoopParData* lpdata = (LoopParData *)param;
   TreePiece* tp = lpdata->tp;
   double tstart = CkWallTimer();
   for (int i = start; i <= end; i++) {
+    //double ts = CkWallTimer();
     tp->doParallelWork(i, lpdata);
+    //double te = CkWallTimer();
+    //CkPrintf("[%d] TP %d (%g-%g) start %d end %d time %g\n", CkMyPe(), tp->getIndex(), ts, te, i, end, te-ts);
   }
 //  int tmp = 0;
 //  for (int i = start; i<=end; i++) {
@@ -3716,7 +3728,12 @@ void doCalc(int start, int end, void *result, int pnum, void * param) {
 //
   double tend = CkWallTimer();
   *(double *)result = tend - tstart;
-  //CkPrintf("[%d] doCacl (%f-%f) start %d end %d\n", CkMyPe(), tstart, tend, start, end);
+//  if (PAPI_read_counters(papivalues, 1) != PAPI_OK) {
+//    CkPrintf("Papi not loaded\n");
+//  }
+  //CkPrintf("[%d] TP %d (%g-%g) start %d end %d time %g papivalue %d\n", CkMyPe(), tp->getIndex(), tstart, tend, start, end, tend-tstart, papivalues[0]);
+  //CkPrintf("[%d] TP %d (%g-%g) start %d end %d time %g\n", CkMyPe(), tp->getIndex(), tstart, tend, start, end, tend-tstart);
+  //CkPrintf("[%d] doCacl tpidx %d \n", CkMyPe(), tp->getIndex());
 }
 
 void TreePiece::doParallelWork(int idx, LoopParData* lpdata) {
@@ -3732,9 +3749,12 @@ void TreePiece::doParallelWork(int idx, LoopParData* lpdata) {
     //int computed;
     //sGravity->stateReadyCk(sLocalGravityState, lowestNode, this, -1, currentBucket, endBucket, computed);
 
+    //double ts = CkWallTimer();
     sGravity->stateReadyPar(sLocalGravityState, lowestNode, this, chunkNum,
     currentBucket, endBucket, lpdata->clists[idx], lpdata->rpilists[idx],
     lpdata->lpilists[idx]);
+    //double te = CkWallTimer();
+    //CkPrintf("[%d] TP %d (%g-%g) idx %d time %g\n", CkMyPe(), getIndex(), ts, te, idx, te-ts);
 }
 
 void TreePiece::ckLoopParallelFunction(dummyMsg *msg) {
@@ -3769,7 +3789,8 @@ void TreePiece::ckLoopParallelFunction(dummyMsg *msg) {
   //CkPrintf("[%d] TP %d ckLoopParallelFunction currentbucket %d expload %f\n", CkMyPe(), thisIndex, currentBucket, treePieceLoadExp);
  
 
-  while (i < 8*_yieldPeriod && currentBucket < end) {
+  //while (i < 8*_yieldPeriod && currentBucket < end) {
+  while (i < 61 && currentBucket < end) {
     GenericTreeNode *target = bucketList[currentBucket];
     if(target->rungs >= activeRung) {
       //CkPrintf("[%d] PE %d startNextBucket\n", thisIndex, CkMyPe());
@@ -3833,10 +3854,22 @@ void TreePiece::ckLoopParallelFunction(dummyMsg *msg) {
     }// end else (target not active)
   }// end while
 
-  //CkPrintf("[%d] PE %d Call stateReadyCk\n", thisIndex, CkMyPe());
+ // if (PAPI_thread_init(1,0) != PAPI_OK) {
+ //   CkPrintf("papi threads not good\n");
+ // }
 
+  papievents[0] = PAPI_L1_DCM;
+  //if (papivalues[0] != 0) {
+  //  CkPrintf("[%d] papivalue = %d\n", CkMyPe(), papivalues[0]);
+  //}
+ // if (PAPI_start_counters(papievents, 1) != PAPI_OK) {
+ //   CkPrintf("Papi not loaded startcounters\n");
+ // }
+  //CkPrintf("[%d] TP %d Call stateReadyCk totalbuckets in ckloop %d timestart %g\n",  CkMyPe(), thisIndex, lpdata->bucketids.length(), CkWallTimer());
+  //double startt = CkWallTimer();
   {
-    int num_chunks = 4;
+    int num_chunks = 31;
+    //int num_chunks = 4;
     int start = 0;
     int end = lpdata->bucketids.length();
     double timebeforeckloop = getObjTime();
@@ -3846,6 +3879,14 @@ void TreePiece::ckLoopParallelFunction(dummyMsg *msg) {
     setObjTime(timebeforeckloop + timeforckloop); 
     LBTurnInstrumentOn();
   }
+  //double endtt = CkWallTimer() - startt;
+  
+ // if (PAPI_read_counters(papivalues, 1) != PAPI_OK) {
+ //   CkPrintf("Papi not loaded\n");
+ // }
+
+  //CkPrintf("[%d] TP %d bucket %d Done ckloop local timestart %g\n",  CkMyPe(), thisIndex, start, endtt);
+  //CkPrintf("[%d] TP %d bucket %d Done ckloop local timestart %g papivalues %d\n",  CkMyPe(), thisIndex, start, endtt, papivalues[0]);
 
   // call nextBucketCk which calls  the stateReadyCk
   //for (int k = 0; k < lpdata->bucketids.length(); k++) {
@@ -3873,7 +3914,8 @@ void TreePiece::ckLoopParallelFunction(dummyMsg *msg) {
   i = 0;
   int counter = 0;
   sLocalGravityState->currentBucket = start;
-  while (i < 8*_yieldPeriod && currentBucket < end) {
+  //while (i < 8*_yieldPeriod && currentBucket < end) {
+  while (i < 61 && currentBucket < end) {
     GenericTreeNode *target = bucketList[currentBucket];
     if(target->rungs >= activeRung) {
   
@@ -4195,6 +4237,76 @@ void cellSPE_ewald(void *data) {
   cellEnableComputation();
 }
 #endif
+void doCalcEwald(int start, int end, void *result, int pnum, void * param) {
+  LoopParData* lpdata = (LoopParData *)param;
+  TreePiece* tp = lpdata->tp;
+  double tstart = CkWallTimer();
+  for (int i = start; i <= end; i++) {
+    tp->doParallelEwaldWork(lpdata->bucketids[i]);
+  }
+  double tend = CkWallTimer();
+  *(double *)result = tend - tstart;
+
+  //CkPrintf("[%d] TP %d doCalcEwald (%g-%g) start %d end %d time %g\n", CkMyPe(), tp->getIndex(), tstart, tend, start, end, tend-tstart);
+}
+
+void TreePiece::doParallelEwaldWork(int id) {
+    BucketEwald(bucketList[id], nReplicas, fEwCut);
+}
+
+void TreePiece::calculateEwaldPar(dummyMsg *msg) {
+  unsigned int i=0;
+  LoopParData* lpdata = new LoopParData();
+  lpdata->tp = this;
+
+  int sbucket = ewaldCurrentBucket;
+
+  //while (i<_yieldPeriod && ewaldCurrentBucket < numBuckets) {
+  while (i<92 && ewaldCurrentBucket < numBuckets) {
+    lpdata->bucketids.insertAtEnd(ewaldCurrentBucket);
+    ewaldCurrentBucket++;
+    i++;
+  }
+
+  int num_chunks = 31;
+  //int num_chunks = 4;
+  int start = 0;
+  int end = lpdata->bucketids.length();
+
+  double timebeforeckloop = getObjTime();
+  double timeforckloop;
+  LBTurnInstrumentOff();
+  double stime = CkWallTimer();
+  CkLoop_Parallelize(doCalcEwald, 1, lpdata, num_chunks, start, end-1, 1, &timeforckloop, CKLOOP_DOUBLE_SUM);
+  double etime = CkWallTimer() - stime;
+
+  //CkPrintf("[%d] TP %d bucket %d total buckets %d Done ckloop EWALD time %g\n",  CkMyPe(), thisIndex, sbucket, end, etime);
+  setObjTime(timebeforeckloop + timeforckloop); 
+  LBTurnInstrumentOn();
+
+  ewaldCurrentBucket = sbucket;
+  i = 0;
+
+  //while (i<_yieldPeriod && ewaldCurrentBucket < numBuckets) {
+  while (i<92 && ewaldCurrentBucket < numBuckets) {
+    bucketReqs[ewaldCurrentBucket].finished = 1;
+    finishBucket(ewaldCurrentBucket);
+
+    ewaldCurrentBucket++;
+    i++;
+  }
+
+  delete lpdata;
+
+
+  if (ewaldCurrentBucket<numBuckets) {
+      thisProxy[thisIndex].calculateEwaldPar(msg);
+  } else {
+    delete msg;
+  }
+}
+
+
 
 void TreePiece::calculateEwald(dummyMsg *msg) {
 #ifdef SPCUDA
@@ -4660,7 +4772,8 @@ void TreePiece::calculateGravityRemoteCk(ComputeChunkMsg *msg) {
   lpdata->tp = this;
 //  CkPrintf("[%d] TP %d remoteparallel +++\n", CkMyPe(), thisIndex);
 
-  while (i<_yieldPeriod && sRemoteGravityState->currentBucket < numBuckets ) {
+  //while (i<8*_yieldPeriod && sRemoteGravityState->currentBucket < numBuckets ) {
+  while (i< 61 && sRemoteGravityState->currentBucket < numBuckets ) {
     // Interlist and normal versions both have 'target' nodes
     GenericTreeNode *target = bucketList[sRemoteGravityState->currentBucket];
 
@@ -4730,8 +4843,11 @@ void TreePiece::calculateGravityRemoteCk(ComputeChunkMsg *msg) {
     }
   }// end while i < yieldPeriod and currentRemote Bucket < numBuckets
 
+  //double startt = CkWallTimer();
+  //CkPrintf("[%d] TP %d Call REMOTE totalbuckets in ckloop %d timestart %g\n",  CkMyPe(), thisIndex, lpdata->bucketids.length(), CkWallTimer());
   {
-    int num_chunks = 4;
+    int num_chunks = 31;
+    //int num_chunks = 4;
     int start = 0;
     int end = lpdata->bucketids.length();
 
@@ -4744,12 +4860,15 @@ void TreePiece::calculateGravityRemoteCk(ComputeChunkMsg *msg) {
     setObjTime(timebeforeckloop + timeforckloop); 
     LBTurnInstrumentOn();
   }
+  //double endtt = CkWallTimer() - startt;
 
+  //CkPrintf("[%d] TP %d bucket %d Done ckloop REMOTE time %g\n",  CkMyPe(), thisIndex, start, endtt);
   i = 0;
   int counter = 0;
   sRemoteGravityState->currentBucket = start;
 
-  while (i<_yieldPeriod && sRemoteGravityState->currentBucket < numBuckets ) {
+  //while (i<8*_yieldPeriod && sRemoteGravityState->currentBucket < numBuckets ) {
+  while (i< 61 && sRemoteGravityState->currentBucket < numBuckets ) {
     // Interlist and normal versions both have 'target' nodes
     GenericTreeNode *target = bucketList[sRemoteGravityState->currentBucket];
 
@@ -5440,6 +5559,8 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 			       const CkCallback& cb) {
   LBTurnInstrumentOn();
   iterationNo++;
+  didCkLoop = false;
+
 
   cbGravity = cb;
   activeRung = am;
@@ -5853,10 +5974,13 @@ void TreePiece::continueStartRemoteChunk(int chunk){
   //HierarchOrbLB* lbptr = (HierarchOrbLB *) CkLocalBranch(proxy);
   lbptr->getLoadInfo(avg_pe_load, pe_exp_load);
 
-  //if (activeRung == 3 && pe_exp_load >= 2.1 && treePieceLoadExp > 1.1) {
-  if (iterationNo == 9 && pe_exp_load >= 6.0 && treePieceLoadExp > 1.1) {
+  if (activeRung >= 3 && pe_exp_load >= 0.3 && treePieceLoadExp >= 0.3) {
+  //if (activeRung >= 3 && pe_exp_load >= 1.5 && treePieceLoadExp > 1.9 && iterationNo == 8) {
+  //if (activeRung >= 3 && pe_exp_load >= 1.5 && treePieceLoadExp > 1.9) {
+    didCkLoop = true;
+  //if (iterationNo == 9 && pe_exp_load >= 6.0 && treePieceLoadExp > 1.1) {
 
-    CkPrintf("[%d] TP %d calculateGravityRemoteParallel expload %f\n", CkMyPe(), thisIndex, treePieceLoadExp);
+    //CkPrintf("[%d] TP %d calculateGravityRemoteParallel expload %f\n", CkMyPe(), thisIndex, treePieceLoadExp);
     thisProxy[thisIndex].calculateGravityRemoteCk(msg);
   } else {
     thisProxy[thisIndex].calculateGravityRemote(msg);
@@ -7346,6 +7470,10 @@ void TreePiece::finishWalk()
   CkPrintf("[%d] (%d) CUDA_STATS remoteresumepart: %ld\n", thisIndex, activeRung, remoteResumePartInteractions);
   
 #endif
+
+//  if (didCkLoop) {
+//    CkPrintf("[%d] TP %d Ending gravity at time %g\n", CkMyPe(), thisIndex, CkWallTimer());
+//  }
 
   gravityProxy[thisIndex].ckLocal()->contribute(cbGravity);
 }

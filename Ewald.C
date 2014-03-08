@@ -1,5 +1,6 @@
 #include <assert.h>
 #include "ParallelGravity.h"
+#include "MultistepLB_notopo.h"
 // Ewald summation code.
 // First implemented by Thomas Quinn and Joachim Stadel in PKDGRAV.
 
@@ -378,7 +379,17 @@ void TreePiece::EwaldInit()
 	CkSetQueueing(msg,CK_QUEUEING_IFIFO);
 #endif
 	msg->val=0;
+
+  double pe_exp_load, avg_pe_load;
+  MultistepLB_notopo* lbptr = (MultistepLB_notopo *) CkLocalBranch(proxy);
+  //HierarchOrbLB* lbptr = (HierarchOrbLB *) CkLocalBranch(proxy);
+  lbptr->getLoadInfo(avg_pe_load, pe_exp_load);
+  //if (activeRung >= 3 && pe_exp_load >= 1.5 && treePieceLoadExp > 1.9 && iterationNo == 8) {
+  if (activeRung >= 3 && pe_exp_load >= 0.3 && treePieceLoadExp >= 0.3) {
+	thisProxy[thisIndex].calculateEwaldPar(msg);
+  } else {
 	thisProxy[thisIndex].calculateEwald(msg);
+  }
 }
 
 

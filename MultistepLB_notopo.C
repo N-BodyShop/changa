@@ -1017,7 +1017,8 @@ void MultistepLB_notopo::addTpForDD(TreePiece *tp) {
 //    timestart = CkWallTimer();
 //  }
   tpsregisteredfordd++;
-  if (tpsregisteredfordd <= 5) {
+  int avgtpspe = 262144/CkNumPes();
+  if (tpsregisteredfordd <= avgtpspe) {
     tp->unshuffleParticlesWoDDCb();
     return;
   }
@@ -1031,7 +1032,8 @@ void MultistepLB_notopo::addTpForDD(TreePiece *tp) {
     //if (CkMyPe()%1024 == 0) {
     //  CkPrintf("time taken in before starting loop %f\n", endtime - timestart);
     //}
-    CkLoop_Parallelize(tpPar, 1, &tpsonpe, tpsonpe.size(), 0, tpsonpe.size()-1, 1, NULL, CKLOOP_NONE);
+    int numchunks = (tpsonpe.size() >= 64) ? 64 : tpsonpe.size();
+    CkLoop_Parallelize(tpPar, 1, &tpsonpe, numchunks, 0, tpsonpe.size()-1, 1, NULL, CKLOOP_NONE);
     tpsregisteredfordd = 0;
   }
 }
@@ -1045,8 +1047,9 @@ void MultistepLB_notopo::addTpForAcceptSorted(TreePiece *tp) {
    //       CmiMemoryUsage()/(1024.0*1024.0), tpsregisteredforacc);
    // }
   }
+  int avgtpspe = 262144/CkNumPes();
   tpsregisteredforacc++;
-  if (tpsregisteredforacc <= 5) {
+  if (tpsregisteredforacc <= avgtpspe) {
     tp->shuffleAfterQDSpecificOpt();
     return;
   }
@@ -1057,7 +1060,8 @@ void MultistepLB_notopo::addTpForAcceptSorted(TreePiece *tp) {
       CkPrintf("**Time to do CkLoop count %d  ckloop done on %d on PE %d******\n", tpscount, tpsonpeforacc.size(), CkMyPe());
     }
     double endtime = CkWallTimer();
-    CkLoop_Parallelize(tpParForAcc, 1, &tpsonpeforacc, tpsonpeforacc.size(), 0, tpsonpeforacc.size()-1, 1, NULL, CKLOOP_NONE);
+    int numchunks = (tpsonpeforacc.size() >= 64) ? 64 : tpsonpeforacc.size();
+    CkLoop_Parallelize(tpParForAcc, 1, &tpsonpeforacc, numchunks, 0, tpsonpeforacc.size()-1, 1, NULL, CKLOOP_NONE);
    // for (int i = 0; i < tpsonpeforacc.size(); i++) {
    //   tpsonpeforacc[i]->shuffleAfterQDSpecificOpt();
    // }

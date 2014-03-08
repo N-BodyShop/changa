@@ -1064,6 +1064,7 @@ private:
 	// Bounding box of the entire simulation
 	OrientedBox<float> boundingBox;
 	unsigned iterationNo;
+  bool didCkLoop;
 	/// The root of the global tree, always local to any chare
 	GenericTreeNode* root;
 	/// pool of memory to hold TreeNodes: makes allocation more efficient.
@@ -1310,6 +1311,7 @@ private:
 	void doAllBuckets();
   void ckLoopParallelFunction(dummyMsg *msg);
   void doParallelWork(int idx, LoopParData* lpdata);
+  void doParallelEwaldWork(int buckidx);
 	void reconstructNodeLookup(GenericTreeNode *node);
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 
@@ -1496,6 +1498,7 @@ public:
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit();
 	void calculateEwald(dummyMsg *m);
+	void calculateEwaldPar(dummyMsg *m);
 	void initCoolingData(const CkCallback& cb);
 	// Scale velocities (needed to convert to canonical momenta for
 	// comoving coordinates.)

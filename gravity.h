@@ -263,7 +263,49 @@ int openSoftening(Tree::GenericTreeNode *node, Tree::GenericTreeNode *myNode,
 static int forProgress = 0;
 #endif
 
+/*
+inline int partBucketForceDummy(ExternalGravityParticle *part, 
+			   Tree::GenericTreeNode *req, 
+			   GravityParticle *particles, 
+			   Vector3D<cosmoType> offset, int activeRung) {
+  int computed = 0;
+  Vector3D<cosmoType> r;
+  cosmoType rsq;
+  cosmoType twoh, a, b;
+
+  for(int j = req->firstParticle; j <= req->lastParticle; ++j) {
+    //if (particles[j].rung >= activeRung) {
+    if (true) {
+#ifdef CMK_VERSION_BLUEGENE
+      if (++forProgress > 200) {
+        forProgress = 0;
+#ifdef COSMO_EVENTS
+        traceUserEvents(networkProgressUE);
+#endif
+        CmiNetworkProgress();
+      }
+#endif
+      computed++;
+      r = offset + part->position - particles[j].position;
+      rsq = r.lengthSquared();
+      twoh = part->soft + particles[j].soft;
+      if(rsq != 0) {
+        SPLINE(rsq, twoh, a, b);
+	cosmoType idt2 = (particles[j].mass + part->mass)*b; // (timescale)^-2
+	// of interaction
+        particles[j].treeAcceleration += r * (b * part->mass);
+        particles[j].potential -= part->mass * a;
+	if(idt2 > particles[j].dtGrav)
+	  particles[j].dtGrav = idt2;
+      }
+    }
+  }
+  return computed;
+}
+*/
+
 #ifndef __SSE2__
+
 inline int partBucketForce(ExternalGravityParticle *part, 
 			   Tree::GenericTreeNode *req, 
 			   GravityParticle *particles, 
@@ -302,6 +344,69 @@ inline int partBucketForce(ExternalGravityParticle *part,
   return computed;
 }
 #else
+inline int partBucketForceDummy(ExternalGravityParticle *part, 
+			   Tree::GenericTreeNode *req, 
+			   GravityParticle **activeParticles, 
+			   Vector3D<cosmoType> offset, int nActiveParts) {
+  Vector3D<SSEcosmoType> r;
+  SSEcosmoType rsq; 
+  SSEcosmoType twoh, a, b; 
+//  double st = CkWallTimer();
+
+  for (int i=0; i<nActiveParts; i+=SSE_VECTOR_WIDTH) {
+#ifdef CMK_VERSION_BLUEGENE
+    if (++forProgress > 200) {
+      forProgress = 0;
+#ifdef COSMO_EVENTS
+      traceUserEvents(networkProgressUE);
+#endif
+      CmiNetworkProgress();
+    }
+#endif
+    Vector3D<SSEcosmoType> 
+      packedPos(SSELoad(SSEcosmoType, activeParticles, i, ->position.x),
+		SSELoad(SSEcosmoType, activeParticles, i, ->position.y),
+		SSELoad(SSEcosmoType, activeParticles, i, ->position.z)); 
+    SSELoad(SSEcosmoType packedSoft, activeParticles, i, ->soft); 
+
+    r = -packedPos + offset + part->position; 
+    rsq = r.lengthSquared();
+    twoh = part->soft + packedSoft; 
+    SSEcosmoType select = rsq > COSMO_CONST(0.0); 
+    int compare = movemask(select); 
+    if(compare) {
+      SPLINE(rsq, twoh, a, b);
+      if ((~compare) & cosmoMask) {
+	a = select & a; 
+	b = select & b; 
+      }
+      SSEcosmoType SSELoad(packedMass, activeParticles, i, ->mass);  
+      SSEcosmoType SSELoad(packedDtGrav, activeParticles, i, ->dtGrav);
+      Vector3D<SSEcosmoType> 
+	packedAcc(SSELoad(SSEcosmoType, 
+			  activeParticles, i, ->treeAcceleration.x),
+		  SSELoad(SSEcosmoType, 
+			  activeParticles, i, ->treeAcceleration.y),
+		  SSELoad(SSEcosmoType, 
+			  activeParticles, i, ->treeAcceleration.z)); 
+      SSEcosmoType SSELoad(packedPotential, activeParticles, i, ->potential); 
+      SSEcosmoType idt2 = (packedMass + part->mass) * b;       
+      idt2 = max(idt2, packedDtGrav); 
+      packedAcc += r * (b * part->mass);
+      packedPotential -= part->mass * a; 
+      SSEStore(packedAcc.x, activeParticles, i, ->treeAcceleration.x);
+      SSEStore(packedAcc.y, activeParticles, i, ->treeAcceleration.y);
+      SSEStore(packedAcc.z, activeParticles, i, ->treeAcceleration.z);
+      SSEStore(packedPotential, activeParticles, i, ->potential);
+      SSEStore(idt2, activeParticles, i, ->dtGrav); 
+    }
+  }
+  //double et = CkWallTimer();
+  //CkPrintf("[%d] total time  in SSE code %g\n", CkMyPe(), et-st);
+  return nActiveParts;
+}
+
+
 inline int partBucketForce(ExternalGravityParticle *part, 
 			   Tree::GenericTreeNode *req, 
 			   GravityParticle **activeParticles, 
@@ -361,6 +466,32 @@ inline int partBucketForce(ExternalGravityParticle *part,
   return nActiveParts;
 }
 
+inline int partBucketForceDummy(ExternalGravityParticle *part, 
+			   Tree::GenericTreeNode *req, 
+			   GravityParticle *particles, 
+			   Vector3D<cosmoType> offset, int activeRung) {
+  int nActiveParts = 0; 
+  GravityParticle dummyPart = particles[0];
+  dummyPart.soft = 0.0;
+
+  GravityParticle **activeParticles = 
+    (GravityParticle**)alloca((req->lastParticle - req->firstParticle 
+			       + 1 + FORCE_INPUT_LIST_PAD) 
+			      * sizeof(GravityParticle*));
+  for (int j=req->firstParticle; j <= req->lastParticle; ++j) {
+    if (particles[j].rung >= activeRung) 
+      activeParticles[nActiveParts++] = &particles[j];
+  }
+  
+  activeParticles[nActiveParts] = &dummyPart; 
+#if SSE_VECTOR_WIDTH == 4
+  activeParticles[nActiveParts+1] = &dummyPart; 
+  activeParticles[nActiveParts+2] = &dummyPart; 
+#endif
+
+
+  return partBucketForceDummy(part, req, activeParticles, offset, nActiveParts); 
+}
 inline int partBucketForce(ExternalGravityParticle *part, 
 			   Tree::GenericTreeNode *req, 
 			   GravityParticle *particles, 
@@ -383,6 +514,7 @@ inline int partBucketForce(ExternalGravityParticle *part,
   activeParticles[nActiveParts+1] = &dummyPart; 
   activeParticles[nActiveParts+2] = &dummyPart; 
 #endif
+
 
   return partBucketForce(part, req, activeParticles, offset, nActiveParts); 
 }
