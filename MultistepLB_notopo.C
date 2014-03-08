@@ -516,8 +516,8 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
 }
 
 void MultistepLB_notopo::tpWork(TpWorkMsg *msg) {
-  CkPrintf("[%d] Multistep calling work on tp %d nodesize %d\n", CkMyPe(),
-  (msg->tp)->getIndex());
+  //CkPrintf("[%d] Multistep calling work on tp %d nodesize %d\n", CkMyPe(),
+  //(msg->tp)->getIndex());
   //(msg->tp)->calculateGravityRemoteForeign(msg->buckets, msg->chunkNum);
   (msg->tp)->doForeignBuckets(msg->buckets, msg->chunkNum,
     msg->foreignStateIdx, msg->awiFor);

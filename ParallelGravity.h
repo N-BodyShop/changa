@@ -1675,8 +1675,6 @@ public:
 	/// by this TreePiece, and belonging to a subset of the global tree
 	/// (specified by chunkNum).
 	void calculateGravityRemote(ComputeChunkMsg *msg);
-	void calculateGravityRemoteForeign(vector<int> foreign_buckets, int chunkNum);
-  void returnBackBucketsRemote(vector<int>& foreign_buckets, int chunkNum, void* remoteForState);
 
 	/// Temporary function to recurse over all the buckets like in
 	/// walkBucketTree, only that NonLocal nodes are the only one for which

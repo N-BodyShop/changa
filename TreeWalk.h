@@ -9,7 +9,7 @@ class TreePiece;
 
 /// @brief Base class for walking trees
 class TreeWalk{
-  public:
+  protected:
   Compute *comp;
   TreePiece *ownerTP;
   WalkType type;

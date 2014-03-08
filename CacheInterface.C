@@ -384,9 +384,9 @@ void EntryTypeGravityNode::callbackForeign(CkArrayID requestorID, CkArrayIndexMa
   int awi = userData.d0 >> 32;
   void *source = (void *)userData.d1;
   TreePiece *tp = (TreePiece *)userData.d2;
-  if (CkMyPe() == 2 && awi == 1) {
-    CkPrintf("[%d] TP %s cache calling receiveNodeCallback\n", CkMyPe(), idx2str(idx));
-  }
+ // if (CkMyPe() == 2 && awi == 1) {
+ //   CkPrintf("[%d] TP %s cache calling receiveNodeCallback\n", CkMyPe(), idx2str(idx));
+ // }
   tp->receiveNodeCallback((Tree::GenericTreeNode*)data, chunk, reqID, awi, source);
 }
 
