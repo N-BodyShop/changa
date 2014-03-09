@@ -311,42 +311,53 @@ Main::restartGas()
         }
 #ifndef COOLING_NONE
     if(param.bGasCooling) {
-        // read coolontime
-        if(arrayFileExists(basefilename + ".coolontime", nTotalParticles))
-            treeProxy.readCoolOnTime(basefilename + ".coolontime",
-                               CkCallbackResumeThread());
-        else {
-            CkError("WARNING: no coolontime file for restart\n");
-            }
+        bool bFoundCoolArray = false;
         // read ionization fractions
-        if(arrayFileExists(basefilename + "." + COOL_ARRAY0_EXT, nTotalParticles))
+        if(arrayFileExists(basefilename + "." + COOL_ARRAY0_EXT, nTotalParticles)) {
+                
             treeProxy.readCoolArray0(basefilename + "." + COOL_ARRAY0_EXT,
                                      CkCallbackResumeThread());
+            bFoundCoolArray = true;
+            }
         else {
             CkError("WARNING: no CoolArray0 file for restart\n");
             }
-        if(arrayFileExists(basefilename + "." + COOL_ARRAY1_EXT, nTotalParticles))
+        if(arrayFileExists(basefilename + "." + COOL_ARRAY1_EXT, nTotalParticles)) {
+                
             treeProxy.readCoolArray1(basefilename + "." + COOL_ARRAY1_EXT,
                                      CkCallbackResumeThread());
+            bFoundCoolArray = true;
+            }
         else {
             CkError("WARNING: no CoolArray1 file for restart\n");
             }
-        if(arrayFileExists(basefilename + "." + COOL_ARRAY2_EXT, nTotalParticles))
+        if(arrayFileExists(basefilename + "." + COOL_ARRAY2_EXT, nTotalParticles)) {
             treeProxy.readCoolArray2(basefilename + "." + COOL_ARRAY2_EXT,
                                      CkCallbackResumeThread());
+            bFoundCoolArray = true;
+            }
         else {
             CkError("WARNING: no CoolArray2 file for restart\n");
             }
-        if(arrayFileExists(basefilename + "." + COOL_ARRAY3_EXT, nTotalParticles))
+        if(arrayFileExists(basefilename + "." + COOL_ARRAY3_EXT, nTotalParticles)) {
             treeProxy.readCoolArray3(basefilename + "." + COOL_ARRAY3_EXT,
                                      CkCallbackResumeThread());
+            bFoundCoolArray = true;
+            }
         else {
             CkError("WARNING: no CoolArray3 file for restart\n");
             }
-        // reset thermal energy with ionization fractions
         double dTuFac = param.dGasConst/(param.dConstGamma-1)
-            /param.dMeanMolWeight;
-        treeProxy.RestartEnergy(dTuFac, CkCallbackResumeThread());
+                /param.dMeanMolWeight;
+        if(bFoundCoolArray) {
+            // reset thermal energy with ionization fractions
+            treeProxy.RestartEnergy(dTuFac, CkCallbackResumeThread());
+        }
+        else {
+            double z = 1.0/csmTime2Exp(param.csm, dTime) - 1.0;
+            dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
+            treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
+            }
         }
 #endif
     }

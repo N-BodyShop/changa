@@ -85,19 +85,22 @@ class PosOutputParams : public OutputParams
 class VelOutputParams : public OutputParams
 {
  public:
+    double dVFac;
     virtual double dValue(GravityParticle *p) {CkAssert(0); return 0.0;}
     virtual Vector3D<double> vValue(GravityParticle *p)
-				{return p->velocity;}
+				{return dVFac*p->velocity;}
     VelOutputParams() {}
-    VelOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+    VelOutputParams(std::string _fileName, int _iBinaryOut, double _dTime,
+                    double _dVFac) {
         bVector = 1; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "vel"; sNChilExt = "vel";
-        dTime = _dTime;
+        dTime = _dTime; dVFac = _dVFac;
         iType = TYPE_GAS | TYPE_DARK | TYPE_STAR; }
     PUPable_decl(VelOutputParams);
     VelOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
         OutputParams::pup(p);//Call base class
+        p|dVFac;
 	}
     };
 
@@ -589,6 +592,30 @@ class FeOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output metal mass fraction.
+class MetalsOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+	if (TYPETest(p, TYPE_STAR)) return p->fStarMetals();
+	if (TYPETest(p, TYPE_GAS)) return p->fMetals();
+	else return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    MetalsOutputParams() {}
+    MetalsOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "metals"; sNChilExt = "metals";
+        dTime = _dTime;
+        iType = TYPE_GAS | TYPE_STAR; }
+    PUPable_decl(MetalsOutputParams);
+    MetalsOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
 class MFormOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p) {
@@ -610,6 +637,29 @@ class MFormOutputParams : public OutputParams
         OutputParams::pup(p);//Call base class
 	}
     };
+
+class TimeFormOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+	if (TYPETest(p, TYPE_STAR)) return p->fTimeForm();
+	else return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+ public:
+    TimeFormOutputParams() {}
+    TimeFormOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "tform"; sNChilExt = "tform";
+        dTime = _dTime;
+        iType = TYPE_STAR; }
+    PUPable_decl(TimeFormOutputParams);
+    TimeFormOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
 
 /// @brief Output "cool on time" (time cooling is off until)
 class coolontimeOutputParams : public OutputParams
@@ -798,7 +848,7 @@ class IGasOrderOutputParams : public OutputIntParams
     IGasOrderOutputParams() {}
     IGasOrderOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
         fileName = _fileName; iBinaryOut = _iBinaryOut;
-        sTipsyExt = "igasord"; sNChilExt = "igasord";
+        sTipsyExt = "igasorder"; sNChilExt = "igasorder";
         dTime = _dTime;
         iType = TYPE_STAR; }
     PUPable_decl(IGasOrderOutputParams);
