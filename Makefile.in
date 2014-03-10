@@ -260,7 +260,7 @@ ref-clean:
 	rm -f $(TARGET) Compute.o TreeWalk.o
 
 depends: $(SOURCE_DIR)/Makefile.dep
-$(SOURCE_DIR)/Makefile.dep:
+$(BUILD_DIR)/Makefile.dep:
 	FULLPATHS=""; for file in $(SRSC); do FULLPATHS="$(SOURCE_DIR)/$$file $$FULLPATHS"; done; \
 	$(CXX_DEPEND) $$FULLPATHS | while read i;do echo $$i| awk -F' ' '{for (i=1;i<NF;++i) print $$i" \\"}';echo;done|grep -v "$(CHARM_PATH)/bin" | grep -v "hashtable_mt.h" > $@
 
@@ -273,4 +273,4 @@ $(SOURCE_DIR)/Makefile.dep:
 
 .PHONY: all docs dist clean depend test VERSION.new
 
-include $(SOURCE_DIR)/Makefile.dep
+-include $(BUILD_DIR)/Makefile.dep
