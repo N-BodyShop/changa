@@ -269,4 +269,4 @@ $(BUILD_DIR)/Makefile.dep:
 
 .PHONY: all docs dist clean depend test VERSION.new
 
-include Makefile.dep
+-include $(BUILD_DIR)/Makefile.dep
