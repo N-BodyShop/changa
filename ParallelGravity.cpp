@@ -1485,6 +1485,8 @@ void Main::advanceBigStep(int iStep) {
     /*
      * Form stars at user defined intervals
      */
+    startStep(true);
+    startPhase(true, 0);
     double dTimeSF = RungToDt(param.dDelta, nextMaxRung);
     if((param.bStarForm || param.bFeedback)
        && param.stfm->isStarFormRung(activeRung)) {
@@ -1527,6 +1529,8 @@ void Main::advanceBigStep(int iStep) {
           */
     CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
 
+    endPhase(true);
+    startPhase(true, 1);
     if(verbosity && !bDoDD)
 	CkPrintf("Skipped DD\n");
 
@@ -1552,6 +1556,8 @@ void Main::advanceBigStep(int iStep) {
     if(bDoPush) CkPrintf("[main] fracActive %f PUSH_GRAVITY\n", 1.0*nActiveGrav/nTotalParticles);
 #endif
 
+    endPhase(true);
+    startPhase(true, 2);
     /******** Tree Build *******/
     //ckout << "Building trees ...";
     CkPrintf("Building trees ... ");
@@ -1562,9 +1568,15 @@ void Main::advanceBigStep(int iStep) {
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
     CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+
+    endPhase(true);
+    startPhase(true, 3);
 #if USE_MIRROR
     treeProxy.syncMirror(CkCallbackResumeThread());
 #endif
+
+    endPhase(true);
+    startPhase(true, 4);
     CkCallback cbGravity(CkCallback::resumeThread);
 
     if(verbosity > 1)
@@ -1728,6 +1740,8 @@ void Main::advanceBigStep(int iStep) {
     }
 #endif
 
+   endPhase(true);
+   endStepResume(true, CkCallbackResumeThread());
 		
   }
 }
@@ -2087,6 +2101,8 @@ Main::initialForces()
 
   /***** Initial sorting of particles and Domain Decomposition *****/
   CkPrintf("Initial domain decomposition ... ");
+  char *names[] = {"Domain Decompostion", "Load balancer", "Build trees", "Sync Mirror", "Calc Gravity" };
+  setNumOfPhases(5, names);
 
   startTime = CkWallTimer();
   sorter.startSorting(dataManagerID, ddTolerance,
