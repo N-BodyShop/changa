@@ -1723,7 +1723,9 @@ void Main::advanceBigStep(int iStep) {
     ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
 
-    treeProxy.finishNodeCache(CkCallbackResumeThread());
+    cacheNode.finishAllChunks(CkCallbackResumeThread());
+    cacheGravPart.finishAllChunks(CkCallbackResumeThread());
+    //treeProxy.finishNodeCache(CkCallbackResumeThread());
 
 #ifdef CHECK_TIME_WITHIN_BIGSTEP
     if(param.iWallRunTime > 0 && ((CkWallTimer()-wallTimeStart) > param.iWallRunTime*60.)){
@@ -2179,7 +2181,9 @@ Main::initialForces()
 #endif
       }
   
-  treeProxy.finishNodeCache(CkCallbackResumeThread());
+    cacheNode.finishAllChunks(CkCallbackResumeThread());
+    cacheGravPart.finishAllChunks(CkCallbackResumeThread());
+  //treeProxy.finishNodeCache(CkCallbackResumeThread());
 
   // Initial Log entry
   string achLogFileName = string(param.achOutName) + ".log";
@@ -2351,7 +2355,9 @@ Main::doSimulation()
 	  treeProxy.startIterationReSmooth(&pDen, CkCallbackResumeThread());
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 #endif
-	  treeProxy.finishNodeCache(CkCallbackResumeThread());
+    cacheNode.finishAllChunks(CkCallbackResumeThread());
+    cacheGravPart.finishAllChunks(CkCallbackResumeThread());
+	  //treeProxy.finishNodeCache(CkCallbackResumeThread());
           ckout << "Reordering ...";
           startTime = CkWallTimer();
 	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
@@ -2445,7 +2451,10 @@ Main::doSimulation()
           startTime = CkWallTimer();
 	  treeProxy.startReSmooth(&pDen, CkCallbackResumeThread());
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
-	  treeProxy.finishNodeCache(CkCallbackResumeThread());
+
+    cacheNode.finishAllChunks(CkCallbackResumeThread());
+    cacheGravPart.finishAllChunks(CkCallbackResumeThread());
+	  //treeProxy.finishNodeCache(CkCallbackResumeThread());
           ckout << "Reodering ...";
           startTime = CkWallTimer();
 	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
@@ -2709,7 +2718,10 @@ void Main::writeOutput(int iStep)
 	double dfBall2OverSoft2 = 0.0;
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
-	treeProxy.finishNodeCache(CkCallbackResumeThread());
+
+    cacheNode.finishAllChunks(CkCallbackResumeThread());
+    cacheGravPart.finishAllChunks(CkCallbackResumeThread());
+	//treeProxy.finishNodeCache(CkCallbackResumeThread());
 	if(verbosity) {
 	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		  << endl;
@@ -2749,7 +2761,10 @@ void Main::writeOutput(int iStep)
 	    dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
 	    treeProxy.startSmooth(&pDenGas, 1, param.nSmooth, dfBall2OverSoft2,
 				  CkCallbackResumeThread());
-	    treeProxy.finishNodeCache(CkCallbackResumeThread());
+
+    cacheNode.finishAllChunks(CkCallbackResumeThread());
+    cacheGravPart.finishAllChunks(CkCallbackResumeThread());
+	    //treeProxy.finishNodeCache(CkCallbackResumeThread());
 	    if(verbosity)
 		ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		      << endl;

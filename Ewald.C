@@ -285,6 +285,22 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 
 void TreePiece::EwaldInit()
 {
+  EwaldInitForForeign();
+
+	//contribute(cb);
+#ifdef CELL
+	dummyMsg *msg = new dummyMsg;
+#else
+	dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
+	*((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + numTreePieces + thisIndex + 1;
+	CkSetQueueing(msg,CK_QUEUEING_IFIFO);
+#endif
+	msg->val=0;
+	thisProxy[thisIndex].calculateEwald(msg);
+}
+
+void TreePiece::EwaldInitForForeign()
+{
 	int i,hReps,hx,hy,hz,h2;
 	double alpha,k4,L;
 	double gam[6],mfacc,mfacs;
@@ -369,27 +385,6 @@ void TreePiece::EwaldInit()
 			}
 		}
 	nEwhLoop = i;
-
-	//contribute(cb);
-#ifdef CELL
-	dummyMsg *msg = new dummyMsg;
-#else
-	dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-	*((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + numTreePieces + thisIndex + 1;
-	CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-#endif
-	msg->val=0;
-
-  double pe_exp_load, avg_pe_load;
-  MultistepLB_notopo* lbptr = (MultistepLB_notopo *) CkLocalBranch(proxy);
-  //HierarchOrbLB* lbptr = (HierarchOrbLB *) CkLocalBranch(proxy);
-  lbptr->getLoadInfo(avg_pe_load, pe_exp_load);
-  //if (activeRung >= 3 && pe_exp_load >= 1.5 && treePieceLoadExp > 1.9 && iterationNo == 8) {
-  if (activeRung >= 3 && pe_exp_load >= 0.3 && treePieceLoadExp >= 0.3) {
-	thisProxy[thisIndex].calculateEwaldPar(msg);
-  } else {
-	thisProxy[thisIndex].calculateEwald(msg);
-  }
 }
 
 

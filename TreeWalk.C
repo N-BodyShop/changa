@@ -450,6 +450,13 @@ void LocalTargetWalk::resumeWalk(GenericTreeNode *node, State *state_, int chunk
 	// untouched.
 	GenericTreeNode *dummySource = source;
 	ownerTP->getBucketsBeneathBounds(dummySource, startBucket, endBucket);
+  if (startBucket < comp->starting_bucket) {
+    startBucket = comp->starting_bucket;
+  }
+  if (endBucket > comp->ending_bucket) {
+    endBucket = comp->ending_bucket;
+  }
+
 
 	// clear all levels up to and including source
 	// this is so that we don't include the lists from
@@ -499,6 +506,12 @@ void LocalTargetWalk::resumeWalk(GenericTreeNode *node, State *state_, int chunk
 			// start and end buckets beneath lowest node
 			int sL, eL;
 			ownerTP->getBucketsBeneathBounds(lowestNode, sL, eL);
+      if (sL < comp->starting_bucket) {
+        sL = comp->starting_bucket;
+      }
+      if (eL > comp->ending_bucket) {
+        eL = comp->ending_bucket;
+      }
 
 			CkAssert(targetBucket >= sL);
 			comp->stateReady(state, ownerTP, chunk, targetBucket, eL);

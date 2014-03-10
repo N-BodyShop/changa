@@ -32,6 +32,16 @@ void Compute::init(void *buck, int ar, Opt *o){
   computeEntity = buck;
   activeRung = ar;
   opt = o;
+  starting_bucket = 0;
+  ending_bucket = INT_MAX;
+}
+
+void Compute::init(void *buck, int ar, Opt *o, int startb, int endb){
+  computeEntity = buck;
+  activeRung = ar;
+  opt = o;
+  starting_bucket = startb;
+  ending_bucket = endb;
 }
 
 State *Compute::getNewState(int dim1, int dim2){
@@ -357,6 +367,14 @@ void ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int 
   int start, end;
   GenericTreeNode *source = (GenericTreeNode *)computeEntity;
   owner->getBucketsBeneathBounds(source, start, end);
+
+  if (start < starting_bucket) {
+    start = starting_bucket;
+  }
+  if (end > ending_bucket) {
+    end = ending_bucket;
+  }
+
   owner->updateBucketState(start, end, 1, chunk, state);
 
   CkAssert(chunk >= 0);
@@ -403,7 +421,8 @@ void ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int 
 #if COSMO_PRINT_BK > 1
     CkPrintf("[%d] FINISHED CHUNK %d from nodeRecvdEvent\n", owner->getIndex(), chunk);
 #endif
-    cacheGravPart[CkMyPe()].finishedChunk(chunk, owner->particleInterRemote[chunk]);
+    // TODO: Commented out because we are calling finishedChunk separately
+    //cacheGravPart[CkMyPe()].finishedChunk(chunk, owner->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d ListCompute::nodeRecvdEvent\n", owner->getIndex(), chunk);
 #endif
@@ -914,6 +933,12 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
 #if COSMO_PRINT_BK > 1
       CkPrintf("[%d] missed parts %ld (chunk %d)\n", tp->getIndex(), keyref << 1, chunk);
 #endif
+      if (start < starting_bucket) {
+        start = starting_bucket;
+      }
+      if (end > ending_bucket) {
+        end = ending_bucket;
+      }
       tp->updateUnfinishedBucketState(start, end, 1, chunk, state);
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("memcheck after particlesmissed (%ld)\n", keyref);
@@ -941,6 +966,12 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
   DoubleWalkState *state  = (DoubleWalkState *)state_;
   tp->getBucketsBeneathBounds(source, startBucket, end);
 
+  if (startBucket < starting_bucket) {
+    startBucket = starting_bucket;
+  }
+  if (end > ending_bucket) {
+    end = ending_bucket;
+  }
   // init state
   bool remoteLists = state->rplists.length() > 0;
 
@@ -1010,7 +1041,8 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
 #if COSMO_PRINT_BK > 1
     CkPrintf("[%d] FINISHED CHUNK %d from recvdParticles\n", tp->getIndex(), chunk);
 #endif
-    cacheGravPart[CkMyPe()].finishedChunk(chunk, tp->particleInterRemote[chunk]);
+    // TODO: Commented out because we are calling finishedChunk separately
+    //cacheGravPart[CkMyPe()].finishedChunk(chunk, tp->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d ListCompute::recvdParticles\n", tp->getIndex(), chunk);
 #endif

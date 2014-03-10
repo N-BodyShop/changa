@@ -96,6 +96,7 @@ public:
   int size(void *);
   
   static void callback(CkArrayID, CkArrayIndexMax&, KeyType, CkCacheUserData &, void*, int);
+  static void callbackForeign(CkArrayID, CkArrayIndexMax&, KeyType, CkCacheUserData &, void*, int);
 };
 
 #endif

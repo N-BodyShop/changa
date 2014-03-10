@@ -28,6 +28,14 @@ BaseLB * AllocateMultistepLB_notopo();
 // ORB3DLB functions
 //**************************************
 
+class TpWorkMsg : public CMessage_TpWorkMsg {
+  public:
+  TreePiece *tp;
+  vector<int> buckets;
+  int chunkNum;
+  int awiFor;
+  int foreignStateIdx;
+};
 
 class LightweightLDStats {
   public:
@@ -155,6 +163,7 @@ public:
   void work2(BaseLB::LDStats* stats, int count, int phase, int prevPhase);
   void greedy(BaseLB::LDStats* stats, int count, int phase, int prevPhase);
  
+  void tpWork(TpWorkMsg* msg);
   void pup(PUP::er &p);
 };
 

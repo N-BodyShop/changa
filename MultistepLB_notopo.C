@@ -1069,6 +1069,13 @@ void MultistepLB_notopo::addTpForAcceptSorted(TreePiece *tp) {
   }
 }
 
+void MultistepLB_notopo::tpWork(TpWorkMsg *msg) {
+  //CkPrintf("[%d] Multistep calling work on tp %d nodesize %d\n", CkMyPe(),
+  //(msg->tp)->getIndex());
+  //(msg->tp)->calculateGravityRemoteForeign(msg->buckets, msg->chunkNum);
+  (msg->tp)->doForeignBuckets(msg->buckets, msg->chunkNum,
+    msg->foreignStateIdx, msg->awiFor);
+}
 
 void MultistepLB_notopo::pup(PUP::er &p){
   CentralLB::pup(p);
