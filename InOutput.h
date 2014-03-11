@@ -246,7 +246,13 @@ class HsmOutputParams : public OutputParams
 class SoftOutputParams : public OutputParams
 {
  public:
-    virtual double dValue(GravityParticle *p) {return p->soft;}
+    virtual double dValue(GravityParticle *p) {
+#ifdef CHANGESOFT
+        return p->fSoft0;
+#else
+        return p->soft;
+#endif
+    }
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     SoftOutputParams() {}
