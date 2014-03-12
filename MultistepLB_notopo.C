@@ -53,7 +53,7 @@ void MultistepLB_notopo::receiveCentroids(CkReductionMsg *msg){
 
 bool MultistepLB_notopo::QueryBalanceNow(int step){
  if(CkMyPe() == 0) CkPrintf("Orb3dLB_notopo: Step %d\n", step);
-   if(step == 0) return false;
+  // if(step == 0) return false;
   return true;
 
 }
@@ -375,6 +375,33 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
   
   for(int i = 0; i < stats->n_objs; i++){
     stats->to_proc[i] = stats->from_proc[i];
+  }
+
+  int numActiveObjects = 0;
+  int numInactiveObjects = 0;
+
+  for(int i = 0; i < stats->n_objs; i++){
+    if(!stats->objData[i].migratable) {
+      continue;
+    }
+
+    LDObjData &odata = stats->objData[i];
+    TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
+
+    if(udata->numActiveParticles == 0){
+      numInactiveObjects++;
+
+
+      if(stats->objData[i].migratable){
+        stats->objData[i].migratable = 0;
+     #ifdef MCLBMSV
+        CkPrintf("marking object %d non-migratable (inactive)\n", tpCentroids[i].tag);
+     #endif
+        stats->n_migrateobjs--;
+      }
+    } else{
+      numActiveObjects++;
+    }
   }
 
   // TODO: Cm
@@ -750,6 +777,9 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
   pewithmaxddload, numobjs);
   delete[] peddloads;
   */
+  if (numProcessed != nmig) {
+    CkAbort("numProcessed != nmig\n");
+  }
   CkAssert(numProcessed==nmig);
   
   orbPrepare(tpEvents, box, nmig, stats);

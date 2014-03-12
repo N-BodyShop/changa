@@ -1507,9 +1507,9 @@ void Main::advanceBigStep(int iStep) {
 	FormStars(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
     if(param.bFeedback && param.stfm->isStarFormRung(activeRung)) 
 	StellarFeedback(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
-//#ifdef SELECTIVE_TRACING
-//        turnProjectionsOn(activeRung);
-//#endif
+#ifdef SELECTIVE_TRACING
+        turnProjectionsOn(activeRung);
+#endif
     ckout << "\nStep: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
           << " Time: " << dTime
           << " Rungs " << activeRung << " to "
@@ -1613,9 +1613,9 @@ void Main::advanceBigStep(int iStep) {
 	/******** Force Computation ********/
 	//ckout << "Calculating gravity (tree bucket, theta = " << theta
 	//      << ") ...";
-#ifdef SELECTIVE_TRACING
-        turnProjectionsOn(activeRung);
-#endif
+//#ifdef SELECTIVE_TRACING
+//        turnProjectionsOn(activeRung);
+//#endif
 
 	startTime = CkWallTimer();
         CkPrintf("Calculating gravity (tree bucket, theta = %f) timer %g\n",
@@ -2170,6 +2170,12 @@ Main::initialForces()
         << endl;
         */
   CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+
+  // after load balancing, objects may have moved around
+  // and if we have smp-aware caches, they must know whether
+  // there are empty PEs on an SMP node, and decide upon a
+  // leader accordingly.
+  registerCaches();
 
   /******** Tree Build *******/
   //ckout << "Building trees ...";

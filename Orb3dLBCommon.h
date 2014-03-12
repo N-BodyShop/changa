@@ -322,7 +322,7 @@ class Orb3dCommon{
 
     void orbPrepare(vector<Event> *tpEvents, OrientedBox<float> &box, int numobjs, BaseLB::LDStats * stats){
 
-      int nmig = stats->n_objs;
+      int nmig = stats->n_migrateobjs;
       procStride = 1;
       //if (nmig < stats->count) {
       //  procStride = stats->count / nmig;
@@ -363,7 +363,9 @@ class Orb3dCommon{
       procload.resize(stats->count);
       procpart.resize(stats->count);
       for(int i = 0; i < stats->count; i++){
-        procload[i] = stats->procs[i].bg_walltime;
+        // TODO: Cm
+        // procload[i] = stats->procs[i].bg_walltime;
+        procload[i] = 0.0;
         procpart[i] = 0.0;
       }
 
@@ -376,7 +378,10 @@ class Orb3dCommon{
 #endif
 
       int migr = 0;
+      numobjs = stats->n_objs;
       for(int i = 0; i < numobjs; i++){
+        if (!stats->objData[i].migratable) continue;
+
         if(stats->to_proc[i] != stats->from_proc[i]) migr++;
 #ifdef DO_REFINE
         int pe = stats->to_proc[i];
@@ -392,6 +397,8 @@ class Orb3dCommon{
       refiner.Refine(stats->count,stats,from_procs,to_procs);
 
       for(int i = 0; i < numobjs; i++){
+        if (!stats->objData[i].migratable) continue;
+
         if(to_procs[i] != from_procs[i]) numRefineMigrated++;
         stats->to_proc[i] = to_procs[i];
       }
@@ -407,6 +414,8 @@ class Orb3dCommon{
       double maxObjLoad = 0.0;
       
       for(int i = 0; i < numobjs; i++){
+        if (!stats->objData[i].migratable) continue;
+
         double ld = stats->objData[i].wallTime;
         int proc = stats->to_proc[i];
         predLoad[proc] += ld; 
