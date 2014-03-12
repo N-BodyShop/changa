@@ -102,6 +102,14 @@ mainmodule ParallelGravity {
   };
 #endif
 
+  message TpWorkMsg {
+    TreePiece* tp;
+    vector<int> buckets;
+    int chunkNum;
+    int awiFor;
+    int foreignStateIdx;
+  };
+
   PUPable DensitySmoothParams;
   PUPable DenDvDxSmoothParams;
   PUPable DenDvDxNeighborSmParams;

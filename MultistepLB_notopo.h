@@ -28,15 +28,6 @@ BaseLB * AllocateMultistepLB_notopo();
 // ORB3DLB functions
 //**************************************
 
-class TpWorkMsg : public CMessage_TpWorkMsg {
-  public:
-  TreePiece *tp;
-  vector<int> buckets;
-  int chunkNum;
-  int awiFor;
-  int foreignStateIdx;
-};
-
 class LightweightLDStats {
   public:
   int n_objs;
@@ -163,7 +154,13 @@ public:
   void work2(BaseLB::LDStats* stats, int count, int phase, int prevPhase);
   void greedy(BaseLB::LDStats* stats, int count, int phase, int prevPhase);
  
-  void tpWork(TpWorkMsg* msg);
+  void tpWorkLocal(TpWorkMsg* msg);
+  void tpWorkEwald(TpWorkMsg* msg);
+  void tpWorkRemote(TpWorkMsg* msg);
+
+  void tpWorkLocalContinue(TpWorkMsg* msg);
+  void tpWorkEwaldContinue(TpWorkMsg* msg);
+  void tpWorkRemoteContinue(TpWorkMsg* msg);
   void pup(PUP::er &p);
 };
 

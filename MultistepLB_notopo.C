@@ -1069,12 +1069,57 @@ void MultistepLB_notopo::addTpForAcceptSorted(TreePiece *tp) {
   }
 }
 
-void MultistepLB_notopo::tpWork(TpWorkMsg *msg) {
+void MultistepLB_notopo::tpWorkLocalContinue(TpWorkMsg *msg) {
   //CkPrintf("[%d] Multistep calling work on tp %d nodesize %d\n", CkMyPe(),
   //(msg->tp)->getIndex());
   //(msg->tp)->calculateGravityRemoteForeign(msg->buckets, msg->chunkNum);
-  (msg->tp)->doForeignBuckets(msg->buckets, msg->chunkNum,
-    msg->foreignStateIdx, msg->awiFor);
+  //(msg->tp)->doForeignBuckets(msg);
+  //CkPrintf("[%d] Multistep tp callign continueForeignBucketLocal ptr %d\n", CkMyPe(), msg);
+  (msg->tp)->doForeignBucketsLocal(msg);
+}
+
+void MultistepLB_notopo::tpWorkEwaldContinue(TpWorkMsg *msg) {
+  //CkPrintf("[%d] Multistep calling work on tp %d nodesize %d\n", CkMyPe(),
+  //(msg->tp)->getIndex());
+  //(msg->tp)->calculateGravityRemoteForeign(msg->buckets, msg->chunkNum);
+  //(msg->tp)->doForeignBuckets(msg);
+  //CkPrintf("[%d] Multistep tp callign continueForeignBucketEwald ptr %d\n", CkMyPe(), msg);
+  (msg->tp)->doForeignBucketsEwald(msg);
+}
+
+void MultistepLB_notopo::tpWorkRemoteContinue(TpWorkMsg *msg) {
+  //CkPrintf("[%d] Multistep calling work on tp %d nodesize %d\n", CkMyPe(),
+  //(msg->tp)->getIndex());
+  //(msg->tp)->calculateGravityRemoteForeign(msg->buckets, msg->chunkNum);
+  //CkPrintf("[%d] Multistep tp callign continueForeignBucketRemote ptr %d\n", CkMyPe(), msg);
+  (msg->tp)->doForeignBucketsRemote(msg);
+}
+
+
+void MultistepLB_notopo::tpWorkLocal(TpWorkMsg *msg) {
+  //CkPrintf("[%d] Multistep calling work on tp %d nodesize %d\n", CkMyPe(),
+  //(msg->tp)->getIndex());
+  //(msg->tp)->calculateGravityRemoteForeign(msg->buckets, msg->chunkNum);
+  //(msg->tp)->doForeignBuckets(msg);
+  //CkPrintf("[%d] Multistep tp callign startForeignBucketLocal ptr %d\n", CkMyPe(), msg);
+  (msg->tp)->startForeignBucketLocal(msg);
+}
+
+void MultistepLB_notopo::tpWorkEwald(TpWorkMsg *msg) {
+  //CkPrintf("[%d] Multistep calling work on tp %d nodesize %d\n", CkMyPe(),
+  //(msg->tp)->getIndex());
+  //(msg->tp)->calculateGravityRemoteForeign(msg->buckets, msg->chunkNum);
+  //(msg->tp)->doForeignBuckets(msg);
+  //CkPrintf("[%d] Multistep tp callign startForeignBucketEwald ptr %d\n", CkMyPe(), msg);
+  (msg->tp)->startForeignBucketEwald(msg);
+}
+
+void MultistepLB_notopo::tpWorkRemote(TpWorkMsg *msg) {
+  //CkPrintf("[%d] Multistep calling work on tp %d nodesize %d\n", CkMyPe(),
+  //(msg->tp)->getIndex());
+  //(msg->tp)->calculateGravityRemoteForeign(msg->buckets, msg->chunkNum);
+  //CkPrintf("[%d] Multistep tp callign startForeignBucketRemote ptr %d\n", CkMyPe(), msg);
+  (msg->tp)->startForeignBucketRemote(msg);
 }
 
 void MultistepLB_notopo::pup(PUP::er &p){

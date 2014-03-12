@@ -346,6 +346,9 @@ class ForeignState {
   TreeWalk* tw;
   State* rs;
   State* ls;
+  int prevForBucketRemote;
+  int prevForBucketLocal;
+  int currentForEwald;
 };
 
 #endif

@@ -197,6 +197,15 @@ GenericTreeNode* startNode;
 #endif*/
 };
 
+class TpWorkMsg : public CMessage_TpWorkMsg {
+  public:
+  TreePiece *tp;
+  vector<int> buckets;
+  int chunkNum;
+  int awiFor;
+  int foreignStateIdx;
+};
+
 class TreePieceStatistics {
   u_int64_t nodesOpenedLocal;
   u_int64_t nodesOpenedRemote;
@@ -1143,6 +1152,8 @@ private:
   bool* isBucketDone;
   double* bucketTiming;
   vector<ForeignState*> foreign_states;
+  vector<TpWorkMsg*> foreign_tpworkmsg;
+  vector<int> foreign_tpworkpe;
 
 	/// Size of bucketList, total number of buckets present
 	unsigned int numBuckets;
@@ -1773,11 +1784,17 @@ public:
   void startGravity(int am, double myTheta, const CkCallback& cb);
 
   void SplitBucketsToNodes();
+  void sendOffForeignBucketsForRemoteWork();
 
-  void doForeignBuckets(vector<int> &foreign_buckets, int chunkNum, int foreign_state_idx, int awiForeign);
-  void doForeignBucketsRemote(vector<int> &foreign_buckets, int chunkNum, int foreign_state_idx, int awiForeign);
-  void doForeignBucketsLocal(vector<int> &foreign_buckets, int chunkNum, int foreign_state_idx, int awiForeign);
-  void doForeignBucketsEwald(vector<int> &foreign_buckets, int chunkNum, int foreign_state_idx, int awiForeign);
+  void doForeignBuckets(TpWorkMsg *msg);
+
+  void startForeignBucketRemote(TpWorkMsg *msg);
+  void doForeignBucketsRemote(TpWorkMsg *msg);
+  void startForeignBucketLocal(TpWorkMsg *msg);
+  void doForeignBucketsLocal(TpWorkMsg *msg);
+  void startForeignBucketEwald(TpWorkMsg *msg);
+  void doForeignBucketsEwald(TpWorkMsg *msg);
+
   void finishForeignBucket(int iBucket);
   void returnBackBuckets(int howmany);
   void cleanupForeignState();
