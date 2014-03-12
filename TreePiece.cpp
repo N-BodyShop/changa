@@ -7,7 +7,7 @@
 #include <assert.h>
 
 #include "CkLoopAPI.h"
-#include <papi.h>
+//#include <papi.h>
 
 // jetley
 #include "limits.h"
@@ -3865,7 +3865,7 @@ void TreePiece::ckLoopParallelFunction(dummyMsg *msg) {
  //   CkPrintf("papi threads not good\n");
  // }
 
-  papievents[0] = PAPI_L1_DCM;
+  //papievents[0] = PAPI_L1_DCM;
   //if (papivalues[0] != 0) {
   //  CkPrintf("[%d] papivalue = %d\n", CkMyPe(), papivalues[0]);
   //}
@@ -5286,7 +5286,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       // on the cache right now because there may be buckets from other TP on
       // this PE working. So only call this once the whole walk is finished
       // (finishNodeChunk).
-      //cacheGravPart[CkMyPe()].finishedChunk(msg->chunkNum, particleInterRemote[msg->chunkNum]);
+      cacheGravPart[CkMyPe()].finishedChunk(msg->chunkNum, particleInterRemote[msg->chunkNum]);
 #ifdef CHECK_WALK_COMPLETIONS
       CkPrintf("[%d] finishedChunk TreePiece::calculateGravityRemote\n", thisIndex);
 #endif
@@ -5331,11 +5331,12 @@ GenericTreeNode *TreePiece::getStartAncestor(int current, int previous, GenericT
 
 void TreePiece::finishNodeCache(const CkCallback& cb)
 {
-  CkAbort("Someone called finishNodeCache\n");
+  //CkAbort("Someone called finishNodeCache\n");
     int j;
     for (j = 0; j < numChunks; j++) {
 	cacheNode.ckLocalBranch()->finishedChunk(j, 0);
-      cacheGravPart.ckLocalBranch()->finishedChunk(j, 0);
+      // TODO: Cm
+      //cacheGravPart.ckLocalBranch()->finishedChunk(j, 0);
 	}
     contribute(cb);
     }
@@ -5601,7 +5602,8 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
     // No particles assigned to this TreePiece
     for (int i=0; i< numChunks; ++i) {
       // TODO: Commented
-      //cacheGravPart.ckLocalBranch()->finishedChunk(i, 0);
+      // TODO: Cm
+      cacheGravPart.ckLocalBranch()->finishedChunk(i, 0);
     }
     CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
     gravityProxy[thisIndex].ckLocal()->contribute(cbf);
@@ -6864,8 +6866,11 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
   }
   else if(foundLB == Multistep_notopo){
-    CkCallback lbcb(CkIndex_MultistepLB_notopo::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+    void *data = getObjUserData(CkpvAccess(_lb_obj_index));
+    *(TaggedVector3D *) data = tv;
+    thisProxy[thisIndex].doAtSync();
+    //CkCallback lbcb(CkIndex_MultistepLB_notopo::receiveCentroids(NULL), 0, proxy);
+    //contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
   }
   else if(foundLB == Orb3d_notopo){
     void *data = getObjUserData(CkpvAccess(_lb_obj_index));
@@ -8337,8 +8342,11 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
     contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
   }
   else if(foundLB == Multistep_notopo){
-    CkCallback lbcb(CkIndex_MultistepLB_notopo::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+    void *data = getObjUserData(CkpvAccess(_lb_obj_index));
+    *(TaggedVector3D *) data = tv;
+    thisProxy[thisIndex].doAtSync();
+    //CkCallback lbcb(CkIndex_MultistepLB_notopo::receiveCentroids(NULL), 0, proxy);
+    //contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
   }
   else if(foundLB == Orb3d_notopo){
     void *data = getObjUserData(CkpvAccess(_lb_obj_index));

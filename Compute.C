@@ -421,8 +421,9 @@ void ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int 
 #if COSMO_PRINT_BK > 1
     CkPrintf("[%d] FINISHED CHUNK %d from nodeRecvdEvent\n", owner->getIndex(), chunk);
 #endif
+    // TODO: Cm
     // TODO: Commented out because we are calling finishedChunk separately
-    //cacheGravPart[CkMyPe()].finishedChunk(chunk, owner->particleInterRemote[chunk]);
+    cacheGravPart[CkMyPe()].finishedChunk(chunk, owner->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d ListCompute::nodeRecvdEvent\n", owner->getIndex(), chunk);
 #endif
@@ -1042,7 +1043,7 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
     CkPrintf("[%d] FINISHED CHUNK %d from recvdParticles\n", tp->getIndex(), chunk);
 #endif
     // TODO: Commented out because we are calling finishedChunk separately
-    //cacheGravPart[CkMyPe()].finishedChunk(chunk, tp->particleInterRemote[chunk]);
+    cacheGravPart[CkMyPe()].finishedChunk(chunk, tp->particleInterRemote[chunk]);
 #ifdef CHECK_WALK_COMPLETIONS
     CkPrintf("[%d] finishedChunk %d ListCompute::recvdParticles\n", tp->getIndex(), chunk);
 #endif

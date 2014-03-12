@@ -89,6 +89,8 @@ private:
   bool havePhaseData(int phase); 
   void printData(BaseLB::LDStats &stats, int phase, int *revObjMap);
 
+  void init();
+
 
 //  void orbPartition(CkVec<Event> *events, OrientedBox<float> &box, int procs, OrbObject * tp);
 //  int partitionRatioLoad(CkVec<Event> &events, float ratio);
@@ -97,7 +99,7 @@ private:
 public:
   MultistepLB_notopo(const CkLBOptions &);
   MultistepLB_notopo(CkMigrateMessage *m):CentralLB(m) { 
-    lbname = "MultistepLB_notopo"; 
+    init();
      }
     
   void work(BaseLB::LDStats* stats);
