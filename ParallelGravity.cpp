@@ -63,9 +63,16 @@ CProxy_ReductionHelper reductionHelperProxy;
 CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 CProxy_LvArray smoothProxy; // Proxy for smooth reductions
 CProxy_LvArray gravityProxy; // Proxy for gravity reductions
-CProxy_CkCacheManager<KeyType> cacheGravPart;
-CProxy_CkCacheManager<KeyType> cacheSmoothPart;
-CProxy_CkCacheManager<KeyType> cacheNode;
+
+#ifndef USE_SMP_CACHE
+CProxy_CkNonSmpCacheManager<KeyType> cacheNode;
+CProxy_CkNonSmpCacheManager<KeyType> cacheGravPart;
+#else
+CProxy_CkSmpCacheManager<KeyType> cacheNode;
+CProxy_CkSmpCacheManager<KeyType> cacheGravPart;
+#endif
+CProxy_CkNonSmpCacheManager<KeyType> cacheSmoothPart;
+
 CProxy_DataManager dMProxy;
 
 CProxy_DumpFrameData dfDataProxy;
@@ -1096,11 +1103,32 @@ Main::Main(CkArgMsg* m) {
 	
 	// create CacheManagers
 	// Gravity particles
-	cacheGravPart = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
-	// Smooth particles
-	cacheSmoothPart = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+#ifndef USE_SMP_CACHE
 	// Nodes
-	cacheNode = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+        nodeCacheHandle_ = CkNonSmpCacheFactory<KeyType>::instantiate(cacheSize, pieces.ckLocMgr()->getGroupID());
+        // Particles
+        partCacheHandle_ = CkNonSmpCacheFactory<KeyType>::instantiate(cacheSize, pieces.ckLocMgr()->getGroupID());
+        cacheNode = nodeCacheHandle_.getCacheProxy();
+        cacheGravPart = partCacheHandle_.getCacheProxy();
+#else
+#ifndef USE_MULTIFETCH_SMP_CACHE
+	// Nodes
+        nodeCacheHandle_ = CkOnefetchSmpCacheFactory<KeyType>::instantiate(cacheSize, pieces.ckLocMgr()->getGroupID());
+        // Particles
+        partCacheHandle_ = CkOnefetchSmpCacheFactory<KeyType>::instantiate(cacheSize, pieces.ckLocMgr()->getGroupID());
+#else
+	// Nodes
+        nodeCacheHandle_ = CkMultifetchSmpCacheFactory<KeyType>::instantiate(cacheSize, pieces.ckLocMgr()->getGroupID());
+        // Particles
+        partCacheHandle_ = CkMultifetchSmpCacheFactory<KeyType>::instantiate(cacheSize, pieces.ckLocMgr()->getGroupID());
+#endif
+        cacheNode = nodeCacheHandle_.getCacheProxy();
+        cacheGravPart = partCacheHandle_.getCacheProxy();
+
+#endif
+	// Smooth particles
+        smoothCacheHandle_ = CkNonSmpCacheFactory<KeyType>::instantiate(cacheSize, pieces.ckLocMgr()->getGroupID());
+        cacheSmoothPart = smoothCacheHandle_.getCacheProxy();
 
 	//create the DataManager
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
@@ -1545,6 +1573,13 @@ void Main::advanceBigStep(int iStep) {
     if(verbosity > 1)
 	memoryStats();
 
+    // after load balancing, objects may have moved around
+    // and if we have smp-aware caches, they must know whether
+    // there are empty PEs on an SMP node, and decide upon a
+    // leader accordingly.
+    registerCaches();
+
+
 
 #ifdef PUSH_GRAVITY
     bool bDoPush = param.dFracPushParticles*nTotalParticles > nActiveGrav;
@@ -1746,6 +1781,31 @@ void Main::advanceBigStep(int iStep) {
 /// until the particles are loaded, this routine also completes the
 /// specification of the run details and writes out the log file
 /// entry.  It concludes by calling initialForces()
+
+void Main::setupCaches(){
+#ifdef USE_SMP_CACHE
+  // smp caches require extra initialization 
+  CkPrintf("SmpCache setup ... ");
+  double startTime = CkWallTimer();
+  cacheNode.setup(nodeCacheHandle_, CkCallbackResumeThread());
+  cacheGravPart.setup(partCacheHandle_, CkCallbackResumeThread());
+  CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+  // smooth cache is never SMP, so no extra initialization
+  // required for it.
+#endif
+}
+
+void Main::registerCaches(){
+#ifdef USE_SMP_CACHE
+  // register objects on individual PEs with cache,
+  // and decide leader PE for each SMP node
+  CkPrintf("SmpCache registration ... ");
+  double startTime = CkWallTimer();
+  cacheNode.registration(CkCallbackResumeThread());
+  cacheGravPart.registration(CkCallbackResumeThread());
+  CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+#endif
+}
 
 void Main::setupICs() {
   double startTime;
@@ -1972,6 +2032,8 @@ int CheckForStop()
 void
 Main::restart() 
 {
+    registerCaches();
+
     if(bIsRestarting) {
 	dSimStartTime = CkWallTimer();
 	ckout << "ChaNGa version 2.0, commit " << Cha_CommitID << endl;
@@ -2077,6 +2139,10 @@ Main::initialForces()
   // CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
 
   /***** Initial sorting of particles and Domain Decomposition *****/
+
+  setupCaches();
+  registerCaches();
+
   CkPrintf("Initial domain decomposition ... ");
 
   startTime = CkWallTimer();
@@ -3123,7 +3189,12 @@ void Main::pup(PUP::er& p)
     p | bDumpFrame;
     p | bChkFirst;
     p | sorter;
-    }
+
+
+    p | nodeCacheHandle_;
+    p | partCacheHandle_;
+    p | smoothCacheHandle_;
+}
 
 
 void Main::liveVizImagePrep(liveVizRequestMsg *msg) 

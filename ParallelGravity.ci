@@ -16,9 +16,15 @@ mainmodule ParallelGravity {
   readonly CProxy_LvArray smoothProxy;
   readonly CProxy_LvArray gravityProxy;
   readonly CProxy_TreePiece streamingProxy;
-  readonly CProxy_CkCacheManager<KeyType> cacheNode;
-  readonly CProxy_CkCacheManager<KeyType> cacheGravPart;
-  readonly CProxy_CkCacheManager<KeyType> cacheSmoothPart;
+#ifndef USE_SMP_CACHE
+  readonly CProxy_CkNonSmpCacheManager<KeyType> cacheNode;
+  readonly CProxy_CkNonSmpCacheManager<KeyType> cacheGravPart;
+#else
+  readonly CProxy_CkSmpCacheManager<KeyType> cacheNode;
+  readonly CProxy_CkSmpCacheManager<KeyType> cacheGravPart;
+#endif
+  readonly CProxy_CkNonSmpCacheManager<KeyType> cacheSmoothPart;
+
   readonly CProxy_DataManager dMProxy;
   readonly CProxy_PETreeMerger peTreeMergerProxy;
   readonly CProxy_DumpFrameData dfDataProxy;

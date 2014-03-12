@@ -31,7 +31,7 @@ class EntryTypeGravityParticle : public CkCacheEntryType<KeyType> {
 public:
   EntryTypeGravityParticle();
   /// @brief Request a bucket of particles from a TreePiece.
-  void * request(CkArrayIndexMax&, KeyType);
+  void * request(const CkArrayIndexMax&, KeyType);
   /// @brief Return data from fufilled cache request.
   void * unpack(CkCacheFillMsg<KeyType> *, int, CkArrayIndexMax &);
   /// @brief Do nothing: this is a read-only cache.
@@ -66,7 +66,7 @@ class EntryTypeSmoothParticle : public CkCacheEntryType<KeyType> {
 public:
   EntryTypeSmoothParticle();
   /// @brief Request a bucket of particles from a TreePiece.
-  void * request(CkArrayIndexMax&, KeyType);
+  void * request(const CkArrayIndexMax&, KeyType);
   /// @brief Return data from fufilled cache request.
   void * unpack(CkCacheFillMsg<KeyType> *, int, CkArrayIndexMax &);
   void writeback(CkArrayIndexMax&, KeyType, void *);
@@ -89,7 +89,7 @@ class EntryTypeGravityNode : public CkCacheEntryType<KeyType> {
   void unpackSingle(CkCacheFillMsg<KeyType> *, Tree::BinaryTreeNode *, int, CkArrayIndexMax &, bool);
 public:
   EntryTypeGravityNode();
-  void * request(CkArrayIndexMax&, KeyType);
+  void * request(const CkArrayIndexMax&, KeyType);
   void * unpack(CkCacheFillMsg<KeyType> *, int, CkArrayIndexMax &);
   void writeback(CkArrayIndexMax&, KeyType, void *);
   void free(void *);
