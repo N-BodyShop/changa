@@ -1359,7 +1359,7 @@ void Main::advanceBigStep(int iStep) {
 
   while (currentStep < MAXSUBSTEPS) {
 
-      autoPerfGlobalNextStepResume(CkCallbackResumeThread());
+      //autoPerfGlobalNextStepResume(CkCallbackResumeThread());
     if(!param.bStaticTest) {
       CkAssert(param.dDelta != 0.0);
       // Find new rung for active particles
