@@ -90,7 +90,6 @@ void TreePiece::loadTipsy(const std::string& filename,
 			  const CkCallback& cb) {
         LBTurnInstrumentOff();
         basefilename = filename;
-	bLoaded = 0;
 
 	Tipsy::TipsyReader r(filename, bDoublePos, bDoubleVel);
 	if(!r.status()) {
@@ -291,7 +290,6 @@ void TreePiece::loadTipsy(const std::string& filename,
 		boundingBox.grow(myParticles[i+1].position);
 	}
 	
-	bLoaded = 1;
   contribute(cb);
 }
 
@@ -926,7 +924,6 @@ void TreePiece::loadNChilada(const std::string& filename,
 			     const CkCallback& cb) {
         LBTurnInstrumentOff();
         basefilename = filename;
-	bLoaded = 0;
 
 	nTotalSPH = getCount(filename + "/gas");
 	nTotalDark = getCount(filename + "/dark");
@@ -1076,7 +1073,6 @@ void TreePiece::loadNChilada(const std::string& filename,
             boundingBox.grow(myParticles[i+1].position);
         }
         
-	bLoaded = 1;
   contribute(cb);
 }
 

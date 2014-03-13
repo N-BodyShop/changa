@@ -1183,7 +1183,6 @@ private:
 #endif
   void EwaldGPU(); 
   void EwaldGPUComplete();
-  int bLoaded;		/* Are particles loaded? */
 
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
   ///This function checks the correctness of the treewalk
