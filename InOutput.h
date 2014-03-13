@@ -650,7 +650,7 @@ class TimeFormOutputParams : public OutputParams
     TimeFormOutputParams() {}
     TimeFormOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
-        sTipsyExt = "tform"; sNChilExt = "tform";
+        sTipsyExt = "timeform"; sNChilExt = "timeform";
         dTime = _dTime;
         iType = TYPE_STAR; }
     PUPable_decl(TimeFormOutputParams);
