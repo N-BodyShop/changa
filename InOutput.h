@@ -791,7 +791,7 @@ class DomainOutputParams : public OutputParams
 class OutputIntParams : public PUP::able 
 {
  public:
-    virtual int iValue(GravityParticle *p) = 0;
+    virtual int64_t iValue(GravityParticle *p) = 0;
     int iBinaryOut;     // Type of binary output
     double dTime;
     std::string fileName;	// output file
@@ -816,7 +816,7 @@ class OutputIntParams : public PUP::able
 /// @brief Output iOrder.
 class IOrderOutputParams : public OutputIntParams
 {
-    virtual int iValue(GravityParticle *p)
+    virtual int64_t iValue(GravityParticle *p)
     {
 	return p->iOrder;
 	}
@@ -837,7 +837,7 @@ class IOrderOutputParams : public OutputIntParams
 /// @brief Output iGasOrder.
 class IGasOrderOutputParams : public OutputIntParams
 {
-    virtual int iValue(GravityParticle *p)
+    virtual int64_t iValue(GravityParticle *p)
     {
 	if(p->isStar())
 	    return p->iGasOrder();
@@ -861,7 +861,7 @@ class IGasOrderOutputParams : public OutputIntParams
 /// @brief Output rungs.
 class RungOutputParams : public OutputIntParams
 {
-    virtual int iValue(GravityParticle *p)
+    virtual int64_t iValue(GravityParticle *p)
     {
 	return p->rung;
 	}
