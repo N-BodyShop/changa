@@ -240,6 +240,8 @@ mainmodule ParallelGravity {
     entry [notrace] void EwaldGPU(); 
     entry void velScale(double dScale, const CkCallback& cb);
     //entry void markPresence(const CkCallback& cb);
+    entry void loadNChilada(const std::string& filename, const double dTuFac,
+                            const CkCallback& cb);
     entry void loadTipsy(const std::string& filename,
         const double dTuFac,
         const bool bDoublePos,

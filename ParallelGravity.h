@@ -1452,6 +1452,11 @@ public:
 	// comoving coordinates.)
 	void velScale(double dScale, const CkCallback& cb);
 
+	/// @brief Load I.C. from NChilada file
+        /// @param dTuFac conversion factor from temperature to
+        /// internal energy
+        void loadNChilada(const std::string& filename, const double dTuFac,
+                          const CkCallback& cb);
 	/// @brief Load I.C. from Tipsy file
         /// @param filename tipsy file
         /// @param dTuFac conversion factor from temperature to
