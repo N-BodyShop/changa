@@ -4942,7 +4942,7 @@ void TreePiece::calculateGravityRemoteCk(ComputeChunkMsg *msg) {
     if (chunkRemaining == 0) {
       // we finished completely using this chunk, so we acknowledge the cache
       // if this is not true it means we had some hard misses
-      cacheGravPart[CkMyPe()].finishedChunk(msg->chunkNum, particleInterRemote[msg->chunkNum]);
+      //cacheGravPart[CkMyPe()].finishedChunk(msg->chunkNum, particleInterRemote[msg->chunkNum]);
       finishedChunk(msg->chunkNum);
     }
     delete msg;
@@ -5286,7 +5286,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       // on the cache right now because there may be buckets from other TP on
       // this PE working. So only call this once the whole walk is finished
       // (finishNodeChunk).
-      cacheGravPart[CkMyPe()].finishedChunk(msg->chunkNum, particleInterRemote[msg->chunkNum]);
+      //cacheGravPart[CkMyPe()].finishedChunk(msg->chunkNum, particleInterRemote[msg->chunkNum]);
 #ifdef CHECK_WALK_COMPLETIONS
       CkPrintf("[%d] finishedChunk TreePiece::calculateGravityRemote\n", thisIndex);
 #endif
@@ -5331,10 +5331,10 @@ GenericTreeNode *TreePiece::getStartAncestor(int current, int previous, GenericT
 
 void TreePiece::finishNodeCache(const CkCallback& cb)
 {
-  //CkAbort("Someone called finishNodeCache\n");
+  CkAbort("Someone called finishNodeCache\n");
     int j;
     for (j = 0; j < numChunks; j++) {
-	cacheNode.ckLocalBranch()->finishedChunk(j, 0);
+	//cacheNode.ckLocalBranch()->finishedChunk(j, 0);
       // TODO: Cm
       //cacheGravPart.ckLocalBranch()->finishedChunk(j, 0);
 	}
@@ -5603,7 +5603,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
     for (int i=0; i< numChunks; ++i) {
       // TODO: Commented
       // TODO: Cm
-      cacheGravPart.ckLocalBranch()->finishedChunk(i, 0);
+      //cacheGravPart.ckLocalBranch()->finishedChunk(i, 0);
     }
     CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
     gravityProxy[thisIndex].ckLocal()->contribute(cbf);
@@ -5901,9 +5901,9 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
     //if (CkMyPe() < 8192 && CkMyPe() > 4096)
     //if (CkMyPe() >= 6510 && CkMyPe() < 6541)
     //if (CkMyPe() == 6540 && iterationNo == 8)
+    //if (iterationNo == 8 && CkMyPe()==21914)
     //if (iterationNo == 8)
-    if (iterationNo == 8 && CkMyPe()==21914)
-      doNodeLB = true;
+    //  doNodeLB = true;
   }
 
   isBucketDone = new bool[numBuckets];
@@ -6080,6 +6080,8 @@ void TreePiece::SplitBucketsToNodes() {
     tpmsg->chunkNum = chunkNum;
     tpmsg->awiFor = forawi;
     tpmsg->foreignStateIdx = forstateidx;
+    *((int *)CkPriorityPtr(tpmsg)) = numTreePieces * numChunks + thisIndex + 1;
+    CkSetQueueing(tpmsg,CK_QUEUEING_IFIFO);
 
     TpWorkMsg *tpmsge = new TpWorkMsg();
     tpmsge->tp = this;
@@ -6087,6 +6089,9 @@ void TreePiece::SplitBucketsToNodes() {
     tpmsge->chunkNum = chunkNum;
     tpmsge->awiFor = forawi;
     tpmsge->foreignStateIdx = forstateidx;
+
+    *((int *)CkPriorityPtr(tpmsge)) = numTreePieces * numChunks + thisIndex + 1;
+    CkSetQueueing(tpmsge,CK_QUEUEING_IFIFO);
 
     // TODO:
     // Separate msg for remote work since once the msg is sent we cannot reuse
@@ -6098,6 +6103,9 @@ void TreePiece::SplitBucketsToNodes() {
     tpmsgr->chunkNum = chunkNum;
     tpmsgr->awiFor = forawi;
     tpmsgr->foreignStateIdx = forstateidx;
+
+    *((int *)CkPriorityPtr(tpmsgr)) = numTreePieces * buckets_sent[0] + thisIndex + 1;
+    CkSetQueueing(tpmsgr,CK_QUEUEING_IFIFO);
 
     foreign_tpworkmsg[forstateidx] = tpmsgr;
     foreign_tpworkpe[forstateidx] = pe_idx;
@@ -6193,6 +6201,7 @@ void TreePiece::returnBackBuckets(int iBucket) {
     LBTurnInstrumentOn();
     cleanupForeignState();
     finishedChunk(chunkNum);
+    setObjTime(treePieceLoadExp);
   }
 }
 

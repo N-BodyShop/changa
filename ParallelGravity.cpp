@@ -1507,9 +1507,9 @@ void Main::advanceBigStep(int iStep) {
 	FormStars(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
     if(param.bFeedback && param.stfm->isStarFormRung(activeRung)) 
 	StellarFeedback(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
-#ifdef SELECTIVE_TRACING
-        turnProjectionsOn(activeRung);
-#endif
+//#ifdef SELECTIVE_TRACING
+//        turnProjectionsOn(activeRung);
+//#endif
     ckout << "\nStep: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
           << " Time: " << dTime
           << " Rungs " << activeRung << " to "
@@ -1613,9 +1613,9 @@ void Main::advanceBigStep(int iStep) {
 	/******** Force Computation ********/
 	//ckout << "Calculating gravity (tree bucket, theta = " << theta
 	//      << ") ...";
-//#ifdef SELECTIVE_TRACING
-//        turnProjectionsOn(activeRung);
-//#endif
+#ifdef SELECTIVE_TRACING
+        turnProjectionsOn(activeRung);
+#endif
 
 	startTime = CkWallTimer();
         CkPrintf("Calculating gravity (tree bucket, theta = %f) timer %g\n",
@@ -1759,9 +1759,11 @@ void Main::advanceBigStep(int iStep) {
 #endif
 
     // TODO: Cm
-    //cacheNode.finishAllChunks(CkCallbackResumeThread());
-    //cacheGravPart.finishAllChunks(CkCallbackResumeThread());
-    treeProxy.finishNodeCache(CkCallbackResumeThread());
+    CkPrintf("Call finish all chunks.....\n");
+    cacheNode.finishAllChunks(CkCallbackResumeThread());
+    CkPrintf("Done with all node chunks.....\n");
+    cacheGravPart.finishAllChunks(CkCallbackResumeThread());
+    //treeProxy.finishNodeCache(CkCallbackResumeThread());
 
 #ifdef CHECK_TIME_WITHIN_BIGSTEP
     if(param.iWallRunTime > 0 && ((CkWallTimer()-wallTimeStart) > param.iWallRunTime*60.)){
@@ -2255,9 +2257,10 @@ Main::initialForces()
       }
   
     // TODO: Cm
-    //cacheNode.finishAllChunks(CkCallbackResumeThread());
-    //cacheGravPart.finishAllChunks(CkCallbackResumeThread());
-    treeProxy.finishNodeCache(CkCallbackResumeThread());
+    CkPrintf("Call finish all chunks.....\n");
+    cacheNode.finishAllChunks(CkCallbackResumeThread());
+    cacheGravPart.finishAllChunks(CkCallbackResumeThread());
+    //treeProxy.finishNodeCache(CkCallbackResumeThread());
 
   // Initial Log entry
   string achLogFileName = string(param.achOutName) + ".log";
@@ -2430,9 +2433,10 @@ Main::doSimulation()
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 #endif
     // TODO: Cm
-    //cacheNode.finishAllChunks(CkCallbackResumeThread());
-    //cacheGravPart.finishAllChunks(CkCallbackResumeThread());
-	  treeProxy.finishNodeCache(CkCallbackResumeThread());
+    CkPrintf("Call finish all chunks.....\n");
+    cacheNode.finishAllChunks(CkCallbackResumeThread());
+    cacheGravPart.finishAllChunks(CkCallbackResumeThread());
+	  //treeProxy.finishNodeCache(CkCallbackResumeThread());
           ckout << "Reordering ...";
           startTime = CkWallTimer();
 	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
@@ -2528,9 +2532,10 @@ Main::doSimulation()
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 
     // TODO: Cm
-    //cacheNode.finishAllChunks(CkCallbackResumeThread());
-    //cacheGravPart.finishAllChunks(CkCallbackResumeThread());
-	  treeProxy.finishNodeCache(CkCallbackResumeThread());
+    CkPrintf("Call finish all chunks.....\n");
+    cacheNode.finishAllChunks(CkCallbackResumeThread());
+    cacheGravPart.finishAllChunks(CkCallbackResumeThread());
+	  //treeProxy.finishNodeCache(CkCallbackResumeThread());
           ckout << "Reodering ...";
           startTime = CkWallTimer();
 	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
@@ -2796,9 +2801,10 @@ void Main::writeOutput(int iStep)
 			      CkCallbackResumeThread());
 
   // TODO: Cm
-  //cacheNode.finishAllChunks(CkCallbackResumeThread());
-  //cacheGravPart.finishAllChunks(CkCallbackResumeThread());
-	treeProxy.finishNodeCache(CkCallbackResumeThread());
+    CkPrintf("Call finish all chunks.....\n");
+  cacheNode.finishAllChunks(CkCallbackResumeThread());
+  cacheGravPart.finishAllChunks(CkCallbackResumeThread());
+	//treeProxy.finishNodeCache(CkCallbackResumeThread());
 	if(verbosity) {
 	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		  << endl;
@@ -2840,9 +2846,10 @@ void Main::writeOutput(int iStep)
 				  CkCallbackResumeThread());
 
     // TODO: Cm
-    //cacheNode.finishAllChunks(CkCallbackResumeThread());
-    //cacheGravPart.finishAllChunks(CkCallbackResumeThread());
-	  treeProxy.finishNodeCache(CkCallbackResumeThread());
+    CkPrintf("Call finish all chunks.....\n");
+    cacheNode.finishAllChunks(CkCallbackResumeThread());
+    cacheGravPart.finishAllChunks(CkCallbackResumeThread());
+	  //treeProxy.finishNodeCache(CkCallbackResumeThread());
 	    if(verbosity)
 		ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		      << endl;
