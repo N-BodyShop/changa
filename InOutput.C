@@ -619,14 +619,10 @@ void TreePiece::readCoolArray3(const std::string& filename, const CkCallback& cb
 
 static double fh_time; // gross, but quick way to get time
 
-/// Returns total number of particles of a given type.
-/// Assumes the position attribute is available
-int64_t static getCount(std::string typedir // directory containing the data for
-		 // the type of particle of interest
-		 )
+/// Returns total number of particles in a given file
+/// @param filename data file of interest
+int64_t ncGetCount(std::string filename)
 {
-    std::string filename = typedir + "/pos";
-
     FILE* infile = CmiFopen(filename.c_str(), "rb");
     if(!infile) {
 	return 0;  // Assume there is none of this particle type
@@ -642,8 +638,8 @@ int64_t static getCount(std::string typedir // directory containing the data for
     if(fh.magic != FieldHeader::MagicNumber) {
 	throw XDRException("This file does not appear to be a field file (magic number doesn't match).");
 	}
-    if(fh.dimensions != 3) {
-	throw XDRException("Wrong dimension of positions.");
+    if(fh.dimensions != 3 && fh.dimensions != 1) {
+	throw XDRException("Wrong dimension.");
 	}
     fh_time = fh.time;
     xdr_destroy(&xdrs);
@@ -925,9 +921,9 @@ void TreePiece::loadNChilada(const std::string& filename,
         LBTurnInstrumentOff();
         basefilename = filename;
 
-	nTotalSPH = getCount(filename + "/gas");
-	nTotalDark = getCount(filename + "/dark");
-	nTotalStar = getCount(filename + "/star");
+	nTotalSPH = ncGetCount(filename + "/gas/pos");
+	nTotalDark = ncGetCount(filename + "/dark/pos");
+	nTotalStar = ncGetCount(filename + "/star/pos");
 	nTotalParticles = nTotalSPH + nTotalDark + nTotalStar;
 	dStartTime = fh_time;
 
@@ -1076,6 +1072,129 @@ void TreePiece::loadNChilada(const std::string& filename,
   contribute(cb);
 }
 
+/// Generic read of binary (NChilada) array format into integer
+/// particle attribute
+void TreePiece::readIntBinary(OutputIntParams& params, int bParaRead,
+    const CkCallback& cb)
+{
+    FieldHeader fh;
+    void *data;
+    if((params.iType & TYPE_GAS) && (myNumSPH > 0)) {
+        data = readFieldData(params.fileName + "/gas/" + params.sNChilExt, fh,
+            1, myNumSPH, nStartRead);
+        for(int i = 0; i < myNumSPH; ++i) {
+            switch(fh.code) {
+            case int32:
+                params.setIValue(&myParticles[i+1], static_cast<int *>(data)[i]);
+                break;
+            case int64:
+                params.setIValue(&myParticles[i+1], static_cast<int64_t *>(data)[i]);
+                break;
+            default:
+                throw XDRException("I don't recognize the type of this field!");
+                }
+            }
+        deleteField(fh, data);
+        }
+    int myNumDark = myNumParticles - myNumSPH - myNumStar;
+    if((params.iType & TYPE_DARK) && (myNumDark > 0)) {
+        data = readFieldData(params.fileName + "/dark/" + params.sNChilExt, fh,
+            1, myNumDark, nStartRead+myNumSPH);
+        for(int i = 0; i < myNumDark; ++i) {
+            switch(fh.code) {
+            case int32:
+                params.setIValue(&myParticles[myNumSPH+i+1], static_cast<int *>(data)[i]);
+                break;
+            case int64:
+                params.setIValue(&myParticles[myNumSPH+i+1], static_cast<int64_t *>(data)[i]);
+                break;
+            default:
+                throw XDRException("I don't recognize the type of this field!");
+                }
+            }
+        deleteField(fh, data);
+        }
+    if((params.iType & TYPE_STAR) && (myNumStar > 0)) {
+        data = readFieldData(params.fileName + "/star/" + params.sNChilExt, fh,
+            1, myNumStar, nStartRead+myNumSPH+myNumDark);
+        for(int i = 0; i < myNumStar; ++i) {
+            switch(fh.code) {
+            case int32:
+                params.setIValue(&myParticles[myNumSPH+myNumDark+i+1], static_cast<int *>(data)[i]);
+                break;
+            case int64:
+                params.setIValue(&myParticles[myNumSPH+myNumDark+i+1], static_cast<int64_t *>(data)[i]);
+                break;
+            default:
+                throw XDRException("I don't recognize the type of this field!");
+                }
+            }
+        deleteField(fh, data);
+        }
+    contribute(cb);
+}
+
+/// Generic read of binary (NChilada) array format into floating point
+/// particle attribute
+void TreePiece::readFloatBinary(OutputParams& params, int bParaRead,
+    const CkCallback& cb)
+{
+    FieldHeader fh;
+    void *data;
+    if((params.iType & TYPE_GAS) && (myNumSPH > 0)) {
+        data = readFieldData(params.fileName + "/gas/" + params.sNChilExt, fh,
+            1, myNumSPH, nStartRead);
+        for(int i = 0; i < myNumSPH; ++i) {
+            switch(fh.code) {
+            case float32:
+                params.setDValue(&myParticles[i+1], static_cast<float *>(data)[i]);
+                break;
+            case float64:
+                params.setDValue(&myParticles[i+1], static_cast<double *>(data)[i]);
+                break;
+            default:
+                throw XDRException("I don't recognize the type of this field!");
+                }
+            }
+        deleteField(fh, data);
+        }
+    int myNumDark = myNumParticles - myNumSPH - myNumStar;
+    if((params.iType & TYPE_DARK) && (myNumDark > 0)) {
+        data = readFieldData(params.fileName + "/dark/" + params.sNChilExt, fh,
+            1, myNumDark, nStartRead+myNumSPH);
+        for(int i = 0; i < myNumDark; ++i) {
+            switch(fh.code) {
+            case float32:
+                params.setDValue(&myParticles[myNumSPH+i+1], static_cast<float *>(data)[i]);
+                break;
+            case float64:
+                params.setDValue(&myParticles[myNumSPH+i+1], static_cast<double *>(data)[i]);
+                break;
+            default:
+                throw XDRException("I don't recognize the type of this field!");
+                }
+            }
+        deleteField(fh, data);
+        }
+    if((params.iType & TYPE_STAR) && (myNumStar > 0)) {
+        data = readFieldData(params.fileName + "/star/" + params.sNChilExt, fh,
+            1, myNumStar, nStartRead+myNumSPH+myNumDark);
+        for(int i = 0; i < myNumStar; ++i) {
+            switch(fh.code) {
+            case float32:
+                params.setDValue(&myParticles[myNumSPH+myNumDark+i+1], static_cast<float *>(data)[i]);
+                break;
+            case float64:
+                params.setDValue(&myParticles[myNumSPH+myNumDark+i+1], static_cast<double *>(data)[i]);
+                break;
+            default:
+                throw XDRException("I don't recognize the type of this field!");
+                }
+            }
+        deleteField(fh, data);
+        }
+    contribute(cb);
+}
 
 /// @brief Find starting offsets and begin parallel write.
 ///

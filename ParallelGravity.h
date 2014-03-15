@@ -1456,6 +1456,10 @@ public:
         /// internal energy
         void loadNChilada(const std::string& filename, const double dTuFac,
                           const CkCallback& cb);
+        void readIntBinary(OutputIntParams& params, int bParaRead,
+            const CkCallback& cb);
+        void readFloatBinary(OutputParams& params, int bParaRead,
+            const CkCallback& cb);
 	/// @brief Load I.C. from Tipsy file
         /// @param filename tipsy file
         /// @param dTuFac conversion factor from temperature to
