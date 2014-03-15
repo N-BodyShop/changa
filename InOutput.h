@@ -267,7 +267,13 @@ class SoftOutputParams : public OutputParams
     }
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
-    virtual void setDValue(GravityParticle *p, double val) {p->soft = val;}
+    virtual void setDValue(GravityParticle *p, double val) {
+#ifdef CHANGESOFT
+	p->fSoft0 = val;
+#else
+	p->soft = val;
+#endif
+	}
     SoftOutputParams() {}
     SoftOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
