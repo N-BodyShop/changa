@@ -887,6 +887,37 @@ class MetalsOutputParams : public OutputParams
 	}
     };
 
+class MetalsDotOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+#ifdef DIFFUSION
+	if (p->isGas()) return p->fMetalsDot();
+	else
+	    return 0.0;
+#endif
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {
+#ifdef DIFFUSION
+	if (p->isGas()) p->fMetalsDot() = val;
+#endif
+        }
+ public:
+    MetalsDotOutputParams() {}
+    MetalsDotOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "Metalsdot"; sNChilExt = "Metalsdot";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
+    PUPable_decl(MetalsDotOutputParams);
+    MetalsDotOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
 /// @brief Output mass at formation time.
 class MFormOutputParams : public OutputParams
 {
@@ -911,39 +942,6 @@ class MFormOutputParams : public OutputParams
         iType = TYPE_STAR; }
     PUPable_decl(MFormOutputParams);
     MFormOutputParams(CkMigrateMessage *m) {}
-    virtual void pup(PUP::er &p) {
-        OutputParams::pup(p);//Call base class
-	}
-    };
-
-class MetalsDotOutputParams : public OutputParams
-{
-    virtual double dValue(GravityParticle *p) {
-#ifdef DIFFUSION
-	if (p->isGas()) return p->fMetalsDot();
-	else
-	    return 0.0;
-#endif
-	}
-    virtual Vector3D<double> vValue(GravityParticle *p)
-			    {CkAssert(0); return 0.0;}
-    virtual void setDValue(GravityParticle *p, double val) {
-#ifdef DIFFUSION
-	if (p->isGas()) p->fMetalsDot() = val;
-#endif
-	}
-    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
-    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
- public:
-    MetalsDotOutputParams() {}
-    MetalsDotOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
-        bFloat = 1;
-        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
-        sTipsyExt = "Metalsdot"; sNChilExt = "Metalsdot";
-        dTime = _dTime;
-        iType = TYPE_GAS; }
-    PUPable_decl(MetalsDotOutputParams);
-    MetalsDotOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
         OutputParams::pup(p);//Call base class
 	}
