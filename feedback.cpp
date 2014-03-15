@@ -579,7 +579,7 @@ double Fdbk::CalcLWFeedback(SFEvent *sfEvent, double dTime, /* current time in y
 			    + a5*dAge2log*dAge2log*dAge2log*dAge2log*dAge2log + log10(sfEvent->dMass); 
       else dLW2log = dA0old + dA1old*dAlog10 + log10(sfEvent->dMass); /*Close to zero*/
       
-      return log10((pow(10,dLW1log + dLW2log)/2));
+      return log10((pow(10,dLW1log) + pow(10,dLW2log))/2);
     }
     else return 0;
 }

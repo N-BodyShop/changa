@@ -2722,19 +2722,19 @@ bool LocalLymanWernerDistributor::work(GenericTreeNode *node, int level){
   for (j = 0; j<3; ++j){
     fDistanceCell2 += (fPrev_cLW[j] - node->moments.cgas[j])*(fPrev_cLW[j] - node->moments.cgas[j]);
   }
-  momgas = node->moments.xxgas + node->moments.yygas + node->moments.zzgas;
+  momgas = (node->moments.xxgas + node->moments.yygas + node->moments.zzgas)/node->moments.totalgas;
   if (fDistanceCell2 < momgas){
     //At minimum, this average distance between gas mass center of child cell and flux center of parent cell should be the moment of the gas in the child cell //update this to gaseous moment
     fDistanceCell2 = momgas;
   }
   if (fDistanceCell2 != 0){
  /* Calculated typical flux with radiative source being in the parent cell*/
-    fPrev_aveLW = fPrev_totalLW/fDistanceCell2;
+    fPrev_aveLW = fPrev_totalLW - log10(fDistanceCell2); /*fPrev_aveLW and fPrev_totalLW store the log of the value*/
   }
-  else fPrev_aveLW = 0;
+  else fPrev_aveLW = 0; /*Since this is a log, I need to change this*/
 
   /* If using the radiation from the parent cell would typically provide more flux, set total luminosity and average source position equal to that in parent cell, except, reverse that */
-  if (momgas != 0 && fPrev_aveLW < node->moments.totalLW/momgas){ 
+  if (momgas != 0 && fPrev_aveLW < node->moments.totalLW - log10(momgas)){ 
 /*Is the moment already squared?*/
 //  if (fPrev_totalLW < node->moments.totalLW){
     fPrev_totalLW = node->moments.totalLW;
@@ -2772,7 +2772,7 @@ bool LocalLymanWernerDistributor::work(GenericTreeNode *node, int level){
 	  fDistance2 = part[i-node->firstParticle].fSoft0*part[i-node->firstParticle].fSoft0*0.25;
 	}
 	COOLPARTICLE cp = part[i-node->firstParticle].CoolParticle();
-	cp.dLymanWerner = fPrev_totalLW/(4.0*M_PI*fDistance2);
+	cp.dLymanWerner = fPrev_totalLW - log10(4.0*M_PI*fDistance2);
 	part[i-node->firstParticle].CoolParticle() = cp;
 	/*	part[i-node->firstParticle].SetLymanWerner(node->moments.totalLW/(4.0*M_PI*fDistance2));*/
 	/*	p[pj].CoolParticle.dLymanWerner = node.moments.totalLW/(4.0*M_PI*fDistance2);*/

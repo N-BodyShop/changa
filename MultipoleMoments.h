@@ -232,9 +232,9 @@ public:
 		/*#ifdef COOLING_MOLECULARH*/
 #ifdef LYMAN_WERNER
 		double totalLW1 = totalLW;
-		totalLW += m.totalLW;
-		if (totalLW != 0) {
-		  cLW = (totalLW1*cLW + m.totalLW*m.cLW)/totalLW;
+		if (m.totalLW != 0) { /*except this is log, so I'll have to figure out another way to mark this*/
+		  totalLW = log10(pow(10,totalLW - 30.0) + pow(10,m.totalLW - 30.0)) + 30.0; /*The thirty is just there to keep numbers in bounds*/
+		  cLW = (pow(10,totalLW1 - 30.0)*cLW + pow(10,m.totalLW - 30.0)*m.cLW)/pow(10,totalLW - 30.0);
 		}
 		
 		double totalgas1 = totalgas;
@@ -299,9 +299,9 @@ public:
 		p1 = p;
 		double totalLW1 = totalLW;
 		if (TYPETest(&p1, TYPE_STAR)) {
-		  totalLW += p1.dStarLymanWerner();
-		  if (totalLW != 0) {
-		    cLW = (totalLW1*cLW + p1.dStarLymanWerner() * p.position)/totalLW;
+		  if (p1.dStarLymanWerner() != 0) { /*except this is log, so I'll have to figure out another way to mark this*/
+		    totalLW = log10(pow(10,totalLW - 30.0) + pow(10,p1.dStarLymanWerner() - 30.0)) + 30.0; /*The thirty is just there to keep numbers in bounds*/
+		    cLW = (pow(10,totalLW1 - 30.0)*cLW + pow(10,p1.dStarLymanWerner() - 30.0)*p.position)/pow(10,totalLW - 30.0);
 		  }
 		 }
 

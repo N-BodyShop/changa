@@ -799,7 +799,10 @@ void clRates( COOL *cl, RATE *Rate, double T, double rho, double ZMetal, double 
 
   /*(1.1d8 j(nu)/s [Abel+ '97, k27]) * (12.87 eV/photon) * (1.6021746e-12 erg/eV) * (4.135668e-15 eV*s [h]) * (4.0*pi sterradians) = 1.1787905e-16 = 10^(-15.928563)*/
   /*  Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10.0,Rate_Phot_H2_stellar - 58.907861)*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand;*/
-  Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10.0,52 - 58.907861)*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand;
+  if (Rate_Phot_H2_stellar < 20) {
+    Rate_Phot_H2_stellar = 20;
+  }
+  Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10.0,Rate_Phot_H2_stellar - 58.907861)*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand;
   if (Rate->Phot_H2 < 1e-100) {
     Rate->Phot_H2 = 1e-100;
   }
@@ -871,7 +874,10 @@ void clRates_Table_Lin( COOL *cl, RATE *Rate, double T, double rho, double ZMeta
   Rate->Phot_HeI = cl->R.Rate_Phot_HeI;
   Rate->Phot_HeII = cl->R.Rate_Phot_HeII;
   /*  Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10,Rate_Phot_H2_stellar - 58.9079)*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand; */
-  Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10,52.0 - 58.9079)*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand;
+  if (Rate_Phot_H2_stellar < 20) {
+    Rate_Phot_H2_stellar = 20;
+  }
+  Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10,Rate_Phot_H2_stellar - 58.9079)*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand;
   Rate->CorreLength = columnL * cl->dKpcUnit * KPCCM * cl->dExpand; /* From system units to cm*/
   Rate->LymanWernerCode = Rate_Phot_H2_stellar;
   if (cl->bSelfShield) {
@@ -961,7 +967,10 @@ void clRates_Table( COOL *cl, RATE *Rate, double T, double rho, double ZMetal, d
   Rate->Phot_HeI = cl->R.Rate_Phot_HeI;
   Rate->Phot_HeII = cl->R.Rate_Phot_HeII;
   /*  Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10,Rate_Phot_H2_stellar - 58.9079)*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand;*/
-  Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10,52 - 58.9079)*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand;
+  if (Rate_Phot_H2_stellar < 20) {
+    Rate_Phot_H2_stellar = 20;
+  }
+  Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10,Rate_Phot_H2_stellar - 58.9079)*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand;
   Rate->CorreLength = columnL * cl->dKpcUnit*KPCCM * cl->dExpand; /* From system units to cm*/
   Rate->LymanWernerCode = Rate_Phot_H2_stellar;
   if (cl->bSelfShield) {

@@ -379,9 +379,6 @@ double COOL_ARRAY2(COOL *cl, COOLPARTICLE *cp, double ZMetal);
 #define COOL_ARRAY3_EXT  "H2"
 double COOL_ARRAY3(COOL *cl, COOLPARTICLE *cp, double ZMetal);
 
-#define COOL_ARRAY4_EXT  "lw"
-double COOL_ARRAY4(COOL *cl, COOLPARTICLE *cp, double ZMetal);
-
 double COOL_EDOT( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode_, double ZMetal_, double *posCode_, double columnL_ );
 #define COOL_EDOT( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_, columnL_) (CoolCodeWorkToErgPerGmPerSec( cl_, CoolEdotInstantCode( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_ , columnL_)))
 
