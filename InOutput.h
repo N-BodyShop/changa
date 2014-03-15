@@ -812,10 +812,15 @@ class LWOutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
  public:
     LWOutputParams() {}
-    LWOutputParams(std::string achFileName) { 
+    LWOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "lw"; sNChilExt = "lw";
+        dTime = _dTime;
+        iType = TYPE_GAS | TYPE_STAR; }
+    /*    LWOutputParams(std::string achFileName) { 
 	bVector = 0; 
 	fileName = achFileName+".lw";
-	}
+	}*/
     PUPable_decl(LWOutputParams);
     LWOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
