@@ -1233,17 +1233,17 @@ void TreePiece::truncateRung(int iCurrMaxRung, const CkCallback& cb) {
     }
 
 void TreePiece::rungStats(const CkCallback& cb) {
-  int nInRung[MAXRUNG+1];
+  int64_t nInRung[MAXRUNG+1];
 
   for(int iRung = 0; iRung <= MAXRUNG; iRung++) nInRung[iRung] = 0;
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
     nInRung[myParticles[i].rung]++;
   }
-  contribute((MAXRUNG+1)*sizeof(int), nInRung, CkReduction::sum_int, cb);
+  contribute((MAXRUNG+1)*sizeof(int64_t), nInRung, CkReduction::sum_long, cb);
 }
 
 void TreePiece::countActive(int activeRung, const CkCallback& cb) {
-  int nActive[2];
+  int64_t nActive[2];
 
   nActive[0] = nActive[1] = 0;
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
@@ -1254,7 +1254,7 @@ void TreePiece::countActive(int activeRung, const CkCallback& cb) {
 	      }
 	  }
       }
-  contribute(2*sizeof(int), nActive, CkReduction::sum_int, cb);
+  contribute(2*sizeof(int64_t), nActive, CkReduction::sum_long, cb);
 }
 
 /// @brief assign domain number to each particle for diagnostic

@@ -431,8 +431,8 @@ class Main : public CBase_Main {
 	double dSimStartTime;   // Start time for entire simulation
 	int iStop;		/* indicate we're stopping the
 				   simulation early */
-	int nActiveGrav;
-	int nActiveSPH;
+	int64_t nActiveGrav;
+	int64_t nActiveSPH;
 
 #ifdef CUDA
           double localNodesPerReqDouble;
