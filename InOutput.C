@@ -1600,7 +1600,7 @@ inline int64_t *iOrderBoundaries(int nPieces, int64_t nMaxOrder)
     // perfectly balanced.
     //
     for(iPiece = 0; iPiece < nPieces; iPiece++) {
-	int nOutParticles = nMaxOrder/ nPieces;
+	int64_t nOutParticles = nMaxOrder/ nPieces;
 	startParticle[iPiece] = nOutParticles * iPiece;
 	}
     startParticle[nPieces] = nMaxOrder+1;
