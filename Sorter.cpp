@@ -784,10 +784,10 @@ bool Sorter::refineOctSplitting(int n, int *count) {
  */
 void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	numIterations++;
-	numCounts = m->getSize() / sizeof(int);
+	numCounts = m->getSize() / sizeof(int64_t);
 	binCounts.resize(numCounts + 1);
 	binCounts[0] = 0;
-	int* startCounts = static_cast<int *>(m->getData());
+	int64_t* startCounts = static_cast<int64_t *>(m->getData());
 	copy(startCounts, startCounts + numCounts, binCounts.begin() + 1);
 	delete m;
 
