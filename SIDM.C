@@ -112,11 +112,11 @@ void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *
 
         /*print out some diagnostics */
 
-        if (p->iOrder%2000==0 && i==0) {
+    /*    if (p->iOrder%20000==0 && i==0) {
                 CkPrintf("<SIDM a diagnostic>, %i, %i, %g, %g, %g, %g, %g, %g, %g, %g \n",p->iOrder, q->iOrder, fPhyDensity, dvcosmo, probability, nnList[i].dx.x,nnList[i].dx.y, nnList[i].dx.z, a, aDot);
                 CkPrintf("<SIDM b diagnostic>, %i, %i, %g, %g, %g \n",p->iOrder, q->iOrder, fPhyDensity, dDelta, fNorm*KERNEL( r2 )*(p->mass));
                 CkPrintf("<SIDM c diagnostic>, %g, %g, %g \n",r2,(-p->velocity.x + q->velocity.x)/a , aDot*nnList[i].dx.x );
-	}
+	}*/
 
 
         if (probability > ran) {
@@ -146,14 +146,10 @@ void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *
            //     e1=0.5*m1*((p->velocity.x)*(p->velocity.x) + (p->velocity.y)*(p->velocity.y) + (p->velocity.z)*(p->velocity.z));
            //     e2=0.5*m2*((q->velocity.x)*(q->velocity.x) + (q->velocity.y)*(q->velocity.y) + (q->velocity.z)*(q->velocity.z));
            //     etot_init=e1+e2;
-            if (ran2 < 0.01) {
+           /* if (ran2 < 0.000001) {
                 CkPrintf("<SIDM> i: %i,  dvcosmo: %g \n",i,dvcosmo);
                 CkPrintf("<SIDM> i: %i,  fPhyDensity: %g \n",i,fPhyDensity);
                 CkPrintf("<SIDM> kernelr, r2: %g, %g \n",fNorm*KERNEL( r2 )*(p->mass), r2);
-           //     e1=0.5*m1*((p->velocity.x)*(p->velocity.x) + (p->velocity.y)*(p->velocity.y) + (p->velocity.z)*(p->velocity.z));
-           //     e2=0.5*m2*((q->velocity.x)*(q->velocity.x) + (q->velocity.y)*(q->velocity.y) + (q->velocity.z)*(q->velocity.z));
-           //     etot_init=e1+e2;
-           //     CkPrintf("<SIDM> (noncosmo) etot_init: %g,  e1: %g, e2: %g \n",etot_init,e1,e2);
                 CkPrintf("<SIDM> dt: %g \n",dDelta);
                 CkPrintf("<SIDM> vx: %g, vy: %g, vz: %g \n", p->velocity.x,p->velocity.y,p->velocity.z );
                 CkPrintf("<SIDM> dvx: %g, dvy: %g, dvz: %g \n", dvx,dvy,dvz );
@@ -164,7 +160,7 @@ void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *
                 CkPrintf("<SIDM> px: %g,  py: %g, pz: %g \n",pxcm,pycm,pzcm);
                 CkPrintf("<SIDM> ninteractions: %i \n",p->iNSIDMInteractions);
                 CkPrintf("<SIDM> a: %g, adot: %g  \n",a, aDot);
-                }
+                }*/
          
             norm=666;
             while (norm>1.0){ //unit sphere point picking (Marsaglia 1972)
@@ -199,7 +195,7 @@ void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *
             //e1=0.5*m1*((p->velocity.x)*(p->velocity.x) + (p->velocity.y)*(p->velocity.y) + (p->velocity.z)*(p->velocity.z));
             //e2=0.5*m2*((q->velocity.x)*(q->velocity.x) + (q->velocity.y)*(q->velocity.y) + (q->velocity.z)*(q->velocity.z));
             //etot_final=e1+e2;
-            if (ran2 < 0.01) {
+            /*if (ran2 < 0.000001) {
                 dvx = (-p->velocity.x + q->velocity.x)/a - aDot*nnList[i].dx.x; 
                 dvy = (-p->velocity.y + q->velocity.y)/a - aDot*nnList[i].dx.y;
                 dvz = (-p->velocity.z + q->velocity.z)/a - aDot*nnList[i].dx.z;
@@ -209,15 +205,11 @@ void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *
                 pzcm = -mu*dvz;
                 pcm0=sqrt(pxcm*pxcm+pycm*pycm+pzcm*pzcm);
                 CkPrintf("<SIDM> i: %i,  dvcosmo: %g \n",i,dvcosmo);
-            //    e1=0.5*m1*((p->velocity.x)*(p->velocity.x) + (p->velocity.y)*(p->velocity.y) + (p->velocity.z)*(p->velocity.z));
-            //    e2=0.5*m2*((q->velocity.x)*(q->velocity.x) + (q->velocity.y)*(q->velocity.y) + (q->velocity.z)*(q->velocity.z));
-            //    etot_final=e1+e2;
-             //   CkPrintf("<SIDM> (noncosmo) etot_final: %g,  e1: %g, e2: %g \n",etot_final,e1,e2);
                 CkPrintf("<SIDM> ran: %g,  probability: %g \n",ran, probability);
                 CkPrintf("<SIDM> uvector: %g \n", sqrt(ux*ux + uy*uy + uz*uz) );
                 CkPrintf("<SIDM> momentum final: %g,  density: %g \n",pcm0, fPhyDensity);
                 CkPrintf("<SIDM> px: %g,  py: %g, pz: %g \n",pxcm,pycm,pzcm);
-                }
+                }*/
          
             }
         }    
