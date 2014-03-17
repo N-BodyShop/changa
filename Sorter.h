@@ -93,7 +93,7 @@ class Sorter : public CBase_Sorter {
 	int numCounts;
 	/// The keys I've decided on that divide the objects evenly (within the tolerance).
 	std::vector<SFC::Key> keyBoundaries;
-        std::vector<unsigned int> accumulatedBinCounts;
+        std::vector<uint64_t> accumulatedBinCounts;
 	/// The keys I'm sending out to be evaluated.
 	std::vector<SFC::Key> splitters;
 
