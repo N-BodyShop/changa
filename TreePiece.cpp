@@ -5896,14 +5896,15 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   //HierarchOrbLB* lbptr = (HierarchOrbLB *) CkLocalBranch(proxy);
   lbptr->getLoadInfo(avg_pe_load, pe_exp_load);
 
-  if (activeRung >= 3 && pe_exp_load >= 0.3 && treePieceLoadExp >= 0.3) {
+  if (activeRung >= 3 && pe_exp_load >= 0.1 && treePieceLoadExp >= 0.1) {
+  //if (activeRung >= 3 && pe_exp_load >= 2*avg_pe_load && treePieceLoadExp >= avg_pe_load) {
   //if (activeRung >= 3 && getNumActiveParticles() > 3000) {
     //if (CkMyPe() < 8192 && CkMyPe() > 4096)
     //if (CkMyPe() >= 6510 && CkMyPe() < 6541)
     //if (CkMyPe() == 6540 && iterationNo == 8)
     //if (iterationNo == 8 && CkMyPe()==21914)
     //if (iterationNo == 8)
-    //  doNodeLB = true;
+    doNodeLB = true;
   }
 
   isBucketDone = new bool[numBuckets];
@@ -6074,7 +6075,7 @@ void TreePiece::SplitBucketsToNodes() {
     // The tp, bucketlist, awi, indextoForeignstate send it to MultistepLB_notopo
     // (PE manager) which calls work function.
     // NOTE: Probably we should send it only after we receive startNextChunk.
-    TpWorkMsg *tpmsg = new TpWorkMsg();
+    TpWorkMsg *tpmsg = new (sizeof(uint32_t)*8) TpWorkMsg();
     tpmsg->tp = this;
     tpmsg->buckets = buckets_sent;
     tpmsg->chunkNum = chunkNum;
@@ -6083,7 +6084,7 @@ void TreePiece::SplitBucketsToNodes() {
     *((int *)CkPriorityPtr(tpmsg)) = numTreePieces * numChunks + thisIndex + 1;
     CkSetQueueing(tpmsg,CK_QUEUEING_IFIFO);
 
-    TpWorkMsg *tpmsge = new TpWorkMsg();
+    TpWorkMsg *tpmsge = new (sizeof(uint32_t)*8) TpWorkMsg();
     tpmsge->tp = this;
     tpmsge->buckets = buckets_sent;
     tpmsge->chunkNum = chunkNum;
@@ -6097,7 +6098,7 @@ void TreePiece::SplitBucketsToNodes() {
     // Separate msg for remote work since once the msg is sent we cannot reuse
     // it but in smp mode if the msg is sent within the node should we use
     // another msg? maybe not
-    TpWorkMsg *tpmsgr = new TpWorkMsg();
+    TpWorkMsg *tpmsgr = new (sizeof(uint32_t)*8) TpWorkMsg();
     tpmsgr->tp = this;
     tpmsgr->buckets = buckets_sent;
     tpmsgr->chunkNum = chunkNum;
@@ -6427,7 +6428,6 @@ void TreePiece::doForeignBucketsLocal(TpWorkMsg *msg) {
   interlistForWalk->init(lForCompute, this);
 
   DoubleWalkState *lstate = (DoubleWalkState *)localWalkState;
-  lstate->placedRoots[0] = false;
 
   int &prevBucket = foreignstate->prevForBucketLocal;
   while (i< _yieldPeriod  && localWalkState->currentBucket < ebuck) {
@@ -8159,6 +8159,10 @@ void TreePiece::finishWalk()
 //  }
 
   gravityProxy[thisIndex].ckLocal()->contribute(cbGravity);
+  if (thisIndex == 0) {
+    CkPrintf("[%d] TP %d LBTurnInstrumentOff !!!!\n", CkMyPe(), thisIndex);
+  }
+  LBTurnInstrumentOff();
 }
 
 #if INTERLIST_VER > 0

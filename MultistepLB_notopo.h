@@ -71,7 +71,7 @@ private:
   std::vector<TreePiece*> tpsonpe;
   std::vector<TreePiece*> tpsonpeforacc;
 
-//  int* existing_tps_on_pe;
+  int* existing_tps_on_pe;
 
   CkVec<LightweightLDStats> savedPhaseStats;      /// stats saved from previous phases
   CkVec<double> objDataPrevPred;
@@ -105,6 +105,7 @@ public:
   void work(BaseLB::LDStats* stats);
   void receiveCentroids(CkReductionMsg *msg);
   void balanceTPs(BaseLB::LDStats* stats);
+  void balanceTPsNode(BaseLB::LDStats* stats);
   //ScaleTranMapBG map;
   void receiveAvgLoad(double avgload);
   void getLoadInfo(double &avgload, double &myload);

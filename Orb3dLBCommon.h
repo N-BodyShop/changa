@@ -231,12 +231,12 @@ class Orb3dCommon{
       existing_tps_lprocs = existing_tps_rprocs = 0;
 
       if(nleft > (nlprocs*maxPieceProc - existing_tps_lprocs)) {
-    CkPrintf("Had to split nleft %d nlprocs %d maxPieceProc %f\n", nleft, nlprocs, maxPieceProc);
+    //CkPrintf("Had to split nleft %d nlprocs %d maxPieceProc %f\n", nleft, nlprocs, maxPieceProc);
 	  nleft = splitIndex = (int) (nlprocs*maxPieceProc - existing_tps_lprocs);
 	  nright = numEvents-nleft;
 	  }
       else if (nright > (nrprocs*maxPieceProc - existing_tps_rprocs)) {
-    CkPrintf("Had to split nright %d nrprocs %d maxPieceProc %f\n", nright, nrprocs, maxPieceProc);
+    //CkPrintf("Had to split nright %d nrprocs %d maxPieceProc %f\n", nright, nrprocs, maxPieceProc);
 	  nright = (int) (nrprocs*maxPieceProc - existing_tps_rprocs);
 	  nleft = splitIndex = numEvents-nright;
 	  }
@@ -330,7 +330,7 @@ class Orb3dCommon{
       if(dMaxBalance < 1.0)
         dMaxBalance = 1.0;
 
-      dMaxBalance = 3;
+      dMaxBalance = 2;
       //maxPieceProc = dMaxBalance*nmig/stats->count;
       maxPieceProc = dMaxBalance*nmig/CkNumNodes();
 
@@ -371,7 +371,7 @@ class Orb3dCommon{
 
     }
 
-    void refine(BaseLB::LDStats *stats, int numobjs, int* prevMaxPredPe = NULL){
+    void refine(BaseLB::LDStats *stats, int numobjs, int* prevMaxPredPe = NULL, int* existing_tps = NULL){
 #ifdef DO_REFINE
       int *from_procs = Refiner::AllocProcs(stats->count, stats);
       int *to_procs = Refiner::AllocProcs(stats->count, stats);
@@ -406,9 +406,15 @@ class Orb3dCommon{
 
       double *predLoad = new double[stats->count];
       double *predCount = new double[stats->count];
+      double *predNodeLoad = new double[CkNumNodes()];
+      int numNodes = CkNumNodes();
+      int nodeSize = CkNodeSize(0);
       for(int i = 0; i < stats->count; i++){
         predLoad[i] = 0.0;
         predCount[i] = 0.0;
+        if (i < numNodes) {
+          predNodeLoad[i] = 0.0;
+        }
       }
 
       double maxObjLoad = 0.0;
@@ -418,7 +424,9 @@ class Orb3dCommon{
 
         double ld = stats->objData[i].wallTime;
         int proc = stats->to_proc[i];
+        int nd = proc/nodeSize;
         predLoad[proc] += ld; 
+        predNodeLoad[nd] += ld;
         predCount[proc] += 1.0; 
         if(ld > maxObjLoad)
             maxObjLoad = ld;
@@ -441,6 +449,10 @@ class Orb3dCommon{
       double maxPred = 0.0;
       int maxPredPe;
 
+      double avgPredNode = 0.0;
+      double maxPredNode = 0.0;
+      int maxPredNodeId;
+
       double avgPiece = 0.0;
       double minPiece = 0.0;
       double maxPiece = 0.0;
@@ -456,8 +468,15 @@ class Orb3dCommon{
         double idleTime = stats->procs[i].idletime;
         double bgTime = stats->procs[i].bg_walltime;
         double pred = predLoad[i];
-        double npiece = predCount[i];
+        double npiece = predCount[i] + existing_tps[i];
         double npart = procpart[i];
+        if (i < CkNumNodes()) {
+          if (maxPredNode < predNodeLoad[i]) {
+            maxPredNode = predNodeLoad[i];
+            maxPredNodeId = i;
+          }
+          avgPredNode += predNodeLoad[i];
+        }
         /*
            CkPrintf("[pestats] %d %d %f %f %f %f\n", 
            i,
@@ -497,6 +516,7 @@ class Orb3dCommon{
       avgIdle /= stats->count;
       avgBg /= stats->count;
       avgPred /= stats->count;
+      avgPredNode /= CkNumNodes();
       avgPiece /= stats->count;
 
 #ifdef PRINT_LOAD_PERCENTILES
@@ -554,6 +574,7 @@ class Orb3dCommon{
       CkPrintf("Orb3dLB_notopo stats: minWall %f maxWall %f avgWall %f maxWall/avgWall %f\n", minWall, maxWall, avgWall, maxWall/avgWall);
       CkPrintf("Orb3dLB_notopo stats: minIdle %f maxIdle %f avgIdle %f minIdle/avgIdle %f\n", minIdle, maxIdle, avgIdle, minIdle/avgIdle);
       CkPrintf("Orb3dLB_notopo stats: minPred %f maxPred %f avgPred %f maxPred/avgPred %f maxPredPE %d \n", minPred, maxPred, avgPred, maxPred/avgPred, maxPredPe);
+      CkPrintf("Orb3dLB_notopo stats: maxPredNodeLd %f avgPredNodeLd %f maxPredNodeLd/avgPredNodeLd %f maxPredNodeIs %d \n", maxPredNode, avgPredNode, maxPredNode/avgPredNode, maxPredNodeId);
       CkPrintf("Orb3dLB_notopo stats: maxPart %d maxPartPE %d \n", maxPart, maxPartPe);
       CkPrintf("Orb3dLB_notopo stats: minPiece %f maxPiece %f avgPiece %f maxPiece/avgPiece %f\n", minPiece, maxPiece, avgPiece, maxPiece/avgPiece);
 

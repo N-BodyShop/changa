@@ -335,7 +335,7 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
     // process parent's undecided nodes first
     // don't modify parentundlist - sibling will need the same list
     CkAssert(chklist.isEmpty());
-    if (chklist.isEmpty()) {
+    if (!chklist.isEmpty()) {
       CkAbort("Chklist is empty!!!!!!!!!!!!!!\n");
     }
     for(unsigned int i = 0; i < parentUndlist.length(); i++)

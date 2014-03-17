@@ -33,6 +33,7 @@ MultistepLB_notopo::MultistepLB_notopo(const CkLBOptions &opt): CentralLB(opt)
   
   haveTPCentroids = false;
   clearPeLoad();
+  existing_tps_on_pe = NULL;
 }
 
 /// @brief Get position centroids of all TreePieces
@@ -254,6 +255,7 @@ void MultistepLB_notopo::saveStatsData(int phase, BaseLB::LDStats *stats){
 
   int whichPeMaxLd;
   double peMaxLd = 0.0;
+  double predPeMaxLd = 0.0;
   if (step() > 0) {
     for(int i = 0; i < stats->count; i++){
       //if (step() == 9) {
@@ -270,33 +272,43 @@ void MultistepLB_notopo::saveStatsData(int phase, BaseLB::LDStats *stats){
           stats->procs[i].total_walltime-stats->procs[i].idletime;
         whichPeMaxLd = i;
       }
+      if (i == prevMaxPredPe) {
+        predPeMaxLd = stats->procs[i].total_walltime - stats->procs[i].idletime;
+      }
     }
 
 
-    CkPrintf("MaxLoadedPe for prevstep is %d with ld %f\n", whichPeMaxLd,
-        peMaxLd);
+    CkPrintf("MaxLoadedPe for prevstep is %d with ld %f while predicted was PE %d with ld %f\n", whichPeMaxLd,
+        peMaxLd, prevMaxPredPe, predPeMaxLd);
     for(int i = 0; i < stats->n_objs; i++){
-      int tp = tpCentroids[i].tp;
-      int lb = tpCentroids[i].tag;
-      double ld = tpCentroids[i].busytime;
-      if (stats->from_proc[lb] == whichPeMaxLd) {
+      if (!stats->objData[i].migratable) continue;
+
+      LDObjData &odata = stats->objData[i];
+      TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
+      int tp = udata->tp;
+      double ld = udata->busytime;
+      if (stats->from_proc[i] == whichPeMaxLd) {
         CkPrintf("\t TP %d on %d PrevPredLd %f ActualLD %f Particles %d\n",
             tp, whichPeMaxLd, objDataPrevPred[tp], ld, objDataPrevPredPart[tp]);
       }
 
-      if (tp == 239226) {
-        CkPrintf("\t Sidelined!!! TP %d PrevPredLd %f ActualLD %f Particles %d\n\n",
-            tp, objDataPrevPred[tp], ld, objDataPrevPredPart[tp]);
-      }
+      //if (tp == 239226) {
+      //  CkPrintf("\t Sidelined!!! TP %d PrevPredLd %f ActualLD %f Particles %d\n\n",
+      //      tp, objDataPrevPred[tp], ld, objDataPrevPredPart[tp]);
+      //}
 
     }
 
     for(int i = 0; i < stats->n_objs; i++){
-      int tp = tpCentroids[i].tp;
-      int lb = tpCentroids[i].tag;
-      double ld = tpCentroids[i].busytime;
+      if (!stats->objData[i].migratable) continue;
 
-      if (stats->from_proc[lb] == prevMaxPredPe) {
+      LDObjData &odata = stats->objData[i];
+      TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
+      int tp = udata->tp;
+      int lb = udata->tag;
+      double ld = udata->busytime;
+
+      if (stats->from_proc[i] == prevMaxPredPe) {
         CkPrintf("\t TP %d on PrevMaxPred %d PrevPredLd %f ActualLD %f Particles %d\n",
             tp, prevMaxPredPe, objDataPrevPred[tp], ld, objDataPrevPredPart[tp]);
       }
@@ -333,6 +345,23 @@ void MultistepLB_notopo::makeActiveProcessorList(BaseLB::LDStats *stats, int num
 }
 #endif
 
+//void MultistepLB_notopo::printImpStats(BaseLB::LDStats* stats) {
+//  int num_objs = stats->n_objs;
+//  for (int i = 0; i < num_objs; i++) {
+//    if (!stats->objData[i].migratable) continue;
+//
+//    if (stats->from_proc[i] == prevMaxPredPe) {
+//      LDObjData &odata = stats->objData[i];
+//      TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
+//      int tp = udata->tp;
+//      double ld = udata->busytime;
+//
+//      CkPrintf("\t TP %d on PrevMaxPred %d PrevPredLd %f ActualLD %f Particles %d\n",
+//          tp, prevMaxPredPe, objDataPrevPred[tp], ld, objDataPrevPredPart[tp]);
+//    }
+//  }
+//}
+
 /// Threshold between ORB3D (large) and greedy (small) as fraction of
 /// active particles
 #define LARGE_PHASE_THRESHOLD 0.0001
@@ -345,6 +374,31 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
   // find active objects - mark the inactive ones as non-migratable
   int count;
   CkPrintf("[%d]  ^^^^^^^^^^^^^ CkMyNodeSize %d ^^^^^^^^^^^^\n", CkMyPe(), CkMyNodeSize());
+
+  saveStatsData(-1, stats); 
+  if (prevNumActiveParts.length() == 0) {
+    prevNumActiveParts.resize(stats->n_migrateobjs);
+    objDataPrevPred.resize(stats->n_migrateobjs);
+    objDataPrevPredPart.resize(stats->n_migrateobjs);
+  }
+
+  int phase;
+  int prevPhase;
+
+  for(int i = 0; i < stats->n_objs; i++){
+    if (!stats->objData[i].migratable) continue;
+
+    LDObjData &odata = stats->objData[i];
+    TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
+    int tp = udata->tp;
+
+    phase = udata->activeRung;
+    prevPhase = udata->prevActiveRung;
+
+    objDataPrevPred[tp] = stats->objData[i].wallTime;
+    objDataPrevPredPart[tp] = udata->numActiveParticles;
+    prevNumActiveParts[tp] = udata->numActiveParticles;
+  }
   
   // TODO: Cm
   /*
@@ -372,6 +426,14 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
   //}
   //memcpy(existing_tps_on_pe, 0, stats->count * sizeof(int));
   */
+
+  if (step() == 0) {
+    CkPrintf("[%d] memory alloc set existing tps\n", CkMyPe());
+    existing_tps_on_pe = new int[stats->count];
+  }
+  CkPrintf("[%d] set existing tps\n", CkMyPe());
+  memset(existing_tps_on_pe, 0, stats->count * sizeof(int));
+  CkPrintf("[%d] set existing tps\n", CkMyPe());
   
   for(int i = 0; i < stats->n_objs; i++){
     stats->to_proc[i] = stats->from_proc[i];
@@ -398,6 +460,10 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
         CkPrintf("marking object %d non-migratable (inactive)\n", tpCentroids[i].tag);
      #endif
         stats->n_migrateobjs--;
+        if (stats->from_proc[i] >= stats->count) {
+          CkAbort("froomproc\n");
+        }
+        existing_tps_on_pe[stats->from_proc[i]] += 1;
       }
     } else{
       numActiveObjects++;
@@ -561,9 +627,9 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
   }
   //delete[] existing_tps_on_pe;
   */
+  CkPrintf("numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects,
+  numInactiveObjects);
   count = stats->count;
-  int phase = 0; 
-  int prevPhase = 0; 
   work2(stats,count,phase,prevPhase);
 #endif //CMK_LDB_ON
 
@@ -784,10 +850,15 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
   
   orbPrepare(tpEvents, box, nmig, stats);
   orbPartition(tpEvents,box,CkNumNodes(),tp_array, stats);
-  CkPrintf("MultistepLB> Done OrbPartition\n");
+  CkPrintf("MultistepLB> Done OrbPartition phase %d\n", phase);
   //orbPartition(tpEvents,box,stats->count,tp_array, stats);
   // TODO: Cm
-  balanceTPs(stats);
+  if (phase < 3) {
+    balanceTPs(stats);
+    CkPrintf("MultistepLB> Done BalanceTPs\n");
+  } else {
+    balanceTPsNode(stats);
+  }
 
   /*
   CkPrintf("MultistepLB> stats: maxldtptag: %d maxldidx: %d ld: %f particles: %d PE: %d\n", maxldtp,
@@ -796,7 +867,7 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
     stats->from_proc[fxdtpid], stats->to_proc[fxdtpid]);
   */
 
-  refine(stats, numobjs, &prevMaxPredPe);
+  refine(stats, numobjs, &prevMaxPredPe, existing_tps_on_pe);
 
   // TODO: Cm
   /*
@@ -859,6 +930,145 @@ class PeLdGreater {
     return (s[l] < s[r]);
   }
 };
+
+void MultistepLB_notopo::balanceTPsNode(BaseLB::LDStats* stats) {
+  
+  int numNodes = CkNumNodes();
+  int nodeSize = CkNodeSize(0);
+  double* counts = new double[numNodes];
+  memset(counts, 0.0, numNodes * sizeof(double));
+  double totalld = 0.0;
+  vector<vector<int> > objpemap;
+  objpemap.resize(numNodes);
+  
+  for (int i = 0; i < stats->n_objs; i++) {
+    if(!stats->objData[i].migratable) continue;
+
+    int nd = stats->to_proc[i]/nodeSize;
+    counts[nd] += stats->objData[i].wallTime;
+    totalld += stats->objData[i].wallTime;
+    objpemap[nd].push_back(i);
+  }
+  double avgldperpe = totalld / numNodes;
+  vector<int> unldpes;
+  vector<int> ovldpes;
+  double th = 1.2;
+  
+  int maxcountoftps = 0;
+  int pewithmax = -1;
+  for (int i = (numNodes-1); i >= 0; i--) {
+    if (counts[i] > th*avgldperpe) {
+      ovldpes.push_back(i);
+    } else if (counts[i] < (0.7*avgldperpe)) {
+      unldpes.push_back(i);
+    }
+   // if (counts[i] > maxcountoftps) {
+   //   maxcountoftps = counts[i];
+   //   pewithmax = i;
+   // }
+  } 
+  if (ovldpes.size() == 0 || unldpes.size() == 0) {
+    CkPrintf("No underloaded or overloaded Nodes\n");
+    return;
+  }
+  // make a max heap
+  make_heap(ovldpes.begin(), ovldpes.end(), PeLdGreater(counts));
+  sort(unldpes.begin(), unldpes.end(), PeLdLesser(counts));
+
+  //CkPrintf("[%d] Maxpewithtps %d thresholds %d and %d\n", pewithmax, maxcountoftps, threshold1, threshold2);
+  int undcount = 0;
+  CkPrintf("[%d] is the maxLoadedPe with ld %f ovlded %d unldpes %d\n", ovldpes.front(), counts[ovldpes.front()], ovldpes.size(), unldpes.size());
+  CkPrintf("[%d] is the minLoadedPe with ld %f\n", unldpes.front(), counts[unldpes.front()]);
+
+  int* tmpcounts = new int[numNodes];
+  memcpy(tmpcounts, counts, numNodes * sizeof(int));
+  srand(42);
+ 
+  while (undcount < unldpes.size() && ovldpes.size() > 0) {
+    int ovlpe = ovldpes.front();
+    pop_heap(ovldpes.begin(), ovldpes.end(), PeLdGreater(counts));
+    ovldpes.pop_back();
+    bool succ = false;
+    //for (int i = stats->n_objs-1; i >=0 ; i--) {
+    for (int k = 0; k < objpemap[ovlpe].size() ; k++) {
+      int i = objpemap[ovlpe][k];
+      if (undcount > unldpes.size()) {
+        break;
+      }
+      int to_proc = stats->to_proc[i];
+      int to_proc_nd = to_proc/nodeSize;
+      int n_proc = -1;
+      if (to_proc_nd != ovlpe || !stats->objData[i].migratable) {
+        continue;
+      }
+      if (stats->objData[i].wallTime < 0.3) {
+        continue;
+      }
+
+      n_proc = unldpes[undcount];
+      if ((counts[n_proc] + stats->objData[i].wallTime) >=
+        (counts[to_proc_nd]-stats->objData[i].wallTime)) {
+        if(step() == 8) {
+          CkPrintf("Could not transfer to undloaded pe ld %f obj %f\n",
+          counts[n_proc], stats->objData[i].wallTime);
+        }
+        continue;
+      }
+      int rand_no = rand() % nodeSize;
+      int rand_pe_in_nd = n_proc * nodeSize + rand_no; 
+      stats->to_proc[i] = rand_pe_in_nd;
+      counts[to_proc_nd] = counts[to_proc_nd] - stats->objData[i].wallTime;
+      counts[n_proc] = counts[n_proc] + stats->objData[i].wallTime;
+      if (counts[n_proc] > 0.8*avgldperpe) {
+        undcount++;
+      }
+      if (counts[to_proc_nd] > th*avgldperpe) {
+        ovldpes.push_back(ovlpe);
+        push_heap(ovldpes.begin(), ovldpes.end(), PeLdGreater(counts));
+      }
+      succ = true;
+      if(step() == 8) {
+        CkPrintf("transfered to undloaded pe ld %f obj %f new ld for PE %d %f\n",
+            counts[n_proc], stats->objData[i].wallTime, to_proc, counts[to_proc_nd]);
+      }
+      sort(unldpes.begin(), unldpes.end(), PeLdLesser(counts));
+      break;
+
+      // if (counts[to_proc] > 70) {
+      //   CkPrintf("TP %d is on big proc %d ismigr? %d ld %f\n", i, to_proc,
+      //   stats->objData[i].migratable, stats->objData[i].wallTime);
+      // }
+     // if (counts[to_proc] > 1.5*avgldperpe  && stats->objData[i].wallTime > 1.0) {
+     //   n_proc = unldpes[undcount];
+     //   stats->to_proc[i] = n_proc;
+     //   counts[to_proc] = counts[to_proc] - stats->objData[i].wallTime;
+     //   counts[n_proc] = counts[n_proc] + stats->objData[i].wallTime;
+     //   if (counts[n_proc] > 0.8*avgldperpe) {
+     //     undcount++;
+     //   }
+     // }
+    }
+    if (!succ && step()==8) {
+
+      CkPrintf("Couldn't find any obj to migrate from %d pe with ld %f\n",
+      ovlpe, counts[ovlpe]);
+    }
+  }
+
+//  maxcountoftps = 0;
+//  pewithmax = -1;
+//  for (int i = (stats->count-1); i >= 0; i--) {
+//    if (counts[i] > maxcountoftps) {
+//      maxcountoftps = counts[i];
+//      pewithmax = i;
+//    }
+//  }
+//  CkPrintf("[%d] Afterwards Maxpewithtps %d previously %d\n", pewithmax, maxcountoftps, tmpcounts[pewithmax]);
+  CkPrintf("[%d] Afterwards is the maxLoadedPe with ld %f\n", ovldpes.front(), counts[ovldpes.front()]);
+  delete[] counts;
+  delete[] tmpcounts;
+}
+
 
 void MultistepLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
   
