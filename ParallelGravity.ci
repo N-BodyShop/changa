@@ -138,6 +138,7 @@ mainmodule ParallelGravity {
   PUPable Cool0OutputParams;
   PUPable Cool1OutputParams;
   PUPable Cool2OutputParams;
+  PUPable Cool3OutputParams;
   PUPable OxOutputParams;
   PUPable FeOutputParams;
   PUPable MetalsOutputParams;
@@ -203,7 +204,7 @@ mainmodule ParallelGravity {
 				      const CkCallback& cb);
     entry void acceptFinalKeys(const SFC::Key keys[n],
         const int responsible[n - 1],
-        unsigned int bins[n - 1], const int n,
+        uint64_t bins[n - 1], const int n,
         const CkCallback& cb);
     entry void collectSplitters(CkReductionMsg* m);
     //entry [local,exclusive] void notifyPresence(int index, Tree::GenericTreeNode *root);
@@ -244,6 +245,12 @@ mainmodule ParallelGravity {
     entry [notrace] void EwaldGPU(); 
     entry void velScale(double dScale, const CkCallback& cb);
     //entry void markPresence(const CkCallback& cb);
+    entry void loadNChilada(const std::string& filename, const double dTuFac,
+                            const CkCallback& cb);
+    entry void readIntBinary(CkReference<OutputIntParams> params, int bParaRead,
+                             const CkCallback& cb);
+    entry void readFloatBinary(CkReference<OutputParams> params, int bParaRead,
+                               const CkCallback& cb);
     entry void loadTipsy(const std::string& filename,
         const double dTuFac,
         const bool bDoublePos,

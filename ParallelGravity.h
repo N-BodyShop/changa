@@ -431,8 +431,8 @@ class Main : public CBase_Main {
 	double dSimStartTime;   // Start time for entire simulation
 	int iStop;		/* indicate we're stopping the
 				   simulation early */
-	int nActiveGrav;
-	int nActiveSPH;
+	int64_t nActiveGrav;
+	int64_t nActiveSPH;
 
 #ifdef CUDA
           double localNodesPerReqDouble;
@@ -1011,7 +1011,7 @@ private:
 	/// The counts of how many particles belonging to other
 	/// TreePieces I currently hold
 #ifndef REDUCTION_HELPER
-	CkVec<int> myBinCounts;
+	CkVec<int64_t> myBinCounts;
 #endif
 	std::vector<int> myBinCountsORB;
 	/// My index in the responsibility array.
@@ -1184,7 +1184,6 @@ private:
 #endif
   void EwaldGPU(); 
   void EwaldGPUComplete();
-  int bLoaded;		/* Are particles loaded? */
 
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
   ///This function checks the correctness of the treewalk
@@ -1453,6 +1452,15 @@ public:
 	// comoving coordinates.)
 	void velScale(double dScale, const CkCallback& cb);
 
+	/// @brief Load I.C. from NChilada file
+        /// @param dTuFac conversion factor from temperature to
+        /// internal energy
+        void loadNChilada(const std::string& filename, const double dTuFac,
+                          const CkCallback& cb);
+        void readIntBinary(OutputIntParams& params, int bParaRead,
+            const CkCallback& cb);
+        void readFloatBinary(OutputParams& params, int bParaRead,
+            const CkCallback& cb);
 	/// @brief Load I.C. from Tipsy file
         /// @param filename tipsy file
         /// @param dTuFac conversion factor from temperature to
@@ -1937,7 +1945,7 @@ class ReductionHelper : public CBase_ReductionHelper {
   void pup(PUP::er &p);
 
   void countTreePieces(const CkCallback &cb);
-  void reduceBinCounts(int nBins, int *binCounts, const CkCallback &cb);
+  void reduceBinCounts(int nBins, int64_t *binCounts, const CkCallback &cb);
   void reduceBinLoads(int nBins, double *binLoads, const CkCallback &cb);
   void evaluateBoundaries(bool convertToLoad, int skipEvery, const CkCallback& cb);
   void evaluateBoundaries(bool convertToLoad, SFC::Key *keys, const int n, int skipEvery, const CkCallback& cb);
@@ -1948,7 +1956,7 @@ class ReductionHelper : public CBase_ReductionHelper {
 
   private:
 
-  CkVec<int> myBinCounts;
+  CkVec<int64_t> myBinCounts;
   CkVec<double> myBinLoads;
   int numTreePiecesCheckedIn;
 

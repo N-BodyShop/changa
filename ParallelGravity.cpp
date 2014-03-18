@@ -1743,25 +1743,44 @@ void Main::setupICs() {
   CkPrintf("Loading particles ...");
   startTime = CkWallTimer();
 
-  // Try loading Tipsy format; first just grab the header.
-  CkPrintf(" trying Tipsy ...");
-	    
-  bool bInDPos = false;
-  bool bInDVel = false;
-  
   try {
-    Tipsy::PartialTipsyFile ptf(basefilename, 0, 0);
-    if(!ptf.loadedSuccessfully()) {
-      ckerr << endl << "Couldn't load the tipsy file \""
-            << basefilename.c_str()
-            << "\". Maybe it's not a tipsy file?" << endl;
-      CkExit();
-      return;
-    }
-    bInDPos = ptf.isDoublePos();
-    bInDVel = ptf.isDoubleVel();
-    if(bInDPos) CkPrintf("assumed double positions...");
-    if(bInDVel) CkPrintf("assumed double velocities...");
+      struct stat s;
+      int err = stat(basefilename.c_str(), &s);
+      if(err == -1) {
+          ckerr << "File error: " << basefilename.c_str() << endl;
+          CkExit();
+          return;
+          }
+      double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
+      if(S_ISDIR(s.st_mode)) {
+          // Assume its an NChilada directory
+          treeProxy.loadNChilada(basefilename, dTuFac,
+              CkCallbackResumeThread());
+          }
+      else {
+          // Assume Tipsy format
+          // Try loading Tipsy format; first just grab the header.
+          CkPrintf(" trying Tipsy ...");
+	    
+          bool bInDPos = false;
+          bool bInDVel = false;
+  
+          Tipsy::PartialTipsyFile ptf(basefilename, 0, 0);
+          if(!ptf.loadedSuccessfully()) {
+              ckerr << endl << "Couldn't load the tipsy file \""
+                    << basefilename.c_str()
+                    << "\". Maybe it's not a tipsy file?" << endl;
+              CkExit();
+              return;
+              }
+          bInDPos = ptf.isDoublePos();
+          bInDVel = ptf.isDoubleVel();
+          if(bInDPos) CkPrintf("assumed double positions...");
+          if(bInDVel) CkPrintf("assumed double velocities...");
+
+          treeProxy.loadTipsy(basefilename, dTuFac, bInDPos, bInDVel,
+              CkCallbackResumeThread());
+          }
   }
   catch (std::ios_base::failure e) {
     ckerr << "File read: " << basefilename.c_str() << ": " << e.what()
@@ -1769,10 +1788,6 @@ void Main::setupICs() {
     CkExit();
     return;
   }
-
-  double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
-  treeProxy.loadTipsy(basefilename, dTuFac, bInDPos, bInDVel,
-                      CkCallbackResumeThread());
 
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
@@ -2926,7 +2941,7 @@ void Main::rungStats()
 {
     CkReductionMsg *msg;
     treeProxy.rungStats(CkCallbackResumeThread((void*&)msg));
-    int *nInRung = (int *)msg->getData();
+    int64_t *nInRung = (int64_t *)msg->getData();
     
     ckout << "Rung distribution: (";
     for(int iRung = 0; iRung <= MAXRUNG; iRung++)
@@ -2946,7 +2961,7 @@ void Main::countActive(int activeRung)
 {
     CkReductionMsg *msg;
     treeProxy.countActive(activeRung, CkCallbackResumeThread((void*&)msg));
-    int *nActive = (int *)msg->getData();
+    int64_t *nActive = (int64_t *)msg->getData();
     
     nActiveGrav = nActive[0];
     nActiveSPH = nActive[1];

@@ -68,8 +68,6 @@ class Sorter : public CBase_Sorter {
 	double totalLoad;
 	/// The number of chares to sort into.
 	int numChares;
-	// The number of chares currently with assigned data.
-	//int numUsedChares;
 	/// The indexes of the chares that are responsible for each segment of data.
 	std::vector<int> chareIDs;
 	/// A list of chare elements to which nothing is assigned
@@ -88,7 +86,7 @@ class Sorter : public CBase_Sorter {
 
 	std::vector<NodeKey> nodeKeys;
 	/// The histogram of counts for the last round of splitter keys.
-        std::vector<unsigned int> binCounts;
+	std::vector<uint64_t> binCounts;
         std::vector<unsigned int> binCountsGas;
         std::vector<unsigned int> binCountsStar;
         std::vector<double> binLoads;
@@ -98,6 +96,7 @@ class Sorter : public CBase_Sorter {
 	int numBins;
 	/// The keys I've decided on that divide the objects evenly (within the tolerance).
 	std::vector<SFC::Key> keyBoundaries;
+        std::vector<uint64_t> accumulatedBinCounts;
 	/// The keys I'm sending out to be evaluated.
 	std::vector<SFC::Key> splitters;
 

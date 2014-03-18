@@ -682,7 +682,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 void Sorter::receiveParticleCounts(CkReductionMsg* m) {
 
   // original data was ints but it should be safe to cast it
-  unsigned int *binCounts = static_cast<unsigned int *>(m->getData());
+  uint64_t *binCounts = static_cast<uint64_t *>(m->getData());
   int numBins = m->getSize() / sizeof(int);
 
 #if 0
