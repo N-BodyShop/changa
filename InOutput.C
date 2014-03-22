@@ -686,6 +686,9 @@ static void load_NC_base(std::string filename, int64_t startParticle,
 {
     FieldHeader fh;
     // Positions
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading positions\n");
+
     void *data = readFieldData(filename + "/pos", fh, 3, myNum,
         startParticle);
     for(int i = 0; i < myNum; ++i) {
@@ -702,6 +705,8 @@ static void load_NC_base(std::string filename, int64_t startParticle,
         }
     deleteField(fh, data);
     // velocities
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading velocities\n");
     data = readFieldData(filename + "/vel", fh, 3, myNum,
         startParticle);
     for(int i = 0; i < myNum; ++i) {
@@ -718,6 +723,9 @@ static void load_NC_base(std::string filename, int64_t startParticle,
         }
     deleteField(fh, data);
     // masses
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading masses\n");
+
     data = readFieldData(filename + "/mass", fh, 1, myNum,
         startParticle);
     for(int i = 0; i < myNum; ++i) {
@@ -734,6 +742,9 @@ static void load_NC_base(std::string filename, int64_t startParticle,
         }
     deleteField(fh, data);
     // softenings
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading softenings\n");
+
     data = readFieldData(filename + "/soft", fh, 1, myNum,
         startParticle);
     for(int i = 0; i < myNum; ++i) {
@@ -761,6 +772,9 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
                         int myNumSPH, GravityParticle *myParts,
                         extraSPHData *mySPHParts, double dTuFac)
 {
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading gas\n");
+
     load_NC_base(filename, startParticle, myNumSPH, myParts);
 
     for(int i = 0; i < myNumSPH; ++i) {
@@ -773,6 +787,9 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
 
     FieldHeader fh;
     // Density
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading densities\n");
+
     void *data = readFieldData(filename + "/GasDensity", fh, 1, myNumSPH,
                                startParticle);
     for(int i = 0; i < myNumSPH; ++i) {
@@ -789,6 +806,9 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
         }
     deleteField(fh, data);
     // Oxygen
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading Oxygen\n");
+
     data = readFieldData(filename + "/OxMassFrac", fh, 1, myNumSPH,
                                startParticle);
     for(int i = 0; i < myNumSPH; ++i) {
@@ -805,6 +825,9 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
         }
     deleteField(fh, data);
     // Iron
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading Iron\n");
+
     data = readFieldData(filename + "/FeMassFrac", fh, 1, myNumSPH,
                                startParticle);
     for(int i = 0; i < myNumSPH; ++i) {
@@ -821,6 +844,9 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
         }
     deleteField(fh, data);
     // Temperature
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading temperature\n");
+
     data = readFieldData(filename + "/temperature", fh, 1, myNumSPH,
                                startParticle);
     for(int i = 0; i < myNumSPH; ++i) {
@@ -842,6 +868,9 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
 static void load_NC_dark(std::string filename, int64_t startParticle,
                         int myNumDark, GravityParticle *myParts)
 {
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading darks\n");
+    
     load_NC_base(filename, startParticle, myNumDark, myParts);
 
     for(int i = 0; i < myNumDark; ++i) {
@@ -854,6 +883,9 @@ static void load_NC_star(std::string filename, int64_t startParticle,
                          int myNumStar, GravityParticle *myParts,
                          extraStarData *myStarParts)
 {
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading stars\n");
+
     for(int i = 0; i < myNumStar; ++i) {
         myParts[i].fDensity = 0.0;
         myParts[i].iType = TYPE_STAR;
@@ -863,6 +895,9 @@ static void load_NC_star(std::string filename, int64_t startParticle,
 
     FieldHeader fh;
     // Oxygen
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading Oxygen\n");
+
     void *data = readFieldData(filename + "/OxMassFrac", fh, 1, myNumStar,
                                startParticle);
     for(int i = 0; i < myNumStar; ++i) {
@@ -879,6 +914,9 @@ static void load_NC_star(std::string filename, int64_t startParticle,
         }
     deleteField(fh, data);
     // Iron
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading Iron\n");
+
     data = readFieldData(filename + "/FeMassFrac", fh, 1, myNumStar,
                                startParticle);
     for(int i = 0; i < myNumStar; ++i) {
@@ -895,6 +933,9 @@ static void load_NC_star(std::string filename, int64_t startParticle,
         }
     deleteField(fh, data);
     // Formation Time
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading timeform\n");
+
     data = readFieldData(filename + "/timeform", fh, 1, myNumStar,
                                startParticle);
     for(int i = 0; i < myNumStar; ++i) {
@@ -1053,19 +1094,25 @@ void TreePiece::loadNChilada(const std::string& filename,
                         &myParticles[1], mySPHParticles, dTuFac);
             }
         int myNumDark = myNumParticles - myNumSPH - myNumStar;
+        startParticle -= nTotalSPH;
+        if(startParticle < 0)
+            startParticle = 0;
         if(myNumDark > 0) {
-            load_NC_dark(filename + "/dark", startParticle-nTotalSPH,
-                         myNumDark, &myParticles[myNumSPH + 1]);
+            load_NC_dark(filename + "/dark", startParticle, myNumDark,
+                         &myParticles[myNumSPH + 1]);
             }
+        startParticle = nStartRead - nTotalSPH - nTotalDark;
+        if(startParticle < 0)
+            startParticle = 0;
         if(myNumStar > 0) {
-            load_NC_star(filename + "/star", startParticle-nTotalSPH-nTotalDark,
-                         myNumStar, &myParticles[myNumSPH + myNumDark + 1],
+            load_NC_star(filename + "/star", startParticle, myNumStar,
+                         &myParticles[myNumSPH + myNumDark + 1],
                          myStarParticles);
             }
         for(int i = 0; i < myNumParticles; ++i) {
             myParticles[i+1].rung = 0;
             myParticles[i+1].fBall = 0.0;
-            myParticles[i+1].iOrder = i + startParticle;
+            myParticles[i+1].iOrder = i + nStartRead;
             boundingBox.grow(myParticles[i+1].position);
         }
         
@@ -1079,6 +1126,8 @@ void TreePiece::readIntBinary(OutputIntParams& params, int bParaRead,
 {
     FieldHeader fh;
     void *data;
+    int64_t startParticle = nStartRead;
+    
     if((params.iType & TYPE_GAS) && (myNumSPH > 0)) {
         data = readFieldData(params.fileName + "/gas/" + params.sNChilExt, fh,
             1, myNumSPH, nStartRead);
@@ -1097,9 +1146,11 @@ void TreePiece::readIntBinary(OutputIntParams& params, int bParaRead,
         deleteField(fh, data);
         }
     int myNumDark = myNumParticles - myNumSPH - myNumStar;
+    startParticle -= nTotalSPH;
+    if(startParticle < 0) startParticle = 0;
     if((params.iType & TYPE_DARK) && (myNumDark > 0)) {
         data = readFieldData(params.fileName + "/dark/" + params.sNChilExt, fh,
-            1, myNumDark, nStartRead+myNumSPH);
+            1, myNumDark, startParticle);
         for(int i = 0; i < myNumDark; ++i) {
             switch(fh.code) {
             case int32:
@@ -1114,9 +1165,12 @@ void TreePiece::readIntBinary(OutputIntParams& params, int bParaRead,
             }
         deleteField(fh, data);
         }
+    startParticle = nStartRead - nTotalSPH - nTotalDark;
+    if(startParticle < 0)
+        startParticle = 0;
     if((params.iType & TYPE_STAR) && (myNumStar > 0)) {
         data = readFieldData(params.fileName + "/star/" + params.sNChilExt, fh,
-            1, myNumStar, nStartRead+myNumSPH+myNumDark);
+            1, myNumStar, startParticle);
         for(int i = 0; i < myNumStar; ++i) {
             switch(fh.code) {
             case int32:
@@ -1141,6 +1195,7 @@ void TreePiece::readFloatBinary(OutputParams& params, int bParaRead,
 {
     FieldHeader fh;
     void *data;
+    int64_t startParticle = nStartRead;
     if((params.iType & TYPE_GAS) && (myNumSPH > 0)) {
         data = readFieldData(params.fileName + "/gas/" + params.sNChilExt, fh,
             1, myNumSPH, nStartRead);
@@ -1159,9 +1214,11 @@ void TreePiece::readFloatBinary(OutputParams& params, int bParaRead,
         deleteField(fh, data);
         }
     int myNumDark = myNumParticles - myNumSPH - myNumStar;
+    startParticle -= nTotalSPH;
+    if(startParticle < 0) startParticle = 0;
     if((params.iType & TYPE_DARK) && (myNumDark > 0)) {
         data = readFieldData(params.fileName + "/dark/" + params.sNChilExt, fh,
-            1, myNumDark, nStartRead+myNumSPH);
+            1, myNumDark, startParticle);
         for(int i = 0; i < myNumDark; ++i) {
             switch(fh.code) {
             case float32:
@@ -1176,9 +1233,12 @@ void TreePiece::readFloatBinary(OutputParams& params, int bParaRead,
             }
         deleteField(fh, data);
         }
+    startParticle = nStartRead - nTotalSPH - nTotalDark;
+    if(startParticle < 0)
+        startParticle = 0;
     if((params.iType & TYPE_STAR) && (myNumStar > 0)) {
         data = readFieldData(params.fileName + "/star/" + params.sNChilExt, fh,
-            1, myNumStar, nStartRead+myNumSPH+myNumDark);
+            1, myNumStar, startParticle);
         for(int i = 0; i < myNumStar; ++i) {
             switch(fh.code) {
             case float32:
