@@ -1654,13 +1654,15 @@ __global__ void nodeGravityComputation(
           ((((offsetID[tidx] >> 28) & 0x7)-3)*fperiod + m[tidx].cm.z);
 
         cudatype
-          rsq = r.x*r.x + r.y*r.y + r.z*r.z,
-          twoh = m[tidx].soft + shared_particle_cores[tidy].soft;
+          rsq = r.x*r.x + r.y*r.y + r.z*r.z;
 
-        cudatype a, b, c, d;
         if(rsq != 0){
 #if ! defined(HEXADECAPOLE)
-          cudatype dir = 1.0/sqrt(rsq);
+          cudatype a, b, c, d;
+          cudatype
+            dir = 1.0/sqrt(rsq),
+            twoh = m[tidx].soft + shared_particle_cores[tidy].soft;
+
           // SPLINEQ(dir, rsq, twoh, a, b, c, d);
           // expansion of function below:
           cudatype u,dih;
@@ -1744,7 +1746,8 @@ __global__ void nodeGravityComputation(
             zz = 0.5 * z * z,
             xxx = x * (onethird*xx - zz),
             xxz = z * (xx - onethird * zz),
-            yyy = y * (onethird*yy - zz);
+            yyy = y * (onethird*yy - zz),
+            yyz = z*(yy - onethird*zz);
 
           /* replace intermediates used above with their "final" values... */
           xx -= zz;
@@ -1780,7 +1783,7 @@ __global__ void nodeGravityComputation(
           xz = g2*(-(m[tidx].xx + m[tidx].yy)*z + m[tidx].xz*x + m[tidx].yz*y);
 
           g2 = 0.5*(xx*x + xy*y + xz*z);
-          g0 *= m[tidx].m;
+          g0 *= m[tidx].totalMass;
 
           /* store the calculated potential  */
           pot[TRANSLATE(tidx, tidy)] += -(g0 + g2 + g3 + g4);
