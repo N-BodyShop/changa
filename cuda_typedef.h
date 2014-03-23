@@ -73,10 +73,13 @@ typedef struct CudaMultipoleMoments{
   cudatype soft;
   cudatype totalMass;
   CudaVector3D cm;
-  cudatype xx, xy, xz, yy, yz, zz;
+
 #ifdef HEXADECAPOLE
+  cudatype xx, xy, xz, yy, yz;
   cudatype xxx,xyy,xxy,yyy,xxz,yyz,xyz;
   cudatype xxxx,xyyy,xxxy,yyyy,xxxz,yyyz,xxyy,xxyz,xyyz;
+#else
+  cudatype xx, xy, xz, yy, yz, zz;
 #endif
 
 #if __cplusplus && !defined __CUDACC__
@@ -90,13 +93,19 @@ typedef struct CudaMultipoleMoments{
     totalMass = m.totalMass;
 
     cm = m.cm;
+#if ! defined(HEXADECAPOLE)
     xx = m.xx;
     xy = m.xy;
     xz = m.xz;
     yy = m.yy;
     yz = m.yz;
     zz = m.zz;
-#ifdef HEXADECAPOLE
+#else
+    xx = m.mom.xx;
+    yy = m.mom.yy;
+    xy = m.mom.xy;
+    xz = m.mom.xz;
+    yz = m.mom.yz;
     xxx = m.mom.xxx;
     xyy = m.mom.xyy;
     xxy = m.mom.xxy;
