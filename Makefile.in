@@ -16,9 +16,7 @@ INTERLIST = -DINTERLIST_VER=2      # enable interaction lists
 # Include `configure`-generated CUDA config information
 include cuda.mk
 
-ifeq ($(ENABLE_CUDA),)
 HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
-endif
 
 FLAG_BIGKEYS = @FLAG_BIGKEYS@
 FLAG_COOLING = @FLAG_COOLING@
@@ -53,8 +51,7 @@ FLAG_COOLING = @FLAG_COOLING@
 #                        prints average transfer, kernel and cleanup times for
 #                        various kinds of request.
 #
-# Uncomment definition of CUDA for make benefit CUDA version
-# Currently requires that HEXADECAPOLE be disabled 
+# N.B. the CUDA build NO LONGER REQUIRES `HEXADECAPOLE' to be disabled.
 ifneq ($(ENABLE_CUDA),)
 CUDA = -DINTERLIST_VER=2 -DCUDA -DCUDA_USE_CUDAMALLOCHOST -DSPCUDA -DCUDA_2D_TB_KERNEL -DCUDA_MEMPOOL #-DCUDA_STATS #-DCUDA_INSTRUMENT_WRS -DCUDA_2D_FLAT
 endif
@@ -156,9 +153,6 @@ ifneq (,$(ENABLE_CUDA))
   LDLIBS += $(NVCC_LIBS)
   NVCC_FLAGS += $(INCLUDE_FLAGS) $(DEFINE_FLAGS)
   LDFLAGS += -L$(NVIDIA_CUDA_SDK)/lib -L$(CUDA_DIR)/lib64
-ifdef HEXADECAPOLE
-  HEXADECAPOLE = #  
-endif
 endif
 
 TARGET = ChaNGa
