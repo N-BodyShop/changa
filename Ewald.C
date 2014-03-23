@@ -391,8 +391,11 @@ void TreePiece::EwaldGPU() {
   GravityParticleData *particleTable;
   EwtData *ewtTable; 
   EwaldReadOnlyData *roData; 
-  MultipoleMoments mom = root->moments;
-  
+  MultipoleMoments mm = root->moments;
+#if defined(HEXADECAPOLE)
+  MOMC mom = momcRoot;
+#endif
+
   float L = fPeriod.x;
   float alpha = 2.0f/L;
   
@@ -427,16 +430,25 @@ void TreePiece::EwaldGPU() {
     ewtTable[i].hSfac = (float) ewt[i].hSfac; 
   }
 
+#if defined(HEXADECAPOLE)
   roData->mm.xx = (float) mom.xx; 
   roData->mm.xy = (float) mom.xy; 
   roData->mm.xz = (float) mom.xz; 
   roData->mm.yy = (float) mom.yy;
   roData->mm.yz = (float) mom.yz; 
   roData->mm.zz = (float) mom.zz;
-  roData->mm.totalMass = (float) mom.totalMass; 
-  roData->mm.cmx = (float) mom.cm.x; 
-  roData->mm.cmy = (float) mom.cm.y; 
-  roData->mm.cmz = (float) mom.cm.z; 
+#else
+  roData->mm.xx = (float) mm.xx;
+  roData->mm.xy = (float) mm.xy;
+  roData->mm.xz = (float) mm.xz;
+  roData->mm.yy = (float) mm.yy;
+  roData->mm.yz = (float) mm.yz;
+  roData->mm.zz = (float) mm.zz;
+#endif
+  roData->mm.totalMass = (float) mm.totalMass;
+  roData->mm.cmx = (float) mm.cm.x;
+  roData->mm.cmy = (float) mm.cm.y;
+  roData->mm.cmz = (float) mm.cm.z;
   roData->n = myNumParticles;
   roData->fEwCut = (float) fEwCut;
   roData->nReps = nReplicas ;
