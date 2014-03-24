@@ -1721,8 +1721,9 @@ __global__ void nodeGravityComputation(
             dir = rsqrt(rsq),
             /* in `momEvalFmomrcm`, `u` is a parameter, and the value passed a
                MultipoleMoments::radius instance (see point(s) of call at
-               `nodeBucketForce` in "gravity.h"). */
-            u = m[tidx].radius;
+               `nodeBucketForce` in "gravity.h").  `momEvalFmomrcm` also
+               multiplies the parameter by `dir` prior to use. */
+            u = dir * m[tidx].radius;
 
           /* -> Build the "g" terms, whose purpose is probably apparent to those
                 who actually understand the math...  */
