@@ -1504,34 +1504,37 @@ void Main::advanceBigStep(int iStep) {
 	memoryStats();
 
     /***** Resorting of particles and Domain Decomposition *****/
-    CkPrintf("Domain decomposition ... ");
+    CkPrintf("Domain decomposition ... \n");
     double startTime;
     bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
 
     startTime = CkWallTimer();
+    if (iStep % 5 != 0) {
+      bDoDD = false;
+    }
     sorter.startSorting(dataManagerID, ddTolerance,
                         CkCallbackResumeThread(), bDoDD);
     /*
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
           */
-    CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
+    CkPrintf("DD ending at %g took total %g seconds.\n", CkWallTimer(), CkWallTimer()-startTime);
 
-    if(verbosity && !bDoDD)
+    if(!bDoDD)
 	CkPrintf("Skipped DD\n");
 
     if(verbosity > 1)
 	memoryStats();
     /********* Load balancer ********/
     //ckout << "Load balancer ...";
-    CkPrintf("Load balancer ... ");
+    CkPrintf("Load balancer ... \n");
     startTime = CkWallTimer();
     treeProxy.startlb(CkCallbackResumeThread(), activeRung);
     /*
     ckout << " took "<<(CkWallTimer() - startTime) << " seconds."
 	     << endl;
              */
-    CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+    CkPrintf("LB ending at %g took total %g seconds.\n", CkWallTimer(), CkWallTimer()-startTime);
 
     if(verbosity > 1)
 	memoryStats();
@@ -1544,14 +1547,14 @@ void Main::advanceBigStep(int iStep) {
 
     /******** Tree Build *******/
     //ckout << "Building trees ...";
-    CkPrintf("Building trees ... ");
+    CkPrintf("Building trees ... \n");
     startTime = CkWallTimer();
 #ifdef PUSH_GRAVITY
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),!bDoPush);
 #else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
-    CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+    CkPrintf("TB ending at %g took total %g seconds.\n", CkWallTimer(), CkWallTimer()-startTime);
 
     CkCallback cbGravity(CkCallback::resumeThread);
 
@@ -1570,7 +1573,7 @@ void Main::advanceBigStep(int iStep) {
         turnProjectionsOn(activeRung);
 #endif
 
-        CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
+        CkPrintf("Calculating gravity (tree bucket, theta = %f) ... \n", theta);
 	startTime = CkWallTimer();
 	if(param.bConcurrentSph) {
 	    ckout << endl;
@@ -1609,7 +1612,7 @@ void Main::advanceBigStep(int iStep) {
 #endif
 	    //ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	    //	  << endl;
-            CkPrintf("took %g seconds\n", CkWallTimer()-startTime);
+            CkPrintf("CG ending at %g took total %g seconds\n", CkWallTimer(), CkWallTimer()-startTime);
 #ifdef SELECTIVE_TRACING
             turnProjectionsOff();
 #endif
@@ -2151,7 +2154,7 @@ Main::initialForces()
 #ifdef SELECTIVE_TRACING
       turnProjectionsOn(0);
 #endif
-      CkPrintf("Calculating gravity (theta = %f) ... ", theta);
+      CkPrintf("Calculating gravity (theta = %f) ... \n", theta);
       startTime = CkWallTimer();
       if(param.bConcurrentSph) {
 
@@ -2186,7 +2189,7 @@ Main::initialForces()
       CkFreeMsg(cbGravity.thread_delay());
 	//ckout << "Calculating gravity and SPH took "
 	//      << (CkWallTimer() - startTime) << " seconds." << endl;
-        CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
+        CkPrintf("Initial gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
 #ifdef SELECTIVE_TRACING
         turnProjectionsOff();
 #endif
