@@ -651,6 +651,10 @@ class TreePiece : public CBase_TreePiece {
    double treePieceLoad; // used to store CPU load data for incoming particles
    double treePieceLoadTmp; // temporary accumulator for above
    double treePieceLoadExp;
+   double treePieceDDLoad;
+   bool tploadset;
+   unsigned int numPartsMoved;
+   unsigned int numPartsMovedWithin;
    unsigned int treePieceActivePartsTmp;
    std::vector<double> savedPhaseLoad;
    std::vector<unsigned int> savedPhaseParticle;
@@ -928,10 +932,19 @@ private:
 	CkCallback cbGravity;
 	/// smooth globally finished
 	CkCallback cbSmooth;
+  CkCallback after_dd_callback;
 	/// Total number of particles contained in this chare
 	unsigned int myNumParticles;
 	/// Array with the particles in this chare
 	GravityParticle* myParticles;
+
+  GravityParticle* myTmpShuffleParticle;
+  extraSPHData *myTmpShuffleSphParticle;
+  extraStarData *myTmpShuffleStarParticle;
+  int myShuffleLocG, myShuffleLocSph, myShuffleLocStar;
+  int totalShuffleSize, totalShuffleSphSize, totalShuffleStarSize;
+  bool doDDCk;
+  ParticleShuffleMsg* myShuffleMsg;
 	/// Actual storage in the above array
 	int nStore;
 	/// Number of particles in my tree.  Can be different from
@@ -1278,6 +1291,7 @@ public:
     treePieceActivePartsTmp(0) {
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
+    doDDCk = false;
 	  dm = NULL;
 	  foundLB = Null; 
 	  iterationNo=0;
@@ -1355,6 +1369,14 @@ public:
 #endif
 
           localTreeBuildComplete = false;
+          myShuffleLocG = myShuffleLocSph = myShuffleLocStar = -1;
+          totalShuffleSize = 300;
+          totalShuffleSphSize = 300;
+          totalShuffleStarSize = 300;
+          myTmpShuffleParticle = new GravityParticle[totalShuffleSize];
+          myTmpShuffleSphParticle = new extraSPHData[totalShuffleSphSize];
+          myTmpShuffleStarParticle = new extraStarData[totalShuffleStarSize];
+
 	}
 
 	TreePiece(CkMigrateMessage* m) {
@@ -1550,6 +1572,13 @@ public:
 	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
 	void unshuffleParticles(CkReductionMsg* m);
 	void acceptSortedParticles(ParticleShuffleMsg *);
+  void migrateAndUnshuffle(const CkCallback& cb);
+  void shuffleAfterQDSpecificOpt();
+  void doneDDWithCkLoop();
+  void unshuffleParticlesWoDD(const CkCallback& cb);
+  void unshuffleParticlesWoDDCb();
+  void acceptSortedParticlesFromOther(ParticleShuffleMsg *);
+
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);
   void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,

@@ -1512,8 +1512,13 @@ void Main::advanceBigStep(int iStep) {
     if (iStep % 5 != 0) {
       bDoDD = false;
     }
-    sorter.startSorting(dataManagerID, ddTolerance,
-                        CkCallbackResumeThread(), bDoDD);
+    if (bDoDD) {
+      sorter.startSorting(dataManagerID, ddTolerance,
+          CkCallbackResumeThread(), bDoDD);
+    } else {
+      treeProxy.migrateAndUnshuffle(CkCallbackResumeThread());
+      CkPrintf("Doing DD with migrateAndUnshuffle\n");
+    }
     /*
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
