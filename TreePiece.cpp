@@ -2287,6 +2287,74 @@ void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump)
  * For ORB trees, this continues on to TreePiece::startORBTreeBuild.
  */
 
+void TreePiece::sendOffSplitters() {
+  collected_all_spl_ = false;
+  lb_in_progress_ = true;
+  Key bounds[2];
+  if (myNumParticles > 0) {
+#ifdef COSMO_PRINT
+    CkPrintf("[%d] Keys: %016llx %016llx\n",thisIndex,myParticles[1].key,myParticles[myNumParticles].key);
+#endif
+    bounds[0] = myParticles[1].key;
+    bounds[1] = myParticles[myNumParticles].key;
+
+    //CkPrintf("[%d] bounds %llx - %llx\n", thisIndex, bounds[0], bounds[1]);
+
+    contribute(2 * sizeof(Key), bounds, CkReduction::concat, CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
+  } else {
+    // No particles assigned to this TreePiece
+    contribute(0, NULL, CkReduction::concat, CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
+  }
+}
+
+#ifdef PUSH_GRAVITY
+void TreePiece::buildTreeOverlap(int bucketSize, const CkCallback& cb, bool _merge) 
+#else
+void TreePiece::buildTreeOverlap(int bucketSize, const CkCallback& cb)
+#endif
+{
+
+#if COSMO_DEBUG > 1
+  char fout[100];
+  sprintf(fout,"tree.%d.%d.after",thisIndex,iterationNo);
+  ofstream ofs(fout);
+  for (int i=1; i<=myNumParticles; ++i)
+    ofs << keyBits(myParticles[i].key,KeyBits) << " " << myParticles[i].position[0] << " "
+        << myParticles[i].position[1] << " " << myParticles[i].position[2] << endl;
+  ofs.close();
+#endif
+
+  maxBucketSize = bucketSize;
+  callback = cb;
+  myTreeParticles = myNumParticles;
+
+  deleteTree();
+  if(bucketReqs != NULL) {
+    delete[] bucketReqs;
+    bucketReqs = NULL;
+  }
+#ifdef PUSH_GRAVITY
+  // used to indicate whether trees on SMP node should be
+  // merged or not: we do not merge trees when pushing, to
+  // increase concurrency
+  doMerge = _merge; 
+#endif
+  if (collected_all_spl_) {
+    if (thisIndex%50000 == 0) {
+      CkPrintf("[%d] TP %d collected %d lb_in_progress %d\n", CkMyPe(), thisIndex, collected_all_spl_, lb_in_progress_);
+    }
+    thisProxy[thisIndex].startOctTreeBuildOverlaped();
+  }
+}
+
+
+/**
+ * Overall start of building Tree.  For Oct trees, this begins by a
+ * reduction of each treepieces boundaries to DataManager::collectSplitters.
+ *
+ * For ORB trees, this continues on to TreePiece::startORBTreeBuild.
+ */
+
 #ifdef PUSH_GRAVITY
 void TreePiece::buildTree(int bucketSize, const CkCallback& cb, bool _merge) 
 #else
@@ -2685,8 +2753,26 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
  * is finished.
  */
 
+void TreePiece::startOctTreeBuildOverlaped() {
+  if (thisIndex%50000 == 0) {
+    CkPrintf("[%d] TP %d collected %d lb_in_progress %d\n", CkMyPe(), thisIndex, collected_all_spl_, lb_in_progress_);
+  }
+  collected_all_spl_ = true;
+  if (lb_in_progress_) {
+    return;
+  }
+
+  startOctTreeBuild(NULL);
+}
+
 void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
-  delete m;
+  if (m != NULL) {
+    delete m;
+  }
+  collected_all_spl_ = true;
+  if (lb_in_progress_) {
+    return;
+  }
 
   if (dm == NULL) {
       dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
@@ -5234,6 +5320,8 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d calling AtSync()\n",CkMyPe(),thisIndex);
   
+  sendOffSplitters();
+
   unsigned int numActiveParticles, i;
 
   if(activeRung == 0){
@@ -5320,6 +5408,7 @@ void TreePiece::doAtSync(){
 }
 
 void TreePiece::ResumeFromSync(){
+  lb_in_progress_ = false;
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d in ResumefromSync\n",CkMyPe(),thisIndex);
   contribute(callback);
@@ -5702,6 +5791,8 @@ void TreePiece::pup(PUP::er& p) {
   p | totalShuffleSphSize;
   p | totalShuffleStarSize;
   p | doDDCk;
+  p | collected_all_spl_;
+  p | lb_in_progress_;
 
   if(p.isUnpacking()) {
       nStore = (int)((myNumParticles + 2)*(1.0 + dExtraStore));

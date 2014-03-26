@@ -388,9 +388,11 @@ mainmodule ParallelGravity {
     entry void buildTree(int bucketSize, const CkCallback& cb, bool merge);
 #else
     entry void buildTree(int bucketSize, const CkCallback& cb);
+    entry void buildTreeOverlap(int bucketSize, const CkCallback& cb);
 #endif
 
     entry void startOctTreeBuild(CkReductionMsg* m);
+    entry void startOctTreeBuildOverlaped();
 
     entry void startORBTreeBuild(CkReductionMsg* m);
 

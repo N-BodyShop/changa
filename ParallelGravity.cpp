@@ -995,6 +995,7 @@ Main::Main(CkArgMsg* m) {
 #undef str
 #undef xstr
         ckerr << "Running on " << CkNumPes() << " processors/ "<< CkNumNodes() <<" nodes with " << numTreePieces << " TreePieces" << endl;
+        ckout << "Running on " << CkNumPes() << " processors/ "<< CkNumNodes() <<" nodes with " << numTreePieces << " TreePieces" << endl;
 
 	if (verbosity) 
 	  ckerr << "yieldPeriod set to " << _yieldPeriod << endl;
@@ -1557,7 +1558,8 @@ void Main::advanceBigStep(int iStep) {
 #ifdef PUSH_GRAVITY
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),!bDoPush);
 #else
-    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+    //treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+    treeProxy.buildTreeOverlap(bucketSize, CkCallbackResumeThread());
 #endif
     CkPrintf("TB ending at %g took total %g seconds.\n", CkWallTimer(), CkWallTimer()-startTime);
 

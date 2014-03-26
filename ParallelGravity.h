@@ -944,6 +944,8 @@ private:
   int myShuffleLocG, myShuffleLocSph, myShuffleLocStar;
   int totalShuffleSize, totalShuffleSphSize, totalShuffleStarSize;
   bool doDDCk;
+  bool lb_in_progress_;
+  bool collected_all_spl_;
   ParticleShuffleMsg* myShuffleMsg;
 	/// Actual storage in the above array
 	int nStore;
@@ -1681,10 +1683,13 @@ public:
 	void buildTree(int bucketSize, const CkCallback& cb, bool merge);
 #else
 	void buildTree(int bucketSize, const CkCallback& cb);
+	void buildTreeOverlap(int bucketSize, const CkCallback& cb);
 #endif
 
 	/// \brief Real tree build, independent of other TreePieces.
 	void startOctTreeBuild(CkReductionMsg* m);
+	void startOctTreeBuildOverlaped();
+  void sendOffSplitters();
 
   /********ORB Tree**********/
   //void receiveBoundingBoxes(BoundingBoxes *msg);
