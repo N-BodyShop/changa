@@ -329,13 +329,13 @@ public:
 		xx = xy = xz = yy = yz = zz = 0;
 #endif
 	}
-	inline cosmoType getRadius() {return radius;}
+	inline cosmoType getRadius() const {return radius;}
 	friend void operator|(PUP::er& p, MultipoleMoments& m);
 	friend void calculateRadiusFarthestCorner(MultipoleMoments& m,
 					      const OrientedBox<double>& box);
 	template<typename ParticleType>
 	    friend void calculateRadiusFarthestParticle(MultipoleMoments& m,
-						ParticleType * begin,
+						const ParticleType * begin,
 						const ParticleType * end);
 	friend void calculateRadiusBox(MultipoleMoments& m,
 				       const OrientedBox<double>& box);
@@ -395,11 +395,11 @@ inline void calculateRadiusBox(MultipoleMoments& m,
 
 /// Given the positions that make up a multipole expansion, set the distance to the farthest particle from the center of mass
 template <typename ParticleType>
-inline void calculateRadiusFarthestParticle(MultipoleMoments& m, ParticleType* begin, const ParticleType* end) {
+inline void calculateRadiusFarthestParticle(MultipoleMoments& m, const ParticleType* begin, const ParticleType* end) {
 	Vector3D<cosmoType> cm = m.cm;
 	cosmoType d;
 	cosmoType newradius = 0;
-	for(ParticleType* iter = begin; iter != end; ++iter) {
+	for(const ParticleType* iter = begin; iter != end; ++iter) {
 		d = (cm - iter->position).lengthSquared();
 		if(d > newradius)
 			newradius = d;
