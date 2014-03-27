@@ -4,6 +4,7 @@
 #ifndef GRAVITYPARTICLE_H
 #define GRAVITYPARTICLE_H
 
+#include <charm.h>              /* for CkAssert */
 #include "cooling.h"
 
 #include "SFC.h"
@@ -32,11 +33,13 @@ class ExternalGravityParticle {
   cosmoType soft;
   Vector3D<cosmoType> position;
 
+#ifdef __CHARMC__
   void pup(PUP::er &p) {
     p | position;
     p | mass;
     p | soft;
   }
+#endif
 };
 
 /// @brief Extra data needed for SPH
@@ -88,6 +91,7 @@ class extraSPHData
     inline double& uDot() {return _uDot;}
     inline COOLPARTICLE& CoolParticle() {return _CoolParticle;}
 #endif
+#ifdef __CHARMC__
     void pup(PUP::er &p) {
 	p | _u;
 	p | _fMetals;
@@ -110,6 +114,7 @@ class extraSPHData
 	p((char *) &_CoolParticle, sizeof(_CoolParticle)); /* PUPs as bytes */
 #endif
 	}
+#endif
     };
 
 /// @brief Extra data needed for Stars
@@ -207,6 +212,7 @@ public:
 		return key < p.key;
 	}
 
+#ifdef __CHARMC__
 	void pup(PUP::er &p) {
           ExternalGravityParticle::pup(p);
           p | key;
@@ -224,6 +230,7 @@ public:
 	  p | dt;
 #endif
         }
+#endif
 
 // Debugging macros for the extra data fields.
 // To enable, define GP_DEBUG_EXTRAS
@@ -436,6 +443,7 @@ class ExternalSmoothParticle {
 	  }
       }
 	  
+#ifdef __CHARMC__
   void pup(PUP::er &p) {
     p | position;
     p | velocity;
@@ -462,6 +470,7 @@ class ExternalSmoothParticle {
     p | fMFracIron;
     p | fTimeCoolIsOffUntil;
   }
+#endif
 };
 
 inline ExternalSmoothParticle GravityParticle::getExternalSmoothParticle()
