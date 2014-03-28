@@ -13,8 +13,10 @@ BUILD_DIR=@builddir@
 #CACHE_TREE = -DCACHE_TREE          # enable processor tree inside the cache
 INTERLIST = -DINTERLIST_VER=2      # enable interaction lists
 
-# Include `configure`-generated CUDA config information
-include cuda.mk
+ifneq (,@ENABLE_CUDA@)
+  # Include `configure`-generated CUDA config information
+  include cuda.mk
+endif
 
 HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
 
