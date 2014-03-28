@@ -2328,6 +2328,8 @@ void TreePiece::buildTreeOverlap(int bucketSize, const CkCallback& cb)
   callback = cb;
   myTreeParticles = myNumParticles;
 
+  lb_in_progress_ = false;
+
   deleteTree();
   if(bucketReqs != NULL) {
     delete[] bucketReqs;
@@ -2343,7 +2345,11 @@ void TreePiece::buildTreeOverlap(int bucketSize, const CkCallback& cb)
     if (thisIndex%50000 == 0) {
       CkPrintf("[%d] TP %d collected %d lb_in_progress %d\n", CkMyPe(), thisIndex, collected_all_spl_, lb_in_progress_);
     }
-    thisProxy[thisIndex].startOctTreeBuildOverlaped();
+    if (lb_in_progress_) {
+      CkPrintf("[%d] TP %d collected splitters and lb still in progress\n", CkMyPe(), thisIndex);
+      CkAbort("How can it ever be in lb progress\n");
+    }
+    startOctTreeBuildOverlaped();
   }
 }
 
@@ -2375,6 +2381,8 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
   maxBucketSize = bucketSize;
   callback = cb;
   myTreeParticles = myNumParticles;
+
+  lb_in_progress_ = false;
 
   deleteTree();
   if(bucketReqs != NULL) {
@@ -2753,13 +2761,11 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
  * is finished.
  */
 
+// Is called only after LB when buildTreeOverlapped is called and also when
+// collected_all_spl_ is true
 void TreePiece::startOctTreeBuildOverlaped() {
   if (thisIndex%50000 == 0) {
     CkPrintf("[%d] TP %d collected %d lb_in_progress %d\n", CkMyPe(), thisIndex, collected_all_spl_, lb_in_progress_);
-  }
-  collected_all_spl_ = true;
-  if (lb_in_progress_) {
-    return;
   }
 
   startOctTreeBuild(NULL);
@@ -5408,7 +5414,6 @@ void TreePiece::doAtSync(){
 }
 
 void TreePiece::ResumeFromSync(){
-  lb_in_progress_ = false;
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d in ResumefromSync\n",CkMyPe(),thisIndex);
   contribute(callback);

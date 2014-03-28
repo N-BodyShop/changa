@@ -846,7 +846,7 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	//check if we have found all the splitters
 	if(sorted) {
           
-		if(verbosity)
+		//if(verbosity)
 			ckout << "Sorter: Histograms balanced after " << numIterations << " iterations." << endl;
 
 		sort(keyBoundaries.begin() + 1, keyBoundaries.end());
