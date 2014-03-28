@@ -366,6 +366,29 @@ class Orb3dCommon{
       avgPred /= stats->count;
       avgPiece /= stats->count;
 
+#ifdef PRINT_LOAD_PERCENTILES
+      double accumVar = 0;
+      vector<double> objectWallTimes;
+      for(int i = 0; i < stats->count; i++){
+        double wallTime = stats->procs[i].total_walltime;
+        objectWallTimes.push_back(wallTime);
+        accumVar += (wallTime - avgWall) * (wallTime - avgWall);
+      }
+      double stdDev = sqrt(accumVar / stats->count);
+      CkPrintf("Average load: %.3f\n", avgWall);
+      CkPrintf("Standard deviation: %.3f\n", stdDev);
+
+      std::sort(objectWallTimes.begin(), objectWallTimes.end());
+      CkPrintf("Object load percentiles: \n");
+      double increment = (double) objectWallTimes.size() / 10;
+      int j = 0;
+      double index = 0;
+      for (int j = 0; j < 100; j += 10) {
+        index += increment;
+        CkPrintf("%d: %.3f\n", j, objectWallTimes[(int) index]);
+      }
+      CkPrintf("100: %.3f\n", objectWallTimes.back());
+#endif
 
       delete[] predLoad;
       delete[] predCount;

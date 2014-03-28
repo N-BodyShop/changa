@@ -1778,6 +1778,8 @@ void dfFinishFrame( struct DumpFrameContext *df, double dTime, double dStep, str
         fp = CmiFopen(fileout,"w");
         if(fp == NULL) {
             fprintf(stderr, "Bad Frame file open: %s\n", fileout);
+            if(errno == ENOENT)
+                fprintf(stderr, "directory of %s does not exist\n", fileout);
             }
         assert(fp!=NULL);
 

@@ -92,7 +92,6 @@ mainmodule ParallelGravity {
   readonly int lbDumpIteration;
   readonly bool doSimulateLB;
 
-  //message piecedata;
   message dummyMsg;
   message ComputeChunkMsg;
 
@@ -102,6 +101,8 @@ mainmodule ParallelGravity {
   };
 
   message ParticleShuffleMsg {
+    double loads[];
+    unsigned int parts_per_phase[];
     GravityParticle particles[];
     extraSPHData pGas[];
     extraStarData pStar[];
@@ -128,6 +129,12 @@ mainmodule ParallelGravity {
   PUPable Kroupa93;
   PUPable Kroupa01;
 
+  PUPable MassOutputParams;
+  PUPable PosOutputParams;
+  PUPable VelOutputParams;
+  PUPable PotOutputParams;
+  PUPable GasDenOutputParams;
+  PUPable TempOutputParams;
   PUPable AccOutputParams;
   PUPable DenOutputParams;
   PUPable HsmOutputParams;
@@ -142,9 +149,12 @@ mainmodule ParallelGravity {
   PUPable Cool0OutputParams;
   PUPable Cool1OutputParams;
   PUPable Cool2OutputParams;
+  PUPable Cool3OutputParams;
   PUPable OxOutputParams;
   PUPable FeOutputParams;
+  PUPable MetalsOutputParams;
   PUPable MFormOutputParams;
+  PUPable TimeFormOutputParams;
   PUPable coolontimeOutputParams;
   PUPable ESNRateOutputParams;
   PUPable DtOutputParams;
@@ -174,9 +184,11 @@ mainmodule ParallelGravity {
   group [migratable] ReductionHelper {
     entry ReductionHelper();
     entry void countTreePieces(CkCallback &cb);
-    entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
+    entry void evaluateBoundaries(bool convertToLoad, int skipEvery, const CkCallback& cb);
+    entry [nokeep] void evaluateBoundaries(bool convertToLoad, SFC::Key keys[n], const int n, int skipEvery, const CkCallback& cb);
 
-    entry void evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb);
+    entry [nokeep] void evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb);
+
   };
 #endif
 
@@ -192,6 +204,8 @@ mainmodule ParallelGravity {
     entry void finishPhase(CkReductionMsg* m);
     entry void doORBDecomposition(CkReductionMsg* m);
     entry void readytoSendORB(CkReductionMsg* m);
+
+    entry void receiveParticleCounts(CkReductionMsg *m);
   };
 
   nodegroup [migratable] DataManager {
@@ -201,8 +215,8 @@ mainmodule ParallelGravity {
 				      const CkCallback& cb);
     entry void acceptFinalKeys(const SFC::Key keys[n],
         const int responsible[n - 1],
-        unsigned int bins[n - 1], const int n,
-	const CkCallback &cb);
+        int bins[n - 1], const int n,
+        const CkCallback& cb);
     entry void collectSplitters(CkReductionMsg* m);
     //entry [local,exclusive] void notifyPresence(int index, Tree::GenericTreeNode *root);
     entry void combineLocalTrees(CkReductionMsg *m);
@@ -242,6 +256,12 @@ mainmodule ParallelGravity {
     entry [notrace] void EwaldGPU(); 
     entry void velScale(double dScale, const CkCallback& cb);
     //entry void markPresence(const CkCallback& cb);
+    entry void loadNChilada(const std::string& filename, const double dTuFac,
+                            const CkCallback& cb);
+    entry void readIntBinary(CkReference<OutputIntParams> params, int bParaRead,
+                             const CkCallback& cb);
+    entry void readFloatBinary(CkReference<OutputParams> params, int bParaRead,
+                               const CkCallback& cb);
     entry void loadTipsy(const std::string& filename,
         const double dTuFac,
         const bool bDoublePos,
@@ -305,7 +325,7 @@ mainmodule ParallelGravity {
     entry void ioShuffle(CkReductionMsg *msg);
     entry void ioAcceptSortedParticles(ParticleShuffleMsg *);
     entry void assignKeys(CkReductionMsg* m);
-    entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
+    entry [nokeep] void evaluateBoundaries(bool convertToLoad, SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
     entry void unshuffleParticles(CkReductionMsg* m);
     //entry void acceptSortedParticles(ParticleShuffleMsg *);
     //ORB
@@ -439,6 +459,24 @@ mainmodule ParallelGravity {
     entry void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
     entry void outputASCII(CkReference<OutputParams>, int bParaWrite,
 			   const CkCallback& cb);
+    entry void oneNodeOutNCVec(CkReference<OutputParams>,
+                            Vector3D<float> avOutGas[nGas],
+                            Vector3D<float> avOutDark[nDark],
+                            Vector3D<float> avOutStar[nStar],
+                            int nGas, int nDark, int nStar,
+                            int iIndex, CkCallback& cb) ;
+    entry void oneNodeOutNCArr(CkReference<OutputParams>,
+                                float afOutGas[nGas],
+                                float afOutDark[nDark],
+                                float afOutStar[nStar],
+                                int nGas, int nDark, int nStar,
+                                int iIndex, CkCallback& cb);
+    entry void oneNodeOutNCInt(CkReference<OutputIntParams>,
+                                int aiOutGas[nGas],
+                                int aiOutDark[nDark],
+                                int aiOutStar[nStar],
+                                int nGas, int nDark, int nStar,
+                                int iIndex, CkCallback& cb);
     entry void oneNodeOutVec(CkReference<OutputParams>, Vector3D<double> avOut[nPart],
 			   int nPart, int iIndex, int bDone,
 			   CkCallback& cb) ;
@@ -454,13 +492,15 @@ mainmodule ParallelGravity {
     entry void oneNodeOutBinArr(CkReference<OutputParams>, float adOut[nPart],
 			     int nPart, int iIndex, int bDone,
 			     CkCallback& cb) ;
-    entry void outputIOrderBinary(const std::string& suffix, const CkCallback& cb);
     entry void outputIntASCII(CkReference<OutputIntParams>, int bParaWrite,
 			      const CkCallback& cb);
     entry void oneNodeOutIntArr(CkReference<OutputIntParams>, int aiOut[nPart],
 				int nPart, int iIndex, CkCallback& cb);
+    entry void outputIntBinary(CkReference<OutputIntParams>, int bParaWrite,
+			      const CkCallback& cb);
+    entry void oneNodeOutBinInt(CkReference<OutputIntParams>, int aiOut[nPart],
+			     int nPart, int iIndex, CkCallback& cb) ;
     entry void outputStatistics(const CkCallback& cb);
-    //entry void getPieceValues(piecedata *totaldata);
     entry void collectStatistics(CkCallback &cb);
 
     // jetley - cuda
