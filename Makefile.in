@@ -18,10 +18,12 @@ ifneq (,@ENABLE_CUDA@)
   include cuda.mk
 endif
 
-HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
-FLAG_SSE = @FLAG_SSE@
-FLAG_AVX = @FLAG_AVX@
-FLAG_CHANGESOFT = @FLAG_CHANGESOFT@
+# Use hexadecapole gravity expansions? Set HEXADECAPOLE to "-DHEXADECAPOLE" if
+# we should use hexadecapole expansions.  This is normally handled by
+# `configure', and is enabled by default.  An empty value disables this
+# feature.
+HEXADECAPOLE = @HEXADECAPOLE@
+
 FLAG_BIGKEYS = @FLAG_BIGKEYS@
 FLAG_KERNEL = @FLAG_KERNEL@
 FLAG_COOLING = @FLAG_COOLING@
