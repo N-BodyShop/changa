@@ -17,7 +17,9 @@
 // #include <cutil.h>
 
 #include "CudaFunctions.h"
-#include "CUDAMoments.cu"
+#ifdef HEXADECAPOLE
+# include "CUDAMoments.cu"
+#endif
 #include "HostCUDA.h"
 #include "EwaldCUDA.h"
 
