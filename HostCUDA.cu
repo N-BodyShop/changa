@@ -17,6 +17,7 @@
 // #include <cutil.h>
 
 #include "CudaFunctions.h"
+#include "CUDAMoments.cu"
 #include "HostCUDA.h"
 #include "EwaldCUDA.h"
 
@@ -1653,14 +1654,16 @@ __global__ void nodeGravityComputation(
         r.z = shared_particle_cores[tidy].position.z -
           ((((offsetID[tidx] >> 28) & 0x7)-3)*fperiod + m[tidx].cm.z);
 
-        cudatype
-          rsq = r.x*r.x + r.y*r.y + r.z*r.z;
+        cudatype rsq = r.x*r.x + r.y*r.y + r.z*r.z;
 
         if(rsq != 0){
-#if ! defined(HEXADECAPOLE)
+          cudatype dir = rsqrt(rsq);
+
+#if defined(HEXADECAPOLE)
+          CUDA_momEvalFmomrcm(&m[tidx], &r, dir, &acc[TRANSLATE(tidx, tidy)], &pot[TRANSLATE(tidx, tidy)]);
+#else
           cudatype a, b, c, d;
           cudatype
-            dir = 1.0/sqrt(rsq),
             twoh = m[tidx].soft + shared_particle_cores[tidy].soft;
 
           // SPLINEQ(dir, rsq, twoh, a, b, c, d);
@@ -1708,92 +1711,6 @@ __global__ void nodeGravityComputation(
           acc[TRANSLATE(tidx, tidy)].x -= qir3*r.x - c*qirx;
           acc[TRANSLATE(tidx, tidy)].y -= qir3*r.y - c*qiry;
           acc[TRANSLATE(tidx, tidy)].z -= qir3*r.z - c*qirz;
-#else
-          const cudatype onethird = 1.0 / 3.0;
-
-          /* The following code is adapted from from `momEvalFmomrcm` in
-             "moments.c"; the changes make the code work within the inputs
-             available here, and (hopefullly) make the code a little more
-             readable. */
-
-          /* -> Build the reciprocal-of-radius and scaling-factor values. */
-          cudatype
-            dir = rsqrt(rsq),
-            /* in `momEvalFmomrcm`, `u` is a parameter, and the value passed a
-               MultipoleMoments::radius instance (see point(s) of call at
-               `nodeBucketForce` in "gravity.h").  `momEvalFmomrcm` also
-               multiplies the parameter by `dir` prior to use. */
-            u = dir * m[tidx].radius;
-
-          /* -> Build the "g" terms, whose purpose is probably apparent to those
-                who actually understand the math...  */
-          cudatype
-            g0 = dir,
-            g2 = 3 * dir * u * u,
-            g3 = 5 * g2 * u,
-            g4 = 7 * g3 * u;
-
-
-          /* -> "Calculate the trace-free distance terms." */
-          cudatype
-            x = r.x * dir,
-            y = r.y * dir,
-            z = r.z * dir,
-            xx = 0.5 * x * x,
-            xy = x * y,
-            xz = x * z,
-            yy = 0.5 * y * y,
-            yz = y * z,
-            zz = 0.5 * z * z,
-            xxx = x * (onethird*xx - zz),
-            xxz = z * (xx - onethird * zz),
-            yyy = y * (onethird*yy - zz),
-            yyz = z*(yy - onethird*zz);
-
-          /* replace intermediates used above with their "final" values... */
-          xx -= zz;
-          yy -= zz;
-
-          /* ...and finish with the trace-free terms. */
-          cudatype
-            xxy = y * xx,
-            xyy = x * yy,
-            xyz = xy * z;
-
-          /* -> "Now calculate the interaction up to Hexadecapole order." */
-          cudatype
-            tx = g4 * ( m[tidx].xxxx*xxx + m[tidx].xyyy*yyy + m[tidx].xxxy*xxy +
-                        m[tidx].xxxz*xxz + m[tidx].xxyy*xyy + m[tidx].xxyz*xyz +
-                        m[tidx].xyyz*yyz ),
-            ty = g4 * ( m[tidx].xyyy*xyy + m[tidx].xxxy*xxx + m[tidx].yyyy*yyy +
-                        m[tidx].yyyz*yyz + m[tidx].xxyy*xxy + m[tidx].xxyz*xxz +
-                        m[tidx].xyyz*xyz ),
-            tz = g4 * (- m[tidx].xxxx*xxz - (m[tidx].xyyy + m[tidx].xxxy)*xyz
-                       - m[tidx].yyyy*yyz + m[tidx].xxxz*xxx + m[tidx].yyyz*yyy
-                       - m[tidx].xxyy*(xxz + yyz) + m[tidx].xxyz*xxy + m[tidx].xyyz*xyy);
-
-          /* Note that these variables have already been initialized; we're re-using them. */
-          xxx = g3 * (m[tidx].xxx*xx + m[tidx].xyy*yy + m[tidx].xxy*xy + m[tidx].xxz*xz + m[tidx].xyz*yz);
-          xxy = g3 * (m[tidx].xyy*xy + m[tidx].xxy*xx + m[tidx].yyy*yy + m[tidx].yyz*yz + m[tidx].xyz*xz);
-          xxz = g3 * (-(m[tidx].xxx + m[tidx].xyy)*xz - (m[tidx].xxy + m[tidx].yyy)*yz + m[tidx].xxz*xx + m[tidx].yyz*yy + m[tidx].xyz*xy);
-
-          g3 = onethird * (xxx*x + xxy*y + xxz*z);
-
-          xx = g2*(m[tidx].xx*x + m[tidx].xy*y + m[tidx].xz*z);
-          xy = g2*(m[tidx].yy*y + m[tidx].xy*x + m[tidx].yz*z);
-          xz = g2*(-(m[tidx].xx + m[tidx].yy)*z + m[tidx].xz*x + m[tidx].yz*y);
-
-          g2 = 0.5*(xx*x + xy*y + xz*z);
-          g0 *= m[tidx].totalMass;
-
-          /* store the calculated potential  */
-          pot[TRANSLATE(tidx, tidy)] += -(g0 + g2 + g3 + g4);
-
-          g0 += 5*g2 + 7*g3 + 9*g4;
-          /* and the calculated acceleration. */
-          acc[TRANSLATE(tidx, tidy)].x += dir*(xx + xxx + tx - x*g0);
-          acc[TRANSLATE(tidx, tidy)].y += dir*(xy + xxy + ty - y*g0);
-          acc[TRANSLATE(tidx, tidy)].z += dir*(xz + xxz + tz - z*g0);
 #endif
         }// end if rsq != 0
       }// end INTERACT
