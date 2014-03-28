@@ -1718,7 +1718,7 @@ __global__ void nodeGravityComputation(
 
           /* -> Build the reciprocal-of-radius and scaling-factor values. */
           cudatype
-            dir = sqrt(1.0/rsq),
+            dir = rsqrt(rsq),
             /* in `momEvalFmomrcm`, `u` is a parameter, and the value passed a
                MultipoleMoments::radius instance (see point(s) of call at
                `nodeBucketForce` in "gravity.h").  `momEvalFmomrcm` also
