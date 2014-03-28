@@ -610,6 +610,10 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
     GravityParticle *binBegin = &myParticles[1];
     GravityParticle *binEnd;
     GravityParticle dummy;
+
+    GravityParticle *interpolatedBound;
+    GravityParticle *refinedLowerBound;
+    GravityParticle *refinedUpperBound;
     //int binIter = 0;
     //vector<int>::iterator binIter = myBinCounts.begin();
     //vector<Key>::iterator keyIter = dm->boundaryKeys.begin();
@@ -625,9 +629,32 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
     }
     for( ; keyIter != endKeys; ++keyIter) {
       dummy.key = *keyIter;
+      // try to guess a better upper bound
+      ptrdiff_t remainingParticles = &myParticles[myNumParticles + 1] - binBegin;
+      ptrdiff_t remainingBins = endKeys - keyIter;
+      ptrdiff_t interpolationInterval = remainingParticles / remainingBins;
+      ptrdiff_t scaledInterval =
+        (ptrdiff_t) ( (double) interpolationInterval * 1.5);
+      if (remainingParticles > scaledInterval) {
+        interpolatedBound = binBegin + scaledInterval;
+      }
+      else {
+        interpolatedBound = binBegin + interpolationInterval;
+      }
+
+      if (interpolatedBound->key <= dummy.key) {
+        refinedLowerBound = interpolatedBound;
+        refinedUpperBound = &myParticles[myNumParticles + 1];
+      }
+      else {
+        refinedLowerBound = binBegin;
+        refinedUpperBound = interpolatedBound;
+      }
+
       /// find the last place I could put this splitter key in
       /// my array of particles
-      binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1], dummy);
+      //binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1], dummy);
+      binEnd = upper_bound(refinedLowerBound, refinedUpperBound, dummy);
       /// this tells me the number of particles between the
       /// last two splitter keys
       if (skip != 0) {
