@@ -171,9 +171,27 @@ else
 	FLAG_COOLING="-DCOOLING_NONE"
 	cooling="no"
 fi
+AC_ARG_ENABLE([hexadecapole],
+        [AS_HELP_STRING([--disable-hexadecapole], [disable use of hexadecapole expansions])],
+        # Note that "$enableval" being "yes" means ENABLE hexadecapole -- the
+        # help string, as one would expect, only affects how we document
+        # the option.
+        [case "$enableval" in
+              yes | no ) hexadecapole="$enableval";;
+              *) AC_MSG_ERROR("$enableval: invalid argument to `--disable-hexadecapole'") ;;
+         esac],
+        [hexadecapole="yes"])
+
+HEXADECAPOLE=""
+if test "$hexadecapole" = "yes"; then
+    HEXADECAPOLE="-DHEXADECAPOLE"
+else
+    HEXADECAPOLE=""
+fi
 
 AC_SUBST([FLAG_COOLING])
 AC_SUBST([OBJECTS_COOLING])
+AC_SUBST([HEXADECAPOLE])
  
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL

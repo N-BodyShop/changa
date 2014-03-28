@@ -640,6 +640,7 @@ ac_includes_default="\
 <<<<<<< Upstream, based on master
 <<<<<<< Upstream, based on master
 <<<<<<< Upstream, based on master
+<<<<<<< Upstream, based on master
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
 OBJECTS_COOLING
@@ -711,6 +712,9 @@ ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION
 =======
 ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS CHARMC CHARM_PATH AR CXX CXXFLAGS LDFLAGS CPPFLAGS ac_ct_CXX EXEEXT OBJEXT CC CFLAGS ac_ct_CC CPP EGREP FLAG_BIGKEYS FLAG_COOLING OBJECTS_COOLING LIBOBJS CUDA_DIR NVCC_PATH CUDA_SDK_DIR ENABLE_CUDA HAVE_CUDA HAVE_CUDA_SDK CUDA_LEVEL LTLIBOBJS'
 >>>>>>> a73a834 cuda.{ac,mk.in}: added a --with-cuda-level option
+=======
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS CHARMC CHARM_PATH AR CXX CXXFLAGS LDFLAGS CPPFLAGS ac_ct_CXX EXEEXT OBJEXT CC CFLAGS ac_ct_CC CPP EGREP FLAG_BIGKEYS FLAG_COOLING OBJECTS_COOLING HEXADECAPOLE LIBOBJS CUDA_DIR NVCC_PATH CUDA_SDK_DIR ENABLE_CUDA HAVE_CUDA HAVE_CUDA_SDK CUDA_LEVEL LTLIBOBJS'
+>>>>>>> 69081f2 Allow disabling HEXADECAPOLE at configure time.
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
@@ -1420,6 +1424,7 @@ Optional Features:
   --enable-bigkeys        enable 128 bit hash keys
   --enable-wendland       enable Wendland C4 Kernel
   --enable-cooling        enable gas cooling (planet,cosmo)
+  --disable-hexadecapole  disable use of hexadecapole expansions
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -4873,6 +4878,28 @@ else
 	FLAG_COOLING="-DCOOLING_NONE"
 	cooling="no"
 fi
+# Check whether --enable-hexadecapole or --disable-hexadecapole was given.
+if test "${enable_hexadecapole+set}" = set; then
+  enableval="$enable_hexadecapole"
+  # Note that "$enableval" being "yes" means ENABLE hexadecapole -- the
+        # help string, as one would expect, only affects how we document
+        # the option.
+        case "$enableval" in
+              yes | no ) hexadecapole="$enableval";;
+              *) { { echo "$as_me:$LINENO: error: \"$enableval: invalid argument to \`--disable-hexadecapole'\"" >&5
+echo "$as_me: error: \"$enableval: invalid argument to \`--disable-hexadecapole'\"" >&2;}
+   { (exit 1); exit 1; }; } ;;
+         esac
+else
+  hexadecapole="yes"
+fi;
+HEXADECAPOLE=""
+if test "$hexadecapole" = "yes"; then
+    HEXADECAPOLE="-DHEXADECAPOLE"
+else
+    HEXADECAPOLE=""
+fi
+
 
 
 
@@ -7678,6 +7705,7 @@ s,@EGREP@,$EGREP,;t t
 s,@FLAG_BIGKEYS@,$FLAG_BIGKEYS,;t t
 s,@FLAG_COOLING@,$FLAG_COOLING,;t t
 s,@OBJECTS_COOLING@,$OBJECTS_COOLING,;t t
+s,@HEXADECAPOLE@,$HEXADECAPOLE,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t
 s,@CUDA_DIR@,$CUDA_DIR,;t t
 s,@NVCC_PATH@,$NVCC_PATH,;t t
