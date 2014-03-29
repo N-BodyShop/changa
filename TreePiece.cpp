@@ -2368,6 +2368,10 @@ void TreePiece::buildTreeOverlap(int bucketSize, const CkCallback& cb)
   // increase concurrency
   doMerge = _merge; 
 #endif
+  if (thisIndex%50000 == 0) {
+    CkPrintf("[%d] TP %d collected %d lb_in_progress %d\n", CkMyPe(), thisIndex, collected_all_spl_, lb_in_progress_);
+  }
+
   if (collected_all_spl_) {
     if (thisIndex%50000 == 0) {
       CkPrintf("[%d] TP %d collected %d lb_in_progress %d\n", CkMyPe(), thisIndex, collected_all_spl_, lb_in_progress_);
