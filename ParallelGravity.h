@@ -1024,7 +1024,7 @@ private:
 	/// The counts of how many particles belonging to other
 	/// TreePieces I currently hold
 #ifndef REDUCTION_HELPER
-	CkVec<int64_t> myBinCounts;
+	CkVec<double> myBinCounts;
 #endif
 	std::vector<int> myBinCountsORB;
 	/// My index in the responsibility array.
@@ -1975,7 +1975,7 @@ class ReductionHelper : public CBase_ReductionHelper {
   void pup(PUP::er &p);
 
   void countTreePieces(const CkCallback &cb);
-  void reduceBinCounts(int nBins, int64_t *binCounts, const CkCallback &cb);
+  void reduceBinCounts(int nBins, double *binCounts, const CkCallback &cb);
   void evaluateBoundaries(SFC::Key *keys, const int n, int isRefine, const CkCallback& cb);
   void evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb);
 
@@ -1984,7 +1984,7 @@ class ReductionHelper : public CBase_ReductionHelper {
 
   private:
 
-  CkVec<int64_t> myBinCounts;
+  CkVec<double> myBinCounts;
   int numTreePiecesCheckedIn;
 
   TreePieceCounter localTreePieces;

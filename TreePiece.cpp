@@ -593,17 +593,17 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
   int numBins = skipEvery ? n - (n-1)/(skipEvery+1) - 1 : n - 1;
 
   //this array will contain the number of particles I own in each bin
-  int64_t *myCounts;
+  double *myCounts;
 
 #ifdef REDUCTION_HELPER
-  myCounts = new int64_t[numBins];
+  myCounts = new double[numBins];
 #else
   //myBinCounts.assign(numBins, 0);
   myBinCounts.resize(numBins);
   myCounts = myBinCounts.getVec();
 #endif
 
-  memset(myCounts, 0, numBins*sizeof(int64_t));
+  memset(myCounts, 0.0, numBins*sizeof(double));
 
   if (myNumParticles > 0) {
     Key* endKeys = keys+n;
@@ -611,9 +611,9 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
     GravityParticle *binEnd;
     GravityParticle dummy;
 
-    GravityParticle *interpolatedBound;
-    GravityParticle *refinedLowerBound;
-    GravityParticle *refinedUpperBound;
+//    GravityParticle *interpolatedBound;
+//    GravityParticle *refinedLowerBound;
+//    GravityParticle *refinedUpperBound;
     //int binIter = 0;
     //vector<int>::iterator binIter = myBinCounts.begin();
     //vector<Key>::iterator keyIter = dm->boundaryKeys.begin();
@@ -629,36 +629,36 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
     }
     for( ; keyIter != endKeys; ++keyIter) {
       dummy.key = *keyIter;
-      // try to guess a better upper bound
-      ptrdiff_t remainingParticles = &myParticles[myNumParticles + 1] - binBegin;
-      ptrdiff_t remainingBins = endKeys - keyIter;
-      ptrdiff_t interpolationInterval = remainingParticles / remainingBins;
-      ptrdiff_t scaledInterval =
-        (ptrdiff_t) ( (double) interpolationInterval * 1.5);
-      if (remainingParticles > scaledInterval) {
-        interpolatedBound = binBegin + scaledInterval;
-      }
-      else {
-        interpolatedBound = binBegin + interpolationInterval;
-      }
-
-      if (interpolatedBound->key <= dummy.key) {
-        refinedLowerBound = interpolatedBound;
-        refinedUpperBound = &myParticles[myNumParticles + 1];
-      }
-      else {
-        refinedLowerBound = binBegin;
-        refinedUpperBound = interpolatedBound;
-      }
+//      // try to guess a better upper bound
+//      ptrdiff_t remainingParticles = &myParticles[myNumParticles + 1] - binBegin;
+//      ptrdiff_t remainingBins = endKeys - keyIter;
+//      ptrdiff_t interpolationInterval = remainingParticles / remainingBins;
+//      ptrdiff_t scaledInterval =
+//        (ptrdiff_t) ( (double) interpolationInterval * 1.5);
+//      if (remainingParticles > scaledInterval) {
+//        interpolatedBound = binBegin + scaledInterval;
+//      }
+//      else {
+//        interpolatedBound = binBegin + interpolationInterval;
+//      }
+//
+//      if (interpolatedBound->key <= dummy.key) {
+//        refinedLowerBound = interpolatedBound;
+//        refinedUpperBound = &myParticles[myNumParticles + 1];
+//      }
+//      else {
+//        refinedLowerBound = binBegin;
+//        refinedUpperBound = interpolatedBound;
+//      }
 
       /// find the last place I could put this splitter key in
       /// my array of particles
-      //binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1], dummy);
-      binEnd = upper_bound(refinedLowerBound, refinedUpperBound, dummy);
+      binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1], dummy);
+      //binEnd = upper_bound(refinedLowerBound, refinedUpperBound, dummy);
       /// this tells me the number of particles between the
       /// last two splitter keys
       if (skip != 0) {
-        myCounts[binIter] = ((int64_t)(binEnd - binBegin));
+        myCounts[binIter] = ((double)(binEnd - binBegin));
         ++binIter;
         --skip;
       } else {
@@ -6941,7 +6941,7 @@ void ReductionHelper::countTreePieces(const CkCallback &cb){
   contribute(cb);
 }
 
-void ReductionHelper::reduceBinCounts(int nBins, int64_t *binCounts, const CkCallback &cb){
+void ReductionHelper::reduceBinCounts(int nBins, double *binCounts, const CkCallback &cb){
   numTreePiecesCheckedIn++;
   
   //CkPrintf("ReductionHelper %d recvd %d/%d contributions\n", CkMyPe(), numTreePiecesCheckedIn, myNumTreePieces);
@@ -6950,7 +6950,7 @@ void ReductionHelper::reduceBinCounts(int nBins, int64_t *binCounts, const CkCal
     // resize bin counts vector
     myBinCounts.resize(nBins);
     // initialize counts to contribution to reduction from first tree piece
-    memcpy(&myBinCounts[0], binCounts, nBins*sizeof(int64_t));
+    memcpy(&myBinCounts[0], binCounts, nBins*sizeof(double));
   }
   else{
     CkAssert(nBins == myBinCounts.size());
@@ -6962,8 +6962,14 @@ void ReductionHelper::reduceBinCounts(int nBins, int64_t *binCounts, const CkCal
   // is it time to contribute to PE-wide reduction yet?
   if(numTreePiecesCheckedIn == localTreePieces.presentTreePieces.size()){
     //CkPrintf("ReductionHelper %d contributing to PE-level reduction\n", CkMyPe());
+
+    for(int i = 0; i < nBins; i++){
+      if (myBinCounts[i] > 1981808640 || myBinCounts[i] < 0) {
+        ckout << "ReductionHelper " << CkMyPe() << " has weird myBinCounts " << myBinCounts[i] << endl;
+      }
+    }
     numTreePiecesCheckedIn = 0;
-    contribute(sizeof(int64_t)*myBinCounts.size(), &myBinCounts[0], CkReduction::sum_long, cb);
+    contribute(sizeof(double)*myBinCounts.size(), &myBinCounts[0], CkReduction::sum_double, cb);
   }
 
 }

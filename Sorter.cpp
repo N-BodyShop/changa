@@ -784,11 +784,31 @@ bool Sorter::refineOctSplitting(int n, int *count) {
  */
 void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	numIterations++;
-	numCounts = m->getSize() / sizeof(int64_t);
+	numCounts = m->getSize() / sizeof(double);
 	binCounts.resize(numCounts + 1);
 	binCounts[0] = 0;
-	int64_t* startCounts = static_cast<int64_t *>(m->getData());
-	copy(startCounts, startCounts + numCounts, binCounts.begin() + 1);
+	double* startCounts = (double *)(m->getData());
+  ckout << "\nSorter> received eval numCoutns " << numCounts << endl;
+  for (int i = 0; i < numCounts; i++) {
+    if (startCounts[i] > 1981808640 || startCounts[i] < 0) {
+      ckout << "Sorter> Weird value for startCounts " << i << " " << startCounts[i] << endl;
+      CkAbort("Wierd values\n");
+    }   
+    //binCounts[i+1] = (int64_t) startCounts[i];
+    //if (binCounts[i+1] > 1981808640 || binCounts[i+1] < 0) {
+    //  ckout << "Sorter> Weird value for binCounts " << (i+1) << " " << binCounts[i+1] << " startCounts " << startCounts[i] << endl;
+    //  //CkAbort("Wierd values\n");
+    //}   
+  }
+  for (int i = 0; i < numCounts; i++) {
+    binCounts[i+1] = (int64_t) startCounts[i];
+    if (binCounts[i+1] > 1981808640 || binCounts[i+1] < 0) {
+      ckout << "Sorter> Weird value for binCounts " << (i+1) << " " << binCounts[i+1] << " startCounts " << startCounts[i] << endl;
+      //CkAbort("Wierd values\n");
+    }   
+  }
+  
+	//copy(startCounts, startCounts + numCounts, binCounts.begin() + 1);
 	delete m;
 
         if (sorted) { // needed only when skipping decomposition
@@ -808,6 +828,8 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	
 	//sum up the individual bin counts, so each bin has the count of it and all preceding
 	partial_sum(binCounts.begin(), binCounts.end(), binCounts.begin());
+  ckout << "Sorter: On iteration " << numIterations << " numKeys " << numCounts << " total particles " << binCounts.back() << endl;
+
 	
 	if(!numKeys) {
 		numKeys = binCounts.back();
