@@ -528,9 +528,9 @@ void ReductionHelper::evaluateBoundaries(SFC::Key* keys, const int n, int skipEv
   splitters.assign(keys, keys + n);
   if(localTreePieces.presentTreePieces.size() == 0){
     int numBins = skipEvery ? n - (n-1)/(skipEvery+1) - 1 : n - 1;
-    int *dummy = new int[numBins];
+    double *dummy = new double[numBins];
     for(int i = 0; i < numBins; i++) dummy[i] = 0;
-    contribute(sizeof(int)*numBins, dummy, CkReduction::sum_int, cb);
+    contribute(sizeof(double)*numBins, dummy, CkReduction::sum_double, cb);
     return;
   }
 
@@ -6962,12 +6962,11 @@ void ReductionHelper::reduceBinCounts(int nBins, double *binCounts, const CkCall
   // is it time to contribute to PE-wide reduction yet?
   if(numTreePiecesCheckedIn == localTreePieces.presentTreePieces.size()){
     //CkPrintf("ReductionHelper %d contributing to PE-level reduction\n", CkMyPe());
-
-    for(int i = 0; i < nBins; i++){
-      if (myBinCounts[i] > 1981808640 || myBinCounts[i] < 0) {
-        ckout << "ReductionHelper " << CkMyPe() << " has weird myBinCounts " << myBinCounts[i] << endl;
-      }
-    }
+    //for(int i = 0; i < nBins; i++){
+    //  if (myBinCounts[i] > 1981808640 || myBinCounts[i] < 0) {
+    //    ckout << "ReductionHelper " << CkMyPe() << " has weird myBinCounts " << myBinCounts[i] << endl;
+    //  }
+    //}
     numTreePiecesCheckedIn = 0;
     contribute(sizeof(double)*myBinCounts.size(), &myBinCounts[0], CkReduction::sum_double, cb);
   }

@@ -789,26 +789,26 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	binCounts[0] = 0;
 	double* startCounts = (double *)(m->getData());
   ckout << "\nSorter> received eval numCoutns " << numCounts << endl;
-  for (int i = 0; i < numCounts; i++) {
-    if (startCounts[i] > 1981808640 || startCounts[i] < 0) {
-      ckout << "Sorter> Weird value for startCounts " << i << " " << startCounts[i] << endl;
-      CkAbort("Wierd values\n");
-    }   
-    //binCounts[i+1] = (int64_t) startCounts[i];
-    //if (binCounts[i+1] > 1981808640 || binCounts[i+1] < 0) {
-    //  ckout << "Sorter> Weird value for binCounts " << (i+1) << " " << binCounts[i+1] << " startCounts " << startCounts[i] << endl;
-    //  //CkAbort("Wierd values\n");
-    //}   
-  }
-  for (int i = 0; i < numCounts; i++) {
-    binCounts[i+1] = (int64_t) startCounts[i];
-    if (binCounts[i+1] > 1981808640 || binCounts[i+1] < 0) {
-      ckout << "Sorter> Weird value for binCounts " << (i+1) << " " << binCounts[i+1] << " startCounts " << startCounts[i] << endl;
-      //CkAbort("Wierd values\n");
-    }   
-  }
+//  for (int i = 0; i < numCounts; i++) {
+//    if (startCounts[i] > 1981808640 || startCounts[i] < 0) {
+//      ckout << "Sorter> Weird value for startCounts " << i << " " << startCounts[i] << endl;
+//      CkAbort("Wierd values\n");
+//    }   
+//    //binCounts[i+1] = (int64_t) startCounts[i];
+//    //if (binCounts[i+1] > 1981808640 || binCounts[i+1] < 0) {
+//    //  ckout << "Sorter> Weird value for binCounts " << (i+1) << " " << binCounts[i+1] << " startCounts " << startCounts[i] << endl;
+//    //  //CkAbort("Wierd values\n");
+//    //}   
+//  }
+//  for (int i = 0; i < numCounts; i++) {
+//    binCounts[i+1] = (int64_t) startCounts[i];
+//    if (binCounts[i+1] > 1981808640 || binCounts[i+1] < 0) {
+//      ckout << "Sorter> Weird value for binCounts " << (i+1) << " " << binCounts[i+1] << " startCounts " << startCounts[i] << endl;
+//      //CkAbort("Wierd values\n");
+//    }   
+//  }
   
-	//copy(startCounts, startCounts + numCounts, binCounts.begin() + 1);
+	copy(startCounts, startCounts + numCounts, binCounts.begin() + 1);
 	delete m;
 
         if (sorted) { // needed only when skipping decomposition
