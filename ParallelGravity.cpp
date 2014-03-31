@@ -30,6 +30,8 @@
 
 #include "BaseLB.h"
 
+#include "CkLoopAPI.h"
+
 #include "Sorter.h"
 #include "ParallelGravity.h"
 #include "DataManager.h"
@@ -186,6 +188,9 @@ Main::Main(CkArgMsg* m) {
 	bIsRestarting = 0;
 	bChkFirst = 1;
 	dSimStartTime = CkWallTimer();
+
+  int threadNum;
+  CkLoop_Init(threadNum);
 
 	// Floating point exceptions.
 	// feenableexcept(FE_OVERFLOW | FE_DIVBYZERO | FE_INVALID);
@@ -1558,8 +1563,8 @@ void Main::advanceBigStep(int iStep) {
 #ifdef PUSH_GRAVITY
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),!bDoPush);
 #else
-    //treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-    treeProxy.buildTreeOverlap(bucketSize, CkCallbackResumeThread());
+    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+    //treeProxy.buildTreeOverlap(bucketSize, CkCallbackResumeThread());
 #endif
     CkPrintf("TB ending at %g took total %g seconds.\n", CkWallTimer(), CkWallTimer()-startTime);
 

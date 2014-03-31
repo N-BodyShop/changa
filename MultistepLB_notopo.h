@@ -60,6 +60,9 @@ private:
  // CkVec<OrbObject> tps;
   int procsPerNode;
 
+  int tpscount;
+  int tpsdonecg;
+
   CkVec<LightweightLDStats> savedPhaseStats;      /// stats saved from previous phases
   
   bool QueryBalanceNow(int step);
@@ -84,6 +87,10 @@ public:
     
   void work(BaseLB::LDStats* stats);
   void receiveCentroids(CkReductionMsg *msg);
+  void clearPeLoad();
+  void addTpCount();
+  vector<int> getOtherIdlePes();
+  void tpDoneGravity();
   //ScaleTranMapBG map;
 
 public:/* <- Sun CC demands Partition be public for ComputeLoad to access it. */

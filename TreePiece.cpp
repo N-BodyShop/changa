@@ -5,6 +5,9 @@
 #include <algorithm>
 #include <fstream>
 #include <assert.h>
+
+#include "CkLoopAPI.h"
+
 // jetley
 #include "limits.h"
 
@@ -2839,13 +2842,15 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
   if(myPlace == 0)
     myParticles[0].key = firstPossibleKey;
-  else
+  else {
     myParticles[0].key = dm->splitters[2 * myPlace - 1];
+  }
 
   if(myPlace == dm->responsibleIndex.size() - 1)
     myParticles[myNumParticles + 1].key = lastPossibleKey;
-  else
+  else {
     myParticles[myNumParticles + 1].key = dm->splitters[2 * myPlace + 2];
+  }
 
   CkAssert(myParticles[1].key >= myParticles[0].key);
   CkAssert(myParticles[myNumParticles + 1].key >= myParticles[myNumParticles].key);
@@ -4001,7 +4006,23 @@ void TreePiece::calculateEwald(dummyMsg *msg) {
 #ifdef CELL
     if (workRequestOut < CELLEWALDTHREASHOLD)
 #endif
-      thisProxy[thisIndex].calculateEwald(msg);
+      vector<int> otheridlepes;
+      if(foundLB == Multistep_notopo){
+        MultistepLB_notopo* lbptr = (MultistepLB_notopo *)CkLocalBranch(proxy);
+        otheridlepes = lbptr->getOtherIdlePes();
+      } else if (foundLB == HierarchOrb) {
+        HierarchOrbLB* lbptr = (HierarchOrbLB *)CkLocalBranch(proxy);
+        otheridlepes = lbptr->getOtherIdlePes();
+      }
+
+      if (otheridlepes.size() > 0.5*CkMyNodeSize()) {
+        didCkL = true;
+        thisProxy[thisIndex].calculateEwaldPar(msg);
+        //didCkL = false;
+        //thisProxy[thisIndex].calculateEwald(msg);
+      } else {
+        thisProxy[thisIndex].calculateEwald(msg);
+      }
 #ifdef CELL
     else
       ewaldMessages.insertAtEnd(CellComputation(thisProxy[thisIndex], msg));
@@ -4011,6 +4032,76 @@ void TreePiece::calculateEwald(dummyMsg *msg) {
   }
 #endif
 }
+
+void TreePiece::doParallelEwaldWork(int id) {
+    BucketEwald(bucketList[id], nReplicas, fEwCut);
+}
+
+void doCalcEwald(int start, int end, void *result, int pnum, void * param) {
+  LoopParData* lpdata = (LoopParData *)param;
+  TreePiece* tp = lpdata->tp;
+  double tstart = CkWallTimer();
+  for (int i = start; i <= end; i++) {
+    tp->doParallelEwaldWork(lpdata->bucketids[i]);
+  }
+  double tend = CkWallTimer();
+  *(double *)result = tend - tstart;
+
+  //CkPrintf("[%d] TP %d doCalcEwald (%g-%g) start %d end %d time %g\n", CkMyPe(), tp->getIndex(), tstart, tend, start, end, tend-tstart);
+}
+
+void TreePiece::calculateEwaldPar(dummyMsg *msg) {
+  unsigned int i=0;
+  LoopParData* lpdata = new LoopParData();
+  lpdata->tp = this;
+
+  int sbucket = ewaldCurrentBucket;
+
+  //while (i<_yieldPeriod && ewaldCurrentBucket < numBuckets) {
+  while (i<92 && ewaldCurrentBucket < numBuckets) {
+    lpdata->bucketids.insertAtEnd(ewaldCurrentBucket);
+    ewaldCurrentBucket++;
+    i++;
+  }
+
+  int num_chunks = 31;
+  //int num_chunks = 4;
+  int start = 0;
+  int end = lpdata->bucketids.length();
+
+  double timebeforeckloop = getObjTime();
+  double timeforckloop;
+  LBTurnInstrumentOff();
+  double stime = CkWallTimer();
+  CkLoop_Parallelize(doCalcEwald, 1, lpdata, num_chunks, start, end-1, 1, &timeforckloop, CKLOOP_DOUBLE_SUM);
+  double etime = CkWallTimer() - stime;
+
+  //CkPrintf("[%d] TP %d bucket %d total buckets %d Done ckloop EWALD time %g\n",  CkMyPe(), thisIndex, sbucket, end, etime);
+  setObjTime(timebeforeckloop + timeforckloop); 
+  LBTurnInstrumentOn();
+
+  ewaldCurrentBucket = sbucket;
+  i = 0;
+
+  //while (i<_yieldPeriod && ewaldCurrentBucket < numBuckets) {
+  while (i<92 && ewaldCurrentBucket < numBuckets) {
+    bucketReqs[ewaldCurrentBucket].finished = 1;
+    finishBucket(ewaldCurrentBucket);
+
+    ewaldCurrentBucket++;
+    i++;
+  }
+
+  delete lpdata;
+
+
+  if (ewaldCurrentBucket<numBuckets) {
+      thisProxy[thisIndex].calculateEwaldPar(msg);
+  } else {
+    delete msg;
+  }
+}
+
 
 #if INTERLIST_VER > 0
 /*
@@ -4912,6 +5003,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 			       const CkCallback& cb) {
   LBTurnInstrumentOn();
   iterationNo++;
+  didCkL = false;
 
   cbGravity = cb;
   activeRung = am;
@@ -4936,6 +5028,14 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
     }
     CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
     gravityProxy[thisIndex].ckLocal()->contribute(cbf);
+
+    if(foundLB == Multistep_notopo){
+      MultistepLB_notopo* lbptr = (MultistepLB_notopo *)CkLocalBranch(proxy);
+      lbptr->tpDoneGravity();
+    } else if (foundLB == HierarchOrb) {
+      HierarchOrbLB* lbptr = (HierarchOrbLB *)CkLocalBranch(proxy);
+      lbptr->tpDoneGravity();
+    }
     return;
   }
   
@@ -5357,7 +5457,7 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d calling AtSync()\n",CkMyPe(),thisIndex);
   
-  sendOffSplitters();
+  //sendOffSplitters();
 
   unsigned int numActiveParticles, i;
 
@@ -5447,6 +5547,14 @@ void TreePiece::doAtSync(){
 void TreePiece::ResumeFromSync(){
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d in ResumefromSync\n",CkMyPe(),thisIndex);
+  if(foundLB == Multistep_notopo){
+    MultistepLB_notopo* lbptr = (MultistepLB_notopo *)CkLocalBranch(proxy);
+    lbptr->addTpCount();
+  } else if (foundLB == HierarchOrb) {
+    HierarchOrbLB* lbptr = (HierarchOrbLB *)CkLocalBranch(proxy);
+    lbptr->addTpCount();
+  }
+
   contribute(callback);
 }
 
@@ -6522,8 +6630,22 @@ void TreePiece::markWalkDone() {
 #endif
 	CkCallback cb = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
 	gravityProxy[thisIndex].ckLocal()->contribute(cb);
-	}
+
+  if(foundLB == Multistep_notopo){
+    MultistepLB_notopo* lbptr = (MultistepLB_notopo *)CkLocalBranch(proxy);
+    lbptr->tpDoneGravity();
+  } else if (foundLB == HierarchOrb) {
+    HierarchOrbLB* lbptr = (HierarchOrbLB *)CkLocalBranch(proxy);
+    lbptr->tpDoneGravity();
+  }
+  if (thisIndex == 0) {
+    CkPrintf("[%d] TP %d iterationNo %d treePieceLoadExp %f\n", CkMyPe(), thisIndex, iterationNo, treePieceLoadExp);
+  }
+  if (didCkL && iterationNo > 1) {
+    setObjTime(treePieceLoadExp);
+  }
     }
+}
 
 void TreePiece::finishWalk()
 {

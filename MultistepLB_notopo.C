@@ -7,6 +7,9 @@
 #include <queue>
 
 extern CProxy_TreePiece treeProxy;
+
+CpvDeclare(int, tpCGDone);
+
 using namespace std;
 //#define ORB3DLB_NOTOPO_DEBUG CkPrintf
 
@@ -21,6 +24,8 @@ MultistepLB_notopo::MultistepLB_notopo(const CkLBOptions &opt): CentralLB(opt)
     CkPrintf("[%d] MultistepLB_notopo created\n",CkMyPe());
   }
 
+  CpvInitialize(int, tpCGDone );
+  CpvAccess(tpCGDone) = 1;
   
   haveTPCentroids = false;
 
@@ -478,6 +483,41 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
       }
 }
 
+void MultistepLB_notopo::clearPeLoad() {
+  tpscount = 0;
+  tpsdonecg = 0;
+  CpvAccess(tpCGDone) = 1;
+}
+
+void MultistepLB_notopo::addTpCount() {
+  tpscount++;
+  //CpvAccess(tpCGDone) = 0;
+  // This is saying that if my load is < 0.1 then I am kind of idle
+  //if (my_load_after_lb > 0.1) {
+  //if (my_load_after_lb > avg_load_after_lb) {
+    CpvAccess(tpCGDone) = 0;
+  //}
+}
+
+void MultistepLB_notopo::tpDoneGravity() {
+  tpsdonecg++;
+  if (tpsdonecg == tpscount) {
+    CpvAccess(tpCGDone) = 1;
+  }
+}
+
+
+// Send all other PEs other than myself which are idle
+vector<int> MultistepLB_notopo::getOtherIdlePes() {
+  vector<int> idlepeswithin;
+  int nsize = CkNodeSize(CkMyNode());
+  for (int i = 0; i < nsize; i++) {
+    if (CpvAccessOther(tpCGDone, i) == 1 && (CkNodeFirst(CkMyNode()) + i)!=CkMyPe()) {
+      idlepeswithin.push_back(CkNodeFirst(CkMyNode()) + i);
+    }
+  }
+  return idlepeswithin;
+}
 
 void MultistepLB_notopo::pup(PUP::er &p){
   CentralLB::pup(p);

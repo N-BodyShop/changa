@@ -550,6 +550,17 @@ typedef struct particlesInfoL{
 #endif
 } LocalPartInfo;
 
+typedef struct LoopParDataStruct {
+  CkVec<GenericTreeNode*> lowNodes;
+  CkVec<int> bucketids;
+  CkVec<int> chunkids;
+  CkVec<CkVec<OffsetNode> > clists;
+  CkVec<CkVec<RemotePartInfo> > rpilists;
+  CkVec<CkVec<LocalPartInfo> > lpilists;
+  TreePiece* tp;
+} LoopParData;
+
+
 
 #ifdef CUDA
 struct BucketActiveInfo{
@@ -1054,6 +1065,7 @@ private:
 	//double thetaMono; -- moved as readonly
         /// The current active mask for force computation in multistepping
         int activeRung;
+        bool didCkL;
 
 	/// Periodic Boundary stuff
 	int bPeriodic;
@@ -1469,6 +1481,8 @@ public:
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit();
 	void calculateEwald(dummyMsg *m);
+	void calculateEwaldPar(dummyMsg *m);
+  void doParallelEwaldWork(int id);
 	void initCoolingData(const CkCallback& cb);
 	// Scale velocities (needed to convert to canonical momenta for
 	// comoving coordinates.)

@@ -17,11 +17,15 @@
 CreateLBFunc_Def(HierarchOrbLB, "Hybrid load balancer")
 
 CkpvExtern(int, _lb_obj_index);
+CpvDeclare(int, tpCGDoneH);
 extern BaseLB* AllocateOrb3dLB_notopo();
 
 void HierarchOrbLB::init() {
   lbname = (char *)"HierarchOrbLB";
   thisProxy = CProxy_HierarchOrbLB(thisgroup);
+
+  CpvInitialize(int, tpCGDoneH );
+  CpvAccess(tpCGDoneH) = 1;
 }
 
 HierarchOrbLB::HierarchOrbLB(const CkLBOptions &opt): HybridBaseLB(opt) {
@@ -75,5 +79,40 @@ void HierarchOrbLB::work(LDStats* stats) {
     refinelb->work(stats);
 #endif
 }
-  
+ 
+void HierarchOrbLB::clearPeLoad() {
+  tpscount = 0;
+  tpsdonecg = 0;
+  CpvAccess(tpCGDoneH) = 1;
+}
+
+void HierarchOrbLB::addTpCount() {
+  tpscount++;
+  //CpvAccess(tpCGDone) = 0;
+  // This is saying that if my load is < 0.1 then I am kind of idle
+  //if (my_load_after_lb > 0.1) {
+  //if (my_load_after_lb > avg_load_after_lb) {
+    CpvAccess(tpCGDoneH) = 0;
+  //}
+}
+
+void HierarchOrbLB::tpDoneGravity() {
+  tpsdonecg++;
+  if (tpsdonecg == tpscount) {
+    CpvAccess(tpCGDoneH) = 1;
+  }
+}
+
+
+// Send all other PEs other than myself which are idle
+vector<int> HierarchOrbLB::getOtherIdlePes() {
+  vector<int> idlepeswithin;
+  int nsize = CkNodeSize(CkMyNode());
+  for (int i = 0; i < nsize; i++) {
+    if (CpvAccessOther(tpCGDoneH, i) == 1 && (CkNodeFirst(CkMyNode()) + i)!=CkMyPe()) {
+      idlepeswithin.push_back(CkNodeFirst(CkMyNode()) + i);
+    }
+  }
+  return idlepeswithin;
+} 
 #include "HierarchOrbLB.def.h"

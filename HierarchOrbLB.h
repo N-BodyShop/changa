@@ -9,8 +9,11 @@
 #include "HybridBaseLB.h"
 
 #include "CentralLB.h"
+#include <vector>
 
 void CreateHierarchOrbLB();
+
+using std::vector;
 
 class HierarchOrbLB : public HybridBaseLB
 {
@@ -18,6 +21,10 @@ public:
   HierarchOrbLB(const CkLBOptions &);
   HierarchOrbLB(CkMigrateMessage *m): HybridBaseLB(m) {init();}
   ~HierarchOrbLB();
+  void clearPeLoad();
+  void addTpCount();
+  vector<int> getOtherIdlePes();
+  void tpDoneGravity();
 
 protected:
   CentralLB *orblb;
@@ -35,6 +42,8 @@ protected:
 
 private:
   CProxy_HierarchOrbLB  thisProxy;
+  int tpscount;
+  int tpsdonecg;
 
 };
 
