@@ -42,9 +42,9 @@ void MultistepLB_notopo::receiveCentroids(CkReductionMsg *msg){
 
 
 
-CmiBool MultistepLB_notopo::QueryBalanceNow(int step){
+bool MultistepLB_notopo::QueryBalanceNow(int step){
  if(CkMyPe() == 0) CkPrintf("Orb3dLB_notopo: Step %d\n", step);
-  if(step == 0) return false;
+ //  if(step == 0) return false;
   return true;
 
 }
@@ -68,10 +68,6 @@ void MultistepLB_notopo::mergeInstrumentedData(int phase, BaseLB::LDStats *stats
   int whichPos;
   int numAdditional;
 
-  // tune alpha as needed - this is the merge parameter
-  double alpha = 0.0;
-  double savedWall;
-  
   if(phase == -1){
 #ifdef MCLBMSV
     CkPrintf("phase = -1, discarding\n");
@@ -101,17 +97,6 @@ void MultistepLB_notopo::mergeInstrumentedData(int phase, BaseLB::LDStats *stats
 	  }
       }
       
-  // Attribute background load to pieces.
-  float *tp_bg = new float[stats->count];
-  for(int i = 0; i < stats->count; i++){
-      if(stats->procs[i].n_objs != 0)
-	  tp_bg[stats->procs[i].pe] = stats->procs[i].bg_walltime
-	      /stats->procs[i].n_objs;
-      }
-  for(int i = 0; i < stats->n_objs; i++)
-      stats->objData[i].wallTime += tp_bg[stats->from_proc[i]];
-  delete[] tp_bg;
-
   len = savedPhaseStats.length();
   
   if(phase > len-1){
@@ -210,6 +195,26 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
     LDObjHandle &handle = tpCentroids[i].handle;
     tpCentroids[i].tag = stats->getHash(handle.id, handle.omhandle.id);
   }
+  if(_lb_args.debug() >= 2 && step() > 0) {
+      // Write out "particle file" of measured load balance information
+      char achFileName[1024];
+      sprintf(achFileName, "lb_a.%d.sim", step()-1);
+      FILE *fp = fopen(achFileName, "w");
+      CkAssert(fp != NULL);
+      fprintf(fp, "%d %d 0\n", stats->n_objs, stats->n_objs);
+      for(int i = 0; i < stats->n_objs; i++) {
+	  CkAssert(tpCentroids[i].tag < stats->n_objs);
+	  CkAssert(tpCentroids[i].tag >= 0);
+	  fprintf(fp, "%g %g %g %g 0.0 0.0 0.0 %d %d\n",
+		  stats->objData[tpCentroids[i].tag].wallTime,
+		  tpCentroids[i].vec.x,
+		  tpCentroids[i].vec.y,
+		  tpCentroids[i].vec.z,
+		  stats->from_proc[tpCentroids[i].tag],
+		  tpCentroids[i].tp);
+	  }
+      fclose(fp);
+      }
   int phase = determinePhase(tpCentroids[0].activeRung);
   int prevPhase = tpCentroids[0].prevActiveRung;
   float *ratios = new float[stats->n_objs];
@@ -274,42 +279,6 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
   	CkPrintf("Migrating all: numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects, numInactiveObjects);
 	}
 
-  // get load information for this phase, if possible
-  // after this, stats->objData[] is indexed by tree piece
-  // index since we are copying data from savedPhaseStats,
-  // which was written into using tree piece indices
-  if(havePhaseData(phase)){
-#ifdef MCLBMSV
-    CkPrintf("phase %d data available\n", phase);
-#endif
-    CkPrintf("phase %d data available\n", phase);
-    for(int i = 0; i < stats->n_objs; i++){
-      int tp = tpCentroids[i].tp;
-      int lb = tpCentroids[i].tag;
-      stats->objData[lb].wallTime = savedPhaseStats[phase].objData[tp].wallTime;
-    }
-  }
-  else if(havePhaseData(0)){
-#ifdef MCLBMSV
-    CkPrintf("phase %d data unavailable, using phase 0 loads\n", phase);
-#endif
-    CkPrintf("phase %d data unavailable, using phase 0 loads\n", phase);
-    //CkPrintf("using phase 0 loads\n", phase);
-    for(int i = 0; i < stats->n_objs; i++){
-      int tp = tpCentroids[i].tp;
-      int lb = tpCentroids[i].tag;
-      stats->objData[lb].wallTime = ratios[tp]*savedPhaseStats[0].objData[tp].wallTime;
-    }
-  }
-  else{
-#ifdef MCLBMSV
-    CkPrintf("phase %d data unavailable\n", phase);
-#endif
-    CkPrintf("phase %d data unavailable\n", phase);
-    delete[] ratios;
-    return;
-  }
-
   /*
   CkPrintf("**********************************************\n");
   CkPrintf("Object load predictions phase %d\n", phase);
@@ -361,7 +330,6 @@ void MultistepLB_notopo::greedy(BaseLB::LDStats *stats, int count, int phase, in
   TPObject *tp_array = new TPObject[nmig];
   int j = 0;
   for(int i = 0; i < stats->n_objs; i++){
-    int tp = tpCentroids[i].tag;
     int lb = tpCentroids[i].tag;
 
     if(!stats->objData[lb].migratable) continue;
@@ -439,7 +407,7 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
   // there are as many entries in it as there are
   // migratable (active) tree pieces
  vector<OrbObject> tp_array;
- tp_array.reserve(nmig);
+ tp_array.resize(nmig);
 
   if (_lb_args.debug()>=2) {
     CkPrintf("[work2] ready tp_array data structure\n");
@@ -455,7 +423,6 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
   int numProcessed = 0;
 
   for(int i = 0; i < numobjs; i++){
-    int tp = tpCentroids[i].tp;
     int lb = tpCentroids[i].tag;
 
 
@@ -488,6 +455,27 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count, int phase, int
   orbPartition(tpEvents,box,stats->count,tp_array, stats);
 
   refine(stats, numobjs);
+
+  if(_lb_args.debug() >= 2) {
+      // Write out "particle file" of load balance information
+      char achFileName[1024];
+      sprintf(achFileName, "lb.%d.sim", step());
+      FILE *fp = fopen(achFileName, "w");
+      CkAssert(fp != NULL);
+      fprintf(fp, "%d %d 0\n", nrecvd, nrecvd);
+      for(int i = 0; i < nrecvd; i++) {
+	  CkAssert(tpCentroids[i].tag < numobjs);
+	  CkAssert(tpCentroids[i].tag >= 0);
+	  fprintf(fp, "%g %g %g %g 0.0 0.0 0.0 %d %d\n",
+		  stats->objData[tpCentroids[i].tag].wallTime,
+		  tpCentroids[i].vec.x,
+		  tpCentroids[i].vec.y,
+		  tpCentroids[i].vec.z,
+		  stats->to_proc[tpCentroids[i].tag],
+		  tpCentroids[i].tp);
+	  }
+      fclose(fp);
+      }
 }
 
 

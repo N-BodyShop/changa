@@ -209,10 +209,11 @@ public:
 
         double interMass;
 	
-	GravityParticle(SFC::Key k = 0) : ExternalGravityParticle() {
-          key = k;
-          rung = 0;
-        }
+        GravityParticle(SFC::Key k) : ExternalGravityParticle() {
+            key = k;
+            }
+        GravityParticle() : ExternalGravityParticle() {
+            }
 
 	/// @brief Used to sort the particles into tree order.
 	inline bool operator<(const GravityParticle& p) const {

@@ -96,6 +96,8 @@ typedef struct parameters {
     Fdbk *feedback;
     int iRandomSeed;
     int bStandard;
+    int bDoublePos;
+    int bDoubleVel;
     int bOverwrite;
     int bParaRead;
     int bParaWrite;
@@ -202,6 +204,8 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.feedback;
     p|param.iRandomSeed;
     p|param.bStandard;
+    p|param.bDoublePos;
+    p|param.bDoubleVel;
     p|param.bOverwrite;
     p|param.bParaRead;
     p|param.bParaWrite;

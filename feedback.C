@@ -56,11 +56,14 @@ void Fdbk::AddParams(PRM prm)
     nSmoothFeedback = 64;
     prmAddParam(prm,"nSmoothFeedback", paramInt,&nSmoothFeedback, sizeof(int),
 		"s", "<number of particles to smooth feedback over> = 64");
+    dMaxCoolShutoff = 3.0e7;
+    prmAddParam(prm,"dMaxCoolShutoff", paramDouble, &dMaxCoolShutoff,
+		sizeof(double), "fbMaxCoolOff",
+		"<Maximum time to shutoff cooling in years> = 3e7");
 }
 
 void Fdbk::CheckParams(PRM prm, struct parameters &param)
 {
-    delete imf;
     if(strcmp(achIMF, "MillerScalo") == 0) imf = new MillerScalo();
     else if(strcmp(achIMF, "Chabrier") == 0) imf = new Chabrier();
     else if(strcmp(achIMF, "Kroupa93") == 0) imf = new Kroupa93();
@@ -109,7 +112,7 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
 	    pow(MSOLG*param.dMsolUnit/(param.dMeanMolWeight*MHYDR*pow(KPCCM*param.dKpcUnit,3)),0.32)*
 	    pow(0.0001*GCGS*pow(MSOLG*param.dMsolUnit,2)/(pow(KPCCM*param.dKpcUnit,4)*KBOLTZ),-0.70);
 	}
-    
+    dMaxCoolShutoff *= SECONDSPERYEAR/param.dSecUnit;
     }
 
 ///
@@ -143,16 +146,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
     
     if(verbosity)
       CkPrintf("Distribute Stellar Feedback ... ");
-    // particles need sorting before tree build when star formation
-    // not enabled
-    if(!param.bStarForm) {
-	double tolerance = 0.01;    // tolerance for domain decomposition
-	sorter.startSorting(dataManagerID, tolerance,
-			    CkCallbackResumeThread(), true);
-	}
     // Need to build tree since we just did addDelParticle.
-    // XXX need to check whether a treebuild needs the domain
-    // decomposition.  If not, this could be avoided.
     //
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
     DistStellarFeedbackSmoothParams pDSFB(TYPE_GAS, 0, param.csm, dTime, 
@@ -445,9 +439,11 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
     GravityParticle *q;
     double fNorm,ih2,r2,rs,rstot,fNorm_u,fNorm_Pres,fAveDens;
     int i,counter;
+    int nHeavy = 0;
     
     if ( p->fMSN() == 0.0 ){return;} /* Is there any feedback mass? */
     CkAssert(TYPETest(p, TYPE_STAR));
+    CkAssert(nSmooth > 0);
     ih2 = invH2(p);
     rstot = 0.0;  
     fNorm_u = 0.0;
@@ -461,6 +457,7 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
 	rs = KERNEL(r2);
 	q = nList[i].p;
 	if(q->mass > fb.dMaxGasMass) {
+	    nHeavy++;
 	    continue; /* Skip heavy particles */
 	    }
 	fNorm_u += q->mass*rs;
@@ -469,10 +466,13 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
 	fAveDens += q->mass*rs;
 	fNorm_Pres += q->mass*q->uPred()*rs;
 	}
+    if(fNorm_u == 0.0) {
+        CkError("Got %d heavies: no feedback\n", nHeavy);
+	}
+	    
     CkAssert(fNorm_u > 0.0);  	/* be sure we have at least one neighbor */
     fNorm_Pres *= (gamma-1.0);
     
-    assert(fNorm_u != 0.0);
     fNorm_u = 1./fNorm_u;
     counter=0;
     for (i=0;i<nSmooth;++i) {
@@ -566,6 +566,9 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
     /* Shut off cooling for 3 Myr for stellar wind */
     if (p->fNSN() < fb.sn.iNSNIIQuantum)
 	fShutoffTime= 3e6 * SECONDSPERYEAR / fb.dSecUnit;
+    /* Limit cooling shutoff time */
+    if(fShutoffTime > fb.dMaxCoolShutoff)
+        fShutoffTime = fb.dMaxCoolShutoff;
     
     fmind = p->fBall*p->fBall;
     imind = 0;

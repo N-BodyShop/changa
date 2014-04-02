@@ -95,6 +95,9 @@ enum DomainsDec {
     ORB_space_dec=6		// Bisect space
 };
 
+/// tolerance for unequal pieces in SFC based decompositions.
+const double ddTolerance = 0.1;
+
 inline void operator|(PUP::er &p,DomainsDec &d) {
   int di;
   if (p.isUnpacking()) {
@@ -250,28 +253,6 @@ class TreePieceStatistics {
   }
 };
 
-/********************************************
-class piecedata : public CMessage_piecedata {
-public:
-	int CellInteractions;
-	int ParticleInteractions;
-	int MACChecks;
-	double totalmass;
-	CkCallback cb;
-
-	piecedata():CellInteractions(0),ParticleInteractions(0),MACChecks(0),totalmass(0.0) { }
-	void modifypiecedata(int cell,int particle,int mac,double mass){
-		CellInteractions += cell;
-		ParticleInteractions += particle;
-		MACChecks += mac;
-		totalmass += mass;
-	}
-	void reset(){ CellInteractions=0;ParticleInteractions=0;MACChecks=0;totalmass=0.0; }
-	void setcallback(CkCallback& cback) { cb = cback; }
-	CkCallback& getcallback() { return cb; }
-};
-********************************************/
-
 class ComputeChunkMsg : public CMessage_ComputeChunkMsg {
   ComputeChunkMsg() {} // not available
  public:
@@ -304,15 +285,18 @@ public:
 /// Message for shuffling particles during domain decomposition
 class ParticleShuffleMsg : public CMessage_ParticleShuffleMsg{
 public:
+    int nloads;
     int n;
     int nSPH;
     int nStar;
     double load;
+    double *loads;
+    unsigned int *parts_per_phase;
     GravityParticle *particles;
     extraSPHData *pGas;
     extraStarData *pStar;
-    ParticleShuffleMsg(int npart, int nsph, int nstar, double pload): n(npart),
-	nSPH(nsph), nStar(nstar), load(pload) {}
+    ParticleShuffleMsg(int nload, int npart, int nsph, int nstar, double pload): 
+      nloads(nload), n(npart), nSPH(nsph), nStar(nstar), load(pload) {}
 };
 
 #ifdef PUSH_GRAVITY
@@ -403,6 +387,9 @@ inline double RungToDt(double dDelta, int iRung) {
   return dDelta*RungToSubsteps(iRung)*MAXSUBSTEPS_INV;
 }
 
+/// @brief slot in MultistepLB to hold feedback phase load information
+const int PHASE_FEEDBACK = MAXRUNG + 1;
+
 /// @brief Overall flow control of the simulation.
 ///
 /// As well as controlling the overall flow of the simulation, the
@@ -485,6 +472,7 @@ public:
 	void initialForces();
 	void doSimulation();
 	void restart();
+	void waitForGravity(const CkCallback &cb, double startTime);
         void advanceBigStep(int);
 	int adjust(int iKickRung);
 	void rungStats();
@@ -501,6 +489,7 @@ public:
 	void initCooling();
 	void initStarLog();
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
+        void restartGas();
 	void doSph(int activeRung, int bNeedDensity = 1);
 	void FormStars(double dTime, double dDelta);
 	void StellarFeedback(double dTime, double dDelta);
@@ -633,6 +622,7 @@ class TreePiece : public CBase_TreePiece {
    friend class RemoteTreeBuilder; 
    friend class LocalTreeBuilder; 
 
+   /// @brief Walk for gravity prefetch
    TreeWalk *sTopDown;
    TreeWalk *twSmooth;
 #if INTERLIST_VER > 0
@@ -662,6 +652,13 @@ class TreePiece : public CBase_TreePiece {
    
    double treePieceLoad; // used to store CPU load data for incoming particles
    double treePieceLoadTmp; // temporary accumulator for above
+   double treePieceLoadExp;
+   unsigned int treePieceActivePartsTmp;
+   std::vector<double> savedPhaseLoad;
+   std::vector<unsigned int> savedPhaseParticle;
+   std::vector<double> savedPhaseLoadTmp;
+   std::vector<unsigned int> savedPhaseParticleTmp;
+
    int memWithCache, memPostCache;  // store memory usage.
    int nNodeCacheEntries, nPartCacheEntries;  // store memory usage.
 
@@ -708,18 +705,22 @@ class TreePiece : public CBase_TreePiece {
     return localIndex;
   }
 
+  /// @brief accumulate node interaction count for statistics
   void addToNodeInterRemote(int chunk, int howmany){
     nodeInterRemote[chunk] += howmany;
   }
 
+  /// @brief accumulate particle interaction count for statistics
   void addToParticleInterRemote(int chunk, int howmany){
     particleInterRemote[chunk] += howmany;
   }
 
+  /// @brief accumulate node interaction count for statistics
   void addToNodeInterLocal(int howmany){
     nodeInterLocal += howmany;
   }
 
+  /// @brief accumulate particle interaction count for statistics
   void addToParticleInterLocal(int howmany){
     particleInterLocal += howmany;
   }
@@ -915,10 +916,10 @@ private:
         CkGroupID proxy;
         LBStrategy foundLB;
         // jetley - whether proxy is valid or not
-        CmiBool proxyValid;
+        bool proxyValid;
         // jetley - saved first internal node
         Vector3D<float> savedCentroid;
-        CmiBool proxySet;
+        bool proxySet;
         // jetley - multistep load balancing
         int prevLARung;
 
@@ -962,6 +963,8 @@ private:
 	int nStoreStar;
 	/// MaxIOrder for output
 	int64_t nMaxOrder;
+        /// Start particle for reading
+        int64_t nStartRead;
 	/// particle count for output
 	int myIOParticles;
 
@@ -998,7 +1001,7 @@ private:
           int localIndex;
 
 	//unsigned int numSplitters;
-	//SFC::Key* splitters;
+        //SFC::Key* splitters;
 	CProxy_TreePiece pieces;
 	/// A proxy to the DataManager.
 	//CProxy_DataManager dataManager; // unused...
@@ -1082,20 +1085,23 @@ private:
 	u_int64_t nodesOpenedRemote;
 	u_int64_t numOpenCriterionCalls;
 #endif
+	/// node interaction count for statistics
 	u_int64_t nodeInterLocal;
+	/// node interaction count for statistics
 	u_int64_t *nodeInterRemote;
+	/// particle interaction count for statistics
 	u_int64_t particleInterLocal;
+	/// particle interaction count for statistics
 	u_int64_t *particleInterRemote;
 
 	int nActive;		// number of particles that are active
 
 	/// Size of bucketList, total number of buckets present
 	unsigned int numBuckets;
-	/// Used to start the remote computation for a particular chunk for all
-	/// buckets, one after the other
-	//unsigned int currentRemote Bucket;
 #if INTERLIST_VER > 0
+	/// Completed buckets, remote gravity walk
 	int prevRemoteBucket;
+	/// Completed buckets, local gravity walk
 	int prevBucket;
 #endif
 	/// Used to start the Ewald computation for all buckets, one after the other
@@ -1271,13 +1277,14 @@ public:
  TreePiece() : pieces(thisArrayID), root(0), proxyValid(false),
 	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
 	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
-	  treePieceLoad(0.0), treePieceLoadTmp(0.0) {
+	  treePieceLoad(0.0), treePieceLoadTmp(0.0), treePieceLoadExp(0.0),
+    treePieceActivePartsTmp(0) {
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
 	  dm = NULL;
 	  foundLB = Null; 
 	  iterationNo=0;
-	  usesAtSync=CmiTrue;
+	  usesAtSync = true;
 	  pTreeNodes = NULL;
 	  bucketReqs=NULL;
 	  nCacheAccesses = 0;
@@ -1359,7 +1366,7 @@ public:
           proxyValid = false;
           proxySet = false;
 
-	  usesAtSync = CmiTrue;
+	  usesAtSync = true;
 	  //localCache = NULL;
 	  dm = NULL;
 	  bucketReqs = NULL;
@@ -1444,12 +1451,31 @@ public:
 	void initCoolingData(const CkCallback& cb);
 	// Scale velocities (needed to convert to canonical momenta for
 	// comoving coordinates.)
-	void velScale(double dScale);
+	void velScale(double dScale, const CkCallback& cb);
 
-	// Load from Tipsy file
+	/// @brief Load I.C. from Tipsy file
+        /// @param filename tipsy file
+        /// @param dTuFac conversion factor from temperature to
+        /// internal energy
+        /// @param bDoublePos Positions are in double precision
+        /// @param bDoubleVel Velocities are in double precision
 	void loadTipsy(const std::string& filename, const double dTuFac,
+                       const bool bDoublePos,
+                       const bool bDoubleVel,
 		       const CkCallback& cb);
 
+        void readIOrd(const std::string& filename, const CkCallback& cb);
+        void readIGasOrd(const std::string& filename, const CkCallback& cb);
+        void readESNrate(const std::string& filename, const CkCallback& cb);
+        void readOxMassFrac(const std::string& filename, const CkCallback& cb);
+        void readFeMassFrac(const std::string& filename, const CkCallback& cb);
+        void readMassForm(const std::string& filename, const CkCallback& cb);
+        void readCoolOnTime(const std::string& filename, const CkCallback& cb);
+        void readCoolArray0(const std::string& filename, const CkCallback& cb);
+        void readCoolArray1(const std::string& filename, const CkCallback& cb);
+        void readCoolArray2(const std::string& filename, const CkCallback& cb);
+        void readCoolArray3(const std::string& filename, const CkCallback& cb);
+        void RestartEnergy(double dTuFac, const CkCallback& cb);
         void findTotalMass(CkCallback &cb);
         void recvTotalMass(CkReductionMsg *msg);
 
@@ -1457,22 +1483,30 @@ public:
 	void writeTipsy(Tipsy::TipsyWriter& w,
 			const double dvFac, // scale velocities
 			const double duTFac, // convert temperature
+                        const bool bDoublePos,
+                        const bool bDoubleVel,
 			const int bCool);
 	// Find position in the file to start writing
 	void setupWrite(int iStage, u_int64_t iPrevOffset,
 			const std::string& filename, const double dTime,
 			const double dvFac, const double duTFac,
+                        const bool bDoublePos,
+                        const bool bDoubleVel,
 			const int bCool, const CkCallback& cb);
 	// control parallelism in the write
 	void parallelWrite(int iPass, const CkCallback& cb,
 			   const std::string& filename, const double dTime,
 			   const double dvFac, // scale velocities
 			   const double duTFac, // convert temperature
+                           const bool bDoublePos,
+                           const bool bDoubleVel,
 			   const int bCool);
 	// serial output
 	void serialWrite(u_int64_t iPrevOffset, const std::string& filename,
 			 const double dTime,
 			 const double dvFac, const double duTFac,
+                         const bool bDoublePos,
+                         const bool bDoubleVel,
 			 const int bCool, const CkCallback& cb);
 	// setup for serial output
 	void oneNodeWrite(int iIndex,
@@ -1491,6 +1525,8 @@ public:
 			       const double dvFac,  // velocity conversion
 			     const double duTFac, // temperature
 						  // conversion
+                           const bool bDoublePos,
+                           const bool bDoubleVel,
 			  const int bCool,
 			  const CkCallback &cb);
 	// Reorder for output
@@ -1563,6 +1599,7 @@ public:
   void countActive(int activeRung, const CkCallback& cb);
   void emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
 		       const CkCallback &cb);
+  void assignDomain(const CkCallback& cb);
   void calcEnergy(const CkCallback& cb);
   /// add new particle
   void newParticle(GravityParticle *p);
@@ -1630,8 +1667,10 @@ public:
 	/// Entry point for the local computation: for each bucket compute the
 	/// force that its particles see due to the other particles hosted in
 	/// this TreePiece. The opening angle theta has already been passed
-	/// through startGravity()
+	/// through startGravity().  This function just calls doAllBuckets().
 	void calculateGravityLocal();
+	/// Do some minor preparation for the local walkk then
+	/// calculateGravityLocal().
 	void commenceCalculateGravityLocal();
 
 	/// Entry point for the remote computation: for each bucket compute the
@@ -1659,7 +1698,7 @@ public:
 #endif
 #endif
 
-  /// Start a tree based gravity computation.
+  /// @brief Start a tree based gravity computation.
   /// @param am the active rung for the computation
   /// @param theta the opening angle
   /// @param cb the callback to use after all the computation has finished
@@ -1697,8 +1736,6 @@ public:
 	*/
 #if 0
 	void receiveNode(GenericTreeNode &node, int chunk, unsigned int reqID);
-	/// Just and inline version of receiveNode
-	void receiveNode_inline(GenericTreeNode &node, int chunk, unsigned int reqID);
 #endif
 	/// @brief Find the key in the KeyTable, and copy the node over the passed pointer
 	const GenericTreeNode* lookupNode(Tree::NodeKey key);
@@ -1735,6 +1772,11 @@ public:
 
 	//void startlb(CkCallback &cb);
 	void startlb(CkCallback &cb, int activeRung);
+  void populateSavedPhaseData(int phase, double tpload, unsigned int activeparts);
+  bool havePhaseData(int phase);
+  void savePhaseData(std::vector<double> &loads, std::vector<unsigned int>
+    &parts_per_phase, double* shuffleloads, unsigned int *shuffleparts,
+    int shufflelen);
 	void ResumeFromSync();
 
 	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
@@ -1742,6 +1784,33 @@ public:
 			 const CkCallback& cb);
 	void outputIntASCII(OutputIntParams& params, int bParaWrite,
 			 const CkCallback& cb);
+        void oneNodeOutNCVec(OutputParams& params,
+                            Vector3D<float>* avOutGas, // array to be output
+                            Vector3D<float>* avOutDark, // array to be output
+                            Vector3D<float>* avOutStar, // array to be output
+                            int nGas, // number of elements in avOut
+                            int nDark, // number of elements in avOut
+                            int nStar, // number of elements in avOut
+                            int iIndex, // treepiece which called me
+                            CkCallback& cb) ;
+        void oneNodeOutNCArr(OutputParams& params,
+                                float* afOutGas, // array to be output
+                                float* afOutDark, // array to be output
+                                float* afOutStar, // array to be output
+                                int nGas, // number of elements in avOut
+                                int nDark, // number of elements in avOut
+                                int nStar, // number of elements in avOut
+                                int iIndex, // treepiece which called me
+                                CkCallback& cb) ;
+        void oneNodeOutNCInt(OutputIntParams& params,
+                                int* aiOutGas, // array to be output
+                                int* aiOutDark, // array to be output
+                                int* aiOutStar, // array to be output
+                                int nGas, // number of elements in avOut
+                                int nDark, // number of elements in avOut
+                                int nStar, // number of elements in avOut
+                                int iIndex, // treepiece which called me
+                                CkCallback& cb) ;
 	void oneNodeOutVec(OutputParams& params, Vector3D<double>* avOut,
 			   int nPart, int iIndex, int bDone,
 			   CkCallback& cb) ;
@@ -1758,17 +1827,21 @@ public:
 	void oneNodeOutBinArr(OutputParams& params, float* adOut,
 			      int nPart, int iIndex, int bDone,
 			      CkCallback& cb) ;
-	void outputIOrderBinary(const std::string& suffix, const CkCallback& cb);
+        void outputIntBinary(OutputIntParams& params, int bParaWrite,
+                             const CkCallback& cb);
+        void oneNodeOutBinInt(OutputIntParams& params, int *aiOut,
+                              int nPart, int iIndex, CkCallback& cb) ;
 
 	void outputStatistics(const CkCallback& cb);
 	/// Collect the total statistics from the various chares
 	void collectStatistics(CkCallback &cb);
-	//void getPieceValues(piecedata *totaldata);
 
         /** @brief Entry method used to split the processing of all the buckets
          * in small pieces. It calls startNextBucket() _yieldPeriod number of
          * times, and then it returns to the scheduler after enqueuing a message
-         * for itself.
+         * for itself.  After each startNextBucket() call, the state
+         * is checked for completed walks (and forces calculated, and
+         * finishBucket() is called to clean up.
 	 */
         void nextBucket(dummyMsg *m);
 
@@ -1866,6 +1939,7 @@ class ReductionHelper : public CBase_ReductionHelper {
   void countTreePieces(const CkCallback &cb);
   void reduceBinCounts(int nBins, int *binCounts, const CkCallback &cb);
   void evaluateBoundaries(SFC::Key *keys, const int n, int isRefine, const CkCallback& cb);
+  void evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb);
 
   private:
   void senseLocalTreePieces();
@@ -1876,6 +1950,7 @@ class ReductionHelper : public CBase_ReductionHelper {
   int numTreePiecesCheckedIn;
 
   TreePieceCounter localTreePieces;
+  std::vector<SFC::Key> splitters;
 };
 #endif
 
