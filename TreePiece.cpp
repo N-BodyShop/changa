@@ -4313,12 +4313,11 @@ void TreePiece::recvTotalMass(CkReductionMsg *msg){
 /// gravity walk.
 
 void TreePiece::startGravity(int am, // the active mask for multistepping
-			       double myTheta, // opening criterion
-			       const CkCallback& cb) {
+                             double myTheta // opening criterion
+			     ) {
   LBTurnInstrumentOn();
   iterationNo++;
 
-  cbGravity = cb;
   activeRung = am;
   theta = myTheta;
   thetaMono = theta*theta*theta*theta;
@@ -6040,7 +6039,7 @@ void TreePiece::finishWalk()
   
 #endif
 
-  gravityProxy[thisIndex].ckLocal()->contribute(cbGravity);
+  aggregator.ckLocalBranch()->done();
 }
 
 #if INTERLIST_VER > 0

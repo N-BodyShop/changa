@@ -40,6 +40,7 @@
 #include "starform.h"
 #include "feedback.h"
 
+#include "TopoManager.h"
 #include "PETreeMerger.h"
 
 #ifdef CUDA
@@ -57,6 +58,10 @@ CProxy_Main mainChare;
 int verbosity;
 int bVDetails;
 CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
+
+CProxy_ArrayMeshStreamer<CkCacheRequest, int, TreePiece, SimpleMeshRouter> aggregator;
+CProxy_CompletionDetector detector;
+
 #ifdef REDUCTION_HELPER
 CProxy_ReductionHelper reductionHelperProxy;
 #endif
@@ -1080,6 +1085,16 @@ Main::Main(CkArgMsg* m) {
         prjgrp = CProxy_ProjectionsControl::ckNew();
 
 	treeProxy = pieces;
+
+        TopoManager tmgr;
+        const int numItemsPerBuffer = 256;
+        const int pesPerNode = tmgr.getDimNT();
+        int dims[] = {CkNumPes() / pesPerNode, pesPerNode};
+        int nDims = 2;
+        aggregator = CProxy_ArrayMeshStreamer<CkCacheRequest, int, TreePiece,
+                                              SimpleMeshRouter>::
+          ckNew(nDims, dims, treeProxy, numItemsPerBuffer, false, 10.0);
+        detector = CProxy_CompletionDetector::ckNew();
 #ifdef REDUCTION_HELPER
         reductionHelperProxy = CProxy_ReductionHelper::ckNew();
 #endif
@@ -1556,6 +1571,8 @@ void Main::advanceBigStep(int iStep) {
     CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
     CkCallback cbGravity(CkCallback::resumeThread);
+    aggregator.init(numTreePieces, CkCallbackResumeThread(),
+                    cbGravity, detector, INT_MIN, true);
 
     if(verbosity > 1)
 	memoryStats();
@@ -1583,7 +1600,7 @@ void Main::advanceBigStep(int iStep) {
             }
 	    else{ 
 #endif
-              treeProxy.startGravity(activeRung, theta, cbGravity);
+              treeProxy.startGravity(activeRung, theta);
 #ifdef PUSH_GRAVITY
             }
 #endif
@@ -1601,7 +1618,8 @@ void Main::advanceBigStep(int iStep) {
             }
 	    else{
 #endif
-              treeProxy.startGravity(activeRung, theta, CkCallbackResumeThread());
+              treeProxy.startGravity(activeRung, theta);
+              CkFreeMsg(cbGravity.thread_delay());
 #ifdef PUSH_GRAVITY
             }
 #endif
@@ -2140,6 +2158,8 @@ Main::initialForces()
 
       
   CkCallback cbGravity(CkCallback::resumeThread);  // needed below to wait for gravity
+  aggregator.init(numTreePieces, CkCallbackResumeThread(),
+                  cbGravity, detector, INT_MIN, true);
 
   if(param.bDoGravity) {
       updateSoft();
@@ -2157,14 +2177,15 @@ Main::initialForces()
       startTime = CkWallTimer();
       if(param.bConcurrentSph) {
 
-	  treeProxy.startGravity(0, theta, cbGravity);
+	  treeProxy.startGravity(0, theta);
 
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(cbGravity);
 #endif
 	  }
       else {
-	  treeProxy.startGravity(0, theta, CkCallbackResumeThread());
+	  treeProxy.startGravity(0, theta);
+          CkFreeMsg(cbGravity.thread_delay());
 
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
