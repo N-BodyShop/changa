@@ -2985,6 +2985,7 @@ void Main::emergencyAdjust(int iRung)
         CkPrintf("WARNING, %d particles needed emergency rung changes\n",
                  *nUnKicked);
         }
+    delete msg;
     }
 
 /**

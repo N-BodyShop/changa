@@ -1305,6 +1305,8 @@ void TreePiece::emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
             }
         }
     contribute(sizeof(nUn), &nUn, CkReduction::sum_int, cb);
+#else
+    CkAbort("emergency adjust called without DTADJUST defined");
 #endif
     }
 
