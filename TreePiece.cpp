@@ -614,9 +614,9 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
     GravityParticle *binEnd;
     GravityParticle dummy;
 
-//    GravityParticle *interpolatedBound;
-//    GravityParticle *refinedLowerBound;
-//    GravityParticle *refinedUpperBound;
+    GravityParticle *interpolatedBound;
+    GravityParticle *refinedLowerBound;
+    GravityParticle *refinedUpperBound;
     //int binIter = 0;
     //vector<int>::iterator binIter = myBinCounts.begin();
     //vector<Key>::iterator keyIter = dm->boundaryKeys.begin();
@@ -632,32 +632,32 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
     }
     for( ; keyIter != endKeys; ++keyIter) {
       dummy.key = *keyIter;
-//      // try to guess a better upper bound
-//      ptrdiff_t remainingParticles = &myParticles[myNumParticles + 1] - binBegin;
-//      ptrdiff_t remainingBins = endKeys - keyIter;
-//      ptrdiff_t interpolationInterval = remainingParticles / remainingBins;
-//      ptrdiff_t scaledInterval =
-//        (ptrdiff_t) ( (double) interpolationInterval * 1.5);
-//      if (remainingParticles > scaledInterval) {
-//        interpolatedBound = binBegin + scaledInterval;
-//      }
-//      else {
-//        interpolatedBound = binBegin + interpolationInterval;
-//      }
-//
-//      if (interpolatedBound->key <= dummy.key) {
-//        refinedLowerBound = interpolatedBound;
-//        refinedUpperBound = &myParticles[myNumParticles + 1];
-//      }
-//      else {
-//        refinedLowerBound = binBegin;
-//        refinedUpperBound = interpolatedBound;
-//      }
+      // try to guess a better upper bound
+      ptrdiff_t remainingParticles = &myParticles[myNumParticles + 1] - binBegin;
+      ptrdiff_t remainingBins = endKeys - keyIter;
+      ptrdiff_t interpolationInterval = remainingParticles / remainingBins;
+      ptrdiff_t scaledInterval =
+        (ptrdiff_t) ( (double) interpolationInterval * 1.5);
+      if (remainingParticles > scaledInterval) {
+        interpolatedBound = binBegin + scaledInterval;
+      }
+      else {
+        interpolatedBound = binBegin + interpolationInterval;
+      }
+
+      if (interpolatedBound->key <= dummy.key) {
+        refinedLowerBound = interpolatedBound;
+        refinedUpperBound = &myParticles[myNumParticles + 1];
+      }
+      else {
+        refinedLowerBound = binBegin;
+        refinedUpperBound = interpolatedBound;
+      }
 
       /// find the last place I could put this splitter key in
       /// my array of particles
-      binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1], dummy);
-      //binEnd = upper_bound(refinedLowerBound, refinedUpperBound, dummy);
+      //binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1], dummy);
+      binEnd = upper_bound(refinedLowerBound, refinedUpperBound, dummy);
       /// this tells me the number of particles between the
       /// last two splitter keys
       if (skip != 0) {
@@ -999,6 +999,19 @@ void TreePiece::shuffleAfterQDSpecificOpt() {
     dm->particleCounts[myPlace] = incomingParticlesArrived;
   }
 
+  cnt_exp_nbor_msgs_ = 2;
+  // I am out of the responsible index range
+  if (myPlace == -2) {
+    cnt_exp_nbor_msgs_ = 0;
+  }
+  // I am the first one so I will get only from my right neighbor
+  if (myPlace == 0) {
+    cnt_exp_nbor_msgs_--;
+  }
+  // I am the last one so I will get only from my left neighbor
+  if (myPlace == (dm->responsibleIndex.size()-1)) {
+    cnt_exp_nbor_msgs_--;
+  }
 
   // The following assert does not work anymore when TreePieces can
   //have 0 particles assigned
@@ -1254,6 +1267,20 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
     //assign my bounding keys
     leftSplitter = dm->boundaryKeys[myPlace];
     rightSplitter = dm->boundaryKeys[myPlace + 1];
+  }
+
+  cnt_exp_nbor_msgs_ = 2;
+  // I am out of the responsible index range
+  if (myPlace == -2) {
+    cnt_exp_nbor_msgs_ = 0;
+  }
+  // I am the first one so I will get only from my right neighbor
+  if (myPlace == 0) {
+    cnt_exp_nbor_msgs_--;
+  }
+  // I am the last one so I will get only from my left neighbor
+  if (myPlace == (dm->responsibleIndex.size()-1)) {
+    cnt_exp_nbor_msgs_--;
   }
 
   // CkPrintf("[%d] myplace %d\n", thisIndex, myPlace);
@@ -2441,10 +2468,27 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
 #endif
       bounds[0] = myParticles[1].key;
       bounds[1] = myParticles[myNumParticles].key;
+      int myPlace;
+      if (dm == NULL)
+        dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+      myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(),
+          thisIndex) - dm->responsibleIndex.begin();
+      if (myPlace == dm->responsibleIndex.size()) myPlace = -2;
+
+
+      //CkPrintf("[%d] bounds %llx - %llx\n", thisIndex, bounds[0], bounds[1]);
+      if (myPlace != -2) {
+        if (myPlace != 0) {
+          thisProxy[dm->responsibleIndex[myPlace-1]].recvRightBoundary(bounds[0]);
+        }
+        if (myPlace != (dm->responsibleIndex.size()-1)) { 
+          thisProxy[dm->responsibleIndex[myPlace+1]].recvLeftBoundary(bounds[1]);
+        }
+      }
 
       //CkPrintf("[%d] bounds %llx - %llx\n", thisIndex, bounds[0], bounds[1]);
 
-      contribute(2 * sizeof(Key), bounds, CkReduction::concat, CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
+      //contribute(2 * sizeof(Key), bounds, CkReduction::concat, CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
     } else {
       // No particles assigned to this TreePiece
       contribute(0, NULL, CkReduction::concat, CkCallback(CkIndex_DataManager::collectSplitters(0), CProxy_DataManager(dataManagerID)));
@@ -2454,6 +2498,42 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
     // WARNING: ORB trees do not allow TreePieces to have 0 particles!
     contribute(CkCallback(CkIndex_TreePiece::startORBTreeBuild(0), thisArrayID));
     break;
+  }
+}
+
+void TreePiece::recvRightBoundary(SFC::Key key) {
+  myParticles[myNumParticles+1].key = key;
+  if (cnt_exp_nbor_msgs_ <= 0) {
+    CkPrintf("[%d] TP %d has recvRightBoundary cnt_exp_nbor_msgs_ %d\n", CkMyPe(), thisIndex,
+    cnt_exp_nbor_msgs_);
+    CkAbort("cnt_exp_nbor_msgs_ not set\n");
+  }
+
+  cnt_exp_nbor_msgs_--;
+  if (cnt_exp_nbor_msgs_ == 0) {
+    contribute(0, NULL, CkReduction::nop,
+      CkCallback(CkIndex_TreePiece::recvdBoundaries(0), thisProxy));
+  }
+}
+
+void TreePiece::recvLeftBoundary(SFC::Key key) {
+  myParticles[0].key = key;
+  if (cnt_exp_nbor_msgs_ <= 0) {
+    CkPrintf("[%d] TP %d has recvLeftBoundary cnt_exp_nbor_msgs_ %d\n", CkMyPe(), thisIndex,
+    cnt_exp_nbor_msgs_);
+    CkAbort("cnt_exp_nbor_msgs_ not set\n");
+  }
+  cnt_exp_nbor_msgs_--;
+  if (cnt_exp_nbor_msgs_ == 0) {
+    contribute(0, NULL, CkReduction::nop,
+      CkCallback(CkIndex_TreePiece::recvdBoundaries(0), thisProxy));
+  }
+}
+
+void TreePiece::recvdBoundaries(CkReductionMsg* m) {
+  delete m;
+  if (cnt_exp_nbor_msgs_ == 0) {
+    startOctTreeBuild(NULL);
   }
 }
 
@@ -2609,7 +2689,9 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
       for (int i=0; i<l->length(); ++i) {
           CkEntryOptions opts;
           opts.setPriority((unsigned int) -100000000);
-	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
+	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(),
+      node->firstParticle, node->particleCount, thisIndex, node->moments, 
+      node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
 	//CkPrintf("[%d] sending moments of %s to %d upon treebuild finished\n",thisIndex,keyBits(node->getKey(),63).c_str(),(*l)[i]);
       }
       delete l;
@@ -2814,6 +2896,10 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
     return;
   }
 
+  if (cnt_exp_nbor_msgs_ > 0) {
+    return;
+  }
+
   if (dm == NULL) {
       dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
   }
@@ -2840,17 +2926,18 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   // neighboring pieces, i.e. the nearest particles that are not in
   // this treepiece.
   myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
-  if(myPlace == 0)
+  if (myPlace == 0) {
     myParticles[0].key = firstPossibleKey;
-  else {
-    myParticles[0].key = dm->splitters[2 * myPlace - 1];
   }
-
-  if(myPlace == dm->responsibleIndex.size() - 1)
+  //else {
+  //  myParticles[0].key = dm->splitters[2 * myPlace - 1];
+  //}
+  if(myPlace == (dm->responsibleIndex.size() - 1)) {
     myParticles[myNumParticles + 1].key = lastPossibleKey;
-  else {
-    myParticles[myNumParticles + 1].key = dm->splitters[2 * myPlace + 2];
   }
+  //else {
+  //  myParticles[myNumParticles + 1].key = dm->splitters[2 * myPlace + 2];
+  //}
 
   CkAssert(myParticles[1].key >= myParticles[0].key);
   CkAssert(myParticles[myNumParticles + 1].key >= myParticles[myNumParticles].key);
@@ -2977,7 +3064,9 @@ void TreePiece::processRemoteRequestsForMoments(){
       for (int i=0; i<l->length(); ++i) {
           CkEntryOptions opts;
           opts.setPriority((unsigned int) -100000000);
-	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
+	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(),
+      node->firstParticle, node->particleCount, thisIndex, node->moments,
+      node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
 	  //CkPrintf("[%d] sending moments of %s to %d upon treebuild finished\n",thisIndex,keyBits(node->getKey(),63).c_str(),(*l)[i]);
       }
       delete l;
@@ -3085,10 +3174,57 @@ bool TreePiece::nodeOwnership(const Tree::NodeKey nkey, int &firstOwner, int &la
     firstKey &= ~mask;
     lastKey &= ~mask;
     lastKey -= 1;
-    Key *locLeft = lower_bound(dm->splitters, dm->splitters + dm->numSplitters, firstKey);
-    Key *locRight = upper_bound(locLeft, dm->splitters + dm->numSplitters, lastKey);
-    firstOwner = (locLeft - dm->splitters) >> 1;
-    lastOwner = (locRight - dm->splitters - 1) >> 1;
+    //Key *locLeft = lower_bound(dm->splitters, dm->splitters + dm->numSplitters, firstKey);
+    //Key *locRight = upper_bound(locLeft, dm->splitters + dm->numSplitters, lastKey);
+    //firstOwner = (locLeft - dm->splitters) >> 1;
+    //lastOwner = (locRight - dm->splitters - 1) >> 1;
+
+    vector<SFC::Key>::iterator locLeft1;
+    locLeft1 = lower_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(), firstKey);
+    
+    if (locLeft1 != dm->boundaryKeys.begin()) {
+      locLeft1--;
+    }
+
+    //vector<SFC::Key>::iterator locLeft2;
+    //for (locLeft2 = dm->boundaryKeys.begin(); locLeft2 < dm->boundaryKeys.end(); locLeft2++) {
+    //  if (*(locLeft2) >= firstKey) {
+    //    break;
+    //  }
+    //}
+    //if (locLeft2 != dm->boundaryKeys.begin()) {
+    //  locLeft2--;
+    //}
+    //if (locLeft1 != locLeft2) {
+    //  CkPrintf("locLeft1 pos %d != locLeft2 pos %d\n",
+    //  (locLeft1-dm->boundaryKeys.begin()), (locLeft2-dm->boundaryKeys.begin()));
+    //  CkAbort("loclLeft1 != locLeft2");
+    //}
+
+    vector<SFC::Key>::iterator locRight1;
+    locRight1 = lower_bound(locLeft1, dm->boundaryKeys.end(), lastKey);
+    if (locRight1 == dm->boundaryKeys.end()) {
+      locRight1--;
+    }
+
+    //vector<SFC::Key>::iterator locRight2;
+    //for (locRight2 = locLeft2; locRight2 < dm->boundaryKeys.end(); locRight2++) {
+    //  if (*(locRight2) >= lastKey) {
+    //    break;
+    //  }
+    //}
+    //if (locRight2 == dm->boundaryKeys.end()) {
+    //  locRight2--;
+    //}
+    //if (locRight1 != locRight2) {
+    //  CkPrintf("locRight1 pos %d != locRight2 pos %d\n",
+    //  (locRight1-dm->boundaryKeys.begin()), (locRight2-dm->boundaryKeys.begin()));
+    //  CkAbort("loclRight1 != locRight2");
+    //}
+
+    firstOwner = (locLeft1 - dm->boundaryKeys.begin());
+    lastOwner = (locRight1 - dm->boundaryKeys.begin() - 1);
+
 #if COSMO_PRINT > 1
     std::string str = keyBits(nkey,KeyBits);
     CkPrintf("[%d] NO: key=%s, first=%d, last=%d\n",thisIndex,str.c_str(),locLeft-dm->splitters,locRight-dm->splitters);
@@ -3269,16 +3405,65 @@ void TreePiece::growBottomUp(GenericTreeNode *node) {
 }
 #endif
 
+bool TreePiece::sendFillReqNodeWhenNull(CkCacheRequestMsg<KeyType> *msg) {
+  Tree::NodeKey key = msg->key;
+  KeyType firstKey = KeyType(key);
+  KeyType lastKey = KeyType(key + 1);
+  const KeyType mask = KeyType(1) << KeyBits;
+  while (! (firstKey & mask)) {
+    firstKey <<= 1;
+    lastKey <<= 1;
+  }
+  firstKey &= ~mask;
+  lastKey &= ~mask;
+  lastKey -= 1;
+  if (myParticles[myNumParticles].key < firstKey) {
+    streamingProxy[thisIndex+1].fillRequestNode(msg);
+    //CkPrintf("[%d] TP %d forwarding request to %d\n", CkMyPe(), thisIndex, thisIndex+1);
+    return true;
+  } 
+  if (myParticles[1].key > lastKey) {
+    streamingProxy[thisIndex-1].fillRequestNode(msg);
+    //CkPrintf("[%d] TP %d forwarding request to %d\n", CkMyPe(), thisIndex, thisIndex-1);
+    return true;
+  }
+  return false;
+}
+
+
 /// \brief entry method to obtain the moments of a node
 void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
   GenericTreeNode *node = keyToNode(key);
   if (node != NULL && (node->getType() == Empty || node->moments.totalMass > 0)) {
       CkEntryOptions opts;
       opts.setPriority((unsigned int) -100000000);
-      streamingProxy[sender].receiveRemoteMoments(key, node->getType(), node->firstParticle, node->particleCount, node->moments, node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
+      streamingProxy[sender].receiveRemoteMoments(key, node->getType(),
+      node->firstParticle, node->particleCount, thisIndex, node->moments,
+      node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
     //CkPrintf("[%d] sending moments of %s to %d directly\n",thisIndex,keyBits(node->getKey(),63).c_str(),sender);
+    return;
+  } 
+
+  // Check if this node is NULL and this TP range (last Particle < key firstKey)
+  // and if so send it to my right neighbor.
+  // If the TP first particle > key last key, then send it to my left neighbor.
+  Key firstKey = Key(key);
+  Key lastKey = Key(key + 1);
+  const Key mask = Key(1) << KeyBits;
+  while (! (firstKey & mask)) {
+    firstKey <<= 1;
+    lastKey <<= 1;
+  }
+  firstKey &= ~mask;
+  lastKey &= ~mask;
+  lastKey -= 1;
+
+  if (myParticles[myNumParticles].key < firstKey) {
+    streamingProxy[thisIndex+1].requestRemoteMoments(key, sender);
+  } else if (myParticles[1].key > lastKey) {
+    streamingProxy[thisIndex-1].requestRemoteMoments(key, sender);
   } else {
-      // Save request for when we've calculated the moment.
+    // Save request for when we've calculated the moment.
     CkVec<int> *l = momentRequests[key];
     if (l == NULL) {
       l = new CkVec<int>();
@@ -3295,6 +3480,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
 				     Tree::NodeType type,
 				     int firstParticle,
 				     int numParticles,
+             int remIdx,
 				     const MultipoleMoments& moments,
 				     const OrientedBox<double>& box,
 				     const OrientedBox<double>& boxBall,
@@ -3315,6 +3501,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
     node->boundingBox = box;
     node->bndBoxBall = boxBall;
     node->iParticleTypes = iParticleTypes;
+    node->remoteIndex = remIdx;
   }
 
 #ifdef MERGE_REMOTE_REQUESTS
@@ -3378,7 +3565,10 @@ GenericTreeNode *TreePiece::boundaryParentReady(GenericTreeNode *parent){
     for (int i=0; i<l->length(); ++i) {
       CkEntryOptions opts;
       opts.setPriority((unsigned int) -100000000);
-      streamingProxy[(*l)[i]].receiveRemoteMoments(parent->getKey(), parent->getType(), parent->firstParticle, parent->particleCount, parent->moments, parent->boundingBox, parent->bndBoxBall, parent->iParticleTypes, &opts);
+      streamingProxy[(*l)[i]].receiveRemoteMoments(parent->getKey(),
+        parent->getType(), parent->firstParticle, parent->particleCount,
+        thisIndex, parent->moments, parent->boundingBox, parent->bndBoxBall,
+        parent->iParticleTypes, &opts);
       //CkPrintf("[%d] sending moments of %s to %d\n",thisIndex,keyBits(parent->getKey(),63).c_str(),(*l)[i]);
     }
     delete l;
@@ -3437,7 +3627,7 @@ void TreePiece::deliverMomentsToClients(const std::map<NodeKey,NonLocalMomentsCl
 
   for(int i = 0; i < clients.length(); i++){
     MERGE_REMOTE_REQUESTS_VERBOSE("[%d] send %llu (%s) moments to %d\n", thisIndex, node->getKey(), typeString(node->getType()),clients[i].clientTreePiece->getIndex());
-    clients[i].clientTreePiece->receiveRemoteMoments(node->getKey(),node->getType(),node->firstParticle,node->particleCount,node->moments,node->boundingBox,node->bndBoxBall,node->iParticleTypes);
+    clients[i].clientTreePiece->receiveRemoteMoments(node->getKey(),node->getType(),node->firstParticle,node->particleCount,node->remoteIndex,node->moments,node->boundingBox,node->bndBoxBall,node->iParticleTypes);
   }
   clients.clear();
   nonLocalMomentsClients.erase(it);
@@ -5493,6 +5683,16 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   setObjTime(treePieceLoadExp);
   treePieceLoad = 0;
 
+  // Clear the tp counters
+  if(foundLB == Multistep_notopo){
+    MultistepLB_notopo* lbptr = (MultistepLB_notopo *)CkLocalBranch(proxy);
+    lbptr->clearPeLoad();
+  } else if (foundLB == HierarchOrb) {
+    HierarchOrbLB* lbptr = (HierarchOrbLB *)CkLocalBranch(proxy);
+    lbptr->clearPeLoad();
+  }
+
+
   /*
   CkPrintf("[%d] centroid %f %f %f\n", 
                       thisIndex,
@@ -5937,6 +6137,7 @@ void TreePiece::pup(PUP::er& p) {
   p | doDDCk;
   p | collected_all_spl_;
   p | lb_in_progress_;
+  p | cnt_exp_nbor_msgs_;
 
   if(p.isUnpacking()) {
       nStore = (int)((myNumParticles + 2)*(1.0 + dExtraStore));

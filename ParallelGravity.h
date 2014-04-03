@@ -956,6 +956,7 @@ private:
   int totalShuffleSize, totalShuffleSphSize, totalShuffleStarSize;
   bool doDDCk;
   bool lb_in_progress_;
+  int cnt_exp_nbor_msgs_;
   bool collected_all_spl_;
   ParticleShuffleMsg* myShuffleMsg;
 	/// Actual storage in the above array
@@ -1704,6 +1705,9 @@ public:
 	void startOctTreeBuild(CkReductionMsg* m);
 	void startOctTreeBuildOverlaped();
   void sendOffSplitters();
+  void recvRightBoundary(SFC::Key key);
+  void recvLeftBoundary(SFC::Key key);
+	void recvdBoundaries(CkReductionMsg* m);
 
   /********ORB Tree**********/
   //void receiveBoundingBoxes(BoundingBoxes *msg);
@@ -1712,9 +1716,11 @@ public:
   void buildORBTree(GenericTreeNode * node, int level);
   /**************************/
 
+	bool sendFillReqNodeWhenNull(CkCacheRequestMsg<KeyType> *msg);
 	/// Request the moments for this node.
 	void requestRemoteMoments(const Tree::NodeKey key, int sender);
-	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments, const OrientedBox<double>& box, const OrientedBox<double>& boxBall, const unsigned int iParticleTypes);
+	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int
+    firstParticle, int numParticles, int remIdx, const MultipoleMoments& moments, const OrientedBox<double>& box, const OrientedBox<double>& boxBall, const unsigned int iParticleTypes);
 
 	/// Entry point for the local computation: for each bucket compute the
 	/// force that its particles see due to the other particles hosted in

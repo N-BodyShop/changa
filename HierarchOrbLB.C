@@ -24,6 +24,8 @@ void HierarchOrbLB::init() {
   lbname = (char *)"HierarchOrbLB";
   thisProxy = CProxy_HierarchOrbLB(thisgroup);
 
+  tpscount = 0;
+  tpsdonecg = 0;
   CpvInitialize(int, tpCGDoneH );
   CpvAccess(tpCGDoneH) = 1;
 }
