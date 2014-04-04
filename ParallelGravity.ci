@@ -173,11 +173,9 @@ mainmodule ParallelGravity {
   group [migratable] ReductionHelper {
     entry ReductionHelper();
     entry void countTreePieces(CkCallback &cb);
-    entry void evaluateBoundaries(bool convertToLoad, int skipEvery, const CkCallback& cb);
-    entry [nokeep] void evaluateBoundaries(bool convertToLoad, SFC::Key keys[n], const int n, int skipEvery, const CkCallback& cb);
+    entry [nokeep] void evaluateBoundaries(bool convertToLoad, SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
 
-    entry [nokeep] void evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb);
-
+    entry void evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb);
   };
 #endif
 

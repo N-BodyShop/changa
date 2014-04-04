@@ -386,21 +386,11 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
       keys = &keyBoundaries; 
     }
 
-    if (dm.ckLocalBranch()->boundaryKeysValid()) {
-      if (decompose) {
-        boundariesTargetProxy.evaluateBoundaries(true, 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-      }
-      else {
-        boundariesTargetProxy.evaluateBoundaries(false, 0, CkCallback(CkIndex_Sorter::receiveParticleCounts(0), thishandle));
-      }
+    if (decompose) {
+      boundariesTargetProxy.evaluateBoundaries(true, &(*keys->begin()), keys->size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
     }
     else {
-      if (decompose) {
-        boundariesTargetProxy.evaluateBoundaries(true, &(*keys->begin()), keys->size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-      }
-      else {
-        boundariesTargetProxy.evaluateBoundaries(false, &(*keys->begin()), keys->size(), 0, CkCallback(CkIndex_Sorter::receiveParticleCounts(0), thishandle));
-      }
+      boundariesTargetProxy.evaluateBoundaries(false, &(*keys->begin()), keys->size(), 0, CkCallback(CkIndex_Sorter::receiveParticleCounts(0), thishandle));    
     }
   }
 

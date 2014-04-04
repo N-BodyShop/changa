@@ -521,14 +521,7 @@ void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg)
 }
 
 #ifdef REDUCTION_HELPER
-void ReductionHelper::evaluateBoundaries(bool convertToLoad, int skipEvery, const CkCallback& cb) {
-  DataManager *localDmObj = dMProxy.ckLocalBranch();
-  evaluateBoundaries(convertToLoad, &(localDmObj->boundaryKeys.front()), localDmObj->boundaryKeys.size(), skipEvery, cb);
-
-}
-
 void ReductionHelper::evaluateBoundaries(bool convertToLoad, SFC::Key* keys, const int n, int skipEvery, const CkCallback& cb){
-
   splitters.assign(keys, keys + n);
   if(localTreePieces.presentTreePieces.size() == 0){
     int numBins = skipEvery ? n - (n-1)/(skipEvery+1) - 1 : n - 1;
