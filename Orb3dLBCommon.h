@@ -105,11 +105,11 @@ class Orb3dCommon{
 
       // sum background load on each side of the processor split
       float bglprocs = 0.0;
-      for(int np = nextProc; np < nextProc + nlprocs; np++)
-        bglprocs += stats->procs[np].bg_walltime;
+      //for(int np = nextProc; np < nextProc + nlprocs; np++)
+      //  bglprocs += stats->procs[np].bg_walltime;
       float bgrprocs = 0.0;
-      for(int np = nextProc + nlprocs; np < nextProc + nlprocs + nrprocs; np++)
-        bgrprocs += stats->procs[np].bg_walltime;
+      //for(int np = nextProc + nlprocs; np < nextProc + nlprocs + nrprocs; np++)
+      //  bgrprocs += stats->procs[np].bg_walltime;
 
       ORB3DLB_NOTOPO_DEBUG("nlprocs %d nrprocs %d ratio %f\n", nlprocs, nrprocs, ratio);
 
@@ -119,6 +119,10 @@ class Orb3dCommon{
         ORB3DLB_NOTOPO_DEBUG("evenly split 0 load\n");
         splitIndex = splitIndex/2;
       }
+      //if  (splitIndex != numEvents/2) {
+      //  CkPrintf("[%d] nlprocs %d nrprocs %d ratio %f splitIndex %d numEvents %d bglprocs %f bgrprocs %f\n", CkMyPe(),
+      //  nlprocs, nrprocs, ratio, splitIndex, numEvents, bglprocs, bgrprocs);
+      //}
       int nleft = splitIndex;
       int nright = numEvents-nleft;
 
@@ -297,6 +301,8 @@ class Orb3dCommon{
       }
 
       double maxObjLoad = 0.0;
+      double avgObjLoad = 0.0;
+      double minObjLoad = 0.0;
       
       for(int i = 0; i < numobjs; i++){
         double ld = stats->objData[i].wallTime;
@@ -305,7 +311,11 @@ class Orb3dCommon{
         predCount[proc] += 1.0; 
         if(ld > maxObjLoad)
             maxObjLoad = ld;
+        if ((i==0) || ld < minObjLoad)
+          minObjLoad = ld;
+        avgObjLoad += ld;
       }
+      avgObjLoad /= numobjs;
 
       double minWall = 0.0;
       double maxWall = 0.0;
@@ -425,14 +435,14 @@ class Orb3dCommon{
 #endif
 
 
-      CkPrintf("Orb3dLB_notopo stats: maxObjLoad %f\n", maxObjLoad);
-      CkPrintf("Orb3dLB_notopo stats: minWall %f maxWall %f avgWall %f maxWall/avgWall %f\n", minWall, maxWall, avgWall, maxWall/avgWall);
-      CkPrintf("Orb3dLB_notopo stats: minIdle %f maxIdle %f avgIdle %f minIdle/avgIdle %f\n", minIdle, maxIdle, avgIdle, minIdle/avgIdle);
-      CkPrintf("Orb3dLB_notopo stats: minPred %f maxPred %f avgPred %f maxPred/avgPred %f\n", minPred, maxPred, avgPred, maxPred/avgPred);
-      CkPrintf("Orb3dLB_notopo stats: minPiece %f maxPiece %f avgPiece %f maxPiece/avgPiece %f\n", minPiece, maxPiece, avgPiece, maxPiece/avgPiece);
+      CkPrintf("[%d] Orb3dLB_notopo stats: minObjLoad %f maxObjLoad %f avgObjLoad\n", CkMyPe(), minObjLoad, maxObjLoad, avgObjLoad);
+      CkPrintf("[%d] Orb3dLB_notopo stats: minWall %f maxWall %f avgWall %f maxWall/avgWall %f\n", CkMyPe(), minWall, maxWall, avgWall, maxWall/avgWall);
+      CkPrintf("[%d] Orb3dLB_notopo stats: minIdle %f maxIdle %f avgIdle %f minIdle/avgIdle %f\n", CkMyPe(), minIdle, maxIdle, avgIdle, minIdle/avgIdle);
+      CkPrintf("[%d] Orb3dLB_notopo stats: minPred %f maxPred %f avgPred %f maxPred/avgPred %f\n", CkMyPe(), minPred, maxPred, avgPred, maxPred/avgPred);
+      CkPrintf("[%d] Orb3dLB_notopo stats: minPiece %f maxPiece %f avgPiece %f maxPiece/avgPiece %f\n", CkMyPe(), minPiece, maxPiece, avgPiece, maxPiece/avgPiece);
 
-      CkPrintf("Orb3dLB_notopo stats: minBg %f maxBg %f avgBg %f maxBg/avgBg %f\n", minBg, maxBg, avgBg, maxBg/avgBg);
-      CkPrintf("Orb3dLB_notopo stats: orb migrated %d refine migrated %d objects\n", migr, numRefineMigrated);
+      CkPrintf("[%d] Orb3dLB_notopo stats: minBg %f maxBg %f avgBg %f maxBg/avgBg %f\n", CkMyPe(), minBg, maxBg, avgBg, maxBg/avgBg);
+      CkPrintf("[%d] Orb3dLB_notopo stats: orb migrated %d refine migrated %d objects\n", CkMyPe(), migr, numRefineMigrated);
 
 #ifdef DO_REFINE
       // Free the refine buffers
@@ -458,9 +468,13 @@ class Orb3dCommon{
       int splitIndex = 0;
       float prevLoad = 0.0;
       float leftLoadAtSplit = 0.0;
+      float loadAtMid = 0.0;
       for(splitIndex = 0; splitIndex < events.size(); splitIndex++){
 
         leftLoadAtSplit += events[splitIndex].load + approxBgPerEvent;
+        if (splitIndex == events.size()/2) {
+          loadAtMid = leftLoadAtSplit;
+        }
 
         if (leftLoadAtSplit > perfectLoad) {
           if ( fabs(leftLoadAtSplit - perfectLoad) < fabs(prevLoad - perfectLoad) ) {
@@ -474,6 +488,11 @@ class Orb3dCommon{
         prevLoad = leftLoadAtSplit;
       }
 
+      //if (splitIndex != events.size()/2) {
+      //  CkPrintf("[%d] partitionEvenLoad mid %d lload %f rload %f ratio %f perfectLoad %f loadAtMid %f\n",
+      //      CkMyPe(), splitIndex, leftLoadAtSplit, totalLoad - leftLoadAtSplit,
+      //      leftLoadAtSplit / totalLoad, perfectLoad, loadAtMid);
+      //}
       ORB3DLB_NOTOPO_DEBUG("partitionEvenLoad mid %d lload %f rload %f ratio %f\n", splitIndex, leftLoadAtSplit, totalLoad - leftLoadAtSplit, leftLoadAtSplit / totalLoad);
       return splitIndex;
     }

@@ -33,7 +33,10 @@ protected:
   void init();
   virtual bool QueryBalanceNow(int step) {
     if(step == 0) return false;
-    
+    //if(step < 6) return false;
+    //if ((step-5)%5==0) {
+    //  return true;
+    //}
     return true;
   };  
   virtual bool QueryMigrateStep(int) { return true; };  
