@@ -171,7 +171,6 @@ void DataManager::collectSplitters(CkReductionMsg *m) {
 void DataManager::pup(PUP::er& p) {
     CBase_DataManager::pup(p);
     p | treePieces;
-    p | boundaryKeys;
 }
 
 void DataManager::notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp) {
