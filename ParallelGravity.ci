@@ -175,7 +175,7 @@ mainmodule ParallelGravity {
   group [migratable] ReductionHelper {
     entry ReductionHelper();
     entry void countTreePieces(CkCallback &cb);
-    entry [nokeep] void evaluateBoundaries(bool convertToLoad, SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
+    entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
 
     entry void evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb);
   };
@@ -193,8 +193,6 @@ mainmodule ParallelGravity {
     entry void finishPhase(CkReductionMsg* m);
     entry void doORBDecomposition(CkReductionMsg* m);
     entry void readytoSendORB(CkReductionMsg* m);
-
-    entry void receiveParticleCounts(CkReductionMsg *m);
   };
 
   nodegroup [migratable] DataManager {
@@ -204,7 +202,7 @@ mainmodule ParallelGravity {
 				      const CkCallback& cb);
     entry void acceptFinalKeys(const SFC::Key keys[n],
         const int responsible[n - 1],
-        int bins[n - 1], const int n,
+        uint64_t bins[n - 1], const int n,
         const CkCallback& cb);
     entry void collectSplitters(CkReductionMsg* m);
     //entry [local,exclusive] void notifyPresence(int index, Tree::GenericTreeNode *root);
@@ -314,7 +312,7 @@ mainmodule ParallelGravity {
     entry void ioShuffle(CkReductionMsg *msg);
     entry void ioAcceptSortedParticles(ParticleShuffleMsg *);
     entry void assignKeys(CkReductionMsg* m);
-    entry [nokeep] void evaluateBoundaries(bool convertToLoad, SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
+    entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
     entry void unshuffleParticles(CkReductionMsg* m);
     entry void acceptSortedParticles(ParticleShuffleMsg *);
     //ORB
