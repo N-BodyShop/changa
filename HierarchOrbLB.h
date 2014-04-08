@@ -37,7 +37,7 @@ protected:
     //if ((step-5)%5==0) {
     //  return true;
     //}
-    return true;
+    return false;
   };  
   virtual bool QueryMigrateStep(int) { return true; };  
   virtual void work(LDStats* stats);

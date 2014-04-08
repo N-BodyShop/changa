@@ -1518,6 +1518,7 @@ void Main::advanceBigStep(int iStep) {
     if (iStep % 5 != 0) {
       bDoDD = false;
     }
+    bDoDD = false;
     if (bDoDD) {
       sorter.startSorting(dataManagerID, ddTolerance,
           CkCallbackResumeThread(), bDoDD);
