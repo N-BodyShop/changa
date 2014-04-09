@@ -2779,7 +2779,8 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
       int first, last;
       bool isShared = nodeOwnership(child->getKey(), first, last);
       //CkPrintf("[%d] child Key:%lld, firstOwner:%d, lastOwner:%d\n",thisIndex,child->getKey(),first,last);
-      CkAssert(!isShared);
+      // These asserts are not valid with the new Tree Build
+      //CkAssert(!isShared);
       if (last < first) {
 	      // the node is really empty because falling between two TreePieces
               child->makeEmpty();
@@ -3034,7 +3035,8 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
 void TreePiece::sendRequestForNonLocalMoments(GenericTreeNode *pickedNode){
   int first, last;
   bool isShared = nodeOwnership(pickedNode->getKey(), first, last);
-  CkAssert(!isShared);
+  // These asserts are not valid with the new Tree Build
+  //CkAssert(!isShared);
   if (last >= first) {
     // Choose a piece from among the owners from which to
     // request moments in such a way that if I am a piece with a
@@ -3293,7 +3295,8 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
       // find a remote index for the node
       int first, last;
       bool isShared = nodeOwnership(child->getKey(), first, last);
-      CkAssert(!isShared);
+      // These asserts are not valid with the new Tree Build
+      //CkAssert(!isShared);
       if (last < first) {
 	// the node is really empty because falling between two TreePieces
 	child->makeEmpty();
