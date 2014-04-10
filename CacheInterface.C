@@ -424,6 +424,8 @@ void TreePiece::fillRequestNode(const CkCacheRequest &req) {
     }
   }
   else {	// Handle NULL nodes
+    if (!sendFillReqNodeWhenNull(req)) {
       CkAbort("Ok, before it handled this, but why do we have a null pointer in the tree?!?");
+    }
   }
 }

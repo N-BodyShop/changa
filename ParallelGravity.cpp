@@ -1092,7 +1092,7 @@ Main::Main(CkArgMsg* m) {
 
         TopoManager tmgr;
         const int numItemsPerBuffer = 256;
-        const int pesPerNode = tmgr.getDimNT();
+        const int pesPerNode = CkMyNodeSize();
         int dims[] = {CkNumPes() / pesPerNode, pesPerNode};
         int nDims = 2;
         aggregator = CProxy_ArrayMeshStreamer<CkCacheRequest, int, TreePiece,

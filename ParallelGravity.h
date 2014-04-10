@@ -1721,6 +1721,7 @@ public:
   /**************************/
 
 	bool sendFillReqNodeWhenNull(CkCacheRequestMsg<KeyType> *msg);
+	bool sendFillReqNodeWhenNull(const CkCacheRequest &req);
 	/// Request the moments for this node.
 	void requestRemoteMoments(const Tree::NodeKey key, int sender);
 	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int

@@ -3441,6 +3441,32 @@ bool TreePiece::sendFillReqNodeWhenNull(CkCacheRequestMsg<KeyType> *msg) {
   return false;
 }
 
+bool TreePiece::sendFillReqNodeWhenNull(const CkCacheRequest &req) {
+  Tree::NodeKey key = req.key;
+  KeyType firstKey = KeyType(key);
+  KeyType lastKey = KeyType(key + 1);
+  const KeyType mask = KeyType(1) << KeyBits;
+  while (! (firstKey & mask)) {
+    firstKey <<= 1;
+    lastKey <<= 1;
+  }
+  firstKey &= ~mask;
+  lastKey &= ~mask;
+  lastKey -= 1;
+  if (myParticles[myNumParticles].key < firstKey) {
+    aggregator.ckLocalBranch()->insertData(req, thisIndex + 1);
+    // streamingProxy[thisIndex+1].fillRequestNode(msg);
+    //CkPrintf("[%d] TP %d forwarding request to %d\n", CkMyPe(), thisIndex, thisIndex+1);
+    return true;
+  } 
+  if (myParticles[1].key > lastKey) {
+    aggregator.ckLocalBranch()->insertData(req, thisIndex - 1);
+    //streamingProxy[thisIndex-1].fillRequestNode(msg);
+    //CkPrintf("[%d] TP %d forwarding request to %d\n", CkMyPe(), thisIndex, thisIndex-1);
+    return true;
+  }
+  return false;
+}
 
 /// \brief entry method to obtain the moments of a node
 void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
