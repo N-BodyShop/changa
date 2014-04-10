@@ -16,6 +16,8 @@
 #endif
 #endif
 
+#include "NDMeshStreamer.h"
+
 #include "config.h"
 #include <string>
 #include <map>
@@ -133,6 +135,7 @@ extern double dExtraStore;
 extern double dMaxBalance;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
+extern CProxy_CompletionDetector detector;
 #ifdef REDUCTION_HELPER
 extern CProxy_ReductionHelper reductionHelperProxy;
 #endif
@@ -140,6 +143,7 @@ extern CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 extern CProxy_LvArray smoothProxy;  // Proxy for smooth reduction
 extern CProxy_LvArray gravityProxy; // Proxy for gravity reduction
 extern CProxy_TreePiece streamingProxy;
+extern CProxy_ArrayMeshStreamer<CkCacheRequest, int, TreePiece, SimpleMeshRouter> aggregator;
 extern CProxy_DataManager dMProxy;
 extern unsigned int numTreePieces;
 extern unsigned int particlesPerChare;
@@ -1759,8 +1763,7 @@ public:
   /// @brief Start a tree based gravity computation.
   /// @param am the active rung for the computation
   /// @param theta the opening angle
-  /// @param cb the callback to use after all the computation has finished
-  void startGravity(int am, double myTheta, const CkCallback& cb);
+  void startGravity(int am, double myTheta);
   /// Setup utility function for all the smooths.  Initializes caches.
   void setupSmooth();
   /// Start a tree based smooth computation.
@@ -1785,9 +1788,10 @@ public:
         //GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk, int reqID, bool isPrefetch=false);
 
         GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk, int reqID, int awi, void *source, bool isPrefetch);
-	/// @brief Receive a request for Nodes from a remote processor, copy the
-	/// data into it, and send back a message.
+        void process(const CkCacheRequest &req);
 	void fillRequestNode(CkCacheRequestMsg<KeyType> *msg);
+        void fillRequestNode(const CkCacheRequest  &req);
+
 	/** @brief Receive the node from the cache as following a previous
 	 * request which returned NULL, and continue the treewalk of the bucket
 	 * which requested it with this new node.
@@ -1823,8 +1827,10 @@ public:
 	GravityParticle *requestSmoothParticles(Tree::NodeKey key, int chunk,
 				    int remoteIndex, int begin,int end,
 				    int reqID, int awi, void *source, bool isPrefetch);
-	void fillRequestParticles(CkCacheRequestMsg<KeyType> *msg);
-	void fillRequestSmoothParticles(CkCacheRequestMsg<KeyType> *msg);
+
+        void fillRequestParticles(const CkCacheRequest &req);
+        void fillRequestSmoothParticles(const CkCacheRequest &req);
+
 	void flushSmoothParticles(CkCacheFillMsg<KeyType> *msg);
 	void processReqSmoothParticles();
 

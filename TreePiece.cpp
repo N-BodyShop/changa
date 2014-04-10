@@ -613,7 +613,6 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
     GravityParticle *binBegin = &myParticles[1];
     GravityParticle *binEnd;
     GravityParticle dummy;
-
     GravityParticle *interpolatedBound;
     GravityParticle *refinedLowerBound;
     GravityParticle *refinedUpperBound;
@@ -630,6 +629,7 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
       binIter++;
       skip = skipEvery ? skipEvery : -1;
     }
+
     for( ; keyIter != endKeys; ++keyIter) {
       dummy.key = *keyIter;
       // try to guess a better upper bound
@@ -656,7 +656,6 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
 
       /// find the last place I could put this splitter key in
       /// my array of particles
-      //binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1], dummy);
       binEnd = upper_bound(refinedLowerBound, refinedUpperBound, dummy);
       /// this tells me the number of particles between the
       /// last two splitter keys
@@ -1283,6 +1282,7 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
     cnt_exp_nbor_msgs_--;
   }
 
+
   // CkPrintf("[%d] myplace %d\n", thisIndex, myPlace);
 
   /*
@@ -1293,13 +1293,24 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
   }
   */
 
-  vector<Key>::iterator iter = dm->boundaryKeys.begin();
-  vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
-  vector<int>::iterator responsibleIter = dm->responsibleIndex.begin();
+  if (myNumParticles == 0) {
+    incomingParticlesSelf = true;
+    acceptSortedParticles(NULL);
+    delete m;
+    return;
+  }
+
   GravityParticle *binBegin = &myParticles[1];
+  vector<Key>::iterator iter =
+    lower_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(),
+                binBegin->key);
+  vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
+  int offset = iter - dm->boundaryKeys.begin() - 1;
+  vector<int>::iterator responsibleIter = dm->responsibleIndex.begin() + offset;
+
   GravityParticle *binEnd;
   GravityParticle dummy;
-  for(++iter; iter != endKeys; ++iter, ++responsibleIter) {
+  for( ; iter != endKeys; ++iter, ++responsibleIter) {
     dummy.key = *iter;
     //find particles between this and the last key
     binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1],
@@ -5189,13 +5200,12 @@ void TreePiece::recvTotalMass(CkReductionMsg *msg){
 /// gravity walk.
 
 void TreePiece::startGravity(int am, // the active mask for multistepping
-			       double myTheta, // opening criterion
-			       const CkCallback& cb) {
+                             double myTheta // opening criterion
+			     ) {
   LBTurnInstrumentOn();
   iterationNo++;
   didCkL = false;
 
-  cbGravity = cb;
   activeRung = am;
   theta = myTheta;
   thetaMono = theta*theta*theta*theta;
@@ -6979,7 +6989,7 @@ void TreePiece::finishWalk()
   
 #endif
 
-  gravityProxy[thisIndex].ckLocal()->contribute(cbGravity);
+  aggregator.ckLocalBranch()->done();
 }
 
 #if INTERLIST_VER > 0

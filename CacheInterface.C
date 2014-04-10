@@ -21,12 +21,8 @@ EntryTypeGravityParticle::EntryTypeGravityParticle() {
 ///
 /// Calls TreePiece::fillRequestParticles() to fullfill the request.
 void * EntryTypeGravityParticle::request(CkArrayIndexMax& idx, KeyType key) {
-  CkCacheRequestMsg<KeyType> *msg = new (32) CkCacheRequestMsg<KeyType>(key, CkMyPe());
-
-  // This is a high priority message
-  *(int*)CkPriorityPtr(msg) = -100000000;
-  CkSetQueueing(msg, CK_QUEUEING_IFIFO);
-  treeProxy[*idx.data()].fillRequestParticles(msg);
+  CkCacheRequest req(key, CkMyPe(), particleRequest);
+  aggregator.ckLocalBranch()->insertData(req, *idx.data());
   return NULL;
 }
 
@@ -69,14 +65,13 @@ void EntryTypeGravityParticle::callback(CkArrayID requestorID, CkArrayIndexMax &
   elem.receiveParticlesCallback(cp->part, cp->end - cp->begin + 1, chunk, reqID, key, awi, source);
 }
 
-
-void TreePiece::fillRequestParticles(CkCacheRequestMsg<KeyType> *msg) {
+void TreePiece::fillRequestParticles(const CkCacheRequest &req) {
   // the key used in the cache is shifted to the left of 1, this makes
   // a clear distinction between nodes and particles
-  const GenericTreeNode *bucket = lookupNode(msg->key >> 1);
+  const GenericTreeNode *bucket = lookupNode(req.key >> 1);
   CkAssert(bucket != NULL);
   int total = sizeof(CacheParticle) + (bucket->lastParticle - bucket->firstParticle) * sizeof(ExternalGravityParticle);
-  CkCacheFillMsg<KeyType> *reply = new (total) CkCacheFillMsg<KeyType>(msg->key);
+  CkCacheFillMsg<KeyType> *reply = new (total) CkCacheFillMsg<KeyType>(req.key);
   CkAssert(reply != NULL);
   CacheParticle *data = (CacheParticle*)reply->data;
   CkAssert(data != NULL);
@@ -87,9 +82,7 @@ void TreePiece::fillRequestParticles(CkCacheRequestMsg<KeyType> *msg) {
     data->part[i] = *((ExternalGravityParticle*)&myParticles[i+bucket->firstParticle]);
   }
   
-  cacheGravPart[msg->replyTo].recvData(reply);
-  
-  delete msg;
+  cacheGravPart[req.replyTo].recvData(reply);
 }
 
 // Methods for "combiner" cache
@@ -98,10 +91,8 @@ EntryTypeSmoothParticle::EntryTypeSmoothParticle() {
 }
 
 void * EntryTypeSmoothParticle::request(CkArrayIndexMax& idx, KeyType key) {
-  CkCacheRequestMsg<KeyType> *msg = new (32) CkCacheRequestMsg<KeyType>(key, CkMyPe());
-  *(int*)CkPriorityPtr(msg) = -100000000;
-  CkSetQueueing(msg, CK_QUEUEING_IFIFO);
-  treeProxy[*idx.data()].fillRequestSmoothParticles(msg);
+  CkCacheRequest req(key, CkMyPe(), smoothParticleRequest);
+  aggregator.ckLocalBranch()->insertData(req, *idx.data());
   return NULL;
 }
 
@@ -210,27 +201,26 @@ void TreePiece::processReqSmoothParticles() {
 	}
     }
 
-void TreePiece::fillRequestSmoothParticles(CkCacheRequestMsg<KeyType> *msg) {
+void TreePiece::fillRequestSmoothParticles(const CkCacheRequest &req) {
     // buffer request if we are not ready for it.
     if(sSmooth == NULL) {
-	CkVec<int> *vReq = smPartRequests[msg->key];
+	CkVec<int> *vReq = smPartRequests[req.key];
 	if(vReq == NULL) {
 	    vReq = new CkVec<int>();
-	    smPartRequests[msg->key] = vReq;
+	    smPartRequests[req.key] = vReq;
 	    }
-	vReq->push_back(msg->replyTo);
-	delete msg;
+	vReq->push_back(req.replyTo);
 	return;
 	}
 
-  CkAssert(msg->replyTo != CkMyPe());
+    CkAssert(req.replyTo != CkMyPe());
   
   // the key used in the cache is shifted to the left of 1, this makes
   // a clear distinction between nodes and particles
-  const GenericTreeNode *bucket = lookupNode(msg->key >> 1);
+  const GenericTreeNode *bucket = lookupNode(req.key >> 1);
   
   int total = sizeof(CacheSmoothParticle) + (bucket->lastParticle - bucket->firstParticle) * sizeof(ExternalSmoothParticle);
-  CkCacheFillMsg<KeyType> *reply = new (total, 8*sizeof(int)) CkCacheFillMsg<KeyType>(msg->key);
+  CkCacheFillMsg<KeyType> *reply = new (total, 8*sizeof(int)) CkCacheFillMsg<KeyType>(req.key);
   CacheSmoothParticle *data = (CacheSmoothParticle*)reply->data;
   data->begin = bucket->firstParticle;
   data->end = bucket->lastParticle;
@@ -243,9 +233,7 @@ void TreePiece::fillRequestSmoothParticles(CkCacheRequestMsg<KeyType> *msg) {
   
   *(int*)CkPriorityPtr(reply) = -10000000;
   CkSetQueueing(reply, CK_QUEUEING_IFIFO);
-  cacheSmoothPart[msg->replyTo].recvData(reply);
-  
-  delete msg;
+  cacheSmoothPart[req.replyTo].recvData(reply); 
 }
 
 /// Combine cached copies with the originals on the treepiece.
@@ -284,11 +272,8 @@ EntryTypeGravityNode::EntryTypeGravityNode() {
 }
 
 void * EntryTypeGravityNode::request(CkArrayIndexMax& idx, KeyType key) {
-  CkCacheRequestMsg<KeyType> *msg = new (32) CkCacheRequestMsg<KeyType>(key, CkMyPe());
-  *(int*)CkPriorityPtr(msg) = -110000000;
-  CkSetQueueing(msg, CK_QUEUEING_IFIFO);
-
-  treeProxy[*idx.data()].fillRequestNode(msg);
+  CkCacheRequest req(key, CkMyPe(), nodeRequest);
+  aggregator.ckLocalBranch()->insertData(req, *idx.data());
   return NULL;
 }
 
@@ -374,13 +359,25 @@ void EntryTypeGravityNode::callback(CkArrayID requestorID, CkArrayIndexMax &requ
   elem.receiveNodeCallback((Tree::GenericTreeNode*)data, chunk, reqID, awi, source);
 }
 
+void TreePiece::process(const CkCacheRequest &req) {
+  switch(req.type) {
+  case nodeRequest:
+    fillRequestNode(req);
+    break;
+  case particleRequest:
+    fillRequestParticles(req);
+    break;
+  case smoothParticleRequest:
+    fillRequestSmoothParticles(req);
+    break;
+  }
+}
 
 void TreePiece::fillRequestNode(CkCacheRequestMsg<KeyType> *msg) {
   const Tree::GenericTreeNode* node = lookupNode(msg->key);
   //GenericTreeNode tmp;
   if(node != NULL) {
     if(_cache) {
-#if 1 || defined CACHE_BUFFER_MSGS
       int count = ((Tree::BinaryTreeNode*)node)->countDepth(_cacheLineDepth);
       // Extra bytes are allocated to store the msg pointer at the
       // beginning of the buffer.  See the free() and the
@@ -389,16 +386,6 @@ void TreePiece::fillRequestNode(CkCacheRequestMsg<KeyType> *msg) {
       //CkCacheFillMsg<KeyType> *reply = new (count * (sizeof(Tree::BinaryTreeNode)+PAD_reply), 8*sizeof(int)) CkCacheFillMsg<KeyType>(msg->key);
       CkCacheFillMsg<KeyType> *reply = new (count * ALIGN_DEFAULT(sizeof(Tree::BinaryTreeNode)+PAD_reply), 8*sizeof(int)) CkCacheFillMsg<KeyType>(msg->key);
       ((Tree::BinaryTreeNode*)node)->packNodes((Tree::BinaryTreeNode*)(reply->data+PAD_reply), _cacheLineDepth, PAD_reply);
-#else
-      PUP::sizer p1;
-      node->pup(p1, msg->depth);
-      FillNodeMsg *reply = new (p1.size(), 0) FillNodeMsg(thisIndex);
-
-      /// @TODO: check that at destination of "remoteIndex" are correct
-      PUP::toMem p2((void*)reply->nodes);
-      node->pup(p2, msg->depth);
-      //int count = node->copyTo(reply->nodes, msg->depth);
-#endif
       *(int*)CkPriorityPtr(reply) = -10000000;
       CkSetQueueing(reply, CK_QUEUEING_IFIFO);
       cacheNode[msg->replyTo].recvData(reply);
@@ -409,9 +396,34 @@ void TreePiece::fillRequestNode(CkCacheRequestMsg<KeyType> *msg) {
     }
     delete msg;
   }
-  else {	// Handle NULL nodes
+  else {// Handle NULL nodes
     if (!sendFillReqNodeWhenNull(msg)) {
       CkAbort("Ok, before it handled this, but why do we have a null pointer in the tree?!?");
     }
+  }
+}
+
+void TreePiece::fillRequestNode(const CkCacheRequest &req) {
+  const Tree::GenericTreeNode* node = lookupNode(req.key);
+  //GenericTreeNode tmp;
+  if(node != NULL) {
+    if(_cache) {
+      int count = ((Tree::BinaryTreeNode*)node)->countDepth(_cacheLineDepth);
+      // Extra bytes are allocated to store the msg pointer at the
+      // beginning of the buffer.  See the free() and the
+      // unpackSingle() method above.
+      CkCacheFillMsg<KeyType> *reply = new (count * ALIGN_DEFAULT(sizeof(Tree::BinaryTreeNode)+PAD_reply), 8*sizeof(int)) CkCacheFillMsg<KeyType>(req.key);
+      ((Tree::BinaryTreeNode*)node)->packNodes((Tree::BinaryTreeNode*)(reply->data+PAD_reply), _cacheLineDepth, PAD_reply);
+      *(int*)CkPriorityPtr(reply) = -10000000;
+      CkSetQueueing(reply, CK_QUEUEING_IFIFO);
+      cacheNode[req.replyTo].recvData(reply);
+    } else {
+      CkAbort("Non cached version not anymore supported, feel free to fix it!");
+      //copySFCTreeNode(tmp,node);
+      //streamingProxy[retIndex].receiveNode(tmp,req.reqID);
+    }
+  }
+  else {	// Handle NULL nodes
+      CkAbort("Ok, before it handled this, but why do we have a null pointer in the tree?!?");
   }
 }
