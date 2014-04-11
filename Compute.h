@@ -372,8 +372,6 @@ class LocalLymanWernerDistributor : public TreeNodeWorker {
   void doneChildren(GenericTreeNode *node, int level); /*virtually defined in TreeNodeWorker Class*/
 
   private:
-  double fPrev_totalLW; /* Total LW luminosity in parent cell*/
-  Vector3D<double> fPrev_cLW;
 };
 #endif /*LYMAN_WERNER*/
 /*#endif*/ /*COOLING_MOLECULARH*/
