@@ -2704,41 +2704,71 @@ void LocalTreePrinter::openFile(){
 /*#ifdef COOLING_MOLECULARH*/
 #ifdef LYMAN_WERNER
 bool LocalLymanWernerDistributor::work(GenericTreeNode *node, int level){
-  int j;
-  double momgas, fDistance2 = 0, fDistanceCell2 = 0, fPrev_aveLW = 0;
+  double fmomgas = 0, fDistanceCell2 = 0, fDistance2 = 0, fDistancePrevCell2 = 0, fPrev_aveLW = 0;
+  double fPrev_totalLW;
+  Vector3D<double> fPrev_cLW;
+
+  // CkAssert(node != NULL);
+  if (node == NULL) {
+    return false;
+  }
 
   if (level == 0) {
     /* You are at the root */
     fPrev_totalLW = node->moments.totalLW;
     fPrev_cLW = node->moments.cLW;
   }
-  // CkAssert(node != NULL);
-  if (node == NULL) {
-    return false;
-    }
+  else {
+    fPrev_totalLW = node->parent->moments.totalLW;
+    fPrev_cLW = node->parent->moments.cLW;
+  }
 
+  for (int j = 0; j<node->numChildren(); ++j) {
+    if (node->getChildren(j) != NULL) {
+      if (node->moments.totalLW != node->getChildren(j)->parent->moments.totalLW) {
+	printf("Current LW: %e; Child's Parent LW: %e\n",node->moments.totalLW,node->getChildren(j)->parent->moments.totalLW);
+      }
+    }
+  }
+
+  /*Determine distance between center of gas mass and center of LW in current cell*/
+  fDistanceCell2 = 0;
+  if (node->moments.totalLW > 0) {
+    for (int j = 0; j<3; ++j){
+      fDistanceCell2 += (node->moments.cLW[j] - node->moments.cgas[j])*(fPrev_cLW[j] - node->moments.cgas[j]);
+    }
+  }
+
+  /*Determine the moment of the gas.  This will be useful in approximating average LW in the cell*/
+  fmomgas = (node->moments.xxgas + node->moments.yygas + node->moments.zzgas)/node->moments.totalgas;  
+  if (fDistanceCell2 < fmomgas) {
+    fDistanceCell2 = fmomgas;
+  }
+
+  /*Since we set the minimum distance to be the softening any way when calculating the radiation, fDistanceCell2 shouldn't be smaller.*/
+  if (fDistanceCell2 < node->moments.soft*node->moments.soft*0.25){
+    fDistanceCell2 = node->moments.soft*node->moments.soft*0.25;
+  }
 
   /*	Determine flux at center of mass of cell from average source of LW radiation in the parent cell */
-  for (j = 0; j<3; ++j){
-    fDistanceCell2 += (fPrev_cLW[j] - node->moments.cgas[j])*(fPrev_cLW[j] - node->moments.cgas[j]);
+  for (int j = 0; j<3; ++j){
+    fDistancePrevCell2 += (fPrev_cLW[j] - node->moments.cgas[j])*(fPrev_cLW[j] - node->moments.cgas[j]);
   }
-  momgas = (node->moments.xxgas + node->moments.yygas + node->moments.zzgas)/node->moments.totalgas;
-  if (fDistanceCell2 < momgas){
-    //At minimum, this average distance between gas mass center of child cell and flux center of parent cell should be the moment of the gas in the child cell //update this to gaseous moment
-    fDistanceCell2 = momgas;
+  if (fDistancePrevCell2 < fDistanceCell2){
+    //At minimum, this average distance between gas mass center of child cell and flux center of parent cell should be the distance within the child cell 
+    fDistancePrevCell2 = fDistanceCell2;
   }
-  if (fDistanceCell2 != 0){
+  if (fDistancePrevCell2 != 0){
  /* Calculated typical flux with radiative source being in the parent cell*/
-    fPrev_aveLW = fPrev_totalLW - log10(fDistanceCell2); /*fPrev_aveLW and fPrev_totalLW store the log of the value*/
+    fPrev_aveLW = fPrev_totalLW - log10(fDistancePrevCell2); /*fPrev_aveLW and fPrev_totalLW store the log of the value*/
   }
   else fPrev_aveLW = 0; /*Since this is a log, I need to change this*/
 
-  /* If using the radiation from the parent cell would typically provide more flux, set total luminosity and average source position equal to that in parent cell, except, reverse that */
-  if (momgas != 0 && fPrev_aveLW < node->moments.totalLW - log10(momgas)){ 
-/*Is the moment already squared?*/
-//  if (fPrev_totalLW < node->moments.totalLW){
-    fPrev_totalLW = node->moments.totalLW;
-    fPrev_cLW = node->moments.cLW;    
+  /* If using the radiation from the parent cell would typically provide more flux, set total luminosity and average source position equal to that in parent cell*/
+  if (fPrev_aveLW > node->moments.totalLW - log10(fDistanceCell2)){ 
+    node->moments.totalLW = fPrev_totalLW;
+    node->moments.cLW = fPrev_cLW;   
+    fDistanceCell2 = fDistancePrevCell2;
   } 
 
   if(node->getType() == Empty || node->getType() == CachedEmpty){
@@ -2749,33 +2779,22 @@ bool LocalLymanWernerDistributor::work(GenericTreeNode *node, int level){
   }
   if(node->getType() != Bucket){
     /*The node is not a bucket so continue propagating the radiation down the tree*/
-    /*    if (fPrev_totalLW < node->moments.totalLW) {
-      fPrev_totalLW = node->moments.totalLW;
-      fPrev_cLW = node->moments.cLW;
-      }*/
   return true;
   }
   else if (node->getType() == Bucket){
     /*The node is a bucket so assign a Lyman Werner flux to each of the gas particles*/
     GravityParticle *part = node->particlePointer;
-    /*   if (fPrev_totalLW < node->moments.totalLW) {
-      fPrev_totalLW = node->moments.totalLW;
-      fPrev_cLW = node->moments.cLW;
-      }*/
     for(int i = node->firstParticle; i <= node->lastParticle; i++) {
       if(TYPETest(&part[i-node->firstParticle],TYPE_GAS)){
-	/*	fdistance2 = 0;*/
-	fDistance2 = pow(part[i-node->firstParticle].position.x - fPrev_cLW.x,2);
-	fDistance2 += pow(part[i-node->firstParticle].position.y - fPrev_cLW.y,2);
-	fDistance2 += pow(part[i-node->firstParticle].position.z - fPrev_cLW.z,2);	
+	fDistance2 = pow(part[i-node->firstParticle].position.x - node->moments.cLW.x,2);
+	fDistance2 += pow(part[i-node->firstParticle].position.y - node->moments.cLW.y,2);
+	fDistance2 += pow(part[i-node->firstParticle].position.z - node->moments.cLW.z,2);	
 	if (fDistance2 < part[i-node->firstParticle].fSoft0*part[i-node->firstParticle].fSoft0*0.25) {
 	  fDistance2 = part[i-node->firstParticle].fSoft0*part[i-node->firstParticle].fSoft0*0.25;
 	}
 	COOLPARTICLE cp = part[i-node->firstParticle].CoolParticle();
-	cp.dLymanWerner = fPrev_totalLW - log10(4.0*M_PI*fDistance2);
+	cp.dLymanWerner = node->moments.totalLW - log10(4.0*M_PI*fDistance2);
 	part[i-node->firstParticle].CoolParticle() = cp;
-	/*	part[i-node->firstParticle].SetLymanWerner(node->moments.totalLW/(4.0*M_PI*fDistance2));*/
-	/*	p[pj].CoolParticle.dLymanWerner = node.moments.totalLW/(4.0*M_PI*fDistance2);*/
       }
     }
     return false;
