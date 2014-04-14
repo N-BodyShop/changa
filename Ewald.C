@@ -396,71 +396,71 @@ void TreePiece::EwaldGPU() {
   MOMC mom = momcRoot;
 #endif
 
-  float L = fPeriod.x;
-  float alpha = 2.0f/L;
+  cudatype L = fPeriod.x;
+  cudatype alpha = 2.0f/L;
   
   particleTable = (GravityParticleData*) h_idata->p; 
   ewtTable = (EwtData*) h_idata->ewt;
   roData = (EwaldReadOnlyData*) h_idata->cachedData; 
 
   for (int i=1; i<=myNumParticles; i++) {
-    particleTable[i].position_x = (float) myParticles[i].position.x;
-    particleTable[i].position_y = (float) myParticles[i].position.y;
-    particleTable[i].position_z = (float) myParticles[i].position.z;
+    particleTable[i].position_x = (cudatype) myParticles[i].position.x;
+    particleTable[i].position_y = (cudatype) myParticles[i].position.y;
+    particleTable[i].position_z = (cudatype) myParticles[i].position.z;
     particleTable[i].acceleration_x = 0; 
     particleTable[i].acceleration_y = 0; 
     particleTable[i].acceleration_z = 0; 
     particleTable[i].potential = 0; 
     /*
     particleTable[i].acceleration_x = 
-      (float) myParticles[i].treeAcceleration.x;
+      (cudatype) myParticles[i].treeAcceleration.x;
     particleTable[i].acceleration_y = 
-      (float) myParticles[i].treeAcceleration.y;
+      (cudatype) myParticles[i].treeAcceleration.y;
     particleTable[i].acceleration_z = 
-      (float) myParticles[i].treeAcceleration.z;
-    particleTable[i].potential = (float) myParticles[i].potential;
+      (cudatype) myParticles[i].treeAcceleration.z;
+    particleTable[i].potential = (cudatype) myParticles[i].potential;
     */
   }  
 
   for (int i=0; i<nEwhLoop; i++) {
-    ewtTable[i].hx = (float) ewt[i].hx; 
-    ewtTable[i].hy = (float) ewt[i].hy; 
-    ewtTable[i].hz = (float) ewt[i].hz; 
-    ewtTable[i].hCfac = (float) ewt[i].hCfac; 
-    ewtTable[i].hSfac = (float) ewt[i].hSfac; 
+    ewtTable[i].hx = (cudatype) ewt[i].hx; 
+    ewtTable[i].hy = (cudatype) ewt[i].hy; 
+    ewtTable[i].hz = (cudatype) ewt[i].hz; 
+    ewtTable[i].hCfac = (cudatype) ewt[i].hCfac; 
+    ewtTable[i].hSfac = (cudatype) ewt[i].hSfac; 
   }
 
 #if defined(HEXADECAPOLE)
-  roData->mm.xx = (float) mom.xx; 
-  roData->mm.xy = (float) mom.xy; 
-  roData->mm.xz = (float) mom.xz; 
-  roData->mm.yy = (float) mom.yy;
-  roData->mm.yz = (float) mom.yz; 
-  roData->mm.zz = (float) mom.zz;
+  roData->mm.xx = (cudatype) mom.xx; 
+  roData->mm.xy = (cudatype) mom.xy; 
+  roData->mm.xz = (cudatype) mom.xz; 
+  roData->mm.yy = (cudatype) mom.yy;
+  roData->mm.yz = (cudatype) mom.yz; 
+  roData->mm.zz = (cudatype) mom.zz;
 #else
-  roData->mm.xx = (float) mm.xx;
-  roData->mm.xy = (float) mm.xy;
-  roData->mm.xz = (float) mm.xz;
-  roData->mm.yy = (float) mm.yy;
-  roData->mm.yz = (float) mm.yz;
-  roData->mm.zz = (float) mm.zz;
+  roData->mm.xx = (cudatype) mm.xx;
+  roData->mm.xy = (cudatype) mm.xy;
+  roData->mm.xz = (cudatype) mm.xz;
+  roData->mm.yy = (cudatype) mm.yy;
+  roData->mm.yz = (cudatype) mm.yz;
+  roData->mm.zz = (cudatype) mm.zz;
 #endif
-  roData->mm.totalMass = (float) mm.totalMass;
-  roData->mm.cmx = (float) mm.cm.x;
-  roData->mm.cmy = (float) mm.cm.y;
-  roData->mm.cmz = (float) mm.cm.z;
+  roData->mm.totalMass = (cudatype) mm.totalMass;
+  roData->mm.cmx = (cudatype) mm.cm.x;
+  roData->mm.cmy = (cudatype) mm.cm.y;
+  roData->mm.cmz = (cudatype) mm.cm.z;
   roData->n = myNumParticles;
-  roData->fEwCut = (float) fEwCut;
+  roData->fEwCut = (cudatype) fEwCut;
   roData->nReps = nReplicas ;
   roData->nEwReps = (int) ceil(fEwCut);
   roData->nEwhLoop = nEwhLoop;
-  roData->L = (float) L;
+  roData->L = (cudatype) L;
   roData->alpha = alpha;
-  roData->alpha2 = (float) alpha*alpha;
-  roData->k1 = (float) M_PI/(alpha*alpha*L*L*L);
-  roData->ka = (float) 2.0*alpha/sqrt(M_PI);
-  roData->fEwCut2 = (float) fEwCut*fEwCut*L*L;
-  roData->fInner2 = (float) 1.2e-3*L*L;
+  roData->alpha2 = (cudatype) alpha*alpha;
+  roData->k1 = (cudatype) M_PI/(alpha*alpha*L*L*L);
+  roData->ka = (cudatype) 2.0*alpha/sqrt(M_PI);
+  roData->fEwCut2 = (cudatype) fEwCut*fEwCut*L*L;
+  roData->fInner2 = (cudatype) 1.2e-3*L*L;
 
   CkCallback *cb; 
   CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex); 

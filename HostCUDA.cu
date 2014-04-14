@@ -33,7 +33,7 @@ extern int _Cmi_mype;
 //extern cudaStream_t kernel_stream;
 
 __device__ __constant__ EwaldReadOnlyData cachedData[1];
-__device__ __constant__ EwtData ewt[sizeof(EwtData) * NEWH];  
+__device__ __constant__ EwtData ewt[NEWH];  
 
 
 //__constant__ constantData[88];
@@ -2557,12 +2557,12 @@ __global__ void EwaldTopKernel(GravityParticleData *particleTable) {
   GravityParticleData *p;  
   MultipoleMomentsData *mom; 
 
-  float alphan;
-  float fPot, ax, ay, az;
-  float x, y, z, r2, dir, dir2, a; 
-  float xdif, ydif, zdif; 
-  float g0, g1, g2, g3; 
-  float Q2, Q2mirx, Q2miry, Q2mirz, Q2mir, Qta; 
+  cudatype alphan;
+  cudatype fPot, ax, ay, az;
+  cudatype x, y, z, r2, dir, dir2, a; 
+  cudatype xdif, ydif, zdif; 
+  cudatype g0, g1, g2, g3; 
+  cudatype Q2, Q2mirx, Q2miry, Q2mirz, Q2mir, Qta; 
   int id, ix, iy, iz, bInHole, bInHolex, bInHolexy;
 
   mom = &(cachedData->mm); 
@@ -2662,10 +2662,10 @@ __global__ void EwaldTopKernel(GravityParticleData *particleTable) {
 __global__ void EwaldBottomKernel(GravityParticleData *particleTable) {
 
   int i, id;
-  float hdotx, c, s, fPot; 
-  float ax, ay, az; 
-  float tempEwt; 
-  float xdif, ydif, zdif; 
+  cudatype hdotx, c, s, fPot; 
+  cudatype ax, ay, az; 
+  cudatype tempEwt; 
+  cudatype xdif, ydif, zdif; 
   GravityParticleData *p; 
   MultipoleMomentsData *mom; 
 
