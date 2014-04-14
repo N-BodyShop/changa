@@ -80,6 +80,8 @@ CUDA_momEvalFmomrcm(const CudaMultipoleMoments* _m,
                - m.yyyy*yyz + m.xxxz*xxx + m.yyyz*yyy
                - m.xxyy*(xxz + yyz) + m.xxyz*xxy + m.xyyz*xyy);
 
+  g4 = 0.25*(tx*x + ty*y + tz*z);
+
   /* Note that these variables have already been initialized; we're re-using them. */
   xxx = g3 * (m.xxx*xx + m.xyy*yy + m.xxy*xy + m.xxz*xz + m.xyz*yz);
   xxy = g3 * (m.xyy*xy + m.xxy*xx + m.yyy*yy + m.yyz*yz + m.xyz*xz);
