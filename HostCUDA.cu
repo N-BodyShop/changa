@@ -2554,27 +2554,49 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
 
 __global__ void EwaldTopKernel(GravityParticleData *particleTable) {
 
-  GravityParticleData *p;  
-  MultipoleMomentsData *mom; 
+  GravityParticleData *p;
 
   cudatype alphan;
   cudatype fPot, ax, ay, az;
   cudatype x, y, z, r2, dir, dir2, a; 
   cudatype xdif, ydif, zdif; 
-  cudatype g0, g1, g2, g3; 
+  cudatype g0, g1, g2, g3, g4, g5;
   cudatype Q2, Q2mirx, Q2miry, Q2mirz, Q2mir, Qta; 
   int id, ix, iy, iz, bInHole, bInHolex, bInHolexy;
 
-  mom = &(cachedData->mm); 
-  Q2 = 0.5 * (mom->xx + mom->yy + mom->zz); 
+#ifdef HEXADECAPOLE
+  MomcData *mom = &(cachedData->momcRoot);
+  MultipoleMomentsData *momQuad = &(cachedData->mm);
+  cudatype xx,xxx,xxy,xxz,yy,yyy,yyz,xyy,zz,zzz,xzz,yzz,xy,xyz,xz,yz;
+  cudatype Q4mirx,Q4miry,Q4mirz,Q4mir,Q4x,Q4y,Q4z;
+  cudatype Q4xx,Q4xy,Q4xz,Q4yy,Q4yz,Q4zz,Q4,Q3x,Q3y,Q3z;
+  cudatype Q3mirx,Q3miry,Q3mirz,Q3mir;
+  const cudatype onethird = 1.0/3.0;
+#else
+  MultipoleMomentsData *mom;
+  mom = &(cachedData->mm);
+#endif
 
+#ifdef HEXADECAPOLE
+  Q4xx = 0.5*(mom->xxxx + mom->xxyy + mom->xxzz);
+  Q4xy = 0.5*(mom->xxxy + mom->xyyy + mom->xyzz);
+  Q4xz = 0.5*(mom->xxxz + mom->xyyz + mom->xzzz);
+  Q4yy = 0.5*(mom->xxyy + mom->yyyy + mom->yyzz);
+  Q4yz = 0.5*(mom->xxyz + mom->yyyz + mom->yzzz);
+  Q4zz = 0.5*(mom->xxzz + mom->yyzz + mom->zzzz);
+  Q4 = 0.25*(Q4xx + Q4yy + Q4zz);
+  Q3x = 0.5*(mom->xxx + mom->xyy + mom->xzz);
+  Q3y = 0.5*(mom->xxy + mom->yyy + mom->yzz);
+  Q3z = 0.5*(mom->xxz + mom->yyz + mom->zzz);
+#endif
+
+  Q2 = 0.5 * (mom->xx + mom->yy + mom->zz);
 
   id = blockIdx.x * BLOCK_SIZE + threadIdx.x + 1;
   if (id > cachedData->n) {
     return;
   }
   p = &(particleTable[id]);
-
 
 #ifdef DEBUG
   if (blockIdx.x == 0 && threadIdx.x == 0) {
@@ -2590,10 +2612,17 @@ __global__ void EwaldTopKernel(GravityParticleData *particleTable) {
   ay = 0.0f;
   az = 0.0f;
 
+#ifdef HEXADECAPOLE
+  xdif = p->position_x - momQuad->cmx; 
+  ydif = p->position_y - momQuad->cmy; 
+  zdif = p->position_z - momQuad->cmz;
+  fPot = momQuad->totalMass*cachedData->k1;
+#else
   xdif = p->position_x - mom->cmx; 
   ydif = p->position_y - mom->cmy; 
   zdif = p->position_z - mom->cmz;
   fPot = mom->totalMass*cachedData->k1;
+#endif
   for (ix=-(cachedData->nEwReps);ix<=(cachedData->nEwReps);++ix) {  
     bInHolex = (ix >= -cachedData->nReps && ix <= cachedData->nReps);
     x = xdif + ix * cachedData->L;
@@ -2622,6 +2651,10 @@ __global__ void EwaldTopKernel(GravityParticleData *particleTable) {
           g2 = alphan*((1.0/7.0)*r2 - (1.0/5.0));
           alphan *= 2*cachedData->alpha2;
           g3 = alphan*((1.0/9.0)*r2 - (1.0/7.0));
+	  alphan *= 2*cachedData->alpha2;
+	  g4 = alphan*((1.0/11.0)*r2 - (1.0/9.0));
+	  alphan *= 2*cachedData->alpha2;
+	  g5 = alphan*((1.0/13.0)*r2 - (1.0/11.0));
         }
         else {
           dir = 1/sqrtf(r2);
@@ -2636,8 +2669,52 @@ __global__ void EwaldTopKernel(GravityParticleData *particleTable) {
           g2 = 3*g1*dir2 + alphan*a;
           alphan *= 2*cachedData->alpha2;
           g3 = 5*g2*dir2 + alphan*a;
+	  alphan *= 2*cachedData->alpha2;
+	  g4 = 7*g3*dir2 + alphan*a;
+	  alphan *= 2*cachedData->alpha2;
+	  g5 = 9*g4*dir2 + alphan*a;
         }
-
+#ifdef HEXADECAPOLE
+	xx = 0.5*x*x;
+	xxx = onethird*xx*x;
+	xxy = xx*y;
+	xxz = xx*z;
+	yy = 0.5*y*y;
+	yyy = onethird*yy*y;
+	xyy = yy*x;
+	yyz = yy*z;
+	zz = 0.5*z*z;
+	zzz = onethird*zz*z;
+	xzz = zz*x;
+	yzz = zz*y;
+	xy = x*y;
+	xyz = xy*z;
+	xz = x*z;
+	yz = y*z;
+	Q2mirx = mom->xx*x + mom->xy*y + mom->xz*z;
+	Q2miry = mom->xy*x + mom->yy*y + mom->yz*z;
+	Q2mirz = mom->xz*x + mom->yz*y + mom->zz*z;
+	Q3mirx = mom->xxx*xx + mom->xxy*xy + mom->xxz*xz + mom->xyy*yy + mom->xyz*yz + mom->xzz*zz;
+	Q3miry = mom->xxy*xx + mom->xyy*xy + mom->xyz*xz + mom->yyy*yy + mom->yyz*yz + mom->yzz*zz;
+	Q3mirz = mom->xxz*xx + mom->xyz*xy + mom->xzz*xz + mom->yyz*yy + mom->yzz*yz + mom->zzz*zz;
+	Q4mirx = mom->xxxx*xxx + mom->xxxy*xxy + mom->xxxz*xxz + mom->xxyy*xyy + mom->xxyz*xyz +
+	  mom->xxzz*xzz + mom->xyyy*yyy + mom->xyyz*yyz + mom->xyzz*yzz + mom->xzzz*zzz;
+	Q4miry = mom->xxxy*xxx + mom->xxyy*xxy + mom->xxyz*xxz + mom->xyyy*xyy + mom->xyyz*xyz +
+	  mom->xyzz*xzz + mom->yyyy*yyy + mom->yyyz*yyz + mom->yyzz*yzz + mom->yzzz*zzz;
+	Q4mirz = mom->xxxz*xxx + mom->xxyz*xxy + mom->xxzz*xxz + mom->xyyz*xyy + mom->xyzz*xyz +
+	  mom->xzzz*xzz + mom->yyyz*yyy + mom->yyzz*yyz + mom->yzzz*yzz + mom->zzzz*zzz;
+	Q4x = Q4xx*x + Q4xy*y + Q4xz*z;
+	Q4y = Q4xy*x + Q4yy*y + Q4yz*z;
+	Q4z = Q4xz*x + Q4yz*y + Q4zz*z;
+	Q2mir = 0.5*(Q2mirx*x + Q2miry*y + Q2mirz*z) - (Q3x*x + Q3y*y + Q3z*z) + Q4;
+	Q3mir = onethird*(Q3mirx*x + Q3miry*y + Q3mirz*z) - 0.5*(Q4x*x + Q4y*y + Q4z*z);
+	Q4mir = 0.25*(Q4mirx*x + Q4miry*y + Q4mirz*z);
+	Qta = g1*mom->m - g2*Q2 + g3*Q2mir + g4*Q3mir + g5*Q4mir;
+	fPot -= g0*mom->m - g1*Q2 + g2*Q2mir + g3*Q3mir + g4*Q4mir;
+	ax += g2*(Q2mirx - Q3x) + g3*(Q3mirx - Q4x) + g4*Q4mirx - x*Qta;
+	ay += g2*(Q2miry - Q3y) + g3*(Q3miry - Q4y) + g4*Q4miry - y*Qta;
+	az += g2*(Q2mirz - Q3z) + g3*(Q3mirz - Q4z) + g4*Q4mirz - z*Qta;
+#else
         Q2mirx = mom->xx*x + mom->xy*y + mom->xz*z;
         Q2miry = mom->xy*x + mom->yy*y + mom->yz*z;
         Q2mirz = mom->xz*x + mom->yz*y + mom->zz*z;
@@ -2648,6 +2725,8 @@ __global__ void EwaldTopKernel(GravityParticleData *particleTable) {
         ax += g2*(Q2mirx) - x*Qta;
         ay += g2*(Q2miry) - y*Qta;
         az += g2*(Q2mirz) - z*Qta;
+
+#endif
       }
     }
   }

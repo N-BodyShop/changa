@@ -25,16 +25,31 @@ typedef struct {
 /** @brief CUDA version of complete MultipoleMoments for Ewald
  */
 typedef struct {
+#ifndef HEXADECAPOLE
   cudatype xx, xy, xz, yy, yz, zz; 
+#endif
   cudatype totalMass; 
   cudatype cmx, cmy, cmz; 
 
 } MultipoleMomentsData; 
 
+/** @brief CUDA version of MOMC for Ewald
+ */
+typedef struct {
+  cudatype m;
+  cudatype xx,yy,xy,xz,yz;
+  cudatype xxx,xyy,xxy,yyy,xxz,yyz,xyz;
+  cudatype xxxx,xyyy,xxxy,yyyy,xxxz,yyyz,xxyy,xxyz,xyyz;
+  cudatype zz;
+  cudatype xzz,yzz,zzz;
+  cudatype xxzz,xyzz,xzzz,yyzz,yzzz,zzzz;
+} MomcData;
+
 /** @brief Parameters and data for Ewald in the CUDA kernel
  */
 typedef struct {
   MultipoleMomentsData mm; 
+  MomcData momcRoot;
   
   int n, nReps, nEwReps, nEwhLoop;
   cudatype L, fEwCut, alpha, alpha2, k1, ka, fEwCut2, fInner2;

@@ -396,9 +396,6 @@ void TreePiece::EwaldGPU() {
   EwtData *ewtTable; 
   EwaldReadOnlyData *roData; 
   MultipoleMoments mm = root->moments;
-#if defined(HEXADECAPOLE)
-  MOMC mom = momcRoot;
-#endif
 
   cudatype L = fPeriod.x;
   cudatype alpha = 2.0f/L;
@@ -434,13 +431,39 @@ void TreePiece::EwaldGPU() {
     ewtTable[i].hSfac = (cudatype) ewt[i].hSfac; 
   }
 
-#if defined(HEXADECAPOLE)
-  roData->mm.xx = (cudatype) mom.xx; 
-  roData->mm.xy = (cudatype) mom.xy; 
-  roData->mm.xz = (cudatype) mom.xz; 
-  roData->mm.yy = (cudatype) mom.yy;
-  roData->mm.yz = (cudatype) mom.yz; 
-  roData->mm.zz = (cudatype) mom.zz;
+#ifdef HEXADECAPOLE
+  roData->momcRoot.m    = (cudatype)     momcRoot.m;
+  roData->momcRoot.xx   = (cudatype)    momcRoot.xx;
+  roData->momcRoot.yy   = (cudatype)    momcRoot.yy;
+  roData->momcRoot.xy   = (cudatype)    momcRoot.xy;
+  roData->momcRoot.xz   = (cudatype)    momcRoot.xz;
+  roData->momcRoot.yz   = (cudatype)    momcRoot.yz;
+  roData->momcRoot.xxx  = (cudatype)   momcRoot.xxx;
+  roData->momcRoot.xyy  = (cudatype)   momcRoot.xyy;
+  roData->momcRoot.xxy  = (cudatype)   momcRoot.xxy;
+  roData->momcRoot.yyy  = (cudatype)   momcRoot.yyy;
+  roData->momcRoot.xxz  = (cudatype)   momcRoot.xxz;
+  roData->momcRoot.yyz  = (cudatype)   momcRoot.yyz;
+  roData->momcRoot.xyz  = (cudatype)   momcRoot.xyz;
+  roData->momcRoot.xxxx = (cudatype)  momcRoot.xxxx;
+  roData->momcRoot.xyyy = (cudatype)  momcRoot.xyyy;
+  roData->momcRoot.xxxy = (cudatype)  momcRoot.xxxy;
+  roData->momcRoot.yyyy = (cudatype)  momcRoot.yyyy;
+  roData->momcRoot.xxxz = (cudatype)  momcRoot.xxxz;
+  roData->momcRoot.yyyz = (cudatype)  momcRoot.yyyz;
+  roData->momcRoot.xxyy = (cudatype)  momcRoot.xxyy;
+  roData->momcRoot.xxyz = (cudatype)  momcRoot.xxyz;
+  roData->momcRoot.xyyz = (cudatype)  momcRoot.xyyz;
+  roData->momcRoot.zz   = (cudatype)    momcRoot.zz;
+  roData->momcRoot.xzz  = (cudatype)   momcRoot.xzz;
+  roData->momcRoot.yzz  = (cudatype)   momcRoot.yzz;
+  roData->momcRoot.zzz  = (cudatype)   momcRoot.zzz;
+  roData->momcRoot.xxzz = (cudatype)  momcRoot.xxzz;
+  roData->momcRoot.xyzz = (cudatype)  momcRoot.xyzz;
+  roData->momcRoot.xzzz = (cudatype)  momcRoot.xzzz;
+  roData->momcRoot.yyzz = (cudatype)  momcRoot.yyzz;
+  roData->momcRoot.yzzz = (cudatype)  momcRoot.yzzz;
+  roData->momcRoot.zzzz = (cudatype)  momcRoot.zzzz;
 #else
   roData->mm.xx = (cudatype) mm.xx;
   roData->mm.xy = (cudatype) mm.xy;
