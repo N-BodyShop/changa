@@ -149,7 +149,8 @@ SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp IntraNodeLBManage
 	InOutput.C cosmo.c romberg.c runge.c dumpframe.C dffuncs.C \
 	moments.c MultistepLB.C Orb3dLB.C Orb3dLB_notopo.C HierarchOrbLB.C starform.C \
 	MultistepLB_notopo.C MultistepNodeLB_notopo.C MultistepOrbLB.C PETreeMerger.cpp \
-	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C 
+	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C \
+	imf.C feedback.C supernova.C supernovaia.C starlifetime.C
 
 ifneq (,$(ENABLE_CUDA))
   CXXFLAGS += $(NVCC_INC)
