@@ -1591,7 +1591,23 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
           }
           
 #endif
-          
+
+#ifdef HEXADECAPOLE
+          GenericTreeNode *bucketNode = tp->bucketList[b];
+          if (openSoftening(node, bucketNode,
+                            tp->decodeOffset(clist[i].offsetID))) {
+
+            ExternalGravityParticle tmpPart;
+            MultipoleMoments &m = node->moments;
+            tmpPart.mass = m.totalMass;
+            tmpPart.soft = m.soft;
+            tmpPart.position = m.cm;
+
+            partBucketForce(&tmpPart, bucketNode, particles,
+                            tp->decodeOffset(clist[i].offsetID), activeRung);
+            continue;
+          }
+#endif
           DoubleWalkState *rrState;
           if(index < 0){
             //if(state->resume) CkAssert(index < 0);
