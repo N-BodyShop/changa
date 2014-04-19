@@ -21,7 +21,7 @@ struct OctDecompNode {
   static int maxNumChildren;
   static int lgMaxNumChildren;
 
-  OctDecompNode() : children(NULL), nchildren(0), load(0.0) 
+  OctDecompNode() : children(NULL), nchildren(0), nparticles(0) 
   {
   }
 
@@ -30,12 +30,12 @@ struct OctDecompNode {
   OctDecompNode *children;
   int nchildren;
 
-  double load;
+  int nparticles;
 
   void makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active);
-  double reduceLoads();
+  int buildCounts();
   void deleteBeneath();
-  void combine(double joinThreshold, vector<NodeKey> &finalKeys, vector<double> &binLoads);
+  void combine(int thresh, vector<NodeKey> &finalKeys, vector<uint64_t> &counts);
   void getLeafNodes(CkVec<OctDecompNode*> *activeNodes);
 };
 
@@ -64,8 +64,8 @@ struct OctDecompNode {
 class Sorter : public CBase_Sorter {
 
         double decompTime;
-	/// The sum of all object loads
-	double totalLoad;
+	/// The total number of keys we're sorting.
+	int64_t numKeys;
 	/// The number of chares to sort into.
 	int numChares;
 	/// The indexes of the chares that are responsible for each segment of data.
@@ -77,8 +77,8 @@ class Sorter : public CBase_Sorter {
 
 	/// The percent tolerance to sort keys within.
 	double tolerance;
-	/// The load on either side of a splitter that corresponds to the requested tolerance.
-	double closeEnough;
+	/// The number of particles on either side of a splitter that corresponds to the requested tolerance.
+	int closeEnough;
 	/// The number of iterations completed.
 	int numIterations;
 	/// A flag telling if we're done yet.
@@ -86,22 +86,20 @@ class Sorter : public CBase_Sorter {
 
 	std::vector<NodeKey> nodeKeys;
 	/// The histogram of counts for the last round of splitter keys.
-        std::vector<uint64_t> binCounts;
-        std::vector<unsigned int> binCountsGas;
-        std::vector<unsigned int> binCountsStar;
-        std::vector<double> binLoads;
-	std::vector<double> binLoadsGas;
-	std::vector<double> binLoadsStar;
+	std::vector<uint64_t> binCounts;
+	std::vector<unsigned int> binCountsGas;
+	std::vector<unsigned int> binCountsStar;
 	/// The number of bins in the histogram.
-	int numBins;
+	int numCounts;
 	/// The keys I've decided on that divide the objects evenly (within the tolerance).
 	std::vector<SFC::Key> keyBoundaries;
+        std::vector<uint64_t> accumulatedBinCounts;
 	/// The keys I'm sending out to be evaluated.
 	std::vector<SFC::Key> splitters;
 
         CkBitVector binsToSplit;
 	/// The list of object number splits not yet met.
-	double *goals;
+	int64_t *goals;
         int numGoalsPending;
 	
 	/// The DataManager I broadcast candidate keys to.
@@ -110,7 +108,7 @@ class Sorter : public CBase_Sorter {
 	CkCallback sortingCallback;
 
 	/// Variables to decide when to split or join a TreePiece in the Oct decomposition
-	double joinThreshold, splitThreshold;
+	int joinThreshold, splitThreshold;
 	/// Specify what is the level of refinement of nodes sent out
 	/// for histogramming in Oct decomposition.
 	int refineLevel;
@@ -146,7 +144,7 @@ class Sorter : public CBase_Sorter {
   Compare comp;
 
 	void adjustSplitters();
-        bool refineOctSplitting(int n, double *loads);
+	bool refineOctSplitting(int n, int *count);
 	
 public:
 	
@@ -191,7 +189,6 @@ public:
 	void collectEvaluations(CkReductionMsg* m);
 	void collectEvaluationsSFC(CkReductionMsg* m);
 	void collectEvaluationsOct(CkReductionMsg* m);
-        void receiveParticleCounts(CkReductionMsg* m);
 
   //ORB Decomposition
   void doORBDecomposition(CkReductionMsg* m);

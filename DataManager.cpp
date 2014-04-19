@@ -67,7 +67,7 @@ void DataManager::acceptResponsibleIndex(const int* responsible, const int n,
     contribute(cb);
     }
 
-void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, int* bins, const int n, const CkCallback& cb) {
+void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, uint64_t* bins, const int n, const CkCallback& cb) {
 
   //should not assign responsibility or place to a treepiece that will get no particles
   int ignored = 0;
@@ -171,7 +171,6 @@ void DataManager::collectSplitters(CkReductionMsg *m) {
 void DataManager::pup(PUP::er& p) {
     CBase_DataManager::pup(p);
     p | treePieces;
-    p | boundaryKeys;
 }
 
 void DataManager::notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp) {
