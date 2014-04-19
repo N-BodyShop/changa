@@ -307,17 +307,14 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 void Main::initStarLog(){
     struct stat statbuf;
     int iSize;
-    char achStarLogFile[64];
+    std::string stLogFile = std::string(param.achOutName) + ".starlog";
 
-    sprintf(achStarLogFile,"%s.starlog",param.achOutName);
-
-    std::string stLogFile(achStarLogFile);
     dMProxy.initStarLog(stLogFile,CkCallbackResumeThread());
 
     if(bIsRestarting) {
-	if(!stat(achStarLogFile, &statbuf)) {
+	if(!stat(stLogFile.c_str(), &statbuf)) {
 	    /* file exists, check number */
-	    FILE *fpLog = fopen(achStarLogFile,"r");
+	    FILE *fpLog = fopen(stLogFile.c_str(),"r");
 	    XDR xdrs;
 	    
 	    CkAssert(fpLog != NULL);
@@ -330,7 +327,7 @@ void Main::initStarLog(){
 	    CkAbort("Simulation restarting with star formation, but starlog file not found");
 	    }
 	} else {
-	FILE *fpLog = fopen(achStarLogFile,"w");
+	FILE *fpLog = fopen(stLogFile.c_str(),"w");
 	XDR xdrs;
 
 	CkAssert(fpLog != NULL);
