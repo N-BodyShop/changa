@@ -95,7 +95,6 @@ void TreePiece::loadTipsy(const std::string& filename,
 			  const CkCallback& cb) {
         LBTurnInstrumentOff();
         basefilename = filename;
-	bLoaded = 0;
 
 	Tipsy::TipsyReader r(filename, bDoublePos, bDoubleVel);
 	if(!r.status()) {
@@ -296,7 +295,6 @@ void TreePiece::loadTipsy(const std::string& filename,
 		boundingBox.grow(myParticles[i+1].position);
 	}
 	
-	bLoaded = 1;
   contribute(cb);
 }
 
@@ -623,6 +621,645 @@ void TreePiece::readCoolArray3(const std::string& filename, const CkCallback& cb
 #endif
     contribute(cb);
     }
+
+static double fh_time; // gross, but quick way to get time
+
+/// Returns total number of particles in a given file
+/// @param filename data file of interest
+int64_t ncGetCount(std::string filename)
+{
+    FILE* infile = CmiFopen(filename.c_str(), "rb");
+    if(!infile) {
+	return 0;  // Assume there is none of this particle type
+	}
+
+    XDR xdrs;
+    FieldHeader fh;
+    xdrstdio_create(&xdrs, infile, XDR_DECODE);
+
+    if(!xdr_template(&xdrs, &fh)) {
+	throw XDRException("Couldn't read header from file!");
+	}
+    if(fh.magic != FieldHeader::MagicNumber) {
+	throw XDRException("This file does not appear to be a field file (magic number doesn't match).");
+	}
+    if(fh.dimensions != 3 && fh.dimensions != 1) {
+	throw XDRException("Wrong dimension.");
+	}
+    fh_time = fh.time;
+    xdr_destroy(&xdrs);
+    fclose(infile);
+    return fh.numParticles;
+    }
+
+static void *readFieldData(const std::string filename, FieldHeader &fh, unsigned int dim,
+    int64_t numParticles, int64_t startParticle)
+{
+    FILE* infile = CmiFopen(filename.c_str(), "rb");
+    if(!infile) {
+	string smess("Couldn't open field file: ");
+	smess += filename;
+	throw XDRException(smess);
+	}
+
+    XDR xdrs;
+    xdrstdio_create(&xdrs, infile, XDR_DECODE);
+
+    if(!xdr_template(&xdrs, &fh)) {
+	throw XDRException("Couldn't read header from file!");
+	}
+    if(fh.magic != FieldHeader::MagicNumber) {
+	throw XDRException("This file does not appear to be a field file (magic number doesn't match).");
+	}
+    if(fh.dimensions != dim) {
+	throw XDRException("Wrong dimension of positions.");
+	}
+
+    void* data = readField(fh, &xdrs, numParticles, startParticle);
+	
+    if(data == 0) {
+	throw XDRException("Had problems reading in the field");
+	}
+    xdr_destroy(&xdrs);
+    fclose(infile);
+    return data;
+    }
+
+/// @brief load attributes common to all particles
+static void load_NC_base(std::string filename, int64_t startParticle,
+                        int myNum, GravityParticle *myParts)
+{
+    FieldHeader fh;
+    // Positions
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading positions\n");
+
+    void *data = readFieldData(filename + "/pos", fh, 3, myNum,
+        startParticle);
+    for(int i = 0; i < myNum; ++i) {
+	switch(fh.code) {
+	case float32:
+            myParts[i].position = static_cast<Vector3D<float> *>(data)[i];
+	    break;
+	case float64:
+            myParts[i].position = static_cast<Vector3D<double> *>(data)[i];
+	    break;
+	default:
+	    throw XDRException("I don't recognize the type of this field!");
+	    }
+        }
+    deleteField(fh, data);
+    // velocities
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading velocities\n");
+    data = readFieldData(filename + "/vel", fh, 3, myNum,
+        startParticle);
+    for(int i = 0; i < myNum; ++i) {
+	switch(fh.code) {
+	case float32:
+            myParts[i].velocity = static_cast<Vector3D<float> *>(data)[i];
+	    break;
+	case float64:
+            myParts[i].velocity = static_cast<Vector3D<double> *>(data)[i];
+	    break;
+	default:
+	    throw XDRException("I don't recognize the type of this field!");
+	    }
+        }
+    deleteField(fh, data);
+    // masses
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading masses\n");
+
+    data = readFieldData(filename + "/mass", fh, 1, myNum,
+        startParticle);
+    for(int i = 0; i < myNum; ++i) {
+	switch(fh.code) {
+	case float32:
+            myParts[i].mass = static_cast<float *>(data)[i];
+	    break;
+	case float64:
+            myParts[i].mass = static_cast<double *>(data)[i];
+	    break;
+	default:
+	    throw XDRException("I don't recognize the type of this field!");
+	    }
+        }
+    deleteField(fh, data);
+    // softenings
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading softenings\n");
+
+    data = readFieldData(filename + "/soft", fh, 1, myNum,
+        startParticle);
+    for(int i = 0; i < myNum; ++i) {
+	switch(fh.code) {
+	case float32:
+            myParts[i].soft = static_cast<float *>(data)[i];
+#ifdef CHANGESOFT
+            myParts[i].fSoft0 = static_cast<float *>(data)[i];
+#endif
+	    break;
+	case float64:
+            myParts[i].soft = static_cast<double *>(data)[i];
+#ifdef CHANGESOFT
+            myParts[i].fSoft0 = static_cast<double *>(data)[i];
+#endif
+	    break;
+	default:
+	    throw XDRException("I don't recognize the type of this field!");
+	    }
+        }
+    deleteField(fh, data);
+}
+
+static void load_NC_gas(std::string filename, int64_t startParticle,
+                        int myNumSPH, GravityParticle *myParts,
+                        extraSPHData *mySPHParts, double dTuFac)
+{
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading gas\n");
+
+    load_NC_base(filename, startParticle, myNumSPH, myParts);
+
+    for(int i = 0; i < myNumSPH; ++i) {
+        myParts[i].iType = TYPE_GAS;
+        myParts[i].extraData = &mySPHParts[i];
+        myParts[i].fBallMax() = HUGE;
+        myParts[i].fESNrate() = 0.0;
+        myParts[i].fTimeCoolIsOffUntil() = 0.0;
+        }
+
+    FieldHeader fh;
+    // Density
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading densities\n");
+
+    void *data = readFieldData(filename + "/GasDensity", fh, 1, myNumSPH,
+                               startParticle);
+    for(int i = 0; i < myNumSPH; ++i) {
+	switch(fh.code) {
+	case float32:
+            myParts[i].fDensity = static_cast<float *>(data)[i];
+	    break;
+	case float64:
+            myParts[i].fDensity = static_cast<double *>(data)[i];
+	    break;
+	default:
+	    throw XDRException("I don't recognize the type of this field!");
+	    }
+        }
+    deleteField(fh, data);
+    // Oxygen
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading Oxygen\n");
+
+    data = readFieldData(filename + "/OxMassFrac", fh, 1, myNumSPH,
+                               startParticle);
+    for(int i = 0; i < myNumSPH; ++i) {
+	switch(fh.code) {
+	case float32:
+            myParts[i].fMFracOxygen() = static_cast<float *>(data)[i];
+	    break;
+	case float64:
+            myParts[i].fMFracOxygen() = static_cast<double *>(data)[i];
+	    break;
+	default:
+	    throw XDRException("I don't recognize the type of this field!");
+	    }
+        }
+    deleteField(fh, data);
+    // Iron
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading Iron\n");
+
+    data = readFieldData(filename + "/FeMassFrac", fh, 1, myNumSPH,
+                               startParticle);
+    for(int i = 0; i < myNumSPH; ++i) {
+	switch(fh.code) {
+	case float32:
+            myParts[i].fMFracIron() = static_cast<float *>(data)[i];
+	    break;
+	case float64:
+            myParts[i].fMFracIron() = static_cast<double *>(data)[i];
+	    break;
+	default:
+	    throw XDRException("I don't recognize the type of this field!");
+	    }
+        }
+    deleteField(fh, data);
+    // Temperature
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading temperature\n");
+
+    data = readFieldData(filename + "/temperature", fh, 1, myNumSPH,
+                               startParticle);
+    for(int i = 0; i < myNumSPH; ++i) {
+	switch(fh.code) {
+	case float32:
+            myParts[i].u() = dTuFac*static_cast<float *>(data)[i];
+	    break;
+	case float64:
+            myParts[i].u() = dTuFac*static_cast<double *>(data)[i];
+	    break;
+	default:
+	    throw XDRException("I don't recognize the type of this field!");
+	    }
+        myParts[i].uPred() = myParts[i].u();
+        }
+    deleteField(fh, data);
+}
+
+static void load_NC_dark(std::string filename, int64_t startParticle,
+                        int myNumDark, GravityParticle *myParts)
+{
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading darks\n");
+    
+    load_NC_base(filename, startParticle, myNumDark, myParts);
+
+    for(int i = 0; i < myNumDark; ++i) {
+        myParts[i].fDensity = 0.0;
+        myParts[i].iType = TYPE_DARK;
+        }
+}
+
+static void load_NC_star(std::string filename, int64_t startParticle,
+                         int myNumStar, GravityParticle *myParts,
+                         extraStarData *myStarParts)
+{
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading stars\n");
+
+    for(int i = 0; i < myNumStar; ++i) {
+        myParts[i].fDensity = 0.0;
+        myParts[i].iType = TYPE_STAR;
+        myParts[i].extraData = &myStarParts[i];
+        }
+    load_NC_base(filename, startParticle, myNumStar, myParts);
+
+    FieldHeader fh;
+    // Oxygen
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading Oxygen\n");
+
+    void *data = readFieldData(filename + "/OxMassFrac", fh, 1, myNumStar,
+                               startParticle);
+    for(int i = 0; i < myNumStar; ++i) {
+	switch(fh.code) {
+	case float32:
+            myParts[i].fStarMFracOxygen() = static_cast<float *>(data)[i];
+	    break;
+	case float64:
+            myParts[i].fStarMFracOxygen() = static_cast<double *>(data)[i];
+	    break;
+	default:
+	    throw XDRException("I don't recognize the type of this field!");
+	    }
+        }
+    deleteField(fh, data);
+    // Iron
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading Iron\n");
+
+    data = readFieldData(filename + "/FeMassFrac", fh, 1, myNumStar,
+                               startParticle);
+    for(int i = 0; i < myNumStar; ++i) {
+	switch(fh.code) {
+	case float32:
+            myParts[i].fStarMFracIron() = static_cast<float *>(data)[i];
+	    break;
+	case float64:
+            myParts[i].fStarMFracIron() = static_cast<double *>(data)[i];
+	    break;
+	default:
+	    throw XDRException("I don't recognize the type of this field!");
+	    }
+        }
+    deleteField(fh, data);
+    // Formation Time
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading timeform\n");
+
+    data = readFieldData(filename + "/timeform", fh, 1, myNumStar,
+                               startParticle);
+    for(int i = 0; i < myNumStar; ++i) {
+	switch(fh.code) {
+	case float32:
+            myParts[i].fTimeForm() = static_cast<float *>(data)[i];
+	    break;
+	case float64:
+            myParts[i].fTimeForm() = static_cast<double *>(data)[i];
+	    break;
+	default:
+	    throw XDRException("I don't recognize the type of this field!");
+	    }
+        }
+    deleteField(fh, data);
+    for(int i = 0; i < myNumStar; ++i) {
+        myParts[i].fMassForm() = myParts[i].mass;
+        }
+}
+
+void TreePiece::loadNChilada(const std::string& filename,
+                             const double dTuFac, // Convert Temperature
+			     const CkCallback& cb) {
+        LBTurnInstrumentOff();
+        basefilename = filename;
+
+	nTotalSPH = ncGetCount(filename + "/gas/pos");
+	nTotalDark = ncGetCount(filename + "/dark/pos");
+	nTotalStar = ncGetCount(filename + "/star/pos");
+	nTotalParticles = nTotalSPH + nTotalDark + nTotalStar;
+	dStartTime = fh_time;
+
+	switch (domainDecomposition) {
+	case SFC_dec:
+        case SFC_peano_dec:
+	case SFC_peano_dec_3D:
+	case SFC_peano_dec_2D:
+	    numPrefetchReq = 2;
+	case Oct_dec:
+	case ORB_dec:
+	case ORB_space_dec:
+	    numPrefetchReq = 1;
+	    break;
+	default:
+	    CkAbort("Invalid domain decomposition requested");
+	    }
+
+        bool skipLoad = false;
+        int numLoadingPEs = CkNumPes();
+
+        // check whether this tree piece should load from file
+#ifdef ROUND_ROBIN_WITH_OCT_DECOMP 
+        if(thisIndex >= numLoadingPEs) skipLoad = true;
+#else
+        int numTreePiecesPerPE = numTreePieces/numLoadingPEs;
+        int rem = numTreePieces-numTreePiecesPerPE*numLoadingPEs;
+
+#ifdef DEFAULT_ARRAY_MAP
+        if (rem > 0) {
+          int sizeSmallBlock = numTreePiecesPerPE; 
+          int numLargeBlocks = rem; 
+          int sizeLargeBlock = numTreePiecesPerPE + 1; 
+          int largeBlockBound = numLargeBlocks * sizeLargeBlock; 
+          
+          if (thisIndex < largeBlockBound) {
+            if (thisIndex % sizeLargeBlock > 0) {
+              skipLoad = true; 
+            }
+          }
+          else {
+            if ((thisIndex - largeBlockBound) % sizeSmallBlock > 0) {
+              skipLoad = true; 
+            }
+          }
+        }
+        else {
+          if ( (thisIndex % numTreePiecesPerPE) > 0) {
+            skipLoad = true; 
+          }
+        }
+#else
+        // this is not the best way to divide objects among PEs, 
+        // but it is how charm++ BlockMap does it.
+        if(rem > 0){
+          numTreePiecesPerPE++;
+          numLoadingPEs = numTreePieces/numTreePiecesPerPE;
+          if(numTreePieces % numTreePiecesPerPE > 0) numLoadingPEs++;
+        }
+
+        if(thisIndex % numTreePiecesPerPE > 0 || thisIndex >= numLoadingPEs * numTreePiecesPerPE) skipLoad = true;
+#endif
+#endif
+
+        if(skipLoad){
+          myNumParticles = 0;
+          nStartRead = -1;
+          contribute(cb);
+          return;
+        }
+
+        // find your load offset into input file
+        int myIndex = CkMyPe();
+	myNumParticles = nTotalParticles / numLoadingPEs;
+	int excess = nTotalParticles % numLoadingPEs;
+	int64_t startParticle = myNumParticles * myIndex;
+	if(myIndex < excess) {
+	    myNumParticles++;
+	    startParticle += myIndex;
+	    }
+	else {
+	    startParticle += excess;
+	    }
+	if(startParticle >= nTotalParticles) {
+	    CkError("Bad startParticle: %d, nPart: %d, myIndex: %d, nLoading: %d\n",
+		    startParticle, nTotalParticles, myIndex, numLoadingPEs);
+	    }
+	CkAssert(startParticle < nTotalParticles);
+        nStartRead = startParticle;
+	
+	if(verbosity > 2)
+		cerr << "TreePiece " << thisIndex << " PE " << CkMyPe() << " Taking " << myNumParticles
+		     << " of " << nTotalParticles
+		     << " particles: [" << startParticle << "," << startParticle+myNumParticles << ")" << endl;
+
+	// allocate an array for myParticles
+	nStore = (int)((myNumParticles + 2)*(1.0 + dExtraStore));
+	myParticles = new GravityParticle[nStore];
+	// Are we loading SPH?
+	if(startParticle < nTotalSPH) {
+	    if(startParticle + myNumParticles <= nTotalSPH)
+		myNumSPH = myNumParticles;
+	    else
+		myNumSPH = nTotalSPH - startParticle;
+	    }
+	else {
+	    myNumSPH = 0;
+	    }
+	nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
+	if(nStoreSPH > 0)
+	    mySPHParticles = new extraSPHData[nStoreSPH];
+	// Are we loading stars?
+	if(startParticle + myNumParticles > nTotalSPH + nTotalDark) {
+	    if(startParticle <= nTotalSPH + nTotalDark)
+		myNumStar = startParticle + myNumParticles
+		    - (nTotalSPH + nTotalDark);
+	    else
+		myNumStar = myNumParticles;
+	    }
+	else {
+	    myNumStar = 0;
+	    }
+	allocateStars();
+	
+        if(myNumSPH > 0) {
+            load_NC_gas(filename + "/gas", startParticle, myNumSPH,
+                        &myParticles[1], mySPHParticles, dTuFac);
+            }
+        int myNumDark = myNumParticles - myNumSPH - myNumStar;
+        startParticle -= nTotalSPH;
+        if(startParticle < 0)
+            startParticle = 0;
+        if(myNumDark > 0) {
+            load_NC_dark(filename + "/dark", startParticle, myNumDark,
+                         &myParticles[myNumSPH + 1]);
+            }
+        startParticle = nStartRead - nTotalSPH - nTotalDark;
+        if(startParticle < 0)
+            startParticle = 0;
+        if(myNumStar > 0) {
+            load_NC_star(filename + "/star", startParticle, myNumStar,
+                         &myParticles[myNumSPH + myNumDark + 1],
+                         myStarParticles);
+            }
+        for(int i = 0; i < myNumParticles; ++i) {
+            myParticles[i+1].rung = 0;
+            myParticles[i+1].fBall = 0.0;
+            myParticles[i+1].iOrder = i + nStartRead;
+            boundingBox.grow(myParticles[i+1].position);
+        }
+        
+  contribute(cb);
+}
+
+/// Generic read of binary (NChilada) array format into integer
+/// particle attribute
+void TreePiece::readIntBinary(OutputIntParams& params, int bParaRead,
+    const CkCallback& cb)
+{
+    FieldHeader fh;
+    void *data;
+    int64_t startParticle = nStartRead;
+    
+    if((params.iType & TYPE_GAS) && (myNumSPH > 0)) {
+        data = readFieldData(params.fileName + "/gas/" + params.sNChilExt, fh,
+            1, myNumSPH, nStartRead);
+        for(int i = 0; i < myNumSPH; ++i) {
+            switch(fh.code) {
+            case int32:
+                params.setIValue(&myParticles[i+1], static_cast<int *>(data)[i]);
+                break;
+            case int64:
+                params.setIValue(&myParticles[i+1], static_cast<int64_t *>(data)[i]);
+                break;
+            default:
+                throw XDRException("I don't recognize the type of this field!");
+                }
+            }
+        deleteField(fh, data);
+        }
+    int myNumDark = myNumParticles - myNumSPH - myNumStar;
+    startParticle -= nTotalSPH;
+    if(startParticle < 0) startParticle = 0;
+    if((params.iType & TYPE_DARK) && (myNumDark > 0)) {
+        data = readFieldData(params.fileName + "/dark/" + params.sNChilExt, fh,
+            1, myNumDark, startParticle);
+        for(int i = 0; i < myNumDark; ++i) {
+            switch(fh.code) {
+            case int32:
+                params.setIValue(&myParticles[myNumSPH+i+1], static_cast<int *>(data)[i]);
+                break;
+            case int64:
+                params.setIValue(&myParticles[myNumSPH+i+1], static_cast<int64_t *>(data)[i]);
+                break;
+            default:
+                throw XDRException("I don't recognize the type of this field!");
+                }
+            }
+        deleteField(fh, data);
+        }
+    startParticle = nStartRead - nTotalSPH - nTotalDark;
+    if(startParticle < 0)
+        startParticle = 0;
+    if((params.iType & TYPE_STAR) && (myNumStar > 0)) {
+        data = readFieldData(params.fileName + "/star/" + params.sNChilExt, fh,
+            1, myNumStar, startParticle);
+        for(int i = 0; i < myNumStar; ++i) {
+            switch(fh.code) {
+            case int32:
+                params.setIValue(&myParticles[myNumSPH+myNumDark+i+1], static_cast<int *>(data)[i]);
+                break;
+            case int64:
+                params.setIValue(&myParticles[myNumSPH+myNumDark+i+1], static_cast<int64_t *>(data)[i]);
+                break;
+            default:
+                throw XDRException("I don't recognize the type of this field!");
+                }
+            }
+        deleteField(fh, data);
+        }
+    contribute(cb);
+}
+
+/// Generic read of binary (NChilada) array format into floating point
+/// particle attribute
+void TreePiece::readFloatBinary(OutputParams& params, int bParaRead,
+    const CkCallback& cb)
+{
+    FieldHeader fh;
+    void *data;
+    int64_t startParticle = nStartRead;
+    if((params.iType & TYPE_GAS) && (myNumSPH > 0)) {
+        data = readFieldData(params.fileName + "/gas/" + params.sNChilExt, fh,
+            1, myNumSPH, nStartRead);
+        for(int i = 0; i < myNumSPH; ++i) {
+            switch(fh.code) {
+            case float32:
+                params.setDValue(&myParticles[i+1], static_cast<float *>(data)[i]);
+                break;
+            case float64:
+                params.setDValue(&myParticles[i+1], static_cast<double *>(data)[i]);
+                break;
+            default:
+                throw XDRException("I don't recognize the type of this field!");
+                }
+            }
+        deleteField(fh, data);
+        }
+    int myNumDark = myNumParticles - myNumSPH - myNumStar;
+    startParticle -= nTotalSPH;
+    if(startParticle < 0) startParticle = 0;
+    if((params.iType & TYPE_DARK) && (myNumDark > 0)) {
+        data = readFieldData(params.fileName + "/dark/" + params.sNChilExt, fh,
+            1, myNumDark, startParticle);
+        for(int i = 0; i < myNumDark; ++i) {
+            switch(fh.code) {
+            case float32:
+                params.setDValue(&myParticles[myNumSPH+i+1], static_cast<float *>(data)[i]);
+                break;
+            case float64:
+                params.setDValue(&myParticles[myNumSPH+i+1], static_cast<double *>(data)[i]);
+                break;
+            default:
+                throw XDRException("I don't recognize the type of this field!");
+                }
+            }
+        deleteField(fh, data);
+        }
+    startParticle = nStartRead - nTotalSPH - nTotalDark;
+    if(startParticle < 0)
+        startParticle = 0;
+    if((params.iType & TYPE_STAR) && (myNumStar > 0)) {
+        data = readFieldData(params.fileName + "/star/" + params.sNChilExt, fh,
+            1, myNumStar, startParticle);
+        for(int i = 0; i < myNumStar; ++i) {
+            switch(fh.code) {
+            case float32:
+                params.setDValue(&myParticles[myNumSPH+myNumDark+i+1], static_cast<float *>(data)[i]);
+                break;
+            case float64:
+                params.setDValue(&myParticles[myNumSPH+myNumDark+i+1], static_cast<double *>(data)[i]);
+                break;
+            default:
+                throw XDRException("I don't recognize the type of this field!");
+                }
+            }
+        deleteField(fh, data);
+        }
+    contribute(cb);
+}
 
 /// @brief Find starting offsets and begin parallel write.
 ///

@@ -482,6 +482,8 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
     dExtraStore = param.dExtraStore;
     dMaxBalance = param.dMaxBalance;
     nIOProcessor = param.nIOProcessor;
+    theta = param.dTheta;
+    thetaMono = theta*theta*theta*theta;
     contribute(cb);
     // parameter structure requires some cleanup
     delete param.stfm;

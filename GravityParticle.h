@@ -189,7 +189,7 @@ public:
 	double dtGrav;
 	double fBall;
 	double fDensity;
-	int iOrder;		/* input order of particles */
+	int64_t iOrder;		/* input order of particles */
         int rung;  ///< the current rung (greater means faster)
 	unsigned int iType;	// Bitmask to hold particle type information
 #ifdef CHANGESOFT
