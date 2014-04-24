@@ -17,7 +17,7 @@ extern double thetaMono;
 ** Higher derivative terms c and d for use with quadrupole spline
 ** softening (Joachim Stadel, Dec. 94).
 */
-#ifndef __SSE2__
+#if !CMK_SSE
 inline
 void SPLINEQ(cosmoType invr,cosmoType r2,cosmoType twoh,cosmoType& a,
 	     cosmoType& b,cosmoType& c,cosmoType& d)
@@ -143,7 +143,7 @@ void SPLINEQ(SSEcosmoType invr, SSEcosmoType r2, SSEcosmoType twoh,
 }
 #endif
 
-#ifndef __SSE2__
+#if !CMK_SSE
 inline
 void SPLINE(cosmoType r2, cosmoType twoh, cosmoType &a, cosmoType &b)
 {
@@ -263,7 +263,7 @@ int openSoftening(Tree::GenericTreeNode *node, Tree::GenericTreeNode *myNode,
 static int forProgress = 0;
 #endif
 
-#ifndef __SSE2__
+#if !CMK_SSE
 inline int partBucketForce(ExternalGravityParticle *part, 
 			   Tree::GenericTreeNode *req, 
 			   GravityParticle *particles, 
@@ -398,7 +398,7 @@ inline int partBucketForce(ExternalGravityParticle *part,
 // Calculated forces on active particles in a bucket due to the
 // multipole of a TreeNode.  Return number of multipoles evaluated.
 //
-#if  !defined(__SSE2__) 
+#if  !CMK_SSE
 inline
 int nodeBucketForce(Tree::GenericTreeNode *node, 
 		    Tree::GenericTreeNode *req,  
@@ -475,7 +475,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
   return computed;
 }
 
-#elif defined(__SSE2__) 
+#elif  CMK_SSE
 inline
 int nodeBucketForce(Tree::GenericTreeNode *node, 
 		    Tree::GenericTreeNode *req,  

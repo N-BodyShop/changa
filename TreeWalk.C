@@ -294,8 +294,8 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
  * LocalTargetWalk functions.
  */
 
-// This walk interprets what is otherwise the 'reqID' argument as the targetBucketIndex
-// It can only be called from the calculateGravityRemote/startNextBucket
+/// This walk interprets what is otherwise the 'reqID' argument as the targetBucketIndex
+/// It can only be called from the calculateGravityRemote/startNextBucket
 #if INTERLIST_VER > 0
 void LocalTargetWalk::walk(GenericTreeNode *ancestor, State *state, int chunk, int targetBucketIndex, int awi){
 

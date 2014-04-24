@@ -22,6 +22,8 @@
   zsol = solar metal abundance 
   xoxsol = solar oxygen abundance */
 
+/// @brief routines to calculate stellar lifetimes as a function of
+/// mass and metalicity.
 class Padova {
     double a00, a01, a02;
     double a10, a11, a12;

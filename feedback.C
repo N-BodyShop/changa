@@ -120,14 +120,9 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
 ///
 void Main::StellarFeedback(double dTime, double dDelta) 
 {
-    CkPrintf("Load balancer for feedback... ");
-    double startTime = CkWallTimer();
-    treeProxy.startlb(CkCallbackResumeThread(), PHASE_FEEDBACK);
-    CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
-
     if(verbosity)
 	CkPrintf("Stellar Feedback ... \n");
-    startTime = CkWallTimer();
+    double startTime = CkWallTimer();
 
     CkReductionMsg *msgFeedback;
     treeProxy.Feedback(*(param.feedback), dTime, dDelta,
@@ -151,15 +146,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
     
     if(verbosity)
       CkPrintf("Distribute Stellar Feedback ... ");
-    // particles need sorting before tree build when star formation
-    // not enabled
-    if(!param.bStarForm) {
-	sorter.startSorting(dataManagerID, ddTolerance,
-			    CkCallbackResumeThread(), true);
-	}
     // Need to build tree since we just did addDelParticle.
-    // XXX need to check whether a treebuild needs the domain
-    // decomposition.  If not, this could be avoided.
     //
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
     DistStellarFeedbackSmoothParams pDSFB(TYPE_GAS, 0, param.csm, dTime, 
