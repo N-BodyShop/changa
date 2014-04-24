@@ -109,7 +109,7 @@ OBJECTS = Reductions.o DataManager.o TreePiece.o Sorter.o \
 	  MultistepLB_notopo.o MultistepOrbLB.o PETreeMerger.o \
 	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
 	  feedback.o imf.o supernova.o supernovaia.o starlifetime.o \
-	  cha_commitid.o \
+	  FastMultipole.o cha_commitid.o \
 	  @OBJECTS_COOLING@
 
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \

@@ -22,6 +22,7 @@
 //#include "codes.h"
 #include "Opt.h"
 #include "Compute.h"
+#include "FastMultipole.h"
 #include "TreeWalk.h"
 //#include "State.h"
 
@@ -2788,6 +2789,7 @@ void TreePiece::initBuckets() {
         myParticles[i].treeAcceleration = 0;
         myParticles[i].potential = 0;
 	myParticles[i].dtGrav = 0;
+	myParticles[i].interMass = 0;
 	// node->boundingBox.grow(myParticles[i].position);
       }
     }
@@ -4332,7 +4334,8 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   TreeWalk *walk;
 
 #if INTERLIST_VER > 0
-  compute = new ListCompute;
+  // compute = new ListCompute;
+  compute = new FMMCompute;
   walk = new LocalTargetWalk;
 #else
   compute = new GravityCompute;
@@ -5656,7 +5659,8 @@ void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, 
   if(awi == interListAwi) {
 #if INTERLIST_VER > 0
       ListCompute *lc = dynamic_cast<ListCompute *>(c);
-      CkAssert(lc != NULL);
+      FMMCompute *fmmc = dynamic_cast<FMMCompute *>(c);
+      CkAssert(lc != NULL || fmmc != NULL);
 #else
       CkAbort("Using ListCompute in non-list version\n");
 #endif

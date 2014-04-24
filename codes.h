@@ -23,7 +23,7 @@
 #define NO_INTERSECT 0
 
 enum WalkType {TopDown, LocalTarget, BottomUp, BucketIterator, InvalidWalk};
-enum ComputeType {Gravity, Prefetch, List, BucketEwald, Smooth, ReSmooth,
+enum ComputeType {Gravity, Prefetch, List, BucketEwald, Smooth, ReSmooth, FMM,
 		  InvalidCompute};
 
 enum OptType {Local, Remote, Pref, Double, PushGravity, InvalidOpt};

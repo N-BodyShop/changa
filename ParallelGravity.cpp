@@ -2297,7 +2297,8 @@ Main::doSimulation()
   if(param.nSteps == 0) {
       string achFile = string(param.achOutName) + ".000000";
       // assign each particle its domain for diagnostic.
-      treeProxy.assignDomain(CkCallbackResumeThread());
+      // Reuse interMass
+      // treeProxy.assignDomain(CkCallbackResumeThread());
 
       if((!param.bDoGas) && param.bDoDensity) {
 	  // If gas isn't being calculated, we can do the total

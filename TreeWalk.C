@@ -307,6 +307,8 @@ void LocalTargetWalk::walk(GenericTreeNode *ancestor, State *state, int chunk, i
 
 int reEncodeOffset(int reqID, int offsetID);
 
+#include "FastMultipole.h"
+
 // This walk interprets what is otherwise the 'reqID' argument as the targetBucketIndex
 void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, int targetBucketIndex, bool isRoot, int awi, int level){
 
@@ -330,6 +332,17 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
     // this clears the undlist and interaction lists
     // for the current level
     comp->initState(s);
+
+    FMMCompute *f = dynamic_cast<FMMCompute *>(comp);
+    
+    if(f != NULL) {
+        s->momLocal[level] = s->momLocal[level-1];
+        /// Check that the parent moments are valid.
+        Vector3D<double> dr = localNode->moments.cm
+            - localNode->parent->moments.cm;
+        s->momLocal[level].totalMass = s->momLocal[level-1].totalMass;
+        momShiftLocr(&s->momLocal[level].mom, dr.x, dr.y, dr.z);
+        }
 
     UndecidedList &parentUndlist = s->undlists[level-1];
     // process parent's undecided nodes first
@@ -467,6 +480,8 @@ void LocalTargetWalk::resumeWalk(GenericTreeNode *node, State *state_, int chunk
 		}
 		state->clists[i].length() = 0;
 		state->undlists[i].length() = 0;
+                state->momLocal[i].totalMass = 0.0;
+                momClearLocr(&state->momLocal[i].mom);
 	}
 
 	if(localLists)

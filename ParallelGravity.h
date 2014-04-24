@@ -628,6 +628,7 @@ class TreePiece : public CBase_TreePiece {
    friend class ReSmoothCompute;
    friend class MarkSmoothCompute;
    friend class ListCompute;
+   friend class FMMCompute;
    friend class NearNeighborState;
    friend class ReNearNeighborState;
    friend class MarkNeighborState;

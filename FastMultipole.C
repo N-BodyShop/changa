@@ -100,7 +100,8 @@ int localBucketForce(LocalMoments &L,
  * ACCEPT_PARTICLES (1): the source's particles are placed on the particle
  * interaction list.
  * OPEN_BUCKET (2): replace check cell with its particles;
- * 		continue processing check list.
+ * 		continue processing check list.  I.e. each particle is
+ *              a size zero cell.
  * OPEN_CHECK (3): replace check cell with children on check list;
  * 		continue processing check list.
  * ACCEPT_MULTIPOLE (4): accept as remote expansion for destination cell;
@@ -149,7 +150,8 @@ FMMOpenType openCriterionFMM(Tree::GenericTreeNode *node, // "source" node
       }
   else if(radius > myRadius) {	// Check Cell is larger
       if(node->isBucket()) {
-          return OPEN_BUCKET;
+          // return OPEN_BUCKET;  // XXX Not implemented yet across processors.
+          return ACCEPT_PARTICLES;
           }
       else { // not a bucket
 	  return OPEN_CHECK;
@@ -236,8 +238,8 @@ int FMMCompute::doWork(GenericTreeNode *node,
             OffsetNode on;
             on.node = node;
             on.offsetID = reqID;
-            undlist.push_back(on);                /// Is this the right list?
-            return DUMP;
+            undlist.push_back(on);
+            return KEEP;
             }
         break;
     case ACCEPT_PARTICLES:
@@ -318,6 +320,9 @@ int FMMCompute::doWork(GenericTreeNode *node,
                 }
             return DUMP;
             }
+        else
+            CkAbort("bad case");
+        break;
     case OPEN_CHECK:
         if(action == KEEP) {
             addChildrenToCheckList(node, reqID, chunk, awi, s, chklist, tp);
@@ -326,7 +331,7 @@ int FMMCompute::doWork(GenericTreeNode *node,
         break;
     case ACCEPT_MULTIPOLE:
     case ACCEPT_MONO:  /// The node bucket force detects whether this
-                       /// is softend or not.
+                       /// is softened or not.
         if(action == COMPUTE) {
             didcomp = true;
             addNodeToInt(node, reqID, s);
@@ -470,9 +475,12 @@ void FMMCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start, 
 
   for(int b = start; b < end; b++){
     if(tp->bucketList[b]->rungs >= activeRung){
-      if(start + 1 == end)
-          localBucketForce(state->momLocal[maxlevel], tp->getBucket(b),
-                         particles, activeRung);
+        int levelBucket = tp->bucketList[b]->getLevel(tp->bucketList[b]->getKey());
+        if(state->momLocal[maxlevel].totalMass != 0.0) {
+            CkAssert(levelBucket >= maxlevel);
+            localBucketForce(state->momLocal[maxlevel], tp->getBucket(b),
+                             particles, activeRung);
+            }
         
       for(int level = 0; level <= maxlevel; level++){
         CkVec<OffsetNode> &clist = state->clists[level];

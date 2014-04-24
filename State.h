@@ -120,6 +120,7 @@ class DoubleWalkState : public State {
   CkVec<CkVec<OffsetNode> >clists;
   CkVec<CkVec<LocalPartInfo> >lplists;
   CkVec<CkVec<RemotePartInfo> >rplists;
+  CkVec<LocalMoments>momLocal;
    
   // set once before the first cgr is called for a chunk
   // the idea is to place the chunkRoot (along with replicas)
