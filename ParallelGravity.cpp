@@ -622,7 +622,7 @@ Main::Main(CkArgMsg* m) {
 	cacheSize = 100000000;
 	prmAddParam(prm, "nCacheSize", paramInt, &cacheSize,
 		    sizeof(int),"s", "Size of cache (IGNORED)");
-	domainDecomposition=SFC_dec;
+	domainDecomposition=SFC_peano_dec;
         peanoKey=0;
 	prmAddParam(prm, "nDomainDecompose", paramInt, &domainDecomposition,
 		    sizeof(int),"D", "Kind of domain decomposition of particles");
@@ -633,7 +633,7 @@ Main::Main(CkArgMsg* m) {
         lbcomm_cutoff_msgs = 1;
 	prmAddParam(prm, "lbcommCutoffMsgs", paramInt, &lbcomm_cutoff_msgs,
 		    sizeof(int),"lbcommcut", "Cutoff for communication recording (IGNORED)");
-	param.bConcurrentSph = 0;
+	param.bConcurrentSph = 1;
 	prmAddParam(prm, "bConcurrentSph", paramBool, &param.bConcurrentSph,
 		    sizeof(int),"consph", "Enable SPH running concurrently with Gravity");
 
