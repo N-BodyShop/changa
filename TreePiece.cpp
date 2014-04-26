@@ -616,32 +616,40 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
 
     for( ; keyIter != endKeys; ++keyIter) {
       dummy.key = *keyIter;
-
-      // try to guess a better upper bound
-      ptrdiff_t remainingParticles = &myParticles[myNumParticles + 1] - binBegin;
-      ptrdiff_t remainingBins = endKeys - keyIter;
-      ptrdiff_t interpolationInterval = remainingParticles / remainingBins;
-      ptrdiff_t scaledInterval =
-        (ptrdiff_t) ( (double) interpolationInterval * 1.5);
-      if (remainingParticles > scaledInterval) {
+      if (domainDecomposition == SFC_dec ||
+          domainDecomposition == SFC_peano_dec ||
+          domainDecomposition == SFC_peano_dec_3D ||
+          domainDecomposition == SFC_peano_dec_2D) {
+        // try to guess a better upper bound
+        ptrdiff_t remainingParticles = &myParticles[myNumParticles + 1] - binBegin;
+        ptrdiff_t remainingBins = endKeys - keyIter;
+        ptrdiff_t interpolationInterval = remainingParticles / remainingBins;
+        ptrdiff_t scaledInterval =
+          (ptrdiff_t) ( (double) interpolationInterval * 1.5);
+        if (remainingParticles > scaledInterval) {
         interpolatedBound = binBegin + scaledInterval;
       }
-      else {
+        else {
         interpolatedBound = binBegin + interpolationInterval;
       }
 
-      if (interpolatedBound->key <= dummy.key) {
+        if (interpolatedBound->key <= dummy.key) {
         refinedLowerBound = interpolatedBound;
         refinedUpperBound = &myParticles[myNumParticles + 1];
       }
-      else {
+        else {
         refinedLowerBound = binBegin;
         refinedUpperBound = interpolatedBound;
       }
 
-      /// find the last place I could put this splitter key in
-      /// my array of particles
-      binEnd = upper_bound(refinedLowerBound, refinedUpperBound, dummy);
+        /// find the last place I could put this splitter key in
+        /// my array of particles
+        binEnd = upper_bound(refinedLowerBound, refinedUpperBound, dummy);
+      }
+        else {
+        binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1], dummy);
+      }
+
       /// this tells me the number of particles between the
       /// last two splitter keys
       if (skip != 0) {
