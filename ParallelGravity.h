@@ -285,15 +285,18 @@ public:
 /// Message for shuffling particles during domain decomposition
 class ParticleShuffleMsg : public CMessage_ParticleShuffleMsg{
 public:
+    int nloads;
     int n;
     int nSPH;
     int nStar;
     double load;
+    double *loads;
+    unsigned int *parts_per_phase;
     GravityParticle *particles;
     extraSPHData *pGas;
     extraStarData *pStar;
-    ParticleShuffleMsg(int npart, int nsph, int nstar, double pload): n(npart),
-	nSPH(nsph), nStar(nstar), load(pload) {}
+    ParticleShuffleMsg(int nload, int npart, int nsph, int nstar, double pload): 
+      nloads(nload), n(npart), nSPH(nsph), nStar(nstar), load(pload) {}
 };
 
 #ifdef PUSH_GRAVITY
@@ -428,8 +431,8 @@ class Main : public CBase_Main {
 	double dSimStartTime;   // Start time for entire simulation
 	int iStop;		/* indicate we're stopping the
 				   simulation early */
-	int nActiveGrav;
-	int nActiveSPH;
+	int64_t nActiveGrav;
+	int64_t nActiveSPH;
 
 #ifdef CUDA
           double localNodesPerReqDouble;
@@ -648,6 +651,13 @@ class TreePiece : public CBase_TreePiece {
    
    double treePieceLoad; // used to store CPU load data for incoming particles
    double treePieceLoadTmp; // temporary accumulator for above
+   double treePieceLoadExp;
+   unsigned int treePieceActivePartsTmp;
+   std::vector<double> savedPhaseLoad;
+   std::vector<unsigned int> savedPhaseParticle;
+   std::vector<double> savedPhaseLoadTmp;
+   std::vector<unsigned int> savedPhaseParticleTmp;
+
    int memWithCache, memPostCache;  // store memory usage.
    int nNodeCacheEntries, nPartCacheEntries;  // store memory usage.
 
@@ -1173,7 +1183,6 @@ private:
 #endif
   void EwaldGPU(); 
   void EwaldGPUComplete();
-  int bLoaded;		/* Are particles loaded? */
 
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
   ///This function checks the correctness of the treewalk
@@ -1264,7 +1273,8 @@ public:
  TreePiece() : pieces(thisArrayID), root(0), proxyValid(false),
 	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
 	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
-	  treePieceLoad(0.0), treePieceLoadTmp(0.0) {
+	  treePieceLoad(0.0), treePieceLoadTmp(0.0), treePieceLoadExp(0.0),
+    treePieceActivePartsTmp(0) {
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
 	  dm = NULL;
@@ -1439,6 +1449,15 @@ public:
 	// comoving coordinates.)
 	void velScale(double dScale, const CkCallback& cb);
 
+	/// @brief Load I.C. from NChilada file
+        /// @param dTuFac conversion factor from temperature to
+        /// internal energy
+        void loadNChilada(const std::string& filename, const double dTuFac,
+                          const CkCallback& cb);
+        void readIntBinary(OutputIntParams& params, int bParaRead,
+            const CkCallback& cb);
+        void readFloatBinary(OutputParams& params, int bParaRead,
+            const CkCallback& cb);
 	/// @brief Load I.C. from Tipsy file
         /// @param filename tipsy file
         /// @param dTuFac conversion factor from temperature to
@@ -1756,6 +1775,11 @@ public:
 
 	//void startlb(CkCallback &cb);
 	void startlb(CkCallback &cb, int activeRung);
+  void populateSavedPhaseData(int phase, double tpload, unsigned int activeparts);
+  bool havePhaseData(int phase);
+  void savePhaseData(std::vector<double> &loads, std::vector<unsigned int>
+    &parts_per_phase, double* shuffleloads, unsigned int *shuffleparts,
+    int shufflelen);
 	void ResumeFromSync();
 
 	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
@@ -1763,6 +1787,33 @@ public:
 			 const CkCallback& cb);
 	void outputIntASCII(OutputIntParams& params, int bParaWrite,
 			 const CkCallback& cb);
+        void oneNodeOutNCVec(OutputParams& params,
+                            Vector3D<float>* avOutGas, // array to be output
+                            Vector3D<float>* avOutDark, // array to be output
+                            Vector3D<float>* avOutStar, // array to be output
+                            int nGas, // number of elements in avOut
+                            int nDark, // number of elements in avOut
+                            int nStar, // number of elements in avOut
+                            int iIndex, // treepiece which called me
+                            CkCallback& cb) ;
+        void oneNodeOutNCArr(OutputParams& params,
+                                float* afOutGas, // array to be output
+                                float* afOutDark, // array to be output
+                                float* afOutStar, // array to be output
+                                int nGas, // number of elements in avOut
+                                int nDark, // number of elements in avOut
+                                int nStar, // number of elements in avOut
+                                int iIndex, // treepiece which called me
+                                CkCallback& cb) ;
+        void oneNodeOutNCInt(OutputIntParams& params,
+                                int* aiOutGas, // array to be output
+                                int* aiOutDark, // array to be output
+                                int* aiOutStar, // array to be output
+                                int nGas, // number of elements in avOut
+                                int nDark, // number of elements in avOut
+                                int nStar, // number of elements in avOut
+                                int iIndex, // treepiece which called me
+                                CkCallback& cb) ;
 	void oneNodeOutVec(OutputParams& params, Vector3D<double>* avOut,
 			   int nPart, int iIndex, int bDone,
 			   CkCallback& cb) ;
@@ -1779,7 +1830,10 @@ public:
 	void oneNodeOutBinArr(OutputParams& params, float* adOut,
 			      int nPart, int iIndex, int bDone,
 			      CkCallback& cb) ;
-	void outputIOrderBinary(const std::string& suffix, const CkCallback& cb);
+        void outputIntBinary(OutputIntParams& params, int bParaWrite,
+                             const CkCallback& cb);
+        void oneNodeOutBinInt(OutputIntParams& params, int *aiOut,
+                              int nPart, int iIndex, CkCallback& cb) ;
 
 	void outputStatistics(const CkCallback& cb);
 	/// Collect the total statistics from the various chares

@@ -597,6 +597,12 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
     GravityParticle *binBegin = &myParticles[1];
     GravityParticle *binEnd;
     GravityParticle dummy;
+    GravityParticle *interpolatedBound;
+    GravityParticle *refinedLowerBound;
+    GravityParticle *refinedUpperBound;
+    //int binIter = 0;
+    //vector<int>::iterator binIter = myBinCounts.begin();
+    //vector<Key>::iterator keyIter = dm->boundaryKeys.begin();
     Key* keyIter = lower_bound(keys, keys+n, binBegin->key);
     int binIter = skipEvery ? (keyIter-keys) - (keyIter-keys-1) / (skipEvery+1) - 1: keyIter - keys - 1;
     int skip = skipEvery ? skipEvery - (keyIter-keys-1) % (skipEvery+1) : -1;
@@ -607,11 +613,35 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
       binIter++;
       skip = skipEvery ? skipEvery : -1;
     }
+
     for( ; keyIter != endKeys; ++keyIter) {
       dummy.key = *keyIter;
+
+      // try to guess a better upper bound
+      ptrdiff_t remainingParticles = &myParticles[myNumParticles + 1] - binBegin;
+      ptrdiff_t remainingBins = endKeys - keyIter;
+      ptrdiff_t interpolationInterval = remainingParticles / remainingBins;
+      ptrdiff_t scaledInterval =
+        (ptrdiff_t) ( (double) interpolationInterval * 1.5);
+      if (remainingParticles > scaledInterval) {
+        interpolatedBound = binBegin + scaledInterval;
+      }
+      else {
+        interpolatedBound = binBegin + interpolationInterval;
+      }
+
+      if (interpolatedBound->key <= dummy.key) {
+        refinedLowerBound = interpolatedBound;
+        refinedUpperBound = &myParticles[myNumParticles + 1];
+      }
+      else {
+        refinedLowerBound = binBegin;
+        refinedUpperBound = interpolatedBound;
+      }
+
       /// find the last place I could put this splitter key in
       /// my array of particles
-      binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1], dummy);
+      binEnd = upper_bound(refinedLowerBound, refinedUpperBound, dummy);
       /// this tells me the number of particles between the
       /// last two splitter keys
       if (skip != 0) {
@@ -644,32 +674,43 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
 
 void TreePiece::unshuffleParticles(CkReductionMsg* m){
   double tpLoad;
-  double partialLoad; 
 
   if (dm == NULL) {
     dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
   }
 
   tpLoad = getObjTime();
+  populateSavedPhaseData(prevLARung, tpLoad, treePieceActivePartsTmp);
   callback = *static_cast<CkCallback *>(m->getData());
 
-  //find my responsibility
-  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
-  if (myPlace == dm->responsibleIndex.size()) {
-    myPlace = -2;
-  } else {
-    //assign my bounding keys
-    leftSplitter = dm->boundaryKeys[myPlace];
-    rightSplitter = dm->boundaryKeys[myPlace + 1];
+  // CkPrintf("[%d] myplace %d\n", thisIndex, myPlace);
+
+  /*
+  if(myNumParticles > 0){
+    for(int i = 0; i <= myNumParticles+1; i++){
+      CkPrintf("[%d] part %d key %llx\n", thisIndex, i, myParticles[i].key);
+    }
+  }
+  */
+
+  if (myNumParticles == 0) {
+    incomingParticlesSelf = true;
+    acceptSortedParticles(NULL);
+    delete m;
+    return;
   }
 
-  vector<Key>::iterator iter = dm->boundaryKeys.begin();
-  vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
-  vector<int>::iterator responsibleIter = dm->responsibleIndex.begin();
   GravityParticle *binBegin = &myParticles[1];
+  vector<Key>::iterator iter =
+    lower_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(),
+                binBegin->key);
+  vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
+  int offset = iter - dm->boundaryKeys.begin() - 1;
+  vector<int>::iterator responsibleIter = dm->responsibleIndex.begin() + offset;
+
   GravityParticle *binEnd;
   GravityParticle dummy;
-  for(++iter; iter != endKeys; ++iter, ++responsibleIter) {
+  for( ; iter != endKeys; ++iter, ++responsibleIter) {
     dummy.key = *iter;
     //find particles between this and the last key
     binEnd = upper_bound(binBegin, &myParticles[myNumParticles+1],
@@ -677,6 +718,8 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
     // If I have any particles in this bin, send them to
     // the responsible TreePiece
     int nPartOut = binEnd - binBegin;
+    int saved_phase_len = savedPhaseLoad.size();
+
     if(nPartOut > 0) {
       int nGasOut = 0;
       int nStarOut = 0;
@@ -687,11 +730,34 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
         if(pPart->isStar())
           nStarOut++;
       }
-      partialLoad = tpLoad * nPartOut / myNumParticles;
+
       ParticleShuffleMsg *shuffleMsg
-        = new (nPartOut, nGasOut, nStarOut)
-        ParticleShuffleMsg(nPartOut, nGasOut, nStarOut,
-            partialLoad);
+        = new (saved_phase_len, saved_phase_len, nPartOut, nGasOut, nStarOut)
+        ParticleShuffleMsg(saved_phase_len, nPartOut, nGasOut, nStarOut, 0.0);
+      memset(shuffleMsg->parts_per_phase, 0, saved_phase_len*sizeof(unsigned int));
+
+      // Calculate the number of particles leaving the treepiece per phase
+      for(GravityParticle *pPart = binBegin; pPart < binEnd; pPart++) {
+        for(int i = 0; i < saved_phase_len; i++) {
+          if (pPart->rung >= i) {
+            shuffleMsg->parts_per_phase[i] = shuffleMsg->parts_per_phase[i] + 1;
+          }
+        }
+      }
+
+      shuffleMsg->load = tpLoad * nPartOut / myNumParticles;
+      memset(shuffleMsg->loads, shuffleMsg->load, saved_phase_len*sizeof(double));
+
+      // Calculate the partial load per phase
+      for (int i = 0; i < saved_phase_len; i++) {
+        if (havePhaseData(i) && savedPhaseParticle[i] != 0) {
+          shuffleMsg->loads[i] = savedPhaseLoad[i] *
+            (shuffleMsg->parts_per_phase[i] / (float) savedPhaseParticle[i]);
+        } else if (havePhaseData(0) && myNumParticles != 0) {
+          shuffleMsg->loads[i] = savedPhaseLoad[0] *
+            (shuffleMsg->parts_per_phase[i] / (float) myNumParticles);
+        }
+      }
 
       if (verbosity>=3)
         CkPrintf("me:%d to:%d nPart :%d, nGas:%d, nStar: %d\n",
@@ -786,6 +852,8 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     incomingParticlesMsg.push_back(shuffleMsg);
     incomingParticlesArrived += shuffleMsg->n;
     treePieceLoadTmp += shuffleMsg->load; 
+    savePhaseData(savedPhaseLoadTmp, savedPhaseParticleTmp, shuffleMsg->loads,
+      shuffleMsg->parts_per_phase, shuffleMsg->nloads);
   }
 
   if (verbosity>=3)
@@ -807,6 +875,12 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     incomingParticlesSelf = false;
     treePieceLoad = treePieceLoadTmp;
     treePieceLoadTmp = 0.0;
+
+    savedPhaseLoad.swap(savedPhaseLoadTmp);
+    savedPhaseParticle.swap(savedPhaseParticleTmp);
+    savedPhaseLoadTmp.clear();
+    savedPhaseParticleTmp.clear();
+
     int nSPH = 0;
     int nStar = 0;
     int iMsg;
@@ -871,6 +945,84 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     contribute(callback);
   }
 }
+
+void TreePiece::savePhaseData(std::vector<double> &loads, std::vector<unsigned int>
+  &parts_per_phase, double* shuffleloads, unsigned int *shuffleparts, int
+  shufflelen) {
+  int len = 0;
+  int num_additional;
+
+  for (int i = 0; i < shufflelen; i++) {
+    len = loads.size();
+    if (i >= len) {
+      num_additional = i - len + 1;
+      while (num_additional > 0) {
+        loads.push_back(-1.0);
+        parts_per_phase.push_back(0);
+        num_additional--;
+      }
+    }
+    if (loads[i] == -1) {
+      loads[i] = 0.0;
+    }
+    loads[i] += shuffleloads[i];
+    parts_per_phase[i] += shuffleparts[i];
+  }
+}
+
+void TreePiece::populateSavedPhaseData(int phase, double tp_load,
+    unsigned int activeparts) {
+  int len = savedPhaseLoad.size();
+  int num_additional;
+  if (phase == -1) {
+    phase = 0;
+    activeparts = myNumParticles;
+    //return;
+  }
+
+  if (phase > len-1) {
+    num_additional = phase - len + 1;
+    while (num_additional > 0) {
+      savedPhaseLoad.push_back(-1.0);
+      savedPhaseParticle.push_back(0);
+      num_additional--;
+    }
+    len = savedPhaseLoad.size();
+  }
+  savedPhaseLoad[phase] = tp_load;
+  savedPhaseParticle[phase] = activeparts;
+}
+
+bool TreePiece::havePhaseData(int phase) {
+  return (savedPhaseLoad.size() > phase && savedPhaseLoad[phase] > -0.5);
+}
+
+#if 0
+void TreePiece::checkin(){
+  if(myDecomposer == NULL){
+    myDecomposer = decomposerProxy.ckLocalBranch();
+  }
+  CkPrintf("[%d] checkin\n", thisIndex);
+  myDecomposer->checkin();
+}
+
+void Decomposer::checkin(){
+  numTreePiecesCheckedIn++;
+  // +1 for self checkin(), since Decomposer::unshuffleParticles
+  // (in which myNumTreePieces is set) may be called
+  // after all local TreePieces have called Decomposer::checkin()
+  // through TreePiece::acceptSortedParticles();
+  CkPrintf("decomposer %d checked in %d/%d\n", CkMyPe(),
+  numTreePiecesCheckedIn, myNumTreePieces);
+  if(numTreePiecesCheckedIn == myNumTreePieces){
+    numTreePiecesCheckedIn = 0;
+    myNumTreePieces = -1;
+
+    // return control to mainchare
+    //contribute(callback);
+  }
+}
+#endif
 
 // Sum energies for diagnostics
 void TreePiece::calcEnergy(const CkCallback& cb) {
@@ -944,8 +1096,8 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 #endif /* COOLING_NONE */
 		      }
 		  }
-	      CkAssert(p->u() > 0.0);
-	      CkAssert(p->uPred() > 0.0);
+	      CkAssert(p->u() >= 0.0);
+	      CkAssert(p->uPred() >= 0.0);
 	      }
 	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
 	  }
@@ -1087,17 +1239,17 @@ void TreePiece::truncateRung(int iCurrMaxRung, const CkCallback& cb) {
     }
 
 void TreePiece::rungStats(const CkCallback& cb) {
-  int nInRung[MAXRUNG+1];
+  int64_t nInRung[MAXRUNG+1];
 
   for(int iRung = 0; iRung <= MAXRUNG; iRung++) nInRung[iRung] = 0;
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
     nInRung[myParticles[i].rung]++;
   }
-  contribute((MAXRUNG+1)*sizeof(int), nInRung, CkReduction::sum_int, cb);
+  contribute((MAXRUNG+1)*sizeof(int64_t), nInRung, CkReduction::sum_long, cb);
 }
 
 void TreePiece::countActive(int activeRung, const CkCallback& cb) {
-  int nActive[2];
+  int64_t nActive[2];
 
   nActive[0] = nActive[1] = 0;
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
@@ -1108,7 +1260,7 @@ void TreePiece::countActive(int activeRung, const CkCallback& cb) {
 	      }
 	  }
       }
-  contribute(2*sizeof(int), nActive, CkReduction::sum_int, cb);
+  contribute(2*sizeof(int64_t), nActive, CkReduction::sum_long, cb);
 }
 
 /// @brief assign domain number to each particle for diagnostic
@@ -1192,7 +1344,7 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 		  p->uPred() = uold*exp(p->PdV()*duDelta/uold);
 		  }
 #endif
-	      CkAssert(p->uPred() > 0.0);
+              CkAssert(p->uPred() >= 0.0);
 	      }
 	  }
       }
@@ -4142,8 +4294,7 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
 
   if(verbosity > 1)
      CkPrintf("[%d] load set to: %g, actual: %g\n", thisIndex, treePieceLoad, getObjTime());  
-  setObjTime(treePieceLoad);
-  treePieceLoad = 0;
+
   callback = cb;
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d calling AtSync()\n",CkMyPe(),thisIndex);
@@ -4154,7 +4305,7 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
     numActiveParticles = myNumParticles;
   }
   else if(activeRung == PHASE_FEEDBACK) {
-      numActiveParticles = myNumStar;
+      numActiveParticles = myNumSPH + myNumStar;
       }
   else{
     for(numActiveParticles = 0, i = 1; i <= myNumParticles; i++)
@@ -4165,6 +4316,23 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles, activeRung, prevLARung);
   tv.tp = thisIndex;
   tv.tag = thisIndex;
+
+  treePieceActivePartsTmp = numActiveParticles;
+  if (havePhaseData(activeRung)) {
+    treePieceLoadExp = savedPhaseLoad[activeRung];
+  } else if (havePhaseData(0)) {
+    float ratio = 1.0;
+    if(myNumParticles != 0){
+      ratio = numActiveParticles/(float)myNumParticles;
+    }
+
+    treePieceLoadExp  = ratio * savedPhaseLoad[0];
+  } else {
+    treePieceLoadExp =  treePieceLoad;
+  }
+  setObjTime(treePieceLoadExp);
+  treePieceLoad = 0;
+
   /*
   CkPrintf("[%d] centroid %f %f %f\n", 
                       thisIndex,
@@ -4549,6 +4717,10 @@ void TreePiece::pup(PUP::er& p) {
   CBase_TreePiece::pup(p);
 
   p | treePieceLoad; 
+  p | treePieceLoadExp;
+  p | treePieceActivePartsTmp;
+  p | savedPhaseLoad;
+  p | savedPhaseParticle;
 
   // jetley
   p | proxy;

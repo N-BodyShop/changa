@@ -67,7 +67,7 @@ void DataManager::acceptResponsibleIndex(const int* responsible, const int n,
     contribute(cb);
     }
 
-void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb) {
+void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, uint64_t* bins, const int n, const CkCallback& cb) {
 
   //should not assign responsibility or place to a treepiece that will get no particles
   int ignored = 0;
@@ -482,6 +482,8 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
     dExtraStore = param.dExtraStore;
     dMaxBalance = param.dMaxBalance;
     nIOProcessor = param.nIOProcessor;
+    theta = param.dTheta;
+    thetaMono = theta*theta*theta*theta;
     contribute(cb);
     // parameter structure requires some cleanup
     delete param.stfm;
