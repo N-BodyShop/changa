@@ -130,6 +130,7 @@ extern unsigned int _yieldPeriod;
 extern DomainsDec domainDecomposition;
 extern double dExtraStore;
 extern double dMaxBalance;
+extern int bUseCkLoopPar;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
 #ifdef REDUCTION_HELPER
@@ -140,6 +141,7 @@ extern CProxy_LvArray smoothProxy;  // Proxy for smooth reduction
 extern CProxy_LvArray gravityProxy; // Proxy for gravity reduction
 extern CProxy_TreePiece streamingProxy;
 extern CProxy_DataManager dMProxy;
+extern CProxy_IntraNodeLBManager nodeLBMgrProxy;
 extern unsigned int numTreePieces;
 extern unsigned int particlesPerChare;
 extern int nIOProcessor;
@@ -550,6 +552,17 @@ typedef struct particlesInfoL{
     GenericTreeNode *nd;
 #endif
 } LocalPartInfo;
+
+typedef struct LoopParDataStruct {
+  CkVec<GenericTreeNode*> lowNodes;
+  CkVec<int> bucketids;
+  CkVec<int> chunkids;
+  CkVec<CkVec<OffsetNode> > clists;
+  CkVec<CkVec<RemotePartInfo> > rpilists;
+  CkVec<CkVec<LocalPartInfo> > lpilists;
+  TreePiece* tp;
+} LoopParData;
+
 
 
 #ifdef CUDA
@@ -1444,6 +1457,10 @@ public:
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit();
 	void calculateEwald(dummyMsg *m);
+  void calculateEwaldUsingCkLoop(dummyMsg *msg);
+  void doParallelEwaldWork(int id);
+  void doParallelNextBucketWork(int id, LoopParData* lpdata);
+  void startNextBucketRemote(int chunkNum);
 	void initCoolingData(const CkCallback& cb);
 	// Scale velocities (needed to convert to canonical momenta for
 	// comoving coordinates.)
@@ -1681,6 +1698,7 @@ public:
 	/// by this TreePiece, and belonging to a subset of the global tree
 	/// (specified by chunkNum).
 	void calculateGravityRemote(ComputeChunkMsg *msg);
+	void calculateGravityRemoteUsingCkLoop(ComputeChunkMsg *msg);
 
 	/// Temporary function to recurse over all the buckets like in
 	/// walkBucketTree, only that NonLocal nodes are the only one for which
@@ -1847,6 +1865,7 @@ public:
          * finishBucket() is called to clean up.
 	 */
         void nextBucket(dummyMsg *m);
+  void nextBucketUsingCkLoop(dummyMsg *m);
 
 	void report();
 	void printTreeViz(GenericTreeNode* node, std::ostream& os);
@@ -1903,6 +1922,7 @@ public:
         void deliverMomentsToClients(const std::map<NodeKey,NonLocalMomentsClientList>::iterator &it);
         void treeBuildComplete();
         void processRemoteRequestsForMoments();
+        bool otherIdlePesAvail();
 
 };
 
