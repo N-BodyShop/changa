@@ -1306,6 +1306,178 @@ void GenericList<T>::push_back(int b, T &ilc, DoubleWalkState *state, TreePiece 
 /// state->lowestNode is used to determine how deep the walk got.
 /// Cells and particles from that level and above are processed
 /// on these buckets.
+void ListCompute::fillLists(State *state_, TreePiece *tp, int chunk, int start,
+    int end, CkVec<OffsetNode>& clistforb, CkVec<RemotePartInfo>& rplistforb,
+    CkVec<LocalPartInfo>& lplistforb) {
+  int thisIndex = tp->getIndex();
+  GravityParticle *particles = tp->getParticles();
+
+  DoubleWalkState *state = (DoubleWalkState *)state_;
+
+  GenericTreeNode *lowestNode = state->lowestNode;
+  int maxlevel = lowestNode->getLevel(lowestNode->getKey());
+
+  bool hasRemoteLists = state->rplists.length() > 0 ? true : false;
+  bool hasLocalLists = state->lplists.length() > 0 ? true : false;
+
+  int numNodes = 0;
+  int numLParticles = 0;
+  int numRParticles = 0;
+  bool filled = false;
+
+  for(int level = 0; level <= maxlevel; level++){
+    // node interactions
+    numNodes += state->clists[level].length();
+
+    // remote particle interactions
+    if(hasRemoteLists){
+      int listlen = state->rplists[level].length();
+      for(int part = 0; part < listlen; part++){
+        numRParticles += (state->rplists[level])[part].numParticles;
+      }
+    }
+    // local particle interactions
+    if(hasLocalLists){
+      int listlen = state->lplists[level].length();
+      for(int part = 0; part < listlen; part++){
+        numLParticles += (state->lplists[level])[part].numParticles;
+      }
+    }
+  }
+
+  for(int b = start; b < end; b++){
+    if(tp->bucketList[b]->rungs >= activeRung){
+      
+      int activePart=0;
+      for (int k=tp->bucketList[b]->firstParticle; k<=tp->bucketList[b]->lastParticle; ++k) {
+        if (tp->myParticles[k].rung >= activeRung) activePart++;
+      }
+
+      OptType type = getOptType();
+      if(type == Local){
+        tp->addToNodeInterLocal(numNodes*activePart);
+        tp->addToParticleInterLocal(numLParticles*activePart);
+      }
+      else if(type == Remote){
+        tp->addToNodeInterRemote(chunk,numNodes*activePart);
+        tp->addToParticleInterRemote(chunk,numRParticles*activePart);
+      }
+
+      if (!filled) {
+        filled = true;
+
+        for(int level = 0; level <= maxlevel; level++){
+
+          CkVec<OffsetNode> &clist = state->clists[level];
+          for(unsigned int i = 0; i < clist.length(); i++){
+            clistforb.insertAtEnd(clist[i]);
+          }
+
+          // remote particles
+          if(hasRemoteLists){
+            CkVec<RemotePartInfo> &rpilist = state->rplists[level];
+            // for each bunch of particles in list
+            for(unsigned int i = 0; i < rpilist.length(); i++){
+              RemotePartInfo &rpi = rpilist[i];
+              rplistforb.insertAtEnd(rpi);
+            }
+          }
+
+          // local particles
+          if(hasLocalLists){
+            CkVec<LocalPartInfo> &lpilist = state->lplists[level];
+            for(unsigned int i = 0; i < lpilist.length(); i++){
+              LocalPartInfo &lpi = lpilist[i];
+              lplistforb.insertAtEnd(lpi);
+            }
+          }
+        }// level
+      }
+    }// active
+  }// bucket
+}
+
+void ListCompute::stateReadyPar(State *state_, GenericTreeNode* lowestNode, TreePiece *tp, int chunk, int
+start, int end, CkVec<OffsetNode>& clist, CkVec<RemotePartInfo>& rpilist,
+    CkVec<LocalPartInfo>& lpilist){
+  int thisIndex = tp->getIndex();
+  GravityParticle *particles = tp->getParticles();
+
+  DoubleWalkState *state = (DoubleWalkState *)state_;
+
+  int maxlevel = lowestNode->getLevel(lowestNode->getKey());
+
+  bool hasRemoteLists = rpilist.length() > 0 ? true : false;
+  bool hasLocalLists = lpilist.length() > 0 ? true : false;
+
+  int rcomputed =0;
+  int lcomputed = 0;
+  int prcomputed = 0;
+  int plcomputed = 0;
+  int offsid;
+
+  for(int b = start; b < end; b++){
+    if(tp->bucketList[b]->rungs >= activeRung){
+
+        for(unsigned int i = 0; i < clist.length(); i++){
+
+          int computed = 0;
+          offsid = clist[i].offsetID;
+
+          computed +=  nodeBucketForce(clist[i].node,
+              tp->getBucket(b),
+              particles,
+              tp->decodeOffset(clist[i].offsetID), activeRung);
+          if(getOptType() == Remote){
+            rcomputed += computed;
+          }
+          else if(getOptType() == Local){
+            lcomputed += computed;
+          }
+        }
+
+        // remote particles
+        if(hasRemoteLists){
+          // for each bunch of particles in list
+          for(unsigned int i = 0; i < rpilist.length(); i++){
+            RemotePartInfo &rpi = rpilist[i];
+
+            // for each particle in a bunch
+            for(int j = 0; j < rpi.numParticles; j++){
+              int computed = 0;
+              computed = partBucketForce(&rpi.particles[j],
+                  tp->getBucket(b),
+                  particles,
+                  rpi.offset, activeRung);
+
+              if(getOptType() == Remote){// don't really have to perform this check
+                prcomputed += computed;
+              }
+            }
+          }
+        }
+
+        // local particles
+        if(hasLocalLists){
+          //double st = CkWallTimer();
+          for(unsigned int i = 0; i < lpilist.length(); i++){
+            LocalPartInfo &lpi = lpilist[i];
+
+            // for each particle in a bunch
+            for(int j = 0; j < lpi.numParticles; j++){
+              int computed = partBucketForce(&lpi.particles[j],
+                  tp->getBucket(b),
+                  particles,
+                  lpi.offset, activeRung);
+
+              plcomputed += computed;
+            }
+          }
+        }
+    }// active
+  }// bucket
+}
+
 void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start, int end){
   int thisIndex = tp->getIndex();
   GravityParticle *particles = tp->getParticles();
