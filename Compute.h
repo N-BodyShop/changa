@@ -137,16 +137,6 @@ class GravityCompute : public Compute{
 #if INTERLIST_VER > 0
 class ListCompute : public Compute{
 
-/*
-  // the number of buckets processed by stateReady
-  // while doing their local and remote-no-resume (RNR) 
-  // work.
-  // when this count reaches 2*tp->numActiveBuckets, 
-  // we know that there will be no more local/remote-no-resume
-  // work from buckets in the treepiece, and so can
-  // flush the lists of node/particle interactions to the gpu
-  // if they are non-empty.
-  */
   public:
   ListCompute() : Compute(List) {}
 
