@@ -42,6 +42,7 @@ class Compute{
   // should the dowork method have a state argument?
   // yes, allows listcompute object to keep modifying state
   // which will have within it the checklist, clist and plist
+  /// @brief Work to be done at each node.
   virtual int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi) = 0;
   // should return int, not bool
   virtual int openCriterion(TreePiece *ownerTP,

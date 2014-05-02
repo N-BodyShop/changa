@@ -211,6 +211,7 @@ void GravityCompute::reassoc(void *ce, int ar, Opt *o){
 }
 
 #if INTERLIST_VER > 0
+/// @brief Reassociate the target node.
 void ListCompute::reassoc(void *ce, int ar, Opt *o){
   computeEntity = ce;
   activeRung = ar;
@@ -240,6 +241,8 @@ void PrefetchCompute::finishNodeProcessEvent(TreePiece *owner, State *state){
 }
 
 #if INTERLIST_VER > 0
+/// @brief Update state on a node miss.
+/// @param reqID unused.
 void ListCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp){
   CkAssert(getOptType() == Remote);
 #ifdef CHANGA_REFACTOR_MEMCHECK
@@ -353,6 +356,9 @@ void GravityCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, i
 }
 
 #if INTERLIST_VER > 0
+/// @brief Update state upon receiving a remote node.
+///
+/// Calls TreePiece::finishedChunk() if all outstanding requests are satisfied.
 void ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int reqIDlist){
   int start, end;
   GenericTreeNode *source = (GenericTreeNode *)computeEntity;
@@ -714,14 +720,13 @@ int PrefetchCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, i
 }
 
 #if INTERLIST_VER > 0
-/* List compute object
- * requires state object
- * to store lists of particles/nodes in.
- * */
-
-/// source (computeEntity) is the current local node
-/// target (encoded in reqID) is the target bucket (only nodeMissed requests during remote walks make sense)
-/// node is the global node being processed
+/// @brief Process a node.
+/// @param node is the global node being processed.
+/// @param state contains the lists to be checked.
+/// @param chunk chunk we are walking; used in case of a miss
+/// @param reqID Encodes offset and bucket
+/// @param awi Active walk index; used in case of a miss
+/// @return KEEP if we descend further down the tree
 int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi){
 
   DoubleWalkState *s = (DoubleWalkState *)state;
@@ -929,6 +934,13 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
   return -1;
 }
 
+/// @brief Process received remote particles
+/// @param part Array of particles received.
+/// @param num Number of particles
+///
+/// Update the state bookkeeping, add the particles to the interaction
+/// list and call stateReady() to compute their interactions.  Call
+/// TreePiece::finishedChunk() if all outstanding requests are satisfied.
 void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk,int reqID,State *state_,TreePiece *tp, Tree::NodeKey &remoteBucket){
 
   Vector3D<double> offset = tp->decodeOffset(reqID);
@@ -1018,8 +1030,7 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
   }
 }
 
-
-// CUDA: using double instead of float for vector
+/// @brief apply node opening criterion to this node.
 int ListCompute::openCriterion(TreePiece *ownerTP,
                           GenericTreeNode *node, int reqID, State *state){
   return
@@ -1286,6 +1297,15 @@ void GenericList<T>::push_back(int b, T &ilc, DoubleWalkState *state, TreePiece 
   }
 #endif
 
+/// @brief Check for computation
+/// Computation can be done on buckets indexed from start to end
+/// @param state_ State to be checked
+/// @param start first bucket to apply computations
+/// @param end last + 1 bucket to apply computations
+///
+/// state->lowestNode is used to determine how deep the walk got.
+/// Cells and particles from that level and above are processed
+/// on these buckets.
 void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start, int end){
   int thisIndex = tp->getIndex();
   GravityParticle *particles = tp->getParticles();
