@@ -229,7 +229,8 @@ enum WalkIndices {
     maxAwi = 4
 };
     
-// Object to record a type of active walk. Contains pointers to TreeWalk/Compute/Opt (T/C/O) combinations
+/// Object to record a type of active walk. Contains pointers to
+/// TreeWalk/Compute/Opt/State (T/C/O/S) combinations
 class ActiveWalk {
   public:
   TreeWalk *tw;

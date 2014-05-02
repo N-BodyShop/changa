@@ -582,6 +582,7 @@ struct NonLocalMomentsClient {
   {}
 };
 
+/// @brief List of clients needing a particular moment
 struct NonLocalMomentsClientList {
   GenericTreeNode *targetNode;
   CkVec<NonLocalMomentsClient> clients;
