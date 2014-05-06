@@ -1511,8 +1511,12 @@ void Main::advanceBigStep(int iStep) {
     bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
 
     startTime = CkWallTimer();
-    sorter.startSorting(dataManagerID, ddTolerance,
+    if (bDoDD) {
+      sorter.startSorting(dataManagerID, ddTolerance,
                         CkCallbackResumeThread(), bDoDD);
+    } else {
+      treeProxy.unshuffleParticlesWoDD(CkCallbackResumeThread());
+    }
     /*
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
           << endl;
