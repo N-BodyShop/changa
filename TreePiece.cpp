@@ -667,6 +667,307 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
 #endif
 }
 
+void TreePiece::unshuffleParticlesWoDD(const CkCallback& callback) {
+  double tpLoad;
+  myShuffleMsg = NULL;
+  after_dd_callback = callback;
+
+  if (dm == NULL) {
+    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+  }
+
+  tpLoad = getObjTime();
+  populateSavedPhaseData(prevLARung, tpLoad, treePieceActivePartsTmp);
+
+  //find my responsibility
+  myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
+  if (myPlace == dm->responsibleIndex.size()) {
+    myPlace = -2;
+  }
+
+  if (myNumParticles == 0) {
+    incomingParticlesSelf = true;
+    if (thisIndex == 0) {
+      CkCallback cbqd(CkIndex_TreePiece::shuffleAfterQD(), thisProxy);
+      CkStartQD(cbqd);
+    }
+    return;
+  }
+
+  sendParticlesDuringDD(true);
+
+  if (thisIndex == 0) {
+    CkCallback cbqd(CkIndex_TreePiece::shuffleAfterQD(), thisProxy);
+    CkStartQD(cbqd);
+  }
+}
+
+/*
+* Accepts sorted particles from external TreePieces
+*/
+void TreePiece::acceptSortedParticlesFromOther(ParticleShuffleMsg *shuffleMsg) {
+  if(shuffleMsg == NULL) {
+    return;
+  }
+
+  // Copy the particles from shuffleMsg to the tmpShuffle array
+  myTmpShuffleParticle.insert(myTmpShuffleParticle.end(), shuffleMsg->particles,
+    shuffleMsg->particles + shuffleMsg->n);
+
+  // Copy the SPH particles from shuffleMsg to the tmpShuffle array
+  myTmpShuffleSphParticle.insert(myTmpShuffleSphParticle.end(),
+    shuffleMsg->pGas, shuffleMsg->pGas + shuffleMsg->nSPH);
+
+  // Copy the Star particles from shuffleMsg to the tmpShuffle array
+  myTmpShuffleStarParticle.insert(myTmpShuffleStarParticle.end(),
+    shuffleMsg->pStar, shuffleMsg->pStar + shuffleMsg->nStar);
+
+  incomingParticlesArrived += shuffleMsg->n;
+  treePieceLoadTmp += shuffleMsg->load;
+  savePhaseData(savedPhaseLoadTmp, savedPhaseParticleTmp, shuffleMsg->loads,
+      shuffleMsg->parts_per_phase, shuffleMsg->nloads);
+
+  delete shuffleMsg;
+}
+
+/*
+ * When reusing the splitters, we perform the migration of particles and then
+ * wait for QD. This method is called once the quiescence is detected.
+ */
+void TreePiece::shuffleAfterQD() {
+
+  // myShuffleMsg holds the particles that came from within this TreePiece
+  // (internal transfer).
+  if (myShuffleMsg != NULL) {
+    incomingParticlesArrived += myShuffleMsg->n;
+    treePieceLoadTmp += myShuffleMsg->load;
+    savePhaseData(savedPhaseLoadTmp, savedPhaseParticleTmp, myShuffleMsg->loads,
+        myShuffleMsg->parts_per_phase, myShuffleMsg->nloads);
+  }
+
+
+  // This function is called after QD which means all the particles have arrived
+  // therefore set the particleCounts in the DataManager based on total external
+  // particles that arrived and the ones that arrived within the TreePiece.
+  if (myPlace != -2) {
+    dm->particleCounts[myPlace] = incomingParticlesArrived;
+  }
+
+  if (myPlace == -2 || dm->particleCounts[myPlace] == 0) {
+    // Special case where no particle is assigned to this TreePiece
+    if (myNumParticles > 0){
+      delete[] myParticles;
+      myParticles = NULL;
+    }
+    myNumParticles = 0;
+    nStore = 0;
+    if (nStoreSPH > 0){
+      delete[] mySPHParticles;
+      mySPHParticles = NULL;
+    }
+    myNumSPH = 0;
+    nStoreSPH = 0;
+    if (nStoreStar > 0){
+      delete[] myStarParticles;
+      myStarParticles = NULL;
+    }
+    myNumStar = 0;
+    nStoreStar = 0;
+    incomingParticlesSelf = false;
+    incomingParticlesMsg.clear();
+
+    treePieceLoad = treePieceLoadTmp;
+    treePieceLoadTmp = 0.0;
+
+    savedPhaseLoad.swap(savedPhaseLoadTmp);
+    savedPhaseParticle.swap(savedPhaseParticleTmp);
+    savedPhaseLoadTmp.clear();
+    savedPhaseParticleTmp.clear();
+
+    if(verbosity>1) ckout << thisIndex <<" no particles assigned"<<endl;
+
+    deleteTree();
+    contribute(after_dd_callback);
+    if (myShuffleMsg != NULL) {
+      delete myShuffleMsg;
+    }
+    return;
+  }
+
+  //I've got all my particles
+  if (myNumParticles > 0) delete[] myParticles;
+
+  nStore = (int)((dm->particleCounts[myPlace] + 2)*(1.0 + dExtraStore));
+  myParticles = new GravityParticle[nStore];
+  myNumParticles = dm->particleCounts[myPlace];
+  incomingParticlesArrived = 0;
+  incomingParticlesSelf = false;
+  treePieceLoad = treePieceLoadTmp;
+  treePieceLoadTmp = 0.0;
+
+  savedPhaseLoad.swap(savedPhaseLoadTmp);
+  savedPhaseParticle.swap(savedPhaseParticleTmp);
+  savedPhaseLoadTmp.clear();
+  savedPhaseParticleTmp.clear();
+
+  // Merge all the particles which includes the ones received from within and
+  // from outside
+  mergeAllParticlesAndSaveCentroid();
+
+  //signify completion with a reduction
+  if(verbosity>1) ckout << thisIndex <<" contributing to accept particles"
+    <<endl;
+
+  if (myShuffleMsg != NULL) {
+    delete myShuffleMsg;
+  }
+
+  deleteTree();
+  contribute(after_dd_callback);
+}
+
+/*
+ * Merge the particles in sorted order. The particles include the ones that are
+ * within this TreePiece as well as received from outside.
+ * Since we are iterating over the particles, we might as well calculate the
+ * centroid of the TreePiece.
+ */
+void TreePiece::mergeAllParticlesAndSaveCentroid() {
+  int nSPH = 0;
+  int nStar = 0;
+
+  // myShuffleLoc keeps a count of number of external particles received.
+  nSPH = myTmpShuffleSphParticle.size();
+  nStar = myTmpShuffleStarParticle.size();
+  if (myShuffleMsg != NULL) {
+    nSPH += myShuffleMsg->nSPH;
+    nStar += myShuffleMsg->nStar;
+  }
+
+  if (nStoreSPH > 0) delete[] mySPHParticles;
+  myNumSPH = nSPH;
+  nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
+  if(nStoreSPH > 0) mySPHParticles = new extraSPHData[nStoreSPH];
+  else mySPHParticles = NULL;
+
+  if (nStoreStar > 0) delete[] myStarParticles;
+  myNumStar = nStar;
+  allocateStars();
+
+  nSPH = 0;
+  nStar = 0;
+
+  // myTmpShuffle__Particle holds the particles that came from external
+  // TreePieces
+  // Copy the gas and star data from the tmpshufflemsg array
+  memcpy(&mySPHParticles[nSPH], &myTmpShuffleSphParticle,
+      myTmpShuffleSphParticle.size()*sizeof(extraSPHData));
+  nSPH += myTmpShuffleSphParticle.size();
+  memcpy(&myStarParticles[nStar], &myTmpShuffleStarParticle,
+      myTmpShuffleStarParticle.size()*sizeof(extraStarData));
+  nStar += myTmpShuffleStarParticle.size();
+  int iGas = 0;
+  int iStar = 0;
+
+  // Set the location of the star data in the particle data for the ones that
+  // came in from an external TreePiece.
+  for (int i = 0; i < myTmpShuffleStarParticle.size(); i++) {
+    if (myTmpShuffleParticle[i].isGas()) {
+      myTmpShuffleParticle[i].extraData =
+          (extraSPHData *) &mySPHParticles[iGas];
+      iGas++;
+    } else if (myTmpShuffleParticle[i].isStar()) {
+      myTmpShuffleParticle[i].extraData =
+          (extraStarData *) &myStarParticles[iStar];
+      iStar++;
+    } else {
+      myTmpShuffleParticle[i].extraData = NULL;
+    }
+  }
+
+  // Now copy the SPH and Star for particles that moved within the TreePiece
+  if (myShuffleMsg != NULL) {
+    memcpy(&mySPHParticles[nSPH], myShuffleMsg->pGas,
+        (myShuffleMsg->nSPH)*sizeof(extraSPHData));
+    nSPH += (myShuffleMsg->nSPH);
+    memcpy(&myStarParticles[nStar], myShuffleMsg->pStar,
+        (myShuffleMsg->nStar)*sizeof(extraStarData));
+    nStar += (myShuffleMsg->nStar);
+  }
+
+  // sort is [first, last)
+  // Note that the particles that were received from outside were just
+  // appended to the myTmpShuffleParticle. Though within each shuffleMsg they
+  // will be sorted, when they are appended the myTmpShuffleParticle need not
+  // sorted.
+  // Sort the items that came from outside. Since we expect them to be a small
+  // number this sort is used
+  sort(myTmpShuffleParticle.begin(), myTmpShuffleParticle.end());
+
+  int left, right, tmp;
+  left = right = 0;
+  tmp = 1;
+  int leftend = 0;
+  if (myShuffleMsg != NULL) {
+    leftend = myShuffleMsg->n;
+  }
+  int rightend = myTmpShuffleParticle.size();
+  Vector3D<double> vCenter(0.0, 0.0, 0.0);
+
+  // merge sort. myShuffleMsg contains sorted particles and so does
+  // myTmpShuffleParticles. myTmpShuffleParticles contain particles that were
+  // transferred from outside this TreePiece. As they come in, they are merged
+  // in sorted order.
+
+  // For the particles that came from outside, the extraData field is already
+  // set above.
+  // when merging the pointer to the star data has to be set for the particles
+  // that moved within.
+  while (left < leftend && right < rightend) {
+    if (myShuffleMsg->particles[left] < myTmpShuffleParticle[right]) {
+      myParticles[tmp] = myShuffleMsg->particles[left++];
+      if (myParticles[tmp].isGas()) {
+        myParticles[tmp].extraData = (extraSPHData *) &mySPHParticles[iGas++];
+      } else if (myParticles[tmp].isStar()) {
+        myParticles[tmp].extraData = (extraStarData *) &myStarParticles[iStar++];
+      } else {
+        myParticles[tmp].extraData = NULL;
+      }
+    } else {
+      myParticles[tmp] = myTmpShuffleParticle[right++];
+    }
+    vCenter += myParticles[tmp].position;
+    tmp++;
+  }
+
+  while (left < leftend) {
+    myParticles[tmp] = myShuffleMsg->particles[left++];
+    if (myParticles[tmp].isGas()) {
+      myParticles[tmp].extraData = (extraSPHData *) &mySPHParticles[iGas++];
+    } else if (myParticles[tmp].isStar()) {
+      myParticles[tmp].extraData = (extraStarData *) &myStarParticles[iStar++];
+    } else {
+      myParticles[tmp].extraData = NULL;
+    }
+    vCenter += myParticles[tmp].position;
+    tmp++;
+  }
+
+  while (right < rightend) {
+    myParticles[tmp] = myTmpShuffleParticle[right++];
+    vCenter += myParticles[tmp].position;
+    tmp++;
+  }
+
+  // Clear all the tmp datastructures which were holding the migrated particles
+  myTmpShuffleParticle.clear();
+  myTmpShuffleSphParticle.clear();
+  myTmpShuffleStarParticle.clear();
+
+  // Save the centroid
+  savedCentroid = vCenter/(double)myNumParticles;
+}
+
 /// Once final splitter keys have been decided, I need to give my
 /// particles out to the TreePiece responsible for them
 
@@ -698,10 +999,19 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
     return;
   }
 
+  sendParticlesDuringDD(false);
+  acceptSortedParticles(NULL);
+  delete m;
+}
+
+void TreePiece::sendParticlesDuringDD(bool withqd) {
+  double tpLoad;
+  tpLoad = getObjTime();
+
   GravityParticle *binBegin = &myParticles[1];
   vector<Key>::iterator iter =
     lower_bound(dm->boundaryKeys.begin(), dm->boundaryKeys.end(),
-                binBegin->key);
+        binBegin->key);
   vector<Key>::const_iterator endKeys = dm->boundaryKeys.end();
   int offset = iter - dm->boundaryKeys.begin() - 1;
   vector<int>::iterator responsibleIter = dm->responsibleIndex.begin() + offset;
@@ -785,21 +1095,25 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
           CkPrintf("TreePiece %d: keeping %d / %d particles: %d\n",
               thisIndex, nPartOut, myNumParticles,
               nPartOut*10000/myNumParticles);
-        acceptSortedParticles(shuffleMsg);
+        if (withqd) {
+          myShuffleMsg = shuffleMsg;
+        } else {
+          acceptSortedParticles(shuffleMsg);
+        }
       }
       else {
-        treeProxy[*responsibleIter].acceptSortedParticles(shuffleMsg);
+        if (withqd) {
+          treeProxy[*responsibleIter].acceptSortedParticlesFromOther(shuffleMsg);
+        } else {
+          treeProxy[*responsibleIter].acceptSortedParticles(shuffleMsg);
+        }
       }
     }
     if(&myParticles[myNumParticles + 1] <= binEnd)
       break;
     binBegin = binEnd;
   }
-
   incomingParticlesSelf = true;
-  acceptSortedParticles(NULL);
-
-  delete m;
 }
 
 /// Accept particles from other TreePieces once the sorting has finished
@@ -4487,6 +4801,7 @@ void TreePiece::pup(PUP::er& p) {
   p | nTotalDark;
   p | nTotalStar;
   p | myNumStar;
+
   if(p.isUnpacking()) {
       nStore = (int)((myNumParticles + 2)*(1.0 + dExtraStore));
       myParticles = new GravityParticle[nStore];
