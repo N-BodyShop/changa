@@ -98,7 +98,7 @@ void Main::initCooling()
 	}
     treeProxy.initCoolingData(CkCallbackResumeThread());
     string achCoolOnFileName = string(param.achOutName) + ".coolontime";
-    if(arrayFileExists(achCoolOnFileName, nTotalParticles)) {
+    if(!bIsRestarting && arrayFileExists(achCoolOnFileName, nTotalParticles)) {
         CkPrintf("Reading coolontime\n");
         treeProxy.readCoolOnTime(achCoolOnFileName, CkCallbackResumeThread());
         }

@@ -1819,13 +1819,13 @@ void Main::setupICs() {
       if(dTime < vdOutTime[iOut]) break;
       }
 	
-  if(param.iStartStep) bIsRestarting = true;
-
   if(param.bGasCooling || param.bStarForm) {
       initCooling();
       if(param.iStartStep) restartGas();
       }
   
+  if(param.iStartStep) bIsRestarting = true;
+
   if(param.bStarForm || param.bFeedback)
       param.stfm->CheckParams(prm, param);
 
