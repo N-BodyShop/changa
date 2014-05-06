@@ -184,7 +184,7 @@ void TreePiece::loadTipsy(const std::string& filename,
         int myIndex = CkMyPe();
 	myNumParticles = nTotalParticles / numLoadingPEs;
 	int excess = nTotalParticles % numLoadingPEs;
-	int64_t startParticle = myNumParticles * myIndex;
+	int64_t startParticle = ((int64_t) myNumParticles) * myIndex;
 	if(myIndex < excess) {
 	    myNumParticles++;
 	    startParticle += myIndex;
@@ -1040,7 +1040,7 @@ void TreePiece::loadNChilada(const std::string& filename,
         int myIndex = CkMyPe();
 	myNumParticles = nTotalParticles / numLoadingPEs;
 	int excess = nTotalParticles % numLoadingPEs;
-	int64_t startParticle = myNumParticles * myIndex;
+	int64_t startParticle = ((int64_t)myNumParticles) * myIndex;
 	if(myIndex < excess) {
 	    myNumParticles++;
 	    startParticle += myIndex;
@@ -1660,7 +1660,7 @@ inline int64_t *iOrderBoundaries(int nPieces, int64_t nMaxOrder)
     // perfectly balanced.
     //
     for(iPiece = 0; iPiece < nPieces; iPiece++) {
-	int nOutParticles = nMaxOrder/ nPieces;
+	int64_t nOutParticles = nMaxOrder/ nPieces;
 	startParticle[iPiece] = nOutParticles * iPiece;
 	}
     startParticle[nPieces] = nMaxOrder+1;

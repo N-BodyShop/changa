@@ -42,6 +42,7 @@ class Compute{
   // should the dowork method have a state argument?
   // yes, allows listcompute object to keep modifying state
   // which will have within it the checklist, clist and plist
+  /// @brief Work to be done at each node.
   virtual int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi) = 0;
   // should return int, not bool
   virtual int openCriterion(TreePiece *ownerTP,
@@ -137,16 +138,6 @@ class GravityCompute : public Compute{
 #if INTERLIST_VER > 0
 class ListCompute : public Compute{
 
-/*
-  // the number of buckets processed by stateReady
-  // while doing their local and remote-no-resume (RNR) 
-  // work.
-  // when this count reaches 2*tp->numActiveBuckets, 
-  // we know that there will be no more local/remote-no-resume
-  // work from buckets in the treepiece, and so can
-  // flush the lists of node/particle interactions to the gpu
-  // if they are non-empty.
-  */
   public:
   ListCompute() : Compute(List) {}
 
@@ -238,7 +229,8 @@ enum WalkIndices {
     maxAwi = 4
 };
     
-// Object to record a type of active walk. Contains pointers to TreeWalk/Compute/Opt (T/C/O) combinations
+/// Object to record a type of active walk. Contains pointers to
+/// TreeWalk/Compute/Opt/State (T/C/O/S) combinations
 class ActiveWalk {
   public:
   TreeWalk *tw;
