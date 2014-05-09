@@ -396,6 +396,9 @@ mainmodule ParallelGravity {
 #endif
 
     entry void startOctTreeBuild(CkReductionMsg* m);
+    entry void recvLeftBoundary(SFC::Key key);
+    entry void recvRightBoundary(SFC::Key key);
+    entry void recvdBoundaries(CkReductionMsg* m);
 
     entry void startORBTreeBuild(CkReductionMsg* m);
 
@@ -417,7 +420,10 @@ mainmodule ParallelGravity {
     	  [inline]
 #endif
 	  void requestRemoteMoments(Tree::NodeKey key, int sender);
-    entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, MultipoleMoments& moments, OrientedBox<double>& box, OrientedBox<double>& boxBall, unsigned int iParticleTypes);
+    entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type,
+      int firstParticle, int numParticles, int remIdx, MultipoleMoments& moments,
+      OrientedBox<double>& box, OrientedBox<double>& boxBall,
+      unsigned int iParticleTypes);
 
     entry void commenceCalculateGravityLocal();
     entry void calculateGravityRemote(ComputeChunkMsg *msg);

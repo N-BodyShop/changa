@@ -2309,7 +2309,8 @@ bool RemoteTreeBuilder::work(GenericTreeNode *node, int level){
       // find a remote index for the node
       int first, last;
       bool isShared = tp->nodeOwnership(node->getKey(), first, last);
-      CkAssert(!isShared);
+      // This assert is not valid with the tree build where we use splitter keys
+      //CkAssert(!isShared);
       if (last < first) {
         // the node is really empty because falling between two TreePieces
         node->makeEmpty();
