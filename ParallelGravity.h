@@ -85,6 +85,12 @@ enum DomainsDec {
     ORB_space_dec=6		// Bisect space
 };
 
+enum NborDir {
+  LEFT = 0,
+  RIGHT
+};
+PUPbytes(NborDir);
+
 /// tolerance for unequal pieces in SFC based decompositions.
 const double ddTolerance = 0.1;
 
@@ -934,6 +940,7 @@ private:
 	unsigned int numActiveParticles;
 	/// Array with the particles in this chare
 	GravityParticle* myParticles;
+  int nbor_msgs_count_;
 	/// Actual storage in the above array
 	int nStore;
 
@@ -1559,6 +1566,7 @@ public:
   void shuffleAfterQD();
   void unshuffleParticlesWoDD(const CkCallback& cb);
   void acceptSortedParticlesFromOther(ParticleShuffleMsg *);
+  void setNumExpectedNeighborMsgs();
 
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);
@@ -1667,6 +1675,8 @@ public:
 
 	/// \brief Real tree build, independent of other TreePieces.
 	void startOctTreeBuild(CkReductionMsg* m);
+  void recvBoundary(SFC::Key key, NborDir dir);
+	void recvdBoundaries(CkReductionMsg* m);
 
   /********ORB Tree**********/
   //void receiveBoundingBoxes(BoundingBoxes *msg);
@@ -1675,9 +1685,14 @@ public:
   void buildORBTree(GenericTreeNode * node, int level);
   /**************************/
 
+  /// When the node is found to be NULL, forward the request
+	bool sendFillReqNodeWhenNull(CkCacheRequestMsg<KeyType> *msg);
 	/// Request the moments for this node.
 	void requestRemoteMoments(const Tree::NodeKey key, int sender);
-	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments, const OrientedBox<double>& box, const OrientedBox<double>& boxBall, const unsigned int iParticleTypes);
+	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type,
+    int firstParticle, int numParticles, int remIdx,
+    const MultipoleMoments& moments, const OrientedBox<double>& box,
+    const OrientedBox<double>& boxBall, const unsigned int iParticleTypes);
 
 	/// Entry point for the local computation: for each bucket compute the
 	/// force that its particles see due to the other particles hosted in
