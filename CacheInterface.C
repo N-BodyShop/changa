@@ -467,9 +467,11 @@ void TreePiece::fillRequestNode(CkCacheRequestMsg<KeyType> *msg) {
       //copySFCTreeNode(tmp,node);
       //streamingProxy[retIndex].receiveNode(tmp,msg->reqID);
     }
+    delete msg;
   }
   else {	// Handle NULL nodes
-    CkAbort("Ok, before it handled this, but why do we have a null pointer in the tree?!?");
+    if (!sendFillReqNodeWhenNull(msg)) {
+      CkAbort("Ok, before it handled this, but why do we have a null pointer in the tree?!?");
+    }
   }
-  delete msg;
 }
