@@ -15,6 +15,24 @@
 #include "CentralLB.h"
 #define  ORB3DLB_NOTOPO_DEBUG
 // #define  ORB3DLB_NOTOPO_DEBUG CkPrintf
+
+class PeInfo {
+  public:
+  int idx;
+  double load;
+  double items;
+  PeInfo(int id, double ld, int it) : idx(id), load(ld), items(it) {}
+};
+
+class ProcLdGreater {
+  public:
+  bool operator()(PeInfo& p1, PeInfo& p2) {
+    // TODO: either do based on load of number of tps
+    return (p1.load > p2.load);
+    //return (p1.items > p2.items);
+  }
+};
+
 class Orb3dCommon{
   // pointer to stats->to_proc
   protected:		
@@ -22,6 +40,7 @@ class Orb3dCommon{
     CkVec<int> *from;
 
     CkVec<float> procload;
+    CkVec<int> procpart;
 
     /// Take into account memory constraints by limiting the number of pieces
     /// per processor.
@@ -30,6 +49,298 @@ class Orb3dCommon{
     /// index of first processor of the group we are considering
     int nextProc;
 
+    int procStride;
+
+    void orbPePartition(vector<Event> *events, vector<OrbObject> &tp, int nproc, BaseLB::LDStats *stats) {
+      //CkPrintf("[%d] OrbPePartition\n", nproc);
+
+      std::vector<PeInfo> peinfo;
+      float totalLoad = 0.0;
+      int firstProc = CkNodeFirst(nproc);
+      int lastProc = firstProc + CkNodeSize(nproc) - 1;
+      for (int i = firstProc; i <= lastProc; i++) {
+        peinfo.push_back(PeInfo(i, 0.0, 0));
+      }
+      std::make_heap(peinfo.begin(), peinfo.end(), ProcLdGreater());
+
+      int nextProc;
+      for(int i = 0; i < events[XDIM].size(); i++){
+        Event &ev = events[XDIM][i];
+        OrbObject &orb = tp[ev.owner];
+
+        PeInfo p = peinfo.front();
+        pop_heap(peinfo.begin(), peinfo.end(), ProcLdGreater());
+        peinfo.pop_back();
+
+        nextProc = p.idx;
+
+        if(orb.numParticles > 0){
+          (*mapping)[orb.lbindex] = nextProc;
+          procload[nextProc] += ev.load;
+          p.load += ev.load;
+          p.items += 1;
+          totalLoad += ev.load;
+        } else{
+          int fromPE = (*from)[orb.lbindex];
+          procload[fromPE] += ev.load;
+        }
+
+        peinfo.push_back(p);
+        push_heap(peinfo.begin(), peinfo.end(), ProcLdGreater());
+      }
+      if (events[XDIM].size() > 200) {
+        CkPrintf("[%d] Node has %d events total load %f to accomodate pe starting from %d\n",
+            nproc, events[XDIM].size(), totalLoad, CkNodeFirst(nproc));
+      }
+
+
+    }
+
+    void orbPartitionMS(vector<Event> *events, OrientedBox<float> &box, int nprocs, vector<OrbObject> & tp, BaseLB::LDStats *stats){
+
+      ORB3DLB_NOTOPO_DEBUG("partition events %d %d %d nprocs %d\n", 
+          events[XDIM].size(),
+          events[YDIM].size(),
+          events[ZDIM].size(),
+          nprocs
+          );
+      int numEvents = events[XDIM].size();
+      CkAssert(numEvents == events[YDIM].size());
+      CkAssert(numEvents == events[ZDIM].size());
+
+      if(numEvents == 0)
+	return;
+
+      if(nprocs == 1){
+        ORB3DLB_NOTOPO_DEBUG("base: assign %d tps to proc %d\n", numEvents, nextProc);
+        if (!stats->procs[nextProc].available) {
+          CkPrintf("[%d] %d Not available proc!!\n", CkMyPe(), nextProc);
+          nextProc += procStride;
+          return;
+        }
+
+        orbPePartition(events, tp, nextProc, stats);
+
+        if(numEvents > 0) nextProc += procStride;
+        return;
+      }
+
+      // find longest dimension
+
+      int longestDim = XDIM;
+      float longestDimLength = box.greater_corner[longestDim] - box.lesser_corner[longestDim];
+      for(int i = YDIM; i <= ZDIM; i++){
+        float thisDimLength = box.greater_corner[i]-box.lesser_corner[i];
+        if(thisDimLength > longestDimLength){
+          longestDimLength = thisDimLength;
+          longestDim = i;
+        }
+      }
+
+      ORB3DLB_NOTOPO_DEBUG("dimensions %f %f %f longest %d\n", 
+          box.greater_corner[XDIM]-box.lesser_corner[XDIM],
+          box.greater_corner[YDIM]-box.lesser_corner[YDIM],
+          box.greater_corner[ZDIM]-box.lesser_corner[ZDIM],
+          longestDim
+          );
+
+      int nlprocs = nprocs/2;
+      int nrprocs = nprocs-nlprocs;
+
+      float ratio = (1.0*nlprocs)/(1.0*(nlprocs+nrprocs));
+
+      // sum background load on each side of the processor split
+      float bglprocs = 0.0;
+      //for(int np = nextProc; np < nextProc + nlprocs; np++)
+      //  bglprocs += stats->procs[np].bg_walltime;
+      float bgrprocs = 0.0;
+      //for(int np = nextProc + nlprocs; np < nextProc + nlprocs + nrprocs; np++)
+      //  bgrprocs += stats->procs[np].bg_walltime;
+
+      ORB3DLB_NOTOPO_DEBUG("nlprocs %d nrprocs %d ratio %f\n", nlprocs, nrprocs, ratio);
+
+      int splitIndex = partitionRatioLoad(events[longestDim],ratio,bglprocs,
+                                          bgrprocs);
+      if(splitIndex == numEvents) {
+        ORB3DLB_NOTOPO_DEBUG("evenly split 0 load\n");
+        splitIndex = splitIndex/2;
+      }
+      int nleft = splitIndex;
+      int nright = numEvents-nleft;
+
+#if 0
+      if(nright < nrprocs) {  // at least one piece per processor
+        nright = nrprocs;
+        nleft = splitIndex = numEvents-nright;
+        CkAssert(nleft >= nlprocs);
+      }
+      else if(nleft < nlprocs) {
+        nleft = splitIndex = nlprocs;
+        nright = numEvents-nleft;
+        CkAssert(nright >= nrprocs);
+      }
+#endif
+      // If existing TPs (non migratable) + nleft > nlprocs*maxPieceProc, then
+      // we need to find a new splitIndex. Find the splitter such that nleft =
+      // nlprocs*maxPieceProc - (total nonmig).
+      //int ctps;
+      //if (nextProc <= 0) {
+      //  ctps = 0;
+      //} else {
+      //  ctps = existing_tps_on_pe[nextProc - 1];
+      //}
+
+      //int existing_tps_lprocs = existing_tps_on_pe[nextProc + nlprocs - 1] - ctps;
+      //if (nextProc + nlprocs <= 0) {
+      //  ctps = 0;
+      //} else {
+      //  ctps = existing_tps_on_pe[nextProc + nlprocs - 1];
+      //}
+      //int existing_tps_rprocs = existing_tps_on_pe[nextProc + nlprocs + nrprocs - 1] - ctps;
+
+    int existing_tps_lprocs, existing_tps_rprocs;
+      existing_tps_lprocs = existing_tps_rprocs = 0;
+
+      if(nleft > (nlprocs*maxPieceProc - existing_tps_lprocs)) {
+    //CkPrintf("Had to split nleft %d nlprocs %d maxPieceProc %f\n", nleft, nlprocs, maxPieceProc);
+	  nleft = splitIndex = (int) (nlprocs*maxPieceProc - existing_tps_lprocs);
+	  nright = numEvents-nleft;
+	  }
+      else if (nright > (nrprocs*maxPieceProc - existing_tps_rprocs)) {
+    //CkPrintf("Had to split nright %d nrprocs %d maxPieceProc %f\n", nright, nrprocs, maxPieceProc);
+	  nright = (int) (nrprocs*maxPieceProc - existing_tps_rprocs);
+	  nleft = splitIndex = numEvents-nright;
+	  }
+      CkAssert(splitIndex >= 0);
+      CkAssert(splitIndex < numEvents);
+
+      OrientedBox<float> leftBox;
+      OrientedBox<float> rightBox;
+
+      leftBox = rightBox = box;
+      float splitPosition = events[longestDim][splitIndex].position;
+      leftBox.greater_corner[longestDim] = splitPosition;
+      rightBox.lesser_corner[longestDim] = splitPosition;
+
+      // classify events
+      for(int i = 0; i < splitIndex; i++){
+        Event &ev = events[longestDim][i];
+        CkAssert(ev.owner >= 0);
+        CkAssert(tp[ev.owner].partition == INVALID_PARTITION);
+        tp[ev.owner].partition = LEFT_PARTITION;
+      }
+      for(int i = splitIndex; i < numEvents; i++){
+        Event &ev = events[longestDim][i];
+        CkAssert(ev.owner >= 0);
+        CkAssert(tp[ev.owner].partition == INVALID_PARTITION);
+        tp[ev.owner].partition = RIGHT_PARTITION;
+      }
+
+      vector<Event> leftEvents[NDIMS];
+      vector<Event> rightEvents[NDIMS];
+
+      for(int i = 0; i < NDIMS; i++){
+        if(i == longestDim){ 
+          leftEvents[i].resize(nleft);
+          rightEvents[i].resize(nright);
+        }
+        else{
+          leftEvents[i].reserve(nleft);
+          rightEvents[i].reserve(nright);
+        }
+      }
+      // copy events of split dimension
+      memcpy(&leftEvents[longestDim][0],&events[longestDim][0],sizeof(Event)*nleft);
+      memcpy(&rightEvents[longestDim][0],&events[longestDim][splitIndex],sizeof(Event)*nright);
+
+      // copy events of other dimensions
+      for(int i = XDIM; i <= ZDIM; i++){
+        if(i == longestDim) continue;
+        for(int j = 0; j < numEvents; j++){
+          Event &ev = events[i][j];
+          CkAssert(ev.owner >= 0);
+          OrbObject &orb = tp[ev.owner];
+          CkAssert(orb.partition != INVALID_PARTITION);
+          if(orb.partition == LEFT_PARTITION) leftEvents[i].push_back(ev);
+          else if(orb.partition == RIGHT_PARTITION) rightEvents[i].push_back(ev);
+        }
+      }
+
+      // cleanup
+      // next, reset the ownership information in the
+      // OrbObjects, so that the next invocation may use
+      // the same locations for its book-keeping
+      vector<Event> &eraseVec = events[longestDim];
+      for(int i = 0; i < numEvents; i++){
+        Event &ev = eraseVec[i];
+        CkAssert(ev.owner >= 0);
+        OrbObject &orb = tp[ev.owner];
+        CkAssert(orb.partition != INVALID_PARTITION);
+        orb.partition = INVALID_PARTITION;
+      }
+
+      // free events from parent node,
+      // since they are not needed anymore
+      // (we have partition all events into the
+      // left and right event subsets)
+      for(int i = 0; i < NDIMS; i++){
+        //events[i].free();
+        vector<Event>().swap(events[i]);
+      }
+      orbPartitionMS(leftEvents,leftBox,nlprocs,tp, stats);
+      orbPartitionMS(rightEvents,rightBox,nrprocs,tp, stats);
+    }
+
+    void orbPrepareMS(vector<Event> *tpEvents, OrientedBox<float> &box, int numobjs, BaseLB::LDStats * stats){
+
+      int nmig = stats->n_migrateobjs;
+      procStride = 1;
+      //if (nmig < stats->count) {
+      //  procStride = stats->count / nmig;
+      //}
+      if(dMaxBalance < 1.0)
+        dMaxBalance = 1.0;
+
+      dMaxBalance = 2;
+      //maxPieceProc = dMaxBalance*nmig/stats->count;
+      maxPieceProc = dMaxBalance*nmig/CkNumNodes();
+
+      CkPrintf("OrbPrepare> dMaxBalance %f maxPieceProc %f\n", dMaxBalance, maxPieceProc);
+      if(maxPieceProc < 1.0)
+        maxPieceProc = 1.01;
+
+      CkAssert(tpEvents[XDIM].size() == numobjs);
+      CkAssert(tpEvents[YDIM].size() == numobjs);
+      CkAssert(tpEvents[ZDIM].size() == numobjs);
+
+      mapping = &stats->to_proc;
+      from = &stats->from_proc;
+
+      CkPrintf("[Orb3dLB_notopo] sorting\n");
+      for(int i = 0; i < NDIMS; i++){
+        sort(tpEvents[i].begin(),tpEvents[i].end());
+      }
+
+      box.lesser_corner.x = tpEvents[XDIM][0].position;
+      box.lesser_corner.y = tpEvents[YDIM][0].position;
+      box.lesser_corner.z = tpEvents[ZDIM][0].position;
+
+      box.greater_corner.x = tpEvents[XDIM][numobjs-1].position;
+      box.greater_corner.y = tpEvents[YDIM][numobjs-1].position;
+      box.greater_corner.z = tpEvents[ZDIM][numobjs-1].position;
+
+      nextProc = 0;
+
+      procload.resize(stats->count);
+      procpart.resize(stats->count);
+      for(int i = 0; i < stats->count; i++){
+        // TODO: Cm
+        // procload[i] = stats->procs[i].bg_walltime;
+        procload[i] = 0.0;
+        procpart[i] = 0.0;
+      }
+
+    }
 
     void orbPartition(vector<Event> *events, OrientedBox<float> &box, int nprocs, vector<OrbObject> & tp, BaseLB::LDStats *stats){
 
