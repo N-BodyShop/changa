@@ -1284,6 +1284,165 @@ void GenericList<T>::push_back(int b, T &ilc, DoubleWalkState *state, TreePiece 
   }
 #endif
 
+// This populates the local, remote lists. Once all the nodes and particles are
+// identified with which force calculations need to be performed, this list is
+// passed on to CkLoop function where it gets parallelized.
+void ListCompute::fillLists(State *state_, TreePiece *tp, int chunk, int start,
+    int end, CkVec<OffsetNode>& clistforb, CkVec<RemotePartInfo>& rplistforb,
+    CkVec<LocalPartInfo>& lplistforb) {
+  GravityParticle *particles = tp->getParticles();
+
+  DoubleWalkState *state = (DoubleWalkState *)state_;
+
+  GenericTreeNode *lowestNode = state->lowestNode;
+  int maxlevel = lowestNode->getLevel(lowestNode->getKey());
+
+  bool hasRemoteLists = state->rplists.length() > 0 ? true : false;
+  bool hasLocalLists = state->lplists.length() > 0 ? true : false;
+
+  int numNodes = 0;
+  int numLParticles = 0;
+  int numRParticles = 0;
+  bool filled = false;
+
+  for(int level = 0; level <= maxlevel; level++){
+    // node interactions
+    numNodes += state->clists[level].length();
+
+    // remote particle interactions
+    if(hasRemoteLists){
+      int listlen = state->rplists[level].length();
+      for(int part = 0; part < listlen; part++){
+        numRParticles += (state->rplists[level])[part].numParticles;
+      }
+    }
+    // local particle interactions
+    if(hasLocalLists){
+      int listlen = state->lplists[level].length();
+      for(int part = 0; part < listlen; part++){
+        numLParticles += (state->lplists[level])[part].numParticles;
+      }
+    }
+  }
+
+  for(int b = start; b < end; b++) {
+    if(tp->bucketList[b]->rungs >= activeRung) {
+
+      int activePart=0;
+      for (int k=tp->bucketList[b]->firstParticle; k<=tp->bucketList[b]->lastParticle; ++k) {
+        if (tp->myParticles[k].rung >= activeRung) activePart++;
+      }
+
+      OptType type = getOptType();
+      if(type == Local){
+        tp->addToNodeInterLocal(numNodes*activePart);
+        tp->addToParticleInterLocal(numLParticles*activePart);
+      }
+      else if(type == Remote){
+        tp->addToNodeInterRemote(chunk,numNodes*activePart);
+        tp->addToParticleInterRemote(chunk,numRParticles*activePart);
+      }
+
+      if (!filled) {
+        filled = true;
+        for(int level = 0; level <= maxlevel; level++){
+
+          CkVec<OffsetNode> &clist = state->clists[level];
+          for(unsigned int i = 0; i < clist.length(); i++){
+            clistforb.insertAtEnd(clist[i]);
+          }
+
+          // remote particles
+          if(hasRemoteLists){
+            CkVec<RemotePartInfo> &rpilist = state->rplists[level];
+            // for each bunch of particles in list
+            for(unsigned int i = 0; i < rpilist.length(); i++){
+              RemotePartInfo &rpi = rpilist[i];
+              rplistforb.insertAtEnd(rpi);
+            }
+          }
+
+          // local particles
+          if(hasLocalLists) {
+            CkVec<LocalPartInfo> &lpilist = state->lplists[level];
+            for(unsigned int i = 0; i < lpilist.length(); i++) {
+              LocalPartInfo &lpi = lpilist[i];
+              lplistforb.insertAtEnd(lpi);
+            }
+          }
+        }// level
+      }
+    }// active
+  }// bucket
+}
+
+template<class type> int calcNodeForces(TreePiece *tp, int b, int activeRung,
+    CkVec<type>& clist) {
+
+  GravityParticle *particles = tp->getParticles();
+  int computed = 0;
+  for(unsigned int i = 0; i < clist.length(); i++){
+
+#ifdef CHANGA_REFACTOR_WALKCHECK_INTERLIST
+    GenericTreeNode *node = clist[i].node;
+    tp->addToBucketChecklist(b, node->getKey());
+    tp->combineKeys(node->getKey(), b);
+
+    // don't try to compute with empty nodes or
+    if(node->getType() == Empty
+        || node->getType() == CachedEmpty){
+      continue;
+    }
+#endif
+    computed +=  nodeBucketForce(clist[i].node,
+        tp->getBucket(b),
+        particles,
+        tp->decodeOffset(clist[i].offsetID), activeRung);
+#ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
+    if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
+      Vector3D<double> vec = tp->decodeOffset(clist[i].offsetID);
+      CkPrintf("[%d]: bucket %d with node %ld (%1.0f,%1.0f,%1.0f)\n", tp->thisIndex,  b, clist[i].node->getKey(), vec.x, vec.y, vec.z);
+    }
+#endif
+  }
+  return computed;
+}
+
+template<class type> int calcParticleForces(TreePiece *tp, int b, int activeRung,
+    CkVec<type>& clist) {
+
+  GravityParticle *particles = tp->getParticles();
+  int computed = 0;
+  // for each bunch of particles in list
+  for(unsigned int i = 0; i < clist.length(); i++){
+    type &cli = clist[i];
+
+#ifdef CHANGA_REFACTOR_WALKCHECK_INTERLIST
+      NodeKey key = cli.key;
+      tp->addToBucketChecklist(b, key);
+      tp->combineKeys(key, b);
+#endif
+
+    // for each particle in a bunch
+    for(int j = 0; j < cli.numParticles; j++){
+      computed +=  partBucketForce(&cli.particles[j],
+          tp->getBucket(b),
+          particles,
+          cli.offset, activeRung);
+
+#ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
+      if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
+        Vector3D<double> &vec = cli.offset;
+        CkPrintf("[%d]: bucket %d with remote part %ld (%1.0f,%1.0f,%1.0f)\n",
+          tp->thisIndex, b, cli.key, vec.x, vec.y, vec.z);
+      }
+#endif
+    }
+  }
+  return computed;
+}
+
+
 /// @brief Check for computation
 /// Computation can be done on buckets indexed from start to end
 /// @param state_ State to be checked
@@ -1330,100 +1489,29 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
       for(int level = 0; level <= maxlevel; level++){
 
         CkVec<OffsetNode> &clist = state->clists[level];
-        for(unsigned int i = 0; i < clist.length(); i++){
-
-#ifdef CHANGA_REFACTOR_WALKCHECK_INTERLIST
-          GenericTreeNode *node = clist[i].node;
-          tp->addToBucketChecklist(b, node->getKey());
-          tp->combineKeys(node->getKey(), b);
-
-          // don't try to compute with empty nodes or
-          if(node->getType() == Empty
-              || node->getType() == CachedEmpty){
-            continue;
-          }
-#endif
-          int computed = 0;
-          computed =  nodeBucketForce(clist[i].node,
-              tp->getBucket(b),
-              particles,
-              tp->decodeOffset(clist[i].offsetID), activeRung);
-          if(getOptType() == Remote){
-            tp->addToNodeInterRemote(chunk, computed);
-          }
-          else if(getOptType() == Local){
-            tp->addToNodeInterLocal(computed);
-          }
-#ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
-          if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
-            Vector3D<double> vec = tp->decodeOffset(clist[i].offsetID);
-            CkPrintf("[%d]: bucket %d with node %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex,  b, clist[i].node->getKey(), vec.x, vec.y, vec.z);
-          }
-#endif
-
+        int computed;
+        computed = calcNodeForces(tp, b, activeRung, clist);
+        if(getOptType() == Remote){
+          tp->addToNodeInterRemote(chunk, computed);
+        } else if(getOptType() == Local){
+          tp->addToNodeInterLocal(computed);
         }
 
         // remote particles
         if(hasRemoteLists){
           CkVec<RemotePartInfo> &rpilist = state->rplists[level];
-          // for each bunch of particles in list
-          for(unsigned int i = 0; i < rpilist.length(); i++){
-            RemotePartInfo &rpi = rpilist[i];
 
-#if defined CHANGA_REFACTOR_WALKCHECK_INTERLIST 
-            NodeKey key = rpi.key;
-            tp->addToBucketChecklist(b, key);
-            tp->combineKeys(key, b);
-#endif
-
-            // for each particle in a bunch
-            for(int j = 0; j < rpi.numParticles; j++){
-              int computed = 0;
-              computed = partBucketForce(&rpi.particles[j],
-                  tp->getBucket(b),
-                  particles,
-                  rpi.offset, activeRung);
-              if(getOptType() == Remote){// don't really have to perform this check
-                tp->addToParticleInterRemote(chunk, computed);
-              }
-            }
-
-#ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
-          if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
-            Vector3D<double> &vec = rpi.offset;
-            CkPrintf("[%d]: bucket %d with remote part %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex, b, rpi.key, vec.x, vec.y, vec.z);
-          }
-#endif
+          computed = calcParticleForces(tp, b, activeRung, rpilist);
+          if(getOptType() == Remote){// don't really have to perform this check
+            tp->addToParticleInterRemote(chunk, computed);
           }
         }
 
         // local particles
         if(hasLocalLists){
           CkVec<LocalPartInfo> &lpilist = state->lplists[level];
-          for(unsigned int i = 0; i < lpilist.length(); i++){
-            LocalPartInfo &lpi = lpilist[i];
-#if defined CHANGA_REFACTOR_WALKCHECK_INTERLIST 
-            NodeKey key = lpi.key;
-            tp->addToBucketChecklist(b, key);
-            tp->combineKeys(key, b);
-#endif
-
-            // for each particle in a bunch
-            for(int j = 0; j < lpi.numParticles; j++){
-              int computed = partBucketForce(&lpi.particles[j],
-                  tp->getBucket(b),
-                  particles,
-                  lpi.offset, activeRung);
-              tp->addToParticleInterLocal(computed);
-            }
-
-#ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
-          if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
-            Vector3D<double> &vec = lpi.offset;
-            CkPrintf("[%d]: bucket %d with local part %ld (%1.0f,%1.0f,%1.0f)\n", thisIndex, b, lpi.key, vec.x, vec.y, vec.z);
-          }
-#endif
-          }
+          computed = calcParticleForces(tp, b, activeRung, lpilist);
+          tp->addToParticleInterLocal(computed);
         }
       }// level
 
@@ -1731,6 +1819,39 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
   }// bucket
   // *********************
 #endif // ifndef CUDA
+}
+
+// This function is called in the ckloop so multiple threads are concurrently
+// updating forces on its set of particles. Do not modify state variables of
+// TreePiece without locking.
+void ListCompute::stateReadyPar(TreePiece *tp, int start, int end,
+    CkVec<OffsetNode>& clist, CkVec<RemotePartInfo>& rpilist,
+    CkVec<LocalPartInfo>& lpilist) {
+
+#ifndef CUDA
+  GravityParticle *particles = tp->getParticles();
+
+  bool hasRemoteLists = rpilist.length() > 0 ? true : false;
+  bool hasLocalLists = lpilist.length() > 0 ? true : false;
+
+  for(int b = start; b < end; b++){
+    if(tp->bucketList[b]->rungs >= activeRung){
+      calcNodeForces(tp, b, activeRung, clist);
+
+      // remote particles
+      if(hasRemoteLists){
+        calcParticleForces(tp, b, activeRung, rpilist);
+      }
+
+      // local particles
+      if(hasLocalLists){
+        calcParticleForces(tp, b, activeRung, lpilist);
+      }
+    }// active
+  }// bucket
+#else
+  CkAbort("bUseCkLoopPar option does not work with CUDA. Turn bUseCkLoopPar off!\n");
+#endif
 }
 
 #ifdef CUDA
