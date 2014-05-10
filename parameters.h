@@ -120,6 +120,7 @@ typedef struct parameters {
     double dDumpFrameTime;
     int iDirector;
     int bLiveViz;
+    int bUseCkLoopPar;
     } Parameters;
 
 inline void operator|(PUP::er &p, Parameters &param) {
@@ -227,6 +228,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dDumpFrameTime;
     p|param.iDirector;
     p|param.bLiveViz;
+    p|param.bUseCkLoopPar;
     }
 
 #endif
