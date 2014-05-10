@@ -1022,3 +1022,6 @@ supernova.h
 
 starlifetime.o: \
 ParallelGravity.decl.h
+
+IntraNodeLBManager.o: \
+ParallelGravity.decl.h
