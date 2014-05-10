@@ -84,9 +84,9 @@ NVCC_LIBS = -lcuda -lcudart -lGL
 
 # add -module Orb3dLB here for load balancing during singlestepped runs
 #OPTS = -g -memory charmdebug
-OPTS = -O3
+OPTS = -O3 -lpthread
 CXXFLAGS += $(OPTS) -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) @CPPFLAGS@
-LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache -module CkIO -module commlib -module CkMulticast -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MultistepLB -module MultistepLB_notopo -module MultistepOrbLB -module Orb3dLB -module Orb3dLB_notopo -module HierarchOrbLB -module liveViz #-tracemode projections -memory charmdebug -memory paranoid
+LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache -module CkIO -module commlib -module CkMulticast -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MultistepLB -module MultistepLB_notopo -module MultistepOrbLB -module Orb3dLB -module Orb3dLB_notopo -module HierarchOrbLB -module liveViz -module CkLoop #-tracemode projections -memory charmdebug -memory paranoid
 XDR_DIR = ../rpc
 XDR_OBJS = $(XDR_DIR)/xdr.o $(XDR_DIR)/xdr_float.o $(XDR_DIR)/xdr_mem.o $(XDR_DIR)/xdr_stdio.o
 LDLIBS += $(STRUCTURES_PATH)/libTipsy.a  @LIBS@
@@ -100,7 +100,7 @@ CXX_DEPEND = $(CXX) -M -MM -MG $(CXXFLAGS)
 CFLAGS = $(OPTS) $(DEFINE_FLAGS) @CFLAGS@ @CPPFLAGS@
 
 # Orb3dLB.{o,C} below
-OBJECTS = Reductions.o DataManager.o TreePiece.o Sorter.o \
+OBJECTS = Reductions.o DataManager.o TreePiece.o IntraNodeLBManager.o Sorter.o \
 	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
 	  InOutput.o cosmo.o romberg.o runge.o dumpframe.o dffuncs.o \
 	  moments.o MultistepLB.o Orb3dLB.o Orb3dLB_notopo.o HierarchOrbLB.o \
@@ -110,12 +110,12 @@ OBJECTS = Reductions.o DataManager.o TreePiece.o Sorter.o \
 	  cha_commitid.o \
 	  @OBJECTS_COOLING@
 
-SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \
+SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp IntraNodeLBManager.cpp \
 	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
 	InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c \
 	moments.c MultistepLB.C Orb3dLB.C Orb3dLB_notopo.C HierarchOrbLB.C starform.C \
 	MultistepLB_notopo.C MultistepOrbLB.C PETreeMerger.cpp \
-	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C
+	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C 
 
 ifdef CUDA
   CXXFLAGS += $(NVCC_INC)
