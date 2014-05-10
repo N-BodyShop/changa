@@ -49,6 +49,15 @@ class Compute{
                             GenericTreeNode *node, int reqID, State *state) = 0;
 
   virtual void stateReady(State *state, TreePiece *owner, int chunk, int start, int end) {}
+
+  virtual void stateReadyPar(TreePiece *tp, int start, int end,
+    CkVec<OffsetNode>& clist, CkVec<RemotePartInfo>& rpilist,
+    CkVec<LocalPartInfo>& lpilist){}
+
+  virtual void fillLists(State *state_, TreePiece *tp, int chunk, int start,
+    int end, CkVec<OffsetNode>& clistforb, CkVec<RemotePartInfo>& rplistforb,
+    CkVec<LocalPartInfo>& lplistforb) {}
+
   /// @brief Associate computeEntity (target bucket or node),
   /// activeRung and Optimization with this Compute object.
   virtual void init(void *cE, int activeRung, Opt *opt);
@@ -151,7 +160,17 @@ class ListCompute : public Compute{
   void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket);
 
   void initState(State *state);
+
   void stateReady(State *, TreePiece *, int chunk, int start, int end);
+
+  void stateReadyPar(TreePiece *tp, int start, int end,
+      CkVec<OffsetNode>& clist, CkVec<RemotePartInfo>& rpilist,
+      CkVec<LocalPartInfo>& lpilist);
+
+  void fillLists(State *state_, TreePiece *tp, int chunk, int start,
+    int end, CkVec<OffsetNode>& clistforb, CkVec<RemotePartInfo>& rplistforb,
+    CkVec<LocalPartInfo>& lplistforb);
+
 //  void printUndlist(DoubleWalkState *state, int level, TreePiece *tp);
 //  void printClist(DoubleWalkState *state, int level, TreePiece *tp);
   void reassoc(void *cE, int activeRung, Opt *o);
