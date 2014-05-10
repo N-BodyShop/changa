@@ -22,6 +22,7 @@ mainmodule ParallelGravity {
   readonly CProxy_DataManager dMProxy;
   readonly CProxy_PETreeMerger peTreeMergerProxy;
   readonly CProxy_DumpFrameData dfDataProxy;
+  readonly CProxy_IntraNodeLBManager nodeLBMgrProxy;
 
   readonly bool _cache;
   readonly int _nocache;
@@ -227,6 +228,7 @@ mainmodule ParallelGravity {
     // entry void report();
 
     entry void nextBucket(dummyMsg *m);	
+    entry void nextBucketUsingCkLoop(dummyMsg *m);	
     entry void nextBucketSmooth(dummyMsg *msg);
     entry void nextBucketReSmooth(dummyMsg *msg);
     entry void nextBucketMarkSmooth(dummyMsg *msg);
@@ -413,6 +415,7 @@ mainmodule ParallelGravity {
 
     entry void commenceCalculateGravityLocal();
     entry void calculateGravityRemote(ComputeChunkMsg *msg);
+    entry void calculateGravityRemoteUsingCkLoop(ComputeChunkMsg *msg);
 
     entry [notrace] void calculateReSmoothLocal();
     entry [notrace] void calculateMarkSmoothLocal();
@@ -508,6 +511,14 @@ mainmodule ParallelGravity {
     entry void clearFrame(InDumpFrame in, const CkCallback& cb);
     entry void combineFrame(InDumpFrame in, const CkCallback& cb);
   };
+
+  group [migratable] IntraNodeLBManager {
+    entry IntraNodeLBManager(int dummy, CkGroupID gid);
+    entry [local] void registerTP();
+    entry [local] void finishedTPWork();
+  };
+
+
 
   initproc void registerStatistics();
 };
