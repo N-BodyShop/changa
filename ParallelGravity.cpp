@@ -1487,7 +1487,7 @@ void Main::advanceBigStep(int iStep) {
         CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
         CkPrintf("Load balancer for star formation/feedback... ");
         startTime = CkWallTimer();
-        treeProxy.startlb(CkCallbackResumeThread(), PHASE_FEEDBACK);
+        //treeProxy.startlb(CkCallbackResumeThread(), PHASE_FEEDBACK);
         CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
         if(param.bStarForm)
             FormStars(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
