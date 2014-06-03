@@ -2056,8 +2056,8 @@ void SinkAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
   	        SINK_Ly(p) += mq*(rz*vx - rx*vz);
 		SINK_Lz(p) += mq*(rx*vy - ry*vx);
 #endif
-		/* Add internal energy to sink particle if it is not a star*/
-		if (!TYPETest(p, TYPE_STAR)) p->u() += ifMass*(mp*p->u()+mq*q->u());
+		/* Add internal energy to sink particle if it is gas*/
+		if (p->isGas()) p->u() += ifMass*(mp*p->u()+mq*q->u());
 		
 		p->mass += mq;
 		bEat = 1;
