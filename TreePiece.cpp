@@ -31,11 +31,6 @@
 
 #include "PETreeMerger.h"
 
-#ifdef CELL
-#include "spert_ppu.h"
-#include "cell_typedef.h"
-#endif
-
 #ifdef CUDA
 #ifdef CUDA_INSTRUMENT_WRS
 #define GPU_INSTRUMENT_WRS
@@ -63,11 +58,6 @@ int TreeStuff::maxBucketSize;
 
 #ifdef PUSH_GRAVITY
 extern CkGroupID ckMulticastGrpId;
-#endif
-
-#ifdef CELL
-int workRequestOut = 0;
-CkVec<CellComputation> ewaldMessages;
 #endif
 
 //forward declaration
@@ -2960,21 +2950,6 @@ void TreePiece::doAllBuckets(){
 #endif
 }
 
-#ifdef CELL
-#define CELLTHREASHOLD 100
-#define CELLEWALDTHREASHOLD 30
-
-inline void cellEnableComputation() {
-  if (workRequestOut < CELLEWALDTHREASHOLD) {
-    for (int i=0; i<ewaldMessages.length(); ++i) {
-      CellComputation &comp = ewaldMessages[i];
-      comp.owner.calculateEwald(comp.msg);
-    }
-    ewaldMessages.removeAll();
-  }
-}
-#endif
-
 void TreePiece::nextBucket(dummyMsg *msg){
   unsigned int i=0;
 
@@ -2985,9 +2960,6 @@ void TreePiece::nextBucket(dummyMsg *msg){
   sInterListWalk->init(sGravity, this);
 #endif
   while(i<_yieldPeriod && currentBucket<numBuckets
-#ifdef CELL
-    && workRequestOut < CELLTHREASHOLD
-#endif
   ){
     GenericTreeNode *target = bucketList[currentBucket];
     if(target->rungs >= activeRung){
@@ -3016,7 +2988,6 @@ void TreePiece::nextBucket(dummyMsg *msg){
       CkPrintf("[%d] active local bucket book-keep\n", thisIndex);
 #endif
       for(int j = currentBucket; j < end; j++){
-#if !defined CELL 
         // for the cuda version, must decrement here
         // since we add to numAdditionalReqs for a bucket
         // each time a work request involving it is sent out.
@@ -3038,7 +3009,6 @@ void TreePiece::nextBucket(dummyMsg *msg){
         }
 #endif
 
-#endif
         if(bucketList[j]->rungs >= activeRung){
           numActualBuckets++;
         }
@@ -3138,34 +3108,6 @@ void TreePiece::calculateGravityLocal() {
   doAllBuckets();
 }
 
-#ifdef CELL
-void cellSPE_ewald(void *data) {
-  CellEwaldRequest *cgr = (CellEwaldRequest *)data;
-  //CkPrintf("cellSPE_ewald %d\n", cgr->firstBucket);
-  int i;
-  free_aligned(cgr->roData);
-  int offset = (cgr->numActiveData + 3) & ~0x3;
-  for (i=0; i<cgr->numActiveData; ++i) {
-    // copy the forces calculated to the particle's data
-    GravityParticle *dest = cgr->particles[i];
-    //CkPrintf("cellSPE_single part %d: %p, %f %f %f\n",i,dest,cr->activeData[i].treeAcceleration.x,cr->activeData[i].treeAcceleration.y,cr->activeData[i].treeAcceleration.z);
-    dest->treeAcceleration.x = dest->treeAcceleration.x + cgr->woData[i+offset];
-    dest->treeAcceleration.y = dest->treeAcceleration.y + cgr->woData[i+2*offset];
-    dest->treeAcceleration.z = dest->treeAcceleration.z + cgr->woData[i+3*offset];
-    dest->potential += cgr->woData[i];
-  }
-  for (i=cgr->firstBucket; i<=cgr->lastBucket; ++i) {
-    cgr->tp->bucketReqs[i].finished = 1;
-    cgr->tp->finishBucket(i);
-  }
-  free_aligned(cgr->woData);
-  delete cgr->particles;
-  workRequestOut --;
-  delete cgr;
-  cellEnableComputation();
-}
-#endif
-
 void TreePiece::calculateEwald(dummyMsg *msg) {
 #ifdef SPCUDA
   h_idata = (EwaldData*) malloc(sizeof(EwaldData)); 
@@ -3176,107 +3118,23 @@ void TreePiece::calculateEwald(dummyMsg *msg) {
 #else
   unsigned int i=0;
   while (i<_yieldPeriod && ewaldCurrentBucket < numBuckets
-#ifdef CELL
-	 && workRequestOut < CELLEWALDTHREASHOLD
-#endif
 	 ) {
-#ifdef CELL_EWALD
-    int activePart=0, indexActivePart=0;
-    for (int k=bucketList[ewaldCurrentBucket]->firstParticle; k<=bucketList[ewaldCurrentBucket]->lastParticle; ++k) {
-      if (myParticles[k].rung >= activeRung) activePart++;
-    }
-    GravityParticle **partList = new GravityParticle*[activePart];
-    int outputSize = ROUNDUP_128(4*sizeof(cellSPEtype)*(activePart+3));
-    int inputSize = ROUNDUP_128(sizeof(CellEwaldContainer)+nEwhLoop*sizeof(CellEWT)+3*sizeof(cellSPEtype)*(activePart+3));
-    cellSPEtype *output = (cellSPEtype*)malloc_aligned(outputSize, 128);
-    CellEwaldContainer *input = (CellEwaldContainer*)malloc_aligned(inputSize, 128);
-    cellSPEtype *positionX = (cellSPEtype*)(((char*)input)+sizeof(CellEwaldContainer));
-    cellSPEtype *positionY = (cellSPEtype*)(((char*)positionX)+((activePart+3)>>2)*(4*sizeof(cellSPEtype)));
-    cellSPEtype *positionZ = (cellSPEtype*)(((char*)positionY)+((activePart+3)>>2)*(4*sizeof(cellSPEtype)));
-    CellEWT *ewtIn = (CellEWT*)(((char*)positionZ)+((activePart+3)>>2)*(4*sizeof(cellSPEtype)));
-    CellEwaldRequest *cr = new CellEwaldRequest(output, activePart, input, partList, this, ewaldCurrentBucket, ewaldCurrentBucket);
-    for (int k=bucketList[ewaldCurrentBucket]->firstParticle; k<=bucketList[ewaldCurrentBucket]->lastParticle; ++k) {
-      if (myParticles[k].rung >= activeRung) {
-	positionX[indexActivePart] = myParticles[k].position.x;
-	positionY[indexActivePart] = myParticles[k].position.y;
-	positionZ[indexActivePart] = myParticles[k].position.z;
-	partList[indexActivePart++] = &myParticles[k];
-      }
-    }
-    input->rootMoments = root->moments;
-    input->fEwCut = fEwCut;
-    input->fPeriod = fPeriod.x;
-    input->numPart = activePart;
-    input->nReps = nReplicas;
-    input->nEwhLoop = nEwhLoop;
-    for (int k=0; k<nEwhLoop; ++k) {
-      ewtIn[k] = ewt[k];
-    }
-    sendWorkRequest (3, NULL, 0, input, inputSize, output, outputSize, (void*)cr, 0, cellSPE_ewald, NULL);
-    workRequestOut ++;
-#else
     BucketEwald(bucketList[ewaldCurrentBucket], nReplicas, fEwCut);
 
     bucketReqs[ewaldCurrentBucket].finished = 1;
     finishBucket(ewaldCurrentBucket);
-#endif
 
     ewaldCurrentBucket++;
     i++;
   }
 
   if (ewaldCurrentBucket<numBuckets) {
-#ifdef CELL
-    if (workRequestOut < CELLEWALDTHREASHOLD)
-#endif
       thisProxy[thisIndex].calculateEwald(msg);
-#ifdef CELL
-    else
-      ewaldMessages.insertAtEnd(CellComputation(thisProxy[thisIndex], msg));
-#endif
   } else {
     delete msg;
   }
 #endif
 }
-
-#if INTERLIST_VER > 0
-
-#ifdef CELL
-void cellSPE_callback(void *data) {
-  //CkPrintf("cellSPE_callback\n");
-  CellGroupRequest *cgr = (CellGroupRequest *)data;
-
-  State *state = cgr->state;
-  int bucket = cgr->bucket;
-
-  state->counterArrays[0][bucket]--;
-  cgr->tp->finishBucket(bucket);
-
-  delete cgr->particles;
-  delete cgr;
-}
-
-void cellSPE_single(void *data) {
-  CellRequest *cr = (CellRequest *)data;
-  free_aligned(cr->roData);
-  for (int i=0; i<cr->numActiveData; ++i) {
-    // copy the forces calculated to the particle's data
-    GravityParticle *dest = cr->particles[i];
-    dest->treeAcceleration = dest->treeAcceleration + cr->activeData[i].treeAcceleration;
-    dest->potential += cr->activeData[i].potential;
-    if (cr->activeData[i].dtGrav > dest->dtGrav) {
-      dest->dtGrav = cr->activeData[i].dtGrav;
-    }
-  }
-  free_aligned(cr->activeData);
-  workRequestOut --;
-  delete cr;
-  cellEnableComputation();
-}
-#endif
-
-#endif
 
 const char *typeString(NodeType type);
 
@@ -3315,9 +3173,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 
 
   while (i<_yieldPeriod && sRemoteGravityState->currentBucket < numBuckets
-#ifdef CELL
-		&& workRequestOut < CELLTHREASHOLD
-#endif
   ) {
 #ifdef CHANGA_REFACTOR_WALKCHECK
     if(thisIndex == CHECK_INDEX && sRemoteGravityState->currentBucket == CHECK_BUCKET){
@@ -3425,7 +3280,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       CkPrintf("[%d] active remote bucket book-keep current: %d end: %d chunk: %d\n", thisIndex, sRemoteGravityState->currentBucket, end, msg->chunkNum);
 #endif
       for(int j = sRemoteGravityState->currentBucket; j < end; j++){
-#if !defined CELL 
         // see comment in nextBucket for the reason why
         // this decrement is performed for the cuda version
         sRemoteGravityState->counterArrays[0][j]--;
@@ -3441,7 +3295,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
         }
 #endif
 
-#endif
         if(bucketList[j]->rungs >= activeRung){
           numActualBuckets++;
         }
@@ -5528,7 +5381,6 @@ void TreePiece::updateBucketState(int start, int end, int n, int chunk, State *s
 #endif
   for(int i = start; i < end; i++){
     if(bucketList[i]->rungs >= activeRung){
-#if !defined CELL 
        state->counterArrays[0][i] -= n;
 #if COSMO_PRINT_BK > 1
        CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", thisIndex, i, sRemoteGravityState->counterArrays[0][i], sLocalGravityState->counterArrays[0][i]);
@@ -5540,7 +5392,6 @@ void TreePiece::updateBucketState(int start, int end, int n, int chunk, State *s
        // have been issued before it was invoked, so there will
        // be a finishBucket call afterwards to ensure progress.
        finishBucket(i);
-#endif
 #endif
     }
   }
