@@ -570,6 +570,7 @@ struct NonLocalMomentsClient {
   {}
 };
 
+/// @brief List of clients needing a particular moment
 struct NonLocalMomentsClientList {
   GenericTreeNode *targetNode;
   CkVec<NonLocalMomentsClient> clients;
@@ -1236,12 +1237,6 @@ private:
 	void reSmoothNextBucket();
 	void markSmoothNextBucket();
 	void smoothBucketComputation();
-	/** @brief Initial walk through the tree. It will continue until local
-	 * nodes are found (excluding those coming from the cache). When the
-	 * treewalk is finished it stops and cachedWalkBucketTree will continue
-	 * with the incoming nodes.
-	 */
-	void walkBucketTree(GenericTreeNode* node, int reqID);
 	/** @brief Start the treewalk for the next bucket among those belonging
 	 * to me. The buckets are simply ordered in a vector.
 	 */
@@ -1666,11 +1661,6 @@ public:
 	/// (specified by chunkNum).
 	void calculateGravityRemote(ComputeChunkMsg *msg);
 
-	/// Temporary function to recurse over all the buckets like in
-	/// walkBucketTree, only that NonLocal nodes are the only one for which
-	/// forces are computed
-	void walkBucketRemoteTree(GenericTreeNode *node, int chunk, int reqID, bool isRoot);
-
 	/// As above but for the Smooth operation
 	void calculateSmoothLocal();
 	void calculateReSmoothLocal();
@@ -1890,6 +1880,8 @@ public:
 
 };
 
+/// @brief Class for shadow arrays to avoid reduction conflicts in
+/// overlapping liveViz, SPH and gravity.
 class LvArray : public CBase_LvArray {
  public:
     LvArray() {}

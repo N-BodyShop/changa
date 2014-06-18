@@ -21,10 +21,10 @@ main(int argc, char **argv)
   int seed;
   XDR xdrs;
   FieldHeader fh;
-  double OmegaDM = 0.8; /* Should make this a parameter */
+  double OmegaDM = 0.2; /* Should make this a parameter */
 
   if(argc != 6) {
-      fprintf(stderr, "Usage: ppartt ndark xmin xmax seed directory\n");
+      fprintf(stderr, "Usage: pgaspartnc ngas xmin xmax seed directory\n");
       return 1;
       }
   
@@ -47,10 +47,10 @@ main(int argc, char **argv)
       fprintf(stderr, "Could not create and move into a directory for the converted files, maybe you don't have permission?");
       return -1;
   }
-  if(mkdir("dark", 0755))
+  if(mkdir("gas", 0755))
       return -1;
   
-  FILE* outfile = fopen("dark/mass", "wb");
+  FILE* outfile = fopen("gas/mass", "wb");
   xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
 
   xdr_template(&xdrs, &fh);
@@ -59,7 +59,7 @@ main(int argc, char **argv)
   xdr_destroy(&xdrs);
   fclose(outfile);
 
-  outfile = fopen("dark/soft", "wb");
+  outfile = fopen("gas/soft", "wb");
   xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
 
   xdr_template(&xdrs, &fh);
@@ -68,9 +68,49 @@ main(int argc, char **argv)
   xdr_destroy(&xdrs);
   fclose(outfile);
 
+  outfile = fopen("gas/GasDensity", "wb");
+  xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
+
+  xdr_template(&xdrs, &fh);
+  float gasden = 0.0;
+  for(i = 0; i < fh.numParticles+2; i++)
+      xdr_template(&xdrs, &gasden);
+  xdr_destroy(&xdrs);
+  fclose(outfile);
+
+  outfile = fopen("gas/OxMassFrac", "wb");
+  xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
+
+  xdr_template(&xdrs, &fh);
+  float oxmfrac = 0.0;
+  for(i = 0; i < fh.numParticles+2; i++)
+      xdr_template(&xdrs, &oxmfrac);
+  xdr_destroy(&xdrs);
+  fclose(outfile);
+
+  outfile = fopen("gas/FeMassFrac", "wb");
+  xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
+
+  xdr_template(&xdrs, &fh);
+  float femfrac = 0.0;
+  for(i = 0; i < fh.numParticles+2; i++)
+      xdr_template(&xdrs, &femfrac);
+  xdr_destroy(&xdrs);
+  fclose(outfile);
+
+  outfile = fopen("gas/temperature", "wb");
+  xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
+
+  xdr_template(&xdrs, &fh);
+  float temp = 100.0;
+  for(i = 0; i < fh.numParticles+2; i++)
+      xdr_template(&xdrs, &temp);
+  xdr_destroy(&xdrs);
+  fclose(outfile);
+
   fh.dimensions = 3;
   
-  outfile = fopen("dark/vel", "wb");
+  outfile = fopen("gas/vel", "wb");
   xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
 
   xdr_template(&xdrs, &fh);
@@ -80,7 +120,7 @@ main(int argc, char **argv)
   xdr_destroy(&xdrs);
   fclose(outfile);
 
-  outfile = fopen("dark/pos", "wb");
+  outfile = fopen("gas/pos", "wb");
   xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
 
   xdr_template(&xdrs, &fh);

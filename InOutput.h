@@ -714,6 +714,7 @@ class MetalsOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output mass at formation time.
 class MFormOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p) {
@@ -739,6 +740,7 @@ class MFormOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output formation time.
 class TimeFormOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p) {
