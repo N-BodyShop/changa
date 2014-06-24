@@ -49,6 +49,7 @@ public:
  * Smooth interface: Particles
  *********************************************************/
 
+/// @brief particle data in the smooth particle cache messages
 class CacheSmoothParticle {
 public:
     int begin; // Beginning particle number

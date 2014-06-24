@@ -176,7 +176,7 @@ public:
 	double dtGrav;
 	double fBall;
 	double fDensity;
-	int iOrder;		/* input order of particles */
+	int64_t iOrder;		/* input order of particles */
         int rung;  ///< the current rung (greater means faster)
 	unsigned int iType;	// Bitmask to hold particle type information
 #ifdef CHANGESOFT
@@ -196,10 +196,11 @@ public:
 
         double interMass;
 	
-	GravityParticle(SFC::Key k = 0) : ExternalGravityParticle() {
-          key = k;
-          rung = 0;
-        }
+        GravityParticle(SFC::Key k) : ExternalGravityParticle() {
+            key = k;
+            }
+        GravityParticle() : ExternalGravityParticle() {
+            }
 
 	/// @brief Used to sort the particles into tree order.
 	inline bool operator<(const GravityParticle& p) const {

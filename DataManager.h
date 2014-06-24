@@ -208,7 +208,7 @@ public:
 	/// @param responsible vector of which piece is responsible
 	/// for which interval
 	/// @param bins number of particles in each interval.
-	void acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb);
+	void acceptFinalKeys(const SFC::Key* keys, const int* responsible, uint64_t* bins, const int n, const CkCallback& cb);
 	void pup(PUP::er& p);
 
 #ifdef CUDA
@@ -262,6 +262,8 @@ class ProjectionsControl : public CBase_ProjectionsControl {
 #if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
     if (CkMyRank()==0) ck_set_GNI_BIConfig(64);
 #endif
+    LBTurnCommOff();
+    LBSetPeriod(0.0); // no need for LB interval: we are using Sync Mode
   } 
   ProjectionsControl(CkMigrateMessage *m) : CBase_ProjectionsControl(m) {} 
  

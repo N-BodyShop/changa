@@ -372,7 +372,9 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
       // XXX: Optimizations available if sort has been done before!
       //create initial evenly distributed guesses for splitter keys
       keyBoundaries.clear();
+      accumulatedBinCounts.clear();
       keyBoundaries.reserve(numChares + 1);
+      accumulatedBinCounts.reserve(numChares + 1);
       keyBoundaries.push_back(firstPossibleKey);      
     } else {
       //send out all the decided keys to get final bin counts
@@ -575,7 +577,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
       delete leaves;
     }
 
-    // int total = root->buildCounts();
+    int total = root->buildCounts();
     // CkPrintf("total number of particles: %d\n", total);
     do {
 	// Convert Oct domains to splitters, ensuring that we do not exceed
@@ -694,7 +696,7 @@ int OctDecompNode::buildCounts() {
   }
 }
 
-void OctDecompNode::combine(int joinThreshold, vector<NodeKey> &finalKeys, vector<unsigned int> &counts){
+void OctDecompNode::combine(int joinThreshold, vector<NodeKey> &finalKeys, vector<uint64_t> &counts){
   if(nparticles < joinThreshold || nchildren == 0){
     finalKeys.push_back(key);
     counts.push_back(nparticles);
@@ -788,15 +790,15 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	int* startCounts = static_cast<int *>(m->getData());
 	copy(startCounts, startCounts + numCounts, binCounts.begin() + 1);
 	delete m;
-	
-	if(sorted) { //true after the final keys have been binned
-		//send out the final splitters and responsibility table
-		dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()) + 1, keyBoundaries.size(), sortingCallback);
-		numIterations = 0;
-		sorted = false;
-		return;
-	}
-	
+
+        if (sorted) { // needed only when skipping decomposition
+
+          dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()) + 1, keyBoundaries.size(), sortingCallback);
+          numIterations = 0;
+          sorted = false;
+          return;
+        }
+
 	if(verbosity >= 4)
 		ckout << "Sorter: On iteration " << numIterations << endl;
 	CkAssert(numIterations < 1000);  // Sorter has not converged.
@@ -814,14 +816,20 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 		}
 		
 		//each splitter key will split the keys near a goal number of keys
-		goals.assign(numChares - 1, avgValue);
-		// evenly distribute extra particles.
+                numGoalsPending = numChares - 1;
+                goals = new int64_t[numGoalsPending];
+
 		int rem = numKeys % numChares;
-		int j = 0;
-		for(list<int>::iterator i = goals.begin(); j < rem; j++, ++i) {
-		    *i = avgValue + 1;
-		    }
-		partial_sum(goals.begin(), goals.end(), goals.begin());
+                int64_t prev = 0;
+		// evenly distribute extra particles.
+                for (int i = 0; i < rem; i++) {
+                  goals[i] = prev + avgValue + 1;
+                  prev = goals[i];
+                }
+                for (int i = rem; i < numGoalsPending; i++) {
+                  goals[i] = prev + avgValue;
+                  prev = goals[i];
+                }
 		
 		if(verbosity >= 3)
 			ckout << "Sorter: Target keys per chare: " << avgValue << " plus/minus " << (2 * closeEnough) << endl;
@@ -830,34 +838,41 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	//make adjustments to the splitter keys based on the results of the previous iteration
 	adjustSplitters();
 
-	if(verbosity >= 4) {
+        if(verbosity >= 4) {
 		ckout << "Sorter: Probing " << splitters.size() << " splitter keys" << endl;
 		ckout << "Sorter: Decided on " << (keyBoundaries.size() - 1) << " splitting keys" << endl;
-	}
+        }
 
-        std::vector<SFC::Key>* keys; 
 	//check if we have found all the splitters
 	if(sorted) {
           
 		if(verbosity)
 			ckout << "Sorter: Histograms balanced after " << numIterations << " iterations." << endl;
-		
+
 		sort(keyBoundaries.begin() + 1, keyBoundaries.end());
 		keyBoundaries.push_back(lastPossibleKey);
-		
-		//send out all the decided keys to get final bin counts
-                keys = &keyBoundaries; 
+                accumulatedBinCounts.push_back(binCounts.back());
+                sort(accumulatedBinCounts.begin(), accumulatedBinCounts.end());
+                binCounts.resize(accumulatedBinCounts.size());
+                std::adjacent_difference(accumulatedBinCounts.begin(), accumulatedBinCounts.end(), binCounts.begin());
+                accumulatedBinCounts.clear();
+
+                //send out the final splitters and responsibility table
+                dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), keyBoundaries.size(), sortingCallback);
+		numIterations = 0;
+		sorted = false;
+
 	} else {
           //send out the new guesses to be evaluated
-          keys = &splitters; 
+#ifdef REDUCTION_HELPER
+          CProxy_ReductionHelper boundariesTargetProxy = reductionHelperProxy;
+          boundariesTargetProxy.evaluateBoundaries(binsToSplit, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#else
+          CProxy_TreePiece boundariesTargetProxy = treeProxy;
+          boundariesTargetProxy.evaluateBoundaries(&splitters[0], splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#endif
         }
 
-#ifdef REDUCTION_HELPER
-        CProxy_ReductionHelper boundariesTargetProxy = reductionHelperProxy; 
-#else
-        CProxy_TreePiece boundariesTargetProxy = treeProxy; 
-#endif
-        boundariesTargetProxy.evaluateBoundaries(&(*keys->begin()), keys->size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 }
 
 /** Generate new guesses for splitter keys based on the histograms that came
@@ -868,75 +883,77 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
  for each splitter key not yet found.
  */
 void Sorter::adjustSplitters() {
-	
-	set<Key> newSplitters;
+
+  std::vector<SFC::Key> newSplitters;
+  binsToSplit.Resize(splitters.size() -1 );
+  binsToSplit.Zero();
+  newSplitters.reserve(splitters.size() * 4);
+  newSplitters.push_back(firstPossibleKey);
 	
 	Key leftBound, rightBound;
-	vector<unsigned int>::iterator numLeftKey, numRightKey = binCounts.begin();
+	vector<uint64_t>::iterator numLeftKey, numRightKey = binCounts.begin();
 	
+        int numActiveGoals = 0;
 	//for each goal not yet met (each splitter key not yet found)
-	for(list<int>::iterator Ngoal = goals.begin(); Ngoal != goals.end(); ) {
+	for(int i = 0; i < numGoalsPending; i++) {
 
 		//find the positions that bracket the goal
-		numRightKey = lower_bound(numRightKey, binCounts.end(), *Ngoal);
+		numRightKey = lower_bound(numRightKey, binCounts.end(), goals[i]);
 		numLeftKey = numRightKey - 1;
 		
 		if(numRightKey == binCounts.begin())
-			ckerr << "Sorter: Looking for " << *Ngoal << " How could this happen at the beginning?" << endl;
+			ckerr << "Sorter: Looking for " << goals[i] << " How could this happen at the beginning?" << endl;
 		if(numRightKey == binCounts.end())
-			ckerr << "Sorter: Looking for " << *Ngoal << " How could this happen at the end?" << endl;
+			ckerr << "Sorter: Looking for " << goals[i] << " How could this happen at the end?" << endl;
 		
 		//translate the positions into the bracketing keys
 		leftBound = splitters[numLeftKey - binCounts.begin()];
 		rightBound = splitters[numRightKey - binCounts.begin()];
-		
+
 		//check if one of the bracketing keys is close enough to the goal
-		if(abs((int)*numLeftKey - *Ngoal) <= closeEnough) {
+		if(abs((int64_t)*numLeftKey - goals[i]) <= closeEnough) {
 			//add this key to the list of decided splitter keys
 			keyBoundaries.push_back(leftBound);
-			//the goal has been met, delete it
-			list<int>::iterator temp = Ngoal;
-			++Ngoal;
-			goals.erase(temp);
-		} else if(abs((int)*numRightKey - *Ngoal) <= closeEnough) {
+                        accumulatedBinCounts.push_back(*numLeftKey);
+		} else if(abs((int64_t)*numRightKey - goals[i]) <= closeEnough) {
 			keyBoundaries.push_back(rightBound);
-			list<int>::iterator temp = Ngoal;
-			++Ngoal;
-			goals.erase(temp);
+                        accumulatedBinCounts.push_back(*numRightKey);
 		} else {
 			// not close enough yet, add the bracketing keys and
 			// the middle to the guesses
 			// Set bottom bits to avoid trees to deep.
-			newSplitters.insert(leftBound | 7L);
-			newSplitters.insert((leftBound / 4 * 3 + rightBound / 4)
-					    | 7L);
-			newSplitters.insert((leftBound / 2 + rightBound / 2)
-					    | 7L);
-			newSplitters.insert((leftBound / 4 + rightBound / 4 * 3)
-					    | 7L);
-			newSplitters.insert(rightBound | 7L);
-			++Ngoal;
+		        if (newSplitters.back() != (rightBound | 7L) ) {
+                            if (newSplitters.back() != (leftBound | 7L)) {
+                              newSplitters.push_back(leftBound | 7L);
+                            }
+			    newSplitters.push_back((leftBound / 4 * 3 + rightBound / 4) | 7L);
+			    newSplitters.push_back((leftBound / 2 + rightBound / 2) | 7L);
+			    newSplitters.push_back((leftBound / 4 + rightBound / 4 * 3) | 7L);
+			    newSplitters.push_back(rightBound | 7L);
+			}
+			goals[numActiveGoals++] = goals[i];
+                        binsToSplit.Set(numLeftKey - binCounts.begin());
 		}
 	}
-	
-	//if we don't have any new keys to probe, then we're done
-	if(newSplitters.empty())
+	numGoalsPending = numActiveGoals;
+
+	if(numGoalsPending == 0) {
 		sorted = true;
+                delete [] goals;
+        }
 	else {
-		//evaluate the new set of splitters
-		newSplitters.insert(firstPossibleKey);
-		newSplitters.insert(lastPossibleKey);
-		// The following statement breaks with the PGI
-		// compiler.  (version PGCC/x86 Linux/x86-64 6.1-2)
-		// The following loop is a work around.
-		// splitters.assign(newSplitters.begin(), newSplitters.end());
-		splitters.clear();
-		if(verbosity >=4 ) CkPrintf("Keys:");
-		for(set<Key>::iterator iterNew = newSplitters.begin();
-		    iterNew != newSplitters.end(); iterNew++) {
-		    if(verbosity >= 4) CkPrintf("%lx,", *iterNew);
-		    splitters.push_back(*iterNew);
-		    }
-		if(verbosity >=4 ) CkPrintf("\n");
+                if (newSplitters.back() != lastPossibleKey) {
+		    newSplitters.push_back(lastPossibleKey);
+                }
+		splitters.reserve(newSplitters.size());
+		splitters.assign(newSplitters.begin(), newSplitters.end());
+
+               if(verbosity >=4 ) {
+                  CkPrintf("Keys:");
+                  for (std::vector<Key>::iterator  it = splitters.begin(); it < splitters.end(); it++) {
+                    CkPrintf("%lx,", *it);
+                  }
+                  CkPrintf("\n");
+                }
 	}
 }

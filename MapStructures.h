@@ -1,5 +1,9 @@
 #ifndef _MAP_STRUCTURES_H_
 #define _MAP_STRUCTURES_H_
+///
+/// @file MapStructures.h
+/// Data structures for spacially aware load balancing.
+///
 #include <iostream>
 
 #include "Vector3D.h"
@@ -127,9 +131,16 @@ class Centroid3d{
 
 class TPObject;
 
+///
+/// @brief structure for sorting TreePieces in one dimension for load
+/// balancing.
+///
 struct Event {
+    /// Index within TreePiece array or stats->objData array of this TreePiece.
   int owner;
+    /// load of this TreePiece
   float load;
+    /// Centroid of this TreePiece in a particular dimension.
   float position;
 
   Event(float pos, float ld, int o) : 
@@ -165,10 +176,16 @@ struct Event {
   }
 };
 
+///
+/// @brief data for Orb3D load balancing.
+///
 struct OrbObject {
   int partition;
+  /// index into LB stats->objData
   int lbindex;
+  /// Spacial location of TreePiece
   Vector3D<float> centroid;
+  /// Particles in the TreePiece
   int numParticles;
 
   OrbObject(int tag) : 

@@ -93,15 +93,15 @@ class Orb3dCommon{
       int nlprocs = nprocs/2;
       int nrprocs = nprocs-nlprocs;
 
-      float ratio = (1.0*nlprocs)/(1.0*nrprocs);
-      
+      float ratio = (1.0*nlprocs)/(1.0*(nlprocs+nrprocs));
+
       // sum background load on each side of the processor split
       float bglprocs = 0.0;
-      for(int np = nextProc; np < nlprocs; np++)
-          bglprocs += procload[np];
+      for(int np = nextProc; np < nextProc + nlprocs; np++)
+        bglprocs += stats->procs[np].bg_walltime;
       float bgrprocs = 0.0;
-      for(int np = nextProc+nlprocs; np < nextProc+nlprocs+nrprocs; np++)
-          bgrprocs += procload[np];
+      for(int np = nextProc + nlprocs; np < nextProc + nlprocs + nrprocs; np++)
+        bgrprocs += stats->procs[np].bg_walltime;
 
       ORB3DLB_NOTOPO_DEBUG("nlprocs %d nrprocs %d ratio %f\n", nlprocs, nrprocs, ratio);
 
@@ -288,11 +288,15 @@ class Orb3dCommon{
         predCount[i] = 0.0;
       }
 
+      double maxObjLoad = 0.0;
+      
       for(int i = 0; i < numobjs; i++){
         double ld = stats->objData[i].wallTime;
         int proc = stats->to_proc[i];
         predLoad[proc] += ld; 
         predCount[proc] += 1.0; 
+        if(ld > maxObjLoad)
+            maxObjLoad = ld;
       }
 
       double minWall = 0.0;
@@ -362,6 +366,29 @@ class Orb3dCommon{
       avgPred /= stats->count;
       avgPiece /= stats->count;
 
+#ifdef PRINT_LOAD_PERCENTILES
+      double accumVar = 0;
+      vector<double> objectWallTimes;
+      for(int i = 0; i < stats->count; i++){
+        double wallTime = stats->procs[i].total_walltime;
+        objectWallTimes.push_back(wallTime);
+        accumVar += (wallTime - avgWall) * (wallTime - avgWall);
+      }
+      double stdDev = sqrt(accumVar / stats->count);
+      CkPrintf("Average load: %.3f\n", avgWall);
+      CkPrintf("Standard deviation: %.3f\n", stdDev);
+
+      std::sort(objectWallTimes.begin(), objectWallTimes.end());
+      CkPrintf("Object load percentiles: \n");
+      double increment = (double) objectWallTimes.size() / 10;
+      int j = 0;
+      double index = 0;
+      for (int j = 0; j < 100; j += 10) {
+        index += increment;
+        CkPrintf("%d: %.3f\n", j, objectWallTimes[(int) index]);
+      }
+      CkPrintf("100: %.3f\n", objectWallTimes.back());
+#endif
 
       delete[] predLoad;
       delete[] predCount;
@@ -390,6 +417,7 @@ class Orb3dCommon{
 #endif
 
 
+      CkPrintf("Orb3dLB_notopo stats: maxObjLoad %f\n", maxObjLoad);
       CkPrintf("Orb3dLB_notopo stats: minWall %f maxWall %f avgWall %f maxWall/avgWall %f\n", minWall, maxWall, avgWall, maxWall/avgWall);
       CkPrintf("Orb3dLB_notopo stats: minIdle %f maxIdle %f avgIdle %f minIdle/avgIdle %f\n", minIdle, maxIdle, avgIdle, minIdle/avgIdle);
       CkPrintf("Orb3dLB_notopo stats: minPred %f maxPred %f avgPred %f maxPred/avgPred %f\n", minPred, maxPred, avgPred, maxPred/avgPred);
@@ -407,48 +435,39 @@ class Orb3dCommon{
     }
 
 #define LOAD_EQUAL_TOLERANCE 1.02
-    int partitionRatioLoad(vector<Event> &events, float ratio, float bglp,
-                           float bgrp){
+    int partitionRatioLoad(vector<Event> &events, float ratio, float bglp, float bgrp){
+
+      float approxBgPerEvent = (bglp + bgrp) / events.size();
       float totalLoad = bglp + bgrp;
       for(int i = 0; i < events.size(); i++){
         totalLoad += events[i].load;
       }
       //CkPrintf("************************************************************\n");
       //CkPrintf("partitionEvenLoad start %d end %d total %f\n", tpstart, tpend, totalLoad);
-      float lload = bglp;
-      float rload = totalLoad;
-      float prevDiff = lload-ratio*rload;
-      if(prevDiff < 0.0){
-        prevDiff = -prevDiff;
-      }
+      float perfectLoad = ratio * totalLoad;
       ORB3DLB_NOTOPO_DEBUG("partitionRatioLoad bgl %f bgr %f\n",
                            bglp, bgrp);
+      int splitIndex = 0;
+      float prevLoad = 0.0;
+      float leftLoadAtSplit = 0.0;
+      for(splitIndex = 0; splitIndex < events.size(); splitIndex++){
 
-      int consider;
-      for(consider = 0; consider < events.size();){
-        float newll = lload + events[consider].load;
-        float newrl = rload - events[consider].load;
+        leftLoadAtSplit += events[splitIndex].load + approxBgPerEvent;
 
-        float newdiff = newll-ratio*newrl;
-        if(newdiff < 0.0){
-          newdiff = -newdiff;
-        }
-
-        ORB3DLB_NOTOPO_DEBUG("consider load %f newdiff %f prevdiff %f\n", events[consider].load, newdiff, prevDiff);
-
-        if(newdiff > prevDiff){
+        if (leftLoadAtSplit > perfectLoad) {
+          if ( fabs(leftLoadAtSplit - perfectLoad) < fabs(prevLoad - perfectLoad) ) {
+            splitIndex++;
+          }
+          else {
+            leftLoadAtSplit = prevLoad;
+          }
           break;
         }
-        else{
-          consider++;
-          lload = newll;
-          rload = newrl;
-          prevDiff = newdiff;
-        }
+        prevLoad = leftLoadAtSplit;
       }
 
-      ORB3DLB_NOTOPO_DEBUG("partitionEvenLoad mid %d lload %f rload %f ratio %f\n", consider, lload, rload, lload/rload);
-      return consider;
+      ORB3DLB_NOTOPO_DEBUG("partitionEvenLoad mid %d lload %f rload %f ratio %f\n", splitIndex, leftLoadAtSplit, totalLoad - leftLoadAtSplit, leftLoadAtSplit / totalLoad);
+      return splitIndex;
     }
 
 }; //end class

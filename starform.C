@@ -137,11 +137,6 @@ void Main::FormStars(double dTime, double dDelta)
     double startTime = CkWallTimer();
     //
     // Need to build tree since we just did a drift.
-    // XXX need to check whether a treebuild needs the domain
-    // decomposition.  If not, this could be avoided.
-    //
-    sorter.startSorting(dataManagerID, ddTolerance,
-                        CkCallbackResumeThread(), true);
 #ifdef PUSH_GRAVITY
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
 #else
@@ -312,17 +307,14 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 void Main::initStarLog(){
     struct stat statbuf;
     int iSize;
-    char achStarLogFile[64];
+    std::string stLogFile = std::string(param.achOutName) + ".starlog";
 
-    sprintf(achStarLogFile,"%s.starlog",param.achOutName);
-
-    std::string stLogFile(achStarLogFile);
     dMProxy.initStarLog(stLogFile,CkCallbackResumeThread());
 
     if(bIsRestarting) {
-	if(!stat(achStarLogFile, &statbuf)) {
+	if(!stat(stLogFile.c_str(), &statbuf)) {
 	    /* file exists, check number */
-	    FILE *fpLog = fopen(achStarLogFile,"r");
+	    FILE *fpLog = fopen(stLogFile.c_str(),"r");
 	    XDR xdrs;
 	    
 	    CkAssert(fpLog != NULL);
@@ -335,7 +327,7 @@ void Main::initStarLog(){
 	    CkAbort("Simulation restarting with star formation, but starlog file not found");
 	    }
 	} else {
-	FILE *fpLog = fopen(achStarLogFile,"w");
+	FILE *fpLog = fopen(stLogFile.c_str(),"w");
 	XDR xdrs;
 
 	CkAssert(fpLog != NULL);
