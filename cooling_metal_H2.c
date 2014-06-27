@@ -2781,7 +2781,7 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
   
   const int array_length=5; /*Arrays expanded for H2*/
 
-  double y[array_length-1],yin[array_length-1],EMin,YTotal ;
+  double y[array_length],yin[array_length],EMin,YTotal ;
   double dHeat, dCool;
   double t=0;
   clDerivsData *d = clData;
