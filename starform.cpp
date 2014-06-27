@@ -371,7 +371,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
       a3 =  1782.1741,
       a4 = -113.68717,
       a5 =  2.8930795;
-    starp->CoolParticle().dLymanWerner = a0
+    starp->dStarLymanWerner() = a0
       + a1*dAgelog
       + a2*dAgelog*dAgelog
       + a3*dAgelog*dAgelog*dAgelog
