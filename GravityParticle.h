@@ -248,6 +248,11 @@ class extraStarData
 	p | _iEaterOrder;
 	p | _dMDot;
 	p | _dDeltaM;
+    /*#ifdef COOLING_MOLECULARH*/
+#ifdef LYMAN_WERNER
+	p | _dStarLymanWerner;
+#endif /*LYMAN_WERNER*/
+    /*#endif*/	
 	}
     };
 

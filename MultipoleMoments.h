@@ -232,7 +232,7 @@ public:
 		/*#ifdef COOLING_MOLECULARH*/
 #ifdef LYMAN_WERNER
 		double totalLW1 = totalLW;
-		if (m.totalLW != 0) { /*except this is log, so I'll have to figure out another way to mark this*/
+		if (m.totalLW != 0) { /*except this is log, so I'll have to figure out another way to mark this, CC*/
 		  totalLW = log10(pow(10,totalLW - 30.0) + pow(10,m.totalLW - 30.0)) + 30.0; /*The thirty is just there to keep numbers in bounds*/
 		  cLW = (pow(10,totalLW1 - 30.0)*cLW + pow(10,m.totalLW - 30.0)*m.cLW)/pow(10,totalLW - 30.0);
 		}
@@ -439,6 +439,16 @@ inline void operator|(PUP::er& p, MultipoleMoments& m) {
 	p | m.totalMass;
 	p | m.soft;
 	p | m.cm;
+    /*#ifdef COOLING_MOLECULARH*/
+#ifdef LYMAN_WERNER
+	p | m.totalLW;
+	p | m.totalgas;
+	p | m.cLW;
+	p | m.cgas;
+	p | m.xxgas;
+	p | m.yygas;
+	p | m.zzgas;
+#endif /*LYMAN_WERNER*/
 #ifdef HEXADECAPOLE
 	p((char *) &m.mom, sizeof(m.mom)); /* PUPs as bytes */
 #else
