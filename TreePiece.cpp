@@ -65,6 +65,8 @@ int TreeStuff::maxBucketSize;
 extern CkGroupID ckMulticastGrpId;
 #endif
 
+extern int accuracy;
+
 #ifdef CELL
 int workRequestOut = 0;
 CkVec<CellComputation> ewaldMessages;
@@ -4611,6 +4613,7 @@ void TreePiece::outputStatistics(const CkCallback& cb) {
 /// @TODO Fix pup routine to handle correctly the tree
 void TreePiece::pup(PUP::er& p) {
   CBase_TreePiece::pup(p);
+  
 
   p | treePieceLoad; 
   p | treePieceLoadExp;
@@ -4641,35 +4644,50 @@ void TreePiece::pup(PUP::er& p) {
       if(nStoreSPH > 0) mySPHParticles = new extraSPHData[nStoreSPH];
       allocateStars();
   }
-  for(unsigned int i=1;i<=myNumParticles;i++){
-    p | myParticles[i];
-    if(myParticles[i].isGas()) {
-	int iSPH;
-	if(!p.isUnpacking()) {
-	    iSPH = (extraSPHData *)myParticles[i].extraData - mySPHParticles;
-	    CkAssert(iSPH < myNumSPH);
-	    p | iSPH;
-	    }
-	else {
-	    p | iSPH;
-	    myParticles[i].extraData = mySPHParticles + iSPH;
-	    CkAssert(iSPH < myNumSPH);
-	    }
-	}
-    if(myParticles[i].isStar()) {
-	int iStar;
-	if(!p.isUnpacking()) {
-	    iStar = (extraStarData *)myParticles[i].extraData - myStarParticles;
-	    CkAssert(iStar < myNumStar);
-	    p | iStar;
-	    }
-	else {
-	    p | iStar;
-	    myParticles[i].extraData = myStarParticles + iStar;
-	    CkAssert(iStar < myNumStar);
-	    }
-	}
+
+  //TODO big data
+  if(p.isSizing())
+    CkPrintf("[%d]packing tree pieces before %d\n", CkMyPe(), p.size());
+  
+  if(1)
+  {
+    reconstructAndCompression(p);
   }
+  else
+  {
+    for(unsigned int i=1;i<=myNumParticles;i++){
+      p | myParticles[i];
+      if(myParticles[i].isGas()) {
+	  int iSPH;
+	  if(!p.isUnpacking()) {
+	      iSPH = (extraSPHData *)myParticles[i].extraData - mySPHParticles;
+	      CkAssert(iSPH < myNumSPH);
+	      p | iSPH;
+	      }
+	  else {
+	      p | iSPH;
+	      myParticles[i].extraData = mySPHParticles + iSPH;
+	      CkAssert(iSPH < myNumSPH);
+	      }
+	  }
+      if(myParticles[i].isStar()) {
+	  int iStar;
+	  if(!p.isUnpacking()) {
+	      iStar = (extraStarData *)myParticles[i].extraData - myStarParticles;
+	      CkAssert(iStar < myNumStar);
+	      p | iStar;
+	      }
+	  else {
+	      p | iStar;
+	      myParticles[i].extraData = myStarParticles + iStar;
+	      CkAssert(iStar < myNumStar);
+	      }
+	  }
+    }
+  }
+  if(p.isSizing())
+    CkPrintf("[%d]packing tree pieces after %d\n", CkMyPe(), p.size());
+
   for(unsigned int i=0;i<myNumSPH;i++){
     p | mySPHParticles[i];
   }
@@ -4750,6 +4768,153 @@ void TreePiece::pup(PUP::er& p) {
       ckout << endl;
       }
   }
+}
+
+void TreePiece::reconstructAndCompression(PUP::er &p)
+{
+  //To compresses
+  double * posx = new double[myNumParticles];
+  double * posy = new double[myNumParticles];
+  double * posz = new double[myNumParticles];
+  double * mass = new double[myNumParticles]; 
+  double * soft = new double[myNumParticles];
+  double * velx = new double[myNumParticles];
+  double * vely = new double[myNumParticles];
+  double * velz = new double[myNumParticles];
+  double * accelx = new double[myNumParticles];
+  double * accely = new double[myNumParticles];
+  double * accelz = new double[myNumParticles];
+  double * fBall = new double[myNumParticles];
+  double * fDensity = new double[myNumParticles];
+  double * fSoft0 = new double[myNumParticles];
+
+  std::vector<SFC::Key> keys;
+  keys.resize(myNumParticles);
+  int64_t * iOrder = new int64_t[myNumParticles];
+  int * rung = new int[myNumParticles];
+  unsigned int * iType = new unsigned int[myNumParticles];
+    
+  int * iSPH = new int[myNumParticles];
+  int * iStar = new int[myNumParticles];
+  
+  if(!p.isUnpacking())
+  {
+    for(int i = 1; i <= myNumParticles; i++)
+    {
+      posx[i-1] = myParticles[i].position.x;
+      posy[i-1] = myParticles[i].position.y;
+      posz[i-1] = myParticles[i].position.z;
+      mass[i-1] = myParticles[i].mass;
+      soft[i-1] = myParticles[i].soft;
+      velx[i-1] = myParticles[i].velocity.x; 
+      vely[i-1] = myParticles[i].velocity.y; 
+      velz[i-1] = myParticles[i].velocity.z;
+      accelx[i-1] = myParticles[i].treeAcceleration.x;
+      accely[i-1] = myParticles[i].treeAcceleration.y;
+      accelz[i-1] = myParticles[i].treeAcceleration.z;
+      fDensity[i-1]  = myParticles[i].fDensity;
+      fSoft0[i-1] = myParticles[i].fSoft0;
+      fBall[i-1] = myParticles[i].fBall;
+
+      keys[i-1] = myParticles[i].key;
+      iOrder[i-1] = myParticles[i].iOrder;
+      rung[i-1] = myParticles[i].rung;
+      iType[i-1] = myParticles[i].iType;
+      
+      if(myParticles[i].isGas())
+      {
+	iSPH[i-1] = (extraSPHData *)myParticles[i].extraData - mySPHParticles;
+	CkAssert(iSPH[i-1] < myNumSPH);
+      }
+      if(myParticles[i].isStar())
+      {
+	iStar[i-1] = (extraStarData *)myParticles[i].extraData - myStarParticles;
+	CkAssert(iStar[i-1] < myNumStar);
+      }
+    }
+  }
+  
+  p.compression_on(myNumParticles, 1, 1, accuracy);
+  p(posx, myNumParticles);
+  p(posy, myNumParticles);
+  p(posz, myNumParticles);
+  p(mass, myNumParticles);
+  p(soft, myNumParticles);
+  p(velx, myNumParticles);
+  p(vely, myNumParticles);
+  p(velz, myNumParticles);
+  p(accelx, myNumParticles);
+  p(accely, myNumParticles);
+  p(accelz, myNumParticles);
+  p(fDensity, myNumParticles);
+  p(fBall, myNumParticles);
+  p(fSoft0, myNumParticles);
+  p.compression_off();
+  
+  p(iOrder, myNumParticles);
+  p(rung, myNumParticles);
+  p(iType, myNumParticles);
+  p(iSPH, myNumParticles);
+  p(iStar, myNumParticles);
+  p|keys;
+  
+  if(p.isUnpacking())
+  {
+    for(int i = 1; i <= myNumParticles; i++)
+    {
+      myParticles[i].position.x = posx[i-1];
+      myParticles[i].position.y = posy[i-1];
+      myParticles[i].position.z = posz[i-1];
+      myParticles[i].mass = mass[i-1];
+      myParticles[i].soft = soft[i-1];
+      myParticles[i].velocity.x = velx[i-1]; 
+      myParticles[i].velocity.y = vely[i-1]; 
+      myParticles[i].velocity.z = velz[i-1];
+      myParticles[i].treeAcceleration.x = accelx[i-1];
+      myParticles[i].treeAcceleration.y = accely[i-1];
+      myParticles[i].treeAcceleration.z = accelz[i-1];
+      myParticles[i].fDensity = fDensity[i-1];
+      myParticles[i].fSoft0 = fSoft0[i-1];
+      myParticles[i].fBall = fBall[i-1];
+
+      myParticles[i].key = keys[i-1];
+      myParticles[i].iOrder = iOrder[i-1];
+      myParticles[i].rung = rung[i-1];
+      myParticles[i].iType = iType[i-1];
+      
+      if(myParticles[i].isGas())
+      {
+	myParticles[i].extraData = mySPHParticles + iSPH[i-1];
+	CkAssert(iSPH[i-1] < myNumSPH);
+      }
+      if(myParticles[i].isStar())
+      {
+	myParticles[i].extraData = myStarParticles + iStar[i-1];
+	CkAssert(iStar[i-1] < myNumStar);
+      }
+
+    }
+  }
+
+  delete [] posx;
+  delete [] posy;
+  delete [] posz;
+  delete [] mass;
+  delete [] soft;
+  delete [] velx;
+  delete [] vely;
+  delete [] velz;
+  delete [] accelx;
+  delete [] accely;
+  delete [] accelz;
+  delete [] fBall;
+  delete [] fDensity;
+  delete [] fSoft0;
+  delete [] iOrder;
+  delete [] rung;
+  delete [] iType;
+  delete [] iSPH;
+  delete [] iStar;
 }
 
 void TreePiece::reconstructNodeLookup(GenericTreeNode *node) {

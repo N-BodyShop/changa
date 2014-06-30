@@ -124,6 +124,8 @@ int prefetchDoneUE;
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
 
+int accuracy;
+
 #ifdef PUSH_GRAVITY
 #include "ckmulticast.h"
 CkGroupID ckMulticastGrpId;
@@ -269,7 +271,10 @@ Main::Main(CkArgMsg* m) {
 	param.iCheckInterval = 10;
 	prmAddParam(prm, "iCheckInterval", paramInt, &param.iCheckInterval,
 		    sizeof(int),"oc", "Checkpoint Interval");
-	param.iBinaryOut = 0;
+	param.iAccuracy = 64;
+	prmAddParam(prm, "iAccuracy", paramInt, &param.iAccuracy,
+		    sizeof(int),"iAcc", "Checkpoint Accurate Level");
+        param.iBinaryOut = 0;
 	prmAddParam(prm, "iBinaryOutput", paramInt, &param.iBinaryOut,
 		    sizeof(int), "binout",
 		    "<array outputs 0 ascii, 1 float, 2 double, 3 FLOAT(internal)> = 0");
@@ -733,6 +738,8 @@ Main::Main(CkArgMsg* m) {
 	if(!prmArgProc(prm,m->argc,m->argv, processSimfile)) {
 	    CkExit();
         }
+        accuracy = param.iAccuracy;
+        CkPrintf("accurate level %d\n", accuracy);
 
         // ensure that number of bins is a power of 2
         if (numInitDecompBins > numTreePieces) {
@@ -2322,14 +2329,18 @@ Main::doSimulation()
     if((param.bBenchmark == 0)
        && (iStop || (param.iCheckInterval && iStep%param.iCheckInterval == 0))) {
 	string achCheckFileName(param.achOutName);
-	if(bChkFirst) {
+	int num = iStep/param.iCheckInterval;
+        char chkpSeq[100];
+        sprintf(chkpSeq, ".chkp.%d.%d", accuracy, num);
+        achCheckFileName += chkpSeq;
+        /*if(bChkFirst) {
 	    achCheckFileName += ".chk0";
 	    bChkFirst = 0;
 	    }
 	else {
 	    achCheckFileName += ".chk1";
 	    bChkFirst = 1;
-	    }
+	    }*/
 	// The following drift is called because it deletes the tree
 	// so it won't be saved on disk.
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, false, CkCallbackResumeThread());

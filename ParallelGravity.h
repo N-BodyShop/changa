@@ -1842,6 +1842,7 @@ public:
 	void printTreeViz(GenericTreeNode* node, std::ostream& os);
 	void printTree(GenericTreeNode* node, std::ostream& os);
 	void pup(PUP::er& p);
+	void reconstructAndCompression(PUP::er &p);
 
         // jetley
         // need this in TreeWalk

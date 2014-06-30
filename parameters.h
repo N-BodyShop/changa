@@ -108,6 +108,7 @@ typedef struct parameters {
     int iBinaryOut;
     int iOutInterval;
     int iCheckInterval;
+    int iAccuracy;
     int iLogInterval;
     int bDoIOrderOutput;
     int bDoSoftOutput;
@@ -215,6 +216,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.iBinaryOut;
     p|param.iOutInterval;
     p|param.iCheckInterval;
+    p|param.iAccuracy;
     p|param.iLogInterval;
     p|param.bDoIOrderOutput;
     p|param.bDoSoftOutput;
