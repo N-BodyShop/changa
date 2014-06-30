@@ -71,9 +71,6 @@ CProxy_DataManager dMProxy;
 CProxy_DumpFrameData dfDataProxy;
 CProxy_PETreeMerger peTreeMergerProxy;
 
-
-
-
 bool _cache;
 int _nocache;
 int _cacheLineDepth;

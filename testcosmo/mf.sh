@@ -2,8 +2,8 @@
 #
 # edit these
 #
-SKIDDIR=XXX
-SODIR=XXX
+SKIDDIR=skid
+SODIR=so
 #
 # end of edits
 #
