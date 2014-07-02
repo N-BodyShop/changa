@@ -1230,10 +1230,10 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
     }
   }
   // Pack into array for reduction
-  int newcount[2];
+  int64_t newcount[2];
   newcount[0] = iCurrMaxRung;
   newcount[1] = nMaxRung;
-  contribute(2*sizeof(int), newcount, max_count, cb);
+  contribute(2*sizeof(int64_t), newcount, max_count, cb);
 }
 
 void TreePiece::truncateRung(int iCurrMaxRung, const CkCallback& cb) {

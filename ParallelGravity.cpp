@@ -2922,12 +2922,12 @@ int Main::adjust(int iKickRung)
 		     param.bDoGas,
 		     CkCallbackResumeThread((void*&)msg));
 
-    int iCurrMaxRung = ((int *)msg->getData())[0];
-    int nMaxRung = ((int *)msg->getData())[1];
+    int iCurrMaxRung = ((int64_t *)msg->getData())[0];
+    int64_t nMaxRung = ((int64_t *)msg->getData())[1];
     delete msg;
     if(nMaxRung <= param.nTruncateRung && iCurrMaxRung > iKickRung) {
 	if(verbosity)
-	    CkPrintf("n_CurrMaxRung = %d, iCurrMaxRung = %d: promoting particles\n", nMaxRung, iCurrMaxRung);
+	    CkPrintf("n_CurrMaxRung = %ld, iCurrMaxRung = %d: promoting particles\n", nMaxRung, iCurrMaxRung);
 	iCurrMaxRung--;
 	treeProxy.truncateRung(iCurrMaxRung, CkCallbackResumeThread());
 	}
