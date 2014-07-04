@@ -14,8 +14,11 @@ pgaspart: pgaspart.c tipsydefs.h
 	$(CC) -o pgaspart pgaspart.c -lm
 
 ppartnc: ppartnc.C
-	$(CXX) -I../../utility/structures -o ppartnc ppartnc.C -lm
+	$(CXX) -O3 -I../../utility/structures -o ppartnc ppartnc.C -lm
+
+pgaspartnc: pgaspartnc.C
+	$(CXX) -O3 -I../../utility/structures -o pgaspartnc pgaspartnc.C -lm
 
 clean:
-	-rm -rf pgaspart ppartt ppartnc testdata.tbin testdata
+	-rm -rf pgaspart pgaspartnc ppartt ppartnc testdata.tbin testdata
 

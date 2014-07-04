@@ -57,11 +57,11 @@ CkReductionMsg* minmax(int nMsg, CkReductionMsg** msgs) {
 /// (iMaxRung) and the number of particles in that rung (nMaxRung).
 ///
 CkReductionMsg* max_count_reduce(int nMsg, CkReductionMsg** msgs) {
-    int* pmaxcount = static_cast<int *>(msgs[0]->getData());
+    int64_t* pmaxcount = static_cast<int64_t *>(msgs[0]->getData());
     int iMaxRung = pmaxcount[0];  // maxmimum rung
-    int nMaxRung = pmaxcount[1];  // count in maximum rung
+    int64_t nMaxRung = pmaxcount[1];  // count in maximum rung
     for(int i = 1; i < nMsg; i++) {
-	pmaxcount = static_cast<int *>(msgs[i]->getData());
+	pmaxcount = static_cast<int64_t *>(msgs[i]->getData());
 	if(pmaxcount[0] > iMaxRung) {
 	    iMaxRung = pmaxcount[0];
 	    nMaxRung = pmaxcount[1];
@@ -70,10 +70,10 @@ CkReductionMsg* max_count_reduce(int nMsg, CkReductionMsg** msgs) {
 	    nMaxRung += pmaxcount[1];
 	    }
 	}
-    int newcount[2];
+    int64_t newcount[2];
     newcount[0] = iMaxRung;
     newcount[1] = nMaxRung;
-    return CkReductionMsg::buildNew(2 * sizeof(int), newcount);
+    return CkReductionMsg::buildNew(2 * sizeof(int64_t), newcount);
 }
 
 /// Return a single object, given many copies of it

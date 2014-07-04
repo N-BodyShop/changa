@@ -12,9 +12,9 @@ class DoubleWalkState;
 class TreeWalk;
 class Opt;
 
-// this is the computeEntity for PrefetchComputes
-// it holds an array of prefetch root bounding boxes
-// and the number of elements in this array
+/// this is the computeEntity for PrefetchComputes
+/// it holds an array of prefetch root bounding boxes
+/// and the number of elements in this array
 
 struct PrefetchRequestStruct{
   OrientedBox<double> *prefetchReq;
