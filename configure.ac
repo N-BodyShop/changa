@@ -74,6 +74,19 @@ fi
 
 AC_SUBST([FLAG_BIGKEYS])
 
+# DTADJUST
+AC_ARG_ENABLE([dtadjust],
+	[AS_HELP_STRING([--enable-dtadjust], [enable emergency timestep adjust])],
+	[dtadjust=yes], [dtadjust=no])
+if test "$dtadjust" = "yes" ; then
+    echo "DTADJUST selected"
+    FLAG_DTADJUST="-DDTADJUST"
+else
+    FLAG_DTADJUST=""
+fi
+
+AC_SUBST([FLAG_DTADJUST])
+
 # Cooling:
 AC_ARG_ENABLE([cooling],
 	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (planet,cosmo)])],
