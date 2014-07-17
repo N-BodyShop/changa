@@ -696,7 +696,7 @@ int OctDecompNode::buildCounts() {
   }
 }
 
-void OctDecompNode::combine(int joinThreshold, vector<NodeKey> &finalKeys, vector<unsigned int> &counts){
+void OctDecompNode::combine(int joinThreshold, vector<NodeKey> &finalKeys, vector<uint64_t> &counts){
   if(nparticles < joinThreshold || nchildren == 0){
     finalKeys.push_back(key);
     counts.push_back(nparticles);
@@ -817,10 +817,10 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 		
 		//each splitter key will split the keys near a goal number of keys
                 numGoalsPending = numChares - 1;
-                goals = new int[numGoalsPending];
+                goals = new int64_t[numGoalsPending];
 
 		int rem = numKeys % numChares;
-                int prev = 0;
+                int64_t prev = 0;
 		// evenly distribute extra particles.
                 for (int i = 0; i < rem; i++) {
                   goals[i] = prev + avgValue + 1;
@@ -891,7 +891,7 @@ void Sorter::adjustSplitters() {
   newSplitters.push_back(firstPossibleKey);
 	
 	Key leftBound, rightBound;
-	vector<unsigned int>::iterator numLeftKey, numRightKey = binCounts.begin();
+	vector<uint64_t>::iterator numLeftKey, numRightKey = binCounts.begin();
 	
         int numActiveGoals = 0;
 	//for each goal not yet met (each splitter key not yet found)
@@ -911,11 +911,11 @@ void Sorter::adjustSplitters() {
 		rightBound = splitters[numRightKey - binCounts.begin()];
 
 		//check if one of the bracketing keys is close enough to the goal
-		if(abs((int)*numLeftKey - goals[i]) <= closeEnough) {
+		if(abs((int64_t)*numLeftKey - goals[i]) <= closeEnough) {
 			//add this key to the list of decided splitter keys
 			keyBoundaries.push_back(leftBound);
                         accumulatedBinCounts.push_back(*numLeftKey);
-		} else if(abs((int)*numRightKey - goals[i]) <= closeEnough) {
+		} else if(abs((int64_t)*numRightKey - goals[i]) <= closeEnough) {
 			keyBoundaries.push_back(rightBound);
                         accumulatedBinCounts.push_back(*numRightKey);
 		} else {

@@ -8,7 +8,6 @@
 #define GENERICTREENODE_H
 
 #include "pup.h"
-#include "ckpool.h"
 
 #include <map>
 #include <vector>
@@ -329,7 +328,7 @@ public:
   */
   typedef std::map<NodeKey, GenericTreeNode *> NodeLookupType;
 
-  class BinaryTreeNode : public GenericTreeNode {//, public CkPool<BinaryTreeNode, 32> {
+  class BinaryTreeNode : public GenericTreeNode {
   protected:
   public:
     BinaryTreeNode* children[2];

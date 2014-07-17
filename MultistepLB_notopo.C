@@ -224,8 +224,8 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
   int numInactiveObjects = 0;
 
   // to calculate ratio of active particles in phase
-  int numActiveParticles = 0;
-  int totalNumParticles = 0;
+  int64_t numActiveParticles = 0;
+  int64_t totalNumParticles = 0;
   
   for(int i = 0; i < stats->n_objs; i++){
     stats->to_proc[i] = stats->from_proc[i];
@@ -278,42 +278,6 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 	    }
   	CkPrintf("Migrating all: numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects, numInactiveObjects);
 	}
-
-  // get load information for this phase, if possible
-  // after this, stats->objData[] is indexed by tree piece
-  // index since we are copying data from savedPhaseStats,
-  // which was written into using tree piece indices
-  if(havePhaseData(phase)){
-#ifdef MCLBMSV
-    CkPrintf("phase %d data available\n", phase);
-#endif
-    CkPrintf("phase %d data available\n", phase);
-    for(int i = 0; i < stats->n_objs; i++){
-      int tp = tpCentroids[i].tp;
-      int lb = tpCentroids[i].tag;
-      stats->objData[lb].wallTime = savedPhaseStats[phase].objData[tp].wallTime;
-    }
-  }
-  else if(havePhaseData(0)){
-#ifdef MCLBMSV
-    CkPrintf("phase %d data unavailable, using phase 0 loads\n", phase);
-#endif
-    CkPrintf("phase %d data unavailable, using phase 0 loads\n", phase);
-    //CkPrintf("using phase 0 loads\n", phase);
-    for(int i = 0; i < stats->n_objs; i++){
-      int tp = tpCentroids[i].tp;
-      int lb = tpCentroids[i].tag;
-      stats->objData[lb].wallTime = ratios[tp]*savedPhaseStats[0].objData[tp].wallTime;
-    }
-  }
-  else{
-#ifdef MCLBMSV
-    CkPrintf("phase %d data unavailable\n", phase);
-#endif
-    CkPrintf("phase %d data unavailable\n", phase);
-    delete[] ratios;
-    return;
-  }
 
   /*
   CkPrintf("**********************************************\n");

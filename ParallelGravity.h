@@ -4,18 +4,6 @@
 #ifndef PARALLELGRAVITY_H
 #define PARALLELGRAVITY_H
 
-#ifndef CELL
-#ifdef CELL_NODE
-#undef CELL_NODE
-#endif
-#ifdef CELL_PART
-#undef CELL_PART
-#endif
-#ifdef CELL_EWALD
-#undef CELL_EWALD
-#endif
-#endif
-
 #include "config.h"
 #include <string>
 #include <map>
@@ -286,15 +274,18 @@ public:
 /// Message for shuffling particles during domain decomposition
 class ParticleShuffleMsg : public CMessage_ParticleShuffleMsg{
 public:
+    int nloads;
     int n;
     int nSPH;
     int nStar;
     double load;
+    double *loads;
+    unsigned int *parts_per_phase;
     GravityParticle *particles;
     extraSPHData *pGas;
     extraStarData *pStar;
-    ParticleShuffleMsg(int npart, int nsph, int nstar, double pload): n(npart),
-	nSPH(nsph), nStar(nstar), load(pload) {}
+    ParticleShuffleMsg(int nload, int npart, int nsph, int nstar, double pload): 
+      nloads(nload), n(npart), nSPH(nsph), nStar(nstar), load(pload) {}
 };
 
 #ifdef PUSH_GRAVITY
@@ -435,8 +426,8 @@ class Main : public CBase_Main {
 	double dSimStartTime;   // Start time for entire simulation
 	int iStop;		/* indicate we're stopping the
 				   simulation early */
-	int nActiveGrav;
-	int nActiveSPH;
+	int64_t nActiveGrav;
+	int64_t nActiveSPH;
 
 #ifdef CUDA
           double localNodesPerReqDouble;
@@ -593,6 +584,7 @@ struct NonLocalMomentsClient {
   {}
 };
 
+/// @brief List of clients needing a particular moment
 struct NonLocalMomentsClientList {
   GenericTreeNode *targetNode;
   CkVec<NonLocalMomentsClient> clients;
@@ -662,6 +654,13 @@ class TreePiece : public CBase_TreePiece {
    
    double treePieceLoad; // used to store CPU load data for incoming particles
    double treePieceLoadTmp; // temporary accumulator for above
+   double treePieceLoadExp;
+   unsigned int treePieceActivePartsTmp;
+   std::vector<double> savedPhaseLoad;
+   std::vector<unsigned int> savedPhaseParticle;
+   std::vector<double> savedPhaseLoadTmp;
+   std::vector<unsigned int> savedPhaseParticleTmp;
+
    int memWithCache, memPostCache;  // store memory usage.
    int nNodeCacheEntries, nPartCacheEntries;  // store memory usage.
 
@@ -1168,10 +1167,6 @@ private:
 
 
  public:
-#ifdef CELL
-	friend void cellSPE_callback(void*);
-	friend void cellSPE_ewald(void*);
-#endif
 #endif
   // called when a chunk has been used completely (chunkRemaining[chunk] == 0)
   void finishedChunk(int chunk);
@@ -1187,7 +1182,6 @@ private:
 #endif
   void EwaldGPU(); 
   void EwaldGPUComplete();
-  int bLoaded;		/* Are particles loaded? */
 
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
   ///This function checks the correctness of the treewalk
@@ -1225,8 +1219,6 @@ private:
         }
     }
 
-  GenericTreeNode *get3DIndex();
-
 	/// Recursive call to build the subtree with root "node", level
 	/// specifies the level at which "node" resides inside the tree
 	void buildOctTree(GenericTreeNode* node, int level);
@@ -1259,12 +1251,6 @@ private:
 	void reSmoothNextBucket();
 	void markSmoothNextBucket();
 	void smoothBucketComputation();
-	/** @brief Initial walk through the tree. It will continue until local
-	 * nodes are found (excluding those coming from the cache). When the
-	 * treewalk is finished it stops and cachedWalkBucketTree will continue
-	 * with the incoming nodes.
-	 */
-	void walkBucketTree(GenericTreeNode* node, int reqID);
 	/** @brief Start the treewalk for the next bucket among those belonging
 	 * to me. The buckets are simply ordered in a vector.
 	 */
@@ -1280,7 +1266,8 @@ public:
  TreePiece() : pieces(thisArrayID), root(0), proxyValid(false),
 	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
 	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
-	  treePieceLoad(0.0), treePieceLoadTmp(0.0) {
+	  treePieceLoad(0.0), treePieceLoadTmp(0.0), treePieceLoadExp(0.0),
+    treePieceActivePartsTmp(0) {
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  // ComlibDelegateProxy(&streamingProxy);
 	  dm = NULL;
@@ -1455,6 +1442,15 @@ public:
 	// comoving coordinates.)
 	void velScale(double dScale, const CkCallback& cb);
 
+	/// @brief Load I.C. from NChilada file
+        /// @param dTuFac conversion factor from temperature to
+        /// internal energy
+        void loadNChilada(const std::string& filename, const double dTuFac,
+                          const CkCallback& cb);
+        void readIntBinary(OutputIntParams& params, int bParaRead,
+            const CkCallback& cb);
+        void readFloatBinary(OutputParams& params, int bParaRead,
+            const CkCallback& cb);
 	/// @brief Load I.C. from Tipsy file
         /// @param filename tipsy file
         /// @param dTuFac conversion factor from temperature to
@@ -1679,11 +1675,6 @@ public:
 	/// (specified by chunkNum).
 	void calculateGravityRemote(ComputeChunkMsg *msg);
 
-	/// Temporary function to recurse over all the buckets like in
-	/// walkBucketTree, only that NonLocal nodes are the only one for which
-	/// forces are computed
-	void walkBucketRemoteTree(GenericTreeNode *node, int chunk, int reqID, bool isRoot);
-
 	/// As above but for the Smooth operation
 	void calculateSmoothLocal();
 	void calculateReSmoothLocal();
@@ -1772,6 +1763,11 @@ public:
 
 	//void startlb(CkCallback &cb);
 	void startlb(CkCallback &cb, int activeRung);
+  void populateSavedPhaseData(int phase, double tpload, unsigned int activeparts);
+  bool havePhaseData(int phase);
+  void savePhaseData(std::vector<double> &loads, std::vector<unsigned int>
+    &parts_per_phase, double* shuffleloads, unsigned int *shuffleparts,
+    int shufflelen);
 	void ResumeFromSync();
 
 	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
@@ -1876,6 +1872,8 @@ public:
 
 };
 
+/// @brief Class for shadow arrays to avoid reduction conflicts in
+/// overlapping liveViz, SPH and gravity.
 class LvArray : public CBase_LvArray {
  public:
     LvArray() {}
