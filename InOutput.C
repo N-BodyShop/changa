@@ -2458,6 +2458,8 @@ void Main::cbIOClosed(CkReductionMsg *msg)
             xdr_float(&xdrs, &minmax[0]);
             xdr_float(&xdrs, &minmax[1]);
             }
+        xdr_destroy(&xdrs);
+        CmiFclose(outfile);
         delete msgMinMax;
         /// Continue to next particle type
         sOutFile = getNCNextOutput(*pOutput);
