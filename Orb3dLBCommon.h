@@ -23,8 +23,6 @@ class Orb3dCommon{
 
     CkVec<float> procload;
 
-    int nrecvd;
-    bool haveTPCentroids;
     /// Take into account memory constraints by limiting the number of pieces
     /// per processor.
     double maxPieceProc;

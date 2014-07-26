@@ -4353,39 +4353,12 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
                       );
   */
 
-  if(foundLB == Multistep){
-    CkCallback cbk(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
-  }
-  else if(foundLB == Orb3d){
-    CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
-  }
-  else if(foundLB == Multistep_notopo){
-    CkCallback lbcb(CkIndex_MultistepLB_notopo::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-  }
-  else if(foundLB == Orb3d_notopo){
+  if (CkpvAccess(_lb_obj_index) != -1) {
     void *data = getObjUserData(CkpvAccess(_lb_obj_index));
     *(TaggedVector3D *) data = tv;
-    CkCallback cbk(CkIndex_Orb3dLB_notopo::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
   }
-  else if(foundLB == MultistepOrb){
-    CkCallback lbcb(CkIndex_MultistepOrbLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-  }
-  else if(foundLB == HierarchOrb){
-    void *data = getObjUserData(CkpvAccess(_lb_obj_index));
-    *(TaggedVector3D *) data = tv;
-    thisProxy[thisIndex].doAtSync();
-  }
-  else if(activeRung == 0) {
-    doAtSync();
-  }
-  else {
-    contribute(cb);  // Skip the load balancer
-  }
+  thisProxy[thisIndex].doAtSync();
+
   prevLARung = activeRung;
 }
 
@@ -5589,41 +5562,12 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
     }
   }
 
-  if(foundLB == Multistep){
-    CkCallback lbcb(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-  }
-  else if(foundLB == Orb3d){
-    CkCallback lbcb(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-  }
-  else if(foundLB == Multistep_notopo){
-    CkCallback lbcb(CkIndex_MultistepLB_notopo::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-  }
-  else if(foundLB == Orb3d_notopo){
+  if (CkpvAccess(_lb_obj_index) != -1) {
     void *data = getObjUserData(CkpvAccess(_lb_obj_index));
-    *(TaggedVector3D *) data = tv;
-    CkCallback lbcb(CkIndex_Orb3dLB_notopo::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+    *(TaggedVector3D *)data = tv;
   }
-  else if(foundLB == MultistepOrb){
-    CkCallback lbcb(CkIndex_MultistepOrbLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-  } else if (foundLB == HierarchOrb) {
-    void *data = getObjUserData(CkpvAccess(_lb_obj_index));
-    *(TaggedVector3D *) data = tv;
-    thisProxy[thisIndex].doAtSync();
-  }
-  else if(foundLB == Null){ 
-    // none of the balancers requiring centroids found; go
-    // straight to AtSync()
-    // At the moment there is no load data: we would have to supply
-    // some load data (like particle count) if we want this to work well.
-    //  doAtSync();
-      contribute(cb);
-      return;
-  }
+  thisProxy[thisIndex].doAtSync();
+  
   // this will be called in resumeFromSync()
   callback = cb;
 }

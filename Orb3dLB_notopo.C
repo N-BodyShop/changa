@@ -32,21 +32,7 @@ Orb3dLB_notopo::Orb3dLB_notopo(const CkLBOptions &opt): CentralLB(opt)
   if (CkMyPe() == 0){
     CkPrintf("[%d] Orb3dLB_notopo created\n",CkMyPe());
   }
-  haveTPCentroids = false;
 }
-
-void Orb3dLB_notopo::receiveCentroids(CkReductionMsg *msg){
-  if(haveTPCentroids){
-    delete tpmsg;
-  }
-  tpCentroids = (TaggedVector3D *)msg->getData();
-  nrecvd = msg->getSize()/sizeof(TaggedVector3D);
-  tpmsg = msg;
-  haveTPCentroids = true;
-  treeProxy.doAtSync();
-  CkPrintf("Orb3dLB_notopo: receiveCentroids %d elements, msg length: %d\n", nrecvd, msg->getLength());
-}
-
 
 bool Orb3dLB_notopo::QueryBalanceNow(int step){
   if(step == 0) return false;
@@ -58,8 +44,6 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
   int numobjs = stats->n_objs;
   int nmig = stats->n_migrateobjs;
   double gstarttime = CkWallTimer();
-
-  stats->makeCommHash();
 
   vector<Event> tpEvents[NDIMS];
   for(int i = 0; i < NDIMS; i++){

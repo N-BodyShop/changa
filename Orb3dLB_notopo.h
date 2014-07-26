@@ -21,8 +21,6 @@ private:
   vector<OrbObject> tps;
   // things are stored in here before work
   // is ever called.
-  TaggedVector3D *tpCentroids;
-  CkReductionMsg *tpmsg;
  
   void init();
   bool QueryBalanceNow(int step);
@@ -37,7 +35,6 @@ public:
   Orb3dLB_notopo(const CkLBOptions &);
   Orb3dLB_notopo(CkMigrateMessage *m):CentralLB(m) {init();}
   void work(BaseLB::LDStats* stats);
-  void receiveCentroids(CkReductionMsg *msg);
 
 };
 
