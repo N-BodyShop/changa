@@ -2267,6 +2267,8 @@ Main::initialForces()
   doSimulation();
 }
 
+int safeMkdir(const char *achFile);
+
 ///
 /// \brief Principal method which does all the coordination of the
 /// simulation over timesteps.
@@ -2380,15 +2382,37 @@ Main::doSimulation()
           startTime = CkWallTimer();
 	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
+          if(param.iBinaryOut == 6) {
+              // Set up N-Chilada directory structure
+              CkAssert(safeMkdir(achFile.c_str()) == 0);
+              if(nTotalSPH > 0) {
+                    string dirname(string(achFile) + "/gas");
+                    CkAssert(safeMkdir(dirname.c_str()) == 0);
+                    }
+              if(nTotalDark > 0) {
+                    string dirname(string(achFile) + "/dark");
+                    CkAssert(safeMkdir(dirname.c_str()) == 0);
+                    }
+              if(nTotalStar > 0) {
+                    string dirname(string(achFile) + "/star");
+                    CkAssert(safeMkdir(dirname.c_str()) == 0);
+                    }
+              }
 	  ckout << "Outputting densities ...";
 	  startTime = CkWallTimer();
-	  DenOutputParams pDenOut(achFile, 0, 0.0);
-	  treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
+	  DenOutputParams pDenOut(achFile, param.iBinaryOut, 0.0);
+          if(param.iBinaryOut)
+              treeProxy[0].outputBinary(pDenOut, param.bParaWrite, CkCallbackResumeThread());
+          else
+              treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
 	  ckout << "Outputting hsmooth ...";
-	  HsmOutputParams pHsmOut(achFile, 0, 0.0);
-	  treeProxy[0].outputASCII(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
+	  HsmOutputParams pHsmOut(achFile, param.iBinaryOut, 0.0);
+          if(param.iBinaryOut)
+              treeProxy[0].outputBinary(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
+          else
+              treeProxy[0].outputASCII(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
 	  }
       else {
 	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
