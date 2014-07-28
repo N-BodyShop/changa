@@ -2402,7 +2402,7 @@ Main::doSimulation()
 	  startTime = CkWallTimer();
 	  DenOutputParams pDenOut(achFile, param.iBinaryOut, 0.0);
           if(param.iBinaryOut)
-              treeProxy[0].outputBinary(pDenOut, param.bParaWrite, CkCallbackResumeThread());
+              outputBinary(pDenOut, param.bParaWrite, CkCallbackResumeThread());
           else
               treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -2410,7 +2410,7 @@ Main::doSimulation()
 	  ckout << "Outputting hsmooth ...";
 	  HsmOutputParams pHsmOut(achFile, param.iBinaryOut, 0.0);
           if(param.iBinaryOut)
-              treeProxy[0].outputBinary(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
+              outputBinary(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
           else
               treeProxy[0].outputASCII(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
 	  }
