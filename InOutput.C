@@ -289,7 +289,8 @@ void TreePiece::loadTipsy(const std::string& filename,
 #endif
 		boundingBox.grow(myParticles[i+1].position);
 	}
-	
+  myParticles[0].key = firstPossibleKey;
+  myParticles[myNumParticles+1].key = lastPossibleKey;
   contribute(cb);
 }
 
@@ -1116,6 +1117,8 @@ void TreePiece::loadNChilada(const std::string& filename,
             boundingBox.grow(myParticles[i+1].position);
         }
         
+  myParticles[0].key = firstPossibleKey;
+  myParticles[myNumParticles+1].key = lastPossibleKey;
   contribute(cb);
 }
 
