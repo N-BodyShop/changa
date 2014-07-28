@@ -291,7 +291,7 @@ Main::restartGas()
           nStar = ncGetCount(basefilename + "/star/iord");
       if(nGas + nDark + nStar == nTotalParticles) {
           IOrderOutputParams pIOrdOut(basefilename, 6, 0.0);
-          treeProxy.readIntBinary(pIOrdOut, param.bParaRead,
+          treeProxy.readFloatBinary(pIOrdOut, param.bParaRead,
                                       CkCallbackResumeThread());
           }
       else
@@ -301,7 +301,7 @@ Main::restartGas()
           nStar = ncGetCount(basefilename + "/star/igasorder");
       if(nStar == nTotalStar) {
           IGasOrderOutputParams pIOrdOut(basefilename, 6, 0.0);
-          treeProxy.readIntBinary(pIOrdOut, param.bParaRead,
+          treeProxy.readFloatBinary(pIOrdOut, param.bParaRead,
                                       CkCallbackResumeThread());
           }
       else

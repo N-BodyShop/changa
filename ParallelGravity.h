@@ -1447,8 +1447,6 @@ public:
         /// internal energy
         void loadNChilada(const std::string& filename, const double dTuFac,
                           const CkCallback& cb);
-        void readIntBinary(OutputIntParams& params, int bParaRead,
-            const CkCallback& cb);
         void readFloatBinary(OutputParams& params, int bParaRead,
             const CkCallback& cb);
 	/// @brief Load I.C. from Tipsy file
@@ -1773,33 +1771,18 @@ public:
 	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
 	void outputASCII(OutputParams& params, int bParaWrite,
 			 const CkCallback& cb);
-	void outputIntASCII(OutputIntParams& params, int bParaWrite,
-			 const CkCallback& cb);
-        void oneNodeOutNCInt(OutputIntParams& params,
-                                int* aiOutGas, // array to be output
-                                int* aiOutDark, // array to be output
-                                int* aiOutStar, // array to be output
-                                int nGas, // number of elements in avOut
-                                int nDark, // number of elements in avOut
-                                int nStar, // number of elements in avOut
-                                int iIndex, // treepiece which called me
-                                CkCallback& cb) ;
 	void oneNodeOutVec(OutputParams& params, Vector3D<double>* avOut,
 			   int nPart, int iIndex, int bDone,
 			   CkCallback& cb) ;
 	void oneNodeOutArr(OutputParams& params, double* adOut,
 			   int nPart, int iIndex, int bDone,
 			   CkCallback& cb) ;
-	void oneNodeOutIntArr(OutputIntParams& params, int *aiOut,
+	void oneNodeOutIntArr(OutputParams& params, int *aiOut,
 			      int nPart, int iIndex, CkCallback& cb);
         void outputBinaryStart(OutputParams& params, int64_t nStart,
                                const CkCallback& cb);
 	void outputBinary(Ck::IO::Session, OutputParams& params);
         void minmaxNCOut(OutputParams& params, const CkCallback& cb);
-        void outputIntBinary(OutputIntParams& params, int bParaWrite,
-                             const CkCallback& cb);
-        void oneNodeOutBinInt(OutputIntParams& params, int *aiOut,
-                              int nPart, int iIndex, CkCallback& cb) ;
 
 	void outputStatistics(const CkCallback& cb);
 	/// Collect the total statistics from the various chares

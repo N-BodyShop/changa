@@ -2468,12 +2468,12 @@ Main::doSimulation()
       KeyOutputParams pKey(achFile, param.iBinaryOut, 0.0);
       DomainOutputParams pDomain(achFile, param.iBinaryOut, 0.0);
       if(param.iBinaryOut) {
-          treeProxy[0].outputIntBinary(pRung, param.bParaWrite, CkCallbackResumeThread());
+          outputBinary(pRung, param.bParaWrite, CkCallbackResumeThread());
           outputBinary(pKey, param.bParaWrite, CkCallbackResumeThread());
           outputBinary(pDomain, param.bParaWrite, CkCallbackResumeThread());
           }
       else {
-          treeProxy[0].outputIntASCII(pRung, param.bParaWrite, CkCallbackResumeThread());
+          treeProxy[0].outputASCII(pRung, param.bParaWrite, CkCallbackResumeThread());
           treeProxy[0].outputASCII(pKey, param.bParaWrite, CkCallbackResumeThread());
           treeProxy[0].outputASCII(pDomain, param.bParaWrite, CkCallbackResumeThread());
           }
@@ -2758,12 +2758,11 @@ void Main::writeOutput(int iStep)
 	    outputBinary(pCSOut, param.bParaWrite, CkCallbackResumeThread());
 	if(param.bDoIOrderOutput || param.bStarForm || param.bFeedback) {
 	    IOrderOutputParams pIOrdOut(achFile, param.iBinaryOut, dOutTime);
-	    treeProxy[0].outputIntBinary(pIOrdOut, param.bParaWrite,
-                                         CkCallbackResumeThread());
+	    outputBinary(pIOrdOut, param.bParaWrite, CkCallbackResumeThread());
 	    if(param.bStarForm) {
 		IGasOrderOutputParams pIGasOrdOut(achFile, param.iBinaryOut,
                     dOutTime);
-		treeProxy[0].outputIntBinary(pIGasOrdOut, param.bParaWrite,
+		outputBinary(pIGasOrdOut, param.bParaWrite,
                                              CkCallbackResumeThread());
                 }
             }
@@ -2801,12 +2800,12 @@ void Main::writeOutput(int iStep)
 				      CkCallbackResumeThread());
 	if(param.bDoIOrderOutput || param.bStarForm || param.bFeedback) {
 	    IOrderOutputParams pIOrdOut(achFile, param.iBinaryOut, dOutTime);
-	    treeProxy[0].outputIntASCII(pIOrdOut, param.bParaWrite,
+	    treeProxy[0].outputASCII(pIOrdOut, param.bParaWrite,
 					CkCallbackResumeThread());
 	    if(param.bStarForm) {
 		IGasOrderOutputParams pIGasOrdOut(achFile, param.iBinaryOut,
                     dOutTime);
-		treeProxy[0].outputIntASCII(pIGasOrdOut, param.bParaWrite,
+		treeProxy[0].outputASCII(pIGasOrdOut, param.bParaWrite,
 					    CkCallbackResumeThread());
 	      }
 	  }
