@@ -315,6 +315,10 @@ mainmodule ParallelGravity {
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
     entry void unshuffleParticles(CkReductionMsg* m);
     entry void acceptSortedParticles(ParticleShuffleMsg *);
+    entry void unshuffleParticlesWoDD(const CkCallback& cb);
+    entry void shuffleAfterQD();
+    entry void acceptSortedParticlesFromOther(ParticleShuffleMsg *);
+
     //ORB
     entry void initORBPieces(const CkCallback& cb);
     entry void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,

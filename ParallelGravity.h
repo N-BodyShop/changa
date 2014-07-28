@@ -932,12 +932,21 @@ private:
 	CkCallback cbGravity;
 	/// smooth globally finished
 	CkCallback cbSmooth;
+  CkCallback after_dd_callback;
 	/// Total number of particles contained in this chare
 	unsigned int myNumParticles;
 	/// Array with the particles in this chare
 	GravityParticle* myParticles;
 	/// Actual storage in the above array
 	int nStore;
+
+  // Temporary location to hold the particles that have come from outside this
+  // TreePiece. This is used in the case where we migrate the particles and
+  // detect completion of migration using QD.
+	std::vector<GravityParticle> myTmpShuffleParticle;
+	std::vector<extraSPHData> myTmpShuffleSphParticle;
+	std::vector<extraStarData> myTmpShuffleStarParticle;
+  ParticleShuffleMsg* myShuffleMsg;
 	/// Number of particles in my tree.  Can be different from
 	/// myNumParticles when particles are created.
 	int myTreeParticles;
@@ -1540,6 +1549,10 @@ public:
 	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
 	void unshuffleParticles(CkReductionMsg* m);
 	void acceptSortedParticles(ParticleShuffleMsg *);
+  void shuffleAfterQD();
+  void unshuffleParticlesWoDD(const CkCallback& cb);
+  void acceptSortedParticlesFromOther(ParticleShuffleMsg *);
+
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);
   void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,
@@ -1852,6 +1865,8 @@ public:
         void deliverMomentsToClients(const std::map<NodeKey,NonLocalMomentsClientList>::iterator &it);
         void treeBuildComplete();
         void processRemoteRequestsForMoments();
+        void sendParticlesDuringDD(bool withqd);
+        void mergeAllParticlesAndSaveCentroid();
 
 };
 
