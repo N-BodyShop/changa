@@ -260,7 +260,13 @@ class ProjectionsControl : public CBase_ProjectionsControl {
   public: 
   ProjectionsControl() {
 #if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
-    if (CkMyRank()==0) ck_set_GNI_BIConfig(64);
+    if (CkMyRank()==0) {
+#define GNI_BI_DEFAULT    64
+      uint16_t cur_bi = ck_get_GNI_BIConfig();
+      if (cur_bi > GNI_BI_DEFAULT) {
+        ck_set_GNI_BIConfig(GNI_BI_DEFAULT);
+      }
+    }
 #endif
     LBTurnCommOff();
     LBSetPeriod(0.0); // no need for LB interval: we are using Sync Mode
