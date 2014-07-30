@@ -256,9 +256,8 @@ public:
   static Tree::GenericTreeNode *pickNodeFromMergeList(int n, GenericTreeNode **gtn, int &nUnresolved, int &pickedIndex);
 };
 
-class ProjectionsControl : public CBase_ProjectionsControl { 
-  public: 
-  ProjectionsControl() {
+inline static void setBIconfig()
+{
 #if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
     if (CkMyRank()==0) {
 #define GNI_BI_DEFAULT    64
@@ -267,11 +266,21 @@ class ProjectionsControl : public CBase_ProjectionsControl {
         ck_set_GNI_BIConfig(GNI_BI_DEFAULT);
       }
     }
+    if (CkMyPe() == 0)
+      CkPrintf("Balanced injection is set to %d.\n", ck_get_GNI_BIConfig());
 #endif
+}
+
+class ProjectionsControl : public CBase_ProjectionsControl { 
+  public: 
+  ProjectionsControl() {
+    setBIconfig();
     LBTurnCommOff();
     LBSetPeriod(0.0); // no need for LB interval: we are using Sync Mode
   } 
-  ProjectionsControl(CkMigrateMessage *m) : CBase_ProjectionsControl(m) {} 
+  ProjectionsControl(CkMigrateMessage *m) : CBase_ProjectionsControl(m) {
+    setBIconfig();
+  } 
  
   void on(CkCallback cb) { 
     if(CkMyPe() == 0){ 
