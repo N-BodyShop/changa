@@ -130,7 +130,9 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
 	FILE *fp = fopen(achFileName, "w");
 	CkAssert(fp != NULL);
 	fprintf(fp, "%d %d 0\n", nrecvd, nrecvd);
-	for(int i = 0; i < nrecvd; i++) {
+	for(int i = 0; i < numobjs; i++) {
+	    if(stats->objData[i].migratable == false)
+		continue;
 	    CkAssert(tps[i].lbindex < stats->n_objs);
 	    CkAssert(tps[i].lbindex >= 0);
 	    fprintf(fp, "%g %g %g %g 0.0 0.0 0.0 %d 0.0\n",
