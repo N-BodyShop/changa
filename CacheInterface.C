@@ -20,7 +20,7 @@ EntryTypeGravityParticle::EntryTypeGravityParticle() {
 /// @param key Key of the requested bucket.
 ///
 /// Calls TreePiece::fillRequestParticles() to fullfill the request.
-void * EntryTypeGravityParticle::request(CkArrayIndexMax& idx, KeyType key) {
+void * EntryTypeGravityParticle::request(const CkArrayIndexMax& idx, KeyType key) {
   CkCacheRequestMsg<KeyType> *msg = new (32) CkCacheRequestMsg<KeyType>(key, CkMyPe());
 
   // This is a high priority message
@@ -97,7 +97,7 @@ void TreePiece::fillRequestParticles(CkCacheRequestMsg<KeyType> *msg) {
 EntryTypeSmoothParticle::EntryTypeSmoothParticle() {
 }
 
-void * EntryTypeSmoothParticle::request(CkArrayIndexMax& idx, KeyType key) {
+void * EntryTypeSmoothParticle::request(const CkArrayIndexMax& idx, KeyType key) {
   CkCacheRequestMsg<KeyType> *msg = new (32) CkCacheRequestMsg<KeyType>(key, CkMyPe());
   *(int*)CkPriorityPtr(msg) = -100000000;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
@@ -283,7 +283,7 @@ EntryTypeGravityNode::EntryTypeGravityNode() {
   memcpy(&vptr, &node, sizeof(void*));
 }
 
-void * EntryTypeGravityNode::request(CkArrayIndexMax& idx, KeyType key) {
+void * EntryTypeGravityNode::request(const CkArrayIndexMax& idx, KeyType key) {
   CkCacheRequestMsg<KeyType> *msg = new (32) CkCacheRequestMsg<KeyType>(key, CkMyPe());
   *(int*)CkPriorityPtr(msg) = -110000000;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
