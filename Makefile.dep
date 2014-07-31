@@ -55,9 +55,9 @@ MultistepOrbLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 Reductions.h \
+Reductions.decl.h \
 
 Sorter.o: \
 Sorter.cpp \
@@ -107,7 +107,6 @@ MultistepOrbLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 
 TreePiece.o: \
 TreePiece.cpp \
@@ -143,7 +142,6 @@ parameters.h \
 cosmo.h \
 starform.h \
 dumpframe.h \
-DumpFrameData.h \
 ../utility/structures/TaggedVector3D.h \
 codes.h \
 CacheInterface.h \
@@ -157,9 +155,9 @@ MultistepOrbLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 Reductions.h \
+Reductions.decl.h \
 MultistepLB.h \
 MapStructures.h \
 ScaleTranMapBG.h \
@@ -178,6 +176,7 @@ Opt.h \
 TreeWalk.h \
 smooth.h \
 State.h \
+PETreeMerger.h \
 
 param.o: \
 param.c \
@@ -248,15 +247,16 @@ MultistepOrbLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 smooth.h \
 State.h \
 Opt.h \
 Sph.h \
 PETreeMerger.h \
-DumpFrameData.h \
 physconst.h \
+DumpFrameData.h \
+Reductions.h \
+Reductions.decl.h \
 
 Ewald.o: \
 Ewald.C \
@@ -305,7 +305,6 @@ MultistepOrbLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 
 InOutput.o: \
 InOutput.C \
@@ -354,8 +353,8 @@ MultistepOrbLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
+Reductions.h \
 
 cosmo.o: \
 cosmo.c \
@@ -428,7 +427,6 @@ MultistepOrbLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 
 Orb3dLB.o: \
@@ -480,7 +478,6 @@ MultistepOrbLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 
 Orb3dLB_notopo.o: \
@@ -533,7 +530,6 @@ MultistepOrbLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 MapStructures.h \
 
@@ -637,7 +633,6 @@ MultistepOrbLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 smooth.h \
 State.h \
@@ -693,7 +688,6 @@ MultistepOrbLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 MapStructures.h \
 MultistepLB_notopo.decl.h \
@@ -800,7 +794,6 @@ Orb3dLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 
 PETreeMerger.o: \
@@ -851,7 +844,6 @@ MultistepOrbLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 
 TreeWalk.o: \
 TreeWalk.C \
@@ -900,7 +892,6 @@ MultistepOrbLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 TreeWalk.h \
 
@@ -951,7 +942,6 @@ MultistepOrbLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 Opt.h \
 TreeWalk.h \
@@ -1003,7 +993,6 @@ MultistepOrbLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 Opt.h \
 smooth.h \
@@ -1056,7 +1045,6 @@ MultistepOrbLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 TreeWalk.h \
 Opt.h \
@@ -1109,7 +1097,6 @@ MultistepOrbLB.decl.h \
 InOutput.h \
 DataManager.h \
 ParallelGravity.decl.h \
-Reductions.decl.h \
 Compute.h \
 smooth.h \
 State.h \
