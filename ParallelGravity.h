@@ -134,9 +134,15 @@ extern int nIOProcessor;
 
 extern CProxy_DumpFrameData dfDataProxy;
 extern CProxy_PETreeMerger peTreeMergerProxy;
+#ifndef USE_SMP_CACHE
+extern CProxy_CkCacheManager<KeyType> cacheNode;
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
-extern CProxy_CkCacheManager<KeyType> cacheNode;
+#else
+extern CProxy_CkSmpCacheManager<KeyType> cacheNode;
+extern CProxy_CkSmpCacheManager<KeyType> cacheGravPart;
+extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
+#endif
 
 extern ComlibInstanceHandle cinst1, cinst2;
 
@@ -449,6 +455,16 @@ class Main : public CBase_Main {
        void turnProjectionsOff();
 #endif
 
+#ifndef USE_SMP_CACHE
+       CkNonSmpCacheHandle<KeyType> nodeCacheHandle_;
+       CkNonSmpCacheHandle<KeyType> partCacheHandle_;
+#else
+       CkSmpCacheHandle<KeyType> nodeCacheHandle_;
+       CkSmpCacheHandle<KeyType> partCacheHandle_;
+#endif
+       // for now, don't share (write-enabled)
+       // SPH particles across cores of an SMP node
+       CkNonSmpCacheHandle<KeyType> smoothCacheHandle_;
 
 public:
 
@@ -488,6 +504,10 @@ public:
 	void memoryStatsCache();
 	void pup(PUP::er& p);
 	void liveVizImagePrep(liveVizRequestMsg *msg);
+
+        private:
+        void setupCaches();
+        void registerCaches();
 };
 
 /* IBM brain damage */
