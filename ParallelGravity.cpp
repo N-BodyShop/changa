@@ -1158,6 +1158,11 @@ void Main::getStartTime()
 		}
 	    /* input time is expansion factor.  Convert */
 	    double dAStart = treeProxy[0].ckLocal()->dStartTime;
+            if(dAStart <= 0.0) {
+                ckerr << "Attempt to start at infinite redshift" << endl;
+                CkExit();
+                return;
+                }
 	    double z = 1.0/dAStart - 1.0;
 	    double aTo, tTo;
 	    dTime = csmExp2Time(param.csm, dAStart);
