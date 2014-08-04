@@ -210,6 +210,7 @@ typedef struct CoolingPKDStruct {
   double     dErgPerGmPerSecUnit;
   double     diErgPerGmUnit;
   double     dKpcUnit;
+  double     dMsolUnit;
   double     dMassFracHelium;
 
 /* Diagnostic */
