@@ -568,17 +568,16 @@ double Fdbk::CalcLWFeedback(SFEvent *sfEvent, double dTime, /* current time in y
 			    + a2*dAge1log*dAge1log
 			    + a3*dAge1log*dAge1log*dAge1log
 			    + a4*dAge1log*dAge1log*dAge1log*dAge1log
-			    + a5*dAge1log*dAge1log*dAge1log*dAge1log*dAge1log + log10(sfEvent->dMass);
-      else dLW1log = dA0old + dA1old*dAlog10 + log10(sfEvent->dMass); /*Close to zero*/
+			    + a5*dAge1log*dAge1log*dAge1log*dAge1log*dAge1log + log10(sfEvent->dMass*MSOLG/dGmUnit);
+      else dLW1log = dA0old + dA1old*dAge1log + log10(sfEvent->dMass*MSOLG/dGmUnit); /*Close to zero*/
 
       if (dAge2log < 9.0) dLW2log = a0
 			    + a1*dAge2log
 			    + a2*dAge2log*dAge2log
 			    + a3*dAge2log*dAge2log*dAge2log
 			    + a4*dAge2log*dAge2log*dAge2log*dAge2log
-			    + a5*dAge2log*dAge2log*dAge2log*dAge2log*dAge2log + log10(sfEvent->dMass); 
-      else dLW2log = dA0old + dA1old*dAlog10 + log10(sfEvent->dMass); /*Close to zero*/
-      
+			    + a5*dAge2log*dAge2log*dAge2log*dAge2log*dAge2log + log10(sfEvent->dMass*MSOLG/dGmUnit); 
+      else dLW2log = dA0old + dA1old*dAge2log + log10(sfEvent->dMass*MSOLG/dGmUnit); /*Close to zero*/
       return log10((pow(10,dLW1log) + pow(10,dLW2log))/2);
     }
     else return 0;

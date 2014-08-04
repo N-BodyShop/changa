@@ -154,6 +154,9 @@ void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit
   cl->dErgPerGmPerSecUnit = cl->dErgPerGmUnit / cl->dSecUnit;
   cl->diErgPerGmUnit = 1./dErgPerGmUnit;
   cl->dKpcUnit = dKpcUnit;
+  /*dErgPerGmUnit = GCGS*param.dMsolUnit*MSOLG/(param.dKpcUnit*KPCCM);*/
+  /*dErgPerGmUnit*(param.dKpcUnit*KPCCM)/GCGS/MSOLG = param.dMsolUnit/;*/
+  cl->dMsolUnit = cl->dErgPerGmUnit*cl->dKpcUnit*KPCCM/GCGS/MSOLG;
   cl->dMassFracHelium = CoolParam.dMassFracHelium;
 
   cl->bUV = CoolParam.bUV;
@@ -801,7 +804,7 @@ void clRates( COOL *cl, RATE *Rate, double T, double rho, double ZMetal, double 
   if (Rate_Phot_H2_stellar < 20) {
     Rate_Phot_H2_stellar = 20;
   }
-  Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10.0,Rate_Phot_H2_stellar - 59.626264)*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand;
+  Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10.0,Rate_Phot_H2_stellar - 59.626264)*cl->dMsolUnit*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand;
   if (Rate->Phot_H2 < 1e-100) {
     Rate->Phot_H2 = 1e-100;
   }
@@ -875,7 +878,7 @@ void clRates_Table_Lin( COOL *cl, RATE *Rate, double T, double rho, double ZMeta
   if (Rate_Phot_H2_stellar < 20) {
     Rate_Phot_H2_stellar = 20;
   }
-  Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10,Rate_Phot_H2_stellar - 59.626264)*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand;
+  Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10,Rate_Phot_H2_stellar - 59.626264)*cl->dMsolUnit*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand;
   Rate->CorreLength = columnL * cl->dKpcUnit * KPCCM * cl->dExpand; /* From system units to cm*/
   Rate->LymanWernerCode = Rate_Phot_H2_stellar;
   if (cl->bSelfShield) {
@@ -973,7 +976,7 @@ void clRates_Table( COOL *cl, RATE *Rate, double T, double rho, double ZMetal, d
   if (Rate_Phot_H2_stellar < 20) {
     Rate_Phot_H2_stellar = 20;
   }
-  Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10,Rate_Phot_H2_stellar - 59.626264)*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand;
+  Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10,Rate_Phot_H2_stellar - 59.626264)*cl->dMsolUnit*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand;
   Rate->CorreLength = columnL * cl->dKpcUnit*KPCCM * cl->dExpand; /* From system units to cm*/
   Rate->LymanWernerCode = Rate_Phot_H2_stellar;
   if (cl->bSelfShield) {
@@ -2887,18 +2890,23 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
       ymin[0] = EMin;
       StiffSetYMin(sbs, ymin);
 
-#ifdef COOLDEBUG      
+      /*#ifdef COOLDEBUG      */
       startTime = time(NULL);
-#endif
+      /*#endif*/
       StiffStep( sbs, y, t, tStep);
-#ifdef COOLDEBUG
+      /*#ifdef COOLDEBUG*/
       endTime = time(NULL);
       if (difftime(endTime,startTime) > 1) {
+#ifdef COOLDEBUG
 	printf("\nStiffStep %d: Wallclock %f secs\n",cl->iOrder,difftime(endTime,startTime));
 	printf("Rho:%g T:%g Y e:%e Total:%e H2:%e HI:%e HII:%e HeI:%e HeII:%e HeIII:%e\n",rho*CL_B_gm,T,Y->e, Y->Total, Y->H2, Y->HI, Y->HII, Y->HeI, Y->HeII, Y->HeIII); 
+#else
+	printf("\nStiffStep: Wallclock %f secs\n",difftime(endTime,startTime));
+	printf("Rho:%g Y e:%e Total:%e H2:%e HI:%e HII:%e HeI:%e HeII:%e HeIII:%e\n",rho*CL_B_gm,Y->e, Y->Total, Y->H2, Y->HI, Y->HII, Y->HeI, Y->HeII, Y->HeIII);
+#endif
 	printf("y: %e %e %e %e %e\n",y[0],y[1],y[2],y[3],y[4]);
       }
-#endif
+      /*#endif*/
 
       if(y[1] > d->Y_H) y[1] = d->Y_H;
       if(y[4] > d->Y_H/2.0) y[4] = d->Y_H/2.0;
@@ -3389,3 +3397,4 @@ double CoolHeatingCode(COOL *cl, COOLPARTICLE *cp, double ECode,
     return CoolErgPerGmPerSecToCodeWork( cl, Edot );
     }
 
+#endif /* NOCOOLING */
