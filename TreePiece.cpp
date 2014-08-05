@@ -514,6 +514,7 @@ void ReductionHelper::evaluateBoundaries(SFC::Key* keys, const int n, int skipEv
     int64_t *dummy = new int64_t[numBins];
     for(int i = 0; i < numBins; i++) dummy[i] = 0;
     contribute(sizeof(int64_t)*numBins, dummy, CkReduction::sum_long, cb);
+    delete [] dummy;
     return;
   }
 
