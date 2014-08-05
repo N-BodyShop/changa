@@ -511,9 +511,10 @@ void ReductionHelper::evaluateBoundaries(SFC::Key* keys, const int n, int skipEv
   splitters.assign(keys, keys + n);
   if(localTreePieces.presentTreePieces.size() == 0){
     int numBins = skipEvery ? n - (n-1)/(skipEvery+1) - 1 : n - 1;
-    int *dummy = new int[numBins];
+    int64_t *dummy = new int64_t[numBins];
     for(int i = 0; i < numBins; i++) dummy[i] = 0;
-    contribute(sizeof(int)*numBins, dummy, CkReduction::sum_int, cb);
+    contribute(sizeof(int64_t)*numBins, dummy, CkReduction::sum_long, cb);
+    delete [] dummy;
     return;
   }
 
@@ -570,17 +571,17 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
   int numBins = skipEvery ? n - (n-1)/(skipEvery+1) - 1 : n - 1;
 
   //this array will contain the number of particles I own in each bin
-  int *myCounts;
+  int64_t *myCounts;
 
 #ifdef REDUCTION_HELPER
-  myCounts = new int[numBins];
+  myCounts = new int64_t[numBins];
 #else
   //myBinCounts.assign(numBins, 0);
   myBinCounts.resize(numBins);
   myCounts = myBinCounts.getVec();
 #endif
 
-  memset(myCounts, 0, numBins*sizeof(int));
+  memset(myCounts, 0, numBins*sizeof(int64_t));
 
   if (myNumParticles > 0) {
     Key* endKeys = keys+n;
@@ -643,7 +644,7 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
       /// this tells me the number of particles between the
       /// last two splitter keys
       if (skip != 0) {
-        myCounts[binIter] = (binEnd - binBegin);
+        myCounts[binIter] = ((int64_t)(binEnd - binBegin));
         ++binIter;
         --skip;
       } else {
@@ -5831,7 +5832,7 @@ void ReductionHelper::countTreePieces(const CkCallback &cb){
   contribute(cb);
 }
 
-void ReductionHelper::reduceBinCounts(int nBins, int *binCounts, const CkCallback &cb){
+void ReductionHelper::reduceBinCounts(int nBins, int64_t *binCounts, const CkCallback &cb){
   numTreePiecesCheckedIn++;
   
   //CkPrintf("ReductionHelper %d recvd %d/%d contributions\n", CkMyPe(), numTreePiecesCheckedIn, myNumTreePieces);
@@ -5840,7 +5841,7 @@ void ReductionHelper::reduceBinCounts(int nBins, int *binCounts, const CkCallbac
     // resize bin counts vector
     myBinCounts.resize(nBins);
     // initialize counts to contribution to reduction from first tree piece
-    memcpy(&myBinCounts[0], binCounts, nBins*sizeof(int));
+    memcpy(&myBinCounts[0], binCounts, nBins*sizeof(int64_t));
   }
   else{
     CkAssert(nBins == myBinCounts.size());
@@ -5853,8 +5854,9 @@ void ReductionHelper::reduceBinCounts(int nBins, int *binCounts, const CkCallbac
   if(numTreePiecesCheckedIn == localTreePieces.presentTreePieces.size()){
     //CkPrintf("ReductionHelper %d contributing to PE-level reduction\n", CkMyPe());
     numTreePiecesCheckedIn = 0;
-    contribute(sizeof(int)*myBinCounts.size(), &myBinCounts[0], CkReduction::sum_int, cb);
+    contribute(sizeof(int64_t)*myBinCounts.size(), &myBinCounts[0], CkReduction::sum_long, cb);
   }
+
 }
 
 void TreePieceCounter::addLocation(CkLocation &loc){
