@@ -1692,6 +1692,13 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      if (dt < dTIdeal) 
 		  dTIdeal = dt;
 	      }
+#ifdef SUPERBUBBLE
+    if (p->fThermalCond() > 0 || (p->diff() > 0 && dDiffCoeff > 0)) {
+        dt = dEtaDiffusion*ph*ph
+          /(dDiffCoeff*p->diff() + ph/p->fThermalLength()*p->fThermalCond()/p->fDensity);  
+        if (dt < dTIdeal) dTIdeal = dt;
+    }
+#else
 #ifdef DIFFUSION
 	  /* h^2/(2.77Q) Linear stability from Brookshaw */
 	  if (p->diff() > 0 && dDiffCoeff > 0) {
@@ -1700,6 +1707,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      }
 #endif
           dTEdot = dt;
+#endif
 	  }
 
       int iNewRung = DtToRung(dDelta, dTIdeal);
