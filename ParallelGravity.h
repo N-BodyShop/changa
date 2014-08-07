@@ -1793,10 +1793,9 @@ public:
 	void getAdiabaticGasPressure(double gamma, double gammam1,
                                      double dDtCourantFac,
 				     const CkCallback &cb);
-	void getCoolingGasPressure(double gamma, double gammam1,
-                                   double dDtCourantFac,
-                                   double dResolveJeans,
-				   const CkCallback &cb);
+    void getCoolingGasPressure(double gamma, double gammam1, double dThermalCondCoeff,
+        double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
+        double dEvapMinTemp, double dDtCourantFac, double dResolveJeans, const CkCallback &cb);
 #ifdef SPLITGAS
 	void SplitGas(double dInitGasMass, const CkCallback& cb);
 #endif

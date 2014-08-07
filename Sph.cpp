@@ -703,10 +703,11 @@ Main::doSph(int activeRung, int bNeedDensity)
     double dDtCourantFac = param.dEtaCourant*a*2.0/1.6;
     if(param.bGasCooling)
 	treeProxy.getCoolingGasPressure(param.dConstGamma,
-					param.dConstGamma-1,
-                                        dDtCourantFac,
-                                        param.dResolveJeans/csmTime2Exp(param.csm, dTime),
-					CkCallbackResumeThread());
+					param.dConstGamma-1, param.dThermalCondCoeff, param.dThermalCond2Coeff,
+                    param.dThermalCondSatCoeff, param.dThermalCond2SatCoeff, 
+            param.dEvapMinTemp,	dDtCourantFac,
+            param.dResolveJeans/a,
+            CkCallbackResumeThread());
     else
 	treeProxy.getAdiabaticGasPressure(param.dConstGamma,
 					  param.dConstGamma-1,
@@ -914,6 +915,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
   double ih2,ih, r2,rs,rs1,fDensity,fNorm,fNorm1,vFac;
 	double dvxdx, dvxdy, dvxdz, dvydx, dvydy, dvydz, dvzdx, dvzdy, dvzdz;
 	double dvx,dvy,dvz,dx,dy,dz,trace,grx,gry,grz;
+    double fDensityU = 0;
 #ifdef CULLENALPHA
 	double R_CD, R_CDN;     ///< R in CD limiter, and
                                 ///  normalization for R.
@@ -948,6 +950,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		    qiActive = 1;
 		rs = KERNEL(r2, nSmooth);
 		fDensity += rs*q->mass;
+		fDensityU += rs*q->mass*q->uPred();
 		rs1 = DKERNEL(r2);
 		rs1 *= q->mass;
 		dx = nnList[i].dx.x; /* NB: dx = px - qx */
@@ -996,6 +999,13 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
           TYPESet(p,TYPE_NbrOfACTIVE);
 
         p->fDensity = fNorm*fDensity;
+    fDensityU *= fNorm;
+#ifdef SUPERBUBBLE
+    double ih = sqrt(ih2);
+    double rhogradu=sqrt(grx*grx+gry*gry+grz*grz)*fNorm*ih2;
+    p->fThermalLength() = (rhogradu != 0 ? fDensityU/rhogradu : FLT_MAX);
+    if (p->fThermalLength()*ih < 1) p->fThermalLength() = 1/ih;
+#endif
         trace = dvxdx+dvydy+dvzdz;
         // keep Norm positive consistent w/ std 1/rho norm
         fNorm1 = (divvnorm != 0 ? 3.0/fabs(divvnorm) : 0.0); 
@@ -1010,12 +1020,13 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
       double sxz = 0.5*(dvxdz + dvzdx);
       double syz = 0.5*(dvydz + dvzdy);
 #endif
+		}
+		
 #ifdef DIFFUSION
       /* diff coeff., nu ~ C L^2 S (add C via dMetalDiffusionConstant, assume L ~ h) */
       if (bConstantDiffusion) p->diff() = 1;
       else p->diff() = fNorm1*0.25*p->fBall*p->fBall*sqrt(2*(sxx*sxx + syy*syy + szz*szz + 2*(sxy*sxy + sxz*sxz + syz*syz)));
 #endif
-
         p->divv() =  fNorm1*trace + 3.0*H; /* physical */
         p->curlv().x = fNorm1*(dvzdy - dvydz);
         p->curlv().y = fNorm1*(dvxdz - dvzdx);
@@ -1174,10 +1185,16 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1,
     }
 
 /* Note: Uses uPred */
+<<<<<<< HEAD:Sph.cpp
 void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
                                       double dtFacCourant,
                                       double dResolveJeans,
                                       const CkCallback &cb)
+=======
+void TreePiece::getCoolingGasPressure(double gamma, double gammam1, double dThermalCondCoeff,
+        double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
+        double dEvapMinTemp, const CkCallback &cb)
+>>>>>>> e9b636c... Added Code to the getCoolingGasPressure() method that will set:Sph.C
 {
 #ifndef COOLING_NONE
     GravityParticle *p;
@@ -1196,6 +1213,7 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
             double dPoverRhoJeans = PoverRhoFloorJeans(dResolveJeans, p);
             if(PoverRho < dPoverRhoJeans) PoverRho = dPoverRhoJeans;
 	    p->PoverRho2() = PoverRho/p->fDensity;
+<<<<<<< HEAD:Sph.cpp
             p->c() = sqrt(cGas*cGas + GAMMA_JEANS*dPoverRhoJeans);
 #ifdef DTADJUST
             {
@@ -1209,6 +1227,22 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
                 // Update to scare the neighbors.
                 if(dt < p->dtNew()) p->dtNew() = dt;
                 }
+=======
+#ifdef SUPERBUBBLE
+        double fThermalCond = dThermalCondCoeff*pow(p->uPred(),2.5);
+        double fThermalCond2 = dThermalCond2Coeff*pow(p->uPred(),0.5);
+        double Tp = CoolCodeEnergyToTemperature(cl, &p->CoolParticle(), p->uPred(), p->fMetals());
+        if (Tp < dEvapMinTemp)
+        {
+            fThermalCond = 0;
+            fThermalCond2 = 0;
+        }
+        double fSat = p->fDensity*p->c()*p->fThermalLength();
+        double fThermalCondSat = fSat*dThermalCondSatCoeff;
+        double fThermalCond2Sat = fSat*dThermalCond2SatCoeff;
+        p->fThermalCond() = (fThermalCond < fThermalCondSat ? fThermalCond : fThermalCondSat) +
+            (fThermalCond2 < fThermalCond2Sat ? fThermalCond2 : fThermalCond2Sat);
+>>>>>>> e9b636c... Added Code to the getCoolingGasPressure() method that will set:Sph.C
 #endif
 	    }
 	}
