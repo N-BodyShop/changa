@@ -991,12 +991,13 @@ void PressureSmoothParams::combSmoothCache(GravityParticle *p1,
 	    p1->PdV() += p2->PdV;
 	    if (p2->mumax > p1->mumax())
 		p1->mumax() = p2->mumax;
-#ifdef DTADJUST
-            if (p2->dtNew < p1->dtNew())
-                p1->dtNew() = p2->dtNew;
-#endif
 	    p1->treeAcceleration += p2->treeAcceleration;
 	    }
+#ifdef DTADJUST
+        // All neighbors get their rungs adjusted.
+        if (p2->dtNew < p1->dtNew())
+            p1->dtNew() = p2->dtNew;
+#endif
 	}
 
 void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
