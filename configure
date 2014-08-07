@@ -636,6 +636,7 @@ FLAG_SIDMINTERACT
 FLAG_RTFORCE
 FLAG_VSIGVISC
 FLAG_CULLENALPHA
+FLAG_SUPERBUBBLE
 FLAG_DIFFHARMONIC
 FLAG_FEEDBACKDIFFLIMIT
 FLAG_DIFFUSION
@@ -724,6 +725,7 @@ enable_hexadecapole
 enable_gpu_local_tree_walk
 enable_diffusion
 enable_feedbacklimit
+enable_superbubble
 enable_cullenalpha
 enable_vsigvisc
 enable_rtforce
@@ -1373,6 +1375,7 @@ Optional Features:
                           Enable gpu_local_tree_walk (yes, no)
   --enable-diffusion      enable diffusion
   --enable-feedbacklimit  limit diffusion of feedback energy
+  --enable-superbubble    enable superbubble feedback
   --enable-cullenalpha    enable Cullen Dehnen artificial viscosity
   --enable-vsigvisc       enable alternative Monahan artificial viscosity
   --enable-rtforce        enable Richie-Thomas forces
@@ -4355,6 +4358,23 @@ else
     FLAG_DIFFHARMONIC=""
 fi
 
+
+
+
+# SUPERBUBBLE FEEDBACK
+# Check whether --enable-superbubble was given.
+if test "${enable_superbubble+set}" = set; then :
+  enableval=$enable_superbubble; superbubble=yes
+else
+  superbubble=no
+fi
+
+if test "$superbubble" = "yes" ; then
+    echo "SUPERBUBBLE selected"
+    FLAG_SUPERBUBBLE="-DSUPERBUBBLE"
+else
+    FLAG_SUPERBUBBLE=""
+fi
 
 
 

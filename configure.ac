@@ -318,6 +318,19 @@ fi
 AC_SUBST([FLAG_FEEDBACKDIFFLIMIT])
 AC_SUBST([FLAG_DIFFHARMONIC])
 
+# SUPERBUBBLE FEEDBACK
+AC_ARG_ENABLE([superbubble],
+	[AS_HELP_STRING([--enable-superbubble], [enable superbubble feedback])],
+	[superbubble=yes], [superbubble=no])
+if test "$superbubble" = "yes" ; then
+    echo "SUPERBUBBLE selected"
+    FLAG_SUPERBUBBLE="-DSUPERBUBBLE"
+else
+    FLAG_SUPERBUBBLE=""
+fi
+
+AC_SUBST([FLAG_SUPERBUBBLE])
+
 # Calculate artificial viscosity from Cullen & Dehnen 2010
 AC_ARG_ENABLE([cullenalpha],
         [AS_HELP_STRING([--enable-cullenalpha], [enable Cullen Dehnen artificial viscosity])],
