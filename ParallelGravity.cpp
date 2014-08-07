@@ -600,6 +600,32 @@ Main::Main(CkArgMsg* m) {
 
 	param.feedback = new Fdbk();
 	param.feedback->AddParams(prm);
+#ifdef SUPERBUBBLE
+	param.dEvapMinTemp = 1e5;
+	prmAddParam(prm,"dEvapMinTemp",paramDouble,&param.dEvapMinTemp,
+				sizeof(double),"evaptmin",
+				"<Minimumum temperature for evaporation > = 1e5");
+	param.dEvapCoeff = 1.2e-7;
+	prmAddParam(prm,"dEvapCoeff",paramDouble,&param.dEvapCoeff,
+				sizeof(double),"evap",
+				"<Evap Coefficient due to thermal Conductivity (electrons), e.g. 1.2e-7 > = 0");
+	param.dThermalCondCoeff = 1.2e-7;
+	prmAddParam(prm,"dThermalCondCoeff",paramDouble,&param.dThermalCondCoeff,
+				sizeof(double),"thermalcond",
+				"<Coefficient in Thermal Conductivity (electrons), e.g. 1.2e-7 > = 0");
+	param.dThermalCondSatCoeff = 17;
+	prmAddParam(prm,"dThermalCondSatCoeff",paramDouble,&param.dThermalCondSatCoeff,
+				sizeof(double),"thermalcondsat",
+				"<Coefficient in Saturated Thermal Conductivity, e.g. 17 > = 17");
+	param.dThermalCond2Coeff = 5.0e2;
+	prmAddParam(prm,"dThermalCond2Coeff",paramDouble,&param.dThermalCond2Coeff,
+				sizeof(double),"thermalcond2",
+				"<Coefficient in Thermal Conductivity 2 (atoms), e.g. 5.0e2 > = 0");
+	param.dThermalCond2SatCoeff = 0.5;
+	prmAddParam(prm,"dThermalCond2SatCoeff",paramDouble,&param.dThermalCond2SatCoeff,
+				sizeof(double),"thermalcond2sat",
+				"<Coefficient in Saturated Thermal Conductivity 2, e.g. 0.5 > = 0.5");
+#endif
 
        param.bDoExternalGravity = 0;
        prmAddParam(prm, "bDoExternalGravity", paramBool, &param.bDoExternalGravity,
