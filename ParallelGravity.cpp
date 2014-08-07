@@ -600,7 +600,6 @@ Main::Main(CkArgMsg* m) {
 
 	param.feedback = new Fdbk();
 	param.feedback->AddParams(prm);
-#ifdef SUPERBUBBLE
 	param.dEvapMinTemp = 1e5;
 	prmAddParam(prm,"dEvapMinTemp",paramDouble,&param.dEvapMinTemp,
 				sizeof(double),"evaptmin",
@@ -625,7 +624,6 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dThermalCond2SatCoeff",paramDouble,&param.dThermalCond2SatCoeff,
 				sizeof(double),"thermalcond2sat",
 				"<Coefficient in Saturated Thermal Conductivity 2, e.g. 0.5 > = 0.5");
-#endif
 
        param.bDoExternalGravity = 0;
        prmAddParam(prm, "bDoExternalGravity", paramBool, &param.bDoExternalGravity,
@@ -1184,6 +1182,51 @@ Main::Main(CkArgMsg* m) {
 		param.dSecUnit = sqrt(1/(param.dGmPerCcUnit*GCGS));
 		/* code comoving density --> g per cc = param.dGmPerCcUnit (1+z)^3 */
 		param.dComovingGmPerCcUnit = param.dGmPerCcUnit;
+#ifdef SUPERBUBBLE
+        /* Thermal conductivity, c.f. Tielens p. 448 
+           Heat flux = K(T) grad T,  dE/dt = div K(T) grad T   E = rho u
+              K(T) = 6.1e-7 T^2.5 erg s^-1 deg^-7/2 cm^-1 
+              Silich: B-field reduces K(T) by ~ factor 10
+           we use du/dt = div k(u)/rho grad u    
+              u erg/gm = 1.5 k_B / (0.6*m_H) T  (ionized) */
+        /* Heat flux is k(u) u^2.5 grad u saturating at n_e 3/2 k T_e v_e 
+           k(u) u^2.5 has units of erg (erg/g)^-1 s^-1 cm^-1
+           saturation value ~ 17 rho c_s h  (g s^-1 cm^-1)
+           Assuming primordial v_e ~ 33 c_s, n_e ~ 0.52 n, grad u ~ u/h
+           So dThermalCondSatCoeff ~ 17, so time is 1/17 Courant time */
+
+        /* Convert K(T) to k(u)  erg s^-1 (erg/gm)^-7/2 cm^-1 */
+        param.dThermalCondCoeffCode = param.dThermalCondCoeff
+            *pow(1.5*KBOLTZ/(0.6*MHYDR),-3.5);
+        /* Convert K2(T) to k2(u)  erg s^-1 (erg/gm)^-3/2 cm^-1 */
+        param.dThermalCond2CoeffCode = param.dThermalCond2Coeff
+            *pow(1.5*KBOLTZ/(0.6*MHYDR),-1.5);
+        /* Convert to code units */
+        param.dThermalCondCoeffCode /= 
+            pow(param.dErgPerGmUnit,-3.5)
+            *param.dErgPerGmUnit*param.dGmPerCcUnit
+            *pow(param.dKpcUnit*KPCCM,2.0)
+            /param.dSecUnit;
+        param.dThermalCond2CoeffCode /= 
+            pow(param.dErgPerGmUnit,-1.5)
+            *param.dErgPerGmUnit*param.dGmPerCcUnit
+            *pow(param.dKpcUnit*KPCCM,2.0)
+            /param.dSecUnit;
+        /* You enter effective thermal coefficient e.g. kappa0=6.1d-7 erg s^-1 K^-7/2 cm^-1 
+           Code then multiplies by prefactors to 4/25 kappa0 mmw/k (1.5k/mmw)^-5/2 */
+        param.dEvapCoeffCode = param.dEvapCoeff
+            *4/25.*(0.6*MHYDR)/KBOLTZ*pow(1.5*KBOLTZ/(0.6*MHYDR),-2.5);
+        /* Convert final units: g/cm/s (erg/g)^-2.5 to code units 
+               [Later: Multiply by u^5/2 and multiply a length gives mdot   units g/s] */
+        param.dEvapCoeffCode /= 
+            pow(param.dErgPerGmUnit,-2.5)
+            *param.dGmPerCcUnit*pow(param.dKpcUnit*KPCCM,2.0)
+            /param.dSecUnit;
+#else
+        param.dThermalCondCoeffCode = 0;
+        param.dThermalCond2CoeffCode = 0;
+        param.dEvapCoeffCode = 0;
+#endif
 		}
 
 #ifndef DIFFUSION
