@@ -80,6 +80,16 @@ void Fdbk::AddParams(PRM prm)
 		    sizeof(double), "stInitGas",
 		    "<Initial mass of a gas particle> = -1");
 #endif
+#ifdef SUPERBUBBLE
+    dFBInitialMassLoad = 0.0;
+    prmAddParam(prm,"dFBInitialMassLoad", paramDouble, &dFBInitialMassLoad,
+		sizeof(double), "dFBIML",
+		"<Initial Mass Loading for Feedback Ejecta> = 0.0");
+	dMultiPhaseMinTemp = 1e5;
+	prmAddParam(prm,"dMultiPhaseMinTemp",paramDouble,&dMultiPhaseMinTemp,
+				sizeof(double),"multitmin",
+				"<Temperature threshold to use multiphase feedback> = 1e6");
+#endif
     
     bAGORAFeedback = 0;
     prmAddParam(prm, "bAGORAFeedback", paramBool, &bAGORAFeedback, sizeof(int),

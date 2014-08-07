@@ -105,6 +105,14 @@ typedef struct parameters {
     Stfm *stfm;
     int bFeedback;
     Fdbk *feedback;
+#ifdef SUPERBUBBLE
+    double dThermalCondCoeff;
+    double dThermalCondSatCoeff;
+    double dThermalCond2Coeff;
+    double dThermalCond2SatCoeff;
+    double dEvapMinTemp;
+    double dEvapCoeff;
+#endif
     int bDoExternalGravity;
     ExternalGravity externalGravity;
     int iRandomSeed;
@@ -239,6 +247,14 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|*param.stfm;
     p|param.bFeedback;
     p|param.feedback;
+#ifdef SUPERBUBBLE
+    p|param.dThermalCondCoeff;
+    p|param.dThermalCondSatCoeff;
+    p|param.dThermalCond2Coeff;
+    p|param.dThermalCond2SatCoeff;
+    p|param.dEvapMinTemp;
+    p|param.dEvapCoeff;
+#endif
     p|param.bDoExternalGravity;
     p|param.externalGravity;
     p|param.iRandomSeed;
