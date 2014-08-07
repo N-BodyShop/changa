@@ -74,13 +74,6 @@ void Fdbk::AddParams(PRM prm)
     prmAddParam(prm,"dEarlyFeedbackFrac", paramDouble, &dEarlyFeedbackFrac,
 		sizeof(double), "fbEarlyFrac",
 		"<Fraction of SNII energy to put in early feedback> = 0.0");
-#ifdef SPLITGAS
-	dInitGasMass = -1;
-	prmAddParam(prm,"dInitGasMass", paramDouble, &dInitGasMass,
-		    sizeof(double), "stInitGas",
-		    "<Initial mass of a gas particle> = -1");
-#endif
-#ifdef SUPERBUBBLE
     dFBInitialMassLoad = 0.0;
     prmAddParam(prm,"dFBInitialMassLoad", paramDouble, &dFBInitialMassLoad,
 		sizeof(double), "dFBIML",
@@ -89,8 +82,13 @@ void Fdbk::AddParams(PRM prm)
 	prmAddParam(prm,"dMultiPhaseMinTemp",paramDouble,&dMultiPhaseMinTemp,
 				sizeof(double),"multitmin",
 				"<Temperature threshold to use multiphase feedback> = 1e6");
-#endif
     
+#ifdef SPLITGAS
+	dInitGasMass = -1;
+	prmAddParam(prm,"dInitGasMass", paramDouble, &dInitGasMass,
+		    sizeof(double), "stInitGas",
+		    "<Initial mass of a gas particle> = -1");
+#endif
     bAGORAFeedback = 0;
     prmAddParam(prm, "bAGORAFeedback", paramBool, &bAGORAFeedback, sizeof(int),
             "bAGORAFeedback", "<Replace Type II and Ia supernovae with AGORA perscription> = 0");

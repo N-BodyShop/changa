@@ -77,10 +77,8 @@ class Fdbk : public PUP::able {
     int nSmoothFeedback;	/* number of particles to smooth feedback over*/
     double dMaxCoolShutoff;     /* Maximum length of time to shutoff cooling */
     double dEarlyFeedbackFrac;  /* Fraction of SNe II to put in early feedback */
-#ifdef SUPERBUBBLE
     double dFBInitialMassLoad;  /* Initial Mass Loading in Superbubble feedback*/
     double dMultiPhaseMinTemp;
-#endif
     double dEarlyETotal;  /* Total E in early FB per solar mass of stars */
     IMF *imf;
 
@@ -124,10 +122,8 @@ inline Fdbk::Fdbk(const Fdbk& fb) {
     nSmoothFeedback = fb.nSmoothFeedback;
     dMaxCoolShutoff = fb.dMaxCoolShutoff;
     dEarlyFeedbackFrac = fb.dEarlyFeedbackFrac;
-#ifdef SUPERBUBBLE
     dFBInitialMassLoad = fb.dFBInitialMassLoad;
     dMultiPhaseMinTemp = fb.dMultiPhaseMinTemp;
-#endif
     dEarlyETotal = fb.dEarlyETotal;
     sn = fb.sn;
     pdva = fb.pdva;
@@ -156,10 +152,8 @@ inline void Fdbk::pup(PUP::er &p) {
     p | nSmoothFeedback;
     p | dMaxCoolShutoff;
     p | dEarlyFeedbackFrac;
-#ifdef SUPERBUBBLE
     p | dFBInitialMassLoad;
     p | dMultiPhaseMinTemp;
-#endif
     p | dEarlyETotal;
     p | sn;
     p | pdva;
