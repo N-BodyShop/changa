@@ -34,7 +34,11 @@ void Fdbk::AddParams(PRM prm)
     sn.dESN = 0.1e51;
     prmAddParam(prm,"dESN", paramDouble, &sn.dESN, sizeof(double), "snESN",
 		    "<Energy of supernova in ergs> = 0.1e51");
+#ifdef SUPERBUBBLE
+    bSmallSNSmooth = 0;    
+#else
     bSmallSNSmooth = 1;
+#endif
     prmAddParam(prm,"bSmallSNSmooth", paramBool, &bSmallSNSmooth, sizeof(int),
 		"bSmallSNSmooth",
 		"<smooth SN ejecta over blast or smoothing radius> = blast radius");
@@ -48,10 +52,18 @@ void Fdbk::AddParams(PRM prm)
     prmAddParam(prm,"dMaxGasMass", paramDouble, &dMaxGasMass,
 		sizeof(double), "stMaxGas",
 		"<Maximum mass of a gas particle> = FLT_MAX");
+#ifdef SUPERBUBBLE
+    bSNTurnOffCooling = 0;
+#else
     bSNTurnOffCooling = 1;
+#endif
     prmAddParam(prm,"bSNTurnOffCooling", paramBool, &bSNTurnOffCooling,
 		sizeof(int), "bSNTurnOffCooling", "<Do SN turn off cooling> = 1");
+#ifdef SUPERBUBBLE
+    nSmoothFeedback = 1;
+#else
     nSmoothFeedback = 64;
+#endif
     prmAddParam(prm,"nSmoothFeedback", paramInt,&nSmoothFeedback, sizeof(int),
 		"s", "<number of particles to smooth feedback over> = 64");
     dMaxCoolShutoff = 3.0e7;
