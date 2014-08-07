@@ -96,6 +96,10 @@ class extraSPHData
     double _fMFracOxygenPred;
     double _fMFracIronPred;
 #endif
+#ifdef SUPERBUBBLE
+    double _fThermalCond;
+    double _fThermalLength;
+#endif
     
  public:
     inline double& u() {return _u;}
@@ -142,6 +146,10 @@ class extraSPHData
     inline double& fMFracIronDot() {return _fMFracIronDot;}
     inline double& fMFracIronPred() {return _fMFracIronPred;}
 #endif
+#ifdef SUPERBUBBLE
+    inline double& fThermalCond() {return _fThermalCond;}
+    inline double& fThermalLength() {return _fThermalLength;}
+#endif
 #ifdef __CHARMC__
     void pup(PUP::er &p) {
 	p | _u;
@@ -186,6 +194,10 @@ class extraSPHData
 	p| _fMFracOxygenPred;
 	p| _fMFracIronDot;
 	p| _fMFracIronPred;
+#endif
+#ifdef SUPERBUBBLE
+    p| _fThermalCond;
+    p| _fThermalLength;
 #endif
 	}
 #endif
@@ -394,6 +406,10 @@ public:
 	inline double& fMFracIronDot() { IMAGAS; return (((extraSPHData*)extraData)->fMFracIronDot());}
 	inline double& fMFracOxygenPred() { IMAGAS; return (((extraSPHData*)extraData)->fMFracOxygenPred());}
 	inline double& fMFracIronPred() { IMAGAS; return (((extraSPHData*)extraData)->fMFracIronPred());}
+#endif
+#ifdef SUPERBUBBLE
+	inline double& fThermalCond() { IMAGAS; return (((extraSPHData*)extraData)->fThermalCond());}
+	inline double& fThermalLength() { IMAGAS; return (((extraSPHData*)extraData)->fThermalLength());}
 #endif
 	// Access Star Quantities
 	// XXX Beware overlaps with SPH; we could fix this by aligning
