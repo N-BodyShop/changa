@@ -177,7 +177,7 @@ class PressureSmoothParams : public SmoothParams
     PressureSmoothParams(int _iType, int am, CSM csm, double _dTime,
 			 double _alpha, double _beta,
                          double _dThermalDiff, double _dMetalDiff,
-                         double dEtaCourant, double dEtaDiffusion) {
+                         double dEtaCourant, double dEtaDiffusion ) {
 	iType = _iType;
 	activeRung = am;
         dTime = _dTime;
