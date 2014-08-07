@@ -323,7 +323,7 @@ AC_ARG_ENABLE([superbubble],
 	[AS_HELP_STRING([--enable-superbubble], [enable superbubble feedback])],
 	[superbubble=yes], [superbubble=no])
 if test "$superbubble" = "yes" ; then
-    echo "SUPERBUBBLE selected"
+    echo "Superbubble Feedback selected"
     FLAG_SUPERBUBBLE="-DSUPERBUBBLE"
 else
     FLAG_SUPERBUBBLE=""
