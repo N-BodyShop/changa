@@ -710,9 +710,9 @@ Main::doSph(int activeRung, int bNeedDensity)
             CkCallbackResumeThread());
     else
 	treeProxy.getAdiabaticGasPressure(param.dConstGamma,
-					  param.dConstGamma-1,
-                                          dDtCourantFac,
-					  CkCallbackResumeThread());
+					param.dConstGamma-1, param.dThermalCondCoeff, param.dThermalCond2Coeff,
+                    param.dThermalCondSatCoeff, param.dThermalCond2SatCoeff, 
+                    param.dEvapMinTemp,	dDtCourantFac, CkCallbackResumeThread());
 
     ckout << "Calculating pressure gradients ...";
     PressureSmoothParams pPressure(TYPE_GAS, activeRung, param.csm, dTime,
@@ -1151,9 +1151,9 @@ TreePiece::sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb)
     }
 
 /* Note: Uses uPred */
-void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1,
-                                        double dtFacCourant,
-					const CkCallback &cb)
+void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1, double dThermalCondCoeff,
+        double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
+        double dEvapMinTemp, double dtFacCourant, const CkCallback &cb)
 {
     GravityParticle *p;
     double PoverRho;
@@ -1165,6 +1165,26 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1,
 	    PoverRho = gammam1*p->uPred();
 	    p->PoverRho2() = PoverRho/p->fDensity;
 	    p->c() = sqrt(gamma*PoverRho);
+#ifdef SUPERBUBBLE
+        double frac = p->massHot()/p->mass;
+        PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
+        p->c() = sqrt(gamma*PoverRho);
+        p->PoverRho2() = PoverRho/p->fDensity;
+#ifndef COOLING_NONE
+        double Tp = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uPred(), p->fMetals());
+        double fThermalCond = dThermalCondCoeff*pow(p->uPred(),2.5);
+        double fThermalCond2 = dThermalCond2Coeff*pow(p->uPred(),0.5);
+        if (Tp < dEvapMinTemp)
+        {
+            fThermalCond = 0;
+            fThermalCond2 = 0;
+        }
+        double fSat = p->fDensity*p->c()*p->fThermalLength();
+        double fThermalCondSat = fSat*dThermalCondSatCoeff;
+        double fThermalCond2Sat = fSat*dThermalCond2SatCoeff;
+        p->fThermalCond() = (fThermalCond < fThermalCondSat ? fThermalCond : fThermalCondSat) +
+            (fThermalCond2 < fThermalCond2Sat ? fThermalCond2 : fThermalCond2Sat);
+#endif
 #ifdef DTADJUST
             {
                 double uDot = p->PdV();
