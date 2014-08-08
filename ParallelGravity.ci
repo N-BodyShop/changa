@@ -130,6 +130,10 @@ mainmodule ParallelGravity {
   PUPable Kroupa93;
   PUPable Kroupa01;
 
+#ifdef SUPERBUBBLE
+  PUPable MassHotOutputParams;
+  PUPable TempEffOutputParams;
+#endif
   //SIDM
   PUPable SIDMSmoothParams;
   PUPable MassOutputParams;
