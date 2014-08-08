@@ -1826,7 +1826,7 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         if (p->iOrder == q->iOrder) continue;
 	    if (TYPETest(q, TYPE_DELETED) || (TYPETest(q, TYPE_FEEDBACK) && !TYPETest(q, TYPE_PROMOTED))) continue;
         Tq = CoolEnergyToTemperature(&q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
-        if (Tq >= dEvapMinTemp) continue;  /* Exclude hot particles */
+        if (q->uHot() > 0 || Tq >= dEvapMinTemp) continue;  /* Exclude hot particles */
 	    CkAssert(TYPETest(q, TYPE_GAS));
         CkAssert(!TYPETest(p, TYPE_STAR));
 		r2 = nnList[i].fKey*ih2;            
@@ -1848,8 +1848,7 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		if (p->iOrder == q->iOrder) continue;
 		if (TYPETest(q, TYPE_DELETED)) continue;
         Tq = CoolEnergyToTemperature(&q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
-		//if (q->uHot() == 0 && Tq <= dEvapMinTemp) continue;  
-		if (Tq <= dEvapMinTemp) continue;  
+        if (q->uHot() == 0 && Tq <= dEvapMinTemp) continue;  
 		dot = xc*nnList[i].dx.x + yc*nnList[i].dx.y + zc*nnList[i].dx.y;
 		if (dot > 0 && dot*dot > dotcut2*nnList[i].fKey) {
             //printf("promote (hot excluded): %d %d  %g %g  (%g %g %g) (%g %g %g)\n",p->iOrder,q->iOrder,Tp, Tq,xc,yc,zc,nnList[i].dx,nnList[i].dy,nnList[i].dz);
