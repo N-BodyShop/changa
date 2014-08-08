@@ -1720,6 +1720,10 @@ void DistDeletedGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         }
     }
 #ifdef SUPERBUBBLE
+int PromoteToHotGasSmoothParams::isSmoothActive(GravityParticle *p)
+{
+    return TYPETest(p, TYPE_FEEDBACK) && TYPETest(p, iType);
+}
 void PromoteToHotGasSmoothParams::initSmoothParticle(GravityParticle *p)
 {
     TYPEReset(p,TYPE_PROMOTED);
@@ -1845,6 +1849,11 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
             if (mPromoted < q->mass*0.1) break;
             }
         }
+}
+
+int ShareWithHotGasSmoothParams::isSmoothActive(GravityParticle *p)
+{
+    return TYPETest(p, TYPE_FEEDBACK) && TYPETest(p, iType);
 }
         
 void ShareWithHotGasSmoothParams::initSmoothParticle(GravityParticle *p)
