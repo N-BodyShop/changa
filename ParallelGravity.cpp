@@ -2912,6 +2912,11 @@ Main::doSimulation()
       writeOutput(0);
       if(param.bDoGas) {
 	  ckout << "Outputting gas properties ...";
+#ifdef SUPERBUBBLE
+	      MassHotOutputParams pHotOut(achFile, param.iBinaryOut, 0.0);
+          double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
+	      TempEffOutputParams pTeffOut(achFile, param.iBinaryOut, 0.0, param.bGasCooling, dTuFac);
+#endif
 	      GasDenOutputParams pDenOut(achFile, param.iBinaryOut, 0.0);
 	      PresOutputParams pPresOut(achFile, param.iBinaryOut, 0.0);
 	      HsmOutputParams pSphHOut(achFile, param.iBinaryOut, 0.0);
@@ -2921,6 +2926,12 @@ Main::doSimulation()
 	      BSwOutputParams pBSwOut(achFile, param.iBinaryOut, 0.0);
 	      CsOutputParams pCsOut(achFile, param.iBinaryOut, 0.0);
               if (param.iBinaryOut) {
+#ifdef SUPERBUBBLE
+                  outputBinary(pHotOut, param.bParaWrite,
+                      CkCallbackResumeThread());
+                  outputBinary(pTeffOut, param.bParaWrite,
+                      CkCallbackResumeThread());
+#endif
                   outputBinary(pPresOut, param.bParaWrite,
                       CkCallbackResumeThread());
                   outputBinary(pDivVOut, param.bParaWrite,
@@ -2942,6 +2953,10 @@ Main::doSimulation()
 #endif
                   }
               else {
+#ifdef SUPERBUBBLE
+                  treeProxy[0].outputASCII(pHotOut, param.bParaWrite, CkCallbackResumeThread());
+                  treeProxy[0].outputASCII(pTeffOut, param.bParaWrite,CkCallbackResumeThread());
+#endif
                   treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
                   treeProxy[0].outputASCII(pPresOut, param.bParaWrite, CkCallbackResumeThread());
                   treeProxy[0].outputASCII(pSphHOut, param.bParaWrite, CkCallbackResumeThread());
