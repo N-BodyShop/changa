@@ -112,6 +112,7 @@ mainmodule ParallelGravity {
   PUPable DistDeletedGasSmoothParams;
   PUPable AGORApreCheckSmoothParams;
   PUPable PromoteToHotGasSmoothParams;
+  PUPable ShareWithHotGasSmoothParams;
   PUPable DistStellarFeedbackSmoothParams;
   PUPable SinkFormTestSmoothParams;
   PUPable SinkFormSmoothParams;
