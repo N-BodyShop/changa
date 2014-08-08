@@ -1826,6 +1826,7 @@ void Main::updateuDot(int iActiveRung, const double duKick[],
         dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
     treeProxy.updateuDot(iActiveRung, duKick, dStartTime,
                          param.bGasCooling, bUpdateState, bAll,
+                         (param.dConstGamma-1),
                          CkCallbackResumeThread());
     double tuDot = CkWallTimer() - startTime;
     timings[iActiveRung].tuDot += tuDot;

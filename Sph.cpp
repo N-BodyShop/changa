@@ -61,7 +61,7 @@ Main::initSph()
 	    dStartTime[iRung] = dTime;
 	    }
 	treeProxy.updateuDot(0, duDelta, dStartTime, param.bGasCooling, 0, 1,
-			     CkCallbackResumeThread());
+            (param.dConstGamma-1), CkCallbackResumeThread());
 	}
     }
 
@@ -777,23 +777,54 @@ void TreePiece::updateuDot(int activeRung,
 			   int bCool, // select equation of state
 			   int bUpdateState, // update ionization fractions
 			   int bAll, // update all rungs below activeRung
+               double gammam1,
 			   const CkCallback& cb)
 {
 #ifndef COOLING_NONE
     double dt; // time in seconds
+    double fDensity;
+    double E;
+    double ExternalHeating;
     
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS)
 	    && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
 	    dt = CoolCodeTimeToSeconds(dm->Cool, duDelta[p->rung] );
-	    double ExternalHeating = p->PdV();
-	    ExternalHeating += p->fESNrate();
 	    if ( bCool ) {
 		COOLPARTICLE cp = p->CoolParticle();
-		double E = p->u();
 		double r[3];  // For conversion to C
 		p->position.array_form(r);
+#ifdef SUPERBUBBLE
+        double uHotDotFB = p->fESNrate();
+        double frac = p->massHot()/p->mass;
+        double uMean = frac*p->uHotPred()+(1-frac)*p->uPred();
+        int bUpdateStd = (p->massHot() < 0.9*p->mass);
+        if (p->massHot() > 0) {
+            CkAssert(p->uHot() > 0);
+            E = p->uHot();
+            ExternalHeating = p->PdV()*p->uHotPred()/uMean + p->fESNrate();
+            fDensity = p->fDensity*p->fDensity*p->PoverRho2()/(gammam1*p->uHot());
+            CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E, ExternalHeating, fDensity,
+                    p->fMetals(), r, dt);
+            if(bUpdateState && !bUpdateStd) p->CoolParticle() = cp;
+            p->uHotDot() = (E- p->uHot())/duDelta[p->rung];
+        }
+        else {
+            p->uHotDot() = 0;
+            ExternalHeating = p->PdV() + p->fESNrate();
+        }
+        CkAssert(p->uPred() > 0);
+        fDensity = p->fDensity*p->fDensity*p->PoverRho2()/(gammam1*p->uPred());
+        ExternalHeating = p->PdV()*p->uPred()/uMean;
+#else
+        fDensity = p->fDensity();
+        ExternalHeating = p->PdV() + p->fESNrate();
+#endif
+		E = p->u();
+#ifdef COOLING_BOLEY
+		cp.mrho = pow(p->mass/p->fDensity, 1./3.);
+#endif
 		double dtUse = dt;
 		
 		if(dStartTime[p->rung] + 0.5*duDelta[p->rung]
@@ -812,7 +843,7 @@ void TreePiece::updateuDot(int activeRung,
 					p->fMetals(), r, dtUse, columnL);
 #else /*COOLING_MOLECULARH*/
 		CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
-					ExternalHeating, p->fDensity,
+					ExternalHeating, fDensity,
 					p->fMetals(), r, dtUse);
 #endif /*COOLING_MOLECULARH*/
 		CkAssert(E > 0.0);
