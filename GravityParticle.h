@@ -99,6 +99,9 @@ class extraSPHData
 #ifdef SUPERBUBBLE
     double _fThermalCond;
     double _fThermalLength;
+    double _fPromoteSum;
+    double _fPromoteSumuPred;
+    double _fPromoteuPredInit;
 #endif
     
  public:
@@ -149,6 +152,9 @@ class extraSPHData
 #ifdef SUPERBUBBLE
     inline double& fThermalCond() {return _fThermalCond;}
     inline double& fThermalLength() {return _fThermalLength;}
+    inline double& fPromoteSum() {return _fPromoteSum;}
+    inline double& fPromoteSumuPred() {return _fPromoteSumuPred;}
+    inline double& fPromoteuPredInit() {return _fPromoteuPredInit;}
 #endif
 #ifdef __CHARMC__
     void pup(PUP::er &p) {
@@ -198,6 +204,9 @@ class extraSPHData
 #ifdef SUPERBUBBLE
     p| _fThermalCond;
     p| _fThermalLength;
+    p| _fPromoteSum;
+    p| _fPromoteSumuPred;
+    p| _fPromoteuPredInit;
 #endif
 	}
 #endif
@@ -410,6 +419,9 @@ public:
 #ifdef SUPERBUBBLE
 	inline double& fThermalCond() { IMAGAS; return (((extraSPHData*)extraData)->fThermalCond());}
 	inline double& fThermalLength() { IMAGAS; return (((extraSPHData*)extraData)->fThermalLength());}
+	inline double& fPromoteSum() { IMAGAS; return (((extraSPHData*)extraData)->fThermalLength());}
+	inline double& fPromoteSumuPred() { IMAGAS; return (((extraSPHData*)extraData)->fThermalLength());}
+	inline double& fPromoteuPredInit() { IMAGAS; return (((extraSPHData*)extraData)->fThermalLength());}
 #endif
 	// Access Star Quantities
 	// XXX Beware overlaps with SPH; we could fix this by aligning
@@ -453,7 +465,9 @@ public:
 #define TYPE_SINK              (1<<7)
 #define TYPE_SINKING           (1<<8)
 #define TYPE_NEWSINKING        (1<<9)
-#define TYPE_MAXTYPE           (1<<10)
+#define TYPE_PROMOTED          (1<<10)
+#define TYPE_FEEDBACK          (1<<11)
+#define TYPE_MAXTYPE           (1<<12)
 
 	inline bool isDark() const { return TYPETest(this, TYPE_DARK);}
 	inline bool isGas() const { return TYPETest(this, TYPE_GAS);}
@@ -555,6 +569,11 @@ class ExternalSmoothParticle {
   double fMFracOxygenDot;
   double fMFracIronDot;
 #endif
+#ifdef SUPERBUBBLE
+    double fPromoteSum;
+    double fPromoteSumuPred;
+    double fPromoteuPredInit;
+#endif
   double fNSN;
   int64_t iEaterOrder;
   double dTimeFB;
@@ -604,6 +623,11 @@ class ExternalSmoothParticle {
 	      fMFracOxygenDot = p->fMFracOxygenDot();
 	      fMFracIronDot = p->fMFracIronDot();
 #endif	      
+#ifdef SUPERBUBBLE
+          fPromoteSum = p->fPromoteSum();
+          fPromoteSumuPred = p->fPromoteSumuPred();
+          fPromoteuPredInit = p->fPromoteuPredInit();
+#endif
 #ifdef DTADJUST
               dt = p->dt;
               dtNew = p->dtNew();
@@ -657,6 +681,11 @@ class ExternalSmoothParticle {
 	  tmp->fMetalsDot() = fMetalsDot;
 	  tmp->fMFracOxygenDot() = fMFracOxygenDot;
 	  tmp->fMFracIronDot() = fMFracIronDot;
+#endif
+#ifdef SUPERBUBBLE
+          tmp->fPromoteSum() = fPromoteSum;
+          tmp->fPromoteSumuPred() = fPromoteSumuPred;
+          tmp->fPromoteuPredInit() = fPromoteuPredInit;
 #endif
 #ifdef DTADJUST
           tmp->dt = dt;
@@ -712,6 +741,11 @@ class ExternalSmoothParticle {
     p | fMetalsDot;
     p | fMFracOxygenDot;
     p | fMFracIronDot;
+#endif
+#ifdef SUPERBUBBLE
+    p | fPromoteSum;
+    p | fPromoteSumuPred;
+    p | fPromoteuPredInit;
 #endif
     p | fNSN;
     p | iEaterOrder;

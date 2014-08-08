@@ -1719,3 +1719,133 @@ void DistDeletedGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 #endif
         }
     }
+#ifdef SUPERBUBBLE
+void PromoteToHotGasSmoothParams::initSmoothParticle(GravityParticle *p)
+{
+    TYPEReset(p,TYPE_PROMOTED);
+    p->fPromoteSum() = 0;
+    p->fPromoteSumuPred() = 0;
+    p->fPromoteuPredInit() = p->uPred();
+
+}
+void PromoteToHotGasSmoothParams::combSmoothCache(GravityParticle *p1, ExternalSmoothParticle *p2)
+{
+    if(TYPETest(p2, TYPE_PROMOTED)) {
+        TYPESet(p1,TYPE_PROMOTED);
+        if (p2->fTimeCoolIsOffUntil > p1->fTimeCoolIsOffUntil()) p1->fTimeCoolIsOffUntil() = p2->fTimeCoolIsOffUntil;
+        }
+    p1->fPromoteSum() = p2->fPromoteSum;
+    p1->fPromoteSumuPred() = p2->fPromoteSumuPred;
+}
+void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
+        pqSmoothNode *nnList)
+    {	
+#ifdef NOCOOLING
+    return;
+#else
+    GravityParticle *q;
+    double fFactor,ph,ih2,r2,rs,rstot;
+    double Tp,Tq,up52,Prob,mPromoted;
+    double xc,yc,zc,dotcut2,dot;
+	int i,nCold,nHot;
+
+	CkAssert(TYPETest(p, TYPE_GAS));
+	CkAssert(TYPETest(p, TYPE_FEEDBACK));
+	CkAssert(!TYPETest(p, TYPE_PROMOTED));
+    ph = 0.5*p->fBall;
+    ih2 = invH2(p);
+    /* Exclude cool particles */
+    Tp = CoolEnergyToTemperature(&p->CoolParticle(), dErgPerGmUnit*p->uPred(), p->fMetals() );
+    if (Tp <= dEvapMinTemp) return;
+
+    up52 = pow(p->uPred(),2.5);
+    rstot = 0;
+    xc = 0; yc = 0; zc = 0; 
+    nCold = 0;
+	for (i=0;i<nSmooth;++i) {
+        q = nnList[i].p;
+        if (p->iOrder == q->iOrder) continue;
+	    if (TYPETest(q, TYPE_DELETED) || (TYPETest(q, TYPE_FEEDBACK) && !TYPETest(q, TYPE_PROMOTED))) continue;
+        Tq = CoolEnergyToTemperature(&q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
+        if (Tq >= dEvapMinTemp) continue;  /* Exclude hot particles */
+	    CkAssert(TYPETest(q, TYPE_GAS));
+        CkAssert(!TYPETest(p, TYPE_STAR));
+		r2 = nnList[i].fKey*ih2;            
+		rs = KERNEL(r2);
+        rstot += rs;
+  		xc += rs*nnList[i].dx.x; 
+		yc += rs*nnList[i].dx.y;
+		zc += rs*nnList[i].dx.z;
+        nCold++;
+        }
+
+    if (rstot == 0) return;
+
+    /* Check for non-edge hot particle  theta = 45 deg, cos^2 = 0.5 */
+    dotcut2 = (xc*xc+yc*yc+zc*zc)*0.5;
+    
+	for (i=0;i<nSmooth;++i) {
+		q = nnList[i].p;
+		if (p->iOrder == q->iOrder) continue;
+		if (TYPETest(q, TYPE_DELETED)) continue;
+        Tq = CoolEnergyToTemperature(&q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
+		//if (q->uHot() == 0 && Tq <= dEvapMinTemp) continue;  
+		if (Tq <= dEvapMinTemp) continue;  
+		dot = xc*nnList[i].dx.x + yc*nnList[i].dx.y + zc*nnList[i].dx.y;
+		if (dot > 0 && dot*dot > dotcut2*nnList[i].fKey) {
+            //printf("promote (hot excluded): %d %d  %g %g  (%g %g %g) (%g %g %g)\n",p->iOrder,q->iOrder,Tp, Tq,xc,yc,zc,nnList[i].dx,nnList[i].dy,nnList[i].dz);
+            return;
+            }
+        }
+
+    /* Area = h^2 4 pi nCold/nSmooth */
+	nHot=nSmooth-nCold;
+	CkAssert(nHot > 0);
+    fFactor = dDeltaStarForm*dEvapCoeff*ph*12.5664*1.5/(nHot)/rstot;
+	//printf("CHECKAREA2: %e %d %e %d %d %e %e %e\n", smf->dTime, p->iOrder, 12.5664*ph*ph*1.5/(nHot), nSmooth, nCold, xc, yc, zc);
+
+    mPromoted = 0;
+	for (i=0;i<nSmooth;++i) {
+        q = nnList[i].p;
+        if (p->iOrder == q->iOrder) continue;
+	    if(TYPETest(q, TYPE_DELETED) || (TYPETest(q, TYPE_FEEDBACK) && !TYPETest(q, TYPE_PROMOTED))) continue;
+        Tq = CoolEnergyToTemperature(&q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
+        if (Tq >= dEvapMinTemp ) continue;  /* Exclude hot particles */
+	    CkAssert(TYPETest(q, TYPE_GAS));
+		r2 = nnList[i].fKey*ih2;            
+		rs = KERNEL(r2);
+        q->fPromoteSum() += p->mass;
+        q->fPromoteSumuPred() += p->mass*p->uPred();
+		
+        /* cf. Weaver etal'77 mdot = 4.13d-14 * (dx^2/4 !pi) (Thot^2.5-Tcold^2.5)/dx - 2 udot mHot/(k T/mu) 
+           Kernel sets total probability to 1 */
+        Prob = fFactor*(up52-pow(q->uPred(),2.5))*rs/q->mass;
+		//printf("promote?: %d %d %g %g %g  %g %g %g\n",p->iOrder,q->iOrder,Tp, Tq, ph, fFactor*(up52-pow(q->uPred,2.5))*rs, q->mass, Prob);
+        if ( (rand()/((double) RAND_MAX)) < Prob) {
+            mPromoted += q->mass; //printf("promote? MASS: %d %d %g %g %g  %g + %g %g\n",p->iOrder,q->iOrder,Tp, Tq, ph, fFactor*(up52-pow(q->uPred,2.5))*rs, q->mass, Prob);
+            }
+        }
+
+    if (mPromoted > 0) {
+        double dTimeCool = dTime + 0.9999*dDeltaStarForm;
+
+        std::sort_heap(nnList, nnList+nSmooth);
+        for (i=0;i<nSmooth;++i) {
+            q = nnList[i].p;
+            if (p->iOrder == q->iOrder) continue;
+            if (TYPETest(q, TYPE_DELETED) || TYPETest(q, TYPE_FEEDBACK) || TYPETest(q, TYPE_PROMOTED)) continue;
+            Tq = CoolEnergyToTemperature(&q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
+            if (Tq >= dEvapMinTemp ) continue;  /* Exclude hot particles */
+            CkAssert(TYPETest(q, TYPE_GAS));
+
+            if (dTimeCool > q->fTimeCoolIsOffUntil()) q->fTimeCoolIsOffUntil() = dTimeCool;
+            TYPESet(q, TYPE_PROMOTED|TYPE_FEEDBACK);
+            mPromoted -= q->mass;
+            //printf("promote? YES: %d %d %g %g %g  %g - %g %g\n",p->iOrder,q->iOrder,Tp, Tq, ph, fFactor*(up52-pow(q->uPred,2.5))*rs, q->mass, Prob);
+            if (mPromoted < q->mass*0.1) break;
+            }
+        }
+        
+#endif
+}
+#endif
