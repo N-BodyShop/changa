@@ -58,6 +58,65 @@ class OutputParams : public PUP::able
 	}
     };
 
+#ifdef SUPERBUBBLE
+/// @brief Output particle hot phase masses
+class MassHotOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {return p->massHot();}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {p->massHot() = val;}
+    MassHotOutputParams() {}
+    MassHotOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "massHot"; sNChilExt = "massHot";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
+    PUPable_decl(MassHotOutputParams);
+    MassHotOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+/// @brief Output particle gas effective temperature (for two-phase particles)
+class TempEffOutputParams : public OutputParams
+{
+ public:
+    double duTFac;
+    bool bGasCooling;
+    virtual double dValue(GravityParticle *p) {
+        if(bGasCooling) {
+            double x = p->massHot()/p->mass;
+#ifndef COOLING_NONE
+            return CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(),
+                                               x*p->uHot()+(1-x)*p->u(), p->fMetals());
+#else
+            CkAssert(0);
+#endif
+            }
+        return duTFac*p->u();
+        }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+    TempEffOutputParams() {}
+    TempEffOutputParams(std::string _fileName, int _iBinaryOut, double _dTime,
+                     bool _bGasCooling, double _duTFac) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "tempEff"; sNChilExt = "temperatureEff";
+        dTime = _dTime; bGasCooling = _bGasCooling; duTFac = _duTFac;
+        iType = TYPE_GAS; }
+    PUPable_decl(TempEffOutputParams);
+    TempEffOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+        p|bGasCooling;
+        p|duTFac;
+	}
+    };
+#endif 
 /// @brief Output particle masses
 class MassOutputParams : public OutputParams
 {

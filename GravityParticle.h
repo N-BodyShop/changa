@@ -97,6 +97,10 @@ class extraSPHData
     double _fMFracIronPred;
 #endif
 #ifdef SUPERBUBBLE
+    double _uHot;
+    double _uHotDot;
+    double _uHotPred;
+    double _massHot;
     double _fThermalCond;
     double _fThermalLength;
     double _fPromoteSum;
@@ -150,6 +154,10 @@ class extraSPHData
     inline double& fMFracIronPred() {return _fMFracIronPred;}
 #endif
 #ifdef SUPERBUBBLE
+    inline double& uHot() {return _uHot;}
+    inline double& uHotPred() {return _uHotPred;}
+    inline double& uHotDot() {return _uHotDot;}
+    inline double& massHot() {return _massHot;}
     inline double& fThermalCond() {return _fThermalCond;}
     inline double& fThermalLength() {return _fThermalLength;}
     inline double& fPromoteSum() {return _fPromoteSum;}
@@ -202,6 +210,10 @@ class extraSPHData
 	p| _fMFracIronPred;
 #endif
 #ifdef SUPERBUBBLE
+    p| _uHot;
+    p| _uHotDot;
+    p| _uHotPred;
+    p| _massHot;
     p| _fThermalCond;
     p| _fThermalLength;
     p| _fPromoteSum;
@@ -417,6 +429,10 @@ public:
 	inline double& fMFracIronPred() { IMAGAS; return (((extraSPHData*)extraData)->fMFracIronPred());}
 #endif
 #ifdef SUPERBUBBLE
+	inline double& uHot() { IMAGAS; return (((extraSPHData*)extraData)->uHot());}
+	inline double& uHotPred() { IMAGAS; return (((extraSPHData*)extraData)->uHotPred());}
+	inline double& uHotDot() { IMAGAS; return (((extraSPHData*)extraData)->uHotDot());}
+	inline double& massHot() { IMAGAS; return (((extraSPHData*)extraData)->massHot());}
 	inline double& fThermalCond() { IMAGAS; return (((extraSPHData*)extraData)->fThermalCond());}
 	inline double& fThermalLength() { IMAGAS; return (((extraSPHData*)extraData)->fThermalLength());}
 	inline double& fPromoteSum() { IMAGAS; return (((extraSPHData*)extraData)->fThermalLength());}
@@ -570,9 +586,13 @@ class ExternalSmoothParticle {
   double fMFracIronDot;
 #endif
 #ifdef SUPERBUBBLE
-    double fPromoteSum;
-    double fPromoteSumuPred;
-    double fPromoteuPredInit;
+  double uHot;
+  double uHotDot;
+  double uHotPred;
+  double massHot;
+  double fPromoteSum;
+  double fPromoteSumuPred;
+  double fPromoteuPredInit;
 #endif
   double fNSN;
   int64_t iEaterOrder;
@@ -624,6 +644,10 @@ class ExternalSmoothParticle {
 	      fMFracIronDot = p->fMFracIronDot();
 #endif	      
 #ifdef SUPERBUBBLE
+          uHot = p->uHot();
+          uHotPred = p->uHotPred();
+          uHotDot = p->uHotDot();
+          massHot = p->massHot();
           fPromoteSum = p->fPromoteSum();
           fPromoteSumuPred = p->fPromoteSumuPred();
           fPromoteuPredInit = p->fPromoteuPredInit();
@@ -683,9 +707,13 @@ class ExternalSmoothParticle {
 	  tmp->fMFracIronDot() = fMFracIronDot;
 #endif
 #ifdef SUPERBUBBLE
-          tmp->fPromoteSum() = fPromoteSum;
-          tmp->fPromoteSumuPred() = fPromoteSumuPred;
-          tmp->fPromoteuPredInit() = fPromoteuPredInit;
+      tmp->uHot() = uHot;
+      tmp->uHotPred() = uHotPred;
+      tmp->uHotDot() = uHotDot;
+      tmp->massHot() = massHot;
+      tmp->fPromoteSum() = fPromoteSum;
+      tmp->fPromoteSumuPred() = fPromoteSumuPred;
+      tmp->fPromoteuPredInit() = fPromoteuPredInit;
 #endif
 #ifdef DTADJUST
           tmp->dt = dt;
@@ -743,6 +771,10 @@ class ExternalSmoothParticle {
     p | fMFracIronDot;
 #endif
 #ifdef SUPERBUBBLE
+    p | uHot;
+    p | uHotPred;
+    p | uHotDot;
+    p | massHot;
     p | fPromoteSum;
     p | fPromoteSumuPred;
     p | fPromoteuPredInit;
