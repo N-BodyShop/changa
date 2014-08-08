@@ -1457,7 +1457,11 @@ void TreePiece::calcEnergy(const CkCallback& cb) {
 	dEnergy[2] += p->mass*p->potential;
 	L += p->mass*cross(p->position, p->velocity);
 	if (TYPETest(p, TYPE_GAS))
+#ifdef SUPERBUBBLE
+	    dEnergy[6] += p->massHot()*p->uHot()+(p->mass-p->massHot())*p->u();
+#else
 	    dEnergy[6] += p->mass*p->u();
+#endif
 	}
     dEnergy[0] *= 0.5;
     dEnergy[2] *= 0.5;
