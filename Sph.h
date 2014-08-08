@@ -280,11 +280,44 @@ class PromoteToHotGasSmoothParams : public SmoothParams
         SmoothParams::pup(p);//Call base class
         p|dEvapCoeff;
         p|dEvapMinTemp;
-        p|dEvapCoeff;
         p|dErgPerGmUnit;
         p|dGmPerCcUnit;
         p|dDeltaStarForm;
         p|dTime;
+	}
+};
+class ShareWithHotGasSmoothParams : public SmoothParams
+{
+    double dEvapMinTemp;
+    double dErgPerGmUnit;
+    double dGmPerCcUnit;
+    virtual void fcnSmooth(GravityParticle *p, int nSmooth,
+			   pqSmoothNode *nList);
+    virtual int isSmoothActive(GravityParticle *p) {}
+    virtual void initSmoothParticle(GravityParticle *p) ;
+    virtual void initTreeParticle(GravityParticle *p) {}
+    virtual void postTreeParticle(GravityParticle *p) {}
+    virtual void initSmoothCache(GravityParticle *p) {}
+    virtual void combSmoothCache(GravityParticle *p1,
+				 ExternalSmoothParticle *p2) ;
+ public:
+    ShareWithHotGasSmoothParams() {}
+    ShareWithHotGasSmoothParams(int _iType, int am, double _dEvapMinTemp,
+            double _dErgPerGmUnit, double _dGmPerCcUnit ){
+        iType = _iType;
+        activeRung = am;
+        bUseBallMax = 0;
+        dEvapMinTemp = _dEvapMinTemp;
+        dErgPerGmUnit = _dErgPerGmUnit;
+        dGmPerCcUnit = _dGmPerCcUnit;
+	}
+    PUPable_decl(ShareWithHotGasSmoothParams);
+    ShareWithHotGasSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
+    virtual void pup(PUP::er &p) {
+        SmoothParams::pup(p);//Call base class
+        p|dEvapMinTemp;
+        p|dErgPerGmUnit;
+        p|dGmPerCcUnit;
 	}
 };
 #endif

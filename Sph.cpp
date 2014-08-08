@@ -1739,10 +1739,10 @@ void PromoteToHotGasSmoothParams::combSmoothCache(GravityParticle *p1, ExternalS
 }
 void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         pqSmoothNode *nnList)
-    {	
+{	
 #ifdef NOCOOLING
     return;
-#else
+#endif
     GravityParticle *q;
     double fFactor,ph,ih2,r2,rs,rstot;
     double Tp,Tq,up52,Prob,mPromoted;
@@ -1845,7 +1845,79 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
             if (mPromoted < q->mass*0.1) break;
             }
         }
+}
         
-#endif
+void ShareWithHotGasSmoothParams::initSmoothParticle(GravityParticle *p)
+{
+	if(!TYPETest(p, TYPE_DELETED)) {
+		p->u() = 0;  
+		p->uPred() = 0;
+		}
+}
+
+void ShareWithHotGasSmoothParams::combSmoothCache(GravityParticle *p1, ExternalSmoothParticle *p2)
+{
+	if(!TYPETest((p1), TYPE_DELETED)) {
+        p1->u() +=  p2->u;
+        p1->uPred() += p2->uPred;
+		}
+}
+
+void ShareWithHotGasSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
+        pqSmoothNode *nnList)
+{
+	GravityParticle *q;
+	double rsmax,uavg,umin;
+	double dE,Eadd,factor,Tp;
+	int i,nPromoted;
+
+	CkAssert(TYPETest(p, TYPE_GAS));
+	CkAssert(TYPETest(p, TYPE_FEEDBACK));
+	CkAssert(!TYPETest(p, TYPE_PROMOTED));
+    Tp = CoolEnergyToTemperature(&p->CoolParticle(), dErgPerGmUnit*p->uPred(), p->fMetals() );
+    if (Tp <= dEvapMinTemp) return;
+
+    rsmax = 1.0;
+    nPromoted = 0;
+
+    dE = 0;
+    umin = FLT_MAX;
+	for (i=0;i<nSmooth;++i) {
+        q = nnList[i].p;
+	    if (TYPETest(q, TYPE_PROMOTED)) {
+            nPromoted++;
+            uavg = (rsmax*q->mass*q->fPromoteuPredInit() + q->fPromoteSumuPred())/
+                (rsmax*q->mass + q->fPromoteSum());
+            if (uavg < umin) umin=uavg;
+            Eadd = (uavg-q->fPromoteuPredInit())*q->mass;
+            if (Eadd < 0) Eadd=0;
+            dE += p->mass/q->fPromoteSum()*Eadd;
+            }
+        }
+
+    if (!nPromoted || dE == 0 || p->uPred() <= umin) return;
+    factor = ((p->uPred()-umin)*p->mass)/dE;
+    if (factor > 1) factor=1;
+
+	for (i=0;i<nSmooth;++i) {
+        q = nnList[i].p;
+	    if (TYPETest(q, TYPE_PROMOTED)) {
+            nPromoted++;
+            uavg = (rsmax*q->mass*q->fPromoteuPredInit() + q->fPromoteSumuPred())/
+                (rsmax*q->mass + q->fPromoteSum());
+            if (uavg < umin) umin=uavg;
+            Eadd = (uavg-q->fPromoteuPredInit())*q->mass;
+            if (Eadd < 0) Eadd=0;
+            dE = factor*p->mass/q->fPromoteSum()*Eadd;
+            q->uPred() += dE/q->mass;
+            q->u() += dE/q->mass;
+            p->uPred() -=  dE/p->mass;
+            p->u() -=  dE/p->mass;
+            CkAssert(q->uPred() > 0);
+            CkAssert(q->u() > 0);
+            CkAssert(p->uPred() > 0);
+            CkAssert(p->u() > 0);
+            }
+        }
 }
 #endif
