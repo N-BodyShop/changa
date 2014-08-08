@@ -54,7 +54,6 @@ class Fdbk : public PUP::able {
 #endif /*COOLING_MOLECULARH*/
     char achIMF[32];	        /* initial mass function */
     int iRandomSeed;		/* seed for stochastic quantized feedback */
-    double dErgPerGmUnit;	/* system specific energy in ergs/gm */
     double dGmUnit;		/* system mass in grams */
     double dGmPerCcUnit;	/* system density in gm/cc */
     double dErgUnit;		/* system energy in ergs */
@@ -62,6 +61,7 @@ class Fdbk : public PUP::able {
  public:
     mutable SN sn;
     double dDeltaStarForm;
+    double dErgPerGmUnit;	/* system specific energy in ergs/gm */
     double dSecUnit;		/* system time in seconds */
     double dMaxGasMass;		/* Maximum mass of a gas particle */
 #ifdef SPLITGAS

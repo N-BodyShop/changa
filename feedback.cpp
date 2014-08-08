@@ -760,7 +760,23 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
 	q->fMFracOxygen() += weight*p->fMOxygenOut();
 	q->fMFracIron() += weight*p->fMIronOut();
 	q->mass += weight*p->fMSN();
-    if(weight > 0) TYPESet(p, TYPE_FEEDBACK);
+    if(weight > 0) TYPESet(q, TYPE_FEEDBACK);
+#ifdef SUPERBUBBLE
+    double Tq = CoolEnergyToTemperature(&q->CoolParticle(), fb.dErgPerGmUnit*q->uPred(), q->fMetals() );
+	if(Tq < fb.dMultiPhaseMinTemp && weight > 0) {
+		double massHot = q->massHot() + weight*p->fMSN();
+		double deltaMassLoad = weight*p->fMSN()*fb.dFBInitialMassLoad;
+		if (massHot+deltaMassLoad >= q->mass) {
+			deltaMassLoad = q->mass - massHot;
+			massHot = q->mass;
+			}
+		else {
+			massHot += deltaMassLoad;
+		}
+		q->massHot() = massHot;
+		CkAssert(q->massHot() >= 0);
+	}
+#endif
 	}
     }
 
