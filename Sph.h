@@ -253,7 +253,7 @@ class PromoteToHotGasSmoothParams : public SmoothParams
     double dTime;
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
-    virtual int isSmoothActive(GravityParticle *p) {}
+    virtual int isSmoothActive(GravityParticle *p);
     virtual void initSmoothParticle(GravityParticle *p) ;
     virtual void initTreeParticle(GravityParticle *p) {}
     virtual void postTreeParticle(GravityParticle *p) {}
@@ -293,7 +293,7 @@ class ShareWithHotGasSmoothParams : public SmoothParams
     double dGmPerCcUnit;
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
-    virtual int isSmoothActive(GravityParticle *p) {}
+    virtual int isSmoothActive(GravityParticle *p);
     virtual void initSmoothParticle(GravityParticle *p) ;
     virtual void initTreeParticle(GravityParticle *p) {}
     virtual void postTreeParticle(GravityParticle *p) {}
