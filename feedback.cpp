@@ -304,6 +304,14 @@ void Main::StellarFeedback(double dTime, double dDelta)
         dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
 #endif
 
+#ifdef SUPERBUBBLE
+    CkPrintf("Promote cold shell to hot... \n");
+    PromoteToHotGasSmoothParams pPHG(TYPE_GAS, 0, param.dEvapCoeff, param.dEvapMinTemp,
+            param.dErgPerGmUnit, param.dGmPerCcUnit, param.stfm->dDeltaStarForm, dTime);
+    ShareWithHotGasSmoothParams pSHG(TYPE_GAS, 0, param.dEvapMinTemp,
+            param.dErgPerGmUnit, param.dGmPerCcUnit); 
+    treeProxy.startReSmooth(&pSHG, CkCallbackResumeThread());
+#endif
 #ifdef SPLITGAS
     addDelParticles();
 #endif
@@ -752,6 +760,7 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
 	q->fMFracOxygen() += weight*p->fMOxygenOut();
 	q->fMFracIron() += weight*p->fMIronOut();
 	q->mass += weight*p->fMSN();
+    if(weight > 0) TYPESet(p, TYPE_FEEDBACK);
 	}
     }
 
