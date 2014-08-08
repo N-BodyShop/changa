@@ -625,6 +625,10 @@ void DistStellarFeedbackSmoothParams::initTreeParticle(GravityParticle *p1)
      */
     
     if(TYPETest(p1, TYPE_GAS)){
+#ifdef SUPERBUBBLE
+      if (p1->massHot() > 0) p1->fESNrate() *= p1->massHot();
+      else
+#endif
       p1->fESNrate() *= p1->mass;
       p1->fMetals() *= p1->mass;    
       p1->fMFracOxygen() *= p1->mass;    
@@ -647,6 +651,9 @@ void DistStellarFeedbackSmoothParams::initSmoothCache(GravityParticle *p1)
      * mass.  Note: original particle curlv's never modified.
      */
     p1->curlv().x = p1->mass;
+#ifdef SUPERBUBBLE
+    p1->curlv().y = p1->massHot();
+#endif
 
     /*
      * Zero out accumulated quantities.
@@ -669,6 +676,10 @@ void DistStellarFeedbackSmoothParams::combSmoothCache(GravityParticle *p1,
      * See kludgery notice above.
      */
     double fAddedMass = p2->mass - p2->curlv.x;
+#ifdef SUPERBUBBLE
+    double fAddedMassHot = p2->mass - p2->curlv.y;
+    p1->massHot() += fAddedMassHot;
+#endif
     
     p1->mass += fAddedMass;
     p1->fESNrate() += p2->fESNrate;
@@ -962,6 +973,10 @@ void DistStellarFeedbackSmoothParams::postTreeParticle(GravityParticle *p1)
        because we are done with our conservative calculations */
     
     if(p1->isGas()){
+#ifdef SUPERBUBBLE
+        if(p1->massHot() > 0) p1->fESNrate() /= p1->massHot();
+        else
+#endif
 	p1->fESNrate() /= p1->mass;
 	p1->fMetals() /= p1->mass;    
 	p1->fMFracIron() /= p1->mass;    
