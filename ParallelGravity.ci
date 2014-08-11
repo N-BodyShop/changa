@@ -362,9 +362,9 @@ mainmodule ParallelGravity {
     entry void evaluateParticleCounts(ORBSplittersMsg *splittersMsg);
 
     entry void kick(int iKickRung, double dDelta[MAXRUNG+1], int bClosing,
-	    int bNeedVPred, int bGasIsothermal, double dMaxEnergy,
-            double duDelta[MAXRUNG+1],
-	    const CkCallback& cb);
+	    int bNeedVPred, int bGasIsothermal, double dMaxEnergy, double duDelta[MAXRUNG+1],
+        double gammam1, double dThermalCondCoeff, double dThermalCondSatCoeff,
+        double dMultiPhaseMinTemp, double dEvapCoeff, const CkCallback& cb);
     entry void initAccel(int iKickRung, const CkCallback& cb);
     entry void applyFrameAcc(int iKickRung, Vector3D<double> frameAcc, const CkCallback& cb);
     entry void externalGravity(int activeRung, const ExternalGravity exGrav,

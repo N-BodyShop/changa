@@ -1694,9 +1694,9 @@ public:
   /*****************************/
 
   void kick(int iKickRung, double dDelta[MAXRUNG+1], int bClosing,
-            int bNeedVPred, int bGasIsothermal, double dMaxEnergy,
-            double duDelta[MAXRUNG+1],
-	    const CkCallback& cb);
+	    int bNeedVPred, int bGasIsothermal, double duDelta[MAXRUNG+1],
+        double gammam1, double dThermalCondCoeff, double dThermalCondSatCoeff,
+        double dMultiPhaseMinTemp, double dEvapCoeff, const CkCallback& cb);
   void drift(double dDelta, int bNeedVPred, int bGasIsothermal, double dvDelta,
              double duDelta, int nGrowMass, bool buildTree, double dMaxEnergy,
 	     const CkCallback& cb);
