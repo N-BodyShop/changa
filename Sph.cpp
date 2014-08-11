@@ -818,7 +818,7 @@ void TreePiece::updateuDot(int activeRung,
         fDensity = p->fDensity*p->fDensity*p->PoverRho2()/(gammam1*p->uPred());
         ExternalHeating = p->PdV()*p->uPred()/uMean;
 #else
-        fDensity = p->fDensity();
+        fDensity = p->fDensity;
         ExternalHeating = p->PdV() + p->fESNrate();
 #endif
 		E = p->u();
