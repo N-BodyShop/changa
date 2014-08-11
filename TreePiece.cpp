@@ -1566,7 +1566,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 						   p->uHotDot() = 0;
 						   p->uHotPred() = 0;
 				   }
-                    double TpNC = CoolEnergyToTemperature(&p->CoolParticle(), p->uDot(), p->fMetals());
+                    double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(), p->fMetals());
                     if(TpNC < dMultiPhaseMinTemp && p->uHotPred() > 0)//Check to make sure the hot phase is still actually hot
                     {
 						   p->uPred() = (p->uPred()*(p->mass-p->massHot()) + p->uHotPred()*p->massHot())/p->mass;
