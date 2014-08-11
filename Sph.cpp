@@ -703,15 +703,15 @@ Main::doSph(int activeRung, int bNeedDensity)
     double dDtCourantFac = param.dEtaCourant*a*2.0/1.6;
     if(param.bGasCooling)
 	treeProxy.getCoolingGasPressure(param.dConstGamma,
-					param.dConstGamma-1, param.dThermalCondCoeff, param.dThermalCond2Coeff,
-                    param.dThermalCondSatCoeff, param.dThermalCond2SatCoeff, 
+					param.dConstGamma-1, param.dThermalCondCoeffCode, param.dThermalCond2CoeffCode,
+                    param.dThermalCondSatCoeffCode, param.dThermalCond2SatCoeffCode, 
             param.dEvapMinTemp,	dDtCourantFac,
             param.dResolveJeans/a,
             CkCallbackResumeThread());
     else
 	treeProxy.getAdiabaticGasPressure(param.dConstGamma,
-					param.dConstGamma-1, param.dThermalCondCoeff, param.dThermalCond2Coeff,
-                    param.dThermalCondSatCoeff, param.dThermalCond2SatCoeff, 
+					param.dConstGamma-1, param.dThermalCondCoeffCode, param.dThermalCond2CoeffCode,
+                    param.dThermalCondSatCoeffCode, param.dThermalCond2SatCoeffCode, 
                     param.dEvapMinTemp,	dDtCourantFac, CkCallbackResumeThread());
 
     ckout << "Calculating pressure gradients ...";

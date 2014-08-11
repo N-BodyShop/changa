@@ -1478,6 +1478,11 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		     int bGasIsothermal, // Isothermal EOS
                      double dMaxEnergy, // Maximum internal energy of gas.
 		     double duDelta[MAXRUNG+1], // dts for energy
+             double gammam1, // Adiabatic index - 1
+             double dThermalCondCoeff, // Thermal conduction coefficient
+             double dThermalCondSatCoeff,
+             double dMultiPhaseMinTemp,
+             double dEvapCoeff,
 		     const CkCallback& cb) {
   // LBTurnInstrumentOff();
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
@@ -1505,6 +1510,76 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                       if(p->u() > dMaxEnergy)
                           p->u() = dMaxEnergy;
 		      p->uPred() = p->u();
+#ifdef SUPERBUBBLE
+                    double fDensity;
+                    double ph = p->fBall*0.5;
+                    if (p->uHot() != 0)
+                    {
+                       fDensity = p->fDensity*p->fDensity*p->PoverRho2()/(gammam1*p->uHot()); /* Density of bubble part of particle */
+                    }
+                    else
+                    {
+                        fDensity = 0;
+                    }
+					double upnc52, up52, massFlux;
+				   upnc52 = pow(p->uHotPred(), 2.5);
+				   up52 = pow(p->uPred(), 2.5);
+				   double fFactor = dDelta[p->rung]*dEvapCoeff*ph*3.1415;
+                   /* The Saturation Coefficient S is related to the evaporation Coefficient C by:
+                    * C_{saturation} = \frac{6}{25}S \rho c_s h
+                    */
+                   double massFluxSat = 0.24*(dDelta[p->rung]*dThermalCondSatCoeff*fDensity*p->c()*ph*ph*3.1415);
+				   massFlux = fFactor*(upnc52-up52);
+				   //printf("EVAPINTERNAL: %d %e %e %e %e %e %e %e %e %e\n",   p->iOrder, duDelta, duPred()Delta, massFlux, massFluxSat, ph, p->mass-p->massHot(), p->massHot(), p->uPred(), p->uHotPred());
+                   massFlux = (massFlux < massFluxSat ? massFlux : massFluxSat);
+				   if(massFlux > 0) { // Make sure that the flow is in the right direction
+					   // If all the mass becomes hot, switch to being single-phase
+					   if(massFlux > (p->mass-p->massHot())) {
+						   p->uPred() = (p->uPred()*(p->mass-p->massHot()) + p->uHotPred()*p->massHot())/p->mass;
+						   p->u() = (p->u()*(p->mass-p->massHot()) + p->uHot()*p->massHot())/p->mass;
+						   p->uDot() = (p->uDot()*(p->mass-p->massHot()) + p->uHotDot()*p->massHot())/p->mass;
+						   p->fESNrate() *= p->massHot()/p->mass; //Damn these scaled uDot()s, we should use a different name!
+						   p->massHot() = 0;
+						   p->uHot() = 0;
+						   p->uHotDot() = 0;
+						   p->uHotPred() = 0;
+					   }
+					   else {
+						   p->uHotPred() = (p->uPred()*massFlux + p->uHotPred()*p->massHot())/(massFlux+p->massHot());
+						   p->uHot() = (p->u()*massFlux + p->uHot()*p->massHot())/(massFlux+p->massHot());
+						   p->fESNrate() *= p->massHot()/(p->massHot()+massFlux);
+						   p->massHot() += massFlux;
+						   CkAssert(p->massHot() >= 0);
+						   CkAssert(p->uPred() >= 0);
+						   CkAssert(p->uHotPred() >= 0);
+						   CkAssert(p->u >= 0);
+						   CkAssert(p->uHot() >= 0);
+					   }
+				   }
+				   else if (p->uPred() > p->uHotPred() && &p->uHotPred() > 0) { // No sense in keeping the noncooling mass around if it is much colder than the regular mass
+						   p->uPred() = (p->uPred()*(p->mass-p->massHot()) + p->uHotPred()*p->massHot())/p->mass;
+						   p->u() = (p->u()*(p->mass-p->massHot()) + p->uHot()*p->massHot())/p->mass;
+						   p->uDot() = (p->uDot()*(p->mass-p->massHot()) + p->uHotDot()*p->massHot())/p->mass;
+						   p->fESNrate() *= p->massHot()/p->mass;//Damn these scaled uDot()s, we should use a different name!
+						   p->massHot() = 0;
+						   p->uHot() = 0;
+						   p->uHotDot() = 0;
+						   p->uHotPred() = 0;
+				   }
+                    double TpNC = CoolEnergyToTemperature(&p->CoolParticle(), p->uDot(), p->fMetals());
+                    if(TpNC < dMultiPhaseMinTemp && p->uHotPred() > 0)//Check to make sure the hot phase is still actually hot
+                    {
+						   p->uPred() = (p->uPred()*(p->mass-p->massHot()) + p->uHotPred()*p->massHot())/p->mass;
+						   p->u() = (p->u()*(p->mass-p->massHot()) + p->uHot()*p->massHot())/p->mass;
+						   p->uDot() = (p->uDot()*(p->mass-p->massHot()) + p->uHotDot()*p->massHot())/p->mass;
+						   p->fESNrate() *= p->massHot()/p->mass;//Damn these scaled uDot()s, we should use a different name!
+						   p->massHot() = 0;
+						   p->uHot() = 0;
+						   p->uHotDot() = 0;
+						   p->uHotPred() = 0;
+                    }
+                    
+#endif
 		      }
 #ifdef DIFFUSION
 		  p->fMetals() += p->fMetalsDot()*duDelta[p->rung];
