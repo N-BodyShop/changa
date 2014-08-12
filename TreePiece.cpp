@@ -1552,7 +1552,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 						   CkAssert(p->massHot() >= 0);
 						   CkAssert(p->uPred() >= 0);
 						   CkAssert(p->uHotPred() >= 0);
-						   CkAssert(p->u >= 0);
+						   CkAssert(p->u() >= 0);
 						   CkAssert(p->uHot() >= 0);
 					   }
 				   }
