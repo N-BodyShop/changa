@@ -308,6 +308,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
     CkPrintf("Promote cold shell to hot... \n");
     PromoteToHotGasSmoothParams pPHG(TYPE_GAS, 0, param.dEvapCoeff, param.dEvapMinTemp,
             param.dErgPerGmUnit, param.dGmPerCcUnit, param.stfm->dDeltaStarForm, dTime);
+    treeProxy.startReSmooth(&pPHG, CkCallbackResumeThread());
     ShareWithHotGasSmoothParams pSHG(TYPE_GAS, 0, param.dEvapMinTemp,
             param.dErgPerGmUnit, param.dGmPerCcUnit); 
     treeProxy.startReSmooth(&pSHG, CkCallbackResumeThread());
@@ -369,8 +370,8 @@ void TreePiece::Feedback(const Fdbk &fb, double dTime, double dDelta, const CkCa
 	if(p->isStar() && p->fTimeForm() >= 0.0) 
 	  fb.DoFeedback(p, dTime, dDeltaYr, fbTotals);
 	else if(p->isGas()){
-	  CkAssert(p->u() >= 0.0);
-	  CkAssert(p->uPred() >= 0.0);
+	  CkAssert(p->u() > 0.0);
+	  CkAssert(p->uPred() > 0.0);
 	  p->fESNrate() = 0.0;	/* reset SN heating rate of gas to zero */
 	}
     }
