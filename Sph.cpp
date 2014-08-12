@@ -801,20 +801,24 @@ void TreePiece::updateuDot(int activeRung,
         double uMean = frac*p->uHotPred()+(1-frac)*p->uPred();
         int bUpdateStd = (p->massHot() < 0.9*p->mass);
         if (p->massHot() > 0) {
-            CkAssert(p->uHot() > 0);
-            E = p->uHot();
             ExternalHeating = p->PdV()*p->uHotPred()/uMean + p->fESNrate();
-            fDensity = p->fDensity*p->fDensity*p->PoverRho2()/(gammam1*p->uHot());
-            CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E, ExternalHeating, fDensity,
-                    p->fMetals(), r, dt);
-            if(bUpdateState && !bUpdateStd) p->CoolParticle() = cp;
-            p->uHotDot() = (E- p->uHot())/duDelta[p->rung];
+            if (p->uHot() > 0) {
+                E = p->uHot();
+                fDensity = p->fDensity*p->fDensity*p->PoverRho2()/(gammam1*p->uHot());
+                CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E, ExternalHeating, fDensity,
+                        p->fMetals(), r, dt);
+                if(bUpdateState && !bUpdateStd) p->CoolParticle() = cp;
+                p->uHotDot() = (E- p->uHot())/duDelta[p->rung];
+            }
+            else
+            {
+                p->uHotDot() = ExternalHeating;
+            }
         }
         else {
             p->uHotDot() = 0;
             ExternalHeating = p->PdV() + p->fESNrate();
         }
-        CkAssert(p->uPred() > 0);
         fDensity = p->fDensity*p->fDensity*p->PoverRho2()/(gammam1*p->uPred());
         ExternalHeating = p->PdV()*p->uPred()/uMean;
 #else
