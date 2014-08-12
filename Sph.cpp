@@ -1910,12 +1910,12 @@ int ShareWithHotGasSmoothParams::isSmoothActive(GravityParticle *p)
     return TYPETest(p, TYPE_FEEDBACK) && TYPETest(p, iType);
 }
         
-void ShareWithHotGasSmoothParams::initSmoothParticle(GravityParticle *p)
+void ShareWithHotGasSmoothParams::initSmoothCache(GravityParticle *p)
 {
-	if(!TYPETest(p, TYPE_DELETED)) {
-		p->u() = 0;  
-		p->uPred() = 0;
-		}
+    if(!TYPETest(p, TYPE_DELETED)) {
+        p->u() = 0;  
+        p->uPred() = 0;
+        }
 }
 
 void ShareWithHotGasSmoothParams::combSmoothCache(GravityParticle *p1, ExternalSmoothParticle *p2)
