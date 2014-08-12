@@ -3388,6 +3388,11 @@ void Main::writeOutput(int iStep)
     LWOutputParams pLWOut(achFile, param.iBinaryOut, dOutTime);
 #endif /*COOLING_MOLECULARH*/
 #endif
+#ifdef SUPERBUBBLE
+	      MassHotOutputParams pHotOut(achFile, param.iBinaryOut, 0.0);
+          double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
+	      TempEffOutputParams pTeffOut(achFile, param.iBinaryOut, 0.0, param.bGasCooling, dTuFac);
+#endif
 #ifdef DIFFUSION
     MetalsDotOutputParams pMetalsDotOut(achFile, param.iBinaryOut, dOutTime);
     OxygenMassFracDotOutputParams pOxDotOut(achFile, param.iBinaryOut, dOutTime);
@@ -3405,6 +3410,10 @@ void Main::writeOutput(int iStep)
 	outputBinary(pDvDsOut, param.bParaWrite, CkCallbackResumeThread());
 #endif
         if (param.bStarForm || param.bFeedback) {
+#ifdef SUPERBUBBLE
+      outputBinary(pHotOut, param.bParaWrite, CkCallbackResumeThread());
+      outputBinary(pTeffOut, param.bParaWrite, CkCallbackResumeThread());
+#endif
 	    outputBinary(pOxOut, param.bParaWrite, CkCallbackResumeThread());
 	    outputBinary(pFeOut, param.bParaWrite, CkCallbackResumeThread());
 	    outputBinary(pMFormOut, param.bParaWrite, CkCallbackResumeThread());
@@ -3472,6 +3481,10 @@ void Main::writeOutput(int iStep)
                                CkCallbackResumeThread());
 #endif
 	if (param.bStarForm || param.bFeedback) {
+#ifdef SUPERBUBBLE
+      treeProxy[0].outputASCII(pHotOut, param.bParaWrite, CkCallbackResumeThread());
+      treeProxy[0].outputASCII(pTeffOut, param.bParaWrite,CkCallbackResumeThread());
+#endif
             treeProxy[0].outputASCII(pRung, param.bParaWrite,
                                      CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pOxOut, param.bParaWrite,
