@@ -104,10 +104,12 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     sn.imf = imf;
 
 #include "physconst.h"
+#ifndef SUPERBUBBLE
     if(!prmSpecified(prm, "nSmoothFeedback"))
 	nSmoothFeedback = param.nSmooth;
     if (sn.dESN > 0.0) bSmallSNSmooth = 1;
     else bSmallSNSmooth = 0;
+#endif
     param.bDoGas = 1;
     dDeltaStarForm = param.stfm->dDeltaStarForm;
     dSecUnit = param.dSecUnit;
