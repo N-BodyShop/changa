@@ -63,7 +63,7 @@ class OutputParams : public PUP::able
 class MassHotOutputParams : public OutputParams
 {
  public:
-    virtual double dValue(GravityParticle *p) {return p->massHot();}
+    virtual double dValue(GravityParticle *p) {return (TYPETest(p, TYPE_GAS) ? p->massHot() : 0);}
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {p->massHot() = val;}
@@ -87,6 +87,7 @@ class TempEffOutputParams : public OutputParams
     double duTFac;
     bool bGasCooling;
     virtual double dValue(GravityParticle *p) {
+        if (!TYPETest(p, TYPE_GAS)) return 0.0;
         if(bGasCooling) {
             double x = p->massHot()/p->mass;
 #ifndef COOLING_NONE
