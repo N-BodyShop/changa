@@ -1008,7 +1008,11 @@ TreePiece::massMetalsEnergyCheck(int bPreDist, const CkCallback& cb)
 	    dTotals[1] += p->mass*p->fMetals();
 	    dTotals[2] += p->mass*p->fMFracOxygen();
 	    dTotals[3] += p->mass*p->fMFracIron();
+#ifdef SUPERBUBBLE
+	    dTotals[4] += p->massHot()*p->fESNrate();
+#else
 	    dTotals[4] += p->mass*p->fESNrate();
+#endif
 	    }
 	if(p->isStar()) {
 	    dTotals[1] += p->mass*p->fStarMetals();
