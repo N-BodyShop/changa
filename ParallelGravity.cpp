@@ -1214,8 +1214,8 @@ Main::Main(CkArgMsg* m) {
             /param.dSecUnit;
         /* You enter effective thermal coefficient e.g. kappa0=6.1d-7 erg s^-1 K^-7/2 cm^-1 
            Code then multiplies by prefactors to 4/25 kappa0 mmw/k (1.5k/mmw)^-5/2 */
-        param.dEvapCoeffCode = param.dEvapCoeff
-            *4/25.*(0.6*MHYDR)/KBOLTZ*pow(1.5*KBOLTZ/(0.6*MHYDR),-2.5);
+        param.dEvapCoeffCode = param.dEvapCoeff*pow(32./param.nSmooth,.3333333333)*
+            4/25.*(0.6*MHYDR)/KBOLTZ*pow(1.5*KBOLTZ/(0.6*MHYDR),-2.5);
         /* Convert final units: g/cm/s (erg/g)^-2.5 to code units 
                [Later: Multiply by u^5/2 and multiply a length gives mdot   units g/s] */
         param.dEvapCoeffCode /= 
