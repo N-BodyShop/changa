@@ -1511,6 +1511,12 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                           p->u() = dMaxEnergy;
 		      p->uPred() = p->u();
 #ifdef SUPERBUBBLE
+		      p->uHot() = p->uHot() + p->uHotDot()*duDelta[p->rung];
+		      if (p->uHot() < 0) {
+			  double uold = p->uHot() - p->uHotDot()*duDelta[p->rung];
+			  p->uHot() = uold*exp(p->uHotDot()*duDelta[p->rung]/uold);
+			  }
+		      p->uHotPred() = p->uHot();
                     double fDensity;
                     double ph = p->fBall*0.5;
                     if (p->uHot() != 0)
@@ -1608,6 +1614,14 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 			  p->u() = uold*exp(p->PdV()*duDelta[p->rung]/uold);
 			  }
 #endif /* COOLING_NONE */
+#ifdef SUPERBUBBLE
+		      p->uHotPred() = p->uHot();
+		      p->uHot() = p->uHot() + p->uHotDot()*duDelta[p->rung];
+		      if (p->uHot() < 0) {
+			  double uold = p->uHot() - p->uHotDot()*duDelta[p->rung];
+			  p->uHot() = uold*exp(p->uHotDot()*duDelta[p->rung]/uold);
+			  }
+#endif
 		      }
 #ifdef DIFFUSION
 		  p->fMetalsPred() = p->fMetals();
