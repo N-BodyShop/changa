@@ -1225,10 +1225,14 @@ class DomainOutputParams : public OutputParams
 //SIDM
 class iNSIDMIntOutputParams : public OutputParams
 {
-    virtual int iValue(GravityParticle *p)
+    virtual int64_t iValue(GravityParticle *p)
     {
         return p->iNSIDMInteractions;
         }
+    virtual void setIValue(GravityParticle *p, int64_t iValue) 
+    {
+      p->iNSIDMInteractions= iValue;
+      }
  public:
     iNSIDMIntOutputParams() {}
     iNSIDMIntOutputParams(std::string _fileName) { fileName = _fileName;}
