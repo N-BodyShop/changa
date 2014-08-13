@@ -704,14 +704,14 @@ Main::doSph(int activeRung, int bNeedDensity)
     if(param.bGasCooling)
 	treeProxy.getCoolingGasPressure(param.dConstGamma,
 					param.dConstGamma-1, param.dThermalCondCoeffCode, param.dThermalCond2CoeffCode,
-                    param.dThermalCondSatCoeffCode, param.dThermalCond2SatCoeffCode, 
+                    param.dThermalCondSatCoeff, param.dThermalCond2SatCoeff, 
             param.dEvapMinTemp,	dDtCourantFac,
             param.dResolveJeans/a,
             CkCallbackResumeThread());
     else
 	treeProxy.getAdiabaticGasPressure(param.dConstGamma,
 					param.dConstGamma-1, param.dThermalCondCoeffCode, param.dThermalCond2CoeffCode,
-                    param.dThermalCondSatCoeffCode, param.dThermalCond2SatCoeffCode, 
+                    param.dThermalCondSatCoeff, param.dThermalCond2SatCoeff, 
                     param.dEvapMinTemp,	dDtCourantFac, CkCallbackResumeThread());
 
     ckout << "Calculating pressure gradients ...";
@@ -1240,16 +1240,9 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1, double dTh
     }
 
 /* Note: Uses uPred */
-<<<<<<< HEAD:Sph.cpp
-void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
-                                      double dtFacCourant,
-                                      double dResolveJeans,
-                                      const CkCallback &cb)
-=======
 void TreePiece::getCoolingGasPressure(double gamma, double gammam1, double dThermalCondCoeff,
         double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
-        double dEvapMinTemp, const CkCallback &cb)
->>>>>>> e9b636c... Added Code to the getCoolingGasPressure() method that will set:Sph.C
+        double dEvapMinTemp, double dtFacCourant, double dResolveJeans, const CkCallback &cb)
 {
 #ifndef COOLING_NONE
     GravityParticle *p;
@@ -1268,21 +1261,7 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1, double dTher
             double dPoverRhoJeans = PoverRhoFloorJeans(dResolveJeans, p);
             if(PoverRho < dPoverRhoJeans) PoverRho = dPoverRhoJeans;
 	    p->PoverRho2() = PoverRho/p->fDensity;
-<<<<<<< HEAD:Sph.cpp
-            p->c() = sqrt(cGas*cGas + GAMMA_JEANS*dPoverRhoJeans);
-#ifdef DTADJUST
-            {
-                double uDot = p->uDot();
-                double dt;
-                if(uDot > 0.0)
-                    dt = dtFacCourant*0.5*p->fBall
-                        /sqrt(4.0*(p->c()*p->c() + GAMMA_NONCOOL*uDot*p->dt));
-                else
-                    dt = dtFacCourant*0.5*p->fBall /(2.0*p->c());
-                // Update to scare the neighbors.
-                if(dt < p->dtNew()) p->dtNew() = dt;
-                }
-=======
+        p->c() = sqrt(cGas*cGas + GAMMA_JEANS*dPoverRhoJeans);
 #ifdef SUPERBUBBLE
         double frac = p->massHot()/p->mass;
         PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
@@ -1301,7 +1280,19 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1, double dTher
         double fThermalCond2Sat = fSat*dThermalCond2SatCoeff;
         p->fThermalCond() = (fThermalCond < fThermalCondSat ? fThermalCond : fThermalCondSat) +
             (fThermalCond2 < fThermalCond2Sat ? fThermalCond2 : fThermalCond2Sat);
->>>>>>> e9b636c... Added Code to the getCoolingGasPressure() method that will set:Sph.C
+#endif
+#ifdef DTADJUST
+            {
+                double uDot = p->uDot();
+                double dt;
+                if(uDot > 0.0)
+                    dt = dtFacCourant*0.5*p->fBall
+                        /sqrt(4.0*(p->c()*p->c() + GAMMA_NONCOOL*uDot*p->dt));
+                else
+                    dt = dtFacCourant*0.5*p->fBall /(2.0*p->c());
+                // Update to scare the neighbors.
+                if(dt < p->dtNew()) p->dtNew() = dt;
+                }
 #endif
 	    }
 	}
