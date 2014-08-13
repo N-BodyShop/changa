@@ -288,6 +288,11 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     if(*T > dTempMax)
 	return NULL;
 
+#ifdef SUPERBUBBLE
+    if (p->fMassHot() > 0)
+    return NULL;
+#endif
+
     if(p->fDensity < dOverDenMin || p->fDensity/dCosmoFac < dPhysDenMin)
 	return NULL;
 
