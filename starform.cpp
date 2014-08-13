@@ -289,7 +289,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 	return NULL;
 
 #ifdef SUPERBUBBLE
-    if (p->fMassHot() > 0)
+    if (p->massHot() > 0)
     return NULL;
 #endif
 
