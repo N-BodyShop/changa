@@ -131,6 +131,8 @@ mainmodule ParallelGravity {
   PUPable Kroupa01;
 
 #ifdef SUPERBUBBLE
+  PUPable PromoteToHotGasSmoothParams;
+  PUPable ShareWithHotGasSmoothParams;
   PUPable MassHotOutputParams;
   PUPable TempEffOutputParams;
 #endif
