@@ -1519,9 +1519,11 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		      p->uHotPred() = p->uHot();
                     double fDensity;
                     double ph = p->fBall*0.5;
+                    double frac = p->massHot()/p->mass;
+                    double PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
                     if (p->uHot() != 0)
                     {
-                       fDensity = p->fDensity*p->fDensity*p->PoverRho2()/(gammam1*p->uHot()); /* Density of bubble part of particle */
+                       fDensity = p->fDensity*PoverRho/(gammam1*p->uHot()); /* Density of bubble part of particle */
                     }
                     else
                     {
@@ -1534,9 +1536,9 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                    /* The Saturation Coefficient S is related to the evaporation Coefficient C by:
                     * C_{saturation} = \frac{6}{25}S \rho c_s h
                     */
-                   double massFluxSat = 0.24*(dDelta[p->rung]*dThermalCondSatCoeff*fDensity*p->c()*ph*ph*3.1415);
+                   double massFluxSat = 0.24*(dDelta[p->rung]*dThermalCondSatCoeff*fDensity*sqrt((gammam1+1.0)*PoverRho)*ph*ph*3.1415);
+                   if (p->uHotPred() > 0) CkAssert(massFluxSat > 0);
 				   massFlux = fFactor*(upnc52-up52);
-				   //printf("EVAPINTERNAL: %d %e %e %e %e %e %e %e %e %e\n",   p->iOrder, duDelta, duPred()Delta, massFlux, massFluxSat, ph, p->mass-p->massHot(), p->massHot(), p->uPred(), p->uHotPred());
                    massFlux = (massFlux < massFluxSat ? massFlux : massFluxSat);
 				   if(massFlux > 0) { // Make sure that the flow is in the right direction
 					   // If all the mass becomes hot, switch to being single-phase
