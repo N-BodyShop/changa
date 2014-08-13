@@ -679,12 +679,11 @@ void DistStellarFeedbackSmoothParams::combSmoothCache(GravityParticle *p1,
      * See kludgery notice above.
      */
     double fAddedMass = p2->mass - p2->curlv.x;
+    p1->mass += fAddedMass;
 #ifdef SUPERBUBBLE
-    double fAddedMassHot = p2->massHot() - p2->curlv.y;
+    double fAddedMassHot = p2->massHot - p2->curlv.y;
     p1->massHot() += fAddedMassHot;
 #endif
-    
-    p1->mass += fAddedMass;
     p1->fESNrate() += p2->fESNrate;
     p1->fMetals() += p2->fMetals;
     p1->fMFracOxygen() += p2->fMFracOxygen;
