@@ -577,7 +577,9 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
       delete leaves;
     }
 
-    // int64_t total = root->buildCounts();
+    // N.B. While "total" is not used, the buildCounts() method has
+    // necessary side effects.
+    int64_t total = root->buildCounts();
     // CkPrintf("total number of particles: %ld\n", total);
     do {
 	// Convert Oct domains to splitters, ensuring that we do not exceed
@@ -586,7 +588,6 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 	binCounts.clear();
 
         root->combine(joinThreshold, nodeKeys, binCounts);
-        CkPrintf("Total nodes: %d\n", nodeKeys.size());
 
 	if(binCounts.size() > numTreePieces) {
 	    CkPrintf("bumping joinThreshold: %d, size: %d\n", joinThreshold,
