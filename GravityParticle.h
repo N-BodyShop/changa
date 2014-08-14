@@ -590,6 +590,8 @@ class ExternalSmoothParticle {
   double uHotDot;
   double uHotPred;
   double massHot;
+  double fThermalCond;
+  double fThermalLength;
   double fPromoteSum;
   double fPromoteSumuPred;
   double fPromoteuPredInit;
@@ -648,6 +650,8 @@ class ExternalSmoothParticle {
           uHotPred = p->uHotPred();
           uHotDot = p->uHotDot();
           massHot = p->massHot();
+          fThermalCond = p->fThermalCond();
+          fThermalLength = p->fThermalLength();
           fPromoteSum = p->fPromoteSum();
           fPromoteSumuPred = p->fPromoteSumuPred();
           fPromoteuPredInit = p->fPromoteuPredInit();
@@ -711,6 +715,8 @@ class ExternalSmoothParticle {
       tmp->uHotPred() = uHotPred;
       tmp->uHotDot() = uHotDot;
       tmp->massHot() = massHot;
+      tmp->fThermalCond() = fThermalCond;
+      tmp->fThermalLength() = fThermalCond;
       tmp->fPromoteSum() = fPromoteSum;
       tmp->fPromoteSumuPred() = fPromoteSumuPred;
       tmp->fPromoteuPredInit() = fPromoteuPredInit;
@@ -775,6 +781,8 @@ class ExternalSmoothParticle {
     p | uHotPred;
     p | uHotDot;
     p | massHot;
+    p | fThermalCond;
+    p | fThermalLength;
     p | fPromoteSum;
     p | fPromoteSumuPred;
     p | fPromoteuPredInit;

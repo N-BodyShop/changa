@@ -70,6 +70,8 @@ void load_tipsy_gas(Tipsy::TipsyReader &r, GravityParticle &p, double dTuFac)
     p.uHotPred() = 0.0;
     p.uHotDot() = 0.0;
     p.massHot() = 0.0;
+    p.fThermalCond() = 0.0;
+    p.fThermalLength() = 0.0;
     p.fPromoteSum() = 0.0;
     p.fPromoteSumuPred() = 0.0;
     p.fPromoteuPredInit() = 0.0;
