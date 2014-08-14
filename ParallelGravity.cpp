@@ -3389,7 +3389,7 @@ void Main::writeOutput(int iStep)
 	  }
         //SIDM
         if(param.bSIDM) {
-            iNSIDMIntOutputParams pNSIDMOut(string(achFile) + ".nsidm");
+            iNSIDMIntOutputParams pNSIDMOut(achFile);
             treeProxy[0].outputIntASCII(pNSIDMOut, param.bParaWrite,
                                           CkCallbackResumeThread());
 
