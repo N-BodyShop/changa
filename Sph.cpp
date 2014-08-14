@@ -798,10 +798,11 @@ void TreePiece::updateuDot(int activeRung,
 #ifdef SUPERBUBBLE
         double uHotDotFB = p->fESNrate();
         double frac = p->massHot()/p->mass;
-        double uMean = frac*p->uHotPred()+(1-frac)*p->uPred();
+        double uMean = frac*p->uHot()+(1-frac)*p->u();
         int bUpdateStd = (p->massHot() < 0.9*p->mass);
+        CkAssert(uMean != 0.0);
         if (p->massHot() > 0) {
-            ExternalHeating = p->PdV()*p->uHotPred()/uMean + p->fESNrate();
+            ExternalHeating = p->PdV()*p->uHot()/uMean + p->fESNrate();
             if (p->uHot() > 0) {
                 E = p->uHot();
                 fDensity = p->fDensity*p->fDensity*p->PoverRho2()/(gammam1*p->uHot());
@@ -814,13 +815,13 @@ void TreePiece::updateuDot(int activeRung,
             {
                 p->uHotDot() = ExternalHeating;
             }
+            ExternalHeating = p->PdV()*p->u()/uMean;
         }
         else {
             p->uHotDot() = 0;
             ExternalHeating = p->PdV() + p->fESNrate();
         }
-        fDensity = p->fDensity*p->fDensity*p->PoverRho2()/(gammam1*p->uPred());
-        ExternalHeating = p->PdV()*p->uPred()/uMean;
+        fDensity = p->fDensity*p->fDensity*p->PoverRho2()/(gammam1*p->u());
 #else
         ExternalHeating = p->PdV() + p->fESNrate();
 #endif
