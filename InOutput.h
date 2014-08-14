@@ -1235,7 +1235,10 @@ class iNSIDMIntOutputParams : public OutputParams
       }
  public:
     iNSIDMIntOutputParams() {}
-    iNSIDMIntOutputParams(std::string _fileName) { fileName = _fileName;}
+    iNSIDMIntOutputParams(std::string _fileName) { 
+    fileName = _fileName;
+    sTipsyExt="nsidm";
+    }
     PUPable_decl(iNSIDMIntOutputParams);
     iNSIDMIntOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
