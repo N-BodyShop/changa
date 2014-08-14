@@ -65,6 +65,15 @@ void load_tipsy_gas(Tipsy::TipsyReader &r, GravityParticle &p, double dTuFac)
     p.PdV() = 0.0;  // Used in initial timestep
 #endif
 #endif
+#ifdef SUPERBUBBLE
+    p.uHot() = 0.0;
+    p.uHotPred() = 0.0;
+    p.uHotDot() = 0.0;
+    p.massHot() = 0.0;
+    p.fPromoteSum() = 0.0;
+    p.fPromoteSumuPred() = 0.0;
+    p.fPromoteuPredInit() = 0.0;
+#endif
 }
 
 template <typename TPos, typename TVel>
