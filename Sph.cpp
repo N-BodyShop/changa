@@ -703,15 +703,15 @@ Main::doSph(int activeRung, int bNeedDensity)
     double dDtCourantFac = param.dEtaCourant*a*2.0/1.6;
     if(param.bGasCooling)
 	treeProxy.getCoolingGasPressure(param.dConstGamma,
-					param.dConstGamma-1, param.dThermalCondCoeffCode, param.dThermalCond2CoeffCode,
-                    param.dThermalCondSatCoeff, param.dThermalCond2SatCoeff, 
+					param.dConstGamma-1, param.dThermalCondCoeffCode*a, param.dThermalCond2CoeffCode*a,
+                    param.dThermalCondSatCoeff/a, param.dThermalCond2SatCoeff/a, 
             param.dEvapMinTemp,	dDtCourantFac,
             param.dResolveJeans/a,
             CkCallbackResumeThread());
     else
 	treeProxy.getAdiabaticGasPressure(param.dConstGamma,
-					param.dConstGamma-1, param.dThermalCondCoeffCode, param.dThermalCond2CoeffCode,
-                    param.dThermalCondSatCoeff, param.dThermalCond2SatCoeff, 
+					param.dConstGamma-1, param.dThermalCondCoeffCode*a, param.dThermalCond2CoeffCode*a,
+                    param.dThermalCondSatCoeff/a, param.dThermalCond2SatCoeff/a, 
                     param.dEvapMinTemp,	dDtCourantFac, CkCallbackResumeThread());
 
     ckout << "Calculating pressure gradients ...";
@@ -798,14 +798,15 @@ void TreePiece::updateuDot(int activeRung,
 #ifdef SUPERBUBBLE
         double uHotDotFB = p->fESNrate();
         double frac = p->massHot()/p->mass;
-        double uMean = frac*p->uHot()+(1-frac)*p->u();
+        double PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
+        double uMean = frac*p->uHotPred()+(1-frac)*p->uPred();
         int bUpdateStd = (p->massHot() < 0.9*p->mass);
-        CkAssert(uMean != 0.0);
+        CkAssert(uMean > 0.0);
         if (p->massHot() > 0) {
-            ExternalHeating = p->PdV()*p->uHot()/uMean + p->fESNrate();
+            ExternalHeating = p->PdV()*p->uHotPred()/uMean + p->fESNrate();
             if (p->uHot() > 0) {
                 E = p->uHot();
-                fDensity = p->fDensity*p->fDensity*p->PoverRho2()/(gammam1*p->uHot());
+                fDensity = p->fDensity*PoverRho/(gammam1*p->uHot());
                 CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E, ExternalHeating, fDensity,
                         p->fMetals(), r, dt);
                 if(bUpdateState && !bUpdateStd) p->CoolParticle() = cp;
@@ -815,18 +816,19 @@ void TreePiece::updateuDot(int activeRung,
             {
                 p->uHotDot() = ExternalHeating;
             }
-            ExternalHeating = p->PdV()*p->u()/uMean;
+            ExternalHeating = p->PdV()*p->uPred()/uMean;
         }
         else {
             p->uHotDot() = 0;
             ExternalHeating = p->PdV() + p->fESNrate();
         }
-        fDensity = p->fDensity*p->fDensity*p->PoverRho2()/(gammam1*p->u());
+        fDensity = p->fDensity*PoverRho/(gammam1*p->uPred());
+        CkAssert(fDensity > 0);
 #else
+        fDensity = p->fDensity;
         ExternalHeating = p->PdV() + p->fESNrate();
 #endif
 		E = p->u();
-        fDensity = p->fDensity;
 #ifdef COOLING_BOLEY
 		cp.mrho = pow(p->mass/p->fDensity, 1./3.);
 #endif
@@ -1220,6 +1222,7 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1, double dTh
         double fThermalCond2Sat = fSat*dThermalCond2SatCoeff;
         p->fThermalCond() = (fThermalCond < fThermalCondSat ? fThermalCond : fThermalCondSat) +
             (fThermalCond2 < fThermalCond2Sat ? fThermalCond2 : fThermalCond2Sat);
+        assert(isfinite(p->fThermalCond()));
 #endif
 #ifdef DTADJUST
             {
@@ -1281,6 +1284,7 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1, double dTher
         double fThermalCond2Sat = fSat*dThermalCond2SatCoeff;
         p->fThermalCond() = (fThermalCond < fThermalCondSat ? fThermalCond : fThermalCondSat) +
             (fThermalCond2 < fThermalCond2Sat ? fThermalCond2 : fThermalCond2Sat);
+        assert(isfinite(p->fThermalCond()));
 #endif
 #ifdef DTADJUST
             {
