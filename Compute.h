@@ -317,9 +317,9 @@ class RemoteTreeBuilder : public TreeNodeWorker {
 class LocalTreeBuilder : public TreeNodeWorker {
   TreePiece *tp;
 
- public:
- LocalTreeBuilder(TreePiece *owner) :
-  tp(owner)
+  public:
+  LocalTreeBuilder(TreePiece *owner) :
+    tp(owner)
   {}
 
   bool work(GenericTreeNode *node, int level);
