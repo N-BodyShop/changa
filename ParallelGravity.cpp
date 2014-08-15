@@ -3316,7 +3316,6 @@ void Main::writeOutput(int iStep)
 	    if(param.bDoStellarLW)
                 outputBinary(pLWOut, param.bParaWrite, CkCallbackResumeThread());
 #endif /*LYMAN_WERNER*/
-	    /*#endif*/ /*COOLING_MOLECULARH*/
 #endif
 	if(param.bDoSoftOutput && param.iBinaryOut != 6) {
 	    outputBinary(pSoftOut, param.bParaWrite, CkCallbackResumeThread());

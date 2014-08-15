@@ -2726,7 +2726,7 @@ bool LocalLymanWernerDistributor::work(GenericTreeNode *node, int level){
   for (int j = 0; j<node->numChildren(); ++j) {
     if (node->getChildren(j) != NULL) {
       if (node->moments.totalLW != node->getChildren(j)->parent->moments.totalLW) {
-	printf("Current LW: %e; Child's Parent LW: %e\n",node->moments.totalLW,node->getChildren(j)->parent->moments.totalLW);
+	CkPrintf("Current LW: %e; Child's Parent LW: %e\n",node->moments.totalLW,node->getChildren(j)->parent->moments.totalLW);
       }
     }
   }

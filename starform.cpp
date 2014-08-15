@@ -11,6 +11,7 @@
 #include "starform.h"
 #include "smooth.h"
 #include "Sph.h"
+#include "lymanwerner.h"
 
 ///
 /// @brief initialize parameters for star formation
@@ -170,7 +171,7 @@ void Main::FormStars(double dTime, double dDelta)
 
     CkReductionMsg *msgCounts;
     treeProxy.FormStars(*(param.stfm), dTime, dDelta,
-			pow(csmTime2Exp(param.csm, dTime), 3.0), 0,
+			pow(csmTime2Exp(param.csm, dTime), 3.0),
 			CkCallbackResumeThread((void*&)msgCounts));
     int *dCounts = (int *)msgCounts->getData();
     
@@ -206,12 +207,12 @@ void Main::FormStars(double dTime, double dDelta)
 /// 
 
 void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
-			  double dCosmoFac, double H2FractionForm, const CkCallback& cb) 
+			  double dCosmoFac, const CkCallback& cb) 
 {
     int nFormed = 0;
     int nDeleted = 0;
     double dMassFormed = 0.0;
-    double TempForm;
+    double TempForm, H2FractionForm;
     
     // clear indices into starlog table
     iSeTab.clear();
@@ -222,7 +223,7 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 	if(p->isGas()) {
 	    GravityParticle *starp = stfm.FormStar(p, dm->Cool, dTime,
 						   dDelta, dCosmoFac, 
-						   H2FractionForm, &TempForm);
+						   &H2FractionForm, &TempForm);
 	    
 	    if(starp != NULL) {
 		nFormed++;
@@ -257,7 +258,7 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 */
 GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 				double dDelta,  // drift timestep
-				double dCosmoFac, double H2FractionForm, double *T) 
+				double dCosmoFac, double *H2FractionForm, double *T) 
 {
     /*
      * Determine dynamical time.
@@ -298,10 +299,10 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     if (dStarFormEfficiencyH2 == 0) dMprob  = 1.0 - exp(-dCStar*dTimeStarForm/tform);
     else dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform*
     			    dStarFormEfficiencyH2*(2.0*(p->CoolParticle().f_H2)/yH));    
-    H2FractionForm = 1.0*p->CoolParticle().f_H2/yH;
+    *H2FractionForm = 1.0*p->CoolParticle().f_H2/yH;
 #else /* COOLING_MOLECULARH */ 
     double dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform);
-    H2FractionForm = 0;   
+    *H2FractionForm = 0;   
 #endif /* COOLING_MOLECULARH */ 
 
     /*
@@ -364,19 +365,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 	}
     /*#ifdef COOLING_MOLECULARH*/ /*Initialize LW radiation for a star particle of that mass and 10^7 (the minimum) years old*/
 #ifdef LYMAN_WERNER
-    double dAgelog = 7,
-      a0 = -84550.812,
-      a1 =  54346.066,
-      a2 = -13934.144,
-      a3 =  1782.1741,
-      a4 = -113.68717,
-      a5 =  2.8930795;
-    starp->dStarLymanWerner() = a0
-      + a1*dAgelog
-      + a2*dAgelog*dAgelog
-      + a3*dAgelog*dAgelog*dAgelog
-      + a4*dAgelog*dAgelog*dAgelog*dAgelog
-      + a5*dAgelog*dAgelog*dAgelog*dAgelog*dAgelog + log10(dDeltaM);
+    starp->dStarLymanWerner() = calcLogSSPLymanWerner(7,log10(dDeltaM));
 #endif /*LYMAN_WERNER*/
     /* #endif*/ /*COOLING_MOLECULARH*/
 

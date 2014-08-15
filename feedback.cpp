@@ -16,6 +16,7 @@
 #include "feedback.h"
 #include "smooth.h"
 #include "Sph.h"
+#include "lymanwerner.h"
 
 #define max(A,B) ((A) > (B) ? (A) : (B))
 ///
@@ -537,13 +538,6 @@ double Fdbk::CalcLWFeedback(SFEvent *sfEvent, double dTime, /* current time in y
 			    double dDelta /* length of timestep (years) */ )
 {
     double dAge1log, dAge2log, dLW1log, dLW2log, dStarAge;
-    double  a0 = -84550.812,
-      a1 =  54346.066,
-      a2 = -13934.144,
-      a3 =  1782.1741,
-      a4 = -113.68717,
-      a5 =  2.8930795;
-
     double dA0old =  70.908586,
       dA1old = -4.0643123;
 
@@ -561,22 +555,9 @@ double Fdbk::CalcLWFeedback(SFEvent *sfEvent, double dTime, /* current time in y
       if (dAge1log < 7) dAge1log = 7.0;
       dAge2log = log10(dStarAge + dDelta);
       if (dAge2log < 7) dAge2log = 7.0;
-      
-
-      if (dAge1log < 9.0) dLW1log = a0
-			    + a1*dAge1log
-			    + a2*dAge1log*dAge1log
-			    + a3*dAge1log*dAge1log*dAge1log
-			    + a4*dAge1log*dAge1log*dAge1log*dAge1log
-			    + a5*dAge1log*dAge1log*dAge1log*dAge1log*dAge1log + log10(sfEvent->dMass*MSOLG/dGmUnit);
+      if (dAge1log < 9.0) dLW1log = calcLogSSPLymanWerner(dAge1log,log10(sfEvent->dMass*MSOLG/dGmUnit));
       else dLW1log = dA0old + dA1old*dAge1log + log10(sfEvent->dMass*MSOLG/dGmUnit); /*Close to zero*/
-
-      if (dAge2log < 9.0) dLW2log = a0
-			    + a1*dAge2log
-			    + a2*dAge2log*dAge2log
-			    + a3*dAge2log*dAge2log*dAge2log
-			    + a4*dAge2log*dAge2log*dAge2log*dAge2log
-			    + a5*dAge2log*dAge2log*dAge2log*dAge2log*dAge2log + log10(sfEvent->dMass*MSOLG/dGmUnit); 
+      if (dAge2log < 9.0) dLW2log = calcLogSSPLymanWerner(dAge2log,log10(sfEvent->dMass*MSOLG/dGmUnit));
       else dLW2log = dA0old + dA1old*dAge2log + log10(sfEvent->dMass*MSOLG/dGmUnit); /*Close to zero*/
       return log10((pow(10,dLW1log) + pow(10,dLW2log))/2);
     }

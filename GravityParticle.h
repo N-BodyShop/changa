@@ -126,11 +126,6 @@ class extraSPHData
 #ifndef COOLING_NONE
     inline double& uDot() {return _uDot;}
     inline COOLPARTICLE& CoolParticle() {return _CoolParticle;}
-    /*#ifdef COOLING_MOLECULARH*/
-#ifdef LYMAN_WERNER
-    inline void SetLymanWerner(double dLymanWerner) {_CoolParticle.dLymanWerner = dLymanWerner;}
-#endif /*LYMAN_WERNER*/
-    /*#endif*/
 #endif
 #ifdef DIFFUSION
     inline double& diff() {return _diff;}
