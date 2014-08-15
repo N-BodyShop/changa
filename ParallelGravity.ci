@@ -133,6 +133,7 @@ mainmodule ParallelGravity {
 #ifdef SUPERBUBBLE
   PUPable PromoteToHotGasSmoothParams;
   PUPable ShareWithHotGasSmoothParams;
+  PUPable uHotOutputParams;
   PUPable MassHotOutputParams;
   PUPable TempEffOutputParams;
 #endif

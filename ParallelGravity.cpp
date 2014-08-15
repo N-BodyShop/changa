@@ -2914,7 +2914,8 @@ Main::doSimulation()
       if(param.bDoGas) {
 	  ckout << "Outputting gas properties ...";
 #ifdef SUPERBUBBLE
-	      MassHotOutputParams pHotOut(achFile, param.iBinaryOut, 0.0);
+	      uHotOutputParams puHotOut(achFile, param.iBinaryOut, 0.0);
+	      MassHotOutputParams pmHotOut(achFile, param.iBinaryOut, 0.0);
           double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
 	      TempEffOutputParams pTeffOut(achFile, param.iBinaryOut, 0.0, param.bGasCooling, dTuFac);
 #endif
@@ -2928,7 +2929,9 @@ Main::doSimulation()
 	      CsOutputParams pCsOut(achFile, param.iBinaryOut, 0.0);
               if (param.iBinaryOut) {
 #ifdef SUPERBUBBLE
-                  outputBinary(pHotOut, param.bParaWrite,
+                  outputBinary(puHotOut, param.bParaWrite,
+                      CkCallbackResumeThread());
+                  outputBinary(pmHotOut, param.bParaWrite,
                       CkCallbackResumeThread());
                   outputBinary(pTeffOut, param.bParaWrite,
                       CkCallbackResumeThread());
@@ -2955,7 +2958,8 @@ Main::doSimulation()
                   }
               else {
 #ifdef SUPERBUBBLE
-                  treeProxy[0].outputASCII(pHotOut, param.bParaWrite, CkCallbackResumeThread());
+                  treeProxy[0].outputASCII(pmHotOut, param.bParaWrite, CkCallbackResumeThread());
+                  treeProxy[0].outputASCII(puHotOut, param.bParaWrite, CkCallbackResumeThread());
                   treeProxy[0].outputASCII(pTeffOut, param.bParaWrite,CkCallbackResumeThread());
 #endif
                   treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
@@ -3389,7 +3393,8 @@ void Main::writeOutput(int iStep)
 #endif /*COOLING_MOLECULARH*/
 #endif
 #ifdef SUPERBUBBLE
-	      MassHotOutputParams pHotOut(achFile, param.iBinaryOut, 0.0);
+	      MassHotOutputParams pmHotOut(achFile, param.iBinaryOut, 0.0);
+	      uHotOutputParams puHotOut(achFile, param.iBinaryOut, 0.0);
           double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
 	      TempEffOutputParams pTeffOut(achFile, param.iBinaryOut, 0.0, param.bGasCooling, dTuFac);
 #endif
@@ -3411,7 +3416,8 @@ void Main::writeOutput(int iStep)
 #endif
         if (param.bStarForm || param.bFeedback) {
 #ifdef SUPERBUBBLE
-      outputBinary(pHotOut, param.bParaWrite, CkCallbackResumeThread());
+      outputBinary(puHotOut, param.bParaWrite, CkCallbackResumeThread());
+      outputBinary(pmHotOut, param.bParaWrite, CkCallbackResumeThread());
       outputBinary(pTeffOut, param.bParaWrite, CkCallbackResumeThread());
 #endif
 	    outputBinary(pOxOut, param.bParaWrite, CkCallbackResumeThread());
@@ -3482,7 +3488,8 @@ void Main::writeOutput(int iStep)
 #endif
 	if (param.bStarForm || param.bFeedback) {
 #ifdef SUPERBUBBLE
-      treeProxy[0].outputASCII(pHotOut, param.bParaWrite, CkCallbackResumeThread());
+      treeProxy[0].outputASCII(pmHotOut, param.bParaWrite, CkCallbackResumeThread());
+      treeProxy[0].outputASCII(puHotOut, param.bParaWrite, CkCallbackResumeThread());
       treeProxy[0].outputASCII(pTeffOut, param.bParaWrite,CkCallbackResumeThread());
 #endif
             treeProxy[0].outputASCII(pRung, param.bParaWrite,
