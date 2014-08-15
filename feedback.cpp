@@ -308,7 +308,8 @@ void Main::StellarFeedback(double dTime, double dDelta)
 
 #ifdef SUPERBUBBLE
     CkPrintf("Promote cold shell to hot... \n");
-    PromoteToHotGasSmoothParams pPHG(TYPE_GAS, 0, param.dEvapCoeff, param.dEvapMinTemp,
+	double a = csmTime2Exp(param.csm,dTime);
+    PromoteToHotGasSmoothParams pPHG(TYPE_GAS, 0, param.dEvapCoeff*a, param.dEvapMinTemp,
             param.dErgPerGmUnit, param.dGmPerCcUnit, param.stfm->dDeltaStarForm, dTime);
     treeProxy.startReSmooth(&pPHG, CkCallbackResumeThread());
     ShareWithHotGasSmoothParams pSHG(TYPE_GAS, 0, param.dEvapMinTemp,
