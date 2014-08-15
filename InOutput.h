@@ -59,6 +59,27 @@ class OutputParams : public PUP::able
     };
 
 #ifdef SUPERBUBBLE
+/// @brief Output particle hot phase internal energy
+class uHotOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {return (TYPETest(p, TYPE_GAS) ? p->uHot() : 0);}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {p->uHot() = val;}
+    uHotOutputParams() {}
+    uHotOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "uHot"; sNChilExt = "uHot";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
+    PUPable_decl(uHotOutputParams);
+    uHotOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
 /// @brief Output particle hot phase masses
 class MassHotOutputParams : public OutputParams
 {
