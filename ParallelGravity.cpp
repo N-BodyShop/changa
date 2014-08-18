@@ -2915,6 +2915,7 @@ Main::doSimulation()
 	  ckout << "Outputting gas properties ...";
 #ifdef SUPERBUBBLE
 	      uHotOutputParams puHotOut(achFile, param.iBinaryOut, 0.0);
+	      uOutputParams puOut(achFile, param.iBinaryOut, 0.0);
 	      MassHotOutputParams pmHotOut(achFile, param.iBinaryOut, 0.0);
           double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
 	      TempEffOutputParams pTeffOut(achFile, param.iBinaryOut, 0.0, param.bGasCooling, dTuFac);
@@ -2930,6 +2931,8 @@ Main::doSimulation()
               if (param.iBinaryOut) {
 #ifdef SUPERBUBBLE
                   outputBinary(puHotOut, param.bParaWrite,
+                      CkCallbackResumeThread());
+                  outputBinary(puOut, param.bParaWrite,
                       CkCallbackResumeThread());
                   outputBinary(pmHotOut, param.bParaWrite,
                       CkCallbackResumeThread());
@@ -2960,6 +2963,7 @@ Main::doSimulation()
 #ifdef SUPERBUBBLE
                   treeProxy[0].outputASCII(pmHotOut, param.bParaWrite, CkCallbackResumeThread());
                   treeProxy[0].outputASCII(puHotOut, param.bParaWrite, CkCallbackResumeThread());
+                  treeProxy[0].outputASCII(puOut, param.bParaWrite, CkCallbackResumeThread());
                   treeProxy[0].outputASCII(pTeffOut, param.bParaWrite,CkCallbackResumeThread());
 #endif
                   treeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
@@ -3395,6 +3399,7 @@ void Main::writeOutput(int iStep)
 #ifdef SUPERBUBBLE
 	      MassHotOutputParams pmHotOut(achFile, param.iBinaryOut, 0.0);
 	      uHotOutputParams puHotOut(achFile, param.iBinaryOut, 0.0);
+	      uOutputParams puOut(achFile, param.iBinaryOut, 0.0);
           double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
 	      TempEffOutputParams pTeffOut(achFile, param.iBinaryOut, 0.0, param.bGasCooling, dTuFac);
 #endif
@@ -3417,6 +3422,7 @@ void Main::writeOutput(int iStep)
         if (param.bStarForm || param.bFeedback) {
 #ifdef SUPERBUBBLE
       outputBinary(puHotOut, param.bParaWrite, CkCallbackResumeThread());
+      outputBinary(puOut, param.bParaWrite, CkCallbackResumeThread());
       outputBinary(pmHotOut, param.bParaWrite, CkCallbackResumeThread());
       outputBinary(pTeffOut, param.bParaWrite, CkCallbackResumeThread());
 #endif
@@ -3490,6 +3496,7 @@ void Main::writeOutput(int iStep)
 #ifdef SUPERBUBBLE
       treeProxy[0].outputASCII(pmHotOut, param.bParaWrite, CkCallbackResumeThread());
       treeProxy[0].outputASCII(puHotOut, param.bParaWrite, CkCallbackResumeThread());
+      treeProxy[0].outputASCII(puOut, param.bParaWrite, CkCallbackResumeThread());
       treeProxy[0].outputASCII(pTeffOut, param.bParaWrite,CkCallbackResumeThread());
 #endif
             treeProxy[0].outputASCII(pRung, param.bParaWrite,
