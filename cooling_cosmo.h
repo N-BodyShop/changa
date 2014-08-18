@@ -324,7 +324,7 @@ void CoolPERBARYONtoPARTICLE(COOL *cl_, PERBARYON *Y, COOLPARTICLE *cp);
     (cp)->Y_HeII = (Y)->HeII; }
 
 
-double CoolEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E, double fMetal );
+double CoolEnergyToTemperature( COOLPARTICLE *cp, double E, double fMetal );
 double CoolCodeEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E, double fMetal );
 
 /* Note: nod to cosmology (z parameter) unavoidable unless we want to access cosmo.[ch] from here */
