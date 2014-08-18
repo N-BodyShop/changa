@@ -299,13 +299,6 @@ void Main::StellarFeedback(double dTime, double dDelta)
         delete msgCounts;
     }
 #endif
-    treeProxy.finishNodeCache(CkCallbackResumeThread());
-#ifdef CUDA
-        // We didn't do gravity where the registered TreePieces on the
-        // DataManager normally get cleared.  Clear them here instead.
-        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
-#endif
-
 #ifdef SUPERBUBBLE
     CkPrintf("Promote cold shell to hot... \n");
 	double a = csmTime2Exp(param.csm,dTime);
@@ -316,6 +309,13 @@ void Main::StellarFeedback(double dTime, double dDelta)
             param.dErgPerGmUnit, param.dGmPerCcUnit); 
     treeProxy.startReSmooth(&pSHG, CkCallbackResumeThread());
 #endif
+    treeProxy.finishNodeCache(CkCallbackResumeThread());
+#ifdef CUDA
+        // We didn't do gravity where the registered TreePieces on the
+        // DataManager normally get cleared.  Clear them here instead.
+        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+#endif
+
 #ifdef SPLITGAS
     addDelParticles();
 #endif
