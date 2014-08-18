@@ -101,6 +101,7 @@ class extraSPHData
     double _uHotDot;
     double _uHotPred;
     double _massHot;
+    double _fDensityU;
     double _fThermalCond;
     double _fThermalLength;
     double _fPromoteSum;
@@ -158,6 +159,7 @@ class extraSPHData
     inline double& uHotPred() {return _uHotPred;}
     inline double& uHotDot() {return _uHotDot;}
     inline double& massHot() {return _massHot;}
+    inline double& fDensityU() {return _fDensityU;}
     inline double& fThermalCond() {return _fThermalCond;}
     inline double& fThermalLength() {return _fThermalLength;}
     inline double& fPromoteSum() {return _fPromoteSum;}
@@ -214,6 +216,7 @@ class extraSPHData
     p| _uHotDot;
     p| _uHotPred;
     p| _massHot;
+    p| _fDensityU;
     p| _fThermalCond;
     p| _fThermalLength;
     p| _fPromoteSum;
@@ -433,6 +436,7 @@ public:
 	inline double& uHotPred() { IMAGAS; return (((extraSPHData*)extraData)->uHotPred());}
 	inline double& uHotDot() { IMAGAS; return (((extraSPHData*)extraData)->uHotDot());}
 	inline double& massHot() { IMAGAS; return (((extraSPHData*)extraData)->massHot());}
+	inline double& fDensityU() { IMAGAS; return (((extraSPHData*)extraData)->fDensityU());}
 	inline double& fThermalCond() { IMAGAS; return (((extraSPHData*)extraData)->fThermalCond());}
 	inline double& fThermalLength() { IMAGAS; return (((extraSPHData*)extraData)->fThermalLength());}
 	inline double& fPromoteSum() { IMAGAS; return (((extraSPHData*)extraData)->fThermalLength());}
@@ -590,6 +594,7 @@ class ExternalSmoothParticle {
   double uHotDot;
   double uHotPred;
   double massHot;
+  double fDensityU;
   double fThermalCond;
   double fThermalLength;
   double fPromoteSum;
@@ -650,6 +655,7 @@ class ExternalSmoothParticle {
           uHotPred = p->uHotPred();
           uHotDot = p->uHotDot();
           massHot = p->massHot();
+          fDensityU = p->fDensityU();
           fThermalCond = p->fThermalCond();
           fThermalLength = p->fThermalLength();
           fPromoteSum = p->fPromoteSum();
@@ -715,8 +721,9 @@ class ExternalSmoothParticle {
       tmp->uHotPred() = uHotPred;
       tmp->uHotDot() = uHotDot;
       tmp->massHot() = massHot;
+      tmp->fDensityU() = fDensityU;
       tmp->fThermalCond() = fThermalCond;
-      tmp->fThermalLength() = fThermalCond;
+      tmp->fThermalLength() = fThermalLength;
       tmp->fPromoteSum() = fPromoteSum;
       tmp->fPromoteSumuPred() = fPromoteSumuPred;
       tmp->fPromoteuPredInit() = fPromoteuPredInit;
@@ -781,6 +788,7 @@ class ExternalSmoothParticle {
     p | uHotPred;
     p | uHotDot;
     p | massHot;
+    p | fDensityU;
     p | fThermalCond;
     p | fThermalLength;
     p | fPromoteSum;
