@@ -224,6 +224,7 @@ class extraStarData
     inline double& dDeltaM() {return _dDeltaM;}
     /*#ifdef COOLING_MOLECULARH*/
 #ifdef LYMAN_WERNER
+    inline const double& dStarLymanWerner_read() const {return _dStarLymanWerner;} 
     inline double& dStarLymanWerner() {return _dStarLymanWerner;} 
 #endif /*LYMAN_WERNER*/
     /*#endif*/
@@ -404,6 +405,7 @@ public:
 	inline double& dMDot() { IMASTAR; return (((extraStarData*)extraData)->dMDot());}
 	/*#ifdef COOLING_MOLECULARH*/
 #ifdef LYMAN_WERNER
+	inline const double& dStarLymanWerner_read() const { IMASTAR; return (((extraStarData*)extraData)->dStarLymanWerner());}	
 	inline double& dStarLymanWerner() { IMASTAR; return (((extraStarData*)extraData)->dStarLymanWerner());} 
 #endif /*LYMAN_WERNER*/
 	/*#endif*/

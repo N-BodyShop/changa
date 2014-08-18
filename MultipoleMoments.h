@@ -293,19 +293,17 @@ public:
 		cm = (m1*cm + p.mass * p.position)/totalMass;
 		/*#ifdef COOLING_MOLECULARH */
 #ifdef LYMAN_WERNER
-		ParticleType p1; /*Duplicate variable as TYPETest does not accept constants*/
-		p1 = p;
 		double totalLW1 = totalLW;
-		if (p1.isStar()) {
-		  if (p1.dStarLymanWerner() != 0) { /*except this is log, so I'll have to figure out another way to mark this*/
-		    totalLW = log10(pow(10,totalLW - 30.0) + pow(10,p1.dStarLymanWerner() - 30.0)) + 30.0; /*The thirty is just there to keep numbers in bounds*/
-		    cLW = (pow(10,totalLW1 - 30.0)*cLW + pow(10,p1.dStarLymanWerner() - 30.0)*p.position)/pow(10,totalLW - 30.0);
+		if (p.isStar()) {
+		  if (p.dStarLymanWerner_read() != 0) { /*except this is log, so I'll have to figure out another way to mark this*/
+		    totalLW = log10(pow(10,totalLW - 30.0) + pow(10,p.dStarLymanWerner_read() - 30.0)) + 30.0; /*The thirty is just there to keep numbers in bounds*/
+		    cLW = (pow(10,totalLW1 - 30.0)*cLW + pow(10,p.dStarLymanWerner_read() - 30.0)*p.position)/pow(10,totalLW - 30.0);
 		  }
 		 }
 
 		double totalgas1 = totalgas;
 		Vector3D<double> cgas1 = cgas;
-		if (p1.isGas()) {
+		if (p.isGas()) {
 		  totalgas += p.mass;
 		  if (totalgas!= 0) {
 		    cgas = (totalgas1*cgas1 + p.mass * p.position)/totalgas;
