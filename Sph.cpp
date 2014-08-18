@@ -791,6 +791,8 @@ void TreePiece::updateuDot(int activeRung,
 	if (TYPETest(p, TYPE_GAS)
 	    && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
 	    dt = CoolCodeTimeToSeconds(dm->Cool, duDelta[p->rung] );
+        fDensity = p->fDensity;
+        ExternalHeating = p->PdV() + p->fESNrate();
 	    if ( bCool ) {
 		COOLPARTICLE cp = p->CoolParticle();
 		double r[3];  // For conversion to C
@@ -824,9 +826,6 @@ void TreePiece::updateuDot(int activeRung,
         }
         fDensity = p->fDensity*PoverRho/(gammam1*p->uPred());
         CkAssert(fDensity > 0);
-#else
-        fDensity = p->fDensity;
-        ExternalHeating = p->PdV() + p->fESNrate();
 #endif
 		E = p->u();
 #ifdef COOLING_BOLEY
