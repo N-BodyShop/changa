@@ -825,6 +825,7 @@ void TreePiece::updateuDot(int activeRung,
             ExternalHeating = p->PdV() + p->fESNrate();
         }
         fDensity = p->fDensity*PoverRho/(gammam1*p->uPred());
+        if (p->fDensityU() < p->fDensity) fDensity = p->fDensityU()*PoverRho/(gammam1*p->uPred());
         CkAssert(fDensity > 0);
 #endif
 		E = p->u();
@@ -952,7 +953,9 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
   double ih2,ih, r2,rs,rs1,fDensity,fNorm,fNorm1,vFac;
 	double dvxdx, dvxdy, dvxdz, dvydx, dvydy, dvydz, dvzdx, dvzdy, dvzdz;
 	double dvx,dvy,dvz,dx,dy,dz,trace,grx,gry,grz;
+#ifdef SUPERBUBBLE
     double fDensityU = 0;
+#endif
 #ifdef CULLENALPHA
 	double R_CD, R_CDN;     ///< R in CD limiter, and
                                 ///  normalization for R.
@@ -987,7 +990,9 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		    qiActive = 1;
 		rs = KERNEL(r2, nSmooth);
 		fDensity += rs*q->mass;
+#ifdef SUPERBUBBLE
 		fDensityU += rs*q->mass*q->uPred();
+#endif
 		rs1 = DKERNEL(r2);
 		rs1 *= q->mass;
 		dx = nnList[i].dx.x; /* NB: dx = px - qx */
@@ -1036,8 +1041,12 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
           TYPESet(p,TYPE_NbrOfACTIVE);
 
         p->fDensity = fNorm*fDensity;
-    fDensityU *= fNorm;
 #ifdef SUPERBUBBLE
+    fDensityU *= fNorm;
+    rs = KERNEL(0.0);
+    p->fDensityU() = (fDensityU-rs*p->mass*p->uPred()*fNorm)/p->uPred()*p->fDensity/(p->fDensity-rs*p->mass*fNorm);
+    if(p->fDensityU() <= 0) CkPrintf("ERROR: %e %e %e %e %e %e %e\n", p->fDensityU(), fDensityU, fDensity, rs, p->mass, p->uPred(), fNorm);
+    CkAssert(p->fDensityU() > 0);
     double ih = sqrt(ih2);
     double rhogradu=sqrt(grx*grx+gry*gry+grz*grz)*fNorm*ih2;
     p->fThermalLength() = (rhogradu != 0 ? fDensityU/rhogradu : FLT_MAX);
