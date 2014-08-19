@@ -295,9 +295,9 @@ public:
 #ifdef LYMAN_WERNER
 		double totalLW1 = totalLW;
 		if (p.isStar()) {
-		  if (p.dStarLymanWerner_read() != 0) { /*except this is log, so I'll have to figure out another way to mark this*/
-		    totalLW = log10(pow(10,totalLW - 30.0) + pow(10,p.dStarLymanWerner_read() - 30.0)) + 30.0; /*The thirty is just there to keep numbers in bounds*/
-		    cLW = (pow(10,totalLW1 - 30.0)*cLW + pow(10,p.dStarLymanWerner_read() - 30.0)*p.position)/pow(10,totalLW - 30.0);
+		  if (p.dStarLymanWerner() != 0) { /*except this is log, so I'll have to figure out another way to mark this*/
+		    totalLW = log10(pow(10,totalLW - 30.0) + pow(10,p.dStarLymanWerner() - 30.0)) + 30.0; /*The thirty is just there to keep numbers in bounds*/
+		    cLW = (pow(10,totalLW1 - 30.0)*cLW + pow(10,p.dStarLymanWerner() - 30.0)*p.position)/pow(10,totalLW - 30.0);
 		  }
 		 }
 
