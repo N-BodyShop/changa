@@ -34,7 +34,7 @@ class SmoothParams : public PUP::able
         PUP::able::pup(p);//Call base class
         p|iType;
         p|activeRung;
-        p|bUseBallMax;
+	p|bUseBallMax;
 	}
     };
 #endif
