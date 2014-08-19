@@ -1887,6 +1887,9 @@ void Main::setupICs() {
 #ifdef BIGKEYS
   ofsLog << " BIGKEYS";
 #endif
+#ifdef WENDLAND
+  ofsLog << " WENDLAND";
+#endif
   ofsLog << endl;
   ofsLog << "# Key sizes: " << sizeof(KeyType) << " bytes particle "
          << sizeof(NodeKey) << " bytes node" << endl;

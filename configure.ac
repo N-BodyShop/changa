@@ -71,8 +71,19 @@ if test "$bigkeys" = "yes" ; then
 else
     FLAG_BIGKEYS=""
 fi
-
 AC_SUBST([FLAG_BIGKEYS])
+
+# Wendland C4 Kernel:
+AC_ARG_ENABLE([wendland],
+	[AS_HELP_STRING([--enable-wendland], [enable Wendland C4 Kernel])],
+	[wendland=yes], [wendland=no])
+if test "$wendland" = "yes" ; then
+    echo "WENDLAND selected"
+    FLAG_KERNEL="-DWENDLAND"
+else
+    FLAG_KERNEL=""
+fi
+AC_SUBST([FLAG_KERNEL])
 
 # Cooling:
 AC_ARG_ENABLE([cooling],
