@@ -173,14 +173,11 @@ public:
 	/// The center of mass (zeroth order multipole)
 	Vector3D<cosmoType> cm;
 
-	/*#ifdef COOLING_MOLECULARH*/
-#ifdef LYMAN_WERNER
+#ifdef COOLING_MOLECULARH
 	double totalLW, totalgas;
 	Vector3D<double> cLW, cgas;
 	double xxgas, yygas, zzgas;
-
-#endif /*LYMAN_WERNER*/
-	/*#endif*/ /*COOLING_MOLECULARH*/
+#endif /*COOLING_MOLECULARH*/
 
 #ifdef HEXADECAPOLE
 	FMOMR mom;
@@ -192,14 +189,12 @@ public:
 	MultipoleMoments() : radius(0), totalMass(0) { 
 	    soft = 0;
 		cm.x = cm.y = cm.z = 0;
-		/*#ifdef COOLING_MOLECULARH*/
-#ifdef LYMAN_WERNER
+#ifdef COOLING_MOLECULARH
 		totalLW = 0, totalgas = 0;
 		cLW.x = cLW.y = cLW.z = 0;
 		cgas.x = cgas.y = cgas.z = 0;
 		xxgas = yygas = zzgas = 0;
-#endif /*LYMAN_WERNER*/		
-		/*#endif*/ /*COOLING_MOLECULARH*/
+#endif /*COOLING_MOLECULARH*/		
 		//clear higher order components here
 #ifdef HEXADECAPOLE
 		momClearFmomr(&mom);
@@ -227,8 +222,7 @@ public:
 		soft = (m1*soft + m.totalMass*m.soft)/totalMass;
 		Vector3D<cosmoType> cm1 = cm;
 		cm = (m1*cm + m.totalMass*m.cm)/totalMass;
-		/*#ifdef COOLING_MOLECULARH*/
-#ifdef LYMAN_WERNER
+#ifdef COOLING_MOLECULARH
 		double totalLW1 = totalLW;
 		if (m.totalLW != 0) { /*except this is log, so I'll have to figure out another way to mark this, CC*/
 		  totalLW = log10(pow(10,totalLW - 30.0) + pow(10,m.totalLW - 30.0)) + 30.0; /*The thirty is just there to keep numbers in bounds*/
@@ -249,8 +243,7 @@ public:
 		xxgas += m.xxgas + m.totalgas*drgas[0]*drgas[0];
 		yygas += m.yygas + m.totalgas*drgas[1]*drgas[1];
 		zzgas += m.zzgas + m.totalgas*drgas[2]*drgas[2];
-#endif /*LYMAN_WERNER*/
-		/*#endif*/ /*COOLING_MOLECULARH*/
+#endif /*COOLING_MOLECULARH*/
 #ifdef HEXADECAPOLE
 		Vector3D<cosmoType> dr = cm1 - cm;
 		momShiftFmomr(&mom, radius, dr.x, dr.y, dr.z);
@@ -291,8 +284,7 @@ public:
 		soft = (m1*soft + p.mass*p.soft)/totalMass;
 		Vector3D<cosmoType> cm1 = cm;
 		cm = (m1*cm + p.mass * p.position)/totalMass;
-		/*#ifdef COOLING_MOLECULARH */
-#ifdef LYMAN_WERNER
+#ifdef COOLING_MOLECULARH 
 		double totalLW1 = totalLW;
 		if (p.isStar()) {
 		  if (p.dStarLymanWerner() != 0) { /*except this is log, so I'll have to figure out another way to mark this*/
@@ -322,8 +314,7 @@ public:
 		  zzgas += p.mass*drgas[2]*drgas[2];
 		 }
 
-#endif /*LYMAN_WERNER*/	
-		/*#endif*/ /*COOLING_MOLECULARH*/
+#endif /*COOLING_MOLECULARH*/
 #ifdef HEXADECAPOLE
 		// XXX this isn't the most efficient way, but it
 		// retains the semantics of this function.  It would
@@ -435,8 +426,7 @@ inline void operator|(PUP::er& p, MultipoleMoments& m) {
 	p | m.totalMass;
 	p | m.soft;
 	p | m.cm;
-    /*#ifdef COOLING_MOLECULARH*/
-#ifdef LYMAN_WERNER
+#ifdef COOLING_MOLECULARH
 	p | m.totalLW;
 	p | m.totalgas;
 	p | m.cLW;
@@ -444,7 +434,7 @@ inline void operator|(PUP::er& p, MultipoleMoments& m) {
 	p | m.xxgas;
 	p | m.yygas;
 	p | m.zzgas;
-#endif /*LYMAN_WERNER*/
+#endif /*COOLING_MOLECULARH*/
 #ifdef HEXADECAPOLE
 	p((char *) &m.mom, sizeof(m.mom)); /* PUPs as bytes */
 #else

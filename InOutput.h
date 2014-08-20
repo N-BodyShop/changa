@@ -800,7 +800,7 @@ class Cool3OutputParams : public OutputParams
     };
 #endif /*COOLING_MOLECULARH*/
 
-#ifdef LYMAN_WERNER
+#ifdef COOLING_MOLECULARH
 class LWOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p) {
@@ -827,8 +827,7 @@ class LWOutputParams : public OutputParams
         OutputParams::pup(p);//Call base class
 	}
     };
-#endif /*LYMAN_WERNER*/
-/*#endif*/ /*COOLING_MOLECULARH*/
+#endif /*COOLING_MOLECULARH*/
 
 /// @brief Output Oxygen mass fraction.
 class OxOutputParams : public OutputParams
