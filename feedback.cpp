@@ -435,11 +435,9 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
    if (!bAGORAFeedback)
         p->fStarESNrate() /= dDelta;
 
-    /*#ifdef COOLING_MOLECULARH*/ /* Calculates LW radiation from a stellar particle of a given age and mass (assumes Kroupa IMF), CC */
-#ifdef LYMAN_WERNER
+#ifdef COOLING_MOLECULARH /* Calculates LW radiation from a stellar particle of a given age and mass (assumes Kroupa IMF), CC */
     p->dStarLymanWerner() = CalcLWFeedback(&sfEvent, dTime, dDeltaYr);
-#endif /*LYMAN_WERNER*/
-    /*#endif*/
+#endif /*COOLING_MOLECULARH*/
 }
 
 void Fdbk::CalcWindFeedback(SFEvent *sfEvent, double dTime, /* current time in years */
@@ -531,8 +529,7 @@ void Fdbk::CalcUVFeedback(SFEvent *sfEvent, /**< Star to process */
         }
     }
 
-/*#ifdef COOLING_MOLECULARH*/
-#ifdef LYMAN_WERNER
+#ifdef COOLING_MOLECULARH
 /*----  Lyman-Warner Radiation from young stars*/
 double Fdbk::CalcLWFeedback(SFEvent *sfEvent, double dTime, /* current time in years */
 			    double dDelta /* length of timestep (years) */ )
@@ -563,8 +560,7 @@ double Fdbk::CalcLWFeedback(SFEvent *sfEvent, double dTime, /* current time in y
     }
     else return 0;
 }
-#endif /*LYMAN_WERNER*/
-/*#endif*/
+#endif /*COOLING_MOLECULARH*/
 
 /*
  * Methods to distribute stellar feedback

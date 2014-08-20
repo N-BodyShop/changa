@@ -1560,8 +1560,7 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
     contribute(cb);
     }
 
-/*#ifdef COOLING_MOLECULARH*/
-#ifdef LYMAN_WERNER
+#ifdef COOLING_MOLECULARH
 void TreePiece::distribLymanWerner(const CkCallback& cb) 
 {
   /*copied more or less from startOctTreeBuild*/
@@ -1570,8 +1569,7 @@ void TreePiece::distribLymanWerner(const CkCallback& cb)
   traversal.dft(root,&localLymanWernerDistributor,0);
   contribute(cb);
 }
-#endif /*LYMAN_WERNER*/
-/*#endif*//*COOLING_MOLECULARH*/
+#endif/*COOLING_MOLECULARH*/
 
 /**
  * Adjust timesteps of active particles.

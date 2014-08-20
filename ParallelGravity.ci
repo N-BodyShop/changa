@@ -152,11 +152,9 @@ mainmodule ParallelGravity {
   PUPable Cool2OutputParams;
 #ifdef COOLING_MOLECULARH
   PUPable Cool3OutputParams;
-#endif /*COOLING_MOLECULARH*/
-#ifdef LYMAN_WERNER
+#ifdef COOLING_MOLECULARH
   PUPable LWOutputParams;
-#endif /*LYMAN_WERNER*/
-/*#endif*/ /*COOLING_MOLECULARH*/
+#endif /*COOLING_MOLECULARH*/
   PUPable OxOutputParams;
   PUPable FeOutputParams;
   PUPable MetalsOutputParams;
@@ -365,9 +363,7 @@ mainmodule ParallelGravity {
     entry void externalGravity(int activeRung, const ExternalGravity exGrav,
                        const CkCallback& cb);
 /*#ifdef COOLING_MOLECULARH*/
-#ifdef LYMAN_WERNER
     entry void distribLymanWerner(const CkCallback& cb);
-#endif /*LYMAN_WERNER*/
 /*#endif*/ /*COOLING_MOLECULARH*/
     entry void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      int bSphStep, int bViscosityLimitdt,

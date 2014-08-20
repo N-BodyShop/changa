@@ -2701,8 +2701,7 @@ void LocalTreePrinter::openFile(){
   file << "digraph " << description << index << "{" << std::endl;
 }
 
-/*#ifdef COOLING_MOLECULARH*/
-#ifdef LYMAN_WERNER
+#ifdef COOLING_MOLECULARH
 bool LocalLymanWernerDistributor::work(GenericTreeNode *node, int level){
   double fmomgas = 0, fDistanceCell2 = 0, fDistance2 = 0, fDistancePrevCell2 = 0, fPrev_aveLW = 0;
   double fPrev_totalLW;
@@ -2809,5 +2808,4 @@ void LocalLymanWernerDistributor::doneChildren(GenericTreeNode *node, int level)
       //      CkAssert(node->getChildren(i) != NULL);
     }
 }
-#endif /*LYMAN_WERNER*/
-/*#endif*/ /* COOLING_MOLECULARH */
+#endif /* COOLING_MOLECULARH */

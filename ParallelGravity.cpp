@@ -1985,11 +1985,9 @@ void Main::advanceBigStep(int iStep) {
     if(param.bDoExternalGravity)
         externalGravity(activeRung);
 
-    /*#ifdef COOLING_MOLECULARH*/
-#ifdef LYMAN_WERNER
+#ifdef COOLING_MOLECULARH
     treeProxy.distribLymanWerner(CkCallbackResumeThread());
-#endif /*LYMAN_WERNER*/
-    /*#endif*/ /*COOLING_MOLECULARH*/
+#endif /*COOLING_MOLECULARH*/
 
     if(verbosity > 1)
 	memoryStats();
@@ -3311,11 +3309,11 @@ void Main::writeOutput(int iStep)
 #ifdef COOLING_MOLECULARH
 	    outputBinary(pCool3Out, param.bParaWrite, CkCallbackResumeThread());
 #endif /*COOLING_MOLECULARH*/
-	    }
-#ifdef LYMAN_WERNER
+	}
+#ifdef COOLING_MOLECULARH
 	    if(param.bDoStellarLW)
-                outputBinary(pLWOut, param.bParaWrite, CkCallbackResumeThread());
-#endif /*LYMAN_WERNER*/
+	      outputBinary(pLWOut, param.bParaWrite, CkCallbackResumeThread());
+#endif /*COOLING_MOLECULARH*/
 #endif
 	if(param.bDoSoftOutput && param.iBinaryOut != 6) {
 	    outputBinary(pSoftOut, param.bParaWrite, CkCallbackResumeThread());
@@ -3377,12 +3375,11 @@ void Main::writeOutput(int iStep)
 				     CkCallbackResumeThread());
 #endif /*COOLING_MOLECULARH*/
 	}
-#ifdef LYMAN_WERNER
+#ifdef COOLING_MOLECULARH
 	if(param.bDoStellarLW)
 	  treeProxy[0].outputASCII(pLWOut, param.bParaWrite,
 				   CkCallbackResumeThread());  
-#endif /*LYMAN_WERNER*/
-	    /*#endif*/ /*COOLING_MOLECULARH*/
+#endif /*COOLING_MOLECULARH*/
 #endif
 #ifdef DIFFUSION
         if(param.bDoGas)

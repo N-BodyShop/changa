@@ -1,11 +1,9 @@
 #ifndef __COMPUTE_H__
 #define __COMPUTE_H__
 
-/*#ifdef COOLING_MOLECULARH*/
-#ifdef LYMAN_WERNER
+#ifdef COOLING_MOLECULARH
 #include "Vector3D.h"
-#endif /*LYMAN_WERNER*/
-/*#endif*/ /*COOLING_MOLECULARH*/
+#endif /*COOLING_MOLECULARH*/
 
 #include "codes.h"
 #include "ParallelGravity.h"
@@ -356,8 +354,7 @@ class LocalTreePrinter : public TreeNodeWorker {
   void doneChildren(GenericTreeNode *node, int level);
 };
 
-/*#ifdef COOLING_MOLECULARH*/
-#ifdef LYMAN_WERNER
+#ifdef COOLING_MOLECULARH
 class LocalLymanWernerDistributor : public TreeNodeWorker {
   /*Defining a new class inherited from TreeNodeWorker to use while distributing LW over a depth-first walk */
   TreePiece *tp; /*Defined in ParallelGravity.h.  Fundamental structure that holds particle and tree data.*/
@@ -373,7 +370,6 @@ class LocalLymanWernerDistributor : public TreeNodeWorker {
 
   private:
 };
-#endif /*LYMAN_WERNER*/
-/*#endif*/ /*COOLING_MOLECULARH*/
+#endif /*COOLING_MOLECULARH*/
 
 #endif
