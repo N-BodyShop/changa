@@ -362,9 +362,9 @@ mainmodule ParallelGravity {
     entry void applyFrameAcc(int iKickRung, Vector3D<double> frameAcc, const CkCallback& cb);
     entry void externalGravity(int activeRung, const ExternalGravity exGrav,
                        const CkCallback& cb);
-/*#ifdef COOLING_MOLECULARH*/
+#ifdef COOLING_MOLECULARH
     entry void distribLymanWerner(const CkCallback& cb);
-/*#endif*/ /*COOLING_MOLECULARH*/
+#endif
     entry void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      int bSphStep, int bViscosityLimitdt,
 	      double dEta, double dEtaCourant, double dEtauDot,
