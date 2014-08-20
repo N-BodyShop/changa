@@ -224,8 +224,8 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
   int numInactiveObjects = 0;
 
   // to calculate ratio of active particles in phase
-  int numActiveParticles = 0;
-  int totalNumParticles = 0;
+  int64_t numActiveParticles = 0;
+  int64_t totalNumParticles = 0;
   
   for(int i = 0; i < stats->n_objs; i++){
     stats->to_proc[i] = stats->from_proc[i];

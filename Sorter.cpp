@@ -489,15 +489,15 @@ void Sorter::collectEvaluations(CkReductionMsg* m) {
 void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 
   numIterations++;
-  numCounts = m->getSize() / sizeof(int);
-  int* startCounts = static_cast<int *>(m->getData());
+  numCounts = m->getSize() / sizeof(int64_t);
+  int64_t* startCounts = static_cast<int64_t *>(m->getData());
 
   //call function which will balance the bin counts: define it in GenericTreeNode
   //make it a templated function
   //Pass the bincounts as well as the nodekeys
 
   if (joinThreshold == 0) {
-    int total_particles = std::accumulate(startCounts, startCounts+numCounts, 0);
+    int64_t total_particles = std::accumulate(startCounts, startCounts+numCounts, 0);
     joinThreshold = total_particles / (numTreePieces>>1);
     splitThreshold = (int) (joinThreshold * 1.5);
   }
@@ -506,7 +506,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     int i=0;
     CkPrintf("Bin Counts in collect eval (%d):",numCounts);
     for ( ; i<numCounts; i++) {
-      CkPrintf("%d,",startCounts[i]);
+      CkPrintf("%ld,",startCounts[i]);
     }
     CkPrintf("\n");
     CkPrintf("Nodekeys:");
@@ -577,8 +577,10 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
       delete leaves;
     }
 
-    int total = root->buildCounts();
-    // CkPrintf("total number of particles: %d\n", total);
+    // N.B. While "total" is not used, the buildCounts() method has
+    // necessary side effects.
+    int64_t total = root->buildCounts();
+    // CkPrintf("total number of particles: %ld\n", total);
     do {
 	// Convert Oct domains to splitters, ensuring that we do not exceed
 	// the number of available TreePieces.
@@ -683,7 +685,7 @@ void OctDecompNode::makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active){
   }
 }
 
-int OctDecompNode::buildCounts() {
+int64_t OctDecompNode::buildCounts() {
   if (children == NULL) {
     return nparticles;
   }
@@ -743,7 +745,7 @@ void OctDecompNode::deleteBeneath(){
  * refinement, "nodesOpened" will be changed to reflect this request for more data.
  * Returns true if more refinement is requested.
  */
-bool Sorter::refineOctSplitting(int n, int *count) {
+bool Sorter::refineOctSplitting(int n, int64_t *count) {
 
   CkAssert(activeNodes->length() == n);
 
@@ -784,10 +786,10 @@ bool Sorter::refineOctSplitting(int n, int *count) {
  */
 void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	numIterations++;
-	numCounts = m->getSize() / sizeof(int);
+	numCounts = m->getSize() / sizeof(int64_t);
 	binCounts.resize(numCounts + 1);
 	binCounts[0] = 0;
-	int* startCounts = static_cast<int *>(m->getData());
+	int64_t* startCounts = static_cast<int64_t *>(m->getData());
 	copy(startCounts, startCounts + numCounts, binCounts.begin() + 1);
 	delete m;
 
