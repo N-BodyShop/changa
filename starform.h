@@ -66,7 +66,9 @@ inline void Stfm::pup(PUP::er &p) {
     p|dMinGasMass;
     p|dMaxStarMass;
     p|bGasCooling;
+#ifdef COOLING_MOLECULARH
     p|dStarFormEfficiencyH2;
+#endif
     p|bBHForm;
     p|dBHFormProb;
     p|dInitBHMass;
