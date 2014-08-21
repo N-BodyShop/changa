@@ -1785,7 +1785,7 @@ void DistDeletedGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 #ifdef SUPERBUBBLE
 int PromoteToHotGasSmoothParams::isSmoothActive(GravityParticle *p)
 {
-    return TYPETest(p, TYPE_FEEDBACK) && TYPETest(p, iType);
+    return TYPETest(p, TYPE_FEEDBACK) && TYPETest(p, iType) && !TYPETest(p, TYPE_PROMOTED);
 }
 void PromoteToHotGasSmoothParams::initSmoothParticle(GravityParticle *p)
 {
@@ -1886,7 +1886,8 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         /* cf. Weaver etal'77 mdot = 4.13d-14 * (dx^2/4 !pi) (Thot^2.5-Tcold^2.5)/dx - 2 udot mHot/(k T/mu) 
            Kernel sets total probability to 1 */
         Prob = fFactor*(up52-pow(q->uPred(),2.5))*rs/q->mass;
-		//printf("promote?: %d %d %g %g %g  %g %g %g\n",p->iOrder,q->iOrder,Tp, Tq, ph, fFactor*(up52-pow(q->uPred,2.5))*rs, q->mass, Prob);
+        //printf("promote?: %g %g %g %d %d %g\n", dDeltaStarForm, dEvapCoeff, ph, nHot, nSmooth, rstot);
+        //printf("promote?: %d %d %g %g %g  %g %g %g\n",p->iOrder,q->iOrder,Tp, Tq, ph, fFactor*(up52-pow(q->uPred(),2.5))*rs, q->mass, Prob);
         if ( (rand()/((double) RAND_MAX)) < Prob) {
             mPromoted += q->mass; //printf("promote? MASS: %d %d %g %g %g  %g + %g %g\n",p->iOrder,q->iOrder,Tp, Tq, ph, fFactor*(up52-pow(q->uPred,2.5))*rs, q->mass, Prob);
             }
@@ -1907,7 +1908,7 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
             if (dTimeCool > q->fTimeCoolIsOffUntil()) q->fTimeCoolIsOffUntil() = dTimeCool;
             TYPESet(q, TYPE_PROMOTED|TYPE_FEEDBACK);
             mPromoted -= q->mass;
-            //printf("promote? YES: %d %d %g %g %g  %g - %g %g\n",p->iOrder,q->iOrder,Tp, Tq, ph, fFactor*(up52-pow(q->uPred,2.5))*rs, q->mass, Prob);
+            //printf("promote? YES: %d %d %g %g %g  %g - %g %g\n",p->iOrder,q->iOrder,Tp, Tq, ph, fFactor*(up52-pow(q->uPred(),2.5))*rs, q->mass, Prob);
             if (mPromoted < q->mass*0.1) break;
             }
         }
@@ -1915,7 +1916,7 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
 int ShareWithHotGasSmoothParams::isSmoothActive(GravityParticle *p)
 {
-    return TYPETest(p, TYPE_FEEDBACK) && TYPETest(p, iType);
+    return TYPETest(p, TYPE_FEEDBACK) && TYPETest(p, iType) && !TYPETest(p, TYPE_PROMOTED);
 }
         
 void ShareWithHotGasSmoothParams::initSmoothCache(GravityParticle *p)
