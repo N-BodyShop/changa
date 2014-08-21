@@ -279,7 +279,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
     timings[PHASE_FEEDBACK].tAdjust += tFB;
     
     if(verbosity)
-      CkPrintf("Distribute Stellar Feedback ... ");
+      CkPrintf("Distribute Stellar Feedback ...\n ");
     // Need to build tree since we just did addDelParticle.
     //
     buildTree(PHASE_FEEDBACK);
@@ -302,9 +302,10 @@ void Main::StellarFeedback(double dTime, double dDelta)
 #ifdef SUPERBUBBLE
     CkPrintf("Promote cold shell to hot... \n");
 	double a = csmTime2Exp(param.csm,dTime);
-    PromoteToHotGasSmoothParams pPHG(TYPE_GAS, 0, param.dEvapCoeff*a, param.dEvapMinTemp,
+    PromoteToHotGasSmoothParams pPHG(TYPE_GAS, 0, param.dEvapCoeffCode*a, param.dEvapMinTemp,
             param.dErgPerGmUnit, param.dGmPerCcUnit, param.stfm->dDeltaStarForm, dTime);
-    treeProxy.startReSmooth(&pPHG, CkCallbackResumeThread());
+    treeProxy.startSmooth(&pPHG, 1, param.nSmooth,
+			  dfBall2OverSoft2, CkCallbackResumeThread());
     ShareWithHotGasSmoothParams pSHG(TYPE_GAS, 0, param.dEvapMinTemp,
             param.dErgPerGmUnit, param.dGmPerCcUnit); 
     treeProxy.startReSmooth(&pSHG, CkCallbackResumeThread());
