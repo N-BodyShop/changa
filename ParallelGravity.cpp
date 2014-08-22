@@ -2194,7 +2194,7 @@ void Main::setupICs() {
   if (param.bSIDM){
       CkAssert (prmSpecified(prm, "dMsolUnit") &&
                 prmSpecified(prm, "dKpcUnit"));
-      param.dSIDMSigma=param.dSIDMSigma*param.dMsolUnit*MSOLG/(param.dKpcUnit*KPCCM*param.dKpcUnit*KPCCM);
+      param.dSIDMSigma=param.dSIDMSigma*param.dMsolUnit*MSOLG/(param.dKpcUnit*KPCCM*param.dKpcUnit*KPCCM); //converts input cross section in cm^2 g^-1 to simulation units in len_unit^2 / mass_unit
       } 
 
   param.externalGravity.CheckParams(prm, param);
@@ -3389,10 +3389,9 @@ void Main::writeOutput(int iStep)
 	  }
         //SIDM
         if(param.bSIDM) {
-            iNSIDMIntOutputParams pNSIDMOut(achFile);
+            iNSIDMIntOutputParams pNSIDMOut(achFile, param.iBinaryOut, dOutTime);
             treeProxy[0].outputIntASCII(pNSIDMOut, param.bParaWrite,
                                           CkCallbackResumeThread());
-
             }
 	}
       
