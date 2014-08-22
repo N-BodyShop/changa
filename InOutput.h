@@ -1235,9 +1235,13 @@ class iNSIDMIntOutputParams : public OutputParams
       }
  public:
     iNSIDMIntOutputParams() {}
-    iNSIDMIntOutputParams(std::string _fileName) { 
-    fileName = _fileName;
-    sTipsyExt="nsidm";
+    //iNSIDMIntOutputParams(std::string _fileName) {
+    iNSIDMIntOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+    fileName = _fileName; 
+    iBinaryOut= _iBinaryOut;
+    sTipsyExt="nsidm";  sNChilExt = "nsidm";
+    dTime=_dTime;
+    iType= TYPE_DARK;
     }
     PUPable_decl(iNSIDMIntOutputParams);
     iNSIDMIntOutputParams(CkMigrateMessage *m) {}
