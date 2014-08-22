@@ -233,7 +233,11 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 		CmiLock(dm->lockStarLog);
                 // Record current spot in seTab
                 iSeTab.push_back(dm->starLog->seTab.size());
+#ifdef COOLING_MOLECULARH
 		dm->starLog->seTab.push_back(StarLogEvent(starp,dCosmoFac,H2FractionForm,TempForm));
+#else
+		dm->starLog->seTab.push_back(StarLogEvent(starp,dCosmoFac,TempForm));
+#endif
 		CmiUnlock(dm->lockStarLog);
 		delete (extraStarData *)starp->extraData;
 		delete starp;
