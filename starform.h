@@ -86,10 +86,18 @@ class StarLogEvent
     double massForm;
     double rhoForm;
     double TForm;
+#ifdef COOLING_MOLECULARH
     double H2FracForm;
+#endif
+#ifdef COOLING_MOLECULARH
  StarLogEvent() : iOrdGas(-1),	timeForm(0),rForm(0),vForm(0),
       massForm(0),rhoForm(0),TForm(0),H2FracForm(0){}
     StarLogEvent(GravityParticle *p, double dCosmoFac, double TempForm, double H2FractionForm) {
+#else
+ StarLogEvent() : iOrdGas(-1),	timeForm(0),rForm(0),vForm(0),
+      massForm(0),rhoForm(0),TForm(0){}
+    StarLogEvent(GravityParticle *p, double dCosmoFac, double TempForm) {
+#endif
 	iOrdGas = p->iOrder;
 	// star's iOrder assigned in TreePiece::NewOrder
 	timeForm = p->fTimeForm();
@@ -100,8 +108,6 @@ class StarLogEvent
 	TForm = TempForm;
 #ifdef COOLING_MOLECULARH
 	H2FracForm = H2FractionForm;
-#else
-	H2FracForm = 0;
 #endif
 	}
     void pup(PUP::er& p) {
