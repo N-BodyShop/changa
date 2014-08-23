@@ -223,7 +223,7 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 	if(p->isGas()) {
 	    GravityParticle *starp = stfm.FormStar(p, dm->Cool, dTime,
 						   dDelta, dCosmoFac, 
-						   &H2FractionForm, &TempForm);
+						   &TempForm,&H2FractionForm, &TempForm);
 	    
 	    if(starp != NULL) {
 		nFormed++;
@@ -234,7 +234,7 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
                 // Record current spot in seTab
                 iSeTab.push_back(dm->starLog->seTab.size());
 #ifdef COOLING_MOLECULARH
-		dm->starLog->seTab.push_back(StarLogEvent(starp,dCosmoFac,H2FractionForm,TempForm));
+		dm->starLog->seTab.push_back(StarLogEvent(starp,dCosmoFac,TempForm,H2FractionForm));
 #else
 		dm->starLog->seTab.push_back(StarLogEvent(starp,dCosmoFac,TempForm));
 #endif
