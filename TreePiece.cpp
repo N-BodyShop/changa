@@ -74,7 +74,9 @@ void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
 			    int bEwaldPar,     // Use Ewald summation
 			    double fEwCutPar,  // Cutoff on real summation
 			    double dEwhCutPar, // Cutoff on Fourier summation
-			    int bPeriodPar     // Periodic boundaries
+			    int bPeriodPar,    // Periodic boundaries
+			    int bComovePar,    // Comoving coordinates
+			    double dRhoFacPar  // Background density
 			    )
 {
     nReplicas = nRepsPar;
@@ -83,6 +85,8 @@ void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
     fEwCut  = fEwCutPar;
     dEwhCut = dEwhCutPar;
     bPeriodic = bPeriodPar;
+    bComove = bComovePar;
+    dRhoFac = dRhoFacPar;
     if(ewt == NULL) {
 	ewt = new EWT[nMaxEwhLoop];
     }
@@ -3075,6 +3079,17 @@ void TreePiece::initBuckets() {
         myParticles[i].potential = 0;
 	myParticles[i].dtGrav = 0;
 	// node->boundingBox.grow(myParticles[i].position);
+        if(bComove && !bPeriodic) {
+            /*
+             * Add gravity from the rest of the
+             * Universe.  This adds force and
+             * potential from a uniform (negative!)
+             * density sphere.
+             */
+            myParticles[i].treeAcceleration = dRhoFac*myParticles[i].position;
+            myParticles[i].potential = -0.5*dRhoFac*myParticles[i].position.lengthSquared();
+            myParticles[i].dtGrav = dRhoFac;
+            }
       }
     }
     bucketReqs[j].finished = ewaldCondition;
@@ -4859,6 +4874,8 @@ void TreePiece::pup(PUP::er& p) {
   p | fEwCut;
   p | dEwhCut;
   p | bPeriodic;
+  p | bComove;
+  p | dRhoFac;
   p | nMaxEwhLoop;
   if (p.isUnpacking() && bEwald) {
     ewt = new EWT[nMaxEwhLoop];

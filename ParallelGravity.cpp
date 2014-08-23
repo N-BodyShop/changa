@@ -1158,6 +1158,11 @@ void Main::getStartTime()
 		}
 	    /* input time is expansion factor.  Convert */
 	    double dAStart = treeProxy[0].ckLocal()->dStartTime;
+            if(dAStart <= 0.0) {
+                ckerr << "Attempt to start at infinite redshift" << endl;
+                CkExit();
+                return;
+                }
 	    double z = 1.0/dAStart - 1.0;
 	    double aTo, tTo;
 	    dTime = csmExp2Time(param.csm, dAStart);
@@ -1739,7 +1744,9 @@ void Main::setupICs() {
   double startTime;
 
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
-			param.dEwCut, param.dEwhCut, param.bPeriodic);
+			param.dEwCut, param.dEwhCut, param.bPeriodic,
+                        param.csm->bComove,
+                        0.5*param.csm->dHubble0*param.csm->dHubble0*param.csm->dOmega0);
 
   /******** Particles Loading ********/
   CkPrintf("Loading particles ...");

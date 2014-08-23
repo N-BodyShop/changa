@@ -1042,6 +1042,9 @@ private:
 	/// Periodic Boundary stuff
 	int bPeriodic;
 	Vector3D<double> fPeriod;
+        int bComove;
+        /// Background density of the Universe
+        double dRhoFac;
 	int nReplicas;
 	int bEwald;		/* Perform Ewald */
 	double fEwCut;
@@ -1428,7 +1431,8 @@ public:
 	void restart();
 
 	void setPeriodic(int nReplicas, Vector3D<double> fPeriod, int bEwald,
-			 double fEwCut, double fEwhCut, int bPeriod);
+			 double fEwCut, double fEwhCut, int bPeriod,
+                         int bComove, double dRhoFac);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit();
 	void calculateEwald(dummyMsg *m);
