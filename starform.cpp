@@ -223,7 +223,7 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 	if(p->isGas()) {
 	    GravityParticle *starp = stfm.FormStar(p, dm->Cool, dTime,
 						   dDelta, dCosmoFac, 
-						   &TempForm,&H2FractionForm, &TempForm);
+						   &TempForm,&H2FractionForm);
 	    
 	    if(starp != NULL) {
 		nFormed++;
