@@ -43,7 +43,7 @@ class Stfm {
     void CheckParams(PRM prm, struct parameters &param);
     bool isStarFormRung(int aRung) {return aRung <= iStarFormRung;}
     GravityParticle *FormStar(GravityParticle *p,  COOL *Cool, double dTime,
-			      double dDelta, double dCosmoFac, double *H2Fraction, double *T);
+			      double dDelta, double dCosmoFac, double *T, double *H2Fraction);
     inline void pup(PUP::er &p);
     };
 
