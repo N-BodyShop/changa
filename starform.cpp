@@ -262,7 +262,7 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 */
 GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 				double dDelta,  // drift timestep
-				double dCosmoFac, double *H2FractionForm, double *T) 
+				double dCosmoFac, double *T, double *H2FractionForm) 
 {
     /*
      * Determine dynamical time.
@@ -296,14 +296,12 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 
 #ifdef COOLING_MOLECULARH
     double yH;
-    if (p->fMetals() <= 0.1) yH = 1.0 - 4.0*((0.236 + 2.1*(p->fMetals()))/4.0) - p->fMetals();
-    else yH = 1.0 - 4.0*((-0.446*(p->fMetals() - 0.1)/0.9 + 0.446)/4.0) - p->fMetals();
     double columnL = sqrt(0.25)*p->fBall;/*correlation length used for H2 shielding, CC*/
     double dMprob;
     if (dStarFormEfficiencyH2 == 0) dMprob  = 1.0 - exp(-dCStar*dTimeStarForm/tform);
     else dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform*
-    			    dStarFormEfficiencyH2*(2.0*(p->CoolParticle().f_H2)/yH));    
-    *H2FractionForm = 1.0*p->CoolParticle().f_H2/yH;
+    			    dStarFormEfficiencyH2*p->CoolParticle().f_H2);    
+    *H2FractionForm = p->CoolParticle().f_H2;
 #else /* COOLING_MOLECULARH */ 
     double dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform);
     *H2FractionForm = 0;   
