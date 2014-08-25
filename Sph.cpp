@@ -1822,7 +1822,7 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     ph = 0.5*p->fBall;
     ih2 = invH2(p);
     /* Exclude cool particles */
-    Tp = CoolEnergyToTemperature(&p->CoolParticle(), dErgPerGmUnit*p->uPred(), p->fMetals() );
+    Tp = CoolEnergyToTemperature(NULL, &p->CoolParticle(), dErgPerGmUnit*p->uPred(), p->fMetals() );
     if (Tp <= dEvapMinTemp) return;
 
     up52 = pow(p->uPred(),2.5);
@@ -1833,7 +1833,7 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         q = nnList[i].p;
         if (p->iOrder == q->iOrder) continue;
 	    if (TYPETest(q, TYPE_DELETED) || (TYPETest(q, TYPE_FEEDBACK) && !TYPETest(q, TYPE_PROMOTED))) continue;
-        Tq = CoolEnergyToTemperature(&q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
+        Tq = CoolEnergyToTemperature(NULL, &q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
         if (q->uHot() > 0 || Tq >= dEvapMinTemp) continue;  /* Exclude hot particles */
 	    CkAssert(TYPETest(q, TYPE_GAS));
         CkAssert(!TYPETest(p, TYPE_STAR));
@@ -1855,7 +1855,7 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		q = nnList[i].p;
 		if (p->iOrder == q->iOrder) continue;
 		if (TYPETest(q, TYPE_DELETED)) continue;
-        Tq = CoolEnergyToTemperature(&q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
+        Tq = CoolEnergyToTemperature(NULL, &q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
         if (q->uHot() == 0 && Tq <= dEvapMinTemp) continue;  
 		dot = xc*nnList[i].dx.x + yc*nnList[i].dx.y + zc*nnList[i].dx.y;
 		if (dot > 0 && dot*dot > dotcut2*nnList[i].fKey) {
@@ -1875,7 +1875,7 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         q = nnList[i].p;
         if (p->iOrder == q->iOrder) continue;
 	    if(TYPETest(q, TYPE_DELETED) || (TYPETest(q, TYPE_FEEDBACK) && !TYPETest(q, TYPE_PROMOTED))) continue;
-        Tq = CoolEnergyToTemperature(&q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
+        Tq = CoolEnergyToTemperature(NULL, &q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
         if (Tq >= dEvapMinTemp ) continue;  /* Exclude hot particles */
 	    CkAssert(TYPETest(q, TYPE_GAS));
 		r2 = nnList[i].fKey*ih2;            
@@ -1901,7 +1901,7 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
             q = nnList[i].p;
             if (p->iOrder == q->iOrder) continue;
             if (TYPETest(q, TYPE_DELETED) || TYPETest(q, TYPE_FEEDBACK) || TYPETest(q, TYPE_PROMOTED)) continue;
-            Tq = CoolEnergyToTemperature(&q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
+            Tq = CoolEnergyToTemperature(NULL, &q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
             if (Tq >= dEvapMinTemp ) continue;  /* Exclude hot particles */
             CkAssert(TYPETest(q, TYPE_GAS));
 
@@ -1946,7 +1946,7 @@ void ShareWithHotGasSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	CkAssert(TYPETest(p, TYPE_GAS));
 	CkAssert(TYPETest(p, TYPE_FEEDBACK));
 	CkAssert(!TYPETest(p, TYPE_PROMOTED));
-    Tp = CoolEnergyToTemperature(&p->CoolParticle(), dErgPerGmUnit*p->uPred(), p->fMetals() );
+    Tp = CoolEnergyToTemperature(NULL, &p->CoolParticle(), dErgPerGmUnit*p->uPred(), p->fMetals() );
     if (Tp <= dEvapMinTemp) return;
 
     rsmax = 1.0;
