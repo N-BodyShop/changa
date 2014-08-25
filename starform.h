@@ -36,6 +36,7 @@ class Stfm {
  public:
     int iStarFormRung;		/* rung for star formation */
     int iRandomSeed;		/* seed for probability */
+    double dInitGasMass;
     double dMinGasMass;		/* minimum mass gas before we delete
 				   the particle. */
     double dDeltaStarForm;	/* timestep in system units */
@@ -63,6 +64,7 @@ inline void Stfm::pup(PUP::er &p) {
     p|dStarEff;
     p|dInitStarMass;
     p|dMinSpawnStarMass;
+    p|dInitGasMass;
     p|dMinGasMass;
     p|dMaxStarMass;
     p|bGasCooling;
