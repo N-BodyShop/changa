@@ -185,7 +185,7 @@ void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit
 
  */ 
 
-void clSetAbundanceTotals(double ZMetal, double *pY_H, double *pY_He, double *pY_eMax) {
+void clSetAbundanceTotals(COOL *cl, double ZMetal, double *pY_H, double *pY_He, double *pY_eMax) {
     double Y_H, Y_He;
     
     if (ZMetal <= 0.1) {
@@ -204,7 +204,7 @@ void clSetAbundanceTotals(double ZMetal, double *pY_H, double *pY_He, double *pY
 
 void CoolPARTICLEtoPERBARYON(COOL *cl, PERBARYON *Y, COOLPARTICLE *cp, double ZMetal) {
     double Y_H, Y_He, Y_eMax;
-    clSetAbundanceTotals(ZMetal,&Y_H,&Y_He,&Y_eMax);
+    clSetAbundanceTotals(cl,ZMetal,&Y_H,&Y_He,&Y_eMax);
     Y->HI = cp->f_HI*Y_H;
     Y->HII = Y_H - Y->HI;
     Y->HeI = cp->f_HeI*Y_He;
@@ -216,7 +216,7 @@ void CoolPARTICLEtoPERBARYON(COOL *cl, PERBARYON *Y, COOLPARTICLE *cp, double ZM
 
 void CoolPERBARYONtoPARTICLE(COOL *cl, PERBARYON *Y, COOLPARTICLE *cp, double ZMetal) {
     double Y_H, Y_He, Y_eMax;
-    clSetAbundanceTotals(ZMetal,&Y_H,&Y_He,&Y_eMax);
+    clSetAbundanceTotals(cl,ZMetal,&Y_H,&Y_He,&Y_eMax);
     cp->f_HI = Y->HI/Y_H;
     cp->f_HeI = Y->HeI/Y_He;
     cp->f_HeII = Y->HeII/Y_He;
@@ -226,7 +226,7 @@ void CoolPERBARYONtoPARTICLE(COOL *cl, PERBARYON *Y, COOLPARTICLE *cp, double ZM
 /*Returns baryonic fraction for a given species*/
 double COOL_ARRAY0(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
     double Y_H, Y_He, Y_eMax;
-    clSetAbundanceTotals(ZMetal,&Y_H,&Y_He,&Y_eMax);
+    clSetAbundanceTotals(cl,ZMetal,&Y_H,&Y_He,&Y_eMax);
     return (cp->f_HI*Y_H);
 }
 
@@ -240,7 +240,7 @@ double COOL_SET_ARRAY0(COOL *cl, COOLPARTICLE *cp, double ZMetal, double val) {
 
 double COOL_ARRAY1(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
     double Y_H, Y_He, Y_eMax;
-    clSetAbundanceTotals(ZMetal,&Y_H,&Y_He,&Y_eMax);
+    clSetAbundanceTotals(cl,ZMetal,&Y_H,&Y_He,&Y_eMax);
     return (cp->f_HeI*Y_He);
 }
 
@@ -254,7 +254,7 @@ double COOL_SET_ARRAY1(COOL *cl, COOLPARTICLE *cp, double ZMetal, double val) {
 
 double COOL_ARRAY2(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
     double Y_H, Y_He, Y_eMax;
-    clSetAbundanceTotals(ZMetal,&Y_H,&Y_He,&Y_eMax);
+    clSetAbundanceTotals(cl,ZMetal,&Y_H,&Y_He,&Y_eMax);
     return (cp->f_HeII*Y_He);
 }
 
@@ -590,7 +590,7 @@ void clRatesRedshift( COOL *cl, double zIn, double dTimeIn ) {
      
   cl->R.Cool_Comp = pow((1+zIn)*CL_Ccomp,4.0)*CL_B_gm; 
   cl->R.Tcmb = CL_Tcmb0*(1+zIn);
-  clSetAbundanceTotals(0.0,&Y_H,&Y_He,&Y_eMax); /* Hack to estimate Y_H */
+  clSetAbundanceTotals(cl,0.0,&Y_H,&Y_He,&Y_eMax); /* Hack to estimate Y_H */
   cl->R.Cool_LowTFactor = (cl->bLowTCool ? CL_B_gm*Y_H*Y_H/0.001 : 0 );
 
   /* Photo-Ionization rates */
@@ -1356,7 +1356,7 @@ void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal) {
   double Rate_Phot_HI;
   int i;  
 
-  clSetAbundanceTotals(ZMetal,&yH,&yHe,&yeMax);
+  clSetAbundanceTotals(cl,ZMetal,&yH,&yHe,&yeMax);
   Rate_Phot_HI = Rate->Phot_HI;
 
   for ( i=0 ; i<MAXABUNDITERATIONS ; i++ ) {
@@ -1423,7 +1423,7 @@ double clTemperature( double Y_Total, double E ) {
 
 double clTemperaturePrimordial( COOL *cl, double Y_HI, double Y_HeI, double Y_HeII, double E ) {
     double Y_H, Y_He, Y_eMax;
-    clSetAbundanceTotals(0.0,&Y_H,&Y_He,&Y_eMax);/* no metals */
+    clSetAbundanceTotals(cl,0.0,&Y_H,&Y_He,&Y_eMax);/* no metals */
     return clTemperature( 2*Y_H - Y_HI + 3*Y_He - 2*Y_HeI - Y_HeII,  E );
     }
 
@@ -2047,7 +2047,7 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
   d->rho = rho;
   d->ExternalHeating = ExternalHeating;
   d->ZMetal = ZMetal; 
-  clSetAbundanceTotals(ZMetal, &d->Y_H, &d->Y_He, &d->Y_eMax );
+  clSetAbundanceTotals( cl, ZMetal, &d->Y_H, &d->Y_He, &d->Y_eMax );
   
 /* H, He total from cl now -- in future from particle */
   YTotal = Y->HII + Y->HeII + 2*Y->HeIII + d->Y_H + d->Y_He + d->ZMetal/MU_METAL; 
@@ -2290,15 +2290,15 @@ void CoolOutputArray( COOLPARAM *CoolParam, int cnt, int *type, char *suffix ) {
 }
 
 /* Output Conversion Routines */
-double CoolEnergyToTemperature(COOLPARTICLE *cp, double E, double ZMetal ) {
+double CoolEnergyToTemperature( COOL *cl, COOLPARTICLE *cp, double E, double ZMetal ) {
     double Y_H, Y_He, Y_eMax;
-    clSetAbundanceTotals(ZMetal,&Y_H,&Y_He,&Y_eMax);
+    clSetAbundanceTotals(cl,ZMetal,&Y_H,&Y_He,&Y_eMax);
     return clTemperature(2*Y_H - cp->f_HI*Y_H
 			 + 3*Y_He - 2*cp->f_HeI*Y_He - cp->f_HeII*Y_He + ZMetal/MU_METAL, E );
     }
 
 double CoolCodeEnergyToTemperature( COOL *cl, COOLPARTICLE *cp, double E, double ZMetal ) {
-    return CoolEnergyToTemperature(cp, E*cl->dErgPerGmUnit, ZMetal );
+    return CoolEnergyToTemperature( cl, cp, E*cl->dErgPerGmUnit, ZMetal );
     }
 
 /* Initialization Routines */
@@ -2431,7 +2431,7 @@ double CoolHeatingRate( COOL *cl, COOLPARTICLE *cp, double T, double dDensity, d
     PERBARYON Y;
     RATE Rate;
     double Y_H, Y_He, Y_eMax;
-    clSetAbundanceTotals(ZMetal,&Y_H,&Y_He,&Y_eMax);
+    clSetAbundanceTotals(cl,ZMetal,&Y_H,&Y_He,&Y_eMax);
     CoolPARTICLEtoPERBARYON(cl, &Y, cp, ZMetal);
     CLRATES(cl, &Rate, T, dDensity);
     clRateMetalTable(cl, &Rate, T, dDensity, Y_H, ZMetal); 
@@ -2446,10 +2446,10 @@ double CoolEdotInstantCode(COOL *cl, COOLPARTICLE *cp, double ECode,
     double T,E,rho,Edot;
     double Y_H, Y_He, Y_eMax;
     double dHeat, dCool;
-    clSetAbundanceTotals(ZMetal,&Y_H,&Y_He,&Y_eMax);
+    clSetAbundanceTotals(cl,ZMetal,&Y_H,&Y_He,&Y_eMax);
 
     E = CoolCodeEnergyToErgPerGm( cl, ECode );
-    T = CoolEnergyToTemperature(cp, E, ZMetal);
+    T = CoolEnergyToTemperature( cl, cp, E, ZMetal);
     rho = CodeDensityToComovingGmPerCc(cl,rhoCode );
     CoolPARTICLEtoPERBARYON(cl, &Y, cp, ZMetal);
     CLRATES(cl, &Rate, T, rho);
@@ -2466,10 +2466,10 @@ double CoolCoolingCode(COOL *cl, COOLPARTICLE *cp, double ECode,
     RATE Rate;
     double T,E,rho,Edot;
     double Y_H, Y_He, Y_eMax;
-    clSetAbundanceTotals(ZMetal,&Y_H,&Y_He,&Y_eMax);
+    clSetAbundanceTotals(cl,ZMetal,&Y_H,&Y_He,&Y_eMax);
 
     E = CoolCodeEnergyToErgPerGm( cl, ECode );
-    T = CoolEnergyToTemperature(cp, E, ZMetal );
+    T = CoolEnergyToTemperature( cl, cp, E, ZMetal );
     rho = CodeDensityToComovingGmPerCc(cl,rhoCode );
     CoolPARTICLEtoPERBARYON(cl, &Y, cp, ZMetal);
     CLRATES(cl, &Rate, T, rho);
@@ -2487,10 +2487,10 @@ double CoolHeatingCode(COOL *cl, COOLPARTICLE *cp, double ECode,
     RATE Rate;
     double T,E,rho,Edot;
     double Y_H, Y_He, Y_eMax;
-    clSetAbundanceTotals(ZMetal,&Y_H,&Y_He,&Y_eMax);
+    clSetAbundanceTotals(cl,ZMetal,&Y_H,&Y_He,&Y_eMax);
 
     E = CoolCodeEnergyToErgPerGm( cl, ECode );
-    T = CoolEnergyToTemperature(cp, E, ZMetal );
+    T = CoolEnergyToTemperature( cl, cp, E, ZMetal );
     rho = CodeDensityToComovingGmPerCc(cl,rhoCode );
     CoolPARTICLEtoPERBARYON(cl, &Y, cp, ZMetal);
     CLRATES(cl, &Rate, T, rho);
