@@ -1260,13 +1260,13 @@ void CoolOutputArray( COOLPARAM *CoolParam, int cnt, int *type, char *suffix ) {
 
 /* Output Conversion Routines */
 
-double CoolEnergyToTemperature( COOLPARTICLE *cp, double E, double fMetal ) {
+double CoolEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E, double fMetal ) {
 	return clTemperature(2*(Cool)->Y_H - cp->Y_HI + 
 						 3*(Cool)->Y_He - 2*cp->Y_HeI - cp->Y_HeII, E );
 	}
 
 double CoolCodeEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E, double fMetal ) {
-	return CoolEnergyToTemperature( cp, E*Cool->dErgPerGmUnit, fMetal );
+	return CoolEnergyToTemperature( Cool, cp, E*Cool->dErgPerGmUnit, fMetal );
 	}
 
 /* Initialization Routines */
@@ -1396,7 +1396,7 @@ double CoolEdotInstantCode(COOL *cl, COOLPARTICLE *cp, double ECode,
     double dHeat, dCool;
 
     E = CoolCodeEnergyToErgPerGm( cl, ECode );
-    T = CoolEnergyToTemperature( cp, E, ZMetal );
+    T = CoolEnergyToTemperature( cl, cp, E, ZMetal );
     rho = CodeDensityToComovingGmPerCc(cl,rhoCode );
     CoolPARTICLEtoPERBARYON(cl, &Y, cp);
     clRates(cl, &Rate, T, rho);
@@ -1414,7 +1414,7 @@ double CoolCoolingCode(COOL *cl, COOLPARTICLE *cp, double ECode,
     double T,E,rho,Edot;
 
     E = CoolCodeEnergyToErgPerGm( cl, ECode );
-    T = CoolEnergyToTemperature( cp, E, ZMetal );
+    T = CoolEnergyToTemperature( cl, cp, E, ZMetal );
     rho = CodeDensityToComovingGmPerCc(cl,rhoCode );
     CoolPARTICLEtoPERBARYON(cl, &Y, cp);
     clRates(cl, &Rate, T, rho);
@@ -1432,7 +1432,7 @@ double CoolHeatingCode(COOL *cl, COOLPARTICLE *cp, double ECode,
     double T,E,rho,Edot;
 
     E = CoolCodeEnergyToErgPerGm( cl, ECode );
-    T = CoolEnergyToTemperature( cp, E, ZMetal );
+    T = CoolEnergyToTemperature( cl, cp, E, ZMetal );
     rho = CodeDensityToComovingGmPerCc(cl,rhoCode );
     CoolPARTICLEtoPERBARYON(cl, &Y, cp);
     clRates(cl, &Rate, T, rho);
