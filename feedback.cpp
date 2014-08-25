@@ -82,11 +82,6 @@ void Fdbk::AddParams(PRM prm)
 	prmAddParam(prm,"dMultiPhaseMinTemp",paramDouble,&dMultiPhaseMinTemp,
 				sizeof(double),"multitmin",
 				"<Temperature threshold to use multiphase feedback> = 1e6");
-	dInitGasMass = -1;
-	prmAddParam(prm,"dInitGasMass", paramDouble, &dInitGasMass,
-		    sizeof(double), "stInitGas",
-		    "<Initial mass of a gas particle> = -1");
-    
 #ifdef SPLITGAS
 	dInitGasMass = -1;
 	prmAddParam(prm,"dInitGasMass", paramDouble, &dInitGasMass,

@@ -79,7 +79,6 @@ class Fdbk : public PUP::able {
     double dEarlyFeedbackFrac;  /* Fraction of SNe II to put in early feedback */
     double dFBInitialMassLoad;  /* Initial Mass Loading in Superbubble feedback*/
     double dMultiPhaseMinTemp;
-    double dInitGasMass;
     double dEarlyETotal;  /* Total E in early FB per solar mass of stars */
     IMF *imf;
 
@@ -125,7 +124,6 @@ inline Fdbk::Fdbk(const Fdbk& fb) {
     dEarlyFeedbackFrac = fb.dEarlyFeedbackFrac;
     dFBInitialMassLoad = fb.dFBInitialMassLoad;
     dMultiPhaseMinTemp = fb.dMultiPhaseMinTemp;
-    dInitGasMass = fb.dInitGasMass;
     dEarlyETotal = fb.dEarlyETotal;
     sn = fb.sn;
     pdva = fb.pdva;
@@ -156,7 +154,6 @@ inline void Fdbk::pup(PUP::er &p) {
     p | dEarlyFeedbackFrac;
     p | dFBInitialMassLoad;
     p | dMultiPhaseMinTemp;
-    p | dInitGasMass;
     p | dEarlyETotal;
     p | sn;
     p | pdva;

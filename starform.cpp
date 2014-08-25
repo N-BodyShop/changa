@@ -80,6 +80,10 @@ void Stfm::AddParams(PRM prm)
     iRandomSeed = 1;
     prmAddParam(prm,"iRandomSeed", paramInt, &iRandomSeed, sizeof(int),
 		"iRand", "<Star formation random Seed> = 1");
+	dInitGasMass = -1;
+	prmAddParam(prm,"dInitGasMass", paramDouble, &dInitGasMass,
+		    sizeof(double), "stInitGas",
+		    "<Initial mass of a gas particle> = -1");
     }
 
 /*
@@ -187,6 +191,11 @@ void Main::FormStars(double dTime, double dDelta)
 	treeProxy.startReSmooth(&pDGas, CkCallbackResumeThread());
 
 	}
+    if(param.stfm->dInitGasMass > 0)
+    {
+        SplitGasSmoothParams pSGas(TYPE_GAS, 0, param.stfm->dInitGasMass);
+        treeProxy.startReSmooth(&pSGas, CkCallbackResumeThread());
+    }
 
     treeProxy.finishNodeCache(CkCallbackResumeThread());
 #ifdef CUDA
