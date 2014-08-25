@@ -319,12 +319,12 @@ double COOL_COOLING( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode
 double COOL_HEATING( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode_, double ZMetal_, double *posCode_ );
 #define COOL_HEATING( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_) (CoolCodeWorkToErgPerGmPerSec( cl_, CoolHeatingCode( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_ ))) 
 
-void clSetAbundanceTotals(double ZMetal, double *Y_H, double *Y_He, double *Y_eMAX);
+void clSetAbundanceTotals(COOL *cl, double ZMetal, double *Y_H, double *Y_He, double *Y_eMAX);
 void CoolPARTICLEtoPERBARYON(COOL *cl_, PERBARYON *Y, COOLPARTICLE *cp, double ZMetal);
 void CoolPERBARYONtoPARTICLE(COOL *cl_, PERBARYON *Y, COOLPARTICLE *cp, double ZMetal);
 
 
-double CoolEnergyToTemperature(COOLPARTICLE *cp, double E, double ZMetal);
+double CoolEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E, double ZMetal);
 double CoolCodeEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E, double ZMetal);
 
 /* Note: nod to cosmology (z parameter) unavoidable unless we want to access cosmo.[ch] from here */
