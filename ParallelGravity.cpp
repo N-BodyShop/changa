@@ -3036,6 +3036,7 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 				  dTime, param.dDumpFrameTime, dStep, 
 				  param.dDumpFrameStep, param.dDelta, 
 				  param.iMaxRung, verbosity, achFile );
+                    df[i]->duTFac = (param.dConstGamma-1)*param.dMeanMolWeight/param.dGasConst;
 		    }
 		    
 		/* Read in photogenic particle list */
@@ -3117,6 +3118,7 @@ void Main::DumpFrame(double dTime, double dStep)
 #endif
 
 		dExp = csmTime2Exp(param.csm,dTime);
+                in.dMinGasMass = param.stfm->dMinGasMass;
 		dfSetupFrame(df[i], dTime, dStep, dExp, com, &in, 0, 0 );
 
         CkReductionMsg *msgDF;

@@ -1697,28 +1697,24 @@ TreePiece::setTypeFromFile(int iSetMask, char *file, const CkCallback& cb)
 void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump) 
 {
     void *Image = dfDataProxy.ckLocalBranch()->Image;
-    //
-    // XXX The dump frame expects arrays of fixed structures.  This is
-    // incompatible with ChaNGa's design of having gas and star data
-    // as "decorations".  For now we copy the needed data from the
-    // decoration into an unused attribute of the base structure
-    // (GravityParticle) so it will be available to dumpframe.
-    // Fortunately, we have only one attribute to copy over
-    // (fTimeForm), and we have a temporary, dtGrav, that can be
-    // overloaded.
-    //
-    for (int i=1; i<=myNumParticles; ++i)
-	if(myParticles[i].isStar())
-	    myParticles[i].dtGrav = myParticles[i].fTimeForm();
-    
-    GravityParticle *p = &(myParticles[1]);
-
-    dfRenderParticlesInit( &in, TYPE_GAS, TYPE_DARK, TYPE_STAR,
-			   &p->position[0], &p->mass, &p->soft, &p->fBall,
-			   &p->iType,
-			   &p->dtGrav, // actually fTimeForm; see above
-			   p, sizeof(*p) );
-    dfRenderParticles( &in, Image, p, myNumParticles);
+    GravityParticle *p;
+    for (int i=1; i<=myNumParticles; ++i) {
+	p = &(myParticles[i]);
+	switch (in.iRender) {
+	case DF_RENDER_POINT: 
+	    dfRenderParticlePoint(&in, Image, p, dm);
+	    break;
+	case DF_RENDER_TSC:
+	    dfRenderParticleTSC( &in, Image, p, dm);
+	    break;
+	case DF_RENDER_SOLID:
+	    dfRenderParticleSolid( &in, Image, p, dm);
+	    break;
+	case DF_RENDER_SHINE: /* Not implemented -- just does point */
+	    dfRenderParticlePoint( &in, Image, p, dm);
+	    break;
+	    }
+	}
     
     if(!liveVizDump) 
 	contribute(cb);

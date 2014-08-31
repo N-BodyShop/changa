@@ -766,6 +766,31 @@ class TimeFormOutputParams : public OutputParams
 	}
     };
 
+class AgeOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+	if (TYPETest(p, TYPE_STAR)) return dTime - p->fTimeForm();
+	else return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {
+	if (TYPETest(p, TYPE_STAR)) p->fTimeForm() = dTime - val;
+        }
+ public:
+    AgeOutputParams() {}
+    AgeOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "age"; sNChilExt = "age";
+        dTime = _dTime;
+        iType = TYPE_STAR; }
+    PUPable_decl(AgeOutputParams);
+    AgeOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
 
 /// @brief Output "cool on time" (time cooling is off until)
 class coolontimeOutputParams : public OutputParams
