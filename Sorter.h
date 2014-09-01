@@ -30,10 +30,10 @@ struct OctDecompNode {
   OctDecompNode *children;
   int nchildren;
 
-  int nparticles;
+  int64_t nparticles;
 
   void makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active);
-  int buildCounts();
+  int64_t buildCounts();
   void deleteBeneath();
   void combine(int thresh, vector<NodeKey> &finalKeys, vector<uint64_t> &counts);
   void getLeafNodes(CkVec<OctDecompNode*> *activeNodes);
@@ -144,7 +144,7 @@ class Sorter : public CBase_Sorter {
   Compare comp;
 
 	void adjustSplitters();
-	bool refineOctSplitting(int n, int *count);
+	bool refineOctSplitting(int n, int64_t *count);
 	
 public:
 	
