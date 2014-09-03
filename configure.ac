@@ -134,6 +134,19 @@ fi
 
 AC_SUBST([FLAG_DTADJUST])
 
+# NSMOOTHINNER smoothing adjustment
+AC_ARG_ENABLE([nsmoothinner],
+	[AS_HELP_STRING([--enable-nsmoothinner], [enable nsmoothinner feedback])],
+	[nsmoothinner=yes], [nsmoothinner=no])
+if test "$nsmoothinner" = "yes" ; then
+    echo "nSmoothInner selected"
+    FLAG_NSMOOTHINNER="-DNSMOOTHINNER"
+else
+    FLAG_NSMOOTHINNER=""
+fi
+
+AC_SUBST([FLAG_NSMOOTHINNER])
+
 # Gas particle splitting
 AC_ARG_ENABLE([splitgas],
 	[AS_HELP_STRING([--enable-splitgas], [enable gas particle splitting])],
