@@ -311,8 +311,12 @@ void Main::StellarFeedback(double dTime, double dDelta)
 #endif
     if(param.feedback->dInitGasMass > 0)
     {
-        SplitGasSmoothParams pSGas(TYPE_GAS, 0, param.feedback->dInitGasMass);
-        treeProxy.startReSmooth(&pSGas, CkCallbackResumeThread());
+        CkReductionMsg *msgCounts;
+        treeProxy.SplitGas(param.feedback->dInitGasMass, CkCallbackResumeThread((void*&)msgCounts));
+        int *dCounts = (int *)msgCounts->getData();
+        if(verbosity)
+        CkPrintf("%d Gas Particles Split\n", *dCounts);
+        delete msgCounts;
     }
     treeProxy.finishNodeCache(CkCallbackResumeThread());
 #ifdef CUDA
@@ -1067,6 +1071,9 @@ void TreePiece::SplitGas(double dInitGasMass, const CkCallback& cb)
         phi = atan2(rand_y,rand_x);
         theta = acos(rand_z/sqrt(r));
         p->mass /= 2.0;
+#ifdef TWOPHASE
+        p->massHot() /= 2.0;
+#endif
         *daughter = *p;
         daughter->extraData = new extraSPHData;
         *(extraSPHData *)daughter->extraData= *(extraSPHData *)p->extraData;

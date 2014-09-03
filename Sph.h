@@ -242,39 +242,6 @@ class DistDeletedGasSmoothParams : public SmoothParams
         SmoothParams::pup(p);//Call base class
 	}
     };
-///
-/// @brief SmoothParams class for splitting gas particles
-// that become too heavy
-///
-class SplitGasSmoothParams : public SmoothParams
-{
-    double dInitGasMass;
-    virtual void fcnSmooth(GravityParticle *p, int nSmooth,
-			   pqSmoothNode *nList);
-    virtual int isSmoothActive(GravityParticle *p) {}
-    virtual void initSmoothParticle(GravityParticle *p) {}
-    virtual void initTreeParticle(GravityParticle *p) {}
-    virtual void postTreeParticle(GravityParticle *p) {}
-    virtual void initSmoothCache(GravityParticle *p) {}
-    virtual void combSmoothCache(GravityParticle *p1,
-				 ExternalSmoothParticle *p2) {}
- public:
-    SplitGasSmoothParams() {}
-    /// @param _iType Type of particles to smooth
-    /// @param am Active rung
-    SplitGasSmoothParams(int _iType, int am, double _dInitGasMass) {
-	iType = _iType;
-	activeRung = am;
-	bUseBallMax = 0;
-    dInitGasMass = _dInitGasMass;
-	}
-    PUPable_decl(SplitGasSmoothParams);
-    SplitGasSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
-    virtual void pup(PUP::er &p) {
-        SmoothParams::pup(p);//Call base class
-        p|dInitGasMass;
-	}
-    };
 
 #ifdef SUPERBUBBLE
 class PromoteToHotGasSmoothParams : public SmoothParams
