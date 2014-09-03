@@ -216,7 +216,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
         transferKernel.compType = transferKernel.id;
         transferKernel.compPhase = phase; 
 #endif
-	enqueue(wrQueue, &transferKernel);
+	enqueue(&transferKernel);
 
 }
 
@@ -292,7 +292,7 @@ void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments,
   transferKernel.compType = transferKernel.id;
   transferKernel.compPhase = phase; 
 #endif
-  enqueue(wrQueue, &transferKernel);
+  enqueue(&transferKernel);
 
 }
 
@@ -329,7 +329,7 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
         gravityKernel.compType = gravityKernel.id;
         gravityKernel.compPhase = data->phase; 
 #endif
-	enqueue(wrQueue, &gravityKernel);
+	enqueue(&gravityKernel);
 }
 
 void TreePieceCellListDataTransferRemote(CudaRequest *data){
@@ -363,7 +363,7 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
         gravityKernel.compType = gravityKernel.id;
         gravityKernel.compPhase = data->phase; 
 #endif
-	enqueue(wrQueue, &gravityKernel);
+	enqueue(&gravityKernel);
 }
 
 void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleMoments *missedMoments, int numMissedMoments){
@@ -420,7 +420,7 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleM
         gravityKernel.compType = gravityKernel.id;
         gravityKernel.compPhase = data->phase; 
 #endif
-  enqueue(wrQueue, &gravityKernel);
+  enqueue(&gravityKernel);
 }
 
 void TreePieceCellListDataTransferBasic(CudaRequest *data, workRequest *gravityKernel){
@@ -545,7 +545,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
         gravityKernel.compType = gravityKernel.id;
         gravityKernel.compPhase = data->phase; 
 #endif
-	enqueue(wrQueue, &gravityKernel);
+	enqueue(&gravityKernel);
 }
 
 void TreePiecePartListDataTransferLocal(CudaRequest *data){
@@ -579,7 +579,7 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
         gravityKernel.compType = gravityKernel.id;
         gravityKernel.compPhase = data->phase; 
 #endif
-	enqueue(wrQueue, &gravityKernel);
+	enqueue(&gravityKernel);
 }
 
 void TreePiecePartListDataTransferRemote(CudaRequest *data){
@@ -611,7 +611,7 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
         gravityKernel.compType = gravityKernel.id;
         gravityKernel.compPhase = data->phase; 
 #endif
-	enqueue(wrQueue, &gravityKernel);
+	enqueue(&gravityKernel);
 }
 
 void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartData *missedParts, int numMissedParts){
@@ -673,7 +673,7 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartDat
         gravityKernel.compType = gravityKernel.id;
         gravityKernel.compPhase = data->phase; 
 #endif
-	enqueue(wrQueue, &gravityKernel);
+	enqueue(&gravityKernel);
 }
 
 void TreePiecePartListDataTransferBasic(CudaRequest *data, workRequest *gravityKernel){
@@ -801,7 +801,7 @@ void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart){
   gravityKernel.compType = gravityKernel.id;
   gravityKernel.compPhase = phase; 
 #endif
-  enqueue(wrQueue, &gravityKernel);
+  enqueue(&gravityKernel);
 
 }
 
@@ -855,7 +855,7 @@ void FreeDataManagerRemoteChunkMemory(int chunk, void *dm, bool freemom, bool fr
   gravityKernel.compType = gravityKernel.id;
   gravityKernel.compPhase = phase; 
 #endif
-  enqueue(wrQueue, &gravityKernel);
+  enqueue(&gravityKernel);
 
 }
 
@@ -914,7 +914,7 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, 
   gravityKernel.compType = gravityKernel.id;
   gravityKernel.compPhase = phase; 
 #endif
-  enqueue(wrQueue, &gravityKernel);
+  enqueue(&gravityKernel);
 }
 
 /*
@@ -941,6 +941,8 @@ void kernelSelect(workRequest *wr) {
 #ifdef CUDA_TRACE
   double st;
 #endif
+  cudaStream_t kernel_stream = getKernelStream(); 
+  void** devBuffers = getdevBuffers(); 
   ParameterStruct *ptr;
   switch (wr->id) {
 
@@ -2499,7 +2501,7 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
   topKernel.compType = topKernel.id;
   topKernel.compPhase = phase; 
 #endif
-  enqueue(wrQueue, &topKernel); 
+  enqueue(&topKernel); 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("[%d] in EwaldHost, enqueued TopKernel\n", myIndex);
 #endif
@@ -2546,7 +2548,7 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
   bottomKernel.compType = bottomKernel.id;
   bottomKernel.compPhase = phase; 
 #endif
-  enqueue(wrQueue, &bottomKernel); 
+  enqueue(&bottomKernel); 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("[%d] in EwaldHost, enqueued BotKernel\n", myIndex);
 #endif
