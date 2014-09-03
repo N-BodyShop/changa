@@ -8,8 +8,13 @@
 
 #include "cosmoType.h"
 
+#ifdef HEXADECAPOLE
+/** @brief floating point type on the GPU */
+typedef double cudatype;
+#else
 /** @brief floating point type on the GPU */
 typedef float cudatype;
+#endif
 /** @brief floating point type on the host */
 typedef cosmoType hosttype;
 
