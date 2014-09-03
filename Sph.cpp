@@ -1791,7 +1791,7 @@ void SplitGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     return; //Don't split particles that are too small FOOL
 
     GravityParticle *q;
-    GravityParticle daughter;
+    GravityParticle *daughter = new GravityParticle();
     double theta,phi,r2,rs,rstot,rmax,ih2;
     int i;
     theta = M_PI*(double) random()/RAND_MAX;
@@ -1814,17 +1814,18 @@ void SplitGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 #ifdef TWOPHASE
     p->massHot() /= 2.0;
 #endif
-    daughter = *p;
-    TYPESet(&daughter, TYPE_GAS);
-    daughter.position.x += 0.5*rmax*sin(theta)*cos(phi);
-    daughter.position.y += 0.5*rmax*sin(theta)*sin(phi);
-    daughter.position.z += 0.5*rmax*cos(theta);
-    daughter.iSplitOrder() = p->iOrder;
+    *daughter = *p;
+    TYPEReset(daughter, TYPE_NbrOfACTIVE);
+    TYPESet(daughter, TYPE_GAS);
+    daughter->position.x += 0.5*rmax*sin(theta)*cos(phi);
+    daughter->position.y += 0.5*rmax*sin(theta)*sin(phi);
+    daughter->position.z += 0.5*rmax*cos(theta);
+    daughter->iSplitOrder() = p->iOrder;
     //TYPESet(daughter, (~TYPE_RESMOOTHINNER & ~TYPE_MARK));
     p->position.x -= 0.5*rmax*sin(theta)*cos(phi);
     p->position.y -= 0.5*rmax*sin(theta)*sin(phi);
     p->position.z -= 0.5*rmax*cos(theta);
-    tp->newParticle(&daughter);
+    tp->newParticle(daughter);
 
 }
 #ifdef SUPERBUBBLE
