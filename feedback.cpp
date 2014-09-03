@@ -300,15 +300,20 @@ void Main::StellarFeedback(double dTime, double dDelta)
 #endif
 #ifdef SUPERBUBBLE
     CkPrintf("Promote cold shell to hot... \n");
-	double a = csmTime2Exp(param.csm,dTime);
+    double a = csmTime2Exp(param.csm,dTime);
     PromoteToHotGasSmoothParams pPHG(TYPE_GAS, 0, param.dEvapCoeffCode*a, param.dEvapMinTemp,
             param.dErgPerGmUnit, param.dGmPerCcUnit, param.stfm->dDeltaStarForm, dTime);
     treeProxy.startSmooth(&pPHG, 1, param.nSmooth,
-			  dfBall2OverSoft2, CkCallbackResumeThread());
+              dfBall2OverSoft2, CkCallbackResumeThread());
     ShareWithHotGasSmoothParams pSHG(TYPE_GAS, 0, param.dEvapMinTemp,
             param.dErgPerGmUnit, param.dGmPerCcUnit); 
     treeProxy.startReSmooth(&pSHG, CkCallbackResumeThread());
 #endif
+    if(param.feedback->dInitGasMass > 0)
+    {
+        SplitGasSmoothParams pSGas(TYPE_GAS, 0, param.feedback->dInitGasMass);
+        treeProxy.startReSmooth(&pSGas, CkCallbackResumeThread());
+    }
     treeProxy.finishNodeCache(CkCallbackResumeThread());
 #ifdef CUDA
         // We didn't do gravity where the registered TreePieces on the
