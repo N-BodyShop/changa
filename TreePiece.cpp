@@ -664,7 +664,7 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
   reductionHelperProxy.ckLocalBranch()->reduceBinCounts(numBins, myCounts, cb);
   delete[] myCounts;
 #else
-  contribute(numBins * sizeof(int), myCounts, CkReduction::sum_int, cb);
+  contribute(numBins * sizeof(int64_t), myCounts, CkReduction::sum_long, cb);
 #endif
 }
 

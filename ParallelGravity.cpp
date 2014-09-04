@@ -2052,6 +2052,9 @@ Main::restart()
 	prmAddParam(prm,"dMaxBalance",paramDouble,&param.dMaxBalance,
 		    sizeof(double), "maxbal",
 		    "Maximum piece ratio for load balancing");
+	prmAddParam(prm, "dFracNoDomainDecomp", paramDouble,
+		    &param.dFracNoDomainDecomp, sizeof(double),"fndd",
+		    "Fraction of active particles for no new DD = 0.0");
 
         int processSimfile = 0; 
 	if(!prmArgProc(prm,CmiGetArgc(args->argv),args->argv,processSimfile)) {
