@@ -11,6 +11,7 @@ CkReduction::reducerType growOrientedBox_float;
 CkReduction::reducerType growOrientedBox_double;
 
 CkReduction::reducerType minmax_int;
+CkReduction::reducerType minmax_long;
 CkReduction::reducerType minmax_float;
 CkReduction::reducerType minmax_double;
 
@@ -109,6 +110,7 @@ void registerReductions() {
 	growOrientedBox_double = CkReduction::addReducer(boxGrowth<double>);
 	
 	minmax_int = CkReduction::addReducer(minmax<int>);
+	minmax_long = CkReduction::addReducer(minmax<int64_t>);
 	minmax_float = CkReduction::addReducer(minmax<float>);
 	minmax_double = CkReduction::addReducer(minmax<double>);
 	max_count = CkReduction::addReducer(max_count_reduce);
