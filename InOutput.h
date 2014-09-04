@@ -503,7 +503,7 @@ class Cool0OutputParams : public OutputParams
     virtual void setDValue(GravityParticle *p, double val) {
 #ifndef COOLING_NONE
 	if (TYPETest(p, TYPE_GAS))
-	    COOL_ARRAY0(unused1, &p->CoolParticle(), unused2) = val;
+	    COOL_SET_ARRAY0(dm->Cool, &p->CoolParticle(), p->fMetals(), val);
 #endif
 	}
  public:
@@ -538,8 +538,9 @@ class Cool1OutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {
 #ifndef COOLING_NONE
+        //XXX be sure metals has been set!
 	if (TYPETest(p, TYPE_GAS))
-	    COOL_ARRAY1(unused1, &p->CoolParticle(), unused2) = val;
+	    COOL_SET_ARRAY1(dm->Cool, &p->CoolParticle(), p->fMetals(), val);
 #endif
 	}
  public:
@@ -575,7 +576,7 @@ class Cool2OutputParams : public OutputParams
     virtual void setDValue(GravityParticle *p, double val) {
 #ifndef COOLING_NONE
 	if (TYPETest(p, TYPE_GAS))
-	    COOL_ARRAY2(unused1, &p->CoolParticle(), unused2) = val;
+	    COOL_SET_ARRAY2(dm->Cool, &p->CoolParticle(), p->fMetals(), val);
 #endif
 	}
  public:

@@ -266,6 +266,23 @@ arrayFileExists(const std::string filename, const int64_t count)
     return false;
 }
 
+/// @brief Set total metals based on Ox and Fe mass fractions
+void
+TreePiece::resetMetals(const CkCallback& cb)
+{
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+        // Use total metals to Fe and O based on Asplund et al 2009
+	if (p->isGas())
+            p->fMetals() = 1.06*p->fMFracIron() + 2.09*p->fMFracOxygen();
+	if (p->isStar())
+            p->fStarMetals() = 1.06*p->fStarMFracIron()
+                + 2.09*p->fStarMFracOxygen();
+        }
+
+    contribute(cb);
+}
+
 #include <sys/stat.h>
 /**
  *  @brief Read in array files for complete gas information.
@@ -340,6 +357,8 @@ Main::restartGas()
               }
           else
               CkError("WARNING: no FeMassFrac file, or wrong format for restart\n");
+          treeProxy.resetMetals(CkCallbackResumeThread());
+
           if(nTotalStar > 0)
               nStar = ncGetCount(basefilename + "/star/massform");
           if(nStar == nTotalStar) {

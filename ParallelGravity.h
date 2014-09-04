@@ -1472,6 +1472,7 @@ public:
         void readCoolArray1(const std::string& filename, const CkCallback& cb);
         void readCoolArray2(const std::string& filename, const CkCallback& cb);
         void readCoolArray3(const std::string& filename, const CkCallback& cb);
+        void resetMetals(const CkCallback& cb);
         void RestartEnergy(double dTuFac, const CkCallback& cb);
         void findTotalMass(CkCallback &cb);
         void recvTotalMass(CkReductionMsg *msg);
