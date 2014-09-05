@@ -309,6 +309,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
             param.dErgPerGmUnit, param.dGmPerCcUnit); 
     treeProxy.startReSmooth(&pSHG, CkCallbackResumeThread());
 #endif
+#ifdef SPLITGAS
     if(param.feedback->dInitGasMass > 0)
     {
         CkReductionMsg *msgCounts;
@@ -318,6 +319,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
         CkPrintf("%d Gas Particles Split\n", *dCounts);
         delete msgCounts;
     }
+#endif
     treeProxy.finishNodeCache(CkCallbackResumeThread());
 #ifdef CUDA
         // We didn't do gravity where the registered TreePieces on the
