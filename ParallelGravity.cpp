@@ -2647,6 +2647,39 @@ inline int safeMkdir(const char *achFile) {
     return mkdir(achFile, 0755);
     }
 
+/// @brief determine if directory
+int path_is_directory (const char* path) {
+    struct stat s_buf;
+
+    if (stat(path, &s_buf))
+        return 0;
+
+    return S_ISDIR(s_buf.st_mode);
+}
+
+#include <dirent.h>
+/// @brief function to remove directory tree on Unix
+void delete_dir_tree (const char* achDir) {
+    DIR*            dp;
+    struct dirent*  ep;
+    char            p_buf[256];
+
+    dp = opendir(achDir);
+
+    while ((ep = readdir(dp)) != NULL) {
+        if(strcmp(ep->d_name, ".") == 0 || strcmp(ep->d_name, "..") == 0)
+            continue;
+        sprintf(p_buf, "%s/%s", achDir, ep->d_name);
+        if (path_is_directory(p_buf))
+            delete_dir_tree(p_buf);
+        else
+            unlink(p_buf);
+        }
+
+    closedir(dp);
+    rmdir(achDir);
+}
+
 ///
 /// @brief Output a snapshot
 /// @param iStep Timestep we are outputting, used for file name.
@@ -2687,6 +2720,11 @@ void Main::writeOutput(int iStep)
             ckout << "Writing Tipsy file ...";
             startTime = CkWallTimer();
             }
+        if(path_is_directory(achFile)) {
+            CkError("WARNING: overwriting existing directory\n");
+            delete_dir_tree(achFile);
+            }
+            
         if(param.bParaWrite)
             treeProxy.setupWrite(0, 0, achFile, dOutTime, dvFac, duTFac,
                                  param.bDoublePos, param.bDoubleVel,
