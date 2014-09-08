@@ -2209,6 +2209,9 @@ void TreePiece::newOrder(const NewMaxOrder *nStarts, const int n,
 	GravityParticle *p = &myParticles[i];
 	boundingBox.grow(p->position);
 	if(p->iOrder == -1) {
+#ifdef SPLITGAS
+        p->iWriteOrder = nTotalParticles++;
+#endif
 	    if (p->isGas()) 
 		p->iOrder = nStartSPH++;
 	    else if (p->isDark()) 
