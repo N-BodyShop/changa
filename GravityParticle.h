@@ -352,8 +352,8 @@ public:
 	  p | treeAcceleration;
 	  p | fDensity;
 	  p | fBall;
-      p | iOrder;
-      p | rung;
+          p | iOrder;
+          p | rung;
 	  p | iType;
 #ifdef SIDMINTERACT
           p | iNSIDMInteractions; // SIDM
@@ -616,6 +616,9 @@ class ExternalSmoothParticle {
 	  position = p->position;
 	  velocity = p->velocity;
 	  iOrder = p->iOrder;
+#ifdef SPLITGAS
+	  iWriteOrder = p->iWriteOrder;
+#endif
 	  iType = p->iType;
 	  rung = p->rung;
 	  treeAcceleration = p->treeAcceleration;
@@ -682,6 +685,9 @@ class ExternalSmoothParticle {
       tmp->position = position;
       tmp->velocity = velocity;
       tmp->iOrder = iOrder;
+#ifdef SPLITGAS
+      tmp->iWriteOrder = iWriteOrder;
+#endif
       tmp->iType = iType;
       tmp->rung = rung;
       tmp->treeAcceleration = treeAcceleration;
@@ -748,6 +754,9 @@ class ExternalSmoothParticle {
     p | fBall;
     p | fDensity;
     p | iOrder;
+#ifdef SPLITGAS
+    p | iWriteOrder;
+#endif
     p | iType;
     p | rung;
 #ifdef DTADJUST
