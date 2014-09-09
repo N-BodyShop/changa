@@ -109,8 +109,6 @@ double largePhaseThreshold;
 double theta;
 double thetaMono;
 
-ComlibInstanceHandle cinst1, cinst2;
-
 int boundaryEvaluationUE;
 int weightBalanceUE;
 int networkProgressUE;

@@ -51,9 +51,6 @@ mainmodule ParallelGravity {
   readonly int remoteResumePartsPerReq;
   readonly double largePhaseThreshold;
 
-  readonly ComlibInstanceHandle cinst1;
-  readonly ComlibInstanceHandle cinst2;
-
   readonly int boundaryEvaluationUE;
   readonly int weightBalanceUE;
   readonly int networkProgressUE;
@@ -265,6 +262,7 @@ mainmodule ParallelGravity {
     entry void readCoolArray1(const std::string& filename, const CkCallback& cb);
     entry void readCoolArray2(const std::string& filename, const CkCallback& cb);
     entry void readCoolArray3(const std::string& filename, const CkCallback& cb);
+    entry void getMaxIOrds(const CkCallback& cb);
     entry void RestartEnergy(double dTuFac, const CkCallback& cb);
     entry void findTotalMass(CkCallback &cb);
     entry void recvTotalMass(CkReductionMsg *msg);
