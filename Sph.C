@@ -62,6 +62,8 @@ Main::initSph()
 // see below for definition.
 bool arrayFileExists(const std::string filename, const int64_t count) ;
 
+#include <sys/stat.h>
+
 ///
 /// @brief Initialize cooling constants and integration data structures.
 ///
@@ -97,10 +99,27 @@ void Main::initCooling()
 	    }
 	}
     treeProxy.initCoolingData(CkCallbackResumeThread());
-    string achCoolOnFileName = string(param.achOutName) + ".coolontime";
-    if(!bIsRestarting && arrayFileExists(achCoolOnFileName, nTotalParticles)) {
-        CkPrintf("Reading coolontime\n");
-        treeProxy.readCoolOnTime(achCoolOnFileName, CkCallbackResumeThread());
+    if(!bIsRestarting) {  // meaning not restarting from a checkpoint.
+        struct stat s;
+        int err = stat(basefilename.c_str(), &s);
+        if(err != -1 && S_ISDIR(s.st_mode)) {
+            // The file is a directory; assume NChilada
+            int64_t nGas = 0;
+            nGas = ncGetCount(basefilename + "/gas/coolontime");
+            if(nGas == nTotalSPH) {
+                CkPrintf("Reading coolontime\n");
+                coolontimeOutputParams pCoolOnOut(basefilename, 6, 0.0);
+                treeProxy.readFloatBinary(pCoolOnOut, param.bParaRead,
+                                          CkCallbackResumeThread());
+                }
+            }
+        else {
+            if(arrayFileExists(basefilename + ".coolontime", nTotalParticles)) {
+                CkPrintf("Reading coolontime\n");
+                treeProxy.readCoolOnTime(basefilename + ".coolontime",
+                                         CkCallbackResumeThread());
+                }
+            }
         }
 #endif
     }
@@ -308,17 +327,16 @@ Main::restartGas()
           nStar = ncGetCount(basefilename + "/star/iord");
       if(nGas + nDark + nStar == nTotalParticles) {
           IOrderOutputParams pIOrdOut(basefilename, 6, 0.0);
-          treeProxy.readIntBinary(pIOrdOut, param.bParaRead,
+          treeProxy.readFloatBinary(pIOrdOut, param.bParaRead,
                                       CkCallbackResumeThread());
           }
       else
           CkError("WARNING: no iorder file, or wrong format for restart\n");
-      CkAssert("non implemented");
       if(nTotalStar > 0)
           nStar = ncGetCount(basefilename + "/star/igasorder");
       if(nStar == nTotalStar) {
           IGasOrderOutputParams pIOrdOut(basefilename, 6, 0.0);
-          treeProxy.readIntBinary(pIOrdOut, param.bParaRead,
+          treeProxy.readFloatBinary(pIOrdOut, param.bParaRead,
                                       CkCallbackResumeThread());
           }
       else
