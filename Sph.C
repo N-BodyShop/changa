@@ -311,6 +311,13 @@ Main::restartGas()
           IOrderOutputParams pIOrdOut(basefilename, 6, 0.0);
           treeProxy.readFloatBinary(pIOrdOut, param.bParaRead,
                                       CkCallbackResumeThread());
+          CkReductionMsg *msg;
+          treeProxy.getMaxIOrds(CkCallbackResumeThread((void*&)msg));
+          CmiInt8 *maxIOrds = (CmiInt8 *)msg->getData();
+          nMaxOrderGas = maxIOrds[0];
+          nMaxOrderDark = maxIOrds[1];
+          nMaxOrder = maxIOrds[2];
+          delete msg;
           }
       else
           CkError("WARNING: no iorder file, or wrong format for restart\n");

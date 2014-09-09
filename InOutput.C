@@ -337,6 +337,25 @@ void TreePiece::readIOrd(const std::string& filename, const CkCallback& cb)
     contribute(3*sizeof(CmiInt8), nMaxOrd, CkReduction::max_long, cb);
     }
 
+/// @brief return maximum iOrders.
+/// Like the above, but the file has already been read
+void TreePiece::getMaxIOrds(const CkCallback& cb)
+{
+    CmiInt8 nMaxOrd[3] = {0, 0, 0}; // 0 -> gas, 1 -> dark, 2 -> all
+
+    for(int i = 0; i < myNumParticles; i++) {
+        int64_t dummy;
+        dummy = myParticles[i+1].iOrder;
+        if(dummy > nMaxOrd[0] && myParticles[i+1].isGas())
+            nMaxOrd[0] = dummy;
+        if(dummy > nMaxOrd[1] && myParticles[i+1].isDark())
+            nMaxOrd[1] = dummy;
+        if(dummy > nMaxOrd[2])
+            nMaxOrd[2] = dummy;
+        }
+    contribute(3*sizeof(CmiInt8), nMaxOrd, CkReduction::max_long, cb);
+    }
+
 /// @brief read iGasOrder file
 void TreePiece::readIGasOrd(const std::string& filename, const CkCallback& cb)
 {
