@@ -370,15 +370,19 @@ void CoolOutputArray( COOLPARAM *CoolParam, int, int *, char * );
 
 #define COOL_ARRAY0_EXT  "HI"
 double COOL_ARRAY0(COOL *cl, COOLPARTICLE *cp, double ZMetal);
+double COOL_SET_ARRAY0(COOL *cl, COOLPARTICLE *cp,double ZMetal, double val);
 
 #define COOL_ARRAY1_EXT  "HeI"
 double COOL_ARRAY1(COOL *cl, COOLPARTICLE *cp, double ZMetal);
+double COOL_SET_ARRAY1(COOL *cl, COOLPARTICLE *cp,double ZMetal, double val);
 
 #define COOL_ARRAY2_EXT  "HeII"
 double COOL_ARRAY2(COOL *cl, COOLPARTICLE *cp, double ZMetal);
+double COOL_SET_ARRAY2(COOL *cl, COOLPARTICLE *cp,double ZMetal, double val);
 
 #define COOL_ARRAY3_EXT  "H2"
 double COOL_ARRAY3(COOL *cl, COOLPARTICLE *cp, double ZMetal);
+double COOL_SET_ARRAY3(COOL *cl, COOLPARTICLE *cp,double ZMetal, double val);
 
 double COOL_EDOT( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode_, double ZMetal_, double *posCode_, double columnL_ );
 #define COOL_EDOT( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_, columnL_) (CoolCodeWorkToErgPerGmPerSec( cl_, CoolEdotInstantCode( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_ , columnL_)))

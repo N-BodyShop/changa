@@ -240,10 +240,26 @@ double COOL_ARRAY0(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
     return (cp->f_HI*Y_H);
 }
 
+/** @brief sets abundance of species */
+double COOL_SET_ARRAY0(COOL *cl, COOLPARTICLE *cp, double ZMetal, double val) {
+    double Y_H, Y_He, Y_eMax;
+    clSetAbundanceTotals(cl,ZMetal,&Y_H,&Y_He,&Y_eMax);
+    assert(Y_H > 0.0);
+    cp->f_HI = val/Y_H;
+}
+
 double COOL_ARRAY1(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
     double Y_H, Y_He, Y_eMax;
     clSetAbundanceTotals(cl,ZMetal,&Y_H,&Y_He,&Y_eMax);
     return (cp->f_HeI*Y_He);
+}
+
+/** @brief sets abundance of species */
+double COOL_SET_ARRAY1(COOL *cl, COOLPARTICLE *cp, double ZMetal, double val) {
+    double Y_H, Y_He, Y_eMax;
+    clSetAbundanceTotals(cl,ZMetal,&Y_H,&Y_He,&Y_eMax);
+    assert(Y_He > 0.0);
+    cp->f_HeI = val/Y_He;
 }
 
 double COOL_ARRAY2(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
@@ -252,10 +268,26 @@ double COOL_ARRAY2(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
     return (cp->f_HeII*Y_He);
 }
 
+/** @brief sets abundance of species */
+double COOL_SET_ARRAY2(COOL *cl, COOLPARTICLE *cp, double ZMetal, double val) {
+    double Y_H, Y_He, Y_eMax;
+    clSetAbundanceTotals(cl,ZMetal,&Y_H,&Y_He,&Y_eMax);
+    assert(Y_He > 0.0);
+    cp->f_HeII = val/Y_He;
+}
+
 double COOL_ARRAY3(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
     double Y_H, Y_He, Y_eMax;
     clSetAbundanceTotals(cl,ZMetal,&Y_H,&Y_He,&Y_eMax);
     return (cp->f_H2/2.0*Y_H);
+}
+
+/** @brief sets abundance of species */
+double COOL_SET_ARRAY3(COOL *cl, COOLPARTICLE *cp, double ZMetal, double val) {
+    double Y_H, Y_He, Y_eMax;
+    clSetAbundanceTotals(cl,ZMetal,&Y_H,&Y_He,&Y_eMax);
+    assert(Y_H > 0.0);
+    cp->f_H2 = 2.0*val/Y_H;
 }
 
 void clReadMetalTable(COOL *cl, COOLPARAM clParam)
