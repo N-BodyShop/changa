@@ -643,6 +643,7 @@ OBJECTS_COOLING
 FLAG_COOLING
 FLAG_KERNEL
 FLAG_BIGKEYS
+FLAG_CHANGESOFT
 EGREP
 GREP
 CPP
@@ -699,6 +700,7 @@ SHELL'
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
+enable_changesoft
 enable_bigkeys
 enable_wendland
 enable_cooling
@@ -1337,6 +1339,7 @@ Optional Features:
   --disable-option-checking  ignore unrecognized --enable/--with options
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+  --enable-changesoft     enable physical softening
   --enable-bigkeys        enable 128 bit hash keys
   --enable-wendland       enable Wendland C4 Kernel
   --enable-cooling        enable gas cooling (planet,cosmo)
@@ -4440,10 +4443,26 @@ if test "${MISSING_XDR}" = "yes" ; then
    LDFLAGS="$LDFLAGS -L../xdr"
 fi
 
+# physical softening in comoving coordinates:
+# Check whether --enable-changesoft was given.
+if test "${enable_changesoft+set}" = set; then
+  enableval=$enable_changesoft; changesoft=$enableval
+else
+  changesoft=yes
+fi
+
+if test "$changesoft" = "yes" ; then
+    echo "CHANGESOFT selected"
+    FLAG_CHANGESOFT="-DCHANGESOFT"
+else
+    FLAG_CHANGESOFT=""
+fi
+
+
 # 128 bit keys:
 # Check whether --enable-bigkeys was given.
 if test "${enable_bigkeys+set}" = set; then
-  enableval=$enable_bigkeys; bigkeys=yes
+  enableval=$enable_bigkeys; bigkeys=$enableval
 else
   bigkeys=no
 fi
@@ -4459,7 +4478,7 @@ fi
 # Wendland C4 Kernel:
 # Check whether --enable-wendland was given.
 if test "${enable_wendland+set}" = set; then
-  enableval=$enable_wendland; wendland=yes
+  enableval=$enable_wendland; wendland=$enableval
 else
   wendland=no
 fi
