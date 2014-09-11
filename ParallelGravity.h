@@ -11,7 +11,6 @@
 #include <algorithm>
 
 #include "pup_stl.h"
-#include "comlib.h"
 #include "ckio.h"
 
 #include "Vector3D.h"
@@ -63,7 +62,8 @@ enum LBStrategy{
   Orb3d,
   Multistep_notopo,
   Orb3d_notopo,
-  MultistepOrb
+  MultistepOrb,
+  HierarchOrb
 };
 PUPbytes(LBStrategy);
 
@@ -144,8 +144,6 @@ extern CProxy_CkSmpCacheManager<KeyType> cacheNode;
 extern CProxy_CkSmpCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 #endif
-
-extern ComlibInstanceHandle cinst1, cinst2;
 
 /// The group ID of your DataManager.  You must set this!
 extern CkGroupID dataManagerID;

@@ -57,9 +57,6 @@ mainmodule ParallelGravity {
   readonly int remoteResumePartsPerReq;
   readonly double largePhaseThreshold;
 
-  readonly ComlibInstanceHandle cinst1;
-  readonly ComlibInstanceHandle cinst2;
-
   readonly int boundaryEvaluationUE;
   readonly int weightBalanceUE;
   readonly int networkProgressUE;
