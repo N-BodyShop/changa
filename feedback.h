@@ -64,6 +64,9 @@ class Fdbk : public PUP::able {
     double dDeltaStarForm;
     double dSecUnit;		/* system time in seconds */
     double dMaxGasMass;		/* Maximum mass of a gas particle */
+#ifdef SPLITGAS
+    double dInitGasMass;    /* Original mass of a gas particle */
+#endif
     int bSNTurnOffCooling;      /* turn off cooling or not */
     int bSmallSNSmooth;	/* smooth SN energy only over blast radius */
     int bShortCoolShutoff;      /* use snowplow time */
@@ -104,6 +107,9 @@ inline Fdbk::Fdbk(const Fdbk& fb) {
     dErgUnit = fb.dErgUnit;
     dSecUnit = fb.dSecUnit;
     dMaxGasMass = fb.dMaxGasMass;
+#ifdef SPLITGAS
+    dInitGasMass = fb.dInitGasMass;
+#endif
     bSNTurnOffCooling = fb.bSNTurnOffCooling;
     bSmallSNSmooth = fb.bSmallSNSmooth;
     bShortCoolShutoff = fb.bShortCoolShutoff;
@@ -129,6 +135,9 @@ inline void Fdbk::pup(PUP::er &p) {
     p | dErgUnit;
     p | dSecUnit;
     p | dMaxGasMass;
+#ifdef SPLITGAS
+    p | dInitGasMass;
+#endif
     p | bSNTurnOffCooling;
     p | bSmallSNSmooth;
     p | bShortCoolShutoff;

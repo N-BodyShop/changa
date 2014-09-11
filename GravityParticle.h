@@ -52,6 +52,9 @@ class extraSPHData
  private:
     double _u;			/* Internal Energy */
     double _fMetals;		/* Metalicity */
+#ifdef SPLITGAS
+    int64_t _iSplitOrder;	/* Gas from which this particle split*/
+#endif
     double _fMFracOxygen;	/* Oxygen mass fraction  */
     double _fMFracIron;		/* Iron mass fraction  */
     double _fESNrate;		/* SN energy rate  */
@@ -96,6 +99,9 @@ class extraSPHData
     
  public:
     inline double& u() {return _u;}
+#ifdef SPLITGAS
+    inline int64_t& iSplitOrder() {return _iSplitOrder;}
+#endif
     inline double& fMetals() {return _fMetals;}
     inline double& fMFracOxygen() {return _fMFracOxygen;}
     inline double& fMFracIron() {return _fMFracIron;}
@@ -139,6 +145,9 @@ class extraSPHData
 #ifdef __CHARMC__
     void pup(PUP::er &p) {
 	p | _u;
+#ifdef SPLITGAS
+	p | _iSplitOrder;
+#endif
 	p | _fMetals;
 	p | _fMFracIron;
 	p | _fMFracOxygen;
@@ -266,6 +275,9 @@ public:
         double fBall;           ///< Neighbor search radius for smoothing
 	double fDensity;
         int64_t iOrder;	///< Input order of particles; unique particle ID
+#ifdef SPLITGAS
+    int64_t iWriteOrder;
+#endif
         int rung;  ///< the current rung (greater means faster)
         unsigned int iType;	///< Bitmask to hold particle type information
         int iNSIDMInteractions; // SIDM number of interactions
@@ -306,6 +318,9 @@ public:
 	  p | treeAcceleration;
 	  p | fDensity;
 	  p | fBall;
+#ifdef SPLITGAS
+          p | iWriteOrder;
+#endif
           p | iOrder;
           p | rung;
 	  p | iType;
@@ -339,6 +354,9 @@ public:
 	/// @brief Get quantities needed for SPH smooths.
 	ExternalSmoothParticle getExternalSmoothParticle();
 	inline double& u() { IMAGAS; return (((extraSPHData*)extraData)->u());}
+#ifdef SPLITGAS
+	inline int64_t& iSplitOrder() { IMAGAS; return (((extraSPHData*)extraData)->iSplitOrder());}
+#endif
 	inline double& fMetals() { IMAGAS; return (((extraSPHData*)extraData)->fMetals());}
 	inline double& fMFracOxygen() {IMAGAS; return (((extraSPHData*)extraData)->fMFracOxygen());}
 	inline double& fMFracIron() {IMAGAS; return (((extraSPHData*)extraData)->fMFracIron());}
@@ -488,6 +506,9 @@ class ExternalSmoothParticle {
   Vector3D<cosmoType> position;
   Vector3D<double> velocity;
   int64_t iOrder;
+#ifdef SPLITGAS
+  int iWriteOrder;
+#endif
   unsigned int iType;	// Bitmask to hold particle type information
   int rung;
 #ifdef DTADJUST
@@ -538,6 +559,9 @@ class ExternalSmoothParticle {
 	  position = p->position;
 	  velocity = p->velocity;
 	  iOrder = p->iOrder;
+#ifdef SPLITGAS
+	  iWriteOrder = p->iWriteOrder;
+#endif
 	  iType = p->iType;
 	  rung = p->rung;
 	  treeAcceleration = p->treeAcceleration;
@@ -592,6 +616,9 @@ class ExternalSmoothParticle {
       tmp->position = position;
       tmp->velocity = velocity;
       tmp->iOrder = iOrder;
+#ifdef SPLITGAS
+      tmp->iWriteOrder = iWriteOrder;
+#endif
       tmp->iType = iType;
       tmp->rung = rung;
       tmp->treeAcceleration = treeAcceleration;
@@ -646,6 +673,9 @@ class ExternalSmoothParticle {
     p | fBall;
     p | fDensity;
     p | iOrder;
+#ifdef SPLITGAS
+    p | iWriteOrder;
+#endif
     p | iType;
     p | rung;
 #ifdef DTADJUST

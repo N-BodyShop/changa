@@ -134,12 +134,26 @@ fi
 
 AC_SUBST([FLAG_DTADJUST])
 
+# Gas particle splitting
+AC_ARG_ENABLE([splitgas],
+	[AS_HELP_STRING([--enable-splitgas], [enable gas particle splitting])],
+	[splitgas=yes], [splitgas=no])
+if test "$splitgas" = "yes" ; then
+    echo "splitgas selected"
+    FLAG_SPLITGAS="-DSPLITGAS"
+else
+    FLAG_SPLITGAS=""
+fi
+
+AC_SUBST([FLAG_SPLITGAS])
+
 # Select kernel
 # Set defaults
 KERNEL="m4kernel"
 FLAG_M4KERNEL="-DM4KERNEL=0"
 FLAG_WENDLAND="-DWENDLAND=0"
 FLAG_M6KERNEL="-DM6KERNEL=0"
+
 # Wendland C4 Kernel:
 AC_ARG_ENABLE([wendland],
 	[AS_HELP_STRING([--enable-wendland], [enable Wendland C4 Kernel])],
