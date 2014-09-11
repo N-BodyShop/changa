@@ -62,6 +62,12 @@ void Fdbk::AddParams(PRM prm)
     prmAddParam(prm,"dEarlyFeedbackFrac", paramDouble, &dEarlyFeedbackFrac,
 		sizeof(double), "fbEarlyFrac",
 		"<Fraction of SNII energy to put in early feedback> = 0.0");
+#ifdef SPLITGAS
+	dInitGasMass = -1;
+	prmAddParam(prm,"dInitGasMass", paramDouble, &dInitGasMass,
+		    sizeof(double), "stInitGas",
+		    "<Initial mass of a gas particle> = -1");
+#endif
     
     bAGORAFeedback = 0;
     prmAddParam(prm, "bAGORAFeedback", paramBool, &bAGORAFeedback, sizeof(int),
@@ -260,6 +266,17 @@ void Main::StellarFeedback(double dTime, double dDelta)
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
     treeProxy.startSmooth(&pDSFB, 0, param.feedback->nSmoothFeedback,
 			  dfBall2OverSoft2, CkCallbackResumeThread());
+#ifdef SPLITGAS
+    if(param.feedback->dInitGasMass > 0)
+    {
+        CkReductionMsg *msgCounts;
+        treeProxy.SplitGas(param.feedback->dInitGasMass, CkCallbackResumeThread((void*&)msgCounts));
+        int *dCounts = (int *)msgCounts->getData();
+        if(verbosity)
+        CkPrintf("%d Gas Particles Split\n", *dCounts);
+        delete msgCounts;
+    }
+#endif
     treeProxy.finishNodeCache(CkCallbackResumeThread());
 #ifdef CUDA
         // We didn't do gravity where the registered TreePieces on the
@@ -267,6 +284,9 @@ void Main::StellarFeedback(double dTime, double dDelta)
         dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
 #endif
 
+#ifdef SPLITGAS
+    addDelParticles();
+#endif
     double tDFB = CkWallTimer() - startTime;
     timings[PHASE_FEEDBACK].tuDot += tDFB; // Overload tuDot for feedback.
     CkPrintf("Stellar Feedback Calculated, Wallclock %f secs\n", tFB);
@@ -946,3 +966,37 @@ TreePiece::massMetalsEnergyCheck(int bPreDist, const CkCallback& cb)
     contribute(sizeof(dTotals), dTotals, CkReduction::sum_double, cb);
     }
 
+#ifdef SPLITGAS
+void TreePiece::SplitGas(double dInitGasMass, const CkCallback& cb)
+{
+    int nFormed = 0;
+    double theta,phi;
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+        GravityParticle *p = &myParticles[i];
+        if(p->mass < 1.33*dInitGasMass) continue; //Don't split particles that are too small FOOL
+        if(!TYPETest(p, TYPE_GAS)) continue; //Only split heavy gas
+
+        nFormed++;
+        GravityParticle *daughter = new GravityParticle();
+        theta = M_PI*(double) random()/RAND_MAX;
+        phi = 2*M_PI*(double) random()/RAND_MAX;
+        p->mass /= 2.0;
+        *daughter = *p;
+        daughter->extraData = new extraSPHData;
+        *(extraSPHData *)daughter->extraData= *(extraSPHData *)p->extraData;
+        TYPEReset(daughter, TYPE_NbrOfACTIVE);
+        TYPESet(daughter, TYPE_GAS);
+        daughter->position.x += 0.25*p->fBall*sin(theta)*cos(phi);
+        daughter->position.y += 0.25*p->fBall*sin(theta)*sin(phi);
+        daughter->position.z += 0.25*p->fBall*cos(theta);
+        daughter->iSplitOrder() = p->iOrder;
+        p->position.x -= 0.25*p->fBall*sin(theta)*cos(phi);
+        p->position.y -= 0.25*p->fBall*sin(theta)*sin(phi);
+        p->position.z -= 0.25*p->fBall*cos(theta);
+        newParticle(daughter);
+        delete daughter;
+    }
+    contribute(sizeof(int), &nFormed, CkReduction::sum_int, cb);
+
+}
+#endif

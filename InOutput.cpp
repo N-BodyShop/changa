@@ -307,6 +307,10 @@ void TreePiece::loadTipsy(const std::string& filename,
 		myParticles[i+1].rung = 0;
 		myParticles[i+1].fBall = 0.0;
 		myParticles[i+1].iOrder = i + startParticle;
+#ifdef SPLITGAS
+		myParticles[i+1].iWriteOrder = i + startParticle;
+		if(myParticles[i+1].iOrder >= tipsyHeader.nsph) myParticles[i+1].iOrder +=  tipsyHeader.nsph;
+#endif
 #if COSMO_STATS > 1
 		myParticles[i+1].intcellmass = 0;
 		myParticles[i+1].intpartmass = 0;
@@ -944,6 +948,10 @@ void TreePiece::loadNChilada(const std::string& filename,
             myParticles[i+1].rung = 0;
             myParticles[i+1].fBall = 0.0;
             myParticles[i+1].iOrder = i + nStartRead;
+#ifdef SPLITGAS
+            myParticles[i+1].iWriteOrder = i + nStartRead;
+            if(myParticles[i+1].iOrder >= myNumSPH) myParticles[i+1].iOrder  += myNumSPH;
+#endif
             boundingBox.grow(myParticles[i+1].position);
         }
         
@@ -1477,14 +1485,23 @@ void TreePiece::reOrder(int64_t _nMaxOrder, const CkCallback& cb)
 	sort(myParticles+1, myParticles+myNumParticles+1, compIOrder);
 
 	// Tag boundary particle to avoid overruns
+#ifdef SPLITGAS
+	myParticles[myNumParticles+1].iWriteOrder = nMaxOrder+1;
+#else
 	myParticles[myNumParticles+1].iOrder = nMaxOrder+1;
+#endif
     
 	// Loop through to get particle counts.
 	GravityParticle *binBegin = &myParticles[1];
 	GravityParticle *binEnd;
 	for(iPiece = 0; iPiece < numTreePieces; iPiece++) {
+#ifdef SPLITGAS
+	    for(binEnd = binBegin; binEnd->iWriteOrder < startParticle[iPiece+1];
+		binEnd++);
+#else
 	    for(binEnd = binBegin; binEnd->iOrder < startParticle[iPiece+1];
 		binEnd++);
+#endif
 	    int nPartOut = binEnd - binBegin;
 	    counts[iPiece] = nPartOut;
 	    if(&myParticles[myNumParticles + 1] <= binEnd)
@@ -1526,8 +1543,13 @@ void TreePiece::ioShuffle(CkReductionMsg *msg)
     GravityParticle *binBegin = &myParticles[1];
     GravityParticle *binEnd;
     for(iPiece = 0; iPiece < numTreePieces; iPiece++) {
+#ifdef SPLITGAS
+	for(binEnd = binBegin; binEnd->iWriteOrder < startParticle[iPiece+1];
+	    binEnd++);
+#else
 	for(binEnd = binBegin; binEnd->iOrder < startParticle[iPiece+1];
 	    binEnd++);
+#endif
 	int nPartOut = binEnd - binBegin;
   int saved_phase_len = savedPhaseLoad.size();
 	if(nPartOut > 0) {

@@ -644,6 +644,7 @@ OBJECTS_COOLING
 FLAG_COOLING
 FLAG_DAMPING
 KERNEL_FLAGS
+FLAG_SPLITGAS
 FLAG_DTADJUST
 FLAG_BIGKEYS
 FLAG_CHANGESOFT
@@ -713,6 +714,7 @@ enable_avx
 enable_changesoft
 enable_bigkeys
 enable_dtadjust
+enable_splitgas
 enable_wendland
 enable_m6kernel
 enable_damping
@@ -1359,6 +1361,7 @@ Optional Features:
   --enable-changesoft     enable physical softening
   --enable-bigkeys        enable 128 bit hash keys
   --enable-dtadjust       enable emergency timestep adjust
+  --enable-splitgas       enable gas particle splitting
   --enable-wendland       enable Wendland C4 Kernel
   --enable-m6kernel       enable M6 cubic spline kernel
   --enable-damping        enable velocity damping for glasses
@@ -4028,12 +4031,30 @@ fi
 
 
 
+# Gas particle splitting
+# Check whether --enable-splitgas was given.
+if test "${enable_splitgas+set}" = set; then :
+  enableval=$enable_splitgas; splitgas=yes
+else
+  splitgas=no
+fi
+
+if test "$splitgas" = "yes" ; then
+    echo "splitgas selected"
+    FLAG_SPLITGAS="-DSPLITGAS"
+else
+    FLAG_SPLITGAS=""
+fi
+
+
+
 # Select kernel
 # Set defaults
 KERNEL="m4kernel"
 FLAG_M4KERNEL="-DM4KERNEL=0"
 FLAG_WENDLAND="-DWENDLAND=0"
 FLAG_M6KERNEL="-DM6KERNEL=0"
+
 # Wendland C4 Kernel:
 # Check whether --enable-wendland was given.
 if test "${enable_wendland+set}" = set; then :
