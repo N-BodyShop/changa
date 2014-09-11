@@ -137,7 +137,7 @@ AC_SUBST([FLAG_DTADJUST])
 # NSMOOTHINNER smoothing adjustment
 AC_ARG_ENABLE([nsmoothinner],
 	[AS_HELP_STRING([--enable-nsmoothinner], [enable nsmoothinner feedback])],
-	[nsmoothinner=yes], [nsmoothinner=no])
+	[nsmoothinner=$enableval], [nsmoothinner=no])
 if test "$nsmoothinner" = "yes" ; then
     echo "nSmoothInner selected"
     FLAG_NSMOOTHINNER="-DNSMOOTHINNER"
