@@ -4043,7 +4043,7 @@ fi
 # NSMOOTHINNER smoothing adjustment
 # Check whether --enable-nsmoothinner was given.
 if test "${enable_nsmoothinner+set}" = set; then :
-  enableval=$enable_nsmoothinner; nsmoothinner=yes
+  enableval=$enable_nsmoothinner; nsmoothinner=$enableval
 else
   nsmoothinner=no
 fi
