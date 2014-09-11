@@ -137,7 +137,7 @@ AC_SUBST([FLAG_DTADJUST])
 # Gas particle splitting
 AC_ARG_ENABLE([splitgas],
 	[AS_HELP_STRING([--enable-splitgas], [enable gas particle splitting])],
-	[splitgas=yes], [splitgas=no])
+	[splitgas=$enableval], [splitgas=no])
 if test "$splitgas" = "yes" ; then
     echo "splitgas selected"
     FLAG_SPLITGAS="-DSPLITGAS"

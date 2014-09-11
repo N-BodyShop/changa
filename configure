@@ -4034,7 +4034,7 @@ fi
 # Gas particle splitting
 # Check whether --enable-splitgas was given.
 if test "${enable_splitgas+set}" = set; then :
-  enableval=$enable_splitgas; splitgas=yes
+  enableval=$enable_splitgas; splitgas=$enableval
 else
   splitgas=no
 fi
