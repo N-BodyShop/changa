@@ -30,12 +30,12 @@ struct OctDecompNode {
   OctDecompNode *children;
   int nchildren;
 
-  int nparticles;
+  int64_t nparticles;
 
   void makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active);
-  int buildCounts();
+  int64_t buildCounts();
   void deleteBeneath();
-  void combine(int thresh, vector<NodeKey> &finalKeys, vector<unsigned int> &counts);
+  void combine(int thresh, vector<NodeKey> &finalKeys, vector<uint64_t> &counts);
   void getLeafNodes(CkVec<OctDecompNode*> *activeNodes);
 };
 
@@ -65,11 +65,9 @@ class Sorter : public CBase_Sorter {
 
         double decompTime;
 	/// The total number of keys we're sorting.
-	int numKeys;
+	int64_t numKeys;
 	/// The number of chares to sort into.
 	int numChares;
-	// The number of chares currently with assigned data.
-	//int numUsedChares;
 	/// The indexes of the chares that are responsible for each segment of data.
 	std::vector<int> chareIDs;
 	/// A list of chare elements to which nothing is assigned
@@ -88,20 +86,20 @@ class Sorter : public CBase_Sorter {
 
 	std::vector<NodeKey> nodeKeys;
 	/// The histogram of counts for the last round of splitter keys.
-	std::vector<unsigned int> binCounts;
+	std::vector<uint64_t> binCounts;
 	std::vector<unsigned int> binCountsGas;
 	std::vector<unsigned int> binCountsStar;
 	/// The number of bins in the histogram.
 	int numCounts;
 	/// The keys I've decided on that divide the objects evenly (within the tolerance).
 	std::vector<SFC::Key> keyBoundaries;
-        std::vector<unsigned int> accumulatedBinCounts;
+        std::vector<uint64_t> accumulatedBinCounts;
 	/// The keys I'm sending out to be evaluated.
 	std::vector<SFC::Key> splitters;
 
         CkBitVector binsToSplit;
 	/// The list of object number splits not yet met.
-	int *goals;
+	int64_t *goals;
         int numGoalsPending;
 	
 	/// The DataManager I broadcast candidate keys to.
@@ -146,7 +144,7 @@ class Sorter : public CBase_Sorter {
   Compare comp;
 
 	void adjustSplitters();
-	bool refineOctSplitting(int n, int *count);
+	bool refineOctSplitting(int n, int64_t *count);
 	
 public:
 	

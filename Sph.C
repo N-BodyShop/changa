@@ -64,6 +64,8 @@ Main::initSph()
 // see below for definition.
 bool arrayFileExists(const std::string filename, const int64_t count) ;
 
+#include <sys/stat.h>
+
 ///
 /// @brief Initialize cooling constants and integration data structures.
 ///
@@ -99,10 +101,27 @@ void Main::initCooling()
 	    }
 	}
     treeProxy.initCoolingData(CkCallbackResumeThread());
-    string achCoolOnFileName = string(param.achOutName) + ".coolontime";
-    if(arrayFileExists(achCoolOnFileName, nTotalParticles)) {
-        CkPrintf("Reading coolontime\n");
-        treeProxy.readCoolOnTime(achCoolOnFileName, CkCallbackResumeThread());
+    if(!bIsRestarting) {  // meaning not restarting from a checkpoint.
+        struct stat s;
+        int err = stat(basefilename.c_str(), &s);
+        if(err != -1 && S_ISDIR(s.st_mode)) {
+            // The file is a directory; assume NChilada
+            int64_t nGas = 0;
+            nGas = ncGetCount(basefilename + "/gas/coolontime");
+            if(nGas == nTotalSPH) {
+                CkPrintf("Reading coolontime\n");
+                coolontimeOutputParams pCoolOnOut(basefilename, 6, 0.0);
+                treeProxy.readFloatBinary(pCoolOnOut, param.bParaRead,
+                                          CkCallbackResumeThread());
+                }
+            }
+        else {
+            if(arrayFileExists(basefilename + ".coolontime", nTotalParticles)) {
+                CkPrintf("Reading coolontime\n");
+                treeProxy.readCoolOnTime(basefilename + ".coolontime",
+                                         CkCallbackResumeThread());
+                }
+            }
         }
 #endif
     }
@@ -268,6 +287,23 @@ arrayFileExists(const std::string filename, const int64_t count)
     return false;
 }
 
+/// @brief Set total metals based on Ox and Fe mass fractions
+void
+TreePiece::resetMetals(const CkCallback& cb)
+{
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+        // Use total metals to Fe and O based on Asplund et al 2009
+	if (p->isGas())
+            p->fMetals() = 1.06*p->fMFracIron() + 2.09*p->fMFracOxygen();
+	if (p->isStar())
+            p->fStarMetals() = 1.06*p->fStarMFracIron()
+                + 2.09*p->fStarMFracOxygen();
+        }
+
+    contribute(cb);
+}
+
 #include <sys/stat.h>
 /**
  *  @brief Read in array files for complete gas information.
@@ -293,17 +329,23 @@ Main::restartGas()
           nStar = ncGetCount(basefilename + "/star/iord");
       if(nGas + nDark + nStar == nTotalParticles) {
           IOrderOutputParams pIOrdOut(basefilename, 6, 0.0);
-          treeProxy.readIntBinary(pIOrdOut, param.bParaRead,
+          treeProxy.readFloatBinary(pIOrdOut, param.bParaRead,
                                       CkCallbackResumeThread());
+          CkReductionMsg *msg;
+          treeProxy.getMaxIOrds(CkCallbackResumeThread((void*&)msg));
+          CmiInt8 *maxIOrds = (CmiInt8 *)msg->getData();
+          nMaxOrderGas = maxIOrds[0];
+          nMaxOrderDark = maxIOrds[1];
+          nMaxOrder = maxIOrds[2];
+          delete msg;
           }
       else
           CkError("WARNING: no iorder file, or wrong format for restart\n");
-      CkAssert("non implemented");
       if(nTotalStar > 0)
           nStar = ncGetCount(basefilename + "/star/igasorder");
       if(nStar == nTotalStar) {
           IGasOrderOutputParams pIOrdOut(basefilename, 6, 0.0);
-          treeProxy.readIntBinary(pIOrdOut, param.bParaRead,
+          treeProxy.readFloatBinary(pIOrdOut, param.bParaRead,
                                       CkCallbackResumeThread());
           }
       else
@@ -342,6 +384,8 @@ Main::restartGas()
               }
           else
               CkError("WARNING: no FeMassFrac file, or wrong format for restart\n");
+          treeProxy.resetMetals(CkCallbackResumeThread());
+
           if(nTotalStar > 0)
               nStar = ncGetCount(basefilename + "/star/massform");
           if(nStar == nTotalStar) {

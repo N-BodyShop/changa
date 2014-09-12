@@ -314,28 +314,31 @@ void Main::initStarLog(){
     if(bIsRestarting) {
 	if(!stat(stLogFile.c_str(), &statbuf)) {
 	    /* file exists, check number */
-	    FILE *fpLog = fopen(stLogFile.c_str(),"r");
+	    FILE *fpLog = CmiFopen(stLogFile.c_str(),"r");
 	    XDR xdrs;
-	    
-	    CkAssert(fpLog != NULL);
+            if(fpLog == NULL)
+                CkAbort("Bad open of starlog file on restart");
+
 	    xdrstdio_create(&xdrs,fpLog,XDR_DECODE);
 	    xdr_int(&xdrs, &iSize);
-	    CkAssert(iSize == sizeof(StarLogEvent));
+            if(iSize != sizeof(StarLogEvent))
+                CkAbort("starlog file format mismatch");
 	    xdr_destroy(&xdrs);
-	    fclose(fpLog);
+	    CmiFclose(fpLog);
 	    } else {
 	    CkAbort("Simulation restarting with star formation, but starlog file not found");
 	    }
 	} else {
-	FILE *fpLog = fopen(stLogFile.c_str(),"w");
+	FILE *fpLog = CmiFopen(stLogFile.c_str(),"w");
 	XDR xdrs;
 
-	CkAssert(fpLog != NULL);
+        if(fpLog == NULL) 
+            CkAbort("Can't create starlog file");
 	xdrstdio_create(&xdrs,fpLog,XDR_ENCODE);
 	iSize = sizeof(StarLogEvent);
 	xdr_int(&xdrs, &iSize);
 	xdr_destroy(&xdrs);
-	fclose(fpLog);
+	CmiFclose(fpLog);
 	}
 
     }
@@ -368,7 +371,7 @@ void StarLog::flush(void) {
 	FILE* outfile;
 	XDR xdrs;
 	
-	outfile = fopen(fileName.c_str(), "a");
+	outfile = CmiFopen(fileName.c_str(), "a");
 	CkAssert(outfile != NULL);
 	xdrstdio_create(&xdrs,outfile,XDR_ENCODE);
 
@@ -390,10 +393,9 @@ void StarLog::flush(void) {
 	    xdr_double(&xdrs, &(pSfEv->TForm));
 	    }
 	xdr_destroy(&xdrs);
-	int result = fclose(outfile);
+	int result = CmiFclose(outfile);
 	if(result != 0)
-	    ckerr << "Bad close of starlog" << endl;
-	CkAssert(result == 0);
+            CkAbort("Bad close of starlog");
 	seTab.clear();
 	nOrdered = 0;
 	}

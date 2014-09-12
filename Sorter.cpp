@@ -489,15 +489,15 @@ void Sorter::collectEvaluations(CkReductionMsg* m) {
 void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 
   numIterations++;
-  numCounts = m->getSize() / sizeof(int);
-  int* startCounts = static_cast<int *>(m->getData());
+  numCounts = m->getSize() / sizeof(int64_t);
+  int64_t* startCounts = static_cast<int64_t *>(m->getData());
 
   //call function which will balance the bin counts: define it in GenericTreeNode
   //make it a templated function
   //Pass the bincounts as well as the nodekeys
 
   if (joinThreshold == 0) {
-    int total_particles = std::accumulate(startCounts, startCounts+numCounts, 0);
+    int64_t total_particles = std::accumulate(startCounts, startCounts+numCounts, 0);
     joinThreshold = total_particles / (numTreePieces>>1);
     splitThreshold = (int) (joinThreshold * 1.5);
   }
@@ -506,7 +506,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     int i=0;
     CkPrintf("Bin Counts in collect eval (%d):",numCounts);
     for ( ; i<numCounts; i++) {
-      CkPrintf("%d,",startCounts[i]);
+      CkPrintf("%ld,",startCounts[i]);
     }
     CkPrintf("\n");
     CkPrintf("Nodekeys:");
@@ -577,8 +577,10 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
       delete leaves;
     }
 
-    int total = root->buildCounts();
-    // CkPrintf("total number of particles: %d\n", total);
+    // N.B. While "total" is not used, the buildCounts() method has
+    // necessary side effects.
+    int64_t total = root->buildCounts();
+    // CkPrintf("total number of particles: %ld\n", total);
     do {
 	// Convert Oct domains to splitters, ensuring that we do not exceed
 	// the number of available TreePieces.
@@ -683,7 +685,7 @@ void OctDecompNode::makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active){
   }
 }
 
-int OctDecompNode::buildCounts() {
+int64_t OctDecompNode::buildCounts() {
   if (children == NULL) {
     return nparticles;
   }
@@ -696,7 +698,7 @@ int OctDecompNode::buildCounts() {
   }
 }
 
-void OctDecompNode::combine(int joinThreshold, vector<NodeKey> &finalKeys, vector<unsigned int> &counts){
+void OctDecompNode::combine(int joinThreshold, vector<NodeKey> &finalKeys, vector<uint64_t> &counts){
   if(nparticles < joinThreshold || nchildren == 0){
     finalKeys.push_back(key);
     counts.push_back(nparticles);
@@ -743,7 +745,7 @@ void OctDecompNode::deleteBeneath(){
  * refinement, "nodesOpened" will be changed to reflect this request for more data.
  * Returns true if more refinement is requested.
  */
-bool Sorter::refineOctSplitting(int n, int *count) {
+bool Sorter::refineOctSplitting(int n, int64_t *count) {
 
   CkAssert(activeNodes->length() == n);
 
@@ -784,10 +786,10 @@ bool Sorter::refineOctSplitting(int n, int *count) {
  */
 void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	numIterations++;
-	numCounts = m->getSize() / sizeof(int);
+	numCounts = m->getSize() / sizeof(int64_t);
 	binCounts.resize(numCounts + 1);
 	binCounts[0] = 0;
-	int* startCounts = static_cast<int *>(m->getData());
+	int64_t* startCounts = static_cast<int64_t *>(m->getData());
 	copy(startCounts, startCounts + numCounts, binCounts.begin() + 1);
 	delete m;
 
@@ -817,10 +819,10 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 		
 		//each splitter key will split the keys near a goal number of keys
                 numGoalsPending = numChares - 1;
-                goals = new int[numGoalsPending];
+                goals = new int64_t[numGoalsPending];
 
 		int rem = numKeys % numChares;
-                int prev = 0;
+                int64_t prev = 0;
 		// evenly distribute extra particles.
                 for (int i = 0; i < rem; i++) {
                   goals[i] = prev + avgValue + 1;
@@ -891,7 +893,7 @@ void Sorter::adjustSplitters() {
   newSplitters.push_back(firstPossibleKey);
 	
 	Key leftBound, rightBound;
-	vector<unsigned int>::iterator numLeftKey, numRightKey = binCounts.begin();
+	vector<uint64_t>::iterator numLeftKey, numRightKey = binCounts.begin();
 	
         int numActiveGoals = 0;
 	//for each goal not yet met (each splitter key not yet found)
@@ -911,11 +913,11 @@ void Sorter::adjustSplitters() {
 		rightBound = splitters[numRightKey - binCounts.begin()];
 
 		//check if one of the bracketing keys is close enough to the goal
-		if(abs((int)*numLeftKey - goals[i]) <= closeEnough) {
+		if(abs((int64_t)*numLeftKey - goals[i]) <= closeEnough) {
 			//add this key to the list of decided splitter keys
 			keyBoundaries.push_back(leftBound);
                         accumulatedBinCounts.push_back(*numLeftKey);
-		} else if(abs((int)*numRightKey - goals[i]) <= closeEnough) {
+		} else if(abs((int64_t)*numRightKey - goals[i]) <= closeEnough) {
 			keyBoundaries.push_back(rightBound);
                         accumulatedBinCounts.push_back(*numRightKey);
 		} else {

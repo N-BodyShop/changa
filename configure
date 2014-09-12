@@ -641,8 +641,10 @@ ac_subst_vars='LTLIBOBJS
 LIBOBJS
 OBJECTS_COOLING
 FLAG_COOLING
+FLAG_KERNEL
 FLAG_DTADJUST
 FLAG_BIGKEYS
+FLAG_CHANGESOFT
 EGREP
 GREP
 CPP
@@ -699,8 +701,10 @@ SHELL'
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
+enable_changesoft
 enable_bigkeys
 enable_dtadjust
+enable_wendland
 enable_cooling
 '
       ac_precious_vars='build_alias
@@ -1337,8 +1341,10 @@ Optional Features:
   --disable-option-checking  ignore unrecognized --enable/--with options
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+  --enable-changesoft     enable physical softening
   --enable-bigkeys        enable 128 bit hash keys
   --enable-dtadjust       enable emergency timestep adjust
+  --enable-wendland       enable Wendland C4 Kernel
   --enable-cooling        enable gas cooling (planet,cosmo)
 
 Some influential environment variables:
@@ -4440,10 +4446,26 @@ if test "${MISSING_XDR}" = "yes" ; then
    LDFLAGS="$LDFLAGS -L../xdr"
 fi
 
+# physical softening in comoving coordinates:
+# Check whether --enable-changesoft was given.
+if test "${enable_changesoft+set}" = set; then
+  enableval=$enable_changesoft; changesoft=$enableval
+else
+  changesoft=yes
+fi
+
+if test "$changesoft" = "yes" ; then
+    echo "CHANGESOFT selected"
+    FLAG_CHANGESOFT="-DCHANGESOFT"
+else
+    FLAG_CHANGESOFT=""
+fi
+
+
 # 128 bit keys:
 # Check whether --enable-bigkeys was given.
 if test "${enable_bigkeys+set}" = set; then
-  enableval=$enable_bigkeys; bigkeys=yes
+  enableval=$enable_bigkeys; bigkeys=$enableval
 else
   bigkeys=no
 fi
@@ -4456,11 +4478,10 @@ else
 fi
 
 
-
 # DTADJUST
 # Check whether --enable-dtadjust was given.
 if test "${enable_dtadjust+set}" = set; then
-  enableval=$enable_dtadjust; dtadjust=yes
+  enableval=$enable_dtadjust; dtadjust=$enableval
 else
   dtadjust=no
 fi
@@ -4472,6 +4493,22 @@ else
     FLAG_DTADJUST=""
 fi
 
+
+
+# Wendland C4 Kernel:
+# Check whether --enable-wendland was given.
+if test "${enable_wendland+set}" = set; then
+  enableval=$enable_wendland; wendland=$enableval
+else
+  wendland=no
+fi
+
+if test "$wendland" = "yes" ; then
+    echo "WENDLAND selected"
+    FLAG_KERNEL="-DWENDLAND"
+else
+    FLAG_KERNEL=""
+fi
 
 
 # Cooling:
