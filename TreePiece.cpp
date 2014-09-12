@@ -1564,7 +1564,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 						   CkAssert(p->uHot() >= 0);
 					   }
 				   }
-				   else if (p->uPred() > p->uHotPred() && &p->uHotPred() > 0) { // No sense in keeping the noncooling mass around if it is much colder than the regular mass
+				   else if (p->uPred() > p->uHotPred() && p->uHotPred() > 0) { // No sense in keeping the noncooling mass around if it is much colder than the regular mass
 						   p->uPred() = (p->uPred()*(p->mass-p->massHot()) + p->uHotPred()*p->massHot())/p->mass;
 						   p->u() = (p->u()*(p->mass-p->massHot()) + p->uHot()*p->massHot())/p->mass;
 						   p->uDot() = (p->uDot()*(p->mass-p->massHot()) + p->uHotDot()*p->massHot())/p->mass;
