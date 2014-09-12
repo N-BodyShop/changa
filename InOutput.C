@@ -810,6 +810,10 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
         myParts[i].fBallMax() = HUGE;
         myParts[i].fESNrate() = 0.0;
         myParts[i].fTimeCoolIsOffUntil() = 0.0;
+#ifdef DTADJUST
+        myParts[i].dt = FLT_MAX;
+        myParts[i].dtNew() = FLT_MAX;
+#endif
         }
 
     FieldHeader fh;
