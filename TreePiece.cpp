@@ -1679,8 +1679,17 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 
 void TreePiece::newParticle(GravityParticle *p)
 {
+    // N.B. there are 2 boundary particles
     if(myNumParticles + 2 >= nStore) {
-	CkAbort("No room for new particle: increase dExtraStore");
+        int nTmpStore = (int) ((nStore + 1)*(1.0 + dExtraStore));
+	CkError("WARNING: Increasing particle store to %d\n", nTmpStore);
+        CkAssert(nTmpStore > nStore);
+        GravityParticle *myTmpParticles = new GravityParticle[nTmpStore];
+        memcpy(myTmpParticles, myParticles,
+               (2 + myNumParticles)*sizeof(GravityParticle));
+        delete[] myParticles;
+        myParticles = myTmpParticles;
+        nStore = nTmpStore;
 	}
     // Move Boundary particle
     myParticles[myNumParticles+2] = myParticles[myNumParticles+1];
@@ -1688,15 +1697,54 @@ void TreePiece::newParticle(GravityParticle *p)
     myParticles[myNumParticles] = *p;
     myParticles[myNumParticles].iOrder = -1;
     if(p->isGas()) {
-	if(myNumSPH >= nStoreSPH)
-	    CkAbort("No room for new SPH particle: increase dExtraStore");
+	if(myNumSPH >= nStoreSPH) {
+            int nTmpStore = (int) ((nStoreSPH + 1)*(1.0 + dExtraStore));
+            CkError("WARNING: Increasing gas particle store to %d\n",
+                    nTmpStore);
+            CkAssert(nTmpStore > nStoreSPH);
+            extraSPHData *myTmpParticles = new extraSPHData[nTmpStore];
+            memcpy(myTmpParticles, mySPHParticles,
+                   (myNumSPH)*sizeof(extraSPHData));
+            for(int i = 1; i <= myNumParticles; i++) {
+                // assign pointers
+                if(myParticles[i].isGas()) {
+                    int iSPH = (extraSPHData *)myParticles[i].extraData
+                                     - mySPHParticles;
+                    myParticles[i].extraData = myTmpParticles + iSPH;
+                    }
+                }
+            delete[] mySPHParticles;
+            mySPHParticles = myTmpParticles;
+            nStoreSPH = nTmpStore;
+            }
 	mySPHParticles[myNumSPH] = *((extraSPHData *) p->extraData);
 	myParticles[myNumParticles].extraData = &mySPHParticles[myNumSPH];
 	myNumSPH++;
 	}
     if(p->isStar()) {
-	if(myNumStar >= nStoreStar)
+	if(myNumStar >= nStoreStar) {
 	    CkAbort("No room for new Star particle: increase dExtraStore");
+            }
+	if(myNumStar >= nStoreStar) {
+            int nTmpStore = (int) ((nStoreStar + 1)*(1.0 + dExtraStore));
+            CkError("WARNING: Increasing star particle store to %d\n",
+                    nTmpStore);
+            CkAssert(nTmpStore > nStoreStar);
+            extraStarData *myTmpParticles = new extraStarData[nTmpStore];
+            memcpy(myTmpParticles, myStarParticles,
+                   (myNumStar)*sizeof(extraStarData));
+            for(int i = 1; i <= myNumParticles; i++) {
+                // assign pointers
+                if(myParticles[i].isStar()) {
+                    int iStar = (extraStarData *)myParticles[i].extraData
+                                     - myStarParticles;
+                    myParticles[i].extraData = myTmpParticles + iStar;
+                    }
+                }
+            delete[] myStarParticles;
+            myStarParticles = myTmpParticles;
+            nStoreStar = nTmpStore;
+            }
 	myStarParticles[myNumStar] = *((extraStarData *) p->extraData);
 	myParticles[myNumParticles].extraData = &myStarParticles[myNumStar];
 	myNumStar++;
