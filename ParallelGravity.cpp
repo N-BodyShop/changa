@@ -1903,6 +1903,9 @@ void Main::setupICs() {
 #ifdef BIGKEYS
   ofsLog << " BIGKEYS";
 #endif
+#ifdef DTADJUST
+  ofsLog << " DTADJUST";
+#endif
 #ifdef WENDLAND
   ofsLog << " WENDLAND";
 #endif
