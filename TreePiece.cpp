@@ -1723,9 +1723,6 @@ void TreePiece::newParticle(GravityParticle *p)
 	}
     if(p->isStar()) {
 	if(myNumStar >= nStoreStar) {
-	    CkAbort("No room for new Star particle: increase dExtraStore");
-            }
-	if(myNumStar >= nStoreStar) {
             int nTmpStore = (int) ((nStoreStar + 1)*(1.0 + dExtraStore));
             CkError("WARNING: Increasing star particle store to %d\n",
                     nTmpStore);
