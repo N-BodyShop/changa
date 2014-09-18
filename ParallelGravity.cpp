@@ -1515,6 +1515,7 @@ void Main::advanceBigStep(int iStep) {
         startTime = CkWallTimer();
         treeProxy.startlb(CkCallbackResumeThread(), PHASE_FEEDBACK);
         CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+        registerCaches();
         if(param.bStarForm)
             FormStars(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
         if(param.bFeedback) 
@@ -1788,6 +1789,7 @@ void Main::registerCaches(){
   CkPrintf("SmpCache registration ... ");
   double startTime = CkWallTimer();
   cacheNode.registration(CkCallbackResumeThread());
+  CkPrintf("SmpCache registration ... Nodes Done");
   cacheGravPart.registration(CkCallbackResumeThread());
   CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 #endif
@@ -2165,7 +2167,6 @@ Main::initialForces()
   /***** Initial sorting of particles and Domain Decomposition *****/
 
   setupCaches();
-  registerCaches();
 
   CkPrintf("Initial domain decomposition ... ");
 
@@ -2192,6 +2193,7 @@ Main::initialForces()
         << endl;
         */
   CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+  registerCaches();
 
   /******** Tree Build *******/
   //ckout << "Building trees ...";
