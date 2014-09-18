@@ -287,6 +287,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
     treeProxy.startSmooth(&pDSFB, 0, param.feedback->nSmoothFeedback,
 			  dfBall2OverSoft2, CkCallbackResumeThread());
+
 #ifdef SPLITGAS
     if(param.feedback->dInitGasMass > 0)
     {
@@ -308,17 +309,6 @@ void Main::StellarFeedback(double dTime, double dDelta)
     ShareWithHotGasSmoothParams pSHG(TYPE_GAS, 0, param.dEvapMinTemp,
             param.dErgPerGmUnit, param.dGmPerCcUnit); 
     treeProxy.startReSmooth(&pSHG, CkCallbackResumeThread());
-#endif
-#ifdef SPLITGAS
-    if(param.feedback->dInitGasMass > 0)
-    {
-        CkReductionMsg *msgCounts;
-        treeProxy.SplitGas(param.feedback->dInitGasMass, CkCallbackResumeThread((void*&)msgCounts));
-        int *dCounts = (int *)msgCounts->getData();
-        if(verbosity)
-        CkPrintf("%d Gas Particles Split\n", *dCounts);
-        delete msgCounts;
-    }
 #endif
     treeProxy.finishNodeCache(CkCallbackResumeThread());
 #ifdef CUDA
