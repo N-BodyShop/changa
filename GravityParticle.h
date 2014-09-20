@@ -439,9 +439,9 @@ public:
 	inline double& fDensityU() { IMAGAS; return (((extraSPHData*)extraData)->fDensityU());}
 	inline double& fThermalCond() { IMAGAS; return (((extraSPHData*)extraData)->fThermalCond());}
 	inline double& fThermalLength() { IMAGAS; return (((extraSPHData*)extraData)->fThermalLength());}
-	inline double& fPromoteSum() { IMAGAS; return (((extraSPHData*)extraData)->fThermalLength());}
-	inline double& fPromoteSumuPred() { IMAGAS; return (((extraSPHData*)extraData)->fThermalLength());}
-	inline double& fPromoteuPredInit() { IMAGAS; return (((extraSPHData*)extraData)->fThermalLength());}
+	inline double& fPromoteSum() { IMAGAS; return (((extraSPHData*)extraData)->fPromoteSum());}
+	inline double& fPromoteSumuPred() { IMAGAS; return (((extraSPHData*)extraData)->fPromoteSumuPred());}
+	inline double& fPromoteuPredInit() { IMAGAS; return (((extraSPHData*)extraData)->fPromoteuPredInit());}
 #endif
 	// Access Star Quantities
 	// XXX Beware overlaps with SPH; we could fix this by aligning
