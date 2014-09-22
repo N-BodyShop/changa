@@ -1796,6 +1796,13 @@ void PromoteToHotGasSmoothParams::initSmoothParticle(GravityParticle *p)
     p->fPromoteuPredInit() = p->uPred();
 
 }
+void PromoteToHotGasSmoothParams::initTreeParticle(GravityParticle *p)
+{
+    TYPEReset(p,TYPE_PROMOTED);
+    p->fPromoteSum() = 0;
+    p->fPromoteSumuPred() = 0;
+    p->fPromoteuPredInit() = p->uPred();
+}
 void PromoteToHotGasSmoothParams::combSmoothCache(GravityParticle *p1, ExternalSmoothParticle *p2)
 {
     if(TYPETest(p2, TYPE_PROMOTED)) {
