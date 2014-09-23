@@ -1677,6 +1677,28 @@ void TreePiece::drift(double dDelta,  // time step in x containing
     contribute(cb);
 }
 
+/// @brief  Adjust particlePointer attribute of all the nodes in the
+/// tree.
+/// 
+///  Call this if "myParticles" is about to change, but you still need
+///  the tree.
+
+void TreePiece::adjustTreePointers(GenericTreeNode *node,
+    GravityParticle *newParts)
+{
+    // Is particlePointer point to memory we are about to delete?
+    if(node->particlePointer >= myParticles
+        && node->particlePointer < myParticles + myNumParticles + 2) {
+        node->particlePointer = newParts + (node->particlePointer - myParticles);
+        }
+    GenericTreeNode *child;
+    for (unsigned int i=0; i<node->numChildren(); ++i) {
+        child = node->getChildren(i);
+        if (child != NULL) adjustTreePointers(child, newParts);
+        }
+}
+
+
 void TreePiece::newParticle(GravityParticle *p)
 {
     // N.B. there are 2 boundary particles
@@ -1687,6 +1709,7 @@ void TreePiece::newParticle(GravityParticle *p)
         GravityParticle *myTmpParticles = new GravityParticle[nTmpStore];
         memcpy(myTmpParticles, myParticles,
                (2 + myNumParticles)*sizeof(GravityParticle));
+        adjustTreePointers(root, myTmpParticles);
         delete[] myParticles;
         myParticles = myTmpParticles;
         nStore = nTmpStore;
