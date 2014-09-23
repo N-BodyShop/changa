@@ -1616,6 +1616,7 @@ public:
   void calcEnergy(const CkCallback& cb);
   /// add new particle
   void newParticle(GravityParticle *p);
+  void adjustTreePointers(GenericTreeNode *node, GravityParticle *newParts);
   /// Count add/deleted particles, and compact main particle storage.
   void colNParts(const CkCallback &cb);
   /// Assign iOrders to recently added particles.
