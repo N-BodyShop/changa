@@ -1793,6 +1793,12 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
           /(dDiffCoeff*p->diff() + ph/p->fThermalLength()*p->fThermalCond()/p->fDensity);  
         if (dt < dTIdeal) dTIdeal = dt;
     }
+    double x = p->massHot()/p->mass;
+	double uTotDot = p->uHotDot()*x+p->uDot()*(1-x);
+    if (uTotDot > 0) {
+        dt = dEtaCourant*dCosmoFac*ph/sqrt(4*(p->c()*p->c()+1.6667*uTotDot*p->dt));
+        if (dt < dTIdeal) dTIdeal = dt;
+    }
 #else
 #ifdef DIFFUSION
 	  /* h^2/(2.77Q) Linear stability from Brookshaw */
