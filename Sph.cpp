@@ -798,7 +798,6 @@ void TreePiece::updateuDot(int activeRung,
 		double r[3];  // For conversion to C
 		p->position.array_form(r);
 #ifdef SUPERBUBBLE
-        double uHotDotFB = p->fESNrate();
         double frac = p->massHot()/p->mass;
         double PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
         double uMean = frac*p->uHotPred()+(1-frac)*p->uPred();
@@ -1867,7 +1866,6 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         if (q->uHot() == 0 && Tq <= dEvapMinTemp) continue;  
 		dot = xc*nnList[i].dx.x + yc*nnList[i].dx.y + zc*nnList[i].dx.y;
 		if (dot > 0 && dot*dot > dotcut2*nnList[i].fKey) {
-            //printf("promote (hot excluded): %d %d  %g %g  (%g %g %g) (%g %g %g)\n",p->iOrder,q->iOrder,Tp, Tq,xc,yc,zc,nnList[i].dx,nnList[i].dy,nnList[i].dz);
             return;
             }
         }
@@ -1876,7 +1874,6 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	nHot=nSmooth-nCold;
 	CkAssert(nHot > 0);
     fFactor = dDeltaStarForm*dEvapCoeff*ph*12.5664*1.5/(nHot)/rstot;
-	//printf("CHECKAREA2: %e %d %e %d %d %e %e %e\n", smf->dTime, p->iOrder, 12.5664*ph*ph*1.5/(nHot), nSmooth, nCold, xc, yc, zc);
 
     mPromoted = 0;
 	for (i=0;i<nSmooth;++i) {
@@ -1894,10 +1891,8 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         /* cf. Weaver etal'77 mdot = 4.13d-14 * (dx^2/4 !pi) (Thot^2.5-Tcold^2.5)/dx - 2 udot mHot/(k T/mu) 
            Kernel sets total probability to 1 */
         Prob = fFactor*(up52-pow(q->uPred(),2.5))*rs/q->mass;
-        //printf("promote?: %g %g %g %d %d %g\n", dDeltaStarForm, dEvapCoeff, ph, nHot, nSmooth, rstot);
-        //printf("promote?: %d %d %g %g %g  %g %g %g\n",p->iOrder,q->iOrder,Tp, Tq, ph, fFactor*(up52-pow(q->uPred(),2.5))*rs, q->mass, Prob);
         if ( (rand()/((double) RAND_MAX)) < Prob) {
-            mPromoted += q->mass; //printf("promote? MASS: %d %d %g %g %g  %g + %g %g\n",p->iOrder,q->iOrder,Tp, Tq, ph, fFactor*(up52-pow(q->uPred,2.5))*rs, q->mass, Prob);
+            mPromoted += q->mass; 
             }
         }
 
@@ -1916,7 +1911,6 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
             if (dTimeCool > q->fTimeCoolIsOffUntil()) q->fTimeCoolIsOffUntil() = dTimeCool;
             TYPESet(q, TYPE_PROMOTED|TYPE_FEEDBACK);
             mPromoted -= q->mass;
-            //printf("promote? YES: %d %d %g %g %g  %g - %g %g\n",p->iOrder,q->iOrder,Tp, Tq, ph, fFactor*(up52-pow(q->uPred(),2.5))*rs, q->mass, Prob);
             if (mPromoted < q->mass*0.1) break;
             }
         }
