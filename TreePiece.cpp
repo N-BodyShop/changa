@@ -1795,7 +1795,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
     }
     double x = p->massHot()/p->mass;
 	double uTotDot = p->uHotDot()*x+p->uDot()*(1-x);
-    if (uTotDot > 0) {
+    if (uTotDot > 0 && p->dt < FLT_MAX) {
         dt = dEtaCourant*dCosmoFac*ph/sqrt(4*(p->c()*p->c()+1.6667*uTotDot*p->dt));
         if (dt < dTIdeal) dTIdeal = dt;
     }
