@@ -810,6 +810,9 @@ void TreePiece::updateuDot(int activeRung,
                 fDensity = p->fDensity*PoverRho/(gammam1*p->uHot());
                 CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E, ExternalHeating, fDensity,
                         p->fMetals(), r, dt);
+                E = p->uHot();
+                CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E, ExternalHeating, fDensity,
+                        p->fMetals(), r, dt);
                 if(bUpdateState && !bUpdateStd) p->CoolParticle() = cp;
                 p->uHotDot() = (E- p->uHot())/duDelta[p->rung];
             }
