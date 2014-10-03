@@ -18,6 +18,7 @@
 #include "MultistepLB_notopo.h"
 #include "Orb3dLB.h"
 #include "Orb3dLB_notopo.h"
+#include "HierarchOrbLB.h"
 // jetley - refactoring
 //#include "codes.h"
 #include "Opt.h"
@@ -5706,6 +5707,7 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   string ms_notoponame("MultistepLB_notopo");
   string orb3d_notoponame("Orb3dLB_notopo");
   string msorb_name("MultistepOrbLB");
+  string hierarch_name("HierarchOrbLB");
 
   BaseLB **lbs = lbdb->getLoadBalancers();
   int i;
@@ -5738,7 +5740,9 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
         foundLB = Orb3d_notopo;
 	proxy = lbs[i]->getGroupID();
         break;
-      }
+      } else if(hierarch_name == string(lbs[i]->lbName())) {
+        proxy = lbs[i]->getGroupID();
+        foundLB = HierarchOrb;
     }
   }
 

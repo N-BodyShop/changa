@@ -86,7 +86,7 @@ NVCC_LIBS = -lcuda -lcudart -lGL
 #OPTS = -g -memory charmdebug
 OPTS = -O3
 CXXFLAGS += $(OPTS) -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) @CPPFLAGS@
-LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache -module CkIO -module commlib -module CkMulticast -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MultistepLB -module MultistepLB_notopo -module MultistepOrbLB -module Orb3dLB -module Orb3dLB_notopo -module liveViz #-tracemode projections -memory charmdebug -memory paranoid
+LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache -module CkIO -module commlib -module CkMulticast -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MultistepLB -module MultistepLB_notopo -module MultistepOrbLB -module Orb3dLB -module Orb3dLB_notopo -module HierarchOrbLB -module liveViz #-tracemode projections -memory charmdebug -memory paranoid
 XDR_DIR = ../rpc
 XDR_OBJS = $(XDR_DIR)/xdr.o $(XDR_DIR)/xdr_float.o $(XDR_DIR)/xdr_mem.o $(XDR_DIR)/xdr_stdio.o
 LDLIBS += $(STRUCTURES_PATH)/libTipsy.a  @LIBS@
@@ -103,7 +103,7 @@ CFLAGS = $(OPTS) $(DEFINE_FLAGS) @CFLAGS@ @CPPFLAGS@
 OBJECTS = Reductions.o DataManager.o TreePiece.o Sorter.o \
 	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
 	  InOutput.o cosmo.o romberg.o runge.o dumpframe.o dffuncs.o \
-	  moments.o MultistepLB.o Orb3dLB.o Orb3dLB_notopo.o \
+	  moments.o MultistepLB.o Orb3dLB.o Orb3dLB_notopo.o HierarchOrbLB.o \
 	  MultistepLB_notopo.o MultistepOrbLB.o PETreeMerger.o \
 	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
 	  feedback.o imf.o supernova.o supernovaia.o starlifetime.o \
@@ -113,7 +113,7 @@ OBJECTS = Reductions.o DataManager.o TreePiece.o Sorter.o \
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \
 	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
 	InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c \
-	moments.c MultistepLB.C Orb3dLB.C Orb3dLB_notopo.C starform.C \
+	moments.c MultistepLB.C Orb3dLB.C Orb3dLB_notopo.C HierarchOrbLB.C starform.C \
 	MultistepLB_notopo.C MultistepOrbLB.C PETreeMerger.cpp \
 	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C
 
@@ -133,10 +133,10 @@ TARGET = ChaNGa
 VERSION = 1.0
 all: $(TARGET)
 
-$(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleMultistepLB_notopo.a libmoduleMultistepOrbLB.a
+$(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleHierarchOrbLB.a libmoduleMultistepLB_notopo.a libmoduleMultistepOrbLB.a
 	$(CHARMC) -o $(TARGET) $(LDFLAGS) $(OBJECTS) $(LDLIBS)
 
-$(TARGET).prj: $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleMultistepLB_notopo.a libmoduleMultistepOrbLB.a
+$(TARGET).prj: $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleHierarchOrbLB.a libmoduleMultistepLB_notopo.a libmoduleMultistepOrbLB.a
 	$(CHARMC) -o $(TARGET).prj $(LDFLAGS) $(OBJECTS) $(LDLIBS) -tracemode projections
 
 $(TARGET).%: $(TARGET)
@@ -169,6 +169,9 @@ libmoduleOrb3dLB.a: Orb3dLB.o
 
 libmoduleOrb3dLB_notopo.a: Orb3dLB_notopo.o
 	$(CHARMC) -o libmoduleOrb3dLB_notopo.a Orb3dLB_notopo.o 
+
+libmoduleHierarchOrbLB.a: HierarchOrbLB.o
+	$(CHARMC) -o libmoduleHierarchOrbLB.a HierarchOrbLB.o
 
 %.decl.h %.def.h : %.ci
 	$(CHARMC) -E $(DEFINE_FLAGS) $<
