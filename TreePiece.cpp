@@ -5728,6 +5728,7 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
       } else if(hierarch_name == string(lbs[i]->lbName())) {
         proxy = lbs[i]->getGroupID();
         foundLB = HierarchOrb;
+      }
     }
   }
 
