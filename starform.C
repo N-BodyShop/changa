@@ -185,6 +185,8 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
     double dMassFormed = 0.0;
     double TempForm;
     
+    // clear indices into starlog table
+    iSeTab.clear();
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if(p->isGas()) {
@@ -197,6 +199,8 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 		dMassFormed += starp->mass;
 		newParticle(starp);
 		CmiLock(dm->lockStarLog);
+                // Record current spot in seTab
+                iSeTab.push_back(dm->starLog->seTab.size());
 		dm->starLog->seTab.push_back(StarLogEvent(starp,dCosmoFac,TempForm));
 		CmiUnlock(dm->lockStarLog);
 		delete (extraStarData *)starp->extraData;
