@@ -1074,6 +1074,8 @@ private:
 #ifndef COOLING_NONE
 	clDerivsData *CoolData;
 #endif
+        /// indices of my newly formed particles in the starlog table
+        std::vector<int> iSeTab;
 	/// Setup for writing
 	int nSetupWriteStage;
 	int64_t nStartWrite;	// Particle number at which this piece starts

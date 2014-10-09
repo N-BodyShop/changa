@@ -1836,6 +1836,7 @@ void TreePiece::newOrder(int64_t nStartSPH, int64_t nStartDark,
 {
     unsigned int i;
     boundingBox.reset();
+    int iNewStars = 0;
     for(i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	boundingBox.grow(p->position);
@@ -1846,14 +1847,17 @@ void TreePiece::newOrder(int64_t nStartSPH, int64_t nStartDark,
 		p->iOrder = nStartDark++;
 	    else {
 		/* Also record iOrder in the starLog table. */
+                CkAssert(iNewStars < iSeTab.size());
 		CmiLock(dm->lockStarLog);
-		dm->starLog->seTab[dm->starLog->nOrdered].iOrdStar = nStartStar;
+		dm->starLog->seTab[iSeTab[iNewStars]].iOrdStar = nStartStar;
 		dm->starLog->nOrdered++;
 		CmiUnlock(dm->lockStarLog);
+                iNewStars++;
 		p->iOrder = nStartStar++;
 		}
 	    }
 	}
+    iSeTab.clear();
     callback = cb;		// called by assignKeys()
     // get the new particles into key order
     contribute(sizeof(OrientedBox<float>), &boundingBox,
