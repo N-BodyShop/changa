@@ -3325,6 +3325,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
       CkAssert(currentBucket >= startBucket);
 
       if (useckloop) {
+        lpdata->lowNodes.insertAtEnd(lowestNode);
         lpdata->bucketids.insertAtEnd(currentBucket);
 
         CkVec<OffsetNode> cl;
