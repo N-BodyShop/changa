@@ -4001,7 +4001,8 @@ void TreePiece::executeCkLoopParallelization(LoopParData *lpdata,
           chunkNum, true, gravityState);
 
 
-      prevRemoteBucket = gravityState->currentBucket;
+      if(chunkNum >= 0) // Remote walks only
+          prevRemoteBucket = gravityState->currentBucket;
       gravityState->currentBucket = end;
       i += numActualBuckets;
 
