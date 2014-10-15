@@ -1805,6 +1805,13 @@ void PromoteToHotGasSmoothParams::initTreeParticle(GravityParticle *p)
     p->fPromoteSumuPred() = 0;
     p->fPromoteuPredInit() = p->uPred();
 }
+void PromoteToHotGasSmoothParams::initSmoothCache(GravityParticle *p)
+{
+    TYPEReset(p,TYPE_PROMOTED);
+    p->fPromoteSum() = 0;
+    p->fPromoteSumuPred() = 0;
+    p->fPromoteuPredInit() = p->uPred();
+}
 void PromoteToHotGasSmoothParams::combSmoothCache(GravityParticle *p1, ExternalSmoothParticle *p2)
 {
     if(TYPETest(p2, TYPE_PROMOTED)) {
@@ -1944,7 +1951,7 @@ void ShareWithHotGasSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
         pqSmoothNode *nnList)
 {
 	GravityParticle *q;
-	double rsmax,uavg,umin;
+	double uavg,umin;
 	double dE,Eadd,factor,Tp;
 	int i,nPromoted;
 
@@ -1954,7 +1961,6 @@ void ShareWithHotGasSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
     Tp = CoolEnergyToTemperature(tp->Cool(), &p->CoolParticle(), dErgPerGmUnit*p->uPred(), p->fMetals() );
     if (Tp <= dEvapMinTemp) return;
 
-    rsmax = 1.0;
     nPromoted = 0;
 
     dE = 0;
@@ -1963,8 +1969,8 @@ void ShareWithHotGasSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
         q = nnList[i].p;
 	    if (TYPETest(q, TYPE_PROMOTED)) {
             nPromoted++;
-            uavg = (rsmax*q->mass*q->fPromoteuPredInit() + q->fPromoteSumuPred())/
-                (rsmax*q->mass + q->fPromoteSum());
+            uavg = (q->mass*q->fPromoteuPredInit() + q->fPromoteSumuPred())/
+                (q->mass + q->fPromoteSum());
             if (uavg < umin) umin=uavg;
             Eadd = (uavg-q->fPromoteuPredInit())*q->mass;
             if (Eadd < 0) Eadd=0;
@@ -1980,8 +1986,8 @@ void ShareWithHotGasSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
         q = nnList[i].p;
 	    if (TYPETest(q, TYPE_PROMOTED)) {
             nPromoted++;
-            uavg = (rsmax*q->mass*q->fPromoteuPredInit() + q->fPromoteSumuPred())/
-                (rsmax*q->mass + q->fPromoteSum());
+            uavg = (q->mass*q->fPromoteuPredInit() + q->fPromoteSumuPred())/
+                (q->mass + q->fPromoteSum());
             if (uavg < umin) umin=uavg;
             Eadd = (uavg-q->fPromoteuPredInit())*q->mass;
             if (Eadd < 0) Eadd=0;
@@ -1990,6 +1996,10 @@ void ShareWithHotGasSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
             q->u() += dE/q->mass;
             p->uPred() -=  dE/p->mass;
             p->u() -=  dE/p->mass;
+            if (!(q->uPred() > 0))
+            {
+                CkPrintf("SHARE ERROR: %e %e %e %e %e %e\n", q->uPred(), dE, factor, q->fPromoteSum(), q->fPromoteSumuPred(), q->fPromoteuPredInit());
+            }
             CkAssert(q->uPred() > 0);
             CkAssert(q->u() > 0);
             CkAssert(p->uPred() > 0);
