@@ -284,8 +284,8 @@ class Orb3dCommon{
         //events[i].free();
         vector<Event>().swap(events[i]);
       }
-      orbPartition(leftEvents,leftBox,nlprocs,tp, stats);
-      orbPartition(rightEvents,rightBox,nrprocs,tp, stats);
+      orbPartition(leftEvents,leftBox,nlprocs,tp, stats, node_partition);
+      orbPartition(rightEvents,rightBox,nrprocs,tp, stats, node_partition);
     }
 
     void orbPrepare(vector<Event> *tpEvents, OrientedBox<float> &box, int
