@@ -29,10 +29,12 @@
 // #include <fenv.h>
 
 #include "BaseLB.h"
+#include "CkLoopAPI.h"
 
 #include "Sorter.h"
 #include "ParallelGravity.h"
 #include "DataManager.h"
+#include "IntraNodeLBManager.h"
 #include "TipsyFile.h"
 #include "param.h"
 #include "smooth.h"
@@ -67,6 +69,7 @@ CProxy_CkCacheManager<KeyType> cacheGravPart;
 CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 CProxy_CkCacheManager<KeyType> cacheNode;
 CProxy_DataManager dMProxy;
+CProxy_IntraNodeLBManager nodeLBMgrProxy;
 
 CProxy_DumpFrameData dfDataProxy;
 CProxy_PETreeMerger peTreeMergerProxy;
@@ -93,6 +96,7 @@ int _numChunks;
 int _randChunks;
 unsigned int bucketSize;
 int lbcomm_cutoff_msgs;
+int bUseCkLoopPar;
 
 //jetley
 int localNodesPerReq;
@@ -108,8 +112,6 @@ double largePhaseThreshold;
 
 double theta;
 double thetaMono;
-
-ComlibInstanceHandle cinst1, cinst2;
 
 int boundaryEvaluationUE;
 int weightBalanceUE;
@@ -188,6 +190,8 @@ Main::Main(CkArgMsg* m) {
 	bIsRestarting = 0;
 	bChkFirst = 1;
 	dSimStartTime = CkWallTimer();
+
+  int threadNum = CkMyNodeSize();
 
 	// Floating point exceptions.
 	// feenableexcept(FE_OVERFLOW | FE_DIVBYZERO | FE_INVALID);
@@ -579,7 +583,10 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "bLiveViz", paramInt,&param.bLiveViz, sizeof(int),
 		    "liveviz", "enable real-time simulation render support (disabled)");
 
-	
+	param.bUseCkLoopPar = 0;
+	prmAddParam(prm, "bUseCkLoopPar", paramBool,&param.bUseCkLoopPar, sizeof(int),
+		    "useckloop", "enable CkLoop to parallelize within node");
+
 	param.bStaticTest = 0;
 	prmAddParam(prm, "bStaticTest", paramBool, &param.bStaticTest,
 		    sizeof(int),"st", "Static test of performance");
@@ -779,6 +786,18 @@ Main::Main(CkArgMsg* m) {
 	dMaxBalance = param.dMaxBalance;
 	_cacheLineDepth = param.cacheLineDepth;
 	nIOProcessor = param.nIOProcessor;
+#if CMK_SMP
+  bUseCkLoopPar = param.bUseCkLoopPar;
+#else
+  bUseCkLoopPar = 0;
+#endif
+  if (bUseCkLoopPar) {
+    CkPrintf("Using CkLoop %d\n", param.bUseCkLoopPar);
+  } else {
+    CkPrintf("Not Using CkLoop %d\n", param.bUseCkLoopPar);
+  }
+
+
 	if(prmSpecified(prm, "bCannonical")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bCannonical parameter ignored; integration is always cannonical"
@@ -1110,11 +1129,14 @@ Main::Main(CkArgMsg* m) {
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
 	dataManagerID = dataManager;
         dMProxy = dataManager;
+  nodeLBMgrProxy = CProxy_IntraNodeLBManager::ckNew(1,pieces.ckLocMgr()->getGroupID());
 
 	streamingProxy = pieces;
 
 	//create the Sorter
 	sorter = CProxy_Sorter::ckNew(0);
+
+  CkLoop_Init(threadNum);
 
 	if(verbosity)
 	  ckerr << "Created " << numTreePieces << " pieces of tree" << endl;
@@ -2065,6 +2087,8 @@ Main::restart()
 	prmAddParam(prm, "dFracNoDomainDecomp", paramDouble,
 		    &param.dFracNoDomainDecomp, sizeof(double),"fndd",
 		    "Fraction of active particles for no new DD = 0.0");
+	prmAddParam(prm, "bUseCkLoopPar", paramBool, &param.bUseCkLoopPar, sizeof(int),
+		    "useckloop", "enable CkLoop to parallelize within node");
 
         int processSimfile = 0; 
 	if(!prmArgProc(prm,CmiGetArgc(args->argv),args->argv,processSimfile)) {
@@ -2072,6 +2096,11 @@ Main::restart()
 	}
 	
 	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
+  if (bUseCkLoopPar) {
+    CkPrintf("Using CkLoop %d\n", param.bUseCkLoopPar);
+  } else {
+    CkPrintf("Not Using CkLoop %d\n", param.bUseCkLoopPar);
+  }
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 	if(param.bGasCooling || param.bStarForm) 
 	    initCooling();
@@ -2737,7 +2766,7 @@ void Main::writeOutput(int iStep)
             CkError("WARNING: overwriting existing directory\n");
             delete_dir_tree(achFile);
             }
-            
+
         if(param.bParaWrite)
             treeProxy.setupWrite(0, 0, achFile, dOutTime, dvFac, duTFac,
                                  param.bDoublePos, param.bDoubleVel,

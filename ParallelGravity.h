@@ -11,7 +11,6 @@
 #include <algorithm>
 
 #include "pup_stl.h"
-#include "comlib.h"
 #include "ckio.h"
 
 #include "Vector3D.h"
@@ -62,8 +61,10 @@ enum LBStrategy{
   Multistep,
   Orb3d,
   Multistep_notopo,
+  MultistepNode_notopo,
   Orb3d_notopo,
-  MultistepOrb
+  MultistepOrb,
+  HierarchOrb
 };
 PUPbytes(LBStrategy);
 
@@ -100,10 +101,6 @@ inline void operator|(PUP::er &p,DomainsDec &d) {
 
 #include "GravityParticle.h"
 
-#include "MultistepLB.decl.h"          // jetley - needed for CkIndex_MultistepLB
-#include "Orb3dLB.decl.h"          // jetley - needed for CkIndex_Orb3dLB
-#include "MultistepOrbLB.decl.h"          // jetley - needed for CkIndex_MultistepLB
-
 class SmoothParams;
 
 #include "InOutput.h"
@@ -119,6 +116,7 @@ extern unsigned int _yieldPeriod;
 extern DomainsDec domainDecomposition;
 extern double dExtraStore;
 extern double dMaxBalance;
+extern int bUseCkLoopPar;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
 #ifdef REDUCTION_HELPER
@@ -129,6 +127,7 @@ extern CProxy_LvArray smoothProxy;  // Proxy for smooth reduction
 extern CProxy_LvArray gravityProxy; // Proxy for gravity reduction
 extern CProxy_TreePiece streamingProxy;
 extern CProxy_DataManager dMProxy;
+extern CProxy_IntraNodeLBManager nodeLBMgrProxy;
 extern unsigned int numTreePieces;
 extern unsigned int particlesPerChare;
 extern int nIOProcessor;
@@ -138,8 +137,6 @@ extern CProxy_PETreeMerger peTreeMergerProxy;
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 extern CProxy_CkCacheManager<KeyType> cacheNode;
-
-extern ComlibInstanceHandle cinst1, cinst2;
 
 /// The group ID of your DataManager.  You must set this!
 extern CkGroupID dataManagerID;
@@ -552,6 +549,17 @@ typedef struct particlesInfoL{
     GenericTreeNode *nd;
 #endif
 } LocalPartInfo;
+
+typedef struct LoopParDataStruct {
+  CkVec<GenericTreeNode*> lowNodes;
+  CkVec<int> bucketids;
+  CkVec<int> chunkids;
+  CkVec<CkVec<OffsetNode> > clists;
+  CkVec<CkVec<RemotePartInfo> > rpilists;
+  CkVec<CkVec<LocalPartInfo> > lpilists;
+  TreePiece* tp;
+} LoopParData;
+
 
 
 #ifdef CUDA
@@ -1452,6 +1460,9 @@ public:
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit();
 	void calculateEwald(dummyMsg *m);
+  void calculateEwaldUsingCkLoop(dummyMsg *msg, int yield_num);
+  void callBucketEwald(int id);
+  void doParallelNextBucketWork(int id, LoopParData* lpdata);
 	void initCoolingData(const CkCallback& cb);
 	// Scale velocities (needed to convert to canonical momenta for
 	// comoving coordinates.)
@@ -1694,6 +1705,12 @@ public:
 	/// by this TreePiece, and belonging to a subset of the global tree
 	/// (specified by chunkNum).
 	void calculateGravityRemote(ComputeChunkMsg *msg);
+  void executeCkLoopParallelization(LoopParData *lpdata, int startbucket,
+      int yield_num, int chunkNum, State* gravityState);
+  int doBookKeepingForTargetActive(int curbucket, int end, int chunkNum, bool
+    updatestate, State* gravityState);
+  int doBookKeepingForTargetInactive(int chunkNum, bool updatestate,
+    State* gravityState);
 
 	/// As above but for the Smooth operation
 	void calculateSmoothLocal();
@@ -1818,6 +1835,7 @@ public:
          * finishBucket() is called to clean up.
 	 */
         void nextBucket(dummyMsg *m);
+  void nextBucketUsingCkLoop(dummyMsg *m);
 
 	void report();
 	void printTreeViz(GenericTreeNode* node, std::ostream& os);
@@ -1876,6 +1894,7 @@ public:
         void processRemoteRequestsForMoments();
         void sendParticlesDuringDD(bool withqd);
         void mergeAllParticlesAndSaveCentroid();
+        bool otherIdlePesAvail();
 
 };
 
