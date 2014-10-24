@@ -1269,9 +1269,8 @@ class iNSIDMIntOutputParams : public OutputParams
       p->iNSIDMInteractions= iValue;
       }
  public:
-    iNSIDMIntOutputParams() {}
-    //iNSIDMIntOutputParams(std::string _fileName) {
-    iNSIDMIntOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+    iNSIDMOutputParams() {}
+    iNSIDMOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
     fileName = _fileName; 
     iBinaryOut= _iBinaryOut;
     sTipsyExt="nsidm";  sNChilExt = "nsidm";
