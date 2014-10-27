@@ -332,6 +332,9 @@ Main::Main(CkArgMsg* m) {
 	param.bDoIOrderOutput = 0;
 	prmAddParam(prm,"bDoIOrderOutput",paramBool,&param.bDoIOrderOutput,
 		    sizeof(int), "iordout","enable/disable iOrder outputs = -iordout");
+#ifdef SPLITGAS 
+	param.bDoIOrderOutput = 1; //This becomes very important if particles can split.
+#endif
 	param.bDoSoftOutput = 0;
 	prmAddParam(prm,"bDoSoftOutput",paramBool,&param.bDoSoftOutput,
 		    sizeof(int),
@@ -3339,7 +3342,10 @@ void Main::writeOutput(int iStep)
 	if(param.bDoIOrderOutput || param.bStarForm || param.bFeedback) {
 	    IOrderOutputParams pIOrdOut(achFile, param.iBinaryOut, dOutTime);
 	    outputBinary(pIOrdOut, param.bParaWrite, CkCallbackResumeThread());
-	    if(param.bStarForm) {
+#ifndef SPLITGAS
+	    if(param.bStarForm) 
+#endif
+        {
 		IGasOrderOutputParams pIGasOrdOut(achFile, param.iBinaryOut,
                     dOutTime);
 		outputBinary(pIGasOrdOut, param.bParaWrite,
@@ -3408,7 +3414,10 @@ void Main::writeOutput(int iStep)
 	    IOrderOutputParams pIOrdOut(achFile, param.iBinaryOut, dOutTime);
 	    treeProxy[0].outputASCII(pIOrdOut, param.bParaWrite,
 					CkCallbackResumeThread());
-	    if(param.bStarForm) {
+#ifndef SPLITGAS
+	    if(param.bStarForm) 
+#endif
+        {
 		IGasOrderOutputParams pIGasOrdOut(achFile, param.iBinaryOut,
                     dOutTime);
 		treeProxy[0].outputASCII(pIGasOrdOut, param.bParaWrite,
