@@ -1328,6 +1328,11 @@ class IGasOrderOutputParams : public OutputParams
 	if(p->isStar())
 	    return p->iGasOrder();
 	else
+#ifdef SPLITGAS
+    if(p->isGas())
+        return p->iSplitOrder();
+    else
+#endif 
 	    return 0;
 	}
     virtual void setIValue(GravityParticle *p, int64_t iValue)
