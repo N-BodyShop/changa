@@ -3416,8 +3416,8 @@ void Main::writeOutput(int iStep)
 	  }
         //SIDM
         if(param.bSIDM) {
-            iNSIDMIntOutputParams pNSIDMOut(achFile, param.iBinaryOut, dOutTime);
-            treeProxy[0].outputIntASCII(pNSIDMOut, param.bParaWrite,
+            iNSIDMOutputParams pNSIDMOut(achFile, param.iBinaryOut, dOutTime);
+            treeProxy[0].outputASCII(pNSIDMOut, param.bParaWrite,
                                           CkCallbackResumeThread());
             }
 	}

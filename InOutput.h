@@ -1258,7 +1258,7 @@ class DomainOutputParams : public OutputParams
     };
 
 //SIDM
-class iNSIDMIntOutputParams : public OutputParams
+class iNSIDMOutputParams : public OutputParams
 {
     virtual int64_t iValue(GravityParticle *p)
     {
@@ -1268,6 +1268,10 @@ class iNSIDMIntOutputParams : public OutputParams
     {
       p->iNSIDMInteractions= iValue;
       }
+    virtual double dValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual Vector3D<double> vValue(GravityParticle *p) {CkAssert(0); return 0.0;} 
+    //virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
  public:
     iNSIDMOutputParams() {}
     iNSIDMOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
@@ -1277,8 +1281,8 @@ class iNSIDMIntOutputParams : public OutputParams
     dTime=_dTime;
     iType= TYPE_DARK;
     }
-    PUPable_decl(iNSIDMIntOutputParams);
-    iNSIDMIntOutputParams(CkMigrateMessage *m) {}
+    PUPable_decl(iNSIDMOutputParams);
+    iNSIDMOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
         OutputParams::pup(p);//Call base class
         }
