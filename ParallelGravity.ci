@@ -174,7 +174,7 @@ mainmodule ParallelGravity {
   PUPable RungOutputParams;
   PUPable IOrderOutputParams;
   PUPable IGasOrderOutputParams;
-  PUPable iNSIDMIntOutputParams;
+  PUPable iNSIDMOutputParams;
 
 
   mainchare [migratable] Main {
