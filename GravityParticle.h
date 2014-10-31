@@ -97,16 +97,16 @@ class extraSPHData
     double _fMFracIronPred;
 #endif
 #ifdef SUPERBUBBLE
-    double _uHot;
-    double _uHotDot;
-    double _uHotPred;
-    double _massHot;
-    double _fDensityU;
-    double _fThermalCond;
-    double _fThermalLength;
-    double _fPromoteSum;
-    double _fPromoteSumuPred;
-    double _fPromoteuPredInit;
+    double _uHot; /* Hot phase energy */
+    double _uHotDot; /* Hot phase rate of energy change */
+    double _uHotPred; /* Hot phase predicted energy */
+    double _massHot; /* Hot phase mass*/
+    double _fDensityU; /* Energy-scaled density */
+    double _fThermalCond; /* Conduction rate */
+    double _fThermalLength; /* Conduction length */
+    double _fPromoteSum; /* Total evaporated mass */
+    double _fPromoteSumuPred; /* Total evaporating energy */
+    double _fPromoteuPredInit; /* Original energy pre-evaporation */
 #endif
     
  public:

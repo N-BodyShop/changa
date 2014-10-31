@@ -2917,6 +2917,10 @@ Main::doSimulation()
       if(param.bDoGas) {
 	  ckout << "Outputting gas properties ...";
 #ifdef SUPERBUBBLE
+          /* 
+           * Write out additional variables when using superbubble
+           * (multiphase properties and effective temperature)
+           */
 	      uHotOutputParams puHotOut(achFile, param.iBinaryOut, 0.0);
 	      uOutputParams puOut(achFile, param.iBinaryOut, 0.0);
 	      MassHotOutputParams pmHotOut(achFile, param.iBinaryOut, 0.0);
@@ -3400,6 +3404,10 @@ void Main::writeOutput(int iStep)
 #endif /*COOLING_MOLECULARH*/
 #endif
 #ifdef SUPERBUBBLE
+          /* 
+           * Write out additional variables when using superbubble
+           * (multiphase properties and effective temperature)
+           */
 	      MassHotOutputParams pmHotOut(achFile, param.iBinaryOut, 0.0);
 	      uHotOutputParams puHotOut(achFile, param.iBinaryOut, 0.0);
 	      uOutputParams puOut(achFile, param.iBinaryOut, 0.0);
