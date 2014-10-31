@@ -35,9 +35,9 @@ void Fdbk::AddParams(PRM prm)
     prmAddParam(prm,"dESN", paramDouble, &sn.dESN, sizeof(double), "snESN",
 		    "<Energy of supernova in ergs> = 0.1e51");
 #ifdef SUPERBUBBLE
-    bSmallSNSmooth = 0;    
+    bSmallSNSmooth = 0; //Don't use the blastwave smoothing when using superbubble
 #else
-    bSmallSNSmooth = 1;
+    bSmallSNSmooth = 1; 
 #endif
     prmAddParam(prm,"bSmallSNSmooth", paramBool, &bSmallSNSmooth, sizeof(int),
 		"bSmallSNSmooth",
@@ -53,14 +53,14 @@ void Fdbk::AddParams(PRM prm)
 		sizeof(double), "stMaxGas",
 		"<Maximum mass of a gas particle> = FLT_MAX");
 #ifdef SUPERBUBBLE
-    bSNTurnOffCooling = 0;
+    bSNTurnOffCooling = 0; //Don't use cooling shutoffs with superbubble
 #else
     bSNTurnOffCooling = 1;
 #endif
     prmAddParam(prm,"bSNTurnOffCooling", paramBool, &bSNTurnOffCooling,
 		sizeof(int), "bSNTurnOffCooling", "<Do SN turn off cooling> = 1");
 #ifdef SUPERBUBBLE
-    nSmoothFeedback = 1;
+    nSmoothFeedback = 1; //Only use a single neighbour for superbubble feedback
     prmAddParam(prm,"nSmoothFeedback", paramInt,&nSmoothFeedback, sizeof(int),
 		"s", "<number of particles to smooth feedback over> = 1");
 #else
@@ -106,6 +106,10 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
 
 #include "physconst.h"
 #ifndef SUPERBUBBLE
+    /*
+     * Make sure that the parameters are sensible for
+     * superbubble feedback.
+     */
     if(!prmSpecified(prm, "nSmoothFeedback"))
 	nSmoothFeedback = param.nSmooth;
     if (sn.dESN > 0.0) bSmallSNSmooth = 1;
@@ -320,7 +324,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
 #endif
 
 #ifdef SPLITGAS
-    addDelParticles();
+    addDelParticles();//Don't forget to run an addDelParticles after a split
 #endif
     double tDFB = CkWallTimer() - startTime;
     timings[PHASE_FEEDBACK].tuDot += tDFB; // Overload tuDot for feedback.
@@ -633,6 +637,9 @@ void DistStellarFeedbackSmoothParams::initTreeParticle(GravityParticle *p1)
     
     if(TYPETest(p1, TYPE_GAS)){
 #ifdef SUPERBUBBLE
+        /*
+         * We must scale the energy injection rate by the mass that contains it
+         */
       if (p1->massHot() > 0) p1->fESNrate() *= p1->massHot();
       else
 #endif
@@ -782,10 +789,10 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
     if(weight > 0) TYPESet(q, TYPE_FEEDBACK);
 #ifdef SUPERBUBBLE
     double Tq = CoolEnergyToTemperature(tp->Cool(), &q->CoolParticle(), fb.dErgPerGmUnit*q->uPred(), q->fMetals() );
-	if(Tq < fb.dMultiPhaseMinTemp && weight > 0) {
+	if(Tq < fb.dMultiPhaseMinTemp && weight > 0) { //Only use the multiphase state for cooler particles
 		double massHot = q->massHot() + weight*p->fMSN();
 		double deltaMassLoad = weight*p->fMSN()*fb.dFBInitialMassLoad;
-		if (massHot+deltaMassLoad >= q->mass) {
+		if (massHot+deltaMassLoad >= q->mass) { //If deltaMassLoad is bigger than the cold phase, make it all cold.
 			deltaMassLoad = q->mass - massHot;
 			massHot = q->mass;
 			}
@@ -793,7 +800,7 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
 			massHot += deltaMassLoad;
 		}
 		q->massHot() = massHot;
-		CkAssert(q->massHot() >= 0);
+		CkAssert(q->massHot() >= 0); //Make sure our hot phase has nonzero mass in it
 	}
 #endif
 	}

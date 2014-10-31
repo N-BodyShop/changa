@@ -803,7 +803,10 @@ void TreePiece::updateuDot(int activeRung,
         double uMean = frac*p->uHotPred()+(1-frac)*p->uPred();
         int bUpdateStd = (p->massHot() < 0.9*p->mass);
         CkAssert(uMean > 0.0);
-        if (p->massHot() > 0) {
+        /*
+         * If we have mass in the hot phase, we need to cool it appropriately.
+         */
+        if (p->massHot() > 0) { 
             ExternalHeating = p->PdV()*p->uHotPred()/uMean + p->fESNrate();
             if (p->uHot() > 0) {
                 E = p->uHot();
@@ -816,13 +819,13 @@ void TreePiece::updateuDot(int activeRung,
                 if(bUpdateState && !bUpdateStd) p->CoolParticle() = cp;
                 p->uHotDot() = (E- p->uHot())/duDelta[p->rung];
             }
-            else
+            else /* If we just got feedback, only set up the uDot */
             {
                 p->uHotDot() = ExternalHeating;
             }
             ExternalHeating = p->PdV()*p->uPred()/uMean;
         }
-        else {
+        else { /* We have a single phase particle, treat it normally*/
             p->uHotDot() = 0;
             ExternalHeating = p->PdV() + p->fESNrate();
         }
@@ -1047,7 +1050,6 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     fDensityU *= fNorm;
     rs = KERNEL(0.0);
     p->fDensityU() = (fDensityU-rs*p->mass*p->uPred()*fNorm)/p->uPred()*p->fDensity/(p->fDensity-rs*p->mass*fNorm);
-    if(p->fDensityU() <= 0) CkPrintf("ERROR: %e %e %e %e %e %e %e\n", p->fDensityU(), fDensityU, fDensity, rs, p->mass, p->uPred(), fNorm);
     CkAssert(p->fDensityU() > 0);
     double ih = sqrt(ih2);
     double rhogradu=sqrt(grx*grx+gry*gry+grz*grz)*fNorm*ih2;
@@ -1214,6 +1216,7 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1, double dTh
 	    p->PoverRho2() = PoverRho/p->fDensity;
 	    p->c() = sqrt(gamma*PoverRho);
 #ifdef SUPERBUBBLE
+        // Include the hot phase of two phase particles
         double frac = p->massHot()/p->mass;
         PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
         p->c() = sqrt(gamma*PoverRho);
@@ -1284,7 +1287,7 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1, double dTher
         double fThermalCond = dThermalCondCoeff*pow(p->uPred(),2.5);
         double fThermalCond2 = dThermalCond2Coeff*pow(p->uPred(),0.5);
         double Tp = CoolCodeEnergyToTemperature(cl, &p->CoolParticle(), p->uPred(), p->fMetals());
-        if (Tp < dEvapMinTemp)
+        if (Tp < dEvapMinTemp) // Only allow conduction & evaporation for particles that are hot
         {
             fThermalCond = 0;
             fThermalCond2 = 0;
@@ -1792,6 +1795,7 @@ int PromoteToHotGasSmoothParams::isSmoothActive(GravityParticle *p)
 }
 void PromoteToHotGasSmoothParams::initSmoothParticle(GravityParticle *p)
 {
+    /* Initialize the promotion sums */
     TYPEReset(p,TYPE_PROMOTED);
     p->fPromoteSum() = 0;
     p->fPromoteSumuPred() = 0;
@@ -1990,7 +1994,7 @@ void ShareWithHotGasSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
                 (q->mass + q->fPromoteSum());
             if (uavg < umin) umin=uavg;
             Eadd = (uavg-q->fPromoteuPredInit())*q->mass;
-            if (Eadd < 0) Eadd=0;
+            if (Eadd < 0) Eadd=0; //Stop evaporating once we have Eadd worth of mass
             dE = factor*p->mass/q->fPromoteSum()*Eadd;
             q->uPred() += dE/q->mass;
             q->u() += dE/q->mass;

@@ -289,7 +289,10 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 	return NULL;
 
 #ifdef SUPERBUBBLE
-    if (p->massHot() > 0)
+    /*
+     *  Multiphase particles shouldn't form stars.  
+     */
+    if (p->massHot() > 0)  
     return NULL;
 #endif
 
