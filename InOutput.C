@@ -2191,7 +2191,7 @@ void Main::outputBinary(OutputParams& params, // specifies
     Ck::IO::Options opts;
         opts.basePE = 0;
     if(bParaWrite) {
-        if(param.nIOProcessor = 0) {
+        if(param.nIOProcessor == 0) {
             opts.activePEs = CkNumNodes();
             }
         else {
@@ -2409,7 +2409,7 @@ void Main::cbIOClosed(CkReductionMsg *msg)
         if(!sOutFile.empty()) {
             Ck::IO::Options opts;
             if(param.bParaWrite) {
-                if(param.nIOProcessor = 0) {
+                if(param.nIOProcessor == 0) {
                     opts.activePEs = CkNumNodes();
                     }
                 else {
