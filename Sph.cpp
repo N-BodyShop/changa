@@ -1822,8 +1822,8 @@ void PromoteToHotGasSmoothParams::combSmoothCache(GravityParticle *p1, ExternalS
         TYPESet(p1,TYPE_PROMOTED);
         if (p2->fTimeCoolIsOffUntil > p1->fTimeCoolIsOffUntil()) p1->fTimeCoolIsOffUntil() = p2->fTimeCoolIsOffUntil;
         }
-    p1->fPromoteSum() = p2->fPromoteSum;
-    p1->fPromoteSumuPred() = p2->fPromoteSumuPred;
+    p1->fPromoteSum() += p2->fPromoteSum;
+    p1->fPromoteSumuPred() += p2->fPromoteSumuPred;
 }
 void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         pqSmoothNode *nnList)
