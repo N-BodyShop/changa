@@ -67,9 +67,11 @@ class uHotOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {p->uHot() = val;}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
     uHotOutputParams() {}
     uHotOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
-        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        bFloat = 1; bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "uHot"; sNChilExt = "uHot";
         dTime = _dTime;
         iType = TYPE_GAS; }
@@ -87,9 +89,11 @@ class uOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {p->u() = val;}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
     uOutputParams() {}
     uOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
-        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        bFloat = 1; bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "u"; sNChilExt = "u";
         dTime = _dTime;
         iType = TYPE_GAS; }
@@ -108,8 +112,11 @@ class MassHotOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {p->massHot() = val;}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
     MassHotOutputParams() {}
     MassHotOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1; 
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "massHot"; sNChilExt = "massHot";
         dTime = _dTime;
@@ -143,10 +150,12 @@ class TempEffOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
     TempEffOutputParams() {}
     TempEffOutputParams(std::string _fileName, int _iBinaryOut, double _dTime,
                      bool _bGasCooling, double _duTFac) {
-        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        bFloat = 1; bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "tempEff"; sNChilExt = "temperatureEff";
         dTime = _dTime; bGasCooling = _bGasCooling; duTFac = _duTFac;
         iType = TYPE_GAS; }
