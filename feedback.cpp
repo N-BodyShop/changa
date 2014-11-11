@@ -994,6 +994,7 @@ void TreePiece::SplitGas(double dInitGasMass, const CkCallback& cb)
         p->position.y -= 0.25*p->fBall*sin(theta)*sin(phi);
         p->position.z -= 0.25*p->fBall*cos(theta);
         newParticle(daughter);
+        delete daughter->extraData;
         delete daughter;
     }
     contribute(sizeof(int), &nFormed, CkReduction::sum_int, cb);
