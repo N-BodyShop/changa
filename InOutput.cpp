@@ -950,7 +950,7 @@ void TreePiece::loadNChilada(const std::string& filename,
             myParticles[i+1].iOrder = i + nStartRead;
 #ifdef SPLITGAS
             myParticles[i+1].iWriteOrder = i + nStartRead;
-            if(myParticles[i+1].iOrder >= myNumSPH) myParticles[i+1].iOrder  += myNumSPH;
+            if(myParticles[i+1].iOrder >= nTotalSPH) myParticles[i+1].iOrder  += nTotalSPH;
 #endif
             boundingBox.grow(myParticles[i+1].position);
         }
