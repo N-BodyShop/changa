@@ -1270,11 +1270,12 @@ class iNSIDMOutputParams : public OutputParams
       }
     virtual double dValue(GravityParticle *p) {CkAssert(0); return 0.0;}
     virtual Vector3D<double> vValue(GravityParticle *p) {CkAssert(0); return 0.0;} 
-    //virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
  public:
     iNSIDMOutputParams() {}
     iNSIDMOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+    bFloat=0;
+    bVector=0;
     fileName = _fileName; 
     iBinaryOut= _iBinaryOut;
     sTipsyExt="nsidm";  sNChilExt = "nsidm";
