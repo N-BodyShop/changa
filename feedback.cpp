@@ -970,7 +970,7 @@ TreePiece::massMetalsEnergyCheck(int bPreDist, const CkCallback& cb)
 void TreePiece::SplitGas(double dInitGasMass, const CkCallback& cb)
 {
     int nFormed = 0;
-    double theta,phi;
+    double r, rand_x, rand_y, rand_z, theta,phi;
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
         GravityParticle *p = &myParticles[i];
         if(p->mass < 1.33*dInitGasMass) continue; //Don't split particles that are too small FOOL
@@ -978,8 +978,16 @@ void TreePiece::SplitGas(double dInitGasMass, const CkCallback& cb)
 
         nFormed++;
         GravityParticle *daughter = new GravityParticle();
-        theta = M_PI*(double) random()/RAND_MAX;
-        phi = 2*M_PI*(double) random()/RAND_MAX;
+        r = 2;
+        while (r < 1)
+        {
+            rand_x = (double) random()/RAND_MAX;
+            rand_y = (double) random()/RAND_MAX;
+            rand_z = (double) random()/RAND_MAX;
+            r = rand_x*rand_x+rand_y*rand_y+rand_z*rand_z;
+        }
+        phi = atan2(rand_y,rand_x);
+        theta = acos(rand_z/sqrt(r));
         p->mass /= 2.0;
         *daughter = *p;
         daughter->extraData = new extraSPHData;
@@ -994,7 +1002,7 @@ void TreePiece::SplitGas(double dInitGasMass, const CkCallback& cb)
         p->position.y -= 0.25*p->fBall*sin(theta)*sin(phi);
         p->position.z -= 0.25*p->fBall*cos(theta);
         newParticle(daughter);
-        delete daughter->extraData;
+        delete (extraSPHData *)daughter->extraData;
         delete daughter;
     }
     contribute(sizeof(int), &nFormed, CkReduction::sum_int, cb);
