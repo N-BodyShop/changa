@@ -2146,6 +2146,10 @@ void Main::setupICs() {
   nMaxOrderGas = nTotalSPH - 1;
   nMaxOrderDark = nTotalSPH + nTotalDark - 1;
   nMaxOrder = nTotalParticles - 1;
+#ifdef SPLITGAS
+  nMaxOrder += nTotalSPH; 
+  nMaxOrderDark += nTotalSPH; 
+#endif
   nActiveGrav = nTotalParticles;
   nActiveSPH = nTotalSPH;
   ckout << "N: " << nTotalParticles << endl;
