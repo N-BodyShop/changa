@@ -275,9 +275,6 @@ public:
         double fBall;           ///< Neighbor search radius for smoothing
 	double fDensity;
         int64_t iOrder;	///< Input order of particles; unique particle ID
-#ifdef SPLITGAS
-    int64_t iWriteOrder;
-#endif
         int rung;  ///< the current rung (greater means faster)
         unsigned int iType;	///< Bitmask to hold particle type information
         int iNSIDMInteractions; // SIDM number of interactions
@@ -318,11 +315,8 @@ public:
 	  p | treeAcceleration;
 	  p | fDensity;
 	  p | fBall;
-#ifdef SPLITGAS
-          p | iWriteOrder;
-#endif
-          p | iOrder;
-          p | rung;
+      p | iOrder;
+      p | rung;
 	  p | iType;
 #ifdef CHANGESOFT
 	  p | fSoft0;
