@@ -297,7 +297,8 @@ void TreePiece::loadTipsy(const std::string& filename,
 #endif
 		boundingBox.grow(myParticles[i+1].position);
 	}
-	
+  myParticles[0].key = firstPossibleKey;
+  myParticles[myNumParticles+1].key = lastPossibleKey;
   contribute(cb);
 }
 
@@ -544,8 +545,7 @@ void TreePiece::readCoolArray0(const std::string& filename, const CkCallback& cb
             nread = fscanf(fp, "%lf\n", &dummy);
             CkAssert(nread == 1);
             if(myParticles[i+1].isGas())
-                COOL_ARRAY0(unused1,&myParticles[i+1].CoolParticle(),unused2)
-                    = dummy;
+                COOL_SET_ARRAY0(unused1,&myParticles[i+1].CoolParticle(),unused2, dummy);
             }
         CmiFclose(fp);
         }
@@ -574,8 +574,7 @@ void TreePiece::readCoolArray1(const std::string& filename, const CkCallback& cb
             nread = fscanf(fp, "%lf\n", &dummy);
             CkAssert(nread == 1);
             if(myParticles[i+1].isGas())
-                COOL_ARRAY1(unused1,&myParticles[i+1].CoolParticle(),unused2)
-                    = dummy;
+                COOL_SET_ARRAY1(unused1,&myParticles[i+1].CoolParticle(),unused2, dummy);
             }
         CmiFclose(fp);
         }
@@ -603,8 +602,7 @@ void TreePiece::readCoolArray2(const std::string& filename, const CkCallback& cb
             nread = fscanf(fp, "%lf\n", &dummy);
             CkAssert(nread == 1);
             if(myParticles[i+1].isGas())
-                COOL_ARRAY2(unused1,&myParticles[i+1].CoolParticle(),unused2)
-                    = dummy;
+                COOL_SET_ARRAY2(unused1,&myParticles[i+1].CoolParticle(),unused2,dummy);
             }
         CmiFclose(fp);
         }
@@ -632,11 +630,8 @@ void TreePiece::readCoolArray3(const std::string& filename, const CkCallback& cb
             double dummy;
             nread = fscanf(fp, "%lf\n", &dummy);
             CkAssert(nread == 1);
-#ifndef COOLING_COSMO
             if(myParticles[i+1].isGas())
-                COOL_ARRAY3(unused1,&myParticles[i+1].CoolParticle(),unused2)
-                    = dummy;
-#endif
+                COOL_SET_ARRAY3(unused1,&myParticles[i+1].CoolParticle(),unused2,dummy);
             }
         CmiFclose(fp);
         }
@@ -1145,6 +1140,8 @@ void TreePiece::loadNChilada(const std::string& filename,
             boundingBox.grow(myParticles[i+1].position);
         }
         
+  myParticles[0].key = firstPossibleKey;
+  myParticles[myNumParticles+1].key = lastPossibleKey;
   contribute(cb);
 }
 
@@ -2194,7 +2191,7 @@ void Main::outputBinary(OutputParams& params, // specifies
     Ck::IO::Options opts;
         opts.basePE = 0;
     if(bParaWrite) {
-        if(param.nIOProcessor = 0) {
+        if(param.nIOProcessor == 0) {
             opts.activePEs = CkNumNodes();
             }
         else {
@@ -2412,7 +2409,7 @@ void Main::cbIOClosed(CkReductionMsg *msg)
         if(!sOutFile.empty()) {
             Ck::IO::Options opts;
             if(param.bParaWrite) {
-                if(param.nIOProcessor = 0) {
+                if(param.nIOProcessor == 0) {
                     opts.activePEs = CkNumNodes();
                     }
                 else {

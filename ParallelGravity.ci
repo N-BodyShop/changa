@@ -235,7 +235,8 @@ mainmodule ParallelGravity {
     //entry void registerWithDataManager(const CkGroupID& dataManagerID,
     //		     		  const CkCallback& cb);
     entry void setPeriodic(int nReplicas, Vector3D<double> fPeriod, int bEwald,
-		 double fEwCut, double fEwhCut, int bPeriod);
+                           double fEwCut, double fEwhCut, int bPeriod,
+                           int bComove, double dRhoFac);
     entry void EwaldInit();
     entry [notrace] void initCoolingData(const CkCallback& cb);
     entry void calculateEwald(dummyMsg *m);
@@ -263,6 +264,7 @@ mainmodule ParallelGravity {
     entry void readCoolArray1(const std::string& filename, const CkCallback& cb);
     entry void readCoolArray2(const std::string& filename, const CkCallback& cb);
     entry void readCoolArray3(const std::string& filename, const CkCallback& cb);
+    entry void resetMetals(const CkCallback& cb);
     entry void getMaxIOrds(const CkCallback& cb);
     entry void RestartEnergy(double dTuFac, const CkCallback& cb);
     entry void findTotalMass(CkCallback &cb);

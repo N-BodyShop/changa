@@ -46,6 +46,11 @@ typedef struct CoolingParticleStruct {
 	double Y_Total;
 	} COOLPARTICLE;
 
+/** @brief abundance of various species in particles/baryon */
+typedef struct { 
+  double Total;
+} PERBARYON;
+
 typedef struct CoolingPKDStruct COOL;
     
 typedef struct clDerivsDataStruct {
@@ -114,18 +119,26 @@ void CoolOutputArray( COOLPARAM *CoolParam, int, int *, char * );
 #define COOL_ARRAY0_EXT  "HI"
 double COOL_ARRAY0(COOL *cl_, COOLPARTICLE *cp,double aa);
 #define COOL_ARRAY0( cl_, cp, aa ) ((cp)->Y_Total)
+double COOL_SET_ARRAY0(COOL *cl_, COOLPARTICLE *cp,double aa, double bb_val);
+#define COOL_SET_ARRAY0( cl_, cp, aa, bb_val ) ((cp)->Y_Total = (bb_val))
 
 #define COOL_ARRAY1_EXT  "HeI"
 double COOL_ARRAY1(COOL *cl_, COOLPARTICLE *cp,double aa);
 #define COOL_ARRAY1( cl_, cp, aa ) (0)
+double COOL_SET_ARRAY1(COOL *cl_, COOLPARTICLE *cp,double aa, double bb_val);
+#define COOL_SET_ARRAY1( cl_, cp, aa, bb_val ) (0)
 
 #define COOL_ARRAY2_EXT  "HeII"
 double COOL_ARRAY2(COOL *cl_, COOLPARTICLE *cp,double aa);
 #define COOL_ARRAY2( cl_, cp, aa ) (0)
+double COOL_SET_ARRAY2(COOL *cl_, COOLPARTICLE *cp,double aa, double bb_val);
+#define COOL_SET_ARRAY2( cl_, cp, aa, bb_val ) (0)
 
 #define COOL_ARRAY3_EXT  "H2"
 double COOL_ARRAY3(COOL *cl, COOLPARTICLE *cp, double ZMetal);
 #define COOL_ARRAY3(cl_, cp, aa ) (0)
+double COOL_SET_ARRAY3(COOL *cl_, COOLPARTICLE *cp,double aa, double bb_val);
+#define COOL_SET_ARRAY3( cl_, cp, aa, bb_val ) (0)
 
 double COOL_EDOT( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode_, double ZMetal_, double *posCode_ );
 #define COOL_EDOT( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_) (CoolCodeWorkToErgPerGmPerSec( cl_, CoolEdotInstantCode( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_ )))
@@ -135,6 +148,11 @@ double COOL_COOLING( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode
 
 double COOL_HEATING( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode_, double ZMetal_, double *posCode_ );
 #define COOL_HEATING( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_) (0)
+
+void CoolPARTICLEtoPERBARYON(COOL *cl_, PERBARYON *Y, COOLPARTICLE *cp, double HTotal, double HeTotal);
+
+#define CoolPARTICLEtoPERBARYON(cl_, Y, cp) { \
+    (Y)->Total = (cp)->Y_Total; }
 
 double CoolCodeEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E, double fMetal );
 

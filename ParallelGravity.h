@@ -1064,6 +1064,9 @@ private:
 	/// Periodic Boundary stuff
 	int bPeriodic;
 	Vector3D<double> fPeriod;
+        int bComove;
+        /// Background density of the Universe
+        double dRhoFac;
 	int nReplicas;
 	int bEwald;		/* Perform Ewald */
 	double fEwCut;
@@ -1079,6 +1082,8 @@ private:
 #ifndef COOLING_NONE
 	clDerivsData *CoolData;
 #endif
+        /// indices of my newly formed particles in the starlog table
+        std::vector<int> iSeTab;
 	/// Setup for writing
 	int nSetupWriteStage;
 	int64_t nStartWrite;	// Particle number at which this piece starts
@@ -1450,7 +1455,8 @@ public:
 	void restart();
 
 	void setPeriodic(int nReplicas, Vector3D<double> fPeriod, int bEwald,
-			 double fEwCut, double fEwhCut, int bPeriod);
+			 double fEwCut, double fEwhCut, int bPeriod,
+                         int bComove, double dRhoFac);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit();
 	void calculateEwald(dummyMsg *m);
@@ -1491,6 +1497,7 @@ public:
         void readCoolArray1(const std::string& filename, const CkCallback& cb);
         void readCoolArray2(const std::string& filename, const CkCallback& cb);
         void readCoolArray3(const std::string& filename, const CkCallback& cb);
+        void resetMetals(const CkCallback& cb);
         void getMaxIOrds(const CkCallback& cb);
         void RestartEnergy(double dTuFac, const CkCallback& cb);
         void findTotalMass(CkCallback &cb);
@@ -1622,6 +1629,7 @@ public:
   void calcEnergy(const CkCallback& cb);
   /// add new particle
   void newParticle(GravityParticle *p);
+  void adjustTreePointers(GenericTreeNode *node, GravityParticle *newParts);
   /// Count add/deleted particles, and compact main particle storage.
   void colNParts(const CkCallback &cb);
   /// Assign iOrders to recently added particles.
