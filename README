@@ -6,6 +6,21 @@ http://librarian.phys.washington.edu/astro/index.php/Research:ChaNGa
 
 For more help, subscribe to the list changa-users@u.washington.edu.
 
+Please cite the following papers when publishing results using ChaNGa:
+
+P. Jetley, F. Gioachin, C. Mendes, L. V. Kale, and T. R. Quinn. Massively
+parallel cosmological simulations with ChaNGa. In Proceedings of IEEE
+International Parallel and Distributed Processing Symposium 2008, 2008.
+
+P. Jetley, L. Wesolowski, F. Gioachin, L. V. Kale, and T. R. Quinn. Scaling
+hierarchical n-body simulations on gpu clusters. In Proceedings of the 2010
+ACM/IEEE International Conference for High Performance Computing, Networking,
+Storage and Analysis, SC ’10, Washington, DC, USA, 2010. IEEE Computer Society. 
+
+H. Menon, L. Wesolowski, G. Zheng, P. Jetley, L. Kale, T. Quinn, F. Governato.
+2014. Adaptive Techniques for Clustered N-Body Cosmological Simulations.
+ArXiv e-prints arXiv:1409.1929.
+
 To compile ChaNGa first compile Charm++ or get a precompiled version.  When
 building Charm++, there is a special target "ChaNGa" which will build all the
 necessary libraries.  Then to compile ChaNGa itself, run:
