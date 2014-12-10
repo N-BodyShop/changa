@@ -61,11 +61,13 @@ void Fdbk::AddParams(PRM prm)
 		sizeof(int), "bSNTurnOffCooling", "<Do SN turn off cooling> = 1");
 #ifdef SUPERBUBBLE
     nSmoothFeedback = 1;
+    prmAddParam(prm,"nSmoothFeedback", paramInt,&nSmoothFeedback, sizeof(int),
+		"s", "<number of particles to smooth feedback over> = 1");
 #else
     nSmoothFeedback = 64;
-#endif
     prmAddParam(prm,"nSmoothFeedback", paramInt,&nSmoothFeedback, sizeof(int),
 		"s", "<number of particles to smooth feedback over> = 64");
+#endif
     dMaxCoolShutoff = 3.0e7;
     prmAddParam(prm,"dMaxCoolShutoff", paramDouble, &dMaxCoolShutoff,
 		sizeof(double), "fbMaxCoolOff",
