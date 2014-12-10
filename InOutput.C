@@ -2438,9 +2438,9 @@ void TreePiece::minmaxNCOut(OutputParams& params, const CkCallback& cb)
     params.dm = dm; // pass cooling information
 
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
-        if(TYPETest(&myParticles[i], params.iType)
-           && (TYPETest(&myParticles[i], params.iTypeWriting)
-               || params.iBinaryOut != 6)) {
+        if((TYPETest(&myParticles[i], params.iType)
+            && TYPETest(&myParticles[i], params.iTypeWriting))
+           || params.iBinaryOut != 6) {
           if(params.bFloat) {
             if(params.bVector)
                 bbVec.grow(params.vValue(&myParticles[i]));
@@ -2575,9 +2575,9 @@ void TreePiece::outputBinary(Ck::IO::Session session, OutputParams& params)
     int nOut = 0;
 
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
-        if(TYPETest(&myParticles[i], params.iType)
-           && (TYPETest(&myParticles[i], params.iTypeWriting)
-               || params.iBinaryOut != 6)) {
+        if((TYPETest(&myParticles[i], params.iType)
+            && TYPETest(&myParticles[i], params.iTypeWriting))
+           || params.iBinaryOut != 6) {
             if(params.bFloat) {
                 if(params.bVector) {
                     Vector3D<float> vec = params.vValue(&myParticles[i]);
