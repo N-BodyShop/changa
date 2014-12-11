@@ -789,7 +789,7 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
     if(weight > 0) TYPESet(q, TYPE_FEEDBACK);
 #ifdef SUPERBUBBLE
     double Tq = CoolEnergyToTemperature(tp->Cool(), &q->CoolParticle(), fb.dErgPerGmUnit*q->uPred(), q->fMetals() );
-	if(Tq < fb.dMultiPhaseMinTemp && weight > 0) { //Only use the multiphase state for cooler particles
+	if(Tq < fb.dMultiPhaseMinTemp && weight > 0 && p->fNSN > 0.0) { //Only use the multiphase state for cooler particles
 		double massHot = q->massHot() + weight*p->fMSN();
 		double deltaMassLoad = weight*p->fMSN()*fb.dFBInitialMassLoad;
 		if (massHot+deltaMassLoad >= q->mass) { //If deltaMassLoad is bigger than the cold phase, make it all cold.
