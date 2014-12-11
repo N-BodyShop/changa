@@ -159,8 +159,8 @@ mainmodule ParallelGravity {
     entry [threaded] void restart();
     entry [threaded] void cbOpen(Ck::IO::FileReadyMsg *msg);
     entry void cbIOReady(Ck::IO::SessionReadyMsg *msg);
-    entry void cbIOComplete(CkReductionMsg *msg);
-    entry [threaded] void cbIOClosed(CkReductionMsg *msg);
+    entry void cbIOComplete(CkMessage *msg);
+    entry [threaded] void cbIOClosed(CkMessage *msg);
     entry void niceExit();
     entry void liveVizImagePrep(liveVizRequestMsg *msg);
   };
