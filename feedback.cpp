@@ -728,8 +728,11 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
     for (i=0;i<nSmooth;++i) {
 	double fDist2 = nList[i].fKey;
 	r2 = fDist2*ih2;            
+#ifdef SUPERBUBBLE
+	rs = 1.0; //Use a tophat kernel for superbubble feedback
+#else
 	rs = KERNEL(r2, nSmooth);
-    if (nSmooth == 1) rs = 1;
+#endif
 	q = nList[i].p;
 	if(q->mass > fb.dMaxGasMass) {
 	    nHeavy++;
@@ -765,8 +768,11 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
 	    }
 	double fDist2 = nList[i].fKey;
 	r2 = fDist2*ih2;            
+#ifdef SUPERBUBBLE
+	rs = 1.0; //Use a tophat kernel for superbubble feedback
+#else
 	rs = KERNEL(r2, nSmooth);
-    if (nSmooth == 1) rs = 1;
+#endif
 	/* Remember: We are dealing with total energy rate and total metal
 	 * mass, not energy/gram or metals per gram.  
 	 * q->mass is in product to make units work for fNorm_u.
@@ -838,8 +844,11 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
     for (i=0;i<nSmooth;++i) {
 	double fDist2 = nList[i].fKey;
 	r2 = fDist2*ih2;            
+#ifdef SUPERBUBBLE
+	rs = 1.0; //Use a tophat kernel for superbubble feedback
+#else
 	rs = KERNEL(r2, nSmooth);
-    if (nSmooth == 1) rs = 1;
+#endif
 	q = nList[i].p;
         CkAssert(TYPETest(q, TYPE_GAS));
 	fNorm_u += q->mass*rs;
@@ -896,8 +905,11 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 	    if ( fDist2 < fmind ){imind = i; fmind = fDist2;}
             if ( !fb.bSmallSNSmooth || fDist2 < f2h2 ) {
 		r2 = fDist2*ih2;            
+#ifdef SUPERBUBBLE
+        rs = 1.0; //Use a tophat kernel for superbubble feedback
+#else
 		rs = KERNEL(r2, nSmooth);
-        if (nSmooth == 1) rs = 1;
+#endif
 		q = nList[i].p;
 #ifdef VOLUMEFEEDBACK
 		fNorm_u += q->mass/q->fDensity*rs;
@@ -914,8 +926,11 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
     if (fNorm_u ==0.0){
 	double fDist2 = nList[imind].fKey;
 	r2 = fDist2*ih2;            
+#ifdef SUPERBUBBLE
+	rs = 1.0; //Use a tophat kernel for superbubble feedback
+#else
 	rs = KERNEL(r2, nSmooth);
-    if (nSmooth == 1) rs = 1;
+#endif
 	/*
 	 * N.B. This will be NEGATIVE, but that's OK since it will
 	 * cancel out down below.
@@ -945,7 +960,11 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 		
 		counter++;  
 		r2 = fDist2*ih2;
+#ifdef SUPERBUBBLE
+        rs = 1.0; //Use a tophat kernel for superbubble feedback
+#else
 		rs = KERNEL(r2, nSmooth);
+#endif
 		/* Remember: We are dealing with total energy rate and total metal
 		 * mass, not energy/gram or metals per gram.  
 		 * q->mass is in product to make units work for fNorm_u.
@@ -960,8 +979,11 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 	    } else {
 	    double fDist2 = nList[i].fKey;
 	    r2 = fDist2*ih2;  
+#ifdef SUPERBUBBLE
+        rs = 1.0; //Use a tophat kernel for superbubble feedback
+#else
 	    rs = KERNEL(r2, nSmooth);
-        if (nSmooth == 1) rs = 1;
+#endif
 	    /* Remember: We are dealing with total energy rate and total metal
 	     * mass, not energy/gram or metals per gram.  
 	     * q->mass is in product to make units work for fNorm_u.
