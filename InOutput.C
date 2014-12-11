@@ -2325,7 +2325,7 @@ void Main::cbIOReady(Ck::IO::SessionReadyMsg *msg)
 }
 
 /// All IO has completed.  Close the file
-void Main::cbIOComplete(CkReductionMsg *msg) 
+void Main::cbIOComplete(CkMessage *msg)
 {
     Ck::IO::close(fIOFile, CkCallback(CkIndex_Main::cbIOClosed(NULL),
                                       thishandle));
@@ -2333,7 +2333,7 @@ void Main::cbIOComplete(CkReductionMsg *msg)
 }
 
 /// File is closed.  Update header for NChilada.  Resume main program
-void Main::cbIOClosed(CkReductionMsg *msg) 
+void Main::cbIOClosed(CkMessage *msg)
 {
     FILE *outfile;
     XDR xdrs;
