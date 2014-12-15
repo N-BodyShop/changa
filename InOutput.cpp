@@ -66,6 +66,7 @@ void load_tipsy_gas(Tipsy::TipsyReader &r, GravityParticle &p, double dTuFac)
 #endif
 #endif
 #ifdef SUPERBUBBLE
+    p.cpHotInit() = 0;
     p.uHot() = 0.0;
     p.uHotPred() = 0.0;
     p.uHotDot() = 0.0;

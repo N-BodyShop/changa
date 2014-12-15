@@ -97,6 +97,8 @@ class extraSPHData
     double _fMFracIronPred;
 #endif
 #ifdef SUPERBUBBLE
+    COOLPARTICLE _CoolParticleHot;	
+    int _cpHotInit; /* Do we need to initialize the Hot Coolparticle? */
     double _uHot; /* Hot phase energy */
     double _uHotDot; /* Hot phase rate of energy change */
     double _uHotPred; /* Hot phase predicted energy */
@@ -155,6 +157,8 @@ class extraSPHData
     inline double& fMFracIronPred() {return _fMFracIronPred;}
 #endif
 #ifdef SUPERBUBBLE
+    inline COOLPARTICLE& CoolParticleHot() {return _CoolParticleHot;}
+    inline int& cpHotInit() {return _cpHotInit;}
     inline double& uHot() {return _uHot;}
     inline double& uHotPred() {return _uHotPred;}
     inline double& uHotDot() {return _uHotDot;}
@@ -212,6 +216,8 @@ class extraSPHData
 	p| _fMFracIronPred;
 #endif
 #ifdef SUPERBUBBLE
+	p((char *) &_CoolParticleHot, sizeof(_CoolParticle)); /* PUPs as bytes */
+    p| _cpHotInit;
     p| _uHot;
     p| _uHotDot;
     p| _uHotPred;
@@ -432,6 +438,8 @@ public:
 	inline double& fMFracIronPred() { IMAGAS; return (((extraSPHData*)extraData)->fMFracIronPred());}
 #endif
 #ifdef SUPERBUBBLE
+	inline COOLPARTICLE& CoolParticleHot() { IMAGAS; return (((extraSPHData*)extraData)->CoolParticleHot());}
+	inline int& cpHotInit() { IMAGAS; return (((extraSPHData*)extraData)->cpHotInit());}
 	inline double& uHot() { IMAGAS; return (((extraSPHData*)extraData)->uHot());}
 	inline double& uHotPred() { IMAGAS; return (((extraSPHData*)extraData)->uHotPred());}
 	inline double& uHotDot() { IMAGAS; return (((extraSPHData*)extraData)->uHotDot());}

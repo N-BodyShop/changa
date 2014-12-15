@@ -811,17 +811,16 @@ void TreePiece::updateuDot(int activeRung,
             if (p->uHot() > 0) {
                 E = p->uHot();
                 fDensity = p->fDensity*PoverRho/(gammam1*p->uHot());
+                cp = p->CoolParticleHot();
                 CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E, ExternalHeating, fDensity,
                         p->fMetals(), r, dt);
-                E = p->uHot();
-                CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E, ExternalHeating, fDensity,
-                        p->fMetals(), r, dt);
-                if(bUpdateState && !bUpdateStd) p->CoolParticle() = cp;
                 p->uHotDot() = (E- p->uHot())/duDelta[p->rung];
+                if(bUpdateState) p->CoolParticleHot() = cp;
             }
             else /* If we just got feedback, only set up the uDot */
             {
                 p->uHotDot() = ExternalHeating;
+                p->cpHotInit() = 1;
             }
             ExternalHeating = p->PdV()*p->uPred()/uMean;
         }

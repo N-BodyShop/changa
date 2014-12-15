@@ -1511,7 +1511,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                       if(p->u() > dMaxEnergy)
                           p->u() = dMaxEnergy;
 		      p->uPred() = p->u();
-#ifdef SUPERBUBBLE
+#ifdef S UPERBUBBLE
               /*
                * Calculate the rate of internal evaporation for multiphase particles
                */
@@ -1528,6 +1528,11 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
               if (p->uHot() != 0)
               {
                  fDensity = p->fDensity*PoverRho/(gammam1*p->uHot()); /* Density of bubble part of particle */
+                 if (p->cpHotInit()) {
+                     double E = p->uHot();
+                     double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(), p->fMetals());
+                     CoolInitEnergyAndParticleData(dm->Cool, &p->CoolParticle(), &E, fDensity, TpNC, p->fMetals());
+                 }
               }
               else
               {
@@ -1559,6 +1564,8 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                       p->uHot() = 0;
                       p->uHotDot() = 0;
                       p->uHotPred() = 0;
+                      p->CoolParticle() = p->CoolParticleHot();
+                      p->cpHotInit() = 0;
                   }
                   else {
                       p->uHotPred() = (p->uPred()*massFlux + p->uHotPred()*p->massHot())/(massFlux+p->massHot());
@@ -1584,6 +1591,8 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                       p->uHot() = 0;
                       p->uHotDot() = 0;
                       p->uHotPred() = 0;
+                      p->CoolParticle() = p->CoolParticleHot();
+                      p->cpHotInit() = 0;
               }
               double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(), p->fMetals());
               if(TpNC < dMultiPhaseMinTemp && p->uHotPred() > 0)//Check to make sure the hot phase is still actually hot
@@ -1596,6 +1605,8 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                      p->uHot() = 0;
                      p->uHotDot() = 0;
                      p->uHotPred() = 0;
+                     p->CoolParticle() = p->CoolParticleHot();
+                     p->cpHotInit() = 0;
               }
                   
 #endif
@@ -1631,6 +1642,14 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
               // update hot phase temperatures.
 		      p->uHotPred() = p->uHot();
 		      p->uHot() = p->uHot() + p->uHotDot()*duDelta[p->rung];
+              if (p->cpHotInit()) {
+                 double E = p->uHot();
+                 double frac = p->massHot()/p->mass;
+                 double PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
+                 double fDensity = p->fDensity*PoverRho/(gammam1*p->uHot()); /* Density of bubble part of particle */
+                 double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(), p->fMetals());
+                 CoolInitEnergyAndParticleData(dm->Cool, &p->CoolParticle(), &E, fDensity, TpNC, p->fMetals());
+              }
 		      if (p->uHot() < 0) {
 			  double uold = p->uHot() - p->uHotDot()*duDelta[p->rung];
 			  p->uHot() = uold*exp(p->uHotDot()*duDelta[p->rung]/uold);
