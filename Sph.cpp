@@ -812,8 +812,19 @@ void TreePiece::updateuDot(int activeRung,
                 E = p->uHot();
                 fDensity = p->fDensity*PoverRho/(gammam1*p->uHot());
                 cp = p->CoolParticleHot();
+#ifdef COOLING_MOLECULARH
+                /*		cp.dLymanWerner = 52.0; for testing CC */
+                double columnL = sqrt(0.25)*p->fBall;
+#ifdef COOLDEBUG
+                dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
+#endif
+                CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
+                            ExternalHeating, p->fDensity,
+                            p->fMetals(), r, dt, columnL);
+#else /*COOLING_MOLECULARH*/
                 CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E, ExternalHeating, fDensity,
                         p->fMetals(), r, dt);
+#endif
                 p->uHotDot() = (E- p->uHot())/duDelta[p->rung];
                 if(bUpdateState) p->CoolParticleHot() = cp;
             }
