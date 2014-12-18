@@ -1511,7 +1511,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                       if(p->u() > dMaxEnergy)
                           p->u() = dMaxEnergy;
 		      p->uPred() = p->u();
-#ifdef S UPERBUBBLE
+#ifdef SUPERBUBBLE
               /*
                * Calculate the rate of internal evaporation for multiphase particles
                */
