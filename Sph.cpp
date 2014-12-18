@@ -819,7 +819,7 @@ void TreePiece::updateuDot(int activeRung,
                 dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
 #endif
                 CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
-                            ExternalHeating, p->fDensity,
+                            ExternalHeating, fDensity,
                             p->fMetals(), r, dt, columnL);
 #else /*COOLING_MOLECULARH*/
                 CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E, ExternalHeating, fDensity,
