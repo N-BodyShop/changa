@@ -1403,6 +1403,10 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 			  }
 #else /* COOLING_NONE */
 		      p->u() += p->PdV()*duDelta[p->rung];
+		      if (p->u() < 0) {
+			  double uold = p->u() - p->PdV()*duDelta[p->rung];
+			  p->u() = uold*exp(p->PdV()*duDelta[p->rung]/uold);
+			  }
 #endif /* COOLING_NONE */
 		      p->uPred() = p->u();
 		      }
@@ -1420,6 +1424,10 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 			  }
 #else /* COOLING_NONE */
 		      p->u() += p->PdV()*duDelta[p->rung];
+		      if (p->u() < 0) {
+			  double uold = p->u() - p->PdV()*duDelta[p->rung];
+			  p->u() = uold*exp(p->PdV()*duDelta[p->rung]/uold);
+			  }
 #endif /* COOLING_NONE */
 		      }
 		  }
