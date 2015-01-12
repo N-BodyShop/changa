@@ -63,7 +63,7 @@ void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *
         //density in physical units is fNorm*KERNEL( r2 )*(p->mass)/(a*a*a)
         probability=dSIDMSigma*dvcosmo*dDelta*fNorm*KERNEL( r2 )*(q->mass)/(a*a*a*2.0);
 
-        if (probability > .02) {
+        if (probability > .05) {
            CkPrintf("SIDM Warning! The probability is rather large: %g \n",probability);
            CkPrintf("iOrder: %i, dDelta: %g,  dvcosmo: %g, dSIDMSigma %d, \n",p->iOrder,dDelta,dvcosmo, dSIDMSigma);
            }
