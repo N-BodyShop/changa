@@ -842,6 +842,7 @@ void TreePiece::updateuDot(int activeRung,
         fDensity = p->fDensity*PoverRho/(gammam1*p->uPred());
         if (p->fDensityU() < p->fDensity) fDensity = p->fDensityU()*PoverRho/(gammam1*p->uPred());
         CkAssert(fDensity > 0);
+        cp = p->CoolParticle();
 #endif
 		E = p->u();
 #ifdef COOLING_BOLEY
