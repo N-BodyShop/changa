@@ -1532,6 +1532,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                      double E = p->uHot();
                      double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(), p->fMetals());
                      CoolInitEnergyAndParticleData(dm->Cool, &p->CoolParticleHot(), &E, fDensity, TpNC, p->fMetals());
+                     p->cpHotInit() = 0;
                  }
               }
               else
@@ -1649,6 +1650,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                  double fDensity = p->fDensity*PoverRho/(gammam1*p->uHot()); /* Density of bubble part of particle */
                  double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(), p->fMetals());
                  CoolInitEnergyAndParticleData(dm->Cool, &p->CoolParticleHot(), &E, fDensity, TpNC, p->fMetals());
+                 p->cpHotInit() = 0;
               }
 		      if (p->uHot() < 0) {
 			  double uold = p->uHot() - p->uHotDot()*duDelta[p->rung];
