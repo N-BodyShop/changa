@@ -1542,7 +1542,17 @@ void Main::advanceBigStep(int iStep) {
       sorter.startSorting(dataManagerID, ddTolerance,
                         CkCallbackResumeThread(), bDoDD);
     } else {
-      treeProxy.unshuffleParticlesWoDD(CkCallbackResumeThread());
+      CkReductionMsg *isTPEmpty;
+      treeProxy.unshuffleParticlesWoDD(CkCallbackResumeThread((void*&)isTPEmpty));
+
+      // After shuffling of particles based on the previous splitter, if any
+      // TreePiece ends up with no particles, then startSorting needs to be
+      // called as we cannot handle the case where there are empty TreePieces in
+      // the middle.
+      if (*((bool*)isTPEmpty->getData())) {
+        sorter.startSorting(dataManagerID, ddTolerance,
+            CkCallbackResumeThread(), bDoDD);
+      }
     }
     /*
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."

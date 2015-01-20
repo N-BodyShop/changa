@@ -802,7 +802,9 @@ void TreePiece::shuffleAfterQD() {
     if(verbosity>1) ckout << thisIndex <<" no particles assigned"<<endl;
 
     deleteTree();
-    contribute(after_dd_callback);
+
+    bool isTPEmpty = true;
+    contribute(sizeof(bool), &isTPEmpty, CkReduction::logical_or, after_dd_callback);
     if (myShuffleMsg != NULL) {
       delete myShuffleMsg;
     }
@@ -838,7 +840,9 @@ void TreePiece::shuffleAfterQD() {
   }
 
   deleteTree();
-  contribute(after_dd_callback);
+
+  bool isTPEmpty = false;
+  contribute(sizeof(bool), &isTPEmpty, CkReduction::logical_or, after_dd_callback);
 }
 
 /*
