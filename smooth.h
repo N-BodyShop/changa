@@ -331,6 +331,14 @@ double invH2(GravityParticle *p)
 inline double KERNEL(double ar2, double nSmooth) 
 {    
     double ak;
+    if (nSmooth < 32)
+    {
+        printf("Tiny nSmooth: %d\n", nSmooth);
+        ak = 2.0 - sqrt(ar2);
+        if (ar2 < 1.0) ak = (1.0 - 0.75*ak*ar2);
+        else ak = 0.25*ak*ak*ak;
+        return ak;
+    }
 	if (ar2 <= 0) ak = (495/32./8.)*(1-0.01342*pow(nSmooth*0.01,-1.579));/* Dehnen & Aly 2012 correction */ 
 	else {								
 	    double au = sqrt(ar2*0.25);					
