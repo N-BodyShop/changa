@@ -58,7 +58,7 @@ void Orb3dLB::init() {
   pc[2] = pcz;
 }
 
-Orb3dLB::Orb3dLB(const CkLBOptions &opt): CentralLB(opt) {
+Orb3dLB::Orb3dLB(const CkLBOptions &opt): CBase_Orb3dLB(opt) {
   init();
   if (CkMyPe() == 0){
     CkPrintf("[%d] Orb3dLB created\n",CkMyPe());

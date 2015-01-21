@@ -458,7 +458,7 @@ void MultistepNodeLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
 }
 
 void MultistepNodeLB_notopo::pup(PUP::er &p){
-  CentralLB::pup(p);
+  CBase_MultistepNodeLB_notopo::pup(p);
 }
 
 #include "MultistepNodeLB_notopo.def.h"
