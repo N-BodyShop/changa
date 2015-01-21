@@ -35,7 +35,7 @@ BaseLB * AllocateMultistepLB_notopo();
 /// by 3 dimensional ORB based on the centroids of the TreePieces.
 /// For small phases, a greedy algorithm is used.
 ///
-class MultistepLB_notopo : public CentralLB, public Orb3dCommon {
+class MultistepLB_notopo : public CBase_MultistepLB_notopo, public Orb3dCommon {
 private:
   void init();
   bool QueryBalanceNow(int step);
@@ -44,7 +44,7 @@ private:
 
 public:
   MultistepLB_notopo(const CkLBOptions &);
-  MultistepLB_notopo(CkMigrateMessage *m):CentralLB(m) {
+  MultistepLB_notopo(CkMigrateMessage *m) : CBase_MultistepLB_notopo(m) {
     init();
   }
 

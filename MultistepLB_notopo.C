@@ -20,7 +20,7 @@ void MultistepLB_notopo::init() {
 }
 
 
-MultistepLB_notopo::MultistepLB_notopo(const CkLBOptions &opt): CentralLB(opt)
+MultistepLB_notopo::MultistepLB_notopo(const CkLBOptions &opt): CBase_MultistepLB_notopo(opt)
 {
   init();
   if (CkMyPe() == 0){
@@ -332,7 +332,7 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count){
 
 
 void MultistepLB_notopo::pup(PUP::er &p){
-  CentralLB::pup(p);
+  CBase_MultistepLB_notopo::pup(p);
 }
 
 #include "MultistepLB_notopo.def.h"

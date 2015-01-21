@@ -26,7 +26,7 @@ using namespace std;
 
 CreateLBFunc_Def(Orb3dLB_notopo, "3d ORB mapping of tree piece space onto 3d processor mesh");
 
-Orb3dLB_notopo::Orb3dLB_notopo(const CkLBOptions &opt): CentralLB(opt)
+Orb3dLB_notopo::Orb3dLB_notopo(const CkLBOptions &opt): CBase_Orb3dLB_notopo(opt)
 {
   init();
   if (CkMyPe() == 0){

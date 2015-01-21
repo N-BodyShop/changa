@@ -29,7 +29,7 @@ BaseLB * AllocateMultistepNodeLB_notopo();
 /// information is used. This first performs orb partition at the node level and
 /// assigns the partitioned TreePieces to the PEs belonging to the node. Finally
 /// after this assignment, a refinement is done.
-class MultistepNodeLB_notopo : public CentralLB, public Orb3dCommon {
+class MultistepNodeLB_notopo : public CBase_MultistepNodeLB_notopo, public Orb3dCommon {
 private:
 
   int prevMaxPredPe;
@@ -39,7 +39,7 @@ private:
 
 public:
   MultistepNodeLB_notopo(const CkLBOptions &);
-  MultistepNodeLB_notopo(CkMigrateMessage *m):CentralLB(m) { 
+  MultistepNodeLB_notopo(CkMigrateMessage *m) : CBase_MultistepNodeLB_notopo(m) {
     init();
   }
     
