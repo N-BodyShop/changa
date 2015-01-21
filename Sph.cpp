@@ -1059,9 +1059,16 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         p->fDensity = fNorm*fDensity;
 #ifdef SUPERBUBBLE
     fDensityU *= fNorm;
-    rs = KERNEL(0.0);
-    p->fDensityU() = (fDensityU-rs*p->mass*p->uPred()*fNorm)/p->uPred()*p->fDensity/(p->fDensity-rs*p->mass*fNorm);
-    CkAssert(p->fDensityU() > 0);
+    if (nSmooth > 1)
+    {
+        rs = KERNEL(0.0);
+        p->fDensityU() = (fDensityU-rs*p->mass*p->uPred()*fNorm)/p->uPred()*p->fDensity/(p->fDensity-rs*p->mass*fNorm);
+        CkAssert(p->fDensityU() > 0);
+    }
+    else
+    {
+        p->fDensityU() = fDensityU;
+    }
     double ih = sqrt(ih2);
     double rhogradu=sqrt(grx*grx+gry*gry+grz*grz)*fNorm*ih2;
     p->fThermalLength() = (rhogradu != 0 ? fDensityU/rhogradu : FLT_MAX);
