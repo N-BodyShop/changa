@@ -3298,8 +3298,10 @@ void Main::writeOutput(int iStep)
     SoftOutputParams pSoftOut(achFile, param.iBinaryOut, dOutTime);
     HsmOutputParams pHsmOut(achFile, param.iBinaryOut, dOutTime);
     CsOutputParams pCSOut(achFile, param.iBinaryOut, dOutTime);
+    RungOutputParams pRung(achFile, param.iBinaryOut, dOutTime);
 
     if (param.iBinaryOut) {
+        outputBinary(pRung, param.bParaWrite, CkCallbackResumeThread());
 #ifdef CULLENALPHA
 	outputBinary(pAlphaOut, param.bParaWrite, CkCallbackResumeThread());
 	outputBinary(pDvDsOut, param.bParaWrite, CkCallbackResumeThread());
@@ -3364,6 +3366,8 @@ void Main::writeOutput(int iStep)
                                CkCallbackResumeThread());
 #endif
 	if (param.bStarForm || param.bFeedback) {
+            treeProxy[0].outputASCII(pRung, param.bParaWrite,
+                                     CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pOxOut, param.bParaWrite,
 				     CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pFeOut, param.bParaWrite,
