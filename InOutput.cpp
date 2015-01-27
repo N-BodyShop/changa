@@ -322,6 +322,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 		myParticles[i+1].fBall = 0.0;
 		myParticles[i+1].iOrder = i + startParticle;
 #ifdef SPLITGAS
+		myParticles[i+1].iSplitOrder() = i + startParticle;
 		if(myParticles[i+1].iOrder >= tipsyHeader.nsph) myParticles[i+1].iOrder +=  tipsyHeader.nsph;
 #endif
 #if COSMO_STATS > 1
@@ -965,6 +966,7 @@ void TreePiece::loadNChilada(const std::string& filename,
             myParticles[i+1].iNSIDMInteractions = 0;
 #endif
 #ifdef SPLITGAS
+            myParticles[i+1].iSplitOrder() = i + nStartRead;
             if(myParticles[i+1].iOrder >= nTotalSPH) myParticles[i+1].iOrder  += nTotalSPH;
             if(myParticles[i+1].iOrder >= myNumSPH) myParticles[i+1].iOrder  += myNumSPH;
 #endif
