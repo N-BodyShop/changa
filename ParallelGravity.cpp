@@ -599,8 +599,8 @@ Main::Main(CkArgMsg* m) {
 	// prmAddParam(prm, "bNoCache", paramBool, &_nocache,
 	//	    sizeof(int),"nc", "Disable the CacheManager caching behaviour");
 	
-        verbosity = 0;
-	prmAddParam(prm, "iVerbosity", paramInt, &verbosity,
+        param.iVerbosity = 0;
+	prmAddParam(prm, "iVerbosity", paramInt, &param.iVerbosity,
 		    sizeof(int),"v", "Verbosity");
 	bVDetails = 0;
 	prmAddParam(prm, "bVDetails", paramBool, &bVDetails,
@@ -750,8 +750,8 @@ Main::Main(CkArgMsg* m) {
           numInitDecompBins = numBins;
         }
 	
-	if(bVDetails && !verbosity)
-	    verbosity = 1;
+	if(bVDetails && !param.iVerbosity)
+	    param.iVerbosity = 1;
 	
 	if(prmSpecified(prm, "iMaxRung")) {
 	    ckerr << "WARNING: ";
@@ -785,6 +785,7 @@ Main::Main(CkArgMsg* m) {
 	dExtraStore = param.dExtraStore;
 	dMaxBalance = param.dMaxBalance;
 	_cacheLineDepth = param.cacheLineDepth;
+	verbosity = param.iVerbosity;
 	nIOProcessor = param.nIOProcessor;
 #if CMK_SMP
   bUseCkLoopPar = param.bUseCkLoopPar;
@@ -2076,7 +2077,7 @@ Main::restart()
 		    "<array outputs 0 ascii, 1 float, 2 double, 3 FLOAT(internal)> = 0");
 	prmAddParam(prm, "iCheckInterval", paramInt, &param.iCheckInterval,
 		    sizeof(int),"oc", "Checkpoint Interval");
-	prmAddParam(prm, "iVerbosity", paramInt, &verbosity,
+	prmAddParam(prm, "iVerbosity", paramInt, &param.iVerbosity,
 		    sizeof(int),"v", "Verbosity");
 	prmAddParam(prm,"dExtraStore",paramDouble,&param.dExtraStore,
 		    sizeof(double), "estore",
