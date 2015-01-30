@@ -111,8 +111,9 @@ typedef struct parameters {
     Sinks sinks;
 
     //SIDM
-    int bSIDM;
+    int iSIDMSelect;
     double dSIDMSigma;
+    double dSIDMVariable;
     
     //
     // Output parameters
@@ -241,7 +242,8 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.iRandomSeed;
     p|param.sinks;
     p|param.dSIDMSigma;
-    p|param.bSIDM;
+    p|param.iSIDMSelect;
+    p|param.dSIDMVariable;
     p|param.bStandard;
     p|param.bDoublePos;
     p|param.bDoubleVel;
