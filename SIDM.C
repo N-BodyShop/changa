@@ -9,10 +9,9 @@
 #include "smooth.h"
 #include "SIDM.h"
 
-
 void Main::doSIDM(double dTime,double dDelta, int activeRung) { 
-    if (param.bSIDM) {
-        SIDMSmoothParams pSIDM(TYPE_DARK, activeRung, param.csm, dTime,param.dSIDMSigma, param.dDelta );  
+    if (param.iSIDMSelect!=0) {
+        SIDMSmoothParams pSIDM(TYPE_DARK, activeRung, param.csm, dTime,param.dSIDMSigma, param.dSIDMVariable,param.iSIDMSelect,param.dDelta );  
         treeProxy.startSmooth(&pSIDM, 1, param.nSmooth, 0, CkCallbackResumeThread());         
         }
     }
@@ -46,6 +45,8 @@ void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *
     double mu, pxcm,pycm,pzcm,pcm0,ux,uy,uz;
     double norm,vxcm,vycm,vzcm, m1,m2;
     double uvar,vvar;
+    double sigma_classic, beta, term;  //velocity depedence terms
+    double Sigma;
 
     aDot=a*H;
     ih2 = invH2(p); //smoothing length, 1/h^2
@@ -54,18 +55,57 @@ void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *
     for (i=0;i<nSmooth;++i)
         {
         q = nnList[i].p;
+        if (q->iOrder != p->iOrder)  //don't interact with self
+        {
         ran=rand()/((double)RAND_MAX); //random number on [0,1]
         dvx = (-p->velocity.x + q->velocity.x)/a - aDot*nnList[i].dx.x; //v or vpred? 
         dvy = (-p->velocity.y + q->velocity.y)/a - aDot*nnList[i].dx.y; 
         dvz = (-p->velocity.z + q->velocity.z)/a - aDot*nnList[i].dx.z; 
         dvcosmo = sqrt(dvx*dvx + dvy*dvy + dvz*dvz); //relative velocity between particles
 	r2 = nnList[i].fKey*ih2;
-        //density in physical units is fNorm*KERNEL( r2 )*(p->mass)/(a*a*a)
-        probability=dSIDMSigma*dvcosmo*dDelta*fNorm*KERNEL( r2 )*(q->mass)/(a*a*a*2.0);
 
-        if (probability > .05) {
+        Sigma=666;
+        if (iSIDMSelect==1) 
+            {
+            Sigma=dSIDMSigma;
+            }
+
+        if (iSIDMSelect==2) //classical cross section dSIDMVariable is break in km/s
+            {
+            beta=M_PI*dSIDMVariable*dSIDMVariable/(dvcosmo*dvcosmo);
+            if (beta < .1){
+              sigma_classic=(4.0*M_PI/ 22.7 ) * beta *beta* log(1.0+(1.0/beta));
+              }
+            if ((beta >=.1 ) && (beta<1000)) {
+              sigma_classic=(8.0*M_PI/ 22.7 ) * beta *beta /( 1.0+1.5* pow(beta,1.65) );
+              }
+            if (beta >= 1000.0 ){
+              term= log(beta)+ 1.0 - .5*(1.0/log(beta));
+              sigma_classic=(M_PI/ 22.7 ) *term *term;
+              }
+            Sigma=sigma_classic*dSIDMSigma; //convert to simulation units
+            }
+
+        if (iSIDMSelect==3) //resonant cross section, dSIDMVariable is exponent value
+	    {
+            Sigma=dSIDMSigma*pow(dvcosmo,dSIDMVariable);
+	    }
+
+        //density in physical units? fNorm*KERNEL( r2 )*(p->mass)/(a*a*a)
+        probability=Sigma*dvcosmo*dDelta*fNorm*KERNEL( r2 )*(q->mass)/(a*a*a*2.0);
+    
+        if ( ran>0.999999) {
+           //CkPrintf("SIDM Diagnostics: %g \n",probability);
+           CkPrintf("iOrder: %i, dDelta: %g,  dvcosmo: %g, dSIDMSigma: %g \n",p->iOrder,dDelta,dvcosmo, dSIDMSigma);
+           //CkPrintf("fnorm: %g, kern: %g, r2: %g, q->mass: %g, aaa: %g  \n",fNorm,KERNEL( r2 ),r2,(q->mass),(a*a*a*2.0));
+           CkPrintf("probability: %g, dvcosmo: %g, sigma: %g \n", probability,dvcosmo,Sigma);
+           CkPrintf("iSIDMSelect: %i \n",(int)iSIDMSelect);
+	   }
+ 
+        if (probability > .1 && ran>0.999) {
            CkPrintf("SIDM Warning! The probability is rather large: %g \n",probability);
-           CkPrintf("iOrder: %i, dDelta: %g,  dvcosmo: %g, dSIDMSigma %d, \n",p->iOrder,dDelta,dvcosmo, dSIDMSigma);
+           CkPrintf("iOrder: %i, dDelta: %g,  dvcosmo: %g, dSIDMSigma: %g  \n",p->iOrder,dDelta,dvcosmo, dSIDMSigma);
+           CkPrintf("fnorm: %g, kern: %g, r2: %g, q->mass: %g, aaa: %g  \n",fNorm,KERNEL( r2 ),r2,(q->mass),(a*a*a*2.0));
            }
 
         if (probability > ran) {
@@ -105,6 +145,7 @@ void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *
             q->velocity.x+=a*(vxcm-dvx);
             q->velocity.y+=a*(vycm-dvy);
             q->velocity.z+=a*(vzcm-dvz);
+            }
             }
         }    
     }
