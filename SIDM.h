@@ -6,6 +6,8 @@ class SIDMSmoothParams : public SmoothParams
         double dTime;
         double dDelta;
         double dSIDMSigma;
+        double dSIDMVariable;
+        double iSIDMSelect;
   	virtual void fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *nList);
     	virtual int isSmoothActive(GravityParticle *p);
     	virtual void initTreeParticle(GravityParticle *p);
@@ -16,13 +18,14 @@ class SIDMSmoothParams : public SmoothParams
 
   public:
     SIDMSmoothParams() {} //empty constructor
-    SIDMSmoothParams(int _iType, int am, CSM csm, double _dTime, double _dSIDMSigma, double _dDelta) {
+    SIDMSmoothParams(int _iType, int am, CSM csm, double _dTime, double _dSIDMSigma, double _dSIDMVariable, int _iSIDMSelect, double _dDelta) {
     iType = _iType;
     activeRung = am;
     dTime = _dTime;
     dDelta = _dDelta;
     dSIDMSigma= _dSIDMSigma;
-
+    dSIDMVariable= _dSIDMVariable;
+    iSIDMSelect= _iSIDMSelect;
 
         if(csm->bComove) {
             H = csmTime2Hub(csm,dTime);
@@ -41,6 +44,8 @@ class SIDMSmoothParams : public SmoothParams
         p|dTime;
         p|dDelta;
         p|dSIDMSigma;
+        p|dSIDMVariable;
+        p|iSIDMSelect;
         p|a;
         p|H;
         }
