@@ -41,7 +41,7 @@
 #include "Sph.h"
 #include "starform.h"
 #include "feedback.h"
-#include "SIDM.h" //SIDM
+#include "SIDM.h"
 #include "externalGravity.h"
 
 #include "PETreeMerger.h"
@@ -607,18 +607,18 @@ Main::Main(CkArgMsg* m) {
 	
 	param.sinks.AddParams(prm, param);
 
-        //SIDM
-        //add similar to gasoline, note: no msr
         param.dSIDMSigma=0;
         prmAddParam(prm,"dSIDMSigma",paramDouble,&param.dSIDMSigma,sizeof(double),
-                    "dsidmsigma","<dark matter cross section> = 1"); 
-	
-        param.bSIDM=0;
-        prmAddParam(prm,"bSIDM",paramBool, &param.bSIDM, sizeof(int),
-                 "bsidm","<turn on or off SIDM>=1");
+                    "dSIDMSigma","DM cross section in cm^2/g (NA,constant,knee value, or norm)"); 
 
-	
-	//param.SIDM.AddParams(prm, param);
+        param.dSIDMVariable=0;
+        prmAddParam(prm,"dSIDMVariable",paramDouble,&param.dSIDMVariable,sizeof(double),
+                    "dSIDMVariable","(NA,NA, break value in km/s, exponent value)"); 
+
+        param.iSIDMSelect=0;
+        prmAddParam(prm,"iSIDMSelect",paramInt, &param.iSIDMSelect, sizeof(int),
+                 "iSIDMSelect","SIDM version (0 off, 1 constant, 2 classical, 3 resonant)");
+
 	//
 	// Output parameters
 	//
@@ -2198,10 +2198,13 @@ void Main::setupICs() {
   SetSink();
  
   //SIDM
-  if (param.bSIDM){
+  if (param.iSIDMSelect!=0){
       CkAssert (prmSpecified(prm, "dMsolUnit") &&
                 prmSpecified(prm, "dKpcUnit"));
       param.dSIDMSigma=param.dSIDMSigma*param.dMsolUnit*MSOLG/(param.dKpcUnit*KPCCM*param.dKpcUnit*KPCCM); //converts input cross section in cm^2 g^-1 to simulation units in len_unit^2 / mass_unit
+      if (param.iSIDMSelect==2){ //only for classical regime do this
+          param.dSIDMVariable=param.dSIDMVariable/(pow(param.dMsolUnit*MSOLG*GCGS/(KPCCM*param.dKpcUnit),.5)/100000.0) ; //converts from km/s to sim units
+          }
       } 
 
   param.externalGravity.CheckParams(prm, param);
@@ -3415,7 +3418,7 @@ void Main::writeOutput(int iStep)
 
 	  }
         //SIDM
-        if(param.bSIDM) {
+        if(param.iSIDMSelect!=0) {
             iNSIDMOutputParams pNSIDMOut(achFile, param.iBinaryOut, dOutTime);
             treeProxy[0].outputASCII(pNSIDMOut, param.bParaWrite,
                                           CkCallbackResumeThread());
