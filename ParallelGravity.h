@@ -464,8 +464,8 @@ public:
                           const CkCallback& cb);
         void cbOpen(Ck::IO::FileReadyMsg *msg);
         void cbIOReady(Ck::IO::SessionReadyMsg *msg);
-        void cbIOComplete(CkReductionMsg *msg);
-        void cbIOClosed(CkReductionMsg *msg);
+        void cbIOComplete(CkMessage *msg);
+        void cbIOClosed(CkMessage *msg);
         std::string getNCNextOutput(OutputParams& params);
 	void updateSoft();
 	void growMass(double dTime, double dDelta);

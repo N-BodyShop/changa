@@ -343,6 +343,7 @@ void TreePiece::startSmooth(// type of smoothing and parameters
 				     double dfBall2OverSoft2,
 				     const CkCallback& cb) {
 
+  LBTurnInstrumentOn();         // Be sure the Load Balancer is running.
   CkAssert(nSmooth > 0);
   cbSmooth = cb;
   activeRung = params->activeRung;

@@ -479,6 +479,7 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
      * Insert any variables that can change due to a restart.
      */
     _cacheLineDepth = param.cacheLineDepth;
+    verbosity = param.iVerbosity;
     dExtraStore = param.dExtraStore;
     dMaxBalance = param.dMaxBalance;
     nIOProcessor = param.nIOProcessor;
