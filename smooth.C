@@ -941,8 +941,10 @@ void ReSmoothCompute::walkDone(State *state) {
       if(!params->isSmoothActive(&part[i-node->firstParticle]))
 	  continue;
       CkVec<pqSmoothNode> *Q = &((ReNearNeighborState *)state)->Qs[i];
-      pqSmoothNode *NN = &((*Q)[0]);
+      pqSmoothNode *NN = NULL;
       int nCnt = Q->size();
+      if(nCnt > 0)
+          NN = &((*Q)[0]);
       params->fcnSmooth(&part[i-node->firstParticle], nCnt, NN);
       Q->clear();
       }
