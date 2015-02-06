@@ -3359,7 +3359,7 @@ void TreePiece::doAllBuckets(){
 #endif
 
   dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-  *((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + thisIndex + 1;
+  *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
   CkSetQueueing(msg,CK_QUEUEING_IFIFO);
   msg->val=0;
 
@@ -4795,7 +4795,7 @@ void TreePiece::startRemoteChunk() {
 void TreePiece::continueStartRemoteChunk(int chunk){
   // FIXME - can value of chunk be different from current Prefetch?
   ComputeChunkMsg *msg = new (8*sizeof(int)) ComputeChunkMsg(sPrefetchState->currentBucket);
-  *(int*)CkPriorityPtr(msg) = numTreePieces * sPrefetchState->currentBucket + thisIndex + 1;
+  *(int*)CkPriorityPtr(msg) = numTreePieces * numChunks + thisIndex + 1;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
 
 #if INTERLIST_VER > 0
