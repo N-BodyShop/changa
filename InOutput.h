@@ -776,12 +776,16 @@ class Cool3OutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {
 #ifndef COOLING_NONE
-	if (TYPETest(p, TYPE_GAS))
-	    CkAssert(0);
-#endif
-	}
-    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
-    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    if (TYPETest(p, TYPE_GAS))
+#ifdef COOLING_MOLECULARH
+      COOL_SET_ARRAY3(dm->Cool, &p->CoolParticle(), p->fMetals(), val);
+#else /*COOLING_MOLECULARH*/
+      CkAssert(0);
+#endif /*COOLING_MOLECULARH*/
+#endif /*COOLING_NONE*/
+  }
+  virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+  virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     Cool3OutputParams() {}
     Cool3OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
