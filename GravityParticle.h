@@ -663,7 +663,7 @@ class ExternalSmoothParticle {
 	      fMFracIronDot = p->fMFracIronDot();
 #endif	      
 #ifdef SUPERBUBBLE
-          CoolParticle = p->CoolParticle()
+          CoolParticle = p->CoolParticle();
           uHot = p->uHot();
           uHotPred = p->uHotPred();
           uHotDot = p->uHotDot();
