@@ -804,7 +804,7 @@ class ExternalSmoothParticle {
     p | fMFracIronDot;
 #endif
 #ifdef SUPERBUBBLE
-    p | CoolParticle;
+	p((char *) &CoolParticle, sizeof(CoolParticle)); /* PUPs as bytes */
     p | uHot;
     p | uHotPred;
     p | uHotDot;
