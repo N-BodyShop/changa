@@ -354,6 +354,7 @@ const int MAXSUBSTEPS = 1 << MAXRUNG;
 const double MAXSUBSTEPS_INV = 1 / (double)MAXSUBSTEPS;
 
 inline int RungToSubsteps(int iRung) {
+  CkAssert(iRung <= MAXRUNG);
   return 1 << (MAXRUNG - iRung);
 }
 
