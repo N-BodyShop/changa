@@ -2012,7 +2012,7 @@ void ShareWithHotGasSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
                 (q->mass + q->fPromoteSum());
             if (uavg < umin) umin=uavg;
             Eadd = (uavg-q->fPromoteuPredInit())*q->mass;
-            if (Eadd < 0) Eadd=0; //Stop evaporating once we have Eadd worth of mass
+            if (Eadd < 0) continue; //Stop evaporating once we have Eadd worth of mass
             dE = factor*p->mass/q->fPromoteSum()*Eadd;
             q->uPred() += dE/q->mass;
             q->u() += dE/q->mass;
