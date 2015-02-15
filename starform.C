@@ -187,7 +187,9 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
     
     // clear indices into starlog table
     iSeTab.clear();
-    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+    int myNPartTmp = myNumParticles;  // this could change if newParticle
+                                      // is called.
+    for(unsigned int i = 1; i <= myNPartTmp; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if(p->isGas()) {
 	    GravityParticle *starp = stfm.FormStar(p, dm->Cool, dTime,
@@ -198,6 +200,7 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 		nFormed++;
 		dMassFormed += starp->mass;
 		newParticle(starp);
+                p = &myParticles[i]; // newParticle can change pointers
 		CmiLock(dm->lockStarLog);
                 // Record current spot in seTab
                 iSeTab.push_back(dm->starLog->seTab.size());
