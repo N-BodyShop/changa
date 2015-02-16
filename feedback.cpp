@@ -382,6 +382,8 @@ void TreePiece::Feedback(const Fdbk &fb, double dTime, double dDelta, const CkCa
 	else if(p->isGas()){
 	  CkAssert(p->u() > 0.0);
 	  CkAssert(p->uPred() > 0.0);
+	  CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/fb.dErgPerGmUnit);
+	  CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/fb.dErgPerGmUnit);
 	  p->fESNrate() = 0.0;	/* reset SN heating rate of gas to zero */
 	}
     }
@@ -794,6 +796,7 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
 	q->mass += weight*p->fMSN();
     if(weight > 0) TYPESet(q, TYPE_FEEDBACK);
 #ifdef SUPERBUBBLE
+    CkAssert(q->uPred() < LIGHTSPEED*LIGHTSPEED/fb.dErgPerGmUnit);
     double Tq = CoolEnergyToTemperature(tp->Cool(), &q->CoolParticle(), fb.dErgPerGmUnit*q->uPred(), q->fMetals() );
 	if(Tq < fb.dMultiPhaseMinTemp && weight > 0 && p->fNSN() > 0.0) { //Only use the multiphase state for cooler particles
 		double massHot = q->massHot() + weight*p->fMSN();
