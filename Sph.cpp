@@ -797,12 +797,16 @@ void TreePiece::updateuDot(int activeRung,
 		COOLPARTICLE cp = p->CoolParticle();
 		double r[3];  // For conversion to C
 		p->position.array_form(r);
+        CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+        CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
 #ifdef SUPERBUBBLE
         double frac = p->massHot()/p->mass;
         double PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
         double uMean = frac*p->uHotPred()+(1-frac)*p->uPred();
         int bUpdateStd = (p->massHot() < 0.9*p->mass);
         CkAssert(uMean > 0.0);
+        CkAssert(p->uHotPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+        CkAssert(p->uHot() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
         /*
          * If we have mass in the hot phase, we need to cool it appropriately.
          */
@@ -1288,6 +1292,7 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1, double dTher
     for(i=1; i<= myNumParticles; ++i) {
 	p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS)) {
+            CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/cl->dErgPerGmUnit);
             double cGas;
 	    CoolCodePressureOnDensitySoundSpeed(cl, &p->CoolParticle(),
 						p->uPred(), p->fDensity(),
@@ -1862,6 +1867,7 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     ih2 = invH2(p);
     /* Exclude cool particles */
     Tp = CoolEnergyToTemperature(tp->Cool(), &p->CoolParticle(), dErgPerGmUnit*p->uPred(), p->fMetals() );
+    CkAssert(Tp < 2e11);
     if (Tp <= dEvapMinTemp) return;
 
     up52 = pow(p->uPred(),2.5);
@@ -1873,6 +1879,7 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         if (p->iOrder == q->iOrder) continue;
 	    if (TYPETest(q, TYPE_DELETED) || (TYPETest(q, TYPE_FEEDBACK) && !TYPETest(q, TYPE_PROMOTED))) continue;
         Tq = CoolEnergyToTemperature(tp->Cool(), &q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
+        CkAssert(Tq < 2e11);
         if (q->uHot() > 0 || Tq >= dEvapMinTemp) continue;  /* Exclude hot particles */
 	    CkAssert(TYPETest(q, TYPE_GAS));
         CkAssert(!TYPETest(p, TYPE_STAR));
@@ -1895,6 +1902,7 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		if (p->iOrder == q->iOrder) continue;
 		if (TYPETest(q, TYPE_DELETED)) continue;
         Tq = CoolEnergyToTemperature(tp->Cool(), &q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
+        CkAssert(Tq < 2e11);
         if (q->uHot() == 0 && Tq <= dEvapMinTemp) continue;  
 		dot = xc*nnList[i].dx.x + yc*nnList[i].dx.y + zc*nnList[i].dx.y;
 		if (dot > 0 && dot*dot > dotcut2*nnList[i].fKey) {
@@ -1913,6 +1921,7 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         if (p->iOrder == q->iOrder) continue;
 	    if(TYPETest(q, TYPE_DELETED) || (TYPETest(q, TYPE_FEEDBACK) && !TYPETest(q, TYPE_PROMOTED))) continue;
         Tq = CoolEnergyToTemperature(tp->Cool(), &q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
+        CkAssert(Tq < 2e11);
         if (Tq >= dEvapMinTemp ) continue;  /* Exclude hot particles */
 	    CkAssert(TYPETest(q, TYPE_GAS));
 		r2 = nnList[i].fKey*ih2;            
@@ -1937,6 +1946,7 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
             if (p->iOrder == q->iOrder) continue;
             if (TYPETest(q, TYPE_DELETED) || TYPETest(q, TYPE_FEEDBACK) || TYPETest(q, TYPE_PROMOTED)) continue;
             Tq = CoolEnergyToTemperature(tp->Cool(), &q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
+            CkAssert(Tq < 2e11);
             if (Tq >= dEvapMinTemp ) continue;  /* Exclude hot particles */
             CkAssert(TYPETest(q, TYPE_GAS));
 
@@ -2026,6 +2036,10 @@ void ShareWithHotGasSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
             CkAssert(q->u() > 0);
             CkAssert(p->uPred() > 0);
             CkAssert(p->u() > 0);
+            CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/tp->Cool()->dErgPerGmUnit);
+            CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/tp->Cool()->dErgPerGmUnit);
+            CkAssert(q->u() < LIGHTSPEED*LIGHTSPEED/tp->Cool()->dErgPerGmUnit);
+            CkAssert(q->uPred() < LIGHTSPEED*LIGHTSPEED/tp->Cool()->dErgPerGmUnit);
             }
         }
 }

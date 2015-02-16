@@ -1473,6 +1473,8 @@ void TreePiece::calcEnergy(const CkCallback& cb) {
     contribute(7*sizeof(double), dEnergy, CkReduction::sum_double, cb);
 }
 
+#include "physconst.h"
+
 void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		     int bClosing, // Are we at the end of a timestep
 		     int bNeedVPred, // do we need to update vpred
@@ -1669,6 +1671,8 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		  }
 	      CkAssert(p->u() >= 0.0);
 	      CkAssert(p->uPred() >= 0.0);
+              CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+              CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
 	      }
 	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
 	  glassDamping(p->velocity, dDelta[p->rung], dGlassDamper);
@@ -2060,6 +2064,7 @@ void TreePiece::drift(double dDelta,  // time step in x containing
               if(p->uPred() > dMaxEnergy)
                   p->uPred() = dMaxEnergy;
               CkAssert(p->uPred() >= 0.0);
+              CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
 	      }
 #ifdef DIFFUSION
 	  p->fMetalsPred() += p->fMetalsDot()*duDelta;
