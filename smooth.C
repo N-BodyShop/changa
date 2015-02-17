@@ -464,6 +464,7 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
   int lastQueue = firstQueue;
   // Find only particles of interest
   // First search from the start of the bucket to the end of this treepiece
+  // N.B. We are searching for nSmooth+1 particles.
   for(lastQueue = firstQueue;
       iCount <= nSmooth && lastQueue <= tp->myNumParticles;
       lastQueue++) {
@@ -476,8 +477,10 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
   int bEnough = 1;	// Do we have enough particles on piece to get a limit?
   if(lastQueue > tp->myNumParticles) 
       {
-	  firstQueue = myNode->firstParticle - 1;
-	  for(; iCount <= nSmooth; firstQueue--) {
+	  firstQueue = myNode->firstParticle;
+          // N.B. We are searching for nSmooth+1 particles.
+          while(iCount <= nSmooth) {
+              firstQueue--;
 	      if(firstQueue == 0) {
 		  bEnough = 0; // Ran out of particles
 		  firstQueue++;
@@ -487,9 +490,11 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 		  iCount++;
 	      }
 	  }
-  if(bEnough && ((lastQueue - firstQueue) < nSmooth))
+  if(bEnough && ((lastQueue - firstQueue) <= nSmooth))
 	CkAbort("Missing particles");
 	  
+  CkAssert(firstQueue > 0);
+  CkAssert(lastQueue <= tp->myNumParticles+1);
   OrientedBox<double> bndSmoothAct; // bounding box for smoothActive particles
   double dKeyMaxBucket = 0.0;
   
@@ -941,8 +946,10 @@ void ReSmoothCompute::walkDone(State *state) {
       if(!params->isSmoothActive(&part[i-node->firstParticle]))
 	  continue;
       CkVec<pqSmoothNode> *Q = &((ReNearNeighborState *)state)->Qs[i];
-      pqSmoothNode *NN = &((*Q)[0]);
+      pqSmoothNode *NN = NULL;
       int nCnt = Q->size();
+      if(nCnt > 0)
+          NN = &((*Q)[0]);
       params->fcnSmooth(&part[i-node->firstParticle], nCnt, NN);
       Q->clear();
       }

@@ -1153,6 +1153,7 @@ void TreePiece::readFloatBinary(OutputParams& params, int bParaRead,
     FieldHeader fh;
     void *data;
     int64_t startParticle = nStartRead;
+    params.dm = dm; // pass cooling information
     
     if((params.iType & TYPE_GAS) && (myNumSPH > 0)) {
         data = readFieldData(params.fileName + "/gas/" + params.sNChilExt, fh,
