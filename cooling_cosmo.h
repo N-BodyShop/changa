@@ -267,18 +267,26 @@ void CoolOutputArray( COOLPARAM *CoolParam, int, int *, char * );
 #define COOL_ARRAY0_EXT  "HI"
 double COOL_ARRAY0(COOL *cl_, COOLPARTICLE *cp,double aa);
 #define COOL_ARRAY0( cl_, cp, aa ) ((cp)->Y_HI)
+double COOL_SET_ARRAY0(COOL *cl_, COOLPARTICLE *cp,double aa, double bb_val);
+#define COOL_SET_ARRAY0( cl_, cp, aa, bb_val ) ((cp)->Y_HI = (bb_val))
 
 #define COOL_ARRAY1_EXT  "HeI"
 double COOL_ARRAY1(COOL *cl_, COOLPARTICLE *cp,double aa);
 #define COOL_ARRAY1( cl_, cp, aa ) ((cp)->Y_HeI)
+double COOL_SET_ARRAY1(COOL *cl_, COOLPARTICLE *cp,double aa, double bb_val);
+#define COOL_SET_ARRAY1( cl_, cp, aa, bb_val ) ((cp)->Y_HeI = (bb_val))
 
 #define COOL_ARRAY2_EXT  "HeII"
 double COOL_ARRAY2(COOL *cl_, COOLPARTICLE *cp,double aa);
 #define COOL_ARRAY2( cl_, cp, aa ) ((cp)->Y_HeII)
+double COOL_SET_ARRAY2(COOL *cl_, COOLPARTICLE *cp,double aa, double bb_val);
+#define COOL_SET_ARRAY2( cl_, cp, aa, bb_val ) ((cp)->Y_HeII = (bb_val))
 
 #define COOL_ARRAY3_EXT  "H2"
 double COOL_ARRAY3(COOL *cl, COOLPARTICLE *cp, double ZMetal);
 #define COOL_ARRAY3(cl_, cp, aa ) (0)
+double COOL_SET_ARRAY3(COOL *cl_, COOLPARTICLE *cp,double aa, double bb_val);
+#define COOL_SET_ARRAY3( cl_, cp, aa, bb_val ) (0)
 
 double COOL_EDOT( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode_, double ZMetal_, double *posCode_ );
 #define COOL_EDOT( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_) (CoolCodeWorkToErgPerGmPerSec( cl_, CoolEdotInstantCode( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_ )))

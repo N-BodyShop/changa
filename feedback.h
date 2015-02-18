@@ -25,7 +25,7 @@ class FBEffects {
     dEnergy(dEnergy), dMassLoss(dMassLoss), dMetals(dMetals), dMIron(dMIron), dMOxygen(dMOxygen) { }
      };
 
-/*
+/**
  * Class to Characterize Star Formation event.  This is input
  * needed for all feedback effects.
  */
