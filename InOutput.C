@@ -827,6 +827,7 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
 	    }
         }
     deleteField(fh, data);
+  if(ncGetCount(filename + "/OxMassFrac") > 0) {
     // Oxygen
     if(verbosity && startParticle == 0)
         CkPrintf("loading Oxygen\n");
@@ -846,6 +847,8 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
 	    }
         }
     deleteField(fh, data);
+  }
+  if(ncGetCount(filename + "/FeMassFrac") > 0) {
     // Iron
     if(verbosity && startParticle == 0)
         CkPrintf("loading Iron\n");
@@ -865,6 +868,7 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
 	    }
         }
     deleteField(fh, data);
+  }
     // Temperature
     if(verbosity && startParticle == 0)
         CkPrintf("loading temperature\n");
