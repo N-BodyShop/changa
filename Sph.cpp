@@ -803,7 +803,6 @@ void TreePiece::updateuDot(int activeRung,
         double frac = p->massHot()/p->mass;
         double PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
         double uMean = frac*p->uHotPred()+(1-frac)*p->uPred();
-        int bUpdateStd = (p->massHot() < 0.9*p->mass);
         CkAssert(uMean > 0.0);
         CkAssert(p->uHotPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
         CkAssert(p->uHot() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
