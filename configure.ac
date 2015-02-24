@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([ChaNGa], [3.0], [changa-users@u.washington.edu])
+AC_INIT([ChaNGa], [3.1], [changa-users@u.washington.edu])
 AC_DEFINE_UNQUOTED([NBODY_PACKAGE_VERSION], [$PACKAGE_VERSION])
 AC_CONFIG_SRCDIR([Reductions.h])
 AC_CONFIG_HEADER([config.h ../utility/structures/config.h])
@@ -61,10 +61,22 @@ if test "${MISSING_XDR}" = "yes" ; then
    LDFLAGS="$LDFLAGS -L../xdr"
 fi
 
+# physical softening in comoving coordinates:
+AC_ARG_ENABLE([changesoft],
+	[AS_HELP_STRING([--enable-changesoft], [enable physical softening])],
+	[changesoft=$enableval], [changesoft=yes])
+if test "$changesoft" = "yes" ; then
+    echo "CHANGESOFT selected"
+    FLAG_CHANGESOFT="-DCHANGESOFT"
+else
+    FLAG_CHANGESOFT=""
+fi
+AC_SUBST([FLAG_CHANGESOFT])
+
 # 128 bit keys:
 AC_ARG_ENABLE([bigkeys],
 	[AS_HELP_STRING([--enable-bigkeys], [enable 128 bit hash keys])],
-	[bigkeys=yes], [bigkeys=no])
+	[bigkeys=$enableval], [bigkeys=no])
 if test "$bigkeys" = "yes" ; then
     echo "BIGKEYS selected"
     FLAG_BIGKEYS="-DBIGKEYS"
@@ -76,7 +88,7 @@ AC_SUBST([FLAG_BIGKEYS])
 # Wendland C4 Kernel:
 AC_ARG_ENABLE([wendland],
 	[AS_HELP_STRING([--enable-wendland], [enable Wendland C4 Kernel])],
-	[wendland=yes], [wendland=no])
+	[wendland=$enableval], [wendland=no])
 if test "$wendland" = "yes" ; then
     echo "WENDLAND selected"
     FLAG_KERNEL="-DWENDLAND"

@@ -16,8 +16,10 @@
 // jetley
 #include "MultistepLB.h"
 #include "MultistepLB_notopo.h"
+#include "MultistepNodeLB_notopo.h"
 #include "Orb3dLB.h"
 #include "Orb3dLB_notopo.h"
+#include "HierarchOrbLB.h"
 // jetley - refactoring
 //#include "codes.h"
 #include "Opt.h"
@@ -30,6 +32,12 @@
 #include "smooth.h"
 
 #include "PETreeMerger.h"
+#include "IntraNodeLBManager.h"
+#include "CkLoopAPI.h"
+
+#if !CMK_LB_USER_DATA
+#error "Please recompile charm with --enable-lbuserdata"
+#endif
 
 #ifdef CUDA
 #ifdef CUDA_INSTRUMENT_WRS
@@ -59,6 +67,8 @@ int TreeStuff::maxBucketSize;
 #ifdef PUSH_GRAVITY
 extern CkGroupID ckMulticastGrpId;
 #endif
+
+CkpvExtern(int, _lb_obj_index);
 
 //forward declaration
 string getColor(GenericTreeNode*);
@@ -122,7 +132,7 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 		     << boundingBox << endl;
 	//give particles keys, using bounding box to scale
 	if((domainDecomposition!=ORB_dec)
-	   && (domainDecomposition!=ORB_space_dec)){
+	   && (domainDecomposition!=ORB_space_dec) && myNumParticles > 0){
 	      // get longest axis
 	      Vector3D<float> bsize = boundingBox.size();
 	      float max = (bsize.x > bsize.y) ? bsize.x : bsize.y;
@@ -139,6 +149,8 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 		      ckout << "TreePiece: Bounding box now: "
 			   << boundingBox << endl;
 
+              myParticles[0].key = firstPossibleKey;
+              myParticles[myNumParticles+1].key = lastPossibleKey;
 	      for(unsigned int i = 0; i < myNumParticles; ++i) {
 		myParticles[i+1].key = generateKey(myParticles[i+1].position,
 						   boundingBox);
@@ -1393,6 +1405,10 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 			  }
 #else /* COOLING_NONE */
 		      p->u() += p->PdV()*duDelta[p->rung];
+		      if (p->u() < 0) {
+			  double uold = p->u() - p->PdV()*duDelta[p->rung];
+			  p->u() = uold*exp(p->PdV()*duDelta[p->rung]/uold);
+			  }
 #endif /* COOLING_NONE */
 		      p->uPred() = p->u();
 		      }
@@ -1410,6 +1426,10 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 			  }
 #else /* COOLING_NONE */
 		      p->u() += p->PdV()*duDelta[p->rung];
+		      if (p->u() < 0) {
+			  double uold = p->u() - p->PdV()*duDelta[p->rung];
+			  p->u() = uold*exp(p->PdV()*duDelta[p->rung]/uold);
+			  }
 #endif /* COOLING_NONE */
 		      }
 		  }
@@ -1467,6 +1487,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
     if(p->rung >= iKickRung) {
       CkAssert(p->soft > 0.0);
       double dTIdeal = dDelta;
+      double dTGrav, dTCourant, dTEdot;
       if(bEpsAccStep) {
 	  double acc = dAccFac*p->treeAcceleration.length();
 	  double dt;
@@ -1487,6 +1508,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 #endif
 	  else
 	      dt = dEta*sqrt(p->soft/acc);
+          dTGrav = dt;
 	  if(dt < dTIdeal)
 	      dTIdeal = dt;
 	  }
@@ -1506,6 +1528,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      }
 	  else
 	      dt = dEtaCourant*dCosmoFac*(ph/(1.6*p->c()));
+          dTCourant = dt;
 	  if(dt < dTIdeal)
 	      dTIdeal = dt;
 
@@ -1517,9 +1540,17 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      if (dt < dTIdeal) 
 		  dTIdeal = dt;
 	      }
+          dTEdot = dt;
 	  }
 
       int iNewRung = DtToRung(dDelta, dTIdeal);
+      if(iNewRung > 29) {
+	CkError("Small timestep dt: %g, soft: %g, accel: %g\n", dTIdeal, p->soft,
+		p->treeAcceleration.length());
+	if(p->isGas())
+		CkError("Small gas dt: %g, dtgrav: %g, dtcourant: %g, dtEdot: %g\n",
+			dTIdeal, dTGrav, dTCourant, dTEdot);
+	}
       if(iNewRung > MAXRUNG) {
 	CkError("dt: %g, soft: %g, accel: %g\n", dTIdeal, p->soft,
 		p->treeAcceleration.length());
@@ -1677,10 +1708,42 @@ void TreePiece::drift(double dDelta,  // time step in x containing
     contribute(cb);
 }
 
+/// @brief  Adjust particlePointer attribute of all the nodes in the
+/// tree.
+/// 
+///  Call this if "myParticles" is about to change, but you still need
+///  the tree.
+
+void TreePiece::adjustTreePointers(GenericTreeNode *node,
+    GravityParticle *newParts)
+{
+    // Is particlePointer point to memory we are about to delete?
+    if(node->particlePointer >= myParticles
+        && node->particlePointer < myParticles + myNumParticles + 2) {
+        node->particlePointer = newParts + (node->particlePointer - myParticles);
+        }
+    GenericTreeNode *child;
+    for (unsigned int i=0; i<node->numChildren(); ++i) {
+        child = node->getChildren(i);
+        if (child != NULL) adjustTreePointers(child, newParts);
+        }
+}
+
+
 void TreePiece::newParticle(GravityParticle *p)
 {
+    // N.B. there are 2 boundary particles
     if(myNumParticles + 2 >= nStore) {
-	CkAbort("No room for new particle: increase dExtraStore");
+        int nTmpStore = (int) ((nStore + 1)*(1.0 + dExtraStore));
+	CkError("WARNING: Increasing particle store to %d\n", nTmpStore);
+        CkAssert(nTmpStore > nStore);
+        GravityParticle *myTmpParticles = new GravityParticle[nTmpStore];
+        memcpy(myTmpParticles, myParticles,
+               (2 + myNumParticles)*sizeof(GravityParticle));
+        adjustTreePointers(root, myTmpParticles);
+        delete[] myParticles;
+        myParticles = myTmpParticles;
+        nStore = nTmpStore;
 	}
     // Move Boundary particle
     myParticles[myNumParticles+2] = myParticles[myNumParticles+1];
@@ -1688,15 +1751,51 @@ void TreePiece::newParticle(GravityParticle *p)
     myParticles[myNumParticles] = *p;
     myParticles[myNumParticles].iOrder = -1;
     if(p->isGas()) {
-	if(myNumSPH >= nStoreSPH)
-	    CkAbort("No room for new SPH particle: increase dExtraStore");
+	if(myNumSPH >= nStoreSPH) {
+            int nTmpStore = (int) ((nStoreSPH + 1)*(1.0 + dExtraStore));
+            CkError("WARNING: Increasing gas particle store to %d\n",
+                    nTmpStore);
+            CkAssert(nTmpStore > nStoreSPH);
+            extraSPHData *myTmpParticles = new extraSPHData[nTmpStore];
+            memcpy(myTmpParticles, mySPHParticles,
+                   (myNumSPH)*sizeof(extraSPHData));
+            for(int i = 1; i <= myNumParticles; i++) {
+                // assign pointers
+                if(myParticles[i].isGas()) {
+                    int iSPH = (extraSPHData *)myParticles[i].extraData
+                                     - mySPHParticles;
+                    myParticles[i].extraData = myTmpParticles + iSPH;
+                    }
+                }
+            delete[] mySPHParticles;
+            mySPHParticles = myTmpParticles;
+            nStoreSPH = nTmpStore;
+            }
 	mySPHParticles[myNumSPH] = *((extraSPHData *) p->extraData);
 	myParticles[myNumParticles].extraData = &mySPHParticles[myNumSPH];
 	myNumSPH++;
 	}
     if(p->isStar()) {
-	if(myNumStar >= nStoreStar)
-	    CkAbort("No room for new Star particle: increase dExtraStore");
+	if(myNumStar >= nStoreStar) {
+            int nTmpStore = (int) ((nStoreStar + 1)*(1.0 + dExtraStore));
+            CkError("WARNING: Increasing star particle store to %d\n",
+                    nTmpStore);
+            CkAssert(nTmpStore > nStoreStar);
+            extraStarData *myTmpParticles = new extraStarData[nTmpStore];
+            memcpy(myTmpParticles, myStarParticles,
+                   (myNumStar)*sizeof(extraStarData));
+            for(int i = 1; i <= myNumParticles; i++) {
+                // assign pointers
+                if(myParticles[i].isStar()) {
+                    int iStar = (extraStarData *)myParticles[i].extraData
+                                     - myStarParticles;
+                    myParticles[i].extraData = myTmpParticles + iStar;
+                    }
+                }
+            delete[] myStarParticles;
+            myStarParticles = myTmpParticles;
+            nStoreStar = nTmpStore;
+            }
 	myStarParticles[myNumStar] = *((extraStarData *) p->extraData);
 	myParticles[myNumParticles].extraData = &myStarParticles[myNumStar];
 	myNumStar++;
@@ -1768,6 +1867,7 @@ void TreePiece::newOrder(int64_t nStartSPH, int64_t nStartDark,
 {
     unsigned int i;
     boundingBox.reset();
+    int iNewStars = 0;
     for(i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	boundingBox.grow(p->position);
@@ -1778,14 +1878,17 @@ void TreePiece::newOrder(int64_t nStartSPH, int64_t nStartDark,
 		p->iOrder = nStartDark++;
 	    else {
 		/* Also record iOrder in the starLog table. */
+                CkAssert(iNewStars < iSeTab.size());
 		CmiLock(dm->lockStarLog);
-		dm->starLog->seTab[dm->starLog->nOrdered].iOrdStar = nStartStar;
+		dm->starLog->seTab[iSeTab[iNewStars]].iOrdStar = nStartStar;
 		dm->starLog->nOrdered++;
 		CmiUnlock(dm->lockStarLog);
+                iNewStars++;
 		p->iOrder = nStartStar++;
 		}
 	    }
 	}
+    iSeTab.clear();
     callback = cb;		// called by assignKeys()
     // get the new particles into key order
     contribute(sizeof(OrientedBox<float>), &boundingBox,
@@ -2436,6 +2539,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   case Binary_Oct:
     pTreeNodes = new NodePool;
     root = pTreeNodes->alloc_one(1, numTreePieces>1?Tree::Boundary:Tree::Internal, 0, myNumParticles+1, 0);
+    root->particlePointer = &myParticles[1];
     break;
   case Oct_Oct:
     //root = new OctTreeNode(1, Tree::Boundary, 0, myNumParticles+1, 0);
@@ -3290,11 +3394,27 @@ void TreePiece::nextBucket(dummyMsg *msg){
   int currentBucket = sLocalGravityState->currentBucket;
   if(verbosity >= 4)
 	CkPrintf("[%d] walking bucket %d\n", thisIndex, currentBucket);	
+
+  bool useckloop = false;
+  int yield_num = _yieldPeriod;
 #if INTERLIST_VER > 0
+#if !defined(CUDA)
+  LoopParData* lpdata;
+  int tmpBucketBegin;
+  if (bUseCkLoopPar && otherIdlePesAvail()) {
+    useckloop = true;
+    // This value was chosen to be 2*Nodesize so that we have enough buckets for
+    // all the PEs in the node and also giving some extra for load balance.
+    yield_num = 2 * CkMyNodeSize();
+    lpdata = new LoopParData();
+    lpdata->tp = this;
+    tmpBucketBegin = currentBucket;
+  }
+#endif
+
   sInterListWalk->init(sGravity, this);
 #endif
-  while(i<_yieldPeriod && currentBucket<numBuckets
-  ){
+  while(i<yield_num && currentBucket<numBuckets) {
     GenericTreeNode *target = bucketList[currentBucket];
     if(target->rungs >= activeRung){
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_BUCKET_START_FIN
@@ -3306,13 +3426,29 @@ void TreePiece::nextBucket(dummyMsg *msg){
       // do computation
       GenericTreeNode *lowestNode = ((DoubleWalkState *) sLocalGravityState)->lowestNode;
       int startBucket, end;
-      int numActualBuckets = 0;
 
       getBucketsBeneathBounds(lowestNode, startBucket, end);
 
       CkAssert(currentBucket >= startBucket);
 
-      sGravity->stateReady(sLocalGravityState, this, -1, currentBucket, end);
+      if (useckloop) {
+        lpdata->lowNodes.insertAtEnd(lowestNode);
+        lpdata->bucketids.insertAtEnd(currentBucket);
+
+        CkVec<OffsetNode> cl;
+        CkVec<RemotePartInfo> rp;
+        CkVec<LocalPartInfo> lp;
+        // Populate the list with nodes and particles with which the force is
+        // calculated.
+        sGravity->fillLists(sLocalGravityState, this, -1, currentBucket,
+            end, cl, rp, lp);
+        lpdata->chunkids.insertAtEnd(-1);
+        lpdata->clists.insertAtEnd(cl);
+        lpdata->rpilists.insertAtEnd(rp);
+        lpdata->lpilists.insertAtEnd(lp);
+      } else {
+        sGravity->stateReady(sLocalGravityState, this, -1, currentBucket, end);
+      }
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("active: nextBucket memcheck after stateReady\n");
       CmiMemoryCheck();
@@ -3321,32 +3457,10 @@ void TreePiece::nextBucket(dummyMsg *msg){
 #if COSMO_PRINT_BK > 1 
       CkPrintf("[%d] active local bucket book-keep\n", thisIndex);
 #endif
-      for(int j = currentBucket; j < end; j++){
-        // for the cuda version, must decrement here
-        // since we add to numAdditionalReqs for a bucket
-        // each time a work request involving it is sent out.
-        // the per bucket, per chunk counts are balanced as follows:
-        // initialize in startiteration: +1
-        // for request sent to gpu: +1
-        // initial walk completed: -1 (this is where we are in the code currently) 
-        // for each request completed: -1 (this happens in cudaCallback)
-        sLocalGravityState->counterArrays[0][j]--;
-#if COSMO_PRINT_BK > 1
-        CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", thisIndex, j, sRemoteGravityState->counterArrays[0][j], sLocalGravityState->counterArrays[0][j]);
-#endif
-        // have to call finishBucket here for inactive buckets.
-#ifdef CUDA
-        if(bucketList[j]->rungs < activeRung){
-#endif
-          finishBucket(j);
-#ifdef CUDA
-        }
-#endif
 
-        if(bucketList[j]->rungs >= activeRung){
-          numActualBuckets++;
-        }
-      }
+      int numActualBuckets = doBookKeepingForTargetActive(currentBucket, end,
+          -1, !useckloop, sLocalGravityState);
+
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("active: nextBucket memcheck after book-keeping (prev: %d, curr: %d, i: %d)\n", prevBucket, currentBucket, i);
       CmiMemoryCheck();
@@ -3380,18 +3494,8 @@ void TreePiece::nextBucket(dummyMsg *msg){
 #if COSMO_PRINT_BK > 1 
       CkPrintf("[%d] inactive local bucket book-keep\n", thisIndex);
 #endif
-      while(currentBucket < numBuckets && bucketList[currentBucket]->rungs < activeRung){
+      currentBucket += doBookKeepingForTargetInactive(-1, !useckloop, sLocalGravityState);
 
-        sLocalGravityState->counterArrays[0][currentBucket]--;
-#if COSMO_PRINT_BK > 1
-        CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", thisIndex, currentBucket, sRemoteGravityState->counterArrays[0][currentBucket], sLocalGravityState->counterArrays[0][currentBucket]);
-#endif
-        finishBucket(currentBucket);
-        currentBucket++;
-	if(currentBucket < numBuckets) // state could be deleted in
-				       // this case.
-	    sLocalGravityState->currentBucket++;
-      }
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("not active: nextBucket memcheck after book-keeping (prev: %d, curr: %d)\n", prevBucket, currentBucket);
       CmiMemoryCheck();
@@ -3410,6 +3514,14 @@ void TreePiece::nextBucket(dummyMsg *msg){
       // i isn't incremented because we've skipped inactive buckets
     }// end else (target not active)
   }// end while
+
+  if (useckloop) {
+    // Use ckloop to parallelize force calculation and this will update the
+    // counterArrays as well.
+    executeCkLoopParallelization(lpdata, tmpBucketBegin, yield_num, -1,
+      sLocalGravityState);
+    delete lpdata;
+  }
 
   if (currentBucket<numBuckets) {
     thisProxy[thisIndex].nextBucket(msg);
@@ -3437,6 +3549,29 @@ void TreePiece::nextBucket(dummyMsg *msg){
   }
 }
 
+void doWorkForCkLoop(int start, int end, void *result, int pnum, void * param) {
+  LoopParData* lpdata = (LoopParData *)param;
+  TreePiece* tp = lpdata->tp;
+  double tstart = CkWallTimer();
+  for (int i = start; i <= end; i++) {
+    tp->doParallelNextBucketWork(i, lpdata);
+  }
+  double tend = CkWallTimer();
+  *(double *)result = tend - tstart;
+}
+
+void TreePiece::doParallelNextBucketWork(int idx, LoopParData* lpdata) {
+  GenericTreeNode* lowestNode = lpdata->lowNodes[idx];
+  int currentBucket = lpdata->bucketids[idx];
+  int chunkNum = lpdata->chunkids[idx];
+  int startBucket, endBucket;
+  getBucketsBeneathBounds(lowestNode, startBucket, endBucket);
+
+  sGravity->stateReadyPar(this,
+      currentBucket, endBucket, lpdata->clists[idx], lpdata->rpilists[idx],
+      lpdata->lpilists[idx]);
+}
+
 /// This function could be replaced by the doAllBuckets() call.
 void TreePiece::calculateGravityLocal() {
   doAllBuckets();
@@ -3450,10 +3585,23 @@ void TreePiece::calculateEwald(dummyMsg *msg) {
   EwaldHostMemorySetup(h_idata, myNumParticles, nEwhLoop); 
   EwaldGPU();
 #else
+
+  bool useckloop = false;
+  int yield_num = _yieldPeriod;
+
+  if (bUseCkLoopPar && otherIdlePesAvail()) {
+    useckloop = true;
+    // This value was chosen to be32*Nodesize so that we have enough buckets for
+    // all the PEs in the node and also giving some extra for load balance.
+    yield_num = 3 * CkMyNodeSize();
+    calculateEwaldUsingCkLoop(msg, yield_num);
+  }
+
   unsigned int i=0;
-  while (i<_yieldPeriod && ewaldCurrentBucket < numBuckets
-	 ) {
-    BucketEwald(bucketList[ewaldCurrentBucket], nReplicas, fEwCut);
+  while (i < yield_num && ewaldCurrentBucket < numBuckets) {
+    if (!useckloop) {
+      BucketEwald(bucketList[ewaldCurrentBucket], nReplicas, fEwCut);
+    }
 
     bucketReqs[ewaldCurrentBucket].finished = 1;
     finishBucket(ewaldCurrentBucket);
@@ -3468,6 +3616,75 @@ void TreePiece::calculateEwald(dummyMsg *msg) {
     delete msg;
   }
 #endif
+}
+
+bool TreePiece::otherIdlePesAvail() {
+  vector<int> idlepes = nodeLBMgrProxy.ckLocalBranch()->getOtherIdlePes();
+  if (idlepes.size() > 0.5 * CkMyNodeSize()) {
+    return true;
+  }
+  return false;
+}
+
+void TreePiece::callBucketEwald(int id) {
+  BucketEwald(bucketList[id], nReplicas, fEwCut);
+}
+
+void doCalcEwald(int start, int end, void *result, int pnum, void * param) {
+  LoopParData* lpdata = (LoopParData *)param;
+  TreePiece* tp = lpdata->tp;
+  double tstart = CkWallTimer();
+  for (int i = start; i <= end; i++) {
+    tp->callBucketEwald(lpdata->bucketids[i]);
+  }
+  double tend = CkWallTimer();
+  *(double *)result = tend - tstart;
+}
+
+void TreePiece::calculateEwaldUsingCkLoop(dummyMsg *msg, int yield_num) {
+  unsigned int i=0;
+  LoopParData* lpdata = new LoopParData();
+  lpdata->tp = this;
+
+  int sbucket = ewaldCurrentBucket;
+
+  while (i < yield_num && ewaldCurrentBucket < numBuckets) {
+    lpdata->bucketids.insertAtEnd(ewaldCurrentBucket);
+    ewaldCurrentBucket++;
+    i++;
+  }
+
+  int num_chunks = 3 * CkMyNodeSize();
+  // CkLoop library limits the number of chunks to be 64.
+  if (num_chunks > 64) {
+    num_chunks = 64;
+  }
+
+  int start = 0;
+  int end = lpdata->bucketids.length();
+
+  if (num_chunks > end) {
+    num_chunks = end;
+  }
+
+  if (num_chunks > 0) {
+    double timebeforeckloop = getObjTime();
+    double timeforckloop;
+    LBTurnInstrumentOff();
+    double stime = CkWallTimer();
+#if CMK_SMP
+    CkLoop_Parallelize(doCalcEwald, 1, lpdata, num_chunks, start, end-1, 1, &timeforckloop, CKLOOP_DOUBLE_SUM);
+#else
+    CkAbort("CkLoop usage only in SMP mode\n");
+#endif
+    double etime = CkWallTimer() - stime;
+
+    setObjTime(timebeforeckloop + timeforckloop);
+    LBTurnInstrumentOn();
+  }
+
+  ewaldCurrentBucket = sbucket;
+  delete lpdata;
 }
 
 const char *typeString(NodeType type);
@@ -3494,7 +3711,26 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 #endif
   CkAssert(chunkRoot != NULL);
 
+  bool useckloop = false;
+  int yield_num = _yieldPeriod;
+
 #if INTERLIST_VER > 0
+#if !defined(CUDA)
+  LoopParData* lpdata;
+  // Keep track of which was the currentBucket so that it can be restored in the
+  // ckloop part.
+  int tmpBucketBegin;
+
+  if (bUseCkLoopPar && otherIdlePesAvail()) {
+    useckloop = true;
+    // This value was chosen to be 2*Nodesize so that we have enough buckets for
+    // all the PEs in the node and also giving some extra for load balance.
+    yield_num = 2 * CkMyNodeSize();
+    lpdata = new LoopParData();
+    lpdata->tp = this;
+    tmpBucketBegin = sRemoteGravityState->currentBucket;
+  }
+#endif
   sInterListWalk->init(sGravity, this);
 #else
   sTopDown->init(sGravity, this);
@@ -3506,7 +3742,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 #endif
 
 
-  while (i<_yieldPeriod && sRemoteGravityState->currentBucket < numBuckets
+  while (i<yield_num && sRemoteGravityState->currentBucket < numBuckets
   ) {
 #ifdef CHANGA_REFACTOR_WALKCHECK
     if(thisIndex == CHECK_INDEX && sRemoteGravityState->currentBucket == CHECK_BUCKET){
@@ -3599,12 +3835,29 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       // and that all particles under lowest node have used this chunk.
       GenericTreeNode *lowestNode = rstate->lowestNode;
       int startBucket, end;
-      int numActualBuckets = 0;
 
       getBucketsBeneathBounds(lowestNode, startBucket, end);
       CkAssert(sRemoteGravityState->currentBucket >= startBucket);
 
-      sGravity->stateReady(sRemoteGravityState, this, msg->chunkNum, sRemoteGravityState->currentBucket, end);
+      // When using ckloop to parallelize force calculation, first the list is
+      // populated with nodes and particles with which the force is calculated.
+      if (useckloop) {
+        lpdata->lowNodes.insertAtEnd(lowestNode);
+        lpdata->bucketids.insertAtEnd(sRemoteGravityState->currentBucket);
+
+        CkVec<OffsetNode> cl;
+        CkVec<RemotePartInfo> rp;
+        CkVec<LocalPartInfo> lp;
+        // Populate the remote, local list
+        sGravity->fillLists(sRemoteGravityState, this, msg->chunkNum,
+            sRemoteGravityState->currentBucket, end, cl, rp, lp);
+        lpdata->chunkids.insertAtEnd(msg->chunkNum);
+        lpdata->clists.insertAtEnd(cl);
+        lpdata->rpilists.insertAtEnd(rp);
+        lpdata->lpilists.insertAtEnd(lp);
+      } else {
+        sGravity->stateReady(sRemoteGravityState, this, msg->chunkNum, sRemoteGravityState->currentBucket, end);
+      }
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("active: memcheck after stateReady\n");
       CmiMemoryCheck();
@@ -3613,27 +3866,11 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 #if COSMO_PRINT_BK > 1 
       CkPrintf("[%d] active remote bucket book-keep current: %d end: %d chunk: %d\n", thisIndex, sRemoteGravityState->currentBucket, end, msg->chunkNum);
 #endif
-      for(int j = sRemoteGravityState->currentBucket; j < end; j++){
-        // see comment in nextBucket for the reason why
-        // this decrement is performed for the cuda version
-        sRemoteGravityState->counterArrays[0][j]--;
-#if COSMO_PRINT_BK > 1
-        CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", thisIndex, j, sRemoteGravityState->counterArrays[0][j], sLocalGravityState->counterArrays[0][j]);
-#endif
 
-#ifdef CUDA
-        if(bucketList[j]->rungs < activeRung){
-#endif
-          finishBucket(j);
-#ifdef CUDA
-        }
-#endif
+      int numActualBuckets = doBookKeepingForTargetActive(
+          sRemoteGravityState->currentBucket, end, msg->chunkNum, !useckloop,
+          sRemoteGravityState);
 
-        if(bucketList[j]->rungs >= activeRung){
-          numActualBuckets++;
-        }
-      }
-      sRemoteGravityState->counterArrays[1][msg->chunkNum] -= (end-sRemoteGravityState->currentBucket);
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("active: memcheck after book-keeping\n");
       CmiMemoryCheck();
@@ -3647,28 +3884,8 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
     }// end if target active
 #if INTERLIST_VER > 0
     else{
-      // target was not active, so tree under lca has
-      // not been processed. look for next active bucket
-      // keep moving forward until an active bucket is reached
-      // all (inactive) buckets encountered meanwhile are
-      // finished
-      int bucketsSkipped = 0;
-      // prevRemoteBucket keeps track of last *active* bucket
-      // if it is -1, the lca turns out to be chunkroot
-      // otherwise, the lca is some other valid node
-#if COSMO_PRINT_BK > 1 
-      CkPrintf("[%d] inactive remote bucket book-keep chunk: %d\n", thisIndex, msg->chunkNum);
-#endif
-      while(sRemoteGravityState->currentBucket < numBuckets && bucketList[sRemoteGravityState->currentBucket]->rungs < activeRung){
-        sRemoteGravityState->counterArrays[0][sRemoteGravityState->currentBucket]--;
-#if COSMO_PRINT_BK > 1
-        CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", thisIndex, sRemoteGravityState->currentBucket, sRemoteGravityState->counterArrays[0][sRemoteGravityState->currentBucket], sLocalGravityState->counterArrays[0][sRemoteGravityState->currentBucket]);
-#endif
-        finishBucket(sRemoteGravityState->currentBucket);
-        bucketsSkipped++;
-        sRemoteGravityState->currentBucket++;
-      }
-      sRemoteGravityState->counterArrays[1][msg->chunkNum] -= bucketsSkipped;
+      doBookKeepingForTargetInactive(msg->chunkNum, !useckloop,
+          sRemoteGravityState);
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("inactive: memcheck after book-keeping (prevRemote: %d, current: %d, chunk: %d)\n", prevRemoteBucket, sRemoteGravityState->currentBucket, msg->chunkNum);
       CmiMemoryCheck();
@@ -3688,6 +3905,14 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 #endif
   }// end while i < yieldPeriod and currentRemote Bucket < numBuckets
 
+
+  if (useckloop) {
+    // Now call ckloop parallelization function which will execute the force
+    // calculation in parallel and update the counterArrays.
+    executeCkLoopParallelization(lpdata, tmpBucketBegin, yield_num, msg->chunkNum,
+      sRemoteGravityState);
+    delete lpdata;
+  }
 
   if (sRemoteGravityState->currentBucket < numBuckets) {
     thisProxy[thisIndex].calculateGravityRemote(msg);
@@ -3778,6 +4003,149 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 #endif
     delete msg;
   }
+}
+
+int TreePiece::doBookKeepingForTargetActive(int curbucket, int end,
+    int chunkNum, bool updatestate, State* gravityState) {
+  int numActualBuckets = 0;
+
+  for(int j = curbucket; j < end; j++){
+    // counterArrays are not updated yet and finishBucket is not called for
+    // ckloop parallelization at this point. It is done only after the
+    // ckloop execution is completed.
+    if (updatestate) {
+      // for the cuda version, must decrement here
+      // since we add to numAdditionalReqs for a bucket
+      // each time a work request involving it is sent out.
+      // the per bucket, per chunk counts are balanced as follows:
+      // initialize in startiteration: +1
+      // for request sent to gpu: +1
+      // initial walk completed: -1 (this is where we are in the code currently) 
+      // for each request completed: -1 (this happens in cudaCallback)
+      gravityState->counterArrays[0][j]--;
+#if COSMO_PRINT_BK > 1
+      CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", thisIndex, j, sRemoteGravityState->counterArrays[0][j], sLocalGravityState->counterArrays[0][j]);
+#endif
+
+#ifdef CUDA
+      if(bucketList[j]->rungs < activeRung){
+#endif
+        finishBucket(j);
+#ifdef CUDA
+      }
+#endif
+    }
+
+    if(bucketList[j]->rungs >= activeRung){
+      numActualBuckets++;
+    }
+  }
+  if (updatestate && chunkNum >= 0) {
+    gravityState->counterArrays[1][chunkNum] -= (end-curbucket);
+  }
+  return numActualBuckets;
+}
+
+int TreePiece::doBookKeepingForTargetInactive(int chunkNum, bool updatestate,
+    State* gravityState) {
+  // target was not active, so tree under lca has
+  // not been processed. look for next active bucket
+  // keep moving forward until an active bucket is reached
+  // all (inactive) buckets encountered meanwhile are
+  // finished
+  int bucketsSkipped = 0;
+  // prevRemoteBucket keeps track of last *active* bucket
+  // if it is -1, the lca turns out to be chunkroot
+  // otherwise, the lca is some other valid node
+#if COSMO_PRINT_BK > 1 
+  CkPrintf("[%d] inactive remote bucket book-keep chunk: %d\n", thisIndex, chunkNum);
+#endif
+  while(gravityState->currentBucket < numBuckets &&
+        bucketList[gravityState->currentBucket]->rungs < activeRung){
+    if (updatestate) {
+      gravityState->counterArrays[0][gravityState->currentBucket]--;
+      finishBucket(gravityState->currentBucket);
+    }
+#if COSMO_PRINT_BK > 1
+    CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", thisIndex, sRemoteGravityState->currentBucket, sRemoteGravityState->counterArrays[0][sRemoteGravityState->currentBucket], sLocalGravityState->counterArrays[0][sRemoteGravityState->currentBucket]);
+#endif
+    bucketsSkipped++;
+    gravityState->currentBucket++;
+  }
+
+  if (updatestate && chunkNum >= 0) {
+    gravityState->counterArrays[1][chunkNum] -= bucketsSkipped;
+  }
+  return bucketsSkipped;
+}
+
+
+// Execute using ckloop.
+// lpdata contains the required data
+// startbucket the bucket storing the value to which currentBucket needs to be
+// reset
+// chunkNum is the chunk of the remote walk we are on
+// gravityState contains the state of the walk
+void TreePiece::executeCkLoopParallelization(LoopParData *lpdata,
+    int startbucket, int yield_num, int chunkNum, State* gravityState) {
+  // This num_chunks is related to ckloop.
+  int num_chunks = 2 * CkMyNodeSize();
+  // CkLoop library limits the number of chunks to be 64.
+  if (num_chunks > 64) {
+    num_chunks = 64;
+  }
+
+  int start = 0;
+  int end = lpdata->bucketids.length();
+
+  if (num_chunks > end) {
+    num_chunks = end;
+  }
+
+  if (num_chunks > 0) {
+    double timebeforeckloop = getObjTime();
+    double timeforckloop;
+    LBTurnInstrumentOff();
+    CkLoop_Parallelize(doWorkForCkLoop, 1, lpdata, num_chunks, start, end-1, 1, &timeforckloop, CKLOOP_DOUBLE_SUM);
+    setObjTime(timebeforeckloop + timeforckloop);
+    LBTurnInstrumentOn();
+  }
+
+  int i = 0;
+  int counter = 0;
+  gravityState->currentBucket = startbucket;
+
+  // Do bookkeeping to update counterArray state
+  while (i< yield_num && gravityState->currentBucket < numBuckets ) {
+    // Interlist and normal versions both have 'target' nodes
+    GenericTreeNode *target = bucketList[gravityState->currentBucket];
+
+    if (target->rungs >= activeRung) {
+
+      // now that the walk has been completed, do some book-keeping
+      // keeping track of the fact that a chunk has been processed by some buckets
+      // and that all particles under lowest node have used this chunk.
+      GenericTreeNode *lowestNode = lpdata->lowNodes[counter];
+      counter++;
+
+      int start, end;
+
+      getBucketsBeneathBounds(lowestNode, start, end);
+      CkAssert(gravityState->currentBucket >= start);
+      int numActualBuckets =
+      doBookKeepingForTargetActive(gravityState->currentBucket, end,
+          chunkNum, true, gravityState);
+
+      if (chunkNum >= 0) // Remote walks only
+        prevRemoteBucket = gravityState->currentBucket;
+      gravityState->currentBucket = end;
+      i += numActualBuckets;
+
+    }// end if target active
+    else{
+      doBookKeepingForTargetInactive(chunkNum, true, gravityState);
+    }
+  }// end while i < yieldPeriod and currentRemote Bucket < numBuckets
 }
 
 #ifdef CUDA
@@ -4071,11 +4439,14 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   cacheNode.ckLocalBranch()->cacheSync(numChunks, idxMax, localIndex);
   cacheGravPart.ckLocalBranch()->cacheSync(numChunks, idxMax, dummy);
 
+  nodeLBMgrProxy.ckLocalBranch()->registerTP();
+
   if (myNumParticles == 0) {
     // No particles assigned to this TreePiece
     for (int i=0; i< numChunks; ++i) {
       cacheGravPart.ckLocalBranch()->finishedChunk(i, 0);
     }
+    nodeLBMgrProxy.ckLocalBranch()->finishedTPWork();
     CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
     gravityProxy[thisIndex].ckLocal()->contribute(cbf);
     return;
@@ -4529,32 +4900,12 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
                       );
   */
 
-  if(foundLB == Multistep){
-    CkCallback cbk(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
+  if (CkpvAccess(_lb_obj_index) != -1) {
+    void *data = getObjUserData(CkpvAccess(_lb_obj_index));
+    *(TaggedVector3D *) data = tv;
   }
-  else if(foundLB == Orb3d){
-    CkCallback cbk(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
-  }
-  else if(foundLB == Multistep_notopo){
-    CkCallback lbcb(CkIndex_MultistepLB_notopo::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-  }
-  else if(foundLB == Orb3d_notopo){
-    CkCallback cbk(CkIndex_Orb3dLB_notopo::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, cbk);
-  }
-  else if(foundLB == MultistepOrb){
-    CkCallback lbcb(CkIndex_MultistepOrbLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-  }
-  else if(activeRung == 0) {
-    doAtSync();
-  }
-  else {
-    contribute(cb);  // Skip the load balancer
-  }
+  thisProxy[thisIndex].doAtSync();
+
   prevLARung = activeRung;
 }
 
@@ -4568,6 +4919,7 @@ void TreePiece::ResumeFromSync(){
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d in ResumefromSync\n",CkMyPe(),thisIndex);
   contribute(callback);
+  nodeLBMgrProxy.ckLocalBranch()->registerTP();
 }
 
 const GenericTreeNode *TreePiece::lookupNode(Tree::NodeKey key){
@@ -5450,6 +5802,7 @@ void TreePiece::markWalkDone() {
 #ifdef CHECK_WALK_COMPLETIONS
         CkPrintf("[%d] inside markWalkDone, completedActiveWalks: %d, activeWalks: %d, contrib finishWalk\n", thisIndex, completedActiveWalks, activeWalks.size());
 #endif
+    nodeLBMgrProxy.ckLocalBranch()->finishedTPWork();
 	CkCallback cb = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
 	gravityProxy[thisIndex].ckLocal()->contribute(cb);
 	}
@@ -5717,8 +6070,10 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   string msname("MultistepLB");
   string orb3dname("Orb3dLB");
   string ms_notoponame("MultistepLB_notopo");
+  string msnode_notoponame("MultistepNodeLB_notopo");
   string orb3d_notoponame("Orb3dLB_notopo");
   string msorb_name("MultistepOrbLB");
+  string hierarch_name("HierarchOrbLB");
 
   BaseLB **lbs = lbdb->getLoadBalancers();
   int i;
@@ -5741,6 +6096,11 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
         foundLB = Multistep_notopo;
         break;
       }
+     else if(msnode_notoponame == string(lbs[i]->lbName())){ 
+        proxy = lbs[i]->getGroupID();
+        foundLB = MultistepNode_notopo;
+        break;
+      }
      else if(msorb_name == string(lbs[i]->lbName())){ 
         proxy = lbs[i]->getGroupID();
         foundLB = MultistepOrb;
@@ -5749,41 +6109,20 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
       else if(orb3d_notoponame == string(lbs[i]->lbName())){
       	proxy = lbs[i]->getGroupID();
         foundLB = Orb3d_notopo;
-	proxy = lbs[i]->getGroupID();
         break;
+      } else if(hierarch_name == string(lbs[i]->lbName())) {
+        proxy = lbs[i]->getGroupID();
+        foundLB = HierarchOrb;
       }
     }
   }
 
-  if(foundLB == Multistep){
-    CkCallback lbcb(CkIndex_MultistepLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
+  if (CkpvAccess(_lb_obj_index) != -1) {
+    void *data = getObjUserData(CkpvAccess(_lb_obj_index));
+    *(TaggedVector3D *)data = tv;
   }
-  else if(foundLB == Orb3d){
-    CkCallback lbcb(CkIndex_Orb3dLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-  }
-  else if(foundLB == Multistep_notopo){
-    CkCallback lbcb(CkIndex_MultistepLB_notopo::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-  }
-  else if(foundLB == Orb3d_notopo){
-    CkCallback lbcb(CkIndex_Orb3dLB_notopo::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-  }
-  else if(foundLB == MultistepOrb){
-    CkCallback lbcb(CkIndex_MultistepOrbLB::receiveCentroids(NULL), 0, proxy);
-    contribute(sizeof(TaggedVector3D), (char *)&tv, CkReduction::concat, lbcb);
-  }
-  else if(foundLB == Null){ 
-    // none of the balancers requiring centroids found; go
-    // straight to AtSync()
-    // At the moment there is no load data: we would have to supply
-    // some load data (like particle count) if we want this to work well.
-    //  doAtSync();
-      contribute(cb);
-      return;
-  }
+  thisProxy[thisIndex].doAtSync();
+
   // this will be called in resumeFromSync()
   callback = cb;
 }

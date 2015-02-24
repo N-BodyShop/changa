@@ -27,7 +27,7 @@ class PETreeMerger : public CBase_PETreeMerger {
 
   private:
 
-  GenericTreeNode *mergeWalk(CkVec<GenericTreeNode*> &mergeList, CkVec<TreePiece*> &treePieceList);
+  void mergeWalk(CkVec<GenericTreeNode*> &mergeList, CkVec<TreePiece*> &treePieceList);
   void requestNonLocalMoments(GenericTreeNode *pickedNode, TreePiece *pickedTreePiece);
 
 };
