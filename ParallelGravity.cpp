@@ -2285,6 +2285,8 @@ void Main::setupICs() {
 #endif
 #ifdef NO_LOWT_METAL
   ofsLog << " NO_LOWT_METAL";
+#ifdef COOLING_MOLECULARH
+  ofsLog << " COOLING_MOLECULARH";
 #endif
 #ifdef DIFFUSION
   ofsLog << " DIFFUSION";
