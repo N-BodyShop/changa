@@ -8,8 +8,6 @@
 // jetley
 #include "limits.h"
 
-//#include "ComlibManager.h"
-
 #include "ParallelGravity.h"
 #include "DataManager.h"
 #include "Reductions.h"

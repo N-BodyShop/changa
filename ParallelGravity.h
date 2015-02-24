@@ -1277,7 +1277,6 @@ public:
 	  treePieceLoad(0.0), treePieceLoadTmp(0.0), treePieceLoadExp(0.0),
     treePieceActivePartsTmp(0) {
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
-	  // ComlibDelegateProxy(&streamingProxy);
 	  dm = NULL;
 	  foundLB = Null; 
 	  iterationNo=0;
