@@ -2791,9 +2791,11 @@ bool LocalLymanWernerDistributor::work(GenericTreeNode *node, int level){
 	if (fDistance2 < part[i-node->firstParticle].fSoft0*part[i-node->firstParticle].fSoft0*0.25) {
 	  fDistance2 = part[i-node->firstParticle].fSoft0*part[i-node->firstParticle].fSoft0*0.25;
 	}
-	COOLPARTICLE cp = part[i-node->firstParticle].CoolParticle();
-	cp.dLymanWerner = node->moments.totalLW - log10(4.0*M_PI*fDistance2);
-	part[i-node->firstParticle].CoolParticle() = cp;
+        double dLymanWerner = node->moments.totalLW - log10(4.0*M_PI*fDistance2);
+	part[i-node->firstParticle].CoolParticle().dLymanWerner = dLymanWerner;
+#ifdef SUPERBUBBLE
+	part[i-node->firstParticle].CoolParticleHot().dLymanWerner = dLymanWerner;
+#endif
       }
     }
     return false;
