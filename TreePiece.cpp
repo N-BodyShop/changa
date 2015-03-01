@@ -1964,6 +1964,9 @@ void TreePiece::emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
             p->velocity = p->vPred();
 #ifndef COOLING_NONE
             p->u() = p->uPred();
+#ifdef SUPERBUBBLE
+            p->uHot() = p->uHotPred();
+#endif
 #endif
 #ifdef DIFFUSION
             p->fMetals() = p->fMetalsPred();
@@ -2054,6 +2057,21 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 		  // of timescale u/uDot.
 		  else p->uPred() = uold*exp(p->uDot()*duDelta/uold);
 		  }
+#ifdef SUPERBUBBLE
+              p->uHotPred() += p->uHotDot()*duDelta;
+	      if (p->uHotPred() < 0) {
+		  // Backout the update to upred
+		  double uold = p->uHotPred() - p->uHotDot()*duDelta;
+		  // uold could be negative because of round-off
+		  // error.  If this is the case then uDot*Delta/u is
+		  // large, the final uPred will be zero.
+		  if(uold <= 0.0) p->uPred() = 0.0;
+		  // Cooling rate is large: use an exponential decay
+		  // of timescale u/uDot.
+		  else p->uHotPred() = uold*exp(p->uHotDot()*duDelta/uold);
+		  }
+              CkAssert(p->uHotPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+#endif
 #else
 	      p->uPred() += p->PdV()*duDelta;
 	      if (p->uPred() < 0) {
