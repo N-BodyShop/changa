@@ -145,13 +145,13 @@ typedef struct _ParameterStruct{
 }ParameterStruct;
 
 #ifdef CUDA_INSTRUMENT_WRS
-void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase);
+void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase, void *wrCallback);
 void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase);
 void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart, int pe, char phase);
 void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart, int pe, char phase);
 void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, bool, bool, int pe, char phase);
 #else
-void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype);
+void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, void *wrCallback);
 void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts);
 void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart);
 void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart);

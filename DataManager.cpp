@@ -523,6 +523,33 @@ void DataManager::serializeLocalTree(){
     double starttime = CmiWallTimer();
 #endif
     serializeLocal(root);
+  }
+  CmiUnlock(__nodelock);
+}
+
+void DataManager::transferLocalTreeCallback() {
+#ifdef CUDA
+    void **devBuffers = getdevBuffers();
+    void *localMoments = devBuffers[LOCAL_MOMENTS];
+    void *localParticleCores = devBuffers[LOCAL_PARTICLE_CORES];
+    void *localParticleVars = devBuffers[LOCAL_PARTICLE_VARS];
+    int basePE = CkMyPe() % CkNodeSize();
+
+    for (int i = basePE; i < basePE + CkNodeSize(); i++) {
+      if (i != CkMyPe()) {
+        dmHelperProxy[i].populateDeviceBufferTable((intptr_t) localMoments, (intptr_t) localParticleCores, (intptr_t) localParticleVars);
+      }
+    }
+#endif
+}
+
+void DataManager::resumeRemoteChunk() {
+#ifdef CUDA
+  CmiLock(__nodeLock);
+  treePiecesDone++;
+  if(treePiecesDone == registeredTreePieces.length()){
+    treePiecesDone = 0;
+
 #ifdef CUDA_TRACE
     traceUserBracketEvent(CUDA_SER_TREE, starttime, CmiWallTimer());
 #endif
@@ -537,6 +564,7 @@ void DataManager::serializeLocalTree(){
     }
   }
   CmiUnlock(__nodelock);
+#endif
 }
 
 void DataManager::donePrefetch(int chunk){
@@ -843,11 +871,14 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 #if COSMO_PRINT_BK > 1
   CkPrintf("(%d): DM->GPU local tree\n", CkMyPe());
 #endif
+
+  CkCallback *localTransferCallback = new CkCallback(CkIndex_DataManager::transferLocalTreeCallback(NULL), CkMyPe(), thisProxy);
+
   // Transfer moments and particle cores to gpu
 #ifdef CUDA_INSTRUMENT_WRS
-  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, 0, activeRung);
+  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, 0, activeRung, (void *) localTransferCallback);
 #else
-  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, CkMyPe());
+  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, CkMyPe(), (void *) localTransferCallback);
 #endif
 
 }// end serializeLocal

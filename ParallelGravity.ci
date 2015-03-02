@@ -12,6 +12,9 @@ mainmodule ParallelGravity {
 #ifdef REDUCTION_HELPER
   readonly CProxy_ReductionHelper reductionHelperProxy;
 #endif
+#ifdef CUDA
+  readonly CProxy_DataManagerHelper dmHelperProxy;
+#endif
   readonly CProxy_LvArray lvProxy;
   readonly CProxy_LvArray smoothProxy;
   readonly CProxy_LvArray gravityProxy;
@@ -209,7 +212,16 @@ mainmodule ParallelGravity {
     entry void memoryStats(const CkCallback& cb);
     entry void resetReadOnly(Parameters param, const CkCallback &cb);
     entry void initStarLog(std::string _fileName, const CkCallback &cb);
+    entry void transferLocalTreeCallback();
   };
+
+#ifdef CUDA
+  group [migratable] DataManagerHelper {
+    entry DataManagerHelper();
+
+    entry void populateDeviceBufferTable(intptr_t localMoments, intptr_t localParticleCores, intptr_t localParticleVars);
+  }
+#endif
 
   array [1D] TreePiece {
     entry TreePiece();
