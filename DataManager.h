@@ -151,6 +151,9 @@ public:
 	DataManager(const CkArrayID& treePieceID);
 	DataManager(CkMigrateMessage *);
 
+
+        void transferLocalTreeCallback();
+        void resumeRemoteChunk();
 #ifdef CUDA
         //void serializeNodes(GenericTreeNode *start, CudaMultipoleMoments *&postPrefetchMoments, CompactPartData *&postPrefetchParticles);
 		//void serializeNodes(GenericTreeNode *start);
@@ -303,5 +306,23 @@ class ProjectionsControl : public CBase_ProjectionsControl {
   }
 }; 
 
+class DataManagerHelper : public CBase_DataManagerHelper {
+  public:
+
+  DataManagerHelper() {}
+  DataManagerHelper(CkMigrateMessage *m) : CBase_DataManagerHelper(m) {}
+
+  void populateDeviceBufferTable(intptr_t localMoments, intptr_t localParticleCores, intptr_t localParticleVars) {
+    void **devBuffers = getdevBuffers();
+    devBuffers[LOCAL_MOMENTS] = (void *) localMoments;
+    devBuffers[LOCAL_PARTICLE_CORES] = (void *) localParticleCores;
+    devBuffers[LOCAL_PARTICLE_VARS] = (void *) localParticleVars;
+  }
+
+  void pup(PUP::er &p){
+    CBase_DataManagerHelper::pup(p);
+  }
+
+};
 
 #endif //DATAMANAGER_H
