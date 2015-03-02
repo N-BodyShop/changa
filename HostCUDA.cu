@@ -83,9 +83,9 @@ void freePinnedHostMemory(void *ptr){
 }
 
 #ifdef CUDA_INSTRUMENT_WRS
-void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase) {
+void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase, void *wrCallback) {
 #else
-void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype) {
+  void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, void *wrCallback) {
 #endif
 
 	workRequest transferKernel;
@@ -99,7 +99,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
 
 	transferKernel.nBuffers = DM_TRANSFER_LOCAL_NBUFFERS;
 
-	/* schedule two buffers for transfer to the GPU */
+	/* schedule buffers for transfer to the GPU */
 	transferKernel.bufferInfo = (dataInfo *) malloc(transferKernel.nBuffers * sizeof(dataInfo));
 
 	buf = &(transferKernel.bufferInfo[LOCAL_MOMENTS_IDX]);
@@ -198,7 +198,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
           buf->hostBuffer = NULL;
         }
 
-	transferKernel.callbackFn = 0;
+	transferKernel.callbackFn = wrCallback;
 	transferKernel.id = DM_TRANSFER_LOCAL;
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("(%d) DM LOCAL TREE moments %d (%d) partcores %d (%d) partvars %d (%d)\n",
