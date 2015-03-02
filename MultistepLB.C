@@ -98,6 +98,8 @@ void MultistepLB::work(BaseLB::LDStats* stats)
   }
 
   for(int i = 0; i < stats->n_objs; i++){
+    if (!stats->objData[i].migratable) continue;
+
     LDObjData &odata = stats->objData[i];
     TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
 
