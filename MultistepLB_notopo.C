@@ -71,6 +71,7 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
       CkAssert(fp != NULL);
       fprintf(fp, "%d %d 0\n", stats->n_objs, stats->n_objs);
       for(int i = 0; i < stats->n_objs; i++) {
+        if (!stats->objData[i].migratable) continue;
 
       LDObjData &odata = stats->objData[i];
       TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
@@ -99,6 +100,8 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
   }
 
   for(int i = 0; i < stats->n_objs; i++){
+    if (!stats->objData[i].migratable) continue;
+
     LDObjData &odata = stats->objData[i];
     TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
 
@@ -124,6 +127,8 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
   if(numInactiveObjects < 1.0*numActiveObjects) {
     // insignificant number of inactive objects; migrate them anyway
     for(int i = 0; i < stats->n_objs; i++){
+      if (!stats->objData[i].migratable) continue;
+
       LDObjData &odata = stats->objData[i];
       TaggedVector3D* udata =
         (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
@@ -315,6 +320,8 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count){
       CkAssert(fp != NULL);
       fprintf(fp, "%d %d 0\n", numobjs, numobjs);
       for(int i = 0; i < numobjs; i++) {
+        if(!stats->objData[i].migratable) continue;
+
     LDObjData &odata = stats->objData[i];
     TaggedVector3D* udata =
       (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));

@@ -68,6 +68,8 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
   else{
 
     for(int i = 0; i < stats->n_objs; i++){
+      if (!odata.migrations) continue;
+
       float load;
       load = stats->objData[i].wallTime;
 
@@ -122,7 +124,9 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
 	FILE *fp = fopen(achFileName, "w");
 	CkAssert(fp != NULL);
 	fprintf(fp, "%d %d 0\n", numobjs, numobjs);
-	for(int i = 0; i < numobjs; i++) {
+    for(int i = 0; i < numobjs; i++) {
+      if (!stats->objData[i].migratable) continue;
+
 	    CkAssert(tps[i].lbindex < stats->n_objs);
 	    CkAssert(tps[i].lbindex >= 0);
 	    fprintf(fp, "%g %g %g %g 0.0 0.0 0.0 %d 0.0\n",
