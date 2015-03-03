@@ -30,6 +30,8 @@ struct TreePieceDescriptor{
 };
 
 #ifdef CUDA
+extern void **getdevBuffers();
+
 struct UpdateParticlesStruct{
   CkCallback *cb;
   DataManager *dm;
@@ -151,8 +153,8 @@ public:
 	DataManager(const CkArrayID& treePieceID);
 	DataManager(CkMigrateMessage *);
 
-
         void transferLocalTreeCallback();
+
         void resumeRemoteChunk();
 #ifdef CUDA
         //void serializeNodes(GenericTreeNode *start, CudaMultipoleMoments *&postPrefetchMoments, CompactPartData *&postPrefetchParticles);
@@ -313,10 +315,12 @@ class DataManagerHelper : public CBase_DataManagerHelper {
   DataManagerHelper(CkMigrateMessage *m) : CBase_DataManagerHelper(m) {}
 
   void populateDeviceBufferTable(intptr_t localMoments, intptr_t localParticleCores, intptr_t localParticleVars) {
+#ifdef CUDA
     void **devBuffers = getdevBuffers();
     devBuffers[LOCAL_MOMENTS] = (void *) localMoments;
     devBuffers[LOCAL_PARTICLE_CORES] = (void *) localParticleCores;
     devBuffers[LOCAL_PARTICLE_VARS] = (void *) localParticleVars;
+#endif
   }
 
   void pup(PUP::er &p){
