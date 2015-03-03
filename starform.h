@@ -60,8 +60,8 @@ inline void Stfm::pup(PUP::er &p) {
     p|bGasCooling;
     }
 
+/** @brief Holds statistics of the star formation event */
 class StarLogEvent
-	/* Holds statistics of the star formation event */
 {
  public:
     int iOrdStar;
@@ -96,6 +96,7 @@ class StarLogEvent
 	}
     };
 
+/** @brief Log of star formation events to be written out to a file */
 class StarLog : public PUP::able
 {
  public:

@@ -271,6 +271,11 @@ inline static void setBIconfig()
 #endif
 }
 
+/** @brief Control recording of Charm++ projections logs
+ *
+ *  The constructors for this class are also used to set default
+ *  node-wide communication parameters.
+ */
 class ProjectionsControl : public CBase_ProjectionsControl { 
   public: 
   ProjectionsControl() {

@@ -4795,6 +4795,7 @@ void TreePiece::startRemoteChunk() {
 void TreePiece::continueStartRemoteChunk(int chunk){
   // FIXME - can value of chunk be different from current Prefetch?
   ComputeChunkMsg *msg = new (8*sizeof(int)) ComputeChunkMsg(sPrefetchState->currentBucket);
+  // N.B. currentBucket is actually current Chunk in PrefetchState
   *(int*)CkPriorityPtr(msg) = numTreePieces * sPrefetchState->currentBucket + thisIndex + 1;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
 
