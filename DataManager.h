@@ -293,10 +293,16 @@ class ProjectionsControl : public CBase_ProjectionsControl {
 }; 
 
 class DataManagerHelper : public CBase_DataManagerHelper {
+  private:
+    int countLocalPes;
   public:
 
-  DataManagerHelper() {}
-  DataManagerHelper(CkMigrateMessage *m) : CBase_DataManagerHelper(m) {}
+  DataManagerHelper() { countLocalPes = 0;}
+  DataManagerHelper(CkMigrateMessage *m) : CBase_DataManagerHelper(m) {
+    countLocalPes = 0;
+  }
+
+  void transferLocalTreeCallback();
 
   void populateDeviceBufferTable(intptr_t localMoments, intptr_t localParticleCores, intptr_t localParticleVars) {
 #ifdef CUDA
@@ -304,11 +310,16 @@ class DataManagerHelper : public CBase_DataManagerHelper {
     devBuffers[LOCAL_MOMENTS] = (void *) localMoments;
     devBuffers[LOCAL_PARTICLE_CORES] = (void *) localParticleCores;
     devBuffers[LOCAL_PARTICLE_VARS] = (void *) localParticleVars;
+    int basePE = CkMyPe() - CkMyPe() % CkMyNodeSize();
+    thisProxy[basePE].finishDevBufferSync();
 #endif
   }
 
+  void finishDevBufferSync();
+
   void pup(PUP::er &p){
     CBase_DataManagerHelper::pup(p);
+    countLocalPes = 0;
   }
 
 };

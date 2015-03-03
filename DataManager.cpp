@@ -528,12 +528,9 @@ void DataManager::serializeLocalTree(){
 }
 
 void DataManager::resumeRemoteChunk() {
+  CkPrintf("[%d] resumeRemoteChunk\n", CkMyPe());
 #ifdef CUDA
-  CmiLock(__nodelock);
-  treePiecesDone++;
-  if(treePiecesDone == registeredTreePieces.length()){
-    treePiecesDone = 0;
-
+  CkPrintf("[%d] resumeRemoteChunk cuda\n", CkMyPe());
 #ifdef CUDA_TRACE
     traceUserBracketEvent(CUDA_SER_TREE, starttime, CmiWallTimer());
 #endif
@@ -546,8 +543,6 @@ void DataManager::resumeRemoteChunk() {
 #endif
       treePieces[in].commenceCalculateGravityLocal();
     }
-  }
-  CmiUnlock(__nodelock);
 #endif
 }
 
@@ -773,23 +768,6 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
 
 }// end serializeNodes
 
-void DataManager::transferLocalTreeCallback() {
-#ifdef CUDA
-  void **devBuffers = getdevBuffers();
-  void *localMoments = devBuffers[LOCAL_MOMENTS];
-  void *localParticleCores = devBuffers[LOCAL_PARTICLE_CORES];
-  void *localParticleVars = devBuffers[LOCAL_PARTICLE_VARS];
-  int basePE = CkMyPe() - CkMyPe() % CkMyNodeSize();
-
-  for (int i = basePE; i < basePE + CkMyNodeSize(); i++) {
-    if (i != CkMyPe()) {
-      dmHelperProxy[i].populateDeviceBufferTable((intptr_t) localMoments, (intptr_t) localParticleCores, (intptr_t) localParticleVars);
-    }
-  }
-#endif
-
-}
-
 void DataManager::serializeLocal(GenericTreeNode *node){
   CkQ<GenericTreeNode *> queue;
 
@@ -872,7 +850,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   CkPrintf("(%d): DM->GPU local tree\n", CkMyPe());
 #endif
 
-  CkCallback *localTransferCallback = new CkCallback(CkIndex_DataManager::transferLocalTreeCallback(), CkMyPe(), thisProxy);
+  CkCallback *localTransferCallback = new CkCallback(CkIndex_DataManagerHelper::transferLocalTreeCallback(), CkMyPe(), dmHelperProxy);
 
   // Transfer moments and particle cores to gpu
 #ifdef CUDA_INSTRUMENT_WRS
@@ -1108,4 +1086,32 @@ void DataManager::clearInstrument(CkCallback &cb){
 #endif
 }
 
+void DataManagerHelper::transferLocalTreeCallback() {
 
+  CkPrintf("[%d] transferLocalTreeCallback\n", CkMyPe());
+#ifdef CUDA
+  void **devBuffers = getdevBuffers();
+  void *localMoments = devBuffers[LOCAL_MOMENTS];
+  void *localParticleCores = devBuffers[LOCAL_PARTICLE_CORES];
+  void *localParticleVars = devBuffers[LOCAL_PARTICLE_VARS];
+  int basePE = CkMyPe() - CkMyPe() % CkMyNodeSize();
+
+  for (int i = basePE; i < basePE + CkMyNodeSize(); i++) {
+    if (i != CkMyPe()) {
+      dmHelperProxy[i].populateDeviceBufferTable((intptr_t) localMoments, (intptr_t) localParticleCores, (intptr_t) localParticleVars);
+    }
+  }
+
+  dmHelperProxy[basePE].finishDevBufferSync();
+#endif
+
+}
+
+void DataManagerHelper::finishDevBufferSync() {
+  CkPrintf("[%d] finishDevBufferSync\n", CkMyPe());
+  if (++countLocalPes == CkMyNodeSize() ) {
+    countLocalPes = 0;
+    DataManager *dm = (DataManager *) CkLocalBranch(dataManagerID);
+    dm->resumeRemoteChunk();
+  }
+}
