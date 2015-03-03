@@ -1543,7 +1543,17 @@ void Main::advanceBigStep(int iStep) {
       sorter.startSorting(dataManagerID, ddTolerance,
                         CkCallbackResumeThread(), bDoDD);
     } else {
-      treeProxy.unshuffleParticlesWoDD(CkCallbackResumeThread());
+      CkReductionMsg *isTPEmpty;
+      treeProxy.unshuffleParticlesWoDD(CkCallbackResumeThread((void*&)isTPEmpty));
+
+      // After shuffling of particles based on the previous splitter, if any
+      // TreePiece ends up with no particles, then startSorting needs to be
+      // called as we cannot handle the case where there are empty TreePieces in
+      // the middle.
+      if (*((int*)isTPEmpty->getData())) {
+        sorter.startSorting(dataManagerID, ddTolerance,
+            CkCallbackResumeThread(), bDoDD);
+      }
     }
     /*
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -2053,6 +2063,10 @@ Main::restart()
 		    "Opening angle after switchTheta");
         prmAddParam(prm, "dEta", paramDouble, &param.dEta,
                     sizeof(double),"eta", "Time integration accuracy");
+	prmAddParam(prm,"dEtaCourant",paramDouble,&param.dEtaCourant,
+		    sizeof(double),"etaC", "<Courant criterion> = 0.4");
+	prmAddParam(prm,"dEtauDot",paramDouble,&param.dEtauDot,
+		    sizeof(double),"etau", "<uDot criterion> = 0.25");
 	prmAddParam(prm,"nIOProcessor",paramInt,&param.nIOProcessor,
 		    sizeof(int), "npio",
 		    "number of simultaneous I/O processors = 0 (all)");

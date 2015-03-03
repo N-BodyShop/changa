@@ -827,6 +827,7 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
 	    }
         }
     deleteField(fh, data);
+  if(ncGetCount(filename + "/OxMassFrac") > 0) {
     // Oxygen
     if(verbosity && startParticle == 0)
         CkPrintf("loading Oxygen\n");
@@ -846,6 +847,8 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
 	    }
         }
     deleteField(fh, data);
+  }
+  if(ncGetCount(filename + "/FeMassFrac") > 0) {
     // Iron
     if(verbosity && startParticle == 0)
         CkPrintf("loading Iron\n");
@@ -865,6 +868,7 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
 	    }
         }
     deleteField(fh, data);
+  }
     // Temperature
     if(verbosity && startParticle == 0)
         CkPrintf("loading temperature\n");
@@ -1153,6 +1157,7 @@ void TreePiece::readFloatBinary(OutputParams& params, int bParaRead,
     FieldHeader fh;
     void *data;
     int64_t startParticle = nStartRead;
+    params.dm = dm; // pass cooling information
     
     if((params.iType & TYPE_GAS) && (myNumSPH > 0)) {
         data = readFieldData(params.fileName + "/gas/" + params.sNChilExt, fh,

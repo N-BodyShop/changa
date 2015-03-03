@@ -8,8 +8,6 @@
 // jetley
 #include "limits.h"
 
-//#include "ComlibManager.h"
-
 #include "ParallelGravity.h"
 #include "DataManager.h"
 #include "Reductions.h"
@@ -132,7 +130,7 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 		     << boundingBox << endl;
 	//give particles keys, using bounding box to scale
 	if((domainDecomposition!=ORB_dec)
-	   && (domainDecomposition!=ORB_space_dec)){
+	   && (domainDecomposition!=ORB_space_dec) && myNumParticles > 0){
 	      // get longest axis
 	      Vector3D<float> bsize = boundingBox.size();
 	      float max = (bsize.x > bsize.y) ? bsize.x : bsize.y;
@@ -149,6 +147,8 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 		      ckout << "TreePiece: Bounding box now: "
 			   << boundingBox << endl;
 
+              myParticles[0].key = firstPossibleKey;
+              myParticles[myNumParticles+1].key = lastPossibleKey;
 	      for(unsigned int i = 0; i < myNumParticles; ++i) {
 		myParticles[i+1].key = generateKey(myParticles[i+1].position,
 						   boundingBox);
@@ -802,7 +802,12 @@ void TreePiece::shuffleAfterQD() {
     if(verbosity>1) ckout << thisIndex <<" no particles assigned"<<endl;
 
     deleteTree();
-    contribute(after_dd_callback);
+
+    int isTPEmpty = 0;
+    if (myPlace != -2) {
+      isTPEmpty = 1;
+    }
+    contribute(sizeof(int), &isTPEmpty, CkReduction::logical_or, after_dd_callback);
     if (myShuffleMsg != NULL) {
       delete myShuffleMsg;
     }
@@ -838,7 +843,9 @@ void TreePiece::shuffleAfterQD() {
   }
 
   deleteTree();
-  contribute(after_dd_callback);
+
+  int isTPEmpty = 0;
+  contribute(sizeof(int), &isTPEmpty, CkReduction::logical_or, after_dd_callback);
 }
 
 /*
@@ -1403,6 +1410,10 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 			  }
 #else /* COOLING_NONE */
 		      p->u() += p->PdV()*duDelta[p->rung];
+		      if (p->u() < 0) {
+			  double uold = p->u() - p->PdV()*duDelta[p->rung];
+			  p->u() = uold*exp(p->PdV()*duDelta[p->rung]/uold);
+			  }
 #endif /* COOLING_NONE */
 		      p->uPred() = p->u();
 		      }
@@ -1420,6 +1431,10 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 			  }
 #else /* COOLING_NONE */
 		      p->u() += p->PdV()*duDelta[p->rung];
+		      if (p->u() < 0) {
+			  double uold = p->u() - p->PdV()*duDelta[p->rung];
+			  p->u() = uold*exp(p->PdV()*duDelta[p->rung]/uold);
+			  }
 #endif /* COOLING_NONE */
 		      }
 		  }
@@ -1477,6 +1492,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
     if(p->rung >= iKickRung) {
       CkAssert(p->soft > 0.0);
       double dTIdeal = dDelta;
+      double dTGrav, dTCourant, dTEdot;
       if(bEpsAccStep) {
 	  double acc = dAccFac*p->treeAcceleration.length();
 	  double dt;
@@ -1497,6 +1513,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 #endif
 	  else
 	      dt = dEta*sqrt(p->soft/acc);
+          dTGrav = dt;
 	  if(dt < dTIdeal)
 	      dTIdeal = dt;
 	  }
@@ -1516,6 +1533,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      }
 	  else
 	      dt = dEtaCourant*dCosmoFac*(ph/(1.6*p->c()));
+          dTCourant = dt;
 	  if(dt < dTIdeal)
 	      dTIdeal = dt;
 
@@ -1527,9 +1545,17 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      if (dt < dTIdeal) 
 		  dTIdeal = dt;
 	      }
+          dTEdot = dt;
 	  }
 
       int iNewRung = DtToRung(dDelta, dTIdeal);
+      if(iNewRung > 29) {
+	CkError("Small timestep dt: %g, soft: %g, accel: %g\n", dTIdeal, p->soft,
+		p->treeAcceleration.length());
+	if(p->isGas())
+		CkError("Small gas dt: %g, dtgrav: %g, dtcourant: %g, dtEdot: %g\n",
+			dTIdeal, dTGrav, dTCourant, dTEdot);
+	}
       if(iNewRung > MAXRUNG) {
 	CkError("dt: %g, soft: %g, accel: %g\n", dTIdeal, p->soft,
 		p->treeAcceleration.length());
@@ -2522,6 +2548,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   case Binary_Oct:
     pTreeNodes = new NodePool;
     root = pTreeNodes->alloc_one(1, numTreePieces>1?Tree::Boundary:Tree::Internal, 0, myNumParticles+1, 0);
+    root->particlePointer = &myParticles[1];
     break;
   case Oct_Oct:
     //root = new OctTreeNode(1, Tree::Boundary, 0, myNumParticles+1, 0);
@@ -3359,7 +3386,7 @@ void TreePiece::doAllBuckets(){
 #endif
 
   dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-  *((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + thisIndex + 1;
+  *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
   CkSetQueueing(msg,CK_QUEUEING_IFIFO);
   msg->val=0;
 
@@ -4795,8 +4822,7 @@ void TreePiece::startRemoteChunk() {
 void TreePiece::continueStartRemoteChunk(int chunk){
   // FIXME - can value of chunk be different from current Prefetch?
   ComputeChunkMsg *msg = new (8*sizeof(int)) ComputeChunkMsg(sPrefetchState->currentBucket);
-  // N.B. currentBucket is actually current Chunk in PrefetchState
-  *(int*)CkPriorityPtr(msg) = numTreePieces * sPrefetchState->currentBucket + thisIndex + 1;
+  *(int*)CkPriorityPtr(msg) = numTreePieces * numChunks + thisIndex + 1;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
 
 #if INTERLIST_VER > 0
