@@ -527,25 +527,9 @@ void DataManager::serializeLocalTree(){
   CmiUnlock(__nodelock);
 }
 
-void DataManager::transferLocalTreeCallback() {
-#ifdef CUDA
-    void **devBuffers = getdevBuffers();
-    void *localMoments = devBuffers[LOCAL_MOMENTS];
-    void *localParticleCores = devBuffers[LOCAL_PARTICLE_CORES];
-    void *localParticleVars = devBuffers[LOCAL_PARTICLE_VARS];
-    int basePE = CkMyPe() % CkNodeSize();
-
-    for (int i = basePE; i < basePE + CkNodeSize(); i++) {
-      if (i != CkMyPe()) {
-        dmHelperProxy[i].populateDeviceBufferTable((intptr_t) localMoments, (intptr_t) localParticleCores, (intptr_t) localParticleVars);
-      }
-    }
-#endif
-}
-
 void DataManager::resumeRemoteChunk() {
 #ifdef CUDA
-  CmiLock(__nodeLock);
+  CmiLock(__nodelock);
   treePiecesDone++;
   if(treePiecesDone == registeredTreePieces.length()){
     treePiecesDone = 0;
@@ -789,6 +773,22 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
 
 }// end serializeNodes
 
+void DataManager::transferLocalTreeCallback() {
+#ifdef CUDA
+  void **devBuffers = getdevBuffers();
+  void *localMoments = devBuffers[LOCAL_MOMENTS];
+  void *localParticleCores = devBuffers[LOCAL_PARTICLE_CORES];
+  void *localParticleVars = devBuffers[LOCAL_PARTICLE_VARS];
+  int basePE = CkMyPe() - CkMyPe() % CkMyNodeSize();
+
+  for (int i = basePE; i < basePE + CkMyNodeSize(); i++) {
+    if (i != CkMyPe()) {
+      dmHelperProxy[i].populateDeviceBufferTable((intptr_t) localMoments, (intptr_t) localParticleCores, (intptr_t) localParticleVars);
+    }
+  }
+#endif
+
+}
 
 void DataManager::serializeLocal(GenericTreeNode *node){
   CkQ<GenericTreeNode *> queue;
@@ -872,7 +872,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   CkPrintf("(%d): DM->GPU local tree\n", CkMyPe());
 #endif
 
-  CkCallback *localTransferCallback = new CkCallback(CkIndex_DataManager::transferLocalTreeCallback(NULL), CkMyPe(), thisProxy);
+  CkCallback *localTransferCallback = new CkCallback(CkIndex_DataManager::transferLocalTreeCallback(), CkMyPe(), thisProxy);
 
   // Transfer moments and particle cores to gpu
 #ifdef CUDA_INSTRUMENT_WRS
