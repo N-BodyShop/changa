@@ -234,6 +234,7 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
     root = buildProcessorTree(totalChares, &gtn[0]);
 
 #ifndef CUDA
+    CkPrintf("[%d] Clearing all registered tree pieces (NOT CUDA)\n", CkMyPe());
     registeredTreePieces.removeAll();
 #endif
 
@@ -522,21 +523,25 @@ void DataManager::serializeLocalTree(){
 #ifdef CUDA_TRACE
     double starttime = CmiWallTimer();
 #endif
+    CkPrintf("[%d] Registered tree pieces length: %d\n", CkMyPe(), registeredTreePieces.length());
     serializeLocal(root);
+    CkPrintf("[%d] Registered tree pieces length after serialize local: %d\n", CkMyPe(), registeredTreePieces.length());
   }
   CmiUnlock(__nodelock);
+
 }
 
 void DataManager::resumeRemoteChunk() {
-  CkPrintf("[%d] resumeRemoteChunk\n", CkMyPe());
+  CkPrintf("[%d] resumeRemoteChunk registered: %d\n", CkMyPe(), registeredTreePieces.length());
 #ifdef CUDA
-  CkPrintf("[%d] resumeRemoteChunk cuda\n", CkMyPe());
+
 #ifdef CUDA_TRACE
     traceUserBracketEvent(CUDA_SER_TREE, starttime, CmiWallTimer());
 #endif
     // resume each treepiece's startRemoteChunk, now that the nodes
     // are properly labeled and the particles accounted for
     for(int i = 0; i < registeredTreePieces.length(); i++){
+      CkPrintf("[%d] resumeRemoteChunk %d\n", CkMyPe(), i);
       int in = registeredTreePieces[i].treePiece->getIndex();
 #if COSMO_PRINT_BK > 1
       CkPrintf("(%d) dm->%d\n", CkMyPe(), in);
@@ -1059,6 +1064,7 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
     treePieces[registeredTreePieces[i].treePiece->getIndex()].continueWrapUp();
   }
 
+  CkPrintf("[%d] Clearing registered tree pieces\n", CkMyPe());
   registeredTreePieces.length() = 0;
   CmiUnlock(__nodelock); 
 }
@@ -1094,6 +1100,7 @@ void DataManagerHelper::transferLocalTreeCallback() {
   void *localMoments = devBuffers[LOCAL_MOMENTS];
   void *localParticleCores = devBuffers[LOCAL_PARTICLE_CORES];
   void *localParticleVars = devBuffers[LOCAL_PARTICLE_VARS];
+  CkPrintf("localMoments: %p, localParticleCores: %p, localParticleVars: %p\n", localMoments, localParticleCores, localParticleVars);
   int basePE = CkMyPe() - CkMyPe() % CkMyNodeSize();
 
   for (int i = basePE; i < basePE + CkMyNodeSize(); i++) {
@@ -1111,7 +1118,7 @@ void DataManagerHelper::finishDevBufferSync() {
   CkPrintf("[%d] finishDevBufferSync\n", CkMyPe());
   if (++countLocalPes == CkMyNodeSize() ) {
     countLocalPes = 0;
-    DataManager *dm = (DataManager *) CkLocalBranch(dataManagerID);
+    DataManager *dm = (DataManager *) CkLocalNodeBranch(dataManagerID);
     dm->resumeRemoteChunk();
   }
 }
