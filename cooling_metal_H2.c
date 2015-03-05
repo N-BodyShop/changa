@@ -3272,7 +3272,7 @@ void CoolInitEnergyAndParticleData( COOL *cl, COOLPARTICLE *cp, double *E, doubl
 	cp->f_HeI = 1.0;
 	cp->f_HeII = 0.0;
 	cp->f_H2 = 0.0;
-        cp->dLymanWerner = 0.0;
+    cp->dLymanWerner = 0.0;
 	double dLymanWerner = cp->dLymanWerner;
 	CoolPARTICLEtoPERBARYON(cl, &Y, cp, ZMetal);
 	CLRATES(cl,&r,dTemp,CodeDensityToComovingGmPerCc(cl,dDensity), ZMetal, columnL, dLymanWerner);
