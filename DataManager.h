@@ -331,6 +331,21 @@ class DataManagerHelper : public CBase_DataManagerHelper {
 
   void finishDevBufferSync();
 
+  void DataManagerHelper::purgeBufferTables(const CkCallback& cb) {
+#ifdef CUDA
+    void **devBuffers = getdevBuffers();
+    devBuffers[LOCAL_MOMENTS] = NULL;
+    devBuffers[LOCAL_PARTICLE_CORES] = NULL;
+    devBuffers[LOCAL_PARTICLE_VARS] = NULL;
+
+    void **hostBuffers = gethostBuffers();
+    hostBuffers[LOCAL_MOMENTS] = NULL;
+    hostBuffers[LOCAL_PARTICLE_CORES] = NULL;
+    hostBuffers[LOCAL_PARTICLE_VARS] = NULL;
+#endif
+    contribute(cb);
+  }
+
   void pup(PUP::er &p){
     CBase_DataManagerHelper::pup(p);
     countLocalPes = 0;
