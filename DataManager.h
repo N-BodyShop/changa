@@ -30,6 +30,7 @@ struct TreePieceDescriptor{
 };
 
 #ifdef CUDA
+extern void **gethostBuffers();
 extern void **getdevBuffers();
 
 struct UpdateParticlesStruct{
@@ -317,7 +318,7 @@ class DataManagerHelper : public CBase_DataManagerHelper {
 
   void finishDevBufferSync();
 
-  void DataManagerHelper::purgeBufferTables(const CkCallback& cb) {
+  void purgeBufferTables(const CkCallback& cb) {
 #ifdef CUDA
     void **devBuffers = getdevBuffers();
     devBuffers[LOCAL_MOMENTS] = NULL;

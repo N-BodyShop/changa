@@ -976,6 +976,7 @@ void DataManager::transferParticleVarsBack(){
     data->buf = buf;
     data->size = savedNumTotalParticles;
 
+    CkPrintf("[%d] transferParticleVarsBack\n", CkMyPe());
 #ifdef CUDA_INSTRUMENT_WRS
     TransferParticleVarsBack(buf, savedNumTotalParticles*sizeof(VariablePartData), data->cb, savedNumTotalNodes > 0, savedNumTotalParticles > 0, 0, activeRung);
 #else
