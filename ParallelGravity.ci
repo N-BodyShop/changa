@@ -231,6 +231,7 @@ mainmodule ParallelGravity {
     entry void populateDeviceBufferTable(intptr_t localMoments, intptr_t localParticleCores, intptr_t localParticleVars);
     entry void transferLocalTreeCallback();
     entry void finishDevBufferSync();
+    entry void purgeBufferTables(const CkCallback& cb);
   }
 #endif
 

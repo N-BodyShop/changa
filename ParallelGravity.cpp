@@ -1637,7 +1637,9 @@ void Main::advanceBigStep(int iStep) {
     CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
     CkCallback cbGravity(CkCallback::resumeThread);
-
+#ifdef CUDA
+    dmHelperProxy.purgeBufferTables(CkCallbackResumeThread());
+#endif
     if(verbosity > 1)
 	memoryStats();
     if(param.bDoGravity) {
