@@ -22,6 +22,7 @@ mainmodule ParallelGravity {
   readonly CProxy_DataManager dMProxy;
   readonly CProxy_PETreeMerger peTreeMergerProxy;
   readonly CProxy_DumpFrameData dfDataProxy;
+  readonly CProxy_IntraNodeLBManager nodeLBMgrProxy;
 
   readonly bool _cache;
   readonly int _nocache;
@@ -50,9 +51,6 @@ mainmodule ParallelGravity {
   readonly int remotePartsPerReq;
   readonly int remoteResumePartsPerReq;
   readonly double largePhaseThreshold;
-
-  readonly ComlibInstanceHandle cinst1;
-  readonly ComlibInstanceHandle cinst2;
 
   readonly int boundaryEvaluationUE;
   readonly int weightBalanceUE;
@@ -161,8 +159,8 @@ mainmodule ParallelGravity {
     entry [threaded] void restart();
     entry [threaded] void cbOpen(Ck::IO::FileReadyMsg *msg);
     entry void cbIOReady(Ck::IO::SessionReadyMsg *msg);
-    entry void cbIOComplete(CkReductionMsg *msg);
-    entry [threaded] void cbIOClosed(CkReductionMsg *msg);
+    entry void cbIOComplete(CkMessage *msg);
+    entry [threaded] void cbIOClosed(CkMessage *msg);
     entry void niceExit();
     entry void liveVizImagePrep(liveVizRequestMsg *msg);
   };
@@ -490,6 +488,14 @@ mainmodule ParallelGravity {
     entry void clearFrame(InDumpFrame in, const CkCallback& cb);
     entry void combineFrame(InDumpFrame in, const CkCallback& cb);
   };
+
+  group [migratable] IntraNodeLBManager {
+    entry IntraNodeLBManager(int dummy, CkGroupID gid);
+    entry [local] void registerTP();
+    entry [local] void finishedTPWork();
+  };
+
+
 
   initproc void registerStatistics();
 };

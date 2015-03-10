@@ -836,6 +836,7 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
 	    }
         }
     deleteField(fh, data);
+  if(ncGetCount(filename + "/OxMassFrac") > 0) {
     // Oxygen
     if(verbosity && startParticle == 0)
         CkPrintf("loading Oxygen\n");
@@ -855,6 +856,8 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
 	    }
         }
     deleteField(fh, data);
+  }
+  if(ncGetCount(filename + "/FeMassFrac") > 0) {
     // Iron
     if(verbosity && startParticle == 0)
         CkPrintf("loading Iron\n");
@@ -874,6 +877,7 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
 	    }
         }
     deleteField(fh, data);
+  }
     // Temperature
     if(verbosity && startParticle == 0)
         CkPrintf("loading temperature\n");
@@ -1162,6 +1166,7 @@ void TreePiece::readFloatBinary(OutputParams& params, int bParaRead,
     FieldHeader fh;
     void *data;
     int64_t startParticle = nStartRead;
+    params.dm = dm; // pass cooling information
     
     if((params.iType & TYPE_GAS) && (myNumSPH > 0)) {
         data = readFieldData(params.fileName + "/gas/" + params.sNChilExt, fh,
@@ -2200,7 +2205,7 @@ void Main::outputBinary(OutputParams& params, // specifies
     Ck::IO::Options opts;
         opts.basePE = 0;
     if(bParaWrite) {
-        if(param.nIOProcessor = 0) {
+        if(param.nIOProcessor == 0) {
             opts.activePEs = CkNumNodes();
             }
         else {
@@ -2285,6 +2290,8 @@ void Main::cbOpen(Ck::IO::FileReadyMsg *msg)
         }
     if(pOutput->bFloat)
         nBytes = nParts*sizeof(float);
+    else if(pOutput->iBinaryOut != 6)
+        nBytes = nParts*sizeof(int); // Tipsy binary does ints
     else
         nBytes = nParts*sizeof(int64_t);
     if(pOutput->bVector) 
@@ -2334,7 +2341,7 @@ void Main::cbIOReady(Ck::IO::SessionReadyMsg *msg)
 }
 
 /// All IO has completed.  Close the file
-void Main::cbIOComplete(CkReductionMsg *msg) 
+void Main::cbIOComplete(CkMessage *msg)
 {
     Ck::IO::close(fIOFile, CkCallback(CkIndex_Main::cbIOClosed(NULL),
                                       thishandle));
@@ -2342,7 +2349,7 @@ void Main::cbIOComplete(CkReductionMsg *msg)
 }
 
 /// File is closed.  Update header for NChilada.  Resume main program
-void Main::cbIOClosed(CkReductionMsg *msg) 
+void Main::cbIOClosed(CkMessage *msg)
 {
     FILE *outfile;
     XDR xdrs;
@@ -2418,7 +2425,7 @@ void Main::cbIOClosed(CkReductionMsg *msg)
         if(!sOutFile.empty()) {
             Ck::IO::Options opts;
             if(param.bParaWrite) {
-                if(param.nIOProcessor = 0) {
+                if(param.nIOProcessor == 0) {
                     opts.activePEs = CkNumNodes();
                     }
                 else {
@@ -2447,9 +2454,9 @@ void TreePiece::minmaxNCOut(OutputParams& params, const CkCallback& cb)
     params.dm = dm; // pass cooling information
 
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
-        if(TYPETest(&myParticles[i], params.iType)
-           && (TYPETest(&myParticles[i], params.iTypeWriting)
-               || params.iBinaryOut != 6)) {
+        if((TYPETest(&myParticles[i], params.iType)
+            && TYPETest(&myParticles[i], params.iTypeWriting))
+           || params.iBinaryOut != 6) {
           if(params.bFloat) {
             if(params.bVector)
                 bbVec.grow(params.vValue(&myParticles[i]));
@@ -2519,8 +2526,14 @@ void TreePiece::outputBinary(Ck::IO::Session session, OutputParams& params)
     size_t nBytes = nMyParts*sizeof(float);
     size_t iOffset = nStartWrite*sizeof(float);
     if(!params.bFloat) {
-        nBytes = nMyParts*sizeof(int64_t);
-        iOffset = nStartWrite*sizeof(int64_t);
+        if(params.iBinaryOut == 6) {
+            nBytes = nMyParts*sizeof(int64_t);
+            iOffset = nStartWrite*sizeof(int64_t);
+            }
+        else {  // Tipsy only does ints.
+            nBytes = nMyParts*sizeof(int);
+            iOffset = nStartWrite*sizeof(int);
+            }
         }
     if(params.bVector) {
         nBytes *= 3;
@@ -2584,9 +2597,9 @@ void TreePiece::outputBinary(Ck::IO::Session session, OutputParams& params)
     int nOut = 0;
 
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
-        if(TYPETest(&myParticles[i], params.iType)
-           && (TYPETest(&myParticles[i], params.iTypeWriting)
-               || params.iBinaryOut != 6)) {
+        if((TYPETest(&myParticles[i], params.iType)
+            && TYPETest(&myParticles[i], params.iTypeWriting))
+           || params.iBinaryOut != 6) {
             if(params.bFloat) {
                 if(params.bVector) {
                     Vector3D<float> vec = params.vValue(&myParticles[i]);

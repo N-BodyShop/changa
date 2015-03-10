@@ -141,8 +141,6 @@ class Sorter : public CBase_Sorter {
         /// The list of nodes opened by the last invocation of weightBalance
         CkVec<NodeKey> nodesOpened;
 
-  Compare comp;
-
 	void adjustSplitters();
 	bool refineOctSplitting(int n, int64_t *count);
 	

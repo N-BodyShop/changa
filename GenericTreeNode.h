@@ -862,6 +862,7 @@ NodePool::alloc_one(NodeKey k, NodeType type, int first, int nextlast,
 	return new (one) BinaryTreeNode(k, type, first, nextlast, p);
 	}
 
+/// Class for Oct tree where each node has 8 direct children.
   class OctTreeNode : public GenericTreeNode {
   protected:
   public:

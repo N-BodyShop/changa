@@ -23,7 +23,7 @@ class IMF : public PUP::able {
 };
 
 
-/*
+/** @brief Implement Miller-Scalo IMF
     Uses the 3 segment power law fit for the Miller-Scalo IMF
     (Ap.J. Supp., 41,1979).
 
@@ -67,6 +67,9 @@ class MillerScalo : public IMF {
 	}
     };
 
+/**
+ * @brief Implement IMF from Kroupa, Tout & Gilmore, 1993
+ */
 class Kroupa93 : public IMF {
     double a1, b1, m1;
     double a2, b2, m2;
@@ -132,7 +135,7 @@ class Kroupa01 : public IMF {
 	}
 };
 
-/*
+/** @brief Implement Chabrier IMF
   Use the log normal + power law fit of Chabrier, 2003, Galactic
   Stellar and Substellar Initial Mass Function", PASP 115, 763.
 */

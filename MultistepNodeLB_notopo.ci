@@ -1,0 +1,10 @@
+module MultistepNodeLB_notopo {
+
+extern module CentralLB;
+initnode void lbinit(void);
+
+group [migratable] MultistepNodeLB_notopo : CentralLB {
+  entry void MultistepNodeLB_notopo(const CkLBOptions &);  
+};
+
+};
