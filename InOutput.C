@@ -2281,6 +2281,8 @@ void Main::cbOpen(Ck::IO::FileReadyMsg *msg)
         }
     if(pOutput->bFloat)
         nBytes = nParts*sizeof(float);
+    else if(pOutput->iBinaryOut != 6)
+        nBytes = nParts*sizeof(int); // Tipsy binary does ints
     else
         nBytes = nParts*sizeof(int64_t);
     if(pOutput->bVector) 
@@ -2515,8 +2517,14 @@ void TreePiece::outputBinary(Ck::IO::Session session, OutputParams& params)
     size_t nBytes = nMyParts*sizeof(float);
     size_t iOffset = nStartWrite*sizeof(float);
     if(!params.bFloat) {
-        nBytes = nMyParts*sizeof(int64_t);
-        iOffset = nStartWrite*sizeof(int64_t);
+        if(params.iBinaryOut == 6) {
+            nBytes = nMyParts*sizeof(int64_t);
+            iOffset = nStartWrite*sizeof(int64_t);
+            }
+        else {  // Tipsy only does ints.
+            nBytes = nMyParts*sizeof(int);
+            iOffset = nStartWrite*sizeof(int);
+            }
         }
     if(params.bVector) {
         nBytes *= 3;
