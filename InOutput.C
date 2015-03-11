@@ -827,6 +827,7 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
 	    }
         }
     deleteField(fh, data);
+  if(ncGetCount(filename + "/OxMassFrac") > 0) {
     // Oxygen
     if(verbosity && startParticle == 0)
         CkPrintf("loading Oxygen\n");
@@ -846,6 +847,8 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
 	    }
         }
     deleteField(fh, data);
+  }
+  if(ncGetCount(filename + "/FeMassFrac") > 0) {
     // Iron
     if(verbosity && startParticle == 0)
         CkPrintf("loading Iron\n");
@@ -865,6 +868,7 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
 	    }
         }
     deleteField(fh, data);
+  }
     // Temperature
     if(verbosity && startParticle == 0)
         CkPrintf("loading temperature\n");
@@ -1153,6 +1157,7 @@ void TreePiece::readFloatBinary(OutputParams& params, int bParaRead,
     FieldHeader fh;
     void *data;
     int64_t startParticle = nStartRead;
+    params.dm = dm; // pass cooling information
     
     if((params.iType & TYPE_GAS) && (myNumSPH > 0)) {
         data = readFieldData(params.fileName + "/gas/" + params.sNChilExt, fh,
@@ -2276,6 +2281,8 @@ void Main::cbOpen(Ck::IO::FileReadyMsg *msg)
         }
     if(pOutput->bFloat)
         nBytes = nParts*sizeof(float);
+    else if(pOutput->iBinaryOut != 6)
+        nBytes = nParts*sizeof(int); // Tipsy binary does ints
     else
         nBytes = nParts*sizeof(int64_t);
     if(pOutput->bVector) 
@@ -2510,8 +2517,14 @@ void TreePiece::outputBinary(Ck::IO::Session session, OutputParams& params)
     size_t nBytes = nMyParts*sizeof(float);
     size_t iOffset = nStartWrite*sizeof(float);
     if(!params.bFloat) {
-        nBytes = nMyParts*sizeof(int64_t);
-        iOffset = nStartWrite*sizeof(int64_t);
+        if(params.iBinaryOut == 6) {
+            nBytes = nMyParts*sizeof(int64_t);
+            iOffset = nStartWrite*sizeof(int64_t);
+            }
+        else {  // Tipsy only does ints.
+            nBytes = nMyParts*sizeof(int);
+            iOffset = nStartWrite*sizeof(int);
+            }
         }
     if(params.bVector) {
         nBytes *= 3;
