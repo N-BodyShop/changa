@@ -1641,8 +1641,10 @@ public:
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
 	void getAdiabaticGasPressure(double gamma, double gammam1,
+                                     double dDtCourantFac,
 				     const CkCallback &cb);
 	void getCoolingGasPressure(double gamma, double gammam1,
+                                   double dDtCourantFac,
 				   const CkCallback &cb);
 	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
 		       const CkCallback& cb);
