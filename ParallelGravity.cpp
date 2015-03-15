@@ -2559,6 +2559,8 @@ Main::restart(CkCheckpointStatusMsg *msg)
 		    sizeof(double),"etaC", "<Courant criterion> = 0.4");
 	prmAddParam(prm,"dEtauDot",paramDouble,&param.dEtauDot,
 		    sizeof(double),"etau", "<uDot criterion> = 0.25");
+	prmAddParam(prm,"dEtaDiffusion",paramDouble,&param.dEtaDiffusion,sizeof(double),
+                    "etadiff", "<Diffusion dt criterion> = 0.1");
 	prmAddParam(prm,"nIOProcessor",paramInt,&param.nIOProcessor,
 		    sizeof(int), "npio",
 		    "number of simultaneous I/O processors = 0 (all)");
