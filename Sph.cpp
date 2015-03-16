@@ -1258,6 +1258,7 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1, double dTh
             (fThermalCond2 < fThermalCond2Sat ? fThermalCond2 : fThermalCond2Sat);
         assert(isfinite(p->fThermalCond()));
 #endif
+#endif
 #ifdef DTADJUST
             {
                 double uDot = p->PdV();
@@ -1325,6 +1326,10 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1, double dTher
             {
                 double uDot = p->uDot();
                 double dt;
+#ifdef SUPERBUBBLE
+                double x = p->massHot()/p->mass;
+                uDot = p->uHotDot()*x+p->uDot()*(1.0-x);
+#endif
                 if(uDot > 0.0)
                     dt = dtFacCourant*0.5*p->fBall
                         /sqrt(4.0*(p->c()*p->c() + GAMMA_NONCOOL*uDot*p->dt));
