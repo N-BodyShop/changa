@@ -142,6 +142,7 @@ mainmodule ParallelGravity {
   PUPable MetalsOutputParams;
   PUPable MFormOutputParams;
   PUPable TimeFormOutputParams;
+  PUPable AgeOutputParams;
   PUPable coolontimeOutputParams;
   PUPable ESNRateOutputParams;
   PUPable DtOutputParams;
