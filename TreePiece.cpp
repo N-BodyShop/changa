@@ -1827,8 +1827,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 #ifdef SUPERBUBBLE
     /* Prevent rapid overconduction */
     if (p->fThermalCond() > 0 || (p->diff() > 0 && dDiffCoeff > 0)) {
-        dt = dEtaDiffusion*ph*ph
-          /(dDiffCoeff*p->diff() + p->fThermalCond()/p->fDensity);  
+        dt = dEtaDiffusion*ph*ph/(dDiffCoeff*p->diff() + p->fThermalCond()/p->fDensity);  
         if (dt < dTIdeal) dTIdeal = dt;
     }
     double x = p->massHot()/p->mass;
