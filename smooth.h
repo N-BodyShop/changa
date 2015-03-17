@@ -328,12 +328,12 @@ double invH2(GravityParticle *p)
  * @param ar2 = (|dx|/h)^2 = (2r)^2
  * @return KERNEL = (pi h^3) W
  */
-inline double KERNEL(double ar2, double nSmooth) 
+inline double KERNEL(double ar2, int nSmooth) 
 {    
     double ak;
     if (nSmooth < 32)
     {
-        printf("Tiny nSmooth: %d\n", nSmooth);
+        // printf("Tiny nSmooth: %d\n", nSmooth); /* Print out whether we have been given a small number of neighbours*/
         ak = 2.0 - sqrt(ar2);
         if (ar2 < 1.0) ak = (1.0 - 0.75*ak*ar2);
         else ak = 0.25*ak*ak*ak;
