@@ -249,8 +249,6 @@ enum arraytypes {
     OUT_AGE_ARRAY
 };
 std::string VecFilename(int iType);
-double VecType(GravityParticle *p,int iDim,int iType);
-
 
 void dfInitialize( struct DumpFrameContext **pdf, double dYearUnit, double dTime, 
 				  double dDumpFrameTime, double dStep, double dDumpFrameStep,

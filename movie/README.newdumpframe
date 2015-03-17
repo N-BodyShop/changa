@@ -24,8 +24,9 @@ colbyproperty type property min max
 
 where
 
-    type is gas, dark or star property can currently be temperature,
-         metals, GroupID, timeform, udot, or u, but more can easily be added
+    type is gas, dark or star property can currently be
+         temperature, metals, timeform, udot, pressure (internal energy),
+         or age but more can easily be added
          to the dfPropertyToOuttype function in dumpframe.C based on the
          options available in the VecType function.
     min and max are the minimum and maximum values of the property that you

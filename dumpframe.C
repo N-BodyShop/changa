@@ -179,7 +179,8 @@ std::string VecFilename(int iType) {
 	}
     }
 
-double VecType(int iType, GravityParticle *p, DataManager *dm, double duTFac){
+double VecType(int iType, GravityParticle *p, DataManager *dm, double duTFac,
+               double dTime){
     switch (iType) {
 #ifndef COOLING_NONE
     case OUT_TEMP_ARRAY: 
@@ -196,6 +197,7 @@ double VecType(int iType, GravityParticle *p, DataManager *dm, double duTFac){
     case OUT_METALS_ARRAY: return p->fMetals();
     case OUT_TIMEFORM_ARRAY: return p->fTimeForm();
     case OUT_GROUP_ARRAY: return (double) p->iOrder;
+    case OUT_AGE_ARRAY: return dTime - p->fTimeForm();
     default: return(0.0);
 	}
     }
@@ -1337,7 +1339,7 @@ void dfRenderParticlePoint( struct inDumpFrame *in, void *vImage,
             dfCT=&(in->dfStarCT);
             }
 
-        col = dfInterpOnColorMap(dfCT,VecType (dfCT->iProperty,p,dm,in->duTFac),
+        col = dfInterpOnColorMap(dfCT,VecType (dfCT->iProperty,p,dm,in->duTFac,in->dTime),
                                  in->bColLogInterp);
 
 	for (j=0;j<3;j++) {
@@ -1421,7 +1423,7 @@ void dfRenderParticleTSC( struct inDumpFrame *in, void *vImage,
         /* Place particle on color table. */
         if (!bNoMoreColCalc) {
             double fTemp;
-            fTemp = VecType(dfCT->iProperty,p,dm,in->duTFac);
+            fTemp = VecType(dfCT->iProperty,p,dm,in->duTFac,in->dTime);
             if (p->iOrder==100) printf("p->u: %g fTemp: %g  bColLogInterp: %d\n",p->u(),fTemp,in->bColLogInterp);
             col = dfInterpOnColorMap(dfCT,fTemp,in->bColLogInterp);
             }
@@ -1539,7 +1541,7 @@ void dfRenderParticleSolid( struct inDumpFrame *in, void *vImage,
 		}
 
         if (!bNoMoreColCalc) {
-            col = dfInterpOnColorMap(dfCT,VecType(dfCT->iProperty,p,dm,in->duTFac),
+            col = dfInterpOnColorMap(dfCT,VecType(dfCT->iProperty,p,dm,in->duTFac,in->dTime),
                                      in->bColLogInterp);
             }
 
