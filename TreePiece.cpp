@@ -2060,14 +2060,14 @@ void TreePiece::drift(double dDelta,  // time step in x containing
               p->uHotPred() += p->uHotDot()*duDelta;
 	      if (p->uHotPred() < 0) {
 		  // Backout the update to upred
-		  double uold = p->uHotPred() - p->uHotDot()*duDelta;
+                  double uold = p->uHotPred() - p->uHotDot()*duDelta;
 		  // uold could be negative because of round-off
 		  // error.  If this is the case then uDot*Delta/u is
-		  // large, the final uPred will be zero.
-		  if(uold <= 0.0) p->uPred() = 0.0;
+		  // large, the final uHotPred will be zero.
+                  if(uold <= 0.0) p->uHotPred() = 0.0;
 		  // Cooling rate is large: use an exponential decay
 		  // of timescale u/uDot.
-		  else p->uHotPred() = uold*exp(p->uHotDot()*duDelta/uold);
+                  else p->uHotPred() = uold*exp(p->uHotDot()*duDelta/uold);
 		  }
               CkAssert(p->uHotPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
 #endif
