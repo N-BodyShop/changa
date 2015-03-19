@@ -72,6 +72,8 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
       load = stats->objData[i].wallTime;
 
       LDObjData &odata = stats->objData[i];
+      if (!odata.migratable) continue;
+
       TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
 
       tpEvents[XDIM].push_back(Event(udata->vec.x,load,i));
@@ -121,8 +123,18 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
 	sprintf(achFileName, "lb.%d.sim", step());
 	FILE *fp = fopen(achFileName, "w");
 	CkAssert(fp != NULL);
-	fprintf(fp, "%d %d 0\n", numobjs, numobjs);
-	for(int i = 0; i < numobjs; i++) {
+
+  int num_migratables = numobjs;
+  for(int i = 0; i < numobjs; i++) {
+    if (!stats->objData[i].migratable) {
+      num_migratables--;
+    }
+  }
+	fprintf(fp, "%d %d 0\n", num_migratables, num_migratables);
+
+    for(int i = 0; i < numobjs; i++) {
+      if (!stats->objData[i].migratable) continue;
+
 	    CkAssert(tps[i].lbindex < stats->n_objs);
 	    CkAssert(tps[i].lbindex >= 0);
 	    fprintf(fp, "%g %g %g %g 0.0 0.0 0.0 %d 0.0\n",
