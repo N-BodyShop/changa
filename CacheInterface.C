@@ -125,7 +125,7 @@ void * EntryTypeSmoothParticle::unpack(CkCacheFillMsg<KeyType> *msg, int chunk, 
     // Expand External particles to full particles in cache
     int j = 0;
     for(int i = 0; i < nTotal; i++) {
-        if(i == cPartsIn->partExt[j].iBucketOff) {
+        if(j < cParts->nActual && i == cPartsIn->partExt[j].iBucketOff) {
             cParts->partCached[i].extraData = &cParts->extraSPHCached[j];
             cPartsIn->partExt[j].getParticle(&cParts->partCached[i]);
             CkAssert(TYPETest(&(cParts->partCached[i]),
@@ -317,7 +317,7 @@ void TreePiece::flushSmoothParticles(CkCacheFillMsg<KeyType> *msg) {
   
   int j = 0;
   for(int i = data->begin; j < data->nActual && i <= data->end; i++) {
-      while(data->partExt[j].iBucketOff < i - data->begin)
+      while(data->partExt[j].iBucketOff > i - data->begin)
           i++;
       CkAssert(TYPETest(&myParticles[i], sc->params->iType));
       sc->params->combSmoothCache(&myParticles[i], &data->partExt[j]);
