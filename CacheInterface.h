@@ -54,6 +54,7 @@ class CacheSmoothParticle {
 public:
     int begin; // Beginning particle number
     int end;	// ending Particle number
+    int nActual; // actual number of particles sent
     KeyType key;
     GravityParticle *partCached;
     extraSPHData *extraSPHCached;
