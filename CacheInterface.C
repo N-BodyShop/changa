@@ -150,6 +150,7 @@ void EntryTypeSmoothParticle::writeback(CkArrayIndexMax& idx, KeyType k, void *d
     CacheSmoothParticle *rdata = (CacheSmoothParticle*)reply->data;
     rdata->begin = cPart->begin;
     rdata->end = cPart->end;
+    rdata->nActual = cPart->nActual;
   
     int j = 0;
     for (int i=0; i < 1 + cPart->end - cPart->begin; ++i) {
