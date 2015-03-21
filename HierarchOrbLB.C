@@ -24,7 +24,7 @@ void HierarchOrbLB::init() {
   thisProxy = CProxy_HierarchOrbLB(thisgroup);
 }
 
-HierarchOrbLB::HierarchOrbLB(const CkLBOptions &opt): HybridBaseLB(opt) {
+HierarchOrbLB::HierarchOrbLB(const CkLBOptions &opt): CBase_HierarchOrbLB(opt) {
 #if CMK_LBDB_ON
   init();
 

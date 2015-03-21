@@ -20,7 +20,7 @@ void MultistepNodeLB_notopo::init() {
 }
 
 
-MultistepNodeLB_notopo::MultistepNodeLB_notopo(const CkLBOptions &opt): CentralLB(opt)
+MultistepNodeLB_notopo::MultistepNodeLB_notopo(const CkLBOptions &opt): CBase_MultistepNodeLB_notopo(opt)
 {
   init();
   if (CkMyPe() == 0){
@@ -481,7 +481,7 @@ void MultistepNodeLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
 }
 
 void MultistepNodeLB_notopo::pup(PUP::er &p){
-  CentralLB::pup(p);
+  CBase_MultistepNodeLB_notopo::pup(p);
 }
 
 #include "MultistepNodeLB_notopo.def.h"

@@ -37,6 +37,7 @@ mainmodule ParallelGravity {
   readonly DomainsDec domainDecomposition;
   readonly double dExtraStore;
   readonly double dMaxBalance;
+  readonly int bUseCkLoopPar;
   readonly int peanoKey;
   readonly GenericTrees useTree;
   readonly int _prefetch;

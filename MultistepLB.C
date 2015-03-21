@@ -27,7 +27,7 @@ void MultistepLB::init() {
   pc[2] = pcz;
 }
 
-MultistepLB::MultistepLB(const CkLBOptions &opt): CentralLB(opt)
+MultistepLB::MultistepLB(const CkLBOptions &opt): CBase_MultistepLB(opt)
 {
   init();
 
@@ -607,7 +607,7 @@ Node *MultistepLB::halveNodes(Node *start, int np){
 }
 
 void MultistepLB::pup(PUP::er &p){
-  CentralLB::pup(p);
+  CBase_MultistepLB::pup(p);
   p | procsPerNode;
 }
 
