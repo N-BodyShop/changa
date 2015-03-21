@@ -480,7 +480,10 @@ void dfParseOptions( struct DumpFrameContext *df, char * filename ) {
 			else {
 				nitem = sscanf( line, "%s %lf %lf", command,
 							   &df->dMassStarMin, &df->dMassStarMax );
-                                CkAssert( nitem == 3 );
+                                if(nitem != 3) {
+                                    CkError("Bad director format: %s\n", line);
+                                    CkAbort("Bad director format");
+                                    }
 				}
 			}
 		else if (!strcmp( command, "encode") ) {
@@ -1074,7 +1077,8 @@ void dfParseCameraDirections( struct DumpFrameContext *df, char * filename ) {
                     if (nitem == 2 && (!strcmp( word, "no") ||!strcmp( word, "off" ))) {
                         fs.bColLogInterp = 0;
                         }
-                    fs.bColLogInterp = 1;
+                    else
+                        fs.bColLogInterp = 1;
                     }
 		else if (!strcmp( command, "logscale" )) {
 			nitem = sscanf( line, "%s %lf %lf", command, &fs.pScale1, &fs.pScale2 );
