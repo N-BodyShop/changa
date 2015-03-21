@@ -12,11 +12,11 @@
 
 void CreateHierarchOrbLB();
 
-class HierarchOrbLB : public HybridBaseLB
+class HierarchOrbLB : public CBase_HierarchOrbLB
 {
 public:
   HierarchOrbLB(const CkLBOptions &);
-  HierarchOrbLB(CkMigrateMessage *m): HybridBaseLB(m) {init();}
+  HierarchOrbLB(CkMigrateMessage *m): CBase_HierarchOrbLB(m) {init();}
   ~HierarchOrbLB();
 
 protected:

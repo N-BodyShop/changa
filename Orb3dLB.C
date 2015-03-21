@@ -58,7 +58,7 @@ void Orb3dLB::init() {
   pc[2] = pcz;
 }
 
-Orb3dLB::Orb3dLB(const CkLBOptions &opt): CentralLB(opt) {
+Orb3dLB::Orb3dLB(const CkLBOptions &opt): CBase_Orb3dLB(opt) {
   init();
   if (CkMyPe() == 0){
     CkPrintf("[%d] Orb3dLB created\n",CkMyPe());
@@ -111,6 +111,7 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
   tps.resize(numobjs);
 
   for(int i = 0; i < numobjs; i++){
+    if(!stats->objData[i].migratable) continue;
 
     LDObjData &odata = stats->objData[i];
     TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));

@@ -27,7 +27,7 @@ void MultistepLB::init() {
   pc[2] = pcz;
 }
 
-MultistepLB::MultistepLB(const CkLBOptions &opt): CentralLB(opt)
+MultistepLB::MultistepLB(const CkLBOptions &opt): CBase_MultistepLB(opt)
 {
   init();
 
@@ -98,6 +98,8 @@ void MultistepLB::work(BaseLB::LDStats* stats)
   }
 
   for(int i = 0; i < stats->n_objs; i++){
+    if (!stats->objData[i].migratable) continue;
+
     LDObjData &odata = stats->objData[i];
     TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
 
@@ -605,7 +607,7 @@ Node *MultistepLB::halveNodes(Node *start, int np){
 }
 
 void MultistepLB::pup(PUP::er &p){
-  CentralLB::pup(p);
+  CBase_MultistepLB::pup(p);
   p | procsPerNode;
 }
 

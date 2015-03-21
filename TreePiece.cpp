@@ -4924,7 +4924,6 @@ void TreePiece::ResumeFromSync(){
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d in ResumefromSync\n",CkMyPe(),thisIndex);
   contribute(callback);
-  nodeLBMgrProxy.ckLocalBranch()->registerTP();
 }
 
 const GenericTreeNode *TreePiece::lookupNode(Tree::NodeKey key){
