@@ -194,7 +194,9 @@ double VecType(int iType, GravityParticle *p, DataManager *dm, double duTFac,
     case OUT_UDOT_ARRAY: return p->uDot();
 #endif
     case OUT_U_ARRAY: return p->u();
-    case OUT_METALS_ARRAY: return p->fMetals();
+    case OUT_METALS_ARRAY:
+        if(p->isGas()) return p->fMetals();
+        else return p->fStarMetals();
     case OUT_TIMEFORM_ARRAY: return p->fTimeForm();
     case OUT_GROUP_ARRAY: return (double) p->iOrder;
     case OUT_AGE_ARRAY: return dTime - p->fTimeForm();
@@ -1428,7 +1430,6 @@ void dfRenderParticleTSC( struct inDumpFrame *in, void *vImage,
         if (!bNoMoreColCalc) {
             double fTemp;
             fTemp = VecType(dfCT->iProperty,p,dm,in->duTFac,in->dTime);
-            if (p->iOrder==100) printf("p->u: %g fTemp: %g  bColLogInterp: %d\n",p->u(),fTemp,in->bColLogInterp);
             col = dfInterpOnColorMap(dfCT,fTemp,in->bColLogInterp);
             }
 
