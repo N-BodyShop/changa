@@ -26,11 +26,11 @@ class Stfm {
 				 star mass per timestep. */
     double dInitStarMass;       /* Fixed Initial Star Mass */
     double dMinSpawnStarMass;   /* Minimum Initial Star Mass */
-    double dMinGasMass;		/* minimum mass gas before we delete
-				   the particle. */
     double dMaxStarMass;	/* maximum mass star particle to form */
     int bGasCooling;		/* Can we call cooling for temperature */
  public:
+    double dMinGasMass;		/* minimum mass gas before we delete
+				   the particle. */
     double dDeltaStarForm;	/* timestep in system units */
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
@@ -60,8 +60,8 @@ inline void Stfm::pup(PUP::er &p) {
     p|bGasCooling;
     }
 
+/** @brief Holds statistics of the star formation event */
 class StarLogEvent
-	/* Holds statistics of the star formation event */
 {
  public:
     int iOrdStar;
@@ -96,6 +96,7 @@ class StarLogEvent
 	}
     };
 
+/** @brief Log of star formation events to be written out to a file */
 class StarLog : public PUP::able
 {
  public:

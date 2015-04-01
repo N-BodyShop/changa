@@ -4,18 +4,6 @@
 #ifndef PARALLELGRAVITY_H
 #define PARALLELGRAVITY_H
 
-#ifndef CELL
-#ifdef CELL_NODE
-#undef CELL_NODE
-#endif
-#ifdef CELL_PART
-#undef CELL_PART
-#endif
-#ifdef CELL_EWALD
-#undef CELL_EWALD
-#endif
-#endif
-
 #include "config.h"
 #include <string>
 #include <map>
@@ -23,7 +11,7 @@
 #include <algorithm>
 
 #include "pup_stl.h"
-#include "comlib.h"
+#include "ckio.h"
 
 #include "Vector3D.h"
 #include "tree_xdr.h"
@@ -73,8 +61,10 @@ enum LBStrategy{
   Multistep,
   Orb3d,
   Multistep_notopo,
+  MultistepNode_notopo,
   Orb3d_notopo,
-  MultistepOrb
+  MultistepOrb,
+  HierarchOrb
 };
 PUPbytes(LBStrategy);
 
@@ -111,10 +101,6 @@ inline void operator|(PUP::er &p,DomainsDec &d) {
 
 #include "GravityParticle.h"
 
-#include "MultistepLB.decl.h"          // jetley - needed for CkIndex_MultistepLB
-#include "Orb3dLB.decl.h"          // jetley - needed for CkIndex_Orb3dLB
-#include "MultistepOrbLB.decl.h"          // jetley - needed for CkIndex_MultistepLB
-
 class SmoothParams;
 
 #include "InOutput.h"
@@ -130,6 +116,7 @@ extern unsigned int _yieldPeriod;
 extern DomainsDec domainDecomposition;
 extern double dExtraStore;
 extern double dMaxBalance;
+extern int bUseCkLoopPar;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
 #ifdef REDUCTION_HELPER
@@ -140,6 +127,7 @@ extern CProxy_LvArray smoothProxy;  // Proxy for smooth reduction
 extern CProxy_LvArray gravityProxy; // Proxy for gravity reduction
 extern CProxy_TreePiece streamingProxy;
 extern CProxy_DataManager dMProxy;
+extern CProxy_IntraNodeLBManager nodeLBMgrProxy;
 extern unsigned int numTreePieces;
 extern unsigned int particlesPerChare;
 extern int nIOProcessor;
@@ -149,8 +137,6 @@ extern CProxy_PETreeMerger peTreeMergerProxy;
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 extern CProxy_CkCacheManager<KeyType> cacheNode;
-
-extern ComlibInstanceHandle cinst1, cinst2;
 
 /// The group ID of your DataManager.  You must set this!
 extern CkGroupID dataManagerID;
@@ -334,20 +320,6 @@ class CountSetPart
 	}
     };
 
-class Compare{ //Defines the comparison operator on the map used in balancer
-  int dim;
-public:
-  Compare() {}
-  Compare(int i) : dim(i) {}
-
-  void setDim(int i){ dim = i; }
-
-  bool operator()(GravityParticle& p1, GravityParticle& p2) const {
-    return p1.position[dim] < p2.position[dim];
-  }
-};
-
-
 /*
  * Multistepping routines
  *
@@ -368,6 +340,7 @@ const int MAXSUBSTEPS = 1 << MAXRUNG;
 const double MAXSUBSTEPS_INV = 1 / (double)MAXSUBSTEPS;
 
 inline int RungToSubsteps(int iRung) {
+  CkAssert(iRung <= MAXRUNG);
   return 1 << (MAXRUNG - iRung);
 }
 
@@ -402,6 +375,12 @@ const int PHASE_FEEDBACK = MAXRUNG + 1;
 class Main : public CBase_Main {
 	CkArgMsg *args;
 	std::string basefilename;
+        /// Save parameters for output
+        OutputParams *pOutput;
+	/// globally finished IO
+	CkCallback cbIO;
+        /// Save file token for CkIO
+        Ck::IO::File fIOFile;
 	CProxy_Sorter sorter;
 	int64_t nTotalParticles;
 	int64_t nTotalSPH;
@@ -482,6 +461,13 @@ public:
 	void getOutTimes();
 	int bOutTime();
 	void writeOutput(int iStep) ;
+        void outputBinary(OutputParams& params, int bParaWrite,
+                          const CkCallback& cb);
+        void cbOpen(Ck::IO::FileReadyMsg *msg);
+        void cbIOReady(Ck::IO::SessionReadyMsg *msg);
+        void cbIOComplete(CkMessage *msg);
+        void cbIOClosed(CkMessage *msg);
+        std::string getNCNextOutput(OutputParams& params);
 	void updateSoft();
 	void growMass(double dTime, double dDelta);
 	void initSph();
@@ -550,6 +536,17 @@ typedef struct particlesInfoL{
     GenericTreeNode *nd;
 #endif
 } LocalPartInfo;
+
+typedef struct LoopParDataStruct {
+  CkVec<GenericTreeNode*> lowNodes;
+  CkVec<int> bucketids;
+  CkVec<int> chunkids;
+  CkVec<CkVec<OffsetNode> > clists;
+  CkVec<CkVec<RemotePartInfo> > rpilists;
+  CkVec<CkVec<LocalPartInfo> > lpilists;
+  TreePiece* tp;
+} LoopParData;
+
 
 
 #ifdef CUDA
@@ -930,12 +927,21 @@ private:
 	CkCallback cbGravity;
 	/// smooth globally finished
 	CkCallback cbSmooth;
+  CkCallback after_dd_callback;
 	/// Total number of particles contained in this chare
 	unsigned int myNumParticles;
 	/// Array with the particles in this chare
 	GravityParticle* myParticles;
 	/// Actual storage in the above array
 	int nStore;
+
+  // Temporary location to hold the particles that have come from outside this
+  // TreePiece. This is used in the case where we migrate the particles and
+  // detect completion of migration using QD.
+	std::vector<GravityParticle> myTmpShuffleParticle;
+	std::vector<extraSPHData> myTmpShuffleSphParticle;
+	std::vector<extraStarData> myTmpShuffleStarParticle;
+  ParticleShuffleMsg* myShuffleMsg;
 	/// Number of particles in my tree.  Can be different from
 	/// myNumParticles when particles are created.
 	int myTreeParticles;
@@ -1011,7 +1017,7 @@ private:
 	/// The counts of how many particles belonging to other
 	/// TreePieces I currently hold
 #ifndef REDUCTION_HELPER
-	CkVec<int> myBinCounts;
+	CkVec<int64_t> myBinCounts;
 #endif
 	std::vector<int> myBinCountsORB;
 	/// My index in the responsibility array.
@@ -1045,6 +1051,9 @@ private:
 	/// Periodic Boundary stuff
 	int bPeriodic;
 	Vector3D<double> fPeriod;
+        int bComove;
+        /// Background density of the Universe
+        double dRhoFac;
 	int nReplicas;
 	int bEwald;		/* Perform Ewald */
 	double fEwCut;
@@ -1060,6 +1069,8 @@ private:
 #ifndef COOLING_NONE
 	clDerivsData *CoolData;
 #endif
+        /// indices of my newly formed particles in the starlog table
+        std::vector<int> iSeTab;
 	/// Setup for writing
 	int nSetupWriteStage;
 	int64_t nStartWrite;	// Particle number at which this piece starts
@@ -1165,10 +1176,6 @@ private:
 
 
  public:
-#ifdef CELL
-	friend void cellSPE_callback(void*);
-	friend void cellSPE_ewald(void*);
-#endif
 #endif
   // called when a chunk has been used completely (chunkRemaining[chunk] == 0)
   void finishedChunk(int chunk);
@@ -1271,7 +1278,6 @@ public:
 	  treePieceLoad(0.0), treePieceLoadTmp(0.0), treePieceLoadExp(0.0),
     treePieceActivePartsTmp(0) {
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
-	  // ComlibDelegateProxy(&streamingProxy);
 	  dm = NULL;
 	  foundLB = Null; 
 	  iterationNo=0;
@@ -1435,10 +1441,14 @@ public:
 	void restart();
 
 	void setPeriodic(int nReplicas, Vector3D<double> fPeriod, int bEwald,
-			 double fEwCut, double fEwhCut, int bPeriod);
+			 double fEwCut, double fEwhCut, int bPeriod,
+                         int bComove, double dRhoFac);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit();
 	void calculateEwald(dummyMsg *m);
+  void calculateEwaldUsingCkLoop(dummyMsg *msg, int yield_num);
+  void callBucketEwald(int id);
+  void doParallelNextBucketWork(int id, LoopParData* lpdata);
 	void initCoolingData(const CkCallback& cb);
 	// Scale velocities (needed to convert to canonical momenta for
 	// comoving coordinates.)
@@ -1449,8 +1459,6 @@ public:
         /// internal energy
         void loadNChilada(const std::string& filename, const double dTuFac,
                           const CkCallback& cb);
-        void readIntBinary(OutputIntParams& params, int bParaRead,
-            const CkCallback& cb);
         void readFloatBinary(OutputParams& params, int bParaRead,
             const CkCallback& cb);
 	/// @brief Load I.C. from Tipsy file
@@ -1475,6 +1483,8 @@ public:
         void readCoolArray1(const std::string& filename, const CkCallback& cb);
         void readCoolArray2(const std::string& filename, const CkCallback& cb);
         void readCoolArray3(const std::string& filename, const CkCallback& cb);
+        void resetMetals(const CkCallback& cb);
+        void getMaxIOrds(const CkCallback& cb);
         void RestartEnergy(double dTuFac, const CkCallback& cb);
         void findTotalMass(CkCallback &cb);
         void recvTotalMass(CkReductionMsg *msg);
@@ -1544,6 +1554,10 @@ public:
 	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
 	void unshuffleParticles(CkReductionMsg* m);
 	void acceptSortedParticles(ParticleShuffleMsg *);
+  void shuffleAfterQD();
+  void unshuffleParticlesWoDD(const CkCallback& cb);
+  void acceptSortedParticlesFromOther(ParticleShuffleMsg *);
+
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);
   void initBeforeORBSend(unsigned int myCount, unsigned int myCountGas,
@@ -1601,6 +1615,7 @@ public:
   void calcEnergy(const CkCallback& cb);
   /// add new particle
   void newParticle(GravityParticle *p);
+  void adjustTreePointers(GenericTreeNode *node, GravityParticle *newParts);
   /// Count add/deleted particles, and compact main particle storage.
   void colNParts(const CkCallback &cb);
   /// Assign iOrders to recently added particles.
@@ -1676,6 +1691,12 @@ public:
 	/// by this TreePiece, and belonging to a subset of the global tree
 	/// (specified by chunkNum).
 	void calculateGravityRemote(ComputeChunkMsg *msg);
+  void executeCkLoopParallelization(LoopParData *lpdata, int startbucket,
+      int yield_num, int chunkNum, State* gravityState);
+  int doBookKeepingForTargetActive(int curbucket, int end, int chunkNum, bool
+    updatestate, State* gravityState);
+  int doBookKeepingForTargetInactive(int chunkNum, bool updatestate,
+    State* gravityState);
 
 	/// As above but for the Smooth operation
 	void calculateSmoothLocal();
@@ -1775,55 +1796,18 @@ public:
 	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
 	void outputASCII(OutputParams& params, int bParaWrite,
 			 const CkCallback& cb);
-	void outputIntASCII(OutputIntParams& params, int bParaWrite,
-			 const CkCallback& cb);
-        void oneNodeOutNCVec(OutputParams& params,
-                            Vector3D<float>* avOutGas, // array to be output
-                            Vector3D<float>* avOutDark, // array to be output
-                            Vector3D<float>* avOutStar, // array to be output
-                            int nGas, // number of elements in avOut
-                            int nDark, // number of elements in avOut
-                            int nStar, // number of elements in avOut
-                            int iIndex, // treepiece which called me
-                            CkCallback& cb) ;
-        void oneNodeOutNCArr(OutputParams& params,
-                                float* afOutGas, // array to be output
-                                float* afOutDark, // array to be output
-                                float* afOutStar, // array to be output
-                                int nGas, // number of elements in avOut
-                                int nDark, // number of elements in avOut
-                                int nStar, // number of elements in avOut
-                                int iIndex, // treepiece which called me
-                                CkCallback& cb) ;
-        void oneNodeOutNCInt(OutputIntParams& params,
-                                int* aiOutGas, // array to be output
-                                int* aiOutDark, // array to be output
-                                int* aiOutStar, // array to be output
-                                int nGas, // number of elements in avOut
-                                int nDark, // number of elements in avOut
-                                int nStar, // number of elements in avOut
-                                int iIndex, // treepiece which called me
-                                CkCallback& cb) ;
 	void oneNodeOutVec(OutputParams& params, Vector3D<double>* avOut,
 			   int nPart, int iIndex, int bDone,
 			   CkCallback& cb) ;
 	void oneNodeOutArr(OutputParams& params, double* adOut,
 			   int nPart, int iIndex, int bDone,
 			   CkCallback& cb) ;
-	void oneNodeOutIntArr(OutputIntParams& params, int *aiOut,
+	void oneNodeOutIntArr(OutputParams& params, int *aiOut,
 			      int nPart, int iIndex, CkCallback& cb);
-	void outputBinary(OutputParams& params, int bParaWrite,
-			 const CkCallback& cb);
-	void oneNodeOutBinVec(OutputParams& params, Vector3D<float>* avOut,
-			      int nPart, int iIndex, int bDone,
-			      CkCallback& cb) ;
-	void oneNodeOutBinArr(OutputParams& params, float* adOut,
-			      int nPart, int iIndex, int bDone,
-			      CkCallback& cb) ;
-        void outputIntBinary(OutputIntParams& params, int bParaWrite,
-                             const CkCallback& cb);
-        void oneNodeOutBinInt(OutputIntParams& params, int *aiOut,
-                              int nPart, int iIndex, CkCallback& cb) ;
+        void outputBinaryStart(OutputParams& params, int64_t nStart,
+                               const CkCallback& cb);
+	void outputBinary(Ck::IO::Session, OutputParams& params);
+        void minmaxNCOut(OutputParams& params, const CkCallback& cb);
 
 	void outputStatistics(const CkCallback& cb);
 	/// Collect the total statistics from the various chares
@@ -1837,6 +1821,7 @@ public:
          * finishBucket() is called to clean up.
 	 */
         void nextBucket(dummyMsg *m);
+  void nextBucketUsingCkLoop(dummyMsg *m);
 
 	void report();
 	void printTreeViz(GenericTreeNode* node, std::ostream& os);
@@ -1893,9 +1878,14 @@ public:
         void deliverMomentsToClients(const std::map<NodeKey,NonLocalMomentsClientList>::iterator &it);
         void treeBuildComplete();
         void processRemoteRequestsForMoments();
+        void sendParticlesDuringDD(bool withqd);
+        void mergeAllParticlesAndSaveCentroid();
+        bool otherIdlePesAvail();
 
 };
 
+/// @brief Class for shadow arrays to avoid reduction conflicts in
+/// overlapping liveViz, SPH and gravity.
 class LvArray : public CBase_LvArray {
  public:
     LvArray() {}
@@ -1930,7 +1920,7 @@ class ReductionHelper : public CBase_ReductionHelper {
   void pup(PUP::er &p);
 
   void countTreePieces(const CkCallback &cb);
-  void reduceBinCounts(int nBins, int *binCounts, const CkCallback &cb);
+  void reduceBinCounts(int nBins, int64_t *binCounts, const CkCallback &cb);
   void evaluateBoundaries(SFC::Key *keys, const int n, int isRefine, const CkCallback& cb);
   void evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb);
 
@@ -1939,7 +1929,7 @@ class ReductionHelper : public CBase_ReductionHelper {
 
   private:
 
-  CkVec<int> myBinCounts;
+  CkVec<int64_t> myBinCounts;
   int numTreePiecesCheckedIn;
 
   TreePieceCounter localTreePieces;

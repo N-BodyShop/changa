@@ -7,8 +7,8 @@
 #include "starlifetime.h"
 #define NFEEDBACKS 4
 
-/*
- * Class to return feedback effects.
+/**
+ * @brief Class to return feedback effects.
  */
 class FBEffects {
  public:
@@ -25,7 +25,7 @@ class FBEffects {
     dEnergy(dEnergy), dMassLoss(dMassLoss), dMetals(dMetals), dMIron(dMIron), dMOxygen(dMOxygen) { }
      };
 
-/*
+/**
  * Class to Characterize Star Formation event.  This is input
  * needed for all feedback effects.
  */
@@ -144,7 +144,7 @@ enum FBenum{
 
 #include "smoothparams.h"
 
-/*
+/**
  * SmoothParams class for distributing stellar feedback (energy, mass + metals) 
  * to neighboring particles.
  */

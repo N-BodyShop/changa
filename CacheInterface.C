@@ -116,6 +116,10 @@ void * EntryTypeSmoothParticle::unpack(CkCacheFillMsg<KeyType> *msg, int chunk, 
     cParts->key = msg->key;
     int nTotal = 1 + cParts->end - cParts->begin;
     cParts->partCached = new GravityParticle[nTotal];
+    //  There is a kludge in that we aren't accounting for different
+    //  particle types in the cache storage.  It works if the
+    //  following is true.
+    CkAssert(sizeof(extraSPHData) > sizeof(extraStarData));
     cParts->extraSPHCached = new extraSPHData[nTotal];
     // Expand External particles to full particles in cache
     for(int i = 0; i < nTotal; i++) {

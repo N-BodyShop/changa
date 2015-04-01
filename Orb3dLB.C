@@ -6,6 +6,7 @@
 #include "Vector3D.h"
 
 extern CProxy_TreePiece treeProxy;
+CkpvExtern(int, _lb_obj_index);
 
 using namespace std;
 
@@ -43,10 +44,22 @@ static int pcz(const void *a, const void *b){
   return ta->z < tb->z ? -1 : ta->z > tb->z ? 1 : 0;
 }
 
-Orb3dLB::Orb3dLB(const CkLBOptions &opt): CentralLB(opt)
-{
+void Orb3dLB::init() {
   lbname = "Orb3dLB";
-  centroidsAllocated = false;
+  if (CkpvAccess(_lb_obj_index) == -1)
+    CkpvAccess(_lb_obj_index) = LBRegisterObjUserData(sizeof(TaggedVector3D));
+
+  compares[0] = comparx;
+  compares[1] = compary;
+  compares[2] = comparz;
+
+  pc[0] = pcx;
+  pc[1] = pcy;
+  pc[2] = pcz;
+}
+
+Orb3dLB::Orb3dLB(const CkLBOptions &opt): CBase_Orb3dLB(opt) {
+  init();
   if (CkMyPe() == 0){
     CkPrintf("[%d] Orb3dLB created\n",CkMyPe());
     TopoManager tmgr;
@@ -56,34 +69,10 @@ Orb3dLB::Orb3dLB(const CkLBOptions &opt): CentralLB(opt)
     int nx = tmgr.getDimNX();
     int ny = tmgr.getDimNY();
     int nz = tmgr.getDimNZ();
-    int numnodes = nx*ny*nz; 
+    int numnodes = nx*ny*nz;
 
     CkPrintf("[%d] Orb3dLB Topo %d %d %d %d %d \n",CkMyPe(), nx, ny, nz, numnodes, ppn);
   }
-  compares[0] = comparx;
-  compares[1] = compary;
-  compares[2] = comparz;
-
-  pc[0] = pcx;
-  pc[1] = pcy;
-  pc[2] = pcz;
-
-  haveTPCentroids = false;
-
-}
-
-void Orb3dLB::receiveCentroids(CkReductionMsg *msg){
-  if(haveTPCentroids){
-    delete tpmsg;
-  }
-  tpCentroids = (TaggedVector3D *)msg->getData();
-  nrecvd = msg->getSize()/sizeof(TaggedVector3D);
-  tpmsg = msg;
-  haveTPCentroids = true;
-  CkPrintf("Orb3dLB: receiveCentroids started: %d elements, msg length: %d\n", nrecvd, msg->getLength()); 
-  treeProxy.doAtSync();
-  CkPrintf("Orb3dLB: receiveCentroids done\n");  
-  // delete msg later
 }
 
 //jetley
@@ -95,12 +84,12 @@ bool Orb3dLB::QueryBalanceNow(int step){
       treeProxy.receiveProxy(thisgroup);        // broadcast proxy to all treepieces
     }
     firstRound = true;
-    return false; 
+    return false;
   }
   */
   // Now, by the first step, we already have
   // centroids. of course, since no gravity has
-  // been calculated yet, load can only be 
+  // been calculated yet, load can only be
   // estimated via num particles in treepiece
   if(CkMyPe() == 0)
     CkPrintf("Orb3dLB: Step %d\n", step);
@@ -121,34 +110,29 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
   CkPrintf("[orb3dlb] %d objects allocating %d bytes for tp\n", numobjs, numobjs*sizeof(TPObject));
   tps.resize(numobjs);
 
-  stats->makeCommHash();
-  CkPrintf("[orb3dlb] ready tp data structure\n");
-  CkAssert(nrecvd == numobjs);
-
   for(int i = 0; i < numobjs; i++){
+    if(!stats->objData[i].migratable) continue;
 
-    TaggedVector3D *data = tpCentroids + i;
-    LDObjHandle &handle = data->handle;
-    int tag = stats->getHash(handle.id,handle.omhandle.id);
-    tps[tag].centroid.x = data->vec.x;
-    tps[tag].centroid.y = data->vec.y;
-    tps[tag].centroid.z = data->vec.z;
+    LDObjData &odata = stats->objData[i];
+    TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
+
+    tps[i].centroid = udata->vec;
     /*
-    CkPrintf("[orb3dlb] tree piece %d centroid %f %f %f\n", 
+    CkPrintf("[orb3dlb] tree piece %d centroid %f %f %f\n",
                                       data->tag,
                                       data->vec.x,
                                       data->vec.y,
                                       data->vec.z
                                       );
     */
-    tps[tag].migratable = stats->objData[tag].migratable;
+    tps[i].migratable = stats->objData[i].migratable;
     if(step() == 0){
-      tps[tag].load = data->myNumParticles;
+      tps[i].load = udata->myNumParticles;
     }
     else{
-      tps[tag].load = stats->objData[tag].wallTime;
+      tps[i].load = stats->objData[i].wallTime;
     }
-    tps[tag].lbindex = tag;
+    tps[i].lbindex = i;
     /*
     if(step() == 1){
       CkPrintf("[tpinfo] %f %f %f %f %d %d\n",
@@ -175,7 +159,7 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
   int nx = tmgr.getDimNX();
   int ny = tmgr.getDimNY();
   int nz = tmgr.getDimNZ();
-  int numnodes = nx*ny*nz; 
+  int numnodes = nx*ny*nz;
 
   CkPrintf("[orb3dlb] %d numnodes allocating %d bytes for nodes\n", numnodes, numnodes*sizeof(Node));
   nodes.resize(numnodes);
@@ -185,8 +169,8 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
     int x,y,z;
     int node;
     tmgr.rankToCoordinates(i,x,y,z,t);
-    
-    node = z*nx*ny + y*nx + x; 
+
+    node = z*nx*ny + y*nx + x;
     nodes[node].x = x;
     nodes[node].y = y;
     nodes[node].z = z;
@@ -203,7 +187,7 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
 
 #ifdef PRINT_BOUNDING_BOXES
   for(int i = 0; i < numnodes; i++){
-    CkPrintf("bb of node %d %f %f %f %f %f %f\n", i, 
+    CkPrintf("bb of node %d %f %f %f %f %f %f\n", i,
                     nodes[i].box.lesser_corner.x,
                     nodes[i].box.lesser_corner.y,
                     nodes[i].box.lesser_corner.z,
@@ -225,16 +209,16 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
     objload[stats->from_proc[i]] += stats->objData[i].wallTime;
     if(stats->to_proc[i] != stats->from_proc[i]) migr++;
   }
-  
+
   CkPrintf("***************************\n");
   CkPrintf("Before LB step %d\n", step());
   CkPrintf("***************************\n");
   CkPrintf("i pe wall cpu idle bg_wall bg_cpu objload\n");
   for(int i = 0; i < stats->count; i++){
-    CkPrintf("[pestats] %d %d %f %f %f %f\n", 
+    CkPrintf("[pestats] %d %d %f %f %f %f\n",
                                i,
-                               stats->procs[i].pe, 
-                               stats->procs[i].total_walltime, 
+                               stats->procs[i].pe,
+                               stats->procs[i].total_walltime,
                                stats->procs[i].idletime,
                                stats->procs[i].bg_walltime,
                                objload[i]);
@@ -265,19 +249,19 @@ void Orb3dLB::map(int tpstart, int tpend, int nodestart, int nodeend, int xs, in
     for(int i = nodestart+1; i < nodeend; i++){
       CkAssert(nodes[i].procRanks.length() == numProcRanks);
     }
-    
+
     qsort(tps.getVec()+tpstart,totalTp,sizeof(TPObject),compares[dim]);
     qsort(nodes.getVec()+nodestart,nn,sizeof(Node),pc[dim]);
     // tp and ntp are modified to hold the particulars of
     // the left/dn/near partitions
-    // tp2 and totalTp-ntp hold the objects in the 
+    // tp2 and totalTp-ntp hold the objects in the
     // right/up/far partitions
     int tpmid;
     int nodemid;
     partitionEvenLoad(tpstart, tpend, tpmid);
     halveNodes(nodestart, nodeend, nodemid);
 
-    int d = nextDim(dim,xs,ys,zs); 
+    int d = nextDim(dim,xs,ys,zs);
     if(d == 0){
       xs >>= 1;
     }
@@ -308,7 +292,7 @@ void Orb3dLB::directMap(int tpstart, int tpend, int nodestart, int nodeend){
     pq_obj.push(tps[i]);
   }
   //CkPrintf("node %d %d %d total load %f\n", nodes[0].x, nodes[0].y, nodes[0].z, load);
-  
+
   for(int i = 0; i < procsPerNode; i++){
     Processor p;
     p.load = 0.0;
@@ -362,7 +346,7 @@ int Orb3dLB::nextDim(int dim_, int xs, int ys, int zs){
     max = zs;
     dim = 2;
   }
-  return dim; 
+  return dim;
 }
 
 #define LOAD_EQUAL_TOLERANCE 1.02

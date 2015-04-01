@@ -158,7 +158,7 @@ class extraStarData
     };
 
 class GravityParticle;
-int TYPETest(GravityParticle *a, unsigned int b);
+int TYPETest(const GravityParticle *a, unsigned int b);
 
 class ExternalSmoothParticle;
 
@@ -292,9 +292,9 @@ public:
 #define TYPE_PHOTOGENIC        (1<<4)
 #define TYPE_NbrOfACTIVE       (1<<5)
 
-	inline bool isDark() { return TYPETest(this, TYPE_DARK);}
-	inline bool isGas() { return TYPETest(this, TYPE_GAS);}
-	inline bool isStar() { return TYPETest(this, TYPE_STAR);}
+	inline bool isDark() const { return TYPETest(this, TYPE_DARK);}
+	inline bool isGas() const { return TYPETest(this, TYPE_GAS);}
+	inline bool isStar() const { return TYPETest(this, TYPE_STAR);}
 
         GravityParticle &operator=(const ExternalGravityParticle &p){
           mass = p.mass;
@@ -304,7 +304,7 @@ public:
         }
 };
 
-inline int TYPETest(GravityParticle *a, unsigned int b) {
+inline int TYPETest(const GravityParticle *a, unsigned int b) {
     return a->iType & b;
     }
 inline int TYPESet(GravityParticle *a, unsigned int b) {
@@ -405,7 +405,7 @@ class ExternalSmoothParticle {
 	  }
   
   /// @brief Fill in a full gravity particle from this object.
-  inline void getParticle(GravityParticle *tmp) { 
+  inline void getParticle(GravityParticle *tmp) const { 
       tmp->mass = mass;
       tmp->fBall = fBall;
       tmp->fDensity = fDensity;

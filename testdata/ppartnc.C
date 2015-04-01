@@ -21,6 +21,7 @@ main(int argc, char **argv)
   int seed;
   XDR xdrs;
   FieldHeader fh;
+  double OmegaDM = 0.8; /* Should make this a parameter */
 
   if(argc != 6) {
       fprintf(stderr, "Usage: ppartt ndark xmin xmax seed directory\n");
@@ -38,7 +39,7 @@ main(int argc, char **argv)
   fh.time = 0.1;
   fh.code = TypeHandling::float32;
 
-  mass = 1.0/fh.numParticles; /* scale so the total mass is 1  (Omega = 1.0) */
+  mass = OmegaDM/fh.numParticles; /* scale so the total mass is OmegaDM */
   eps = pow(fh.numParticles, -1.0/3.0)*(xmax - xmin)/20.0;
 
   //make directory for files
