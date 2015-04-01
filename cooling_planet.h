@@ -199,11 +199,6 @@ void CoolPARTICLEtoPERBARYON(COOL *cl_, PERBARYON *Y, COOLPARTICLE *cp, double H
 #define CoolPARTICLEtoPERBARYON(cl_, Y, cp) { \
     (Y)->Total = (cp)->Y_Total; }
 
-void CoolPARTICLEtoPERBARYON(COOL *cl_, PERBARYON *Y, COOLPARTICLE *cp, double HTotal, double HeTotal);
-
-#define CoolPARTICLEtoPERBARYON(cl_, Y, cp) { \
-    (Y)->Total = (cp)->Y_Total; }
-
 double CoolCodeEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E, double fMetal );
 
 /* Note: nod to cosmology (z parameter) unavoidable unless we want to access cosmo.[ch] from here */
