@@ -745,10 +745,6 @@ void TreePiecePartListDataTransferBasic(CudaRequest *data, workRequest *gravityK
 
 }
 
-/*
-__global__ void EwaldTopKernel(GravityParticleData *particleTable) {
-*/
-
 /* kernels:
 
 TP_GRAVITY_LOCAL,
@@ -1538,7 +1534,8 @@ void kernelSelect(workRequest *wr) {
     case TOP_EWALD_KERNEL:
       cudaMemcpyToSymbol(cachedData, wr->bufferInfo[EWALD_READ_ONLY_DATA].hostBuffer, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice);
       EwaldTopKernel<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
-        ((GravityParticleData*)devBuffers[wr->bufferInfo[PARTICLE_TABLE].bufferID]);
+        ((GravityParticleData*)devBuffers[wr->bufferInfo[PARTICLE_TABLE].bufferID],
+         wr->bufferInfo[PARTICLE_TABLE].size/sizeof(GravityParticleData) - 1);
 #ifdef CUDA_PRINT_ERRORS
       printf("TOP_EWALD_KERNEL: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
@@ -1549,8 +1546,8 @@ void kernelSelect(workRequest *wr) {
       cudaMemcpyToSymbol(ewt, wr->bufferInfo[EWALD_TABLE].hostBuffer, NEWH * sizeof(EwtData), 0, cudaMemcpyHostToDevice);
       EwaldBottomKernel<<<wr->dimGrid, wr->dimBlock, 
         wr->smemSize, kernel_stream>>>
-          ((GravityParticleData
-            *)devBuffers[wr->bufferInfo[PARTICLE_TABLE].bufferID]);
+          ((GravityParticleData *)devBuffers[wr->bufferInfo[PARTICLE_TABLE].bufferID],
+            wr->bufferInfo[PARTICLE_TABLE].size/sizeof(GravityParticleData) - 1);
 #ifdef CUDA_PRINT_ERRORS
       printf("BOTTOM_EWALD_KERNEL : %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
@@ -2426,8 +2423,8 @@ __global__ void particleGravityComputation(
 }
 #endif
 
-__global__ void EwaldTopKernel(GravityParticleData *particleTable);
-__global__ void EwaldBottomKernel(GravityParticleData *particleTable);
+__global__ void EwaldTopKernel(GravityParticleData *particleTable, int nPart);
+__global__ void EwaldBottomKernel(GravityParticleData *particleTable, int nPart);
 
 extern unsigned int timerHandle; 
 
@@ -2554,7 +2551,8 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
 #endif
 }
 
-__global__ void EwaldTopKernel(GravityParticleData *particleTable) {
+__global__ void EwaldTopKernel(GravityParticleData *particleTable,
+           int nPart) {
 
   GravityParticleData *p;
 
@@ -2595,7 +2593,7 @@ __global__ void EwaldTopKernel(GravityParticleData *particleTable) {
   Q2 = 0.5 * (mom->xx + mom->yy + mom->zz);
 
   id = blockIdx.x * BLOCK_SIZE + threadIdx.x + 1;
-  if (id > cachedData->n) {
+  if (id > nPart) {
     return;
   }
   p = &(particleTable[id]);
@@ -2740,7 +2738,7 @@ __global__ void EwaldTopKernel(GravityParticleData *particleTable) {
 
 }
 
-__global__ void EwaldBottomKernel(GravityParticleData *particleTable) {
+__global__ void EwaldBottomKernel(GravityParticleData *particleTable, int nPart) {
 
   int i, id;
   cudatype hdotx, c, s, fPot; 
@@ -2753,7 +2751,7 @@ __global__ void EwaldBottomKernel(GravityParticleData *particleTable) {
   mom = &(cachedData->mm); 
 
   id = blockIdx.x * BLOCK_SIZE + threadIdx.x + 1;
-  if (id > cachedData->n) {
+  if (id > nPart) {
     return;
   }
   p = &(particleTable[id]);
