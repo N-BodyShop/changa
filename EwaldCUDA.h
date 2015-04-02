@@ -78,8 +78,8 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase);
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex); 
 #endif
 
-__global__ void EwaldTopKernel(GravityParticleData *particleTable);
-__global__ void EwaldBottomKernel(GravityParticleData *particleTable);
+__global__ void EwaldTopKernel(GravityParticleData *particleTable, int nPart);
+__global__ void EwaldBottomKernel(GravityParticleData *particleTable, int nPart);
 
 #endif
 
