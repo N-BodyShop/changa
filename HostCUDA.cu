@@ -1592,13 +1592,13 @@ __global__ void nodeGravityComputation(
     start = ilmarks[blockIdx.x],
     end = ilmarks[blockIdx.x+1],
     bucketStart = bucketStarts[blockIdx.x];
-  char bucketSize = bucketSizes[blockIdx.x];
+  int bucketSize = bucketSizes[blockIdx.x];
 
   /*
   __shared__ int start;
  __shared__ int end;
  __shared__ int bucketStart;
- __shared__ char bucketSize;
+ __shared__ int bucketSize;
  */
 
 /*
@@ -1615,7 +1615,7 @@ __global__ void nodeGravityComputation(
     tidx = threadIdx.x,
     tidy = threadIdx.y;
 
-  for(char ystart = 0; ystart < bucketSize; ystart += PARTS_PER_BLOCK){
+  for(int ystart = 0; ystart < bucketSize; ystart += PARTS_PER_BLOCK){
   
 
     int my_particle_idx = ystart + tidy;
@@ -1770,16 +1770,16 @@ __global__ void nodeGravityComputation(
   int start = ilmarks[blockIdx.x];
   int end = ilmarks[blockIdx.x+1];
   int bucketStart = bucketStarts[blockIdx.x];
-  char bucketSize = bucketSizes[blockIdx.x];
+  int bucketSize = bucketSizes[blockIdx.x];
 
   /*
   __shared__ int start;
  __shared__ int end;
  __shared__ int bucketStart;
- __shared__ char bucketSize;
+ __shared__ int bucketSize;
  */
 
-  char tx, ty;
+  int tx, ty;
 
 /*
   if(threadIdx.x == 0 && threadIdx.y == 0){
@@ -1792,7 +1792,7 @@ __global__ void nodeGravityComputation(
   */
 
   int xstart;
-  char ystart;
+  int ystart;
   tx = threadIdx.x;
   ty = threadIdx.y;
 
@@ -2135,16 +2135,16 @@ __global__ void particleGravityComputation(
   int start = ilmarks[blockIdx.x];
   int end = ilmarks[blockIdx.x+1];
   int bucketStart = bucketStarts[blockIdx.x];
-  char bucketSize = bucketSizes[blockIdx.x];
+  int bucketSize = bucketSizes[blockIdx.x];
 
   /*
   __shared__ int start;
  __shared__ int end;
  __shared__ int bucketStart;
- __shared__ char bucketSize;
+ __shared__ int bucketSize;
  */
 
-  char tx, ty;
+  int tx, ty;
 
 /*
   if(threadIdx.x == 0 && threadIdx.y == 0){
@@ -2157,7 +2157,7 @@ __global__ void particleGravityComputation(
   */
 
   int xstart;
-  char ystart;
+  int ystart;
   tx = threadIdx.x;
   ty = threadIdx.y;
 
