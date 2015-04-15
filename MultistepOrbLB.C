@@ -20,7 +20,7 @@ void MultistepOrbLB::init() {
   }
 }
 
-MultistepOrbLB::MultistepOrbLB(const CkLBOptions &opt): OrbLB(opt, false) {
+MultistepOrbLB::MultistepOrbLB(const CkLBOptions &opt): CBase_MultistepOrbLB(opt, false) {
   init();
 
   if (CkMyPe() == 0){
@@ -59,6 +59,8 @@ void MultistepOrbLB::work(BaseLB::LDStats* stats)
   }
 
   for(int i = 0; i < stats->n_objs; i++){
+    if(!stats->objData[i].migratable) continue;
+
     LDObjData &odata = stats->objData[i];
     TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
     numActiveParticles += udata->numActiveParticles;
@@ -126,7 +128,7 @@ void MultistepOrbLB::work(BaseLB::LDStats* stats)
 }
 
 void MultistepOrbLB::pup(PUP::er &p){
-  CentralLB::pup(p);
+  CBase_MultistepOrbLB::pup(p);
 }
 
 #include "MultistepOrbLB.def.h"
