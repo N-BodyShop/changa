@@ -146,7 +146,7 @@ void EntryTypeSmoothParticle::writeback(CkArrayIndexMax& idx, KeyType k, void *d
     CacheSmoothParticle *cPart = (CacheSmoothParticle *)data;
     int total = sizeof(CacheSmoothParticle)
 	+ (cPart->nActual - 1)*sizeof(ExternalSmoothParticle);
-    CkCacheFillMsg<KeyType> *reply = new (total) CkCacheFillMsg<KeyType>(cPart->key);
+    CkCacheFillMsg<KeyType> *reply = new (total, 8*sizeof(int)) CkCacheFillMsg<KeyType>(cPart->key);
     CacheSmoothParticle *rdata = (CacheSmoothParticle*)reply->data;
     rdata->begin = cPart->begin;
     rdata->end = cPart->end;
@@ -161,6 +161,8 @@ void EntryTypeSmoothParticle::writeback(CkArrayIndexMax& idx, KeyType k, void *d
             }
 	}
     CkAssert(j == cPart->nActual);
+    *(int*)CkPriorityPtr(reply) = -10000000;
+    CkSetQueueing(reply, CK_QUEUEING_IFIFO);
     treeProxy[*idx.data()].flushSmoothParticles(reply);
 }
 
