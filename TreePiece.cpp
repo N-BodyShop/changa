@@ -1073,6 +1073,9 @@ void TreePiece::sendParticlesDuringDD(bool withqd) {
             shuffleMsg->parts_per_phase[i] = shuffleMsg->parts_per_phase[i] + 1;
           }
         }
+        if(havePhaseData(PHASE_FEEDBACK)
+           && (pPart->isGas() || pPart->isStar()))
+            shuffleMsg->parts_per_phase[PHASE_FEEDBACK] += 1;
       }
 
       shuffleMsg->load = tpLoad * nPartOut / myNumParticles;
