@@ -369,6 +369,7 @@ class ExternalSmoothParticle {
   double fMFracIron;
   double fTimeCoolIsOffUntil;
   Vector3D<double> curlv;	/* Curl of the velocity */
+  int iBucketOff;               /* Used by the Cache */
 
   ExternalSmoothParticle() {}
 
@@ -461,6 +462,7 @@ class ExternalSmoothParticle {
     p | fMFracOxygen;
     p | fMFracIron;
     p | fTimeCoolIsOffUntil;
+    p | iBucketOff;
   }
 };
 

@@ -3140,7 +3140,8 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 		    dfInitialize( &df[i], param.dSecUnit/SECONDSPERYEAR, 
 				  dTime, param.dDumpFrameTime, dStep, 
 				  param.dDumpFrameStep, param.dDelta, 
-				  param.iMaxRung, verbosity, achFile );
+                                  param.iMaxRung, verbosity, achFile,
+                                  param.bPeriodic, param.vPeriod);
                     df[i]->duTFac = (param.dConstGamma-1)*param.dMeanMolWeight/param.dGasConst;
 		    }
 		    
