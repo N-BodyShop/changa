@@ -7,8 +7,6 @@
 
 #include "GravityParticle.h"
 
-#define DF_NXPIXMAX 1280
-#define DF_NYPIXMAX 1280
 /* PST */
 
 #ifdef USE_PNG
@@ -20,8 +18,6 @@
 typedef struct dfImage {
 	float r,g,b;
 	} DFIMAGE;
-
-#define DF_NBYTEDUMPFRAME (3*sizeof(DFIMAGE)*DF_NXPIXMAX*DF_NYPIXMAX)
 
 typedef struct dfColorVal {
     float fVal;

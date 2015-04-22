@@ -118,8 +118,6 @@ void dfFinalize( struct DumpFrameContext *df ) {
 void *dfAllocateImage( int nxPix, int nyPix ) {
 	DFIMAGE *Image;
 
-	CkAssert ( nxPix*nyPix*sizeof(DFIMAGE) <= DF_NBYTEDUMPFRAME );
-
 	Image = (DFIMAGE *) malloc( nxPix*nyPix*sizeof(DFIMAGE) );
 	CkAssert (Image != NULL );
 	
@@ -877,7 +875,6 @@ void dfParseCameraDirections( struct DumpFrameContext *df, char * filename ) {
 		else if (!strcmp( command, "size") ) {
 			nitem = sscanf( line, "%s %i %i", command, &fs.nxPix, &fs.nyPix );
 			CkAssert( nitem == 3 );
-			CkAssert( fs.nxPix*fs.nyPix <= DF_NXPIXMAX*DF_NYPIXMAX );
 			}
 		else if (!strcmp( command, "zeye") ) {
 			fs.bzEye = 1;
