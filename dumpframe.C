@@ -617,17 +617,21 @@ int dfReadColorMapFile(DFCOLORTABLE *dfCT, char *word, float scaler){
 
     fp = fopen("colortables.txt","r"); /* first search local directory*/
     if (fp == NULL) { /* Then try the directory where env var points */
-	pachFile = getenv("PKDGRAV_CHECKPOINT_FDL");
+      pachFile = getenv("PKDGRAV_CHECKPOINT_FDL");
+      if(pachFile != NULL) {
 	strcpy(achTemp,pachFile);
 	mapFile = dirname(achTemp); /* source directory? */
 	sprintf(mapFile,"%s/colortables.txt",mapFile);
 	fp = fopen(mapFile, "r"); 
 	}
+      }
     if (fp == NULL) { /* Then try the directory where env var points */
-	mapFile = getenv("CHANGA_AUX_DIR");
+      mapFile = getenv("CHANGA_AUX_DIR");
+      if(mapFile != NULL) {
 	sprintf(mapFile,"%s/colortables.txt",mapFile);
 	fp = fopen(mapFile, "r"); 
 	}
+      }
     if (fp == NULL) return 0; 
 
     /* find requested color table */
