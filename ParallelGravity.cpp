@@ -2156,6 +2156,12 @@ void Main::setupICs() {
 #ifdef COOLING_PLANET
   ofsLog << " COOLING_PLANET";
 #endif
+#ifdef COOLING_METAL
+  ofsLog << " COOLING_METAL";
+#endif
+#ifdef NO_LOWT_METAL
+  ofsLog << " NO_LOWT_METAL";
+#endif
 #ifdef DIFFUSION
   ofsLog << " DIFFUSION";
 #endif
