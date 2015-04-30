@@ -914,6 +914,16 @@ void clRateMetalTable(COOL *cl, RATE *Rate, double T, double rho, double Y_H, do
     Rate->Heat_Metal = 0.0; 
     return; 
   }
+
+#ifdef NO_LOWT_METAL
+  /* Turn off all metal cooling at low temperatures.  This may be
+     useful in conjunction with bLowTCool in low res simulations. */
+  if(T < 1.0e4) {
+      Rate->Cool_Metal = 0.0;
+      Rate->Heat_Metal = 0.0;
+      return;
+      }
+#endif
  
   nH = rho*Y_H/M_H;
   
