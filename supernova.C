@@ -107,19 +107,26 @@ void SN::CalcSNIIFeedback(SFEvent *sfEvent,
 	    if(dRandomNum < dProb) /* SN occurred */ {
 		/* Adds missing part to make up quantum */
 		dNSNTypeII += (1.-dProb)*iNSNIIQuantum;
-		/*printf("NSN: +factor=%g   dNSNTypeII=%g  result=%g fNSN=%g\n",(1.-dProb)*iNSNIIQuantum,dNSNTypeII,dNSNTypeII + (1.-dProb)*iNSNIIQuantum,p->fNSN);*/
+                dMSNTypeII += (1.-dProb)*iNSNIIQuantum*dMeanMStar;
 		} else {
 		dNSNTypeII -= dProb*iNSNIIQuantum;
-		/*printf("NSN: -factor=%g   dNSNTypeII=%g  result=%g fNSN=%g\n",dProb*iNSNIIQuantum,dNSNTypeII,dNSNTypeII - dProb*iNSNIIQuantum,p->fNSN);*/
+                dMSNTypeII -= dProb*iNSNIIQuantum*dMeanMStar;
 		}
-	    if(dNSNTypeII < iNSNIIQuantum) dNSNTypeII = 0;
+	    if(dNSNTypeII < iNSNIIQuantum) {
+                fbEffects->dMassLoss = 0.0;
+                fbEffects->dEnergy = 0.0;
+                fbEffects->dMetals = 0.0;
+                fbEffects->dMIron = 0.0;
+                fbEffects->dMOxygen = 0.0;
+                return;
+                }
 	    } 
 	
 	/* decrement mass of star particle by mass of stars that go SN
 	   plus mass of SN remnants */
 	double dDeltaMSNrem = dNSNTypeII*dMSNrem; /* mass in SN remnants */
 	fbEffects->dMassLoss = dMSNTypeII - dDeltaMSNrem;
-	
+	CkAssert(fbEffects->dMassLoss >= 0.0);
 	/* SN specific energy rate to be re-distributed among neighbouring gas
 	   particles */
 	double dESNTypeII = dNSNTypeII * dESN;
