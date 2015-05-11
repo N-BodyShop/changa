@@ -930,6 +930,7 @@ private:
   CkCallback after_dd_callback;
 	/// Total number of particles contained in this chare
 	unsigned int myNumParticles;
+  bool checking_stage;
 	/// Array with the particles in this chare
 	GravityParticle* myParticles;
 	/// Actual storage in the above array
