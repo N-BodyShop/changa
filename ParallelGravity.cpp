@@ -1515,7 +1515,14 @@ void Main::advanceBigStep(int iStep) {
         CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
         CkPrintf("Load balancer for star formation/feedback... ");
         startTime = CkWallTimer();
-        treeProxy.startlb(CkCallbackResumeThread(), PHASE_FEEDBACK);
+
+        CkReductionMsg *msg_lb;
+        treeProxy.startlb(CkCallbackResumeThread((void*&)msg_lb), PHASE_FEEDBACK);
+        int* total_active_tps = (int *) msg_lb->getData(); 
+        bool doLB = (*total_active_tps > 0.1 * numTreePieces) ? true : false;
+        delete msg_lb;
+        treeProxy.startlb(CkCallbackResumeThread(), doLB);
+
         CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
         if(param.bStarForm)
             FormStars(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
@@ -1570,7 +1577,12 @@ void Main::advanceBigStep(int iStep) {
     //ckout << "Load balancer ...";
     CkPrintf("Load balancer ... ");
     startTime = CkWallTimer();
-    treeProxy.startlb(CkCallbackResumeThread(), activeRung);
+    CkReductionMsg *msg_lb;
+    treeProxy.startlb(CkCallbackResumeThread((void*&)msg_lb), activeRung);
+    int* total_active_tps = (int *) msg_lb->getData(); 
+    bool doLB = (*total_active_tps > 0.1 * numTreePieces) ? true : false;
+    delete msg_lb;
+    treeProxy.startlb(CkCallbackResumeThread(), doLB);
     /*
     ckout << " took "<<(CkWallTimer() - startTime) << " seconds."
 	     << endl;
