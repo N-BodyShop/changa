@@ -443,6 +443,7 @@ mainmodule ParallelGravity {
     // jetley
     entry void startlb(CkCallback &cb, int activeRung);
     entry void ResumeFromSync();
+    entry void sendParticleInfo(CkCallback &cb, int activeRung);
     //jetley
     // entry void receiveProxy(CkGroupID);
     entry void doAtSync();

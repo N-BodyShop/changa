@@ -4858,6 +4858,27 @@ void TreePiece::continueStartRemoteChunk(int chunk){
   }
 }
 
+void TreePiece::sendParticleInfo(CkCallback &cb, int activeRung) {
+  unsigned int numActiveParticles, i;
+
+  if(activeRung == 0){
+    numActiveParticles = myNumParticles;
+  } else if(activeRung == PHASE_FEEDBACK) {
+    numActiveParticles = myNumSPH + myNumStar;
+  }
+  else{
+    for(numActiveParticles = 0, i = 1; i <= myNumParticles; i++)
+      if(myParticles[i].rung >= activeRung)
+        numActiveParticles++;
+  }
+
+  int64_t active_tp[2];
+  active_tp[0] = numActiveParticles;
+  active_tp[1] = myNumParticles;
+
+  contribute(2*sizeof(int64_t), &active_tp, CkReduction::sum_long, cb);
+}
+
   // jetley - contribute your centroid. AtSync is now called by the load balancer (broadcast) when it has
   // all centroids.
 void TreePiece::startlb(CkCallback &cb, int activeRung){

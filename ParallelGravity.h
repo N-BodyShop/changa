@@ -1785,6 +1785,7 @@ public:
 	void processReqSmoothParticles();
 
 	//void startlb(CkCallback &cb);
+	void sendParticleInfo(CkCallback &cb, int activeRung);
 	void startlb(CkCallback &cb, int activeRung);
   void populateSavedPhaseData(int phase, double tpload, unsigned int activeparts);
   bool havePhaseData(int phase);
