@@ -919,6 +919,7 @@ private:
         bool proxySet;
         // jetley - multistep load balancing
         int prevLARung;
+        int lbActiveRung;
 
 	/// @brief Used to inform the mainchare that the requested operation has
 	/// globally finished
@@ -930,6 +931,7 @@ private:
   CkCallback after_dd_callback;
 	/// Total number of particles contained in this chare
 	unsigned int myNumParticles;
+	unsigned int numActiveParticles;
 	/// Array with the particles in this chare
 	GravityParticle* myParticles;
 	/// Actual storage in the above array
@@ -1785,7 +1787,9 @@ public:
 	void processReqSmoothParticles();
 
 	//void startlb(CkCallback &cb);
+	void getParticleInfoForLB(int64_t active_part, int64_t total_part);
 	void startlb(CkCallback &cb, int activeRung);
+  void setTreePieceLoad(int activeRung);
   void populateSavedPhaseData(int phase, double tpload, unsigned int activeparts);
   bool havePhaseData(int phase);
   void savePhaseData(std::vector<double> &loads, std::vector<unsigned int>
