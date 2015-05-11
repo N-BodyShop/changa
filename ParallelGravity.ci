@@ -450,6 +450,8 @@ mainmodule ParallelGravity {
     // jetley
     entry void startlb(CkCallback &cb, int activeRung);
     entry void ResumeFromSync();
+    entry [reductiontarget] void getParticleInfoForLB(int64_t active_part,
+        int64_t total_part);
     //jetley
     // entry void receiveProxy(CkGroupID);
     entry void doAtSync();
