@@ -4858,35 +4858,8 @@ void TreePiece::continueStartRemoteChunk(int chunk){
   }
 }
 
-  // jetley - contribute your centroid. AtSync is now called by the load balancer (broadcast) when it has
-  // all centroids.
-void TreePiece::startlb(CkCallback &cb, int activeRung){
-
-  if(verbosity > 1)
-     CkPrintf("[%d] load set to: %g, actual: %g\n", thisIndex, treePieceLoad, getObjTime());  
-
-  callback = cb;
-  if(verbosity > 1)
-    CkPrintf("[%d] TreePiece %d calling AtSync()\n",CkMyPe(),thisIndex);
-  
-  unsigned int numActiveParticles, i;
-
-  if(activeRung == 0){
-    numActiveParticles = myNumParticles;
-  }
-  else if(activeRung == PHASE_FEEDBACK) {
-      numActiveParticles = myNumSPH + myNumStar;
-      }
-  else{
-    for(numActiveParticles = 0, i = 1; i <= myNumParticles; i++)
-      if(myParticles[i].rung >= activeRung)
-        numActiveParticles++;
-  }
-  LDObjHandle myHandle = myRec->getLdHandle();
-  TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles, activeRung, prevLARung);
-  tv.tp = thisIndex;
-  tv.tag = thisIndex;
-
+// Sets the load of the TreePiece object
+void TreePiece::setTreePieceLoad(int activeRung) {
   treePieceActivePartsTmp = numActiveParticles;
   if (havePhaseData(activeRung)) {
     treePieceLoadExp = savedPhaseLoad[activeRung];
@@ -4902,23 +4875,68 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
   }
   setObjTime(treePieceLoadExp);
   treePieceLoad = 0;
+}
 
-  /*
-  CkPrintf("[%d] centroid %f %f %f\n", 
-                      thisIndex,
-                      tv.vec.x,
-                      tv.vec.y,
-                      tv.vec.z
-                      );
-  */
+  // jetley - contribute your centroid. AtSync is now called by the load balancer (broadcast) when it has
+  // all centroids.
+void TreePiece::startlb(CkCallback &cb, int activeRung){
+
+  if(verbosity > 1)
+     CkPrintf("[%d] load set to: %g, actual: %g\n", thisIndex, treePieceLoad, getObjTime());  
+
+  callback = cb;
+  lbActiveRung = activeRung;
+  if(verbosity > 1)
+    CkPrintf("[%d] TreePiece %d calling AtSync()\n",CkMyPe(),thisIndex);
+  
+  unsigned int i;
+
+  if(activeRung == 0){
+    numActiveParticles = myNumParticles;
+  }
+  else if(activeRung == PHASE_FEEDBACK) {
+      numActiveParticles = myNumSPH + myNumStar;
+      }
+  else{
+    for(numActiveParticles = 0, i = 1; i <= myNumParticles; i++)
+      if(myParticles[i].rung >= activeRung)
+        numActiveParticles++;
+  }
+
+  int64_t active_tp[2];
+  active_tp[0] = numActiveParticles;
+  active_tp[1] = myNumParticles;
+
+  contribute(2*sizeof(int64_t), &active_tp, CkReduction::sum_long,
+      CkCallback(CkReductionTarget(TreePiece,getParticleInfoForLB),thisProxy));
+}
+
+// This is called by startlb to check whether to call the load balancer
+void TreePiece::getParticleInfoForLB(int64_t active_part, int64_t total_part) {
+  bool doLB = ((float)active_part/total_part > 0.0001) ? true : false;
+  // Don't do LB
+  if (!doLB) {
+    setTreePieceLoad(lbActiveRung);
+    prevLARung = lbActiveRung;
+    contribute(callback);
+    return;
+  }
+
+  LDObjHandle myHandle = myRec->getLdHandle();
+
+  TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles,
+    lbActiveRung, prevLARung);
+  tv.tp = thisIndex;
+  tv.tag = thisIndex;
+
+  setTreePieceLoad(lbActiveRung);
 
   if (CkpvAccess(_lb_obj_index) != -1) {
     void *data = getObjUserData(CkpvAccess(_lb_obj_index));
     *(TaggedVector3D *) data = tv;
   }
   thisProxy[thisIndex].doAtSync();
-
-  prevLARung = activeRung;
+  prevLARung = lbActiveRung;
 }
 
 void TreePiece::doAtSync(){
