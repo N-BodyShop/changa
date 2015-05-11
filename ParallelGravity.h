@@ -930,6 +930,7 @@ private:
   CkCallback after_dd_callback;
 	/// Total number of particles contained in this chare
 	unsigned int myNumParticles;
+  bool checking_stage;
 	/// Array with the particles in this chare
 	GravityParticle* myParticles;
 	/// Actual storage in the above array
@@ -1278,6 +1279,7 @@ public:
 	  treePieceLoad(0.0), treePieceLoadTmp(0.0), treePieceLoadExp(0.0),
     treePieceActivePartsTmp(0) {
 	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
+    checking_stage = true;
 	  dm = NULL;
 	  foundLB = Null; 
 	  iterationNo=0;
@@ -1363,6 +1365,7 @@ public:
           proxyValid = false;
           proxySet = false;
 
+    checking_stage = true;
 	  usesAtSync = true;
 	  //localCache = NULL;
 	  dm = NULL;
