@@ -456,40 +456,40 @@ double CoolHeatingCode(COOL *cl, COOLPARTICLE *cp, double ECode,
 
 void CoolAddParams( COOLPARAM *CoolParam, PRM prm ) {
 	CoolParam->bDoIonOutput = 1;
-	prmAddParam(prm,"bDoIonOutput",0,&CoolParam->bDoIonOutput,sizeof(int),
+	prmAddParam(prm,"bDoIonOutput",paramBool,&CoolParam->bDoIonOutput,sizeof(int),
 				"Iout","enable/disable Ion outputs (cooling only) = +Iout");
 
 
 	CoolParam->grackle_verbose = 0;
-	prmAddParam(prm,"grackle_verbose",0,&CoolParam->grackle_verbose,sizeof(int),"grackle_verbose",
+	prmAddParam(prm,"grackle_verbose",paramBool,&CoolParam->grackle_verbose,sizeof(int),"grackle_verbose",
 				"on =  +grackle_verbose [off]");
 	CoolParam->use_grackle = 1;
-	prmAddParam(prm,"use_grackle",0,&CoolParam->use_grackle,sizeof(int),"use_grackle",
+	prmAddParam(prm,"use_grackle",paramBool,&CoolParam->use_grackle,sizeof(int),"use_grackle",
 				"on = +use_grackle");
 	CoolParam->with_radiative_cooling = 1;
-	prmAddParam(prm,"with_radiative_cooling",0,&CoolParam->with_radiative_cooling,sizeof(int),"with_radiative_cooling",
+	prmAddParam(prm,"with_radiative_cooling",paramBool,&CoolParam->with_radiative_cooling,sizeof(int),"with_radiative_cooling",
 				"on = +with_radiative_cooling");
 	CoolParam->primordial_chemistry = 0;
-	prmAddParam(prm,"primordial_chemistry",1,&CoolParam->primordial_chemistry,sizeof(int),"primordial_chemistry",
+	prmAddParam(prm,"primordial_chemistry",paramInt,&CoolParam->primordial_chemistry,sizeof(int),"primordial_chemistry",
 				"-primordial_chemistry=0 [values 0,1,2,3]");
 	CoolParam->metal_cooling = 1;
-	prmAddParam(prm,"metal_cooling",0,&CoolParam->metal_cooling,sizeof(int),"metal_cooling",
+	prmAddParam(prm,"metal_cooling",paramBool,&CoolParam->metal_cooling,sizeof(int),"metal_cooling",
 				"on = +metal_cooling");
 	CoolParam->UVbackground = 1;
-	prmAddParam(prm,"UVbackground",0,&CoolParam->UVbackground,sizeof(int),"UVbackground",
+	prmAddParam(prm,"UVbackground",paramBool,&CoolParam->UVbackground,sizeof(int),"UVbackground",
 				"on = +UVbackground");
 	CoolParam->bComoving = 1;
-	prmAddParam(prm,"bComoving",0,&CoolParam->bComoving,sizeof(int),"bComoving",
+	prmAddParam(prm,"bComoving",paramBool,&CoolParam->bComoving,sizeof(int),"bComoving",
 				"on = +bComoving");
 	strcpy(CoolParam->grackle_data_file,"CloudyData_UVB=HM2012.h5\0");
-	prmAddParam(prm,"grackle_data_file",3,&CoolParam->grackle_data_file,256,"grackle_data_file",
+	prmAddParam(prm,"grackle_data_file",paramString,&CoolParam->grackle_data_file,256,"grackle_data_file",
 	"<cooling table file> (file in hdf5 format, e.g. CloudyData_UVB=HM2012.h5)"); 
 
 	}
 	
 
 #if 0
-/* Not needed to ChaNGa */
+/* Not needed for ChaNGa */
 void CoolLogParams( COOLPARAM *CoolParam, LOGGER *lgr) {
     LogParams(lgr, "COOLING", "bDoIonOutput: %d",CoolParam->bDoIonOutput); 
 
