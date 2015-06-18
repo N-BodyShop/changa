@@ -163,7 +163,7 @@ public:
 
         void transferLocalTreeCallback();
 
-        void resumeRemoteChunk();
+        void resumeRemoteChunk(bool receivedRemote);
 #ifdef CUDA
         //void serializeNodes(GenericTreeNode *start, CudaMultipoleMoments *&postPrefetchMoments, CompactPartData *&postPrefetchParticles);
 		//void serializeNodes(GenericTreeNode *start);
@@ -298,14 +298,17 @@ class ProjectionsControl : public CBase_ProjectionsControl {
 class DataManagerHelper : public CBase_DataManagerHelper {
   private:
     int countLocalPes;
+    int countSyncRemoteChunk;
   public:
 
-  DataManagerHelper() { countLocalPes = 0;}
+  DataManagerHelper() { countLocalPes = 0; countSyncRemoteChunk = 0;}
   DataManagerHelper(CkMigrateMessage *m) : CBase_DataManagerHelper(m) {
     countLocalPes = 0;
+    countSyncRemoteChunk = 0;
   }
 
   void transferLocalTreeCallback();
+  void transferRemoteChunkCallback();
 
   void populateDeviceBufferTable(intptr_t localMoments, intptr_t localParticleCores, intptr_t localParticleVars) {
 #ifdef CUDA
@@ -321,14 +324,15 @@ class DataManagerHelper : public CBase_DataManagerHelper {
   void populateDeviceBufferTable(intptr_t remoteMoments, intptr_t remoteParticleCores) {
 #ifdef CUDA
     void **devBuffers = getdevBuffers();
-    devBuffers[REMOTE_MOMENTS] = (void *) localMoments;
-    devBuffers[REMOTE_PARTICLE_CORES] = (void *) localParticleCores;
+    devBuffers[REMOTE_MOMENTS] = (void *) remoteMoments;
+    devBuffers[REMOTE_PARTICLE_CORES] = (void *) remoteParticleCores;
     int basePE = CkMyPe() - CkMyPe() % CkMyNodeSize();
     thisProxy[basePE].finishDevBufferSyncRemoteChunk();
 #endif
   }
 
   void finishDevBufferSync();
+  void finishDevBufferSyncRemoteChunk();
 
   void purgeBufferTables(const CkCallback& cb) {
 #ifdef CUDA
@@ -348,6 +352,7 @@ class DataManagerHelper : public CBase_DataManagerHelper {
   void pup(PUP::er &p){
     CBase_DataManagerHelper::pup(p);
     countLocalPes = 0;
+    countSyncRemoteChunk = 0;
   }
 
 };

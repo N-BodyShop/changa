@@ -580,6 +580,7 @@ void DataManager::donePrefetch(int chunk){
 #ifdef CUDA_TRACE
     traceUserBracketEvent(CUDA_SER_TREE, starttime, CmiWallTimer());
 #endif
+    PendingBuffers *buffers = currentChunkBuffers;
     if(gpuFree){
       gpuFree = false;
       lastChunkMoments = buffers->moments->length();
