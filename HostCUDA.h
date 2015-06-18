@@ -152,7 +152,7 @@ void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart,
 void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, bool, bool, int pe, char phase);
 #else
 void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, void *wrCallback);
-void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts);
+void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, void *wrCallback);
 void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart);
 void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart);
 void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, bool, bool);
