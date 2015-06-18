@@ -221,9 +221,9 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
 }
 
 #ifdef CUDA_INSTRUMENT_WRS
-void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase) {
+  void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase, void *wrCallback) {
 #else
-void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts) {
+    void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, void *wrCallback) {
 #endif
 
   workRequest transferKernel;
@@ -285,7 +285,7 @@ void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments,
             );
 #endif
 
-  transferKernel.callbackFn = 0;
+  transferKernel.callbackFn = wrCallback;
   transferKernel.id = DM_TRANSFER_REMOTE_CHUNK;
 #ifdef CUDA_INSTRUMENT_WRS
   transferKernel.chareIndex = mype;

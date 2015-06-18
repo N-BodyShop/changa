@@ -531,9 +531,16 @@ void DataManager::serializeLocalTree(){
 
 }
 
-void DataManager::resumeRemoteChunk() {
+void DataManager::resumeRemoteChunk(bool receivedRemote) {
   CkPrintf("[%d] resumeRemoteChunk registered: %d\n", CkMyPe(), registeredTreePieces.length());
 #ifdef CUDA
+  int chunk = 0;
+  if (receivedRemote) {
+    chunk = currentChunkBuffers->chunk;
+    delete currentChunkBuffers->moments;
+    delete currentChunkBuffers->particles;
+    delete currentChunkBuffers;
+  }
 
 #ifdef CUDA_TRACE
     traceUserBracketEvent(CUDA_SER_TREE, starttime, CmiWallTimer());
@@ -546,6 +553,9 @@ void DataManager::resumeRemoteChunk() {
 #if COSMO_PRINT_BK > 1
       CkPrintf("(%d) dm->%d\n", CkMyPe(), in);
 #endif
+      if (receivedRemote) {
+        treePieces[in].continueStartRemoteChunk(chunk);
+      }
       treePieces[in].commenceCalculateGravityLocal();
     }
 #endif
@@ -566,7 +576,7 @@ void DataManager::donePrefetch(int chunk){
 #ifdef CUDA_TRACE
     double starttime = CmiWallTimer();
 #endif
-    PendingBuffers *buffers = serializeRemoteChunk(root);
+    currentChunkBuffers = serializeRemoteChunk(root);
 #ifdef CUDA_TRACE
     traceUserBracketEvent(CUDA_SER_TREE, starttime, CmiWallTimer());
 #endif
@@ -576,23 +586,15 @@ void DataManager::donePrefetch(int chunk){
       lastChunkParticles = buffers->particles->length();
       //CkPrintf("(%d) DM donePrefetch gpuFree, transferring 0x%x (%d); 0x%x (%d) \n", CkMyPe(), buffers->moments->getVec(), lastChunkMoments, buffers->particles->getVec(), lastChunkParticles);
 
+  CkCallback *remoteChunkTransferCallback = new CkCallback(CkIndex_DataManagerHelper::transferRemoteChunkCallback(), CkMyPe(), dmHelperProxy);
+
       // Transfer moments and particle cores to gpu
 #ifdef CUDA_INSTRUMENT_WRS
-      DataManagerTransferRemoteChunk(buffers->moments->getVec(), lastChunkMoments, buffers->particles->getVec(), lastChunkParticles, 0, activeRung);
+  DataManagerTransferRemoteChunk(buffers->moments->getVec(), lastChunkMoments, buffers->particles->getVec(), lastChunkParticles, 0, activeRung, remoteChunkTransferCallback);
 #else
-      DataManagerTransferRemoteChunk(buffers->moments->getVec(), lastChunkMoments, buffers->particles->getVec(), lastChunkParticles);
+  DataManagerTransferRemoteChunk(buffers->moments->getVec(), lastChunkMoments, buffers->particles->getVec(), lastChunkParticles, remoteChunkTransferCallback);
 #endif
 
-      delete buffers->moments;
-      delete buffers->particles;
-      delete buffers;
-      // resume each treepiece's startRemoteChunk, now that the nodes
-      // are properly labeled and the particles accounted for
-      for(int i = 0; i < registeredTreePieces.length(); i++){
-        int in = registeredTreePieces[i].treePiece->getIndex();
-        //CkPrintf("(%d) dm->%d chunk %d\n", CkMyPe(), in, chunk);
-        treePieces[in].continueStartRemoteChunk(chunk);
-      }
     }
     else{
       // enqueue pendingbuffers
@@ -915,30 +917,23 @@ void initiateNextChunkTransfer(void *dm_){
 
 void DataManager::initiateNextChunkTransfer(){
   PendingBuffers *next = 0;
-  if(next = pendingChunkTransferQ.deq()){
+  if(currentChunkBuffers = pendingChunkTransferQ.deq()){
+    next = currentChunkBuffers;
     // Transfer moments and particle cores to gpu
     int chunk = next->chunk;
     //CkPrintf("(%d) DM initiateNextChunkTransfer chunk %d (%d moments, %d particles) called\n", CkMyPe(), chunk, next->moments->length(), next->particles->length());
     lastChunkMoments = next->moments->length();
     lastChunkParticles = next->particles->length();
 
+  CkCallback *remoteChunkTransferCallback = new CkCallback(CkIndex_DataManagerHelper::transferRemoteChunkCallback(), CkMyPe(), dmHelperProxy);
+
     CkPrintf("(%d) DM initiateNextChunkTransfer chunk %d, 0x%x (%d); 0x%x (%d) \n", CkMyPe(), next->moments->getVec(), lastChunkMoments, next->particles->getVec(), lastChunkParticles);
 #ifdef CUDA_INSTRUMENT_WRS
-    DataManagerTransferRemoteChunk(next->moments->getVec(), next->moments->length(), next->particles->getVec(), next->particles->length(), 0, activeRung);
+    DataManagerTransferRemoteChunk(next->moments->getVec(), next->moments->length(), next->particles->getVec(), next->particles->length(), 0, activeRung, remoteChunkTransferCallback);
 #else
-    DataManagerTransferRemoteChunk(next->moments->getVec(), next->moments->length(), next->particles->getVec(), next->particles->length());
+    DataManagerTransferRemoteChunk(next->moments->getVec(), next->moments->length(), next->particles->getVec(), next->particles->length(), remoteChunkTransferCallback);
 #endif
 
-    delete next->moments;
-    delete next->particles;
-    delete next;
-    // resume each treepiece's startRemoteChunk, now that the nodes
-    // are properly labeled and the particles accounted for
-    for(int i = 0; i < registeredTreePieces.length(); i++){
-      int in = registeredTreePieces[i].treePiece->getIndex();
-      //CkPrintf("(%d) dm->%d\n", CkMyPe(), in);
-      treePieces[in].continueStartRemoteChunk(chunk);
-    }
   }
   else{
     //CkPrintf("(%d) DM initiateNextChunkTransfer no chunks found, gpu is free\n", CkMyPe());
@@ -1115,11 +1110,38 @@ void DataManagerHelper::transferLocalTreeCallback() {
 
 }
 
+void DataManagerHelper::transferRemoteChunkCallback() {
+
+#ifdef CUDA
+  void **devBuffers = getdevBuffers();
+  void *remoteMoments = devBuffers[REMOTE_MOMENTS];
+  void *remoteParticleCores = devBuffers[REMOTE_PARTICLE_CORES];
+  int basePE = CkMyPe() - CkMyPe() % CkMyNodeSize();
+
+  for (int i = basePE; i < basePE + CkMyNodeSize(); i++) {
+    if (i != CkMyPe()) {
+      dmHelperProxy[i].populateDeviceBufferTable((intptr_t) remoteMoments, (intptr_t) remoteParticleCores);
+    }
+  }
+
+  dmHelperProxy[basePE].finishDevBufferSyncRemoteChunk();
+#endif
+
+}
+
 void DataManagerHelper::finishDevBufferSync() {
   CkPrintf("[%d] finishDevBufferSync\n", CkMyPe());
   if (++countLocalPes == CkMyNodeSize() ) {
     countLocalPes = 0;
     DataManager *dm = (DataManager *) CkLocalNodeBranch(dataManagerID);
-    dm->resumeRemoteChunk();
+    dm->resumeRemoteChunk(false);
+  }
+}
+
+void DataManagerHelper::finishDevBufferSyncRemoteChunk() {
+  if (++countSyncRemoteChunk == CkMyNodeSize() ) {
+    countSyncRemoteChunk = 0;
+    DataManager *dm = (DataManager *) CkLocalNodeBranch(dataManagerID);
+    dm->resumeRemoteChunk(true);
   }
 }
