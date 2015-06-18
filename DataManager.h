@@ -112,6 +112,8 @@ protected:
 
         // can the gpu accept a chunk of remote particles/nodes?
         bool gpuFree;
+
+        PendingBuffers *currentChunkBuffers;
         // queue that stores all pending chunk transfers
         CkQ<PendingBuffers *> pendingChunkTransferQ;
 
@@ -327,6 +329,16 @@ class DataManagerHelper : public CBase_DataManagerHelper {
     devBuffers[LOCAL_PARTICLE_VARS] = (void *) localParticleVars;
     int basePE = CkMyPe() - CkMyPe() % CkMyNodeSize();
     thisProxy[basePE].finishDevBufferSync();
+#endif
+  }
+
+  void populateDeviceBufferTable(intptr_t remoteMoments, intptr_t remoteParticleCores) {
+#ifdef CUDA
+    void **devBuffers = getdevBuffers();
+    devBuffers[REMOTE_MOMENTS] = (void *) localMoments;
+    devBuffers[REMOTE_PARTICLE_CORES] = (void *) localParticleCores;
+    int basePE = CkMyPe() - CkMyPe() % CkMyNodeSize();
+    thisProxy[basePE].finishDevBufferSyncRemoteChunk();
 #endif
   }
 
