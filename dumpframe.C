@@ -45,7 +45,8 @@ int ntrack = 0, ntrack2 = 0;
 
 void dfInitialize( struct DumpFrameContext **pdf, double dYearUnit, double dTime,  
 				  double dDumpFrameTime, double dStep, double dDumpFrameStep,
-				  double dDelta, int iMaxRung, int bVDetails, char* filename ) {
+                double dDelta, int iMaxRung, int bVDetails, char* filename,
+                int bPeriodic, Vector3D<double> vPeriod) {
 	double tock=0.0;/*initialized to suppress warning: DCR 12/19/02*/
 	struct DumpFrameContext *df;
 
@@ -96,6 +97,13 @@ void dfInitialize( struct DumpFrameContext **pdf, double dYearUnit, double dTime
 /* Parse time dependent camera options (mostly 2D) */
 	dfParseCameraDirections( *pdf, filename );
 
+        for(int i = 0; i < df->nFrameSetup; i++) {
+            df->fs[i].bPeriodic = bPeriodic;
+            df->fs[i].fPeriod[0] = vPeriod.x;
+            df->fs[i].fPeriod[1] = vPeriod.y;
+            df->fs[i].fPeriod[2] = vPeriod.z;
+            }
+        
 	if (df->bVDetails) CkPrintf("DF Initialized Frame dumping: Time Interval %g [%g] (Step %i) Step Interval %g -> MaxRung %i\n",dDumpFrameTime,floor(dDumpFrameTime)+dDelta*pow(2.0,-floor(tock)),(int) floor(dDumpFrameTime/dDelta),dDumpFrameStep,df->iMaxRung);
 	}
 
@@ -109,8 +117,6 @@ void dfFinalize( struct DumpFrameContext *df ) {
 
 void *dfAllocateImage( int nxPix, int nyPix ) {
 	DFIMAGE *Image;
-
-	CkAssert ( nxPix*nyPix*sizeof(DFIMAGE) <= DF_NBYTEDUMPFRAME );
 
 	Image = (DFIMAGE *) malloc( nxPix*nyPix*sizeof(DFIMAGE) );
 	CkAssert (Image != NULL );
@@ -223,6 +229,9 @@ void dfProjection( struct inDumpFrame *in, struct dfFrameSetup *fs, int nxPix, i
 
 	in->bExpansion = fs->bExpansion;
 	in->bPeriodic = fs->bPeriodic;
+	in->fPeriod[0] = fs->fPeriod[0];
+	in->fPeriod[1] = fs->fPeriod[1];
+	in->fPeriod[2] = fs->fPeriod[2];
 	in->iProject = fs->iProject;
 	in->pScale1 = fs->pScale1;
 	in->pScale2 = fs->pScale2;
@@ -326,23 +335,6 @@ void dfProjection( struct inDumpFrame *in, struct dfFrameSetup *fs, int nxPix, i
 		SIZEVEC( in->y, (in->nyPix*0.5/height) );
 		}
 
-	if (fs->bPeriodic) {
-		in->nxRepNeg = 0;  /* Replicas for Periodic: Will setup sensibly ultimately */
-		in->nxRepPos = 0;
-		in->nyRepNeg = 0;  
-		in->nyRepPos = 0;
-		in->nzRepNeg = 0;  
-		in->nzRepPos = 0;
-		}
-	else {
-		in->nxRepNeg = 0;  /* Not Periodic */
-		in->nxRepPos = 0;
-		in->nyRepNeg = 0;  
-		in->nyRepPos = 0;
-		in->nzRepNeg = 0;  
-		in->nzRepPos = 0;
-		}
-	
 	/* Render helper variables */
 	in->xlim = (in->nxPix-1)*.5;
 	in->ylim = (in->nyPix-1)*.5;
@@ -623,17 +615,21 @@ int dfReadColorMapFile(DFCOLORTABLE *dfCT, char *word, float scaler){
 
     fp = fopen("colortables.txt","r"); /* first search local directory*/
     if (fp == NULL) { /* Then try the directory where env var points */
-	pachFile = getenv("PKDGRAV_CHECKPOINT_FDL");
+      pachFile = getenv("PKDGRAV_CHECKPOINT_FDL");
+      if(pachFile != NULL) {
 	strcpy(achTemp,pachFile);
 	mapFile = dirname(achTemp); /* source directory? */
 	sprintf(mapFile,"%s/colortables.txt",mapFile);
 	fp = fopen(mapFile, "r"); 
 	}
+      }
     if (fp == NULL) { /* Then try the directory where env var points */
-	mapFile = getenv("CHANGA_AUX_DIR");
+      mapFile = getenv("CHANGA_AUX_DIR");
+      if(mapFile != NULL) {
 	sprintf(mapFile,"%s/colortables.txt",mapFile);
 	fp = fopen(mapFile, "r"); 
 	}
+      }
     if (fp == NULL) return 0; 
 
     /* find requested color table */
@@ -729,6 +725,9 @@ void dfParseCameraDirections( struct DumpFrameContext *df, char * filename ) {
 	fs.bzClipFrac = 1;
     fs.bExpansion = 0;  /* to physical? */
     fs.bPeriodic = 0;  /* Periodic? */
+    fs.fPeriod[0] = 1.0e38;
+    fs.fPeriod[1] = 1.0e38;
+    fs.fPeriod[2] = 1.0e38;
 	fs.iProject = DF_PROJECT_PERSPECTIVE;
 	/* Render */
 	fs.dfDarkCT.nColors=1;
@@ -876,7 +875,6 @@ void dfParseCameraDirections( struct DumpFrameContext *df, char * filename ) {
 		else if (!strcmp( command, "size") ) {
 			nitem = sscanf( line, "%s %i %i", command, &fs.nxPix, &fs.nyPix );
 			CkAssert( nitem == 3 );
-			CkAssert( fs.nxPix*fs.nyPix <= DF_NXPIXMAX*DF_NYPIXMAX );
 			}
 		else if (!strcmp( command, "zeye") ) {
 			fs.bzEye = 1;
@@ -1350,6 +1348,10 @@ void dfRenderParticlePoint( struct inDumpFrame *in, void *vImage,
 
 	for (j=0;j<3;j++) {
 		dr[j] = r[j]-in->r[j];
+                if(dr[j] >= 0.5*in->fPeriod[j])
+                    dr[j] -= in->fPeriod[j];
+                if(dr[j] < -0.5*in->fPeriod[j])
+                    dr[j] += in->fPeriod[j];
 		}
 	z = dr[0]*in->z[0] + dr[1]*in->z[1] + dr[2]*in->z[2] + in->zEye;
 	if (z >= in->zClipNear && z <= in->zClipFar) {
@@ -1440,6 +1442,10 @@ void dfRenderParticleTSC( struct inDumpFrame *in, void *vImage,
 	
 	for (j=0;j<3;j++) {
 		dr[j] = r[j]-in->r[j];
+                if(dr[j] >= 0.5*in->fPeriod[j])
+                    dr[j] -= in->fPeriod[j];
+                if(dr[j] < -0.5*in->fPeriod[j])
+                    dr[j] += in->fPeriod[j];
 		}
 
 	z = dr[0]*in->z[0] + dr[1]*in->z[1] + dr[2]*in->z[2] + in->zEye;
@@ -1557,6 +1563,10 @@ void dfRenderParticleSolid( struct inDumpFrame *in, void *vImage,
 	
 	for (j=0;j<3;j++) {
 		dr[j] = r[j]-in->r[j];
+                if(dr[j] >= 0.5*in->fPeriod[j])
+                    dr[j] -= in->fPeriod[j];
+                if(dr[j] < -0.5*in->fPeriod[j])
+                    dr[j] += in->fPeriod[j];
 		}
 	z = dr[0]*in->z[0] + dr[1]*in->z[1] + dr[2]*in->z[2] + in->zEye;
 	if (z >= in->zClipNear && z <= in->zClipFar) {

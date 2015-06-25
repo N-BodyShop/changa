@@ -7,8 +7,6 @@
 
 #include "GravityParticle.h"
 
-#define DF_NXPIXMAX 1280
-#define DF_NYPIXMAX 1280
 /* PST */
 
 #ifdef USE_PNG
@@ -20,8 +18,6 @@
 typedef struct dfImage {
 	float r,g,b;
 	} DFIMAGE;
-
-#define DF_NBYTEDUMPFRAME (3*sizeof(DFIMAGE)*DF_NXPIXMAX*DF_NYPIXMAX)
 
 typedef struct dfColorVal {
     float fVal;
@@ -121,9 +117,7 @@ struct inDumpFrame {
 	double zClipNear,zClipFar,zEye;
     int bExpansion; /* Rescale lengths into physical units with Expansion factor? */
 	int bPeriodic; /* Is it periodic? */
-	int nxRepNeg,nxRepPos; /* Replicas for Periodic */
-	int nyRepNeg,nyRepPos;
-	int nzRepNeg,nzRepPos;
+    double fPeriod[3];
 	int nxPix,nyPix;    /* Pixmap dimensions */
 	int iProject;      /* Projection */
 
@@ -177,6 +171,7 @@ struct dfFrameSetup {
 	int nxPix,nyPix;    /* Pixmap dimensions */
     int bExpansion; /* Rescale lengths into physical units with Expansion factor? */
 	int bPeriodic; /* Is it periodic? */
+    double fPeriod[3];
 	int iProject;      /* Projection */
 
 	/* Rendering controllers */
@@ -252,7 +247,8 @@ std::string VecFilename(int iType);
 
 void dfInitialize( struct DumpFrameContext **pdf, double dYearUnit, double dTime, 
 				  double dDumpFrameTime, double dStep, double dDumpFrameStep,
-				  double dDelta, int iMaxRung, int bVDetails, char* );
+                   double dDelta, int iMaxRung, int bVDetails, char*,
+                   int bPeriodic, Vector3D<double> vPeriod);
 void dfFinalize( struct DumpFrameContext *df );
 
 void *dfAllocateImage( int nxPix, int nyPix );

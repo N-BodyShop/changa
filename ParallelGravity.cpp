@@ -3124,6 +3124,10 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 	char achFile[256];
 	
 	if (param.dDumpFrameStep > 0 || param.dDumpFrameTime > 0) {
+                if(param.iDirector < 1) {
+                    CkError("WARNING: DumpFrame parameters set, but iDirector is %d; DumpFrame is disabled\n", param.iDirector);
+                    return 0;
+                    }
 		bDumpFrame = 1;
 		int i;
 
@@ -3140,7 +3144,8 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 		    dfInitialize( &df[i], param.dSecUnit/SECONDSPERYEAR, 
 				  dTime, param.dDumpFrameTime, dStep, 
 				  param.dDumpFrameStep, param.dDelta, 
-				  param.iMaxRung, verbosity, achFile );
+                                  param.iMaxRung, verbosity, achFile,
+                                  param.bPeriodic, param.vPeriod);
                     df[i]->duTFac = (param.dConstGamma-1)*param.dMeanMolWeight/param.dGasConst;
 		    }
 		    
