@@ -1672,14 +1672,14 @@ void Main::advanceBigStep(int iStep) {
         if(param.bFeedback) 
             StellarFeedback(dTime, param.stfm->dDeltaStarForm);
         }
-    if(param.sinks.bBHSink) {
+    if(param.sinks.bDoSinks) {
 	CkReductionMsg *msgCnt;
 	treeProxy.countType(TYPE_SINK,
 			    CkCallbackResumeThread((void *&)msgCnt));
 	nSink = *(int *) msgCnt->getData();
 	delete msgCnt;
 	if(nSink != 0)
-	    CkPrintf("BHSink number of BHs: nSink = %d\n", nSink);
+	    CkPrintf("Sink number of Sinks: nSink = %d\n", nSink);
 	}
 
     ckout << "\nStep: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
