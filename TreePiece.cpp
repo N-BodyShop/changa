@@ -1477,6 +1477,7 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
  * @param dAccFac Acceleration scaling for cosmology
  * @param dCosmoFac Cosmo scaling for Courant
  * @param dhMinOverSoft minimum smoothing parameter.
+ * @param dResolveJeans multiple of Jeans length to be resolved.
  * @param bDoGas We are calculating gas forces.
  * @param cb Callback function reduces currrent maximum rung
  */
@@ -1485,6 +1486,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 		       double dEta, double dEtaCourant, double dEtauDot,
 		       double dDelta, double dAccFac,
 		       double dCosmoFac, double dhMinOverSoft,
+                       double dResolveJeans,
 		       int bDoGas,
 		       const CkCallback& cb) {
   int iCurrMaxRung = 0;
@@ -1544,7 +1546,10 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      assert(p->u() > 0.0);
 	      // Use P/rho as internal energy estimate since "u" may
 	      // be driven to 0 with cooling.
-	      dt = dEtauDot*p->fDensity*p->PoverRho2()/fabs(p->PdV());
+              double dPoverRhoJeans = PoverRhoFloorJeans(dResolveJeans, p);
+              double uEff = dPoverRhoJeans/(GAMMA_JEANS-1)
+                  + p->fDensity*p->PoverRho2();
+	      dt = dEtauDot*uEff/fabs(p->PdV());
 	      if (dt < dTIdeal) 
 		  dTIdeal = dt;
 	      }
