@@ -167,6 +167,11 @@ void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit
 
     fclose(fp);
   }
+  else {
+      fprintf(stderr,"Need to specify achRossName and achPlkName\n");
+      assert(0);
+      }
+  
   cl->t4i = cl->Tmin*cl->Tmin;
   cl->t4i = cl->t4i*cl->t4i;
 }
