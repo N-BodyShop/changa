@@ -995,7 +995,7 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
             double dPoverRhoJeans = PoverRhoFloorJeans(dResolveJeans, p);
             if(PoverRho < dPoverRhoJeans) PoverRho = dPoverRhoJeans;
 	    p->PoverRho2() = PoverRho/p->fDensity;
-            p->c() = sqrt(cGas*cGas + GAMMA_JEANS*PoverRhoJeans);
+            p->c() = sqrt(cGas*cGas + GAMMA_JEANS*dPoverRhoJeans);
 	    }
 	}
 #endif
