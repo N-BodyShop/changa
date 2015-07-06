@@ -1513,8 +1513,13 @@ void write_tipsy_gas(Tipsy::TipsyWriter &w, GravityParticle &p,
     gp.metals = p.fMetals();
     if(bCool) {
 #ifndef COOLING_NONE
+#ifdef COOLING_GRACKLE
+        gp.temp = CoolCodeEnergyToTemperature(Cool, &p.CoolParticle(), p.u(),
+                                              p.fDensity, p.fMetals());
+#else
         gp.temp = CoolCodeEnergyToTemperature(Cool, &p.CoolParticle(), p.u(),
                                               p.fMetals());
+#endif
 #else
         CkAbort("cooling output without cooling code");
 #endif

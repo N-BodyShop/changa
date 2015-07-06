@@ -190,8 +190,13 @@ double VecType(int iType, GravityParticle *p, DataManager *dm, double duTFac,
     switch (iType) {
 #ifndef COOLING_NONE
     case OUT_TEMP_ARRAY: 
+#ifdef COOLING_GRACKLE
+	return CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), 
+            p->u(),p->fDensity, p->fMetals());
+#else
 	return CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), 
 					   p->u(),p->fMetals());
+#endif
 #else
     case OUT_TEMP_ARRAY: return duTFac*p->u();
 #endif
