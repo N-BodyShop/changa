@@ -555,11 +555,13 @@ void TreePiece::RestartEnergy(double dTuFac, // T to internal energy
 	if (p->isGas()) {
 	    double T,E;
 #ifndef COOLING_NONE
+#ifndef COOLING_GRACKLE
 	    T = p->u() / dTuFac;
             PERBARYON Y;
             CoolPARTICLEtoPERBARYON(cl, &Y, &p->CoolParticle());
             
 	    p->u() = clThermalEnergy(Y.Total,T)*cl->diErgPerGmUnit;
+#endif
 #endif
 	    p->uPred() = p->u();
 	    }
