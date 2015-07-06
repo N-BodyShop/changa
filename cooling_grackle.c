@@ -350,7 +350,12 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp, d
 
     metal_density = ZMetal*density;
 
-    *E += 0.5*ExternalHeat*dt;  /* Gnedin suggestion */
+    energy += 0.5*ExternalHeat*dt;  /* Gnedin suggestion */
+    if(energy <= 0.0) {
+        double dEold = energy - 0.5*ExternalHeat*dt;
+        energy = dEold*exp(0.5*ExternalHeat*dt/dEold);
+        }
+    // assert(energy > 0.0);
 
     if (cl->pgrackle_data->primordial_chemistry==0) {
 /*
@@ -416,8 +421,14 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp, d
             }
         }
     
+    assert(energy > 0.0);
+    energy += 0.5*ExternalHeat*dt;  /* Gnedin suggestion -- far from self-consistent */
+    if(energy <= 0.0) {
+        double dEold = energy - 0.5*ExternalHeat*dt;
+        energy = dEold*exp(0.5*ExternalHeat*dt/dEold);
+        }
     *E = energy;
-    *E += 0.5*ExternalHeat*dt;  /* Gnedin suggestion -- far from self-consistent */
+    assert(*E > 0.0);
 
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
     float dinv = 1./density;
