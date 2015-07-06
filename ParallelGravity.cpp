@@ -1938,6 +1938,12 @@ void Main::setupICs() {
 #ifdef WENDLAND
   ofsLog << " WENDLAND";
 #endif
+#ifdef JEANSSOFT
+  ofsLog << " JEANSSOFT";
+#endif
+#ifdef JEANSSOFTONLY
+  ofsLog << " JEANSSOFTONLY";
+#endif
   ofsLog << endl;
   ofsLog << "# Key sizes: " << sizeof(KeyType) << " bytes particle "
          << sizeof(NodeKey) << " bytes node" << endl;
