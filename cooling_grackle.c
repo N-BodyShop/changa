@@ -133,98 +133,110 @@ void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit
 /*Returns baryonic fraction for a given species*/
 double COOL_ARRAY0(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
-    return (cp->HI);
-#else
-    return 0;
+    if(cl->pgrackle_data->primordial_chemistry > 0)
+        return (cp->HI);
+    else
 #endif
+    return 0;
 }
 
 double COOL_ARRAY1(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
-    return (cp->HII);
-#else
-    return 0;
+    if(cl->pgrackle_data->primordial_chemistry > 0)
+        return (cp->HII);
+    else
 #endif
+    return 0;
 }
 
 double COOL_ARRAY2(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
-    return (cp->HeI);
-#else
-    return 0;
+    if(cl->pgrackle_data->primordial_chemistry > 0)
+        return (cp->HeI);
+    else
 #endif
+    return 0;
 }
 
 double COOL_ARRAY3(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
-    return (cp->HeII);
-#else
-    return 0;
+    if(cl->pgrackle_data->primordial_chemistry > 0)
+        return (cp->HeII);
+    else
 #endif
+    return 0;
 }
 
 double COOL_ARRAY4(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
-    return (cp->HeIII);
-#else
-    return 0;
+    if(cl->pgrackle_data->primordial_chemistry > 0)
+        return (cp->HeIII);
+    else
 #endif
+    return 0;
 }
 
 double COOL_ARRAY5(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
-    return (cp->e);
-#else
-    return 0;
+    if(cl->pgrackle_data->primordial_chemistry > 0)
+        return (cp->e);
+    else
 #endif
+    return 0;
 }
 
 double COOL_ARRAY6(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=2)
-    return (cp->HM);
-#else
-    return 0;
+    if(cl->pgrackle_data->primordial_chemistry > 1)
+        return (cp->HM);
+    else
 #endif
+    return 0;
 }
 
 double COOL_ARRAY7(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=2)
-    return (cp->H2I);
-#else
-    return 0;
+    if(cl->pgrackle_data->primordial_chemistry > 1)
+        return (cp->H2I);
+    else
 #endif
+    return 0;
 }
 
 double COOL_ARRAY8(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=2)
-    return (cp->H2II);
-#else
-    return 0;
+    if(cl->pgrackle_data->primordial_chemistry > 1)
+        return (cp->H2II);
+    else
 #endif
+    return 0;
 }
 
 double COOL_ARRAY9(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=3)
-    return (cp->DI);
-#else
-    return 0;
+    if(cl->pgrackle_data->primordial_chemistry > 2)
+        return (cp->DI);
+    else
 #endif
+    return 0;
 }
 
 double COOL_ARRAY10(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=3)
-    return (cp->DII);
-#else
-    return 0;
+    if(cl->pgrackle_data->primordial_chemistry > 2)
+        return (cp->DII);
+    else
 #endif
+    return 0;
 }
 
 double COOL_ARRAY11(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=3)
-    return (cp->HDI);
-#else
-    return 0;
+    if(cl->pgrackle_data->primordial_chemistry > 2)
+        return (cp->HDI);
+    else
 #endif
+    return 0;
 }
 
 
