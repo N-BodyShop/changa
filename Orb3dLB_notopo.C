@@ -12,32 +12,27 @@ extern bool doDumpLB;
 extern int lbDumpIteration;
 extern bool doSimulateLB;
 
+CkpvExtern(int, _lb_obj_index);
+
+void Orb3dLB_notopo::init() {
+  lbname = "Orb3dLB_notopo";
+  if (CkpvAccess(_lb_obj_index) == -1)
+    CkpvAccess(_lb_obj_index) = LBRegisterObjUserData(sizeof(TaggedVector3D));
+}
+
 //#define ORB3DLB_NOTOPO_DEBUG CkPrintf 
 
 using namespace std;
 
 CreateLBFunc_Def(Orb3dLB_notopo, "3d ORB mapping of tree piece space onto 3d processor mesh");
 
-Orb3dLB_notopo::Orb3dLB_notopo(const CkLBOptions &opt): CentralLB(opt)
+Orb3dLB_notopo::Orb3dLB_notopo(const CkLBOptions &opt): CBase_Orb3dLB_notopo(opt)
 {
-  lbname = "Orb3dLB_notopo";
+  init();
   if (CkMyPe() == 0){
     CkPrintf("[%d] Orb3dLB_notopo created\n",CkMyPe());
   }
-  haveTPCentroids = false;
 }
-void Orb3dLB_notopo::receiveCentroids(CkReductionMsg *msg){
-  if(haveTPCentroids){
-    delete tpmsg;
-  }
-  tpCentroids = (TaggedVector3D *)msg->getData();
-  nrecvd = msg->getSize()/sizeof(TaggedVector3D);
-  tpmsg = msg;
-  haveTPCentroids = true;
-  treeProxy.doAtSync();
-  CkPrintf("Orb3dLB_notopo: receiveCentroids %d elements, msg length: %d\n", nrecvd, msg->getLength()); 
-}
-
 
 bool Orb3dLB_notopo::QueryBalanceNow(int step){
   if(step == 0) return false;
@@ -48,13 +43,11 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
 {
   int numobjs = stats->n_objs;
   int nmig = stats->n_migrateobjs;
-
-  stats->makeCommHash();
-  CkAssert(nrecvd == nmig);
+  double gstarttime = CkWallTimer();
 
   vector<Event> tpEvents[NDIMS];
   for(int i = 0; i < NDIMS; i++){
-    tpEvents[i].reserve(nrecvd);
+    tpEvents[i].reserve(numobjs);
   }
   tps.resize(numobjs);
 
@@ -73,29 +66,22 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
     fclose(dumpFile);
   }
   else{
-    for(int i = 0; i < nrecvd; i++){
-      TaggedVector3D *data = tpCentroids+i;
-      LDObjHandle &handle = data->handle;
-      int tag = stats->getHash(handle.id,handle.omhandle.id);
 
+    for(int i = 0; i < stats->n_objs; i++){
       float load;
-      if(step() == 0){
-        load = data->myNumParticles;
-      }
-      else{
-        load = stats->objData[tag].wallTime;
-      }
+      load = stats->objData[i].wallTime;
 
-      // int pe = stats->from_proc[tag];
-      //CkPrintf("[mydebug] %d tag %d np %d pe %d load %f vec %f %f %f\n", i, tag, data->myNumParticles, pe, load, data->vec.x, data->vec.y, data->vec.z);
+      LDObjData &odata = stats->objData[i];
+      if (!odata.migratable) continue;
 
-      tpEvents[XDIM].push_back(Event(data->vec.x,load,tag));
-      tpEvents[YDIM].push_back(Event(data->vec.y,load,tag));
-      tpEvents[ZDIM].push_back(Event(data->vec.z,load,tag));
+      TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
 
-      tps[tag] = OrbObject(tag,data->myNumParticles);
-      tps[tag].centroid = data->vec;
+      tpEvents[XDIM].push_back(Event(udata->vec.x,load,i));
+      tpEvents[YDIM].push_back(Event(udata->vec.y,load,i));
+      tpEvents[ZDIM].push_back(Event(udata->vec.z,load,i));
 
+      tps[i] = OrbObject(i,udata->myNumParticles);
+      tps[i].centroid = udata->vec;
       numProcessed++;
     }
   }
@@ -118,10 +104,18 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
     return;
   }
 
-  orbPrepare(tpEvents, box, nrecvd, stats);
+  orbPrepare(tpEvents, box, numobjs, stats);
   orbPartition(tpEvents,box,stats->count, tps, stats);
+  int mcount = 0;
+	for(int i = 0; i < numobjs; i++) {
+    if (stats->to_proc[i] != stats->from_proc[i]) {
+      mcount++;
+    }
+  }
 
   refine(stats, numobjs);
+  CkPrintf("[%d] OrbLB_notopo> migrations count %d started at %f total time %f s\n",
+      CkMyPe(), mcount, gstarttime, CkWallTimer() - gstarttime);
   
   if(_lb_args.debug() >= 2) {
 	// Write out "particle file" of load balance information
@@ -129,8 +123,18 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
 	sprintf(achFileName, "lb.%d.sim", step());
 	FILE *fp = fopen(achFileName, "w");
 	CkAssert(fp != NULL);
-	fprintf(fp, "%d %d 0\n", nrecvd, nrecvd);
-	for(int i = 0; i < nrecvd; i++) {
+
+  int num_migratables = numobjs;
+  for(int i = 0; i < numobjs; i++) {
+    if (!stats->objData[i].migratable) {
+      num_migratables--;
+    }
+  }
+	fprintf(fp, "%d %d 0\n", num_migratables, num_migratables);
+
+    for(int i = 0; i < numobjs; i++) {
+      if (!stats->objData[i].migratable) continue;
+
 	    CkAssert(tps[i].lbindex < stats->n_objs);
 	    CkAssert(tps[i].lbindex >= 0);
 	    fprintf(fp, "%g %g %g %g 0.0 0.0 0.0 %d 0.0\n",

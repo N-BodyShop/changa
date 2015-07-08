@@ -216,7 +216,7 @@ public:
 	/// @param responsible vector of which piece is responsible
 	/// for which interval
 	/// @param bins number of particles in each interval.
-	void acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb);
+	void acceptFinalKeys(const SFC::Key* keys, const int* responsible, uint64_t* bins, const int n, const CkCallback& cb);
 	void pup(PUP::er& p);
 
 #ifdef CUDA
@@ -264,15 +264,38 @@ public:
   static Tree::GenericTreeNode *pickNodeFromMergeList(int n, GenericTreeNode **gtn, int &nUnresolved, int &pickedIndex);
 };
 
+inline static void setBIconfig()
+{
+#if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
+    if (CkMyRank()==0) {
+#define GNI_BI_DEFAULT    64
+      uint16_t cur_bi = ck_get_GNI_BIConfig();
+      if (cur_bi > GNI_BI_DEFAULT) {
+        ck_set_GNI_BIConfig(GNI_BI_DEFAULT);
+      }
+    }
+    if (CkMyPe() == 0)
+      CkPrintf("Balanced injection is set to %d.\n", ck_get_GNI_BIConfig());
+#endif
+}
+
+/** @brief Control recording of Charm++ projections logs
+ *
+ *  The constructors for this class are also used to set default
+ *  node-wide communication parameters.
+ */
 class ProjectionsControl : public CBase_ProjectionsControl { 
   public: 
   ProjectionsControl() {
-#if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
-    if (CkMyRank()==0) ck_set_GNI_BIConfig(64);
-#endif
+    setBIconfig();
     LBTurnCommOff();
+    LBSetPeriod(0.0); // no need for LB interval: we are using Sync Mode
   } 
-  ProjectionsControl(CkMigrateMessage *m) : CBase_ProjectionsControl(m) {} 
+  ProjectionsControl(CkMigrateMessage *m) : CBase_ProjectionsControl(m) {
+    setBIconfig();
+    LBTurnCommOff();
+    LBSetPeriod(0.0); // no need for LB interval: we are using Sync Mode
+  } 
  
   void on(CkCallback cb) { 
     if(CkMyPe() == 0){ 
@@ -295,6 +318,7 @@ class ProjectionsControl : public CBase_ProjectionsControl {
   }
 }; 
 
+#ifdef CUDA
 class DataManagerHelper : public CBase_DataManagerHelper {
   private:
     int countLocalPes;
@@ -311,31 +335,26 @@ class DataManagerHelper : public CBase_DataManagerHelper {
   void transferRemoteChunkCallback();
 
   void populateDeviceBufferTable(intptr_t localMoments, intptr_t localParticleCores, intptr_t localParticleVars) {
-#ifdef CUDA
     void **devBuffers = getdevBuffers();
     devBuffers[LOCAL_MOMENTS] = (void *) localMoments;
     devBuffers[LOCAL_PARTICLE_CORES] = (void *) localParticleCores;
     devBuffers[LOCAL_PARTICLE_VARS] = (void *) localParticleVars;
     int basePE = CkMyPe() - CkMyPe() % CkMyNodeSize();
     thisProxy[basePE].finishDevBufferSync();
-#endif
   }
 
   void populateDeviceBufferTable(intptr_t remoteMoments, intptr_t remoteParticleCores) {
-#ifdef CUDA
     void **devBuffers = getdevBuffers();
     devBuffers[REMOTE_MOMENTS] = (void *) remoteMoments;
     devBuffers[REMOTE_PARTICLE_CORES] = (void *) remoteParticleCores;
     int basePE = CkMyPe() - CkMyPe() % CkMyNodeSize();
     thisProxy[basePE].finishDevBufferSyncRemoteChunk();
-#endif
   }
 
   void finishDevBufferSync();
   void finishDevBufferSyncRemoteChunk();
 
   void purgeBufferTables(const CkCallback& cb) {
-#ifdef CUDA
     void **devBuffers = getdevBuffers();
     devBuffers[LOCAL_MOMENTS] = NULL;
     devBuffers[LOCAL_PARTICLE_CORES] = NULL;
@@ -345,7 +364,6 @@ class DataManagerHelper : public CBase_DataManagerHelper {
     hostBuffers[LOCAL_MOMENTS] = NULL;
     hostBuffers[LOCAL_PARTICLE_CORES] = NULL;
     hostBuffers[LOCAL_PARTICLE_VARS] = NULL;
-#endif
     contribute(cb);
   }
 
@@ -356,5 +374,6 @@ class DataManagerHelper : public CBase_DataManagerHelper {
   }
 
 };
+#endif
 
 #endif //DATAMANAGER_H

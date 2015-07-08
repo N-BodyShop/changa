@@ -6,6 +6,7 @@ extern "C" {
 #endif
 /* Cosmo routines originally written for PKDGRAV by Thomas Quinn */
 
+/** @brief Cosmological parameters */
 typedef struct csmContext {
     int bComove;	   
     double dHubble0;

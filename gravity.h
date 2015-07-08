@@ -602,7 +602,7 @@ openCriterionBucket(Tree::GenericTreeNode *node,
                    int localIndex // requesting TreePiece
                    ) {
   // mark the node as used by the requesting TreePiece
-  node->markUsedBy(localIndex);
+  // node->markUsedBy(localIndex);
 
 #if COSMO_STATS > 0
   node->used = true;
@@ -660,7 +660,7 @@ inline int openCriterionNode(Tree::GenericTreeNode *node,
                     int localIndex // requesting TreePiece
                     ) {
   // mark the node as used by this TreePiece
-  node->markUsedBy(localIndex);
+  // node->markUsedBy(localIndex);
 
 #if COSMO_STATS > 0
   node->used = true;

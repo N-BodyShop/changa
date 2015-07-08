@@ -67,7 +67,7 @@ void DataManager::acceptResponsibleIndex(const int* responsible, const int n,
     contribute(cb);
     }
 
-void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb) {
+void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, uint64_t* bins, const int n, const CkCallback& cb) {
 
   //should not assign responsibility or place to a treepiece that will get no particles
   int ignored = 0;
@@ -480,9 +480,17 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
      * Insert any variables that can change due to a restart.
      */
     _cacheLineDepth = param.cacheLineDepth;
+    verbosity = param.iVerbosity;
     dExtraStore = param.dExtraStore;
     dMaxBalance = param.dMaxBalance;
     nIOProcessor = param.nIOProcessor;
+    theta = param.dTheta;
+    thetaMono = theta*theta*theta*theta;
+#if CMK_SMP
+    bUseCkLoopPar = param.bUseCkLoopPar;
+#else
+    bUseCkLoopPar = 0;
+#endif
     contribute(cb);
     // parameter structure requires some cleanup
     delete param.stfm;
@@ -1089,10 +1097,10 @@ void DataManager::clearInstrument(CkCallback &cb){
 #endif
 }
 
+#ifdef CUDA
 void DataManagerHelper::transferLocalTreeCallback() {
 
   CkPrintf("[%d] transferLocalTreeCallback\n", CkMyPe());
-#ifdef CUDA
   void **devBuffers = getdevBuffers();
   void *localMoments = devBuffers[LOCAL_MOMENTS];
   void *localParticleCores = devBuffers[LOCAL_PARTICLE_CORES];
@@ -1107,13 +1115,11 @@ void DataManagerHelper::transferLocalTreeCallback() {
   }
 
   dmHelperProxy[basePE].finishDevBufferSync();
-#endif
 
 }
 
 void DataManagerHelper::transferRemoteChunkCallback() {
 
-#ifdef CUDA
   void **devBuffers = getdevBuffers();
   void *remoteMoments = devBuffers[REMOTE_MOMENTS];
   void *remoteParticleCores = devBuffers[REMOTE_PARTICLE_CORES];
@@ -1126,7 +1132,6 @@ void DataManagerHelper::transferRemoteChunkCallback() {
   }
 
   dmHelperProxy[basePE].finishDevBufferSyncRemoteChunk();
-#endif
 
 }
 
@@ -1146,3 +1151,4 @@ void DataManagerHelper::finishDevBufferSyncRemoteChunk() {
     dm->resumeRemoteChunk(true);
   }
 }
+#endif

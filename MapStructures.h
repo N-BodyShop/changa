@@ -1,7 +1,8 @@
 #ifndef _MAP_STRUCTURES_H_
 #define _MAP_STRUCTURES_H_
 ///
-/// @file Data structures for spacially aware load balancing.
+/// @file MapStructures.h
+/// Data structures for spacially aware load balancing.
 ///
 #include <iostream>
 
