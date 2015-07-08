@@ -563,6 +563,7 @@ void CoolOutputArray( COOLPARAM *CoolParam, int cnt, int *type, char *suffix ) {
 
 double CoolCodeEnergyToTemperature( COOL *cl, COOLPARTICLE *cp, double E, double rho, double ZMetal ) {
     int one[]={1,1,1};
+    int zero[]={0,0,0};
     gr_float density = rho, energy = E,
         x_velocity=0, y_velocity=0, z_velocity=0,
         HI_density, HII_density, HM_density,
@@ -577,8 +578,8 @@ double CoolCodeEnergyToTemperature( COOL *cl, COOLPARTICLE *cp, double E, double
 /*
     calculate_temperature_table(code_units *my_units, int grid_rank, int *grid_dimension, 
     gr_float *density, gr_float *internal_energy, gr_float *metal_density, gr_float *temperature);*/
-        if (calculate_temperature_table(&cl->my_units,
-                1, one,
+        if (calculate_temperature_table(&cl->my_units, cl->a, 
+                                        1, one, zero, zero,
                 &density, &energy, &metal_density, &temperature) == 0) {
             fprintf(stderr, "Grackle Error in calculate_temperature.\n");
             assert(0);
@@ -603,8 +604,8 @@ double CoolCodeEnergyToTemperature( COOL *cl, COOLPARTICLE *cp, double E, double
 #endif
 #endif
 #endif
-        if (calculate_temperature(&cl->my_units,
-                1, one,
+        if (calculate_temperature(&cl->my_units, cl->a,
+                                  1, one, zero, zero,
                 &density, &energy,
                 &HI_density, &HII_density, &HM_density,
                 &HeI_density, &HeII_density, &HeIII_density,
