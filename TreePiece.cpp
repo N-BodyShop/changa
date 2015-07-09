@@ -3661,6 +3661,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
 
       CkAssert(currentBucket >= startBucket);
 
+#if !defined(CUDA)
       if (useckloop) {
         lpdata->lowNodes.insertAtEnd(lowestNode);
         lpdata->bucketids.insertAtEnd(currentBucket);
@@ -3676,7 +3677,9 @@ void TreePiece::nextBucket(dummyMsg *msg){
         lpdata->clists.insertAtEnd(cl);
         lpdata->rpilists.insertAtEnd(rp);
         lpdata->lpilists.insertAtEnd(lp);
-      } else {
+      } else
+#endif
+	{
         sGravity->stateReady(sLocalGravityState, this, -1, currentBucket, end);
       }
 #ifdef CHANGA_REFACTOR_MEMCHECK
@@ -3745,6 +3748,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
     }// end else (target not active)
   }// end while
 
+#if !defined(CUDA)
   if (useckloop) {
     // Use ckloop to parallelize force calculation and this will update the
     // counterArrays as well.
@@ -3752,6 +3756,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
       sLocalGravityState);
     delete lpdata;
   }
+#endif
 
   if (currentBucket<numBuckets) {
     thisProxy[thisIndex].nextBucket(msg);
@@ -4073,6 +4078,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 
       // When using ckloop to parallelize force calculation, first the list is
       // populated with nodes and particles with which the force is calculated.
+#if !defined(CUDA)
       if (useckloop) {
         lpdata->lowNodes.insertAtEnd(lowestNode);
         lpdata->bucketids.insertAtEnd(sRemoteGravityState->currentBucket);
@@ -4087,9 +4093,12 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
         lpdata->clists.insertAtEnd(cl);
         lpdata->rpilists.insertAtEnd(rp);
         lpdata->lpilists.insertAtEnd(lp);
-      } else {
+      } else
+#else
+	{
         sGravity->stateReady(sRemoteGravityState, this, msg->chunkNum, sRemoteGravityState->currentBucket, end);
       }
+#endif
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("active: memcheck after stateReady\n");
       CmiMemoryCheck();
@@ -4138,6 +4147,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
   }// end while i < yieldPeriod and currentRemote Bucket < numBuckets
 
 
+#if !defined(CUDA)
   if (useckloop) {
     // Now call ckloop parallelization function which will execute the force
     // calculation in parallel and update the counterArrays.
@@ -4145,6 +4155,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       sRemoteGravityState);
     delete lpdata;
   }
+#endif
 
   if (sRemoteGravityState->currentBucket < numBuckets) {
     thisProxy[thisIndex].calculateGravityRemote(msg);
