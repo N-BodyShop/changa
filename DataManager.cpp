@@ -555,8 +555,8 @@ void DataManager::resumeRemoteChunk(bool receivedRemote) {
 #endif
       if (receivedRemote) {
         treePieces[in].continueStartRemoteChunk(chunk);
+        treePieces[in].commenceCalculateGravityLocal();
       }
-      treePieces[in].commenceCalculateGravityLocal();
     }
 #endif
 }
