@@ -376,7 +376,7 @@ inline double PoverRhoFloorJeans(double dResolveJeans, GravityParticle *p)
      * Note that G = 1 in our code
      */
 #ifdef JEANSSOFTONLY
-    l2 = p->soft*p->soft;
+    double l2 = p->soft*p->soft;
 #else
     double l2 = 0.25*p->fBall*p->fBall;
 #ifdef JEANSSOFT
