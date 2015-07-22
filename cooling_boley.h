@@ -34,6 +34,13 @@ extern "C" {
 
 #define CL_NMAXBYTETABLE   56000
 
+/* The opacity tables are expected to have a total of CL_TABRC2
+ * entries arranged in CL_TABRC rows of length CL_TABRC.  Each row is
+ * for a given pressure, with temperature varying along the column.
+ * The pressures are expected to range from log(P(cgs)) = CL_TABPMIN
+ * to CL_TABPMAX.  The temperatures are expected to range from log(T
+ * (K)) = CL_TABTMIN to CL_TABTMAX. */
+
 #define CL_TABRC 100
 #define CL_TABRCM2 ((CL_TABRC)-2)
 #define CL_TABRC2 10000
