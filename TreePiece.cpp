@@ -1079,7 +1079,7 @@ void TreePiece::sendParticlesDuringDD(bool withqd) {
       }
 
       shuffleMsg->load = tpLoad * nPartOut / myNumParticles;
-      memset(shuffleMsg->loads, shuffleMsg->load, saved_phase_len*sizeof(double));
+      memset(shuffleMsg->loads, 0.0, saved_phase_len*sizeof(double));
 
       // Calculate the partial load per phase
       for (int i = 0; i < saved_phase_len; i++) {
@@ -4918,6 +4918,7 @@ void TreePiece::getParticleInfoForLB(int64_t active_part, int64_t total_part) {
   if (!doLB) {
     setTreePieceLoad(lbActiveRung);
     prevLARung = lbActiveRung;
+    setObjTime(0.0);
     contribute(callback);
     return;
   }
