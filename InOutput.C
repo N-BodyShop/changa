@@ -1729,6 +1729,9 @@ void TreePiece::ioShuffle(CkReductionMsg *msg)
     //
     int64_t *startParticle = iOrderBoundaries(numTreePieces, nMaxOrder);
 
+  double tpLoad = getObjTime();
+  populateSavedPhaseData(prevLARung, tpLoad, treePieceActivePartsTmp);
+
     if (myNumParticles > 0) {
 	// Particles have been sorted in reOrder()
     // Loop through sending particles to correct processor.
@@ -1738,6 +1741,7 @@ void TreePiece::ioShuffle(CkReductionMsg *msg)
 	for(binEnd = binBegin; binEnd->iOrder < startParticle[iPiece+1];
 	    binEnd++);
 	int nPartOut = binEnd - binBegin;
+  int saved_phase_len = savedPhaseLoad.size();
 	if(nPartOut > 0) {
 	    int nGasOut = 0;
 	    int nStarOut = 0;
@@ -1748,8 +1752,9 @@ void TreePiece::ioShuffle(CkReductionMsg *msg)
 		    nStarOut++;
 		}
 	    ParticleShuffleMsg *shuffleMsg
-		= new (0, 0, nPartOut, nGasOut, nStarOut)
-		ParticleShuffleMsg(0, nPartOut, nGasOut, nStarOut, 0.0);
+		= new (saved_phase_len, saved_phase_len, nPartOut, nGasOut, nStarOut)
+		ParticleShuffleMsg(saved_phase_len, nPartOut, nGasOut, nStarOut, 0.0);
+    memset(shuffleMsg->parts_per_phase, 0, saved_phase_len*sizeof(unsigned int));
 	    int iGasOut = 0;
 	    int iStarOut = 0;
 	    GravityParticle *pPartOut = shuffleMsg->particles;
@@ -1766,7 +1771,32 @@ void TreePiece::ioShuffle(CkReductionMsg *msg)
 			= *(extraStarData *)pPart->extraData;
 		    iStarOut++;
 		    }
+
+        for(int i = 0; i < saved_phase_len; i++) {
+          if (pPart->rung >= i) {
+            shuffleMsg->parts_per_phase[i] = shuffleMsg->parts_per_phase[i] + 1;
+          }
+        }
+        if(havePhaseData(PHASE_FEEDBACK)
+           && (pPart->isGas() || pPart->isStar()))
+            shuffleMsg->parts_per_phase[PHASE_FEEDBACK] += 1;
 		}
+      shuffleMsg->load = tpLoad * nPartOut / myNumParticles;
+      memset(shuffleMsg->loads, 0.0, saved_phase_len*sizeof(double));
+
+      // Calculate the partial load per phase
+      for (int i = 0; i < saved_phase_len; i++) {
+        if (havePhaseData(i) && savedPhaseParticle[i] != 0) {
+          shuffleMsg->loads[i] = savedPhaseLoad[i] *
+            (shuffleMsg->parts_per_phase[i] / (float) savedPhaseParticle[i]);
+        } else if (havePhaseData(0) && myNumParticles != 0) {
+          shuffleMsg->loads[i] = savedPhaseLoad[0] *
+            (shuffleMsg->parts_per_phase[i] / (float) myNumParticles);
+        }
+      }
+
+
+
 	    if (verbosity>=3)
 		CkPrintf("me:%d to:%d how many:%d\n",thisIndex, iPiece,
 			 (binEnd-binBegin));
@@ -1796,6 +1826,9 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     if(shuffleMsg != NULL) {
 	incomingParticlesMsg.push_back(shuffleMsg);
 	incomingParticlesArrived += shuffleMsg->n;
+  treePieceLoadTmp += shuffleMsg->load;
+  savePhaseData(savedPhaseLoadTmp, savedPhaseParticleTmp, shuffleMsg->loads,
+      shuffleMsg->parts_per_phase, shuffleMsg->nloads);
 	}
 
     if(verbosity > 2)
@@ -1806,6 +1839,15 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
       //I've got all my particles, now count them
     if(verbosity>1) ckout << thisIndex <<" got ioParticles"
 			  <<endl;
+
+    treePieceLoad = treePieceLoadTmp;
+    treePieceLoadTmp = 0.0;
+
+    savedPhaseLoad.swap(savedPhaseLoadTmp);
+    savedPhaseParticle.swap(savedPhaseParticleTmp);
+    savedPhaseLoadTmp.clear();
+    savedPhaseParticleTmp.clear();
+
     int nTotal = 0;
     int nSPH = 0;
     int nStar = 0;
