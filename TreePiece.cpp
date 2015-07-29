@@ -1079,13 +1079,20 @@ void TreePiece::sendParticlesDuringDD(bool withqd) {
       }
 
       shuffleMsg->load = tpLoad * nPartOut / myNumParticles;
-      memset(shuffleMsg->loads, shuffleMsg->load, saved_phase_len*sizeof(double));
+      memset(shuffleMsg->loads, 0.0, saved_phase_len*sizeof(double));
 
       // Calculate the partial load per phase
       for (int i = 0; i < saved_phase_len; i++) {
         if (havePhaseData(i) && savedPhaseParticle[i] != 0) {
-          shuffleMsg->loads[i] = savedPhaseLoad[i] *
-            (shuffleMsg->parts_per_phase[i] / (float) savedPhaseParticle[i]);
+            double dLoadFrac = shuffleMsg->parts_per_phase[i]
+                                / (float) savedPhaseParticle[i];
+            /*
+             * The following can happen if the number of particles on
+             * a given rung increases significantly because of a
+             * timestep adjustment.
+             */
+            if (dLoadFrac > 1.0) dLoadFrac = 1.0;
+            shuffleMsg->loads[i] = savedPhaseLoad[i] * dLoadFrac;
         } else if (havePhaseData(0) && myNumParticles != 0) {
           shuffleMsg->loads[i] = savedPhaseLoad[0] *
             (shuffleMsg->parts_per_phase[i] / (float) myNumParticles);
@@ -4918,6 +4925,7 @@ void TreePiece::getParticleInfoForLB(int64_t active_part, int64_t total_part) {
   if (!doLB) {
     setTreePieceLoad(lbActiveRung);
     prevLARung = lbActiveRung;
+    setObjTime(0.0);
     contribute(callback);
     return;
   }
