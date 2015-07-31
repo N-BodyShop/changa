@@ -1,0 +1,29 @@
+# Director file for an "MRI" of a cosmological volume.
+# Key lines are the two "time" lines.  The first should be the output time
+# of the snapshot you want to do the MRI on.  The second (at the bottom)
+# should be a short time later.  The two "target" lines are just outside the
+# near and far side of the volume.  If you run the simulation for a short
+# time (for the following, I set dDelta = 1e-6) starting from the snapshot
+# with dDumpFrameStep set to a small number (e.g. 1./1024 for 1024 frames)
+# Dumpframe will interpolate between the two targets, which, with the narrow
+# clip range, will create an MRI of the volume.
+size 720 720
+time 0.06991
+target 0 0.55 0
+clip 0.95 1.05
+render tsc
+file ppmfiles/mri.tempv
+project ortho
+softdark 3.
+softgas 0.75
+softstar 1.
+softgassph
+colbyproperty gas temperature 4. 6.
+colormap gas hotfab 2e8
+dark off
+star off
+FOV 30
+up 0 0 1
+eye  0.0 1 0.0
+time 0.0699108
+target 0 -0.55 0
