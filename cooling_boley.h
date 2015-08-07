@@ -68,6 +68,7 @@ typedef struct CoolingParametersStruct {
 typedef struct CoolingParticleStruct {
     double Y_Total;
     double mrho;	/* (m/rho)^(1/3), i.e V^{1/3} in Boley 2009 */
+    double dDeltaTau;   /* Optical depth across particle */
 	} COOLPARTICLE;
 
 /** @brief abundance of various species in particles/baryon */
@@ -108,6 +109,7 @@ struct clDerivsDataStruct {
   void *IntegratorContext;
   COOL *cl;
   double rho,PdV,E,T,Y_Total,rFactor;
+  double dDeltaTau;  /* optical depth across particle */
   double     dlnE;
   int        its;  /* Debug */
 };
@@ -128,6 +130,7 @@ double clThermalEnergy(double Y_Total, double T );
 double clTemperature(double Y_Total, double E );
 
 double clEdotInstant( COOL *cl, double E, double T, double rho, double r, 
+                      double *dDeltaTau,
                       double *dEdotHeat, double *dEdotCool);
 void clIntegrateEnergy(COOL *cl, clDerivsData *clData, double *E, 
 		       double PdV, double rho, double Y_Total, double radius, double tStep );
@@ -146,11 +149,11 @@ double COOL_ARRAY0(COOL *cl_, COOLPARTICLE *cp,double aa);
 double COOL_SET_ARRAY0(COOL *cl_, COOLPARTICLE *cp,double aa, double bb_val);
 #define COOL_SET_ARRAY0( cl_, cp, aa, bb_val ) ((cp)->Y_Total = (bb_val))
 
-#define COOL_ARRAY1_EXT  "NA"
+#define COOL_ARRAY1_EXT  "dtau"
 double COOL_ARRAY1(COOL *cl_, COOLPARTICLE *cp,double aa);
-#define COOL_ARRAY1( cl_, cp, aa ) (0)
+#define COOL_ARRAY1( cl_, cp, aa ) ((cp)->dDeltaTau)
 double COOL_SET_ARRAY1(COOL *cl_, COOLPARTICLE *cp,double aa, double bb_val);
-#define COOL_SET_ARRAY1( cl_, cp, aa, bb_val ) (0)
+#define COOL_SET_ARRAY1( cl_, cp, aa, bb_val ) ((cp)->dDeltaTau = (bb_val))
 
 #define COOL_ARRAY2_EXT  "NA"
 double COOL_ARRAY2(COOL *cl_, COOLPARTICLE *cp,double aa);
