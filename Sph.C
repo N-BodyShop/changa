@@ -1017,6 +1017,7 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
             double dPoverRhoJeans = PoverRhoFloorJeans(dResolveJeans, p);
             if(PoverRho < dPoverRhoJeans) PoverRho = dPoverRhoJeans;
 	    p->PoverRho2() = PoverRho/p->fDensity;
+            p->c() = sqrt(cGas*cGas + GAMMA_JEANS*dPoverRhoJeans);
 #ifdef DTADJUST
             {
                 double uDot = p->uDot();
@@ -1030,7 +1031,6 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
                 if(dt < p->dtNew()) p->dtNew() = dt;
                 }
 #endif
-            p->c() = sqrt(cGas*cGas + GAMMA_JEANS*dPoverRhoJeans);
 	    }
 	}
 #endif
