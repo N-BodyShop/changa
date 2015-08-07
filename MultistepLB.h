@@ -64,7 +64,7 @@ static int pcz(const void *a, const void *b){
 }
 //**************************************
 
-class MultistepLB : public CentralLB {
+class MultistepLB : public CBase_MultistepLB {
 private:
   ComparatorFn compares[NDIMS];
   ComparatorFn pc[NDIMS];
@@ -79,7 +79,7 @@ private:
   void makeActiveProcessorList(BaseLB::LDStats *stats, int numActiveObjs);
 public:
   MultistepLB(const CkLBOptions &);
-  MultistepLB(CkMigrateMessage *m):CentralLB(m) {
+  MultistepLB(CkMigrateMessage *m) : CBase_MultistepLB(m) {
     init();
   }
 

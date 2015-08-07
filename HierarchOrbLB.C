@@ -24,7 +24,7 @@ void HierarchOrbLB::init() {
   thisProxy = CProxy_HierarchOrbLB(thisgroup);
 }
 
-HierarchOrbLB::HierarchOrbLB(const CkLBOptions &opt): HybridBaseLB(opt) {
+HierarchOrbLB::HierarchOrbLB(const CkLBOptions &opt): CBase_HierarchOrbLB(opt) {
 #if CMK_LBDB_ON
   init();
 
@@ -47,9 +47,11 @@ void HierarchOrbLB::GetObjsToMigrate(int toPe, double load, LDStats *stats,
     int atlevel, CkVec<LDCommData>& comms, CkVec<LDObjData>& objs) {
   for (int obj=stats->n_objs-1; obj>=0; obj--) {
     LDObjData &objData = stats->objData[obj];
+    if (!objData.migratable) continue;
+
     TaggedVector3D* udata = (TaggedVector3D *)objData.getUserData(CkpvAccess(_lb_obj_index));
 
-    if (!objData.migratable || udata->myNumParticles <= 0) continue;
+    if (udata->myNumParticles <= 0) continue;
     if (objData.wallTime <= load) {
       if (_lb_args.debug()>2)
         CkPrintf("[%d] send obj: %d to PE %d (load: %f).\n", CkMyPe(), obj, toPe, objData.wallTime);

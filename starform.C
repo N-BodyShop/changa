@@ -237,8 +237,13 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     double tdyn = 1.0/sqrt(4.0*M_PI*p->fDensity/dCosmoFac);
 #ifndef COOLING_NONE
     if(bGasCooling)
+#ifdef COOLING_GRACKLE
+    	*T = CoolCodeEnergyToTemperature(Cool, &p->CoolParticle(),
+                                         p->u(), p->fDensity, p->fMetals());
+#else
     	*T = CoolCodeEnergyToTemperature(Cool, &p->CoolParticle(),
 				    	p->u(), p->fMetals());
+#endif
     else
 	*T = 0.0;
 #else

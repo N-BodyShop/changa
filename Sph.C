@@ -557,11 +557,13 @@ void TreePiece::RestartEnergy(double dTuFac, // T to internal energy
 	if (p->isGas()) {
 	    double T,E;
 #ifndef COOLING_NONE
+#ifndef COOLING_GRACKLE
 	    T = p->u() / dTuFac;
             PERBARYON Y;
             CoolPARTICLEtoPERBARYON(cl, &Y, &p->CoolParticle());
             
 	    p->u() = clThermalEnergy(Y.Total,T)*cl->diErgPerGmUnit;
+#endif
 #endif
 	    p->uPred() = p->u();
 	    }
@@ -632,6 +634,7 @@ Main::doSph(int activeRung, int bNeedDensity)
 	treeProxy.getCoolingGasPressure(param.dConstGamma,
 					param.dConstGamma-1,
                                         dDtCourantFac,
+                                        param.dResolveJeans/csmTime2Exp(param.csm, dTime),
 					CkCallbackResumeThread());
     else
 	treeProxy.getAdiabaticGasPressure(param.dConstGamma,
@@ -993,8 +996,9 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1,
 
 /* Note: Uses uPred */
 void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
-                                        double dtFacCourant,
-					const CkCallback &cb)
+                                      double dtFacCourant,
+                                      double dResolveJeans,
+                                      const CkCallback &cb)
 {
     GravityParticle *p;
     double PoverRho;
@@ -1005,10 +1009,13 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
     for(i=1; i<= myNumParticles; ++i) {
 	p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS)) {
+            double cGas;
 	    CoolCodePressureOnDensitySoundSpeed(cl, &p->CoolParticle(),
 						p->uPred(), p->fDensity(),
 						gamma, gammam1, &PoverRho,
-						&(p->c()) );
+						&cGas);
+            double dPoverRhoJeans = PoverRhoFloorJeans(dResolveJeans, p);
+            if(PoverRho < dPoverRhoJeans) PoverRho = dPoverRhoJeans;
 	    p->PoverRho2() = PoverRho/p->fDensity;
 #ifdef DTADJUST
             {
@@ -1023,6 +1030,7 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
                 if(dt < p->dtNew()) p->dtNew() = dt;
                 }
 #endif
+            p->c() = sqrt(cGas*cGas + GAMMA_JEANS*dPoverRhoJeans);
 	    }
 	}
 #endif

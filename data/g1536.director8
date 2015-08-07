@@ -1,0 +1,17 @@
+size 800 600
+clip 0.01 2
+render tsc
+target photogenic
+encode ppm
+bExpansion 1
+file movie/dmfar/a
+project perspective
+gas off
+star off
+softdark 0.2
+color dark 1.0 1.0 1.0 0.1
+FOV 30
+#face on
+up  0 1 0
+eye 0 0 0.01
+

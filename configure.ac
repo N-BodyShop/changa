@@ -126,6 +126,35 @@ elif test "$cooling" = "cosmo" ; then
    echo "Cosmo cooling selected"
    FLAG_COOLING="-DCOOLING_COSMO"
    OBJECTS_COOLING="cooling_cosmo.o stiff.o"
+elif test "$cooling" = "grackle" ; then
+   echo "Grackle cooling selected"
+   FLAG_COOLING="-DCOOLING_GRACKLE"
+   OBJECTS_COOLING="cooling_grackle.o"
+   ac_cv_libhdf5="yes"
+   AC_CHECK_LIB([hdf5], [H5Fcreate], [], [ac_cv_libhdf5=no]) 
+   if test $ac_cv_libhdf5 = "no" ; then
+       AC_MSG_WARN([HDF5 library needed for Grackle, but not found]);
+       AC_MSG_WARN([Try setting LDFLAGS environment with -L<hd5libdir>]);
+       exit
+   fi
+   ac_cv_libgrackle="yes"
+   AC_CHECK_HEADER(grackle.h, [], [],
+[[
+#define CONFIG_BFLOAT_8
+]])
+   if test "$ac_cv_header_grackle_h" == no
+   then
+       AC_MSG_WARN([grackle header needed for Grackle, but not found])
+       AC_MSG_WARN([Try setting CPPFLAGS environment with -I <grackledir>])
+       exit
+   fi
+   AC_CHECK_LIB([grackle], [initialize_chemistry_data], [], [ac_cv_libgrackle=no], [-lhdf5]) 
+   if test $ac_cv_libgrackle = "no" ; then
+       AC_MSG_WARN([grackle library needed for Grackle, but not found]);
+       AC_MSG_WARN([Try setting LDFLAGS environment with -L<gracklelibdir>]);
+       AC_MSG_WARN([Also remember to set LD_LIBRARY_PATH when running, if grackle and hdf5 are dynamic libraries]);
+       exit
+   fi
 else
 	echo "Unknown cooling selected, using Adiabatic"
 	FLAG_COOLING="-DCOOLING_NONE"

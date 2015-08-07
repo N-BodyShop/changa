@@ -1074,6 +1074,9 @@ void TreePiece::sendParticlesDuringDD(bool withqd) {
             shuffleMsg->parts_per_phase[i] = shuffleMsg->parts_per_phase[i] + 1;
           }
         }
+        if(havePhaseData(PHASE_FEEDBACK)
+           && (pPart->isGas() || pPart->isStar()))
+            shuffleMsg->parts_per_phase[PHASE_FEEDBACK] += 1;
       }
 
       shuffleMsg->load = tpLoad * nPartOut / myNumParticles;
@@ -1475,6 +1478,7 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
  * @param dAccFac Acceleration scaling for cosmology
  * @param dCosmoFac Cosmo scaling for Courant
  * @param dhMinOverSoft minimum smoothing parameter.
+ * @param dResolveJeans multiple of Jeans length to be resolved.
  * @param bDoGas We are calculating gas forces.
  * @param cb Callback function reduces currrent maximum rung
  */
@@ -1483,6 +1487,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 		       double dEta, double dEtaCourant, double dEtauDot,
 		       double dDelta, double dAccFac,
 		       double dCosmoFac, double dhMinOverSoft,
+                       double dResolveJeans,
 		       int bDoGas,
 		       const CkCallback& cb) {
   int iCurrMaxRung = 0;
@@ -1544,10 +1549,13 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      dTIdeal = dt;
 
 	  if (dEtauDot > 0.0 && p->PdV() < 0.0) { /* Prevent rapid adiabatic cooling */
-	      assert(p->u() > 0.0);
+	      assert(p->PoverRho2() > 0.0);
 	      // Use P/rho as internal energy estimate since "u" may
 	      // be driven to 0 with cooling.
-	      dt = dEtauDot*p->fDensity*p->PoverRho2()/fabs(p->PdV());
+              double dPoverRhoJeans = PoverRhoFloorJeans(dResolveJeans, p);
+              double uEff = dPoverRhoJeans/(GAMMA_JEANS-1)
+                  + p->fDensity*p->PoverRho2();
+	      dt = dEtauDot*uEff/fabs(p->PdV());
 	      if (dt < dTIdeal) 
 		  dTIdeal = dt;
 	      }
@@ -2177,28 +2185,24 @@ TreePiece::setTypeFromFile(int iSetMask, char *file, const CkCallback& cb)
 void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump) 
 {
     void *Image = dfDataProxy.ckLocalBranch()->Image;
-    //
-    // XXX The dump frame expects arrays of fixed structures.  This is
-    // incompatible with ChaNGa's design of having gas and star data
-    // as "decorations".  For now we copy the needed data from the
-    // decoration into an unused attribute of the base structure
-    // (GravityParticle) so it will be available to dumpframe.
-    // Fortunately, we have only one attribute to copy over
-    // (fTimeForm), and we have a temporary, dtGrav, that can be
-    // overloaded.
-    //
-    for (int i=1; i<=myNumParticles; ++i)
-	if(myParticles[i].isStar())
-	    myParticles[i].dtGrav = myParticles[i].fTimeForm();
-    
-    GravityParticle *p = &(myParticles[1]);
-
-    dfRenderParticlesInit( &in, TYPE_GAS, TYPE_DARK, TYPE_STAR,
-			   &p->position[0], &p->mass, &p->soft, &p->fBall,
-			   &p->iType,
-			   &p->dtGrav, // actually fTimeForm; see above
-			   p, sizeof(*p) );
-    dfRenderParticles( &in, Image, p, myNumParticles);
+    GravityParticle *p;
+    for (int i=1; i<=myNumParticles; ++i) {
+	p = &(myParticles[i]);
+	switch (in.iRender) {
+	case DF_RENDER_POINT: 
+	    dfRenderParticlePoint(&in, Image, p, dm);
+	    break;
+	case DF_RENDER_TSC:
+	    dfRenderParticleTSC( &in, Image, p, dm);
+	    break;
+	case DF_RENDER_SOLID:
+	    dfRenderParticleSolid( &in, Image, p, dm);
+	    break;
+	case DF_RENDER_SHINE: /* Not implemented -- just does point */
+	    dfRenderParticlePoint( &in, Image, p, dm);
+	    break;
+	    }
+	}
     
     if(!liveVizDump) 
 	contribute(cb);
@@ -4981,7 +4985,6 @@ void TreePiece::ResumeFromSync(){
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d in ResumefromSync\n",CkMyPe(),thisIndex);
   contribute(callback);
-  nodeLBMgrProxy.ckLocalBranch()->registerTP();
 }
 
 const GenericTreeNode *TreePiece::lookupNode(Tree::NodeKey key){
