@@ -201,6 +201,7 @@ double clTemperature( double Y_Total, double E ) {
 }
 
 double clEdotInstant( COOL *cl, double E, double T, double rho, double rFactor,
+                      double *dDeltaTau, 
                       double *dEdotHeat, double *dEdotCool)
 { 
   // I'm not sure this is 'good' but tries to handle negative E, T without crashing
@@ -263,7 +264,14 @@ double clEdotInstant( COOL *cl, double E, double T, double rho, double rFactor,
   // rFactor is (m/rho)^(1/3)
 
   t1 = rho*kp*rFactor;
+  /*
+   * See Boley 2009, ApJ 695, L53, following eq. 2.  where 
+   * the local optical depth across a cell is calculated as
+   * \Delta \tau = \rho(\kappa_R(1 - exp(-2\Delta \tau_P))
+   *                    + \kappa_P exp(-2 \Delta \tau_P)) s
+   */
   t2 = rho*(kp*exp(-2.0*t1) - kr*expm1(-2.0*t1))*rFactor;
+  *dDeltaTau = t2;
   // finally t2 = f(tau)
 #ifdef FTAU_EXP
   t2 *= 1.36*exp(-t2);
@@ -296,7 +304,8 @@ void clDerivs(double x, const double *y, double *dHeat, double *dCool,
 
   d->E = y[0];
   d->T = clTemperature( d->Y_Total, d->E );
-  clEdotInstant( d->cl, d->E, d->T, d->rho, d->rFactor, dHeat, dCool );
+  clEdotInstant( d->cl, d->E, d->T, d->rho, d->rFactor, &d->dDeltaTau,
+                 dHeat, dCool );
   if(d->PdV > 0.0)
       *dHeat += d->PdV;
   else
@@ -327,7 +336,9 @@ int clJacobn( double x, const double y[], double dfdx[], double *dfdy,
 #endif
 
 void clIntegrateEnergy(COOL *cl, clDerivsData *clData, double *E, 
-		       double PdV, double rho, double Y_Total, double radius, double tStep ) {
+		       double PdV, double rho, double Y_Total,
+                       double radius, /* radius of particle */
+                       double tStep ) {
 
   double EMin;
   double t=0;
@@ -477,7 +488,7 @@ double CoolCodeEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E,
 void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
 			     double *ECode, double PdVCode, double rhoCode,
 			     double ZMetal, double *posCode, double tStep ) {
-	double radius;
+	double radius;          /* radius of a particle to calculate tau */
 	
 	radius = cp->mrho*cl->dKpcUnit*CONVERT_CMPERKPC;
 
@@ -485,7 +496,7 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
 	clIntegrateEnergy(cl, clData, ECode, CoolCodeWorkToErgPerGmPerSec( cl, PdVCode ), 
 					  CodeDensityToComovingGmPerCc(cl, rhoCode), cp->Y_Total, radius, tStep);
 	*ECode = CoolErgPerGmToCodeEnergy(cl, *ECode);
-
+        cp->dDeltaTau = clData->dDeltaTau;
 	}
 
 /* Star form function -- do not use */
