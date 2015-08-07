@@ -89,10 +89,10 @@ void Sinks::AddParams(PRM prm, Parameters &params)
 	prmAddParam(prm,"dDeltaSink", paramDouble, &dDeltaSink,
 		    sizeof(double), "dDeltaSink",
 		    "<Maximum sink timestep in years> = dDelta");
-	dSinkMassMin = 0;  /* Default reset to FLT_MAX for BH sink */
+	dSinkMassMin = FLT_MAX;  /* Needs to be explicitly set */
 	prmAddParam(prm,"dSinkMassMin", paramDouble, &dSinkMassMin,
 		    sizeof(double), "dSinkMassMin",
-		    "<Minimum Mass to act as a sink> = 0" );
+		    "<Minimum Mass to act as a sink> = FLT_MAX" );
 	iSinkRung = 0; 
 	prmAddParam(prm,"iSinkRung", paramInt, &iSinkRung, sizeof(int),
 		    "iSinkRung", "<Sink Rung> = 0");
@@ -319,7 +319,7 @@ void TreePiece::SetSink(double dSinkMassMin, const CkCallback &cb)
 #ifdef STARSINK
 	if ((TYPETest(p,TYPE_STAR)))
 #else
-	if ((TYPETest(p,TYPE_STAR) && p->fTimeForm() < 0))
+        if (p->isStar() && (p->fTimeForm() < 0 || p->mass > dSinkMassMin))
 #endif
 	    {
 		TYPESet(p,TYPE_SINK);
