@@ -190,8 +190,13 @@ double VecType(int iType, GravityParticle *p, DataManager *dm, double duTFac,
     switch (iType) {
 #ifndef COOLING_NONE
     case OUT_TEMP_ARRAY: 
+#ifdef COOLING_GRACKLE
+	return CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), 
+            p->u(),p->fDensity, p->fMetals());
+#else
 	return CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), 
 					   p->u(),p->fMetals());
+#endif
 #else
     case OUT_TEMP_ARRAY: return duTFac*p->u();
 #endif
@@ -409,6 +414,7 @@ void dfParseOptions( struct DumpFrameContext *df, char * filename ) {
 	df->bGetCentreOfMass = 0;
 	df->bGetOldestStar = 0;
 	df->bGetPhotogenic = 0;
+	sprintf(df->FileName, "%s.%%09i.ppm", FileBaseName);
 
 	fp = fopen( filename, "r" );
 	if (fp==NULL) return;
@@ -1663,6 +1669,21 @@ void dfFinishFrame( struct DumpFrameContext *df, double dTime, double dStep, str
 	gray = (unsigned char *) malloc(sizeof(unsigned char)*3*iMax);
 	CkAssert( gray != NULL );
 	*outgray = gray;
+
+	if (df->bVDetails) {
+            double min = 1e38;
+            double max = 0.0;
+            for(i = 0; i < iMax; i++) {
+                if(Image[i].r > max) max = Image[i].r;
+                if(Image[i].r < min) min = Image[i].r;
+                if(Image[i].g > max) max = Image[i].g;
+                if(Image[i].g < min) min = Image[i].g;
+                if(Image[i].b > max) max = Image[i].b;
+                if(Image[i].b < min) min = Image[i].b;
+                }
+            
+            CkPrintf("DF image range: %g to %g\n", min, max);
+            }
 
 	if (in->iRender == DF_RENDER_POINT) {
 		for (i=0,g=gray;i<iMax;i++) {

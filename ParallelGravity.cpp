@@ -426,6 +426,10 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dhMinOverSoft",paramDouble,&param.dhMinOverSoft,
 		    sizeof(double),"hmin",
 		    "<Minimum h as a fraction of Softening> = 0.0");
+        param.dResolveJeans = 0.0;
+        prmAddParam(prm,"dResolveJeans",paramDouble,&param.dResolveJeans,
+                    sizeof(double),"resjeans",
+                    "<Fraction of pressure to resolve minimum Jeans mass> = 0.0");
 	param.bViscosityLimiter = 1;
 	prmAddParam(prm,"bViscosityLimiter",paramBool,&param.bViscosityLimiter,
 		    sizeof(int), "vlim","<Viscosity Limiter> = 1");
@@ -1854,8 +1858,11 @@ void Main::setupICs() {
   if(nTotalSPH > 0 && !param.bDoGas) {
       if(prmSpecified(prm, "bDoGas"))
 	  ckerr << "WARNING: SPH particles present and bDoGas is set off\n";
-      else
+      else {
 	  param.bDoGas = 1;
+          if(!prmSpecified(prm, "bSphStep"))
+              param.bSphStep = 1;
+          }
       }
   getStartTime();
   if(param.nSteps > 0) getOutTimes();
@@ -1933,6 +1940,12 @@ void Main::setupICs() {
 #endif
 #ifdef WENDLAND
   ofsLog << " WENDLAND";
+#endif
+#ifdef JEANSSOFT
+  ofsLog << " JEANSSOFT";
+#endif
+#ifdef JEANSSOFTONLY
+  ofsLog << " JEANSSOFTONLY";
 #endif
   ofsLog << endl;
   ofsLog << "# Key sizes: " << sizeof(KeyType) << " bytes particle "
@@ -3027,6 +3040,7 @@ int Main::adjust(int iKickRung)
 		     param.dEtauDot, param.dDelta, 1.0/(a*a*a), a,
 		     0.0,  /* set to dhMinOverSoft if we implement
 			      Gasoline's LowerSoundSpeed. */
+                     param.dResolveJeans/a,
 		     param.bDoGas,
 		     CkCallbackResumeThread((void*&)msg));
 

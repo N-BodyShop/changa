@@ -346,6 +346,7 @@ mainmodule ParallelGravity {
 	      double dEta, double dEtaCourant, double dEtauDot,
 	      double dDelta, double dAccFac,
 	      double dCosmoFac, double dhMinOverSoft,
+              double dResolveJeans,
 	      int bDoGas,
 	      const CkCallback& cb);
     entry void truncateRung(int iCurrMaxRung, const CkCallback& cb);
@@ -376,6 +377,7 @@ mainmodule ParallelGravity {
     entry void getAdiabaticGasPressure(double gamma, double gammam1,
 					const CkCallback &cb);
     entry void getCoolingGasPressure(double gamma, double gammam1,
+                                   double dResolveJeans,
 				   const CkCallback &cb);
     entry void FormStars(Stfm param, double dTime, double dDelta, 
     	       		 double dCosmoFac, const CkCallback& cb);

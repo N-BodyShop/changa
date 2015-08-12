@@ -181,8 +181,13 @@ class TempOutputParams : public OutputParams
     virtual double dValue(GravityParticle *p) {
         if(bGasCooling) {
 #ifndef COOLING_NONE
+#ifdef COOLING_GRACKLE
+            return CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(),
+                p->u(), p->fDensity, p->fMetals());
+#else
             return CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(),
                                                p->u(), p->fMetals());
+#endif
 #else
             CkAssert(0);
 #endif
@@ -549,7 +554,7 @@ class Cool0OutputParams : public OutputParams
     {
 #ifndef COOLING_NONE
 	if (TYPETest(p, TYPE_GAS))
-	    return COOL_ARRAY0(unused1, &p->CoolParticle(), unused2);
+	    return COOL_ARRAY0(dm->Cool, &p->CoolParticle(), p->fMetals());
 	else
 #endif
 	    return 0.0;
@@ -588,7 +593,7 @@ class Cool1OutputParams : public OutputParams
     {
 #ifndef COOLING_NONE
 	if (TYPETest(p, TYPE_GAS))
-	    return COOL_ARRAY1(unused1, &p->CoolParticle(), unused2);
+	    return COOL_ARRAY1(dm->Cool, &p->CoolParticle(), p->fMetals());
 	else
 #endif
 	    return 0.0;
@@ -628,7 +633,7 @@ class Cool2OutputParams : public OutputParams
     {
 #ifndef COOLING_NONE
 	if (TYPETest(p, TYPE_GAS))
-	    return COOL_ARRAY2(unused1, &p->CoolParticle(), unused2);
+	    return COOL_ARRAY2(dm->Cool, &p->CoolParticle(), p->fMetals());
 	else
 #endif
 	    return 0.0;
@@ -667,7 +672,7 @@ class Cool3OutputParams : public OutputParams
     {
 #ifndef COOLING_NONE
 	if (TYPETest(p, TYPE_GAS))
-	    return COOL_ARRAY3(unused1, &p->CoolParticle(), unused2);
+	    return COOL_ARRAY3(dm->Cool, &p->CoolParticle(), p->fMetals());
 	else
 #endif
 	    return 0.0;

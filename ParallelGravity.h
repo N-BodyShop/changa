@@ -363,6 +363,33 @@ inline double RungToDt(double dDelta, int iRung) {
 /// @brief slot in MultistepLB to hold feedback phase load information
 const int PHASE_FEEDBACK = MAXRUNG + 1;
 
+/// @brief Pressure floor to force Jeans length to be larger than the
+/// spatial resolution.
+
+inline double PoverRhoFloorJeans(double dResolveJeans, GravityParticle *p)
+{
+    /*
+     * Add pressure floor to keep Jeans Mass
+     * resolved.  In comparison with Agertz et
+     * al. 2009, dResolveJeans should be 3.0:
+     * P_min = 3*G*max(h,eps)^2*rho^2
+     * Note that G = 1 in our code
+     */
+#ifdef JEANSSOFTONLY
+    double l2 = p->soft*p->soft;
+#else
+    double l2 = 0.25*p->fBall*p->fBall;
+#ifdef JEANSSOFT
+    double e2 = p->soft*p->soft; 
+    if (l2 < e2) l2 = e2; /* Jeans scale can't be smaller than softening */
+#endif
+#endif
+    return l2*dResolveJeans*p->fDensity;
+}
+
+const double GAMMA_JEANS = 2.0;
+
+
 /// @brief Overall flow control of the simulation.
 ///
 /// As well as controlling the overall flow of the simulation, the
@@ -1593,6 +1620,7 @@ public:
  * @param dAccFac Acceleration scaling for cosmology
  * @param dCosmoFac Cosmo scaling for Courant
  * @param dhMinOverSoft minimum smoothing parameter.
+ * @param dResolveJeans multiple of Jeans length to be resolved.
  * @param bDoGas We are calculating gas forces.
  * @param cb Callback function reduces currrent maximum rung
  */
@@ -1601,6 +1629,7 @@ public:
 	      double dEta, double dEtaCourant, double dEtauDot,
 	      double dDelta, double dAccFac,
 	      double dCosmoFac, double dhMinOverSoft,
+              double dResolveJeans,
 	      int bDoGas,
 	      const CkCallback& cb);
   /**
@@ -1640,6 +1669,7 @@ public:
 	void getAdiabaticGasPressure(double gamma, double gammam1,
 				     const CkCallback &cb);
 	void getCoolingGasPressure(double gamma, double gammam1,
+                                   double dResolveJeans,
 				   const CkCallback &cb);
 	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
 		       const CkCallback& cb);
