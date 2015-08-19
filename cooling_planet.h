@@ -5,9 +5,9 @@
  * Cooling code for planet formation simulations.
  * Originally written by James Wadsley, McMaster University for
  * GASOLINE.
+ *
+ * Updated for ChaNGa by Isaac Backus, University of Wasghinton
  */
-
-/* Global consts */
 
 #include "param.h"
 
@@ -15,18 +15,12 @@
 extern "C" {
 #endif
 
-#include "stiff.h"
+//#include "stiff.h"
 
 /* Constants */
-#define CL_B_gm         (6.022e23*(938.7830/931.494))
-#define CL_k_Boltzmann  1.38066e-16
-#define CL_eV_erg       1.60219e-12
-#define CL_eV_per_K     (CL_k_Boltzmann/CL_eV_erg)
-/* 
- * Work around for Dec ev6 flawed
- * treatment of sub-normal numbers 
- */
-#define CL_MAX_NEG_EXP_ARG  -500.
+#define CL_Rgascode         8.2494e7
+#define CL_Eerg_gm_degK     CL_Rgascode
+#define CL_Eerg_gm_degK3_2  1.5*CL_Eerg_gm_degK
 
 #define CL_NMAXBYTETABLE   56000
 
@@ -47,11 +41,8 @@ typedef struct {
 
 typedef struct CoolingPKDStruct COOL;
 
+/* Per-thread data.  Not used for this cooling algorithm */
 typedef struct clDerivsDataStruct {
-  COOL *cl;
-  double rho,PdV,E,T,Y_Total,rFactor;
-  double     dlnE;
-  int        its;  /* Debug */
 } clDerivsData;
 
 /* Heating Cooling Context */
@@ -106,6 +97,9 @@ double clTemperature( double Y_Total, double E );
 
 void CoolAddParams( COOLPARAM *CoolParam, PRM );
 
+// Saves CenterOfMass to cooling struct cl
+void CoolSetStarCM(COOL *cl, double dCenterOfMass[4]);
+
 /* The following are not implemented for cooling planet but are needed
  * by InOutput.h */
 #define COOL_ARRAY0_EXT  "HI"
@@ -149,9 +143,6 @@ double CoolCodeEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E, doub
 
 /* Note: nod to cosmology (z parameter) unavoidable unless we want to access cosmo.[ch] from here */
 void CoolSetTime( COOL *Cool, double dTime, double z );
-
-// Saves CenterOfMass to cooling struct cl
-void CoolSetStarCM(COOL *cl, double dCenterOfMass[4]);
 
 /* Unit conversion routines */
 
