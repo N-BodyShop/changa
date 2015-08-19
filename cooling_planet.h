@@ -30,30 +30,23 @@ extern "C" {
 
 #define CL_NMAXBYTETABLE   56000
 
-/** @brief structure containing the user set cooling parameters */
 typedef struct CoolingParametersStruct {
-    double    dCoolRateEff;
 	double    Y_Total;
 	double dCoolingTmin;
 	double dCoolingTmax;
+    double dBetaCooling;
 	} COOLPARAM;
 
-/** @brief Defines the cooling particle structure.  The only
- * piece of information each particle needs is Y_total which
- * is equal the (# deg. freedom)/3
- */
 typedef struct CoolingParticleStruct {
 	double Y_Total;
 	} COOLPARTICLE;
 
-/** @brief abundance of various species in particles/baryon */
 typedef struct { 
   double Total;
 } PERBARYON;
 
 typedef struct CoolingPKDStruct COOL;
 
-/** @brief Cooling data for each particle */
 typedef struct clDerivsDataStruct {
   COOL *cl;
   double rho,PdV,E,T,Y_Total,rFactor;
@@ -63,8 +56,8 @@ typedef struct clDerivsDataStruct {
 
 /* Heating Cooling Context */
 
-/** @brief Cooling data accessible by all threads */
-struct CoolingPKDStruct { 
+struct CoolingPKDStruct {
+   /* Cosmology hold-overs */
    double     z; /* Redshift */
    double     dTime;
 
@@ -78,83 +71,39 @@ struct CoolingPKDStruct {
    double     dKpcUnit;
 
    /* User parameters (see CoolAddParams) */
-   double    dCoolRateEff;
    double    Y_Total;
    double    Tmin;
    double    Tmax;
+   double    beta;
+   /* Star info */
+   double dStarCenterOfMass[4];
+   /**/
    clDerivsData       *DerivsData;
 
    int nTableRead; /* Internal Tables read from Files */
 
 };
 
-/**
- * @brief CoolInit initializes a COOL data structure for storing
- *      cooling constants and parameters
- * @return a blank COOL data structure with nTableRead = 0
- */
 COOL *CoolInit( );
 
 ///Frees memory and deletes cl
 void CoolFinalize( COOL *cl );
 
-/**
- * Per thread initialization of cooling data.
- * @param cl Initialized COOL structure.
- */
 clDerivsData *CoolDerivsInit(COOL *cl);
 
-/**
- * Deallocate memory for per-thread data.
- */
 void CoolDerivsFinalize(clDerivsData *cld ) ;
 
-/**
- * @brief clInitConstants sets physical constants and parameters
- *          for cooling
- * @param cl a COOL data structure (see CoolInit)
- * @param CoolParam an initialized COOLPARAM structure (see CoolAddParams)
- */
 void clInitConstants( COOL *cl, double dGMPerCcunit,
 		      double dComovingGmPerCcUnit, double dErgPerGmUnit,
 		      double dSecUnit, double dKpcUnit, COOLPARAM CoolParam);
 
-//void clInitUV(COOL *cl, int nTableColumns, int nTableRows, double *dTableData );
-//void clInitRatesTable( COOL *cl, double TMin, double TMax, int nTable );
-
 /* Doesn't do anything, needed by Sph.C */
 void CoolInitRatesTable( COOL *cl, COOLPARAM CoolParam);
 
-/**
- * @brief Calculates thermal energy from temperature and Y (deg. freedom/3)
- * @param Y_Total (deg. freedom)/3
- * @param T Temperature
- * @return Thermal (internal) energy per mass (CGS)
- */
 double clThermalEnergy( double Y_Total, double T );
 
-/**
- * @brief Calculates temperature from internal energy and Y (deg.freedom/3)
- * @param Y_Total (deg. freedom)/3
- * @param E Internal energy per mass (CGS units)
- * @return Temperature
- */
 double clTemperature( double Y_Total, double E );
 
-/**
- * @brief CoolAddParams Parses parameters and adds them to the COOLPARAM
- *          struct
- * @param CoolParam A COOLPARAM struct
- * @param prm The param struct
- *
- * The available parameters to be set are:
- *      dCoolRateEff : The "effective" cooling rate.  This is given by
- *          (r0^3/2)/t_cool where t_cool is the desired cooling rate
- *          at r0, in cgs units.
- *      dY_Total : (degrees of freedom)/3 for the gas
- *      dCoolingTmin : Minimum allowed temperature (in Kelvin)
- *      dCoolingTmax : Maximum allowed temperature (in Kelvin)
- */
 void CoolAddParams( COOLPARAM *CoolParam, PRM );
 
 /* The following are not implemented for cooling planet but are needed
@@ -191,9 +140,6 @@ double COOL_EDOT( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode_, 
 double COOL_COOLING( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode_, double ZMetal_, double *posCode_ );
 #define COOL_COOLING( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_) (CoolCodeWorkToErgPerGmPerSec( cl_, CoolEdotInstantCode( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_ )))
 
-//double COOL_HEATING( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode_, double ZMetal_, double *posCode_ );
-//#define COOL_HEATING( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_) (0)
-
 void CoolPARTICLEtoPERBARYON(COOL *cl_, PERBARYON *Y, COOLPARTICLE *cp, double HTotal, double HeTotal);
 
 #define CoolPARTICLEtoPERBARYON(cl_, Y, cp) { \
@@ -203,6 +149,9 @@ double CoolCodeEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E, doub
 
 /* Note: nod to cosmology (z parameter) unavoidable unless we want to access cosmo.[ch] from here */
 void CoolSetTime( COOL *Cool, double dTime, double z );
+
+// Saves CenterOfMass to cooling struct cl
+void CoolSetStarCM(COOL *cl, double dCenterOfMass[4]);
 
 /* Unit conversion routines */
 
@@ -234,52 +183,11 @@ double CodeDensityToComovingGmPerCc( COOL *Cool, double dCodeDensity );
 
 #define CodeDensityToComovingGmPerCc( Cool, dCodeDensity )  ((Cool)->dComovingGmPerCcUnit*(dCodeDensity))
 
-//void CoolIntegrateEnergy(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp, double *E,
-//		       double PdV, double rho, double ZMetal, double tStep );
-
-/**
- * Updates a particle's internal energy based on cooling and PdV work.
- * Cooling is done according to the equation:
- *      Edot = -rFactor*E + PdV
- * where PdV is the PdV work per time done on the particle and rFactor
- * is given by:
- *      rFactor = dCoolRateEff*r^3/2 = ( (r/r0)^-3/2 )/t_cool
- * where t_cool is the cooling time at r0
- * Solving the cooling equation over a time interval from 0 to t gives:
- *      E(t) = exp(-rFactor*t) (E0 - PdV/rFactor) + PdV/rFactor
- *
- * The Energy (Ecode) is updated, along with clData->rho,PdV,Y_total,rFactor,
- * E,T
- *
- * @brief CoolIntegrateEnergyCode Calculates particle's internal energy
- * due to cooling and PdV work
- * @param cl The COOL structure containing constants/params for the simulation
- * @param clData Per-thread cooling data
- * @param cp Cooling particle
- * @param ECode Particle internal energy in Code units
- * @param PdVCode PdV work per time in code units
- * @param rhoCode Particle density in code units
- * @param ZMetal Unused
- * @param posCode particle position in code units.  Assumes the disk center is at r=0
- * @param tStep Time step to integrate over, in seconds
- */
 void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp, double *E, 
 			     double PdV, double rho, double ZMetal, double *r, double tStep );
-/**
- * @brief Initializes data and sets defaults for a cooling particle
- * @param cp a COOLPARTICLE structure (see cooling_planet.h)
- */
+
 void CoolDefaultParticleData( COOLPARTICLE *cp );
 
-/**
- * @brief Initializes data for a cooling particle, given a COOL struct
- * @param cl a COOL struct which has been initialized with constants defined
- * @param cp a cooling particle COOLPARTICLE struct
- * @param E Pointer to the particle's internal energy
- *
- * Initializes data for a cooling particle, given a COOL struct.
- * Sets Y_total and E in the cooling particle
- */
 void CoolInitEnergyAndParticleData( COOL *cl, COOLPARTICLE *cp, double *E, double dDensity, double dTemp, double fMetal );
 
 /* Not implemented, but required to keep compiling from crashing */

@@ -3,10 +3,26 @@
 /*
  * Cooling code originally written by James Wadsley, McMaster
  * University for GASOLINE.
+ *
+ * Updated for ChaNGa by Isaac Backus, University of Washington
  */
 /*
  * Cooling functions for a planetary disk where the cooling time is
  * proportional to the orbital time.
+ *
+ * ALGORITHM:
+ *
+ * Integrating over a time step (see CoolIntegrateEnergyCode) gives:
+ *      E(t+dt) = exp(-dt/tcool) (E(t) - PdV*tcool) + PdV*tcool
+ * where:
+ *      tcool = beta/omega
+ * beta is a dimensionless cooling time (see CoolAddParams) and omega is the
+ * approximate Keplerian angular velocity, calculated as:
+ *      omega = sqrt(G*M/R**3)
+ * where M is the total mass of all star particles and R is the distance to
+ * the center of mass of star particles.
+ *
+ * NOTES:
  *
  * The convention is that Cool...() functions are public and cl..()
  * functions are private (which could be enforced if we move this to
@@ -15,16 +31,13 @@
  * The clDerivsData structure will contain data that changes from
  * particle to particle.
  *
- * The cooling prescription here is that each particle loses a certain
- * fraction of its energy per orbital period.
- * (see CoolIntegrateEnergyCode in cooling_planet.c)
- *
  * For a list of parameters to set, see CoolAddParams in cooling_planet.c
  */
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
 #include <assert.h>
+#include <string.h>
 #include "cooling.h"
 
 /**
@@ -85,6 +98,7 @@ void clInitConstants(COOL *cl, double dGmPerCcUnit,
 		     double dSecUnit, double dKpcUnit, COOLPARAM CoolParam) 
 {
   assert(cl!=NULL);
+  /* Units */
   cl->dGmPerCcUnit = dGmPerCcUnit;
   cl->dComovingGmPerCcUnit = dComovingGmPerCcUnit;
   cl->dErgPerGmUnit = dErgPerGmUnit;
@@ -93,10 +107,11 @@ void clInitConstants(COOL *cl, double dGmPerCcUnit,
   cl->diErgPerGmUnit = 1./dErgPerGmUnit;
   cl->dKpcUnit = dKpcUnit;
   
-  cl->dCoolRateEff = CoolParam.dCoolRateEff;
+  /* config parameters */
   cl->Y_Total = CoolParam.Y_Total;
   cl->Tmin = CoolParam.dCoolingTmin;
   cl->Tmax = CoolParam.dCoolingTmax;
+  cl->beta = CoolParam.dBetaCooling;
 }
 /* Define physical constants */
 #define CL_Rgascode         8.2494e7
@@ -135,19 +150,22 @@ double clTemperature( double Y_Total, double E ) {
  * @param prm The param struct
  *
  * The available parameters to be set are:
- *      dCoolRateEff : The "effective" cooling rate.  This is given by
- *          (r0^3/2)/t_cool where t_cool is the desired cooling rate
- *          at r0, in cgs units.
+ *      dBetaCooling : Effective cooling time = t_cool * omega.  Also
+ *          equal to 2*pi*(t_cool/T_orbit)
  *      dY_Total : (degrees of freedom)/3 for the gas
  *      dCoolingTmin : Minimum allowed temperature (in Kelvin)
  *      dCoolingTmax : Maximum allowed temperature (in Kelvin)
  */
 void CoolAddParams( COOLPARAM *CoolParam, PRM prm ) {
-    CoolParam->dCoolRateEff = 0;
-    prmAddParam(prm,"dCoolRateEff",paramDouble,&CoolParam->dCoolRateEff,
-                sizeof(double),"coolrate",
-                "<Effective cooling rate at r0: (r0^3/2)/t_cool (in cgs)> = 0.0");
-	CoolParam->Y_Total = 2;
+//    CoolParam->dCoolRateEff = 0;
+//    prmAddParam(prm,"dCoolRateEff",paramDouble,&CoolParam->dCoolRateEff,
+//                sizeof(double),"coolrate",
+//                "<Effective cooling rate at r0: (r0^3/2)/t_cool (in cgs)> = 0.0");
+    CoolParam->dBetaCooling = 1.0;
+    prmAddParam(prm, "dBetaCooling", paramDouble, &CoolParam->dBetaCooling,
+                sizeof(double), "betacool",
+                "<Effective cooling time (tCool*omega)> = 1");
+    CoolParam->Y_Total = 2;
 	prmAddParam(prm,"dY_Total",paramDouble,&CoolParam->Y_Total,
 				sizeof(double),"Y_Total",
 				"<Y_Total> = 2");
@@ -206,6 +224,20 @@ void CoolSetTime( COOL *cl, double dTime, double z ) {
 	cl->dTime = dTime;
 	}
 
+/**
+ * @brief CoolSetStarCM saves the center of mass of the star(s) to the COOL
+ * struct cl
+ * @param cl COOL struct, which stores cooling data/info
+ * @param dCenterOfMass Array(length 4) which contains the star(s) center of
+ * mass as the first 3 entries and the total star mass as the final entry
+ */
+void CoolSetStarCM(COOL *cl, double dCenterOfMass[4]) {
+    int i;
+    for(i=0; i<4; ++i){
+        cl->dStarCenterOfMass[i] = dCenterOfMass[i];
+    }
+}
+
 ///Calculates the temperature of a COOLPARTICLE given its energy (in Code units)
 double CoolCodeEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E,
 				    double fMetal) {
@@ -215,13 +247,14 @@ double CoolCodeEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E,
 /**
  * Updates a particle's internal energy based on cooling and PdV work.
  * Cooling is done according to the equation:
- *      Edot = -rFactor*E + PdV
- * where PdV is the PdV work per time done on the particle and rFactor
+ *      Edot = -E/tcool + PdV
+ * where PdV is the PdV work per time done on the particle and tcool
  * is given by:
- *      rFactor = dCoolRateEff*r^3/2 = ( (r/r0)^-3/2 )/t_cool
- * where t_cool is the cooling time at r0
+ *      tcool = beta/omega
+ * beta is a dimensionless cooling set by the runtime parameter dBetaCooling
+ * and omega is the approximate keplerian orbital angular velocity
  * Solving the cooling equation over a time interval from 0 to t gives:
- *      E(t) = exp(-rFactor*t) (E0 - PdV/rFactor) + PdV/rFactor
+ *      E(t) = exp(-t/tcool) (E0 - PdV*tcool) + PdV*tcool
  *
  * The Energy (Ecode) is updated, along with clData->rho,PdV,Y_total,rFactor,
  * E,T
@@ -234,18 +267,33 @@ double CoolCodeEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E,
  * @param ECode Particle internal energy in Code units
  * @param PdVCode PdV work per time in code units
  * @param rhoCode Particle density in code units
- * @param ZMetal Unused
- * @param posCode particle position in code units.  Assumes the disk center is at r=0
+ * @param ZMetal (Unused)
+ * @param posCode particle position in code units.  Assumes the disk center is
+ * at r=0
  * @param tStep Time step to integrate over, in seconds
  */
 void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
-			     double *ECode, 
-		       double PdVCode, double rhoCode, double ZMetal, double *posCode, double tStep ) {
-    double radius,EMin;
+                             double *ECode, double PdVCode, double rhoCode,
+                             double ZMetal, double *posCode, double tStep )
+{
+    double EMin;
+    double radius = 0;
+    double omega, tcool;
 
-    /* Calculate the particle's radius (position) in CGS */
-	radius= sqrt(posCode[0]*posCode[0]+posCode[1]*posCode[1]+posCode[2]*posCode[2])
-		*cl->dKpcUnit*CONVERT_CMPERKPC;
+    /* Calculate the radius (in simulation units)
+     * Defined as the distance to the center of mass of all the star
+     * particles */
+    int i=0;
+    for(i=0; i<3; ++i) {
+        radius += pow(posCode[i] - cl->dStarCenterOfMass[i], 2);
+    }
+    radius = sqrt(radius);
+
+    /* Calculate approximate keplerian angular velocity */
+    omega = sqrt(cl->dStarCenterOfMass[3] / pow(radius,3));
+    /* Calculate cooling time (in seconds)*/
+    tcool = cl->dSecUnit * cl->beta/omega;
+
     /* Convert the particle's internal energy to CGS */
 	*ECode = CoolCodeEnergyToErgPerGm( cl, *ECode );
 
@@ -256,7 +304,7 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
     clData->rho =  CodeDensityToComovingGmPerCc(cl, rhoCode);
     clData->PdV = CoolCodeWorkToErgPerGmPerSec( cl, PdVCode );
     clData->Y_Total = cp->Y_Total;
-    clData->rFactor = cl->dCoolRateEff*pow(radius,-3./2.);
+    clData->rFactor = 1.0/tcool;
     clData->E = *ECode;
     clData->T = clTemperature(clData->Y_Total, *ECode);
 
@@ -274,10 +322,9 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
         *ECode = clThermalEnergy(clData->Y_Total, clData->T);
     }
 
-
     /*Convert energy back to simulation units */
 	*ECode = CoolErgPerGmToCodeEnergy(cl, *ECode);
 
-	}
+}
 
 #endif /* NOCOOLING */

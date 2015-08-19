@@ -1422,7 +1422,7 @@ void Main::advanceBigStep(int iStep) {
 	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
 	  if(param.bGasCooling)
 	      dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
-	  treeProxy.updateuDot(activeRung, duKick, dStartTime,
+      treeProxy.updateuDot(activeRung, duKick, dStartTime,
 			       param.bGasCooling, 1, 1,
 			       CkCallbackResumeThread());
 	  if(verbosity)
@@ -2260,6 +2260,9 @@ Main::initialForces()
       treeProxy.initAccel(0, CkCallbackResumeThread());
       }
   if(param.bDoGas) {
+      // Get star center of mass
+      starCenterOfMass();
+      // Initialize SPH
       initSph();
       }
   
@@ -2366,6 +2369,8 @@ Main::doSimulation()
     
     if (verbosity) ckout << "Starting big step " << iStep << endl;
     startTime = CkWallTimer();
+    // ISAAC
+    starCenterOfMass();
     advanceBigStep(iStep-1);
     double stepTime = CkWallTimer() - startTime;
     ckout << "Big step " << iStep << " took " << stepTime << " seconds."
@@ -2650,6 +2655,37 @@ Main::doSimulation()
   CkExit();
 }
 
+// ISAAC
+/**
+ * @brief Main::starCenterOfMass Calculates the total mass and center of mass
+ * of all the star particles and saves them to all the available COOL structs.
+ *
+ * Requires that cooling for planets be enabled and compile time.
+ */
+void Main::starCenterOfMass()
+{
+#ifndef COOLING_NONE
+#ifdef COOLING_PLANET
+    CkReductionMsg *msg;
+    // Get the sums of (mass * pos) and (mass) of all the star particles
+    treeProxy.starCenterOfMass(CkCallbackResumeThread((void*&)msg));
+    double *dMassPos = (double *) msg->getData();
+
+    // Calculate the center of mass
+    double dCenterOfMass[4];
+    for (int i=0; i<3; ++i) {
+        dCenterOfMass[i] = dMassPos[i]/dMassPos[3];
+    }
+    // Record the total mass
+    dCenterOfMass[3] = dMassPos[3];
+    // Clean up
+    delete msg;
+    // Send center of mass to everyone
+    dMProxy.SetStarCM(dCenterOfMass, CkCallbackResumeThread());
+#endif
+#endif
+}
+
 ///
 /// \brief Calculate various energy and momentum quantities, and output them
 /// to a log file.
@@ -2668,7 +2704,7 @@ Main::calcEnergy(double dTime, double wallTime, const char *achLogFileName)
     double a = csmTime2Exp(param.csm, dTime);
     
     if(first && (!bIsRestarting || dTimeOld == 0.0)) {
-	fprintf(fpLog, "# time redshift TotalEVir TotalE Kinetic Virial Potential TotalECosmo Ethermal Lx Ly Lz Wallclock\n");
+    fprintf(fpLog, "# time redshift TotalEVir TotalE Kinetic Virial Potential TotalECosmo Ethermal Lx Ly Lz Wallclock\n");
 	dEcosmo = 0.0;
 	first = 0;
 	}

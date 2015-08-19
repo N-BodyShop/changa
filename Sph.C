@@ -269,6 +269,22 @@ DataManager::CoolingSetTime(double z, // redshift
     }
 
 /**
+ * @brief DataManager::SetStarCM saves the total mass and center of mass of the
+ * star(s) to the COOL struct Cool, making them available to the cool particles
+ * @param dCenterOfMass Array(length 4) which contains the star(s) center of
+ * mass as the first 3 entries and the total star mass as the final entry
+ * @param cb    Callback
+ */
+void DataManager::SetStarCM(double dCenterOfMass[4], const CkCallback& cb) {
+#ifndef COOLING_NONE
+#ifdef COOLING_PLANET
+    CoolSetStarCM(Cool, dCenterOfMass);
+#endif
+#endif
+    contribute(cb);
+}
+
+/**
  *  @brief utility for checking array files
  */
 bool
@@ -704,6 +720,7 @@ void TreePiece::updateuDot(int activeRung,
 #ifndef COOLING_NONE
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
+
 	if (TYPETest(p, TYPE_GAS)
 	    && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
 	    dt = CoolCodeTimeToSeconds(dm->Cool, duDelta[p->rung] );

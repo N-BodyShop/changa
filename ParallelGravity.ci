@@ -215,6 +215,7 @@ mainmodule ParallelGravity {
 			 COOLPARAM inParam, const CkCallback& cb);
     entry void dmCoolTableRead(double dTableData[nData], int nData, const CkCallback& cb);
     entry void CoolingSetTime(double z, double dTime, const CkCallback& cb);
+    entry void SetStarCM(double dCenterOfMass[4], const CkCallback& cb);
     entry void memoryStats(const CkCallback& cb);
     entry void resetReadOnly(Parameters param, const CkCallback &cb);
     entry void initStarLog(std::string _fileName, const CkCallback &cb);
@@ -356,6 +357,7 @@ mainmodule ParallelGravity {
     entry void drift(double dDelta, int bNeedVPred, int bGasIsoThermal,
 		     double dvDelta, double duDelta, int nGrowMass,
 		     bool buildTree, const CkCallback& cb);
+    entry void starCenterOfMass(const CkCallback& cb);
     entry void calcEnergy(const CkCallback& cb);
     entry void colNParts(const CkCallback &cb);
     entry void newOrder(int64_t nStartSPH, int64_t nStartDark,

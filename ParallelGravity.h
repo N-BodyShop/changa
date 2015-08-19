@@ -482,7 +482,9 @@ public:
         void advanceBigStep(int);
 	int adjust(int iKickRung);
 	void rungStats();
-	void countActive(int activeRung);
+    void countActive(int activeRung);
+    // ISAAC
+    void starCenterOfMass();
 	void calcEnergy(double, double, const char *);
 	void getStartTime();
 	void getOutTimes();
@@ -1641,6 +1643,8 @@ public:
   void rungStats(const CkCallback& cb);
   void countActive(int activeRung, const CkCallback& cb);
   void assignDomain(const CkCallback& cb);
+  // ISAAC
+  void starCenterOfMass(const CkCallback& cb);
   void calcEnergy(const CkCallback& cb);
   /// add new particle
   void newParticle(GravityParticle *p);
