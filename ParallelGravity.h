@@ -489,7 +489,9 @@ public:
 	int adjust(int iKickRung);
 	void rungStats();
 	void countActive(int activeRung);
-        void emergencyAdjust(int iRung);
+    void emergencyAdjust(int iRung);
+    // ISAAC
+    void starCenterOfMass();
 	void calcEnergy(double, double, const char *);
 	void getStartTime();
 	void getOutTimes();
@@ -1654,6 +1656,8 @@ public:
   void emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
 		       const CkCallback &cb);
   void assignDomain(const CkCallback& cb);
+  // ISAAC
+  void starCenterOfMass(const CkCallback& cb);
   void calcEnergy(const CkCallback& cb);
   /// add new particle
   void newParticle(GravityParticle *p);
