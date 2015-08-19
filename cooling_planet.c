@@ -31,6 +31,12 @@
  * The clDerivsData structure will contain data that changes from
  * particle to particle.
  *
+ * By convention, all cooling is done in CGS.  The header file defines macros
+ * which convert between code and CGS units [cooling_planet.h].  For example,
+ * to convert energy into CGS, do :
+ *      E = CoolCodeEnergyToErgPerGm(cl, E);
+ * Conversion factors are stored in a COOL struct (see clInitConstants)
+ *
  * For a list of parameters to set, see CoolAddParams in cooling_planet.c
  */
 #include <stdlib.h>
@@ -68,8 +74,6 @@ clDerivsData *CoolDerivsInit(COOL *cl)
     Data = malloc(sizeof(clDerivsData));
     assert(Data != NULL);
 
-    Data->cl = cl;
-  
   return Data;
 }
 
@@ -114,12 +118,7 @@ void clInitConstants(COOL *cl, double dGmPerCcUnit,
   cl->beta = CoolParam.dBetaCooling;
 }
 /* Define physical constants */
-#define CL_Rgascode         8.2494e7
-#define CL_Eerg_gm_degK     CL_Rgascode
-#define CL_ev_degK          1.0/1.1604e4
-#define CL_Eerg_gm_ev       CL_Eerg_gm_degK/CL_ev_degK
-#define CL_Eerg_gm_degK3_2  1.5*CL_Eerg_gm_degK
-#define CONVERT_CMPERKPC (3.0857e21)
+
 
 /**
  * @brief Calculates thermal energy from temperature and Y (deg. freedom/3)
@@ -157,10 +156,6 @@ double clTemperature( double Y_Total, double E ) {
  *      dCoolingTmax : Maximum allowed temperature (in Kelvin)
  */
 void CoolAddParams( COOLPARAM *CoolParam, PRM prm ) {
-//    CoolParam->dCoolRateEff = 0;
-//    prmAddParam(prm,"dCoolRateEff",paramDouble,&CoolParam->dCoolRateEff,
-//                sizeof(double),"coolrate",
-//                "<Effective cooling rate at r0: (r0^3/2)/t_cool (in cgs)> = 0.0");
     CoolParam->dBetaCooling = 1.0;
     prmAddParam(prm, "dBetaCooling", paramDouble, &CoolParam->dBetaCooling,
                 sizeof(double), "betacool",
@@ -169,7 +164,7 @@ void CoolAddParams( COOLPARAM *CoolParam, PRM prm ) {
 	prmAddParam(prm,"dY_Total",paramDouble,&CoolParam->Y_Total,
 				sizeof(double),"Y_Total",
 				"<Y_Total> = 2");
-	CoolParam->dCoolingTmin = 10;
+    CoolParam->dCoolingTmin = 0;
 	prmAddParam(prm,"dCoolingTmin",paramDouble,&CoolParam->dCoolingTmin,
 				sizeof(double),"ctmin",
 				"<Minimum Temperature for Cooling> = 10K");
@@ -192,7 +187,6 @@ double CoolEdotInstantCode(COOL *cl, COOLPARTICLE *cp, double ECode,
               double rhoCode, double ZMetal, double *posCode ) {}
 
 /* Initialization Routines */
-
 
 /**
  * @brief Initializes data and sets defaults for a cooling particle
@@ -256,18 +250,17 @@ double CoolCodeEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E,
  * Solving the cooling equation over a time interval from 0 to t gives:
  *      E(t) = exp(-t/tcool) (E0 - PdV*tcool) + PdV*tcool
  *
- * The Energy (Ecode) is updated, along with clData->rho,PdV,Y_total,rFactor,
- * E,T
+ * The Energy (Ecode) is updated
  *
- * @brief CoolIntegrateEnergyCode Calculates particle's internal energy
+ * @brief CoolIntegrateEnergyCode Integrates a particle's internal energy
  * due to cooling and PdV work
  * @param cl The COOL structure containing constants/params for the simulation
- * @param clData Per-thread cooling data
+ * @param clData [unused]
  * @param cp Cooling particle
  * @param ECode Particle internal energy in Code units
  * @param PdVCode PdV work per time in code units
- * @param rhoCode Particle density in code units
- * @param ZMetal (Unused)
+ * @param rhoCode [unused]
+ * @param ZMetal [Unused]
  * @param posCode particle position in code units.  Assumes the disk center is
  * at r=0
  * @param tStep Time step to integrate over, in seconds
@@ -276,9 +269,11 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
                              double *ECode, double PdVCode, double rhoCode,
                              double ZMetal, double *posCode, double tStep )
 {
-    double EMin;
     double radius = 0;
-    double omega, tcool;
+    double omega, tcool, PdV, T;
+
+    /* This is used as a switch to disable cooling before a certain time*/
+    if (tStep <= 0) return;
 
     /* Calculate the radius (in simulation units)
      * Defined as the distance to the center of mass of all the star
@@ -297,34 +292,20 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
     /* Convert the particle's internal energy to CGS */
 	*ECode = CoolCodeEnergyToErgPerGm( cl, *ECode );
 
-    /* This is used as a switch to disable cooling before a certain time*/
-    if (tStep <= 0) return;
+    /* Convert PdV work to CGS */
+    PdV = CoolCodeWorkToErgPerGmPerSec(cl, PdVCode);
 
-    /* Update the data structure */
-    clData->rho =  CodeDensityToComovingGmPerCc(cl, rhoCode);
-    clData->PdV = CoolCodeWorkToErgPerGmPerSec( cl, PdVCode );
-    clData->Y_Total = cp->Y_Total;
-    clData->rFactor = 1.0/tcool;
-    clData->E = *ECode;
-    clData->T = clTemperature(clData->Y_Total, *ECode);
+    /* Integrate energy */
+    *ECode = exp(-tStep/tcool) * (*ECode - PdV*tcool) + PdV*tcool;
 
-    /* Calculate new energy given by exp(-rFactor*t)(E0 - PdV/rFactor) + PdV/rFactor */
-    *ECode = exp(-clData->rFactor*tStep) * (*ECode - clData->PdV/clData->rFactor) + clData->PdV/clData->rFactor;
-    /* Make sure the energy isn't too low */
-    EMin = clThermalEnergy( clData->Y_Total, cl->Tmin );
-    if (*ECode < EMin) *ECode = EMin;
-
-    /* Update energy & temp in the data structure */
-    clData->E = *ECode;
-    clData->T = clTemperature(clData->Y_Total, clData->E);
-    if (clData->T < cl->Tmin) {
-        clData->T = cl->Tmin;
-        *ECode = clThermalEnergy(clData->Y_Total, clData->T);
+    /* apply minimum temperature cutoff */
+    T = clTemperature(cp->Y_Total, *ECode);
+    if (T < cl->Tmin) {
+        T = cl->Tmin;
+        *ECode = clThermalEnergy(cp->Y_Total, T);
     }
-
     /*Convert energy back to simulation units */
-	*ECode = CoolErgPerGmToCodeEnergy(cl, *ECode);
-
+    *ECode = CoolErgPerGmToCodeEnergy(cl, *ECode);
 }
 
 #endif /* NOCOOLING */
