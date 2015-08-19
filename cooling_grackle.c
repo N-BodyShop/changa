@@ -362,13 +362,6 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp, d
 
     metal_density = ZMetal*density;
 
-    energy += 0.5*ExternalHeat*dt;  /* Gnedin suggestion */
-    if(energy <= 0.0) {
-        double dEold = energy - 0.5*ExternalHeat*dt;
-        energy = dEold*exp(0.5*ExternalHeat*dt/dEold);
-        }
-    // assert(energy > 0.0);
-
     if (cl->pgrackle_data->primordial_chemistry==0) {
 /*
     int solve_chemistry_table(code_units *my_units, double a_value, double dt_value, 
@@ -377,7 +370,7 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp, d
         gr_float *x_velocity, gr_float *y_velocity, gr_float *z_velocity, gr_float *metal_density); 
 */
   
-        if (solve_chemistry_table(&(cl->my_units), cl->a, dt,
+        if (solve_chemistry_table(&(cl->my_units), cl->a, 0.5*dt,
             1, one, zero, zero,
             &density, &energy,
             &x_velocity, &y_velocity, &z_velocity,
@@ -418,7 +411,60 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp, d
         DI_density, DII_density, HDI_density,
         e_density, metal_density) */
         if (solve_chemistry(&(cl->my_units),
-            cl->a, dt,
+            cl->a, 0.5*dt,
+            1, one, zero, zero,
+            &density, &energy,
+            &x_velocity, &y_velocity, &z_velocity,
+            &HI_density, &HII_density, &HM_density,
+            &HeI_density, &HeII_density, &HeIII_density,
+            &H2I_density, &H2II_density,
+            &DI_density, &DII_density, &HDI_density,
+                &e_density, &metal_density)== 0) {
+    
+            fprintf(stderr, "Grackle Error in solve_chemistry.\n");
+            assert(0);
+            }
+        }
+    energy += ExternalHeat*dt;  /* Gnedin suggestion */
+    if(energy <= 0.0) {
+        double dEold = energy - ExternalHeat*dt;
+        energy = dEold*exp(ExternalHeat*dt/dEold);
+        }
+
+    density = rho;
+    x_velocity=0; y_velocity=0; z_velocity=0;
+    metal_density = ZMetal*density;
+    if (cl->pgrackle_data->primordial_chemistry==0) {
+        if (solve_chemistry_table(&(cl->my_units), cl->a, 0.5*dt,
+            1, one, zero, zero,
+            &density, &energy,
+            &x_velocity, &y_velocity, &z_velocity,
+            &metal_density)== 0) {
+            fprintf(stderr, "Grackle Error in solve_chemistry.\n");
+            assert(0);
+            }
+        }
+    else {
+#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
+        HI_density = cp->HI*density;
+        HII_density = cp->HII*density;
+        HeI_density = cp->HeI*density;
+        HeII_density = cp->HeII*density;
+        HeIII_density = cp->HeIII*density;
+        e_density = cp->e*density;
+#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=2)
+        HM_density = cp->HM*density;
+        H2I_density = cp->H2I*density;
+        H2II_density = cp->H2II*density;
+#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=3)
+        DI_density = cp->DI*density;
+        DII_density = cp->DII*density;
+        HDI_density = cp->HDI*density;
+#endif
+#endif
+#endif
+        if (solve_chemistry(&(cl->my_units),
+            cl->a, 0.5*dt,
             1, one, zero, zero,
             &density, &energy,
             &x_velocity, &y_velocity, &z_velocity,
@@ -434,13 +480,7 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp, d
         }
     
     assert(energy > 0.0);
-    energy += 0.5*ExternalHeat*dt;  /* Gnedin suggestion -- far from self-consistent */
-    if(energy <= 0.0) {
-        double dEold = energy - 0.5*ExternalHeat*dt;
-        energy = dEold*exp(0.5*ExternalHeat*dt/dEold);
-        }
     *E = energy;
-    assert(*E > 0.0);
 
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
     float dinv = 1./density;
