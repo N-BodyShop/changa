@@ -1858,8 +1858,11 @@ void Main::setupICs() {
   if(nTotalSPH > 0 && !param.bDoGas) {
       if(prmSpecified(prm, "bDoGas"))
 	  ckerr << "WARNING: SPH particles present and bDoGas is set off\n";
-      else
+      else {
 	  param.bDoGas = 1;
+          if(!prmSpecified(prm, "bSphStep"))
+              param.bSphStep = 1;
+          }
       }
   getStartTime();
   if(param.nSteps > 0) getOutTimes();
