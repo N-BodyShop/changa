@@ -1,6 +1,5 @@
 #ifndef COOLING_PLANET_HINCLUDED
 #define COOLING_PLANET_HINCLUDED
-
 /*
  * Cooling code for planet formation simulations.
  * Originally written by James Wadsley, McMaster University for
@@ -15,13 +14,10 @@
 extern "C" {
 #endif
 
-//#include "stiff.h"
-
 /* Constants */
 #define CL_Rgascode         8.2494e7
 #define CL_Eerg_gm_degK     CL_Rgascode
 #define CL_Eerg_gm_degK3_2  1.5*CL_Eerg_gm_degK
-
 #define CL_NMAXBYTETABLE   56000
 
 typedef struct CoolingParametersStruct {
@@ -29,14 +25,14 @@ typedef struct CoolingParametersStruct {
     double dCoolingTmin;
     double dCoolingTmax;
     double dBetaCooling;
-    } COOLPARAM;
+} COOLPARAM;
 
 typedef struct CoolingParticleStruct {
     double Y_Total;
-    } COOLPARTICLE;
+} COOLPARTICLE;
 
 typedef struct {
-  double Total;
+    double Total;
 } PERBARYON;
 
 typedef struct CoolingPKDStruct COOL;
@@ -48,28 +44,28 @@ typedef struct clDerivsDataStruct {
 /* Heating Cooling Context */
 
 struct CoolingPKDStruct {
-   /* Cosmology hold-overs */
-   double     z; /* Redshift */
-   double     dTime;
-   /* Units and conversion constants */
-   double     dGmPerCcUnit;
-   double     dComovingGmPerCcUnit;
-   double     dErgPerGmUnit;
-   double     dSecUnit;
-   double     dErgPerGmPerSecUnit;
-   double     diErgPerGmUnit;
-   double     dKpcUnit;
-   /* User parameters (see CoolAddParams) */
-   double    Y_Total;
-   double    Tmin;
-   double    Tmax;
-   double    beta;
-   /* Star info */
-   double dStarCenterOfMass[4];
-   /**/
-   clDerivsData       *DerivsData;
+    /* Cosmology hold-overs */
+    double     z; /* Redshift */
+    double     dTime;
+    /* Units and conversion constants */
+    double     dGmPerCcUnit;
+    double     dComovingGmPerCcUnit;
+    double     dErgPerGmUnit;
+    double     dSecUnit;
+    double     dErgPerGmPerSecUnit;
+    double     diErgPerGmUnit;
+    double     dKpcUnit;
+    /* User parameters (see CoolAddParams) */
+    double    Y_Total;
+    double    Tmin;
+    double    Tmax;
+    double    beta;
+    /* Star info */
+    double dStarCenterOfMass[4];
+    /**/
+    clDerivsData       *DerivsData;
 
-   int nTableRead; /* Internal Tables read from Files */
+    int nTableRead; /* Internal Tables read from Files */
 
 };
 
@@ -83,8 +79,8 @@ clDerivsData *CoolDerivsInit(COOL *cl);
 void CoolDerivsFinalize(clDerivsData *cld ) ;
 
 void clInitConstants( COOL *cl, double dGMPerCcunit,
-              double dComovingGmPerCcUnit, double dErgPerGmUnit,
-              double dSecUnit, double dKpcUnit, COOLPARAM CoolParam);
+                      double dComovingGmPerCcUnit, double dErgPerGmUnit,
+                      double dSecUnit, double dKpcUnit, COOLPARAM CoolParam);
 
 /* Doesn't do anything, needed by Sph.C */
 void CoolInitRatesTable( COOL *cl, COOLPARAM CoolParam);
@@ -173,7 +169,7 @@ double CodeDensityToComovingGmPerCc( COOL *Cool, double dCodeDensity );
 #define CodeDensityToComovingGmPerCc( Cool, dCodeDensity )  ((Cool)->dComovingGmPerCcUnit*(dCodeDensity))
 
 void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp, double *E,
-                 double PdV, double rho, double ZMetal, double *r, double tStep );
+                             double PdV, double rho, double ZMetal, double *r, double tStep );
 
 void CoolDefaultParticleData( COOLPARTICLE *cp );
 
@@ -181,7 +177,7 @@ void CoolInitEnergyAndParticleData( COOL *cl, COOLPARTICLE *cp, double *E, doubl
 
 /* Not implemented, but required to keep compiling from crashing */
 double CoolEdotInstantCode(COOL *cl, COOLPARTICLE *cp, double ECode,
-               double rhoCode, double ZMetal, double *posCode );
+                           double rhoCode, double ZMetal, double *posCode );
 
 void CoolCodePressureOnDensitySoundSpeed( COOL *cl, COOLPARTICLE *cp, double uPred, double fDensity, double gamma, double gammam1, double *PoverRho, double *c );
 #define CoolCodePressureOnDensitySoundSpeed( cl__, cp__, uPred__, fDensity__, gamma__, gammam1__, PoverRho__, c__ ) { \
