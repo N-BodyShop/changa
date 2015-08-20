@@ -78,7 +78,7 @@ clDerivsData *CoolDerivsInit(COOL *cl)
 }
 
 ///Frees memory and deletes cl
-void CoolFinalize(COOL *cl ) 
+void CoolFinalize(COOL *cl )
 {
   free(cl);
 }
@@ -98,8 +98,8 @@ void CoolDerivsFinalize(clDerivsData *clData)
  * @param CoolParam an initialized COOLPARAM structure (see CoolAddParams)
  */
 void clInitConstants(COOL *cl, double dGmPerCcUnit,
-		     double dComovingGmPerCcUnit, double dErgPerGmUnit,
-		     double dSecUnit, double dKpcUnit, COOLPARAM CoolParam) 
+             double dComovingGmPerCcUnit, double dErgPerGmUnit,
+             double dSecUnit, double dKpcUnit, COOLPARAM CoolParam)
 {
   assert(cl!=NULL);
   /* Units */
@@ -110,7 +110,7 @@ void clInitConstants(COOL *cl, double dGmPerCcUnit,
   cl->dErgPerGmPerSecUnit = cl->dErgPerGmUnit / cl->dSecUnit;
   cl->diErgPerGmUnit = 1./dErgPerGmUnit;
   cl->dKpcUnit = dKpcUnit;
-  
+
   /* config parameters */
   cl->Y_Total = CoolParam.Y_Total;
   cl->Tmin = CoolParam.dCoolingTmin;
@@ -161,18 +161,18 @@ void CoolAddParams( COOLPARAM *CoolParam, PRM prm ) {
                 sizeof(double), "betacool",
                 "<Effective cooling time (tCool*omega)> = 1");
     CoolParam->Y_Total = 2;
-	prmAddParam(prm,"dY_Total",paramDouble,&CoolParam->Y_Total,
-				sizeof(double),"Y_Total",
-				"<Y_Total> = 2");
+    prmAddParam(prm,"dY_Total",paramDouble,&CoolParam->Y_Total,
+                sizeof(double),"Y_Total",
+                "<Y_Total> = 2");
     CoolParam->dCoolingTmin = 0;
-	prmAddParam(prm,"dCoolingTmin",paramDouble,&CoolParam->dCoolingTmin,
-				sizeof(double),"ctmin",
-				"<Minimum Temperature for Cooling> = 10K");
-	CoolParam->dCoolingTmax = 1e9;
-	prmAddParam(prm,"dCoolingTmax",paramDouble,&CoolParam->dCoolingTmax,
-				sizeof(double),"ctmax",
-				"<Maximum Temperature for Cooling> = 1e9K");
-	}
+    prmAddParam(prm,"dCoolingTmin",paramDouble,&CoolParam->dCoolingTmin,
+                sizeof(double),"ctmin",
+                "<Minimum Temperature for Cooling> = 10K");
+    CoolParam->dCoolingTmax = 1e9;
+    prmAddParam(prm,"dCoolingTmax",paramDouble,&CoolParam->dCoolingTmax,
+                sizeof(double),"ctmax",
+                "<Maximum Temperature for Cooling> = 1e9K");
+    }
 
 /* Placeholder functions which just need to be defined to make
  * Sph.C and the compiler happy */
@@ -194,8 +194,8 @@ double CoolEdotInstantCode(COOL *cl, COOLPARTICLE *cp, double ECode,
  */
 void CoolDefaultParticleData( COOLPARTICLE *cp )
 {
-	cp->Y_Total = 2;
-	}
+    cp->Y_Total = 2;
+    }
 
 /**
  * @brief Initializes data for a cooling particle, given a COOL struct
@@ -208,15 +208,15 @@ void CoolDefaultParticleData( COOLPARTICLE *cp )
  */
 void CoolInitEnergyAndParticleData( COOL *cl, COOLPARTICLE *cp, double *E, double dDensity, double dTemp, double fMetal )
 {
-	cp->Y_Total = cl->Y_Total;
-	*E = clThermalEnergy(cp->Y_Total,dTemp)*cl->diErgPerGmUnit;
-	}
+    cp->Y_Total = cl->Y_Total;
+    *E = clThermalEnergy(cp->Y_Total,dTemp)*cl->diErgPerGmUnit;
+    }
 
 ///A hold over from cosmology.  Sets the time which is available to all threads
 void CoolSetTime( COOL *cl, double dTime, double z ) {
-	cl->z = z;
-	cl->dTime = dTime;
-	}
+    cl->z = z;
+    cl->dTime = dTime;
+    }
 
 /**
  * @brief CoolSetStarCM saves the center of mass of the star(s) to the COOL
@@ -234,9 +234,9 @@ void CoolSetStarCM(COOL *cl, double dCenterOfMass[4]) {
 
 ///Calculates the temperature of a COOLPARTICLE given its energy (in Code units)
 double CoolCodeEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E,
-				    double fMetal) {
+                    double fMetal) {
     return clTemperature(cp->Y_Total, E*Cool->dErgPerGmUnit);
-	}
+    }
 
 /**
  * Updates a particle's internal energy based on cooling and PdV work.
@@ -290,7 +290,7 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
     tcool = cl->dSecUnit * cl->beta/omega;
 
     /* Convert the particle's internal energy to CGS */
-	*ECode = CoolCodeEnergyToErgPerGm( cl, *ECode );
+    *ECode = CoolCodeEnergyToErgPerGm( cl, *ECode );
 
     /* Convert PdV work to CGS */
     PdV = CoolCodeWorkToErgPerGmPerSec(cl, PdVCode);

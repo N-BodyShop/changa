@@ -25,17 +25,17 @@ extern "C" {
 #define CL_NMAXBYTETABLE   56000
 
 typedef struct CoolingParametersStruct {
-	double    Y_Total;
-	double dCoolingTmin;
-	double dCoolingTmax;
+    double    Y_Total;
+    double dCoolingTmin;
+    double dCoolingTmax;
     double dBetaCooling;
-	} COOLPARAM;
+    } COOLPARAM;
 
 typedef struct CoolingParticleStruct {
-	double Y_Total;
-	} COOLPARTICLE;
+    double Y_Total;
+    } COOLPARTICLE;
 
-typedef struct { 
+typedef struct {
   double Total;
 } PERBARYON;
 
@@ -85,8 +85,8 @@ clDerivsData *CoolDerivsInit(COOL *cl);
 void CoolDerivsFinalize(clDerivsData *cld ) ;
 
 void clInitConstants( COOL *cl, double dGMPerCcunit,
-		      double dComovingGmPerCcUnit, double dErgPerGmUnit,
-		      double dSecUnit, double dKpcUnit, COOLPARAM CoolParam);
+              double dComovingGmPerCcUnit, double dErgPerGmUnit,
+              double dSecUnit, double dKpcUnit, COOLPARAM CoolParam);
 
 /* Doesn't do anything, needed by Sph.C */
 void CoolInitRatesTable( COOL *cl, COOLPARAM CoolParam);
@@ -174,8 +174,8 @@ double CodeDensityToComovingGmPerCc( COOL *Cool, double dCodeDensity );
 
 #define CodeDensityToComovingGmPerCc( Cool, dCodeDensity )  ((Cool)->dComovingGmPerCcUnit*(dCodeDensity))
 
-void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp, double *E, 
-			     double PdV, double rho, double ZMetal, double *r, double tStep );
+void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp, double *E,
+                 double PdV, double rho, double ZMetal, double *r, double tStep );
 
 void CoolDefaultParticleData( COOLPARTICLE *cp );
 
