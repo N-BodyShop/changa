@@ -483,7 +483,6 @@ public:
 	int adjust(int iKickRung);
 	void rungStats();
     void countActive(int activeRung);
-    // ISAAC
     void starCenterOfMass();
 	void calcEnergy(double, double, const char *);
 	void getStartTime();
