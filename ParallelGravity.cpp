@@ -2369,7 +2369,6 @@ Main::doSimulation()
     
     if (verbosity) ckout << "Starting big step " << iStep << endl;
     startTime = CkWallTimer();
-    // ISAAC
     starCenterOfMass();
     advanceBigStep(iStep-1);
     double stepTime = CkWallTimer() - startTime;
@@ -2654,8 +2653,6 @@ Main::doSimulation()
   CkWaitQD();
   CkExit();
 }
-
-// ISAAC
 /**
  * @brief Main::starCenterOfMass Calculates the total mass and center of mass
  * of all the star particles and saves them to all the available COOL structs.

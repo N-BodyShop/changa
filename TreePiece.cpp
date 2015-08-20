@@ -1364,7 +1364,6 @@ void Decomposer::checkin(){
 // Find the center of mass of the star particles.  This is needed for
 // cooling_planet, so that gas particles know how far they are from the central
 // star
-// ISAAC
 void TreePiece::starCenterOfMass(const CkCallback& cb) {
     // Initialize sum of mass*position and mass.  In order to just contribute
     // one variable, contain both these values in a single array.

@@ -1642,7 +1642,6 @@ public:
   void rungStats(const CkCallback& cb);
   void countActive(int activeRung, const CkCallback& cb);
   void assignDomain(const CkCallback& cb);
-  // ISAAC
   void starCenterOfMass(const CkCallback& cb);
   void calcEnergy(const CkCallback& cb);
   /// add new particle
