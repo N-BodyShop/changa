@@ -51,7 +51,6 @@ struct CoolingPKDStruct {
    /* Cosmology hold-overs */
    double     z; /* Redshift */
    double     dTime;
-
    /* Units and conversion constants */
    double     dGmPerCcUnit;
    double     dComovingGmPerCcUnit;
@@ -60,7 +59,6 @@ struct CoolingPKDStruct {
    double     dErgPerGmPerSecUnit;
    double     diErgPerGmUnit;
    double     dKpcUnit;
-
    /* User parameters (see CoolAddParams) */
    double    Y_Total;
    double    Tmin;

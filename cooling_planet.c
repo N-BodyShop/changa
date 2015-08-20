@@ -56,8 +56,8 @@ COOL *CoolInit( )
   COOL *cl;
   cl = (COOL *) malloc(sizeof(COOL));
   assert(cl!=NULL);
-
-  cl->nTableRead = 0; /* Internal Tables read from Files */
+  /* Internal Tables read from Files */
+  cl->nTableRead = 0;
 
   return cl;
 }
@@ -74,7 +74,7 @@ clDerivsData *CoolDerivsInit(COOL *cl)
     Data = malloc(sizeof(clDerivsData));
     assert(Data != NULL);
 
-  return Data;
+    return Data;
 }
 
 ///Frees memory and deletes cl
@@ -274,7 +274,6 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
 
     /* This is used as a switch to disable cooling before a certain time*/
     if (tStep <= 0) return;
-
     /* Calculate the radius (in simulation units)
      * Defined as the distance to the center of mass of all the star
      * particles */
@@ -283,21 +282,16 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
         radius += pow(posCode[i] - cl->dStarCenterOfMass[i], 2);
     }
     radius = sqrt(radius);
-
     /* Calculate approximate keplerian angular velocity */
     omega = sqrt(cl->dStarCenterOfMass[3] / pow(radius,3));
     /* Calculate cooling time (in seconds)*/
     tcool = cl->dSecUnit * cl->beta/omega;
-
     /* Convert the particle's internal energy to CGS */
     *ECode = CoolCodeEnergyToErgPerGm( cl, *ECode );
-
     /* Convert PdV work to CGS */
     PdV = CoolCodeWorkToErgPerGmPerSec(cl, PdVCode);
-
     /* Integrate energy */
     *ECode = exp(-tStep/tcool) * (*ECode - PdV*tcool) + PdV*tcool;
-
     /* apply minimum temperature cutoff */
     T = clTemperature(cp->Y_Total, *ECode);
     if (T < cl->Tmin) {
