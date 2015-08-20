@@ -2219,6 +2219,7 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
 #endif
 {
 
+  LBTurnInstrumentOff();
 #if COSMO_DEBUG > 1
   char fout[100];
   sprintf(fout,"tree.%d.%d.after",thisIndex,iterationNo);

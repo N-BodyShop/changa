@@ -83,11 +83,13 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 
       LDObjData &odata = stats->objData[i];
       TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
-	  fprintf(fp, "%g %g %g %g 0.0 0.0 0.0 %d %d\n",
+	  fprintf(fp, "%g %g %g %g %d %d 0.0 %d %d\n",
 		  stats->objData[i].wallTime,
 		  udata->vec.x,
 		  udata->vec.y,
 		  udata->vec.z,
+                  udata->numActiveParticles,
+                  udata->myNumParticles,
 		  stats->from_proc[i],
 		  udata->tp);
 	  }

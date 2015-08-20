@@ -444,6 +444,7 @@ mainmodule ParallelGravity {
     entry [local] void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
     entry [local] void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
 
+    entry void collectLBData(int iActive, const CkCallback &cb);
     // jetley
     entry void startlb(CkCallback &cb, int activeRung);
     entry void ResumeFromSync();

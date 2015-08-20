@@ -1493,8 +1493,6 @@ void Main::advanceBigStep(int iStep) {
 	      }
     }
 
-    // int lastActiveRung = activeRung;
-
     // determine largest timestep that needs a kick
     activeRung = 0;
     int tmpRung = currentStep;
@@ -3007,6 +3005,43 @@ void Main::writeOutput(int iStep)
 	}
     }
 
+void TreePiece::collectLBData(int iActive, const CkCallback &cb)
+{
+    LBPhaseData lbData;
+    lbData.dLoad = getObjTime();
+    lbData.nTotal = myNumParticles;
+    lbData.iIndex = thisIndex;
+    lbData.nActive = 0;
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+        if(myParticles[i].rung >= iActive)
+	  lbData.nActive++;
+        }
+    contribute(sizeof(lbData), &lbData, CkReduction::concat, cb);
+    }
+
+void Main::printLBData(int iActive) 
+{
+    static int step = 0;
+
+    CkReductionMsg *msg;
+    treeProxy.collectLBData(iActive, CkCallbackResumeThread((void*&)msg));
+    LBPhaseData *lbdata = (LBPhaseData *) msg->getData();
+    CkAssert(msg->getSize() == numTreePieces*sizeof(*lbdata));
+    
+    char achFileName[1024];
+    sprintf(achFileName, "lb.%d.dat", step);
+    FILE *fp = fopen(achFileName, "w");
+    CkAssert(fp != NULL);
+
+    fprintf(fp, "# phase %d\n", iActive);
+    for(int i = 0; i < numTreePieces; i++) {
+        fprintf(fp, "%g %d %d %d\n", lbdata[i].dLoad, lbdata[i].nActive,
+            lbdata[i].nTotal, lbdata[i].iIndex);
+        }
+    fclose(fp);
+    step++;
+}
+
 ///
 /// @brief Calculate timesteps of particles.
 ///
@@ -3020,6 +3055,8 @@ int Main::adjust(int iKickRung)
 {
     CkReductionMsg *msg;
     double a = csmTime2Exp(param.csm,dTime);
+
+    printLBData(iKickRung);
     
     treeProxy.adjust(iKickRung, param.bEpsAccStep, param.bGravStep,
 		     param.bSphStep, param.bViscosityLimitdt,

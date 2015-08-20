@@ -303,6 +303,21 @@ struct BucketMsg : public CkMcastBaseMsg, public CMessage_BucketMsg {
 };
 #endif
     
+class LBPhaseData
+{
+ public:
+    double dLoad;
+    int nActive;
+    int nTotal;
+    int iIndex;
+    void pup(PUP::er& p) {
+        p|dLoad;
+        p|nActive;
+        p|nTotal;
+        p|iIndex;
+        }
+    };
+
 /// Class to count added and deleted particles
 class CountSetPart 
 {
@@ -461,6 +476,7 @@ public:
         void advanceBigStep(int);
 	int adjust(int iKickRung);
 	void rungStats();
+        void printLBData(int iActive);
 	void countActive(int activeRung);
 	void calcEnergy(double, double, const char *);
 	void getStartTime();
@@ -1801,6 +1817,7 @@ public:
 	void flushSmoothParticles(CkCacheFillMsg<KeyType> *msg);
 	void processReqSmoothParticles();
 
+        void collectLBData(int iActive, const CkCallback &cb);
 	//void startlb(CkCallback &cb);
 	void getParticleInfoForLB(int64_t active_part, int64_t total_part);
 	void startlb(CkCallback &cb, int activeRung);
