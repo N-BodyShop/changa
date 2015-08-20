@@ -1427,7 +1427,7 @@ void Main::advanceBigStep(int iStep) {
 	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
 	  if(param.bGasCooling)
 	      dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
-      treeProxy.updateuDot(activeRung, duKick, dStartTime,
+	  treeProxy.updateuDot(activeRung, duKick, dStartTime,
 			       param.bGasCooling, 1, 1,
 			       CkCallbackResumeThread());
 	  if(verbosity)
@@ -2712,7 +2712,7 @@ Main::calcEnergy(double dTime, double wallTime, const char *achLogFileName)
     double a = csmTime2Exp(param.csm, dTime);
     
     if(first && (!bIsRestarting || dTimeOld == 0.0)) {
-    fprintf(fpLog, "# time redshift TotalEVir TotalE Kinetic Virial Potential TotalECosmo Ethermal Lx Ly Lz Wallclock\n");
+	fprintf(fpLog, "# time redshift TotalEVir TotalE Kinetic Virial Potential TotalECosmo Ethermal Lx Ly Lz Wallclock\n");
 	dEcosmo = 0.0;
 	first = 0;
 	}
