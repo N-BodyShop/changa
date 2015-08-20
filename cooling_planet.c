@@ -53,13 +53,13 @@
  */
 COOL *CoolInit( )
 {
-  COOL *cl;
-  cl = (COOL *) malloc(sizeof(COOL));
-  assert(cl!=NULL);
-  /* Internal Tables read from Files */
-  cl->nTableRead = 0;
+    COOL *cl;
+    cl = (COOL *) malloc(sizeof(COOL));
+    assert(cl!=NULL);
+    /* Internal Tables read from Files */
+    cl->nTableRead = 0;
 
-  return cl;
+    return cl;
 }
 
 /**
@@ -80,7 +80,7 @@ clDerivsData *CoolDerivsInit(COOL *cl)
 ///Frees memory and deletes cl
 void CoolFinalize(COOL *cl )
 {
-  free(cl);
+    free(cl);
 }
 
 /**
@@ -89,7 +89,7 @@ void CoolFinalize(COOL *cl )
 void CoolDerivsFinalize(clDerivsData *clData)
 {
     free(clData);
-    }
+}
 
 /**
  * @brief clInitConstants sets physical constants and parameters
@@ -98,24 +98,24 @@ void CoolDerivsFinalize(clDerivsData *clData)
  * @param CoolParam an initialized COOLPARAM structure (see CoolAddParams)
  */
 void clInitConstants(COOL *cl, double dGmPerCcUnit,
-             double dComovingGmPerCcUnit, double dErgPerGmUnit,
-             double dSecUnit, double dKpcUnit, COOLPARAM CoolParam)
+                     double dComovingGmPerCcUnit, double dErgPerGmUnit,
+                     double dSecUnit, double dKpcUnit, COOLPARAM CoolParam)
 {
-  assert(cl!=NULL);
-  /* Units */
-  cl->dGmPerCcUnit = dGmPerCcUnit;
-  cl->dComovingGmPerCcUnit = dComovingGmPerCcUnit;
-  cl->dErgPerGmUnit = dErgPerGmUnit;
-  cl->dSecUnit = dSecUnit;
-  cl->dErgPerGmPerSecUnit = cl->dErgPerGmUnit / cl->dSecUnit;
-  cl->diErgPerGmUnit = 1./dErgPerGmUnit;
-  cl->dKpcUnit = dKpcUnit;
+    assert(cl!=NULL);
+    /* Units */
+    cl->dGmPerCcUnit = dGmPerCcUnit;
+    cl->dComovingGmPerCcUnit = dComovingGmPerCcUnit;
+    cl->dErgPerGmUnit = dErgPerGmUnit;
+    cl->dSecUnit = dSecUnit;
+    cl->dErgPerGmPerSecUnit = cl->dErgPerGmUnit / cl->dSecUnit;
+    cl->diErgPerGmUnit = 1./dErgPerGmUnit;
+    cl->dKpcUnit = dKpcUnit;
 
-  /* config parameters */
-  cl->Y_Total = CoolParam.Y_Total;
-  cl->Tmin = CoolParam.dCoolingTmin;
-  cl->Tmax = CoolParam.dCoolingTmax;
-  cl->beta = CoolParam.dBetaCooling;
+    /* config parameters */
+    cl->Y_Total = CoolParam.Y_Total;
+    cl->Tmin = CoolParam.dCoolingTmin;
+    cl->Tmax = CoolParam.dCoolingTmax;
+    cl->beta = CoolParam.dBetaCooling;
 }
 /* Define physical constants */
 
@@ -127,7 +127,7 @@ void clInitConstants(COOL *cl, double dGmPerCcUnit,
  * @return Thermal (internal) energy per mass (CGS)
  */
 double clThermalEnergy( double Y_Total, double T ) {
-  return Y_Total*CL_Eerg_gm_degK3_2*T;
+    return Y_Total*CL_Eerg_gm_degK3_2*T;
 
 }
 /**
@@ -137,7 +137,7 @@ double clThermalEnergy( double Y_Total, double T ) {
  * @return Temperature
  */
 double clTemperature( double Y_Total, double E ) {
-  return E/(Y_Total*CL_Eerg_gm_degK3_2);
+    return E/(Y_Total*CL_Eerg_gm_degK3_2);
 }
 
 /* Module Interface routines */
@@ -172,19 +172,19 @@ void CoolAddParams( COOLPARAM *CoolParam, PRM prm ) {
     prmAddParam(prm,"dCoolingTmax",paramDouble,&CoolParam->dCoolingTmax,
                 sizeof(double),"ctmax",
                 "<Maximum Temperature for Cooling> = 1e9K");
-    }
+}
 
 /* Placeholder functions which just need to be defined to make
  * Sph.C and the compiler happy */
 
 void CoolTableReadInfo( COOLPARAM *CoolParam, int cntTable, int *nTableColumns, char *suffix )
 {
-   *nTableColumns = 0;
-   }
+    *nTableColumns = 0;
+}
 void CoolTableRead( COOL *Cool, int nData, void *vData) {}
 void CoolInitRatesTable( COOL *cl, COOLPARAM CoolParam ) {}
 double CoolEdotInstantCode(COOL *cl, COOLPARTICLE *cp, double ECode,
-              double rhoCode, double ZMetal, double *posCode ) {}
+                           double rhoCode, double ZMetal, double *posCode ) {}
 
 /* Initialization Routines */
 
@@ -195,7 +195,7 @@ double CoolEdotInstantCode(COOL *cl, COOLPARTICLE *cp, double ECode,
 void CoolDefaultParticleData( COOLPARTICLE *cp )
 {
     cp->Y_Total = 2;
-    }
+}
 
 /**
  * @brief Initializes data for a cooling particle, given a COOL struct
@@ -210,13 +210,13 @@ void CoolInitEnergyAndParticleData( COOL *cl, COOLPARTICLE *cp, double *E, doubl
 {
     cp->Y_Total = cl->Y_Total;
     *E = clThermalEnergy(cp->Y_Total,dTemp)*cl->diErgPerGmUnit;
-    }
+}
 
 ///A hold over from cosmology.  Sets the time which is available to all threads
 void CoolSetTime( COOL *cl, double dTime, double z ) {
     cl->z = z;
     cl->dTime = dTime;
-    }
+}
 
 /**
  * @brief CoolSetStarCM saves the center of mass of the star(s) to the COOL
@@ -227,16 +227,16 @@ void CoolSetTime( COOL *cl, double dTime, double z ) {
  */
 void CoolSetStarCM(COOL *cl, double dCenterOfMass[4]) {
     int i;
-    for(i=0; i<4; ++i){
+    for(i=0; i<4; ++i) {
         cl->dStarCenterOfMass[i] = dCenterOfMass[i];
     }
 }
 
 ///Calculates the temperature of a COOLPARTICLE given its energy (in Code units)
 double CoolCodeEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E,
-                    double fMetal) {
+                                    double fMetal) {
     return clTemperature(cp->Y_Total, E*Cool->dErgPerGmUnit);
-    }
+}
 
 /**
  * Updates a particle's internal energy based on cooling and PdV work.
