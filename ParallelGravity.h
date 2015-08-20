@@ -1656,7 +1656,6 @@ public:
   void emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
 		       const CkCallback &cb);
   void assignDomain(const CkCallback& cb);
-  // ISAAC
   void starCenterOfMass(const CkCallback& cb);
   void calcEnergy(const CkCallback& cb);
   /// add new particle
