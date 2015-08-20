@@ -482,7 +482,7 @@ public:
         void advanceBigStep(int);
 	int adjust(int iKickRung);
 	void rungStats();
-    void countActive(int activeRung);
+	void countActive(int activeRung);
     void starCenterOfMass();
 	void calcEnergy(double, double, const char *);
 	void getStartTime();
