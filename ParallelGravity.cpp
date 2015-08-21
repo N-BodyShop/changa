@@ -1424,8 +1424,11 @@ void Main::advanceBigStep(int iStep) {
 	  if(verbosity)
 	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
+      double startTime = CkWallTimer();
       treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas,
 		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
+      if(verbosity)
+          CkPrintf("Kick took %g seconds.\n", CkWallTimer() - startTime);
 
       if(verbosity > 1)
 	  memoryStats();
@@ -1450,6 +1453,7 @@ void Main::advanceBigStep(int iStep) {
 	      if(verbosity)
 		  CkPrintf("Drift: Rung %d Delta %g\n", driftRung, dTimeSub);
 
+              double startTime = CkWallTimer();
 	      // Only effective if growmass parameters have been set.
 	      growMass(dTime, dTimeSub);
 	      // Are the GrowMass particles locked in place?
@@ -1462,6 +1466,8 @@ void Main::advanceBigStep(int iStep) {
 	      treeProxy.drift(dDriftFac, param.bDoGas, param.bGasIsothermal,
 			      dKickFac, dTimeSub, nGrowMassDrift, buildTree,
 			      CkCallbackResumeThread());
+              if(verbosity)
+                  CkPrintf("Drift took %g seconds.\n", CkWallTimer() - startTime);
 
 	      // Advance time to end of smallest step
 	      dTime += dTimeSub;
@@ -1709,8 +1715,11 @@ void Main::advanceBigStep(int iStep) {
 	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
       waitForGravity(cbGravity, startTime);
+      startTime = CkWallTimer();
       treeProxy.kick(activeRung, dKickFac, 1, param.bDoGas,
 		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
+      if(verbosity)
+          CkPrintf("Kick took %g seconds.\n", CkWallTimer() - startTime);
       // 1/2 step uDot update
       if(activeRung > 0 && param.bDoGas) {
 	  double startTime = CkWallTimer();
@@ -1751,7 +1760,10 @@ void Main::advanceBigStep(int iStep) {
     ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
 
+    startTime = CkWallTimer();
     treeProxy.finishNodeCache(CkCallbackResumeThread());
+    if(verbosity)
+        CkPrintf("Finish NodeCache took %g seconds.\n", CkWallTimer() - startTime);
 
 #ifdef CHECK_TIME_WITHIN_BIGSTEP
     if(param.iWallRunTime > 0 && ((CkWallTimer()-wallTimeStart) > param.iWallRunTime*60.)){
@@ -3020,6 +3032,7 @@ int Main::adjust(int iKickRung)
 {
     CkReductionMsg *msg;
     double a = csmTime2Exp(param.csm,dTime);
+    double startTime = CkWallTimer();
     
     treeProxy.adjust(iKickRung, param.bEpsAccStep, param.bGravStep,
 		     param.bSphStep, param.bViscosityLimitdt,
@@ -3039,6 +3052,8 @@ int Main::adjust(int iKickRung)
 	iCurrMaxRung--;
 	treeProxy.truncateRung(iCurrMaxRung, CkCallbackResumeThread());
 	}
+    if(verbosity)
+        CkPrintf("Adjust took %g seconds.\n", CkWallTimer() - startTime);
     return iCurrMaxRung;
     }
 
