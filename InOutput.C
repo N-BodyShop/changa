@@ -302,41 +302,6 @@ void TreePiece::loadTipsy(const std::string& filename,
   contribute(cb);
 }
 
-/// @brief read iOrder file
-void TreePiece::readIOrd(const std::string& filename, const CkCallback& cb)
-{
-    CmiInt8 nMaxOrd[3] = {0, 0, 0}; // 0 -> gas, 1 -> dark, 2 -> all
-
-    if(nStartRead >= 0) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
-        int64_t nTot;
-        int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
-        CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            int64_t dummy;
-            nread = fscanf(fp, "%ld\n", &dummy);
-            CkAssert(nread == 1);
-            }
-        for(int i = 0; i < myNumParticles; i++) {
-            int64_t dummy;
-            nread = fscanf(fp, "%ld\n", &dummy);
-            CkAssert(nread == 1);
-            myParticles[i+1].iOrder = dummy;
-            if(dummy > nMaxOrd[0] && myParticles[i+1].isGas())
-                nMaxOrd[0] = dummy;
-            if(dummy > nMaxOrd[1] && myParticles[i+1].isDark())
-                nMaxOrd[1] = dummy;
-            if(dummy > nMaxOrd[2])
-                nMaxOrd[2] = dummy;
-            
-            }
-        CmiFclose(fp);
-        }
-    contribute(3*sizeof(CmiInt8), nMaxOrd, CkReduction::max_long, cb);
-    }
-
 /// @brief return maximum iOrders.
 /// Like the above, but the file has already been read
 void TreePiece::getMaxIOrds(const CkCallback& cb)
@@ -356,286 +321,64 @@ void TreePiece::getMaxIOrds(const CkCallback& cb)
     contribute(3*sizeof(CmiInt8), nMaxOrd, CkReduction::max_long, cb);
     }
 
-/// @brief read iGasOrder file
-void TreePiece::readIGasOrd(const std::string& filename, const CkCallback& cb)
+void TreePiece::readTipsyArray(OutputParams& params, const CkCallback& cb)
 {
-    if(nStartRead >= 0 && myNumStar > 0) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
-        int64_t nTot;
-        int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
-        CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            int64_t dummy;
-            nread = fscanf(fp, "%ld\n", &dummy);
-            CkAssert(nread == 1);
+    FILE *infile = CmiFopen((params.fileName+"." + params.sTipsyExt).c_str(),
+                            "r+");
+    CkAssert(infile != NULL);
+    // Check if its a binary file
+    unsigned int iDum;
+    XDR xdrs;
+    xdrstdio_create(&xdrs, infile, XDR_DECODE);
+    xdr_u_int(&xdrs,&iDum);
+    xdr_destroy(&xdrs);
+    if(iDum == nTotalParticles) { // We've got a binary file; read it
+        int64_t seek_pos;
+        seek_pos = sizeof(iDum) + nStartRead*(int64_t)sizeof(float);
+        fseek(infile, seek_pos, SEEK_SET);
+        xdrstdio_create(&xdrs, infile, XDR_DECODE);
+        for(unsigned int i = 0; i < myNumParticles; ++i) {
+            if(params.bFloat) {
+                float dValue;
+                xdr_float(&xdrs, &dValue);
+                params.setDValue(&myParticles[i+1], dValue);
+                }
+            else {
+                int iValue;
+                xdr_template(&xdrs, &iValue);
+                params.setIValue(&myParticles[i+1], iValue);
+                }
             }
-        for(int i = 0; i < myNumParticles; i++) {
-            int64_t dummy;
-            nread = fscanf(fp, "%ld\n", &dummy);
-            CkAssert(nread == 1);
-            if(myParticles[i+1].isStar())
-                myParticles[i+1].iGasOrder() = dummy;
-            }
-        CmiFclose(fp);
-        }
-    contribute(cb);
+        xdr_destroy(&xdrs);
     }
-
-/// @brief read OxMassFrac file
-void TreePiece::readOxMassFrac(const std::string& filename, const CkCallback& cb)
-{
-    if(nStartRead >= 0 && (myNumStar > 0 || myNumSPH > 0)) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
+    else {                      // assume we've got an ASCII file
         int64_t nTot;
+        fseek(infile, 0, SEEK_SET);
         int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
+        nread = fscanf(infile, "%ld\n", &nTot);
         CkAssert(nread == 1);
         for(int i = 0; i < nStartRead; i++) {
             double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
+            nread = fscanf(infile, "%lf\n", &dummy);
             CkAssert(nread == 1);
             }
         for(int i = 0; i < myNumParticles; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            if(myParticles[i+1].isGas())
-                myParticles[i+1].fMFracOxygen() = dummy;
-            if(myParticles[i+1].isStar())
-                myParticles[i+1].fStarMFracOxygen() = dummy;
+            if(params.bFloat) {
+                double dDummy;
+                nread = fscanf(infile, "%lf\n", &dDummy);
+                CkAssert(nread == 1);
+                params.setDValue(&myParticles[i+1], dDummy);
+                }
+            else {
+                int64_t iDummy;
+                nread = fscanf(infile, "%ld\n", &iDummy);
+                CkAssert(nread == 1);
+                params.setIValue(&myParticles[i+1], iDummy);
+                }
             }
-        CmiFclose(fp);
         }
-    contribute(cb);
-    }
-
-/// @brief read FeMassFrac file
-void TreePiece::readFeMassFrac(const std::string& filename, const CkCallback& cb)
-{
-    if(nStartRead >= 0 && (myNumStar > 0 || myNumSPH > 0)) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
-        int64_t nTot;
-        int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
-        CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            }
-        for(int i = 0; i < myNumParticles; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            if(myParticles[i+1].isGas())
-                myParticles[i+1].fMFracIron() = dummy;
-            if(myParticles[i+1].isStar())
-                myParticles[i+1].fStarMFracIron() = dummy;
-            }
-        CmiFclose(fp);
-        }
-    contribute(cb);
-    }
-
-/// @brief read ESNRate file
-void TreePiece::readESNrate(const std::string& filename, const CkCallback& cb)
-{
-    if(nStartRead >= 0 && (myNumStar > 0 || myNumSPH > 0)) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
-        int64_t nTot;
-        int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
-        CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            }
-        for(int i = 0; i < myNumParticles; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            if(myParticles[i+1].isGas())
-                myParticles[i+1].fESNrate() = dummy;
-            if(myParticles[i+1].isStar())
-                myParticles[i+1].fStarESNrate() = dummy;
-            }
-        CmiFclose(fp);
-        }
-    contribute(cb);
-    }
-
-/// @brief read Formation Mass file
-void TreePiece::readMassForm(const std::string& filename, const CkCallback& cb)
-{
-    if(nStartRead >= 0 && myNumStar > 0) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
-        int64_t nTot;
-        int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
-        CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            }
-        for(int i = 0; i < myNumParticles; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            if(myParticles[i+1].isStar())
-                myParticles[i+1].fMassForm() = dummy;
-            }
-        CmiFclose(fp);
-        }
-    contribute(cb);
-    }
-
-/// @brief read coolontime file
-void TreePiece::readCoolOnTime(const std::string& filename, const CkCallback& cb)
-{
-    if(nStartRead >= 0 && myNumSPH > 0) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
-        int64_t nTot;
-        int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
-        CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            }
-        for(int i = 0; i < myNumParticles; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            if(myParticles[i+1].isGas())
-                myParticles[i+1].fTimeCoolIsOffUntil() = dummy;
-            }
-        CmiFclose(fp);
-        }
-    contribute(cb);
-    }
-
-/// @brief read CoolArray file
-void TreePiece::readCoolArray0(const std::string& filename, const CkCallback& cb)
-{
-#ifndef COOLING_NONE
-    if(nStartRead >= 0 && myNumSPH > 0) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
-        int64_t nTot;
-        int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
-        CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            }
-        for(int i = 0; i < myNumParticles; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            if(myParticles[i+1].isGas())
-                COOL_SET_ARRAY0(unused1,&myParticles[i+1].CoolParticle(),unused2, dummy);
-            }
-        CmiFclose(fp);
-        }
-#endif
-    contribute(cb);
-    }
-
-/// @brief read CoolArray file
-void TreePiece::readCoolArray1(const std::string& filename, const CkCallback& cb)
-{
-#ifndef COOLING_NONE
-    if(nStartRead >= 0 && myNumSPH > 0) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
-        int64_t nTot;
-        int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
-        CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            }
-        for(int i = 0; i < myNumParticles; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            if(myParticles[i+1].isGas())
-                COOL_SET_ARRAY1(unused1,&myParticles[i+1].CoolParticle(),unused2, dummy);
-            }
-        CmiFclose(fp);
-        }
-#endif
-    contribute(cb);
-    }
-/// @brief read CoolArray file
-void TreePiece::readCoolArray2(const std::string& filename, const CkCallback& cb)
-{
-#ifndef COOLING_NONE
-    if(nStartRead >= 0 && myNumSPH > 0) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
-        int64_t nTot;
-        int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
-        CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            }
-        for(int i = 0; i < myNumParticles; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            if(myParticles[i+1].isGas())
-                COOL_SET_ARRAY2(unused1,&myParticles[i+1].CoolParticle(),unused2,dummy);
-            }
-        CmiFclose(fp);
-        }
-#endif
-    contribute(cb);
-    }
-
-/// @brief read CoolArray file
-void TreePiece::readCoolArray3(const std::string& filename, const CkCallback& cb)
-{
-#ifndef COOLING_NONE
-    if(nStartRead >= 0 && myNumSPH > 0) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
-        int64_t nTot;
-        int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
-        CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            }
-        for(int i = 0; i < myNumParticles; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            if(myParticles[i+1].isGas())
-                COOL_SET_ARRAY3(unused1,&myParticles[i+1].CoolParticle(),unused2,dummy);
-            }
-        CmiFclose(fp);
-        }
-#endif
+        
+    CmiFclose(infile);
     contribute(cb);
     }
 

@@ -253,17 +253,7 @@ mainmodule ParallelGravity {
         const bool bDoublePos,
         const bool bDoubleVel,
         const CkCallback& cb);
-    entry void readIOrd(const std::string& filename, const CkCallback& cb);
-    entry void readIGasOrd(const std::string& filename, const CkCallback& cb);
-    entry void readESNrate(const std::string& filename, const CkCallback& cb);
-    entry void readOxMassFrac(const std::string& filename, const CkCallback& cb);
-    entry void readFeMassFrac(const std::string& filename, const CkCallback& cb);
-    entry void readMassForm(const std::string& filename, const CkCallback& cb);
-    entry void readCoolOnTime(const std::string& filename, const CkCallback& cb);
-    entry void readCoolArray0(const std::string& filename, const CkCallback& cb);
-    entry void readCoolArray1(const std::string& filename, const CkCallback& cb);
-    entry void readCoolArray2(const std::string& filename, const CkCallback& cb);
-    entry void readCoolArray3(const std::string& filename, const CkCallback& cb);
+    entry void readTipsyArray(CkReference<OutputParams> params, const CkCallback& cb);
     entry void resetMetals(const CkCallback& cb);
     entry void getMaxIOrds(const CkCallback& cb);
     entry void RestartEnergy(double dTuFac, const CkCallback& cb);
