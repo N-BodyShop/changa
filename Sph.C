@@ -118,8 +118,8 @@ void Main::initCooling()
         else {
             if(arrayFileExists(basefilename + ".coolontime", nTotalParticles)) {
                 CkPrintf("Reading coolontime\n");
-                treeProxy.readCoolOnTime(basefilename + ".coolontime",
-                                         CkCallbackResumeThread());
+                coolontimeOutputParams pCoolOnOut(basefilename, 0, 0.0);
+                treeProxy.readTipsyArray(pCoolOnOut, CkCallbackResumeThread());
                 }
             }
         }
@@ -294,9 +294,20 @@ arrayFileExists(const std::string filename, const int64_t count)
 {
     FILE *fp = CmiFopen(filename.c_str(), "r");
     if(fp != NULL) {
+        // Check if its a binary file
+        unsigned int iDum;
+        XDR xdrs;
+        xdrstdio_create(&xdrs, fp, XDR_DECODE);
+        xdr_u_int(&xdrs,&iDum);
+        xdr_destroy(&xdrs);
+        if(iDum == count) { // Assume a valid binary array file
+            fclose(fp);
+            return true;
+            }
+        fseek(fp, 0, SEEK_SET);
         int64_t nIOrd;
         fscanf(fp, "%ld", &nIOrd);
-        CkAssert(nIOrd == count);
+        CkAssert(nIOrd == count); // Valid ASCII file.
         fclose(fp);
         return true;
     }
@@ -470,8 +481,10 @@ Main::restartGas()
     // read iOrder
     if(arrayFileExists(basefilename + ".iord", nTotalParticles)) {
         CkReductionMsg *msg;
-        treeProxy.readIOrd(basefilename + ".iord",
-                           CkCallbackResumeThread((void*&)msg));
+        IOrderOutputParams pIOrdOut(basefilename, 0, 0.0);
+        treeProxy.readTipsyArray(pIOrdOut, CkCallbackResumeThread());
+
+        treeProxy.getMaxIOrds(CkCallbackResumeThread((void*&)msg));
         CmiInt8 *maxIOrds = (CmiInt8 *)msg->getData();
         nMaxOrderGas = maxIOrds[0];
         nMaxOrderDark = maxIOrds[1];
@@ -481,34 +494,39 @@ Main::restartGas()
     else
         CkError("WARNING: no iOrder file for restart\n");
     // read iGasOrder
-    if(arrayFileExists(basefilename + ".igasorder", nTotalParticles))
-        treeProxy.readIGasOrd(basefilename + ".igasorder",
-                           CkCallbackResumeThread());
+    if(arrayFileExists(basefilename + ".igasorder", nTotalParticles)) {
+        IGasOrderOutputParams pIOrdOut(basefilename, 0, 0.0);
+        treeProxy.readTipsyArray(pIOrdOut, CkCallbackResumeThread());
+        }
     else {
         CkError("WARNING: no igasorder file for restart\n");
         }
     if(param.bFeedback) {
-        if(arrayFileExists(basefilename + ".ESNRate", nTotalParticles))
-            treeProxy.readESNrate(basefilename + ".ESNRate",
-                               CkCallbackResumeThread());
-        if(arrayFileExists(basefilename + ".OxMassFrac", nTotalParticles))
-            treeProxy.readOxMassFrac(basefilename + ".OxMassFrac",
-                               CkCallbackResumeThread());
-        if(arrayFileExists(basefilename + ".FeMassFrac", nTotalParticles))
-            treeProxy.readFeMassFrac(basefilename + ".FeMassFrac",
-                               CkCallbackResumeThread());
-        if(arrayFileExists(basefilename + ".massform", nTotalParticles))
-            treeProxy.readMassForm(basefilename + ".massform",
-                               CkCallbackResumeThread());
+        if(arrayFileExists(basefilename + ".ESNRate", nTotalParticles)) {
+            ESNRateOutputParams pESNROut(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pESNROut, CkCallbackResumeThread());
+            }
+        if(arrayFileExists(basefilename + ".OxMassFrac", nTotalParticles)) {
+            OxOutputParams pOxOut(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pOxOut, CkCallbackResumeThread());
+            }
+        if(arrayFileExists(basefilename + ".FeMassFrac", nTotalParticles)) {
+            FeOutputParams pFeOut(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pFeOut, CkCallbackResumeThread());
+            }
+        treeProxy.resetMetals(CkCallbackResumeThread());
+        if(arrayFileExists(basefilename + ".massform", nTotalParticles)) {
+            MFormOutputParams pMFOut(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pMFOut, CkCallbackResumeThread());
+            }
         }
 #ifndef COOLING_NONE
     if(param.bGasCooling) {
         bool bFoundCoolArray = false;
         // read ionization fractions
         if(arrayFileExists(basefilename + "." + COOL_ARRAY0_EXT, nTotalParticles)) {
-                
-            treeProxy.readCoolArray0(basefilename + "." + COOL_ARRAY0_EXT,
-                                     CkCallbackResumeThread());
+            Cool0OutputParams pCool0Out(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pCool0Out, CkCallbackResumeThread());
             bFoundCoolArray = true;
             }
         else {
@@ -516,24 +534,24 @@ Main::restartGas()
             }
         if(arrayFileExists(basefilename + "." + COOL_ARRAY1_EXT, nTotalParticles)) {
                 
-            treeProxy.readCoolArray1(basefilename + "." + COOL_ARRAY1_EXT,
-                                     CkCallbackResumeThread());
+            Cool1OutputParams pCool1Out(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pCool1Out, CkCallbackResumeThread());
             bFoundCoolArray = true;
             }
         else {
             CkError("WARNING: no CoolArray1 file for restart\n");
             }
         if(arrayFileExists(basefilename + "." + COOL_ARRAY2_EXT, nTotalParticles)) {
-            treeProxy.readCoolArray2(basefilename + "." + COOL_ARRAY2_EXT,
-                                     CkCallbackResumeThread());
+            Cool2OutputParams pCool2Out(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pCool2Out, CkCallbackResumeThread());
             bFoundCoolArray = true;
             }
         else {
             CkError("WARNING: no CoolArray2 file for restart\n");
             }
         if(arrayFileExists(basefilename + "." + COOL_ARRAY3_EXT, nTotalParticles)) {
-            treeProxy.readCoolArray3(basefilename + "." + COOL_ARRAY3_EXT,
-                                     CkCallbackResumeThread());
+            Cool3OutputParams pCool3Out(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pCool3Out, CkCallbackResumeThread());
             bFoundCoolArray = true;
             }
         else {
