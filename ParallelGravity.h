@@ -1480,18 +1480,8 @@ public:
                        const bool bDoublePos,
                        const bool bDoubleVel,
 		       const CkCallback& cb);
-
-        void readIOrd(const std::string& filename, const CkCallback& cb);
-        void readIGasOrd(const std::string& filename, const CkCallback& cb);
-        void readESNrate(const std::string& filename, const CkCallback& cb);
-        void readOxMassFrac(const std::string& filename, const CkCallback& cb);
-        void readFeMassFrac(const std::string& filename, const CkCallback& cb);
-        void readMassForm(const std::string& filename, const CkCallback& cb);
-        void readCoolOnTime(const std::string& filename, const CkCallback& cb);
-        void readCoolArray0(const std::string& filename, const CkCallback& cb);
-        void readCoolArray1(const std::string& filename, const CkCallback& cb);
-        void readCoolArray2(const std::string& filename, const CkCallback& cb);
-        void readCoolArray3(const std::string& filename, const CkCallback& cb);
+        /// @brief read a tipsy array file (binary or ascii)
+        void readTipsyArray(OutputParams& params, const CkCallback& cb);
         void resetMetals(const CkCallback& cb);
         void getMaxIOrds(const CkCallback& cb);
         void RestartEnergy(double dTuFac, const CkCallback& cb);
