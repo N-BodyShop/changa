@@ -387,6 +387,7 @@ void TreePiece::EwaldGPU() {
      EwaldGPU is an entry method
   */
   
+// XXX WARNING: this does not handle multistepping correctly!
 #ifdef SPCUDA
   GravityParticleData *particleTable;
   EwtData *ewtTable; 
