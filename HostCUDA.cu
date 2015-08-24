@@ -15,6 +15,7 @@
 #include <math.h>
 #include <float.h>
 // #include <cutil.h>
+#include <assert.h>
 
 #include "CudaFunctions.h"
 #ifdef HEXADECAPOLE
@@ -2461,6 +2462,7 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
   int n = h_idata->cachedData->n;
   int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
   int nEwhLoop = h_idata->cachedData->nEwhLoop;
+  assert(nEwhLoop <= NEWH);
 
   workRequest topKernel;
   dataInfo *particleTableInfo, *cachedDataInfo, *ewtInfo;  
@@ -2475,16 +2477,16 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
   topKernel.bufferInfo = 
     (dataInfo *) malloc(topKernel.nBuffers * sizeof(dataInfo));
 
-  particleTableInfo = &(topKernel.bufferInfo[0]);
-  particleTableInfo->bufferID = NUM_GRAVITY_BUFS + BUFFERS_PER_CHARE * myIndex + PARTICLE_TABLE; 
+  particleTableInfo = &(topKernel.bufferInfo[PARTICLE_TABLE]);
+  particleTableInfo->bufferID = NUM_GRAVITY_BUFS + PARTICLE_TABLE; 
   particleTableInfo->transferToDevice = true; 
   particleTableInfo->transferFromDevice = false; 
   particleTableInfo->freeBuffer = false; 
   particleTableInfo->hostBuffer = h_idata->p; 
   particleTableInfo->size = (n+1) * sizeof(GravityParticleData); 
 
-  cachedDataInfo = &(topKernel.bufferInfo[1]); 
-  cachedDataInfo->bufferID = NUM_GRAVITY_BUFS + BUFFERS_PER_CHARE * myIndex + EWALD_READ_ONLY_DATA;
+  cachedDataInfo = &(topKernel.bufferInfo[EWALD_READ_ONLY_DATA]); 
+  cachedDataInfo->bufferID = NUM_GRAVITY_BUFS + EWALD_READ_ONLY_DATA;
   cachedDataInfo->transferToDevice = false; 
   cachedDataInfo->transferFromDevice = false; 
   cachedDataInfo->freeBuffer = false; 
@@ -2514,24 +2516,24 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
   bottomKernel.bufferInfo = 
     (dataInfo *) malloc(bottomKernel.nBuffers * sizeof(dataInfo));
 
-  particleTableInfo = &(bottomKernel.bufferInfo[0]);
-  particleTableInfo->bufferID = NUM_GRAVITY_BUFS + BUFFERS_PER_CHARE * myIndex + PARTICLE_TABLE; 
+  particleTableInfo = &(bottomKernel.bufferInfo[PARTICLE_TABLE]);
+  particleTableInfo->bufferID = NUM_GRAVITY_BUFS + PARTICLE_TABLE; 
   particleTableInfo->transferToDevice = false; 
   particleTableInfo->transferFromDevice = true; 
   particleTableInfo->freeBuffer = true; 
   particleTableInfo->hostBuffer = h_idata->p; 
   particleTableInfo->size = (n+1) * sizeof(GravityParticleData); 
 
-  cachedDataInfo = &(bottomKernel.bufferInfo[1]); 
-  cachedDataInfo->bufferID = NUM_GRAVITY_BUFS + BUFFERS_PER_CHARE * myIndex + EWALD_READ_ONLY_DATA; 
+  cachedDataInfo = &(bottomKernel.bufferInfo[EWALD_READ_ONLY_DATA]); 
+  cachedDataInfo->bufferID = NUM_GRAVITY_BUFS + EWALD_READ_ONLY_DATA; 
   cachedDataInfo->transferToDevice = false; 
   cachedDataInfo->transferFromDevice = false; 
   cachedDataInfo->freeBuffer = false; 
   cachedDataInfo->hostBuffer = h_idata->cachedData; 
   cachedDataInfo->size = sizeof(EwaldReadOnlyData); 
 
-  ewtInfo = &(bottomKernel.bufferInfo[2]); 
-  ewtInfo->bufferID = NUM_GRAVITY_BUFS + BUFFERS_PER_CHARE * myIndex + EWALD_TABLE; 
+  ewtInfo = &(bottomKernel.bufferInfo[EWALD_TABLE]); 
+  ewtInfo->bufferID = NUM_GRAVITY_BUFS + EWALD_TABLE; 
   ewtInfo->transferToDevice = false; 
   ewtInfo->transferFromDevice = false; 
   ewtInfo->freeBuffer = false; 
