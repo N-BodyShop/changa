@@ -193,6 +193,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
             zeroArray[i].a.y = 0.0;
             zeroArray[i].a.z = 0.0;
             zeroArray[i].potential = 0.0;
+            zeroArray[i].dtGrav = 0.0;
           }
         }
         else{
@@ -1585,6 +1586,7 @@ __global__ void nodeGravityComputation(
   
   __shared__ CudaVector3D acc[THREADS_PER_BLOCK];
   __shared__ cudatype pot[THREADS_PER_BLOCK];
+  __shared__ cudatype idt2[THREADS_PER_BLOCK];
   __shared__ CudaMultipoleMoments m[NODES_PER_BLOCK];
   __shared__ int offsetID[NODES_PER_BLOCK];
   __shared__ CompactPartData shared_particle_cores[PARTS_PER_BLOCK];
@@ -1629,6 +1631,7 @@ __global__ void nodeGravityComputation(
     acc[TRANSLATE(tidx,tidy)].y = 0.0;
     acc[TRANSLATE(tidx,tidy)].z = 0.0;
     pot[TRANSLATE(tidx,tidy)] = 0.0;
+    idt2[TRANSLATE(tidx,tidy)] = 0.0;
     
     
     for(int xstart = start; xstart < end; xstart += NODES_PER_BLOCK){
@@ -1663,6 +1666,8 @@ __global__ void nodeGravityComputation(
 
 #if defined(HEXADECAPOLE)
           CUDA_momEvalFmomrcm(&m[tidx], &r, dir, &acc[TRANSLATE(tidx, tidy)], &pot[TRANSLATE(tidx, tidy)]);
+          idt2[TRANSLATE(tidx, tidy)] = fmax(idt2[TRANSLATE(tidx, tidy)],
+                                         (shared_particle_cores[tidy].mass + m[tidx].totalMass)*dir*dir*dir);
 #else
           cudatype a, b, c, d;
           cudatype
@@ -1713,6 +1718,8 @@ __global__ void nodeGravityComputation(
           acc[TRANSLATE(tidx, tidy)].x -= qir3*r.x - c*qirx;
           acc[TRANSLATE(tidx, tidy)].y -= qir3*r.y - c*qiry;
           acc[TRANSLATE(tidx, tidy)].z -= qir3*r.z - c*qirz;
+          idt2[TRANSLATE(tidx, tidy)] = fmax(idt2[TRANSLATE(tidx, tidy)],
+                                        (shared_particle_cores[tidy].mass + m[tidx].totalMass)*b);
 #endif
         }// end if rsq != 0
       }// end INTERACT
@@ -1720,8 +1727,8 @@ __global__ void nodeGravityComputation(
 
     __syncthreads(); // wait for all threads to finish before results become available
 
-    cudatype sumx, sumy, sumz, poten;
-    sumx = sumy = sumz = poten = 0.0;
+    cudatype sumx, sumy, sumz, poten, idt2max;
+    sumx = sumy = sumz = poten = idt2max = 0.0;
     // accumulate forces, potential in global memory data structure
     if(tidx == 0 && my_particle_idx < bucketSize){
       for(int i = 0; i < NODES_PER_BLOCK; i++){
@@ -1729,11 +1736,13 @@ __global__ void nodeGravityComputation(
         sumy += acc[TRANSLATE(i,tidy)].y;
         sumz += acc[TRANSLATE(i,tidy)].z;
         poten += pot[TRANSLATE(i,tidy)];
+        idt2max = fmax(idt2[TRANSLATE(i,tidy)], idt2max);
       }
       particleVars[bucketStart+my_particle_idx].a.x += sumx;
       particleVars[bucketStart+my_particle_idx].a.y += sumy;
       particleVars[bucketStart+my_particle_idx].a.z += sumz;
       particleVars[bucketStart+my_particle_idx].potential += poten;
+      particleVars[bucketStart+my_particle_idx].dtGrav = fmax(idt2max,  particleVars[bucketStart+my_particle_idx].dtGrav);
     }
 
   }// end for each PARTICLE group
@@ -1753,6 +1762,7 @@ __global__ void nodeGravityComputation(
   __shared__ cudatype accy[THREADS_PER_BLOCK];
   __shared__ cudatype accz[THREADS_PER_BLOCK];
   __shared__ cudatype pot[THREADS_PER_BLOCK];
+  __shared__ cudatype idt2[THREADS_PER_BLOCK];
   //__shared__ cudatype mr[NODES_PER_BLOCK];
   __shared__ cudatype ms[NODES_PER_BLOCK];
   __shared__ cudatype mt[NODES_PER_BLOCK];
@@ -1810,6 +1820,7 @@ __global__ void nodeGravityComputation(
     accy[TRANSLATE(tx,ty)] = 0.0;
     accz[TRANSLATE(tx,ty)] = 0.0;
     pot[TRANSLATE(tx,ty)] = 0.0;
+    idt2[TRANSLATE(tx,ty)] = 0.0;
     
     
     for(xstart = start; xstart < end; xstart += NODES_PER_BLOCK){
@@ -1898,14 +1909,16 @@ __global__ void nodeGravityComputation(
           accx[TRANSLATE(tx, ty)] -= qir3*r.x - c*qirx;
           accy[TRANSLATE(tx, ty)] -= qir3*r.y - c*qiry;
           accz[TRANSLATE(tx, ty)] -= qir3*r.z - c*qirz;
+          idt2[TRANSLATE(tx, ty)] = fmax(idt2[TRANSLATE(tx, ty)],
+                                    (shared_particle_cores[ty].mass + mt[tx]) * b);
         }// end if rsq != 0
       }// end INTERACT
     }// end for each NODE group
 
     __syncthreads(); // wait for all threads to finish before results become available
 
-    cudatype sumx, sumy, sumz, poten;
-    sumx = sumy = sumz = poten = 0.0;
+    cudatype sumx, sumy, sumz, poten, idt2max;
+    sumx = sumy = sumz = poten = idt2max = 0.0;
     // accumulate forces, potential in global memory data structure
     if(tx == 0 && my_particle_idx < bucketSize){
       for(int i = 0; i < NODES_PER_BLOCK; i++){
@@ -1913,11 +1926,13 @@ __global__ void nodeGravityComputation(
         sumy += accy[TRANSLATE(i,ty)];
         sumz += accz[TRANSLATE(i,ty)];
         poten += pot[TRANSLATE(i,ty)];
+        idt2max = fmax(idt2[TRANSLATE(i,ty)], idt2max);
       }
       particleVars[bucketStart+my_particle_idx].a.x += sumx;
       particleVars[bucketStart+my_particle_idx].a.y += sumy;
       particleVars[bucketStart+my_particle_idx].a.z += sumz;
       particleVars[bucketStart+my_particle_idx].potential += poten;
+      particleVars[bucketStart+my_particle_idx].dtGrav = fmax(idt2max,  particleVars[bucketStart+my_particle_idx].dtGrav);
     }
 
   }// end for each PARTICLE group
@@ -1937,6 +1952,7 @@ __global__ void nodeGravityComputation(
   // each thread has its own storage for these
   __shared__ CudaVector3D acc[THREADS_PER_BLOCK];
   __shared__ cudatype pot[THREADS_PER_BLOCK];
+  __shared__ cudatype idt2[THREADS_PER_BLOCK];
   __shared__ CudaMultipoleMoments m[THREADS_PER_BLOCK];
 
   __shared__ CompactPartData shared_particle_core;
@@ -1993,6 +2009,7 @@ __global__ void nodeGravityComputation(
     acc[thread].y = 0;
     acc[thread].z = 0;
     pot[thread] = 0;
+    idt2[thread] = 0;
 
     for(int node = start+thread; node < end; node+=THREADS_PER_BLOCK){
       ILCell ilc = ils[node];
@@ -2054,6 +2071,7 @@ __global__ void nodeGravityComputation(
         acc[thread].x -= qir3*r.x - c*qirx;
         acc[thread].y -= qir3*r.y - c*qiry;
         acc[thread].z -= qir3*r.z - c*qirz;
+        idt2[thread] = fmax(idt2[thread], (shared_particle_core.mass + m[thread].totalMass)*b);
       }// end if rsq != 0
 #if defined  __DEVICE_EMULATION__ && defined CUDA_EMU_KERNEL_NODE_PRINTS
       if(1){
@@ -2077,14 +2095,15 @@ __global__ void nodeGravityComputation(
     // reduce.
     // TODO: make this a parallel reduction
 
-    cudatype sumx, sumy, sumz, poten;
-    sumx = sumy = sumz = poten = 0.0;
+    cudatype sumx, sumy, sumz, poten, idt2max;
+    sumx = sumy = sumz = poten = idt2max = 0.0;
     if(thread == 0){
       for(int i = 0; i < THREADS_PER_BLOCK; i++){
         sumx += acc[i].x;
         sumy += acc[i].y;
         sumz += acc[i].z;
         poten += pot[i];
+        idt2max = fmax(idt2[i], idt2max);
       }
 #if defined  __DEVICE_EMULATION__ && defined CUDA_EMU_KERNEL_NODE_PRINTS
       printf("aggregate acc[%d,%d] = (%f,%f,%f)\n", tp, id, sumx, sumy, sumz);
@@ -2100,6 +2119,7 @@ __global__ void nodeGravityComputation(
       particleVars[bucketStart+particle].a.y += sumy;
       particleVars[bucketStart+particle].a.z += sumz;
       particleVars[bucketStart+particle].potential += poten;
+      particleVars[bucketStart+particle].dtGrav = fmax(idt2max,  particleVars[bucketStart+particle].dtGrav);
       
 #if defined  __DEVICE_EMULATION__ && defined CUDA_EMU_KERNEL_NODE_PRINTS
       printf("after (%d,%d) type: NODE %d acc: (%f,%f,%f)\n", tp, id, type,
@@ -2129,6 +2149,7 @@ __global__ void particleGravityComputation(
   
   __shared__ CudaVector3D acc[THREADS_PER_BLOCK_PART];
   __shared__ cudatype pot[THREADS_PER_BLOCK_PART];
+  __shared__ cudatype idt2[THREADS_PER_BLOCK_PART];
   __shared__ CompactPartData m[NODES_PER_BLOCK_PART];
   __shared__ int offsetID[NODES_PER_BLOCK_PART];
   __shared__ CompactPartData shared_particle_cores[PARTS_PER_BLOCK_PART];
@@ -2175,6 +2196,7 @@ __global__ void particleGravityComputation(
     acc[TRANSLATE_PART(tx,ty)].y = 0.0;
     acc[TRANSLATE_PART(tx,ty)].z = 0.0;
     pot[TRANSLATE_PART(tx,ty)] = 0.0;
+    idt2[TRANSLATE_PART(tx,ty)] = 0.0;
     
     
     for(xstart = start; xstart < end; xstart += NODES_PER_BLOCK_PART){
@@ -2240,6 +2262,8 @@ __global__ void particleGravityComputation(
           acc[TRANSLATE_PART(tx, ty)].x += r.x*b*m[tx].mass;
           acc[TRANSLATE_PART(tx, ty)].y += r.y*b*m[tx].mass;
           acc[TRANSLATE_PART(tx, ty)].z += r.z*b*m[tx].mass;
+          idt2[TRANSLATE_PART(tx, ty)] = fmax(idt2[TRANSLATE_PART(tx, ty)],
+                                         (shared_particle_cores[ty].mass + m[tx].mass) * b);
 
         }// end if rsq != 0
       }// end INTERACT
@@ -2247,8 +2271,8 @@ __global__ void particleGravityComputation(
 
     __syncthreads(); // wait for all threads to finish before results become available
 
-    cudatype sumx, sumy, sumz, poten;
-    sumx = sumy = sumz = poten = 0.0;
+    cudatype sumx, sumy, sumz, poten, idt2max;
+    sumx = sumy = sumz = poten = idt2max = 0.0;
     // accumulate forces, potential in global memory data structure
     if(tx == 0 && my_particle_idx < bucketSize){
       for(int i = 0; i < NODES_PER_BLOCK_PART; i++){
@@ -2256,11 +2280,13 @@ __global__ void particleGravityComputation(
         sumy += acc[TRANSLATE_PART(i,ty)].y;
         sumz += acc[TRANSLATE_PART(i,ty)].z;
         poten += pot[TRANSLATE_PART(i,ty)];
+        idt2max = fmax(idt2[TRANSLATE_PART(i,ty)], idt2max);
       }
       targetVars[bucketStart+my_particle_idx].a.x += sumx;
       targetVars[bucketStart+my_particle_idx].a.y += sumy;
       targetVars[bucketStart+my_particle_idx].a.z += sumz;
       targetVars[bucketStart+my_particle_idx].potential += poten;
+      targetVars[bucketStart+my_particle_idx].dtGrav = fmax(idt2max,  targetVars[bucketStart+my_particle_idx].dtGrav);
     }
 
   }// end for each PARTICLE group
@@ -2279,6 +2305,7 @@ __global__ void particleGravityComputation(
   // each thread has its own storage for these
   __shared__ CudaVector3D acc[THREADS_PER_BLOCK];
   __shared__ cudatype pot[THREADS_PER_BLOCK];
+  __shared__ cudatype idt2[THREADS_PER_BLOCK];
   __shared__ CompactPartData source_cores[THREADS_PER_BLOCK];
 
   __shared__ CompactPartData shared_target_core;
@@ -2328,6 +2355,7 @@ __global__ void particleGravityComputation(
     acc[thread].y = 0;
     acc[thread].z = 0;
     pot[thread] = 0;
+    idt2[thread] = 0;
 
     for(int source = start+thread; source < end; source += THREADS_PER_BLOCK){
       ILPart ilp = ils[source]; 
@@ -2383,20 +2411,22 @@ __global__ void particleGravityComputation(
           acc[thread].x += r.x*b*source_cores[thread].mass;
           acc[thread].y += r.y*b*source_cores[thread].mass;
           acc[thread].z += r.z*b*source_cores[thread].mass;
+          idt2[thread] = fmax(idt2[thread], (shared_target_core.mass + source_cores[thread].mass) * b);
         }// if rsq != 0
       }// for each particle in source bucket
     }// for each source bucket 
 
     __syncthreads();
   
-    cudatype sumx, sumy, sumz, poten;
-    sumx = sumy = sumz = poten = 0.0;
+    cudatype sumx, sumy, sumz, poten, idt2max;
+    sumx = sumy = sumz = poten = idt2max = 0.0;
     if(thread == 0){
       for(int i = 0; i < THREADS_PER_BLOCK; i++){
         sumx += acc[i].x;
         sumy += acc[i].y;
         sumz += acc[i].z;
         poten += pot[i];
+        idt2max = fmax(idt2[i], idt2max);
       }
 #if defined  __DEVICE_EMULATION__ && defined CUDA_EMU_KERNEL_PART_PRINTS
       //printf("before acc[%d,%d] = (%f,%f,%f)\n", tp, id, sumx, sumy, sumz);
@@ -2410,6 +2440,7 @@ __global__ void particleGravityComputation(
       targetVars[bucketStart+target].a.y += sumy;
       targetVars[bucketStart+target].a.z += sumz;
       targetVars[bucketStart+target].potential += poten;
+      targetVars[bucketStart+target].dtGrav = fmax(idt2max,  targetVars[bucketStart+target].dtGrav);
       
 #if defined  __DEVICE_EMULATION__ && defined CUDA_EMU_KERNEL_PART_PRINTS
       printf("after (%d,%d) type: %d acc: (%f,%f,%f)\n", tp, id, type,

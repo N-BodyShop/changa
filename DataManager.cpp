@@ -982,7 +982,6 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
     CmiMemoryCheck();
 #endif
 
-    if(tp->largePhase()){
       for(int j = 1; j <= numParticles; j++){
         if(tp->isActive(j)){
 #ifndef CUDA_NO_ACC_UPDATES
@@ -990,44 +989,12 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
           tp->myParticles[j].treeAcceleration.y += deviceParticles[partIndex].a.y; 
           tp->myParticles[j].treeAcceleration.z += deviceParticles[partIndex].a.z; 
           tp->myParticles[j].potential += deviceParticles[partIndex].potential;
-#endif
-#ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
-          CkPrintf("particle %d device: (%f,%f,%f) host: (%f,%f,%f)\n",
-              j, 
-              deviceParticles[partIndex].a.x,
-              deviceParticles[partIndex].a.y,
-              deviceParticles[partIndex].a.z,
-              tp->myParticles[j].treeAcceleration.x,
-              tp->myParticles[j].treeAcceleration.y,
-              tp->myParticles[j].treeAcceleration.z);
+          tp->myParticles[j].dtGrav = fmax(tp->myParticles[j].dtGrav,
+                                           deviceParticles[partIndex].dtGrav);
 #endif
         }
         partIndex++;
       }
-    }
-    else{
-      for(int j = 1; j <= numParticles; j++){
-        if(tp->isActive(j)){
-#ifndef CUDA_NO_ACC_UPDATES
-          tp->myParticles[j].treeAcceleration.x += deviceParticles[partIndex].a.x; 
-          tp->myParticles[j].treeAcceleration.y += deviceParticles[partIndex].a.y; 
-          tp->myParticles[j].treeAcceleration.z += deviceParticles[partIndex].a.z; 
-          tp->myParticles[j].potential += deviceParticles[partIndex].potential;
-#endif
-#ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
-          CkPrintf("particle %d device: (%f,%f,%f) host: (%f,%f,%f)\n",
-              j, 
-              deviceParticles[partIndex].a.x,
-              deviceParticles[partIndex].a.y,
-              deviceParticles[partIndex].a.z,
-              tp->myParticles[j].treeAcceleration.x,
-              tp->myParticles[j].treeAcceleration.y,
-              tp->myParticles[j].treeAcceleration.z);
-#endif
-          partIndex++;
-        }     
-      }
-    }
 
 #ifdef CHANGA_REFACTOR_MEMCHECK 
     CkPrintf("(%d) memcheck after updating tp %d particles\n", CkMyPe(), tp->getIndex());
