@@ -167,7 +167,7 @@ void CoolAddParams( COOLPARAM *CoolParam, PRM prm ) {
     CoolParam->dCoolingTmin = 0;
     prmAddParam(prm,"dCoolingTmin",paramDouble,&CoolParam->dCoolingTmin,
                 sizeof(double),"ctmin",
-                "<Minimum Temperature for Cooling> = 10K");
+                "<Minimum Temperature for Cooling> = 0K");
     CoolParam->dCoolingTmax = 1e9;
     prmAddParam(prm,"dCoolingTmax",paramDouble,&CoolParam->dCoolingTmax,
                 sizeof(double),"ctmax",
@@ -261,8 +261,7 @@ double CoolCodeEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E,
  * @param PdVCode PdV work per time in code units
  * @param rhoCode [unused]
  * @param ZMetal [Unused]
- * @param posCode particle position in code units.  Assumes the disk center is
- * at r=0
+ * @param posCode particle position in code units
  * @param tStep Time step to integrate over, in seconds
  */
 void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
@@ -270,7 +269,7 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
                              double ZMetal, double *posCode, double tStep )
 {
     double radius = 0;
-    double omega, tcool, PdV, T;
+    double omega, tcool, PdV, T, dECGS;
 
     /* This is used as a switch to disable cooling before a certain time*/
     if (tStep <= 0) return;
@@ -287,19 +286,19 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
     /* Calculate cooling time (in seconds)*/
     tcool = cl->dSecUnit * cl->beta/omega;
     /* Convert the particle's internal energy to CGS */
-    *ECode = CoolCodeEnergyToErgPerGm( cl, *ECode );
+    dECGS = CoolCodeEnergyToErgPerGm( cl, *ECode );
     /* Convert PdV work to CGS */
     PdV = CoolCodeWorkToErgPerGmPerSec(cl, PdVCode);
     /* Integrate energy */
-    *ECode = exp(-tStep/tcool) * (*ECode - PdV*tcool) + PdV*tcool;
+    dECGS = exp(-tStep/tcool) * (dECGS - PdV*tcool) + PdV*tcool;
     /* apply minimum temperature cutoff */
-    T = clTemperature(cp->Y_Total, *ECode);
+    T = clTemperature(cp->Y_Total, dECGS);
     if (T < cl->Tmin) {
         T = cl->Tmin;
-        *ECode = clThermalEnergy(cp->Y_Total, T);
+        dECGS = clThermalEnergy(cp->Y_Total, T);
     }
     /*Convert energy back to simulation units */
-    *ECode = CoolErgPerGmToCodeEnergy(cl, *ECode);
+    *ECode = CoolErgPerGmToCodeEnergy(cl, dECGS);
 }
 
 #endif /* NOCOOLING */
