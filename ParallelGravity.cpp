@@ -2657,7 +2657,7 @@ Main::doSimulation()
  * @brief Main::starCenterOfMass Calculates the total mass and center of mass
  * of all the star particles and saves them to all the available COOL structs.
  *
- * Requires that cooling for planets be enabled and compile time.
+ * Requires that cooling for planets be enabled at compile time.
  */
 void Main::starCenterOfMass()
 {
