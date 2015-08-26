@@ -120,23 +120,26 @@ double COOL_SET_ARRAY3(COOL *cl_, COOLPARTICLE *cp,double aa, double bb_val);
 #define COOL_SET_ARRAY3( cl_, cp, aa, bb_val ) (0)
 
 /// Not implemented, but required to keep compiling from crashing
-double COOL_EDOT( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode_, double ZMetal_, double *posCode_ );
-//#define COOL_EDOT( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_) (CoolCodeWorkToErgPerGmPerSec( cl_, CoolEdotInstantCode( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_ )))
+double COOL_EDOT( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode_,
+                  double ZMetal_, double *posCode_ );
 #define COOL_EDOT( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_) (0)
 
 //// Not implemented, but required to keep compiling from crashing
-double COOL_COOLING( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode_, double ZMetal_, double *posCode_ );
-//#define COOL_COOLING( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_) (CoolCodeWorkToErgPerGmPerSec( cl_, CoolEdotInstantCode( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_ )))
+double COOL_COOLING( COOL *cl_, COOLPARTICLE *cp_, double ECode_,
+                     double rhoCode_, double ZMetal_, double *posCode_ );
 #define COOL_COOLING( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_) (0)
 
-void CoolPARTICLEtoPERBARYON(COOL *cl_, PERBARYON *Y, COOLPARTICLE *cp, double HTotal, double HeTotal);
+void CoolPARTICLEtoPERBARYON(COOL *cl_, PERBARYON *Y, COOLPARTICLE *cp,
+                             double HTotal, double HeTotal);
 
 #define CoolPARTICLEtoPERBARYON(cl_, Y, cp) { \
     (Y)->Total = (cp)->Y_Total; }
 
-double CoolCodeEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E, double fMetal );
+double CoolCodeEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E,
+                                    double fMetal );
 
-/* Note: nod to cosmology (z parameter) unavoidable unless we want to access cosmo.[ch] from here */
+/* Note: nod to cosmology (z parameter) unavoidable unless we want to access
+ * cosmo.[ch] from here */
 void CoolSetTime( COOL *Cool, double dTime, double z );
 
 /* Unit conversion routines */
@@ -151,42 +154,53 @@ double CoolSecondsToCodeTime( COOL *Cool, double dTime );
 
 double CoolCodeEnergyToErgPerGm( COOL *Cool, double dCodeEnergy );
 
-#define CoolCodeEnergyToErgPerGm( Cool, dCodeEnergy ) ((Cool)->dErgPerGmUnit*(dCodeEnergy))
+#define CoolCodeEnergyToErgPerGm( Cool, dCodeEnergy ) \
+    ((Cool)->dErgPerGmUnit*(dCodeEnergy))
 
 double CoolErgPerGmToCodeEnergy( COOL *Cool, double dEnergy );
 
-#define CoolErgPerGmToCodeEnergy( Cool, dEnergy ) ((Cool)->diErgPerGmUnit*(dEnergy))
+#define CoolErgPerGmToCodeEnergy( Cool, dEnergy ) \
+    ((Cool)->diErgPerGmUnit*(dEnergy))
 
 double CoolCodeWorkToErgPerGmPerSec( COOL *Cool, double dCodeWork );
 
-#define CoolCodeWorkToErgPerGmPerSec( Cool, dCodeWork ) ((Cool)->dErgPerGmPerSecUnit*(dCodeWork))
+#define CoolCodeWorkToErgPerGmPerSec( Cool, dCodeWork ) \
+    ((Cool)->dErgPerGmPerSecUnit*(dCodeWork))
 
 double CoolErgPerGmPerSecToCodeWork( COOL *Cool, double dWork );
 
-#define CoolErgPerGmPerSecToCodeWork( Cool, dWork ) ((dWork)/(Cool)->dErgPerGmPerSecUnit)
+#define CoolErgPerGmPerSecToCodeWork( Cool, dWork ) \
+    ((dWork)/(Cool)->dErgPerGmPerSecUnit)
 
 double CodeDensityToComovingGmPerCc( COOL *Cool, double dCodeDensity );
 
-#define CodeDensityToComovingGmPerCc( Cool, dCodeDensity )  ((Cool)->dComovingGmPerCcUnit*(dCodeDensity))
+#define CodeDensityToComovingGmPerCc( Cool, dCodeDensity )  \
+    ((Cool)->dComovingGmPerCcUnit*(dCodeDensity))
 
-void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp, double *E,
-                             double PdV, double rho, double ZMetal, double *r, double tStep );
+void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp,
+                             double *E, double PdV, double rho, double ZMetal,
+                             double *r, double tStep );
 
 void CoolDefaultParticleData( COOLPARTICLE *cp );
 
-void CoolInitEnergyAndParticleData( COOL *cl, COOLPARTICLE *cp, double *E, double dDensity, double dTemp, double fMetal );
+void CoolInitEnergyAndParticleData( COOL *cl, COOLPARTICLE *cp, double *E,
+    double dDensity, double dTemp, double fMetal);
 
 /* Not implemented, but required to keep compiling from crashing */
 double CoolEdotInstantCode(COOL *cl, COOLPARTICLE *cp, double ECode,
                            double rhoCode, double ZMetal, double *posCode );
 
-void CoolCodePressureOnDensitySoundSpeed( COOL *cl, COOLPARTICLE *cp, double uPred, double fDensity, double gamma, double gammam1, double *PoverRho, double *c );
-#define CoolCodePressureOnDensitySoundSpeed( cl__, cp__, uPred__, fDensity__, gamma__, gammam1__, PoverRho__, c__ ) { \
+void CoolCodePressureOnDensitySoundSpeed( COOL *cl, COOLPARTICLE *cp,
+    double uPred, double fDensity, double gamma, double gammam1,
+    double *PoverRho, double *c );
+#define CoolCodePressureOnDensitySoundSpeed( cl__, cp__, uPred__, fDensity__, \
+    gamma__, gammam1__, PoverRho__, c__ ) { \
   *(PoverRho__) = ((gammam1__)*(uPred__)); \
   *(c__) = sqrt((gamma__)*(*(PoverRho__))); }
 
 /* Place holder function (not implemented but needed */
-void CoolTableReadInfo( COOLPARAM *CoolParam, int cntTable, int *nTableColumns, char *suffix );
+void CoolTableReadInfo( COOLPARAM *CoolParam, int cntTable, int *nTableColumns,
+                        char *suffix );
 
 /* Place holder function (not implemented but needed */
 void CoolTableRead( COOL *Cool, int nData, void *vData);
