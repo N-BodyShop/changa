@@ -117,8 +117,6 @@ void clInitConstants(COOL *cl, double dGmPerCcUnit,
     cl->Tmax = CoolParam.dCoolingTmax;
     cl->beta = CoolParam.dBetaCooling;
 }
-/* Define physical constants */
-
 
 /**
  * @brief Calculates thermal energy from temperature and Y (deg. freedom/3)
@@ -177,7 +175,8 @@ void CoolAddParams( COOLPARAM *CoolParam, PRM prm ) {
 /* Placeholder functions which just need to be defined to make
  * Sph.C and the compiler happy */
 
-void CoolTableReadInfo( COOLPARAM *CoolParam, int cntTable, int *nTableColumns, char *suffix )
+void CoolTableReadInfo( COOLPARAM *CoolParam, int cntTable, int *nTableColumns,
+                        char *suffix )
 {
     *nTableColumns = 0;
 }
@@ -206,7 +205,8 @@ void CoolDefaultParticleData( COOLPARTICLE *cp )
  * Initializes data for a cooling particle, given a COOL struct.
  * Sets Y_total and E in the cooling particle
  */
-void CoolInitEnergyAndParticleData( COOL *cl, COOLPARTICLE *cp, double *E, double dDensity, double dTemp, double fMetal )
+void CoolInitEnergyAndParticleData( COOL *cl, COOLPARTICLE *cp, double *E,
+                                    double dDensity, double dTemp, double fMetal)
 {
     cp->Y_Total = cl->Y_Total;
     *E = clThermalEnergy(cp->Y_Total,dTemp)*cl->diErgPerGmUnit;
