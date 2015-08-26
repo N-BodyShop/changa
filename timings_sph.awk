@@ -45,7 +45,7 @@ END {
 	}
     steps = counts[maxrung-1];
     
-    print "Rung, counts, Gravity/SPH, uDot, DomainD, LoadB and TBuild";
+    print "Rung, counts, Gravity/SPH, uDot, DomainD, LoadB, TBuild, Adjust, Kick, Drift, Cache";
     for (tmp = 0; tmp < maxrung; tmp++) {
 	print tmp, counts[tmp], gravity[tmp], udot[tmp], dd[tmp], loadb[tmp], build[tmp], adjust[tmp], kick[tmp], drift[tmp], cache[tmp];
 	tgrav = tgrav + gravity[tmp];
