@@ -94,21 +94,20 @@ void CoolAddParams( COOLPARAM *CoolParam, PRM );
 // Saves CenterOfMass to cooling struct cl
 void CoolSetStarCM(COOL *cl, double dCenterOfMass[4]);
 
-/* The following are not implemented for cooling planet but are needed
- * by InOutput.h */
-#define COOL_ARRAY0_EXT  "HI"
+/* Needed by InOutput.h */
+#define COOL_ARRAY0_EXT  "Y_Total"
 double COOL_ARRAY0(COOL *cl_, COOLPARTICLE *cp,double aa);
 #define COOL_ARRAY0( cl_, cp, aa ) ((cp)->Y_Total)
 double COOL_SET_ARRAY0(COOL *cl_, COOLPARTICLE *cp,double aa, double bb_val);
 #define COOL_SET_ARRAY0( cl_, cp, aa, bb_val ) ((cp)->Y_Total = (bb_val))
 
-#define COOL_ARRAY1_EXT  "HeI"
+#define COOL_ARRAY1_EXT  "NA"
 double COOL_ARRAY1(COOL *cl_, COOLPARTICLE *cp,double aa);
 #define COOL_ARRAY1( cl_, cp, aa ) (0)
 double COOL_SET_ARRAY1(COOL *cl_, COOLPARTICLE *cp,double aa, double bb_val);
 #define COOL_SET_ARRAY1( cl_, cp, aa, bb_val ) (0)
 
-#define COOL_ARRAY2_EXT  "HeII"
+#define COOL_ARRAY2_EXT  "NA"
 double COOL_ARRAY2(COOL *cl_, COOLPARTICLE *cp,double aa);
 #define COOL_ARRAY2( cl_, cp, aa ) (0)
 double COOL_SET_ARRAY2(COOL *cl_, COOLPARTICLE *cp,double aa, double bb_val);
@@ -122,11 +121,13 @@ double COOL_SET_ARRAY3(COOL *cl_, COOLPARTICLE *cp,double aa, double bb_val);
 
 /// Not implemented, but required to keep compiling from crashing
 double COOL_EDOT( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode_, double ZMetal_, double *posCode_ );
-#define COOL_EDOT( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_) (CoolCodeWorkToErgPerGmPerSec( cl_, CoolEdotInstantCode( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_ )))
+//#define COOL_EDOT( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_) (CoolCodeWorkToErgPerGmPerSec( cl_, CoolEdotInstantCode( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_ )))
+#define COOL_EDOT( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_) (0)
 
 //// Not implemented, but required to keep compiling from crashing
 double COOL_COOLING( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode_, double ZMetal_, double *posCode_ );
-#define COOL_COOLING( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_) (CoolCodeWorkToErgPerGmPerSec( cl_, CoolEdotInstantCode( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_ )))
+//#define COOL_COOLING( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_) (CoolCodeWorkToErgPerGmPerSec( cl_, CoolEdotInstantCode( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_ )))
+#define COOL_COOLING( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_) (0)
 
 void CoolPARTICLEtoPERBARYON(COOL *cl_, PERBARYON *Y, COOLPARTICLE *cp, double HTotal, double HeTotal);
 
