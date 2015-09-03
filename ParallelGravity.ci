@@ -206,7 +206,6 @@ mainmodule ParallelGravity {
         const int responsible[n - 1],
         uint64_t bins[n - 1], const int n,
         const CkCallback& cb);
-    entry void collectSplitters(CkReductionMsg* m);
     //entry [local,exclusive] void notifyPresence(int index, Tree::GenericTreeNode *root);
     entry void combineLocalTrees(CkReductionMsg *m);
     entry void clearInstrument(CkCallback &cb);
@@ -255,17 +254,7 @@ mainmodule ParallelGravity {
         const bool bDoublePos,
         const bool bDoubleVel,
         const CkCallback& cb);
-    entry void readIOrd(const std::string& filename, const CkCallback& cb);
-    entry void readIGasOrd(const std::string& filename, const CkCallback& cb);
-    entry void readESNrate(const std::string& filename, const CkCallback& cb);
-    entry void readOxMassFrac(const std::string& filename, const CkCallback& cb);
-    entry void readFeMassFrac(const std::string& filename, const CkCallback& cb);
-    entry void readMassForm(const std::string& filename, const CkCallback& cb);
-    entry void readCoolOnTime(const std::string& filename, const CkCallback& cb);
-    entry void readCoolArray0(const std::string& filename, const CkCallback& cb);
-    entry void readCoolArray1(const std::string& filename, const CkCallback& cb);
-    entry void readCoolArray2(const std::string& filename, const CkCallback& cb);
-    entry void readCoolArray3(const std::string& filename, const CkCallback& cb);
+    entry void readTipsyArray(CkReference<OutputParams> params, const CkCallback& cb);
     entry void resetMetals(const CkCallback& cb);
     entry void getMaxIOrds(const CkCallback& cb);
     entry void RestartEnergy(double dTuFac, const CkCallback& cb);
@@ -399,6 +388,8 @@ mainmodule ParallelGravity {
 #endif
 
     entry void startOctTreeBuild(CkReductionMsg* m);
+    entry void recvBoundary(SFC::Key key, NborDir dir);
+    entry void recvdBoundaries(CkReductionMsg* m);
 
     entry void startORBTreeBuild(CkReductionMsg* m);
 
@@ -420,7 +411,10 @@ mainmodule ParallelGravity {
     	  [inline]
 #endif
 	  void requestRemoteMoments(Tree::NodeKey key, int sender);
-    entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, MultipoleMoments& moments, OrientedBox<double>& box, OrientedBox<double>& boxBall, unsigned int iParticleTypes);
+    entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type,
+      int firstParticle, int numParticles, int remIdx, MultipoleMoments& moments,
+      OrientedBox<double>& box, OrientedBox<double>& boxBall,
+      unsigned int iParticleTypes);
 
     entry void commenceCalculateGravityLocal();
     entry void calculateGravityRemote(ComputeChunkMsg *msg);
@@ -446,6 +440,8 @@ mainmodule ParallelGravity {
     // jetley
     entry void startlb(CkCallback &cb, int activeRung);
     entry void ResumeFromSync();
+    entry [reductiontarget] void getParticleInfoForLB(int64_t active_part,
+        int64_t total_part);
     //jetley
     // entry void receiveProxy(CkGroupID);
     entry void doAtSync();
