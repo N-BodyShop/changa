@@ -847,19 +847,6 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 
 }// end serializeLocal
 
-#if 0
-TreePieceDescriptor *DataManager::findKeyInDescriptors(SFC::Key particleKey){
-  for(int i = 0; i < registeredTreePieces.length(); i++){
-    if(registeredTreePieces[i].firstParticleKey == particleKey){
-      return &registeredTreePieces[i];
-    }
-}
-
-return 0;
-}
-#endif
-
-
 void DataManager::freeLocalTreeMemory(){
   CmiLock(__nodelock);
   treePiecesDoneLocalComputation++;
@@ -992,8 +979,9 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
           tp->myParticles[j].dtGrav = fmax(tp->myParticles[j].dtGrav,
                                            deviceParticles[partIndex].dtGrav);
 #endif
+          if(!tp->largePhase()) partIndex++;
         }
-        partIndex++;
+        if(tp->largePhase()) partIndex++;
       }
 
 #ifdef CHANGA_REFACTOR_MEMCHECK 
