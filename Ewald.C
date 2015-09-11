@@ -387,7 +387,6 @@ void TreePiece::EwaldGPU() {
      EwaldGPU is an entry method
   */
   
-// XXX WARNING: this does not handle multistepping correctly!
 #ifdef SPCUDA
   GravityParticleData *particleTable;
   EwtData *ewtTable; 
@@ -401,23 +400,17 @@ void TreePiece::EwaldGPU() {
   ewtTable = (EwtData*) h_idata->ewt;
   roData = (EwaldReadOnlyData*) h_idata->cachedData; 
 
+  int nActive = 0;
   for (int i=1; i<=myNumParticles; i++) {
-    particleTable[i].position_x = (cudatype) myParticles[i].position.x;
-    particleTable[i].position_y = (cudatype) myParticles[i].position.y;
-    particleTable[i].position_z = (cudatype) myParticles[i].position.z;
-    particleTable[i].acceleration_x = 0; 
-    particleTable[i].acceleration_y = 0; 
-    particleTable[i].acceleration_z = 0; 
-    particleTable[i].potential = 0; 
-    /*
-    particleTable[i].acceleration_x = 
-      (cudatype) myParticles[i].treeAcceleration.x;
-    particleTable[i].acceleration_y = 
-      (cudatype) myParticles[i].treeAcceleration.y;
-    particleTable[i].acceleration_z = 
-      (cudatype) myParticles[i].treeAcceleration.z;
-    particleTable[i].potential = (cudatype) myParticles[i].potential;
-    */
+    if(myParticles[i].rung < activeRung) continue;
+    particleTable[nActive].position_x = (cudatype) myParticles[i].position.x;
+    particleTable[nActive].position_y = (cudatype) myParticles[i].position.y;
+    particleTable[nActive].position_z = (cudatype) myParticles[i].position.z;
+    particleTable[nActive].acceleration_x = 0; 
+    particleTable[nActive].acceleration_y = 0; 
+    particleTable[nActive].acceleration_z = 0; 
+    particleTable[nActive].potential = 0; 
+    nActive++;
   }  
 
   for (int i=0; i<nEwhLoop; i++) {
@@ -473,7 +466,7 @@ void TreePiece::EwaldGPU() {
   roData->mm.cmx = (cudatype) mm.cm.x;
   roData->mm.cmy = (cudatype) mm.cm.y;
   roData->mm.cmz = (cudatype) mm.cm.z;
-  roData->n = myNumParticles;
+  roData->n = nActive;
   roData->fEwCut = (cudatype) fEwCut;
   roData->nReps = nReplicas ;
   roData->nEwReps = (int) ceil(fEwCut);
@@ -511,14 +504,18 @@ void TreePiece::EwaldGPUComplete() {
   GravityParticleData *particleTable;
   particleTable = h_idata->p; 
 
+  int iActive = 0;
   for (int i=1; i<=myNumParticles; i++) {
+    if(myParticles[i].rung < activeRung)
+          continue;
     myParticles[i].treeAcceleration.x += 
-      particleTable[i].acceleration_x;
+      particleTable[iActive].acceleration_x;
     myParticles[i].treeAcceleration.y += 
-      particleTable[i].acceleration_y;
+      particleTable[iActive].acceleration_y;
     myParticles[i].treeAcceleration.z += 
-      particleTable[i].acceleration_z;
-    myParticles[i].potential += particleTable[i].potential;
+      particleTable[iActive].acceleration_z;
+    myParticles[i].potential += particleTable[iActive].potential;
+    iActive++;
   }
 
   //CkPrintf("[%d] in EwaldGPUComplete, calling EwaldHostMemoryFree\n", thisIndex);

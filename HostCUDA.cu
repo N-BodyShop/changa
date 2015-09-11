@@ -2514,7 +2514,7 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
   particleTableInfo->transferFromDevice = false; 
   particleTableInfo->freeBuffer = false; 
   particleTableInfo->hostBuffer = h_idata->p; 
-  particleTableInfo->size = (n+1) * sizeof(GravityParticleData); 
+  particleTableInfo->size = n * sizeof(GravityParticleData); 
 
   cachedDataInfo = &(topKernel.bufferInfo[EWALD_READ_ONLY_DATA]); 
   cachedDataInfo->bufferID = NUM_GRAVITY_BUFS + EWALD_READ_ONLY_DATA;
@@ -2553,7 +2553,7 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex) {
   particleTableInfo->transferFromDevice = true; 
   particleTableInfo->freeBuffer = true; 
   particleTableInfo->hostBuffer = h_idata->p; 
-  particleTableInfo->size = (n+1) * sizeof(GravityParticleData); 
+  particleTableInfo->size = n * sizeof(GravityParticleData); 
 
   cachedDataInfo = &(bottomKernel.bufferInfo[EWALD_READ_ONLY_DATA]); 
   cachedDataInfo->bufferID = NUM_GRAVITY_BUFS + EWALD_READ_ONLY_DATA; 
@@ -2625,8 +2625,8 @@ __global__ void EwaldTopKernel(GravityParticleData *particleTable,
 
   Q2 = 0.5 * (mom->xx + mom->yy + mom->zz);
 
-  id = blockIdx.x * BLOCK_SIZE + threadIdx.x + 1;
-  if (id > nPart) {
+  id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+  if (id >= nPart) {
     return;
   }
   p = &(particleTable[id]);
@@ -2638,8 +2638,6 @@ __global__ void EwaldTopKernel(GravityParticleData *particleTable,
         mom->yy, mom->yz, mom->zz);
   }
 #endif
-
-  // if (p->rung < activeRung) return; // only for multistepping
 
   ax = 0.0f;
   ay = 0.0f;
@@ -2783,8 +2781,8 @@ __global__ void EwaldBottomKernel(GravityParticleData *particleTable, int nPart)
 
   mom = &(cachedData->mm); 
 
-  id = blockIdx.x * BLOCK_SIZE + threadIdx.x + 1;
-  if (id > nPart) {
+  id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+  if (id >= nPart) {
     return;
   }
   p = &(particleTable[id]);
