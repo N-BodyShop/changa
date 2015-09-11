@@ -302,41 +302,6 @@ void TreePiece::loadTipsy(const std::string& filename,
   contribute(cb);
 }
 
-/// @brief read iOrder file
-void TreePiece::readIOrd(const std::string& filename, const CkCallback& cb)
-{
-    CmiInt8 nMaxOrd[3] = {0, 0, 0}; // 0 -> gas, 1 -> dark, 2 -> all
-
-    if(nStartRead >= 0) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
-        int64_t nTot;
-        int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
-        CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            int64_t dummy;
-            nread = fscanf(fp, "%ld\n", &dummy);
-            CkAssert(nread == 1);
-            }
-        for(int i = 0; i < myNumParticles; i++) {
-            int64_t dummy;
-            nread = fscanf(fp, "%ld\n", &dummy);
-            CkAssert(nread == 1);
-            myParticles[i+1].iOrder = dummy;
-            if(dummy > nMaxOrd[0] && myParticles[i+1].isGas())
-                nMaxOrd[0] = dummy;
-            if(dummy > nMaxOrd[1] && myParticles[i+1].isDark())
-                nMaxOrd[1] = dummy;
-            if(dummy > nMaxOrd[2])
-                nMaxOrd[2] = dummy;
-            
-            }
-        CmiFclose(fp);
-        }
-    contribute(3*sizeof(CmiInt8), nMaxOrd, CkReduction::max_long, cb);
-    }
-
 /// @brief return maximum iOrders.
 /// Like the above, but the file has already been read
 void TreePiece::getMaxIOrds(const CkCallback& cb)
@@ -356,286 +321,65 @@ void TreePiece::getMaxIOrds(const CkCallback& cb)
     contribute(3*sizeof(CmiInt8), nMaxOrd, CkReduction::max_long, cb);
     }
 
-/// @brief read iGasOrder file
-void TreePiece::readIGasOrd(const std::string& filename, const CkCallback& cb)
+void TreePiece::readTipsyArray(OutputParams& params, const CkCallback& cb)
 {
-    if(nStartRead >= 0 && myNumStar > 0) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
-        int64_t nTot;
-        int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
-        CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            int64_t dummy;
-            nread = fscanf(fp, "%ld\n", &dummy);
-            CkAssert(nread == 1);
+    params.dm = dm; // pass cooling information
+    FILE *infile = CmiFopen((params.fileName+"." + params.sTipsyExt).c_str(),
+                            "r+");
+    CkAssert(infile != NULL);
+    // Check if its a binary file
+    unsigned int iDum;
+    XDR xdrs;
+    xdrstdio_create(&xdrs, infile, XDR_DECODE);
+    xdr_u_int(&xdrs,&iDum);
+    xdr_destroy(&xdrs);
+    if(iDum == nTotalParticles) { // We've got a binary file; read it
+        int64_t seek_pos;
+        seek_pos = sizeof(iDum) + nStartRead*(int64_t)sizeof(float);
+        fseek(infile, seek_pos, SEEK_SET);
+        xdrstdio_create(&xdrs, infile, XDR_DECODE);
+        for(unsigned int i = 0; i < myNumParticles; ++i) {
+            if(params.bFloat) {
+                float dValue;
+                xdr_float(&xdrs, &dValue);
+                params.setDValue(&myParticles[i+1], dValue);
+                }
+            else {
+                int iValue;
+                xdr_template(&xdrs, &iValue);
+                params.setIValue(&myParticles[i+1], iValue);
+                }
             }
-        for(int i = 0; i < myNumParticles; i++) {
-            int64_t dummy;
-            nread = fscanf(fp, "%ld\n", &dummy);
-            CkAssert(nread == 1);
-            if(myParticles[i+1].isStar())
-                myParticles[i+1].iGasOrder() = dummy;
-            }
-        CmiFclose(fp);
-        }
-    contribute(cb);
+        xdr_destroy(&xdrs);
     }
-
-/// @brief read OxMassFrac file
-void TreePiece::readOxMassFrac(const std::string& filename, const CkCallback& cb)
-{
-    if(nStartRead >= 0 && (myNumStar > 0 || myNumSPH > 0)) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
+    else {                      // assume we've got an ASCII file
         int64_t nTot;
+        fseek(infile, 0, SEEK_SET);
         int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
+        nread = fscanf(infile, "%ld\n", &nTot);
         CkAssert(nread == 1);
         for(int i = 0; i < nStartRead; i++) {
             double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
+            nread = fscanf(infile, "%lf\n", &dummy);
             CkAssert(nread == 1);
             }
         for(int i = 0; i < myNumParticles; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            if(myParticles[i+1].isGas())
-                myParticles[i+1].fMFracOxygen() = dummy;
-            if(myParticles[i+1].isStar())
-                myParticles[i+1].fStarMFracOxygen() = dummy;
+            if(params.bFloat) {
+                double dDummy;
+                nread = fscanf(infile, "%lf\n", &dDummy);
+                CkAssert(nread == 1);
+                params.setDValue(&myParticles[i+1], dDummy);
+                }
+            else {
+                int64_t iDummy;
+                nread = fscanf(infile, "%ld\n", &iDummy);
+                CkAssert(nread == 1);
+                params.setIValue(&myParticles[i+1], iDummy);
+                }
             }
-        CmiFclose(fp);
         }
-    contribute(cb);
-    }
-
-/// @brief read FeMassFrac file
-void TreePiece::readFeMassFrac(const std::string& filename, const CkCallback& cb)
-{
-    if(nStartRead >= 0 && (myNumStar > 0 || myNumSPH > 0)) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
-        int64_t nTot;
-        int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
-        CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            }
-        for(int i = 0; i < myNumParticles; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            if(myParticles[i+1].isGas())
-                myParticles[i+1].fMFracIron() = dummy;
-            if(myParticles[i+1].isStar())
-                myParticles[i+1].fStarMFracIron() = dummy;
-            }
-        CmiFclose(fp);
-        }
-    contribute(cb);
-    }
-
-/// @brief read ESNRate file
-void TreePiece::readESNrate(const std::string& filename, const CkCallback& cb)
-{
-    if(nStartRead >= 0 && (myNumStar > 0 || myNumSPH > 0)) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
-        int64_t nTot;
-        int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
-        CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            }
-        for(int i = 0; i < myNumParticles; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            if(myParticles[i+1].isGas())
-                myParticles[i+1].fESNrate() = dummy;
-            if(myParticles[i+1].isStar())
-                myParticles[i+1].fStarESNrate() = dummy;
-            }
-        CmiFclose(fp);
-        }
-    contribute(cb);
-    }
-
-/// @brief read Formation Mass file
-void TreePiece::readMassForm(const std::string& filename, const CkCallback& cb)
-{
-    if(nStartRead >= 0 && myNumStar > 0) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
-        int64_t nTot;
-        int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
-        CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            }
-        for(int i = 0; i < myNumParticles; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            if(myParticles[i+1].isStar())
-                myParticles[i+1].fMassForm() = dummy;
-            }
-        CmiFclose(fp);
-        }
-    contribute(cb);
-    }
-
-/// @brief read coolontime file
-void TreePiece::readCoolOnTime(const std::string& filename, const CkCallback& cb)
-{
-    if(nStartRead >= 0 && myNumSPH > 0) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
-        int64_t nTot;
-        int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
-        CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            }
-        for(int i = 0; i < myNumParticles; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            if(myParticles[i+1].isGas())
-                myParticles[i+1].fTimeCoolIsOffUntil() = dummy;
-            }
-        CmiFclose(fp);
-        }
-    contribute(cb);
-    }
-
-/// @brief read CoolArray file
-void TreePiece::readCoolArray0(const std::string& filename, const CkCallback& cb)
-{
-#ifndef COOLING_NONE
-    if(nStartRead >= 0 && myNumSPH > 0) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
-        int64_t nTot;
-        int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
-        CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            }
-        for(int i = 0; i < myNumParticles; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            if(myParticles[i+1].isGas())
-                COOL_SET_ARRAY0(unused1,&myParticles[i+1].CoolParticle(),unused2, dummy);
-            }
-        CmiFclose(fp);
-        }
-#endif
-    contribute(cb);
-    }
-
-/// @brief read CoolArray file
-void TreePiece::readCoolArray1(const std::string& filename, const CkCallback& cb)
-{
-#ifndef COOLING_NONE
-    if(nStartRead >= 0 && myNumSPH > 0) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
-        int64_t nTot;
-        int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
-        CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            }
-        for(int i = 0; i < myNumParticles; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            if(myParticles[i+1].isGas())
-                COOL_SET_ARRAY1(unused1,&myParticles[i+1].CoolParticle(),unused2, dummy);
-            }
-        CmiFclose(fp);
-        }
-#endif
-    contribute(cb);
-    }
-/// @brief read CoolArray file
-void TreePiece::readCoolArray2(const std::string& filename, const CkCallback& cb)
-{
-#ifndef COOLING_NONE
-    if(nStartRead >= 0 && myNumSPH > 0) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
-        int64_t nTot;
-        int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
-        CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            }
-        for(int i = 0; i < myNumParticles; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            if(myParticles[i+1].isGas())
-                COOL_SET_ARRAY2(unused1,&myParticles[i+1].CoolParticle(),unused2,dummy);
-            }
-        CmiFclose(fp);
-        }
-#endif
-    contribute(cb);
-    }
-
-/// @brief read CoolArray file
-void TreePiece::readCoolArray3(const std::string& filename, const CkCallback& cb)
-{
-#ifndef COOLING_NONE
-    if(nStartRead >= 0 && myNumSPH > 0) {
-        FILE *fp = CmiFopen(filename.c_str(), "r");
-        CkAssert(fp != NULL);
-        int64_t nTot;
-        int nread;
-        nread = fscanf(fp, "%ld\n", &nTot);
-        CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            }
-        for(int i = 0; i < myNumParticles; i++) {
-            double dummy;
-            nread = fscanf(fp, "%lf\n", &dummy);
-            CkAssert(nread == 1);
-            if(myParticles[i+1].isGas())
-                COOL_SET_ARRAY3(unused1,&myParticles[i+1].CoolParticle(),unused2,dummy);
-            }
-        CmiFclose(fp);
-        }
-#endif
+        
+    CmiFclose(infile);
     contribute(cb);
     }
 
@@ -1709,6 +1453,9 @@ void TreePiece::ioShuffle(CkReductionMsg *msg)
     //
     int64_t *startParticle = iOrderBoundaries(numTreePieces, nMaxOrder);
 
+  double tpLoad = getObjTime();
+  populateSavedPhaseData(prevLARung, tpLoad, treePieceActivePartsTmp);
+
     if (myNumParticles > 0) {
 	// Particles have been sorted in reOrder()
     // Loop through sending particles to correct processor.
@@ -1718,6 +1465,7 @@ void TreePiece::ioShuffle(CkReductionMsg *msg)
 	for(binEnd = binBegin; binEnd->iOrder < startParticle[iPiece+1];
 	    binEnd++);
 	int nPartOut = binEnd - binBegin;
+  int saved_phase_len = savedPhaseLoad.size();
 	if(nPartOut > 0) {
 	    int nGasOut = 0;
 	    int nStarOut = 0;
@@ -1728,8 +1476,9 @@ void TreePiece::ioShuffle(CkReductionMsg *msg)
 		    nStarOut++;
 		}
 	    ParticleShuffleMsg *shuffleMsg
-		= new (0, 0, nPartOut, nGasOut, nStarOut)
-		ParticleShuffleMsg(0, nPartOut, nGasOut, nStarOut, 0.0);
+		= new (saved_phase_len, saved_phase_len, nPartOut, nGasOut, nStarOut)
+		ParticleShuffleMsg(saved_phase_len, nPartOut, nGasOut, nStarOut, 0.0);
+    memset(shuffleMsg->parts_per_phase, 0, saved_phase_len*sizeof(unsigned int));
 	    int iGasOut = 0;
 	    int iStarOut = 0;
 	    GravityParticle *pPartOut = shuffleMsg->particles;
@@ -1746,7 +1495,32 @@ void TreePiece::ioShuffle(CkReductionMsg *msg)
 			= *(extraStarData *)pPart->extraData;
 		    iStarOut++;
 		    }
+
+        for(int i = 0; i < saved_phase_len; i++) {
+          if (pPart->rung >= i) {
+            shuffleMsg->parts_per_phase[i] = shuffleMsg->parts_per_phase[i] + 1;
+          }
+        }
+        if(havePhaseData(PHASE_FEEDBACK)
+           && (pPart->isGas() || pPart->isStar()))
+            shuffleMsg->parts_per_phase[PHASE_FEEDBACK] += 1;
 		}
+      shuffleMsg->load = tpLoad * nPartOut / myNumParticles;
+      memset(shuffleMsg->loads, 0.0, saved_phase_len*sizeof(double));
+
+      // Calculate the partial load per phase
+      for (int i = 0; i < saved_phase_len; i++) {
+        if (havePhaseData(i) && savedPhaseParticle[i] != 0) {
+          shuffleMsg->loads[i] = savedPhaseLoad[i] *
+            (shuffleMsg->parts_per_phase[i] / (float) savedPhaseParticle[i]);
+        } else if (havePhaseData(0) && myNumParticles != 0) {
+          shuffleMsg->loads[i] = savedPhaseLoad[0] *
+            (shuffleMsg->parts_per_phase[i] / (float) myNumParticles);
+        }
+      }
+
+
+
 	    if (verbosity>=3)
 		CkPrintf("me:%d to:%d how many:%d\n",thisIndex, iPiece,
 			 (binEnd-binBegin));
@@ -1776,6 +1550,9 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     if(shuffleMsg != NULL) {
 	incomingParticlesMsg.push_back(shuffleMsg);
 	incomingParticlesArrived += shuffleMsg->n;
+  treePieceLoadTmp += shuffleMsg->load;
+  savePhaseData(savedPhaseLoadTmp, savedPhaseParticleTmp, shuffleMsg->loads,
+      shuffleMsg->parts_per_phase, shuffleMsg->nloads);
 	}
 
     if(verbosity > 2)
@@ -1786,6 +1563,15 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
       //I've got all my particles, now count them
     if(verbosity>1) ckout << thisIndex <<" got ioParticles"
 			  <<endl;
+
+    treePieceLoad = treePieceLoadTmp;
+    treePieceLoadTmp = 0.0;
+
+    savedPhaseLoad.swap(savedPhaseLoadTmp);
+    savedPhaseParticle.swap(savedPhaseParticleTmp);
+    savedPhaseLoadTmp.clear();
+    savedPhaseParticleTmp.clear();
+
     int nTotal = 0;
     int nSPH = 0;
     int nStar = 0;

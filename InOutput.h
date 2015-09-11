@@ -1045,7 +1045,7 @@ class IGasOrderOutputParams : public OutputParams
 	}
     virtual void setIValue(GravityParticle *p, int64_t iValue)
     {
-        p->iGasOrder() = iValue;
+        if(p->isStar()) p->iGasOrder() = iValue;
 	}
     virtual double dValue(GravityParticle *p) {CkAssert(0); return 0.0;}
     virtual Vector3D<double> vValue(GravityParticle *p)
