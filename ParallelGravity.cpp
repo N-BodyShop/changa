@@ -2407,6 +2407,9 @@ void Main::setupICs() {
 #if M6KERNEL == 1
   ofsLog << " M6KERNEL";
 #endif
+#ifdef SPLITGAS
+  ofsLog << " SPLITGAS";
+#endif
 #ifdef SUPERBUBBLE
   ofsLog << " SUPERBUBBLE";
 #endif
