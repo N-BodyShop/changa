@@ -947,6 +947,7 @@ void TreePiece::loadNChilada(const std::string& filename,
             myParticles[i+1].rung = 0;
             myParticles[i+1].fBall = 0.0;
             myParticles[i+1].iOrder = i + nStartRead;
+            myParticles[i+1].iNSIDMInteractions = 0;
 #ifdef SPLITGAS
             if(myParticles[i+1].iOrder >= nTotalSPH) myParticles[i+1].iOrder  += nTotalSPH;
 #endif
