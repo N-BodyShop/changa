@@ -3361,6 +3361,12 @@ void Main::writeOutput(int iStep)
                                              CkCallbackResumeThread());
                 }
             }
+        //SIDM
+        if(param.iSIDMSelect!=0) {
+            iNSIDMOutputParams pNSIDMOut(achFile, param.iBinaryOut, dOutTime);
+            outputBinary(pNSIDMOut, param.bParaWrite,
+                         CkCallbackResumeThread());
+            }
 	} else {
 #ifdef CULLENALPHA
         treeProxy[0].outputASCII(pAlphaOut, param.bParaWrite,
@@ -3434,8 +3440,6 @@ void Main::writeOutput(int iStep)
 		treeProxy[0].outputASCII(pIGasOrdOut, param.bParaWrite,
 					    CkCallbackResumeThread());
 	      }
-	
-
 	  }
         //SIDM
         if(param.iSIDMSelect!=0) {
