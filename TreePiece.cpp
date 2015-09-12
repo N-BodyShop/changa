@@ -1544,11 +1544,11 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
               double upnc52, up52, massFlux;
               upnc52 = pow(p->uHotPred(), 2.5);
               up52 = pow(p->uPred(), 2.5);
-              double fFactor = dDelta[p->rung]*dEvapCoeff*ph*3.1415;
+              double fFactor = duDelta[p->rung]*dEvapCoeff*ph*3.1415;
               /* The Saturation Coefficient S is related to the evaporation Coefficient C by:
                * C_{saturation} = \frac{6}{25}S \rho c_s h
                */
-              double massFluxSat = 0.24*(dDelta[p->rung]*dThermalCondSatCoeff*fDensity*sqrt((gammam1+1.0)*PoverRho)*ph*ph*3.1415);
+              double massFluxSat = 0.24*(duDelta[p->rung]*dThermalCondSatCoeff*fDensity*sqrt((gammam1+1.0)*PoverRho)*ph*ph*3.1415);
               if (p->uHotPred() > 0) CkAssert(massFluxSat > 0);
               massFlux = fFactor*(upnc52-up52);
               massFlux = (massFlux < massFluxSat ? massFlux : massFluxSat);
@@ -1597,7 +1597,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                       p->CoolParticle() = p->CoolParticleHot();
                       p->cpHotInit() = 0;
               }
-              double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(), p->fMetals());
+              double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticleHot(), p->uHotPred(), p->fMetals());
               if(TpNC < dMultiPhaseMinTemp && p->uHotPred() > 0)//Check to make sure the hot phase is still actually hot
               {
                      p->uPred() = (p->uPred()*(p->mass-p->massHot()) + p->uHotPred()*p->massHot())/p->mass;
