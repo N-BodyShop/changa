@@ -3363,9 +3363,11 @@ void Main::writeOutput(int iStep)
             }
         //SIDM
         if(param.iSIDMSelect!=0) {
+#ifdef SIDMINTERACT
             iNSIDMOutputParams pNSIDMOut(achFile, param.iBinaryOut, dOutTime);
             outputBinary(pNSIDMOut, param.bParaWrite,
                          CkCallbackResumeThread());
+#endif
             }
 	} else {
 #ifdef CULLENALPHA
@@ -3443,9 +3445,11 @@ void Main::writeOutput(int iStep)
 	  }
         //SIDM
         if(param.iSIDMSelect!=0) {
+#ifdef SIDMINTERACT
             iNSIDMOutputParams pNSIDMOut(achFile, param.iBinaryOut, dOutTime);
             treeProxy[0].outputASCII(pNSIDMOut, param.bParaWrite,
                                           CkCallbackResumeThread());
+#endif
             }
 	}
       

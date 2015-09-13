@@ -277,7 +277,9 @@ public:
         int64_t iOrder;	///< Input order of particles; unique particle ID
         int rung;  ///< the current rung (greater means faster)
         unsigned int iType;	///< Bitmask to hold particle type information
+#ifdef SIDMINTERACT
         int iNSIDMInteractions; // SIDM number of interactions
+#endif
 #ifdef CHANGESOFT
 	cosmoType fSoft0;
 #endif
@@ -309,7 +311,6 @@ public:
 #ifdef __CHARMC__
 	void pup(PUP::er &p) {
           ExternalGravityParticle::pup(p);
-          p | iNSIDMInteractions; // SIDM
           p | key;
           p | velocity;
 	  p | treeAcceleration;
@@ -318,6 +319,9 @@ public:
       p | iOrder;
       p | rung;
 	  p | iType;
+#ifdef SIDMINTERACT
+          p | iNSIDMInteractions; // SIDM
+#endif
 #ifdef CHANGESOFT
 	  p | fSoft0;
 #endif

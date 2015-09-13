@@ -1266,11 +1266,17 @@ class iNSIDMOutputParams : public OutputParams
 {
     virtual int64_t iValue(GravityParticle *p)
     {
+#ifdef SIDMINTERACT
         return p->iNSIDMInteractions;
+#else
+        return 0;
+#endif
         }
     virtual void setIValue(GravityParticle *p, int64_t iValue) 
     {
+#ifdef SIDMINTERACT
       p->iNSIDMInteractions= iValue;
+#endif
       }
     virtual double dValue(GravityParticle *p) {CkAssert(0); return 0.0;}
     virtual Vector3D<double> vValue(GravityParticle *p) {CkAssert(0); return 0.0;} 
