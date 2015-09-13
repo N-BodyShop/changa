@@ -109,7 +109,9 @@ void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *
            }
 
         if (probability > ran) {
+#ifdef SIDMINTERACT
             p->iNSIDMInteractions += 1;
+#endif
             m1=p->mass; 
             m2=q->mass;
             mu=m1*m2/(m1+m2);

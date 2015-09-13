@@ -357,6 +357,19 @@ fi
 
 AC_SUBST([FLAG_RTFORCE])
 
+# SIDM interactions
+AC_ARG_ENABLE([sidminter],
+	[AS_HELP_STRING([--enable-sidminter], [enable accounting of SIDM interactions])],
+	[sidminter=yes], [sidminter=no])
+if test "$sidminter" = "yes" ; then
+    echo "SIDMINTERACT selected"
+    FLAG_SIDMINTERACT="-DSIDMINTERACT"
+else
+    FLAG_SIDMINTERACT=""
+fi
+
+AC_SUBST([FLAG_SIDMINTERACT])
+
 # Compiler flags
 AC_ARG_ENABLE([opts],
 	[AS_HELP_STRING([--enable-opts="options"], [Set compiler flags (override defaults)])],

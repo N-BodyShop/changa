@@ -632,6 +632,7 @@ NVCC_PATH
 CUDA_DIR
 LIBOBJS
 OPTS
+FLAG_SIDMINTERACT
 FLAG_RTFORCE
 FLAG_VSIGVISC
 FLAG_CULLENALPHA
@@ -726,6 +727,7 @@ enable_feedbacklimit
 enable_cullenalpha
 enable_vsigvisc
 enable_rtforce
+enable_sidminter
 enable_opts
 with_cuda
 with_cuda_sdk
@@ -1374,6 +1376,7 @@ Optional Features:
   --enable-cullenalpha    enable Cullen Dehnen artificial viscosity
   --enable-vsigvisc       enable alternative Monahan artificial viscosity
   --enable-rtforce        enable Richie-Thomas forces
+  --enable-sidminter      enable accounting of SIDM interactions
   --enable-opts="options" Set compiler flags (override defaults)
 
 Optional Packages:
@@ -4402,6 +4405,23 @@ if test "$rtforce" = "yes" ; then
     FLAG_RTFORCE="-DRTFORCE"
 else
     FLAG_RTFORCE=""
+fi
+
+
+
+# SIDM interactions
+# Check whether --enable-sidminter was given.
+if test "${enable_sidminter+set}" = set; then :
+  enableval=$enable_sidminter; sidminter=yes
+else
+  sidminter=no
+fi
+
+if test "$sidminter" = "yes" ; then
+    echo "SIDMINTERACT selected"
+    FLAG_SIDMINTERACT="-DSIDMINTERACT"
+else
+    FLAG_SIDMINTERACT=""
 fi
 
 

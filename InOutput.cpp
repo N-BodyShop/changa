@@ -303,7 +303,9 @@ void TreePiece::loadTipsy(const std::string& filename,
                         load_tipsy_star<double,double>(r, myParticles[i+1]);
                     iStar++;
 		}
+#ifdef SIDMINTERACT
 		myParticles[i+1].iNSIDMInteractions = 0;
+#endif
 		myParticles[i+1].rung = 0;
 		myParticles[i+1].fBall = 0.0;
 		myParticles[i+1].iOrder = i + startParticle;
@@ -947,7 +949,9 @@ void TreePiece::loadNChilada(const std::string& filename,
             myParticles[i+1].rung = 0;
             myParticles[i+1].fBall = 0.0;
             myParticles[i+1].iOrder = i + nStartRead;
+#ifdef SIDMINTERACT
             myParticles[i+1].iNSIDMInteractions = 0;
+#endif
 #ifdef SPLITGAS
             if(myParticles[i+1].iOrder >= nTotalSPH) myParticles[i+1].iOrder  += nTotalSPH;
 #endif
