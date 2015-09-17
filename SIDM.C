@@ -46,7 +46,7 @@ void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *
     double norm,vxcm,vycm,vzcm, m1,m2;
     double uvar,vvar;
     double sigma_classic, beta, term;  //velocity depedence terms
-    double Sigma;
+    double Sigma = 0.0;
 
     aDot=a*H;
     ih2 = invH2(p); //smoothing length, 1/h^2
@@ -64,13 +64,12 @@ void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *
         dvcosmo = sqrt(dvx*dvx + dvy*dvy + dvz*dvz); //relative velocity between particles
 	r2 = nnList[i].fKey*ih2;
 
-        Sigma=666;
         if (iSIDMSelect==1) 
             {
             Sigma=dSIDMSigma;
             }
 
-        if (iSIDMSelect==2) //classical cross section dSIDMVariable is break in km/s
+        else if (iSIDMSelect==2) //classical cross section dSIDMVariable is break in km/s
             {
             beta=M_PI*dSIDMVariable*dSIDMVariable/(dvcosmo*dvcosmo);
             if (beta < .1){
@@ -86,10 +85,12 @@ void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *
             Sigma=sigma_classic*dSIDMSigma; //convert to simulation units
             }
 
-        if (iSIDMSelect==3) //resonant cross section, dSIDMVariable is exponent value
+        else if (iSIDMSelect==3) //resonant cross section, dSIDMVariable is exponent value
 	    {
             Sigma=dSIDMSigma*pow(dvcosmo,dSIDMVariable);
 	    }
+        else
+            CkAbort("SIDM done with unknown cross section type (iSIDMSelect");
 
         //density in physical units? fNorm*KERNEL( r2 )*(p->mass)/(a*a*a)
         probability=Sigma*dvcosmo*dDelta*fNorm*KERNEL( r2 )*(q->mass)/(a*a*a*2.0);
