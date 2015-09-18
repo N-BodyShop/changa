@@ -3372,14 +3372,13 @@ void Main::addDelParticles()
     CountSetPart *counts = (CountSetPart *) msg->getData();
     CkAssert(msg->getSize() == numTreePieces*sizeof(*counts));
 
-    // Callback for neworder
-    CkCallbackResumeThread cb;
-
-    int iPiece = 0;
+    int iPiece;
+    /// This is large, but no larger than the counts message
+    NewMaxOrder *nMaxOrders = new NewMaxOrder[numTreePieces];
     for(iPiece = 0; iPiece < numTreePieces; iPiece++) {
-	treeProxy[counts[iPiece].index].newOrder(nMaxOrderGas+1,
-						 nMaxOrderDark+1,
-						 nMaxOrder+1, cb);
+	nMaxOrders[counts[iPiece].index].nMaxOrderGas = nMaxOrderGas+1;
+	nMaxOrders[counts[iPiece].index].nMaxOrderDark = nMaxOrderDark+1;
+	nMaxOrders[counts[iPiece].index].nMaxOrder = nMaxOrder+1;
 
 	nMaxOrderGas += counts[iPiece].nAddGas;
 	nMaxOrderDark += counts[iPiece].nAddDark;
@@ -3388,13 +3387,14 @@ void Main::addDelParticles()
 	nTotalDark += counts[iPiece].nAddDark - counts[iPiece].nDelDark;
 	nTotalStar += counts[iPiece].nAddStar - counts[iPiece].nDelStar;
 	}
-    nTotalParticles = nTotalSPH + nTotalDark + nTotalStar;
     delete msg;
+    treeProxy.newOrder(nMaxOrders, numTreePieces, CkCallbackResumeThread());
+    delete[] nMaxOrders;
+
+    nTotalParticles = nTotalSPH + nTotalDark + nTotalStar;
     if (verbosity)
 	CkPrintf("New numbers of particles: %d gas %d dark %d star\n",
 		 nTotalSPH, nTotalDark, nTotalStar);
-    
-    cb.thread_delay();
     treeProxy.setNParts(nTotalSPH, nTotalDark, nTotalStar,
 			CkCallbackResumeThread());
     }
