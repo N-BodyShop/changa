@@ -109,6 +109,20 @@ inline void operator|(PUP::er &p,DomainsDec &d) {
 
 class SmoothParams;
 
+///  Class for new maxOrder broadcast
+class NewMaxOrder
+{
+ public:
+    int64_t nMaxOrderGas;
+    int64_t nMaxOrderDark;
+    int64_t nMaxOrder;
+    void pup(PUP::er& p) {
+        p| nMaxOrderGas;
+        p| nMaxOrderDark;
+        p| nMaxOrder;
+        }
+    };
+
 #include "InOutput.h"
 
 #include "ParallelGravity.decl.h"
@@ -1622,8 +1636,7 @@ public:
   /// Count add/deleted particles, and compact main particle storage.
   void colNParts(const CkCallback &cb);
   /// Assign iOrders to recently added particles.
-  void newOrder(int64_t nStartSPH, int64_t nStartDark,
-		int64_t nStartStar, const CkCallback &cb);
+  void newOrder(const NewMaxOrder *nStarts, const int n, const CkCallback &cb) ;
   
   /// Update total particle numbers
   void setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,

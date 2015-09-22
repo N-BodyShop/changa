@@ -1902,10 +1902,15 @@ void TreePiece::colNParts(const CkCallback &cb)
  * Assign iOrders to recently added particles.
  * Also insure keys are OK
  */
-void TreePiece::newOrder(int64_t nStartSPH, int64_t nStartDark,
-			  int64_t nStartStar, const CkCallback &cb) 
+void TreePiece::newOrder(const NewMaxOrder *nStarts, const int n,
+			  const CkCallback &cb)
 {
     unsigned int i;
+    CkAssert(thisIndex < n);
+    int64_t nStartSPH = nStarts[thisIndex].nMaxOrderGas;
+    int64_t nStartDark = nStarts[thisIndex].nMaxOrderDark;
+    int64_t nStartStar = nStarts[thisIndex].nMaxOrder;
+
     boundingBox.reset();
     int iNewStars = 0;
     for(i = 1; i <= myNumParticles; ++i) {
