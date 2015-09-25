@@ -1537,7 +1537,7 @@ void kernelSelect(workRequest *wr) {
       cudaMemcpyToSymbol(cachedData, wr->bufferInfo[EWALD_READ_ONLY_DATA].hostBuffer, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice);
       EwaldTopKernel<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
         ((GravityParticleData*)devBuffers[wr->bufferInfo[PARTICLE_TABLE].bufferID],
-         wr->bufferInfo[PARTICLE_TABLE].size/sizeof(GravityParticleData) - 1);
+         wr->bufferInfo[PARTICLE_TABLE].size/sizeof(GravityParticleData));
 #ifdef CUDA_PRINT_ERRORS
       printf("TOP_EWALD_KERNEL: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
@@ -1549,7 +1549,7 @@ void kernelSelect(workRequest *wr) {
       EwaldBottomKernel<<<wr->dimGrid, wr->dimBlock, 
         wr->smemSize, kernel_stream>>>
           ((GravityParticleData *)devBuffers[wr->bufferInfo[PARTICLE_TABLE].bufferID],
-            wr->bufferInfo[PARTICLE_TABLE].size/sizeof(GravityParticleData) - 1);
+            wr->bufferInfo[PARTICLE_TABLE].size/sizeof(GravityParticleData));
 #ifdef CUDA_PRINT_ERRORS
       printf("BOTTOM_EWALD_KERNEL : %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
@@ -1567,8 +1567,19 @@ void kernelSelect(workRequest *wr) {
  * Kernels
  */
 
-#define GROUP(t)  ((t)/MAX_THREADS_PER_GROUP)
-#define GROUP_INDEX(t) ((t)%MAX_THREADS_PER_GROUP)
+/**
+ * @brief interaction between multipole moments and buckets of particles.
+ * @param particleCores Read-only properties of particles.
+ * @param particleVars Accumulators of accelerations etc. of particles.
+ * @param moments Multipole moments from which to calculate forces.
+ * @param ils Cells on the interaction list.  Each Cell has an index into
+ *            moments.
+ * @param ilmarks Indices into ils for each block.
+ * @param bucketStarts Indices into particleCores and particleVars
+ *                      for each block
+ * @param bucketSizes Size of the bucket for each block
+ * @param fPeriod Size of periodic boundary condition.
+ */
 
 // 2d thread blocks 
 #ifdef CUDA_2D_TB_KERNEL
@@ -2135,6 +2146,19 @@ __global__ void nodeGravityComputation(
 }
 #endif
 
+/**
+ * @brief interaction between source particles and buckets of particles.
+ * @param particleCores Read-only properties of target particles.
+ * @param particleVars Accumulators of accelerations etc. of target particles.
+ * @param sourceCores Properties of source particles.
+ * @param ils array of "cells": index into sourceCores and offset for each particle.
+ * @param ilmarks Indices into ils for each block.
+ * @param bucketStarts Indices into particleCores and particleVars
+ *                      for each block
+ * @param bucketSizes Size of the bucket for each block
+ * @param fPeriod Size of periodic boundary condition.
+ */
+ 
 #ifdef CUDA_2D_TB_KERNEL
 #define TRANSLATE_PART(x,y) (y*NODES_PER_BLOCK_PART+x)
 __global__ void particleGravityComputation(
