@@ -487,6 +487,8 @@ int DataManager::initInstrumentation(){
 }
 #endif
 
+/// @brief After all treepieces have registered, tranfer tree of entire node
+/// to GPU.
 void DataManager::serializeLocalTree(){
   CmiLock(__nodelock);
   treePiecesDone++;
