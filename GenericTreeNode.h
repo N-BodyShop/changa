@@ -128,7 +128,7 @@ class NodePool;
     int numBucketsBeneath;
     int startBucket;
 #ifdef CUDA
-    // index in nodeinfo array
+    /// index in moments array sent to GPU
     int nodeArrayIndex;
     int bucketArrayIndex;
     bool wasNeg;
