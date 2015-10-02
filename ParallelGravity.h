@@ -503,6 +503,7 @@ public:
 	int adjust(int iKickRung);
 	void rungStats();
 	void countActive(int activeRung);
+    void starCenterOfMass();
 	void calcEnergy(double, double, const char *);
 	void getStartTime();
 	void getOutTimes();
@@ -1655,6 +1656,7 @@ public:
   void rungStats(const CkCallback& cb);
   void countActive(int activeRung, const CkCallback& cb);
   void assignDomain(const CkCallback& cb);
+  void starCenterOfMass(const CkCallback& cb);
   void calcEnergy(const CkCallback& cb);
   /// add new particle
   void newParticle(GravityParticle *p);
