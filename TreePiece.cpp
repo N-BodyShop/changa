@@ -1393,6 +1393,33 @@ void Decomposer::checkin(){
 }
 #endif
 
+// Find the center of mass of the star particles.  This is needed for
+// cooling_planet, so that gas particles know how far they are from the central
+// star
+void TreePiece::starCenterOfMass(const CkCallback& cb) {
+    // Initialize sum of mass*position and mass.  In order to just contribute
+    // one variable, contain both these values in a single array.
+    //      dMassPos[0,1,2] = sum(m*{x,y,z})
+    //      dMassPos[3] = sum(m)
+    double dMassPos[4] = {0};
+
+    // Loop over all particles to sum mass and mass*position for only star
+    // particles
+    for (unsigned int i = 0; i < myNumParticles; ++i) {
+        GravityParticle *p = &myParticles[i+1];
+
+        if (TYPETest(p, TYPE_STAR)) {
+            // Loop over x,y,z
+            for (int j=0; j<3; ++j) {
+                dMassPos[j] += p->mass * p->position[j];
+            }
+            // Add particle  mass
+            dMassPos[3] += p->mass;
+        }
+    }
+    contribute(4*sizeof(double), dMassPos, CkReduction::sum_double, cb);
+}
+
 // Sum energies for diagnostics
 void TreePiece::calcEnergy(const CkCallback& cb) {
     double dEnergy[7]; // 0 -> kinetic; 1 -> virial ; 2 -> potential;
