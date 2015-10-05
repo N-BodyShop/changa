@@ -83,6 +83,13 @@ void freePinnedHostMemory(void *ptr){
 #endif
 }
 
+/// @brief queue work request to tranfer local moments and particles to GPU
+/// @param moments array of moments
+/// @param nMoments
+/// @param compactParts  Array of particles
+/// @param nCompactParts
+/// @param mype Only used for debugging
+/// @param wrCallback Callback after transfer is complete.
 #ifdef CUDA_INSTRUMENT_WRS
 void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase, void *wrCallback) {
 #else
