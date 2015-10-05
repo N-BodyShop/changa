@@ -755,7 +755,10 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
 
 }// end serializeNodes
 
+/// @brief gather local nodes and particles and send to GPU
+/// @param node Root of tree to walk.
 void DataManager::serializeLocal(GenericTreeNode *node){
+  /// queue for breadth first treewalk.
   CkQ<GenericTreeNode *> queue;
 
   int numTreePieces = registeredTreePieces.length();
@@ -788,6 +791,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   CkPrintf("[%d] DM local tree\n", CkMyPe());
   CkPrintf("*************\n");
 #endif
+  // Walk local tree
   queue.enq(node);
   while(!queue.isEmpty()){
     GenericTreeNode *node = queue.deq();
@@ -800,15 +804,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
     if(type == Empty || type == CachedEmpty){ // skip
       continue;
     }
-    else if(type == Bucket){ // Bu, follow pointer
-      // copy particles
-      // need both the node moments and the particles
-      NodeKey bucketKey = node->getKey();
-
-      // nodes
-      addNodeToList(node,localMoments,nodeIndex)
-    }
-    else if(type == NonLocalBucket){ // NLB
+    else if(type == Bucket || type == NonLocalBucket){ // NLB
       // don't need the particles, only the moments
       addNodeToList(node,localMoments,nodeIndex)
     }
