@@ -219,6 +219,7 @@ mainmodule ParallelGravity {
     entry void memoryStats(const CkCallback& cb);
     entry void resetReadOnly(Parameters param, const CkCallback &cb);
     entry void initStarLog(std::string _fileName, const CkCallback &cb);
+    entry void resumeRemoteChunk();
   };
 
 #ifdef CUDA
@@ -362,8 +363,8 @@ mainmodule ParallelGravity {
 		     bool buildTree, const CkCallback& cb);
     entry void calcEnergy(const CkCallback& cb);
     entry void colNParts(const CkCallback &cb);
-    entry [nokeep] void newOrder(const NewMaxOrder nStarts[n], const int n,
-			  const CkCallback &cb);
+    entry void newOrder(int64_t nStartSPH, int64_t nStartDark,
+		int64_t nStartStar, const CkCallback &cb);
     entry void setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
 		 int64_t _nTotalStar, const CkCallback &cb);
     entry void setSoft(const double dSoft, const CkCallback &cb);

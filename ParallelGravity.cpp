@@ -1610,7 +1610,8 @@ void Main::advanceBigStep(int iStep) {
 
     CkCallback cbGravity(CkCallback::resumeThread);
 #ifdef CUDA
-    dmHelperProxy.purgeBufferTables(CkCallbackResumeThread());
+     /* Not needed probably */
+    //dmHelperProxy.purgeBufferTables(CkCallbackResumeThread());
 #endif
     if(verbosity > 1)
 	memoryStats();
@@ -2241,7 +2242,6 @@ Main::initialForces()
       CkPrintf("Calculating gravity (theta = %f) ... ", theta);
       startTime = CkWallTimer();
       if(param.bConcurrentSph) {
-
 	  treeProxy.startGravity(0, theta, cbGravity);
 
 #ifdef CUDA_INSTRUMENT_WRS
@@ -2267,13 +2267,13 @@ Main::initialForces()
       }
   if(param.bDoGas) {
       initSph();
-      }
+  }
   
   if(param.bConcurrentSph && param.bDoGravity) {
       CkFreeMsg(cbGravity.thread_delay());
 	//ckout << "Calculating gravity and SPH took "
 	//      << (CkWallTimer() - startTime) << " seconds." << endl;
-        CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
+      CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
 #ifdef SELECTIVE_TRACING
         turnProjectionsOff();
 #endif
@@ -3289,13 +3289,14 @@ void Main::addDelParticles()
     CountSetPart *counts = (CountSetPart *) msg->getData();
     CkAssert(msg->getSize() == numTreePieces*sizeof(*counts));
 
-    int iPiece;
-    /// This is large, but no larger than the counts message
-    NewMaxOrder *nMaxOrders = new NewMaxOrder[numTreePieces];
+    // Callback for neworder
+    CkCallbackResumeThread cb;
+
+    int iPiece = 0;
     for(iPiece = 0; iPiece < numTreePieces; iPiece++) {
-	nMaxOrders[counts[iPiece].index].nMaxOrderGas = nMaxOrderGas+1;
-	nMaxOrders[counts[iPiece].index].nMaxOrderDark = nMaxOrderDark+1;
-	nMaxOrders[counts[iPiece].index].nMaxOrder = nMaxOrder+1;
+	treeProxy[counts[iPiece].index].newOrder(nMaxOrderGas+1,
+						 nMaxOrderDark+1,
+						 nMaxOrder+1, cb);
 
 	nMaxOrderGas += counts[iPiece].nAddGas;
 	nMaxOrderDark += counts[iPiece].nAddDark;
@@ -3304,14 +3305,13 @@ void Main::addDelParticles()
 	nTotalDark += counts[iPiece].nAddDark - counts[iPiece].nDelDark;
 	nTotalStar += counts[iPiece].nAddStar - counts[iPiece].nDelStar;
 	}
-    delete msg;
-    treeProxy.newOrder(nMaxOrders, numTreePieces, CkCallbackResumeThread());
-    delete[] nMaxOrders;
-
     nTotalParticles = nTotalSPH + nTotalDark + nTotalStar;
+    delete msg;
     if (verbosity)
 	CkPrintf("New numbers of particles: %d gas %d dark %d star\n",
 		 nTotalSPH, nTotalDark, nTotalStar);
+    
+    cb.thread_delay();
     treeProxy.setNParts(nTotalSPH, nTotalDark, nTotalStar,
 			CkCallbackResumeThread());
     }

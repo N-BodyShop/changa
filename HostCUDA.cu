@@ -83,17 +83,10 @@ void freePinnedHostMemory(void *ptr){
 #endif
 }
 
-/// @brief queue work request to tranfer local moments and particles to GPU
-/// @param moments array of moments
-/// @param nMoments
-/// @param compactParts  Array of particles
-/// @param nCompactParts
-/// @param mype Only used for debugging
-/// @param wrCallback Callback after transfer is complete.
 #ifdef CUDA_INSTRUMENT_WRS
-void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase, void *wrCallback) {
+void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase) {
 #else
-  void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, void *wrCallback) {
+  void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype) {
 #endif
 
 	workRequest transferKernel;
@@ -207,7 +200,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
           buf->hostBuffer = NULL;
         }
 
-	transferKernel.callbackFn = wrCallback;
+	transferKernel.callbackFn = 0;
 	transferKernel.id = DM_TRANSFER_LOCAL;
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("(%d) DM LOCAL TREE moments %d (%d) partcores %d (%d) partvars %d (%d)\n",
@@ -429,7 +422,7 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleM
         gravityKernel.compType = gravityKernel.id;
         gravityKernel.compPhase = data->phase; 
 #endif
-  enqueue(&gravityKernel);
+        enqueue(&gravityKernel);
 }
 
 void TreePieceCellListDataTransferBasic(CudaRequest *data, workRequest *gravityKernel){
@@ -1544,7 +1537,7 @@ void kernelSelect(workRequest *wr) {
       cudaMemcpyToSymbol(cachedData, wr->bufferInfo[EWALD_READ_ONLY_DATA].hostBuffer, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice);
       EwaldTopKernel<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
         ((GravityParticleData*)devBuffers[wr->bufferInfo[PARTICLE_TABLE].bufferID],
-         wr->bufferInfo[PARTICLE_TABLE].size/sizeof(GravityParticleData));
+         wr->bufferInfo[PARTICLE_TABLE].size/sizeof(GravityParticleData) - 1);
 #ifdef CUDA_PRINT_ERRORS
       printf("TOP_EWALD_KERNEL: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
@@ -1556,7 +1549,7 @@ void kernelSelect(workRequest *wr) {
       EwaldBottomKernel<<<wr->dimGrid, wr->dimBlock, 
         wr->smemSize, kernel_stream>>>
           ((GravityParticleData *)devBuffers[wr->bufferInfo[PARTICLE_TABLE].bufferID],
-            wr->bufferInfo[PARTICLE_TABLE].size/sizeof(GravityParticleData));
+            wr->bufferInfo[PARTICLE_TABLE].size/sizeof(GravityParticleData) - 1);
 #ifdef CUDA_PRINT_ERRORS
       printf("BOTTOM_EWALD_KERNEL : %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
@@ -1574,19 +1567,8 @@ void kernelSelect(workRequest *wr) {
  * Kernels
  */
 
-/**
- * @brief interaction between multipole moments and buckets of particles.
- * @param particleCores Read-only properties of particles.
- * @param particleVars Accumulators of accelerations etc. of particles.
- * @param moments Multipole moments from which to calculate forces.
- * @param ils Cells on the interaction list.  Each Cell has an index into
- *            moments.
- * @param ilmarks Indices into ils for each block.
- * @param bucketStarts Indices into particleCores and particleVars
- *                      for each block
- * @param bucketSizes Size of the bucket for each block
- * @param fPeriod Size of periodic boundary condition.
- */
+#define GROUP(t)  ((t)/MAX_THREADS_PER_GROUP)
+#define GROUP_INDEX(t) ((t)%MAX_THREADS_PER_GROUP)
 
 // 2d thread blocks 
 #ifdef CUDA_2D_TB_KERNEL
@@ -2153,19 +2135,6 @@ __global__ void nodeGravityComputation(
 }
 #endif
 
-/**
- * @brief interaction between source particles and buckets of particles.
- * @param particleCores Read-only properties of target particles.
- * @param particleVars Accumulators of accelerations etc. of target particles.
- * @param sourceCores Properties of source particles.
- * @param ils array of "cells": index into sourceCores and offset for each particle.
- * @param ilmarks Indices into ils for each block.
- * @param bucketStarts Indices into particleCores and particleVars
- *                      for each block
- * @param bucketSizes Size of the bucket for each block
- * @param fPeriod Size of periodic boundary condition.
- */
- 
 #ifdef CUDA_2D_TB_KERNEL
 #define TRANSLATE_PART(x,y) (y*NODES_PER_BLOCK_PART+x)
 __global__ void particleGravityComputation(
