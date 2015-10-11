@@ -6949,8 +6949,14 @@ if test "${with_cuda_level+set}" = set; then
   withval="$with_cuda_level"
   CUDA_LEVEL=$withval
 else
+<<<<<<< Upstream, based on master
   CUDA_LEVEL=10
 fi;
+=======
+  CUDA_LEVEL=30
+fi
+
+>>>>>>> 32a7759 Fix for smp changa, comment DataManagerHelper code
 
 # Set up boolean AC_SUBST variables for use in Make.
 for var in HAVE_CUDA HAVE_CUDA_SDK ENABLE_CUDA; do

@@ -158,7 +158,7 @@ public:
 
         void transferLocalTreeCallback();
 
-        void resumeRemoteChunk(bool receivedRemote);
+        void resumeRemoteChunk();
 #ifdef CUDA
         //void serializeNodes(GenericTreeNode *start, CudaMultipoleMoments *&postPrefetchMoments, CompactPartData *&postPrefetchParticles);
 		//void serializeNodes(GenericTreeNode *start);
