@@ -1638,7 +1638,7 @@ void Main::advanceBigStep(int iStep) {
 
     CkCallback cbGravity(CkCallback::resumeThread);
 #ifdef CUDA
-    dmHelperProxy.purgeBufferTables(CkCallbackResumeThread());
+    //dmHelperProxy.purgeBufferTables(CkCallbackResumeThread());
 #endif
     if(verbosity > 1)
 	memoryStats();

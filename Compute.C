@@ -1764,16 +1764,18 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
                 }
               }
 #endif
-              CkAssert(gpuIndex >= 0);
+          
+              if(gpuIndex >= 0){
 
               // put bucket in interaction list
-              Vector3D<cosmoType> &off = lpi.offset;
-              ILPart tilp(gpuIndex, encodeOffset(0, off.x, off.y, off.z), lpi.numParticles);
-              state->particleLists.push_back(b, tilp, state, tp);
-              if(state->partOffloadReady()){
-                // enough nodes to offload
-                sendPartInteractionsToGpu(state, tp);
-                resetCudaPartState(state);
+                Vector3D<cosmoType> &off = lpi.offset;
+                ILPart tilp(gpuIndex, encodeOffset(0, off.x, off.y, off.z), lpi.numParticles);
+                state->particleLists.push_back(b, tilp, state, tp);
+                if(state->partOffloadReady()){
+                  // enough nodes to offload
+                  sendPartInteractionsToGpu(state, tp);
+                  resetCudaPartState(state);
+                }
               }
             }
           }

@@ -89,11 +89,10 @@ void freePinnedHostMemory(void *ptr){
 /// @param compactParts  Array of particles
 /// @param nCompactParts
 /// @param mype Only used for debugging
-/// @param wrCallback Callback after transfer is complete.
 #ifdef CUDA_INSTRUMENT_WRS
-void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase, void *wrCallback) {
+void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase) {
 #else
-  void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, void *wrCallback) {
+  void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype) {
 #endif
 
 	workRequest transferKernel;
@@ -207,7 +206,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
           buf->hostBuffer = NULL;
         }
 
-	transferKernel.callbackFn = wrCallback;
+	transferKernel.callbackFn = 0;
 	transferKernel.id = DM_TRANSFER_LOCAL;
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("(%d) DM LOCAL TREE moments %d (%d) partcores %d (%d) partvars %d (%d)\n",
