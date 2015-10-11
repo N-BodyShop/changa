@@ -510,16 +510,14 @@ void DataManager::serializeLocalTree(){
 
 }
 
-void DataManager::resumeRemoteChunk(bool receivedRemote) {
+void DataManager::resumeRemoteChunk() {
   if(verbosity > 1) CkPrintf("[%d] resumeRemoteChunk registered: %d\n", CkMyPe(), registeredTreePieces.length());
 #ifdef CUDA
   int chunk = 0;
-  if (receivedRemote) {
-    chunk = currentChunkBuffers->chunk;
-    delete currentChunkBuffers->moments;
-    delete currentChunkBuffers->particles;
-    delete currentChunkBuffers;
-  }
+  chunk = currentChunkBuffers->chunk;
+  delete currentChunkBuffers->moments;
+  delete currentChunkBuffers->particles;
+  delete currentChunkBuffers;
 
 #ifdef CUDA_TRACE
     traceUserBracketEvent(CUDA_SER_TREE, starttime, CmiWallTimer());
@@ -532,10 +530,8 @@ void DataManager::resumeRemoteChunk(bool receivedRemote) {
 #if COSMO_PRINT_BK > 1
       CkPrintf("(%d) dm->%d\n", CkMyPe(), in);
 #endif
-      if (receivedRemote) {
-        treePieces[in].continueStartRemoteChunk(chunk);
-        treePieces[in].commenceCalculateGravityLocal();
-      }
+      treePieces[in].continueStartRemoteChunk(chunk);
+      treePieces[in].commenceCalculateGravityLocal();
     }
 #endif
 }
@@ -837,9 +833,9 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 
   // Transfer moments and particle cores to gpu
 #ifdef CUDA_INSTRUMENT_WRS
-  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, 0, activeRung, (void *) localTransferCallback);
+  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, 0, activeRung);
 #else
-  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, CkMyPe(), (void *) localTransferCallback);
+  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, CkMyPe());
 #endif
 
 }// end serializeLocal
@@ -1041,20 +1037,8 @@ void DataManagerHelper::transferLocalTreeCallback() {
 }
 
 void DataManagerHelper::transferRemoteChunkCallback() {
-
-  void **devBuffers = getdevBuffers();
-  void *remoteMoments = devBuffers[REMOTE_MOMENTS];
-  void *remoteParticleCores = devBuffers[REMOTE_PARTICLE_CORES];
-  int basePE = CkMyPe() - CkMyPe() % CkMyNodeSize();
-
-  for (int i = basePE; i < basePE + CkMyNodeSize(); i++) {
-    if (i != CkMyPe()) {
-      dmHelperProxy[i].populateDeviceBufferTable((intptr_t) remoteMoments, (intptr_t) remoteParticleCores);
-    }
-  }
-
-  dmHelperProxy[basePE].finishDevBufferSyncRemoteChunk();
-
+  DataManager *dm = (DataManager *) CkLocalNodeBranch(dataManagerID);
+  dm->resumeRemoteChunk();
 }
 
 void DataManagerHelper::finishDevBufferSync() {
@@ -1062,7 +1046,7 @@ void DataManagerHelper::finishDevBufferSync() {
   if (++countLocalPes == CkMyNodeSize() ) {
     countLocalPes = 0;
     DataManager *dm = (DataManager *) CkLocalNodeBranch(dataManagerID);
-    dm->resumeRemoteChunk(false);
+    dm->resumeRemoteChunk();
   }
 }
 
@@ -1070,7 +1054,7 @@ void DataManagerHelper::finishDevBufferSyncRemoteChunk() {
   if (++countSyncRemoteChunk == CkMyNodeSize() ) {
     countSyncRemoteChunk = 0;
     DataManager *dm = (DataManager *) CkLocalNodeBranch(dataManagerID);
-    dm->resumeRemoteChunk(true);
+    dm->resumeRemoteChunk();
   }
 }
 #endif
