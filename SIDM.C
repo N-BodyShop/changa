@@ -9,10 +9,19 @@
 #include "smooth.h"
 #include "SIDM.h"
 
+///
+/// @brief Main method to perform Self Interacting Dark Matter interactions
+/// @param dTime current simulation time
+/// @param dDelta timestep over which to calculate interactions
+/// @param activeRung timestep rung corresponding to dDelta
+///
 void Main::doSIDM(double dTime,double dDelta, int activeRung) { 
     if (param.iSIDMSelect!=0) {
+        double stime = CkWallTimer();
+        if(verbosity > 0) CkPrintf("SIDM interactions ... ");
         SIDMSmoothParams pSIDM(TYPE_DARK, activeRung, param.csm, dTime,param.dSIDMSigma, param.dSIDMVariable,param.iSIDMSelect,param.dDelta );  
         treeProxy.startSmooth(&pSIDM, 1, param.nSmooth, 0, CkCallbackResumeThread());         
+        if(verbosity > 0) CkPrintf("took %g seconds\n", CkWallTimer() - stime);
         }
     }
 

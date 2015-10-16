@@ -2003,14 +2003,12 @@ void Main::advanceBigStep(int iStep) {
     if(!param.bStaticTest) {
         // Closing Kick
         kick(true, activeRung, nextMaxRung, cbGravity, gravStartTime);
-        doSinks(dTime, RungToDt(param.dDelta, activeRung), activeRung);
-      //SIDM
-      //need to do a test on active rung?
+      //SIDM needs to check that it is on on active rung?
       if (activeRung == 0 ) {
 	doSIDM(dTime,RungToDt(param.dDelta, activeRung), activeRung);
 	}
-
-    }
+      doSinks(dTime, RungToDt(param.dDelta, activeRung), activeRung);
+      }
     else
         waitForGravity(cbGravity, gravStartTime, activeRung);
 
