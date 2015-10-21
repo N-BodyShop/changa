@@ -3088,7 +3088,12 @@ bool TreePiece::sendFillReqNodeWhenNull(CkCacheRequestMsg<KeyType> *msg) {
 /// \brief entry method to obtain the moments of a node
 void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
   GenericTreeNode *node = keyToNode(key);
-  if (node != NULL && (node->getType() == Empty || node->moments.totalMass > 0)) {
+  if (node != NULL
+      && node->getType() != NonLocalBucket  // If it's a non-local
+                                            // bucket, punt to real
+                                            // owner, because we need
+                                            // particle information
+      && (node->getType() == Empty || node->moments.totalMass > 0)) {
       CkEntryOptions opts;
       opts.setPriority((unsigned int) -100000000);
       streamingProxy[sender].receiveRemoteMoments(key, node->getType(),
@@ -3097,7 +3102,7 @@ void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
       return;
   }
 
-  // Check if this node is NULL and this TP range (last Particle < key firstKey)
+  // If this node is NULL and outside this TP range (last Particle < key firstKey)
   // and if so send it to my right neighbor.
   // If the TP first particle > key last key, then send it to my left neighbor.
   Key firstKey = Key(key);
@@ -3111,9 +3116,10 @@ void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
   lastKey &= ~mask;
   lastKey -= 1;
 
-  if (myParticles[myNumParticles].key < firstKey) {
+  if (myParticles[myNumParticles].key < firstKey
+      && thisIndex < numTreePieces-1) {
     streamingProxy[thisIndex+1].requestRemoteMoments(key, sender);
-  } else if (myParticles[1].key > lastKey) {
+  } else if (myParticles[1].key > lastKey && thisIndex > 0) {
     streamingProxy[thisIndex-1].requestRemoteMoments(key, sender);
   } else {
 
