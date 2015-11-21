@@ -2255,7 +2255,12 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
   case Binary_Oct:
   case Oct_Oct:
     Key bounds[2];
-    if (myNumParticles > 0) {
+    if(numTreePieces == 1) { // No need to share boundary information
+        contribute(0, NULL, CkReduction::nop,
+                   CkCallback(CkIndex_TreePiece::recvdBoundaries(0), thisProxy));
+        return;
+        }
+    if (myNumParticles > 0) {  
 #ifdef COSMO_PRINT
       CkPrintf("[%d] Keys: %016llx %016llx\n",thisIndex,myParticles[1].key,myParticles[myNumParticles].key);
 #endif
@@ -2279,9 +2284,6 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
         }
       }
     }
-    // If No particles assigned to this TreePiece send what we received from our
-    // left to our right neighbor and what we received from right send it to our
-    // left neighbor
     break;
   case Binary_ORB:
     // WARNING: ORB trees do not allow TreePieces to have 0 particles!
