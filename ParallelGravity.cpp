@@ -1523,7 +1523,7 @@ void Main::advanceBigStep(int iStep) {
         CkPrintf("Domain decomposition for star formation/feedback... ");
         sorter.startSorting(dataManagerID, ddTolerance,
                             CkCallbackResumeThread(), true);
-        CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+        CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
         CkPrintf("Load balancer for star formation/feedback... ");
         startTime = CkWallTimer();
         treeProxy.startlb(CkCallbackResumeThread(), PHASE_FEEDBACK);
