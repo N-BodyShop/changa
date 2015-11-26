@@ -2151,7 +2151,7 @@ void TreePiece::getCOMByType(int iType, const CkCallback& cb, int bLiveViz) {
 
 /// @brief structure for efficiently reading iOrders.
 struct SortStruct {
-  int iOrder;
+  int64_t iOrder;
   int iStore;
 };
 
@@ -2165,7 +2165,8 @@ int CompSortStruct(const void * a, const void * b) {
 void TreePiece::SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet) {
   int niOrder = 0, nSet = 0;
-  int iOrder, iOrderOld, nRet;
+  int64_t iOrder, iOrderOld;
+  int nRet;
   FILE *fp;
   int iss;
 
@@ -2174,7 +2175,7 @@ void TreePiece::SetTypeFromFileSweep(int iSetMask, char *file,
 
   iss = 0;
   iOrderOld = -1;
-  while ( (nRet=fscanf( fp, "%d\n", &iOrder )) == 1 ) {
+  while ( (nRet=fscanf( fp, "%ld\n", &iOrder )) == 1 ) {
 	niOrder++;
 	assert( iOrder > iOrderOld );
 	iOrderOld = iOrder;
