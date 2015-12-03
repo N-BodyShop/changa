@@ -2348,16 +2348,22 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
 #endif
       bounds[0] = myParticles[1].key;
       bounds[1] = myParticles[myNumParticles].key;
+      }
 
       int myPlace;
       if (dm == NULL)
         dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
       myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(),
           thisIndex) - dm->responsibleIndex.begin();
-      if (myPlace == dm->responsibleIndex.size()) myPlace = -2;
+      if (myPlace == dm->responsibleIndex.size()) { // outside range
+                                                    // of used TreePieces
+          contribute(0, NULL, CkReduction::nop,
+                     CkCallback(CkIndex_TreePiece::recvdBoundaries(0),
+                                thisProxy));
+          return;
+          }
 
-
-      if (myPlace != -2) {
+      if (myNumParticles > 0) {
         if (myPlace != 0) {
           thisProxy[dm->responsibleIndex[myPlace-1]].recvBoundary(bounds[0], RIGHT);
         }
@@ -2365,7 +2371,7 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
           thisProxy[dm->responsibleIndex[myPlace+1]].recvBoundary(bounds[1], LEFT);
         }
       }
-    }
+
     break;
   case Binary_ORB:
     // WARNING: ORB trees do not allow TreePieces to have 0 particles!
