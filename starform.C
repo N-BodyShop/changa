@@ -386,8 +386,8 @@ void StarLog::flush(void) {
     
 	for(int iLog = 0; iLog < seTab.size(); iLog++){
 	    StarLogEvent *pSfEv = &(seTab[iLog]);
-	    xdr_int(&xdrs, &(pSfEv->iOrdStar));
-	    xdr_int(&xdrs, &(pSfEv->iOrdGas));
+	    xdr_template(&xdrs, &(pSfEv->iOrdStar));
+	    xdr_template(&xdrs, &(pSfEv->iOrdGas));
 	    xdr_double(&xdrs, &(pSfEv->timeForm));
 	    xdr_double(&xdrs, &(pSfEv->rForm[0]));
 	    xdr_double(&xdrs, &(pSfEv->rForm[1]));
