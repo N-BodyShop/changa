@@ -489,7 +489,12 @@ void TreePiece::EwaldGPU() {
 #ifdef CUDA_INSTRUMENT_WRS
   EwaldHost(h_idata, (void *) cb, instrumentId, activeRung); 
 #else
-  EwaldHost(h_idata, (void *) cb, thisIndex); 
+  int myLocalIndex;
+  for(myLocalIndex = 0; this != dm->registeredTreePieces[myLocalIndex].treePiece;
+      myLocalIndex++);
+  CkAssert(myLocalIndex < dm->registeredTreePieces.length());
+  
+  EwaldHost(h_idata, (void *) cb, myLocalIndex); 
 #endif
 
 #endif
