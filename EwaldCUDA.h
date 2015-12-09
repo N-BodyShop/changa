@@ -5,15 +5,25 @@
 
 /* defines for Hybrid API buffer indices */ 
 
-#define PARTICLE_TABLE        0 
-#define EWALD_READ_ONLY_DATA  1
-#define EWALD_TABLE           2
+#define EWALD_READ_ONLY_DATA  0
+#define EWALD_TABLE           1
+/* This has to be larger than the first two because there will be one
+ * of these for each Chare on the node. */
+#define PARTICLE_TABLE        2 
+
+/* Defines for place in the bufferInfo array */
+#define PARTICLE_TABLE_IDX    0 
+#define EWALD_READ_ONLY_DATA_IDX  1
+#define EWALD_TABLE_IDX           2
 
 #define BUFFERS_PER_CHARE     3
 
 #define NEWH 80
 #define BLOCK_SIZE 128
-#define NUM_GRAVITY_BUFS 10
+
+/* See "defines for Hybrid API buffer indices" in HostCUDA.h for this
+ * number. */
+#define NUM_GRAVITY_BUFS 5
 
 /** @brief Data for the Ewald h loop in the CUDA kernel
  */
