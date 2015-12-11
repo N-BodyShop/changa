@@ -64,8 +64,8 @@ inline void Stfm::pup(PUP::er &p) {
 class StarLogEvent
 {
  public:
-    int iOrdStar;
-    int iOrdGas;
+    int64_t iOrdStar;
+    int64_t iOrdGas;
     double timeForm;
     Vector3D<double> rForm;
     Vector3D<double> vForm;

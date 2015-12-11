@@ -2098,7 +2098,7 @@ void TreePiece::getCOMByType(int iType, const CkCallback& cb, int bLiveViz) {
 
 /// @brief structure for efficiently reading iOrders.
 struct SortStruct {
-  int iOrder;
+  int64_t iOrder;
   int iStore;
 };
 
@@ -2112,7 +2112,8 @@ int CompSortStruct(const void * a, const void * b) {
 void TreePiece::SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet) {
   int niOrder = 0, nSet = 0;
-  int iOrder, iOrderOld, nRet;
+  int64_t iOrder, iOrderOld;
+  int nRet;
   FILE *fp;
   int iss;
 
@@ -2121,7 +2122,7 @@ void TreePiece::SetTypeFromFileSweep(int iSetMask, char *file,
 
   iss = 0;
   iOrderOld = -1;
-  while ( (nRet=fscanf( fp, "%d\n", &iOrder )) == 1 ) {
+  while ( (nRet=fscanf( fp, "%ld\n", &iOrder )) == 1 ) {
 	niOrder++;
 	assert( iOrder > iOrderOld );
 	iOrderOld = iOrder;
@@ -2283,22 +2284,33 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
   case Binary_Oct:
   case Oct_Oct:
     Key bounds[2];
-    if (myNumParticles > 0) {
+    if(numTreePieces == 1) { // No need to share boundary information
+        contribute(0, NULL, CkReduction::nop,
+                   CkCallback(CkIndex_TreePiece::recvdBoundaries(0), thisProxy));
+        return;
+        }
+    if (myNumParticles > 0) {  
 #ifdef COSMO_PRINT
       CkPrintf("[%d] Keys: %016llx %016llx\n",thisIndex,myParticles[1].key,myParticles[myNumParticles].key);
 #endif
       bounds[0] = myParticles[1].key;
       bounds[1] = myParticles[myNumParticles].key;
+      }
 
       int myPlace;
       if (dm == NULL)
         dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
       myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(),
           thisIndex) - dm->responsibleIndex.begin();
-      if (myPlace == dm->responsibleIndex.size()) myPlace = -2;
+      if (myPlace == dm->responsibleIndex.size()) { // outside range
+                                                    // of used TreePieces
+          contribute(0, NULL, CkReduction::nop,
+                     CkCallback(CkIndex_TreePiece::recvdBoundaries(0),
+                                thisProxy));
+          return;
+          }
 
-
-      if (myPlace != -2) {
+      if (myNumParticles > 0) {
         if (myPlace != 0) {
           thisProxy[dm->responsibleIndex[myPlace-1]].recvBoundary(bounds[0], RIGHT);
         }
@@ -2306,10 +2318,7 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
           thisProxy[dm->responsibleIndex[myPlace+1]].recvBoundary(bounds[1], LEFT);
         }
       }
-    }
-    // If No particles assigned to this TreePiece send what we received from our
-    // left to our right neighbor and what we received from right send it to our
-    // left neighbor
+
     break;
   case Binary_ORB:
     // WARNING: ORB trees do not allow TreePieces to have 0 particles!
