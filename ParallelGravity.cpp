@@ -3303,7 +3303,7 @@ void Main::addDelParticles()
 
     nTotalParticles = nTotalSPH + nTotalDark + nTotalStar;
     if (verbosity)
-	CkPrintf("New numbers of particles: %d gas %d dark %d star\n",
+	CkPrintf("New numbers of particles: %ld gas %ld dark %ld star\n",
 		 nTotalSPH, nTotalDark, nTotalStar);
     treeProxy.setNParts(nTotalSPH, nTotalDark, nTotalStar,
 			CkCallbackResumeThread());
