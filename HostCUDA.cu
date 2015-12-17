@@ -1087,6 +1087,8 @@ void kernelSelect(workRequest *wr) {
            (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
            ptr->fperiod
           );
+        cudaDeviceReset();
+        exit(0);
 #endif
 
 #ifdef CUDA_TRACE
@@ -1634,6 +1636,9 @@ __device__ __forceinline__ void ldg_moments(CudaMultipoleMoments &m, CudaMultipo
 #endif  
 }
 
+// we want to limit register usage to be 72 (by observing nvcc output)
+// since GK100 has 64K registers, max threads per SM = (64K/72)
+// then rounding down to multiple of 128 gives 896 
 __launch_bounds__(896,1)
 __global__ void nodeGravityComputation(
 		CompactPartData *particleCores,
