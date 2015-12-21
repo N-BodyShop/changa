@@ -2085,7 +2085,11 @@ int CheckForStop()
 void
 Main::restart() 
 {
-    registerCaches();
+#ifdef USE_SMP_CACHE
+    // registerCaches();
+    nodeCacheHandle_.coordinatorProxy = CProxy_CkSmpCoordinator<CkSmpCacheManager<KeyType> >::ckNew(nodeCacheHandle_.mcastGrpId, CkNumPes());
+    partCacheHandle_.coordinatorProxy = CProxy_CkSmpCoordinator<CkSmpCacheManager<KeyType> >::ckNew(partCacheHandle_.mcastGrpId, CkNumPes());
+#endif
 
     if(bIsRestarting) {
 	dSimStartTime = CkWallTimer();
@@ -2190,6 +2194,7 @@ Main::restart()
     else {
 	ofstream ofsCheck("lastcheckpoint", ios_base::trunc);
 	ofsCheck << bChkFirst << endl;
+        setupCaches();
 	if(iStop)
 	    CkExit();
 	else
@@ -2467,10 +2472,12 @@ Main::doSimulation()
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, false, CkCallbackResumeThread());
 	treeProxy[0].flushStarLog(CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
-  bIsRestarting = 0;
+        bIsRestarting = 0;
 #ifdef USE_SMP_CACHE
-  cacheNode.cleanupForCheckpoint();
-  cacheGravPart.cleanupForCheckpoint();
+        // cacheNode.cleanupForCheckpoint();
+        // cacheGravPart.cleanupForCheckpoint();
+        nodeCacheHandle_.coordinatorProxy.ckDestroy();
+        partCacheHandle_.coordinatorProxy.ckDestroy();
 #endif
 	CkCallback cb(CkIndex_TreePiece::restart(), treeProxy[0]);
 	CkStartCheckpoint(achCheckFileName.c_str(), cb);
