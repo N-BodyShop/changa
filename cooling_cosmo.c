@@ -357,6 +357,14 @@ void clRatesRedshift( COOL *cl, double zIn, double dTimeIn ) {
   return;
   }
 
+/* The following are self shielding correction tables based on the
+   results of Pontzen, Governato et al 2008.  Based solely on local
+   density, the HI, HeI and HeII photoionization rates from the UV
+   background reduced by the factors in these tables.  The array of
+   densities is unused, but documents the density dependence of the
+   factor arrays.
+ */
+
 double AP_log_den_mp_percm3[] = { -10.25, -9.75, -9.25, -8.75, -8.25, -7.75, -7.25,
 			    -6.75, -6.25, -5.75, -5.25, -4.75, -4.25, -3.75, 
 			    -3.25, -2.75, -2.25,
@@ -427,6 +435,9 @@ void clRates( COOL *cl, RATE *Rate, double T, double rho ) {
   Rate->Phot_HeI = cl->R.Rate_Phot_HeI;
   Rate->Phot_HeII = cl->R.Rate_Phot_HeII;
   if (cl->bSelfShield) {
+      /* Apply self shielding correction.  Note that density to array
+         index calculation needs to match the AP_log_den_mp_percm3 array
+         above. */
       double logen_B;
       logen_B = log10(rho*CL_B_gm);
       if (logen_B > 2.2499) {
