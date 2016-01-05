@@ -1087,8 +1087,6 @@ void kernelSelect(workRequest *wr) {
            (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
            ptr->fperiod
           );
-        cudaDeviceReset();
-        exit(0);
 #endif
 
 #ifdef CUDA_TRACE
