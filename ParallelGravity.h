@@ -497,7 +497,7 @@ public:
 	void setupICs();
 	void initialForces();
 	void doSimulation();
-	void restart();
+	void restart(CkCheckpointStatusMsg *msg);
 	void waitForGravity(const CkCallback &cb, double startTime);
         void advanceBigStep(int);
 	int adjust(int iKickRung);
@@ -1490,8 +1490,6 @@ public:
 #endif
           if (verbosity>1) ckout <<"Finished deallocation of treepiece "<<thisIndex<<endl;
 	}
-
-	void restart();
 
 	void setPeriodic(int nReplicas, Vector3D<double> fPeriod, int bEwald,
 			 double fEwCut, double fEwhCut, int bPeriod,

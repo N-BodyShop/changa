@@ -2054,7 +2054,7 @@ int CheckForStop()
 /// doSimulation() loop.
 
 void
-Main::restart() 
+Main::restart(CkCheckpointStatusMsg *msg)
 {
     if(bIsRestarting) {
 	dSimStartTime = CkWallTimer();
@@ -2157,6 +2157,9 @@ Main::restart()
 	mainChare.initialForces();
 	}
     else {
+        if(msg->status != CK_CHECKPOINT_SUCCESS)
+            CkAbort("Checkpoint failed! Is there a disk problem?\n");
+
 	ofstream ofsCheck("lastcheckpoint", ios_base::trunc);
 	ofsCheck << bChkFirst << endl;
 	if(iStop)
@@ -2164,15 +2167,7 @@ Main::restart()
 	else
 	    mainChare.doSimulation();
 	}
-    }
-
-/// For checkpointing, the restart callback needs to be an array entry,
-/// so we have a short entry that simply calls the main entry.
-
-void
-TreePiece::restart() 
-{
-    mainChare.restart();
+    delete msg;
     }
 
 ///
@@ -2437,8 +2432,8 @@ Main::doSimulation()
 	treeProxy[0].flushStarLog(CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
 	bIsRestarting = 0;
-	CkCallback cb(CkIndex_TreePiece::restart(), treeProxy[0]);
-	CkStartCheckpoint(achCheckFileName.c_str(), cb);
+	CkCallback cb(CkIndex_Main::restart(0), mainChare);
+	CkStartCheckpoint(achCheckFileName.c_str(), cb, true);
 	return;
     }
     if (iStop) break;

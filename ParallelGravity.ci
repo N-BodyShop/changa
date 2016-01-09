@@ -158,7 +158,7 @@ mainmodule ParallelGravity {
     entry [threaded] void setupICs();
     entry [threaded] void initialForces();
     entry [threaded] void doSimulation();
-    entry [threaded] void restart();
+    entry [threaded] void restart(CkCheckpointStatusMsg *msg);
     entry [threaded] void cbOpen(Ck::IO::FileReadyMsg *msg);
     entry void cbIOReady(Ck::IO::SessionReadyMsg *msg);
     entry void cbIOComplete(CkMessage *msg);
@@ -222,7 +222,6 @@ mainmodule ParallelGravity {
 
   array [1D] TreePiece {
     entry TreePiece();
-    entry void restart();
 
     // DEBUGGING
     entry void quiescence();
