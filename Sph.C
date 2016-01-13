@@ -194,9 +194,8 @@ int Main::ReadASCII(char *extension, int nDataPerLine, double *dDataOut)
 	sprintf(achFile, "%s.%s", param.achOutName, extension);
 	fp = fopen(achFile,"r");
 	if (!fp) {
-	    if (verbosity)
-		CkPrintf("WARNING: Could not open .%s input file:%s\n",
-			 extension,achFile);
+            CkPrintf("WARNING: Could not open .%s input file:%s\n",
+                      extension,achFile);
 	    return 0;
 	    }
 
