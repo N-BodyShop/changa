@@ -2068,6 +2068,8 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	prmAddParam(prm,"iWallRunTime",paramInt,&param.iWallRunTime,
 		    sizeof(int),"wall",
 		    "<Maximum Wallclock time (in minutes) to run> = 0 = infinite");
+        prmAddParam(prm, "killAt", paramInt, &killAt,
+		    sizeof(int),"killat", "Stop the simulation after this step");
 	prmAddParam(prm, "dTheta", paramDouble, &param.dTheta,
 		    sizeof(double), "theta", "Opening angle");
 	prmAddParam(prm, "dTheta2", paramDouble, &param.dTheta2,
@@ -3368,6 +3370,7 @@ void Main::pup(PUP::er& p)
     p | bDumpFrame;
     p | bChkFirst;
     p | sorter;
+    p | killAt;
     }
 
 
