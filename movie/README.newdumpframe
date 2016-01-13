@@ -1,0 +1,64 @@
+This version contains a new version of dumpframe, rewritten by Greg Stinson.
+Below are usage notes:
+
+The new code changes the director commands in what I hope is a sensible way.
+
+If you want all particles of a given species (gas, dark or star) to be
+a single color, there is one color command that you need to call for
+each particle species that you want to have drawn:
+
+color type r g b [gamma]
+
+where
+
+    type is gas, dark or star
+    r g b sets the color with varying strengths of red, green, and blue.
+    gamma scales the color to the brightness you want. Brighter requires
+          bigger numbers. The brightness is scaled to dMinGasMass. Numbers
+          from 1-50 have worked for me.
+
+To color particles of a given species based on some property (like
+temperature), instead use the colbyproperty command:
+
+colbyproperty type property min max
+
+where
+
+    type is gas, dark or star property can currently be
+         temperature, metals, timeform, udot, pressure (internal energy),
+         or age but more can easily be added
+         to the dfPropertyToOuttype function in dumpframe.C based on the
+         options available in the VecType function.
+    min and max are the minimum and maximum values of the property that you
+                want to have colored. Values outside these limits will go
+                to the extrema of the colormap. By default, the min and max
+                are in log. If you want to use a linear scale, you need to
+                add an additonal command line:
+    colloginterp off 
+
+The particles are colored by the property according to what is
+specified using the colormap command:
+
+colormap type mapname gamma
+
+where
+
+    type is gas, dark, or star
+    mapname is jet or hot, which are set in colortables.txt which is either
+            found in the directory where the simulation is running.  You
+            can add maps. The file has the format
+
+    mapname
+    value1 r1 g1 b1
+    value2 r2 g2 b2
+
+    Once dumpframe finds the mapname you entered, it then interpolates
+    the property value of your particle onto the colormap scale set by
+    the values and interpolates the color based on that value
+    interpolation. Your values and r, g, and b's can be whatever you
+    want. If you want particles to get brighter at one end of your
+    color map, you can make the values much brighter. For instance,
+    hot particles are often low density, so to be seen, they need to
+    be brighter as well as redder.  Example map files can be found in
+    data/colortables.txt
+

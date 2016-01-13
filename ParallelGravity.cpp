@@ -426,6 +426,10 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dhMinOverSoft",paramDouble,&param.dhMinOverSoft,
 		    sizeof(double),"hmin",
 		    "<Minimum h as a fraction of Softening> = 0.0");
+        param.dResolveJeans = 0.0;
+        prmAddParam(prm,"dResolveJeans",paramDouble,&param.dResolveJeans,
+                    sizeof(double),"resjeans",
+                    "<Fraction of pressure to resolve minimum Jeans mass> = 0.0");
 	param.bViscosityLimiter = 1;
 	prmAddParam(prm,"bViscosityLimiter",paramBool,&param.bViscosityLimiter,
 		    sizeof(int), "vlim","<Viscosity Limiter> = 1");
@@ -1872,8 +1876,11 @@ void Main::setupICs() {
   if(nTotalSPH > 0 && !param.bDoGas) {
       if(prmSpecified(prm, "bDoGas"))
 	  ckerr << "WARNING: SPH particles present and bDoGas is set off\n";
-      else
+      else {
 	  param.bDoGas = 1;
+          if(!prmSpecified(prm, "bSphStep"))
+              param.bSphStep = 1;
+          }
       }
   getStartTime();
   if(param.nSteps > 0) getOutTimes();
@@ -1951,6 +1958,12 @@ void Main::setupICs() {
 #endif
 #ifdef WENDLAND
   ofsLog << " WENDLAND";
+#endif
+#ifdef JEANSSOFT
+  ofsLog << " JEANSSOFT";
+#endif
+#ifdef JEANSSOFTONLY
+  ofsLog << " JEANSSOFTONLY";
 #endif
   ofsLog << endl;
   ofsLog << "# Key sizes: " << sizeof(KeyType) << " bytes particle "
@@ -2262,6 +2275,9 @@ Main::initialForces()
       treeProxy.initAccel(0, CkCallbackResumeThread());
       }
   if(param.bDoGas) {
+      // Get star center of mass
+      starCenterOfMass();
+      // Initialize SPH
       initSph();
       }
   
@@ -2368,6 +2384,7 @@ Main::doSimulation()
     
     if (verbosity) ckout << "Starting big step " << iStep << endl;
     startTime = CkWallTimer();
+    starCenterOfMass();
     advanceBigStep(iStep-1);
     double stepTime = CkWallTimer() - startTime;
     ckout << "Big step " << iStep << " took " << stepTime << " seconds."
@@ -2650,6 +2667,35 @@ Main::doSimulation()
   treeProxy.ckDestroy();
   CkWaitQD();
   CkExit();
+}
+/**
+ * @brief Main::starCenterOfMass Calculates the total mass and center of mass
+ * of all the star particles and saves them to all the available COOL structs.
+ *
+ * Requires that cooling for planets be enabled at compile time.
+ */
+void Main::starCenterOfMass()
+{
+#ifndef COOLING_NONE
+#ifdef COOLING_PLANET
+    CkReductionMsg *msg;
+    // Get the sums of (mass * pos) and (mass) of all the star particles
+    treeProxy.starCenterOfMass(CkCallbackResumeThread((void*&)msg));
+    double *dMassPos = (double *) msg->getData();
+
+    // Calculate the center of mass
+    double dCenterOfMass[4];
+    for (int i=0; i<3; ++i) {
+        dCenterOfMass[i] = dMassPos[i]/dMassPos[3];
+    }
+    // Record the total mass
+    dCenterOfMass[3] = dMassPos[3];
+    // Clean up
+    delete msg;
+    // Send center of mass to everyone
+    dMProxy.SetStarCM(dCenterOfMass, CkCallbackResumeThread());
+#endif
+#endif
 }
 
 ///
@@ -3043,6 +3089,7 @@ int Main::adjust(int iKickRung)
 		     param.dEtauDot, param.dDelta, 1.0/(a*a*a), a,
 		     0.0,  /* set to dhMinOverSoft if we implement
 			      Gasoline's LowerSoundSpeed. */
+                     param.dResolveJeans/a,
 		     param.bDoGas,
 		     CkCallbackResumeThread((void*&)msg));
 
@@ -3142,6 +3189,10 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 	char achFile[256];
 	
 	if (param.dDumpFrameStep > 0 || param.dDumpFrameTime > 0) {
+                if(param.iDirector < 1) {
+                    CkError("WARNING: DumpFrame parameters set, but iDirector is %d; DumpFrame is disabled\n", param.iDirector);
+                    return 0;
+                    }
 		bDumpFrame = 1;
 		int i;
 
@@ -3158,7 +3209,9 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 		    dfInitialize( &df[i], param.dSecUnit/SECONDSPERYEAR, 
 				  dTime, param.dDumpFrameTime, dStep, 
 				  param.dDumpFrameStep, param.dDelta, 
-				  param.iMaxRung, verbosity, achFile );
+                                  param.iMaxRung, verbosity, achFile,
+                                  param.bPeriodic, param.vPeriod);
+                    df[i]->duTFac = (param.dConstGamma-1)*param.dMeanMolWeight/param.dGasConst;
 		    }
 		    
 		/* Read in photogenic particle list */
@@ -3240,6 +3293,7 @@ void Main::DumpFrame(double dTime, double dStep)
 #endif
 
 		dExp = csmTime2Exp(param.csm,dTime);
+                in.dMinGasMass = param.stfm->dMinGasMass;
 		dfSetupFrame(df[i], dTime, dStep, dExp, com, &in, 0, 0 );
 
         CkReductionMsg *msgDF;

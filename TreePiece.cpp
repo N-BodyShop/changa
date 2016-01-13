@@ -1393,6 +1393,33 @@ void Decomposer::checkin(){
 }
 #endif
 
+// Find the center of mass of the star particles.  This is needed for
+// cooling_planet, so that gas particles know how far they are from the central
+// star
+void TreePiece::starCenterOfMass(const CkCallback& cb) {
+    // Initialize sum of mass*position and mass.  In order to just contribute
+    // one variable, contain both these values in a single array.
+    //      dMassPos[0,1,2] = sum(m*{x,y,z})
+    //      dMassPos[3] = sum(m)
+    double dMassPos[4] = {0};
+
+    // Loop over all particles to sum mass and mass*position for only star
+    // particles
+    for (unsigned int i = 0; i < myNumParticles; ++i) {
+        GravityParticle *p = &myParticles[i+1];
+
+        if (TYPETest(p, TYPE_STAR)) {
+            // Loop over x,y,z
+            for (int j=0; j<3; ++j) {
+                dMassPos[j] += p->mass * p->position[j];
+            }
+            // Add particle  mass
+            dMassPos[3] += p->mass;
+        }
+    }
+    contribute(4*sizeof(double), dMassPos, CkReduction::sum_double, cb);
+}
+
 // Sum energies for diagnostics
 void TreePiece::calcEnergy(const CkCallback& cb) {
     double dEnergy[7]; // 0 -> kinetic; 1 -> virial ; 2 -> potential;
@@ -1509,6 +1536,7 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
  * @param dAccFac Acceleration scaling for cosmology
  * @param dCosmoFac Cosmo scaling for Courant
  * @param dhMinOverSoft minimum smoothing parameter.
+ * @param dResolveJeans multiple of Jeans length to be resolved.
  * @param bDoGas We are calculating gas forces.
  * @param cb Callback function reduces currrent maximum rung
  */
@@ -1517,6 +1545,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 		       double dEta, double dEtaCourant, double dEtauDot,
 		       double dDelta, double dAccFac,
 		       double dCosmoFac, double dhMinOverSoft,
+                       double dResolveJeans,
 		       int bDoGas,
 		       const CkCallback& cb) {
   int iCurrMaxRung = 0;
@@ -1573,10 +1602,13 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      dTIdeal = dt;
 
 	  if (dEtauDot > 0.0 && p->PdV() < 0.0) { /* Prevent rapid adiabatic cooling */
-	      assert(p->u() > 0.0);
+	      assert(p->PoverRho2() > 0.0);
 	      // Use P/rho as internal energy estimate since "u" may
 	      // be driven to 0 with cooling.
-	      dt = dEtauDot*p->fDensity*p->PoverRho2()/fabs(p->PdV());
+              double dPoverRhoJeans = PoverRhoFloorJeans(dResolveJeans, p);
+              double uEff = dPoverRhoJeans/(GAMMA_JEANS-1)
+                  + p->fDensity*p->PoverRho2();
+	      dt = dEtauDot*uEff/fabs(p->PdV());
 	      if (dt < dTIdeal) 
 		  dTIdeal = dt;
 	      }
@@ -2165,28 +2197,24 @@ TreePiece::setTypeFromFile(int iSetMask, char *file, const CkCallback& cb)
 void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump) 
 {
     void *Image = dfDataProxy.ckLocalBranch()->Image;
-    //
-    // XXX The dump frame expects arrays of fixed structures.  This is
-    // incompatible with ChaNGa's design of having gas and star data
-    // as "decorations".  For now we copy the needed data from the
-    // decoration into an unused attribute of the base structure
-    // (GravityParticle) so it will be available to dumpframe.
-    // Fortunately, we have only one attribute to copy over
-    // (fTimeForm), and we have a temporary, dtGrav, that can be
-    // overloaded.
-    //
-    for (int i=1; i<=myNumParticles; ++i)
-	if(myParticles[i].isStar())
-	    myParticles[i].dtGrav = myParticles[i].fTimeForm();
-    
-    GravityParticle *p = &(myParticles[1]);
-
-    dfRenderParticlesInit( &in, TYPE_GAS, TYPE_DARK, TYPE_STAR,
-			   &p->position[0], &p->mass, &p->soft, &p->fBall,
-			   &p->iType,
-			   &p->dtGrav, // actually fTimeForm; see above
-			   p, sizeof(*p) );
-    dfRenderParticles( &in, Image, p, myNumParticles);
+    GravityParticle *p;
+    for (int i=1; i<=myNumParticles; ++i) {
+	p = &(myParticles[i]);
+	switch (in.iRender) {
+	case DF_RENDER_POINT: 
+	    dfRenderParticlePoint(&in, Image, p, dm);
+	    break;
+	case DF_RENDER_TSC:
+	    dfRenderParticleTSC( &in, Image, p, dm);
+	    break;
+	case DF_RENDER_SOLID:
+	    dfRenderParticleSolid( &in, Image, p, dm);
+	    break;
+	case DF_RENDER_SHINE: /* Not implemented -- just does point */
+	    dfRenderParticlePoint( &in, Image, p, dm);
+	    break;
+	    }
+	}
     
     if(!liveVizDump) 
 	contribute(cb);

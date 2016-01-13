@@ -368,11 +368,20 @@ romberg.c \
 runge.o: \
 
 dumpframe.o: \
-dumpframe.c \
+dumpframe.C \
+GravityParticle.h \
+ParallelGravity.h \
 config.h \
+DataManager.h \
+ParallelGravity.decl.h \
+Reductions.decl.h \
+Compute.h \
 
 dffuncs.o: \
-dffuncs.c \
+dffuncs.C \
+../utility/structures/SFC.h \
+../utility/structures/Vector3D.h \
+GravityParticle.h \
 
 moments.o: \
 moments.c \

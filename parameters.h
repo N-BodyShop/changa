@@ -69,6 +69,7 @@ typedef struct parameters {
     int nSmooth;
     COOLPARAM CoolParam;
     double dhMinOverSoft;
+    double dResolveJeans;
     double dMsolUnit;
     double dKpcUnit;
     double ddHonHLimit;
@@ -180,6 +181,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.bViscosityLimiter;
     p|param.iViscosityLimiter;
     p|param.dhMinOverSoft;
+    p|param.dResolveJeans;
     p|param.dMsolUnit;
     p|param.dKpcUnit;
     p|param.ddHonHLimit;

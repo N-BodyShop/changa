@@ -4511,6 +4511,239 @@ elif test "$cooling" = "cosmo" ; then
    echo "Cosmo cooling selected"
    FLAG_COOLING="-DCOOLING_COSMO"
    OBJECTS_COOLING="cooling_cosmo.o stiff.o"
+elif test "$cooling" = "grackle" ; then
+   echo "Grackle cooling selected"
+   FLAG_COOLING="-DCOOLING_GRACKLE"
+   OBJECTS_COOLING="cooling_grackle.o"
+   ac_cv_libhdf5="yes"
+
+{ $as_echo "$as_me:$LINENO: checking for H5Fcreate in -lhdf5" >&5
+$as_echo_n "checking for H5Fcreate in -lhdf5... " >&6; }
+if test "${ac_cv_lib_hdf5_H5Fcreate+set}" = set; then
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lhdf5  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char H5Fcreate ();
+int
+main ()
+{
+return H5Fcreate ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext && {
+	 test "$cross_compiling" = yes ||
+	 $as_test_x conftest$ac_exeext
+       }; then
+  ac_cv_lib_hdf5_H5Fcreate=yes
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_cv_lib_hdf5_H5Fcreate=no
+fi
+
+rm -rf conftest.dSYM
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:$LINENO: result: $ac_cv_lib_hdf5_H5Fcreate" >&5
+$as_echo "$ac_cv_lib_hdf5_H5Fcreate" >&6; }
+if test "x$ac_cv_lib_hdf5_H5Fcreate" = x""yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBHDF5 1
+_ACEOF
+
+  LIBS="-lhdf5 $LIBS"
+
+else
+  ac_cv_libhdf5=no
+fi
+
+   if test $ac_cv_libhdf5 = "no" ; then
+       { $as_echo "$as_me:$LINENO: WARNING: HDF5 library needed for Grackle, but not found" >&5
+$as_echo "$as_me: WARNING: HDF5 library needed for Grackle, but not found" >&2;};
+       { $as_echo "$as_me:$LINENO: WARNING: Try setting LDFLAGS environment with -L<hd5libdir>" >&5
+$as_echo "$as_me: WARNING: Try setting LDFLAGS environment with -L<hd5libdir>" >&2;};
+       exit
+   fi
+   ac_cv_libgrackle="yes"
+   { $as_echo "$as_me:$LINENO: checking for grackle.h" >&5
+$as_echo_n "checking for grackle.h... " >&6; }
+if test "${ac_cv_header_grackle_h+set}" = set; then
+  $as_echo_n "(cached) " >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#define CONFIG_BFLOAT_8
+
+
+#include <grackle.h>
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  ac_cv_header_grackle_h=yes
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_cv_header_grackle_h=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:$LINENO: result: $ac_cv_header_grackle_h" >&5
+$as_echo "$ac_cv_header_grackle_h" >&6; }
+
+
+   if test "$ac_cv_header_grackle_h" == no
+   then
+       { $as_echo "$as_me:$LINENO: WARNING: grackle header needed for Grackle, but not found" >&5
+$as_echo "$as_me: WARNING: grackle header needed for Grackle, but not found" >&2;}
+       { $as_echo "$as_me:$LINENO: WARNING: Try setting CPPFLAGS environment with -I <grackledir>" >&5
+$as_echo "$as_me: WARNING: Try setting CPPFLAGS environment with -I <grackledir>" >&2;}
+       exit
+   fi
+
+{ $as_echo "$as_me:$LINENO: checking for initialize_chemistry_data in -lgrackle" >&5
+$as_echo_n "checking for initialize_chemistry_data in -lgrackle... " >&6; }
+if test "${ac_cv_lib_grackle_initialize_chemistry_data+set}" = set; then
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lgrackle -lhdf5 $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char initialize_chemistry_data ();
+int
+main ()
+{
+return initialize_chemistry_data ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext && {
+	 test "$cross_compiling" = yes ||
+	 $as_test_x conftest$ac_exeext
+       }; then
+  ac_cv_lib_grackle_initialize_chemistry_data=yes
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_cv_lib_grackle_initialize_chemistry_data=no
+fi
+
+rm -rf conftest.dSYM
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:$LINENO: result: $ac_cv_lib_grackle_initialize_chemistry_data" >&5
+$as_echo "$ac_cv_lib_grackle_initialize_chemistry_data" >&6; }
+if test "x$ac_cv_lib_grackle_initialize_chemistry_data" = x""yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBGRACKLE 1
+_ACEOF
+
+  LIBS="-lgrackle $LIBS"
+
+else
+  ac_cv_libgrackle=no
+fi
+
+   if test $ac_cv_libgrackle = "no" ; then
+       { $as_echo "$as_me:$LINENO: WARNING: grackle library needed for Grackle, but not found" >&5
+$as_echo "$as_me: WARNING: grackle library needed for Grackle, but not found" >&2;};
+       { $as_echo "$as_me:$LINENO: WARNING: Try setting LDFLAGS environment with -L<gracklelibdir>" >&5
+$as_echo "$as_me: WARNING: Try setting LDFLAGS environment with -L<gracklelibdir>" >&2;};
+       { $as_echo "$as_me:$LINENO: WARNING: Also remember to set LD_LIBRARY_PATH when running, if grackle and hdf5 are dynamic libraries" >&5
+$as_echo "$as_me: WARNING: Also remember to set LD_LIBRARY_PATH when running, if grackle and hdf5 are dynamic libraries" >&2;};
+       exit
+   fi
 else
 	echo "Unknown cooling selected, using Adiabatic"
 	FLAG_COOLING="-DCOOLING_NONE"
