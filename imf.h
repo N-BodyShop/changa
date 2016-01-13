@@ -9,15 +9,30 @@
 // for copy constructors in inherited abstract classes and a
 // description of pure virtual functions
 
+/**
+ * @brief Interface class for initial mass function.
+ */
 class IMF : public PUP::able {
 
  public:
     IMF() {};
+    /** @brief return stars per unit logarithmic mass
+	@param mass in solar masses.
+     */
     virtual double returnimf(double mass) = 0;
+    /** @brief Charm++ requirement for passing polymorphic objects. */
     PUPable_abstract(IMF);
+    /** @brief Charm++ migrate constructor */
     IMF(CkMigrateMessage *m) : PUP::able(m) {}
+    /** @brief Charm++ Pack-UnPack method */
+    virtual void pup(PUP::er &p) = 0;
+    /** @brief Cumulative number of stars with mass greater than mass.
+	@param mass in solar masses */
     virtual double CumNumber(double mass) = 0;
+    /** @brief Cumulative mass of stars with mass greater than mass.
+	@param mass in solar masses */
     virtual double CumMass(double mass) = 0;
+    /** @brief copy IMF object */
     virtual IMF* clone() const = 0;
     ~IMF() {};
 };
@@ -52,7 +67,9 @@ class MillerScalo : public IMF {
 	a3=240.0;b3=-2.3;m3=10.0;/* they report in paper, so we leave it.*/
 	mmax=100.0;
 	} 
+    /** @brief Charm++ method for migrating derived classes */
     PUPable_decl(MillerScalo);
+    /** @brief Charm++ migration constructor */
     MillerScalo(CkMigrateMessage *m) : IMF(m) {}
     virtual double returnimf(double mass);
     virtual double CumNumber(double mass);
@@ -85,7 +102,9 @@ class Kroupa93 : public IMF {
 	a2=0.3029*log(10.0);b2=-1.2;m2=0.5; 
 	a3=0.3029*log(10.0); b3=-1.7; m3=1.0; 
 	mmax=100.0; }
+    /** @brief Charm++ method for migrating derived classes */
     PUPable_decl(Kroupa93);
+    /** @brief Charm++ migration constructor */
     Kroupa93(CkMigrateMessage *m) : IMF(m) {}
     virtual double returnimf(double mass);
     virtual double CumNumber(double mass);
@@ -100,6 +119,9 @@ class Kroupa93 : public IMF {
 	}
 };
 
+/**
+ * @brief Implement IMF from Kroupa 2001.
+ */
 class Kroupa01 : public IMF {
     double a1, b1, m1;
     double a2, b2, m2;
@@ -121,7 +143,9 @@ class Kroupa01 : public IMF {
 	a1=0.22038*2.0*log(10.0);b1=-0.3;m1=.08; 
 	a2=0.22038*log(10.0);b2=-1.3;m2=0.5; 
 	mmax=100.0; }
+    /** @brief Charm++ method for migrating derived classes */
     PUPable_decl(Kroupa01);
+    /** @brief Charm++ migration constructor */
     Kroupa01(CkMigrateMessage *m) : IMF(m) {}
     virtual double returnimf(double mass);
     virtual double CumNumber(double mass);
@@ -161,7 +185,9 @@ class Chabrier : public IMF {
     virtual double CumNumber(double mass);
     virtual double CumMass(double mass);
     virtual Chabrier* clone() const;
+    /** @brief Charm++ method for migrating derived classes */
     PUPable_decl(Chabrier);
+    /** @brief Charm++ migration constructor */
     Chabrier(CkMigrateMessage *m) : IMF(m) {}
     virtual void pup(PUP::er &p) {
 	PUP::able::pup(p);
