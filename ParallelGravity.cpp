@@ -858,6 +858,12 @@ Main::Main(CkArgMsg* m) {
 	    CkPrintf("WARNING: nReplicas set to non-zero value for non-periodic!\n");
 	    }
 	/*
+	 ** Warn that nReplicas is set to 0 for bPeriodic.
+	 */
+	if (param.bPeriodic && param.nReplicas == 0) {
+	    CkPrintf("WARNING: nReplicas set to zero value for periodic!\n");
+	    }
+	/*
 	 ** Determine the period of the box that we are using.
 	 ** Set the new d[xyz]Period parameters which are now used instead
 	 ** of a single dPeriod, but we still want to have compatibility
