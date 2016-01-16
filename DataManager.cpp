@@ -449,6 +449,7 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
     verbosity = param.iVerbosity;
     dExtraStore = param.dExtraStore;
     dMaxBalance = param.dMaxBalance;
+    dFracLoadBalance = param.dFracLoadBalance;
     nIOProcessor = param.nIOProcessor;
     theta = param.dTheta;
     thetaMono = theta*theta*theta*theta;

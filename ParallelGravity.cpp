@@ -84,6 +84,7 @@ unsigned int _yieldPeriod;
 DomainsDec domainDecomposition;
 double dExtraStore;		// fraction of extra particle storage
 double dMaxBalance;		// Max piece imbalance for load balancing
+double dFracLoadBalance;	// Min particles for doing load balancing
 int iGasModel; 			// For backward compatibility
 int peanoKey;
 GenericTrees useTree;
@@ -572,6 +573,10 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dMaxBalance",paramDouble,&param.dMaxBalance,
 		    sizeof(double), "maxbal",
 		    "Maximum piece ratio for load balancing");
+	param.dFracLoadBalance = 0.0001;
+	prmAddParam(prm,"dFracLoadBalance",paramDouble,&param.dFracLoadBalance,
+		    sizeof(double), "fraclb",
+		    "Minimum active particles for load balancing");
 	
 	bDumpFrame = 0;
 	df = NULL;
@@ -792,6 +797,7 @@ Main::Main(CkArgMsg* m) {
         thetaMono = theta*theta*theta*theta;
 	dExtraStore = param.dExtraStore;
 	dMaxBalance = param.dMaxBalance;
+	dFracLoadBalance = param.dFracLoadBalance;
 	_cacheLineDepth = param.cacheLineDepth;
 	verbosity = param.iVerbosity;
 	nIOProcessor = param.nIOProcessor;
@@ -2140,6 +2146,9 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	prmAddParam(prm,"dMaxBalance",paramDouble,&param.dMaxBalance,
 		    sizeof(double), "maxbal",
 		    "Maximum piece ratio for load balancing");
+	prmAddParam(prm,"dFracLoadBalance",paramDouble,&param.dFracLoadBalance,
+		    sizeof(double), "fraclb",
+		    "Minimum active particles for load balancing");
 	prmAddParam(prm, "dFracNoDomainDecomp", paramDouble,
 		    &param.dFracNoDomainDecomp, sizeof(double),"fndd",
 		    "Fraction of active particles for no new DD = 0.0");

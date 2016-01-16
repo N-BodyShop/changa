@@ -118,6 +118,7 @@ typedef struct parameters {
     int cacheLineDepth;
     double dExtraStore;
     double dMaxBalance;
+    double dFracLoadBalance;
     double dDumpFrameStep;
     double dDumpFrameTime;
     int iDirector;
@@ -229,6 +230,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.cacheLineDepth;
     p|param.dExtraStore;
     p|param.dMaxBalance;
+    p|param.dFracLoadBalance;
     p|param.dDumpFrameStep;
     p|param.dDumpFrameTime;
     p|param.iDirector;

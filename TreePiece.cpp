@@ -5184,7 +5184,7 @@ void TreePiece::startlb(CkCallback &cb, int activeRung){
 
 // This is called by startlb to check whether to call the load balancer
 void TreePiece::getParticleInfoForLB(int64_t active_part, int64_t total_part) {
-  bool doLB = ((float)active_part/total_part > 0.0001) ? true : false;
+  bool doLB = ((float)active_part/total_part > dFracLoadBalance) ? true : false;
   // Don't do LB
   if (!doLB) {
     setTreePieceLoad(lbActiveRung);
