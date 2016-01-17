@@ -370,6 +370,7 @@ mainmodule ParallelGravity {
     entry void getCoolingGasPressure(double gamma, double gammam1,
                                    double dResolveJeans,
 				   const CkCallback &cb);
+    entry void initRand(int iRand, const CkCallback &cb);
     entry void FormStars(Stfm param, double dTime, double dDelta, 
     	       		 double dCosmoFac, const CkCallback& cb);
     entry void flushStarLog(const CkCallback& cb);

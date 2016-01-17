@@ -27,9 +27,6 @@ void Fdbk::AddParams(PRM prm)
     strcpy(achIMF, "Kroupa93");
     prmAddParam(prm,"achIMF", paramString, &achIMF, 32, "achIMF",
 		"<IMF> = Kroupa93");
-    iRandomSeed = 1;
-    prmAddParam(prm,"iRandomSeed", paramInt, &iRandomSeed, sizeof(int),
-		"iRand", "<Feedback random Seed> = 1");
     sn.iNSNIIQuantum = 0;
     prmAddParam(prm,"iNSNIIQuantum", paramInt, &sn.iNSNIIQuantum, sizeof(int),
 		"snQuant", "<Min # SNII per timestep> = 0.");
