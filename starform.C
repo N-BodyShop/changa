@@ -60,6 +60,9 @@ void Stfm::AddParams(PRM prm)
     iStarFormRung = 0;
     prmAddParam(prm,"iStarFormRung", paramInt, &iStarFormRung,
 		sizeof(int), "iStarFormRung", "<Star Formation Rung> = 0");
+    iRandomSeed = 1;
+    prmAddParam(prm,"iRandomSeed", paramInt, &iRandomSeed, sizeof(int),
+		"iRand", "<Star formation random Seed> = 1");
     }
 
 /*
@@ -126,6 +129,12 @@ void Stfm::CheckParams(PRM prm, Parameters &param)
 		 dDeltaStarForm);
 	}
     }
+
+void TreePiece::initRand(int iRand, const CkCallback &cb)  
+{
+   srand(iRand + thisIndex);  // make each piece unique
+   contribute(cb);
+}
 
 ///
 /// form stars main method

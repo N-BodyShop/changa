@@ -1691,6 +1691,8 @@ public:
                                    double dDtCourantFac,
                                    double dResolveJeans,
 				   const CkCallback &cb);
+        /// @brief initialize random seed for star formation
+        void initRand(int iRand, const CkCallback &cb);
 	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
 		       const CkCallback& cb);
 	void flushStarLog(const CkCallback& cb);

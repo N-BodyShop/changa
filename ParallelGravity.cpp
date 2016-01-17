@@ -1906,8 +1906,10 @@ void Main::setupICs() {
   
   if(param.iStartStep) bIsRestarting = true;
 
-  if(param.bStarForm || param.bFeedback)
+  if(param.bStarForm || param.bFeedback) {
       param.stfm->CheckParams(prm, param);
+      treeProxy.initRand(param.stfm->iRandomSeed, CkCallbackResumeThread());
+      }
 
   if(param.bStarForm)
       initStarLog();
@@ -2171,6 +2173,8 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	    initCooling();
 	if(param.bStarForm)
 	    initStarLog();
+        if(param.bStarForm || param.bFeedback)
+            treeProxy.initRand(param.stfm->iRandomSeed, CkCallbackResumeThread());
 	mainChare.initialForces();
 	}
     else {

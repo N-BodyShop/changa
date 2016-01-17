@@ -29,6 +29,7 @@ class Stfm {
     double dMaxStarMass;	/* maximum mass star particle to form */
     int bGasCooling;		/* Can we call cooling for temperature */
  public:
+    int iRandomSeed;		/* seed for probability */
     double dMinGasMass;		/* minimum mass gas before we delete
 				   the particle. */
     double dDeltaStarForm;	/* timestep in system units */
@@ -43,6 +44,7 @@ class Stfm {
 inline void Stfm::pup(PUP::er &p) {
     p|dDeltaStarForm;
     p|iStarFormRung;
+    p|iRandomSeed;
     p|dGmUnit;
     p|dGmPerCcUnit;
     p|dSecUnit;
