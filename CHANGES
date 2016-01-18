@@ -1,3 +1,31 @@
+What's new in ChaNGa 3.2 (Since 3.1)
+
+===============================================================================
+
+General changes:
+
+- Move to Charm version 6.7.0
+
+- Restart from "tipsy binary" files.
+
+- More flexible "dumpframe" movie making.
+
+Physics Changes:
+
+- Grackle cooling module.
+
+- Jeans length pressure floor.
+
+Parallel performance changes:
+
+- More efficient smoothing cache.
+
+- Better scaling for tree build.
+
+- Better bookkeeping for multistep load balancing.
+
+===============================================================================
+
 What's new in ChaNGa 3.1 (Since 3.0)
 
 ===============================================================================
