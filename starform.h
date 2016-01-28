@@ -9,7 +9,6 @@
 /// Parameters and methods to implement star formation.
 class Stfm {
  private:
-    int iStarFormRung;		/* rung for star formation */
     double dGmUnit;		/* system mass in grams */
     double dGmPerCcUnit;	/* system density in gm/cc */
     double dSecUnit;		/* system time in seconds */
@@ -29,6 +28,7 @@ class Stfm {
     double dMaxStarMass;	/* maximum mass star particle to form */
     int bGasCooling;		/* Can we call cooling for temperature */
  public:
+    int iStarFormRung;		/* rung for star formation */
     int iRandomSeed;		/* seed for probability */
     double dMinGasMass;		/* minimum mass gas before we delete
 				   the particle. */
