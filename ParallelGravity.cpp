@@ -1400,6 +1400,11 @@ void Main::advanceBigStep(int iStep) {
       CkAssert(param.dDelta != 0.0);
       // Find new rung for active particles
       nextMaxRung = adjust(activeRung);
+      if((param.bStarForm || param.bFeedback)
+         && param.stfm->iStarFormRung > nextMaxRung)
+          nextMaxRung = param.stfm->iStarFormRung; // Force stepping at star
+                                                  // formation/feedback
+                                                  // interval.
       if(currentStep == 0) rungStats();
       if(verbosity) ckout << "MaxRung: " << nextMaxRung << endl;
 
@@ -1527,7 +1532,6 @@ void Main::advanceBigStep(int iStep) {
     /*
      * Form stars at user defined intervals
      */
-    double dTimeSF = RungToDt(param.dDelta, nextMaxRung);
     if((param.bStarForm || param.bFeedback)
        && param.stfm->isStarFormRung(activeRung)) {
         double startTime = CkWallTimer();
@@ -1540,9 +1544,9 @@ void Main::advanceBigStep(int iStep) {
         treeProxy.startlb(CkCallbackResumeThread(), PHASE_FEEDBACK);
         CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
         if(param.bStarForm)
-            FormStars(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
+            FormStars(dTime, param.stfm->dDeltaStarForm);
         if(param.bFeedback) 
-            StellarFeedback(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
+            StellarFeedback(dTime, param.stfm->dDeltaStarForm);
         }
 
     ckout << "\nStep: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
