@@ -2487,18 +2487,22 @@ Main::doSimulation()
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
           if(param.iBinaryOut == 6) {
               // Set up N-Chilada directory structure
-              CkAssert(safeMkdir(achFile.c_str()) == 0);
+              if(safeMkdir(achFile.c_str()) != 0);
+                  CkAbort("Can't create N-Chilada directories\n");
               if(nTotalSPH > 0) {
                     string dirname(string(achFile) + "/gas");
-                    CkAssert(safeMkdir(dirname.c_str()) == 0);
+                    if(safeMkdir(dirname.c_str()) != 0)
+                        CkAbort("Can't create N-Chilada directories\n");
                     }
               if(nTotalDark > 0) {
                     string dirname(string(achFile) + "/dark");
-                    CkAssert(safeMkdir(dirname.c_str()) == 0);
+                    if(safeMkdir(dirname.c_str()) != 0)
+                        CkAbort("Can't create N-Chilada directories\n");
                     }
               if(nTotalStar > 0) {
                     string dirname(string(achFile) + "/star");
-                    CkAssert(safeMkdir(dirname.c_str()) == 0);
+                    if(safeMkdir(dirname.c_str()) != 0)
+                        CkAbort("Can't create N-Chilada directories\n");
                     }
               }
 	  ckout << "Outputting densities ...";
@@ -2845,12 +2849,12 @@ void Main::writeOutput(int iStep)
 
     double duTFac = (param.dConstGamma-1)*param.dMeanMolWeight/param.dGasConst;
     
+    if(verbosity) {
+        ckout << "Writing binary file ...";
+        startTime = CkWallTimer();
+        }
     if(param.iBinaryOut != 6)
         {
-        if(verbosity) {
-            ckout << "Writing Tipsy file ...";
-            startTime = CkWallTimer();
-            }
         if(path_is_directory(achFile)) {
             CkError("WARNING: overwriting existing directory\n");
             delete_dir_tree(achFile);
@@ -2864,24 +2868,25 @@ void Main::writeOutput(int iStep)
             treeProxy[0].serialWrite(0, achFile, dOutTime, dvFac, duTFac,
                                      param.bDoublePos, param.bDoubleVel,
                                      param.bGasCooling, CkCallbackResumeThread());
-        if(verbosity)
-            ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-                  << endl;
         }
     else { // N-Chilada output
         // Set up N-Chilada directory structure
-        CkAssert(safeMkdir(achFile) == 0);
+        if(safeMkdir(achFile) != 0)
+            CkAbort("Can't create N-Chilada directories\n");
         if(nTotalSPH > 0) {
             string dirname(string(achFile) + "/gas");
-            CkAssert(safeMkdir(dirname.c_str()) == 0);
+            if(safeMkdir(dirname.c_str()) != 0)
+                CkAbort("Can't create N-Chilada directories\n");
             }
         if(nTotalDark > 0) {
             string dirname(string(achFile) + "/dark");
-            CkAssert(safeMkdir(dirname.c_str()) == 0);
+            if(safeMkdir(dirname.c_str()) != 0)
+                CkAbort("Can't create N-Chilada directories\n");
             }
         if(nTotalStar > 0) {
             string dirname(string(achFile) + "/star");
-            CkAssert(safeMkdir(dirname.c_str()) == 0);
+            if(safeMkdir(dirname.c_str()) != 0)
+                CkAbort("Can't create N-Chilada directories\n");
             }
         MassOutputParams pMassOut(achFile, param.iBinaryOut, dOutTime);
         outputBinary(pMassOut, param.bParaWrite, CkCallbackResumeThread());
@@ -2912,6 +2917,9 @@ void Main::writeOutput(int iStep)
             outputBinary(pTimeFormOut, param.bParaWrite, CkCallbackResumeThread());
             }
         }
+    if(verbosity)
+        ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+              << endl;
     
     if(verbosity) {
 	ckout << "Writing arrays ...";
