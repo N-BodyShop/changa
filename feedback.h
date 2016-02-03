@@ -5,7 +5,7 @@
 #include "supernova.h"
 #include "imf.h"
 #include "starlifetime.h"
-#define NFEEDBACKS 4
+#define NFEEDBACKS 5
 
 /**
  * @brief Class to return feedback effects.
@@ -63,6 +63,7 @@ class Fdbk : public PUP::able {
     int bSNTurnOffCooling;      /* turn off cooling or not */
     int bSmallSNSmooth;	/* smooth SN energy only over blast radius */
     int bShortCoolShutoff;      /* use snowplow time */
+    int bAGORAFeedback;         /* Replace stellar feedback with AGORA perscription */
     double dExtraCoolShutoff;      /* multiplicative factor for shutoff time */
     double dRadPreFactor;       /* McKee + Ostriker size constant in system units */
     double dTimePreFactor;      /* McKee + Ostriker time constant in system units */
@@ -100,6 +101,7 @@ inline Fdbk::Fdbk(const Fdbk& fb) {
     bSNTurnOffCooling = fb.bSNTurnOffCooling;
     bSmallSNSmooth = fb.bSmallSNSmooth;
     bShortCoolShutoff = fb.bShortCoolShutoff;
+    bAGORAFeedback = fb.bAGORAFeedback;
     dExtraCoolShutoff = fb.dExtraCoolShutoff;
     dRadPreFactor = fb.dRadPreFactor;
     dTimePreFactor = fb.dTimePreFactor;
@@ -122,6 +124,7 @@ inline void Fdbk::pup(PUP::er &p) {
     p | bSNTurnOffCooling;
     p | bSmallSNSmooth;
     p | bShortCoolShutoff;
+    p | bAGORAFeedback;
     p | dExtraCoolShutoff;
     p | dRadPreFactor;
     p | dTimePreFactor;
@@ -136,7 +139,8 @@ enum FBenum{
   FB_SNII=0,
   FB_SNIA,
   FB_WIND,
-  FB_UV
+  FB_UV,
+  FB_AGORA
 };
 
 #include "smoothparams.h"

@@ -57,6 +57,9 @@ void Fdbk::AddParams(PRM prm)
     prmAddParam(prm,"dMaxCoolShutoff", paramDouble, &dMaxCoolShutoff,
 		sizeof(double), "fbMaxCoolOff",
 		"<Maximum time to shutoff cooling in years> = 3e7");
+    bAGORAFeedback = 0;
+    prmAddParam(prm, "bAGORAFeedback", paramBool, &bAGORAFeedback, sizeof(int),
+            "bAGORAFeedback", "<Replace Type II and Ia supernovae with AGORA perscription> = 0");
 }
 
 void Fdbk::CheckParams(PRM prm, struct parameters &param)
@@ -166,11 +169,14 @@ void Main::StellarFeedback(double dTime, double dDelta)
 	if(verbosity > 1)
 	    CkPrintf("Total %s: %g\n", labels[i].c_str(), dTotals[i]);
 
-	if(fabs(dTotals[i] - dTotals2[i]) > 1e-12*(dTotals[i])) {
-	    CkError("ERROR: %s not conserved: %.15e != %.15e!\n",
-		    labels[i].c_str(), dTotals[i], dTotals2[i]);
-	    }
-	}
+    // Supress energy conservation warning if AGORA feedback is enabled
+    if (!param.feedback->bAGORAFeedback) {
+        if(fabs(dTotals[i] - dTotals2[i]) > 1e-12*(dTotals[i])) {
+            CkError("ERROR: %s not conserved: %.15e != %.15e!\n",
+                labels[i].c_str(), dTotals[i], dTotals2[i]);
+            }
+        }
+    }
 
     delete msgChk;
     delete msgChk2;
@@ -266,10 +272,25 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
 	case FB_UV:
 	    CalcUVFeedback(dTime, dDeltaYr, &fbEffects);
 	break;
+    case FB_AGORA:
+        if (bAGORAFeedback) {
+            sn.CalcAGORAFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
+            p->fNSN() = 0.0;
+        }
+        break;
 	default:
 	    CkAssert(0);
 	    }
 	
+    // Zero out all other feedback effects if AGORA feedback is enabled
+    if (bAGORAFeedback && j  != FB_AGORA) {
+        fbEffects.dMassLoss = 0.;
+        fbEffects.dEnergy = 0.;
+        fbEffects.dMetals = 0.;
+        fbEffects.dMIron = 0.;
+        fbEffects.dMOxygen = 0.;
+    }	
+
 	// Convert to system units
 	fbEffects.dMassLoss *= MSOLG/dGmUnit;
 	fbEffects.dEnergy /= dErgPerGmUnit;
@@ -304,7 +325,10 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     p->fSNMetals() = dTotMetals;
     p->fMIronOut() = dTotMIron;
     p->fMOxygenOut() = dTotMOxygen;
-    p->fStarESNrate() /= dDelta; /* convert to rate */
+
+   // Convert to a rate, except if we are using AGORA feedback   
+   if (!bAGORAFeedback)
+        p->fStarESNrate() /= dDelta;
 }
 
 void Fdbk::CalcWindFeedback(SFEvent *sfEvent, double dTime, /* current time in years */
@@ -391,6 +415,11 @@ void DistStellarFeedbackSmoothParams::initTreeParticle(GravityParticle *p1)
       p1->fMetals() *= p1->mass;    
       p1->fMFracOxygen() *= p1->mass;    
       p1->fMFracIron() *= p1->mass;    
+
+     if (fb.bAGORAFeedback) {
+        p1->u() *= p1->mass;
+        p1->uPred() *= p1->mass;
+      }
     }
     
     }
@@ -412,6 +441,11 @@ void DistStellarFeedbackSmoothParams::initSmoothCache(GravityParticle *p1)
     p1->fMetals() = 0.0;
     p1->fMFracOxygen() = 0.0;
     p1->fMFracIron() = 0.0;
+
+    if (fb.bAGORAFeedback) {
+      p1->u() = 0.0;
+      p1->uPred() = 0.0;
+    }
     }
 
 void DistStellarFeedbackSmoothParams::combSmoothCache(GravityParticle *p1,
@@ -429,6 +463,10 @@ void DistStellarFeedbackSmoothParams::combSmoothCache(GravityParticle *p1,
     p1->fMFracIron() += p2->fMFracIron;
     p1->fTimeCoolIsOffUntil() = max( p1->fTimeCoolIsOffUntil(),
 				     p2->fTimeCoolIsOffUntil );
+    if (fb.bAGORAFeedback) {
+     p1->u() += p2->u;
+     p1->uPred() += p2->uPred;
+    }
     }
 
 void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, pqSmoothNode *nList)
@@ -490,7 +528,12 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
 #else
 	weight = rs*fNorm_u*q->mass;
 #endif
-	if (p->fNSN() == 0.0) q->fESNrate() += weight*p->fStarESNrate();
+	if (p->fNSN() == 0.0) {
+	  if (fb.bAGORAFeedback) {
+  		q->u() += weight*p->fStarESNrate();
+		q->uPred() += weight*p->fStarESNrate();
+	  } else q->fESNrate() += weight*p->fStarESNrate();
+	}
 	q->fMetals() += weight*p->fSNMetals();
 	q->fMFracOxygen() += weight*p->fMOxygenOut();
 	q->fMFracIron() += weight*p->fMIronOut();
@@ -683,6 +726,10 @@ void DistStellarFeedbackSmoothParams::postTreeParticle(GravityParticle *p1)
 	p1->fMetals() /= p1->mass;    
 	p1->fMFracIron() /= p1->mass;    
 	p1->fMFracOxygen() /= p1->mass;    
+	if (fb.bAGORAFeedback) {
+		p1->u() /= p1->mass;
+		p1->uPred() /= p1->mass;
+	}
 	}
     
     }

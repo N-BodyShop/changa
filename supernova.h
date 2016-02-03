@@ -10,6 +10,14 @@ class FBEffects;
 /// Methods for calculating the number and feedback effects of supernova.
 class SN 
 {
+    double AGORAsnTime;         /* Time (in yr) at which to set off the single SN */
+    double AGORAsnPerMass;      /* Number of supernovae to set off per solar mass of star particle */
+    double AGORAgasLossPerSN;   /* Amount of gas (in Msun) to be ejected for one supernova */
+    double AGORAmetalLossPerSN; /* Amount of metals (in Msun) to be ejected for one supernova */
+    double AGORAmetalFracO;     /* Metal fraction of oxygen to be ejected during the event */
+    double AGORAmetalFracFe;    /* Metal fraction of iron to be ejected during the event */
+    double AGORAsnE;            /* Energy (erg) to be released from a single SN */
+
     double dMSNrem;		/* mass of SN remnant in M_sun */
     double dMSNIImin;		/* Minimum core collapse SN mass */
     double dMSNIImax;           /* Maximum core collapse SN mass */
@@ -31,6 +39,14 @@ class SN
     IMF *imf;
 
     SN() {
+    AGORAsnTime = 5.e6;
+    AGORAsnPerMass = 91.;
+    AGORAgasLossPerSN = 14.8;
+    AGORAmetalLossPerSN = 2.63;
+    AGORAmetalFracO = 0.098;
+    AGORAmetalFracFe = 0.43;
+    AGORAsnE = 1.0e51;
+
 	dMSNrem = 1.4;		/* mass of supernova remnant in solar masses 
                                  * Also used for SNIa ejected mass */
 	dMSNIImin = 8.0;	/* Mass above which stars supernova in solar
@@ -54,6 +70,8 @@ class SN
 				   models of the Milky Way (Francois
 				   et al 2004) */
 	}
+    void CalcAGORAFeedback(SFEvent *sfEvent, double dTime, double dDelta,
+              FBEffects *fbEffects);
     void CalcSNIIFeedback(SFEvent *sfEvent, double dTime, double dDelta, 
 			  FBEffects *fbEffects);
     void CalcSNIaFeedback(SFEvent *sfEvent,double dTime, 
