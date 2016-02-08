@@ -1884,7 +1884,7 @@ void Main::kick(bool bClosing, int iActiveRung, int nextMaxRung,
     double startTime = CkWallTimer();
     treeProxy.kick(iActiveRung, dKickFac, bClosing, param.bDoGas,
                    param.bGasIsothermal, duKick, (param.dConstGamma-1), param.dThermalCondCoeffCode*a,
-                   param.dThermalCondSatCoeff/a, param.feedback->dMultiPhaseMinTemp, 
+             param.dThermalCondSatCoeff/a, param.feedback->dMultiPhaseMaxTime, param.feedback->dMultiPhaseMinTemp, 
                    param.dEvapCoeffCode*a, CkCallbackResumeThread());
     double tKick = CkWallTimer() - startTime;
     timings[iActiveRung].tKick += tKick;

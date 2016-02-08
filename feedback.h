@@ -79,6 +79,7 @@ class Fdbk : public PUP::able {
     double dEarlyFeedbackFrac;  /* Fraction of SNe II to put in early feedback */
     double dFBInitialMassLoad;  /* Initial Mass Loading in Superbubble feedback*/
     double dMultiPhaseMinTemp;
+    double dMultiPhaseMaxTime;
     double dEarlyETotal;  /* Total E in early FB per solar mass of stars */
     IMF *imf;
 

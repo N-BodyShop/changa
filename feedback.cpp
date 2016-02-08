@@ -84,6 +84,10 @@ void Fdbk::AddParams(PRM prm)
 	prmAddParam(prm,"dMultiPhaseMinTemp",paramDouble,&dMultiPhaseMinTemp,
 				sizeof(double),"multitmin",
 				"<Temperature threshold to use multiphase feedback> = 1e6");
+	dMultiPhaseMaxTime = 4e8;
+	prmAddParam(prm,"dEvapMinTemp",paramDouble,&dMultiPhaseMaxTime,
+				sizeof(double),"evaptmax",
+				"<Absolute maximum lifetime for multiphase (yrs)> = 4e8");
 #ifdef SPLITGAS
 	dInitGasMass = -1;
 	prmAddParam(prm,"dInitGasMass", paramDouble, &dInitGasMass,
@@ -153,6 +157,7 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
 	    pow(0.0001*GCGS*pow(MSOLG*param.dMsolUnit,2)/(pow(KPCCM*param.dKpcUnit,4)*KBOLTZ),-0.70);
 	}
     dMaxCoolShutoff *= SECONDSPERYEAR/param.dSecUnit;
+    dMultiPhaseMaxTime *= SECONDSPERYEAR/param.dSecUnit;
     // Normalization of Early Feedback
     /// Total SNe ergs/solar mass of stars
     double dSNETotal = sn.dESN*(imf->CumNumber(sn.dMSNIImin)
