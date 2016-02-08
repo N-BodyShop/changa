@@ -1484,6 +1484,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
              double gammam1, // Adiabatic index - 1
              double dThermalCondCoeff, // Thermal conduction coefficient
              double dThermalCondSatCoeff,
+             double dMultiPhaseMaxTime,
              double dMultiPhaseMinTemp,
              double dEvapCoeff,
 		     const CkCallback& cb) {
@@ -1557,7 +1558,10 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                * If all the mass becomes hot, switch to being single-phase
                */
               if(massFlux > 0) { 
-                  
+                  if(dMultiPhaseMaxTime > 0) {
+                      double massFluxMin = duDelta[p->rung]*p->mass/dMultiPhaseMaxTime;
+                      massFlux = (massFlux > massFluxMin ? massFlux : massFluxMin);
+                  }
                   if(massFlux > (p->mass-p->massHot())) {
                       p->uPred() = (p->uPred()*(p->mass-p->massHot()) + p->uHotPred()*p->massHot())/p->mass;
                       p->u() = (p->u()*(p->mass-p->massHot()) + p->uHot()*p->massHot())/p->mass;
