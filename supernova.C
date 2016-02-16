@@ -20,10 +20,16 @@ double mod(double a, int b) {return (a-b*floor(a/b));}
  * Supernova module for GASOLINE
  */
 
-/*
- *  * Feedback algorithm to match the requirements of the AGORA project
- *   * See Paper 4, dataset 2 for details
- *    */
+/** @brief Feedback algorithm to match the requirements of the AGORA project
+ *   see paper 4, dataset 2 for details
+ *
+ *  @param sfEvent Reference to information about the formation event for the star particle
+ *  doing the feedback
+ *  @param dTime The current simulation time (in years)
+ *  @param dDelta The size of the next timestep (in years)
+ *  @param fbEffects Passes information about the feedback event (mass loss, energy and metal 
+ *  injection) back to the rest of the simulation
+ */
 void SN::CalcAGORAFeedback(SFEvent *sfEvent, double dTime, double dDelta, FBEffects *fbEffects)
 {
     double dNSNTypeII;
@@ -33,9 +39,9 @@ void SN::CalcAGORAFeedback(SFEvent *sfEvent, double dTime, double dDelta, FBEffe
     double dStarLtimeMax = dStarLtimeMin + dDelta;
 
     double dMtot = imf->CumMass(0.0)*sfEvent->dMass; /* total mass in stars integrated over IMF */
-	// Trigger one large supernova event at the specified time
+	/* Trigger one large supernova event at the specified time */
 	if (dStarLtimeMin < AGORAsnTime && dStarLtimeMax > AGORAsnTime) {
-		// Number of supernova events depends on the mass of the star particle
+		/* Number of supernova events depends on the mass of the star particle */
 		dNSNTypeII = dMtot/AGORAsnPerMass;
 
         fbEffects->dMassLoss = dNSNTypeII*AGORAgasLossPerSN;
