@@ -66,6 +66,19 @@ void HierarchOrbLB::GetObjsToMigrate(int toPe, double load, LDStats *stats,
   }
 }
 
+// only called on leaves
+CLBStatsMsg* HierarchOrbLB::AssembleStats()
+{
+#if CMK_LBDB_ON
+  CLBStatsMsg* msg = HybridBaseLB::AssembleStats();
+  // Reset the background time
+  msg->bg_walltime = 0.0;
+  return msg;
+#else
+  return NULL;
+#endif
+}
+
 void HierarchOrbLB::work(LDStats* stats) {
 #if CMK_LBDB_ON
   LevelData *lData = levelData[currentLevel];
