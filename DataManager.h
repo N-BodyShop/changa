@@ -201,6 +201,7 @@ public:
 	/// for which interval
 	/// @param bins number of particles in each interval.
 	void acceptFinalKeys(const SFC::Key* keys, const int* responsible, uint64_t* bins, const int n, const CkCallback& cb);
+  void acceptFinalKeysFromPrefixLB(CkReductionMsg *m);
 	void pup(PUP::er& p);
 
 #ifdef CUDA

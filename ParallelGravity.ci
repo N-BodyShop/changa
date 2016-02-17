@@ -203,6 +203,7 @@ mainmodule ParallelGravity {
 
     entry void acceptResponsibleIndex(const int responsible[n], const int n,
 				      const CkCallback& cb);
+    entry void acceptFinalKeysFromPrefixLB(CkReductionMsg *m);
     entry void acceptFinalKeys(const SFC::Key keys[n],
         const int responsible[n - 1],
         uint64_t bins[n - 1], const int n,
@@ -306,11 +307,17 @@ mainmodule ParallelGravity {
     entry void ioAcceptSortedParticles(ParticleShuffleMsg *);
     entry void assignKeys(CkReductionMsg* m);
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
+    entry void donePrefixLB();
     entry void unshuffleParticles(CkReductionMsg* m);
     entry void acceptSortedParticles(ParticleShuffleMsg *);
     entry void unshuffleParticlesWoDD(const CkCallback& cb);
     entry void shuffleAfterQD();
     entry void acceptSortedParticlesFromOther(ParticleShuffleMsg *);
+
+    entry void startPrefixLB(const CkCallback& cb);
+    entry void getPrefixLoad(int ld);
+    entry void getAvgLd(double avgld);
+    entry void sendParticlesBasedOnPrefixLB(double avg);
 
     //ORB
     entry void initORBPieces(const CkCallback& cb);

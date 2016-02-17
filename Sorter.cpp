@@ -396,6 +396,21 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
 /**
  * Given "numKeys" node keys ("nodeKeys"), convert these keys into splitters.
  */
+ // buffer must have length >= sizeof(int) + 1
+ // Write to the buffer backwards so that the binary representation
+ // is in the correct order i.e.  the LSB is on the far right
+ // instead of the far left of the printed string
+char *int2bin(unsigned int a, char *buffer, int buf_size) {
+  buffer += (buf_size - 1);
+
+  for (int i = 127; i >= 0; i--) {
+    *buffer-- = (a & 1) + '0';
+
+    a >>= 1;
+  }
+
+  return buffer;
+}
 void Sorter::convertNodesToSplitters(){
   Key partKey;
 
@@ -411,6 +426,10 @@ void Sorter::convertNodesToSplitters(){
     partKey &= ~mask;
     if(partKey != 0) partKey--;
     splitters.push_back(partKey);
+    //char buffer[129];
+    //buffer[128]='\0';
+    //int2bin(partKey, buffer, 128);
+    //CkPrintf("[%d] splitter %s\n", i, buffer);
   }
 
   // Note: Splitters are guaranteed to be sorted.
@@ -502,7 +521,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     splitThreshold = (int) (joinThreshold * 1.5);
   }
   
-  if(verbosity>=3){
+  //if(verbosity>=3){
     int i=0;
     CkPrintf("Bin Counts in collect eval (%d):",numCounts);
     for ( ; i<numCounts; i++) {
@@ -519,7 +538,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
         CkPrintf("%llx,",nodesOpened[j]);
       CkPrintf("\n");
     }
-  }
+  //}
 
   double startTimer = CmiWallTimer();
   bool histogram = refineOctSplitting(numCounts, startCounts);

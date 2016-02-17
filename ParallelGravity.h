@@ -997,6 +997,7 @@ private:
 	/// Number of particles in my tree.  Can be different from
 	/// myNumParticles when particles are created.
 	int myTreeParticles;
+  bool inprefixlb;
  public:
 	/// Total Particles in the simulation
 	int64_t nTotalParticles;
@@ -1223,6 +1224,8 @@ private:
   int phase;
 
   double myTotalMass;
+
+  int prefix_ld;
 
  #if INTERLIST_VER > 0
 
@@ -1592,12 +1595,18 @@ public:
 	// Assign keys after loading tipsy file and finding Bounding box
 	void assignKeys(CkReductionMsg* m);
 	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
+  void donePrefixLB();
 	void unshuffleParticles(CkReductionMsg* m);
 	void acceptSortedParticles(ParticleShuffleMsg *);
   void shuffleAfterQD();
   void unshuffleParticlesWoDD(const CkCallback& cb);
   void acceptSortedParticlesFromOther(ParticleShuffleMsg *);
   void setNumExpectedNeighborMsgs();
+
+  void startPrefixLB(const CkCallback& cb);
+  void getPrefixLoad(int ld);
+  void getAvgLd(double avgld);
+  void sendParticlesBasedOnPrefixLB(double avg);
 
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);

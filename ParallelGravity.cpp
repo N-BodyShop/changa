@@ -1561,6 +1561,7 @@ void Main::advanceBigStep(int iStep) {
     bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
 
     startTime = CkWallTimer();
+    bDoDD = false;
     if (bDoDD) {
       sorter.startSorting(dataManagerID, ddTolerance,
                         CkCallbackResumeThread(), bDoDD);
@@ -1575,6 +1576,8 @@ void Main::advanceBigStep(int iStep) {
       if (*((int*)isTPEmpty->getData())) {
         sorter.startSorting(dataManagerID, ddTolerance,
             CkCallbackResumeThread(), bDoDD);
+      } else {
+        CkPrintf("Skipped domain decomposition ... \n");
       }
     }
     /*
@@ -1583,11 +1586,12 @@ void Main::advanceBigStep(int iStep) {
           */
     CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
 
-    if(verbosity && !bDoDD)
-	CkPrintf("Skipped DD\n");
-
     if(verbosity > 1)
 	memoryStats();
+
+    CkReductionMsg *isTPEmpty;
+    treeProxy.startPrefixLB(CkCallbackResumeThread((void*&)isTPEmpty));
+
     /********* Load balancer ********/
     //ckout << "Load balancer ...";
     CkPrintf("Load balancer ... ");

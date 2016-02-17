@@ -746,7 +746,11 @@ public:
       // base now contains the greatest power of two less or equal to num
       int additional = num - base;
       if (ret==NULL) ret = new NodeKey[num];
-      for (int j=additional, k=additional*2; j<base; ++j, ++k) ret[k] = j + base;
+      CkPrintf("num %d base %d additional %d\n", num, base, additional);
+      for (int j=additional, k=additional*2; j<base; ++j, ++k) {
+        ret[k] = j + base;
+        CkPrintf("ret[%d] = %d\n", k, ret[k]);
+      }
       base <<= 1;
       for (int j=0; j<additional*2; ++j) ret[j] = j + base;
 

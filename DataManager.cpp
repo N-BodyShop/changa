@@ -65,6 +65,24 @@ void DataManager::acceptResponsibleIndex(const int* responsible, const int n,
     contribute(cb);
     }
 
+void DataManager::acceptFinalKeysFromPrefixLB(CkReductionMsg *msg) {
+  CkPrintf("[%d] Accept final keys from prefix lb\n", CkMyPe());
+  CkReduction::setElement *current = (CkReduction::setElement*)msg->getData();
+  std::vector<SFC::Key> keyBoundaries;
+  //keyBoundaries.push_back(boundaryKeys[0]);
+  while (current != NULL) {
+    SFC::Key *res = (SFC::Key*) &current->data;
+    current = current->next();
+    if (*res != SFC::Key(-1))
+      keyBoundaries.push_back(*res);
+  }
+  keyBoundaries.push_back(boundaryKeys[boundaryKeys.size()-1]);
+  boundaryKeys.swap(keyBoundaries);
+  if (CkMyPe() == 0) {
+    treePieces.donePrefixLB();
+  }
+}
+
 void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, uint64_t* bins, const int n, const CkCallback& cb) {
 
   //should not assign responsibility or place to a treepiece that will get no particles
@@ -76,6 +94,9 @@ void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, 
   boundaryKeys.resize(n - ignored);
   responsibleIndex.resize(n - 1 - ignored);
   particleCounts.resize(n - 1 - ignored);
+
+  CkPrintf("[%d] AcceptFinalKeys n %d size %d *************\n", CkMyPe(), n,
+  boundaryKeys.size());
 
   //if all treepieces receiving particles, copy everything
   if (ignored == 0){
