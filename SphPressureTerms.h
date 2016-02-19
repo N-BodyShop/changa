@@ -169,7 +169,7 @@
                             if (dt_ < q->dtNew()) q->dtNew()=dt_; \
                             if (4*q->dt < p->dtNew()) p->dtNew() = 4*q->dt; \
                             if (4*p->dt < q->dtNew()) q->dtNew() = 4*p->dt; }
-          
+// Question: what is VSIGVISC?          
 #ifdef VSIGVISC
 #define ARTIFICIALVISCOSITY(visc_,dt_) { absmu = -dvdotdr*smf->a           \
             /sqrt(nnList[i].fDist2); /* mu multiply by a to be consistent with physical c */ \
@@ -180,15 +180,17 @@
 		visc_ = SWITCHCOMBINE(p,q)*visc_ \
 		    *absmu/(pDensity + q->fDensity); }
 #else
+/* Iryna's Artifical Viscosity */
 #define ARTIFICIALVISCOSITY(visc_,dt_) { double hav=0.5*(ph+0.5*q->fBall);  /* h mean */ \
 		absmu = -hav*dvdotdr*a  \
-		    /(fDist2+0.01*hav*hav); /* mu multiply by a to be consistent with physical c */ \
-		if (absmu>p->mumax()) p->mumax()=absmu; /* mu terms for gas time step */ \
+		  /(fDist2+0.01*hav*hav); /* mu multiply by a to be consistent with physical c*/ \
+		if (absmu>p->mumax()) p->mumax()=absmu; /* mu terms for gas time step  */  \
 		if (absmu>q->mumax()) q->mumax()=absmu;                 \
-		visc_ = (ALPHA*(pc + q->c()) + BETA*2*absmu);           \
+		visc_ = (-(pc + q->c()) + (BETA/ALPHA)*2*absmu);	\
 		dt_ = dtFacCourant*hav/(0.625*(pc + q->c())+0.375*visc_); \
 		visc_ = SWITCHCOMBINE(p,q)*visc_ \
 		    *absmu/(pDensity + q->fDensity); }
+//*/
 #endif
 
     /* Force Calculation between particles p and q */
@@ -204,11 +206,12 @@
             dt = dtFacCourant*ph/(2*(pc > q->c() ? pc : q->c()));
             }
         else {  
+            hav=0.5*(ph+0.5*q->fBall);
             ARTIFICIALVISCOSITY(visc,dt); /* Calculate Artificial viscosity terms */		
-            PACTIVE( p->PdV() += rq*(0.5*visc)*dvdotdr; );
-            QACTIVE( q->PdV() += rp*(0.5*visc)*dvdotdr; );
-            PACTIVE( Accp += visc; );
-            QACTIVE( Accq += visc; );
+            PACTIVE( p->PdV() += rq*(0.5*visc)*dvdotdr *p->CullenAlpha() / (hav*hav); );
+            QACTIVE( q->PdV() += rp*(0.5*visc)*dvdotdr * q->CullenAlpha()/ (hav*hav); );
+            PACTIVE( Accp += visc*p->CullenAlpha() / (hav*hav); );
+            QACTIVE( Accq += visc*p->CullenAlpha()/ (hav*hav); );
             }
         PACTIVE( Accp *= rq*aFac; );/* aFac - convert to comoving acceleration */
         QACTIVE( Accq *= rp*aFac; );

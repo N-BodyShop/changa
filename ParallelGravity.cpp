@@ -506,6 +506,10 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dConstBeta",paramDouble,&param.dConstBeta,
 		    sizeof(double),"beta",
 		    "<Beta constant in viscosity> = 2.0");
+	param.dConstAlphaMax = 2.0;
+	prmAddParam(prm, "dConstAlphaMax", paramDouble, &param.dConstAlphaMax,
+		    sizeof(double), "AlphaMax", 
+		    "< Cullen and Dehnen Alpha Max constant in viscosity> = 1.0");
 	param.dConstGamma = 5.0/3.0;
 	prmAddParam(prm,"dConstGamma",paramDouble,&param.dConstGamma,
 		    sizeof(double),"gamma", "<Ratio of specific heats> = 5/3");

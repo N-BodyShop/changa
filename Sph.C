@@ -28,9 +28,10 @@ Main::initSph()
     if(param.bDoGas) {
 	ckout << "Calculating densities/divv ...";
 	// The following smooths all GAS, and also marks neighbors of
-	// actives, and those who have actives as neighbors.
+	// actives, and those who have actives as neighbors
+	// Setting dDelta to zero to initialize particle cullen & dehnen alpha
 	DenDvDxSmoothParams pDen(TYPE_GAS, 0, param.csm, dTime, 0,
-				 param.bConstantDiffusion);
+				 param.bConstantDiffusion, 0.0, param.dConstAlphaMax);
 	double startTime = CkWallTimer();
 	double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
@@ -621,7 +622,7 @@ Main::doSph(int activeRung, int bNeedDensity)
 	ckout << "Calculating densities/divv on Actives ...";
 	// This also marks neighbors of actives
 	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 1,
-				 param.bConstantDiffusion);
+				 param.bConstantDiffusion, param.dDelta, param.dConstAlphaMax);
 	double startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
@@ -652,7 +653,7 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// The following smooths all GAS, and also marks neighbors of
 	// actives, and those who have actives as neighbors.
 	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 0,
-				 param.bConstantDiffusion);
+				 param.bConstantDiffusion, param.dDelta, param.dConstAlphaMax);
 	double startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
@@ -855,6 +856,13 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	double ih2,r2,rs,rs1,fDensity,fNorm,fNorm1,vFac;
 	double dvxdx, dvxdy, dvxdz, dvydx, dvydy, dvydz, dvzdx, dvzdy, dvzdz;
 	double dvx,dvy,dvz,dx,dy,dz,trace;
+	// defining new variables for Iryna's changes
+	double ph, h, tau, l,  dvdotdr, traceSS, xi, A;
+	double alphaLoc, vSignal, maxVSignal,  delDotV, signDelDotV, oldCullenAlpha;
+	double cullenR = 0.0;
+	double minVDotR = 0.0;
+	// end of Iryna's variables 
+	
         double divvnorm = 0.0;
 	GravityParticle *q;
 	int i;
@@ -899,7 +907,51 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		dvzdy += dvz*dy*rs1;
 		dvzdz += dvz*dz*rs1;
                 divvnorm += (dx*dx+dy*dy+dz*dz)*rs1;
+
+		/* Iryna's modifications */
+		// question: is this the right way to find delV_j?
+		dvdotdr = vFac*(dvx*dx + dvy*dy + dvz*dz) + fDist2*H;
+		if (dvdotdr < 0) vSignal = (p->c() + q->c())/2.0 - dvdotdr/ sqrt(fDist2);
+		if (vSignal > maxVSignal) maxVSignal = vSignal;
+		delDotV = dvx*dx*rs1 + dvy*dy*rs1 + dvz*dz*rs1;
+		if (delDotV < 0) signDelDotV = -1.0;
+		else if (delDotV > 0) signDelDotV = 1.0;
+		else signDelDotV = 0;
+		cullenR += signDelDotV * q->mass * KERNEL(r2);
 		}
+
+	cullenR /= fDensity;
+	traceSS = 0.5*(dvydx+dvxdy)*(dvydx+dvxdy) + 0.5*(dvzdx+dvxdz)*(dvzdx+dvxdz) + 0.5*(dvzdy+dvydz)*(dvzdy+dvydz)\
+	     + (dvxdx+(dvxdx+dvydy+dvzdz)/3.0)*(dvxdx+(dvxdx+dvydy+dvzdz)/3.0) \
+	     + (dvydy+(dvxdx+dvydy+dvzdz)/3.0)*(dvydy+(dvxdx+dvydy+dvzdz)/3.0) \
+	     + (dvzdz+(dvxdx+dvydy+dvzdz)/3.0)*(dvzdz+(dvxdx+dvydy+dvzdz)/3.0);
+	
+	delDotV = dvxdx + dvydy + dvzdz;
+        if (delDotV == 0.0) xi = 0;
+        else {
+          xi =(2.0*pow((1.0-cullenR),4)*delDotV)*(2.0*pow((1.0-cullenR),4)*delDotV) / \
+	    (traceSS + (2.0*pow((1.0-cullenR),4)*delDotV)*(2.0*pow((1.0-cullenR),4)*delDotV));
+        }
+	if (delDotV < 0) A = -delDotV * xi;
+	else A = 0;
+      
+	h=sqrt(0.25*p->fBall*p->fBall);
+	l = 0.05; // temporarily hard-coded Cullen & Dehnen suggested value for l
+
+	/* stuck on how to compute vSignal (dvdotdr here or in the for-loop?)*/
+	vSignal = p->c() + minVDotR;
+
+	tau = h / (2.0*l*vSignal);
+        if (vSignal == 0) alphaLoc = 0;
+        else alphaLoc = dAlphaMax*h*h*A / (vSignal*vSignal + h*h*A);
+	if (dDelta > 0.0){
+	  /* Is this the right way to deal with time? */
+          oldCullenAlpha = p->CullenAlpha();
+          p->CullenAlpha() = alphaLoc - (oldCullenAlpha - alphaLoc)*exp(-RungToDt(dDelta, p->rung)/tau);
+	}
+	else p->CullenAlpha() = alphaLoc;
+	/* End of Iryna's changes (for now) */
+
 	if (qiActive)
 	    TYPESet(p,TYPE_NbrOfACTIVE);
 		
@@ -994,7 +1046,7 @@ void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	else p->diff() = fNorm1*0.25*p->fBall*p->fBall*sqrt(2*(sxx*sxx + syy*syy + szz*szz + 2*(sxy*sxy + sxz*sxz + syz*syz)));
 	}
 #endif
-	}
+}
 
 void 
 TreePiece::sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb)
@@ -1254,13 +1306,13 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 #define PACTIVE(xxx) xxx
 #define QACTIVE(xxx) xxx
 #include "SphPressureTerms.h"
-		    }
+	        }
 		else {
 #undef QACTIVE
 #define QACTIVE(xxx) 
 #include "SphPressureTerms.h"
 		    }
-		}
+	    }
 	    else if (q->rung >= activeRung) {
 #undef PACTIVE
 #define PACTIVE(xxx) 
