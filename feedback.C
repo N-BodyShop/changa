@@ -256,30 +256,30 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     for(int j = 0; j < NFEEDBACKS; j++) {
 	switch (j) {
 	case FB_SNII:
-        if (bAGORAFeedback) break;
+	    if (bAGORAFeedback) break;
 	    sn.CalcSNIIFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
 	    if (sn.dESN > 0)
 		p->fNSN() = fbEffects.dEnergy*MSOLG*fbEffects.dMassLoss/sn.dESN;
 	    break;
 	case FB_SNIA:
-        if (bAGORAFeedback) break;
+	    if (bAGORAFeedback) break;
 	    sn.CalcSNIaFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
 	    dSNIaMassStore=fbEffects.dMassLoss;
 	    break;
 	case FB_WIND:
-        if (bAGORAFeedback) break;
+	    if (bAGORAFeedback) break;
 	    CalcWindFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
 	    if(dSNIaMassStore < fbEffects.dMassLoss)
 		fbEffects.dMassLoss -= dSNIaMassStore;
 	    break;
 	case FB_UV:
-        if (bAGORAFeedback) break;
+	    if (bAGORAFeedback) break;
 	    CalcUVFeedback(dTime, dDeltaYr, &fbEffects);
 	break;
     case FB_AGORA:
-        if (!bAGORAFeedback) break;
-        sn.CalcAGORAFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
-        p->fNSN() = 0.0;
+	    if (!bAGORAFeedback) break;
+	    sn.CalcAGORAFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
+	    p->fNSN() = 0.0;
         break;
 	default:
 	    CkAssert(0);
