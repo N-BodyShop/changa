@@ -1719,6 +1719,7 @@ void DistDeletedGasSmoothParams::initSmoothCache(GravityParticle *p)
 	p->massHot() = 0;
 	p->uHot() = 0;
 	p->uHotPred() = 0;
+#endif
 	}
     }
 
@@ -1742,19 +1743,19 @@ void DistDeletedGasSmoothParams::combSmoothCache(GravityParticle *p1,
 	    p1->fMFracIron() = f1*p1->fMFracIron() + f2*p2->fMFracIron;
 	    p1->fMFracOxygen() = f1*p1->fMFracOxygen() + f2*p2->fMFracOxygen;
 #ifdef SUPERBUBBLE
-        double mHot_new = p1->massHot() + p2->massHot();
+        double mHot_new = p1->massHot() + p2->massHot;
         if (mHot_new > 0) {
             double f1_hot = p1->massHot()/mHot_new;
-            double f2_hot = p2->massHot()/mHot_new;
+            double f2_hot = p2->massHot/mHot_new;
             double mCold_new = m_new-mHot_new;
             assert(mCold_new>0);
             double f1_cold = (p1->mass-p1->massHot())/mCold_new;
-            double f2_cold = (delta_m-p2->massHot())/mCold_new;
-            p1->uHot = f1_hot*p1->uHot()+f2_hot*p2->uHot();
-            p1->uHotPred = f1_hot*p1->uHotPred()+f2_hot*p2->uHotPred();
-            p1->u = f1_cold*p1->u()+f2_cold*p2->u();
-            p1->uPred = f1_cold*p1->uPred()+f2_cold*p2->uPred();
-            p1->fMassHot = mHot_new;
+            double f2_cold = (delta_m-p2->massHot)/mCold_new;
+            p1->uHot() = f1_hot*p1->uHot()+f2_hot*p2->uHot;
+            p1->uHotPred() = f1_hot*p1->uHotPred()+f2_hot*p2->uHotPred;
+            p1->u() = f1_cold*p1->u()+f2_cold*p2->u;
+            p1->uPred() = f1_cold*p1->uPred()+f2_cold*p2->uPred;
+            p1->massHot() = mHot_new;
         }
         else
 #endif
@@ -1805,37 +1806,39 @@ void DistDeletedGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     fNorm = 1./rstot;
     CkAssert(p->mass >= 0.0);
 #ifdef SUPERBUBBLE
-    if (p->massHot > 0) {
-        pqSmoothNode *massList = malloc(sizeof(pqSmoothNode)*nSmooth);
+    if (p->massHot() > 0) {
+        pqSmoothNode *massList = (pqSmoothNode *) malloc(sizeof(pqSmoothNode)*nSmooth);
         for (i=0;i<nSmooth;++i) {
             massList[i].p = nnList[i].p;
-            massList[i].key = -1*nnList[i].p->massHot();
+            massList[i].fKey = -1*nnList[i].p->massHot();
         }
         std::sort_heap(massList, massList+nSmooth);
-        q = massList[0].p;
-        m_new = q->mass + p->mass;
-        /* Cached copies can have zero mass: skip them */
-        if (m_new == 0) continue;
-        double mHot_new = q->massHot()+p->massHot();
-        f1 = q->mass/m_new;
-        f2 = p->mass/m_new;
-        double mCold_new = m_new-mHot_new;
-        assert(mCold_new > 0);
-        double f1_cold = (q->mass-q->massHot())/mCold_new;
-        double f2_cold = (p->mass-p->massHot())/mCold_new;
-        double f1_hot = q->massHot()/mHot_new;
-        double f2_hot = p->massHot()/mHot_new;
-        q->velocity = f1*q->velocity + f2*p->velocity;            
-        q->fMetals() = f1*q->fMetals() + f2*p->fMetals();
-        q->fMFracIron() = f1*q->fMFracIron() + f2*p->fMFracIron();
-        q->fMFracOxygen() = f1*q->fMFracOxygen() + f2*p->fMFracOxygen();
-        q->u() = f1_cold*q->u()+f2_cold*p->u();
-        q->uPred() = f1_cold*q->uPred()+f2_cold*p->uPred();
-        q->uHot() = f1_hot*q->uHot()+f2_hot*p->uHot();
-        q->uHotPred() = f1_hot*q->uHotPred()+f2_hot*p->uHotPred();
-        q->mass = m_new;
-        q->massHot() = mHot_new;
-        return;
+        for(i=0;i<nSmooth;++i) {
+            q = massList[i].p;
+            m_new = q->mass + p->mass;
+            /* Cached copies can have zero mass: skip them */
+            if (m_new == 0) continue;
+            double mHot_new = q->massHot()+p->massHot();
+            f1 = q->mass/m_new;
+            f2 = p->mass/m_new;
+            double mCold_new = m_new-mHot_new;
+            assert(mCold_new > 0);
+            double f1_cold = (q->mass-q->massHot())/mCold_new;
+            double f2_cold = (p->mass-p->massHot())/mCold_new;
+            double f1_hot = q->massHot()/mHot_new;
+            double f2_hot = p->massHot()/mHot_new;
+            q->velocity = f1*q->velocity + f2*p->velocity;            
+            q->fMetals() = f1*q->fMetals() + f2*p->fMetals();
+            q->fMFracIron() = f1*q->fMFracIron() + f2*p->fMFracIron();
+            q->fMFracOxygen() = f1*q->fMFracOxygen() + f2*p->fMFracOxygen();
+            q->u() = f1_cold*q->u()+f2_cold*p->u();
+            q->uPred() = f1_cold*q->uPred()+f2_cold*p->uPred();
+            q->uHot() = f1_hot*q->uHot()+f2_hot*p->uHot();
+            q->uHotPred() = f1_hot*q->uHotPred()+f2_hot*p->uHotPred();
+            q->mass = m_new;
+            q->massHot() = mHot_new;
+            return;
+        }
     }
 #endif
     for (i=0;i<nSmooth;++i) {
