@@ -2681,7 +2681,10 @@ Main::doSimulation()
   ckout << endl << "******************" << endl << endl; 
   // Some memory cleanup
   delete param.stfm;
-  treeProxy.ckDestroy();
+  CProxy_CkArray(lvProxy.ckGetArrayID()).ckDestroy();
+  CProxy_CkArray(smoothProxy.ckGetArrayID()).ckDestroy();
+  CProxy_CkArray(gravityProxy.ckGetArrayID()).ckDestroy();
+  CProxy_CkArray(treeProxy.ckGetArrayID()).ckDestroy();
   CkWaitQD();
   CkExit();
 }
