@@ -2236,22 +2236,38 @@ __global__ void nodeGravityComputation(
  * @param bucketSizes Size of the bucket for each block
  * @param fPeriod Size of periodic boundary condition.
  */
- 
+__device__ __forceinline__ void ldg_cPartData(CompactPartData &m, CompactPartData *ptr)
+{
+  m.mass         = __ldg(&(ptr->mass));
+  m.soft         = __ldg(&(ptr->soft));
+  m.position.x   = __ldg(&(ptr->position.x));
+  m.position.y   = __ldg(&(ptr->position.y));
+  m.position.z   = __ldg(&(ptr->position.z));
+}
+
 #ifdef CUDA_2D_TB_KERNEL
 #define TRANSLATE_PART(x,y) (y*NODES_PER_BLOCK_PART+x)
+//__launch_bounds__(maxThreadsPerBlock, minBlocksPerMultiprocessor)
+//maxThreadsPerBlock needs to be a multiple of 128, this can be used 
+//to limits the number of  register per thread. More threads less 
+//registers  
+__launch_bounds__(1408, 1)
 __global__ void particleGravityComputation(
 		CompactPartData *targetCores,
 		VariablePartData *targetVars,
-		CompactPartData *sourceCores,
+		CompactPartData* sourceCores,
 		ILCell *ils,
 		int *ilmarks,
 		int *bucketStarts,
 		int *bucketSizes,
 		cudatype fperiod){
   
-  __shared__ CudaVector3D acc[THREADS_PER_BLOCK_PART];
-  __shared__ cudatype pot[THREADS_PER_BLOCK_PART];
-  __shared__ cudatype idt2[THREADS_PER_BLOCK_PART];
+  //__shared__ CudaVector3D acc[THREADS_PER_BLOCK_PART];
+  // __shared__ cudatype pot[THREADS_PER_BLOCK_PART];
+  // __shared__ cudatype idt2[THREADS_PER_BLOCK_PART];
+  CudaVector3D acc;
+  cudatype pot;
+  cudatype idt2;
   __shared__ CompactPartData m[NODES_PER_BLOCK_PART];
   __shared__ int offsetID[NODES_PER_BLOCK_PART];
   __shared__ CompactPartData shared_particle_cores[PARTS_PER_BLOCK_PART];
@@ -2293,12 +2309,15 @@ __global__ void particleGravityComputation(
       shared_particle_cores[ty] = targetCores[bucketStart+my_particle_idx];
     }
     
-    __syncthreads(); // wait for leader threads to finish using acc's, pot's of other threads
-    acc[TRANSLATE_PART(tx,ty)].x = 0.0;
-    acc[TRANSLATE_PART(tx,ty)].y = 0.0;
-    acc[TRANSLATE_PART(tx,ty)].z = 0.0;
-    pot[TRANSLATE_PART(tx,ty)] = 0.0;
-    idt2[TRANSLATE_PART(tx,ty)] = 0.0;
+    //__syncthreads(); // wait for leader threads to finish using acc's, pot's of other threads
+    //acc[TRANSLATE_PART(tx,ty)].x = 0.0;
+    //acc[TRANSLATE_PART(tx,ty)].y = 0.0;
+    //acc[TRANSLATE_PART(tx,ty)].z = 0.0;
+    //pot[TRANSLATE_PART(tx,ty)] = 0.0;
+    //idt2[TRANSLATE_PART(tx,ty)] = 0.0;
+    acc.x = 0, acc.y = 0, acc.z = 0;
+    pot = 0;
+    idt2 = 0;
     
     
     for(xstart = start; xstart < end; xstart += NODES_PER_BLOCK_PART){
@@ -2310,7 +2329,8 @@ __global__ void particleGravityComputation(
       
       if(ty == 0 && my_cell_idx < end){
         ilc = ils[my_cell_idx];
-        m[tx] = sourceCores[ilc.index];
+        ldg_cPartData(m[tx], &sourceCores[ilc.index]);
+        //m[tx] = sourceCores[ilc.index];
         offsetID[tx] = ilc.offsetID;
       }
       
@@ -2359,41 +2379,67 @@ __global__ void particleGravityComputation(
             b = a*a*a;
           }
 
-          pot[TRANSLATE_PART(tx, ty)] -= m[tx].mass * a;
+          //pot[TRANSLATE_PART(tx, ty)] -= m[tx].mass * a;	
 
-          acc[TRANSLATE_PART(tx, ty)].x += r.x*b*m[tx].mass;
-          acc[TRANSLATE_PART(tx, ty)].y += r.y*b*m[tx].mass;
-          acc[TRANSLATE_PART(tx, ty)].z += r.z*b*m[tx].mass;
-          idt2[TRANSLATE_PART(tx, ty)] = fmax(idt2[TRANSLATE_PART(tx, ty)],
-                                         (shared_particle_cores[ty].mass + m[tx].mass) * b);
+          //acc[TRANSLATE_PART(tx, ty)].x += r.x*b*m[tx].mass;
+          //acc[TRANSLATE_PART(tx, ty)].y += r.y*b*m[tx].mass;
+          //acc[TRANSLATE_PART(tx, ty)].z += r.z*b*m[tx].mass;
+          //idt2[TRANSLATE_PART(tx, ty)] = fmax(idt2[TRANSLATE_PART(tx, ty)],
+          //                               (shared_particle_cores[ty].mass + m[tx].mass) * b);
+
+	  pot -= m[tx].mass * a;
+
+          acc.x += r.x*b*m[tx].mass;
+          acc.y += r.y*b*m[tx].mass;
+          acc.z += r.z*b*m[tx].mass;
+          idt2 = fmax(idt2, (shared_particle_cores[ty].mass + m[tx].mass) * b);
 
         }// end if rsq != 0
       }// end INTERACT
     }// end for each NODE group
 
-    __syncthreads(); // wait for all threads to finish before results become available
+    //__syncthreads(); // wait for all threads to finish before results become available
 
     cudatype sumx, sumy, sumz, poten, idt2max;
     sumx = sumy = sumz = poten = idt2max = 0.0;
     // accumulate forces, potential in global memory data structure
-    if(tx == 0 && my_particle_idx < bucketSize){
-      for(int i = 0; i < NODES_PER_BLOCK_PART; i++){
-        sumx += acc[TRANSLATE_PART(i,ty)].x;
-        sumy += acc[TRANSLATE_PART(i,ty)].y;
-        sumz += acc[TRANSLATE_PART(i,ty)].z;
-        poten += pot[TRANSLATE_PART(i,ty)];
-        idt2max = fmax(idt2[TRANSLATE_PART(i,ty)], idt2max);
+    //if(tx == 0 && my_particle_idx < bucketSize){
+    //  for(int i = 0; i < NODES_PER_BLOCK_PART; i++){
+    //    sumx += acc[TRANSLATE_PART(i,ty)].x;
+    //    sumy += acc[TRANSLATE_PART(i,ty)].y;
+    //    sumz += acc[TRANSLATE_PART(i,ty)].z;
+    //    poten += pot[TRANSLATE_PART(i,ty)];
+    //    idt2max = fmax(idt2[TRANSLATE_PART(i,ty)], idt2max);
+    //  }
+
+    // accumulate forces, potential in global memory data structure
+    if(my_particle_idx < bucketSize){
+      sumx = acc.x;
+      sumy = acc.y; 
+      sumz = acc.z;
+      poten = pot;
+      idt2max = idt2;
+      for(int offset = NODES_PER_BLOCK/2; offset > 0; offset /= 2){
+        sumx += __shfl_down(sumx, offset, NODES_PER_BLOCK_PART);
+        sumy += __shfl_down(sumy, offset, NODES_PER_BLOCK_PART);
+        sumz += __shfl_down(sumz, offset, NODES_PER_BLOCK_PART);
+        poten += __shfl_down(poten, offset, NODES_PER_BLOCK_PART);
+        idt2max = fmax(idt2max, __shfl_down(idt2max, offset, NODES_PER_BLOCK_PART));
       }
-      targetVars[bucketStart+my_particle_idx].a.x += sumx;
-      targetVars[bucketStart+my_particle_idx].a.y += sumy;
-      targetVars[bucketStart+my_particle_idx].a.z += sumz;
-      targetVars[bucketStart+my_particle_idx].potential += poten;
-      targetVars[bucketStart+my_particle_idx].dtGrav = fmax(idt2max,  targetVars[bucketStart+my_particle_idx].dtGrav);
+
+      if(tx == 0){
+      	targetVars[bucketStart+my_particle_idx].a.x += sumx;
+      	targetVars[bucketStart+my_particle_idx].a.y += sumy;
+     	targetVars[bucketStart+my_particle_idx].a.z += sumz;
+      	targetVars[bucketStart+my_particle_idx].potential += poten;
+      	targetVars[bucketStart+my_particle_idx].dtGrav = fmax(idt2max,  targetVars[bucketStart+my_particle_idx].dtGrav);
+      }
     }
 
   }// end for each PARTICLE group
 }
 #else
+__launch_bounds__(896, 1)
 __global__ void particleGravityComputation(
                                    CompactPartData *targetCores,
                                    VariablePartData *targetVars,
