@@ -6608,7 +6608,7 @@ fi
 if test "${with_cuda_level+set}" = set; then
   withval=$with_cuda_level; CUDA_LEVEL=$withval
 else
-  CUDA_LEVEL=30
+  CUDA_LEVEL=35
 fi
 
 
