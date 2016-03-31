@@ -6950,10 +6950,14 @@ if test "${with_cuda_level+set}" = set; then
   CUDA_LEVEL=$withval
 else
 <<<<<<< Upstream, based on master
+<<<<<<< Upstream, based on master
   CUDA_LEVEL=10
 fi;
 =======
   CUDA_LEVEL=30
+=======
+  CUDA_LEVEL=35
+>>>>>>> 0699aa5 Make 35 the default CUDA level.  (K20s or better).
 fi
 
 >>>>>>> 32a7759 Fix for smp changa, comment DataManagerHelper code
