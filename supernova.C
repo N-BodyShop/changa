@@ -48,8 +48,8 @@ void SN::CalcAGORAFeedback(SFEvent *sfEvent, double dTime, double dDelta, FBEffe
         fbEffects->dEnergy = AGORAsnE*dNSNTypeII/(MSOLG*fbEffects->dMassLoss);
 		double dMetals = AGORAmetalLossPerSN/AGORAgasLossPerSN;
         fbEffects->dMetals = dMetals;
-        fbEffects->dMIron = AGORAmetalFracO*dMetals;
-        fbEffects->dMOxygen = AGORAmetalFracFe*dMetals;
+        fbEffects->dMIron = AGORAmetalFracFe*dMetals;
+        fbEffects->dMOxygen = AGORAmetalFracO*dMetals;
         return;
     }
     else {
