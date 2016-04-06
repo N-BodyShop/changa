@@ -1694,10 +1694,11 @@ public:
   /*****************************/
 
   void kick(int iKickRung, double dDelta[MAXRUNG+1], int bClosing,
-	    int bNeedVPred, int bGasIsothermal, double duDelta[MAXRUNG+1],
+            int bNeedVPred, int bGasIsothermal, double dMaxEnergy,
+            double duDelta[MAXRUNG+1],
 	    const CkCallback& cb);
   void drift(double dDelta, int bNeedVPred, int bGasIsothermal, double dvDelta,
-	     double duDelta, int nGrowMass, bool buildTree,
+             double duDelta, int nGrowMass, bool buildTree, double dMaxEnergy,
 	     const CkCallback& cb);
   void initAccel(int iKickRung, const CkCallback& cb);
 #ifdef COOLING_MOLECULARH
