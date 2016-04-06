@@ -1472,6 +1472,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		     int bClosing, // Are we at the end of a timestep
 		     int bNeedVPred, // do we need to update vpred
 		     int bGasIsothermal, // Isothermal EOS
+                     double dMaxEnergy, // Maximum internal energy of gas.
 		     double duDelta[MAXRUNG+1], // dts for energy
 		     const CkCallback& cb) {
   // LBTurnInstrumentOff();
@@ -1497,6 +1498,8 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 			  p->u() = uold*exp(p->PdV()*duDelta[p->rung]/uold);
 			  }
 #endif /* COOLING_NONE */
+                      if(p->u() > dMaxEnergy)
+                          p->u() = dMaxEnergy;
 		      p->uPred() = p->u();
 		      }
 #ifdef DIFFUSION
@@ -1848,6 +1851,7 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 				      // in place
 		      bool buildTree, // is a treebuild happening before the
 				      // next drift?
+                      double dMaxEnergy, // Maximum internal energy of gas.
 		      const CkCallback& cb) {
   callback = cb;		// called by assignKeys()
   deleteTree();
@@ -1910,6 +1914,8 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 		  p->uPred() = uold*exp(p->PdV()*duDelta/uold);
 		  }
 #endif
+              if(p->uPred() > dMaxEnergy)
+                  p->uPred() = dMaxEnergy;
               CkAssert(p->uPred() >= 0.0);
 	      }
 #ifdef DIFFUSION
