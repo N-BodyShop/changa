@@ -60,6 +60,9 @@ void Stfm::AddParams(PRM prm)
     iStarFormRung = 0;
     prmAddParam(prm,"iStarFormRung", paramInt, &iStarFormRung,
 		sizeof(int), "iStarFormRung", "<Star Formation Rung> = 0");
+    iRandomSeed = 1;
+    prmAddParam(prm,"iRandomSeed", paramInt, &iRandomSeed, sizeof(int),
+		"iRand", "<Star formation random Seed> = 1");
     }
 
 /*
@@ -126,6 +129,12 @@ void Stfm::CheckParams(PRM prm, Parameters &param)
 		 dDeltaStarForm);
 	}
     }
+
+void TreePiece::initRand(int iRand, const CkCallback &cb)  
+{
+   srand(iRand + thisIndex);  // make each piece unique
+   contribute(cb);
+}
 
 ///
 /// form stars main method
@@ -391,8 +400,8 @@ void StarLog::flush(void) {
     
 	for(int iLog = 0; iLog < seTab.size(); iLog++){
 	    StarLogEvent *pSfEv = &(seTab[iLog]);
-	    xdr_int(&xdrs, &(pSfEv->iOrdStar));
-	    xdr_int(&xdrs, &(pSfEv->iOrdGas));
+	    xdr_template(&xdrs, &(pSfEv->iOrdStar));
+	    xdr_template(&xdrs, &(pSfEv->iOrdGas));
 	    xdr_double(&xdrs, &(pSfEv->timeForm));
 	    xdr_double(&xdrs, &(pSfEv->rForm[0]));
 	    xdr_double(&xdrs, &(pSfEv->rForm[1]));

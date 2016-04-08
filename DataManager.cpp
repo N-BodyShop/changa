@@ -35,8 +35,6 @@ DataManager::DataManager(CkMigrateMessage *m) : CBase_DataManager(m) {
 }
 
 void DataManager::init() {
-  splitters = NULL;
-  numSplitters = 0;
   root = NULL;
   oldNumChunks = 0;
   chunkRoots = NULL;
@@ -136,37 +134,6 @@ public:
     return first < k.first;
   }
 };
-
-/**
- * Collect and sort the boundaries of all treepieces so that they are
- * available to each treepiece as they do their tree build.  The
- * treebuild continues with a call to TreePiece::startOctTreeBuild.
- */
-void DataManager::collectSplitters(CkReductionMsg *m) {
-  numSplitters = m->getSize() / sizeof(SFC::Key);
-  CkAssert(! (numSplitters&1)); // must be even
-  CkAssert(numSplitters > 0);
-  delete[] splitters;
-  splitters = new SFC::Key[numSplitters];
-  SFC::Key* splits = static_cast<SFC::Key *>(m->getData());
-  std::copy(splits, splits + numSplitters, splitters);
-  // The splitters come in pairs (1st and last key of each treepiece).
-  // Sort them as pairs.
-  KeyDouble* splitters2 = (KeyDouble *)splitters;
-  std::sort(splitters2, splitters2 + (numSplitters>>1));
-  for (unsigned int i=1; i<numSplitters; ++i) {
-    if (splitters[i] < splitters[i-1]) {
-      if(CkMyNode()==0)
-        CkAbort("Keys not ordered");
-    }
-  }
-  splitters[0] = SFC::firstPossibleKey;
-  contribute(CkCallback(CkIndex_TreePiece::startOctTreeBuild(0), treePieces));
-  delete m;
-  if(verbosity > 3)
-    ckerr << "DataManager " << CkMyNode() << ": Collected splitters" << endl;
-
-}
 
 void DataManager::pup(PUP::er& p) {
     CBase_DataManager::pup(p);
@@ -482,6 +449,7 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
     verbosity = param.iVerbosity;
     dExtraStore = param.dExtraStore;
     dMaxBalance = param.dMaxBalance;
+    dFracLoadBalance = param.dFracLoadBalance;
     nIOProcessor = param.nIOProcessor;
     theta = param.dTheta;
     thetaMono = theta*theta*theta*theta;

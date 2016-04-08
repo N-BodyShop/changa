@@ -592,7 +592,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 	if(binCounts.size() > numTreePieces) {
 	    CkPrintf("bumping joinThreshold: %d, size: %d\n", joinThreshold,
 		     binCounts.size());
-	    joinThreshold = (int) (1.1*joinThreshold);
+	    joinThreshold = (int) (1.1*joinThreshold) + 1;
 	    }
 	}
     while(binCounts.size() > numTreePieces);

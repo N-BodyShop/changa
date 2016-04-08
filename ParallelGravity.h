@@ -85,6 +85,12 @@ enum DomainsDec {
     ORB_space_dec=6		// Bisect space
 };
 
+enum NborDir {
+  LEFT = 0,
+  RIGHT
+};
+PUPbytes(NborDir);
+
 /// tolerance for unequal pieces in SFC based decompositions.
 const double ddTolerance = 0.1;
 
@@ -103,6 +109,20 @@ inline void operator|(PUP::er &p,DomainsDec &d) {
 
 class SmoothParams;
 
+///  Class for new maxOrder broadcast
+class NewMaxOrder
+{
+ public:
+    int64_t nMaxOrderGas;
+    int64_t nMaxOrderDark;
+    int64_t nMaxOrder;
+    void pup(PUP::er& p) {
+        p| nMaxOrderGas;
+        p| nMaxOrderDark;
+        p| nMaxOrder;
+        }
+    };
+
 #include "InOutput.h"
 
 #include "ParallelGravity.decl.h"
@@ -116,6 +136,7 @@ extern unsigned int _yieldPeriod;
 extern DomainsDec domainDecomposition;
 extern double dExtraStore;
 extern double dMaxBalance;
+extern double dFracLoadBalance;
 extern int bUseCkLoopPar;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
@@ -477,13 +498,14 @@ public:
 	void setupICs();
 	void initialForces();
 	void doSimulation();
-	void restart();
+	void restart(CkCheckpointStatusMsg *msg);
 	void waitForGravity(const CkCallback &cb, double startTime);
         void advanceBigStep(int);
 	int adjust(int iKickRung);
 	void rungStats();
 	void countActive(int activeRung);
         void emergencyAdjust(int iRung);
+        void starCenterOfMass();
 	void calcEnergy(double, double, const char *);
 	void getStartTime();
 	void getOutTimes();
@@ -947,6 +969,7 @@ private:
         bool proxySet;
         // jetley - multistep load balancing
         int prevLARung;
+        int lbActiveRung;
 
 	/// @brief Used to inform the mainchare that the requested operation has
 	/// globally finished
@@ -958,8 +981,10 @@ private:
   CkCallback after_dd_callback;
 	/// Total number of particles contained in this chare
 	unsigned int myNumParticles;
+	unsigned int numActiveParticles;
 	/// Array with the particles in this chare
 	GravityParticle* myParticles;
+  int nbor_msgs_count_;
 	/// Actual storage in the above array
 	int nStore;
 
@@ -1466,8 +1491,6 @@ public:
           if (verbosity>1) ckout <<"Finished deallocation of treepiece "<<thisIndex<<endl;
 	}
 
-	void restart();
-
 	void setPeriodic(int nReplicas, Vector3D<double> fPeriod, int bEwald,
 			 double fEwCut, double fEwhCut, int bPeriod,
                          int bComove, double dRhoFac);
@@ -1499,18 +1522,8 @@ public:
                        const bool bDoublePos,
                        const bool bDoubleVel,
 		       const CkCallback& cb);
-
-        void readIOrd(const std::string& filename, const CkCallback& cb);
-        void readIGasOrd(const std::string& filename, const CkCallback& cb);
-        void readESNrate(const std::string& filename, const CkCallback& cb);
-        void readOxMassFrac(const std::string& filename, const CkCallback& cb);
-        void readFeMassFrac(const std::string& filename, const CkCallback& cb);
-        void readMassForm(const std::string& filename, const CkCallback& cb);
-        void readCoolOnTime(const std::string& filename, const CkCallback& cb);
-        void readCoolArray0(const std::string& filename, const CkCallback& cb);
-        void readCoolArray1(const std::string& filename, const CkCallback& cb);
-        void readCoolArray2(const std::string& filename, const CkCallback& cb);
-        void readCoolArray3(const std::string& filename, const CkCallback& cb);
+        /// @brief read a tipsy array file (binary or ascii)
+        void readTipsyArray(OutputParams& params, const CkCallback& cb);
         void resetMetals(const CkCallback& cb);
         void getMaxIOrds(const CkCallback& cb);
         void RestartEnergy(double dTuFac, const CkCallback& cb);
@@ -1585,6 +1598,7 @@ public:
   void shuffleAfterQD();
   void unshuffleParticlesWoDD(const CkCallback& cb);
   void acceptSortedParticlesFromOther(ParticleShuffleMsg *);
+  void setNumExpectedNeighborMsgs();
 
   /*****ORB Decomposition*******/
   void initORBPieces(const CkCallback& cb);
@@ -1644,6 +1658,7 @@ public:
   void emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
 		       const CkCallback &cb);
   void assignDomain(const CkCallback& cb);
+  void starCenterOfMass(const CkCallback& cb);
   void calcEnergy(const CkCallback& cb);
   /// add new particle
   void newParticle(GravityParticle *p);
@@ -1651,8 +1666,7 @@ public:
   /// Count add/deleted particles, and compact main particle storage.
   void colNParts(const CkCallback &cb);
   /// Assign iOrders to recently added particles.
-  void newOrder(int64_t nStartSPH, int64_t nStartDark,
-		int64_t nStartStar, const CkCallback &cb);
+  void newOrder(const NewMaxOrder *nStarts, const int n, const CkCallback &cb) ;
   
   /// Update total particle numbers
   void setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
@@ -1676,6 +1690,8 @@ public:
                                    double dDtCourantFac,
                                    double dResolveJeans,
 				   const CkCallback &cb);
+        /// @brief initialize random seed for star formation
+        void initRand(int iRand, const CkCallback &cb);
 	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
 		       const CkCallback& cb);
 	void flushStarLog(const CkCallback& cb);
@@ -1700,6 +1716,8 @@ public:
 
 	/// \brief Real tree build, independent of other TreePieces.
 	void startOctTreeBuild(CkReductionMsg* m);
+  void recvBoundary(SFC::Key key, NborDir dir);
+	void recvdBoundaries(CkReductionMsg* m);
 
   /********ORB Tree**********/
   //void receiveBoundingBoxes(BoundingBoxes *msg);
@@ -1708,9 +1726,14 @@ public:
   void buildORBTree(GenericTreeNode * node, int level);
   /**************************/
 
+  /// When the node is found to be NULL, forward the request
+	bool sendFillReqNodeWhenNull(CkCacheRequestMsg<KeyType> *msg);
 	/// Request the moments for this node.
 	void requestRemoteMoments(const Tree::NodeKey key, int sender);
-	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, const MultipoleMoments& moments, const OrientedBox<double>& box, const OrientedBox<double>& boxBall, const unsigned int iParticleTypes);
+	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type,
+    int firstParticle, int numParticles, int remIdx,
+    const MultipoleMoments& moments, const OrientedBox<double>& box,
+    const OrientedBox<double>& boxBall, const unsigned int iParticleTypes);
 
 	/// Entry point for the local computation: for each bucket compute the
 	/// force that its particles see due to the other particles hosted in
@@ -1820,7 +1843,9 @@ public:
 	void processReqSmoothParticles();
 
 	//void startlb(CkCallback &cb);
+	void getParticleInfoForLB(int64_t active_part, int64_t total_part);
 	void startlb(CkCallback &cb, int activeRung);
+  void setTreePieceLoad(int activeRung);
   void populateSavedPhaseData(int phase, double tpload, unsigned int activeparts);
   bool havePhaseData(int phase);
   void savePhaseData(std::vector<double> &loads, std::vector<unsigned int>

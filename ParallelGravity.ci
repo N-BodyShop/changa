@@ -31,6 +31,7 @@ mainmodule ParallelGravity {
   readonly DomainsDec domainDecomposition;
   readonly double dExtraStore;
   readonly double dMaxBalance;
+  readonly double dFracLoadBalance;
   readonly int bUseCkLoopPar;
   readonly int peanoKey;
   readonly GenericTrees useTree;
@@ -158,7 +159,7 @@ mainmodule ParallelGravity {
     entry [threaded] void setupICs();
     entry [threaded] void initialForces();
     entry [threaded] void doSimulation();
-    entry [threaded] void restart();
+    entry [threaded] void restart(CkCheckpointStatusMsg *msg);
     entry [threaded] void cbOpen(Ck::IO::FileReadyMsg *msg);
     entry void cbIOReady(Ck::IO::SessionReadyMsg *msg);
     entry void cbIOComplete(CkMessage *msg);
@@ -206,7 +207,6 @@ mainmodule ParallelGravity {
         const int responsible[n - 1],
         uint64_t bins[n - 1], const int n,
         const CkCallback& cb);
-    entry void collectSplitters(CkReductionMsg* m);
     //entry [local,exclusive] void notifyPresence(int index, Tree::GenericTreeNode *root);
     entry void combineLocalTrees(CkReductionMsg *m);
     entry void clearInstrument(CkCallback &cb);
@@ -215,6 +215,7 @@ mainmodule ParallelGravity {
 			 COOLPARAM inParam, const CkCallback& cb);
     entry void dmCoolTableRead(double dTableData[nData], int nData, const CkCallback& cb);
     entry void CoolingSetTime(double z, double dTime, const CkCallback& cb);
+    entry void SetStarCM(double dCenterOfMass[4], const CkCallback& cb);
     entry void memoryStats(const CkCallback& cb);
     entry void resetReadOnly(Parameters param, const CkCallback &cb);
     entry void initStarLog(std::string _fileName, const CkCallback &cb);
@@ -222,7 +223,6 @@ mainmodule ParallelGravity {
 
   array [1D] TreePiece {
     entry TreePiece();
-    entry void restart();
 
     // DEBUGGING
     entry void quiescence();
@@ -255,17 +255,7 @@ mainmodule ParallelGravity {
         const bool bDoublePos,
         const bool bDoubleVel,
         const CkCallback& cb);
-    entry void readIOrd(const std::string& filename, const CkCallback& cb);
-    entry void readIGasOrd(const std::string& filename, const CkCallback& cb);
-    entry void readESNrate(const std::string& filename, const CkCallback& cb);
-    entry void readOxMassFrac(const std::string& filename, const CkCallback& cb);
-    entry void readFeMassFrac(const std::string& filename, const CkCallback& cb);
-    entry void readMassForm(const std::string& filename, const CkCallback& cb);
-    entry void readCoolOnTime(const std::string& filename, const CkCallback& cb);
-    entry void readCoolArray0(const std::string& filename, const CkCallback& cb);
-    entry void readCoolArray1(const std::string& filename, const CkCallback& cb);
-    entry void readCoolArray2(const std::string& filename, const CkCallback& cb);
-    entry void readCoolArray3(const std::string& filename, const CkCallback& cb);
+    entry void readTipsyArray(CkReference<OutputParams> params, const CkCallback& cb);
     entry void resetMetals(const CkCallback& cb);
     entry void getMaxIOrds(const CkCallback& cb);
     entry void RestartEnergy(double dTuFac, const CkCallback& cb);
@@ -358,10 +348,11 @@ mainmodule ParallelGravity {
     entry void drift(double dDelta, int bNeedVPred, int bGasIsoThermal,
 		     double dvDelta, double duDelta, int nGrowMass,
 		     bool buildTree, const CkCallback& cb);
+    entry void starCenterOfMass(const CkCallback& cb);
     entry void calcEnergy(const CkCallback& cb);
     entry void colNParts(const CkCallback &cb);
-    entry void newOrder(int64_t nStartSPH, int64_t nStartDark,
-		int64_t nStartStar, const CkCallback &cb);
+    entry [nokeep] void newOrder(const NewMaxOrder nStarts[n], const int n,
+			  const CkCallback &cb);
     entry void setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
 		 int64_t _nTotalStar, const CkCallback &cb);
     entry void setSoft(const double dSoft, const CkCallback &cb);
@@ -383,6 +374,7 @@ mainmodule ParallelGravity {
                                     double dDtCourantFac,
                                    double dResolveJeans,
 				   const CkCallback &cb);
+    entry void initRand(int iRand, const CkCallback &cb);
     entry void FormStars(Stfm param, double dTime, double dDelta, 
     	       		 double dCosmoFac, const CkCallback& cb);
     entry void flushStarLog(const CkCallback& cb);
@@ -403,6 +395,8 @@ mainmodule ParallelGravity {
 #endif
 
     entry void startOctTreeBuild(CkReductionMsg* m);
+    entry void recvBoundary(SFC::Key key, NborDir dir);
+    entry void recvdBoundaries(CkReductionMsg* m);
 
     entry void startORBTreeBuild(CkReductionMsg* m);
 
@@ -424,7 +418,10 @@ mainmodule ParallelGravity {
     	  [inline]
 #endif
 	  void requestRemoteMoments(Tree::NodeKey key, int sender);
-    entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type, int firstParticle, int numParticles, MultipoleMoments& moments, OrientedBox<double>& box, OrientedBox<double>& boxBall, unsigned int iParticleTypes);
+    entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type,
+      int firstParticle, int numParticles, int remIdx, MultipoleMoments& moments,
+      OrientedBox<double>& box, OrientedBox<double>& boxBall,
+      unsigned int iParticleTypes);
 
     entry void commenceCalculateGravityLocal();
     entry void calculateGravityRemote(ComputeChunkMsg *msg);
@@ -450,6 +447,8 @@ mainmodule ParallelGravity {
     // jetley
     entry void startlb(CkCallback &cb, int activeRung);
     entry void ResumeFromSync();
+    entry [reductiontarget] void getParticleInfoForLB(int64_t active_part,
+        int64_t total_part);
     //jetley
     // entry void receiveProxy(CkGroupID);
     entry void doAtSync();

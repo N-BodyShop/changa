@@ -84,6 +84,7 @@ unsigned int _yieldPeriod;
 DomainsDec domainDecomposition;
 double dExtraStore;		// fraction of extra particle storage
 double dMaxBalance;		// Max piece imbalance for load balancing
+double dFracLoadBalance;	// Min particles for doing load balancing
 int iGasModel; 			// For backward compatibility
 int peanoKey;
 GenericTrees useTree;
@@ -572,6 +573,10 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dMaxBalance",paramDouble,&param.dMaxBalance,
 		    sizeof(double), "maxbal",
 		    "Maximum piece ratio for load balancing");
+	param.dFracLoadBalance = 0.0001;
+	prmAddParam(prm,"dFracLoadBalance",paramDouble,&param.dFracLoadBalance,
+		    sizeof(double), "fraclb",
+		    "Minimum active particles for load balancing");
 	
 	bDumpFrame = 0;
 	df = NULL;
@@ -792,6 +797,7 @@ Main::Main(CkArgMsg* m) {
         thetaMono = theta*theta*theta*theta;
 	dExtraStore = param.dExtraStore;
 	dMaxBalance = param.dMaxBalance;
+	dFracLoadBalance = param.dFracLoadBalance;
 	_cacheLineDepth = param.cacheLineDepth;
 	verbosity = param.iVerbosity;
 	nIOProcessor = param.nIOProcessor;
@@ -856,6 +862,12 @@ Main::Main(CkArgMsg* m) {
 	 */
 	if (!param.bPeriodic && param.nReplicas != 0) {
 	    CkPrintf("WARNING: nReplicas set to non-zero value for non-periodic!\n");
+	    }
+	/*
+	 ** Warn that nReplicas is set to 0 for bPeriodic.
+	 */
+	if (param.bPeriodic && param.nReplicas == 0) {
+	    CkPrintf("WARNING: nReplicas set to zero value for periodic!\n");
 	    }
 	/*
 	 ** Determine the period of the box that we are using.
@@ -1393,6 +1405,11 @@ void Main::advanceBigStep(int iStep) {
       emergencyAdjust(activeRung);
       // Find new rung for active particles
       nextMaxRung = adjust(activeRung);
+      if((param.bStarForm || param.bFeedback)
+         && param.stfm->iStarFormRung > nextMaxRung)
+          nextMaxRung = param.stfm->iStarFormRung; // Force stepping at star
+                                                  // formation/feedback
+                                                  // interval.
       if(currentStep == 0) rungStats();
       if(verbosity) ckout << "MaxRung: " << nextMaxRung << endl;
 
@@ -1433,8 +1450,11 @@ void Main::advanceBigStep(int iStep) {
 	  if(verbosity)
 	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
+      double startTime = CkWallTimer();
       treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas,
 		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
+      if(verbosity)
+          CkPrintf("Kick took %g seconds.\n", CkWallTimer() - startTime);
 
       if(verbosity > 1)
 	  memoryStats();
@@ -1459,6 +1479,7 @@ void Main::advanceBigStep(int iStep) {
 	      if(verbosity)
 		  CkPrintf("Drift: Rung %d Delta %g\n", driftRung, dTimeSub);
 
+              double startTime = CkWallTimer();
 	      // Only effective if growmass parameters have been set.
 	      growMass(dTime, dTimeSub);
 	      // Are the GrowMass particles locked in place?
@@ -1471,6 +1492,8 @@ void Main::advanceBigStep(int iStep) {
 	      treeProxy.drift(dDriftFac, param.bDoGas, param.bGasIsothermal,
 			      dKickFac, dTimeSub, nGrowMassDrift, buildTree,
 			      CkCallbackResumeThread());
+              if(verbosity)
+                  CkPrintf("Drift took %g seconds.\n", CkWallTimer() - startTime);
 
 	      // Advance time to end of smallest step
 	      dTime += dTimeSub;
@@ -1514,22 +1537,21 @@ void Main::advanceBigStep(int iStep) {
     /*
      * Form stars at user defined intervals
      */
-    double dTimeSF = RungToDt(param.dDelta, nextMaxRung);
     if((param.bStarForm || param.bFeedback)
        && param.stfm->isStarFormRung(activeRung)) {
         double startTime = CkWallTimer();
         CkPrintf("Domain decomposition for star formation/feedback... ");
         sorter.startSorting(dataManagerID, ddTolerance,
                             CkCallbackResumeThread(), true);
-        CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+        CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
         CkPrintf("Load balancer for star formation/feedback... ");
         startTime = CkWallTimer();
         treeProxy.startlb(CkCallbackResumeThread(), PHASE_FEEDBACK);
         CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
         if(param.bStarForm)
-            FormStars(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
+            FormStars(dTime, param.stfm->dDeltaStarForm);
         if(param.bFeedback) 
-            StellarFeedback(dTime, max(dTimeSF, param.stfm->dDeltaStarForm));
+            StellarFeedback(dTime, param.stfm->dDeltaStarForm);
         }
 
     ckout << "\nStep: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
@@ -1718,8 +1740,11 @@ void Main::advanceBigStep(int iStep) {
 	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
       waitForGravity(cbGravity, startTime);
+      startTime = CkWallTimer();
       treeProxy.kick(activeRung, dKickFac, 1, param.bDoGas,
 		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
+      if(verbosity)
+          CkPrintf("Kick took %g seconds.\n", CkWallTimer() - startTime);
       // 1/2 step uDot update
       if(activeRung > 0 && param.bDoGas) {
 	  double startTime = CkWallTimer();
@@ -1760,7 +1785,10 @@ void Main::advanceBigStep(int iStep) {
     ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
 
+    startTime = CkWallTimer();
     treeProxy.finishNodeCache(CkCallbackResumeThread());
+    if(verbosity)
+        CkPrintf("Finish NodeCache took %g seconds.\n", CkWallTimer() - startTime);
 
 #ifdef CHECK_TIME_WITHIN_BIGSTEP
     if(param.iWallRunTime > 0 && ((CkWallTimer()-wallTimeStart) > param.iWallRunTime*60.)){
@@ -1863,8 +1891,11 @@ void Main::setupICs() {
   if(nTotalSPH > 0 && !param.bDoGas) {
       if(prmSpecified(prm, "bDoGas"))
 	  ckerr << "WARNING: SPH particles present and bDoGas is set off\n";
-      else
+      else {
 	  param.bDoGas = 1;
+          if(!prmSpecified(prm, "bSphStep"))
+              param.bSphStep = 1;
+          }
       }
   getStartTime();
   if(param.nSteps > 0) getOutTimes();
@@ -1879,8 +1910,10 @@ void Main::setupICs() {
   
   if(param.iStartStep) bIsRestarting = true;
 
-  if(param.bStarForm || param.bFeedback)
+  if(param.bStarForm || param.bFeedback) {
       param.stfm->CheckParams(prm, param);
+      treeProxy.initRand(param.stfm->iRandomSeed, CkCallbackResumeThread());
+      }
 
   if(param.bStarForm)
       initStarLog();
@@ -2039,7 +2072,7 @@ int CheckForStop()
 /// doSimulation() loop.
 
 void
-Main::restart() 
+Main::restart(CkCheckpointStatusMsg *msg)
 {
     if(bIsRestarting) {
 	dSimStartTime = CkWallTimer();
@@ -2074,6 +2107,8 @@ Main::restart()
 	prmAddParam(prm,"iWallRunTime",paramInt,&param.iWallRunTime,
 		    sizeof(int),"wall",
 		    "<Maximum Wallclock time (in minutes) to run> = 0 = infinite");
+        prmAddParam(prm, "killAt", paramInt, &killAt,
+		    sizeof(int),"killat", "Stop the simulation after this step");
 	prmAddParam(prm, "dTheta", paramDouble, &param.dTheta,
 		    sizeof(double), "theta", "Opening angle");
 	prmAddParam(prm, "dTheta2", paramDouble, &param.dTheta2,
@@ -2117,6 +2152,9 @@ Main::restart()
 	prmAddParam(prm,"dMaxBalance",paramDouble,&param.dMaxBalance,
 		    sizeof(double), "maxbal",
 		    "Maximum piece ratio for load balancing");
+	prmAddParam(prm,"dFracLoadBalance",paramDouble,&param.dFracLoadBalance,
+		    sizeof(double), "fraclb",
+		    "Minimum active particles for load balancing");
 	prmAddParam(prm, "dFracNoDomainDecomp", paramDouble,
 		    &param.dFracNoDomainDecomp, sizeof(double),"fndd",
 		    "Fraction of active particles for no new DD = 0.0");
@@ -2139,9 +2177,14 @@ Main::restart()
 	    initCooling();
 	if(param.bStarForm)
 	    initStarLog();
+        if(param.bStarForm || param.bFeedback)
+            treeProxy.initRand(param.stfm->iRandomSeed, CkCallbackResumeThread());
 	mainChare.initialForces();
 	}
     else {
+        if(msg->status != CK_CHECKPOINT_SUCCESS)
+            CkAbort("Checkpoint failed! Is there a disk problem?\n");
+
 	ofstream ofsCheck("lastcheckpoint", ios_base::trunc);
 	ofsCheck << bChkFirst << endl;
 	if(iStop)
@@ -2149,15 +2192,7 @@ Main::restart()
 	else
 	    mainChare.doSimulation();
 	}
-    }
-
-/// For checkpointing, the restart callback needs to be an array entry,
-/// so we have a short entry that simply calls the main entry.
-
-void
-TreePiece::restart() 
-{
-    mainChare.restart();
+    delete msg;
     }
 
 ///
@@ -2265,6 +2300,9 @@ Main::initialForces()
       treeProxy.initAccel(0, CkCallbackResumeThread());
       }
   if(param.bDoGas) {
+      // Get star center of mass
+      starCenterOfMass();
+      // Initialize SPH
       initSph();
       }
   
@@ -2371,6 +2409,7 @@ Main::doSimulation()
     
     if (verbosity) ckout << "Starting big step " << iStep << endl;
     startTime = CkWallTimer();
+    starCenterOfMass();
     advanceBigStep(iStep-1);
     double stepTime = CkWallTimer() - startTime;
     ckout << "Big step " << iStep << " took " << stepTime << " seconds."
@@ -2418,8 +2457,8 @@ Main::doSimulation()
 	treeProxy[0].flushStarLog(CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
 	bIsRestarting = 0;
-	CkCallback cb(CkIndex_TreePiece::restart(), treeProxy[0]);
-	CkStartCheckpoint(achCheckFileName.c_str(), cb);
+	CkCallback cb(CkIndex_Main::restart(0), mainChare);
+	CkStartCheckpoint(achCheckFileName.c_str(), cb, true);
 	return;
     }
     if (iStop) break;
@@ -2653,6 +2692,35 @@ Main::doSimulation()
   treeProxy.ckDestroy();
   CkWaitQD();
   CkExit();
+}
+/**
+ * @brief Main::starCenterOfMass Calculates the total mass and center of mass
+ * of all the star particles and saves them to all the available COOL structs.
+ *
+ * Requires that cooling for planets be enabled at compile time.
+ */
+void Main::starCenterOfMass()
+{
+#ifndef COOLING_NONE
+#ifdef COOLING_PLANET
+    CkReductionMsg *msg;
+    // Get the sums of (mass * pos) and (mass) of all the star particles
+    treeProxy.starCenterOfMass(CkCallbackResumeThread((void*&)msg));
+    double *dMassPos = (double *) msg->getData();
+
+    // Calculate the center of mass
+    double dCenterOfMass[4];
+    for (int i=0; i<3; ++i) {
+        dCenterOfMass[i] = dMassPos[i]/dMassPos[3];
+    }
+    // Record the total mass
+    dCenterOfMass[3] = dMassPos[3];
+    // Clean up
+    delete msg;
+    // Send center of mass to everyone
+    dMProxy.SetStarCM(dCenterOfMass, CkCallbackResumeThread());
+#endif
+#endif
 }
 
 ///
@@ -3038,6 +3106,7 @@ int Main::adjust(int iKickRung)
 {
     CkReductionMsg *msg;
     double a = csmTime2Exp(param.csm,dTime);
+    double startTime = CkWallTimer();
     
     treeProxy.adjust(iKickRung, param.bEpsAccStep, param.bGravStep,
 		     param.bSphStep, param.bViscosityLimitdt,
@@ -3058,6 +3127,8 @@ int Main::adjust(int iKickRung)
 	iCurrMaxRung--;
 	treeProxy.truncateRung(iCurrMaxRung, CkCallbackResumeThread());
 	}
+    if(verbosity)
+        CkPrintf("Adjust took %g seconds.\n", CkWallTimer() - startTime);
     return iCurrMaxRung;
     }
 
@@ -3321,14 +3392,13 @@ void Main::addDelParticles()
     CountSetPart *counts = (CountSetPart *) msg->getData();
     CkAssert(msg->getSize() == numTreePieces*sizeof(*counts));
 
-    // Callback for neworder
-    CkCallbackResumeThread cb;
-
-    int iPiece = 0;
+    int iPiece;
+    /// This is large, but no larger than the counts message
+    NewMaxOrder *nMaxOrders = new NewMaxOrder[numTreePieces];
     for(iPiece = 0; iPiece < numTreePieces; iPiece++) {
-	treeProxy[counts[iPiece].index].newOrder(nMaxOrderGas+1,
-						 nMaxOrderDark+1,
-						 nMaxOrder+1, cb);
+	nMaxOrders[counts[iPiece].index].nMaxOrderGas = nMaxOrderGas+1;
+	nMaxOrders[counts[iPiece].index].nMaxOrderDark = nMaxOrderDark+1;
+	nMaxOrders[counts[iPiece].index].nMaxOrder = nMaxOrder+1;
 
 	nMaxOrderGas += counts[iPiece].nAddGas;
 	nMaxOrderDark += counts[iPiece].nAddDark;
@@ -3337,13 +3407,14 @@ void Main::addDelParticles()
 	nTotalDark += counts[iPiece].nAddDark - counts[iPiece].nDelDark;
 	nTotalStar += counts[iPiece].nAddStar - counts[iPiece].nDelStar;
 	}
-    nTotalParticles = nTotalSPH + nTotalDark + nTotalStar;
     delete msg;
+    treeProxy.newOrder(nMaxOrders, numTreePieces, CkCallbackResumeThread());
+    delete[] nMaxOrders;
+
+    nTotalParticles = nTotalSPH + nTotalDark + nTotalStar;
     if (verbosity)
-	CkPrintf("New numbers of particles: %d gas %d dark %d star\n",
+	CkPrintf("New numbers of particles: %ld gas %ld dark %ld star\n",
 		 nTotalSPH, nTotalDark, nTotalStar);
-    
-    cb.thread_delay();
     treeProxy.setNParts(nTotalSPH, nTotalDark, nTotalStar,
 			CkCallbackResumeThread());
     }
@@ -3412,6 +3483,7 @@ void Main::pup(PUP::er& p)
     p | bDumpFrame;
     p | bChkFirst;
     p | sorter;
+    p | killAt;
     }
 
 

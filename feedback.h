@@ -50,7 +50,6 @@ class Fdbk : public PUP::able {
     void CalcUVFeedback(double dTime, double dDelta, FBEffects *fbEffects);
 
     char achIMF[32];	        /* initial mass function */
-    int iRandomSeed;		/* seed for stochastic quantized feedback */
     double dErgPerGmUnit;	/* system specific energy in ergs/gm */
     double dGmUnit;		/* system mass in grams */
     double dGmPerCcUnit;	/* system density in gm/cc */
@@ -92,7 +91,6 @@ class Fdbk : public PUP::able {
 inline Fdbk::Fdbk(const Fdbk& fb) {
     strcpy(achIMF, fb.achIMF);
     dDeltaStarForm = fb.dDeltaStarForm;
-    iRandomSeed = fb.iRandomSeed;
     dErgPerGmUnit = fb.dErgPerGmUnit;
     dGmUnit = fb.dGmUnit;
     dGmPerCcUnit = fb.dGmPerCcUnit;
@@ -115,7 +113,6 @@ inline Fdbk::Fdbk(const Fdbk& fb) {
 inline void Fdbk::pup(PUP::er &p) {
     p(achIMF, 32);
     p | dDeltaStarForm;
-    p | iRandomSeed;
     p | dErgPerGmUnit;
     p | dGmUnit;
     p | dGmPerCcUnit;

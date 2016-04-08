@@ -75,11 +75,6 @@ protected:
 	/// An array with how many particles are held by each TreePiece when sorted.
 	std::vector<int> particleCounts;
 
-	/// An array with a list of the first and last particle of each TreePiece
-	SFC::Key * splitters;
-	/// The size of the array splitters
-	int numSplitters;
-
 	/// A list of roots of the TreePieces in this node
 	// holds chare array indices of registered treepieces
 	CkVec<TreePieceDescriptor> registeredTreePieces;
@@ -193,9 +188,6 @@ public:
 	    CmiDestroyLock(lockStarLog);
 	    }
 
-	/// \brief Collect the boundaries of all TreePieces, and
-	/// trigger the real treebuild
-	void collectSplitters(CkReductionMsg* m);
 	/// Called by ORB Sorter, save the list of which TreePiece is
 	/// responsible for which interval.
 	void acceptResponsibleIndex(const int* responsible, const int n,
@@ -249,6 +241,7 @@ public:
     void CoolingSetTime(double z, // redshift
 			double dTime, // Time
 			const CkCallback& cb);
+    void SetStarCM(double dCenterOfMass[4], const CkCallback& cb);
     void memoryStats(const CkCallback& cb);
     void resetReadOnly(Parameters param, const CkCallback &cb);
 
