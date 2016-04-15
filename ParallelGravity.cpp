@@ -970,6 +970,12 @@ Main::Main(CkArgMsg* m) {
 	    param.bGasAdiabatic = 1;
 	    param.bGasIsothermal = 0;
 	    }
+        if(param.dConstGamma <= 1.0) {
+            ckerr << "dConstGamma relates pressure to internal energy and must be greater than 1.0";
+            ckerr << endl;
+            CkAbort("Bad value for dConstGamma");
+            }
+        
 	if(prmSpecified(prm, "bBulkViscosity")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bBulkViscosity parameter ignored." << endl;
