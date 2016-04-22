@@ -853,14 +853,17 @@ void DenDvDxSmoothParams::combSmoothCache(GravityParticle *p1,
 void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 				    pqSmoothNode *nnList)
 {
-	double ih2,r2,rs,rs1,fDensity,fNorm,fNorm1,vFac;
+        double ih2,r2,rs,rs1,fDensity,fDist2, fNorm,fNorm1,vFac;
 	double dvxdx, dvxdy, dvxdz, dvydx, dvydy, dvydz, dvzdx, dvzdy, dvzdz;
 	double dvx,dvy,dvz,dx,dy,dz,trace;
 	// defining new variables for Iryna's changes
-	double ph, h, tau, l,  dvdotdr, traceSS, xi, A;
-	double alphaLoc, vSignal, maxVSignal,  delDotV, signDelDotV, oldCullenAlpha;
-	double cullenR = 0.0;
-	double minVDotR = 0.0;
+	double h, tau, l,  dvdotdr, traceSS, xi, A, cullenR;
+	double alphaLoc, vSignal,  maxVSignal, oldDivV, divVDot, divVq, signDivVq, oldCullenAlpha;
+        double curTimeStep = RungToDt(dDelta, p->rung);
+        cullenR = 0.0; oldDivV = 0.0; divVDot = 0.0;
+        maxVSignal = 0.0; A = 0.0;
+        l = 0.05;
+        double dkernelr2, kernelr2;
 	// end of Iryna's variables 
 	
         double divvnorm = 0.0;
@@ -869,6 +872,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	unsigned int qiActive;
 
 	ih2 = invH2(p);
+        h = sqrt(1.0/ih2);
 	vFac = 1./(a*a); /* converts v to xdot */
 	fNorm = M_1_PI*ih2*sqrt(ih2);
 	fDensity = 0.0;
@@ -876,9 +880,9 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	dvydx = 0; dvydy = 0; dvydz= 0;
 	dvzdx = 0; dvzdy = 0; dvzdz= 0;
 
-	qiActive = 0;
+    	qiActive = 0;
 	for (i=0;i<nSmooth;++i) {
-		double fDist2 = nnList[i].fKey;
+		fDist2 = nnList[i].fKey;
 		r2 = fDist2*ih2;
 		q = nnList[i].p;
 		if(q == NULL)
@@ -889,7 +893,8 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		    qiActive = 1;
 		rs = KERNEL(r2);
 		fDensity += rs*q->mass;
-		rs1 = DKERNEL(r2);
+                dkernelr2 = DKERNEL(r2);
+		rs1 = dkernelr2; //DKERNEL(r2);
 		rs1 *= q->mass;
 		dx = nnList[i].dx.x; /* NB: dx = px - qx */
 		dy = nnList[i].dx.y;
@@ -908,61 +913,80 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		dvzdz += dvz*dz*rs1;
                 divvnorm += (dx*dx+dy*dy+dz*dz)*rs1;
 
+           
 		/* Iryna's modifications */
-		// question: is this the right way to find delV_j?
+
 		dvdotdr = vFac*(dvx*dx + dvy*dy + dvz*dz) + fDist2*H;
 		if (dvdotdr < 0) vSignal = (p->c() + q->c())/2.0 - dvdotdr/ sqrt(fDist2);
+                else vSignal = (p->c() + q->c())/2.0;
 		if (vSignal > maxVSignal) maxVSignal = vSignal;
-		delDotV = dvx*dx*rs1 + dvy*dy*rs1 + dvz*dz*rs1;
-		if (delDotV < 0) signDelDotV = -1.0;
-		else if (delDotV > 0) signDelDotV = 1.0;
-		else signDelDotV = 0;
-		cullenR += signDelDotV * q->mass * KERNEL(r2);
+                /* keep Norm positive consistent w/ std 1/rho norm */
+                fNorm1 = (divvnorm != 0 ? 3.0/fabs(divvnorm) : 0.0);
+		divVq = (dvxdx + dvydy + dvzdz)*fNorm1 + 3.0*H;
+		if (divVq < 0) signDivVq = -1.0;
+		else if (divVq > 0) signDivVq = 1.0;
+		else signDivVq = 0;
+
+                // check if need r2 or sqrt(r2)
+		cullenR += signDivVq * q->mass* KERNEL(sqrt(r2));
 		}
 
-	cullenR /= fDensity;
-	traceSS = 0.5*(dvydx+dvxdy)*(dvydx+dvxdy) + 0.5*(dvzdx+dvxdz)*(dvzdx+dvxdz) + 0.5*(dvzdy+dvydz)*(dvzdy+dvydz)\
-	     + (dvxdx+(dvxdx+dvydy+dvzdz)/3.0)*(dvxdx+(dvxdx+dvydy+dvzdz)/3.0) \
-	     + (dvydy+(dvxdx+dvydy+dvzdz)/3.0)*(dvydy+(dvxdx+dvydy+dvzdz)/3.0) \
-	     + (dvzdz+(dvxdx+dvydy+dvzdz)/3.0)*(dvzdz+(dvxdx+dvydy+dvzdz)/3.0);
-	
-	delDotV = dvxdx + dvydy + dvzdz;
-        if (delDotV == 0.0) xi = 0;
-        else {
-          xi =(2.0*pow((1.0-cullenR),4)*delDotV)*(2.0*pow((1.0-cullenR),4)*delDotV) / \
-	    (traceSS + (2.0*pow((1.0-cullenR),4)*delDotV)*(2.0*pow((1.0-cullenR),4)*delDotV));
+        if (curTimeStep > 0) oldDivV = p->divv();
+
+        if (qiActive)
+          TYPESet(p,TYPE_NbrOfACTIVE);
+
+        p->fDensity = fNorm*fDensity;
+        trace = dvxdx+dvydy+dvzdz;
+        /* keep Norm positive consistent w/ std 1/rho norm */
+        //        fNorm1 = (divvnorm != 0 ? 3.0/fabs(divvnorm) : 0.0);
+        p->divv() =  fNorm1*trace + 3.0*H; /* physical */
+        p->curlv().x = fNorm1*(dvzdy - dvydz);
+        p->curlv().y = fNorm1*(dvxdz - dvzdx);
+        p->curlv().z = fNorm1*(dvydx - dvxdy);
+
+        if (curTimeStep == 0){
+          if ((p->divv() < 0) && (p->c() > 0)){
+            tau = h / (2.0*l*p->c());
+            p->CullenAlpha() = dAlphaMax*p->divv()*tau / (1.0 + p->divv()*tau);
+          }
+          else p->CullenAlpha() = 0.0; 
         }
-	if (delDotV < 0) A = -delDotV * xi;
-	else A = 0;
+        else {
+          divVDot = (p->divv() - oldDivV)/(curTimeStep);
+          cullenR /= p->mass*p->fDensity;
+          traceSS = fNorm1*fNorm1*(0.5*(dvydx+dvxdy)*(dvydx+dvxdy) + 0.5*(dvzdx+dvxdz)*(dvzdx+dvxdz) + \
+                                 0.5*(dvzdy+dvydz)*(dvzdy+dvydz)        \
+                                 + (dvxdx+(dvxdx+dvydy+dvzdz)/3.0)*(dvxdx+(dvxdx+dvydy+dvzdz)/3.0) \
+                                 + (dvydy+(dvxdx+dvydy+dvzdz)/3.0)*(dvydy+(dvxdx+dvydy+dvzdz)/3.0) \
+                                 + (dvzdz+(dvxdx+dvydy+dvzdz)/3.0)*(dvzdz+(dvxdx+dvydy+dvzdz)/3.0)); // / (p->mass * p->mass);
+	
+
+          xi =(2.0*pow((1.0-cullenR),4)*p->divv())*(2.0*pow((1.0-cullenR),4)*p->divv()) / \
+            (traceSS + (2.0*pow((1.0-cullenR),4)*p->divv())*(2.0*pow((1.0-cullenR),4)*p->divv()));
+       
+          if (divVDot < 0) A = -divVDot * xi;
+   
+          if (maxVSignal == 0) {
+            // if maxVSignal = 0, then particles aren't moving, and alpha has to be zero
+            p->CullenAlpha() = 0;
+          }
+          else {
+            alphaLoc = dAlphaMax*h*h*A / (maxVSignal*maxVSignal + h*h*A);
+            tau = h / (2.0*l*maxVSignal);
       
-	h=sqrt(0.25*p->fBall*p->fBall);
-	l = 0.05; // temporarily hard-coded Cullen & Dehnen suggested value for l
-
-	/* stuck on how to compute vSignal (dvdotdr here or in the for-loop?)*/
-	vSignal = p->c() + minVDotR;
-
-	tau = h / (2.0*l*vSignal);
-        if (vSignal == 0) alphaLoc = 0;
-        else alphaLoc = dAlphaMax*h*h*A / (vSignal*vSignal + h*h*A);
-	if (dDelta > 0.0){
-	  /* Is this the right way to deal with time? */
-          oldCullenAlpha = p->CullenAlpha();
-          p->CullenAlpha() = alphaLoc - (oldCullenAlpha - alphaLoc)*exp(-RungToDt(dDelta, p->rung)/tau);
-	}
-	else p->CullenAlpha() = alphaLoc;
+            if (alphaLoc > p->CullenAlpha()) p->CullenAlpha() = alphaLoc;
+            else {
+              oldCullenAlpha = p->CullenAlpha();
+              p->CullenAlpha() = alphaLoc - (alphaLoc - oldCullenAlpha)*exp(-curTimeStep/tau);
+            }
+        
+          }
+        }
 	/* End of Iryna's changes (for now) */
 
-	if (qiActive)
-	    TYPESet(p,TYPE_NbrOfACTIVE);
-		
-	p->fDensity = fNorm*fDensity; 
-	trace = dvxdx+dvydy+dvzdz;
-        /* keep Norm positive consistent w/ std 1/rho norm */
-        fNorm1 = (divvnorm != 0 ? 3.0/fabs(divvnorm) : 0.0);
-	p->divv() =  fNorm1*trace + 3.0*H; /* physical */
-	p->curlv().x = fNorm1*(dvzdy - dvydz); 
-	p->curlv().y = fNorm1*(dvxdz - dvzdx);
-	p->curlv().z = fNorm1*(dvydx - dvxdy);
+
+
 #ifdef DIFFUSION
         {
 	double onethirdtrace = (1./3.)*trace;

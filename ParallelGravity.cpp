@@ -3133,6 +3133,7 @@ void Main::writeOutput(int iStep)
     MFormOutputParams pMFormOut(achFile, param.iBinaryOut, dOutTime);
     coolontimeOutputParams pcoolontimeOut(achFile, param.iBinaryOut, dOutTime);
     ESNRateOutputParams pESNRateOut(achFile, param.iBinaryOut, dOutTime);
+    AlphaOutputParams pAlphaOut(achFile, param.iBinaryOut, dOutTime);
 #ifndef COOLING_NONE
     Cool0OutputParams pCool0Out(achFile, param.iBinaryOut, dOutTime);
     Cool1OutputParams pCool1Out(achFile, param.iBinaryOut, dOutTime);
@@ -3148,13 +3149,14 @@ void Main::writeOutput(int iStep)
     CsOutputParams pCSOut(achFile, param.iBinaryOut, dOutTime);
 
     if (param.iBinaryOut) {
-	if (param.bStarForm || param.bFeedback) {
+	outputBinary(pAlphaOut, param.bParaWrite, CkCallbackResumeThread());
+        if (param.bStarForm || param.bFeedback) {
 	    outputBinary(pOxOut, param.bParaWrite, CkCallbackResumeThread());
 	    outputBinary(pFeOut, param.bParaWrite, CkCallbackResumeThread());
 	    outputBinary(pMFormOut, param.bParaWrite, CkCallbackResumeThread());
 	    outputBinary(pcoolontimeOut, param.bParaWrite, CkCallbackResumeThread());
 	    outputBinary(pESNRateOut, param.bParaWrite, CkCallbackResumeThread());
-	    }
+            }
 #ifndef COOLING_NONE
 	if(param.bGasCooling) {
 	    outputBinary(pCool0Out, param.bParaWrite, CkCallbackResumeThread());
@@ -3191,6 +3193,8 @@ void Main::writeOutput(int iStep)
                 }
             }
 	} else {
+        treeProxy[0].outputASCII(pAlphaOut, param.bParaWrite,
+                               CkCallbackResumeThread());
 	if (param.bStarForm || param.bFeedback) {
 	    treeProxy[0].outputASCII(pOxOut, param.bParaWrite,
 				     CkCallbackResumeThread());

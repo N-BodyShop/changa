@@ -358,6 +358,38 @@ class PresOutputParams : public OutputParams
 	}
     };
 
+class AlphaOutputParams : public OutputParams
+{
+  virtual double dValue(GravityParticle *p)
+  {
+    if (TYPETest(p, TYPE_GAS))
+      return p->CullenAlpha();
+    else
+      return 0.0;
+  }
+  virtual Vector3D<double> vValue(GravityParticle *p)
+  {CkAssert(0); return 0.0;}
+  virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+  virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+  virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+  AlphaOutputParams() {}
+  AlphaOutputParams(std::string _fileName) { bFloat = 1; bVector = 0; fileName = _fileName;}
+  AlphaOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+    bFloat = 1;
+    bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+    sTipsyExt = "alpha"; sNChilExt = "alpha";
+    dTime = _dTime;
+    iType = TYPE_GAS; }
+  PUPable_decl(AlphaOutputParams);
+  AlphaOutputParams(CkMigrateMessage *m) {}
+  virtual void pup(PUP::er &p) {
+    OutputParams::pup(p);//Call base class                                                                                                                                                     
+  }
+};
+
+
+
 /// @brief Output divergence of velocity.
 class DivVOutputParams : public OutputParams
 {

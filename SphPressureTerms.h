@@ -208,10 +208,10 @@
         else {  
             hav=0.5*(ph+0.5*q->fBall);
             ARTIFICIALVISCOSITY(visc,dt); /* Calculate Artificial viscosity terms */		
-            PACTIVE( p->PdV() += rq*(0.5*visc)*dvdotdr *p->CullenAlpha() / (hav*hav); );
-            QACTIVE( q->PdV() += rp*(0.5*visc)*dvdotdr * q->CullenAlpha()/ (hav*hav); );
-            PACTIVE( Accp += visc*p->CullenAlpha() / (hav*hav); );
-            QACTIVE( Accq += visc*p->CullenAlpha()/ (hav*hav); );
+            PACTIVE( p->PdV() += rq*(0.5*visc)*dvdotdr *p->CullenAlpha(); );
+            QACTIVE( q->PdV() += rp*(0.5*visc)*dvdotdr * q->CullenAlpha(); );
+            PACTIVE( Accp += visc*p->CullenAlpha(); );
+            QACTIVE( Accq += visc*q->CullenAlpha(); ); // used to have /(hav*hav) term in all 4 lines
             }
         PACTIVE( Accp *= rq*aFac; );/* aFac - convert to comoving acceleration */
         QACTIVE( Accq *= rp*aFac; );

@@ -65,6 +65,7 @@ class extraSPHData
     double _BalsaraSwitch;	/* Pressure/rho^2 */
     double _fBallMax;		/* Radius for inverse neighbor finding */
     double _CullenAlpha;        /* Alpha from Cullen & Dehnen 2010 */
+    double _DivV;               /* velocity divergence */
 #ifdef DTADJUST
     double _dtNew;		/* New timestep from gas pressure */
 #endif
@@ -102,6 +103,7 @@ class extraSPHData
     inline double& BalsaraSwitch() {return _BalsaraSwitch;}
     inline double& fBallMax() {return _fBallMax;}
     inline double& CullenAlpha() {return _CullenAlpha;}
+    inline double& DivV() {return _DivV;}
 #ifdef DTADJUST
     inline double& dtNew() {return _dtNew;}
 #endif
@@ -136,6 +138,7 @@ class extraSPHData
 	p | _BalsaraSwitch;
 	p | _fBallMax;
 	p | _CullenAlpha;
+        p | _DivV;
 #ifdef DTADJUST
         p | _dtNew;
 #endif
@@ -301,6 +304,7 @@ public:
 	inline double& BalsaraSwitch() { IMAGAS; return (((extraSPHData*)extraData)->BalsaraSwitch());}
 	inline double& fBallMax() { IMAGAS; return (((extraSPHData*)extraData)->fBallMax());}
 	inline double& CullenAlpha() {IMAGAS; return (((extraSPHData*)extraData)->CullenAlpha());}
+        inline double& DivV() {IMAGAS; return (((extraSPHData*)extraData)->DivV());}
 #ifdef DTADJUST
         inline double& dtNew() { IMAGAS; return (((extraSPHData*)extraData)->dtNew());}
 #endif
@@ -422,6 +426,7 @@ class ExternalSmoothParticle {
   double BalsaraSwitch;
   double fBallMax;
   double CullenAlpha;
+  double DivV;
   double u;
   double uPred;
   double uDot;
@@ -460,6 +465,7 @@ class ExternalSmoothParticle {
 	      BalsaraSwitch = p->BalsaraSwitch();
 	      fBallMax = p->fBallMax();
 	      CullenAlpha = p->CullenAlpha();
+              DivV = p->DivV();
 	      curlv = p->curlv();
 	      u = p->u();
 #ifndef COOLING_NONE
@@ -503,6 +509,7 @@ class ExternalSmoothParticle {
 	  tmp->BalsaraSwitch() = BalsaraSwitch;
 	  tmp->fBallMax() = fBallMax;
 	  tmp->CullenAlpha() = CullenAlpha;
+          tmp->DivV() = DivV;
 	  tmp->curlv() = curlv;
 	  tmp->u() = u;
 #ifndef COOLING_NONE
@@ -548,6 +555,7 @@ class ExternalSmoothParticle {
     p | BalsaraSwitch;
     p | fBallMax;
     p | CullenAlpha;
+    p | DivV;
     p | u;
     p | uPred;
     p | uDot;
