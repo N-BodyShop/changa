@@ -115,6 +115,79 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     dMaxCoolShutoff *= SECONDSPERYEAR/param.dSecUnit;
     }
 
+void Main::AGORAfeedbackPreCheck(double dTime, double dDelta, double dTimeToSF)
+{
+    AGORApreCheckSmoothParams pAPC(TYPE_GAS, 0, param.csm, dTime, dDelta, 
+                         param.dConstGamma, param.dEtaCourant, dTimeToSF, param.feedback,
+                         param.dMsolUnit, param.dErgPerGmUnit);
+    double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+    treeProxy.startSmooth(&pAPC, 0, param.feedback->nSmoothFeedback,
+              dfBall2OverSoft2, CkCallbackResumeThread());
+    treeProxy.finishNodeCache(CkCallbackResumeThread());
+    }
+
+void AGORApreCheckSmoothParams::initSmoothCache(GravityParticle *p1)
+{
+    #ifdef DTADJUST 
+    if (p1-> rung >= activeRung) {
+            p1->dtNew() = FLT_MAX;
+        }
+    #endif
+    }
+
+void AGORApreCheckSmoothParams::combSmoothCache(GravityParticle *p1,
+                              ExternalSmoothParticle *p2)
+{
+    #ifdef DTADJUST
+        if (p2->dtNew < p1->dtNew())
+            p1->dtNew() = p2->dtNew;
+    #endif
+    }
+
+void AGORApreCheckSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *nList)
+{
+    GravityParticle *q;
+    double dTimeYr, dDeltaYr, dtCourantFac, PoverRho, c_s, uPred, dtNew, pMassMsol, snEerg;
+    int i;
+
+    dTimeYr = dTime*fb.dSecUnit/SECONDSPERYEAR ;
+    dDeltaYr = max(dDelta, fb.dDeltaStarForm)*fb.dSecUnit/SECONDSPERYEAR ;
+
+    if(p->isStar() && p->fTimeForm() >= 0.0) {
+        double dStarLtimeMin = dTimeYr - p->fTimeForm()*fb.dSecUnit/SECONDSPERYEAR;
+        double dStarLtimeMax = dStarLtimeMin + dDeltaYr;
+        if (dStarLtimeMin < fb.sn.AGORAsnTime && dStarLtimeMax > fb.sn.AGORAsnTime) {
+            if (verbosity)
+                CkPrintf("AGORA feedback imminent...warning %d neighbors\n", nSmooth);
+            for (i=0; i<nSmooth; i++) {
+                q = nList[i].p;
+
+                dtCourantFac = etaCourant*a*2.0/1.6;
+                pMassMsol = p->mass*dMsolUnit;
+                snEerg = fb.sn.AGORAsnE*pMassMsol/fb.sn.AGORAsnPerMass;
+                uPred = snEerg/(pMassMsol*MSOLG);
+                uPred /= dErgPerGmUnit;
+                PoverRho = (gamma-1.0)*uPred;
+                c_s = sqrt(gamma*PoverRho);
+                dtNew = dtCourantFac*0.5*q->fBall/(2.0*c_s);
+
+                // Reducing the time step size means that the feedback is no longer going to
+                // occur in the next step. Reduce dtNew by no larger than a factor of 2 to reduce 
+                // the amount of unecessary steps.
+                if (q->dt > dtNew) {
+                    if (dtNew <= timeToSF/2.0) {
+                        q->dtNew() = timeToSF/2.0;
+                        }
+                    else {
+                        q->dtNew() = dtNew;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
 ///
 /// Feedback main method
 ///

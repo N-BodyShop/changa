@@ -527,6 +527,7 @@ public:
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
         void restartGas();
 	void doSph(int activeRung, int bNeedDensity = 1);
+    void AGORAfeedbackPreCheck(double dTime, double dDelta, double dTimeToSF);
 	void FormStars(double dTime, double dDelta);
 	void StellarFeedback(double dTime, double dDelta);
 	int DumpFrameInit(double dTime, double dStep, int bRestart);

@@ -10,13 +10,10 @@ class FBEffects;
 /// Methods for calculating the number and feedback effects of supernova.
 class SN 
 {
-    double AGORAsnTime;         /* Time (in yr) at which to set off the single SN */
-    double AGORAsnPerMass;      /* Number of supernovae to set off per solar mass of star particle */
     double AGORAgasLossPerSN;   /* Amount of gas (in Msun) to be ejected for one supernova */
     double AGORAmetalLossPerSN; /* Amount of metals (in Msun) to be ejected for one supernova */
     double AGORAmetalFracO;     /* Metal fraction of oxygen to be ejected during the event */
     double AGORAmetalFracFe;    /* Metal fraction of iron to be ejected during the event */
-    double AGORAsnE;            /* Energy (erg) to be released from a single SN */
 
     double dMSNrem;		/* mass of SN remnant in M_sun */
     double dMSNIImin;		/* Minimum core collapse SN mass */
@@ -31,6 +28,9 @@ class SN
     double dMOxconst;           /* normalization of oxygen */
     Padova pdva;
  public:
+    double AGORAsnTime;         /* Time (in yr) at which to set off the single SN */
+    double AGORAsnE;            /* Energy (erg) to be released from a single SN */
+    double AGORAsnPerMass;      /* Number of supernovae to set off per solar mass of star particle */
     double dESN;		/* how much energy comes from a supernova */
     int iNSNIIQuantum;	/* minimum amount of supernovae */
     double dFracBinSNIa;	/* fraction of binary systems in mass

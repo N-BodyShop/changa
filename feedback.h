@@ -146,6 +146,67 @@ enum FBenum{
 #include "smoothparams.h"
 
 /**
+ * SmoothParams class for alerting neighboring gas particles when a star particle
+ * is about to have an AGORA feedback event
+ */
+
+class AGORApreCheckSmoothParams : public SmoothParams
+{
+    double dTime, dDelta, H, a, gamma, etaCourant, timeToSF, dMsolUnit, dErgPerGmUnit;
+    Fdbk fb;
+    virtual void fcnSmooth(GravityParticle *p, int nSmooth,
+               pqSmoothNode *nList);
+    virtual int isSmoothActive(GravityParticle *p) {}
+    virtual void initSmoothParticle(GravityParticle *p) {}
+    virtual void initTreeParticle(GravityParticle *p) {}
+    virtual void postTreeParticle(GravityParticle *p) {}
+    virtual void initSmoothCache(GravityParticle *p);
+    virtual void combSmoothCache(GravityParticle *p1,
+                 ExternalSmoothParticle *p2);
+    void DistFBMME(GravityParticle *p, int nSmooth, pqSmoothNode *nList);
+ public:
+    AGORApreCheckSmoothParams() {}
+    AGORApreCheckSmoothParams(int _iType, int am, CSM csm, double _dTime, double _dDelta,
+                 double _gamma, double _etaCourant, double _timeToSF, Fdbk *feedback,
+                 double _dMsolUnit, double _dErgPerGmUnit) :
+                    fb (*feedback) {
+    iType = _iType;
+    activeRung = am;
+    bUseBallMax = 0;
+    gamma = _gamma;
+    etaCourant = _etaCourant;
+    timeToSF = _timeToSF;
+    dMsolUnit = _dMsolUnit;
+    dErgPerGmUnit = _dErgPerGmUnit;
+    dTime = _dTime;
+    dDelta = _dDelta;
+    if(csm->bComove) {
+        H = csmTime2Hub(csm,dTime);
+        a = csmTime2Exp(csm,dTime);
+        }
+    else {
+        H = 0.0;
+        a = 1.0;
+        }
+    }
+    PUPable_decl(AGORApreCheckSmoothParams);
+    AGORApreCheckSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
+    virtual void pup(PUP::er &p) {
+        SmoothParams::pup(p);
+    p|a;
+    p|H;
+    p|gamma;
+    p|etaCourant;
+    p|timeToSF;
+    p|dMsolUnit;
+    p|dErgPerGmUnit;
+    p|fb;
+    p|dTime;
+    p|dDelta;
+    }
+    };
+
+/**
  * SmoothParams class for distributing stellar feedback (energy, mass + metals) 
  * to neighboring particles.
  */
