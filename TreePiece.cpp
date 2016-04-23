@@ -139,7 +139,7 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 	      // Make the bounding box cubical.
 	      //
 	      Vector3D<float> bcenter = boundingBox.center();
-	      const float fEps = 1.0 + 5.0e-7;  // slop to ensure keys fall
+	      const float fEps = 1.0 + 9.5e-7;  // slop to ensure keys fall
 						// between 0 and 1.
 	      bsize = Vector3D<float>(fEps*0.5*max);
 	      boundingBox = OrientedBox<float>(bcenter-bsize, bcenter+bsize);
