@@ -8,7 +8,6 @@
 #define GENERICTREENODE_H
 
 #include "pup.h"
-#include "ckpool.h"
 
 #include <map>
 #include <vector>
@@ -190,6 +189,12 @@ class NodePool;
               myType == CachedEmpty);
     }
 
+    bool isBucket(){
+      return (myType == Bucket ||
+              myType == CachedBucket ||
+              myType == NonLocalBucket);
+    }
+
     // these two functions are used to track the communication between objects:
     // a nodes is marked usedBy when a local TreePiece has touched it
     void markUsedBy(int index) { usedBy |= (((CmiUInt8)1) << index); }
@@ -247,6 +252,7 @@ class NodePool;
 
     void getGraphViz(std::ostream &out);
 
+    /// @brief return the NodeKey of the lowest common ancestor.
     virtual NodeKey getLongestCommonPrefix(NodeKey k1, NodeKey k2)
     {
       CkAbort("getLongestCommonPrefix not implemented\n");
@@ -322,7 +328,7 @@ public:
   */
   typedef std::map<NodeKey, GenericTreeNode *> NodeLookupType;
 
-  class BinaryTreeNode : public GenericTreeNode {//, public CkPool<BinaryTreeNode, 32> {
+  class BinaryTreeNode : public GenericTreeNode {
   protected:
   public:
     BinaryTreeNode* children[2];
@@ -771,7 +777,7 @@ public:
       int used = 1;
       if (depth != 0) {
         if (children[0] != NULL) {
-          BinaryTreeNode *nextBuf = (BinaryTreeNode *) (((char*)buffer) + used * (sizeof(BinaryTreeNode)+extraSpace));
+          BinaryTreeNode *nextBuf = (BinaryTreeNode *) (((char*)buffer) + used * ALIGN_DEFAULT(sizeof(BinaryTreeNode)+extraSpace));
           buffer->children[0] = (BinaryTreeNode*)(((char*)nextBuf) - ((char*)buffer));
           //CkPrintf("Entering child 0: offset %ld\n",buffer->children[0]);
           used += children[0]->packNodes(nextBuf, depth-1, extraSpace);
@@ -780,7 +786,7 @@ public:
           buffer->children[0] = NULL;
         }
         if (children[1] != NULL) {
-          BinaryTreeNode *nextBuf = (BinaryTreeNode *) (((char*)buffer) + used * (sizeof(BinaryTreeNode)+extraSpace));
+          BinaryTreeNode *nextBuf = (BinaryTreeNode *) (((char*)buffer) + used * ALIGN_DEFAULT(sizeof(BinaryTreeNode)+extraSpace));
           buffer->children[1] = (BinaryTreeNode*)(((char*)nextBuf) - ((char*)buffer));
           //CkPrintf("Entering child 1: offset %ld\n",buffer->children[1]);
           used += children[1]->packNodes(nextBuf, depth-1, extraSpace);
@@ -856,6 +862,7 @@ NodePool::alloc_one(NodeKey k, NodeType type, int first, int nextlast,
 	return new (one) BinaryTreeNode(k, type, first, nextlast, p);
 	}
 
+/// Class for Oct tree where each node has 8 direct children.
   class OctTreeNode : public GenericTreeNode {
   protected:
   public:

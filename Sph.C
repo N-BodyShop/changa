@@ -62,6 +62,11 @@ Main::initSph()
 	}
     }
 
+// see below for definition.
+bool arrayFileExists(const std::string filename, const int64_t count) ;
+
+#include <sys/stat.h>
+
 ///
 /// @brief Initialize cooling constants and integration data structures.
 ///
@@ -97,6 +102,28 @@ void Main::initCooling()
 	    }
 	}
     treeProxy.initCoolingData(CkCallbackResumeThread());
+    if(!bIsRestarting) {  // meaning not restarting from a checkpoint.
+        struct stat s;
+        int err = stat(basefilename.c_str(), &s);
+        if(err != -1 && S_ISDIR(s.st_mode)) {
+            // The file is a directory; assume NChilada
+            int64_t nGas = 0;
+            nGas = ncGetCount(basefilename + "/gas/coolontime");
+            if(nGas == nTotalSPH) {
+                CkPrintf("Reading coolontime\n");
+                coolontimeOutputParams pCoolOnOut(basefilename, 6, 0.0);
+                treeProxy.readFloatBinary(pCoolOnOut, param.bParaRead,
+                                          CkCallbackResumeThread());
+                }
+            }
+        else {
+            if(arrayFileExists(basefilename + ".coolontime", nTotalParticles)) {
+                CkPrintf("Reading coolontime\n");
+                coolontimeOutputParams pCoolOnOut(basefilename, 0, 0.0);
+                treeProxy.readTipsyArray(pCoolOnOut, CkCallbackResumeThread());
+                }
+            }
+        }
 #endif
     }
 
@@ -168,9 +195,8 @@ int Main::ReadASCII(char *extension, int nDataPerLine, double *dDataOut)
 	sprintf(achFile, "%s.%s", param.achOutName, extension);
 	fp = fopen(achFile,"r");
 	if (!fp) {
-	    if (verbosity)
-		CkPrintf("WARNING: Could not open .%s input file:%s\n",
-			 extension,achFile);
+            CkPrintf("WARNING: Could not open .%s input file:%s\n",
+                      extension,achFile);
 	    return 0;
 	    }
 
@@ -245,6 +271,22 @@ DataManager::CoolingSetTime(double z, // redshift
     }
 
 /**
+ * @brief DataManager::SetStarCM saves the total mass and center of mass of the
+ * star(s) to the COOL struct Cool, making them available to the cool particles
+ * @param dCenterOfMass Array(length 4) which contains the star(s) center of
+ * mass as the first 3 entries and the total star mass as the final entry
+ * @param cb    Callback
+ */
+void DataManager::SetStarCM(double dCenterOfMass[4], const CkCallback& cb) {
+#ifndef COOLING_NONE
+#ifdef COOLING_PLANET
+    CoolSetStarCM(Cool, dCenterOfMass);
+#endif
+#endif
+    contribute(cb);
+}
+
+/**
  *  @brief utility for checking array files
  */
 bool
@@ -252,15 +294,44 @@ arrayFileExists(const std::string filename, const int64_t count)
 {
     FILE *fp = CmiFopen(filename.c_str(), "r");
     if(fp != NULL) {
+        // Check if its a binary file
+        unsigned int iDum;
+        XDR xdrs;
+        xdrstdio_create(&xdrs, fp, XDR_DECODE);
+        xdr_u_int(&xdrs,&iDum);
+        xdr_destroy(&xdrs);
+        if(iDum == count) { // Assume a valid binary array file
+            fclose(fp);
+            return true;
+            }
+        fseek(fp, 0, SEEK_SET);
         int64_t nIOrd;
         fscanf(fp, "%ld", &nIOrd);
-        CkAssert(nIOrd == count);
+        CkAssert(nIOrd == count); // Valid ASCII file.
         fclose(fp);
         return true;
     }
     return false;
 }
 
+/// @brief Set total metals based on Ox and Fe mass fractions
+void
+TreePiece::resetMetals(const CkCallback& cb)
+{
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+        // Use total metals to Fe and O based on Asplund et al 2009
+	if (p->isGas())
+            p->fMetals() = 1.06*p->fMFracIron() + 2.09*p->fMFracOxygen();
+	if (p->isStar())
+            p->fStarMetals() = 1.06*p->fStarMFracIron()
+                + 2.09*p->fStarMFracOxygen();
+        }
+
+    contribute(cb);
+}
+
+#include <sys/stat.h>
 /**
  *  @brief Read in array files for complete gas information.
  */
@@ -270,11 +341,150 @@ Main::restartGas()
     if(verbosity)
         CkPrintf("Restarting Gas Simulation with array files.\n");
     
+  struct stat s;
+  int err = stat(basefilename.c_str(), &s);
+  if(err != -1 && S_ISDIR(s.st_mode)) {
+      // The file is a directory; assume NChilada
+      int64_t nGas = 0;
+      int64_t nDark = 0;
+      int64_t nStar = 0;
+      if(nTotalSPH > 0)
+          nGas = ncGetCount(basefilename + "/gas/iord");
+      if(nTotalDark > 0)
+          nDark = ncGetCount(basefilename + "/dark/iord");
+      if(nTotalStar > 0)
+          nStar = ncGetCount(basefilename + "/star/iord");
+      if(nGas + nDark + nStar == nTotalParticles) {
+          IOrderOutputParams pIOrdOut(basefilename, 6, 0.0);
+          treeProxy.readFloatBinary(pIOrdOut, param.bParaRead,
+                                      CkCallbackResumeThread());
+          CkReductionMsg *msg;
+          treeProxy.getMaxIOrds(CkCallbackResumeThread((void*&)msg));
+          CmiInt8 *maxIOrds = (CmiInt8 *)msg->getData();
+          nMaxOrderGas = maxIOrds[0];
+          nMaxOrderDark = maxIOrds[1];
+          nMaxOrder = maxIOrds[2];
+          delete msg;
+          }
+      else
+          CkError("WARNING: no iorder file, or wrong format for restart\n");
+      if(nTotalStar > 0)
+          nStar = ncGetCount(basefilename + "/star/igasorder");
+      if(nStar == nTotalStar) {
+          IGasOrderOutputParams pIOrdOut(basefilename, 6, 0.0);
+          treeProxy.readFloatBinary(pIOrdOut, param.bParaRead,
+                                      CkCallbackResumeThread());
+          }
+      else
+          CkError("WARNING: no igasorder file, or wrong format for restart\n");
+      if(param.bFeedback) {
+          if(nTotalSPH > 0)
+              nGas = ncGetCount(basefilename + "/gas/ESNRate");
+          if(nTotalStar > 0)
+              nStar = ncGetCount(basefilename + "/star/ESNRate");
+          if(nGas + nStar == nTotalSPH + nTotalStar) {
+              ESNRateOutputParams pESNROut(basefilename, 6, 0.0);
+              treeProxy.readFloatBinary(pESNROut, param.bParaRead,
+                                   CkCallbackResumeThread());
+              }
+          else
+              CkError("WARNING: no ESNRate file, or wrong format for restart\n");
+          if(nTotalSPH > 0)
+              nGas = ncGetCount(basefilename + "/gas/OxMassFrac");
+          if(nTotalStar > 0)
+              nStar = ncGetCount(basefilename + "/star/OxMassFrac");
+          if(nGas + nStar == nTotalSPH + nTotalStar) {
+              OxOutputParams pOxOut(basefilename, 6, 0.0);
+              treeProxy.readFloatBinary(pOxOut, param.bParaRead,
+                                   CkCallbackResumeThread());
+              }
+          else
+              CkError("WARNING: no OxMassFrac file, or wrong format for restart\n");
+          if(nTotalSPH > 0)
+              nGas = ncGetCount(basefilename + "/gas/FeMassFrac");
+          if(nTotalStar > 0)
+              nStar = ncGetCount(basefilename + "/star/FeMassFrac");
+          if(nGas + nStar == nTotalSPH + nTotalStar) {
+              FeOutputParams pFeOut(basefilename, 6, 0.0);
+              treeProxy.readFloatBinary(pFeOut, param.bParaRead,
+                                   CkCallbackResumeThread());
+              }
+          else
+              CkError("WARNING: no FeMassFrac file, or wrong format for restart\n");
+          treeProxy.resetMetals(CkCallbackResumeThread());
+
+          if(nTotalStar > 0)
+              nStar = ncGetCount(basefilename + "/star/massform");
+          if(nStar == nTotalStar) {
+              MFormOutputParams pMFOut(basefilename, 6, 0.0);
+              treeProxy.readFloatBinary(pMFOut, param.bParaRead,
+                                   CkCallbackResumeThread());
+              }
+          else
+              CkError("WARNING: no massform file, or wrong format for restart\n");
+          }
+#ifndef COOLING_NONE
+      if(param.bGasCooling && nTotalSPH > 0) {
+          bool bFoundCoolArray = false;
+          // read ionization fractions
+          nGas = ncGetCount(basefilename + "/gas/" + COOL_ARRAY0_EXT);
+          if(nGas == nTotalSPH) {
+              Cool0OutputParams pCool0Out(basefilename, 6, 0.0);
+              treeProxy.readFloatBinary(pCool0Out, param.bParaRead,
+                                   CkCallbackResumeThread());
+              bFoundCoolArray = true;
+              }
+          else
+              CkError("WARNING: no CoolArray0 file, or wrong format for restart\n");
+          nGas = ncGetCount(basefilename + "/gas/" + COOL_ARRAY1_EXT);
+          if(nGas == nTotalSPH) {
+              Cool1OutputParams pCool1Out(basefilename, 6, 0.0);
+              treeProxy.readFloatBinary(pCool1Out, param.bParaRead,
+                                   CkCallbackResumeThread());
+              bFoundCoolArray = true;
+              }
+          else
+              CkError("WARNING: no CoolArray1 file, or wrong format for restart\n");
+          nGas = ncGetCount(basefilename + "/gas/" + COOL_ARRAY2_EXT);
+          if(nGas == nTotalSPH) {
+              Cool2OutputParams pCool2Out(basefilename, 6, 0.0);
+              treeProxy.readFloatBinary(pCool2Out, param.bParaRead,
+                                   CkCallbackResumeThread());
+              bFoundCoolArray = true;
+              }
+          else
+              CkError("WARNING: no CoolArray2 file, or wrong format for restart\n");
+          nGas = ncGetCount(basefilename + "/gas/" + COOL_ARRAY3_EXT);
+          if(nGas == nTotalSPH) {
+              Cool3OutputParams pCool3Out(basefilename, 6, 0.0);
+              treeProxy.readFloatBinary(pCool3Out, param.bParaRead,
+                                   CkCallbackResumeThread());
+              bFoundCoolArray = true;
+              }
+          else
+              CkError("WARNING: no CoolArray3 file, or wrong format for restart\n");
+        double dTuFac = param.dGasConst/(param.dConstGamma-1)
+                /param.dMeanMolWeight;
+        if(bFoundCoolArray) {
+            // reset thermal energy with ionization fractions
+            treeProxy.RestartEnergy(dTuFac, CkCallbackResumeThread());
+        }
+        else {
+            double z = 1.0/csmTime2Exp(param.csm, dTime) - 1.0;
+            dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
+            treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
+            }
+      }
+#endif
+  } else {                      
+    // Assume TIPSY arrays
     // read iOrder
     if(arrayFileExists(basefilename + ".iord", nTotalParticles)) {
         CkReductionMsg *msg;
-        treeProxy.readIOrd(basefilename + ".iord",
-                           CkCallbackResumeThread((void*&)msg));
+        IOrderOutputParams pIOrdOut(basefilename, 0, 0.0);
+        treeProxy.readTipsyArray(pIOrdOut, CkCallbackResumeThread());
+
+        treeProxy.getMaxIOrds(CkCallbackResumeThread((void*&)msg));
         CmiInt8 *maxIOrds = (CmiInt8 *)msg->getData();
         nMaxOrderGas = maxIOrds[0];
         nMaxOrderDark = maxIOrds[1];
@@ -284,67 +494,84 @@ Main::restartGas()
     else
         CkError("WARNING: no iOrder file for restart\n");
     // read iGasOrder
-    if(arrayFileExists(basefilename + ".igasorder", nTotalParticles))
-        treeProxy.readIGasOrd(basefilename + ".igasorder",
-                           CkCallbackResumeThread());
+    if(arrayFileExists(basefilename + ".igasorder", nTotalParticles)) {
+        IGasOrderOutputParams pIOrdOut(basefilename, 0, 0.0);
+        treeProxy.readTipsyArray(pIOrdOut, CkCallbackResumeThread());
+        }
     else {
         CkError("WARNING: no igasorder file for restart\n");
         }
     if(param.bFeedback) {
-        if(arrayFileExists(basefilename + ".ESNRate", nTotalParticles))
-            treeProxy.readESNrate(basefilename + ".ESNRate",
-                               CkCallbackResumeThread());
-        if(arrayFileExists(basefilename + ".OxMassFrac", nTotalParticles))
-            treeProxy.readOxMassFrac(basefilename + ".OxMassFrac",
-                               CkCallbackResumeThread());
-        if(arrayFileExists(basefilename + ".FeMassFrac", nTotalParticles))
-            treeProxy.readFeMassFrac(basefilename + ".FeMassFrac",
-                               CkCallbackResumeThread());
-        if(arrayFileExists(basefilename + ".massform", nTotalParticles))
-            treeProxy.readMassForm(basefilename + ".massform",
-                               CkCallbackResumeThread());
+        if(arrayFileExists(basefilename + ".ESNRate", nTotalParticles)) {
+            ESNRateOutputParams pESNROut(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pESNROut, CkCallbackResumeThread());
+            }
+        if(arrayFileExists(basefilename + ".OxMassFrac", nTotalParticles)) {
+            OxOutputParams pOxOut(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pOxOut, CkCallbackResumeThread());
+            }
+        if(arrayFileExists(basefilename + ".FeMassFrac", nTotalParticles)) {
+            FeOutputParams pFeOut(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pFeOut, CkCallbackResumeThread());
+            }
+        treeProxy.resetMetals(CkCallbackResumeThread());
+        if(arrayFileExists(basefilename + ".massform", nTotalParticles)) {
+            MFormOutputParams pMFOut(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pMFOut, CkCallbackResumeThread());
+            }
         }
 #ifndef COOLING_NONE
     if(param.bGasCooling) {
-        // read coolontime
-        if(arrayFileExists(basefilename + ".coolontime", nTotalParticles))
-            treeProxy.readCoolOnTime(basefilename + ".coolontime",
-                               CkCallbackResumeThread());
-        else {
-            CkError("WARNING: no coolontime file for restart\n");
-            }
+        bool bFoundCoolArray = false;
         // read ionization fractions
-        if(arrayFileExists(basefilename + "." + COOL_ARRAY0_EXT, nTotalParticles))
-            treeProxy.readCoolArray0(basefilename + "." + COOL_ARRAY0_EXT,
-                                     CkCallbackResumeThread());
+        if(arrayFileExists(basefilename + "." + COOL_ARRAY0_EXT, nTotalParticles)) {
+            Cool0OutputParams pCool0Out(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pCool0Out, CkCallbackResumeThread());
+            bFoundCoolArray = true;
+            }
         else {
             CkError("WARNING: no CoolArray0 file for restart\n");
             }
-        if(arrayFileExists(basefilename + "." + COOL_ARRAY1_EXT, nTotalParticles))
-            treeProxy.readCoolArray1(basefilename + "." + COOL_ARRAY1_EXT,
-                                     CkCallbackResumeThread());
+        if(arrayFileExists(basefilename + "." + COOL_ARRAY1_EXT, nTotalParticles)) {
+                
+            Cool1OutputParams pCool1Out(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pCool1Out, CkCallbackResumeThread());
+            bFoundCoolArray = true;
+            }
         else {
             CkError("WARNING: no CoolArray1 file for restart\n");
             }
-        if(arrayFileExists(basefilename + "." + COOL_ARRAY2_EXT, nTotalParticles))
-            treeProxy.readCoolArray2(basefilename + "." + COOL_ARRAY2_EXT,
-                                     CkCallbackResumeThread());
+        if(arrayFileExists(basefilename + "." + COOL_ARRAY2_EXT, nTotalParticles)) {
+            Cool2OutputParams pCool2Out(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pCool2Out, CkCallbackResumeThread());
+            bFoundCoolArray = true;
+            }
         else {
             CkError("WARNING: no CoolArray2 file for restart\n");
             }
-        if(arrayFileExists(basefilename + "." + COOL_ARRAY3_EXT, nTotalParticles))
-            treeProxy.readCoolArray3(basefilename + "." + COOL_ARRAY3_EXT,
-                                     CkCallbackResumeThread());
+        if(arrayFileExists(basefilename + "." + COOL_ARRAY3_EXT, nTotalParticles)) {
+            Cool3OutputParams pCool3Out(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pCool3Out, CkCallbackResumeThread());
+            bFoundCoolArray = true;
+            }
         else {
             CkError("WARNING: no CoolArray3 file for restart\n");
             }
-        // reset thermal energy with ionization fractions
         double dTuFac = param.dGasConst/(param.dConstGamma-1)
-            /param.dMeanMolWeight;
-        treeProxy.RestartEnergy(dTuFac, CkCallbackResumeThread());
+                /param.dMeanMolWeight;
+        if(bFoundCoolArray) {
+            // reset thermal energy with ionization fractions
+            treeProxy.RestartEnergy(dTuFac, CkCallbackResumeThread());
+        }
+        else {
+            double z = 1.0/csmTime2Exp(param.csm, dTime) - 1.0;
+            dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
+            treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
+            }
         }
 #endif
-    }
+  }
+}
 
 /*
  * Initialize energy on restart
@@ -364,11 +591,13 @@ void TreePiece::RestartEnergy(double dTuFac, // T to internal energy
 	if (p->isGas()) {
 	    double T,E;
 #ifndef COOLING_NONE
+#ifndef COOLING_GRACKLE
 	    T = p->u() / dTuFac;
             PERBARYON Y;
             CoolPARTICLEtoPERBARYON(cl, &Y, &p->CoolParticle());
             
 	    p->u() = clThermalEnergy(Y.Total,T)*cl->diErgPerGmUnit;
+#endif
 #endif
 	    p->uPred() = p->u();
 	    }
@@ -439,6 +668,7 @@ Main::doSph(int activeRung, int bNeedDensity)
     if(param.bGasCooling)
 	treeProxy.getCoolingGasPressure(param.dConstGamma,
 					param.dConstGamma-1,
+                                        param.dResolveJeans/csmTime2Exp(param.csm, dTime),
 					CkCallbackResumeThread());
     else
 	treeProxy.getAdiabaticGasPressure(param.dConstGamma,
@@ -818,7 +1048,8 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1,
 
 /* Note: Uses uPred */
 void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
-					const CkCallback &cb)
+                                      double dResolveJeans,
+                                      const CkCallback &cb)
 {
     GravityParticle *p;
     double PoverRho;
@@ -829,11 +1060,15 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
     for(i=1; i<= myNumParticles; ++i) {
 	p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS)) {
+            double cGas;
 	    CoolCodePressureOnDensitySoundSpeed(cl, &p->CoolParticle(),
 						p->uPred(), p->fDensity(),
 						gamma, gammam1, &PoverRho,
-						&(p->c()) );
+						&cGas);
+            double dPoverRhoJeans = PoverRhoFloorJeans(dResolveJeans, p);
+            if(PoverRho < dPoverRhoJeans) PoverRho = dPoverRhoJeans;
 	    p->PoverRho2() = PoverRho/p->fDensity;
+            p->c() = sqrt(cGas*cGas + GAMMA_JEANS*dPoverRhoJeans);
 	    }
 	}
 #endif

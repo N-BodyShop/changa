@@ -198,7 +198,7 @@ class extraStarData
     };
 
 class GravityParticle;
-int TYPETest(GravityParticle *a, unsigned int b);
+int TYPETest(const GravityParticle *a, unsigned int b);
 
 class ExternalSmoothParticle;
 
@@ -216,7 +216,7 @@ public:
 	double dtGrav;
 	double fBall;
 	double fDensity;
-	int iOrder;		/* input order of particles */
+	int64_t iOrder;		/* input order of particles */
         int rung;  ///< the current rung (greater means faster)
 	unsigned int iType;	// Bitmask to hold particle type information
 #ifdef CHANGESOFT
@@ -236,10 +236,11 @@ public:
 
         double interMass;
 	
-	GravityParticle(SFC::Key k = 0) : ExternalGravityParticle() {
-          key = k;
-          rung = 0;
-        }
+        GravityParticle(SFC::Key k) : ExternalGravityParticle() {
+            key = k;
+            }
+        GravityParticle() : ExternalGravityParticle() {
+            }
 
 	/// @brief Used to sort the particles into tree order.
 	inline bool operator<(const GravityParticle& p) const {
@@ -344,9 +345,9 @@ public:
 #define TYPE_NbrOfACTIVE       (1<<5)
 #define TYPE_MAXTYPE           (1<<6)
 
-	inline bool isDark() { return TYPETest(this, TYPE_DARK);}
-	inline bool isGas() { return TYPETest(this, TYPE_GAS);}
-	inline bool isStar() { return TYPETest(this, TYPE_STAR);}
+	inline bool isDark() const { return TYPETest(this, TYPE_DARK);}
+	inline bool isGas() const { return TYPETest(this, TYPE_GAS);}
+	inline bool isStar() const { return TYPETest(this, TYPE_STAR);}
 
         GravityParticle &operator=(const ExternalGravityParticle &p){
           mass = p.mass;
@@ -356,7 +357,7 @@ public:
         }
 };
 
-inline int TYPETest(GravityParticle *a, unsigned int b) {
+inline int TYPETest(const GravityParticle *a, unsigned int b) {
     return a->iType & b;
     }
 inline int TYPESet(GravityParticle *a, unsigned int b) {
@@ -431,6 +432,7 @@ class ExternalSmoothParticle {
   double fMFracOxygenDot;
   double fMFracIronDot;
 #endif
+  int iBucketOff;               /* Used by the Cache */
 
   ExternalSmoothParticle() {}
 
@@ -477,7 +479,7 @@ class ExternalSmoothParticle {
 	  }
   
   /// @brief Fill in a full gravity particle from this object.
-  inline void getParticle(GravityParticle *tmp) { 
+  inline void getParticle(GravityParticle *tmp) const { 
       tmp->mass = mass;
       tmp->fBall = fBall;
       tmp->fDensity = fDensity;
@@ -553,6 +555,7 @@ class ExternalSmoothParticle {
     p | fMFracOxygenDot;
     p | fMFracIronDot;
 #endif
+    p | iBucketOff;
   }
 };
 

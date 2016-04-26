@@ -35,6 +35,10 @@ inline void CoolAddParams( COOLPARAM *CoolParam, PRM ) {};
 #include "cooling_cosmo.h"
 #else
 
+#ifdef COOLING_GRACKLE
+#include "cooling_grackle.h"
+#else
+
 #ifdef COOLING_METAL
 #include "cooling_metal.h"
 #else
@@ -45,6 +49,7 @@ inline void CoolAddParams( COOLPARAM *CoolParam, PRM ) {};
 
 #error "No valid cooling function specified"
 
+#endif
 #endif
 #endif
 #endif

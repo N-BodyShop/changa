@@ -42,7 +42,7 @@ extern "C" {
 
 #define CL_NMAXBYTETABLE   56000
 
-
+/** @brief Input parameters for cooling */
 typedef struct CoolingParametersStruct {
 	int    bIonNonEqm;
 	int    nCoolingTable;
@@ -56,6 +56,7 @@ typedef struct CoolingParametersStruct {
 	double dCoolingTmax;
 	} COOLPARAM;
 
+/** @brief per-particle cooling data */
 typedef struct CoolingParticleStruct {
 	double Y_HI,Y_HeI,Y_HeII;	/* Abundance of ions */
 	} COOLPARTICLE;
@@ -66,6 +67,7 @@ typedef struct {
   double HI,HII,HeI,HeII,HeIII;
 } PERBARYON;
 
+/** @brief photoionization and heating rates from a uniform UV background */
 typedef struct { 
   double   zTime;
 
@@ -78,6 +80,8 @@ typedef struct {
   double   Heat_Phot_HeII;
 } UVSPECTRUM;
 
+/** @brief structure to hold Temperature independent cooling and heating
+    rates */
 typedef struct { 
   double   Rate_Phot_HI;
   double   Rate_Phot_HeI;
@@ -121,7 +125,7 @@ typedef struct {
 
 typedef struct clDerivsDataStruct clDerivsData;
     
-/* Heating Cooling Context */
+/**@brief  Heating/Cooling context: parameters and tables */
 
 typedef struct CoolingPKDStruct { 
    double     z; /* Redshift */
@@ -161,6 +165,7 @@ typedef struct CoolingPKDStruct {
    int        its;
 } COOL;
 
+/** @brief Rate information for a given particle */
 typedef struct {
   double   T, Tln;
   double   Coll_HI;
@@ -177,6 +182,7 @@ typedef struct {
   double   Phot_HeII;
 } RATE;
 
+/** @brief return structure for clTestCool() */
 typedef struct {
   double compton;
   double bremHII;
@@ -196,9 +202,10 @@ typedef struct {
 } COOL_ERGPERSPERGM;
 
 
+/** @brief context for calculating cooling derivatives */
 struct clDerivsDataStruct {
-  STIFF *IntegratorContext;
-  COOL *cl;
+  STIFF *IntegratorContext;	/**< @brief Context for diff. eq. integrator */
+  COOL *cl;			/**< @brief pointer to cooling context  */
   double rho,ExternalHeating,E,ZMetal;
   RATE Rate;
   PERBARYON Y;
@@ -267,18 +274,26 @@ void CoolOutputArray( COOLPARAM *CoolParam, int, int *, char * );
 #define COOL_ARRAY0_EXT  "HI"
 double COOL_ARRAY0(COOL *cl_, COOLPARTICLE *cp,double aa);
 #define COOL_ARRAY0( cl_, cp, aa ) ((cp)->Y_HI)
+double COOL_SET_ARRAY0(COOL *cl_, COOLPARTICLE *cp,double aa, double bb_val);
+#define COOL_SET_ARRAY0( cl_, cp, aa, bb_val ) ((cp)->Y_HI = (bb_val))
 
 #define COOL_ARRAY1_EXT  "HeI"
 double COOL_ARRAY1(COOL *cl_, COOLPARTICLE *cp,double aa);
 #define COOL_ARRAY1( cl_, cp, aa ) ((cp)->Y_HeI)
+double COOL_SET_ARRAY1(COOL *cl_, COOLPARTICLE *cp,double aa, double bb_val);
+#define COOL_SET_ARRAY1( cl_, cp, aa, bb_val ) ((cp)->Y_HeI = (bb_val))
 
 #define COOL_ARRAY2_EXT  "HeII"
 double COOL_ARRAY2(COOL *cl_, COOLPARTICLE *cp,double aa);
 #define COOL_ARRAY2( cl_, cp, aa ) ((cp)->Y_HeII)
+double COOL_SET_ARRAY2(COOL *cl_, COOLPARTICLE *cp,double aa, double bb_val);
+#define COOL_SET_ARRAY2( cl_, cp, aa, bb_val ) ((cp)->Y_HeII = (bb_val))
 
 #define COOL_ARRAY3_EXT  "H2"
 double COOL_ARRAY3(COOL *cl, COOLPARTICLE *cp, double ZMetal);
 #define COOL_ARRAY3(cl_, cp, aa ) (0)
+double COOL_SET_ARRAY3(COOL *cl_, COOLPARTICLE *cp,double aa, double bb_val);
+#define COOL_SET_ARRAY3( cl_, cp, aa, bb_val ) (0)
 
 double COOL_EDOT( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode_, double ZMetal_, double *posCode_ );
 #define COOL_EDOT( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_) (CoolCodeWorkToErgPerGmPerSec( cl_, CoolEdotInstantCode( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_ )))

@@ -4,7 +4,7 @@
 extern CProxy_TreePiece treeProxy; 
 const char *typeString(NodeType type);
 
-/// @brief Obtain each TreePieces on this processor, and perform mergeWalk().
+/// @brief Obtain each TreePiece on this processor, and perform mergeWalk().
 void PETreeMerger::mergeNonLocalRequests(GenericTreeNode *root, TreePiece *treePiece){
   submittedRoots.push_back(root);
   submittedTreePieces.push_back(treePiece);
@@ -25,7 +25,14 @@ void PETreeMerger::mergeNonLocalRequests(GenericTreeNode *root, TreePiece *treeP
   }
 }
 
-GenericTreeNode *PETreeMerger::mergeWalk(CkVec<GenericTreeNode*> &mergeList, CkVec<TreePiece*> &treePieceList){
+/// @brief Walk trees on a list of treepieces for nodes needing remote moments.
+/// DataManager::pickNodeFromMergeList() is used to select one of the
+/// mergeList nodes.  The other nodes become clients of that node.  If
+/// the picked node is a Boundary, then recurse to the children.  If
+/// the picked node is nonlocal, then send the moment request.
+/// @param mergeList Vector of identical nodes.
+/// @param treePieceList Vector of treepieces on which those nodes reside.
+void PETreeMerger::mergeWalk(CkVec<GenericTreeNode*> &mergeList, CkVec<TreePiece*> &treePieceList){
   int nUnresolved;
   int pickedIndex;
   GenericTreeNode *pickedNode = DataManager::pickNodeFromMergeList(mergeList.length(),&mergeList[0],nUnresolved,pickedIndex);
@@ -72,7 +79,6 @@ GenericTreeNode *PETreeMerger::mergeWalk(CkVec<GenericTreeNode*> &mergeList, CkV
     // node
     CkAssert(nUnresolved == 0);
     pickedTreePiece->sendRequestForNonLocalMoments(pickedNode);
-    return pickedNode;
   }
   else if(nUnresolved >= 1){
     // we only treat Boundary nodes as unresolved
@@ -89,24 +95,10 @@ GenericTreeNode *PETreeMerger::mergeWalk(CkVec<GenericTreeNode*> &mergeList, CkV
         }
       }
 
-      GenericTreeNode *mergedChild = mergeWalk(nextLevelMergeList,nextLevelTreePieceList);
+      mergeWalk(nextLevelMergeList,nextLevelTreePieceList);
       nextLevelMergeList.length() = 0;
       nextLevelTreePieceList.length() = 0;
-      /*
-      pickedNode->setChildren(i,mergedChild);
-      if(mergedChild->getType() == Tree::Boundary ||
-         mergedChild->getType() == Tree::NonLocal ||
-         mergedChild->getType() == NonLocalBucket) mergedNodeIsInternal = false;
-         */
     }
-
-    /*
-    if(mergedNodeIsInternal){
-      pickedNode->setType(Internal);
-    }
-    */
-
-    return pickedNode;
   }
 }
 

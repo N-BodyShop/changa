@@ -7,8 +7,8 @@
 #include "starlifetime.h"
 #define NFEEDBACKS 4
 
-/*
- * Class to return feedback effects.
+/**
+ * @brief Class to return feedback effects.
  */
 class FBEffects {
  public:
@@ -25,7 +25,7 @@ class FBEffects {
     dEnergy(dEnergy), dMassLoss(dMassLoss), dMetals(dMetals), dMIron(dMIron), dMOxygen(dMOxygen) { }
      };
 
-/*
+/**
  * Class to Characterize Star Formation event.  This is input
  * needed for all feedback effects.
  */
@@ -41,6 +41,7 @@ class SFEvent {
     dMass(mass), dTimeForm(tform), dMetals(mets), dMFracIron(fefrac), dMFracOxygen(oxfrac) { }
     };
 
+/// @brief Stellar/Supernova feedback parameters and routines.
 class Fdbk : public PUP::able {
  private:
     Fdbk& operator=(const Fdbk& fb);
@@ -49,7 +50,6 @@ class Fdbk : public PUP::able {
     void CalcUVFeedback(double dTime, double dDelta, FBEffects *fbEffects);
 
     char achIMF[32];	        /* initial mass function */
-    int iRandomSeed;		/* seed for stochastic quantized feedback */
     double dErgPerGmUnit;	/* system specific energy in ergs/gm */
     double dGmUnit;		/* system mass in grams */
     double dGmPerCcUnit;	/* system density in gm/cc */
@@ -67,6 +67,7 @@ class Fdbk : public PUP::able {
     double dRadPreFactor;       /* McKee + Ostriker size constant in system units */
     double dTimePreFactor;      /* McKee + Ostriker time constant in system units */
     int nSmoothFeedback;	/* number of particles to smooth feedback over*/
+    double dMaxCoolShutoff;     /* Maximum length of time to shutoff cooling */
     IMF *imf;
 
     void AddParams(PRM prm);
@@ -90,7 +91,6 @@ class Fdbk : public PUP::able {
 inline Fdbk::Fdbk(const Fdbk& fb) {
     strcpy(achIMF, fb.achIMF);
     dDeltaStarForm = fb.dDeltaStarForm;
-    iRandomSeed = fb.iRandomSeed;
     dErgPerGmUnit = fb.dErgPerGmUnit;
     dGmUnit = fb.dGmUnit;
     dGmPerCcUnit = fb.dGmPerCcUnit;
@@ -104,6 +104,7 @@ inline Fdbk::Fdbk(const Fdbk& fb) {
     dRadPreFactor = fb.dRadPreFactor;
     dTimePreFactor = fb.dTimePreFactor;
     nSmoothFeedback = fb.nSmoothFeedback;
+    dMaxCoolShutoff = fb.dMaxCoolShutoff;
     sn = fb.sn;
     pdva = fb.pdva;
     imf = fb.imf->clone();
@@ -112,7 +113,6 @@ inline Fdbk::Fdbk(const Fdbk& fb) {
 inline void Fdbk::pup(PUP::er &p) {
     p(achIMF, 32);
     p | dDeltaStarForm;
-    p | iRandomSeed;
     p | dErgPerGmUnit;
     p | dGmUnit;
     p | dGmPerCcUnit;
@@ -126,6 +126,7 @@ inline void Fdbk::pup(PUP::er &p) {
     p | dRadPreFactor;
     p | dTimePreFactor;
     p | nSmoothFeedback;
+    p | dMaxCoolShutoff;
     p | sn;
     p | pdva;
     p | imf;
@@ -140,7 +141,7 @@ enum FBenum{
 
 #include "smoothparams.h"
 
-/*
+/**
  * SmoothParams class for distributing stellar feedback (energy, mass + metals) 
  * to neighboring particles.
  */

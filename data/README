@@ -1,3 +1,6 @@
 This directory is for needed extra data files.
 
 Examples include opacity tables or tables of UV background radiation.
+
+mri.director: an example director file to create an MRI of a cosmological
+volume.

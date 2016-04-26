@@ -167,9 +167,13 @@ ScaledORBMapBG.h \
 MultistepLB_notopo.h \
 Orb3dLBCommon.h \
 MultistepLB_notopo.decl.h \
+MultistepNodeLB_notopo.h \
+MultistepNodeLB_notopo.decl.h \
 Orb3dLB.h \
 Orb3dLB_notopo.h \
 Orb3dLB_notopo.decl.h \
+HierarchOrbLB.h \
+HierarchOrbLB.decl.h \
 Opt.h \
 TreeWalk.h \
 smooth.h \
@@ -364,11 +368,20 @@ romberg.c \
 runge.o: \
 
 dumpframe.o: \
-dumpframe.c \
+dumpframe.C \
+GravityParticle.h \
+ParallelGravity.h \
 config.h \
+DataManager.h \
+ParallelGravity.decl.h \
+Reductions.decl.h \
+Compute.h \
 
 dffuncs.o: \
-dffuncs.c \
+dffuncs.C \
+../utility/structures/SFC.h \
+../utility/structures/Vector3D.h \
+GravityParticle.h \
 
 moments.o: \
 moments.c \
@@ -533,6 +546,59 @@ Reductions.decl.h \
 Compute.h \
 MapStructures.h \
 
+HierarchOrbLB.o: \
+HierarchOrbLB.C \
+HierarchOrbLB.h \
+HierarchOrbLB.decl.h \
+Orb3dLB_notopo.h \
+Orb3dLB_notopo.decl.h \
+Orb3dLBCommon.h \
+ParallelGravity.h \
+ParallelGravity.decl.h \
+Reductions.decl.h \
+config.h \
+../utility/structures/Vector3D.h \
+../utility/structures/TypeSelection.h \
+../utility/structures/tree_xdr.h \
+../utility/structures/Vector3D.h \
+../utility/structures/OrientedBox.h \
+../utility/structures/Shape.h \
+../utility/structures/xdr_template.h \
+../utility/structures/config.h \
+../utility/structures/TypedArray.h \
+../utility/structures/TypeHandling.h \
+../utility/structures/TipsyFile.h \
+../utility/structures/TipsyParticles.h \
+../utility/structures/TipsyReader.h \
+../utility/structures/Sphere.h \
+../utility/structures/SFC.h \
+../utility/structures/hilbert.h \
+TreeNode.h \
+GenericTreeNode.h \
+../utility/structures/OrientedBox.h \
+MultipoleMoments.h \
+moments.h \
+SSEdefs.h \
+GravityParticle.h \
+cooling.h \
+param.h \
+../utility/structures/Interval.h \
+parameters.h \
+cosmo.h \
+starform.h \
+feedback.h \
+supernova.h \
+starlifetime.h \
+imf.h \
+smoothparams.h \
+dumpframe.h \
+../utility/structures/TaggedVector3D.h \
+codes.h \
+CacheInterface.h \
+gravity.h \
+../utility/structures/Space.h \
+../utility/structures/Box.h \
+
 starform.o: \
 starform.C \
 ParallelGravity.h \
@@ -640,6 +706,60 @@ Reductions.decl.h \
 Compute.h \
 MapStructures.h \
 MultistepLB_notopo.decl.h \
+
+MultistepNodeLB_notopo.o: \
+MultistepNodeLB_notopo.C \
+MultistepNodeLB_notopo.h \
+Orb3dLBCommon.h \
+ParallelGravity.h \
+config.h \
+../utility/structures/Vector3D.h \
+../utility/structures/TypeSelection.h \
+../utility/structures/tree_xdr.h \
+../utility/structures/Vector3D.h \
+../utility/structures/OrientedBox.h \
+../utility/structures/Shape.h \
+../utility/structures/xdr_template.h \
+../utility/structures/config.h \
+../utility/structures/TypedArray.h \
+../utility/structures/TypeHandling.h \
+../utility/structures/TipsyFile.h \
+../utility/structures/TipsyParticles.h \
+../utility/structures/TipsyReader.h \
+../utility/structures/Sphere.h \
+../utility/structures/SFC.h \
+../utility/structures/hilbert.h \
+TreeNode.h \
+GenericTreeNode.h \
+../utility/structures/OrientedBox.h \
+MultipoleMoments.h \
+moments.h \
+SSEdefs.h \
+GravityParticle.h \
+cooling.h \
+param.h \
+../utility/structures/Interval.h \
+parameters.h \
+cosmo.h \
+starform.h \
+dumpframe.h \
+../utility/structures/TaggedVector3D.h \
+codes.h \
+CacheInterface.h \
+gravity.h \
+../utility/structures/Space.h \
+../utility/structures/Box.h \
+keytype.h \
+MultistepLB.decl.h \
+Orb3dLB.decl.h \
+MultistepOrbLB.decl.h \
+InOutput.h \
+DataManager.h \
+ParallelGravity.decl.h \
+Reductions.decl.h \
+Compute.h \
+MapStructures.h \
+MultistepNodeLB_notopo.decl.h \
 
 MultistepOrbLB.o: \
 MultistepOrbLB.C \
@@ -1021,4 +1141,7 @@ ParallelGravity.decl.h \
 supernova.h
 
 starlifetime.o: \
+ParallelGravity.decl.h
+
+IntraNodeLBManager.o: \
 ParallelGravity.decl.h

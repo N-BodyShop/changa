@@ -5,12 +5,8 @@
  * Original author: James Wadsley, 2002
  */
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
-    
-#define DF_NXPIXMAX 1280
-#define DF_NYPIXMAX 1280
+#include "GravityParticle.h"
+
 /* PST */
 
 #ifdef USE_PNG
@@ -23,7 +19,17 @@ typedef struct dfImage {
 	float r,g,b;
 	} DFIMAGE;
 
-#define DF_NBYTEDUMPFRAME (3*sizeof(DFIMAGE)*DF_NXPIXMAX*DF_NYPIXMAX)
+typedef struct dfColorVal {
+    float fVal;
+    DFIMAGE dfColor;
+    } DFCOLORVAL;
+
+typedef struct dfColorTable {
+    int iProperty;
+    int nColors;
+    float fPropMin, fPropMax;
+    DFCOLORVAL dfColors[20];
+    } DFCOLORTABLE;
 
 /* 
    Projection can be 2D or voxels
@@ -101,6 +107,7 @@ typedef
 struct inDumpFrame {
 	double dTime;
 	double dStep;
+    double duTFac;
     double dExp;
 	/* 2D Projection info */
 	double r[3]; /* Centre */
@@ -110,9 +117,7 @@ struct inDumpFrame {
 	double zClipNear,zClipFar,zEye;
     int bExpansion; /* Rescale lengths into physical units with Expansion factor? */
 	int bPeriodic; /* Is it periodic? */
-	int nxRepNeg,nxRepPos; /* Replicas for Periodic */
-	int nyRepNeg,nyRepPos;
-	int nzRepNeg,nzRepPos;
+    double fPeriod[3];
 	int nxPix,nyPix;    /* Pixmap dimensions */
 	int iProject;      /* Projection */
 
@@ -121,10 +126,11 @@ struct inDumpFrame {
 	double dGasSoftMul,dDarkSoftMul,dStarSoftMul;
 	double xlim,ylim,hmul;
     double dYearUnit;
-	DFIMAGE ColStar,ColGas,ColDark;
+    DFCOLORTABLE dfGasCT, dfDarkCT, dfStarCT;
 	int bColMassWeight;
 	int bGasSph;
     int iColStarAge;
+    int bColLogInterp;
 	int iLogScale;
     int iTarget;
 	int iRender;       
@@ -136,6 +142,7 @@ struct inDumpFrame {
 	double dMassGasMin, dMassGasMax;
 	double dMassDarkMin,dMassDarkMax;
 	double dMassStarMin,dMassStarMax;
+    double dMinGasMass;
 
 	int bNonLocal; /* Is this data going non-local? */
 	int bVDetails;
@@ -145,6 +152,8 @@ struct inDumpFrame {
    changing properties of frames */
 struct dfFrameSetup {
 	double dTime;
+    double duTFac;
+    int bCooling;
     double dYearUnit;
 	/* Projection info */
 	double target[3]; /* Centre */
@@ -162,14 +171,16 @@ struct dfFrameSetup {
 	int nxPix,nyPix;    /* Pixmap dimensions */
     int bExpansion; /* Rescale lengths into physical units with Expansion factor? */
 	int bPeriodic; /* Is it periodic? */
+    double fPeriod[3];
 	int iProject;      /* Projection */
 
 	/* Rendering controllers */
 	double pScale1,pScale2;
-	DFIMAGE ColStar,ColGas,ColDark;
+    DFCOLORTABLE dfGasCT, dfDarkCT, dfStarCT;
 	int bColMassWeight;
 	int bGasSph;
     int iColStarAge;
+    int bColLogInterp;
 	int iLogScale;
     int iTarget;
 	double dGasSoftMul,dDarkSoftMul,dStarSoftMul;
@@ -189,6 +200,8 @@ struct DumpFrameContext {
     int iMaxRung;	
 	double dStep;
 	double dTime;
+    double duTFac;
+    int bCooling;
 	double dDumpFrameStep;
 	double dDumpFrameTime;
     double dYearUnit;
@@ -220,9 +233,22 @@ struct DumpFrameContext {
 	char FileName[161];
 	};
 
+enum arraytypes {
+    OUT_TEMP_ARRAY,
+    OUT_DENSITY_ARRAY,
+    OUT_UDOT_ARRAY,
+    OUT_U_ARRAY,
+    OUT_METALS_ARRAY,
+    OUT_TIMEFORM_ARRAY,
+    OUT_GROUP_ARRAY,
+    OUT_AGE_ARRAY
+};
+std::string VecFilename(int iType);
+
 void dfInitialize( struct DumpFrameContext **pdf, double dYearUnit, double dTime, 
 				  double dDumpFrameTime, double dStep, double dDumpFrameStep,
-				  double dDelta, int iMaxRung, int bVDetails, char* );
+                   double dDelta, int iMaxRung, int bVDetails, char*,
+                   int bPeriodic, Vector3D<double> vPeriod);
 void dfFinalize( struct DumpFrameContext *df );
 
 void *dfAllocateImage( int nxPix, int nyPix );
@@ -237,26 +263,13 @@ void dfSetupFrame( struct DumpFrameContext *df, double dTime, double dStep, doub
 void dfMergeImage( struct inDumpFrame *in, void *Image1, int *nImage1, void *Image2, int *nImage2 );
 void dfClearImage( struct inDumpFrame *in, void *Image, int *nImage );
 
-void dfRenderParticlePoint( struct inDumpFrame *in, void *vImage, 
-						   double *r, double fMass, double fSoft, double fBall2, int iActive, double fAge );
+class DataManager;
+void dfRenderParticlePoint( struct inDumpFrame *in, void *vImage,
+			    GravityParticle *p, DataManager *dm);
 void dfRenderParticleTSC( struct inDumpFrame *in, void *vImage, 
-						 double *r, double fMass, double fSoft, double fBall2, int iActive, double fAge );
+			  GravityParticle *p, DataManager *dm);
 void dfRenderParticleSolid( struct inDumpFrame *in, void *vImage, 
-						 double *r, double fMass, double fSoft, double fBall2, int iActive, double fAge );
-void dfRenderParticleInit( struct inDumpFrame *in, int iTypeGas, int iTypeDark, int iTypeStar );
-void dfRenderParticle( struct inDumpFrame *in, void *vImage, 
-					  double *r, double fMass, double fSoft, double fBall2, int iActive, double fTimeForm );
-
-void dfRenderParticlesInit( struct inDumpFrame *in, int iTypeGas, int iTypeDark, int iTypeStar,
-							double *pr, double *pfMass, double *pfSoft, double *pfBall2, unsigned int *piActive, double *pfTimeForm, void *p, int sizeofp );
-
-void dfRenderParticles( struct inDumpFrame *in, void *vImage, void *pStore, int n );
-
-/* Relies on PKD definition -- not portable */
-#ifdef PKD_HINCLUDED
-void dfRenderImage( PKD pkd, struct inDumpFrame *in, void *vImage );
-void dfRenderImageOld( PKD pkd, struct inDumpFrame *in, void *Image );
-#endif
+			    GravityParticle *p, DataManager *dm);
 
 void dfFinishFrame( struct DumpFrameContext *df, double dTime, double dStep, struct inDumpFrame *in, void *Image, int liveViz, unsigned char **outgray);
 
@@ -272,8 +285,5 @@ void dfGetCoeff( struct DumpFrameContext *df, int ifs );
 void dfInterp( struct DumpFrameContext *df, struct dfFrameSetup *pfs, double x );
 
 /* #include "dumpvoxel.h" */
-#if defined(__cplusplus)
-}
-#endif
 
 #endif
