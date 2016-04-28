@@ -621,6 +621,8 @@ void TreePiece::RestartEnergy(double dTuFac, // T to internal energy
             PERBARYON Y;
 #ifdef COOLING_METAL
             CoolPARTICLEtoPERBARYON(cl, &Y, &p->CoolParticle(), p->fMetals());
+#elif COOLING_METAL_NR
+            CoolPARTICLEtoPERBARYON(cl, &Y, &p->CoolParticle(), p->fMetals());
 #elif COOLING_MOLECULARH
             CoolPARTICLEtoPERBARYON(cl, &Y, &p->CoolParticle(), p->fMetals());
 #else
