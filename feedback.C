@@ -113,6 +113,11 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
 	    pow(0.0001*GCGS*pow(MSOLG*param.dMsolUnit,2)/(pow(KPCCM*param.dKpcUnit,4)*KBOLTZ),-0.70);
 	}
     dMaxCoolShutoff *= SECONDSPERYEAR/param.dSecUnit;
+#ifndef DTADJUST
+    if (bAGORAFeedback) {
+        CkAbort("DTADJUST must be enabled to use AGORA feedback\n");
+        }
+#endif
     }
 
 void Main::AGORAfeedbackPreCheck(double dTime, double dDelta, double dTimeToSF)
@@ -171,6 +176,7 @@ void AGORApreCheckSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmo
                 c_s = sqrt(gamma*PoverRho);
                 dtNew = dtCourantFac*0.5*q->fBall/(2.0*c_s);
 
+#ifdef DTADJUST
                 // Reducing the time step size means that the feedback is no longer going to
                 // occur in the next step. Reduce dtNew by no larger than a factor of 2 to reduce 
                 // the amount of unecessary steps.
@@ -182,6 +188,7 @@ void AGORApreCheckSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmo
                         q->dtNew() = dtNew;
                         }
                     }
+#endif
                 }
             }
         }
