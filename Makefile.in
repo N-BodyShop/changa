@@ -203,6 +203,7 @@ dist:
 
 clean:
 	rm -f core* $(OBJECTS) *~ $(TARGET) *.decl.h *.def.h charmrun conv-host 
+	rm -f *.o *.a
 	cd $(STRUCTURES_PATH); $(MAKE) clean
 
 ref-clean:
