@@ -1558,7 +1558,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                * If all the mass becomes hot, switch to being single-phase
                */
               if(massFlux > 0) { 
-                  if(dMultiPhaseMaxTime > 0) {
+                  if(dMultiPhaseMaxTime > 0 && p->massHot() < (0.5*p->mass)) {
                       double massFluxMin = duDelta[p->rung]*p->mass/dMultiPhaseMaxTime;
                       massFlux = (massFlux > massFluxMin ? massFlux : massFluxMin);
                   }

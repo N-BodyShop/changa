@@ -84,7 +84,7 @@ void Fdbk::AddParams(PRM prm)
 	prmAddParam(prm,"dMultiPhaseMinTemp",paramDouble,&dMultiPhaseMinTemp,
 				sizeof(double),"multitmin",
 				"<Temperature threshold to use multiphase feedback> = 1e6");
-	dMultiPhaseMaxTime = 4e8;
+	dMultiPhaseMaxTime = 1e8;
 	prmAddParam(prm,"dEvapMinTemp",paramDouble,&dMultiPhaseMaxTime,
 				sizeof(double),"evaptmax",
 				"<Absolute maximum lifetime for multiphase (yrs)> = 4e8");
