@@ -1519,6 +1519,35 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
 	    }
 	}
 
+    bBucketsInited = true;
+    contribute(cb);
+    }
+
+/**
+ * Apply an external gravitational force
+ */
+void TreePiece::externalGravity(int iKickRung,
+    const externalGravityParams exGravParams, const CkCallback& cb)
+{
+    CkAssert(bBucketsInited);
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+        GravityParticle *p = &myParticles[i];
+	if(p->rung >= iKickRung) {
+            if(exGravParams.bBodyForce) {
+                if(p->position.z > 0.0) {
+                    p->treeAcceleration.z -= exGravParams.dBodyForceConst;
+                    p->potential += exGravParams.dBodyForceConst*p->position.z;
+                    p->dtGrav += exGravParams.dBodyForceConst/p->position.z;
+                    }
+                else {
+                    p->treeAcceleration.z += exGravParams.dBodyForceConst;
+                    p->potential -= exGravParams.dBodyForceConst*p->position.z;
+                    if(p->position.z != 0.0)
+                        p->dtGrav -= exGravParams.dBodyForceConst/p->position.z;
+                    }
+                }
+            }
+        }
     contribute(cb);
     }
 
@@ -2272,6 +2301,7 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
     delete[] bucketReqs;
     bucketReqs = NULL;
   }
+  bBucketsInited = false;
 #ifdef PUSH_GRAVITY
   // used to indicate whether trees on SMP node should be
   // merged or not: we do not merge trees when pushing, to
@@ -3431,6 +3461,7 @@ void TreePiece::initBuckets() {
     }
 #endif*/
   }
+  bBucketsInited = true;
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
   bucketcheckList.resize(numBuckets);
 #endif

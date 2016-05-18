@@ -389,6 +389,16 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dRedTo",paramDouble,&param.dRedTo,sizeof(double),
 		    "zto", "specifies final redshift for the simulation");
 	
+        //
+        // External Potentials
+        //
+        param.exGravParams.bBodyForce = 0;
+        prmAddParam(prm,"bBodyForce",paramBool,&param.exGravParams.bBodyForce,
+                    sizeof(int),"bodyforce","use constant body force = -bf");
+        param.exGravParams.dBodyForceConst = 0.0;
+        prmAddParam(prm,"dBodyForceConst",paramDouble,&param.exGravParams.dBodyForceConst,
+                    sizeof(double),"bodyforceconst",
+                    "strength of constant bodyforce = 0");
 	//
 	// Parameters for GrowMass: slowly growing mass of particles.
 	//
@@ -896,7 +906,11 @@ Main::Main(CkArgMsg* m) {
 	    param.vPeriod = Vector3D<double>(1.0e38);
 	    param.bEwald = 0;
 	    }
-
+        /*
+         * Set external gravity if any of the external gravity
+         * parameters are set.
+         */
+        param.exGravParams.bDoExternalGravity = param.exGravParams.bBodyForce;
 #ifdef CUDA
           double mil = 1e6;
           localNodesPerReq = (int) (localNodesPerReqDouble * mil);
@@ -1696,6 +1710,11 @@ void Main::advanceBigStep(int iStep) {
     else {
 	treeProxy.initAccel(activeRung, CkCallbackResumeThread());
 	}
+    if(param.exGravParams.bDoExternalGravity) {
+        treeProxy.externalGravity(activeRung, param.exGravParams,
+                                  CkCallbackResumeThread());
+        }
+    
     if(verbosity > 1)
 	memoryStats();
     if(param.bDoGas) {
@@ -2296,6 +2315,10 @@ Main::initialForces()
       }
   else {
       treeProxy.initAccel(0, CkCallbackResumeThread());
+      }
+  if(param.exGravParams.bBodyForce) {
+      treeProxy.externalGravity(0, param.exGravParams,
+                                CkCallbackResumeThread());
       }
   if(param.bDoGas) {
       // Get star center of mass
