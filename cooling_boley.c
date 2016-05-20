@@ -109,7 +109,7 @@ void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit
   cl->dKpcUnit = dKpcUnit;
   
   cl->dParam1 = CoolParam.dParam1;
-  cl->dParam2 = CoolParam.dParam2;
+  cl->dRhoCutoff = CoolParam.dRhoCutoff;
   cl->dParam3 = CoolParam.dParam3;
   cl->dParam4 = CoolParam.dParam4;
   cl->Y_Total = CoolParam.Y_Total;
@@ -228,7 +228,8 @@ double clEdotInstant( COOL *cl, double E, double T, double rho, double rFactor,
   ttl = (ttl - CL_TABTMIN)/CL_TABDT;
 
   if((tpl < 0.0) || (tpl > CL_TABRCM2) || (tpl != tpl) ||
-     (ttl < 0.0) || (ttl > CL_TABRCM2) || (ttl != ttl)){
+     (ttl < 0.0) || (ttl > CL_TABRCM2) || (ttl != ttl) ||
+     (rho > cl->dRhoCutoff)){
     *dEdotCool = 0.0;
     return 0.0;
   }
@@ -387,11 +388,11 @@ void CoolAddParams( COOLPARAM *CoolParam, PRM prm ) {
 	prmAddParam(prm,"CooldParam1",paramDouble,&CoolParam->dParam1,
 				sizeof(double),"dparam1",
 				"<Param1> = 0.0");
-  // cutoff density
-	CoolParam->dParam2 = 0;
-	prmAddParam(prm,"CooldParam2",paramDouble,&CoolParam->dParam2,
-				sizeof(double),"dParam2",
-				"<Param2> = 0.0");
+  // cooling cutoff density
+        CoolParam->dRhoCutoff = 1e38;
+        prmAddParam(prm,"dCoolRhoCutoff",paramDouble,&CoolParam->dRhoCutoff,
+                    sizeof(double),"dCoolRhoCutoff",
+                    "<no cooling above this density (gm/cc)> = HUGE");
   // cooling gamma
 	CoolParam->dParam3 = 5.0/3.0;
 #if 0

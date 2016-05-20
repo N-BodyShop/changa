@@ -55,7 +55,7 @@ extern "C" {
 
 typedef struct CoolingParametersStruct {
 	double    dParam1;
-	double    dParam2;
+        double    dRhoCutoff;
 	double    dParam3;
 	double    dParam4;
 	double    Y_Total;
@@ -93,7 +93,7 @@ typedef struct CoolingPKDStruct {
    double     dKpcUnit;
 
    double    dParam1;
-   double    dParam2;
+   double    dRhoCutoff;
    double    dParam3;
    double    dParam4;
    double    Y_Total;
