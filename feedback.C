@@ -120,6 +120,16 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
 #endif
     }
 
+/** @brief This routine is called when AGORA feedback is enabled. It checks for any star
+ *  particles that will have a feedback event in the next timestep and puts the neighboring
+ *  gas particles onto a smaller timestep. Because the amount of energy injected is very
+ *  large, particles need to be placed on a small timestep BEFORE the first force calculation 
+ *  is done to avoid significant integration errors.
+ *
+ *  @param dTime The current simulation time (in years)
+ *  @param dDelta The size of the next timestep (in years)
+ *  @param dTimeToSF The time until the next star formation event (in years)
+ */
 void Main::AGORAfeedbackPreCheck(double dTime, double dDelta, double dTimeToSF)
 {
     AGORApreCheckSmoothParams pAPC(TYPE_GAS, 0, param.csm, dTime, dDelta, 
@@ -128,7 +138,6 @@ void Main::AGORAfeedbackPreCheck(double dTime, double dDelta, double dTimeToSF)
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
     treeProxy.startSmooth(&pAPC, 0, param.feedback->nSmoothFeedback,
               dfBall2OverSoft2, CkCallbackResumeThread());
-    treeProxy.finishNodeCache(CkCallbackResumeThread());
     }
 
 void AGORApreCheckSmoothParams::initSmoothCache(GravityParticle *p1)
@@ -249,14 +258,14 @@ void Main::StellarFeedback(double dTime, double dDelta)
 	if(verbosity > 1)
 	    CkPrintf("Total %s: %g\n", labels[i].c_str(), dTotals[i]);
 
-    // Supress energy conservation warning if AGORA feedback is enabled
-    if (!param.feedback->bAGORAFeedback) {
-        if(fabs(dTotals[i] - dTotals2[i]) > 1e-12*(dTotals[i])) {
-            CkError("ERROR: %s not conserved: %.15e != %.15e!\n",
-                labels[i].c_str(), dTotals[i], dTotals2[i]);
+        // Supress energy conservation warning if AGORA feedback is enabled
+        if (!param.feedback->bAGORAFeedback) {
+            if(fabs(dTotals[i] - dTotals2[i]) > 1e-12*(dTotals[i])) {
+                CkError("ERROR: %s not conserved: %.15e != %.15e!\n",
+                    labels[i].c_str(), dTotals[i], dTotals2[i]);
+                }
             }
         }
-    }
 
     delete msgChk;
     delete msgChk2;
@@ -356,7 +365,7 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
 	    if (bAGORAFeedback) break;
 	    CalcUVFeedback(dTime, dDeltaYr, &fbEffects);
 	break;
-    case FB_AGORA:
+	case FB_AGORA:
 	    if (!bAGORAFeedback) break;
 	    sn.CalcAGORAFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
 	    p->fNSN() = 0.0;
@@ -490,7 +499,7 @@ void DistStellarFeedbackSmoothParams::initTreeParticle(GravityParticle *p1)
       p1->fMFracOxygen() *= p1->mass;    
       p1->fMFracIron() *= p1->mass;    
 
-     if (fb.bAGORAFeedback) {
+      if (fb.bAGORAFeedback) {
         p1->u() *= p1->mass;
         p1->uPred() *= p1->mass;
       }

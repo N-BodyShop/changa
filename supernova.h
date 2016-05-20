@@ -39,13 +39,15 @@ class SN
     IMF *imf;
 
     SN() {
-    AGORAsnTime = 5.e6;
-    AGORAsnPerMass = 91.;
-    AGORAgasLossPerSN = 14.8;
-    AGORAmetalLossPerSN = 2.63;
-    AGORAmetalFracO = 0.098;
-    AGORAmetalFracFe = 0.43;
-    AGORAsnE = 1.0e51;
+	/* parameters for AGORA feedback
+	   These are specified in paper 4, dataset 2 */
+        AGORAsnTime = 5.e6;
+        AGORAsnPerMass = 91.;
+        AGORAgasLossPerSN = 14.8;
+        AGORAmetalLossPerSN = 2.63;
+        AGORAmetalFracO = 0.098;
+        AGORAmetalFracFe = 0.43;
+        AGORAsnE = 1.0e51;
 
 	dMSNrem = 1.4;		/* mass of supernova remnant in solar masses 
                                  * Also used for SNIa ejected mass */

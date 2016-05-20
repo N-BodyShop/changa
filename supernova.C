@@ -39,22 +39,22 @@ void SN::CalcAGORAFeedback(SFEvent *sfEvent, double dTime, double dDelta, FBEffe
     double dStarLtimeMax = dStarLtimeMin + dDelta;
 
     double dMtot = imf->CumMass(0.0)*sfEvent->dMass; /* total mass in stars integrated over IMF */
-	/* Trigger one large supernova event at the specified time */
-	if (dStarLtimeMin < AGORAsnTime && dStarLtimeMax > AGORAsnTime) {
-		/* Number of supernova events depends on the mass of the star particle */
-		dNSNTypeII = dMtot/AGORAsnPerMass;
+    /* Trigger one large supernova event at the specified time */
+    if (dStarLtimeMin < AGORAsnTime && dStarLtimeMax > AGORAsnTime) {
+        /* Number of supernova events depends on the mass of the star particle */
+        dNSNTypeII = dMtot/AGORAsnPerMass;
 
         fbEffects->dMassLoss = dNSNTypeII*AGORAgasLossPerSN;
         fbEffects->dEnergy = AGORAsnE*dNSNTypeII/(MSOLG*fbEffects->dMassLoss);
-		double dMetals = AGORAmetalLossPerSN/AGORAgasLossPerSN;
+        double dMetals = AGORAmetalLossPerSN/AGORAgasLossPerSN;
         fbEffects->dMetals = dMetals;
         fbEffects->dMIron = AGORAmetalFracFe*dMetals;
         fbEffects->dMOxygen = AGORAmetalFracO*dMetals;
         return;
     }
     else {
-		/* do nothing */
-		fbEffects->dMassLoss = 0.0;
+        /* do nothing */
+        fbEffects->dMassLoss = 0.0;
         fbEffects->dEnergy = 0.0;
         fbEffects->dMetals = 0.0;
         fbEffects->dMIron = 0.0;
