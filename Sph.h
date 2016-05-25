@@ -93,7 +93,7 @@ class DenDvDxNeighborSmParams : public DenDvDxSmoothParams
     /// @param csm Cosmology information
     /// @param dTime Current time
     DenDvDxNeighborSmParams(int _iType, int am, CSM csm, double dTime,
-			    int bConstDiffusion)
+			    int bConstDiffusion, double dDelta, double dAlphaMax)
       : DenDvDxSmoothParams(_iType, am, csm, dTime, 0, bConstDiffusion, dDelta, dAlphaMax) {}
     PUPable_decl(DenDvDxNeighborSmParams);
     DenDvDxNeighborSmParams(CkMigrateMessage *m) : DenDvDxSmoothParams(m) {}

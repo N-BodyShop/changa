@@ -641,7 +641,7 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// This does neighbors (but not actives),  It also does no
 	// additional marking
 	DenDvDxNeighborSmParams pDenN(TYPE_GAS, activeRung, param.csm, dTime,
-				      param.bConstantDiffusion);
+				      param.bConstantDiffusion, param.dDelta, param.dConstAlphaMax);
 	startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDenN, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
@@ -861,7 +861,6 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         double curTimeStep = RungToDt(dDelta, p->rung);
         cullenR = 0.0; maxVSignal = 0.0;
         
-
         double divvnorm = 0.0;
 	GravityParticle *q;
 	int i;
@@ -925,8 +924,8 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		cullenR += signDivVq * q->mass* KERNEL(sqrt(r2));
 		}
 
-        // want to keep track of the old value of p->divv() to calculate divVDot later
-        cullenR /= p->mass*p->fDensity;
+        // want to keep track of the old value of p->divv() to calculate divVDot later   
+
         if (curTimeStep > 0) oldDivV = p->divv();
 
         if (qiActive)
@@ -941,7 +940,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         p->curlv().y = fNorm1*(dvxdz - dvzdx);
         p->curlv().z = fNorm1*(dvydx - dvxdy);
 
-
+        cullenR /= p->fDensity*p->mass;
         double tau, divVDot, traceSS, xi, A, alphaLoc,  oldCullenAlpha; 
         double l = 0.05; A = 0; 
         // If we are initializing the simulation, the current time step is zero and we can't compute the time
@@ -958,11 +957,17 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         // If the current time step > 0
         else {
           // The time derivative of the divergence of the velocity
+          double onethirdtrace = (1./3.)*trace;
+          double txx = dvxdx + onethirdtrace; 
+          double tyy = dvydy + onethirdtrace;
+          double tzz = dvzdz + onethirdtrace;
+          double txy = (dvxdy + dvydx); 
+          double txz = (dvxdz + dvzdx);
+          double tyz = (dvydz + dvzdy);
+         
           divVDot = (p->divv() - oldDivV)/(curTimeStep);
-          traceSS = fNorm1*fNorm1*(0.5*((dvydx+dvxdy)*(dvydx+dvxdy)
-                    +(dvzdx+dvxdz)*(dvzdx+dvxdz)+(dvzdy+dvydz)*(dvzdy+dvydz)) 
-                    + (dvxdx+trace/3.0)*(dvxdx+trace/3.0)+(dvydy+trace/3.0)*(dvydy+trace/3.0)
-                    +(dvzdz+trace/3.0)*(dvzdz+trace/3.0));
+          traceSS = fNorm1*fNorm1*(0.5*(txy*txy + txz*txz + tyz*tyz) + txx*txx + tyy*tyy + tzz*tzz);
+
           // The shock limiter; compares the flow convergence to a measure of the shear/vorticity
           xi =(2.0*pow((1.0-cullenR),4)*p->divv())*(2.0*pow((1.0-cullenR),4)*p->divv()) / 
               (traceSS + (2.0*pow((1.0-cullenR),4)*p->divv())*(2.0*pow((1.0-cullenR),4)*p->divv()));
@@ -1013,6 +1018,12 @@ void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	GravityParticle *q;
 	int i;
 
+        double h, dvdotdr, divvnorm,  cullenR;
+        double vSignal,  maxVSignal, oldDivV, divVq, signDivVq;
+        double curTimeStep = RungToDt(dDelta, p->rung);
+        cullenR = 0.0; maxVSignal = 0.0; divvnorm = 0.0; 
+
+        h = 0.5* p->fBall;
 	ih2 = invH2(p);
 	vFac = 1./(a*a); /* converts v to xdot */
 	fNorm = M_1_PI*ih2*sqrt(ih2);
@@ -1045,15 +1056,76 @@ void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		dvzdx += dvz*dx*rs1;
 		dvzdy += dvz*dy*rs1;
 		dvzdz += dvz*dz*rs1;
+                divvnorm += (dx*dx+dy*dy+dz*dz)*rs1;
+
+                // if the particles are moving towards eachother (dvdotdr < 0) the signal velocity, vSignal                          // is given by the average sound speed minus dvdotdr, otherwise it is set by the average sound speed 
+                dvdotdr = vFac*(dvx*dx + dvy*dy + dvz*dz) + fDist2*H;
+                if (dvdotdr < 0) vSignal = (p->c() + q->c())/2.0 - dvdotdr/ sqrt(fDist2);
+                else vSignal = (p->c() + q->c())/2.0;
+                if (vSignal > maxVSignal) maxVSignal = vSignal;
+                /* keep Norm positive consistent w/ std 1/rho norm */
+                fNorm1 = (divvnorm != 0 ? 3.0/fabs(divvnorm) : 0.0);
+                divVq = (dvxdx + dvydy + dvzdz)*fNorm1 + 3.0*H;
+                if (divVq < 0) signDivVq = -1.0;
+                else if (divVq > 0) signDivVq = 1.0;
+                else signDivVq = 0;
+
+                // Presence of a shock is indicated by cullenR ~ -1                                                  
+                cullenR += signDivVq * q->mass* KERNEL(sqrt(r2));
 		}
 		
 	p->fDensity = fNorm*fDensity; 
 	fNorm1 /= p->fDensity;
 	trace = dvxdx+dvydy+dvzdz;
+        oldDivV = p->divv();
 	p->divv() =  fNorm1*trace; /* physical */
 	p->curlv().x = fNorm1*(dvzdy - dvydz); 
 	p->curlv().y = fNorm1*(dvxdz - dvzdx);
 	p->curlv().z = fNorm1*(dvydx - dvxdy);
+        cullenR /= p->fDensity*p->mass;
+        double tau, divVDot, traceSS, xi, A, alphaLoc,  oldCullenAlpha;
+        double l = 0.05; A = 0;
+        // If we are initializing the simulation, the current time step is zero and we can't compute the time                        // derivative of the velocity divergence in the Cullen & Dehnin formulation                                          
+        if (curTimeStep == 0){
+          // If the divergence of the velocity of the particle is negative and the speed of sound is nonzero                           // we set p->CullenAlpha() using the M&M prescription. Otherwise p->CullenAlpha() is zero                          
+          if ((p->divv() < 0) && (p->c() > 0)){
+            tau = h / (2.0*l*p->c());
+            p->CullenAlpha() = dAlphaMax*p->divv()*tau / (1.0 + p->divv()*tau);
+          }
+          else p->CullenAlpha() = 0.0;
+        }
+        // If the current time step > 0                                                                                      
+        else {
+          // The time derivative of the divergence of the velocity                                                           
+          double onethirdtrace = (1./3.)*trace;
+          double txx = dvxdx + onethirdtrace;
+          double tyy = dvydy + onethirdtrace;
+          double tzz = dvzdz + onethirdtrace;
+          double txy = (dvxdy + dvydx);
+          double txz = (dvxdz + dvzdx);
+          double tyz = (dvydz + dvzdy);
+
+          divVDot = (p->divv() - oldDivV)/(curTimeStep);
+          traceSS = fNorm1*fNorm1*(0.5*(txy*txy + txz*txz + tyz*tyz) + txx*txx + tyy*tyy + tzz*tzz);
+          // The shock limiter; compares the flow convergence to a measure of the shear/vorticity                            
+          xi =(2.0*pow((1.0-cullenR),4)*p->divv())*(2.0*pow((1.0-cullenR),4)*p->divv()) /
+            (traceSS + (2.0*pow((1.0-cullenR),4)*p->divv())*(2.0*pow((1.0-cullenR),4)*p->divv()));
+          // If the time derivative of the velocity divergence is negative, the shock indicator, A is defined below.                   // Otherwise, it remains zero and therefore alphaLoc is zero.                                                      
+          if (divVDot < 0) A = -divVDot * xi;
+          // The local alpha value                                                                                           
+          alphaLoc = dAlphaMax*h*h*A / (maxVSignal*maxVSignal + h*h*A);
+          // Decay parameter                                                                                                 
+          tau = h / (2.0*l*maxVSignal);
+          // If alphaLoc is larger then the current p->CullenAlpha(), we set p->CullenAlhpa() to be equal to alphaLoc.       
+          // Otherwise, we decay p->CullenAlpha() to the alphaLoc value                                                      
+          if (alphaLoc > p->CullenAlpha()) p->CullenAlpha() = alphaLoc;
+          else{
+            oldCullenAlpha = p->CullenAlpha();
+            p->CullenAlpha() = alphaLoc - (alphaLoc - oldCullenAlpha)*exp(-curTimeStep/tau);
+          }
+        }
+
+
 #ifdef DIFFUSION
         {
 	double onethirdtrace = (1./3.)*trace;

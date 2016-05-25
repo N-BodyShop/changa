@@ -180,7 +180,7 @@
 		visc_ = SWITCHCOMBINE(p,q)*visc_ \
 		    *absmu/(pDensity + q->fDensity); }
 #else
-/* Iryna's Artifical Viscosity */
+/* Cullen&Dehnen Artifical Viscosity */
 #define ARTIFICIALVISCOSITY(visc_,dt_) { double hav=0.5*(ph+0.5*q->fBall);  /* h mean */ \
 		absmu = -hav*dvdotdr*a  \
 		  /(fDist2+0.01*hav*hav); /* mu multiply by a to be consistent with physical c*/ \
