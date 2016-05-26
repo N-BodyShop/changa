@@ -13,10 +13,16 @@ class externalGravityParams
     bool bDoExternalGravity;
     int bBodyForce;
     double dBodyForceConst;
+    int bPatch;
+    double dCentMass;
+    double dOrbDist;
     void pup(PUP::er& p) {
         p| bDoExternalGravity;
         p| bBodyForce;
         p| dBodyForceConst;
+        p| bPatch;
+        p| dCentMass;
+        p| dOrbDist;
         }
 };
 

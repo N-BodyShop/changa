@@ -1537,14 +1537,30 @@ void TreePiece::externalGravity(int iKickRung,
                 if(p->position.z > 0.0) {
                     p->treeAcceleration.z -= exGravParams.dBodyForceConst;
                     p->potential += exGravParams.dBodyForceConst*p->position.z;
-                    p->dtGrav += exGravParams.dBodyForceConst/p->position.z;
+                    double idt2 = exGravParams.dBodyForceConst/p->position.z;
+                    if(idt2 > p->dtGrav)
+                        p->dtGrav = idt2;
                     }
                 else {
                     p->treeAcceleration.z += exGravParams.dBodyForceConst;
                     p->potential -= exGravParams.dBodyForceConst*p->position.z;
-                    if(p->position.z != 0.0)
-                        p->dtGrav -= exGravParams.dBodyForceConst/p->position.z;
+                    if(p->position.z != 0.0) {
+                        double idt2 = -exGravParams.dBodyForceConst/p->position.z;
+                        if(idt2 > p->dtGrav)
+                            p->dtGrav = idt2;
+                        }
                     }
+                }
+            if(exGravParams.bPatch) {
+                double r2 = exGravParams.dOrbDist*exGravParams.dOrbDist
+                    + p->position.z*p->position.z;
+                double idt2 = exGravParams.dCentMass*pow(r2, -1.5);
+                
+                p->treeAcceleration.z -= exGravParams.dCentMass*p->position.z
+                                         *pow(r2, -1.5);
+                p->potential += exGravParams.dCentMass/sqrt(r2);
+                if(idt2 > p->dtGrav)
+                    p->dtGrav = idt2;
                 }
             }
         }
