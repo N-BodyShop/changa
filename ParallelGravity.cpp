@@ -169,7 +169,7 @@ void _Leader(void) {
 
 
 void _Trailer(void) {
-	puts("(see the web page at\nhttp://librarian.phys.washington.edu/astro/index.php/Research:ChaNGa\nfor more information)");
+    puts("(see the web page at\nhttps://github.com/N-BodyShop/changa/wiki\nfor more information)");
 }
 
 int killAt;
