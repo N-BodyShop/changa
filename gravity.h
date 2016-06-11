@@ -17,6 +17,8 @@ extern double thetaMono;
 ** Higher derivative terms c and d for use with quadrupole spline
 ** softening (Joachim Stadel, Dec. 94).
 */
+
+#if 0
 #if !CMK_SSE
 inline
 void SPLINEQ(cosmoType invr,cosmoType r2,cosmoType twoh,cosmoType& a,
@@ -65,6 +67,8 @@ void SPLINEQ(cosmoType invr,cosmoType r2,cosmoType twoh,cosmoType& a,
   }
 }
 #else
+#endif 
+#endif
 inline
 void SPLINEQ(SSEcosmoType invr, SSEcosmoType r2, SSEcosmoType twoh,
 	     SSEcosmoType& a, SSEcosmoType& b, 
@@ -141,8 +145,10 @@ void SPLINEQ(SSEcosmoType invr, SSEcosmoType r2, SSEcosmoType twoh,
       | (select0 & ((select1 & d1) | andnot(select1, d2))); 
   }
 }
-#endif
 
+
+#endif
+#if 0
 #if !CMK_SSE
 inline
 void SPLINE(cosmoType r2, cosmoType twoh, cosmoType &a, cosmoType &b)
@@ -181,6 +187,9 @@ void SPLINE(cosmoType r2, cosmoType twoh, cosmoType &a, cosmoType &b)
   }
 }
 #else 
+#endif
+#endif
+
 inline
 void SPLINE(SSEcosmoType r2, SSEcosmoType twoh, 
 	    SSEcosmoType &a, SSEcosmoType &b)
@@ -239,7 +248,9 @@ void SPLINE(SSEcosmoType r2, SSEcosmoType twoh,
       | (select0 & ((select1 & b1) | andnot(select1, b2))); 
   }	
 }
+/*
 #endif
+*/
 
 //
 // Return true if the soften nodes overlap, or if the source node's
@@ -262,7 +273,7 @@ int openSoftening(Tree::GenericTreeNode *node, Tree::GenericTreeNode *myNode,
 #ifdef CMK_VERSION_BLUEGENE
 static int forProgress = 0;
 #endif
-
+#if 0
 #if !CMK_SSE
 inline int partBucketForce(ExternalGravityParticle *part, 
 			   Tree::GenericTreeNode *req, 
@@ -302,6 +313,8 @@ inline int partBucketForce(ExternalGravityParticle *part,
   return computed;
 }
 #else
+#endif
+#endif
 inline int partBucketForce(ExternalGravityParticle *part, 
 			   Tree::GenericTreeNode *req, 
 			   GravityParticle **activeParticles, 
@@ -322,9 +335,9 @@ inline int partBucketForce(ExternalGravityParticle *part,
 #endif
     Vector3D<SSEcosmoType> 
       packedPos(SSELoad(SSEcosmoType, activeParticles, i, ->position.x),
-		SSELoad(SSEcosmoType, activeParticles, i, ->position.y),
-		SSELoad(SSEcosmoType, activeParticles, i, ->position.z)); 
-    SSELoad(SSEcosmoType packedSoft, activeParticles, i, ->soft); 
+		  SSELoad(SSEcosmoType, activeParticles, i, ->position.y),
+		  SSELoad(SSEcosmoType, activeParticles, i, ->position.z)); 
+      SSELoad(SSEcosmoType packedSoft, activeParticles, i, ->soft); 
 
     r = -packedPos + offset + part->position; 
     rsq = r.lengthSquared();
@@ -379,22 +392,30 @@ inline int partBucketForce(ExternalGravityParticle *part,
   }
   
   activeParticles[nActiveParts] = &dummyPart; 
-#if SSE_VECTOR_WIDTH == 4
+#if SSE_VECTOR_WIDTH >= 4
   activeParticles[nActiveParts+1] = &dummyPart; 
   activeParticles[nActiveParts+2] = &dummyPart; 
+#endif
+#if SSE_VECTOR_WIDTH == 8
+  activeParticles[nActiveParts+3] = &dummyPart; 
+  activeParticles[nActiveParts+4] = &dummyPart; 
+  activeParticles[nActiveParts+5] = &dummyPart; 
+  activeParticles[nActiveParts+6] = &dummyPart; 
 #endif
 
   return partBucketForce(part, req, activeParticles, offset, nActiveParts); 
 }
-
+/*
 #endif
-
+*/
 
 //
 // Calculated forces on active particles in a bucket due to the
 // multipole of a TreeNode.  Return number of multipoles evaluated.
 //
+#if 0
 #if  !CMK_SSE
+
 inline
 int nodeBucketForce(Tree::GenericTreeNode *node, 
 		    Tree::GenericTreeNode *req,  
@@ -470,8 +491,12 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
   }
   return computed;
 }
-
+#endif
+#endif
+/*
 #elif  CMK_SSE
+*/
+
 inline
 int nodeBucketForce(Tree::GenericTreeNode *node, 
 		    Tree::GenericTreeNode *req,  
@@ -500,9 +525,15 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
   }
 
   activeParticles[nActiveParts] = &dummyPart; 
-#if SSE_VECTOR_WIDTH == 4 
+#if SSE_VECTOR_WIDTH >= 4 
   activeParticles[nActiveParts+1] = &dummyPart; 
   activeParticles[nActiveParts+2] = &dummyPart; 
+#endif
+#if SSE_VECTOR_WIDTH == 8
+activeParticles[nActiveParts+3] = &dummyPart; 
+activeParticles[nActiveParts+4] = &dummyPart; 
+activeParticles[nActiveParts+5] = &dummyPart; 
+activeParticles[nActiveParts+6] = &dummyPart; 
 #endif
 
 #ifdef HEXADECAPOLE
@@ -579,8 +610,9 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
   }
   return nActiveParts;
 }
+/*
 #endif
-
+*/
 /// @brief Gravity opening criterion for a bucket walk.
 /// @param node Source node to be tested
 /// @param bucketNode Target bucket
@@ -595,6 +627,8 @@ openCriterionBucket(Tree::GenericTreeNode *node,
                    Vector3D<double> offset, // Offset of node
                    int localIndex // requesting TreePiece
                    ) {
+  // mark the node as used by the requesting TreePiece
+  // node->markUsedBy(localIndex);
 
 #if COSMO_STATS > 0
   node->used = true;
@@ -651,6 +685,8 @@ inline int openCriterionNode(Tree::GenericTreeNode *node,
                     Vector3D<double> offset,
                     int localIndex // requesting TreePiece
                     ) {
+  // mark the node as used by this TreePiece
+  // node->markUsedBy(localIndex);
 
 #if COSMO_STATS > 0
   node->used = true;

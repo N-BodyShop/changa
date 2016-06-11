@@ -10,7 +10,7 @@ typedef float cosmoType;
 typedef double cosmoType; 
 #define COSMO_CONST(val) val 
 #endif
-
+#if 0
 #if  CMK_USE_FMA4
 #if !defined(__FMA4__)
 #undef CMK_USE_FMA4
@@ -48,7 +48,35 @@ typedef SSEDouble SSEcosmoType;
 } 
 enum { cosmoMask=0xf };
 
-#endif /* COSMO_FLOAT */
+#endif /* COSMO_FLOAT * /
+
+
+#ifndef COSMO_FLOAT // Keep this?
+#endif
+#endif
+#endif
+
+#include "MIC-Double.h"
+#define SSE_VECTOR_WIDTH 8
+#define FORCE_INPUT_LIST_PAD 7
+typedef SSEDouble SSEcosmoType; 
+#define SSELoad(where, arr, idx, field) where(arr[idx]field, arr[idx+1]field, arr[idx+2]field, arr[idx+3]field, arr[idx+4]field, arr[idx+5]field, arr[idx+6]field, arr[idx+7]field)
+#define SSEStore(what, arr, idx, field) { \
+  double p[8];  \
+  storeu(p, what); \
+  arr[idx]field = p[0]; \
+  arr[idx+1]field = p[1]; \
+  arr[idx+2]field = p[2]; \
+  arr[idx+3]field = p[3]; \
+  arr[idx+4]field = p[4]; \
+  arr[idx+5]field = p[5]; \
+  arr[idx+6]field = p[6]; \
+  arr[idx+7]field = p[7]; \
+} 
+enum { cosmoMask=0xff };
+#if 0
+#endif /* COSMO_FLOAT * / // ?????
+/////////////////////  END
 
 #elif CMK_USE_SSE2
 
@@ -82,7 +110,7 @@ typedef SSEDouble SSEcosmoType;
 } 
 enum { cosmoMask=0x3 };
 
-#endif   /* end of COSMO_FLOAT under CMK_USE_SSE2 */
+#endif   /* end of COSMO_FLOAT under CMK_USE_SSE2 * /
 
 #endif    /*  CMK_USE_FMA4  */
 
