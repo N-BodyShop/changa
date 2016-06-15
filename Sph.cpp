@@ -816,8 +816,9 @@ void TreePiece::updateuDot(int activeRung,
                 fDensity = p->fDensity*PoverRho/(gammam1*p->uHot());
                 cp = p->CoolParticleHot();
 #ifdef COOLING_MOLECULARH
-                /*		cp.dLymanWerner = 52.0; for testing CC */
-                double columnL = sqrt(0.25)*p->fBall;
+                // Assume the cold phase is a shell surrounding the hot phase,
+                // which is a sphere
+                double columnL = pow(0.75*p->massHot()/(M_PI*fDensity), 0.333);
 #ifdef COOLDEBUG
                 dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
 #endif
@@ -864,6 +865,14 @@ void TreePiece::updateuDot(int activeRung,
 #ifdef COOLING_MOLECULARH
 		/*		cp.dLymanWerner = 52.0; for testing CC */
 		double columnL = sqrt(0.25)*p->fBall;
+#ifdef SUPERBUBBLE
+        // Assume the cold phase is a shell surrounding the hot phase,
+        // which is a sphere
+        columnL = p->massHot()/(4*M_PI*columnL*columnL*fDensity);
+#endif
+#ifdef COOLDEBUG
+		dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
+#endif
 		CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
 					ExternalHeating, fDensity,
 					p->fMetals(), r, dtUse, columnL);
