@@ -60,6 +60,7 @@ inline void CoolAddParams( COOLPARAM *CoolParam, PRM ) {};
 #endif
 #endif
 #endif
+#endif
 
 #endif
 
