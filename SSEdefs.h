@@ -11,12 +11,12 @@ typedef double cosmoType;
 #define COSMO_CONST(val) val 
 #endif
 
-#if  CMK_USE_FMA4
-#if !defined(__FMA4__)
-#undef CMK_USE_FMA4
-#define CMK_USE_FMA4            0
+#if  CMK_USE_AVX
+#if !defined(__AVX__)
+#undef CMK_USE_AVX
+#define CMK_USE_AVX            0
 #else
-#warning "using FMA4"
+#warning "using AVX"
 #endif
 #endif
 
@@ -25,11 +25,11 @@ typedef double cosmoType;
 #define CMK_USE_SSE2            0
 #endif
 
-#if CMK_USE_FMA4 || CMK_USE_SSE2
+#if CMK_USE_AVX || CMK_USE_SSE2
 #define CMK_SSE                 1
 #endif
 
-#if CMK_USE_FMA4
+#if CMK_USE_AVX
 
 #ifndef COSMO_FLOAT
 
@@ -84,6 +84,6 @@ enum { cosmoMask=0x3 };
 
 #endif   /* end of COSMO_FLOAT under CMK_USE_SSE2 */
 
-#endif    /*  CMK_USE_FMA4  */
+#endif    /*  CMK_USE_AVX  */
 
 #endif   /* end of __SSEDEFS_H__ */

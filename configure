@@ -644,6 +644,8 @@ FLAG_COOLING
 FLAG_KERNEL
 FLAG_BIGKEYS
 FLAG_CHANGESOFT
+FLAG_AVX
+FLAG_SSE
 EGREP
 GREP
 CPP
@@ -700,6 +702,8 @@ SHELL'
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
+enable_sse2
+enable_avx
 enable_changesoft
 enable_bigkeys
 enable_wendland
@@ -1339,6 +1343,8 @@ Optional Features:
   --disable-option-checking  ignore unrecognized --enable/--with options
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+  --enable-sse2           enable sse2 gravity vectorization
+  --enable-avx            enable avx gravity vectorization
   --enable-changesoft     enable physical softening
   --enable-bigkeys        enable 128 bit hash keys
   --enable-wendland       enable Wendland C4 Kernel
@@ -4442,6 +4448,38 @@ if test "${MISSING_XDR}" = "yes" ; then
    CPPFLAGS="$CPPFLAGS -I.."
    LDFLAGS="$LDFLAGS -L../xdr"
 fi
+
+# SSE2 vector optimization for gravity
+# Check whether --enable-sse2 was given.
+if test "${enable_sse2+set}" = set; then
+  enableval=$enable_sse2; sse2=$enableval
+else
+  sse2=no
+fi
+
+if test "$sse2" = "yes" ; then
+    echo "SSE2 selected"
+    FLAG_SSE="-DCMK_USE_SSE2"
+else
+    FLAG_SSE=""
+fi
+
+
+# AVX vector optimization for gravity
+# Check whether --enable-avx was given.
+if test "${enable_avx+set}" = set; then
+  enableval=$enable_avx; avx=$enableval
+else
+  avx=no
+fi
+
+if test "$avx" = "yes" ; then
+    echo "AVX selected"
+    FLAG_AVX="-DCMK_USE_AVX"
+else
+    FLAG_AVX=""
+fi
+
 
 # physical softening in comoving coordinates:
 # Check whether --enable-changesoft was given.
