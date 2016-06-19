@@ -66,10 +66,9 @@ class NodePool;
   protected:
     NodeType myType;
     NodeKey key;
-    CmiUInt8 usedBy;
 
     GenericTreeNode() : myType(Invalid), key(0), parent(0), firstParticle(0),
-	lastParticle(0), remoteIndex(0), usedBy(0), iParticleTypes(0) {
+	lastParticle(0), remoteIndex(0), iParticleTypes(0) {
 #if COSMO_STATS > 0
       used = false;
 #endif
@@ -90,7 +89,7 @@ class NodePool;
 
   public:
 #if COSMO_STATS > 0
-    bool used; // FIXME: this field can now be replaced by "usedBy"
+    bool used;
 #endif
 
     /// The moments for the gravity computation
@@ -143,7 +142,7 @@ class NodePool;
     /// SMP rank of node owner
     int iRank;
 
-    GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0), usedBy(0) {
+    GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0) {
 #if INTERLIST_VER > 0
       numBucketsBeneath=0;
       startBucket=-1;
@@ -194,11 +193,6 @@ class NodePool;
               myType == CachedBucket ||
               myType == NonLocalBucket);
     }
-
-    // these two functions are used to track the communication between objects:
-    // a nodes is marked usedBy when a local TreePiece has touched it
-    void markUsedBy(int index) { usedBy |= (((CmiUInt8)1) << index); }
-    bool isUsedBy(int index) { return (usedBy & (((CmiUInt8)1) << index)); }
 
     /// \brief construct the children of the "this" node following the
     /// given logical criteria (Oct/Orb)

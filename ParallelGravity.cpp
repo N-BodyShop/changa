@@ -169,7 +169,7 @@ void _Leader(void) {
 
 
 void _Trailer(void) {
-	puts("(see the web page at\nhttp://librarian.phys.washington.edu/astro/index.php/Research:ChaNGa\nfor more information)");
+    puts("(see the web page at\nhttps://github.com/N-BodyShop/changa/wiki\nfor more information)");
 }
 
 int killAt;
@@ -1969,6 +1969,12 @@ void Main::setupICs() {
 #endif
 #endif
   ofsLog << "# Preprocessor macros:";
+#ifdef CMK_USE_SSE2
+  ofsLog << " CMK_USE_SSE2";
+#endif
+#ifdef CMK_USE_AVX
+  ofsLog << " CMK_USE_AVX";
+#endif
 #ifdef CHANGESOFT
   ofsLog << " CHANGESOFT";
 #endif
