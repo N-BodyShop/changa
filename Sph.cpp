@@ -1336,8 +1336,7 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1, double dTher
                 double uDot = p->uDot();
                 double dt;
 #ifdef SUPERBUBBLE
-                double x = p->massHot()/p->mass;
-                uDot = p->uHotDot()*x+p->uDot()*(1.0-x);
+                uDot = p->uHotDot()*frac + p->uDot()*(1.0-frac);
 #endif
                 if(uDot > 0.0)
                     dt = dtFacCourant*0.5*p->fBall
