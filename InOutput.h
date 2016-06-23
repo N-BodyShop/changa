@@ -81,7 +81,7 @@ class uHotOutputParams : public OutputParams
         OutputParams::pup(p);//Call base class
 	}
     };
-/// @brief Output particle hot phase internal energy
+/// @brief Output particle (cold phase if multiphase) internal energy
 class uOutputParams : public OutputParams
 {
  public:
