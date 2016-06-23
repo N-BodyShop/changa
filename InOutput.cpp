@@ -622,6 +622,18 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
         myParts[i].PdV() = 0.0;  // Used in initial timestep
 #endif
 #endif
+#ifdef SUPERBUBBLE
+        myParts[i].cpHotInit() = 0;
+        myParts[i].uHot() = 0.0;
+        myParts[i].uHotPred() = 0.0;
+        myParts[i].uHotDot() = 0.0;
+        myParts[i].massHot() = 0.0;
+        myParts[i].fThermalCond() = 0.0;
+        myParts[i].fThermalLength() = 0.0;
+        myParts[i].fPromoteSum() = 0.0;
+        myParts[i].fPromoteSumuPred() = 0.0;
+        myParts[i].fPromoteuPredInit() = 0.0;
+#endif
         }
 
     FieldHeader fh;
