@@ -216,7 +216,7 @@ class extraSPHData
 	p| _fMFracIronPred;
 #endif
 #ifdef SUPERBUBBLE
-	p((char *) &_CoolParticleHot, sizeof(_CoolParticle)); /* PUPs as bytes */
+	p((char *) &_CoolParticleHot, sizeof(_CoolParticleHot)); /* PUPs as bytes */
     p| _cpHotInit;
     p| _uHot;
     p| _uHotDot;
@@ -421,7 +421,7 @@ public:
         inline double& dvds_old() {IMAGAS; return (((extraSPHData*)extraData)->dvds_old());}
 #endif
 #ifdef DTADJUST
-        inline double& dtNew() { IMAGAS; return (((extraSPHData*)extraData)->dtNew());}
+    inline double& dtNew() { IMAGAS; return (((extraSPHData*)extraData)->dtNew());}
 #endif
 	inline double& dTimeFB() { IMAGAS; return (((extraSPHData*)extraData)->dTimeFB());}
 #ifndef COOLING_NONE
@@ -676,8 +676,8 @@ class ExternalSmoothParticle {
           fPromoteuPredInit = p->fPromoteuPredInit();
 #endif
 #ifdef DTADJUST
-              dt = p->dt;
-              dtNew = p->dtNew();
+          dt = p->dt;
+          dtNew = p->dtNew();
 #endif
 	      dTimeFB = p->dTimeFB();
 	      }
@@ -746,8 +746,8 @@ class ExternalSmoothParticle {
       tmp->fPromoteuPredInit() = fPromoteuPredInit;
 #endif
 #ifdef DTADJUST
-          tmp->dt = dt;
-          tmp->dtNew() = dtNew;
+      tmp->dt = dt;
+      tmp->dtNew() = dtNew;
 #endif
 	  tmp->dTimeFB() = dTimeFB;
 	  }
