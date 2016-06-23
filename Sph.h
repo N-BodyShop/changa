@@ -20,6 +20,7 @@ class DenDvDxSmoothParams : public SmoothParams
     int bConstantDiffusion;
     double dDelta;
     double dAlphaMax;
+    double dTime; 
 
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
@@ -37,7 +38,7 @@ class DenDvDxSmoothParams : public SmoothParams
     /// @param csm Cosmology information
     /// @param dTime Current time
     /// @param _bActiveOnly Only operate on active particles.
-    DenDvDxSmoothParams(int _iType, int am, CSM csm, double dTime,
+    DenDvDxSmoothParams(int _iType, int am, CSM csm, double _dTime,
 			int _bActiveOnly, int _bConstantDiffusion, double _dDelta, double _dAlphaMax) {
 	iType = _iType;
 	activeRung = am;
@@ -45,6 +46,7 @@ class DenDvDxSmoothParams : public SmoothParams
 	bConstantDiffusion = _bConstantDiffusion;
 	dDelta = _dDelta;
 	dAlphaMax = _dAlphaMax;
+        dTime = _dTime;
 	if(csm->bComove) {
 	    H = csmTime2Hub(csm,dTime);
 	    a = csmTime2Exp(csm,dTime);
@@ -58,6 +60,7 @@ class DenDvDxSmoothParams : public SmoothParams
     DenDvDxSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
     virtual void pup(PUP::er &p) {
         SmoothParams::pup(p);//Call base class
+        p|dTime;
 	p|a;
 	p|H;
 	p|bActiveOnly;

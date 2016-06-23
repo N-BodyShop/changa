@@ -856,15 +856,19 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         double ih2,r2,rs,rs1,fDensity,fDist2, fNorm,fNorm1,vFac;
 	double dvxdx, dvxdy, dvxdz, dvydx, dvydy, dvydz, dvzdx, dvzdy, dvzdz;
 	double dvx,dvy,dvz,dx,dy,dz,trace;
-	double h, dvdotdr,  cullenR;
-	double vSignal,  maxVSignal, oldDivV, divVq, signDivVq;
-        double curTimeStep = RungToDt(dDelta, p->rung);
+	double h, dvdotdr,  cullenR, curTimeStep;
+	double vSignal,  maxVSignal, divVq, signDivVq;
         cullenR = 0.0; maxVSignal = 0.0;
-        
+        curTimeStep = RungToDt(dDelta, p->rung);
+
         double divvnorm = 0.0;
 	GravityParticle *q;
 	int i;
 	unsigned int qiActive;
+        if (dDelta == 0){ 
+          p->TimeDivV() = dTime;
+          p->OldDivV() = p->divv();
+        }
 
         ih2 = invH2(p); 
         h = p->fBall*0.5;
@@ -926,7 +930,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
         // want to keep track of the old value of p->divv() to calculate divVDot later   
 
-        if (curTimeStep > 0) oldDivV = p->divv();
+
 
         if (qiActive)
           TYPESet(p,TYPE_NbrOfACTIVE);
@@ -941,11 +945,22 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         p->curlv().z = fNorm1*(dvydx - dvxdy);
 
         cullenR /= p->fDensity*p->mass;
-        double tau, divVDot, traceSS, xi, A, alphaLoc,  oldCullenAlpha; 
-        double l = 0.05; A = 0; 
+        double tau, divVDot, traceSS, xi, A, alphaLoc,  oldCullenAlpha, deltaT; 
+        double l = 0.05; A = 0;
+
+        // time interval = current time - last time divv was calculated
+        deltaT = dTime - p->TimeDivV();
+        divVDot = (p->divv() - p->OldDivV())/(deltaT);
+
+        if (p->rung >= activeRung){
+          p->TimeDivV() = dTime;
+          p->OldDivV() = p->divv();
+        }
+ 
+
         // If we are initializing the simulation, the current time step is zero and we can't compute the time
         // derivative of the velocity divergence in the Cullen & Dehnin formulation
-        if (curTimeStep == 0){
+        if (dDelta == 0){
           // If the divergence of the velocity of the particle is negative and the speed of sound is nonzero
           // we set p->CullenAlpha() using the M&M prescription. Otherwise p->CullenAlpha() is zero
           if ((p->divv() < 0) && (p->c() > 0)){
@@ -955,7 +970,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
           else p->CullenAlpha() = 0.0; 
         }
         // If the current time step > 0
-        else {
+        else if (p->rung >= activeRung) {
           // The time derivative of the divergence of the velocity
           double onethirdtrace = (1./3.)*trace;
           double txx = dvxdx + onethirdtrace; 
@@ -965,7 +980,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
           double txz = (dvxdz + dvzdx);
           double tyz = (dvydz + dvzdy);
          
-          divVDot = (p->divv() - oldDivV)/(curTimeStep);
+
           traceSS = fNorm1*fNorm1*(0.5*(txy*txy + txz*txz + tyz*tyz) + txx*txx + tyy*tyy + tzz*tzz);
 
           // The shock limiter; compares the flow convergence to a measure of the shear/vorticity
@@ -1018,10 +1033,15 @@ void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	GravityParticle *q;
 	int i;
 
-        double h, dvdotdr, divvnorm,  cullenR;
-        double vSignal,  maxVSignal, oldDivV, divVq, signDivVq;
-        double curTimeStep = RungToDt(dDelta, p->rung);
+        double h, dvdotdr, divvnorm,  cullenR, curTimeStep;
+        double vSignal,  maxVSignal,  divVq, signDivVq;
         cullenR = 0.0; maxVSignal = 0.0; divvnorm = 0.0; 
+        curTimeStep = RungToDt(dDelta, p->rung); 
+
+        if (dDelta == 0) {
+          p->TimeDivV() = dTime;
+          p->OldDivV() = p->divv();
+        }
 
         h = 0.5* p->fBall;
 	ih2 = invH2(p);
@@ -1077,25 +1097,36 @@ void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	p->fDensity = fNorm*fDensity; 
 	fNorm1 /= p->fDensity;
 	trace = dvxdx+dvydy+dvzdz;
-        oldDivV = p->divv();
+
 	p->divv() =  fNorm1*trace; /* physical */
 	p->curlv().x = fNorm1*(dvzdy - dvydz); 
 	p->curlv().y = fNorm1*(dvxdz - dvzdx);
 	p->curlv().z = fNorm1*(dvydx - dvxdy);
         cullenR /= p->fDensity*p->mass;
-        double tau, divVDot, traceSS, xi, A, alphaLoc,  oldCullenAlpha;
+        double tau, divVDot, traceSS, xi, A, alphaLoc,  oldCullenAlpha, deltaT;
         double l = 0.05; A = 0;
-        // If we are initializing the simulation, the current time step is zero and we can't compute the time                        // derivative of the velocity divergence in the Cullen & Dehnin formulation                                          
-        if (curTimeStep == 0){
-          // If the divergence of the velocity of the particle is negative and the speed of sound is nonzero                           // we set p->CullenAlpha() using the M&M prescription. Otherwise p->CullenAlpha() is zero                          
-          if ((p->divv() < 0) && (p->c() > 0)){
+
+        deltaT = dTime - p->TimeDivV();
+        divVDot = (p->divv() - p->OldDivV())/(deltaT);
+
+        if (p->rung >= activeRung){
+          p->TimeDivV() = dTime;
+          p->OldDivV() = p->divv();
+        }
+                
+        // If we are initializing the simulation, the current time step is zero and we can't compute the time 
+        // derivative of the velocity divergence in the Cullen & Dehnin formulation                                          
+        if (dDelta == 0){
+          // If the divergence of the velocity of the particle is negative and the speed of sound is nonzero
+          // we set p->CullenAlpha() using the M&M prescription. Otherwise p->CullenAlpha() is zero                          
+         if ((p->divv() < 0) && (p->c() > 0)){
             tau = h / (2.0*l*p->c());
             p->CullenAlpha() = dAlphaMax*p->divv()*tau / (1.0 + p->divv()*tau);
           }
           else p->CullenAlpha() = 0.0;
         }
         // If the current time step > 0                                                                                      
-        else {
+        else  if (p->rung >= activeRung) {
           // The time derivative of the divergence of the velocity                                                           
           double onethirdtrace = (1./3.)*trace;
           double txx = dvxdx + onethirdtrace;
@@ -1105,7 +1136,6 @@ void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
           double txz = (dvxdz + dvzdx);
           double tyz = (dvydz + dvzdy);
 
-          divVDot = (p->divv() - oldDivV)/(curTimeStep);
           traceSS = fNorm1*fNorm1*(0.5*(txy*txy + txz*txz + tyz*tyz) + txx*txx + tyy*tyy + tzz*tzz);
           // The shock limiter; compares the flow convergence to a measure of the shear/vorticity                            
           xi =(2.0*pow((1.0-cullenR),4)*p->divv())*(2.0*pow((1.0-cullenR),4)*p->divv()) /

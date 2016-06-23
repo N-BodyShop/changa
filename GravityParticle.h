@@ -65,7 +65,9 @@ class extraSPHData
     double _BalsaraSwitch;	/* Pressure/rho^2 */
     double _fBallMax;		/* Radius for inverse neighbor finding */
     double _CullenAlpha;        /* Alpha from Cullen & Dehnen 2010 */
-    double _DivV;               /* velocity divergence */
+    double _TimeDivV;           /* Time at which OldDivV was last updated */
+    double _OldDivV;            /* Last active divv */
+
 #ifdef DTADJUST
     double _dtNew;		/* New timestep from gas pressure */
 #endif
@@ -103,7 +105,8 @@ class extraSPHData
     inline double& BalsaraSwitch() {return _BalsaraSwitch;}
     inline double& fBallMax() {return _fBallMax;}
     inline double& CullenAlpha() {return _CullenAlpha;}
-    inline double& DivV() {return _DivV;}
+    inline double& TimeDivV() {return _TimeDivV;}
+    inline double& OldDivV() {return _OldDivV;}
 #ifdef DTADJUST
     inline double& dtNew() {return _dtNew;}
 #endif
@@ -138,7 +141,8 @@ class extraSPHData
 	p | _BalsaraSwitch;
 	p | _fBallMax;
 	p | _CullenAlpha;
-        p | _DivV;
+        p | _TimeDivV;
+        p | _OldDivV; 
 #ifdef DTADJUST
         p | _dtNew;
 #endif
@@ -304,7 +308,8 @@ public:
 	inline double& BalsaraSwitch() { IMAGAS; return (((extraSPHData*)extraData)->BalsaraSwitch());}
 	inline double& fBallMax() { IMAGAS; return (((extraSPHData*)extraData)->fBallMax());}
 	inline double& CullenAlpha() {IMAGAS; return (((extraSPHData*)extraData)->CullenAlpha());}
-        inline double& DivV() {IMAGAS; return (((extraSPHData*)extraData)->DivV());}
+        inline double& TimeDivV() {IMAGAS; return (((extraSPHData*)extraData)->TimeDivV());}
+        inline double& OldDivV() {IMAGAS; return (((extraSPHData*)extraData)->OldDivV());}
 #ifdef DTADJUST
         inline double& dtNew() { IMAGAS; return (((extraSPHData*)extraData)->dtNew());}
 #endif
@@ -426,7 +431,8 @@ class ExternalSmoothParticle {
   double BalsaraSwitch;
   double fBallMax;
   double CullenAlpha;
-  double DivV;
+  double TimeDivV;
+  double OldDivV;
   double u;
   double uPred;
   double uDot;
@@ -465,7 +471,8 @@ class ExternalSmoothParticle {
 	      BalsaraSwitch = p->BalsaraSwitch();
 	      fBallMax = p->fBallMax();
 	      CullenAlpha = p->CullenAlpha();
-              DivV = p->DivV();
+              TimeDivV = p->TimeDivV();
+              OldDivV = p->OldDivV();
 	      curlv = p->curlv();
 	      u = p->u();
 #ifndef COOLING_NONE
@@ -509,7 +516,8 @@ class ExternalSmoothParticle {
 	  tmp->BalsaraSwitch() = BalsaraSwitch;
 	  tmp->fBallMax() = fBallMax;
 	  tmp->CullenAlpha() = CullenAlpha;
-          tmp->DivV() = DivV;
+          tmp->TimeDivV() = TimeDivV;
+          tmp->OldDivV() = OldDivV;
 	  tmp->curlv() = curlv;
 	  tmp->u() = u;
 #ifndef COOLING_NONE
@@ -555,7 +563,8 @@ class ExternalSmoothParticle {
     p | BalsaraSwitch;
     p | fBallMax;
     p | CullenAlpha;
-    p | DivV;
+    p | TimeDivV;
+    p | OldDivV;
     p | u;
     p | uPred;
     p | uDot;
