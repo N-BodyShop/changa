@@ -421,7 +421,7 @@ public:
         inline double& dvds_old() {IMAGAS; return (((extraSPHData*)extraData)->dvds_old());}
 #endif
 #ifdef DTADJUST
-    inline double& dtNew() { IMAGAS; return (((extraSPHData*)extraData)->dtNew());}
+	inline double& dtNew() { IMAGAS; return (((extraSPHData*)extraData)->dtNew());}
 #endif
 	inline double& dTimeFB() { IMAGAS; return (((extraSPHData*)extraData)->dTimeFB());}
 #ifndef COOLING_NONE
