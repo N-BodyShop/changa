@@ -1482,11 +1482,10 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                      double dMaxEnergy, // Maximum internal energy of gas.
 		     double duDelta[MAXRUNG+1], // dts for energy
              double gammam1, // Adiabatic index - 1
-             double dThermalCondCoeff, // Thermal conduction coefficient
-             double dThermalCondSatCoeff,
-             double dMultiPhaseMaxTime,
-             double dMultiPhaseMinTemp,
-             double dEvapCoeff,
+             double dThermalCondSatCoeff, //Saturated conduction coefficient
+             double dMultiPhaseMaxTime, //Maximum time to stay multiphase
+             double dMultiPhaseMinTemp, //Minimum temperature to stay multiphase
+             double dEvapCoeff, //Thermal evaporation coefficient
 		     const CkCallback& cb) {
   // LBTurnInstrumentOff();
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
