@@ -470,7 +470,7 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
         // We could self-enrich to conserve metals, but that could do
         // funny things to the mass metalicity relation.
         // Also prevent any cooling shut-off.
-        p->fNSN() == 0.0;
+        p->fNSN() = 0.0;
         return;
 	}
 	    
