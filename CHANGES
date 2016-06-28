@@ -1,3 +1,36 @@
+What's new in ChaNGa 3.2 (Since 3.1)
+
+===============================================================================
+
+General changes:
+
+- Move to Charm version 6.7.1
+
+- Restart from "tipsy binary" files.
+
+- More flexible "dumpframe" movie making.
+
+- Complete handling of > 2 billion particles, including 64 bit iOrders in
+  the starlog file.
+
+Physics Changes:
+
+- Grackle cooling module.
+
+- Jeans length pressure floor.
+
+- Improved "beta cooling" for disks.
+
+Parallel performance changes:
+
+- More efficient smoothing cache.
+
+- Better scaling for tree build.
+
+- Better bookkeeping for multistep load balancing.
+
+===============================================================================
+
 What's new in ChaNGa 3.1 (Since 3.0)
 
 ===============================================================================

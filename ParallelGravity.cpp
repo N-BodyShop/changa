@@ -169,7 +169,7 @@ void _Leader(void) {
 
 
 void _Trailer(void) {
-	puts("(see the web page at\nhttp://librarian.phys.washington.edu/astro/index.php/Research:ChaNGa\nfor more information)");
+    puts("(see the web page at\nhttps://github.com/N-BodyShop/changa/wiki\nfor more information)");
 }
 
 int killAt;
@@ -393,6 +393,16 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dRedTo",paramDouble,&param.dRedTo,sizeof(double),
 		    "zto", "specifies final redshift for the simulation");
 	
+        //
+        // External Potentials
+        //
+        param.exGravParams.bBodyForce = 0;
+        prmAddParam(prm,"bBodyForce",paramBool,&param.exGravParams.bBodyForce,
+                    sizeof(int),"bodyforce","use constant body force = -bf");
+        param.exGravParams.dBodyForceConst = 0.0;
+        prmAddParam(prm,"dBodyForceConst",paramDouble,&param.exGravParams.dBodyForceConst,
+                    sizeof(double),"bodyforceconst",
+                    "strength of constant bodyforce = 0");
 	//
 	// Parameters for GrowMass: slowly growing mass of particles.
 	//
@@ -900,7 +910,11 @@ Main::Main(CkArgMsg* m) {
 	    param.vPeriod = Vector3D<double>(1.0e38);
 	    param.bEwald = 0;
 	    }
-
+        /*
+         * Set external gravity if any of the external gravity
+         * parameters are set.
+         */
+        param.exGravParams.bDoExternalGravity = param.exGravParams.bBodyForce;
 #ifdef CUDA
           double mil = 1e6;
           localNodesPerReq = (int) (localNodesPerReqDouble * mil);
@@ -974,6 +988,12 @@ Main::Main(CkArgMsg* m) {
 	    param.bGasAdiabatic = 1;
 	    param.bGasIsothermal = 0;
 	    }
+        if(param.dConstGamma <= 1.0) {
+            ckerr << "dConstGamma relates pressure to internal energy and must be greater than 1.0";
+            ckerr << endl;
+            CkAbort("Bad value for dConstGamma");
+            }
+        
 	if(prmSpecified(prm, "bBulkViscosity")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bBulkViscosity parameter ignored." << endl;
@@ -1695,6 +1715,11 @@ void Main::advanceBigStep(int iStep) {
     else {
 	treeProxy.initAccel(activeRung, CkCallbackResumeThread());
 	}
+    if(param.exGravParams.bDoExternalGravity) {
+        treeProxy.externalGravity(activeRung, param.exGravParams,
+                                  CkCallbackResumeThread());
+        }
+    
     if(verbosity > 1)
 	memoryStats();
     if(param.bDoGas) {
@@ -1949,6 +1974,12 @@ void Main::setupICs() {
 #endif
 #endif
   ofsLog << "# Preprocessor macros:";
+#ifdef CMK_USE_SSE2
+  ofsLog << " CMK_USE_SSE2";
+#endif
+#ifdef CMK_USE_AVX
+  ofsLog << " CMK_USE_AVX";
+#endif
 #ifdef CHANGESOFT
   ofsLog << " CHANGESOFT";
 #endif
@@ -2299,6 +2330,10 @@ Main::initialForces()
   else {
       treeProxy.initAccel(0, CkCallbackResumeThread());
       }
+  if(param.exGravParams.bBodyForce) {
+      treeProxy.externalGravity(0, param.exGravParams,
+                                CkCallbackResumeThread());
+      }
   if(param.bDoGas) {
       // Get star center of mass
       starCenterOfMass();
@@ -2499,18 +2534,22 @@ Main::doSimulation()
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
           if(param.iBinaryOut == 6) {
               // Set up N-Chilada directory structure
-              CkAssert(safeMkdir(achFile.c_str()) == 0);
+              if(safeMkdir(achFile.c_str()) != 0);
+                  CkAbort("Can't create N-Chilada directories\n");
               if(nTotalSPH > 0) {
                     string dirname(string(achFile) + "/gas");
-                    CkAssert(safeMkdir(dirname.c_str()) == 0);
+                    if(safeMkdir(dirname.c_str()) != 0)
+                        CkAbort("Can't create N-Chilada directories\n");
                     }
               if(nTotalDark > 0) {
                     string dirname(string(achFile) + "/dark");
-                    CkAssert(safeMkdir(dirname.c_str()) == 0);
+                    if(safeMkdir(dirname.c_str()) != 0)
+                        CkAbort("Can't create N-Chilada directories\n");
                     }
               if(nTotalStar > 0) {
                     string dirname(string(achFile) + "/star");
-                    CkAssert(safeMkdir(dirname.c_str()) == 0);
+                    if(safeMkdir(dirname.c_str()) != 0)
+                        CkAbort("Can't create N-Chilada directories\n");
                     }
               }
 	  ckout << "Outputting densities ...";
@@ -2857,12 +2896,12 @@ void Main::writeOutput(int iStep)
 
     double duTFac = (param.dConstGamma-1)*param.dMeanMolWeight/param.dGasConst;
     
+    if(verbosity) {
+        ckout << "Writing binary file ...";
+        startTime = CkWallTimer();
+        }
     if(param.iBinaryOut != 6)
         {
-        if(verbosity) {
-            ckout << "Writing Tipsy file ...";
-            startTime = CkWallTimer();
-            }
         if(path_is_directory(achFile)) {
             CkError("WARNING: overwriting existing directory\n");
             delete_dir_tree(achFile);
@@ -2876,24 +2915,25 @@ void Main::writeOutput(int iStep)
             treeProxy[0].serialWrite(0, achFile, dOutTime, dvFac, duTFac,
                                      param.bDoublePos, param.bDoubleVel,
                                      param.bGasCooling, CkCallbackResumeThread());
-        if(verbosity)
-            ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-                  << endl;
         }
     else { // N-Chilada output
         // Set up N-Chilada directory structure
-        CkAssert(safeMkdir(achFile) == 0);
+        if(safeMkdir(achFile) != 0)
+            CkAbort("Can't create N-Chilada directories\n");
         if(nTotalSPH > 0) {
             string dirname(string(achFile) + "/gas");
-            CkAssert(safeMkdir(dirname.c_str()) == 0);
+            if(safeMkdir(dirname.c_str()) != 0)
+                CkAbort("Can't create N-Chilada directories\n");
             }
         if(nTotalDark > 0) {
             string dirname(string(achFile) + "/dark");
-            CkAssert(safeMkdir(dirname.c_str()) == 0);
+            if(safeMkdir(dirname.c_str()) != 0)
+                CkAbort("Can't create N-Chilada directories\n");
             }
         if(nTotalStar > 0) {
             string dirname(string(achFile) + "/star");
-            CkAssert(safeMkdir(dirname.c_str()) == 0);
+            if(safeMkdir(dirname.c_str()) != 0)
+                CkAbort("Can't create N-Chilada directories\n");
             }
         MassOutputParams pMassOut(achFile, param.iBinaryOut, dOutTime);
         outputBinary(pMassOut, param.bParaWrite, CkCallbackResumeThread());
@@ -2924,6 +2964,9 @@ void Main::writeOutput(int iStep)
             outputBinary(pTimeFormOut, param.bParaWrite, CkCallbackResumeThread());
             }
         }
+    if(verbosity)
+        ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+              << endl;
     
     if(verbosity) {
 	ckout << "Writing arrays ...";

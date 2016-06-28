@@ -140,7 +140,7 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 	      // Make the bounding box cubical.
 	      //
 	      Vector3D<float> bcenter = boundingBox.center();
-	      const float fEps = 1.0 + 3.0e-7;  // slop to ensure keys fall
+	      const float fEps = 1.0 + 9.5e-7;  // slop to ensure keys fall
 						// between 0 and 1.
 	      bsize = Vector3D<float>(fEps*0.5*max);
 	      boundingBox = OrientedBox<float>(bcenter-bsize, bcenter+bsize);
@@ -1520,6 +1520,35 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
 	    }
 	}
 
+    bBucketsInited = true;
+    contribute(cb);
+    }
+
+/**
+ * Apply an external gravitational force
+ */
+void TreePiece::externalGravity(int iKickRung,
+    const externalGravityParams exGravParams, const CkCallback& cb)
+{
+    CkAssert(bBucketsInited);
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+        GravityParticle *p = &myParticles[i];
+	if(p->rung >= iKickRung) {
+            if(exGravParams.bBodyForce) {
+                if(p->position.z > 0.0) {
+                    p->treeAcceleration.z -= exGravParams.dBodyForceConst;
+                    p->potential += exGravParams.dBodyForceConst*p->position.z;
+                    p->dtGrav += exGravParams.dBodyForceConst/p->position.z;
+                    }
+                else {
+                    p->treeAcceleration.z += exGravParams.dBodyForceConst;
+                    p->potential -= exGravParams.dBodyForceConst*p->position.z;
+                    if(p->position.z != 0.0)
+                        p->dtGrav -= exGravParams.dBodyForceConst/p->position.z;
+                    }
+                }
+            }
+        }
     contribute(cb);
     }
 
@@ -2325,6 +2354,7 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
     delete[] bucketReqs;
     bucketReqs = NULL;
   }
+  bBucketsInited = false;
 #ifdef PUSH_GRAVITY
   // used to indicate whether trees on SMP node should be
   // merged or not: we do not merge trees when pushing, to
@@ -3484,6 +3514,7 @@ void TreePiece::initBuckets() {
     }
 #endif*/
   }
+  bBucketsInited = true;
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
   bucketcheckList.resize(numBuckets);
 #endif

@@ -987,6 +987,8 @@ private:
   int nbor_msgs_count_;
 	/// Actual storage in the above array
 	int nStore;
+        /// Accelerations are initialized
+        bool bBucketsInited;
 
   // Temporary location to hold the particles that have come from outside this
   // TreePiece. This is used in the case where we migrate the particles and
@@ -1397,6 +1399,7 @@ public:
           myStarParticles = NULL;
 	  myNumParticles = myNumSPH = myNumStar = 0;
 	  nStore = nStoreSPH = nStoreStar = 0;
+          bBucketsInited = false;
 	  myTreeParticles = -1;
 	  orbBoundaries.clear();
 	  boxes = NULL;
@@ -1452,6 +1455,7 @@ public:
 	  orbBoundaries.clear();
 	  boxes = NULL;
 	  splitDims = NULL;
+          bBucketsInited = false;
 	  myTreeParticles = -1;
 
 
@@ -1621,6 +1625,14 @@ public:
 	     double duDelta, int nGrowMass, bool buildTree,
 	     const CkCallback& cb);
   void initAccel(int iKickRung, const CkCallback& cb);
+/**
+ * @brief Apply an external gravitational force
+ * @param activeRung The rung to apply the force.
+ * @param exGravParams Parameters of the external force
+ * @param cb Callback function
+ */
+  void externalGravity(int activeRung, const externalGravityParams exGravParams,
+                       const CkCallback& cb);
 /**
  * Adjust timesteps of active particles.
  * @param iKickRung The rung we are on.

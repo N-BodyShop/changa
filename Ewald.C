@@ -289,6 +289,7 @@ void TreePiece::EwaldInit()
 	double gam[6],mfacc,mfacs;
 	double ax,ay,az;
 
+        CkAssert(bBucketsInited);
 #ifdef HEXADECAPOLE
 	/* convert to complete moments */
 	momMomr2Momc(&(root->moments.mom), &momcRoot);

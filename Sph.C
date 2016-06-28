@@ -965,6 +965,9 @@ TreePiece::sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb)
     int i;
     GravityParticle *p;    
 
+    // Pressure will be called next, so check this here.
+    CkAssert(bBucketsInited);
+    
     if (bOn) {
         for(i=1; i<= myNumParticles; ++i) {
 	    p = &myParticles[i];
