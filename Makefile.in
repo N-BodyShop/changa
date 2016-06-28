@@ -90,7 +90,14 @@ NVCC_LIBS = -lcuda -lcudart -lGL
 #OPTS = -g -memory charmdebug
 OPTS = -O3 -lpthread
 CXXFLAGS += $(OPTS) -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) @CPPFLAGS@
-LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache -module CkIO -module CkMulticast -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MultistepLB -module MultistepLB_notopo -module MultistepNodeLB_notopo -module MultistepOrbLB -module Orb3dLB -module Orb3dLB_notopo -module HierarchOrbLB -module liveViz -module CkLoop #-tracemode projections -memory charmdebug -memory paranoid
+LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache \
+           -module CkIO -module CkMulticast -module RefineLB \
+           -module RefineCommLB -module GreedyLB -module GreedyCommLB \
+           -module OrbLB -module RotateLB -module MultistepLB \
+           -module MultistepLB_notopo -module MultistepNodeLB_notopo \
+           -module MultistepOrbLB -module Orb3dLB -module Orb3dLB_notopo \
+           -module HierarchOrbLB -module liveViz -module CkLoop \
+           -balancer MultistepLB_notopo #-tracemode projections -memory charmdebug -memory paranoid
 XDR_DIR = ../rpc
 XDR_OBJS = $(XDR_DIR)/xdr.o $(XDR_DIR)/xdr_float.o $(XDR_DIR)/xdr_mem.o $(XDR_DIR)/xdr_stdio.o
 LDLIBS += $(STRUCTURES_PATH)/libTipsy.a  @LIBS@
