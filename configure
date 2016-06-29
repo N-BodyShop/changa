@@ -4396,6 +4396,18 @@ fi
 if test "$superbubble" = "yes" ; then
     echo "Superbubble Feedback selected"
     FLAG_SUPERBUBBLE="-DSUPERBUBBLE"
+    if test "$diffusion" = "no" ; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: SUPERBUBBLE requires diffusion.  Enable it with --enable-diffusion" >&5
+$as_echo "$as_me: WARNING: SUPERBUBBLE requires diffusion.  Enable it with --enable-diffusion" >&2;};
+        exit
+    fi
+    if test "$cooling" = "no" ; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: SUPERBUBBLE requires cooling.  Enable it with --enable-cooling=XXX" >&5
+$as_echo "$as_me: WARNING: SUPERBUBBLE requires cooling.  Enable it with --enable-cooling=XXX" >&2;};
+        { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: where XXX is one of PLANET, BOLEY, COSMO, METAL, MOLECULARH, or GRACKLE" >&5
+$as_echo "$as_me: WARNING: where XXX is one of PLANET, BOLEY, COSMO, METAL, MOLECULARH, or GRACKLE" >&2;};
+        exit
+    fi
 else
     FLAG_SUPERBUBBLE=""
 fi

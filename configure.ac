@@ -342,6 +342,15 @@ AC_ARG_ENABLE([superbubble],
 if test "$superbubble" = "yes" ; then
     echo "Superbubble Feedback selected"
     FLAG_SUPERBUBBLE="-DSUPERBUBBLE"
+    if test "$diffusion" = "no" ; then
+        AC_MSG_WARN([SUPERBUBBLE requires diffusion.  Enable it with --enable-diffusion]);
+        exit
+    fi
+    if test "$cooling" = "no" ; then
+        AC_MSG_WARN([SUPERBUBBLE requires cooling.  Enable it with --enable-cooling=XXX]);
+        AC_MSG_WARN([where XXX is one of PLANET, BOLEY, COSMO, METAL, MOLECULARH, or GRACKLE]);
+        exit
+    fi
 else
     FLAG_SUPERBUBBLE=""
 fi
