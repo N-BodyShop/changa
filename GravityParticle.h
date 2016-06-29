@@ -10,7 +10,7 @@
 #include "SFC.h"
 #include <vector>
 
-#ifdef DTADJUST
+#if defined(DTADJUST) || defined(SUPERBUBBLE)
 #define NEED_DT
 #endif
 
