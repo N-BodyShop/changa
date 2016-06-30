@@ -1197,10 +1197,10 @@ Main::Main(CkArgMsg* m) {
 
         /* Convert K(T) to k(u)  erg s^-1 (erg/gm)^-7/2 cm^-1 */
         param.dThermalCondCoeffCode = param.dThermalCondCoeff
-            *pow(1.5*KBOLTZ/(param.dMeanMolecularWeight*MHYDR),-3.5);
+            *pow(1.5*KBOLTZ/(param.dMeanMolWeight*MHYDR),-3.5);
         /* Convert K2(T) to k2(u)  erg s^-1 (erg/gm)^-3/2 cm^-1 */
         param.dThermalCond2CoeffCode = param.dThermalCond2Coeff
-            *pow(1.5*KBOLTZ/(param.dMeanMolecularWeight*MHYDR),-1.5);
+            *pow(1.5*KBOLTZ/(param.dMeanMolWeight*MHYDR),-1.5);
         /* Convert to code units */
         param.dThermalCondCoeffCode /= 
             pow(param.dErgPerGmUnit,-3.5)
@@ -1215,7 +1215,7 @@ Main::Main(CkArgMsg* m) {
         /* You enter effective thermal coefficient e.g. kappa0=6.1d-7 erg s^-1 K^-7/2 cm^-1 
            Code then multiplies by prefactors to 4/25 kappa0 mmw/k (1.5k/mmw)^-5/2 */
         param.dEvapCoeffCode = param.dEvapCoeff*pow(32./param.nSmooth,.3333333333)*
-            4/25.*(param.dMeanMolecularWeight*MHYDR)/KBOLTZ*pow(1.5*KBOLTZ/(param.dMeanMolecularWeight*MHYDR),-2.5);
+            4/25.*(param.dMeanMolWeight*MHYDR)/KBOLTZ*pow(1.5*KBOLTZ/(param.dMeanMolWeight*MHYDR),-2.5);
         /* Convert final units: g/cm/s (erg/g)^-2.5 to code units 
                [Later: Multiply by u^5/2 and multiply a length gives mdot   units g/s] */
         param.dEvapCoeffCode /= 
