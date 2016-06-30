@@ -1751,32 +1751,31 @@ void DistDeletedGasSmoothParams::combSmoothCache(GravityParticle *p1,
 	    p1->fMFracIron() = f1*p1->fMFracIron() + f2*p2->fMFracIron;
 	    p1->fMFracOxygen() = f1*p1->fMFracOxygen() + f2*p2->fMFracOxygen;
 #ifdef SUPERBUBBLE
-        double mHot_new = p1->massHot() + p2->massHot;
-        if (mHot_new > 0) {
-            double f1_hot = p1->massHot()/mHot_new;
-            double f2_hot = p2->massHot/mHot_new;
-            double mCold_new = m_new-mHot_new;
-            assert(mCold_new>0);
-            double f1_cold = (p1->mass-p1->massHot())/mCold_new;
-            double f2_cold = (delta_m-p2->massHot)/mCold_new;
-            p1->uHot() = f1_hot*p1->uHot()+f2_hot*p2->uHot;
-            p1->uHotPred() = f1_hot*p1->uHotPred()+f2_hot*p2->uHotPred;
-            p1->u() = f1_cold*p1->u()+f2_cold*p2->u;
-            p1->uPred() = f1_cold*p1->uPred()+f2_cold*p2->uPred;
-            p1->massHot() = mHot_new;
-        }
-        else
+	    double mHot_new = p1->massHot() + p2->massHot;
+	    if (mHot_new > 0) {
+	        double f1_hot = p1->massHot()/mHot_new;
+	        double f2_hot = p2->massHot/mHot_new;
+	        double mCold_new = m_new-mHot_new;
+	        assert(mCold_new>0);
+	        double f1_cold = (p1->mass-p1->massHot())/mCold_new;
+	        double f2_cold = (delta_m-p2->massHot)/mCold_new;
+	        p1->uHot() = f1_hot*p1->uHot()+f2_hot*p2->uHot;
+	        p1->uHotPred() = f1_hot*p1->uHotPred()+f2_hot*p2->uHotPred;
+	        p1->u() = f1_cold*p1->u()+f2_cold*p2->u;
+	        p1->uPred() = f1_cold*p1->uPred()+f2_cold*p2->uPred;
+	        p1->massHot() = mHot_new;
+	    }
+	    else
 #endif
 #ifndef COOLING_NONE
-        {
-            if(p1->uDot() < 0.0) /* margin of 1% to avoid roundoff
-                      * problems */
-            fTCool = 1.01*p1->uPred()/p1->uDot(); 
-            p1->u() = f1*p1->u() + f2*p2->u;
-            p1->uPred() = f1*p1->uPred() + f2*p2->uPred;
-            if(p1->uDot() < 0.0)
-            p1->uDot() = p1->uPred()/fTCool;
-        }
+	    {
+	        if(p1->uDot() < 0.0) /* margin of 1% to avoid roundoff problems */
+	            fTCool = 1.01*p1->uPred()/p1->uDot(); 
+	        p1->u() = f1*p1->u() + f2*p2->u;
+	        p1->uPred() = f1*p1->uPred() + f2*p2->uPred;
+	        if(p1->uDot() < 0.0)
+	            p1->uDot() = p1->uPred()/fTCool;
+	    }
 #endif
 	    p1->mass = m_new;
 	    }
