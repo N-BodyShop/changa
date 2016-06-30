@@ -563,7 +563,7 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
       double drMax2 = 0.0;
 #ifdef NSMOOTHINNER
       int nInner = 0;
-      CkVec<double> *isort = new CkVec<double>();
+      CkVec<double> isort;
 #endif
       for(int k = firstQueue; k < lastQueue; k++) 
 	  {
@@ -572,7 +572,7 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
           Vector3D<double> dr = tp->myParticles[k].position - p->position;
 #ifdef NSMOOTHINNER
           if(dr.lengthSquared() <= 0.5*p->fBall) nInner++;
-          isort->push_back(dr.lengthSquared());
+          isort.push_back(dr.lengthSquared());
 #endif
 	      if(dr.lengthSquared() > drMax2) {
 		  drMax2 = dr.lengthSquared();
@@ -587,17 +587,16 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 #ifdef NSMOOTHINNER
       if (nInner < 0.2828*nSmooth)
       {
-          isort->quickSort();
-          if (isort->length() > 0.3536*nSmooth)
+          isort.quickSort();
+          if (isort.length() > 0.3536*nSmooth)
           {
-              pqNew.fKey = 2*(*isort)[(int) (0.3536*nSmooth-1)];
+              pqNew.fKey = 2*isort[(int) (0.3536*nSmooth-1)];
           }
           else
           {
-              pqNew.fKey = 2*(*isort)[isort->length()-1];
+              pqNew.fKey = 2*isort[isort.length()-1];
           }
       }
-      delete isort;
 #endif
       //
       // For FastGas, we have a limit on the size of the search ball.
