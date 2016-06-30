@@ -1845,7 +1845,7 @@ void DistDeletedGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
             q->uHotPred() = f1_hot*q->uHotPred()+f2_hot*p->uHotPred();
             q->mass = m_new;
             q->massHot() = mHot_new;
-            return;
+            break;
         }
         free(massList);
     }
