@@ -10,13 +10,19 @@
 class externalGravityParams
 {
  public:
-    bool bDoExternalGravity;
-    int bBodyForce;
+    bool bDoExternalGravity; ///< Set if any exteran potential is used
+    int bBodyForce;          ///< Constant acceleration
     double dBodyForceConst;
+    int bPatch;              ///< Patch in a disk
+    double dCentMass;        ///< Central mass in the disk
+    double dOrbDist;         ///< Distance of the patch from the center
     void pup(PUP::er& p) {
         p| bDoExternalGravity;
         p| bBodyForce;
         p| dBodyForceConst;
+        p| bPatch;
+        p| dCentMass;
+        p| dOrbDist;
         }
 };
 

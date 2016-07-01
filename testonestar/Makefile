@@ -3,6 +3,9 @@ CXX=../../charm/bin/charmc
 CHARMC=$(CXX)
 LDFLAGS = -g -language charm++ ../romberg.o
 
+default:
+	run.sh
+
 imf: imf.o
 	$(CXX) $(LDFLAGS) imf.o -o imf
 

@@ -403,6 +403,20 @@ Main::Main(CkArgMsg* m) {
         prmAddParam(prm,"dBodyForceConst",paramDouble,&param.exGravParams.dBodyForceConst,
                     sizeof(double),"bodyforceconst",
                     "strength of constant bodyforce = 0");
+        //
+        // Patch External potential parameters
+        //
+        param.exGravParams.dCentMass = 1.0;
+        prmAddParam(prm,"dCentMass",paramDouble,&param.exGravParams.dCentMass,
+                    sizeof(double),
+                    "fgm","specifies the central mass for Keplerian orbits");
+        param.exGravParams.bPatch = 0;
+        prmAddParam(prm,"bPatch",paramBool,&param.exGravParams.bPatch,
+                    sizeof(int),
+                    "patch","enable/disable patch reference frame = -patch");
+        param.exGravParams.dOrbDist = 0.0;
+        prmAddParam(prm,"dOrbDist",paramDouble,&param.exGravParams.dOrbDist,
+                    sizeof(double),"orbdist","<Patch orbital distance>");
 	//
 	// Parameters for GrowMass: slowly growing mass of particles.
 	//
@@ -914,7 +928,8 @@ Main::Main(CkArgMsg* m) {
          * Set external gravity if any of the external gravity
          * parameters are set.
          */
-        param.exGravParams.bDoExternalGravity = param.exGravParams.bBodyForce;
+        param.exGravParams.bDoExternalGravity = param.exGravParams.bBodyForce
+            || param.exGravParams.bPatch;
 #ifdef CUDA
           double mil = 1e6;
           localNodesPerReq = (int) (localNodesPerReqDouble * mil);

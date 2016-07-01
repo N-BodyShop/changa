@@ -665,10 +665,9 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 #else
 	    weight = rs*fNorm_u*q->mass;
 #endif
-	    q->fESNrate() += weight*p->fESNrate();
-	    /*		printf("SNTEST: %d %g %g %g %g\n",q->iOrder,weight,sqrt(q->r[0]*q->r[0]+q->r[1]*q->r[1]+q->r[2]*q->r[2]),q->fESNrate,q->fDensity);*/
+	    q->fESNrate() += weight*p->fStarESNrate();
 	    
-	    if ( p->fESNrate() > 0.0 && fb.bSNTurnOffCooling && 
+	    if ( p->fStarESNrate() > 0.0 && fb.bSNTurnOffCooling && 
 		 (fBlastRadius*fBlastRadius >= fDist2)){
 		q->fTimeCoolIsOffUntil() = max(q->fTimeCoolIsOffUntil(),
 					       dTime + fShutoffTime);       
