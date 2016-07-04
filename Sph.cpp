@@ -1251,7 +1251,6 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1, double dTh
         PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
         p->c() = sqrt(gamma*PoverRho);
         p->PoverRho2() = PoverRho/p->fDensity;
-#ifndef COOLING_NONE
         double Tp = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uPred(), p->fMetals());
         double fThermalCond = dThermalCondCoeff*pow(p->uPred(),2.5);
         double fThermalCond2 = dThermalCond2Coeff*pow(p->uPred(),0.5);
@@ -1266,7 +1265,6 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1, double dTh
         p->fThermalCond() = (fThermalCond < fThermalCondSat ? fThermalCond : fThermalCondSat) +
             (fThermalCond2 < fThermalCond2Sat ? fThermalCond2 : fThermalCond2Sat);
         assert(isfinite(p->fThermalCond()));
-#endif
 #endif
 #ifdef DTADJUST
             {
