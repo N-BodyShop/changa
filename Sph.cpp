@@ -1312,7 +1312,8 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1, double dTher
 #ifdef SUPERBUBBLE
         double frac = p->massHot()/p->mass;
         PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
-        p->c() = sqrt(gamma*PoverRho);
+        p->c() = sqrt(gamma*PoverRho + GAMMA_JEANS*dPoverRhoJeans);
+        if(PoverRho < dPoverRhoJeans) PoverRho = dPoverRhoJeans;
         p->PoverRho2() = PoverRho/p->fDensity;
         double fThermalCond = dThermalCondCoeff*pow(p->uPred(),2.5);
         double fThermalCond2 = dThermalCond2Coeff*pow(p->uPred(),0.5);
