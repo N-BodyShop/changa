@@ -1800,8 +1800,8 @@ public:
 	void SplitGas(double dInitGasMass, const CkCallback& cb);
 #endif
 	inline COOL* Cool() {return dm->Cool;}
-        /// @brief initialize random seed for star formation
-        void initRand(int iRand, const CkCallback &cb);
+	/// @brief initialize random seed for star formation
+	void initRand(int iRand, const CkCallback &cb);
 	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
 		       const CkCallback& cb);
 	void flushStarLog(const CkCallback& cb);
