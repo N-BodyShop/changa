@@ -294,8 +294,6 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
      */
     if (p->massHot() > 0)  
     return NULL;
-    if (p->divv() >= 0)  
-    return NULL;
 #endif
 
     if(p->fDensity < dOverDenMin || p->fDensity/dCosmoFac < dPhysDenMin)
