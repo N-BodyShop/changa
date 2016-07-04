@@ -244,6 +244,13 @@ class DistDeletedGasSmoothParams : public SmoothParams
     };
 
 #ifdef SUPERBUBBLE
+///
+/// @brief SmoothParams class for the sub-grid evaporation,
+/// promoting cold neighbours to hot.
+///
+/// This method selects which particles cold particles are 
+/// to be evaporated.
+///
 class PromoteToHotGasSmoothParams : public SmoothParams
 {
     double dEvapCoeff;
@@ -263,6 +270,14 @@ class PromoteToHotGasSmoothParams : public SmoothParams
 				 ExternalSmoothParticle *p2) ;
  public:
     PromoteToHotGasSmoothParams() {}
+    /// @param _iType Type of particles to smooth
+    /// @param am Active rung
+    /// @param _dEvapCoeff evaporation/conduction rate coefficient 
+    /// @param _dEvapMinTemp lowest temperature to allow evaporation
+    /// @param _dErgPerGmUnit specific energy in code units
+    /// @param _dGmPerCcUnit density in code units
+    /// @param _dDeltaStarForm starformation timestep
+    /// @param _dTime Current time
     PromoteToHotGasSmoothParams(int _iType, int am, double _dEvapCoeff, double _dEvapMinTemp,
             double _dErgPerGmUnit, double _dGmPerCcUnit, double _dDeltaStarForm, double _dTime) {
         iType = _iType;
@@ -287,6 +302,13 @@ class PromoteToHotGasSmoothParams : public SmoothParams
         p|dTime;
 	}
 };
+///
+/// @brief SmoothParams class for the sub-grid evaporation,
+/// promoting cold neighbours to hot.
+///
+/// This method takes cold particles marked to be promoted,
+/// and averages their internal energy with the hot promoter.
+///
 class ShareWithHotGasSmoothParams : public SmoothParams
 {
     double dEvapMinTemp;
@@ -303,6 +325,11 @@ class ShareWithHotGasSmoothParams : public SmoothParams
 				 ExternalSmoothParticle *p2) ;
  public:
     ShareWithHotGasSmoothParams() {}
+    /// @param _iType Type of particles to smooth
+    /// @param am Active rung
+    /// @param _dEvapMinTemp lowest temperature to allow evaporation
+    /// @param _dErgPerGmUnit specific energy in code units
+    /// @param _dGmPerCcUnit density in code units
     ShareWithHotGasSmoothParams(int _iType, int am, double _dEvapMinTemp,
             double _dErgPerGmUnit, double _dGmPerCcUnit ){
         iType = _iType;
