@@ -125,6 +125,7 @@ inline Fdbk::Fdbk(const Fdbk& fb) {
     dEarlyFeedbackFrac = fb.dEarlyFeedbackFrac;
     dFBInitialMassLoad = fb.dFBInitialMassLoad;
     dMultiPhaseMinTemp = fb.dMultiPhaseMinTemp;
+    dMultiPhaseMaxTime = fb.dMultiPhaseMaxTime;
     dEarlyETotal = fb.dEarlyETotal;
     sn = fb.sn;
     pdva = fb.pdva;
@@ -155,6 +156,7 @@ inline void Fdbk::pup(PUP::er &p) {
     p | dEarlyFeedbackFrac;
     p | dFBInitialMassLoad;
     p | dMultiPhaseMinTemp;
+    p | dMultiPhaseMaxTime;
     p | dEarlyETotal;
     p | sn;
     p | pdva;
