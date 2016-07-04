@@ -1799,9 +1799,7 @@ public:
 #ifdef SPLITGAS
 	void SplitGas(double dInitGasMass, const CkCallback& cb);
 #endif
-#ifdef SUPERBUBBLE
 	inline COOL* Cool() {return dm->Cool;}
-#endif
         /// @brief initialize random seed for star formation
         void initRand(int iRand, const CkCallback &cb);
 	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
