@@ -4404,8 +4404,8 @@ $as_echo "$as_me: WARNING: SUPERBUBBLE requires diffusion.  Enable it with --ena
     if test "$cooling" = "no" ; then
         { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: SUPERBUBBLE requires cooling.  Enable it with --enable-cooling=XXX" >&5
 $as_echo "$as_me: WARNING: SUPERBUBBLE requires cooling.  Enable it with --enable-cooling=XXX" >&2;};
-        { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: where XXX is one of PLANET, BOLEY, COSMO, METAL, MOLECULARH, or GRACKLE" >&5
-$as_echo "$as_me: WARNING: where XXX is one of PLANET, BOLEY, COSMO, METAL, MOLECULARH, or GRACKLE" >&2;};
+        { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: where XXX is one of planet, boley, cosmo, metal, H2, or grackle" >&5
+$as_echo "$as_me: WARNING: where XXX is one of planet, boley, cosmo, metal, H2, or grackle" >&2;};
         exit
     fi
 else

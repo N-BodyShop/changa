@@ -348,7 +348,7 @@ if test "$superbubble" = "yes" ; then
     fi
     if test "$cooling" = "no" ; then
         AC_MSG_WARN([SUPERBUBBLE requires cooling.  Enable it with --enable-cooling=XXX]);
-        AC_MSG_WARN([where XXX is one of PLANET, BOLEY, COSMO, METAL, MOLECULARH, or GRACKLE]);
+        AC_MSG_WARN([where XXX is one of planet, boley, cosmo, metal, H2, or grackle]);
         exit
     fi
 else
