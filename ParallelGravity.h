@@ -1783,7 +1783,7 @@ public:
 	void physicalSoft(const double dSoftMax, const double dFac,
 			  const int bSoftMaxMul, const CkCallback& cb);
 	void growMass(int nGrowMass, double dDeltaM, const CkCallback& cb);
-	void InitEnergy(double dTuFac, double z, double dTime,
+	void InitEnergy(double dTuFac, double z, double dTime, double gammam1,
 			const CkCallback& cb);
 	void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
 			double dStartTime[MAXRUNG+1], int bCool, int bAll,

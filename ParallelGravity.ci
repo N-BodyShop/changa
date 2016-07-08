@@ -413,7 +413,7 @@ mainmodule ParallelGravity {
     entry void physicalSoft(const double dSoftMax, const double dFac,
         const int bSoftMaxMul, const CkCallback& cb);
     entry void growMass(int nGrowMass, double dDeltaM, const CkCallback& cb);
-    entry void InitEnergy(double dTuFac, double z, double dTime,
+    entry void InitEnergy(double dTuFac, double z, double dTime, double gammam1,
 			const CkCallback& cb);
     entry void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
     	       		double dStartTime[MAXRUNG+1], int bCool, int bAll,
