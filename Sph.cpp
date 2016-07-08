@@ -49,7 +49,7 @@ Main::initSph()
 	    // Update cooling on the datamanager
 	    dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 	    if(!bIsRestarting)  // Energy is already OK from checkpoint.
-		treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
+		treeProxy.InitEnergy(dTuFac, z, dTime, (param.dConstGamma-1), CkCallbackResumeThread());
 	    }
 	if(verbosity) CkPrintf("Initializing SPH forces\n");
 	nActiveSPH = nTotalSPH;
@@ -425,7 +425,29 @@ Main::restartGas()
               }
           else
               CkError("WARNING: no massform file, or wrong format for restart\n");
-          }
+#ifdef SUPERBBUBLE
+      // read hot mass
+      if(nTotalSPH > 0)
+          nGas = ncGetCount(basefilename + "/gas/masshot");
+      if(nGas == nTotalGas) {
+          MassHotOutputParams mHOut(basefilename, 6, 0.0);
+          treeProxy.readFloatBinary(mHOut, param.bParaRead,
+                               CkCallbackResumeThread());
+      }
+      else
+          CkError("WARNING: no masshot file, or wrong format for restart\n");
+      // read hot energy
+      if(nTotalSPH > 0)
+          nGas = ncGetCount(basefilename + "/gas/uHot");
+      if(nGas == nTotalGas) {
+          uHotOutputParams uHOut(basefilename, 6, 0.0);
+          treeProxy.readFloatBinary(uHOut, param.bParaRead,
+                               CkCallbackResumeThread());
+      }
+      else
+          CkError("WARNING: no uHot file, or wrong format for restart\n");
+#endif 
+      }
 #ifdef CULLENALPHA
       if(nTotalSPH > 0) {
           nGas = ncGetCount(basefilename + "/gas/alpha");
@@ -488,7 +510,7 @@ Main::restartGas()
         else {
             double z = 1.0/csmTime2Exp(param.csm, dTime) - 1.0;
             dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
-            treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
+            treeProxy.InitEnergy(dTuFac, z, dTime, (param.dConstGamma-1), CkCallbackResumeThread());
             }
       }
 #endif
@@ -591,7 +613,7 @@ Main::restartGas()
         else {
             double z = 1.0/csmTime2Exp(param.csm, dTime) - 1.0;
             dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
-            treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
+            treeProxy.InitEnergy(dTuFac, z, dTime, (param.dConstGamma-1), CkCallbackResumeThread());
             }
         }
 #endif
@@ -734,6 +756,7 @@ Main::doSph(int activeRung, int bNeedDensity)
 void TreePiece::InitEnergy(double dTuFac, // T to internal energy
 			   double z,	  // redshift
 			   double dTime,
+               double gammam1,
 			   const CkCallback& cb)
 {
 #ifndef COOLING_NONE
@@ -754,6 +777,16 @@ void TreePiece::InitEnergy(double dTuFac, // T to internal energy
 	    p->u() = E;
 #endif
 	    p->uPred() = p->u();
+#ifdef SUPERBUBBLE
+        E = p->uHot();
+        T = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(), p->fMetals());
+        double frac = p->massHot()/p->mass;
+        double PoverRho = gammam1*(p->uHot()*frac+p->u()*(1-frac));
+        double fDensity = p->fDensity*PoverRho/(gammam1*p->uHot()); /* Density of bubble part of particle */
+        CoolInitEnergyAndParticleData(dm->Cool, &p->CoolParticleHot(), &E, fDensity, T, p->fMetals());
+        p->cpHotInit() = 0;
+        p->uHotPred() = p->uHot();
+#endif 
 	    }
 	}
     // Use shadow array to avoid reduction conflict
