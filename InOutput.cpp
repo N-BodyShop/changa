@@ -56,8 +56,10 @@ void load_tipsy_gas(Tipsy::TipsyReader &r, GravityParticle &p, double dTuFac)
     p.fESNrate() = 0.0;
     p.fTimeCoolIsOffUntil() = 0.0;
     p.dTimeFB() = 0.0;
-#ifdef DTADJUST
+#ifdef NEED_DT
     p.dt = FLT_MAX;
+#endif
+#ifdef DTADJUST
     p.dtNew() = FLT_MAX;
 #ifndef COOLING_NONE
     p.uDot() = 0.0;  // Used in initial timestep
@@ -613,8 +615,10 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
         myParts[i].fESNrate() = 0.0;
         myParts[i].fTimeCoolIsOffUntil() = 0.0;
         myParts[i].dTimeFB() = 0.0;
-#ifdef DTADJUST
+#ifdef NEED_DT
         myParts[i].dt = FLT_MAX;
+#endif
+#ifdef DTADJUST
         myParts[i].dtNew() = FLT_MAX;
 #ifndef COOLING_NONE
         myParts[i].uDot() = 0.0;  // Used in initial timestep
