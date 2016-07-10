@@ -425,11 +425,11 @@ Main::restartGas()
               }
           else
               CkError("WARNING: no massform file, or wrong format for restart\n");
-#ifdef SUPERBBUBLE
+#ifdef SUPERBUBBLE
       // read hot mass
       if(nTotalSPH > 0)
           nGas = ncGetCount(basefilename + "/gas/masshot");
-      if(nGas == nTotalGas) {
+      if(nGas == nTotalSPH) {
           MassHotOutputParams mHOut(basefilename, 6, 0.0);
           treeProxy.readFloatBinary(mHOut, param.bParaRead,
                                CkCallbackResumeThread());
@@ -439,7 +439,7 @@ Main::restartGas()
       // read hot energy
       if(nTotalSPH > 0)
           nGas = ncGetCount(basefilename + "/gas/uHot");
-      if(nGas == nTotalGas) {
+      if(nGas == nTotalSPH) {
           uHotOutputParams uHOut(basefilename, 6, 0.0);
           treeProxy.readFloatBinary(uHOut, param.bParaRead,
                                CkCallbackResumeThread());
@@ -557,6 +557,22 @@ Main::restartGas()
             MFormOutputParams pMFOut(basefilename, 0, 0.0);
             treeProxy.readTipsyArray(pMFOut, CkCallbackResumeThread());
             }
+#ifdef SUPERBUBBLE
+      // read hot mass
+      if(arrayFileExists(basefilename + ".massHot", nTotalParticles)) {
+          MassHotOutputParams mHOut(basefilename, 6, 0.0);
+          treeProxy.readTipsyArray(mHOut, CkCallbackResumeThread());
+      }
+      else
+          CkError("WARNING: no masshot file, or wrong format for restart\n");
+      // read hot energy
+      if(arrayFileExists(basefilename + ".uHot", nTotalParticles)) {
+          uHotOutputParams uHOut(basefilename, 6, 0.0);
+          treeProxy.readTipsyArray(uHOut, CkCallbackResumeThread());
+      }
+      else
+          CkError("WARNING: no uHot file, or wrong format for restart\n");
+#endif 
         }
 #ifdef CULLENALPHA
         if(arrayFileExists(basefilename + ".alpha", nTotalParticles)) {
