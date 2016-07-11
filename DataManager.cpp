@@ -201,7 +201,6 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
     root = buildProcessorTree(totalChares, &gtn[0]);
 
 #ifndef CUDA
-    CkPrintf("[%d] Clearing all registered tree pieces (NOT CUDA)\n", CkMyPe());
     registeredTreePieces.removeAll();
 #endif
 
