@@ -4094,11 +4094,10 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
         lpdata->rpilists.insertAtEnd(rp);
         lpdata->lpilists.insertAtEnd(lp);
       } else
-#else
+#endif
 	{
         sGravity->stateReady(sRemoteGravityState, this, msg->chunkNum, sRemoteGravityState->currentBucket, end);
       }
-#endif
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("active: memcheck after stateReady\n");
       CmiMemoryCheck();
