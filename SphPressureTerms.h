@@ -188,8 +188,7 @@
 		if (absmu>q->mumax()) q->mumax()=absmu;                 \
 		visc_ = (-(pc + q->c()) + (BETA/ALPHA)*2*absmu);	\
 		dt_ = dtFacCourant*hav/(0.625*(pc + q->c())+0.375*visc_); \
-		visc_ = SWITCHCOMBINE(p,q)*visc_ \
-		    *absmu/(pDensity + q->fDensity); }
+		visc_ = visc_  *absmu/(pDensity + q->fDensity); }
 //*/
 #endif
 

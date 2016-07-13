@@ -944,7 +944,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         p->curlv().y = fNorm1*(dvxdz - dvzdx);
         p->curlv().z = fNorm1*(dvydx - dvxdy);
 
-        cullenR /= p->fDensity*p->mass;
+        cullenR /= p->fDensity;
         double tau, divVDot, traceSS, xi, A, alphaLoc,  oldCullenAlpha, deltaT; 
         double l = 0.05; A = 0;
 
