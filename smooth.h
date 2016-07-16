@@ -313,6 +313,21 @@ double invH2(GravityParticle *p)
     }
 
 #ifdef WENDLAND
+/**
+ * @brief KERNEL is a scaled version of the C4 Wendland SPH kernel
+ * 
+ * This kernel is explained and defined in Dehnen & Aly (2012).  The kernel
+ * is defined as:
+ *  W(r) = (495/(32 pi H^3)) (1-r)^6 (1 + 6r + (35/3)r^2 )    for r < 1
+ * for r = |dx|/H
+ * And for us, H = 2*h_smooth
+ * 
+ * Also includes a correction for self-interactions
+ * 
+ * NOTE: this kernel should not be called for r > 1
+ * @param ar2 = (|dx|/h)^2 = (2r)^2
+ * @return KERNEL = (pi h^3) W
+ */
 inline double KERNEL(double ar2, double nSmooth) 
 {    
     double ak;
@@ -326,6 +341,20 @@ inline double KERNEL(double ar2, double nSmooth)
 	    }								
     return ak;
 	}
+/**
+ * @brief DKERNEL returns a scaled gradient of Wendland SPH kernel
+ * 
+ * This returns the gradient of the Wendland C4 Kernel (see Dehnen & Aly 2012),
+ * scaled by a factor.  The gradient is defined by:
+ *  gradW(r) = -(7*495/(3*32*2*pi*h^4)) r (1-r)^5 (1+5r) dxHat
+ * where dxHat is the unit vector pointing between 2 particles
+ * r = |dx|/2h
+ * dx is the particle separation (vector)
+ * 
+ * @param ar2
+ * @return DKERNEL = (pi h^5/|dx|^2) (dx.dot.gradW)  which is another way of
+ * saying:  gradW = (1/(pi h^5)) DKERNEL * dx
+ */
 inline double DKERNEL(double ar2) 
 {
     double adk;
@@ -338,6 +367,19 @@ inline double DKERNEL(double ar2)
 #define KERNEL(ar2) KERNEL(ar2, nSmooth)
 #else
 /* Standard M_4 Kernel */
+/**
+ * @brief KERNEL is a scaled version of the standard M4 cubic SPH kernel
+ * 
+ * This returns a scaled version of the standard SPH kernel (W) of Monaghan 1992
+ * The kernel W(q) is defined as:
+ *  W(q) = (1/(pi h^3)) (1 - 1.5q^2 + 0.75q^3)       for 0 < q < 1
+ *  W(q) = (1/(4 pi h^3)) (2 - q)^3                  for 1 < q < 2
+ * for q = |dx|/h
+ * 
+ * NOTE: This function returns a scaled version of W(q)
+ * @param ar2 = q^2 = (|dx|/h)^2
+ * @return KERNEL = (pi h^3) W
+ */
 inline double KERNEL(double ar2) 
 {
     double ak;
@@ -346,6 +388,20 @@ inline double KERNEL(double ar2)
     else ak = 0.25*ak*ak*ak;
     return ak;
     }
+/**
+ * @brief DKERNEL returns a scaled gradient of the SPH kernel.
+ * 
+ * This returns a scaled version of the gradient of the Monaghan 1992 kernel
+ * The kernel gradient gradW is defined as:
+ *  gradW(q) = (1/(pi h^5)) (-3 + 9q/4) dx            for 0 < q < 1
+ *  gradW(q) = -(1/(pi h^5)) (3/4) [(2-q)^2 /q] dx    for 1 < q < 2
+ * For q = |dx|/h and dx is the particle separation (a vector)
+ * NOTE: This function returns a scaled (and scalar) version of gradW
+ * 
+ * @param ar2 = q^2 = (|dx|/h)^2
+ * @return DKERNEL = (pi h^5/|dx|^2) (dx.dot.gradW)  which is another way of
+ * saying:  gradW = (1/(pi h^5)) DKERNEL * dx
+ */
 inline double DKERNEL(double ar2) 
 {
     double adk;
