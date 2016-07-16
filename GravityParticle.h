@@ -427,7 +427,7 @@ class ExternalSmoothParticle {
   double fDensity;
   Vector3D<double> position;
   Vector3D<double> velocity;
-  int iOrder;
+  int64_t iOrder;
   unsigned int iType;	// Bitmask to hold particle type information
   int rung;
 #ifdef DTADJUST

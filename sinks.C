@@ -278,7 +278,7 @@ TreePiece::outputBlackHoles(const std::string& pszFileName, double dvFac,
 	GravityParticle *p = &myParticles[i];
 	
 	if(p->isStar() && p->fTimeForm() < 0.0)
-	    fprintf(fp, "%i %g %g %g %g %g %g %g %g\n", p->iOrder,
+	    fprintf(fp, "%li %g %g %g %g %g %g %g %g\n", p->iOrder,
 		    p->mass, p->position.x, p->position.y, p->position.z,
 		    dvFac*p->velocity.x, dvFac*p->velocity.y,
 		    dvFac*p->velocity.z, p->potential);
@@ -462,8 +462,8 @@ int SinkFormTestSmoothParams::isSmoothActive(GravityParticle *p)
 
 #define fSinkRating(_a)    ((_a)->curlv()[0] )
 #define fSinkRating_Ex(_a)    ((_a)->curlv[0] )
-#define iOrderSink(_a)      (*((int *) (&(_a)->curlv()[1])))
-#define iOrderSink_Ex(_a)      (*((int *) (&(_a)->curlv[1])))
+#define iOrderSink(_a)      (*((int64_t *) (&(_a)->curlv()[1])))
+#define iOrderSink_Ex(_a)      (*((int64_t *) (&(_a)->curlv[1])))
 
 void SinkFormTestSmoothParams::initSmoothCache(GravityParticle *p)
 {
@@ -846,7 +846,7 @@ void SinkFormSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		sinkp.vForm[j] = sinkp.v[j];
 		}
 #endif
-	    printf("Sink Formed %d %g: np (%d) %d Mass (%g) %g Ek %g Eth %g Eg %g, %g %g\n",p->iOrder,p->fDensity,nEaten,nEatNow,mtot,sinkp.mass,Ek,Eth,Eg,4/3.*pow(M_PI,2.5)/50.*sqrt((p->c()*p->c()*p->c()*p->c()*p->c()*p->c())/(p->mass*p->mass*p->fDensity)),pow(Eth/fabs(Eg),1.5) );
+	    printf("Sink Formed %ld %g: np (%d) %d Mass (%g) %g Ek %g Eth %g Eg %g, %g %g\n",p->iOrder,p->fDensity,nEaten,nEatNow,mtot,sinkp.mass,Ek,Eth,Eg,4/3.*pow(M_PI,2.5)/50.*sqrt((p->c()*p->c()*p->c()*p->c()*p->c()*p->c())/(p->mass*p->mass*p->fDensity)),pow(Eth/fabs(Eg),1.5) );
 #ifndef SINKING
 	    assert(fabs(sinkp.mass/mtot-1) < 1e-4);
 #else
@@ -859,7 +859,7 @@ void SinkFormSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	    tp->newParticle(&sinkp);    
 	    }
 	else {
-	    CkPrintf("Sink Failed Tests %d %g: np (%d) Mass (%g) Ek %g Eth %g Eg %g, %g %g\n",p->iOrder,p->fDensity,nEaten,mtot,Ek,Eth,Eg, 4/3.*pow(M_PI,2.5)/50.*sqrt((p->c()*p->c()*p->c()*p->c()*p->c()*p->c())/(p->mass*p->mass*p->fDensity)),pow(Eth/fabs(Eg),1.5) );
+	    CkPrintf("Sink Failed Tests %ld %g: np (%d) Mass (%g) Ek %g Eth %g Eg %g, %g %g\n",p->iOrder,p->fDensity,nEaten,mtot,Ek,Eth,Eg, 4/3.*pow(M_PI,2.5)/50.*sqrt((p->c()*p->c()*p->c()*p->c()*p->c()*p->c())/(p->mass*p->mass*p->fDensity)),pow(Eth/fabs(Eg),1.5) );
 	    }
 }
 
@@ -1107,14 +1107,14 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	fDensity /= dCosmoDenFac;
 
 	if(s.bBHMindv == 1)
-	    CkPrintf("BHSink %d:  Time: %g Selected Particle Density: %g SPH: %g C_s: %g dv: %g dist: %g\n",
+	    CkPrintf("BHSink %ld:  Time: %g Selected Particle Density: %g SPH: %g C_s: %g dv: %g dist: %g\n",
 		     p->iOrder,dTime,nnList[ieat].p->fDensity, wrs,
 		     nnList[ieat].p->c(),dvmin, sqrt(nnList[ieat].fKey));
-	else CkPrintf("BHSink %d:  Time: %g Selected Particle Density: %g SPH: %g C_s: %g dv: %g dist: %g\n",
+	else CkPrintf("BHSink %ld:  Time: %g Selected Particle Density: %g SPH: %g C_s: %g dv: %g dist: %g\n",
 		      p->iOrder,dTime,nnList[ieat].p->fDensity,wrs,
 		      nnList[ieat].p->c(),sqrt(dv2),sqrt(nnList[ieat].fKey));
 
-	CkPrintf("BHSink %d:  Time: %g Mean Particle Density: %g C_s: %g dv: %g\n",p->iOrder,dTime,fDensity,cs,sqrt(dv2));
+	CkPrintf("BHSink %ld:  Time: %g Mean Particle Density: %g C_s: %g dv: %g\n",p->iOrder,dTime,fDensity,cs,sqrt(dv2));
 
 
 	mdot = mdotsum*s.dBHSinkAlpha*4*M_PI*p->mass*p->mass*M_1_PI*sqrt(ih2)*ih2; /* new mdot! */
@@ -1122,7 +1122,7 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
 	/* Eddington Limit Rate */
 	mdotEdd = s.dBHSinkEddFactor*p->mass;
-	CkPrintf("BHSink %d:  Time: %.8f mdot (BH): %g mdot (Edd): %g a: %g\n",
+	CkPrintf("BHSink %ld:  Time: %.8f mdot (BH): %g mdot (Edd): %g a: %g\n",
 	       p->iOrder,dTime,mdot,mdotEdd, a);
 
 	if (mdot > mdotEdd) mdot = mdotEdd;
@@ -1189,7 +1189,7 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	      dmq = mdotCurr*dtEff;
 	      }
 	    else {
-	      if(naccreted != 0) CkPrintf("BHSink %d:  only %i accreted, %g uneaten mass\n",p->iOrder,naccreted,mdotCurr*dtEff);
+	      if(naccreted != 0) CkPrintf("BHSink %ld:  only %i accreted, %g uneaten mass\n",p->iOrder,naccreted,mdotCurr*dtEff);
 	      /* JMB 6/29/09 */
 	      if(naccreted == 0) p->dDeltaM() = 0.0; /* should be anyway */
 	      return;  	     	      
@@ -1212,7 +1212,7 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	      naccreted += 1;
 	      weat = -1e37; /* reset so other particles can be selected JMB 7/9/09 */
 
-	      CkPrintf("BHSink %d:  Time %g %d dmq %g %g %g\n",p->iOrder,dTime,q->iOrder,dmq,q->curlv()[1],p->dDeltaM());
+	      CkPrintf("BHSink %ld:  Time %g %ld dmq %g %g %g\n",p->iOrder,dTime,q->iOrder,dmq,q->curlv()[1],p->dDeltaM());
 
 	    
 	    if (mdotCurr == 0.0) break;
@@ -1268,7 +1268,7 @@ void BHAccreteSmoothParams::combSmoothCache(GravityParticle *p1,
 	    /* This could happen if BHs on two
 	       different processors are eating
 	       gas from a third processor */
-	    CkError("ERROR: Overeaten gas particle %d: %g %g\n",
+	    CkError("ERROR: Overeaten gas particle %ld: %g %g\n",
 		    p1->iOrder, p1->mass, fEatenMass);
 	    if (!(TYPETest( p1, TYPE_DELETED ))) {
 		deleteParticle( p1 );
@@ -1314,7 +1314,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	if (p->dDeltaM() == 0.0) {
 	    dtEff = s.dSinkCurrentDelta*pow(0.5,p->rung-s.iSinkCurrentRung);
 	    dmAvg = mdot*dtEff;
-	    CkPrintf("BHSink %d:  Delta: %g dm: 0 ( %g ) (victims on wrong step)\n",p->iOrder,dtEff,dmAvg);
+	    CkPrintf("BHSink %ld:  Delta: %g dm: 0 ( %g ) (victims on wrong step)\n",p->iOrder,dtEff,dmAvg);
 	    return;
 	    }
 #endif
@@ -1359,15 +1359,15 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		}
 	    CkAssert(mdotCurr >= 0.0);
 
-	    CkPrintf("BHSink %d:  Time %g %d dmq %g %g %g\n",p->iOrder, dTime,
+	    CkPrintf("BHSink %ld:  Time %g %ld dmq %g %g %g\n",p->iOrder, dTime,
 		     q->iOrder,dmq,q->curlv()[1],p->dDeltaM());
 		ifMass = 1./(p->mass + dmq);
 		/* to record angular momentum JMB 11/9/10 */
-		CkPrintf("BHSink %d:  Gas: %d  dx: %g dy: %g dz: %g \n",
+		CkPrintf("BHSink %ld:  Gas: %ld  dx: %g dy: %g dz: %g \n",
 			 p->iOrder,q->iOrder,p->position[0]-q->position[0],
 			 p->position[1]-q->position[1],
 			 p->position[2]-q->position[2]);
-		CkPrintf("BHSink %d:  Gas: %d  dvx: %g dvy: %g dvz: %g \n",
+		CkPrintf("BHSink %ld:  Gas: %ld  dvx: %g dvy: %g dvz: %g \n",
 			 p->iOrder,q->iOrder,p->velocity[0]-q->velocity[0],
 			 p->velocity[1]-q->velocity[1],
 			 p->velocity[2]-q->velocity[2]);
@@ -1396,7 +1396,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		q->mass -= dmq;
 		/*assert(q->mass >= 0.0);*/
 		naccreted += 1;  /* running tally of how many are accreted JMB 10/23/08 */
-		CkPrintf("BHSink %d:  Time %g dist2: %d %g gas smooth: %g eatenmass %g \n",
+		CkPrintf("BHSink %ld:  Time %g dist2: %ld %g gas smooth: %g eatenmass %g \n",
 			 p->iOrder,dTime,q->iOrder,r2min,q->fBall*q->fBall,dmq);
 		if (q->mass <= dMinGasMass) {
 		    if(!(TYPETest(q,TYPE_DELETED))) deleteParticle(q);
@@ -1470,7 +1470,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	    if(q == NULL) {
                 // dtEff = s.dSinkCurrentDelta; /**pow(0.5,iRung-smf->iSinkCurrentRung);*/
 	      dtEff = RungToDt(dDelta, p->rung);
-	      CkPrintf("BHSink %d:  WARNING!! Not enough edible particles.  Time: %g Mass not eaten: %g \n",p->iOrder,dTime,mdotCurr*dtEff);
+	      CkPrintf("BHSink %ld:  WARNING!! Not enough edible particles.  Time: %g Mass not eaten: %g \n",p->iOrder,dTime,mdotCurr*dtEff);
 	      if(naccreted == 0) return;
 	      else goto dofeedback;
 	    }
@@ -1493,16 +1493,16 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	      }
 
 	    
-	    CkPrintf("BHSink %d:  Time: %g %d dmq %g %g %g sharing \n",
+	    CkPrintf("BHSink %ld:  Time: %g %ld dmq %g %g %g sharing \n",
 		     p->iOrder,dTime,q->iOrder,dmq,q->curlv()[1],
 		     p->dDeltaM());
 		ifMass = 1./(p->mass + dmq);
 		/* to record angular momentum JMB 11/9/10 */
-		CkPrintf("BHSink %d:  Gas: %d  dx: %g dy: %g dz: %g \n",
+		CkPrintf("BHSink %ld:  Gas: %ld  dx: %g dy: %g dz: %g \n",
 			 p->iOrder,q->iOrder,p->position[0]-q->position[0],
 			 p->position[1]-q->position[1],
 			 p->position[2]-q->position[2]);
-		CkPrintf("BHSink %d:  Gas: %d  dvx: %g dvy: %g dvz: %g \n",
+		CkPrintf("BHSink %ld:  Gas: %ld  dvx: %g dvy: %g dvz: %g \n",
 			 p->iOrder,q->iOrder,p->velocity[0]-q->velocity[0],
 			 p->velocity[1]-q->velocity[1],
 			 p->velocity[2]-q->velocity[2]);
@@ -1530,7 +1530,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		dm += dmq;
 		q->mass -= dmq;		   
 		naccreted += 1;  /* running tally of how many are accreted JMB 10/23/08 */
-		CkPrintf("BHSink %d:  Time %g dist2 %d %g gas smooth: %g eatenmass %g\n",
+		CkPrintf("BHSink %ld:  Time %g dist2 %ld %g gas smooth: %g eatenmass %g\n",
 			 p->iOrder,dTime,q->iOrder,r2min,q->fBall*q->fBall,dmq);
 		if (q->mass <= dMinGasMass) {
 		    if(!(TYPETest(q,TYPE_DELETED))) deleteParticle(q);
@@ -1553,7 +1553,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	  // dtEff = s.dSinkCurrentDelta;
 	  dtEff = RungToDt(dDelta, p->rung);
 	  dmAvg = mdot*dtEff;    
-	  CkPrintf("BHSink %d:  Delta: %g Time: %.8f dm: %g dE %g\n",
+	  CkPrintf("BHSink %ld:  Delta: %g Time: %.8f dm: %g dE %g\n",
 		   p->iOrder,dtEff,dTime,dm,dE);
 
 	  /* Recalculate Normalization */
@@ -1589,7 +1589,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		  nnList[i].p->fTimeCoolIsOffUntil()
 		      = max(nnList[i].p->fTimeCoolIsOffUntil(),
 			    dTime + RungToDt(dDelta, nnList[i].p->rung));
-	      CkPrintf("BHSink %d: Time %g FB Energy to %i dE %g tCoolOffUntil %g \n",
+	      CkPrintf("BHSink %ld: Time %g FB Energy to %li dE %g tCoolOffUntil %g \n",
 		       p->iOrder, dTime, nnList[i].p->iOrder,
 		       fbweight*dE,nnList[i].p->fTimeCoolIsOffUntil());
 	      if(s.bBHTurnOffCooling)
@@ -1666,7 +1666,7 @@ void BHIdentifySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	if(p->iOrder < q->iOrder) {
 	    if(p->iOrder < q->iEaterOrder() || q->iEaterOrder() == 0) {
 		q->iEaterOrder() = p->iOrder;
-		CkPrintf("BHSink MergeID %d will be eaten by %d \n",
+		CkPrintf("BHSink MergeID %ld will be eaten by %ld \n",
 			 q->iOrder,p->iOrder);
 
 		/* iEaterOrder is the place holder for the iord of the 
@@ -1774,11 +1774,11 @@ void BHSinkMergeSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	    }
 	    else vkick = 0.0;
 
-	    CkPrintf("BHSink Merge %d eating %d  Time %g kick velocity %g mass ratio %g \n",
+	    CkPrintf("BHSink Merge %ld eating %ld  Time %g kick velocity %g mass ratio %g \n",
 		     p->iOrder,q->iOrder,dTime,vkick,mratio);
 
 	    if(q->iEaterOrder() > 0 && !(TYPETest(q,TYPE_DELETED))) {
-	      CkPrintf("BHSink Merge %d eaten Time %g \n", q->iOrder,dTime);
+	      CkPrintf("BHSink Merge %ld eaten Time %g \n", q->iOrder,dTime);
 	      deleteParticle(q);
 	    }
 	  }
@@ -1961,7 +1961,7 @@ void SinkAccreteSmoothParams::combSmoothCache(GravityParticle *p1,
 	GravityParticle *p=p1,*q=p2;
 	int j;
 #ifdef SINKDBG
-	printf("SINKING Sinking particle on other processor -- sinking properties combined %d %g\n",p->iOrder,p->fMetals);
+	printf("SINKING Sinking particle on other processor -- sinking properties combined %ld %g\n",p->iOrder,p->fMetals);
 #endif
 	bRVAUpdate(p) = 1;
 	assert(!TYPETest(p,TYPE_SINK));
@@ -2073,7 +2073,7 @@ void SinkAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		    (TYPETest(q, TYPE_SINKING) && 
 		     q->rSinking0Mag + q->vSinkingr0*(dTime-q->fSinkingTime) < smf->dSinkMustAccreteRadius)) {
 #ifdef SINKDBG
-		    if (q->iOrder == 55) printf("FORCESINKACCRETE0 %d with %d \n",p->iOrder,q->iOrder);
+		    if (q->iOrder == 55) printf("FORCESINKACCRETE0 %ld with %ld \n",p->iOrder,q->iOrder);
 #endif
 		    if (!TYPETest(q, TYPE_SINKING)) {
 			double mp,mq,rx,ry,rz,vx,vy,vz;
@@ -2095,7 +2095,7 @@ void SinkAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 			p->u += ifMass*(mp*p->u+mq*q->u);
 			p->fMass += mq;
 			p->fTrueMass += q->fMass;
-			if (p->iOrder==DBGIORDER) printf("SINKING %d Direct Delete of %d +%g %g %g\n",p->iOrder,q->iOrder,q->fMass,p->fMass,p->fTrueMass);
+			if (p->iOrder==DBGIORDER) printf("SINKING %ld Direct Delete of %ld +%g %g %g\n",p->iOrder,q->iOrder,q->fMass,p->fMass,p->fTrueMass);
 			bEat = 1;
 			assert(q->fMass != 0);
 			q->fMass = 0;
@@ -2105,7 +2105,7 @@ void SinkAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 			/* Already sinking -- now do final accrete */
 			p->fMass += q->fMass; /* Note: p->fTrueMass NOT modified */
 			p->iSinkingOnto--; /* One less sinking onto this sink */
-			if (p->iOrder==DBGIORDER) printf("SINKING %d Final Delete of %d +%g %g %g %d\n",p->iOrder,q->iOrder,q->fMass,p->fMass,p->fTrueMass,p->iSinkingOnto);
+			if (p->iOrder==DBGIORDER) printf("SINKING %ld Final Delete of %ld +%g %g %g %d\n",p->iOrder,q->iOrder,q->fMass,p->fMass,p->fTrueMass,p->iSinkingOnto);
 			bEat = 1;
 			assert(q->fMass != 0);
 			q->fMass = 0;
@@ -2158,7 +2158,7 @@ void SinkAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		    q->iRung = p->iRung;
 		    q->fSinkingTime = smf->dTime;
 		    q->vSinkingr0 = 1e30;
-		    if (p->iOrder==DBGIORDER) printf("SINKING %d Add Sinking %d +%g %g %g %d\n",p->iOrder,q->iOrder,q->fMass,p->fMass,p->fTrueMass,p->iSinkingOnto);
+		    if (p->iOrder==DBGIORDER) printf("SINKING %ld Add Sinking %ld +%g %g %g %d\n",p->iOrder,q->iOrder,q->fMass,p->fMass,p->fTrueMass,p->iSinkingOnto);
 		    bEat = 1;
 		    }
 #endif /*SINKING*/
@@ -2207,7 +2207,7 @@ void SinkAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 			    dv[j] = q->vSinkingTang0Unit[j]+q->v[j]-p->v[j]; /* dv now smoothed relative vel */
 			    vr += dv[j]*dx[j];
 			    }
-			if (p->iOrder==DBGIORDER) printf("SINKING %d Add Sinking Trajectory vr %d %g %g %g\n",p->iOrder,q->iOrder,vr,vrraw,-q->c);
+			if (p->iOrder==DBGIORDER) printf("SINKING %ld Add Sinking Trajectory vr %ld %g %g %g\n",p->iOrder,q->iOrder,vr,vrraw,-q->c);
 /*                    printf("Infall vr avg %g ",vr);*/
 #endif
 			vt = 0;
@@ -2224,7 +2224,7 @@ void SinkAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 /*                    printf("min %g : %g   vt %g \n",-vrmin,vr,vt);*/
 			
 			q->rSinking0Mag = r0;
-			if (r0 > smf->dSinkRadius) printf("WARNING: %i outside sink r=%g %g %g\n",q->iOrder,r0,sqrt(nnList[i].fDist2),smf->dSinkRadius);
+			if (r0 > smf->dSinkRadius) printf("WARNING: %li outside sink r=%g %g %g\n",q->iOrder,r0,sqrt(nnList[i].fDist2),smf->dSinkRadius);
 			q->vSinkingr0 = vr;
 			q->vSinkingTang0Mag = vt;
 			norm = 1/(vt+1e-37);
@@ -2274,7 +2274,7 @@ void SinkAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		    }
 		bRVAUpdate(q) = 1; /* Indicator for r,v,a update */
 #ifdef SINKDBG
-		if (q->iOrder == 160460) printf("SINKINGFORCESHARE %d  %g %g %g  %g %g %g  %g %g %g (%g)\n",q->iOrder,smf->dTime,r2,sqrt(pow(q->r[0]-p->r[0],2.)+pow(q->r[1]-p->r[1],2.)+pow(q->r[2]-p->r[2],2.)), q->r[0]-p->r[0],q->r[1]-p->r[1],q->r[2]-p->r[2],q->vPred[0]-p->v[0],q->vPred[1]-p->v[1],q->vPred[2]-p->v[2],(q->vPred[0]-p->v[0])*(q->r[0]-p->r[0])+(q->vPred[1]-p->v[1])*(q->r[1]-p->r[1])+(q->vPred[2]-p->v[2])*(q->r[2]-p->r[2]));
+		if (q->iOrder == 160460) printf("SINKINGFORCESHARE %ld  %g %g %g  %g %g %g  %g %g %g (%g)\n",q->iOrder,smf->dTime,r2,sqrt(pow(q->r[0]-p->r[0],2.)+pow(q->r[1]-p->r[1],2.)+pow(q->r[2]-p->r[2],2.)), q->r[0]-p->r[0],q->r[1]-p->r[1],q->r[2]-p->r[2],q->vPred[0]-p->v[0],q->vPred[1]-p->v[1],q->vPred[2]-p->v[2],(q->vPred[0]-p->v[0])*(q->r[0]-p->r[0])+(q->vPred[1]-p->v[1])*(q->r[1]-p->r[1])+(q->vPred[2]-p->v[2])*(q->r[2]-p->r[2]));
 #endif
 		TYPEReset(q,TYPE_NEWSINKING);
 		}
