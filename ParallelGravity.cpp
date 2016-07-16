@@ -259,7 +259,7 @@ Main::Main(CkArgMsg* m) {
 	param.bKDK = 1;
 	prmAddParam(prm, "bKDK", paramBool, &param.bKDK,
 		    sizeof(int),"kdk", "KDK timestepping (IGNORED)");
-	param.bDtAdjust = 0;
+	param.bDtAdjust = 1;
 	prmAddParam(prm, "bDtAdjust", paramBool, &param.bDtAdjust,
 		    sizeof(int),"dtadj", "Emergency adjust of timesteps");
 	
@@ -1031,8 +1031,10 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "Defaulting to Adiabatic Gas Model." << endl;
 	    param.bGasAdiabatic = 1;
 	    }
-	if(!param.bDoGas)
-		param.bSphStep = 0;
+        if(!param.bDoGas) {
+            param.bSphStep = 0;
+            param.bDtAdjust = 0; // DtAdjust only affects gas
+            }
 #include "physconst.h"
 	/*
 	 ** Convert kboltz/mhydrogen to system units, assuming that
@@ -1935,6 +1937,8 @@ void Main::setupICs() {
 	  param.bDoGas = 1;
           if(!prmSpecified(prm, "bSphStep"))
               param.bSphStep = 1;
+          if(!prmSpecified(prm, "bDtAdjust"))
+              param.bDtAdjust = 1;
           }
       }
   getStartTime();

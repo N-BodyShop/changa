@@ -112,7 +112,7 @@ AC_SUBST([FLAG_BIGKEYS])
 # DTADJUST
 AC_ARG_ENABLE([dtadjust],
 	[AS_HELP_STRING([--enable-dtadjust], [enable emergency timestep adjust])],
-	[dtadjust=$enableval], [dtadjust=no])
+	[dtadjust=$enableval], [dtadjust=yes])
 if test "$dtadjust" = "yes" ; then
     echo "DTADJUST selected"
     FLAG_DTADJUST="-DDTADJUST"
