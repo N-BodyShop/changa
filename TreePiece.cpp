@@ -1674,8 +1674,10 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		  }
 	      CkAssert(p->u() >= 0.0);
 	      CkAssert(p->uPred() >= 0.0);
+#ifndef COOLING_NONE
               CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
               CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+#endif
 	      }
 	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
 	  glassDamping(p->velocity, dDelta[p->rung], dGlassDamper);
@@ -2084,7 +2086,9 @@ void TreePiece::drift(double dDelta,  // time step in x containing
               if(p->uPred() > dMaxEnergy)
                   p->uPred() = dMaxEnergy;
               CkAssert(p->uPred() >= 0.0);
+#ifndef COOLING_NONE
               CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+#endif
 	      }
 #ifdef DIFFUSION
 	  p->fMetalsPred() += p->fMetalsDot()*duDelta;
