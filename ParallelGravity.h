@@ -504,7 +504,7 @@ public:
 	int adjust(int iKickRung);
 	void rungStats();
 	void countActive(int activeRung);
-	void emergencyAdjust(int iRung);
+        void emergencyAdjust(int iRung);
 	void starCenterOfMass();
 	void calcEnergy(double, double, const char *);
 	void getStartTime();
