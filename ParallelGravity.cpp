@@ -1831,6 +1831,21 @@ void Main::advanceBigStep(int iStep) {
     ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
 
+    if(param.feedback->bAGORAFeedback) {
+        // Reduce the time step size for AGORA feedback-receiving particles
+        int SFsubsteps = RungToSubsteps(activeRung);
+        int lastSFstep = ~(SFsubsteps - 1) & currentStep;
+        int nextSFstep = lastSFstep + SFsubsteps;
+        double dTimeToSF = (nextSFstep - currentStep)*(param.dDelta/MAXSUBSTEPS);
+        double dTimeSub = RungToDt(param.dDelta, activeRung);
+        if (dTimeToSF <= dTimeSub) {
+            if (verbosity) {
+                CkPrintf("AGORA feedback event occuring in next timestep...running pre-check\n");
+                }
+            AGORAfeedbackPreCheck(dTime+dTimeSub, dTimeSub, dTimeToSF);
+            }
+        }
+
     startTime = CkWallTimer();
     treeProxy.finishNodeCache(CkCallbackResumeThread());
     if(verbosity)

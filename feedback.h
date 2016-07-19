@@ -5,7 +5,7 @@
 #include "supernova.h"
 #include "imf.h"
 #include "starlifetime.h"
-#define NFEEDBACKS 4
+#define NFEEDBACKS 5
 
 /**
  * @brief Class to return feedback effects.
@@ -63,6 +63,7 @@ class Fdbk : public PUP::able {
     int bSNTurnOffCooling;      /* turn off cooling or not */
     int bSmallSNSmooth;	/* smooth SN energy only over blast radius */
     int bShortCoolShutoff;      /* use snowplow time */
+    int bAGORAFeedback;         /* Replace stellar feedback with AGORA perscription */
     double dExtraCoolShutoff;      /* multiplicative factor for shutoff time */
     double dRadPreFactor;       /* McKee + Ostriker size constant in system units */
     double dTimePreFactor;      /* McKee + Ostriker time constant in system units */
@@ -100,6 +101,7 @@ inline Fdbk::Fdbk(const Fdbk& fb) {
     bSNTurnOffCooling = fb.bSNTurnOffCooling;
     bSmallSNSmooth = fb.bSmallSNSmooth;
     bShortCoolShutoff = fb.bShortCoolShutoff;
+    bAGORAFeedback = fb.bAGORAFeedback;
     dExtraCoolShutoff = fb.dExtraCoolShutoff;
     dRadPreFactor = fb.dRadPreFactor;
     dTimePreFactor = fb.dTimePreFactor;
@@ -122,6 +124,7 @@ inline void Fdbk::pup(PUP::er &p) {
     p | bSNTurnOffCooling;
     p | bSmallSNSmooth;
     p | bShortCoolShutoff;
+    p | bAGORAFeedback;
     p | dExtraCoolShutoff;
     p | dRadPreFactor;
     p | dTimePreFactor;
@@ -136,10 +139,72 @@ enum FBenum{
   FB_SNII=0,
   FB_SNIA,
   FB_WIND,
-  FB_UV
+  FB_UV,
+  FB_AGORA
 };
 
 #include "smoothparams.h"
+
+/**
+ * SmoothParams class for alerting neighboring gas particles when a star particle
+ * is about to have an AGORA feedback event
+ */
+
+class AGORApreCheckSmoothParams : public SmoothParams
+{
+    double dTime, dDelta, H, a, gamma, etaCourant, timeToSF, dMsolUnit, dErgPerGmUnit;
+    Fdbk fb;
+    virtual void fcnSmooth(GravityParticle *p, int nSmooth,
+               pqSmoothNode *nList);
+    virtual int isSmoothActive(GravityParticle *p) {}
+    virtual void initSmoothParticle(GravityParticle *p) {}
+    virtual void initTreeParticle(GravityParticle *p) {}
+    virtual void postTreeParticle(GravityParticle *p) {}
+    virtual void initSmoothCache(GravityParticle *p);
+    virtual void combSmoothCache(GravityParticle *p1,
+                 ExternalSmoothParticle *p2);
+    void DistFBMME(GravityParticle *p, int nSmooth, pqSmoothNode *nList);
+ public:
+    AGORApreCheckSmoothParams() {}
+    AGORApreCheckSmoothParams(int _iType, int am, CSM csm, double _dTime, double _dDelta,
+                 double _gamma, double _etaCourant, double _timeToSF, Fdbk *feedback,
+                 double _dMsolUnit, double _dErgPerGmUnit) :
+                    fb (*feedback) {
+    iType = _iType;
+    activeRung = am;
+    bUseBallMax = 0;
+    gamma = _gamma;
+    etaCourant = _etaCourant;
+    timeToSF = _timeToSF;
+    dMsolUnit = _dMsolUnit;
+    dErgPerGmUnit = _dErgPerGmUnit;
+    dTime = _dTime;
+    dDelta = _dDelta;
+    if(csm->bComove) {
+        H = csmTime2Hub(csm,dTime);
+        a = csmTime2Exp(csm,dTime);
+        }
+    else {
+        H = 0.0;
+        a = 1.0;
+        }
+    }
+    PUPable_decl(AGORApreCheckSmoothParams);
+    AGORApreCheckSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
+    virtual void pup(PUP::er &p) {
+        SmoothParams::pup(p);
+    p|a;
+    p|H;
+    p|gamma;
+    p|etaCourant;
+    p|timeToSF;
+    p|dMsolUnit;
+    p|dErgPerGmUnit;
+    p|fb;
+    p|dTime;
+    p|dDelta;
+    }
+    };
 
 /**
  * SmoothParams class for distributing stellar feedback (energy, mass + metals) 
