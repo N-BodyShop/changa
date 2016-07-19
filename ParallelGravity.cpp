@@ -1039,6 +1039,12 @@ Main::Main(CkArgMsg* m) {
             param.bSphStep = 0;
             param.bDtAdjust = 0; // DtAdjust only affects gas
             }
+#ifdef WENDLAND
+        if(param.bDoGas && param.nSmooth < 32) {
+            ckerr << "WARNING: nSmooth < 32 with WENDLAND kernel." << endl;
+            ckerr << "WARNING: M4 kernel with be used for smoothing." << endl;
+            }
+#endif
 #include "physconst.h"
 	/*
 	 ** Convert kboltz/mhydrogen to system units, assuming that

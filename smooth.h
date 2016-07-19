@@ -322,7 +322,14 @@ double invH2(GravityParticle *p)
  * for r = |dx|/H
  * And for us, H = 2*h_smooth
  * 
- * Also includes a correction for self-interactions
+ * Also includes a correction for self-interactions. N.B. For small
+ * neighbor counts this correction does not work well; therefore, we
+ * revert to M4 smoothing for nSmooth < 32.
+ *
+ * XXX Kludge alert: the nSmooth parameter is needed here, but we've
+ * previously defined KERNEL() to be a one parameter function.  This
+ * is worked around with a macro below, but it REQUIRES nSmooth BE
+ * DEFINED CORRECTLY IN THE CALLING FUNCTION!
  * 
  * NOTE: this kernel should not be called for r > 1
  * @param ar2 = (|dx|/h)^2 = (2r)^2
@@ -333,7 +340,6 @@ inline double KERNEL(double ar2, int nSmooth)
     double ak;
     if (nSmooth < 32)
     {
-        // printf("Tiny nSmooth: %d\n", nSmooth); /* Print out whether we have been given a small number of neighbours*/
         ak = 2.0 - sqrt(ar2);
         if (ar2 < 1.0) ak = (1.0 - 0.75*ak*ar2);
         else ak = 0.25*ak*ak*ak;
