@@ -665,14 +665,18 @@ Main::doSph(int activeRung, int bNeedDensity)
       }
     treeProxy.sphViscosityLimiter(param.iViscosityLimiter, activeRung,
 			CkCallbackResumeThread());
+    double a = csmTime2Exp(param.csm,dTime);
+    double dDtCourantFac = param.dEtaCourant*a*2.0/1.6;
     if(param.bGasCooling)
 	treeProxy.getCoolingGasPressure(param.dConstGamma,
 					param.dConstGamma-1,
+                                        dDtCourantFac,
                                         param.dResolveJeans/csmTime2Exp(param.csm, dTime),
 					CkCallbackResumeThread());
     else
 	treeProxy.getAdiabaticGasPressure(param.dConstGamma,
 					  param.dConstGamma-1,
+                                          dDtCourantFac,
 					  CkCallbackResumeThread());
 
     ckout << "Calculating pressure gradients ...";
@@ -998,6 +1002,9 @@ TreePiece::sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb)
     int i;
     GravityParticle *p;    
 
+    // Pressure will be called next, so check this here.
+    CkAssert(bBucketsInited);
+    
     if (bOn) {
         for(i=1; i<= myNumParticles; ++i) {
 	    p = &myParticles[i];
@@ -1028,6 +1035,7 @@ TreePiece::sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb)
 
 /* Note: Uses uPred */
 void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1,
+                                        double dtFacCourant,
 					const CkCallback &cb)
 {
     GravityParticle *p;
@@ -1040,6 +1048,19 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1,
 	    PoverRho = gammam1*p->uPred();
 	    p->PoverRho2() = PoverRho/p->fDensity;
 	    p->c() = sqrt(gamma*PoverRho);
+#ifdef DTADJUST
+            {
+                double uDot = p->PdV();
+                double dt;
+                if(uDot > 0.0)
+                    dt = dtFacCourant*0.5*p->fBall
+                        /sqrt(4.0*p->c()*p->c() + gamma*uDot*p->dt);
+                else
+                    dt = dtFacCourant*0.5*p->fBall /(2.0*p->c());
+                // Update to scare the neighbors.
+                if(dt < p->dtNew()) p->dtNew() = dt;
+                }
+#endif
 	    }
 	}
     // Use shadow array to avoid reduction conflict
@@ -1048,6 +1069,7 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1,
 
 /* Note: Uses uPred */
 void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
+                                      double dtFacCourant,
                                       double dResolveJeans,
                                       const CkCallback &cb)
 {
@@ -1069,6 +1091,19 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
             if(PoverRho < dPoverRhoJeans) PoverRho = dPoverRhoJeans;
 	    p->PoverRho2() = PoverRho/p->fDensity;
             p->c() = sqrt(cGas*cGas + GAMMA_JEANS*dPoverRhoJeans);
+#ifdef DTADJUST
+            {
+                double uDot = p->uDot();
+                double dt;
+                if(uDot > 0.0)
+                    dt = dtFacCourant*0.5*p->fBall
+                        /sqrt(4.0*p->c()*p->c() + gamma*uDot*p->dt);
+                else
+                    dt = dtFacCourant*0.5*p->fBall /(2.0*p->c());
+                // Update to scare the neighbors.
+                if(dt < p->dtNew()) p->dtNew() = dt;
+                }
+#endif
 	    }
 	}
 #endif
@@ -1123,10 +1158,6 @@ void PressureSmoothParams::combSmoothCache(GravityParticle *p1,
 	    p1->PdV() += p2->PdV;
 	    if (p2->mumax > p1->mumax())
 		p1->mumax() = p2->mumax;
-#ifdef DTADJUST
-            if (p2->dtNew < p1->dtNew())
-                p1->dtNew() = p2->dtNew;
-#endif
 	    p1->treeAcceleration += p2->treeAcceleration;
 #ifdef DIFFUSION
 	    p1->fMetalsDot() += p2->fMetalsDot;
@@ -1134,6 +1165,11 @@ void PressureSmoothParams::combSmoothCache(GravityParticle *p1,
 	    p1->fMFracIronDot() += p2->fMFracIronDot;
 #endif /* DIFFUSION */
 	    }
+#ifdef DTADJUST
+        // All neighbors get their rungs adjusted.
+        if (p2->dtNew < p1->dtNew())
+            p1->dtNew() = p2->dtNew;
+#endif
 	}
 
 void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,

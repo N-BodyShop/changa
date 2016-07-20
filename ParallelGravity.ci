@@ -334,6 +334,8 @@ mainmodule ParallelGravity {
 	    int bNeedVPred, int bGasIsothermal, double duDelta[MAXRUNG+1],
 	    const CkCallback& cb);
     entry void initAccel(int iKickRung, const CkCallback& cb);
+    entry void externalGravity(int activeRung, const externalGravityParams exGravParams,
+                       const CkCallback& cb);
     entry void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      int bSphStep, int bViscosityLimitdt,
 	      double dEta, double dEtaCourant, double dEtauDot,
@@ -372,8 +374,10 @@ mainmodule ParallelGravity {
     entry void sphViscosityLimiter(int bOn, int activeRung,
 	const CkCallback& cb);
     entry void getAdiabaticGasPressure(double gamma, double gammam1,
+                                    double dDtCourantFac,
 					const CkCallback &cb);
     entry void getCoolingGasPressure(double gamma, double gammam1,
+                                    double dDtCourantFac,
                                    double dResolveJeans,
 				   const CkCallback &cb);
     entry void initRand(int iRand, const CkCallback &cb);

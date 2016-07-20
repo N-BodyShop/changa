@@ -505,7 +505,7 @@ public:
 	void rungStats();
 	void countActive(int activeRung);
         void emergencyAdjust(int iRung);
-    void starCenterOfMass();
+        void starCenterOfMass();
 	void calcEnergy(double, double, const char *);
 	void getStartTime();
 	void getOutTimes();
@@ -987,6 +987,8 @@ private:
   int nbor_msgs_count_;
 	/// Actual storage in the above array
 	int nStore;
+        /// Accelerations are initialized
+        bool bBucketsInited;
 
   // Temporary location to hold the particles that have come from outside this
   // TreePiece. This is used in the case where we migrate the particles and
@@ -1397,6 +1399,7 @@ public:
           myStarParticles = NULL;
 	  myNumParticles = myNumSPH = myNumStar = 0;
 	  nStore = nStoreSPH = nStoreStar = 0;
+          bBucketsInited = false;
 	  myTreeParticles = -1;
 	  orbBoundaries.clear();
 	  boxes = NULL;
@@ -1452,6 +1455,7 @@ public:
 	  orbBoundaries.clear();
 	  boxes = NULL;
 	  splitDims = NULL;
+          bBucketsInited = false;
 	  myTreeParticles = -1;
 
 
@@ -1622,6 +1626,14 @@ public:
 	     const CkCallback& cb);
   void initAccel(int iKickRung, const CkCallback& cb);
 /**
+ * @brief Apply an external gravitational force
+ * @param activeRung The rung to apply the force.
+ * @param exGravParams Parameters of the external force
+ * @param cb Callback function
+ */
+  void externalGravity(int activeRung, const externalGravityParams exGravParams,
+                       const CkCallback& cb);
+/**
  * Adjust timesteps of active particles.
  * @param iKickRung The rung we are on.
  * @param bEpsAccStep Use sqrt(eps/acc) timestepping
@@ -1687,8 +1699,10 @@ public:
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
 	void getAdiabaticGasPressure(double gamma, double gammam1,
+                                     double dDtCourantFac,
 				     const CkCallback &cb);
 	void getCoolingGasPressure(double gamma, double gammam1,
+                                   double dDtCourantFac,
                                    double dResolveJeans,
 				   const CkCallback &cb);
         /// @brief initialize random seed for star formation

@@ -6,6 +6,26 @@
 #include "starform.h"
 #include "feedback.h"
 
+/// @brief Class for external gravity parameters
+class externalGravityParams
+{
+ public:
+    bool bDoExternalGravity; ///< Set if any exteran potential is used
+    int bBodyForce;          ///< Constant acceleration
+    double dBodyForceConst;
+    int bPatch;              ///< Patch in a disk
+    double dCentMass;        ///< Central mass in the disk
+    double dOrbDist;         ///< Distance of the patch from the center
+    void pup(PUP::er& p) {
+        p| bDoExternalGravity;
+        p| bBodyForce;
+        p| dBodyForceConst;
+        p| bPatch;
+        p| dCentMass;
+        p| dOrbDist;
+        }
+};
+
 /** @brief Hold parameters of the run.
  */
 typedef struct parameters {
@@ -49,6 +69,10 @@ typedef struct parameters {
 #endif
     CSM csm;			/* cosmo parameters */
     double dRedTo;
+    /*
+     * External Potentials
+     */
+    externalGravityParams exGravParams;
     /*
      * GrowMass parameters
      */
@@ -170,6 +194,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
  	csmInitialize(&param.csm);
     p|*param.csm;
     p|param.dRedTo;
+    p|param.exGravParams;
     p|param.bDynGrowMass;
     p|param.nGrowMass;
     p|param.dGrowDeltaM;

@@ -1536,6 +1536,51 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
 	    }
 	}
 
+    bBucketsInited = true;
+    contribute(cb);
+    }
+
+/**
+ * Apply an external gravitational force
+ */
+void TreePiece::externalGravity(int iKickRung,
+    const externalGravityParams exGravParams, const CkCallback& cb)
+{
+    CkAssert(bBucketsInited);
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+        GravityParticle *p = &myParticles[i];
+	if(p->rung >= iKickRung) {
+            if(exGravParams.bBodyForce) {
+                if(p->position.z > 0.0) {
+                    p->treeAcceleration.z -= exGravParams.dBodyForceConst;
+                    p->potential += exGravParams.dBodyForceConst*p->position.z;
+                    double idt2 = exGravParams.dBodyForceConst/p->position.z;
+                    if(idt2 > p->dtGrav)
+                        p->dtGrav = idt2;
+                    }
+                else {
+                    p->treeAcceleration.z += exGravParams.dBodyForceConst;
+                    p->potential -= exGravParams.dBodyForceConst*p->position.z;
+                    if(p->position.z != 0.0) {
+                        double idt2 = -exGravParams.dBodyForceConst/p->position.z;
+                        if(idt2 > p->dtGrav)
+                            p->dtGrav = idt2;
+                        }
+                    }
+                }
+            if(exGravParams.bPatch) {
+                double r2 = exGravParams.dOrbDist*exGravParams.dOrbDist
+                    + p->position.z*p->position.z;
+                double idt2 = exGravParams.dCentMass*pow(r2, -1.5);
+                
+                p->treeAcceleration.z -= exGravParams.dCentMass*p->position.z
+                                         *pow(r2, -1.5);
+                p->potential += exGravParams.dCentMass/sqrt(r2);
+                if(idt2 > p->dtGrav)
+                    p->dtGrav = idt2;
+                }
+            }
+        }
     contribute(cb);
     }
 
@@ -1757,8 +1802,11 @@ void TreePiece::emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
             }
         }
     contribute(sizeof(nUn), &nUn, CkReduction::sum_int, cb);
+#else
+    CkAbort("emergency adjust called without DTADJUST defined");
 #endif
     }
+
 /// @brief assign domain number to each particle for diagnostic
 void TreePiece::assignDomain(const CkCallback &cb)
 {
@@ -2353,6 +2401,7 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
     delete[] bucketReqs;
     bucketReqs = NULL;
   }
+  bBucketsInited = false;
 #ifdef PUSH_GRAVITY
   // used to indicate whether trees on SMP node should be
   // merged or not: we do not merge trees when pushing, to
@@ -3512,6 +3561,7 @@ void TreePiece::initBuckets() {
     }
 #endif*/
   }
+  bBucketsInited = true;
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
   bucketcheckList.resize(numBuckets);
 #endif

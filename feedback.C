@@ -465,6 +465,13 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
 	}
     if(fNorm_u == 0.0) {
         CkError("Got %d heavies: no feedback\n", nHeavy);
+        CkError("WARNING: lonely star skips feedback of mass %g\n", p->fMSN());
+        p->mass += p->fMSN(); // mass goes back into star.
+        // We could self-enrich to conserve metals, but that could do
+        // funny things to the mass metalicity relation.
+        // Also prevent any cooling shut-off.
+        p->fNSN() = 0.0;
+        return;
 	}
 	    
     CkAssert(fNorm_u > 0.0);  	/* be sure we have at least one neighbor */
@@ -658,10 +665,9 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 #else
 	    weight = rs*fNorm_u*q->mass;
 #endif
-	    q->fESNrate() += weight*p->fESNrate();
-	    /*		printf("SNTEST: %d %g %g %g %g\n",q->iOrder,weight,sqrt(q->r[0]*q->r[0]+q->r[1]*q->r[1]+q->r[2]*q->r[2]),q->fESNrate,q->fDensity);*/
+	    q->fESNrate() += weight*p->fStarESNrate();
 	    
-	    if ( p->fESNrate() > 0.0 && fb.bSNTurnOffCooling && 
+	    if ( p->fStarESNrate() > 0.0 && fb.bSNTurnOffCooling && 
 		 (fBlastRadius*fBlastRadius >= fDist2)){
 		q->fTimeCoolIsOffUntil() = max(q->fTimeCoolIsOffUntil(),
 					       dTime + fShutoffTime);       

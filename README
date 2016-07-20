@@ -1,8 +1,8 @@
-          ChaNGa - An adaptible N-body and gas dynamics code.
+          ChaNGa - An adaptable N-body and gas dynamics code.
                   (Charm N-body GrAvity solver)
 
 For documentation, see the web site:
-http://librarian.phys.washington.edu/astro/index.php/Research:ChaNGa
+https://github.com/N-BodyShop/changa/wiki/ChaNGa
 
 For more help, subscribe to the list changa-users@u.washington.edu.
 
@@ -17,9 +17,9 @@ hierarchical n-body simulations on gpu clusters. In Proceedings of the 2010
 ACM/IEEE International Conference for High Performance Computing, Networking,
 Storage and Analysis, SC ’10, Washington, DC, USA, 2010. IEEE Computer Society. 
 
-H. Menon, L. Wesolowski, G. Zheng, P. Jetley, L. Kale, T. Quinn, F. Governato.
-2014. Adaptive Techniques for Clustered N-Body Cosmological Simulations.
-ArXiv e-prints arXiv:1409.1929.
+Menon, H., Wesolowski, L., Zheng, G., Jetley, P., Kale, L., Quinn, T.,
+Governato, F., 2015. Adaptive Techniques for Clustered N-Body Cosmological
+Simulations, Computational Astrophysics and Cosmology, 2, 1.
 
 To compile ChaNGa first compile Charm++ or get a precompiled version.  When
 building Charm++, there is a special target "ChaNGa" which will build all the
@@ -29,8 +29,8 @@ necessary libraries.  Then to compile ChaNGa itself, run:
 make (or gmake)
 
 The executable ChaNGa will be created together with the submit script charmrun
-(for most machines).  Configure takes the usual options and also the "--enable-cooling"
-option to specify cooling for gas simulations.
+(for most machines).  Configure takes the usual options and also the
+"--enable-cooling" option to specify cooling for gas simulations.
 
 To run the code:
 
@@ -40,8 +40,8 @@ This will work on many machines, and can either be run directly or be
 submitted through the local scheduler.  However, on some machines the
 application will need to be submitted manually.
 
-More information are available in the online wiki:
-http://librarian.phys.washington.edu/astro/index.php/Research:ChaNGa
+More information is available in the online wiki:
+https://github.com/N-BodyShop/changa/wiki
 
 Several test simulations are included in subdirectories:
 
@@ -61,13 +61,14 @@ using the tools in testdata.
 An example simulation that generates movie frames is included in movie.  See
 the director.README in that directory for movie-making options.
 
-ACKNOWLEDGEMENTS
+ACKNOWLEDGMENTS
 ================
 
 The development of ChaNGa was supported by a National Science
 Foundation ITR grant PHY-0205413 to the University of Washington, and
 NSF ITR grant NSF-0205611 to the University of Illinois.  Contributors
 to the program include Graeme Lufkin, Tom Quinn, Rok Roskar, Greg Stinson,
-Filippo Gioachin, Sayantan Chakravorty, Amit Sharma, Pritish Jetley, Lukasz
-Wesolowski, Edgar Solomonik, Celso Mendes, Joachim Stadel, and James
-Wadsley.
+Ben Keller, Isaac Backus, Filippo Gioachin, Sayantan Chakravorty, Amit Sharma,
+Pritish Jetley, Lukasz Wesolowski, Harshitha Menon, Gengbin Zheng,
+Phil Miller, Yanhua Sun, Abhishek Gupta, Aditya Devarakonda, Viraj Paropkari,
+Edgar Solomonik, Celso Mendes, Joachim Stadel, and James Wadsley.

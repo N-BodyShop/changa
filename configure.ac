@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([ChaNGa], [3.1], [changa-users@u.washington.edu])
+AC_INIT([ChaNGa], [3.2], [changa-users@u.washington.edu])
 AC_DEFINE_UNQUOTED([NBODY_PACKAGE_VERSION], [$PACKAGE_VERSION])
 AC_CONFIG_SRCDIR([Reductions.h])
 AC_CONFIG_HEADER([config.h ../utility/structures/config.h])
@@ -61,6 +61,30 @@ if test "${MISSING_XDR}" = "yes" ; then
    LDFLAGS="$LDFLAGS -L../xdr"
 fi
 
+# SSE2 vector optimization for gravity
+AC_ARG_ENABLE([sse2],
+	[AS_HELP_STRING([--enable-sse2], [enable sse2 gravity vectorization])],
+	[sse2=$enableval], [sse2=no])
+if test "$sse2" = "yes" ; then
+    echo "SSE2 selected"
+    FLAG_SSE="-DCMK_USE_SSE2"
+else
+    FLAG_SSE=""
+fi
+AC_SUBST([FLAG_SSE])
+
+# AVX vector optimization for gravity
+AC_ARG_ENABLE([avx],
+	[AS_HELP_STRING([--enable-avx], [enable avx gravity vectorization])],
+	[avx=$enableval], [avx=no])
+if test "$avx" = "yes" ; then
+    echo "AVX selected"
+    FLAG_AVX="-DCMK_USE_AVX"
+else
+    FLAG_AVX=""
+fi
+AC_SUBST([FLAG_AVX])
+
 # physical softening in comoving coordinates:
 AC_ARG_ENABLE([changesoft],
 	[AS_HELP_STRING([--enable-changesoft], [enable physical softening])],
@@ -84,6 +108,19 @@ else
     FLAG_BIGKEYS=""
 fi
 AC_SUBST([FLAG_BIGKEYS])
+
+# DTADJUST
+AC_ARG_ENABLE([dtadjust],
+	[AS_HELP_STRING([--enable-dtadjust], [enable emergency timestep adjust])],
+	[dtadjust=$enableval], [dtadjust=yes])
+if test "$dtadjust" = "yes" ; then
+    echo "DTADJUST selected"
+    FLAG_DTADJUST="-DDTADJUST"
+else
+    FLAG_DTADJUST=""
+fi
+
+AC_SUBST([FLAG_DTADJUST])
 
 # Wendland C4 Kernel:
 AC_ARG_ENABLE([wendland],
