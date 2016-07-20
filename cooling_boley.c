@@ -506,12 +506,20 @@ double CoolHeatingRate( COOL *cl, COOLPARTICLE *cp, double T, double dDensity ) 
 	return 0;
 	}
 
-/* Not implemented */
+/* Code heating - cooling rate excluding external heating (PdV, etc..) */
 double CoolEdotInstantCode(COOL *cl, COOLPARTICLE *cp, double ECode, 
 			  double rhoCode, double ZMetal, double *posCode ) {
     double T,E,rho,Edot;
+    double dHeat, dCool;
+    double radius;
+    double dDeltaTau;
 
-    assert(0);
+    E = CoolCodeEnergyToErgPerGm( cl, ECode );
+    T = CoolEnergyToTemperature( cl, cp, E);
+    rho = CodeDensityToComovingGmPerCc(cl,rhoCode );
+    radius = cp->mrho*cl->dKpcUnit*CONVERT_CMPERKPC;
+    
+    Edot = clEdotInstant( cl, E, T, rho, radius, &dDeltaTau, &dHeat, &dCool );
     return CoolErgPerGmPerSecToCodeWork( cl, Edot );
     }
 
