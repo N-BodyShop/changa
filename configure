@@ -4820,9 +4820,9 @@ fi
 # diffusion (thermal and metal)
 # Check whether --enable-diffusion was given.
 if test "${enable_diffusion+set}" = set; then
-  enableval=$enable_diffusion; diffusion=yes
+  enableval=$enable_diffusion; diffusion=$enableval
 else
-  diffusion=no
+  diffusion=yes
 fi
 
 if test "$diffusion" = "yes" ; then
@@ -4837,9 +4837,9 @@ fi
 # Richie-Thomas forces (Pressure SPH)
 # Check whether --enable-rtforce was given.
 if test "${enable_rtforce+set}" = set; then
-  enableval=$enable_rtforce; rtforce=yes
+  enableval=$enable_rtforce; rtforce=$enableval
 else
-  rtforce=no
+  rtforce=yes
 fi
 
 if test "$rtforce" = "yes" ; then

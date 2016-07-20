@@ -191,7 +191,7 @@ AC_SUBST([OBJECTS_COOLING])
 # diffusion (thermal and metal)
 AC_ARG_ENABLE([diffusion],
 	[AS_HELP_STRING([--enable-diffusion], [enable diffusion])],
-	[diffusion=yes], [diffusion=no])
+	[diffusion=$enableval], [diffusion=yes])
 if test "$diffusion" = "yes" ; then
     echo "DIFFUSION selected"
     FLAG_DIFFUSION="-DDIFFUSION"
@@ -204,7 +204,7 @@ AC_SUBST([FLAG_DIFFUSION])
 # Richie-Thomas forces (Pressure SPH)
 AC_ARG_ENABLE([rtforce],
 	[AS_HELP_STRING([--enable-rtforce], [enable Richie-Thomas forces])],
-	[rtforce=yes], [rtforce=no])
+	[rtforce=$enableval], [rtforce=yes])
 if test "$rtforce" = "yes" ; then
     echo "RTFORCE selected"
     FLAG_RTFORCE="-DRTFORCE"
