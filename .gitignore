@@ -17,3 +17,7 @@ autom4te.cache/
 # Eclipse folders
 .cproject
 .project
+
+# These should be rebuilt
+Makefile.dep
+cuda.mk
