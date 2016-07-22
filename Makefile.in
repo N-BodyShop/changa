@@ -146,7 +146,7 @@ OBJECTS = Reductions.o DataManager.o TreePiece.o IntraNodeLBManager.o Sorter.o \
 
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp IntraNodeLBManager.cpp \
 	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
-	InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c \
+	InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.C \
 	moments.c MultistepLB.C Orb3dLB.C Orb3dLB_notopo.C starform.C \
 	MultistepLB_notopo.C MultistepOrbLB.C PETreeMerger.cpp \
 	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C \
@@ -263,7 +263,7 @@ $(BUILD_DIR)/Makefile.dep:
 
 # The following line is a script usable to regenerate the dependace file,
 # without the inclusion of charm headers.
-# $CHARM_DIR/bin/charmc  -M -MM -MG -O3 -I../utility/structures -I../ParallelGravity -Wall  -DCOSMO_STATS=1   -DCOSMO_DEBUG=2  -DINTERLIST_VER=2 -DHEXADECAPOLE     -DCACHE_TREE -DCOOLING_NONE  Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c moments.c MultistepLB.C Orb3dLB.C TreeWalk.C Compute.C | while read i;do echo $i| awk -F' ' '{for (i=1;i<NF;++i) print $i" \\"}';echo;done|grep -v "charm/bin" > Makefile.dep
+# $CHARM_DIR/bin/charmc  -M -MM -MG -O3 -I../utility/structures -I../ParallelGravity -Wall  -DCOSMO_STATS=1   -DCOSMO_DEBUG=2  -DINTERLIST_VER=2 -DHEXADECAPOLE     -DCACHE_TREE -DCOOLING_NONE  Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.C moments.c MultistepLB.C Orb3dLB.C TreeWalk.C Compute.C | while read i;do echo $i| awk -F' ' '{for (i=1;i<NF;++i) print $i" \\"}';echo;done|grep -v "charm/bin" > Makefile.dep
 
 .PHONY: all docs dist clean depend test VERSION.new
 
