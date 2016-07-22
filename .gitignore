@@ -10,3 +10,10 @@ ChaNGa*
 VERSION
 VERSION.new
 cha_commitid.c
+
+# autoconf caches
+autom4te.cache/
+
+# Eclipse folders
+.cproject
+.project
