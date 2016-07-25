@@ -944,9 +944,9 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         p->curlv().y = fNorm1*(dvxdz - dvzdx);
         p->curlv().z = fNorm1*(dvydx - dvxdy);
 
-        cullenR /= p->fDensity;
+        cullenR /= p->fDensity; // * p->mass;
         double tau, divVDot, traceSS, xi, A, alphaLoc,  oldCullenAlpha, deltaT; 
-        double l = 0.05; A = 0;
+        double l = 0.1; A = 0;
 
         // time interval = current time - last time divv was calculated
         deltaT = dTime - p->TimeDivV();
@@ -1102,9 +1102,9 @@ void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	p->curlv().x = fNorm1*(dvzdy - dvydz); 
 	p->curlv().y = fNorm1*(dvxdz - dvzdx);
 	p->curlv().z = fNorm1*(dvydx - dvxdy);
-        cullenR /= p->fDensity*p->mass;
+        cullenR /= p->fDensity;
         double tau, divVDot, traceSS, xi, A, alphaLoc,  oldCullenAlpha, deltaT;
-        double l = 0.05; A = 0;
+        double l = 0.1; A = 0;
 
         deltaT = dTime - p->TimeDivV();
         divVDot = (p->divv() - p->OldDivV())/(deltaT);
