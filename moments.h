@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#include "cosmoType.h"
+
 /*************************************************
  *
  *  The precision of the non-scaled moments (MOMR,
@@ -65,19 +67,20 @@ typedef struct locReduced {
 ** moments and scaling factor v for the local expansion.
 */
 typedef struct fmomReduced {
-    float m;
-    float xx,yy,xy,xz,yz;
-    float xxx,xyy,xxy,yyy,xxz,yyz,xyz;
-    float xxxx,xyyy,xxxy,yyyy,xxxz,yyyz,xxyy,xxyz,xyyz;
+    cosmoType m;
+    cosmoType xx, yy, xy, xz, yz;
+    cosmoType xxx, xyy, xxy, yyy, xxz, yyz, xyz;
+    cosmoType xxxx, xyyy, xxxy, yyyy, xxxz, yyyz, xxyy, xxyz, xyyz;
     } FMOMR;
 
 typedef struct flocReduced {
-    float m;
-    float x,y,z;
-    float xx,yy,xy,xz,yz;
-    float xxx,xyy,xxy,yyy,xxz,yyz,xyz;
-    float xxxx,xyyy,xxxy,yyyy,xxxz,yyyz,xxyy,xxyz,xyyz;
-    float xxxxx,xyyyy,xxxxy,yyyyy,xxxxz,yyyyz,xxxyy,xxyyy,xxxyz,xyyyz,xxyyz;
+    cosmoType m;
+    cosmoType x, y, z;
+    cosmoType xx, yy, xy, xz, yz;
+    cosmoType xxx, xyy, xxy, yyy, xxz, yyz, xyz;
+    cosmoType xxxx, xyyy, xxxy, yyyy, xxxz, yyyz, xxyy, xxyz, xyyz;
+    cosmoType xxxxx, xyyyy, xxxxy, yyyyy, xxxxz, yyyyz, xxxyy, xxyyy, xxxyz,
+        xyyyz, xxyyz;
     } FLOCR;
 
 void momClearMomr(MOMR *mr);
@@ -85,27 +88,31 @@ void momClearFmomr(FMOMR *l);
 void momAddMomc(MOMC *,MOMC *);
 void momAddMomr(MOMR *,MOMR *);
 void momAddFmomr(FMOMR *mr,FMOMR *ma);
-void momScaledAddFmomr(FMOMR *mr,float ur,FMOMR *ma,float ua);
-void momRescaleFmomr(FMOMR *mr,float unew,float uold);
+void momScaledAddFmomr(FMOMR *mr, cosmoType ur, FMOMR *ma, cosmoType ua);
+void momRescaleFmomr(FMOMR *mr, cosmoType unew, cosmoType uold);
 void momMulAddMomc(MOMC *,momFloat,MOMC *);
 void momMulAddMomr(MOMR *,momFloat,MOMR *);
-void momMulAddFmomr(FMOMR *mr,float ur,float m,FMOMR *ma,float ua);
+void momMulAddFmomr(FMOMR *mr, cosmoType ur, cosmoType m, FMOMR *ma,
+                    cosmoType ua);
 void momSubMomc(MOMC *,MOMC *);
 void momSubMomr(MOMR *,MOMR *);
-void momScaledSubFmomr(FMOMR *mr,float ur,FMOMR *ma,float ua);
+void momScaledSubFmomr(FMOMR *mr, cosmoType ur, FMOMR *ma, cosmoType ua);
 void momMakeMomc(MOMC *,momFloat,momFloat,momFloat,momFloat);
-float momMakeFmomr(FMOMR *mr,float m,float u,float x,float y,float z);
+cosmoType momMakeFmomr(FMOMR *mr, cosmoType m, cosmoType u, cosmoType x,
+                       cosmoType y, cosmoType z);
 momFloat momMakeMomr(MOMR *,momFloat,momFloat,momFloat,momFloat);
 void momOldMakeMomr(MOMR *,momFloat,momFloat,momFloat,momFloat);
 void momShiftMomc(MOMC *,momFloat,momFloat,momFloat);
 void momShiftMomr(MOMR *,momFloat,momFloat,momFloat);
-void momShiftFmomr(FMOMR *m,float u,float x,float y,float z);
+void momShiftFmomr(FMOMR *m, cosmoType u, cosmoType x, cosmoType y,
+                   cosmoType z);
 double momShiftLocr(LOCR *,momFloat,momFloat,momFloat);
 void momReduceMomc(MOMC *,MOMR *);
 void momEvalMomr(MOMR *,momFloat,momFloat,momFloat,momFloat,
 				 momFloat *,momFloat *,momFloat *,momFloat *);
-void momEvalFmomrcm(FMOMR *m,float u,float dir,float x,float y,float z,
-		    float *fPot,float *ax,float *ay,float *az,float *magai);
+void momEvalFmomrcm(FMOMR *m, cosmoType u, cosmoType dir, cosmoType x,
+                    cosmoType y, cosmoType z, cosmoType *fPot, cosmoType *ax,
+                    cosmoType *ay, cosmoType *az, cosmoType *magai);
 void momMomr2Momc(MOMR *,MOMC *);
 void momFmomr2Momc(FMOMR *ma,MOMC *mc);
 void momPrintMomc(MOMC *);
@@ -113,7 +120,9 @@ void momPrintMomr(MOMR *);
 
 void momClearLocr(LOCR *);
 double momLocrAddMomr5(LOCR *,MOMR *,momFloat,momFloat,momFloat,momFloat,double *,double *,double *);
-double momFlocrAddFmomr5cm(FLOCR *l,float v,FMOMR *m,float u,float dir,float x,float y,float z,float *tax,float *tay,float *taz);
+double momFlocrAddFmomr5cm(FLOCR *l, cosmoType v, FMOMR *m, cosmoType u,
+                           cosmoType dir, cosmoType x, cosmoType y, cosmoType z,
+                           cosmoType *tax, cosmoType *tay, cosmoType *taz);
 void momEvalLocr(LOCR *,momFloat,momFloat,momFloat,
 		 momFloat *,momFloat *,momFloat *,momFloat *);
 double momLocrAddMomr(LOCR *,MOMR *,momFloat,momFloat,momFloat,momFloat);
