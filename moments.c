@@ -196,8 +196,8 @@ void momAddFmomr(FMOMR *mr, FMOMR *ma) {
  ** It needs to correctly rescale the moments of ma to be compatible with the
  *scaling of mr.
  */
-void momScaledAddFmomr(FMOMR *mr, float ur, FMOMR *ma, float ua) {
-    float f, s;
+void momScaledAddFmomr(FMOMR *mr, cosmoType ur, FMOMR *ma, cosmoType ua) {
+    cosmoType f, s;
     assert(ur > 0.0 && ua > 0);
     f = ua / ur;
     s = f;
@@ -231,8 +231,8 @@ void momScaledAddFmomr(FMOMR *mr, float ur, FMOMR *ma, float ua) {
 /*
  ** This function rescales reduced scaled moment mr.
  */
-void momRescaleFmomr(FMOMR *mr, float unew, float uold) {
-    float f, s;
+void momRescaleFmomr(FMOMR *mr, cosmoType unew, cosmoType uold) {
+    cosmoType f, s;
     f = uold / unew;
     s = f;
     s *= f;
@@ -330,8 +330,9 @@ void momMulAddMomr(MOMR *mr, double m, MOMR *ma) {
 /*
  ** This function multiply-adds the reduced scaled moment ma
  */
-void momMulAddFmomr(FMOMR *mr, float ur, float m, FMOMR *ma, float ua) {
-    float f;
+void momMulAddFmomr(FMOMR *mr, cosmoType ur, cosmoType m, FMOMR *ma,
+                    cosmoType ua) {
+    cosmoType f;
     assert(ua > 0.0 && ur > 0.0);
     f = ua / ur;
     mr->m += m * ma->m;
@@ -411,8 +412,8 @@ void momAddFlocr(FLOCR *lr, FLOCR *la) {
  ** It needs to correctly rescale the elements of la to be compatible with the
  *scaling of lr.
  */
-void momScaledAddFlocr(FLOCR *lr, float vr, FLOCR *la, float va) {
-    float f, s;
+void momScaledAddFlocr(FLOCR *lr, cosmoType vr, FLOCR *la, cosmoType va) {
+    cosmoType f, s;
     assert(vr > 0.0 && va > 0);
     f = va / vr;
     s = f;
@@ -461,8 +462,8 @@ void momScaledAddFlocr(FLOCR *lr, float vr, FLOCR *la, float va) {
 /*
  ** This function rescales the reduced scaled local expansion lr.
  */
-void momRescaleFlocr(FLOCR *lr, float vnew, float vold) {
-    float f, s;
+void momRescaleFlocr(FLOCR *lr, cosmoType vnew, cosmoType vold) {
+    cosmoType f, s;
     assert(vnew > 0.0 && vold > 0);
     f = vnew / vold;
     s = f;
@@ -579,8 +580,8 @@ void momSubMomr(MOMR *mr, MOMR *ma) {
  ** It needs to correctly rescale the moments of ma to be compatible
  ** with the scaling of mr.
  */
-void momScaledSubFmomr(FMOMR *mr, float ur, FMOMR *ma, float ua) {
-    float f, s;
+void momScaledSubFmomr(FMOMR *mr, cosmoType ur, FMOMR *ma, cosmoType ua) {
+    cosmoType f, s;
     assert(ur > 0.0 && ua > 0);
     f = ua / ur;
     s = f;
@@ -754,11 +755,12 @@ double momMakeMomr(MOMR *mr, double m, double x, double y, double z) {
  **
  ** OpCount (*,+) = (43,18) = ~60
  */
-float momMakeFmomr(FMOMR *mr, float m, float u, float x, float y, float z) {
-    float tx, ty, t, dx, dy;
-    float x2;
-    float y2;
-    float d2, iu;
+cosmoType momMakeFmomr(FMOMR *mr, cosmoType m, cosmoType u, cosmoType x,
+                       cosmoType y, cosmoType z) {
+    cosmoType tx, ty, t, dx, dy;
+    cosmoType x2;
+    cosmoType y2;
+    cosmoType d2, iu;
 
     assert(u > 0.0);
     iu = 1.0f / u;
@@ -1003,10 +1005,11 @@ void momShiftMomr(MOMR *m, double x, double y, double z) {
  **         MulAddMomr (*,+) = (22,22)
  **         Total      (*,+) = (193,151) = 344
  */
-void momShiftFmomr(FMOMR *m, float u, float x, float y, float z) {
+void momShiftFmomr(FMOMR *m, cosmoType u, cosmoType x, cosmoType y,
+                   cosmoType z) {
     FMOMR f;
-    float t, tx, ty, tz, txx, tyy, txy, tyz, txz, iu;
-    const float twosevenths = 2.0f / 7.0f;
+    cosmoType t, tx, ty, tz, txx, tyy, txy, tyz, txz, iu;
+    const cosmoType twosevenths = 2.0f / 7.0f;
 
     momMakeFmomr(&f, 1.0f, u, x, y, z);
     iu = 1.0f / u;
@@ -1219,12 +1222,13 @@ double momShiftLocr(LOCR *l, double x, double y, double z) {
  **
  ** Op Count (/,*,+) = (1,162,173) = 336
  */
-double momShiftFlocr(FLOCR *l, float v, float x, float y, float z) {
-    const float onethird = 1.0f / 3.0f;
-    float iv, hx, hy, hz, tx, ty, tz;
-    float L, Lx, Ly, Lz, Lxx, Lxy, Lxz, Lyy, Lyz, Lxxx, Lxxy, Lxxz, Lxyy, Lxyz,
-        Lyyy, Lyyz;
-    float Lxxxx, Lxxxy, Lxxyy, Lxyyy, Lyyyy, Lxxxz, Lxxyz, Lxyyz, Lyyyz;
+double momShiftFlocr(FLOCR *l, cosmoType v, cosmoType x, cosmoType y,
+                     cosmoType z) {
+    const cosmoType onethird = 1.0f / 3.0f;
+    cosmoType iv, hx, hy, hz, tx, ty, tz;
+    cosmoType L, Lx, Ly, Lz, Lxx, Lxy, Lxz, Lyy, Lyz, Lxxx, Lxxy, Lxxz, Lxyy,
+        Lxyz, Lyyy, Lyyz;
+    cosmoType Lxxxx, Lxxxy, Lxxyy, Lxyyy, Lyyyy, Lxxxz, Lxxyz, Lxyyz, Lyyyz;
 
     iv = 1.0f / v;
     x *= iv;
@@ -1490,13 +1494,13 @@ void momEvalMomr(MOMR *m, double dir0, double x, double y, double z,
  ** OpCount = (*,+) = (106,72) = 178 - 8 = 170
  **
  */
-void momEvalFmomrcm(FMOMR *m, float u, float dir, float x, float y, float z,
-                    float *fPot, float *ax, float *ay, float *az,
-                    float *magai) {
-    const float onethird = 1.0f / 3.0f;
-    float xx, xy, xz, yy, yz, zz;
-    float xxx, xxy, xxz, xyy, yyy, yyz, xyz;
-    float tx, ty, tz, g0, g2, g3, g4;
+void momEvalFmomrcm(FMOMR *m, cosmoType u, cosmoType dir, cosmoType x,
+                    cosmoType y, cosmoType z, cosmoType *fPot, cosmoType *ax,
+                    cosmoType *ay, cosmoType *az, cosmoType *magai) {
+    const cosmoType onethird = 1.0f / 3.0f;
+    cosmoType xx, xy, xz, yy, yz, zz;
+    cosmoType xxx, xxy, xxz, xyy, yyy, yyz, xyz;
+    cosmoType tx, ty, tz, g0, g2, g3, g4;
 
     u *= dir;
     g0 = dir;
@@ -1808,16 +1812,16 @@ double momLocrAddMomr5(LOCR *l, MOMR *m, double dir, double x, double y,
 /*
 ** Op Count = (*,+,-) = (265,150,49) = 464
 */
-double momFlocrAddFmomr5cm(FLOCR *l, float v, FMOMR *m, float u, float dir,
-                           float x, float y, float z, float *tax, float *tay,
-                           float *taz) {
-    const float onethird = 1.0f / 3.0f;
-    float u2, u3, u4;
-    float xx, xy, xz, yy, yz, zz;
-    float xxx, xxy, xyy, yyy, xxz, xyz, yyz;
-    float R2xx, R2xy, R2xz, R2yy, R2yz, R2x, R2y, R2z, R2, R3xx, R3xy, R3yy,
+double momFlocrAddFmomr5cm(FLOCR *l, cosmoType v, FMOMR *m, cosmoType u,
+                           cosmoType dir, cosmoType x, cosmoType y, cosmoType z,
+                           cosmoType *tax, cosmoType *tay, cosmoType *taz) {
+    const cosmoType onethird = 1.0f / 3.0f;
+    cosmoType u2, u3, u4;
+    cosmoType xx, xy, xz, yy, yz, zz;
+    cosmoType xxx, xxy, xyy, yyy, xxz, xyz, yyz;
+    cosmoType R2xx, R2xy, R2xz, R2yy, R2yz, R2x, R2y, R2z, R2, R3xx, R3xy, R3yy,
         R3xz, R3yz, R3x, R3y, R3z, R3, R4x, R4y, R4z, R4;
-    float T0, txx, tyy, t1, t1x, t1y, t1z, t1xx, t1yy, t2x, t2y, t2z, t2xx,
+    cosmoType T0, txx, tyy, t1, t1x, t1y, t1z, t1xx, t1yy, t2x, t2y, t2z, t2xx,
         t2yy, txxxx, tyyyy;
 
     u *= dir;
@@ -1988,10 +1992,11 @@ double momFlocrAddFmomr5cm(FLOCR *l, float v, FMOMR *m, float u, float dir,
 /*
 ** Op Count = (*,+,-) = (,,) =
 */
-double momFlocrAddMono5(FLOCR *l, float v, float m, float dir, float x, float y,
-                        float z, float *tax, float *tay, float *taz) {
-    float xx, xy, xz, yy, yz;
-    float T0, txx, tyy, t1, t1xx, t1yy, t2, txxxx, tyyyy;
+double momFlocrAddMono5(FLOCR *l, cosmoType v, cosmoType m, cosmoType dir,
+                        cosmoType x, cosmoType y, cosmoType z, cosmoType *tax,
+                        cosmoType *tay, cosmoType *taz) {
+    cosmoType xx, xy, xz, yy, yz;
+    cosmoType T0, txx, tyy, t1, t1xx, t1yy, t2, txxxx, tyyyy;
 
     x *= dir;
     y *= dir;
@@ -2167,13 +2172,14 @@ void momEvalLocr(LOCR *l, double x, double y, double z, double *fPot,
     *fPot += l->m + g1 + A + B + C + D;
 }
 
-void momEvalFlocr(FLOCR *l, float v, float x, float y, float z, float *fPot,
-                  float *ax, float *ay, float *az) {
-    const float onethird = 1.0f / 3.0f;
-    float xx, xy, xz, yy, yz, zz, xxx, xxz, yyy, yyz, xxy, xyy, xyz, xxxx, xxxy,
-        xxyy, xyyy, yyyy, xxxz, xxyz, xyyz, yyyz;
-    float g1, A, Ax, Ay, Az, B, Bx, By, Bz, C, Cx, Cy, Cz, D, Dx, Dy, Dz;
-    float iv;
+void momEvalFlocr(FLOCR *l, cosmoType v, cosmoType x, cosmoType y, cosmoType z,
+                  cosmoType *fPot, cosmoType *ax, cosmoType *ay,
+                  cosmoType *az) {
+    const cosmoType onethird = 1.0f / 3.0f;
+    cosmoType xx, xy, xz, yy, yz, zz, xxx, xxz, yyy, yyz, xxy, xyy, xyz, xxxx,
+        xxxy, xxyy, xyyy, yyyy, xxxz, xxyz, xyyz, yyyz;
+    cosmoType g1, A, Ax, Ay, Az, B, Bx, By, Bz, C, Cx, Cy, Cz, D, Dx, Dy, Dz;
+    cosmoType iv;
 
     /*
      ** Calculate the funky distance terms, but first scale x,y,z so that they
