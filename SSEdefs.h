@@ -22,7 +22,9 @@
 #endif
 
 #if CMK_USE_AVX
-	#ifndef COSMO_FLOAT
+	#ifdef COSMO_FLOAT
+		#error "single-precision AVX is not supported"
+	#else
 		#include "SSE-Double.h"
 		#define SSE_VECTOR_WIDTH 4
 		#define FORCE_INPUT_LIST_PAD 3
