@@ -1940,7 +1940,7 @@ public:
         void sendParticlesDuringDD(bool withqd);
         void mergeAllParticlesAndSaveCentroid();
         bool otherIdlePesAvail();
-
+        void walkBucketTree(GenericTreeNode*, int);
 };
 
 /// @brief Class for shadow arrays to avoid reduction conflicts in
