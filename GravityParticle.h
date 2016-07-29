@@ -6,7 +6,7 @@
 
 #include <charm.h>              /* for CkAssert */
 #include "cooling.h"
-
+#include "cosmoType.h"
 #include "SFC.h"
 #include <vector>
 
