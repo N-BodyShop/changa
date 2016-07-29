@@ -634,9 +634,9 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
   int numCachedParticles = 0;
   int totalNumBuckets = 0;
 
-  cacheType *wholeNodeCache = ((CkCacheManager*)cacheNode.ckLocalBranch())->getCache();
+  cacheType *wholeNodeCache = ((CkCacheManager<KeyType>*)cacheNode.ckLocalBranch())->getCache();
   cacheType *ctNode = &wholeNodeCache[chunk];
-  cacheType *wholePartCache = ((CkCacheManager*)cacheGravPart.ckLocalBranch())->getCache();
+  cacheType *wholePartCache = ((CkCacheManager<KeyType>*)cacheGravPart.ckLocalBranch())->getCache();
   cacheType *ctPart = &wholePartCache[chunk];
 
   // find out number of particles and nodes cached
