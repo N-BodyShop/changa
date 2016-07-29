@@ -5,6 +5,16 @@
 extern "C" {
 #endif
 
+/*************************************************
+ *
+ *  The precision of the non-scaled moments (MOMR,
+ *  MOMC, and LOCR) are to always be double (or better) to
+ *  prevent known over/underflow issues.
+ *  This is the meaning of momFloat.
+ *
+ *              Do not change this
+ *
+ *************************************************/
 #ifdef QUAD
 typedef long double momFloat;
 #define sqrt(x)	sqrtl(x)
