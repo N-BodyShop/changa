@@ -258,6 +258,9 @@ clean:
 ref-clean:
 	rm -f $(TARGET) Compute.o TreeWalk.o
 
+dist-clean: clean
+	@ $(RM) *.a config.status config.log cuda.mk Makefile.dep
+
 depends: $(SOURCE_DIR)/Makefile.dep
 $(BUILD_DIR)/Makefile.dep:
 	FULLPATHS=""; for file in $(SRSC); do FULLPATHS="$(SOURCE_DIR)/$$file $$FULLPATHS"; done; \
