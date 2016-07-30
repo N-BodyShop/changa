@@ -1442,7 +1442,8 @@ inline int Main::nextMaxRungIncDF(int nextMaxRung)
 }
 
 /// @brief wait for gravity in the case of concurrent SPH
-inline void Main::waitForGravity(const CkCallback &cb, double startTime) 
+inline void Main::waitForGravity(const CkCallback &cb, double startTime,
+                                 int activeRung) 
 {
     if(param.bConcurrentSph && param.bDoGravity) {
 #ifdef PUSH_GRAVITY
@@ -1455,8 +1456,9 @@ inline void Main::waitForGravity(const CkCallback &cb, double startTime)
 #ifdef PUSH_GRAVITY
       }
 #endif
-        CkPrintf("Calculating gravity and SPH took %g seconds.\n",
-		 CkWallTimer()-startTime);
+        double tGrav = CkWallTimer()-startTime;
+        timings[activeRung].tGrav += tGrav;
+        CkPrintf("Calculating gravity and SPH took %g seconds.\n", tGrav);
 #ifdef SELECTIVE_TRACING
         turnProjectionsOff();
 #endif
@@ -1481,6 +1483,7 @@ void Main::advanceBigStep(int iStep) {
 
     if(!param.bStaticTest) {
       CkAssert(param.dDelta != 0.0);
+      timings[activeRung].count++;
       emergencyAdjust(activeRung);
       // Find new rung for active particles
       nextMaxRung = adjust(activeRung);
@@ -1526,14 +1529,18 @@ void Main::advanceBigStep(int iStep) {
 	  treeProxy.updateuDot(activeRung, duKick, dStartTime,
 			       param.bGasCooling, 1, 1,
 			       CkCallbackResumeThread());
+          double tuDot = CkWallTimer() - startTime;
+          timings[activeRung].tuDot += tuDot;
 	  if(verbosity)
-	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
+	      CkPrintf("took %g seconds.\n", tuDot);
 	  }
       double startTime = CkWallTimer();
       treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas,
 		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
+      double tKick = CkWallTimer() - startTime;
+      timings[activeRung].tKick += tKick;
       if(verbosity)
-          CkPrintf("Kick took %g seconds.\n", CkWallTimer() - startTime);
+          CkPrintf("Kick took %g seconds.\n", tKick);
 
       if(verbosity > 1)
 	  memoryStats();
@@ -1571,8 +1578,10 @@ void Main::advanceBigStep(int iStep) {
 	      treeProxy.drift(dDriftFac, param.bDoGas, param.bGasIsothermal,
 			      dKickFac, dTimeSub, nGrowMassDrift, buildTree,
 			      CkCallbackResumeThread());
+              double tDrift = CkWallTimer() - startTime;
+              timings[activeRung].tDrift += tDrift;
               if(verbosity)
-                  CkPrintf("Drift took %g seconds.\n", CkWallTimer() - startTime);
+                  CkPrintf("Drift took %g seconds.\n", tDrift);
 
 	      // Advance time to end of smallest step
 	      dTime += dTimeSub;
@@ -1598,13 +1607,13 @@ void Main::advanceBigStep(int iStep) {
 		  treeProxy.updateuDot(nextMaxRung, duKick, dStartTime,
 				       param.bGasCooling, 0, 0,
 				       CkCallbackResumeThread());
+                  double tuDot = CkWallTimer() - startTime;
+                  timings[nextMaxRung].tuDot += tuDot;
 		  if(verbosity)
-		      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
+		      CkPrintf("took %g seconds.\n", tuDot);
 		  }
 	      }
     }
-
-    // int lastActiveRung = activeRung;
 
     // determine largest timestep that needs a kick
     activeRung = 0;
@@ -1618,15 +1627,20 @@ void Main::advanceBigStep(int iStep) {
      */
     if((param.bStarForm || param.bFeedback)
        && param.stfm->isStarFormRung(activeRung)) {
+        timings[PHASE_FEEDBACK].count++;
         double startTime = CkWallTimer();
         CkPrintf("Domain decomposition for star formation/feedback... ");
         sorter.startSorting(dataManagerID, ddTolerance,
                             CkCallbackResumeThread(), true);
-        CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
+        double tDD = CkWallTimer()-startTime;
+        timings[PHASE_FEEDBACK].tDD += tDD;
+        CkPrintf("total %g seconds.\n", tDD);
         CkPrintf("Load balancer for star formation/feedback... ");
         startTime = CkWallTimer();
         treeProxy.startlb(CkCallbackResumeThread(), PHASE_FEEDBACK);
-        CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+        double tLB = CkWallTimer()-startTime;
+        timings[PHASE_FEEDBACK].tLoadB += tLB;
+        CkPrintf("took %g seconds.\n", tLB);
         if(param.bStarForm)
             FormStars(dTime, param.stfm->dDeltaStarForm);
         if(param.bFeedback) 
@@ -1665,11 +1679,9 @@ void Main::advanceBigStep(int iStep) {
             CkCallbackResumeThread(), bDoDD);
       }
     }
-    /*
-    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-          << endl;
-          */
-    CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
+    double tDD = CkWallTimer()-startTime;
+    timings[activeRung].tDD += tDD;
+    CkPrintf("total %g seconds.\n", tDD);
 
     if(verbosity && !bDoDD)
 	CkPrintf("Skipped DD\n");
@@ -1681,11 +1693,9 @@ void Main::advanceBigStep(int iStep) {
     CkPrintf("Load balancer ... ");
     startTime = CkWallTimer();
     treeProxy.startlb(CkCallbackResumeThread(), activeRung);
-    /*
-    ckout << " took "<<(CkWallTimer() - startTime) << " seconds."
-	     << endl;
-             */
-    CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+    double tLB = CkWallTimer()-startTime;
+    timings[activeRung].tLoadB += tLB;
+    CkPrintf("took %g seconds.\n", tLB);
 
     if(verbosity > 1)
 	memoryStats();
@@ -1705,7 +1715,9 @@ void Main::advanceBigStep(int iStep) {
 #else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
-    CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+    double tTB =  CkWallTimer()-startTime;
+    timings[activeRung].tTBuild += tTB;
+    CkPrintf("took %g seconds.\n", tTB);
 
     CkCallback cbGravity(CkCallback::resumeThread);
 
@@ -1718,8 +1730,6 @@ void Main::advanceBigStep(int iStep) {
 	    if (a >= param.daSwitchTheta) theta = param.dTheta2; 
 	    }
 	/******** Force Computation ********/
-	//ckout << "Calculating gravity (tree bucket, theta = " << theta
-	//      << ") ...";
 #ifdef SELECTIVE_TRACING
         turnProjectionsOn(activeRung);
 #endif
@@ -1727,7 +1737,6 @@ void Main::advanceBigStep(int iStep) {
         CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
 	startTime = CkWallTimer();
 	if(param.bConcurrentSph) {
-	    ckout << endl;
 
 #ifdef PUSH_GRAVITY
             if(bDoPush){ 
@@ -1761,9 +1770,9 @@ void Main::advanceBigStep(int iStep) {
 #ifdef CUDA_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
-	    //ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-	    //	  << endl;
-            CkPrintf("took %g seconds\n", CkWallTimer()-startTime);
+            double tGrav = CkWallTimer()-startTime;
+            timings[activeRung].tGrav += tGrav;
+            CkPrintf("took %g seconds\n", tGrav);
 #ifdef SELECTIVE_TRACING
             turnProjectionsOff();
 #endif
@@ -1823,12 +1832,14 @@ void Main::advanceBigStep(int iStep) {
 	  if(verbosity)
 	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
-      waitForGravity(cbGravity, startTime);
+      waitForGravity(cbGravity, startTime, activeRung);
       startTime = CkWallTimer();
       treeProxy.kick(activeRung, dKickFac, 1, param.bDoGas,
 		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
+      double tKick = CkWallTimer() - startTime;
+      timings[activeRung].tKick += tKick;
       if(verbosity)
-          CkPrintf("Kick took %g seconds.\n", CkWallTimer() - startTime);
+          CkPrintf("Kick took %g seconds.\n", tKick);
       // 1/2 step uDot update
       if(activeRung > 0 && param.bDoGas) {
 	  double startTime = CkWallTimer();
@@ -1839,12 +1850,14 @@ void Main::advanceBigStep(int iStep) {
 	  treeProxy.updateuDot(activeRung-1, duKick, dStartTime,
 			       param.bGasCooling, 0, 0,
 			       CkCallbackResumeThread());
+          double tuDot = CkWallTimer() - startTime;
+          timings[activeRung].tuDot += tuDot;
 	  if(verbosity)
-	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
+	      CkPrintf("took %g seconds.\n", tuDot);
 	  }
     }
     else
-	waitForGravity(cbGravity, startTime);
+	waitForGravity(cbGravity, startTime, activeRung);
 
 #if COSMO_STATS > 0
     /********* TreePiece Statistics ********/
@@ -1871,8 +1884,10 @@ void Main::advanceBigStep(int iStep) {
 
     startTime = CkWallTimer();
     treeProxy.finishNodeCache(CkCallbackResumeThread());
+    double tCache = CkWallTimer() - startTime;
+    timings[activeRung].tCache += tCache;
     if(verbosity)
-        CkPrintf("Finish NodeCache took %g seconds.\n", CkWallTimer() - startTime);
+        CkPrintf("Finish NodeCache took %g seconds.\n", tCache);
 
 #ifdef CHECK_TIME_WITHIN_BIGSTEP
     if(param.iWallRunTime > 0 && ((CkWallTimer()-wallTimeStart) > param.iWallRunTime*60.)){
@@ -2511,6 +2526,7 @@ Main::doSimulation()
 #ifdef CHECK_TIME_WITHIN_BIGSTEP
   wallTimeStart = CkWallTimer();
 #endif
+  timings.resize(PHASE_FEEDBACK+1);
 
   for(int iStep = param.iStartStep+1; iStep <= param.nSteps; iStep++){
     if (killAt > 0 && killAt == iStep) {
@@ -2521,10 +2537,14 @@ Main::doSimulation()
     if (verbosity) ckout << "Starting big step " << iStep << endl;
     startTime = CkWallTimer();
     starCenterOfMass();
+    for(int iRung = 0; iRung < timings.size(); iRung++) {
+        timings[iRung].clear();
+        }
     advanceBigStep(iStep-1);
     double stepTime = CkWallTimer() - startTime;
     ckout << "Big step " << iStep << " took " << stepTime << " seconds."
 	  << endl;
+    writeTimings(iStep);
 
     if(iStep%param.iLogInterval == 0) {
 	calcEnergy(dTime, stepTime, achLogFileName.c_str());
@@ -2836,6 +2856,61 @@ void Main::starCenterOfMass()
     dMProxy.SetStarCM(dCenterOfMass, CkCallbackResumeThread());
 #endif
 #endif
+}
+
+///
+/// @brief Write out the timing information
+/// @param iStep Step number
+///
+void
+Main::writeTimings(int iStep)
+{
+    string achTimeFileName = string(param.achOutName) + ".timings";
+    timing_fields tTotal;
+    tTotal.clear();
+    
+    FILE *fpTime = fopen(achTimeFileName.c_str(), "a");
+    CkAssert(fpTime != NULL);
+    
+    fprintf(fpTime, "# Timings for step %d\n", iStep);
+    fprintf(fpTime, "# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache\n");
+    for(int i = 0; i < timings.size(); i++) {
+        if(timings[i].count) {
+            if(i == PHASE_FEEDBACK) {
+                fprintf(fpTime, "# SF/Feedback: count StarForm, FeedB,   DD,      LoadB,  TBuild\n");
+                fprintf(fpTime, "               %d   %f  %f %f %f %f\n", timings[i].count,
+                        timings[i].tGrav, timings[i].tuDot,
+                        timings[i].tDD, timings[i].tLoadB, timings[i].tTBuild);
+                }
+            else {
+                fprintf(fpTime, "    %d  %d    %f %f %f %f %f %f %f %f %f %f\n", i,
+                        timings[i].count, timings[i].tGrav,
+                        timings[i].tuDot, timings[i].tDD,
+                        timings[i].tLoadB, timings[i].tTBuild,
+                        timings[i].tAdjust, timings[i].tEmergAdjust,
+                        timings[i].tKick, timings[i].tDrift,
+                        timings[i].tCache);
+                tTotal.tGrav += timings[i].tGrav;
+                tTotal.tuDot += timings[i].tuDot;
+                tTotal.tDD += timings[i].tDD;
+                tTotal.tLoadB += timings[i].tLoadB;
+                tTotal.tTBuild += timings[i].tTBuild;
+                tTotal.tAdjust += timings[i].tAdjust;
+                tTotal.tEmergAdjust += timings[i].tEmergAdjust;
+                tTotal.tKick += timings[i].tKick;
+                tTotal.tDrift += timings[i].tDrift;
+                tTotal.tCache += timings[i].tCache;
+                }
+            }
+        }
+    fprintf(fpTime, "Totals:     %f %f %f %f %f %f %f %f %f %f\n",
+                        tTotal.tGrav,
+                        tTotal.tuDot, tTotal.tDD,
+                        tTotal.tLoadB, tTotal.tTBuild,
+                        tTotal.tAdjust, tTotal.tEmergAdjust,
+                        tTotal.tKick, tTotal.tDrift,
+                        tTotal.tCache);
+    fclose(fpTime);
 }
 
 ///
@@ -3274,8 +3349,10 @@ int Main::adjust(int iKickRung)
 	iCurrMaxRung--;
 	treeProxy.truncateRung(iCurrMaxRung, CkCallbackResumeThread());
 	}
+    double tAdjust = CkWallTimer() - startTime;
+    timings[iKickRung].tAdjust += tAdjust;
     if(verbosity)
-        CkPrintf("Adjust took %g seconds.\n", CkWallTimer() - startTime);
+        CkPrintf("Adjust took %g seconds.\n", tAdjust);
     return iCurrMaxRung;
     }
 
@@ -3332,6 +3409,7 @@ void Main::countActive(int activeRung)
 void Main::emergencyAdjust(int iRung)
 {
     if(!param.bDtAdjust || iRung == 0) return;
+    double startTime = CkWallTimer();
     
     if(verbosity) CkPrintf("Check for Emergency Adjust, Rung: %d\n", iRung);
     double dDelta = RungToDt(param.dDelta, iRung);
@@ -3346,6 +3424,7 @@ void Main::emergencyAdjust(int iRung)
                  *nUnKicked);
         }
     delete msg;
+    timings[iRung].tEmergAdjust += CkWallTimer() - startTime;
     }
 
 /**

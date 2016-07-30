@@ -146,6 +146,8 @@ void Main::StellarFeedback(double dTime, double dDelta)
     // Need to build tree since we just did addDelParticle.
     //
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+    double tTB = CkWallTimer() - startTime;
+    timings[PHASE_FEEDBACK].tTBuild += tTB;
     DistStellarFeedbackSmoothParams pDSFB(TYPE_GAS, 0, param.csm, dTime, 
 					  param.dConstGamma, param.feedback);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
@@ -153,8 +155,9 @@ void Main::StellarFeedback(double dTime, double dDelta)
 			  dfBall2OverSoft2, CkCallbackResumeThread());
     treeProxy.finishNodeCache(CkCallbackResumeThread());
 
-    CkPrintf("Stellar Feedback Calculated, Wallclock %f secs\n",
-	     CkWallTimer() - startTime);
+    double tFB = CkWallTimer() - startTime;
+    timings[PHASE_FEEDBACK].tuDot += tFB; // Overload tuDot for feedback.
+    CkPrintf("Stellar Feedback Calculated, Wallclock %f secs\n", tFB);
 
     CkReductionMsg *msgChk2;
     treeProxy.massMetalsEnergyCheck(0, CkCallbackResumeThread((void*&)msgChk2));
