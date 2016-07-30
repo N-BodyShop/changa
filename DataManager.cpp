@@ -1006,8 +1006,6 @@ void updateParticlesCallback(void *param, void *msg){
   delete data;
 }
 
-#endif
-
 void DataManager::clearInstrument(CkCallback &cb){
 #ifdef CUDA_INSTRUMENT_WRS
   hapi_clearInstrument();
@@ -1016,7 +1014,6 @@ void DataManager::clearInstrument(CkCallback &cb){
 }
 
 void DataManagerHelper::transferLocalTreeCallback() {
-#ifdef CUDA
   if(verbosity > 1) CkPrintf("[%d] transferLocalTreeCallback\n", CkMyPe());
   void **devBuffers = getdevBuffers();
   void *localMoments = devBuffers[LOCAL_MOMENTS];
@@ -1032,8 +1029,6 @@ void DataManagerHelper::transferLocalTreeCallback() {
   }
 
   dmHelperProxy[basePE].finishDevBufferSync();
-#endif
-
 }
 
 void DataManagerHelper::transferRemoteChunkCallback() {
@@ -1057,3 +1052,4 @@ void DataManagerHelper::finishDevBufferSyncRemoteChunk() {
     dm->resumeRemoteChunk();
   }
 }
+#endif // CUDA

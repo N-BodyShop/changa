@@ -311,6 +311,7 @@ class ProjectionsControl : public CBase_ProjectionsControl {
   }
 }; 
 
+#ifdef CUDA
 class DataManagerHelper : public CBase_DataManagerHelper {
   private:
     int countLocalPes;
@@ -327,31 +328,26 @@ class DataManagerHelper : public CBase_DataManagerHelper {
   void transferRemoteChunkCallback();
 
   void populateDeviceBufferTable(intptr_t localMoments, intptr_t localParticleCores, intptr_t localParticleVars) {
-#ifdef CUDA
     void **devBuffers = getdevBuffers();
     devBuffers[LOCAL_MOMENTS] = (void *) localMoments;
     devBuffers[LOCAL_PARTICLE_CORES] = (void *) localParticleCores;
     devBuffers[LOCAL_PARTICLE_VARS] = (void *) localParticleVars;
     int basePE = CkMyPe() - CkMyPe() % CkMyNodeSize();
     thisProxy[basePE].finishDevBufferSync();
-#endif
   }
 
   void populateDeviceBufferTable(intptr_t remoteMoments, intptr_t remoteParticleCores) {
-#ifdef CUDA
     void **devBuffers = getdevBuffers();
     devBuffers[REMOTE_MOMENTS] = (void *) remoteMoments;
     devBuffers[REMOTE_PARTICLE_CORES] = (void *) remoteParticleCores;
     int basePE = CkMyPe() - CkMyPe() % CkMyNodeSize();
     thisProxy[basePE].finishDevBufferSyncRemoteChunk();
-#endif
   }
 
   void finishDevBufferSync();
   void finishDevBufferSyncRemoteChunk();
 
   void purgeBufferTables(const CkCallback& cb) {
-#ifdef CUDA
     void **devBuffers = getdevBuffers();
     devBuffers[LOCAL_MOMENTS] = NULL;
     devBuffers[LOCAL_PARTICLE_CORES] = NULL;
@@ -361,7 +357,6 @@ class DataManagerHelper : public CBase_DataManagerHelper {
     hostBuffers[LOCAL_MOMENTS] = NULL;
     hostBuffers[LOCAL_PARTICLE_CORES] = NULL;
     hostBuffers[LOCAL_PARTICLE_VARS] = NULL;
-#endif
     contribute(cb);
   }
 
@@ -372,5 +367,6 @@ class DataManagerHelper : public CBase_DataManagerHelper {
   }
 
 };
+#endif
 
 #endif //DATAMANAGER_H
