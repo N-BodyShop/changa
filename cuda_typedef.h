@@ -42,7 +42,8 @@ typedef cosmoType hosttype;
 
 #endif
 
-#define TP_LARGE_PHASE_THRESHOLD_DEFAULT 0.3
+// TODO: Fix small phase code
+#define TP_LARGE_PHASE_THRESHOLD_DEFAULT 0.0
 #define AVG_SOURCE_PARTICLES_PER_ACTIVE 10 
 
 /** @brief 3D vector of cudatype.

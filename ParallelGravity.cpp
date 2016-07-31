@@ -743,8 +743,8 @@ Main::Main(CkArgMsg* m) {
               sizeof(double),"remoteresumeparts", "Num. remote resume particle interactions allowed per CUDA request");
 
           largePhaseThreshold = TP_LARGE_PHASE_THRESHOLD_DEFAULT;
-          prmAddParam(prm, "largePhaseThreshold", paramDouble, &largePhaseThreshold,
-              sizeof(double),"largephasethresh", "Ratio of active to total particles at which all particles (not just active ones) are sent to gpu in the target buffer (No source particles are sent.)");
+//          prmAddParam(prm, "largePhaseThreshold", paramDouble, &largePhaseThreshold,
+//              sizeof(double),"largephasethresh", "Ratio of active to total particles at which all particles (not just active ones) are sent to gpu in the target buffer (No source particles are sent.)");
 
 #endif
 
