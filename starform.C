@@ -151,6 +151,8 @@ void Main::FormStars(double dTime, double dDelta)
 #else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
+    double tTB = CkWallTimer() - startTime;
+    timings[PHASE_FEEDBACK].tTBuild += tTB;
     DensitySmoothParams pDen(TYPE_GAS, 0);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
     treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
@@ -178,8 +180,10 @@ void Main::FormStars(double dTime, double dDelta)
     treeProxy.finishNodeCache(CkCallbackResumeThread());
 
     addDelParticles();
-    CkPrintf("Star Formation Calculated, Wallclock %f secs\n",
-	     CkWallTimer() - startTime);
+    double tSF = CkWallTimer() - startTime;
+    timings[PHASE_FEEDBACK].tGrav += tSF; // Overload meaning of tGrav
+                                          // for SF/Feedback
+    CkPrintf("Star Formation Calculated, Wallclock %f secs\n", tSF);
     }
 
 ///

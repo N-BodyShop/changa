@@ -474,6 +474,33 @@ class Main : public CBase_Main {
        double wallTimeStart;
 #endif
 
+       /// @brief Hold wall clock timings of calculation phases for a
+       /// given rung.
+       class timing_fields {
+       public:
+           int count;           ///< number of times on this rung
+           double tGrav;        ///< Gravity time
+           double tuDot;        ///< Energy integration
+           double tDD;          ///< Domain Decomposition
+           double tLoadB;       ///< Load Balancing
+           double tTBuild;      ///< Tree Building
+           double tAdjust;      ///< Timestep adjustment
+           double tEmergAdjust; ///< Emergency Timestep adjustment
+           double tKick;        ///< Kick time
+           double tDrift;       ///< Drift time
+           double tCache;       ///< Cache teardown
+       public:
+           ///@brief Zero out fields
+           void clear() {
+               count = 0;
+               tGrav = tuDot = tDD = tLoadB = tTBuild = tAdjust
+                   = tEmergAdjust = tKick = tDrift = tCache = 0.0;
+               }
+           };
+       
+       CkVec<timing_fields> timings;  ///< One element for each rung.
+       void writeTimings(int iStep);
+
 #ifdef SELECTIVE_TRACING
        int monitorRung;
        int monitorStart;
@@ -499,7 +526,8 @@ public:
 	void initialForces();
 	void doSimulation();
 	void restart(CkCheckpointStatusMsg *msg);
-	void waitForGravity(const CkCallback &cb, double startTime);
+	void waitForGravity(const CkCallback &cb, double startTime,
+            int activeRung);
         void advanceBigStep(int);
 	int adjust(int iKickRung);
 	void rungStats();
