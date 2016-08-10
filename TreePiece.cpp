@@ -3748,7 +3748,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
     }// end else (target not active)
   }// end while
 
-#if !defined(CUDA)
+#if INTERLIST_VER > 0 && !defined(CUDA)
   if (useckloop) {
     // Use ckloop to parallelize force calculation and this will update the
     // counterArrays as well.
@@ -3796,6 +3796,7 @@ void doWorkForCkLoop(int start, int end, void *result, int pnum, void * param) {
 }
 
 void TreePiece::doParallelNextBucketWork(int idx, LoopParData* lpdata) {
+#if INTERLIST_VER > 0
   GenericTreeNode* lowestNode = lpdata->lowNodes[idx];
   int currentBucket = lpdata->bucketids[idx];
   int chunkNum = lpdata->chunkids[idx];
@@ -3805,6 +3806,9 @@ void TreePiece::doParallelNextBucketWork(int idx, LoopParData* lpdata) {
   sGravity->stateReadyPar(this,
       currentBucket, endBucket, lpdata->clists[idx], lpdata->rpilists[idx],
       lpdata->lpilists[idx]);
+#else
+  CkAbort("Ckloop not implemented for non-interaction list gravity");
+#endif
 }
 
 /// This function could be replaced by the doAllBuckets() call.
@@ -4144,7 +4148,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
   }// end while i < yieldPeriod and currentRemote Bucket < numBuckets
 
 
-#if !defined(CUDA)
+#if INTERLIST_VER > 0 && !defined(CUDA)
   if (useckloop) {
     // Now call ckloop parallelization function which will execute the force
     // calculation in parallel and update the counterArrays.
@@ -4328,6 +4332,7 @@ int TreePiece::doBookKeepingForTargetInactive(int chunkNum, bool updatestate,
 // gravityState contains the state of the walk
 void TreePiece::executeCkLoopParallelization(LoopParData *lpdata,
     int startbucket, int yield_num, int chunkNum, State* gravityState) {
+#if INTERLIST_VER > 0
   // This num_chunks is related to ckloop.
   int num_chunks = 2 * CkMyNodeSize();
   // CkLoop library limits the number of chunks to be 64.
@@ -4386,6 +4391,9 @@ void TreePiece::executeCkLoopParallelization(LoopParData *lpdata,
       doBookKeepingForTargetInactive(chunkNum, true, gravityState);
     }
   }// end while i < yieldPeriod and currentRemote Bucket < numBuckets
+#else
+  CkAbort("CkLoop not implemented for non-interaction list gravity");
+#endif
 }
 
 #ifdef CUDA
