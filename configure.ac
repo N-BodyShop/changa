@@ -61,6 +61,18 @@ if test "${MISSING_XDR}" = "yes" ; then
    LDFLAGS="$LDFLAGS -L../xdr"
 fi
 
+# Use single-precision for gravity calculations
+AC_ARG_ENABLE([float],
+	[AS_HELP_STRING([--enable-float], [use single-precision for gravity calculations])],
+	[float=$enableval], [float=no])
+if test "$float" = "yes" ; then
+    echo "float selected"
+    FLAG_FLOAT="-DCOSMO_FLOAT"
+else
+    FLAG_FLOAT=""
+fi
+AC_SUBST([FLAG_FLOAT])
+
 # SSE2 vector optimization for gravity
 AC_ARG_ENABLE([sse2],
 	[AS_HELP_STRING([--enable-sse2], [enable sse2 gravity vectorization])],

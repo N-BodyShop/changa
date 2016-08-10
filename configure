@@ -639,6 +639,7 @@ FLAG_BIGKEYS
 FLAG_CHANGESOFT
 FLAG_AVX
 FLAG_SSE
+FLAG_FLOAT
 EGREP
 GREP
 CPP
@@ -696,6 +697,7 @@ SHELL'
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
+enable_float
 enable_sse2
 enable_avx
 enable_changesoft
@@ -1331,6 +1333,7 @@ Optional Features:
   --disable-option-checking  ignore unrecognized --enable/--with options
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+  --enable-float          use single-precision for gravity calculations
   --enable-sse2           enable sse2 gravity vectorization
   --enable-avx            enable avx gravity vectorization
   --enable-changesoft     enable physical softening
@@ -3896,6 +3899,22 @@ if test "${MISSING_XDR}" = "yes" ; then
    CPPFLAGS="$CPPFLAGS -I.."
    LDFLAGS="$LDFLAGS -L../xdr"
 fi
+
+# Use single-precision for gravity calculations
+# Check whether --enable-float was given.
+if test "${enable_float+set}" = set; then :
+  enableval=$enable_float; float=$enableval
+else
+  float=no
+fi
+
+if test "$float" = "yes" ; then
+    echo "float selected"
+    FLAG_FLOAT="-DCOSMO_FLOAT"
+else
+    FLAG_FLOAT=""
+fi
+
 
 # SSE2 vector optimization for gravity
 # Check whether --enable-sse2 was given.
