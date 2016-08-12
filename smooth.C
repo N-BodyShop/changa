@@ -499,6 +499,34 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
   OrientedBox<double> bndSmoothAct; // bounding box for smoothActive particles
   double dKeyMaxBucket = 0.0;
   
+  double dSearchMax = DBL_MAX;
+  
+  if(!bEnough) {
+      int bStarSrc = 0;
+      OrientedBox<double> bndSmoothTmp; // bounding box for smoothActive particles
+      for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
+          GravityParticle *p = &tp->myParticles[j];
+          if(params->isSmoothActive(p) && p->isStar()) {
+              bStarSrc = 1;
+              bndSmoothTmp.grow(p->position);
+              }
+          }
+      // doing stars -> gas
+      // Set maximum search to largest gas search plus safety margin
+      if(bStarSrc && (params->iType == TYPE_GAS)) {
+          double dGasBallMax = 0.0;
+          for(int k = firstQueue; k < lastQueue; k++) {
+	      if(!TYPETest(&tp->myParticles[k], params->iType))
+		  continue;
+              double dGasBall = tp->myParticles[k].fBall;
+              if(dGasBall > dGasBallMax)
+                  dGasBallMax = dGasBall;
+	      }
+          if(dGasBallMax > 0.0)
+              dSearchMax = pow(dGasBallMax*4.0 + (bndSmoothTmp.size()).length(), 2);
+          }
+      }
+  
   for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
       if(!params->isSmoothActive(&tp->myParticles[j]))
 	  continue;
@@ -525,7 +553,7 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
       if(bEnough)
 	  pqNew.fKey = drMax2;
       else
-	  pqNew.fKey = DBL_MAX;
+	  pqNew.fKey = dSearchMax;
       //
       // For FastGas, we have a limit on the size of the search ball.
       //
