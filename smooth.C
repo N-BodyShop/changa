@@ -345,6 +345,7 @@ void TreePiece::startSmooth(// type of smoothing and parameters
 
   LBTurnInstrumentOn();         // Be sure the Load Balancer is running.
   CkAssert(nSmooth > 0);
+  CkAssert(root->nSPH == nTotalSPH);
   cbSmooth = cb;
   activeRung = params->activeRung;
 
@@ -502,6 +503,11 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
   double dSearchMax = DBL_MAX;
   
   if(!bEnough) {
+#if 0
+/// This optimization is specific to the "Distribute Stellar
+/// Feedback".  It might not be necessary because the next
+/// optimization (largest node containing enough particles) is good
+/// enough and more general.
       int bStarSrc = 0;
       OrientedBox<double> bndSmoothTmp; // bounding box for smoothActive particles
       for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
@@ -513,7 +519,7 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
           }
       // doing stars -> gas
       // Set maximum search to largest gas search plus safety margin
-      if(bStarSrc && (params->iType == TYPE_GAS)) {
+      if(bStarSrc && (params->iType == TYPE_GAS) && (tp->myNumSPH > 0)) {
           double dGasBallMax = 0.0;
           for(int k = firstQueue; k < lastQueue; k++) {
 	      if(!TYPETest(&tp->myParticles[k], params->iType))
@@ -524,6 +530,21 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 	      }
           if(dGasBallMax > 0.0)
               dSearchMax = pow(dGasBallMax*4.0 + (bndSmoothTmp.size()).length(), 2);
+          }
+#endif
+      // Search for largest node containing enough particles.
+      if(params->iType == TYPE_GAS) {
+          GenericTreeNode *parent = tp->root;
+          int which = parent->whichChild(myNode->getKey());
+          GenericTreeNode *node = parent->getChildren(which);
+          while(node->nSPH > nSmooth) {
+              parent = node;
+              which = parent->whichChild(myNode->getKey());
+              node = parent->getChildren(which);
+              }
+          double dNodeSize = (parent->boundingBox.size()).lengthSquared();
+          if(dNodeSize < dSearchMax)
+              dSearchMax = dNodeSize;
           }
       }
   

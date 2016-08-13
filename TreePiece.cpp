@@ -2608,7 +2608,8 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
           opts.setPriority((unsigned int) -100000000);
 	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(),
       node->firstParticle, node->particleCount, thisIndex, node->moments,
-      node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
+              node->boundingBox, node->bndBoxBall, node->iParticleTypes,
+              node->nSPH, &opts);
     }
       delete l;
       momentRequests.erase(node->getKey());
@@ -2727,6 +2728,7 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
 	  node->moments += child->moments;
 	  node->bndBoxBall.grow(child->bndBoxBall);
 	  node->iParticleTypes |= child->iParticleTypes;
+          node->nSPH += child->nSPH;
 	  }
       if (child->rungs > node->rungs) node->rungs = child->rungs;
     } else if (child->getType() == Empty) {
@@ -2743,6 +2745,7 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
 	  node->moments += child->moments;
 	  node->bndBoxBall.grow(child->bndBoxBall);
 	  node->iParticleTypes |= child->iParticleTypes;
+          node->nSPH += child->nSPH;
 	  }
       if (child->rungs > node->rungs) node->rungs = child->rungs;
     }
@@ -2938,7 +2941,8 @@ void TreePiece::processRemoteRequestsForMoments(){
           opts.setPriority((unsigned int) -100000000);
 	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(),
       node->firstParticle, node->particleCount, thisIndex, node->moments,
-      node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
+      node->boundingBox, node->bndBoxBall, node->iParticleTypes,
+              node->nSPH, &opts);
       }
       delete l;
       momentRequests.erase(node->getKey());
@@ -3149,6 +3153,7 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
         node->boundingBox.grow(child->boundingBox);
         node->bndBoxBall.grow(child->bndBoxBall);
 	node->iParticleTypes |= child->iParticleTypes;
+        node->nSPH += child->nSPH;
       }
       if (child->rungs > node->rungs) node->rungs = child->rungs;
     } else if (child->getType() == Empty) {
@@ -3171,6 +3176,7 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
         node->boundingBox.grow(child->boundingBox);
         node->bndBoxBall.grow(child->bndBoxBall);
 	node->iParticleTypes |= child->iParticleTypes;
+        node->nSPH += child->nSPH;
       }
       // for the rung information we can always do now since it is a local property
       if (child->rungs > node->rungs) node->rungs = child->rungs;
@@ -3214,6 +3220,7 @@ void TreePiece::growBottomUp(GenericTreeNode *node) {
       node->boundingBox.grow(child->boundingBox);
       node->bndBoxBall.grow(child->bndBoxBall);
       node->iParticleTypes |= child->iParticleTypes;
+      node->nSPH += child->nSPH;
     }
     if (child->rungs > node->rungs) node->rungs = child->rungs;
   }
@@ -3265,7 +3272,8 @@ void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
       opts.setPriority((unsigned int) -100000000);
       streamingProxy[sender].receiveRemoteMoments(key, node->getType(),
         node->firstParticle, node->particleCount, thisIndex, node->moments,
-        node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
+        node->boundingBox, node->bndBoxBall, node->iParticleTypes,
+          node->nSPH, &opts);
       return;
   }
 
@@ -3309,7 +3317,8 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
 				     const MultipoleMoments& moments,
 				     const OrientedBox<double>& box,
 				     const OrientedBox<double>& boxBall,
-				     const unsigned int iParticleTypes) {
+                                     const unsigned int iParticleTypes,
+                                     const int64_t nSPH) {
   GenericTreeNode *node = keyToNode(key);
   CkAssert(node != NULL);
   MERGE_REMOTE_REQUESTS_VERBOSE("[%d] receiveRemoteMoments %llu\n",thisIndex,key);
@@ -3326,6 +3335,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
     node->boundingBox = box;
     node->bndBoxBall = boxBall;
     node->iParticleTypes = iParticleTypes;
+    node->nSPH = nSPH;
     node->remoteIndex = remIdx;
   }
 
@@ -3392,7 +3402,7 @@ GenericTreeNode *TreePiece::boundaryParentReady(GenericTreeNode *parent){
       streamingProxy[(*l)[i]].receiveRemoteMoments(parent->getKey(),
         parent->getType(), parent->firstParticle, parent->particleCount,
         thisIndex, parent->moments, parent->boundingBox, parent->bndBoxBall,
-        parent->iParticleTypes, &opts);
+          parent->iParticleTypes, parent->nSPH, &opts);
     }
     delete l;
     momentRequests.erase(parent->getKey());
@@ -3416,6 +3426,7 @@ void TreePiece::accumulateMomentsFromChild(GenericTreeNode *parent, GenericTreeN
   parent->boundingBox.grow(child->boundingBox);
   parent->bndBoxBall.grow(child->bndBoxBall);
   parent->iParticleTypes |= child->iParticleTypes;
+  parent->nSPH += child->nSPH;
 }
 
 /// @brief determine if moments of node have been requested.
@@ -3446,7 +3457,8 @@ void TreePiece::deliverMomentsToClients(const std::map<NodeKey,NonLocalMomentsCl
     MERGE_REMOTE_REQUESTS_VERBOSE("[%d] send %llu (%s) moments to %d\n", thisIndex, node->getKey(), typeString(node->getType()),clients[i].clientTreePiece->getIndex());
     clients[i].clientTreePiece->receiveRemoteMoments(node->getKey(),node->getType(),
       node->firstParticle,node->particleCount,node->remoteIndex,node->moments,
-      node->boundingBox,node->bndBoxBall,node->iParticleTypes);
+        node->boundingBox,node->bndBoxBall,node->iParticleTypes,
+        node->nSPH);
   }
   clients.clear();
   nonLocalMomentsClients.erase(it);
