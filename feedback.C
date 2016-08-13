@@ -140,7 +140,11 @@ void Main::StellarFeedback(double dTime, double dDelta)
     delete msgFeedback;
     CkReductionMsg *msgChk;
     treeProxy.massMetalsEnergyCheck(1, CkCallbackResumeThread((void*&)msgChk));
+    double tFB = CkWallTimer() - startTime;
+    // Overload tAdjust with FB stellar evolution
+    timings[PHASE_FEEDBACK].tAdjust += tFB;
     
+    startTime = CkWallTimer();
     if(verbosity)
       CkPrintf("Distribute Stellar Feedback ... ");
     // Need to build tree since we just did addDelParticle.
@@ -148,6 +152,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
     double tTB = CkWallTimer() - startTime;
     timings[PHASE_FEEDBACK].tTBuild += tTB;
+    startTime = CkWallTimer();
     DistStellarFeedbackSmoothParams pDSFB(TYPE_GAS, 0, param.csm, dTime, 
 					  param.dConstGamma, param.feedback);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
@@ -155,8 +160,8 @@ void Main::StellarFeedback(double dTime, double dDelta)
 			  dfBall2OverSoft2, CkCallbackResumeThread());
     treeProxy.finishNodeCache(CkCallbackResumeThread());
 
-    double tFB = CkWallTimer() - startTime;
-    timings[PHASE_FEEDBACK].tuDot += tFB; // Overload tuDot for feedback.
+    double tDFB = CkWallTimer() - startTime;
+    timings[PHASE_FEEDBACK].tuDot += tDFB; // Overload tuDot for feedback.
     CkPrintf("Stellar Feedback Calculated, Wallclock %f secs\n", tFB);
 
     CkReductionMsg *msgChk2;

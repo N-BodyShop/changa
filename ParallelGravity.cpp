@@ -2877,9 +2877,9 @@ Main::writeTimings(int iStep)
     for(int i = 0; i < timings.size(); i++) {
         if(timings[i].count) {
             if(i == PHASE_FEEDBACK) {
-                fprintf(fpTime, "# SF/Feedback: count StarForm, FeedB,   DD,      LoadB,  TBuild\n");
-                fprintf(fpTime, "               %d   %f  %f %f %f %f\n", timings[i].count,
-                        timings[i].tGrav, timings[i].tuDot,
+                fprintf(fpTime, "# SF/Feedback: count StarForm, FeedB, DistFeedB,  DD,      LoadB,  TBuild\n");
+                fprintf(fpTime, "               %d   %f  %f %f %f %f %f\n", timings[i].count,
+                        timings[i].tGrav, timings[i].tAdjust, timings[i].tuDot,
                         timings[i].tDD, timings[i].tLoadB, timings[i].tTBuild);
                 }
             else {
