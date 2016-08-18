@@ -97,7 +97,7 @@ class NodePool;
     /// The parent of this node, or null if none
     GenericTreeNode* parent;
     /// The axis-aligned bounding box of this node
-    OrientedBox<double> boundingBox;
+    OrientedBox<cosmoType> boundingBox;
     /// The bounding box including search balls of this node
     OrientedBox<double> bndBoxBall;
     /// Mask of particle types contatained in this node
@@ -127,7 +127,7 @@ class NodePool;
     int numBucketsBeneath;
     int startBucket;
 #ifdef CUDA
-    // index in nodeinfo array
+    /// index in moments array sent to GPU
     int nodeArrayIndex;
     int bucketArrayIndex;
     bool wasNeg;
@@ -212,6 +212,7 @@ class NodePool;
 #if INTERLIST_VER > 0
       numBucketsBeneath = 1;
 #endif
+      calculateRadiusBox(moments, boundingBox);	/* set initial size */
       boundingBox.reset();
       bndBoxBall.reset();
       iParticleTypes = 0;
@@ -229,7 +230,9 @@ class NodePool;
 	iParticleTypes |= part[i].iType;
         if (part[i].rung > rungs) rungs = part[i].rung;
       }
-      calculateRadiusFarthestParticle(moments, &part[firstParticle], &part[lastParticle+1]);
+      if(particleCount > 1)
+	  calculateRadiusFarthestParticle(moments, &part[firstParticle],
+					  &part[lastParticle+1]);
     }
 
     inline void makeEmpty() {

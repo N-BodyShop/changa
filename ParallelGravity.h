@@ -23,7 +23,7 @@
 #include "parameters.h"
 #include "param.h"
 #include "dumpframe.h"
-#include "liveViz.h"
+#include <liveViz.h>
 
 #include "TaggedVector3D.h"
 
@@ -143,6 +143,9 @@ extern CProxy_TreePiece treeProxy;
 #ifdef REDUCTION_HELPER
 extern CProxy_ReductionHelper reductionHelperProxy;
 #endif
+#ifdef CUDA
+extern CProxy_DataManagerHelper dmHelperProxy;
+#endif
 extern CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 extern CProxy_LvArray smoothProxy;  // Proxy for smooth reduction
 extern CProxy_LvArray gravityProxy; // Proxy for gravity reduction
@@ -188,8 +191,8 @@ extern int remoteResumePartsPerReq;
 
 extern double largePhaseThreshold;
 
-extern double theta;
-extern double thetaMono;
+extern cosmoType theta;
+extern cosmoType thetaMono;
 
 extern int numInitDecompBins;
 extern int octRefineLevel;
@@ -564,7 +567,7 @@ typedef CkVec<UndecidedList> UndecidedLists;
 typedef struct particlesInfoR{
     ExternalGravityParticle* particles;
     int numParticles;
-    Vector3D<double> offset;
+    Vector3D<cosmoType> offset;
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
     NodeKey key;
 #endif
@@ -577,7 +580,7 @@ typedef struct particlesInfoR{
 typedef struct particlesInfoL{
     GravityParticle* particles;
     int numParticles;
-    Vector3D<double> offset;
+    Vector3D<cosmoType> offset;
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
     NodeKey key;
 #endif
@@ -1102,10 +1105,10 @@ private:
 
 	/// Periodic Boundary stuff
 	int bPeriodic;
-	Vector3D<double> fPeriod;
-        int bComove;
-        /// Background density of the Universe
-        double dRhoFac;
+	int bComove;
+	/// Background density of the Universe
+	double dRhoFac;
+	Vector3D<cosmoType> fPeriod;
 	int nReplicas;
 	int bEwald;		/* Perform Ewald */
 	double fEwCut;
@@ -1490,9 +1493,10 @@ public:
           if (verbosity>1) ckout <<"Finished deallocation of treepiece "<<thisIndex<<endl;
 	}
 
-	void setPeriodic(int nReplicas, Vector3D<double> fPeriod, int bEwald,
+	void setPeriodic(int nReplicas, Vector3D<cosmoType> fPeriod, int bEwald,
 			 double fEwCut, double fEwhCut, int bPeriod,
                          int bComove, double dRhoFac);
+	void restart();
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit();
 	void calculateEwald(dummyMsg *m);
@@ -1887,13 +1891,13 @@ public:
         // need this in TreeWalk
         GenericTreeNode *getRoot() {return root;}
         // need this in Compute
-	inline Vector3D<double> decodeOffset(int reqID) {
+	inline Vector3D<cosmoType> decodeOffset(int reqID) {
 	    int offsetcode = reqID >> 22;
 	    int x = (offsetcode & 0x7) - 3;
 	    int y = ((offsetcode >> 3) & 0x7) - 3;
 	    int z = ((offsetcode >> 6) & 0x7) - 3;
 
-	    Vector3D<double> offset(x*fPeriod.x, y*fPeriod.y, z*fPeriod.z);
+	    Vector3D<cosmoType> offset(x*fPeriod.x, y*fPeriod.y, z*fPeriod.z);
 
 	    return offset;
 	    }
@@ -1936,7 +1940,7 @@ public:
         void sendParticlesDuringDD(bool withqd);
         void mergeAllParticlesAndSaveCentroid();
         bool otherIdlePesAvail();
-
+        void walkBucketTree(GenericTreeNode*, int);
 };
 
 /// @brief Class for shadow arrays to avoid reduction conflicts in

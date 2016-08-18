@@ -62,6 +62,9 @@ CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
 #ifdef REDUCTION_HELPER
 CProxy_ReductionHelper reductionHelperProxy;
 #endif
+#ifdef CUDA
+CProxy_DataManagerHelper dmHelperProxy;
+#endif
 CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 CProxy_LvArray smoothProxy; // Proxy for smooth reductions
 CProxy_LvArray gravityProxy; // Proxy for gravity reductions
@@ -111,8 +114,8 @@ int remoteResumePartsPerReq;
 // switch threshold
 double largePhaseThreshold;
 
-double theta;
-double thetaMono;
+cosmoType theta;
+cosmoType thetaMono;
 
 int boundaryEvaluationUE;
 int weightBalanceUE;
@@ -740,8 +743,8 @@ Main::Main(CkArgMsg* m) {
               sizeof(double),"remoteresumeparts", "Num. remote resume particle interactions allowed per CUDA request");
 
           largePhaseThreshold = TP_LARGE_PHASE_THRESHOLD_DEFAULT;
-          prmAddParam(prm, "largePhaseThreshold", paramDouble, &largePhaseThreshold,
-              sizeof(double),"largephasethresh", "Ratio of active to total particles at which all particles (not just active ones) are sent to gpu in the target buffer (No source particles are sent.)");
+//          prmAddParam(prm, "largePhaseThreshold", paramDouble, &largePhaseThreshold,
+//              sizeof(double),"largephasethresh", "Ratio of active to total particles at which all particles (not just active ones) are sent to gpu in the target buffer (No source particles are sent.)");
 
 #endif
 
@@ -1125,7 +1128,9 @@ Main::Main(CkArgMsg* m) {
 #ifdef REDUCTION_HELPER
         reductionHelperProxy = CProxy_ReductionHelper::ckNew();
 #endif
-
+#ifdef CUDA
+        dmHelperProxy = CProxy_DataManagerHelper::ckNew();
+#endif
 	opts.bindTo(treeProxy);
 	lvProxy = CProxy_LvArray::ckNew(opts);
 	// Create an array for the smooth reductions
@@ -1630,7 +1635,9 @@ void Main::advanceBigStep(int iStep) {
     CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
     CkCallback cbGravity(CkCallback::resumeThread);
-
+#ifdef CUDA
+    //dmHelperProxy.purgeBufferTables(CkCallbackResumeThread());
+#endif
     if(verbosity > 1)
 	memoryStats();
     if(param.bDoGravity) {

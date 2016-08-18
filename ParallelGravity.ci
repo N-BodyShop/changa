@@ -12,6 +12,9 @@ mainmodule ParallelGravity {
 #ifdef REDUCTION_HELPER
   readonly CProxy_ReductionHelper reductionHelperProxy;
 #endif
+#ifdef CUDA
+  readonly CProxy_DataManagerHelper dmHelperProxy;
+#endif
   readonly CProxy_LvArray lvProxy;
   readonly CProxy_LvArray smoothProxy;
   readonly CProxy_LvArray gravityProxy;
@@ -209,7 +212,9 @@ mainmodule ParallelGravity {
         const CkCallback& cb);
     //entry [local,exclusive] void notifyPresence(int index, Tree::GenericTreeNode *root);
     entry void combineLocalTrees(CkReductionMsg *m);
+#ifdef CUDA
     entry void clearInstrument(CkCallback &cb);
+#endif
     entry void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 			 COOLPARAM inParam, const CkCallback& cb);
@@ -220,6 +225,20 @@ mainmodule ParallelGravity {
     entry void resetReadOnly(Parameters param, const CkCallback &cb);
     entry void initStarLog(std::string _fileName, const CkCallback &cb);
   };
+
+#ifdef CUDA
+  group [migratable] DataManagerHelper {
+    entry DataManagerHelper();
+
+    entry void populateDeviceBufferTable(intptr_t localMoments, intptr_t localParticleCores, intptr_t localParticleVars);
+    entry void populateDeviceBufferTable(intptr_t remoteMoments, intptr_t remoteParticleCores);
+    entry void transferLocalTreeCallback();
+    entry void transferRemoteChunkCallback();
+    entry void finishDevBufferSync();
+    entry void finishDevBufferSyncRemoteChunk();
+    entry void purgeBufferTables(const CkCallback& cb);
+  }
+#endif
 
   array [1D] TreePiece {
     entry TreePiece();
@@ -236,10 +255,11 @@ mainmodule ParallelGravity {
     entry void nextBucketMarkSmooth(dummyMsg *msg);
     //entry void registerWithDataManager(const CkGroupID& dataManagerID,
     //		     		  const CkCallback& cb);
-    entry void setPeriodic(int nReplicas, Vector3D<double> fPeriod, int bEwald,
+
+    entry void setPeriodic(int nReplicas, Vector3D<cosmoType> fPeriod, int bEwald,
                            double fEwCut, double fEwhCut, int bPeriod,
                            int bComove, double dRhoFac);
-    entry void EwaldInit();
+    entry [notrace] void EwaldInit();
     entry [notrace] void initCoolingData(const CkCallback& cb);
     entry void calculateEwald(dummyMsg *m);
     entry [notrace] void EwaldGPUComplete(); 

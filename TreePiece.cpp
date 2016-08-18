@@ -78,7 +78,7 @@ const char *typeString(NodeType type);
  */
 void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
 					  // each direction
-			    Vector3D<double> fPeriodPar, // Size of periodic box
+			    Vector3D<cosmoType> fPeriodPar, // Size of periodic box
 			    int bEwaldPar,     // Use Ewald summation
 			    double fEwCutPar,  // Cutoff on real summation
 			    double dEwhCutPar, // Cutoff on Fourier summation
@@ -3661,6 +3661,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
 
       CkAssert(currentBucket >= startBucket);
 
+#if !defined(CUDA)
       if (useckloop) {
         lpdata->lowNodes.insertAtEnd(lowestNode);
         lpdata->bucketids.insertAtEnd(currentBucket);
@@ -3676,7 +3677,9 @@ void TreePiece::nextBucket(dummyMsg *msg){
         lpdata->clists.insertAtEnd(cl);
         lpdata->rpilists.insertAtEnd(rp);
         lpdata->lpilists.insertAtEnd(lp);
-      } else {
+      } else
+#endif
+	{
         sGravity->stateReady(sLocalGravityState, this, -1, currentBucket, end);
       }
 #ifdef CHANGA_REFACTOR_MEMCHECK
@@ -3745,6 +3748,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
     }// end else (target not active)
   }// end while
 
+#if !defined(CUDA)
   if (useckloop) {
     // Use ckloop to parallelize force calculation and this will update the
     // counterArrays as well.
@@ -3752,6 +3756,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
       sLocalGravityState);
     delete lpdata;
   }
+#endif
 
   if (currentBucket<numBuckets) {
     thisProxy[thisIndex].nextBucket(msg);
@@ -3902,11 +3907,13 @@ void TreePiece::calculateEwaldUsingCkLoop(dummyMsg *msg, int yield_num) {
     double timeforckloop;
     LBTurnInstrumentOff();
     double stime = CkWallTimer();
+
 #if CMK_SMP
     CkLoop_Parallelize(doCalcEwald, 1, lpdata, num_chunks, start, end-1, 1, &timeforckloop, CKLOOP_DOUBLE_SUM);
 #else
     CkAbort("CkLoop usage only in SMP mode\n");
 #endif
+
     double etime = CkWallTimer() - stime;
 
     setObjTime(timebeforeckloop + timeforckloop);
@@ -4071,6 +4078,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 
       // When using ckloop to parallelize force calculation, first the list is
       // populated with nodes and particles with which the force is calculated.
+#if !defined(CUDA)
       if (useckloop) {
         lpdata->lowNodes.insertAtEnd(lowestNode);
         lpdata->bucketids.insertAtEnd(sRemoteGravityState->currentBucket);
@@ -4085,7 +4093,9 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
         lpdata->clists.insertAtEnd(cl);
         lpdata->rpilists.insertAtEnd(rp);
         lpdata->lpilists.insertAtEnd(lp);
-      } else {
+      } else
+#endif
+	{
         sGravity->stateReady(sRemoteGravityState, this, msg->chunkNum, sRemoteGravityState->currentBucket, end);
       }
 #ifdef CHANGA_REFACTOR_MEMCHECK
@@ -4136,6 +4146,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
   }// end while i < yieldPeriod and currentRemote Bucket < numBuckets
 
 
+#if !defined(CUDA)
   if (useckloop) {
     // Now call ckloop parallelization function which will execute the force
     // calculation in parallel and update the counterArrays.
@@ -4143,6 +4154,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       sRemoteGravityState);
     delete lpdata;
   }
+#endif
 
   if (sRemoteGravityState->currentBucket < numBuckets) {
     thisProxy[thisIndex].calculateGravityRemote(msg);
@@ -5178,6 +5190,120 @@ const GravityParticle *TreePiece::lookupParticles(int begin) {
   return &myParticles[begin];
 }
 
+/*
+ * For cached version we have 2 walks: one for on processor and one
+ * that hits the cache. This does the local computation
+ * When remote data is needed we go to the second version.
+ */
+
+
+// Walk a node evalutating its force on a bucket
+//
+// @param node Node to be walked
+// @param reqID request ID which encodes bucket to be worked on and
+// a replica offset if we are using periodic boundary conditions
+void TreePiece::walkBucketTree(GenericTreeNode* node, int reqID) {
+    Vector3D<cosmoType> offset = decodeOffset(reqID);
+    int reqIDlist = decodeReqID(reqID);
+#if COSMO_STATS > 0
+  myNumMACChecks++;
+#endif
+#if COSMO_PRINT > 0
+  if (node->getKey() < numChunks) CkPrintf("[%d] walk: checking %016llx\n",thisIndex,node->getKey());
+#endif
+#if COSMO_STATS > 0
+  numOpenCriterionCalls++;
+#endif
+  GenericTreeNode* reqnode = bucketList[reqIDlist];
+  if(!openCriterionBucket(node, reqnode, offset, localIndex)) {
+      // Node is well separated; evaluate the force
+#if COSMO_STATS > 1
+    MultipoleMoments m = node->moments;
+    for(int i = reqnode->firstParticle; i <= reqnode->lastParticle; ++i)
+      myParticles[i].intcellmass += m.totalMass;
+#endif
+#if COSMO_PRINT > 1
+    CkPrintf("[%d] walk bucket %s -> node %s\n",thisIndex,keyBits(bucketList[reqIDlist]->getKey(),63).c_str(),keyBits(node->getKey(),63).c_str());
+#endif
+#if COSMO_DEBUG > 1
+    bucketcheckList[reqIDlist].insert(node->getKey());
+    combineKeys(node->getKey(),reqIDlist);
+#endif
+#if COSMO_PRINT > 0
+    if (node->getKey() < numChunks) CkPrintf("[%d] walk: computing %016llx\n",thisIndex,node->getKey());
+#endif
+#ifdef COSMO_EVENTS
+    double startTimer = CmiWallTimer();
+#endif
+#ifdef HPM_COUNTER
+    hpmStart(1,"node force");
+#endif
+    int computed = nodeBucketForce(node, reqnode, myParticles, offset, activeRung);
+#ifdef HPM_COUNTER
+    hpmStop(1);
+#endif
+#ifdef COSMO_EVENTS
+    traceUserBracketEvent(nodeForceUE, startTimer, CmiWallTimer());
+#endif
+    nodeInterLocal += computed;
+  } else if(node->getType() == Bucket) {
+    int computed;
+    for(int i = node->firstParticle; i <= node->lastParticle; ++i) {
+#if COSMO_STATS > 1
+      for(int j = reqnode->firstParticle; j <= reqnode->lastParticle; ++j) {
+        //myParticles[j].intpartmass += myParticles[i].mass;
+        myParticles[j].intpartmass += node->particlePointer[i-node->firstParticle].mass;
+      }
+#endif
+#if COSMO_PRINT > 1
+      //CkPrintf("[%d] walk bucket %s -> part %016llx\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),myParticles[i].key);
+      CkPrintf("[%d] walk bucket %s -> part %016llx\n",thisIndex,keyBits(reqnode->getKey(),63).c_str(),node->particlePointer[i-node->firstParticle].key);
+#endif
+#ifdef COSMO_EVENTS
+      double startTimer = CmiWallTimer();
+#endif
+#ifdef HPM_COUNTER
+    hpmStart(2,"particle force");
+#endif
+      computed = partBucketForce(&node->particlePointer[i-node->firstParticle], reqnode,
+                                 myParticles, offset, activeRung);
+#ifdef HPM_COUNTER
+    hpmStop(2);
+#endif
+#ifdef COSMO_EVENTS
+      traceUserBracketEvent(partForceUE, startTimer, CmiWallTimer());
+#endif
+    }
+    particleInterLocal += node->particleCount * computed;
+#if COSMO_DEBUG > 1
+    bucketcheckList[reqIDlist].insert(node->getKey());
+    combineKeys(node->getKey(),reqIDlist);
+#endif
+  } else if (node->getType() == NonLocal || node->getType() == NonLocalBucket) {
+    /* DISABLED: this part of the walk is triggered directly by the CacheManager and prefetching
+
+    // Use cachedWalkBucketTree() as callback
+    if(pnode) {
+      cachedWalkBucketTree(pnode, req);
+    }
+    */
+  } else if (node->getType() != Empty) {
+    // here the node can be Internal or Boundary
+#if COSMO_STATS > 0
+    nodesOpenedLocal++;
+#endif
+#if COSMO_PRINT > 0
+    if (node->getKey() < numChunks) CkPrintf("[%d] walk: opening %016llx\n",thisIndex,node->getKey());
+#endif
+    GenericTreeNode* childIterator;
+    for(unsigned int i = 0; i < node->numChildren(); ++i) {
+      childIterator = node->getChildren(i);
+      if(childIterator)
+	walkBucketTree(childIterator, reqID);
+    }
+  }
+}
+
 GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key, int chunk, int reqID, int awi, void *source, bool isPrefetch) {
 
   CkAssert(remoteIndex < (int) numTreePieces);
@@ -5657,7 +5783,7 @@ void TreePiece::printTree(GenericTreeNode* node, ostream& os) {
   }
 #ifndef HEXADECAPOLE
   if (node->getType() == Bucket || node->getType() == Internal || node->getType() == Boundary || node->getType() == NonLocal || node->getType() == NonLocalBucket)
-    os << " V "<<node->moments.radius<<" "<<node->moments.soft<<" "<<node->moments.cm.x<<" "<<node->moments.cm.y<<" "<<node->moments.cm.z<<" "<<node->moments.xx<<" "<<node->moments.xy<<" "<<node->moments.xz<<" "<<node->moments.yy<<" "<<node->moments.yz<<" "<<node->moments.zz<<" "<<node->boundingBox;
+    os << " V "<<node->moments.soft<<" "<<node->moments.cm.x<<" "<<node->moments.cm.y<<" "<<node->moments.cm.z<<" "<<node->moments.xx<<" "<<node->moments.xy<<" "<<node->moments.xz<<" "<<node->moments.yy<<" "<<node->moments.yz<<" "<<node->moments.zz<<" "<<node->boundingBox;
 #endif
   os << "\n";
 
@@ -5781,7 +5907,7 @@ void printGenericTree(GenericTreeNode* node, ostream& os) {
   }
 #ifndef HEXADECAPOLE
   if (node->getType() == Bucket || node->getType() == Internal || node->getType() == Boundary || node->getType() == NonLocal || node->getType() == NonLocalBucket)
-    os << " V "<<node->moments.radius<<" "<<node->moments.soft<<" "<<node->moments.cm.x<<" "<<node->moments.cm.y<<" "<<node->moments.cm.z<<" "<<node->moments.xx<<" "<<node->moments.xy<<" "<<node->moments.xz<<" "<<node->moments.yy<<" "<<node->moments.yz<<" "<<node->moments.zz;
+    os << " V "<<node->moments.soft<<" "<<node->moments.cm.x<<" "<<node->moments.cm.y<<" "<<node->moments.cm.z<<" "<<node->moments.xx<<" "<<node->moments.xy<<" "<<node->moments.xz<<" "<<node->moments.yy<<" "<<node->moments.yz<<" "<<node->moments.zz;
 #endif
 
   os << "\n";
@@ -5843,7 +5969,7 @@ ExternalGravityParticle *TreePiece::particlesMissed(Tree::NodeKey &key, int chun
 // It sets up a tree walk starting at node and initiates it
 void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source){
   int targetBucket = decodeReqID(reqID);
-  Vector3D<double> offset = decodeOffset(reqID);
+  Vector3D<cosmoType> offset = decodeOffset(reqID);
 
   TreeWalk *tw;
   Compute *compute;
