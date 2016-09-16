@@ -162,8 +162,6 @@ Compute.h \
 Reductions.h \
 MultistepLB.h \
 MapStructures.h \
-ScaleTranMapBG.h \
-ScaledORBMapBG.h \
 MultistepLB_notopo.h \
 Orb3dLBCommon.h \
 MultistepLB_notopo.decl.h \
@@ -396,8 +394,6 @@ MapStructures.h \
 ../utility/structures/Vector3D.h \
 ../utility/structures/OrientedBox.h \
 ../utility/structures/Shape.h \
-ScaleTranMapBG.h \
-ScaledORBMapBG.h \
 MultistepLB.decl.h \
 ParallelGravity.h \
 config.h \
