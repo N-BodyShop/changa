@@ -403,12 +403,14 @@ inline void calculateRadiusFarthestParticle(MultipoleMoments& m, const ParticleT
 		d = (cm - iter->position).lengthSquared();
 		if(d > newradius)
 			newradius = d;
-	}
-	newradius = sqrt(newradius);
+            }
+        if(newradius > 0.0) {
+            newradius = sqrt(newradius);
 #ifdef HEXADECAPOLE
-	momRescaleFmomr(&m.mom, newradius, m.radius);
+            momRescaleFmomr(&m.mom, newradius, m.radius);
 #endif
-	m.radius = newradius;
+            m.radius = newradius;
+            }
 }
 
 #endif //MULTIPOLEMOMENTS_H

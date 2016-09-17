@@ -237,6 +237,7 @@ void momScaledAddFmomr(FMOMR *mr, cosmoType ur, FMOMR *ma, cosmoType ua) {
  */
 void momRescaleFmomr(FMOMR *mr, cosmoType unew, cosmoType uold) {
     cosmoType f, s;
+    assert(unew > 0.0);
     f = uold/unew;
     s = f;
     s *= f;
