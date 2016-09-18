@@ -586,14 +586,21 @@ typedef struct particlesInfoL{
 #endif
 } LocalPartInfo;
 
+/** @brief Data needed for the CkLoop intranode parallelization.
+ *
+ * This structure holds the data that needs to be passed to a free
+ * processor so that it can calculate the gravity interactions.
+ * Each attribute is a list so that multiple buckets can be operated on.
+ */
 typedef struct LoopParDataStruct {
-  CkVec<GenericTreeNode*> lowNodes;
-  CkVec<int> bucketids;
-  CkVec<int> chunkids;
-  CkVec<CkVec<OffsetNode> > clists;
-  CkVec<CkVec<RemotePartInfo> > rpilists;
-  CkVec<CkVec<LocalPartInfo> > lpilists;
-  TreePiece* tp;
+  CkVec<GenericTreeNode*> lowNodes;  ///< Lowest node containing the
+                                     ///  buckets to interact
+  CkVec<int> bucketids;              ///< startBucket number
+  CkVec<int> chunkids;               ///< remote walk chunk number
+  CkVec<CkVec<OffsetNode> > clists;  ///< Cell interactions
+  CkVec<CkVec<RemotePartInfo> > rpilists;  ///< Remote particle interactions
+  CkVec<CkVec<LocalPartInfo> > lpilists;   ///< Local particle interactions
+  TreePiece* tp;                           ///< Treepiece that owns this data
 } LoopParData;
 
 

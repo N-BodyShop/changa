@@ -18,6 +18,7 @@
 #endif
 
 
+/// @brief Information about TreePieces on an SMP node.
 struct TreePieceDescriptor{
 	TreePiece *treePiece;
         Tree::GenericTreeNode *root;

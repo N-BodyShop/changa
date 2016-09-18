@@ -855,6 +855,7 @@ class TimeFormOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output stellar age (time since formation).
 class AgeOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p) {

@@ -705,7 +705,9 @@ void KNearestSmoothCompute::walkDone(State *state) {
 
 // From here down are "ReSmooth" methods.
 
-// called after constructor, so tp should be set
+/// @brief Allocate ReNearNeighborState
+///
+/// called after constructor, so tp should be set
 State *ReSmoothCompute::getNewState(int nBucket){
   ReNearNeighborState *state = new ReNearNeighborState(tp->myNumParticles+2);
   // array to keep track of outstanding requests
@@ -723,12 +725,12 @@ State *ReSmoothCompute::getNewState(int nBucket){
   return state;
 }
 
-/*
+/**
  * Opening criterion for the reSmoothBucket walk.
  * Return true if we must open the node.
  */
 int ReSmoothCompute::openCriterion(TreePiece *ownerTP, 
-				  GenericTreeNode *node, // Node to test
+				  GenericTreeNode *node, ///< Node to test
 				  int reqID, State *state) {
     GenericTreeNode *myNode = (GenericTreeNode *) computeEntity;
     GravityParticle *particles = ownerTP->getParticles();
@@ -750,17 +752,17 @@ int ReSmoothCompute::openCriterion(TreePiece *ownerTP,
     return 0;
 }
 
-/*
+/**
  * Test a given particle against all the priority queues in the
  * bucket.
  */
 
 void ReSmoothCompute::bucketCompare(TreePiece *ownerTP,
-				  GravityParticle *p,  // Particle to test
-				  GenericTreeNode *node, // bucket
-				  GravityParticle *particles, // local
-							      // particle data
-				  Vector3D<double> offset,
+                                  GravityParticle *p,  ///< Particle to test
+                                  GenericTreeNode *node, ///< bucket
+                                  GravityParticle *particles, ///< local
+                                                              /// particle data
+                                  Vector3D<double> offset,  ///< periodic offset
                                   State *state
 				  ) 
 {
@@ -939,6 +941,7 @@ void ReNearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
   }
 }
 
+/// @brief execute SmoothParams::fcnSmooth() for all particles in the bucket.
 void ReSmoothCompute::walkDone(State *state) {
   GenericTreeNode *node = (GenericTreeNode *) computeEntity;
   GravityParticle *part = node->particlePointer;
