@@ -258,6 +258,7 @@ double CoolCodePressureOnDensity( COOL *cl, COOLPARTICLE *cp, double uPred, doub
 #define CoolCodePressureOnDensity( cl, cp, uPred, fDensity, gammam1 ) ((gammam1)*(uPred))
 */
 
+#if 0
 struct inInitCooling {
   double dGmPerCcUnit;
   double dComovingGmPerCcUnit;
@@ -274,6 +275,7 @@ struct inInitEnergy {
 	double z;
 	double dTime;
 	};
+#endif
 
 void CoolTableReadInfo( COOLPARAM *CoolParam, int cntTable, int *nTableColumns, char *suffix );
 
