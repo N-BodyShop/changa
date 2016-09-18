@@ -69,16 +69,21 @@ class Compute{
   // Default impl is empty. Currently only redefined by ListCompute
   // Initializes state.
   virtual void initState(State *state){}
-  // virtual functions to allow for book-keeping
-  // these are essentially notifications to the
-  // Compute object from the TreeWalk that certain
-  // events have taken place - the Compute reacts
-  // accordingly.
+  /// virtual functions to allow for book-keeping
+  /// these are essentially notifications to the
+  /// Compute object from the TreeWalk that certain
+  /// events have taken place - the Compute reacts
+  /// accordingly.
   virtual void startNodeProcessEvent(State *state) {}
+  /// Allow book-keeping when finished with a node
   virtual void finishNodeProcessEvent(TreePiece *owner, State *state) {}
+  /// Allow book-keeping of a cache miss.
   virtual void nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp) {}
+  /// Allow book-keeping of a cache receive event.
   virtual void nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int bucket){}
+  /// Allow book-keeping of a cache receive event.
   virtual void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket){}
+  /// Allow book-keeping of a cache receive event.
   virtual void recvdParticlesFull(GravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket){}
   virtual ~Compute(){}
   virtual void walkDone(State *state){}
@@ -145,6 +150,11 @@ class GravityCompute : public Compute{
 };
 
 #if INTERLIST_VER > 0
+/// @brief Computations for Stadel-style interaction list walk.
+///
+/// At a given point in the walk, this compares a node against another
+/// see if it 1) has to be opened, 2) doesn't need to be opened or 3)
+/// undecided, and manipulates the lists in State accordingly.
 class ListCompute : public Compute{
 
   public:
@@ -312,6 +322,9 @@ class LocalTreeBuilder : public TreeNodeWorker {
   void registerNode(GenericTreeNode *node);
 };
 
+/** @brief TreeNodeWorker implementation that just prints out the
+ * tree.  This is just for diagnostics.
+ */
 class LocalTreePrinter : public TreeNodeWorker {
   int index;
   std::ofstream file;

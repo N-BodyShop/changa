@@ -73,11 +73,13 @@ void Compute::freeState(State *s){
 }
 
 #if INTERLIST_VER > 0
+/// @brief Version that frees a DoubleWalkState
 void ListCompute::freeState(State *s){
   freeDoubleWalkState((DoubleWalkState *)s);
   Compute::freeState(s);
 }
 
+/// @brief Free up all the lists.
 void ListCompute::freeDoubleWalkState(DoubleWalkState *state){
   for(int i = 0; i < INTERLIST_LEVELS; i++){
     state->undlists[i].free();
@@ -129,6 +131,7 @@ DoubleWalkState *ListCompute::allocDoubleWalkState(){
   return s;
 }
 
+/// @brief Version that allocates a DoubleWalkState
 State *ListCompute::getNewState(int d1, int d2){
   DoubleWalkState *s = allocDoubleWalkState();
   s->counterArrays[0] = new int [d1];
@@ -142,6 +145,7 @@ State *ListCompute::getNewState(int d1, int d2){
   return s;
 }
 
+/// @brief Version that allocates a DoubleWalkState
 State *ListCompute::getNewState(int d1){
   DoubleWalkState *s = allocDoubleWalkState();
   s->counterArrays[0] = new int [d1];
@@ -155,6 +159,7 @@ State *ListCompute::getNewState(int d1){
   return s;
 }
 
+/// @brief Version that allocates a DoubleWalkState
 State *ListCompute::getNewState(){
   DoubleWalkState *s = allocDoubleWalkState();
   s->counterArrays[0] = 0;
@@ -1284,9 +1289,11 @@ void GenericList<T>::push_back(int b, T &ilc, DoubleWalkState *state, TreePiece 
   }
 #endif
 
-// This populates the local, remote lists. Once all the nodes and particles are
-// identified with which force calculations need to be performed, this list is
-// passed on to CkLoop function where it gets parallelized.
+/// @brief Populate CkLoop Data
+///
+/// This populates the local, remote lists. Once all the nodes and particles are
+/// identified with which force calculations need to be performed, this list is
+/// passed on to CkLoop function where it gets parallelized.
 void ListCompute::fillLists(State *state_, TreePiece *tp, int chunk, int start,
     int end, CkVec<OffsetNode>& clistforb, CkVec<RemotePartInfo>& rplistforb,
     CkVec<LocalPartInfo>& lplistforb) {
@@ -1838,9 +1845,11 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 #endif // ifndef CUDA
 }
 
-// This function is called in the ckloop so multiple threads are concurrently
-// updating forces on its set of particles. Do not modify state variables of
-// TreePiece without locking.
+/// @brief CkLoop version of stateReady()
+///
+/// This function is called in the ckloop so multiple threads are concurrently
+/// updating forces on its set of particles. Do not modify state variables of
+/// TreePiece without locking.
 void ListCompute::stateReadyPar(TreePiece *tp, int start, int end,
     CkVec<OffsetNode>& clist, CkVec<RemotePartInfo>& rpilist,
     CkVec<LocalPartInfo>& lpilist) {

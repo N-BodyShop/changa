@@ -181,6 +181,7 @@ public:
     ~ReNearNeighborState() { delete [] Qs; }
 };
 
+/// @brief Class for computation over a set smoothing length
 class ReSmoothCompute : public SmoothCompute 
 {
     
@@ -212,7 +213,9 @@ public:
     // these operations were earlier carried out in the constructor of the
     // class.
     State *getNewState(int d1);
+    /// @brief default implementation
     State *getNewState(int d1, int d2) {return 0;}
+    /// @brief default implementation
     State *getNewState() {return 0;}
     };
 
