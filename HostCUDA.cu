@@ -2710,6 +2710,9 @@ __global__ void EwaldTopKernel(GravityParticleData *particleTable,
            * For small r, series expand about
            * the origin to avoid errors caused
            * by cancellation of large terms.
+           * N.B. The following uses expf(), erfcf(), etc. If these ever
+           * get changed to use double precision, then fInner2 also needs
+           * to be changed. See line 480 in Ewald.C.
            */
 
           alphan = cachedData->ka;

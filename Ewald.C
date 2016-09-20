@@ -477,7 +477,15 @@ void TreePiece::EwaldGPU() {
   roData->k1 = (cudatype) M_PI/(alpha*alpha*L*L*L);
   roData->ka = (cudatype) 2.0*alpha/sqrt(M_PI);
   roData->fEwCut2 = (cudatype) fEwCut*fEwCut*L*L;
+/*
+  Break between Taylor expansion for small r and multipole expansion.
+  This value is for double precision.
   roData->fInner2 = (cudatype) 1.2e-3*L*L;
+  The following is for single precision.  The CUDA version currently uses
+  erff() and erfcf().  If these ever get changed then the following line
+  needs to be changed accordingly.
+ */
+  roData->fInner2 = (cudatype) 1.1e-2*L*L;
 
   CkCallback *cb; 
   CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex); 
