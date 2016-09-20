@@ -2703,9 +2703,11 @@ Main::doSimulation()
 #endif
   ckout << endl << "******************" << endl << endl; 
   // Some memory cleanup
-  delete param.stfm;
-  treeProxy.ckDestroy();
-  CkWaitQD();
+  // This is just for debugging memory problems, so comment it out for
+  // now to avoid tickling QD bugs.
+  // delete param.stfm;
+  // treeProxy.ckDestroy();
+  // CkWaitQD();
   CkExit();
 }
 /**
