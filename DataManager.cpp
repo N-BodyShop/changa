@@ -35,8 +35,6 @@ DataManager::DataManager(CkMigrateMessage *m) : CBase_DataManager(m) {
 }
 
 void DataManager::init() {
-  splitters = NULL;
-  numSplitters = 0;
   root = NULL;
   oldNumChunks = 0;
   chunkRoots = NULL;
@@ -67,7 +65,7 @@ void DataManager::acceptResponsibleIndex(const int* responsible, const int n,
     contribute(cb);
     }
 
-void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb) {
+void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, uint64_t* bins, const int n, const CkCallback& cb) {
 
   //should not assign responsibility or place to a treepiece that will get no particles
   int ignored = 0;
@@ -137,37 +135,6 @@ public:
   }
 };
 
-/**
- * Collect and sort the boundaries of all treepieces so that they are
- * available to each treepiece as they do their tree build.  The
- * treebuild continues with a call to TreePiece::startOctTreeBuild.
- */
-void DataManager::collectSplitters(CkReductionMsg *m) {
-  numSplitters = m->getSize() / sizeof(SFC::Key);
-  CkAssert(! (numSplitters&1)); // must be even
-  CkAssert(numSplitters > 0);
-  delete[] splitters;
-  splitters = new SFC::Key[numSplitters];
-  SFC::Key* splits = static_cast<SFC::Key *>(m->getData());
-  std::copy(splits, splits + numSplitters, splitters);
-  // The splitters come in pairs (1st and last key of each treepiece).
-  // Sort them as pairs.
-  KeyDouble* splitters2 = (KeyDouble *)splitters;
-  std::sort(splitters2, splitters2 + (numSplitters>>1));
-  for (unsigned int i=1; i<numSplitters; ++i) {
-    if (splitters[i] < splitters[i-1]) {
-      if(CkMyNode()==0)
-        CkAbort("Keys not ordered");
-    }
-  }
-  splitters[0] = SFC::firstPossibleKey;
-  contribute(CkCallback(CkIndex_TreePiece::startOctTreeBuild(0), treePieces));
-  delete m;
-  if(verbosity > 3)
-    ckerr << "DataManager " << CkMyNode() << ": Collected splitters" << endl;
-
-}
-
 void DataManager::pup(PUP::er& p) {
     CBase_DataManager::pup(p);
     p | treePieces;
@@ -233,7 +200,9 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
     }
     root = buildProcessorTree(totalChares, &gtn[0]);
 
+#ifndef CUDA
     registeredTreePieces.removeAll();
+#endif
 
 #ifdef PRINT_MERGED_TREE
     ostringstream dmName;
@@ -446,6 +415,14 @@ int DataManager::createLookupRoots(Tree::GenericTreeNode *node, Tree::NodeKey *k
   return count;
 }
 
+/// @brief return the number of chunks and the roots of the remote
+/// walk subtrees.
+/// @param num number of chunks (returned)
+/// @param roots roots of the chunks (returned)
+/// The remote walk is broken up into "chunks", which are subtrees.
+/// This method returns the number of these chunks and the roots of
+/// the corresponding subtrees.
+
 void DataManager::getChunks(int &num, Tree::NodeKey *&roots) {
   num = oldNumChunks;
   roots = chunkRoots;
@@ -469,15 +446,24 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
      * Insert any variables that can change due to a restart.
      */
     _cacheLineDepth = param.cacheLineDepth;
+    verbosity = param.iVerbosity;
     dExtraStore = param.dExtraStore;
     dMaxBalance = param.dMaxBalance;
+    dFracLoadBalance = param.dFracLoadBalance;
     nIOProcessor = param.nIOProcessor;
+    theta = param.dTheta;
+    thetaMono = theta*theta*theta*theta;
+#if CMK_SMP
+    bUseCkLoopPar = param.bUseCkLoopPar;
+#else
+    bUseCkLoopPar = 0;
+#endif
     contribute(cb);
     // parameter structure requires some cleanup
     delete param.stfm;
     free(param.csm);
     delete param.feedback;
-    }
+}
   
 	 
 const char *typeString(NodeType type);
@@ -582,7 +568,7 @@ void DataManager::donePrefetch(int chunk){
   CmiUnlock(__nodelock);
 }
 
-typedef std::map<CkCacheKey, CkCacheEntry*> cacheType;
+typedef std::map<KeyType, CkCacheEntry<KeyType>*> cacheType;
 
 #ifdef CUDA_DM_PRINT_TREES 
 #define addNodeToList(nd, list, index) \
@@ -634,9 +620,9 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
   int numCachedParticles = 0;
   int totalNumBuckets = 0;
 
-  cacheType *wholeNodeCache = cacheNode[CkMyPe()].getCache();
+  cacheType *wholeNodeCache = cacheNode.ckLocalBranch()->getCache();
   cacheType *ctNode = &wholeNodeCache[chunk];
-  cacheType *wholePartCache = cacheGravPart[CkMyPe()].getCache();
+  cacheType *wholePartCache = cacheGravPart.ckLocalBranch()->getCache();
   cacheType *ctPart = &wholePartCache[chunk];
 
   // find out number of particles and nodes cached

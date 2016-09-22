@@ -15,6 +15,8 @@
 #define MAXPATHLEN PATH_MAX
 #endif
 
+#include <float.h>
+
 ///
 /// @brief initialize SPH quantities
 ///
@@ -27,7 +29,8 @@ Main::initSph()
 	ckout << "Calculating densities/divv ...";
 	// The following smooths all GAS, and also marks neighbors of
 	// actives, and those who have actives as neighbors.
-	DenDvDxSmoothParams pDen(TYPE_GAS, 0, param.csm, dTime, 0);
+	DenDvDxSmoothParams pDen(TYPE_GAS, 0, param.csm, dTime, 0,
+				 param.bConstantDiffusion);
 	double startTime = CkWallTimer();
 	double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
@@ -58,6 +61,11 @@ Main::initSph()
 			     CkCallbackResumeThread());
 	}
     }
+
+// see below for definition.
+bool arrayFileExists(const std::string filename, const int64_t count) ;
+
+#include <sys/stat.h>
 
 ///
 /// @brief Initialize cooling constants and integration data structures.
@@ -94,6 +102,28 @@ void Main::initCooling()
 	    }
 	}
     treeProxy.initCoolingData(CkCallbackResumeThread());
+    if(!bIsRestarting) {  // meaning not restarting from a checkpoint.
+        struct stat s;
+        int err = stat(basefilename.c_str(), &s);
+        if(err != -1 && S_ISDIR(s.st_mode)) {
+            // The file is a directory; assume NChilada
+            int64_t nGas = 0;
+            nGas = ncGetCount(basefilename + "/gas/coolontime");
+            if(nGas == nTotalSPH) {
+                CkPrintf("Reading coolontime\n");
+                coolontimeOutputParams pCoolOnOut(basefilename, 6, 0.0);
+                treeProxy.readFloatBinary(pCoolOnOut, param.bParaRead,
+                                          CkCallbackResumeThread());
+                }
+            }
+        else {
+            if(arrayFileExists(basefilename + ".coolontime", nTotalParticles)) {
+                CkPrintf("Reading coolontime\n");
+                coolontimeOutputParams pCoolOnOut(basefilename, 0, 0.0);
+                treeProxy.readTipsyArray(pCoolOnOut, CkCallbackResumeThread());
+                }
+            }
+        }
 #endif
     }
 
@@ -165,9 +195,8 @@ int Main::ReadASCII(char *extension, int nDataPerLine, double *dDataOut)
 	sprintf(achFile, "%s.%s", param.achOutName, extension);
 	fp = fopen(achFile,"r");
 	if (!fp) {
-	    if (verbosity)
-		CkPrintf("WARNING: Could not open .%s input file:%s\n",
-			 extension,achFile);
+            CkPrintf("WARNING: Could not open .%s input file:%s\n",
+                      extension,achFile);
 	    return 0;
 	    }
 
@@ -242,6 +271,22 @@ DataManager::CoolingSetTime(double z, // redshift
     }
 
 /**
+ * @brief DataManager::SetStarCM saves the total mass and center of mass of the
+ * star(s) to the COOL struct Cool, making them available to the cool particles
+ * @param dCenterOfMass Array(length 4) which contains the star(s) center of
+ * mass as the first 3 entries and the total star mass as the final entry
+ * @param cb    Callback
+ */
+void DataManager::SetStarCM(double dCenterOfMass[4], const CkCallback& cb) {
+#ifndef COOLING_NONE
+#ifdef COOLING_PLANET
+    CoolSetStarCM(Cool, dCenterOfMass);
+#endif
+#endif
+    contribute(cb);
+}
+
+/**
  *  @brief utility for checking array files
  */
 bool
@@ -249,15 +294,44 @@ arrayFileExists(const std::string filename, const int64_t count)
 {
     FILE *fp = CmiFopen(filename.c_str(), "r");
     if(fp != NULL) {
+        // Check if its a binary file
+        unsigned int iDum;
+        XDR xdrs;
+        xdrstdio_create(&xdrs, fp, XDR_DECODE);
+        xdr_u_int(&xdrs,&iDum);
+        xdr_destroy(&xdrs);
+        if(iDum == count) { // Assume a valid binary array file
+            fclose(fp);
+            return true;
+            }
+        fseek(fp, 0, SEEK_SET);
         int64_t nIOrd;
         fscanf(fp, "%ld", &nIOrd);
-        CkAssert(nIOrd == count);
+        CkAssert(nIOrd == count); // Valid ASCII file.
         fclose(fp);
         return true;
     }
     return false;
 }
 
+/// @brief Set total metals based on Ox and Fe mass fractions
+void
+TreePiece::resetMetals(const CkCallback& cb)
+{
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+        // Use total metals to Fe and O based on Asplund et al 2009
+	if (p->isGas())
+            p->fMetals() = 1.06*p->fMFracIron() + 2.09*p->fMFracOxygen();
+	if (p->isStar())
+            p->fStarMetals() = 1.06*p->fStarMFracIron()
+                + 2.09*p->fStarMFracOxygen();
+        }
+
+    contribute(cb);
+}
+
+#include <sys/stat.h>
 /**
  *  @brief Read in array files for complete gas information.
  */
@@ -267,11 +341,150 @@ Main::restartGas()
     if(verbosity)
         CkPrintf("Restarting Gas Simulation with array files.\n");
     
+  struct stat s;
+  int err = stat(basefilename.c_str(), &s);
+  if(err != -1 && S_ISDIR(s.st_mode)) {
+      // The file is a directory; assume NChilada
+      int64_t nGas = 0;
+      int64_t nDark = 0;
+      int64_t nStar = 0;
+      if(nTotalSPH > 0)
+          nGas = ncGetCount(basefilename + "/gas/iord");
+      if(nTotalDark > 0)
+          nDark = ncGetCount(basefilename + "/dark/iord");
+      if(nTotalStar > 0)
+          nStar = ncGetCount(basefilename + "/star/iord");
+      if(nGas + nDark + nStar == nTotalParticles) {
+          IOrderOutputParams pIOrdOut(basefilename, 6, 0.0);
+          treeProxy.readFloatBinary(pIOrdOut, param.bParaRead,
+                                      CkCallbackResumeThread());
+          CkReductionMsg *msg;
+          treeProxy.getMaxIOrds(CkCallbackResumeThread((void*&)msg));
+          CmiInt8 *maxIOrds = (CmiInt8 *)msg->getData();
+          nMaxOrderGas = maxIOrds[0];
+          nMaxOrderDark = maxIOrds[1];
+          nMaxOrder = maxIOrds[2];
+          delete msg;
+          }
+      else
+          CkError("WARNING: no iorder file, or wrong format for restart\n");
+      if(nTotalStar > 0)
+          nStar = ncGetCount(basefilename + "/star/igasorder");
+      if(nStar == nTotalStar) {
+          IGasOrderOutputParams pIOrdOut(basefilename, 6, 0.0);
+          treeProxy.readFloatBinary(pIOrdOut, param.bParaRead,
+                                      CkCallbackResumeThread());
+          }
+      else
+          CkError("WARNING: no igasorder file, or wrong format for restart\n");
+      if(param.bFeedback) {
+          if(nTotalSPH > 0)
+              nGas = ncGetCount(basefilename + "/gas/ESNRate");
+          if(nTotalStar > 0)
+              nStar = ncGetCount(basefilename + "/star/ESNRate");
+          if(nGas + nStar == nTotalSPH + nTotalStar) {
+              ESNRateOutputParams pESNROut(basefilename, 6, 0.0);
+              treeProxy.readFloatBinary(pESNROut, param.bParaRead,
+                                   CkCallbackResumeThread());
+              }
+          else
+              CkError("WARNING: no ESNRate file, or wrong format for restart\n");
+          if(nTotalSPH > 0)
+              nGas = ncGetCount(basefilename + "/gas/OxMassFrac");
+          if(nTotalStar > 0)
+              nStar = ncGetCount(basefilename + "/star/OxMassFrac");
+          if(nGas + nStar == nTotalSPH + nTotalStar) {
+              OxOutputParams pOxOut(basefilename, 6, 0.0);
+              treeProxy.readFloatBinary(pOxOut, param.bParaRead,
+                                   CkCallbackResumeThread());
+              }
+          else
+              CkError("WARNING: no OxMassFrac file, or wrong format for restart\n");
+          if(nTotalSPH > 0)
+              nGas = ncGetCount(basefilename + "/gas/FeMassFrac");
+          if(nTotalStar > 0)
+              nStar = ncGetCount(basefilename + "/star/FeMassFrac");
+          if(nGas + nStar == nTotalSPH + nTotalStar) {
+              FeOutputParams pFeOut(basefilename, 6, 0.0);
+              treeProxy.readFloatBinary(pFeOut, param.bParaRead,
+                                   CkCallbackResumeThread());
+              }
+          else
+              CkError("WARNING: no FeMassFrac file, or wrong format for restart\n");
+          treeProxy.resetMetals(CkCallbackResumeThread());
+
+          if(nTotalStar > 0)
+              nStar = ncGetCount(basefilename + "/star/massform");
+          if(nStar == nTotalStar) {
+              MFormOutputParams pMFOut(basefilename, 6, 0.0);
+              treeProxy.readFloatBinary(pMFOut, param.bParaRead,
+                                   CkCallbackResumeThread());
+              }
+          else
+              CkError("WARNING: no massform file, or wrong format for restart\n");
+          }
+#ifndef COOLING_NONE
+      if(param.bGasCooling && nTotalSPH > 0) {
+          bool bFoundCoolArray = false;
+          // read ionization fractions
+          nGas = ncGetCount(basefilename + "/gas/" + COOL_ARRAY0_EXT);
+          if(nGas == nTotalSPH) {
+              Cool0OutputParams pCool0Out(basefilename, 6, 0.0);
+              treeProxy.readFloatBinary(pCool0Out, param.bParaRead,
+                                   CkCallbackResumeThread());
+              bFoundCoolArray = true;
+              }
+          else
+              CkError("WARNING: no CoolArray0 file, or wrong format for restart\n");
+          nGas = ncGetCount(basefilename + "/gas/" + COOL_ARRAY1_EXT);
+          if(nGas == nTotalSPH) {
+              Cool1OutputParams pCool1Out(basefilename, 6, 0.0);
+              treeProxy.readFloatBinary(pCool1Out, param.bParaRead,
+                                   CkCallbackResumeThread());
+              bFoundCoolArray = true;
+              }
+          else
+              CkError("WARNING: no CoolArray1 file, or wrong format for restart\n");
+          nGas = ncGetCount(basefilename + "/gas/" + COOL_ARRAY2_EXT);
+          if(nGas == nTotalSPH) {
+              Cool2OutputParams pCool2Out(basefilename, 6, 0.0);
+              treeProxy.readFloatBinary(pCool2Out, param.bParaRead,
+                                   CkCallbackResumeThread());
+              bFoundCoolArray = true;
+              }
+          else
+              CkError("WARNING: no CoolArray2 file, or wrong format for restart\n");
+          nGas = ncGetCount(basefilename + "/gas/" + COOL_ARRAY3_EXT);
+          if(nGas == nTotalSPH) {
+              Cool3OutputParams pCool3Out(basefilename, 6, 0.0);
+              treeProxy.readFloatBinary(pCool3Out, param.bParaRead,
+                                   CkCallbackResumeThread());
+              bFoundCoolArray = true;
+              }
+          else
+              CkError("WARNING: no CoolArray3 file, or wrong format for restart\n");
+        double dTuFac = param.dGasConst/(param.dConstGamma-1)
+                /param.dMeanMolWeight;
+        if(bFoundCoolArray) {
+            // reset thermal energy with ionization fractions
+            treeProxy.RestartEnergy(dTuFac, CkCallbackResumeThread());
+        }
+        else {
+            double z = 1.0/csmTime2Exp(param.csm, dTime) - 1.0;
+            dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
+            treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
+            }
+      }
+#endif
+  } else {                      
+    // Assume TIPSY arrays
     // read iOrder
     if(arrayFileExists(basefilename + ".iord", nTotalParticles)) {
         CkReductionMsg *msg;
-        treeProxy.readIOrd(basefilename + ".iord",
-                           CkCallbackResumeThread((void*&)msg));
+        IOrderOutputParams pIOrdOut(basefilename, 0, 0.0);
+        treeProxy.readTipsyArray(pIOrdOut, CkCallbackResumeThread());
+
+        treeProxy.getMaxIOrds(CkCallbackResumeThread((void*&)msg));
         CmiInt8 *maxIOrds = (CmiInt8 *)msg->getData();
         nMaxOrderGas = maxIOrds[0];
         nMaxOrderDark = maxIOrds[1];
@@ -281,64 +494,84 @@ Main::restartGas()
     else
         CkError("WARNING: no iOrder file for restart\n");
     // read iGasOrder
-    if(arrayFileExists(basefilename + ".igasorder", nTotalParticles))
-        treeProxy.readIGasOrd(basefilename + ".igasorder",
-                           CkCallbackResumeThread());
+    if(arrayFileExists(basefilename + ".igasorder", nTotalParticles)) {
+        IGasOrderOutputParams pIOrdOut(basefilename, 0, 0.0);
+        treeProxy.readTipsyArray(pIOrdOut, CkCallbackResumeThread());
+        }
     else {
         CkError("WARNING: no igasorder file for restart\n");
         }
     if(param.bFeedback) {
-        if(arrayFileExists(basefilename + ".ESNRate", nTotalParticles))
-            treeProxy.readESNrate(basefilename + ".ESNRate",
-                               CkCallbackResumeThread());
-        if(arrayFileExists(basefilename + ".OxMassFrac", nTotalParticles))
-            treeProxy.readOxMassFrac(basefilename + ".OxMassFrac",
-                               CkCallbackResumeThread());
-        if(arrayFileExists(basefilename + ".FeMassFrac", nTotalParticles))
-            treeProxy.readFeMassFrac(basefilename + ".FeMassFrac",
-                               CkCallbackResumeThread());
+        if(arrayFileExists(basefilename + ".ESNRate", nTotalParticles)) {
+            ESNRateOutputParams pESNROut(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pESNROut, CkCallbackResumeThread());
+            }
+        if(arrayFileExists(basefilename + ".OxMassFrac", nTotalParticles)) {
+            OxOutputParams pOxOut(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pOxOut, CkCallbackResumeThread());
+            }
+        if(arrayFileExists(basefilename + ".FeMassFrac", nTotalParticles)) {
+            FeOutputParams pFeOut(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pFeOut, CkCallbackResumeThread());
+            }
+        treeProxy.resetMetals(CkCallbackResumeThread());
+        if(arrayFileExists(basefilename + ".massform", nTotalParticles)) {
+            MFormOutputParams pMFOut(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pMFOut, CkCallbackResumeThread());
+            }
         }
 #ifndef COOLING_NONE
     if(param.bGasCooling) {
-        // read coolontime
-        if(arrayFileExists(basefilename + ".coolontime", nTotalParticles))
-            treeProxy.readCoolOnTime(basefilename + ".coolontime",
-                               CkCallbackResumeThread());
-        else {
-            CkError("WARNING: no coolontime file for restart\n");
-            }
+        bool bFoundCoolArray = false;
         // read ionization fractions
-        if(arrayFileExists(basefilename + "." + COOL_ARRAY0_EXT, nTotalParticles))
-            treeProxy.readCoolArray0(basefilename + "." + COOL_ARRAY0_EXT,
-                                     CkCallbackResumeThread());
+        if(arrayFileExists(basefilename + "." + COOL_ARRAY0_EXT, nTotalParticles)) {
+            Cool0OutputParams pCool0Out(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pCool0Out, CkCallbackResumeThread());
+            bFoundCoolArray = true;
+            }
         else {
             CkError("WARNING: no CoolArray0 file for restart\n");
             }
-        if(arrayFileExists(basefilename + "." + COOL_ARRAY1_EXT, nTotalParticles))
-            treeProxy.readCoolArray1(basefilename + "." + COOL_ARRAY1_EXT,
-                                     CkCallbackResumeThread());
+        if(arrayFileExists(basefilename + "." + COOL_ARRAY1_EXT, nTotalParticles)) {
+                
+            Cool1OutputParams pCool1Out(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pCool1Out, CkCallbackResumeThread());
+            bFoundCoolArray = true;
+            }
         else {
             CkError("WARNING: no CoolArray1 file for restart\n");
             }
-        if(arrayFileExists(basefilename + "." + COOL_ARRAY2_EXT, nTotalParticles))
-            treeProxy.readCoolArray2(basefilename + "." + COOL_ARRAY2_EXT,
-                                     CkCallbackResumeThread());
+        if(arrayFileExists(basefilename + "." + COOL_ARRAY2_EXT, nTotalParticles)) {
+            Cool2OutputParams pCool2Out(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pCool2Out, CkCallbackResumeThread());
+            bFoundCoolArray = true;
+            }
         else {
             CkError("WARNING: no CoolArray2 file for restart\n");
             }
-        if(arrayFileExists(basefilename + "." + COOL_ARRAY3_EXT, nTotalParticles))
-            treeProxy.readCoolArray3(basefilename + "." + COOL_ARRAY3_EXT,
-                                     CkCallbackResumeThread());
+        if(arrayFileExists(basefilename + "." + COOL_ARRAY3_EXT, nTotalParticles)) {
+            Cool3OutputParams pCool3Out(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pCool3Out, CkCallbackResumeThread());
+            bFoundCoolArray = true;
+            }
         else {
             CkError("WARNING: no CoolArray3 file for restart\n");
             }
-        // reset thermal energy with ionization fractions
         double dTuFac = param.dGasConst/(param.dConstGamma-1)
-            /param.dMeanMolWeight;
-        treeProxy.RestartEnergy(dTuFac, CkCallbackResumeThread());
+                /param.dMeanMolWeight;
+        if(bFoundCoolArray) {
+            // reset thermal energy with ionization fractions
+            treeProxy.RestartEnergy(dTuFac, CkCallbackResumeThread());
+        }
+        else {
+            double z = 1.0/csmTime2Exp(param.csm, dTime) - 1.0;
+            dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
+            treeProxy.InitEnergy(dTuFac, z, dTime, CkCallbackResumeThread());
+            }
         }
 #endif
-    }
+  }
+}
 
 /*
  * Initialize energy on restart
@@ -358,11 +591,13 @@ void TreePiece::RestartEnergy(double dTuFac, // T to internal energy
 	if (p->isGas()) {
 	    double T,E;
 #ifndef COOLING_NONE
+#ifndef COOLING_GRACKLE
 	    T = p->u() / dTuFac;
             PERBARYON Y;
             CoolPARTICLEtoPERBARYON(cl, &Y, &p->CoolParticle());
             
 	    p->u() = clThermalEnergy(Y.Total,T)*cl->diErgPerGmUnit;
+#endif
 #endif
 	    p->uPred() = p->u();
 	    }
@@ -385,7 +620,8 @@ Main::doSph(int activeRung, int bNeedDensity)
     if (param.bFastGas && nActiveSPH < nTotalSPH*param.dFracFastGas) {
 	ckout << "Calculating densities/divv on Actives ...";
 	// This also marks neighbors of actives
-	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 1);
+	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 1,
+				 param.bConstantDiffusion);
 	double startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
@@ -403,7 +639,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	ckout << "Density of Neighbors ...";
 	// This does neighbors (but not actives),  It also does no
 	// additional marking
-	DenDvDxNeighborSmParams pDenN(TYPE_GAS, activeRung, param.csm, dTime);
+	DenDvDxNeighborSmParams pDenN(TYPE_GAS, activeRung, param.csm, dTime,
+				      param.bConstantDiffusion);
 	startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDenN, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
@@ -414,7 +651,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	ckout << "Calculating densities/divv ...";
 	// The following smooths all GAS, and also marks neighbors of
 	// actives, and those who have actives as neighbors.
-	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 0);
+	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 0,
+				 param.bConstantDiffusion);
 	double startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
@@ -427,18 +665,25 @@ Main::doSph(int activeRung, int bNeedDensity)
       }
     treeProxy.sphViscosityLimiter(param.iViscosityLimiter, activeRung,
 			CkCallbackResumeThread());
+    double a = csmTime2Exp(param.csm,dTime);
+    double dDtCourantFac = param.dEtaCourant*a*2.0/1.6;
     if(param.bGasCooling)
 	treeProxy.getCoolingGasPressure(param.dConstGamma,
 					param.dConstGamma-1,
+                                        dDtCourantFac,
+                                        param.dResolveJeans/csmTime2Exp(param.csm, dTime),
 					CkCallbackResumeThread());
     else
 	treeProxy.getAdiabaticGasPressure(param.dConstGamma,
 					  param.dConstGamma-1,
+                                          dDtCourantFac,
 					  CkCallbackResumeThread());
 
     ckout << "Calculating pressure gradients ...";
     PressureSmoothParams pPressure(TYPE_GAS, activeRung, param.csm, dTime,
-				   param.dConstAlpha, param.dConstBeta);
+                                   param.dConstAlpha, param.dConstBeta,
+                                   param.dThermalDiffusionCoeff, param.dMetalDiffusionCoeff,
+                                   param.dEtaCourant, param.dEtaDiffusion);
     double startTime = CkWallTimer();
     treeProxy.startReSmooth(&pPressure, CkCallbackResumeThread());
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -610,6 +855,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	double ih2,r2,rs,rs1,fDensity,fNorm,fNorm1,vFac;
 	double dvxdx, dvxdy, dvxdz, dvydx, dvydy, dvydz, dvzdx, dvzdy, dvzdz;
 	double dvx,dvy,dvz,dx,dy,dz,trace;
+        double divvnorm = 0.0;
 	GravityParticle *q;
 	int i;
 	unsigned int qiActive;
@@ -617,7 +863,6 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	ih2 = invH2(p);
 	vFac = 1./(a*a); /* converts v to xdot */
 	fNorm = M_1_PI*ih2*sqrt(ih2);
-	fNorm1 = fNorm*ih2;	
 	fDensity = 0.0;
 	dvxdx = 0; dvxdy = 0; dvxdz= 0;
 	dvydx = 0; dvydy = 0; dvydz= 0;
@@ -638,12 +883,12 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		fDensity += rs*q->mass;
 		rs1 = DKERNEL(r2);
 		rs1 *= q->mass;
-		dx = nnList[i].dx.x;
+		dx = nnList[i].dx.x; /* NB: dx = px - qx */
 		dy = nnList[i].dx.y;
 		dz = nnList[i].dx.z;
-		dvx = (-p->vPred().x + q->vPred().x)*vFac - dx*H; /* NB: dx = px - qx */
-		dvy = (-p->vPred().y + q->vPred().y)*vFac - dy*H;
-		dvz = (-p->vPred().z + q->vPred().z)*vFac - dz*H;
+		dvx = (-p->vPred().x + q->vPred().x)*vFac;
+		dvy = (-p->vPred().y + q->vPred().y)*vFac;
+		dvz = (-p->vPred().z + q->vPred().z)*vFac;
 		dvxdx += dvx*dx*rs1;
 		dvxdy += dvx*dy*rs1;
 		dvxdz += dvx*dz*rs1;
@@ -653,17 +898,34 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		dvzdx += dvz*dx*rs1;
 		dvzdy += dvz*dy*rs1;
 		dvzdz += dvz*dz*rs1;
+                divvnorm += (dx*dx+dy*dy+dz*dz)*rs1;
 		}
 	if (qiActive)
 	    TYPESet(p,TYPE_NbrOfACTIVE);
 		
 	p->fDensity = fNorm*fDensity; 
-	fNorm1 /= p->fDensity;
 	trace = dvxdx+dvydy+dvzdz;
-	p->divv() =  fNorm1*trace; /* physical */
+        /* keep Norm positive consistent w/ std 1/rho norm */
+        fNorm1 = (divvnorm != 0 ? 3.0/fabs(divvnorm) : 0.0);
+	p->divv() =  fNorm1*trace + 3.0*H; /* physical */
 	p->curlv().x = fNorm1*(dvzdy - dvydz); 
 	p->curlv().y = fNorm1*(dvxdz - dvzdx);
 	p->curlv().z = fNorm1*(dvydx - dvxdy);
+#ifdef DIFFUSION
+        {
+	double onethirdtrace = (1./3.)*trace;
+	/* Build Traceless Strain Tensor (not yet normalized) */
+	double sxx = dvxdx - onethirdtrace; /* pure compression/expansion doesn't diffuse */
+	double syy = dvydy - onethirdtrace;
+	double szz = dvzdz - onethirdtrace;
+	double sxy = 0.5*(dvxdy + dvydx); /* pure rotation doesn't diffuse */
+	double sxz = 0.5*(dvxdz + dvzdx);
+	double syz = 0.5*(dvydz + dvzdy);
+	/* diff coeff., nu ~ C L^2 S (add C via dMetalDiffusionConstant, assume L ~ h) */
+	if (bConstantDiffusion) p->diff() = 1;
+	else p->diff() = fNorm1*0.25*p->fBall*p->fBall*sqrt(2*(sxx*sxx + syy*syy + szz*szz + 2*(sxy*sxy + sxz*sxz + syz*syz)));
+	}
+#endif
 	}
 
 /* As above, but no marking */
@@ -717,6 +979,21 @@ void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	p->curlv().x = fNorm1*(dvzdy - dvydz); 
 	p->curlv().y = fNorm1*(dvxdz - dvzdx);
 	p->curlv().z = fNorm1*(dvydx - dvxdy);
+#ifdef DIFFUSION
+        {
+	double onethirdtrace = (1./3.)*trace;
+	/* Build Traceless Strain Tensor (not yet normalized) */
+	double sxx = dvxdx - onethirdtrace; /* pure compression/expansion doesn't diffuse */
+	double syy = dvydy - onethirdtrace;
+	double szz = dvzdz - onethirdtrace;
+	double sxy = 0.5*(dvxdy + dvydx); /* pure rotation doesn't diffuse */
+	double sxz = 0.5*(dvxdz + dvzdx);
+	double syz = 0.5*(dvydz + dvzdy);
+	/* diff coeff., nu ~ C L^2 S (add C via dMetalDiffusionConstant, assume L ~ h) */
+	if (bConstantDiffusion) p->diff() = 1;
+	else p->diff() = fNorm1*0.25*p->fBall*p->fBall*sqrt(2*(sxx*sxx + syy*syy + szz*szz + 2*(sxy*sxy + sxz*sxz + syz*syz)));
+	}
+#endif
 	}
 
 void 
@@ -725,6 +1002,9 @@ TreePiece::sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb)
     int i;
     GravityParticle *p;    
 
+    // Pressure will be called next, so check this here.
+    CkAssert(bBucketsInited);
+    
     if (bOn) {
         for(i=1; i<= myNumParticles; ++i) {
 	    p = &myParticles[i];
@@ -755,6 +1035,7 @@ TreePiece::sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb)
 
 /* Note: Uses uPred */
 void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1,
+                                        double dtFacCourant,
 					const CkCallback &cb)
 {
     GravityParticle *p;
@@ -767,6 +1048,19 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1,
 	    PoverRho = gammam1*p->uPred();
 	    p->PoverRho2() = PoverRho/p->fDensity;
 	    p->c() = sqrt(gamma*PoverRho);
+#ifdef DTADJUST
+            {
+                double uDot = p->PdV();
+                double dt;
+                if(uDot > 0.0)
+                    dt = dtFacCourant*0.5*p->fBall
+                        /sqrt(4.0*p->c()*p->c() + gamma*uDot*p->dt);
+                else
+                    dt = dtFacCourant*0.5*p->fBall /(2.0*p->c());
+                // Update to scare the neighbors.
+                if(dt < p->dtNew()) p->dtNew() = dt;
+                }
+#endif
 	    }
 	}
     // Use shadow array to avoid reduction conflict
@@ -775,7 +1069,9 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1,
 
 /* Note: Uses uPred */
 void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
-					const CkCallback &cb)
+                                      double dtFacCourant,
+                                      double dResolveJeans,
+                                      const CkCallback &cb)
 {
     GravityParticle *p;
     double PoverRho;
@@ -786,11 +1082,28 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
     for(i=1; i<= myNumParticles; ++i) {
 	p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS)) {
+            double cGas;
 	    CoolCodePressureOnDensitySoundSpeed(cl, &p->CoolParticle(),
 						p->uPred(), p->fDensity(),
 						gamma, gammam1, &PoverRho,
-						&(p->c()) );
+						&cGas);
+            double dPoverRhoJeans = PoverRhoFloorJeans(dResolveJeans, p);
+            if(PoverRho < dPoverRhoJeans) PoverRho = dPoverRhoJeans;
 	    p->PoverRho2() = PoverRho/p->fDensity;
+            p->c() = sqrt(cGas*cGas + GAMMA_JEANS*dPoverRhoJeans);
+#ifdef DTADJUST
+            {
+                double uDot = p->uDot();
+                double dt;
+                if(uDot > 0.0)
+                    dt = dtFacCourant*0.5*p->fBall
+                        /sqrt(4.0*p->c()*p->c() + gamma*uDot*p->dt);
+                else
+                    dt = dtFacCourant*0.5*p->fBall /(2.0*p->c());
+                // Update to scare the neighbors.
+                if(dt < p->dtNew()) p->dtNew() = dt;
+                }
+#endif
 	    }
 	}
 #endif
@@ -808,7 +1121,15 @@ void PressureSmoothParams::initSmoothParticle(GravityParticle *p)
 {
 	if (p->rung >= activeRung) {
 	    p->mumax() = 0.0;
+#ifdef DTADJUST
+            p->dtNew() = FLT_MAX;
+#endif
 	    p->PdV() = 0.0;
+#ifdef DIFFUSION
+	    p->fMetalsDot() = 0.0;
+	    p->fMFracOxygenDot() = 0.0;
+	    p->fMFracIronDot() = 0.0;
+#endif /* DIFFUSION */
 	    }
 	}
 
@@ -817,8 +1138,16 @@ void PressureSmoothParams::initSmoothCache(GravityParticle *p)
 {
 	if (p->rung >= activeRung) {
 	    p->mumax() = 0.0;
+#ifdef DTADJUST
+            p->dtNew() = FLT_MAX;
+#endif
 	    p->PdV() = 0.0;
 	    p->treeAcceleration = 0.0;
+#ifdef DIFFUSION
+	    p->fMetalsDot() = 0.0;
+	    p->fMFracOxygenDot() = 0.0;
+	    p->fMFracIronDot() = 0.0;
+#endif /* DIFFUSION */
 	    }
 	}
 
@@ -830,7 +1159,17 @@ void PressureSmoothParams::combSmoothCache(GravityParticle *p1,
 	    if (p2->mumax > p1->mumax())
 		p1->mumax() = p2->mumax;
 	    p1->treeAcceleration += p2->treeAcceleration;
+#ifdef DIFFUSION
+	    p1->fMetalsDot() += p2->fMetalsDot;
+	    p1->fMFracOxygenDot() += p2->fMFracOxygenDot;
+	    p1->fMFracIronDot() += p2->fMFracIronDot;
+#endif /* DIFFUSION */
 	    }
+#ifdef DTADJUST
+        // All neighbors get their rungs adjusted.
+        if (p2->dtNew < p1->dtNew())
+            p1->dtNew() = p2->dtNew;
+#endif
 	}
 
 void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
@@ -842,7 +1181,9 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	double pPoverRho2,pPoverRho2f,pMass;
 	double qPoverRho2,qPoverRho2f;
 	double ph,pc,pDensity,visc,hav,absmu,Accp,Accq;
-	double fNorm,fNorm1,aFac,vFac;
+	double fNorm,fNorm1,aFac,vFac, divvi, divvj;
+	double fDivv_Corrector;
+	double dt;
 	int i;
 
 	if(nSmooth < 2) {
@@ -852,14 +1193,33 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	pc = p->c();
 	pDensity = p->fDensity;
 	pMass = p->mass;
+#ifndef RTFORCE
 	pPoverRho2 = p->PoverRho2();
 	pPoverRho2f = pPoverRho2;
+#endif
 	ph = sqrt(0.25*p->fBall*p->fBall);
 	ih2 = invH2(p);
 	fNorm = 0.5*M_1_PI*ih2/ph;
 	fNorm1 = fNorm*ih2;	/* converts to physical u */
 	aFac = a;        /* comoving acceleration factor */
 	vFac = 1./(a*a); /* converts v to xdot */
+
+	divvi = 0;
+	divvj = 0;
+	for (i=0;i<nSmooth;++i) {
+	    double fDist2 = nnList[i].fKey;
+	    r2 = fDist2*ih2;
+	    q = nnList[i].p;
+	    rs1 = DKERNEL(r2);
+	    rs1 *= fDist2*q->mass;
+	    divvi += rs1/p->fDensity;
+	    divvj += rs1/q->fDensity;
+	    }
+#ifdef RTFORCE
+	fDivv_Corrector = (divvj != 0.0 ? divvi/divvj : 1.0);
+#else
+	fDivv_Corrector = 1.0;
+#endif
 
 	for (i=0;i<nSmooth;++i) {
 	    q = nnList[i].p;
@@ -868,6 +1228,7 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	    r2 = fDist2*ih2;
 	    rs1 = DKERNEL(r2);
 	    rs1 *= fNorm1;
+	    rs1 *= fDivv_Corrector;
 	    rp = rs1 * pMass;
 	    rq = rs1 * q->mass;
 
@@ -878,57 +1239,26 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	    dvy = p->vPred()[1] - q->vPred()[1];
 	    dvz = p->vPred()[2] - q->vPred()[2];
 	    dvdotdr = vFac*(dvx*dx + dvy*dy + dvz*dz) + fDist2*H;
-	    
+#ifdef RTFORCE
+	    pPoverRho2 = p->PoverRho2()*pDensity/q->fDensity;
+	    pPoverRho2f = pPoverRho2;
+	    qPoverRho2 = q->PoverRho2()*q->fDensity/pDensity;
+	    qPoverRho2f = qPoverRho2;
+#else
 	    qPoverRho2 = q->PoverRho2();
 	    qPoverRho2f = qPoverRho2;
-
-#define PRES_PDV(a,b) (a)
-#define PRES_ACC(a,b) (a+b)
-#define SWITCHCOMBINE(a,b) (0.5*(a->BalsaraSwitch()+b->BalsaraSwitch()))
-
-	    // Macro to simplify the active/inactive logic
-#define SphPressureTermsSymACTIVECODE() \
-	    if (dvdotdr>0.0) { \
-		PACTIVE( p->PdV() += rq*PRES_PDV(pPoverRho2,qPoverRho2)*dvdotdr; ); \
-		QACTIVE( q->PdV() += rp*PRES_PDV(qPoverRho2,pPoverRho2)*dvdotdr; ); \
-		PACTIVE( Accp = (PRES_ACC(pPoverRho2f,qPoverRho2f)); ); \
-		QACTIVE( Accq = (PRES_ACC(qPoverRho2f,pPoverRho2f)); ); \
-		} \
-	    else {  \
-		hav=0.5*(ph+sqrt(0.25*q->fBall*q->fBall));  /* h mean - using just hp probably ok */  \
-		absmu = -hav*dvdotdr*a  \
-		    /(fDist2+0.01*hav*hav); /* mu multiply by a to be consistent with physical c */ \
-		if (absmu>p->mumax()) p->mumax()=absmu; /* mu terms for gas time step */ \
-		if (absmu>q->mumax()) q->mumax()=absmu; \
-		/* viscosity term */ \
-		visc = SWITCHCOMBINE(p,q)* \
-		    (alpha*(pc + q->c()) + beta*2*absmu)	\
-		    *absmu/(pDensity + q->fDensity); \
-		PACTIVE( p->PdV() += rq*(PRES_PDV(pPoverRho2,q->PoverRho2()) + 0.5*visc)*dvdotdr; ); \
-		QACTIVE( q->PdV() += rp*(PRES_PDV(q->PoverRho2(),pPoverRho2) + 0.5*visc)*dvdotdr; ); \
-		PACTIVE( Accp = (PRES_ACC(pPoverRho2f,qPoverRho2f) + visc); ); \
-		QACTIVE( Accq = (PRES_ACC(qPoverRho2f,pPoverRho2f) + visc); ); \
-		} \
-	    PACTIVE( Accp *= rq*aFac; );/* aFac - convert to comoving acceleration */ \
-	    QACTIVE( Accq *= rp*aFac; ); \
-	    PACTIVE( p->treeAcceleration.x -= Accp * dx; ); \
-	    PACTIVE( p->treeAcceleration.y -= Accp * dy; ); \
-	    PACTIVE( p->treeAcceleration.z -= Accp * dz; ); \
-	    QACTIVE( q->treeAcceleration.x += Accq * dx; ); \
-	    QACTIVE( q->treeAcceleration.y += Accq * dy; ); \
-	    QACTIVE( q->treeAcceleration.z += Accq * dz; );
-
+#endif
 
 	    if (p->rung >= activeRung) {
 		if (q->rung >= activeRung) {
 #define PACTIVE(xxx) xxx
 #define QACTIVE(xxx) xxx
-		    SphPressureTermsSymACTIVECODE();    
+#include "SphPressureTerms.h"
 		    }
 		else {
 #undef QACTIVE
 #define QACTIVE(xxx) 
-		    SphPressureTermsSymACTIVECODE();    
+#include "SphPressureTerms.h"
 		    }
 		}
 	    else if (q->rung >= activeRung) {
@@ -936,7 +1266,7 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 #define PACTIVE(xxx) 
 #undef QACTIVE
 #define QACTIVE(xxx) xxx
-		SphPressureTermsSymACTIVECODE();    
+#include "SphPressureTerms.h"
 		}
 	    }
 }

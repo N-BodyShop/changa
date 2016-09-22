@@ -11,6 +11,7 @@ CkReduction::reducerType growOrientedBox_float;
 CkReduction::reducerType growOrientedBox_double;
 
 CkReduction::reducerType minmax_int;
+CkReduction::reducerType minmax_long;
 CkReduction::reducerType minmax_float;
 CkReduction::reducerType minmax_double;
 
@@ -57,12 +58,12 @@ CkReductionMsg* minmax(int nMsg, CkReductionMsg** msgs) {
 /// (iMaxRung) and the number of particles in that rung (nMaxRung).
 ///
 CkReductionMsg* max_count_reduce(int nMsg, CkReductionMsg** msgs) {
-    int* pmaxcount = static_cast<int *>(msgs[0]->getData());
+    int64_t* pmaxcount = static_cast<int64_t *>(msgs[0]->getData());
     int iMaxRung = pmaxcount[0];  // maxmimum rung
-    int nMaxRung = pmaxcount[1];  // count in maximum rung
+    int64_t nMaxRung = pmaxcount[1];  // count in maximum rung
     int iMaxRungGas = pmaxcount[2];  // maximum rung for gas
     for(int i = 1; i < nMsg; i++) {
-	pmaxcount = static_cast<int *>(msgs[i]->getData());
+	pmaxcount = static_cast<int64_t *>(msgs[i]->getData());
 	if(pmaxcount[0] > iMaxRung) {
 	    iMaxRung = pmaxcount[0];
 	    nMaxRung = pmaxcount[1];
@@ -74,11 +75,11 @@ CkReductionMsg* max_count_reduce(int nMsg, CkReductionMsg** msgs) {
 	    iMaxRungGas = pmaxcount[2];
             }
 	}
-    int newcount[3];
+    int64_t newcount[3];
     newcount[0] = iMaxRung;
     newcount[1] = nMaxRung;
     newcount[2] = iMaxRungGas;
-    return CkReductionMsg::buildNew(3 * sizeof(int), newcount);
+    return CkReductionMsg::buildNew(3 * sizeof(int64_t), newcount);
 }
 
 /// Return a single object, given many copies of it
@@ -114,6 +115,7 @@ void registerReductions() {
 	growOrientedBox_double = CkReduction::addReducer(boxGrowth<double>);
 	
 	minmax_int = CkReduction::addReducer(minmax<int>);
+	minmax_long = CkReduction::addReducer(minmax<int64_t>);
 	minmax_float = CkReduction::addReducer(minmax<float>);
 	minmax_double = CkReduction::addReducer(minmax<double>);
 	max_count = CkReduction::addReducer(max_count_reduce);

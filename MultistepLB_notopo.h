@@ -24,20 +24,6 @@
 void CreateMultistepLB_notopo();
 BaseLB * AllocateMultistepLB_notopo();
 
-//**************************************
-// ORB3DLB functions
-//**************************************
-
-
-class LightweightLDStats {
-  public:
-  int n_objs;
-  int n_migrateobjs;
-  CkVec<LDObjData> objData;
-
-  void pup(PUP::er &p);
-};
-
 
 /// @brief Multistep load balancer where no processor topology
 /// information is used.
@@ -49,42 +35,20 @@ class LightweightLDStats {
 /// by 3 dimensional ORB based on the centroids of the TreePieces.
 /// For small phases, a greedy algorithm is used.
 ///
-class MultistepLB_notopo : public CentralLB, public Orb3dCommon {
+class MultistepLB_notopo : public CBase_MultistepLB_notopo, public Orb3dCommon {
 private:
-  bool firstRound;
-  // things are stored in here before work
-  // is ever called.
-  TaggedVector3D *tpCentroids;
-  CkReductionMsg *tpmsg;
-
- // CkVec<OrbObject> tps;
-  int procsPerNode;
-
-  CkVec<LightweightLDStats> savedPhaseStats;      /// stats saved from previous phases
-  
+  void init();
   bool QueryBalanceNow(int step);
-  //int prevPhase;
-
-  unsigned int determinePhase(unsigned int activeRung);
   void makeActiveProcessorList(BaseLB::LDStats *stats, int numActiveObjs);
-  void mergeInstrumentedData(int phase, BaseLB::LDStats *phaseStats);
-  bool havePhaseData(int phase); 
-  void printData(BaseLB::LDStats &stats, int phase, int *revObjMap);
-
-
-//  void orbPartition(CkVec<Event> *events, OrientedBox<float> &box, int procs, OrbObject * tp);
-//  int partitionRatioLoad(CkVec<Event> &events, float ratio);
 
 
 public:
   MultistepLB_notopo(const CkLBOptions &);
-  MultistepLB_notopo(CkMigrateMessage *m):CentralLB(m) { 
-    lbname = "MultistepLB_notopo"; 
-     }
-    
+  MultistepLB_notopo(CkMigrateMessage *m) : CBase_MultistepLB_notopo(m) {
+    init();
+  }
+
   void work(BaseLB::LDStats* stats);
-  void receiveCentroids(CkReductionMsg *msg);
-  //ScaleTranMapBG map;
 
 public:/* <- Sun CC demands Partition be public for ComputeLoad to access it. */
 
@@ -101,7 +65,7 @@ public:/* <- Sun CC demands Partition be public for ComputeLoad to access it. */
     Partition(): refno(0), load(0.0), node(-1), mapped(0) {};
   };
 
-private:  
+private:
   struct ComputeLoad {
     int id;
     int v[3];
@@ -110,24 +74,24 @@ private:
     double  tv;
     Partition * partition;
   };
-  
-  
+
+
   struct VecArray {
     int v;
     int id;
   };
-  
+
   enum {XDIR=0, YDIR, ZDIR};
-  
+
 public:
-  
+
 //**************************************
 // ORB3DLB functions
 //**************************************
 //
-  void work2(BaseLB::LDStats* stats, int count, int phase, int prevPhase);
-  void greedy(BaseLB::LDStats* stats, int count, int phase, int prevPhase);
- 
+  void work2(BaseLB::LDStats* stats, int count);
+  void greedy(BaseLB::LDStats* stats, int count);
+
   void pup(PUP::er &p);
 };
 

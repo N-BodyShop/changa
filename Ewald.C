@@ -289,6 +289,7 @@ void TreePiece::EwaldInit()
 	double gam[6],mfacc,mfacs;
 	double ax,ay,az;
 
+        CkAssert(bBucketsInited);
 #ifdef HEXADECAPOLE
 	/* convert to complete moments */
 	momMomr2Momc(&(root->moments.mom), &momcRoot);
@@ -370,13 +371,9 @@ void TreePiece::EwaldInit()
 	nEwhLoop = i;
 
 	//contribute(cb);
-#ifdef CELL
-	dummyMsg *msg = new dummyMsg;
-#else
 	dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
 	*((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + numTreePieces + thisIndex + 1;
 	CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-#endif
 	msg->val=0;
 	thisProxy[thisIndex].calculateEwald(msg);
 }

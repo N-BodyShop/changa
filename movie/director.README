@@ -161,13 +161,6 @@ colstar r g b [scale]
 colmass [scale]
   Set scale for all particle types
 
-logscale logmin logmax
-  set scaling for colours from the projected column densities
-  converts input colors to final colours.
-  logmin is the column density that maps to "0" pixel value
-  logmax is the column density that maps to the saturated pixel value.
-  default: OFF
-  
 softgassph
   use sph softening lengths for gas projection
   default: TRUE
@@ -189,4 +182,25 @@ render [point|tsc|solid|shine]
   tsc   -- softened points using softening radius and Triangular Shape Clound function
   solid --
   shine --
+
+SCALING OF COLUMN DENSITIES TO PIXEL VALUES
+
+By default the scaling is linear for small column densities (< 10.) but
+then flattens out to prevent over-saturation.  Key words for other scalings
+are:
+
+logscale logmin logmax
+  set scaling for colours from the projected column densities
+  converts input colors to final colours.
+  logmin is the column density that maps to "0" pixel value
+  logmax is the column density that maps to the saturated pixel value.
+  default: OFF
+
+logscalecoloursafe logmin logmax
+  similar to logscale except that saturation does not change the hue
+  of a pixel.  E.g. the ratio of r,g,b values will not change due
+  to saturation.
+  logmin is the column density that maps to "0" pixel value
+  logmax is the column density that maps to the saturated pixel value.
+  default: OFF
 

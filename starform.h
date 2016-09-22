@@ -9,7 +9,6 @@
 /// Parameters and methods to implement star formation.
 class Stfm {
  private:
-    int iStarFormRung;		/* rung for star formation */
     double dGmUnit;		/* system mass in grams */
     double dGmPerCcUnit;	/* system density in gm/cc */
     double dSecUnit;		/* system time in seconds */
@@ -26,15 +25,16 @@ class Stfm {
 				 star mass per timestep. */
     double dInitStarMass;       /* Fixed Initial Star Mass */
     double dMinSpawnStarMass;   /* Minimum Initial Star Mass */
- public:
-    double dMinGasMass;		/* minimum mass gas before we delete
-				   the particle. */
     double dMaxStarMass;	/* maximum mass star particle to form */
     int bGasCooling;		/* Can we call cooling for temperature */
     int bBHForm;		/* Form Black Holes */
     double dBHFormProb;		/* Probability of Black Hole forming */
     double dInitBHMass;		/* Initial mass of Black Holes */
  public:
+    int iStarFormRung;		/* rung for star formation */
+    int iRandomSeed;		/* seed for probability */
+    double dMinGasMass;		/* minimum mass gas before we delete
+				   the particle. */
     double dDeltaStarForm;	/* timestep in system units */
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
@@ -47,6 +47,7 @@ class Stfm {
 inline void Stfm::pup(PUP::er &p) {
     p|dDeltaStarForm;
     p|iStarFormRung;
+    p|iRandomSeed;
     p|dGmUnit;
     p|dGmPerCcUnit;
     p|dSecUnit;
@@ -67,12 +68,12 @@ inline void Stfm::pup(PUP::er &p) {
     p|dInitBHMass;
     }
 
+/** @brief Holds statistics of the star formation event */
 class StarLogEvent
-	/* Holds statistics of the star formation event */
 {
  public:
-    int iOrdStar;
-    int iOrdGas;
+    int64_t iOrdStar;
+    int64_t iOrdGas;
     double timeForm;
     Vector3D<double> rForm;
     Vector3D<double> vForm;
@@ -103,6 +104,7 @@ class StarLogEvent
 	}
     };
 
+/** @brief Log of star formation events to be written out to a file */
 class StarLog : public PUP::able
 {
  public:

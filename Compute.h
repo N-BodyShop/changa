@@ -12,9 +12,9 @@ class DoubleWalkState;
 class TreeWalk;
 class Opt;
 
-// this is the computeEntity for PrefetchComputes
-// it holds an array of prefetch root bounding boxes
-// and the number of elements in this array
+/// this is the computeEntity for PrefetchComputes
+/// it holds an array of prefetch root bounding boxes
+/// and the number of elements in this array
 
 struct PrefetchRequestStruct{
   OrientedBox<double> *prefetchReq;
@@ -42,18 +42,24 @@ class Compute{
   // should the dowork method have a state argument?
   // yes, allows listcompute object to keep modifying state
   // which will have within it the checklist, clist and plist
+  /// @brief Work to be done at each node.
   virtual int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi) = 0;
   // should return int, not bool
   virtual int openCriterion(TreePiece *ownerTP,
                             GenericTreeNode *node, int reqID, State *state) = 0;
 
   virtual void stateReady(State *state, TreePiece *owner, int chunk, int start, int end) {}
-  // TreeWalk will call this when a request is sent to the CacheManager for
-  // a tree node on the Compute's behalf
-  // By default, nothing is done.
-  // Objects of type PrefetchCompute also call this when they request
-  // particles
-  // virtual void nodeRequestSent(TreePiece *owner) {};
+
+  virtual void stateReadyPar(TreePiece *tp, int start, int end,
+    CkVec<OffsetNode>& clist, CkVec<RemotePartInfo>& rpilist,
+    CkVec<LocalPartInfo>& lpilist){}
+
+  virtual void fillLists(State *state_, TreePiece *tp, int chunk, int start,
+    int end, CkVec<OffsetNode>& clistforb, CkVec<RemotePartInfo>& rplistforb,
+    CkVec<LocalPartInfo>& lplistforb) {}
+
+  /// @brief Associate computeEntity (target bucket or node),
+  /// activeRung and Optimization with this Compute object.
   virtual void init(void *cE, int activeRung, Opt *opt);
   virtual void reassoc(void *cE, int aR, Opt *opt){}
   ComputeType getSelfType(){ return type;}
@@ -141,16 +147,6 @@ class GravityCompute : public Compute{
 #if INTERLIST_VER > 0
 class ListCompute : public Compute{
 
-/*
-  // the number of buckets processed by stateReady
-  // while doing their local and remote-no-resume (RNR) 
-  // work.
-  // when this count reaches 2*tp->numActiveBuckets, 
-  // we know that there will be no more local/remote-no-resume
-  // work from buckets in the treepiece, and so can
-  // flush the lists of node/particle interactions to the gpu
-  // if they are non-empty.
-  */
   public:
   ListCompute() : Compute(List) {}
 
@@ -164,7 +160,17 @@ class ListCompute : public Compute{
   void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket);
 
   void initState(State *state);
+
   void stateReady(State *, TreePiece *, int chunk, int start, int end);
+
+  void stateReadyPar(TreePiece *tp, int start, int end,
+      CkVec<OffsetNode>& clist, CkVec<RemotePartInfo>& rpilist,
+      CkVec<LocalPartInfo>& lpilist);
+
+  void fillLists(State *state_, TreePiece *tp, int chunk, int start,
+    int end, CkVec<OffsetNode>& clistforb, CkVec<RemotePartInfo>& rplistforb,
+    CkVec<LocalPartInfo>& lplistforb);
+
 //  void printUndlist(DoubleWalkState *state, int level, TreePiece *tp);
 //  void printClist(DoubleWalkState *state, int level, TreePiece *tp);
   void reassoc(void *cE, int activeRung, Opt *o);
@@ -242,7 +248,8 @@ enum WalkIndices {
     maxAwi = 4
 };
     
-// Object to record a type of active walk. Contains pointers to TreeWalk/Compute/Opt (T/C/O) combinations
+/// Object to record a type of active walk. Contains pointers to
+/// TreeWalk/Compute/Opt/State (T/C/O/S) combinations
 class ActiveWalk {
   public:
   TreeWalk *tw;

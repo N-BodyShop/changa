@@ -8,7 +8,6 @@
 #define GENERICTREENODE_H
 
 #include "pup.h"
-#include "ckpool.h"
 
 #include <map>
 #include <vector>
@@ -67,10 +66,9 @@ class NodePool;
   protected:
     NodeType myType;
     NodeKey key;
-    CmiUInt8 usedBy;
 
     GenericTreeNode() : myType(Invalid), key(0), parent(0), firstParticle(0),
-	lastParticle(0), remoteIndex(0), usedBy(0), iParticleTypes(0) {
+	lastParticle(0), remoteIndex(0), iParticleTypes(0) {
 #if COSMO_STATS > 0
       used = false;
 #endif
@@ -91,7 +89,7 @@ class NodePool;
 
   public:
 #if COSMO_STATS > 0
-    bool used; // FIXME: this field can now be replaced by "usedBy"
+    bool used;
 #endif
 
     /// The moments for the gravity computation
@@ -144,7 +142,7 @@ class NodePool;
     /// SMP rank of node owner
     int iRank;
 
-    GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0), usedBy(0) {
+    GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0) {
 #if INTERLIST_VER > 0
       numBucketsBeneath=0;
       startBucket=-1;
@@ -190,10 +188,11 @@ class NodePool;
               myType == CachedEmpty);
     }
 
-    // these two functions are used to track the communication between objects:
-    // a nodes is marked usedBy when a local TreePiece has touched it
-    void markUsedBy(int index) { usedBy |= (((CmiUInt8)1) << index); }
-    bool isUsedBy(int index) { return (usedBy & (((CmiUInt8)1) << index)); }
+    bool isBucket(){
+      return (myType == Bucket ||
+              myType == CachedBucket ||
+              myType == NonLocalBucket);
+    }
 
     /// \brief construct the children of the "this" node following the
     /// given logical criteria (Oct/Orb)
@@ -247,6 +246,7 @@ class NodePool;
 
     void getGraphViz(std::ostream &out);
 
+    /// @brief return the NodeKey of the lowest common ancestor.
     virtual NodeKey getLongestCommonPrefix(NodeKey k1, NodeKey k2)
     {
       CkAbort("getLongestCommonPrefix not implemented\n");
@@ -322,7 +322,7 @@ public:
   */
   typedef std::map<NodeKey, GenericTreeNode *> NodeLookupType;
 
-  class BinaryTreeNode : public GenericTreeNode {//, public CkPool<BinaryTreeNode, 32> {
+  class BinaryTreeNode : public GenericTreeNode {
   protected:
   public:
     BinaryTreeNode* children[2];
@@ -771,7 +771,7 @@ public:
       int used = 1;
       if (depth != 0) {
         if (children[0] != NULL) {
-          BinaryTreeNode *nextBuf = (BinaryTreeNode *) (((char*)buffer) + used * (sizeof(BinaryTreeNode)+extraSpace));
+          BinaryTreeNode *nextBuf = (BinaryTreeNode *) (((char*)buffer) + used * ALIGN_DEFAULT(sizeof(BinaryTreeNode)+extraSpace));
           buffer->children[0] = (BinaryTreeNode*)(((char*)nextBuf) - ((char*)buffer));
           //CkPrintf("Entering child 0: offset %ld\n",buffer->children[0]);
           used += children[0]->packNodes(nextBuf, depth-1, extraSpace);
@@ -780,7 +780,7 @@ public:
           buffer->children[0] = NULL;
         }
         if (children[1] != NULL) {
-          BinaryTreeNode *nextBuf = (BinaryTreeNode *) (((char*)buffer) + used * (sizeof(BinaryTreeNode)+extraSpace));
+          BinaryTreeNode *nextBuf = (BinaryTreeNode *) (((char*)buffer) + used * ALIGN_DEFAULT(sizeof(BinaryTreeNode)+extraSpace));
           buffer->children[1] = (BinaryTreeNode*)(((char*)nextBuf) - ((char*)buffer));
           //CkPrintf("Entering child 1: offset %ld\n",buffer->children[1]);
           used += children[1]->packNodes(nextBuf, depth-1, extraSpace);
@@ -856,6 +856,7 @@ NodePool::alloc_one(NodeKey k, NodeType type, int first, int nextlast,
 	return new (one) BinaryTreeNode(k, type, first, nextlast, p);
 	}
 
+/// Class for Oct tree where each node has 8 direct children.
   class OctTreeNode : public GenericTreeNode {
   protected:
   public:

@@ -9,6 +9,9 @@
 #include "Compute.h"
 #include "TreeWalk.h"
 
+static const int PAD_reply = sizeof(NodeKey);  // Assume this is bigger
+                                           // than a pointer
+
 EntryTypeGravityParticle::EntryTypeGravityParticle() {
   CkCacheFillMsg<KeyType> msg(0);
 }
@@ -63,7 +66,7 @@ void EntryTypeGravityParticle::callback(CkArrayID requestorID, CkArrayIndexMax &
   int awi = userData.d0 >> 32;
   void *source = (void *)userData.d1;
 
-  elem.ckLocal()->receiveParticlesCallback(cp->part, cp->end - cp->begin + 1, chunk, reqID, key, awi, source);
+  elem.receiveParticlesCallback(cp->part, cp->end - cp->begin + 1, chunk, reqID, key, awi, source);
 }
 
 
@@ -111,15 +114,28 @@ void * EntryTypeSmoothParticle::unpack(CkCacheFillMsg<KeyType> *msg, int chunk, 
     cParts->begin = cPartsIn->begin;
     cParts->end = cPartsIn->end;
     cParts->key = msg->key;
+    cParts->nActual = cPartsIn->nActual;
     int nTotal = 1 + cParts->end - cParts->begin;
     cParts->partCached = new GravityParticle[nTotal];
-    cParts->extraSPHCached = new extraSPHData[nTotal];
+    //  There is a kludge in that we aren't accounting for different
+    //  particle types in the cache storage.  It works if the
+    //  following is true.
+    CkAssert(sizeof(extraSPHData) > sizeof(extraStarData));
+    cParts->extraSPHCached = new extraSPHData[cParts->nActual];
     // Expand External particles to full particles in cache
+    int j = 0;
     for(int i = 0; i < nTotal; i++) {
-	cParts->partCached[i].extraData = &cParts->extraSPHCached[i];
-	cPartsIn->partExt[i].getParticle(&cParts->partCached[i]);
-      	if(TYPETest(&(cParts->partCached[i]), globalSmoothParams->iType))
-	   globalSmoothParams->initSmoothCache(&(cParts->partCached[i]));	// Clear cached copy
+        if(j < cParts->nActual && i == cPartsIn->partExt[j].iBucketOff) {
+            cParts->partCached[i].extraData = &cParts->extraSPHCached[j];
+            cPartsIn->partExt[j].getParticle(&cParts->partCached[i]);
+            CkAssert(TYPETest(&(cParts->partCached[i]),
+                              globalSmoothParams->iType));
+            globalSmoothParams->initSmoothCache(&(cParts->partCached[i]));	// Clear cached copy
+            j++;
+            }
+        else {
+            cParts->partCached[i].iType = 0;   // Invalid type
+            }
 	}
     CkFreeMsg(msg);
     return (void*) cParts;
@@ -129,15 +145,24 @@ void * EntryTypeSmoothParticle::unpack(CkCacheFillMsg<KeyType> *msg, int chunk, 
 void EntryTypeSmoothParticle::writeback(CkArrayIndexMax& idx, KeyType k, void *data) {
     CacheSmoothParticle *cPart = (CacheSmoothParticle *)data;
     int total = sizeof(CacheSmoothParticle)
-	+ (cPart->end - cPart->begin)*sizeof(ExternalSmoothParticle);
-    CkCacheFillMsg<KeyType> *reply = new (total) CkCacheFillMsg<KeyType>(cPart->key);
+	+ (cPart->nActual - 1)*sizeof(ExternalSmoothParticle);
+    CkCacheFillMsg<KeyType> *reply = new (total, 8*sizeof(int)) CkCacheFillMsg<KeyType>(cPart->key);
     CacheSmoothParticle *rdata = (CacheSmoothParticle*)reply->data;
     rdata->begin = cPart->begin;
     rdata->end = cPart->end;
+    rdata->nActual = cPart->nActual;
   
+    int j = 0;
     for (int i=0; i < 1 + cPart->end - cPart->begin; ++i) {
-	rdata->partExt[i] = cPart->partCached[i].getExternalSmoothParticle();
+        if(cPart->partCached[i].iType != 0) {
+            rdata->partExt[j] = cPart->partCached[i].getExternalSmoothParticle();
+            rdata->partExt[j].iBucketOff = i;
+            j++;
+            }
 	}
+    CkAssert(j == cPart->nActual);
+    *(int*)CkPriorityPtr(reply) = -10000000;
+    CkSetQueueing(reply, CK_QUEUEING_IFIFO);
     treeProxy[*idx.data()].flushSmoothParticles(reply);
 }
 
@@ -151,7 +176,7 @@ void EntryTypeSmoothParticle::free(void *data) {
 int EntryTypeSmoothParticle::size(void * data) {
     CacheSmoothParticle *cPart = (CacheSmoothParticle *)data;
     return sizeof(CacheSmoothParticle)
-	+ (cPart->end - cPart->begin)*sizeof(ExternalSmoothParticle);
+	+ (cPart->nActual - 1)*sizeof(ExternalSmoothParticle);
 }
 
 void EntryTypeSmoothParticle::callback(CkArrayID requestorID, CkArrayIndexMax &requestorIdx, KeyType key, CkCacheUserData &userData, void *data, int chunk) {
@@ -162,7 +187,7 @@ void EntryTypeSmoothParticle::callback(CkArrayID requestorID, CkArrayIndexMax &r
   void *source = (void *)userData.d1;
   CacheSmoothParticle *cPart = (CacheSmoothParticle *)data;
 
-  elem.ckLocal()->receiveParticlesFullCallback(cPart->partCached,
+  elem.receiveParticlesFullCallback(cPart->partCached,
 				cPart->end - cPart->begin + 1, chunk, reqID,
 				key, awi, source);
 }
@@ -174,25 +199,47 @@ void TreePiece::processReqSmoothParticles() {
 	iter != smPartRequests.end();) {
 	KeyType bucketKey = iter->first;
 	const GenericTreeNode *bucket = lookupNode(bucketKey >> 1);
-	int total = sizeof(CacheSmoothParticle) + (bucket->lastParticle - bucket->firstParticle) * sizeof(ExternalSmoothParticle);
+        int nBucket = 0;
+        for (unsigned int i=0; i<bucket->particleCount; ++i) {
+            if(TYPETest(&myParticles[i+bucket->firstParticle],
+                  sSmooth->params->iType))
+                nBucket++;
+            }
+        if(nBucket == 0)
+            CkAbort("Why did we ask for this bucket with no particles?");
+  
+        // N.B.: CacheSmoothParticle already has room for one particle.
+        int total = sizeof(CacheSmoothParticle)
+            + (nBucket-1) * sizeof(ExternalSmoothParticle);
 
 	CkVec<int> *vRec = iter->second;
 
 	iter++;  // The current request gets deleted below, so
 		 // increment first.
-	CkCacheFillMsg<KeyType> *reply = new (total) CkCacheFillMsg<KeyType>(bucketKey);
+	CkCacheFillMsg<KeyType> *reply = new (total, 8*sizeof(int)) CkCacheFillMsg<KeyType>(bucketKey);
 	CacheSmoothParticle *data = (CacheSmoothParticle*)reply->data;
 	data->begin = bucket->firstParticle;
 	data->end = bucket->lastParticle;
+        data->nActual = nBucket;
+        int j = 0;
 	for (unsigned int ip=0; ip<bucket->particleCount; ++ip) {
-	    data->partExt[ip] = myParticles[ip+bucket->firstParticle].getExternalSmoothParticle();
-	    }
+            if(TYPETest(&myParticles[ip+bucket->firstParticle],
+                        sSmooth->params->iType)) {
+                data->partExt[j] = myParticles[ip+bucket->firstParticle].getExternalSmoothParticle();
+                data->partExt[j].iBucketOff = ip;
+                j++;
+                }
+            }
 
+	*(int*)CkPriorityPtr(reply) = -10000000;
+	CkSetQueueing(reply, CK_QUEUEING_IFIFO);
 	for(unsigned int i = 0; i < vRec->length(); ++i) {
 	    nCacheAccesses++;
 	    if(i < vRec->length() - 1) { // Copy message if there is
 					 // more than one outstanding request.
 		CkCacheFillMsg<KeyType> *replyCopy = (CkCacheFillMsg<KeyType> *) CkCopyMsg((void **) &reply);
+		*(int*)CkPriorityPtr(replyCopy) = -10000000;
+		CkSetQueueing(replyCopy, CK_QUEUEING_IFIFO);
 		cacheSmoothPart[(*vRec)[i]].recvData(replyCopy);
 		}
 	    else
@@ -222,18 +269,38 @@ void TreePiece::fillRequestSmoothParticles(CkCacheRequestMsg<KeyType> *msg) {
   // a clear distinction between nodes and particles
   const GenericTreeNode *bucket = lookupNode(msg->key >> 1);
   
-  int total = sizeof(CacheSmoothParticle) + (bucket->lastParticle - bucket->firstParticle) * sizeof(ExternalSmoothParticle);
-  CkCacheFillMsg<KeyType> *reply = new (total) CkCacheFillMsg<KeyType>(msg->key);
+  int nBucket = 0;
+  for (unsigned int i=0; i<bucket->particleCount; ++i) {
+      if(TYPETest(&myParticles[i+bucket->firstParticle],
+                  sSmooth->params->iType))
+          nBucket++;
+  }
+  if(nBucket == 0)
+      CkAbort("Why did we ask for this bucket with no particles?");
+  
+  // N.B.: CacheSmoothParticle already has room for one particle.
+  int total = sizeof(CacheSmoothParticle)
+      + (nBucket-1) * sizeof(ExternalSmoothParticle);
+  CkCacheFillMsg<KeyType> *reply = new (total, 8*sizeof(int)) CkCacheFillMsg<KeyType>(msg->key);
   CacheSmoothParticle *data = (CacheSmoothParticle*)reply->data;
   data->begin = bucket->firstParticle;
   data->end = bucket->lastParticle;
+  data->nActual = nBucket;
   
+  int j = 0;
   for (unsigned int i=0; i<bucket->particleCount; ++i) {
-      data->partExt[i] = myParticles[i+bucket->firstParticle].getExternalSmoothParticle();
+      if(TYPETest(&myParticles[i+bucket->firstParticle],
+                  sSmooth->params->iType)) {
+          data->partExt[j] = myParticles[i+bucket->firstParticle].getExternalSmoothParticle();
+          data->partExt[j].iBucketOff = i;
+          j++;
+          }
   }
   
   nCacheAccesses++;
   
+  *(int*)CkPriorityPtr(reply) = -10000000;
+  CkSetQueueing(reply, CK_QUEUEING_IFIFO);
   cacheSmoothPart[msg->replyTo].recvData(reply);
   
   delete msg;
@@ -251,9 +318,11 @@ void TreePiece::flushSmoothParticles(CkCacheFillMsg<KeyType> *msg) {
   CkAssert(nCacheAccesses > 0);
   
   int j = 0;
-  for(int i = data->begin; i <= data->end; i++) {
-      if(TYPETest(&myParticles[i], sc->params->iType))
-	  sc->params->combSmoothCache(&myParticles[i], &data->partExt[j]);
+  for(int i = data->begin; j < data->nActual && i <= data->end; i++) {
+      while(data->partExt[j].iBucketOff > i - data->begin)
+          i++;
+      CkAssert(TYPETest(&myParticles[i], sc->params->iType));
+      sc->params->combSmoothCache(&myParticles[i], &data->partExt[j]);
       j++;
       }
   
@@ -285,7 +354,7 @@ void * EntryTypeGravityNode::request(CkArrayIndexMax& idx, KeyType key) {
 
 void * EntryTypeGravityNode::unpack(CkCacheFillMsg<KeyType> *msg, int chunk, CkArrayIndexMax &from) {
   // recreate the entire tree inside this message
-  Tree::BinaryTreeNode *node = (Tree::BinaryTreeNode *) (((char*)msg->data) + 8);
+  Tree::BinaryTreeNode *node = (Tree::BinaryTreeNode *) (((char*)msg->data) + PAD_reply);
   node->unpackNodes();
   // recursively add all the nodes in this message to the cache
   // and link the leaves of this message to nodes in the cache (if present)
@@ -307,7 +376,7 @@ void EntryTypeGravityNode::unpackSingle(CkCacheFillMsg<KeyType> *msg, Tree::Bina
   // Store pointer to message in front of node storage so it can be
   // freed when we are done.  See free() method below.
 
-  *(CkCacheFillMsg<KeyType> **) (((char*)node)-8) = msg;
+  *(CkCacheFillMsg<KeyType> **) (((char*)node)-PAD_reply) = msg;
 
   // Overwrite virtual pointer table.  Something like this will be
   // needed for heterogeneous architectures.  Commented out for now
@@ -349,7 +418,7 @@ void EntryTypeGravityNode::writeback(CkArrayIndexMax& idx, KeyType k, void *data
 
 void EntryTypeGravityNode::free(void *data) {
     // msg pointer is stored in front of the node data.
-  CkFreeMsg(*(void **)(((char*)data)-8));
+  CkFreeMsg(*(void **)(((char*)data)-PAD_reply));
 }
 
 int EntryTypeGravityNode::size(void * data) {
@@ -362,7 +431,7 @@ void EntryTypeGravityNode::callback(CkArrayID requestorID, CkArrayIndexMax &requ
   int reqID = (int)(userData.d0 & 0xFFFFFFFF);
   int awi = userData.d0 >> 32;
   void *source = (void *)userData.d1;
-  elem.ckLocal()->receiveNodeCallback((Tree::GenericTreeNode*)data, chunk, reqID, awi, source);
+  elem.receiveNodeCallback((Tree::GenericTreeNode*)data, chunk, reqID, awi, source);
 }
 
 
@@ -373,16 +442,13 @@ void TreePiece::fillRequestNode(CkCacheRequestMsg<KeyType> *msg) {
     if(_cache) {
 #if 1 || defined CACHE_BUFFER_MSGS
       int count = ((Tree::BinaryTreeNode*)node)->countDepth(_cacheLineDepth);
-      //FillBinaryNodeMsg *reply = new (count, 0) FillBinaryNodeMsg(thisIndex);
-      // 8 extra bytes are allocated to store the msg pointer at the
+      // Extra bytes are allocated to store the msg pointer at the
       // beginning of the buffer.  See the free() and the
       // unpackSingle() method above.
-      CkCacheFillMsg<KeyType> *reply = new (count * (sizeof(Tree::BinaryTreeNode)+8)) CkCacheFillMsg<KeyType>(msg->key);
-      //reply->magic[0] = 0xd98cb23a;
-      //new (reply->data) BinaryTreeNode[count];
-      //CkPrintf("calling packing function: starting %p, magic=%p\n",reply->nodes,reply->magic);
-      ((Tree::BinaryTreeNode*)node)->packNodes((Tree::BinaryTreeNode*)(reply->data+8), _cacheLineDepth, 8);
-      //CkAssert(reply->magic[0] == 0xd98cb23a);
+      CkAssert(sizeof(msg) <= PAD_reply);  // be sure there is enough rooom
+      //CkCacheFillMsg<KeyType> *reply = new (count * (sizeof(Tree::BinaryTreeNode)+PAD_reply), 8*sizeof(int)) CkCacheFillMsg<KeyType>(msg->key);
+      CkCacheFillMsg<KeyType> *reply = new (count * ALIGN_DEFAULT(sizeof(Tree::BinaryTreeNode)+PAD_reply), 8*sizeof(int)) CkCacheFillMsg<KeyType>(msg->key);
+      ((Tree::BinaryTreeNode*)node)->packNodes((Tree::BinaryTreeNode*)(reply->data+PAD_reply), _cacheLineDepth, PAD_reply);
 #else
       PUP::sizer p1;
       node->pup(p1, msg->depth);
@@ -393,15 +459,19 @@ void TreePiece::fillRequestNode(CkCacheRequestMsg<KeyType> *msg) {
       node->pup(p2, msg->depth);
       //int count = node->copyTo(reply->nodes, msg->depth);
 #endif
+      *(int*)CkPriorityPtr(reply) = -10000000;
+      CkSetQueueing(reply, CK_QUEUEING_IFIFO);
       cacheNode[msg->replyTo].recvData(reply);
     } else {
       CkAbort("Non cached version not anymore supported, feel free to fix it!");
       //copySFCTreeNode(tmp,node);
       //streamingProxy[retIndex].receiveNode(tmp,msg->reqID);
     }
+    delete msg;
   }
   else {	// Handle NULL nodes
-    CkAbort("Ok, before it handled this, but why do we have a null pointer in the tree?!?");
+    if (!sendFillReqNodeWhenNull(msg)) {
+      CkAbort("Ok, before it handled this, but why do we have a null pointer in the tree?!?");
+    }
   }
-  delete msg;
 }

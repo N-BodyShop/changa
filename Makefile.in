@@ -7,10 +7,15 @@
 #CACHE_TREE = -DCACHE_TREE          # enable processor tree inside the cache
 INTERLIST = -DINTERLIST_VER=2      # enable interaction lists
 HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
+FLAG_SSE = @FLAG_SSE@
+FLAG_AVX = @FLAG_AVX@
+FLAG_CHANGESOFT = @FLAG_CHANGESOFT@
 FLAG_BIGKEYS = @FLAG_BIGKEYS@
+FLAG_DTADJUST = @FLAG_DTADJUST@
+FLAG_KERNEL = @FLAG_KERNEL@
 FLAG_COOLING = @FLAG_COOLING@
-
-#CELL = -DINTERLIST_VER=2 -DCELL -DCELL_PART -DCELL_NODE -DCELL_EWALD  # Cell processor offload
+FLAG_DIFFUSION = @FLAG_DIFFUSION@
+FLAG_RTFORCE = @FLAG_RTFORCE@
 
 # optional CUDA flags: 
 # memory:
@@ -65,7 +70,15 @@ FLAG_TREE_BUILD = -DMERGE_REMOTE_REQUESTS
 
 #MULTISTEP_LOADBALANCING_VERBOSE = -DCOSMO_MCLB=2 -DMCLBMSV
 #ORB3DLB_LOADBALANCING_VERBOSE = -DORB3DLBV
-DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) $(INTERLIST) $(HEXADECAPOLE) $(FLAG_COOLING) $(FLAG_BIGKEYS) $(CELL) $(FLAG_REFACTOR) $(MULTISTEP_LOADBALANCING_VERBOSE) $(ORB3DLB_LOADBALANCING_VERBOSE) $(CUDA) -DREDUCTION_HELPER $(FLAG_TREE_BUILD) -DCHANGESOFT
+DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) \
+	       $(INTERLIST) $(HEXADECAPOLE) $(FLAG_COOLING) $(FLAG_BIGKEYS) \
+	       $(FLAG_DIFFUSION) $(FLAG_RTFORCE) \
+	       $(FLAG_DTADJUST) $(FLAG_REFACTOR) \
+               $(MULTISTEP_LOADBALANCING_VERBOSE) \
+               $(ORB3DLB_LOADBALANCING_VERBOSE) $(CUDA) \
+	       -DREDUCTION_HELPER $(FLAG_TREE_BUILD) \
+               $(FLAG_SSE) $(FLAG_AVX) \
+	       $(FLAG_CHANGESOFT) $(FLAG_KERNEL)
 
 CHARM_PATH = @CHARM_PATH@
 STRUCTURES_PATH = ../utility/structures
@@ -86,9 +99,16 @@ NVCC_LIBS = -lcuda -lcudart -lGL
 
 # add -module Orb3dLB here for load balancing during singlestepped runs
 #OPTS = -g -memory charmdebug
-OPTS = -O3
+OPTS = -O3 -lpthread
 CXXFLAGS += $(OPTS) -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) @CPPFLAGS@
-LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache -module commlib -module CkMulticast -module RefineLB -module RefineCommLB -module GreedyLB -module GreedyCommLB -module OrbLB -module RotateLB -module MultistepLB -module MultistepLB_notopo -module MultistepOrbLB -module Orb3dLB -module Orb3dLB_notopo -module liveViz #-tracemode projections -memory charmdebug -memory paranoid
+LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache \
+           -module CkIO -module CkMulticast -module RefineLB \
+           -module RefineCommLB -module GreedyLB -module GreedyCommLB \
+           -module OrbLB -module RotateLB -module MultistepLB \
+           -module MultistepLB_notopo -module MultistepNodeLB_notopo \
+           -module MultistepOrbLB -module Orb3dLB -module Orb3dLB_notopo \
+           -module HierarchOrbLB -module liveViz -module CkLoop \
+           -balancer MultistepLB_notopo #-tracemode projections -memory charmdebug -memory paranoid
 XDR_DIR = ../rpc
 XDR_OBJS = $(XDR_DIR)/xdr.o $(XDR_DIR)/xdr_float.o $(XDR_DIR)/xdr_mem.o $(XDR_DIR)/xdr_stdio.o
 LDLIBS += $(STRUCTURES_PATH)/libTipsy.a  @LIBS@
@@ -102,22 +122,22 @@ CXX_DEPEND = $(CXX) -M -MM -MG $(CXXFLAGS)
 CFLAGS = $(OPTS) $(DEFINE_FLAGS) @CFLAGS@ @CPPFLAGS@
 
 # Orb3dLB.{o,C} below
-OBJECTS = Reductions.o DataManager.o TreePiece.o Sorter.o \
+OBJECTS = Reductions.o DataManager.o TreePiece.o IntraNodeLBManager.o Sorter.o \
 	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
 	  InOutput.o cosmo.o romberg.o runge.o dumpframe.o dffuncs.o \
-	  moments.o MultistepLB.o Orb3dLB.o Orb3dLB_notopo.o \
-	  MultistepLB_notopo.o MultistepOrbLB.o PETreeMerger.o \
+	  moments.o MultistepLB.o Orb3dLB.o Orb3dLB_notopo.o HierarchOrbLB.o \
+	  MultistepLB_notopo.o MultistepNodeLB_notopo.o MultistepOrbLB.o PETreeMerger.o \
 	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
 	  feedback.o imf.o supernova.o supernovaia.o starlifetime.o \
 	  sinks.o \
 	  cha_commitid.o \
 	  @OBJECTS_COOLING@
 
-SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp \
+SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp IntraNodeLBManager.cpp \
 	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
-	InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c \
-	moments.c MultistepLB.C Orb3dLB.C Orb3dLB_notopo.C starform.C \
-	MultistepLB_notopo.C MultistepOrbLB.C PETreeMerger.cpp \
+	InOutput.C cosmo.c romberg.c runge.c dumpframe.C dffuncs.C \
+	moments.c MultistepLB.C Orb3dLB.C Orb3dLB_notopo.C HierarchOrbLB.C starform.C \
+	MultistepLB_notopo.C MultistepNodeLB_notopo.C MultistepOrbLB.C PETreeMerger.cpp \
 	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C \
 	starform.C feedback.C imf.C supernova.C supernovaia.C starlifetime.C \
 	sinks.C
@@ -138,10 +158,10 @@ TARGET = ChaNGa
 VERSION = 1.0
 all: $(TARGET)
 
-$(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleMultistepLB_notopo.a libmoduleMultistepOrbLB.a
+$(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleHierarchOrbLB.a libmoduleMultistepLB_notopo.a libmoduleMultistepNodeLB_notopo.a libmoduleMultistepOrbLB.a
 	$(CHARMC) -o $(TARGET) $(LDFLAGS) $(OBJECTS) $(LDLIBS)
 
-$(TARGET).prj: $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleMultistepLB_notopo.a libmoduleMultistepOrbLB.a
+$(TARGET).prj: $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleHierarchOrbLB.a libmoduleMultistepLB_notopo.a libmoduleMultistepNodeLB_notopo.a libmoduleMultistepOrbLB.a
 	$(CHARMC) -o $(TARGET).prj $(LDFLAGS) $(OBJECTS) $(LDLIBS) -tracemode projections
 
 $(TARGET).%: $(TARGET)
@@ -168,12 +188,17 @@ libmoduleMultistepOrbLB.a: MultistepOrbLB.o
 libmoduleMultistepLB_notopo.a: MultistepLB_notopo.o
 	$(CHARMC) -o libmoduleMultistepLB_notopo.a MultistepLB_notopo.o 
 
+libmoduleMultistepNodeLB_notopo.a: MultistepNodeLB_notopo.o
+	$(CHARMC) -o libmoduleMultistepNodeLB_notopo.a MultistepNodeLB_notopo.o 
 
 libmoduleOrb3dLB.a: Orb3dLB.o
 	$(CHARMC) -o libmoduleOrb3dLB.a Orb3dLB.o 
 
 libmoduleOrb3dLB_notopo.a: Orb3dLB_notopo.o
 	$(CHARMC) -o libmoduleOrb3dLB_notopo.a Orb3dLB_notopo.o 
+
+libmoduleHierarchOrbLB.a: HierarchOrbLB.o
+	$(CHARMC) -o libmoduleHierarchOrbLB.a HierarchOrbLB.o
 
 %.decl.h %.def.h : %.ci
 	$(CHARMC) -E $(DEFINE_FLAGS) $<
@@ -182,17 +207,6 @@ HostCUDA.o: HostCUDA.cu HostCUDA.h
 	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) HostCUDA.cu
 
 %.o: Makefile
-
-# CELL specific
-# add "cell_lib.o to the OBJECTS variable below
-# uncomment the following lines
-#include ../../charm/tmp/Makefile.cell
-#cell_lib.o: cellSPE_code.c
-#	$(SPU_CC) -O3 -S -g -I../../charm/include cellSPE_code.c
-#	$(SPU_CC) -O3 -c -I../../charm/include -o cellSPE_code.o cellSPE_code.c
-#	$(SPU_LD) -L../../charm/lib -o cellSPE_code cellSPE_code.o $(SPERT_LIBS) -lm -lsimdmath
-#	$(PPU_EMBEDSPU) spert_main cellSPE_code cell_lib.o
-# End CELL specific
 
 docs:
 	doxygen Doxyfile
@@ -212,6 +226,8 @@ dist:
 
 clean:
 	rm -f core* $(OBJECTS) *~ $(TARGET) *.decl.h *.def.h charmrun conv-host 
+	rm -f *.o *.a
+	cd $(STRUCTURES_PATH); $(MAKE) clean
 
 ref-clean:
 	rm -f $(TARGET) Compute.o TreeWalk.o

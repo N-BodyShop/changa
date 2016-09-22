@@ -3,6 +3,7 @@
 *.decl.h
 *.def.h
 config.*
+!config.h.in
 Makefile
 charmrun
 ChaNGa*

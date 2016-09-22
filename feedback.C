@@ -27,9 +27,6 @@ void Fdbk::AddParams(PRM prm)
     strcpy(achIMF, "Kroupa93");
     prmAddParam(prm,"achIMF", paramString, &achIMF, 32, "achIMF",
 		"<IMF> = Kroupa93");
-    iRandomSeed = 1;
-    prmAddParam(prm,"iRandomSeed", paramInt, &iRandomSeed, sizeof(int),
-		"iRand", "<Feedback random Seed> = 1");
     sn.iNSNIIQuantum = 0;
     prmAddParam(prm,"iNSNIIQuantum", paramInt, &sn.iNSNIIQuantum, sizeof(int),
 		"snQuant", "<Min # SNII per timestep> = 0.");
@@ -56,6 +53,10 @@ void Fdbk::AddParams(PRM prm)
     nSmoothFeedback = 64;
     prmAddParam(prm,"nSmoothFeedback", paramInt,&nSmoothFeedback, sizeof(int),
 		"s", "<number of particles to smooth feedback over> = 64");
+    dMaxCoolShutoff = 3.0e7;
+    prmAddParam(prm,"dMaxCoolShutoff", paramDouble, &dMaxCoolShutoff,
+		sizeof(double), "fbMaxCoolOff",
+		"<Maximum time to shutoff cooling in years> = 3e7");
 }
 
 void Fdbk::CheckParams(PRM prm, struct parameters &param)
@@ -108,7 +109,7 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
 	    pow(MSOLG*param.dMsolUnit/(param.dMeanMolWeight*MHYDR*pow(KPCCM*param.dKpcUnit,3)),0.32)*
 	    pow(0.0001*GCGS*pow(MSOLG*param.dMsolUnit,2)/(pow(KPCCM*param.dKpcUnit,4)*KBOLTZ),-0.70);
 	}
-    
+    dMaxCoolShutoff *= SECONDSPERYEAR/param.dSecUnit;
     }
 
 ///
@@ -139,29 +140,29 @@ void Main::StellarFeedback(double dTime, double dDelta)
     delete msgFeedback;
     CkReductionMsg *msgChk;
     treeProxy.massMetalsEnergyCheck(1, CkCallbackResumeThread((void*&)msgChk));
+    double tFB = CkWallTimer() - startTime;
+    // Overload tAdjust with FB stellar evolution
+    timings[PHASE_FEEDBACK].tAdjust += tFB;
     
+    startTime = CkWallTimer();
     if(verbosity)
       CkPrintf("Distribute Stellar Feedback ... ");
-    // particles need sorting before tree build when star formation
-    // not enabled
-    if(!param.bStarForm) {
-	sorter.startSorting(dataManagerID, ddTolerance,
-			    CkCallbackResumeThread(), true);
-	}
     // Need to build tree since we just did addDelParticle.
-    // XXX need to check whether a treebuild needs the domain
-    // decomposition.  If not, this could be avoided.
     //
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+    double tTB = CkWallTimer() - startTime;
+    timings[PHASE_FEEDBACK].tTBuild += tTB;
+    startTime = CkWallTimer();
     DistStellarFeedbackSmoothParams pDSFB(TYPE_GAS, 0, param.csm, dTime, 
 					  param.dConstGamma, param.feedback);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
-    treeProxy.startSmooth(&pDSFB, 1, param.feedback->nSmoothFeedback,
+    treeProxy.startSmooth(&pDSFB, 0, param.feedback->nSmoothFeedback,
 			  dfBall2OverSoft2, CkCallbackResumeThread());
     treeProxy.finishNodeCache(CkCallbackResumeThread());
 
-    CkPrintf("Stellar Feedback Calculated, Wallclock %f secs\n",
-	     CkWallTimer() - startTime);
+    double tDFB = CkWallTimer() - startTime;
+    timings[PHASE_FEEDBACK].tuDot += tDFB; // Overload tuDot for feedback.
+    CkPrintf("Stellar Feedback Calculated, Wallclock %f secs\n", tFB);
 
     CkReductionMsg *msgChk2;
     treeProxy.massMetalsEnergyCheck(0, CkCallbackResumeThread((void*&)msgChk2));
@@ -444,9 +445,11 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
     GravityParticle *q;
     double fNorm,ih2,r2,rs,rstot,fNorm_u,fNorm_Pres,fAveDens;
     int i,counter;
+    int nHeavy = 0;
     
     if ( p->fMSN() == 0.0 ){return;} /* Is there any feedback mass? */
     CkAssert(TYPETest(p, TYPE_STAR));
+    CkAssert(nSmooth > 0);
     ih2 = invH2(p);
     rstot = 0.0;  
     fNorm_u = 0.0;
@@ -460,6 +463,7 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
 	rs = KERNEL(r2);
 	q = nList[i].p;
 	if(q->mass > fb.dMaxGasMass) {
+	    nHeavy++;
 	    continue; /* Skip heavy particles */
 	    }
 	fNorm_u += q->mass*rs;
@@ -468,10 +472,20 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
 	fAveDens += q->mass*rs;
 	fNorm_Pres += q->mass*q->uPred()*rs;
 	}
+    if(fNorm_u == 0.0) {
+        CkError("Got %d heavies: no feedback\n", nHeavy);
+        CkError("WARNING: lonely star skips feedback of mass %g\n", p->fMSN());
+        p->mass += p->fMSN(); // mass goes back into star.
+        // We could self-enrich to conserve metals, but that could do
+        // funny things to the mass metalicity relation.
+        // Also prevent any cooling shut-off.
+        p->fNSN() = 0.0;
+        return;
+	}
+	    
     CkAssert(fNorm_u > 0.0);  	/* be sure we have at least one neighbor */
     fNorm_Pres *= (gamma-1.0);
     
-    assert(fNorm_u != 0.0);
     fNorm_u = 1./fNorm_u;
     counter=0;
     for (i=0;i<nSmooth;++i) {
@@ -565,6 +579,9 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
     /* Shut off cooling for 3 Myr for stellar wind */
     if (p->fNSN() < fb.sn.iNSNIIQuantum)
 	fShutoffTime= 3e6 * SECONDSPERYEAR / fb.dSecUnit;
+    /* Limit cooling shutoff time */
+    if(fShutoffTime > fb.dMaxCoolShutoff)
+        fShutoffTime = fb.dMaxCoolShutoff;
     
     fmind = p->fBall*p->fBall;
     imind = 0;
@@ -584,7 +601,7 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 	for (i=0;i<nSmooth;++i) {
 	    double fDist2 = nList[i].fKey;
 	    if ( fDist2 < fmind ){imind = i; fmind = fDist2;}
-	    if ( fDist2 < f2h2 || !fb.bSmallSNSmooth) {
+            if ( !fb.bSmallSNSmooth || fDist2 < f2h2 ) {
 		r2 = fDist2*ih2;            
 		rs = KERNEL(r2);
 		q = nList[i].p;
@@ -658,10 +675,9 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 #else
 	    weight = rs*fNorm_u*q->mass;
 #endif
-	    q->fESNrate() += weight*p->fESNrate();
-	    /*		printf("SNTEST: %d %g %g %g %g\n",q->iOrder,weight,sqrt(q->r[0]*q->r[0]+q->r[1]*q->r[1]+q->r[2]*q->r[2]),q->fESNrate,q->fDensity);*/
+	    q->fESNrate() += weight*p->fStarESNrate();
 	    
-	    if ( p->fESNrate() > 0.0 && fb.bSNTurnOffCooling && 
+	    if ( p->fStarESNrate() > 0.0 && fb.bSNTurnOffCooling && 
 		 (fBlastRadius*fBlastRadius >= fDist2)){
 		q->fTimeCoolIsOffUntil() = max(q->fTimeCoolIsOffUntil(),
 					       dTime + fShutoffTime);       
