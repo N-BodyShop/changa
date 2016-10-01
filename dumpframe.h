@@ -1,6 +1,8 @@
 #ifndef DUMPFRAME_HINCLUDED
 #define DUMPFRAME_HINCLUDED
 /*
+ ** @file dumpframe.h
+ *
  * Image dumping routines for movies from PKDGRAV
  * Original author: James Wadsley, 2002
  */
@@ -20,16 +22,20 @@ typedef struct dfImage {
 	float r,g,b;
 	} DFIMAGE;
 
+/** @brief Associate floating point value with color */
 typedef struct dfColorVal {
     float fVal;
     DFIMAGE dfColor;
     } DFCOLORVAL;
 
+const int DF_MAX_COLORENTRIES = 20;
+
+/** @brief Table of colors for a particle property */
 typedef struct dfColorTable {
     int iProperty;
     int nColors;
     float fPropMin, fPropMax;
-    DFCOLORVAL dfColors[20];
+    DFCOLORVAL dfColors[DF_MAX_COLORENTRIES];
     } DFCOLORTABLE;
 
 /* 
@@ -104,6 +110,9 @@ enum df_star_age_colour {
 
 /* PST */
 /* There is a common subset with framesetup that needs it's own structure -- parent class even */
+/** @brief Data needed for a TreePiece to render its part of the
+ * image.
+ */
 typedef
 struct inDumpFrame {
 	double dTime;
@@ -149,8 +158,9 @@ struct inDumpFrame {
 	int bVDetails;
     } InDumpFrame;
 
-/* This is a table entry for later interpolation, 
-   changing properties of frames */
+/** @brief Higher level information describing a frame.
+    This is a table entry for later interpolation, 
+    changing properties of frames */
 struct dfFrameSetup {
 	double dTime;
     double duTFac;
@@ -192,8 +202,10 @@ struct dfFrameSetup {
 	int bNonLocal; /* Is this data going non-local? */
     };
 
-/* MSR */
+/* MSR level in PKDGRAV */
 
+/** @brief Global simulation parameters for dumpframe.
+ */
 struct DumpFrameContext {
 	int bAllocated; /* Was this malloc'ed? */
 
