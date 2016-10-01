@@ -55,51 +55,73 @@ extern const char * const Cha_CommitID;
 
 using namespace std;
 
+/// @brief Proxy for Charm Main Chare
 CProxy_Main mainChare;
+/// @brief verbosity level.  Higher is more verbose.
 int verbosity;
 int bVDetails;
-CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
+CProxy_TreePiece treeProxy; ///< Proxy for the TreePiece chare array
 #ifdef REDUCTION_HELPER
 CProxy_ReductionHelper reductionHelperProxy;
 #endif
 #ifdef CUDA
 CProxy_DataManagerHelper dmHelperProxy;
 #endif
-CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
-CProxy_LvArray smoothProxy; // Proxy for smooth reductions
-CProxy_LvArray gravityProxy; // Proxy for gravity reductions
+CProxy_LvArray lvProxy;	    ///< Proxy for the liveViz array
+CProxy_LvArray smoothProxy; ///< Proxy for smooth reductions
+CProxy_LvArray gravityProxy; ///< Proxy for gravity reductions
+/// @brief Proxy for the gravity particle cache group.
 CProxy_CkCacheManager<KeyType> cacheGravPart;
+/// @brief Proxy for the smooth particle cache group.
 CProxy_CkCacheManager<KeyType> cacheSmoothPart;
+/// @brief Proxy for the tree node cache group.
 CProxy_CkCacheManager<KeyType> cacheNode;
+/// @brief Proxy for the DataManager
 CProxy_DataManager dMProxy;
 CProxy_IntraNodeLBManager nodeLBMgrProxy;
 
+/// @brief Proxy for the dumpframe image data (DumpFrameData).
 CProxy_DumpFrameData dfDataProxy;
+/// @brief Proxy for the PETreeMerger group.
 CProxy_PETreeMerger peTreeMergerProxy;
 
 
 
-
+/// @brief Use the cache (always on)
 bool _cache;
+/// @brief Disable the cache (always off)
 int _nocache;
+/// @brief Size of a Node Cache line, specified by how deep in the
+/// tree it goes.
 int _cacheLineDepth;
+/// @brief The number of buckets to process in the local gravity walk
+/// before yielding the processor.
 unsigned int _yieldPeriod;
+/// @brief The type of domain decomposition to use.
 DomainsDec domainDecomposition;
-double dExtraStore;		// fraction of extra particle storage
-double dMaxBalance;		// Max piece imbalance for load balancing
-double dFracLoadBalance;	// Min particles for doing load balancing
-int iGasModel; 			// For backward compatibility
+double dExtraStore;		///< fraction of extra particle storage
+double dMaxBalance;		///< Max piece imbalance for load balancing
+double dFracLoadBalance;	///< Min fraction of particles active
+                                ///  for doing load balancing.
+int iGasModel; 			///< For backward compatibility
 int peanoKey;
+/// @brief type of tree to use.
 GenericTrees useTree;
+/// @brief A potentially optimized proxy for the tree pieces.  Its use
+/// is deprecated.
 CProxy_TreePiece streamingProxy;
+/// @brief Number of pieces into which to divide the tree.
 unsigned int numTreePieces;
+/// @brief Number of particles per TreePiece.  Used to determine the
+/// number of TreePieces.
 unsigned int particlesPerChare;
-int nIOProcessor;		// Number of pieces to be doing I/O at once
+int nIOProcessor;		///< Number of pieces to be doing I/O at once
 int _prefetch;
 int _numChunks;
 int _randChunks;
 unsigned int bucketSize;
 int lbcomm_cutoff_msgs;
+/// @brief Use Ckloop for node parallelization.
 int bUseCkLoopPar;
 
 //jetley
@@ -117,7 +139,9 @@ double largePhaseThreshold;
 cosmoType theta;
 cosmoType thetaMono;
 
+/// @brief Boundary evaluation user event (for Projections tracing).
 int boundaryEvaluationUE;
+/// @brief Weight balancing during Oct decomposition user event (for Projections tracing).
 int weightBalanceUE;
 int networkProgressUE;
 int nodeForceUE;
@@ -3624,6 +3648,7 @@ void printTreeGraphVizRecursive(GenericTreeNode *node, ostream &out){
   }
 }
 
+/// @brief Print a visualization of a tree.
 void printTreeGraphViz(GenericTreeNode *node, ostream &out, const string &name){
   out << "digraph " << name << " {" << endl;
   printTreeGraphVizRecursive(node,out);

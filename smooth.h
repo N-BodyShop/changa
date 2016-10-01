@@ -268,6 +268,7 @@ public:
 
 #include "Opt.h"
 
+/// @brief action optimization for the smooth walk.
 class SmoothOpt : public Opt{
   public:
   SmoothOpt() : Opt(Local){

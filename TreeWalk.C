@@ -533,6 +533,7 @@ const char *translations[] = {"",
                                  "CachedEmpty"
                                  };
 
+/// @brief Interprete NodeType as string.
 const char *typeString(NodeType type){
   CkAssert(type > 0 && type <= NUM_NODE_TYPES);
   return translations[type];

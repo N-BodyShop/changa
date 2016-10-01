@@ -1,6 +1,10 @@
 #ifndef __OPT_H__
 #define __OPT_H__
 
+/// @file Opt.h
+///
+/// Declare Opt classes for walk actions
+///
 #include "codes.h"
 
 /// Base class for optimizing walk actions.
@@ -122,6 +126,8 @@ class LocalOpt : public Opt{
   }
   
 };
+
+/// Class for optimizing experimental "push" gravity walk actions.
 
 class PushGravityOpt : public Opt{
   public:

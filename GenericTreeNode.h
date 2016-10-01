@@ -1028,6 +1028,7 @@ NodePool::alloc_one(NodeKey k, NodeType type, int first, int nextlast,
 
 } //close namespace Tree
 
+/// @brief PUP a NodeType
 inline void operator|(PUP::er &p,Tree::NodeType &nt) {
   int nti;
   if (p.isUnpacking()) {
@@ -1039,6 +1040,7 @@ inline void operator|(PUP::er &p,Tree::NodeType &nt) {
   }
 }
 
+/// @brief PUP a tree type.
 inline void operator|(PUP::er &p,Tree::GenericTrees &gt) {
   int gti;
   if (p.isUnpacking()) {
