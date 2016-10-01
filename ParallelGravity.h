@@ -194,15 +194,12 @@ extern double thetaMono;
 extern int numInitDecompBins;
 extern int octRefineLevel;
 
+/// @brief Message to efficiently start entry methods with no arguments.
 class dummyMsg : public CMessage_dummyMsg{
 public:
-int val;
-/*#if INTERLIST_VER > 0
-int level;
-GenericTreeNode* startNode;
-#endif*/
 };
 
+#if COSMO_STATS > 0
 class TreePieceStatistics {
   u_int64_t nodesOpenedLocal;
   u_int64_t nodesOpenedRemote;
@@ -259,7 +256,9 @@ class TreePieceStatistics {
     return CkReductionMsg::buildNew(sizeof(TreePieceStatistics), &ret);
   }
 };
+#endif
 
+/// @brief Message to start a remote gravity walk.
 class ComputeChunkMsg : public CMessage_ComputeChunkMsg {
   ComputeChunkMsg() {} // not available
  public:
@@ -360,11 +359,14 @@ const int MAXRUNG = 30;
 const int MAXSUBSTEPS = 1 << MAXRUNG;
 const double MAXSUBSTEPS_INV = 1 / (double)MAXSUBSTEPS;
 
+/// @brief Given a rung, return the number of substeps in one big step.
 inline int RungToSubsteps(int iRung) {
   CkAssert(iRung <= MAXRUNG);
   return 1 << (MAXRUNG - iRung);
 }
 
+/// @brief Given the size of the big step, and a desired timestep,
+/// return the rung of the largest timestep less than dTideal.
 inline int DtToRung(double dDelta, double dTideal) {
   int iSteps = (int) ceil(dDelta/dTideal);
 
@@ -377,6 +379,8 @@ inline int DtToRung(double dDelta, double dTideal) {
   return iRung;
 }
 
+/// @brief Given the size of the big step, and a rung, return the
+/// corresponding timestep size.
 inline double RungToDt(double dDelta, int iRung) {
   return dDelta*RungToSubsteps(iRung)*MAXSUBSTEPS_INV;
 }
@@ -539,6 +543,7 @@ public:
 
 /* IBM brain damage */
 #undef hz
+/// @brief Coefficients for the Fourier space part of the Ewald sum.
 typedef struct ewaldTable {
   double hx,hy,hz;
   double hCfac,hSfac;
@@ -561,6 +566,7 @@ typedef CkVec<OffsetNode> UndecidedList;
 typedef CkVec<UndecidedList> UndecidedLists;
 #endif
 
+/// @brief Remote particles in an interaction list.
 typedef struct particlesInfoR{
     ExternalGravityParticle* particles;
     int numParticles;
@@ -573,7 +579,7 @@ typedef struct particlesInfoR{
 #endif
 } RemotePartInfo;
 
- ///Local Particle Info structure
+/// @brief Local particles in an interaction list.
 typedef struct particlesInfoL{
     GravityParticle* particles;
     int numParticles;
@@ -1957,7 +1963,6 @@ class LvArray : public CBase_LvArray {
 int decodeReqID(int);
 int encodeOffset(int reqID, int x, int y, int z);
 bool bIsReplica(int reqID);
-void initNodeLock();
 void printGenericTree(GenericTreeNode* node, std::ostream& os) ;
 //bool compBucket(GenericTreeNode *ln,GenericTreeNode *rn);
 
@@ -1999,6 +2004,7 @@ class ReductionHelper : public CBase_ReductionHelper {
 };
 #endif
 
+/// @brief Used to count non-empty treepieces on the local processor.
 class NonEmptyTreePieceCounter : public CkLocIterator {            
   public:
     NonEmptyTreePieceCounter() { reset(); }
