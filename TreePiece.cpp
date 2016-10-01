@@ -3349,6 +3349,7 @@ void TreePiece::treeBuildComplete(){
 #endif
 }
 
+/// @brief is this a periodic replica?
 bool bIsReplica(int reqID)
 {
     int offsetcode = reqID >> 22;
@@ -3359,6 +3360,7 @@ bool bIsReplica(int reqID)
     return x || y || z;
     }
 
+/// @brief Given a requestID, return the bucket number.
 int decodeReqID(int reqID)
 {
     const int offsetmask = 0x1ff << 22;
@@ -3366,6 +3368,8 @@ int decodeReqID(int reqID)
     return reqID & (~offsetmask);
     }
 
+/// @brief Given a bucket number and a periodic offset, encode these
+/// into one number.
 int encodeOffset(int reqID, int x, int y, int z)
 {
     // Bit limitations follow
@@ -3609,7 +3613,6 @@ void TreePiece::doAllBuckets(){
   dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
   *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
   CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-  msg->val=0;
 
   thisProxy[thisIndex].nextBucket(msg);
 #ifdef CUDA_INSTRUMENT_WRS
@@ -5820,7 +5823,9 @@ void printGenericTree(GenericTreeNode* node, ostream& os) {
   }
 }
 
+#if COSMO_STATS > 0
 CkReduction::reducerType TreePieceStatistics::sum;
+#endif
 
 /*
  * Collect treewalking statistics across all TreePieces

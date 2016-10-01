@@ -413,7 +413,7 @@ void TreePiece::calculateSmoothLocal() {
     // Give smooths higher priority than gravity
     *((int *)CkPriorityPtr(msg)) = thisIndex + 1;
     CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-    msg->val=0;
+    // msg->val=0;
     thisProxy[thisIndex].nextBucketSmooth(msg);
     }
 
@@ -863,7 +863,7 @@ void TreePiece::calculateReSmoothLocal() {
     // Give smooths higher priority than gravity
     *((int *)CkPriorityPtr(msg)) = thisIndex + 1;
     CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-    msg->val=0;
+    // msg->val=0;
     thisProxy[thisIndex].nextBucketReSmooth(msg);
     }
 
@@ -1095,7 +1095,7 @@ void TreePiece::calculateMarkSmoothLocal() {
     // Give smooths higher priority than gravity
     *((int *)CkPriorityPtr(msg)) = thisIndex + 1;
     CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-    msg->val=0;
+    // msg->val=0;
     thisProxy[thisIndex].nextBucketMarkSmooth(msg);
     }
 
