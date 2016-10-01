@@ -6,8 +6,8 @@
 class State;
 class DoubleWalkState;
 
-/* File defines classes for objects that encapsulate computation
- * */
+/** @file defines classes for objects that encapsulate computation
+ */
 
 class TreeWalk;
 class Opt;
@@ -223,6 +223,7 @@ class ListCompute : public Compute{
 };
 #endif
 
+/// @brief Compute for the remote node prefetch walk.
 class PrefetchCompute : public Compute{
 
   public:
@@ -239,10 +240,11 @@ class PrefetchCompute : public Compute{
   void recvdParticles(ExternalGravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket);
 };
 
-// when prefetching is disabled from command line, use 
-// DummyPrefetchCompute instead of PrefetchCompute
+/// when prefetching is disabled from command line, use 
+/// DummyPrefetchCompute instead of PrefetchCompute
 class DummyPrefetchCompute : public PrefetchCompute {
   public:
+    /// Immediately stop the walk.
   int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi){
     return DUMP;
   }
