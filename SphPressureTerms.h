@@ -179,7 +179,8 @@
 		dt_ = dtFacCourant*ph/(0.625*(pc + q->c())+0.375*visc_); \
 		visc_ = SWITCHCOMBINE(p,q)*visc_ \
 		    *absmu/(pDensity + q->fDensity); }
-#else
+#endif
+#ifdef CULLENALPHA
 /* Cullen&Dehnen Artifical Viscosity */
 #define ARTIFICIALVISCOSITY(visc_,dt_) { double hav=0.5*(ph+0.5*q->fBall);  /* h mean */ \
 		absmu = -hav*dvdotdr*a  \
@@ -204,14 +205,16 @@
         if (dvdotdr>=0.0) {
             dt = dtFacCourant*ph/(2*(pc > q->c() ? pc : q->c()));
             }
+#ifdef CULLENALPHA
         else {  
             hav=0.5*(ph+0.5*q->fBall);
             ARTIFICIALVISCOSITY(visc,dt); /* Calculate Artificial viscosity terms */		
             PACTIVE( p->PdV() += rq*(0.5*visc)*dvdotdr *p->CullenAlpha(); );
             QACTIVE( q->PdV() += rp*(0.5*visc)*dvdotdr * q->CullenAlpha(); );
             PACTIVE( Accp += visc*p->CullenAlpha(); );
-            QACTIVE( Accq += visc*q->CullenAlpha(); ); // used to have /(hav*hav) term in all 4 lines
+            QACTIVE( Accq += visc*q->CullenAlpha(); ); 
             }
+#endif
         PACTIVE( Accp *= rq*aFac; );/* aFac - convert to comoving acceleration */
         QACTIVE( Accq *= rp*aFac; );
         PACTIVE( p->treeAcceleration.x -= Accp * dx; );

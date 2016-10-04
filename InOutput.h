@@ -358,6 +358,7 @@ class PresOutputParams : public OutputParams
 	}
     };
 
+#ifdef CULLENALPHA
 class AlphaOutputParams : public OutputParams
 {
   virtual double dValue(GravityParticle *p)
@@ -387,7 +388,7 @@ class AlphaOutputParams : public OutputParams
     OutputParams::pup(p);//Call base class                                                                                                                                                     
   }
 };
-
+#endif /* CULLENALPHA */
 
 
 /// @brief Output divergence of velocity.
