@@ -219,6 +219,19 @@ fi
 AC_SUBST([FLAG_FEEDBACKDIFFLIMIT])
 AC_SUBST([FLAG_DIFFHARMONIC])
 
+# Calculate artificial viscosity from Cullen & Dehnen 2010
+AC_ARG_ENABLE([cullenalpha],
+        [AS_HELP_STRING([--enable-cullenalpha], [enable cullenalpha])],
+        [cullenalpha=$enableval], [cullenalpha=yes])
+if test "$cullenalpha" = "yes" ; then
+    echo "CULLENALPHA selected"
+    FLAG_CULLENALPHA="-DCULLENALPHA"
+else
+    FLAG_CULLENALPHA=""
+fi
+
+AC_SUBST([FLAG_CULLENALPHA])
+
 # Richie-Thomas forces (Pressure SPH)
 AC_ARG_ENABLE([rtforce],
 	[AS_HELP_STRING([--enable-rtforce], [enable Richie-Thomas forces])],
