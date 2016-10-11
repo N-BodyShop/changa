@@ -201,6 +201,32 @@ fi
 
 AC_SUBST([FLAG_DIFFUSION])
 
+# Harmonic mean for diffusion -- temporary (added by Isaac)
+AC_ARG_ENABLE([diffharmonic],
+    [AS_HELP_STRING([--enable-diffharmonic], [enable harmonic mean for diffusion (yes, no)])],
+    [diffharmonic=$enableval], [diffharmonic=no])
+if test "$diffharmonic" = "yes" ; then
+    echo "DIFFUSIONHARMONIC selected"
+    FLAG_DIFFHARMONIC="-DDIFFUSIONHARMONIC"
+else
+    FLAG_DIFFHARMONIC=""
+fi
+
+AC_SUBST([FLAG_DIFFHARMONIC])
+
+# Limit supernova feedback -- temporary (added by Isaac)
+AC_ARG_ENABLE([feedbacklimit],
+    [AS_HELP_STRING([--enable-feedbacklimit], [enable supernova feedback limit (yes, no)])],
+    [feedbacklimit=$enableval], [feedbacklimit=no])
+if test "$feedbacklimit" = "yes" ; then
+    echo "FEEDBACKDIFFLIMIT selected"
+    FLAG_FEEDBACKDIFFLIMIT="-DFEEDBACKDIFFLIMIT"
+else
+    FLAG_FEEDBACKDIFFLIMIT=""
+fi
+
+AC_SUBST([FLAG_FEEDBACKDIFFLIMIT])
+
 # Richie-Thomas forces (Pressure SPH)
 AC_ARG_ENABLE([rtforce],
 	[AS_HELP_STRING([--enable-rtforce], [enable Richie-Thomas forces])],
