@@ -594,6 +594,7 @@ public:
         void restartGas();
 	void doSph(int activeRung, int bNeedDensity = 1);
 	void AGORAfeedbackPreCheck(double dTime, double dDelta, double dTimeToSF);
+        void doCollisions(double dTime, double dDelta);
 	void FormStars(double dTime, double dDelta);
 	void StellarFeedback(double dTime, double dDelta);
 	void outputBlackHoles(double dTime);

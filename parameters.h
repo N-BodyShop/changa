@@ -6,6 +6,7 @@
 #include "starform.h"
 #include "feedback.h"
 #include "sinks.h"
+#include "collision.h"
 
 #include "externalGravity.h"
 
@@ -117,6 +118,8 @@ typedef struct parameters {
     int bDoExternalGravity;
     ExternalGravity externalGravity;
     int iRandomSeed;            /* Seed for random numbers */
+    int bCollision;
+    Collision *collision;
     
     Sinks sinks;
 
@@ -259,6 +262,8 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dEvapCoeffCode;
     p|param.bDoExternalGravity;
     p|param.externalGravity;
+    p|param.bCollision;
+    p|param.collision;
     p|param.iRandomSeed;
     p|param.sinks;
     p|param.dSIDMSigma;

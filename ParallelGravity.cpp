@@ -44,6 +44,8 @@
 #include "SIDM.h"
 #include "externalGravity.h"
 #include "formatted_string.h"
+#include "collision.h"
+
 #include "PETreeMerger.h"
 
 #ifdef CUDA
@@ -628,6 +630,13 @@ Main::Main(CkArgMsg* m) {
            sizeof(int), "bDoExternalGravity", "<Apply external gravity field to particles> = 0");
 
        param.externalGravity.AddParams(prm);
+
+       param.bCollision = 0;
+       prmAddParam(prm, "bCollision", paramBool, &param.bCollision,
+           sizeof(int), "bCollision", "<Do collision detection and response on particles> = 0");
+
+       param.collision = new Collision();
+       param.collision->AddParams(prm);
 
 	param.iRandomSeed = 1;
 	prmAddParam(prm,"iRandomSeed", paramInt, &param.iRandomSeed,
@@ -1959,8 +1968,29 @@ void Main::advanceBigStep(int iStep) {
 	  {
 	      if(verbosity)
 		  CkPrintf("Drift: Rung %d Delta %g\n", driftRung, dTimeSub);
+          
+          // Collision detection and response handling
+          // Note: The tree has not yet been built for this timestep. This is usually done after the drift, but we 
+          // need it now in order to do collision detection. The solution for now is to do the tree build twice (inefficient!)
+         CkPrintf("Building trees ... ");
+         double startTime = CkWallTimer();
+#ifdef PUSH_GRAVITY
+         treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),!bDoPush);
+#else
+         treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
+         CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+         if (param.bCollision) {
+             doCollisions(dTime, dTimeSub);
+             }
 
-              double startTime = CkWallTimer();
+         // Cleanup so the tree can be rebuilt after we drift
+         startTime = CkWallTimer();
+         treeProxy.finishNodeCache(CkCallbackResumeThread());
+         if(verbosity)
+             CkPrintf("Finish NodeCache took %g seconds.\n", CkWallTimer() - startTime);
+
+          startTime = CkWallTimer();
 	      // Only effective if growmass parameters have been set.
 	      growMass(dTime, dTimeSub);
 	      // Are the GrowMass particles locked in place?
@@ -2303,6 +2333,8 @@ void Main::setupICs() {
   }
   
   param.externalGravity.CheckParams(prm, param);
+  if(param.bCollision)
+      param.collision->CheckParams(prm, param);
 
   string achLogFileName = string(param.achOutName) + ".log";
   ofstream ofsLog;
