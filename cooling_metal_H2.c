@@ -1638,7 +1638,8 @@ void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal) {
     else {
       rye = 1/ye;
 
-      if (s_dust == 0 || s_self == 0) {
+      if (s_dust == 0 || s_self == 0
+          || (Rate_Phot_HI == 0 && Rate->Coll_HI == 0)) {
 	yHI = 0;
 	yHII = 0;
 	yH2 = yH/2.0;
@@ -1672,6 +1673,9 @@ void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal) {
     }
   }
 
+  /* test for a reasonable solution */
+  assert(isfinite(ye));
+  
   Y->e = ye;
   Y->HI = yHI;
   Y->HII = yHII;
