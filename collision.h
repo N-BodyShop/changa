@@ -42,8 +42,11 @@ class CollisionSmoothParams : public SmoothParams
                  ExternalSmoothParticle *p2);
 public:
     CollisionSmoothParams() {}
-    CollisionSmoothParams(double _dTime, double _dDelta, Collision *collision) :
+    CollisionSmoothParams(int _iType, int am, double _dTime, double _dDelta, Collision *collision) :
         coll (*collision) {
+        iType = _iType;
+        activeRung = am;
+        bUseBallMax = 0;
         dTime = _dTime;
         dDelta = _dDelta;
         }
