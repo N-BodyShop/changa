@@ -625,8 +625,8 @@ ac_includes_default="\
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
 FLAG_RTFORCE
-FLAG_FEEDBACKDIFFLIMIT
 FLAG_DIFFHARMONIC
+FLAG_FEEDBACKDIFFLIMIT
 FLAG_DIFFUSION
 OBJECTS_COOLING
 FLAG_COOLING
@@ -702,7 +702,6 @@ enable_dtadjust
 enable_wendland
 enable_cooling
 enable_diffusion
-enable_diffharmonic
 enable_feedbacklimit
 enable_rtforce
 '
@@ -1347,8 +1346,7 @@ Optional Features:
   --enable-wendland       enable Wendland C4 Kernel
   --enable-cooling        enable gas cooling (planet,cosmo)
   --enable-diffusion      enable diffusion
-  --enable-diffharmonic   enable harmonic mean for diffusion (yes, no)
-  --enable-feedbacklimit  enable supernova feedback limit (yes, no)
+  --enable-feedbacklimit  enable supernova feedback limiting (yes, no)
   --enable-rtforce        enable Richie-Thomas forces
 
 Some influential environment variables:
@@ -4175,24 +4173,8 @@ fi
 
 
 
-# Harmonic mean for diffusion -- temporary (added by Isaac)
-# Check whether --enable-diffharmonic was given.
-if test "${enable_diffharmonic+set}" = set; then :
-  enableval=$enable_diffharmonic; diffharmonic=$enableval
-else
-  diffharmonic=no
-fi
-
-if test "$diffharmonic" = "yes" ; then
-    echo "DIFFUSIONHARMONIC selected"
-    FLAG_DIFFHARMONIC="-DDIFFUSIONHARMONIC"
-else
-    FLAG_DIFFHARMONIC=""
-fi
-
-
-
-# Limit supernova feedback -- temporary (added by Isaac)
+# Limit supernova feedback
+# By default this also enables DIFFHARMONIC
 # Check whether --enable-feedbacklimit was given.
 if test "${enable_feedbacklimit+set}" = set; then :
   enableval=$enable_feedbacklimit; feedbacklimit=$enableval
@@ -4203,9 +4185,13 @@ fi
 if test "$feedbacklimit" = "yes" ; then
     echo "FEEDBACKDIFFLIMIT selected"
     FLAG_FEEDBACKDIFFLIMIT="-DFEEDBACKDIFFLIMIT"
+    echo "DIFFUSIONHARMONIC selected"
+    FLAG_DIFFHARMONIC="-DDIFFUSIONHARMONIC"
 else
     FLAG_FEEDBACKDIFFLIMIT=""
+    FLAG_DIFFHARMONIC=""
 fi
+
 
 
 
