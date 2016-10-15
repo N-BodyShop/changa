@@ -1346,7 +1346,7 @@ Optional Features:
   --enable-wendland       enable Wendland C4 Kernel
   --enable-cooling        enable gas cooling (planet,cosmo)
   --enable-diffusion      enable diffusion
-  --enable-feedbacklimit  enable supernova feedback limiting (yes, no)
+  --enable-feedbacklimit  limit diffusion of feedback energy
   --enable-rtforce        enable Richie-Thomas forces
 
 Some influential environment variables:

@@ -204,7 +204,7 @@ AC_SUBST([FLAG_DIFFUSION])
 # Limit supernova feedback
 # By default this also enables DIFFHARMONIC
 AC_ARG_ENABLE([feedbacklimit],
-    [AS_HELP_STRING([--enable-feedbacklimit], [enable supernova feedback limiting (yes, no)])],
+    [AS_HELP_STRING([--enable-feedbacklimit], [limit diffusion of feedback energy])],
     [feedbacklimit=$enableval], [feedbacklimit=no])
 if test "$feedbacklimit" = "yes" ; then
     echo "FEEDBACKDIFFLIMIT selected"
