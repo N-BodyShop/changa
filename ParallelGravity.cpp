@@ -223,6 +223,7 @@ Main::Main(CkArgMsg* m) {
 	bIsRestarting = 0;
         bHaveAlpha = 0;
 	bChkFirst = 1;
+    bParticlesShuffled = 0;
 	dSimStartTime = CkWallTimer();
 
   int threadNum = CkMyNodeSize();
@@ -1396,6 +1397,7 @@ Main::Main(CkMigrateMessage* m) : CBase_Main(m) {
     mainChare = thishandle;
     bIsRestarting = 1;
     bHaveAlpha = 1;
+    bParticlesShuffled = 0;
     CkPrintf("Main(CkMigrateMessage) called\n");
     sorter = CProxy_Sorter::ckNew(0);
     }
@@ -1961,34 +1963,36 @@ void Main::advanceBigStep(int iStep) {
 	  driftRung++;
 	  driftSteps <<=1;
 	  }
-      
+
       double dTimeSub = RungToDt(param.dDelta, driftRung);
       // Drift of smallest step
       for(int iSub = 0; iSub < driftSteps; iSub++) 
 	  {
 	      if(verbosity)
 		  CkPrintf("Drift: Rung %d Delta %g\n", driftRung, dTimeSub);
-          
+
           // Collision detection and response handling
-          // Note: The tree has not yet been built for this timestep. This is usually done after the drift, but we 
-          // need it now in order to do collision detection. The solution for now is to do the tree build twice (inefficient!)
-         CkPrintf("Building trees ... ");
-         double startTime = CkWallTimer();
-#ifdef PUSH_GRAVITY
-         treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),!bDoPush);
-#else
-         treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-#endif
-         CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
-         if (param.bCollision) {
+          CkPrintf("Doing collision detection and response\n");
+          if (bParticlesShuffled) {
+              CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
+              // The following call is to get the particles in key order
+              // before the sort.
+              treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
+              startSorting(dataManagerID, ddTolerance,
+                                      CkCallbackResumeThread(), true);
+              }
+
+          CkPrintf("Building trees...\n");
+          treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+          CkPrintf("Tree build finished\n");
+
+          if (param.bCollision) {
              doCollisions(dTime, dTimeSub);
              }
 
-         // Cleanup so the tree can be rebuilt after we drift
-         startTime = CkWallTimer();
-         treeProxy.finishNodeCache(CkCallbackResumeThread());
-         if(verbosity)
-             CkPrintf("Finish NodeCache took %g seconds.\n", CkWallTimer() - startTime);
+          CkPrintf("Collision handling finished, calling finishNodeCache\n");
+          treeProxy.finishNodeCache(CkCallbackResumeThread());
+          CkPrintf("finishNodeCache completed\n");
 
           startTime = CkWallTimer();
 	      // Only effective if growmass parameters have been set.
@@ -2927,7 +2931,7 @@ Main::doSimulation()
 	  treeProxy.finishNodeCache(CkCallbackResumeThread());
           ckout << "Reordering ...";
           startTime = CkWallTimer();
-	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
+	  reOrder(nMaxOrder, CkCallbackResumeThread());
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
           if(param.iBinaryOut == 6) {
               // Set up N-Chilada directory structure
@@ -2962,7 +2966,7 @@ Main::doSimulation()
               treeProxy[0].outputASCII(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
 	  }
       else {
-	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
+	  reOrder(nMaxOrder, CkCallbackResumeThread());
 	  }
 
       writeOutput(0);
@@ -3093,7 +3097,7 @@ Main::doSimulation()
 	  treeProxy.finishNodeCache(CkCallbackResumeThread());
           ckout << "Reodering ...";
           startTime = CkWallTimer();
-	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
+	  reOrder(nMaxOrder, CkCallbackResumeThread());
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	  ckout << "Outputting densities ...";
 	  startTime = CkWallTimer();
@@ -3354,7 +3358,7 @@ void Main::writeOutput(int iStep)
 	startTime = CkWallTimer();
 	}
     
-    treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
+    reOrder(nMaxOrder, CkCallbackResumeThread());
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
@@ -3671,7 +3675,7 @@ void Main::writeOutput(int iStep)
 	    ckout << "Reodering ...";
 	    }
 	startTime = CkWallTimer();
-	treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
+	reOrder(nMaxOrder, CkCallbackResumeThread());
 	if(verbosity) {
 	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		  << endl;
@@ -4259,6 +4263,16 @@ void Main::turnProjectionsOff(){
   }
 }
 #endif
+
+void Main::startSorting(const CkGroupID& dataManagerID, const double toler, const CkCallback& cb, bool decompose) {
+    sorter.startSorting(dataManagerID, toler, cb, decompose);
+    bParticlesShuffled = 0;
+    }
+
+void Main::reOrder(int64_t& nMaxOrder, const CkCallback& cb) {
+    treeProxy.reOrder(nMaxOrder, cb);
+    bParticlesShuffled = 1;
+    }
 
 const char *typeString(NodeType type);
 
