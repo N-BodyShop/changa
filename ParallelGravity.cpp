@@ -3370,7 +3370,7 @@ int Main::adjust(int iKickRung)
 	treeProxy.truncateRung(iCurrMaxRung, CkCallbackResumeThread());
 	}
     if(param.sinks.bDoSinks) {
-        int iCurrMaxRungGas = ((int *)msg->getData())[2];
+        int iCurrMaxRungGas = ((int64_t *)msg->getData())[2];
         int iCurrSinkRung = param.sinks.iSinkRung;
         if(iCurrMaxRungGas > iCurrSinkRung)
             iCurrSinkRung = iCurrMaxRungGas;
