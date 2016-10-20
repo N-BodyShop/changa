@@ -68,6 +68,8 @@ class extraSPHData
     double _CullenAlpha;        /* Alpha from Cullen & Dehnen 2010 */
     double _TimeDivV;           /* Time at which OldDivV was last updated */
     double _OldDivV;            /* Last active divv */
+    double _dvds;
+    double _dvds_old;
 #endif
 #ifdef DTADJUST
     double _dtNew;		/* New timestep from gas pressure */
@@ -109,6 +111,8 @@ class extraSPHData
     inline double& CullenAlpha() {return _CullenAlpha;}
     inline double& TimeDivV() {return _TimeDivV;}
     inline double& OldDivV() {return _OldDivV;}
+    inline double& dvds() {return _dvds;}
+    inline double& dvds_old() {return _dvds_old;}
 #endif
 #ifdef DTADJUST
     inline double& dtNew() {return _dtNew;}
@@ -147,6 +151,8 @@ class extraSPHData
         p | _CullenAlpha;
         p | _TimeDivV;
         p | _OldDivV;
+        p | _dvds;
+        p | _dvds_old;
 #endif 
 #ifdef DTADJUST
         p | _dtNew;
@@ -316,6 +322,8 @@ public:
         inline double& CullenAlpha() {IMAGAS; return (((extraSPHData*)extraData)->CullenAlpha());}
         inline double& TimeDivV() {IMAGAS; return (((extraSPHData*)extraData)->TimeDivV());}
         inline double& OldDivV() {IMAGAS; return (((extraSPHData*)extraData)->OldDivV());}
+        inline double& dvds() {IMAGAS; return (((extraSPHData*)extraData)->dvds());}
+        inline double& dvds_old() {IMAGAS; return (((extraSPHData*)extraData)->dvds_old());}
 #endif
 #ifdef DTADJUST
         inline double& dtNew() { IMAGAS; return (((extraSPHData*)extraData)->dtNew());}
@@ -441,6 +449,8 @@ class ExternalSmoothParticle {
   double CullenAlpha;
   double TimeDivV;
   double OldDivV;
+  double dvds;
+  double dvds_old;
 #endif
   double u;
   double uPred;
@@ -483,6 +493,8 @@ class ExternalSmoothParticle {
 	      CullenAlpha = p->CullenAlpha();
               TimeDivV = p->TimeDivV();
               OldDivV = p->OldDivV();
+              dvds = p->dvds();
+              dvds_old = p->dvds_old();
 #endif
 	      curlv = p->curlv();
 	      u = p->u();
@@ -530,6 +542,8 @@ class ExternalSmoothParticle {
 	  tmp->CullenAlpha() = CullenAlpha;
           tmp->TimeDivV() = TimeDivV;
           tmp->OldDivV() = OldDivV;
+          tmp->dvds() = dvds;
+          tmp->dvds_old() = dvds_old;
 #endif
 	  tmp->curlv() = curlv;
 	  tmp->u() = u;
@@ -579,6 +593,8 @@ class ExternalSmoothParticle {
     p | CullenAlpha;
     p | TimeDivV;
     p | OldDivV;
+    p | dvds;
+    p | dvds_old;
 #endif
     p | u;
     p | uPred;
