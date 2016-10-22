@@ -36,12 +36,20 @@ class ExternalGravityParticle {
   cosmoType mass;
   cosmoType soft;
   Vector3D<cosmoType> position;
+#ifdef COLLISION  
+  double dtCol; 
+  int iOrderCol;
+#endif
 
 #ifdef __CHARMC__
   void pup(PUP::er &p) {
     p | position;
     p | mass;
     p | soft;
+#ifdef COLLISION
+    p | dtCol;
+    p | iOrderCol;
+#endif
   }
 #endif
 };
@@ -517,6 +525,10 @@ public:
           mass = p.mass;
           soft = p.soft;
           position = p.position;
+#ifdef COLLISION
+          dtCol = p.dtCol;
+          iOrderCol = p.iOrderCol;
+#endif
 	  return *this;
         }
 };
@@ -581,6 +593,11 @@ class ExternalSmoothParticle {
   double dtNew;
 #endif
   Vector3D<cosmoType> vPred;
+#ifdef COLLISION  
+  double dtCol;
+  int iOrderCol;
+#endif
+  Vector3D<double> vPred;
   Vector3D<cosmoType> treeAcceleration;
   double mumax;
   double PdV;
@@ -642,6 +659,10 @@ class ExternalSmoothParticle {
 	  iType = p->iType;
 	  rung = p->rung;
 	  treeAcceleration = p->treeAcceleration;
+#ifdef COLLISION  
+      dtCol = p->dtCol;
+      iOrderCol = p->iOrderCol;
+#endif
 	  if(TYPETest(p, TYPE_GAS)) {
 	      vPred = p->vPred();
 	      mumax = p->mumax();
@@ -711,6 +732,10 @@ class ExternalSmoothParticle {
       tmp->iType = iType;
       tmp->rung = rung;
       tmp->treeAcceleration = treeAcceleration;
+#ifdef COLLISION  
+      tmp->dtCol = dtCol;
+      tmp->iOrderCol = iOrderCol;
+#endif
       if(TYPETest(tmp, TYPE_GAS)) {
 	  tmp->vPred() = vPred;
 	  tmp->mumax() = mumax;
@@ -831,6 +856,10 @@ class ExternalSmoothParticle {
     p | iEaterOrder;
     p | dTimeFB;
     p | iBucketOff;
+#ifdef COLLISION
+    p | dtCol;
+    p | iOrderCol;
+#endif
   }
 #endif
 };

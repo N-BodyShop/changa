@@ -2,6 +2,28 @@
 #define COLLISION_HINCLUDED
 
 #include "parameters.h"
+#include <float.h>
+
+class ColliderInfo {
+public:
+    Vector3D<double> pos;
+    Vector3D<double> vel;
+    double mass;
+    double dtCol;
+    double radius;
+    int iOrder;
+    ColliderInfo() {
+        dtCol = DBL_MAX;
+        }
+    void pup(PUP::er &p) {
+        p | pos;
+        p | vel;
+        p | mass;
+        p | dtCol;
+        p | radius;
+        p | iOrder;
+        }
+    };
 
 /// @brief Collision parameters and routines
 class Collision : public PUP::able {
@@ -10,6 +32,7 @@ public:
 
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
+    void doCollision(GravityParticle* p, ColliderInfo &c);
     Collision() {}
    
     PUPable_decl(Collision);

@@ -1972,7 +1972,7 @@ void Main::advanceBigStep(int iStep) {
 		  CkPrintf("Drift: Rung %d Delta %g\n", driftRung, dTimeSub);
 
           // Collision detection and response handling
-          CkPrintf("Doing collision detection and response\n");
+          CkPrintf("Starting collision detection and response\n");
           if (bParticlesShuffled) {
               CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
               // The following call is to get the particles in key order
@@ -1982,17 +1982,17 @@ void Main::advanceBigStep(int iStep) {
                                       CkCallbackResumeThread(), true);
               }
 
-          CkPrintf("Building trees...\n");
+          //CkPrintf("Building trees...\n");
           treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-          CkPrintf("Tree build finished\n");
+          //CkPrintf("Tree build finished\n");
 
           if (param.bCollision) {
              doCollisions(dTime, dTimeSub);
              }
 
-          CkPrintf("Collision handling finished, calling finishNodeCache\n");
+          //CkPrintf("Collision handling finished, calling finishNodeCache\n");
           treeProxy.finishNodeCache(CkCallbackResumeThread());
-          CkPrintf("finishNodeCache completed\n");
+          //CkPrintf("finishNodeCache completed\n");
 
           startTime = CkWallTimer();
 	      // Only effective if growmass parameters have been set.
