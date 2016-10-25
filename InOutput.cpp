@@ -95,6 +95,7 @@ void load_tipsy_dark(Tipsy::TipsyReader &r, GravityParticle &p)
 #ifdef COLLISION
     p.dtCol = DBL_MAX;
     p.iOrderCol = -1;
+    p.w = (0.);
 #endif
 }
 

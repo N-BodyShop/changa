@@ -1972,27 +1972,23 @@ void Main::advanceBigStep(int iStep) {
 		  CkPrintf("Drift: Rung %d Delta %g\n", driftRung, dTimeSub);
 
           // Collision detection and response handling
-          CkPrintf("Starting collision detection and response\n");
-          if (bParticlesShuffled) {
-              CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
-              // The following call is to get the particles in key order
-              // before the sort.
-              treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
-              startSorting(dataManagerID, ddTolerance,
-                                      CkCallbackResumeThread(), true);
-              }
-
-          //CkPrintf("Building trees...\n");
-          treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-          //CkPrintf("Tree build finished\n");
-
           if (param.bCollision) {
-             doCollisions(dTime, dTimeSub);
-             }
+              CkPrintf("Starting collision detection and response\n");
+              if (bParticlesShuffled) {
+                  CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
+                  // The following call is to get the particles in key order
+                  // before the sort.
+                  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
+                  startSorting(dataManagerID, ddTolerance,
+                                          CkCallbackResumeThread(), true);
+                  }
 
-          //CkPrintf("Collision handling finished, calling finishNodeCache\n");
-          treeProxy.finishNodeCache(CkCallbackResumeThread());
-          //CkPrintf("finishNodeCache completed\n");
+              treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+
+              doCollisions(dTime, dTimeSub);
+
+              treeProxy.finishNodeCache(CkCallbackResumeThread());
+              }
 
           startTime = CkWallTimer();
 	      // Only effective if growmass parameters have been set.

@@ -6,8 +6,9 @@
 
 class ColliderInfo {
 public:
-    Vector3D<double> pos;
-    Vector3D<double> vel;
+    Vector3D<double> position;
+    Vector3D<double> velocity;
+    Vector3D<double> w;
     double mass;
     double dtCol;
     double radius;
@@ -16,8 +17,9 @@ public:
         dtCol = DBL_MAX;
         }
     void pup(PUP::er &p) {
-        p | pos;
-        p | vel;
+        p | position;
+        p | velocity;
+        p | w;
         p | mass;
         p | dtCol;
         p | radius;
@@ -33,6 +35,7 @@ public:
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
     void doCollision(GravityParticle* p, ColliderInfo &c);
+    void bounce(GravityParticle* p, ColliderInfo &c, double dEpsN, double dEpsT);
     Collision() {}
    
     PUPable_decl(Collision);
