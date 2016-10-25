@@ -5,6 +5,7 @@
 #include "ParallelGravity.h"
 #include "collision.h"
 #include "smooth.h"
+#include "Reductions.h"
 
 ///
 /// @brief initalize parameters for collision detection and handling
@@ -94,7 +95,7 @@ void TreePiece::getCollInfo(const CkCallback& cb)
             }
         }
     
-    contribute(sizeof(ColliderInfo), &ci, CkReduction::set, cb);
+    contribute(sizeof(ColliderInfo), &ci, soonestCollReduction, cb);
     }
 
 void TreePiece::resolveCollision(Collision &coll, ColliderInfo &c1, ColliderInfo &c2, const CkCallback& cb) {

@@ -14,3 +14,4 @@ extern CkReduction::reducerType max_count;
 extern CkReduction::reducerType callbackReduction;
 extern CkReduction::reducerType boxReduction;
 extern CkReduction::reducerType dfImageReduction;
+extern CkReduction::reducerType soonestCollReduction;

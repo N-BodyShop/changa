@@ -7,6 +7,8 @@
 
 #include "dumpframe.h"
 
+#include "collision.h"
+
 CkReduction::reducerType growOrientedBox_float;
 CkReduction::reducerType growOrientedBox_double;
 
@@ -21,6 +23,8 @@ CkReduction::reducerType callbackReduction;
 CkReduction::reducerType boxReduction;
 
 CkReduction::reducerType dfImageReduction;
+
+CkReduction::reducerType soonestCollReduction;
 
 /// Combine reduction messages to grow a box
 template <typename T>
@@ -110,7 +114,25 @@ CkReductionMsg* dfImageReducer(int nMsg, CkReductionMsg** msgs) {
     return CkReductionMsg::buildNew(msgs[0]->getSize(), msgs[0]->getData());
 }
 
-/// Create custom reducers in the charm runtime.
+// Pass on collision information only for particles with the minimum collision time
+CkReductionMsg* soonestCollInfo(int nMsg, CkReductionMsg** msgs) {
+    ColliderInfo* c = (class ColliderInfo *)(msgs[0]->getData());
+    ColliderInfo* c1 = NULL;
+    ColliderInfo* c2 = NULL;
+    double dtMin = DBL_MAX;
+    for(int i = 1; i < nMsg; i++) {
+        c = (class ColliderInfo *)(msgs[i]->getData());
+        if(c->dtCol <= dtMin) {
+            if (c1 == NULL) c1 = c;
+            else c2 = c;
+            }
+        }
+    ColliderInfo minColliders[2];
+    minColliders[0] = *c1;
+    minColliders[1] = *c2;
+    return CkReductionMsg::buildNew(2 * sizeof(ColliderInfo), minColliders);
+}
+
 void registerReductions() {
 	growOrientedBox_float = CkReduction::addReducer(boxGrowth<float>);
 	growOrientedBox_double = CkReduction::addReducer(boxGrowth<double>);
@@ -123,6 +145,7 @@ void registerReductions() {
 	callbackReduction = CkReduction::addReducer(same<CkCallback>);
 	boxReduction = CkReduction::addReducer(same<OrientedBox<float> >);
 	dfImageReduction = CkReduction::addReducer(dfImageReducer);
+    soonestCollReduction = CkReduction::addReducer(soonestCollInfo);
 	
 }
 

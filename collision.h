@@ -1,7 +1,6 @@
 #ifndef COLLISION_HINCLUDED
 #define COLLISION_HINCLUDED
 
-#include "parameters.h"
 #include <float.h>
 
 class ColliderInfo {
@@ -26,6 +25,8 @@ public:
         p | iOrder;
         }
     };
+
+#include "parameters.h"
 
 /// @brief Collision parameters and routines
 class Collision : public PUP::able {
