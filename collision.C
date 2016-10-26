@@ -224,6 +224,7 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothN
     GravityParticle *q;
     int i;    
     double rq, sr, D, dt, rdotv, vRel2, dr2;
+    p->dtCol = DBL_MAX;
 
     double rp = p->soft/2.;
     for (i = 0; i < nSmooth; i++) {
