@@ -38,64 +38,66 @@ void Main::doCollisions(double dTime, double dDelta)
     //           Rebuild tree?
     //           Resmooth
 
-    CollisionSmoothParams pCS(TYPE_DARK, 0, dTime, dDelta, param.collision);
-    double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
-    treeProxy.startSmooth(&pCS, 0, param.collision->nSmoothCollision,
-              dfBall2OverSoft2, CkCallbackResumeThread());
+    int bHasCollision;
+    
+    do {
+        bHasCollision = 0;
 
-    CkReductionMsg *msgChk;
-    treeProxy.getCollInfo(CkCallbackResumeThread((void*&)msgChk));
-    CkReduction::setElement *current = (CkReduction::setElement*) msgChk->getData();
+        CollisionSmoothParams pCS(TYPE_DARK, 0, dTime, dDelta, param.collision);
+        double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+        treeProxy.startSmooth(&pCS, 0, param.collision->nSmoothCollision,
+                  dfBall2OverSoft2, CkCallbackResumeThread());
 
-    // Find minimum collision time
-    double dtMin = DBL_MAX;
-    while (current != NULL) {
-        ColliderInfo* c = (ColliderInfo*) &current->data;
-        if (c->dtCol < dtMin) dtMin = c->dtCol;
-         current = current->next();
-        }
-
-    // Get collision info for the two soonest colliders
-    if (dtMin < DBL_MAX) {
-        ColliderInfo *c1, *c2;
-        int bFoundC1 = 0;
-        current = (CkReduction::setElement*) msgChk->getData();
-        while (current != NULL) {
-            ColliderInfo* c = (ColliderInfo*) &current->data;
-            if (c->dtCol == dtMin) {
-                if (!bFoundC1) {
-                    c1 = c;
-                    bFoundC1 = 1;
-                    }
-                else c2 = c;
-                }
-            current = current->next();
+        CkReductionMsg *msgChk;
+        treeProxy.getCollInfo(CkCallbackResumeThread((void*&)msgChk));
+        ColliderInfo *c = (ColliderInfo *)msgChk->getData();
+        if (c[0].dtCol <= dDelta) {
+            bHasCollision = 1;
+            CkPrintf("Imminent collision in %f %f\n", c[0].dtCol, c[1].dtCol);
+            treeProxy.resolveCollision(*(param.collision), c[0], c[1], CkCallbackResumeThread());
             }
-        CkPrintf("Imminent collision in %f\n", c1->dtCol);
-        treeProxy.resolveCollision(*(param.collision), *c1, *c2, CkCallbackResumeThread());
-        }
 
-    delete msgChk;
+        delete msgChk;
+        } while (bHasCollision);
+
     }
 
 void TreePiece::getCollInfo(const CkCallback& cb)
 {
     double dtMin = DBL_MAX;
-    ColliderInfo ci;
+    ColliderInfo ci[2];
+    ci[0].dtCol = dtMin;
     for (unsigned int i=1; i <= myNumParticles; i++) {
         GravityParticle *p = &myParticles[i];
         if (p->dtCol < dtMin) {
             dtMin = p->dtCol;
-            ci.position = p->position;
-            ci.velocity = p->velocity;
-            ci.w = p->w;
-            ci.mass = p->mass;
-            ci.dtCol = p->dtCol;
-            ci.iOrder = p->iOrder;
+            ci[0].position = p->position;
+            ci[0].velocity = p->velocity;
+            ci[0].w = p->w;
+            ci[0].mass = p->mass;
+            ci[0].dtCol = p->dtCol;
+            ci[0].iOrder = p->iOrder;
             }
         }
-    
-    contribute(sizeof(ColliderInfo), &ci, soonestCollReduction, cb);
+
+    // Check to see if the second collider is here
+    int bFoundC1 = 0;
+    ci[1].dtCol = DBL_MAX;
+    for (unsigned int i=1; i <= myNumParticles; i++) {
+        GravityParticle *p = &myParticles[i];
+        if (p->dtCol == dtMin && p->dtCol < DBL_MAX) {
+            if (bFoundC1) {
+                ci[1].position = p->position;
+                ci[1].velocity = p->velocity;
+                ci[1].w = p->w;
+                ci[1].mass = p->mass;
+                ci[1].dtCol = p->dtCol;
+                ci[1].iOrder = p->iOrder;
+                }
+            else bFoundC1 = 1;
+            }
+        }
+    contribute(2 * sizeof(ColliderInfo), ci, soonestCollReduction, cb);
     }
 
 void TreePiece::resolveCollision(Collision &coll, ColliderInfo &c1, ColliderInfo &c2, const CkCallback& cb) {
@@ -129,16 +131,16 @@ void TreePiece::resolveCollision(Collision &coll, ColliderInfo &c1, ColliderInfo
 
 void Collision::doCollision(GravityParticle *p, ColliderInfo &c)
 {
-    //CkPrintf("Handling collision between %d and %d\n", p->iOrder, c.iOrder);
+    CkPrintf("Handling collision between %d and %d\n", p->iOrder, c.iOrder);
     // Advance particle positions to moment of collision
     Vector3D<double> pAdjust = p->velocity*p->dtCol;
     Vector3D<double> cAdjust = c.velocity*c.dtCol;
     p->position += pAdjust;
     c.position += cAdjust;
 
-    //CkPrintf("Velocity before bounce: %f, %f, %f\n", p->velocity.x, p->velocity.y, p->velocity.z);
+    CkPrintf("Velocity before bounce: %f, %f, %f\n", p->velocity.x, p->velocity.y, p->velocity.z);
     bounce(p, c, 1.0, 1.0);
-    //CkPrintf("Velocity after bounce: %f, %f, %f\n", p->velocity.x, p->velocity.y, p->velocity.z);
+    CkPrintf("Velocity after bounce: %f, %f, %f\n", p->velocity.x, p->velocity.y, p->velocity.z);
 
     // Revert particle positions back to beginning of step
     p->position -= pAdjust;
@@ -209,9 +211,7 @@ void CollisionSmoothParams::initSmoothCache(GravityParticle *p1)
 void CollisionSmoothParams::combSmoothCache(GravityParticle *p1,
                               ExternalSmoothParticle *p2)
 {
-    //CkPrintf("CombSmoothCache called\n");
     if (p2->dtCol < p1->dtCol) {
-        //CkPrintf("Setting p1->dtCol to %f\n", p2->dtCol);
         p1->dtCol = p2->dtCol;
         }
     if (p2->iOrderCol != -1 && p1->iOrderCol == -1) {
@@ -226,11 +226,8 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothN
     double rq, sr, D, dt, rdotv, vRel2, dr2;
 
     double rp = p->soft/2.;
-    CkPrintf("Collision smooth with %d neighbors\n", nSmooth);
     for (i = 0; i < nSmooth; i++) {
         q = nList[i].p;
-
-        CkPrintf("Compare particle %d with particle of mass %g\n", p->iOrder, q->mass);
 
         // Skip self interactions
         if (p->iOrder == q->iOrder) continue;

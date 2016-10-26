@@ -26,7 +26,7 @@ public:
         }
     };
 
-#include "parameters.h"
+//#include "parameters.h"
 
 /// @brief Collision parameters and routines
 class Collision : public PUP::able {

@@ -1,9 +1,0 @@
-nSteps          = 10
-dTheta          = 0.7
-dEta		    = .03
-dDelta          = .1
-iOutInterval    = 1
-achInFile       = 2particles.bin
-achOutName      = testcollision
-iLogInterval	= 1
-bCollision = 1

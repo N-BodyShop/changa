@@ -116,20 +116,52 @@ CkReductionMsg* dfImageReducer(int nMsg, CkReductionMsg** msgs) {
 
 // Pass on collision information only for particles with the minimum collision time
 CkReductionMsg* soonestCollInfo(int nMsg, CkReductionMsg** msgs) {
-    ColliderInfo* c = (class ColliderInfo *)(msgs[0]->getData());
-    ColliderInfo* c1 = NULL;
-    ColliderInfo* c2 = NULL;
-    double dtMin = DBL_MAX;
-    for(int i = 1; i < nMsg; i++) {
-        c = (class ColliderInfo *)(msgs[i]->getData());
-        if(c->dtCol <= dtMin) {
-            if (c1 == NULL) c1 = c;
-            else c2 = c;
+    // Some messages have 2 collider info objects associated with them
+    // This is the case if both colliders were on the same TreePiece
+    // Need to put all of the collider info objects into a 1d array
+    int nColliders = 0;
+    for (unsigned int i=0; i < nMsg; i++) {
+        //CkPrintf("Processing message %d of %d\n", i, nMsg);
+        nColliders++;
+        //CkPrintf("nColliders = %d\n", nColliders);
+        ColliderInfo *secondCollider = &(static_cast<ColliderInfo *>(msgs[i]->getData()))[1];
+        if (secondCollider->dtCol < DBL_MAX) {
+            //CkPrintf("Reducer found second collider with %f\n",secondCollider->dtCol);
+            nColliders++;
             }
         }
+
+    int arrIdx = 0;
+    ColliderInfo *allColliders[nColliders];
+    for (unsigned int i=0; i < nMsg; i++) {
+        allColliders[arrIdx] = &(static_cast<ColliderInfo *>(msgs[i]->getData()))[0];
+        arrIdx++;
+        ColliderInfo *secondCollider = &(static_cast<ColliderInfo *>(msgs[i]->getData()))[1];
+        if (secondCollider->dtCol < DBL_MAX) {
+            allColliders[arrIdx] = &(static_cast<ColliderInfo *>(msgs[i]->getData()))[1];
+            arrIdx++;
+            }
+        }
+
+    double dtMin = DBL_MAX;
+    ColliderInfo c1, c2;
+
+    ColliderInfo *c;
     ColliderInfo minColliders[2];
-    minColliders[0] = *c1;
-    minColliders[1] = *c2;
+    for(int i = 0; i < nColliders; i++) {
+        c = allColliders[i];
+        if(c->dtCol <= dtMin) {
+            dtMin = c->dtCol;
+            minColliders[0] = *c;
+            }
+        }
+    for(int i = 0; i < nColliders; i++) {
+        c = allColliders[i];
+        if(c->dtCol == dtMin && c->iOrder != minColliders[0].iOrder) {
+            minColliders[1] = *c;
+            }
+        }
+
     return CkReductionMsg::buildNew(2 * sizeof(ColliderInfo), minColliders);
 }
 
