@@ -118,8 +118,10 @@ typedef struct parameters {
     int bDoExternalGravity;
     ExternalGravity externalGravity;
     int iRandomSeed;            /* Seed for random numbers */
+#ifdef COLLISION
     int bCollision;
     Collision *collision;
+#endif
     
     Sinks sinks;
 
