@@ -597,6 +597,7 @@ class ExternalSmoothParticle {
 #endif
   Vector3D<cosmoType> vPred;
 #ifdef COLLISION  
+  double soft;
   Vector3D<double> w;
   double dtCol;
   int iOrderCol;
@@ -664,6 +665,7 @@ class ExternalSmoothParticle {
 	  rung = p->rung;
 	  treeAcceleration = p->treeAcceleration;
 #ifdef COLLISION  
+      soft = p->soft;
       w = p->w;
       dtCol = p->dtCol;
       iOrderCol = p->iOrderCol;
@@ -737,7 +739,8 @@ class ExternalSmoothParticle {
       tmp->iType = iType;
       tmp->rung = rung;
       tmp->treeAcceleration = treeAcceleration;
-#ifdef COLLISION  
+#ifdef COLLISION
+      tmp->soft = soft;
       tmp->w = w;
       tmp->dtCol = dtCol;
       tmp->iOrderCol = iOrderCol;
@@ -863,6 +866,7 @@ class ExternalSmoothParticle {
     p | dTimeFB;
     p | iBucketOff;
 #ifdef COLLISION
+    p | soft;
     p | w;
     p | dtCol;
     p | iOrderCol;
