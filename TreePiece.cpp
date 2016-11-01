@@ -1698,13 +1698,13 @@ void TreePiece::externalGravity(int iKickRung,
         GravityParticle *p = &myParticles[i];
 	if(p->rung >= iKickRung) {
             if(exGravParams.bBodyForce) {
-                //if(p->position.z > -1.0) {
+                if(p->position.z > -1.0) {
                     p->treeAcceleration.z -= exGravParams.dBodyForceConst;
                     p->potential += exGravParams.dBodyForceConst*p->position.z;
                     double idt2 = exGravParams.dBodyForceConst/p->position.z;
                     if(idt2 > p->dtGrav)
                         p->dtGrav = idt2;
-                    /*}
+                    }
                 else {
                     p->treeAcceleration.z += exGravParams.dBodyForceConst;
                     p->potential -= exGravParams.dBodyForceConst*p->position.z;
@@ -1713,7 +1713,7 @@ void TreePiece::externalGravity(int iKickRung,
                         if(idt2 > p->dtGrav)
                             p->dtGrav = idt2;
                         }
-                    }*/
+                    }
                 }
             if(exGravParams.bPatch) {
                 double r2 = exGravParams.dOrbDist*exGravParams.dOrbDist

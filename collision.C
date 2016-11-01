@@ -15,11 +15,13 @@ void Collision::AddParams(PRM prm)
 {
     nSmoothCollision = 64;
     prmAddParam(prm, "nSmoothCollision", paramInt, &nSmoothCollision,
-        sizeof(int), "nSmoothCollision", "<number of particles to do collision search over> = 64");
+        sizeof(int), "nSmoothCollision", "<number of particles to do collision\
+                                           search over> = 64");
    
     bWall = 0;
     prmAddParam(prm, "bWall", paramBool, &bWall,
-        sizeof(int), "bWall", "<Particles bounce off of a plane pointed in the z direction> = 0");
+        sizeof(int), "bWall", "<Particles bounce off of a plane pointed in\
+                                 the z direction> = 0");
 
     dWallPos = 0.0;
     prmAddParam(prm, "dWallPos", paramDouble, &dWallPos,
@@ -39,7 +41,9 @@ void Collision::CheckParams(PRM prm, struct parameters &param)
 
 /**
  * @brief doCollisions is used to detect and resolve collisions between
- * particles. A collision search is done using SmoothParams, where the  'dtCol' 
+ * particles. 
+ *
+ * A collision search is done using SmoothParams, where the  'dtCol' 
  * field of all particles which will undergo a collision in the time step is
  * set. The function then searches through all of the particles and resolves
  * the soonest collision using the physics specificed in the Collision class.
@@ -57,7 +61,8 @@ void Main::doCollisions(double dTime, double dDelta)
     do {
         bHasCollision = 0;
 
-        CollisionSmoothParams pCS(TYPE_DARK, 0, dTime, dDelta, param.collision->bWall, param.collision->dWallPos, param.collision);
+        CollisionSmoothParams pCS(TYPE_DARK, 0, dTime, dDelta, 
+           param.collision->bWall, param.collision->dWallPos, param.collision);
         double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
         treeProxy.startSmooth(&pCS, 0, param.collision->nSmoothCollision,
                   dfBall2OverSoft2, CkCallbackResumeThread());
@@ -70,13 +75,17 @@ void Main::doCollisions(double dTime, double dDelta)
             // Collision with wall
             if (c[0].iOrderCol == -2) {
                 nColl++;
-                treeProxy.resolveWallCollision(*(param.collision), c[0], CkCallbackResumeThread());
+                treeProxy.resolveWallCollision(*(param.collision), c[0], 
+                                               CkCallbackResumeThread());
                 }
             // Collision with particle
             else {
-                if (c[0].dtCol != c[1].dtCol) CkAbort("Warning: Collider pair mismatch\n");
+                if (c[0].dtCol != c[1].dtCol) {
+                    CkAbort("Warning: Collider pair mismatch\n");
+                    }
                 nColl++;
-                treeProxy.resolveCollision(*(param.collision), c[0], c[1], CkCallbackResumeThread());
+                treeProxy.resolveCollision(*(param.collision), c[0], c[1], 
+                                           CkCallbackResumeThread());
                 }
             }
 
@@ -86,6 +95,14 @@ void Main::doCollisions(double dTime, double dDelta)
 
     }
 
+/**
+ * @brief Searches for the particle with the soonest dtCol on this TreePiece
+ *
+ * Contributes two ColliderInfo objects, one for each of the particles
+ * participating in the collision. If only one of the particles resides on this
+ * tree piece, then the second ColliderInfo object will have a dtCol of DBL_MAX
+ * and none of the other fields set.
+ */
 void TreePiece::getCollInfo(const CkCallback& cb)
 {
     double dtMin = DBL_MAX;
@@ -126,7 +143,15 @@ void TreePiece::getCollInfo(const CkCallback& cb)
     contribute(2 * sizeof(ColliderInfo), ci, soonestCollReduction, cb);
     }
 
-void TreePiece::resolveWallCollision(Collision &coll, ColliderInfo &c1, const CkCallback& cb) {
+/**
+ * @brief Resolves a collision between a particle and a wall, if the particle
+ * resides on this tree piece.
+ *
+ * @param coll A reference to the collision class that handles collision physics
+ * @param c1 Information about the particle that is undergoing a collision
+ */
+void TreePiece::resolveWallCollision(Collision &coll, ColliderInfo &c1, 
+                                     const CkCallback& cb) {
     GravityParticle *p;
     for (unsigned int i=1; i <= myNumParticles; i++) {
         p = &myParticles[i];
@@ -139,7 +164,16 @@ void TreePiece::resolveWallCollision(Collision &coll, ColliderInfo &c1, const Ck
     contribute(cb);
     }
 
-void TreePiece::resolveCollision(Collision &coll, ColliderInfo &c1, ColliderInfo &c2, const CkCallback& cb) {
+/**
+ * @brief Resolves a collision between two particles, if either of them resides
+ * on this tree piece.
+ *
+ * @param coll The collision class object that handles collision physics
+ * @param c1 Information about the first particle that is undergoing a collision
+ * @param c2 Information about the first particle that is undergoing a collision
+ */
+void TreePiece::resolveCollision(Collision &coll, ColliderInfo &c1,
+                                 ColliderInfo &c2, const CkCallback& cb) {
         GravityParticle *p;
         // Look for the first collider particle on this tree piece
         int bFoundP1 = 0;
@@ -168,6 +202,12 @@ void TreePiece::resolveCollision(Collision &coll, ColliderInfo &c1, ColliderInfo
     contribute(cb);
     }
 
+/**
+ * @brief Update the velocity of a particle after it undergoes a collision
+ * with a wall.
+ *
+ * @param p A reference to the particle that is undergoing a collision
+ */
 void Collision::doWallCollision(GravityParticle *p) {
     // TODO: spin
     p->velocity[2] *= -dEpsN;
@@ -177,6 +217,17 @@ void Collision::doWallCollision(GravityParticle *p) {
     p->velocity -= vParallel*(1.-dEpsT);
     }
 
+/**
+ * @brief Update the velocity of a particle after it undergoes a collision
+ * with another particle.
+ *
+ * This is done by advancing the particle by a time interval dtCol and then
+ * evaluating the collision at the new position. The particle is then moved
+ * back to its original position after its velocity has been updated.
+ *
+ * @param p A reference to the particle that is undergoing a collision
+ * @param c Contains information about the particle that p is colliding with
+ */
 void Collision::doCollision(GravityParticle *p, ColliderInfo &c)
 {
     // Advance particle positions to moment of collision
@@ -193,6 +244,13 @@ void Collision::doCollision(GravityParticle *p, ColliderInfo &c)
     }
 
 
+/**
+ * @brief This function updates the velocity and spin of a particle as it
+ * bounces off another particle.
+ *
+ * @param p A reference to the particle that is undergoing a collision
+ * @param c Contains information about the particle that p is colliding with
+ */
 void Collision::bounce(GravityParticle *p, ColliderInfo &c)
 {
     // Equations come from Richardson 1994
@@ -240,7 +298,15 @@ void CollisionSmoothParams::combSmoothCache(GravityParticle *p1,
         }
     }
 
-void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *nList)
+/**
+ * @brief Do a neighbor search to look for all possible collisions between
+ * particles.
+ *
+ * This function updates the 'dtCol' field for all particles that will undergo
+ * a collision in the next time step.
+ */
+void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
+                                      pqSmoothNode *nList)
 {
     GravityParticle *q;
     int i;    

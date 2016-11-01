@@ -3,6 +3,7 @@
 
 #include <float.h>
 
+/// @brief Used to pass information about collision partners between processes
 class ColliderInfo {
 public:
     Vector3D<double> position;
@@ -85,7 +86,8 @@ class CollisionSmoothParams : public SmoothParams
                  ExternalSmoothParticle *p2);
 public:
     CollisionSmoothParams() {}
-    CollisionSmoothParams(int _iType, int am, double _dTime, double _dDelta, int _bWall, double _dWallPos, Collision *collision) :
+    CollisionSmoothParams(int _iType, int am, double _dTime, double _dDelta,
+                  int _bWall, double _dWallPos, Collision *collision) :
         coll (*collision) {
         iType = _iType;
         activeRung = am;
