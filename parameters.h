@@ -120,6 +120,8 @@ typedef struct parameters {
     int iRandomSeed;            /* Seed for random numbers */
 #ifdef COLLISION
     int bCollision;
+    int bWall;
+    double dWallPos;
     Collision *collision;
 #endif
     

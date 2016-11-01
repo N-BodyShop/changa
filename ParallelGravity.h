@@ -1824,6 +1824,7 @@ public:
     void getCollInfo(const CkCallback& cb);
     void resolveCollision(Collision &coll, ColliderInfo &c1, ColliderInfo &c2,
                const CkCallback& cb);
+    void resolveWallCollision(Collision &coll, ColliderInfo &c1, const CkCallback& cb);
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
 	void setTypeFromFile(int iSetMask, char *file, const CkCallback& cb);

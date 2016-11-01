@@ -442,6 +442,7 @@ mainmodule ParallelGravity {
     entry void getCollInfo(const CkCallback& cb);
     entry void resolveCollision(Collision &coll, ColliderInfo &c1, ColliderInfo &c2,
         const CkCallback& cb);
+    entry void resolveWallCollision(Collision &coll, ColliderInfo &c1, const CkCallback& cb);
     entry void setTypeFromFile(int iSetMask, char file[256],
         const CkCallback& cb);
     entry void getCOM(const CkCallback& cb, int bLiveViz);

@@ -12,8 +12,10 @@ public:
     double dtCol;
     double radius;
     int iOrder;
+    int iOrderCol;
     ColliderInfo() {
         dtCol = DBL_MAX;
+        iOrderCol = -1;
         }
     void pup(PUP::er &p) {
         p | position;
@@ -23,21 +25,29 @@ public:
         p | dtCol;
         p | radius;
         p | iOrder;
+        p | iOrderCol;
         }
     };
 
-//#include "parameters.h"
+#include "parameters.h"
 
 /// @brief Collision parameters and routines
 class Collision : public PUP::able {
 public:
     int nSmoothCollision; /* number of particles to search for collisions over */
+    int bWall;            /* particles will bounce off a wall in the z plane */
+    double dWallPos;      /* location of wall along z axis */
+    double dEpsN, dEpsT;  /* normal and transverse coefficients of restitution */
 
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
     void doCollision(GravityParticle* p, ColliderInfo &c);
-    void bounce(GravityParticle* p, ColliderInfo &c, double dEpsN, double dEpsT);
-    Collision() {}
+    void doWallCollision(GravityParticle *p);
+    void bounce(GravityParticle* p, ColliderInfo &c);
+    Collision() {
+        dEpsN = 0.2;
+        dEpsT = 0.2;
+        }
    
     PUPable_decl(Collision);
     Collision(CkMigrateMessage *m) : PUP::able(m) {}
@@ -46,6 +56,10 @@ public:
 
 inline void Collision::pup(PUP::er &p) {
     p | nSmoothCollision;
+    p | bWall;
+    p | dWallPos;
+    p | dEpsN;
+    p | dEpsT;
     }
 
 #include "smoothparams.h"
@@ -56,6 +70,8 @@ inline void Collision::pup(PUP::er &p) {
 
 class CollisionSmoothParams : public SmoothParams
 {
+    int bWall;
+    double dWallPos;
     double dTime, dDelta;
     Collision coll;
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
@@ -69,13 +85,15 @@ class CollisionSmoothParams : public SmoothParams
                  ExternalSmoothParticle *p2);
 public:
     CollisionSmoothParams() {}
-    CollisionSmoothParams(int _iType, int am, double _dTime, double _dDelta, Collision *collision) :
+    CollisionSmoothParams(int _iType, int am, double _dTime, double _dDelta, int _bWall, double _dWallPos, Collision *collision) :
         coll (*collision) {
         iType = _iType;
         activeRung = am;
         bUseBallMax = 0;
         dTime = _dTime;
         dDelta = _dDelta;
+        bWall = _bWall;
+        dWallPos = _dWallPos;
         }
     PUPable_decl(CollisionSmoothParams);
     CollisionSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
@@ -84,6 +102,8 @@ public:
         p | coll;
         p | dDelta;
         p | dTime;
+        p | bWall;
+        p | dWallPos;
     }
     };
 

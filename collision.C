@@ -16,6 +16,15 @@ void Collision::AddParams(PRM prm)
     nSmoothCollision = 64;
     prmAddParam(prm, "nSmoothCollision", paramInt, &nSmoothCollision,
         sizeof(int), "nSmoothCollision", "<number of particles to do collision search over> = 64");
+   
+    bWall = 0;
+    prmAddParam(prm, "bWall", paramBool, &bWall,
+        sizeof(int), "bWall", "<Particles bounce off of a plane pointed in the z direction> = 0");
+
+    dWallPos = 0.0;
+    prmAddParam(prm, "dWallPos", paramDouble, &dWallPos,
+        sizeof(double), "dWallPos", "<Z coordinate of wall> = 0");
+
     }
 
 void Collision::CheckParams(PRM prm, struct parameters &param)
@@ -28,22 +37,27 @@ void Collision::CheckParams(PRM prm, struct parameters &param)
 #endif
     }
 
+/**
+ * @brief doCollisions is used to detect and resolve collisions between
+ * particles. A collision search is done using SmoothParams, where the  'dtCol' 
+ * field of all particles which will undergo a collision in the time step is
+ * set. The function then searches through all of the particles and resolves
+ * the soonest collision using the physics specificed in the Collision class.
+ * After this, another collision search is done and this process is repeated
+ * until there are no more collisions during the current time step.
+ *
+ * @param dTime The current time in the simulation (in simulation units)
+ * @param dDelta The size of the next timestep (in simulation units)
+ */
 void Main::doCollisions(double dTime, double dDelta)
 {
-    // Plan: Call initial smooth to find collisions
-    //       While there are collisions in the next timestep (treeProxy.getNextColl)
-    //           Resolve the soonest collision (treeProxy.resolveNextColl)
-    //             See line 738 of feedback.C for an example of how to send back
-    //             info from one tree piece
-    //           Rebuild tree?
-    //           Resmooth
-
     int bHasCollision;
+    int nColl = 0;
     
     do {
         bHasCollision = 0;
 
-        CollisionSmoothParams pCS(TYPE_DARK, 0, dTime, dDelta, param.collision);
+        CollisionSmoothParams pCS(TYPE_DARK, 0, dTime, dDelta, param.collision->bWall, param.collision->dWallPos, param.collision);
         double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
         treeProxy.startSmooth(&pCS, 0, param.collision->nSmoothCollision,
                   dfBall2OverSoft2, CkCallbackResumeThread());
@@ -53,12 +67,22 @@ void Main::doCollisions(double dTime, double dDelta)
         ColliderInfo *c = (ColliderInfo *)msgChk->getData();
         if (c[0].dtCol <= dDelta) {
             bHasCollision = 1;
-            CkPrintf("Imminent collision in %f %f\n", c[0].dtCol, c[1].dtCol);
-            treeProxy.resolveCollision(*(param.collision), c[0], c[1], CkCallbackResumeThread());
+            // Collision with wall
+            if (c[0].iOrderCol == -2) {
+                nColl++;
+                treeProxy.resolveWallCollision(*(param.collision), c[0], CkCallbackResumeThread());
+                }
+            // Collision with particle
+            else {
+                if (c[0].dtCol != c[1].dtCol) CkAbort("Warning: Collider pair mismatch\n");
+                nColl++;
+                treeProxy.resolveCollision(*(param.collision), c[0], c[1], CkCallbackResumeThread());
+                }
             }
 
         delete msgChk;
         } while (bHasCollision);
+        CkPrintf("Resolved %d collisions\n", nColl);
 
     }
 
@@ -77,6 +101,7 @@ void TreePiece::getCollInfo(const CkCallback& cb)
             ci[0].mass = p->mass;
             ci[0].dtCol = p->dtCol;
             ci[0].iOrder = p->iOrder;
+            ci[0].iOrderCol = p->iOrderCol;
             }
         }
 
@@ -93,11 +118,25 @@ void TreePiece::getCollInfo(const CkCallback& cb)
                 ci[1].mass = p->mass;
                 ci[1].dtCol = p->dtCol;
                 ci[1].iOrder = p->iOrder;
+                ci[1].iOrderCol = p->iOrderCol;
                 }
             else bFoundC1 = 1;
             }
         }
     contribute(2 * sizeof(ColliderInfo), ci, soonestCollReduction, cb);
+    }
+
+void TreePiece::resolveWallCollision(Collision &coll, ColliderInfo &c1, const CkCallback& cb) {
+    GravityParticle *p;
+    for (unsigned int i=1; i <= myNumParticles; i++) {
+        p = &myParticles[i];
+        if (p->iOrder == c1.iOrder) {
+            coll.doWallCollision(p);
+            break;
+            }
+        }
+
+    contribute(cb);
     }
 
 void TreePiece::resolveCollision(Collision &coll, ColliderInfo &c1, ColliderInfo &c2, const CkCallback& cb) {
@@ -129,18 +168,24 @@ void TreePiece::resolveCollision(Collision &coll, ColliderInfo &c1, ColliderInfo
     contribute(cb);
     }
 
+void Collision::doWallCollision(GravityParticle *p) {
+    // TODO: spin
+    p->velocity[2] *= -dEpsN;
+
+    Vector3D<double> vPerp = (0., 0., p->velocity[2]);
+    Vector3D<double> vParallel = p->velocity - vPerp;
+    p->velocity -= vParallel*(1.-dEpsT);
+    }
+
 void Collision::doCollision(GravityParticle *p, ColliderInfo &c)
 {
-    CkPrintf("Handling collision between %d and %d\n", p->iOrder, c.iOrder);
     // Advance particle positions to moment of collision
     Vector3D<double> pAdjust = p->velocity*p->dtCol;
     Vector3D<double> cAdjust = c.velocity*c.dtCol;
     p->position += pAdjust;
     c.position += cAdjust;
 
-    CkPrintf("Velocity before bounce: %f, %f, %f\n", p->velocity.x, p->velocity.y, p->velocity.z);
-    bounce(p, c, 1.0, 1.0);
-    CkPrintf("Velocity after bounce: %f, %f, %f\n", p->velocity.x, p->velocity.y, p->velocity.z);
+    bounce(p, c);
 
     // Revert particle positions back to beginning of step
     p->position -= pAdjust;
@@ -148,58 +193,36 @@ void Collision::doCollision(GravityParticle *p, ColliderInfo &c)
     }
 
 
-void Collision::bounce(GravityParticle *p, ColliderInfo &c, double dEpsN, double dEpsT)
+void Collision::bounce(GravityParticle *p, ColliderInfo &c)
 {
-    Vector3D<double> p1, q, u, un, ut, n, s1, s2, v, s;
-    double a, b, c1, m1, m2, m, mu, alpha, beta, r1, r2, i1, i2;
+    // Equations come from Richardson 1994
+    double r1 = p->soft/2.;
+    double m1 = p->mass;
+    double m2 = c.mass;
+    double M = m1 + m2;
+    double mu = m1*m2/M;
 
-    m1 = p->mass;
-    m2 = c.mass;
-    m = m1+m2;
-    mu = m1*m2/m;
-    r1 = p->soft/2.;
-    r2 = c.radius;
-    i1 = 0.4*m1*r1*r1;
-    i2 = 0.4*m2*r2*r2;
-    alpha = 2.5*(1/m1 + 1/m2);
-    beta = 1/(1 + alpha*mu);
- 
-    n = (c.position - p->position);
-    a = n.lengthSquared();
+    Vector3D<double> N = (c.position - p->position).normalize();
+    Vector3D<double> v = c.velocity - p->velocity;
 
-	a = 1/sqrt(a);
-	n *= a;
+    Vector3D<double> R1 = N*r1;
+    Vector3D<double> sigma1 = cross(p->w, R1);
+    Vector3D<double> R2 = -N*r1;
+    Vector3D<double> sigma2 = cross(c.w, R2);
+    Vector3D<double> sigma = sigma2 - sigma1;
 
-    s1 = r1*cross(c.w, n);
-    s2 = -r2*cross(c.w, n);
+    Vector3D<double> u = v + sigma;
+    Vector3D<double> uN = dot(u, N)*N;
+    Vector3D<double> uT = u - uN;
 
-    v = c.velocity - p->velocity;
-    s = s2 - s1;
-    u = v + s;
-    a = dot(u, n);
+    double alpha = (5./2.)/mu;
+    double beta = 1./(1.+(alpha*mu));
 
-    if (a >= 0.)
-        CkPrintf("%d, %d - near miss? a = %f\n", p->iOrder, c.iOrder, a);
+    p->velocity += m2/M*((1.+dEpsN)*uN + beta*(1-dEpsT)*uT);
+    
+    double I1 = 2./5.*m1*r1*r1;
+    p->w += beta*mu/I1*(1.-dEpsT)*cross(R1, u);
 
-    un = a*n;
-    ut = u - un;
-
-    a = (1 + dEpsN);
-	b = beta*(1 - dEpsT);
-	p1 = a*un + b*ut;
-
-	a = mu*b;
-    q = a*cross(n, u);
-
-    a =   m2/m;
-	b = -m1/m;
-    c1 = r1/i1;
-
-    p->velocity += a*p1;
-    p->w += c1*q;
-
-    p->dtCol = DBL_MAX;
-    p->iOrderCol = -1;
     }
 
 void CollisionSmoothParams::initSmoothCache(GravityParticle *p1)
@@ -213,8 +236,6 @@ void CollisionSmoothParams::combSmoothCache(GravityParticle *p1,
 {
     if (p2->dtCol < p1->dtCol) {
         p1->dtCol = p2->dtCol;
-        }
-    if (p2->iOrderCol != -1 && p1->iOrderCol == -1) {
         p1->iOrderCol = p2->iOrderCol;
         }
     }
@@ -225,8 +246,16 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothN
     int i;    
     double rq, sr, D, dt, rdotv, vRel2, dr2;
     p->dtCol = DBL_MAX;
+    p->iOrderCol = -1;
 
-    double rp = p->soft/2.;
+    if (bWall) {
+        double dt = (dWallPos - p->position[2] - (p->soft/2.))/p->velocity[2];
+        if (dt > 0. && dt < dDelta) {
+            p->dtCol = dt;
+            p->iOrderCol = -2;
+            }
+    }
+
     for (i = 0; i < nSmooth; i++) {
         q = nList[i].p;
 
@@ -235,15 +264,21 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothN
         CkAssert(TYPETest(q, TYPE_DARK));
 
         Vector3D<double> vRel = p->velocity - q->velocity;
+        Vector3D<double> dx = p->position - q->position;
+
         sr = (p->soft/2.) + (q->soft/2.);
-        rdotv = dot(nList[i].dx, vRel);
+        rdotv = dot(dx, vRel);
         if (rdotv >= 0) continue; // Particles moving apart
         vRel2 = vRel.lengthSquared();
-        dr2 = nList[i].dx.lengthSquared() - sr*sr;
+        dr2 = dx.lengthSquared() - sr*sr;
         D = rdotv*rdotv - dr2*vRel2;
         if (D <= 0.0) continue; // Not on a collision trajectory
         D = sqrt(D);
         dt = (-rdotv - D)/vRel2;
+
+        if (dt < 0.) {
+            CkAbort("Warning: collision found with dt < 0. Particles overlapping?\n");
+            }
 
         if (dt < dDelta && dt < p->dtCol) {
             p->dtCol = dt;
