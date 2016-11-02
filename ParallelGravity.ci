@@ -148,6 +148,7 @@ mainmodule ParallelGravity {
   PUPable PosOutputParams;
   PUPable VelOutputParams;
   PUPable PotOutputParams;
+  PUPable SpinOutputParams;
   PUPable GasDenOutputParams;
   PUPable TempOutputParams;
   PUPable AccOutputParams;

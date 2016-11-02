@@ -3407,6 +3407,14 @@ void Main::writeOutput(int iStep)
         outputBinary(pSoftOut, param.bParaWrite, CkCallbackResumeThread());
         PotOutputParams pPotOut(achFile, param.iBinaryOut, dOutTime);
         outputBinary(pPotOut, param.bParaWrite, CkCallbackResumeThread());
+
+#ifdef COLLISION
+        if (nTotalDark > 0) {
+            SpinOutputParams wOut(achFile, param.iBinaryOut, dOutTime);
+            outputBinary(wOut, param.bParaWrite, CkCallbackResumeThread());
+            }
+#endif
+
         if(nTotalSPH > 0) {
             GasDenOutputParams pGasDenOut(achFile, param.iBinaryOut, dOutTime);
             outputBinary(pGasDenOut, param.bParaWrite,
