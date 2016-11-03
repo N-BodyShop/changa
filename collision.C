@@ -6,6 +6,7 @@
 #include "collision.h"
 #include "smooth.h"
 #include "Reductions.h"
+#include "physconst.h"
 
 ///
 /// @brief initalize parameters for collision detection and handling
@@ -22,6 +23,11 @@ void Collision::AddParams(PRM prm)
     prmAddParam(prm, "bWall", paramBool, &bWall,
         sizeof(int), "bWall", "<Particles bounce off of a plane pointed in\
                                  the z direction> = 0");
+
+    bAllowMergers = 0;
+    prmAddParam(prm, "bAllowMergers", paramBool, &bAllowMergers,
+        sizeof(int), "bAllowMergers", "<Particles merge on collision if their\
+                                        approach speed is small enough> = 0");
 
     dWallPos = 0.0;
     prmAddParam(prm, "dWallPos", paramDouble, &dWallPos,
@@ -73,7 +79,7 @@ void Main::doCollisions(double dTime, double dDelta)
         if (c[0].dtCol <= dDelta) {
             bHasCollision = 1;
             // Collision with wall
-            if (c[0].iOrderCol == -2) {
+            if (c[0].iOrderCol == -2 && param.collision->bWall) {
                 nColl++;
                 treeProxy.resolveWallCollision(*(param.collision), c[0], 
                                                CkCallbackResumeThread());
@@ -81,11 +87,21 @@ void Main::doCollisions(double dTime, double dDelta)
             // Collision with particle
             else {
                 if (c[0].dtCol != c[1].dtCol) {
+                    CkPrintf("%f %f\n", c[0].dtCol, c[1].dtCol);
                     CkAbort("Warning: Collider pair mismatch\n");
                     }
                 nColl++;
-                treeProxy.resolveCollision(*(param.collision), c[0], c[1], 
-                                           CkCallbackResumeThread());
+                
+                if (param.collision->bAllowMergers) {
+                    param.collision->checkMerger(c[0], c[1]);
+                    }
+                if (c[0].bMergerDelete || c[1].bMergerDelete) {
+                    treeProxy.resolveMerger(c[0], c[1], CkCallbackResumeThread());
+                    }
+                else {
+                    treeProxy.resolveCollision(*(param.collision), c[0], c[1], 
+                                               CkCallbackResumeThread());
+                    }
                 }
             }
 
@@ -140,6 +156,7 @@ void TreePiece::getCollInfo(const CkCallback& cb)
             else bFoundC1 = 1;
             }
         }
+
     contribute(2 * sizeof(ColliderInfo), ci, soonestCollReduction, cb);
     }
 
@@ -203,6 +220,83 @@ void TreePiece::resolveCollision(Collision &coll, ColliderInfo &c1,
     }
 
 /**
+ * @brief Resolve a merger between two colliders, if either of them exist on
+ * this TreePiece.
+ *
+ * Particle 1 takes on the mass of particle 2. Particle 2 is deleted.
+ *
+ * @param c1 Information about particle 1
+ * @param c2 Information about particle 2
+ */
+void TreePiece::resolveMerger(ColliderInfo &c1, ColliderInfo &c2, const CkCallback& cb)
+{
+        GravityParticle *p;
+        // Look for the first collider particle on this tree piece
+        int bFoundP1 = 0;
+        for (unsigned int i=1; i <= myNumParticles; i++) {
+            p = &myParticles[i];
+            if (p->iOrder == c1.iOrder) {
+                bFoundP1 = 1;
+                break;
+               }
+            }
+
+       if (bFoundP1) {
+           CkPrintf("Updating mass of particle %d after merger\n", c1.iOrder);
+           p->mass += c2.mass;
+           }
+
+        // Look for the second collider particle on this tree piece
+        int bFoundP2 = 0;
+        for (unsigned int i=1; i <= myNumParticles; i++) {
+            p = &myParticles[i];
+            if (p->iOrder == c2.iOrder) {
+                bFoundP2 = 1;
+                break;
+                }
+            }
+
+       if (bFoundP2) {
+           CkPrintf("Deleting particle %d after merger\n", c2.iOrder);
+           deleteParticle(p);
+           }
+    
+    contribute(cb);
+    }
+
+/**
+ * @brief Check for a merger between two colliders
+ *
+ * If they are to merge, set the bMergerDelete flag to True for the less
+ * massive collider. A merger will occur if the relative velocity between
+ * particles is < vEsc and both particles post collision angular speed is
+ * < wMax.
+ *
+ * @param c1 The first collider participating in the event
+ * @param c2 The second collider participating in the event
+ */
+void Collision::checkMerger(ColliderInfo &c1, ColliderInfo &c2)
+{
+    double Mtot = c1.mass + c2.mass;
+    double Rtot = c1.radius + c2.radius;
+    double vEsc = sqrt(2.*Mtot/Rtot);
+    double wMax = sqrt(Mtot/(Rtot*Rtot*Rtot));
+
+    // Calculate the post collision spin of each particle and compare with wMax
+    Vector3D<double> vNew;
+    Vector3D<double> wNew1, wNew2;
+    bounceCalc(c1.radius, c1.mass, c1.position, c1.velocity, c1.w, &vNew, &wNew1, c2);
+    bounceCalc(c2.radius, c2.mass, c2.position, c2.velocity, c2.w, &vNew, &wNew2, c1);
+
+    double vRel = (c1.velocity - c2.velocity).length();
+    if (vRel > vEsc || wNew1.length() > wMax || wNew2.length() > wMax) return;
+
+    // Mark the less massive particle to be consumed and deleted
+    if (c1.mass < c2.mass) c1.bMergerDelete = 1;
+    else c2.bMergerDelete = 1;
+    }
+
+/**
  * @brief Update the velocity of a particle after it undergoes a collision
  * with a wall.
  *
@@ -234,37 +328,53 @@ void Collision::doCollision(GravityParticle *p, ColliderInfo &c)
     Vector3D<double> pAdjust = p->velocity*p->dtCol;
     Vector3D<double> cAdjust = c.velocity*c.dtCol;
     p->position += pAdjust;
-    c.position += cAdjust;
+    c.position += cAdjust;    
 
-    bounce(p, c);
+    // Bounce
+    Vector3D<double> vNew;
+    Vector3D<double> wNew;
+    bounceCalc(p->soft/2., p->mass, p->position, p->velocity, p->w, &vNew, &wNew, c);
+    p->velocity = vNew;
+    p->w = wNew;
 
     // Revert particle positions back to beginning of step
     p->position -= pAdjust;
     c.position -= cAdjust;
     }
 
-
 /**
- * @brief This function updates the velocity and spin of a particle as it
+ * @brief Calculates the resulting velocity and spin of a particle as it
  * bounces off another particle.
  *
- * @param p A reference to the particle that is undergoing a collision
- * @param c Contains information about the particle that p is colliding with
+ * This function writes the new velocity and spin to the location specified
+ * by velNew and wNew.
+ * 
+ * @param r The radius of the particle
+ * @param m The mass of the particle
+ * @param pos The position of the particle
+ * @param vel The velocity of the particle
+ * @param w The spin of the particle
+ * @param velNew Where to store the resulting velocity of the particle
+ * @param wNew Where to store the resulting spin of the particle
+ * @param c Contains information about the particle that we are colliding with
  */
-void Collision::bounce(GravityParticle *p, ColliderInfo &c)
+void Collision::bounceCalc(double r, double m, Vector3D<double> pos,
+                           Vector3D<double> vel, Vector3D<double> w,
+                           Vector3D<double> *velNew, Vector3D<double> *wNew,
+                           ColliderInfo &c)
 {
     // Equations come from Richardson 1994
-    double r1 = p->soft/2.;
-    double m1 = p->mass;
+    double r1 = r;
+    double m1 = m;
     double m2 = c.mass;
     double M = m1 + m2;
     double mu = m1*m2/M;
 
-    Vector3D<double> N = (c.position - p->position).normalize();
-    Vector3D<double> v = c.velocity - p->velocity;
+    Vector3D<double> N = (c.position - pos).normalize();
+    Vector3D<double> v = c.velocity - vel;
 
     Vector3D<double> R1 = N*r1;
-    Vector3D<double> sigma1 = cross(p->w, R1);
+    Vector3D<double> sigma1 = cross(w, R1);
     Vector3D<double> R2 = -N*r1;
     Vector3D<double> sigma2 = cross(c.w, R2);
     Vector3D<double> sigma = sigma2 - sigma1;
@@ -276,11 +386,10 @@ void Collision::bounce(GravityParticle *p, ColliderInfo &c)
     double alpha = (5./2.)/mu;
     double beta = 1./(1.+(alpha*mu));
 
-    p->velocity += m2/M*((1.+dEpsN)*uN + beta*(1-dEpsT)*uT);
+    *velNew = vel + m2/M*((1.+dEpsN)*uN + beta*(1-dEpsT)*uT);
     
     double I1 = 2./5.*m1*r1*r1;
-    p->w += beta*mu/I1*(1.-dEpsT)*cross(R1, u);
-
+    *wNew = w + beta*mu/I1*(1.-dEpsT)*cross(R1, u);
     }
 
 void CollisionSmoothParams::initSmoothCache(GravityParticle *p1)
@@ -313,7 +422,8 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     double rq, sr, D, dt, rdotv, vRel2, dr2;
     p->dtCol = DBL_MAX;
     p->iOrderCol = -1;
-
+    if (TYPETest(p, TYPE_DELETED)) return;
+    CkPrintf("Particle smooth %d\n", p->iOrder);
     if (bWall) {
         double dt = (dWallPos - p->position[2] - (p->soft/2.))/p->velocity[2];
         if (dt > 0. && dt < dDelta) {
@@ -327,7 +437,8 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
         // Skip self interactions
         if (p->iOrder == q->iOrder) continue;
-        CkAssert(TYPETest(q, TYPE_DARK));
+        // Ignore deleted particles
+        if (TYPETest(q, TYPE_DELETED)) continue;
 
         Vector3D<double> vRel = p->velocity - q->velocity;
         Vector3D<double> dx = p->position - q->position;

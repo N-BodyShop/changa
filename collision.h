@@ -14,9 +14,13 @@ public:
     double radius;
     int iOrder;
     int iOrderCol;
+    /* If true, this collider is flagged for deletion and will merge with
+       its more massive partner */
+    int bMergerDelete;
     ColliderInfo() {
         dtCol = DBL_MAX;
         iOrderCol = -1;
+        bMergerDelete = 0;
         }
     void pup(PUP::er &p) {
         p | position;
@@ -27,6 +31,7 @@ public:
         p | radius;
         p | iOrder;
         p | iOrderCol;
+        p | bMergerDelete;
         }
     };
 
@@ -37,17 +42,22 @@ class Collision : public PUP::able {
 public:
     int nSmoothCollision; /* number of particles to search for collisions over */
     int bWall;            /* particles will bounce off a wall in the z plane */
+    int bAllowMergers;    /* allow particles to merge if they collide at a slow speed */
     double dWallPos;      /* location of wall along z axis */
     double dEpsN, dEpsT;  /* normal and transverse coefficients of restitution */
 
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
     void doCollision(GravityParticle* p, ColliderInfo &c);
+    void checkMerger(ColliderInfo &c1, ColliderInfo &c2);
     void doWallCollision(GravityParticle *p);
-    void bounce(GravityParticle* p, ColliderInfo &c);
+    void bounceCalc(double r, double m, Vector3D<double> pos,
+                    Vector3D<double> vel, Vector3D<double> w,
+                    Vector3D<double> *velNew, Vector3D<double> *wNew,
+                    ColliderInfo &c);
     Collision() {
-        dEpsN = 0.2;
-        dEpsT = 0.2;
+        dEpsN = 0.8;
+        dEpsT = 1.0;
         }
    
     PUPable_decl(Collision);
