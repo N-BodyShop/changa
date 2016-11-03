@@ -121,12 +121,9 @@ CkReductionMsg* soonestCollInfo(int nMsg, CkReductionMsg** msgs) {
     // Need to put all of the collider info objects into a 1d array
     int nColliders = 0;
     for (unsigned int i=0; i < nMsg; i++) {
-        //CkPrintf("Processing message %d of %d\n", i, nMsg);
         nColliders++;
-        //CkPrintf("nColliders = %d\n", nColliders);
         ColliderInfo *secondCollider = &(static_cast<ColliderInfo *>(msgs[i]->getData()))[1];
         if (secondCollider->dtCol < DBL_MAX) {
-            //CkPrintf("Reducer found second collider with %f\n",secondCollider->dtCol);
             nColliders++;
             }
         }
@@ -148,6 +145,9 @@ CkReductionMsg* soonestCollInfo(int nMsg, CkReductionMsg** msgs) {
 
     ColliderInfo *c;
     ColliderInfo minColliders[2];
+    minColliders[0].dtCol = dtMin;
+    minColliders[1].dtCol = dtMin;
+
     for(int i = 0; i < nColliders; i++) {
         c = allColliders[i];
         if(c->dtCol <= dtMin) {
