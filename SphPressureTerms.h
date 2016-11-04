@@ -181,26 +181,27 @@
 		    *absmu/(pDensity + q->fDensity); }
 #endif
 #ifdef CULLENALPHA
+
 /* Cullen&Dehnen Artifical Viscosity */
 #define ARTIFICIALVISCOSITY(visc_,dt_) { double hav=0.5*(ph+0.5*q->fBall);  /* h mean */ \
-		absmu = -hav*dvdotdr*a  \
-		  /(fDist2+0.01*hav*hav); /* mu multiply by a to be consistent with physical c*/ \
+		absmu = -hav*dvdotdr*a /(fDist2+0.01*hav*hav); /* mu multiply by a to be consistent with physical c*/ \
 		if (absmu>p->mumax()) p->mumax()=absmu; /* mu terms for gas time step  */  \
-		if (absmu>q->mumax()) q->mumax()=absmu;                 \
-		visc_ = (-(pc + q->c()) + (BETA/ALPHA)*2*absmu);	\
-		dt_ = dtFacCourant*hav/(0.625*(pc + q->c())+0.375*visc_); \
-		visc_ = visc_  *absmu/(pDensity + q->fDensity); }
+		if (absmu>q->mumax()) q->mumax()=absmu;               
+#ifdef VSIGVISC
+                visc_ = (ALPHA*(pc + q->c) + BETA*1.5*absmu);
+                visc_ = SWITCHCOMBINE(p,q)*visc_ * absmu/(pDensity + q->fDensity);
+#elif defined CULLENALPHA
+		visc_ = (-(pc + q->c()) + (BETA/ALPHA)*2*absmu);
+                visc_ = visc_  *absmu/(pDensity + q->fDensity);
 #else
-#define ARTIFICIALVISCOSITY(visc_,dt_) { absmu = -dvdotdr*a           \
-    /sqrt(nnList[i].fDist2); /* mu multiply by a to be consistent with physical c */ \
-  if (absmu>p->mumax) p->mumax=absmu; /* mu terms for gas time step */ \
-  if (absmu>q->mumax) q->mumax=absmu; \
-  visc_ = (ALPHA*(pc + q->c) + BETA*1.5*absmu); \
-  dt_ = dtFacCourant*ph/(0.625*(pc + q->c())+0.375*visc_); \
-  visc_ = SWITCHCOMBINE(p,q)*visc_ \
-    *absmu/(pDensity + q->fDensity); }
-//*/
+                visc_ = (ALPHA*(pc + q->c()) + BETA*2.*absmu);
+                visc_ = SWITCHCOMBINE(p,q)*visc_ * absmu/(pDensity + q->fDensity);
 #endif
+		dt_ = dtFacCourant*hav/(0.625*(pc + q->c())+0.375*visc_); \
+		visc_ = visc_  *absmu/(pDensity + q->fDensity); 
+}
+
+
 
     /* Force Calculation between particles p and q */
         DRHODTACTIVE( PACTIVE( p->fDivv_PdV -= rq/p->fDivv_Corrector/RHO_DIVV(pDensity,q->fDensity)*dvdotdr; )); 
@@ -216,14 +217,23 @@
             }
 #ifdef CULLENALPHA
         else {  
-            hav=0.5*(ph+0.5*q->fBall);
             ARTIFICIALVISCOSITY(visc,dt); /* Calculate Artificial viscosity terms */		
             PACTIVE( p->PdV() += rq*(0.5*visc)*dvdotdr *p->CullenAlpha(); );
             QACTIVE( q->PdV() += rp*(0.5*visc)*dvdotdr * q->CullenAlpha(); );
             PACTIVE( Accp += visc*p->CullenAlpha(); );
             QACTIVE( Accq += visc*q->CullenAlpha(); ); 
             }
+#else
+        else {
+          ARTIFICIALVISCOSITY(visc,dt); 
+          PACTIVE( p->PdV() += rq*(0.5*visc)*dvdotdr;);
+          QACTIVE( q->PdV() += rp*(0.5*visc)*dvdotdr;);
+          PACTIVE( Accp += visc;);
+          QACTIVE( Accq += visc;);
+        }
 #endif
+
+
         PACTIVE( Accp *= rq*aFac; );/* aFac - convert to comoving acceleration */
         QACTIVE( Accq *= rp*aFac; );
         PACTIVE( p->treeAcceleration.x -= Accp * dx; );

@@ -839,12 +839,14 @@ void DenDvDxSmoothParams::initTreeParticle(GravityParticle *p)
     TYPEReset(p, TYPE_NbrOfACTIVE);
     }
 
-#ifdef CULLENALPHA
+
 void DenDvDxSmoothParams::postTreeParticle(GravityParticle *p)
 {
+#ifdef CULLENALPHA
    p->dvds_old() = p->dvds();
-}
 #endif
+}
+
 
 void DenDvDxSmoothParams::initSmoothCache(GravityParticle *p)
 {
@@ -864,9 +866,9 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	double dvxdx, dvxdy, dvxdz, dvydx, dvydy, dvydz, dvzdx, dvzdy, dvzdz;
 	double dvx,dvy,dvz,dx,dy,dz,trace;
 #ifdef CULLENALPHA
-	double h, dvdotdr,  cullenR, curTimeStep;
+	double dvdotdr,  R_CD, R_CDN, curTimeStep;
 	double vSignal,  maxVSignal, divVq, signDivVq;
-        cullenR = 0.0; maxVSignal = 0.0;
+        R_CD = 0.0; R_CDN = 0;  maxVSignal = 0.0;
         curTimeStep = RungToDt(dDelta, p->rung);
         if (dDelta == 0){
           p->TimeDivV() = dTime;
@@ -880,7 +882,6 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
         ih2 = invH2(p); 
         ih = sqrt(ih2); 
-        h = p->fBall;
 	vFac = 1./(a*a); /* converts v to xdot */
 	fNorm = M_1_PI*ih2*sqrt(ih2);
 	fDensity = 0.0;
@@ -928,8 +929,9 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
                 fNorm1 = (divvnorm != 0 ? 3.0/fabs(divvnorm) : 0.0); 
 
 #ifdef CULLENALPHA
-                //cullenR += (q->OldDivV() < 0 ? -1 : 1)*rs*q->mass;
-                cullenR += (q->dvds_old() < 0 ? -1 : 1)*(1-r2*r2*0.0625)* q->mass;
+                double R_wt = (1-r2*r2*0.0625)* q->mass;
+                R_CD += q->dvds_old() * R_wt; 
+                R_CDN += R_wt;
                 vSignal = (p->c() + q->c())/2.;
                 if (vSignal > maxVSignal) maxVSignal = vSignal; 
 
@@ -970,23 +972,30 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         p->curlv().y = fNorm1*(dvxdz - dvzdx);
         p->curlv().z = fNorm1*(dvydx - dvxdy);
 
-#ifdef CULLENALPHA
-        double OneMinusR, tau, divVDot, traceSS, xi, A, alphaLoc,  oldCullenAlpha, deltaT, gnorm, dvdr; 
-        double l = 0.1; A = 0;
+#ifdef CULLENALPHA 
+        double alphaLoc, tau; 
+        double l = 0.1;
         double Hcorr = (fNorm1 != 0 ? H/fNorm1 : 0);
-        gnorm = (grx*grx+gry*gry+grz*grz);
+        double gnorm = (grx*grx+gry*gry+grz*grz);
         if (gnorm > 0) gnorm=1/sqrt(gnorm);
         grx *= gnorm;
         gry *= gnorm;
         grz *= gnorm;
-        dvdr = (((dvxdx+Hcorr)*grx+dvxdy*gry+dvxdz*grz)*grx
+        double dvdr = (((dvxdx+Hcorr)*grx+dvxdy*gry+dvxdz*grz)*grx
         +  (dvydx*grx+(dvydy+Hcorr)*gry+dvydz*grz)*gry
         +  (dvzdx*grx+dvzdy*gry+(dvzdz+Hcorr)*grz)*grz)*fNorm1;
+
+        double dvds = (p->divv() < 0 ? 1.5*(dvdr -(1./3.)*p->divv()) : dvdr );
+        double sxxf = dvxdx+Hcorr, syyf = dvydy+Hcorr, szzf = dvzdz+Hcorr;
+        double SFull = sqrt(fNorm1*fNorm1*(sxxf*sxxf+syyf*syyf+szzf*szzf 
+                                           + 2*(sxy*sxy + sxz*sxz + syz*syz)));
        
-        p->dvds() =  (p->divv() < 0 ? 1.5*(dvdr -(1./3.)*p->divv()) : dvdr );
+        p->dvds() = (SFull > 0 ? dvds/SFull : 0);
+        
+
         // time interval = current time - last time divv was calculated
-        deltaT = dTime - p->TimeDivV();
-        divVDot = (p->dvds() - p->dvds_old())/deltaT;
+        double deltaT = dTime - p->TimeDivV();
+        double divVDot = (p->dvds() - p->dvds_old())/deltaT;
         if (p->rung >= activeRung){
           p->TimeDivV() = dTime;
         }
@@ -996,27 +1005,25 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
           // If the divergence of the velocity of the particle is negative and the speed of sound is nonzero
           // we set p->CullenAlpha() using the M&M prescription. Otherwise p->CullenAlpha() is zero
           if ((p->divv() < 0) && (p->c() > 0)){
-            tau = h / (2.0*l*p->c());
+            tau = p->fBall / (2.0*l*p->c());
             p->CullenAlpha() = -dAlphaMax*p->divv()*tau / (1.0 - p->divv()*tau);
           }
           else p->CullenAlpha() = 0.0; 
         }
         // If the current time step > 0
         else if (p->rung >= activeRung) {
-          // The time derivative of the divergence of the velocity
-          cullenR /= p->fDensity;
-          OneMinusR = 1. - cullenR; 
-          xi = (OneMinusR < -1 ? 0 :
-                (OneMinusR > 2 ? 1 : 0.0625*OneMinusR*OneMinusR*OneMinusR*OneMinusR));
-          //          traceSS = fNorm1*fNorm1*(2.0*(sxy*sxy + sxz*sxz + syz*syz) + sxx*sxx + syy*syy + szz*szz);
-          // The shock limiter; compares the flow convergence to a measure of the shear/vorticity
-          //xi =(2.0*pow((1.0-cullenR),4)*p->divv())*(2.0*pow((1.0-cullenR),4)*p->divv()) / 
-          //  (traceSS + (2.0*pow((1.0-cullenR),4)*p->divv())*(2.0*pow((1.0-cullenR),4)*p->divv()));
-          // If the time derivative of the velocity divergence is negative, the shock indicator, A is defined below. 
-          // Otherwise, it remains zero and therefore alphaLoc is zero.
-          if (divVDot < 0) A = fabs(divVDot) * xi * h * h;
-          // The local alpha value
-          alphaLoc = dAlphaMax* A / (maxVSignal*maxVSignal + A);
+          if (divVDot < 0){
+            double OneMinusR_CD = (R_CDN > 0 ? 1-(R_CD/R_CDN) : 0);
+
+            double xi = (OneMinusR_CD < -1 ? 0 :
+                (OneMinusR_CD > 2 ? 1 : 0.0625*OneMinusR_CD*OneMinusR_CD*OneMinusR_CD*OneMinusR_CD));
+            double Aterm = xi * p->fBall * p->fBall * fabs(divVDot);
+
+            // The local alpha value
+            alphaLoc = dAlphaMax* Aterm / (maxVSignal*maxVSignal + Aterm);
+            
+          }
+          else alphaLoc = 0; 
           // Decay parameter
           tau = 1. / (l*maxVSignal*ih);
           // If alphaLoc is larger then the current p->CullenAlpha(), we set p->CullenAlhpa() to be equal to alphaLoc.
@@ -1024,7 +1031,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
           if (alphaLoc > p->CullenAlpha()) p->CullenAlpha() = alphaLoc;
           else{
-            oldCullenAlpha = p->CullenAlpha();
+            double oldCullenAlpha = p->CullenAlpha();
             p->CullenAlpha() = alphaLoc - (alphaLoc - oldCullenAlpha)*exp(-deltaT/tau);
            }
         }
@@ -1036,15 +1043,15 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
 				    pqSmoothNode *nnList)
 {
-  double ih2,ih, r2,rs,rs1,fDensity,fNorm,fNorm1,vFac;
+  double ih2,ih, r2,rs,rs1,fDensity,fNorm,fNorm1,vFac, divvnorm;
 	double dvxdx, dvxdy, dvxdz, dvydx, dvydy, dvydz, dvzdx, dvzdy, dvzdz;
 	double dvx,dvy,dvz,dx,dy,dz,trace;
 	GravityParticle *q;
 	int i;
 #ifdef CULLENALPHA
-        double h, dvdotdr, divvnorm,  cullenR, curTimeStep;
+        double dvdotdr,  R_CD, R_CDN, curTimeStep;
         double vSignal,  maxVSignal,  divVq, signDivVq;
-        cullenR = 0.0; maxVSignal = 0.0; divvnorm = 0.0; 
+        R_CD = 0.0; R_CDN = 0; maxVSignal = 0.0; divvnorm = 0.0; 
         curTimeStep = RungToDt(dDelta, p->rung); 
 
         if (dDelta == 0) {
@@ -1052,8 +1059,6 @@ void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
           p->dvds_old() = p->dvds();
         }
 #endif
-
-        h = 0.5* p->fBall;
 	ih2 = invH2(p);
         ih = sqrt(ih2);
 	vFac = 1./(a*a); /* converts v to xdot */
@@ -1103,7 +1108,9 @@ void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
                 grz += (-p->uPred() + q->uPred())*dz*rs1;
 
 #ifdef CULLENALPHA
-                cullenR += (q->dvds_old() < 0 ? -1 : 1)*(1-r2*r2*0.0625)* q->mass;
+                double R_wt = (1-r2*r2*0.0625)* q->mass;
+                R_CD += q->dvds_old() * R_wt;
+                R_CDN += R_wt;
                 vSignal = (p->c() + q->c())/2.;
                 if (vSignal > maxVSignal) maxVSignal = vSignal;
 #endif
@@ -1135,22 +1142,27 @@ void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	p->curlv().z = fNorm1*(dvydx - dvxdy);
       
 #ifdef CULLENALPHA
-        double OneMinusR, tau, divVDot, traceSS, xi, A, alphaLoc,  oldCullenAlpha, deltaT, gnorm, dvdr;
-        double l = 0.1; A = 0;
+        double alphaLoc, tau;
+        double l = 0.1;
         double Hcorr = (fNorm1 != 0 ? H/fNorm1 : 0);
-        gnorm = (grx*grx+gry*gry+grz*grz);
+        double gnorm = (grx*grx+gry*gry+grz*grz);
         if (gnorm > 0) gnorm=1/sqrt(gnorm);
         grx *= gnorm;
         gry *= gnorm;
         grz *= gnorm;
-        dvdr = (((dvxdx+Hcorr)*grx+dvxdy*gry+dvxdz*grz)*grx
-                +  (dvydx*grx+(dvydy+Hcorr)*gry+dvydz*grz)*gry
-                +  (dvzdx*grx+dvzdy*gry+(dvzdz+Hcorr)*grz)*grz)*fNorm1;
+        double dvdr = (((dvxdx+Hcorr)*grx+dvxdy*gry+dvxdz*grz)*grx
+                       +  (dvydx*grx+(dvydy+Hcorr)*gry+dvydz*grz)*gry
+                       +  (dvzdx*grx+dvzdy*gry+(dvzdz+Hcorr)*grz)*grz)*fNorm1;
 
-        p->dvds() =  (p->divv() < 0 ? 1.5*(dvdr -(1./3.)*p->divv()) : dvdr );
+        double dvds = (p->divv() < 0 ? 1.5*(dvdr -(1./3.)*p->divv()) : dvdr );
+        double sxxf = dvxdx+Hcorr, syyf = dvydy+Hcorr, szzf = dvzdz+Hcorr;
+        double SFull = sqrt(fNorm1*fNorm1*(sxxf*sxxf+syyf*syyf+szzf*szzf
+                                           + 2*(sxy*sxy + sxz*sxz + syz*syz)));
 
-        deltaT = dTime - p->TimeDivV();
-        divVDot = (p->dvds() - p->dvds_old())/deltaT;
+        p->dvds() = (SFull > 0 ? dvds/SFull : 0);
+
+        double deltaT = dTime - p->TimeDivV();
+        double divVDot = (p->dvds() - p->dvds_old())/deltaT;
         if (p->rung >= activeRung){
           p->TimeDivV() = dTime;
         }
@@ -1161,33 +1173,32 @@ void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
           // If the divergence of the velocity of the particle is negative and the speed of sound is nonzero
           // we set p->CullenAlpha() using the M&M prescription. Otherwise p->CullenAlpha() is zero                          
          if ((p->divv() < 0) && (p->c() > 0)){
-            tau = h / (2.0*l*p->c());
+            tau = p->fBall / (2.0*l*p->c());
             p->CullenAlpha() = -dAlphaMax*p->divv()*tau / (1.0 - p->divv()*tau);
           }
           else p->CullenAlpha() = 0.0;
         }
         // If the current time step > 0                                                                                      
         else  if (p->rung >= activeRung) {
-          // The time derivative of the divergence of the velocity                                                
-          cullenR /= p->fDensity;
-          OneMinusR = 1. - cullenR;
-          xi = (OneMinusR < -1 ? 0 :
-                (OneMinusR > 2 ? 1 : 0.0625*OneMinusR*OneMinusR*OneMinusR*OneMinusR));
-          //          traceSS = fNorm1*fNorm1*(2.0*(sxy*sxy + sxz*sxz + syz*syz) + sxx*sxx + syy*syy + szz*szz);
-          // The shock limiter; compares the flow convergence to a measure of the shear/vorticity                            
-          // xi =(2.0*pow((1.0-cullenR),4)*p->divv())*(2.0*pow((1.0-cullenR),4)*p->divv()) /
-          // (traceSS + (2.0*pow((1.0-cullenR),4)*p->divv())*(2.0*pow((1.0-cullenR),4)*p->divv()));
-          // If the time derivative of the velocity divergence is negative, the shock indicator, A is defined below.                   // Otherwise, it remains zero and therefore alphaLoc is zero.                                                      
-          if (divVDot < 0) A = fabs(divVDot) * xi * h * h;
-          // The local alpha value                                                                                           
-          alphaLoc = dAlphaMax*A / (maxVSignal*maxVSignal + A);
-          // Decay parameter                                                                                                 
+          if (divVDot < 0){
+            double OneMinusR_CD = (R_CDN > 0 ? 1-(R_CD/R_CDN) : 0);
+
+            double xi = (OneMinusR_CD < -1 ? 0 :
+                         (OneMinusR_CD > 2 ? 1 : 0.0625*OneMinusR_CD*OneMinusR_CD*OneMinusR_CD*OneMinusR_CD));
+            double Aterm = xi * p->fBall * p->fBall * fabs(divVDot);
+
+            // The local alpha value                                                                                           
+            alphaLoc = dAlphaMax* Aterm / (maxVSignal*maxVSignal + Aterm);
+
+          }
+          else alphaLoc = 0;
+          // Decay parameter                                                                                                   
           tau = 1. / (l*maxVSignal*ih);
-          // If alphaLoc is larger then the current p->CullenAlpha(), we set p->CullenAlhpa() to be equal to alphaLoc.       
-          // Otherwise, we decay p->CullenAlpha() to the alphaLoc value                                                      
+          // If alphaLoc is larger then the current p->CullenAlpha(), we set p->CullenAlhpa() to be equal to alphaLoc.         
+          // Otherwise, we decay p->CullenAlpha() to the alphaLoc value                       
           if (alphaLoc > p->CullenAlpha()) p->CullenAlpha() = alphaLoc;
           else{
-            oldCullenAlpha = p->CullenAlpha();
+            double oldCullenAlpha = p->CullenAlpha();
             p->CullenAlpha() = alphaLoc - (alphaLoc - oldCullenAlpha)*exp(-deltaT/tau);
           }
         }

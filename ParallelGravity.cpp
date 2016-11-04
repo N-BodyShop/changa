@@ -506,10 +506,12 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dConstBeta",paramDouble,&param.dConstBeta,
 		    sizeof(double),"beta",
 		    "<Beta constant in viscosity> = 2.0");
-	param.dConstAlphaMax = 2.0;
+#ifdef CULLENALPHA
+	param.dConstAlphaMax = 4.0;
 	prmAddParam(prm, "dConstAlphaMax", paramDouble, &param.dConstAlphaMax,
 		    sizeof(double), "AlphaMax", 
 		    "< Cullen and Dehnen Alpha Max constant in viscosity> = 1.0");
+#endif
 	param.dConstGamma = 5.0/3.0;
 	prmAddParam(prm,"dConstGamma",paramDouble,&param.dConstGamma,
 		    sizeof(double),"gamma", "<Ratio of specific heats> = 5/3");
@@ -3133,7 +3135,9 @@ void Main::writeOutput(int iStep)
     MFormOutputParams pMFormOut(achFile, param.iBinaryOut, dOutTime);
     coolontimeOutputParams pcoolontimeOut(achFile, param.iBinaryOut, dOutTime);
     ESNRateOutputParams pESNRateOut(achFile, param.iBinaryOut, dOutTime);
+#ifdef CULLENALPHA
     AlphaOutputParams pAlphaOut(achFile, param.iBinaryOut, dOutTime);
+#endif
 #ifndef COOLING_NONE
     Cool0OutputParams pCool0Out(achFile, param.iBinaryOut, dOutTime);
     Cool1OutputParams pCool1Out(achFile, param.iBinaryOut, dOutTime);
@@ -3149,7 +3153,9 @@ void Main::writeOutput(int iStep)
     CsOutputParams pCSOut(achFile, param.iBinaryOut, dOutTime);
 
     if (param.iBinaryOut) {
+#ifdef CULLENALPHA
 	outputBinary(pAlphaOut, param.bParaWrite, CkCallbackResumeThread());
+#endif
         if (param.bStarForm || param.bFeedback) {
 	    outputBinary(pOxOut, param.bParaWrite, CkCallbackResumeThread());
 	    outputBinary(pFeOut, param.bParaWrite, CkCallbackResumeThread());
@@ -3193,8 +3199,10 @@ void Main::writeOutput(int iStep)
                 }
             }
 	} else {
+#ifdef CULLENALPHA
         treeProxy[0].outputASCII(pAlphaOut, param.bParaWrite,
                                CkCallbackResumeThread());
+#endif
 	if (param.bStarForm || param.bFeedback) {
 	    treeProxy[0].outputASCII(pOxOut, param.bParaWrite,
 				     CkCallbackResumeThread());
