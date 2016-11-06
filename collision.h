@@ -8,6 +8,7 @@ class ColliderInfo {
 public:
     Vector3D<double> position;
     Vector3D<double> velocity;
+    Vector3D<double> acceleration;
     Vector3D<double> w;
     double mass;
     double dtCol;
@@ -25,6 +26,7 @@ public:
     void pup(PUP::er &p) {
         p | position;
         p | velocity;
+        p | acceleration;
         p | w;
         p | mass;
         p | dtCol;
@@ -35,7 +37,7 @@ public:
         }
     };
 
-#include "parameters.h"
+//#include "parameters.h"
 
 /// @brief Collision parameters and routines
 class Collision : public PUP::able {
@@ -48,9 +50,14 @@ public:
 
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
-    void doCollision(GravityParticle* p, ColliderInfo &c);
+    void doCollision(GravityParticle* p, ColliderInfo &c, int bMerge);
     void checkMerger(ColliderInfo &c1, ColliderInfo &c2);
     void doWallCollision(GravityParticle *p);
+    void mergeCalc(double r, double m, Vector3D<double> pos,
+                   Vector3D<double> vel, Vector3D<double> w,
+                   Vector3D<double> acc, Vector3D<double> *posNew,
+                   Vector3D<double> *velNew, Vector3D<double> *wNew,
+                   Vector3D<double> *aNew, double *radNew, ColliderInfo &c);
     void bounceCalc(double r, double m, Vector3D<double> pos,
                     Vector3D<double> vel, Vector3D<double> w,
                     Vector3D<double> *velNew, Vector3D<double> *wNew,

@@ -1823,7 +1823,7 @@ public:
 	void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
     void getCollInfo(const CkCallback& cb);
     void resolveCollision(Collision &coll, ColliderInfo &c1, ColliderInfo &c2,
-               const CkCallback& cb);
+                          int bMerger, const CkCallback& cb);
     void resolveWallCollision(Collision &coll, ColliderInfo &c1, const CkCallback& cb);
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
