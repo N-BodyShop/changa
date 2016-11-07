@@ -221,7 +221,7 @@ AC_SUBST([FLAG_DIFFHARMONIC])
 
 # Calculate artificial viscosity from Cullen & Dehnen 2010
 AC_ARG_ENABLE([cullenalpha],
-        [AS_HELP_STRING([--enable-cullenalpha], [enable cullenalpha])],
+        [AS_HELP_STRING([--enable-cullenalpha], [enable Cullen Dehnen artificial viscosity])],
         [cullenalpha=$enableval], [cullenalpha=yes])
 if test "$cullenalpha" = "yes" ; then
     echo "CULLENALPHA selected"
