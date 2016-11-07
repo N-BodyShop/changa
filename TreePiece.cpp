@@ -5636,6 +5636,8 @@ void TreePiece::pup(PUP::er& p) {
   p | numOpenCriterionCalls;
   p | piecemass;
 #endif
+  p | packed;
+
   if (p.isUnpacking()) {
     particleInterRemote = NULL;
     nodeInterRemote = NULL;
