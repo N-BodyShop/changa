@@ -718,6 +718,28 @@ static void load_NC_dark(std::string filename, int64_t startParticle,
     
     load_NC_base(filename, startParticle, myNumDark, myParts);
 
+#ifdef COLLISION
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading spins\n");
+
+    FieldHeader fh;
+    void *data = readFieldData(filename + "/spin", fh, 3, myNumDark,
+                               startParticle);
+    for(int i = 0; i < myNumDark; ++i) {
+	    switch(fh.code) {
+	    case float32:
+                myParts[i].w = static_cast<Vector3D<float> *>(data)[i];
+	        break;
+	    case float64:
+                myParts[i].w = static_cast<Vector3D<double> *>(data)[i];
+	        break;
+	    default:
+	        throw XDRException("I don't recognize the type of this field!");
+	        }
+        }
+    deleteField(fh, data);
+#endif
+
     for(int i = 0; i < myNumDark; ++i) {
         myParts[i].fDensity = 0.0;
         myParts[i].iType = TYPE_DARK;
