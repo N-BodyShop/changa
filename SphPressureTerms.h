@@ -158,9 +158,9 @@
 #define DIFFUSIONMetalsIron() 
 #endif
 
-#ifdef VARALPHA
-#define ALPHA (smf->alpha*0.5*(p->alpha+q->alpha))
-#define BETA  (smf->beta*0.5*(p->alpha+q->alpha))
+#if defined(VARALPHA) || defined(CULLENALPHA)
+#define ALPHA (alpha*0.5*(p->CullenAlpha() + q->CullenAlpha()))
+#define BETA  (beta*0.5*(p->CullenAlpha()+q->CullenAlpha()))
 #else
 #define ALPHA (alpha)
 #define BETA  (beta)
@@ -169,37 +169,25 @@
                             if (dt_ < q->dtNew()) q->dtNew()=dt_; \
                             if (4*q->dt < p->dtNew()) p->dtNew() = 4*q->dt; \
                             if (4*p->dt < q->dtNew()) q->dtNew() = 4*p->dt; }
-// Question: what is VSIGVISC?          
-#ifdef VSIGVISC
-#define ARTIFICIALVISCOSITY(visc_,dt_) { absmu = -dvdotdr*smf->a           \
-            /sqrt(nnList[i].fDist2); /* mu multiply by a to be consistent with physical c */ \
-        if (absmu>p->mumax) p->mumax=absmu; /* mu terms for gas time step */ \
-		if (absmu>q->mumax) q->mumax=absmu; \
-		visc_ = (ALPHA*(pc + q->c) + BETA*1.5*absmu); \
-		dt_ = dtFacCourant*ph/(0.625*(pc + q->c())+0.375*visc_); \
-		visc_ = SWITCHCOMBINE(p,q)*visc_ \
-		    *absmu/(pDensity + q->fDensity); }
-#endif
-#ifdef CULLENALPHA
 
-/* Cullen&Dehnen Artifical Viscosity */
-#define ARTIFICIALVISCOSITY(visc_,dt_) { double hav=0.5*(ph+0.5*q->fBall);  /* h mean */ \
-		absmu = -hav*dvdotdr*a /(fDist2+0.01*hav*hav); /* mu multiply by a to be consistent with physical c*/ \
-		if (absmu>p->mumax()) p->mumax()=absmu; /* mu terms for gas time step  */  \
-		if (absmu>q->mumax()) q->mumax()=absmu;               
 #ifdef VSIGVISC
-                visc_ = (ALPHA*(pc + q->c) + BETA*1.5*absmu);
-                visc_ = SWITCHCOMBINE(p,q)*visc_ * absmu/(pDensity + q->fDensity);
-#elif defined CULLENALPHA
-		visc_ = (-(pc + q->c()) + (BETA/ALPHA)*2*absmu);
-                visc_ = visc_  *absmu/(pDensity + q->fDensity);
-#else
-                visc_ = (ALPHA*(pc + q->c()) + BETA*2.*absmu);
-                visc_ = SWITCHCOMBINE(p,q)*visc_ * absmu/(pDensity + q->fDensity);
-#endif
+#define ARTIFICIALVISCOSITY(visc_,dt_) { absmu = -dvdotdr*a \
+                    /sqrt(fDist2); /* mu multiply by a to be consistent with physical c*/ \
+		if (absmu>p->mumax()) p->mumax()=absmu; /* mu terms for gas time step  */  \
+		if (absmu>q->mumax()) q->mumax()=absmu; \
+                visc_ = (ALPHA*(pc + q->c) + BETA*1.5*absmu); \
 		dt_ = dtFacCourant*hav/(0.625*(pc + q->c())+0.375*visc_); \
-		visc_ = visc_  *absmu/(pDensity + q->fDensity); 
-}
+                visc_ = SWITCHCOMBINE(p,q)*visc_ * absmu/(pDensity + q->fDensity);}
+#else
+#define ARTIFICIALVISCOSITY(visc_,dt_) { double hav=0.5*(ph+0.5*q->fBall);  /* h mean */ \
+                absmu = -hav*dvdotdr*a                                                  \
+    		    /(fDist2+0.01*hav*hav); /* mu multiply by a to be consistent with physical c */ \
+		if (absmu>p->mumax()) p->mumax()=absmu; /* mu terms for gas time step  */  \
+		if (absmu>q->mumax()) q->mumax()=absmu; \
+                visc_ = (ALPHA*(pc + q->c()) + BETA*2.*absmu); \
+		dt_ = dtFacCourant*hav/(0.625*(pc + q->c())+0.375*visc_); \
+                visc_ = SWITCHCOMBINE(p,q)*visc_ * absmu/(pDensity + q->fDensity); }
+#endif
 
 
 

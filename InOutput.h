@@ -358,14 +358,15 @@ class PresOutputParams : public OutputParams
 	}
     };
 
-#ifdef CULLENALPHA
 class AlphaOutputParams : public OutputParams
 {
   virtual double dValue(GravityParticle *p)
   {
+#ifdef CULLENALPHA
     if (TYPETest(p, TYPE_GAS))
       return p->CullenAlpha();
     else
+#endif /* CULLENALPHA */
       return 0.0;
   }
   virtual Vector3D<double> vValue(GravityParticle *p)
@@ -388,7 +389,6 @@ class AlphaOutputParams : public OutputParams
     OutputParams::pup(p);//Call base class                                                                                                                                                     
   }
 };
-#endif /* CULLENALPHA */
 
 
 /// @brief Output divergence of velocity.

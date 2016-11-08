@@ -864,7 +864,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 {
   double ih2,ih, r2,rs,rs1,fDensity,fDist2, fNorm,fNorm1,vFac;
 	double dvxdx, dvxdy, dvxdz, dvydx, dvydy, dvydz, dvzdx, dvzdy, dvzdz;
-	double dvx,dvy,dvz,dx,dy,dz,trace;
+	double dvx,dvy,dvz,dx,dy,dz,trace,grx,gry,grz;
 #ifdef CULLENALPHA
 	double dvdotdr,  R_CD, R_CDN, curTimeStep;
 	double vSignal,  maxVSignal, divVq, signDivVq;
@@ -888,6 +888,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	dvxdx = 0; dvxdy = 0; dvxdz= 0;
 	dvydx = 0; dvydy = 0; dvydz= 0;
 	dvzdx = 0; dvzdy = 0; dvzdz= 0;
+	grx = 0; gry = 0; grz= 0;
 
     	qiActive = 0;
 	for (i=0;i<nSmooth;++i) {
@@ -920,7 +921,6 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		dvzdy += dvz*dy*rs1;
 		dvzdz += dvz*dz*rs1;
                 divvnorm += (dx*dx+dy*dy+dz*dz)*rs1;
-
                 /* Grad P estimate */
                 grx += (-p->uPred() + q->uPred())*dx*rs1;
                 gry += (-p->uPred() + q->uPred())*dy*rs1;
@@ -1045,7 +1045,7 @@ void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
 {
   double ih2,ih, r2,rs,rs1,fDensity,fNorm,fNorm1,vFac, divvnorm;
 	double dvxdx, dvxdy, dvxdz, dvydx, dvydy, dvydz, dvzdx, dvzdy, dvzdz;
-	double dvx,dvy,dvz,dx,dy,dz,trace;
+	double dvx,dvy,dvz,dx,dy,dz,trace,grx,gry,grz;
 	GravityParticle *q;
 	int i;
 #ifdef CULLENALPHA
@@ -1068,6 +1068,7 @@ void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	dvxdx = 0; dvxdy = 0; dvxdz= 0;
 	dvydx = 0; dvydy = 0; dvydz= 0;
 	dvzdx = 0; dvzdy = 0; dvzdz= 0;
+	grx = 0; gry = 0; grz= 0;
 
 	for (i=0;i<nSmooth;++i) {
 		double fDist2 = nnList[i].fKey;
@@ -1092,21 +1093,10 @@ void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		dvzdx += dvz*dx*rs1;
 		dvzdy += dvz*dy*rs1;
 		dvzdz += dvz*dz*rs1;
-                divvnorm += (dx*dx+dy*dy+dz*dz)*rs1;
-
-#ifdef CULLENALPHA
-                // if the particles are moving towards eachother (dvdotdr < 0) the signal velocity, vSignal                          // is given by the average sound speed minus dvdotdr, otherwise it is set by the average sound speed 
-                dvdotdr = vFac*(dvx*dx + dvy*dy + dvz*dz) + fDist2*H;
-                if (dvdotdr < 0) vSignal = (p->c() + q->c())/2.0 - dvdotdr/ sqrt(fDist2);
-                else vSignal = (p->c() + q->c())/2.0;
-                if (vSignal > maxVSignal) maxVSignal = vSignal;
-                /* keep Norm positive consistent w/ std 1/rho norm */
-                fNorm1 = (divvnorm != 0 ? 3.0/fabs(divvnorm) : 0.0);
                 /* Grad P estimate */
                 grx += (-p->uPred() + q->uPred())*dx*rs1;
                 gry += (-p->uPred() + q->uPred())*dy*rs1;
                 grz += (-p->uPred() + q->uPred())*dz*rs1;
-
 #ifdef CULLENALPHA
                 double R_wt = (1-r2*r2*0.0625)* q->mass;
                 R_CD += q->dvds_old() * R_wt;
