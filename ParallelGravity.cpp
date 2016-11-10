@@ -1986,6 +1986,7 @@ void Main::advanceBigStep(int iStep) {
               treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
               doCollisions(dTime, dTimeSub);
               treeProxy.finishNodeCache(CkCallbackResumeThread());
+              addDelParticles();
               }
 
           startTime = CkWallTimer();
