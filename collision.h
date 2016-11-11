@@ -15,6 +15,7 @@ public:
     double radius;
     int iOrder;
     int iOrderCol;
+    int rung;
     /* If true, this collider is flagged for deletion and will merge with
        its more massive partner */
     int bMergerDelete;
@@ -33,6 +34,7 @@ public:
         p | radius;
         p | iOrder;
         p | iOrderCol;
+        p | rung;
         p | bMergerDelete;
         }
     };
@@ -52,6 +54,9 @@ public:
     void CheckParams(PRM prm, struct parameters &param);
     void doCollision(GravityParticle* p, ColliderInfo &c, int bMerge);
     void checkMerger(ColliderInfo &c1, ColliderInfo &c2);
+    double LastKickTime(int rung, double baseTime, double timeNow);
+    void setMergerRung(GravityParticle *p, ColliderInfo &c, ColliderInfo &cMerge,
+                              double baseStep, double timeNow);
     void doWallCollision(GravityParticle *p);
     void mergeCalc(double r, double m, Vector3D<double> pos,
                    Vector3D<double> vel, Vector3D<double> w,
@@ -63,8 +68,8 @@ public:
                     Vector3D<double> *velNew, Vector3D<double> *wNew,
                     ColliderInfo &c);
     Collision() {
-        dEpsN = 0.8;
-        dEpsT = 1.0;
+        dEpsN = 0.3;//dEpsN = 0.8;
+        dEpsT = 0.3;//dEpsT = 1.0;
         }
    
     PUPable_decl(Collision);

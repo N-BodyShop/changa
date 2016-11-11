@@ -63,20 +63,33 @@ void Main::doCollisions(double dTime, double dDelta)
 {
     int bHasCollision;
     int nColl = 0;
+    double startTime1, endTime1;
+    double tSmooth = 0.0;
+    double tRetrieve = 0.0;
+    double tResolve = 0.0;
     
+    startTime1 = CkWallTimer();
     do {
         bHasCollision = 0;
 
         CollisionSmoothParams pCS(TYPE_DARK, 0, dTime, dDelta, 
            param.collision->bWall, param.collision->dWallPos, param.collision);
         double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+
+        double startTime = CkWallTimer();
         treeProxy.startSmooth(&pCS, 0, param.collision->nSmoothCollision,
                   dfBall2OverSoft2, CkCallbackResumeThread());
+        double endTime = CkWallTimer();
+        tSmooth += endTime-startTime;
 
+        startTime = CkWallTimer();
         CkReductionMsg *msgChk;
         treeProxy.getCollInfo(CkCallbackResumeThread((void*&)msgChk));
         ColliderInfo *c = (ColliderInfo *)msgChk->getData();
+        endTime = CkWallTimer();
+        tRetrieve += endTime-startTime;
         if (c[0].dtCol <= dDelta) {
+            startTime = CkWallTimer();
             bHasCollision = 1;
             // Collision with wall
             if (c[0].iOrderCol == -2 && param.collision->bWall) {
@@ -97,18 +110,25 @@ void Main::doCollisions(double dTime, double dDelta)
                     }
                 if (c[0].bMergerDelete || c[1].bMergerDelete) {
                     treeProxy.resolveCollision(*(param.collision), c[0], c[1], 1,
-                                               CkCallbackResumeThread());
+                                               dDelta, dTime, CkCallbackResumeThread());
                     }
                 else {
                     treeProxy.resolveCollision(*(param.collision), c[0], c[1], 0,
-                                               CkCallbackResumeThread());
+                                               dDelta, dTime, CkCallbackResumeThread());
                     }
                 }
+                endTime = CkWallTimer();
+                tResolve += endTime-startTime;
             }
 
         delete msgChk;
         } while (bHasCollision);
+        endTime1 = CkWallTimer();
         CkPrintf("Resolved %d collisions\n", nColl);
+        CkPrintf("Collider search took %g seconds\n", tSmooth);
+        CkPrintf("Collider retrieval took %g seconds\n", tRetrieve);
+        CkPrintf("Collision resolution took %g seconds\n", tResolve);
+        CkPrintf("doCollision took %g seconds\n", endTime1-startTime1);
 
     }
 
@@ -138,6 +158,7 @@ void TreePiece::getCollInfo(const CkCallback& cb)
             ci[0].dtCol = p->dtCol;
             ci[0].iOrder = p->iOrder;
             ci[0].iOrderCol = p->iOrderCol;
+            ci[0].rung = p->rung;
             }
         }
 
@@ -157,6 +178,7 @@ void TreePiece::getCollInfo(const CkCallback& cb)
                 ci[1].dtCol = p->dtCol;
                 ci[1].iOrder = p->iOrder;
                 ci[1].iOrderCol = p->iOrderCol;
+                ci[1].rung = p->rung;
                 }
             else bFoundC1 = 1;
             }
@@ -194,9 +216,12 @@ void TreePiece::resolveWallCollision(Collision &coll, ColliderInfo &c1,
  * @param c1 Information about the first particle that is undergoing a collision
  * @param c2 Information about the first particle that is undergoing a collision
  * @param bMerge Whether the collision should result in a merger
+ * @param baseStep The size of the current step on this rung
+ * @param timeNow The current simulation time
  */
 void TreePiece::resolveCollision(Collision &coll, ColliderInfo &c1,
-                                 ColliderInfo &c2, int bMerge, const CkCallback& cb) {
+                                 ColliderInfo &c2, int bMerge, double baseStep,
+                                 double timeNow, const CkCallback& cb) {
         GravityParticle *p;
         // Look for the first collider particle on this tree piece
         int bFoundP1 = 0;
@@ -213,8 +238,10 @@ void TreePiece::resolveCollision(Collision &coll, ColliderInfo &c1,
                if (p->mass >= c2.mass) {
                    CkPrintf("Merging particle %d into %d\n", c2.iOrder, p->iOrder);
                    coll.doCollision(p, c2, 1);
+                   coll.setMergerRung(p, c2, c1, baseStep, timeNow);
                    }
                else {
+                   CkPrintf("Delete particle %d\n", p->iOrder);
                    deleteParticle(p);
                    }
                }
@@ -238,8 +265,10 @@ void TreePiece::resolveCollision(Collision &coll, ColliderInfo &c1,
                if (p->mass > c1.mass) {
                    CkPrintf("Merging particle %d into %d\n", c1.iOrder, p->iOrder);
                    coll.doCollision(p, c1, 1);
+                   coll.setMergerRung(p, c1, c2, baseStep, timeNow);
                    }
                else {
+                   CkPrintf("Delete particle %d\n", p->iOrder);
                    deleteParticle(p);
                    }
                }
@@ -289,6 +318,42 @@ void Collision::checkMerger(ColliderInfo &c1, ColliderInfo &c2)
     // Mark the less massive particle to be consumed and deleted
     if (c1.mass < c2.mass) c1.bMergerDelete = 1;
     else c2.bMergerDelete = 1;
+    }
+
+/**
+ * @brief Determine the time since a particle on a given rung received a kick
+ *
+ * @param rung The current rung being considered
+ * @param baseTime The size of the current time step
+ * @param timeNow The current simulation time
+ */
+double Collision::LastKickTime(int rung, double baseTime, double timeNow)
+{
+    double rungTime = baseTime/(1<<rung);
+    int nRungSteps = (int)(timeNow/rungTime);
+    return timeNow - (rungTime*nRungSteps);
+    }
+
+/**
+ * @brief Need to write a description
+ */
+void Collision::setMergerRung(GravityParticle *p, ColliderInfo &c, ColliderInfo &cMerge,
+                              double baseStep, double timeNow)
+{
+    double m1 = c.mass;
+    double m2 = cMerge.mass;
+    double m = m1 + m2;
+    if (c.rung != cMerge.rung) {
+        double lastkick1 = LastKickTime(c.rung, baseStep, timeNow);
+        double lastkick2 = LastKickTime(cMerge.rung, baseStep, timeNow);
+        p->rung = c.rung;
+        if (lastkick1 > lastkick2) {
+            p->velocity += (m1/m)*c.acceleration*(lastkick1-lastkick2);
+            }
+        else {
+            p->velocity += (m1/m)*cMerge.acceleration*(lastkick2-lastkick1);
+            }
+        }
     }
 
 /**
