@@ -364,6 +364,7 @@ void Collision::setMergerRung(GravityParticle *p, ColliderInfo &c, ColliderInfo 
  */
 void Collision::doWallCollision(GravityParticle *p) {
     // TODO: spin
+    // TODO: wall overlap
     p->velocity[2] *= -dEpsN;
 
     Vector3D<double> vPerp = (0., 0., p->velocity[2]);
@@ -385,6 +386,15 @@ void Collision::doWallCollision(GravityParticle *p) {
  */
 void Collision::doCollision(GravityParticle *p, ColliderInfo &c, int bMerge)
 {
+    // If dtCol is negative, this particle is overlapping another one. Move
+    // the particles apart along their axis of separation
+    if (c.dtCol < 0) {
+        Vector3D<double> dx = p->position - c.position;
+        double overlap = dx.length()-(p->soft/2.)-c.radius;
+        p->position -=  c.mass/(p->mass+c.mass)*overlap*dx.normalize();
+        return;
+        }
+
     // Advance particle positions to moment of collision
     Vector3D<double> pAdjust = p->velocity*p->dtCol;
     Vector3D<double> cAdjust = c.velocity*c.dtCol;
@@ -393,8 +403,6 @@ void Collision::doCollision(GravityParticle *p, ColliderInfo &c, int bMerge)
 
     Vector3D<double> vNew, wNew;
     double radNew;
-    // TODO: Because mergers update the position and radius of particles, they
-    // can lead to overlap. Need to think of a way to fix this
     if (bMerge) {
         Vector3D<double> posNew, aNew;
         mergeCalc(p->soft/2., p->mass, p->position, p->velocity, p->treeAcceleration,
@@ -514,6 +522,7 @@ void Collision::bounceCalc(double r, double m, Vector3D<double> pos,
     double beta = 1./(1.+(alpha*mu));
 
     *velNew = vel + m2/M*((1.+dEpsN)*uN + beta*(1-dEpsT)*uT);
+     Vector3D<double> velAdd = vel + m2/M*((1.+dEpsN)*uN + beta*(1-dEpsT)*uT);
     
     double I1 = 2./5.*m1*r1*r1;
     *wNew = w + beta*mu/I1*(1.-dEpsT)*cross(R1, u);
@@ -539,7 +548,8 @@ void CollisionSmoothParams::combSmoothCache(GravityParticle *p1,
  * particles.
  *
  * This function updates the 'dtCol' field for all particles that will undergo
- * a collision in the next time step.
+ * a collision in the next time step. A negative value for dtCol indicates
+ * that particles are overlapping.
  */
 void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
                                       pqSmoothNode *nList)
@@ -566,8 +576,8 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         // Ignore deleted particles
         if (TYPETest(q, TYPE_DELETED)) continue;
 
-        Vector3D<double> vRel = p->velocity - q->velocity;
         Vector3D<double> dx = p->position - q->position;
+        Vector3D<double> vRel = p->velocity - q->velocity;
 
         sr = (p->soft/2.) + (q->soft/2.);
         rdotv = dot(dx, vRel);
@@ -580,7 +590,7 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         dt = (-rdotv - D)/vRel2;
 
         if (dt < 0.) {
-            CkAbort("Warning: collision found with dt < 0. Particles overlapping?\n");
+            CkPrintf("Warning: overlap detected\n");
             }
 
         if (dt < dDelta && dt < p->dtCol) {
