@@ -398,27 +398,26 @@ void Collision::doCollision(GravityParticle *p, ColliderInfo &c, int bMerge)
     // Advance particle positions to moment of collision
     Vector3D<double> pAdjust = p->velocity*p->dtCol;
     Vector3D<double> cAdjust = c.velocity*c.dtCol;
-    p->position += pAdjust;
+    Vector3D<double> pAdv = p->position + pAdjust;
     c.position += cAdjust;    
 
     Vector3D<double> vNew, wNew;
     double radNew;
     if (bMerge) {
         Vector3D<double> posNew, aNew;
-        mergeCalc(p->soft/2., p->mass, p->position, p->velocity, p->treeAcceleration,
+        mergeCalc(p->soft/2., p->mass, pAdv, p->velocity, p->treeAcceleration,
                   p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
         p->position = posNew;
         p->treeAcceleration = aNew;
         p->soft = radNew*2.;
         }
     else {
-        bounceCalc(p->soft/2., p->mass, p->position, p->velocity, p->w, &vNew, &wNew, c);
+        bounceCalc(p->soft/2., p->mass, pAdv, p->velocity, p->w, &vNew, &wNew, c);
         }
     p->velocity = vNew;
     p->w = wNew;
 
     // Revert particle positions back to beginning of step
-    p->position -= pAdjust;
     c.position -= cAdjust;
     }
 
