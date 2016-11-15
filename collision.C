@@ -129,6 +129,7 @@ void Main::doCollisions(double dTime, double dDelta)
         CkPrintf("Collider retrieval took %g seconds\n", tRetrieve);
         CkPrintf("Collision resolution took %g seconds\n", tResolve);
         CkPrintf("doCollision took %g seconds\n", endTime1-startTime1);
+        addDelParticles();
 
     }
 
