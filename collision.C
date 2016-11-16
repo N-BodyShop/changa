@@ -33,6 +33,10 @@ void Collision::AddParams(PRM prm)
     prmAddParam(prm, "dWallPos", paramDouble, &dWallPos,
         sizeof(double), "dWallPos", "<Z coordinate of wall> = 0");
 
+    bPerfectAcc = 0;
+    prmAddParam(prm, "bPerfectAcc", paramBool, &bPerfectAcc,
+        sizeof(int), "bPerfectAcc", "<All collisions result in a merger> = 0");
+
     }
 
 void Collision::CheckParams(PRM prm, struct parameters &param)
@@ -314,7 +318,9 @@ void Collision::checkMerger(ColliderInfo &c1, ColliderInfo &c2)
     double wMax = sqrt(Mtot/(radNew*radNew*radNew));
 
     double vRel = (c1.velocity - c2.velocity).length();
-    if (vRel > vEsc || wNew.length() > wMax) return;
+    if (vRel > vEsc || wNew.length() > wMax) {
+        if (!bPerfectAcc) return;
+        }
 
     // Mark the less massive particle to be consumed and deleted
     if (c1.mass < c2.mass) c1.bMergerDelete = 1;

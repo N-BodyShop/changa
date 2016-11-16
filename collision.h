@@ -47,6 +47,7 @@ public:
     int nSmoothCollision; /* number of particles to search for collisions over */
     int bWall;            /* particles will bounce off a wall in the z plane */
     int bAllowMergers;    /* allow particles to merge if they collide at a slow speed */
+    int bPerfectAcc;      /* all collisions result in a merger */
     double dWallPos;      /* location of wall along z axis */
     double dEpsN, dEpsT;  /* normal and transverse coefficients of restitution */
 
