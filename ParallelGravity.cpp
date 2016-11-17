@@ -2373,6 +2373,9 @@ void Main::setupICs() {
   ofsLog << " CMK_CHARMDEBUG";
 #endif
   ofsLog << endl << "# Preprocessor macros:";
+#ifdef COLLISION
+  ofsLog << " COLLISION";
+#endif
 #ifdef CMK_USE_SSE2
   ofsLog << " CMK_USE_SSE2";
 #endif
