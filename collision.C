@@ -417,6 +417,7 @@ void Collision::doCollision(GravityParticle *p, ColliderInfo &c, int bMerge)
         p->position = posNew;
         p->treeAcceleration = aNew;
         p->soft = radNew*2.;
+        p->mass += c.mass;
         }
     else {
         bounceCalc(p->soft/2., p->mass, pAdv, p->velocity, p->w, &vNew, &wNew, c);
