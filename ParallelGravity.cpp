@@ -720,27 +720,27 @@ Main::Main(CkArgMsg* m) {
 
           localNodesPerReqDouble = NODE_INTERACTIONS_PER_REQUEST_L;
 	  prmAddParam(prm, "localNodesPerReq", paramDouble, &localNodesPerReqDouble,
-                sizeof(double),"localnodes", "Num. local node interactions allowed per CUDA request");
+                sizeof(double),"localnodes", "Num. local node interactions allowed per CUDA request (in millions)");
 
           remoteNodesPerReqDouble = NODE_INTERACTIONS_PER_REQUEST_RNR;
 	  prmAddParam(prm, "remoteNodesPerReq", paramDouble, &remoteNodesPerReqDouble,
-                sizeof(double),"remotenodes", "Num. remote node interactions allowed per CUDA request");
+                sizeof(double),"remotenodes", "Num. remote node interactions allowed per CUDA request (in millions)");
 
           remoteResumeNodesPerReqDouble = NODE_INTERACTIONS_PER_REQUEST_RR;
 	  prmAddParam(prm, "remoteResumeNodesPerReq", paramDouble, &remoteResumeNodesPerReqDouble,
-                sizeof(double),"remoteresumenodes", "Num. remote resume node interactions allowed per CUDA request");
+                sizeof(double),"remoteresumenodes", "Num. remote resume node interactions allowed per CUDA request (in millions)");
 
           localPartsPerReqDouble = PART_INTERACTIONS_PER_REQUEST_L;
             prmAddParam(prm, "localPartsPerReq", paramDouble, &localPartsPerReqDouble,
-                sizeof(double),"localparts", "Num. local particle interactions allowed per CUDA request");
+                sizeof(double),"localparts", "Num. local particle interactions allowed per CUDA request (in millions)");
 
           remotePartsPerReqDouble = PART_INTERACTIONS_PER_REQUEST_RNR;
             prmAddParam(prm, "remotePartsPerReq", paramDouble, &remotePartsPerReqDouble,
-                sizeof(double),"remoteparts", "Num. remote particle interactions allowed per CUDA request");
+                sizeof(double),"remoteparts", "Num. remote particle interactions allowed per CUDA request (in millions)");
 
           remoteResumePartsPerReqDouble = PART_INTERACTIONS_PER_REQUEST_RR;
           prmAddParam(prm, "remoteResumePartsPerReq", paramDouble, &remoteResumePartsPerReqDouble,
-              sizeof(double),"remoteresumeparts", "Num. remote resume particle interactions allowed per CUDA request");
+              sizeof(double),"remoteresumeparts", "Num. remote resume particle interactions allowed per CUDA request (in millions)");
 
           largePhaseThreshold = TP_LARGE_PHASE_THRESHOLD_DEFAULT;
 //          prmAddParam(prm, "largePhaseThreshold", paramDouble, &largePhaseThreshold,

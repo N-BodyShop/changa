@@ -15,13 +15,13 @@ typedef cosmoType hosttype;
 
 // set these to appropriate values (in millions)
 // local
-#define NODE_INTERACTIONS_PER_REQUEST_L 0.1
+#define NODE_INTERACTIONS_PER_REQUEST_L 1.0
 #define PART_INTERACTIONS_PER_REQUEST_L 0.1
 // remote, no-resume
-#define NODE_INTERACTIONS_PER_REQUEST_RNR 0.1
+#define NODE_INTERACTIONS_PER_REQUEST_RNR 1.0
 #define PART_INTERACTIONS_PER_REQUEST_RNR 0.1
 // remote, resume
-#define NODE_INTERACTIONS_PER_REQUEST_RR 0.1
+#define NODE_INTERACTIONS_PER_REQUEST_RR 1.0
 #define PART_INTERACTIONS_PER_REQUEST_RR 0.1
 
 #ifdef CUDA_STATS
