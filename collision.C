@@ -342,7 +342,14 @@ double Collision::LastKickTime(int rung, double baseTime, double timeNow)
     }
 
 /**
- * @brief Need to write a description
+ * @brief Correct the velocity of a particle resulting from a merger if the two
+ * particles that merged were on different rungs.
+ *
+ * @param p A reference to the particle resulting from the merger
+ * @param c Information about the less massive particle in the merger
+ * @param cMerge Information about the more massive particle
+ * @param baseStep The timestep size on the lowest rung
+ * @param timeNow The current time in the simulation
  */
 void Collision::setMergerRung(GravityParticle *p, ColliderInfo &c, ColliderInfo &cMerge,
                               double baseStep, double timeNow)
@@ -529,10 +536,10 @@ void Collision::bounceCalc(double r, double m, Vector3D<double> pos,
     double beta = 1./(1.+(alpha*mu));
 
     *velNew = vel + m2/M*((1.+dEpsN)*uN + beta*(1-dEpsT)*uT);
-     Vector3D<double> velAdd = vel + m2/M*((1.+dEpsN)*uN + beta*(1-dEpsT)*uT);
     
     double I1 = 2./5.*m1*r1*r1;
     *wNew = w + beta*mu/I1*(1.-dEpsT)*cross(R1, u);
+
     }
 
 void CollisionSmoothParams::initSmoothCache(GravityParticle *p1)

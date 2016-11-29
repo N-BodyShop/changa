@@ -69,8 +69,8 @@ public:
                     Vector3D<double> *velNew, Vector3D<double> *wNew,
                     ColliderInfo &c);
     Collision() {
-        dEpsN = 0.3;//dEpsN = 0.8;
-        dEpsT = 0.3;//dEpsT = 1.0;
+        dEpsN = 1.0;//dEpsN = 0.8;
+        dEpsT = 1.0;//dEpsT = 1.0;
         }
    
     PUPable_decl(Collision);
