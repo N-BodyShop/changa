@@ -175,8 +175,8 @@
                     /sqrt(fDist2); /* mu multiply by a to be consistent with physical c*/ \
 		if (absmu>p->mumax()) p->mumax()=absmu; /* mu terms for gas time step  */  \
 		if (absmu>q->mumax()) q->mumax()=absmu; \
-                visc_ = (ALPHA*(pc + q->c) + BETA*1.5*absmu); \
-		dt_ = dtFacCourant*hav/(0.625*(pc + q->c())+0.375*visc_); \
+                visc_ = (ALPHA*(pc + q->c()) + BETA*1.5*absmu);         \
+		dt_ = dtFacCourant*ph/(0.625*(pc + q->c())+0.375*visc_); \
                 visc_ = SWITCHCOMBINE(p,q)*visc_ * absmu/(pDensity + q->fDensity);}
 #else
 #define ARTIFICIALVISCOSITY(visc_,dt_) { double hav=0.5*(ph+0.5*q->fBall);  /* h mean */ \

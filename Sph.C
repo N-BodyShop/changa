@@ -1386,7 +1386,7 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	double dx,dy,dz,dvx,dvy,dvz,dvdotdr;
 	double pPoverRho2,pPoverRho2f,pMass;
 	double qPoverRho2,qPoverRho2f;
-	double ph,pc,pDensity,visc,hav,absmu,Accp,Accq;
+	double ph,pc,pDensity,visc,absmu,Accp,Accq;
 	double fNorm,fNorm1,aFac,vFac, divvi, divvj;
 	double fDivv_Corrector;
 	double dt;
