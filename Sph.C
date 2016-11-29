@@ -922,9 +922,12 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		dvzdz += dvz*dz*rs1;
                 divvnorm += (dx*dx+dy*dy+dz*dz)*rs1;
                 /* Grad P estimate */
-                grx += (-p->uPred() + q->uPred())*dx*rs1;
-                gry += (-p->uPred() + q->uPred())*dy*rs1;
-                grz += (-p->uPred() + q->uPred())*dz*rs1;
+		/* This used to be:
+                   grx += (-p->uPred + q->uPred)*dx*rs1; But that is
+                   rho grad u*/
+                grx += (q->uPred())*dx*rs1;
+                gry += (q->uPred())*dy*rs1;
+                grz += (q->uPred())*dz*rs1;
                 // keep Norm positive consistent w/ std 1/rho norm
                 fNorm1 = (divvnorm != 0 ? 3.0/fabs(divvnorm) : 0.0); 
 
@@ -986,12 +989,15 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         +  (dvzdx*grx+dvzdy*gry+(dvzdz+Hcorr)*grz)*grz)*fNorm1;
 
         double dvds = (p->divv() < 0 ? 1.5*(dvdr -(1./3.)*p->divv()) : dvdr );
+#ifdef CD_SFULL
         double sxxf = dvxdx+Hcorr, syyf = dvydy+Hcorr, szzf = dvzdz+Hcorr;
         double SFull = sqrt(fNorm1*fNorm1*(sxxf*sxxf+syyf*syyf+szzf*szzf 
                                            + 2*(sxy*sxy + sxz*sxz + syz*syz)));
        
         p->dvds() = (SFull > 0 ? dvds/SFull : 0);
-        
+#else
+        p->dvds() = dvds;
+#endif
 
         // time interval = current time - last time divv was calculated
         double deltaT = dTime - p->TimeDivV();
