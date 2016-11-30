@@ -510,6 +510,7 @@ class Main : public CBase_Main {
        public:
            int count;           ///< number of times on this rung
            double tGrav;        ///< Gravity time
+           double tColl;        ///< Collision detection
            double tuDot;        ///< Energy integration
            double tDD;          ///< Domain Decomposition
            double tLoadB;       ///< Load Balancing
@@ -523,7 +524,7 @@ class Main : public CBase_Main {
            ///@brief Zero out fields
            void clear() {
                count = 0;
-               tGrav = tuDot = tDD = tLoadB = tTBuild = tAdjust
+               tGrav = tColl = tuDot = tDD = tLoadB = tTBuild = tAdjust
                    = tEmergAdjust = tKick = tDrift = tCache = 0.0;
                }
            };

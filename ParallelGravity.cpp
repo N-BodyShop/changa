@@ -1984,7 +1984,10 @@ void Main::advanceBigStep(int iStep) {
                   }
 
               treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+              double startTime = CkWallTimer();
               doCollisions(dTime, dTimeSub);
+              double tColl = CkWallTimer() - startTime;
+              timings[activeRung].tColl += tColl;
               treeProxy.finishNodeCache(CkCallbackResumeThread());
               }
 
@@ -3188,7 +3191,7 @@ Main::writeTimings(int iStep)
     CkAssert(fpTime != NULL);
     
     fprintf(fpTime, "# Timings for step %d\n", iStep);
-    fprintf(fpTime, "# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache\n");
+    fprintf(fpTime, "# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache    Collsion\n");
     for(int i = 0; i < timings.size(); i++) {
         if(timings[i].count) {
             if(i == PHASE_FEEDBACK) {
@@ -3198,14 +3201,15 @@ Main::writeTimings(int iStep)
                         timings[i].tDD, timings[i].tLoadB, timings[i].tTBuild);
                 }
             else {
-                fprintf(fpTime, "    %d  %d    %f %f %f %f %f %f %f %f %f %f\n", i,
+                fprintf(fpTime, "    %d  %d    %f %f %f %f %f %f %f %f %f %f %f\n", i,
                         timings[i].count, timings[i].tGrav,
                         timings[i].tuDot, timings[i].tDD,
                         timings[i].tLoadB, timings[i].tTBuild,
                         timings[i].tAdjust, timings[i].tEmergAdjust,
                         timings[i].tKick, timings[i].tDrift,
-                        timings[i].tCache);
+                        timings[i].tCache, timings[i].tColl);
                 tTotal.tGrav += timings[i].tGrav;
+                tTotal.tColl += timings[i].tColl;
                 tTotal.tuDot += timings[i].tuDot;
                 tTotal.tDD += timings[i].tDD;
                 tTotal.tLoadB += timings[i].tLoadB;
@@ -3218,13 +3222,13 @@ Main::writeTimings(int iStep)
                 }
             }
         }
-    fprintf(fpTime, "Totals:     %f %f %f %f %f %f %f %f %f %f\n",
+    fprintf(fpTime, "Totals:     %f %f %f %f %f %f %f %f %f %f %f\n",
                         tTotal.tGrav,
                         tTotal.tuDot, tTotal.tDD,
                         tTotal.tLoadB, tTotal.tTBuild,
                         tTotal.tAdjust, tTotal.tEmergAdjust,
                         tTotal.tKick, tTotal.tDrift,
-                        tTotal.tCache);
+                        tTotal.tCache, tTotal.tColl);
     fclose(fpTime);
 }
 
