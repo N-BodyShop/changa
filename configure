@@ -4725,13 +4725,29 @@ else
     FLAG_AVX=""
 fi
 
+# COLLISION
+# Check whether --enable-collision was given.
+if test "${enable_collision+set}" = set; then
+  enableval=$enable_collision; collision=$enableval
+else
+  collision=no
+fi
+
+if test "$collision" = "yes" ; then
+    echo "COLLISION selected"
+    FLAG_COLLISION="-DCOLLISION"
+else
+    FLAG_COLLISION=""
+fi
 
 # physical softening in comoving coordinates:
 # Check whether --enable-changesoft was given.
 if test "${enable_changesoft+set}" = set; then
   enableval=$enable_changesoft; changesoft=$enableval
 else
-  changesoft=yes
+  if test collision = no; then
+    changesoft=yes
+  fi
 fi
 
 if test "$changesoft" = "yes" ; then
@@ -4771,22 +4787,6 @@ if test "$dtadjust" = "yes" ; then
     FLAG_DTADJUST="-DDTADJUST"
 else
     FLAG_DTADJUST=""
-fi
-
-
-# COLLISION
-# Check whether --enable-collision was given.
-if test "${enable_collision+set}" = set; then
-  enableval=$enable_collision; collision=$enableval
-else
-  collision=no
-fi
-
-if test "$collision" = "yes" ; then
-    echo "COLLISION selected"
-    FLAG_COLLISION="-DCOLLISION"
-else
-    FLAG_COLLISION=""
 fi
 
 
