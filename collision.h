@@ -48,6 +48,7 @@ public:
     int bWall;            /* particles will bounce off a wall in the z plane */
     int bAllowMergers;    /* allow particles to merge if they collide at a slow speed */
     int bPerfectAcc;      /* all collisions result in a merger */
+    double dBallFac;      /* scale factor for collision search radius */
     double dWallPos;      /* location of wall along z axis */
     double dEpsN, dEpsT;  /* normal and transverse coefficients of restitution */
 
@@ -81,6 +82,9 @@ public:
 inline void Collision::pup(PUP::er &p) {
     p | nSmoothCollision;
     p | bWall;
+    p | bAllowMergers;
+    p | bPerfectAcc;
+    p | dBallFac;
     p | dWallPos;
     p | dEpsN;
     p | dEpsT;

@@ -37,6 +37,10 @@ void Collision::AddParams(PRM prm)
     prmAddParam(prm, "bPerfectAcc", paramBool, &bPerfectAcc,
         sizeof(int), "bPerfectAcc", "<All collisions result in a merger> = 0");
 
+    dBallFac = 2.0;
+    prmAddParam(prm, "dBallFac", paramDouble, &dBallFac,
+        sizeof(int), "dBallFac", "<Scale factor for collision search radius> = 2.0");
+
     }
 
 void Collision::CheckParams(PRM prm, struct parameters &param)
@@ -541,9 +545,8 @@ void Collision::bounceCalc(double r, double m, Vector3D<double> pos,
 
 void CollisionSmoothParams::initSmoothParticle(GravityParticle *p)
 {
-    double fac = 2.;
     double v = p->velocity.length();
-    p->fBall = fac*dDelta*v + 2*p->soft/2.;
+    p->fBall = coll.dBallFac*dDelta*v + 2*p->soft/2.;
     }
 
 void CollisionSmoothParams::initSmoothCache(GravityParticle *p1)
