@@ -78,11 +78,8 @@ void Main::doCollisions(double dTime, double dDelta)
 
         CollisionSmoothParams pCS(TYPE_DARK, 0, dTime, dDelta, 
            param.collision->bWall, param.collision->dWallPos, param.collision);
-        double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
-
         double startTime = CkWallTimer();
-        treeProxy.startSmooth(&pCS, 0, param.collision->nSmoothCollision,
-                  dfBall2OverSoft2, CkCallbackResumeThread());
+        treeProxy.startReSmooth(&pCS, CkCallbackResumeThread());
         double endTime = CkWallTimer();
         tSmooth += endTime-startTime;
 
@@ -540,6 +537,13 @@ void Collision::bounceCalc(double r, double m, Vector3D<double> pos,
     double I1 = 2./5.*m1*r1*r1;
     *wNew = w + beta*mu/I1*(1.-dEpsT)*cross(R1, u);
 
+    }
+
+void CollisionSmoothParams::initSmoothParticle(GravityParticle *p)
+{
+    double fac = 2.;
+    double v = p->velocity.length();
+    p->fBall = fac*dDelta*v + 2*p->soft/2.;
     }
 
 void CollisionSmoothParams::initSmoothCache(GravityParticle *p1)
