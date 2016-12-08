@@ -675,7 +675,6 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         D = sqrt(D);
         dt = (-rdotv - D)/vRel2;
 
-
         if (dt > 0. && dt < dDelta && dt < p->dtCol) {
             p->dtCol = dt;
             p->iOrderCol = q->iOrder;
@@ -685,7 +684,7 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
        // binaries. If the particle is not already undergoing a collision, check
        // to see if it is bound to its neighbor. If it is, mark it for a merge
        if (bAllowMergers && p->iOrderCol == -1 && p->rung >= iMinBinaryRung) {
-           double pe = -p->mass*q->mass/dx.length();
+           double pe = -p->mass/dx.length();
            double ke = 0.5*vRel.lengthSquared();
            if ((ke + pe) < 0.) {
                /* This is quick, but not optimal. We need to be sure we don't
