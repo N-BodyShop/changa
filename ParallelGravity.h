@@ -770,6 +770,9 @@ class TreePiece : public CBase_TreePiece {
         // the list
         int numActiveBuckets; 
         int myNumActiveParticles;
+        /*Not always the same as the above*/
+        int numGpuBuckets; 
+        unsigned int numGpuParticles;
         BucketActiveInfo *bucketActiveInfo;
 
         int getNumBuckets(){
@@ -812,9 +815,12 @@ class TreePiece : public CBase_TreePiece {
         }
 
         void getDMParticles(CompactPartData *fillArray, int &fillIndex){
+          numGpuParticles = 0;
+          numGpuBuckets = 0;
           if(largePhase()){
             for(int b = 0; b < numBuckets; b++){
               GenericTreeNode *bucket = bucketList[b];
+              numGpuBuckets++;
               int buckstart = bucket->firstParticle;
               int buckend = bucket->lastParticle;
               GravityParticle *buckparts = bucket->particlePointer;
@@ -826,6 +832,7 @@ class TreePiece : public CBase_TreePiece {
                 fillArray[fillIndex].id = i;
 #endif
                 fillIndex++;
+                numGpuParticles++;
               }
             }
           }
@@ -835,6 +842,7 @@ class TreePiece : public CBase_TreePiece {
               if(bucket->rungs < activeRung){
                 continue;
               }
+              numGpuBuckets++;
               BucketActiveInfo *binfo = &(bucketActiveInfo[b]);
               
               int buckstart = bucket->firstParticle;
@@ -850,6 +858,7 @@ class TreePiece : public CBase_TreePiece {
                   fillArray[fillIndex].id = i;
 #endif
                   fillIndex++;
+                  numGpuParticles++;
                 }
               }
               binfo->size = fillIndex-binfo->start;
@@ -1214,6 +1223,7 @@ private:
 
 #ifdef SPCUDA
   EwaldData *h_idata;
+  bool ewaldqueued;
 #endif
   void EwaldGPU(); 
   void EwaldGPUComplete();
