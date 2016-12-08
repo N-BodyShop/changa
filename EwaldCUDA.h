@@ -68,19 +68,14 @@ typedef struct {
 
 /** @brief Particle data for the CUDA Ewald kernels
  */
-typedef struct {
-  cudatype position_x,position_y,position_z;
-  cudatype acceleration_x, acceleration_y, acceleration_z; 
-  cudatype potential;
-} GravityParticleData;
 
 typedef struct {
-  GravityParticleData *p;
+  int *ewaldmarkers;
   EwtData *ewt; 
-  EwaldReadOnlyData *cachedData;
+  EwaldReadOnlyData *cachedData;  
 } EwaldData; 
 
-void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop); 
+void EwaldHostMemorySetup(EwaldData *h_idata, int NumActiveParticles, int nEwhLoop); 
 void EwaldHostMemoryFree(EwaldData *h_idata); 
 #ifdef CUDA_INSTRUMENT_WRS
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase); 
@@ -88,8 +83,8 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase);
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex); 
 #endif
 
-__global__ void EwaldTopKernel(GravityParticleData *particleTable, int nPart);
-__global__ void EwaldBottomKernel(GravityParticleData *particleTable, int nPart);
+__global__ void EwaldTopKernel(CompactPartData *particleCores, VariablePartData *particleVars, int *markers, int nPart);
+__global__ void EwaldBottomKernel(CompactPartData *particleCores, VariablePartData *particleVars, int *markers, int nPart);
 
 #endif
 
