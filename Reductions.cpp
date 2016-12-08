@@ -25,6 +25,7 @@ CkReduction::reducerType boxReduction;
 CkReduction::reducerType dfImageReduction;
 
 CkReduction::reducerType soonestCollReduction;
+CkReduction::reducerType findCollReduction;
 
 /// Combine reduction messages to grow a box
 template <typename T>
@@ -165,6 +166,18 @@ CkReductionMsg* soonestCollInfo(int nMsg, CkReductionMsg** msgs) {
     return CkReductionMsg::buildNew(2 * sizeof(ColliderInfo), minColliders);
 }
 
+// Pass on the collider info object from the one process that
+// found the collider
+CkReductionMsg* singleCollInfo(int nMsg, CkReductionMsg** msgs) {
+    ColliderInfo *c;
+    for (unsigned int i=0; i < nMsg; i++) {
+        c = static_cast<ColliderInfo *>(msgs[i]->getData());
+        if (c->iOrder != -1) break;
+        }
+
+    return CkReductionMsg::buildNew(sizeof(ColliderInfo), c);
+    }
+
 void registerReductions() {
 	growOrientedBox_float = CkReduction::addReducer(boxGrowth<float>);
 	growOrientedBox_double = CkReduction::addReducer(boxGrowth<double>);
@@ -178,6 +191,7 @@ void registerReductions() {
 	boxReduction = CkReduction::addReducer(same<OrientedBox<float> >);
 	dfImageReduction = CkReduction::addReducer(dfImageReducer);
     soonestCollReduction = CkReduction::addReducer(soonestCollInfo);
+    findCollReduction = CkReduction::addReducer(singleCollInfo);
 	
 }
 

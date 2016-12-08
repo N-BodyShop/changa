@@ -1823,6 +1823,7 @@ public:
                       const CkCallback& cb);
 	void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
     void getCollInfo(const CkCallback& cb);
+    void getCollInfo(int iOrder, const CkCallback& cb);
     void resolveCollision(Collision &coll, ColliderInfo &c1, ColliderInfo &c2,
                           int bMerge, double baseStep, double timeNow,
                           const CkCallback& cb);

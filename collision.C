@@ -101,14 +101,30 @@ void Main::doCollisions(double dTime, double dDelta)
         CkReductionMsg *msgChk;
         treeProxy.getCollInfo(CkCallbackResumeThread((void*&)msgChk));
         ColliderInfo *c = (ColliderInfo *)msgChk->getData();
+
+        // If only one particle participating in the collision detected the imminent collision
+        // (due to different search radii), we need to go back and ask for the second collider
+        if (c[0].dtCol <= dDelta && c[1].dtCol > dDelta) {
+            treeProxy.getCollInfo(c[0].iOrderCol, CkCallbackResumeThread((void*&)msgChk));
+            c[1] = *(ColliderInfo *)msgChk->getData();
+            c[1].dtCol = c[0].dtCol;
+            }
+        else if (c[1].dtCol <= dDelta && c[0].dtCol > dDelta) {
+            treeProxy.getCollInfo(c[1].iOrderCol, CkCallbackResumeThread((void*&)msgChk));
+            c[0] = *(ColliderInfo *)msgChk->getData();
+            c[0].dtCol = c[1].dtCol;
+            }
+
         endTime = CkWallTimer();
         tRetrieve += endTime-startTime;
+
         if (c[0].dtCol <= dDelta) {
             startTime = CkWallTimer();
             bHasCollision = 1;
             // Binary merger
-            if (c[0].iOrderCol == -3) {
+            if (c[0].dtCol < 0.) {
                 nColl++;
+                CkPrintf("Particles %d and %d stuck in binary...merging\n", c[0].iOrder, c[1].iOrder);
                 treeProxy.resolveCollision(*(param.collision), c[0], c[1], 1,
                                            dDelta, dTime, CkCallbackResumeThread());
                 }
@@ -120,8 +136,7 @@ void Main::doCollisions(double dTime, double dDelta)
                 }
             // Collision with particle
             else {
-                if (c[0].dtCol != c[1].dtCol) {
-                    CkPrintf("%f %f\n", c[0].dtCol, c[1].dtCol);
+                if (c[0].iOrderCol != c[1].iOrder) {
                     CkAbort("Warning: Collider pair mismatch\n");
                     }
                 nColl++;
@@ -207,6 +222,37 @@ void TreePiece::getCollInfo(const CkCallback& cb)
         }
 
     contribute(2 * sizeof(ColliderInfo), ci, soonestCollReduction, cb);
+    }
+
+/**
+ * @brief Searches for a particle with a specific iOrder on this TreePiece
+ *
+ * Contributes a single collider info object that corresponds to the particle
+ * specified by iOrder
+ *
+ * @param iOrder The iOrder of the particle to retrieve
+ */
+void TreePiece::getCollInfo(int iOrder, const CkCallback& cb)
+{
+    double dtMin = DBL_MAX;
+    ColliderInfo ci;
+    ci.iOrder = -1;
+    for (unsigned int i=1; i <= myNumParticles; i++) {
+        GravityParticle *p = &myParticles[i];
+        if (p->iOrder == iOrder) {
+            ci.position = p->position;
+            ci.velocity = p->velocity;
+            ci.acceleration = p->treeAcceleration;
+            ci.w = p->w;
+            ci.mass = p->mass;
+            ci.radius = p->soft/2.;
+            ci.dtCol = p->dtCol;
+            ci.iOrder = p->iOrder;
+            ci.iOrderCol = p->iOrderCol;
+            ci.rung = p->rung;
+            }
+        }
+    contribute(sizeof(ColliderInfo), &ci, findCollReduction, cb);
     }
 
 /**
@@ -585,13 +631,13 @@ void CollisionSmoothParams::combSmoothCache(GravityParticle *p1,
  * particles.
  *
  * This function updates the 'dtCol' field for all particles that will undergo
- * a collision in the next time step. A negative value for dtCol indicates
- * that particles are overlapping.
+ * a collision in the next time step. A negative value for dtCol indicates that
+ * the field was overloaded and represents the total energy of the two particles.
+ * In this case, the two particles are stuck in a binary and should be merged.
  *
  * The 'iOrderCol' is normally set to the iOrder of the particle which this
  * particle is going to collide with. If the collision is with a wall,
- * 'iOrderCol' is set to -2. If we need to do a binary merger, this is set to
- * -3.
+ * 'iOrderCol' is set to -2.
  */
 void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
                                       pqSmoothNode *nList)
@@ -629,27 +675,31 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         D = sqrt(D);
         dt = (-rdotv - D)/vRel2;
 
+
         if (dt > 0. && dt < dDelta && dt < p->dtCol) {
             p->dtCol = dt;
             p->iOrderCol = q->iOrder;
             }
 
-       /* This is quick, but not optimal. We need to be sure we don't
-       automatically merge any bound particles, as those on highly
-       eccentric orbits may be distrupted at apocenter. Therefore
-       we assume that these particles will only reach this point of
-       the code near pericenter (due to iMinBinaryRung), and we can 
-       safely exclude particles that do not meet the following 
-       criterion. Some fiddling with iMinBinaryRung and dMaxBinaryEcc
-       may be necessary to acheive an appropriate balance of merging.
-       */
+       // Because there is no gravitational softening, particles can get stuck in
+       // binaries. If the particle is not already undergoing a collision, check
+       // to see if it is bound to its neighbor. If it is, mark it for a merge
        if (bAllowMergers && p->iOrderCol == -1 && p->rung >= iMinBinaryRung) {
            double pe = -p->mass*q->mass/dx.length();
            double ke = 0.5*vRel.lengthSquared();
            if ((ke + pe) < 0.) {
+               /* This is quick, but not optimal. We need to be sure we don't
+               automatically merge any bound particles, as those on highly
+               eccentric orbits may be distrupted at apocenter. Therefore
+               we assume that these particles will only reach this point of
+               the code near pericenter (due to iMinBinaryRung), and we can 
+               safely exclude particles that do not meet the following 
+               criterion. Some fiddling with iMinBinaryRung and dMaxBinaryEcc
+               may be necessary to acheive an appropriate balance of merging.
+               */
                if (vRel2 < sqrt((1 + dMaxBinaryEcc)/(1 - dMaxBinaryEcc))*(ke - pe)) {
                    p->dtCol = ke + pe;
-                   p->iOrderCol = -3;
+                   p->iOrderCol = q->iOrder;
                    }
                }
            }

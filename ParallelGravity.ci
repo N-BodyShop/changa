@@ -441,6 +441,7 @@ mainmodule ParallelGravity {
     	       		const CkCallback& cb);
     entry void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
     entry void getCollInfo(const CkCallback& cb);
+    entry void getCollInfo(int iOrder, const CkCallback& cb);
     entry void resolveCollision(Collision &coll, ColliderInfo &c1, ColliderInfo &c2,
         int bMerge, double baseStep, double timeNow, const CkCallback& cb);
     entry void resolveWallCollision(Collision &coll, ColliderInfo &c1, const CkCallback& cb);
