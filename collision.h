@@ -48,6 +48,8 @@ public:
     int bWall;            /* particles will bounce off a wall in the z plane */
     int bAllowMergers;    /* allow particles to merge if they collide at a slow speed */
     int bPerfectAcc;      /* all collisions result in a merger */
+    int iMinBinaryRung;   /* don't merge particles in binaries below this rung */
+    double dMaxBinaryEcc; /* only merge bound particles with e less than this value */
     double dBallFac;      /* scale factor for collision search radius */
     double dWallPos;      /* location of wall along z axis */
     double dEpsN, dEpsT;  /* normal and transverse coefficients of restitution */
@@ -99,6 +101,9 @@ inline void Collision::pup(PUP::er &p) {
 class CollisionSmoothParams : public SmoothParams
 {
     int bWall;
+    int bAllowMergers;
+    int iMinBinaryRung;
+    double dMaxBinaryEcc;
     double dWallPos;
     double dTime, dDelta;
     Collision coll;
@@ -114,7 +119,9 @@ class CollisionSmoothParams : public SmoothParams
 public:
     CollisionSmoothParams() {}
     CollisionSmoothParams(int _iType, int am, double _dTime, double _dDelta,
-                  int _bWall, double _dWallPos, Collision *collision) :
+                          int _bWall, double _dWallPos, int _bAllowMergers,
+                          double _dMaxBinaryEcc, int _iMinBinaryRung,
+                          Collision *collision) :
         coll (*collision) {
         iType = _iType;
         activeRung = am;
@@ -123,6 +130,9 @@ public:
         dDelta = _dDelta;
         bWall = _bWall;
         dWallPos = _dWallPos;
+        bAllowMergers = _bAllowMergers;
+        dMaxBinaryEcc = _dMaxBinaryEcc;
+        iMinBinaryRung = _iMinBinaryRung;
         }
     PUPable_decl(CollisionSmoothParams);
     CollisionSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
@@ -132,6 +142,9 @@ public:
         p | dDelta;
         p | dTime;
         p | bWall;
+        p | bAllowMergers;
+        p | dMaxBinaryEcc;
+        p | iMinBinaryRung;
         p | dWallPos;
     }
     };

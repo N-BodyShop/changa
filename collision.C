@@ -37,9 +37,17 @@ void Collision::AddParams(PRM prm)
     prmAddParam(prm, "bPerfectAcc", paramBool, &bPerfectAcc,
         sizeof(int), "bPerfectAcc", "<All collisions result in a merger> = 0");
 
+    iMinBinaryRung = 0;
+    prmAddParam(prm, "iMinBinaryRung", paramInt, &iMinBinaryRung,
+        sizeof(int), "iMinBinaryRung", "<Dont merge particles in binaries below this rung> = 0");
+
+    dMaxBinaryEcc = 0.5;
+    prmAddParam(prm, "dMaxBinaryEcc", paramDouble, &dMaxBinaryEcc,
+        sizeof(double), "dMaxBinaryEcc", "<Maximum allowed eccentricty to merge bound particles> = 0.5");
+
     dBallFac = 2.0;
     prmAddParam(prm, "dBallFac", paramDouble, &dBallFac,
-        sizeof(int), "dBallFac", "<Scale factor for collision search radius> = 2.0");
+        sizeof(double), "dBallFac", "<Scale factor for collision search radius> = 2.0");
 
     }
 
@@ -81,7 +89,9 @@ void Main::doCollisions(double dTime, double dDelta)
         bHasCollision = 0;
 
         CollisionSmoothParams pCS(TYPE_DARK, 0, dTime, dDelta, 
-           param.collision->bWall, param.collision->dWallPos, param.collision);
+           param.collision->bWall, param.collision->dWallPos,
+           param.collision->bAllowMergers, param.collision->dMaxBinaryEcc,
+           param.collision->iMinBinaryRung, param.collision);
         double startTime = CkWallTimer();
         treeProxy.startReSmooth(&pCS, CkCallbackResumeThread());
         double endTime = CkWallTimer();
@@ -96,8 +106,14 @@ void Main::doCollisions(double dTime, double dDelta)
         if (c[0].dtCol <= dDelta) {
             startTime = CkWallTimer();
             bHasCollision = 1;
+            // Binary merger
+            if (c[0].iOrderCol == -3) {
+                nColl++;
+                treeProxy.resolveCollision(*(param.collision), c[0], c[1], 1,
+                                           dDelta, dTime, CkCallbackResumeThread());
+                }
             // Collision with wall
-            if (c[0].iOrderCol == -2 && param.collision->bWall) {
+            else if (c[0].iOrderCol == -2 && param.collision->bWall) {
                 nColl++;
                 treeProxy.resolveWallCollision(*(param.collision), c[0], 
                                                CkCallbackResumeThread());
@@ -571,6 +587,11 @@ void CollisionSmoothParams::combSmoothCache(GravityParticle *p1,
  * This function updates the 'dtCol' field for all particles that will undergo
  * a collision in the next time step. A negative value for dtCol indicates
  * that particles are overlapping.
+ *
+ * The 'iOrderCol' is normally set to the iOrder of the particle which this
+ * particle is going to collide with. If the collision is with a wall,
+ * 'iOrderCol' is set to -2. If we need to do a binary merger, this is set to
+ * -3.
  */
 void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
                                       pqSmoothNode *nList)
@@ -602,21 +623,35 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
         sr = (p->soft/2.) + (q->soft/2.);
         rdotv = dot(dx, vRel);
-        if (rdotv >= 0) continue; // Particles moving apart
         vRel2 = vRel.lengthSquared();
         dr2 = dx.lengthSquared() - sr*sr;
         D = rdotv*rdotv - dr2*vRel2;
-        if (D <= 0.0) continue; // Not on a collision trajectory
         D = sqrt(D);
         dt = (-rdotv - D)/vRel2;
 
-        if (dt < 0.) {
-            CkPrintf("Warning: overlap detected\n");
-            }
-
-        if (dt < dDelta && dt < p->dtCol) {
+        if (dt > 0. && dt < dDelta && dt < p->dtCol) {
             p->dtCol = dt;
             p->iOrderCol = q->iOrder;
             }
+
+       /* This is quick, but not optimal. We need to be sure we don't
+       automatically merge any bound particles, as those on highly
+       eccentric orbits may be distrupted at apocenter. Therefore
+       we assume that these particles will only reach this point of
+       the code near pericenter (due to iMinBinaryRung), and we can 
+       safely exclude particles that do not meet the following 
+       criterion. Some fiddling with iMinBinaryRung and dMaxBinaryEcc
+       may be necessary to acheive an appropriate balance of merging.
+       */
+       if (bAllowMergers && p->iOrderCol == -1 && p->rung >= iMinBinaryRung) {
+           double pe = -p->mass*q->mass/dx.length();
+           double ke = 0.5*vRel.lengthSquared();
+           if ((ke + pe) < 0.) {
+               if (vRel2 < sqrt((1 + dMaxBinaryEcc)/(1 - dMaxBinaryEcc))*(ke - pe)) {
+                   p->dtCol = ke + pe;
+                   p->iOrderCol = -3;
+                   }
+               }
+           }
         }
     }
