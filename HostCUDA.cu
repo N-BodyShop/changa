@@ -73,11 +73,7 @@ void freePinnedHostMemory(void *ptr){
     exit(-1);
     return;
   }
-#ifdef CUDA_MEMPOOL
-  hapi_poolFree(ptr);
-#else
-  delayedFree(ptr);
-#endif
+  hapi_hostFree(ptr);
 #ifdef CUDA_PRINT_ERRORS
   printf("freePinnedHostMemory: %s\n", cudaGetErrorString( cudaGetLastError() ));
 #endif
@@ -950,55 +946,30 @@ void kernelSelect(workRequest *wr) {
   void** devBuffers = getdevBuffers(); 
   ParameterStruct *ptr;
   switch (wr->id) {
-
-    case DM_TRANSFER_LOCAL:
+  case DM_TRANSFER_LOCAL:
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
       printf("DM_TRANSFER_LOCAL KERNELSELECT\n");
       printf("mom: 0x%x\n", devBuffers[LOCAL_MOMENTS]);
       printf("cores: 0x%x\n", devBuffers[LOCAL_PARTICLE_CORES]);
       printf("vars: 0x%x\n", devBuffers[LOCAL_PARTICLE_VARS]);
 #endif
-#ifdef CUDA_USE_CUDAMALLOCHOST
       if( wr->bufferInfo[LOCAL_MOMENTS_IDX].transferToDevice ){
-#ifdef CUDA_MEMPOOL
-        hapi_poolFree(wr->bufferInfo[LOCAL_MOMENTS_IDX].hostBuffer);
-#else
-        delayedFree(wr->bufferInfo[LOCAL_MOMENTS_IDX].hostBuffer);
-#endif
+        hapi_hostFree(wr->bufferInfo[LOCAL_MOMENTS_IDX].hostBuffer);
       }
 #ifdef CUDA_PRINT_ERRORS
       printf("DM_TRANSFER_LOCAL 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
       if( wr->bufferInfo[LOCAL_PARTICLE_CORES_IDX].transferToDevice ){
-#ifdef CUDA_MEMPOOL
-        hapi_poolFree(wr->bufferInfo[LOCAL_PARTICLE_CORES_IDX].hostBuffer);
-#else
-        delayedFree(wr->bufferInfo[LOCAL_PARTICLE_CORES_IDX].hostBuffer);
-#endif
+		hapi_hostFree(wr->bufferInfo[LOCAL_PARTICLE_CORES_IDX].hostBuffer);
       }
 #ifdef CUDA_PRINT_ERRORS
       printf("DM_TRANSFER_LOCAL 1: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
       if( wr->bufferInfo[LOCAL_PARTICLE_VARS_IDX].transferToDevice ){
-#ifdef CUDA_MEMPOOL
-        hapi_poolFree(wr->bufferInfo[LOCAL_PARTICLE_VARS_IDX].hostBuffer);
-#else
-        delayedFree(wr->bufferInfo[LOCAL_PARTICLE_VARS_IDX].hostBuffer);
-#endif
+		hapi_hostFree(wr->bufferInfo[LOCAL_PARTICLE_VARS_IDX].hostBuffer);
       }
 #ifdef CUDA_PRINT_ERRORS
       printf("DM_TRANSFER_LOCAL 2: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-#else
-      if( wr->bufferInfo[LOCAL_MOMENTS_IDX].transferToDevice ){
-        free(wr->bufferInfo[LOCAL_MOMENTS_IDX].hostBuffer);
-      }
-      if( wr->bufferInfo[LOCAL_PARTICLE_CORES_IDX].transferToDevice ){
-        free(wr->bufferInfo[LOCAL_PARTICLE_CORES_IDX].hostBuffer);
-      }
-      if( wr->bufferInfo[LOCAL_PARTICLE_VARS_IDX].transferToDevice ){
-        free(wr->bufferInfo[LOCAL_PARTICLE_VARS_IDX].hostBuffer);
-      }
 #endif
       break;
 
@@ -1007,32 +978,16 @@ void kernelSelect(workRequest *wr) {
       printf("DM_TRANSFER_REMOTE_CHUNK, %d KERNELSELECT\n", wr->bufferInfo[REMOTE_MOMENTS_IDX].transferToDevice);
 #endif
       if( wr->bufferInfo[REMOTE_MOMENTS_IDX].transferToDevice ){
-#ifdef CUDA_USE_CUDAMALLOCHOST
-#ifdef CUDA_MEMPOOL
-        hapi_poolFree(wr->bufferInfo[REMOTE_MOMENTS_IDX].hostBuffer);
-#else
-        delayedFree(wr->bufferInfo[REMOTE_MOMENTS_IDX].hostBuffer);
-#endif
+        hapi_hostFree(wr->bufferInfo[REMOTE_MOMENTS_IDX].hostBuffer);
 #ifdef CUDA_PRINT_ERRORS
         printf("DM_TRANSFER_REMOTE_CHUNK 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-#else
-        free(wr->bufferInfo[REMOTE_MOMENTS_IDX].hostBuffer);
 #endif
       }
 
       if( wr->bufferInfo[REMOTE_PARTICLE_CORES_IDX].transferToDevice ){
-#ifdef CUDA_USE_CUDAMALLOCHOST
-#ifdef CUDA_MEMPOOL
-        hapi_poolFree(wr->bufferInfo[REMOTE_PARTICLE_CORES_IDX].hostBuffer);
-#else
-        delayedFree(wr->bufferInfo[REMOTE_PARTICLE_CORES_IDX].hostBuffer);
-#endif
+        hapi_hostFree(wr->bufferInfo[REMOTE_PARTICLE_CORES_IDX].hostBuffer);
 #ifdef CUDA_PRINT_ERRORS
         printf("DM_TRANSFER_REMOTE_CHUNK 1: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-#else
-        free(wr->bufferInfo[REMOTE_PARTICLE_CORES_IDX].hostBuffer);
 #endif
       }
       break;
@@ -1092,26 +1047,13 @@ void kernelSelect(workRequest *wr) {
 #ifdef CUDA_TRACE
     st = CmiWallTimer();
 #endif
-#ifdef CUDA_USE_CUDAMALLOCHOST
-#ifdef CUDA_MEMPOOL
-        hapi_poolFree((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
-#else
-        delayedFree((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
-#endif
+        hapi_hostFree((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
+
 #ifdef CUDA_PRINT_ERRORS
         printf("TP_GRAVITY_LOCAL 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-#else
-        free((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
 #endif
 #ifdef CUDA_TRACE
       traceUserBracketEvent(CUDA_LOCAL_NODE_KERNEL, st, CmiWallTimer()); 
@@ -1164,29 +1106,14 @@ void kernelSelect(workRequest *wr) {
 #ifdef CUDA_TRACE
     st = CmiWallTimer();
 #endif
-#ifdef CUDA_USE_CUDAMALLOCHOST
-#ifdef CUDA_MEMPOOL
-        hapi_poolFree((CompactPartData *)wr->bufferInfo[MISSED_PARTS_IDX].hostBuffer);
-        hapi_poolFree(wr->bufferInfo[ILPART_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
-#else
-        delayedFree((CompactPartData *)wr->bufferInfo[MISSED_PARTS_IDX].hostBuffer);
-        delayedFree(wr->bufferInfo[ILPART_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
-#endif
+        hapi_hostFree((CompactPartData *)wr->bufferInfo[MISSED_PARTS_IDX].hostBuffer);
+        hapi_hostFree(wr->bufferInfo[ILPART_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
+
 #ifdef CUDA_PRINT_ERRORS
         printf("TP_PART_GRAVITY_LOCAL_SMALLPHASE 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-#else
-        free((CompactPartData *)wr->bufferInfo[MISSED_PARTS_IDX].hostBuffer);
-        free(wr->bufferInfo[ILPART_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
 #endif
 #ifdef CUDA_TRACE
       traceUserBracketEvent(CUDA_LOCAL_PART_KERNEL, st, CmiWallTimer()); 
@@ -1240,26 +1167,13 @@ void kernelSelect(workRequest *wr) {
 #ifdef CUDA_TRACE
     st = CmiWallTimer();
 #endif
-#ifdef CUDA_USE_CUDAMALLOCHOST
-#ifdef CUDA_MEMPOOL
-        hapi_poolFree(wr->bufferInfo[ILPART_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
-#else
-        delayedFree(wr->bufferInfo[ILPART_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
-#endif
+        hapi_hostFree(wr->bufferInfo[ILPART_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
+
 #ifdef CUDA_PRINT_ERRORS
         printf("TP_PART_GRAVITY_LOCAL 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-#else
-        free(wr->bufferInfo[ILPART_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
 #endif
 #ifdef CUDA_TRACE
       traceUserBracketEvent(CUDA_LOCAL_PART_KERNEL, st, CmiWallTimer()); 
@@ -1299,26 +1213,12 @@ void kernelSelect(workRequest *wr) {
 #ifdef CUDA_TRACE
     st = CmiWallTimer();
 #endif
-#ifdef CUDA_USE_CUDAMALLOCHOST
-#ifdef CUDA_MEMPOOL
-        hapi_poolFree((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
-#else
-        delayedFree((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
-#endif
+        hapi_hostFree((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
 #ifdef CUDA_PRINT_ERRORS
         printf("TP_GRAVITY_REMOTE 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-#else
-        free((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
 #endif
 #ifdef CUDA_TRACE
       traceUserBracketEvent(CUDA_REMOTE_NODE_KERNEL, st, CmiWallTimer()); 
@@ -1371,27 +1271,15 @@ void kernelSelect(workRequest *wr) {
 #ifdef CUDA_TRACE
     st = CmiWallTimer();
 #endif
-#ifdef CUDA_USE_CUDAMALLOCHOST
-#ifdef CUDA_MEMPOOL
-        hapi_poolFree(wr->bufferInfo[ILPART_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
-#else
-        delayedFree(wr->bufferInfo[ILPART_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
-#endif
+        hapi_hostFree(wr->bufferInfo[ILPART_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
+
 #ifdef CUDA_PRINT_ERRORS
         printf("TP_PART_GRAVITY_REMOTE 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
-#else
-        free(wr->bufferInfo[ILPART_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
-#endif
+
 #ifdef CUDA_TRACE
       traceUserBracketEvent(CUDA_REMOTE_PART_KERNEL, st, CmiWallTimer()); 
 #endif
@@ -1431,29 +1319,13 @@ void kernelSelect(workRequest *wr) {
 #ifdef CUDA_TRACE
     st = CmiWallTimer();
 #endif
-#ifdef CUDA_USE_CUDAMALLOCHOST
-#ifdef CUDA_MEMPOOL
-        hapi_poolFree((CudaMultipoleMoments *)wr->bufferInfo[MISSED_MOMENTS_IDX].hostBuffer);
-        hapi_poolFree((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
-#else
-        delayedFree((CudaMultipoleMoments *)wr->bufferInfo[MISSED_MOMENTS_IDX].hostBuffer);
-        delayedFree((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
-#endif
+        hapi_hostFree((CudaMultipoleMoments *)wr->bufferInfo[MISSED_MOMENTS_IDX].hostBuffer);
+        hapi_hostFree((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
 #ifdef CUDA_PRINT_ERRORS
         printf("TP_GRAVITY_REMOTE_RESUME 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-#else
-        free((CudaMultipoleMoments *)wr->bufferInfo[MISSED_MOMENTS_IDX].hostBuffer);
-        free((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[NODE_BUCKET_SIZES_IDX].hostBuffer);
 #endif
 #ifdef CUDA_TRACE
       traceUserBracketEvent(CUDA_REMOTE_RESUME_NODE_KERNEL, st, CmiWallTimer()); 
@@ -1508,29 +1380,13 @@ void kernelSelect(workRequest *wr) {
 #ifdef CUDA_TRACE
     st = CmiWallTimer();
 #endif
-#ifdef CUDA_USE_CUDAMALLOCHOST
-#ifdef CUDA_MEMPOOL
-        hapi_poolFree((CompactPartData *)wr->bufferInfo[MISSED_PARTS_IDX].hostBuffer);
-        hapi_poolFree(wr->bufferInfo[ILPART_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
-        hapi_poolFree((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
-#else
-        delayedFree((CompactPartData *)wr->bufferInfo[MISSED_PARTS_IDX].hostBuffer);
-        delayedFree(wr->bufferInfo[ILPART_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
-        delayedFree((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
-#endif
+        hapi_hostFree((CompactPartData *)wr->bufferInfo[MISSED_PARTS_IDX].hostBuffer);
+        hapi_hostFree(wr->bufferInfo[ILPART_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
+        hapi_hostFree((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
 #ifdef CUDA_PRINT_ERRORS
         printf("TP_PART_GRAVITY_REMOTE_RESUME 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-#else
-        free((CompactPartData *)wr->bufferInfo[MISSED_PARTS_IDX].hostBuffer);
-        free(wr->bufferInfo[ILPART_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[PART_BUCKET_MARKERS_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].hostBuffer);
-        free((int *)wr->bufferInfo[PART_BUCKET_SIZES_IDX].hostBuffer);
 #endif
 #ifdef CUDA_TRACE
       traceUserBracketEvent(CUDA_REMOTE_RESUME_PART_KERNEL, st, CmiWallTimer()); 
