@@ -3772,6 +3772,12 @@ void TreePiece::nextBucket(dummyMsg *msg){
     ListCompute *lc = (ListCompute *)sGravity;
 
     if(lc && ds){
+      // If we are not on rung 0, sGravity may not have been
+      // initialized because startNextBucket() was not called during
+      // this entry call.  send*InteractionsToGpu() needs to know if
+      // these are local or remote interactions, which it learns from
+      // sGravity.
+      sGravity->init(NULL, activeRung, sLocal);
       if(ds->nodeLists.totalNumInteractions > 0){
         lc->sendNodeInteractionsToGpu(ds, this);
         lc->resetCudaNodeState(ds);
