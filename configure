@@ -625,6 +625,7 @@ ac_includes_default="\
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
 FLAG_RTFORCE
+FLAG_VSIGVISC
 FLAG_CULLENALPHA
 FLAG_DIFFHARMONIC
 FLAG_FEEDBACKDIFFLIMIT
@@ -704,6 +705,7 @@ enable_cooling
 enable_diffusion
 enable_feedbacklimit
 enable_cullenalpha
+enable_vsigvisc
 enable_rtforce
 '
       ac_precious_vars='build_alias
@@ -1338,6 +1340,7 @@ Optional Features:
   --enable-diffusion      enable diffusion
   --enable-feedbacklimit  limit diffusion of feedback energy
   --enable-cullenalpha    enable Cullen Dehnen artificial viscosity
+  --enable-vsigvisc       enable alternative Monahan artificial viscosity
   --enable-rtforce        enable Richie-Thomas forces
 
 Some influential environment variables:
@@ -4199,6 +4202,23 @@ if test "$cullenalpha" = "yes" ; then
     FLAG_CULLENALPHA="-DCULLENALPHA"
 else
     FLAG_CULLENALPHA=""
+fi
+
+
+
+# Use alternative calculation of viscosity term similar to Morris & Monahan (1997)
+# Check whether --enable-vsigvisc was given.
+if test "${enable_vsigvisc+set}" = set; then :
+  enableval=$enable_vsigvisc; vsigvisc=$enableval
+else
+  vsigvisc=yes
+fi
+
+if test "$vsigvisc" = "yes" ; then
+    echo "VSIGVISC selected"
+    FLAG_VSIGVISC="-DVSIGVISC"
+else
+    FLAG_VSIGVISC=""
 fi
 
 

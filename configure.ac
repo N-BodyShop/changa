@@ -232,6 +232,19 @@ fi
 
 AC_SUBST([FLAG_CULLENALPHA])
 
+# Use alternative calculation of viscosity term similar to Morris & Monahan (1997)
+AC_ARG_ENABLE([vsigvisc],
+        [AS_HELP_STRING([--enable-vsigvisc], [enable alternative Monahan artificial viscosity])],
+        [vsigvisc=$enableval], [vsigvisc=yes])
+if test "$vsigvisc" = "yes" ; then
+    echo "VSIGVISC selected"
+    FLAG_VSIGVISC="-DVSIGVISC"
+else
+    FLAG_VSIGVISC=""
+fi
+
+AC_SUBST([FLAG_VSIGVISC])
+
 # Richie-Thomas forces (Pressure SPH)
 AC_ARG_ENABLE([rtforce],
 	[AS_HELP_STRING([--enable-rtforce], [enable Richie-Thomas forces])],

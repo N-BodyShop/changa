@@ -2092,6 +2092,12 @@ void Main::setupICs() {
 #ifdef RTFORCE
   ofsLog << " RTFORCE";
 #endif
+#ifdef CULLENALPHA
+  ofsLog << " CULLENALPHA";
+#endif
+#ifdef VSIGVISC
+  ofsLog << " VSIGVISC";
+#endif
 #ifdef HEXADECAPOLE
   ofsLog << " HEXADECAPOLE";
 #endif
@@ -3137,6 +3143,7 @@ void Main::writeOutput(int iStep)
     ESNRateOutputParams pESNRateOut(achFile, param.iBinaryOut, dOutTime);
 #ifdef CULLENALPHA
     AlphaOutputParams pAlphaOut(achFile, param.iBinaryOut, dOutTime);
+    DvDsOutputParams pDvDsOut(achFile, param.iBinaryOut, dOutTime);
 #endif
 #ifndef COOLING_NONE
     Cool0OutputParams pCool0Out(achFile, param.iBinaryOut, dOutTime);
@@ -3155,6 +3162,7 @@ void Main::writeOutput(int iStep)
     if (param.iBinaryOut) {
 #ifdef CULLENALPHA
 	outputBinary(pAlphaOut, param.bParaWrite, CkCallbackResumeThread());
+	outputBinary(pDvDsOut, param.bParaWrite, CkCallbackResumeThread());
 #endif
         if (param.bStarForm || param.bFeedback) {
 	    outputBinary(pOxOut, param.bParaWrite, CkCallbackResumeThread());
@@ -3201,6 +3209,8 @@ void Main::writeOutput(int iStep)
 	} else {
 #ifdef CULLENALPHA
         treeProxy[0].outputASCII(pAlphaOut, param.bParaWrite,
+                               CkCallbackResumeThread());
+        treeProxy[0].outputASCII(pDvDsOut, param.bParaWrite,
                                CkCallbackResumeThread());
 #endif
 	if (param.bStarForm || param.bFeedback) {

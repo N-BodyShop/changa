@@ -866,8 +866,8 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	double dvxdx, dvxdy, dvxdz, dvydx, dvydy, dvydz, dvzdx, dvzdy, dvzdz;
 	double dvx,dvy,dvz,dx,dy,dz,trace,grx,gry,grz;
 #ifdef CULLENALPHA
-	double dvdotdr,  R_CD, R_CDN, curTimeStep;
-	double vSignal,  maxVSignal, divVq, signDivVq;
+	double R_CD, R_CDN, curTimeStep;
+	double maxVSignal, divVq, signDivVq;
         R_CD = 0.0; R_CDN = 0;  maxVSignal = 0.0;
         curTimeStep = RungToDt(dDelta, p->rung);
         if (dDelta == 0){
@@ -935,8 +935,13 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
                 double R_wt = (1-r2*r2*0.0625)* q->mass;
                 R_CD += q->dvds_old() * R_wt; 
                 R_CDN += R_wt;
-                vSignal = (p->c() + q->c())/2.;
-                if (vSignal > maxVSignal) maxVSignal = vSignal; 
+                // Convention here dvdx = vxq-vxp, dx = xp-xq so
+                // dvdotdr = -dvx*dx ...
+                double dvdotdr = -(dvx*dx + dvy*dy + dvz*dz)
+                    + fDist2*H; // vFac already in there
+                double cavg = (p->c() + q->c())*0.5;
+                double vSig = cavg - (dvdotdr < 0 ? dvdotdr/sqrt(fDist2) : 0);
+                if (vSig > maxVSignal) maxVSignal = vSig; 
 
 #endif
 		}
@@ -1011,7 +1016,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
           // If the divergence of the velocity of the particle is negative and the speed of sound is nonzero
           // we set p->CullenAlpha() using the M&M prescription. Otherwise p->CullenAlpha() is zero
           if ((p->divv() < 0) && (p->c() > 0)){
-            tau = p->fBall / (2.0*l*p->c());
+            tau = p->fBall / (2.0*l*maxVSignal);
             p->CullenAlpha() = -dAlphaMax*p->divv()*tau / (1.0 - p->divv()*tau);
           }
           else p->CullenAlpha() = 0.0; 

@@ -358,6 +358,7 @@ class PresOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output variable alpha
 class AlphaOutputParams : public OutputParams
 {
   virtual double dValue(GravityParticle *p)
@@ -386,7 +387,40 @@ class AlphaOutputParams : public OutputParams
   PUPable_decl(AlphaOutputParams);
   AlphaOutputParams(CkMigrateMessage *m) {}
   virtual void pup(PUP::er &p) {
-    OutputParams::pup(p);//Call base class                                                                                                                                                     
+    OutputParams::pup(p);//Call base class
+  }
+};
+
+/// @brief Output dvds shock detector.
+class DvDsOutputParams : public OutputParams
+{
+  virtual double dValue(GravityParticle *p)
+  {
+#ifdef CULLENALPHA
+    if (TYPETest(p, TYPE_GAS))
+      return p->dvds();
+    else
+#endif /* CULLENALPHA */
+      return 0.0;
+  }
+  virtual Vector3D<double> vValue(GravityParticle *p)
+  {CkAssert(0); return 0.0;}
+  virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+  virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+  virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+  DvDsOutputParams() {}
+  DvDsOutputParams(std::string _fileName) { bFloat = 1; bVector = 0; fileName = _fileName;}
+  DvDsOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+    bFloat = 1;
+    bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+    sTipsyExt = "dvds"; sNChilExt = "dvds";
+    dTime = _dTime;
+    iType = TYPE_GAS; }
+  PUPable_decl(DvDsOutputParams);
+  DvDsOutputParams(CkMigrateMessage *m) {}
+  virtual void pup(PUP::er &p) {
+    OutputParams::pup(p); //Call base class
   }
 };
 
