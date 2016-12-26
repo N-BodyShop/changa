@@ -23,7 +23,11 @@
 
 #define PRES_PDV(a,b) (a)
 #define PRES_ACC(a,b) (a+b)
+#ifdef CULLENALPHA
+#define SWITCHCOMBINE(a,b) (1.0)
+#else
 #define SWITCHCOMBINE(a,b) (0.5*(a->BalsaraSwitch()+b->BalsaraSwitch()))
+#endif
 
 #ifdef DRHODT
 #define DRHODTACTIVE(xxx) xxx
