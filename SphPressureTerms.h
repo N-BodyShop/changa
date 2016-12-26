@@ -203,15 +203,6 @@
         if (dvdotdr>=0.0) {
             dt = dtFacCourant*ph/(2*(pc > q->c() ? pc : q->c()));
             }
-#ifdef CULLENALPHA
-        else {  
-            ARTIFICIALVISCOSITY(visc,dt); /* Calculate Artificial viscosity terms */		
-            PACTIVE( p->PdV() += rq*(0.5*visc)*dvdotdr *p->CullenAlpha(); );
-            QACTIVE( q->PdV() += rp*(0.5*visc)*dvdotdr * q->CullenAlpha(); );
-            PACTIVE( Accp += visc*p->CullenAlpha(); );
-            QACTIVE( Accq += visc*q->CullenAlpha(); ); 
-            }
-#else
         else {
           ARTIFICIALVISCOSITY(visc,dt); 
           PACTIVE( p->PdV() += rq*(0.5*visc)*dvdotdr;);
@@ -219,7 +210,6 @@
           PACTIVE( Accp += visc;);
           QACTIVE( Accq += visc;);
         }
-#endif
 
 
         PACTIVE( Accp *= rq*aFac; );/* aFac - convert to comoving acceleration */
