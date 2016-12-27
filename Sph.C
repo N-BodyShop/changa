@@ -928,8 +928,6 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
                 grx += (q->uPred())*dx*rs1;
                 gry += (q->uPred())*dy*rs1;
                 grz += (q->uPred())*dz*rs1;
-                // keep Norm positive consistent w/ std 1/rho norm
-                fNorm1 = (divvnorm != 0 ? 3.0/fabs(divvnorm) : 0.0); 
 
 #ifdef CULLENALPHA
                 // Special weighting function to reduce noise in R
@@ -954,6 +952,8 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
         p->fDensity = fNorm*fDensity;
         trace = dvxdx+dvydy+dvzdz;
+        // keep Norm positive consistent w/ std 1/rho norm
+        fNorm1 = (divvnorm != 0 ? 3.0/fabs(divvnorm) : 0.0); 
 
 #if defined(DIFFUSION) || defined(CULLENALPHA)
       double onethirdtrace = (1./3.)*trace;
@@ -1052,162 +1052,11 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 #endif /* CULLENALPHA */
 }
 	
-
-/* As above, but no marking */
-void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
-				    pqSmoothNode *nnList)
+void DenDvDxNeighborSmParams::postTreeParticle(GravityParticle *p)
 {
-  double ih2,ih, r2,rs,rs1,fDensity,fNorm,fNorm1,vFac, divvnorm;
-	double dvxdx, dvxdy, dvxdz, dvydx, dvydy, dvydz, dvzdx, dvzdy, dvzdz;
-	double dvx,dvy,dvz,dx,dy,dz,trace,grx,gry,grz;
-	GravityParticle *q;
-	int i;
 #ifdef CULLENALPHA
-        double dvdotdr,  R_CD, R_CDN, curTimeStep;
-        double vSignal,  maxVSignal,  divVq, signDivVq;
-        R_CD = 0.0; R_CDN = 0; maxVSignal = 0.0; divvnorm = 0.0; 
-        curTimeStep = RungToDt(dDelta, p->rung); 
-
-        if (dDelta == 0) {
-          p->TimeDivV() = dTime;
-          p->dvds_old() = p->dvds();
-        }
+   p->dvds_old() = p->dvdsOnSFull();
 #endif
-	ih2 = invH2(p);
-        ih = sqrt(ih2);
-	vFac = 1./(a*a); /* converts v to xdot */
-	fNorm = M_1_PI*ih2*sqrt(ih2);
-	fNorm1 = fNorm*ih2;	
-	fDensity = 0.0;
-	dvxdx = 0; dvxdy = 0; dvxdz= 0;
-	dvydx = 0; dvydy = 0; dvydz= 0;
-	dvzdx = 0; dvzdy = 0; dvzdz= 0;
-	grx = 0; gry = 0; grz= 0;
-
-	for (i=0;i<nSmooth;++i) {
-		double fDist2 = nnList[i].fKey;
-		r2 = fDist2*ih2;
-		q = nnList[i].p;
-		rs = KERNEL(r2);
-		fDensity += rs*q->mass;
-		rs1 = DKERNEL(r2);
-		rs1 *= q->mass;
-		dx = nnList[i].dx.x;
-		dy = nnList[i].dx.y;
-		dz = nnList[i].dx.z;
-		dvx = (-p->vPred().x + q->vPred().x)*vFac - dx*H; /* NB: dx = px - qx */
-		dvy = (-p->vPred().y + q->vPred().y)*vFac - dy*H;
-		dvz = (-p->vPred().z + q->vPred().z)*vFac - dz*H;
-		dvxdx += dvx*dx*rs1;
-		dvxdy += dvx*dy*rs1;
-		dvxdz += dvx*dz*rs1;
-		dvydx += dvy*dx*rs1;
-		dvydy += dvy*dy*rs1;
-		dvydz += dvy*dz*rs1;
-		dvzdx += dvz*dx*rs1;
-		dvzdy += dvz*dy*rs1;
-		dvzdz += dvz*dz*rs1;
-                /* Grad P estimate */
-                grx += (-p->uPred() + q->uPred())*dx*rs1;
-                gry += (-p->uPred() + q->uPred())*dy*rs1;
-                grz += (-p->uPred() + q->uPred())*dz*rs1;
-#ifdef CULLENALPHA
-                double R_wt = (1-r2*r2*0.0625)* q->mass;
-                R_CD += q->dvds_old() * R_wt;
-                R_CDN += R_wt;
-                vSignal = (p->c() + q->c())/2.;
-                if (vSignal > maxVSignal) maxVSignal = vSignal;
-#endif
-		}
-		
-	p->fDensity = fNorm*fDensity; 
-#if defined(DIFFUSION) || defined(CULLENALPHA)
-      double onethirdtrace = (1./3.)*trace;
-      /* Build Traceless Strain Tensor (not yet normalized) */
-      double sxx = dvxdx - onethirdtrace; /* pure compression/expansion doesn't diffuse */
-      double syy = dvydy - onethirdtrace;
-      double szz = dvzdz - onethirdtrace;
-      double sxy = 0.5*(dvxdy + dvydx); /* pure rotation doesn't diffuse */
-      double sxz = 0.5*(dvxdz + dvzdx);
-      double syz = 0.5*(dvydz + dvzdy);
-#endif
-#ifdef DIFFUSION
-      /* diff coeff., nu ~ C L^2 S (add C via dMetalDiffusionConstant, assume L ~ h) */
-      if (bConstantDiffusion) p->diff() = 1;
-      else p->diff() = fNorm1*0.25*p->fBall*p->fBall*sqrt(2*(sxx*sxx + syy*syy + szz*szz + 2*(sxy*sxy + sxz*sxz + syz*syz)));
-#endif
-
-	fNorm1 /= p->fDensity;
-	trace = dvxdx+dvydy+dvzdz;
-
-	p->divv() =  fNorm1*trace; /* physical */
-	p->curlv().x = fNorm1*(dvzdy - dvydz); 
-	p->curlv().y = fNorm1*(dvxdz - dvzdx);
-	p->curlv().z = fNorm1*(dvydx - dvxdy);
-      
-#ifdef CULLENALPHA
-        double alphaLoc, tau;
-        double l = 0.1;
-        double Hcorr = (fNorm1 != 0 ? H/fNorm1 : 0);
-        double gnorm = (grx*grx+gry*gry+grz*grz);
-        if (gnorm > 0) gnorm=1/sqrt(gnorm);
-        grx *= gnorm;
-        gry *= gnorm;
-        grz *= gnorm;
-        double dvdr = (((dvxdx+Hcorr)*grx+dvxdy*gry+dvxdz*grz)*grx
-                       +  (dvydx*grx+(dvydy+Hcorr)*gry+dvydz*grz)*gry
-                       +  (dvzdx*grx+dvzdy*gry+(dvzdz+Hcorr)*grz)*grz)*fNorm1;
-
-        double dvds = (p->divv() < 0 ? 1.5*(dvdr -(1./3.)*p->divv()) : dvdr );
-        double sxxf = dvxdx+Hcorr, syyf = dvydy+Hcorr, szzf = dvzdz+Hcorr;
-        double SFull = sqrt(fNorm1*fNorm1*(sxxf*sxxf+syyf*syyf+szzf*szzf
-                                           + 2*(sxy*sxy + sxz*sxz + syz*syz)));
-
-        p->dvds() = (SFull > 0 ? dvds/SFull : 0);
-
-        double deltaT = dTime - p->TimeDivV();
-        double divVDot = (p->dvds() - p->dvds_old())/deltaT;
-        if (p->rung >= activeRung){
-          p->TimeDivV() = dTime;
-        }
-                
-        // If we are initializing the simulation, the current time step is zero and we can't compute the time 
-        // derivative of the velocity divergence in the Cullen & Dehnin formulation                                          
-        if (dDelta == 0){
-          // If the divergence of the velocity of the particle is negative and the speed of sound is nonzero
-          // we set p->CullenAlpha() using the M&M prescription. Otherwise p->CullenAlpha() is zero                          
-         if ((p->divv() < 0) && (p->c() > 0)){
-            tau = p->fBall / (2.0*l*p->c());
-            p->CullenAlpha() = -dAlphaMax*p->divv()*tau / (1.0 - p->divv()*tau);
-          }
-          else p->CullenAlpha() = 0.0;
-        }
-        // If the current time step > 0                                                                                      
-        else  if (p->rung >= activeRung) {
-          if (divVDot < 0){
-            double OneMinusR_CD = (R_CDN > 0 ? 1-(R_CD/R_CDN) : 0);
-
-            double xi = (OneMinusR_CD < -1 ? 0 :
-                         (OneMinusR_CD > 2 ? 1 : 0.0625*OneMinusR_CD*OneMinusR_CD*OneMinusR_CD*OneMinusR_CD));
-            double Aterm = xi * p->fBall * p->fBall * fabs(divVDot);
-
-            // The local alpha value                                                                                           
-            alphaLoc = dAlphaMax* Aterm / (maxVSignal*maxVSignal + Aterm);
-
-          }
-          else alphaLoc = 0;
-          // Decay parameter                                                                                                   
-          tau = 1. / (l*maxVSignal*ih);
-          // If alphaLoc is larger then the current p->CullenAlpha(), we set p->CullenAlhpa() to be equal to alphaLoc.         
-          // Otherwise, we decay p->CullenAlpha() to the alphaLoc value                       
-          if (alphaLoc > p->CullenAlpha()) p->CullenAlpha() = alphaLoc;
-          else{
-            double oldCullenAlpha = p->CullenAlpha();
-            p->CullenAlpha() = alphaLoc - (alphaLoc - oldCullenAlpha)*exp(-deltaT/tau);
-          }
-        }
-#endif /* CULLENALPHA */
-
 }
 
 void 
