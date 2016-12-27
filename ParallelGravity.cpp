@@ -448,7 +448,7 @@ Main::Main(CkArgMsg* m) {
 	param.bDoGas = 0;
 	prmAddParam(prm, "bDoGas", paramBool, &param.bDoGas,
 		    sizeof(int),"gas", "Enable Gas Calculation");
-	param.bFastGas = 0;
+	param.bFastGas = 1;
 	prmAddParam(prm, "bFastGas", paramBool, &param.bFastGas,
 		    sizeof(int),"Fgas", "Fast Gas Method");
 	param.dFracFastGas = 0.1;
