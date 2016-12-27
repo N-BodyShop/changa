@@ -843,7 +843,7 @@ void DenDvDxSmoothParams::initTreeParticle(GravityParticle *p)
 void DenDvDxSmoothParams::postTreeParticle(GravityParticle *p)
 {
 #ifdef CULLENALPHA
-   p->dvds_old() = p->dvds();
+   p->dvds_old() = p->dvdsOnSFull();
 #endif
 }
 
@@ -932,6 +932,9 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
                 fNorm1 = (divvnorm != 0 ? 3.0/fabs(divvnorm) : 0.0); 
 
 #ifdef CULLENALPHA
+                // Special weighting function to reduce noise in R
+                // calculation.  See discussion after eq. 29 in
+                // Wadsley et al 2017.
                 double R_wt = (1-r2*r2*0.0625)* q->mass;
                 R_CD += q->dvds_old() * R_wt; 
                 R_CDN += R_wt;
@@ -945,10 +948,6 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
 #endif
 		}
-
-        // want to keep track of the old value of p->divv() to calculate divVDot later   
-
-
 
         if (qiActive)
           TYPESet(p,TYPE_NbrOfACTIVE);
@@ -993,23 +992,23 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         +  (dvydx*grx+(dvydy+Hcorr)*gry+dvydz*grz)*gry
         +  (dvzdx*grx+dvzdy*gry+(dvzdz+Hcorr)*grz)*grz)*fNorm1;
 
+        double pdvds_old = p->dvds();
         double dvds = (p->divv() < 0 ? 1.5*(dvdr -(1./3.)*p->divv()) : dvdr );
-#ifdef CD_SFULL
         double sxxf = dvxdx+Hcorr, syyf = dvydy+Hcorr, szzf = dvzdz+Hcorr;
         double SFull = sqrt(fNorm1*fNorm1*(sxxf*sxxf+syyf*syyf+szzf*szzf 
                                            + 2*(sxy*sxy + sxz*sxz + syz*syz)));
        
-        p->dvds() = (SFull > 0 ? dvds/SFull : 0);
+        p->dvdsOnSFull() = SFull > 0 ? dvds/SFull : 0; 
+#ifdef CD_SFULL
+        p->dvds() = p->dvdsOnSFull();
 #else
         p->dvds() = dvds;
 #endif
 
         // time interval = current time - last time divv was calculated
         double deltaT = dTime - p->TimeDivV();
-        double divVDot = (p->dvds() - p->dvds_old())/deltaT;
-        if (p->rung >= activeRung){
-          p->TimeDivV() = dTime;
-        }
+        double divVDot = (p->dvds() - pdvds_old)/deltaT;
+        p->TimeDivV() = dTime;
         // If we are initializing the simulation, the current time step is zero and we can't compute the time
         // derivative of the velocity divergence in the Cullen & Dehnen formulation
         if (deltaT == 0){
@@ -1017,18 +1016,22 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
           // we set p->CullenAlpha() using the M&M prescription. Otherwise p->CullenAlpha() is zero
           if ((p->divv() < 0) && (p->c() > 0)){
             tau = p->fBall / (2.0*l*maxVSignal);
-            p->CullenAlpha() = -dAlphaMax*p->divv()*tau / (1.0 - p->divv()*tau);
+            alphaLoc = -dAlphaMax*p->divv()*tau / (1.0 - p->divv()*tau);
           }
-          else p->CullenAlpha() = 0.0; 
+          else alphaLoc = 0.0; 
+          p->CullenAlpha() = alphaLoc;
         }
         // If the current time step > 0
-        else if (p->rung >= activeRung) {
-          if (divVDot < 0){
+        else {
+          if (p->dvds() < 0 && divVDot < 0){ // Flow is converging and
+                                             // convergence is increasing
             double OneMinusR_CD = (R_CDN > 0 ? 1-(R_CD/R_CDN) : 0);
 
             double xi = (OneMinusR_CD < -1 ? 0 :
                 (OneMinusR_CD > 2 ? 1 : 0.0625*OneMinusR_CD*OneMinusR_CD*OneMinusR_CD*OneMinusR_CD));
-            double Aterm = xi * p->fBall * p->fBall * fabs(divVDot);
+            // Multiplier for ATerm in CD viscosity.
+            const double dAFac = 2.0;
+            double Aterm = xi * p->fBall * p->fBall * fabs(divVDot)*dAFac;
 
             // The local alpha value
             alphaLoc = dAlphaMax* Aterm / (maxVSignal*maxVSignal + Aterm);

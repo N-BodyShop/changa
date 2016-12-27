@@ -69,7 +69,8 @@ class extraSPHData
     double _TimeDivV;           /* Time at which OldDivV was last updated */
     double _OldDivV;            /* Last active divv */
     double _dvds;
-    double _dvds_old;
+    double _dvdsOnSFull;        ///< dvds for use in the Cullen R calculation
+    double _dvds_old;           ///< Save dvds(OnSFull) for R calculation
 #endif
 #ifdef DTADJUST
     double _dtNew;		/* New timestep from gas pressure */
@@ -112,6 +113,7 @@ class extraSPHData
     inline double& TimeDivV() {return _TimeDivV;}
     inline double& OldDivV() {return _OldDivV;}
     inline double& dvds() {return _dvds;}
+    inline double& dvdsOnSFull() {return _dvdsOnSFull;}
     inline double& dvds_old() {return _dvds_old;}
 #endif
 #ifdef DTADJUST
@@ -152,6 +154,7 @@ class extraSPHData
         p | _TimeDivV;
         p | _OldDivV;
         p | _dvds;
+        p | _dvdsOnSFull;
         p | _dvds_old;
 #endif 
 #ifdef DTADJUST
@@ -323,6 +326,7 @@ public:
         inline double& TimeDivV() {IMAGAS; return (((extraSPHData*)extraData)->TimeDivV());}
         inline double& OldDivV() {IMAGAS; return (((extraSPHData*)extraData)->OldDivV());}
         inline double& dvds() {IMAGAS; return (((extraSPHData*)extraData)->dvds());}
+        inline double& dvdsOnSFull() {IMAGAS; return (((extraSPHData*)extraData)->dvdsOnSFull());}
         inline double& dvds_old() {IMAGAS; return (((extraSPHData*)extraData)->dvds_old());}
 #endif
 #ifdef DTADJUST
