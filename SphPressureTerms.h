@@ -181,19 +181,19 @@
 		if (absmu>q->mumax()) q->mumax()=absmu; \
                 visc_ = (ALPHA*(pc + q->c()) + BETA*1.5*absmu);         \
 		dt_ = dtFacCourant*ph/(0.625*(pc + q->c())+0.375*visc_); \
-                visc_ = SWITCHCOMBINE(p,q)*visc_ * absmu/(pDensity + q->fDensity);}
+		visc_ = SWITCHCOMBINE(p,q)*visc_ \
+		    *absmu/(pDensity + q->fDensity); }
 #else
 #define ARTIFICIALVISCOSITY(visc_,dt_) { double hav=0.5*(ph+0.5*q->fBall);  /* h mean */ \
-                absmu = -hav*dvdotdr*a                                                  \
-    		    /(fDist2+0.01*hav*hav); /* mu multiply by a to be consistent with physical c */ \
-		if (absmu>p->mumax()) p->mumax()=absmu; /* mu terms for gas time step  */  \
-		if (absmu>q->mumax()) q->mumax()=absmu; \
-                visc_ = (ALPHA*(pc + q->c()) + BETA*2.*absmu); \
+		absmu = -hav*dvdotdr*a  \
+		    /(fDist2+0.01*hav*hav); /* mu multiply by a to be consistent with physical c */ \
+		if (absmu>p->mumax()) p->mumax()=absmu; /* mu terms for gas time step */ \
+		if (absmu>q->mumax()) q->mumax()=absmu;                 \
+		visc_ = (ALPHA*(pc + q->c()) + BETA*2*absmu);           \
 		dt_ = dtFacCourant*hav/(0.625*(pc + q->c())+0.375*visc_); \
-                visc_ = SWITCHCOMBINE(p,q)*visc_ * absmu/(pDensity + q->fDensity); }
+		visc_ = SWITCHCOMBINE(p,q)*visc_ \
+		    *absmu/(pDensity + q->fDensity); }
 #endif
-
-
 
     /* Force Calculation between particles p and q */
         DRHODTACTIVE( PACTIVE( p->fDivv_PdV -= rq/p->fDivv_Corrector/RHO_DIVV(pDensity,q->fDensity)*dvdotdr; )); 
@@ -207,15 +207,13 @@
         if (dvdotdr>=0.0) {
             dt = dtFacCourant*ph/(2*(pc > q->c() ? pc : q->c()));
             }
-        else {
-          ARTIFICIALVISCOSITY(visc,dt); 
-          PACTIVE( p->PdV() += rq*(0.5*visc)*dvdotdr;);
-          QACTIVE( q->PdV() += rp*(0.5*visc)*dvdotdr;);
-          PACTIVE( Accp += visc;);
-          QACTIVE( Accq += visc;);
-        }
-
-
+        else {  
+            ARTIFICIALVISCOSITY(visc,dt); /* Calculate Artificial viscosity terms */		
+            PACTIVE( p->PdV() += rq*(0.5*visc)*dvdotdr; );
+            QACTIVE( q->PdV() += rp*(0.5*visc)*dvdotdr; );
+            PACTIVE( Accp += visc; );
+            QACTIVE( Accq += visc; );
+            }
         PACTIVE( Accp *= rq*aFac; );/* aFac - convert to comoving acceleration */
         QACTIVE( Accq *= rp*aFac; );
         PACTIVE( p->treeAcceleration.x -= Accp * dx; );
