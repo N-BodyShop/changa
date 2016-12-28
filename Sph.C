@@ -613,9 +613,9 @@ void TreePiece::RestartEnergy(double dTuFac, // T to internal energy
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if (p->isGas()) {
-	    double T,E;
 #ifndef COOLING_NONE
 #ifndef COOLING_GRACKLE
+	    double T;
 	    T = p->u() / dTuFac;
             PERBARYON Y;
             CoolPARTICLEtoPERBARYON(cl, &Y, &p->CoolParticle());
@@ -738,8 +738,8 @@ void TreePiece::InitEnergy(double dTuFac, // T to internal energy
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS) && p->rung >= activeRung) {
-	    double T,E;
 #ifndef COOLING_NONE
+	    double T,E;
 	    T = p->u() / dTuFac;
 	    CoolInitEnergyAndParticleData(cl, &p->CoolParticle(), &E,
 					  p->fDensity, T, p->fMetals() );
@@ -771,9 +771,9 @@ void TreePiece::updateuDot(int activeRung,
 			   int bAll, // update all rungs below activeRung
 			   const CkCallback& cb)
 {
+#ifndef COOLING_NONE
     double dt; // time in seconds
     
-#ifndef COOLING_NONE
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS)
@@ -888,12 +888,13 @@ void DenDvDxSmoothParams::combSmoothCache(GravityParticle *p1,
 void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 				    pqSmoothNode *nnList)
 {
-  double ih2,ih, r2,rs,rs1,fDensity,fDist2, fNorm,fNorm1,vFac;
+  double ih2,ih, r2,rs,rs1,fDensity,fNorm,fNorm1,vFac;
 	double dvxdx, dvxdy, dvxdz, dvydx, dvydy, dvydz, dvzdx, dvzdy, dvzdz;
 	double dvx,dvy,dvz,dx,dy,dz,trace,grx,gry,grz;
 #ifdef CULLENALPHA
-	double R_CD, R_CDN;
-	double maxVSignal, divVq, signDivVq;
+	double R_CD, R_CDN;     ///< R in CD limiter, and
+                                ///  normalization for R.
+	double maxVSignal;      ///< Maximum signal velocity
         R_CD = 0.0; R_CDN = 0;  maxVSignal = 0.0;
 #endif
         double divvnorm = 0.0;
@@ -911,9 +912,9 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	dvzdx = 0; dvzdy = 0; dvzdz= 0;
 	grx = 0; gry = 0; grz= 0;
 
-    	qiActive = 0;
+	qiActive = 0;
 	for (i=0;i<nSmooth;++i) {
-		fDist2 = nnList[i].fKey;
+		double fDist2 = nnList[i].fKey;
 		r2 = fDist2*ih2;
 		q = nnList[i].p;
 		if(q == NULL)
@@ -1154,10 +1155,10 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
                                       double dResolveJeans,
                                       const CkCallback &cb)
 {
+#ifndef COOLING_NONE
     GravityParticle *p;
     double PoverRho;
     int i;
-#ifndef COOLING_NONE
     COOL *cl = dm->Cool;
 
     for(i=1; i<= myNumParticles; ++i) {
@@ -1335,13 +1336,13 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 #define PACTIVE(xxx) xxx
 #define QACTIVE(xxx) xxx
 #include "SphPressureTerms.h"
-	        }
+	            }
 		else {
 #undef QACTIVE
 #define QACTIVE(xxx) 
 #include "SphPressureTerms.h"
 		    }
-	    }
+	        }
 	    else if (q->rung >= activeRung) {
 #undef PACTIVE
 #define PACTIVE(xxx) 
