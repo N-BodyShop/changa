@@ -364,7 +364,7 @@ class AlphaOutputParams : public OutputParams
   virtual double dValue(GravityParticle *p)
   {
 #ifdef CULLENALPHA
-    if (TYPETest(p, TYPE_GAS))
+    if (p->isGas())
       return p->CullenAlpha();
     else
 #endif /* CULLENALPHA */
@@ -372,7 +372,12 @@ class AlphaOutputParams : public OutputParams
   }
   virtual Vector3D<double> vValue(GravityParticle *p)
   {CkAssert(0); return 0.0;}
-  virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+  virtual void setDValue(GravityParticle *p, double val) {
+#ifdef CULLENALPHA
+      if(p->isGas())
+          p->CullenAlpha() = val;
+#endif
+      }
   virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
   virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:

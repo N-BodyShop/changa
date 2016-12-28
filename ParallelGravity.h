@@ -454,6 +454,8 @@ class Main : public CBase_Main {
 	int bDumpFrame;
 	struct DumpFrameContext **df;
 	int bIsRestarting;
+        /// SPH Alpha has been read in.
+        int bHaveAlpha;
 	int bChkFirst;		/* alternate between 0 and 1 for checkpoint */
 	double dSimStartTime;   // Start time for entire simulation
 	int iStop;		/* indicate we're stopping the

@@ -189,6 +189,7 @@ Main::Main(CkArgMsg* m) {
 	_cache = true;
 	mainChare = thishandle;
 	bIsRestarting = 0;
+        bHaveAlpha = 0;
 	bChkFirst = 1;
 	dSimStartTime = CkWallTimer();
 
@@ -1256,6 +1257,7 @@ Main::Main(CkMigrateMessage* m) : CBase_Main(m) {
     args->argv = CmiCopyArgs(((CkArgMsg *) m)->argv);
     mainChare = thishandle;
     bIsRestarting = 1;
+    bHaveAlpha = 1;
     CkPrintf("Main(CkMigrateMessage) called\n");
     sorter = CProxy_Sorter::ckNew(0);
     }

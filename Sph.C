@@ -29,9 +29,10 @@ Main::initSph()
 	ckout << "Calculating densities/divv ...";
 	// The following smooths all GAS, and also marks neighbors of
 	// actives, and those who have actives as neighbors
-	// Setting dDelta to zero to initialize particle cullen & dehnen alpha
+        // Starting is true
 	DenDvDxSmoothParams pDen(TYPE_GAS, 0, param.csm, dTime, 0,
-				 param.bConstantDiffusion, 0.0, param.dConstAlphaMax);
+				 param.bConstantDiffusion, 1, bHaveAlpha,
+                                 param.dConstAlphaMax);
 	double startTime = CkWallTimer();
 	double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
@@ -424,6 +425,19 @@ Main::restartGas()
           else
               CkError("WARNING: no massform file, or wrong format for restart\n");
           }
+#ifdef CULLENALPHA
+      if(nTotalSPH > 0) {
+          nGas = ncGetCount(basefilename + "/gas/alpha");
+          if(nGas == nTotalSPH) {
+              AlphaOutputParams pAlphaOut(basefilename, 6, 0.0);
+              treeProxy.readFloatBinary(pAlphaOut, param.bParaRead,
+                                        CkCallbackResumeThread());
+              bHaveAlpha = 1;
+              }
+          else
+              CkError("WARNING: no alpha file, or wrong format for restart\n");
+          }
+#endif
 #ifndef COOLING_NONE
       if(param.bGasCooling && nTotalSPH > 0) {
           bool bFoundCoolArray = false;
@@ -521,6 +535,15 @@ Main::restartGas()
             treeProxy.readTipsyArray(pMFOut, CkCallbackResumeThread());
             }
         }
+#ifdef CULLENALPHA
+        if(arrayFileExists(basefilename + ".alpha", nTotalParticles)) {
+            AlphaOutputParams pAlphaOut(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pAlphaOut, CkCallbackResumeThread());
+            bHaveAlpha = 1;
+            }
+        else
+            CkError("WARNING: no alpha file, or wrong format for restart\n");
+#endif
 #ifndef COOLING_NONE
     if(param.bGasCooling) {
         bool bFoundCoolArray = false;
@@ -622,7 +645,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	ckout << "Calculating densities/divv on Actives ...";
 	// This also marks neighbors of actives
 	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 1,
-				 param.bConstantDiffusion, param.dDelta, param.dConstAlphaMax);
+				 param.bConstantDiffusion, 0, 0,
+                                 param.dConstAlphaMax);
 	double startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
@@ -641,7 +665,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// This does neighbors (but not actives),  It also does no
 	// additional marking
 	DenDvDxNeighborSmParams pDenN(TYPE_GAS, activeRung, param.csm, dTime,
-				      param.bConstantDiffusion, param.dDelta, param.dConstAlphaMax);
+				      param.bConstantDiffusion,
+                                      param.dConstAlphaMax);
 	startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDenN, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
@@ -653,7 +678,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// The following smooths all GAS, and also marks neighbors of
 	// actives, and those who have actives as neighbors.
 	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 0,
-				 param.bConstantDiffusion, param.dDelta, param.dConstAlphaMax);
+				 param.bConstantDiffusion, 0, 0,
+                                 param.dConstAlphaMax);
 	double startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
@@ -866,14 +892,9 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	double dvxdx, dvxdy, dvxdz, dvydx, dvydy, dvydz, dvzdx, dvzdy, dvzdz;
 	double dvx,dvy,dvz,dx,dy,dz,trace,grx,gry,grz;
 #ifdef CULLENALPHA
-	double R_CD, R_CDN, curTimeStep;
+	double R_CD, R_CDN;
 	double maxVSignal, divVq, signDivVq;
         R_CD = 0.0; R_CDN = 0;  maxVSignal = 0.0;
-        curTimeStep = RungToDt(dDelta, p->rung);
-        if (dDelta == 0){
-          p->TimeDivV() = dTime;
-          p->dvds_old() = p->dvds();
-        }
 #endif
         double divvnorm = 0.0;
 	GravityParticle *q;
@@ -971,9 +992,6 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
       else p->diff() = fNorm1*0.25*p->fBall*p->fBall*sqrt(2*(sxx*sxx + syy*syy + szz*szz + 2*(sxy*sxy + sxz*sxz + syz*syz)));
 #endif
 
-	
-        /* keep Norm positive consistent w/ std 1/rho norm */
-        //        fNorm1 = (divvnorm != 0 ? 3.0/fabs(divvnorm) : 0.0);
         p->divv() =  fNorm1*trace + 3.0*H; /* physical */
         p->curlv().x = fNorm1*(dvzdy - dvydz);
         p->curlv().y = fNorm1*(dvxdz - dvzdx);
@@ -1011,7 +1029,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         p->TimeDivV() = dTime;
         // If we are initializing the simulation, the current time step is zero and we can't compute the time
         // derivative of the velocity divergence in the Cullen & Dehnen formulation
-        if (deltaT == 0){
+        if (bStarting && !bHaveAlpha){
           // If the divergence of the velocity of the particle is negative and the speed of sound is nonzero
           // we set p->CullenAlpha() using the M&M prescription. Otherwise p->CullenAlpha() is zero
           if ((p->divv() < 0) && (p->c() > 0)){
@@ -1022,7 +1040,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
           p->CullenAlpha() = alphaLoc;
         }
         // If the current time step > 0
-        else {
+        else if(!bHaveAlpha) {
           if (p->dvds() < 0 && divVDot < 0){ // Flow is converging and
                                              // convergence is increasing
             double OneMinusR_CD = (R_CDN > 0 ? 1-(R_CD/R_CDN) : 0);

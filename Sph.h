@@ -18,9 +18,11 @@ class DenDvDxSmoothParams : public SmoothParams
     double a, H; // Cosmological parameters
     int bActiveOnly;
     int bConstantDiffusion;
-    double dDelta;
-    double dAlphaMax;
     double dTime; 
+    double dAlphaMax;           ///< Maximum SPH alpha
+    int bStarting;              ///< We are starting (or restarting)
+                                ///  the simulation
+    int bHaveAlpha;             ///< Alpha has been read in.
 
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
@@ -36,15 +38,21 @@ class DenDvDxSmoothParams : public SmoothParams
     /// @param _iType Type of particle to operate on
     /// @param am Active rung
     /// @param csm Cosmology information
-    /// @param dTime Current time
+    /// @param _dTime Current time
     /// @param _bActiveOnly Only operate on active particles.
+    /// @param _bConstantDiffusion Fixed diffusion constant
+    /// @param _bStarting Simulation is starting
+    /// @param _bHaveAlpha No need to calculate alpha
+    /// @param _dAlphaMax Maximum SPH alpha
     DenDvDxSmoothParams(int _iType, int am, CSM csm, double _dTime,
-			int _bActiveOnly, int _bConstantDiffusion, double _dDelta, double _dAlphaMax) {
+			int _bActiveOnly, int _bConstantDiffusion,
+                        int _bStarting, int _bHaveAlpha, double _dAlphaMax) {
 	iType = _iType;
 	activeRung = am;
 	bActiveOnly = _bActiveOnly;
 	bConstantDiffusion = _bConstantDiffusion;
-	dDelta = _dDelta;
+        bStarting = _bStarting;
+        bHaveAlpha = _bHaveAlpha;
 	dAlphaMax = _dAlphaMax;
         dTime = _dTime;
 	if(csm->bComove) {
@@ -65,7 +73,8 @@ class DenDvDxSmoothParams : public SmoothParams
 	p|H;
 	p|bActiveOnly;
 	p|bConstantDiffusion;
-	p|dDelta;
+	p|bStarting;
+	p|bHaveAlpha;
 	p|dAlphaMax;
 	}
     };
@@ -93,9 +102,14 @@ class DenDvDxNeighborSmParams : public DenDvDxSmoothParams
     /// @param am Active rung
     /// @param csm Cosmology information
     /// @param dTime Current time
+    /// @param bConstantDiffusion Fixed diffusion constant
+    /// @param dAlphaMax Maximum SPH alpha
+    /// This calls the DenDvDx constructor, and we assume bActiveOnly,
+    /// bStarting, and bHaveAlpha are not set.
     DenDvDxNeighborSmParams(int _iType, int am, CSM csm, double dTime,
-			    int bConstDiffusion, double dDelta, double dAlphaMax)
-      : DenDvDxSmoothParams(_iType, am, csm, dTime, 0, bConstDiffusion, dDelta, dAlphaMax) {}
+			    int bConstDiffusion, double dAlphaMax)
+      : DenDvDxSmoothParams(_iType, am, csm, dTime, 0, bConstDiffusion,
+                            0, 0, dAlphaMax) {}
     PUPable_decl(DenDvDxNeighborSmParams);
     DenDvDxNeighborSmParams(CkMigrateMessage *m) : DenDvDxSmoothParams(m) {}
     virtual void pup(PUP::er &p) {
