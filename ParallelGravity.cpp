@@ -305,7 +305,7 @@ Main::Main(CkArgMsg* m) {
 		    "csound","enable/disable sound speed outputs = -csound");
 	param.nSmooth = 32;
 	prmAddParam(prm, "nSmooth", paramInt, &param.nSmooth,
-		    sizeof(int),"nsm", "Number of neighbors for smooth");
+		    sizeof(int),"s", "Number of neighbors for smooth");
 	param.bDoGravity = 1;
 	prmAddParam(prm, "bDoGravity", paramBool, &param.bDoGravity,
 		    sizeof(int),"g", "Enable Gravity");
@@ -694,7 +694,7 @@ Main::Main(CkArgMsg* m) {
 		    sizeof(int),"f", "Enable prefetching in the cache (default: ON)");
 	cacheSize = 100000000;
 	prmAddParam(prm, "nCacheSize", paramInt, &cacheSize,
-		    sizeof(int),"s", "Size of cache (IGNORED)");
+		    sizeof(int),"cs", "Size of cache (IGNORED)");
 	domainDecomposition=SFC_peano_dec;
         peanoKey=0;
 	prmAddParam(prm, "nDomainDecompose", paramInt, &domainDecomposition,
