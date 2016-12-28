@@ -66,8 +66,7 @@ class extraSPHData
     double _fBallMax;		/* Radius for inverse neighbor finding */
 #ifdef CULLENALPHA
     double _CullenAlpha;        /* Alpha from Cullen & Dehnen 2010 */
-    double _TimeDivV;           /* Time at which OldDivV was last updated */
-    double _OldDivV;            /* Last active divv */
+    double _TimeDivV;           /* Time at which dvds was last updated */
     double _dvds;
     double _dvdsOnSFull;        ///< dvds for use in the Cullen R calculation
     double _dvds_old;           ///< Save dvds(OnSFull) for R calculation
@@ -111,7 +110,6 @@ class extraSPHData
 #ifdef CULLENALPHA
     inline double& CullenAlpha() {return _CullenAlpha;}
     inline double& TimeDivV() {return _TimeDivV;}
-    inline double& OldDivV() {return _OldDivV;}
     inline double& dvds() {return _dvds;}
     inline double& dvdsOnSFull() {return _dvdsOnSFull;}
     inline double& dvds_old() {return _dvds_old;}
@@ -152,7 +150,6 @@ class extraSPHData
 #ifdef CULLENALPHA
         p | _CullenAlpha;
         p | _TimeDivV;
-        p | _OldDivV;
         p | _dvds;
         p | _dvdsOnSFull;
         p | _dvds_old;
@@ -324,7 +321,6 @@ public:
 #ifdef CULLENALPHA
         inline double& CullenAlpha() {IMAGAS; return (((extraSPHData*)extraData)->CullenAlpha());}
         inline double& TimeDivV() {IMAGAS; return (((extraSPHData*)extraData)->TimeDivV());}
-        inline double& OldDivV() {IMAGAS; return (((extraSPHData*)extraData)->OldDivV());}
         inline double& dvds() {IMAGAS; return (((extraSPHData*)extraData)->dvds());}
         inline double& dvdsOnSFull() {IMAGAS; return (((extraSPHData*)extraData)->dvdsOnSFull());}
         inline double& dvds_old() {IMAGAS; return (((extraSPHData*)extraData)->dvds_old());}
@@ -452,7 +448,6 @@ class ExternalSmoothParticle {
 #ifdef CULLENALPHA
   double CullenAlpha;
   double TimeDivV;
-  double OldDivV;
   double dvds;
   double dvds_old;
 #endif
@@ -496,7 +491,6 @@ class ExternalSmoothParticle {
 #ifdef CULLENALPHA
 	      CullenAlpha = p->CullenAlpha();
               TimeDivV = p->TimeDivV();
-              OldDivV = p->OldDivV();
               dvds = p->dvds();
               dvds_old = p->dvds_old();
 #endif
@@ -545,7 +539,6 @@ class ExternalSmoothParticle {
 #ifdef CULLENALPHA
 	  tmp->CullenAlpha() = CullenAlpha;
           tmp->TimeDivV() = TimeDivV;
-          tmp->OldDivV() = OldDivV;
           tmp->dvds() = dvds;
           tmp->dvds_old() = dvds_old;
 #endif
@@ -596,7 +589,6 @@ class ExternalSmoothParticle {
 #ifdef CULLENALPHA
     p | CullenAlpha;
     p | TimeDivV;
-    p | OldDivV;
     p | dvds;
     p | dvds_old;
 #endif
