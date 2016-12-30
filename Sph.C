@@ -855,6 +855,13 @@ int MarkSmoothParams::isSmoothActive(GravityParticle *p)
     return (TYPETest(p, iType));
     }
 
+/// A remote neighbor particle is active.
+void MarkSmoothParams::combSmoothCache(GravityParticle *p1,
+                                       ExternalSmoothParticle *p2)
+{
+    p1->iType |= p2->iType;
+}
+
 void DenDvDxSmoothParams::initSmoothParticle(GravityParticle *p)
 {
     TYPEReset(p, TYPE_NbrOfACTIVE);
