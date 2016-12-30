@@ -1653,7 +1653,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	  }
       if(bSphStep && TYPETest(p, TYPE_GAS)) {
 	  double dt;
-	  double ph = sqrt(0.25*p->fBall*p->fBall);
+	  double ph = 0.5*p->fBall;
 #ifdef DTADJUST
 	  dt = p->dtNew();
 	  p->dtNew() = FLT_MAX;
@@ -1670,6 +1670,25 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
           dTCourant = dt;
 	  if(dt < dTIdeal)
 	      dTIdeal = dt;
+
+#ifdef DTADJUST
+          {
+              double uTotDot, dtExtrap;
+    
+#ifndef COOLING_NONE
+              uTotDot = p->uDot();
+#else
+              uTotDot = p->PdV();
+#endif
+              if (uTotDot > 0) { // Extrapolate Courant time to end of
+                                 // timestep.
+                  dtExtrap = (dEtaCourant*dCosmoFac*2/1.6)
+                      *sqrt(p->fBall*p->fBall*0.25
+                            /(4*(p->c()*p->c() + GAMMA_NONCOOL*uTotDot*dTIdeal)));
+                  if (dtExtrap < dTIdeal) dTIdeal = dtExtrap;
+              }
+          }
+#endif
 
 	  if (dEtauDot > 0.0 && p->PdV() < 0.0) { /* Prevent rapid adiabatic cooling */
 	      assert(p->PoverRho2() > 0.0);

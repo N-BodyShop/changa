@@ -1136,7 +1136,7 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1,
                 double dt;
                 if(uDot > 0.0)
                     dt = dtFacCourant*0.5*p->fBall
-                        /sqrt(4.0*p->c()*p->c() + gamma*uDot*p->dt);
+                        /sqrt(4.0*(p->c()*p->c() + GAMMA_NONCOOL*uDot*p->dt));
                 else
                     dt = dtFacCourant*0.5*p->fBall /(2.0*p->c());
                 // Update to scare the neighbors.
@@ -1179,7 +1179,7 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
                 double dt;
                 if(uDot > 0.0)
                     dt = dtFacCourant*0.5*p->fBall
-                        /sqrt(4.0*p->c()*p->c() + gamma*uDot*p->dt);
+                        /sqrt(4.0*(p->c()*p->c() + GAMMA_NONCOOL*uDot*p->dt));
                 else
                     dt = dtFacCourant*0.5*p->fBall /(2.0*p->c());
                 // Update to scare the neighbors.

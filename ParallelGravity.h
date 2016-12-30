@@ -409,6 +409,7 @@ inline double PoverRhoFloorJeans(double dResolveJeans, GravityParticle *p)
 }
 
 const double GAMMA_JEANS = 2.0;
+const double GAMMA_NONCOOL = 5.0/3.0;
 
 
 /// @brief Overall flow control of the simulation.
