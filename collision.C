@@ -191,7 +191,7 @@ void TreePiece::getCollInfo(const CkCallback& cb)
             ci[0].acceleration = p->treeAcceleration;
             ci[0].w = p->w;
             ci[0].mass = p->mass;
-            ci[0].radius = p->soft/2.;
+            ci[0].radius = p->soft*2.;
             ci[0].dtCol = p->dtCol;
             ci[0].iOrder = p->iOrder;
             ci[0].iOrderCol = p->iOrderCol;
@@ -211,7 +211,7 @@ void TreePiece::getCollInfo(const CkCallback& cb)
                 ci[1].acceleration = p->treeAcceleration;
                 ci[1].w = p->w;
                 ci[1].mass = p->mass;
-                ci[1].radius = p->soft/2.;
+                ci[1].radius = p->soft*2.;
                 ci[1].dtCol = p->dtCol;
                 ci[1].iOrder = p->iOrder;
                 ci[1].iOrderCol = p->iOrderCol;
@@ -245,7 +245,7 @@ void TreePiece::getCollInfo(int iOrder, const CkCallback& cb)
             ci.acceleration = p->treeAcceleration;
             ci.w = p->w;
             ci.mass = p->mass;
-            ci.radius = p->soft/2.;
+            ci.radius = p->soft*2.;
             ci.dtCol = p->dtCol;
             ci.iOrder = p->iOrder;
             ci.iOrderCol = p->iOrderCol;
@@ -467,7 +467,7 @@ void Collision::doCollision(GravityParticle *p, ColliderInfo &c, int bMerge)
     // the particles apart along their axis of separation
     if (c.dtCol < 0) {
         Vector3D<double> dx = p->position - c.position;
-        double overlap = dx.length()-(p->soft/2.)-c.radius;
+        double overlap = dx.length()-(p->soft*2.)-c.radius;
         p->position -=  c.mass/(p->mass+c.mass)*overlap*dx.normalize();
         return;
         }
@@ -482,15 +482,15 @@ void Collision::doCollision(GravityParticle *p, ColliderInfo &c, int bMerge)
     double radNew;
     if (bMerge) {
         Vector3D<double> posNew, aNew;
-        mergeCalc(p->soft/2., p->mass, pAdv, p->velocity, p->treeAcceleration,
+        mergeCalc(p->soft*2., p->mass, pAdv, p->velocity, p->treeAcceleration,
                   p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
         p->position = posNew;
         p->treeAcceleration = aNew;
-        p->soft = radNew*2.;
+        p->soft = radNew/2.;
         p->mass += c.mass;
         }
     else {
-        bounceCalc(p->soft/2., p->mass, pAdv, p->velocity, p->w, &vNew, &wNew, c);
+        bounceCalc(p->soft*2., p->mass, pAdv, p->velocity, p->w, &vNew, &wNew, c);
         }
     p->velocity = vNew;
     p->w = wNew;
@@ -608,7 +608,7 @@ void Collision::bounceCalc(double r, double m, Vector3D<double> pos,
 void CollisionSmoothParams::initSmoothParticle(GravityParticle *p)
 {
     double v = p->velocity.length();
-    p->fBall = coll.dBallFac*dDelta*v + 2*p->soft/2.;
+    p->fBall = coll.dBallFac*dDelta*v + 4.*p->soft;
     }
 
 void CollisionSmoothParams::initSmoothCache(GravityParticle *p1)
@@ -649,7 +649,7 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     p->iOrderCol = -1;
     if (TYPETest(p, TYPE_DELETED)) return;
     if (bWall) {
-        double dt = (dWallPos - p->position[2] - (p->soft/2.))/p->velocity[2];
+        double dt = (dWallPos - p->position[2] - (p->soft*2.))/p->velocity[2];
         if (dt > 0. && dt < dDelta) {
             p->dtCol = dt;
             p->iOrderCol = -2;
@@ -667,7 +667,7 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         Vector3D<double> dx = p->position - q->position;
         Vector3D<double> vRel = p->velocity - q->velocity;
 
-        sr = (p->soft/2.) + (q->soft/2.);
+        sr = (p->soft*2.) + (q->soft*2.);
         rdotv = dot(dx, vRel);
         vRel2 = vRel.lengthSquared();
         dr2 = dx.lengthSquared() - sr*sr;
