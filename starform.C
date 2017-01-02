@@ -378,6 +378,8 @@ void TreePiece::flushStarLog(const CkCallback& cb) {
 
     if(verbosity > 3)
 	ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
+    if (dm == NULL)
+        dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
     CmiLock(dm->lockStarLog);
     dm->starLog->flush();
     CmiUnlock(dm->lockStarLog);

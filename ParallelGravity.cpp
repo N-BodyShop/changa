@@ -2308,14 +2308,14 @@ Main::restart(CkCheckpointStatusMsg *msg)
   } else {
     CkPrintf("Not Using CkLoop %d\n", param.bUseCkLoopPar);
   }
-	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 	if(param.bGasCooling || param.bStarForm) 
 	    initCooling();
 	if(param.bStarForm)
 	    initStarLog();
         if(param.bStarForm || param.bFeedback)
             treeProxy.initRand(param.stfm->iRandomSeed, CkCallbackResumeThread());
-	mainChare.initialForces();
+        DumpFrameInit(dTime, 0.0, bIsRestarting);
+        doSimulation();
 	}
     else {
         if(msg->status != CK_CHECKPOINT_SUCCESS)
@@ -2482,27 +2482,7 @@ Main::initialForces()
   /* 
    ** Dump Frame Initialization
    */
-  // Currently for restarts, we have to set iStartStep.  Once we have more
-  // complete restarts, this may be changed.
-  if(DumpFrameInit(dTime, 0.0, param.iStartStep > 0)
-     && df[0]->dDumpFrameStep > 0) {
-      /* Bring frame count up to correct place for restart. */
-      while(df[0]->dStep + df[0]->dDumpFrameStep < param.iStartStep) {
-	  df[0]->dStep += df[0]->dDumpFrameStep;
-	  df[0]->nFrame++;
-	  }
-      // initialize the rest of the dumpframes
-
-      if (param.iDirector > 1) {
-	  int j;
-	  for(j=0; j < param.iDirector; j++) {
-	      df[j]->dStep = df[0]->dStep;
-	      df[j]->dDumpFrameStep = df[0]->dDumpFrameStep;
-	      df[j]->nFrame = df[0]->nFrame;
-	      } 
-	  }
-      }
-     
+  DumpFrameInit(dTime, 0.0, param.iStartStep > 0);
 
   if (param.bLiveViz > 0) {
     ckout << "Initializing liveViz module..." << endl;
@@ -3542,6 +3522,22 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 
 		if(!bRestart)
 		    DumpFrame(dTime, dStep );
+                if(df[0]->dDumpFrameStep > 0) {
+                    /* Bring frame count up to correct place for restart. */
+                    while(df[0]->dStep + df[0]->dDumpFrameStep < param.iStartStep) {
+                        df[0]->dStep += df[0]->dDumpFrameStep;
+                        df[0]->nFrame++;
+                        }
+                    // initialize the rest of the dumpframes
+                    if (param.iDirector > 1) {
+                        int j;
+                        for(j=0; j < param.iDirector; j++) {
+                            df[j]->dStep = df[0]->dStep;
+                            df[j]->dDumpFrameStep = df[0]->dDumpFrameStep;
+                            df[j]->nFrame = df[0]->nFrame;
+                            }
+                        }
+                    }
                 return 1;
 		}
 	else { return 0; }
