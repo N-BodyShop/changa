@@ -876,7 +876,8 @@ void DenDvDxSmoothParams::initTreeParticle(GravityParticle *p)
 void DenDvDxSmoothParams::postTreeParticle(GravityParticle *p)
 {
 #ifdef CULLENALPHA
-   p->dvds_old() = p->dvdsOnSFull();
+    if(p->isGas())
+	p->dvds_old() = p->dvdsOnSFull();
 #endif
 }
 
@@ -1081,7 +1082,8 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 void DenDvDxNeighborSmParams::postTreeParticle(GravityParticle *p)
 {
 #ifdef CULLENALPHA
-   p->dvds_old() = p->dvdsOnSFull();
+    if(p->isGas())
+	p->dvds_old() = p->dvdsOnSFull();
 #endif
 }
 
