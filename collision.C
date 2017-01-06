@@ -377,7 +377,7 @@ void Collision::checkMerger(ColliderInfo &c1, ColliderInfo &c2)
     c2.position -= cAdjust;
 
     double Mtot = c1.mass + c2.mass;
-    double vEsc = sqrt(2.*Mtot/radNew);
+    double vEsc = sqrt(2.*Mtot/(c1.radius + c2.radius));
     double wMax = sqrt(Mtot/(radNew*radNew*radNew));
 
     double vRel = (c1.velocity - c2.velocity).length();
