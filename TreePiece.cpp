@@ -3622,6 +3622,11 @@ void TreePiece::doAllBuckets(){
 }
 
 void TreePiece::nextBucket(dummyMsg *msg){
+#ifdef SPCUDA
+  if(!(ewaldqueued)){ /* &&bEwald */
+    if(dm->gputransfer){thisProxy[thisIndex].EwaldGPU();ewaldqueued = true;}
+  }
+#endif
   unsigned int i=0;
 
   int currentBucket = sLocalGravityState->currentBucket;
@@ -3826,12 +3831,12 @@ void TreePiece::calculateGravityLocal() {
 }
 
 void TreePiece::calculateEwald(dummyMsg *msg) {
-#ifdef SPCUDA
-  h_idata = (EwaldData*) malloc(sizeof(EwaldData)); 
-
+#ifdef SPCUDA 
   CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex); 
-  EwaldHostMemorySetup(h_idata, myNumParticles, nEwhLoop); 
-  EwaldGPU();
+  ewaldqueued = false;
+  if(!(ewaldqueued)){
+    if(dm->gputransfer){thisProxy[thisIndex].EwaldGPU();ewaldqueued = true;}
+  }
 #else
 
   bool useckloop = false;
@@ -4984,7 +4989,12 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   CkPrintf("[%d]sending message to commence local gravity calculation\n", thisIndex);
 #endif
 
+  ewaldqueued = true; /*Notes: */
+  /*This will be set to false when we are ready to call EwaldGPU()*/
+  /*It will remain false until Ewald data is queued for GPU transfer*/
+  /*It is set back to true after EwaldHost returns (data is queued for GPU transfer)*/
   if (bEwald) thisProxy[thisIndex].EwaldInit();
+   
 #if defined CUDA
   // ask datamanager to serialize local trees
   // prefetch can occur concurrently with this, 
