@@ -476,6 +476,7 @@ void Collision::doCollision(GravityParticle *p, ColliderInfo &c, int bMerge)
     Vector3D<double> pAdjust = p->velocity*p->dtCol;
     Vector3D<double> cAdjust = c.velocity*c.dtCol;
     Vector3D<double> pAdv = p->position + pAdjust;
+    p->position += pAdjust;
     c.position += cAdjust;    
 
     Vector3D<double> vNew, wNew;
@@ -496,7 +497,13 @@ void Collision::doCollision(GravityParticle *p, ColliderInfo &c, int bMerge)
     p->w = wNew;
 
     // Revert particle positions back to beginning of step
-    c.position -= cAdjust;
+    if (bMerge) {
+        p->position -= p->velocity*p->dtCol;
+        }
+    else {
+        p->position -= pAdjust;
+        c.position -= cAdjust;
+        }
     }
 
 
@@ -672,6 +679,7 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         vRel2 = vRel.lengthSquared();
         dr2 = dx.lengthSquared() - sr*sr;
         D = rdotv*rdotv - dr2*vRel2;
+        // If D <= 0, continue?
         D = sqrt(D);
         dt = (-rdotv - D)/vRel2;
 
