@@ -78,6 +78,9 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     param.bDoGas = 1;
     //bUseStoch = param.stfm->bUseStoch;
     dDeltaStarForm = param.stfm->dDeltaStarForm;
+#ifndef STOCH
+    if(param.bUseStoch) CkAbort("Stochastic IMF requested but not compiled in");
+#endif
     dSecUnit = param.dSecUnit;
     dGmPerCcUnit = param.dGmPerCcUnit;
     dGmUnit = param.dMsolUnit*MSOLG;

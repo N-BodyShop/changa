@@ -47,7 +47,7 @@ class Stfm {
     };
 
 inline void Stfm::pup(PUP::er &p) {
-    p|bUseStoch;
+    //p|bUseStoch;
     p|dDeltaStarForm;
     p|iStarFormRung;
     p|iRandomSeed;

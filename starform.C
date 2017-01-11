@@ -57,9 +57,9 @@ void Stfm::AddParams(PRM prm)
     prmAddParam(prm,"dDeltaStarForm", paramDouble, &dDeltaStarForm,
 		sizeof(double), "dDeltaStarForm",
 		"<Minimum SF timestep in years> = 1e6");
-    bUseStoch=1;
-    prmAddParam(prm, "bUseStoch", paramInt, &bUseStoch,
-        sizeof(double), "usestoch", "<Enable stochastic IMF = 1>");
+    //bUseStoch=1;
+    //prmAddParam(prm, "bUseStoch", paramInt, &bUseStoch,
+    //    sizeof(double), "usestoch", "<Enable stochastic IMF = 1>");
     iStarFormRung = 0;
     prmAddParam(prm,"iStarFormRung", paramInt, &iStarFormRung,
 		sizeof(int), "iStarFormRung", "<Star Formation Rung> = 0");
@@ -98,6 +98,7 @@ void Stfm::CheckParams(PRM prm, Parameters &param)
 		
 #include "physconst.h"
 
+    bUseStoch = param.feedback->bUseStoch;
     dSecUnit = param.dSecUnit;
     dGmPerCcUnit = param.dGmPerCcUnit;
     dGmUnit = param.dMsolUnit*MSOLG;
@@ -106,9 +107,6 @@ void Stfm::CheckParams(PRM prm, Parameters &param)
     /* convert to system units */
     dPhysDenMin *= MHYDR/dGmPerCcUnit;
     dDeltaStarForm *= SECONDSPERYEAR/param.dSecUnit;
-#ifndef STOCH
-    if(bUseStoch) CkAbort("Stochastic IMF requested but not compiled in");
-#endif
 
     double testDelta;
     for(testDelta = param.dDelta;
@@ -321,8 +319,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     *  You end up with an array of individual high mass stars and
     * a normalization constant for the continuous, low mass IMF
     */
-    //if(param.bUseStoch){
-#ifdef STOCH
+    if(bUseStoch){
         /* Setting all high mass stars to default (0) */
         for(int i;i<12;i++){
             starp->rgfHMStars(i)=0;
@@ -369,8 +366,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
         }
         double dTotLowMass=imf->CumMass(0.0)-imf->CumMass(8.0);
         starp->fLowNorm()=(dDeltaM-dSumHMStars)/dTotLowMass;
-    //}
-#endif
+    }
 
 
     p->mass -= dDeltaM;
