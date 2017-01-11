@@ -140,19 +140,12 @@ void Main::StellarFeedback(double dTime, double dDelta)
     delete msgFeedback;
     CkReductionMsg *msgChk;
     treeProxy.massMetalsEnergyCheck(1, CkCallbackResumeThread((void*&)msgChk));
-    double tFB = CkWallTimer() - startTime;
-    // Overload tAdjust with FB stellar evolution
-    timings[PHASE_FEEDBACK].tAdjust += tFB;
     
-    startTime = CkWallTimer();
     if(verbosity)
       CkPrintf("Distribute Stellar Feedback ... ");
     // Need to build tree since we just did addDelParticle.
     //
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-    double tTB = CkWallTimer() - startTime;
-    timings[PHASE_FEEDBACK].tTBuild += tTB;
-    startTime = CkWallTimer();
     DistStellarFeedbackSmoothParams pDSFB(TYPE_GAS, 0, param.csm, dTime, 
 					  param.dConstGamma, param.feedback);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
@@ -160,9 +153,8 @@ void Main::StellarFeedback(double dTime, double dDelta)
 			  dfBall2OverSoft2, CkCallbackResumeThread());
     treeProxy.finishNodeCache(CkCallbackResumeThread());
 
-    double tDFB = CkWallTimer() - startTime;
-    timings[PHASE_FEEDBACK].tuDot += tDFB; // Overload tuDot for feedback.
-    CkPrintf("Stellar Feedback Calculated, Wallclock %f secs\n", tFB);
+    CkPrintf("Stellar Feedback Calculated, Wallclock %f secs\n",
+	     CkWallTimer() - startTime);
 
     CkReductionMsg *msgChk2;
     treeProxy.massMetalsEnergyCheck(0, CkCallbackResumeThread((void*&)msgChk2));
@@ -244,10 +236,17 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     FBEffects fbEffects;
     // Particle properties that will be sent to feedback
     // methods in normal units (M_sun + seconds)
-    SFEvent sfEvent(p->fMassForm()*dGmUnit/MSOLG, 
-		    p->fTimeForm()*dSecUnit/SECONDSPERYEAR,
-		    p->fStarMetals(), p->fStarMFracIron(),
-		    p->fStarMFracOxygen());
+    if(bUseStoch){
+        SFEvent sfEvent(p->fMassForm()*dGmUnit/MSOLG, 
+                p->fTimeForm()*dSecUnit/SECONDSPERYEAR,
+                p->fStarMetals(), p->fStarMFracIron(),
+                p->fStarMFracOxygen(), p->fLowNorm(), p->rgfHMStars());
+    } else {
+        SFEvent sfEvent(p->fMassForm()*dGmUnit/MSOLG, 
+                p->fTimeForm()*dSecUnit/SECONDSPERYEAR,
+                p->fStarMetals(), p->fStarMFracIron(),
+                p->fStarMFracOxygen());
+    }
 
     double dSNIaMassStore=0.0;  /* Stores mass loss of Ia so as not to 
 				   double count it in wind feedback */
@@ -473,13 +472,6 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
 	}
     if(fNorm_u == 0.0) {
         CkError("Got %d heavies: no feedback\n", nHeavy);
-        CkError("WARNING: lonely star skips feedback of mass %g\n", p->fMSN());
-        p->mass += p->fMSN(); // mass goes back into star.
-        // We could self-enrich to conserve metals, but that could do
-        // funny things to the mass metalicity relation.
-        // Also prevent any cooling shut-off.
-        p->fNSN() = 0.0;
-        return;
 	}
 	    
     CkAssert(fNorm_u > 0.0);  	/* be sure we have at least one neighbor */
@@ -673,9 +665,10 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 #else
 	    weight = rs*fNorm_u*q->mass;
 #endif
-	    q->fESNrate() += weight*p->fStarESNrate();
+	    q->fESNrate() += weight*p->fESNrate();
+	    /*		printf("SNTEST: %d %g %g %g %g\n",q->iOrder,weight,sqrt(q->r[0]*q->r[0]+q->r[1]*q->r[1]+q->r[2]*q->r[2]),q->fESNrate,q->fDensity);*/
 	    
-	    if ( p->fStarESNrate() > 0.0 && fb.bSNTurnOffCooling && 
+	    if ( p->fESNrate() > 0.0 && fb.bSNTurnOffCooling && 
 		 (fBlastRadius*fBlastRadius >= fDist2)){
 		q->fTimeCoolIsOffUntil() = max(q->fTimeCoolIsOffUntil(),
 					       dTime + fShutoffTime);       

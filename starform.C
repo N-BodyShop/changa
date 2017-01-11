@@ -11,6 +11,7 @@
 #include "starform.h"
 #include "smooth.h"
 #include "Sph.h"
+#include "imf.h"
 
 ///
 /// @brief initialize parameters for star formation
@@ -151,8 +152,6 @@ void Main::FormStars(double dTime, double dDelta)
 #else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
-    double tTB = CkWallTimer() - startTime;
-    timings[PHASE_FEEDBACK].tTBuild += tTB;
     DensitySmoothParams pDen(TYPE_GAS, 0);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
     treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
@@ -180,10 +179,8 @@ void Main::FormStars(double dTime, double dDelta)
     treeProxy.finishNodeCache(CkCallbackResumeThread());
 
     addDelParticles();
-    double tSF = CkWallTimer() - startTime;
-    timings[PHASE_FEEDBACK].tGrav += tSF; // Overload meaning of tGrav
-                                          // for SF/Feedback
-    CkPrintf("Star Formation Calculated, Wallclock %f secs\n", tSF);
+    CkPrintf("Star Formation Calculated, Wallclock %f secs\n",
+	     CkWallTimer() - startTime);
     }
 
 ///
@@ -310,6 +307,60 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     starp->fTimeForm() = dTime;
     /* iOrder gets reassigned in NewParticle() */
     starp->iGasOrder() = starp->iOrder;
+
+    /* Stochastically populating from IMF up to target mass 
+    *  You end up with an array of individual high mass stars and
+    * a normalization constant for the continuous, low mass IMF
+    */
+    if(bUseStoch){
+        /* Setting all high mass stars to default (0) */
+        for(int i;i<12;i++){
+            starp->rgfHMStars(i)=0;
+            }
+        IMF *imf;
+        /* Stochastically populate star particle
+        * Keep running tally of total mass, but only keep high mass stars. Stars
+        * are drawn from the IMF until the running tally exceeds the dDeltaM, then
+        * the last star is kept only if the total is closer to dDeltaM with it
+        */
+        int iArrayLoc = 0;
+        double mass_tally = 0.0;
+        // Sum of only HMStars, used to find fLowNorm
+        double dSumHMStars=0.0;
+        while(1){
+            //srand?
+            /* (Should be very rare) If we form more HMStars than elements in array,
+            * wipe everything and start over
+            */
+            if(iArrayLoc>=12){
+                mass_tally=0.0;
+                for(int i=0;i<12;i++) starp->rgfHMStars(i)=0;
+                iArrayLoc=0;
+                dSumHMStars=0.0;
+            }
+            double num = (rand()/((double) RAND_MAX))
+            double new_star = imf->DrawStar(num);
+            double test_mass = mass_tally + new_star;
+            if(test_mass < dDeltaM){
+                mass_tally += new_star;
+                if(new_star > 8.0){
+                    starp->rgfHMStars(iArrayLoc)=new_star;
+                    dSumHMStars += new_star;
+                    iArrayLoc+=1;
+                }
+            } else if(fabs(dDeltaM - test_mass) < fabs(dDeltaM - mass_tally) ) {
+                mass_tally += new_star;
+                if(new_star > 8.0){
+                    starp->rgfHMStars(iArrayLoc)=new_star;
+                    dSumHMStars += new_star;
+                    break;
+                }
+            } else break;
+        }
+        double dTotLowMass=imf->CumMass(0.0)-imf->CumMass(8.0);
+        starp->fLowNorm()=(dDeltaM-dSumHMStars)/dTotLowMass
+    }
+
 
     p->mass -= dDeltaM;
     CkAssert(p->mass >= 0.0);

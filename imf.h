@@ -12,6 +12,12 @@
 /**
  * @brief Interface class for initial mass function.
  */
+
+/**
+* Modified by Elaad Applebaum to implement a stochastic IMF.
+* Added DrawStar methods
+* NB: So far, only added for Kroupa01
+*/
 class IMF : public PUP::able {
 
  public:
@@ -29,9 +35,21 @@ class IMF : public PUP::able {
     /** @brief Cumulative number of stars with mass greater than mass.
 	@param mass in solar masses */
     virtual double CumNumber(double mass) = 0;
+    /** @brief Overload of CumNumber for use with stochastic IMF.
+    * NOTA BENE - CumNumber for stochastic use returns the actual number for
+    * the star particle - no renormalization necessary
+    */
+    virtual double CumNumber(double mass, double lownorm, double *hmstars) = 0;
     /** @brief Cumulative mass of stars with mass greater than mass.
 	@param mass in solar masses */
     virtual double CumMass(double mass) = 0;
+    /** @brief Overload of CumMass for use with stochastic IMF.
+    * NOTA BENE - CumMass for stochastic use returns the actual mass for
+    * the star particle - no renormalization necessary
+    */
+    virtual double CumMass(double mass, double lownorm, double *hmstars) = 0;
+    /** @brief inverse CDF of IMF to draw stars stochastically from the IMF */
+    virtual double DrawStar(double num) = 0;
     /** @brief copy IMF object */
     virtual IMF* clone() const = 0;
     ~IMF() {};
@@ -150,6 +168,7 @@ class Kroupa01 : public IMF {
     virtual double returnimf(double mass);
     virtual double CumNumber(double mass);
     virtual double CumMass(double mass);
+    virtual double DrawStar(double num);
     virtual Kroupa01* clone() const;
     virtual void pup(PUP::er &p) {
 	PUP::able::pup(p);
