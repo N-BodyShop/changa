@@ -35,7 +35,7 @@ void SN::CalcSNIIFeedback(SFEvent *sfEvent,
     double dMStarMin = pdva.StarMass(dStarLtimeMax, sfEvent->dMetals); 
     double dMStarMax = pdva.StarMass(dStarLtimeMin, sfEvent->dMetals); 
 
-    double dMtot = imf->CumMass(0.0); /* total mass in stars integrated over IMF */
+    if(!bUseStoch) double dMtot = imf->CumMass(0.0); /* total mass in stars integrated over IMF */
 
     /* Quantize feedback */
     if (iNSNIIQuantum && dMStarMin > dMSNIImax && dStarLtimeMin){
@@ -45,8 +45,9 @@ void SN::CalcSNIIFeedback(SFEvent *sfEvent,
 	fbEffects->dMIron = 0.0;
 	fbEffects->dMOxygen = 0.0;
 	
-	dNSNTypeII = imf->CumNumber(dMSNIImin);
-	dNSNTypeII *= sfEvent->dMass/dMtot; /* normalize to star particle mass */
+	if(!bUseStoch) dNSNTypeII = imf->CumNumber(dMSNIImin);
+    else dNSNTypeII = imf->CumNumber(dMSNIImin, sfEvent->dLowNorm, sfEvent->rgdHMStars) /* no need to normalize for stochastic IMF */
+	if(!bUseStoch) dNSNTypeII *= sfEvent->dMass/dMtot; /* normalize to star particle mass */
 	fbEffects->dMassLoss = dNSNTypeII * dDelta / 1e6; /* 1 M_sol / Myr / SN */
 	fbEffects->dEnergy = dNSNTypeII * 3e42 * dDelta/ /* 1e35 erg/s /SN */
 	    (MSOLG*fbEffects->dMassLoss); 
@@ -69,23 +70,33 @@ void SN::CalcSNIIFeedback(SFEvent *sfEvent,
 	
 	/* cumulative mass of stars with mass greater than dMStarMinII 
 	   and dMStarMaxII in solar masses */
-	double dCumMMin = imf->CumMass (dMStarMinII);
-	double dCumMMax = imf->CumMass (dMStarMaxII);
+	if(!bUseStoch){
+        double dCumMMin = imf->CumMass (dMStarMinII);
+        double dCumMMax = imf->CumMass (dMStarMaxII);
+    } else {
+        double dCumMMin = imf->CumMass (dMStarMinII, sfEvent->dLowNorm, sfEvent->rgdHMStars);
+        double dCumMMax = imf->CumMass (dMStarMaxII, sfEvent->dLowNorm, sfEvent->rgdHMStars);
+    }
 	
 	if(dCumMMax > dCumMMin || dCumMMax < 0) dMSNTypeII = dCumMMin;
 	else dMSNTypeII = dCumMMin - dCumMMax; /* mass of stars that go SN II
 						  in this timestep normalized to IMF */
 	
-	dMSNTypeII *= sfEvent->dMass/dMtot; /* REAL MASS of stars that go SNII */
+	if(!bUseStoch) dMSNTypeII *= sfEvent->dMass/dMtot; /* REAL MASS of stars that go SNII, only renormalize for non-stochastic CumMass */
 	
 	/* cumulative number of stars with mass greater than dMStarMinII and
 	   less than dMstarMaxII in solar masses */
-	double dCumNMinII = imf->CumNumber (dMStarMinII); 
-	double dCumNMaxII = imf->CumNumber (dMStarMaxII);
+	if(!bUseStoch){
+        double dCumNMinII = imf->CumNumber (dMStarMinII); 
+        double dCumNMaxII = imf->CumNumber (dMStarMaxII);
+    } else {
+        double dCumNMinII = imf->CumNumber (dMStarMinII, sfEvent->dLowNorm, sfEvent->rgdHMStars); 
+        double dCumNMaxII = imf->CumNumber (dMStarMaxII, sfEvent->dLowNorm, sfEvent->rgdHMStars);
+    }
 	
 	if(dCumNMaxII > dCumNMinII || dCumNMaxII < 0) dNSNTypeII = dCumNMinII;
 	else dNSNTypeII = dCumNMinII - dCumNMaxII;
-	dNSNTypeII *= sfEvent->dMass/dMtot; /* number of SNII in star particle */
+	if(!bUseStoch) dNSNTypeII *= sfEvent->dMass/dMtot; /* number of SNII in star particle, only renormalize for non-stochastic CumNumber*/
 	
 	/* Average Star mass for metalicity calculation.  Metals always distributed
 	 * even when energy is quantized, so grab NSNtypeII before it is quantized.
@@ -95,8 +106,10 @@ void SN::CalcSNIIFeedback(SFEvent *sfEvent,
 	
 	/*
 	 * Quantized Feedback:  Not recommended until star particles ~< 100 M_sun
+     * DEFINITELY not to be used in conjunction with stochastic IMF
 	 */
 	/* Blow winds before SN (power of winds ~ power of SN) */
+    if(!bUseStoch){
 	double dMinAge = pdva.Lifetime(dMSNIImax, sfEvent->dMetals); 
 	if (dNSNTypeII > 0 && iNSNIIQuantum > 0 && dStarLtimeMin > dMinAge) {
 	    /* Make sure only a iNSNIIQuantum number of
@@ -121,7 +134,8 @@ void SN::CalcSNIIFeedback(SFEvent *sfEvent,
                 return;
                 }
 	    } 
-	
+	}
+
 	/* decrement mass of star particle by mass of stars that go SN
 	   plus mass of SN remnants */
 	double dDeltaMSNrem = dNSNTypeII*dMSNrem; /* mass in SN remnants */

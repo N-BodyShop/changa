@@ -702,6 +702,9 @@ Main::Main(CkArgMsg* m) {
 	param.bConcurrentSph = 1;
 	prmAddParam(prm, "bConcurrentSph", paramBool, &param.bConcurrentSph,
 		    sizeof(int),"consph", "Enable SPH running concurrently with Gravity");
+    param.bUseStoch = 1;
+    prmAddParam(prm,"bUseStoch",paramBool,&param.bUseStoch,
+            sizeof(bool), "usestoch","<Enable stochastic IMF>");
 
 #ifdef PUSH_GRAVITY
         param.dFracPushParticles = 0.0;
@@ -1035,6 +1038,10 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bBulkViscosity parameter ignored." << endl;
 	    }
+#ifndef STOCH
+    if(param.bUseStoch)
+    CkAbort("Stochastic IMF requested but not compiled in");
+#endif
 #ifdef COOLING_NONE
         if(param.bGasCooling)
 	    CkAbort("Gas cooling requested but not compiled in");

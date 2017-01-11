@@ -185,8 +185,20 @@ else
 	cooling="no"
 fi
 
+# Stochastic IMF
+AC_ARG_ENABLE([stoch],
+    [AS_HELP_STRING([--enable-stoch], [Enable stochastic imf (yes,no)])],
+    [stoch=$enableval], [stoch=no])
+if test "$stoch" = "yes" ; then
+    echo "Stochastic IMF selected"
+    FLAG_STOCH="-DSTOCH"
+else
+    FLAG_STOCH=""
+fi
+
 AC_SUBST([FLAG_COOLING])
 AC_SUBST([OBJECTS_COOLING])
+AC_SUBST([FLAG_STOCH])
  
 # diffusion (thermal and metal)
 AC_ARG_ENABLE([diffusion],

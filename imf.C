@@ -5,6 +5,11 @@
  * Algorithm was originally implemented in TREESPH but is heavily
  * modified.  Contributors include Neal Katz, Eric Hayashi, Greg Stinson
  */
+/**
+* Modified by Elaad Applebaum to implement a stochastic IMF.
+* Added DrawStar methods
+* NB: So far, only added for Kroupa01
+*/
 #include <math.h>
 #include "ParallelGravity.h"
 #include "imf.h"
@@ -140,6 +145,91 @@ double Kroupa01::CumNumber(double mass)
     
     return dCumN;
     }
+
+/* NB: The ICDF for DrawStar uses an IMF with linear bins
+(not log bins) and normalized to 1 (instead of mass normalized to 1)
+since it has to be a probability density function
+*/
+double MillerScalo::DrawStar(double num){
+    return NULL;
+}
+double Kroupa93::DrawStar(double num){
+    return NULL;
+}
+double Chabrier::DrawStar(double num){
+    return NULL;
+}
+double Kroupa01::DrawStar(double num){
+    double mass;
+    if(num<0.760707){ // The number for which mass is 0.5 Msol
+        mass = pow(((1.7987009-num)/0.843113),(-1.0/0.3));
+        return mass;
+    }
+    else mass = pow(((1.000244-num)/0.0972823),(-1.0/1.3));
+
+    return mass;
+}
+
+double MillerScalo::CumNumber(double mass, double lownorm, double *hmstars){
+    return NULL;
+}
+double Kroupa93::CumNumber(double mass, double lownorm, double *hmstars){
+    return NULL;
+}
+double Chabrier::CumNumber(double mass, double lownorm, double *hmstars){
+    return NULL;
+}
+double Kroupa01::CumNumber(double mass, double lownorm, double *hmstars){
+    double dCumN = 0;
+    if(mass > mmax) return 0;
+    if(mass > 8.0){
+        for(int i=0;i<12;i++){
+            if(hmstars[i]>mass) dCumN += 1;
+        }
+        return dCumN;
+    } else {
+        for(int i=0;i<12;i++){
+            if(hmstars[i]>7.99) dCumN +=1;
+        }
+    }
+    if(mass > m1){
+        dCumN += lownorm*a1/b1*(pow(m2, b1) - pow(mass, b1))/log(10.0);
+    } else dCumN += lownorm*a1/b1*(pow(m2, b1) - pow(m1, b1))/log(10.0);
+    
+    return dCumN;
+}
+
+double MillerScalo::CumMass(double mass, double lownorm, double *hmstars){
+    return NULL;
+}
+double Kroupa93::CumMass(double mass, double lownorm, double *hmstars){
+    return NULL;
+}
+double Chabrier::CumMass(double mass, double lownorm, double *hmstars){
+    return NULL;
+}
+double Kroupa01::CumMass(double mass, double lownorm, double *hmstars){
+
+    double dCumM = 0.0;
+
+    if(mass > mmax) return 0;
+    if(mass > m2) {
+        for(int i=0;i<12;i++){
+            if(hmstars[i]>mass) dCumM += hmstars[i];
+        }
+    } else {
+        for(int i=0;i<12;i++){
+            if(hmstars[i]>7.99) dCumM += hmstars[i];
+        }
+    }
+    if(mass > m1) {
+        dCumM += lownorm*a1/(b1 + 1)*(pow(m2, b1 + 1)
+                      - pow(mass, b1 + 1))/log(10.0);
+    } else dCumM += lownorm*a1/(b1 + 1)*(pow(m2, b1 + 1)
+                      - pow(m1, b1 + 1))/log(10.0);
+
+    return dCumM;
+}
 
 MillerScalo* MillerScalo::clone() const
 {
