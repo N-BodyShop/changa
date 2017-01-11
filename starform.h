@@ -29,6 +29,7 @@ class Stfm {
     double dMaxStarMass;	/* maximum mass star particle to form */
     int bGasCooling;		/* Can we call cooling for temperature */
  public:
+    int bUseStoch;          /* use stochastic IMF */
     int iStarFormRung;		/* rung for star formation */
     int iRandomSeed;		/* seed for probability */
     double dMinGasMass;		/* minimum mass gas before we delete
@@ -46,6 +47,7 @@ class Stfm {
     };
 
 inline void Stfm::pup(PUP::er &p) {
+    p|bUseStoch;
     p|dDeltaStarForm;
     p|iStarFormRung;
     p|iRandomSeed;

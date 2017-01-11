@@ -73,6 +73,7 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     if (sn.dESN > 0.0) bSmallSNSmooth = 1;
     else bSmallSNSmooth = 0;
     param.bDoGas = 1;
+    bUseStoch = param.stfm->bUseStoch;
     dDeltaStarForm = param.stfm->dDeltaStarForm;
     dSecUnit = param.dSecUnit;
     dGmPerCcUnit = param.dGmPerCcUnit;
@@ -244,13 +245,16 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     FBEffects fbEffects;
     // Particle properties that will be sent to feedback
     // methods in normal units (M_sun + seconds)
+
+    /* Changed sfEvent to pointer to accomodate if else statement*/
+    SFEvent *sfEvent = NULL;
     if(bUseStoch){
-        SFEvent sfEvent(p->fMassForm()*dGmUnit/MSOLG, 
+        sfEvent = new SFEvent(p->fMassForm()*dGmUnit/MSOLG, 
                 p->fTimeForm()*dSecUnit/SECONDSPERYEAR,
                 p->fStarMetals(), p->fStarMFracIron(),
                 p->fStarMFracOxygen(), p->fLowNorm(), p->rgfHMStars());
     } else {
-        SFEvent sfEvent(p->fMassForm()*dGmUnit/MSOLG, 
+        sfEvent = new SFEvent(p->fMassForm()*dGmUnit/MSOLG, 
                 p->fTimeForm()*dSecUnit/SECONDSPERYEAR,
                 p->fStarMetals(), p->fStarMFracIron(),
                 p->fStarMFracOxygen());
@@ -265,16 +269,16 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     for(int j = 0; j < NFEEDBACKS; j++) {
 	switch (j) {
 	case FB_SNII:
-	    sn.CalcSNIIFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
+	    sn.CalcSNIIFeedback(sfEvent, dTime, dDeltaYr, &fbEffects);
 	    if (sn.dESN > 0)
 		p->fNSN() = fbEffects.dEnergy*MSOLG*fbEffects.dMassLoss/sn.dESN;
 	    break;
 	case FB_SNIA:
-	    sn.CalcSNIaFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
+	    sn.CalcSNIaFeedback(sfEvent, dTime, dDeltaYr, &fbEffects);
 	    dSNIaMassStore=fbEffects.dMassLoss;
 	    break;
 	case FB_WIND:
-	    CalcWindFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
+	    CalcWindFeedback(sfEvent, dTime, dDeltaYr, &fbEffects);
 	    if(dSNIaMassStore < fbEffects.dMassLoss)
 		fbEffects.dMassLoss -= dSNIaMassStore;
 	    break;
