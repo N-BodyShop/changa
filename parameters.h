@@ -6,6 +6,26 @@
 #include "starform.h"
 #include "feedback.h"
 
+/// @brief Class for external gravity parameters
+class externalGravityParams
+{
+ public:
+    bool bDoExternalGravity; ///< Set if any exteran potential is used
+    int bBodyForce;          ///< Constant acceleration
+    double dBodyForceConst;
+    int bPatch;              ///< Patch in a disk
+    double dCentMass;        ///< Central mass in the disk
+    double dOrbDist;         ///< Distance of the patch from the center
+    void pup(PUP::er& p) {
+        p| bDoExternalGravity;
+        p| bBodyForce;
+        p| dBodyForceConst;
+        p| bPatch;
+        p| dCentMass;
+        p| dOrbDist;
+        }
+};
+
 /** @brief Hold parameters of the run.
  */
 typedef struct parameters {
@@ -30,6 +50,7 @@ typedef struct parameters {
     int iMaxRung;
     int bCannonical;
     int bKDK;
+    int bDtAdjust;
     int bPeriodic;
     int nReplicas;
     double fPeriod;
@@ -42,13 +63,16 @@ typedef struct parameters {
     double daSwitchTheta;
     int iOrder;
     int bConcurrentSph;
-    int bUseStoch;
     double dFracNoDomainDecomp;
 #ifdef PUSH_GRAVITY
     double dFracPushParticles;
 #endif
     CSM csm;			/* cosmo parameters */
     double dRedTo;
+    /*
+     * External Potentials
+     */
+    externalGravityParams exGravParams;
     /*
      * GrowMass parameters
      */
@@ -83,6 +107,9 @@ typedef struct parameters {
     double dGmPerCcUnit;
     double dSecUnit;
     double dComovingGmPerCcUnit;
+    double dThermalDiffusionCoeff;
+    double dMetalDiffusionCoeff;
+    int bConstantDiffusion;
     int bSphStep;
     int bFastGas;
     double dFracFastGas;
@@ -90,6 +117,7 @@ typedef struct parameters {
     int iViscosityLimiter;
     int bViscosityLimitdt;
     double dEtaCourant;
+    double dEtaDiffusion;
     double dEtauDot;
     int bStarForm;
     Stfm *stfm;
@@ -145,6 +173,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.iMaxRung;
     p|param.bCannonical;
     p|param.bKDK;
+    p|param.bDtAdjust;
     p|param.bPeriodic;
     p|param.nReplicas;
     p|param.fPeriod;
@@ -157,7 +186,6 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.daSwitchTheta;
     p|param.iOrder;
     p|param.bConcurrentSph;
-    p|param.bUseStoch;
     p|param.dFracNoDomainDecomp;
 #ifdef PUSH_GRAVITY
     p|param.dFracPushParticles;
@@ -166,6 +194,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
  	csmInitialize(&param.csm);
     p|*param.csm;
     p|param.dRedTo;
+    p|param.exGravParams;
     p|param.bDynGrowMass;
     p|param.nGrowMass;
     p|param.dGrowDeltaM;
@@ -197,9 +226,13 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dGmPerCcUnit;
     p|param.dSecUnit;
     p|param.dComovingGmPerCcUnit;
+    p|param.dThermalDiffusionCoeff;
+    p|param.dMetalDiffusionCoeff;
+    p|param.bConstantDiffusion;
     p|param.bSphStep;
     p|param.bViscosityLimitdt;
     p|param.dEtaCourant;
+    p|param.dEtaDiffusion;
     p|param.dEtauDot;
     p|param.bStarForm;
     if(p.isUnpacking())

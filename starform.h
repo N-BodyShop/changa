@@ -5,7 +5,6 @@
 #define STARFORM_HINCLUDED
 
 #include "parameters.h"
-#include "imf.h"
 
 /// Parameters and methods to implement star formation.
 class Stfm {
@@ -40,9 +39,6 @@ class Stfm {
     GravityParticle *FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 			      double dDelta, double dCosmoFac, double *T);
     inline void pup(PUP::er &p);
-   
-    IMF *imf;
-
     };
 
 inline void Stfm::pup(PUP::er &p) {
