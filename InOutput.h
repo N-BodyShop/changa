@@ -510,6 +510,7 @@ class CsOutputParams : public OutputParams
 	}
     };
 
+
 /// @brief Output the cooling rate.
 class EDotOutputParams : public OutputParams
 {
@@ -825,6 +826,45 @@ class MFormOutputParams : public OutputParams
         OutputParams::pup(p);//Call base class
 	}
     };
+
+class HMStarsOutputParams : public OutputParams{
+    virtual double dValue(GravityParticle *p){
+        if (TYPETest(p, TYPE_STAR)){
+            int iNSN = 0;
+            for(int i=0;i<12;i++){
+                if(p->rgfHMStars(i) > 7.9)
+                    iNSN += 1;
+            }
+            return iNSN;
+        }
+        else
+            return 0.0;
+    }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+                {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val){
+        if (TYPETest(p, TYPE_STAR)){
+            //for(int i=0;i<12;i++)
+                //p->rgfHMStars(i)=val[i];
+            p->rgfHMStars(0)=val;
+        }
+    }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+    HMStarsOutputParams() {}
+    HMStarsOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "hmstars"; sNChilExt = "hmstars";
+        dTime = _dTime;
+        iType = TYPE_STAR; }
+    PUPable_decl(HMStarsOutputParams);
+    HMStarsOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+    }
+};
 
 class MetalsDotOutputParams : public OutputParams
 {

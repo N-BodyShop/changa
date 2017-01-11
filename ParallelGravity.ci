@@ -146,6 +146,7 @@ mainmodule ParallelGravity {
   PUPable OxygenMassFracDotOutputParams;
   PUPable IronMassFracDotOutputParams;
   PUPable MFormOutputParams;
+  PUPable HMStarsOutputParams;
   PUPable TimeFormOutputParams;
   PUPable AgeOutputParams;
   PUPable coolontimeOutputParams;
