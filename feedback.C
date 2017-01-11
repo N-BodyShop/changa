@@ -33,6 +33,9 @@ void Fdbk::AddParams(PRM prm)
     sn.dESN = 0.1e51;
     prmAddParam(prm,"dESN", paramDouble, &sn.dESN, sizeof(double), "snESN",
 		    "<Energy of supernova in ergs> = 0.1e51");
+    sn.bUseStoch = 1;
+    prmAddParam(prm,"bUseStoch",paramInt, &sn.bUseStoch, sizeof(int),
+            "usestoch","<Enable stochastic IMF>");
     bSmallSNSmooth = 1;
     prmAddParam(prm,"bSmallSNSmooth", paramBool, &bSmallSNSmooth, sizeof(int),
 		"bSmallSNSmooth",
@@ -73,7 +76,7 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     if (sn.dESN > 0.0) bSmallSNSmooth = 1;
     else bSmallSNSmooth = 0;
     param.bDoGas = 1;
-    bUseStoch = param.stfm->bUseStoch;
+    //bUseStoch = param.stfm->bUseStoch;
     dDeltaStarForm = param.stfm->dDeltaStarForm;
     dSecUnit = param.dSecUnit;
     dGmPerCcUnit = param.dGmPerCcUnit;
@@ -248,7 +251,7 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
 
     /* Changed sfEvent to pointer to accomodate if else statement*/
     SFEvent *sfEvent = NULL;
-    if(bUseStoch){
+    if(sn.bUseStoch){
         sfEvent = new SFEvent(p->fMassForm()*dGmUnit/MSOLG, 
                 p->fTimeForm()*dSecUnit/SECONDSPERYEAR,
                 p->fStarMetals(), p->fStarMFracIron(),

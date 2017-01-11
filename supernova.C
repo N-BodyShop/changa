@@ -35,7 +35,8 @@ void SN::CalcSNIIFeedback(SFEvent *sfEvent,
     double dMStarMin = pdva.StarMass(dStarLtimeMax, sfEvent->dMetals); 
     double dMStarMax = pdva.StarMass(dStarLtimeMin, sfEvent->dMetals); 
 
-    if(!bUseStoch) double dMtot = imf->CumMass(0.0); /* total mass in stars integrated over IMF */
+    double dMtot;
+    if(!bUseStoch) dMtot = imf->CumMass(0.0); /* total mass in stars integrated over IMF */
 
     /* Quantize feedback */
     if (iNSNIIQuantum && dMStarMin > dMSNIImax && dStarLtimeMin){
@@ -46,7 +47,7 @@ void SN::CalcSNIIFeedback(SFEvent *sfEvent,
 	fbEffects->dMOxygen = 0.0;
 	
 	if(!bUseStoch) dNSNTypeII = imf->CumNumber(dMSNIImin);
-    else dNSNTypeII = imf->CumNumber(dMSNIImin, sfEvent->dLowNorm, sfEvent->rgdHMStars) /* no need to normalize for stochastic IMF */
+    else dNSNTypeII = imf->CumNumberStoch(dMSNIImin, sfEvent->dLowNorm, sfEvent->rgdHMStars); /* no need to normalize for stochastic IMF */
 	if(!bUseStoch) dNSNTypeII *= sfEvent->dMass/dMtot; /* normalize to star particle mass */
 	fbEffects->dMassLoss = dNSNTypeII * dDelta / 1e6; /* 1 M_sol / Myr / SN */
 	fbEffects->dEnergy = dNSNTypeII * 3e42 * dDelta/ /* 1e35 erg/s /SN */
@@ -70,12 +71,14 @@ void SN::CalcSNIIFeedback(SFEvent *sfEvent,
 	
 	/* cumulative mass of stars with mass greater than dMStarMinII 
 	   and dMStarMaxII in solar masses */
+    double dCumMMin;
+    double dCumMMax;
 	if(!bUseStoch){
-        double dCumMMin = imf->CumMass (dMStarMinII);
-        double dCumMMax = imf->CumMass (dMStarMaxII);
+        dCumMMin = imf->CumMass (dMStarMinII);
+        dCumMMax = imf->CumMass (dMStarMaxII);
     } else {
-        double dCumMMin = imf->CumMass (dMStarMinII, sfEvent->dLowNorm, sfEvent->rgdHMStars);
-        double dCumMMax = imf->CumMass (dMStarMaxII, sfEvent->dLowNorm, sfEvent->rgdHMStars);
+        dCumMMin = imf->CumMassStoch (dMStarMinII, sfEvent->dLowNorm, sfEvent->rgdHMStars);
+        dCumMMax = imf->CumMassStoch (dMStarMaxII, sfEvent->dLowNorm, sfEvent->rgdHMStars);
     }
 	
 	if(dCumMMax > dCumMMin || dCumMMax < 0) dMSNTypeII = dCumMMin;
@@ -86,12 +89,14 @@ void SN::CalcSNIIFeedback(SFEvent *sfEvent,
 	
 	/* cumulative number of stars with mass greater than dMStarMinII and
 	   less than dMstarMaxII in solar masses */
+    double dCumNMinII;
+    double dCumNMaxII;
 	if(!bUseStoch){
-        double dCumNMinII = imf->CumNumber (dMStarMinII); 
-        double dCumNMaxII = imf->CumNumber (dMStarMaxII);
+        dCumNMinII = imf->CumNumber (dMStarMinII); 
+        dCumNMaxII = imf->CumNumber (dMStarMaxII);
     } else {
-        double dCumNMinII = imf->CumNumber (dMStarMinII, sfEvent->dLowNorm, sfEvent->rgdHMStars); 
-        double dCumNMaxII = imf->CumNumber (dMStarMaxII, sfEvent->dLowNorm, sfEvent->rgdHMStars);
+        dCumNMinII = imf->CumNumberStoch (dMStarMinII, sfEvent->dLowNorm, sfEvent->rgdHMStars); 
+        dCumNMaxII = imf->CumNumberStoch (dMStarMaxII, sfEvent->dLowNorm, sfEvent->rgdHMStars);
     }
 	
 	if(dCumNMaxII > dCumNMinII || dCumNMaxII < 0) dNSNTypeII = dCumNMinII;

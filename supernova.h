@@ -24,6 +24,7 @@ class SN
     Padova pdva;
  public:
     double dESN;		/* how much energy comes from a supernova */
+    double bUseStoch;   /* use stochastic IMF */
     int iNSNIIQuantum;	/* minimum amount of supernovae */
     double dFracBinSNIa;	/* fraction of binary systems in mass
 				   range that go SNIa  (van den Bergh
@@ -49,6 +50,7 @@ class SN
 	dMOxexp = 2.721;
 	dMOxconst = 4.586e-4; 
 	dESN = 0.1e51;
+    bUseStoch = 1;
 	iNSNIIQuantum = 0;
 	dFracBinSNIa = 0.05; 	/* .05 is in line with chemical evolution
 				   models of the Milky Way (Francois
@@ -62,6 +64,7 @@ class SN
     friend double dMSIMFSec(SN *sn, double dMass2);
     void pup(PUP::er& p) {
 	p|dESN;
+    p|bUseStoch;
 	p|dMSNrem;
 	p|dMSNIImin;
 	p|dMSNIImax;
