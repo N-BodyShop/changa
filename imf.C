@@ -170,16 +170,16 @@ double Kroupa01::DrawStar(double num){
     return mass;
 }
 
-double MillerScalo::CumNumber(double mass, double lownorm, double *hmstars){
+double MillerScalo::CumNumberStoch(double mass, double lownorm, double *hmstars){
     return NULL;
 }
-double Kroupa93::CumNumber(double mass, double lownorm, double *hmstars){
+double Kroupa93::CumNumberStoch(double mass, double lownorm, double *hmstars){
     return NULL;
 }
-double Chabrier::CumNumber(double mass, double lownorm, double *hmstars){
+double Chabrier::CumNumberStoch(double mass, double lownorm, double *hmstars){
     return NULL;
 }
-double Kroupa01::CumNumber(double mass, double lownorm, double *hmstars){
+double Kroupa01::CumNumberStoch(double mass, double lownorm, double *hmstars){
     double dCumN = 0;
     if(mass > mmax) return 0;
     if(mass > 8.0){
@@ -199,16 +199,16 @@ double Kroupa01::CumNumber(double mass, double lownorm, double *hmstars){
     return dCumN;
 }
 
-double MillerScalo::CumMass(double mass, double lownorm, double *hmstars){
+double MillerScalo::CumMassStoch(double mass, double lownorm, double *hmstars){
     return NULL;
 }
-double Kroupa93::CumMass(double mass, double lownorm, double *hmstars){
+double Kroupa93::CumMassStoch(double mass, double lownorm, double *hmstars){
     return NULL;
 }
-double Chabrier::CumMass(double mass, double lownorm, double *hmstars){
+double Chabrier::CumMassStoch(double mass, double lownorm, double *hmstars){
     return NULL;
 }
-double Kroupa01::CumMass(double mass, double lownorm, double *hmstars){
+double Kroupa01::CumMassStoch(double mass, double lownorm, double *hmstars){
 
     double dCumM = 0.0;
 
