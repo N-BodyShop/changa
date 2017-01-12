@@ -186,7 +186,7 @@ class DistStellarFeedbackSmoothParams : public SmoothParams
 	    a = 1.0;
 	    }
 	}
-    /*    ~DistStellarFeedbackSmoothParams() {
+        /*~DistStellarFeedbackSmoothParams() {
 	delete fb;
 	}*/
     PUPable_decl(DistStellarFeedbackSmoothParams);
