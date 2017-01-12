@@ -12,6 +12,7 @@ class Stfm : public PUP::able  {
  private:
     Stfm& operator=(const Stfm& st);
     double dGmUnit;		/* system mass in grams */
+    double dMsolUnit;    /* system mass unit in Msol */
     double dGmPerCcUnit;	/* system density in gm/cc */
     double dSecUnit;		/* system time in seconds */
     double dErgUnit;		/* system energy in ergs */
@@ -41,8 +42,7 @@ class Stfm : public PUP::able  {
     bool isStarFormRung(int aRung) {return aRung <= iStarFormRung;}
     GravityParticle *FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 			      double dDelta, double dCosmoFac, double *T);
-    IMF *imf; 
-    imf = new Kroupa01();
+    IMF *imf = new Kroupa01();
 
     Stfm() {}
     PUPable_decl(Stfm);
@@ -57,6 +57,7 @@ class Stfm : public PUP::able  {
 
 // "Deep copy" constructer is needed because of imf pointer
 inline Stfm::Stfm(const Stfm& st) {
+    dMsolUnit = st.dMsolUnit;
     dGmUnit = st.dGmUnit;
     dGmPerCcUnit = st.dGmPerCcUnit;
     dSecUnit = st.dSecUnit;
@@ -84,6 +85,7 @@ inline void Stfm::pup(PUP::er &p) {
     p|dDeltaStarForm;
     p|iStarFormRung;
     p|iRandomSeed;
+    p|dMsolUnit;
     p|dGmUnit;
     p|dGmPerCcUnit;
     p|dSecUnit;

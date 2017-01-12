@@ -100,6 +100,7 @@ void Stfm::CheckParams(PRM prm, Parameters &param)
 
     bUseStoch = param.feedback->sn.bUseStoch;
     dSecUnit = param.dSecUnit;
+    dMsolUnit = param.dMsolUnit;
     dGmPerCcUnit = param.dGmPerCcUnit;
     dGmUnit = param.dMsolUnit*MSOLG;
     dErgUnit = GCGS*pow(param.dMsolUnit*MSOLG, 2.0)
@@ -324,7 +325,6 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     * a normalization constant for the continuous, low mass IMF
     */
     if(bUseStoch){
-        CkPrintf("Entered if statement\n");
         /* Setting all high mass stars to default (0) */
         for(int i;i<12;i++){
             starp->rgfHMStars(i)=0;
@@ -333,13 +333,16 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
         * Keep running tally of total mass, but only keep high mass stars. Stars
         * are drawn from the IMF until the running tally exceeds the dDeltaM, then
         * the last star is kept only if the total is closer to dDeltaM with it
+        *
+        * DrawStar returns stars in units of Msol. HMStars is filled with masses in
+        * units of Msol, but depending on context this needs to be converted to
+        * system units
         */
         int iArrayLoc = 0;
         double mass_tally = 0.0;
         // Sum of only HMStars, used to find fLowNorm
         double dSumHMStars=0.0;
         while(1){
-            CkPrintf("Entered while loop\n");
             //srand?
             /* (Should be very rare) If we form more HMStars than elements in array,
             * wipe everything and start over
@@ -351,29 +354,31 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
                 dSumHMStars=0.0;
             }
             double num = (rand()/((double) RAND_MAX));
-            CkPrintf("num is %f\n",num);
+            /* DrawStar returns a mass in Msol, need to convert to system units */
             double new_star = imf->DrawStar(num);
             CkPrintf("new_star is %f\n",new_star);
-            double test_mass = mass_tally + new_star;
+            double new_star_unit = new_star/dMsolUnit;
+            double test_mass = mass_tally + new_star_unit;
             if(test_mass < dDeltaM){
-                mass_tally += new_star;
+                mass_tally += new_star_unit;
                 if(new_star > 8.0){
-                    CkPrintf("HMStar with mass: %d\n",new_star);
+                    CkPrintf("HMStar with mass: %f\n",new_star);
                     starp->rgfHMStars(iArrayLoc)=new_star;
-                    dSumHMStars += new_star;
+                    dSumHMStars += new_star_unit;
                     iArrayLoc+=1;
                 }
             } else if(fabs(dDeltaM - test_mass) < fabs(dDeltaM - mass_tally) ) {
                 mass_tally += new_star;
                 if(new_star > 8.0){
                     starp->rgfHMStars(iArrayLoc)=new_star;
-                    dSumHMStars += new_star;
-                    break;
+                    dSumHMStars += new_star_unit;
                 }
+                break;
             } else break;
         }
         double dTotLowMass=imf->CumMass(0.0)-imf->CumMass(8.0);
         starp->fLowNorm()=(dDeltaM-dSumHMStars)/dTotLowMass;
+        CkPrintf("fLowNorm is %f\n",starp->fLowNorm());
     }
 
 

@@ -148,7 +148,9 @@ double Kroupa01::CumNumber(double mass)
 
 /* NB: The ICDF for DrawStar uses an IMF with linear bins
 (not log bins) and normalized to 1 (instead of mass normalized to 1)
-since it has to be a probability density function
+since it has to be a probability density function. DrawStar returns
+* masses in uni units of Msol, which must be converted to system units
+* in practice
 */
 double MillerScalo::DrawStar(double num){
     return NULL;
