@@ -3159,7 +3159,7 @@ void Main::writeOutput(int iStep)
 	    outputBinary(pcoolontimeOut, param.bParaWrite, CkCallbackResumeThread());
 	    outputBinary(pESNRateOut, param.bParaWrite, CkCallbackResumeThread());
 	    }
-    if (param.feedback->bUseStoch){
+    if (param.feedback->sn.bUseStoch){
         outputBinary(pHMStarsOut, param.bParaWrite, CkCallbackResumeThread());
     }
 #ifndef COOLING_NONE
@@ -3209,7 +3209,7 @@ void Main::writeOutput(int iStep)
 				     CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pESNRateOut, param.bParaWrite,
 				      CkCallbackResumeThread());
-        if (param.feedback->bUseStoch) {
+        if (param.feedback->sn.bUseStoch) {
             treeProxy[0].outputASCII(pHMStarsOut, param.bParaWrite,
                           CkCallbackResumeThread());
         }

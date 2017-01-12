@@ -64,7 +64,6 @@ class Fdbk : public PUP::able {
     Padova pdva;
  public:
     SN sn;
-    double bUseStoch;
     double dDeltaStarForm;
     double dSecUnit;		/* system time in seconds */
     double dMaxGasMass;		/* Maximum mass of a gas particle */

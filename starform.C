@@ -98,7 +98,7 @@ void Stfm::CheckParams(PRM prm, Parameters &param)
 		
 #include "physconst.h"
 
-    bUseStoch = param.feedback->bUseStoch;
+    bUseStoch = param.feedback->sn.bUseStoch;
     dSecUnit = param.dSecUnit;
     dGmPerCcUnit = param.dGmPerCcUnit;
     dGmUnit = param.dMsolUnit*MSOLG;
