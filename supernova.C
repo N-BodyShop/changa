@@ -171,21 +171,29 @@ void SN::CalcSNIaFeedback(SFEvent *sfEvent,
 			double dDelta, /* length of timestep (years) */
 			FBEffects *fbEffects)
 {
+    CkPrintf("Entered CalcSNIa in supernova.C\n");
     /* stellar lifetimes corresponding to beginning and end of 
      * current timestep with respect to starbirth time in yrs */
     double dMinLifetime = dTime - sfEvent->dTimeForm; 
     double dMaxLifetime = dMinLifetime + dDelta;
     
+    CkPrintf("Calculated min and max lifetimes\n");
+
     double dMinMass = pdva.StarMass(dMaxLifetime, sfEvent->dMetals); 
     double dMaxMass = pdva.StarMass(dMinLifetime, sfEvent->dMetals); 
+
+    CkPrintf("calculated min and max masses\n");
     
-    double dTotalMass = imf->CumMass(0.0); /* total mass in stars integrated over IMF */
+    double dTotalMass;
+    if(!bUseStoch) dTotalMass = imf->CumMass(0.0); /* total mass in stars integrated over IMF */
     
     if (dMinMass < dMBmax/2.) {
 	double dMStarMinIa = dMinMass; 
 	double dMStarMaxIa = min (dMBmax/2., dMaxMass); 
 	
+    CkPrintf("Before assert in supernova.C\n");
 	CkAssert (dMStarMinIa < dMStarMaxIa && dMStarMinIa >0.0 && dMStarMaxIa > 0.0);
+    CkPrintf("After Assert in supernova.C\n");
 	
 	/* number of stars that go SNIa */        
 	double dNSNTypeIa = NSNIa (dMStarMinIa, dMStarMaxIa); 
@@ -198,6 +206,7 @@ void SN::CalcSNIaFeedback(SFEvent *sfEvent,
     * for a universal IMF is A, then dLowNorm = A * dMass/dTotalMass
     */
     else dNSNTypeIa *= sfEvent->dLowNorm;
+    CkPrintf("Just normalized\n");
 	
 	double dESNTypeIa = dNSNTypeIa * dESN;
 	/* decrement mass of star particle by mass of stars that go SN
@@ -225,6 +234,7 @@ void SN::CalcSNIaFeedback(SFEvent *sfEvent,
 	fbEffects->dMetals = dNSNTypeIa*(0.63*1.06 + 0.13*2.09)
 	    /fbEffects->dMassLoss; 
 	} else {
+    CkPrintf("In else part in supernova.C\n");
 	fbEffects->dMassLoss = 0.0;
 	fbEffects->dEnergy = 0.0;    
 	fbEffects->dMetals = 0.0; 
