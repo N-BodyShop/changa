@@ -364,6 +364,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
                 }
             } else break;
         }
+        delete imf;
         double dTotLowMass=imf->CumMass(0.0)-imf->CumMass(8.0);
         starp->fLowNorm()=(dDeltaM-dSumHMStars)/dTotLowMass;
     }
