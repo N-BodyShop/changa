@@ -357,17 +357,30 @@ void Fdbk::CalcWindFeedback(SFEvent *sfEvent, double dTime, /* current time in y
 	   then fit to function: MFreturned = 0.86 - exp(-Mass/1.1) */
 	double dMassFracReturned=0.86-exp(-((dMaxMass+dMinMass)/2.)/1.1);
 
-	double dMinCumMass = imf->CumMass(dMinMass);
-	double dMaxCumMass = imf->CumMass(dMaxMass);
+    double dMinCumMass;
+    double dMaxCumMass;
+    /* If using stochastic, the CumMass method doesn't need to be renormalized */
+    if(!sn.bUseStoch){
+        dMinCumMass = imf->CumMass(dMinMass);
+        dMaxCumMass = imf->CumMass(dMaxMass);
+    } else {
+        dMinCumMass = imf->CumMassStoch(dMinMass, sfEvent->dLowNorm, sfEvent->rgdHMStars);
+        dMaxCumMass = imf->CumMassStoch(dMaxMass, sfEvent->dLowNorm, sfEvent->rgdHMStars);
+    }
 	double dMTot = imf->CumMass(0.0);
 	/* Find out mass fraction of dying stars, then multiply by the original
 	   mass of the star particle */
+    /* If using stochastic, the CumMass method doesn't need to be renormalized */
 	if (dMTot == 0.0){
 	  dMDying = 0.0;
 	} else { 
-	  dMDying = (dMinCumMass - dMaxCumMass)/dMTot;
-	}
-	dMDying *= sfEvent->dMass;
+        if(!sn.bUseStoch){
+            dMDying = (dMinCumMass - dMaxCumMass)/dMTot;
+            dMDying *= sfEvent->dMass;
+        } else {
+            dMDying = (dMinCumMass - dMaxCumMass);
+        }
+    }
 
 	/* Figure out feedback effects */
 	fbEffects->dMassLoss = dMDying * dMassFracReturned;
