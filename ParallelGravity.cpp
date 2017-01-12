@@ -3209,10 +3209,10 @@ void Main::writeOutput(int iStep)
 				     CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pESNRateOut, param.bParaWrite,
 				      CkCallbackResumeThread());
-	    }
-    if (param.feedback->bUseStoch) {
-        treeProxy[0].outputASCII(pHMStarsOut, param.bParaWrite,
-                      CkCallbackResumeThread());
+        if (param.feedback->bUseStoch) {
+            treeProxy[0].outputASCII(pHMStarsOut, param.bParaWrite,
+                          CkCallbackResumeThread());
+        }
     }
 #ifndef COOLING_NONE
 	if(param.bGasCooling) {

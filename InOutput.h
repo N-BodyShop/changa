@@ -830,7 +830,7 @@ class MFormOutputParams : public OutputParams
 class HMStarsOutputParams : public OutputParams{
     virtual double dValue(GravityParticle *p){
         if (TYPETest(p, TYPE_STAR)){
-            int iNSN = 0;
+            double iNSN = 0;
             for(int i=0;i<12;i++){
                 if(p->rgfHMStars(i) > 7.9)
                     iNSN += 1;

@@ -76,7 +76,7 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     if (sn.dESN > 0.0) bSmallSNSmooth = 1;
     else bSmallSNSmooth = 0;
     param.bDoGas = 1;
-    //bUseStoch = param.stfm->bUseStoch;
+    bUseStoch = sn.bUseStoch;
     dDeltaStarForm = param.stfm->dDeltaStarForm;
 #ifndef STOCH
     if(param.bUseStoch) CkAbort("Stochastic IMF requested but not compiled in");
@@ -330,6 +330,8 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     p->fMIronOut() = dTotMIron;
     p->fMOxygenOut() = dTotMOxygen;
     p->fStarESNrate() /= dDelta; /* convert to rate */
+
+    delete sfEvent;
 }
 
 void Fdbk::CalcWindFeedback(SFEvent *sfEvent, double dTime, /* current time in years */
