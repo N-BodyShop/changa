@@ -8,8 +8,9 @@
 #include "imf.h"
 
 /// Parameters and methods to implement star formation.
-class Stfm {
+class Stfm : public PUP::able  {
  private:
+    Stfm& operator=(const Stfm& st);
     double dGmUnit;		/* system mass in grams */
     double dGmPerCcUnit;	/* system density in gm/cc */
     double dSecUnit;		/* system time in seconds */
@@ -40,14 +41,46 @@ class Stfm {
     bool isStarFormRung(int aRung) {return aRung <= iStarFormRung;}
     GravityParticle *FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 			      double dDelta, double dCosmoFac, double *T);
+    IMF *imf; 
+    imf = new Kroupa01();
+
+    Stfm() {}
+    PUPable_decl(Stfm);
+    Stfm(const Stfm& st);
+    Stfm(CkMigrateMessage *m) : PUP::able(m) {}
+    ~Stfm() {
+        delete imf;
+    }
     inline void pup(PUP::er &p);
-   
-    IMF *imf;
 
     };
 
+// "Deep copy" constructer is needed because of imf pointer
+inline Stfm::Stfm(const Stfm& st) {
+    dGmUnit = st.dGmUnit;
+    dGmPerCcUnit = st.dGmPerCcUnit;
+    dSecUnit = st.dSecUnit;
+    dErgUnit = st.dErgUnit;
+    dPhysDenMin = st.dPhysDenMin;
+    dOverDenMin = st.dOverDenMin;
+    dTempMax = st.dTempMax;
+    dSoftMin = st.dSoftMin;
+    dCStar = st.dCStar;
+    dStarEff = st.dStarEff;
+    dInitStarMass = st.dInitStarMass;
+    dMinSpawnStarMass = st.dMinSpawnStarMass;
+    dMaxStarMass = st.dMaxStarMass;
+    bGasCooling = st.bGasCooling;
+    bUseStoch = st.bUseStoch;
+    iStarFormRung = st.iStarFormRung;
+    iRandomSeed = st.iRandomSeed;
+    dMinGasMass = st.dMinGasMass;
+    dDeltaStarForm = st.dDeltaStarForm;
+    imf = st.imf->clone();
+}
+
 inline void Stfm::pup(PUP::er &p) {
-    //p|bUseStoch;
+    p|bUseStoch;
     p|dDeltaStarForm;
     p|iStarFormRung;
     p|iRandomSeed;
@@ -66,6 +99,7 @@ inline void Stfm::pup(PUP::er &p) {
     p|dMinGasMass;
     p|dMaxStarMass;
     p|bGasCooling;
+    p|imf;
     }
 
 /** @brief Holds statistics of the star formation event */
