@@ -189,8 +189,15 @@ void SN::CalcSNIaFeedback(SFEvent *sfEvent,
 	
 	/* number of stars that go SNIa */        
 	double dNSNTypeIa = NSNIa (dMStarMinIa, dMStarMaxIa); 
-	dNSNTypeIa /= dTotalMass;	/* convert to number per solar mass of stars */
-	dNSNTypeIa *= sfEvent->dMass; /* convert to absolute number of SNIa */
+    if(!bUseStoch){
+        dNSNTypeIa /= dTotalMass;	/* convert to number per solar mass of stars */
+        dNSNTypeIa *= sfEvent->dMass; /* convert to absolute number of SNIa */
+    }
+    /* If using stochastic IMF, dLowNorm scales to the right mass
+    * i.e. if the relative change between what you would expect
+    * for a universal IMF is A, then dLowNorm = A * dMass/dTotalMass
+    */
+    else dNSNTypeIa *= sfEvent->dLowNorm;
 	
 	double dESNTypeIa = dNSNTypeIa * dESN;
 	/* decrement mass of star particle by mass of stars that go SN
