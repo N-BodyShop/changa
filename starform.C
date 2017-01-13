@@ -279,7 +279,6 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     double tform = tdyn;
     double dTimeStarForm = (dDelta > dDeltaStarForm ? dDelta : dDeltaStarForm);
     double dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform);
-    CkPrintf("dMprob is %f\n",dMprob);
     /*
      * Decrement mass of particle.
      */
@@ -288,16 +287,13 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 	dDeltaM = dInitStarMass;
     else 
 	dDeltaM = p->mass*dStarEff;
-    CkPrintf("p->mass is %f\n",p->mass);
 
-    CkPrintf("dDeltaM is %f\n",dDeltaM);
 
     /* No negative or very tiny masses please! */
     if ( (dDeltaM > p->mass) ) dDeltaM = p->mass;
 
-    if(dMprob*p->mass < dDeltaM*(rand()/((double) RAND_MAX))){
-    CkPrintf("Just before NULL\n");
-	return NULL;}
+    if(dMprob*p->mass < dDeltaM*(rand()/((double) RAND_MAX)))
+	return NULL;
 
     /* 
      * Note on number of stars formed:
@@ -308,7 +304,6 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
      * dStarEff = 1/3, max no. stars formed = 6 (round up so
      * gas mass goes below min gas mass)
      */
-    CkPrintf("Just after NULL\n");
     GravityParticle *starp = new GravityParticle();
     *starp = StarFromGasParticle(p); /* grab copy before
 				       possible deletion */
@@ -326,8 +321,8 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     */
     if(bUseStoch){
         /* Setting all high mass stars to default (0) */
-        for(int i;i<12;i++){
-            starp->rgfHMStars(i)=0;
+        for(int i=0;i<12;i++){
+            starp->rgfHMStars(i)=0.0;
             }
         /* Stochastically populate star particle
         * Keep running tally of total mass, but only keep high mass stars. Stars
@@ -356,13 +351,13 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
             double num = (rand()/((double) RAND_MAX));
             /* DrawStar returns a mass in Msol, need to convert to system units */
             double new_star = imf->DrawStar(num);
-            CkPrintf("new_star is %f\n",new_star);
+            //CkPrintf("new_star is %f\n",new_star);
             double new_star_unit = new_star/dMsolUnit;
             double test_mass = mass_tally + new_star_unit;
             if(test_mass < dDeltaM){
                 mass_tally += new_star_unit;
                 if(new_star > 8.0){
-                    CkPrintf("HMStar with mass: %f\n",new_star);
+                    //CkPrintf("HMStar with mass: %f\n",new_star);
                     starp->rgfHMStars(iArrayLoc)=new_star;
                     dSumHMStars += new_star_unit;
                     iArrayLoc+=1;
@@ -378,10 +373,12 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
         }
         double dTotLowMass=imf->CumMass(0.0)-imf->CumMass(8.0);
         starp->fLowNorm()=(dDeltaM-dSumHMStars)/dTotLowMass;
-        CkPrintf("fLowNorm is %f\n",starp->fLowNorm());
+        //CkPrintf("fLowNorm is %f\n",starp->fLowNorm());
     }
 
-
+    CkPrintf("Array of HMStars: ");
+    for(int i=0;i<12;i++) CkPrintf("%f ", starp->rgfHMStars(i));
+    CkPrintf("\n");
     p->mass -= dDeltaM;
     CkAssert(p->mass >= 0.0);
     starp->mass = dDeltaM;

@@ -159,10 +159,8 @@ void Main::StellarFeedback(double dTime, double dDelta)
     double tTB = CkWallTimer() - startTime;
     timings[PHASE_FEEDBACK].tTBuild += tTB;
     startTime = CkWallTimer();
-    CkPrintf("After buildTree\n");
     DistStellarFeedbackSmoothParams pDSFB(TYPE_GAS, 0, param.csm, dTime, 
 					  param.dConstGamma, param.feedback);
-    CkPrintf("After DistStellarFeedbackSmoothParams pDSFB\n");
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
     treeProxy.startSmooth(&pDSFB, 0, param.feedback->nSmoothFeedback,
 			  dfBall2OverSoft2, CkCallbackResumeThread());
@@ -216,9 +214,8 @@ void TreePiece::Feedback(Fdbk &fb, double dTime, double dDelta, const CkCallback
     /* loop through particles */
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
-	if(p->isStar() && p->fTimeForm() >= 0.0) {
+	if(p->isStar() && p->fTimeForm() >= 0.0) 
 	  fb.DoFeedback(p, dTime, dDeltaYr, fbTotals);
-      CkPrintf("Did fb.DoFeedback\n");}
 	else if(p->isGas()){
 	  CkAssert(p->u() >= 0.0);
 	  CkAssert(p->uPred() >= 0.0);
@@ -278,49 +275,37 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     for(int j = 0; j < NFEEDBACKS; j++) {
 	switch (j) {
 	case FB_SNII:
-        CkPrintf("Enter CalcSNII\n");
 	    sn.CalcSNIIFeedback(sfEvent, dTime, dDeltaYr, &fbEffects);
 	    if (sn.dESN > 0)
 		p->fNSN() = fbEffects.dEnergy*MSOLG*fbEffects.dMassLoss/sn.dESN;
-        CkPrintf("Did CalcSNII\n");
 	    break;
 	case FB_SNIA:
-        CkPrintf("Enter CalcSNIa\n");
 	    sn.CalcSNIaFeedback(sfEvent, dTime, dDeltaYr, &fbEffects);
 	    dSNIaMassStore=fbEffects.dMassLoss;
-        CkPrintf("Did CalcSNIa\n");
 	    break;
 	case FB_WIND:
 	    CalcWindFeedback(sfEvent, dTime, dDeltaYr, &fbEffects);
 	    if(dSNIaMassStore < fbEffects.dMassLoss)
 		fbEffects.dMassLoss -= dSNIaMassStore;
-        CkPrintf("Did wind\n");
 	    break;
 	case FB_UV:
 	    CalcUVFeedback(dTime, dDeltaYr, &fbEffects);
-        CkPrintf("Did UV\n");
 	break;
 	default:
 	    CkAssert(0);
 	    }
-    CkPrintf("After switch\n");
 	
 	// Convert to system units
 	fbEffects.dMassLoss *= MSOLG/dGmUnit;
 	fbEffects.dEnergy /= dErgPerGmUnit;
 	
 	dTotMassLoss += fbEffects.dMassLoss;
-    CkPrintf("After dTotMassLoss\n");
 	p->fStarESNrate() += fbEffects.dEnergy*fbEffects.dMassLoss;
-    CkPrintf("After fStarESNrate()\n");
 	dTotMetals += fbEffects.dMetals*fbEffects.dMassLoss;
-    CkPrintf("After dTotMetals()\n");
 	dTotMOxygen += fbEffects.dMOxygen*fbEffects.dMassLoss;
-    CkPrintf("After dTotMOxygen()\n");
 	dTotMIron += fbEffects.dMIron*fbEffects.dMassLoss;
 	
 	fbTotals[j].dMassLoss += fbEffects.dMassLoss;
-    CkPrintf("After fbTotals[j].dMassLoss\n");
 	fbTotals[j].dEnergy += fbEffects.dEnergy*fbEffects.dMassLoss;
 	fbTotals[j].dMetals += fbEffects.dMetals*fbEffects.dMassLoss;
 	fbTotals[j].dMIron += fbEffects.dMIron*fbEffects.dMassLoss;
@@ -330,9 +315,7 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     /*
      * Modify star particle
      */
-    CkPrintf("Just before CkAssert\n");
     CkAssert(p->mass > dTotMassLoss);
-    CkPrintf("After CkAssert\n");
 
     p->mass -= dTotMassLoss;
     p->fMSN() = dTotMassLoss;
@@ -348,7 +331,6 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     p->fMOxygenOut() = dTotMOxygen;
     p->fStarESNrate() /= dDelta; /* convert to rate */
     
-    CkPrintf("Just before delete\n");
     delete sfEvent;
 }
 
