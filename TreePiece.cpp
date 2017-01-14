@@ -1579,6 +1579,50 @@ void TreePiece::externalGravity(int iKickRung,
                 if(idt2 > p->dtGrav)
                     p->dtGrav = idt2;
                 }
+            if(exGravParams.bCentralBody) {
+                // Convert particle positions to cartesian coordinates
+                double px = p->position.x;
+                double py = p->position.y;
+                double pz = p->position.z;
+                double r = p->position.length();
+                double theta = acos(pz/r);
+                double phi = atan2(py, px);
+
+                // Legendre polynomials
+                double x = cos(theta);
+                double p2 = 0.5*(3.*pow(x, 2) - 1.);
+                double p4 = 1./8.*(35.*pow(x, 4) - 30.*pow(x, 2) + 3.);
+                double p6 = 1./16.*(231.*pow(x, 6) - 315.*pow(x, 4)
+                                      + 105.*pow(x, 2) - 5.);
+
+                // Theta derivates of legendre polynomials
+                double p2prime = -3.*sin(theta)*cos(theta);
+                double p4prime = -5./16.*(2.*sin(2.*theta) + 7.*sin(4.*theta));
+                double p6prime = -1./16.*(1386.*sin(theta)*pow(cos(theta), 5)
+                                          - 1260.*sin(theta)*pow(cos(theta), 3)
+                                          + 210.*sin(theta)*cos(theta));
+
+                double a2 = exGravParams.dJ2*pow(exGravParams.dEqRad/r, 2);
+                double a4 = exGravParams.dJ4*pow(exGravParams.dEqRad/r, 4);
+                double a6 = exGravParams.dJ6*pow(exGravParams.dEqRad/r, 6);
+
+                p->potential += -exGravParams.dCentMass/r*(1. - a2*p2 - a4*p4 - a6*p6);
+
+                // Acceleration in spherical coordinates
+                double ar = -exGravParams.dCentMass/pow(r, 2)*(1. + a2*p2 + a4*p4 + a6*p6);
+                double atheta = -exGravParams.dCentMass/r*(a2*p2prime
+                                  + a4+p4prime + a6*p6prime);
+
+                // Convert accelerations to cartesian
+                p->treeAcceleration.x = sin(theta)*cos(phi)*ar + cos(theta)*cos(phi)*atheta;
+                p->treeAcceleration.y = sin(theta)*sin(phi)*ar + cos(theta)*sin(phi)*atheta;
+                p->treeAcceleration.z = cos(theta)*ar - sin(theta)*atheta;
+
+                double idt2 = ar/r;
+
+                if(idt2 > p->dtGrav)
+                    p->dtGrav = idt2;
+                }
             }
         }
     contribute(cb);

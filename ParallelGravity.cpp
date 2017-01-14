@@ -421,6 +421,27 @@ Main::Main(CkArgMsg* m) {
         param.exGravParams.dOrbDist = 0.0;
         prmAddParam(prm,"dOrbDist",paramDouble,&param.exGravParams.dOrbDist,
                     sizeof(double),"orbdist","<Patch orbital distance>");
+       
+        //
+        // Central body potential parameters
+        //
+        param.exGravParams.bCentralBody = 0;
+        prmAddParam(prm,"bCentralBody",paramBool,&param.exGravParams.bCentralBody,
+                    sizeof(int),
+                    "centralbody","<enable/disable central body potential> = 0");
+        param.exGravParams.dEqRad = 1.0;
+        prmAddParam(prm,"dEqRad",paramDouble,&param.exGravParams.dEqRad,
+                    sizeof(double),"dEqRad","<Equatorial radius of central body> = 1.0");
+        param.exGravParams.dJ2 = 0.0;
+        prmAddParam(prm,"dJ2",paramDouble,&param.exGravParams.dJ2,
+                    sizeof(double),"dJ2","<Oblateness coefficient J2 of central body> = 0.0");
+        param.exGravParams.dJ4 = 0.0;
+        prmAddParam(prm,"dJ4",paramDouble,&param.exGravParams.dJ4,
+                    sizeof(double),"dJ4","<Oblateness coefficient J4 of central body> = 0.0");
+        param.exGravParams.dJ6 = 0.0;
+        prmAddParam(prm,"dJ6",paramDouble,&param.exGravParams.dJ6,
+                    sizeof(double),"dJ6","<Oblateness coefficient J6 of central body> = 0.0");
+
 	//
 	// Parameters for GrowMass: slowly growing mass of particles.
 	//
@@ -950,8 +971,8 @@ Main::Main(CkArgMsg* m) {
          * Set external gravity if any of the external gravity
          * parameters are set.
          */
-        param.exGravParams.bDoExternalGravity = param.exGravParams.bBodyForce
-            || param.exGravParams.bPatch;
+         param.exGravParams.bDoExternalGravity = param.exGravParams.bBodyForce
+            || param.exGravParams.bPatch || param.exGravParams.bCentralBody;
 #ifdef CUDA
           double mil = 1e6;
           localNodesPerReq = (int) (localNodesPerReqDouble * mil);
@@ -2421,7 +2442,7 @@ Main::initialForces()
   else {
       treeProxy.initAccel(0, CkCallbackResumeThread());
       }
-  if(param.exGravParams.bBodyForce) {
+  if(param.exGravParams.bDoExternalGravity) {
       treeProxy.externalGravity(0, param.exGravParams,
                                 CkCallbackResumeThread());
       }
