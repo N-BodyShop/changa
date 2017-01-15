@@ -379,7 +379,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     CkPrintf("Array of HMStars: ");
     for(int i=0;i<12;i++) CkPrintf("%f ", starp->rgfHMStars(i));
     CkPrintf("\n");
-    if(!bUseStoch) CkPrintf("bUseStoch = %f\n");
+    if(!bUseStoch) CkPrintf("bUseStoch = %d\n",bUseStoch);
     p->mass -= dDeltaM;
     CkAssert(p->mass >= 0.0);
     starp->mass = dDeltaM;
