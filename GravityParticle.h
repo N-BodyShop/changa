@@ -192,6 +192,10 @@ class extraStarData
     }
     inline double* rgfHMStars() {return _rgfHMStars;}
     inline double& fLowNorm() {return _fLowNorm;}
+#else
+    inline double& rgfHMStars(int i) {CkAbort("Call rgfHMStars but stochasticity not built in"); return _fMetals;}
+    inline double* rgfHMStars() {CkAbort("Call rgfHMStars but stochasticity not built in"); return NULL;}
+    inline double& fLowNorm() {CkAbort("Call fLowNorm but stochasticity not built in"); return _fMetals;}
 #endif
     void pup(PUP::er &p) {
 	p | _fMetals;
@@ -344,11 +348,9 @@ public:
 	inline double& fMOxygenOut() {IMASTAR; return (((extraStarData*)extraData)->fMOxygenOut());}
 	inline double& fSNMetals() {IMASTAR; return (((extraStarData*)extraData)->fSNMetals());}
 	inline int64_t& iGasOrder() { IMASTAR; return (((extraStarData*)extraData)->iGasOrder());}
-#ifdef STOCH
     inline double& rgfHMStars(int i) { IMASTAR; return (((extraStarData*)extraData)->rgfHMStars(i));}
     inline double* rgfHMStars() { IMASTAR; return (((extraStarData*)extraData)->rgfHMStars());}
     inline double& fLowNorm() {IMASTAR; return (((extraStarData*)extraData)->fLowNorm());}
-#endif
 
 // See above debugging macros
 #undef IMAGAS
