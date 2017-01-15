@@ -14,8 +14,13 @@ class externalGravityParams
     int bBodyForce;          ///< Constant acceleration
     double dBodyForceConst;
     int bPatch;              ///< Patch in a disk
-    double dCentMass;        ///< Central mass in the disk
+    double dCentMass;        ///< Central mass
     double dOrbDist;         ///< Distance of the patch from the center
+    int bCentralBody;        ///< Mass at the origin
+    double dEqRad;           ///< Equatorial radius of central body
+    double dJ2;              ///< Oblateness coefficients of central body
+    double dJ4;
+    double dJ6;
     void pup(PUP::er& p) {
         p| bDoExternalGravity;
         p| bBodyForce;
@@ -23,6 +28,11 @@ class externalGravityParams
         p| bPatch;
         p| dCentMass;
         p| dOrbDist;
+        p| bCentralBody;
+        p| dEqRad;
+        p| dJ2;
+        p| dJ4;
+        p| dJ6;
         }
 };
 
