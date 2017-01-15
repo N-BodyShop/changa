@@ -24,7 +24,7 @@ class SN
     Padova pdva;
  public:
     double dESN;		/* how much energy comes from a supernova */
-    double bUseStoch;   /* use stochastic IMF */
+    int bUseStoch;   /* use stochastic IMF */
     int iNSNIIQuantum;	/* minimum amount of supernovae */
     double dFracBinSNIa;	/* fraction of binary systems in mass
 				   range that go SNIa  (van den Bergh
