@@ -230,7 +230,6 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
 
     //Ramdomize the prefetchRoots
     if(_randChunks){
-      srand((CkMyNode()+1)*1000);
       for (int i=_numChunks; i>1; --i) {
         int r = rand();
         int k = (int) ((((float)r) * i) / (((float)RAND_MAX) + 1));
