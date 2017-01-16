@@ -107,7 +107,14 @@ void SN::CalcSNIIFeedback(SFEvent *sfEvent,
 	 * even when energy is quantized, so grab NSNtypeII before it is quantized.
 	 */
 	if (dNSNTypeII > 0) dMeanMStar = dMSNTypeII/dNSNTypeII;
-	else dMeanMStar =0;
+	else {//dMeanMStar =0;
+        fbEffects->dMassLoss = 0.0;
+        fbEffects->dEnergy = 0.0;
+        fbEffects->dMetals = 0.0;
+        fbEffects->dMIron = 0.0;
+        fbEffects->dMOxygen = 0.0;
+        return;
+    }
 	
 	/*
 	 * Quantized Feedback:  Not recommended until star particles ~< 100 M_sun
