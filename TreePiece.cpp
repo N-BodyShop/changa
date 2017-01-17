@@ -1614,9 +1614,9 @@ void TreePiece::externalGravity(int iKickRung,
                                   + a4+p4prime + a6*p6prime);
 
                 // Convert accelerations to cartesian
-                p->treeAcceleration.x = sin(theta)*cos(phi)*ar + cos(theta)*cos(phi)*atheta;
-                p->treeAcceleration.y = sin(theta)*sin(phi)*ar + cos(theta)*sin(phi)*atheta;
-                p->treeAcceleration.z = cos(theta)*ar - sin(theta)*atheta;
+                p->treeAcceleration.x += sin(theta)*cos(phi)*ar + cos(theta)*cos(phi)*atheta;
+                p->treeAcceleration.y += sin(theta)*sin(phi)*ar + cos(theta)*sin(phi)*atheta;
+                p->treeAcceleration.z += cos(theta)*ar - sin(theta)*atheta;
 
                 double idt2 = ar/r;
 
