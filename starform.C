@@ -372,8 +372,8 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
             } else break;
         }
         double dTotLowMass=imf->CumMass(0.0)-imf->CumMass(8.0);
-        starp->fLowNorm()=(dDeltaM-dSumHMStars)/dTotLowMass;
-        //CkPrintf("fLowNorm is %f\n",starp->fLowNorm());
+        starp->fLowNorm()=dMsolUnit*(dDeltaM-dSumHMStars)/dTotLowMass;
+        CkPrintf("fLowNorm is %f\n",starp->fLowNorm());
     }
 
     CkPrintf("Array of HMStars: ");
