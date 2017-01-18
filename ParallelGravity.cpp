@@ -2308,6 +2308,7 @@ Main::restart(CkCheckpointStatusMsg *msg)
   } else {
     CkPrintf("Not Using CkLoop %d\n", param.bUseCkLoopPar);
   }
+	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
 	if(param.bGasCooling || param.bStarForm) 
 	    initCooling();
 	if(param.bStarForm)
@@ -2315,6 +2316,20 @@ Main::restart(CkCheckpointStatusMsg *msg)
         if(param.bStarForm || param.bFeedback)
             treeProxy.initRand(param.stfm->iRandomSeed, CkCallbackResumeThread());
         DumpFrameInit(dTime, 0.0, bIsRestarting);
+
+	/***** Initial sorting of particles and Domain Decomposition *****/
+	CkPrintf("Initial domain decomposition ... ");
+
+	double startTime = CkWallTimer();
+	sorter.startSorting(dataManagerID, ddTolerance,
+			  CkCallbackResumeThread(), true);
+	CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
+	// Balance load initially after decomposition
+	CkPrintf("Initial load balancing ... ");
+	startTime = CkWallTimer();
+	treeProxy.balanceBeforeInitialForces(CkCallbackResumeThread());
+	CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+
         doSimulation();
 	}
     else {
