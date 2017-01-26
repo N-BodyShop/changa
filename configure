@@ -630,6 +630,7 @@ FLAG_FEEDBACKDIFFLIMIT
 FLAG_DIFFUSION
 OBJECTS_COOLING
 FLAG_COOLING
+FLAG_DAMPING
 FLAG_KERNEL
 FLAG_DTADJUST
 FLAG_BIGKEYS
@@ -700,6 +701,7 @@ enable_changesoft
 enable_bigkeys
 enable_dtadjust
 enable_wendland
+enable_damping
 enable_cooling
 enable_diffusion
 enable_feedbacklimit
@@ -1344,6 +1346,7 @@ Optional Features:
   --enable-bigkeys        enable 128 bit hash keys
   --enable-dtadjust       enable emergency timestep adjust
   --enable-wendland       enable Wendland C4 Kernel
+  --enable-damping        enable velocity damping for glasses
   --enable-cooling        enable gas cooling (planet,cosmo)
   --enable-diffusion      enable diffusion
   --enable-feedbacklimit  limit diffusion of feedback energy
@@ -3991,6 +3994,22 @@ if test "$wendland" = "yes" ; then
     FLAG_KERNEL="-DWENDLAND"
 else
     FLAG_KERNEL=""
+fi
+
+
+# Velocity damping
+# Check whether --enable-damping was given.
+if test "${enable_damping+set}" = set; then :
+  enableval=$enable_damping; damping=$enableval
+else
+  damping=no
+fi
+
+if test "$damping" = "yes" ; then
+    echo "DAMPING selected"
+    FLAG_DAMPING="-DDAMPING"
+else
+    FLAG_DAMPING=""
 fi
 
 

@@ -84,7 +84,9 @@ const char *typeString(NodeType type);
  * @param damping Inverse timescale of the damping
  */
 inline void glassDamping(Vector3D<double> &v, double dDelta, double damping) {
+#ifdef DAMPING
     v *= exp(-dDelta * damping);
+#endif
 }
 
 /*

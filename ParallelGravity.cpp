@@ -2113,6 +2113,9 @@ void Main::setupICs() {
 #ifdef JEANSSOFTONLY
   ofsLog << " JEANSSOFTONLY";
 #endif
+#ifdef DAMPING
+  ofsLog << " DAMPING";
+#endif
   ofsLog << endl;
   ofsLog << "# Key sizes: " << sizeof(KeyType) << " bytes particle "
          << sizeof(NodeKey) << " bytes node" << endl;
