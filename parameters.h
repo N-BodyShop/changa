@@ -69,6 +69,7 @@ typedef struct parameters {
 #endif
     CSM csm;			/* cosmo parameters */
     double dRedTo;
+    double dGlassDamper;
     /*
      * External Potentials
      */
@@ -193,6 +194,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     if(p.isUnpacking())
  	csmInitialize(&param.csm);
     p|*param.csm;
+    p|param.dGlassDamper;
     p|param.dRedTo;
     p|param.exGravParams;
     p|param.bDynGrowMass;

@@ -85,6 +85,7 @@ DomainsDec domainDecomposition;
 double dExtraStore;		// fraction of extra particle storage
 double dMaxBalance;		// Max piece imbalance for load balancing
 double dFracLoadBalance;	// Min particles for doing load balancing
+double dGlassDamper;    // Damping inverse timescale for making glasses
 int iGasModel; 			// For backward compatibility
 int peanoKey;
 GenericTrees useTree;
@@ -270,6 +271,10 @@ Main::Main(CkArgMsg* m) {
 	param.bBenchmark = 0;
 	prmAddParam(prm, "bBenchmark", paramBool, &param.bBenchmark,
 		    sizeof(int),"bench", "Benchmark only; no output or checkpoints");
+	param.dGlassDamper = 0.0;
+	prmAddParam(prm,"dGlassDamper",paramDouble,&param.dGlassDamper,
+		sizeof(double), "dGlassDamper",
+		"<Damping force inverse timescale> = 0.0");
 	//
 	// Output flags
 	//
@@ -844,6 +849,7 @@ Main::Main(CkArgMsg* m) {
 	dExtraStore = param.dExtraStore;
 	dMaxBalance = param.dMaxBalance;
 	dFracLoadBalance = param.dFracLoadBalance;
+	dGlassDamper = param.dGlassDamper;
 	_cacheLineDepth = param.cacheLineDepth;
 	verbosity = param.iVerbosity;
 	nIOProcessor = param.nIOProcessor;

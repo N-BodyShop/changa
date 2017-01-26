@@ -74,6 +74,19 @@ string getColor(GenericTreeNode*);
 
 const char *typeString(NodeType type);
 
+/**
+ * @brief glassDamping applies a damping force to a particle's velocity.
+ * 
+ * This can be useful for generating glasses.  It is mean to model a damping
+ * term vdot = -damping * v
+ * @param v Particle velocity (v or vPred), a Vector3D
+ * @param dDelta Time step to apply damping over
+ * @param damping Inverse timescale of the damping
+ */
+inline void glassDamping(Vector3D<double> &v, double dDelta, double damping) {
+    v *= exp(-dDelta * damping);
+}
+
 /*
  * set periodic information in all the TreePieces
  */
@@ -1464,6 +1477,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 	      if(bClosing) { // update predicted quantities to end of step
 		  p->vPred() = p->velocity
 		      + dDelta[p->rung]*p->treeAcceleration;
+		  glassDamping(p->vPred(), dDelta[p->rung], dGlassDamper);
 		  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
 		      p->u() = p->u() + p->uDot()*duDelta[p->rung];
@@ -1521,6 +1535,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 	      CkAssert(p->uPred() >= 0.0);
 	      }
 	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
+	  glassDamping(p->velocity, dDelta[p->rung], dGlassDamper);
 	  }
       }
   contribute(cb);
@@ -1867,6 +1882,7 @@ void TreePiece::drift(double dDelta,  // time step in x containing
       boundingBox.grow(p->position);
       if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
 	  p->vPred() += dvDelta*p->treeAcceleration;
+	  glassDamping(p->vPred(), dvDelta, dGlassDamper);
 	  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
 	      p->uPred() += p->uDot()*duDelta;

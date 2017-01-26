@@ -32,6 +32,7 @@ mainmodule ParallelGravity {
   readonly double dExtraStore;
   readonly double dMaxBalance;
   readonly double dFracLoadBalance;
+  readonly double dGlassDamper;
   readonly int bUseCkLoopPar;
   readonly int peanoKey;
   readonly GenericTrees useTree;
