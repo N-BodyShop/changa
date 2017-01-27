@@ -1587,8 +1587,8 @@ void TreePiece::externalGravity(int iKickRung,
                 double r = p->position.length();
 
                 // Legendre polynomials
-                double x = sqrt(px*px + py*py)/r; //cos(theta);
-                double y = pz/r; //sin(theta)
+                double x = pz/r; //cos(theta)
+                double y = sqrt(px*px + py*py)/r; //sin(theta);
                 double p2 = 0.5*(3.*pow(x, 2) - 1.);
                 double p4 = 1./8.*(35.*pow(x, 4) - 30.*pow(x, 2) + 3.);
                 double p6 = 1./16.*(231.*pow(x, 6) - 315.*pow(x, 4)
