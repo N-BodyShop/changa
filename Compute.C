@@ -1690,6 +1690,8 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 #endif
 
           int gpuIndex = -1;
+          // N.B. Keys for the particles are shifted to the left to
+          // distinguish from the node.
           key <<= 1;
           std::map<NodeKey, int>::iterator q = cpref.find(key);
           if(q != cpref.end()){
@@ -1709,7 +1711,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
           if(state->resume || (!state->resume && gpuIndex < 0)){
             rrState = (DoubleWalkState*) tp->sInterListStateRemoteResume;
             CkAssert(rrState->particles);
-            std::map<NodeKey,int>::iterator it = rrState->partMap.find(key);
+            std::unordered_map<NodeKey,int>::iterator it = rrState->partMap.find(key);
             if(it == rrState->partMap.end()){
               gpuIndex = rrState->particles->length();
               rrState->partMap[key] = gpuIndex;
