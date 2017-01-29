@@ -4924,10 +4924,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
           state->nodes->length() = 0;
 	  state->particles = new CkVec<CompactPartData>(200000);
           state->particles->length() = 0;
-          //state->nodeMap.clear();
-          state->nodeMap.resize(remoteResumeNodesPerReq);
-          state->nodeMap.length() = 0;
-          
+          state->nodeMap.clear();
           state->partMap.clear();
   }
 #endif // CUDA
