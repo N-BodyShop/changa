@@ -79,7 +79,6 @@ class NodePool;
 #ifdef CUDA
       nodeArrayIndex = -1;
       bucketArrayIndex = -1;
-      wasNeg = true;
 #endif
 #endif
 #ifdef CHANGA_REFACTOR_WALKCHECK
@@ -132,7 +131,6 @@ class NodePool;
     /// index in moments array sent to GPU
     int nodeArrayIndex;
     int bucketArrayIndex;
-    bool wasNeg;
 #endif
 #endif
     /// center of smoothActive particles during smooth operation
@@ -157,7 +155,6 @@ class NodePool;
 #ifdef CUDA
       nodeArrayIndex = -1;
       bucketArrayIndex = -1;
-      wasNeg = true;
 #endif
 #endif
     }
@@ -290,7 +287,6 @@ class NodePool;
   	    // to be present on the GPU
   	    nodeArrayIndex = -1;
       bucketArrayIndex = -1;
-      wasNeg = true;
 #endif
       } else {
         iType = (int) myType;
@@ -784,7 +780,6 @@ public:
 #if INTERLIST_VER > 0 && defined CUDA
       buffer->nodeArrayIndex = -1;
       buffer->bucketArrayIndex = -1;
-      buffer->wasNeg = true;
 #endif
       int used = 1;
       if (depth != 0) {
