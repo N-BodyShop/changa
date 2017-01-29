@@ -588,7 +588,6 @@ typedef std::map<KeyType, CkCacheEntry<KeyType>*> cacheType;
 #define addNodeToList(nd, list, index) \
       { \
         nd->nodeArrayIndex = index; \
-        nd->wasNeg = false; \
         list.push_back(CudaMultipoleMoments(nd->moments));\
         CkPrintf("(%d) node %d: %ld (%s)\n", CkMyPe(), index, nd->getKey(), typeString(type));\
         index++;\
@@ -596,7 +595,6 @@ typedef std::map<KeyType, CkCacheEntry<KeyType>*> cacheType;
 #define addNodeToListPtr(nd, list, index) \
       { \
         nd->nodeArrayIndex = index; \
-        nd->wasNeg = false; \
         list->push_back(CudaMultipoleMoments(nd->moments));\
         CkPrintf("(%d) node %d: %ld (%s)\n", CkMyPe(), index, nd->getKey(), typeString(type));\
         index++;\
@@ -606,14 +604,12 @@ typedef std::map<KeyType, CkCacheEntry<KeyType>*> cacheType;
 #define addNodeToList(nd, list, index) \
       { \
         nd->nodeArrayIndex = index; \
-        nd->wasNeg = false; \
         list.push_back(CudaMultipoleMoments(nd->moments));\
         index++;\
       }
 #define addNodeToListPtr(nd, list, index) \
       { \
         nd->nodeArrayIndex = index; \
-        nd->wasNeg = false; \
         list->push_back(CudaMultipoleMoments(nd->moments));\
         index++;\
       }
@@ -700,6 +696,8 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
       ExternalGravityParticle *parts;
       int nParticles = node->lastParticle-node->firstParticle+1;
       NodeKey key = node->getKey();
+      // N.B. Key for particles is shifted to distinguish it from the Key
+      // for the node.
       key <<= 1;
 
       cacheType::iterator p = ctPart->find(key);
