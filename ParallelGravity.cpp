@@ -948,9 +948,6 @@ Main::Main(CkArgMsg* m) {
 
           ckout << "INFO: largePhaseThreshold: " << largePhaseThreshold << endl;
 
-          if(numTreePieces > CkNumPes() || numTreePieces <= 0){
-            numTreePieces = CkNumPes();
-          }
 #endif
 
 	if(prmSpecified(prm, "lbcommCutoffMsgs")) {

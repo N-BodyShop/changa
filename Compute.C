@@ -1617,24 +1617,18 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 #endif
           DoubleWalkState *rrState;
           if(index < 0){
-            //if(state->resume) CkAssert(index < 0);
-            //CkAssert(getOptType() == Remote);
+            CkAssert(getOptType() == Remote);
+            CkAssert(state->resume);
             rrState = (DoubleWalkState*) tp->sInterListStateRemoteResume;
             //CkAssert(rrState->nodes);
-            //std::map<NodeKey,int>::iterator it = rrState->nodeMap.find(node->getKey());
-            //if(it == rrState->nodeMap.end()){
-            index = rrState->nodes->push_back_v(CudaMultipoleMoments(node->moments));
-            node->nodeArrayIndex = index;
-            node->wasNeg = true;
-            rrState->nodeMap.push_back(node);
-            //rrState->nodeMap[node->getKey()] = index;
-            //}
-            //else{
-            //  index = it->second;
-            //}
-          }
-          else if(node->wasNeg){
-            rrState = (DoubleWalkState *)tp->sInterListStateRemoteResume;
+            std::unordered_map<NodeKey,int>::iterator it = rrState->nodeMap.find(node->getKey());
+            if(it == rrState->nodeMap.end()){
+                index = rrState->nodes->push_back_v(CudaMultipoleMoments(node->moments));
+                rrState->nodeMap[node->getKey()] = index;
+                }
+            else{
+                index = it->second;
+                }
           }
           else{
             rrState = state;
@@ -1904,19 +1898,13 @@ void ListCompute::initCudaState(DoubleWalkState *state, int numBuckets, int node
 
 }
 
+/// @brief Reset node array after interactions have been sent to the GPU.
 void ListCompute::resetCudaNodeState(DoubleWalkState *state){
   GenericTreeNode *tmp;
   state->nodeLists.reset();
   if(state->nodes){
     state->nodes->length() = 0;
-    //state->nodeMap.clear();
-    int len = state->nodeMap.length();
-    for(int i = 0; i < len; i++){
-      tmp = state->nodeMap[i];
-      tmp->nodeArrayIndex = -1;
-      //tmp->wasNeg = true;
-    }
-    state->nodeMap.length() = 0;
+    state->nodeMap.clear();
   }
   
 }
