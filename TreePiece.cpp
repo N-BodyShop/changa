@@ -1543,91 +1543,14 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
 /**
  * Apply an external gravitational force
  */
-void TreePiece::externalGravity(int iKickRung,
-    const externalGravityParams exGravParams, const CkCallback& cb)
+void TreePiece::externalGravity(int iKickRung, ExternalGravity &exGrav,
+                                const CkCallback& cb)
 {
     CkAssert(bBucketsInited);
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
         GravityParticle *p = &myParticles[i];
-	if(p->rung >= iKickRung) {
-            if(exGravParams.bBodyForce) {
-                if(p->position.z > 0.0) {
-                    p->treeAcceleration.z -= exGravParams.dBodyForceConst;
-                    p->potential += exGravParams.dBodyForceConst*p->position.z;
-                    double idt2 = exGravParams.dBodyForceConst/p->position.z;
-                    if(idt2 > p->dtGrav)
-                        p->dtGrav = idt2;
-                    }
-                else {
-                    p->treeAcceleration.z += exGravParams.dBodyForceConst;
-                    p->potential -= exGravParams.dBodyForceConst*p->position.z;
-                    if(p->position.z != 0.0) {
-                        double idt2 = -exGravParams.dBodyForceConst/p->position.z;
-                        if(idt2 > p->dtGrav)
-                            p->dtGrav = idt2;
-                        }
-                    }
-                }
-            if(exGravParams.bPatch) {
-                double r2 = exGravParams.dOrbDist*exGravParams.dOrbDist
-                    + p->position.z*p->position.z;
-                double idt2 = exGravParams.dCentMass*pow(r2, -1.5);
-                
-                p->treeAcceleration.z -= exGravParams.dCentMass*p->position.z
-                                         *pow(r2, -1.5);
-                p->potential += exGravParams.dCentMass/sqrt(r2);
-                if(idt2 > p->dtGrav)
-                    p->dtGrav = idt2;
-                }
-            if(exGravParams.bCentralBody) {
-                double px = p->position.x;
-                double py = p->position.y;
-                double pz = p->position.z;
-                double r = p->position.length();
-
-                // Legendre polynomials
-                double c1 = pz/r;                  // cos(theta)
-                double c2 = sqrt(px*px + py*py)/r; // sin(theta)
-                double p2 = 0.5*(3.*pow(c1, 2) - 1.);
-                double p4 = 1./8.*(35.*pow(c1, 4) - 30.*pow(c1, 2) + 3.);
-                double p6 = 1./16.*(231.*pow(c1, 6) - 315.*pow(c1, 4)
-                                      + 105.*pow(c1, 2) - 5.);
-
-                // Theta derivates of legendre polynomials
-                double p2prime = -3.*c1*c2;
-                double p4prime = -5./16.*(4.*c1*c2 + 28.*pow(c1, 2)*c2*(2.*pow(c1, 2) - 1.));
-                double p6prime = -1./16.*(1386.*c2*pow(c1, 5)
-                                        - 1260.*c2*pow(c1, 3)+ 210.*c1*c2);
-
-                double a2 = exGravParams.dJ2*pow(exGravParams.dEqRad/r, 2);
-                double a4 = exGravParams.dJ4*pow(exGravParams.dEqRad/r, 4);
-                double a6 = exGravParams.dJ6*pow(exGravParams.dEqRad/r, 6);
-
-                p->potential += -exGravParams.dCentMass/r*(1. - a2*p2 - a4*p4 - a6*p6);
-
-                // Acceleration in spherical coordinates
-                double ar = -exGravParams.dCentMass/pow(r, 2)*(1. - 3.*a2*p2 - 
-                                                               5.*a4*p4 - 7.*a6*p6);
-                double atheta = exGravParams.dCentMass/pow(r, 2)*(a2*p2prime
-                                  + a4*p4prime + a6*p6prime);
-
-                Vector3D<double> rVec = p->position/r;
-                Vector3D<double> thetaVec;
-                double c = (r*sqrt(px*px+py*py));
-                thetaVec[0] = px*pz/c;
-                thetaVec[1] = py*pz/c;
-                thetaVec[2] = -(px*px + py*py)/c;
-
-                p->treeAcceleration.x += ar*rVec[0] + atheta*thetaVec[0];
-                p->treeAcceleration.y += ar*rVec[1] + atheta*thetaVec[1];
-                p->treeAcceleration.z += ar*rVec[2] + atheta*thetaVec[2];
-
-                double idt2 = ar/r;
-
-                if(idt2 > p->dtGrav)
-                    p->dtGrav = idt2;
-                }
-            }
+	    if(p->rung >= iKickRung)
+            exGrav.applyPotential(p);
         }
     contribute(cb);
     }

@@ -41,6 +41,7 @@
 #include "Sph.h"
 #include "starform.h"
 #include "feedback.h"
+#include "externalGravity.h"
 
 #include "PETreeMerger.h"
 
@@ -396,51 +397,6 @@ Main::Main(CkArgMsg* m) {
 	param.dRedTo = 0.0;
 	prmAddParam(prm,"dRedTo",paramDouble,&param.dRedTo,sizeof(double),
 		    "zto", "specifies final redshift for the simulation");
-	
-        //
-        // External Potentials
-        //
-        param.exGravParams.bBodyForce = 0;
-        prmAddParam(prm,"bBodyForce",paramBool,&param.exGravParams.bBodyForce,
-                    sizeof(int),"bodyforce","use constant body force = -bf");
-        param.exGravParams.dBodyForceConst = 0.0;
-        prmAddParam(prm,"dBodyForceConst",paramDouble,&param.exGravParams.dBodyForceConst,
-                    sizeof(double),"bodyforceconst",
-                    "strength of constant bodyforce = 0");
-        //
-        // Patch External potential parameters
-        //
-        param.exGravParams.dCentMass = 1.0;
-        prmAddParam(prm,"dCentMass",paramDouble,&param.exGravParams.dCentMass,
-                    sizeof(double),
-                    "fgm","specifies the central mass for Keplerian orbits");
-        param.exGravParams.bPatch = 0;
-        prmAddParam(prm,"bPatch",paramBool,&param.exGravParams.bPatch,
-                    sizeof(int),
-                    "patch","enable/disable patch reference frame = -patch");
-        param.exGravParams.dOrbDist = 0.0;
-        prmAddParam(prm,"dOrbDist",paramDouble,&param.exGravParams.dOrbDist,
-                    sizeof(double),"orbdist","<Patch orbital distance>");
-       
-        //
-        // Central body potential parameters
-        //
-        param.exGravParams.bCentralBody = 0;
-        prmAddParam(prm,"bCentralBody",paramBool,&param.exGravParams.bCentralBody,
-                    sizeof(int),
-                    "centralbody","<enable/disable central body potential> = 0");
-        param.exGravParams.dEqRad = 1.0;
-        prmAddParam(prm,"dEqRad",paramDouble,&param.exGravParams.dEqRad,
-                    sizeof(double),"dEqRad","<Equatorial radius of central body> = 1.0");
-        param.exGravParams.dJ2 = 0.0;
-        prmAddParam(prm,"dJ2",paramDouble,&param.exGravParams.dJ2,
-                    sizeof(double),"dJ2","<Oblateness coefficient J2 of central body> = 0.0");
-        param.exGravParams.dJ4 = 0.0;
-        prmAddParam(prm,"dJ4",paramDouble,&param.exGravParams.dJ4,
-                    sizeof(double),"dJ4","<Oblateness coefficient J4 of central body> = 0.0");
-        param.exGravParams.dJ6 = 0.0;
-        prmAddParam(prm,"dJ6",paramDouble,&param.exGravParams.dJ6,
-                    sizeof(double),"dJ6","<Oblateness coefficient J6 of central body> = 0.0");
 
 	//
 	// Parameters for GrowMass: slowly growing mass of particles.
@@ -590,6 +546,13 @@ Main::Main(CkArgMsg* m) {
 
 	param.feedback = new Fdbk();
 	param.feedback->AddParams(prm);
+
+       param.bDoExternalGravity = 0;
+       prmAddParam(prm, "bDoExternalGravity", paramBool, &param.bDoExternalGravity,
+           sizeof(int), "bDoExternalGravity", "<Apply external gravity field to particles> = 0");
+
+       param.externalGravity = new ExternalGravity();
+       param.externalGravity->AddParams(prm);
 
 	param.iRandomSeed = 1;
 	prmAddParam(prm,"iRandomSeed", paramInt, &param.iRandomSeed,
@@ -967,12 +930,6 @@ Main::Main(CkArgMsg* m) {
 	    param.vPeriod = Vector3D<double>(1.0e38);
 	    param.bEwald = 0;
 	    }
-        /*
-         * Set external gravity if any of the external gravity
-         * parameters are set.
-         */
-         param.exGravParams.bDoExternalGravity = param.exGravParams.bBodyForce
-            || param.exGravParams.bPatch || param.exGravParams.bCentralBody;
 #ifdef CUDA
           double mil = 1e6;
           localNodesPerReq = (int) (localNodesPerReqDouble * mil);
@@ -1804,8 +1761,8 @@ void Main::advanceBigStep(int iStep) {
     else {
 	treeProxy.initAccel(activeRung, CkCallbackResumeThread());
 	}
-    if(param.exGravParams.bDoExternalGravity) {
-        treeProxy.externalGravity(activeRung, param.exGravParams,
+    if(param.bDoExternalGravity) {
+        treeProxy.externalGravity(activeRung, *(param.externalGravity),
                                   CkCallbackResumeThread());
         }
     
@@ -2044,6 +2001,8 @@ void Main::setupICs() {
       param.feedback->CheckParams(prm, param);
   else
       param.feedback->NullFeedback();
+
+  param.externalGravity->CheckParams(prm, param);
 
   string achLogFileName = string(param.achOutName) + ".log";
   ofstream ofsLog;
@@ -2442,8 +2401,8 @@ Main::initialForces()
   else {
       treeProxy.initAccel(0, CkCallbackResumeThread());
       }
-  if(param.exGravParams.bDoExternalGravity) {
-      treeProxy.externalGravity(0, param.exGravParams,
+  if(param.bDoExternalGravity) {
+      treeProxy.externalGravity(0, *(param.externalGravity),
                                 CkCallbackResumeThread());
       }
   if(param.bDoGas) {

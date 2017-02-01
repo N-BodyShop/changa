@@ -5,36 +5,7 @@
 #include "cooling.h"
 #include "starform.h"
 #include "feedback.h"
-
-/// @brief Class for external gravity parameters
-class externalGravityParams
-{
- public:
-    bool bDoExternalGravity; ///< Set if any exteran potential is used
-    int bBodyForce;          ///< Constant acceleration
-    double dBodyForceConst;
-    int bPatch;              ///< Patch in a disk
-    double dCentMass;        ///< Central mass
-    double dOrbDist;         ///< Distance of the patch from the center
-    int bCentralBody;        ///< Mass at the origin
-    double dEqRad;           ///< Equatorial radius of central body
-    double dJ2;              ///< Oblateness coefficients of central body
-    double dJ4;
-    double dJ6;
-    void pup(PUP::er& p) {
-        p| bDoExternalGravity;
-        p| bBodyForce;
-        p| dBodyForceConst;
-        p| bPatch;
-        p| dCentMass;
-        p| dOrbDist;
-        p| bCentralBody;
-        p| dEqRad;
-        p| dJ2;
-        p| dJ4;
-        p| dJ6;
-        }
-};
+#include "externalGravity.h"
 
 /** @brief Hold parameters of the run.
  */
@@ -79,10 +50,6 @@ typedef struct parameters {
 #endif
     CSM csm;			/* cosmo parameters */
     double dRedTo;
-    /*
-     * External Potentials
-     */
-    externalGravityParams exGravParams;
     /*
      * GrowMass parameters
      */
@@ -133,6 +100,8 @@ typedef struct parameters {
     Stfm *stfm;
     int bFeedback;
     Fdbk *feedback;
+    int bDoExternalGravity;
+    ExternalGravity* externalGravity;
     int iRandomSeed;
     int bStandard;
     int bDoublePos;
@@ -204,7 +173,6 @@ inline void operator|(PUP::er &p, Parameters &param) {
  	csmInitialize(&param.csm);
     p|*param.csm;
     p|param.dRedTo;
-    p|param.exGravParams;
     p|param.bDynGrowMass;
     p|param.nGrowMass;
     p|param.dGrowDeltaM;
@@ -250,6 +218,8 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|*param.stfm;
     p|param.bFeedback;
     p|param.feedback;
+    p|param.bDoExternalGravity;
+    p|param.externalGravity;
     p|param.iRandomSeed;
     p|param.bStandard;
     p|param.bDoublePos;

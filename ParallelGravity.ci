@@ -112,6 +112,7 @@ mainmodule ParallelGravity {
   PUPable DistDeletedGasSmoothParams;
   PUPable DistStellarFeedbackSmoothParams;
   PUPable Fdbk;
+  PUPable ExternalGravity;
   PUPable StarLog;
   PUPable Chabrier;
   PUPable MillerScalo;
@@ -334,7 +335,7 @@ mainmodule ParallelGravity {
 	    int bNeedVPred, int bGasIsothermal, double duDelta[MAXRUNG+1],
 	    const CkCallback& cb);
     entry void initAccel(int iKickRung, const CkCallback& cb);
-    entry void externalGravity(int activeRung, const externalGravityParams exGravParams,
+    entry void externalGravity(int activeRung, ExternalGravity &exGrav,
                        const CkCallback& cb);
     entry void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      int bSphStep, int bViscosityLimitdt,
