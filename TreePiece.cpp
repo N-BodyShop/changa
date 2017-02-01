@@ -1580,24 +1580,24 @@ void TreePiece::externalGravity(int iKickRung,
                     p->dtGrav = idt2;
                 }
             if(exGravParams.bCentralBody) {
-                // Convert particle positions to cartesian coordinates
                 double px = p->position.x;
                 double py = p->position.y;
                 double pz = p->position.z;
                 double r = p->position.length();
 
                 // Legendre polynomials
-                double x = pz/r; //cos(theta)
-                double y = sqrt(px*px + py*py)/r; //sin(theta);
-                double p2 = 0.5*(3.*pow(x, 2) - 1.);
-                double p4 = 1./8.*(35.*pow(x, 4) - 30.*pow(x, 2) + 3.);
-                double p6 = 1./16.*(231.*pow(x, 6) - 315.*pow(x, 4)
-                                      + 105.*pow(x, 2) - 5.);
+                double c1 = pz/r;                  // cos(theta)
+                double c2 = sqrt(px*px + py*py)/r; // sin(theta)
+                double p2 = 0.5*(3.*pow(c1, 2) - 1.);
+                double p4 = 1./8.*(35.*pow(c1, 4) - 30.*pow(c1, 2) + 3.);
+                double p6 = 1./16.*(231.*pow(c1, 6) - 315.*pow(c1, 4)
+                                      + 105.*pow(c1, 2) - 5.);
 
                 // Theta derivates of legendre polynomials
-                double p2prime = -3.*y*x;
-                double p4prime = -5./16.*(4.*x*y + 7.*(8.*y*pow(x, 3) - 4.*y*x));
-                double p6prime = -1./16.*(1386.*y*pow(x, 5)- 1260.*y*pow(x, 3)+ 210.*y*x);
+                double p2prime = -3.*c1*c2;
+                double p4prime = -5./16.*(4.*c1*c2 + 28.*pow(c1, 2)*c2*(2.*pow(c1, 2) - 1.));
+                double p6prime = -1./16.*(1386.*c2*pow(c1, 5)
+                                        - 1260.*c2*pow(c1, 3)+ 210.*c1*c2);
 
                 double a2 = exGravParams.dJ2*pow(exGravParams.dEqRad/r, 2);
                 double a4 = exGravParams.dJ4*pow(exGravParams.dEqRad/r, 4);
@@ -1606,18 +1606,17 @@ void TreePiece::externalGravity(int iKickRung,
                 p->potential += -exGravParams.dCentMass/r*(1. - a2*p2 - a4*p4 - a6*p6);
 
                 // Acceleration in spherical coordinates
-                double ar = -exGravParams.dCentMass/pow(r, 2)*(1. + a2*p2 + a4*p4 + a6*p6);
-                double atheta = -exGravParams.dCentMass/r*(a2*p2prime
+                double ar = -exGravParams.dCentMass/pow(r, 2)*(1. - 3.*a2*p2 - 
+                                                               5.*a4*p4 - 7.*a6*p6);
+                double atheta = exGravParams.dCentMass/pow(r, 2)*(a2*p2prime
                                   + a4*p4prime + a6*p6prime);
 
-                Vector3D<double> rVec = p->position;
-                rVec /= r;
+                Vector3D<double> rVec = p->position/r;
                 Vector3D<double> thetaVec;
                 double c = (r*sqrt(px*px+py*py));
                 thetaVec[0] = px*pz/c;
                 thetaVec[1] = py*pz/c;
                 thetaVec[2] = -(px*px + py*py)/c;
-                thetaVec /= thetaVec.length();
 
                 p->treeAcceleration.x += ar*rVec[0] + atheta*thetaVec[0];
                 p->treeAcceleration.y += ar*rVec[1] + atheta*thetaVec[1];
