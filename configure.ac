@@ -122,6 +122,8 @@ fi
 
 AC_SUBST([FLAG_DTADJUST])
 
+
+FLAG_KERNEL=""
 # Wendland C4 Kernel:
 AC_ARG_ENABLE([wendland],
 	[AS_HELP_STRING([--enable-wendland], [enable Wendland C4 Kernel])],
@@ -129,8 +131,16 @@ AC_ARG_ENABLE([wendland],
 if test "$wendland" = "yes" ; then
     echo "WENDLAND selected"
     FLAG_KERNEL="-DWENDLAND"
-else
-    FLAG_KERNEL=""
+fi
+#AC_SUBST([FLAG_KERNEL])
+
+# M6 quintic spline kernel
+AC_ARG_ENABLE([m6kernel],
+	[AS_HELP_STRING([--enable-m6kernel], [enable M6 cubic spline kernel])],
+	[m6kernel=$enableval], [m6kernel=no])
+if test "$m6kernel" = "yes" ; then
+    echo "M6KERNEL selected"
+    FLAG_KERNEL="-DM6KERNEL"
 fi
 AC_SUBST([FLAG_KERNEL])
 
