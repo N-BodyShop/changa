@@ -630,7 +630,7 @@ FLAG_FEEDBACKDIFFLIMIT
 FLAG_DIFFUSION
 OBJECTS_COOLING
 FLAG_COOLING
-FLAG_KERNEL
+KERNEL_FLAGS
 FLAG_DTADJUST
 FLAG_BIGKEYS
 FLAG_CHANGESOFT
@@ -3980,8 +3980,12 @@ fi
 
 
 
-
-FLAG_KERNEL=""
+# Select kernel
+# Set defaults
+KERNEL="m4kernel"
+FLAG_M4KERNEL="-DM4KERNEL=0"
+FLAG_WENDLAND="-DWENDLAND=0"
+FLAG_M6KERNEL="-DM6KERNEL=0"
 # Wendland C4 Kernel:
 # Check whether --enable-wendland was given.
 if test "${enable_wendland+set}" = set; then :
@@ -3991,11 +3995,8 @@ else
 fi
 
 if test "$wendland" = "yes" ; then
-    echo "WENDLAND selected"
-    FLAG_KERNEL="-DWENDLAND"
+    KERNEL="wendland"
 fi
-#AC_SUBST([FLAG_KERNEL])
-
 # M6 quintic spline kernel
 # Check whether --enable-m6kernel was given.
 if test "${enable_m6kernel+set}" = set; then :
@@ -4005,9 +4006,21 @@ else
 fi
 
 if test "$m6kernel" = "yes" ; then
-    echo "M6KERNEL selected"
-    FLAG_KERNEL="-DM6KERNEL"
+    KERNEL="m6kernel"
 fi
+# Now set up kernel flags
+if test "$KERNEL" = "m4kernel" ; then
+    echo "M4KERNEL selected"
+    FLAG_M4KERNEL="-DM4KERNEL=1"
+elif test "$KERNEL" = "wendland" ; then
+    echo "WENDLAND selected"
+    FLAG_WENDLAND="-DWENDLAND=1"
+elif test "$KERNEL" = "m6kernel" ; then
+    echo "M6KERNEL selected"
+    FLAG_M6KERNEL="-DM6KERNEL=1"
+fi
+KERNEL_FLAGS="$FLAG_M4KERNEL $FLAG_WENDLAND $FLAG_M6KERNEL"
+echo "$KERNEL_FLAGS"
 
 
 # Cooling:

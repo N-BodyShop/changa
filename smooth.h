@@ -312,7 +312,7 @@ double invH2(GravityParticle *p)
     return 4.0/(p->fBall*p->fBall);
     }
 
-#ifdef WENDLAND
+#if WENDLAND == 1
 /**
  * @brief KERNEL is a scaled version of the C4 Wendland SPH kernel
  * 
@@ -379,7 +379,9 @@ inline double DKERNEL(double ar2)
     return adk;
 	}
 #define KERNEL(ar2) KERNEL(ar2, nSmooth)
-#else
+#elif M6KERNEL == 1
+    #error M6 kernel not implemented yet
+#elif M4KERNEL == 1
 /* Standard M_4 Kernel */
 /**
  * @brief KERNEL is a scaled version of the standard M4 cubic SPH kernel
@@ -428,5 +430,7 @@ inline double DKERNEL(double ar2)
 	}
     return adk;
     }
+#else
+    #error No available kernel selected.
 #endif
 #endif
