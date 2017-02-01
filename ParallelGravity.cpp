@@ -1057,7 +1057,7 @@ Main::Main(CkArgMsg* m) {
             param.bSphStep = 0;
             param.bDtAdjust = 0; // DtAdjust only affects gas
             }
-#ifdef WENDLAND
+#if WENDLAND == 1
         if(param.bDoGas && param.nSmooth < 32) {
             ckerr << "WARNING: nSmooth < 32 with WENDLAND kernel." << endl;
             ckerr << "WARNING: M4 kernel with be used for smoothing." << endl;
@@ -2098,7 +2098,7 @@ void Main::setupICs() {
 #ifdef DTADJUST
   ofsLog << " DTADJUST";
 #endif
-#ifdef WENDLAND
+#if WENDLAND == 1
   ofsLog << " WENDLAND";
 #endif
 #ifdef JEANSSOFT
