@@ -380,7 +380,75 @@ inline double DKERNEL(double ar2)
 	}
 #define KERNEL(ar2) KERNEL(ar2, nSmooth)
 #elif M6KERNEL == 1
-    #error M6 kernel not implemented yet
+
+/**
+ * @brief KERNEL returns a scaled version of the M6 quintic spline kernel.
+ * 
+ * This kernel is outlined in e.g. Dehnen & Aly 2012.  The kernel is defined as:
+ *      W(r) = A (1-r)^5   (for r < 2/3)
+ *      W(r) = A [(1-r)^5 - 6(2/3-r)^5]   (for r < 2/3)
+ *      W(r) = A [(1-r)^5 - 6(2/3-r)^5 + 15(1/3-r)^5]   (for r < 1/3)
+ *      W(r) = 0 (for r > 1)
+ * Where:
+ *      r = |dx|/H
+ *      A = 3^7/(40 pi H^3))
+ * And for us, H = 2*h_smooth
+ * 
+ * @param ar2 = (|dx|/h)^2 = (2r)^2
+ * @return KERNEL = (pi h^3) W
+ */
+inline double KERNEL(double ar2) {
+    double r = 0.5 * sqrt(ar2);
+    double w;
+    // Sanity checks
+    CkAssert(r >= 0.0);
+    CkAssert(r <= 1.0000001);
+    w = pow(1. - r, 5);
+    if (r < 2./3.) {
+        w += -6. * pow(2./3. - r, 5);
+        if (r < 1./3.) {
+            w += 15. * pow(1./3. - r, 5);
+        }
+    }
+    return 6.834375 * w;
+}
+
+/**
+ * @brief DKERNEL returns a scaled gradient of the M6 quintic spline kernel.
+ * 
+ * This kernel is outlined in e.g. Dehnen & Aly 2012 (see also KERNEL()). 
+ * Using the definitions:
+ *      r = |dx|/H
+ *      H = 2 * h
+ * DKERNEL returns a scalar equal to (pi h^5/|dx|^2) * (dx.dot.gradW), where
+ * gradW is the gradient of the kernel W.
+ * @param ar2 = (|dx|/h)^2 = (2r)^2
+ * @return DKERNEL = (pi h^5/|dx|^2) * (dx.dot.gradW)
+ */
+inline double DKERNEL(double ar2) {
+    double r = 0.5 * sqrt(ar2);
+    double dw = 0.0;
+    // Sanity checks
+    CkAssert(r >= 0.0);
+    CkAssert(r <= 1.0000001);
+    dw = -5. *  pow(1. - r, 4);
+    if (r < 2./3.) {
+        dw += 30. * pow(2./3. - r, 4);
+        if (r < 1./3.) {
+            if (r == 0.) {
+                dw = 0.0;
+                r = 1.;
+            } else {
+                dw += -75. * pow(1./3. - r, 4);
+            }
+        }
+    }
+    dw /= r;
+    // Normalize by 3^7/(32*40)
+    dw *= 1.70859375;
+    return dw;
+}
+
 #elif M4KERNEL == 1
 /* Standard M_4 Kernel */
 /**

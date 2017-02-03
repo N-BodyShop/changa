@@ -2101,6 +2101,12 @@ void Main::setupICs() {
 #if WENDLAND == 1
   ofsLog << " WENDLAND";
 #endif
+#if M4KERNEL == 1
+  ofsLog << " M4KERNEL";
+#endif
+#if M6KERNEL == 1
+  ofsLog << " M6KERNEL";
+#endif
 #ifdef JEANSSOFT
   ofsLog << " JEANSSOFT";
 #endif
