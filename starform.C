@@ -80,7 +80,7 @@ void Stfm::CheckParams(PRM prm, Parameters &param)
     bGasCooling = param.bGasCooling;
     CkAssert((dStarEff > 0.0 && dStarEff < 1.0)
 	      || dInitStarMass > 0.0);
-    if (dInitStarMass > 0) {
+    if (dInitStarMass > 0 && dMinGasMass <= 0) {
 	/* Only allow 10% underweight star particles */
 	dMinGasMass = 0.9*dInitStarMass;
 	}
