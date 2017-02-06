@@ -137,6 +137,7 @@ extern DomainsDec domainDecomposition;
 extern double dExtraStore;
 extern double dMaxBalance;
 extern double dFracLoadBalance;
+extern double dGlassDamper;
 extern int bUseCkLoopPar;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
