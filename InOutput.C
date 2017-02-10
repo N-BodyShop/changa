@@ -1659,8 +1659,10 @@ void TreePiece::outputAccelerations(OrientedBox<double> accelerationBox, const s
     FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "wb");
     XDR xdrs;
     xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-    fh.code = float64;
+    fh.code = TypeHandling::Type2Code<cosmoType>::code;
     fh.dimensions = 3;
+    fh.numParticles = this->nTotalParticles;
+    fh.time = this->dStartTime;
     if(!xdr_template(&xdrs, &fh) || !xdr_template(&xdrs, &accelerationBox.lesser_corner) || !xdr_template(&xdrs, &accelerationBox.greater_corner)) {
       ckerr << "TreePiece " << thisIndex << ": Could not write header to accelerations file, aborting" << endl;
       CkAbort("Badness");
