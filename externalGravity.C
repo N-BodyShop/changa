@@ -112,15 +112,10 @@ void ExternalGravity::applyPotential(GravityParticle *p)
                           + a4*p4prime + a6*p6prime);
 
         Vector3D<double> rVec = p->position/r;
-        Vector3D<double> thetaVec;
         double c = (r*sqrt(px*px+py*py));
-        thetaVec[0] = px*pz/c;
-        thetaVec[1] = py*pz/c;
-        thetaVec[2] = -(px*px + py*py)/c;
+        Vector3D<double> thetaVec = (px*pz/c, py*pz/c, -(px*px + py*py)/c);
 
-        p->treeAcceleration.x += ar*rVec[0] + atheta*thetaVec[0];
-        p->treeAcceleration.y += ar*rVec[1] + atheta*thetaVec[1];
-        p->treeAcceleration.z += ar*rVec[2] + atheta*thetaVec[2];
+        p->treeAcceleration += ar*rVec + atheta*thetaVec;
 
         double idt2 = ar/r;
         if(idt2 > p->dtGrav)
