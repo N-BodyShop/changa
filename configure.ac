@@ -204,6 +204,20 @@ fi
 AC_SUBST([FLAG_COOLING])
 AC_SUBST([OBJECTS_COOLING])
 AC_SUBST([HEXADECAPOLE])
+
+###################### CAMBRIDGE ###################
+# CAMBRIDGE
+AC_ARG_ENABLE([cambridge],
+    [AS_HELP_STRING([--enable-cambridge], [Enable cambridge (yes, no)])],
+    [cambridge=$enableval], [cambridge=no])
+if test "$cambridge" = "yes" ; then
+    echo "DCAMBRIDGE selected"
+    FLAG_CAMBRIDGE="-DCAMBRIDGE"
+else
+    FLAG_CAMBRIDGE=""
+fi
+
+AC_SUBST([FLAG_CAMBRIDGE])
  
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
@@ -228,3 +242,6 @@ AC_CONFIG_FILES([Makefile
 		 $srcdir/../utility/structures/Makefile
 		])
 AC_OUTPUT
+
+
+
