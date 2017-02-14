@@ -12,6 +12,23 @@
 
 const char *typeString(NodeType type);
 
+#ifdef CAMBRIDGE
+CAM_GPU_Tree* CAM_Transform_Walk::transform() {
+  if (ownerTP == NULL)
+    return NULL;
+
+  tree = new CAM_GPU_Tree();
+  tree->num_of_particles = ownerTP->getNumOfParticles();
+
+  CkPrintf(" -----> CAMBRIDGE: there are %d particles in the treepiece. The number of buckets is %d.\n", tree->num_of_particles, ownerTP->bucketList.size());
+
+  
+
+
+  return tree;
+}
+#endif
+
 void TreeWalk::init(Compute *c, TreePiece *owner){
   comp = c;
   ownerTP = owner;
@@ -347,6 +364,7 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
       descend = processNode(glblNode.node, s, chunk, reqID, isRoot, didcomp, awi);
 
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
+  CkPrintf("        XXXX -> CAMBRIDGE: Now we can see whether we have CHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE or not!\n");
       int tpindex = ownerTP->getIndex();
       if(targetBucketIndex == TEST_BUCKET && tpindex == TEST_TP){ 
         char arr[2] = {'K', 'D'};

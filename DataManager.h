@@ -163,6 +163,10 @@ public:
 		//void serializeNodes(GenericTreeNode *start);
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();
+#ifdef CAMBRIDGE
+        void transformLocalTree(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments);
+        void transformLocalRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments);
+#endif
 
         // actual serialization methods
         PendingBuffers *serializeRemoteChunk(GenericTreeNode *);
