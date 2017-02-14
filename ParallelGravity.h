@@ -723,6 +723,10 @@ class TreePiece : public CBase_TreePiece {
    friend class DataManager;
    template<typename T> friend class GenericList;
 #endif
+#ifdef CAMBRIDGE
+   friend class CAM_Transform_Walk;
+   friend class CAM_GPU_Tree;
+#endif
 
    friend class RemoteTreeBuilder; 
    friend class LocalTreeBuilder; 
@@ -1326,6 +1330,10 @@ private:
 
   NodeLookupType &getNodeLookupTable() {
 	  return nodeLookupTable;
+  }
+
+  int getNumOfParticles() {
+    return myTreeParticles;
   }
 
   int getNumNodes() {

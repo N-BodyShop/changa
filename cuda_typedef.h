@@ -75,6 +75,16 @@ typedef struct CudaMultipoleMoments{
   cudatype totalMass;
   CudaVector3D cm;
 
+#ifdef CAMBRIDGE
+  CudaVector3D lesser_corner;
+  CudaVector3D greater_corner;
+  int firstParticle;
+  int lastParticle;
+//  int parentIndex;
+  int children[2];
+  int type;
+#endif
+
 #ifdef HEXADECAPOLE
   cudatype xx, xy, xz, yy, yz;
   cudatype xxx,xyy,xxy,yyy,xxz,yyz,xyz;
@@ -88,6 +98,7 @@ typedef struct CudaMultipoleMoments{
   CudaMultipoleMoments(MultipoleMoments &mom){
     *this = mom;
   }
+
   inline CudaMultipoleMoments& operator=(MultipoleMoments &m){
     radius = m.radius;
     soft = m.soft;

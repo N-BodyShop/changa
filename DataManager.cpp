@@ -623,6 +623,20 @@ typedef std::map<KeyType, CkCacheEntry<KeyType>*> cacheType;
 
 #endif
 
+#ifdef CAMBRIDGE
+#define CAM_addNodeToList(nd, list, index) \
+      { \
+        nd->nodeArrayIndex = index; \
+        nd->wasNeg = false; \
+        CudaMultipoleMoments cmm(nd->moments);\
+        cmm.lesser_corner = nd->boundingBox.lesser_corner;\
+        cmm.greater_corner = nd->boundingBox.greater_corner;\
+        cmm.firstParticle = nd->firstParticle;\
+        cmm.lastParticle = nd->lastParticle;\
+        list.push_back(cmm);\
+        index++;\
+      }
+#endif
 
 const char *typeString(NodeType type);
 
@@ -807,16 +821,28 @@ void DataManager::serializeLocal(GenericTreeNode *node){
     }
     else if(type == Bucket || type == NonLocalBucket){ // NLB
       // don't need the particles, only the moments
+#ifdef CAMBRIDGE
+      CAM_addNodeToList(node,localMoments,nodeIndex)
+#else
       addNodeToList(node,localMoments,nodeIndex)
+#endif
     }
     else if(type == Boundary || type == Internal){ // B,I 
+#ifdef CAMBRIDGE
+      CAM_addNodeToList(node,localMoments,nodeIndex)
+#else
       addNodeToList(node,localMoments,nodeIndex)
+#endif
       for(int i = 0; i < node->numChildren(); i++){
         GenericTreeNode *child = node->getChildren(i);
         queue.enq(child);
       }
     }
   }// end while queue not empty
+
+#ifdef CAMBRIDGE
+  transformLocalTree(node, localMoments);
+#endif
 
   // used later, when copying particle vars back to the host
   savedNumTotalParticles = numParticles;
@@ -844,6 +870,46 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, CkMyPe(), localTransferCallback);
 #endif
 }// end serializeLocal
+
+#ifdef CAMBRIDGE
+// Add more information to each Moment, basically transform moment to a computable tree node
+void DataManager::transformLocalTree(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments) {
+  CkQ<GenericTreeNode *> queue;
+  queue.enq(node);
+  while(!queue.isEmpty()){
+    GenericTreeNode *node = queue.deq();
+    NodeType type = node->getType();
+    int node_index = node->nodeArrayIndex;
+//    CkPrintf("***********CAMBRIDGE(index = %d): type = %d, total size = %d\n", node_index, (int)type, localMoments.size());
+
+#ifdef CUDA_DM_PRINT_TREES
+    //CkPrintf("Process [%d] %ld (%s)\n", CkMyPe(), node->getKey(), typeString(type));
+#endif
+
+    if(type == Empty || type == CachedEmpty){ // skip
+      continue;
+    }
+    else if(type == Bucket || type == NonLocalBucket){ // NLB
+      localMoments[node_index].type = (int)type;
+      for (int i = 0; i < 2; i ++) {
+        localMoments[node_index].children[i] = -1;
+      }
+    }
+    else if(type == Boundary || type == Internal){ // B,I 
+      localMoments[node_index].type = (int)type;
+      for (int i = 0; i < 2; i ++) {
+        localMoments[node_index].children[i] = -1;
+      }
+      for(int i = 0; i < node->numChildren(); i++){
+        GenericTreeNode *child = node->getChildren(i);
+        int child_index = child->nodeArrayIndex;
+        localMoments[node_index].children[i] = child_index;
+        queue.enq(child);
+      }
+    }
+  }// end while queue not empty
+}
+#endif
 
 void DataManager::freeLocalTreeMemory(){
   CmiLock(__nodelock);

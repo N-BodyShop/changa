@@ -2792,7 +2792,11 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
 
 void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   delete m;
-
+  
+  #ifdef CAMBRIDGE
+  CkPrintf("XXXX -> CAMBRIDGE: Now we can see whether we're here or not!\n");
+  #endif
+  
   if (dm == NULL) {
       dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
   }
@@ -3812,6 +3816,11 @@ void TreePiece::doAllBuckets(){
   *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
   CkSetQueueing(msg,CK_QUEUEING_IFIFO);
 
+#ifdef CAMBRIDGE
+    CAM_Transform_Walk walk(this);
+    walk.transform();
+#endif
+
   thisProxy[thisIndex].nextBucket(msg);
 #ifdef CUDA_INSTRUMENT_WRS
   ((DoubleWalkState *)sLocalGravityState)->nodeListConstructionTimeStart();
@@ -3852,7 +3861,20 @@ void TreePiece::nextBucket(dummyMsg *msg){
       CkPrintf("[%d] local bucket active %d buckRem: %d + %d \n", thisIndex, currentBucket, sRemoteGravityState->counterArrays[0][currentBucket], sLocalGravityState->counterArrays[0][currentBucket]);
 #endif
       // construct lists
+#ifdef CAMBRIDGE
+//  #ifdef COSMO_EVENT
+    traceRegisterUserEvent("startNextBucket", 20); 
+    double startTimer = CmiWallTimer();
+//  #endif
+#endif
       startNextBucket();
+
+#ifdef CAMBRIDGE
+//  #ifdef COSMO_EVENT
+    traceUserBracketEvent(20, startTimer, CmiWallTimer());
+//  #endif
+#endif
+
 #if INTERLIST_VER > 0
       // do computation
       GenericTreeNode *lowestNode = ((DoubleWalkState *) sLocalGravityState)->lowestNode;
@@ -3881,7 +3903,32 @@ void TreePiece::nextBucket(dummyMsg *msg){
       } else
 #endif
 	{
+//#ifndef CAMBRIDGE    
+
+#ifdef CAMBRIDGE
+//  #ifdef COSMO_EVENT
+    traceRegisterUserEvent("stateReady", 21); 
+    startTimer = CmiWallTimer();
+//  #endif
+#endif
         sGravity->stateReady(sLocalGravityState, this, -1, currentBucket, end);
+
+
+#ifdef CAMBRIDGE
+//  #ifdef COSMO_EVENT
+    traceUserBracketEvent(21, startTimer, CmiWallTimer());
+//  #endif
+#endif
+/*#else
+        CkPrintf("CAMBRIDGE: tell me the bucket ID: %d\n", currentBucket);
+        CkPrintf("  CAMBRIDGE: tell me the bucket content: %d\n", target->getKey());
+        CkPrintf("    CAMBRIDGE: tell me the bucket 0th child: %d\n", target->getChildKey(0));
+        CkPrintf("    CAMBRIDGE: tell me the bucket 1th child: %d\n", target->getChildKey(1));
+
+        for (NodeLookupType::iterator iter = this->nodeLookupTable.begin(); iter != this->nodeLookupTable.end(); iter ++) {
+          CkPrintf("          CAMBRIDGE: %d\n", (*iter).first);
+        }
+#endif*/
       }
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("active: nextBucket memcheck after stateReady\n");

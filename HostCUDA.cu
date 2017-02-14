@@ -1420,6 +1420,97 @@ void DummyKernel(void *cb){
  * Kernels
  */
 
+/****
+ * GPU Local tree walk (computation integrated)
+****/
+#ifdef CAMBRIDGE
+
+#define THREADS_PER_WARP 32
+#define NWARPS_PER_BLOCK (THREADS_PER_BLOCK / THREADS_PER_WARP)
+#define WARP_INDEX (threadIdx.x >> 5)
+
+typedef union {
+  long long __val;
+  struct {
+    int index;
+    float dsq;
+  } items;
+} stack_item;
+
+// Used in lockstepping, sync for threads in a warp
+#define STACK_INIT() sp = 1; stack[WARP_INDEX][sp].items.index = 0; //stack[WARP_INDEX][sp].items.dsq = size * size * itolsq
+#define STACK_POP() sp -= 1
+#define STACK_PUSH() sp += 1
+#define STACK_TOP_NODE_INDEX stack[WARP_INDEX][sp].items.index
+#define STACK_TOP_DSQ stack[WARP_INDEX][sp].items.dsq
+
+__global__ void compute_force_gpu_lockstepping(
+    CompactPartData *particleCores,
+    VariablePartData *particleVars,
+    CudaMultipoleMoments* moments,
+    int firstParticle,
+    int lastParticle,
+    int root) {
+
+  int i = 0;
+  int j = 0;
+  int k = 0;
+
+  CudaMultipoleMoments m;
+  CompactPartData p;
+
+  int cur_node_index;
+  float dsq;
+
+  __shared__ unsigned int SP[NWARPS_PER_BLOCK];
+#define sp SP[WARP_INDEX]
+  __shared__ stack_item stack[NWARPS_PER_BLOCK][128];
+
+// Variables for lockstepping
+  bool cond, status;
+  bool opt1, opt2;
+  unsigned int critical;
+  unsigned int vote_left;
+  unsigned int vote_right;
+  unsigned int num_left;
+  unsigned int num_right;
+
+  for(i = blockIdx.x*blockDim.x + threadIdx.x + firstParticle; i < lastParticle; i+= gridDim.x*blockDim.x) {
+    m = moments[root];
+    p = particleCores[i];
+
+    STACK_INIT();
+    status = 1;
+    critical = 63;
+    cond = 1;
+
+    while(sp >= 1) {
+      cur_node_index = STACK_TOP_NODE_INDEX;
+      dsq = STACK_TOP_DSQ;
+
+      if (status == 0 && critical >= sp) {
+        status = 1;
+      }
+       
+      STACK_POP();
+
+      if (status) {
+
+
+
+
+      }
+    }
+
+  }
+}
+
+__device__ int openCriterionNode() {
+  
+}
+
+#endif
+
 /**
  * @brief interaction between multipole moments and buckets of particles.
  * @param particleCores Read-only properties of particles.
