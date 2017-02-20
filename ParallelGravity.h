@@ -56,6 +56,7 @@ using namespace std;
 
 using namespace Tree;
 
+/// Load balancers that need the spatial information.
 enum LBStrategy{
   Null=0,
   Multistep,
@@ -75,6 +76,7 @@ enum TraceState {
 };
 #endif
 
+/// Possible domain decomposition methods
 enum DomainsDec {
     SFC_dec=0,	// Space Filling Curve with Morton ordering
     Oct_dec=1, 	// Oct tree
@@ -85,6 +87,7 @@ enum DomainsDec {
     ORB_space_dec=6		// Bisect space
 };
 
+/// Directions for sending boundaries
 enum NborDir {
   LEFT = 0,
   RIGHT
@@ -179,7 +182,6 @@ extern int _prefetch;
 extern int _randChunks;
 extern int _numChunks;
 extern unsigned int bucketSize;
-extern int lbcomm_cutoff_msgs;
 
 //jetley
 extern int localNodesPerReq;
@@ -415,6 +417,7 @@ inline double PoverRhoFloorJeans(double dResolveJeans, GravityParticle *p)
     return l2*dResolveJeans*p->fDensity;
 }
 
+/// @brief Adiabatic index to use with the Jeans pressure floor.
 const double GAMMA_JEANS = 2.0;
 
 
@@ -564,8 +567,11 @@ typedef struct OffsetNodeStruct
 }OffsetNode;
 
 #if INTERLIST_VER > 0
+/// @brief Queue of nodes to check for interactions.
 typedef CkQ<OffsetNode> CheckList;
+/// @brief Vector of nodes that are undecided at this level.
 typedef CkVec<OffsetNode> UndecidedList;
+/// @brief Vector of undecided lists, one for each level.
 typedef CkVec<UndecidedList> UndecidedLists;
 #endif
 

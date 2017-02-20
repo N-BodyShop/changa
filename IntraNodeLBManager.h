@@ -5,6 +5,7 @@
 
 using std::vector;
 
+/// @brief Manage intranode work for ckLoop intra node work sharing.
 class IntraNodeLBManager : public CBase_IntraNodeLBManager {
 
  public:
