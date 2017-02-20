@@ -6,7 +6,8 @@
 class State;
 class DoubleWalkState;
 
-/** @file defines classes for objects that encapsulate computation
+/** @file Compute.h
+ * Defines classes for objects that encapsulate computation
  */
 
 class TreeWalk;
@@ -256,7 +257,7 @@ class DummyPrefetchCompute : public PrefetchCompute {
   }
 };
 
-// distingish between the walks that could be running.
+/// @brief distingish between the walks that could be running.
 
 enum WalkIndices {
     prefetchAwi = 0,

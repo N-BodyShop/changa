@@ -349,8 +349,6 @@ int Orb3dLB::nextDim(int dim_, int xs, int ys, int zs){
   return dim;
 }
 
-#define LOAD_EQUAL_TOLERANCE 1.02
-
 void Orb3dLB::partitionEvenLoad(int tpstart, int tpend, int &tpmid){
   float totalLoad = 0.0;
   for(int i = tpstart; i < tpend; i++){
