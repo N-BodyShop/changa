@@ -6,8 +6,8 @@
 #include "Space.h"
 #include "SSEdefs.h"
 
-extern double theta;
-extern double thetaMono;
+extern cosmoType theta;
+extern cosmoType thetaMono;
 
 /*
 ** see (A1) and (A2) of TREESPH: A UNIFICATION OF SPH WITH THE 
@@ -388,7 +388,8 @@ inline int partBucketForce(ExternalGravityParticle *part,
   activeParticles[nActiveParts+2] = &dummyPart; 
 #endif
 
-  return partBucketForce(part, req, activeParticles, offset, nActiveParts); 
+  int ret = partBucketForce(part, req, activeParticles, offset, nActiveParts); 
+  return ret; 
 }
 
 #endif
@@ -441,10 +442,12 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
       rsq = r.lengthSquared();
       cosmoType dir = COSMO_CONST(1.0)/sqrt(rsq);
 #ifdef HEXADECAPOLE
-      momEvalMomr(&m.mom, dir, -r.x, -r.y, -r.z, &particles[j].potential,
+      cosmoType magai;
+      momEvalFmomrcm(&m.mom, m.getRadius(), dir, r.x, r.y, r.z,
+		  &particles[j].potential,
 		  &particles[j].treeAcceleration.x,
 		  &particles[j].treeAcceleration.y,
-		  &particles[j].treeAcceleration.z);
+		  &particles[j].treeAcceleration.z, &magai);
       cosmoType idt2 = (particles[j].mass + m.totalMass)*dir*dir*dir;
 #else
       twoh = CONVERT_TO_COSMO_TYPE(m.soft + particles[j].soft);
@@ -515,9 +518,10 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
     tmpPart.mass = m.totalMass;
     tmpPart.soft = m.soft;
     tmpPart.position = m.cm;
-    return partBucketForce(&tmpPart, req, activeParticles, 
+    int ret = partBucketForce(&tmpPart, req, activeParticles, 
 			   offset, nActiveParts);
-  }
+    return ret; 
+    }
 #endif
   for (int i=0; i<nActiveParts; i+=SSE_VECTOR_WIDTH) {
 #ifdef CMK_VERSION_BLUEGENE
@@ -547,10 +551,12 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
     SSEcosmoType SSELoad(packedMass, activeParticles, i, ->mass);  
     SSEcosmoType SSELoad(packedDtGrav, activeParticles, i, ->dtGrav);
 #ifdef HEXADECAPOLE
-    momEvalMomr(&m.mom, dir, -r.x, -r.y, -r.z, &packedPotential,
-		&packedAcc.x,
-		&packedAcc.y,
-		&packedAcc.z);
+    SSEcosmoType magai;
+    momEvalFmomrcm(&m.mom, m.getRadius(), dir, r.x, r.y, r.z,
+		   &packedPotential,
+		   &packedAcc.x,
+		   &packedAcc.y,
+		   &packedAcc.z, &magai);
     SSEcosmoType idt2 = (packedMass + m.totalMass)*dir*dir*dir;
 #else
     SSELoad(SSEcosmoType packedSoft, activeParticles, i, ->soft); 
@@ -599,11 +605,9 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
 inline bool
 openCriterionBucket(Tree::GenericTreeNode *node,
                    Tree::GenericTreeNode *bucketNode,
-                   Vector3D<double> offset, // Offset of node
+                   Vector3D<cosmoType> offset, // Offset of node
                    int localIndex // requesting TreePiece
                    ) {
-  // mark the node as used by the requesting TreePiece
-  node->markUsedBy(localIndex);
 
 #if COSMO_STATS > 0
   node->used = true;
@@ -615,11 +619,11 @@ openCriterionBucket(Tree::GenericTreeNode *node,
       }
 
   // Note that some of this could be pre-calculated into an "opening radius"
-  double radius = TreeStuff::opening_geometry_factor * node->moments.radius / theta;
-  if(radius < node->moments.radius)
-      radius = node->moments.radius;
+  cosmoType radius = TreeStuff::opening_geometry_factor * node->moments.getRadius() / theta;
+  if(radius < node->moments.getRadius())
+      radius = node->moments.getRadius();
 
-  Sphere<double> s(node->moments.cm + offset, radius);
+  Sphere<cosmoType> s(node->moments.cm + offset, radius);
   
 #ifdef HEXADECAPOLE
   if(!Space::intersect(bucketNode->boundingBox, s)) {
@@ -628,8 +632,8 @@ openCriterionBucket(Tree::GenericTreeNode *node,
 	  return false; // passed both tests: will be a Hex interaction
       }
       else {        // Open as monopole?
-        radius = TreeStuff::opening_geometry_factor*node->moments.radius/thetaMono;
-      Sphere<double> sM(node->moments.cm + offset, radius);
+        radius = TreeStuff::opening_geometry_factor*node->moments.getRadius()/thetaMono;
+      Sphere<cosmoType> sM(node->moments.cm + offset, radius);
       return Space::intersect(bucketNode->boundingBox, sM);
       }
       }
@@ -657,11 +661,9 @@ openCriterionBucket(Tree::GenericTreeNode *node,
 
 inline int openCriterionNode(Tree::GenericTreeNode *node,
                     Tree::GenericTreeNode *myNode,
-                    Vector3D<double> offset,
+                    Vector3D<cosmoType> offset,
                     int localIndex // requesting TreePiece
                     ) {
-  // mark the node as used by this TreePiece
-  node->markUsedBy(localIndex);
 
 #if COSMO_STATS > 0
   node->used = true;
@@ -673,11 +675,11 @@ inline int openCriterionNode(Tree::GenericTreeNode *node,
       }
 
   // Note that some of this could be pre-calculated into an "opening radius"
-  double radius = TreeStuff::opening_geometry_factor * node->moments.radius / theta;
-  if(radius < node->moments.radius)
-      radius = node->moments.radius;
+  cosmoType radius = TreeStuff::opening_geometry_factor * node->moments.getRadius() / theta;
+  if(radius < node->moments.getRadius())
+      radius = node->moments.getRadius();
 
-  Sphere<double> s(node->moments.cm + offset, radius);
+  Sphere<cosmoType> s(node->moments.cm + offset, radius);
 
   if(myNode->getType()==Tree::Bucket || myNode->getType()==Tree::CachedBucket || myNode->getType()==Tree::NonLocalBucket){
     if(Space::intersect(myNode->boundingBox, s))
@@ -690,8 +692,8 @@ inline int openCriterionNode(Tree::GenericTreeNode *node,
             return 0;   // passed both tests: will be a Hex interaction
             }
         else {      // Open as monopole?
-          radius = TreeStuff::opening_geometry_factor*node->moments.radius/thetaMono;
-            Sphere<double> sM(node->moments.cm + offset, radius);
+          radius = TreeStuff::opening_geometry_factor*node->moments.getRadius()/thetaMono;
+            Sphere<cosmoType> sM(node->moments.cm + offset, radius);
             if(Space::intersect(myNode->boundingBox, sM))
                 return 1;
             else
@@ -717,8 +719,8 @@ inline int openCriterionNode(Tree::GenericTreeNode *node,
                 return 0;   // passed both tests: will be a Hex interaction
                 }
             else {      // Open as monopole?
-                radius = TreeStuff::opening_geometry_factor*node->moments.radius/thetaMono;
-                Sphere<double> sM(node->moments.cm + offset, radius);
+                radius = TreeStuff::opening_geometry_factor*node->moments.getRadius()/thetaMono;
+                Sphere<cosmoType> sM(node->moments.cm + offset, radius);
                 if(Space::intersect(myNode->boundingBox, sM))
                     return 1;
                 else

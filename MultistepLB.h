@@ -20,8 +20,6 @@
 #include "CentralLB.h"
 
 #include "MapStructures.h"
-#include "ScaleTranMapBG.h"
-#include "ScaledORBMapBG.h"
 
 #include "MultistepLB.decl.h"
 
@@ -64,58 +62,26 @@ static int pcz(const void *a, const void *b){
 }
 //**************************************
 
-
-class LightweightLDStats1 {
-  public:
-  int n_objs;
-  int n_migrateobjs;
-  CkVec<LDObjData> objData;
-
-  void pup(PUP::er &p);
-};
-
-
-class MultistepLB : public CentralLB {
+class MultistepLB : public CBase_MultistepLB {
 private:
-  bool firstRound;
-  bool haveTPCentroids;
   ComparatorFn compares[NDIMS];
   ComparatorFn pc[NDIMS];
 
-  TaggedVector3D *tpCentroids;
-  CkReductionMsg *tpmsg;
-  int nrecvd;
   CkVec<int> *mapping;
 
   int procsPerNode;
 
-  CkVec<LightweightLDStats1> savedPhaseStats;       // stats saved from previous phases
-  
+  void init();
   bool QueryBalanceNow(int step);
-  //int prevPhase;
 
-  unsigned int determinePhase(unsigned int activeRung);
   void makeActiveProcessorList(BaseLB::LDStats *stats, int numActiveObjs);
-  void mergeInstrumentedData(int phase, BaseLB::LDStats *phaseStats);
-  bool havePhaseData(int phase); 
-  void printData(BaseLB::LDStats &stats, int phase, int *revObjMap);
 public:
   MultistepLB(const CkLBOptions &);
-  MultistepLB(CkMigrateMessage *m):CentralLB(m) { 
-    lbname = "MultistepLB"; 
-    compares[0] = comparx;
-    compares[1] = compary;
-    compares[2] = comparz;
-
-    pc[0] = pcx;
-    pc[1] = pcy;
-    pc[2] = pcz;
-
+  MultistepLB(CkMigrateMessage *m) : CBase_MultistepLB(m) {
+    init();
   }
-    
+
   void work(BaseLB::LDStats* stats);
-  void receiveCentroids(CkReductionMsg *msg);
-  //ScaleTranMapBG map;
 
 public:/* <- Sun CC demands Partition be public for ComputeLoad to access it. */
 
@@ -132,7 +98,7 @@ public:/* <- Sun CC demands Partition be public for ComputeLoad to access it. */
     Partition(): refno(0), load(0.0), node(-1), mapped(0) {};
   };
 
-private:  
+private:
   struct ComputeLoad {
     int id;
     int v[3];
@@ -141,24 +107,24 @@ private:
     double  tv;
     Partition * partition;
   };
-  
-  
+
+
   struct VecArray {
     int v;
     int id;
   };
-  
+
   enum {XDIR=0, YDIR, ZDIR};
-  
+
 public:
   double overLoad;
-  
+
 //**************************************
 // ORB3DLB functions
 //**************************************
 //
-  void work2(BaseLB::LDStats* stats, int count, int phase, int prevPhase);
-  void greedy(BaseLB::LDStats* stats, int count, int phase, int prevPhase);
+  void work2(BaseLB::LDStats* stats, int count);
+  void greedy(BaseLB::LDStats* stats, int count);
   void directMap(TPObject *tp, int ntp, Node *nodes);
   void map(TPObject *tp, int ntp, int nn, Node *procs, int xs, int ys, int zs, int dim);
   int nextDim(int dim, int xs, int ys, int zs);

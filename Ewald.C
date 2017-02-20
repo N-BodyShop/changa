@@ -291,7 +291,11 @@ void TreePiece::EwaldInit()
 
 #ifdef HEXADECAPOLE
 	/* convert to complete moments */
-	momMomr2Momc(&(root->moments.mom), &momcRoot);
+	momRescaleFmomr(&(root->moments.mom),1.0f,root->moments.getRadius());
+	momFmomr2Momc(&(root->moments.mom), &momcRoot);
+	/* XXX note that we could leave the scaling as is and change
+	   the radius of the root. */
+	momRescaleFmomr(&(root->moments.mom),root->moments.getRadius(),1.0f);
 #endif
 	/*
 	 ** Now setup stuff for the h-loop.
@@ -370,14 +374,9 @@ void TreePiece::EwaldInit()
 	nEwhLoop = i;
 
 	//contribute(cb);
-#ifdef CELL
-	dummyMsg *msg = new dummyMsg;
-#else
 	dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
 	*((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + numTreePieces + thisIndex + 1;
 	CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-#endif
-	msg->val=0;
 	thisProxy[thisIndex].calculateEwald(msg);
 }
 
@@ -391,64 +390,101 @@ void TreePiece::EwaldGPU() {
   GravityParticleData *particleTable;
   EwtData *ewtTable; 
   EwaldReadOnlyData *roData; 
-  MultipoleMoments mom = root->moments;
-  
-  float L = fPeriod.x;
-  float alpha = 2.0f/L;
+  MultipoleMoments mm = root->moments;
+
+  cudatype L = fPeriod.x;
+  cudatype alpha = 2.0f/L;
   
   particleTable = (GravityParticleData*) h_idata->p; 
   ewtTable = (EwtData*) h_idata->ewt;
   roData = (EwaldReadOnlyData*) h_idata->cachedData; 
 
+  int nActive = 0;
   for (int i=1; i<=myNumParticles; i++) {
-    particleTable[i].position_x = (float) myParticles[i].position.x;
-    particleTable[i].position_y = (float) myParticles[i].position.y;
-    particleTable[i].position_z = (float) myParticles[i].position.z;
-    particleTable[i].acceleration_x = 0; 
-    particleTable[i].acceleration_y = 0; 
-    particleTable[i].acceleration_z = 0; 
-    particleTable[i].potential = 0; 
-    /*
-    particleTable[i].acceleration_x = 
-      (float) myParticles[i].treeAcceleration.x;
-    particleTable[i].acceleration_y = 
-      (float) myParticles[i].treeAcceleration.y;
-    particleTable[i].acceleration_z = 
-      (float) myParticles[i].treeAcceleration.z;
-    particleTable[i].potential = (float) myParticles[i].potential;
-    */
+    if(myParticles[i].rung < activeRung) continue;
+    particleTable[nActive].position_x = (cudatype) myParticles[i].position.x;
+    particleTable[nActive].position_y = (cudatype) myParticles[i].position.y;
+    particleTable[nActive].position_z = (cudatype) myParticles[i].position.z;
+    particleTable[nActive].acceleration_x = 0; 
+    particleTable[nActive].acceleration_y = 0; 
+    particleTable[nActive].acceleration_z = 0; 
+    particleTable[nActive].potential = 0; 
+    nActive++;
   }  
 
   for (int i=0; i<nEwhLoop; i++) {
-    ewtTable[i].hx = (float) ewt[i].hx; 
-    ewtTable[i].hy = (float) ewt[i].hy; 
-    ewtTable[i].hz = (float) ewt[i].hz; 
-    ewtTable[i].hCfac = (float) ewt[i].hCfac; 
-    ewtTable[i].hSfac = (float) ewt[i].hSfac; 
+    ewtTable[i].hx = (cudatype) ewt[i].hx; 
+    ewtTable[i].hy = (cudatype) ewt[i].hy; 
+    ewtTable[i].hz = (cudatype) ewt[i].hz; 
+    ewtTable[i].hCfac = (cudatype) ewt[i].hCfac; 
+    ewtTable[i].hSfac = (cudatype) ewt[i].hSfac; 
   }
 
-  roData->mm.xx = (float) mom.xx; 
-  roData->mm.xy = (float) mom.xy; 
-  roData->mm.xz = (float) mom.xz; 
-  roData->mm.yy = (float) mom.yy;
-  roData->mm.yz = (float) mom.yz; 
-  roData->mm.zz = (float) mom.zz;
-  roData->mm.totalMass = (float) mom.totalMass; 
-  roData->mm.cmx = (float) mom.cm.x; 
-  roData->mm.cmy = (float) mom.cm.y; 
-  roData->mm.cmz = (float) mom.cm.z; 
-  roData->n = myNumParticles;
-  roData->fEwCut = (float) fEwCut;
+#ifdef HEXADECAPOLE
+  roData->momcRoot.m    = (cudatype)     momcRoot.m;
+  roData->momcRoot.xx   = (cudatype)    momcRoot.xx;
+  roData->momcRoot.yy   = (cudatype)    momcRoot.yy;
+  roData->momcRoot.xy   = (cudatype)    momcRoot.xy;
+  roData->momcRoot.xz   = (cudatype)    momcRoot.xz;
+  roData->momcRoot.yz   = (cudatype)    momcRoot.yz;
+  roData->momcRoot.xxx  = (cudatype)   momcRoot.xxx;
+  roData->momcRoot.xyy  = (cudatype)   momcRoot.xyy;
+  roData->momcRoot.xxy  = (cudatype)   momcRoot.xxy;
+  roData->momcRoot.yyy  = (cudatype)   momcRoot.yyy;
+  roData->momcRoot.xxz  = (cudatype)   momcRoot.xxz;
+  roData->momcRoot.yyz  = (cudatype)   momcRoot.yyz;
+  roData->momcRoot.xyz  = (cudatype)   momcRoot.xyz;
+  roData->momcRoot.xxxx = (cudatype)  momcRoot.xxxx;
+  roData->momcRoot.xyyy = (cudatype)  momcRoot.xyyy;
+  roData->momcRoot.xxxy = (cudatype)  momcRoot.xxxy;
+  roData->momcRoot.yyyy = (cudatype)  momcRoot.yyyy;
+  roData->momcRoot.xxxz = (cudatype)  momcRoot.xxxz;
+  roData->momcRoot.yyyz = (cudatype)  momcRoot.yyyz;
+  roData->momcRoot.xxyy = (cudatype)  momcRoot.xxyy;
+  roData->momcRoot.xxyz = (cudatype)  momcRoot.xxyz;
+  roData->momcRoot.xyyz = (cudatype)  momcRoot.xyyz;
+  roData->momcRoot.zz   = (cudatype)    momcRoot.zz;
+  roData->momcRoot.xzz  = (cudatype)   momcRoot.xzz;
+  roData->momcRoot.yzz  = (cudatype)   momcRoot.yzz;
+  roData->momcRoot.zzz  = (cudatype)   momcRoot.zzz;
+  roData->momcRoot.xxzz = (cudatype)  momcRoot.xxzz;
+  roData->momcRoot.xyzz = (cudatype)  momcRoot.xyzz;
+  roData->momcRoot.xzzz = (cudatype)  momcRoot.xzzz;
+  roData->momcRoot.yyzz = (cudatype)  momcRoot.yyzz;
+  roData->momcRoot.yzzz = (cudatype)  momcRoot.yzzz;
+  roData->momcRoot.zzzz = (cudatype)  momcRoot.zzzz;
+#else
+  roData->mm.xx = (cudatype) mm.xx;
+  roData->mm.xy = (cudatype) mm.xy;
+  roData->mm.xz = (cudatype) mm.xz;
+  roData->mm.yy = (cudatype) mm.yy;
+  roData->mm.yz = (cudatype) mm.yz;
+  roData->mm.zz = (cudatype) mm.zz;
+#endif
+  roData->mm.totalMass = (cudatype) mm.totalMass;
+  roData->mm.cmx = (cudatype) mm.cm.x;
+  roData->mm.cmy = (cudatype) mm.cm.y;
+  roData->mm.cmz = (cudatype) mm.cm.z;
+  roData->n = nActive;
+  roData->fEwCut = (cudatype) fEwCut;
   roData->nReps = nReplicas ;
   roData->nEwReps = (int) ceil(fEwCut);
   roData->nEwhLoop = nEwhLoop;
-  roData->L = (float) L;
+  roData->L = (cudatype) L;
   roData->alpha = alpha;
-  roData->alpha2 = (float) alpha*alpha;
-  roData->k1 = (float) M_PI/(alpha*alpha*L*L*L);
-  roData->ka = (float) 2.0*alpha/sqrt(M_PI);
-  roData->fEwCut2 = (float) fEwCut*fEwCut*L*L;
-  roData->fInner2 = (float) 1.2e-3*L*L;
+  roData->alpha2 = (cudatype) alpha*alpha;
+  roData->k1 = (cudatype) M_PI/(alpha*alpha*L*L*L);
+  roData->ka = (cudatype) 2.0*alpha/sqrt(M_PI);
+  roData->fEwCut2 = (cudatype) fEwCut*fEwCut*L*L;
+/*
+  Break between Taylor expansion for small r and multipole expansion.
+  This value is for double precision.
+  roData->fInner2 = (cudatype) 1.2e-3*L*L;
+  The following is for single precision.  The CUDA version currently uses
+  erff() and erfcf().  If these ever get changed then the following line
+  needs to be changed accordingly.
+ */
+  roData->fInner2 = (cudatype) 1.1e-2*L*L;
 
   CkCallback *cb; 
   CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex); 
@@ -460,7 +496,12 @@ void TreePiece::EwaldGPU() {
 #ifdef CUDA_INSTRUMENT_WRS
   EwaldHost(h_idata, (void *) cb, instrumentId, activeRung); 
 #else
-  EwaldHost(h_idata, (void *) cb, thisIndex); 
+  int myLocalIndex;
+  for(myLocalIndex = 0; this != dm->registeredTreePieces[myLocalIndex].treePiece;
+      myLocalIndex++);
+  CkAssert(myLocalIndex < dm->registeredTreePieces.length());
+  
+  EwaldHost(h_idata, (void *) cb, myLocalIndex); 
 #endif
 
 #endif
@@ -475,14 +516,18 @@ void TreePiece::EwaldGPUComplete() {
   GravityParticleData *particleTable;
   particleTable = h_idata->p; 
 
+  int iActive = 0;
   for (int i=1; i<=myNumParticles; i++) {
+    if(myParticles[i].rung < activeRung)
+          continue;
     myParticles[i].treeAcceleration.x += 
-      particleTable[i].acceleration_x;
+      particleTable[iActive].acceleration_x;
     myParticles[i].treeAcceleration.y += 
-      particleTable[i].acceleration_y;
+      particleTable[iActive].acceleration_y;
     myParticles[i].treeAcceleration.z += 
-      particleTable[i].acceleration_z;
-    myParticles[i].potential += particleTable[i].potential;
+      particleTable[iActive].acceleration_z;
+    myParticles[i].potential += particleTable[iActive].potential;
+    iActive++;
   }
 
   //CkPrintf("[%d] in EwaldGPUComplete, calling EwaldHostMemoryFree\n", thisIndex);

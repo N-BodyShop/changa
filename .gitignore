@@ -3,9 +3,21 @@
 *.decl.h
 *.def.h
 config.*
+!config.h.in
 Makefile
 charmrun
 ChaNGa*
 VERSION
 VERSION.new
 cha_commitid.c
+
+# autoconf caches
+autom4te.cache/
+
+# Eclipse folders
+.cproject
+.project
+
+# These should be rebuilt
+Makefile.dep
+cuda.mk

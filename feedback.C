@@ -27,9 +27,6 @@ void Fdbk::AddParams(PRM prm)
     strcpy(achIMF, "Kroupa93");
     prmAddParam(prm,"achIMF", paramString, &achIMF, 32, "achIMF",
 		"<IMF> = Kroupa93");
-    iRandomSeed = 1;
-    prmAddParam(prm,"iRandomSeed", paramInt, &iRandomSeed, sizeof(int),
-		"iRand", "<Feedback random Seed> = 1");
     sn.iNSNIIQuantum = 0;
     prmAddParam(prm,"iNSNIIQuantum", paramInt, &sn.iNSNIIQuantum, sizeof(int),
 		"snQuant", "<Min # SNII per timestep> = 0.");
@@ -152,7 +149,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
     DistStellarFeedbackSmoothParams pDSFB(TYPE_GAS, 0, param.csm, dTime, 
 					  param.dConstGamma, param.feedback);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
-    treeProxy.startSmooth(&pDSFB, 1, param.feedback->nSmoothFeedback,
+    treeProxy.startSmooth(&pDSFB, 0, param.feedback->nSmoothFeedback,
 			  dfBall2OverSoft2, CkCallbackResumeThread());
     treeProxy.finishNodeCache(CkCallbackResumeThread());
 
@@ -588,7 +585,7 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 	for (i=0;i<nSmooth;++i) {
 	    double fDist2 = nList[i].fKey;
 	    if ( fDist2 < fmind ){imind = i; fmind = fDist2;}
-	    if ( fDist2 < f2h2 || !fb.bSmallSNSmooth) {
+            if ( !fb.bSmallSNSmooth || fDist2 < f2h2 ) {
 		r2 = fDist2*ih2;            
 		rs = KERNEL(r2);
 		q = nList[i].p;

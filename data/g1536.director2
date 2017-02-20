@@ -1,0 +1,22 @@
+size 800 600
+clip 0.01 4
+render tsc
+target photogenic
+encode ppm
+bExpansion 1 
+file movie/close/a
+project perspective
+dark off
+softgas 0.3
+softstar 0.2
+softgassph
+#color gas 0. 0.9 0. 1
+colbyproperty gas temperature 3.5 6
+colormap gas jet 15
+#color starbricol 0.9 0 0.9 10
+star off
+FOV 30
+#face on
+up  0 1 0
+eye 0 0 0.003
+

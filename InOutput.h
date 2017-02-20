@@ -4,7 +4,6 @@
 #define __INOUTPUT_H
 
 class OutputParams;
-class OutputIntParams;
 #include "DataManager.h"
 
 int64_t ncGetCount(std::string typedir);
@@ -20,6 +19,9 @@ class OutputParams : public PUP::able
     virtual double dValue(GravityParticle *p) = 0;
     virtual Vector3D<double> vValue(GravityParticle *p) = 0;
     virtual void setDValue(GravityParticle *p, double) = 0;
+    virtual int64_t iValue(GravityParticle *p) = 0;
+    virtual void setIValue(GravityParticle *p, int64_t iValue) = 0;
+    int bFloat;         // Is a floating point number
     int bVector;	// Is a vector, as opposed to a scalar
     int iBinaryOut;     // Type of binary output
     double dTime;
@@ -27,6 +29,7 @@ class OutputParams : public PUP::able
     std::string sTipsyExt;      // Extension for tipsy output
     std::string sNChilExt;      // file name for NChilada output
     unsigned int iType;         // mask of families containing this attribute
+    unsigned int iTypeWriting;  // family being written in NC format
     DataManager *dm;	// For extra state information (e.g. cooling)
 
     OutputParams() {dm = NULL;}
@@ -37,10 +40,12 @@ class OutputParams : public PUP::able
         p|fileName;
         p|sTipsyExt;
         p|sNChilExt;
+        p|bFloat;
         p|bVector;
         p|iBinaryOut;
         p|dTime;
         p|iType;
+        p|iTypeWriting;
 	}
     };
 
@@ -52,8 +57,11 @@ class MassOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {p->mass = val;}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
     MassOutputParams() {}
     MassOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "mass"; sNChilExt = "mass";
         dTime = _dTime;
@@ -73,8 +81,11 @@ class PosOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 				{return p->position;}
     virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
     PosOutputParams() {}
     PosOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 1; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "pos"; sNChilExt = "pos";
         dTime = _dTime;
@@ -95,9 +106,12 @@ class VelOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 				{return dVFac*p->velocity;}
     virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
     VelOutputParams() {}
     VelOutputParams(std::string _fileName, int _iBinaryOut, double _dTime,
                     double _dVFac) {
+        bFloat = 1;
         bVector = 1; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "vel"; sNChilExt = "vel";
         dTime = _dTime; dVFac = _dVFac;
@@ -118,8 +132,11 @@ class PotOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {p->potential = val;}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
     PotOutputParams() {}
     PotOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "pot"; sNChilExt = "pot";
         dTime = _dTime;
@@ -139,8 +156,11 @@ class GasDenOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {p->fDensity = val;}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
     GasDenOutputParams() {}
     GasDenOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "gasden"; sNChilExt = "GasDensity";
         dTime = _dTime;
@@ -161,8 +181,13 @@ class TempOutputParams : public OutputParams
     virtual double dValue(GravityParticle *p) {
         if(bGasCooling) {
 #ifndef COOLING_NONE
+#ifdef COOLING_GRACKLE
+            return CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(),
+                p->u(), p->fDensity, p->fMetals());
+#else
             return CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(),
                                                p->u(), p->fMetals());
+#endif
 #else
             CkAssert(0);
 #endif
@@ -172,9 +197,12 @@ class TempOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
     TempOutputParams() {}
     TempOutputParams(std::string _fileName, int _iBinaryOut, double _dTime,
                      bool _bGasCooling, double _duTFac) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "temp"; sNChilExt = "temperature";
         dTime = _dTime; bGasCooling = _bGasCooling; duTFac = _duTFac;
@@ -197,9 +225,12 @@ class AccOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 				{return p->treeAcceleration;}
     virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
     AccOutputParams() {}
-    AccOutputParams(std::string _fileName) { bVector = 1; fileName = _fileName;}
+    AccOutputParams(std::string _fileName) { bFloat = 1; bVector = 1; fileName = _fileName;}
     AccOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 1; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "acc2"; sNChilExt = "acc";
         dTime = _dTime;
@@ -218,10 +249,13 @@ class DenOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {p->fDensity = val;}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     DenOutputParams() {}
-    DenOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    DenOutputParams(std::string _fileName) { bFloat = 1; bVector = 0; fileName = _fileName;}
     DenOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "den"; sNChilExt = "den";
         dTime = _dTime;
@@ -240,9 +274,12 @@ class HsmOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {p->fBall = 2.0*val;}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     HsmOutputParams() {}
     HsmOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "smoothlength"; sNChilExt = "smoothlength";
         dTime = _dTime;
@@ -274,8 +311,11 @@ class SoftOutputParams : public OutputParams
 	p->soft = val;
 #endif
 	}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
     SoftOutputParams() {}
     SoftOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "soft"; sNChilExt = "soft";
         dTime = _dTime;
@@ -300,10 +340,13 @@ class PresOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     PresOutputParams() {}
-    PresOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    PresOutputParams(std::string _fileName) { bFloat = 1; bVector = 0; fileName = _fileName;}
     PresOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "pres"; sNChilExt = "pres";
         dTime = _dTime;
@@ -328,9 +371,12 @@ class DivVOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {p->divv() = val;}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     DivVOutputParams() {}
     DivVOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "divv"; sNChilExt = "divv";
         dTime = _dTime;
@@ -355,10 +401,13 @@ class PDVOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {p->PdV() = val;}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     PDVOutputParams() {}
-    PDVOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    PDVOutputParams(std::string _fileName) { bFloat = 1; bVector = 0; fileName = _fileName;}
     PDVOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "PdV"; sNChilExt = "PdV";
         dTime = _dTime;
@@ -383,10 +432,13 @@ class MuMaxOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {p->mumax() = val;}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     MuMaxOutputParams() {}
-    MuMaxOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    MuMaxOutputParams(std::string _fileName) { bFloat = 1; bVector = 0; fileName = _fileName;}
     MuMaxOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "mumax"; sNChilExt = "mumax";
         dTime = _dTime;
@@ -411,9 +463,12 @@ class BSwOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {p->BalsaraSwitch() = val;}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     BSwOutputParams() {}
     BSwOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "BSw"; sNChilExt = "BSw";
         dTime = _dTime;
@@ -438,9 +493,12 @@ class CsOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {p->c() = val;}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     CsOutputParams() {}
     CsOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "c"; sNChilExt = "c";
         dTime = _dTime;
@@ -471,10 +529,13 @@ class EDotOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     EDotOutputParams() {}
-    EDotOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    EDotOutputParams(std::string _fileName) { bFloat = 1; bVector = 0; fileName = _fileName;}
     EDotOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "eDot"; sNChilExt = "eDot";
         dTime = _dTime;
@@ -493,7 +554,7 @@ class Cool0OutputParams : public OutputParams
     {
 #ifndef COOLING_NONE
 	if (TYPETest(p, TYPE_GAS))
-	    return COOL_ARRAY0(unused1, &p->CoolParticle(), unused2);
+	    return COOL_ARRAY0(dm->Cool, &p->CoolParticle(), p->fMetals());
 	else
 #endif
 	    return 0.0;
@@ -503,12 +564,15 @@ class Cool0OutputParams : public OutputParams
     virtual void setDValue(GravityParticle *p, double val) {
 #ifndef COOLING_NONE
 	if (TYPETest(p, TYPE_GAS))
-	    COOL_ARRAY0(unused1, &p->CoolParticle(), unused2) = val;
+	    COOL_SET_ARRAY0(dm->Cool, &p->CoolParticle(), p->fMetals(), val);
 #endif
 	}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     Cool0OutputParams() {}
     Cool0OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
 #ifndef COOLING_NONE
         sTipsyExt = COOL_ARRAY0_EXT; sNChilExt = COOL_ARRAY0_EXT;
@@ -529,7 +593,7 @@ class Cool1OutputParams : public OutputParams
     {
 #ifndef COOLING_NONE
 	if (TYPETest(p, TYPE_GAS))
-	    return COOL_ARRAY1(unused1, &p->CoolParticle(), unused2);
+	    return COOL_ARRAY1(dm->Cool, &p->CoolParticle(), p->fMetals());
 	else
 #endif
 	    return 0.0;
@@ -538,13 +602,17 @@ class Cool1OutputParams : public OutputParams
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {
 #ifndef COOLING_NONE
+        //XXX be sure metals has been set!
 	if (TYPETest(p, TYPE_GAS))
-	    COOL_ARRAY1(unused1, &p->CoolParticle(), unused2) = val;
+	    COOL_SET_ARRAY1(dm->Cool, &p->CoolParticle(), p->fMetals(), val);
 #endif
 	}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     Cool1OutputParams() {}
     Cool1OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
 #ifndef COOLING_NONE
         sTipsyExt = COOL_ARRAY1_EXT; sNChilExt = COOL_ARRAY1_EXT;
@@ -565,7 +633,7 @@ class Cool2OutputParams : public OutputParams
     {
 #ifndef COOLING_NONE
 	if (TYPETest(p, TYPE_GAS))
-	    return COOL_ARRAY2(unused1, &p->CoolParticle(), unused2);
+	    return COOL_ARRAY2(dm->Cool, &p->CoolParticle(), p->fMetals());
 	else
 #endif
 	    return 0.0;
@@ -575,12 +643,15 @@ class Cool2OutputParams : public OutputParams
     virtual void setDValue(GravityParticle *p, double val) {
 #ifndef COOLING_NONE
 	if (TYPETest(p, TYPE_GAS))
-	    COOL_ARRAY2(unused1, &p->CoolParticle(), unused2) = val;
+	    COOL_SET_ARRAY2(dm->Cool, &p->CoolParticle(), p->fMetals(), val);
 #endif
 	}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     Cool2OutputParams() {}
     Cool2OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
 #ifndef COOLING_NONE
         sTipsyExt = COOL_ARRAY2_EXT; sNChilExt = COOL_ARRAY2_EXT;
@@ -601,7 +672,7 @@ class Cool3OutputParams : public OutputParams
     {
 #ifndef COOLING_NONE
 	if (TYPETest(p, TYPE_GAS))
-	    return COOL_ARRAY3(unused1, &p->CoolParticle(), unused2);
+	    return COOL_ARRAY3(dm->Cool, &p->CoolParticle(), p->fMetals());
 	else
 #endif
 	    return 0.0;
@@ -614,9 +685,12 @@ class Cool3OutputParams : public OutputParams
 	    CkAssert(0);
 #endif
 	}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     Cool3OutputParams() {}
     Cool3OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
 #ifndef COOLING_NONE
         sTipsyExt = COOL_ARRAY3_EXT; sNChilExt = COOL_ARRAY3_EXT;
@@ -644,9 +718,12 @@ class OxOutputParams : public OutputParams
 	if (TYPETest(p, TYPE_STAR)) p->fStarMFracOxygen() = val;
 	if (TYPETest(p, TYPE_GAS)) p->fMFracOxygen() = val;
 	}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     OxOutputParams() {}
     OxOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "OxMassFrac"; sNChilExt = "OxMassFrac";
         dTime = _dTime;
@@ -672,9 +749,12 @@ class FeOutputParams : public OutputParams
 	if (TYPETest(p, TYPE_STAR)) p->fStarMFracIron() = val;
 	if (TYPETest(p, TYPE_GAS)) p->fMFracIron() = val;
 	}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     FeOutputParams() {}
     FeOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "FeMassFrac"; sNChilExt = "FeMassFrac";
         dTime = _dTime;
@@ -700,9 +780,12 @@ class MetalsOutputParams : public OutputParams
 	if (TYPETest(p, TYPE_STAR)) p->fStarMetals() = val;
 	if (TYPETest(p, TYPE_GAS)) p->fMetals() = val;
         }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     MetalsOutputParams() {}
     MetalsOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "metals"; sNChilExt = "metals";
         dTime = _dTime;
@@ -714,6 +797,7 @@ class MetalsOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output mass at formation time.
 class MFormOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p) {
@@ -725,9 +809,12 @@ class MFormOutputParams : public OutputParams
     virtual void setDValue(GravityParticle *p, double val) {
 	if (TYPETest(p, TYPE_STAR)) p->fMassForm() = val;
 	}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     MFormOutputParams() {}
     MFormOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "massform"; sNChilExt = "massform";
         dTime = _dTime;
@@ -739,6 +826,7 @@ class MFormOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output formation time.
 class TimeFormOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p) {
@@ -750,15 +838,46 @@ class TimeFormOutputParams : public OutputParams
     virtual void setDValue(GravityParticle *p, double val) {
 	if (TYPETest(p, TYPE_STAR)) p->fTimeForm() = val;
         }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     TimeFormOutputParams() {}
     TimeFormOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "timeform"; sNChilExt = "timeform";
         dTime = _dTime;
         iType = TYPE_STAR; }
     PUPable_decl(TimeFormOutputParams);
     TimeFormOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+/// @brief Output stellar age (time since formation).
+class AgeOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+	if (TYPETest(p, TYPE_STAR)) return dTime - p->fTimeForm();
+	else return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {
+	if (TYPETest(p, TYPE_STAR)) p->fTimeForm() = dTime - val;
+        }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+    AgeOutputParams() {}
+    AgeOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "age"; sNChilExt = "age";
+        dTime = _dTime;
+        iType = TYPE_STAR; }
+    PUPable_decl(AgeOutputParams);
+    AgeOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
         OutputParams::pup(p);//Call base class
 	}
@@ -777,9 +896,12 @@ class coolontimeOutputParams : public OutputParams
     virtual void setDValue(GravityParticle *p, double val) {
 	if (TYPETest(p, TYPE_GAS)) p->fTimeCoolIsOffUntil() = val;
 	}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     coolontimeOutputParams() {}
     coolontimeOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "coolontime"; sNChilExt = "coolontime";
         dTime = _dTime;
@@ -805,9 +927,12 @@ class ESNRateOutputParams : public OutputParams
 	if (p->isGas()) p->fESNrate() = val;
 	else if(p->isStar()) p->fStarESNrate() = val;
 	}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     ESNRateOutputParams() {}
     ESNRateOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "ESNRate"; sNChilExt = "ESNRate";
         dTime = _dTime;
@@ -837,9 +962,12 @@ class DtOutputParams : public OutputParams
 	p->dt = val;
 #endif
 	}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     DtOutputParams() {}
     DtOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "dt"; sNChilExt = "dt";
         dTime = _dTime;
@@ -861,9 +989,12 @@ class KeyOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     KeyOutputParams() {}
     KeyOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "key"; sNChilExt = "key";
         dTime = _dTime;
@@ -886,10 +1017,13 @@ class DomainOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     DomainOutputParams() {}
-    DomainOutputParams(std::string _fileName) { bVector = 0; fileName = _fileName;}
+    DomainOutputParams(std::string _fileName) { bFloat = 1; bVector = 0; fileName = _fileName;}
     DomainOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "dom"; sNChilExt = "dom";
         dTime = _dTime;
@@ -901,39 +1035,8 @@ class DomainOutputParams : public OutputParams
 	}
     };
 
-/// @brief Base class for Integer output parameters.
-///
-/// This is an abstract class from which an output parameter class can
-/// be derived.  Derived classes need to implement iValue()
-/// which returns the value to be output for a given particle.
-class OutputIntParams : public PUP::able 
-{
- public:
-    virtual int64_t iValue(GravityParticle *p) = 0;
-    virtual void setIValue(GravityParticle *p, int64_t iValue) = 0;
-    int iBinaryOut;     // Type of binary output
-    double dTime;
-    std::string fileName;	// output file
-    std::string sTipsyExt;      // Extension for tipsy output
-    std::string sNChilExt;      // file name for NChilada output
-    unsigned int iType;         // mask of families containing this attribute
-
-    OutputIntParams() {}
-    PUPable_abstract(OutputIntParams);
-    OutputIntParams(CkMigrateMessage *m) : PUP::able(m) {}
-    virtual void pup(PUP::er &p) {
-        PUP::able::pup(p);//Call base class
-        p|fileName;
-        p|sTipsyExt;
-        p|sNChilExt;
-        p|iBinaryOut;
-        p|dTime;
-        p|iType;
-	}
-    };
-
 /// @brief Output iOrder.
-class IOrderOutputParams : public OutputIntParams
+class IOrderOutputParams : public OutputParams
 {
     virtual int64_t iValue(GravityParticle *p)
     {
@@ -943,9 +1046,15 @@ class IOrderOutputParams : public OutputIntParams
     {
 	p->iOrder = iValue;
 	}
+    virtual double dValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
  public:
     IOrderOutputParams() {}
     IOrderOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 0;
+        bVector = 0;
         fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "iord"; sNChilExt = "iord";
         dTime = _dTime;
@@ -953,12 +1062,12 @@ class IOrderOutputParams : public OutputIntParams
     PUPable_decl(IOrderOutputParams);
     IOrderOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
-        OutputIntParams::pup(p);//Call base class
+        OutputParams::pup(p);//Call base class
 	}
     };
 
 /// @brief Output iGasOrder.
-class IGasOrderOutputParams : public OutputIntParams
+class IGasOrderOutputParams : public OutputParams
 {
     virtual int64_t iValue(GravityParticle *p)
     {
@@ -969,11 +1078,17 @@ class IGasOrderOutputParams : public OutputIntParams
 	}
     virtual void setIValue(GravityParticle *p, int64_t iValue)
     {
-        p->iGasOrder() = iValue;
+        if(p->isStar()) p->iGasOrder() = iValue;
 	}
+    virtual double dValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
  public:
     IGasOrderOutputParams() {}
     IGasOrderOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 0;
+        bVector = 0;
         fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "igasorder"; sNChilExt = "igasorder";
         dTime = _dTime;
@@ -981,12 +1096,12 @@ class IGasOrderOutputParams : public OutputIntParams
     PUPable_decl(IGasOrderOutputParams);
     IGasOrderOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
-        OutputIntParams::pup(p);//Call base class
+        OutputParams::pup(p);//Call base class
 	}
     };
 
 /// @brief Output rungs.
-class RungOutputParams : public OutputIntParams
+class RungOutputParams : public OutputParams
 {
     virtual int64_t iValue(GravityParticle *p)
     {
@@ -996,9 +1111,15 @@ class RungOutputParams : public OutputIntParams
     {
         p->rung = iValue;
 	}
+    virtual double dValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
  public:
     RungOutputParams() {}
     RungOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 0;
+        bVector = 0;
         fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "rung"; sNChilExt = "rung";
         dTime = _dTime;
@@ -1006,7 +1127,7 @@ class RungOutputParams : public OutputIntParams
     PUPable_decl(RungOutputParams);
     RungOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
-        OutputIntParams::pup(p);//Call base class
+        OutputParams::pup(p);//Call base class
 	}
     };
 #endif

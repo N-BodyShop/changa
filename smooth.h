@@ -181,6 +181,7 @@ public:
     ~ReNearNeighborState() { delete [] Qs; }
 };
 
+/// @brief Class for computation over a set smoothing length
 class ReSmoothCompute : public SmoothCompute 
 {
     
@@ -212,7 +213,9 @@ public:
     // these operations were earlier carried out in the constructor of the
     // class.
     State *getNewState(int d1);
+    /// @brief default implementation
     State *getNewState(int d1, int d2) {return 0;}
+    /// @brief default implementation
     State *getNewState() {return 0;}
     };
 
@@ -265,6 +268,7 @@ public:
 
 #include "Opt.h"
 
+/// @brief action optimization for the smooth walk.
 class SmoothOpt : public Opt{
   public:
   SmoothOpt() : Opt(Local){
@@ -305,7 +309,6 @@ class SmoothOpt : public Opt{
 
 };
 
-/* Standard M_4 Kernel */
 /* return 1/(h_smooth)^2 for a particle */
 inline
 double invH2(GravityParticle *p) 
@@ -313,6 +316,32 @@ double invH2(GravityParticle *p)
     return 4.0/(p->fBall*p->fBall);
     }
 
+#ifdef WENDLAND
+inline double KERNEL(double ar2, double nSmooth) 
+{    
+    double ak;
+	if (ar2 <= 0) ak = (495/32./8.)*(1-0.01342*pow(nSmooth*0.01,-1.579));/* Dehnen & Aly 2012 correction */ 
+	else {								
+	    double au = sqrt(ar2*0.25);					
+	    ak = 1-au;							
+	    ak = ak*ak*ak;							
+	    ak = ak*ak;							
+	    ak = (495/32./8.)*ak*(1+6*au+(35/3.)*au*au); 
+	    }								
+    return ak;
+	}
+inline double DKERNEL(double ar2) 
+{
+    double adk;
+    double _a2,au = sqrt(ar2*0.25);                     
+    adk = 1-au;                                         
+    _a2 = adk*adk;                                      
+    adk = (-495/32.*7./3./4.)*_a2*_a2*adk*(1+5*au);        
+    return adk;
+	}
+#define KERNEL(ar2) KERNEL(ar2, nSmooth)
+#else
+/* Standard M_4 Kernel */
 inline double KERNEL(double ar2) 
 {
     double ak;
@@ -333,5 +362,5 @@ inline double DKERNEL(double ar2)
 	}
     return adk;
     }
-
+#endif
 #endif

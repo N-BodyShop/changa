@@ -3,11 +3,8 @@
  * Image dumping routines for movies from PKDGRAV
  * Original author: James Wadsley, 2002
  */
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <assert.h>
 
+#include <stdio.h>
 #include "dumpframe.h"
 
 

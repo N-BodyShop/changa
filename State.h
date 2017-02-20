@@ -115,18 +115,25 @@ class GenericList{
 ///
 class DoubleWalkState : public State {
   public:
+    /// Lists of cells to be checked for the opening criterion.  One
+    /// list for each level in the tree.
   CheckList *chklists;
+  /// Lists of cells which need to go to the next local level before
+  /// deciding if to open them.
   UndecidedLists undlists;
+  /// Lists of cells to be computed.  One list for each level.
   CkVec<CkVec<OffsetNode> >clists;
+  /// Lists of local particles to be computed.  One list for each level.
   CkVec<CkVec<LocalPartInfo> >lplists;
+  /// Lists of remote particles to be computed.  One list for each level.
   CkVec<CkVec<RemotePartInfo> >rplists;
   CkVec<LocalMoments>momLocal;
    
-  // set once before the first cgr is called for a chunk
-  // the idea is to place the chunkRoot (along with replicas)
-  // on the remote comp chklist only once per chunk
-  //
-  // one for each chunk
+  /// set once before the first TreePiece::calculateGravityRemote() is called for a chunk
+  /// the idea is to place the chunkRoot (along with replicas)
+  /// on the remote compute chklist only once per chunk
+  ///
+  /// one for each chunk
   bool *placedRoots;
   // to tell a remote-resume state from a remote-no-resume state
   bool resume;
@@ -167,7 +174,7 @@ class DoubleWalkState : public State {
   // We need a different group that manages GPU memory for this purpose.
   //std::map<NodeKey,int> nodeMap;
   CkVec<GenericTreeNode *> nodeMap;
-  std::map<NodeKey,int> partMap;
+  std::unordered_map<NodeKey,int> partMap;
 
   bool nodeOffloadReady(){
     return nodeLists.totalNumInteractions >= nodeThreshold;
@@ -188,10 +195,11 @@ class DoubleWalkState : public State {
 
 #endif
 
-  // The lowest nodes reached on paths to each bucket
-  // Used to find numBuckets completed when
-  // walk returns. Also used to find at which
-  // bucket computation should start
+  /// The lowest nodes reached on paths to each bucket
+  /// Used to find numBuckets completed when
+  /// walk returns. Also used to find at which
+  /// bucket computation should start, and which level of cell lists
+  /// should be used.
   GenericTreeNode *lowestNode;
   int level;
 

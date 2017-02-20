@@ -69,6 +69,7 @@ typedef struct parameters {
     int nSmooth;
     COOLPARAM CoolParam;
     double dhMinOverSoft;
+    double dResolveJeans;
     double dMsolUnit;
     double dKpcUnit;
     double ddHonHLimit;
@@ -116,10 +117,13 @@ typedef struct parameters {
     int cacheLineDepth;
     double dExtraStore;
     double dMaxBalance;
+    double dFracLoadBalance;
     double dDumpFrameStep;
     double dDumpFrameTime;
     int iDirector;
     int bLiveViz;
+    int bUseCkLoopPar;
+    int iVerbosity;
     } Parameters;
 
 inline void operator|(PUP::er &p, Parameters &param) {
@@ -178,6 +182,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.bViscosityLimiter;
     p|param.iViscosityLimiter;
     p|param.dhMinOverSoft;
+    p|param.dResolveJeans;
     p|param.dMsolUnit;
     p|param.dKpcUnit;
     p|param.ddHonHLimit;
@@ -223,10 +228,13 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.cacheLineDepth;
     p|param.dExtraStore;
     p|param.dMaxBalance;
+    p|param.dFracLoadBalance;
     p|param.dDumpFrameStep;
     p|param.dDumpFrameTime;
     p|param.iDirector;
     p|param.bLiveViz;
+    p|param.bUseCkLoopPar;
+    p|param.iVerbosity;
     }
 
 #endif

@@ -60,6 +60,9 @@ void Stfm::AddParams(PRM prm)
     iStarFormRung = 0;
     prmAddParam(prm,"iStarFormRung", paramInt, &iStarFormRung,
 		sizeof(int), "iStarFormRung", "<Star Formation Rung> = 0");
+    iRandomSeed = 1;
+    prmAddParam(prm,"iRandomSeed", paramInt, &iRandomSeed, sizeof(int),
+		"iRand", "<Star formation random Seed> = 1");
     }
 
 /*
@@ -127,6 +130,12 @@ void Stfm::CheckParams(PRM prm, Parameters &param)
 	}
     }
 
+void TreePiece::initRand(int iRand, const CkCallback &cb)  
+{
+   srand(iRand + thisIndex);  // make each piece unique
+   contribute(cb);
+}
+
 ///
 /// form stars main method
 ///
@@ -185,7 +194,11 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
     double dMassFormed = 0.0;
     double TempForm;
     
-    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+    // clear indices into starlog table
+    iSeTab.clear();
+    int myNPartTmp = myNumParticles;  // this could change if newParticle
+                                      // is called.
+    for(unsigned int i = 1; i <= myNPartTmp; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if(p->isGas()) {
 	    GravityParticle *starp = stfm.FormStar(p, dm->Cool, dTime,
@@ -196,7 +209,10 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 		nFormed++;
 		dMassFormed += starp->mass;
 		newParticle(starp);
+                p = &myParticles[i]; // newParticle can change pointers
 		CmiLock(dm->lockStarLog);
+                // Record current spot in seTab
+                iSeTab.push_back(dm->starLog->seTab.size());
 		dm->starLog->seTab.push_back(StarLogEvent(starp,dCosmoFac,TempForm));
 		CmiUnlock(dm->lockStarLog);
 		delete (extraStarData *)starp->extraData;
@@ -230,8 +246,13 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     double tdyn = 1.0/sqrt(4.0*M_PI*p->fDensity/dCosmoFac);
 #ifndef COOLING_NONE
     if(bGasCooling)
+#ifdef COOLING_GRACKLE
+    	*T = CoolCodeEnergyToTemperature(Cool, &p->CoolParticle(),
+                                         p->u(), p->fDensity, p->fMetals());
+#else
     	*T = CoolCodeEnergyToTemperature(Cool, &p->CoolParticle(),
 				    	p->u(), p->fMetals());
+#endif
     else
 	*T = 0.0;
 #else
@@ -314,28 +335,31 @@ void Main::initStarLog(){
     if(bIsRestarting) {
 	if(!stat(stLogFile.c_str(), &statbuf)) {
 	    /* file exists, check number */
-	    FILE *fpLog = fopen(stLogFile.c_str(),"r");
+	    FILE *fpLog = CmiFopen(stLogFile.c_str(),"r");
 	    XDR xdrs;
-	    
-	    CkAssert(fpLog != NULL);
+            if(fpLog == NULL)
+                CkAbort("Bad open of starlog file on restart");
+
 	    xdrstdio_create(&xdrs,fpLog,XDR_DECODE);
 	    xdr_int(&xdrs, &iSize);
-	    CkAssert(iSize == sizeof(StarLogEvent));
+            if(iSize != sizeof(StarLogEvent))
+                CkAbort("starlog file format mismatch");
 	    xdr_destroy(&xdrs);
-	    fclose(fpLog);
+	    CmiFclose(fpLog);
 	    } else {
 	    CkAbort("Simulation restarting with star formation, but starlog file not found");
 	    }
 	} else {
-	FILE *fpLog = fopen(stLogFile.c_str(),"w");
+	FILE *fpLog = CmiFopen(stLogFile.c_str(),"w");
 	XDR xdrs;
 
-	CkAssert(fpLog != NULL);
+        if(fpLog == NULL) 
+            CkAbort("Can't create starlog file");
 	xdrstdio_create(&xdrs,fpLog,XDR_ENCODE);
 	iSize = sizeof(StarLogEvent);
 	xdr_int(&xdrs, &iSize);
 	xdr_destroy(&xdrs);
-	fclose(fpLog);
+	CmiFclose(fpLog);
 	}
 
     }
@@ -368,7 +392,7 @@ void StarLog::flush(void) {
 	FILE* outfile;
 	XDR xdrs;
 	
-	outfile = fopen(fileName.c_str(), "a");
+	outfile = CmiFopen(fileName.c_str(), "a");
 	CkAssert(outfile != NULL);
 	xdrstdio_create(&xdrs,outfile,XDR_ENCODE);
 
@@ -376,8 +400,8 @@ void StarLog::flush(void) {
     
 	for(int iLog = 0; iLog < seTab.size(); iLog++){
 	    StarLogEvent *pSfEv = &(seTab[iLog]);
-	    xdr_int(&xdrs, &(pSfEv->iOrdStar));
-	    xdr_int(&xdrs, &(pSfEv->iOrdGas));
+	    xdr_template(&xdrs, &(pSfEv->iOrdStar));
+	    xdr_template(&xdrs, &(pSfEv->iOrdGas));
 	    xdr_double(&xdrs, &(pSfEv->timeForm));
 	    xdr_double(&xdrs, &(pSfEv->rForm[0]));
 	    xdr_double(&xdrs, &(pSfEv->rForm[1]));
@@ -390,10 +414,9 @@ void StarLog::flush(void) {
 	    xdr_double(&xdrs, &(pSfEv->TForm));
 	    }
 	xdr_destroy(&xdrs);
-	int result = fclose(outfile);
+	int result = CmiFclose(outfile);
 	if(result != 0)
-	    ckerr << "Bad close of starlog" << endl;
-	CkAssert(result == 0);
+            CkAbort("Bad close of starlog");
 	seTab.clear();
 	nOrdered = 0;
 	}

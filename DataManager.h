@@ -18,6 +18,7 @@
 #endif
 
 
+/// @brief Information about TreePieces on an SMP node.
 struct TreePieceDescriptor{
 	TreePiece *treePiece;
         Tree::GenericTreeNode *root;
@@ -30,6 +31,9 @@ struct TreePieceDescriptor{
 };
 
 #ifdef CUDA
+extern void **gethostBuffers();
+extern void **getdevBuffers();
+
 struct UpdateParticlesStruct{
   CkCallback *cb;
   DataManager *dm;
@@ -75,11 +79,6 @@ protected:
 	/// An array with how many particles are held by each TreePiece when sorted.
 	std::vector<int> particleCounts;
 
-	/// An array with a list of the first and last particle of each TreePiece
-	SFC::Key * splitters;
-	/// The size of the array splitters
-	int numSplitters;
-
 	/// A list of roots of the TreePieces in this node
 	// holds chare array indices of registered treepieces
 	CkVec<TreePieceDescriptor> registeredTreePieces;
@@ -114,6 +113,8 @@ protected:
 
         // can the gpu accept a chunk of remote particles/nodes?
         bool gpuFree;
+
+        PendingBuffers *currentChunkBuffers;
         // queue that stores all pending chunk transfers
         CkQ<PendingBuffers *> pendingChunkTransferQ;
 
@@ -156,6 +157,7 @@ public:
 	DataManager(const CkArrayID& treePieceID);
 	DataManager(CkMigrateMessage *);
 
+        void resumeRemoteChunk();
 #ifdef CUDA
         //void serializeNodes(GenericTreeNode *start, CudaMultipoleMoments *&postPrefetchMoments, CompactPartData *&postPrefetchParticles);
 		//void serializeNodes(GenericTreeNode *start);
@@ -193,9 +195,6 @@ public:
 	    CmiDestroyLock(lockStarLog);
 	    }
 
-	/// \brief Collect the boundaries of all TreePieces, and
-	/// trigger the real treebuild
-	void collectSplitters(CkReductionMsg* m);
 	/// Called by ORB Sorter, save the list of which TreePiece is
 	/// responsible for which interval.
 	void acceptResponsibleIndex(const int* responsible, const int n,
@@ -249,6 +248,7 @@ public:
     void CoolingSetTime(double z, // redshift
 			double dTime, // Time
 			const CkCallback& cb);
+    void SetStarCM(double dCenterOfMass[4], const CkCallback& cb);
     void memoryStats(const CkCallback& cb);
     void resetReadOnly(Parameters param, const CkCallback &cb);
 
@@ -256,16 +256,38 @@ public:
   static Tree::GenericTreeNode *pickNodeFromMergeList(int n, GenericTreeNode **gtn, int &nUnresolved, int &pickedIndex);
 };
 
+inline static void setBIconfig()
+{
+#if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
+    if (CkMyRank()==0) {
+#define GNI_BI_DEFAULT    64
+      uint16_t cur_bi = ck_get_GNI_BIConfig();
+      if (cur_bi > GNI_BI_DEFAULT) {
+        ck_set_GNI_BIConfig(GNI_BI_DEFAULT);
+      }
+    }
+    if (CkMyPe() == 0)
+      CkPrintf("Balanced injection is set to %d.\n", ck_get_GNI_BIConfig());
+#endif
+}
+
+/** @brief Control recording of Charm++ projections logs
+ *
+ *  The constructors for this class are also used to set default
+ *  node-wide communication parameters.
+ */
 class ProjectionsControl : public CBase_ProjectionsControl { 
   public: 
   ProjectionsControl() {
-#if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
-    if (CkMyRank()==0) ck_set_GNI_BIConfig(64);
-#endif
+    setBIconfig();
     LBTurnCommOff();
     LBSetPeriod(0.0); // no need for LB interval: we are using Sync Mode
   } 
-  ProjectionsControl(CkMigrateMessage *m) : CBase_ProjectionsControl(m) {} 
+  ProjectionsControl(CkMigrateMessage *m) : CBase_ProjectionsControl(m) {
+    setBIconfig();
+    LBTurnCommOff();
+    LBSetPeriod(0.0); // no need for LB interval: we are using Sync Mode
+  } 
  
   void on(CkCallback cb) { 
     if(CkMyPe() == 0){ 
@@ -288,5 +310,62 @@ class ProjectionsControl : public CBase_ProjectionsControl {
   }
 }; 
 
+#ifdef CUDA
+class DataManagerHelper : public CBase_DataManagerHelper {
+  private:
+    int countLocalPes;
+    int countSyncRemoteChunk;
+  public:
+
+  DataManagerHelper() { countLocalPes = 0; countSyncRemoteChunk = 0;}
+  DataManagerHelper(CkMigrateMessage *m) : CBase_DataManagerHelper(m) {
+    countLocalPes = 0;
+    countSyncRemoteChunk = 0;
+  }
+
+  void transferLocalTreeCallback();
+  void transferRemoteChunkCallback();
+
+  void populateDeviceBufferTable(intptr_t localMoments, intptr_t localParticleCores, intptr_t localParticleVars) {
+    void **devBuffers = getdevBuffers();
+    devBuffers[LOCAL_MOMENTS] = (void *) localMoments;
+    devBuffers[LOCAL_PARTICLE_CORES] = (void *) localParticleCores;
+    devBuffers[LOCAL_PARTICLE_VARS] = (void *) localParticleVars;
+    int basePE = CkMyPe() - CkMyPe() % CkMyNodeSize();
+    thisProxy[basePE].finishDevBufferSync();
+  }
+
+  void populateDeviceBufferTable(intptr_t remoteMoments, intptr_t remoteParticleCores) {
+    void **devBuffers = getdevBuffers();
+    devBuffers[REMOTE_MOMENTS] = (void *) remoteMoments;
+    devBuffers[REMOTE_PARTICLE_CORES] = (void *) remoteParticleCores;
+    int basePE = CkMyPe() - CkMyPe() % CkMyNodeSize();
+    thisProxy[basePE].finishDevBufferSyncRemoteChunk();
+  }
+
+  void finishDevBufferSync();
+  void finishDevBufferSyncRemoteChunk();
+
+  void purgeBufferTables(const CkCallback& cb) {
+    void **devBuffers = getdevBuffers();
+    devBuffers[LOCAL_MOMENTS] = NULL;
+    devBuffers[LOCAL_PARTICLE_CORES] = NULL;
+    devBuffers[LOCAL_PARTICLE_VARS] = NULL;
+
+    void **hostBuffers = gethostBuffers();
+    hostBuffers[LOCAL_MOMENTS] = NULL;
+    hostBuffers[LOCAL_PARTICLE_CORES] = NULL;
+    hostBuffers[LOCAL_PARTICLE_VARS] = NULL;
+    contribute(cb);
+  }
+
+  void pup(PUP::er &p){
+    CBase_DataManagerHelper::pup(p);
+    countLocalPes = 0;
+    countSyncRemoteChunk = 0;
+  }
+
+};
+#endif
 
 #endif //DATAMANAGER_H
