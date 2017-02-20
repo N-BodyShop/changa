@@ -64,6 +64,9 @@ CProxy_TreePiece treeProxy; ///< Proxy for the TreePiece chare array
 #ifdef REDUCTION_HELPER
 CProxy_ReductionHelper reductionHelperProxy;
 #endif
+#ifdef CUDA
+CProxy_DataManagerHelper dmHelperProxy;
+#endif
 CProxy_LvArray lvProxy;	    ///< Proxy for the liveViz array
 CProxy_LvArray smoothProxy; ///< Proxy for smooth reductions
 CProxy_LvArray gravityProxy; ///< Proxy for gravity reductions
@@ -136,9 +139,9 @@ int remoteResumePartsPerReq;
 // switch threshold
 double largePhaseThreshold;
 
-double theta;                   ///< BH-like opening criterion
-double thetaMono;               ///< Criterion of excepting monopole
-                                ///  only cells.
+cosmoType theta;                   ///< BH-like opening criterion
+cosmoType thetaMono;               ///< Criterion of excepting monopole
+                                   ///  only cells.
 
 /// @brief Boundary evaluation user event (for Projections tracing).
 int boundaryEvaluationUE;
@@ -742,31 +745,31 @@ Main::Main(CkArgMsg* m) {
 
           localNodesPerReqDouble = NODE_INTERACTIONS_PER_REQUEST_L;
 	  prmAddParam(prm, "localNodesPerReq", paramDouble, &localNodesPerReqDouble,
-                sizeof(double),"localnodes", "Num. local node interactions allowed per CUDA request");
+                sizeof(double),"localnodes", "Num. local node interactions allowed per CUDA request (in millions)");
 
           remoteNodesPerReqDouble = NODE_INTERACTIONS_PER_REQUEST_RNR;
 	  prmAddParam(prm, "remoteNodesPerReq", paramDouble, &remoteNodesPerReqDouble,
-                sizeof(double),"remotenodes", "Num. remote node interactions allowed per CUDA request");
+                sizeof(double),"remotenodes", "Num. remote node interactions allowed per CUDA request (in millions)");
 
           remoteResumeNodesPerReqDouble = NODE_INTERACTIONS_PER_REQUEST_RR;
 	  prmAddParam(prm, "remoteResumeNodesPerReq", paramDouble, &remoteResumeNodesPerReqDouble,
-                sizeof(double),"remoteresumenodes", "Num. remote resume node interactions allowed per CUDA request");
+                sizeof(double),"remoteresumenodes", "Num. remote resume node interactions allowed per CUDA request (in millions)");
 
           localPartsPerReqDouble = PART_INTERACTIONS_PER_REQUEST_L;
             prmAddParam(prm, "localPartsPerReq", paramDouble, &localPartsPerReqDouble,
-                sizeof(double),"localparts", "Num. local particle interactions allowed per CUDA request");
+                sizeof(double),"localparts", "Num. local particle interactions allowed per CUDA request (in millions)");
 
           remotePartsPerReqDouble = PART_INTERACTIONS_PER_REQUEST_RNR;
             prmAddParam(prm, "remotePartsPerReq", paramDouble, &remotePartsPerReqDouble,
-                sizeof(double),"remoteparts", "Num. remote particle interactions allowed per CUDA request");
+                sizeof(double),"remoteparts", "Num. remote particle interactions allowed per CUDA request (in millions)");
 
           remoteResumePartsPerReqDouble = PART_INTERACTIONS_PER_REQUEST_RR;
           prmAddParam(prm, "remoteResumePartsPerReq", paramDouble, &remoteResumePartsPerReqDouble,
-              sizeof(double),"remoteresumeparts", "Num. remote resume particle interactions allowed per CUDA request");
+              sizeof(double),"remoteresumeparts", "Num. remote resume particle interactions allowed per CUDA request (in millions)");
 
           largePhaseThreshold = TP_LARGE_PHASE_THRESHOLD_DEFAULT;
-          prmAddParam(prm, "largePhaseThreshold", paramDouble, &largePhaseThreshold,
-              sizeof(double),"largephasethresh", "Ratio of active to total particles at which all particles (not just active ones) are sent to gpu in the target buffer (No source particles are sent.)");
+//          prmAddParam(prm, "largePhaseThreshold", paramDouble, &largePhaseThreshold,
+//              sizeof(double),"largephasethresh", "Ratio of active to total particles at which all particles (not just active ones) are sent to gpu in the target buffer (No source particles are sent.)");
 
 #endif
 
@@ -1145,7 +1148,9 @@ Main::Main(CkArgMsg* m) {
 #ifdef REDUCTION_HELPER
         reductionHelperProxy = CProxy_ReductionHelper::ckNew();
 #endif
-
+#ifdef CUDA
+        dmHelperProxy = CProxy_DataManagerHelper::ckNew();
+#endif
 	opts.bindTo(treeProxy);
 	lvProxy = CProxy_LvArray::ckNew(opts);
 	// Create an array for the smooth reductions
@@ -1650,7 +1655,9 @@ void Main::advanceBigStep(int iStep) {
     CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
     CkCallback cbGravity(CkCallback::resumeThread);
-
+#ifdef CUDA
+    //dmHelperProxy.purgeBufferTables(CkCallbackResumeThread());
+#endif
     if(verbosity > 1)
 	memoryStats();
     if(param.bDoGravity) {
@@ -2716,9 +2723,11 @@ Main::doSimulation()
 #endif
   ckout << endl << "******************" << endl << endl; 
   // Some memory cleanup
-  delete param.stfm;
-  treeProxy.ckDestroy();
-  CkWaitQD();
+  // This is just for debugging memory problems, so comment it out for
+  // now to avoid tickling QD bugs.
+  // delete param.stfm;
+  // treeProxy.ckDestroy();
+  // CkWaitQD();
   CkExit();
 }
 /**

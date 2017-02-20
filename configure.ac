@@ -5,7 +5,7 @@ AC_PREREQ(2.59)
 AC_INIT([ChaNGa], [3.2], [changa-users@u.washington.edu])
 AC_DEFINE_UNQUOTED([NBODY_PACKAGE_VERSION], [$PACKAGE_VERSION])
 AC_CONFIG_SRCDIR([Reductions.h])
-AC_CONFIG_HEADER([config.h ../utility/structures/config.h])
+AC_CONFIG_HEADER([config.h $srcdir/../utility/structures/config.h])
 
 AC_ARG_VAR([CHARMC], "Charm compiler")
 # Checks for programs.
@@ -60,6 +60,18 @@ if test "${MISSING_XDR}" = "yes" ; then
    CPPFLAGS="$CPPFLAGS -I.."
    LDFLAGS="$LDFLAGS -L../xdr"
 fi
+
+# Use single-precision for gravity calculations
+AC_ARG_ENABLE([float],
+	[AS_HELP_STRING([--enable-float], [use single-precision for gravity calculations])],
+	[float=$enableval], [float=no])
+if test "$float" = "yes" ; then
+    echo "float selected"
+    FLAG_FLOAT="-DCOSMO_FLOAT"
+else
+    FLAG_FLOAT=""
+fi
+AC_SUBST([FLAG_FLOAT])
 
 # SSE2 vector optimization for gravity
 AC_ARG_ENABLE([sse2],
@@ -171,9 +183,27 @@ else
 	FLAG_COOLING="-DCOOLING_NONE"
 	cooling="no"
 fi
+AC_ARG_ENABLE([hexadecapole],
+        [AS_HELP_STRING([--disable-hexadecapole], [disable use of hexadecapole expansions])],
+        # Note that "$enableval" being "yes" means ENABLE hexadecapole -- the
+        # help string, as one would expect, only affects how we document
+        # the option.
+        [case "$enableval" in
+              yes | no ) hexadecapole="$enableval";;
+              *) AC_MSG_ERROR("$enableval: invalid argument to `--disable-hexadecapole'") ;;
+         esac],
+        [hexadecapole="yes"])
+
+HEXADECAPOLE=""
+if test "$hexadecapole" = "yes"; then
+    HEXADECAPOLE="-DHEXADECAPOLE"
+else
+    HEXADECAPOLE=""
+fi
 
 AC_SUBST([FLAG_COOLING])
 AC_SUBST([OBJECTS_COOLING])
+AC_SUBST([HEXADECAPOLE])
  
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
@@ -189,7 +219,12 @@ AC_CHECK_FUNCS([floor memset pow sqrt strchr])
 AC_CHECK_LIB([xdr], [xdr_hyper])
 AC_CHECK_FUNCS([xdr_hyper])
 
+####################### CUDA #######################
+m4_include([cuda.ac])
+##################### END CUDA #####################
+
+
 AC_CONFIG_FILES([Makefile
-		 ../utility/structures/Makefile
+		 $srcdir/../utility/structures/Makefile
 		])
 AC_OUTPUT
