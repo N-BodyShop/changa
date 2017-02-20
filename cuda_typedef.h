@@ -52,7 +52,7 @@ typedef struct CudaVector3D{
     z = a.z;
     return *this;
   }
-  
+
   inline Vector3D<hosttype> operator+(Vector3D<hosttype> &v){
     return Vector3D<hosttype>(x + v.x, y + v.y, z + v.z);
   }
@@ -62,10 +62,42 @@ typedef struct CudaVector3D{
     y = o.y;
     z = o.z;
   }
+
+  CudaVector3D(CudaVector3D &o){
+    x = o.x;
+    y = o.y;
+    z = o.z;
+  }
   
   CudaVector3D(){}
 #endif
 }CudaVector3D;
+
+#ifdef CAMBRIDGE
+#define addCudaVector3D(a, b, c) {c.x = a.x + b.x; c.y = a.y + b.y; c.z = a.z + b.z;}
+#define minusCudaVector3D(a, b, c) {c.x = a.x - b.x; c.y = a.y - b.y; c.z = a.z - b.z;}
+#define assignCudaVector3D(a, b) {b.x = a.x; b.y = a.y; b.z = a.z;}
+typedef struct CudaSphere {
+  /// The origin of this sphere
+  CudaVector3D origin;
+  /// The radius of this sphere
+  cudatype radius;
+}CudaSphere;
+
+enum CudaNodeType {
+    cuda_Invalid = 1,
+    cuda_Bucket,
+    cuda_Internal,
+    cuda_Boundary,
+    cuda_NonLocal,
+    cuda_Empty,
+    cuda_Top,
+    cuda_NonLocalBucket,
+    cuda_Cached,
+    cuda_CachedBucket,
+    cuda_CachedEmpty
+};
+#endif
 
 /** @brief Version of MultipoleMoments using cudatype
  */
@@ -83,6 +115,12 @@ typedef struct CudaMultipoleMoments{
 //  int parentIndex;
   int children[2];
   int type;
+
+// Uninitialized 
+  int particleCount;
+  int rung;
+  int offsetID;
+  int bucketIndex;
 #endif
 
 #ifdef HEXADECAPOLE

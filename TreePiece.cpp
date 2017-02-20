@@ -3672,6 +3672,7 @@ void TreePiece::startNextBucket() {
                 on.node = chunkRoot;
                 // value of currentBucket doesn't matter
                 on.offsetID = encodeOffset(0, x,y,z);
+//                CkPrintf("CAMBRIDGE:    tell me the offsetID: %d, x = %d, y = %d, z = %d\n", on.offsetID, x, y, z);
                 lstate->chklists[lcaLevel].enq(on);
 #else
                 // last -1 arg is the activeWalkIndex
@@ -3822,6 +3823,7 @@ void TreePiece::doAllBuckets(){
 #endif
 
   thisProxy[thisIndex].nextBucket(msg);
+
 #ifdef CUDA_INSTRUMENT_WRS
   ((DoubleWalkState *)sLocalGravityState)->nodeListConstructionTimeStart();
   ((DoubleWalkState *)sLocalGravityState)->partListConstructionTimeStart();

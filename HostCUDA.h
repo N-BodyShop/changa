@@ -133,6 +133,11 @@ typedef struct _CudaRequest{
         int tpIndex;
         char phase;
 #endif
+#ifdef CAMBRIDGE
+  int activeRung;
+  cosmoType theta;
+  cosmoType thetaMono;
+#endif
 }CudaRequest;
 
 typedef struct _ParameterStruct{
@@ -141,6 +146,11 @@ typedef struct _ParameterStruct{
   int numMissedCores;
   int numEntities;// TODO: can be removed later on
   cudatype fperiod;
+#ifdef CAMBRIDGE
+  int activeRung;
+  cudatype theta;
+  cudatype thetaMono;
+#endif
 }ParameterStruct;
 
 #ifdef CUDA_INSTRUMENT_WRS

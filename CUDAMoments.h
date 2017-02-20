@@ -15,4 +15,45 @@ CUDA_momEvalFmomrcm(const CudaMultipoleMoments* _m,
                     CudaVector3D* out,
                     cudatype* pot);
 
+#ifdef CAMBRIDGE
+
+__device__ inline bool __attribute__(( always_inline ))
+cuda_intersect(CudaMultipoleMoments &b, CudaSphere &s);
+
+__device__ inline bool __attribute__(( always_inline ))
+cuda_intersect(CudaSphere &s1, CudaSphere &s2);
+
+__device__ inline bool __attribute__(( always_inline ))
+cuda_contains(const CudaSphere &s, const CudaVector3D &v);
+
+__device__ inline bool __attribute__(( always_inline ))
+cuda_contained(const CudaMultipoleMoments &b, const CudaSphere &s);
+
+__device__ inline int __attribute__(( always_inline ))
+cuda_openSoftening(CudaMultipoleMoments &node, CudaMultipoleMoments &myNode,
+      CudaVector3D &offset);
+
+__device__ inline int __attribute__(( always_inline ))
+cuda_reEncodeOffset(int reqID, int offsetID);
+
+__device__ inline CudaVector3D __attribute__(( always_inline ))
+cuda_decodeOffset(int reqID, CudaVector3D fPeriod);
+
+__device__ inline CudaVector3D __attribute__(( always_inline ))
+cuda_openCriterionNode(CudaMultipoleMoments &node,
+                    CudaMultipoleMoments &myNode,
+                    CudaVector3D &offset,
+                    int localIndex,
+                    cudatype theta,
+                    cudatype thetaMono);
+
+__device__ inline void __attribute__(( always_inline ))
+cuda_SPLINEQ(cudatype invr, cudatype r2, cudatype twoh, cudatype& a,
+       cudatype& b,cudatype& c,cudatype& d);
+
+__device__ inline void __attribute__(( always_inline ))
+cuda_SPLINE(cudatype r2, cudatype twoh, cudatype &a, cudatype &b); 
+
+#endif
+
 #endif  /* CUDAMoments_h */
