@@ -1794,6 +1794,15 @@ void Main::advanceBigStep(int iStep) {
     else
 	waitForGravity(cbGravity, startTime);
 
+    CkReductionMsg *msgInteracts;
+    treeProxy.gatherInteracts(CkCallbackResumeThread((void*&)msgInteracts));
+    int64_t *nInteracts = (int64_t *)msgInteracts->getData();
+    CkPrintf("Interactions/particle: localp %g remotep %g localn %g remoten %g\n",
+        nInteracts[0]/(double) nActiveGrav, nInteracts[1]/(double)nActiveGrav,
+        nInteracts[2]/(double) nActiveGrav, nInteracts[3]/(double)nActiveGrav);
+
+    delete msgInteracts;
+
 #if COSMO_STATS > 0
     /********* TreePiece Statistics ********/
     ckerr << "Total statistics iteration " << iStep << "/";

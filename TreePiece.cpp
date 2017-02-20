@@ -1683,6 +1683,17 @@ void TreePiece::countActive(int activeRung, const CkCallback& cb) {
   contribute(2*sizeof(int64_t), nActive, CkReduction::sum_long, cb);
 }
 
+void TreePiece::gatherInteracts(const CkCallback& cb) {
+  int64_t nInteracts[4];
+
+  nInteracts[0] = particleInterLocal;
+  nInteracts[1] = particleInterRemote[0];
+  nInteracts[2] = nodeInterLocal;
+  nInteracts[3] = nodeInterRemote[0];
+
+  contribute(4*sizeof(int64_t), nInteracts, CkReduction::sum_long, cb);
+}
+
 /// @brief assign domain number to each particle for diagnostic
 void TreePiece::assignDomain(const CkCallback &cb)
 {
