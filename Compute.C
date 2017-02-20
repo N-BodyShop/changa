@@ -2015,6 +2015,11 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
   data->node = true;
   data->remote = (getOptType() == Remote);
   data->callDummy = callDummy;
+#ifdef CAMBRIDGE
+  data->activeRung = tp->getActiveRung();
+  data->theta = theta;
+  data->thetaMono = thetaMono;
+#endif
 
 #ifdef CUDA_INSTRUMENT_WRS
   data->tpIndex = tp->getInstrumentId();

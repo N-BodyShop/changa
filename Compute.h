@@ -3,6 +3,12 @@
 
 #include "codes.h"
 #include "ParallelGravity.h"
+
+#ifdef CAMBRIDGE
+extern cosmoType theta;
+extern cosmoType thetaMono;
+#endif
+
 class State;
 class DoubleWalkState;
 

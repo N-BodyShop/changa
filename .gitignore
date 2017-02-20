@@ -21,3 +21,10 @@ autom4te.cache/
 # These should be rebuilt
 Makefile.dep
 cuda.mk
+
+#CAMBRIDGE
+*.den
+*.out
+*.000*
+*.log
+*.tbin

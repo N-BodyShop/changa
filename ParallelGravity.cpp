@@ -925,7 +925,11 @@ Main::Main(CkArgMsg* m) {
 	    }
 
 #ifdef CUDA
+#ifdef CAMBRIDGE
+          double mil = 1e3;
+#else
           double mil = 1e6;
+#endif
           localNodesPerReq = (int) (localNodesPerReqDouble * mil);
           remoteNodesPerReq = (int) (remoteNodesPerReqDouble * mil);
           remoteResumeNodesPerReq = (int) (remoteResumeNodesPerReqDouble * mil);
