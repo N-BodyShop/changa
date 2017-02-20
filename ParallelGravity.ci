@@ -44,7 +44,6 @@ mainmodule ParallelGravity {
   readonly unsigned int particlesPerChare;
   readonly unsigned int bucketSize;
   readonly int nIOProcessor;
-  readonly int lbcomm_cutoff_msgs;
   // jetley
   readonly int localNodesPerReq;
   readonly int remoteNodesPerReq;

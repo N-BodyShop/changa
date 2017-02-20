@@ -75,6 +75,7 @@ CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 CProxy_CkCacheManager<KeyType> cacheNode;
 /// @brief Proxy for the DataManager
 CProxy_DataManager dMProxy;
+/// @brief Proxy for Managing IntraNode load balancing with ckloop.
 CProxy_IntraNodeLBManager nodeLBMgrProxy;
 
 /// @brief Proxy for the dumpframe image data (DumpFrameData).
@@ -113,15 +114,17 @@ unsigned int numTreePieces;
 /// number of TreePieces.
 unsigned int particlesPerChare;
 int nIOProcessor;		///< Number of pieces to be doing I/O at once
-int _prefetch;
-int _numChunks;
-int _randChunks;
-unsigned int bucketSize;
-int lbcomm_cutoff_msgs;
+int _prefetch;                  ///< Prefetch nodes for the remote walk
+int _numChunks;                 ///< number of chunks into which to
+                                ///  split the remote walk.
+int _randChunks;                ///< Randomize the chunks for the
+                                ///  remote walk.
+unsigned int bucketSize;        ///< Maximum number of particles in a bucket.
 /// @brief Use Ckloop for node parallelization.
 int bUseCkLoopPar;
 
 //jetley
+/// GPU related settings.
 int localNodesPerReq;
 int remoteNodesPerReq;
 int remoteResumeNodesPerReq;
@@ -133,8 +136,9 @@ int remoteResumePartsPerReq;
 // switch threshold
 double largePhaseThreshold;
 
-double theta;
-double thetaMono;
+double theta;                   ///< BH-like opening criterion
+double thetaMono;               ///< Criterion of excepting monopole
+                                ///  only cells.
 
 /// @brief Boundary evaluation user event (for Projections tracing).
 int boundaryEvaluationUE;
@@ -171,12 +175,12 @@ bool doDumpLB;
 int lbDumpIteration;
 bool doSimulateLB;
 
-// Number of bins to use for the first iteration
-// of every Oct decomposition step
+/// Number of bins to use for the first iteration
+/// of every Oct decomposition step
 int numInitDecompBins;
 
-// Specifies the number of sub-bins a bin is split into
-//  for Oct decomposition
+/// Specifies the number of sub-bins a bin is split into
+///  for Oct decomposition
 int octRefineLevel;
 
 void _Leader(void) {
@@ -670,9 +674,6 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "dFracNoDomainDecomp", paramDouble,
 		    &param.dFracNoDomainDecomp, sizeof(double),"fndd",
 		    "Fraction of active particles for no new DD = 0.0");
-        lbcomm_cutoff_msgs = 1;
-	prmAddParam(prm, "lbcommCutoffMsgs", paramInt, &lbcomm_cutoff_msgs,
-		    sizeof(int),"lbcommcut", "Cutoff for communication recording (IGNORED)");
 	param.bConcurrentSph = 1;
 	prmAddParam(prm, "bConcurrentSph", paramBool, &param.bConcurrentSph,
 		    sizeof(int),"consph", "Enable SPH running concurrently with Gravity");
@@ -950,11 +951,6 @@ Main::Main(CkArgMsg* m) {
           }
 #endif
 
-	if(prmSpecified(prm, "lbcommCutoffMsgs")) {
-	    ckerr << "WARNING: ";
-	    ckerr << "lbcommcut parameter ignored." << endl;
-	    }
-	    
 	if(prmSpecified(prm, "bGeometric")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bGeometric parameter ignored." << endl;

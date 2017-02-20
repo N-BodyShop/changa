@@ -33,12 +33,12 @@ bool MultistepNodeLB_notopo::QueryBalanceNow(int step){
  return true;
 }
 
-/// Threshold between ORB3D (large) and greedy (small) as fraction of
+/// Threshold for whether to do any load balancing at all as a fraction of
 /// active particles
 #define LARGE_PHASE_THRESHOLD 0.0001
 
-/// @brief Implement load balancing: store loads and decide between
-/// ORB3D and greedy.
+/// @brief Implement load balancing: store loads and decide whether to
+/// do ORB3D load balancing
 void MultistepNodeLB_notopo::work(BaseLB::LDStats* stats)
 {
 #if CMK_LBDB_ON
@@ -162,7 +162,7 @@ void MultistepNodeLB_notopo::work(BaseLB::LDStats* stats)
 
 }
 
-/// @brief ORB3D load balance.
+/// @brief ORB3D load balance across nodes (as opposed to processors).
 void MultistepNodeLB_notopo::work2(BaseLB::LDStats *stats, int count){
   int numobjs = stats->n_objs;
   int nmig = stats->n_migrateobjs;
@@ -250,6 +250,7 @@ void MultistepNodeLB_notopo::work2(BaseLB::LDStats *stats, int count){
       }
 }
 
+/// @brief Class for sorting lightly loaded Pes.
 class PeLdLesser {
   private:
   double* s;
@@ -264,6 +265,7 @@ class PeLdLesser {
 };
 
 
+/// @brief Class to sort heavily loaded nodes.
 class PeLdGreater {
   private:
   double* s;
@@ -278,14 +280,18 @@ class PeLdGreater {
 };
 
 
-// Refinement strategy to distribute TreePieces evenly among nodes
+/// @brief Refinement strategy to distribute TreePieces evenly among
+/// nodes. If heavily loaded nodes are detect, this moves TreePieces
+/// off of heavily loaded nodes to underloaded nodes.  Note that this
+/// does not take into account communication costs.
 void MultistepNodeLB_notopo::balanceTPsNode(BaseLB::LDStats* stats) {
   int numNodes = CkNumNodes();
   int nodeSize = CkNodeSize(0);
-  double* counts = new double[numNodes];
+  double* counts = new double[numNodes]; // total work on each node.
   memset(counts, 0.0, numNodes * sizeof(double));
   double totalld = 0.0;
-  vector<vector<int> > objpemap;
+  vector<vector<int> > objpemap;  // vector of migratiable objects on
+                                  // each node.
   objpemap.resize(numNodes);
   
   for (int i = 0; i < stats->n_objs; i++) {
@@ -314,7 +320,10 @@ void MultistepNodeLB_notopo::balanceTPsNode(BaseLB::LDStats* stats) {
   if (ovldpes.size() == 0 || unldpes.size() == 0) {
     CkPrintf("No underloaded or overloaded Nodes\n");
     return;
+  } else {
+    CkPrintf("WARNING: adjusting for overloaded Nodes\n");
   }
+
   // make a max heap
   make_heap(ovldpes.begin(), ovldpes.end(), PeLdGreater(counts));
   sort(unldpes.begin(), unldpes.end(), PeLdLesser(counts));
@@ -325,7 +334,8 @@ void MultistepNodeLB_notopo::balanceTPsNode(BaseLB::LDStats* stats) {
 
   int* tmpcounts = new int[numNodes];
   memcpy(tmpcounts, counts, numNodes * sizeof(int));
-  srand(42);
+  // This is BAD
+  // srand(42);
  
   while (undcount < unldpes.size() && ovldpes.size() > 0) {
     int ovlpe = ovldpes.front();

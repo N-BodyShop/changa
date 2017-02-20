@@ -231,7 +231,11 @@ public:
 #define GP_DEBUG_EXTRAS
 
 #ifdef GP_DEBUG_EXTRAS
+/// Debugging macro to be sure you are accessing gas properties from a
+/// gas particle.
 #define IMAGAS CkAssert(isGas())
+/// Debugging macro to be sure you are accessing star properties from a
+/// star particle.
 #define IMASTAR CkAssert(isStar())
 #else
 #define IMAGAS
@@ -304,12 +308,15 @@ public:
         }
 };
 
+/// @brief Test for a type flag.
 inline int TYPETest(const GravityParticle *a, unsigned int b) {
     return a->iType & b;
     }
+/// @brief Set a type flag.
 inline int TYPESet(GravityParticle *a, unsigned int b) {
     return a->iType |= b;
     }
+/// @brief Unset a type flag.
 inline int TYPEReset(GravityParticle *a, unsigned int b) {
     return a->iType &= (~b);
     }
