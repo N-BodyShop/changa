@@ -2,10 +2,18 @@
 #define _HOST_CUDA_H_
 
 
+#include <cuda_runtime.h>
 #include "cuda_typedef.h"
-#include "cuda_runtime.h"
-/* Boolean defines */
-enum boolean {NO, YES};
+
+#ifdef CUDA_USE_CUDAMALLOCHOST
+# ifdef CUDA_MEMPOOL
+#  define CUDA_MALLOC(ptr,sz) ptr = hapi_poolMalloc(size)
+# else
+#  define CUDA_MALLOC(ptr,sz) cudaMallocHost(&(ptr), size)
+# endif
+#else
+# define CUDA_MALLOC(ptr,sz) ptr = malloc(sz)
+#endif
 
 #define THREADS_PER_BLOCK 128
 
@@ -71,7 +79,7 @@ enum boolean {NO, YES};
 #define TP_GRAVITY_LOCAL_NBUFFERS_SMALLPHASE 5
 
 #define TP_NODE_GRAVITY_REMOTE_NBUFFERS 4
-#define TP_PART_GRAVITY_REMOTE_NBUFFERS 5
+#define TP_PART_GRAVITY_REMOTE_NBUFFERS 4
 
 #define TP_NODE_GRAVITY_REMOTE_RESUME_NBUFFERS 5
 #define TP_PART_GRAVITY_REMOTE_RESUME_NBUFFERS 5
@@ -144,7 +152,7 @@ void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart,
 void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, bool, bool, int pe, char phase);
 #else
 void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype);
-void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts);
+void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, void *wrCallback);
 void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart);
 void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart);
 void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, bool, bool);

@@ -8,6 +8,7 @@
  */
 
 #include "GravityParticle.h"
+#include "cosmoType.h"
 
 /* PST */
 

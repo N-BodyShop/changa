@@ -6,8 +6,12 @@
 class State;
 class DoubleWalkState;
 
+<<<<<<< HEAD   (e826c0 More documentation and some dead code removal.)
 /** @file Compute.h
  * Defines classes for objects that encapsulate computation
+=======
+/** @file defines classes for objects that encapsulate computation
+>>>>>>> BRANCH (d24689 Use new "runKernel" function pointer, instead of old ID and )
  */
 
 class TreeWalk;
@@ -204,11 +208,17 @@ class ListCompute : public Compute{
   DoubleWalkState *allocDoubleWalkState();
 
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
-  void addRemoteParticlesToInt(ExternalGravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s, NodeKey key);
-  void addLocalParticlesToInt(GravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s, NodeKey key, GenericTreeNode *gtn);
+  void addRemoteParticlesToInt(ExternalGravityParticle *parts, int n,
+			       Vector3D<cosmoType> &offset, DoubleWalkState *s,
+			       NodeKey key);
+  void addLocalParticlesToInt(GravityParticle *parts, int n,
+			      Vector3D<cosmoType> &offset, DoubleWalkState *s,
+			      NodeKey key, GenericTreeNode *gtn);
 #else
-  void addRemoteParticlesToInt(ExternalGravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s);
-  void addLocalParticlesToInt(GravityParticle *parts, int n, Vector3D<double> &offset, DoubleWalkState *s);
+  void addRemoteParticlesToInt(ExternalGravityParticle *parts, int n,
+			       Vector3D<cosmoType> &offset, DoubleWalkState *s);
+  void addLocalParticlesToInt(GravityParticle *parts, int n,
+			      Vector3D<cosmoType> &offset, DoubleWalkState *s);
 #endif
 
 #ifdef CUDA

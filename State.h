@@ -173,7 +173,7 @@ class DoubleWalkState : public State {
   // We need a different group that manages GPU memory for this purpose.
   //std::map<NodeKey,int> nodeMap;
   CkVec<GenericTreeNode *> nodeMap;
-  std::map<NodeKey,int> partMap;
+  std::unordered_map<NodeKey,int> partMap;
 
   bool nodeOffloadReady(){
     return nodeLists.totalNumInteractions >= nodeThreshold;

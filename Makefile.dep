@@ -1,3 +1,4 @@
+<<<<<<< HEAD   (e826c0 More documentation and some dead code removal.)
 Reductions.o: \
 Reductions.cpp \
 Reductions.h \
@@ -1141,3 +1142,5 @@ ParallelGravity.decl.h
 
 IntraNodeLBManager.o: \
 ParallelGravity.decl.h
+=======
+>>>>>>> BRANCH (d24689 Use new "runKernel" function pointer, instead of old ID and )

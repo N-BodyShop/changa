@@ -20,6 +20,58 @@ using namespace std;
 #define RIGHT_PARTITION 1
 #define INVALID_PARTITION -1
 
+<<<<<<< HEAD   (e826c0 More documentation and some dead code removal.)
+=======
+template <class T>
+class Volume{
+	
+  public:
+  T lesser[3];          // lesser corner
+  T greater[3];         // greater corner 
+  
+  void halve(int whichAxis, Volume<T> &secondhalf);
+  void split(int whichAxis, T *where, Volume<T> &secondhalf);
+  int decideSplitAxis();
+
+  Volume(){}
+  Volume(T *l, T *g){
+    for (int i= 0; i < 3; i++){
+     lesser[i] = l[i];
+     greater[i] = g[i];
+    }
+  }
+};
+
+template <class T>
+int Volume<T>::decideSplitAxis(){
+
+  int which = 0;
+  T max = abs(greater[0] - lesser[0]);
+  
+  for(int i = 1; i < 3; i++)
+    if(abs(greater[i] - lesser[i]) >= max){
+      max = abs(greater[i] - lesser[i]);
+      which = i;
+    }
+  return which;
+}
+
+template <class T>
+void Volume<T>::halve(int axis, Volume<T> &secondhalf){
+
+  secondhalf = *this;
+  greater[axis] = (lesser[axis]+greater[axis])/2;
+  secondhalf.lesser[axis] = greater[axis]+1;
+}
+
+template <class T>
+void Volume<T>::split(int axis, T* where, Volume<T> &secondhalf){
+  secondhalf = *this;
+  greater[axis] = where[axis];
+  secondhalf.lesser[axis] = where[axis];
+}
+
+>>>>>>> BRANCH (d24689 Use new "runKernel" function pointer, instead of old ID and )
 #define NDIMS 3
 
 // Each tpobject has three events, one for 
