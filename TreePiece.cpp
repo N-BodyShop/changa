@@ -1685,14 +1685,16 @@ void TreePiece::countActive(int activeRung, const CkCallback& cb) {
 }
 
 void TreePiece::gatherInteracts(const CkCallback& cb) {
-  int64_t nInteracts[4];
+  int64_t nInteracts[6];
 
   nInteracts[0] = particleInterLocal;
   nInteracts[1] = particleInterRemote[0];
   nInteracts[2] = nodeInterLocal;
   nInteracts[3] = nodeInterRemote[0];
+  nInteracts[4] = nodeFMMLocMom;
+  nInteracts[5] = nodeFMMShift;
 
-  contribute(4*sizeof(int64_t), nInteracts, CkReduction::sum_long, cb);
+  contribute(6*sizeof(int64_t), nInteracts, CkReduction::sum_long, cb);
 }
 
 /// @brief assign domain number to each particle for diagnostic
@@ -4745,6 +4747,8 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
     particleInterRemote[i] = 0;
   }
   particleInterLocal = 0;
+  nodeFMMLocMom = 0;
+  nodeFMMShift = 0;
 
   if(verbosity>1)
     CkPrintf("Node: %d, TreePiece %d: I have %d buckets\n", CkMyNode(),

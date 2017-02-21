@@ -1800,6 +1800,8 @@ void Main::advanceBigStep(int iStep) {
     CkPrintf("Interactions/particle: localp %g remotep %g localn %g remoten %g\n",
         nInteracts[0]/(double) nActiveGrav, nInteracts[1]/(double)nActiveGrav,
         nInteracts[2]/(double) nActiveGrav, nInteracts[3]/(double)nActiveGrav);
+    CkPrintf("FMM/particle: farlocal %g  shifts %g\n",
+        nInteracts[4]/(double) nActiveGrav, nInteracts[5]/(double) nActiveGrav);
 
     delete msgInteracts;
 

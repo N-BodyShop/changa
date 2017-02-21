@@ -39,7 +39,7 @@ int localBucketForce(LocalMoments &L,
             r.x = particles[j].position.x - req->moments.cm.x;
             r.y = particles[j].position.y - req->moments.cm.y;
             r.z = particles[j].position.z - req->moments.cm.z;
-            momEvalLocr(&L.mom, r.x, r.y, r.z, &particles[j].potential,
+            momEvalFlocr(&L.mom, L.radius, r.x, r.y, r.z, &particles[j].potential,
                         &particles[j].treeAcceleration.x,
                         &particles[j].treeAcceleration.y,
                         &particles[j].treeAcceleration.z);
@@ -350,9 +350,12 @@ int FMMCompute::doWork(GenericTreeNode *node,
             cosmoType rsq = r.lengthSquared();
             cosmoType dir = COSMO_CONST(1.0)/sqrt(rsq);
             double tax, tay, taz;   // Used for gravstep.
-            momLocrAddMomr5(&L.mom,&node->moments.mom,dir,r.x,r.y,r.z,
+            if(L.radius == 0.0) L.radius = node->moments.radius;
+            momFlocrAddFmomr5cm(&L.mom, L.radius, &node->moments.mom,
+                                node->moments.radius, dir,r.x,r.y,r.z,
                              &tax,&tay,&taz);
             L.totalMass += node->moments.totalMass;
+            tp->addToLocMom();
             return DUMP;
             }
         break;
@@ -563,7 +566,8 @@ void FMMCompute::initState(State *state){
   s->clists[level].length() = 0;
   s->clists[level].reserve(1000);
   s->momLocal[level].totalMass = 0.0;
-  momClearLocr(&s->momLocal[level].mom);
+  s->momLocal[level].radius = 0.0;
+  momClearFlocr(&s->momLocal[level].mom);
   if(getOptType() == Local){
     s->lplists[level].length() = 0;
     s->lplists[level].reserve(100);
@@ -623,7 +627,8 @@ void FMMCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk,
   for(int i = 0; i <= level; i++){
       state->clists[i].length() = 0;
       state->momLocal[i].totalMass = 0.0;
-      momClearLocr(&state->momLocal[i].mom);
+      state->momLocal[i].radius = 0.0;
+      momClearFlocr(&state->momLocal[i].mom);
       }
 
   if(remoteLists)

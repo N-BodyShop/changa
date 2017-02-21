@@ -46,6 +46,45 @@ void momClearLocr(LOCR *l) {
     l->yyyyz = 0;
     }
 
+void momClearFlocr(FLOCR *l) {
+    l->m = 0;
+    l->x = 0;
+    l->y = 0;
+    l->z = 0;
+    l->xx = 0;
+    l->xy = 0;
+    l->yy = 0;
+    l->xz = 0;
+    l->yz = 0;
+    l->xxx = 0;
+    l->xxy = 0;
+    l->xyy = 0;
+    l->yyy = 0;
+    l->xxz = 0;
+    l->xyz = 0;
+    l->yyz = 0;
+    l->xxxx = 0;
+    l->xxxy = 0;
+    l->xxyy = 0;
+    l->xyyy = 0;
+    l->yyyy = 0;
+    l->xxxz = 0;
+    l->xxyz = 0;
+    l->xyyz = 0;
+    l->yyyz = 0;
+    l->xxxxx = 0;
+    l->xxxxy = 0;
+    l->xxxyy = 0;
+    l->xxyyy = 0;
+    l->xyyyy = 0;
+    l->yyyyy = 0;
+    l->xxxxz = 0;
+    l->xxxyz = 0;
+    l->xxyyz = 0;
+    l->xyyyz = 0;
+    l->yyyyz = 0;
+    }
+
 void momClearMomr(MOMR *mr)
 {
 	mr->m = 0.0;

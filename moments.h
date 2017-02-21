@@ -107,6 +107,8 @@ void momShiftMomr(MOMR *,momFloat,momFloat,momFloat);
 void momShiftFmomr(FMOMR *m, cosmoType u, cosmoType x, cosmoType y,
                    cosmoType z);
 double momShiftLocr(LOCR *,momFloat,momFloat,momFloat);
+double momShiftFlocr(FLOCR *l, cosmoType v, cosmoType x, cosmoType y,
+                     cosmoType z);
 void momReduceMomc(MOMC *,MOMR *);
 void momEvalMomr(MOMR *,momFloat,momFloat,momFloat,momFloat,
 				 momFloat *,momFloat *,momFloat *,momFloat *);
@@ -119,12 +121,17 @@ void momPrintMomc(MOMC *);
 void momPrintMomr(MOMR *);
 
 void momClearLocr(LOCR *);
+void momClearFlocr(FLOCR *l);
+
 double momLocrAddMomr5(LOCR *,MOMR *,momFloat,momFloat,momFloat,momFloat,double *,double *,double *);
 double momFlocrAddFmomr5cm(FLOCR *l, cosmoType v, FMOMR *m, cosmoType u,
                            cosmoType dir, cosmoType x, cosmoType y, cosmoType z,
                            cosmoType *tax, cosmoType *tay, cosmoType *taz);
 void momEvalLocr(LOCR *,momFloat,momFloat,momFloat,
 		 momFloat *,momFloat *,momFloat *,momFloat *);
+void momEvalFlocr(FLOCR *l, cosmoType v, cosmoType x, cosmoType y, cosmoType z,
+                  cosmoType *fPot, cosmoType *ax, cosmoType *ay,
+                  cosmoType *az);
 double momLocrAddMomr(LOCR *,MOMR *,momFloat,momFloat,momFloat,momFloat);
 #if defined(__cplusplus)
 }

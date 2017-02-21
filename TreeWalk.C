@@ -341,7 +341,12 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
         Vector3D<double> dr = localNode->moments.cm
             - localNode->parent->moments.cm;
         s->momLocal[level].totalMass = s->momLocal[level-1].totalMass;
-        momShiftLocr(&s->momLocal[level].mom, dr.x, dr.y, dr.z);
+        s->momLocal[level].radius = s->momLocal[level-1].radius;
+        if(s->momLocal[level].totalMass > 0.0) {
+            momShiftFlocr(&s->momLocal[level].mom, s->momLocal[level].radius,
+                          dr.x, dr.y, dr.z);
+            ownerTP->addToShift();
+            }
         }
 
     UndecidedList &parentUndlist = s->undlists[level-1];
@@ -481,7 +486,7 @@ void LocalTargetWalk::resumeWalk(GenericTreeNode *node, State *state_, int chunk
 		state->clists[i].length() = 0;
 		state->undlists[i].length() = 0;
                 state->momLocal[i].totalMass = 0.0;
-                momClearLocr(&state->momLocal[i].mom);
+                momClearFlocr(&state->momLocal[i].mom);
 	}
 
 	if(localLists)

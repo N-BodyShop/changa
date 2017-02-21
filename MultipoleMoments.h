@@ -162,10 +162,10 @@ void momEvalFmomrcm(FMOMR *m,SSEcosmoType u,SSEcosmoType dir,SSEcosmoType x,
 /// A representation of a multipole expansion.
 class MultipoleMoments {
 	friend class CudaMultipoleMoments;
+public:
 	/// A physical size for this multipole expansion, calculated
 	/// by an external function using some other information
 	cosmoType radius;
-public:
 	cosmoType soft;		/* Effective softening */
 
 	/// The total mass represented by this expansion
@@ -416,11 +416,14 @@ inline void calculateRadiusFarthestParticle(MultipoleMoments& m, const ParticleT
 /// Representation of a local multipole expansion
 class LocalMoments {
  public:
+    /// A physical size for this multipole expansion, calculated
+    /// by an external function using some other information
+    cosmoType radius;
     /// The total mass represented by this expansion
-    double totalMass;
-    LOCR mom;
-    LocalMoments() : totalMass(0.0) { 
-        momClearLocr(&mom);
+    cosmoType totalMass;
+    FLOCR mom;
+    LocalMoments() : radius(0.0), totalMass(0.0) {
+        momClearFlocr(&mom);
         }
     };
 

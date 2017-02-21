@@ -788,6 +788,15 @@ class TreePiece : public CBase_TreePiece {
     particleInterLocal += howmany;
   }
 
+  /// @brief accumulate FMM far to local
+  void addToLocMom(){
+    nodeFMMLocMom ++;
+  }
+  /// @brief accumulate FMM shifts
+  void addToShift(){
+    nodeFMMShift ++;
+  }
+
   /// Start prefetching the specfied chunk; prefetch compute
   /// calls startRemoteChunk() once chunk prefetch is complete
   void initiatePrefetch(int chunk);
@@ -1173,6 +1182,10 @@ private:
 	u_int64_t particleInterLocal;
 	/// particle interaction count for statistics
 	u_int64_t *particleInterRemote;
+        /// FMM far to local count
+        u_int64_t nodeFMMLocMom;
+        /// FMM shift count
+        u_int64_t nodeFMMShift;
 
 	int nActive;		// number of particles that are active
 
