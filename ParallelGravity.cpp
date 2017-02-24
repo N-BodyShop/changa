@@ -556,9 +556,11 @@ Main::Main(CkArgMsg* m) {
 	//
 	// Output parameters
 	//
+//CAMBRIDGE	printBinaryAcc=0;
 	printBinaryAcc=0;
 	prmAddParam(prm, "bPrintBinary", paramBool, &printBinaryAcc,
 		    sizeof(int),"z", "Print accelerations in Binary");
+    CkPrintf("CAMBRIDGE			--> bPrintBinary = %d\n", printBinaryAcc);
 	param.bStandard = 1;
 	prmAddParam(prm, "bStandard", paramBool, &param.bStandard,sizeof(int),
 		    "std", "output in standard TIPSY binary format (IGNORED)");

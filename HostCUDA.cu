@@ -397,19 +397,35 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
       );
 #endif
   if( wr->bufferInfo[ILCELL_IDX].transferToDevice ){
-#ifndef CUDA_NO_KERNELS
-    nodeGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
-      (
-       (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-       (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
-       (ILCell *)devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID],
-       (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
-       (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
-       (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
-       ptr->fperiod
-      );
-#endif
+/*#ifdef CAMBRIDGE
+    compute_force_gpu_lockstepping<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>> (
+      (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
+      (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
+      (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
+//      (ILCell *)devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID],
+//      (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
+      (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
+      (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],      
+      ptr->fperiod, 
+      ptr->nodePointer,
+      ptr->theta,
+      ptr->thetaMono
+    );
+#else*/
+  #ifndef CUDA_NO_KERNELS
+      nodeGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
+        (
+         (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
+         (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
+         (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
+         (ILCell *)devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID],
+         (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
+         (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
+         (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
+         ptr->fperiod
+        );
+  #endif
+//#endif
     CUDA_TRACE_BEGIN();
     hapi_hostFree((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
     hapi_hostFree((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
@@ -902,6 +918,11 @@ void TreePieceCellListDataTransferBasic(CudaRequest *data, workRequest *gravityK
         ptr->numBucketsPlusOne = numBucketsPlusOne;
         ptr->fperiod = data->fperiod;
 
+#ifdef CAMBRIDGE
+        ptr->nodePointer = data->nodePointer;
+        ptr->theta      = data->theta;
+        ptr->thetaMono  = data->thetaMono; 
+#endif
         gravityKernel->userData = ptr;
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
@@ -1401,17 +1422,10 @@ void DummyKernel(void *cb){
 #define THREADS_PER_WARP 32
 #define NWARPS_PER_BLOCK (THREADS_PER_BLOCK / THREADS_PER_WARP)
 #define WARP_INDEX (threadIdx.x >> 5)
-
-typedef union {
-  long long __val;
-  struct {
-    int index;
-    float dsq;
-  } items;
-} stack_item;
+#define ROOT 0
 
 // Used in lockstepping, sync for threads in a warp
-#define STACK_INIT() sp = 1; stack[sp] = root; //stack[WARP_INDEX][sp].items.dsq = size * size * itolsq
+#define STACK_INIT() sp = 1; stack[sp] = ROOT; //stack[WARP_INDEX][sp].items.dsq = size * size * itolsq
 #define STACK_POP() sp -= 1
 #define STACK_PUSH() sp += 1
 #define STACK_TOP_NODE_INDEX stack[sp]
@@ -1420,12 +1434,12 @@ __global__ void compute_force_gpu_lockstepping(
     CompactPartData *particleCores,
     VariablePartData *particleVars,
     CudaMultipoleMoments* moments,
-    int firstParticle,
-    int lastParticle,
-    int root,
-    int node_id,
-    int activeRung,
-    cudatype fperiod, 
+//    ILCell* ils,
+//    int *ilmarks,
+    int *bucketStarts,
+    int *bucketSizes,
+    cudatype fperiod,
+    int nodePointer, 
     cudatype theta,
     cudatype thetaMono) {
 
@@ -1433,6 +1447,9 @@ __global__ void compute_force_gpu_lockstepping(
   int j = 0;
   int k = 0;
   int pidx = 0; // thread id
+
+  int bucketStart = bucketStarts[blockIdx.x];
+  int bucketEnd   = bucketStart + bucketSizes[blockIdx.x];
 
   // variable for traversed nodes
   __shared__ CudaMultipoleMoments TreeNode[NWARPS_PER_BLOCK];
@@ -1465,16 +1482,19 @@ __global__ void compute_force_gpu_lockstepping(
   __shared__ int Stacks[NWARPS_PER_BLOCK][128];
 #define stack Stacks[WARP_INDEX]
 
-  for(pidx = blockIdx.x*blockDim.x + threadIdx.x + firstParticle; pidx < lastParticle; pidx += gridDim.x*blockDim.x) {
+  for(pidx = blockIdx.x*blockDim.x + threadIdx.x + bucketStart; pidx < bucketEnd; pidx += gridDim.x*blockDim.x) {
     // initialize the variables belonging to current thread
-    mynode = moments[node_id];
+    mynode = moments[nodePointer];
     p = particleCores[pidx];
     acc.x = 0;
     acc.y = 0;
     acc.z = 0;
     pot = 0;
     idt2 = 0;
-
+/*    if (pidx == 0) {
+        printf("CAMBRIDGE:      --> nodePointer = %d\n", nodePointer);
+    }
+*/
     STACK_INIT();
     while(sp >= 1) {
       cur_node_index = STACK_TOP_NODE_INDEX;
@@ -1533,8 +1553,8 @@ __global__ void compute_force_gpu_lockstepping(
         }
       } else if (action == KEEP_LOCAL_BUCKET) {
         // compute with each particle contained by node targetnode
-        int target_firstparticle = targetnode.firstParticle;
-        int target_lastparticle = targetnode.lastParticle;
+        int target_firstparticle = targetnode.bucketStart;
+        int target_lastparticle = targetnode.bucketStart + targetnode.bucketSize - 1;
         cudatype a, b;
         for (i = target_firstparticle; i < target_lastparticle; i ++) {
           targetparticle = particleCores[i];

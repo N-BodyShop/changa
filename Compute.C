@@ -1665,7 +1665,15 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
           rrState->nodeLists.push_back(b, tilc, rrState, tp);
           if(rrState->nodeOffloadReady()){
             // enough node interactions to offload
+
+            int currentBucket = state->currentBucket;
+            GenericTreeNode *sourceNode = tp->bucketList[currentBucket];
+//            CkPrintf("CAMBRIDGE         ************* nodeArrayIndex = %d\n", sourceNode->nodeArrayIndex);
+#ifdef CAMBRIDGE
+            sendNodeInteractionsToGpu(rrState, tp, sourceNode->nodeArrayIndex);
+#else
             sendNodeInteractionsToGpu(rrState, tp);
+#endif
             resetCudaNodeState(rrState);
           }
         }// length
@@ -2000,7 +2008,12 @@ void cudaCallback(void *param, void *msg){
 #endif
 }
 
+
+#ifdef CAMBRIDGE
+void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, int nodepointer, bool callDummy) {
+#else
 void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy){
+#endif
 
   int thisIndex = tp->getIndex();
 
@@ -2016,7 +2029,7 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
   data->remote = (getOptType() == Remote);
   data->callDummy = callDummy;
 #ifdef CAMBRIDGE
-  data->activeRung = tp->getActiveRung();
+  data->nodePointer = nodepointer;
   data->theta = theta;
   data->thetaMono = thetaMono;
 #endif

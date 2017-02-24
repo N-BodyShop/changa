@@ -6,6 +6,23 @@
 #include "HostCUDA.h"
 void TreePieceCellListDataTransferBasic(CudaRequest *data, workRequest *wr);
 void TreePiecePartListDataTransferBasic(CudaRequest *data, workRequest *wr);
+
+#ifdef CAMBRIDGE
+__global__ void compute_force_gpu_lockstepping(
+    CompactPartData *particleCores,
+    VariablePartData *particleVars,
+    CudaMultipoleMoments* moments,
+//    ILCell* ils,
+//    int *ilmarks,
+    int *bucketStarts,
+    int *bucketSizes,
+    cudatype fperiod,
+    int nodePointer, 
+    cudatype theta,
+    cudatype thetaMono);
+#endif
+
+
 __global__ void nodeGravityComputation(
 		CompactPartData *particleCores,
 		VariablePartData *particleVars,
