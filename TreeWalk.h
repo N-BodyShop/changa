@@ -59,20 +59,6 @@ class TreeWalk{
 
 };
 
-#ifdef CAMBRIDGE
-// @ A depth-first walk but transform the tree piece into array form
-class CAM_Transform_Walk {
-public:
-  TreePiece *ownerTP;
-  CAM_GPU_Tree* tree;
-  CAM_GPU_Tree* transform();
-  CAM_Transform_Walk() : ownerTP(NULL), tree(NULL) {}
-  CAM_Transform_Walk(TreePiece* tp) : ownerTP(tp) {}
-};
-
-
-#endif
-
 /// @brief Walk a tree starting with the root node.
 class TopDownTreeWalk : public TreeWalk{ 
   private:

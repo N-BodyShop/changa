@@ -110,17 +110,15 @@ typedef struct CudaMultipoleMoments{
 #ifdef CAMBRIDGE
   CudaVector3D lesser_corner;
   CudaVector3D greater_corner;
-  int firstParticle;
-  int lastParticle;
+  int bucketStart;
+  int bucketSize;
+  int bucketIndex;
 //  int parentIndex;
   int children[2];
   int type;
 
 // Uninitialized 
-  int particleCount;
-  int rung;
   int offsetID;
-  int bucketIndex;
 #endif
 
 #ifdef HEXADECAPOLE

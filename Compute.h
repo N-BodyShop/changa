@@ -192,7 +192,11 @@ class ListCompute : public Compute{
   void freeDoubleWalkState(DoubleWalkState *state);
 
 #ifdef CUDA
+#ifdef CAMBRIDGE
+  void sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, int nodepointer=-1, bool callDummy=false);
+#else
   void sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy=false);
+#endif
   void sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy=false);
 #endif
 

@@ -134,7 +134,7 @@ typedef struct _CudaRequest{
         char phase;
 #endif
 #ifdef CAMBRIDGE
-  int activeRung;
+  int nodePointer;
   cosmoType theta;
   cosmoType thetaMono;
 #endif
@@ -147,7 +147,7 @@ typedef struct _ParameterStruct{
   int numEntities;// TODO: can be removed later on
   cudatype fperiod;
 #ifdef CAMBRIDGE
-  int activeRung;
+  int nodePointer;
   cudatype theta;
   cudatype thetaMono;
 #endif

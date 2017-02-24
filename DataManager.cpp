@@ -631,8 +631,6 @@ typedef std::map<KeyType, CkCacheEntry<KeyType>*> cacheType;
         CudaMultipoleMoments cmm(nd->moments);\
         cmm.lesser_corner = nd->boundingBox.lesser_corner;\
         cmm.greater_corner = nd->boundingBox.greater_corner;\
-        cmm.firstParticle = nd->firstParticle;\
-        cmm.lastParticle = nd->lastParticle;\
         list.push_back(cmm);\
         index++;\
       }
@@ -842,6 +840,34 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 
 #ifdef CAMBRIDGE
   transformLocalTree(node, localMoments);
+  // set proper active bucketStart and bucketSize for each bucketNode
+  for(int i = 0; i < numTreePieces; i++){
+    TreePiece *tp = registeredTreePieces[i].treePiece;
+    // set the bucket index for each bucket node
+    // I suspect whether this is useful
+    // but for now, let's just keep it
+    for (int j = 0; i < tp->numBuckets; ++i) {
+        GenericTreeNode *bucketNode = tp->bucketList[j];
+        int id = bucketNode->nodeArrayIndex;
+        localMoments[id].bucketIndex = i;
+    }
+    // set the bucketStart and bucketSize for each bucket Node
+    if (tp->largePhase()) {
+      for (int j = 0; i < tp->numBuckets; ++i) {
+          GenericTreeNode *bucketNode = tp->bucketList[j];
+          int id = bucketNode->nodeArrayIndex;
+          localMoments[id].bucketStart = bucketNode->bucketArrayIndex;
+          localMoments[id].bucketSize = bucketNode->lastParticle - bucketNode->firstParticle + 1;
+      }
+    } else {
+      for (int j = 0; i < tp->numActiveBuckets; ++i) {
+          GenericTreeNode *bucketNode = tp->bucketList[j];
+          int id = bucketNode->nodeArrayIndex;
+          localMoments[id].bucketStart = tp->bucketActiveInfo[id].start;
+          localMoments[id].bucketSize =  tp->bucketActiveInfo[id].size;
+      }
+    }
+  }
 #endif
 
   // used later, when copying particle vars back to the host

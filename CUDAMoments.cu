@@ -258,7 +258,7 @@ cuda_openCriterionNode(CudaMultipoleMoments &node,
                     cudatype theta,
                     cudatype thetaMono) {
   const int nMinParticleNode = 6;
-  if(node.particleCount <= nMinParticleNode) {
+  if(node.bucketSize <= nMinParticleNode) {
     return 1;
   }
 

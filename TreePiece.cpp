@@ -2793,10 +2793,6 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
 void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   delete m;
   
-  #ifdef CAMBRIDGE
-  CkPrintf("XXXX -> CAMBRIDGE: Now we can see whether we're here or not!\n");
-  #endif
-  
   if (dm == NULL) {
       dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
   }
@@ -3817,11 +3813,6 @@ void TreePiece::doAllBuckets(){
   *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
   CkSetQueueing(msg,CK_QUEUEING_IFIFO);
 
-#ifdef CAMBRIDGE
-    CAM_Transform_Walk walk(this);
-    walk.transform();
-#endif
-
   thisProxy[thisIndex].nextBucket(msg);
 
 #ifdef CUDA_INSTRUMENT_WRS
@@ -3921,16 +3912,6 @@ void TreePiece::nextBucket(dummyMsg *msg){
     traceUserBracketEvent(21, startTimer, CmiWallTimer());
 //  #endif
 #endif
-/*#else
-        CkPrintf("CAMBRIDGE: tell me the bucket ID: %d\n", currentBucket);
-        CkPrintf("  CAMBRIDGE: tell me the bucket content: %d\n", target->getKey());
-        CkPrintf("    CAMBRIDGE: tell me the bucket 0th child: %d\n", target->getChildKey(0));
-        CkPrintf("    CAMBRIDGE: tell me the bucket 1th child: %d\n", target->getChildKey(1));
-
-        for (NodeLookupType::iterator iter = this->nodeLookupTable.begin(); iter != this->nodeLookupTable.end(); iter ++) {
-          CkPrintf("          CAMBRIDGE: %d\n", (*iter).first);
-        }
-#endif*/
       }
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("active: nextBucket memcheck after stateReady\n");
