@@ -254,14 +254,14 @@ dist:
 	rm -Rf $(TARGET)-$(VERSION)
 
 clean:
-	rm -f core* $(OBJECTS) *~ $(TARGET) *.decl.h *.def.h charmrun conv-host 
+	rm -f core* $(OBJECTS) *~ $(TARGET) *.decl.h *.def.h charmrun conv-host *.a Makefile.dep 
 	cd $(STRUCTURES_PATH); $(MAKE) clean
 
 ref-clean:
 	rm -f $(TARGET) Compute.o TreeWalk.o
 
 dist-clean: clean
-	@ $(RM) *.a config.status config.log cuda.mk Makefile.dep
+	@ $(RM) -r cuda.mk config.status config.log config.h configure autom4te.cache 
 
 depends: $(SOURCE_DIR)/Makefile.dep
 $(BUILD_DIR)/Makefile.dep:
