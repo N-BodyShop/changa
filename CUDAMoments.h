@@ -54,6 +54,9 @@ cuda_SPLINEQ(cudatype invr, cudatype r2, cudatype twoh, cudatype& a,
 __device__ inline void __attribute__(( always_inline ))
 cuda_SPLINE(cudatype r2, cudatype twoh, cudatype &a, cudatype &b); 
 
+__device__ inline int __attribute__(( always_inline ))
+cuda_OptAction(int fakeOpen, int nodetype);
+
 #endif
 
 #endif  /* CUDAMoments_h */

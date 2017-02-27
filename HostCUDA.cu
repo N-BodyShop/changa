@@ -387,6 +387,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
 
 void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
   ParameterStruct *ptr = (ParameterStruct *)wr->userData;
+
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
   printf("TP_GRAVITY_LOCAL KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nlocal_moments: (0x%x)\nil_cell: %d (0x%x)\n", 
       devBuffers[LOCAL_PARTICLE_CORES],
@@ -397,8 +398,9 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
       );
 #endif
   if( wr->bufferInfo[ILCELL_IDX].transferToDevice ){
-/*#ifdef CAMBRIDGE
+#ifdef CAMBRIDGE
     compute_force_gpu_lockstepping<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>> (
+//    compute_force_gpu_testing<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>> (
       (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
       (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
@@ -411,7 +413,7 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
       ptr->theta,
       ptr->thetaMono
     );
-#else*/
+#else
   #ifndef CUDA_NO_KERNELS
       nodeGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
         (
@@ -425,7 +427,7 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
          ptr->fperiod
         );
   #endif
-//#endif
+#endif
     CUDA_TRACE_BEGIN();
     hapi_hostFree((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
     hapi_hostFree((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
@@ -756,6 +758,11 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 #else
 	gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
 #endif
+
+#ifdef CAMBRIDGE
+  gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
+#endif
+
 	gravityKernel.smemSize = 0;
 
 	gravityKernel.nBuffers = TP_GRAVITY_LOCAL_NBUFFERS;
@@ -1423,12 +1430,44 @@ void DummyKernel(void *cb){
 #define NWARPS_PER_BLOCK (THREADS_PER_BLOCK / THREADS_PER_WARP)
 #define WARP_INDEX (threadIdx.x >> 5)
 #define ROOT 0
+#define OBSERVE_FLAG 1
+#define OBSERVING 0
 
 // Used in lockstepping, sync for threads in a warp
 #define STACK_INIT() sp = 1; stack[sp] = ROOT; //stack[WARP_INDEX][sp].items.dsq = size * size * itolsq
 #define STACK_POP() sp -= 1
 #define STACK_PUSH() sp += 1
 #define STACK_TOP_NODE_INDEX stack[sp]
+
+__global__ void compute_force_gpu_testing(
+    CompactPartData *particleCores,
+    VariablePartData *particleVars,
+    CudaMultipoleMoments* moments,
+//    ILCell* ils,
+//    int *ilmarks,
+    int *bucketStarts,
+    int *bucketSizes,
+    cudatype fperiod,
+    int nodePointer, 
+    cudatype theta,
+    cudatype thetaMono) {
+
+  int pidx = 0;
+  int bucketStart = bucketStarts[blockIdx.x];
+  int bucketEnd   = bucketStart + bucketSizes[blockIdx.x];
+
+  for(pidx = blockIdx.x*blockDim.x + threadIdx.x + bucketStart; pidx < bucketEnd; pidx += gridDim.x*blockDim.x) {
+    if (pidx == 0) {
+      printf("pidx = %d, nodePointer = %d, bucketStart = %d, bucketEnd = %d\n",
+              pidx, nodePointer, bucketStart, bucketEnd);
+
+      printf("        ————————> moments[%d]: bucketStart = %d, bucketSize = %d, bucketIndex = %d, children[0] = %d, children[1] = %d\n",
+              ROOT, moments[ROOT].bucketStart, moments[ROOT].bucketSize, moments[ROOT].bucketIndex, moments[ROOT].children[0], moments[ROOT].children[1]);
+    }
+  }
+
+
+}
 
 __global__ void compute_force_gpu_lockstepping(
     CompactPartData *particleCores,
@@ -1497,6 +1536,10 @@ __global__ void compute_force_gpu_lockstepping(
 */
     STACK_INIT();
     while(sp >= 1) {
+      if (OBSERVE_FLAG && pidx == OBSERVING) {
+        printf("CAMBRIDGE   --> I'm working with the CUDA computation kernel! STACK_TOP_NODE_INDEX = %d\n", STACK_TOP_NODE_INDEX);
+      }
+
       cur_node_index = STACK_TOP_NODE_INDEX;
       targetnode = moments[cur_node_index];
       STACK_POP();
@@ -1505,17 +1548,26 @@ __global__ void compute_force_gpu_lockstepping(
       CudaVector3D offset = cuda_decodeOffset(reqID, fperiod);
       int open = cuda_openCriterionNode(targetnode, mynode, offset, -1, theta, thetaMono);
 
-      int action = 0;
+      int action = cuda_OptAction(open, targetnode.type);
       if (action == KEEP) {
         if (open == CONTAIN || open == INTERSECT) {
+          if (OBSERVE_FLAG && pidx == OBSERVING) {
+            printf("CAMBRIDGE       --> The type is CONTAIN or INTERSECT\n");
+          }
           // if open == CONTAIN, push chilren in stack
           // if open == INTERSECT, Since our mynode will always be a bucket
           // here we should always push the children of targetnode into stack, too
           if (targetnode.children[1] != -1) {
+            if (OBSERVE_FLAG && pidx == OBSERVING) {
+              printf("CAMBRIDGE       --> PUSH %d into stack\n", targetnode.children[1]);
+            }
             STACK_PUSH();
             STACK_TOP_NODE_INDEX = targetnode.children[1];
           }
           if (targetnode.children[0] != -1) {
+            if (OBSERVE_FLAG && pidx == OBSERVING) {
+              printf("CAMBRIDGE       --> PUSH %d into stack\n", targetnode.children[0]);
+            }
             STACK_PUSH();
             STACK_TOP_NODE_INDEX = targetnode.children[0];
           }
@@ -1526,12 +1578,20 @@ __global__ void compute_force_gpu_lockstepping(
         r.y = p.position.y - ((((reqID >> 25) & 0x7)-3)*fperiod + targetnode.cm.y);
         r.z = p.position.z - ((((reqID >> 28) & 0x7)-3)*fperiod + targetnode.cm.z);
 
+        if (OBSERVE_FLAG && pidx == OBSERVING) {
+          printf("CAMBRIDGE       --> The type is COMPUTE, r.x = %f, r.y = %f, r.z = %f\n", r.x, r.y, r.z);
+        }
+
         rsq = r.x*r.x + r.y*r.y + r.z*r.z;   
         if (rsq != 0) {
           cudatype dir = 1.0/sqrt(rsq);     
 #if defined (HEXADECAPOLE)
           CUDA_momEvalFmomrcm(&targetnode, &r, dir, &acc, &pot);
           idt2 = fmax(idt2, (p.mass + targetnode.totalMass)*dir*dir*dir);
+
+          if (OBSERVE_FLAG && pidx == OBSERVING) {
+            printf("CAMBRIDGE       --> The type is COMPUTE, acc.x = %f, acc.y = %f, acc.z = %f\n", acc.x, acc.y, acc.z);
+          }  
 #else
           cudatype a, b, c, d;
           twoh = targetnode.soft + p.soft;
@@ -1548,10 +1608,17 @@ __global__ void compute_force_gpu_lockstepping(
           acc.x -= qir3*r.x - c*qirx;
           acc.y -= qir3*r.y - c*qiry;
           acc.z -= qir3*r.z - c*qirz;
-          idt2 = fmax(idt2, (p.mass + targetnode.totalMass)*b);      
+          idt2 = fmax(idt2, (p.mass + targetnode.totalMass)*b);    
+
+          if (OBSERVE_FLAG && pidx == OBSERVING) {
+            printf("CAMBRIDGE       --> The type is COMPUTE, acc.x = %f, acc.y = %f, acc.z = %f\n", acc.x, acc.y, acc.z);
+          }  
 #endif  
         }
       } else if (action == KEEP_LOCAL_BUCKET) {
+          if (OBSERVE_FLAG && pidx == OBSERVING) {
+            printf("CAMBRIDGE       --> The type is KEEP_LOCAL_BUCKET\n");
+          }
         // compute with each particle contained by node targetnode
         int target_firstparticle = targetnode.bucketStart;
         int target_lastparticle = targetnode.bucketStart + targetnode.bucketSize - 1;
@@ -1574,12 +1641,19 @@ __global__ void compute_force_gpu_lockstepping(
           acc.z += r.z*b*targetparticle.mass;
           idt2 = fmax(idt2, (p.mass + targetparticle.mass) * b);
         }
+          if (OBSERVE_FLAG && pidx == OBSERVING) {
+            printf("CAMBRIDGE       --> The type is KEEP_LOCAL_BUCKET, acc.x = %f, acc.y = %f, acc.z = %f\n", acc.x, acc.y, acc.z);
+          }  
 
       } else if (action == DUMP || action == NOP) {
         // do nothing here
       } else {
         printf("We got into a trouble in compute_force_gpu_non_lockstepping!\n");
       }
+    }
+
+    if (pidx == OBSERVING) {
+      printf("CAMBRIDGE     --> I've done with the CUDA computation kernel! acc.x = %f, acc.y = %f, acc.z = %f\n", acc.x, acc.y, acc.z);
     }
     particleVars[pidx].a.x += acc.x;
     particleVars[pidx].a.y += acc.y;
