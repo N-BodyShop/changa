@@ -20,6 +20,19 @@ __global__ void compute_force_gpu_lockstepping(
     int nodePointer, 
     cudatype theta,
     cudatype thetaMono);
+
+__global__ void compute_force_gpu_testing(
+    CompactPartData *particleCores,
+    VariablePartData *particleVars,
+    CudaMultipoleMoments* moments,
+//    ILCell* ils,
+//    int *ilmarks,
+    int *bucketStarts,
+    int *bucketSizes,
+    cudatype fperiod,
+    int nodePointer, 
+    cudatype theta,
+    cudatype thetaMono);
 #endif
 
 

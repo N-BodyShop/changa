@@ -3813,6 +3813,10 @@ void TreePiece::doAllBuckets(){
   *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
   CkSetQueueing(msg,CK_QUEUEING_IFIFO);
 
+#ifdef CAMBRIDGE
+    CkPrintf("CAMBRIDGE         The numBuckets = %d\n", numBuckets);
+#endif
+
   thisProxy[thisIndex].nextBucket(msg);
 
 #ifdef CUDA_INSTRUMENT_WRS

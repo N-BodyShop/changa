@@ -657,6 +657,7 @@ inline int openCriterionNode(Tree::GenericTreeNode *node,
 #if COSMO_STATS > 0
   node->used = true;
 #endif
+
   // Always open node if this many particles or fewer.
   const int nMinParticleNode = 6;
   if(node->particleCount <= nMinParticleNode) {

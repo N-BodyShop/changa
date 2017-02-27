@@ -172,7 +172,7 @@ public:
         void serializeLocalTree();
 #ifdef CAMBRIDGE
         void transformLocalTree(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments);
-        void transformLocalRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments);
+        void transformLocalTreeRecursive(GenericTreeNode *node, int indent);
 #endif
 
         // actual serialization methods

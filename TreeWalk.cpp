@@ -314,12 +314,18 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
   // localNode has changed, need to update computeEntity
   comp->setComputeEntity(localNode);
 
+
+#ifdef CAMBRIDGE
+    if (targetBucketIndex == 0) {
+      CkPrintf("\n\n***\nCAMBRIDGE     --> localNode->nodeArrayIndex = %d!\n", localNode->nodeArrayIndex);
+    }
+#endif
+
   // get current level's checklist
   DoubleWalkState *s = (DoubleWalkState *)state;
   s->level = level;
   CheckList &chklist = s->chklists[level];
   UndecidedList &myUndlist = s->undlists[level];
-
 
   if(!isRoot)
   {
@@ -358,6 +364,13 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
     }
   }
 
+
+#ifdef CAMBRIDGE
+    if (targetBucketIndex == 0) {
+      CkPrintf("CAMBRIDGE     --> Turn to checklist! chklist.length = %d\n", chklist.length());
+    }
+#endif
+
   // while there are nodes to process on this level
   while(!chklist.isEmpty())
   {
@@ -368,6 +381,7 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
     bool didcomp = false;
     int reqID = reEncodeOffset(targetBucketIndex, glblNode.offsetID);
     descend = processNode(glblNode.node, s, chunk, reqID, isRoot, didcomp, awi);
+
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
     char arr[2] = {'K', 'D'};
     char arrr[2] = {'N', 'Y'};
@@ -383,6 +397,13 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
   // descend into localNode
   bool myUndlistEmpty = myUndlist.length() == 0;
   //CkAssert((myUndlistEmpty && !descend) || (!myUndlistEmpty && descend));
+
+
+#ifdef CAMBRIDGE
+    if (targetBucketIndex == 0) {
+      CkPrintf("CAMBRIDGE     --> Turn to myUndlist! myUndlist.length = %d\n", myUndlist.length());
+    }
+#endif
 
   if(!myUndlistEmpty)
   {

@@ -4,6 +4,10 @@
 # include "cuda_typedef.h"
 #endif
 
+#ifdef CAMBRIDGE
+#include "codes.h"
+#endif
+
 #ifdef CUDA_UNIT_TEST
 __global__ void
 #else
@@ -404,6 +408,36 @@ cuda_SPLINE(cudatype r2, cudatype twoh, cudatype &a, cudatype &b) {
   else {
     a = cudatype(1.0)/r;
     b = a*a*a;
+  }
+}
+
+__device__ inline int __attribute__(( always_inline ))
+cuda_OptAction(int fakeOpen, int nodetype) {
+  if (fakeOpen == 0) {
+    if (nodetype == cuda_Internal || nodetype == cuda_Bucket || nodetype == cuda_Boundary || nodetype == cuda_NonLocalBucket) {
+      return COMPUTE;
+    } else if (nodetype == cuda_NonLocal || nodetype == cuda_Cached || nodetype == cuda_CachedBucket || nodetype == cuda_Empty || nodetype == cuda_CachedEmpty) {
+      return DUMP;
+    } else if (nodetype == cuda_Top || nodetype == cuda_Invalid) {
+      return ERROR;
+    } else {
+      printf("ERROR in cuda_OptAction\n");
+      return -1;
+    }
+  } else {
+    if (nodetype == cuda_Internal || nodetype == cuda_Boundary) {
+      return KEEP;
+    } else if (nodetype == cuda_Bucket) {
+      return KEEP_LOCAL_BUCKET;
+    } else if (nodetype == cuda_NonLocal || nodetype == cuda_NonLocalBucket || nodetype == cuda_CachedBucket || nodetype == cuda_Cached || nodetype == cuda_Empty ||
+              nodetype == cuda_CachedEmpty) {
+      return DUMP;
+    } else if (nodetype == cuda_Top || nodetype == cuda_Invalid) {
+      return ERROR;
+    } else {
+      printf("ERROR in cuda_OptAction\n");
+      return -1;
+    }
   }
 }
 
