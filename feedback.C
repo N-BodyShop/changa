@@ -79,6 +79,8 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     dDeltaStarForm = param.stfm->dDeltaStarForm;
 #ifndef STOCH
     if(sn.bUseStoch) CkAbort("Stochastic IMF requested but not compiled in");
+#else
+    if(!sn.bUseStoch) CkPrintf("Running non-stochastic IMF but stochastic IMF compiled in\n");
 #endif
     dSecUnit = param.dSecUnit;
     dGmPerCcUnit = param.dGmPerCcUnit;
