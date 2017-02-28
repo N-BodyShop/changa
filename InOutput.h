@@ -16,21 +16,26 @@ int64_t ncGetCount(std::string typedir);
 class OutputParams : public PUP::able 
 {
  public:
+    /// Output data as a double
     virtual double dValue(GravityParticle *p) = 0;
+    /// Output data as a Vector3D of doubles
     virtual Vector3D<double> vValue(GravityParticle *p) = 0;
+    /// Input data as a double.
     virtual void setDValue(GravityParticle *p, double) = 0;
+    /// Output data as an int.
     virtual int64_t iValue(GravityParticle *p) = 0;
+    /// Input data as an int.
     virtual void setIValue(GravityParticle *p, int64_t iValue) = 0;
-    int bFloat;         // Is a floating point number
-    int bVector;	// Is a vector, as opposed to a scalar
-    int iBinaryOut;     // Type of binary output
-    double dTime;
-    std::string fileName;	// output file
-    std::string sTipsyExt;      // Extension for tipsy output
-    std::string sNChilExt;      // file name for NChilada output
-    unsigned int iType;         // mask of families containing this attribute
-    unsigned int iTypeWriting;  // family being written in NC format
-    DataManager *dm;	// For extra state information (e.g. cooling)
+    int bFloat;         ///< Is a floating point number
+    int bVector;	///< Is a vector, as opposed to a scalar
+    int iBinaryOut;     ///< Type of binary output
+    double dTime;       ///< Time of output
+    std::string fileName;	///< output file
+    std::string sTipsyExt;      ///< Extension for tipsy output
+    std::string sNChilExt;      ///< file name for NChilada output
+    unsigned int iType;         ///< mask of families containing this attribute
+    unsigned int iTypeWriting;  ///< family being written in NC format
+    DataManager *dm;	///< For extra state information (e.g. cooling)
 
     OutputParams() {dm = NULL;}
     PUPable_abstract(OutputParams);

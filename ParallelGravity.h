@@ -760,17 +760,17 @@ class TreePiece : public CBase_TreePiece {
   void memCacheStats(const CkCallback &cb);
   void addActiveWalk(int iAwi, TreeWalk *tw, Compute *c, Opt *o, State *s);
 
+  /// @brief Called when walk on the current TreePiece is done.
   void markWalkDone();
+  /// @brief Called when walk on all TreePieces is done.
   void finishWalk();
+  /// @brief Called when smooth walk on the current TreePiece is done.
   void markSmoothWalkDone();
+  /// @brief Called when smooth walk on all TreePieces is done.
   void finishSmoothWalk();
 
   int getIndex() {
     return thisIndex;
-  }
-
-  int getLocalIndex(){
-    return localIndex;
   }
 
   /// @brief accumulate node interaction count for statistics
@@ -799,10 +799,12 @@ class TreePiece : public CBase_TreePiece {
   /// Start a new remote computation upon prefetch finished
   void startRemoteChunk();
 
+  /// Return the number of particles on this TreePiece.
   int getNumParticles(){
     return myNumParticles;
   }
 
+  /// Return the pointer to the particles on this TreePiece.
   GravityParticle *getParticles(){return myParticles;}
 
 
