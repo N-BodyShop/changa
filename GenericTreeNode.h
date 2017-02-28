@@ -55,39 +55,6 @@ namespace Tree {
 
 class NodePool;
 
-#ifdef CAMBRIDGE
-class CAM_GPU_Particle {
-public:
-};
-
-class CAM_GPU_Node {
-public:
-  /// The moments for the gravity computation
-  MultipoleMoments moments;
-  /// The axis-aligned bounding box of this node
-  OrientedBox<cosmoType> boundingBox;
-  /// center of smoothActive particles during smooth operation
-  Vector3D<double> centerSm;
-
-  int firstParticle;
-  int lastParticle;
-  NodeType type;
-};
-
-class CAM_GPU_Tree {
-public:
-  int num_of_nodes;
-  int num_of_buckets;
-  int num_of_particles;
-
-  CAM_GPU_Node*     nodes;
-  CAM_GPU_Particle*  particles;
-
-  CAM_GPU_Tree(): num_of_particles(0), num_of_buckets(0), num_of_nodes(0),
-  nodes(NULL), particles(NULL) {}
-};
-#endif
-
 /// @brief Base class for tree nodes
   class GenericTreeNode {
 #ifdef CHANGA_REFACTOR_WALKCHECK
