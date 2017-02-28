@@ -735,14 +735,6 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
   open = openCriterion(tp, node, reqID, state);
   //CkPrintf("[%d] open: %d\n", tp->getIndex(), open);
 
-#ifdef CAMBRIDGE
-  int offsetmask = 0x1ff << 22;
-  offsetmask = ~offsetmask;
-  offsetmask = offsetmask & reqID;
-  if(offsetmask == 0)
-  CkPrintf("CAMBRIDGE     --> reqID = %d, node->nodeArrayIndex = %d, computeEntity = %d ", offsetmask, node->nodeArrayIndex, ((GenericTreeNode *)computeEntity)->nodeArrayIndex);
-#endif
-
   int fakeOpen;
   // in the interlist version, there are three possible return
   // values for the opencriterin function, whereas the Opt object
@@ -756,20 +748,9 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
   }
 
   int action = opt->action(fakeOpen, node); 
-  if(offsetmask == 0)
-    CkPrintf(",action = %d, opt->type = %d ", action, opt->getSelfType());
-
   if(action == KEEP){
-#ifdef CAMBRIDGE
-  if(offsetmask == 0) 
-  CkPrintf("action = KEEP, ");
-#endif
     if(open == CONTAIN)
     {
-#ifdef CAMBRIDGE
-  if(offsetmask == 0) 
-  CkPrintf("open = CONTAIN. \n");
-#endif
       // ancestor is a node and is contained
       // only enqueue nodes if they are available
       addChildrenToCheckList(node, reqID, chunk, awi, s, chklist, tp);
@@ -785,10 +766,6 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
     }// end if contain
     else if(open == INTERSECT)
     {
-#ifdef CAMBRIDGE
-  if(offsetmask == 0) 
-  CkPrintf("open = INTERSECT. \n");
-#endif
       GenericTreeNode *localNode = (GenericTreeNode *)computeEntity;
       if(localNode->getType() == Bucket){
         // if the local node is a bucket, we shouldn't descend further locally
@@ -808,17 +785,9 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
         return KEEP;
       }
     }
-#ifdef CAMBRIDGE
-  if(offsetmask == 0) 
-  CkPrintf(" Do nothing.\n");
-#endif
   }
   else if(action == COMPUTE){
 
-#ifdef CAMBRIDGE
-  if(offsetmask == 0) 
-  CkPrintf("action = COMPUTE. \n");
-#endif
     // only nodes can be COMPUTEd
     // particles must be KEEP_*_BUCKETed
     // so we only need to add node to clist here
@@ -849,10 +818,6 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
     return DUMP;
   }
   else if(action == KEEP_LOCAL_BUCKET){
-#ifdef CAMBRIDGE
-  if(offsetmask == 0) 
-  CkPrintf("action = KEEP_LOCAL_BUCKET. \n");
-#endif
     didcomp = true;
 #if CHANGA_REFACTOR_DEBUG > 2
     CkAssert(node->getType() == Bucket);
@@ -887,10 +852,6 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
     return DUMP;
   }
   else if(action == KEEP_REMOTE_BUCKET){
-#ifdef CAMBRIDGE
-  if(offsetmask == 0) 
-  CkPrintf("action = KEEP_REMOTE_BUCKET. \n");
-#endif
     didcomp = true;
   // fetch particles and compute.
 #if CHANGA_REFACTOR_DEBUG > 2
@@ -952,10 +913,6 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
     return DUMP;
   }
   else if(action == DUMP || action == NOP){
-#ifdef CAMBRIDGE
-  if(offsetmask == 0) 
-  CkPrintf("action = DUMP || NOP. open = %d, action = %d\n", open, action);
-#endif
     return DUMP;
   }
   CkAbort("ListCompute: bad walk state");
