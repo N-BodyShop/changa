@@ -752,7 +752,7 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
   offsetmask = ~offsetmask;
   offsetmask = offsetmask & reqID;
   if(offsetmask == 0)
-  CkPrintf("CAMBRIDGE     --> reqID = %d, node->nodeArrayIndex = %d, computeEntity->nodeArrayIndex = %d ", offsetmask, node->nodeArrayIndex, ((GenericTreeNode *)computeEntity)->nodeArrayIndex);
+  CkPrintf("CAMBRIDGE     --> reqID = %d, node->nodeArrayIndex = %d, computeEntity = %d ", offsetmask, node->nodeArrayIndex, ((GenericTreeNode *)computeEntity)->nodeArrayIndex);
 #endif
 
   int fakeOpen;
@@ -1556,8 +1556,7 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int
   request->remote = false;
   request->callDummy = false;
 #ifdef CAMBRIDGE
-  int currentBucket = state->currentBucket;
-  GenericTreeNode *sourceNode = tp->bucketList[currentBucket];
+  GenericTreeNode *sourceNode = tp->bucketList[start_id];
 
   request->nodePointer = sourceNode->nodeArrayIndex;
   request->theta = theta;
@@ -1588,27 +1587,31 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 
   DoubleWalkState *state = (DoubleWalkState *)state_;
 #ifdef CAMBRIDGE
-  if (tp->bucketList[start]->rungs >= activeRung) {
+  if (getOptType() == Local) {
+    for (int bucketId = start; bucketId < end; bucketId ++) {
+      if (tp->bucketList[bucketId]->rungs >= activeRung) {
 
-    // Do something to make the callback function happy.
-    int root_index = 0;     // the root index
-    int x = 0, y = 0, z = 0;    // default value, need to fix in the future
-    int offsetID = encodeOffset(0, x,y,z);
-    ILCell tilc(root_index, offsetID);
-    if(state->nodeLists.lists[start].length() == 0) {    
-      state->counterArrays[0][start] ++;    
-      state->nodeLists.lists[start].push_back(tilc);    
-      state->nodeLists.totalNumInteractions ++;
+        // Do something to make the callback function happy.
+        int root_index = 0;     // the root index
+        int x = 0, y = 0, z = 0;    // default value, need to fix in the future
+        int offsetID = encodeOffset(0, x,y,z);
+        ILCell tilc(root_index, offsetID);
+        if(state->nodeLists.lists[bucketId].length() == 0) {    
+          state->counterArrays[0][bucketId] ++;    
+          state->nodeLists.lists[bucketId].push_back(tilc);    
+          state->nodeLists.totalNumInteractions ++;
+        }
+
+        // the following code is going to send a fake CudaRequest
+        // Since our new GPU kernel doesn't need interaction list at all
+        // we just send a fake request with the bucket id
+        sendLocalTreeWalkTriggerToGpu(state, tp, bucketId);
+        resetCudaNodeState(state);
+        resetCudaPartState(state);
+      }
     }
-
-    // the following code is going to send a fake CudaRequest
-    // Since our new GPU kernel doesn't need interaction list at all
-    // we just send a fake request with the bucket id
-    sendLocalTreeWalkTriggerToGpu(state, tp, start);
-    resetCudaNodeState(state);
-    resetCudaPartState(state);
+    return;
   }
-  return;
 #endif
 
 #ifdef CUDA

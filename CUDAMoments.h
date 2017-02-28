@@ -34,6 +34,9 @@ cuda_openSoftening(CudaMultipoleMoments &node, CudaMultipoleMoments &myNode,
       CudaVector3D &offset);
 
 __device__ inline int __attribute__(( always_inline ))
+cuda_encodeOffset(int reqID, int x, int y, int z);
+
+__device__ inline int __attribute__(( always_inline ))
 cuda_reEncodeOffset(int reqID, int offsetID);
 
 __device__ inline CudaVector3D __attribute__(( always_inline ))
