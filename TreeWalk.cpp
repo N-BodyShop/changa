@@ -314,13 +314,6 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
   // localNode has changed, need to update computeEntity
   comp->setComputeEntity(localNode);
 
-
-#ifdef CAMBRIDGE
-    if (targetBucketIndex == 0) {
-      CkPrintf("\n\n***\nCAMBRIDGE     --> localNode->nodeArrayIndex = %d!\n", localNode->nodeArrayIndex);
-    }
-#endif
-
   // get current level's checklist
   DoubleWalkState *s = (DoubleWalkState *)state;
   s->level = level;
@@ -364,13 +357,6 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
     }
   }
 
-
-#ifdef CAMBRIDGE
-    if (targetBucketIndex == 0) {
-      CkPrintf("CAMBRIDGE     --> Turn to checklist! chklist.length = %d\n", chklist.length());
-    }
-#endif
-
   // while there are nodes to process on this level
   while(!chklist.isEmpty())
   {
@@ -397,13 +383,6 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
   // descend into localNode
   bool myUndlistEmpty = myUndlist.length() == 0;
   //CkAssert((myUndlistEmpty && !descend) || (!myUndlistEmpty && descend));
-
-
-#ifdef CAMBRIDGE
-    if (targetBucketIndex == 0) {
-      CkPrintf("CAMBRIDGE     --> Turn to myUndlist! myUndlist.length = %d\n", myUndlist.length());
-    }
-#endif
 
   if(!myUndlistEmpty)
   {
