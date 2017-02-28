@@ -32,6 +32,7 @@ class Stfm : public PUP::able  {
     int bGasCooling;		/* Can we call cooling for temperature */
  public:
     int bUseStoch;          /* use stochastic IMF */
+    double dStochCut;       /* cutoff mass for stochastic IMF */
     int iStarFormRung;		/* rung for star formation */
     int iRandomSeed;		/* seed for probability */
     double dMinGasMass;		/* minimum mass gas before we delete
@@ -73,6 +74,7 @@ inline Stfm::Stfm(const Stfm& st) {
     dMaxStarMass = st.dMaxStarMass;
     bGasCooling = st.bGasCooling;
     bUseStoch = st.bUseStoch;
+    dStochCut = st.dStochCut;
     iStarFormRung = st.iStarFormRung;
     iRandomSeed = st.iRandomSeed;
     dMinGasMass = st.dMinGasMass;
@@ -82,6 +84,7 @@ inline Stfm::Stfm(const Stfm& st) {
 
 inline void Stfm::pup(PUP::er &p) {
     p|bUseStoch;
+    p|dStochCut;
     p|dDeltaStarForm;
     p|iStarFormRung;
     p|iRandomSeed;

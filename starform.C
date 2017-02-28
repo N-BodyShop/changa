@@ -99,6 +99,7 @@ void Stfm::CheckParams(PRM prm, Parameters &param)
 #include "physconst.h"
 
     bUseStoch = param.feedback->sn.bUseStoch;
+    dStochCut = param.feedback->sn.dStochCut;
     dSecUnit = param.dSecUnit;
     dMsolUnit = param.dMsolUnit;
     dGmPerCcUnit = param.dGmPerCcUnit;
@@ -356,7 +357,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
             double test_mass = mass_tally + new_star_unit;
             if(test_mass < dDeltaM){
                 mass_tally += new_star_unit;
-                if(new_star > 8.0){
+                if(new_star > dStochCut){
                     //CkPrintf("HMStar with mass: %f\n",new_star);
                     starp->rgfHMStars(iArrayLoc)=new_star;
                     dSumHMStars += new_star_unit;
@@ -364,14 +365,14 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
                 }
             } else if(fabs(dDeltaM - test_mass) < fabs(dDeltaM - mass_tally) ) {
                 mass_tally += new_star;
-                if(new_star > 8.0){
+                if(new_star > dStochCut){
                     starp->rgfHMStars(iArrayLoc)=new_star;
                     dSumHMStars += new_star_unit;
                 }
                 break;
             } else break;
         }
-        double dTotLowMass=imf->CumMass(0.0)-imf->CumMass(8.0);
+        double dTotLowMass=imf->CumMass(0.0)-imf->CumMass(dStochCut);
         starp->fLowNorm()=dMsolUnit*(dDeltaM-dSumHMStars)/dTotLowMass;
         CkPrintf("fLowNorm is %f\n",starp->fLowNorm());
     }

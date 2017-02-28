@@ -47,7 +47,7 @@ void SN::CalcSNIIFeedback(SFEvent *sfEvent,
 	fbEffects->dMOxygen = 0.0;
 	
 	if(!bUseStoch) dNSNTypeII = imf->CumNumber(dMSNIImin);
-    else dNSNTypeII = imf->CumNumberStoch(dMSNIImin, sfEvent->dLowNorm, sfEvent->rgdHMStars); /* no need to normalize for stochastic IMF */
+    else dNSNTypeII = imf->CumNumberStoch(dMSNIImin, sfEvent->dLowNorm, sfEvent->rgdHMStars, dStochCut); /* no need to normalize for stochastic IMF */
 	if(!bUseStoch) dNSNTypeII *= sfEvent->dMass/dMtot; /* normalize to star particle mass */
 	fbEffects->dMassLoss = dNSNTypeII * dDelta / 1e6; /* 1 M_sol / Myr / SN */
 	fbEffects->dEnergy = dNSNTypeII * 3e42 * dDelta/ /* 1e35 erg/s /SN */
@@ -77,8 +77,8 @@ void SN::CalcSNIIFeedback(SFEvent *sfEvent,
         dCumMMin = imf->CumMass (dMStarMinII);
         dCumMMax = imf->CumMass (dMStarMaxII);
     } else {
-        dCumMMin = imf->CumMassStoch (dMStarMinII, sfEvent->dLowNorm, sfEvent->rgdHMStars);
-        dCumMMax = imf->CumMassStoch (dMStarMaxII, sfEvent->dLowNorm, sfEvent->rgdHMStars);
+        dCumMMin = imf->CumMassStoch (dMStarMinII, sfEvent->dLowNorm, sfEvent->rgdHMStars, dStochCut);
+        dCumMMax = imf->CumMassStoch (dMStarMaxII, sfEvent->dLowNorm, sfEvent->rgdHMStars, dStochCut);
     }
 	
 	if(dCumMMax > dCumMMin || dCumMMax < 0) dMSNTypeII = dCumMMin;
@@ -95,8 +95,8 @@ void SN::CalcSNIIFeedback(SFEvent *sfEvent,
         dCumNMinII = imf->CumNumber (dMStarMinII); 
         dCumNMaxII = imf->CumNumber (dMStarMaxII);
     } else {
-        dCumNMinII = imf->CumNumberStoch (dMStarMinII, sfEvent->dLowNorm, sfEvent->rgdHMStars); 
-        dCumNMaxII = imf->CumNumberStoch (dMStarMaxII, sfEvent->dLowNorm, sfEvent->rgdHMStars);
+        dCumNMinII = imf->CumNumberStoch (dMStarMinII, sfEvent->dLowNorm, sfEvent->rgdHMStars, dStochCut); 
+        dCumNMaxII = imf->CumNumberStoch (dMStarMaxII, sfEvent->dLowNorm, sfEvent->rgdHMStars, dStochCut);
     }
 	
 	if(dCumNMaxII > dCumNMinII || dCumNMaxII < 0) dNSNTypeII = dCumNMinII;

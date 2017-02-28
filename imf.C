@@ -172,76 +172,76 @@ double Kroupa01::DrawStar(double num){
     return mass;
 }
 
-double MillerScalo::CumNumberStoch(double mass, double lownorm, double *hmstars){
+double MillerScalo::CumNumberStoch(double mass, double lownorm, double *hmstars, double cutmass){
     return NULL;
 }
-double Kroupa93::CumNumberStoch(double mass, double lownorm, double *hmstars){
+double Kroupa93::CumNumberStoch(double mass, double lownorm, double *hmstars, double cutmass){
     return NULL;
 }
-double Chabrier::CumNumberStoch(double mass, double lownorm, double *hmstars){
+double Chabrier::CumNumberStoch(double mass, double lownorm, double *hmstars, double cutmass){
     return NULL;
 }
-double Kroupa01::CumNumberStoch(double mass, double lownorm, double *hmstars){
+double Kroupa01::CumNumberStoch(double mass, double lownorm, double *hmstars, double cutmass){
     double dCumN = 0;
     if(mass > mmax) return 0;
-    if(mass > 8.0){
+    if(mass > cutmass){
         for(int i=0;i<12;i++){
             if(hmstars[i]>mass) dCumN += 1;
         }
         return dCumN;
     } else {
         for(int i=0;i<12;i++){
-            if(hmstars[i]>7.99) dCumN +=1;
+            if(hmstars[i]>cutmass) dCumN +=1;
         }
     }
     if (mass > m2){
-        dCumN += lownorm*a2/b2*(pow(8.0, b2) - pow(mass, b2))/log(10.0);
+        dCumN += lownorm*a2/b2*(pow(cutmass, b2) - pow(mass, b2))/log(10.0);
     } else if(mass > m1){
-        dCumN += lownorm*a2/b2*(pow(8.0, b2) - pow(m2, b2))/log(10.0);
+        dCumN += lownorm*a2/b2*(pow(cutmass, b2) - pow(m2, b2))/log(10.0);
         dCumN += lownorm*a1/b1*(pow(m2, b1) - pow(mass, b1))/log(10.0);
     } else {
-        dCumN += lownorm*a2/b2*(pow(8.0, b2) - pow(m2, b2))/log(10.0);
+        dCumN += lownorm*a2/b2*(pow(cutmass, b2) - pow(m2, b2))/log(10.0);
         dCumN += lownorm*a1/b1*(pow(m2, b1) - pow(m1, b1))/log(10.0);
     }
     
     return dCumN;
 }
 
-double MillerScalo::CumMassStoch(double mass, double lownorm, double *hmstars){
+double MillerScalo::CumMassStoch(double mass, double lownorm, double *hmstars, double cutmass){
     return NULL;
 }
-double Kroupa93::CumMassStoch(double mass, double lownorm, double *hmstars){
+double Kroupa93::CumMassStoch(double mass, double lownorm, double *hmstars, double cutmass){
     return NULL;
 }
-double Chabrier::CumMassStoch(double mass, double lownorm, double *hmstars){
+double Chabrier::CumMassStoch(double mass, double lownorm, double *hmstars, double cutmass){
     return NULL;
 }
-double Kroupa01::CumMassStoch(double mass, double lownorm, double *hmstars){
+double Kroupa01::CumMassStoch(double mass, double lownorm, double *hmstars, double cutmass){
 
     double dCumM = 0.0;
 
     if(mass > mmax) return 0;
-    if(mass > 8.0) {
+    if(mass > cutmass) {
         for(int i=0;i<12;i++){
             if(hmstars[i]>mass) dCumM += hmstars[i];
         }
         return dCumM;
     } else {
         for(int i=0;i<12;i++){
-            if(hmstars[i]>7.99) dCumM += hmstars[i];
+            if(hmstars[i]>cutmass) dCumM += hmstars[i];
         }
     }
     if(mass > m2){
-        dCumM += lownorm*a2/(b2 + 1)*(pow(8.0, b2 + 1)
+        dCumM += lownorm*a2/(b2 + 1)*(pow(cutmass, b2 + 1)
                       - pow(mass, b2 + 1))/log(10.0);
     }
     else if(mass > m1) {
-        dCumM += lownorm*a2/(b2 + 1)*(pow(8.0, b2 + 1)
+        dCumM += lownorm*a2/(b2 + 1)*(pow(cutmass, b2 + 1)
                       - pow(m2, b2 + 1))/log(10.0);
         dCumM += lownorm*a1/(b1 + 1)*(pow(m2, b1 + 1)
                       - pow(mass, b1 + 1))/log(10.0);
     } else {
-        dCumM += lownorm*a2/(b2 + 1)*(pow(8.0, b2 + 1)
+        dCumM += lownorm*a2/(b2 + 1)*(pow(cutmass, b2 + 1)
                       - pow(m2, b2 + 1))/log(10.0);
         dCumM += lownorm*a1/(b1 + 1)*(pow(m2, b1 + 1)
                       - pow(m1, b1 + 1))/log(10.0);

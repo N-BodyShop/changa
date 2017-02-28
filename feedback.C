@@ -36,6 +36,9 @@ void Fdbk::AddParams(PRM prm)
     sn.bUseStoch = 1;
     prmAddParam(prm,"bUseStoch",paramInt, &sn.bUseStoch, sizeof(int),
             "usestoch","<Enable stochastic IMF>");
+    sn.dStochCut = 8.0;
+    prmAddParam(prm,"dStochCut",paramDouble, &sn.dStochCut, sizeof(double),
+            "stochcut","<Cut off mass for stochastic IMF> = 8.0");
     bSmallSNSmooth = 1;
     prmAddParam(prm,"bSmallSNSmooth", paramBool, &bSmallSNSmooth, sizeof(int),
 		"bSmallSNSmooth",
@@ -367,8 +370,8 @@ void Fdbk::CalcWindFeedback(SFEvent *sfEvent, double dTime, /* current time in y
         dMinCumMass = imf->CumMass(dMinMass);
         dMaxCumMass = imf->CumMass(dMaxMass);
     } else {
-        dMinCumMass = imf->CumMassStoch(dMinMass, sfEvent->dLowNorm, sfEvent->rgdHMStars);
-        dMaxCumMass = imf->CumMassStoch(dMaxMass, sfEvent->dLowNorm, sfEvent->rgdHMStars);
+        dMinCumMass = imf->CumMassStoch(dMinMass, sfEvent->dLowNorm, sfEvent->rgdHMStars, sn.dStochCut);
+        dMaxCumMass = imf->CumMassStoch(dMaxMass, sfEvent->dLowNorm, sfEvent->rgdHMStars, sn.dStochCut);
     }
 	double dMTot = imf->CumMass(0.0);
 	/* Find out mass fraction of dying stars, then multiply by the original
