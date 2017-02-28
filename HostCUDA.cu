@@ -1461,43 +1461,13 @@ void DummyKernel(void *cb){
 #define WARP_INDEX (threadIdx.x >> 5)
 #define ROOT 0
 #define OBSERVE_FLAG 1
-#define OBSERVING 0
+#define OBSERVING 10
 
 // Used in lockstepping, sync for threads in a warp
 #define STACK_INIT() sp = 1; stack[sp] = ROOT; //stack[WARP_INDEX][sp].items.dsq = size * size * itolsq
 #define STACK_POP() sp -= 1
 #define STACK_PUSH() sp += 1
 #define STACK_TOP_NODE_INDEX stack[sp]
-
-__global__ void compute_force_gpu_testing(
-    CompactPartData *particleCores,
-    VariablePartData *particleVars,
-    CudaMultipoleMoments* moments,
-//    ILCell* ils,
-//    int *ilmarks,
-    int *bucketStarts,
-    int *bucketSizes,
-    cudatype fperiod,
-    int nodePointer, 
-    cudatype theta,
-    cudatype thetaMono) {
-
-  int pidx = 0;
-  int bucketStart = bucketStarts[blockIdx.x];
-  int bucketEnd   = bucketStart + bucketSizes[blockIdx.x];
-
-  for(pidx = blockIdx.x*blockDim.x + threadIdx.x + bucketStart; pidx < bucketEnd; pidx += gridDim.x*blockDim.x) {
-    if (pidx == 0) {
-      printf("pidx = %d, nodePointer = %d, bucketStart = %d, bucketEnd = %d\n",
-              pidx, nodePointer, bucketStart, bucketEnd);
-
-      printf("        ————————> moments[%d]: bucketStart = %d, bucketSize = %d, bucketIndex = %d, children[0] = %d, children[1] = %d\n",
-              ROOT, moments[ROOT].bucketStart, moments[ROOT].bucketSize, moments[ROOT].bucketIndex, moments[ROOT].children[0], moments[ROOT].children[1]);
-    }
-  }
-
-
-}
 
 __global__ void compute_force_gpu_lockstepping(
     CompactPartData *particleCores,
@@ -1554,31 +1524,35 @@ __global__ void compute_force_gpu_lockstepping(
   for(pidx = blockIdx.x*blockDim.x + threadIdx.x + bucketStart; pidx < bucketEnd; pidx += gridDim.x*blockDim.x) {
     // initialize the variables belonging to current thread
     mynode = moments[nodePointer];
+//    mynode = moments[0];
     p = particleCores[pidx];
     acc.x = 0;
     acc.y = 0;
     acc.z = 0;
     pot = 0;
     idt2 = 0;
-/*    if (pidx == 0) {
-        printf("CAMBRIDGE:      --> nodePointer = %d\n", nodePointer);
+
+    if (OBSERVE_FLAG && pidx == OBSERVING) {
+        printf("\nCAMBRIDGE:      --> nodePointer = %d, fPeriod = %f, bucketStart = %d, bucketEnd = %d\n", nodePointer, fperiod, bucketStart, bucketEnd);
     }
-*/
     STACK_INIT();
     while(sp >= 1) {
-      if (OBSERVE_FLAG && pidx == OBSERVING) {
-        printf("CAMBRIDGE   --> I'm working with the CUDA computation kernel! STACK_TOP_NODE_INDEX = %d\n", STACK_TOP_NODE_INDEX);
-      }
-
       cur_node_index = STACK_TOP_NODE_INDEX;
       targetnode = moments[cur_node_index];
       STACK_POP();
 
-      int reqID = cuda_reEncodeOffset(mynode.bucketIndex, targetnode.offsetID);
+      // Here should be initialized with nReplicas ID. but since I'm not using it at all, I just fill it with zeros.
+      int offsetID = cuda_encodeOffset(0, 0, 0, 0);
+//      int reqID = cuda_reEncodeOffset(mynode.bucketIndex, targetnode.offsetID);
+      int reqID = cuda_reEncodeOffset(mynode.bucketIndex, offsetID);
       CudaVector3D offset = cuda_decodeOffset(reqID, fperiod);
       int open = cuda_openCriterionNode(targetnode, mynode, offset, -1, theta, thetaMono);
 
       int action = cuda_OptAction(open, targetnode.type);
+
+      if (OBSERVE_FLAG && pidx == OBSERVING) {
+        printf("CAMBRIDGE   --> cur_node_index = %d, open = %d, action = %d, targetnode.type = %d\n", cur_node_index, open, action, targetnode.type);
+      }
       if (action == KEEP) {
         if (open == CONTAIN || open == INTERSECT) {
           if (OBSERVE_FLAG && pidx == OBSERVING) {
@@ -1608,13 +1582,10 @@ __global__ void compute_force_gpu_lockstepping(
         r.y = p.position.y - ((((reqID >> 25) & 0x7)-3)*fperiod + targetnode.cm.y);
         r.z = p.position.z - ((((reqID >> 28) & 0x7)-3)*fperiod + targetnode.cm.z);
 
-        if (OBSERVE_FLAG && pidx == OBSERVING) {
-          printf("CAMBRIDGE       --> The type is COMPUTE, r.x = %f, r.y = %f, r.z = %f\n", r.x, r.y, r.z);
-        }
-
         rsq = r.x*r.x + r.y*r.y + r.z*r.z;   
         if (rsq != 0) {
-          cudatype dir = 1.0/sqrt(rsq);     
+//          cudatype dir = 1.0/sqrt(rsq);    
+          cudatype dir = rsqrt(rsq);     
 #if defined (HEXADECAPOLE)
           CUDA_momEvalFmomrcm(&targetnode, &r, dir, &acc, &pot);
           idt2 = fmax(idt2, (p.mass + targetnode.totalMass)*dir*dir*dir);
@@ -1646,12 +1617,9 @@ __global__ void compute_force_gpu_lockstepping(
 #endif  
         }
       } else if (action == KEEP_LOCAL_BUCKET) {
-          if (OBSERVE_FLAG && pidx == OBSERVING) {
-            printf("CAMBRIDGE       --> The type is KEEP_LOCAL_BUCKET\n");
-          }
         // compute with each particle contained by node targetnode
         int target_firstparticle = targetnode.bucketStart;
-        int target_lastparticle = targetnode.bucketStart + targetnode.bucketSize - 1;
+        int target_lastparticle = targetnode.bucketStart + targetnode.bucketSize;
         cudatype a, b;
         for (i = target_firstparticle; i < target_lastparticle; i ++) {
           targetparticle = particleCores[i];
@@ -1662,14 +1630,16 @@ __global__ void compute_force_gpu_lockstepping(
 
           rsq = r.x*r.x + r.y*r.y + r.z*r.z;       
           twoh = targetparticle.soft + p.soft;
-          cuda_SPLINE(rsq, twoh, a, b);
+          if (rsq != 0) {
+            cuda_SPLINE(rsq, twoh, a, b);
 
-          pot -= targetparticle.mass * a;
+            pot -= targetparticle.mass * a;
 
-          acc.x += r.x*b*targetparticle.mass;
-          acc.y += r.y*b*targetparticle.mass;
-          acc.z += r.z*b*targetparticle.mass;
-          idt2 = fmax(idt2, (p.mass + targetparticle.mass) * b);
+            acc.x += r.x*b*targetparticle.mass;
+            acc.y += r.y*b*targetparticle.mass;
+            acc.z += r.z*b*targetparticle.mass;
+            idt2 = fmax(idt2, (p.mass + targetparticle.mass) * b);
+          }
         }
           if (OBSERVE_FLAG && pidx == OBSERVING) {
             printf("CAMBRIDGE       --> The type is KEEP_LOCAL_BUCKET, acc.x = %f, acc.y = %f, acc.z = %f\n", acc.x, acc.y, acc.z);
@@ -1678,7 +1648,7 @@ __global__ void compute_force_gpu_lockstepping(
       } else if (action == DUMP || action == NOP) {
         // do nothing here
       } else {
-        printf("We got into a trouble in compute_force_gpu_non_lockstepping!\n");
+        printf("We got into a trouble in compute_force_gpu_lockstepping!\n");
       }
     }
 

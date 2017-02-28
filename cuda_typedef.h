@@ -86,16 +86,16 @@ typedef struct CudaSphere {
 
 enum CudaNodeType {
     cuda_Invalid = 1,
-    cuda_Bucket,
-    cuda_Internal,
-    cuda_Boundary,
-    cuda_NonLocal,
-    cuda_Empty,
-    cuda_Top,
-    cuda_NonLocalBucket,
-    cuda_Cached,
-    cuda_CachedBucket,
-    cuda_CachedEmpty
+    cuda_Bucket = 2,
+    cuda_Internal = 3,
+    cuda_Boundary = 4,
+    cuda_NonLocal = 5,
+    cuda_Empty = 6,
+    cuda_Top = 7,
+    cuda_NonLocalBucket = 8,
+    cuda_Cached = 9,
+    cuda_CachedBucket = 10,
+    cuda_CachedEmpty = 11
 };
 #endif
 
@@ -112,6 +112,7 @@ typedef struct CudaMultipoleMoments{
   CudaVector3D greater_corner;
   int bucketStart;
   int bucketSize;
+  int nodeArrayIndex;
   int bucketIndex;
 //  int parentIndex;
   int children[2];

@@ -921,12 +921,14 @@ void DataManager::transformLocalTree(GenericTreeNode *node, CkVec<CudaMultipoleM
     }
     else if(type == Bucket || type == NonLocalBucket){ // NLB
       localMoments[node_index].type = (int)type;
+      localMoments[node_index].nodeArrayIndex = node_index;
       for (int i = 0; i < 2; i ++) {
         localMoments[node_index].children[i] = -1;
       }
     }
     else if(type == Boundary || type == Internal){ // B,I 
       localMoments[node_index].type = (int)type;
+      localMoments[node_index].nodeArrayIndex = node_index;
       for (int i = 0; i < 2; i ++) {
         localMoments[node_index].children[i] = -1;
       }

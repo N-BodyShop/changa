@@ -666,10 +666,18 @@ inline int openCriterionNode(Tree::GenericTreeNode *node,
 
   // Note that some of this could be pre-calculated into an "opening radius"
   cosmoType radius = TreeStuff::opening_geometry_factor * node->moments.getRadius() / theta;
+
   if(radius < node->moments.getRadius())
       radius = node->moments.getRadius();
 
   Sphere<cosmoType> s(node->moments.cm + offset, radius);
+
+#ifdef CAMBRIDGE
+  if (node->nodeArrayIndex == 3 && myNode->nodeArrayIndex == 0) {
+    CkPrintf("Checking: node.cm.x = %f, node.cm.y = %f, node.cm.z = %f, radius = %f\n", node->moments.cm.x, node->moments.cm.y, node->moments.cm.z, radius);
+    CkPrintf("Checking: offset.x = %f, offset.y = %f, offset.z = %f, radius = %f\n", offset.x, offset.y, offset.z, radius);
+  }
+#endif
 
   if(myNode->getType()==Tree::Bucket || myNode->getType()==Tree::CachedBucket || myNode->getType()==Tree::NonLocalBucket){
     if(Space::intersect(myNode->boundingBox, s))

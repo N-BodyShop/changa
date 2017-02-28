@@ -232,6 +232,16 @@ cuda_openSoftening(CudaMultipoleMoments &node, CudaMultipoleMoments &myNode,
 }
 
 __device__ inline int __attribute__(( always_inline ))
+cuda_encodeOffset(int reqID, int x, int y, int z) {
+  // Replica in each direction is mapped to 0-7 range
+  int offsetcode = (x + 3) | ((y+3) << 3) | ((z+3) << 6);
+
+  // Assume we only have 32 bits to work with (minus sign bit)
+  // 4 million buckets is our limitation
+  return reqID | (offsetcode << 22);
+}
+
+__device__ inline int __attribute__(( always_inline ))
 cuda_reEncodeOffset(int reqID, int offsetID)
 {
     const int offsetmask = 0x1ff << 22;
@@ -268,12 +278,20 @@ cuda_openCriterionNode(CudaMultipoleMoments &node,
 
   // Note that some of this could be pre-calculated into an "opening radius"
   cudatype radius = OPENING_GEOMETRY_FACTOR * node.radius / theta;
+
   if(radius < node.radius)
       radius = node.radius;
 
   CudaSphere s;
   addCudaVector3D(node.cm, offset, s.origin);
   s.radius = radius;
+
+/*#ifdef CAMBRIDGE
+  if (node.nodeArrayIndex == 3 && myNode.nodeArrayIndex == 0) {
+    printf("Checking: node.cm.x = %f, node.cm.y = %f, node.cm.z = %f, radius = %f\n", node.cm.x, node.cm.y, node.cm.z, radius);
+    printf("Checking: offset.x = %f, offset.y = %f, offset.z = %f, radius = %f\n", offset.x, offset.y, offset.z, radius);
+  }
+#endif*/
 
   if(myNode.type==cuda_Bucket || myNode.type==cuda_CachedBucket || myNode.type==cuda_NonLocalBucket){
     if(cuda_intersect(myNode, s))
@@ -381,32 +399,32 @@ cuda_SPLINE(cudatype r2, cudatype twoh, cudatype &a, cudatype &b) {
   r = sqrt(r2);
 
   if (r < (twoh)) {
-    dih = cudatype(2.0)/(twoh);
+    dih = (2.0)/(twoh);
     u = r*dih;
-    if (u < cudatype(1.0)) {
-      a = dih*(cudatype(7.0)/cudatype(5.0) 
-         - cudatype(2.0)/cudatype(3.0)*u*u 
-         + cudatype(3.0)/cudatype(10.0)*u*u*u*u
-         - cudatype(1.0)/cudatype(10.0)*u*u*u*u*u);
-      b = dih*dih*dih*(cudatype(4.0)/cudatype(3.0) 
-           - cudatype(6.0)/cudatype(5.0)*u*u 
-           + cudatype(1.0)/cudatype(2.0)*u*u*u);
+    if (u < (1.0)) {
+      a = dih*((7.0)/(5.0) 
+         - (2.0)/(3.0)*u*u 
+         + (3.0)/(10.0)*u*u*u*u
+         - (1.0)/(10.0)*u*u*u*u*u);
+      b = dih*dih*dih*((4.0)/(3.0) 
+           - (6.0)/(5.0)*u*u 
+           + (1.0)/(2.0)*u*u*u);
     }
     else {
-      dir = cudatype(1.0)/r;
-      a = cudatype(-1.0)/cudatype(15.0)*dir 
-  + dih*(cudatype(8.0)/cudatype(5.0) 
-         - cudatype(4.0)/cudatype(3.0)*u*u + u*u*u
-         - cudatype(3.0)/cudatype(10.0)*u*u*u*u 
-         + cudatype(1.0)/cudatype(30.0)*u*u*u*u*u);
-      b = cudatype(-1.0)/cudatype(15.0)*dir*dir*dir 
-  + dih*dih*dih*(cudatype(8.0)/cudatype(3.0) - cudatype(3.0)*u 
-           + cudatype(6.0)/cudatype(5.0)*u*u 
-           - cudatype(1.0)/cudatype(6.0)*u*u*u);
+      dir = (1.0)/r;
+      a = (-1.0)/(15.0)*dir 
+  + dih*((8.0)/(5.0) 
+         - (4.0)/(3.0)*u*u + u*u*u
+         - (3.0)/(10.0)*u*u*u*u 
+         + (1.0)/(30.0)*u*u*u*u*u);
+      b = (-1.0)/(15.0)*dir*dir*dir 
+  + dih*dih*dih*((8.0)/(3.0) - (3.0)*u 
+           + (6.0)/(5.0)*u*u 
+           - (1.0)/(6.0)*u*u*u);
     }
   }
   else {
-    a = cudatype(1.0)/r;
+    a = (1.0)/r;
     b = a*a*a;
   }
 }
