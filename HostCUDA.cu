@@ -1532,9 +1532,6 @@ __global__ void compute_force_gpu_lockstepping(
     pot = 0;
     idt2 = 0;
 
-    if (OBSERVE_FLAG && pidx == OBSERVING) {
-        printf("\nCAMBRIDGE:      --> nodePointer = %d, fPeriod = %f, bucketStart = %d, bucketEnd = %d\n", nodePointer, fperiod, bucketStart, bucketEnd);
-    }
     STACK_INIT();
     while(sp >= 1) {
       cur_node_index = STACK_TOP_NODE_INDEX;
@@ -1550,28 +1547,16 @@ __global__ void compute_force_gpu_lockstepping(
 
       int action = cuda_OptAction(open, targetnode.type);
 
-      if (OBSERVE_FLAG && pidx == OBSERVING) {
-        printf("CAMBRIDGE   --> cur_node_index = %d, open = %d, action = %d, targetnode.type = %d\n", cur_node_index, open, action, targetnode.type);
-      }
       if (action == KEEP) {
         if (open == CONTAIN || open == INTERSECT) {
-          if (OBSERVE_FLAG && pidx == OBSERVING) {
-            printf("CAMBRIDGE       --> The type is CONTAIN or INTERSECT\n");
-          }
           // if open == CONTAIN, push chilren in stack
           // if open == INTERSECT, Since our mynode will always be a bucket
           // here we should always push the children of targetnode into stack, too
           if (targetnode.children[1] != -1) {
-            if (OBSERVE_FLAG && pidx == OBSERVING) {
-              printf("CAMBRIDGE       --> PUSH %d into stack\n", targetnode.children[1]);
-            }
             STACK_PUSH();
             STACK_TOP_NODE_INDEX = targetnode.children[1];
           }
           if (targetnode.children[0] != -1) {
-            if (OBSERVE_FLAG && pidx == OBSERVING) {
-              printf("CAMBRIDGE       --> PUSH %d into stack\n", targetnode.children[0]);
-            }
             STACK_PUSH();
             STACK_TOP_NODE_INDEX = targetnode.children[0];
           }
@@ -1589,10 +1574,6 @@ __global__ void compute_force_gpu_lockstepping(
 #if defined (HEXADECAPOLE)
           CUDA_momEvalFmomrcm(&targetnode, &r, dir, &acc, &pot);
           idt2 = fmax(idt2, (p.mass + targetnode.totalMass)*dir*dir*dir);
-
-          if (OBSERVE_FLAG && pidx == OBSERVING) {
-            printf("CAMBRIDGE       --> The type is COMPUTE, acc.x = %f, acc.y = %f, acc.z = %f\n", acc.x, acc.y, acc.z);
-          }  
 #else
           cudatype a, b, c, d;
           twoh = targetnode.soft + p.soft;
@@ -1610,10 +1591,6 @@ __global__ void compute_force_gpu_lockstepping(
           acc.y -= qir3*r.y - c*qiry;
           acc.z -= qir3*r.z - c*qirz;
           idt2 = fmax(idt2, (p.mass + targetnode.totalMass)*b);    
-
-          if (OBSERVE_FLAG && pidx == OBSERVING) {
-            printf("CAMBRIDGE       --> The type is COMPUTE, acc.x = %f, acc.y = %f, acc.z = %f\n", acc.x, acc.y, acc.z);
-          }  
 #endif  
         }
       } else if (action == KEEP_LOCAL_BUCKET) {
@@ -1641,10 +1618,6 @@ __global__ void compute_force_gpu_lockstepping(
             idt2 = fmax(idt2, (p.mass + targetparticle.mass) * b);
           }
         }
-          if (OBSERVE_FLAG && pidx == OBSERVING) {
-            printf("CAMBRIDGE       --> The type is KEEP_LOCAL_BUCKET, acc.x = %f, acc.y = %f, acc.z = %f\n", acc.x, acc.y, acc.z);
-          }  
-
       } else if (action == DUMP || action == NOP) {
         // do nothing here
       } else {
@@ -1652,9 +1625,6 @@ __global__ void compute_force_gpu_lockstepping(
       }
     }
 
-    if (pidx == OBSERVING) {
-      printf("CAMBRIDGE     --> I've done with the CUDA computation kernel! acc.x = %f, acc.y = %f, acc.z = %f\n", acc.x, acc.y, acc.z);
-    }
     particleVars[pidx].a.x += acc.x;
     particleVars[pidx].a.y += acc.y;
     particleVars[pidx].a.z += acc.z;
