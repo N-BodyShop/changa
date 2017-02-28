@@ -844,7 +844,6 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 
 #ifdef CAMBRIDGE
   transformLocalTree(node, localMoments);
-  transformLocalTreeRecursive(node, 0);
   // set proper active bucketStart and bucketSize for each bucketNode
   for(int i = 0; i < numTreePieces; i++){
     TreePiece *tp = registeredTreePieces[i].treePiece;
@@ -905,11 +904,6 @@ void DataManager::transformLocalTree(GenericTreeNode *node, CkVec<CudaMultipoleM
     GenericTreeNode *node = queue.deq();
     NodeType type = node->getType();
     int node_index = node->nodeArrayIndex;
-//    CkPrintf("***********CAMBRIDGE(index = %d): type = %d, total size = %d\n", node_index, (int)type, localMoments.size());
-
-#ifdef CUDA_DM_PRINT_TREES
-    //CkPrintf("Process [%d] %ld (%s)\n", CkMyPe(), node->getKey(), typeString(type));
-#endif
 
     if(type == Empty || type == CachedEmpty){ // skip
       continue;
@@ -935,18 +929,6 @@ void DataManager::transformLocalTree(GenericTreeNode *node, CkVec<CudaMultipoleM
       }
     }
   }// end while queue not empty
-}
-
-void DataManager::transformLocalTreeRecursive(GenericTreeNode *node, int indent) {
-  if (node == NULL)
-    return;
-  for (int i = 0; i < indent; ++i) {
-    printf("  ");
-  }
-  printf("nodeArrayIndex = %d, startBucket = %d, bucketArrayIndex = %d, firstParticle = %d, lastParticle = %d\n", 
-          node->nodeArrayIndex, node->startBucket, node->bucketArrayIndex, node->firstParticle, node->lastParticle);
-  transformLocalTreeRecursive((GenericTreeNode*) node->getChildren(0), indent + 1);
-  transformLocalTreeRecursive((GenericTreeNode*) node->getChildren(1), indent + 1);
 }
 #endif
 
