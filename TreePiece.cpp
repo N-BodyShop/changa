@@ -2102,6 +2102,7 @@ struct SortStruct {
   int iStore;
 };
 
+/// @brief Comparison function to sort iOrders.
 int CompSortStruct(const void * a, const void * b) {
   return ( ( ((struct SortStruct *) a)->iOrder < ((struct SortStruct *) b)->iOrder ? -1 : 1 ) );
 }
@@ -3385,7 +3386,7 @@ int encodeOffset(int reqID, int x, int y, int z)
     return reqID | (offsetcode << 22);
     }
 
-// Add reqID to encoded offset
+/// Add reqID to encoded offset
 int reEncodeOffset(int reqID, int offsetID)
 {
     const int offsetmask = 0x1ff << 22;
@@ -6251,7 +6252,7 @@ void TreePiece::updateBucketState(int start, int end, int n, int chunk, State *s
        CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", thisIndex, i, sRemoteGravityState->counterArrays[0][i], sLocalGravityState->counterArrays[0][i]);
 #endif
 #if !defined CUDA
-       // updatebucketstart is only called after we have finished
+       // updatebucketstate is only called after we have finished
        // with received nodes/particles (i.e. after stateReady in
        // either case.) therefore, some work requests must already
        // have been issued before it was invoked, so there will

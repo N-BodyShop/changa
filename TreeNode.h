@@ -15,6 +15,7 @@ namespace TreeStuff {
 
 using namespace SFC;
 
+/// @brief Convert a Key into a printable string.
 inline std::string keyBits(const Key k, const int numBits) {
   std::ostringstream oss;
   //oss << "N";
