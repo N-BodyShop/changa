@@ -1340,6 +1340,12 @@ private:
 	 * to trigger nextBucket() which will loop over all the buckets.
 	 */
 	void doAllBuckets();
+#ifdef CAMBRIDGE
+  /** In CAMBRIDGE version, the whole local tree can be find on the GPU side
+   * We can do the local tree walk in one shot.
+   */
+  void localTreeWalkForAllBuckets();
+#endif
 	void reconstructNodeLookup(GenericTreeNode *node);
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 

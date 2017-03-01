@@ -198,7 +198,7 @@ class ListCompute : public Compute{
 
 #ifdef CUDA
 #ifdef CAMBRIDGE
-  void sendLocalTreeWalkTriggerToGpu(State *state_, TreePiece *tp, int start_id);
+  void sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int activeRung, int start, int end);
 #endif
   void sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy=false);
   void sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy=false);

@@ -405,11 +405,11 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
       (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
 //      (ILCell *)devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID],
-//      (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
+      (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
       (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
       (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],      
       ptr->fperiod, 
-      ptr->nodePointer,
+//      ptr->nodePointer,
       ptr->theta,
       ptr->thetaMono
     );
@@ -926,7 +926,7 @@ void TreePieceCellListDataTransferBasic(CudaRequest *data, workRequest *gravityK
         ptr->fperiod = data->fperiod;
 
 #ifdef CAMBRIDGE
-        ptr->nodePointer = data->nodePointer;
+//        ptr->nodePointer = data->nodePointer;
         ptr->theta      = data->theta;
         ptr->thetaMono  = data->thetaMono; 
 #endif
@@ -1426,6 +1426,67 @@ void DummyKernel(void *cb){
 ****/
 #ifdef CAMBRIDGE
 
+__device__ __forceinline__ void 
+cuda_ldg_moments(CudaMultipoleMoments &m, CudaMultipoleMoments *ptr) {
+  m.radius = __ldg(&(ptr->radius));
+  m.soft   = __ldg(&(ptr->soft));
+  m.totalMass   = __ldg(&(ptr->totalMass));
+  m.cm.x   = __ldg(&(ptr->cm.x));
+  m.cm.y   = __ldg(&(ptr->cm.y));
+  m.cm.z   = __ldg(&(ptr->cm.z));
+
+#ifdef CAMBRIDGE
+  m.lesser_corner.x   = __ldg(&(ptr->lesser_corner.x));
+  m.lesser_corner.y   = __ldg(&(ptr->lesser_corner.y));
+  m.lesser_corner.z   = __ldg(&(ptr->lesser_corner.z));
+
+  m.greater_corner.x  = __ldg(&(ptr->greater_corner.x));
+  m.greater_corner.y  = __ldg(&(ptr->greater_corner.y));
+  m.greater_corner.z  = __ldg(&(ptr->greater_corner.z));
+
+  m.bucketStart       = __ldg(&(ptr->bucketStart));
+  m.bucketSize        = __ldg(&(ptr->bucketSize));
+  m.nodeArrayIndex    = __ldg(&(ptr->nodeArrayIndex));
+  m.bucketIndex       = __ldg(&(ptr->bucketIndex));
+  m.children[0]       = __ldg(&(ptr->children[0]));
+  m.children[1]       = __ldg(&(ptr->children[1]));
+  m.type              = __ldg(&(ptr->type));
+#endif
+
+#ifdef HEXADECAPOLE
+  m.xx   = __ldg(&(ptr->xx));
+  m.xy   = __ldg(&(ptr->xy));
+  m.xz   = __ldg(&(ptr->xz));
+  m.yy   = __ldg(&(ptr->yy));
+  m.yz   = __ldg(&(ptr->yz));
+
+  m.xxx   = __ldg(&(ptr->xxx));
+  m.xyy   = __ldg(&(ptr->xyy));
+  m.xxy   = __ldg(&(ptr->xxy));
+  m.yyy   = __ldg(&(ptr->yyy));
+  m.xxz   = __ldg(&(ptr->xxz));        
+  m.yyz   = __ldg(&(ptr->yyz));        
+  m.xyz   = __ldg(&(ptr->xyz));
+
+  m.xxxx   = __ldg(&(ptr->xxxx));
+  m.xyyy   = __ldg(&(ptr->xyyy));
+  m.xxxy   = __ldg(&(ptr->xxxy));
+  m.yyyy   = __ldg(&(ptr->yyyy));
+  m.xxxz   = __ldg(&(ptr->xxxz));        
+  m.yyyz   = __ldg(&(ptr->yyyz));        
+  m.xxyy   = __ldg(&(ptr->xxyy));        
+  m.xxyz   = __ldg(&(ptr->xxyz));        
+  m.xyyz   = __ldg(&(ptr->xyyz));  
+#else
+  m.xx   = __ldg(&(ptr->xx));
+  m.xy   = __ldg(&(ptr->xy));
+  m.xz   = __ldg(&(ptr->xz));
+  m.yy   = __ldg(&(ptr->yy));
+  m.yz   = __ldg(&(ptr->yz));
+  m.zz   = __ldg(&(ptr->zz));
+#endif  
+}
+
 #define THREADS_PER_WARP 32
 #define NWARPS_PER_BLOCK (THREADS_PER_BLOCK / THREADS_PER_WARP)
 #define WARP_INDEX (threadIdx.x >> 5)
@@ -1444,11 +1505,11 @@ __global__ void compute_force_gpu_lockstepping(
     VariablePartData *particleVars,
     CudaMultipoleMoments* moments,
 //    ILCell* ils,
-//    int *ilmarks,
+    int *ilmarks,
     int *bucketStarts,
     int *bucketSizes,
     cudatype fperiod,
-    int nodePointer, 
+//    int nodePointer, 
     cudatype theta,
     cudatype thetaMono) {
 
@@ -1459,10 +1520,11 @@ __global__ void compute_force_gpu_lockstepping(
 
   int bucketStart = bucketStarts[blockIdx.x];
   int bucketEnd   = bucketStart + bucketSizes[blockIdx.x];
+  int nodePointer = ilmarks[blockIdx.x];
 
   // variable for traversed nodes
-  __shared__ CudaMultipoleMoments TreeNode[NWARPS_PER_BLOCK];
-#define targetnode TreeNode[WARP_INDEX]
+  __shared__ CudaMultipoleMoments TargetNode[NWARPS_PER_BLOCK];
+#define targetnode TargetNode[WARP_INDEX]
 
   __shared__ CompactPartData BucketParticle[NWARPS_PER_BLOCK];
 #define targetparticle BucketParticle[WARP_INDEX]
@@ -1491,10 +1553,11 @@ __global__ void compute_force_gpu_lockstepping(
   __shared__ int Stacks[NWARPS_PER_BLOCK][128];
 #define stack Stacks[WARP_INDEX]
 
-  for(pidx = blockIdx.x*blockDim.x + threadIdx.x + bucketStart; pidx < bucketEnd; pidx += gridDim.x*blockDim.x) {
+//  for(pidx = blockIdx.x*blockDim.x + threadIdx.x + bucketStart; pidx < bucketEnd; pidx += gridDim.x*blockDim.x) {
+    for(pidx = threadIdx.x + bucketStart; pidx < bucketEnd; pidx += THREADS_PER_BLOCK) {
     // initialize the variables belonging to current thread
-    mynode = moments[nodePointer];
-//    mynode = moments[0];
+//    mynode = moments[nodePointer];
+    cuda_ldg_moments(mynode, &moments[nodePointer]);
     p = particleCores[pidx];
     acc.x = 0;
     acc.y = 0;
@@ -1505,7 +1568,8 @@ __global__ void compute_force_gpu_lockstepping(
     STACK_INIT();
     while(sp >= 1) {
       cur_node_index = STACK_TOP_NODE_INDEX;
-      targetnode = moments[cur_node_index];
+//      targetnode = moments[cur_node_index];
+      cuda_ldg_moments(targetnode, &moments[cur_node_index]);
       STACK_POP();
 
       // Here should be initialized with nReplicas ID. but since I'm not using it at all, I just fill it with zeros.
