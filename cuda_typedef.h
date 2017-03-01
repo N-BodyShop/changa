@@ -119,7 +119,7 @@ typedef struct CudaMultipoleMoments{
   int type;
 
 // Uninitialized 
-  int offsetID;
+//  int offsetID;
 #endif
 
 #ifdef HEXADECAPOLE

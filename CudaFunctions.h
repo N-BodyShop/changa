@@ -13,11 +13,11 @@ __global__ void compute_force_gpu_lockstepping(
     VariablePartData *particleVars,
     CudaMultipoleMoments* moments,
 //    ILCell* ils,
-//    int *ilmarks,
+    int *ilmarks,
     int *bucketStarts,
     int *bucketSizes,
     cudatype fperiod,
-    int nodePointer, 
+//    int nodePointer, 
     cudatype theta,
     cudatype thetaMono);
 

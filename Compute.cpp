@@ -1439,7 +1439,7 @@ template<class type> int calcParticleForces(TreePiece *tp, int b, int activeRung
 }
 
 void cudaCallback(void *param, void *msg);
-void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int start_id) {
+void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int activeRung, int start_id, int end) {
   int fake_numFilledBuckets = 1;          // each time we process a single bucket
   int fake_listpos = 0;
   int fake_listlen = 1;                   // suppose we the length of the list is 1.
@@ -1466,7 +1466,7 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int
   affectedBuckets = new int[fake_numFilledBuckets];
 
   memset(&flatlists[fake_listpos], 0, fake_listlen * sizeof(ILCell));
-  markers[fake_curbucket] = fake_listpos;
+  markers[fake_curbucket] = tp->bucketList[start_id]->nodeArrayIndex;
   if(tp->largePhase()){
     GenericTreeNode *bucketNode = tp->bucketList[start_id];
     sizes[fake_curbucket] = bucketNode->lastParticle - bucketNode->firstParticle + 1;
@@ -1534,7 +1534,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 #ifdef CAMBRIDGE
   if (getOptType() == Local) {
     for (int bucketId = start; bucketId < end; bucketId ++) {
-      if (tp->bucketList[bucketId]->rungs >= activeRung) {
+//      if (tp->bucketList[bucketId]->rungs >= activeRung) {
 
         // Do something to make the callback function happy.
         int root_index = 0;     // the root index
@@ -1550,10 +1550,10 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
         // the following code is going to send a fake CudaRequest
         // Since our new GPU kernel doesn't need interaction list at all
         // we just send a fake request with the bucket id
-        sendLocalTreeWalkTriggerToGpu(state, tp, bucketId);
+        sendLocalTreeWalkTriggerToGpu(state, tp, activeRung, bucketId, -1);
         resetCudaNodeState(state);
         resetCudaPartState(state);
-      }
+//      }
     }
     return;
   }
