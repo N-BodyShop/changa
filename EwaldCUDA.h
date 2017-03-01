@@ -9,12 +9,12 @@
 #define EWALD_TABLE           1
 /* This has to be larger than the first two because there will be one
  * of these for each Chare on the node. */
-#define PARTICLE_TABLE        2 
+//#define PARTICLE_TABLE        2 
 
 /* Defines for place in the bufferInfo array */
-#define PARTICLE_TABLE_IDX    0 
-#define EWALD_READ_ONLY_DATA_IDX  1
-#define EWALD_TABLE_IDX           2
+//#define PARTICLE_TABLE_IDX    0 
+#define EWALD_READ_ONLY_DATA_IDX  0
+#define EWALD_TABLE_IDX           1
 
 #define BUFFERS_PER_CHARE     3
 
@@ -66,16 +66,8 @@ typedef struct {
 
 } EwaldReadOnlyData; 
 
-/** @brief Particle data for the CUDA Ewald kernels
- */
 typedef struct {
-  cudatype position_x,position_y,position_z;
-  cudatype acceleration_x, acceleration_y, acceleration_z; 
-  cudatype potential;
-} GravityParticleData;
-
-typedef struct {
-  GravityParticleData *p;
+  int *EwaldRange;
   EwtData *ewt; 
   EwaldReadOnlyData *cachedData;
 } EwaldData; 
@@ -88,8 +80,8 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase);
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex); 
 #endif
 
-__global__ void EwaldTopKernel(GravityParticleData *particleTable, int nPart);
-__global__ void EwaldBottomKernel(GravityParticleData *particleTable, int nPart);
+__global__ void EwaldTopKernel(CompactPartData *particleCores, VariablePartData *particleVars, int First, int Last);
+__global__ void EwaldBottomKernel(CompactPartData *particleCores, VariablePartData *particleVars, int First, int Last);
 
 #endif
 
