@@ -1487,6 +1487,14 @@ cuda_ldg_moments(CudaMultipoleMoments &m, CudaMultipoleMoments *ptr) {
 #endif  
 }
 
+__device__ __forceinline__ void cuda_ldg_cPartData(CompactPartData &m, CompactPartData *ptr) {
+  m.mass         = __ldg(&(ptr->mass));
+  m.soft         = __ldg(&(ptr->soft));
+  m.position.x   = __ldg(&(ptr->position.x));
+  m.position.y   = __ldg(&(ptr->position.y));
+  m.position.z   = __ldg(&(ptr->position.z));
+}
+
 #define THREADS_PER_WARP 32
 #define NWARPS_PER_BLOCK (THREADS_PER_BLOCK / THREADS_PER_WARP)
 #define WARP_INDEX (threadIdx.x >> 5)
@@ -1526,12 +1534,15 @@ __global__ void compute_force_gpu_lockstepping(
   __shared__ CudaMultipoleMoments TargetNode[NWARPS_PER_BLOCK];
 #define targetnode TargetNode[WARP_INDEX]
 
-  __shared__ CompactPartData BucketParticle[NWARPS_PER_BLOCK];
-#define targetparticle BucketParticle[WARP_INDEX]
-
   // variable for current bucket/leaf node
   __shared__ CudaMultipoleMoments MyNode[NWARPS_PER_BLOCK];
 #define mynode MyNode[WARP_INDEX]
+
+  __shared__ CompactPartData TargetParticle[NWARPS_PER_BLOCK];
+#define targetparticle TargetParticle[WARP_INDEX]
+
+  __shared__ CompactPartData MyParticle[THREADS_PER_BLOCK];
+#define myparticle MyParticle[threadIdx.x]
 
   // variable for current particle
   CompactPartData p;
@@ -1558,7 +1569,8 @@ __global__ void compute_force_gpu_lockstepping(
     // initialize the variables belonging to current thread
 //    mynode = moments[nodePointer];
     cuda_ldg_moments(mynode, &moments[nodePointer]);
-    p = particleCores[pidx];
+//    myparticle = particleCores[pidx];
+    cuda_ldg_cPartData(myparticle, &particleCores[pidx]);
     acc.x = 0;
     acc.y = 0;
     acc.z = 0;
@@ -1597,9 +1609,9 @@ __global__ void compute_force_gpu_lockstepping(
         }
       } else if (action == COMPUTE) {
         // compute with the node targetnode
-        r.x = p.position.x - ((((reqID >> 22) & 0x7)-3)*fperiod + targetnode.cm.x);
-        r.y = p.position.y - ((((reqID >> 25) & 0x7)-3)*fperiod + targetnode.cm.y);
-        r.z = p.position.z - ((((reqID >> 28) & 0x7)-3)*fperiod + targetnode.cm.z);
+        r.x = myparticle.position.x - ((((reqID >> 22) & 0x7)-3)*fperiod + targetnode.cm.x);
+        r.y = myparticle.position.y - ((((reqID >> 25) & 0x7)-3)*fperiod + targetnode.cm.y);
+        r.z = myparticle.position.z - ((((reqID >> 28) & 0x7)-3)*fperiod + targetnode.cm.z);
 
         rsq = r.x*r.x + r.y*r.y + r.z*r.z;   
         if (rsq != 0) {
@@ -1607,10 +1619,10 @@ __global__ void compute_force_gpu_lockstepping(
           cudatype dir = rsqrt(rsq);     
 #if defined (HEXADECAPOLE)
           CUDA_momEvalFmomrcm(&targetnode, &r, dir, &acc, &pot);
-          idt2 = fmax(idt2, (p.mass + targetnode.totalMass)*dir*dir*dir);
+          idt2 = fmax(idt2, (myparticle.mass + targetnode.totalMass)*dir*dir*dir);
 #else
           cudatype a, b, c, d;
-          twoh = targetnode.soft + p.soft;
+          twoh = targetnode.soft + myparticle.soft;
           cuda_SPLINEQ(dir, rsq, twoh, a, b, c, d);
 
           cudatype qirx = targetnode.xx*r.x + targetnode.xy*r.y + targetnode.xz*r.z;
@@ -1624,7 +1636,7 @@ __global__ void compute_force_gpu_lockstepping(
           acc.x -= qir3*r.x - c*qirx;
           acc.y -= qir3*r.y - c*qiry;
           acc.z -= qir3*r.z - c*qirz;
-          idt2 = fmax(idt2, (p.mass + targetnode.totalMass)*b);    
+          idt2 = fmax(idt2, (myparticle.mass + targetnode.totalMass)*b);    
 #endif  
         }
       } else if (action == KEEP_LOCAL_BUCKET) {
@@ -1633,14 +1645,15 @@ __global__ void compute_force_gpu_lockstepping(
         int target_lastparticle = targetnode.bucketStart + targetnode.bucketSize;
         cudatype a, b;
         for (i = target_firstparticle; i < target_lastparticle; i ++) {
-          targetparticle = particleCores[i];
+//          targetparticle = particleCores[i];
+          cuda_ldg_cPartData(targetparticle, &particleCores[i]);
 
-          r.x = (((reqID >> 22) & 0x7)-3)*fperiod + targetparticle.position.x - p.position.x;
-          r.y = (((reqID >> 25) & 0x7)-3)*fperiod + targetparticle.position.y - p.position.y;
-          r.z = (((reqID >> 28) & 0x7)-3)*fperiod + targetparticle.position.z - p.position.z;
+          r.x = (((reqID >> 22) & 0x7)-3)*fperiod + targetparticle.position.x - myparticle.position.x;
+          r.y = (((reqID >> 25) & 0x7)-3)*fperiod + targetparticle.position.y - myparticle.position.y;
+          r.z = (((reqID >> 28) & 0x7)-3)*fperiod + targetparticle.position.z - myparticle.position.z;
 
           rsq = r.x*r.x + r.y*r.y + r.z*r.z;       
-          twoh = targetparticle.soft + p.soft;
+          twoh = targetparticle.soft + myparticle.soft;
           if (rsq != 0) {
             cuda_SPLINE(rsq, twoh, a, b);
 
@@ -1649,7 +1662,7 @@ __global__ void compute_force_gpu_lockstepping(
             acc.x += r.x*b*targetparticle.mass;
             acc.y += r.y*b*targetparticle.mass;
             acc.z += r.z*b*targetparticle.mass;
-            idt2 = fmax(idt2, (p.mass + targetparticle.mass) * b);
+            idt2 = fmax(idt2, (myparticle.mass + targetparticle.mass) * b);
           }
         }
       } else if (action == DUMP || action == NOP) {
