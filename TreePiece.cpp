@@ -3532,6 +3532,11 @@ void TreePiece::startNextBucket() {
 
 /*inline*/
 void TreePiece::finishBucket(int iBucket) {
+#ifdef SPCUDA
+  if(!(ewaldqueued)){ /* &&bEwald */
+    if(dm->gputransfer){thisProxy[thisIndex].EwaldGPU();ewaldqueued = true;}
+  }
+#endif
   BucketGravityRequest *req = &bucketReqs[iBucket];
   int remaining;
 
@@ -3622,6 +3627,11 @@ void TreePiece::doAllBuckets(){
 }
 
 void TreePiece::nextBucket(dummyMsg *msg){
+#ifdef SPCUDA
+  if(!(ewaldqueued)){ /* &&bEwald */
+    if(dm->gputransfer){thisProxy[thisIndex].EwaldGPU();ewaldqueued = true;}
+  }
+#endif
   unsigned int i=0;
 
   int currentBucket = sLocalGravityState->currentBucket;
@@ -3827,11 +3837,11 @@ void TreePiece::calculateGravityLocal() {
 
 void TreePiece::calculateEwald(dummyMsg *msg) {
 #ifdef SPCUDA
-  h_idata = (EwaldData*) malloc(sizeof(EwaldData)); 
-
-  CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex); 
-  EwaldHostMemorySetup(h_idata, myNumParticles, nEwhLoop); 
-  EwaldGPU();
+  CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex);
+  ewaldqueued = false;
+  if(!(ewaldqueued)){
+    if(dm->gputransfer){thisProxy[thisIndex].EwaldGPU();ewaldqueued = true;}
+  }  
 #else
 
   bool useckloop = false;

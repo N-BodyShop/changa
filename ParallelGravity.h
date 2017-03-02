@@ -812,6 +812,10 @@ class TreePiece : public CBase_TreePiece {
         // the list
         int numActiveBuckets; 
         int myNumActiveParticles;
+        // First and Last indices of GPU particle
+        int FirstGPUParticleIndex;
+        int LastGPUParticleIndex;
+        int NumberOfGPUParticles;
         BucketActiveInfo *bucketActiveInfo;
 
         int getNumBuckets(){
@@ -854,6 +858,8 @@ class TreePiece : public CBase_TreePiece {
         }
 
         void getDMParticles(CompactPartData *fillArray, int &fillIndex){
+          NumberOfGPUParticles = 0;
+          FirstGPUParticleIndex = fillIndex;//This is for the GPU Ewald
           if(largePhase()){
             for(int b = 0; b < numBuckets; b++){
               GenericTreeNode *bucket = bucketList[b];
@@ -896,6 +902,17 @@ class TreePiece : public CBase_TreePiece {
               }
               binfo->size = fillIndex-binfo->start;
             }
+          }
+          //This is for the GPU Ewald
+          if(FirstGPUParticleIndex == fillIndex){
+            //This means no particle is on GPU
+            FirstGPUParticleIndex = -1;
+            LastGPUParticleIndex = -1;
+            NumberOfGPUParticles = 0;
+          }
+          else{
+            LastGPUParticleIndex = fillIndex - 1;
+            NumberOfGPUParticles = LastGPUParticleIndex - FirstGPUParticleIndex + 1;
           }
         }
 
@@ -1256,6 +1273,7 @@ private:
 
 #ifdef SPCUDA
   EwaldData *h_idata;
+  bool ewaldqueued;
 #endif
   void EwaldGPU(); 
   void EwaldGPUComplete();
