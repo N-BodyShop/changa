@@ -4,7 +4,7 @@
 #include "parameters.h"
 
 /// @brief External gravity parameters and routines
-class ExternalGravity : public PUP::able {
+class ExternalGravity {
 public:
     int bBodyForce;          ///< Constant acceleration
     double dBodyForceConst;
@@ -19,12 +19,7 @@ public:
 
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
-
     void applyPotential(GravityParticle *p);
-    ExternalGravity() {}
-
-    PUPable_decl(ExternalGravity);
-    ExternalGravity(CkMigrateMessage *m) : PUP::able(m) {}
     inline void pup(PUP::er &p);
     };
 

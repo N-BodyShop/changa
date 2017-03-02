@@ -1659,7 +1659,7 @@ public:
  * @param exGravParams Parameters of the external force
  * @param cb Callback function
  */
-  void externalGravity(int activeRung, ExternalGravity &exGrav,
+  void externalGravity(int activeRung, ExternalGravity exGrav,
                        const CkCallback& cb);
 /**
  * Adjust timesteps of active particles.

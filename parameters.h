@@ -101,7 +101,7 @@ typedef struct parameters {
     int bFeedback;
     Fdbk *feedback;
     int bDoExternalGravity;
-    ExternalGravity* externalGravity;
+    ExternalGravity externalGravity;
     int iRandomSeed;
     int bStandard;
     int bDoublePos;

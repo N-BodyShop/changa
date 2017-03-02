@@ -1543,7 +1543,7 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
 /**
  * Apply an external gravitational force
  */
-void TreePiece::externalGravity(int iKickRung, ExternalGravity &exGrav,
+void TreePiece::externalGravity(int iKickRung, ExternalGravity exGrav,
                                 const CkCallback& cb)
 {
     CkAssert(bBucketsInited);

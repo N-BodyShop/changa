@@ -551,8 +551,7 @@ Main::Main(CkArgMsg* m) {
        prmAddParam(prm, "bDoExternalGravity", paramBool, &param.bDoExternalGravity,
            sizeof(int), "bDoExternalGravity", "<Apply external gravity field to particles> = 0");
 
-       param.externalGravity = new ExternalGravity();
-       param.externalGravity->AddParams(prm);
+       param.externalGravity.AddParams(prm);
 
 	param.iRandomSeed = 1;
 	prmAddParam(prm,"iRandomSeed", paramInt, &param.iRandomSeed,
@@ -1762,7 +1761,7 @@ void Main::advanceBigStep(int iStep) {
 	treeProxy.initAccel(activeRung, CkCallbackResumeThread());
 	}
     if(param.bDoExternalGravity) {
-        treeProxy.externalGravity(activeRung, *(param.externalGravity),
+        treeProxy.externalGravity(activeRung, param.externalGravity,
                                   CkCallbackResumeThread());
         }
     
@@ -2002,7 +2001,7 @@ void Main::setupICs() {
   else
       param.feedback->NullFeedback();
 
-  param.externalGravity->CheckParams(prm, param);
+  param.externalGravity.CheckParams(prm, param);
 
   string achLogFileName = string(param.achOutName) + ".log";
   ofstream ofsLog;
@@ -2402,7 +2401,7 @@ Main::initialForces()
       treeProxy.initAccel(0, CkCallbackResumeThread());
       }
   if(param.bDoExternalGravity) {
-      treeProxy.externalGravity(0, *(param.externalGravity),
+      treeProxy.externalGravity(0, param.externalGravity,
                                 CkCallbackResumeThread());
       }
   if(param.bDoGas) {
