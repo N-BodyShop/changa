@@ -44,6 +44,7 @@ void DataManager::init() {
   treePiecesDoneLocalComputation = 0;
   treePiecesDoneRemoteChunkComputation = 0;
   treePiecesWantParticlesBack = 0;
+  gputransfer = false;
 #ifdef CUDA_INSTRUMENT_WRS
   treePiecesDoneInitInstrumentation = 0;
 #endif
@@ -837,6 +838,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 #else
   DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, CkMyPe());
 #endif
+  gputransfer = true;
 
 }// end serializeLocal
 
@@ -936,6 +938,7 @@ void DataManager::transferParticleVarsBack(){
 #else
     TransferParticleVarsBack(buf, savedNumTotalParticles*sizeof(VariablePartData), data->cb, savedNumTotalNodes > 0, savedNumTotalParticles > 0);
 #endif
+    gputransfer = false;
   }
   CmiUnlock(__nodelock);
 }
