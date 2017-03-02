@@ -387,7 +387,17 @@ void TreePiece::EwaldGPU() {
   */
   
 #ifdef SPCUDA
-  GravityParticleData *particleTable;
+  int NumberOfGPUParticles = 0;
+  if(FirstGPUParticleIndex != -1){
+  	NumberOfGPUParticles = LastGPUParticleIndex - FirstGPUParticleIndex + 1; 
+  } 
+  else{
+  	for (int i=0; i<numBuckets; i++){bucketReqs[i].finished = 1;}
+  	return;
+  }
+  printf("***%i %i***\n", myNumParticles, NumberOfGPUParticles);
+  h_idata = (EwaldData*) malloc(sizeof(EwaldData));
+  EwaldHostMemorySetup(h_idata, nEwhLoop);
   EwtData *ewtTable; 
   EwaldReadOnlyData *roData; 
   MultipoleMoments mm = root->moments;
@@ -395,22 +405,12 @@ void TreePiece::EwaldGPU() {
   cudatype L = fPeriod.x;
   cudatype alpha = 2.0f/L;
   
-  particleTable = (GravityParticleData*) h_idata->p; 
   ewtTable = (EwtData*) h_idata->ewt;
   roData = (EwaldReadOnlyData*) h_idata->cachedData; 
 
-  int nActive = 0;
-  for (int i=1; i<=myNumParticles; i++) {
-    if(myParticles[i].rung < activeRung) continue;
-    particleTable[nActive].position_x = (cudatype) myParticles[i].position.x;
-    particleTable[nActive].position_y = (cudatype) myParticles[i].position.y;
-    particleTable[nActive].position_z = (cudatype) myParticles[i].position.z;
-    particleTable[nActive].acceleration_x = 0; 
-    particleTable[nActive].acceleration_y = 0; 
-    particleTable[nActive].acceleration_z = 0; 
-    particleTable[nActive].potential = 0; 
-    nActive++;
-  }  
+  int nActive = NumberOfGPUParticles;
+  h_idata->EwaldRange[0] = FirstGPUParticleIndex;
+  h_idata->EwaldRange[1] = LastGPUParticleIndex; 
 
   for (int i=0; i<nEwhLoop; i++) {
     ewtTable[i].hx = (cudatype) ewt[i].hx; 
@@ -513,24 +513,6 @@ void TreePiece::EwaldGPUComplete() {
      EwaldGPUComplete is an entry method
   */
 #ifdef SPCUDA
-  GravityParticleData *particleTable;
-  particleTable = h_idata->p; 
-
-  int iActive = 0;
-  for (int i=1; i<=myNumParticles; i++) {
-    if(myParticles[i].rung < activeRung)
-          continue;
-    myParticles[i].treeAcceleration.x += 
-      particleTable[iActive].acceleration_x;
-    myParticles[i].treeAcceleration.y += 
-      particleTable[iActive].acceleration_y;
-    myParticles[i].treeAcceleration.z += 
-      particleTable[iActive].acceleration_z;
-    myParticles[i].potential += particleTable[iActive].potential;
-    iActive++;
-  }
-
-  //CkPrintf("[%d] in EwaldGPUComplete, calling EwaldHostMemoryFree\n", thisIndex);
   EwaldHostMemoryFree(h_idata); 
   free(h_idata); 
 
