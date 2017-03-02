@@ -1603,13 +1603,12 @@ __global__ void nodeGravityComputation(
             tr = 0.5*(m[tidx].xx + m[tidx].yy + m[tidx].zz),
             qir3 = b*m[tidx].totalMass + d*qir - c*tr;
 
-          pot[TRANSLATE(tidx, tidy)] -= m[tidx].totalMass * a + c*qir - b*tr;
+          pot -= m[tidx].totalMass * a + c*qir - b*tr;
+          acc.x -= qir3*r.x - c*qirx;
+          acc.y -= qir3*r.y - c*qiry;
+          acc.z -= qir3*r.z - c*qirz;
+          idt2 = fmax(idt2, (shared_particle_cores[tidy].mass + m[tidx].totalMass)*b);
 
-          acc[TRANSLATE(tidx, tidy)].x -= qir3*r.x - c*qirx;
-          acc[TRANSLATE(tidx, tidy)].y -= qir3*r.y - c*qiry;
-          acc[TRANSLATE(tidx, tidy)].z -= qir3*r.z - c*qirz;
-          idt2[TRANSLATE(tidx, tidy)] = fmax(idt2[TRANSLATE(tidx, tidy)],
-                                        (shared_particle_cores[tidy].mass + m[tidx].totalMass)*b);
 #endif
         }// end if rsq != 0
       }// end INTERACT
