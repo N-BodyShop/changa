@@ -114,6 +114,9 @@ protected:
         // can the gpu accept a chunk of remote particles/nodes?
         bool gpuFree;
 
+        // This var will indicate if particle data has been loaded to the GPU
+        bool gputransfer;
+
         PendingBuffers *currentChunkBuffers;
         // queue that stores all pending chunk transfers
         CkQ<PendingBuffers *> pendingChunkTransferQ;
