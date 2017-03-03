@@ -387,54 +387,31 @@ void TreePiece::EwaldGPU() {
   */
   
 #ifdef SPCUDA
-  if(NumberOfGPUParticles == 0){
-  	for (int i=0; i<numBuckets; i++){bucketReqs[i].finished = 1;}
-  	return;
-  }
-
-  h_idata = (EwaldData*) malloc(sizeof(EwaldData));
-  int largephase = largePhase();
-  EwaldHostMemorySetup(h_idata, myNumActiveParticles, nEwhLoop, largephase);
-
+  GravityParticleData *particleTable;
   EwtData *ewtTable; 
   EwaldReadOnlyData *roData; 
   MultipoleMoments mm = root->moments;
 
   cudatype L = fPeriod.x;
   cudatype alpha = 2.0f/L;
-   
+  
+  particleTable = (GravityParticleData*) h_idata->p; 
   ewtTable = (EwtData*) h_idata->ewt;
   roData = (EwaldReadOnlyData*) h_idata->cachedData; 
 
   int nActive = 0;
-  if(largephase){
-  	int *markers = (int *) h_idata->EwaldMarkers;
-  	int IDX = 0;
-  	int IDXend = 0;
-  	int IDXstart = 0;
-  	for(int b = 0; b < numBuckets; b++){
-  		GenericTreeNode *bucketNode = bucketList[b];
-  		GravityParticle *buckparts = bucketNode->particlePointer;
-  		IDXstart = bucketNode->firstParticle; 
-	    IDXend = bucketNode->lastParticle;
-	    IDX = bucketNode->bucketArrayIndex; /*First particle index on GPU*/
-	    for(int j = IDXstart; j <= IDXend; j++){ /*Go through all particles in bucket*/
-	    	if(buckparts[j - IDXstart].rung < activeRung){IDX++; continue;}
-	    	markers[nActive] = IDX;
-	    	IDX++;
-	    	nActive++;
-		}
-  	}
-  	h_idata->EwaldRange[0] = 0;
- 	h_idata->EwaldRange[1] = nActive - 1;
- 	assert(nActive <= NumberOfGPUParticles);
- 	assert(nActive == myNumActiveParticles);
-  }else{
-  	nActive = NumberOfGPUParticles;
-  	h_idata->EwaldRange[0] = FirstGPUParticleIndex;
-  	h_idata->EwaldRange[1] = LastGPUParticleIndex; 
-  }
-  
+  for (int i=1; i<=myNumParticles; i++) {
+    if(myParticles[i].rung < activeRung) continue;
+    particleTable[nActive].position_x = (cudatype) myParticles[i].position.x;
+    particleTable[nActive].position_y = (cudatype) myParticles[i].position.y;
+    particleTable[nActive].position_z = (cudatype) myParticles[i].position.z;
+    particleTable[nActive].acceleration_x = 0; 
+    particleTable[nActive].acceleration_y = 0; 
+    particleTable[nActive].acceleration_z = 0; 
+    particleTable[nActive].potential = 0; 
+    nActive++;
+  }  
+
   for (int i=0; i<nEwhLoop; i++) {
     ewtTable[i].hx = (cudatype) ewt[i].hx; 
     ewtTable[i].hy = (cudatype) ewt[i].hy; 
@@ -517,14 +494,14 @@ void TreePiece::EwaldGPU() {
   
   //CkPrintf("[%d] in EwaldGPU, calling EwaldHost\n", thisIndex);
 #ifdef CUDA_INSTRUMENT_WRS
-  EwaldHost(h_idata, (void *) cb, instrumentId, activeRung, largephase); 
+  EwaldHost(h_idata, (void *) cb, instrumentId, activeRung); 
 #else
   int myLocalIndex;
   for(myLocalIndex = 0; this != dm->registeredTreePieces[myLocalIndex].treePiece;
       myLocalIndex++);
   CkAssert(myLocalIndex < dm->registeredTreePieces.length());
   
-  EwaldHost(h_idata, (void *) cb, myLocalIndex, largephase); 
+  EwaldHost(h_idata, (void *) cb, myLocalIndex); 
 #endif
 
 #endif
@@ -536,8 +513,25 @@ void TreePiece::EwaldGPUComplete() {
      EwaldGPUComplete is an entry method
   */
 #ifdef SPCUDA
-  int largephase = largePhase(); 
-  EwaldHostMemoryFree(h_idata, largephase); 
+  GravityParticleData *particleTable;
+  particleTable = h_idata->p; 
+
+  int iActive = 0;
+  for (int i=1; i<=myNumParticles; i++) {
+    if(myParticles[i].rung < activeRung)
+          continue;
+    myParticles[i].treeAcceleration.x += 
+      particleTable[iActive].acceleration_x;
+    myParticles[i].treeAcceleration.y += 
+      particleTable[iActive].acceleration_y;
+    myParticles[i].treeAcceleration.z += 
+      particleTable[iActive].acceleration_z;
+    myParticles[i].potential += particleTable[iActive].potential;
+    iActive++;
+  }
+
+  //CkPrintf("[%d] in EwaldGPUComplete, calling EwaldHostMemoryFree\n", thisIndex);
+  EwaldHostMemoryFree(h_idata); 
   free(h_idata); 
 
   /* indicate completion of ewald */
