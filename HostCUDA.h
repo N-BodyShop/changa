@@ -135,7 +135,7 @@ typedef struct _CudaRequest{
         char phase;
 #endif
 #ifdef CAMBRIDGE
-  int nodePointer;
+//  int nodePointer;
   cosmoType theta;
   cosmoType thetaMono;
 #endif

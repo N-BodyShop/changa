@@ -3617,14 +3617,28 @@ void TreePiece::doAllBuckets(){
 
 #ifdef CAMBRIDGE
     CkPrintf("CAMBRIDGE         The numBuckets = %d\n", numBuckets);
+  ListCompute *listcompute = (ListCompute *) sGravity;
+  DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
+  int end_id = 0;
+  for (int start_id = 0; start_id < numBuckets; start_id += 1000) {
+    end_id = (start_id + 1000) > numBuckets ? numBuckets : (start_id + 1000);
+    listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, start_id, end_id);
+    listcompute->resetCudaNodeState(state);
+    listcompute->resetCudaPartState(state);
+  }
+
 #endif
 
   thisProxy[thisIndex].nextBucket(msg);
+
 
 #ifdef CUDA_INSTRUMENT_WRS
   ((DoubleWalkState *)sLocalGravityState)->nodeListConstructionTimeStart();
   ((DoubleWalkState *)sLocalGravityState)->partListConstructionTimeStart();
 #endif
+}
+
+void TreePiece::localTreeWalkForAllBuckets() {
 }
 
 void TreePiece::nextBucket(dummyMsg *msg){

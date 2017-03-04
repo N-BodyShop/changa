@@ -843,6 +843,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   }
 
 #ifdef CAMBRIDGE
+  double startTimer = CmiWallTimer();
   transformLocalTree(node, localMoments);
   // set proper active bucketStart and bucketSize for each bucketNode
   for(int i = 0; i < numTreePieces; i++){
@@ -874,6 +875,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
       }
     }
   }
+//  CkPrintf("The time cost in transforming tree is %f sec. \n", CmiWallTimer() - startTimer);
 #endif
 
 #ifdef CUDA_DM_PRINT_TREES
@@ -1064,16 +1066,22 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
           tp->myParticles[j].dtGrav = fmax(tp->myParticles[j].dtGrav,
                                            deviceParticles[partIndex].dtGrav);
 #endif
-//#ifdef CAMBRIDGE
-          CkPrintf("(%d)th tp %d th particle: acc.x = %f, acc.y = %f, acc.z = %f, potential = %f.\n", i, j, tp->myParticles[j].treeAcceleration.x,
-                                                                                                                          tp->myParticles[j].treeAcceleration.y,
-                                                                                                                          tp->myParticles[j].treeAcceleration.z,
-                                                                                                                          tp->myParticles[j].potential);
-//#endif
           if(!tp->largePhase()) partIndex++;
         }
         if(tp->largePhase()) partIndex++;
       }
+
+#ifdef CAMBRIDGE
+      if (tp->largePhase()) {
+        for(int j = 1; j <= numParticles; j++) {
+          CkPrintf("(%d)th tp %d th particle: acc.x = %f, acc.y = %f, acc.z = %f, potential = %f.\n", i, j, tp->myParticles[j].treeAcceleration.x,
+                                                                                                                          tp->myParticles[j].treeAcceleration.y,
+                                                                                                                          tp->myParticles[j].treeAcceleration.z,
+                                                                                                                          tp->myParticles[j].potential);
+        }
+      }
+#endif
+
 
 #ifdef CHANGA_REFACTOR_MEMCHECK 
     CkPrintf("(%d) memcheck after updating tp %d particles\n", CkMyPe(), tp->getIndex());

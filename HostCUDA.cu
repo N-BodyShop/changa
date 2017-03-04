@@ -1561,7 +1561,7 @@ __global__ void compute_force_gpu_lockstepping(
 // Variables for lockstepping
   __shared__ unsigned int SP[NWARPS_PER_BLOCK];
 #define sp SP[WARP_INDEX]
-  __shared__ int Stacks[NWARPS_PER_BLOCK][128];
+  __shared__ int Stacks[NWARPS_PER_BLOCK][64];
 #define stack Stacks[WARP_INDEX]
 
 //  for(pidx = blockIdx.x*blockDim.x + threadIdx.x + bucketStart; pidx < bucketEnd; pidx += gridDim.x*blockDim.x) {

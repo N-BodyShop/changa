@@ -1450,57 +1450,106 @@ template<class type> int calcParticleForces(TreePiece *tp, int b, int activeRung
   return computed;
 }
 
-void cudaCallback(void *param, void *msg);
-void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int activeRung, int start_id, int end) {
-  int fake_numFilledBuckets = 1;          // each time we process a single bucket
-  int fake_listpos = 0;
-  int fake_listlen = 1;                   // suppose we the length of the list is 1.
+void cudaCallbackForAllBuckets(void *param, void *msg) {
+  CudaRequest *data = (CudaRequest *)param;
+  int *affectedBuckets = data->affectedBuckets;
+  TreePiece *tp = (TreePiece*)data->tp;
+  DoubleWalkState *state = (DoubleWalkState *)data->state;
+  int bucket;
+
+  int numBucketsDone = data->numBucketsPlusOne-1;
+
+  // bucket computations finished
+  //
+  for(int i = 0; i < numBucketsDone; i++){
+    bucket = affectedBuckets[i];
+    state->counterArrays[0][bucket]--;
+    //CkPrintf("[%d] bucket %d numAddReq: %d\n", tp->getIndex(), bucket, state->counterArrays[0][bucket]);
+    tp->finishBucket(bucket);
+  }
+
+  if(data->callDummy){
+    // doesn't matter what argument is passed in
+    tp->callFreeRemoteChunkMemory(-1);
+  }
+
+  // free data structures 
+  if(numBucketsDone > 0){
+    delete [] data->affectedBuckets;
+  }
+  delete ((CkCallback *)data->cb);
+  delete data; 
+}
+
+void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int activeRung, int start_id, int end_id) {
+  int numFilledBuckets = 0;          
   int fake_totalNumInteractions = 1;      // suppose we have only one fake interaction list
   int fake_curbucket = 0;
 
+  for (int i = start_id; i < end_id; ++i) {
+    if (tp->bucketList[i]->rungs >= activeRung) {
+      numFilledBuckets ++;
+    }
+  }
+
   ILCell *flatlists = NULL;
-  int *markers = NULL;
+  int *nodeMarkers = NULL;
   int *starts = NULL;
   int *sizes = NULL;
   int *affectedBuckets = NULL;
 
 #ifdef CUDA_USE_CUDAMALLOCHOST
   allocatePinnedHostMemory((void **)&flatlists, fake_totalNumInteractions*sizeof(ILCell));
-  allocatePinnedHostMemory((void **)&markers, (fake_numFilledBuckets+1)*sizeof(int));
-  allocatePinnedHostMemory((void **)&starts, (fake_numFilledBuckets)*sizeof(int));
-  allocatePinnedHostMemory((void **)&sizes, (fake_numFilledBuckets)*sizeof(int));
+  allocatePinnedHostMemory((void **)&nodeMarkers, (numFilledBuckets)*sizeof(int));
+  allocatePinnedHostMemory((void **)&starts, (numFilledBuckets)*sizeof(int));
+  allocatePinnedHostMemory((void **)&sizes, (numFilledBuckets)*sizeof(int));
 #else
-  flatlists = (T *) malloc(fake_totalNumInteractions*sizeof(ILCell));
-  markers = (int *) malloc((fake_numFilledBuckets+1)*sizeof(int));
-  starts = (int *) malloc(fake_numFilledBuckets*sizeof(int));
-  sizes = (int *) malloc(fake_numFilledBuckets*sizeof(int));
+  flatlists = (ILCell *) malloc(fake_totalNumInteractions*sizeof(ILCell));
+  nodeMarkers = (int *) malloc((numFilledBuckets)*sizeof(int));
+  starts = (int *) malloc(numFilledBuckets*sizeof(int));
+  sizes = (int *) malloc(numFilledBuckets*sizeof(int));
 #endif
-  affectedBuckets = new int[fake_numFilledBuckets];
+  affectedBuckets = new int[numFilledBuckets];
 
-  memset(&flatlists[fake_listpos], 0, fake_listlen * sizeof(ILCell));
-  markers[fake_curbucket] = tp->bucketList[start_id]->nodeArrayIndex;
-  if(tp->largePhase()){
-    GenericTreeNode *bucketNode = tp->bucketList[start_id];
-    sizes[fake_curbucket] = bucketNode->lastParticle - bucketNode->firstParticle + 1;
-    starts[fake_curbucket] = bucketNode->bucketArrayIndex;
-//    getBucketParameters(tp, start_id, starts[fake_curbucket], sizes[fake_curbucket]);
-  } else {
-    sizes[fake_curbucket] = tp->bucketActiveInfo[start_id].size;
-    starts[fake_curbucket] = tp->bucketActiveInfo[start_id].start;
-//    getActiveBucketParameters(tp, start_id, starts[fake_curbucket], sizes[fake_curbucket]);
+//  No need to memset the interaction list array since we're not using it at all
+//  And, we can't directly memset it.
+//  memset(&flatlists, 0, fake_totalNumInteractions * sizeof(ILCell));
+  for (int i = start_id; i < end_id; i ++) {
+    // Do something to make the callback function happy.
+    int root_index = 0;     // the root index
+    int x = 0, y = 0, z = 0;    // default value, need to fix in the future
+    int offsetID = encodeOffset(0, x,y,z);
+    ILCell tilc(root_index, offsetID);
+    if(((DoubleWalkState *)state)->nodeLists.lists[i].length() == 0) {    
+      ((DoubleWalkState *)state)->counterArrays[0][i] ++;    
+      ((DoubleWalkState *)state)->nodeLists.lists[i].push_back(tilc);    
+      ((DoubleWalkState *)state)->nodeLists.totalNumInteractions ++;
+    }
+
+    if (tp->bucketList[i]->rungs >= activeRung) {
+      nodeMarkers[fake_curbucket] = tp->bucketList[i]->nodeArrayIndex;
+      if(tp->largePhase()){
+        GenericTreeNode *bucketNode = tp->bucketList[i];
+        sizes[fake_curbucket] = bucketNode->lastParticle - bucketNode->firstParticle + 1;
+        starts[fake_curbucket] = bucketNode->bucketArrayIndex;
+    //    getBucketParameters(tp, start_id, starts[fake_curbucket], sizes[fake_curbucket]);
+      } else {
+        sizes[fake_curbucket] = tp->bucketActiveInfo[i].size;
+        starts[fake_curbucket] = tp->bucketActiveInfo[i].start;
+    //    getActiveBucketParameters(tp, start_id, starts[fake_curbucket], sizes[fake_curbucket]);
+      }
+      affectedBuckets[fake_curbucket] = i;
+      fake_curbucket++;
+    }
   }
-  affectedBuckets[fake_curbucket] = start_id;
-  fake_listpos += fake_listlen;
-  fake_curbucket++;
-  markers[fake_numFilledBuckets] = fake_listpos;
 
   CudaRequest *request = new CudaRequest;
   request->list = (void *)flatlists;                                // Useless
-  request->bucketMarkers = markers;                                 // Useless
+  request->bucketMarkers = nodeMarkers;                                 // Useless
   request->bucketStarts = starts;                           // Useful
   request->bucketSizes = sizes;                             // Useful
   request->numInteractions = fake_totalNumInteractions;                  // Useless
-  request->numBucketsPlusOne = fake_numFilledBuckets+1;              // Not sure
+  request->numBucketsPlusOne = numFilledBuckets+1;              // Not sure
   request->affectedBuckets = affectedBuckets;                   // Not sure
   request->tp = (void *)tp;
   request->fperiod = tp->fPeriod.x;
@@ -1513,14 +1562,14 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int
   request->remote = false;
   request->callDummy = false;
 #ifdef CAMBRIDGE
-  GenericTreeNode *sourceNode = tp->bucketList[start_id];
+//  GenericTreeNode *sourceNode = tp->bucketList[start_id];
 
-  request->nodePointer = sourceNode->nodeArrayIndex;
+//  request->nodePointer = sourceNode->nodeArrayIndex;
   request->theta = theta;
   request->thetaMono = thetaMono;
 #endif
 
-  request->cb = new CkCallback(cudaCallback, request);
+  request->cb = new CkCallback(cudaCallbackForAllBuckets, request);
 
 /*  printf("CAMBRIDGE:        nodePointer = %d, bucketStart = %d, bucketEnd = %d\n", request->nodePointer, 
                                                                                   request->bucketStarts[0],
@@ -1545,28 +1594,10 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
   DoubleWalkState *state = (DoubleWalkState *)state_;
 #ifdef CAMBRIDGE
   if (getOptType() == Local) {
-    for (int bucketId = start; bucketId < end; bucketId ++) {
-//      if (tp->bucketList[bucketId]->rungs >= activeRung) {
-
-        // Do something to make the callback function happy.
-        int root_index = 0;     // the root index
-        int x = 0, y = 0, z = 0;    // default value, need to fix in the future
-        int offsetID = encodeOffset(0, x,y,z);
-        ILCell tilc(root_index, offsetID);
-        if(state->nodeLists.lists[bucketId].length() == 0) {    
-          state->counterArrays[0][bucketId] ++;    
-          state->nodeLists.lists[bucketId].push_back(tilc);    
-          state->nodeLists.totalNumInteractions ++;
-        }
-
-        // the following code is going to send a fake CudaRequest
-        // Since our new GPU kernel doesn't need interaction list at all
-        // we just send a fake request with the bucket id
-        sendLocalTreeWalkTriggerToGpu(state, tp, activeRung, bucketId, -1);
+/*    printf("CAMBRIDGE:        start = %d, end = %d\n", start, end);
+        sendLocalTreeWalkTriggerToGpu(state, tp, activeRung, start, end);
         resetCudaNodeState(state);
-        resetCudaPartState(state);
-//      }
-    }
+        resetCudaPartState(state);*/
     return;
   }
 #endif
