@@ -848,6 +848,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   }
 
 #ifdef CAMBRIDGE
+  double startTimer = CmiWallTimer();
   transformLocalTree(node, localMoments);
   // set proper active bucketStart and bucketSize for each bucketNode
   for(int i = 0; i < numTreePieces; i++){
@@ -879,6 +880,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
       }
     }
   }
+//  CkPrintf("The time cost in transforming tree is %f sec. \n", CmiWallTimer() - startTimer);
 #endif
 
 #ifdef CUDA_DM_PRINT_TREES
