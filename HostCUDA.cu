@@ -406,8 +406,8 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
       (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
 //      (ILCell *)devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID],
       (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
-      (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
-      (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],      
+//      (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
+//      (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],      
       ptr->fperiod, 
 //      ptr->nodePointer,
       ptr->theta,
@@ -1514,8 +1514,8 @@ __global__ void compute_force_gpu_lockstepping(
     CudaMultipoleMoments* moments,
 //    ILCell* ils,
     int *ilmarks,
-    int *bucketStarts,
-    int *bucketSizes,
+//    int *bucketStarts,
+//    int *bucketSizes,
     cudatype fperiod,
 //    int nodePointer, 
     cudatype theta,
@@ -1526,9 +1526,9 @@ __global__ void compute_force_gpu_lockstepping(
   int k = 0;
   int pidx = 0; // thread id
 
-  int bucketStart = bucketStarts[blockIdx.x];
-  int bucketEnd   = bucketStart + bucketSizes[blockIdx.x];
   int nodePointer = ilmarks[blockIdx.x];
+  int bucketStart = moments[nodePointer].bucketStart;
+  int bucketEnd   = bucketStart + moments[nodePointer].bucketSize;
 
   // variable for traversed nodes
   __shared__ CudaMultipoleMoments TargetNode[NWARPS_PER_BLOCK];

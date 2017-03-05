@@ -3620,8 +3620,8 @@ void TreePiece::doAllBuckets(){
   ListCompute *listcompute = (ListCompute *) sGravity;
   DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
   int end_id = 0;
-  for (int start_id = 0; start_id < numBuckets; start_id += 1000) {
-    end_id = (start_id + 1000) > numBuckets ? numBuckets : (start_id + 1000);
+  for (int start_id = 0; start_id < numBuckets; start_id += 1024) {
+    end_id = (start_id + 1024) > numBuckets ? numBuckets : (start_id + 1024);
     listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, start_id, end_id);
     listcompute->resetCudaNodeState(state);
     listcompute->resetCudaPartState(state);

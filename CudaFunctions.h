@@ -6,6 +6,7 @@
 #include "HostCUDA.h"
 void TreePieceCellListDataTransferBasic(CudaRequest *data, workRequest *wr);
 void TreePiecePartListDataTransferBasic(CudaRequest *data, workRequest *wr);
+void TreePieceLocalWalkDataTransferBasic(CudaRequest *data, workRequest *wr);
 
 #ifdef CAMBRIDGE
 __global__ void compute_force_gpu_lockstepping(
@@ -14,8 +15,8 @@ __global__ void compute_force_gpu_lockstepping(
     CudaMultipoleMoments* moments,
 //    ILCell* ils,
     int *ilmarks,
-    int *bucketStarts,
-    int *bucketSizes,
+//    int *bucketStarts,
+//    int *bucketSizes,
     cudatype fperiod,
 //    int nodePointer, 
     cudatype theta,

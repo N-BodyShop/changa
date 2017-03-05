@@ -1513,7 +1513,9 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int
 
 //  No need to memset the interaction list array since we're not using it at all
 //  And, we can't directly memset it.
-//  memset(&flatlists, 0, fake_totalNumInteractions * sizeof(ILCell));
+  double startTimer = CmiWallTimer();
+  ILCell temp_ilc;
+  memcpy(&flatlists[0], &temp_ilc, fake_totalNumInteractions * sizeof(ILCell));
   for (int i = start_id; i < end_id; i ++) {
     // Do something to make the callback function happy.
     int root_index = 0;     // the root index
@@ -1528,20 +1530,24 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int
 
     if (tp->bucketList[i]->rungs >= activeRung) {
       nodeMarkers[fake_curbucket] = tp->bucketList[i]->nodeArrayIndex;
-      if(tp->largePhase()){
+      int temp_num = 0;
+      memcpy(&starts[fake_curbucket], &temp_num, sizeof(int));
+      memcpy(&sizes[fake_curbucket], &temp_num, sizeof(int));
+/*      if(tp->largePhase()){
         GenericTreeNode *bucketNode = tp->bucketList[i];
         sizes[fake_curbucket] = bucketNode->lastParticle - bucketNode->firstParticle + 1;
         starts[fake_curbucket] = bucketNode->bucketArrayIndex;
-    //    getBucketParameters(tp, start_id, starts[fake_curbucket], sizes[fake_curbucket]);
       } else {
         sizes[fake_curbucket] = tp->bucketActiveInfo[i].size;
         starts[fake_curbucket] = tp->bucketActiveInfo[i].start;
-    //    getActiveBucketParameters(tp, start_id, starts[fake_curbucket], sizes[fake_curbucket]);
-      }
+      }*/
       affectedBuckets[fake_curbucket] = i;
       fake_curbucket++;
     }
   }
+  printf("The time cost in preparing data is %f sec. start_id = %d, end_id = %d, fake_curbucket = %d, numFilledBuckets = %d\n", 
+            CmiWallTimer() - startTimer, start_id, end_id, fake_curbucket, numFilledBuckets);
+  fflush(stdout);
 
   CudaRequest *request = new CudaRequest;
   request->list = (void *)flatlists;                                // Useless
