@@ -1622,7 +1622,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
       double dTIdeal = dDelta;
       double dTGrav, dTCourant, dTEdot;
       if(bEpsAccStep) {
-         CkAssert(p->soft > 0.0);
+         if (p->soft <= 0.0) CkAbort("Cannot use bEpsAccStep with zero softening length particle\n");
 	  double acc = dAccFac*p->treeAcceleration.length();
 	  double dt;
 #ifdef EPSACCH
