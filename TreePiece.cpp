@@ -1541,21 +1541,6 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
     }
 
 /**
- * Apply an external gravitational force
- */
-void TreePiece::externalGravity(int iKickRung, ExternalGravity exGrav,
-                                const CkCallback& cb)
-{
-    CkAssert(bBucketsInited);
-    for(unsigned int i = 1; i <= myNumParticles; ++i) {
-        GravityParticle *p = &myParticles[i];
-	    if(p->rung >= iKickRung)
-            exGrav.applyPotential(p);
-        }
-    contribute(cb);
-    }
-
-/**
  * Adjust timesteps of active particles.
  * @param iKickRung The rung we are on.
  * @param bEpsAccStep Use sqrt(eps/acc) timestepping

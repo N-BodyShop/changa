@@ -47,6 +47,20 @@ void ExternalGravity::CheckParams(PRM prm, struct parameters &param)
         param.bDoExternalGravity = 1;
     }
 
+/*
+ * Apply an external gravitational force
+ */
+void TreePiece::externalGravity(int iKickRung, ExternalGravity exGrav,
+                                const CkCallback& cb)
+{
+    CkAssert(bBucketsInited);
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+        GravityParticle *p = &myParticles[i];
+        if(p->rung >= iKickRung)
+            exGrav.applyPotential(p);
+        }
+    contribute(cb);
+    }
 
 void ExternalGravity::applyPotential(GravityParticle *p)
 {
