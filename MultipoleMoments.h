@@ -207,7 +207,7 @@ public:
 	MultipoleMoments operator-(const MultipoleMoments& m) {
 		MultipoleMoments newMoments;
 		newMoments.totalMass = totalMass - m.totalMass;
-               if(totalMass == 0.0) {
+               if(newMoments.totalMass == 0.0) {
                    soft = 0.5*(soft - m.soft);
                    cm = 0.5*(cm - m.cm);
                    return *this;
