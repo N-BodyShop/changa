@@ -19,7 +19,7 @@ public:
 
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
-    void applyPotential(GravityParticle *p);
+    void applyPotential(GravityParticle *p) const;
     inline void pup(PUP::er &p);
     };
 

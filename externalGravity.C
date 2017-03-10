@@ -62,7 +62,7 @@ void TreePiece::externalGravity(int iKickRung, const ExternalGravity exGrav,
     contribute(cb);
     }
 
-void ExternalGravity::applyPotential(GravityParticle *p)
+void ExternalGravity::applyPotential(GravityParticle *p) const
 {
     if (bBodyForce) {
         if(p->position.z > 0.0) {
