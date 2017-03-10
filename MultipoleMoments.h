@@ -159,6 +159,11 @@ public:
 	MultipoleMoments& operator+=(const ParticleType& p) {
 	    double m1 = totalMass;
 		totalMass += p.mass;
+               if(totalMass == 0.0) {
+                   soft = 0.5*(soft + p.soft);
+                   cm = 0.5*(cm + p.position);
+                   return *this;
+                   }
 		soft = (m1*soft + p.mass*p.soft)/totalMass;
 		Vector3D<double> cm1 = cm;
 		cm = (m1*cm + p.mass * p.position)/totalMass;
@@ -202,6 +207,11 @@ public:
 	MultipoleMoments operator-(const MultipoleMoments& m) {
 		MultipoleMoments newMoments;
 		newMoments.totalMass = totalMass - m.totalMass;
+               if(newMoments.totalMass == 0.0) {
+                   soft = 0.5*(soft - m.soft);
+                   cm = 0.5*(cm - m.cm);
+                   return *this;
+                   }
 		newMoments.soft = (totalMass*soft - m.totalMass*m.soft)
 		    /newMoments.totalMass;
 		newMoments.cm = (totalMass*cm - m.totalMass*m.cm)
