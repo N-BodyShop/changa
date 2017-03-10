@@ -50,7 +50,7 @@ void ExternalGravity::CheckParams(PRM prm, struct parameters &param)
 /*
  * Apply an external gravitational force
  */
-void TreePiece::externalGravity(int iKickRung, ExternalGravity exGrav,
+void TreePiece::externalGravity(int iKickRung, const ExternalGravity exGrav,
                                 const CkCallback& cb)
 {
     CkAssert(bBucketsInited);
