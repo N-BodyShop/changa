@@ -260,7 +260,7 @@ void ListCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePiece 
 int GravityCompute::openCriterion(TreePiece *ownerTP,
                           GenericTreeNode *node, int reqID, State *state){
   return
-    openCriterionBucket(node,(GenericTreeNode *)computeEntity,ownerTP->decodeOffset(reqID), ownerTP->getLocalIndex());
+    openCriterionBucket(node,(GenericTreeNode *)computeEntity,ownerTP->decodeOffset(reqID));
 
 }
 
@@ -413,14 +413,6 @@ void ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int 
   }// end if finished with chunk
 }
 #endif
-
-
-/*
-void PrefetchCompute::walkDone(){
-  deleteComputeEntity();
-}
-*/
-
 
 #include "TreeNode.h"
 using namespace TreeStuff;
@@ -646,7 +638,7 @@ int PrefetchCompute::openCriterion(TreePiece *ownerTP,
     testNode.boundingBox = prs.prefetchReq[i];
     //testNode.moments.softBound = 0.0;
 
-    if(openCriterionBucket(node, &testNode, offset, ownerTP->getIndex()))
+    if(openCriterionBucket(node, &testNode, offset))
       return 1;
   }
   return 0;
@@ -1030,7 +1022,7 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
 int ListCompute::openCriterion(TreePiece *ownerTP,
                           GenericTreeNode *node, int reqID, State *state){
   return
-    openCriterionNode(node,(GenericTreeNode *)computeEntity, ownerTP->decodeOffset(reqID), ownerTP->getIndex());
+    openCriterionNode(node,(GenericTreeNode *)computeEntity, ownerTP->decodeOffset(reqID));
 }
 
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA

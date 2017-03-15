@@ -6,7 +6,8 @@
 class State;
 class DoubleWalkState;
 
-/** @file defines classes for objects that encapsulate computation
+/** @file Compute.h
+ * Defines classes for objects that encapsulate computation
  */
 
 class TreeWalk;
@@ -87,7 +88,6 @@ class Compute{
   virtual void recvdParticlesFull(GravityParticle *egp,int num,int chunk,int reqID,State *state, TreePiece *tp, Tree::NodeKey &remoteBucket){}
   virtual ~Compute(){}
   virtual void walkDone(State *state){}
-  virtual void deleteComputeEntity(){}
   virtual void setComputeEntity(void *ce){
     computeEntity = ce;
   }
@@ -96,11 +96,6 @@ class Compute{
     return computeEntity;
   }
 
-  // Computes are not associated with single buckets anymore
-  // This function returns a pointer to the state corresponding to
-  // bucket bucketIdx
-  // Defaults to returning 0 for each bucket - expected behaviour in
-  // Gravity and Prefetch computes
   virtual State *getNewState(int d1, int d2);
   virtual State *getNewState(int d1);
   virtual State *getNewState();
@@ -256,7 +251,7 @@ class DummyPrefetchCompute : public PrefetchCompute {
   }
 };
 
-// distingish between the walks that could be running.
+/// @brief distingish between the walks that could be running.
 
 enum WalkIndices {
     prefetchAwi = 0,

@@ -56,6 +56,7 @@ using namespace std;
 
 using namespace Tree;
 
+/// Load balancers that need the spatial information.
 enum LBStrategy{
   Null=0,
   Multistep,
@@ -75,6 +76,7 @@ enum TraceState {
 };
 #endif
 
+/// Possible domain decomposition methods
 enum DomainsDec {
     SFC_dec=0,	// Space Filling Curve with Morton ordering
     Oct_dec=1, 	// Oct tree
@@ -85,6 +87,7 @@ enum DomainsDec {
     ORB_space_dec=6		// Bisect space
 };
 
+/// Directions for sending boundaries
 enum NborDir {
   LEFT = 0,
   RIGHT
@@ -179,7 +182,6 @@ extern int _prefetch;
 extern int _randChunks;
 extern int _numChunks;
 extern unsigned int bucketSize;
-extern int lbcomm_cutoff_msgs;
 
 //jetley
 extern int localNodesPerReq;
@@ -415,6 +417,7 @@ inline double PoverRhoFloorJeans(double dResolveJeans, GravityParticle *p)
     return l2*dResolveJeans*p->fDensity;
 }
 
+/// @brief Adiabatic index to use with the Jeans pressure floor.
 const double GAMMA_JEANS = 2.0;
 
 
@@ -564,8 +567,11 @@ typedef struct OffsetNodeStruct
 }OffsetNode;
 
 #if INTERLIST_VER > 0
+/// @brief Queue of nodes to check for interactions.
 typedef CkQ<OffsetNode> CheckList;
+/// @brief Vector of nodes that are undecided at this level.
 typedef CkVec<OffsetNode> UndecidedList;
+/// @brief Vector of undecided lists, one for each level.
 typedef CkVec<UndecidedList> UndecidedLists;
 #endif
 
@@ -754,17 +760,17 @@ class TreePiece : public CBase_TreePiece {
   void memCacheStats(const CkCallback &cb);
   void addActiveWalk(int iAwi, TreeWalk *tw, Compute *c, Opt *o, State *s);
 
+  /// @brief Called when walk on the current TreePiece is done.
   void markWalkDone();
+  /// @brief Called when walk on all TreePieces is done.
   void finishWalk();
+  /// @brief Called when smooth walk on the current TreePiece is done.
   void markSmoothWalkDone();
+  /// @brief Called when smooth walk on all TreePieces is done.
   void finishSmoothWalk();
 
   int getIndex() {
     return thisIndex;
-  }
-
-  int getLocalIndex(){
-    return localIndex;
   }
 
   /// @brief accumulate node interaction count for statistics
@@ -793,10 +799,12 @@ class TreePiece : public CBase_TreePiece {
   /// Start a new remote computation upon prefetch finished
   void startRemoteChunk();
 
+  /// Return the number of particles on this TreePiece.
   int getNumParticles(){
     return myNumParticles;
   }
 
+  /// Return the pointer to the particles on this TreePiece.
   GravityParticle *getParticles(){return myParticles;}
 
 
@@ -812,6 +820,10 @@ class TreePiece : public CBase_TreePiece {
         // the list
         int numActiveBuckets; 
         int myNumActiveParticles;
+        // First and Last indices of GPU particle
+        int FirstGPUParticleIndex;
+        int LastGPUParticleIndex;
+        int NumberOfGPUParticles;
         BucketActiveInfo *bucketActiveInfo;
 
         int getNumBuckets(){
@@ -854,6 +866,8 @@ class TreePiece : public CBase_TreePiece {
         }
 
         void getDMParticles(CompactPartData *fillArray, int &fillIndex){
+          NumberOfGPUParticles = 0;
+          FirstGPUParticleIndex = fillIndex;//This is for the GPU Ewald
           if(largePhase()){
             for(int b = 0; b < numBuckets; b++){
               GenericTreeNode *bucket = bucketList[b];
@@ -896,6 +910,17 @@ class TreePiece : public CBase_TreePiece {
               }
               binfo->size = fillIndex-binfo->start;
             }
+          }
+          //This is for the GPU Ewald
+          if(FirstGPUParticleIndex == fillIndex){
+            //This means no particle is on GPU
+            FirstGPUParticleIndex = -1;
+            LastGPUParticleIndex = -1;
+            NumberOfGPUParticles = 0;
+          }
+          else{
+            LastGPUParticleIndex = fillIndex - 1;
+            NumberOfGPUParticles = LastGPUParticleIndex - FirstGPUParticleIndex + 1;
           }
         }
 
@@ -1256,6 +1281,7 @@ private:
 
 #ifdef SPCUDA
   EwaldData *h_idata;
+  bool ewaldqueued;
 #endif
   void EwaldGPU(); 
   void EwaldGPUComplete();

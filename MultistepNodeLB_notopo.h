@@ -47,36 +47,7 @@ public:
   void balanceTPs(BaseLB::LDStats* stats);
   void balanceTPsNode(BaseLB::LDStats* stats);
 
-public:/* <- Sun CC demands Partition be public for ComputeLoad to access it. */
-
-  class Partition {
-  public:
-    int refno;
-    double load;			// total load in this set
-    int origin[3];			// box coordinates
-    int corner[3];
-    int  count;				// number of objects in this partition
-    int node, mapped;
-    CkVec<int>   bkpes;			// background processors
-  public:
-    Partition(): refno(0), load(0.0), node(-1), mapped(0) {};
-  };
-
 private:  
-  struct ComputeLoad {
-    int id;
-    int v[3];
-    double load;
-    int  refno;
-    double  tv;
-    Partition * partition;
-  };
-  
-  
-  struct VecArray {
-    int v;
-    int id;
-  };
   
   enum {XDIR=0, YDIR, ZDIR};
   
