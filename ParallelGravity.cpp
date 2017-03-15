@@ -3722,6 +3722,7 @@ void Main::pup(PUP::er& p)
     p | nTotalSPH;
     p | nTotalDark;
     p | nTotalStar;
+    p | nSink;
     p | nMaxOrderGas;
     p | nMaxOrderDark;
     p | nMaxOrder;
