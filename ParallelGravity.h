@@ -1777,7 +1777,8 @@ public:
 	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type,
     int firstParticle, int numParticles, int remIdx,
     const MultipoleMoments& moments, const OrientedBox<double>& box,
-    const OrientedBox<double>& boxBall, const unsigned int iParticleTypes);
+            const OrientedBox<double>& boxBall,
+            const unsigned int iParticleTypes, const int64_t nSPH);
 
 	/// Entry point for the local computation: for each bucket compute the
 	/// force that its particles see due to the other particles hosted in

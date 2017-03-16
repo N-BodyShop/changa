@@ -428,7 +428,7 @@ mainmodule ParallelGravity {
     entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type,
       int firstParticle, int numParticles, int remIdx, MultipoleMoments& moments,
       OrientedBox<double>& box, OrientedBox<double>& boxBall,
-      unsigned int iParticleTypes);
+      unsigned int iParticleTypes, int64_t nSPH);
 
     entry void commenceCalculateGravityLocal();
     entry void calculateGravityRemote(ComputeChunkMsg *msg);
