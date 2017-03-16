@@ -1558,50 +1558,6 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
     }
 
 /**
- * Apply an external gravitational force
- */
-void TreePiece::externalGravity(int iKickRung,
-    const externalGravityParams exGravParams, const CkCallback& cb)
-{
-    CkAssert(bBucketsInited);
-    for(unsigned int i = 1; i <= myNumParticles; ++i) {
-        GravityParticle *p = &myParticles[i];
-	if(p->rung >= iKickRung) {
-            if(exGravParams.bBodyForce) {
-                if(p->position.z > 0.0) {
-                    p->treeAcceleration.z -= exGravParams.dBodyForceConst;
-                    p->potential += exGravParams.dBodyForceConst*p->position.z;
-                    double idt2 = exGravParams.dBodyForceConst/p->position.z;
-                    if(idt2 > p->dtGrav)
-                        p->dtGrav = idt2;
-                    }
-                else {
-                    p->treeAcceleration.z += exGravParams.dBodyForceConst;
-                    p->potential -= exGravParams.dBodyForceConst*p->position.z;
-                    if(p->position.z != 0.0) {
-                        double idt2 = -exGravParams.dBodyForceConst/p->position.z;
-                        if(idt2 > p->dtGrav)
-                            p->dtGrav = idt2;
-                        }
-                    }
-                }
-            if(exGravParams.bPatch) {
-                double r2 = exGravParams.dOrbDist*exGravParams.dOrbDist
-                    + p->position.z*p->position.z;
-                double idt2 = exGravParams.dCentMass*pow(r2, -1.5);
-                
-                p->treeAcceleration.z -= exGravParams.dCentMass*p->position.z
-                                         *pow(r2, -1.5);
-                p->potential += exGravParams.dCentMass/sqrt(r2);
-                if(idt2 > p->dtGrav)
-                    p->dtGrav = idt2;
-                }
-            }
-        }
-    contribute(cb);
-    }
-
-/**
  * Adjust timesteps of active particles.
  * @param iKickRung The rung we are on.
  * @param bEpsAccStep Use sqrt(eps/acc) timestepping
