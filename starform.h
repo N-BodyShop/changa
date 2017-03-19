@@ -30,6 +30,7 @@ class Stfm : public PUP::able  {
     double dMinSpawnStarMass;   /* Minimum Initial Star Mass */
     double dMaxStarMass;	/* maximum mass star particle to form */
     int bGasCooling;		/* Can we call cooling for temperature */
+    char achIMF[32];   	        /* imf parameterization */
  public:
     int bUseStoch;          /* use stochastic IMF */
     double dStochCut;       /* cutoff mass for stochastic IMF */
@@ -43,7 +44,7 @@ class Stfm : public PUP::able  {
     bool isStarFormRung(int aRung) {return aRung <= iStarFormRung;}
     GravityParticle *FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 			      double dDelta, double dCosmoFac, double *T);
-    IMF *imf = new Kroupa01();
+    IMF *imf;
 
     Stfm() {}
     PUPable_decl(Stfm);
@@ -58,6 +59,7 @@ class Stfm : public PUP::able  {
 
 // "Deep copy" constructer is needed because of imf pointer
 inline Stfm::Stfm(const Stfm& st) {
+    strcpy(achIMF, st.achIMF);
     dMsolUnit = st.dMsolUnit;
     dGmUnit = st.dGmUnit;
     dGmPerCcUnit = st.dGmPerCcUnit;
@@ -83,6 +85,7 @@ inline Stfm::Stfm(const Stfm& st) {
 }
 
 inline void Stfm::pup(PUP::er &p) {
+    p(achIMF, 32);
     p|bUseStoch;
     p|dStochCut;
     p|dDeltaStarForm;
