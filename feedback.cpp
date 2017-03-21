@@ -1083,14 +1083,13 @@ TreePiece::massMetalsEnergyCheck(int bPreDist, const CkCallback& cb)
 void TreePiece::SplitGas(double dInitGasMass, const CkCallback& cb)
 {
     int nFormed = 0;
-    double norm, uvar, vvar, theta,phi;
+    double norm, uvar, vvar, ux, uy, uz;
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
         GravityParticle *p = &myParticles[i];
         if(p->mass < 1.33*dInitGasMass) continue; //Don't split particles that are too small FOOL
         if(!TYPETest(p, TYPE_GAS)) continue; //Only split heavy gas
 
         nFormed++;
-        GravityParticle daughter;
         norm = 666; // \m/
         while (norm>1.0){ //unit sphere point picking (Marsaglia 1972)
             uvar=2.0*(rand()/(double)RAND_MAX)-1.0;  //#random number on [-1,1]
@@ -1105,7 +1104,7 @@ void TreePiece::SplitGas(double dInitGasMass, const CkCallback& cb)
 #ifdef TWOPHASE
         p->massHot() /= 2.0;
 #endif
-        daughter = p;
+        GravityParticle daughter = *p;
         daughter.extraData = new extraSPHData;
         *(extraSPHData *)daughter.extraData= *(extraSPHData *)p->extraData;
         TYPEReset(&daughter, TYPE_NbrOfACTIVE);
@@ -1118,7 +1117,7 @@ void TreePiece::SplitGas(double dInitGasMass, const CkCallback& cb)
         p->position.y -= 0.25*p->fBall*uy;
         p->position.z -= 0.25*p->fBall*uz;
         newParticle(&daughter);
-        delete (extraSPHData *)daughter->extraData;
+        delete (extraSPHData *)daughter.extraData;
     }
     contribute(sizeof(int), &nFormed, CkReduction::sum_int, cb);
 
