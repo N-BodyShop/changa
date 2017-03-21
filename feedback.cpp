@@ -1083,43 +1083,42 @@ TreePiece::massMetalsEnergyCheck(int bPreDist, const CkCallback& cb)
 void TreePiece::SplitGas(double dInitGasMass, const CkCallback& cb)
 {
     int nFormed = 0;
-    double r, rand_x, rand_y, rand_z, theta,phi;
+    double norm, uvar, vvar, theta,phi;
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
         GravityParticle *p = &myParticles[i];
         if(p->mass < 1.33*dInitGasMass) continue; //Don't split particles that are too small FOOL
         if(!TYPETest(p, TYPE_GAS)) continue; //Only split heavy gas
 
         nFormed++;
-        GravityParticle *daughter = new GravityParticle();
-        r = 2;
-        while (r < 1)
-        {
-            rand_x = (double) random()/RAND_MAX;
-            rand_y = (double) random()/RAND_MAX;
-            rand_z = (double) random()/RAND_MAX;
-            r = rand_x*rand_x+rand_y*rand_y+rand_z*rand_z;
+        GravityParticle daughter;
+        norm = 666; // \m/
+        while (norm>1.0){ //unit sphere point picking (Marsaglia 1972)
+            uvar=2.0*(rand()/(double)RAND_MAX)-1.0;  //#random number on [-1,1]
+            vvar=2.0*(rand()/(double)RAND_MAX)-1.0;
+            norm=(uvar*uvar+vvar*vvar);
         }
-        phi = atan2(rand_y,rand_x);
-        theta = acos(rand_z/sqrt(r));
+        norm = sqrt(1.0-norm); //only do one sqrt
+        ux=2.0*uvar*norm;
+        uy=2.0*vvar*norm;
+        uz=1.0-2.0*(uvar*uvar+vvar*vvar);
         p->mass /= 2.0;
 #ifdef TWOPHASE
         p->massHot() /= 2.0;
 #endif
-        *daughter = *p;
-        daughter->extraData = new extraSPHData;
-        *(extraSPHData *)daughter->extraData= *(extraSPHData *)p->extraData;
-        TYPEReset(daughter, TYPE_NbrOfACTIVE);
-        TYPESet(daughter, TYPE_GAS);
-        daughter->position.x += 0.25*p->fBall*sin(theta)*cos(phi);
-        daughter->position.y += 0.25*p->fBall*sin(theta)*sin(phi);
-        daughter->position.z += 0.25*p->fBall*cos(theta);
-        daughter->iSplitOrder() = p->iOrder;
-        p->position.x -= 0.25*p->fBall*sin(theta)*cos(phi);
-        p->position.y -= 0.25*p->fBall*sin(theta)*sin(phi);
-        p->position.z -= 0.25*p->fBall*cos(theta);
-        newParticle(daughter);
+        daughter = p;
+        daughter.extraData = new extraSPHData;
+        *(extraSPHData *)daughter.extraData= *(extraSPHData *)p->extraData;
+        TYPEReset(&daughter, TYPE_NbrOfACTIVE);
+        TYPESet(&daughter, TYPE_GAS);
+        daughter.position.x += 0.25*p->fBall*ux;
+        daughter.position.y += 0.25*p->fBall*uy;
+        daughter.position.z += 0.25*p->fBall*uz;
+        daughter.iSplitOrder() = p->iOrder;
+        p->position.x -= 0.25*p->fBall*ux;
+        p->position.y -= 0.25*p->fBall*uy;
+        p->position.z -= 0.25*p->fBall*uz;
+        newParticle(&daughter);
         delete (extraSPHData *)daughter->extraData;
-        delete daughter;
     }
     contribute(sizeof(int), &nFormed, CkReduction::sum_int, cb);
 
