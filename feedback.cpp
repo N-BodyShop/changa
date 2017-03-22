@@ -1105,8 +1105,8 @@ void TreePiece::SplitGas(double dInitGasMass, const CkCallback& cb)
         p->massHot() /= 2.0;
 #endif
         GravityParticle daughter = *p;
-        daughter.extraData = new extraSPHData;
-        *(extraSPHData *)daughter.extraData= *(extraSPHData *)p->extraData;
+        extraSPHData extra;
+        daughter.extraData = &extra;
         TYPEReset(&daughter, TYPE_NbrOfACTIVE);
         TYPESet(&daughter, TYPE_GAS);
         daughter.position.x += 0.25*p->fBall*ux;
@@ -1117,7 +1117,6 @@ void TreePiece::SplitGas(double dInitGasMass, const CkCallback& cb)
         p->position.y -= 0.25*p->fBall*uy;
         p->position.z -= 0.25*p->fBall*uz;
         newParticle(&daughter);
-        delete (extraSPHData *)daughter.extraData;
     }
     contribute(sizeof(int), &nFormed, CkReduction::sum_int, cb);
 
