@@ -468,7 +468,6 @@ mainmodule ParallelGravity {
     // entry void receiveProxy(CkGroupID);
     entry void doAtSync();
 
-    entry void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
     entry void outputASCII(CkReference<OutputParams>, int bParaWrite,
 			   const CkCallback& cb);
     entry void oneNodeOutVec(CkReference<OutputParams>, Vector3D<double> avOut[nPart],

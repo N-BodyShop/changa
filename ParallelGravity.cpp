@@ -560,9 +560,6 @@ Main::Main(CkArgMsg* m) {
 	//
 	// Output parameters
 	//
-	printBinaryAcc=0;
-	prmAddParam(prm, "bPrintBinary", paramBool, &printBinaryAcc,
-		    sizeof(int),"z", "Print accelerations in Binary");
 	param.bStandard = 1;
 	prmAddParam(prm, "bStandard", paramBool, &param.bStandard,sizeof(int),
 		    "std", "output in standard TIPSY binary format (IGNORED)");
@@ -2571,9 +2568,6 @@ Main::doSimulation()
       writeOutput(0);
       if(param.bDoGas) {
 	  ckout << "Outputting gas properties ...";
-	  if(printBinaryAcc)
-	      CkAssert(0);
-	  else {
 	      GasDenOutputParams pDenOut(achFile, param.iBinaryOut, 0.0);
 	      PresOutputParams pPresOut(achFile, param.iBinaryOut, 0.0);
 	      HsmOutputParams pSphHOut(achFile, param.iBinaryOut, 0.0);
@@ -2620,19 +2614,13 @@ Main::doSimulation()
                       }
 #endif
                   }
-	      }
 	  }
       ckout << "Outputting accelerations  ...";
-      if(printBinaryAcc)
-	  treeProxy[0].outputAccelerations(OrientedBox<double>(),
-					   "acc2", CkCallbackResumeThread());
-      else {
-	  AccOutputParams pAcc(achFile, param.iBinaryOut, 0.0);
-          if(param.iBinaryOut)
-              outputBinary(pAcc, param.bParaWrite, CkCallbackResumeThread());
-          else
-              treeProxy[0].outputASCII(pAcc, param.bParaWrite, CkCallbackResumeThread());
-	  }
+      AccOutputParams pAcc(achFile, param.iBinaryOut, 0.0);
+      if(param.iBinaryOut)
+          outputBinary(pAcc, param.bParaWrite, CkCallbackResumeThread());
+      else
+          treeProxy[0].outputASCII(pAcc, param.bParaWrite, CkCallbackResumeThread());
 #ifdef NEED_DT
       ckout << "Outputting dt ...";
       adjust(0);
@@ -3489,7 +3477,6 @@ void Main::pup(PUP::er& p)
     p | dEcosmo;
     p | dUOld;
     p | dTimeOld;
-    p | printBinaryAcc;
     p | param;
     p | vdOutTime;
     p | iOut;

@@ -453,7 +453,6 @@ class Main : public CBase_Main {
 				   Lazer-Irvine eq. */
 	double dUOld;
 	double dTimeOld;
-	unsigned int printBinaryAcc;
 	PRM prm;		/* parameter parsing info */
 	Parameters param; /* actual parameters */
 	CkVec<double> vdOutTime; // Desired output times
@@ -1890,7 +1889,6 @@ public:
     int shufflelen);
 	void ResumeFromSync();
 
-	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
 	void outputASCII(OutputParams& params, int bParaWrite,
 			 const CkCallback& cb);
 	void oneNodeOutVec(OutputParams& params, Vector3D<double>* avOut,

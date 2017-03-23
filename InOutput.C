@@ -1651,57 +1651,6 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
   }
 }
 
-void TreePiece::outputAccelerations(OrientedBox<double> accelerationBox, const string& suffix, const CkCallback& cb) {
-  FieldHeader fh;
-  if(thisIndex == 0) {
-    if(verbosity > 2)
-      ckerr << "TreePiece " << thisIndex << ": Writing header for accelerations file" << endl;
-    FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "wb");
-    XDR xdrs;
-    xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-    fh.code = float64;
-    fh.dimensions = 3;
-    if(!xdr_template(&xdrs, &fh) || !xdr_template(&xdrs, &accelerationBox.lesser_corner) || !xdr_template(&xdrs, &accelerationBox.greater_corner)) {
-      ckerr << "TreePiece " << thisIndex << ": Could not write header to accelerations file, aborting" << endl;
-      CkAbort("Badness");
-    }
-    xdr_destroy(&xdrs);
-    fclose(outfile);
-  }
-	
-  if(verbosity > 3)
-    ckerr << "TreePiece " << thisIndex << ": Writing my accelerations to disk" << endl;
-	
-  FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "r+b");
-  fseek(outfile, 0, SEEK_END);
-  XDR xdrs;
-  xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-	
-  for(unsigned int i = 1; i <= myNumParticles; ++i) {
-    accelerationBox.grow(myParticles[i].treeAcceleration);
-    if(!xdr_template(&xdrs, &(myParticles[i].treeAcceleration))) {
-      ckerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
-      CkAbort("Badness");
-    }
-  }
-	
-  if(thisIndex == (int) numTreePieces - 1) {
-    if(!xdr_setpos(&xdrs, FieldHeader::sizeBytes) || !xdr_template(&xdrs, &accelerationBox.lesser_corner) || !xdr_template(&xdrs, &accelerationBox.greater_corner)) {
-      ckerr << "TreePiece " << thisIndex << ": Error going back to write the acceleration bounds, aborting" << endl;
-      CkAbort("Badness");
-    }
-    if(verbosity > 2)
-      ckerr << "TreePiece " << thisIndex << ": Wrote the acceleration bounds" << endl;
-    cb.send();
-  }
-	
-  xdr_destroy(&xdrs);
-  fclose(outfile);
-	
-  if(thisIndex != (int) numTreePieces - 1)
-    pieces[thisIndex + 1].outputAccelerations(accelerationBox, suffix, cb);
-}
-
 // Output a Tipsy ASCII array file.
 void TreePiece::outputASCII(OutputParams& params, // specifies
 						  // filename, format,
