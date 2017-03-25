@@ -217,6 +217,12 @@ typedef struct CompactPartData{
   cudatype soft;
   CudaVector3D position;
 
+#ifdef CAMBRIDGE
+  int nodeId;
+  int numOfNodesTraversed;
+  int numOfParticlesTraversed;
+#endif
+
 #if __cplusplus && !defined __CUDACC__
   CompactPartData(){}
   CompactPartData(ExternalGravityParticle &egp){

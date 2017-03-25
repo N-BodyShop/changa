@@ -3799,6 +3799,8 @@ void TreePiece::continueWrapUp(){
   }
 }
 
+static double totalCostForListConstruction = 0.0;
+static double totalCostForStateReady = 0.0;
 void TreePiece::doAllBuckets(){
 #if COSMO_DEBUG > 0
   char fout[100];
@@ -3814,21 +3816,39 @@ void TreePiece::doAllBuckets(){
   CkSetQueueing(msg,CK_QUEUEING_IFIFO);
 
 #ifdef CAMBRIDGE
-    CkPrintf("CAMBRIDGE         The numBuckets = %d\n", numBuckets);
+//    CkPrintf("CAMBRIDGE         The numBuckets = %d\n", numBuckets);
   ListCompute *listcompute = (ListCompute *) sGravity;
   DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
   int end_id = 0;
-  for (int start_id = 0; start_id < numBuckets; start_id += 1024) {
+/*  for (int start_id = 0; start_id < numBuckets; start_id += 1024) {
     end_id = (start_id + 1024) > numBuckets ? numBuckets : (start_id + 1024);
     listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, start_id, end_id);
     listcompute->resetCudaNodeState(state);
     listcompute->resetCudaPartState(state);
-  }
+  }*/
 
+    listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets);
+    listcompute->resetCudaNodeState(state);
+    listcompute->resetCudaPartState(state);
+#endif
+
+#ifdef CAMBRIDGE
+//  #ifdef COSMO_EVENT
+    traceRegisterUserEvent("stateReady", 21); 
+    double startTimer = CmiWallTimer();
+//  #endif
 #endif
 
   thisProxy[thisIndex].nextBucket(msg);
 
+#ifdef CAMBRIDGE
+//  #ifdef COSMO_EVENT
+    traceUserBracketEvent(21, startTimer, CmiWallTimer());
+    totalCostForListConstruction += CmiWallTimer() - startTimer;
+    printf("CAMBRIDGE:    The time we spent on cpu totalCostForListConstruction is %f sec\n", totalCostForListConstruction);
+    fflush(stdout);
+//  #endif
+#endif
 
 #ifdef CUDA_INSTRUMENT_WRS
   ((DoubleWalkState *)sLocalGravityState)->nodeListConstructionTimeStart();
@@ -3883,6 +3903,9 @@ void TreePiece::nextBucket(dummyMsg *msg){
 #ifdef CAMBRIDGE
 //  #ifdef COSMO_EVENT
     traceUserBracketEvent(20, startTimer, CmiWallTimer());
+    totalCostForListConstruction += CmiWallTimer() - startTimer;
+    printf("CAMBRIDGE:    The time we spent on cpu totalCostForListConstruction is %f sec\n", totalCostForListConstruction);
+    fflush(stdout);
 //  #endif
 #endif
 
@@ -3915,21 +3938,12 @@ void TreePiece::nextBucket(dummyMsg *msg){
 #endif
 	{
 //#ifndef CAMBRIDGE    
-
 #ifdef CAMBRIDGE
-//  #ifdef COSMO_EVENT
-    traceRegisterUserEvent("stateReady", 21); 
-    startTimer = CmiWallTimer();
-//  #endif
+startTimer = CmiWallTimer();
 #endif
+
         sGravity->stateReady(sLocalGravityState, this, -1, currentBucket, end);
 
-
-#ifdef CAMBRIDGE
-//  #ifdef COSMO_EVENT
-    traceUserBracketEvent(21, startTimer, CmiWallTimer());
-//  #endif
-#endif
       }
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("active: nextBucket memcheck after stateReady\n");

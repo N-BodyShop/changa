@@ -1556,12 +1556,12 @@ __global__ void compute_force_gpu_lockstepping(
   int k = 0;
   int pidx = 0; // thread id
 
-  int nodePointer = ilmarks[blockIdx.x];
+/*  int nodePointer = ilmarks[blockIdx.x];
   int bucketStart = moments[nodePointer].bucketStart;
-  int bucketEnd   = bucketStart + moments[nodePointer].bucketSize;
+  int bucketEnd   = bucketStart + moments[nodePointer].bucketSize;*/
 
   // variable for traversed nodes
-  __shared__ CudaMultipoleMoments TargetNode[NWARPS_PER_BLOCK];
+/*  __shared__ CudaMultipoleMoments TargetNode[NWARPS_PER_BLOCK];
 #define targetnode TargetNode[WARP_INDEX]
 
   // variable for current bucket/leaf node
@@ -1573,6 +1573,21 @@ __global__ void compute_force_gpu_lockstepping(
 
   __shared__ CompactPartData MyParticle[THREADS_PER_BLOCK];
 #define myparticle MyParticle[threadIdx.x]
+
+// Variables for lockstepping
+  __shared__ unsigned int SP[NWARPS_PER_BLOCK];
+#define sp SP[WARP_INDEX]
+  __shared__ int Stacks[NWARPS_PER_BLOCK][64];
+#define stack Stacks[WARP_INDEX]
+*/
+
+CudaMultipoleMoments  targetnode;
+CudaMultipoleMoments  mynode;
+CompactPartData       targetparticle;
+CompactPartData       myparticle;
+
+unsigned int sp;
+int stack[64];
 
   // variable for current particle
   CompactPartData p;
@@ -1588,16 +1603,13 @@ __global__ void compute_force_gpu_lockstepping(
   cudatype rsq;
   cudatype twoh;
 
-// Variables for lockstepping
-  __shared__ unsigned int SP[NWARPS_PER_BLOCK];
-#define sp SP[WARP_INDEX]
-  __shared__ int Stacks[NWARPS_PER_BLOCK][64];
-#define stack Stacks[WARP_INDEX]
 
-//  for(pidx = blockIdx.x*blockDim.x + threadIdx.x + bucketStart; pidx < bucketEnd; pidx += gridDim.x*blockDim.x) {
-    for(pidx = threadIdx.x + bucketStart; pidx < bucketEnd; pidx += THREADS_PER_BLOCK) {
+
+  for(pidx = blockIdx.x*blockDim.x + threadIdx.x; pidx < 640000; pidx += gridDim.x*blockDim.x) {
+//    for(pidx = threadIdx.x + bucketStart; pidx < bucketEnd; pidx += THREADS_PER_BLOCK) {
     // initialize the variables belonging to current thread
 //    mynode = moments[nodePointer];
+    int nodePointer = particleCores[pidx].nodeId;
     cuda_ldg_moments(mynode, &moments[nodePointer]);
 //    myparticle = particleCores[pidx];
     cuda_ldg_cPartData(myparticle, &particleCores[pidx]);

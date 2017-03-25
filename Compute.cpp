@@ -1533,9 +1533,9 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int
       fake_curbucket++;
     }
   }
-  printf("The time cost in preparing data is %f sec. start_id = %d, end_id = %d, fake_curbucket = %d, numFilledBuckets = %d\n", 
-            CmiWallTimer() - startTimer, start_id, end_id, fake_curbucket, numFilledBuckets);
-  fflush(stdout);
+//  printf("The time cost in preparing data is %f sec. start_id = %d, end_id = %d, fake_curbucket = %d, numFilledBuckets = %d\n", 
+//            CmiWallTimer() - startTimer, start_id, end_id, fake_curbucket, numFilledBuckets);
+//  fflush(stdout);
 
   CudaRequest *request = new CudaRequest;
   request->list = (void *)flatlists;                                // Useless

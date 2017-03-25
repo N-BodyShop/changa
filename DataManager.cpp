@@ -879,6 +879,21 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 //          CkPrintf("CAMBRIDGE     --> (%d)the bucket in TP, nodeArrayId = %d, the starter is %d, the size is %d\n", j, id, localMoments[id].bucketStart, localMoments[id].bucketSize);
       }
     }
+
+    // tell each particle which node it belongs to
+    CompactPartData *localParicalsVec = localParticles.getVec();
+    for (int j = 0; j < tp->numBuckets; ++j) {
+      GenericTreeNode *bucketNode = tp->bucketList[j];
+      int id = bucketNode->nodeArrayIndex;
+      int start = localMoments[id].bucketStart;
+      int end = start + localMoments[id].bucketSize;
+      for (int k = start; k < end; k ++) {
+        localParicalsVec[k].nodeId = id;
+        // here we don't initialize the "numOfNodesTraversed" or "numOfParticlesTraversed"
+        // because their value will be directly overwriten by GPU kernel
+      }
+    }
+
   }
 //  CkPrintf("The time cost in transforming tree is %f sec. \n", CmiWallTimer() - startTimer);
 #endif
