@@ -15,7 +15,8 @@
 # define CUDA_MALLOC(ptr,sz) ptr = malloc(sz)
 #endif
 
-#define THREADS_PER_BLOCK 128
+//CAMBRIDGE #define THREADS_PER_BLOCK 128
+#define THREADS_PER_BLOCK 32
 
 #ifdef CUDA_2D_TB_KERNEL
 #define PARTS_PER_BLOCK 16
