@@ -414,6 +414,7 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
 //      (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],      
       ptr->fperiod, 
 //      ptr->nodePointer,
+      ptr->totalNumOfParticles,
       ptr->theta,
       ptr->thetaMono
     );
@@ -764,6 +765,7 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 #endif
 
 #ifdef CAMBRIDGE
+  gravityKernel.dimGrid = max(data->totalNumOfParticles / THREADS_PER_BLOCK, 1);
   gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
 #endif
 
@@ -931,6 +933,7 @@ void TreePieceCellListDataTransferBasic(CudaRequest *data, workRequest *gravityK
 
 #ifdef CAMBRIDGE
 //        ptr->nodePointer = data->nodePointer;
+        ptr->totalNumOfParticles = data->totalNumOfParticles;
         ptr->theta      = data->theta;
         ptr->thetaMono  = data->thetaMono; 
 #endif
@@ -1548,6 +1551,7 @@ __global__ void compute_force_gpu_lockstepping(
 //    int *bucketSizes,
     cudatype fperiod,
 //    int nodePointer, 
+    int totalNumOfParticles,
     cudatype theta,
     cudatype thetaMono) {
 
@@ -1603,9 +1607,10 @@ int stack[64];
   cudatype rsq;
   cudatype twoh;
 
+  int traversedNodes = 0;
+  int traversedParticles = 0;
 
-
-  for(pidx = blockIdx.x*blockDim.x + threadIdx.x; pidx < 640000; pidx += gridDim.x*blockDim.x) {
+  for(pidx = blockIdx.x*blockDim.x + threadIdx.x; pidx < totalNumOfParticles; pidx += gridDim.x*blockDim.x) {
 //    for(pidx = threadIdx.x + bucketStart; pidx < bucketEnd; pidx += THREADS_PER_BLOCK) {
     // initialize the variables belonging to current thread
 //    mynode = moments[nodePointer];
@@ -1650,6 +1655,8 @@ int stack[64];
           }
         }
       } else if (action == COMPUTE) {
+        
+      traversedNodes ++;
         // compute with the node targetnode
         r.x = myparticle.position.x - ((((reqID >> 22) & 0x7)-3)*fperiod + targetnode.cm.x);
         r.y = myparticle.position.y - ((((reqID >> 25) & 0x7)-3)*fperiod + targetnode.cm.y);
@@ -1690,6 +1697,8 @@ int stack[64];
 //          targetparticle = particleCores[i];
           cuda_ldg_cPartData(targetparticle, &particleCores[i]);
 
+          traversedParticles ++;
+
           r.x = (((reqID >> 22) & 0x7)-3)*fperiod + targetparticle.position.x - myparticle.position.x;
           r.y = (((reqID >> 25) & 0x7)-3)*fperiod + targetparticle.position.y - myparticle.position.y;
           r.z = (((reqID >> 28) & 0x7)-3)*fperiod + targetparticle.position.z - myparticle.position.z;
@@ -1719,6 +1728,9 @@ int stack[64];
     particleVars[pidx].a.z += acc.z;
     particleVars[pidx].potential += pot;
     particleVars[pidx].dtGrav = fmax(idt2,  particleVars[pidx].dtGrav);
+
+    particleVars[pidx].numOfNodesTraversed = traversedNodes;
+    particleVars[pidx].numOfParticlesTraversed = traversedParticles;
   }
 }
 

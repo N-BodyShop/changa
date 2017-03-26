@@ -219,8 +219,6 @@ typedef struct CompactPartData{
 
 #ifdef CAMBRIDGE
   int nodeId;
-  int numOfNodesTraversed;
-  int numOfParticlesTraversed;
 #endif
 
 #if __cplusplus && !defined __CUDACC__
@@ -246,6 +244,11 @@ typedef struct VariablePartData{
   CudaVector3D a;
   cudatype potential;
   cudatype dtGrav;
+  
+#ifdef CAMBRIDGE
+  int numOfNodesTraversed;
+  int numOfParticlesTraversed;
+#endif
 }VariablePartData;
 
 
