@@ -635,9 +635,7 @@ Main::Main(CkArgMsg* m) {
        param.bCollision = 0;
        prmAddParam(prm, "bCollision", paramBool, &param.bCollision,
            sizeof(int), "bCollision", "<Do collision detection and response on particles> = 0");
-
-       param.collision = new Collision();
-       param.collision->AddParams(prm);
+       param.collision.AddParams(prm);
 
 	param.iRandomSeed = 1;
 	prmAddParam(prm,"iRandomSeed", paramInt, &param.iRandomSeed,
@@ -2335,7 +2333,7 @@ void Main::setupICs() {
   
   param.externalGravity.CheckParams(prm, param);
   if(param.bCollision)
-      param.collision->CheckParams(prm, param);
+      param.collision.CheckParams(prm, param);
 
   string achLogFileName = string(param.achOutName) + ".log";
   ofstream ofsLog;

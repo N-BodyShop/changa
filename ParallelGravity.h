@@ -1824,10 +1824,10 @@ public:
 	void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
     void getCollInfo(const CkCallback& cb);
     void getCollInfo(int iOrder, const CkCallback& cb);
-    void resolveCollision(Collision &coll, ColliderInfo &c1, ColliderInfo &c2,
+    void resolveCollision(Collision coll, ColliderInfo &c1, ColliderInfo &c2,
                           int bMerge, double baseStep, double timeNow,
                           const CkCallback& cb);
-    void resolveWallCollision(Collision &coll, ColliderInfo &c1, const CkCallback& cb);
+    void resolveWallCollision(Collision coll, ColliderInfo &c1, const CkCallback& cb);
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
 	void setTypeFromFile(int iSetMask, char *file, const CkCallback& cb);

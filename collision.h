@@ -24,7 +24,10 @@ public:
         iOrderCol = -1;
         bMergerDelete = 0;
         }
-    void pup(PUP::er &p) {
+    inline void pup(PUP::er &p);
+};
+  
+inline void ColliderInfo::pup(PUP::er &p) {
         p | position;
         p | velocity;
         p | acceleration;
@@ -37,12 +40,9 @@ public:
         p | rung;
         p | bMergerDelete;
         }
-    };
-
-//#include "parameters.h"
 
 /// @brief Collision parameters and routines
-class Collision : public PUP::able {
+class Collision {
 public:
     int nSmoothCollision; /* number of particles to search for collisions over */
     int bWall;            /* particles will bounce off a wall in the z plane */
@@ -76,8 +76,6 @@ public:
         dEpsT = 1.0;//dEpsT = 1.0;
         }
    
-    PUPable_decl(Collision);
-    Collision(CkMigrateMessage *m) : PUP::able(m) {}
     inline void pup(PUP::er &p);
     };
 
@@ -121,8 +119,8 @@ public:
     CollisionSmoothParams(int _iType, int am, double _dTime, double _dDelta,
                           int _bWall, double _dWallPos, int _bAllowMergers,
                           double _dMaxBinaryEcc, int _iMinBinaryRung,
-                          Collision *collision) :
-        coll (*collision) {
+                          Collision _coll) {
+        coll = _coll;
         iType = _iType;
         activeRung = am;
         bUseBallMax = 0;

@@ -127,7 +127,6 @@ mainmodule ParallelGravity {
   PUPable SinkAccreteSmoothParams;
   PUPable CollisionSmoothParams;
   PUPable Fdbk;
-  PUPable Collision;
   PUPable StarLog;
   PUPable Chabrier;
   PUPable MillerScalo;
@@ -144,6 +143,10 @@ mainmodule ParallelGravity {
 #endif
   //SIDM
   PUPable SIDMSmoothParams;
+#ifdef COLLISION
+  PUPable CollisionSmoothParams;
+#endif
+
   PUPable MassOutputParams;
   PUPable PosOutputParams;
   PUPable VelOutputParams;
@@ -442,9 +445,9 @@ mainmodule ParallelGravity {
     entry void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
     entry void getCollInfo(const CkCallback& cb);
     entry void getCollInfo(int iOrder, const CkCallback& cb);
-    entry void resolveCollision(Collision &coll, ColliderInfo &c1, ColliderInfo &c2,
+    entry void resolveCollision(Collision coll, ColliderInfo &c1, ColliderInfo &c2,
         int bMerge, double baseStep, double timeNow, const CkCallback& cb);
-    entry void resolveWallCollision(Collision &coll, ColliderInfo &c1, const CkCallback& cb);
+    entry void resolveWallCollision(Collision coll, ColliderInfo &c1, const CkCallback& cb);
     entry void setTypeFromFile(int iSetMask, char file[256],
         const CkCallback& cb);
     entry void getCOM(const CkCallback& cb, int bLiveViz);

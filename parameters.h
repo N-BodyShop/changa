@@ -122,7 +122,7 @@ typedef struct parameters {
     int bCollision;
     int bWall;
     double dWallPos;
-    Collision *collision;
+    Collision collision;
 #endif
     
     Sinks sinks;

@@ -89,9 +89,9 @@ void Main::doCollisions(double dTime, double dDelta)
         bHasCollision = 0;
 
         CollisionSmoothParams pCS(TYPE_DARK, 0, dTime, dDelta, 
-           param.collision->bWall, param.collision->dWallPos,
-           param.collision->bAllowMergers, param.collision->dMaxBinaryEcc,
-           param.collision->iMinBinaryRung, param.collision);
+           param.collision.bWall, param.collision.dWallPos,
+           param.collision.bAllowMergers, param.collision.dMaxBinaryEcc,
+           param.collision.iMinBinaryRung, param.collision);
         double startTime = CkWallTimer();
         treeProxy.startReSmooth(&pCS, CkCallbackResumeThread());
         double endTime = CkWallTimer();
@@ -125,13 +125,13 @@ void Main::doCollisions(double dTime, double dDelta)
             if (c[0].dtCol < 0.) {
                 nColl++;
                 CkPrintf("Particles %d and %d stuck in binary...merging\n", c[0].iOrder, c[1].iOrder);
-                treeProxy.resolveCollision(*(param.collision), c[0], c[1], 1,
+                treeProxy.resolveCollision(param.collision, c[0], c[1], 1,
                                            dDelta, dTime, CkCallbackResumeThread());
                 }
             // Collision with wall
-            else if (c[0].iOrderCol == -2 && param.collision->bWall) {
+            else if (c[0].iOrderCol == -2 && param.collision.bWall) {
                 nColl++;
-                treeProxy.resolveWallCollision(*(param.collision), c[0], 
+                treeProxy.resolveWallCollision(param.collision, c[0], 
                                                CkCallbackResumeThread());
                 }
             // Collision with particle
@@ -141,15 +141,15 @@ void Main::doCollisions(double dTime, double dDelta)
                     }
                 nColl++;
                 
-                if (param.collision->bAllowMergers) {
-                    param.collision->checkMerger(c[0], c[1]);
+                if (param.collision.bAllowMergers) {
+                    param.collision.checkMerger(c[0], c[1]);
                     }
                 if (c[0].bMergerDelete || c[1].bMergerDelete) {
-                    treeProxy.resolveCollision(*(param.collision), c[0], c[1], 1,
+                    treeProxy.resolveCollision(param.collision, c[0], c[1], 1,
                                                dDelta, dTime, CkCallbackResumeThread());
                     }
                 else {
-                    treeProxy.resolveCollision(*(param.collision), c[0], c[1], 0,
+                    treeProxy.resolveCollision(param.collision, c[0], c[1], 0,
                                                dDelta, dTime, CkCallbackResumeThread());
                     }
                 }
@@ -262,7 +262,7 @@ void TreePiece::getCollInfo(int iOrder, const CkCallback& cb)
  * @param coll A reference to the collision class that handles collision physics
  * @param c1 Information about the particle that is undergoing a collision
  */
-void TreePiece::resolveWallCollision(Collision &coll, ColliderInfo &c1, 
+void TreePiece::resolveWallCollision(Collision coll, ColliderInfo &c1, 
                                      const CkCallback& cb) {
     GravityParticle *p;
     for (unsigned int i=1; i <= myNumParticles; i++) {
@@ -287,7 +287,7 @@ void TreePiece::resolveWallCollision(Collision &coll, ColliderInfo &c1,
  * @param baseStep The size of the current step on this rung
  * @param timeNow The current simulation time
  */
-void TreePiece::resolveCollision(Collision &coll, ColliderInfo &c1,
+void TreePiece::resolveCollision(Collision coll, ColliderInfo &c1,
                                  ColliderInfo &c2, int bMerge, double baseStep,
                                  double timeNow, const CkCallback& cb) {
         GravityParticle *p;
