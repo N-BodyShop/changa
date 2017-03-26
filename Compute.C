@@ -1571,6 +1571,7 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int
 //  GenericTreeNode *sourceNode = tp->bucketList[start_id];
 
 //  request->nodePointer = sourceNode->nodeArrayIndex;
+  request->totalNumOfParticles = tp->getDMNumParticles();
   request->theta = theta;
   request->thetaMono = thetaMono;
 #endif

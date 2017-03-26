@@ -1071,6 +1071,8 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
     CmiMemoryCheck();
 #endif
 
+long long totalTraversedNodes = 0;
+long long totalTraversedParticles = 0;
       for(int j = 1; j <= numParticles; j++){
         if(tp->isActive(j)){
 #ifndef CUDA_NO_ACC_UPDATES
@@ -1080,6 +1082,9 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
           tp->myParticles[j].potential += deviceParticles[partIndex].potential;
           tp->myParticles[j].dtGrav = fmax(tp->myParticles[j].dtGrav,
                                            deviceParticles[partIndex].dtGrav);
+
+          totalTraversedNodes += deviceParticles[partIndex].numOfNodesTraversed;
+          totalTraversedParticles += deviceParticles[partIndex].numOfParticlesTraversed;
 #endif
           if(!tp->largePhase()) partIndex++;
         }
@@ -1095,6 +1100,10 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
                                                                                                                           tp->myParticles[j].potential);
         }
       }
+
+      printf("The total number of nodeInterLocal is %d\n", totalTraversedNodes);
+      printf("The total number of particleInterLocal is %d\n", totalTraversedParticles);
+      fflush(stdout);
 #endif
 
 

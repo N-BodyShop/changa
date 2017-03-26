@@ -19,6 +19,7 @@ __global__ void compute_force_gpu_lockstepping(
 //    int *bucketSizes,
     cudatype fperiod,
 //    int nodePointer, 
+    int totalNumOfParticles,
     cudatype theta,
     cudatype thetaMono);
 

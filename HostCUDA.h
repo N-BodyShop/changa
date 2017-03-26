@@ -15,7 +15,8 @@
 # define CUDA_MALLOC(ptr,sz) ptr = malloc(sz)
 #endif
 
-//CAMBRIDGE #define THREADS_PER_BLOCK 128
+//CAMBRIDGE
+//#define THREADS_PER_BLOCK 128
 #define THREADS_PER_BLOCK 32
 
 #ifdef CUDA_2D_TB_KERNEL
@@ -137,6 +138,7 @@ typedef struct _CudaRequest{
 #endif
 #ifdef CAMBRIDGE
 //  int nodePointer;
+  int totalNumOfParticles;      
   cosmoType theta;
   cosmoType thetaMono;
 #endif
@@ -149,7 +151,8 @@ typedef struct _ParameterStruct{
   int numEntities;// TODO: can be removed later on
   cudatype fperiod;
 #ifdef CAMBRIDGE
-  int nodePointer;
+//  int nodePointer;
+  int totalNumOfParticles;
   cudatype theta;
   cudatype thetaMono;
 #endif

@@ -2717,7 +2717,7 @@ Main::doSimulation()
   treeProxy[0].outputStatistics(CkCallbackResumeThread());
 
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
-#endif
+#endif  
 
   ckout << "Done." << endl;
 	
