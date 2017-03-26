@@ -56,13 +56,13 @@ class Fdbk : public PUP::able {
 			  double dDelta, FBEffects *fbEffects);
     void CalcUVFeedback(double dTime, double dDelta, FBEffects *fbEffects);
 
-    char achIMF[32];	        /* initial mass function */
     double dErgPerGmUnit;	/* system specific energy in ergs/gm */
     double dGmUnit;		/* system mass in grams */
     double dGmPerCcUnit;	/* system density in gm/cc */
     double dErgUnit;		/* system energy in ergs */
     Padova pdva;
  public:
+    char achIMF[32];	        /* initial mass function */
     SN sn;
     double dDeltaStarForm;
     double dSecUnit;		/* system time in seconds */

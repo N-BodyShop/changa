@@ -18,9 +18,6 @@
 
 void Stfm::AddParams(PRM prm) 
 {
-    strcpy(achIMF, "Kroupa93");
-    prmAddParam(prm,"achIMF", paramString, &achIMF, 32, "achIMF",
-		"<IMF> = Kroupa93");
     dOverDenMin = 20.0;
     prmAddParam(prm,"dOverDenMin", paramDouble, &dOverDenMin,
 		    sizeof(double), "stODmin",
@@ -76,10 +73,10 @@ void Stfm::AddParams(PRM prm)
  */
 void Stfm::CheckParams(PRM prm, Parameters &param) 
 {
-    if(strcmp(achIMF, "MillerScalo") == 0) imf = new MillerScalo();
-    else if(strcmp(achIMF, "Chabrier") == 0) imf = new Chabrier();
-    else if(strcmp(achIMF, "Kroupa93") == 0) imf = new Kroupa93();
-    else if(strcmp(achIMF, "Kroupa01") == 0) imf = new Kroupa01();
+    if(strcmp(param.feedback->achIMF, "MillerScalo") == 0) imf = new MillerScalo();
+    else if(strcmp(param.feedback->achIMF, "Chabrier") == 0) imf = new Chabrier();
+    else if(strcmp(param.feedback->achIMF, "Kroupa93") == 0) imf = new Kroupa93();
+    else if(strcmp(param.feedback->achIMF, "Kroupa01") == 0) imf = new Kroupa01();
 
     if(param.bStarForm) {
 	CkAssert(prmSpecified(prm, "dMsolUnit")
