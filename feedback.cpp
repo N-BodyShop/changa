@@ -1105,7 +1105,7 @@ void TreePiece::SplitGas(double dInitGasMass, const CkCallback& cb)
         p->massHot() /= 2.0;
 #endif
         GravityParticle daughter = *p;
-        extraSPHData extra;
+        extraSPHData extra = *(extraSPHData *)p->extraData;
         daughter.extraData = &extra;
         TYPEReset(&daughter, TYPE_NbrOfACTIVE);
         TYPESet(&daughter, TYPE_GAS);
