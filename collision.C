@@ -612,6 +612,15 @@ void Collision::bounceCalc(double r, double m, Vector3D<double> pos,
 
     }
 
+int CollisionSmoothParams::isSmoothActive(GravityParticle *p)
+{
+    if(p->rung < activeRung)
+	    return 0;
+
+    if (p->iType == TYPE_DARK) return 1;
+    else return 0;
+    }
+
 void CollisionSmoothParams::initSmoothParticle(GravityParticle *p)
 {
     double v = p->velocity.length();
