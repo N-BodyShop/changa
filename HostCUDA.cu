@@ -765,7 +765,10 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 #endif
 
 #ifdef CAMBRIDGE
-  gravityKernel.dimGrid = max(data->totalNumOfParticles / THREADS_PER_BLOCK, 1);
+//  gravityKernel.dimGrid = max(data->totalNumOfParticles / THREADS_PER_BLOCK, 1);
+  printf("data->totalNumOfParticles = %d\n", data->totalNumOfParticles);
+  fflush(stdout);
+  gravityKernel.dimGrid = data->totalNumOfParticles / THREADS_PER_BLOCK+1;
   gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
 #endif
 
@@ -1533,7 +1536,8 @@ __device__ __forceinline__ void cuda_ldg_cPartData(CompactPartData &m, CompactPa
 #define WARP_INDEX (threadIdx.x >> 5)
 #define ROOT 0
 #define OBSERVE_FLAG 1
-#define OBSERVING 10
+#define OBSERVING 0
+#define TEXTURE_LOAD 1
 
 // Used in lockstepping, sync for threads in a warp
 #define STACK_INIT() sp = 1; stack[sp] = ROOT; //stack[WARP_INDEX][sp].items.dsq = size * size * itolsq
@@ -1613,22 +1617,32 @@ int stack[64];
   for(pidx = blockIdx.x*blockDim.x + threadIdx.x; pidx < totalNumOfParticles; pidx += gridDim.x*blockDim.x) {
 //    for(pidx = threadIdx.x + bucketStart; pidx < bucketEnd; pidx += THREADS_PER_BLOCK) {
     // initialize the variables belonging to current thread
-//    mynode = moments[nodePointer];
     int nodePointer = particleCores[pidx].nodeId;
-    cuda_ldg_moments(mynode, &moments[nodePointer]);
-//    myparticle = particleCores[pidx];
+#ifdef TEXTURE_LOAD
     cuda_ldg_cPartData(myparticle, &particleCores[pidx]);
+    cuda_ldg_moments(mynode, &moments[nodePointer]);
+#else
+    mynode = moments[nodePointer];
+    myparticle = particleCores[pidx];
+#endif
     acc.x = 0;
     acc.y = 0;
     acc.z = 0;
     pot = 0;
     idt2 = 0;
 
+    if (OBSERVE_FLAG && OBSERVING == pidx) {
+      printf("Entered the GPU Kernel!\n");
+    }
+
     STACK_INIT();
     while(sp >= 1) {
       cur_node_index = STACK_TOP_NODE_INDEX;
-//      targetnode = moments[cur_node_index];
+#ifdef TEXTURE_LOAD
       cuda_ldg_moments(targetnode, &moments[cur_node_index]);
+#else
+      targetnode = moments[cur_node_index];
+#endif
       STACK_POP();
 
       // Here should be initialized with nReplicas ID. but since I'm not using it at all, I just fill it with zeros.
@@ -1664,7 +1678,6 @@ int stack[64];
 
         rsq = r.x*r.x + r.y*r.y + r.z*r.z;   
         if (rsq != 0) {
-//          cudatype dir = 1.0/sqrt(rsq);    
           cudatype dir = rsqrt(rsq);     
 #if defined (HEXADECAPOLE)
           CUDA_momEvalFmomrcm(&targetnode, &r, dir, &acc, &pot);
@@ -1694,8 +1707,11 @@ int stack[64];
         int target_lastparticle = targetnode.bucketStart + targetnode.bucketSize;
         cudatype a, b;
         for (i = target_firstparticle; i < target_lastparticle; i ++) {
-//          targetparticle = particleCores[i];
+#ifdef TEXTURE_LOAD
           cuda_ldg_cPartData(targetparticle, &particleCores[i]);
+#else
+          targetparticle = particleCores[i];
+#endif
 
           traversedParticles ++;
 

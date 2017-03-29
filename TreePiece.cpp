@@ -3814,9 +3814,10 @@ void TreePiece::doAllBuckets(){
   CkSetQueueing(msg,CK_QUEUEING_IFIFO);
 
 #ifdef CAMBRIDGE
-//    CkPrintf("CAMBRIDGE         The numBuckets = %d\n", numBuckets);
+    CkPrintf("CAMBRIDGE         The numBuckets = %d\n", numBuckets);
   ListCompute *listcompute = (ListCompute *) sGravity;
   DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
+  localListConstructionTime = 0.0;
   int end_id = 0;
 /*  for (int start_id = 0; start_id < numBuckets; start_id += 1024) {
     end_id = (start_id + 1024) > numBuckets ? numBuckets : (start_id + 1024);
@@ -3885,6 +3886,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
 
 #ifdef CAMBRIDGE
 //  #ifdef COSMO_EVENT
+    localListConstructionTime += CmiWallTimer()-startTimer;
     traceUserBracketEvent(20, startTimer, CmiWallTimer());
 //  #endif
 #endif
