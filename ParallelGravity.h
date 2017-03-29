@@ -1341,6 +1341,7 @@ private:
 	 */
 	void doAllBuckets();
 #ifdef CAMBRIDGE
+  double localListConstructionTime;
   /** In CAMBRIDGE version, the whole local tree can be find on the GPU side
    * We can do the local tree walk in one shot.
    */
