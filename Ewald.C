@@ -387,7 +387,7 @@ void TreePiece::EwaldGPU() {
   */
   
 #ifdef SPCUDA
-  if(NumberOfGPUParticles == 0){
+  if(NumberOfGPUParticles == 0 || myNumActiveParticles == 0){
   	for (int i=0; i<numBuckets; i++){bucketReqs[i].finished = 1;}
   	return;
   }
