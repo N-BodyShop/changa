@@ -617,7 +617,7 @@ int CollisionSmoothParams::isSmoothActive(GravityParticle *p)
     if(p->rung < activeRung)
 	    return 0;
 
-    if (p->iType == TYPE_DARK) return 1;
+    if (TYPETest(p, TYPE_DARK)) return 1;
     else return 0;
     }
 
