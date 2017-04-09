@@ -4194,7 +4194,7 @@ fi
 if test "${enable_cullenalpha+set}" = set; then :
   enableval=$enable_cullenalpha; cullenalpha=$enableval
 else
-  cullenalpha=yes
+  cullenalpha=no
 fi
 
 if test "$cullenalpha" = "yes" ; then
