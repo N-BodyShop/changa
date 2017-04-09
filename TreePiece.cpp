@@ -74,6 +74,21 @@ string getColor(GenericTreeNode*);
 
 const char *typeString(NodeType type);
 
+/**
+ * @brief glassDamping applies a damping force to a particle's velocity.
+ * 
+ * This can be useful for generating glasses.  It is mean to model a damping
+ * term vdot = -damping * v
+ * @param v Particle velocity (v or vPred), a Vector3D
+ * @param dDelta Time step to apply damping over
+ * @param damping Inverse timescale of the damping
+ */
+inline void glassDamping(Vector3D<double> &v, double dDelta, double damping) {
+#ifdef DAMPING
+    v *= exp(-dDelta * damping);
+#endif
+}
+
 /*
  * set periodic information in all the TreePieces
  */
@@ -1464,6 +1479,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 	      if(bClosing) { // update predicted quantities to end of step
 		  p->vPred() = p->velocity
 		      + dDelta[p->rung]*p->treeAcceleration;
+		  glassDamping(p->vPred(), dDelta[p->rung], dGlassDamper);
 		  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
 		      p->u() = p->u() + p->uDot()*duDelta[p->rung];
@@ -1521,6 +1537,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 	      CkAssert(p->uPred() >= 0.0);
 	      }
 	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
+	  glassDamping(p->velocity, dDelta[p->rung], dGlassDamper);
 	  }
       }
   contribute(cb);
@@ -1537,50 +1554,6 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
 	}
 
     bBucketsInited = true;
-    contribute(cb);
-    }
-
-/**
- * Apply an external gravitational force
- */
-void TreePiece::externalGravity(int iKickRung,
-    const externalGravityParams exGravParams, const CkCallback& cb)
-{
-    CkAssert(bBucketsInited);
-    for(unsigned int i = 1; i <= myNumParticles; ++i) {
-        GravityParticle *p = &myParticles[i];
-	if(p->rung >= iKickRung) {
-            if(exGravParams.bBodyForce) {
-                if(p->position.z > 0.0) {
-                    p->treeAcceleration.z -= exGravParams.dBodyForceConst;
-                    p->potential += exGravParams.dBodyForceConst*p->position.z;
-                    double idt2 = exGravParams.dBodyForceConst/p->position.z;
-                    if(idt2 > p->dtGrav)
-                        p->dtGrav = idt2;
-                    }
-                else {
-                    p->treeAcceleration.z += exGravParams.dBodyForceConst;
-                    p->potential -= exGravParams.dBodyForceConst*p->position.z;
-                    if(p->position.z != 0.0) {
-                        double idt2 = -exGravParams.dBodyForceConst/p->position.z;
-                        if(idt2 > p->dtGrav)
-                            p->dtGrav = idt2;
-                        }
-                    }
-                }
-            if(exGravParams.bPatch) {
-                double r2 = exGravParams.dOrbDist*exGravParams.dOrbDist
-                    + p->position.z*p->position.z;
-                double idt2 = exGravParams.dCentMass*pow(r2, -1.5);
-                
-                p->treeAcceleration.z -= exGravParams.dCentMass*p->position.z
-                                         *pow(r2, -1.5);
-                p->potential += exGravParams.dCentMass/sqrt(r2);
-                if(idt2 > p->dtGrav)
-                    p->dtGrav = idt2;
-                }
-            }
-        }
     contribute(cb);
     }
 
@@ -1619,10 +1592,10 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
     GravityParticle *p = &myParticles[i];
     if(p->rung >= iKickRung) {
-      CkAssert(p->soft > 0.0);
       double dTIdeal = dDelta;
       double dTGrav, dTCourant, dTEdot;
       if(bEpsAccStep) {
+         if (p->soft <= 0.0) CkAbort("Cannot use bEpsAccStep with zero softening length particle\n");
 	  double acc = dAccFac*p->treeAcceleration.length();
 	  double dt;
 #ifdef EPSACCH
@@ -1886,6 +1859,7 @@ void TreePiece::drift(double dDelta,  // time step in x containing
       boundingBox.grow(p->position);
       if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
 	  p->vPred() += dvDelta*p->treeAcceleration;
+	  glassDamping(p->vPred(), dvDelta, dGlassDamper);
 	  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
 	      p->uPred() += p->uDot()*duDelta;
@@ -2627,7 +2601,8 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
           opts.setPriority((unsigned int) -100000000);
 	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(),
       node->firstParticle, node->particleCount, thisIndex, node->moments,
-      node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
+              node->boundingBox, node->bndBoxBall, node->iParticleTypes,
+              node->nSPH, &opts);
     }
       delete l;
       momentRequests.erase(node->getKey());
@@ -2746,6 +2721,7 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
 	  node->moments += child->moments;
 	  node->bndBoxBall.grow(child->bndBoxBall);
 	  node->iParticleTypes |= child->iParticleTypes;
+          node->nSPH += child->nSPH;
 	  }
       if (child->rungs > node->rungs) node->rungs = child->rungs;
     } else if (child->getType() == Empty) {
@@ -2762,6 +2738,7 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
 	  node->moments += child->moments;
 	  node->bndBoxBall.grow(child->bndBoxBall);
 	  node->iParticleTypes |= child->iParticleTypes;
+          node->nSPH += child->nSPH;
 	  }
       if (child->rungs > node->rungs) node->rungs = child->rungs;
     }
@@ -2957,7 +2934,8 @@ void TreePiece::processRemoteRequestsForMoments(){
           opts.setPriority((unsigned int) -100000000);
 	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(),
       node->firstParticle, node->particleCount, thisIndex, node->moments,
-      node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
+      node->boundingBox, node->bndBoxBall, node->iParticleTypes,
+              node->nSPH, &opts);
       }
       delete l;
       momentRequests.erase(node->getKey());
@@ -3168,6 +3146,7 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
         node->boundingBox.grow(child->boundingBox);
         node->bndBoxBall.grow(child->bndBoxBall);
 	node->iParticleTypes |= child->iParticleTypes;
+        node->nSPH += child->nSPH;
       }
       if (child->rungs > node->rungs) node->rungs = child->rungs;
     } else if (child->getType() == Empty) {
@@ -3190,6 +3169,7 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
         node->boundingBox.grow(child->boundingBox);
         node->bndBoxBall.grow(child->bndBoxBall);
 	node->iParticleTypes |= child->iParticleTypes;
+        node->nSPH += child->nSPH;
       }
       // for the rung information we can always do now since it is a local property
       if (child->rungs > node->rungs) node->rungs = child->rungs;
@@ -3233,6 +3213,7 @@ void TreePiece::growBottomUp(GenericTreeNode *node) {
       node->boundingBox.grow(child->boundingBox);
       node->bndBoxBall.grow(child->bndBoxBall);
       node->iParticleTypes |= child->iParticleTypes;
+      node->nSPH += child->nSPH;
     }
     if (child->rungs > node->rungs) node->rungs = child->rungs;
   }
@@ -3284,7 +3265,8 @@ void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
       opts.setPriority((unsigned int) -100000000);
       streamingProxy[sender].receiveRemoteMoments(key, node->getType(),
         node->firstParticle, node->particleCount, thisIndex, node->moments,
-        node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
+        node->boundingBox, node->bndBoxBall, node->iParticleTypes,
+          node->nSPH, &opts);
       return;
   }
 
@@ -3328,7 +3310,8 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
 				     const MultipoleMoments& moments,
 				     const OrientedBox<double>& box,
 				     const OrientedBox<double>& boxBall,
-				     const unsigned int iParticleTypes) {
+                                     const unsigned int iParticleTypes,
+                                     const int64_t nSPH) {
   GenericTreeNode *node = keyToNode(key);
   CkAssert(node != NULL);
   MERGE_REMOTE_REQUESTS_VERBOSE("[%d] receiveRemoteMoments %llu\n",thisIndex,key);
@@ -3345,6 +3328,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
     node->boundingBox = box;
     node->bndBoxBall = boxBall;
     node->iParticleTypes = iParticleTypes;
+    node->nSPH = nSPH;
     node->remoteIndex = remIdx;
   }
 
@@ -3411,7 +3395,7 @@ GenericTreeNode *TreePiece::boundaryParentReady(GenericTreeNode *parent){
       streamingProxy[(*l)[i]].receiveRemoteMoments(parent->getKey(),
         parent->getType(), parent->firstParticle, parent->particleCount,
         thisIndex, parent->moments, parent->boundingBox, parent->bndBoxBall,
-        parent->iParticleTypes, &opts);
+          parent->iParticleTypes, parent->nSPH, &opts);
     }
     delete l;
     momentRequests.erase(parent->getKey());
@@ -3435,6 +3419,7 @@ void TreePiece::accumulateMomentsFromChild(GenericTreeNode *parent, GenericTreeN
   parent->boundingBox.grow(child->boundingBox);
   parent->bndBoxBall.grow(child->bndBoxBall);
   parent->iParticleTypes |= child->iParticleTypes;
+  parent->nSPH += child->nSPH;
 }
 
 /// @brief determine if moments of node have been requested.
@@ -3465,7 +3450,8 @@ void TreePiece::deliverMomentsToClients(const std::map<NodeKey,NonLocalMomentsCl
     MERGE_REMOTE_REQUESTS_VERBOSE("[%d] send %llu (%s) moments to %d\n", thisIndex, node->getKey(), typeString(node->getType()),clients[i].clientTreePiece->getIndex());
     clients[i].clientTreePiece->receiveRemoteMoments(node->getKey(),node->getType(),
       node->firstParticle,node->particleCount,node->remoteIndex,node->moments,
-      node->boundingBox,node->bndBoxBall,node->iParticleTypes);
+        node->boundingBox,node->bndBoxBall,node->iParticleTypes,
+        node->nSPH);
   }
   clients.clear();
   nonLocalMomentsClients.erase(it);

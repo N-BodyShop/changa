@@ -5,26 +5,7 @@
 #include "cooling.h"
 #include "starform.h"
 #include "feedback.h"
-
-/// @brief Class for external gravity parameters
-class externalGravityParams
-{
- public:
-    bool bDoExternalGravity; ///< Set if any exteran potential is used
-    int bBodyForce;          ///< Constant acceleration
-    double dBodyForceConst;
-    int bPatch;              ///< Patch in a disk
-    double dCentMass;        ///< Central mass in the disk
-    double dOrbDist;         ///< Distance of the patch from the center
-    void pup(PUP::er& p) {
-        p| bDoExternalGravity;
-        p| bBodyForce;
-        p| dBodyForceConst;
-        p| bPatch;
-        p| dCentMass;
-        p| dOrbDist;
-        }
-};
+#include "externalGravity.h"
 
 /** @brief Hold parameters of the run.
  */
@@ -69,10 +50,7 @@ typedef struct parameters {
 #endif
     CSM csm;			/* cosmo parameters */
     double dRedTo;
-    /*
-     * External Potentials
-     */
-    externalGravityParams exGravParams;
+    double dGlassDamper;
     /*
      * GrowMass parameters
      */
@@ -124,6 +102,8 @@ typedef struct parameters {
     Stfm *stfm;
     int bFeedback;
     Fdbk *feedback;
+    int bDoExternalGravity;
+    ExternalGravity externalGravity;
     int iRandomSeed;
     int bStandard;
     int bDoublePos;
@@ -194,8 +174,8 @@ inline void operator|(PUP::er &p, Parameters &param) {
     if(p.isUnpacking())
  	csmInitialize(&param.csm);
     p|*param.csm;
+    p|param.dGlassDamper;
     p|param.dRedTo;
-    p|param.exGravParams;
     p|param.bDynGrowMass;
     p|param.nGrowMass;
     p|param.dGrowDeltaM;
@@ -242,6 +222,8 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|*param.stfm;
     p|param.bFeedback;
     p|param.feedback;
+    p|param.bDoExternalGravity;
+    p|param.externalGravity;
     p|param.iRandomSeed;
     p|param.bStandard;
     p|param.bDoublePos;

@@ -20,6 +20,7 @@ FLAG_DIFFHARMONIC = @FLAG_DIFFHARMONIC@
 FLAG_FEEDBACKDIFFLIMIT = @FLAG_FEEDBACKDIFFLIMIT@
 FLAG_CULLENALPHA = @FLAG_CULLENALPHA@
 FLAG_VSIGVISC = @FLAG_VSIGVISC@
+FLAG_DAMPING = @FLAG_DAMPING@
 
 # optional CUDA flags: 
 # memory:
@@ -84,7 +85,7 @@ DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) \
                $(FLAG_SSE) $(FLAG_AVX) \
                $(FLAG_DIFFHARMONIC) $(FLAG_FEEDBACKDIFFLIMIT) \
 	       $(FLAG_CULLENALPHA) $(FLAG_VSIGVISC) \
-	       $(FLAG_CHANGESOFT) $(FLAG_KERNEL)
+	       $(FLAG_CHANGESOFT) $(FLAG_KERNEL) $(FLAG_DAMPING)
 
 CHARM_PATH = @CHARM_PATH@
 STRUCTURES_PATH = ../utility/structures
@@ -135,7 +136,7 @@ OBJECTS = Reductions.o DataManager.o TreePiece.o IntraNodeLBManager.o Sorter.o \
 	  MultistepLB_notopo.o MultistepNodeLB_notopo.o MultistepOrbLB.o PETreeMerger.o \
 	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
 	  feedback.o imf.o supernova.o supernovaia.o starlifetime.o \
-	  cha_commitid.o \
+	  cha_commitid.o externalGravity.o \
 	  @OBJECTS_COOLING@
 
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp IntraNodeLBManager.cpp \
@@ -143,7 +144,7 @@ SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp IntraNodeLBManage
 	InOutput.C cosmo.c romberg.c runge.c dumpframe.C dffuncs.C \
 	moments.c MultistepLB.C Orb3dLB.C Orb3dLB_notopo.C HierarchOrbLB.C starform.C \
 	MultistepLB_notopo.C MultistepNodeLB_notopo.C MultistepOrbLB.C PETreeMerger.cpp \
-	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C 
+	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C externalGravity.C
 
 ifdef CUDA
   CXXFLAGS += $(NVCC_INC)

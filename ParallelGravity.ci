@@ -32,6 +32,7 @@ mainmodule ParallelGravity {
   readonly double dExtraStore;
   readonly double dMaxBalance;
   readonly double dFracLoadBalance;
+  readonly double dGlassDamper;
   readonly int bUseCkLoopPar;
   readonly int peanoKey;
   readonly GenericTrees useTree;
@@ -336,7 +337,7 @@ mainmodule ParallelGravity {
 	    int bNeedVPred, int bGasIsothermal, double duDelta[MAXRUNG+1],
 	    const CkCallback& cb);
     entry void initAccel(int iKickRung, const CkCallback& cb);
-    entry void externalGravity(int activeRung, const externalGravityParams exGravParams,
+    entry void externalGravity(int activeRung, const ExternalGravity exGrav,
                        const CkCallback& cb);
     entry void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      int bSphStep, int bViscosityLimitdt,
@@ -429,7 +430,7 @@ mainmodule ParallelGravity {
     entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type,
       int firstParticle, int numParticles, int remIdx, MultipoleMoments& moments,
       OrientedBox<double>& box, OrientedBox<double>& boxBall,
-      unsigned int iParticleTypes);
+      unsigned int iParticleTypes, int64_t nSPH);
 
     entry void commenceCalculateGravityLocal();
     entry void calculateGravityRemote(ComputeChunkMsg *msg);

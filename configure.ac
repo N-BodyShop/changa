@@ -134,6 +134,18 @@ else
 fi
 AC_SUBST([FLAG_KERNEL])
 
+# Velocity damping
+AC_ARG_ENABLE([damping],
+	[AS_HELP_STRING([--enable-damping], [enable velocity damping for glasses])],
+	[damping=$enableval], [damping=no])
+if test "$damping" = "yes" ; then
+    echo "DAMPING selected"
+    FLAG_DAMPING="-DDAMPING"
+else
+    FLAG_DAMPING=""
+fi
+AC_SUBST([FLAG_DAMPING])
+
 # Cooling:
 AC_ARG_ENABLE([cooling],
 	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (planet,cosmo)])],

@@ -68,7 +68,7 @@ class NodePool;
     NodeKey key;
 
     GenericTreeNode() : myType(Invalid), key(0), parent(0), firstParticle(0),
-	lastParticle(0), remoteIndex(0), iParticleTypes(0) {
+	lastParticle(0), remoteIndex(0), iParticleTypes(0), nSPH(0) {
 #if COSMO_STATS > 0
       used = false;
 #endif
@@ -102,7 +102,8 @@ class NodePool;
     OrientedBox<double> bndBoxBall;
     /// Mask of particle types contatained in this node
     unsigned int iParticleTypes;
-    /// An index for the first particle contained by this node, 0 means outside the node
+    /// The number of SPH particles this node contains
+    int64_t nSPH;
     /// An index for the first particle contained by this node, 0 means outside the node
     int firstParticle;
     /// An index to the last particle contained by this node, myNumParticles+1 means outside the node
@@ -215,6 +216,7 @@ class NodePool;
       boundingBox.reset();
       bndBoxBall.reset();
       iParticleTypes = 0;
+      nSPH = 0;
       rungs = 0;
       for (int i = firstParticle; i <= lastParticle; ++i) {
         moments += part[i];
@@ -225,6 +227,7 @@ class NodePool;
 			    + Vector3D<double>(fBallMax, fBallMax, fBallMax));
 	    bndBoxBall.grow(part[i].position
 			    - Vector3D<double>(fBallMax, fBallMax, fBallMax));
+            nSPH++;
 	    }
 	iParticleTypes |= part[i].iType;
         if (part[i].rung > rungs) rungs = part[i].rung;
@@ -242,6 +245,7 @@ class NodePool;
       boundingBox.reset();
       bndBoxBall.reset();
       iParticleTypes = 0;
+      nSPH = 0;
     }
 
     void getGraphViz(std::ostream &out);
@@ -279,6 +283,7 @@ class NodePool;
       p | boundingBox;
       p | bndBoxBall;
       p | iParticleTypes;
+      p | nSPH;
       p | firstParticle;
       p | lastParticle;
       p | remoteIndex;

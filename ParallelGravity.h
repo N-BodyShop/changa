@@ -137,6 +137,7 @@ extern DomainsDec domainDecomposition;
 extern double dExtraStore;
 extern double dMaxBalance;
 extern double dFracLoadBalance;
+extern double dGlassDamper;
 extern int bUseCkLoopPar;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
@@ -1662,7 +1663,7 @@ public:
  * @param exGravParams Parameters of the external force
  * @param cb Callback function
  */
-  void externalGravity(int activeRung, const externalGravityParams exGravParams,
+  void externalGravity(int activeRung, const ExternalGravity exGrav,
                        const CkCallback& cb);
 /**
  * Adjust timesteps of active particles.
@@ -1779,7 +1780,8 @@ public:
 	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type,
     int firstParticle, int numParticles, int remIdx,
     const MultipoleMoments& moments, const OrientedBox<double>& box,
-    const OrientedBox<double>& boxBall, const unsigned int iParticleTypes);
+            const OrientedBox<double>& boxBall,
+            const unsigned int iParticleTypes, const int64_t nSPH);
 
 	/// Entry point for the local computation: for each bucket compute the
 	/// force that its particles see due to the other particles hosted in
