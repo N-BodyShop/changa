@@ -3534,7 +3534,7 @@ void TreePiece::startNextBucket() {
 /*inline*/
 void TreePiece::finishBucket(int iBucket) {
 #ifdef SPCUDA
-  if(!(ewaldqueued)){ /* &&bEwald */
+  if(!(ewaldqueued) && bEwald){ 
     if(dm->gputransfer){thisProxy[thisIndex].EwaldGPU();ewaldqueued = true;}
   }
 #endif
@@ -3629,7 +3629,7 @@ void TreePiece::doAllBuckets(){
 
 void TreePiece::nextBucket(dummyMsg *msg){
 #ifdef SPCUDA
-  if(!(ewaldqueued)){ /* &&bEwald */
+  if(!(ewaldqueued) && bEwald){ 
     if(dm->gputransfer){thisProxy[thisIndex].EwaldGPU();ewaldqueued = true;}
   }
 #endif
@@ -3840,7 +3840,7 @@ void TreePiece::calculateEwald(dummyMsg *msg) {
 #ifdef SPCUDA
   CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex);
   ewaldqueued = false;
-  if(!(ewaldqueued)){
+  if(!(ewaldqueued) && bEwald){ /* bEwald just to make sure*/
     if(dm->gputransfer){thisProxy[thisIndex].EwaldGPU();ewaldqueued = true;}
   }  
 #else
