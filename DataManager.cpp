@@ -849,7 +849,6 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 
 #ifdef CAMBRIDGE
   double startTimer = CmiWallTimer();
-  transformLocalTree(node, localMoments);
   // set proper active bucketStart and bucketSize for each bucketNode
   for(int i = 0; i < numTreePieces; i++){
     TreePiece *tp = registeredTreePieces[i].treePiece;
@@ -895,6 +894,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
     }
 
   }
+  transformLocalTreeRecursive(node, localMoments);
 //  CkPrintf("The time cost in transforming tree is %f sec. \n", CmiWallTimer() - startTimer);
 #endif
 
@@ -933,6 +933,7 @@ void DataManager::transformLocalTree(GenericTreeNode *node, CkVec<CudaMultipoleM
     else if(type == Bucket || type == NonLocalBucket){ // NLB
       localMoments[node_index].type = (int)type;
       localMoments[node_index].nodeArrayIndex = node_index;
+      localMoments[node_index].particleCount = node->particleCount;
       for (int i = 0; i < 2; i ++) {
         localMoments[node_index].children[i] = -1;
       }
@@ -940,6 +941,7 @@ void DataManager::transformLocalTree(GenericTreeNode *node, CkVec<CudaMultipoleM
     else if(type == Boundary || type == Internal){ // B,I 
       localMoments[node_index].type = (int)type;
       localMoments[node_index].nodeArrayIndex = node_index;
+      localMoments[node_index].particleCount = node->particleCount;
       for (int i = 0; i < 2; i ++) {
         localMoments[node_index].children[i] = -1;
       }
@@ -952,6 +954,43 @@ void DataManager::transformLocalTree(GenericTreeNode *node, CkVec<CudaMultipoleM
     }
   }// end while queue not empty
 }
+
+void DataManager::transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments) {
+  NodeType type = node->getType();
+  int node_index = node->nodeArrayIndex;
+  
+  if(type == Empty || type == CachedEmpty){ // skip
+    return;
+  } else if(type == Bucket || type == NonLocalBucket) {
+    localMoments[node_index].type = (int)type;
+    localMoments[node_index].nodeArrayIndex = node_index;
+    localMoments[node_index].particleCount = node->particleCount;
+    for (int i = 0; i < 2; i ++) {
+      localMoments[node_index].children[i] = -1;
+    }
+  } else if(type == Boundary || type == Internal){ // B,I     
+    localMoments[node_index].type = (int)type;
+    localMoments[node_index].nodeArrayIndex = node_index;
+    localMoments[node_index].particleCount = node->particleCount;
+    if (node->numChildren() != 0) {
+      GenericTreeNode *child = node->getChildren(0);
+      int child_index = child->nodeArrayIndex;
+
+      localMoments[node_index].bucketStart = localMoments[child_index].bucketStart;
+    }
+    for (int i = 0; i < 2; i ++) {
+      localMoments[node_index].children[i] = -1;
+    }
+    for(int i = 0; i < node->numChildren(); i++){
+      GenericTreeNode *child = node->getChildren(i);
+      int child_index = child->nodeArrayIndex;
+      localMoments[node_index].children[i] = child_index;
+
+      transformLocalTreeRecursive(child, localMoments);
+    } 
+  }
+}
+
 #endif
 
 void DataManager::freeLocalTreeMemory(){
