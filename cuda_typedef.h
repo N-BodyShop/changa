@@ -112,6 +112,7 @@ typedef struct CudaMultipoleMoments{
   CudaVector3D greater_corner;
   int bucketStart;
   int bucketSize;
+  int particleCount;  // Trouble maker
   int nodeArrayIndex;
   int bucketIndex;
 //  int parentIndex;

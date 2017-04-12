@@ -1452,6 +1452,7 @@ cuda_ldg_moments(CudaMultipoleMoments &m, CudaMultipoleMoments *ptr) {
 
   m.bucketStart       = __ldg(&(ptr->bucketStart));
   m.bucketSize        = __ldg(&(ptr->bucketSize));
+  m.particleCount     = __ldg(&(ptr->particleCount));
   m.nodeArrayIndex    = __ldg(&(ptr->nodeArrayIndex));
   m.bucketIndex       = __ldg(&(ptr->bucketIndex));
   m.children[0]       = __ldg(&(ptr->children[0]));
