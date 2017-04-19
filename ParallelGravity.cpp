@@ -1368,7 +1368,7 @@ void Main::getOutTimes()
 	
     fp = fopen(achFileName.c_str(),"r");
     if (!fp) {
-	if (verbosity)
+	if (verbosity && param.csm->bComove)
 	    cerr << "WARNING: Could not open redshift input file: "
 		 << achFileName << endl;
 	return;
@@ -1377,14 +1377,23 @@ void Main::getOutTimes()
 	if (!fgets(achIn,80,fp))
 	    break;
 	
+        ret = 1; // default return if redshift is invalid
 	switch (achIn[0]) {
 	case 'z':
+            if(!param.csm->bComove) {
+                cerr << "WARNING: output redshift invalid in non-comoving coordinates" << endl;
+                break;
+                }
 	    ret = sscanf(&achIn[1],"%lf",&z);
 	    if (ret != 1) break;
 	    a = 1.0/(z+1.0);
 	    vdOutTime.push_back(csmExp2Time(param.csm,a));
 	    break;
 	case 'a':
+            if(!param.csm->bComove) {
+                cerr << "WARNING: output expansion invalid in non-comoving coordinates" << endl;
+                break;
+                }
 	    ret = sscanf(&achIn[1],"%lf",&a);
 	    if (ret != 1) break;
 	    vdOutTime.push_back(csmExp2Time(param.csm,a));
@@ -1392,15 +1401,18 @@ void Main::getOutTimes()
 	case 't':
 	    ret = sscanf(&achIn[1],"%lf",&t);
 	    if (ret != 1) break;
-	    vdOutTime.push_back(csmExp2Time(param.csm,t));
+	    vdOutTime.push_back(t);
 	    break;
 	case 'n':
 	    ret = sscanf(&achIn[1],"%lf",&n);
 	    if (ret != 1) break;
-	    vdOutTime.push_back(csmExp2Time(param.csm,
-					    dTime + (n-0.5)*param.dDelta));
+	    vdOutTime.push_back(dTime + (n-0.5)*param.dDelta);
 	    break;
 	default:
+            if(!param.csm->bComove) {
+                cerr << "WARNING: output redshift invalid in non-comoving coordinates" << endl;
+                break;
+                }
 	    ret = sscanf(achIn,"%lf",&z);
 	    if (ret != 1) break;
 	    a = 1.0/(z+1.0);
