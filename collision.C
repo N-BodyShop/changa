@@ -688,7 +688,7 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         vRel2 = vRel.lengthSquared();
         dr2 = dx.lengthSquared() - sr*sr;
         D = rdotv*rdotv - dr2*vRel2;
-        // If D <= 0, continue?
+        if (D <= 0.) continue;
         D = sqrt(D);
         dt = (-rdotv - D)/vRel2;
 
