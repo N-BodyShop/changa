@@ -2028,13 +2028,27 @@ void Main::setupICs() {
   for (int i = 0; i < args->argc; i++)
       ofsLog << " " << args->argv[i];
   ofsLog << endl;
-  ofsLog << "# Running on " << CkNumPes() << " processors" << endl;
+  ofsLog << "# Running on " << CkNumPes() << " processors/ "
+         << CkNumNodes() << " nodes" << endl;
 #ifdef __DATE__
 #ifdef __TIME__
   ofsLog <<"# Code compiled: " << __DATE__ << " " << __TIME__ << endl;
 #endif
 #endif
-  ofsLog << "# Preprocessor macros:";
+  ofsLog << "# Charm defines:";
+#if CMK_ERROR_CHECKING
+  ofsLog << " CMK_ERROR_CHECKING";
+#endif
+#if CMK_WITH_STATS
+  ofsLog << " CMK_WITH_STATS";
+#endif
+#if CMK_TRACE_ENABLED
+  ofsLog << " CMK_TRACE_ENABLED";
+#endif
+#if CMK_CHARMDEBUG
+  ofsLog << " CMK_CHARMDEBUG";
+#endif
+  ofsLog << endl << "# Preprocessor macros:";
 #ifdef CMK_USE_SSE2
   ofsLog << " CMK_USE_SSE2";
 #endif
