@@ -65,6 +65,7 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     else if(strcmp(achIMF, "Chabrier") == 0) imf = new Chabrier();
     else if(strcmp(achIMF, "Kroupa93") == 0) imf = new Kroupa93();
     else if(strcmp(achIMF, "Kroupa01") == 0) imf = new Kroupa01();
+    else CkAbort("Unknown achIMF parameter");
     sn.imf = imf;
 
 #include "physconst.h"
