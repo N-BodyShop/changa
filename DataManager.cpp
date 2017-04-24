@@ -534,6 +534,7 @@ void DataManager::resumeRemoteChunk() {
       treePieces[in].continueStartRemoteChunk(chunk);
       treePieces[in].commenceCalculateGravityLocal();
     }
+  gputransfer = true;
 #endif
 }
 
@@ -838,8 +839,6 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 #else
   DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, CkMyPe());
 #endif
-  gputransfer = true;
-
 }// end serializeLocal
 
 void DataManager::freeLocalTreeMemory(){
