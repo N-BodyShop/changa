@@ -1280,7 +1280,6 @@ private:
 
 #ifdef SPCUDA
   EwaldData *h_idata;
-  bool ewaldqueued;
 #endif
   void EwaldGPU(); 
   void EwaldGPUComplete();
