@@ -1603,7 +1603,7 @@ int stack[64];
     idt2 = 0;
 
     if (OBSERVE_FLAG && OBSERVING == pidx) {
-      printf("Entered the GPU Kernel!\n");
+      printf("pidx %d entered the GPU Kernel!\n", pidx);
     }
 
     STACK_INIT();
@@ -1718,6 +1718,10 @@ int stack[64];
 
     particleVars[pidx].numOfNodesTraversed = traversedNodes;
     particleVars[pidx].numOfParticlesTraversed = traversedParticles;
+
+    if (OBSERVE_FLAG && OBSERVING == pidx) {
+      printf("pidx %d exit the GPU Kernel!\n", pidx);
+    }
   }
 }
 
