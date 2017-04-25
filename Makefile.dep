@@ -1123,6 +1123,7 @@ Compute.h \
 smooth.h \
 State.h \
 Opt.h \
+SphPressureTerms.h
 
 feedback.o: \
 ParallelGravity.decl.h \

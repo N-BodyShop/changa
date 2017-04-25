@@ -1044,16 +1044,16 @@ int MarkSmoothCompute::openCriterion(TreePiece *ownerTP,
     return 0;
 }
 
-/*
+/**
  * Test a given particle against all the priority queues in the
- * bucket.
+ * bucket.  Note that this is where the work is actually done for a
+ * MarkSmooth.
  */
-
 void MarkSmoothCompute::bucketCompare(TreePiece *ownerTP,
 				  GravityParticle *p,  // Particle to test
-				  GenericTreeNode *node, // bucket
-				  GravityParticle *particles, // local
-							      // particle data
+				  GenericTreeNode *node, ///< (local) bucket
+				  GravityParticle *particles, ///< local
+							      /// particle data
 				  Vector3D<double> offset,
                                   State *state
 				  ) 

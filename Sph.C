@@ -28,9 +28,11 @@ Main::initSph()
     if(param.bDoGas) {
 	ckout << "Calculating densities/divv ...";
 	// The following smooths all GAS, and also marks neighbors of
-	// actives, and those who have actives as neighbors.
+	// actives, and those who have actives as neighbors
+        // Starting is true
 	DenDvDxSmoothParams pDen(TYPE_GAS, 0, param.csm, dTime, 0,
-				 param.bConstantDiffusion);
+				 param.bConstantDiffusion, 1, bHaveAlpha,
+                                 param.dConstAlphaMax);
 	double startTime = CkWallTimer();
 	double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
@@ -423,6 +425,19 @@ Main::restartGas()
           else
               CkError("WARNING: no massform file, or wrong format for restart\n");
           }
+#ifdef CULLENALPHA
+      if(nTotalSPH > 0) {
+          nGas = ncGetCount(basefilename + "/gas/alpha");
+          if(nGas == nTotalSPH) {
+              AlphaOutputParams pAlphaOut(basefilename, 6, 0.0);
+              treeProxy.readFloatBinary(pAlphaOut, param.bParaRead,
+                                        CkCallbackResumeThread());
+              bHaveAlpha = 1;
+              }
+          else
+              CkError("WARNING: no alpha file, or wrong format for restart\n");
+          }
+#endif
 #ifndef COOLING_NONE
       if(param.bGasCooling && nTotalSPH > 0) {
           bool bFoundCoolArray = false;
@@ -520,6 +535,15 @@ Main::restartGas()
             treeProxy.readTipsyArray(pMFOut, CkCallbackResumeThread());
             }
         }
+#ifdef CULLENALPHA
+        if(arrayFileExists(basefilename + ".alpha", nTotalParticles)) {
+            AlphaOutputParams pAlphaOut(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pAlphaOut, CkCallbackResumeThread());
+            bHaveAlpha = 1;
+            }
+        else
+            CkError("WARNING: no alpha file, or wrong format for restart\n");
+#endif
 #ifndef COOLING_NONE
     if(param.bGasCooling) {
         bool bFoundCoolArray = false;
@@ -589,9 +613,9 @@ void TreePiece::RestartEnergy(double dTuFac, // T to internal energy
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if (p->isGas()) {
-	    double T,E;
 #ifndef COOLING_NONE
 #ifndef COOLING_GRACKLE
+	    double T;
 	    T = p->u() / dTuFac;
             PERBARYON Y;
             CoolPARTICLEtoPERBARYON(cl, &Y, &p->CoolParticle());
@@ -621,7 +645,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	ckout << "Calculating densities/divv on Actives ...";
 	// This also marks neighbors of actives
 	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 1,
-				 param.bConstantDiffusion);
+				 param.bConstantDiffusion, 0, 0,
+                                 param.dConstAlphaMax);
 	double startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
@@ -640,7 +665,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// This does neighbors (but not actives),  It also does no
 	// additional marking
 	DenDvDxNeighborSmParams pDenN(TYPE_GAS, activeRung, param.csm, dTime,
-				      param.bConstantDiffusion);
+				      param.bConstantDiffusion,
+                                      param.dConstAlphaMax);
 	startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDenN, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
@@ -652,7 +678,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// The following smooths all GAS, and also marks neighbors of
 	// actives, and those who have actives as neighbors.
 	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 0,
-				 param.bConstantDiffusion);
+				 param.bConstantDiffusion, 0, 0,
+                                 param.dConstAlphaMax);
 	double startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
@@ -711,8 +738,8 @@ void TreePiece::InitEnergy(double dTuFac, // T to internal energy
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS) && p->rung >= activeRung) {
-	    double T,E;
 #ifndef COOLING_NONE
+	    double T,E;
 	    T = p->u() / dTuFac;
 	    CoolInitEnergyAndParticleData(cl, &p->CoolParticle(), &E,
 					  p->fDensity, T, p->fMetals() );
@@ -744,9 +771,9 @@ void TreePiece::updateuDot(int activeRung,
 			   int bAll, // update all rungs below activeRung
 			   const CkCallback& cb)
 {
+#ifndef COOLING_NONE
     double dt; // time in seconds
     
-#ifndef COOLING_NONE
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS)
@@ -828,6 +855,13 @@ int MarkSmoothParams::isSmoothActive(GravityParticle *p)
     return (TYPETest(p, iType));
     }
 
+/// A remote neighbor particle is active.
+void MarkSmoothParams::combSmoothCache(GravityParticle *p1,
+                                       ExternalSmoothParticle *p2)
+{
+    p1->iType |= p2->iType;
+}
+
 void DenDvDxSmoothParams::initSmoothParticle(GravityParticle *p)
 {
     TYPEReset(p, TYPE_NbrOfACTIVE);
@@ -837,6 +871,16 @@ void DenDvDxSmoothParams::initTreeParticle(GravityParticle *p)
 {
     TYPEReset(p, TYPE_NbrOfACTIVE);
     }
+
+
+void DenDvDxSmoothParams::postTreeParticle(GravityParticle *p)
+{
+#ifdef CULLENALPHA
+    if(p->isGas())
+	p->dvds_old() = p->dvdsOnSFull();
+#endif
+}
+
 
 void DenDvDxSmoothParams::initSmoothCache(GravityParticle *p)
 {
@@ -852,21 +896,29 @@ void DenDvDxSmoothParams::combSmoothCache(GravityParticle *p1,
 void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 				    pqSmoothNode *nnList)
 {
-	double ih2,r2,rs,rs1,fDensity,fNorm,fNorm1,vFac;
+  double ih2,ih, r2,rs,rs1,fDensity,fNorm,fNorm1,vFac;
 	double dvxdx, dvxdy, dvxdz, dvydx, dvydy, dvydz, dvzdx, dvzdy, dvzdz;
-	double dvx,dvy,dvz,dx,dy,dz,trace;
+	double dvx,dvy,dvz,dx,dy,dz,trace,grx,gry,grz;
+#ifdef CULLENALPHA
+	double R_CD, R_CDN;     ///< R in CD limiter, and
+                                ///  normalization for R.
+	double maxVSignal;      ///< Maximum signal velocity
+        R_CD = 0.0; R_CDN = 0;  maxVSignal = 0.0;
+#endif
         double divvnorm = 0.0;
 	GravityParticle *q;
 	int i;
 	unsigned int qiActive;
 
-	ih2 = invH2(p);
+        ih2 = invH2(p); 
+        ih = sqrt(ih2); 
 	vFac = 1./(a*a); /* converts v to xdot */
 	fNorm = M_1_PI*ih2*sqrt(ih2);
 	fDensity = 0.0;
 	dvxdx = 0; dvxdy = 0; dvxdz= 0;
 	dvydx = 0; dvydy = 0; dvydz= 0;
 	dvzdx = 0; dvzdy = 0; dvzdz= 0;
+	grx = 0; gry = 0; grz= 0;
 
 	qiActive = 0;
 	for (i=0;i<nSmooth;++i) {
@@ -899,102 +951,141 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		dvzdy += dvz*dy*rs1;
 		dvzdz += dvz*dz*rs1;
                 divvnorm += (dx*dx+dy*dy+dz*dz)*rs1;
-		}
-	if (qiActive)
-	    TYPESet(p,TYPE_NbrOfACTIVE);
-		
-	p->fDensity = fNorm*fDensity; 
-	trace = dvxdx+dvydy+dvzdz;
-        /* keep Norm positive consistent w/ std 1/rho norm */
-        fNorm1 = (divvnorm != 0 ? 3.0/fabs(divvnorm) : 0.0);
-	p->divv() =  fNorm1*trace + 3.0*H; /* physical */
-	p->curlv().x = fNorm1*(dvzdy - dvydz); 
-	p->curlv().y = fNorm1*(dvxdz - dvzdx);
-	p->curlv().z = fNorm1*(dvydx - dvxdy);
-#ifdef DIFFUSION
-        {
-	double onethirdtrace = (1./3.)*trace;
-	/* Build Traceless Strain Tensor (not yet normalized) */
-	double sxx = dvxdx - onethirdtrace; /* pure compression/expansion doesn't diffuse */
-	double syy = dvydy - onethirdtrace;
-	double szz = dvzdz - onethirdtrace;
-	double sxy = 0.5*(dvxdy + dvydx); /* pure rotation doesn't diffuse */
-	double sxz = 0.5*(dvxdz + dvzdx);
-	double syz = 0.5*(dvydz + dvzdy);
-	/* diff coeff., nu ~ C L^2 S (add C via dMetalDiffusionConstant, assume L ~ h) */
-	if (bConstantDiffusion) p->diff() = 1;
-	else p->diff() = fNorm1*0.25*p->fBall*p->fBall*sqrt(2*(sxx*sxx + syy*syy + szz*szz + 2*(sxy*sxy + sxz*sxz + syz*syz)));
-	}
-#endif
-	}
+                /* Grad P estimate */
+		/* This used to be:
+                   grx += (-p->uPred + q->uPred)*dx*rs1; But that is
+                   rho grad u*/
+                grx += (q->uPred())*dx*rs1;
+                gry += (q->uPred())*dy*rs1;
+                grz += (q->uPred())*dz*rs1;
 
-/* As above, but no marking */
-void DenDvDxNeighborSmParams::fcnSmooth(GravityParticle *p, int nSmooth,
-				    pqSmoothNode *nnList)
+#ifdef CULLENALPHA
+                // Special weighting function to reduce noise in R
+                // calculation.  See discussion after eq. 29 in
+                // Wadsley et al 2017.
+                double R_wt = (1-r2*r2*0.0625)* q->mass;
+                R_CD += q->dvds_old() * R_wt; 
+                R_CDN += R_wt;
+                // Convention here dvdx = vxq-vxp, dx = xp-xq so
+                // dvdotdr = -dvx*dx ...
+                double dvdotdr = -(dvx*dx + dvy*dy + dvz*dz)
+                    + fDist2*H; // vFac already in there
+                double cavg = (p->c() + q->c())*0.5;
+                double vSig = cavg - (dvdotdr < 0 ? dvdotdr/sqrt(fDist2) : 0);
+                if (vSig > maxVSignal) maxVSignal = vSig; 
+
+#endif
+		}
+
+        if (qiActive)
+          TYPESet(p,TYPE_NbrOfACTIVE);
+
+        p->fDensity = fNorm*fDensity;
+        trace = dvxdx+dvydy+dvzdz;
+        // keep Norm positive consistent w/ std 1/rho norm
+        fNorm1 = (divvnorm != 0 ? 3.0/fabs(divvnorm) : 0.0); 
+
+#if defined(DIFFUSION) || defined(CULLENALPHA)
+      double onethirdtrace = (1./3.)*trace;
+      /* Build Traceless Strain Tensor (not yet normalized) */
+      double sxx = dvxdx - onethirdtrace; /* pure compression/expansion doesn't diffuse */
+      double syy = dvydy - onethirdtrace;
+      double szz = dvzdz - onethirdtrace;
+      double sxy = 0.5*(dvxdy + dvydx); /* pure rotation doesn't diffuse */
+      double sxz = 0.5*(dvxdz + dvzdx);
+      double syz = 0.5*(dvydz + dvzdy);
+#endif
+#ifdef DIFFUSION
+      /* diff coeff., nu ~ C L^2 S (add C via dMetalDiffusionConstant, assume L ~ h) */
+      if (bConstantDiffusion) p->diff() = 1;
+      else p->diff() = fNorm1*0.25*p->fBall*p->fBall*sqrt(2*(sxx*sxx + syy*syy + szz*szz + 2*(sxy*sxy + sxz*sxz + syz*syz)));
+#endif
+
+        p->divv() =  fNorm1*trace + 3.0*H; /* physical */
+        p->curlv().x = fNorm1*(dvzdy - dvydz);
+        p->curlv().y = fNorm1*(dvxdz - dvzdx);
+        p->curlv().z = fNorm1*(dvydx - dvxdy);
+
+#ifdef CULLENALPHA 
+        double alphaLoc, tau; 
+        double l = 0.1;
+        double Hcorr = (fNorm1 != 0 ? H/fNorm1 : 0);
+        double gnorm = (grx*grx+gry*gry+grz*grz);
+        if (gnorm > 0) gnorm=1/sqrt(gnorm);
+        grx *= gnorm;
+        gry *= gnorm;
+        grz *= gnorm;
+        double dvdr = (((dvxdx+Hcorr)*grx+dvxdy*gry+dvxdz*grz)*grx
+        +  (dvydx*grx+(dvydy+Hcorr)*gry+dvydz*grz)*gry
+        +  (dvzdx*grx+dvzdy*gry+(dvzdz+Hcorr)*grz)*grz)*fNorm1;
+
+        double pdvds_old = p->dvds();
+        double dvds = (p->divv() < 0 ? 1.5*(dvdr -(1./3.)*p->divv()) : dvdr );
+        double sxxf = dvxdx+Hcorr, syyf = dvydy+Hcorr, szzf = dvzdz+Hcorr;
+        double SFull = sqrt(fNorm1*fNorm1*(sxxf*sxxf+syyf*syyf+szzf*szzf 
+                                           + 2*(sxy*sxy + sxz*sxz + syz*syz)));
+       
+        p->dvdsOnSFull() = SFull > 0 ? dvds/SFull : 0; 
+#ifdef CD_SFULL
+        p->dvds() = p->dvdsOnSFull();
+#else
+        p->dvds() = dvds;
+#endif
+
+        // time interval = current time - last time divv was calculated
+        double deltaT = dTime - p->TimeDivV();
+        double divVDot = (p->dvds() - pdvds_old)/deltaT;
+        p->TimeDivV() = dTime;
+        // If we are initializing the simulation, the current time step is zero and we can't compute the time
+        // derivative of the velocity divergence in the Cullen & Dehnen formulation
+        if (bStarting && !bHaveAlpha){
+          // If the divergence of the velocity of the particle is negative and the speed of sound is nonzero
+          // we set p->CullenAlpha() using the M&M prescription. Otherwise p->CullenAlpha() is zero
+          if ((p->divv() < 0) && (p->c() > 0)){
+            tau = p->fBall / (2.0*l*maxVSignal);
+            alphaLoc = -dAlphaMax*p->divv()*tau / (1.0 - p->divv()*tau);
+          }
+          else alphaLoc = 0.0; 
+          p->CullenAlpha() = alphaLoc;
+        }
+        // If the current time step > 0
+        else if(!bHaveAlpha) {
+          if (p->dvds() < 0 && divVDot < 0){ // Flow is converging and
+                                             // convergence is increasing
+            double OneMinusR_CD = (R_CDN > 0 ? 1-(R_CD/R_CDN) : 0);
+
+            double xi = (OneMinusR_CD < -1 ? 0 :
+                (OneMinusR_CD > 2 ? 1 : 0.0625*OneMinusR_CD*OneMinusR_CD*OneMinusR_CD*OneMinusR_CD));
+            // Multiplier for ATerm in CD viscosity.
+            const double dAFac = 2.0;
+            double Aterm = xi * p->fBall * p->fBall * fabs(divVDot)*dAFac;
+
+            // The local alpha value
+            alphaLoc = dAlphaMax* Aterm / (maxVSignal*maxVSignal + Aterm);
+            
+          }
+          else alphaLoc = 0; 
+          // Decay parameter
+          tau = 1. / (l*maxVSignal*ih);
+          // If alphaLoc is larger then the current p->CullenAlpha(), we set p->CullenAlhpa() to be equal to alphaLoc.
+          // Otherwise, we decay p->CullenAlpha() to the alphaLoc value
+
+          if (alphaLoc > p->CullenAlpha()) p->CullenAlpha() = alphaLoc;
+          else{
+            double oldCullenAlpha = p->CullenAlpha();
+            p->CullenAlpha() = alphaLoc - (alphaLoc - oldCullenAlpha)*exp(-deltaT/tau);
+           }
+        }
+#endif /* CULLENALPHA */
+}
+	
+void DenDvDxNeighborSmParams::postTreeParticle(GravityParticle *p)
 {
-	double ih2,r2,rs,rs1,fDensity,fNorm,fNorm1,vFac;
-	double dvxdx, dvxdy, dvxdz, dvydx, dvydy, dvydz, dvzdx, dvzdy, dvzdz;
-	double dvx,dvy,dvz,dx,dy,dz,trace;
-	GravityParticle *q;
-	int i;
-
-	ih2 = invH2(p);
-	vFac = 1./(a*a); /* converts v to xdot */
-	fNorm = M_1_PI*ih2*sqrt(ih2);
-	fNorm1 = fNorm*ih2;	
-	fDensity = 0.0;
-	dvxdx = 0; dvxdy = 0; dvxdz= 0;
-	dvydx = 0; dvydy = 0; dvydz= 0;
-	dvzdx = 0; dvzdy = 0; dvzdz= 0;
-
-	for (i=0;i<nSmooth;++i) {
-		double fDist2 = nnList[i].fKey;
-		r2 = fDist2*ih2;
-		q = nnList[i].p;
-		rs = KERNEL(r2);
-		fDensity += rs*q->mass;
-		rs1 = DKERNEL(r2);
-		rs1 *= q->mass;
-		dx = nnList[i].dx.x;
-		dy = nnList[i].dx.y;
-		dz = nnList[i].dx.z;
-		dvx = (-p->vPred().x + q->vPred().x)*vFac - dx*H; /* NB: dx = px - qx */
-		dvy = (-p->vPred().y + q->vPred().y)*vFac - dy*H;
-		dvz = (-p->vPred().z + q->vPred().z)*vFac - dz*H;
-		dvxdx += dvx*dx*rs1;
-		dvxdy += dvx*dy*rs1;
-		dvxdz += dvx*dz*rs1;
-		dvydx += dvy*dx*rs1;
-		dvydy += dvy*dy*rs1;
-		dvydz += dvy*dz*rs1;
-		dvzdx += dvz*dx*rs1;
-		dvzdy += dvz*dy*rs1;
-		dvzdz += dvz*dz*rs1;
-		}
-		
-	p->fDensity = fNorm*fDensity; 
-	fNorm1 /= p->fDensity;
-	trace = dvxdx+dvydy+dvzdz;
-	p->divv() =  fNorm1*trace; /* physical */
-	p->curlv().x = fNorm1*(dvzdy - dvydz); 
-	p->curlv().y = fNorm1*(dvxdz - dvzdx);
-	p->curlv().z = fNorm1*(dvydx - dvxdy);
-#ifdef DIFFUSION
-        {
-	double onethirdtrace = (1./3.)*trace;
-	/* Build Traceless Strain Tensor (not yet normalized) */
-	double sxx = dvxdx - onethirdtrace; /* pure compression/expansion doesn't diffuse */
-	double syy = dvydy - onethirdtrace;
-	double szz = dvzdz - onethirdtrace;
-	double sxy = 0.5*(dvxdy + dvydx); /* pure rotation doesn't diffuse */
-	double sxz = 0.5*(dvxdz + dvzdx);
-	double syz = 0.5*(dvydz + dvzdy);
-	/* diff coeff., nu ~ C L^2 S (add C via dMetalDiffusionConstant, assume L ~ h) */
-	if (bConstantDiffusion) p->diff() = 1;
-	else p->diff() = fNorm1*0.25*p->fBall*p->fBall*sqrt(2*(sxx*sxx + syy*syy + szz*szz + 2*(sxy*sxy + sxz*sxz + syz*syz)));
-	}
+#ifdef CULLENALPHA
+    if(p->isGas())
+	p->dvds_old() = p->dvdsOnSFull();
 #endif
-	}
+}
 
 void 
 TreePiece::sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb)
@@ -1054,7 +1145,7 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1,
                 double dt;
                 if(uDot > 0.0)
                     dt = dtFacCourant*0.5*p->fBall
-                        /sqrt(4.0*p->c()*p->c() + gamma*uDot*p->dt);
+                        /sqrt(4.0*(p->c()*p->c() + GAMMA_NONCOOL*uDot*p->dt));
                 else
                     dt = dtFacCourant*0.5*p->fBall /(2.0*p->c());
                 // Update to scare the neighbors.
@@ -1073,10 +1164,10 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
                                       double dResolveJeans,
                                       const CkCallback &cb)
 {
+#ifndef COOLING_NONE
     GravityParticle *p;
     double PoverRho;
     int i;
-#ifndef COOLING_NONE
     COOL *cl = dm->Cool;
 
     for(i=1; i<= myNumParticles; ++i) {
@@ -1097,7 +1188,7 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1,
                 double dt;
                 if(uDot > 0.0)
                     dt = dtFacCourant*0.5*p->fBall
-                        /sqrt(4.0*p->c()*p->c() + gamma*uDot*p->dt);
+                        /sqrt(4.0*(p->c()*p->c() + GAMMA_NONCOOL*uDot*p->dt));
                 else
                     dt = dtFacCourant*0.5*p->fBall /(2.0*p->c());
                 // Update to scare the neighbors.
@@ -1180,7 +1271,7 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	double dx,dy,dz,dvx,dvy,dvz,dvdotdr;
 	double pPoverRho2,pPoverRho2f,pMass;
 	double qPoverRho2,qPoverRho2f;
-	double ph,pc,pDensity,visc,hav,absmu,Accp,Accq;
+	double ph,pc,pDensity,visc,absmu,Accp,Accq;
 	double fNorm,fNorm1,aFac,vFac, divvi, divvj;
 	double fDivv_Corrector;
 	double dt;
@@ -1254,13 +1345,13 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 #define PACTIVE(xxx) xxx
 #define QACTIVE(xxx) xxx
 #include "SphPressureTerms.h"
-		    }
+	            }
 		else {
 #undef QACTIVE
 #define QACTIVE(xxx) 
 #include "SphPressureTerms.h"
 		    }
-		}
+	        }
 	    else if (q->rung >= activeRung) {
 #undef PACTIVE
 #define PACTIVE(xxx) 

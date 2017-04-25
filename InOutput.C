@@ -47,6 +47,10 @@ void load_tipsy_gas(Tipsy::TipsyReader &r, GravityParticle &p, double dTuFac)
 #endif
     p.u() = dTuFac*gp.temp;
     p.uPred() = dTuFac*gp.temp;
+    // Initial estimate of sound speed.
+    double gamma = GAMMA_NONCOOL;
+    double gammam1 = gamma - 1.0;
+    p.c() = sqrt(gamma*gammam1*p.uPred());
     p.vPred() = gp.vel;
     p.fBallMax() = HUGE;
     p.fESNrate() = 0.0;
@@ -56,6 +60,8 @@ void load_tipsy_gas(Tipsy::TipsyReader &r, GravityParticle &p, double dTuFac)
     p.dtNew() = FLT_MAX;
 #ifndef COOLING_NONE
     p.uDot() = 0.0;  // Used in initial timestep
+#else
+    p.PdV() = 0.0;  // Used in initial timestep
 #endif
 #endif
 }
@@ -567,6 +573,8 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
         myParts[i].dtNew() = FLT_MAX;
 #ifndef COOLING_NONE
         myParts[i].uDot() = 0.0;  // Used in initial timestep
+#else
+        myParts[i].PdV() = 0.0;  // Used in initial timestep
 #endif
 #endif
         }
@@ -651,6 +659,10 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
 	    throw XDRException("I don't recognize the type of this field!");
 	    }
         myParts[i].uPred() = myParts[i].u();
+        // Initial estimate of sound speed.
+        double gamma = GAMMA_NONCOOL;
+        double gammam1 = gamma - 1.0;
+        myParts[i].c() = sqrt(gamma*gammam1*myParts[i].uPred());
         }
     deleteField(fh, data);
 }

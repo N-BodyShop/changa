@@ -191,6 +191,7 @@ Main::Main(CkArgMsg* m) {
 	_cache = true;
 	mainChare = thishandle;
 	bIsRestarting = 0;
+        bHaveAlpha = 0;
 	bChkFirst = 1;
 	dSimStartTime = CkWallTimer();
 
@@ -310,7 +311,7 @@ Main::Main(CkArgMsg* m) {
 		    "csound","enable/disable sound speed outputs = -csound");
 	param.nSmooth = 32;
 	prmAddParam(prm, "nSmooth", paramInt, &param.nSmooth,
-		    sizeof(int),"nsm", "Number of neighbors for smooth");
+		    sizeof(int),"s", "Number of neighbors for smooth");
 	param.bDoGravity = 1;
 	prmAddParam(prm, "bDoGravity", paramBool, &param.bDoGravity,
 		    sizeof(int),"g", "Enable Gravity");
@@ -430,7 +431,7 @@ Main::Main(CkArgMsg* m) {
 	param.bDoGas = 0;
 	prmAddParam(prm, "bDoGas", paramBool, &param.bDoGas,
 		    sizeof(int),"gas", "Enable Gas Calculation");
-	param.bFastGas = 0;
+	param.bFastGas = 1;
 	prmAddParam(prm, "bFastGas", paramBool, &param.bFastGas,
 		    sizeof(int),"Fgas", "Fast Gas Method");
 	param.dFracFastGas = 0.1;
@@ -488,6 +489,12 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dConstBeta",paramDouble,&param.dConstBeta,
 		    sizeof(double),"beta",
 		    "<Beta constant in viscosity> = 2.0");
+#ifdef CULLENALPHA
+	param.dConstAlphaMax = 4.0;
+	prmAddParam(prm, "dConstAlphaMax", paramDouble, &param.dConstAlphaMax,
+		    sizeof(double), "AlphaMax", 
+		    "< Cullen and Dehnen Alpha Max constant in viscosity> = 1.0");
+#endif
 	param.dConstGamma = 5.0/3.0;
 	prmAddParam(prm,"dConstGamma",paramDouble,&param.dConstGamma,
 		    sizeof(double),"gamma", "<Ratio of specific heats> = 5/3");
@@ -675,7 +682,7 @@ Main::Main(CkArgMsg* m) {
 		    sizeof(int),"f", "Enable prefetching in the cache (default: ON)");
 	cacheSize = 100000000;
 	prmAddParam(prm, "nCacheSize", paramInt, &cacheSize,
-		    sizeof(int),"s", "Size of cache (IGNORED)");
+		    sizeof(int),"cs", "Size of cache (IGNORED)");
 	domainDecomposition=SFC_peano_dec;
         peanoKey=0;
 	prmAddParam(prm, "nDomainDecompose", paramInt, &domainDecomposition,
@@ -1233,6 +1240,7 @@ Main::Main(CkMigrateMessage* m) : CBase_Main(m) {
     args->argv = CmiCopyArgs(((CkArgMsg *) m)->argv);
     mainChare = thishandle;
     bIsRestarting = 1;
+    bHaveAlpha = 1;
     CkPrintf("Main(CkMigrateMessage) called\n");
     sorter = CProxy_Sorter::ckNew(0);
     }
@@ -2097,6 +2105,12 @@ void Main::setupICs() {
 #ifdef RTFORCE
   ofsLog << " RTFORCE";
 #endif
+#ifdef CULLENALPHA
+  ofsLog << " CULLENALPHA";
+#endif
+#ifdef VSIGVISC
+  ofsLog << " VSIGVISC";
+#endif
 #ifdef HEXADECAPOLE
   ofsLog << " HEXADECAPOLE";
 #endif
@@ -2315,7 +2329,22 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	    initStarLog();
         if(param.bStarForm || param.bFeedback)
             treeProxy.initRand(param.stfm->iRandomSeed, CkCallbackResumeThread());
-	mainChare.initialForces();
+        DumpFrameInit(dTime, 0.0, bIsRestarting);
+
+	/***** Initial sorting of particles and Domain Decomposition *****/
+	CkPrintf("Initial domain decomposition ... ");
+
+	double startTime = CkWallTimer();
+	sorter.startSorting(dataManagerID, ddTolerance,
+			  CkCallbackResumeThread(), true);
+	CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
+	// Balance load initially after decomposition
+	CkPrintf("Initial load balancing ... ");
+	startTime = CkWallTimer();
+	treeProxy.balanceBeforeInitialForces(CkCallbackResumeThread());
+	CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+
+        doSimulation();
 	}
     else {
         if(msg->status != CK_CHECKPOINT_SUCCESS)
@@ -2482,27 +2511,7 @@ Main::initialForces()
   /* 
    ** Dump Frame Initialization
    */
-  // Currently for restarts, we have to set iStartStep.  Once we have more
-  // complete restarts, this may be changed.
-  if(DumpFrameInit(dTime, 0.0, param.iStartStep > 0)
-     && df[0]->dDumpFrameStep > 0) {
-      /* Bring frame count up to correct place for restart. */
-      while(df[0]->dStep + df[0]->dDumpFrameStep < param.iStartStep) {
-	  df[0]->dStep += df[0]->dDumpFrameStep;
-	  df[0]->nFrame++;
-	  }
-      // initialize the rest of the dumpframes
-
-      if (param.iDirector > 1) {
-	  int j;
-	  for(j=0; j < param.iDirector; j++) {
-	      df[j]->dStep = df[0]->dStep;
-	      df[j]->dDumpFrameStep = df[0]->dDumpFrameStep;
-	      df[j]->nFrame = df[0]->nFrame;
-	      } 
-	  }
-      }
-     
+  DumpFrameInit(dTime, 0.0, param.iStartStep > 0);
 
   if (param.bLiveViz > 0) {
     ckout << "Initializing liveViz module..." << endl;
@@ -3143,6 +3152,10 @@ void Main::writeOutput(int iStep)
     MFormOutputParams pMFormOut(achFile, param.iBinaryOut, dOutTime);
     coolontimeOutputParams pcoolontimeOut(achFile, param.iBinaryOut, dOutTime);
     ESNRateOutputParams pESNRateOut(achFile, param.iBinaryOut, dOutTime);
+#ifdef CULLENALPHA
+    AlphaOutputParams pAlphaOut(achFile, param.iBinaryOut, dOutTime);
+    DvDsOutputParams pDvDsOut(achFile, param.iBinaryOut, dOutTime);
+#endif
 #ifndef COOLING_NONE
     Cool0OutputParams pCool0Out(achFile, param.iBinaryOut, dOutTime);
     Cool1OutputParams pCool1Out(achFile, param.iBinaryOut, dOutTime);
@@ -3158,13 +3171,17 @@ void Main::writeOutput(int iStep)
     CsOutputParams pCSOut(achFile, param.iBinaryOut, dOutTime);
 
     if (param.iBinaryOut) {
-	if (param.bStarForm || param.bFeedback) {
+#ifdef CULLENALPHA
+	outputBinary(pAlphaOut, param.bParaWrite, CkCallbackResumeThread());
+	outputBinary(pDvDsOut, param.bParaWrite, CkCallbackResumeThread());
+#endif
+        if (param.bStarForm || param.bFeedback) {
 	    outputBinary(pOxOut, param.bParaWrite, CkCallbackResumeThread());
 	    outputBinary(pFeOut, param.bParaWrite, CkCallbackResumeThread());
 	    outputBinary(pMFormOut, param.bParaWrite, CkCallbackResumeThread());
 	    outputBinary(pcoolontimeOut, param.bParaWrite, CkCallbackResumeThread());
 	    outputBinary(pESNRateOut, param.bParaWrite, CkCallbackResumeThread());
-	    }
+            }
 #ifndef COOLING_NONE
 	if(param.bGasCooling) {
 	    outputBinary(pCool0Out, param.bParaWrite, CkCallbackResumeThread());
@@ -3201,6 +3218,12 @@ void Main::writeOutput(int iStep)
                 }
             }
 	} else {
+#ifdef CULLENALPHA
+        treeProxy[0].outputASCII(pAlphaOut, param.bParaWrite,
+                               CkCallbackResumeThread());
+        treeProxy[0].outputASCII(pDvDsOut, param.bParaWrite,
+                               CkCallbackResumeThread());
+#endif
 	if (param.bStarForm || param.bFeedback) {
 	    treeProxy[0].outputASCII(pOxOut, param.bParaWrite,
 				     CkCallbackResumeThread());
@@ -3528,6 +3551,22 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 
 		if(!bRestart)
 		    DumpFrame(dTime, dStep );
+                if(df[0]->dDumpFrameStep > 0) {
+                    /* Bring frame count up to correct place for restart. */
+                    while(df[0]->dStep + df[0]->dDumpFrameStep < param.iStartStep) {
+                        df[0]->dStep += df[0]->dDumpFrameStep;
+                        df[0]->nFrame++;
+                        }
+                    // initialize the rest of the dumpframes
+                    if (param.iDirector > 1) {
+                        int j;
+                        for(j=0; j < param.iDirector; j++) {
+                            df[j]->dStep = df[0]->dStep;
+                            df[j]->dDumpFrameStep = df[0]->dDumpFrameStep;
+                            df[j]->nFrame = df[0]->nFrame;
+                            }
+                        }
+                    }
                 return 1;
 		}
 	else { return 0; }

@@ -410,6 +410,7 @@ inline double PoverRhoFloorJeans(double dResolveJeans, GravityParticle *p)
 }
 
 const double GAMMA_JEANS = 2.0;
+const double GAMMA_NONCOOL = 5.0/3.0;
 
 
 /// @brief Overall flow control of the simulation.
@@ -455,6 +456,8 @@ class Main : public CBase_Main {
 	int bDumpFrame;
 	struct DumpFrameContext **df;
 	int bIsRestarting;
+        /// SPH Alpha has been read in.
+        int bHaveAlpha;
 	int bChkFirst;		/* alternate between 0 and 1 for checkpoint */
 	double dSimStartTime;   // Start time for entire simulation
 	int iStop;		/* indicate we're stopping the

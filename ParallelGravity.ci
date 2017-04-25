@@ -151,6 +151,8 @@ mainmodule ParallelGravity {
   PUPable AgeOutputParams;
   PUPable coolontimeOutputParams;
   PUPable ESNRateOutputParams;
+  PUPable AlphaOutputParams;
+  PUPable DvDsOutputParams;
   PUPable DtOutputParams;
   PUPable KeyOutputParams;
   PUPable DomainOutputParams;

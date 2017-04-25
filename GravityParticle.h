@@ -64,6 +64,13 @@ class extraSPHData
     double _PoverRho2;		/* Pressure/rho^2 */
     double _BalsaraSwitch;	/* Pressure/rho^2 */
     double _fBallMax;		/* Radius for inverse neighbor finding */
+#ifdef CULLENALPHA
+    double _CullenAlpha;        /* Alpha from Cullen & Dehnen 2010 */
+    double _TimeDivV;           /* Time at which dvds was last updated */
+    double _dvds;
+    double _dvdsOnSFull;        ///< dvds for use in the Cullen R calculation
+    double _dvds_old;           ///< Save dvds(OnSFull) for R calculation
+#endif
 #ifdef DTADJUST
     double _dtNew;		/* New timestep from gas pressure */
 #endif
@@ -100,6 +107,13 @@ class extraSPHData
     inline double& PoverRho2() {return _PoverRho2;}
     inline double& BalsaraSwitch() {return _BalsaraSwitch;}
     inline double& fBallMax() {return _fBallMax;}
+#ifdef CULLENALPHA
+    inline double& CullenAlpha() {return _CullenAlpha;}
+    inline double& TimeDivV() {return _TimeDivV;}
+    inline double& dvds() {return _dvds;}
+    inline double& dvdsOnSFull() {return _dvdsOnSFull;}
+    inline double& dvds_old() {return _dvds_old;}
+#endif
 #ifdef DTADJUST
     inline double& dtNew() {return _dtNew;}
 #endif
@@ -133,6 +147,13 @@ class extraSPHData
 	p | _PoverRho2;
 	p | _BalsaraSwitch;
 	p | _fBallMax;
+#ifdef CULLENALPHA
+        p | _CullenAlpha;
+        p | _TimeDivV;
+        p | _dvds;
+        p | _dvdsOnSFull;
+        p | _dvds_old;
+#endif 
 #ifdef DTADJUST
         p | _dtNew;
 #endif
@@ -297,6 +318,13 @@ public:
 	inline double& PoverRho2() { IMAGAS; return (((extraSPHData*)extraData)->PoverRho2());}
 	inline double& BalsaraSwitch() { IMAGAS; return (((extraSPHData*)extraData)->BalsaraSwitch());}
 	inline double& fBallMax() { IMAGAS; return (((extraSPHData*)extraData)->fBallMax());}
+#ifdef CULLENALPHA
+        inline double& CullenAlpha() {IMAGAS; return (((extraSPHData*)extraData)->CullenAlpha());}
+        inline double& TimeDivV() {IMAGAS; return (((extraSPHData*)extraData)->TimeDivV());}
+        inline double& dvds() {IMAGAS; return (((extraSPHData*)extraData)->dvds());}
+        inline double& dvdsOnSFull() {IMAGAS; return (((extraSPHData*)extraData)->dvdsOnSFull());}
+        inline double& dvds_old() {IMAGAS; return (((extraSPHData*)extraData)->dvds_old());}
+#endif
 #ifdef DTADJUST
         inline double& dtNew() { IMAGAS; return (((extraSPHData*)extraData)->dtNew());}
 #endif
@@ -417,6 +445,12 @@ class ExternalSmoothParticle {
   double PoverRho2;
   double BalsaraSwitch;
   double fBallMax;
+#ifdef CULLENALPHA
+  double CullenAlpha;
+  double TimeDivV;
+  double dvds;
+  double dvds_old;
+#endif
   double u;
   double uPred;
   double uDot;
@@ -454,6 +488,12 @@ class ExternalSmoothParticle {
 	      PoverRho2 = p->PoverRho2();
 	      BalsaraSwitch = p->BalsaraSwitch();
 	      fBallMax = p->fBallMax();
+#ifdef CULLENALPHA
+	      CullenAlpha = p->CullenAlpha();
+              TimeDivV = p->TimeDivV();
+              dvds = p->dvds();
+              dvds_old = p->dvds_old();
+#endif
 	      curlv = p->curlv();
 	      u = p->u();
 #ifndef COOLING_NONE
@@ -496,6 +536,12 @@ class ExternalSmoothParticle {
 	  tmp->PoverRho2() = PoverRho2;
 	  tmp->BalsaraSwitch() = BalsaraSwitch;
 	  tmp->fBallMax() = fBallMax;
+#ifdef CULLENALPHA
+	  tmp->CullenAlpha() = CullenAlpha;
+          tmp->TimeDivV() = TimeDivV;
+          tmp->dvds() = dvds;
+          tmp->dvds_old() = dvds_old;
+#endif
 	  tmp->curlv() = curlv;
 	  tmp->u() = u;
 #ifndef COOLING_NONE
@@ -540,6 +586,12 @@ class ExternalSmoothParticle {
     p | PoverRho2;
     p | BalsaraSwitch;
     p | fBallMax;
+#ifdef CULLENALPHA
+    p | CullenAlpha;
+    p | TimeDivV;
+    p | dvds;
+    p | dvds_old;
+#endif
     p | u;
     p | uPred;
     p | uDot;
