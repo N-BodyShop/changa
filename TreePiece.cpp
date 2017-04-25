@@ -3813,7 +3813,14 @@ void TreePiece::doAllBuckets(){
   *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
   CkSetQueueing(msg,CK_QUEUEING_IFIFO);
 
-#ifdef CAMBRIDGE
+#ifdef CAMBRIDGE 
+#define CUDA_PTF_BUF_SIZE (50 * 1024 * 1024)
+    cudaDeviceSetLimit(cudaLimitPrintfFifoSize, (size_t) CUDA_PTF_BUF_SIZE);
+    size_t size;
+    cudaDeviceGetLimit(&size,cudaLimitPrintfFifoSize);
+    printf("our cuda printf fifo buffer size is %d.\n", size);
+
+
     CkPrintf("CAMBRIDGE         The numBuckets = %d\n", numBuckets);
   ListCompute *listcompute = (ListCompute *) sGravity;
   DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;

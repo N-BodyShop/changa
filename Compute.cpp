@@ -1467,6 +1467,8 @@ void cudaCallbackForAllBuckets(void *param, void *msg) {
   }
   delete ((CkCallback *)data->cb);
   delete data; 
+
+  printf("The callback function is called! GPU work is done!\n");
 }
 
 void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int activeRung, int start_id, int end_id) {
