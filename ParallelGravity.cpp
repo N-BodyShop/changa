@@ -3134,7 +3134,18 @@ void Main::writeOutput(int iStep)
     OxOutputParams pOxOut(achFile, param.iBinaryOut, dOutTime);
     FeOutputParams pFeOut(achFile, param.iBinaryOut, dOutTime);
     MFormOutputParams pMFormOut(achFile, param.iBinaryOut, dOutTime);
-    HMStarsOutputParams pHMStarsOut(achFile, param.iBinaryOut, dOutTime);
+    HMStar1OutputParams pHMStar1Out(achFile, param.iBinaryOut, dOutTime);
+    HMStar2OutputParams pHMStar2Out(achFile, param.iBinaryOut, dOutTime);
+    HMStar3OutputParams pHMStar3Out(achFile, param.iBinaryOut, dOutTime);
+    HMStar4OutputParams pHMStar4Out(achFile, param.iBinaryOut, dOutTime);
+    HMStar5OutputParams pHMStar5Out(achFile, param.iBinaryOut, dOutTime);
+    HMStar6OutputParams pHMStar6Out(achFile, param.iBinaryOut, dOutTime);
+    HMStar7OutputParams pHMStar7Out(achFile, param.iBinaryOut, dOutTime);
+    HMStar8OutputParams pHMStar8Out(achFile, param.iBinaryOut, dOutTime);
+    HMStar9OutputParams pHMStar9Out(achFile, param.iBinaryOut, dOutTime);
+    HMStar10OutputParams pHMStar10Out(achFile, param.iBinaryOut, dOutTime);
+    HMStar11OutputParams pHMStar11Out(achFile, param.iBinaryOut, dOutTime);
+    HMStar12OutputParams pHMStar12Out(achFile, param.iBinaryOut, dOutTime);
     coolontimeOutputParams pcoolontimeOut(achFile, param.iBinaryOut, dOutTime);
     ESNRateOutputParams pESNRateOut(achFile, param.iBinaryOut, dOutTime);
 #ifndef COOLING_NONE
@@ -3160,7 +3171,18 @@ void Main::writeOutput(int iStep)
 	    outputBinary(pESNRateOut, param.bParaWrite, CkCallbackResumeThread());
 	    }
     if (param.feedback->sn.bUseStoch){
-        outputBinary(pHMStarsOut, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary(pHMStar1Out, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary(pHMStar2Out, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary(pHMStar3Out, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary(pHMStar4Out, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary(pHMStar5Out, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary(pHMStar6Out, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary(pHMStar7Out, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary(pHMStar8Out, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary(pHMStar9Out, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary(pHMStar10Out, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary(pHMStar11Out, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary(pHMStar12Out, param.bParaWrite, CkCallbackResumeThread());
     }
 #ifndef COOLING_NONE
 	if(param.bGasCooling) {
@@ -3210,7 +3232,29 @@ void Main::writeOutput(int iStep)
 	    treeProxy[0].outputASCII(pESNRateOut, param.bParaWrite,
 				      CkCallbackResumeThread());
         if (param.feedback->sn.bUseStoch) {
-            treeProxy[0].outputASCII(pHMStarsOut, param.bParaWrite,
+            treeProxy[0].outputASCII(pHMStar1Out, param.bParaWrite,
+                          CkCallbackResumeThread());
+            treeProxy[0].outputASCII(pHMStar2Out, param.bParaWrite,
+                          CkCallbackResumeThread());
+            treeProxy[0].outputASCII(pHMStar3Out, param.bParaWrite,
+                          CkCallbackResumeThread());
+            treeProxy[0].outputASCII(pHMStar4Out, param.bParaWrite,
+                          CkCallbackResumeThread());
+            treeProxy[0].outputASCII(pHMStar5Out, param.bParaWrite,
+                          CkCallbackResumeThread());
+            treeProxy[0].outputASCII(pHMStar6Out, param.bParaWrite,
+                          CkCallbackResumeThread());
+            treeProxy[0].outputASCII(pHMStar7Out, param.bParaWrite,
+                          CkCallbackResumeThread());
+            treeProxy[0].outputASCII(pHMStar8Out, param.bParaWrite,
+                          CkCallbackResumeThread());
+            treeProxy[0].outputASCII(pHMStar9Out, param.bParaWrite,
+                          CkCallbackResumeThread());
+            treeProxy[0].outputASCII(pHMStar10Out, param.bParaWrite,
+                          CkCallbackResumeThread());
+            treeProxy[0].outputASCII(pHMStar11Out, param.bParaWrite,
+                          CkCallbackResumeThread());
+            treeProxy[0].outputASCII(pHMStar12Out, param.bParaWrite,
                           CkCallbackResumeThread());
         }
     }

@@ -827,15 +827,10 @@ class MFormOutputParams : public OutputParams
 	}
     };
 
-class HMStarsOutputParams : public OutputParams{
+class HMStar1OutputParams : public OutputParams{
     virtual double dValue(GravityParticle *p){
         if (TYPETest(p, TYPE_STAR)){
-            double iNSN = 0;
-            for(int i=0;i<12;i++){
-                if(p->rgfHMStars(i) > 7.9)
-                    iNSN += 1;
-            }
-            return iNSN;
+            return p->rgfHMStars(0);
         }
         else
             return 0.0;
@@ -844,23 +839,373 @@ class HMStarsOutputParams : public OutputParams{
                 {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val){
         if (TYPETest(p, TYPE_STAR)){
-            //for(int i=0;i<12;i++)
-                //p->rgfHMStars(i)=val[i];
             p->rgfHMStars(0)=val;
         }
     }
     virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
     virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
-    HMStarsOutputParams() {}
-    HMStarsOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+    HMStar1OutputParams() {}
+    HMStar1OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
         bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
-        sTipsyExt = "hmstars"; sNChilExt = "hmstars";
+        sTipsyExt = "hmstar1"; sNChilExt = "hmstar1";
         dTime = _dTime;
         iType = TYPE_STAR; }
-    PUPable_decl(HMStarsOutputParams);
-    HMStarsOutputParams(CkMigrateMessage *m) {}
+    PUPable_decl(HMStar1OutputParams);
+    HMStar1OutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+    }
+};
+
+class HMStar2OutputParams : public OutputParams{
+    virtual double dValue(GravityParticle *p){
+        if (TYPETest(p, TYPE_STAR)){
+            return p->rgfHMStars(1);
+        }
+        else
+            return 0.0;
+    }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+                {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val){
+        if (TYPETest(p, TYPE_STAR)){
+            p->rgfHMStars(1)=val;
+        }
+    }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+    HMStar2OutputParams() {}
+    HMStar2OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "hmstar2"; sNChilExt = "hmstar2";
+        dTime = _dTime;
+        iType = TYPE_STAR; }
+    PUPable_decl(HMStar2OutputParams);
+    HMStar2OutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+    }
+};
+
+class HMStar3OutputParams : public OutputParams{
+    virtual double dValue(GravityParticle *p){
+        if (TYPETest(p, TYPE_STAR)){
+            return p->rgfHMStars(2);
+        }
+        else
+            return 0.0;
+    }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+                {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val){
+        if (TYPETest(p, TYPE_STAR)){
+            p->rgfHMStars(2)=val;
+        }
+    }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+    HMStar3OutputParams() {}
+    HMStar3OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "hmstar3"; sNChilExt = "hmstar3";
+        dTime = _dTime;
+        iType = TYPE_STAR; }
+    PUPable_decl(HMStar3OutputParams);
+    HMStar3OutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+    }
+};
+
+class HMStar4OutputParams : public OutputParams{
+    virtual double dValue(GravityParticle *p){
+        if (TYPETest(p, TYPE_STAR)){
+            return p->rgfHMStars(3);
+        }
+        else
+            return 0.0;
+    }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+                {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val){
+        if (TYPETest(p, TYPE_STAR)){
+            p->rgfHMStars(3)=val;
+        }
+    }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+    HMStar4OutputParams() {}
+    HMStar4OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "hmstar4"; sNChilExt = "hmstar4";
+        dTime = _dTime;
+        iType = TYPE_STAR; }
+    PUPable_decl(HMStar4OutputParams);
+    HMStar4OutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+    }
+};
+
+class HMStar5OutputParams : public OutputParams{
+    virtual double dValue(GravityParticle *p){
+        if (TYPETest(p, TYPE_STAR)){
+            return p->rgfHMStars(4);
+        }
+        else
+            return 0.0;
+    }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+                {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val){
+        if (TYPETest(p, TYPE_STAR)){
+            p->rgfHMStars(4)=val;
+        }
+    }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+    HMStar5OutputParams() {}
+    HMStar5OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "hmstar5"; sNChilExt = "hmstar5";
+        dTime = _dTime;
+        iType = TYPE_STAR; }
+    PUPable_decl(HMStar5OutputParams);
+    HMStar5OutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+    }
+};
+
+class HMStar6OutputParams : public OutputParams{
+    virtual double dValue(GravityParticle *p){
+        if (TYPETest(p, TYPE_STAR)){
+            return p->rgfHMStars(5);
+        }
+        else
+            return 0.0;
+    }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+                {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val){
+        if (TYPETest(p, TYPE_STAR)){
+            p->rgfHMStars(5)=val;
+        }
+    }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+    HMStar6OutputParams() {}
+    HMStar6OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "hmstar6"; sNChilExt = "hmstar6";
+        dTime = _dTime;
+        iType = TYPE_STAR; }
+    PUPable_decl(HMStar6OutputParams);
+    HMStar6OutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+    }
+};
+
+class HMStar7OutputParams : public OutputParams{
+    virtual double dValue(GravityParticle *p){
+        if (TYPETest(p, TYPE_STAR)){
+            return p->rgfHMStars(6);
+        }
+        else
+            return 0.0;
+    }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+                {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val){
+        if (TYPETest(p, TYPE_STAR)){
+            p->rgfHMStars(6)=val;
+        }
+    }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+    HMStar7OutputParams() {}
+    HMStar7OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "hmstar7"; sNChilExt = "hmstar7";
+        dTime = _dTime;
+        iType = TYPE_STAR; }
+    PUPable_decl(HMStar7OutputParams);
+    HMStar7OutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+    }
+};
+
+class HMStar8OutputParams : public OutputParams{
+    virtual double dValue(GravityParticle *p){
+        if (TYPETest(p, TYPE_STAR)){
+            return p->rgfHMStars(7);
+        }
+        else
+            return 0.0;
+    }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+                {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val){
+        if (TYPETest(p, TYPE_STAR)){
+            p->rgfHMStars(7)=val;
+        }
+    }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+    HMStar8OutputParams() {}
+    HMStar8OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "hmstar8"; sNChilExt = "hmstar8";
+        dTime = _dTime;
+        iType = TYPE_STAR; }
+    PUPable_decl(HMStar8OutputParams);
+    HMStar8OutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+    }
+};
+
+class HMStar9OutputParams : public OutputParams{
+    virtual double dValue(GravityParticle *p){
+        if (TYPETest(p, TYPE_STAR)){
+            return p->rgfHMStars(8);
+        }
+        else
+            return 0.0;
+    }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+                {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val){
+        if (TYPETest(p, TYPE_STAR)){
+            p->rgfHMStars(8)=val;
+        }
+    }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+    HMStar9OutputParams() {}
+    HMStar9OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "hmstar9"; sNChilExt = "hmstar9";
+        dTime = _dTime;
+        iType = TYPE_STAR; }
+    PUPable_decl(HMStar9OutputParams);
+    HMStar9OutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+    }
+};
+
+class HMStar10OutputParams : public OutputParams{
+    virtual double dValue(GravityParticle *p){
+        if (TYPETest(p, TYPE_STAR)){
+            return p->rgfHMStars(9);
+        }
+        else
+            return 0.0;
+    }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+                {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val){
+        if (TYPETest(p, TYPE_STAR)){
+            p->rgfHMStars(9)=val;
+        }
+    }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+    HMStar10OutputParams() {}
+    HMStar10OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "hmstar10"; sNChilExt = "hmstar10";
+        dTime = _dTime;
+        iType = TYPE_STAR; }
+    PUPable_decl(HMStar10OutputParams);
+    HMStar10OutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+    }
+};
+
+class HMStar11OutputParams : public OutputParams{
+    virtual double dValue(GravityParticle *p){
+        if (TYPETest(p, TYPE_STAR)){
+            return p->rgfHMStars(10);
+        }
+        else
+            return 0.0;
+    }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+                {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val){
+        if (TYPETest(p, TYPE_STAR)){
+            p->rgfHMStars(10)=val;
+        }
+    }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+    HMStar11OutputParams() {}
+    HMStar11OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "hmstar11"; sNChilExt = "hmstar11";
+        dTime = _dTime;
+        iType = TYPE_STAR; }
+    PUPable_decl(HMStar11OutputParams);
+    HMStar11OutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+    }
+};
+
+class HMStar12OutputParams : public OutputParams{
+    virtual double dValue(GravityParticle *p){
+        if (TYPETest(p, TYPE_STAR)){
+            return p->rgfHMStars(11);
+        }
+        else
+            return 0.0;
+    }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+                {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val){
+        if (TYPETest(p, TYPE_STAR)){
+            p->rgfHMStars(11)=val;
+        }
+    }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+    HMStar12OutputParams() {}
+    HMStar12OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "hmstar12"; sNChilExt = "hmstar12";
+        dTime = _dTime;
+        iType = TYPE_STAR; }
+    PUPable_decl(HMStar12OutputParams);
+    HMStar12OutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
         OutputParams::pup(p);//Call base class
     }
