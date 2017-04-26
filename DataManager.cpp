@@ -511,6 +511,17 @@ void DataManager::serializeLocalTree(){
 
 }
 
+void DataManager::startLocalWalk() {
+#ifdef CUDA
+    for(int i = 0; i < registeredTreePieces.length(); i++){
+      if(verbosity > 1) CkPrintf("[%d] GravityLocal %d\n", CkMyPe(), i);
+      int in = registeredTreePieces[i].treePiece->getIndex();
+      treePieces[in].commenceCalculateGravityLocal();
+    }
+    gputransfer = true;
+#endif
+}
+
 void DataManager::resumeRemoteChunk() {
   if(verbosity > 1) CkPrintf("[%d] resumeRemoteChunk registered: %d\n", CkMyPe(), registeredTreePieces.length());
 #ifdef CUDA
@@ -532,9 +543,7 @@ void DataManager::resumeRemoteChunk() {
       CkPrintf("(%d) dm->%d\n", CkMyPe(), in);
 #endif
       treePieces[in].continueStartRemoteChunk(chunk);
-      treePieces[in].commenceCalculateGravityLocal();
     }
-  gputransfer = true;
 #endif
 }
 
@@ -833,9 +842,9 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 
   // Transfer moments and particle cores to gpu
 #ifdef CUDA_INSTRUMENT_WRS
-  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, 0, activeRung);
+  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, 0, activeRung, localTransferCallback);
 #else
-  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, CkMyPe());
+  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, CkMyPe(), localTransferCallback);
 #endif
 }// end serializeLocal
 
@@ -1015,20 +1024,8 @@ void DataManager::clearInstrument(CkCallback &cb){
 
 void DataManagerHelper::transferLocalTreeCallback() {
   if(verbosity > 1) CkPrintf("[%d] transferLocalTreeCallback\n", CkMyPe());
-  void **devBuffers = getdevBuffers();
-  void *localMoments = devBuffers[LOCAL_MOMENTS];
-  void *localParticleCores = devBuffers[LOCAL_PARTICLE_CORES];
-  void *localParticleVars = devBuffers[LOCAL_PARTICLE_VARS];
-  if(verbosity > 1) CkPrintf("localMoments: %p, localParticleCores: %p, localParticleVars: %p\n", localMoments, localParticleCores, localParticleVars);
-  int basePE = CkMyPe() - CkMyPe() % CkMyNodeSize();
-
-  for (int i = basePE; i < basePE + CkMyNodeSize(); i++) {
-    if (i != CkMyPe()) {
-      dmHelperProxy[i].populateDeviceBufferTable((intptr_t) localMoments, (intptr_t) localParticleCores, (intptr_t) localParticleVars);
-    }
-  }
-
-  dmHelperProxy[basePE].finishDevBufferSync();
+  DataManager *dm = (DataManager *) CkLocalNodeBranch(dataManagerID);
+  dm->startLocalWalk();
 }
 
 void DataManagerHelper::transferRemoteChunkCallback() {
