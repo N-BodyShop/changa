@@ -163,9 +163,13 @@ void run_DM_TRANSFER_FREE_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void
 /// @param nCompactParts
 /// @param mype Only used for debugging
 #ifdef CUDA_INSTRUMENT_WRS
-void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase) {
+void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
+                        CompactPartData *compactParts, int nCompactParts,
+                        int mype, char phase, void *wrCallback) {
 #else
-  void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype) {
+void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
+                        CompactPartData *compactParts, int nCompactParts,
+                        int mype, void *wrCallback) {
 #endif
 
 	workRequest transferKernel;
@@ -279,7 +283,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
           buf->hostBuffer = NULL;
         }
 
-	transferKernel.callbackFn = 0;
+	transferKernel.callbackFn = wrCallback;
 	transferKernel.traceName = "xferLocal";
 	transferKernel.runKernel = run_DM_TRANSFER_LOCAL;
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
@@ -2548,6 +2552,11 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase)
 
   markers = &(topKernel.bufferInfo[PARTICLE_TABLE_IDX]);
   markers->bufferID = NUM_GRAVITY_BUFS + PARTICLE_TABLE + myIndex; 
+  /* See NUM_BUFFERS define in
+   * charm/src/arch/cuda/hybridAPI/cuda-hybrid-api.cu
+   * BufferIDs larger than this are assigned by the runtime.
+   */
+  assert(markers->bufferID < 256);
   if(largephase) markers->transferToDevice = true;
   else markers->transferToDevice = false; 
   markers->transferFromDevice = false; 

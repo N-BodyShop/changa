@@ -160,6 +160,7 @@ public:
 	DataManager(const CkArrayID& treePieceID);
 	DataManager(CkMigrateMessage *);
 
+        void startLocalWalk();
         void resumeRemoteChunk();
 #ifdef CUDA
         //void serializeNodes(GenericTreeNode *start, CudaMultipoleMoments *&postPrefetchMoments, CompactPartData *&postPrefetchParticles);
