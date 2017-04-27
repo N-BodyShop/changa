@@ -229,13 +229,8 @@ mainmodule ParallelGravity {
   group [migratable] DataManagerHelper {
     entry DataManagerHelper();
 
-    entry void populateDeviceBufferTable(intptr_t localMoments, intptr_t localParticleCores, intptr_t localParticleVars);
-    entry void populateDeviceBufferTable(intptr_t remoteMoments, intptr_t remoteParticleCores);
     entry void transferLocalTreeCallback();
     entry void transferRemoteChunkCallback();
-    entry void finishDevBufferSync();
-    entry void finishDevBufferSyncRemoteChunk();
-    entry void purgeBufferTables(const CkCallback& cb);
   }
 #endif
 
