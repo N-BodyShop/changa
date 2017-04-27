@@ -1043,20 +1043,4 @@ void DataManagerHelper::transferRemoteChunkCallback() {
   dm->resumeRemoteChunk();
 }
 
-void DataManagerHelper::finishDevBufferSync() {
-  if(verbosity > 1) CkPrintf("[%d] finishDevBufferSync\n", CkMyPe());
-  if (++countLocalPes == CkMyNodeSize() ) {
-    countLocalPes = 0;
-    DataManager *dm = (DataManager *) CkLocalNodeBranch(dataManagerID);
-    dm->resumeRemoteChunk();
-  }
-}
-
-void DataManagerHelper::finishDevBufferSyncRemoteChunk() {
-  if (++countSyncRemoteChunk == CkMyNodeSize() ) {
-    countSyncRemoteChunk = 0;
-    DataManager *dm = (DataManager *) CkLocalNodeBranch(dataManagerID);
-    dm->resumeRemoteChunk();
-  }
-}
 #endif // CUDA
