@@ -119,7 +119,7 @@ endif
 OPTS = -O3 -lpthread
 INCLUDE_FLAGS += -I$(STRUCTURES_PATH) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) -I$(SOURCE_DIR) -I$(BUILD_DIR)
 CPPFLAGS += $(INCLUDE_FLAGS) $(DEFINE_FLAGS) @CPPFLAGS@
-CXXFLAGS += $(OPTS) $(CPPFLAGS)
+CXXFLAGS += $(OPTS) $(CPPFLAGS) -std=c++11
 LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache \
 	   -module CkIO -module CkMulticast -module RefineLB \
 	   -module RefineCommLB -module GreedyLB -module GreedyCommLB \
