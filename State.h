@@ -41,6 +41,7 @@ class State {
 #if defined CUDA
 #include "HostCUDA.h"
 #include "DataManager.h"
+#include "ck128bitHash.h"
 
 class DoubleWalkState;
 
