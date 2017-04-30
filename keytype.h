@@ -1,4 +1,4 @@
-
+#include "converse.h"
 
 #ifdef BIGKEYS
 # if CMK_HAS_INT16
