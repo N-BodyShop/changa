@@ -83,9 +83,9 @@ CkReductionMsg* same(int nMsg, CkReductionMsg** msgs) {
 	return CkReductionMsg::buildNew(sizeof(T), static_cast<T *>(msgs[0]->getData()));
 }
 
-// Merge images for DumpFrame
-// Messages consist of a struct inDumpFrame header followed by the
-// image data.
+/// Merge images for DumpFrame
+/// Messages consist of a struct inDumpFrame header followed by the
+/// image data.
 CkReductionMsg* dfImageReducer(int nMsg, CkReductionMsg** msgs) {
     struct inDumpFrame *in = (struct inDumpFrame *)msgs[0]->getData();
     int nImage1 = in->nxPix*in->nyPix*sizeof(DFIMAGE);
@@ -105,6 +105,7 @@ CkReductionMsg* dfImageReducer(int nMsg, CkReductionMsg** msgs) {
     return CkReductionMsg::buildNew(msgs[0]->getSize(), msgs[0]->getData());
 }
 
+/// Create custom reducers in the charm runtime.
 void registerReductions() {
 	growOrientedBox_float = CkReduction::addReducer(boxGrowth<float>);
 	growOrientedBox_double = CkReduction::addReducer(boxGrowth<double>);

@@ -12,6 +12,9 @@ mainmodule ParallelGravity {
 #ifdef REDUCTION_HELPER
   readonly CProxy_ReductionHelper reductionHelperProxy;
 #endif
+#ifdef CUDA
+  readonly CProxy_DataManagerHelper dmHelperProxy;
+#endif
   readonly CProxy_LvArray lvProxy;
   readonly CProxy_LvArray smoothProxy;
   readonly CProxy_LvArray gravityProxy;
@@ -45,7 +48,6 @@ mainmodule ParallelGravity {
   readonly unsigned int particlesPerChare;
   readonly unsigned int bucketSize;
   readonly int nIOProcessor;
-  readonly int lbcomm_cutoff_msgs;
   // jetley
   readonly int localNodesPerReq;
   readonly int remoteNodesPerReq;
@@ -215,7 +217,9 @@ mainmodule ParallelGravity {
         const CkCallback& cb);
     //entry [local,exclusive] void notifyPresence(int index, Tree::GenericTreeNode *root);
     entry void combineLocalTrees(CkReductionMsg *m);
+#ifdef CUDA
     entry void clearInstrument(CkCallback &cb);
+#endif
     entry void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 			 COOLPARAM inParam, const CkCallback& cb);
@@ -226,6 +230,15 @@ mainmodule ParallelGravity {
     entry void resetReadOnly(Parameters param, const CkCallback &cb);
     entry void initStarLog(std::string _fileName, const CkCallback &cb);
   };
+
+#ifdef CUDA
+  group [migratable] DataManagerHelper {
+    entry DataManagerHelper();
+
+    entry void transferLocalTreeCallback();
+    entry void transferRemoteChunkCallback();
+  }
+#endif
 
   array [1D] TreePiece {
     entry TreePiece();
@@ -242,10 +255,11 @@ mainmodule ParallelGravity {
     entry void nextBucketMarkSmooth(dummyMsg *msg);
     //entry void registerWithDataManager(const CkGroupID& dataManagerID,
     //		     		  const CkCallback& cb);
-    entry void setPeriodic(int nReplicas, Vector3D<double> fPeriod, int bEwald,
+
+    entry void setPeriodic(int nReplicas, Vector3D<cosmoType> fPeriod, int bEwald,
                            double fEwCut, double fEwhCut, int bPeriod,
                            int bComove, double dRhoFac);
-    entry void EwaldInit();
+    entry [notrace] void EwaldInit();
     entry [notrace] void initCoolingData(const CkCallback& cb);
     entry void calculateEwald(dummyMsg *m);
     entry [notrace] void EwaldGPUComplete(); 
@@ -462,7 +476,6 @@ mainmodule ParallelGravity {
     // entry void receiveProxy(CkGroupID);
     entry void doAtSync();
 
-    entry void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
     entry void outputASCII(CkReference<OutputParams>, int bParaWrite,
 			   const CkCallback& cb);
     entry void oneNodeOutVec(CkReference<OutputParams>, Vector3D<double> avOut[nPart],

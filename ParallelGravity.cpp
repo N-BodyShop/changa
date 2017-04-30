@@ -56,52 +56,80 @@ extern const char * const Cha_CommitID;
 
 using namespace std;
 
+/// @brief Proxy for Charm Main Chare
 CProxy_Main mainChare;
+/// @brief verbosity level.  Higher is more verbose.
 int verbosity;
 int bVDetails;
-CProxy_TreePiece treeProxy; // Proxy for the TreePiece chare array
+CProxy_TreePiece treeProxy; ///< Proxy for the TreePiece chare array
 #ifdef REDUCTION_HELPER
 CProxy_ReductionHelper reductionHelperProxy;
 #endif
-CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
-CProxy_LvArray smoothProxy; // Proxy for smooth reductions
-CProxy_LvArray gravityProxy; // Proxy for gravity reductions
+#ifdef CUDA
+CProxy_DataManagerHelper dmHelperProxy;
+#endif
+CProxy_LvArray lvProxy;	    ///< Proxy for the liveViz array
+CProxy_LvArray smoothProxy; ///< Proxy for smooth reductions
+CProxy_LvArray gravityProxy; ///< Proxy for gravity reductions
+/// @brief Proxy for the gravity particle cache group.
 CProxy_CkCacheManager<KeyType> cacheGravPart;
+/// @brief Proxy for the smooth particle cache group.
 CProxy_CkCacheManager<KeyType> cacheSmoothPart;
+/// @brief Proxy for the tree node cache group.
 CProxy_CkCacheManager<KeyType> cacheNode;
+/// @brief Proxy for the DataManager
 CProxy_DataManager dMProxy;
+/// @brief Proxy for Managing IntraNode load balancing with ckloop.
 CProxy_IntraNodeLBManager nodeLBMgrProxy;
 
+/// @brief Proxy for the dumpframe image data (DumpFrameData).
 CProxy_DumpFrameData dfDataProxy;
+/// @brief Proxy for the PETreeMerger group.
 CProxy_PETreeMerger peTreeMergerProxy;
 
 
 
-
+/// @brief Use the cache (always on)
 bool _cache;
+/// @brief Disable the cache (always off)
 int _nocache;
+/// @brief Size of a Node Cache line, specified by how deep in the
+/// tree it goes.
 int _cacheLineDepth;
+/// @brief The number of buckets to process in the local gravity walk
+/// before yielding the processor.
 unsigned int _yieldPeriod;
+/// @brief The type of domain decomposition to use.
 DomainsDec domainDecomposition;
-double dExtraStore;		// fraction of extra particle storage
-double dMaxBalance;		// Max piece imbalance for load balancing
-double dFracLoadBalance;	// Min particles for doing load balancing
+double dExtraStore;		///< fraction of extra particle storage
+double dMaxBalance;		///< Max piece imbalance for load balancing
+double dFracLoadBalance;	///< Min fraction of particles active
+                                ///  for doing load balancing.
 double dGlassDamper;    // Damping inverse timescale for making glasses
-int iGasModel; 			// For backward compatibility
+int iGasModel; 			///< For backward compatibility
 int peanoKey;
+/// @brief type of tree to use.
 GenericTrees useTree;
+/// @brief A potentially optimized proxy for the tree pieces.  Its use
+/// is deprecated.
 CProxy_TreePiece streamingProxy;
+/// @brief Number of pieces into which to divide the tree.
 unsigned int numTreePieces;
+/// @brief Number of particles per TreePiece.  Used to determine the
+/// number of TreePieces.
 unsigned int particlesPerChare;
-int nIOProcessor;		// Number of pieces to be doing I/O at once
-int _prefetch;
-int _numChunks;
-int _randChunks;
-unsigned int bucketSize;
-int lbcomm_cutoff_msgs;
+int nIOProcessor;		///< Number of pieces to be doing I/O at once
+int _prefetch;                  ///< Prefetch nodes for the remote walk
+int _numChunks;                 ///< number of chunks into which to
+                                ///  split the remote walk.
+int _randChunks;                ///< Randomize the chunks for the
+                                ///  remote walk.
+unsigned int bucketSize;        ///< Maximum number of particles in a bucket.
+/// @brief Use Ckloop for node parallelization.
 int bUseCkLoopPar;
 
 //jetley
+/// GPU related settings.
 int localNodesPerReq;
 int remoteNodesPerReq;
 int remoteResumeNodesPerReq;
@@ -113,10 +141,13 @@ int remoteResumePartsPerReq;
 // switch threshold
 double largePhaseThreshold;
 
-double theta;
-double thetaMono;
+cosmoType theta;                   ///< BH-like opening criterion
+cosmoType thetaMono;               ///< Criterion of excepting monopole
+                                ///  only cells.
 
+/// @brief Boundary evaluation user event (for Projections tracing).
 int boundaryEvaluationUE;
+/// @brief Weight balancing during Oct decomposition user event (for Projections tracing).
 int weightBalanceUE;
 int networkProgressUE;
 int nodeForceUE;
@@ -149,12 +180,12 @@ bool doDumpLB;
 int lbDumpIteration;
 bool doSimulateLB;
 
-// Number of bins to use for the first iteration
-// of every Oct decomposition step
+/// Number of bins to use for the first iteration
+/// of every Oct decomposition step
 int numInitDecompBins;
 
-// Specifies the number of sub-bins a bin is split into
-//  for Oct decomposition
+/// Specifies the number of sub-bins a bin is split into
+///  for Oct decomposition
 int octRefineLevel;
 
 void _Leader(void) {
@@ -574,9 +605,6 @@ Main::Main(CkArgMsg* m) {
 	//
 	// Output parameters
 	//
-	printBinaryAcc=0;
-	prmAddParam(prm, "bPrintBinary", paramBool, &printBinaryAcc,
-		    sizeof(int),"z", "Print accelerations in Binary");
 	param.bStandard = 1;
 	prmAddParam(prm, "bStandard", paramBool, &param.bStandard,sizeof(int),
 		    "std", "output in standard TIPSY binary format (IGNORED)");
@@ -691,9 +719,6 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "dFracNoDomainDecomp", paramDouble,
 		    &param.dFracNoDomainDecomp, sizeof(double),"fndd",
 		    "Fraction of active particles for no new DD = 0.0");
-        lbcomm_cutoff_msgs = 1;
-	prmAddParam(prm, "lbcommCutoffMsgs", paramInt, &lbcomm_cutoff_msgs,
-		    sizeof(int),"lbcommcut", "Cutoff for communication recording (IGNORED)");
 	param.bConcurrentSph = 1;
 	prmAddParam(prm, "bConcurrentSph", paramBool, &param.bConcurrentSph,
 		    sizeof(int),"consph", "Enable SPH running concurrently with Gravity");
@@ -762,31 +787,31 @@ Main::Main(CkArgMsg* m) {
 
           localNodesPerReqDouble = NODE_INTERACTIONS_PER_REQUEST_L;
 	  prmAddParam(prm, "localNodesPerReq", paramDouble, &localNodesPerReqDouble,
-                sizeof(double),"localnodes", "Num. local node interactions allowed per CUDA request");
+                sizeof(double),"localnodes", "Num. local node interactions allowed per CUDA request (in millions)");
 
           remoteNodesPerReqDouble = NODE_INTERACTIONS_PER_REQUEST_RNR;
 	  prmAddParam(prm, "remoteNodesPerReq", paramDouble, &remoteNodesPerReqDouble,
-                sizeof(double),"remotenodes", "Num. remote node interactions allowed per CUDA request");
+                sizeof(double),"remotenodes", "Num. remote node interactions allowed per CUDA request (in millions)");
 
           remoteResumeNodesPerReqDouble = NODE_INTERACTIONS_PER_REQUEST_RR;
 	  prmAddParam(prm, "remoteResumeNodesPerReq", paramDouble, &remoteResumeNodesPerReqDouble,
-                sizeof(double),"remoteresumenodes", "Num. remote resume node interactions allowed per CUDA request");
+                sizeof(double),"remoteresumenodes", "Num. remote resume node interactions allowed per CUDA request (in millions)");
 
           localPartsPerReqDouble = PART_INTERACTIONS_PER_REQUEST_L;
             prmAddParam(prm, "localPartsPerReq", paramDouble, &localPartsPerReqDouble,
-                sizeof(double),"localparts", "Num. local particle interactions allowed per CUDA request");
+                sizeof(double),"localparts", "Num. local particle interactions allowed per CUDA request (in millions)");
 
           remotePartsPerReqDouble = PART_INTERACTIONS_PER_REQUEST_RNR;
             prmAddParam(prm, "remotePartsPerReq", paramDouble, &remotePartsPerReqDouble,
-                sizeof(double),"remoteparts", "Num. remote particle interactions allowed per CUDA request");
+                sizeof(double),"remoteparts", "Num. remote particle interactions allowed per CUDA request (in millions)");
 
           remoteResumePartsPerReqDouble = PART_INTERACTIONS_PER_REQUEST_RR;
           prmAddParam(prm, "remoteResumePartsPerReq", paramDouble, &remoteResumePartsPerReqDouble,
-              sizeof(double),"remoteresumeparts", "Num. remote resume particle interactions allowed per CUDA request");
+              sizeof(double),"remoteresumeparts", "Num. remote resume particle interactions allowed per CUDA request (in millions)");
 
           largePhaseThreshold = TP_LARGE_PHASE_THRESHOLD_DEFAULT;
-          prmAddParam(prm, "largePhaseThreshold", paramDouble, &largePhaseThreshold,
-              sizeof(double),"largephasethresh", "Ratio of active to total particles at which all particles (not just active ones) are sent to gpu in the target buffer (No source particles are sent.)");
+//          prmAddParam(prm, "largePhaseThreshold", paramDouble, &largePhaseThreshold,
+//              sizeof(double),"largephasethresh", "Ratio of active to total particles at which all particles (not just active ones) are sent to gpu in the target buffer (No source particles are sent.)");
 
 #endif
 
@@ -966,16 +991,8 @@ Main::Main(CkArgMsg* m) {
 
           ckout << "INFO: largePhaseThreshold: " << largePhaseThreshold << endl;
 
-          if(numTreePieces > CkNumPes() || numTreePieces <= 0){
-            numTreePieces = CkNumPes();
-          }
 #endif
 
-	if(prmSpecified(prm, "lbcommCutoffMsgs")) {
-	    ckerr << "WARNING: ";
-	    ckerr << "lbcommcut parameter ignored." << endl;
-	    }
-	    
 	if(prmSpecified(prm, "bGeometric")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bGeometric parameter ignored." << endl;
@@ -1188,7 +1205,9 @@ Main::Main(CkArgMsg* m) {
 #ifdef REDUCTION_HELPER
         reductionHelperProxy = CProxy_ReductionHelper::ckNew();
 #endif
-
+#ifdef CUDA
+        dmHelperProxy = CProxy_DataManagerHelper::ckNew();
+#endif
 	opts.bindTo(treeProxy);
 	lvProxy = CProxy_LvArray::ckNew(opts);
 	// Create an array for the smooth reductions
@@ -1723,7 +1742,6 @@ void Main::advanceBigStep(int iStep) {
     CkPrintf("took %g seconds.\n", tTB);
 
     CkCallback cbGravity(CkCallback::resumeThread);
-
     if(verbosity > 1)
 	memoryStats();
     if(param.bDoGravity) {
@@ -2694,9 +2712,6 @@ Main::doSimulation()
       writeOutput(0);
       if(param.bDoGas) {
 	  ckout << "Outputting gas properties ...";
-	  if(printBinaryAcc)
-	      CkAssert(0);
-	  else {
 	      GasDenOutputParams pDenOut(achFile, param.iBinaryOut, 0.0);
 	      PresOutputParams pPresOut(achFile, param.iBinaryOut, 0.0);
 	      HsmOutputParams pSphHOut(achFile, param.iBinaryOut, 0.0);
@@ -2743,19 +2758,13 @@ Main::doSimulation()
                       }
 #endif
                   }
-	      }
 	  }
       ckout << "Outputting accelerations  ...";
-      if(printBinaryAcc)
-	  treeProxy[0].outputAccelerations(OrientedBox<double>(),
-					   "acc2", CkCallbackResumeThread());
-      else {
-	  AccOutputParams pAcc(achFile, param.iBinaryOut, 0.0);
-          if(param.iBinaryOut)
-              outputBinary(pAcc, param.bParaWrite, CkCallbackResumeThread());
-          else
-              treeProxy[0].outputASCII(pAcc, param.bParaWrite, CkCallbackResumeThread());
-	  }
+      AccOutputParams pAcc(achFile, param.iBinaryOut, 0.0);
+      if(param.iBinaryOut)
+          outputBinary(pAcc, param.bParaWrite, CkCallbackResumeThread());
+      else
+          treeProxy[0].outputASCII(pAcc, param.bParaWrite, CkCallbackResumeThread());
 #ifdef NEED_DT
       ckout << "Outputting dt ...";
       adjust(0);
@@ -2846,9 +2855,11 @@ Main::doSimulation()
 #endif
   ckout << endl << "******************" << endl << endl; 
   // Some memory cleanup
-  delete param.stfm;
-  treeProxy.ckDestroy();
-  CkWaitQD();
+  // This is just for debugging memory problems, so comment it out for
+  // now to avoid tickling QD bugs.
+  // delete param.stfm;
+  // treeProxy.ckDestroy();
+  // CkWaitQD();
   CkExit();
 }
 /**
@@ -3755,7 +3766,6 @@ void Main::pup(PUP::er& p)
     p | dEcosmo;
     p | dUOld;
     p | dTimeOld;
-    p | printBinaryAcc;
     p | param;
     p | vdOutTime;
     p | iOut;
@@ -3910,6 +3920,7 @@ void printTreeGraphVizRecursive(GenericTreeNode *node, ostream &out){
   }
 }
 
+/// @brief Print a visualization of a tree.
 void printTreeGraphViz(GenericTreeNode *node, ostream &out, const string &name){
   out << "digraph " << name << " {" << endl;
   printTreeGraphVizRecursive(node,out);

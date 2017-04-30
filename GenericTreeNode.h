@@ -57,6 +57,7 @@ namespace Tree {
 
 class NodePool;
 
+/// @brief Base class for tree nodes
   class GenericTreeNode {
 #ifdef CHANGA_REFACTOR_WALKCHECK
     public:
@@ -78,7 +79,6 @@ class NodePool;
 #ifdef CUDA
       nodeArrayIndex = -1;
       bucketArrayIndex = -1;
-      wasNeg = true;
 #endif
 #endif
 #ifdef CHANGA_REFACTOR_WALKCHECK
@@ -97,7 +97,7 @@ class NodePool;
     /// The parent of this node, or null if none
     GenericTreeNode* parent;
     /// The axis-aligned bounding box of this node
-    OrientedBox<double> boundingBox;
+    OrientedBox<cosmoType> boundingBox;
     /// The bounding box including search balls of this node
     OrientedBox<double> bndBoxBall;
     /// Mask of particle types contatained in this node
@@ -124,14 +124,14 @@ class NodePool;
     int rungs;
 
 #if INTERLIST_VER > 0
-    //int bucketListIndex;
+    /// @brief Number of buckets in this node
     int numBucketsBeneath;
+    /// @brief index of first bucket in this node
     int startBucket;
 #ifdef CUDA
-    // index in nodeinfo array
+    /// index in moments array sent to GPU
     int nodeArrayIndex;
     int bucketArrayIndex;
-    bool wasNeg;
 #endif
 #endif
     /// center of smoothActive particles during smooth operation
@@ -143,6 +143,12 @@ class NodePool;
     /// SMP rank of node owner
     int iRank;
 
+    /// @brief Construct GenericTreeNode
+    /// @param k NodeKey
+    /// @param type NodeType
+    /// @param first First particle index
+    /// @param last  Last particle index
+    /// @param p Parent node
     GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0) {
 #if INTERLIST_VER > 0
       numBucketsBeneath=0;
@@ -150,17 +156,20 @@ class NodePool;
 #ifdef CUDA
       nodeArrayIndex = -1;
       bucketArrayIndex = -1;
-      wasNeg = true;
 #endif
 #endif
     }
 
     virtual ~GenericTreeNode() { }
+    /// Recursively delete all nodes beneath this node.
     virtual void fullyDelete() = 0;
 
+    /// return Tree::NodeType of node
     inline NodeType getType() const { return myType; }
+    /// set Tree::NodeType of node
     inline void setType(NodeType t) { myType = t; }
 
+    /// return unique Tree::NodeKey
     inline NodeKey getKey() const { return key; }
 
     /// return the number of children this node has
@@ -176,19 +185,23 @@ class NodePool;
     /// return an integer with the number of the child reflecting the key
     virtual int whichChild(NodeKey childkey) = 0;
 #if INTERLIST_VER > 0
+    /// Is nodekey contained by this node
     virtual bool contains(NodeKey nodekey) = 0;
 #endif
 
+    /// Is the NodeType valid
     bool isValid(){
       return (myType != Invalid);
     }
 
+    /// Is this a node in the cache
     bool isCached(){
       return (myType == Cached ||
               myType == CachedBucket ||
               myType == CachedEmpty);
     }
 
+    /// Is this a node a bucket
     bool isBucket(){
       return (myType == Bucket ||
               myType == CachedBucket ||
@@ -200,10 +213,8 @@ class NodePool;
     virtual void makeOctChildren(GravityParticle *part, int totalPart, int level, NodePool *pool = NULL) = 0;
     virtual void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle), bool spatial, NodePool *pool = NULL) = 0;
 
-    // get the number of chunks possible for the given request
-    // @return a number greater or iqual to th the request
-    //virtual int getNumChunks(int num) = 0;
-    /// get the nodes corresponding to a particular number of chunks requested
+    /// get the top nodes corresponding to a particular number of
+    /// chunks requested
     virtual void getChunks(int num, NodeKey *&ret) = 0;
 
     /// transform an internal node into a bucket
@@ -213,6 +224,7 @@ class NodePool;
 #if INTERLIST_VER > 0
       numBucketsBeneath = 1;
 #endif
+      calculateRadiusBox(moments, boundingBox);	/* set initial size */
       boundingBox.reset();
       bndBoxBall.reset();
       iParticleTypes = 0;
@@ -232,9 +244,12 @@ class NodePool;
 	iParticleTypes |= part[i].iType;
         if (part[i].rung > rungs) rungs = part[i].rung;
       }
-      calculateRadiusFarthestParticle(moments, &part[firstParticle], &part[lastParticle+1]);
+      if(particleCount > 1)
+	  calculateRadiusFarthestParticle(moments, &part[firstParticle],
+					  &part[lastParticle+1]);
     }
 
+    /// @brief initialize an empty node
     inline void makeEmpty() {
       myType = Empty;
       particleCount = 0;
@@ -248,6 +263,7 @@ class NodePool;
       nSPH = 0;
     }
 
+    /// @brief print out a visualization of the tree for diagnostics
     void getGraphViz(std::ostream &out);
 
     /// @brief return the NodeKey of the lowest common ancestor.
@@ -257,11 +273,14 @@ class NodePool;
       return 0;
     }
 
+    /// @brief depth of node corresponding to NodeKey
     virtual int getLevel(NodeKey k) = 0;
-    virtual GenericTreeNode *createNew() const = 0;
+    /// @brief make a copy of the node
     virtual GenericTreeNode *clone() const = 0;
 
+    /// @brief PUP node and children down to depth
     virtual void pup(PUP::er &p, int depth) = 0;
+    /// @brief PUP just this node
     virtual void pup(PUP::er &p) {
       int iType;
       if(p.isUnpacking()) {
@@ -272,7 +291,6 @@ class NodePool;
   	    // to be present on the GPU
   	    nodeArrayIndex = -1;
       bucketArrayIndex = -1;
-      wasNeg = true;
 #endif
       } else {
         iType = (int) myType;
@@ -327,6 +345,7 @@ public:
   */
   typedef std::map<NodeKey, GenericTreeNode *> NodeLookupType;
 
+  /** @brief A TreeNode with two children */
   class BinaryTreeNode : public GenericTreeNode {
   protected:
   public:
@@ -713,11 +732,6 @@ public:
     }
 
     // implemented in the .C
-    GenericTreeNode *createNew() const;/* {
-      return new BinaryTreeNode();
-      }*/
-
-    // implemented in the .C
     GenericTreeNode *clone() const;
 
     /*
@@ -771,7 +785,6 @@ public:
 #if INTERLIST_VER > 0 && defined CUDA
       buffer->nodeArrayIndex = -1;
       buffer->bucketArrayIndex = -1;
-      buffer->wasNeg = true;
 #endif
       int used = 1;
       if (depth != 0) {
@@ -940,10 +953,6 @@ NodePool::alloc_one(NodeKey k, NodeType type, int first, int nextlast,
     void makeOrbChildren(GravityParticle *part, int totalPart, int level, int rootsLevel, bool (*compFnPtr[])(GravityParticle, GravityParticle), bool spatial,
 			 NodePool *pool = NULL) {}
 
-    GenericTreeNode *createNew() const {
-      return new OctTreeNode();
-    }
-
     GenericTreeNode *clone() const {
       OctTreeNode *tmp = new OctTreeNode();
       *tmp = *this;
@@ -1017,22 +1026,9 @@ NodePool::alloc_one(NodeKey k, NodeType type, int first, int nextlast,
     }
   };
 
-template <typename T>
-  class WeightKey {
-  public:
-  T weight;
-  NodeKey key;
-
-  WeightKey(T w, NodeKey k) : weight(w), key(k) {}
-
-  bool operator<(const WeightKey& k2) const {
-    if (weight != k2.weight) return weight < k2.weight;
-    else return key < k2.key;
-  }
-};
-
 } //close namespace Tree
 
+/// @brief PUP a NodeType
 inline void operator|(PUP::er &p,Tree::NodeType &nt) {
   int nti;
   if (p.isUnpacking()) {
@@ -1044,6 +1040,7 @@ inline void operator|(PUP::er &p,Tree::NodeType &nt) {
   }
 }
 
+/// @brief PUP a tree type.
 inline void operator|(PUP::er &p,Tree::GenericTrees &gt) {
   int gti;
   if (p.isUnpacking()) {

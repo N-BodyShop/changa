@@ -175,10 +175,10 @@ State *KNearestSmoothCompute::getNewState(int nBuckets){
  * radius^2 for efficiency.
  */
 static inline bool
-intersect(OrientedBox<double>& box, Vector3D<double> pos, double rsq)
+intersect(OrientedBox<cosmoType>& box, Vector3D<cosmoType> pos, cosmoType rsq)
 {
-    double dsq = 0.0;
-    double delta;
+    cosmoType dsq = 0.0;
+    cosmoType delta;
     
     if((delta = box.lesser_corner.x - pos.x) > 0)
 	dsq += delta * delta;
@@ -208,7 +208,7 @@ int KNearestSmoothCompute::openCriterion(TreePiece *ownerTP,
 				  int reqID, State *state) {
     GenericTreeNode *myNode = (GenericTreeNode *) computeEntity;
     GravityParticle *particles = ownerTP->getParticles();
-    Vector3D<double> offset = ownerTP->decodeOffset(reqID);
+    Vector3D<cosmoType> offset = ownerTP->decodeOffset(reqID);
     NearNeighborState *nstate = (NearNeighborState *)state;
     
     double rBucket = myNode->sizeSm + myNode->fKeyMax;
@@ -292,7 +292,7 @@ void KNearestSmoothCompute::recvdParticlesFull(GravityParticle *part,
 				   int num, int chunk,int reqID, State *state,
 				   TreePiece *tp, Tree::NodeKey &remoteBucket){
 
-  Vector3D<double> offset = tp->decodeOffset(reqID);
+  Vector3D<cosmoType> offset = tp->decodeOffset(reqID);
   int reqIDlist = decodeReqID(reqID);
   CkAssert(num > 0);
   state->counterArrays[0][reqIDlist] -= num;
@@ -414,7 +414,7 @@ void TreePiece::calculateSmoothLocal() {
     // Give smooths higher priority than gravity
     *((int *)CkPriorityPtr(msg)) = thisIndex + 1;
     CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-    msg->val=0;
+    // msg->val=0;
     thisProxy[thisIndex].nextBucketSmooth(msg);
     }
 
@@ -754,7 +754,9 @@ void KNearestSmoothCompute::walkDone(State *state) {
 
 // From here down are "ReSmooth" methods.
 
-// called after constructor, so tp should be set
+/// @brief Allocate ReNearNeighborState
+///
+/// called after constructor, so tp should be set
 State *ReSmoothCompute::getNewState(int nBucket){
   ReNearNeighborState *state = new ReNearNeighborState(tp->myNumParticles+2);
   // array to keep track of outstanding requests
@@ -772,16 +774,16 @@ State *ReSmoothCompute::getNewState(int nBucket){
   return state;
 }
 
-/*
+/**
  * Opening criterion for the reSmoothBucket walk.
  * Return true if we must open the node.
  */
 int ReSmoothCompute::openCriterion(TreePiece *ownerTP, 
-				  GenericTreeNode *node, // Node to test
+				  GenericTreeNode *node, ///< Node to test
 				  int reqID, State *state) {
     GenericTreeNode *myNode = (GenericTreeNode *) computeEntity;
     GravityParticle *particles = ownerTP->getParticles();
-    Vector3D<double> offset = ownerTP->decodeOffset(reqID);
+    Vector3D<cosmoType> offset = ownerTP->decodeOffset(reqID);
     
     double rBucket = myNode->sizeSm + myNode->fKeyMax;
     if(!intersect(node->boundingBox, myNode->centerSm - offset,
@@ -799,17 +801,17 @@ int ReSmoothCompute::openCriterion(TreePiece *ownerTP,
     return 0;
 }
 
-/*
+/**
  * Test a given particle against all the priority queues in the
  * bucket.
  */
 
 void ReSmoothCompute::bucketCompare(TreePiece *ownerTP,
-				  GravityParticle *p,  // Particle to test
-				  GenericTreeNode *node, // bucket
-				  GravityParticle *particles, // local
-							      // particle data
-				  Vector3D<double> offset,
+                                  GravityParticle *p,  ///< Particle to test
+                                  GenericTreeNode *node, ///< bucket
+                                  GravityParticle *particles, ///< local
+                                                              /// particle data
+                                  Vector3D<double> offset,  ///< periodic offset
                                   State *state
 				  ) 
 {
@@ -846,7 +848,7 @@ void ReSmoothCompute::recvdParticlesFull(GravityParticle *part,
 				   int num, int chunk,int reqID, State *state,
 				   TreePiece *tp, Tree::NodeKey &remoteBucket){
 
-  Vector3D<double> offset = tp->decodeOffset(reqID);
+  Vector3D<cosmoType> offset = tp->decodeOffset(reqID);
   int reqIDlist = decodeReqID(reqID);
   CkAssert(num > 0);
   state->counterArrays[0][reqIDlist] -= num;
@@ -910,7 +912,7 @@ void TreePiece::calculateReSmoothLocal() {
     // Give smooths higher priority than gravity
     *((int *)CkPriorityPtr(msg)) = thisIndex + 1;
     CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-    msg->val=0;
+    // msg->val=0;
     thisProxy[thisIndex].nextBucketReSmooth(msg);
     }
 
@@ -988,6 +990,7 @@ void ReNearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
   }
 }
 
+/// @brief execute SmoothParams::fcnSmooth() for all particles in the bucket.
 void ReSmoothCompute::walkDone(State *state) {
   GenericTreeNode *node = (GenericTreeNode *) computeEntity;
   GravityParticle *part = node->particlePointer;
@@ -1031,7 +1034,7 @@ int MarkSmoothCompute::openCriterion(TreePiece *ownerTP,
 				  int reqID, State *state) {
     GenericTreeNode *myNode = (GenericTreeNode *) computeEntity; // my bucket
     GravityParticle *particles = ownerTP->getParticles();
-    Vector3D<double> offset = ownerTP->decodeOffset(reqID);
+    Vector3D<cosmoType> offset = ownerTP->decodeOffset(reqID);
     
     for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
 	if(!params->isSmoothActive(&particles[j]))
@@ -1078,7 +1081,7 @@ void MarkSmoothCompute::recvdParticlesFull(GravityParticle *part,
 				   int num, int chunk,int reqID, State *state,
 				   TreePiece *tp, Tree::NodeKey &remoteBucket){
 
-  Vector3D<double> offset = tp->decodeOffset(reqID);
+  Vector3D<cosmoType> offset = tp->decodeOffset(reqID);
   int reqIDlist = decodeReqID(reqID);
   CkAssert(num > 0);
   state->counterArrays[0][reqIDlist] -= num;
@@ -1141,7 +1144,7 @@ void TreePiece::calculateMarkSmoothLocal() {
     // Give smooths higher priority than gravity
     *((int *)CkPriorityPtr(msg)) = thisIndex + 1;
     CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-    msg->val=0;
+    // msg->val=0;
     thisProxy[thisIndex].nextBucketMarkSmooth(msg);
     }
 

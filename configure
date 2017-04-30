@@ -623,6 +623,13 @@ ac_includes_default="\
 #endif"
 
 ac_subst_vars='LTLIBOBJS
+CUDA_LEVEL
+HAVE_CUDA_SDK
+HAVE_CUDA
+ENABLE_CUDA
+CUDA_SDK_DIR
+NVCC_PATH
+CUDA_DIR
 LIBOBJS
 FLAG_RTFORCE
 FLAG_VSIGVISC
@@ -630,6 +637,7 @@ FLAG_CULLENALPHA
 FLAG_DIFFHARMONIC
 FLAG_FEEDBACKDIFFLIMIT
 FLAG_DIFFUSION
+HEXADECAPOLE
 OBJECTS_COOLING
 FLAG_COOLING
 FLAG_DAMPING
@@ -639,6 +647,7 @@ FLAG_BIGKEYS
 FLAG_CHANGESOFT
 FLAG_AVX
 FLAG_SSE
+FLAG_FLOAT
 EGREP
 GREP
 CPP
@@ -696,6 +705,7 @@ SHELL'
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
+enable_float
 enable_sse2
 enable_avx
 enable_changesoft
@@ -704,11 +714,15 @@ enable_dtadjust
 enable_wendland
 enable_damping
 enable_cooling
+enable_hexadecapole
 enable_diffusion
 enable_feedbacklimit
 enable_cullenalpha
 enable_vsigvisc
 enable_rtforce
+with_cuda
+with_cuda_sdk
+with_cuda_level
 '
       ac_precious_vars='build_alias
 host_alias
@@ -722,7 +736,9 @@ CPPFLAGS
 CCC
 CC
 CFLAGS
-CPP'
+CPP
+CUDA_DIR
+CUDA_SDK_DIR'
 
 
 # Initialize some variables set by options.
@@ -1332,6 +1348,7 @@ Optional Features:
   --disable-option-checking  ignore unrecognized --enable/--with options
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+  --enable-float          use single-precision for gravity calculations
   --enable-sse2           enable sse2 gravity vectorization
   --enable-avx            enable avx gravity vectorization
   --enable-changesoft     enable physical softening
@@ -1340,11 +1357,19 @@ Optional Features:
   --enable-wendland       enable Wendland C4 Kernel
   --enable-damping        enable velocity damping for glasses
   --enable-cooling        enable gas cooling (planet,cosmo)
+  --disable-hexadecapole  disable use of hexadecapole expansions
   --enable-diffusion      enable diffusion
   --enable-feedbacklimit  limit diffusion of feedback energy
   --enable-cullenalpha    enable Cullen Dehnen artificial viscosity
   --enable-vsigvisc       enable alternative Monahan artificial viscosity
   --enable-rtforce        enable Richie-Thomas forces
+
+Optional Packages:
+  --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
+  --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --with-cuda[=PATH]      use CUDA (installed in PATH) [no]
+  --with-cuda-sdk=PATH    specify the CUDA SDK install directory
+  --with-cuda-level=LEVEL use CUDA compute capability LEVEL
 
 Some influential environment variables:
   CHARMC      "Charm compiler"
@@ -1358,6 +1383,9 @@ Some influential environment variables:
   CC          C compiler command
   CFLAGS      C compiler flags
   CPP         C preprocessor
+  CUDA_DIR    CUDA toolkit install directory
+  CUDA_SDK_DIR
+              CUDA SDK install directory
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -2239,7 +2267,7 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 
-ac_config_headers="$ac_config_headers config.h ../utility/structures/config.h"
+ac_config_headers="$ac_config_headers config.h $srcdir/../utility/structures/config.h"
 
 
 
@@ -3894,6 +3922,22 @@ if test "${MISSING_XDR}" = "yes" ; then
    LDFLAGS="$LDFLAGS -L../xdr"
 fi
 
+# Use single-precision for gravity calculations
+# Check whether --enable-float was given.
+if test "${enable_float+set}" = set; then :
+  enableval=$enable_float; float=$enableval
+else
+  float=no
+fi
+
+if test "$float" = "yes" ; then
+    echo "float selected"
+    FLAG_FLOAT="-DCOSMO_FLOAT"
+else
+    FLAG_FLOAT=""
+fi
+
+
 # SSE2 vector optimization for gravity
 # Check whether --enable-sse2 was given.
 if test "${enable_sse2+set}" = set; then :
@@ -4165,6 +4209,27 @@ else
 	FLAG_COOLING="-DCOOLING_NONE"
 	cooling="no"
 fi
+# Check whether --enable-hexadecapole was given.
+if test "${enable_hexadecapole+set}" = set; then :
+  enableval=$enable_hexadecapole; # Note that "$enableval" being "yes" means ENABLE hexadecapole -- the
+        # help string, as one would expect, only affects how we document
+        # the option.
+        case "$enableval" in
+              yes | no ) hexadecapole="$enableval";;
+              *) as_fn_error $? "\"$enableval: invalid argument to \`--disable-hexadecapole'\"" "$LINENO" 5 ;;
+         esac
+else
+  hexadecapole="yes"
+fi
+
+
+HEXADECAPOLE=""
+if test "$hexadecapole" = "yes"; then
+    HEXADECAPOLE="-DHEXADECAPOLE"
+else
+    HEXADECAPOLE=""
+fi
+
 
 
 
@@ -4738,7 +4803,267 @@ fi
 done
 
 
-ac_config_files="$ac_config_files Makefile ../utility/structures/Makefile"
+####################### CUDA #######################
+# ----------------------------------------------------------------
+# CUDA support
+#
+# Here we define and process several `--with-cuda`-prefixed `configure`
+# options.  By default CUDA support is disabled: no automatic search for for
+# the nVidia CUDA toolkit or SDK is done, and ENABLE_CUDA is set to "no".
+#
+# The option `--with-cuda` can be used to specify the location of nVidia's CUDA
+# toolkit; if the option is given without an argument or with an argument of
+# "yes", we search for the CUDA toolkit in the following locations:
+#
+#   /usr/local/cuda			standard CUDA install directory
+#
+#   /usr/lib/nvidia-cuda-toolkit 	install directory for the system-
+#					installed CUDA toolkit package on Debian
+#                                       and Debian-based systems
+#
+# On successful search, these variables are set in the generated cuda.mk:
+#
+#   * HAVE_CUDA and ENABLE_CUDA: set to "yes"
+#   * CUDA_DIR: set to the found CUDA toolkit directory
+#   * NVCC: set to the location of the `nvcc` binary in the CUDA toolkit
+#     directory
+#
+# We also define a `--with-cuda-sdk=PATH` option, which allows the user to
+# specify the install location of nVidia's CUDA SDK.  Unlike the `--with-cuda`
+# option, `--with-cuda-sdk` does no automatic search and requires an argument.
+# If the argument exists and is a directory, the following variables are set in
+# the generated cuda.mk.
+#
+#   * HAVE_CUDA_SDK: set to "yes"
+#   * CUDA_SDK_DIR: set to the path given as an argument to `--with-cuda-sdk`.
+#
+# Note that `ENABLE_CUDA` and all `HAVE_*` variables that are set to "no"
+# (which is the default) by configure are set to the empty string prior to
+# substitution into cuda.mk[.in].
+#
+# The final option we define is `--with-cuda-level`, which takes a mandatory
+# argument.  This can be used to specify the CUDA compute capability of the
+# target device(s) when the nVidia CUDA compiler is invoked; the argument
+# should be an integer value equal to ten times the documented compute
+# capability for the target device(s).  This one sets the following variable in
+# the generated cuda.mk.
+#
+#   * CUDA_LEVEL: set to the argument give to `--with-cuda-level` (default 10).
+#
+# There are some arguments to AC_MSG_* with ugly formatting here; the formatting
+# is intentional (it produces nice, readable output in the generated `configure`
+# script, and keeps lines under 80 characters in length).
+#
+# To enable automatic "use" of CUDA (i.e., setting ENABLE_CUDA to "yes" if the
+# CUDA toolkit is found), change the assigned value of `ENABLE_CUDA` in the
+# line directly below this comment to "auto".  (You should also change the
+# default-argument value in the docstring passed to `AS_HELP_STRING` for
+# `--with-cuda` to match.)
+HAVE_CUDA="no"
+HAVE_CUDA_SDK="no"
+
+
+
+
+# Check whether --with-cuda was given.
+if test "${with_cuda+set}" = set; then :
+  withval=$with_cuda; CUDA_DIR=$withval
+else
+  CUDA_DIR="no"
+fi
+
+
+# Interpret "--with-cuda" (i.e. no argument) as "enable CUDA support, please."
+# We also support using the argument "auto" for this purpose.
+ENABLE_CUDA=yes
+case x$(echo $CUDA_DIR | awk '{print tolower($0)}') in
+	xno)
+		ENABLE_CUDA=no
+		;;
+	x|xauto|xyes)
+		ENABLE_CUDA=yes
+		CUDA_DIR=
+		;;
+	*)
+		ENABLE_CUDA=yes
+		;;
+esac
+
+if test "$ENABLE_CUDA" != "no"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CUDA toolkit directory" >&5
+$as_echo_n "checking for CUDA toolkit directory... " >&6; }
+    if test -z "$CUDA_DIR"; then
+        CUDA_DIR_AUTOMATIC=yes
+        CUDA_CANDIDATE_DIRS="/usr/local/cuda /usr/lib/nvidia-cuda-toolkit"
+
+        for dir in $CUDA_CANDIDATE_DIRS; do
+            if test -d "$dir"; then
+                CUDA_DIR="$dir"
+                HAVE_CUDA="yes"
+                { $as_echo "$as_me:${as_lineno-$LINENO}: result: $CUDA_DIR" >&5
+$as_echo "$CUDA_DIR" >&6; }
+                break
+            fi
+        done
+        if test -z "$CUDA_DIR"; then
+            if test "$ENABLE_CUDA" = "yes"; then
+                # User explicitly requested CUDA support but did not provide a
+                # directory argument; being unable to find a toolkit directory
+                # is an error.
+                { $as_echo "$as_me:${as_lineno-$LINENO}: result: not found" >&5
+$as_echo "not found" >&6; }
+                as_fn_error $? "\
+CUDA support explicitly enabled but the toolkit was not found by automatic path
+    search.  Specify CUDA toolkit location with \`--with-cuda=PATH\`." "$LINENO" 5
+            else
+                { $as_echo "$as_me:${as_lineno-$LINENO}: result: not found.  CUDA support will be disabled." >&5
+$as_echo "not found.  CUDA support will be disabled." >&6; }
+                ENABLE_CUDA="no"
+                HAVE_CUDA="no"
+            fi
+        fi
+    else                    # User gave explicit toolkit location.
+        if test -d "$CUDA_DIR"; then
+            { $as_echo "$as_me:${as_lineno-$LINENO}: result: $CUDA_DIR" >&5
+$as_echo "$CUDA_DIR" >&6; }
+            HAVE_CUDA="yes"
+        else
+            { $as_echo "$as_me:${as_lineno-$LINENO}: result: not found" >&5
+$as_echo "not found" >&6; }
+            as_fn_error $? "specified CUDA toolkit directory not found." "$LINENO" 5
+        fi
+    fi
+fi
+
+# Make sure we have the nVidia CUDA compiler available.  We give different
+# messages depending on how the `--with-cuda` option was passed to configure.
+if test "$ENABLE_CUDA" != "no"; then
+    # Extract the first word of "nvcc", so it can be a program name with args.
+set dummy nvcc; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_NVCC_PATH+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $NVCC_PATH in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_NVCC_PATH="$NVCC_PATH" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $CUDA_DIR/bin
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_NVCC_PATH="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+NVCC_PATH=$ac_cv_path_NVCC_PATH
+if test -n "$NVCC_PATH"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $NVCC_PATH" >&5
+$as_echo "$NVCC_PATH" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+    if test -z "$NVCC_PATH" ; then
+        if test "$ENABLE_CUDA" = "yes"; then
+            if test "$CUDA_DIR_AUTOMATIC" = "yes"; then
+                as_fn_error $? "\
+\`bin/nvcc\` not found in automatically-selected CUDA toolkit directory.  Specify
+    CUDA toolkit location with \`--with-cuda=PATH\`." "$LINENO" 5
+            else
+                as_fn_error $? "\
+\`bin/nvcc\` not found in specified CUDA toolkit install prefix." "$LINENO" 5
+            fi
+        else                    # ENABLE_CUDA is "auto"
+            { $as_echo "$as_me:${as_lineno-$LINENO}: \
+\`bin/nvcc\` not found in automatically-selected CUDA toolkit directory; CUDA
+    support will be disabled.  If this is not what you want, try specifying a
+    valid CUDA toolkit install prefix using \`--with-cuda=PATH\`." >&5
+$as_echo "$as_me: \
+\`bin/nvcc\` not found in automatically-selected CUDA toolkit directory; CUDA
+    support will be disabled.  If this is not what you want, try specifying a
+    valid CUDA toolkit install prefix using \`--with-cuda=PATH\`." >&6;}
+            ENABLE_CUDA="no"
+            HAVE_CUDA="no"
+        fi
+    fi
+fi
+
+
+# Check for the CUDA SDK.
+
+
+# Check whether --with-cuda-sdk was given.
+if test "${with_cuda_sdk+set}" = set; then :
+  withval=$with_cuda_sdk; CUDA_SDK_DIR=$withval
+else
+  CUDA_SDK_DIR=""
+fi
+
+
+if test -n "$CUDA_SDK_DIR"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CUDA SDK directory" >&5
+$as_echo_n "checking for CUDA SDK directory... " >&6; }
+    if test -d "$CUDA_SDK_DIR"; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: $CUDA_SDK_DIR" >&5
+$as_echo "$CUDA_SDK_DIR" >&6; }
+        HAVE_CUDA_SDK=yes
+    else
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: not found" >&5
+$as_echo "not found" >&6; }
+        as_fn_error $? "specified CUDA SDK directory not found." "$LINENO" 5
+    fi
+fi
+
+# Allow setting CUDA compute capability at `configure`-time.
+
+# Check whether --with-cuda-level was given.
+if test "${with_cuda_level+set}" = set; then :
+  withval=$with_cuda_level; CUDA_LEVEL=$withval
+else
+  CUDA_LEVEL=35
+fi
+
+
+# Set up boolean AC_SUBST variables for use in Make.
+for var in HAVE_CUDA HAVE_CUDA_SDK ENABLE_CUDA; do
+    eval value='$'"$var"
+    if test "$value" = "no"; then
+        eval "$var=''"
+    fi
+done
+
+
+
+
+
+
+
+
+
+if test -n "$ENABLE_CUDA"; then
+   ac_config_files="$ac_config_files cuda.mk"
+
+fi
+
+##################### END CUDA #####################
+
+
+ac_config_files="$ac_config_files Makefile $srcdir/../utility/structures/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -5430,9 +5755,10 @@ for ac_config_target in $ac_config_targets
 do
   case $ac_config_target in
     "config.h") CONFIG_HEADERS="$CONFIG_HEADERS config.h" ;;
-    "../utility/structures/config.h") CONFIG_HEADERS="$CONFIG_HEADERS ../utility/structures/config.h" ;;
+    "$srcdir/../utility/structures/config.h") CONFIG_HEADERS="$CONFIG_HEADERS $srcdir/../utility/structures/config.h" ;;
+    "cuda.mk") CONFIG_FILES="$CONFIG_FILES cuda.mk" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
-    "../utility/structures/Makefile") CONFIG_FILES="$CONFIG_FILES ../utility/structures/Makefile" ;;
+    "$srcdir/../utility/structures/Makefile") CONFIG_FILES="$CONFIG_FILES $srcdir/../utility/structures/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
