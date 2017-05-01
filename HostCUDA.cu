@@ -1305,17 +1305,23 @@ void FreeDataManagerRemoteChunkMemory(int chunk, void *dm, bool freemom, bool fr
 }
 
 
-
 void run_DM_TRANSFER_BACK(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
   printf("DM_TRANSFER_BACK: 0x%x KERNELSELECT\n", devBuffers[LOCAL_PARTICLE_VARS]);
 #endif
 }
 
+/* Schedule the transfer of the accelerations back from the GPU to the host.
+ * This also schedules the freeing of the device buffers used for the
+ * force calculation.
+ */
 #ifdef CUDA_INSTRUMENT_WRS
-void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, bool freemom, bool freepart, int index, char phase){
+void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb,
+     bool freemom, bool freepart, bool freeRemoteMom, bool, freeRemotePart,
+     int index, char phase){
 #else
-void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, bool freemom, bool freepart){
+void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb,
+     bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart){
 #endif
   workRequest gravityKernel;
   dataInfo *buffer;
@@ -1327,10 +1333,15 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, 
   gravityKernel.dimBlock = dim3(0);
   gravityKernel.smemSize = 0;
 
-  gravityKernel.nBuffers = 3;
+  /* The buffers are: 1) forces on local particles, 2) Local multipole moments
+   * 3) Local particle data, 4) Remote multipole moments and 5) remote
+   * particle data.  Buffers 2-5 are here to get their device buffer
+   * deallocated.
+   */
+  gravityKernel.nBuffers = 5;
 
   /* schedule buffers for transfer to the GPU */
-  gravityKernel.bufferInfo = (dataInfo *) malloc(3 * sizeof(dataInfo));
+  gravityKernel.bufferInfo = (dataInfo *) malloc(gravityKernel.nBuffers * sizeof(dataInfo));
 
   buffer = &(gravityKernel.bufferInfo[LOCAL_PARTICLE_VARS_IDX]);
   buffer->bufferID = LOCAL_PARTICLE_VARS;
@@ -1356,6 +1367,21 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, 
   buffer->hostBuffer = NULL;
   buffer->size = 0;
 
+  buffer = &(gravityKernel.bufferInfo[3]);
+  buffer->bufferID = REMOTE_MOMENTS;
+  buffer->transferToDevice = false ;
+  buffer->transferFromDevice = false;
+  buffer->freeBuffer = freeRemoteMom;
+  buffer->hostBuffer = NULL;
+  buffer->size = 0;
+
+  buffer = &(gravityKernel.bufferInfo[4]);
+  buffer->bufferID = REMOTE_PARTICLE_CORES;
+  buffer->transferToDevice = false ;
+  buffer->transferFromDevice = false;
+  buffer->freeBuffer = freeRemotePart;
+  buffer->hostBuffer = NULL;
+  buffer->size = 0;
 
   gravityKernel.callbackFn = cb;
   gravityKernel.traceName = "transferBack";

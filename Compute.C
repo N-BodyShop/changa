@@ -1938,11 +1938,14 @@ void cudaCallback(void *param, void *msg){
   CkPrintf("memcheck in cudaCallback before callFreeRemoteChunkMemory\n");
   CmiMemoryCheck();
 #endif
-  if(data->callDummy){
-    // doesn't matter what argument is passed in
-    tp->callFreeRemoteChunkMemory(-1);
-  }
-  
+// Freeing the remote memory on the device is now done in
+// TransferVarsBack.  This probably doesn't work if there are multiple
+// "Chunks" in use for the remote walk.
+//  if(data->callDummy){
+//    // doesn't matter what argument is passed in
+//    tp->callFreeRemoteChunkMemory(-1);
+//  }
+
   /*
   bucket = affectedBuckets[numBucketsDone-1];
   state->counterArrays[0][bucket]--;

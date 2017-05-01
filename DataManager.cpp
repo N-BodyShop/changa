@@ -945,9 +945,17 @@ void DataManager::transferParticleVarsBack(){
 
     if(verbosity > 1) CkPrintf("[%d] transferParticleVarsBack\n", CkMyPe());
 #ifdef CUDA_INSTRUMENT_WRS
-    TransferParticleVarsBack(buf, savedNumTotalParticles*sizeof(VariablePartData), data->cb, savedNumTotalNodes > 0, savedNumTotalParticles > 0, 0, activeRung);
+    TransferParticleVarsBack(buf,
+                             savedNumTotalParticles*sizeof(VariablePartData),
+                             data->cb, savedNumTotalNodes > 0,
+                             savedNumTotalParticles > 0, lastChunkMoments > 0,
+                             lastChunkParticles > 0, 0, activeRung);
 #else
-    TransferParticleVarsBack(buf, savedNumTotalParticles*sizeof(VariablePartData), data->cb, savedNumTotalNodes > 0, savedNumTotalParticles > 0);
+    TransferParticleVarsBack(buf,
+                             savedNumTotalParticles*sizeof(VariablePartData),
+                             data->cb, savedNumTotalNodes > 0,
+                             savedNumTotalParticles > 0, lastChunkMoments > 0,
+                             lastChunkParticles > 0);
 #endif
     gputransfer = false;
   }
