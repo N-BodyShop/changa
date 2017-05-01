@@ -1938,10 +1938,12 @@ void cudaCallback(void *param, void *msg){
   CkPrintf("memcheck in cudaCallback before callFreeRemoteChunkMemory\n");
   CmiMemoryCheck();
 #endif
+#if 0
   if(data->callDummy){
     // doesn't matter what argument is passed in
     tp->callFreeRemoteChunkMemory(-1);
   }
+#endif
   
   /*
   bucket = affectedBuckets[numBucketsDone-1];

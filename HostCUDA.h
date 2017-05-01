@@ -159,7 +159,8 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
 void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, void *wrCallback);
 void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart);
 void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart);
-void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, bool, bool);
+void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb,
+    bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart);
 #endif
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data);

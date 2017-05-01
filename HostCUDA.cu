@@ -333,8 +333,8 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
   buf->size = size;
   buf->transferToDevice = (size > 0);
   
-  //double mill = 1e6;
-  //printf("DM remote moments: %f mbytes\n", 1.0*size/mill);
+  double mill = 1e6;
+  printf("DM remote moments: %f mbytes\n", 1.0*size/mill);
   
   if(size > 0){
     CUDA_MALLOC(buf->hostBuffer, size);
@@ -1315,7 +1315,7 @@ void run_DM_TRANSFER_BACK(workRequest *wr, cudaStream_t kernel_stream,void** dev
 #ifdef CUDA_INSTRUMENT_WRS
 void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, bool freemom, bool freepart, int index, char phase){
 #else
-void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, bool freemom, bool freepart){
+void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart){
 #endif
   workRequest gravityKernel;
   dataInfo *buffer;
@@ -1327,10 +1327,10 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, 
   gravityKernel.dimBlock = dim3(0);
   gravityKernel.smemSize = 0;
 
-  gravityKernel.nBuffers = 3;
+  gravityKernel.nBuffers = 5;
 
   /* schedule buffers for transfer to the GPU */
-  gravityKernel.bufferInfo = (dataInfo *) malloc(3 * sizeof(dataInfo));
+  gravityKernel.bufferInfo = (dataInfo *) malloc(gravityKernel.nBuffers * sizeof(dataInfo));
 
   buffer = &(gravityKernel.bufferInfo[LOCAL_PARTICLE_VARS_IDX]);
   buffer->bufferID = LOCAL_PARTICLE_VARS;
@@ -1356,6 +1356,21 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, 
   buffer->hostBuffer = NULL;
   buffer->size = 0;
 
+  buffer = &(gravityKernel.bufferInfo[3]);
+  buffer->bufferID = REMOTE_MOMENTS;
+  buffer->transferToDevice = false ;
+  buffer->transferFromDevice = false;
+  buffer->freeBuffer = freeRemoteMom;
+  buffer->hostBuffer = NULL;
+  buffer->size = 0;
+
+  buffer = &(gravityKernel.bufferInfo[4]);
+  buffer->bufferID = REMOTE_PARTICLE_CORES;
+  buffer->transferToDevice = false ;
+  buffer->transferFromDevice = false;
+  buffer->freeBuffer = freeRemotePart;
+  buffer->hostBuffer = NULL;
+  buffer->size = 0;
 
   gravityKernel.callbackFn = cb;
   gravityKernel.traceName = "transferBack";
