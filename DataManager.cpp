@@ -1131,14 +1131,14 @@ long long totalTraversedParticles = 0;
       }
 
 #ifdef CAMBRIDGE
-/*      if (tp->largePhase()) {
+      if (tp->largePhase()) {
         for(int j = 1; j <= numParticles; j++) {
           CkPrintf("(%d)th tp %d th particle: acc.x = %f, acc.y = %f, acc.z = %f, potential = %f.\n", i, j, tp->myParticles[j].treeAcceleration.x,
                                                                                                                           tp->myParticles[j].treeAcceleration.y,
                                                                                                                           tp->myParticles[j].treeAcceleration.z,
                                                                                                                           tp->myParticles[j].potential);
         }
-      }*/
+      }
 
       printf("The total number of nodeInterLocal is %lld\n", totalTraversedNodes);
       printf("The total number of particleInterLocal is %lld\n", totalTraversedParticles);

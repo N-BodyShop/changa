@@ -762,8 +762,8 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 
 #ifdef CAMBRIDGE
 //  gravityKernel.dimGrid = max(data->totalNumOfParticles / THREADS_PER_BLOCK, 1);
-  printf("data->totalNumOfParticles = %d\n", data->totalNumOfParticles);
-  fflush(stdout);
+//  printf("data->totalNumOfParticles = %d\n", data->totalNumOfParticles);
+//  fflush(stdout);
   gravityKernel.dimGrid = data->totalNumOfParticles / THREADS_PER_BLOCK+1;
   gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
 #endif
@@ -1506,7 +1506,7 @@ __device__ __forceinline__ void cuda_ldg_cPartData(CompactPartData &m, CompactPa
 #define NWARPS_PER_BLOCK (THREADS_PER_BLOCK / THREADS_PER_WARP)
 #define WARP_INDEX (threadIdx.x >> 5)
 #define ROOT 0
-#define OBSERVE_FLAG 1
+#define OBSERVE_FLAG 0
 #define OBSERVING 0
 #define TEXTURE_LOAD 1
 
