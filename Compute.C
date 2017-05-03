@@ -1463,7 +1463,8 @@ void cudaCallbackForAllBuckets(void *param, void *msg) {
   //
   for(int i = 0; i < numBucketsDone; i++){
     bucket = affectedBuckets[i];
-    state->counterArrays[0][bucket]--;
+//    state->counterArrays[0][bucket]--;
+    state->counterArrays[0][bucket] = 0;
     //CkPrintf("[%d] bucket %d numAddReq: %d\n", tp->getIndex(), bucket, state->counterArrays[0][bucket]);
     tp->finishBucket(bucket);
   }
@@ -1479,8 +1480,6 @@ void cudaCallbackForAllBuckets(void *param, void *msg) {
   }
   delete ((CkCallback *)data->cb);
   delete data; 
-
-  printf("The callback function is called! GPU work is done!\n");
 }
 
 void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int activeRung, int start_id, int end_id) {
@@ -1524,6 +1523,7 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int
     int x = 0, y = 0, z = 0;    // default value, need to fix in the future
     int offsetID = encodeOffset(0, x,y,z);
     ILCell tilc(root_index, offsetID);
+
     if(((DoubleWalkState *)state)->nodeLists.lists[i].length() == 0) {    
       ((DoubleWalkState *)state)->counterArrays[0][i] ++;    
       ((DoubleWalkState *)state)->nodeLists.lists[i].push_back(tilc);    
@@ -1585,6 +1585,7 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int
                                                                                   request->bucketStarts[0] + request->bucketSizes[0]);*/
 
   TreePieceCellListDataTransferLocal(request);
+  printf("TreePieceCellListDataTransferLocal is done!\n");
 }
 
 /// @brief Check for computation
