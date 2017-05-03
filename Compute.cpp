@@ -1573,7 +1573,6 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int
                                                                                   request->bucketStarts[0] + request->bucketSizes[0]);*/
 
   TreePieceCellListDataTransferLocal(request);
-  printf("TreePieceCellListDataTransferLocal is done!\n");
 }
 
 /// @brief Check for computation

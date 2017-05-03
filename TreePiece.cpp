@@ -3815,10 +3815,10 @@ void TreePiece::doAllBuckets(){
 
 #ifdef CAMBRIDGE 
 #define CUDA_PTF_BUF_SIZE (50 * 1024 * 1024)
-  cudaDeviceSetLimit(cudaLimitPrintfFifoSize, (size_t) CUDA_PTF_BUF_SIZE);
+/*  cudaDeviceSetLimit(cudaLimitPrintfFifoSize, (size_t) CUDA_PTF_BUF_SIZE);
   size_t size;
   cudaDeviceGetLimit(&size,cudaLimitPrintfFifoSize);
-  printf("our cuda printf fifo buffer size is %d.\n", size);
+  printf("our cuda printf fifo buffer size is %d.\n", size);*/
 
 
   printf("CAMBRIDGE         The numBuckets = %d\n", numBuckets);
