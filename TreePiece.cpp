@@ -3815,13 +3815,14 @@ void TreePiece::doAllBuckets(){
 
 #ifdef CAMBRIDGE 
 #define CUDA_PTF_BUF_SIZE (50 * 1024 * 1024)
-    cudaDeviceSetLimit(cudaLimitPrintfFifoSize, (size_t) CUDA_PTF_BUF_SIZE);
-    size_t size;
-    cudaDeviceGetLimit(&size,cudaLimitPrintfFifoSize);
-    printf("our cuda printf fifo buffer size is %d.\n", size);
+  cudaDeviceSetLimit(cudaLimitPrintfFifoSize, (size_t) CUDA_PTF_BUF_SIZE);
+  size_t size;
+  cudaDeviceGetLimit(&size,cudaLimitPrintfFifoSize);
+  printf("our cuda printf fifo buffer size is %d.\n", size);
 
 
-    CkPrintf("CAMBRIDGE         The numBuckets = %d\n", numBuckets);
+  printf("CAMBRIDGE         The numBuckets = %d\n", numBuckets);
+  fflush(stdout);
   ListCompute *listcompute = (ListCompute *) sGravity;
   DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
   localListConstructionTime = 0.0;
@@ -3833,9 +3834,9 @@ void TreePiece::doAllBuckets(){
     listcompute->resetCudaPartState(state);
   }*/
 
-    listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, 1);
-    listcompute->resetCudaNodeState(state);
-    listcompute->resetCudaPartState(state);
+  listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets);
+  listcompute->resetCudaNodeState(state);
+  listcompute->resetCudaPartState(state);
 #endif
 
   thisProxy[thisIndex].nextBucket(msg);
