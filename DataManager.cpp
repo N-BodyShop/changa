@@ -967,6 +967,8 @@ void DataManager::transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaM
     localMoments[node_index].type = (int)type;
     localMoments[node_index].nodeArrayIndex = node_index;
     localMoments[node_index].particleCount = node->particleCount;
+    // Here for non leaf node, I just choose its first child's bucketStart as its value
+    // From my practice, this should work for default setting, but not sure whether it works for all cases.
     if (node->numChildren() != 0) {
       GenericTreeNode *child = node->getChildren(0);
       int child_index = child->nodeArrayIndex;
