@@ -982,7 +982,12 @@ void DataManager::transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaM
     for(int i = 0; i < node->numChildren(); i++){
       GenericTreeNode *child = node->getChildren(i);
       int child_index = child->nodeArrayIndex;
+/*      if (child_index == -1) {
+        printf("                WE GOT a -1 CHILD!\n");
+        fflush(stdout);
+      }*/
       localMoments[node_index].children[i] = child_index;
+      transformLocalTreeRecursive(child, localMoments);
 
       // Here, it's very strange that child_index could be -1 when I run on a single machine
       // I'm not sure why, probably that child could be the boundary?
@@ -990,7 +995,6 @@ void DataManager::transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaM
         localMoments[node_index].bucketStart = std::min(localMoments[node_index].bucketStart, localMoments[child_index].bucketStart);
         localMoments[node_index].bucketSize += localMoments[child_index].bucketSize;
       }
-      transformLocalTreeRecursive(child, localMoments);
     } 
   }
 }

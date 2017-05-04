@@ -1618,7 +1618,7 @@ int stack[64];
   for(pidx = blockIdx.x*blockDim.x + threadIdx.x; pidx < totalNumOfParticles; pidx += gridDim.x*blockDim.x) {
 //    for(pidx = threadIdx.x + bucketStart; pidx < bucketEnd; pidx += THREADS_PER_BLOCK) {
     // initialize the variables belonging to current thread
-    int nodePointer = particleCores[pidx].nodeId;
+    int nodePointer = 0;
 #ifdef TEXTURE_LOAD
     cuda_ldg_cPartData(myparticle, &particleCores[pidx]);
     cuda_ldg_moments(mynode, &moments[nodePointer]);
@@ -1645,6 +1645,11 @@ int stack[64];
       targetnode = moments[cur_node_index];
 #endif
       STACK_POP();
+
+
+    if (OBSERVE_FLAG && OBSERVING == pidx) {
+      printf("    cur_node_index = %d, targetnode.bucketStart = %d, targetnode.bucketSize = %d!\n", cur_node_index, targetnode.bucketStart, targetnode.bucketSize);
+    }
 
       // Here should be initialized with nReplicas ID. but since I'm not using it at all, I just fill it with zeros.
       int offsetID = cuda_encodeOffset(0, 0, 0, 0);
@@ -1677,17 +1682,25 @@ int stack[64];
               STACK_TOP_NODE_INDEX = targetnode.children[0];
             }
           } else {
-            int start_pidx = moments[mynode.children[0]].bucketStart;
-            int end_pidx = start_pidx + moments[mynode.children[0]].bucketSize;
+            int child_id = mynode.children[0];
+            int start_pidx = moments[child_id].bucketStart;
+            int end_pidx = start_pidx + moments[child_id].bucketSize;
 
-            if (start_pidx <= pidx && pidx <= end_pidx) {
+            if (start_pidx <= pidx && pidx <= end_pidx && mynode.children[0] != -1) {
               cuda_ldg_moments(mynode, &moments[mynode.children[0]]);
-            } else {
+              STACK_PUSH();
+              STACK_TOP_NODE_INDEX = cur_node_index;
+    if (OBSERVE_FLAG && OBSERVING == pidx) {
+      printf("pidx %d entered %d, child_id = %d, start = %d, end = %d!\n", pidx, mynode.children[0], child_id, start_pidx, end_pidx);
+    }
+            } else if (mynode.children[1] != -1){
               cuda_ldg_moments(mynode, &moments[mynode.children[1]]);
+              STACK_PUSH();
+              STACK_TOP_NODE_INDEX = cur_node_index;
+    if (OBSERVE_FLAG && OBSERVING == pidx) {
+      printf("pidx %d entered %d, child_id = %d, start = %d, end = %d!\n", pidx, mynode.children[1], child_id, start_pidx, end_pidx);
+    }
             }
-
-            STACK_PUSH();
-            STACK_TOP_NODE_INDEX = cur_node_index;
           }
         }
       } else if (action == COMPUTE) {
