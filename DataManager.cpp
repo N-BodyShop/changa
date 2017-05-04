@@ -967,14 +967,10 @@ void DataManager::transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaM
     localMoments[node_index].type = (int)type;
     localMoments[node_index].nodeArrayIndex = node_index;
     localMoments[node_index].particleCount = node->particleCount;
-    // Here for non leaf node, I just choose its first child's bucketStart as its value
-    // From my practice, this should work for default setting, but not sure whether it works for all cases.
-    if (node->numChildren() != 0) {
-      GenericTreeNode *child = node->getChildren(0);
-      int child_index = child->nodeArrayIndex;
 
-      localMoments[node_index].bucketStart = localMoments[child_index].bucketStart;
-    }
+    localMoments[node_index].bucketStart = INT_MAX;
+    localMoments[node_index].bucketSize = 0;
+
     for (int i = 0; i < 2; i ++) {
       localMoments[node_index].children[i] = -1;
     }
@@ -983,6 +979,12 @@ void DataManager::transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaM
       int child_index = child->nodeArrayIndex;
       localMoments[node_index].children[i] = child_index;
 
+      // Here, it's very strange that child_index could be -1 when I run on a single machine
+      // I'm not sure why, probably that child could be the boundary?
+      if (child_index != -1) {
+        localMoments[node_index].bucketStart = std::min(localMoments[node_index].bucketStart, localMoments[child_index].bucketStart);
+        localMoments[node_index].bucketSize += localMoments[child_index].bucketSize;
+      }
       transformLocalTreeRecursive(child, localMoments);
     } 
   }
