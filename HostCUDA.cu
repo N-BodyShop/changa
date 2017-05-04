@@ -1656,10 +1656,8 @@ int stack[64];
       int action = cuda_OptAction(open, targetnode.type);
 
       if (action == KEEP) {
-        if (open == CONTAIN || open == INTERSECT) {
+        if (open == CONTAIN) {
           // if open == CONTAIN, push chilren in stack
-          // if open == INTERSECT, Since our mynode will always be a bucket
-          // here we should always push the children of targetnode into stack, too
           if (targetnode.children[1] != -1) {
             STACK_PUSH();
             STACK_TOP_NODE_INDEX = targetnode.children[1];
@@ -1667,6 +1665,29 @@ int stack[64];
           if (targetnode.children[0] != -1) {
             STACK_PUSH();
             STACK_TOP_NODE_INDEX = targetnode.children[0];
+          }
+        } else if (open == INTERSECT) {
+          if (mynode.type == cuda_Bucket) {
+            if (targetnode.children[1] != -1) {
+              STACK_PUSH();
+              STACK_TOP_NODE_INDEX = targetnode.children[1];
+            }
+            if (targetnode.children[0] != -1) {
+              STACK_PUSH();
+              STACK_TOP_NODE_INDEX = targetnode.children[0];
+            }
+          } else {
+            int start_pidx = moments[mynode.children[0]].bucketStart;
+            int end_pidx = start_pidx + moments[mynode.children[0]].bucketSize;
+
+            if (start_pidx <= pidx && pidx <= end_pidx) {
+              cuda_ldg_moments(mynode, &moments[mynode.children[0]]);
+            } else {
+              cuda_ldg_moments(mynode, &moments[mynode.children[1]]);
+            }
+
+            STACK_PUSH();
+            STACK_TOP_NODE_INDEX = cur_node_index;
           }
         }
       } else if (action == COMPUTE) {
