@@ -348,7 +348,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
 /************** Gravity *****************/
 
 void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  ParameterStruct *ptr = (ParameterStruct *)wr->userData;
+  ParameterStruct *ptr = (ParameterStruct *)wr->getUserData();
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
   printf("TP_GRAVITY_LOCAL KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nlocal_moments: (0x%x)\nil_cell: %d (0x%x)\n", 
       devBuffers[LOCAL_PARTICLE_CORES],
@@ -388,7 +388,7 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
 }
 
 void run_TP_PART_GRAVITY_LOCAL_SMALLPHASE(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  ParameterStruct *ptr = (ParameterStruct *)wr->userData;
+  ParameterStruct *ptr = (ParameterStruct *)wr->getUserData();
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
   printf("TP_PART_GRAVITY_LOCAL_SMALLPHASE KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: %d (0x%x)\n", 
       devBuffers[LOCAL_PARTICLE_CORES],
@@ -443,7 +443,7 @@ void run_TP_PART_GRAVITY_LOCAL_SMALLPHASE(workRequest *wr, cudaStream_t kernel_s
 }
 
 void run_TP_PART_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  ParameterStruct *ptr = (ParameterStruct *)wr->userData;
+  ParameterStruct *ptr = (ParameterStruct *)wr->getUserData();
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
   printf("TP_PART_GRAVITY_LOCAL KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: %d (0x%x)\n", 
       devBuffers[LOCAL_PARTICLE_CORES],
@@ -496,7 +496,7 @@ void run_TP_PART_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void*
 }
 
 void run_TP_GRAVITY_REMOTE(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  ParameterStruct *ptr = (ParameterStruct *)wr->userData;
+  ParameterStruct *ptr = (ParameterStruct *)wr->getUserData();
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
   printf("TP_GRAVITY_REMOTE KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nremote_moments: (0x%x)\nil_cell: %d (0x%x)\n", 
       devBuffers[LOCAL_PARTICLE_CORES],
@@ -536,7 +536,7 @@ void run_TP_GRAVITY_REMOTE(workRequest *wr, cudaStream_t kernel_stream,void** de
 }
 
 void run_TP_PART_GRAVITY_REMOTE(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  ParameterStruct *ptr = (ParameterStruct *)wr->userData;
+  ParameterStruct *ptr = (ParameterStruct *)wr->getUserData();
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
   printf("TP_PART_GRAVITY_REMOTE KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: %d (0x%x)\n", 
       devBuffers[LOCAL_PARTICLE_CORES],
@@ -590,7 +590,7 @@ void run_TP_PART_GRAVITY_REMOTE(workRequest *wr, cudaStream_t kernel_stream,void
 }
 
 void run_TP_GRAVITY_REMOTE_RESUME(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  ParameterStruct *ptr = (ParameterStruct *)wr->userData;
+  ParameterStruct *ptr = (ParameterStruct *)wr->getUserData();
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
   printf("TP_GRAVITY_REMOTE_RESUME KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nmissed_moments: %d (0x%x)\nil_cell: %d (0x%x)\n", 
       devBuffers[LOCAL_PARTICLE_CORES],
@@ -632,7 +632,7 @@ void run_TP_GRAVITY_REMOTE_RESUME(workRequest *wr, cudaStream_t kernel_stream,vo
 }
 
 void run_TP_PART_GRAVITY_REMOTE_RESUME(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  ParameterStruct *ptr = (ParameterStruct *)wr->userData;
+  ParameterStruct *ptr = (ParameterStruct *)wr->getUserData();
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
   printf("TP_PART_GRAVITY_REMOTE_RESUME KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nmissed_parts: %d (0x%x)\nil_cell: %d (0x%x)\n", 
       devBuffers[LOCAL_PARTICLE_CORES],
@@ -777,7 +777,7 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleM
 
   gravityKernel->addBufferInfo(bufferHostBuffer, size, transfer, false, transfer);
 
-  ParameterStruct *ptr = (ParameterStruct *)gravityKernel->userData;
+  ParameterStruct *ptr = (ParameterStruct *)gravityKernel->getUserData();
   ptr->numEntities = numMissedMoments;
 
   gravityKernel->setDeviceToHostCallback(data->cb);
@@ -867,7 +867,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
         }
         gravityKernel->addBufferInfo(bufferHostBuffer, size, transfer, false, transfer);
 
-        ptr = (ParameterStruct *)gravityKernel->userData;
+        ptr = (ParameterStruct *)gravityKernel->getUserData();
         ptr->numMissedCores = len;
 
 	gravityKernel->setDeviceToHostCallback(data->cb);
@@ -972,7 +972,7 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartDat
         }
         gravityKernel->addBufferInfo(bufferHostBuffer, size, transfer, false, transfer);
 
-        ptr = (ParameterStruct *)gravityKernel->userData;
+        ptr = (ParameterStruct *)gravityKernel->getUserData();
         ptr->numMissedCores = numMissedParts;
 
 	gravityKernel->setDeviceToHostCallback(data->cb);
@@ -1073,7 +1073,7 @@ void run_DM_TRANSFER_FREE_REMOTE_CHUNK(workRequest *wr, cudaStream_t kernel_stre
   printf("DM_TRANSFER_FREE_REMOTE_CHUNK KERNELSELECT\n");
 
 #endif
-  initiateNextChunkTransfer(wr->userData);
+  initiateNextChunkTransfer(wr->getUserData());
 }
 
 
@@ -2120,7 +2120,7 @@ __global__ void particleGravityComputation(
 __global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int *markers, int largephase, int First, int Last);
 
 void run_EWALD_KERNEL_Large(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  int *Ewaldptr = (int*)wr->userData;
+  int *Ewaldptr = (int*)wr->getUserData();
   cudaMemcpyToSymbol(cachedData, wr->buffers[EWALD_READ_ONLY_DATA_IDX].hostBuffer, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice);
   cudaMemcpyToSymbol(ewt, wr->buffers[EWALD_TABLE_IDX].hostBuffer, NEWH * sizeof(EwtData), 0, cudaMemcpyHostToDevice);
   EwaldKernel<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
@@ -2134,7 +2134,7 @@ void run_EWALD_KERNEL_Large(workRequest *wr, cudaStream_t kernel_stream,void** d
 }
 
 void run_EWALD_KERNEL_Small(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  int *Ewaldptr = (int*)wr->userData;
+  int *Ewaldptr = (int*)wr->getUserData();
   cudaMemcpyToSymbol(cachedData, wr->buffers[EWALD_READ_ONLY_DATA_IDX].hostBuffer, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice);
   cudaMemcpyToSymbol(ewt, wr->buffers[EWALD_TABLE_IDX].hostBuffer, NEWH * sizeof(EwtData), 0, cudaMemcpyHostToDevice);  
   EwaldKernel<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
