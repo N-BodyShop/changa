@@ -39,10 +39,6 @@
 #define CmiMyPe() _Cmi_mype
 extern int _Cmi_mype;
 
-//extern workRequestQueue *wrQueue;
-//extern void **devBuffers;
-//extern cudaStream_t kernel_stream;
-
 __device__ __constant__ EwaldReadOnlyData cachedData[1];
 __device__ __constant__ EwtData ewt[NEWH];  
 
