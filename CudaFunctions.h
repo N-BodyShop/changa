@@ -2,7 +2,7 @@
 #define _CUDAFUNCTIONS_H_
 
 #ifdef CUDA
-#include "wr.h"
+#include "hapi.h"
 #include "HostCUDA.h"
 void TreePieceCellListDataTransferBasic(CudaRequest *data, workRequest *wr);
 void TreePiecePartListDataTransferBasic(CudaRequest *data, workRequest *wr);
