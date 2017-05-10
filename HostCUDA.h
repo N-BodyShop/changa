@@ -5,9 +5,9 @@
 #include <cuda_runtime.h>
 #include "cuda_typedef.h"
 
-#ifdef CUDA_USE_CUDAMALLOCHOST
-# ifdef CUDA_MEMPOOL
-#  define CUDA_MALLOC(ptr,sz) ptr = hapi_poolMalloc(size)
+#ifdef HAPI_USE_CUDAMALLOCHOST
+# ifdef HAPI_MEMPOOL
+#  define CUDA_MALLOC(ptr,sz) ptr = hapiPoolMalloc(size)
 # else
 #  define CUDA_MALLOC(ptr,sz) cudaMallocHost(&(ptr), size)
 # endif

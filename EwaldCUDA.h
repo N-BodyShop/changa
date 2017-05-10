@@ -8,7 +8,7 @@
 #define EWALD_READ_ONLY_DATA  0
 #define EWALD_TABLE           1
 
-/* Defines for place in the bufferInfo array */
+/* Defines for place in the hapiBufferInfo array */
 #define PARTICLE_TABLE_IDX    0 
 #define EWALD_READ_ONLY_DATA_IDX  1
 #define EWALD_TABLE_IDX           2
