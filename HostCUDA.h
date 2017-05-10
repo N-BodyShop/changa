@@ -5,9 +5,9 @@
 #include <cuda_runtime.h>
 #include "cuda_typedef.h"
 
-#ifdef CUDA_USE_CUDAMALLOCHOST
-# ifdef CUDA_MEMPOOL
-#  define CUDA_MALLOC(ptr,sz) ptr = hapi_poolMalloc(size)
+#ifdef HAPI_USE_CUDAMALLOCHOST
+# ifdef HAPI_MEMPOOL
+#  define CUDA_MALLOC(ptr,sz) ptr = hapiPoolMalloc(size)
 # else
 #  define CUDA_MALLOC(ptr,sz) cudaMallocHost(&(ptr), size)
 # endif
@@ -143,7 +143,7 @@ typedef struct _CudaRequest{
         bool node;
         /// is this a remote or local computation?
         bool remote;
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         int tpIndex;
         char phase;
 #endif
@@ -177,11 +177,14 @@ typedef struct _ParameterStruct{
 #endif //GPU_LOCAL_TREE_WALK
 }ParameterStruct;
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
 void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
                         CompactPartData *compactParts, int nCompactParts,
                         int mype, char phase, void *wrCallback);
-void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase);
+void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments,
+                                    int nMoments, CompactPartData *compactParts,
+                                    int nCompactParts, int mype, char phase,
+                                    void *wrCallback);
 void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart, int pe, char phase);
 void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart, int pe, char phase);
 void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, bool, bool, bool, bool, int pe, char phase);

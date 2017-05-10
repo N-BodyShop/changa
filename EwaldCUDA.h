@@ -8,7 +8,7 @@
 #define EWALD_READ_ONLY_DATA  0
 #define EWALD_TABLE           1
 
-/* Defines for place in the bufferInfo array */
+/* Defines for place in the hapiBufferInfo array */
 #define PARTICLE_TABLE_IDX    0 
 #define EWALD_READ_ONLY_DATA_IDX  1
 #define EWALD_TABLE_IDX           2
@@ -72,7 +72,7 @@ typedef struct {
 
 void EwaldHostMemorySetup(EwaldData *h_idata, int size, int nEwhLoop, int largephase); 
 void EwaldHostMemoryFree(EwaldData *h_idata, int largephase); 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase, int largephase); 
 #else
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase); 
