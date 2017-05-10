@@ -130,7 +130,7 @@ protected:
         int lastChunkMoments;
         int lastChunkParticles;
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         int activeRung;
         int treePiecesDoneInitInstrumentation;
 #endif
@@ -184,7 +184,7 @@ public:
         void updateParticles(UpdateParticlesStruct *data);
         void updateParticlesFreeMemory(UpdateParticlesStruct *data);
         void initiateNextChunkTransfer();
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         int initInstrumentation();
 #endif
         DataManager(){} 
