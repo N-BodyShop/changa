@@ -1101,7 +1101,7 @@ CudaRequest *GenericList<T>::serialize(TreePiece *tp){
     int *affectedBuckets = NULL;
 
     if(totalNumInteractions > 0){
-#ifdef CUDA_USE_CUDAMALLOCHOST
+#ifdef HAPI_USE_CUDAMALLOCHOST
       allocatePinnedHostMemory((void **)&flatlists, totalNumInteractions*sizeof(T));
       allocatePinnedHostMemory((void **)&markers, (numFilledBuckets+1)*sizeof(int));
       allocatePinnedHostMemory((void **)&starts, (numFilledBuckets)*sizeof(int));
@@ -1193,7 +1193,7 @@ CudaRequest *GenericList<ILPart>::serialize(TreePiece *tp){
     int *affectedBuckets = NULL;
 
     if(totalNumInteractions > 0){
-#ifdef CUDA_USE_CUDAMALLOCHOST
+#ifdef HAPI_USE_CUDAMALLOCHOST
       allocatePinnedHostMemory((void **)&flatlists, numParticleInteractions*sizeof(ILCell));
       allocatePinnedHostMemory((void **)&markers, (numFilledBuckets+1)*sizeof(int));
       allocatePinnedHostMemory((void **)&starts, (numFilledBuckets)*sizeof(int));
