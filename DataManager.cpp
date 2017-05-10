@@ -11,7 +11,7 @@
 #include "cuda_typedef.h"
 #include "SFC.h"
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
 //#define GPU_INSTRUMENT_WRS
 //#include "wr.h"
 void hapi_initInstrument(int, char);
@@ -46,7 +46,7 @@ void DataManager::init() {
   treePiecesWantParticlesBack = 0;
   treePiecesParticlesUpdated = 0;
   gputransfer = false;
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   treePiecesDoneInitInstrumentation = 0;
 #endif
 
@@ -464,14 +464,14 @@ const char *typeString(NodeType type);
 #ifdef CUDA
 #include "HostCUDA.h"
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
 int DataManager::initInstrumentation(){
   CmiLock(__nodelock);
   int saved = treePiecesDoneInitInstrumentation;
   treePiecesDoneInitInstrumentation++;
   if(treePiecesDoneInitInstrumentation == registeredTreePieces.length()){
     activeRung = registeredTreePieces[0].treePiece->getActiveRung();
-    hapi_initInstrument(registeredTreePieces.length(), BOTTOM_EWALD_KERNEL+1);
+    hapi_initInstrument(registeredTreePieces.length(), EWALD_KERNEL+1);
     treePiecesDoneInitInstrumentation = 0;
   }
   CmiUnlock(__nodelock);
@@ -490,7 +490,7 @@ void DataManager::serializeLocalTree(){
   if(treePiecesDone == registeredTreePieces.length()){
     treePiecesDone = 0;
 
-#ifdef CUDA_TRACE
+#ifdef HAPI_TRACE
     double starttime = CmiWallTimer();
 #endif
     if(verbosity > 1)
@@ -526,7 +526,7 @@ void DataManager::resumeRemoteChunk() {
   delete currentChunkBuffers->particles;
   delete currentChunkBuffers;
 
-#ifdef CUDA_TRACE
+#ifdef HAPI_TRACE
     traceUserBracketEvent(CUDA_SER_TREE, starttime, CmiWallTimer());
 #endif
     // resume each treepiece's startRemoteChunk, now that the nodes
@@ -550,11 +550,11 @@ void DataManager::donePrefetch(int chunk){
   treePiecesDonePrefetch++;
   if(treePiecesDonePrefetch == registeredTreePieces.length()){
     treePiecesDonePrefetch = 0;
-#ifdef CUDA_TRACE
+#ifdef HAPI_TRACE
     double starttime = CmiWallTimer();
 #endif
     currentChunkBuffers = serializeRemoteChunk(root);
-#ifdef CUDA_TRACE
+#ifdef HAPI_TRACE
     traceUserBracketEvent(CUDA_SER_TREE, starttime, CmiWallTimer());
 #endif
     PendingBuffers *buffers = currentChunkBuffers;
@@ -569,7 +569,7 @@ void DataManager::donePrefetch(int chunk){
                        dMProxy);
 
       // Transfer moments and particle cores to gpu
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   DataManagerTransferRemoteChunk(buffers->moments->getVec(), lastChunkMoments, buffers->particles->getVec(), lastChunkParticles, 0, activeRung, remoteChunkTransferCallback);
 #else
   DataManagerTransferRemoteChunk(buffers->moments->getVec(), lastChunkMoments, buffers->particles->getVec(), lastChunkParticles, remoteChunkTransferCallback);
@@ -875,7 +875,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
       = new CkCallback(CkIndex_DataManager::startLocalWalk(), CkMyNode(), dMProxy);
 
   // Transfer moments and particle cores to gpu
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, 0, activeRung, localTransferCallback);
 #else
   DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, CkMyPe(), localTransferCallback);
@@ -931,7 +931,7 @@ void DataManager::freeLocalTreeMemory(){
   treePiecesDoneLocalComputation++;
   if(treePiecesDoneLocalComputation == registeredTreePieces.length()){
     treePiecesDoneLocalComputation = 0; 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
     FreeDataManagerLocalTreeMemory(savedNumTotalNodes > 0, savedNumTotalParticles > 0, 0, activeRung);
 #else
     FreeDataManagerLocalTreeMemory(savedNumTotalNodes > 0, savedNumTotalParticles > 0);
@@ -946,7 +946,7 @@ void DataManager::freeRemoteChunkMemory(int chunk){
   if(treePiecesDoneRemoteChunkComputation == registeredTreePieces.length()){
     treePiecesDoneRemoteChunkComputation = 0;
     //CkPrintf("(%d) DM freeRemoteChunkMemory chunk %d called\n", CkMyPe(), chunk);
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
     FreeDataManagerRemoteChunkMemory(chunk, (void *)this, lastChunkMoments != 0, lastChunkParticles != 0, 0, activeRung);
 #else
     FreeDataManagerRemoteChunkMemory(chunk, (void *)this, lastChunkMoments != 0, lastChunkParticles != 0);
@@ -975,7 +975,7 @@ void DataManager::initiateNextChunkTransfer(){
                        dMProxy);
 
     CkPrintf("(%d) DM initiateNextChunkTransfer chunk %d, 0x%x (%d); 0x%x (%d) \n", CkMyPe(), next->moments->getVec(), lastChunkMoments, next->particles->getVec(), lastChunkParticles);
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
     DataManagerTransferRemoteChunk(next->moments->getVec(), next->moments->length(), next->particles->getVec(), next->particles->length(), 0, activeRung, remoteChunkTransferCallback);
 #else
     DataManagerTransferRemoteChunk(next->moments->getVec(), next->moments->length(), next->particles->getVec(), next->particles->length(), remoteChunkTransferCallback);
@@ -1002,7 +1002,7 @@ void DataManager::transferParticleVarsBack(){
     VariablePartData *buf;
     
     if(savedNumTotalParticles > 0){
-#ifdef CUDA_USE_CUDAMALLOCHOST
+#ifdef HAPI_USE_CUDAMALLOCHOST
       allocatePinnedHostMemory((void **)&buf, savedNumTotalParticles*sizeof(VariablePartData));
 #else
       buf = (VariablePartData *) malloc(savedNumTotalParticles*sizeof(VariablePartData));
@@ -1019,7 +1019,7 @@ void DataManager::transferParticleVarsBack(){
     data->size = savedNumTotalParticles;
 
     if(verbosity > 1) CkPrintf("[%d] transferParticleVarsBack\n", CkMyPe());
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
     TransferParticleVarsBack(buf,
                              savedNumTotalParticles*sizeof(VariablePartData),
                              data->cb, savedNumTotalNodes > 0,
@@ -1081,7 +1081,7 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
         treePiecesParticlesUpdated = 0;
 
         if(data->size > 0){
-#ifdef CUDA_USE_CUDAMALLOCHOST
+#ifdef HAPI_USE_CUDAMALLOCHOST
             freePinnedHostMemory(data->buf);
 #else
             free(data->buf);
@@ -1095,7 +1095,7 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
 }
 
 void DataManager::clearInstrument(CkCallback const& cb){
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   hapi_clearInstrument();
   contribute(cb);
 #endif
