@@ -233,7 +233,7 @@ Main::Main(CkArgMsg* m) {
         networkProgressUE = traceRegisterUserEvent("CmiNetworkProgress");
         nodeForceUE = traceRegisterUserEvent("Node interaction");
         partForceUE = traceRegisterUserEvent("Particle interaction");
-#ifdef CUDA_TRACE 
+#ifdef HAPI_TRACE
         traceRegisterUserEvent("Tree Serialization", CUDA_SER_TREE);
         traceRegisterUserEvent("List Serialization", CUDA_SER_LIST);
 
@@ -1614,7 +1614,7 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
             }
 #endif
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
             // XXX this is probably broken (cbGravity gets called too soon.)
             dMProxy.clearInstrument(cbGravity);
 #endif
@@ -1632,7 +1632,7 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
             }
 #endif
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
             double tGrav = CkWallTimer() - *startTime;
