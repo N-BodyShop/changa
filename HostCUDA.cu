@@ -384,7 +384,6 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
     CUDA_TRACE_END(CUDA_LOCAL_NODE_KERNEL);
 
   }
-  free((ParameterStruct *)ptr);
 }
 
 void run_TP_PART_GRAVITY_LOCAL_SMALLPHASE(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
@@ -439,7 +438,6 @@ void run_TP_PART_GRAVITY_LOCAL_SMALLPHASE(workRequest *wr, cudaStream_t kernel_s
 #endif
     CUDA_TRACE_END(CUDA_LOCAL_PART_KERNEL);
   }
-  free((ParameterStruct *)ptr);
 }
 
 void run_TP_PART_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
@@ -492,7 +490,6 @@ void run_TP_PART_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void*
 #endif
     CUDA_TRACE_END(CUDA_LOCAL_PART_KERNEL);
   }
-  free((ParameterStruct *)ptr);
 }
 
 void run_TP_GRAVITY_REMOTE(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
@@ -532,7 +529,6 @@ void run_TP_GRAVITY_REMOTE(workRequest *wr, cudaStream_t kernel_stream,void** de
 #endif
     CUDA_TRACE_END(CUDA_REMOTE_NODE_KERNEL);
   }
-  free((ParameterStruct *)ptr);
 }
 
 void run_TP_PART_GRAVITY_REMOTE(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
@@ -586,7 +582,6 @@ void run_TP_PART_GRAVITY_REMOTE(workRequest *wr, cudaStream_t kernel_stream,void
 #endif
     CUDA_TRACE_END(CUDA_REMOTE_PART_KERNEL);
   }
-  free((ParameterStruct *)ptr);
 }
 
 void run_TP_GRAVITY_REMOTE_RESUME(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
@@ -628,7 +623,6 @@ void run_TP_GRAVITY_REMOTE_RESUME(workRequest *wr, cudaStream_t kernel_stream,vo
 #endif
     CUDA_TRACE_END(CUDA_REMOTE_RESUME_NODE_KERNEL);
   }
-  free((ParameterStruct *)ptr);
 }
 
 void run_TP_PART_GRAVITY_REMOTE_RESUME(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
@@ -684,7 +678,6 @@ void run_TP_PART_GRAVITY_REMOTE_RESUME(workRequest *wr, cudaStream_t kernel_stre
 #endif
     CUDA_TRACE_END(CUDA_REMOTE_RESUME_PART_KERNEL);
   }
-  free((ParameterStruct *)ptr);
 }
 
 
@@ -693,7 +686,6 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 	int numBlocks = data->numBucketsPlusOne-1;
 
 	workRequest* gravityKernel = hapi_createWorkRequest();
-        //ParameterStruct *pmtr;
 
 #ifdef CUDA_2D_TB_KERNEL
 	gravityKernel->setExecParams(numBlocks, dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK));
@@ -813,7 +805,9 @@ void TreePieceCellListDataTransferBasic(CudaRequest *data, workRequest *gravityK
         ptr->numBucketsPlusOne = numBucketsPlusOne;
         ptr->fperiod = data->fperiod;
 
-        gravityKernel->userData = ptr;
+        gravityKernel->setUserData(ptr, sizeof(*ptr));
+
+        free(ptr);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("(%d) TRANSFER BASIC cells %d (%d) bucket_markers %d (%d) bucket_starts %d (%d) bucket_sizes %d (%d)\n",
@@ -1010,7 +1004,9 @@ void TreePiecePartListDataTransferBasic(CudaRequest *data, workRequest *gravityK
         ptr->numBucketsPlusOne = numBucketsPlusOne;
         ptr->fperiod = data->fperiod;
                                        
-        gravityKernel->userData = ptr;
+        gravityKernel->setUserData(ptr, sizeof(*ptr));
+
+        free(ptr);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("(%d) TRANSFER BASIC PART parts %d (%d) bucket_markers %d (%d) bucket_starts %d (%d) bucket_sizes %d (%d)\n",
@@ -2325,7 +2321,8 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase)
 
   topKernel->setExecParams(numBlocks, BLOCK_SIZE);
 
-  topKernel->userData = h_idata->EwaldRange; //Range of particles on GPU
+  //Range of particles on GPU
+  topKernel->setUserData(h_idata->EwaldRange, sizeof(h_idata->EwaldRange));
 
   /* schedule two buffers for transfer to the GPU */ 
 
@@ -2369,7 +2366,8 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase)
 
   bottomKernel->setExecParams(numBlocks, BLOCK_SIZE);
 
-  bottomKernel->userData = h_idata->EwaldRange; //Range of particles on GPU
+  //Range of particles on GPU
+  bottomKernel->setUserData(h_idata->EwaldRange, sizeof(h_idata->EwaldRange));
 
   bool freeBuffer;
   bufferID = NUM_GRAVITY_BUFS + PARTICLE_TABLE + myIndex;
