@@ -92,6 +92,12 @@ inline Stfm::Stfm(const Stfm& st) {
     iRandomSeed = st.iRandomSeed;
     dMinGasMass = st.dMinGasMass;
     dDeltaStarForm = st.dDeltaStarForm;
+#ifdef COOLING_MOLECULARH
+    dStarFormEfficiencyH2 = st.dStarFormEfficiencyH2;
+#endif
+    bBHForm = st.bBHForm;
+    dBHFormProb = st.dBHFormProb;
+    dInitBHMass = st.dInitBHMass;
     imf = st.imf->clone();
 }
 
