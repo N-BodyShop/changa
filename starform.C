@@ -57,9 +57,6 @@ void Stfm::AddParams(PRM prm)
     prmAddParam(prm,"dDeltaStarForm", paramDouble, &dDeltaStarForm,
 		sizeof(double), "dDeltaStarForm",
 		"<Minimum SF timestep in years> = 1e6");
-    //bUseStoch=1;
-    //prmAddParam(prm, "bUseStoch", paramInt, &bUseStoch,
-    //    sizeof(double), "usestoch", "<Enable stochastic IMF = 1>");
     iStarFormRung = 0;
     prmAddParam(prm,"iStarFormRung", paramInt, &iStarFormRung,
 		sizeof(int), "iStarFormRung", "<Star Formation Rung> = 0");
@@ -380,12 +377,12 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
         double dTotLowMass=imf->CumMass(0.0)-imf->CumMass(dStochCut);
         starp->fLowNorm()=dMsolUnit*(dDeltaM-dSumHMStars)/dTotLowMass;
         CkPrintf("fLowNorm is %f\n",starp->fLowNorm());
+
+        //CkPrintf("Array of HMStars: ");
+        //for(int i=0;i<12;i++) CkPrintf("%f ", starp->rgfHMStars(i));
+        //CkPrintf("\n");
     }
 
-    CkPrintf("Array of HMStars: ");
-    for(int i=0;i<12;i++) CkPrintf("%f ", starp->rgfHMStars(i));
-    CkPrintf("\n");
-    if(!bUseStoch) CkPrintf("bUseStoch = %d\n",bUseStoch);
     p->mass -= dDeltaM;
     CkAssert(p->mass >= 0.0);
     starp->mass = dDeltaM;
