@@ -12,6 +12,12 @@
 #include "smooth.h"
 #include "Sph.h"
 
+#ifdef STOCH24
+#define ARRLENGTH 24
+#else
+#define ARRLENGTH 12
+#endif
+
 ///
 /// @brief initialize parameters for star formation
 ///
@@ -324,7 +330,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     */
     if(bUseStoch){
         /* Setting all high mass stars to default (0) */
-        for(int i=0;i<12;i++){
+        for(int i=0;i<ARRLENGTH;i++){
             starp->rgfHMStars(i)=0.0;
             }
         /* Stochastically populate star particle
@@ -345,9 +351,9 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
             /* (Should be very rare) If we form more HMStars than elements in array,
             * wipe everything and start over
             */
-            if(iArrayLoc>=12){
+            if(iArrayLoc>=ARRLENGTH){
                 mass_tally=0.0;
-                for(int i=0;i<12;i++) starp->rgfHMStars(i)=0;
+                for(int i=0;i<ARRLENGTH;i++) starp->rgfHMStars(i)=0;
                 iArrayLoc=0;
                 dSumHMStars=0.0;
             }

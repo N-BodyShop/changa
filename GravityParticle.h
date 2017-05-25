@@ -168,8 +168,11 @@ class extraStarData
     double _fMOxygenOut;        /* Ejected oxygen */
     double _fMIronOut;          /* Ejected iron */
     int64_t _iGasOrder;		/* Gas from which this star formed */
-#ifdef STOCH
+#ifdef STOCH12
     double _rgfHMStars[12];     /* High mass stars (if using stochastic IMF) */
+    double _fLowNorm;       /* Normalization for low-mass imf */
+#elif STOCH24
+    double _rgfHMStars[24];     /* High mass stars (if using stochastic IMF) */
     double _fLowNorm;       /* Normalization for low-mass imf */
 #endif
  public:
@@ -185,9 +188,16 @@ class extraStarData
     inline double& fMOxygenOut() {return _fMOxygenOut;}
     inline double& fSNMetals() {return _fSNMetals;}
     inline int64_t& iGasOrder() {return _iGasOrder;}
-#ifdef STOCH
+#ifdef STOCH12
     inline double& rgfHMStars(int i) {
         CkAssert(i<12);
+        return _rgfHMStars[i];
+    }
+    inline double* rgfHMStars() {return _rgfHMStars;}
+    inline double& fLowNorm() {return _fLowNorm;}
+#elif STOCH24
+    inline double& rgfHMStars(int i) {
+        CkAssert(i<24);
         return _rgfHMStars[i];
     }
     inline double* rgfHMStars() {return _rgfHMStars;}
@@ -210,9 +220,12 @@ class extraStarData
 	p | _fMOxygenOut;
 	p | _fMIronOut;
 	p | _iGasOrder;
-#ifdef STOCH
+#ifdef STOCH12
     p | _fLowNorm;
     PUParray(p,_rgfHMStars,12);
+#elif STOCH24
+    p | _fLowNorm;
+    PUParray(p,_rgfHMStars,24);
 #endif
 	}
     };

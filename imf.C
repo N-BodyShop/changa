@@ -15,6 +15,12 @@
 #include "imf.h"
 #include "romberg.h"
 
+#ifdef STOCH24
+#define ARRLENGTH 24
+#else
+#define ARRLENGTH 12
+#endif
+
 // Private function to return result of basic IMF
 double MillerScalo::returnimf(double mass)
 {
@@ -185,12 +191,12 @@ double Kroupa01::CumNumberStoch(double mass, double lownorm, double *hmstars, do
     double dCumN = 0;
     if(mass > mmax) return 0;
     if(mass > cutmass){
-        for(int i=0;i<12;i++){
+        for(int i=0;i<ARRLENGTH;i++){
             if(hmstars[i]>mass) dCumN += 1;
         }
         return dCumN;
     } else {
-        for(int i=0;i<12;i++){
+        for(int i=0;i<ARRLENGTH;i++){
             if(hmstars[i]>cutmass) dCumN +=1;
         }
     }
@@ -222,12 +228,12 @@ double Kroupa01::CumMassStoch(double mass, double lownorm, double *hmstars, doub
 
     if(mass > mmax) return 0;
     if(mass > cutmass) {
-        for(int i=0;i<12;i++){
+        for(int i=0;i<ARRLENGTH;i++){
             if(hmstars[i]>mass) dCumM += hmstars[i];
         }
         return dCumM;
     } else {
-        for(int i=0;i<12;i++){
+        for(int i=0;i<ARRLENGTH;i++){
             if(hmstars[i]>cutmass) dCumM += hmstars[i];
         }
     }

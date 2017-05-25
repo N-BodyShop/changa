@@ -80,10 +80,10 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     else bSmallSNSmooth = 0;
     param.bDoGas = 1;
     dDeltaStarForm = param.stfm->dDeltaStarForm;
-#ifndef STOCH
-    if(sn.bUseStoch) CkAbort("Stochastic IMF requested but not compiled in");
-#else
+#if defined(STOCH12) || defined(STOCH24)
     if(!sn.bUseStoch) CkPrintf("Running non-stochastic IMF but stochastic IMF compiled in\n");
+#else
+    if(sn.bUseStoch) CkAbort("Stochastic IMF requested but not compiled in");
 #endif
     dSecUnit = param.dSecUnit;
     dGmPerCcUnit = param.dGmPerCcUnit;

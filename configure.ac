@@ -187,11 +187,14 @@ fi
 
 # Stochastic IMF
 AC_ARG_ENABLE([stoch],
-    [AS_HELP_STRING([--enable-stoch], [Enable stochastic imf (yes,no)])],
+    [AS_HELP_STRING([--enable-stoch], [Enable stochastic imf (12,24)])],
     [stoch=$enableval], [stoch=no])
-if test "$stoch" = "yes" ; then
-    echo "Stochastic IMF selected"
-    FLAG_STOCH="-DSTOCH"
+if test "$stoch" = "12" ; then
+    echo "Stochastic IMF (12) selected"
+    FLAG_STOCH="-DSTOCH12"
+elif test "$stoch" = "24" ; then
+    echo "$Stochastic IMF (24) selected"
+    FLAG_STOCH="-DSTOCH24"
 else
     FLAG_STOCH=""
 fi
