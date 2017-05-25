@@ -37,17 +37,17 @@ class SFEvent {
     double dMFracOxygen;           /*  metallicity of stars in event */
     double dMFracIron;           /*  metallicity of stars in event */
     double dLowNorm;         /* normalization constant for low mass IMF */
-#ifdef STOCH12
-    double rgdHMStars[12];      /* high mass stars in stochastic IMF */
-    SFEvent(double mass, double tform, double mets, double fefrac, double oxfrac, double lownorm, double *hmstars) : 
-    dMass(mass), dTimeForm(tform), dMetals(mets), dMFracIron(fefrac), dMFracOxygen(oxfrac), dLowNorm(lownorm) {
-        for(int i=0;i<12;i++) rgdHMStars[i]=hmstars[i];
-        }
-#elif STOCH24
+#ifdef STOCH24
     double rgdHMStars[24];      /* high mass stars in stochastic IMF */
     SFEvent(double mass, double tform, double mets, double fefrac, double oxfrac, double lownorm, double *hmstars) : 
     dMass(mass), dTimeForm(tform), dMetals(mets), dMFracIron(fefrac), dMFracOxygen(oxfrac), dLowNorm(lownorm) {
         for(int i=0;i<24;i++) rgdHMStars[i]=hmstars[i];
+        }
+#else
+    double rgdHMStars[12];      /* high mass stars in stochastic IMF */
+    SFEvent(double mass, double tform, double mets, double fefrac, double oxfrac, double lownorm, double *hmstars) : 
+    dMass(mass), dTimeForm(tform), dMetals(mets), dMFracIron(fefrac), dMFracOxygen(oxfrac), dLowNorm(lownorm) {
+        for(int i=0;i<12;i++) rgdHMStars[i]=hmstars[i];
         }
 #endif
 
