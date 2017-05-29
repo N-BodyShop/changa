@@ -972,8 +972,12 @@ void DataManager::transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaM
     if (node->numChildren() != 0) {
       GenericTreeNode *child = node->getChildren(0);
       int child_index = child->nodeArrayIndex;
-
-      localMoments[node_index].bucketStart = localMoments[child_index].bucketStart;
+      // if child_index == -1. means that child is not included in GPU memory
+      // Since this version code doesn't need the bucketStart at all, I just ignore it
+      // For Simulated version, we need to consider about this
+      if (child_index != -1) {
+        localMoments[node_index].bucketStart = localMoments[child_index].bucketStart;
+      }
     }
     for (int i = 0; i < 2; i ++) {
       localMoments[node_index].children[i] = -1;
