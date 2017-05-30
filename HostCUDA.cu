@@ -1537,7 +1537,7 @@ __device__ __forceinline__ void cuda_ldg_cPartData(CompactPartData &m, CompactPa
 #define WARP_INDEX (threadIdx.x >> 5)
 #define ROOT 0
 #define OBSERVE_FLAG 0
-#define OBSERVING 0
+#define OBSERVING 15000
 #define TEXTURE_LOAD 1
 
 // Used in lockstepping, sync for threads in a warp
@@ -1618,7 +1618,7 @@ int stack[64];
   for(pidx = blockIdx.x*blockDim.x + threadIdx.x; pidx < totalNumOfParticles; pidx += gridDim.x*blockDim.x) {
 //    for(pidx = threadIdx.x + bucketStart; pidx < bucketEnd; pidx += THREADS_PER_BLOCK) {
     // initialize the variables belonging to current thread
-    int nodePointer = 0;
+    int nodePointer = ROOT;
 #ifdef TEXTURE_LOAD
     cuda_ldg_cPartData(myparticle, &particleCores[pidx]);
     cuda_ldg_moments(mynode, &moments[nodePointer]);
@@ -1683,23 +1683,26 @@ int stack[64];
             }
           } else {
             int child_id = mynode.children[0];
-            int start_pidx = moments[child_id].bucketStart;
-            int end_pidx = start_pidx + moments[child_id].bucketSize;
+            bool left = (child_id != -1);
+            if (left) {
+              int start_pidx = moments[child_id].bucketStart;
+              int end_pidx = start_pidx + moments[child_id].bucketSize;
+              left = (start_pidx <= pidx && pidx < end_pidx);
+            }
 
-            if (start_pidx <= pidx && pidx <= end_pidx && mynode.children[0] != -1) {
+            if (left) {
               cuda_ldg_moments(mynode, &moments[mynode.children[0]]);
-              STACK_PUSH();
-              STACK_TOP_NODE_INDEX = cur_node_index;
-    if (OBSERVE_FLAG && OBSERVING == pidx) {
-      printf("pidx %d entered %d, child_id = %d, start = %d, end = %d!\n", pidx, mynode.children[0], child_id, start_pidx, end_pidx);
-    }
             } else if (mynode.children[1] != -1){
               cuda_ldg_moments(mynode, &moments[mynode.children[1]]);
-              STACK_PUSH();
-              STACK_TOP_NODE_INDEX = cur_node_index;
-    if (OBSERVE_FLAG && OBSERVING == pidx) {
-      printf("pidx %d entered %d, child_id = %d, start = %d, end = %d!\n", pidx, mynode.children[1], child_id, start_pidx, end_pidx);
-    }
+            } else {
+              continue;
+            }
+
+            STACK_PUSH();
+            STACK_TOP_NODE_INDEX = cur_node_index;
+
+            if (OBSERVE_FLAG && OBSERVING == pidx) {
+              printf("pidx %d descended to %d, child_id = %d!\n", pidx, mynode.nodeArrayIndex);
             }
           }
         }
