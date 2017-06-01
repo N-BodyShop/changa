@@ -3641,7 +3641,8 @@ void TreePiece::doAllBuckets(){
   listcompute->resetCudaPartState(state);
 #endif
 
-  thisProxy[thisIndex].nextBucket(msg);
+// Completely bypass the local tree walk from CPU.
+//  thisProxy[thisIndex].nextBucket(msg);
 
 
 #ifdef CUDA_INSTRUMENT_WRS

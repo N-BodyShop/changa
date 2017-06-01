@@ -1463,8 +1463,10 @@ void cudaCallbackForAllBuckets(void *param, void *msg) {
   //
   for(int i = 0; i < numBucketsDone; i++){
     bucket = affectedBuckets[i];
-//    state->counterArrays[0][bucket]--;
-    state->counterArrays[0][bucket] = 0;
+    // need to decrease the state->counterArrays[0][bucket] value, since it was initialized as 1
+    state->counterArrays[0][bucket]--;
+//    printf("state->counterArrays[0][%d] = %d\n", bucket, state->counterArrays[0][bucket]);
+//    state->counterArrays[0][bucket] = 0;
     //CkPrintf("[%d] bucket %d numAddReq: %d\n", tp->getIndex(), bucket, state->counterArrays[0][bucket]);
     tp->finishBucket(bucket);
   }
@@ -1525,7 +1527,7 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int
     ILCell tilc(root_index, offsetID);
 
     if(((DoubleWalkState *)state)->nodeLists.lists[i].length() == 0) {    
-      ((DoubleWalkState *)state)->counterArrays[0][i] ++;    
+//      ((DoubleWalkState *)state)->counterArrays[0][i] ++;    
       ((DoubleWalkState *)state)->nodeLists.lists[i].push_back(tilc);    
       ((DoubleWalkState *)state)->nodeLists.totalNumInteractions ++;
     }
