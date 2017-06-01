@@ -1520,6 +1520,8 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int
   ILCell temp_ilc;
   memcpy(&flatlists[0], &temp_ilc, fake_totalNumInteractions * sizeof(ILCell));
   for (int i = start_id; i < end_id; i ++) {
+
+/* useless code
     // Do something to make the callback function happy.
     int root_index = 0;     // the root index
     int x = 0, y = 0, z = 0;    // default value, need to fix in the future
@@ -1527,10 +1529,11 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int
     ILCell tilc(root_index, offsetID);
 
     if(((DoubleWalkState *)state)->nodeLists.lists[i].length() == 0) {    
-//      ((DoubleWalkState *)state)->counterArrays[0][i] ++;    
+      ((DoubleWalkState *)state)->counterArrays[0][i] ++;    
       ((DoubleWalkState *)state)->nodeLists.lists[i].push_back(tilc);    
       ((DoubleWalkState *)state)->nodeLists.totalNumInteractions ++;
     }
+*/
 
     if (tp->bucketList[i]->rungs >= activeRung) {
       nodeMarkers[fake_curbucket] = tp->bucketList[i]->nodeArrayIndex;
