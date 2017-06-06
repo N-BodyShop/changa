@@ -1,0 +1,30 @@
+@author: ibackus
+Jan 25, 2017
+
+This folder contains a simple test to verify that the damping force is
+correctly working.
+
+The initial conditions are just the ChaNGa spherical collapse test, but with
+all particles given a large velocity in the z direction (of order the length
+scale of the simulation divided by the time scale).  The mean particle 
+velocities are expected to remain 0 along the x and y directions and the
+mean z-velocity should damp exponentially with an inverse timescale given
+by the dGlassDamper runtime parameter.  That is to say, we expect:
+
+    vz = vz0 * exp(-t * dGlassDamper)
+    
+The simulation runs for 3 damping times. The simulation can be run simply as:
+
+    ../ChaNGa sphere.param
+
+After running, the simulation can be analyzed with analyzedamping.py by
+executing it:
+
+    ./analyzedamping.py
+    
+This analysis requires diskpy (https://github.com/ibackus/diskpy), but 
+basically all it does is verify that the mean z velocity correctly damps.
+
+Different damping timescales can be tested just by changing the dGlassDamper
+parameter or other params in the .param file.  The analysis will handle this.
+

@@ -18,6 +18,7 @@
 #endif
 
 
+/// @brief Information about TreePieces on an SMP node.
 struct TreePieceDescriptor{
 	TreePiece *treePiece;
         Tree::GenericTreeNode *root;
@@ -30,6 +31,9 @@ struct TreePieceDescriptor{
 };
 
 #ifdef CUDA
+extern void **gethostBuffers();
+extern void **getdevBuffers();
+
 struct UpdateParticlesStruct{
   CkCallback *cb;
   DataManager *dm;
@@ -109,6 +113,11 @@ protected:
 
         // can the gpu accept a chunk of remote particles/nodes?
         bool gpuFree;
+
+        // This var will indicate if particle data has been loaded to the GPU
+        bool gputransfer;
+        
+        PendingBuffers *currentChunkBuffers;
         // queue that stores all pending chunk transfers
         CkQ<PendingBuffers *> pendingChunkTransferQ;
 
@@ -151,6 +160,8 @@ public:
 	DataManager(const CkArrayID& treePieceID);
 	DataManager(CkMigrateMessage *);
 
+        void startLocalWalk();
+        void resumeRemoteChunk();
 #ifdef CUDA
         //void serializeNodes(GenericTreeNode *start, CudaMultipoleMoments *&postPrefetchMoments, CompactPartData *&postPrefetchParticles);
 		//void serializeNodes(GenericTreeNode *start);
@@ -303,5 +314,29 @@ class ProjectionsControl : public CBase_ProjectionsControl {
   }
 }; 
 
+#ifdef CUDA
+class DataManagerHelper : public CBase_DataManagerHelper {
+  private:
+    int countLocalPes;
+    int countSyncRemoteChunk;
+  public:
+
+  DataManagerHelper() { countLocalPes = 0; countSyncRemoteChunk = 0;}
+  DataManagerHelper(CkMigrateMessage *m) : CBase_DataManagerHelper(m) {
+    countLocalPes = 0;
+    countSyncRemoteChunk = 0;
+  }
+
+  void transferLocalTreeCallback();
+  void transferRemoteChunkCallback();
+
+  void pup(PUP::er &p){
+    CBase_DataManagerHelper::pup(p);
+    countLocalPes = 0;
+    countSyncRemoteChunk = 0;
+  }
+
+};
+#endif
 
 #endif //DATAMANAGER_H

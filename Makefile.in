@@ -1,3 +1,9 @@
+### Build information
+# ChaNGa source directory
+SOURCE_DIR=@srcdir@
+# Directory from which `configure` was called.
+BUILD_DIR=@builddir@
+
 # Flags that can be passed during compilation
 #FLAG_PRINT = -DCOSMO_PRINT=1       #enable really verbose prints
 #FLAG_PRINT = -DCOSMO_PRINT_BK=2       #enable verbose book-keeping prints
@@ -6,7 +12,13 @@
 #FLAG_DEBUG = -DCOSMO_DEBUG=2       # enable debugging information
 #CACHE_TREE = -DCACHE_TREE          # enable processor tree inside the cache
 INTERLIST = -DINTERLIST_VER=2      # enable interaction lists
-HEXADECAPOLE = -DHEXADECAPOLE	    # use hexadecapole gravity expansions
+
+ifneq (,@ENABLE_CUDA@)
+  # Include `configure`-generated CUDA config information
+  include cuda.mk
+endif
+
+HEXADECAPOLE = @HEXADECAPOLE@	    # use hexadecapole gravity expansions
 FLAG_SSE = @FLAG_SSE@
 FLAG_AVX = @FLAG_AVX@
 FLAG_CHANGESOFT = @FLAG_CHANGESOFT@
@@ -18,6 +30,9 @@ FLAG_DIFFUSION = @FLAG_DIFFUSION@
 FLAG_RTFORCE = @FLAG_RTFORCE@
 FLAG_DIFFHARMONIC = @FLAG_DIFFHARMONIC@
 FLAG_FEEDBACKDIFFLIMIT = @FLAG_FEEDBACKDIFFLIMIT@
+FLAG_CULLENALPHA = @FLAG_CULLENALPHA@
+FLAG_VSIGVISC = @FLAG_VSIGVISC@
+FLAG_DAMPING = @FLAG_DAMPING@
 
 # optional CUDA flags: 
 # memory:
@@ -47,9 +62,10 @@ FLAG_FEEDBACKDIFFLIMIT = @FLAG_FEEDBACKDIFFLIMIT@
 #                        prints average transfer, kernel and cleanup times for
 #                        various kinds of request.
 #
-# Uncomment definition of CUDA for make benefit CUDA version
-# Currently requires that HEXADECAPOLE be disabled 
-# CUDA = -DINTERLIST_VER=2 -DCUDA -DCUDA_USE_CUDAMALLOCHOST -DSPCUDA -DCUDA_2D_TB_KERNEL -DCUDA_MEMPOOL #-DCUDA_STATS #-DCUDA_INSTRUMENT_WRS -DCUDA_2D_FLAT 
+# N.B. the CUDA build NO LONGER REQUIRES `HEXADECAPOLE' to be disabled.
+ifneq ($(ENABLE_CUDA),)
+CUDA = -DINTERLIST_VER=2 -DCUDA -DCUDA_USE_CUDAMALLOCHOST -DSPCUDA -DCUDA_2D_TB_KERNEL -DCUDA_MEMPOOL #-DCUDA_STATS #-DCUDA_INSTRUMENT_WRS -DCUDA_2D_FLAT
+endif
 
 # useful refactor flag combinations:
 # -DCHANGA_REFACTOR_WALKCHECK
@@ -75,16 +91,18 @@ FLAG_TREE_BUILD = -DMERGE_REMOTE_REQUESTS
 DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) \
 	       $(INTERLIST) $(HEXADECAPOLE) $(FLAG_COOLING) $(FLAG_BIGKEYS) \
 	       $(FLAG_DIFFUSION) $(FLAG_RTFORCE) \
+               $(FLAG_DIFFHARMONIC) $(FLAG_FEEDBACKDIFFLIMIT) \
+	       $(FLAG_CULLENALPHA) $(FLAG_VSIGVISC) \
 	       $(FLAG_DTADJUST) $(FLAG_REFACTOR) \
                $(MULTISTEP_LOADBALANCING_VERBOSE) \
                $(ORB3DLB_LOADBALANCING_VERBOSE) $(CUDA) \
 	       -DREDUCTION_HELPER $(FLAG_TREE_BUILD) \
-               $(FLAG_SSE) $(FLAG_AVX) \
                $(FLAG_DIFFHARMONIC) $(FLAG_FEEDBACKDIFFLIMIT) \
-	       $(FLAG_CHANGESOFT) $(KERNEL_FLAGS)
+               $(FLAG_SSE) $(FLAG_AVX) @FLAG_FLOAT@ \
+	       $(FLAG_CHANGESOFT) $(FLAG_KERNEL) $(FLAG_DAMPING)
 
 CHARM_PATH = @CHARM_PATH@
-STRUCTURES_PATH = ../utility/structures
+STRUCTURES_PATH = $(SOURCE_DIR)/../utility/structures
 CHARM_LDB_PATH = $(CHARM_PATH)/src/ck-ldb
 CHARM_UTIL_PATH = $(CHARM_PATH)/src/util
 CHARM_LIB_PATH = $(CHARM_PATH)/lib
@@ -92,26 +110,42 @@ METIS_SRC_PATH = $(CHARM_PATH)/src/libs/ck-libs/parmetis/METISLib
 CACHE_LIB_PATH = $(CHARM_PATH)/tmp/libs/ck-libs/cache
 THREADSAFE_HT_PATH = $(CACHE_LIB_PATH)/threadsafe_hashtable
 
-NVIDIA_CUDA_SDK = $(HOME)/NVIDIA_CUDA_SDK
-CUDA_DIR = /usr/local/cuda
-NVCC = $(CUDA_DIR)/bin/nvcc
-NVCC_FLAGS = -c -use_fast_math --ptxas-options=-v #-deviceemu -device-debug 
-NVCC_INC = -I$(CUDA_DIR)/include -I$(NVIDIA_CUDA_SDK)/common/inc -I$(CHARM_PATH)/tmp/hybridAPI
+ifneq (,$(ENABLE_CUDA))
+NVIDIA_CUDA_SDK = $(CUDA_SDK_DIR)
+
+NVCC_FLAGS = -c -use_fast_math --ptxas-options=-v #-deviceemu -device-debug
+
+ifdef CUDA_LEVEL
+# Set target CUDA compute capability with the -arch= and -code= `nvcc` flags.
+#
+# Those looking for a less-naive way of specifying the target compute
+# capability -- for example, one that supports devices of several different
+# compute capabilities -- are encouraged to read the nVidia CUDA Compiler
+# documentation starting at this link:
+# <http://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#virtual-architecture-feature-list>
+NVCC_FLAGS += -arch=compute_$(CUDA_LEVEL) -code=sm_$(CUDA_LEVEL)
+endif
+
+NVCC_INC = -I$(CUDA_DIR)/include -I$(NVIDIA_CUDA_SDK)/common/inc -I$(CHARM_PATH)/tmp/hybridAPI -I$(CHARM_PATH)/src/arch/cuda/hybridAPI
 # add $(NVCC_LIBS) to LDLIBS when compiling for cuda
 NVCC_LIBS = -lcuda -lcudart -lGL
+endif
 
 # add -module Orb3dLB here for load balancing during singlestepped runs
 #OPTS = -g -memory charmdebug
 OPTS = -O3 -lpthread
-CXXFLAGS += $(OPTS) -I$(STRUCTURES_PATH) $(DEFINE_FLAGS) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) @CPPFLAGS@
+INCLUDE_FLAGS += -I$(STRUCTURES_PATH) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) -I$(SOURCE_DIR) -I$(BUILD_DIR)
+CPPFLAGS += $(INCLUDE_FLAGS) $(DEFINE_FLAGS) @CPPFLAGS@
+CXXFLAGS += $(OPTS) $(CPPFLAGS)
 LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache \
-           -module CkIO -module CkMulticast -module RefineLB \
-           -module RefineCommLB -module GreedyLB -module GreedyCommLB \
-           -module OrbLB -module RotateLB -module MultistepLB \
-           -module MultistepLB_notopo -module MultistepNodeLB_notopo \
+	   -module CkIO -module CkMulticast -module RefineLB \
+	   -module RefineCommLB -module GreedyLB -module GreedyCommLB \
+	   -module OrbLB -module RotateLB -module MultistepLB \
+	   -module MultistepLB_notopo -module MultistepNodeLB_notopo \
            -module MultistepOrbLB -module Orb3dLB -module Orb3dLB_notopo \
            -module HierarchOrbLB -module liveViz -module CkLoop \
-           -balancer MultistepLB_notopo #-tracemode projections -memory charmdebug -memory paranoid
+           -balancer MultistepLB_notopo \
+	   #-tracemode projections -memory charmdebug -memory paranoid
 XDR_DIR = ../rpc
 XDR_OBJS = $(XDR_DIR)/xdr.o $(XDR_DIR)/xdr_float.o $(XDR_DIR)/xdr_mem.o $(XDR_DIR)/xdr_stdio.o
 LDLIBS += $(STRUCTURES_PATH)/libTipsy.a  @LIBS@
@@ -122,7 +156,7 @@ CXX = $(CHARMC)
 CC = $(CXX)
 AR = @AR@ 
 CXX_DEPEND = $(CXX) -M -MM -MG $(CXXFLAGS)
-CFLAGS = $(OPTS) $(DEFINE_FLAGS) @CFLAGS@ @CPPFLAGS@
+CFLAGS = $(OPTS) $(DEFINE_FLAGS) -I$(SOURCE_DIR) -I$(BUILD_DIR) @CFLAGS@ @CPPFLAGS@
 
 # Orb3dLB.{o,C} below
 OBJECTS = Reductions.o DataManager.o TreePiece.o IntraNodeLBManager.o Sorter.o \
@@ -132,7 +166,7 @@ OBJECTS = Reductions.o DataManager.o TreePiece.o IntraNodeLBManager.o Sorter.o \
 	  MultistepLB_notopo.o MultistepNodeLB_notopo.o MultistepOrbLB.o PETreeMerger.o \
 	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
 	  feedback.o imf.o supernova.o supernovaia.o starlifetime.o \
-	  cha_commitid.o \
+	  cha_commitid.o externalGravity.o \
 	  @OBJECTS_COOLING@
 
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp IntraNodeLBManager.cpp \
@@ -140,23 +174,33 @@ SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp IntraNodeLBManage
 	InOutput.C cosmo.c romberg.c runge.c dumpframe.C dffuncs.C \
 	moments.c MultistepLB.C Orb3dLB.C Orb3dLB_notopo.C HierarchOrbLB.C starform.C \
 	MultistepLB_notopo.C MultistepNodeLB_notopo.C MultistepOrbLB.C PETreeMerger.cpp \
-	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C 
+	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C externalGravity.C \
+	imf.C feedback.C supernova.C supernovaia.C starlifetime.C
 
-ifdef CUDA
+ifneq (,$(ENABLE_CUDA))
   CXXFLAGS += $(NVCC_INC)
   OBJECTS += HostCUDA.o 
   SRSC += HostCUDA.cu 
   LDLIBS += $(NVCC_LIBS)
-  NVCC_FLAGS += $(CXXFLAGS)
+  NVCC_FLAGS += $(INCLUDE_FLAGS) $(DEFINE_FLAGS)
   LDFLAGS += -L$(NVIDIA_CUDA_SDK)/lib -L$(CUDA_DIR)/lib64
-ifdef HEXADECAPOLE
-  HEXADECAPOLE = #  
-endif
 endif
 
 TARGET = ChaNGa
 VERSION = 1.0
 all: $(TARGET)
+
+# Make's built-in database doesn't provide pattern rules for out-of-source
+# builds, so we provide them here.
+%.o: $(SOURCE_DIR)/%.C
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+%.o: $(SOURCE_DIR)/%.cpp
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+%.o: $(SOURCE_DIR)/%.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 
 $(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleHierarchOrbLB.a libmoduleMultistepLB_notopo.a libmoduleMultistepNodeLB_notopo.a libmoduleMultistepOrbLB.a
 	$(CHARMC) -o $(TARGET) $(LDFLAGS) $(OBJECTS) $(LDLIBS)
@@ -170,10 +214,10 @@ $(TARGET).%: $(TARGET)
 
 
 VERSION: VERSION.new
-	./commitid.sh
+	$(SOURCE_DIR)/commitid.sh
 
 cha_commitid.c: VERSION
-	echo "const char * const Cha_CommitID = \"`cat VERSION`\";" > $@
+	echo "const char * const Cha_CommitID = \"`cat $<`\";" > $@
 cha_commitid.o: CC=$(CHARMC)
 
 $(STRUCTURES_PATH)/libTipsy.a:
@@ -200,16 +244,19 @@ libmoduleOrb3dLB_notopo.a: Orb3dLB_notopo.o
 libmoduleHierarchOrbLB.a: HierarchOrbLB.o
 	$(CHARMC) -o libmoduleHierarchOrbLB.a HierarchOrbLB.o
 
-%.decl.h %.def.h : %.ci
+%.decl.h %.def.h : $(SOURCE_DIR)/%.ci
 	$(CHARMC) -E $(DEFINE_FLAGS) $<
 
-HostCUDA.o: HostCUDA.cu HostCUDA.h
-	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) HostCUDA.cu
+HostCUDA.o: $(SOURCE_DIR)/HostCUDA.cu $(SOURCE_DIR)/HostCUDA.h
+	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) $<
 
+Makefile: $(SOURCE_DIR)/Makefile.in
+	@echo 'Makefile.in changed; re-running `configure`'
+	@$(BUILD_DIR)/config.status
 %.o: Makefile
 
 docs:
-	doxygen Doxyfile
+	doxygen $(SOURCE_DIR)/Doxyfile
 
 DIRS = teststep
 
@@ -232,16 +279,21 @@ clean:
 ref-clean:
 	rm -f $(TARGET) Compute.o TreeWalk.o
 
-depends:
-	$(CXX_DEPEND) $(SRSC) | while read i;do echo $$i| awk -F' ' '{for (i=1;i<NF;++i) print $$i" \\"}';echo;done|grep -v "$(CHARM_PATH)/bin" | grep -v "hashtable_mt.h" > Makefile.dep
+dist-clean: clean
+	@ $(RM) *.a config.status config.log cuda.mk Makefile.dep
+
+depends: $(SOURCE_DIR)/Makefile.dep
+$(BUILD_DIR)/Makefile.dep:
+	FULLPATHS=""; for file in $(SRSC); do FULLPATHS="$(SOURCE_DIR)/$$file $$FULLPATHS"; done; \
+	$(CXX_DEPEND) $$FULLPATHS | while read i;do echo $$i| awk -F' ' '{for (i=1;i<NF;++i) print $$i" \\"}';echo;done|grep -v "$(CHARM_PATH)/bin" | grep -v "hashtable_mt.h" > $@
 
 # depend:
 # 	$(CXX_DEPEND) $(SRSC) > Makefile.dep
 
 # The following line is a script usable to regenerate the dependace file,
 # without the inclusion of charm headers.
-# $CHARM_DIR/bin/charmc  -M -MM -MG -O3 -I../utility/structures -I../ParallelGravity -Wall  -DCOSMO_STATS=1   -DCOSMO_DEBUG=2  -DINTERLIST_VER=2 -DHEXADECAPOLE     -DCACHE_TREE -DCOOLING_NONE  Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C InOutput.C cosmo.c romberg.c runge.c dumpframe.c dffuncs.c moments.c MultistepLB.C Orb3dLB.C TreeWalk.C Compute.C | while read i;do echo $i| awk -F' ' '{for (i=1;i<NF;++i) print $i" \\"}';echo;done|grep -v "charm/bin" > Makefile.dep
+# $CHARM_DIR/bin/charmc  -M -MM -MG -O3 -I../utility/structures -I../ParallelGravity -Wall  -DCOSMO_STATS=1   -DCOSMO_DEBUG=2  -DINTERLIST_VER=2 -DHEXADECAPOLE     -DCACHE_TREE -DCOOLING_NONE  Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C InOutput.C cosmo.c romberg.c runge.c dumpframe.C dffuncs.C moments.c MultistepLB.C Orb3dLB.C TreeWalk.C Compute.C | while read i;do echo $i| awk -F' ' '{for (i=1;i<NF;++i) print $i" \\"}';echo;done|grep -v "charm/bin" > Makefile.dep
 
 .PHONY: all docs dist clean depend test VERSION.new
 
-include Makefile.dep
+-include $(BUILD_DIR)/Makefile.dep

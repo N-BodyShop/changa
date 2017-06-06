@@ -649,7 +649,7 @@ int dfReadColorMapFile(DFCOLORTABLE *dfCT, char *word, float scaler){
     fgetpos(fp, &fpPos);
     while (0<fscanf(fp, "%f %f %f %f\n",&fVal, &r, &g, &b)) nlines++;
     fsetpos(fp, &fpPos); /* rewind to before lines */
-
+    assert(nlines <= DF_MAX_COLORENTRIES);
     dfCT->nColors = nlines;
     while (0<fscanf(fp, "%f %f %f %f\n",&fVal, &r, &g, &b)) {
         dfCT->dfColors[i].fVal = fVal;
