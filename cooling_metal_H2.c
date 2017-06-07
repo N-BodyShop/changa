@@ -1596,6 +1596,10 @@ void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal) {
   double yH2_old;
   int i;  
 
+  double yHMIN = 1e-12;
+  double yHeMIN = 1e-13;
+  double yH2MIN = yHMIN/2;
+
   clSetAbundanceTotals(cl,ZMetal,&yH,&yHe,&yeMax);
 
   s_dust = clDustShield(yH*en_B, 0, ZMetal, Rate->CorreLength);
@@ -1638,7 +1642,7 @@ void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal) {
     else {
       rye = 1/ye;
 
-      if (s_dust == 0 || s_self == 0
+      if (s_dust < 1e-38 || s_self < 1e-38
           || (Rate_Phot_HI == 0 && Rate->Coll_HI == 0)) {
 	yHI = 0;
 	yHII = 0;
@@ -1659,8 +1663,6 @@ void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal) {
 	yHI  =  yH * rfH * fHII;
 	yH2  = (yH - yHI - yHII)/2.0;
       }
-      s_dust = clDustShield(yHI*en_B, yH2*en_B, ZMetal, Rate->CorreLength);
-      s_self = clSelfShield(yH2*en_B, Rate->CorreLength);
       if (cl->bShieldHI) Rate_Phot_HI = Rate->Phot_HI*s_dust;
       fHeI  = rcirrHeI + rpirrHeI * rye;
       fHeII = rcirrHeII + rpirrHeII * rye;
@@ -1668,6 +1670,23 @@ void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal) {
       yHeI  = yHe * rfHe;
       yHeII = yHe * fHeI * rfHe;
       yHeIII = yHe / ((1.0/fHeI+1.0)/fHeII+1.0);
+
+      if (yH2 < yH2MIN) yH2 = yH2MIN;
+      if (yHI < yHMIN) yHI = yHMIN;
+      if (yHII < yHMIN) yHII = yHMIN;
+      if (yH - yHI - 2.0*yH2 < yHMIN) {
+        if (yHI >= 2.0*yH2) yHI = yH - 2.0*yH2 - yHMIN;
+        else                  yH2 =(yH - yHI - yHMIN)/2.0;
+      }
+      if(yHeI < yHeMIN) yHeI = yHeMIN;
+      if(yHeII < yHeMIN) yHeII = yHeMIN;
+      if(yHeIII < yHeMIN) yHeIII = yHeMIN;
+      if (yHe - yHeI - yHeII < yHeMIN) {
+        if (yHeI >= yHeII) yHeI = yHe - yHeII - yHeMIN;
+        else              yHeII = yHe - yHeI - yHeMIN; 
+      }
+      s_dust = clDustShield(yHI*en_B, yH2*en_B, ZMetal, Rate->CorreLength);
+      s_self = clSelfShield(yH2*en_B, Rate->CorreLength);
 
       if ( fabs(yHeII_old-yHeII) < EPS * yHeII && fabs(yHI_old-yHI) < EPS * yHI ) break;
     }
@@ -1679,7 +1698,7 @@ void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal) {
   Y->e = ye;
   Y->HI = yHI;
   Y->HII = yHII;
-  Y->H2 = 2.0*yH2;
+  Y->H2 = yH2;
   Y->HeI = yHeI;
   Y->HeII = yHeII;
   Y->HeIII = yHeIII;
