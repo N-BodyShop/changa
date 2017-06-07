@@ -3821,8 +3821,8 @@ void TreePiece::doAllBuckets(){
   printf("our cuda printf fifo buffer size is %d.\n", size);*/
 
 
-  printf("CAMBRIDGE         The numBuckets = %d\n", numBuckets);
-  fflush(stdout);
+//  printf("CAMBRIDGE         The numBuckets = %d\n", numBuckets);
+//  fflush(stdout);
   ListCompute *listcompute = (ListCompute *) sGravity;
   DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
   localListConstructionTime = 0.0;
