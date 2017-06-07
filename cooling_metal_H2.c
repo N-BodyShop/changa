@@ -1828,7 +1828,7 @@ double clRateColl_HII_H2(double T){
 
 /*Electron Collision*/
 /*Donahue & Shull 1991, Abel 1997, k12*/
-/* Should I update this to reaction 8 from Glober and Abel 08 (Trevisan & Tennyson (2002a))? CC*/
+/* Should I update this to reaction 8 from Glover and Abel 08 (Trevisan & Tennyson (2002a))? CC*/
 double clRateColl_e_H2( double T){
   double ratecoll_e_H2;
   ratecoll_e_H2 = 5.6e-11*pow(T,0.5)*exp(-102124.0/T); /* Temperature listed in kelvin */ 
@@ -1836,12 +1836,13 @@ double clRateColl_e_H2( double T){
 }
 
 /*Neutral H*/
-/*Dove and Mandy 1986, Abel 1997, k13*/
-/* Should I update this to reaction 9 from Glober and Abel 08 (Mac Low & Shull (1986))?*/
+/* Grassi, Bovino, Schleicher et al., 2014 Table C1, last reaction
+   This reaction rate is similar to Abel 1997, k13, but corrects a typo in that paper.*/
+/* Should I update this to reaction 9 from Glover and Abel 08 (Mac Low & Shull (1986))?*/
 double clRateColl_HI_H2(double T){
   double ratecoll_HI_H2;
   /*Donahue & Shull  ratecollH2 = 6.11e-14*exp(-4.48*CL_eV_per_K/T);*/
-  ratecoll_HI_H2 = 1.067e-10*pow(CL_eV_per_K*T,2.012)*exp(-1.0*(4.463/T/CL_eV_per_K)*pow(1+0.2472*CL_eV_per_K*T,3.512));
+  ratecoll_HI_H2 = 1.067e-10*pow(CL_eV_per_K*T,2.012)/(exp(4.463/T/CL_eV_per_K)*pow(1+0.2472*CL_eV_per_K*T,3.512));
   return ratecoll_HI_H2;
 }
 
